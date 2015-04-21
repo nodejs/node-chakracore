@@ -318,6 +318,11 @@ parser.add_option('--xcode',
     dest='use_xcode',
     help='generate build files for use with xcode')
 
+parser.add_option("--use-chakra",
+    action="store_true",
+    dest="use_chakra",
+    help="Use the Chakra JavaScript engine instead of V8")
+
 (options, args) = parser.parse_args()
 
 # set up auto-download list
@@ -348,6 +353,11 @@ def pkg_config(pkg):
 def cc_macros():
   """Checks predefined macros using the CC command."""
 
+  if os.name == 'nt':
+    k = {}
+    k['__ARM_ARCH_7__'] = True
+    k['__ARM_NEON__'] = True
+    return k
   try:
     p = subprocess.Popen(shlex.split(CC) + ['-dM', '-E', '-'],
                          stdin=subprocess.PIPE,
@@ -974,6 +984,10 @@ def configure_intl(o):
         pprint.pformat(icu_config, indent=2) + '\n')
   return  # end of configure_intl
 
+def configure_chakra(o):
+  o['variables']['node_use_chakra'] = b(options.use_chakra)
+
+
 # determine the "flavor" (operating system) we're building for,
 # leveraging gyp's GetFlavor function
 flavor_params = {}
@@ -999,6 +1013,7 @@ configure_openssl(output)
 configure_winsdk(output)
 configure_intl(output)
 configure_fullystatic(output)
+configure_chakra(output)
 
 # variables should be a root level element,
 # move everything else to target_defaults

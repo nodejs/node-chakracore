@@ -14,6 +14,7 @@
     'node_shared_openssl%': 'false',
     'node_use_mdb%': 'false',
     'node_v8_options%': '',
+    'node_use_chakra%': 'false',
     'library_files': [
       'src/node.js',
       'lib/_debugger.js',
@@ -300,14 +301,16 @@
             ],
           },
         }],
-        [ 'node_shared_v8=="false"', {
+        [ 'node_use_chakra=="false" and node_shared_v8=="false"', {
           'sources': [
             'deps/v8/include/v8.h',
             'deps/v8/include/v8-debug.h',
           ],
           'dependencies': [ 'deps/v8/tools/gyp/v8.gyp:v8' ],
         }],
-
+        ['node_use_chakra=="true"', {
+          'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
+        }],
         [ 'node_shared_zlib=="false"', {
           'dependencies': [ 'deps/zlib/zlib.gyp:zlib' ],
         }],

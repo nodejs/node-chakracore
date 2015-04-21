@@ -2594,9 +2594,17 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(versions,
                     "node",
                     OneByteString(env->isolate(), NODE_VERSION + 1));
+
+#ifdef USE_CHAKRA
+#define NODE_JS_ENGINE  "chakra"
+#else
+#define NODE_JS_ENGINE  "v8"
+#endif
   READONLY_PROPERTY(versions,
-                    "v8",
+                    NODE_JS_ENGINE,
                     OneByteString(env->isolate(), V8::GetVersion()));
+#undef NODE_JS_ENGINE
+
   READONLY_PROPERTY(versions,
                     "uv",
                     OneByteString(env->isolate(), uv_version_string()));
@@ -3094,7 +3102,12 @@ static void StartDebug(Environment* env, bool wait) {
 
   env->debugger_agent()->set_dispatch_handler(
         DispatchMessagesDebugAgentCallback);
-  debugger_running = env->debugger_agent()->Start(debug_port, wait);
+#ifdef USE_CHAKRA
+    // ChakraShim does not support debugger_agent
+    debugger_running = v8::Debug::EnableAgent();
+#else
+    debugger_running = env->debugger_agent()->Start(debug_port, wait);
+#endif
   if (debugger_running == false) {
     fprintf(stderr, "Starting debugger on port %d failed\n", debug_port);
     fflush(stderr);

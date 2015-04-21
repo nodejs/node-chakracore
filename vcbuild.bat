@@ -38,6 +38,8 @@ set noperfctr_msi_arg=
 set i18n_arg=
 set download_arg=
 set build_release=
+set engine=v8
+set openssl_no_asm=
 
 :next-arg
 if "%1"=="" goto args-done
@@ -47,6 +49,7 @@ if /i "%1"=="clean"         set target=Clean&goto arg-ok
 if /i "%1"=="ia32"          set target_arch=ia32&goto arg-ok
 if /i "%1"=="x86"           set target_arch=ia32&goto arg-ok
 if /i "%1"=="x64"           set target_arch=x64&goto arg-ok
+if /i "%1"=="arm"           set target_arch=arm&goto arg-ok
 if /i "%1"=="noprojgen"     set noprojgen=1&goto arg-ok
 if /i "%1"=="nobuild"       set nobuild=1&goto arg-ok
 if /i "%1"=="nosign"        set nosign=1&goto arg-ok
@@ -63,14 +66,17 @@ if /i "%1"=="test-gc"       set test=test-gc&set buildnodeweak=1&goto arg-ok
 if /i "%1"=="test-all"      set test=test-all&set buildnodeweak=1&goto arg-ok
 if /i "%1"=="test"          set test=test&goto arg-ok
 @rem Include small-icu support with MSI installer
-if /i "%1"=="msi"           set msi=1&set licensertf=1&set download_arg="--download=all"&set i18n_arg=small-icu&goto arg-ok
-if /i "%1"=="upload"        set upload=1&goto arg-ok
-if /i "%1"=="jslint"        set jslint=1&goto arg-ok
-if /i "%1"=="small-icu"     set i18n_arg=%1&goto arg-ok
-if /i "%1"=="full-icu"      set i18n_arg=%1&goto arg-ok
-if /i "%1"=="intl-none"     set i18n_arg=%1&goto arg-ok
-if /i "%1"=="download-all"  set download_arg="--download=all"&goto arg-ok
-if /i "%1"=="build-release" set build_release=1&goto arg-ok
+if /i "%1"=="msi"               set msi=1&set licensertf=1&set download_arg="--download=all"&set i18n_arg=small-icu&goto arg-ok
+if /i "%1"=="upload"            set upload=1&goto arg-ok
+if /i "%1"=="jslint"            set jslint=1&goto arg-ok
+if /i "%1"=="small-icu"         set i18n_arg=%1&goto arg-ok
+if /i "%1"=="full-icu"          set i18n_arg=%1&goto arg-ok
+if /i "%1"=="intl-none"         set i18n_arg=%1&goto arg-ok
+if /i "%1"=="download-all"      set download_arg="--download=all"&goto arg-ok
+if /i "%1"=="build-release"     set build_release=1&goto arg-ok
+if /i "%1"=="v8"                set engine=v8&goto arg-ok
+if /i "%1"=="chakra"            set engine=chakra&goto arg-ok
+if /i "%1"=="openssl-no-asm"    set openssl_no_asm=--openssl-no-asm&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
 
@@ -80,6 +86,9 @@ shift
 goto next-arg
 
 :args-done
+if "%target_arch%"=="arm" (
+    if not "%openssl_no_asm%"=="--openssl-no-asm" goto arm-requires-openssl-no-asm
+)
 if defined upload goto upload
 if defined jslint goto jslint
 
@@ -97,6 +106,7 @@ if "%target_arch%"=="x64" set msiplatform=x64
 if defined nosnapshot set nosnapshot_arg=--without-snapshot
 if defined noetw set noetw_arg=--without-etw& set noetw_msi_arg=/p:NoETW=1
 if defined noperfctr set noperfctr_arg=--without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
+if "%engine%"=="chakra" set engine_arg=--use-chakra
 
 if "%i18n_arg%"=="full-icu" set i18n_arg=--with-intl=full-icu
 if "%i18n_arg%"=="small-icu" set i18n_arg=--with-intl=small-icu
@@ -106,6 +116,18 @@ if defined NIGHTLY set TAG=nightly-%NIGHTLY%
 
 @rem Set environment for msbuild
 
+@rem Look for Visual Studio 2015
+if not defined VS140COMNTOOLS goto vc-set-2013
+if not exist "%VS140COMNTOOLS%\..\..\vc\vcvarsall.bat" goto vc-set-2013
+if "%VCVARS_VER%" NEQ "140" (
+  call "%VS140COMNTOOLS%\..\..\vc\vcvarsall.bat"
+  SET VCVARS_VER=140
+)
+if not defined VCINSTALLDIR goto msbuild-not-found
+set GYP_MSVS_VERSION=2015
+goto msbuild-found
+
+:vc-set-2013
 @rem Look for Visual Studio 2013
 if not defined VS120COMNTOOLS goto vc-set-2012
 if not exist "%VS120COMNTOOLS%\..\..\vc\vcvarsall.bat" goto vc-set-2012
@@ -151,7 +173,7 @@ goto exit
 if defined noprojgen goto msbuild
 
 @rem Generate the VS project.
-python configure %download_arg% %i18n_arg% %debug_arg% %nosnapshot_arg% %noetw_arg% %noperfctr_arg% --dest-cpu=%target_arch% --tag=%TAG%
+python configure %download_arg% %i18n_arg% %debug_arg% %nosnapshot_arg% %noetw_arg% %noperfctr_arg% %engine_arg% %openssl_no_asm% --dest-cpu=%target_arch% --tag=%TAG%
 if errorlevel 1 goto create-msvs-files-failed
 if not exist node.sln goto create-msvs-files-failed
 echo Project files generated.
@@ -228,7 +250,7 @@ if "%test%"=="test" goto jslint
 goto exit
 
 :create-msvs-files-failed
-echo Failed to create vc project files. 
+echo Failed to create vc project files.
 goto exit
 
 :upload
@@ -246,6 +268,11 @@ goto exit
 echo running jslint
 set PYTHONPATH=tools/closure_linter/
 python tools/closure_linter/closure_linter/gjslint.py --unix_mode --strict --nojsdoc -r lib/ -r src/ --exclude_files lib/punycode.js
+goto exit
+
+:arm-requires-openssl-no-asm
+echo openssl asm is currently not supported on arm
+echo use 'openssl-no-asm' as additional argument
 goto exit
 
 :help

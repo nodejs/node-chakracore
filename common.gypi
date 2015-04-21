@@ -47,6 +47,9 @@
           ['target_arch=="x64"', {
             'msvs_configuration_platform': 'x64',
           }],
+          ['target_arch=="arm"', {
+            'msvs_configuration_platform': 'ARM',
+          }],
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
@@ -72,6 +75,9 @@
         'conditions': [
           ['target_arch=="x64"', {
             'msvs_configuration_platform': 'x64',
+          }],
+          ['target_arch=="arm"', {
+            'msvs_configuration_platform': 'ARM',
           }],
           ['OS=="solaris"', {
             # pull in V8's postmortem metadata

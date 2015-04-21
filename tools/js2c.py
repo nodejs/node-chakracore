@@ -212,9 +212,9 @@ def ReadMacros(lines):
 
 
 HEADER_TEMPLATE = """\
-#ifndef node_natives_h
-#define node_natives_h
-namespace node {
+#ifndef %(namespace)s_natives_h
+#define %(namespace)s_natives_h
+namespace %(namespace)s {
 
 %(source_lines)s\
 
@@ -260,7 +260,7 @@ GET_DELAY_SCRIPT_NAME_CASE = """\
     if (index == %(i)i) return Vector<const char>("%(name)s", %(length)i);
 """
 
-def JS2C(source, target):
+def JS2C(source, target, namespace):
   ids = []
   delay_ids = []
   modules = []
@@ -348,7 +348,8 @@ def JS2C(source, target):
     'native_lines': "\n".join(native_lines),
     'get_index_cases': "".join(get_index_cases),
     'get_script_source_cases': "".join(get_script_source_cases),
-    'get_script_name_cases': "".join(get_script_name_cases)
+    'get_script_name_cases': "".join(get_script_name_cases),
+    'namespace': namespace
   })
   output.close()
 
@@ -360,14 +361,22 @@ def JS2C(source, target):
       'source_lines': "\n".join(source_lines_empty),
       'get_index_cases': "".join(get_index_cases),
       'get_script_source_cases': "".join(get_script_source_cases),
-      'get_script_name_cases': "".join(get_script_name_cases)
+      'get_script_name_cases': "".join(get_script_name_cases),
+      'namespace': namespace
     })
     output.close()
 
 def main():
-  natives = sys.argv[1]
-  source_files = sys.argv[2:]
-  JS2C(source_files, [natives])
+  if sys.argv[1] == "-chakra":
+    namespace = 'jsrt'
+    natives = sys.argv[2]
+    source_files = sys.argv[3:]
+  else:
+    namespace = 'node'
+    natives = sys.argv[1]
+    source_files = sys.argv[2:]
+
+  JS2C(source_files, [natives], namespace)
 
 if __name__ == "__main__":
   main()
