@@ -13,6 +13,7 @@
     'node_shared_openssl%': 'false',
     'node_v8_options%': '',
     'node_target_type%': 'executable',
+    'node_use_chakra%': 'false',
     'library_files': [
       'src/node.js',
       'lib/_debug_agent.js',
@@ -84,8 +85,6 @@
       'dependencies': [
         'node_js2c#host',
         'deps/cares/cares.gyp:cares',
-        'deps/v8/tools/gyp/v8.gyp:v8',
-        'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
       ],
 
       'include_dirs': [
@@ -333,6 +332,20 @@
             }],
           ],
         }],
+
+        [ 'node_use_chakra=="false"', {
+          'include_dirs': [
+            'deps/v8' # include/v8_platform.h
+          ],
+          'dependencies': [
+            'deps/v8/tools/gyp/v8.gyp:v8',
+            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+          ],
+        }],
+        ['node_use_chakra=="true"', {
+          'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
+        }],
+
         [ 'node_shared_zlib=="false"', {
           'dependencies': [ 'deps/zlib/zlib.gyp:zlib' ],
         }],
@@ -631,12 +644,23 @@
       'type': 'executable',
       'dependencies': [
         'deps/gtest/gtest.gyp:gtest',
-        'deps/v8/tools/gyp/v8.gyp:v8',
-        'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
       ],
       'include_dirs': [
         'src',
-        'deps/v8/include'
+      ],
+      'conditions': [
+        [ 'node_use_chakra=="false"', {
+          'include_dirs': [
+            'deps/v8/include'
+          ],
+          'dependencies': [
+            'deps/v8/tools/gyp/v8.gyp:v8',
+            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+          ],
+        }],
+        ['node_use_chakra=="true"', {
+          'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
+        }],
       ],
       'defines': [
         # gtest's ASSERT macros conflict with our own.

@@ -2641,6 +2641,12 @@ def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
     else:
       properties[0].append(['ApplicationType', 'Windows Store'])
 
+  for configuration in spec['configurations'].itervalues():
+    platform_name = _ConfigPlatform(configuration)
+    if platform_name == 'ARM':
+      properties[0].append(['WindowsSDKDesktopARMSupport', 'true'])
+      break
+
   return properties
 
 def _GetMSBuildConfigurationDetails(spec, build_file):
