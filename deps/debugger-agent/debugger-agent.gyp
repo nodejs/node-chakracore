@@ -5,7 +5,6 @@
     "include_dirs": [
       "src",
       "include",
-      "../v8/include",
       "../uv/include",
 
       # Private node.js folder and stuff needed to include from it
@@ -18,6 +17,15 @@
       ],
     },
     'conditions': [
+      ['node_use_chakra=="false"', {
+        "include_dirs": [
+          "../v8/include",
+        ],
+      }, {
+        "include_dirs": [
+          "../chakrashim/include",
+        ],
+      }],
       [ 'gcc_version<=44', {
         # GCC versions <= 4.4 do not handle the aliasing in the queue
         # implementation, so disable aliasing on these platforms
