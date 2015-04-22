@@ -24,6 +24,7 @@
       [ 'target_arch=="x64"', { 'defines': [ '__x86_64__=1' ] } ],
       [ 'target_arch=="arm"', { 'defines': [ '__arm__=1' ] } ],
     ],
+    'msvs_disabled_warnings': [4091],
     'direct_dependent_settings': {
       'include_dirs': [
         'include',
@@ -36,16 +37,14 @@
       'libraries': [
         '-lchakrart.lib',
         '-lole32.lib',
+        '-lversion.lib',
       ],
       'conditions': [
-        [ 'target_arch!="arm"', {
-          'libraries': [ '-lversion.lib' ]
-        }, {
-          'libraries!': [ '-lpsapi.lib' ],
-          'libraries': [ '-lonecore.lib' ],
+        [ 'target_arch=="arm"', {
           'defines': [ '__arm__=1' ]
         }],
       ],
+      'msvs_disabled_warnings': [4091],
     },
     'sources': [
       'include/v8.h',
@@ -103,6 +102,7 @@
     'target_name': 'chakra_js2c',
     'type': 'none',
     'toolsets': ['host'],
+    'msvs_disabled_warnings': [4091],
     'actions': [
     {
       'action_name': 'chakra_js2c',
