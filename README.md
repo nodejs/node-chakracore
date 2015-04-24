@@ -1,5 +1,10 @@
-Evented I/O for V8 javascript.
+Evented I/O for javascript.
 ===
+
+Node.js uses the V8 JavaScript engine by default. This temporary fork enables
+Node.js to optionally use the Chakra JavaScript engine on Windows 10, allowing
+Node.js to run on Windows on ARM. For details see build node on
+[Windows with Chakra](#windows_with_chakra).
 
 ### To build:
 
@@ -38,6 +43,20 @@ Windows:
 
 ```sh
 vcbuild nosign
+```
+
+<a name="windows_with_chakra"></a>
+Prerequisites (Windows with Chakra):
+
+    * Windows 10 (latest)
+    * Python 2.6 or 2.7
+    * Visual Studio 2015 (RC or later)
+    * Windows 10 Tools (Bundled in Visual Studio 2015, or install separately.)
+
+Windows with Chakra:
+
+```sh
+vcbuild chakra nosign [x86|x64|arm]
 ```
 
 You can download pre-built binaries for various operating systems from
@@ -183,6 +202,31 @@ Windows: first unpack latest ICU to `deps/icu`
 
 ```sh
 vcbuild full-icu
+```
+
+<a name="build_native_addon_modules_with_chakra"></a>
+### To build native addon modules with Chakra (Windows only)
+
+Prerequisites:
+  - Build node on [Windows with Chakra](#windows_with_chakra)
+
+Assume [local_repo] is the dir of your local clone of this repo. Add your build
+of node.exe to the front of PATH:
+
+```sh
+set path=[local_repo]\release;%path%
+```
+
+To build a native addon module with bundled node-gyp:
+
+```sh
+node.exe [local_repo]\deps\npm\node_modules\node-gyp\bin\node-gyp.js rebuild --nodedir=[local_repo] --msvs_version=2015
+```
+
+To install a native addon module with bundled npm:
+
+```sh
+node.exe [local_repo]\deps\npm\bin\npm-cli.js install [native_addon] --nodedir=[local_repo] --msvs_version=2015
 ```
 
 Resources for Newcomers
