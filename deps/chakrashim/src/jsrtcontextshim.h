@@ -18,6 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#include <functional>
 #include <vector>
 
 namespace jsrt
@@ -76,6 +77,10 @@ namespace jsrt
     void SetAlignedPointerInEmbedderData(int index, void * value);
 
     static ContextShim * GetCurrent();
+
+    template <class R>
+    static R ExecuteInContextOf(JsValueRef object, const std::function<R()> & fn);
+
   private:
     ContextShim(IsolateShim * isolateShim, JsContextRef context, bool exposeGC);
     bool InitializeBuiltIns();
@@ -132,4 +137,17 @@ namespace jsrt
 
     std::vector<void*> embedderData;
   };
+
+  template <class R>
+  R ContextShim::ExecuteInContextOf(JsValueRef object, const std::function<R()> & fn)
+  {
+    IsolateShim * isolateShim = IsolateShim::GetCurrent();
+    ContextShim * contextShim = isolateShim->GetJsValueRefContextShim(object);
+    if (contextShim != nullptr && contextShim != isolateShim->GetCurrentContextShim())
+    {
+      ContextShim::Scope scope(contextShim);
+      return fn();
+    }
+    return fn();
+  }
 };

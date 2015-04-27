@@ -58,18 +58,16 @@ namespace v8
       }
     }
 
-    bool CheckSignature(Object* thisPointer, JsValueRef *arguments, unsigned short argumentCount)
+    bool CheckSignature(Local<Object> thisPointer, JsValueRef *arguments, unsigned short argumentCount, Local<Object>* holder)
     {
       if (signature.IsEmpty())
       {
+        *holder = thisPointer;
         return true;
       }
-      Local<FunctionTemplate> receiver = reinterpret_cast<FunctionTemplate*>(*signature);
 
-      // REVIEW: Current FunctionTemplate::HasInstance check seems too weak. One might manipulate
-      // __proto__ and pass that check. Should HasInstance validate the instance is created through
-      // that FunctionTemplate?
-      return receiver->HasInstance(thisPointer);
+      Local<FunctionTemplate> receiver = reinterpret_cast<FunctionTemplate*>(*signature);
+      return chakrashim::CheckSignature(receiver, thisPointer, holder);
     }
 
     static JsValueRef CALLBACK FunctionInvoked(_In_ JsValueRef callee, _In_ bool isConstructCall, _In_ JsValueRef *arguments, _In_ unsigned short argumentCount, void *callbackState)
@@ -104,20 +102,13 @@ namespace v8
 
       if (callbackData->callback != nullptr)
       {
-        if (!callbackData->CheckSignature(*thisPointer, arguments, argumentCount))
+        Local<Object> holder;
+        if (!callbackData->CheckSignature(*thisPointer, arguments, argumentCount, &holder))
         {
-          wchar_t txt[] = L"Illegal invocation";
-          JsValueRef msg, err;
-          if (JsPointerToString(txt, _countof(txt) - 1, &msg) == JsNoError
-            && JsCreateTypeError(msg, &err) == JsNoError)
-          {
-            JsSetException(err);
-          }
-
           return JS_INVALID_REFERENCE;
         }
 
-        FunctionCallbackInfo<Value> args((Value**)arguments, argumentCount - 1, thisPointer, isConstructCall, Local<Function>::New((Function*)callee));
+        FunctionCallbackInfo<Value> args((Value**)arguments, argumentCount - 1, thisPointer, holder, isConstructCall, Local<Function>::New((Function*)callee));
 
         callbackData->callback(args);
         Handle<Value> result = args.GetReturnValue().Get();
@@ -289,8 +280,7 @@ namespace v8
 
   bool FunctionTemplate::HasInstance(Handle<Value> object)
   {
-
-    auto fn = [&]()
+    return ContextShim::ExecuteInContextOf<bool>(this, [&]()
     {
       void *externalData;
       if (JsGetExternalData(this, &externalData) != JsNoError)
@@ -300,21 +290,14 @@ namespace v8
 
       FunctionTemplateData *functionTemplateData = reinterpret_cast<FunctionTemplateData*>(externalData);
       FunctionCallbackData * functionCallbackData = functionTemplateData->callbackData;
-      JsValueRef prototype;
-      if (JsGetPrototype(*object, &prototype) != JsNoError)
+
+      bool result;
+      if (jsrt::InstanceOf(*object, *GetFunction(), &result) != JsNoError)
       {
         return false;
       }
 
-      return *functionCallbackData->prototype == prototype;
-    };
-    IsolateShim * isolateShim = IsolateShim::GetCurrent();
-    ContextShim * contextShim = isolateShim->GetJsValueRefContextShim(this);
-    if (contextShim != isolateShim->GetCurrentContextShim())
-    {
-      ContextShim::Scope scope(contextShim);
-      return fn();
-    }
-    return fn();
+      return result;
+    });
   }
 }
