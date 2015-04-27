@@ -70,6 +70,7 @@ namespace v8
   class Context;
   class CpuProfiler;
   class Function;
+  class FunctionTemplate;
   class HeapProfiler;
   class Int32;
   class Integer;
@@ -244,6 +245,8 @@ namespace v8
     EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object);
 
     EXPORT JsValueRef MarshalJsValueRefToContext(JsValueRef value, JsContextRef context);
+
+    bool CheckSignature(Local<FunctionTemplate> receiver, Local<Object> thisPointer, Local<Object>* holder);
   }
 
   template <class T>
@@ -727,11 +730,26 @@ namespace v8
 
     static Local<Object> New(Isolate* isolate = nullptr);
     static Object *Cast(Value *obj);
+
   private:
     bool Set(Handle<Value> key, Handle<Value> value, PropertyAttribute attribs, bool force);
+    JsErrorCode GetObjectData(struct ObjectData** objectData);
     JsErrorCode InternalFieldHelper(void ***externalArray, int *count);
     JsErrorCode ExternalArrayDataHelper(ExternalArrayData **data);
     bool SupportsExternalArrayData(ExternalArrayData **data);
+
+    friend ObjectTemplate;
+    bool SetAccessor(
+      Handle<String> name,
+      AccessorGetterCallback getter,
+      AccessorSetterCallback setter,
+      Handle<Value> data,
+      AccessControl settings,
+      PropertyAttribute attribute,
+      Handle<AccessorSignature> signature);
+
+    friend bool chakrashim::CheckSignature(Local<FunctionTemplate> receiver, Local<Object> thisPointer, Local<Object>* holder);
+    bool IsInstanceOf(Handle<ObjectTemplate> objectTemplate);
   };
 
   class EXPORT Array : public Object
@@ -853,22 +871,22 @@ namespace v8
       return (i >= 0 && i < _length) ? Local<Value>(_args[i]) : Local<Value>((Value*)*Undefined());
     }
     Local<Object> This() const { return _thisPointer; }
-    Local<Object> Holder() const { return _thisPointer; }
+    Local<Object> Holder() const { return _holder; }
     Local<Function> Callee() const { return _callee; }
     bool IsConstructCall() const { return _isConstructorCall; }
     //  V8_INLINE Local<Value> Data() const;
     Isolate* GetIsolate() const { return Isolate::GetCurrent(); }
     ReturnValue<T> GetReturnValue() const { return ReturnValue<T>(&(const_cast<FunctionCallbackInfo<T>*>(this)->_returnValue), _context); }
 
-    FunctionCallbackInfo(Value** args, int length, Local<Object> _this, bool isConstructorCall, Local<Function> callee)
-      : _args(args), _length(length), _thisPointer(_this), _isConstructorCall(isConstructorCall), _callee(callee), _returnValue((Value*)JS_INVALID_REFERENCE),
+    FunctionCallbackInfo(Value** args, int length, Local<Object> _this, Local<Object> holder, bool isConstructorCall, Local<Function> callee)
+      : _args(args), _length(length), _thisPointer(_this), _holder(holder), _isConstructorCall(isConstructorCall), _callee(callee), _returnValue((Value*)JS_INVALID_REFERENCE),
       _context(Context::GetCurrent())
     {}
+
   private:
-
-
     int _length;
     Local<Object> _thisPointer;
+    Local<Object> _holder;
     Local<Function> _callee;
     bool _isConstructorCall;
     Value** _args;
@@ -883,15 +901,16 @@ namespace v8
     Isolate* GetIsolate() const { return Isolate::GetCurrent(); }
     Local<Value> Data() const { return _data; }
     Local<Object> This() const { return _thisObject; }
-    Local<Object> Holder() const { return _thisObject; }
+    Local<Object> Holder() const { return _holder; }
     ReturnValue<T> GetReturnValue() const { return ReturnValue<T>(&(const_cast<PropertyCallbackInfo<T>*>(this)->_returnValue), _context); }
 
-    PropertyCallbackInfo(Local<Value> data, Local<Object> thisObject)
-      : _data(data), _thisObject(thisObject), _returnValue((Value*)JS_INVALID_REFERENCE), _context(Context::GetCurrent())
+    PropertyCallbackInfo(Local<Value> data, Local<Object> thisObject, Local<Object> holder)
+      : _data(data), _thisObject(thisObject), _holder(holder), _returnValue((Value*)JS_INVALID_REFERENCE), _context(Context::GetCurrent())
     {}
   private:
     Local<Value> _data;
     Local<Object> _thisObject;
+    Local<Object> _holder;
     Value* _returnValue;
     Local<Context> _context;
   };

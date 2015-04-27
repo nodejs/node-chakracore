@@ -40,6 +40,7 @@ namespace v8
   typedef struct AcessorExternalDataType
   {
     Persistent<Value> data;
+    Persistent<AccessorSignature> signature;
     AccessorType type;
     union
     {
@@ -47,6 +48,18 @@ namespace v8
       AccessorSetterCallback setter;
     };
     Persistent<String> propertyName;
+
+    bool CheckSignature(Local<Object> thisPointer, Local<Object>* holder)
+    {
+      if (signature.IsEmpty())
+      {
+        *holder = thisPointer;
+        return true;
+      }
+
+      Local<FunctionTemplate> receiver = reinterpret_cast<FunctionTemplate*>(*signature);
+      return chakrashim::CheckSignature(receiver, thisPointer, holder);
+    }
   } AccessorExternalData;
 
   struct InternalFieldDataStruct
@@ -306,19 +319,25 @@ namespace v8
     // this is ok since the first argument will stay on the stack as long as we are in this function
     Local<Object> thisLocal(static_cast<Object*>(thisRef));
 
+    Local<Object> holder;
+    if (!accessorData->CheckSignature(thisLocal, &holder))
+    {
+      return JS_INVALID_REFERENCE;
+    }
+
     Local<String> propertyNameLocal = Local<String>::New(accessorData->propertyName);
     switch (accessorData->type)
     {
     case Setter:
       {
         assert(argumentCount == 2);
-        PropertyCallbackInfo<void> info(dataLocal, thisLocal);
+        PropertyCallbackInfo<void> info(dataLocal, thisLocal, holder);
         accessorData->setter(propertyNameLocal, (Value*)arguments[1], info);
         break;
       }
     case Getter:
       {
-        PropertyCallbackInfo<Value> info(dataLocal, thisLocal);
+        PropertyCallbackInfo<Value> info(dataLocal, thisLocal, holder);
         accessorData->getter(propertyNameLocal, info);
         result = (JsValueRef*)info.GetReturnValue().Get();
         break;
@@ -347,6 +366,18 @@ namespace v8
     AccessControl settings,
     PropertyAttribute attributes)
   {
+    return SetAccessor(name, getter, setter, data, settings, attributes, Handle<AccessorSignature>());
+  }
+
+  bool Object::SetAccessor(
+    Handle<String> name,
+    AccessorGetterCallback getter,
+    AccessorSetterCallback setter,
+    v8::Handle<Value> data,
+    AccessControl settings,
+    PropertyAttribute attributes,
+    Handle<AccessorSignature> signature)
+  {
     JsValueRef getterRef = JS_INVALID_REFERENCE;
     JsValueRef setterRef = JS_INVALID_REFERENCE;
 
@@ -363,10 +394,11 @@ namespace v8
       externalData->propertyName = Persistent<String>::New(name);
       externalData->getter = getter;
       externalData->data = Persistent<Value>::New(data);
+      externalData->signature = Persistent<AccessorSignature>::New(signature);
 
       if (CreateFunctionWithExternalData(AccessorHandler, externalData, AcessorExternalObjectFinalizeCallback, &getterRef) != JsNoError)
       {
-        // TODO: call delete on externalData?
+        delete externalData;
         return false;
       }
     }
@@ -377,9 +409,11 @@ namespace v8
       externalData->propertyName = Persistent<String>::New(name);
       externalData->setter = setter;
       externalData->data = Persistent<Value>::New(data);
+      externalData->signature = Persistent<AccessorSignature>::New(signature);
 
       if (CreateFunctionWithExternalData(AccessorHandler, externalData, AcessorExternalObjectFinalizeCallback, &setterRef) != JsNoError)
       {
+        delete externalData;
         return false;
       }
     }
@@ -553,17 +587,24 @@ namespace v8
     return Local<Value>::New((Value*)result);
   }
 
-  // create an array that will hold the internal fields
-  // each element in the array would be an external object/or an object which holds an external data
-
-  JsErrorCode Object::InternalFieldHelper(void ***internalFields, int *count)
+  bool Object::IsInstanceOf(Handle<ObjectTemplate> objectTemplate)
   {
-    auto fn = [&]()
+    ObjectData *objectData = nullptr;
+    if (GetObjectData(&objectData) != JsNoError || objectData == nullptr)
+    {
+      return false;
+    }
+
+    return objectData->objectTemplate == objectTemplate;
+  }
+
+  JsErrorCode Object::GetObjectData(ObjectData** objectData)
+  {
+    *objectData = nullptr;
+
+    return ContextShim::ExecuteInContextOf<JsErrorCode>(this, [=]()
     {
       Local<Object> obj((Object*)this);
-
-      *count = 0;
-      *internalFields = nullptr;
 
       if (obj->IsUndefined())
       {
@@ -590,30 +631,25 @@ namespace v8
         }
       }
 
-      struct ObjectData *objectData;
-      error = JsGetExternalData(self, (void **)&objectData);
+      return JsGetExternalData(self, (void **)objectData);
+    });
+  }
 
+  JsErrorCode Object::InternalFieldHelper(void ***internalFields, int *count)
+  {
+      struct ObjectData *objectData = nullptr;
+
+      JsErrorCode error = GetObjectData(&objectData);
       if (error != JsNoError || objectData == nullptr)
       {
+        *internalFields = nullptr;
+        *count = 0;
         return error;
-      }
-      else
-      {
-        *count = objectData->internalFieldCount;
       }
 
       *internalFields = objectData->internalFields;
+      *count = objectData->internalFieldCount;
       return JsNoError;
-    };
-
-    IsolateShim * isolateShim = IsolateShim::GetCurrent();
-    ContextShim * contextShim = isolateShim->GetJsValueRefContextShim(this);
-    if (contextShim != isolateShim->GetCurrentContextShim())
-    {
-      ContextShim::Scope scope(contextShim);
-      return fn();
-    }
-    return fn();
   }
 
   int Object::InternalFieldCount()

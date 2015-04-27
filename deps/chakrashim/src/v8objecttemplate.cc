@@ -110,7 +110,8 @@ namespace v8
     }
   };
 
-  ObjectData::ObjectData(ObjectTemplateData *templateData) :
+  ObjectData::ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData) :
+    objectTemplate(objectTemplate),
     namedPropertyGetter(templateData->namedPropertyGetter),
     namedPropertySetter(templateData->namedPropertySetter),
     namedPropertyQuery(templateData->namedPropertyQuery),
@@ -172,7 +173,7 @@ namespace v8
     {
       if (objectData->indexedPropertyGetter) // indexed array properties were set
       {
-        PropertyCallbackInfo<Value> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Value> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->indexedPropertyGetter(index, info);
         return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -184,14 +185,13 @@ namespace v8
         }
 
         return result;
-
       }
     }
     else
     {
       if (objectData->namedPropertyGetter)
       {
-        PropertyCallbackInfo<Value> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Value> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
         return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -233,7 +233,7 @@ namespace v8
     {
       if (objectData->indexedPropertySetter)
       {
-        PropertyCallbackInfo<Value> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Value> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->indexedPropertySetter(index, reinterpret_cast<Value*>(value), info);
         return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -251,7 +251,7 @@ namespace v8
     {
       if (objectData->namedPropertySetter)
       {
-        PropertyCallbackInfo<Value> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Value> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->namedPropertySetter(reinterpret_cast<String*>(prop), reinterpret_cast<Value*>(value), info);
         return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -294,7 +294,7 @@ namespace v8
     {
       if (objectData->indexedPropertyDeleter != nullptr)
       {
-        PropertyCallbackInfo<Boolean> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Boolean> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->indexedPropertyDeleter(index, info);
         return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -312,7 +312,7 @@ namespace v8
     {
       if (objectData->namedPropertyDeleter != nullptr)
       {
-        PropertyCallbackInfo<Boolean> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Boolean> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->namedPropertyDeleter(reinterpret_cast<String*>(prop), info);
         return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -359,7 +359,7 @@ namespace v8
       if (objectData->indexedPropertyQuery != nullptr)
       {
         HandleScope scope;
-        PropertyCallbackInfo<Integer> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Integer> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->indexedPropertyQuery(index, info);
         JsValueRef queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
 
@@ -377,7 +377,7 @@ namespace v8
 
       if (objectData->indexedPropertyEnumerator != nullptr)
       {
-        PropertyCallbackInfo<Array> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Array> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->indexedPropertyEnumerator(info);
         JsValueRef indexedProperties = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
 
@@ -416,7 +416,7 @@ namespace v8
       if (objectData->namedPropertyQuery != nullptr)
       {
         HandleScope scope;
-        PropertyCallbackInfo<Integer> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Integer> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->namedPropertyQuery(reinterpret_cast<String*>(prop), info);
         JsValueRef queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
 
@@ -434,7 +434,7 @@ namespace v8
 
       if (objectData->namedPropertyEnumerator != nullptr)
       {
-        PropertyCallbackInfo<Array> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Array> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->namedPropertyEnumerator(info);
         JsValueRef namedProperties = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
 
@@ -490,7 +490,7 @@ namespace v8
     JsValueRef indexedProperties;
     if (objectData->indexedPropertyEnumerator != nullptr)
     {
-      PropertyCallbackInfo<Array> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+      PropertyCallbackInfo<Array> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyEnumerator(info);
       indexedProperties = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
     }
@@ -512,7 +512,7 @@ namespace v8
     JsValueRef namedProperties;
     if (objectData->namedPropertyEnumerator != nullptr)
     {
-      PropertyCallbackInfo<Array> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+      PropertyCallbackInfo<Array> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyEnumerator(info);
       namedProperties = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
     }
@@ -606,7 +606,7 @@ namespace v8
       if (objectData->indexedPropertyQuery != nullptr)
       {
         HandleScope scope;
-        PropertyCallbackInfo<Integer> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Integer> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->indexedPropertyQuery(index, info);
         JsValueRef queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
 
@@ -621,7 +621,7 @@ namespace v8
       JsValueRef value;
       if (objectData->indexedPropertyGetter != nullptr)
       {
-        PropertyCallbackInfo<Value> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Value> info(*objectData->indexedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->indexedPropertyGetter(index, info);
         value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -674,7 +674,7 @@ namespace v8
       if (objectData->namedPropertyQuery != nullptr)
       {
         HandleScope scope;
-        PropertyCallbackInfo<Integer> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Integer> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->namedPropertyQuery(reinterpret_cast<String*>(prop), info);
         JsValueRef queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
 
@@ -691,7 +691,7 @@ namespace v8
 
       if (objectData->namedPropertyGetter != nullptr)
       {
-        PropertyCallbackInfo<Value> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object));
+        PropertyCallbackInfo<Value> info(*objectData->namedPropertyInterceptorData, reinterpret_cast<Object*>(object), /*holder*/reinterpret_cast<Object*>(object));
         objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
         value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -779,7 +779,7 @@ namespace v8
 
     ObjectTemplateData *objectTemplateData = reinterpret_cast<ObjectTemplateData*>(externalData);
 
-    ObjectData *objectData = new ObjectData(objectTemplateData);
+    ObjectData *objectData = new ObjectData(this, objectTemplateData);
 
     JsPropertyIdRef classNamePropertyId = JS_INVALID_REFERENCE;
 
@@ -959,7 +959,7 @@ namespace v8
     }
 
     ObjectTemplateData *objectTemplateData = reinterpret_cast<ObjectTemplateData*>(externalData);
-    objectTemplateData->properties->SetAccessor(name, getter, setter, data, settings, attribute);
+    objectTemplateData->properties->SetAccessor(name, getter, setter, data, settings, attribute, signature);
   }
 
   void ObjectTemplate::SetNamedPropertyHandler(

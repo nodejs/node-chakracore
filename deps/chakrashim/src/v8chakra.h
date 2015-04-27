@@ -34,6 +34,7 @@ namespace v8
   {
   public:
     JsValueRef objectInstance;
+    Persistent<ObjectTemplate> objectTemplate; // Original ObjectTemplate
     NamedPropertyGetterCallback namedPropertyGetter;
     NamedPropertySetterCallback namedPropertySetter;
     NamedPropertyQueryCallback namedPropertyQuery;
@@ -49,7 +50,7 @@ namespace v8
     int internalFieldCount;
     void **internalFields;
 
-    ObjectData(ObjectTemplateData *templateData);
+    ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData);
   };
 
   struct TemplateData

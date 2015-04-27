@@ -318,7 +318,8 @@ namespace jsrt
 
   ContextShim * IsolateShim::GetJsValueRefContextShim(JsValueRef valueRef)
   {
-    return jsValueRefToContextShimMap[valueRef];
+    auto i = jsValueRefToContextShimMap.find(valueRef);
+    return i != jsValueRefToContextShimMap.end() ? i->second : nullptr;
   }
 
   ContextShim * IsolateShim::GetObjectContext(JsValueRef valueRef)
