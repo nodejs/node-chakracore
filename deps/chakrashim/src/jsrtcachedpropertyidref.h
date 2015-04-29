@@ -51,5 +51,7 @@ DEF(createPropertyDescriptorsEnumerationIterator)
 DEF(getNamedOwnKeys)
 DEF(getIndexedOwnKeys)
 DEF(createEmptyLambdaFunction)
+DEF(prototype)
+DEF(toString)
 
 #undef DEF
