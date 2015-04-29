@@ -71,6 +71,37 @@ namespace jsrt
     return crossContextInfo;
   }
 
+  static bool UnwrapIfCrossContext(JsValueRef valueRef, CrossContextInfo ** info)
+  {
+    JsValueRef crossContextTarget;
+    if (CheckMarshalFailed(JsGetProperty(valueRef, IsolateShim::GetCurrent()->GetCrossContextTargetSymbolPropertyIdRef(), &crossContextTarget)))
+    {
+      return false;
+    }
+
+    bool notCrossContextTarget;
+    if (CheckMarshalFailed(IsUndefined(crossContextTarget, &notCrossContextTarget)))
+    {
+      return false;
+    }
+
+    *info = nullptr;
+    if (!notCrossContextTarget)
+    {
+      CrossContextInfo * crossContextInfo = GetCrossContextInfo(crossContextTarget);
+      if (crossContextInfo == nullptr)
+      {
+        return false;
+      }
+      *info = crossContextInfo;
+    }
+<<<<<<< HEAD
+    
+=======
+
+>>>>>>> chakrashim: fix toString on cross context objects
+    return true;
+  }
 
   static JsValueRef MarshalDescriptor(JsValueRef descriptor, ContextShim * fromContextShim, ContextShim * toContextShim)
   {
@@ -436,25 +467,14 @@ namespace jsrt
     {
       // Proxy's value type is JsObject
       // Unwrap the object if it is already cross site.
-      JsValueRef crossContextTarget;
-      if (CheckMarshalFailed(JsGetProperty(valueRef, IsolateShim::GetCurrent()->GetCrossContextTargetSymbolPropertyIdRef(), &crossContextTarget)))
+      CrossContextInfo * crossContextInfo;
+      if (!UnwrapIfCrossContext(valueRef, &crossContextInfo))
       {
         return JS_INVALID_REFERENCE;
       }
 
-      bool notCrossContextTarget;
-      if (CheckMarshalFailed(IsUndefined(crossContextTarget, &notCrossContextTarget)))
+      if (crossContextInfo != nullptr)
       {
-        return JS_INVALID_REFERENCE;
-      }
-
-      if (!notCrossContextTarget)
-      {
-        CrossContextInfo * crossContextInfo = GetCrossContextInfo(crossContextTarget);
-        if (crossContextInfo == nullptr)
-        {
-          return JS_INVALID_REFERENCE;
-        }
         fromContextShim = crossContextInfo->contextShim;
         crossContextObject = crossContextInfo->crossContextObject;
         if (fromContextShim == toContextShim)
@@ -520,12 +540,26 @@ namespace jsrt
 
     IsolateShim * isolateShim = toContextShim->GetIsolateShim();
     JsValueRef targetObject;
-    if (valueType == JsFunction)
+    if (valueType == JsFunction || valueType == JsArray)
     {
-      if (CheckMarshalFailed(JsCallFunction(toContextShim->GetCreateEmptyLambdaFunction(), nullptr, 0, &targetObject)))
+      if (valueType == JsFunction)
       {
-        return JS_INVALID_REFERENCE;
+        // Use a function as the target object so that the proxy can be called
+        if (CheckMarshalFailed(JsCallFunction(toContextShim->GetCreateEmptyLambdaFunction(), nullptr, 0, &targetObject)))
+        {
+          return JS_INVALID_REFERENCE;
+        }
       }
+      else
+      {
+        // valueType == JsArray
+        //Use an array as the target object so that Array.isArray will return the right result.
+        if (CheckMarshalFailed(JsCreateArray(0, &targetObject)))
+        {
+          return JS_INVALID_REFERENCE;
+        }
+      }
+
       JsValueRef keepAliveObject;
       if (CheckMarshalFailed(JsCreateFunction(DummyCallback, crossContextObject, &keepAliveObject)))
       {
@@ -645,5 +679,68 @@ namespace jsrt
         return MarshalObjectToContext(valueType, valueRef, fromContextShim, toContextShim);
       };
     }
+  }
+
+  JsValueRef CALLBACK ObjectPrototypeToStringCrossContextShim(JsValueRef callee, bool isConstructCall, JsValueRef *arguments, unsigned short argumentCount, void *callbackState)
+  {
+    if (argumentCount >= 1)
+    {
+      JsValueRef arg = arguments[0];
+
+      if (arg == nullptr)
+      {
+        if (CheckMarshalFailed(JsGetGlobalObject(&arg)))
+        {
+          return JS_INVALID_REFERENCE;
+        }
+      }
+
+      JsValueType valueType;
+      if (CheckMarshalFailed(JsGetValueType(arg, &valueType)))
+      {
+        return JS_INVALID_REFERENCE;
+      }
+
+      // Non object can't be marshaled as a descriptor (as it doesn't have properties)
+      switch (valueType)
+      {
+      case JsUndefined:
+      case JsNull:
+      case JsNumber:
+      case JsString:
+      case JsBoolean:
+      case JsSymbol:
+        break;
+      default:
+        {
+          ContextShim * originalContextShim = ContextShim::GetCurrent();
+          CrossContextInfo * crossContextInfo;
+          if (!UnwrapIfCrossContext(arg, &crossContextInfo))
+          {
+            return JS_INVALID_REFERENCE;
+          }
+          if (crossContextInfo != nullptr)
+          {
+            ContextShim::Scope scope(crossContextInfo->contextShim);
+
+            JsValueRef result;
+            JsValueRef newArguments[] = { crossContextInfo->crossContextObject };
+            if (JsCallFunction(crossContextInfo->contextShim->GetObjectPrototypeToStringFunction(),
+              newArguments, _countof(newArguments), &result) != JsNoError)
+            {
+              return JS_INVALID_REFERENCE;
+            }
+            return MarshalJsValueRefToContext(result, crossContextInfo->contextShim, originalContextShim);
+          }
+        }
+      };
+    }
+    JsValueRef result;
+    if (JsCallFunction(ContextShim::GetCurrent()->GetObjectPrototypeToStringFunction(),
+      arguments, argumentCount, &result) != JsNoError)
+    {
+      return JS_INVALID_REFERENCE;
+    }
+    return result;
   }
 }

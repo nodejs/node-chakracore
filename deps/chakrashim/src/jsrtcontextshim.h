@@ -58,9 +58,10 @@ namespace jsrt
     JsValueRef GetProxyConstructor();
     JsValueRef GetGetOwnPropertyDescriptorFunction();
     JsValueRef GetStringConcatFunction();
+    JsValueRef GetObjectPrototypeToStringFunction();
     JsValueRef GetProxyOfGlobal();
     JsValueRef GetReflectObject();
-    JsValueRef GetReflectFunctionForTrap(ProxyTraps traps);
+    JsValueRef GetReflectFunctionForTrap(ProxyTraps traps);    
 
     JsValueRef GetInstanceOfFunction();
     JsValueRef GetCloneObjectFunction();
@@ -86,13 +87,14 @@ namespace jsrt
     bool InitializeBuiltIns();
     bool InitializeProxyOfGlobal();
     bool InitializeReflect();
+    bool InitializeObjectPrototypeToString();
 
     template <typename Fn>
     bool InitializeBuiltIn(JsValueRef * builtIntValue, Fn getBuiltIn);
     bool KeepAlive(JsValueRef value);
 
     bool ExposeGc();
-    bool ExecuteChakraPatch();
+    bool ExecuteChakraShimJS();
 
     IsolateShim * isolateShim;
     JsContextRef context;
@@ -100,7 +102,7 @@ namespace jsrt
     bool exposeGC;
     JsValueRef keepAliveObject;
     int builtInCount;
-
+    
     JsValueRef trueRef;
     JsValueRef falseRef;
     JsValueRef undefinedRef;
@@ -117,6 +119,7 @@ namespace jsrt
     JsValueRef reflectObject;
     JsValueRef reflectFunctions[ProxyTraps::TrapCount];
 
+    JsValueRef objectPrototypeToStringFunction;
     JsValueRef getOwnPropertyDescriptorFunction;
     JsValueRef stringConcatFunction;
 

@@ -123,6 +123,33 @@ namespace jsrt
     return true;
   }
 
+  bool ContextShim::InitializeObjectPrototypeToString()
+  {
+    JsValueRef objectPrototype;
+    JsPropertyIdRef toStringPropertyIdRef = this->GetIsolateShim()->GetCachedPropertyIdRef(CachedPropertyIdRef::toString);
+    if (!InitializeBuiltIn(&objectPrototypeToStringFunction, [this, toStringPropertyIdRef, &objectPrototype](JsValueRef * value)
+      {
+        JsPropertyIdRef prototypePropertyIdRef = this->GetIsolateShim()->GetCachedPropertyIdRef(CachedPropertyIdRef::prototype);
+        JsErrorCode error = JsGetProperty(this->objectConstructor, prototypePropertyIdRef, &objectPrototype);
+        if (error != JsNoError)
+        {
+          return error;
+        }
+
+        return JsGetProperty(objectPrototype, toStringPropertyIdRef, value);
+      }))
+    {
+      return false;
+    }
+
+    JsValueRef function;
+    if (JsCreateFunction(jsrt::ObjectPrototypeToStringCrossContextShim, nullptr, &function) != JsNoError)
+    {
+      return false;
+    }
+    return JsSetProperty(objectPrototype, toStringPropertyIdRef, function, false) == JsNoError;
+  }
+
   bool ContextShim::InitializeBuiltIns()
   {
     // No need to keep the global object alive, the context will implicitly
@@ -233,7 +260,17 @@ namespace jsrt
       return false;
     }
 
-    return InitializeProxyOfGlobal();
+    if (!InitializeProxyOfGlobal())
+    {
+      return false;
+    }
+
+    if (!InitializeObjectPrototypeToString())
+    {
+      return false;
+    }
+
+    return true;
   }
 
   static JsValueRef CALLBACK ProxyOfGlobalGetPrototypeOfCallback(_In_ JsValueRef callee, _In_ bool isConstructCall, _In_ JsValueRef *arguments, _In_ unsigned short argumentCount, _In_opt_ void *callbackState)
@@ -294,7 +331,7 @@ namespace jsrt
       return false;
     }
 
-    if (!ExecuteChakraPatch())
+    if (!ExecuteChakraShimJS())
     {
       return false;
     }
@@ -319,7 +356,7 @@ namespace jsrt
     return true;
   }
 
-  bool ContextShim::ExecuteChakraPatch()
+  bool ContextShim::ExecuteChakraShimJS()
   {
     wchar_t buffer[_countof(chakra_shim_native)];
 
@@ -438,6 +475,11 @@ namespace jsrt
   JsValueRef ContextShim::GetStringConcatFunction()
   {
     return stringConcatFunction;
+  }
+
+  JsValueRef ContextShim::GetObjectPrototypeToStringFunction()
+  {
+    return objectPrototypeToStringFunction;
   }
 
   JsValueRef ContextShim::GetProxyOfGlobal()
