@@ -153,13 +153,14 @@ namespace v8
 
   bool V8::AddMessageListener(MessageCallback that, Handle<Value> data)
   {
-    return Isolate::GetCurrent()->InternalAddMessageListener(that);
+    // Ignore data parameter.  Node doesn't use it.
+    return jsrt::IsolateShim::GetCurrent()->AddMessageListener(that);
   }
 
 
   void V8::RemoveMessageListeners(MessageCallback that)
   {
-    Isolate::GetCurrent()->InternalRemoveMessageListeners(that);
+    jsrt::IsolateShim::GetCurrent()->RemoveMessageListeners(that);
   }
 
   void V8::SetJitCodeEventHandler(JitCodeEventOptions options, JitCodeEventHandler event_handler)

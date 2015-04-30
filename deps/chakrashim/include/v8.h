@@ -1147,11 +1147,6 @@ namespace v8
     bool IdleNotification(int idle_time_in_ms);
     void LowMemoryNotification();
     int ContextDisposedNotification();
-
-    // Chakra implementation
-    bool InternalAddMessageListener(MessageCallback that);
-    void InternalRemoveMessageListeners(MessageCallback that);
-    void InternalInvokeMessageListeners(Handle<Message> message, Handle<Value> error);
   };
 
   class EXPORT JitCodeEvent
