@@ -21,8 +21,6 @@
 #include "v8.h"
 #include "v8-profiler.h"
 #include "jsrtutils.h"
-#include <vector>
-#include <algorithm>
 
 namespace v8
 {
@@ -67,19 +65,14 @@ namespace v8
     return 0;
   }
 
-  static void* s_dummyData[4];
-
   void Isolate::SetData(uint32_t slot, void* data)
   {
-    if (slot < _countof(s_dummyData))
-    {
-      s_dummyData[slot] = data;
-    }
+    return jsrt::IsolateShim::FromIsolate(this)->SetData(slot, data);
   }
 
   void* Isolate::GetData(uint32_t slot)
   {
-    return slot < _countof(s_dummyData)? s_dummyData[slot] : nullptr;
+    return jsrt::IsolateShim::FromIsolate(this)->GetData(slot);
   }
 
   uint32_t Isolate::GetNumberOfDataSlots()
@@ -162,35 +155,6 @@ namespace v8
   {
     CHAKRA_UNIMPLEMENTED();
     return 0;
-  }
-
-  static std::vector<MessageCallback> s_messageListeners;
-
-  bool Isolate::InternalAddMessageListener(MessageCallback that)
-  {
-    try
-    {
-      s_messageListeners.push_back(that);
-      return true;
-    }
-    catch (...)
-    {
-      return false;
-    }
-  }
-
-  void Isolate::InternalRemoveMessageListeners(MessageCallback that)
-  {
-    auto i = std::remove(s_messageListeners.begin(), s_messageListeners.end(), that);
-    s_messageListeners.erase(i, s_messageListeners.end());
-  }
-
-  void Isolate::InternalInvokeMessageListeners(Handle<Message> message, Handle<Value> error)
-  {
-    for (auto i = s_messageListeners.begin(); i != s_messageListeners.end(); i++)
-    {
-      (*i)(message, error);
-    }
   }
 
   void Isolate::GetHeapStatistics(HeapStatistics *heap_statistics)

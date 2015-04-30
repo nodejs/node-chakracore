@@ -81,6 +81,21 @@ namespace jsrt
     void DisableExecution();
     bool IsExeuctionDisabled();
     void EnableExecution();
+
+
+    bool AddMessageListener(void * that);
+    void RemoveMessageListeners(void * that);
+    template <typename Fn>
+    void ForEachMessageListener(Fn fn)
+    {
+      for (auto i = messageListeners.begin(); i != messageListeners.end(); i++)
+      {
+        fn(*i);
+      }
+    }
+
+    void SetData(unsigned int slot, void* data);
+    void* GetData(unsigned int slot);
   private:
     // Construction/Destruction should go thru New/Dispose
     IsolateShim(JsRuntimeHandle runtime);
@@ -106,7 +121,10 @@ namespace jsrt
 
     std::unordered_map<JsContextRef, ContextShim *> contextShimMap;
     std::unordered_map<JsValueRef, ContextShim *> jsValueRefToContextShimMap;
+    std::vector<void *> messageListeners;
 
+    // Node only has 4 slots (internals::Internals::kNumIsolateDataSlots = 4)
+    void * embeddedData[4];
 
     // CHAKRA-TODO: support multiple shims
     static IsolateShim * s_isolateList;

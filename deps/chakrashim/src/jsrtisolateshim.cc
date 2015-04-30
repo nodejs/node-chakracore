@@ -21,6 +21,8 @@
 #include "v8.h"
 #include "jsrtutils.h"
 #include <assert.h>
+#include <vector>
+#include <algorithm>
 
 namespace jsrt
 {
@@ -366,5 +368,38 @@ namespace jsrt
       return isDisabled;
     }
     return false;
+  }
+
+  bool IsolateShim::AddMessageListener(void * that)
+  {
+    try
+    {
+      messageListeners.push_back(that);
+      return true;
+    }
+    catch (...)
+    {
+      return false;
+    }
+  }
+
+  void IsolateShim::RemoveMessageListeners(void * that)
+  {
+    auto i = std::remove(messageListeners.begin(), messageListeners.end(), that);
+    messageListeners.erase(i, messageListeners.end());
+  }
+
+  void IsolateShim::SetData(uint32_t slot, void* data)
+  {
+    if (slot >= _countof(this->embeddedData))
+    {
+      CHAKRA_UNIMPLEMENTED_("Invalid embedded data index");
+    }
+    embeddedData[slot] = data;
+  }
+
+  void* IsolateShim::GetData(uint32_t slot)
+  {
+    return slot < _countof(this->embeddedData) ? embeddedData[slot] : nullptr;
   }
 };

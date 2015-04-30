@@ -184,7 +184,10 @@ namespace v8
     // we'll report the external exception message.
     if (prev != nullptr && prev->verbose)
     {
-      Isolate::GetCurrent()->InternalInvokeMessageListeners(Message(), Exception());
+      jsrt::IsolateShim::GetCurrent()->ForEachMessageListener([this](void * messageListener)
+      {
+        ((v8::MessageCallback)messageListener)(Message(), Exception());
+      });
     }
     else
     {
