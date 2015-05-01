@@ -304,7 +304,7 @@ namespace jsrt
     {
       // V8 Global is actually proxy where the actual global is it's prototype.
       // We will fake it here.
-      std::map<jsrt::ProxyTraps, JsNativeFunction> proxyTraps;
+      JsNativeFunction proxyTraps[ProxyTraps::TrapCount] = {};
       proxyTraps[GetPrototypeOfTrap] = ProxyOfGlobalGetPrototypeOfCallback;
       return CreateProxy(globalObject, proxyTraps, value);
     });

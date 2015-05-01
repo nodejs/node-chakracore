@@ -22,7 +22,6 @@
 #include "v8chakra.h"
 #include "jsrtutils.h"
 
-#include <map>
 
 using namespace jsrt;
 using namespace std;
@@ -820,7 +819,7 @@ namespace v8
     {
       JsValueRef newInstanceTargetRef = newInstanceRef;
 
-      map<ProxyTraps, JsNativeFunction> proxyConf;
+      JsNativeFunction proxyConf[ProxyTraps::TrapCount] = {};
 
       if (objectTemplateData->indexedPropertyGetter != nullptr || objectTemplateData->namedPropertyGetter != nullptr)
         proxyConf[ProxyTraps::GetTrap] = GetCallback;
