@@ -20,7 +20,6 @@
 
 #include "jsrtutils.h"
 #include <string>
-#include <map>
 #include <assert.h>
 
 namespace jsrt
@@ -70,7 +69,7 @@ namespace jsrt
     return error;
   }
 
-  JsErrorCode CreateProxyTrapConfig(const std::map<ProxyTraps, JsNativeFunction>& config, _Out_ JsValueRef *confObj)
+  JsErrorCode CreateProxyTrapConfig(const JsNativeFunction proxyConf[ProxyTraps::TrapCount], _Out_ JsValueRef *confObj)
   {
     JsErrorCode error = JsNoError;
 
@@ -80,9 +79,9 @@ namespace jsrt
 
     // Set the properties of the proxy configuration object according to the given map of proxy traps and function handlers
     // For each proxy trap - set the given handler using the appropriate javascript name
-    for (std::map<ProxyTraps, JsNativeFunction>::const_iterator it = config.begin(); it != config.end(); it++)
+    for (int i = 0; i < ProxyTraps::TrapCount; i++)
     {
-      error = SetPropertyOnTrapConfig(it->first, it->second, *confObj);
+      error = SetPropertyOnTrapConfig((ProxyTraps)i, proxyConf[i], *confObj);
       if (error != JsNoError) return error;
     }
 
@@ -91,7 +90,7 @@ namespace jsrt
 
   JsErrorCode CreateProxy(
     _In_ JsValueRef target,
-    const std::map<ProxyTraps, JsNativeFunction>& config,
+    _In_ const JsNativeFunction config[ProxyTraps::TrapCount],
     _Out_ JsValueRef *result
     )
   {
@@ -157,7 +156,7 @@ namespace jsrt
 
     *isUInt32 = true;
     // use std:stoull as it the most comprehenisve way to convert string to int
-    // there is some performance issue here, so we migth optimiaze this code using the reuslts in here:
+    // there is some performance issue here, so we migth optimiaze this code using the results in here:
     // string to int conversion - naive approach is the fastest: http://tinodidriksen.com/2010/02/16/cpp-convert-string-to-int-speed/
 
     wchar_t* strEnd = const_cast<wchar_t*>(strPtr) + strLength;

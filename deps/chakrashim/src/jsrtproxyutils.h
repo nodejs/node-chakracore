@@ -22,7 +22,6 @@
 
 #include "jsrt.h"
 #include "jsrtutils.h"
-#include <map>
 
 namespace jsrt
 {
@@ -53,7 +52,7 @@ namespace jsrt
 
   JsErrorCode CreateProxy(
     _In_ JsValueRef target,
-    _In_ const std::map<ProxyTraps, JsNativeFunction>& conf,
+    _In_ const JsNativeFunction config[ProxyTraps::TrapCount],
     _Out_ JsValueRef *result
     );
 

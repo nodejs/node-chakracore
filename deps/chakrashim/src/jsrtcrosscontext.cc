@@ -20,7 +20,6 @@
 
 #include "v8.h"
 #include "jsrtutils.h"
-#include <map>
 #include <assert.h>
 
 namespace jsrt
@@ -95,11 +94,7 @@ namespace jsrt
       }
       *info = crossContextInfo;
     }
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> chakrashim: fix toString on cross context objects
     return true;
   }
 
@@ -522,7 +517,7 @@ namespace jsrt
 
     ContextShim::Scope scope(toContextShim);
 
-    std::map<ProxyTraps, JsNativeFunction> proxyConf;
+    JsNativeFunction proxyConf[ProxyTraps::TrapCount] = {};
     proxyConf[ProxyTraps::ApplyTrap] = CrossContextCallback<ProxyTraps::ApplyTrap, 3>;
     proxyConf[ProxyTraps::ConstructTrap] = CrossContextCallback<ProxyTraps::ConstructTrap, 2>;
     proxyConf[ProxyTraps::DefinePropertyTrap] = CrossContextCallback<ProxyTraps::DefinePropertyTrap, 3>;
