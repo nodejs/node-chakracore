@@ -21,20 +21,22 @@
 #include "v8.h"
 #include "jsrtutils.h"
 
-namespace jsrt
-{
-  static void CALLBACK PromiseContinuationCallback(JsValueRef task, void *callbackState)
-  {
-    // CHAKRA-REVIEW: We have a current context here?
-    JsValueRef promiseContinuationFunction = jsrt::ContextShim::GetCurrent()->GetPromiseContinuationFunction();
+namespace jsrt {
 
-    JsValueRef args[] = { *v8::Undefined(), task };
-    JsValueRef result;
-    JsCallFunction(promiseContinuationFunction, args, _countof(args), &result);
-  }
+static void CALLBACK PromiseContinuationCallback(
+    JsValueRef task, void *callbackState) {
+  // CHAKRA-REVIEW: We have a current context here?
+  JsValueRef promiseContinuationFunction =
+    jsrt::ContextShim::GetCurrent()->GetPromiseContinuationFunction();
 
-  JsErrorCode InitializePromise()
-  {
-    return JsSetPromiseContinuationCallback(PromiseContinuationCallback, /*callbackState*/nullptr);
-  }
-};
+  JsValueRef args[] = { *v8::Undefined(), task };
+  JsValueRef result;
+  JsCallFunction(promiseContinuationFunction, args, _countof(args), &result);
+}
+
+JsErrorCode InitializePromise() {
+  return JsSetPromiseContinuationCallback(
+    PromiseContinuationCallback, /*callbackState*/nullptr);
+}
+
+}  // namespace jsrt

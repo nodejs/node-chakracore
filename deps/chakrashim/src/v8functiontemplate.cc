@@ -22,282 +22,288 @@
 #include "v8chakra.h"
 #include "jsrtutils.h"
 
-using namespace jsrt;
+namespace v8 {
 
-namespace v8
-{
-  struct FunctionCallbackData
-  {
-    FunctionCallback callback;
-    Persistent<Value> data;
-    Persistent<Signature> signature;
-    Persistent<ObjectTemplate> instanceTemplate;
-    Persistent<Object> prototype;
+using jsrt::IsolateShim;
+using jsrt::ContextShim;
 
-    FunctionCallbackData(FunctionCallback aCallback, Handle<Value> aData, Handle<Signature> aSignature) :
-      callback(aCallback),
-      data(Persistent<Value>(aData)),
-      signature(Persistent<Signature>(aSignature)),
-      instanceTemplate(),
-      prototype()
-    {
-      HandleScope scope;
-      instanceTemplate = Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
+struct FunctionCallbackData {
+  FunctionCallback callback;
+  Persistent<Value> data;
+  Persistent<Signature> signature;
+  Persistent<ObjectTemplate> instanceTemplate;
+  Persistent<Object> prototype;
+
+  FunctionCallbackData(FunctionCallback aCallback,
+                       Handle<Value> aData,
+                       Handle<Signature> aSignature)
+      : callback(aCallback),
+        data(Persistent<Value>(aData)),
+        signature(Persistent<Signature>(aSignature)),
+        instanceTemplate(),
+        prototype() {
+    HandleScope scope;
+    instanceTemplate =
+      Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
+  }
+
+  static void CALLBACK FinalizeCallback(_In_opt_ void *data) {
+    if (data != nullptr) {
+      FunctionCallbackData* templateData =
+        reinterpret_cast<FunctionCallbackData*>(data);
+      templateData->data.Dispose();
+      templateData->signature.Dispose();
+      templateData->instanceTemplate.Dispose();
+      templateData->prototype.Dispose();
+      delete templateData;
+    }
+  }
+
+  bool CheckSignature(Local<Object> thisPointer,
+                      JsValueRef *arguments,
+                      unsigned short argumentCount,
+                      Local<Object>* holder) {
+    if (signature.IsEmpty()) {
+      *holder = thisPointer;
+      return true;
     }
 
-    static void CALLBACK FinalizeCallback(_In_opt_ void *data)
-    {
-      if (data != nullptr)
-      {
-        FunctionCallbackData* templateData = reinterpret_cast<FunctionCallbackData*>(data);
-        templateData->data.Dispose();
-        templateData->signature.Dispose();
-        templateData->instanceTemplate.Dispose();
-        templateData->prototype.Dispose();
-        delete templateData;
+    Local<FunctionTemplate> receiver =
+      reinterpret_cast<FunctionTemplate*>(*signature);
+    return chakrashim::CheckSignature(receiver, thisPointer, holder);
+  }
+
+  static JsValueRef CALLBACK FunctionInvoked(_In_ JsValueRef callee,
+                                             _In_ bool isConstructCall,
+                                             _In_ JsValueRef *arguments,
+                                             _In_ unsigned short argumentCount,
+                                             void *callbackState) {
+    HandleScope scope;
+
+    JsValueRef functionCallbackDataRef = JsValueRef(callbackState);
+    void* externalData;
+    if (JsGetExternalData(functionCallbackDataRef,
+                          &externalData) != JsNoError) {
+      // This should never happen
+      return JS_INVALID_REFERENCE;
+    }
+
+    FunctionCallbackData *callbackData =
+      reinterpret_cast<FunctionCallbackData*>(externalData);
+
+    Local<Object> thisPointer;
+    ++arguments;  // skip the this argument
+
+    if (isConstructCall) {
+      thisPointer =
+        callbackData->instanceTemplate->NewInstance(callbackData->prototype);
+      if (thisPointer.IsEmpty()) {
+        return JS_INVALID_REFERENCE;
       }
+    } else {
+      thisPointer = Local<Object>::New(static_cast<Object*>(arguments[-1]));
     }
 
-    bool CheckSignature(Local<Object> thisPointer, JsValueRef *arguments, unsigned short argumentCount, Local<Object>* holder)
-    {
-      if (signature.IsEmpty())
-      {
-        *holder = thisPointer;
-        return true;
-      }
-
-      Local<FunctionTemplate> receiver = reinterpret_cast<FunctionTemplate*>(*signature);
-      return chakrashim::CheckSignature(receiver, thisPointer, holder);
-    }
-
-    static JsValueRef CALLBACK FunctionInvoked(_In_ JsValueRef callee, _In_ bool isConstructCall, _In_ JsValueRef *arguments, _In_ unsigned short argumentCount, void *callbackState)
-    {
-      HandleScope scope;
-
-      JsValueRef functionCallbackDataRef = JsValueRef(callbackState);
-      void* externalData;
-      if (JsGetExternalData(functionCallbackDataRef, &externalData) != JsNoError)
-      {
-        // This should never happen
+    if (callbackData->callback != nullptr) {
+      Local<Object> holder;
+      if (!callbackData->CheckSignature(*thisPointer,
+                                        arguments, argumentCount, &holder)) {
         return JS_INVALID_REFERENCE;
       }
 
-      FunctionCallbackData *callbackData = reinterpret_cast<FunctionCallbackData*>(externalData);
+      FunctionCallbackInfo<Value> args(
+        reinterpret_cast<Value**>(arguments),
+        argumentCount - 1,
+        thisPointer,
+        holder,
+        isConstructCall,
+        Local<Function>::New(static_cast<Function*>(callee)));
 
-      Local<Object> thisPointer;
-      ++arguments; // skip the this argument
+      callbackData->callback(args);
+      Handle<Value> result = args.GetReturnValue().Get();
 
-      if (isConstructCall)
-      {
-        thisPointer = callbackData->instanceTemplate->NewInstance(callbackData->prototype);
-        if (thisPointer.IsEmpty())
-        {
-          return JS_INVALID_REFERENCE;
-        }
-      }
-      else
-      {
-        thisPointer = Local<Object>::New((Object*)arguments[-1]);
-      }
-
-      if (callbackData->callback != nullptr)
-      {
-        Local<Object> holder;
-        if (!callbackData->CheckSignature(*thisPointer, arguments, argumentCount, &holder))
-        {
-          return JS_INVALID_REFERENCE;
-        }
-
-        FunctionCallbackInfo<Value> args((Value**)arguments, argumentCount - 1, thisPointer, holder, isConstructCall, Local<Function>::New((Function*)callee));
-
-        callbackData->callback(args);
-        Handle<Value> result = args.GetReturnValue().Get();
-
-        // if this is a regualr function call return the result, otherwise this is a constructor call return the new instance
-        if (!isConstructCall)
-        {
+      // if this is a regualr function call return the result, otherwise this is
+      // a constructor call return the new instance
+      if (!isConstructCall) {
+        return *result;
+      } else if (!result.IsEmpty()) {
+        if (!result->Equals(Undefined()) && !result->Equals(Null())) {
           return *result;
         }
-        else if (!result.IsEmpty())
-        {
-          if (!result->Equals(Undefined()) && !result->Equals(Null()))
-          {
-            return *result;
-          }
-        }
-      }
-
-      // no callback is attach just return the new instance
-      return *thisPointer;
-    }
-  };
-
-  struct FunctionTemplateData : public TemplateData
-  {
-    FunctionCallbackData * callbackData;
-    Persistent<ObjectTemplate> prototypeTemplate;
-    JsValueRef functionTemplate;
-
-    FunctionTemplateData(JsValueRef function, FunctionCallbackData * callbackData) :
-      prototypeTemplate()
-    {
-      this->properties = function;
-      this->callbackData = callbackData;
-      this->functionTemplate = JS_INVALID_REFERENCE;
-      this->prototypeTemplate = Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
-    }
-
-    static void CALLBACK FinalizeCallback(_In_opt_ void *data)
-    {
-      if (data != nullptr)
-      {
-        FunctionTemplateData * templateData = reinterpret_cast<FunctionTemplateData*>(data);
-        templateData->properties.Dispose();
-        templateData->prototypeTemplate.Dispose();
-        IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(templateData->functionTemplate);
-        delete templateData;
       }
     }
-  };
 
-  Local<FunctionTemplate> FunctionTemplate::New(
-    Isolate* isolate,
-    FunctionCallback callback,
-    v8::Handle<Value> data,
-    v8::Handle<Signature> signature,
-    int length)
-  {
-    FunctionCallbackData* callbackData = new FunctionCallbackData(callback, data, signature);
-    JsValueRef funcCallbackObjectRef;
+    // no callback is attach just return the new instance
+    return *thisPointer;
+  }
+};
 
-    JsErrorCode error = JsCreateExternalObject(callbackData, FunctionCallbackData::FinalizeCallback, &funcCallbackObjectRef);
-    if (error != JsNoError)
-    {
-      delete callbackData;
-      return Local<FunctionTemplate>();
-    }
+struct FunctionTemplateData : public TemplateData {
+  FunctionCallbackData * callbackData;
+  Persistent<ObjectTemplate> prototypeTemplate;
+  JsValueRef functionTemplate;
 
-    JsValueRef function;
-    error = JsCreateFunction(FunctionCallbackData::FunctionInvoked, funcCallbackObjectRef, &function);
-    if (error != JsNoError)
-    {
-      return Local<FunctionTemplate>();
-    }
-
-    FunctionTemplateData * templateData = new FunctionTemplateData(function, callbackData);
-    JsValueRef functionTemplateRef;
-    error = JsCreateExternalObject(templateData, FunctionTemplateData::FinalizeCallback, &functionTemplateRef);
-    if (error != JsNoError)
-    {
-      delete templateData;
-      return Local<FunctionTemplate>();
-    }
-    templateData->functionTemplate = functionTemplateRef;
-    IsolateShim::FromIsolate(isolate)->RegisterJsValueRefContextShim(functionTemplateRef);
-    return Local<FunctionTemplate>::New((FunctionTemplate*)functionTemplateRef);
+  FunctionTemplateData(JsValueRef function, FunctionCallbackData * callbackData)
+      : prototypeTemplate() {
+    this->properties = function;
+    this->callbackData = callbackData;
+    this->functionTemplate = JS_INVALID_REFERENCE;
+    this->prototypeTemplate =
+      Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
   }
 
-  Local<Function> FunctionTemplate::GetFunction()
-  {
-    void* externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError)
-    {
+  static void CALLBACK FinalizeCallback(_In_opt_ void *data) {
+    if (data != nullptr) {
+      FunctionTemplateData * templateData =
+        reinterpret_cast<FunctionTemplateData*>(data);
+      templateData->properties.Dispose();
+      templateData->prototypeTemplate.Dispose();
+      IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(
+        templateData->functionTemplate);
+      delete templateData;
+    }
+  }
+};
+
+Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
+                                              FunctionCallback callback,
+                                              v8::Handle<Value> data,
+                                              v8::Handle<Signature> signature,
+                                              int length) {
+  FunctionCallbackData* callbackData =
+    new FunctionCallbackData(callback, data, signature);
+  JsValueRef funcCallbackObjectRef;
+
+  JsErrorCode error = JsCreateExternalObject(
+    callbackData,
+    FunctionCallbackData::FinalizeCallback,
+    &funcCallbackObjectRef);
+  if (error != JsNoError) {
+    delete callbackData;
+    return Local<FunctionTemplate>();
+  }
+
+  JsValueRef function;
+  error = JsCreateFunction(
+    FunctionCallbackData::FunctionInvoked, funcCallbackObjectRef, &function);
+  if (error != JsNoError) {
+    return Local<FunctionTemplate>();
+  }
+
+  FunctionTemplateData * templateData =
+    new FunctionTemplateData(function, callbackData);
+  JsValueRef functionTemplateRef;
+  error = JsCreateExternalObject(
+    templateData, FunctionTemplateData::FinalizeCallback, &functionTemplateRef);
+  if (error != JsNoError) {
+    delete templateData;
+    return Local<FunctionTemplate>();
+  }
+  templateData->functionTemplate = functionTemplateRef;
+  IsolateShim::FromIsolate(isolate)->RegisterJsValueRefContextShim(
+    functionTemplateRef);
+  return Local<FunctionTemplate>::New(
+    static_cast<FunctionTemplate*>(functionTemplateRef));
+}
+
+Local<Function> FunctionTemplate::GetFunction() {
+  void* externalData;
+  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    return Local<Function>();
+  }
+
+
+  FunctionTemplateData *functionTemplateData =
+    reinterpret_cast<FunctionTemplateData*>(externalData);
+  FunctionCallbackData * functionCallbackData =
+    functionTemplateData->callbackData;
+  Local<Function> function = functionTemplateData->properties;
+
+  if (functionCallbackData->prototype.IsEmpty()) {
+    functionCallbackData->prototype = Persistent<Object>(
+      functionTemplateData->prototypeTemplate->NewInstance());
+
+    if (functionCallbackData->prototype.IsEmpty()) {
       return Local<Function>();
     }
 
-
-    FunctionTemplateData *functionTemplateData = reinterpret_cast<FunctionTemplateData*>(externalData);
-    FunctionCallbackData * functionCallbackData = functionTemplateData->callbackData;
-    Local<Function> function = functionTemplateData->properties;
-
-    if (functionCallbackData->prototype.IsEmpty())
-    {
-      functionCallbackData->prototype = Persistent<Object>(functionTemplateData->prototypeTemplate->NewInstance());
-
-      if (functionCallbackData->prototype.IsEmpty())
-      {
-        return Local<Function>();
-      }
-
-      function->Set(String::New(L"prototype"), functionCallbackData->prototype);
-    }
-
-    return function;
+    function->Set(String::New(L"prototype"), functionCallbackData->prototype);
   }
 
-  Local<ObjectTemplate> FunctionTemplate::InstanceTemplate()
-  {
-    void *externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError)
-    {
-      return Local<ObjectTemplate>();
-    }
-
-    FunctionTemplateData *functionTemplateData = reinterpret_cast<FunctionTemplateData*>(externalData);
-    FunctionCallbackData * functionCallbackData = functionTemplateData->callbackData;
-    return Local<ObjectTemplate>::New(*functionCallbackData->instanceTemplate);
-  }
-
-  Local<ObjectTemplate> FunctionTemplate::PrototypeTemplate()
-  {
-    void *externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError)
-    {
-      return Local<ObjectTemplate>();
-    }
-
-    FunctionTemplateData *functionTemplateData = reinterpret_cast<FunctionTemplateData*>(externalData);
-
-    if (functionTemplateData->prototypeTemplate.IsEmpty())
-    {
-      functionTemplateData->prototypeTemplate = Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
-    }
-
-    // The V8 specs are silent on what's supposed to happen here if the function
-    // has been created. If you try and modify the prototype template, what's supposed
-    // to happen given that the prototype object must have already been created?
-
-    return Local<ObjectTemplate>::New(*functionTemplateData->prototypeTemplate);
-  }
-
-  void FunctionTemplate::SetClassName(Handle<String> name)
-  {
-    void *externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError)
-    {
-      return;
-    }
-
-    FunctionTemplateData *functionTemplateData = reinterpret_cast<FunctionTemplateData*>(externalData);
-    FunctionCallbackData * functionCallbackData = functionTemplateData->callbackData;
-    functionCallbackData->instanceTemplate->SetClassName(name);
-  }
-
-  void FunctionTemplate::SetHiddenPrototype(bool value)
-  {
-    //TODO
-  }
-
-  bool FunctionTemplate::HasInstance(Handle<Value> object)
-  {
-    return ContextShim::ExecuteInContextOf<bool>(this, [&]()
-    {
-      void *externalData;
-      if (JsGetExternalData(this, &externalData) != JsNoError)
-      {
-        return false;
-      }
-
-      FunctionTemplateData *functionTemplateData = reinterpret_cast<FunctionTemplateData*>(externalData);
-      FunctionCallbackData * functionCallbackData = functionTemplateData->callbackData;
-
-      bool result;
-      if (jsrt::InstanceOf(*object, *GetFunction(), &result) != JsNoError)
-      {
-        return false;
-      }
-
-      return result;
-    });
-  }
+  return function;
 }
+
+Local<ObjectTemplate> FunctionTemplate::InstanceTemplate() {
+  void *externalData;
+  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    return Local<ObjectTemplate>();
+  }
+
+  FunctionTemplateData *functionTemplateData =
+    reinterpret_cast<FunctionTemplateData*>(externalData);
+  FunctionCallbackData * functionCallbackData =
+    functionTemplateData->callbackData;
+  return Local<ObjectTemplate>::New(*functionCallbackData->instanceTemplate);
+}
+
+Local<ObjectTemplate> FunctionTemplate::PrototypeTemplate() {
+  void *externalData;
+  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    return Local<ObjectTemplate>();
+  }
+
+  FunctionTemplateData *functionTemplateData =
+    reinterpret_cast<FunctionTemplateData*>(externalData);
+
+  if (functionTemplateData->prototypeTemplate.IsEmpty()) {
+    functionTemplateData->prototypeTemplate =
+      Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
+  }
+
+  // The V8 specs are silent on what's supposed to happen here if the function
+  // has been created. If you try and modify the prototype template, what's
+  // supposed to happen given that the prototype object must have already been
+  // created?
+
+  return Local<ObjectTemplate>::New(*functionTemplateData->prototypeTemplate);
+}
+
+void FunctionTemplate::SetClassName(Handle<String> name) {
+  void *externalData;
+  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    return;
+  }
+
+  FunctionTemplateData *functionTemplateData =
+    reinterpret_cast<FunctionTemplateData*>(externalData);
+  FunctionCallbackData * functionCallbackData =
+    functionTemplateData->callbackData;
+  functionCallbackData->instanceTemplate->SetClassName(name);
+}
+
+void FunctionTemplate::SetHiddenPrototype(bool value) {
+  // CHAKRA-TODO
+}
+
+bool FunctionTemplate::HasInstance(Handle<Value> object) {
+  return ContextShim::ExecuteInContextOf<bool>(this, [&]() {
+    void *externalData;
+    if (JsGetExternalData(this, &externalData) != JsNoError) {
+      return false;
+    }
+
+    FunctionTemplateData *functionTemplateData =
+      reinterpret_cast<FunctionTemplateData*>(externalData);
+    FunctionCallbackData * functionCallbackData =
+      functionTemplateData->callbackData;
+
+    bool result;
+    if (jsrt::InstanceOf(*object, *GetFunction(), &result) != JsNoError) {
+      return false;
+    }
+
+    return result;
+  });
+}
+
+}  // namespace v8

@@ -22,44 +22,39 @@
 #include "v8-debug.h"
 #include "jsrtutils.h"
 
-namespace v8
-{
-  __declspec(thread) bool g_EnableDebug = false;
+namespace v8 {
 
-  bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection)
-  {
-    HRESULT hr = S_OK;
+__declspec(thread) bool g_EnableDebug = false;
 
-    if (!g_EnableDebug)
-    {
-      // JsStartDebugging needs COM initialization
-      IfComFailError(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
+bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
+  HRESULT hr = S_OK;
 
-      g_EnableDebug = true;
+  if (!g_EnableDebug) {
+    // JsStartDebugging needs COM initialization
+    IfComFailError(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
 
-      Local<Context> currentContext = Context::GetCurrent();
-      if (!currentContext.IsEmpty())
-      {
-        // Turn on debug mode on current Context (script engine), which was
-        // created before start debugging and not in debug mode.
-        JsStartDebugging();
-      }
+    g_EnableDebug = true;
+
+    Local<Context> currentContext = Context::GetCurrent();
+    if (!currentContext.IsEmpty()) {
+      // Turn on debug mode on current Context (script engine), which was
+      // created before start debugging and not in debug mode.
+      JsStartDebugging();
     }
-
-  error:
-    return SUCCEEDED(hr);
   }
 
-  bool Debug::IsAgentEnabled()
-  {
-    return g_EnableDebug;
-  }
+ error:
+  return SUCCEEDED(hr);
+}
 
-  void Debug::Dispose()
-  {
-    if (g_EnableDebug)
-    {
-      CoUninitialize();
-    }
+bool Debug::IsAgentEnabled() {
+  return g_EnableDebug;
+}
+
+void Debug::Dispose() {
+  if (g_EnableDebug) {
+    CoUninitialize();
   }
 }
+
+}  // namespace v8

@@ -20,211 +20,202 @@
 
 #include "v8.h"
 #include "jsrtutils.h"
-
 #include <memory>
 
-namespace v8
-{
-  __declspec(thread) JsSourceContext currentContext;
+namespace v8 {
 
-  Local<Script> Script::Compile(Handle<String> source, ScriptOrigin* origin)
-  {
-    return Compile(source, origin->ResourceName());
-  }
+__declspec(thread) JsSourceContext currentContext;
 
-  // Create a object to hold the script infomration
-  static JsErrorCode CreateScriptObject(JsValueRef sourceRef, JsValueRef filenameRef, JsValueRef scriptFunction, JsValueRef * scriptObject)
-  {
-    JsErrorCode error = JsCreateObject(scriptObject);
-    if (error != JsNoError)
-    {
-      return error;
-    }
-
-    error = jsrt::SetProperty(*scriptObject, L"source", sourceRef);
-    if (error != JsNoError)
-    {
-      return error;
-    }
-
-    error = jsrt::SetProperty(*scriptObject, L"filename", filenameRef);
-    if (error != JsNoError)
-    {
-      return error;
-    }
-
-    return jsrt::SetProperty(*scriptObject, L"function", scriptFunction);
-  }
-
-  // Compiled script object, bound to the context that was active when this function was called. When run it will always use this context.
-  Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name)
-  {
-    JsValueRef filenameRef;
-    const wchar_t* filename;
-    if (jsrt::ToString(*file_name, &filenameRef, &filename) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-    JsValueRef sourceRef;
-    const wchar_t *script;
-    if (jsrt::ToString(*source, &sourceRef, &script) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-    JsValueRef scriptFunction;
-    if (JsParseScript(script, currentContext++, filename, &scriptFunction) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-    JsValueRef scriptObject;
-    if (CreateScriptObject(sourceRef, filenameRef, scriptFunction, &scriptObject) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-
-    return Local<Script>::New((Script *)scriptObject);
-  }
-
-  Local<Value> Script::Run()
-  {
-    JsValueRef scriptFunction;
-    if (jsrt::GetProperty(this, L"function", &scriptFunction) != JsNoError)
-    {
-      return Local<Value>();
-    }
-
-    JsValueRef result;
-    if (JsCallFunction(scriptFunction, nullptr, 0, &result) != JsNoError)
-    {
-      return Local<Value>();
-    }
-
-    return Local<Value>::New((Value *) result);
-  }
-
-  static void CALLBACK UnboundScriptFinalizeCallback(void * data)
-  {
-    JsValueRef * unboundScriptData = (JsValueRef *)data;
-    jsrt::IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(*unboundScriptData);
-    delete unboundScriptData;
-  }
-  Local<UnboundScript> Script::GetUnboundScript()
-  {
-    // Chakra doesn't support unbound script, the script object contains all the information to recompile
-
-    JsValueRef * unboundScriptData = new JsValueRef;
-    JsValueRef unboundScriptRef;
-    if (JsCreateExternalObject(unboundScriptData, UnboundScriptFinalizeCallback, &unboundScriptRef) != JsNoError)
-    {
-      delete unboundScriptData;
-      return Local<UnboundScript>();
-    }
-
-    if (jsrt::SetProperty(unboundScriptRef, L"script", this) != JsNoError)
-    {
-      delete unboundScriptData;
-      return Local<UnboundScript>();
-    }
-    *unboundScriptData = unboundScriptRef;
-
-    // CHAKRA-REVIEW: Since chakra doesn't allow access of object from another context, we need to keep
-    // track of the context the unbound script is
-    jsrt::IsolateShim::GetCurrent()->RegisterJsValueRefContextShim(unboundScriptRef);
-    return Local<UnboundScript>((UnboundScript*)unboundScriptRef);
-  }
-
-  Local<Script> UnboundScript::BindToCurrentContext()
-  {
-    jsrt::ContextShim * contextShim = jsrt::IsolateShim::GetCurrent()->GetJsValueRefContextShim(this);
-    if (contextShim == jsrt::ContextShim::GetCurrent())
-    {
-      JsValueRef scriptRef;
-      if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError)
-      {
-        return Local<Script>();
-      }
-      // Same context, we can reuse the same script object
-      return Local<Script>((Script *)scriptRef);
-    }
-
-    // Create a script object in another context
-    const wchar_t * source;
-    size_t sourceLength;
-    const wchar_t * filename;
-    size_t filenameLength;
-
-    {
-      jsrt::ContextShim::Scope scope(contextShim);
-      JsValueRef scriptRef;
-      if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError)
-      {
-        return Local<Script>();
-      }
-
-      JsValueRef originalSourceRef;
-      if (jsrt::GetProperty(scriptRef, L"source", &originalSourceRef) != JsNoError)
-      {
-        return Local<Script>();
-      }
-      JsValueRef originalFilenameRef;
-      if (jsrt::GetProperty(scriptRef, L"filename", &originalFilenameRef) != JsNoError)
-      {
-        return Local<Script>();
-      }
-      if (JsStringToPointer(originalSourceRef, &source, &sourceLength) != JsNoError)
-      {
-        return Local<Script>();
-      }
-      if (JsStringToPointer(originalFilenameRef, &filename, &filenameLength) != JsNoError)
-      {
-        return Local<Script>();
-      }
-    }
-
-    JsValueRef scriptFunction;
-    if (JsParseScript(source, currentContext++, filename, &scriptFunction) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-    JsValueRef sourceRef;
-    if (JsPointerToString(source, sourceLength, &sourceRef) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-    JsValueRef filenameRef;
-    if (JsPointerToString(filename, filenameLength, &filenameRef) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-    JsValueRef scriptObject;
-    if (CreateScriptObject(sourceRef, filenameRef, scriptFunction, &scriptObject) != JsNoError)
-    {
-      return Local<Script>();
-    }
-
-    return Local<Script>((Script*)scriptObject);
-  }
-
-  Local<UnboundScript> ScriptCompiler::CompileUnbound(Isolate* isolate, Source* source, CompileOptions options)
-  {
-    Local<Script> script = Compile(isolate, source, options);
-    if (script.IsEmpty())
-    {
-      return Local<UnboundScript>();
-    }
-    return script->GetUnboundScript();
-  }
-
-  Local<Script> ScriptCompiler::Compile(Isolate* isolate, Source* source, CompileOptions options)
-  {
-    return Script::Compile(source->source_string, source->resource_name);
-  }
-
+Local<Script> Script::Compile(Handle<String> source, ScriptOrigin* origin) {
+  return Compile(source, origin->ResourceName());
 }
+
+// Create a object to hold the script infomration
+static JsErrorCode CreateScriptObject(JsValueRef sourceRef,
+                                      JsValueRef filenameRef,
+                                      JsValueRef scriptFunction,
+                                      JsValueRef * scriptObject) {
+  JsErrorCode error = JsCreateObject(scriptObject);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  error = jsrt::SetProperty(*scriptObject, L"source", sourceRef);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  error = jsrt::SetProperty(*scriptObject, L"filename", filenameRef);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return jsrt::SetProperty(*scriptObject, L"function", scriptFunction);
+}
+
+// Compiled script object, bound to the context that was active when this
+// function was called. When run it will always use this context.
+Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name) {
+  JsValueRef filenameRef;
+  const wchar_t* filename;
+  if (jsrt::ToString(*file_name, &filenameRef, &filename) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef sourceRef;
+  const wchar_t *script;
+  if (jsrt::ToString(*source, &sourceRef, &script) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef scriptFunction;
+  if (JsParseScript(script,
+                    currentContext++, filename, &scriptFunction) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef scriptObject;
+  if (CreateScriptObject(sourceRef,
+                         filenameRef,
+                         scriptFunction,
+                         &scriptObject) != JsNoError) {
+    return Local<Script>();
+  }
+
+
+  return Local<Script>::New(static_cast<Script *>(scriptObject));
+}
+
+Local<Value> Script::Run() {
+  JsValueRef scriptFunction;
+  if (jsrt::GetProperty(this, L"function", &scriptFunction) != JsNoError) {
+    return Local<Value>();
+  }
+
+  JsValueRef result;
+  if (JsCallFunction(scriptFunction, nullptr, 0, &result) != JsNoError) {
+    return Local<Value>();
+  }
+
+  return Local<Value>::New(static_cast<Value *>(result));
+}
+
+static void CALLBACK UnboundScriptFinalizeCallback(void * data) {
+  JsValueRef * unboundScriptData = static_cast<JsValueRef *>(data);
+  jsrt::IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(
+    *unboundScriptData);
+  delete unboundScriptData;
+}
+Local<UnboundScript> Script::GetUnboundScript() {
+  // Chakra doesn't support unbound script, the script object contains all the
+  // information to recompile
+
+  JsValueRef * unboundScriptData = new JsValueRef;
+  JsValueRef unboundScriptRef;
+  if (JsCreateExternalObject(unboundScriptData,
+                             UnboundScriptFinalizeCallback,
+                             &unboundScriptRef) != JsNoError) {
+    delete unboundScriptData;
+    return Local<UnboundScript>();
+  }
+
+  if (jsrt::SetProperty(unboundScriptRef, L"script", this) != JsNoError) {
+    delete unboundScriptData;
+    return Local<UnboundScript>();
+  }
+  *unboundScriptData = unboundScriptRef;
+
+  // CHAKRA-REVIEW: Since chakra doesn't allow access of object from another
+  // context, we need to keep track of the context the unbound script is
+  jsrt::IsolateShim::GetCurrent()->RegisterJsValueRefContextShim(
+    unboundScriptRef);
+  return Local<UnboundScript>(static_cast<UnboundScript*>(unboundScriptRef));
+}
+
+Local<Script> UnboundScript::BindToCurrentContext() {
+  jsrt::ContextShim * contextShim =
+    jsrt::IsolateShim::GetCurrent()->GetJsValueRefContextShim(this);
+  if (contextShim == jsrt::ContextShim::GetCurrent()) {
+    JsValueRef scriptRef;
+    if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError) {
+      return Local<Script>();
+    }
+    // Same context, we can reuse the same script object
+    return Local<Script>(static_cast<Script *>(scriptRef));
+  }
+
+  // Create a script object in another context
+  const wchar_t * source;
+  size_t sourceLength;
+  const wchar_t * filename;
+  size_t filenameLength;
+
+  {
+    jsrt::ContextShim::Scope scope(contextShim);
+    JsValueRef scriptRef;
+    if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError) {
+      return Local<Script>();
+    }
+
+    JsValueRef originalSourceRef;
+    if (jsrt::GetProperty(scriptRef,
+                          L"source", &originalSourceRef) != JsNoError) {
+      return Local<Script>();
+    }
+    JsValueRef originalFilenameRef;
+    if (jsrt::GetProperty(scriptRef,
+                          L"filename", &originalFilenameRef) != JsNoError) {
+      return Local<Script>();
+    }
+    if (JsStringToPointer(originalSourceRef,
+                          &source, &sourceLength) != JsNoError) {
+      return Local<Script>();
+    }
+    if (JsStringToPointer(originalFilenameRef,
+                          &filename, &filenameLength) != JsNoError) {
+      return Local<Script>();
+    }
+  }
+
+  JsValueRef scriptFunction;
+  if (JsParseScript(source,
+                    currentContext++, filename, &scriptFunction) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef sourceRef;
+  if (JsPointerToString(source, sourceLength, &sourceRef) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef filenameRef;
+  if (JsPointerToString(filename, filenameLength, &filenameRef) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef scriptObject;
+  if (CreateScriptObject(sourceRef,
+                         filenameRef,
+                         scriptFunction,
+                         &scriptObject) != JsNoError) {
+    return Local<Script>();
+  }
+
+  return Local<Script>(static_cast<Script*>(scriptObject));
+}
+
+Local<UnboundScript> ScriptCompiler::CompileUnbound(
+    Isolate* isolate, Source* source, CompileOptions options) {
+  Local<Script> script = Compile(isolate, source, options);
+  if (script.IsEmpty()) {
+    return Local<UnboundScript>();
+  }
+  return script->GetUnboundScript();
+}
+
+Local<Script> ScriptCompiler::Compile(
+    Isolate* isolate, Source* source, CompileOptions options) {
+  return Script::Compile(source->source_string, source->resource_name);
+}
+
+}  // namespace v8

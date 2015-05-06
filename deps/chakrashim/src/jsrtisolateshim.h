@@ -19,116 +19,118 @@
 // IN THE SOFTWARE.
 
 #include <unordered_map>
+#include <vector>
 
-namespace v8
-{
-  class Isolate;
-  class TryCatch;
-};
+namespace v8 {
 
-namespace jsrt
-{
-  enum CachedPropertyIdRef
-  {
+class Isolate;
+class TryCatch;
+
+}  // namespace v8
+
+namespace jsrt {
+
+enum CachedPropertyIdRef {
 #define DEF(x,...) x,
-#include "jsrtcachedpropertyidref.h"
-    Count
-  };
-
-  class IsolateShim
-  {
-  public:
-
-    bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC);
-    bool GetMemoryUsage(size_t * memoryUsage);
-    bool Dispose();
-
-    static v8::Isolate * New();
-    static v8::Isolate * GetCurrentAsIsolate();
-    static IsolateShim * GetCurrent();
-    static IsolateShim * FromIsolate(v8::Isolate * isolate);
-    static void DisposeAll();
-
-    ContextShim * GetContextShim(JsContextRef contextRef);
-    JsRuntimeHandle GetRuntimeHandle();
-    ContextShim * GetObjectContext(JsValueRef valueRef);
-
-    void Enter();
-    void Exit();
-
-    void PushScope(ContextShim::Scope * scope, JsContextRef contextRef);
-    void PushScope(ContextShim::Scope * scope, ContextShim * contextShim);
-    void PopScope(ContextShim::Scope * scope);
-
-    ContextShim * GetCurrentContextShim();
-
-    // Symbols proeprtyIdRef
-    JsPropertyIdRef GetSelfSymbolPropertyIdRef();
-    JsPropertyIdRef GetCrossContextTargetSymbolPropertyIdRef();
-    JsPropertyIdRef GetKeepAliveObjectSymbolPropertyIdRef();
-
-    // String proeprtyIdRef
-    JsPropertyIdRef GetProxyTrapPropertyIdRef(ProxyTraps trap);
-    JsPropertyIdRef GetCachedPropertyIdRef(CachedPropertyIdRef cachedPropertyIdRef);
-
-    // CHAKRA-REVIEW: Work around the fact that chakra doesn't support cross context
-    // use of object, we need to keep track of the context of these object so we can
-    // switch back and forth
-    void RegisterJsValueRefContextShim(JsValueRef valueRef);
-    void UnregisterJsValueRefContextShim(JsValueRef valueRef);
-    ContextShim * GetJsValueRefContextShim(JsValueRef valueRef);
-
-    void DisableExecution();
-    bool IsExeuctionDisabled();
-    void EnableExecution();
-
-
-    bool AddMessageListener(void * that);
-    void RemoveMessageListeners(void * that);
-    template <typename Fn>
-    void ForEachMessageListener(Fn fn)
-    {
-      for (auto i = messageListeners.begin(); i != messageListeners.end(); i++)
-      {
-        fn(*i);
-      }
-    }
-
-    void SetData(unsigned int slot, void* data);
-    void* GetData(unsigned int slot);
-  private:
-    // Construction/Destruction should go thru New/Dispose
-    IsolateShim(JsRuntimeHandle runtime);
-    ~IsolateShim();
-    static v8::Isolate * ToIsolate(IsolateShim * isolate);
-    static void CALLBACK JsContextBeforeCollectCallback(_In_ JsRef contextRef, _In_opt_ void *data);
-
-    JsPropertyIdRef EnsurePrivateSymbol(JsPropertyIdRef * propertyIdRefPtr);
-    JsPropertyIdRef EnsurePropertyIdRef(const wchar_t * name, JsPropertyIdRef * propertyIdRefPtr);
-
-    JsRuntimeHandle runtime;
-    JsPropertyIdRef selfSymbolPropertyIdRef;
-    JsPropertyIdRef crossContextTargetSymbolPropertyIdRef;
-    JsPropertyIdRef keepAliveObjectSymbolPropertyIdRef;
-    JsPropertyIdRef cachedPropertyIdRefs[CachedPropertyIdRef::Count];
-
-    ContextShim::Scope * contextScopeStack;
-    IsolateShim ** prevnext;
-    IsolateShim * next;
-
-    friend class v8::TryCatch;
-    v8::TryCatch * tryCatchStackTop;
-
-    std::unordered_map<JsContextRef, ContextShim *> contextShimMap;
-    std::unordered_map<JsValueRef, ContextShim *> jsValueRefToContextShimMap;
-    std::vector<void *> messageListeners;
-
-    // Node only has 4 slots (internals::Internals::kNumIsolateDataSlots = 4)
-    void * embeddedData[4];
-
-    // CHAKRA-TODO: support multiple shims
-    static IsolateShim * s_isolateList;
-
-    static __declspec(thread) IsolateShim * s_currentIsolate;
-  };
+#include "jsrtcachedpropertyidref.inc"
+  Count
 };
+
+class IsolateShim {
+ public:
+
+  bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC);
+  bool GetMemoryUsage(size_t * memoryUsage);
+  bool Dispose();
+
+  static v8::Isolate * New();
+  static v8::Isolate * GetCurrentAsIsolate();
+  static IsolateShim * GetCurrent();
+  static IsolateShim * FromIsolate(v8::Isolate * isolate);
+  static void DisposeAll();
+
+  ContextShim * GetContextShim(JsContextRef contextRef);
+  JsRuntimeHandle GetRuntimeHandle();
+  ContextShim * GetObjectContext(JsValueRef valueRef);
+
+  void Enter();
+  void Exit();
+
+  void PushScope(ContextShim::Scope * scope, JsContextRef contextRef);
+  void PushScope(ContextShim::Scope * scope, ContextShim * contextShim);
+  void PopScope(ContextShim::Scope * scope);
+
+  ContextShim * GetCurrentContextShim();
+
+  // Symbols proeprtyIdRef
+  JsPropertyIdRef GetSelfSymbolPropertyIdRef();
+  JsPropertyIdRef GetCrossContextTargetSymbolPropertyIdRef();
+  JsPropertyIdRef GetKeepAliveObjectSymbolPropertyIdRef();
+
+  // String proeprtyIdRef
+  JsPropertyIdRef GetProxyTrapPropertyIdRef(ProxyTraps trap);
+  JsPropertyIdRef GetCachedPropertyIdRef(
+    CachedPropertyIdRef cachedPropertyIdRef);
+
+  // CHAKRA-REVIEW: Work around the fact that chakra doesn't support cross
+  // context use of object, we need to keep track of the context of these object
+  // so we can switch back and forth
+  void RegisterJsValueRefContextShim(JsValueRef valueRef);
+  void UnregisterJsValueRefContextShim(JsValueRef valueRef);
+  ContextShim * GetJsValueRefContextShim(JsValueRef valueRef);
+
+  void DisableExecution();
+  bool IsExeuctionDisabled();
+  void EnableExecution();
+
+
+  bool AddMessageListener(void * that);
+  void RemoveMessageListeners(void * that);
+  template <typename Fn>
+  void ForEachMessageListener(Fn fn) {
+    for (auto i = messageListeners.begin(); i != messageListeners.end(); i++) {
+      fn(*i);
+    }
+  }
+
+  void SetData(unsigned int slot, void* data);
+  void* GetData(unsigned int slot);
+ private:
+  // Construction/Destruction should go thru New/Dispose
+  explicit IsolateShim(JsRuntimeHandle runtime);
+  ~IsolateShim();
+  static v8::Isolate * ToIsolate(IsolateShim * isolate);
+  static void CALLBACK JsContextBeforeCollectCallback(
+    _In_ JsRef contextRef, _In_opt_ void *data);
+
+  JsPropertyIdRef EnsurePrivateSymbol(JsPropertyIdRef * propertyIdRefPtr);
+  JsPropertyIdRef EnsurePropertyIdRef(
+    const wchar_t * name, JsPropertyIdRef * propertyIdRefPtr);
+
+  JsRuntimeHandle runtime;
+  JsPropertyIdRef selfSymbolPropertyIdRef;
+  JsPropertyIdRef crossContextTargetSymbolPropertyIdRef;
+  JsPropertyIdRef keepAliveObjectSymbolPropertyIdRef;
+  JsPropertyIdRef cachedPropertyIdRefs[CachedPropertyIdRef::Count];
+
+  ContextShim::Scope * contextScopeStack;
+  IsolateShim ** prevnext;
+  IsolateShim * next;
+
+  friend class v8::TryCatch;
+  v8::TryCatch * tryCatchStackTop;
+
+  std::unordered_map<JsContextRef, ContextShim *> contextShimMap;
+  std::unordered_map<JsValueRef, ContextShim *> jsValueRefToContextShimMap;
+  std::vector<void *> messageListeners;
+
+  // Node only has 4 slots (internals::Internals::kNumIsolateDataSlots = 4)
+  void * embeddedData[4];
+
+  // CHAKRA-TODO: support multiple shims
+  static IsolateShim * s_isolateList;
+
+  static __declspec(thread) IsolateShim * s_currentIsolate;
+};
+
+}  // namespace jsrt

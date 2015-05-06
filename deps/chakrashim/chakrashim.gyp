@@ -50,7 +50,7 @@
       'include/v8.h',
       'include/v8-debug.h',
       'include/v8-profiler.h',
-      'src/jsrtcachedpropertyidref.h',
+      'src/jsrtcachedpropertyidref.inc',
       'src/jsrtcontextshim.cc',
       'src/jsrtcontextshim.h',
       'src/jsrtcrosscontext.cc',

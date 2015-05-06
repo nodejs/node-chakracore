@@ -22,23 +22,20 @@
 #include "v8chakra.h"
 #include "jsrtutils.h"
 
-using namespace jsrt;
+namespace v8 {
 
-namespace v8
-{
-  Template::Template()
-  {
+Template::Template() {
+}
+
+void Template::Set(
+    Handle<String> name, Handle<Data> value, PropertyAttribute attributes) {
+  void* externalData;
+  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    return;
   }
 
-  void Template::Set(Handle<String> name, Handle<Data> value, PropertyAttribute attributes)
-  {
-    void* externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError)
-    {
-        return;
-    }
+  TemplateData *templateData = reinterpret_cast<TemplateData*>(externalData);
+  templateData->properties->Set(name, value, attributes);
+}
 
-    TemplateData *templateData = reinterpret_cast<TemplateData*>(externalData);
-    templateData->properties->Set(name, value, attributes);
-  }
-};
+}  // namespace v8

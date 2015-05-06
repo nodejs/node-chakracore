@@ -22,31 +22,27 @@
 #include "jsrt.h"
 #include "jsrtutils.h"
 
-namespace v8
-{
-  Handle<Primitive> Undefined(Isolate* isolate)
-  {
-    return Handle<Primitive>((Primitive *)jsrt::GetUndefined());
-  }
+namespace v8 {
 
-  Handle<Primitive> Null(Isolate* isolate)
-  {
-    return Handle<Primitive>((Primitive *)jsrt::GetNull());
-  }
-
-  Handle<Boolean> True(Isolate* isolate)
-  {
-    return Handle<Primitive>((Primitive *)jsrt::GetTrue());
-  }
-
-  Handle<Boolean> False(Isolate* isolate)
-  {
-    return Handle<Primitive>((Primitive *)jsrt::GetFalse());
-  }
-
-  bool SetResourceConstraints(ResourceConstraints *constraints)
-  {
-    // TODO: Ignore for now, we don't support setting the stack limit.
-    return true;
-  }
+Handle<Primitive> Undefined(Isolate* isolate) {
+  return Handle<Primitive>(static_cast<Primitive *>(jsrt::GetUndefined()));
 }
+
+Handle<Primitive> Null(Isolate* isolate) {
+  return Handle<Primitive>(static_cast<Primitive *>(jsrt::GetNull()));
+}
+
+Handle<Boolean> True(Isolate* isolate) {
+  return Handle<Primitive>(static_cast<Primitive *>(jsrt::GetTrue()));
+}
+
+Handle<Boolean> False(Isolate* isolate) {
+  return Handle<Primitive>(static_cast<Primitive *>(jsrt::GetFalse()));
+}
+
+bool SetResourceConstraints(ResourceConstraints *constraints) {
+  // CHAKRA-TODO: Ignore for now, we don't support setting the stack limit.
+  return true;
+}
+
+}  // namespace v8

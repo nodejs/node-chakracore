@@ -24,40 +24,39 @@
 #pragma once
 #include <jsrt.h>
 
-namespace v8
-{
-  struct ObjectTemplateData;
+namespace v8 {
 
-  extern __declspec(thread) bool g_EnableDebug;
+struct ObjectTemplateData;
 
-  struct ObjectData
-  {
-  public:
-    JsValueRef objectInstance;
-    Persistent<ObjectTemplate> objectTemplate; // Original ObjectTemplate
-    NamedPropertyGetterCallback namedPropertyGetter;
-    NamedPropertySetterCallback namedPropertySetter;
-    NamedPropertyQueryCallback namedPropertyQuery;
-    NamedPropertyDeleterCallback namedPropertyDeleter;
-    NamedPropertyEnumeratorCallback namedPropertyEnumerator;
-    Persistent<Value> namedPropertyInterceptorData;
-    IndexedPropertyGetterCallback indexedPropertyGetter;
-    IndexedPropertySetterCallback indexedPropertySetter;
-    IndexedPropertyQueryCallback indexedPropertyQuery;
-    IndexedPropertyDeleterCallback indexedPropertyDeleter;
-    IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
-    Persistent<Value> indexedPropertyInterceptorData;
-    int internalFieldCount;
-    void **internalFields;
+extern __declspec(thread) bool g_EnableDebug;
 
-    ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData);
-  };
+struct ObjectData {
+ public:
+  JsValueRef objectInstance;
+  Persistent<ObjectTemplate> objectTemplate;  // Original ObjectTemplate
+  NamedPropertyGetterCallback namedPropertyGetter;
+  NamedPropertySetterCallback namedPropertySetter;
+  NamedPropertyQueryCallback namedPropertyQuery;
+  NamedPropertyDeleterCallback namedPropertyDeleter;
+  NamedPropertyEnumeratorCallback namedPropertyEnumerator;
+  Persistent<Value> namedPropertyInterceptorData;
+  IndexedPropertyGetterCallback indexedPropertyGetter;
+  IndexedPropertySetterCallback indexedPropertySetter;
+  IndexedPropertyQueryCallback indexedPropertyQuery;
+  IndexedPropertyDeleterCallback indexedPropertyDeleter;
+  IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
+  Persistent<Value> indexedPropertyInterceptorData;
+  int internalFieldCount;
+  void **internalFields;
 
-  struct TemplateData
-  {
-  public:
-    Persistent<Object> properties;
-  protected:
-    TemplateData() : properties() {};
-  };
-}
+  ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData);
+};
+
+struct TemplateData {
+ public:
+  Persistent<Object> properties;
+ protected:
+  TemplateData() : properties() {}
+};
+
+}  // namespace v8

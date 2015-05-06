@@ -21,39 +21,40 @@
 #include "v8.h"
 #include "jsrtutils.h"
 
-using namespace jsrt;
+namespace v8 {
 
-namespace v8
-{
-  Local<Value> NumberObject::New(Isolate * isolate, double value)
-  {
-    JsValueRef numberObjectConstructor = IsolateShim::FromIsolate(isolate)->GetCurrentContextShim()->GetNumberObjectConstructor();
-    JsValueRef newNumberObjectRef;
-    JsValueRef numberRef;
-    if (JsDoubleToNumber(value, &numberRef) != JsNoError)
-    {
-      return Local<Value>();
-    }
+using jsrt::IsolateShim;
 
-    JsValueRef args[] = { nullptr, numberRef };
-
-    if (JsConstructObject(numberObjectConstructor, args, _countof(args), &newNumberObjectRef) != JsNoError)
-    {
-      return Local<Value>();
-    }
-
-    return Local<NumberObject>::New((NumberObject*)newNumberObjectRef);
+Local<Value> NumberObject::New(Isolate * isolate, double value) {
+  JsValueRef numberObjectConstructor = IsolateShim::FromIsolate(isolate)
+                        ->GetCurrentContextShim()->GetNumberObjectConstructor();
+  JsValueRef newNumberObjectRef;
+  JsValueRef numberRef;
+  if (JsDoubleToNumber(value, &numberRef) != JsNoError) {
+    return Local<Value>();
   }
 
-  NumberObject *NumberObject::Cast(v8::Value *obj)
-  {
-    if (!obj->IsNumberObject())
-    {
-      // TODO: what should we return in this case?
-      // just exit and print?
-      return nullptr;
-    }
+  JsValueRef args[] = { nullptr, numberRef };
 
-    return static_cast<NumberObject*>(obj);
+  if (JsConstructObject(numberObjectConstructor,
+                        args,
+                        _countof(args),
+                        &newNumberObjectRef) != JsNoError) {
+    return Local<Value>();
   }
+
+  return Local<NumberObject>::New(
+    static_cast<NumberObject*>(newNumberObjectRef));
 }
+
+NumberObject *NumberObject::Cast(v8::Value *obj) {
+  if (!obj->IsNumberObject()) {
+    // CHAKRA-TODO: what should we return in this case?
+    // just exit and print?
+    return nullptr;
+  }
+
+  return static_cast<NumberObject*>(obj);
+}
+
+}  // namespace v8

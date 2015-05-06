@@ -23,41 +23,38 @@
 #include "jsrt.h"
 #include "jsrtutils.h"
 
-namespace jsrt
-{
-  // Proxy Traps types, please see:
-  // http://wiki.ecmascript.org/doku.php?id=harmony:direct_proxies
-  // for more details regarding harmony proxies
-  enum ProxyTraps
-  {
-    ApplyTrap,
-    ConstructTrap,
-    DefinePropertyTrap,
-    DeletePropertyTrap,
-    EnumerateTrap,
-    GetTrap,
-    GetOwnPropertyDescriptorTrap,
-    GetPrototypeOfTrap,
-    HasTrap,
-    IsExtensibleTrap,
-    OwnKeysTrap,
-    PreventExtensionsTrap,
-    SetTrap,
-    SetPrototypeOfTrap,
-    TrapCount
-  };
+namespace jsrt {
+// Proxy Traps types, please see:
+// http://wiki.ecmascript.org/doku.php?id=harmony:direct_proxies
+// for more details regarding harmony proxies
+enum ProxyTraps {
+  ApplyTrap,
+  ConstructTrap,
+  DefinePropertyTrap,
+  DeletePropertyTrap,
+  EnumerateTrap,
+  GetTrap,
+  GetOwnPropertyDescriptorTrap,
+  GetPrototypeOfTrap,
+  HasTrap,
+  IsExtensibleTrap,
+  OwnKeysTrap,
+  PreventExtensionsTrap,
+  SetTrap,
+  SetPrototypeOfTrap,
+  TrapCount
+};
 
-  enum CachedPropertyIdRef;
-  CachedPropertyIdRef GetProxyTrapCachedPropertyIdRef(ProxyTraps trap);
+enum CachedPropertyIdRef;
+CachedPropertyIdRef GetProxyTrapCachedPropertyIdRef(ProxyTraps trap);
 
-  JsErrorCode CreateProxy(
+JsErrorCode CreateProxy(
     _In_ JsValueRef target,
     _In_ const JsNativeFunction config[ProxyTraps::TrapCount],
-    _Out_ JsValueRef *result
-    );
+    _Out_ JsValueRef *result);
 
-  JsErrorCode TryParseUInt32(
-    _In_ JsValueRef strRef,
-    _Out_ bool* isUInt32,
-    _Out_ unsigned int *uint32Value);
-}
+JsErrorCode TryParseUInt32(_In_ JsValueRef strRef,
+                           _Out_ bool* isUInt32,
+                           _Out_ unsigned int *uint32Value);
+
+}  // namespace jsrt
