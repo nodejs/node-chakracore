@@ -21,92 +21,80 @@
 #include "v8.h"
 #include "jsrt.h"
 
-namespace v8
-{
-  __declspec(thread) HandleScope *current = nullptr;
+namespace v8 {
 
-  HandleScope::HandleScope(Isolate* isolate) :
-    _prev(current),
-    _refs(JS_INVALID_REFERENCE),
-    _count(0),
-    _contextRef(JS_INVALID_REFERENCE),
-    _addRefRecordHead(nullptr)
-  {
-    current = this;
+__declspec(thread) HandleScope *current = nullptr;
+
+HandleScope::HandleScope(Isolate* isolate)
+    : _prev(current),
+      _refs(JS_INVALID_REFERENCE),
+      _count(0),
+      _contextRef(JS_INVALID_REFERENCE),
+      _addRefRecordHead(nullptr) {
+  current = this;
+}
+
+HandleScope::~HandleScope() {
+  current = _prev;
+
+  AddRefRecord * currRecord = this->_addRefRecordHead;
+  while (currRecord != nullptr) {
+    AddRefRecord * nextRecord = currRecord->_next;
+    // CHAKRA-TODO: Report error?
+    JsRelease(currRecord->_ref, nullptr);
+    delete currRecord;
+    currRecord = nextRecord;
   }
+}
 
-  HandleScope::~HandleScope()
-  {
-    current = _prev;
+HandleScope *HandleScope::GetCurrent() {
+  return current;
+}
 
-    AddRefRecord * currRecord = this->_addRefRecordHead;
-    while (currRecord != nullptr)
-    {
-      AddRefRecord * nextRecord = currRecord->_next;
-      // TODO: Report error?
-      JsRelease(currRecord->_ref, nullptr);
-      delete currRecord;
-      currRecord = nextRecord;
-    }
-  }
-
-  HandleScope *HandleScope::GetCurrent()
-  {
-    return current;
-  }
-
-  bool HandleScope::AddLocal(JsValueRef value)
-  {
-    if (_refs == JS_INVALID_REFERENCE)
-    {
-      if (JsCreateArray(1, &_refs) != JsNoError)
-      {
-        return AddLocalAddRef(value);
-      }
-    }
-
-    JsValueRef index;
-
-    if (JsIntToNumber(_count, &index) != JsNoError)
-    {
+bool HandleScope::AddLocal(JsValueRef value) {
+  if (_refs == JS_INVALID_REFERENCE) {
+    if (JsCreateArray(1, &_refs) != JsNoError) {
       return AddLocalAddRef(value);
     }
-
-    if (JsSetIndexedProperty(_refs, index, value) != JsNoError)
-    {
-      return AddLocalAddRef(value);
-    }
-
-    _count++;
-    return true;
   }
 
-  bool HandleScope::AddLocalContext(JsContextRef value)
-  {
-    // JsContextRef are not javascript values, so we can't put them
-    // in the array.  We will need to AddRef/Release them.
+  JsValueRef index;
 
-    if (_contextRef == JS_INVALID_REFERENCE)
-    {
-      // HandleScope are on the stack, so no need to AddRef/Release it.
-      _contextRef = value;
-      return true;
-    }
-
+  if (JsIntToNumber(_count, &index) != JsNoError) {
     return AddLocalAddRef(value);
   }
 
-  bool HandleScope::AddLocalAddRef(JsRef value)
-  {
-    if (JsAddRef(value, nullptr) != JsNoError)
-    {
-      return false;
-    }
+  if (JsSetIndexedProperty(_refs, index, value) != JsNoError) {
+    return AddLocalAddRef(value);
+  }
 
-    AddRefRecord * newAddRefRecord = new AddRefRecord;
-    newAddRefRecord->_ref = value;
-    newAddRefRecord->_next = this->_addRefRecordHead;
-    this->_addRefRecordHead = newAddRefRecord;
+  _count++;
+  return true;
+}
+
+bool HandleScope::AddLocalContext(JsContextRef value) {
+  // JsContextRef are not javascript values, so we can't put them
+  // in the array.  We will need to AddRef/Release them.
+
+  if (_contextRef == JS_INVALID_REFERENCE) {
+    // HandleScope are on the stack, so no need to AddRef/Release it.
+    _contextRef = value;
     return true;
   }
+
+  return AddLocalAddRef(value);
 }
+
+bool HandleScope::AddLocalAddRef(JsRef value) {
+  if (JsAddRef(value, nullptr) != JsNoError) {
+    return false;
+  }
+
+  AddRefRecord * newAddRefRecord = new AddRefRecord;
+  newAddRefRecord->_ref = value;
+  newAddRefRecord->_next = this->_addRefRecordHead;
+  this->_addRefRecordHead = newAddRefRecord;
+  return true;
+}
+
+}  // namespace v8

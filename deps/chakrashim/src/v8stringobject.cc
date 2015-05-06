@@ -21,35 +21,35 @@
 #include "v8.h"
 #include "jsrtutils.h"
 
-using namespace jsrt;
+namespace v8 {
 
-namespace v8
-{
+using jsrt::ContextShim;
 
+Local<Value> StringObject::New(Handle<String> value) {
+  JsValueRef stringObjectConstructor =
+    ContextShim::GetCurrent()->GetStringObjectConstructor();
 
-  Local<Value> StringObject::New(Handle<String> value)
-  {
-    JsValueRef stringObjectConstructor = ContextShim::GetCurrent()->GetStringObjectConstructor();
-
-    JsValueRef args[] = { nullptr, *value };
-    JsValueRef newStringObjectRef;
-    if (JsConstructObject(stringObjectConstructor, args, _countof(args), &newStringObjectRef) != JsNoError)
-    {
-      return Local<Value>();
-    }
-
-    return Local<StringObject>::New((StringObject*)newStringObjectRef);
+  JsValueRef args[] = { nullptr, *value };
+  JsValueRef newStringObjectRef;
+  if (JsConstructObject(stringObjectConstructor,
+                        args,
+                        _countof(args),
+                        &newStringObjectRef) != JsNoError) {
+    return Local<Value>();
   }
 
-  StringObject *StringObject::Cast(v8::Value *obj)
-  {
-    if (!obj->IsBooleanObject())
-    {
-      // TODO: what should we return in this case?
-      // just exit and print?
-      return nullptr;
-    }
-
-    return static_cast<StringObject*>(obj);
-  }
+  return Local<StringObject>::New(
+    static_cast<StringObject*>(newStringObjectRef));
 }
+
+StringObject *StringObject::Cast(v8::Value *obj) {
+  if (!obj->IsBooleanObject()) {
+    // CHAKRA-TODO: what should we return in this case?
+    // just exit and print?
+    return nullptr;
+  }
+
+  return static_cast<StringObject*>(obj);
+}
+
+}  // namespace v8

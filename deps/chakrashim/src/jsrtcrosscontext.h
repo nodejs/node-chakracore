@@ -19,8 +19,16 @@
 // IN THE SOFTWARE.
 
 
-namespace jsrt
-{
-  JsValueRef MarshalJsValueRefToContext(JsValueRef valueRef, ContextShim * fromContextShim, ContextShim * toContextShim);
-  JsValueRef CALLBACK ObjectPrototypeToStringCrossContextShim(JsValueRef callee, bool isConstructCall, JsValueRef *arguments, unsigned short argumentCount, void *callbackState);
-};
+namespace jsrt {
+
+JsValueRef MarshalJsValueRefToContext(JsValueRef valueRef,
+                                      ContextShim * fromContextShim,
+                                      ContextShim * toContextShim);
+JsValueRef CALLBACK ObjectPrototypeToStringCrossContextShim(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+
+}  // namespace jsrt

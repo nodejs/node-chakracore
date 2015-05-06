@@ -21,41 +21,40 @@
 #include "v8.h"
 #include "jsrtutils.h"
 
-using namespace jsrt;
+namespace v8 {
 
-namespace v8
-{
-  Local<Value> Date::New(Isolate * isolate, double time)
-  {
-    JsValueRef dateConstructor = IsolateShim::FromIsolate(isolate)->GetCurrentContextShim()->GetDateConstructor();
-    JsValueRef newDateRef;
-    JsValueRef numberRef;
+using jsrt::IsolateShim;
+using jsrt::ContextShim;
 
-    if (JsDoubleToNumber(time, &numberRef) != JsNoError)
-    {
-      return Local<Value>();
-    }
+Local<Value> Date::New(Isolate * isolate, double time) {
+  JsValueRef dateConstructor = IsolateShim::FromIsolate(isolate)
+                                ->GetCurrentContextShim()->GetDateConstructor();
+  JsValueRef newDateRef;
+  JsValueRef numberRef;
 
-    JsValueRef args[] = { nullptr, numberRef};
-
-    if (JsConstructObject(dateConstructor, args, _countof(args), &newDateRef) != JsNoError)
-    {
-      return Local<Value>();
-    }
-
-    return Local<Date>::New((Date*)newDateRef);
+  if (JsDoubleToNumber(time, &numberRef) != JsNoError) {
+    return Local<Value>();
   }
 
-  // Not Implemented
-  Date *Date::Cast(v8::Value *obj)
-  {
-    if (!obj->IsDate())
-    {
-      // TODO: what should we return in this case?
-      // just exit and print?
-      return nullptr;
-    }
+  JsValueRef args[] = { nullptr, numberRef };
 
-    return static_cast<Date*>(obj);
+  if (JsConstructObject(dateConstructor,
+                        args, _countof(args), &newDateRef) != JsNoError) {
+    return Local<Value>();
   }
+
+  return Local<Date>::New(static_cast<Date*>(newDateRef));
 }
+
+// Not Implemented
+Date *Date::Cast(v8::Value *obj) {
+  if (!obj->IsDate()) {
+    // CHAKRA-TODO: what should we return in this case?
+    // just exit and print?
+    return nullptr;
+  }
+
+  return static_cast<Date*>(obj);
+}
+
+}  // namespace v8

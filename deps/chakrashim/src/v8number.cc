@@ -21,33 +21,31 @@
 #include "v8.h"
 #include "jsrt.h"
 
-namespace v8
-{
-  double Number::Value() const
-  {
-    return NumberValue();
-  }
+namespace v8 {
 
-  Local<Number> Number::New(Isolate* isolate, double value)
-  {
-    JsValueRef ref;
-
-    if (JsDoubleToNumber(value, &ref) != JsNoError)
-    {
-      return Local<Number>();
-    }
-
-    return Local<Number>::New((Number*)ref);
-  }
-
-  Number *Number::Cast(v8::Value *obj)
-  {
-    if (!obj->IsNumber())
-    {
-      // TODO: report an error here!
-      return nullptr; // TODO: What is the best behavior here? Should we return a pointer to undefined/null instead?
-    }
-
-    return static_cast<Number*>(obj);
-  }
+double Number::Value() const {
+  return NumberValue();
 }
+
+Local<Number> Number::New(Isolate* isolate, double value) {
+  JsValueRef ref;
+
+  if (JsDoubleToNumber(value, &ref) != JsNoError) {
+    return Local<Number>();
+  }
+
+  return Local<Number>::New(static_cast<Number*>(ref));
+}
+
+Number *Number::Cast(v8::Value *obj) {
+  if (!obj->IsNumber()) {
+    // CHAKRA-TODO: report an error here!
+    // CHAKRA-TODO: What is the best behavior here? Should we return a pointer
+    // to undefined/null instead?
+    return nullptr;
+  }
+
+  return static_cast<Number*>(obj);
+}
+
+}  // namespace v8

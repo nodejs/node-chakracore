@@ -21,35 +21,36 @@
 #include "v8.h"
 #include "jsrtutils.h"
 
-using namespace jsrt;
+namespace v8 {
 
-namespace v8
-{
-  Local<Value> BooleanObject::New(bool value)
-  {
-    ContextShim * contextShim = ContextShim::GetCurrent();
+Local<Value> BooleanObject::New(bool value) {
+  jsrt::ContextShim * contextShim = jsrt::ContextShim::GetCurrent();
 
-    JsValueRef booleanObjectConstructor = contextShim->GetBooleanObjectConstructor();
-    JsValueRef newBooleanObjectRef;
-    JsValueRef args[] = { nullptr, value ? contextShim->GetTrue() : contextShim->GetFalse() };
+  JsValueRef booleanObjectConstructor =
+    contextShim->GetBooleanObjectConstructor();
+  JsValueRef newBooleanObjectRef;
+  JsValueRef args[] =
+    { nullptr, value ? contextShim->GetTrue() : contextShim->GetFalse() };
 
-    if (JsConstructObject(booleanObjectConstructor, args, _countof(args), &newBooleanObjectRef) != JsNoError)
-    {
-      return Local<Value>();
-    }
-
-    return Local<BooleanObject>::New((BooleanObject*)newBooleanObjectRef);
+  if (JsConstructObject(booleanObjectConstructor,
+                        args,
+                        _countof(args),
+                        &newBooleanObjectRef) != JsNoError) {
+    return Local<Value>();
   }
 
-  BooleanObject *BooleanObject::Cast(v8::Value *obj)
-  {
-    if (!obj->IsBooleanObject())
-    {
-      // TODO: what should we return in this case?
-      // just exit and print?
-      return nullptr;
-    }
-
-    return static_cast<BooleanObject*>(obj);
-  }
+  return Local<BooleanObject>::New(
+    static_cast<BooleanObject*>(newBooleanObjectRef));
 }
+
+BooleanObject *BooleanObject::Cast(v8::Value *obj) {
+  if (!obj->IsBooleanObject()) {
+    // CHAKRA-TODO: what should we return in this case?
+    // just exit and print?
+    return nullptr;
+  }
+
+  return static_cast<BooleanObject*>(obj);
+}
+
+}  // namespace v8

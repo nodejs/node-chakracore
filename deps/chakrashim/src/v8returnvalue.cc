@@ -22,19 +22,20 @@
 #include "v8chakra.h"
 #include "jsrtutils.h"
 
-namespace v8
-{
-  namespace chakrashim
-  {
-    JsValueRef MarshalJsValueRefToContext(JsValueRef valueRef, JsContextRef contextRef)
-    {
-      jsrt::ContextShim * fromContextShim = jsrt::ContextShim::GetCurrent();
-      if (fromContextShim->GetContextRef() == contextRef)
-      {
-        return valueRef;
-      }
-      jsrt::ContextShim * toContextShim = fromContextShim->GetIsolateShim()->GetContextShim(contextRef);
-      return jsrt::MarshalJsValueRefToContext(valueRef, fromContextShim, toContextShim);
-    }
+namespace v8 {
+namespace chakrashim {
+
+JsValueRef MarshalJsValueRefToContext(
+    JsValueRef valueRef, JsContextRef contextRef) {
+  jsrt::ContextShim * fromContextShim = jsrt::ContextShim::GetCurrent();
+  if (fromContextShim->GetContextRef() == contextRef) {
+    return valueRef;
   }
+  jsrt::ContextShim * toContextShim =
+    fromContextShim->GetIsolateShim()->GetContextShim(contextRef);
+  return jsrt::MarshalJsValueRefToContext(
+    valueRef, fromContextShim, toContextShim);
 }
+
+}  // namespace chakrashim
+}  // namespace v8

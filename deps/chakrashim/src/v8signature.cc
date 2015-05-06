@@ -21,47 +21,48 @@
 #include "v8.h"
 #include "jsrtutils.h"
 
-namespace v8
-{
-  Local<Signature> Signature::New(Isolate* isolate, Handle<FunctionTemplate> receiver, int argc, Handle<FunctionTemplate> argv[])
-  {
-    if (argc != 0)
-    {
-      CHAKRA_UNIMPLEMENTED_("v8::Signature::New with args list");
-    }
+namespace v8 {
 
-    return (Signature*)*receiver;
+Local<Signature> Signature::New(Isolate* isolate,
+                                Handle<FunctionTemplate> receiver,
+                                int argc,
+                                Handle<FunctionTemplate> argv[]) {
+  if (argc != 0) {
+    CHAKRA_UNIMPLEMENTED_("v8::Signature::New with args list");
   }
 
-  Local<AccessorSignature> AccessorSignature::New(Isolate* isolate, Handle<FunctionTemplate> receiver)
-  {
-    return (AccessorSignature*)*receiver;
-  }
-
-  namespace chakrashim
-  {
-    bool CheckSignature(Local<FunctionTemplate> receiver, Local<Object> thisPointer, Local<Object>* holder)
-    {
-      *holder = thisPointer;
-
-      Local<ObjectTemplate> receiverInstanceTemplate = receiver->InstanceTemplate();
-
-      // v8 signature check walks hidden prototype chain to find holder. Chakra
-      // doesn't support hidden prototypes. Just check the receiver itself.
-      bool matched = thisPointer->IsInstanceOf(receiverInstanceTemplate);
-
-      if (!matched)
-      {
-        const wchar_t txt[] = L"Illegal invocation";
-        JsValueRef msg, err;
-        if (JsPointerToString(txt, _countof(txt) - 1, &msg) == JsNoError
-          && JsCreateTypeError(msg, &err) == JsNoError)
-        {
-          JsSetException(err);
-        }
-      }
-
-      return matched;
-    }
-  }
+  return reinterpret_cast<Signature*>(*receiver);
 }
+
+Local<AccessorSignature> AccessorSignature::New(
+    Isolate* isolate, Handle<FunctionTemplate> receiver) {
+  return reinterpret_cast<AccessorSignature*>(*receiver);
+}
+
+namespace chakrashim {
+
+bool CheckSignature(Local<FunctionTemplate> receiver,
+                    Local<Object> thisPointer,
+                    Local<Object>* holder) {
+  *holder = thisPointer;
+
+  Local<ObjectTemplate> receiverInstanceTemplate = receiver->InstanceTemplate();
+
+  // v8 signature check walks hidden prototype chain to find holder. Chakra
+  // doesn't support hidden prototypes. Just check the receiver itself.
+  bool matched = thisPointer->IsInstanceOf(receiverInstanceTemplate);
+
+  if (!matched) {
+    const wchar_t txt[] = L"Illegal invocation";
+    JsValueRef msg, err;
+    if (JsPointerToString(txt, _countof(txt) - 1, &msg) == JsNoError &&
+        JsCreateTypeError(msg, &err) == JsNoError) {
+      JsSetException(err);
+    }
+  }
+
+  return matched;
+}
+
+}  // namespace chakrashim
+}  // namespace v8
