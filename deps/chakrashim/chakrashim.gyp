@@ -30,9 +30,8 @@
         'include',
       ],
       'defines': [
-        'USE_CHAKRA=1',
         'USE_EDGEMODE_JSRT=1',
-        '_WIN32_WINNT=0x0601',
+        '_WIN32_WINNT=0x0A00',  # WIN10
       ],
       'libraries': [
         '-lchakrart.lib',
@@ -115,7 +114,7 @@
       'action': [
         '<(python)',
         './../../tools/js2c.py',
-        '-chakra',
+        '--namespace=jsrt',
         '<@(_outputs)',
         '<@(_inputs)',
       ],

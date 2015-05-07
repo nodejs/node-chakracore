@@ -10,6 +10,7 @@
     'component%': 'static_library',   # NB. these names match with what V8 expects
     'msvs_multi_core_compile': '0',   # we do enable multicore compiles, but not using the V8 way
     'python%': 'python',
+    'node_engine%': 'v8',
 
     'node_tag%': '',
     'uv_library%': 'static_library',
@@ -50,6 +51,30 @@
       }],
     ],
   },
+  'conditions': [
+    ['node_engine=="v8"', {
+      'target_defaults': {
+        'defines': [
+          'NODE_ENGINE="v8"',
+          'NODE_ENGINE_V8=1',
+        ],
+      },
+      'variables': {
+        'node_engine_include_dir%': 'deps/v8/include'
+      },
+    }],
+    ['node_engine=="chakra"', {
+      'target_defaults': {
+        'defines': [
+          'NODE_ENGINE="chakra"',
+          'NODE_ENGINE_CHAKRA=1'
+        ],
+      },
+      'variables': {
+        'node_engine_include_dir%': 'deps/chakrashim/include'
+      },
+    }],
+  ],
 
   'target_defaults': {
     'default_configuration': 'Release',

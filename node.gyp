@@ -13,7 +13,7 @@
     'node_shared_openssl%': 'false',
     'node_v8_options%': '',
     'node_target_type%': 'executable',
-    'node_use_chakra%': 'false',
+    'node_engine%': 'v8',
     'library_files': [
       'src/node.js',
       'lib/_debug_agent.js',
@@ -333,7 +333,7 @@
           ],
         }],
 
-        [ 'node_use_chakra=="false"', {
+        [ 'node_engine=="v8"', {
           'include_dirs': [
             'deps/v8' # include/v8_platform.h
           ],
@@ -342,7 +342,7 @@
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
         }],
-        ['node_use_chakra=="true"', {
+        ['node_engine=="chakra"', {
           'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
         }],
 
@@ -649,7 +649,7 @@
         'src',
       ],
       'conditions': [
-        [ 'node_use_chakra=="false"', {
+        [ 'node_engine=="v8"', {
           'include_dirs': [
             'deps/v8/include'
           ],
@@ -658,7 +658,7 @@
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
         }],
-        ['node_use_chakra=="true"', {
+        ['node_engine=="chakra"', {
           'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
         }],
       ],
