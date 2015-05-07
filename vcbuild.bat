@@ -38,7 +38,8 @@ set noperfctr_msi_arg=
 set i18n_arg=
 set download_arg=
 set build_release=
-set engine=v8
+set engine=
+set engine_arg=
 set openssl_no_asm=
 
 :next-arg
@@ -66,17 +67,17 @@ if /i "%1"=="test-gc"       set test=test-gc&set buildnodeweak=1&goto arg-ok
 if /i "%1"=="test-all"      set test=test-all&set buildnodeweak=1&goto arg-ok
 if /i "%1"=="test"          set test=test&goto arg-ok
 @rem Include small-icu support with MSI installer
-if /i "%1"=="msi"               set msi=1&set licensertf=1&set download_arg="--download=all"&set i18n_arg=small-icu&goto arg-ok
-if /i "%1"=="upload"            set upload=1&goto arg-ok
-if /i "%1"=="jslint"            set jslint=1&goto arg-ok
-if /i "%1"=="small-icu"         set i18n_arg=%1&goto arg-ok
-if /i "%1"=="full-icu"          set i18n_arg=%1&goto arg-ok
-if /i "%1"=="intl-none"         set i18n_arg=%1&goto arg-ok
-if /i "%1"=="download-all"      set download_arg="--download=all"&goto arg-ok
-if /i "%1"=="build-release"     set build_release=1&goto arg-ok
-if /i "%1"=="v8"                set engine=v8&goto arg-ok
-if /i "%1"=="chakra"            set engine=chakra&goto arg-ok
-if /i "%1"=="openssl-no-asm"    set openssl_no_asm=--openssl-no-asm&goto arg-ok
+if /i "%1"=="msi"           set msi=1&set licensertf=1&set download_arg="--download=all"&set i18n_arg=small-icu&goto arg-ok
+if /i "%1"=="upload"        set upload=1&goto arg-ok
+if /i "%1"=="jslint"        set jslint=1&goto arg-ok
+if /i "%1"=="small-icu"     set i18n_arg=%1&goto arg-ok
+if /i "%1"=="full-icu"      set i18n_arg=%1&goto arg-ok
+if /i "%1"=="intl-none"     set i18n_arg=%1&goto arg-ok
+if /i "%1"=="download-all"  set download_arg="--download=all"&goto arg-ok
+if /i "%1"=="build-release" set build_release=1&goto arg-ok
+if /i "%1"=="v8"            set engine=v8&goto arg-ok
+if /i "%1"=="chakra"        set engine=chakra&goto arg-ok
+if /i "%1"=="openssl-no-asm" set openssl_no_asm=--openssl-no-asm&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
 
@@ -106,7 +107,7 @@ if "%target_arch%"=="x64" set msiplatform=x64
 if defined nosnapshot set nosnapshot_arg=--without-snapshot
 if defined noetw set noetw_arg=--without-etw& set noetw_msi_arg=/p:NoETW=1
 if defined noperfctr set noperfctr_arg=--without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
-if "%engine%"=="chakra" set engine_arg=--use-chakra
+if not "%engine%"=="" set engine_arg=--engine="%engine%"
 
 if "%i18n_arg%"=="full-icu" set i18n_arg=--with-intl=full-icu
 if "%i18n_arg%"=="small-icu" set i18n_arg=--with-intl=small-icu

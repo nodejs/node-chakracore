@@ -52,7 +52,7 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Joyent, Inc"
             VALUE "ProductName", "Node.js"
-#ifdef USE_CHAKRA
+#ifdef NODE_ENGINE_CHAKRA
             VALUE "FileDescription", "Evented I/O for JavaScript (Chakra)"
 #else
             VALUE "FileDescription", "Evented I/O for V8 JavaScript"

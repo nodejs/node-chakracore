@@ -2569,6 +2569,11 @@ void SetupProcessObject(Environment* env,
                        ProcessTitleGetter,
                        ProcessTitleSetter);
 
+  // process.jsEngine
+  READONLY_PROPERTY(process,
+                    "jsEngine",
+                    FIXED_ONE_BYTE_STRING(env->isolate(), NODE_ENGINE));
+
   // process.version
   READONLY_PROPERTY(process,
                     "version",
@@ -2594,17 +2599,9 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(versions,
                     "node",
                     OneByteString(env->isolate(), NODE_VERSION + 1));
-
-#ifdef USE_CHAKRA
-#define NODE_JS_ENGINE  "chakra"
-#else
-#define NODE_JS_ENGINE  "v8"
-#endif
   READONLY_PROPERTY(versions,
-                    NODE_JS_ENGINE,
+                    NODE_ENGINE,
                     OneByteString(env->isolate(), V8::GetVersion()));
-#undef NODE_JS_ENGINE
-
   READONLY_PROPERTY(versions,
                     "uv",
                     OneByteString(env->isolate(), uv_version_string()));
@@ -3102,7 +3099,7 @@ static void StartDebug(Environment* env, bool wait) {
 
   env->debugger_agent()->set_dispatch_handler(
         DispatchMessagesDebugAgentCallback);
-#ifdef USE_CHAKRA
+#ifdef NODE_ENGINE_CHAKRA
     // ChakraShim does not support debugger_agent
     debugger_running = v8::Debug::EnableAgent();
 #else

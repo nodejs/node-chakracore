@@ -366,16 +366,19 @@ def JS2C(source, target, namespace):
     })
     output.close()
 
+
+NAMESPACE_SWITCH = "--namespace="
+
 def main():
-  if sys.argv[1] == "-chakra":
-    namespace = 'jsrt'
-    natives = sys.argv[2]
-    source_files = sys.argv[3:]
+  i = 1
+  if sys.argv[i].startswith(NAMESPACE_SWITCH):
+    namespace = sys.argv[i][len(NAMESPACE_SWITCH):]
+    i += 1
   else:
     namespace = 'node'
-    natives = sys.argv[1]
-    source_files = sys.argv[2:]
 
+  natives = sys.argv[i]
+  source_files = sys.argv[(i + 1):]
   JS2C(source_files, [natives], namespace)
 
 if __name__ == "__main__":
