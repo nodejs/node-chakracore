@@ -1,10 +1,11 @@
 Evented I/O for javascript.
 ===
 
-Node.js uses the V8 JavaScript engine by default. This temporary fork enables
+Node.js uses the V8 JavaScript engine by default. This GitHub fork enables
 Node.js to optionally use the Chakra JavaScript engine on Windows 10, allowing
-Node.js to run on Windows on ARM. For details see build node on
-[Windows with Chakra](#windows_with_chakra).
+Node.js to run on Windows on ARM. Our goal is to merge back into master after
+stabilizing this code, fixing key gaps and responding to early community
+feedback.
 
 ### To build:
 
