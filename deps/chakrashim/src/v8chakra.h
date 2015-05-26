@@ -22,7 +22,8 @@
 // Internal header for the v8-chakra bridge
 
 #pragma once
-#include <jsrt.h>
+#include "v8.h"
+#include <assert.h>
 
 namespace v8 {
 
@@ -53,10 +54,39 @@ struct ObjectData {
 };
 
 struct TemplateData {
- public:
-  Persistent<Object> properties;
  protected:
-  TemplateData() : properties() {}
+  Persistent<Object> properties;
+  virtual void CreateProperties();  // Allow properties to be created lazily
+
+ public:
+  Object* EnsureProperties();
 };
+
+namespace chakrashim {
+
+class InternalMethods {
+ public:
+  static Handle<String> GetClassName(ObjectTemplate* objectTemplate);
+
+  static JsValueRef CALLBACK ObjectPrototypeToStringShim(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+
+  static Handle<String> GetClassName(Object* obj) {
+    return GetClassName(obj->GetObjectTemplate());
+  }
+
+  static bool IsInstanceOf(Object* obj, ObjectTemplate* objectTemplate) {
+    return obj->GetObjectTemplate() == objectTemplate;
+  }
+};
+
+bool CheckSignature(Local<FunctionTemplate> receiver, Local<Object> thisPointer,
+                    Local<Object>* holder);
+
+}  // namespace chakrashim
 
 }  // namespace v8

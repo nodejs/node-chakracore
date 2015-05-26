@@ -301,16 +301,9 @@ JsErrorCode CloneObject(_In_ JsValueRef source,
 JsErrorCode HasOwnProperty(_In_ JsValueRef object,
                            _In_ JsValueRef prop,
                            _Out_ JsValueRef *result) {
-  JsValueRef resultRef;
   JsValueRef args[] = { object, prop };
-  JsErrorCode error = jsrt::CallProperty(
-    object, L"hasOwnProperty", args, _countof(args), &resultRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
-
-  return error;
+  return jsrt::CallProperty(
+      object, L"hasOwnProperty", args, _countof(args), result);
 }
 
 JsErrorCode IsValueInArray(
@@ -1085,14 +1078,23 @@ JsErrorCode GetConstructorName(_In_ JsValueRef objectRef,
   return error;
 }
 
-void Unimplemented(char * message) {
+void Unimplemented(const char * message) {
   fprintf(stderr, "FATAL ERROR: '%s' unimplemented", message);
   __debugbreak();
   abort();
 }
 
-void Fatal(char * message) {
-  fprintf(stderr, "FATAL ERROR: %s", message);
+void Fatal(const char * format, ...) {
+  va_list args;
+  va_start(args, format);
+  fprintf(stderr, "FATAL ERROR: ");
+  vfprintf(stderr, format, args);
+  va_end(args);
+
+#ifdef DEBUG
+  __debugbreak();
+#endif
+
   abort();
 }
 

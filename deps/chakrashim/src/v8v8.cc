@@ -75,7 +75,7 @@ static bool equals(const char* str, const char* pat) {
 }
 
 template <size_t N>
-static bool startsWith(const char* str, const char(&prefix)[N]) {
+static bool startsWith(const char* str, const char (&prefix)[N]) {
   return strncmp(str, prefix, N - 1) == 0;
 }
 

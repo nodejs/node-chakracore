@@ -18,7 +18,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
 #include "v8chakra.h"
 #include "jsrtutils.h"
 
@@ -26,6 +25,19 @@ namespace v8 {
 
 using jsrt::IsolateShim;
 using jsrt::ContextShim;
+
+Object* TemplateData::EnsureProperties() {
+  if (properties.IsEmpty()) {
+    CreateProperties();
+    CHAKRA_VERIFY(!properties.IsEmpty());
+  }
+
+  return *properties;
+}
+
+void TemplateData::CreateProperties() {
+  CHAKRA_ASSERT(false);
+}
 
 struct FunctionCallbackData {
   FunctionCallback callback;
@@ -143,19 +155,54 @@ struct FunctionTemplateData : public TemplateData {
   Persistent<ObjectTemplate> prototypeTemplate;
   JsValueRef functionTemplate;
 
-  FunctionTemplateData(JsValueRef function, FunctionCallbackData * callbackData)
+  explicit FunctionTemplateData(FunctionCallbackData * callbackData)
       : prototypeTemplate() {
-    this->properties = function;
     this->callbackData = callbackData;
     this->functionTemplate = JS_INVALID_REFERENCE;
     this->prototypeTemplate =
       Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
   }
 
+  // Create the function lazily so that we can use the class name
+  virtual void CreateProperties() {
+    JsValueRef funcCallbackObjectRef;
+    JsErrorCode error = JsCreateExternalObject(
+      callbackData,
+      FunctionCallbackData::FinalizeCallback,
+      &funcCallbackObjectRef);
+    if (error != JsNoError) {
+      return;
+    }
+
+    JsValueRef function;
+    {
+      Handle<String> className = chakrashim::InternalMethods::GetClassName(
+        *callbackData->instanceTemplate);
+      if (!className.IsEmpty()) {
+        error = JsCreateNamedFunction(*className,
+                                      FunctionCallbackData::FunctionInvoked,
+                                      funcCallbackObjectRef, &function);
+      } else {
+        error = JsCreateFunction(FunctionCallbackData::FunctionInvoked,
+                                 funcCallbackObjectRef, &function);
+      }
+
+      if (error != JsNoError) {
+        return;
+      }
+    }
+
+    this->properties = function;
+  }
+
   static void CALLBACK FinalizeCallback(_In_opt_ void *data) {
     if (data != nullptr) {
       FunctionTemplateData * templateData =
         reinterpret_cast<FunctionTemplateData*>(data);
+      if (templateData->properties.IsEmpty()) {
+        // function not created, delete callbackData explictly
+        delete templateData->callbackData;
+      }
       templateData->properties.Dispose();
       templateData->prototypeTemplate.Dispose();
       IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(
@@ -172,30 +219,13 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
                                               int length) {
   FunctionCallbackData* callbackData =
     new FunctionCallbackData(callback, data, signature);
-  JsValueRef funcCallbackObjectRef;
-
-  JsErrorCode error = JsCreateExternalObject(
-    callbackData,
-    FunctionCallbackData::FinalizeCallback,
-    &funcCallbackObjectRef);
-  if (error != JsNoError) {
-    delete callbackData;
-    return Local<FunctionTemplate>();
-  }
-
-  JsValueRef function;
-  error = JsCreateFunction(
-    FunctionCallbackData::FunctionInvoked, funcCallbackObjectRef, &function);
-  if (error != JsNoError) {
-    return Local<FunctionTemplate>();
-  }
-
   FunctionTemplateData * templateData =
-    new FunctionTemplateData(function, callbackData);
+    new FunctionTemplateData(callbackData);
   JsValueRef functionTemplateRef;
-  error = JsCreateExternalObject(
+  JsErrorCode error = JsCreateExternalObject(
     templateData, FunctionTemplateData::FinalizeCallback, &functionTemplateRef);
   if (error != JsNoError) {
+    delete callbackData;
     delete templateData;
     return Local<FunctionTemplate>();
   }
@@ -212,18 +242,21 @@ Local<Function> FunctionTemplate::GetFunction() {
     return Local<Function>();
   }
 
-
   FunctionTemplateData *functionTemplateData =
     reinterpret_cast<FunctionTemplateData*>(externalData);
   FunctionCallbackData * functionCallbackData =
     functionTemplateData->callbackData;
-  Local<Function> function = functionTemplateData->properties;
+
+  Local<Function> function =
+    static_cast<Function*>(functionTemplateData->EnsureProperties());
 
   if (functionCallbackData->prototype.IsEmpty()) {
     functionCallbackData->prototype = Persistent<Object>(
       functionTemplateData->prototypeTemplate->NewInstance());
 
-    if (functionCallbackData->prototype.IsEmpty()) {
+    if (functionCallbackData->prototype.IsEmpty() ||
+        jsrt::SetProperty(*functionCallbackData->prototype,
+                          L"constructor", *function) != JsNoError) {
       return Local<Function>();
     }
 

@@ -136,8 +136,10 @@ void CALLBACK IsolateShim::JsContextBeforeCollectCallback(
   delete contextShim;
 }
 
-bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC) {
-  ContextShim * contextShim = ContextShim::New(this, exposeGC);
+bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
+                             JsValueRef globalObjectTemplateInstance) {
+  ContextShim * contextShim =
+    ContextShim::New(this, exposeGC, globalObjectTemplateInstance);
   if (contextShim == nullptr) {
     return false;
   }

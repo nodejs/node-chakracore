@@ -31,7 +31,7 @@ class TryCatch;
 namespace jsrt {
 
 enum CachedPropertyIdRef {
-#define DEF(x,...) x,
+#define DEF(x, ...) x,
 #include "jsrtcachedpropertyidref.inc"
   Count
 };
@@ -39,7 +39,8 @@ enum CachedPropertyIdRef {
 class IsolateShim {
  public:
 
-  bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC);
+  bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
+                               JsValueRef globalObjectTemplateInstance);
   bool GetMemoryUsage(size_t * memoryUsage);
   bool Dispose();
 

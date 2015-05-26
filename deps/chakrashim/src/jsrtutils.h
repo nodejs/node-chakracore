@@ -29,6 +29,7 @@
 
 #include "stdint.h"
 #include "jsrtstringutils.h"
+#include <assert.h>
 #include <functional>
 
 #define IfComFailError(v) \
@@ -42,6 +43,15 @@
 
 #define CHAKRA_UNIMPLEMENTED() jsrt::Unimplemented(__FUNCTION__)
 #define CHAKRA_UNIMPLEMENTED_(message) jsrt::Unimplemented(message)
+
+#define CHAKRA_VERIFY(expr) if (!(expr)) { \
+  jsrt::Fatal("internal error %s(%d): %s", __FILE__, __LINE__, #expr); }
+
+#ifdef DEBUG
+#define CHAKRA_ASSERT(expr) assert(expr)
+#else
+#define CHAKRA_ASSERT(expr)
+#endif
 
 namespace jsrt {
 
@@ -314,8 +324,31 @@ JsErrorCode StringifyObject(_In_ JsValueRef object,
 JsErrorCode GetConstructorName(_In_ JsValueRef objectRef,
                                _Out_ const wchar_t **name);
 
-void Unimplemented(char * message);
+void Unimplemented(const char * message);
 
-void Fatal(char * message);
+void Fatal(const char * format, ...);
+
+// Arguments buffer for JsCallFunction
+template <int STATIC_COUNT = 4>
+class JsArguments {
+ private:
+  JsValueRef _local[STATIC_COUNT];
+  JsValueRef* _args;
+
+ public:
+  JsArguments(int count) {
+    _args = count <= STATIC_COUNT ? _local : new JsValueRef[count];
+  }
+
+  ~JsArguments() {
+    if (_args != _local) {
+      delete [] _args;
+    }
+  }
+
+  operator JsValueRef*() {
+    return _args;
+  }
+};
 
 }  // namespace jsrt

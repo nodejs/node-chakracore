@@ -18,7 +18,13 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-(function() {
+(function () {
+  // Save original builtIns
+  var Object_defineProperty = Object.defineProperty,
+      Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
+      Object_getOwnPropertyNames = Object.getOwnPropertyNames,
+      Object_keys = Object.keys;
+
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
     this.funcName = funcName;
     this.fileName = fileName;
@@ -130,7 +136,7 @@
       try { throw new Error; } catch (e) { currentStack = e.stack; }
       var isPrepared = false;
       var skipDepth = func ? findFuncDepth(func) : 0;
-      Object.defineProperty(err, 'stack', {
+      Object_defineProperty(err, 'stack', {
         get: function() {
           if (isPrepared) {
             return currentStack;
@@ -154,88 +160,36 @@
     };
   }
 
-  function patchTypedArrays() {
-    ArrayBuffer.prototype.slice = function(begin, end) {
-      if (!begin) {
-        throw new Error('Wrong number of arguments.');
+  function cloneObject(source, target) {
+    Object_getOwnPropertyNames(source).forEach(function(key) {
+      try {
+        var desc = Object_getOwnPropertyDescriptor(source, key);
+        if (desc.value === source) desc.value = target;
+        Object_defineProperty(target, key, desc);
+      } catch (e) {
+        // Catch sealed properties errors
       }
-
-      // boundary/arguments check - we do exactly the same ones as in node's
-      // ArrayBuffer
-
-      if (!end) {
-        end = this.byteLength;
-      }
-
-      if (begin < 0) {
-        begin = this.byteLength + begin;
-      }
-
-      if (begin < 0) {
-        begin = 0;
-      }
-
-      if (begin > this.byteLength) {
-        begin = this.byteLength;
-      }
-
-      if (end < 0) {
-        end = this.byteLength + end;
-      }
-
-      if (end < 0) {
-        end = 0;
-      }
-
-      if (end > this.byteLength) {
-        end = this.byteLength;
-      }
-
-      if (begin > end) {
-        begin = end;
-      }
-
-      var slice_length = end - begin;
-      var slicedBuffer = new ArrayBuffer(slice_length);
-
-      var sourceDataView = new DataView(this);
-      var destDataView = new DataView(slicedBuffer);
-
-      for (var i = 0; i < slice_length; i++) {
-        destDataView.setInt8(i, sourceDataView.getInt8(begin + i));
-      }
-
-      return slicedBuffer;
-    };
-
-    // patch slice method for each type:
-    [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array,
-      Uint16Array, Int32Array, Uint32Array, Float32Array,
-      Float64Array].forEach(function(item) {
-        item.prototype.slice = item.prototype.subarray;
-        item.prototype.get = function(i) { return this[i]; };
-        item.prototype.set = function(first, second) {
-          if (first instanceof Array) {
-            // in this case - first is an array of values, second is the offset
-            for (var j = 0; j < first.length; j++) {
-              this[j + second] = first[j];
-            }
-          }
-          else {
-            this[first] = second;
-          }
-        }
-      });
+    });
   }
 
-  function patchJsonParse() {
-    var JsonParseOriginal = JSON.parse;
-
-    var JsonParse = function() {
-      return JsonParseOriginal.apply(this, arguments);
-    }
-
-    JSON.parse = JsonParse;
+  // Chakra Error instances have some enumerable properties (error number and
+  // stack), causing node formatting differences. Try make those properties
+  // non-enumerable when creating Error instances.
+  // NOTE: This doesn't work if Error is created in Chakra runtime.
+  function patchErrorTypes() {
+    [Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
+      URIError
+    ].forEach(function (builtInError) {
+      var name = builtInError.name;
+      this[name] = function () {
+        var e = builtInError.apply(this, arguments);
+        Object_keys(e).forEach(function (key) {
+          Object_defineProperty(e, key, { enumerable: false });
+        });
+        return e;
+      };
+      cloneObject(builtInError, this[name]);
+    });
   }
 
   function patchUtils(utils) {
@@ -248,16 +202,16 @@
     utils.isInstanceOf = function(a, b) {
       return (a instanceof b);
     };
-    utils.cloneObject = function(source, target) {
-      Object.getOwnPropertyNames(source).forEach(function(key) {
-        try {
-          var desc = Object.getOwnPropertyDescriptor(source, key);
-          if (desc.value === source) desc.value = target;
-          Object.defineProperty(target, key, desc);
-        } catch (e) {
-          // Catch sealed properties errors
+    utils.cloneObject = cloneObject;
+    utils.forEachNonConfigurableProperty = function (source, callback) {
+      Object_getOwnPropertyNames(source).forEach(function (key) {
+        var desc = Object_getOwnPropertyDescriptor(source, key);
+        if (desc && !desc.configurable && !callback(key, desc)) {
+          return false;
         }
       });
+
+      return true;
     };
     utils.getPropertyNames = function(a) {
       var names = [];
@@ -303,7 +257,7 @@
     };
     utils.getNamedOwnKeys = function(obj) {
       var props = [];
-      Object.keys(obj).forEach(function(item) {
+      Object_keys(obj).forEach(function(item) {
         if (!isUint(item))
           props.push(item);
       });
@@ -311,21 +265,30 @@
     };
     utils.getIndexedOwnKeys = function(obj) {
       var props = [];
-      Object.keys(obj).forEach(function(item) {
+      Object_keys(obj).forEach(function(item) {
         if (isUint(item))
           props.push(item);
       });
       return props;
     };
-    utils.createEmptyLambdaFunction = function() {
-      return () => {};
+    utils.isBound = function(func) {
+      var desc = Object_getOwnPropertyDescriptor(func, 'caller');
+      return !!(desc && desc.get);
     };
+    utils.createEmptyLambdaFunction = function(isBound) {
+      var func = () => {};
+      // return a bound function if target is a bound function
+      return isBound ? func.bind({}) : func;
+    };
+    utils.throwAccessorErrorFunction = (function () {
+      var x = utils.createEmptyLambdaFunction(true);
+      return Object_getOwnPropertyDescriptor(x, 'caller').get;
+    })();
   }
 
   // patch console
+  patchErrorTypes();
   patchErrorStack();
-  patchTypedArrays();
-  patchJsonParse();
 
   // this is the keepAlive object that we will put some utilities function on
   patchUtils(this);
