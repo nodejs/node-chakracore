@@ -24,7 +24,7 @@ namespace jsrt {
 JsValueRef MarshalJsValueRefToContext(JsValueRef valueRef,
                                       ContextShim * fromContextShim,
                                       ContextShim * toContextShim);
-JsValueRef CALLBACK ObjectPrototypeToStringCrossContextShim(
+JsValueRef CALLBACK PrototypeFunctionCrossContextShim(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,

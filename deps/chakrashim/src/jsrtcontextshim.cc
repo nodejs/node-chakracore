@@ -18,9 +18,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
 #include "jsrtutils.h"
+#include "v8chakra.h"
 #include "chakra_natives.h"
+#include <algorithm>
 #include <memory>
 
 namespace jsrt {
@@ -33,21 +34,32 @@ ContextShim::Scope::~Scope() {
   this->contextShim->GetIsolateShim()->PopScope(this);
 }
 
-ContextShim * ContextShim::New(IsolateShim * isolateShim, bool exposeGC) {
+ContextShim * ContextShim::New(IsolateShim * isolateShim, bool exposeGC,
+                               JsValueRef globalObjectTemplateInstance) {
   JsContextRef context;
   if (JsCreateContext(isolateShim->GetRuntimeHandle(), &context) != JsNoError) {
-    return false;
+    return nullptr;
   }
 
-  return new ContextShim(isolateShim, context, exposeGC);
+  // AddRef on globalObjectTemplateInstance if specified. Save and use later.
+  if (globalObjectTemplateInstance != JS_INVALID_REFERENCE &&
+      JsAddRef(globalObjectTemplateInstance, nullptr) != JsNoError) {
+    return nullptr;
+  }
+
+  return new ContextShim(isolateShim, context, exposeGC,
+                         globalObjectTemplateInstance);
 }
 
-ContextShim::ContextShim(
-  IsolateShim * isolateShim, JsContextRef context, bool exposeGC)
+ContextShim::ContextShim(IsolateShim * isolateShim,
+                         JsContextRef context,
+                         bool exposeGC,
+                         JsValueRef globalObjectTemplateInstance)
     : isolateShim(isolateShim),
       context(context),
       initialized(false),
       exposeGC(exposeGC),
+      globalObjectTemplateInstance(globalObjectTemplateInstance),
       promiseContinuationFunction(JS_INVALID_REFERENCE),
       instanceOfFunction(JS_INVALID_REFERENCE),
       cloneObjectFunction(JS_INVALID_REFERENCE),
@@ -61,7 +73,54 @@ ContextShim::ContextShim(
         JS_INVALID_REFERENCE),
       getNamedOwnKeysFunction(JS_INVALID_REFERENCE),
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
-      createEmptyLambdaFunction(JS_INVALID_REFERENCE) {
+      forEachNonConfigurablePropertyFunction(JS_INVALID_REFERENCE),
+      isBoundFunction(JS_INVALID_REFERENCE),
+      createEmptyLambdaFunction(JS_INVALID_REFERENCE),
+      throwAccessorErrorFunction(JS_INVALID_REFERENCE) {
+  memset(globalConstructor, 0, sizeof(globalConstructor));
+  memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
+}
+
+ContextShim::~ContextShim() {
+  if (globalObjectTemplateInstance != JS_INVALID_REFERENCE) {
+    JsRelease(globalObjectTemplateInstance, nullptr);
+  }
+
+  // Mark each existing CrossContextMapInfo* that it no longer needs to
+  // unregister from this ContextShim.
+  std::for_each(crossContextObjects.begin(), crossContextObjects.end(),
+                [](const auto& pair) {
+    auto& v = pair.second;
+    std::for_each(v.begin(), v.end(), [](CrossContextMapInfo* info) {
+      info->fromContext = nullptr;
+    });
+  });
+}
+
+bool ContextShim::CheckConfigGlobalObjectTemplate() {
+  if (globalObjectTemplateInstance != JS_INVALID_REFERENCE) {
+    // Only need to config once. Discard globalObjectTemplateInstance
+    JsValueRef target = globalObjectTemplateInstance;
+    JsRelease(globalObjectTemplateInstance, nullptr);
+    globalObjectTemplateInstance = JS_INVALID_REFERENCE;
+
+    JsValueRef newProto = JS_INVALID_REFERENCE;
+    {
+      ContextShim* fromContext =
+        IsolateShim::GetCurrent()->GetJsValueRefContextShim(target);
+      ContextShim::Scope from(fromContext);
+      newProto = MarshalJsValueRefToContext(target, fromContext, this);
+    }
+
+    JsValueRef glob, oldProto;
+    return newProto != JS_INVALID_REFERENCE &&
+      JsGetGlobalObject(&glob) == JsNoError &&
+      JsGetPrototype(glob, &oldProto) == JsNoError &&
+      JsSetPrototype(newProto, oldProto) == JsNoError &&
+      JsSetPrototype(glob, newProto) == JsNoError;
+  }
+
+  return true;
 }
 
 IsolateShim * ContextShim::GetIsolateShim() {
@@ -111,34 +170,104 @@ bool ContextShim::InitializeBuiltIn(JsValueRef * builtInValue, Fn getBuiltIn) {
   return true;
 }
 
-bool ContextShim::InitializeObjectPrototypeToString() {
-  JsValueRef objectPrototype;
-  JsPropertyIdRef toStringPropertyIdRef =
-    this->GetIsolateShim()->GetCachedPropertyIdRef(
-    CachedPropertyIdRef::toString);
-  if (!InitializeBuiltIn(&objectPrototypeToStringFunction,
-      [this, toStringPropertyIdRef, &objectPrototype](JsValueRef * value) {
-        JsPropertyIdRef prototypePropertyIdRef =
-          this->GetIsolateShim()->GetCachedPropertyIdRef(
-          CachedPropertyIdRef::prototype);
-        JsErrorCode error = JsGetProperty(
-          this->objectConstructor, prototypePropertyIdRef, &objectPrototype);
-        if (error != JsNoError) {
-          return error;
-        }
+bool ContextShim::InitializeBuiltIn(JsValueRef * builtInValue,
+                                    const wchar_t* globalName) {
+  return InitializeBuiltIn(builtInValue,
+                           [=](JsValueRef * value) {
+    return jsrt::GetProperty(globalObject, globalName, value);
+  });
+}
 
-        return JsGetProperty(objectPrototype, toStringPropertyIdRef, value);
-      })) {
-    return false;
+static const wchar_t* s_globalTypeNames[] = {
+#define DEFTYPE(T) L#T,
+#include "jsrtcontextcachedobj.inc"
+  L""
+};
+
+bool ContextShim::InitializeGlobalTypes() {
+  for (int i = 0; i < GlobalType::_TypeCount; i++) {
+    if (!InitializeBuiltIn(&globalConstructor[i], s_globalTypeNames[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ContextShim::InitializeGlobalPrototypeFunctions() {
+  IsolateShim* iso = GetIsolateShim();
+  JsPropertyIdRef prototypeIdRef =
+    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::prototype);
+
+  auto init = [=](GlobalPrototypeFunction index,
+                  GlobalType type, JsPropertyIdRef functionIdRef) {
+    // Cache the builtin function on the type's prototype
+    JsValueRef prototype;
+    if (!InitializeBuiltIn(&globalPrototypeFunction[index],
+                           [=, &prototype](JsValueRef * value) {
+      JsErrorCode error = JsGetProperty(
+        globalConstructor[type], prototypeIdRef, &prototype);
+      if (error != JsNoError) {
+        return error;
+      }
+
+      return JsGetProperty(prototype, functionIdRef, value);
+    })) {
+      return false;
+    }
+
+    // Replace the builtin function with a cross context shim function
+    JsValueRef function;
+    if (JsCreateFunction(jsrt::PrototypeFunctionCrossContextShim,
+                         reinterpret_cast<void*>(index),
+                         &function) != JsNoError) {
+      return false;
+    }
+    return JsSetProperty(prototype, functionIdRef, function,
+                         false) == JsNoError;
+  };
+
+  struct TypeMethodPair {
+    GlobalType type;
+    JsPropertyIdRef functionIdRef;
+  };
+
+  const TypeMethodPair pairs[GlobalPrototypeFunction::_FunctionCount] = {
+#define DEFMETHOD(T, M) { \
+    GlobalType::##T, \
+    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::##M) },
+#include "jsrtcontextcachedobj.inc"
+  };
+
+  for (int i = 0; i < _countof(pairs); i++) {
+    if (!init(static_cast<GlobalPrototypeFunction>(i),
+              pairs[i].type, pairs[i].functionIdRef)) {
+      return false;
+    }
   }
 
+  return true;
+}
+
+// Replace (cached) Object.prototype.toString with a shim to support
+// ObjectTemplate class name. Called after InitializeGlobalPrototypeFunctions().
+bool ContextShim::InitializeObjectPrototypeToStringShim() {
   JsValueRef function;
-  if (JsCreateFunction(jsrt::ObjectPrototypeToStringCrossContextShim,
-                       nullptr, &function) != JsNoError) {
+  if (!InitializeBuiltIn(&function, [=](JsValueRef * value) {
+    JsErrorCode error = JsCreateFunction(
+      v8::chakrashim::InternalMethods::ObjectPrototypeToStringShim,
+      GetGlobalPrototypeFunction(GlobalPrototypeFunction::Object_toString),
+      value);
+    if (error != JsNoError) {
+      return error;
+    }
+
+    return JsNoError;
+  })) {
     return false;
   }
-  return JsSetProperty(
-    objectPrototype, toStringPropertyIdRef, function, false) == JsNoError;
+
+  globalPrototypeFunction[GlobalPrototypeFunction::Object_toString] = function;
+  return true;
 }
 
 bool ContextShim::InitializeBuiltIns() {
@@ -156,29 +285,16 @@ bool ContextShim::InitializeBuiltIns() {
   keepAliveObject = newKeepAliveObject;
   // true and false is needed by DefineProperty to create the property
   // descriptor
-  if (!InitializeBuiltIn(&trueRef,
-                         [](JsValueRef * value) {
-                           return JsGetTrueValue(value);
-                         })) {
+  if (!InitializeBuiltIn(&trueRef, JsGetTrueValue)) {
     return false;
   }
-  if (!InitializeBuiltIn(&falseRef,
-                         [](JsValueRef * value) {
-                           return JsGetFalseValue(value);
-                         })) {
+  if (!InitializeBuiltIn(&falseRef, JsGetFalseValue)) {
     return false;
   }
-
-  if (!InitializeBuiltIn(&undefinedRef,
-                         [](JsValueRef * value) {
-                           return JsGetUndefinedValue(value);
-                         })) {
+  if (!InitializeBuiltIn(&undefinedRef, JsGetUndefinedValue)) {
     return false;
   }
-  if (!InitializeBuiltIn(&nullRef,
-                         [](JsValueRef * value) {
-                           return JsGetNullValue(value);
-                         })) {
+  if (!InitializeBuiltIn(&nullRef, JsGetNullValue)) {
     return false;
   }
   if (!InitializeBuiltIn(&zero,
@@ -187,63 +303,23 @@ bool ContextShim::InitializeBuiltIns() {
                          })) {
     return false;
   }
-  if (!InitializeBuiltIn(&booleanObjectConstructor,
-                         [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"Boolean", value);
-                         })) {
+
+  if (!InitializeGlobalTypes()) {
     return false;
   }
-  if (!InitializeBuiltIn(&numberObjectConstructor,
-                         [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"Number", value);
-                         })) {
+  if (!InitializeGlobalPrototypeFunctions()) {
     return false;
   }
-  if (!InitializeBuiltIn(&stringObjectConstructor,
-                         [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"String", value);
-                         })) {
-    return false;
-  }
-  if (!InitializeBuiltIn(&objectConstructor,
-                         [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"Object", value);
-                         })) {
-    return false;
-  }
-  if (!InitializeBuiltIn(&dateConstructor,
-                         [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"Date", value);
-                         })) {
-    return false;
-  }
-  if (!InitializeBuiltIn(&proxyConstructor,
-                         [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"Proxy", value);
-                         })) {
+  if (!InitializeObjectPrototypeToStringShim()) {
     return false;
   }
 
   if (!InitializeBuiltIn(&getOwnPropertyDescriptorFunction,
                          [this](JsValueRef * value) {
-                           return GetProperty(objectConstructor,
+                           return GetProperty(GetObjectConstructor(),
                                               L"getOwnPropertyDescriptor",
                                               value);
                          })) {
-    return false;
-  }
-
-  if (!InitializeBuiltIn(&stringConcatFunction,
-                         [this](JsValueRef * value) {
-    JsValueRef stringPrototype;
-    JsErrorCode error =
-      GetProperty(stringObjectConstructor, L"prototype", &stringPrototype);
-    if (error != JsNoError) {
-      return error;
-    }
-
-    return GetProperty(stringPrototype, L"concat", value);
-  })) {
     return false;
   }
 
@@ -262,10 +338,6 @@ bool ContextShim::InitializeBuiltIns() {
   }
 
   if (!InitializeProxyOfGlobal()) {
-    return false;
-  }
-
-  if (!InitializeObjectPrototypeToString()) {
     return false;
   }
 
@@ -336,6 +408,13 @@ bool ContextShim::EnsureInitialized() {
   }
 
   initialized = true;
+
+  // Following is a special one-time initialization that needs to marshal
+  // objects to this context. Do it after marking initialized = true.
+  if (!CheckConfigGlobalObjectTemplate()) {
+    return false;
+  }
+
   return true;
 }
 
@@ -377,6 +456,85 @@ bool ContextShim::ExecuteChakraShimJS() {
   JsValueRef arguments[] = { this->keepAliveObject };
   return JsCallFunction(
     initFunction, arguments, _countof(arguments), &result) == JsNoError;
+}
+
+bool ContextShim::RegisterCrossContextObject(JsValueRef fakeTarget,
+                                             const CrossContextMapInfo& info) {
+  // Ensure fakeTarget lifetime encloses proxy lifetime
+  if (jsrt::SetProperty(fakeTarget, L"proxy", info.proxy) != JsNoError) {
+    return false;
+  }
+
+  try {
+    CrossContextMapInfo* mapInfoCopy = new CrossContextMapInfo(info);
+    if (JsSetObjectBeforeCollectCallback(fakeTarget,
+                    mapInfoCopy,
+                    CrossContextFakeTargeBeforeCollectCallback) != JsNoError) {
+      delete mapInfoCopy;
+      return false;
+    }
+
+    crossContextObjects[info.object].push_back(mapInfoCopy);
+    return true;  // success
+  } catch (const std::bad_alloc&) {
+    return false;
+  }
+}
+
+bool ContextShim::UnregisterCrossContextObject(
+    const CrossContextMapInfo& info) {
+  auto i = crossContextObjects.find(info.object);
+  if (i != crossContextObjects.end()) {
+    std::vector<CrossContextMapInfo*>& v = i->second;
+    auto i2 = std::remove_if(v.begin(), v.end(),
+                             [info](const CrossContextMapInfo* x) -> bool {
+      return x->toContext == info.toContext;
+    });
+
+    if (i2 != v.end()) {
+      v.erase(i2, v.end());
+      if (v.size() == 0) {
+        crossContextObjects.erase(i);
+      }
+
+      return true;
+    }
+  }
+
+  assert(false);  // not found in map
+  return false;
+}
+
+bool ContextShim::TryGetCrossContextObject(JsValueRef object,
+                                           ContextShim* toContext,
+                                           JsValueRef* proxy) {
+  auto i = crossContextObjects.find(object);
+  if (i != crossContextObjects.end()) {
+    std::vector<CrossContextMapInfo*>& v = i->second;
+    auto i2 = std::find_if(v.begin(), v.end(),
+                           [=](const CrossContextMapInfo* x) -> bool {
+      return x->toContext == toContext;
+    });
+
+    if (i2 != v.end()) {
+      *proxy = (*i2)->proxy;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void CALLBACK ContextShim::CrossContextFakeTargeBeforeCollectCallback(
+    JsRef ref, void *callbackState) {
+  CrossContextMapInfo* info = static_cast<CrossContextMapInfo*>(callbackState);
+
+  ContextShim* fromContext = info->fromContext;
+  if (fromContext != nullptr) {
+    fromContext->UnregisterCrossContextObject(*info);
+  }
+
+  delete info;
 }
 
 void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
@@ -432,24 +590,32 @@ JsValueRef ContextShim::GetZero() {
   return zero;
 }
 
-JsValueRef ContextShim::GetNumberObjectConstructor() {
-  return numberObjectConstructor;
+JsValueRef ContextShim::GetObjectConstructor() {
+  return globalConstructor[GlobalType::Object];
 }
 
 JsValueRef ContextShim::GetBooleanObjectConstructor() {
-  return booleanObjectConstructor;
+  return globalConstructor[GlobalType::Boolean];
+}
+
+JsValueRef ContextShim::GetNumberObjectConstructor() {
+  return globalConstructor[GlobalType::Number];
 }
 
 JsValueRef ContextShim::GetStringObjectConstructor() {
-  return stringObjectConstructor;
+  return globalConstructor[GlobalType::String];
 }
 
 JsValueRef ContextShim::GetDateConstructor() {
-  return dateConstructor;
+  return globalConstructor[GlobalType::Date];
+}
+
+JsValueRef ContextShim::GetRegExpConstructor() {
+  return globalConstructor[GlobalType::RegExp];
 }
 
 JsValueRef ContextShim::GetProxyConstructor() {
-  return proxyConstructor;
+  return globalConstructor[GlobalType::Proxy];
 }
 
 JsValueRef ContextShim::GetGetOwnPropertyDescriptorFunction() {
@@ -457,11 +623,12 @@ JsValueRef ContextShim::GetGetOwnPropertyDescriptorFunction() {
 }
 
 JsValueRef ContextShim::GetStringConcatFunction() {
-  return stringConcatFunction;
+  return globalPrototypeFunction[GlobalPrototypeFunction::String_concat];
 }
 
-JsValueRef ContextShim::GetObjectPrototypeToStringFunction() {
-  return objectPrototypeToStringFunction;
+JsValueRef ContextShim::GetGlobalPrototypeFunction(
+    GlobalPrototypeFunction index) {
+  return globalPrototypeFunction[index];
 }
 
 JsValueRef ContextShim::GetProxyOfGlobal() {
@@ -476,136 +643,124 @@ JsValueRef ContextShim::GetReflectFunctionForTrap(ProxyTraps trap) {
   return reflectFunctions[trap];
 }
 
-JsValueRef ContextShim::GetInstanceOfFunction() {
-  if (instanceOfFunction == JS_INVALID_REFERENCE) {
-    // _chakra_patch.js has initialize the function an put it in
-    // keepAliveObject.
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::isInstanceOf),
-      &instanceOfFunction);
-    // CHAKRA-TODO: Handle Error?
+JsValueRef ContextShim::GetCachedShimFunction(CachedPropertyIdRef id,
+                                              JsValueRef* func) {
+  if (*func == JS_INVALID_REFERENCE) {
+    // chakra_shim.js has initialize the function an put it in keepAliveObject.
+    JsErrorCode error = JsGetProperty(keepAliveObject,
+                  GetIsolateShim()->GetCachedPropertyIdRef(id),
+                  func);
+    CHAKRA_VERIFY(error == JsNoError);
   }
 
-  return instanceOfFunction;
+  return *func;
+}
+
+JsValueRef ContextShim::GetInstanceOfFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::isInstanceOf,
+                               &instanceOfFunction);
 }
 
 JsValueRef ContextShim::GetCloneObjectFunction() {
-  if (cloneObjectFunction == JS_INVALID_REFERENCE) {
-    // _chakra_patch.js has initialize the function an put it in
-    // keepAliveObject.
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::cloneObject),
-      &cloneObjectFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
+  return GetCachedShimFunction(CachedPropertyIdRef::cloneObject,
+                               &cloneObjectFunction);
+}
 
-  return cloneObjectFunction;
+JsValueRef ContextShim::GetForEachNonConfigurablePropertyFunction() {
+  return GetCachedShimFunction(
+    CachedPropertyIdRef::forEachNonConfigurableProperty,
+    &forEachNonConfigurablePropertyFunction);
 }
 
 JsValueRef ContextShim::GetGetPropertyNamesFunction() {
-  if (getPropertyNamesFunction == JS_INVALID_REFERENCE) {
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::getPropertyNames),
-      &getPropertyNamesFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return getPropertyNamesFunction;
+  return GetCachedShimFunction(CachedPropertyIdRef::getPropertyNames,
+                               &getPropertyNamesFunction);
 }
 
 JsValueRef ContextShim::GetGetEnumerableNamedPropertiesFunction() {
-  if (getEnumerableNamedPropertiesFunction == JS_INVALID_REFERENCE) {
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::getEnumerableNamedProperties),
-      &getEnumerableNamedPropertiesFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return getEnumerableNamedPropertiesFunction;
+  return GetCachedShimFunction(
+    CachedPropertyIdRef::getEnumerableNamedProperties,
+    &getEnumerableNamedPropertiesFunction);
 }
 
 JsValueRef ContextShim::GetGetEnumerableIndexedPropertiesFunction() {
-  if (getEnumerableIndexedPropertiesFunction == JS_INVALID_REFERENCE) {
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::getEnumerableIndexedProperties),
-      &getEnumerableIndexedPropertiesFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return getEnumerableIndexedPropertiesFunction;
+  return GetCachedShimFunction(
+    CachedPropertyIdRef::getEnumerableIndexedProperties,
+    &getEnumerableIndexedPropertiesFunction);
 }
 
 JsValueRef ContextShim::GetCreateEnumerationIteratorFunction() {
-  if (createEnumerationIteratorFunction == JS_INVALID_REFERENCE) {
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::createEnumerationIterator),
-      &createEnumerationIteratorFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return createEnumerationIteratorFunction;
+  return GetCachedShimFunction(CachedPropertyIdRef::createEnumerationIterator,
+                               &createEnumerationIteratorFunction);
 }
 
 JsValueRef
 ContextShim::GetCreatePropertyDescriptorsEnumerationIteratorFunction() {
-  if (createPropertyDescriptorsEnumerationIteratorFunction ==
-                                                JS_INVALID_REFERENCE) {
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::createPropertyDescriptorsEnumerationIterator),
-      &createPropertyDescriptorsEnumerationIteratorFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return createPropertyDescriptorsEnumerationIteratorFunction;
+  return GetCachedShimFunction(
+    CachedPropertyIdRef::createPropertyDescriptorsEnumerationIterator,
+    &createPropertyDescriptorsEnumerationIteratorFunction);
 }
 
 JsValueRef ContextShim::GetGetNamedOwnKeysFunction() {
-  if (getNamedOwnKeysFunction == JS_INVALID_REFERENCE) {
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::getNamedOwnKeys),
-      &getNamedOwnKeysFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return getNamedOwnKeysFunction;
+  return GetCachedShimFunction(CachedPropertyIdRef::getNamedOwnKeys,
+                               &getNamedOwnKeysFunction);
 }
 
 JsValueRef ContextShim::GetGetIndexedOwnKeysFunction() {
-  if (getIndexedOwnKeysFunction == JS_INVALID_REFERENCE) {
-    // _chakra_patch.js has initialize the function an put it in
-    // keepAliveObject.
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::getIndexedOwnKeys),
-      &getIndexedOwnKeysFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return getIndexedOwnKeysFunction;
+  return GetCachedShimFunction(CachedPropertyIdRef::getIndexedOwnKeys,
+                               &getIndexedOwnKeysFunction);
+}
+
+JsValueRef ContextShim::GetIsBoundFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::isBound,
+                               &isBoundFunction);
 }
 
 JsValueRef ContextShim::GetCreateEmptyLambdaFunction() {
-  if (createEmptyLambdaFunction == JS_INVALID_REFERENCE) {
-    // _chakra_patch.js has initialize the function an put it in
-    // keepAliveObject.
-    JsErrorCode error = JsGetProperty(
-      keepAliveObject,
-      GetIsolateShim()->GetCachedPropertyIdRef(
-        CachedPropertyIdRef::createEmptyLambdaFunction),
-      &createEmptyLambdaFunction);
-    // CHAKRA-TODO: Handle Error?
-  }
-  return createEmptyLambdaFunction;
+  return GetCachedShimFunction(CachedPropertyIdRef::createEmptyLambdaFunction,
+                               &createEmptyLambdaFunction);
+}
+
+JsValueRef ContextShim::GetThrowAccessorErrorFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::throwAccessorErrorFunction,
+                               &throwAccessorErrorFunction);
 }
 
 }  // namespace jsrt
+
+namespace v8 {
+namespace chakrashim {
+
+// This shim wraps Object.prototype.toString to supports ObjectTemplate class
+// name.
+JsValueRef CALLBACK InternalMethods::ObjectPrototypeToStringShim(
+  JsValueRef callee,
+  bool isConstructCall,
+  JsValueRef *arguments,
+  unsigned short argumentCount,
+  void *callbackState) {
+  if (argumentCount >= 1) {
+    using namespace v8;
+    Isolate* iso = Isolate::GetCurrent();
+    HandleScope scope(iso);
+
+    Object* obj = static_cast<Object*>(arguments[0]);
+    Local<String> str = InternalMethods::GetClassName(obj);
+    if (!str.IsEmpty()) {
+      str = String::Concat(String::NewFromUtf8(iso, "[object "), str);
+      str = String::Concat(str, String::NewFromUtf8(iso, "]"));
+      return *str;
+    }
+  }
+
+  JsValueRef function = callbackState;
+  JsValueRef result;
+  if (JsCallFunction(function,
+                     arguments, argumentCount, &result) != JsNoError) {
+    return JS_INVALID_REFERENCE;
+  }
+  return result;
+}
+
+}  // namespace chakrashim
+}  // namespace v8

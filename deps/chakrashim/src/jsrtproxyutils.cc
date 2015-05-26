@@ -93,10 +93,9 @@ JsErrorCode CreateProxyTrapConfig(
 }
 
 JsErrorCode CreateProxy(
-  _In_ JsValueRef target,
-  _In_ const JsNativeFunction config[ProxyTraps::TrapCount],
-  _Out_ JsValueRef *result
-  ) {
+    _In_ JsValueRef target,
+    _In_ const JsNativeFunction config[ProxyTraps::TrapCount],
+    _Out_ JsValueRef *result) {
   JsErrorCode error;
 
   JsValueRef proxyConfigObj;

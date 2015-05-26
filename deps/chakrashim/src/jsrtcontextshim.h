@@ -19,6 +19,7 @@
 // IN THE SOFTWARE.
 
 #include <functional>
+#include <unordered_map>
 #include <vector>
 
 namespace jsrt {
@@ -37,7 +38,23 @@ class ContextShim {
     friend class IsolateShim;
   };
 
-  static ContextShim * New(IsolateShim * isolateShim, bool exposeGC);
+  // These global constructors will be cached
+  enum GlobalType {
+#define DEFTYPE(T) T,
+#include "jsrtcontextcachedobj.inc"
+    _TypeCount
+  };
+
+  // These prototype functions will be cached/shimmed
+  enum GlobalPrototypeFunction {
+#define DEFMETHOD(T, M)  T##_##M,
+#include "jsrtcontextcachedobj.inc"
+    _FunctionCount
+  };
+
+  static ContextShim * New(IsolateShim * isolateShim, bool exposeGC,
+                           JsValueRef globalObjectTemplateInstance);
+  ~ContextShim();
   bool EnsureInitialized();
 
   IsolateShim * GetIsolateShim();
@@ -49,20 +66,23 @@ class ContextShim {
   JsValueRef GetUndefined();
   JsValueRef GetNull();
   JsValueRef GetZero();
+  JsValueRef GetObjectConstructor();
   JsValueRef GetBooleanObjectConstructor();
   JsValueRef GetNumberObjectConstructor();
   JsValueRef GetStringObjectConstructor();
   JsValueRef GetDateConstructor();
+  JsValueRef GetRegExpConstructor();
   JsValueRef GetProxyConstructor();
   JsValueRef GetGetOwnPropertyDescriptorFunction();
   JsValueRef GetStringConcatFunction();
-  JsValueRef GetObjectPrototypeToStringFunction();
+  JsValueRef GetGlobalPrototypeFunction(GlobalPrototypeFunction index);
   JsValueRef GetProxyOfGlobal();
   JsValueRef GetReflectObject();
   JsValueRef GetReflectFunctionForTrap(ProxyTraps traps);
 
   JsValueRef GetInstanceOfFunction();
   JsValueRef GetCloneObjectFunction();
+  JsValueRef GetForEachNonConfigurablePropertyFunction();
   JsValueRef GetGetPropertyNamesFunction();
   JsValueRef GetGetEnumerableNamedPropertiesFunction();
   JsValueRef GetGetEnumerableIndexedPropertiesFunction();
@@ -70,7 +90,9 @@ class ContextShim {
   JsValueRef GetCreatePropertyDescriptorsEnumerationIteratorFunction();
   JsValueRef GetGetNamedOwnKeysFunction();
   JsValueRef GetGetIndexedOwnKeysFunction();
+  JsValueRef GetIsBoundFunction();
   JsValueRef GetCreateEmptyLambdaFunction();
+  JsValueRef GetThrowAccessorErrorFunction();
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
@@ -81,18 +103,45 @@ class ContextShim {
   static R ExecuteInContextOf(JsValueRef object, const std::function<R()> & fn);
 
  private:
-  ContextShim(IsolateShim * isolateShim, JsContextRef context, bool exposeGC);
+  ContextShim(IsolateShim * isolateShim, JsContextRef context, bool exposeGC,
+              JsValueRef globalObjectTemplateInstance);
   bool InitializeBuiltIns();
   bool InitializeProxyOfGlobal();
   bool InitializeReflect();
-  bool InitializeObjectPrototypeToString();
+  bool InitializeGlobalPrototypeFunctions();
+  bool InitializeObjectPrototypeToStringShim();
 
   template <typename Fn>
-  bool InitializeBuiltIn(JsValueRef * builtIntValue, Fn getBuiltIn);
+  bool InitializeBuiltIn(JsValueRef * builtInValue, Fn getBuiltIn);
+  bool InitializeBuiltIn(JsValueRef * builtInValue, const wchar_t* globalName);
+  bool InitializeGlobalTypes();
   bool KeepAlive(JsValueRef value);
-
+  JsValueRef GetCachedShimFunction(CachedPropertyIdRef id, JsValueRef* func);
   bool ExposeGc();
+  bool CheckConfigGlobalObjectTemplate();
   bool ExecuteChakraShimJS();
+
+  // Maintains a map of {(this fromContext) object -> (toContext) proxy} for
+  // cross context objects. We can return the same proxy when an object was
+  // previously marshalled to toContext.
+  struct CrossContextMapInfo {
+    ContextShim* fromContext;
+    ContextShim* toContext;
+    JsValueRef object;  // original object
+    JsValueRef proxy;   // result proxy
+  };
+  bool RegisterCrossContextObject(JsValueRef fakeTarget,
+                                  const CrossContextMapInfo& info);
+  bool UnregisterCrossContextObject(const CrossContextMapInfo& info);
+  bool TryGetCrossContextObject(JsValueRef object, ContextShim* toContext,
+                                JsValueRef* proxy);
+  static void CALLBACK CrossContextFakeTargeBeforeCollectCallback(
+    JsRef ref, void *callbackState);
+
+  friend JsValueRef MarshalObjectToContext(JsValueType valueType,
+                                           JsValueRef valueRef,
+                                           ContextShim * contextShim,
+                                           ContextShim * toContextShim);
 
   IsolateShim * isolateShim;
   JsContextRef context;
@@ -100,31 +149,27 @@ class ContextShim {
   bool exposeGC;
   JsValueRef keepAliveObject;
   int builtInCount;
+  JsValueRef globalObjectTemplateInstance;
 
   JsValueRef trueRef;
   JsValueRef falseRef;
   JsValueRef undefinedRef;
   JsValueRef nullRef;
   JsValueRef zero;
-  JsValueRef objectConstructor;
-  JsValueRef numberObjectConstructor;
-  JsValueRef booleanObjectConstructor;
-  JsValueRef stringObjectConstructor;
-  JsValueRef dateConstructor;
-  JsValueRef proxyConstructor;
+  JsValueRef globalConstructor[GlobalType::_TypeCount];
   JsValueRef globalObject;
   JsValueRef proxyOfGlobal;
   JsValueRef reflectObject;
   JsValueRef reflectFunctions[ProxyTraps::TrapCount];
 
-  JsValueRef objectPrototypeToStringFunction;
+  JsValueRef globalPrototypeFunction[GlobalPrototypeFunction::_FunctionCount];
   JsValueRef getOwnPropertyDescriptorFunction;
-  JsValueRef stringConcatFunction;
 
   JsValueRef promiseContinuationFunction;
 
   JsValueRef instanceOfFunction;
   JsValueRef cloneObjectFunction;
+  JsValueRef forEachNonConfigurablePropertyFunction;
   JsValueRef isUintFunction;
   JsValueRef getPropertyNamesFunction;
 
@@ -134,9 +179,13 @@ class ContextShim {
   JsValueRef createPropertyDescriptorsEnumerationIteratorFunction;
   JsValueRef getNamedOwnKeysFunction;
   JsValueRef getIndexedOwnKeysFunction;
+  JsValueRef isBoundFunction;
   JsValueRef createEmptyLambdaFunction;
+  JsValueRef throwAccessorErrorFunction;
 
   std::vector<void*> embedderData;
+  std::unordered_map<JsValueRef, std::vector<CrossContextMapInfo*>>
+    crossContextObjects;
 };
 
 template <class R>

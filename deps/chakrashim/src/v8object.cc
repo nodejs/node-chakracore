@@ -561,13 +561,10 @@ Local<Value> Object::GetHiddenValue(Handle<String> key) {
   return Local<Value>::New(static_cast<Value*>(result));
 }
 
-bool Object::IsInstanceOf(Handle<ObjectTemplate> objectTemplate) {
+ObjectTemplate* Object::GetObjectTemplate() {
   ObjectData *objectData = nullptr;
-  if (GetObjectData(&objectData) != JsNoError || objectData == nullptr) {
-    return false;
-  }
-
-  return objectData->objectTemplate == objectTemplate;
+  return GetObjectData(&objectData) == JsNoError && objectData != nullptr ?
+    *objectData->objectTemplate : nullptr;
 }
 
 JsErrorCode Object::GetObjectData(ObjectData** objectData) {
@@ -809,8 +806,8 @@ Local<Context> Object::CreationContext() {
 }
 
 Local<Value> Object::GetRealNamedProperty(Handle<String> key) {
-  // CHAKRA-TODO
-  return Local<Value>();
+  // CHAKRA-TODO: how to skip interceptors?
+  return this->Get(key);
 }
 
 Local<Object> Object::New(Isolate* isolate) {

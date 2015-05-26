@@ -50,8 +50,13 @@ DEF(createEnumerationIterator)
 DEF(createPropertyDescriptorsEnumerationIterator)
 DEF(getNamedOwnKeys)
 DEF(getIndexedOwnKeys)
+DEF(concat)
 DEF(createEmptyLambdaFunction)
+DEF(forEachNonConfigurableProperty)
+DEF(isBound)
 DEF(prototype)
+DEF(slice)
+DEF(throwAccessorErrorFunction)
 DEF(toString)
 
 #undef DEF

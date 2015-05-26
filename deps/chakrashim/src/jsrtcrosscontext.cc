@@ -24,6 +24,8 @@
 
 namespace jsrt {
 
+using namespace v8;
+
 struct CrossContextInfo {
   ContextShim * contextShim;
   JsValueRef crossContextObject;
@@ -43,7 +45,7 @@ static bool CheckMarshalFailed(
         return true;
       }
       // Fall thru
-     default:
+    default:
       // CHAKRA-TODO: Fail fast?
       assert(false);
       return true;
@@ -264,87 +266,16 @@ static bool CheckNewNonConfigurableProperty(
     return true;
   }
 
-  // We need to define the property on the fakeTargetObject, need to figure out
-  // whether it is data or accessor
-
-  // Get the property's id ref
+  // We need to define the property on the fakeTargetObject
   JsPropertyIdRef propertyIdRef = JS_INVALID_REFERENCE;
   if (CheckMarshalFailed(GetPropertyIdFromValue(prop, &propertyIdRef))) {
-    return false;
-  }
-
-  JsValueRef newDescriptor;
-  if (CheckMarshalFailed(JsCreateObject(&newDescriptor))) {
-    return false;
-  }
-
-  if (CheckMarshalFailed(JsSetProperty(newDescriptor,
-                                       configurablePropertyIdRef,
-                                       configruableValue,
-                                       false))) {
-    return false;
-  }
-
-  JsPropertyIdRef valuePropertyIdRef =
-    isolateShim->GetCachedPropertyIdRef(CachedPropertyIdRef::value);
-  JsPropertyIdRef getPropertyIdRef =
-    isolateShim->GetCachedPropertyIdRef(CachedPropertyIdRef::get);
-
-  bool isDataDescriptor;
-  if (CheckMarshalFailed(JsHasProperty(descriptor,
-                                       valuePropertyIdRef,
-                                       &isDataDescriptor))) {
-    return false;
-  }
-
-  if (!isDataDescriptor) {
-    bool isAccessorDescriptor;
-    if (CheckMarshalFailed(JsHasProperty(descriptor,
-                                         getPropertyIdRef,
-                                         &isAccessorDescriptor))) {
-      return false;
-    }
-    if (!isAccessorDescriptor) {
-      if (CheckMarshalFailed(JsHasProperty(descriptor,
-                                           isolateShim->GetCachedPropertyIdRef(
-                                             CachedPropertyIdRef::set),
-                                           &isAccessorDescriptor))) {
-        return false;
-      }
-
-
-      if (!isAccessorDescriptor) {
-        // A generic descriptor, we need to see what kind of property this is on
-        // the actual cross context target
-        ContextShim::Scope scope(crossContextInfo->contextShim);
-        JsValueRef crossContextObject = crossContextInfo->crossContextObject;
-        JsValueRef crossContextDescriptor;
-        if (CheckMarshalFailed(JsGetOwnPropertyDescriptor(crossContextObject,
-                                                    propertyIdRef,
-                                                    &crossContextDescriptor))) {
-          return false;
-        }
-
-        if (CheckMarshalFailed(JsHasProperty(crossContextDescriptor,
-                                             valuePropertyIdRef,
-                                             &isDataDescriptor))) {
-          return false;
-        }
-      }
-    }
-  }
-
-  if (CheckMarshalFailed(JsSetProperty(newDescriptor,
-                      isDataDescriptor ? valuePropertyIdRef : getPropertyIdRef,
-                      contextShim->GetUndefined(),
-                      false))) {
     return false;
   }
 
   bool defined;
   if (CheckMarshalFailed(JsDefineProperty(fakeTargetObject,
                                           propertyIdRef,
-                                          newDescriptor,
+                                          descriptor,
                                           &defined))) {
     return false;
   }
@@ -357,6 +288,77 @@ static bool CheckNewNonConfigurableProperty(
   return true;
 }
 
+struct CloneNonConfigurablePropertyTarget {
+  JsValueRef fakeTargetObject;
+  ContextShim * toContextShim;
+};
+
+static JsValueRef CALLBACK CloneNonConfigurablePropertyCallback(
+    _In_ JsValueRef callee,
+    _In_ bool isConstructCall,
+    _In_ JsValueRef *arguments,
+    _In_ unsigned short argumentCount,
+    _In_opt_ void *callbackState) {
+  CloneNonConfigurablePropertyTarget* tgt =
+    static_cast<CloneNonConfigurablePropertyTarget*>(callbackState);
+  ContextShim* fromContext = ContextShim::GetCurrent();
+
+  if (argumentCount >= 3) {
+    JsValueRef key = arguments[1];
+    JsValueRef desc = arguments[2];
+
+    ContextShim* toContext = tgt->toContextShim;
+    JsValueRef toKey = MarshalJsValueRefToContext(key, fromContext, toContext);
+    JsValueRef toDesc = MarshalDescriptor(desc, fromContext, toContext);
+
+    ContextShim::Scope toScope(toContext);
+    const wchar_t* name;
+    size_t length;
+    JsPropertyIdRef idRef;
+    bool result;
+
+    if (JsStringToPointer(toKey, &name, &length) == JsNoError &&
+        JsGetPropertyIdFromName(name, &idRef) == JsNoError &&
+        JsDefineProperty(tgt->fakeTargetObject, idRef, toDesc,
+                         &result) == JsNoError) {
+      return fromContext->GetTrue();  // success
+    }
+    CHAKRA_ASSERT(false);
+  }
+
+  return GetUndefined();
+}
+
+// When we marshal an object we must simulate existing non-configurable
+// properties on the fake target object, required by Proxy spec.
+// CONSIDER: Clone lazily at later proxy access time to avoid possibly cloning
+// the whole object tree.
+static bool CloneNonConfigurableProperties(JsValueRef source,
+                                           JsValueRef fakeTargetObject,
+                                           ContextShim * fromContextShim,
+                                           ContextShim * toContextShim) {
+  ContextShim::Scope fromScope(fromContextShim);
+
+  CloneNonConfigurablePropertyTarget tgt = { fakeTargetObject, toContextShim };
+  JsValueRef callback;
+  if (CheckMarshalFailed(JsCreateFunction(CloneNonConfigurablePropertyCallback,
+                                          &tgt, &callback))) {
+    return false;
+  }
+
+  JsValueRef function =
+    fromContextShim->GetForEachNonConfigurablePropertyFunction();
+  JsValueRef args[] = { fromContextShim->GetUndefined(), source, callback };
+  JsValueRef result;
+  if (CheckMarshalFailed(JsCallFunction(function,
+                                        args, _countof(args), &result))) {
+    return false;
+  }
+
+  bool success;
+  return JsBooleanToBool(result, &success) == JsNoError && success;
+}
+
 template <ProxyTraps trap, unsigned short reflectArgumentCount>
 static JsValueRef CALLBACK CrossContextCallback(
     _In_ JsValueRef callee,
@@ -367,7 +369,7 @@ static JsValueRef CALLBACK CrossContextCallback(
   ContextShim * currentContextShim = ContextShim::GetCurrent();
   JsValueRef fakeTargetObject = arguments[1];
   if (trap == ProxyTraps::GetTrap) {
-    // Check for unwarping
+    // Check for unwrapping
     JsValueRef prop = arguments[2];
     JsValueType type;
     JsPropertyIdRef propertyIdRef;
@@ -469,12 +471,11 @@ static JsValueRef CALLBACK DummyCallback(_In_ JsValueRef callee,
   return GetUndefined();
 }
 
-static JsValueRef MarshalObjectToContext(JsValueType valueType,
-                                         JsValueRef valueRef,
-                                         ContextShim * contextShim,
-                                         ContextShim * toContextShim) {
+JsValueRef MarshalObjectToContext(JsValueType valueType,
+                                  JsValueRef valueRef,
+                                  ContextShim * contextShim,
+                                  ContextShim * toContextShim) {
   JsValueRef crossContextObject = valueRef;
-  JsValueType crossContextObjectValueType = valueType;
   ContextShim * fromContextShim = contextShim;
 
   if (valueType == JsObject) {
@@ -493,12 +494,45 @@ static JsValueRef MarshalObjectToContext(JsValueType valueType,
       }
     }
 
-    {
-      ContextShim::Scope scope(fromContextShim);
-      if (CheckMarshalFailed(JsGetValueType(crossContextObject,
-                                            &crossContextObjectValueType))) {
-        return JS_INVALID_REFERENCE;
-      }
+    // Update valueType
+    if (CheckMarshalFailed(JsGetValueType(crossContextObject,
+                                          &valueType))) {
+      return JS_INVALID_REFERENCE;
+    }
+  }
+
+  // Try to use existing proxy
+  {
+    JsValueRef proxy;
+    if (fromContextShim->TryGetCrossContextObject(crossContextObject,
+                                                  toContextShim, &proxy)) {
+      return proxy;
+    }
+  }
+
+  bool isBoundFunction = false;
+  if (valueType == JsFunction) {
+    // Special marshalling for throwAccessorErrorFunction
+    JsValueRef throwAccessorErrorFunction =
+      fromContextShim->GetThrowAccessorErrorFunction();
+    if (crossContextObject == throwAccessorErrorFunction) {
+      ContextShim::Scope scope(toContextShim);
+      return toContextShim->GetThrowAccessorErrorFunction();
+    }
+
+    JsValueRef function = fromContextShim->GetIsBoundFunction();
+    JsValueRef isBound;
+    JsValueRef args[] = {
+      fromContextShim->GetUndefined(),
+      crossContextObject };
+    if (CheckMarshalFailed(JsCallFunction(function,
+                                          args, _countof(args),
+                                          &isBound))) {
+      return JS_INVALID_REFERENCE;
+    }
+    if (CheckMarshalFailed(JsBooleanToBool(isBound,
+                                           &isBoundFunction))) {
+      return JS_INVALID_REFERENCE;
     }
   }
 
@@ -523,7 +557,7 @@ static JsValueRef MarshalObjectToContext(JsValueType valueType,
   //              |- data If crossContextObject is a function: Proxy
   //  |- targetObject (empty lambda function)
   //      |- externalobject (property: keepAlive)
-  ///         |- crossContextObject (external data)     -- keep object alive
+  //          |- crossContextObject (external data)     -- keep object alive
   //      |- externalobject (property: keepAliveContext)
   //          |- context                                -- keep the context
   //          |- alive externalobject (property: crossContextInfo)
@@ -568,8 +602,14 @@ static JsValueRef MarshalObjectToContext(JsValueType valueType,
     if (valueType == JsFunction) {
       // Use a function as the target object so that the proxy can be called
       JsValueRef function = toContextShim->GetCreateEmptyLambdaFunction();
+      JsValueRef isBound;
+      if (CheckMarshalFailed(JsBoolToBoolean(isBoundFunction, &isBound))) {
+        return JS_INVALID_REFERENCE;
+      }
+      JsValueRef args[] = { toContextShim->GetUndefined(), isBound };
       if (CheckMarshalFailed(JsCallFunction(function,
-                                            nullptr, 0, &targetObject))) {
+                                            args, _countof(args),
+                                            &targetObject))) {
         return JS_INVALID_REFERENCE;
       }
     } else {
@@ -639,6 +679,22 @@ static JsValueRef MarshalObjectToContext(JsValueType valueType,
   if (CheckMarshalFailed(CreateProxy(targetObject, proxyConf, &proxy))) {
     return JS_INVALID_REFERENCE;
   }
+
+  // Register the new {object -> proxy}
+  ContextShim::CrossContextMapInfo info = {
+    fromContextShim, toContextShim, crossContextObject, proxy };
+  if (!fromContextShim->RegisterCrossContextObject(targetObject, info)) {
+    return JS_INVALID_REFERENCE;
+  }
+
+  // Clone existing non-configurable properties to fake targetObject,
+  // otherwise Proxy validations will throw type error.
+  if (!CloneNonConfigurableProperties(crossContextObject,
+                                      targetObject,
+                                      fromContextShim, toContextShim)) {
+    return JS_INVALID_REFERENCE;
+  }
+
   return proxy;
 }
 
@@ -702,19 +758,27 @@ JsValueRef MarshalJsValueRefToContext(JsValueRef valueRef,
         }
         return JS_INVALID_REFERENCE;
       }
-       default:
+      default:
         return MarshalObjectToContext(
           valueType, valueRef, fromContextShim, toContextShim);
     };
   }
 }
 
-JsValueRef CALLBACK ObjectPrototypeToStringCrossContextShim(
+// This shim enables a builtin prototype function to support cross context
+// objects. When "this" argument is cross context, marshal all arguments and
+// make the call in "this" argument context. Otherwise delegate the call to
+// cached function in current context.
+JsValueRef CALLBACK PrototypeFunctionCrossContextShim(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState) {
+  ContextShim * originalContextShim = ContextShim::GetCurrent();
+  ContextShim::GlobalPrototypeFunction index =
+    *reinterpret_cast<ContextShim::GlobalPrototypeFunction*>(&callbackState);
+
   if (argumentCount >= 1) {
     JsValueRef arg = arguments[0];
 
@@ -741,35 +805,40 @@ JsValueRef CALLBACK ObjectPrototypeToStringCrossContextShim(
         break;
        default:
       {
-        ContextShim * originalContextShim = ContextShim::GetCurrent();
         CrossContextInfo * crossContextInfo;
         if (!UnwrapIfCrossContext(arg, &crossContextInfo)) {
           return JS_INVALID_REFERENCE;
         }
         if (crossContextInfo != nullptr) {
-          ContextShim::Scope scope(crossContextInfo->contextShim);
+          ContextShim* toContextShim = crossContextInfo->contextShim;
 
+          JsArguments<> newArguments(argumentCount);
+          newArguments[0] = crossContextInfo->crossContextObject;
+          for (int i = 1; i < argumentCount; i++) {
+            newArguments[i] = MarshalJsValueRefToContext(
+              arguments[i], originalContextShim, toContextShim);
+          }
+
+          ContextShim::Scope scope(toContextShim);
           JsValueRef function =
-            crossContextInfo->contextShim->GetObjectPrototypeToStringFunction();
+            toContextShim->GetGlobalPrototypeFunction(index);
           JsValueRef result;
-          JsValueRef newArguments[] = { crossContextInfo->crossContextObject };
-          if (JsCallFunction(function,
-                             newArguments, _countof(newArguments),
+
+          if (JsCallFunction(function, newArguments, argumentCount,
                              &result) != JsNoError) {
             return JS_INVALID_REFERENCE;
           }
           return MarshalJsValueRefToContext(
-            result, crossContextInfo->contextShim, originalContextShim);
+            result, toContextShim, originalContextShim);
         }
       }
     };
   }
 
-  JsValueRef function = ContextShim::GetCurrent()
-                            ->GetObjectPrototypeToStringFunction();
+  JsValueRef function = originalContextShim->GetGlobalPrototypeFunction(index);
   JsValueRef result;
-  if (JsCallFunction(function,
-                     arguments, argumentCount, &result) != JsNoError) {
+  if (JsCallFunction(function, arguments, argumentCount,
+                     &result) != JsNoError) {
     return JS_INVALID_REFERENCE;
   }
   return result;

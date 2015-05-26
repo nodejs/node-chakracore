@@ -120,7 +120,8 @@ ObjectData::ObjectData(ObjectTemplate* objectTemplate,
       indexedPropertyQuery(templateData->indexedPropertyQuery),
       indexedPropertyDeleter(templateData->indexedPropertyDeleter),
       indexedPropertyEnumerator(templateData->indexedPropertyEnumerator),
-      indexedPropertyInterceptorData(templateData->indexedPropertyInterceptorData),
+      indexedPropertyInterceptorData(
+        templateData->indexedPropertyInterceptorData),
       internalFieldCount(templateData->internalFieldCount) {
   if (internalFieldCount > 0) {
     internalFields = new void *[internalFieldCount];
@@ -445,7 +446,9 @@ JsValueRef HasPropertyHandler(_In_ JsValueRef *arguments,
       return hasProperty ? GetTrue() : GetFalse();
     } else {
       JsValueRef result;
-      jsrt::HasOwnProperty(object, prop, &result);
+      if (jsrt::HasOwnProperty(object, prop, &result) != JsNoError) {
+          return GetFalse();
+      }
       return result;
     }
   }
@@ -766,20 +769,6 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
 
   ObjectData *objectData = new ObjectData(this, objectTemplateData);
 
-  JsPropertyIdRef classNamePropertyId = JS_INVALID_REFERENCE;
-
-  if (!objectTemplateData->className.IsEmpty()) {
-    const wchar_t *classNamePointer;
-    size_t classNameLength;
-
-    if (JsStringToPointer(*objectTemplateData->className,
-                          &classNamePointer, &classNameLength) != JsNoError ||
-        JsGetPropertyIdFromName(classNamePointer,
-                                &classNamePropertyId) != JsNoError) {
-      return Local<Object>();
-    }
-  }
-
   JsValueRef newInstanceRef = JS_INVALID_REFERENCE;
   if (JsCreateExternalObject(objectData,
                              FinalizeCallback, &newInstanceRef) != JsNoError) {
@@ -868,7 +857,7 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
 
   // clone the object template into the new instance
   JsValueRef propertyNames;
-  if (JsGetOwnPropertyNames(*objectTemplateData->properties,
+  if (JsGetOwnPropertyNames(objectTemplateData->EnsureProperties(),
                             &propertyNames) != JsNoError) {
     return Local<Object>();
   }
@@ -903,7 +892,7 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
     }
 
     JsValueRef propertyDescriptor;
-    if (JsGetOwnPropertyDescriptor(*objectTemplateData->properties,
+    if (JsGetOwnPropertyDescriptor(objectTemplateData->EnsureProperties(),
                                    propertyId,
                                    &propertyDescriptor) != JsNoError) {
       return Local<Object>();
@@ -914,13 +903,6 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
                          propertyId,
                          propertyDescriptor,
                          &result) != JsNoError) {
-      return Local<Object>();
-    }
-  }
-
-  if (!objectTemplateData->className.IsEmpty()) {
-    if (jsrt::SetConstructorName(newInstanceRef,
-                    (JsValueRef)*objectTemplateData->className) != JsNoError) {
       return Local<Object>();
     }
   }
@@ -944,7 +926,7 @@ void ObjectTemplate::SetAccessor(Handle<String> name,
 
   ObjectTemplateData *objectTemplateData =
     reinterpret_cast<ObjectTemplateData*>(externalData);
-  objectTemplateData->properties->SetAccessor(
+  objectTemplateData->EnsureProperties()->SetAccessor(
     name, getter, setter, data, settings, attribute, signature);
 }
 
@@ -1024,6 +1006,20 @@ void ObjectTemplate::SetClassName(Handle<String> className) {
     reinterpret_cast<ObjectTemplateData*>(externalData);
   objectTemplateData->className = Persistent<String>(className);
 }
+
+namespace chakrashim {
+Handle<String> InternalMethods::GetClassName(ObjectTemplate* objectTemplate) {
+  void* externalData;
+  if (objectTemplate == nullptr ||
+      JsGetExternalData(objectTemplate, &externalData) != JsNoError) {
+    return Handle<String>();
+  }
+
+  ObjectTemplateData* objectTemplateData =
+    reinterpret_cast<ObjectTemplateData*>(externalData);
+  return objectTemplateData->className;
+}
+}  // namespace chakrashim
 
 void ObjectTemplate::SetSupportsOverrideToString() {
   void* externalData;

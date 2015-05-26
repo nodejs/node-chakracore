@@ -242,6 +242,7 @@ class WeakCallbackData {
 };
 
 namespace chakrashim {
+class InternalMethods;
 struct WeakReferenceCallbackWrapper;
 template class EXPORT std::shared_ptr<WeakReferenceCallbackWrapper>;
 
@@ -249,8 +250,7 @@ template class EXPORT std::shared_ptr<WeakReferenceCallbackWrapper>;
 // callback will be called before the object is released.
 EXPORT void SetObjectWeakReferenceCallback(
     JsValueRef object,
-    WeakCallbackData<Value,
-    void>::Callback callback,
+    WeakCallbackData<Value, void>::Callback callback,
     void* parameters,
     std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper);
 // A helper method for turning off the WeakReferenceCallback that was set using
@@ -259,10 +259,6 @@ EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object);
 
 EXPORT JsValueRef MarshalJsValueRefToContext(
   JsValueRef value, JsContextRef context);
-
-bool CheckSignature(Local<FunctionTemplate> receiver,
-                    Local<Object> thisPointer,
-                    Local<Object>* holder);
 }
 
 template <class T>
@@ -760,10 +756,8 @@ class EXPORT Object : public Value {
                    PropertyAttribute attribute,
                    Handle<AccessorSignature> signature);
 
-  friend bool chakrashim::CheckSignature(Local<FunctionTemplate> receiver,
-                                         Local<Object> thisPointer,
-                                         Local<Object>* holder);
-  bool IsInstanceOf(Handle<ObjectTemplate> objectTemplate);
+  friend chakrashim::InternalMethods;
+  ObjectTemplate* GetObjectTemplate();
 };
 
 class EXPORT Array : public Object {

@@ -18,7 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
+#include "v8chakra.h"
 #include "jsrtutils.h"
 
 namespace v8 {
@@ -50,7 +50,8 @@ bool CheckSignature(Local<FunctionTemplate> receiver,
 
   // v8 signature check walks hidden prototype chain to find holder. Chakra
   // doesn't support hidden prototypes. Just check the receiver itself.
-  bool matched = thisPointer->IsInstanceOf(receiverInstanceTemplate);
+  bool matched = InternalMethods::IsInstanceOf(*thisPointer,
+                                               *receiverInstanceTemplate);
 
   if (!matched) {
     const wchar_t txt[] = L"Illegal invocation";

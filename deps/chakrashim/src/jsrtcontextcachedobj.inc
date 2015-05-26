@@ -18,27 +18,36 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "v8chakra.h"
-#include "jsrtutils.h"
+#ifndef DEFTYPE
+#define DEFTYPE(T)
+#endif
 
-namespace v8 {
+#ifndef DEFMETHOD
+#define DEFMETHOD(T, M)
+#endif
 
-Template::Template() {
-}
+// These global constructors will be cached
+DEFTYPE(ArrayBuffer)
+DEFTYPE(Boolean)
+DEFTYPE(Date)
+DEFTYPE(Function)
+DEFTYPE(Number)
+DEFTYPE(Object)
+DEFTYPE(Proxy)
+DEFTYPE(RegExp)
+DEFTYPE(String)
 
-void Template::Set(
-    Handle<String> name, Handle<Data> value, PropertyAttribute attributes) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
-    return;
-  }
+// These prototype functions will be cached/shimmed
+DEFMETHOD(ArrayBuffer,    toString)
+DEFMETHOD(ArrayBuffer,    slice)
+DEFMETHOD(Boolean,        toString)
+DEFMETHOD(Date,           toString)
+DEFMETHOD(Function,       toString)
+DEFMETHOD(Number,         toString)
+DEFMETHOD(Object,         toString)
+DEFMETHOD(RegExp,         toString)
+DEFMETHOD(String,         concat)
+DEFMETHOD(String,         toString)
 
-  TemplateData *templateData = reinterpret_cast<TemplateData*>(externalData);
-  Object* properties = templateData->EnsureProperties();
-  if (properties != nullptr) {
-    properties->Set(name, value, attributes);
-  }
-}
-
-}  // namespace v8
+#undef DEFTYPE
+#undef DEFMETHOD

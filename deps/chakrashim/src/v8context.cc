@@ -57,11 +57,17 @@ Local<Context> Context::New(Isolate* external_isolate,
     return Local<Context>();
   }
 
-  // CHAKRA-TODO: Implement global_template (sandbox) support
+  Local<Object> glob;
+  if (!global_template.IsEmpty()) {
+    glob = global_template->NewInstance();
+    if (glob.IsEmpty()) {
+      return Local<Context>();
+    }
+  }
 
   JsContextRef context;
-  if (!jsrt::IsolateShim::FromIsolate(external_isolate)->NewContext(&context,
-                                                                 g_exposeGC)) {
+  jsrt::IsolateShim* isoShim = jsrt::IsolateShim::FromIsolate(external_isolate);
+  if (!isoShim->NewContext(&context, g_exposeGC, *glob)) {
     return Local<Context>();
   }
 
