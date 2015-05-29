@@ -74,11 +74,11 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getNamedOwnKeysFunction(JS_INVALID_REFERENCE),
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
       forEachNonConfigurablePropertyFunction(JS_INVALID_REFERENCE),
-      isBoundFunction(JS_INVALID_REFERENCE),
-      createEmptyLambdaFunction(JS_INVALID_REFERENCE),
-      throwAccessorErrorFunction(JS_INVALID_REFERENCE) {
+      testFunctionTypeFunction(JS_INVALID_REFERENCE),
+      createTargetFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
+  memset(throwAccessorErrorFunctions, 0, sizeof(throwAccessorErrorFunctions));
 }
 
 ContextShim::~ContextShim() {
@@ -711,19 +711,45 @@ JsValueRef ContextShim::GetGetIndexedOwnKeysFunction() {
                                &getIndexedOwnKeysFunction);
 }
 
-JsValueRef ContextShim::GetIsBoundFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::isBound,
-                               &isBoundFunction);
+void ContextShim::EnsureThrowAccessorErrorFunctions() {
+  if (throwAccessorErrorFunctions[0] == JS_INVALID_REFERENCE) {
+    JsValueRef arr = JS_INVALID_REFERENCE;
+    GetCachedShimFunction(CachedPropertyIdRef::throwAccessorErrorFunctions,
+                          &arr);
+    for (int i = 0; i < THROWACCESSORERRORFUNCTIONS; i++) {
+      CHAKRA_VERIFY(jsrt::GetIndexedProperty(
+        arr, i, &throwAccessorErrorFunctions[i]) == JsNoError);
+    }
+  }
 }
 
-JsValueRef ContextShim::GetCreateEmptyLambdaFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::createEmptyLambdaFunction,
-                               &createEmptyLambdaFunction);
+bool ContextShim::FindThrowAccessorErrorFunction(JsValueRef func, int* index) {
+  EnsureThrowAccessorErrorFunctions();
+
+  JsValueRef* end = throwAccessorErrorFunctions + THROWACCESSORERRORFUNCTIONS;
+  JsValueRef* p = std::find(throwAccessorErrorFunctions, end, func);
+  if (p != end) {
+    *index = p - throwAccessorErrorFunctions;
+    return true;
+  }
+
+  return false;
 }
 
-JsValueRef ContextShim::GetThrowAccessorErrorFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::throwAccessorErrorFunction,
-                               &throwAccessorErrorFunction);
+JsValueRef ContextShim::GetThrowAccessorErrorFunction(int index) {
+  CHAKRA_ASSERT(index < THROWACCESSORERRORFUNCTIONS);
+  EnsureThrowAccessorErrorFunctions();
+  return throwAccessorErrorFunctions[index];
+}
+
+JsValueRef ContextShim::GetTestFunctionTypeFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::testFunctionType,
+                               &testFunctionTypeFunction);
+}
+
+JsValueRef ContextShim::GetCreateTargetFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::createTargetFunction,
+                               &createTargetFunction);
 }
 
 }  // namespace jsrt

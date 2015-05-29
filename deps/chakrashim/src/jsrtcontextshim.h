@@ -90,9 +90,12 @@ class ContextShim {
   JsValueRef GetCreatePropertyDescriptorsEnumerationIteratorFunction();
   JsValueRef GetGetNamedOwnKeysFunction();
   JsValueRef GetGetIndexedOwnKeysFunction();
-  JsValueRef GetIsBoundFunction();
-  JsValueRef GetCreateEmptyLambdaFunction();
-  JsValueRef GetThrowAccessorErrorFunction();
+
+  void EnsureThrowAccessorErrorFunctions();
+  bool FindThrowAccessorErrorFunction(JsValueRef func, int* index);
+  JsValueRef GetThrowAccessorErrorFunction(int index);
+  JsValueRef GetTestFunctionTypeFunction();
+  JsValueRef GetCreateTargetFunction();
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
@@ -179,9 +182,11 @@ class ContextShim {
   JsValueRef createPropertyDescriptorsEnumerationIteratorFunction;
   JsValueRef getNamedOwnKeysFunction;
   JsValueRef getIndexedOwnKeysFunction;
-  JsValueRef isBoundFunction;
-  JsValueRef createEmptyLambdaFunction;
-  JsValueRef throwAccessorErrorFunction;
+
+  static const int THROWACCESSORERRORFUNCTIONS = 4;
+  JsValueRef throwAccessorErrorFunctions[THROWACCESSORERRORFUNCTIONS];
+  JsValueRef testFunctionTypeFunction;
+  JsValueRef createTargetFunction;
 
   std::vector<void*> embedderData;
   std::unordered_map<JsValueRef, std::vector<CrossContextMapInfo*>>

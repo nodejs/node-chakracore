@@ -271,18 +271,84 @@
       });
       return props;
     };
-    utils.isBound = function(func) {
+
+    var createEmptyLambdaFunction = function (length) {
+      if (length === undefined) {
+        return () => { };
+      }
+
+      // length is specified when we are marshalling a bound function of given
+      // length
+      var func;
+      switch (length) {
+        case 0: func = () => { }; break;
+        case 1: func = (x1) => { }; break;
+        case 2: func = (x1, x2) => { }; break;
+        case 3: func = (x1, x2, x3) => { }; break;
+        case 4: func = (x1, x2, x3, x4) => { }; break;
+        case 5: func = (x1, x2, x3, x4, x5) => { }; break;
+        case 6: func = (x1, x2, x3, x4, x5, x6) => { }; break;
+        case 7: func = (x1, x2, x3, x4, x5, x6, x7) => { }; break;
+        case 8: func = (x1, x2, x3, x4, x5, x6, x7, x8) => { }; break;
+        default: {
+          var str = "(x1";
+          for (var i = 2; i <= length; i++) {
+            str += ", x" + i;
+          }
+          str += ") => { }";
+          func = eval(str);
+        }
+      }
+      return func.bind({});
+    };
+    var createEmptyStrictModeFunction = function () {
+      return function () { "use strict"; return arguments; };
+    };
+
+    var BOUND_FUNCTION_TAG = Symbol("BOUND_FUNCTION_TAG"),
+        Function_prototype_bind = Function.prototype.bind;
+    Function.prototype.bind = function () {
+      var r = Function_prototype_bind.apply(this, arguments);
+      r[BOUND_FUNCTION_TAG] = true;
+      return r;
+    };
+
+    var NORMAL_FUNCTION = 0,
+        BOUND_FUNCTION = 1,
+        STRICTMODE_FUNCTION = 2;
+    var TYPE_BITS = 2, // lower 2 bits for type
+        TYPE_MASK = (1 << TYPE_BITS) - 1;
+
+    utils.testFunctionType = function (func) {
+      if (func[BOUND_FUNCTION_TAG]) {
+        return (func.length << TYPE_BITS) | BOUND_FUNCTION;
+      }
+
       var desc = Object_getOwnPropertyDescriptor(func, 'caller');
-      return !!(desc && desc.get);
+      return (desc && desc.get) ? STRICTMODE_FUNCTION: NORMAL_FUNCTION;
     };
-    utils.createEmptyLambdaFunction = function(isBound) {
-      var func = () => {};
-      // return a bound function if target is a bound function
-      return isBound ? func.bind({}) : func;
+    utils.createTargetFunction = function (type) {
+      switch (type & TYPE_MASK) {
+        case BOUND_FUNCTION:
+          return createEmptyLambdaFunction(type >> TYPE_BITS);
+        case STRICTMODE_FUNCTION:
+          return createEmptyStrictModeFunction();
+      }
+      return createEmptyLambdaFunction();
     };
-    utils.throwAccessorErrorFunction = (function () {
-      var x = utils.createEmptyLambdaFunction(true);
-      return Object_getOwnPropertyDescriptor(x, 'caller').get;
+
+    utils.throwAccessorErrorFunctions = (function () {
+      var arr = [];
+
+      var x = createEmptyLambdaFunction(0);
+      arr.push(Object_getOwnPropertyDescriptor(x, 'caller').get);
+
+      var x = createEmptyStrictModeFunction();
+      arr.push(Object_getOwnPropertyDescriptor(x, 'caller').get);
+      arr.push(Object_getOwnPropertyDescriptor(x, 'arguments').get);
+      arr.push(Object_getOwnPropertyDescriptor(x(), 'callee').get);
+
+      return arr;
     })();
   }
 
