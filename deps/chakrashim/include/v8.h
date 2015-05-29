@@ -255,7 +255,7 @@ EXPORT void SetObjectWeakReferenceCallback(
     std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper);
 // A helper method for turning off the WeakReferenceCallback that was set using
 // the previous method
-EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object);
+EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
 
 EXPORT JsValueRef MarshalJsValueRefToContext(
   JsValueRef value, JsContextRef context);
@@ -1563,7 +1563,7 @@ void Persistent<T>::Dispose() {
   if (_ref != JS_INVALID_REFERENCE && !V8::IsDead()) {
     if (IsWeak()) {
       if (_weakWrapper.unique()) {
-        chakrashim::ClearObjectWeakReferenceCallback(_ref);
+        chakrashim::ClearObjectWeakReferenceCallback(_ref, /*revive*/false);
       }
       _weakWrapper.reset();
     } else {
@@ -1611,7 +1611,7 @@ template <class T>
 void Persistent<T>::ClearWeak() {
   if (_ref != JS_INVALID_REFERENCE && IsWeak()) {
     if (_weakWrapper.unique()) {
-      chakrashim::ClearObjectWeakReferenceCallback(_ref);
+      chakrashim::ClearObjectWeakReferenceCallback(_ref, /*revive*/true);
     }
     _weakWrapper.reset();
 

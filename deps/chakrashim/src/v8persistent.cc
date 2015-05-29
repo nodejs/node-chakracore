@@ -39,8 +39,14 @@ static void CALLBACK WeakReferenceCallbackWrapperCallback(
   callbackWrapper->callback(callbackData);
 }
 
-void ClearObjectWeakReferenceCallback(JsValueRef object) {
-  JsSetObjectBeforeCollectCallback(object, nullptr, nullptr);
+static void CALLBACK DummyObjectBeforeCollectCallback(
+  _In_ JsRef ref, _In_opt_ void *data) {
+  // Do nothing, only used to revive an object temporarily
+}
+
+void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive) {
+  JsSetObjectBeforeCollectCallback(
+    object, nullptr, revive ? DummyObjectBeforeCollectCallback : nullptr);
 }
 
 void SetObjectWeakReferenceCallback(
