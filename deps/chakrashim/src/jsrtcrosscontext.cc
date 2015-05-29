@@ -510,30 +510,27 @@ JsValueRef MarshalObjectToContext(JsValueType valueType,
     }
   }
 
-  bool isBoundFunction = false;
+  JsValueRef valueFunctionType = JS_INVALID_REFERENCE;
   if (valueType == JsFunction) {
-    // Special marshalling for throwAccessorErrorFunction
-    JsValueRef throwAccessorErrorFunction =
-      fromContextShim->GetThrowAccessorErrorFunction();
-    if (crossContextObject == throwAccessorErrorFunction) {
+    // Special marshalling for throwAccessorErrorFunctions
+    int index;
+    if (fromContextShim->FindThrowAccessorErrorFunction(crossContextObject,
+                                                        &index)) {
       ContextShim::Scope scope(toContextShim);
-      return toContextShim->GetThrowAccessorErrorFunction();
+      return toContextShim->GetThrowAccessorErrorFunction(index);
     }
 
-    JsValueRef function = fromContextShim->GetIsBoundFunction();
-    JsValueRef isBound;
+    JsValueRef function = fromContextShim->GetTestFunctionTypeFunction();
     JsValueRef args[] = {
       fromContextShim->GetUndefined(),
       crossContextObject };
     if (CheckMarshalFailed(JsCallFunction(function,
                                           args, _countof(args),
-                                          &isBound))) {
+                                          &valueFunctionType))) {
       return JS_INVALID_REFERENCE;
     }
-    if (CheckMarshalFailed(JsBooleanToBool(isBound,
-                                           &isBoundFunction))) {
-      return JS_INVALID_REFERENCE;
-    }
+    valueFunctionType = MarshalJsValueRefToContext(
+      valueFunctionType, fromContextShim, toContextShim);
   }
 
   // If the cross site object is a function, we need the target object to be
@@ -555,7 +552,7 @@ JsValueRef MarshalObjectToContext(JsValueType valueType,
   //              |- crossContextObject -- again here for convenience (instead
   //              |- of going thru targetObject.keepAlive and get it's external
   //              |- data If crossContextObject is a function: Proxy
-  //  |- targetObject (empty lambda function)
+  //  |- targetObject (fake target function)
   //      |- externalobject (property: keepAlive)
   //          |- crossContextObject (external data)     -- keep object alive
   //      |- externalobject (property: keepAliveContext)
@@ -601,12 +598,8 @@ JsValueRef MarshalObjectToContext(JsValueType valueType,
   if (valueType == JsFunction || valueType == JsArray) {
     if (valueType == JsFunction) {
       // Use a function as the target object so that the proxy can be called
-      JsValueRef function = toContextShim->GetCreateEmptyLambdaFunction();
-      JsValueRef isBound;
-      if (CheckMarshalFailed(JsBoolToBoolean(isBoundFunction, &isBound))) {
-        return JS_INVALID_REFERENCE;
-      }
-      JsValueRef args[] = { toContextShim->GetUndefined(), isBound };
+      JsValueRef function = toContextShim->GetCreateTargetFunction();
+      JsValueRef args[] = { toContextShim->GetUndefined(), valueFunctionType };
       if (CheckMarshalFailed(JsCallFunction(function,
                                             args, _countof(args),
                                             &targetObject))) {
