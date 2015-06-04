@@ -45,13 +45,13 @@ set path=[local_repo]\release;%path%
 To build a native addon module:
 
 ```sh
-node.exe [local_repo]\deps\npm\node_modules\node-gyp\bin\node-gyp.js rebuild --nodedir=[local_repo] --msvs_version=2015
+node.exe [local_repo]\deps\npm\node_modules\node-gyp\bin\node-gyp.js rebuild --nodedir=[local_repo]
 ```
 
 To install a native addon module:
 
 ```sh
-node.exe [local_repo]\deps\npm\bin\npm-cli.js install [native_addon] --nodedir=[local_repo] --msvs_version=2015
+node.exe [local_repo]\deps\npm\bin\npm-cli.js install [native_addon] --nodedir=[local_repo]
 ```
 
 ### Original README
