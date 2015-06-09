@@ -68,6 +68,9 @@ Local<Value> Function::Call(
     TryCatch tryCatch;
     JsErrorCode error =
       JsCallFunction((JsValueRef)this, args.get(), argc + 1, &result);
+
+    jsrt::SetOutOfMemoryErrorIfExist(error);
+
     if (error == JsNoError) {
       return Local<Value>::New(static_cast<Value*>(result));
     }
@@ -107,13 +110,17 @@ Local<Value> Function::Call(
   }
 
   {
-    TryCatch tryCatch;
-    if (JsCallFunction((JsValueRef)this,
-                       args.get(), argc + 1, &result) != JsNoError) {
-      tryCatch.CheckReportExternalException();
-      return Local<Value>();
-    }
-    return Local<Value>::New(static_cast<Value*>(result));
+      TryCatch tryCatch;
+      JsErrorCode error = JsCallFunction((JsValueRef)this,
+          args.get(), argc + 1, &result);
+
+      jsrt::SetOutOfMemoryErrorIfExist(error);
+
+      if (error != JsNoError) {
+          tryCatch.CheckReportExternalException();
+          return Local<Value>();
+      }
+      return Local<Value>::New(static_cast<Value*>(result));
   }
 }
 
