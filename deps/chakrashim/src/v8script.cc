@@ -56,34 +56,38 @@ static JsErrorCode CreateScriptObject(JsValueRef sourceRef,
 // Compiled script object, bound to the context that was active when this
 // function was called. When run it will always use this context.
 Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name) {
+  JsErrorCode error;
   JsValueRef filenameRef;
   const wchar_t* filename;
-  if (jsrt::ToString(*file_name, &filenameRef, &filename) != JsNoError) {
-    return Local<Script>();
+  error = jsrt::ToString(*file_name, &filenameRef, &filename);
+
+  if (error == JsNoError) {
+    JsValueRef sourceRef;
+    const wchar_t *script;
+    error = jsrt::ToString(*source, &sourceRef, &script);
+
+    if (error == JsNoError) {
+      JsValueRef scriptFunction;
+      error = JsParseScript(script,
+        currentContext++, filename, &scriptFunction);
+
+      if (error == JsNoError) {
+        JsValueRef scriptObject;
+        error = CreateScriptObject(sourceRef,
+          filenameRef,
+          scriptFunction,
+          &scriptObject);
+
+        if (error == JsNoError) {
+          return Local<Script>::New(static_cast<Script *>(scriptObject));
+        }
+      }
+    }
   }
 
-  JsValueRef sourceRef;
-  const wchar_t *script;
-  if (jsrt::ToString(*source, &sourceRef, &script) != JsNoError) {
-    return Local<Script>();
-  }
+  jsrt::SetOutOfMemoryErrorIfExist(error);
 
-  JsValueRef scriptFunction;
-  if (JsParseScript(script,
-                    currentContext++, filename, &scriptFunction) != JsNoError) {
-    return Local<Script>();
-  }
-
-  JsValueRef scriptObject;
-  if (CreateScriptObject(sourceRef,
-                         filenameRef,
-                         scriptFunction,
-                         &scriptObject) != JsNoError) {
-    return Local<Script>();
-  }
-
-
-  return Local<Script>::New(static_cast<Script *>(scriptObject));
+  return Local<Script>();
 }
 
 Local<Value> Script::Run() {
@@ -93,7 +97,11 @@ Local<Value> Script::Run() {
   }
 
   JsValueRef result;
-  if (JsCallFunction(scriptFunction, nullptr, 0, &result) != JsNoError) {
+  JsErrorCode errorCode = JsCallFunction(scriptFunction, nullptr, 0, &result);
+
+  jsrt::SetOutOfMemoryErrorIfExist(errorCode);
+
+  if (errorCode != JsNoError) {
     return Local<Value>();
   }
 
