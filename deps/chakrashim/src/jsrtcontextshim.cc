@@ -461,16 +461,28 @@ bool ContextShim::ExecuteChakraShimJS() {
 bool ContextShim::RegisterCrossContextObject(JsValueRef fakeTarget,
                                              const CrossContextMapInfo& info) {
   // Ensure fakeTarget lifetime encloses proxy lifetime
-  if (jsrt::SetProperty(fakeTarget, L"proxy", info.proxy) != JsNoError) {
+  if (JsSetProperty(fakeTarget,
+                    isolateShim->GetProxySymbolPropertyIdRef(),
+                    info.proxy, false) != JsNoError) {
     return false;
   }
 
   try {
     CrossContextMapInfo* mapInfoCopy = new CrossContextMapInfo(info);
-    if (JsSetObjectBeforeCollectCallback(fakeTarget,
-                    mapInfoCopy,
-                    CrossContextFakeTargeBeforeCollectCallback) != JsNoError) {
+
+    // Install a finalizer to clean up the map entry when proxy/fakeTarget are
+    // collected by GC.
+    JsValueRef finalizeObj;
+    if (JsCreateExternalObject(mapInfoCopy,
+                               CrossContextFakeTargetFinalizeCallback,
+                               &finalizeObj) != JsNoError) {
       delete mapInfoCopy;
+      return false;
+    }
+
+    if (JsSetProperty(fakeTarget,
+                      isolateShim->GetFinalizerSymbolPropertyIdRef(),
+                      finalizeObj, false) != JsNoError) {
       return false;
     }
 
@@ -525,8 +537,8 @@ bool ContextShim::TryGetCrossContextObject(JsValueRef object,
   return false;
 }
 
-void CALLBACK ContextShim::CrossContextFakeTargeBeforeCollectCallback(
-    JsRef ref, void *callbackState) {
+void CALLBACK ContextShim::CrossContextFakeTargetFinalizeCallback(
+    void *callbackState) {
   CrossContextMapInfo* info = static_cast<CrossContextMapInfo*>(callbackState);
 
   ContextShim* fromContext = info->fromContext;

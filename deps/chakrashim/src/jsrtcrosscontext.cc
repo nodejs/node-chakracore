@@ -71,27 +71,43 @@ static CrossContextInfo * GetCrossContextInfo(JsValueRef targetObject) {
 
 static bool UnwrapIfCrossContext(
     JsValueRef valueRef, CrossContextInfo ** info) {
-  JsValueRef crossContextTarget;
-  if (CheckMarshalFailed(JsGetProperty(valueRef,
-      IsolateShim::GetCurrent()->GetCrossContextTargetSymbolPropertyIdRef(),
-      &crossContextTarget))) {
+  IsolateShim* iso = IsolateShim::GetCurrent();
+
+  // Try get own property CrossContextTargetSymbol
+  JsValueRef desc;
+  if (JsGetOwnPropertyDescriptor(valueRef,
+                                iso->GetCrossContextTargetSymbolPropertyIdRef(),
+                                &desc) != JsNoError) {
     return false;
   }
 
-  bool notCrossContextTarget;
-  if (CheckMarshalFailed(IsUndefined(crossContextTarget,
-                                     &notCrossContextTarget))) {
+  bool isUndefined;
+  if (CheckMarshalFailed(IsUndefined(desc, &isUndefined))) {
     return false;
   }
 
   *info = nullptr;
-  if (!notCrossContextTarget) {
-    CrossContextInfo * crossContextInfo =
-      GetCrossContextInfo(crossContextTarget);
-    if (crossContextInfo == nullptr) {
+  if (!isUndefined) {
+    JsValueRef crossContextTarget;
+    if (CheckMarshalFailed(JsGetProperty(desc,
+                        iso->GetCachedPropertyIdRef(CachedPropertyIdRef::value),
+                        &crossContextTarget))) {
       return false;
     }
-    *info = crossContextInfo;
+
+    if (CheckMarshalFailed(IsUndefined(crossContextTarget,
+                                       &isUndefined))) {
+      return false;
+    }
+
+    if (!isUndefined) {
+      CrossContextInfo * crossContextInfo =
+        GetCrossContextInfo(crossContextTarget);
+      if (crossContextInfo == nullptr) {
+        return false;
+      }
+      *info = crossContextInfo;
+    }
   }
 
   return true;
@@ -368,7 +384,7 @@ static JsValueRef CALLBACK CrossContextCallback(
     _In_opt_ void *callbackState) {
   ContextShim * currentContextShim = ContextShim::GetCurrent();
   JsValueRef fakeTargetObject = arguments[1];
-  if (trap == ProxyTraps::GetTrap) {
+  if (trap == ProxyTraps::GetOwnPropertyDescriptorTrap) {
     // Check for unwrapping
     JsValueRef prop = arguments[2];
     JsValueType type;
@@ -378,7 +394,18 @@ static JsValueRef CALLBACK CrossContextCallback(
         JsGetPropertyIdFromSymbol(prop, &propertyIdRef) == JsNoError &&
         propertyIdRef == currentContextShim->GetIsolateShim()
                                 ->GetCrossContextTargetSymbolPropertyIdRef()) {
-      return fakeTargetObject;
+      JsValueRef desc;
+      if (jsrt::CreatePropertyDescriptor(
+          jsrt::PropertyDescriptorOptionValues::None,
+          jsrt::PropertyDescriptorOptionValues::None,
+          jsrt::PropertyDescriptorOptionValues::True,  // configurable
+          fakeTargetObject,  // value
+          JS_INVALID_REFERENCE,
+          JS_INVALID_REFERENCE,
+          &desc) != JsNoError) {
+        return JS_INVALID_REFERENCE;
+      }
+      return desc;
     }
   }
 
@@ -478,6 +505,7 @@ JsValueRef MarshalObjectToContext(JsValueType valueType,
   JsValueRef crossContextObject = valueRef;
   ContextShim * fromContextShim = contextShim;
 
+  bool wasCrossContext = false;
   if (valueType == JsObject) {
     // Proxy's value type is JsObject
     // Unwrap the object if it is already cross site.
@@ -492,12 +520,8 @@ JsValueRef MarshalObjectToContext(JsValueType valueType,
       if (fromContextShim == toContextShim) {
         return crossContextObject;
       }
-    }
 
-    // Update valueType
-    if (CheckMarshalFailed(JsGetValueType(crossContextObject,
-                                          &valueType))) {
-      return JS_INVALID_REFERENCE;
+      wasCrossContext = true;
     }
   }
 
@@ -511,26 +535,39 @@ JsValueRef MarshalObjectToContext(JsValueType valueType,
   }
 
   JsValueRef valueFunctionType = JS_INVALID_REFERENCE;
-  if (valueType == JsFunction) {
-    // Special marshalling for throwAccessorErrorFunctions
-    int index;
-    if (fromContextShim->FindThrowAccessorErrorFunction(crossContextObject,
-                                                        &index)) {
-      ContextShim::Scope scope(toContextShim);
-      return toContextShim->GetThrowAccessorErrorFunction(index);
-    }
+  {
+    // Ensure re-enter correct "fromContextShim" which might have changed
+    // during above unwrapping
+    ContextShim::Scope scope(fromContextShim);
 
-    JsValueRef function = fromContextShim->GetTestFunctionTypeFunction();
-    JsValueRef args[] = {
-      fromContextShim->GetUndefined(),
-      crossContextObject };
-    if (CheckMarshalFailed(JsCallFunction(function,
-                                          args, _countof(args),
-                                          &valueFunctionType))) {
+    // Update valueType if wasCrossContext
+    if (wasCrossContext &&
+        CheckMarshalFailed(JsGetValueType(crossContextObject,
+                                          &valueType))) {
       return JS_INVALID_REFERENCE;
     }
-    valueFunctionType = MarshalJsValueRefToContext(
-      valueFunctionType, fromContextShim, toContextShim);
+
+    if (valueType == JsFunction) {
+      // Special marshalling for throwAccessorErrorFunctions
+      int index;
+      if (fromContextShim->FindThrowAccessorErrorFunction(crossContextObject,
+                                                          &index)) {
+        ContextShim::Scope scope(toContextShim);
+        return toContextShim->GetThrowAccessorErrorFunction(index);
+      }
+
+      JsValueRef function = fromContextShim->GetTestFunctionTypeFunction();
+      JsValueRef args[] = {
+        fromContextShim->GetUndefined(),
+        crossContextObject };
+      if (CheckMarshalFailed(JsCallFunction(function,
+                                            args, _countof(args),
+                                            &valueFunctionType))) {
+        return JS_INVALID_REFERENCE;
+      }
+      valueFunctionType = MarshalJsValueRefToContext(
+        valueFunctionType, fromContextShim, toContextShim);
+    }
   }
 
   // If the cross site object is a function, we need the target object to be

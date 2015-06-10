@@ -571,7 +571,7 @@ JsValueRef CALLBACK GetOwnPropertyDescriptorCallback(
   JsValueRef descriptor;
 
   if (JsGetExternalData(object, &externalData) != JsNoError) {
-    return GetFalse();
+    return GetUndefined();
   }
 
   ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
@@ -579,7 +579,7 @@ JsValueRef CALLBACK GetOwnPropertyDescriptorCallback(
   bool isPropIntType;
   unsigned int index;
   if (TryParseUInt32(prop, &isPropIntType, &index) != JsNoError) {
-    return GetFalse();
+    return GetUndefined();
   }
 
   if (isPropIntType) {
