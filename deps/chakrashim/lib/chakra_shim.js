@@ -23,7 +23,9 @@
   var Object_defineProperty = Object.defineProperty,
       Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
       Object_getOwnPropertyNames = Object.getOwnPropertyNames,
-      Object_keys = Object.keys;
+      Object_keys = Object.keys,
+      Reflect_apply = Reflect.apply,
+      Reflect_construct = Reflect.construct;
 
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
     this.funcName = funcName;
@@ -177,18 +179,27 @@
   // non-enumerable when creating Error instances.
   // NOTE: This doesn't work if Error is created in Chakra runtime.
   function patchErrorTypes() {
+    function makePropertiesNonEnumerable(e) {
+      Object_keys(e).forEach(function (key) {
+        Object_defineProperty(e, key, { enumerable: false });
+      });
+      return e;
+    }
+
     [Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
       URIError
     ].forEach(function (builtInError) {
       var name = builtInError.name;
-      this[name] = function () {
-        var e = builtInError.apply(this, arguments);
-        Object_keys(e).forEach(function (key) {
-          Object_defineProperty(e, key, { enumerable: false });
-        });
-        return e;
-      };
-      cloneObject(builtInError, this[name]);
+      this[name] = new Proxy(builtInError, {
+        apply: function(target, thisArg, argumentsList) {
+          return makePropertiesNonEnumerable(
+            Reflect_apply(target, thisArg, argumentsList));
+        },
+        construct: function(target, argumentsList) {
+          return makePropertiesNonEnumerable(
+            Reflect_construct(target, argumentsList));
+        }
+      });
     });
   }
 
