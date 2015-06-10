@@ -138,8 +138,8 @@ class ContextShim {
   bool UnregisterCrossContextObject(const CrossContextMapInfo& info);
   bool TryGetCrossContextObject(JsValueRef object, ContextShim* toContext,
                                 JsValueRef* proxy);
-  static void CALLBACK CrossContextFakeTargeBeforeCollectCallback(
-    JsRef ref, void *callbackState);
+  static void CALLBACK CrossContextFakeTargetFinalizeCallback(
+    void *callbackState);
 
   friend JsValueRef MarshalObjectToContext(JsValueType valueType,
                                            JsValueRef valueRef,

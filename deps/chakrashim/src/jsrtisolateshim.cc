@@ -35,6 +35,8 @@ IsolateShim::IsolateShim(JsRuntimeHandle runtime)
       selfSymbolPropertyIdRef(JS_INVALID_REFERENCE),
       crossContextTargetSymbolPropertyIdRef(JS_INVALID_REFERENCE),
       keepAliveObjectSymbolPropertyIdRef(JS_INVALID_REFERENCE),
+      proxySymbolPropertyIdRef(JS_INVALID_REFERENCE),
+      finalizerSymbolPropertyIdRef(JS_INVALID_REFERENCE),
       cachedPropertyIdRefs(),
       tryCatchStackTop(nullptr) {
   // CHAKRA-TODO: multithread locking for s_isolateList?
@@ -238,6 +240,14 @@ JsPropertyIdRef IsolateShim::GetKeepAliveObjectSymbolPropertyIdRef() {
   // CHAKRA-TODO: has a bug with symbols and proxy, just a real property name
   return GetCachedPropertyIdRef(CachedPropertyIdRef::__keepalive__);
   // return EnsurePrivateSymbol(&keepAliveObjectSymbolPropertyIdRef);
+}
+
+JsPropertyIdRef IsolateShim::GetProxySymbolPropertyIdRef() {
+  return EnsurePrivateSymbol(&proxySymbolPropertyIdRef);
+}
+
+JsPropertyIdRef IsolateShim::GetFinalizerSymbolPropertyIdRef() {
+  return EnsurePrivateSymbol(&finalizerSymbolPropertyIdRef);
 }
 
 JsPropertyIdRef IsolateShim::EnsurePrivateSymbol(

@@ -63,12 +63,14 @@ class IsolateShim {
 
   ContextShim * GetCurrentContextShim();
 
-  // Symbols proeprtyIdRef
+  // Symbols propertyIdRef
   JsPropertyIdRef GetSelfSymbolPropertyIdRef();
   JsPropertyIdRef GetCrossContextTargetSymbolPropertyIdRef();
   JsPropertyIdRef GetKeepAliveObjectSymbolPropertyIdRef();
+  JsPropertyIdRef GetProxySymbolPropertyIdRef();
+  JsPropertyIdRef GetFinalizerSymbolPropertyIdRef();
 
-  // String proeprtyIdRef
+  // String propertyIdRef
   JsPropertyIdRef GetProxyTrapPropertyIdRef(ProxyTraps trap);
   JsPropertyIdRef GetCachedPropertyIdRef(
     CachedPropertyIdRef cachedPropertyIdRef);
@@ -105,13 +107,13 @@ class IsolateShim {
     _In_ JsRef contextRef, _In_opt_ void *data);
 
   JsPropertyIdRef EnsurePrivateSymbol(JsPropertyIdRef * propertyIdRefPtr);
-  JsPropertyIdRef EnsurePropertyIdRef(
-    const wchar_t * name, JsPropertyIdRef * propertyIdRefPtr);
 
   JsRuntimeHandle runtime;
   JsPropertyIdRef selfSymbolPropertyIdRef;
   JsPropertyIdRef crossContextTargetSymbolPropertyIdRef;
   JsPropertyIdRef keepAliveObjectSymbolPropertyIdRef;
+  JsPropertyIdRef proxySymbolPropertyIdRef;
+  JsPropertyIdRef finalizerSymbolPropertyIdRef;
   JsPropertyIdRef cachedPropertyIdRefs[CachedPropertyIdRef::Count];
 
   ContextShim::Scope * contextScopeStack;
