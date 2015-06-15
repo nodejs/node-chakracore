@@ -43,6 +43,7 @@ class IsolateShim {
                                JsValueRef globalObjectTemplateInstance);
   bool GetMemoryUsage(size_t * memoryUsage);
   bool Dispose();
+  bool IsDisposing();
 
   static v8::Isolate * New();
   static v8::Isolate * GetCurrentAsIsolate();
@@ -115,6 +116,7 @@ class IsolateShim {
   JsPropertyIdRef proxySymbolPropertyIdRef;
   JsPropertyIdRef finalizerSymbolPropertyIdRef;
   JsPropertyIdRef cachedPropertyIdRefs[CachedPropertyIdRef::Count];
+  bool isDisposing;
 
   ContextShim::Scope * contextScopeStack;
   IsolateShim ** prevnext;

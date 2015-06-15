@@ -45,6 +45,10 @@ static void CALLBACK DummyObjectBeforeCollectCallback(
 }
 
 void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive) {
+  if (jsrt::IsolateShim::GetCurrent()->IsDisposing()) {
+    return;
+  }
+
   JsSetObjectBeforeCollectCallback(
     object, nullptr, revive ? DummyObjectBeforeCollectCallback : nullptr);
 }
@@ -55,6 +59,10 @@ void SetObjectWeakReferenceCallback(
     void>::Callback callback,
     void* parameters,
     std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper) {
+  if (jsrt::IsolateShim::GetCurrent()->IsDisposing()) {
+    return;
+  }
+
   if (callback == nullptr || object == JS_INVALID_REFERENCE) {
     return;
   }
