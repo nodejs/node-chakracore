@@ -38,6 +38,7 @@ IsolateShim::IsolateShim(JsRuntimeHandle runtime)
       proxySymbolPropertyIdRef(JS_INVALID_REFERENCE),
       finalizerSymbolPropertyIdRef(JS_INVALID_REFERENCE),
       cachedPropertyIdRefs(),
+      isDisposing(false),
       tryCatchStackTop(nullptr) {
   // CHAKRA-TODO: multithread locking for s_isolateList?
   this->prevnext = &s_isolateList;
@@ -107,6 +108,7 @@ JsRuntimeHandle IsolateShim::GetRuntimeHandle() {
 }
 
 bool IsolateShim::Dispose() {
+  isDisposing = true;
   {
     // Disposing the runtime may cause finalize call back to run
     // Set the current IsolateShim scope
@@ -128,6 +130,10 @@ bool IsolateShim::Dispose() {
 
   delete this;
   return true;
+}
+
+bool IsolateShim::IsDisposing() {
+  return isDisposing;
 }
 
 void CALLBACK IsolateShim::JsContextBeforeCollectCallback(
