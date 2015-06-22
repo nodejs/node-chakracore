@@ -24,7 +24,6 @@
       Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
       Object_getOwnPropertyNames = Object.getOwnPropertyNames,
       Object_keys = Object.keys,
-      Reflect_apply = Reflect.apply,
       Reflect_construct = Reflect.construct;
 
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
@@ -186,20 +185,27 @@
       return e;
     }
 
+    var builtInError = Error;
+
     [Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
       URIError
-    ].forEach(function (builtInError) {
-      var name = builtInError.name;
-      this[name] = new Proxy(builtInError, {
-        apply: function(target, thisArg, argumentsList) {
-          return makePropertiesNonEnumerable(
-            Reflect_apply(target, thisArg, argumentsList));
-        },
-        construct: function(target, argumentsList) {
-          return makePropertiesNonEnumerable(
-            Reflect_construct(target, argumentsList));
-        }
-      });
+    ].forEach(function (type) {
+      var newType = function () {
+        return makePropertiesNonEnumerable(Reflect_construct(type, arguments));
+      };
+      cloneObject(type, newType);
+      newType.toString = function () {
+        return type.toString();
+      };
+      this[type.name] = newType;
+    });
+
+    // Delegate Error.stackTraceLimit to saved Error constructor
+    Object_defineProperty(this['Error'], 'stackTraceLimit', {
+      enumerable: false,
+      configurable: true,
+      get: function () { return builtInError.stackTraceLimit; },
+      set: function (value) { builtInError.stackTraceLimit = value; }
     });
   }
 
