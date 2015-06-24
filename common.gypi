@@ -11,6 +11,7 @@
     'msvs_multi_core_compile': '0',   # we do enable multicore compiles, but not using the V8 way
     'python%': 'python',
     'node_engine%': 'v8',
+    'msvs_windows_target_platform_version': 'v10.0', # used for node_engine=chakra
 
     'node_tag%': '',
     'uv_library%': 'static_library',
@@ -69,6 +70,7 @@
           'NODE_ENGINE="chakra"',
           'NODE_ENGINE_CHAKRA=1'
         ],
+        'msvs_windows_target_platform_version': '<(msvs_windows_target_platform_version)',
       },
       'variables': {
         'node_engine_include_dir%': 'deps/chakrashim/include'
