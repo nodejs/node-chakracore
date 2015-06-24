@@ -12,6 +12,7 @@
     'clang%': 0,
     'python%': 'python',
     'node_engine%': 'v8',
+    'msvs_windows_target_platform_version': 'v10.0', # used for node_engine=chakra
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,
@@ -52,6 +53,7 @@
           'NODE_ENGINE="chakra"',
           'NODE_ENGINE_CHAKRA=1'
         ],
+        'msvs_windows_target_platform_version': '<(msvs_windows_target_platform_version)',
       },
       'variables': {
         'node_engine_include_dir%': 'deps/chakrashim/include'
