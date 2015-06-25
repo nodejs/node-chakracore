@@ -25,6 +25,7 @@
       [ 'target_arch=="arm"', { 'defines': [ '__arm__=1' ] } ],
     ],
     'msvs_disabled_warnings': [4091],
+    'msvs_use_library_dependency_inputs': 1,
     'msvs_windows_target_platform_version': 'v10.0',
     'direct_dependent_settings': {
       'include_dirs': [
