@@ -190,9 +190,13 @@
     [Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
       URIError
     ].forEach(function (type) {
-      var newType = function () {
-        return makePropertiesNonEnumerable(Reflect_construct(type, arguments));
-      };
+      var newType = (function () {
+        // Make anonymous function. It may appear in error.stack
+        return function () {
+          return makePropertiesNonEnumerable(
+            Reflect_construct(type, arguments));
+        };
+      })();
       cloneObject(type, newType);
       newType.toString = function () {
         return type.toString();

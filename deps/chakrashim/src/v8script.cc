@@ -27,7 +27,14 @@ namespace v8 {
 __declspec(thread) JsSourceContext currentContext;
 
 Local<Script> Script::Compile(Handle<String> source, ScriptOrigin* origin) {
-  return Compile(source, origin->ResourceName());
+  if (origin) {
+    return Compile(source, origin->ResourceName());
+  }
+
+  Isolate* isolate = Isolate::GetCurrent();
+  HandleScope scope(isolate);
+  Local<String> filename = String::NewFromUtf8(isolate, "");
+  return Compile(source, filename);
 }
 
 // Create a object to hold the script infomration
