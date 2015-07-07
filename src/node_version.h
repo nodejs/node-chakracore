@@ -1,11 +1,11 @@
 #ifndef SRC_NODE_VERSION_H_
 #define SRC_NODE_VERSION_H_
 
-#define NODE_MAJOR_VERSION 2
-#define NODE_MINOR_VERSION 3
-#define NODE_PATCH_VERSION 1
+#define NODE_MAJOR_VERSION 3
+#define NODE_MINOR_VERSION 0
+#define NODE_PATCH_VERSION 0
 
-#define NODE_VERSION_IS_RELEASE 1
+#define NODE_VERSION_IS_RELEASE 0
 
 #ifndef NODE_STRINGIFY
 #define NODE_STRINGIFY(n) NODE_STRINGIFY_HELPER(n)
@@ -40,6 +40,6 @@
  * an API is broken in the C++ side, including in v8 or
  * other dependencies.
  */
-#define NODE_MODULE_VERSION 44  /* io.js v2.0.0 */
+#define NODE_MODULE_VERSION 45  /* io.js v3.0.0 */
 
 #endif  /* SRC_NODE_VERSION_H_ */
