@@ -62,7 +62,7 @@ const char *V8::GetVersion() {
   return versionStr;
 }
 
-void V8::SetFatalErrorHandler(FatalErrorCallback that) {
+void Isolate::SetFatalErrorHandler(FatalErrorCallback that) {
   // CONSIDER: Ignoring for now, since we don't have an equivalent concept.
 }
 
@@ -130,22 +130,6 @@ bool V8::Dispose() {
   return true;
 }
 
-bool V8::AddMessageListener(MessageCallback that, Handle<Value> data) {
-  // Ignore data parameter.  Node doesn't use it.
-  return jsrt::IsolateShim::GetCurrent()->AddMessageListener(that);
-}
-
-
-void V8::RemoveMessageListeners(MessageCallback that) {
-  jsrt::IsolateShim::GetCurrent()->RemoveMessageListeners(that);
-}
-
-void V8::SetJitCodeEventHandler(
-    JitCodeEventOptions options, JitCodeEventHandler event_handler) {
-  // CHAKRA-TODO: This is for ETW events, we don't have equivalent but might not
-  // need it because we do our own ETW tracing.
-}
-
 void V8::TerminateExecution(Isolate* isolate) {
   jsrt::IsolateShim::FromIsolate(isolate)->DisableExecution();
 }
@@ -156,6 +140,14 @@ bool V8::IsExeuctionDisabled(Isolate* isolate) {
 
 void V8::CancelTerminateExecution(Isolate* isolate) {
   jsrt::IsolateShim::FromIsolate(isolate)->EnableExecution();
+}
+
+void V8::FromJustIsNothing() {
+  jsrt::Fatal("v8::FromJust: %s", "Maybe value is Nothing.");
+}
+
+void V8::ToLocalEmpty() {
+  jsrt::Fatal("v8::ToLocalChecked: %s", "Empty MaybeLocal.");
 }
 
 }  // namespace v8

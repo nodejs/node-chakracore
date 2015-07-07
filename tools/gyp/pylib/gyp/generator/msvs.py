@@ -2673,7 +2673,7 @@ def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
     properties[0].append(['WindowsSDKDesktopARMSupport', 'true'])
   if msvs_windows_target_platform_version:
     properties[0].append(['WindowsTargetPlatformVersion', \
-                          msvs_windows_target_platform_version])
+                          str(msvs_windows_target_platform_version)])
 
   return properties
 

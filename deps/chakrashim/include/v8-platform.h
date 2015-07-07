@@ -1,4 +1,4 @@
-// Copyright 2008 the V8 project authors. All rights reserved.
+// Copyright 2013 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -25,42 +25,33 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-#include <v8.h>
+#ifndef V8_V8_PLATFORM_H_
+#define V8_V8_PLATFORM_H_
 
 namespace v8 {
 
-// NOT IMPLEMENTED
-class EXPORT Debug {
+class Isolate;
+
+class Task {
  public:
-  class ClientData {
+  virtual ~Task() {}
+  virtual void Run() = 0;
+};
+
+class Platform {
+ public:
+  enum ExpectedRuntime {
+    kShortRunningTask,
+    kLongRunningTask
   };
 
-  class Message {
-   public:
-    virtual ~Message() {}
-    virtual Handle<String> GetJSON() const = 0;
-    virtual Isolate* GetIsolate() const = 0;
-  };
-
-  typedef void (*DebugMessageDispatchHandler)();
-  typedef void (*MessageHandler)(const Message& message);
-
-  static void DebugBreak(Isolate *isolate = NULL) {}
-  static void SetDebugMessageDispatchHandler(
-    DebugMessageDispatchHandler handler, bool provide_locker = false) {}
-  static bool EnableAgent(
-    const char *name = NULL, int port = 0, bool wait_for_connection = false);
-  static void Dispose();
-  static void DisableAgent() {}
-  static bool IsAgentEnabled();
-  static void ProcessDebugMessages() {}
-  static Local<Context> GetDebugContext();
-  static void SetMessageHandler(MessageHandler handler) {}
-  static void SendCommand(Isolate* isolate,
-                          const uint16_t* command, int length,
-                          ClientData* client_data = NULL) {
-  }
+  virtual ~Platform() {}
+  virtual void CallOnBackgroundThread(Task* task,
+                                      ExpectedRuntime expected_runtime) = 0;
+  virtual void CallOnForegroundThread(Isolate* isolate, Task* task) = 0;
+  virtual double MonotonicallyIncreasingTime() = 0;
 };
 
 }  // namespace v8
+
+#endif  // V8_V8_PLATFORM_H_

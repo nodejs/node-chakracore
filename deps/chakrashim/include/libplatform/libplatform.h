@@ -1,4 +1,4 @@
-// Copyright 2008 the V8 project authors. All rights reserved.
+// Copyright 2014 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -25,42 +25,23 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-#include <v8.h>
+#ifndef V8_LIBPLATFORM_LIBPLATFORM_H_
+#define V8_LIBPLATFORM_LIBPLATFORM_H_
+
+#include "include/v8-platform.h"
 
 namespace v8 {
+namespace platform {
 
-// NOT IMPLEMENTED
-class EXPORT Debug {
- public:
-  class ClientData {
-  };
+v8::Platform* CreateDefaultPlatform(int thread_pool_size = 0) {
+  return nullptr;
+}
 
-  class Message {
-   public:
-    virtual ~Message() {}
-    virtual Handle<String> GetJSON() const = 0;
-    virtual Isolate* GetIsolate() const = 0;
-  };
+bool PumpMessageLoop(v8::Platform* platform, v8::Isolate* isolate) {
+  return false;
+}
 
-  typedef void (*DebugMessageDispatchHandler)();
-  typedef void (*MessageHandler)(const Message& message);
-
-  static void DebugBreak(Isolate *isolate = NULL) {}
-  static void SetDebugMessageDispatchHandler(
-    DebugMessageDispatchHandler handler, bool provide_locker = false) {}
-  static bool EnableAgent(
-    const char *name = NULL, int port = 0, bool wait_for_connection = false);
-  static void Dispose();
-  static void DisableAgent() {}
-  static bool IsAgentEnabled();
-  static void ProcessDebugMessages() {}
-  static Local<Context> GetDebugContext();
-  static void SetMessageHandler(MessageHandler handler) {}
-  static void SendCommand(Isolate* isolate,
-                          const uint16_t* command, int length,
-                          ClientData* client_data = NULL) {
-  }
-};
-
+}  // namespace platform
 }  // namespace v8
+
+#endif  // V8_LIBPLATFORM_LIBPLATFORM_H_

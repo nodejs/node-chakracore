@@ -73,6 +73,7 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
         JS_INVALID_REFERENCE),
       getNamedOwnKeysFunction(JS_INVALID_REFERENCE),
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
+      getStackTraceFunction(JS_INVALID_REFERENCE),
       forEachNonConfigurablePropertyFunction(JS_INVALID_REFERENCE),
       testFunctionTypeFunction(JS_INVALID_REFERENCE),
       createTargetFunction(JS_INVALID_REFERENCE) {
@@ -630,6 +631,10 @@ JsValueRef ContextShim::GetProxyConstructor() {
   return globalConstructor[GlobalType::Proxy];
 }
 
+JsValueRef ContextShim::GetGlobalType(GlobalType index) {
+  return globalConstructor[index];
+}
+
 JsValueRef ContextShim::GetGetOwnPropertyDescriptorFunction() {
   return getOwnPropertyDescriptorFunction;
 }
@@ -721,6 +726,11 @@ JsValueRef ContextShim::GetGetNamedOwnKeysFunction() {
 JsValueRef ContextShim::GetGetIndexedOwnKeysFunction() {
   return GetCachedShimFunction(CachedPropertyIdRef::getIndexedOwnKeys,
                                &getIndexedOwnKeysFunction);
+}
+
+JsValueRef ContextShim::GetGetStackTraceFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::getStackTrace,
+                               &getStackTraceFunction);
 }
 
 void ContextShim::EnsureThrowAccessorErrorFunctions() {

@@ -953,6 +953,17 @@ void ObjectTemplate::SetNamedPropertyHandler(
   objectTemplateData->namedPropertyInterceptorData = Persistent<Value>(data);
 }
 
+void ObjectTemplate::SetHandler(
+    const NamedPropertyHandlerConfiguration& config) {
+  SetNamedPropertyHandler(
+    reinterpret_cast<NamedPropertyGetterCallback>(config.getter),
+    reinterpret_cast<NamedPropertySetterCallback>(config.setter),
+    reinterpret_cast<NamedPropertyQueryCallback>(config.query),
+    reinterpret_cast<NamedPropertyDeleterCallback>(config.deleter),
+    reinterpret_cast<NamedPropertyEnumeratorCallback>(config.enumerator),
+    config.data);
+}
+
 void ObjectTemplate::SetIndexedPropertyHandler(
     IndexedPropertyGetterCallback getter,
     IndexedPropertySetterCallback setter,

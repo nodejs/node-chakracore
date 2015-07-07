@@ -366,7 +366,7 @@ Local<String> String::NewExternal(
 }
 
 Local<String> String::NewExternal(
-    Isolate* isolate, ExternalAsciiStringResource *resource) {
+    Isolate* isolate, ExternalOneByteStringResource *resource) {
   if (resource->data() != nullptr) {
     auto newStr = New(
       jsrt::StringConvert::ToWChar,

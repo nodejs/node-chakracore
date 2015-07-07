@@ -25,6 +25,7 @@
 namespace v8 {
 
 __declspec(thread) bool g_EnableDebug = false;
+static JsContextRef g_debugContext = JS_INVALID_REFERENCE;
 
 bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
   HRESULT hr = S_OK;
@@ -49,6 +50,17 @@ bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
 
 bool Debug::IsAgentEnabled() {
   return g_EnableDebug;
+}
+
+Local<Context> Debug::GetDebugContext() {
+  if (g_debugContext == JS_INVALID_REFERENCE) {
+    Isolate* isolate = Isolate::GetCurrent();
+    HandleScope scope(isolate);
+    g_debugContext = *Context::New(isolate);
+    JsAddRef(g_debugContext, nullptr);
+  }
+
+  return static_cast<Context*>(g_debugContext);
 }
 
 void Debug::Dispose() {

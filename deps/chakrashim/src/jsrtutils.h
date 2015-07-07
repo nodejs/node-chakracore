@@ -65,6 +65,10 @@ JsErrorCode GetProperty(_In_ JsValueRef ref,
                         _In_ const wchar_t *propertyName,
                         _Out_ JsValueRef *result);
 
+JsErrorCode GetProperty(_In_ JsValueRef ref,
+                        _In_ JsPropertyIdRef propId,
+                        _Out_ int *intValue);
+
 JsErrorCode SetProperty(_In_ JsValueRef ref,
                         _In_ JsValueRef propName,
                         _In_ JsValueRef propValue);
@@ -153,6 +157,15 @@ JsErrorCode CallProperty(
   _In_ unsigned short argumentCount,
   _Out_ JsValueRef *result);
 
+JsErrorCode CallGetter(
+  _In_ JsValueRef ref,
+  _In_ const wchar_t *propertyName,
+  _Out_ JsValueRef* result);
+
+JsErrorCode CallGetter(
+  _In_ JsValueRef ref,
+  _In_ const wchar_t *propertyName,
+  _Out_ int* result);
 
 JsErrorCode GetPropertyOfGlobal(_In_ const wchar_t *propertyName,
                                 _Out_ JsValueRef *ref);
@@ -304,10 +317,6 @@ JsErrorCode GetIndexedProperty(_In_ JsValueRef object,
                                _In_ int index,
                                _In_ JsValueRef *value);
 
-JsErrorCode IsOfGlobalType(_In_ JsValueRef objectRef,
-                           _In_ const wchar_t *typeName,
-                           _Out_ bool *result);
-
 bool IsOfGlobalType(_In_ JsValueRef objectRef,
                     _In_ const wchar_t *typeName);
 
@@ -336,7 +345,7 @@ class JsArguments {
   JsValueRef* _args;
 
  public:
-  JsArguments(int count) {
+  explicit JsArguments(int count) {
     _args = count <= STATIC_COUNT ? _local : new JsValueRef[count];
   }
 

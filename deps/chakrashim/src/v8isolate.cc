@@ -77,6 +77,25 @@ Local<Context> Isolate::GetCurrentContext() {
   return Context::GetCurrent();
 }
 
+void Isolate::SetPromiseRejectCallback(PromiseRejectCallback callback) {
+  // CHAKRA does not support this explicit callback
+}
+
+bool Isolate::AddMessageListener(MessageCallback that, Handle<Value> data) {
+  // Ignore data parameter.  Node doesn't use it.
+  return jsrt::IsolateShim::FromIsolate(this)->AddMessageListener(that);
+}
+
+void Isolate::RemoveMessageListeners(MessageCallback that) {
+  jsrt::IsolateShim::FromIsolate(this)->RemoveMessageListeners(that);
+}
+
+void Isolate::SetJitCodeEventHandler(JitCodeEventOptions options,
+                                     JitCodeEventHandler event_handler) {
+  // CHAKRA-TODO: This is for ETW events, we don't have equivalent but might not
+  // need it because we do our own ETW tracing.
+}
+
 void Isolate::RunMicrotasks() {
 }
 

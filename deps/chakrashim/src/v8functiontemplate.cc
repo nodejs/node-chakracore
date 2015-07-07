@@ -129,6 +129,7 @@ struct FunctionCallbackData {
         thisPointer,
         holder,
         isConstructCall,
+        callbackData->data,
         Local<Function>::New(static_cast<Function*>(callee)));
 
       callbackData->callback(args);

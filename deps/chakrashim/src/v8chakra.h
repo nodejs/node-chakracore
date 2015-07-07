@@ -59,6 +59,7 @@ struct TemplateData {
   virtual void CreateProperties();  // Allow properties to be created lazily
 
  public:
+  virtual ~TemplateData() {}
   Object* EnsureProperties();
 };
 

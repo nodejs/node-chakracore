@@ -59,106 +59,130 @@
       this.fileName + ':' + this.lineNumber + ':' + this.columnNumber + ')';
   };
 
-  function patchErrorStack() {
-    function prepareStackTrace(error, stack) {
-      var stackString = (error.name ? error.name : 'Error') +
-        ': ' + error.message;
+  function prepareStackTrace(error, stack) {
+    var stackString = (error.name ? error.name : 'Error') +
+      ': ' + error.message;
 
-      for (var i = 0; i < stack.length; i++) {
-        stackString += '\n   at ' + stack[i].toString();
-      }
-
-      return stackString;
+    for (var i = 0; i < stack.length; i++) {
+      stackString += '\n   at ' + stack[i].toString();
     }
 
-    function parseStack(stack, skipDepth) {
-      // remove the first line so this function won't be seen
-      var splittedStack = stack.split('\n');
-      splittedStack.splice(0, 2);
-      var errstack = [];
+    return stackString;
+  }
 
-      for (var i = skipDepth; i < splittedStack.length; i++) {
-        var parens = /\(/.exec(splittedStack[i]);
-        var funcName = splittedStack[i].substr(6, parens.index - 7);
-        if (funcName === 'Anonymous function') {
-          funcName = null;
+  function parseStack(stack, skipDepth, startFunc) {
+    // remove the first line so this function won't be seen
+    var splittedStack = stack.split('\n');
+    splittedStack.splice(0, 2);
+    var errstack = [];
+
+    var startName = skipDepth < 0 ? startFunc.name : undefined;
+    skipDepth = Math.max(0, skipDepth);
+
+    for (var i = skipDepth; i < splittedStack.length; i++) {
+      var parens = /\(/.exec(splittedStack[i]);
+      var funcName = splittedStack[i].substr(6, parens.index - 7);
+
+      if (startName) {
+        if (funcName === startName) {
+          startName = undefined;
         }
-
-        var location = splittedStack[i].substr(parens.index + 1,
-            splittedStack[i].length - parens.index - 2);
-
-        var fileName = location;
-        var lineNumber = 0;
-        var columnNumber = 0;
-
-        var colonPattern = /:[0-9]+/g;
-        var firstColon = colonPattern.exec(location);
-        if (firstColon) {
-          fileName = location.substr(0, firstColon.index);
-
-          var secondColon = colonPattern.exec(location);
-          if (secondColon) {
-            lineNumber = parseInt(location.substr(firstColon.index + 1,
-                secondColon.index - firstColon.index - 1), 10);
-            columnNumber = parseInt(location.substr(secondColon.index + 1,
-                location.length - secondColon.index), 10);
-          }
-        }
-        errstack.push(
-            new StackFrame(funcName, fileName, lineNumber, columnNumber));
+        continue;
       }
-      return errstack;
-    }
-
-    function findFuncDepth(func) {
-      try {
-        var curr = Error.captureStackTrace.caller;
-        var limit = Error.stackTraceLimit;
-        var skipDepth = 0;
-        while (curr) {
-          skipDepth++;
-          if (curr === func) {
-            return skipDepth;
-          }
-          if (skipDepth > limit) {
-            return 0;
-          }
-          curr = curr.caller;
-        }
-      } catch (e) {
-        // Strict mode may throw on .caller
+      if (funcName === 'Anonymous function') {
+        funcName = null;
       }
 
-      return 0;
+      var location = splittedStack[i].substr(parens.index + 1,
+          splittedStack[i].length - parens.index - 2);
+
+      var fileName = location;
+      var lineNumber = 0;
+      var columnNumber = 0;
+
+      var colonPattern = /:[0-9]+/g;
+      var firstColon = colonPattern.exec(location);
+      if (firstColon) {
+        fileName = location.substr(0, firstColon.index);
+
+        var secondColon = colonPattern.exec(location);
+        if (secondColon) {
+          lineNumber = parseInt(location.substr(firstColon.index + 1,
+              secondColon.index - firstColon.index - 1), 10);
+          columnNumber = parseInt(location.substr(secondColon.index + 1,
+              location.length - secondColon.index), 10);
+        }
+      }
+      errstack.push(
+          new StackFrame(funcName, fileName, lineNumber, columnNumber));
+    }
+    return errstack;
+  }
+
+  function findFuncDepth(func) {
+    try {
+      var curr = captureStackTrace.caller;
+      var limit = Error.stackTraceLimit;
+      var skipDepth = 0;
+      while (curr) {
+        skipDepth++;
+        if (curr === func) {
+          return skipDepth;
+        }
+        if (skipDepth > limit) {
+          return 0;
+        }
+        curr = curr.caller;
+      }
+    } catch (e) {
+      // Strict mode may throw on .caller. Will try to match by function name.
+      return -1;
     }
 
-    Error.captureStackTrace = function(err, func) {
-      var currentStack;
-      try { throw new Error; } catch (e) { currentStack = e.stack; }
-      var isPrepared = false;
-      var skipDepth = func ? findFuncDepth(func) : 0;
-      Object_defineProperty(err, 'stack', {
-        get: function() {
-          if (isPrepared) {
-            return currentStack;
-          }
-          var errstack = parseStack(currentStack, skipDepth);
-          if (Error.prepareStackTrace) {
-            currentStack = Error.prepareStackTrace(err, errstack);
-          } else {
-            currentStack = prepareStackTrace(err, errstack);
-          }
-          isPrepared = true;
+    return 0;
+  }
+
+  function captureStackTrace(err, func) {
+    var currentStack;
+    try { throw new Error; } catch (e) { currentStack = e.stack; }
+    var isPrepared = false;
+    var skipDepth = func ? findFuncDepth(func) : 0;
+
+    var currentStackTrace;
+    function ensureStackTrace() {
+      if (!currentStackTrace) {
+        currentStackTrace = parseStack(currentStack, skipDepth, func);
+      }
+      return currentStackTrace;
+    }
+
+    Object_defineProperty(err, 'stack', {
+      get: function () {
+        if (isPrepared) {
           return currentStack;
-        },
-        set: function(value) {
-          currentStack = value;
-          isPrepared = true;
-        },
-        configurable: true,
-        enumerable: false
-      });
-    };
+        }
+        var errstack = ensureStackTrace();
+        if (Error.prepareStackTrace) {
+          currentStack = Error.prepareStackTrace(err, errstack);
+        } else {
+          currentStack = prepareStackTrace(err, errstack);
+        }
+        isPrepared = true;
+        return currentStack;
+      },
+      set: function (value) {
+        currentStack = value;
+        isPrepared = true;
+      },
+      configurable: true,
+      enumerable: false
+    });
+
+    return ensureStackTrace;
+  };
+
+  function patchErrorStack() {
+    Error.captureStackTrace = captureStackTrace;
   }
 
   function cloneObject(source, target) {
@@ -371,6 +395,10 @@
 
       return arr;
     })();
+
+    utils.getStackTrace = function () {
+      return captureStackTrace({}, utils.getStackTrace)();
+    };
   }
 
   // patch console

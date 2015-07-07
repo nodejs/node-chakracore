@@ -63,6 +63,16 @@ struct InternalFieldDataStruct {
   int size;
 };
 
+Maybe<bool> Object::Set(Local<Context> context,
+                        Local<Value> key, Local<Value> value) {
+  TryCatch try_catch;
+  bool result = Set(key, value);
+  if (try_catch.HasCaught()) {
+    return Nothing<bool>();
+  }
+  return Just(true);
+}
+
 bool Object::Set(
     Handle<Value> key, Handle<Value> value, PropertyAttribute attribs) {
   return Set(key, value, attribs, /*force*/false);
@@ -205,6 +215,15 @@ bool Object::Delete(Handle<String> key) {
   }
 
   return result;
+}
+
+Maybe<bool> Object::Delete(Local<Context> context, Local<Value> key) {
+  TryCatch try_catch;
+  Delete(key);
+  if (try_catch.HasCaught()) {
+    return Nothing<bool>();
+  }
+  return Just(true);
 }
 
 bool Object::Delete(uint32_t index) {
@@ -447,6 +466,16 @@ bool Object::SetPrototype(Handle<Value> prototype) {
   }
 
   return true;
+}
+
+Maybe<bool> Object::SetPrototype(Local<Context> context,
+                                 Local<Value> prototype) {
+  TryCatch try_catch;
+  SetPrototype(prototype);
+  if (try_catch.HasCaught()) {
+    return Nothing<bool>();
+  }
+  return Just(true);
 }
 
 Local<Value> Object::GetConstructor() {
@@ -808,6 +837,27 @@ Local<Context> Object::CreationContext() {
 Local<Value> Object::GetRealNamedProperty(Handle<String> key) {
   // CHAKRA-TODO: how to skip interceptors?
   return this->Get(key);
+}
+
+MaybeLocal<Value> Object::GetRealNamedProperty(Local<Context> context,
+                                               Local<Name> key) {
+  TryCatch try_catch;
+  Local<Value> result = GetRealNamedProperty(key);
+  if (try_catch.HasCaught()) {
+    return MaybeLocal<Value>();
+  }
+  return result;
+}
+
+Maybe<PropertyAttribute> Object::GetRealNamedPropertyAttributes(
+    Local<Context> context, Local<Name> key) {
+  // CHAKRA-TODO: This walks prototype chain skipping interceptors
+  return Just(PropertyAttribute::None);
+}
+
+Isolate* Object::GetIsolate() {
+  // CHAKRA-TODO
+  return Isolate::GetCurrent();
 }
 
 Local<Object> Object::New(Isolate* isolate) {

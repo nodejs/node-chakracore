@@ -36,6 +36,9 @@ DEFTYPE(Object)
 DEFTYPE(Proxy)
 DEFTYPE(RegExp)
 DEFTYPE(String)
+DEFTYPE(Uint8Array)
+DEFTYPE(Uint32Array)
+
 
 // These prototype functions will be cached/shimmed
 DEFMETHOD(ArrayBuffer,    toString)

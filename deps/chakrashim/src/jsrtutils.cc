@@ -67,6 +67,23 @@ JsErrorCode GetProperty(_In_ JsValueRef ref,
   return error;
 }
 
+JsErrorCode GetProperty(_In_ JsValueRef ref,
+                        _In_ JsPropertyIdRef propId,
+                        _Out_ int *intValue) {
+  JsValueRef value;
+  JsErrorCode error = JsGetProperty(ref, propId, &value);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  error = JsConvertValueToNumber(value, &value);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return JsNumberToInt(value, intValue);
+}
+
 JsErrorCode SetProperty(_In_ JsValueRef ref,
                         _In_ const wchar_t* propName,
                         _In_ JsValueRef propValue) {
@@ -164,6 +181,31 @@ JsErrorCode CallProperty(
   }
 
   return CallProperty(ref, idRef, arguments, argumentCount, result);
+}
+
+JsErrorCode CallGetter(
+    _In_ JsValueRef ref,
+    _In_ const wchar_t *propertyName,
+    _Out_ JsValueRef* result) {
+  return CallProperty(ref, propertyName, nullptr, 0, result);
+}
+
+JsErrorCode CallGetter(
+    _In_ JsValueRef ref,
+    _In_ const wchar_t *propertyName,
+    _Out_ int* result) {
+  JsValueRef value;
+  JsErrorCode error = CallGetter(ref, propertyName, &value);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  error = JsConvertValueToNumber(value, &value);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return JsNumberToInt(value, result);
 }
 
 JsErrorCode GetPropertyOfGlobal(_In_ const wchar_t *propertyName,
@@ -965,30 +1007,9 @@ JsErrorCode HasIndexedProperty(_In_ JsValueRef object,
   return error;
 }
 
-JsErrorCode IsOfGlobalType(
-  _In_ JsValueRef objectRef,
-  _In_ const wchar_t *typeName,
-  _Out_ bool *result
-  ) {
-  // the JS equivlant to what we do is: this.constructor.prototype ==
-  // object.prototype
-  JsErrorCode error;
-  JsValueRef valRef;
-
-  error = GetPropertyOfGlobal(typeName, &valRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = InstanceOf(objectRef, valRef, result);
-
-  return error;
-}
-
-bool IsOfGlobalType(_In_ JsValueRef objectRef,
-                    _In_ const wchar_t *typeName) {
+bool IsOfGlobalType(_In_ JsValueRef ref, _In_ const wchar_t *typeName) {
   bool result;
-  return IsOfGlobalType(objectRef, typeName, &result) == JsNoError && result;
+  return InstanceOfGlobalType(ref, typeName, &result) == JsNoError && result;
 }
 
 JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,
