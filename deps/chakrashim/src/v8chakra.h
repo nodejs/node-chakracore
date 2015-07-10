@@ -30,6 +30,7 @@ namespace v8 {
 struct ObjectTemplateData;
 
 extern __declspec(thread) bool g_EnableDebug;
+extern ArrayBuffer::Allocator* g_arrayBufferAllocator;
 
 struct ObjectData {
  public:

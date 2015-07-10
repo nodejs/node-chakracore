@@ -27,16 +27,52 @@ using jsrt::IsolateShim;
 using jsrt::CachedPropertyIdRef;
 
 Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate, size_t byte_length) {
-  return New(isolate, nullptr, byte_length);
+  JsValueRef result;
+  if (JsCreateArrayBuffer(static_cast<unsigned int>(byte_length),
+                          &result) != JsNoError) {
+    return Local<ArrayBuffer>();
+  }
+  return static_cast<ArrayBuffer*>(result);
+}
+
+struct ArrayBufferFinalizeInfo {
+  ArrayBuffer::Allocator* allocator;
+  void *data;
+  size_t length;
+
+  void Free() {
+    allocator->Free(data, length);
+    delete this;
+  }
+};
+
+static void CALLBACK ExternalArrayBufferFinalizeCallback(_In_opt_ void *data) {
+    static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
 
 Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate,
                                     void* data, size_t byte_length,
                                     ArrayBufferCreationMode mode) {
+  JsFinalizeCallback finalizeCallback = nullptr;
+  ArrayBufferFinalizeInfo* callbackState = nullptr;
+
+  if (mode == ArrayBufferCreationMode::kInternalized) {
+      ArrayBufferFinalizeInfo info = { g_arrayBufferAllocator,
+                                       data,
+                                       byte_length };
+      finalizeCallback = ExternalArrayBufferFinalizeCallback;
+      callbackState = new ArrayBufferFinalizeInfo(info);
+  }
+
   JsValueRef result;
-  if (JsCreateArrayBuffer(data,
-                          static_cast<unsigned int>(byte_length),
-                          &result) != JsNoError) {
+  if (JsCreateExternalArrayBuffer(data,
+                                  static_cast<unsigned int>(byte_length),
+                                  finalizeCallback,
+                                  callbackState,
+                                  &result) != JsNoError) {
+    if (callbackState != nullptr) {
+      delete callbackState;
+    }
     return Local<ArrayBuffer>();
   }
   return static_cast<ArrayBuffer*>(result);

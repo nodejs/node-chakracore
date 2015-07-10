@@ -27,6 +27,7 @@
 namespace v8 {
 
 bool g_exposeGC = false;
+ArrayBuffer::Allocator* g_arrayBufferAllocator = nullptr;
 
 const char *V8::GetVersion() {
   static char versionStr[32] = {};
@@ -116,7 +117,8 @@ void V8::SetEntropySource(EntropySource entropy_source) {
 }
 
 void V8::SetArrayBufferAllocator(ArrayBuffer::Allocator* allocator) {
-  // Ignore
+  CHAKRA_VERIFY(!g_arrayBufferAllocator);
+  g_arrayBufferAllocator = allocator;
 }
 
 bool V8::IsDead() {
