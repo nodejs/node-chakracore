@@ -86,32 +86,14 @@ ContextShim::~ContextShim() {
   if (globalObjectTemplateInstance != JS_INVALID_REFERENCE) {
     JsRelease(globalObjectTemplateInstance, nullptr);
   }
-
-  // Mark each existing CrossContextMapInfo* that it no longer needs to
-  // unregister from this ContextShim.
-  std::for_each(crossContextObjects.begin(), crossContextObjects.end(),
-                [](const auto& pair) {
-    auto& v = pair.second;
-    std::for_each(v.begin(), v.end(), [](CrossContextMapInfo* info) {
-      info->fromContext = nullptr;
-    });
-  });
 }
 
 bool ContextShim::CheckConfigGlobalObjectTemplate() {
   if (globalObjectTemplateInstance != JS_INVALID_REFERENCE) {
     // Only need to config once. Discard globalObjectTemplateInstance
-    JsValueRef target = globalObjectTemplateInstance;
+    JsValueRef newProto = globalObjectTemplateInstance;
     JsRelease(globalObjectTemplateInstance, nullptr);
     globalObjectTemplateInstance = JS_INVALID_REFERENCE;
-
-    JsValueRef newProto = JS_INVALID_REFERENCE;
-    {
-      ContextShim* fromContext =
-        IsolateShim::GetCurrent()->GetJsValueRefContextShim(target);
-      ContextShim::Scope from(fromContext);
-      newProto = MarshalJsValueRefToContext(target, fromContext, this);
-    }
 
     JsValueRef glob, oldProto;
     return newProto != JS_INVALID_REFERENCE &&
@@ -219,12 +201,12 @@ bool ContextShim::InitializeGlobalPrototypeFunctions() {
     // Replace the builtin function with a cross context shim function
     JsValueRef function;
     if (JsCreateFunction(jsrt::PrototypeFunctionCrossContextShim,
-                         reinterpret_cast<void*>(index),
-                         &function) != JsNoError) {
-      return false;
+        reinterpret_cast<void*>(index),
+        &function) != JsNoError) {
+        return false;
     }
     return JsSetProperty(prototype, functionIdRef, function,
-                         false) == JsNoError;
+        false) == JsNoError;
   };
 
   struct TypeMethodPair {
@@ -459,97 +441,6 @@ bool ContextShim::ExecuteChakraShimJS() {
     initFunction, arguments, _countof(arguments), &result) == JsNoError;
 }
 
-bool ContextShim::RegisterCrossContextObject(JsValueRef fakeTarget,
-                                             const CrossContextMapInfo& info) {
-  // Ensure fakeTarget lifetime encloses proxy lifetime
-  if (JsSetProperty(fakeTarget,
-                    isolateShim->GetProxySymbolPropertyIdRef(),
-                    info.proxy, false) != JsNoError) {
-    return false;
-  }
-
-  try {
-    CrossContextMapInfo* mapInfoCopy = new CrossContextMapInfo(info);
-
-    // Install a finalizer to clean up the map entry when proxy/fakeTarget are
-    // collected by GC.
-    JsValueRef finalizeObj;
-    if (JsCreateExternalObject(mapInfoCopy,
-                               CrossContextFakeTargetFinalizeCallback,
-                               &finalizeObj) != JsNoError) {
-      delete mapInfoCopy;
-      return false;
-    }
-
-    if (JsSetProperty(fakeTarget,
-                      isolateShim->GetFinalizerSymbolPropertyIdRef(),
-                      finalizeObj, false) != JsNoError) {
-      return false;
-    }
-
-    crossContextObjects[info.object].push_back(mapInfoCopy);
-    return true;  // success
-  } catch (const std::bad_alloc&) {
-    return false;
-  }
-}
-
-bool ContextShim::UnregisterCrossContextObject(
-    const CrossContextMapInfo& info) {
-  auto i = crossContextObjects.find(info.object);
-  if (i != crossContextObjects.end()) {
-    std::vector<CrossContextMapInfo*>& v = i->second;
-    auto i2 = std::remove_if(v.begin(), v.end(),
-                             [info](const CrossContextMapInfo* x) -> bool {
-      return x->toContext == info.toContext;
-    });
-
-    if (i2 != v.end()) {
-      v.erase(i2, v.end());
-      if (v.size() == 0) {
-        crossContextObjects.erase(i);
-      }
-
-      return true;
-    }
-  }
-
-  assert(false);  // not found in map
-  return false;
-}
-
-bool ContextShim::TryGetCrossContextObject(JsValueRef object,
-                                           ContextShim* toContext,
-                                           JsValueRef* proxy) {
-  auto i = crossContextObjects.find(object);
-  if (i != crossContextObjects.end()) {
-    std::vector<CrossContextMapInfo*>& v = i->second;
-    auto i2 = std::find_if(v.begin(), v.end(),
-                           [=](const CrossContextMapInfo* x) -> bool {
-      return x->toContext == toContext;
-    });
-
-    if (i2 != v.end()) {
-      *proxy = (*i2)->proxy;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-void CALLBACK ContextShim::CrossContextFakeTargetFinalizeCallback(
-    void *callbackState) {
-  CrossContextMapInfo* info = static_cast<CrossContextMapInfo*>(callbackState);
-
-  ContextShim* fromContext = info->fromContext;
-  if (fromContext != nullptr) {
-    fromContext->UnregisterCrossContextObject(*info);
-  }
-
-  delete info;
-}
-
 void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
   if (index < 0) {
     return;
@@ -772,6 +663,30 @@ JsValueRef ContextShim::GetTestFunctionTypeFunction() {
 JsValueRef ContextShim::GetCreateTargetFunction() {
   return GetCachedShimFunction(CachedPropertyIdRef::createTargetFunction,
                                &createTargetFunction);
+}
+
+
+// This shim enables a builtin prototype function to support cross context
+// objects. When "this" argument is cross context, marshal all arguments and
+// make the call in "this" argument context. Otherwise delegate the call to
+// cached function in current context.
+JsValueRef CALLBACK PrototypeFunctionCrossContextShim(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState) {
+    ContextShim * originalContextShim = ContextShim::GetCurrent();
+    ContextShim::GlobalPrototypeFunction index =
+        *reinterpret_cast<ContextShim::GlobalPrototypeFunction*>(&callbackState);
+
+    JsValueRef function = originalContextShim->GetGlobalPrototypeFunction(index);
+    JsValueRef result;
+    if (JsCallFunction(function, arguments, argumentCount,
+        &result) != JsNoError) {
+        return JS_INVALID_REFERENCE;
+    }
+    return result;
 }
 
 }  // namespace jsrt

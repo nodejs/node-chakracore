@@ -321,9 +321,6 @@ EXPORT void SetObjectWeakReferenceCallback(
 // A helper method for turning off the WeakReferenceCallback that was set using
 // the previous method
 EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
-
-EXPORT JsValueRef MarshalJsValueRefToContext(
-  JsValueRef value, JsContextRef context);
 }
 
 template <class T>
@@ -944,12 +941,10 @@ class ReturnValue {
  public:
   // Handle setters
   template <typename S> void Set(const Persistent<S>& handle) {
-    *_value = static_cast<Value *>(
-      chakrashim::MarshalJsValueRefToContext(*handle, *_context));
+      *_value = static_cast<Value *>(*handle);
   }
   template <typename S> void Set(const Handle<S> handle) {
-    *_value = static_cast<Value *>(
-      chakrashim::MarshalJsValueRefToContext(*handle, *_context));
+    *_value = static_cast<Value *>(*handle);
   }
   // Fast primitive setters
   void Set(bool value) { Set(Boolean::New(Isolate::GetCurrent(), value)); }
@@ -967,14 +962,12 @@ class ReturnValue {
 
   Value* Get() const { return *_value; }
  private:
-  ReturnValue(Value** value, Handle<Context> context)
-    : _value(value), _context(context) {
+  ReturnValue(Value** value)
+    : _value(value) {
   }
 
   Value** _value;
-  Local<Context> _context;
-
-  void SetCrossContext(JsValueRef valueRef);
+  //Local<Context> _context;
 
   template <typename F> friend class FunctionCallbackInfo;
   template <typename F> friend class PropertyCallbackInfo;
@@ -996,7 +989,7 @@ class FunctionCallbackInfo {
   Isolate* GetIsolate() const { return Isolate::GetCurrent(); }
   ReturnValue<T> GetReturnValue() const {
     return ReturnValue<T>(
-      &(const_cast<FunctionCallbackInfo<T>*>(this)->_returnValue), _context);
+      &(const_cast<FunctionCallbackInfo<T>*>(this)->_returnValue));
   }
 
   FunctionCallbackInfo(
@@ -1040,7 +1033,7 @@ class PropertyCallbackInfo {
   Local<Object> Holder() const { return _holder; }
   ReturnValue<T> GetReturnValue() const {
     return ReturnValue<T>(
-      &(const_cast<PropertyCallbackInfo<T>*>(this)->_returnValue), _context);
+      &(const_cast<PropertyCallbackInfo<T>*>(this)->_returnValue));
   }
 
   PropertyCallbackInfo(

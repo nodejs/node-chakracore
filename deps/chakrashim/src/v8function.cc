@@ -101,8 +101,7 @@ Local<Value> Function::Call(
     }
     if (objectContextShim != nullptr) {
       ContextShim::Scope scope(objectContextShim);
-      args.get()[i] = MarshalJsValueRefToContext(
-        valueRef, objectContextShim, currentContextShim);
+      args.get()[i] = valueRef;
     } else {
       // Can't find a context
       return Local<Value>();

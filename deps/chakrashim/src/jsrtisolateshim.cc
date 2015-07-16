@@ -217,8 +217,6 @@ void IsolateShim::PopScope(ContextShim::Scope * scope) {
         JsHasException(&hasException) == JsNoError &&
         hasException &&
         JsGetAndClearException(&exception) == JsNoError) {
-      exception = MarshalJsValueRefToContext(
-        exception, scope->contextShim, prevScope->contextShim);
     }
 
     JsSetCurrentContext(prevScope->contextShim->GetContextRef());

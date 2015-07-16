@@ -25,7 +25,6 @@
 #include "jsrtproxyutils.h"
 #include "jsrtcontextshim.h"
 #include "jsrtisolateshim.h"
-#include "jsrtcrosscontext.h"
 
 #include "stdint.h"
 #include "jsrtstringutils.h"

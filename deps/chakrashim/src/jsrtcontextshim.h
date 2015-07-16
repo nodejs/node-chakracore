@@ -126,28 +126,6 @@ class ContextShim {
   bool CheckConfigGlobalObjectTemplate();
   bool ExecuteChakraShimJS();
 
-  // Maintains a map of {(this fromContext) object -> (toContext) proxy} for
-  // cross context objects. We can return the same proxy when an object was
-  // previously marshalled to toContext.
-  struct CrossContextMapInfo {
-    ContextShim* fromContext;
-    ContextShim* toContext;
-    JsValueRef object;  // original object
-    JsValueRef proxy;   // result proxy
-  };
-  bool RegisterCrossContextObject(JsValueRef fakeTarget,
-                                  const CrossContextMapInfo& info);
-  bool UnregisterCrossContextObject(const CrossContextMapInfo& info);
-  bool TryGetCrossContextObject(JsValueRef object, ContextShim* toContext,
-                                JsValueRef* proxy);
-  static void CALLBACK CrossContextFakeTargetFinalizeCallback(
-    void *callbackState);
-
-  friend JsValueRef MarshalObjectToContext(JsValueType valueType,
-                                           JsValueRef valueRef,
-                                           ContextShim * contextShim,
-                                           ContextShim * toContextShim);
-
   IsolateShim * isolateShim;
   JsContextRef context;
   bool initialized;
@@ -192,8 +170,6 @@ class ContextShim {
   JsValueRef createTargetFunction;
 
   std::vector<void*> embedderData;
-  std::unordered_map<JsValueRef, std::vector<CrossContextMapInfo*>>
-    crossContextObjects;
 };
 
 template <class R>
@@ -209,4 +185,10 @@ R ContextShim::ExecuteInContextOf(
   return fn();
 }
 
+JsValueRef CALLBACK PrototypeFunctionCrossContextShim(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
 }  // namespace jsrt
