@@ -32,15 +32,15 @@ namespace jsrt {
 IsolateShim::IsolateShim(JsRuntimeHandle runtime)
     : runtime(runtime),
       contextScopeStack(nullptr),
-      selfSymbolPropertyIdRef(JS_INVALID_REFERENCE),
+      symbolPropertyIdRefs(),
       cachedPropertyIdRefs(),
+      embeddedData(),
       isDisposing(false),
       tryCatchStackTop(nullptr) {
   // CHAKRA-TODO: multithread locking for s_isolateList?
   this->prevnext = &s_isolateList;
   this->next = s_isolateList;
   s_isolateList = this;
-  memset(embeddedData, 0, sizeof(embeddedData));
 }
 
 IsolateShim::~IsolateShim() {
@@ -241,7 +241,7 @@ ContextShim * IsolateShim::GetCurrentContextShim() {
 }
 
 JsPropertyIdRef IsolateShim::GetSelfSymbolPropertyIdRef() {
-  return EnsurePrivateSymbol(&selfSymbolPropertyIdRef);
+  return GetCachedSymbolPropertyIdRef(CachedSymbolPropertyIdRef::self);
 }
 
 JsPropertyIdRef IsolateShim::GetKeepAliveObjectSymbolPropertyIdRef() {
@@ -250,20 +250,29 @@ JsPropertyIdRef IsolateShim::GetKeepAliveObjectSymbolPropertyIdRef() {
   // return EnsurePrivateSymbol(&keepAliveObjectSymbolPropertyIdRef);
 }
 
-JsPropertyIdRef IsolateShim::EnsurePrivateSymbol(
-    JsPropertyIdRef * propertyIdRefPtr) {
-  assert(this->GetCurrentContextShim() != nullptr);
-  JsPropertyIdRef propertyIdRef = *propertyIdRefPtr;
-  if (propertyIdRef == JS_INVALID_REFERENCE) {
-    JsValueRef newSymbol;
-    if (JsCreateSymbol(JS_INVALID_REFERENCE, &newSymbol) == JsNoError) {
-      if (JsGetPropertyIdFromSymbol(newSymbol, &propertyIdRef) == JsNoError) {
-        JsAddRef(propertyIdRef, nullptr);
-        *propertyIdRefPtr = propertyIdRef;
-      }
+template <class Index, class CreatePropertyIdFunc>
+JsPropertyIdRef GetCachedPropertyId(
+    JsPropertyIdRef cache[], Index index,
+    const CreatePropertyIdFunc& createPropertyId) {
+  JsPropertyIdRef propIdRef = cache[index];
+  if (propIdRef == JS_INVALID_REFERENCE) {
+    if (createPropertyId(index, &propIdRef)) {
+      JsAddRef(propIdRef, nullptr);
+      cache[index] = propIdRef;
     }
   }
-  return propertyIdRef;
+  return propIdRef;
+}
+
+JsPropertyIdRef IsolateShim::GetCachedSymbolPropertyIdRef(
+    CachedSymbolPropertyIdRef cachedSymbolPropertyIdRef) {
+  CHAKRA_ASSERT(this->GetCurrentContextShim() != nullptr);
+  return GetCachedPropertyId(symbolPropertyIdRefs, cachedSymbolPropertyIdRef,
+                    [](CachedSymbolPropertyIdRef, JsPropertyIdRef* propIdRef) {
+      JsValueRef newSymbol;
+      return JsCreateSymbol(JS_INVALID_REFERENCE, &newSymbol) == JsNoError &&
+        JsGetPropertyIdFromSymbol(newSymbol, propIdRef) == JsNoError;
+  });
 }
 
 static wchar_t const *
@@ -274,15 +283,11 @@ const s_cachedPropertyIdRefNames[CachedPropertyIdRef::Count] = {
 
 JsPropertyIdRef IsolateShim::GetCachedPropertyIdRef(
     CachedPropertyIdRef cachedPropertyIdRef) {
-  JsPropertyIdRef propertyIdRef = cachedPropertyIdRefs[cachedPropertyIdRef];
-  if (propertyIdRef == JS_INVALID_REFERENCE) {
-    if (JsGetPropertyIdFromName(s_cachedPropertyIdRefNames[cachedPropertyIdRef],
-                                &propertyIdRef) == JsNoError) {
-      JsAddRef(propertyIdRef, nullptr);
-      cachedPropertyIdRefs[cachedPropertyIdRef] = propertyIdRef;
-    }
-  }
-  return propertyIdRef;
+  return GetCachedPropertyId(cachedPropertyIdRefs, cachedPropertyIdRef,
+                    [](CachedPropertyIdRef index, JsPropertyIdRef* propIdRef) {
+    return JsGetPropertyIdFromName(s_cachedPropertyIdRefNames[index],
+                                   propIdRef) == JsNoError;
+  });
 }
 
 JsPropertyIdRef IsolateShim::GetProxyTrapPropertyIdRef(ProxyTraps trap) {

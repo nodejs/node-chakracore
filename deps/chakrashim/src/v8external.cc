@@ -25,8 +25,6 @@ namespace v8 {
 
 using jsrt::IsolateShim;
 
-const wchar_t * EXTERNAL_PROP_NAME = L"__isexternal__";
-
 Local<Value> External::Wrap(void* data) {
   return External::New(Isolate::GetCurrent(), data);
 }
@@ -46,14 +44,15 @@ Local<External> External::New(Isolate* isolate, void* value) {
     return Local<External>();
   }
 
-  JsValueRef trueRef =
-    IsolateShim::FromIsolate(isolate)->GetCurrentContextShim()->GetTrue();
+  IsolateShim* iso = IsolateShim::FromIsolate(isolate);
+  JsValueRef trueRef = iso->GetCurrentContextShim()->GetTrue();
   if (JsGetTrueValue(&trueRef) != JsNoError) {
     return Local<External>();
   }
 
   if (jsrt::DefineProperty(externalRef,
-                           EXTERNAL_PROP_NAME,
+                           iso->GetCachedSymbolPropertyIdRef(
+                             jsrt::CachedSymbolPropertyIdRef::__isexternal__),
                            jsrt::PropertyDescriptorOptionValues::False,
                            jsrt::PropertyDescriptorOptionValues::False,
                            jsrt::PropertyDescriptorOptionValues::False,
@@ -67,17 +66,13 @@ Local<External> External::New(Isolate* isolate, void* value) {
 }
 
 bool External::IsExternal(const v8::Value* value) {
-  if (!value->IsObject()) {
-    return false;
-  }
-
-  JsPropertyIdRef propIdRef;
-  if (JsGetPropertyIdFromName(EXTERNAL_PROP_NAME, &propIdRef) != JsNoError) {
-    return false;
-  }
+  IsolateShim* iso = IsolateShim::GetCurrent();
 
   bool hasProp;
-  if (JsHasProperty((JsValueRef)value, propIdRef, &hasProp) != JsNoError) {
+  if (JsHasProperty((JsValueRef)value,
+                    iso->GetCachedSymbolPropertyIdRef(
+                      jsrt::CachedSymbolPropertyIdRef::__isexternal__),
+                    &hasProp) != JsNoError) {
     return false;
   }
 

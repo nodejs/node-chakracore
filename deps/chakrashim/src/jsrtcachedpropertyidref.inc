@@ -18,6 +18,14 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#ifndef DEF
+#define DEF(x)
+#endif
+
+#ifndef DEFSYMBOL
+#define DEFSYMBOL(x)
+#endif
+
 DEF(apply)
 DEF(construct)
 DEF(defineProperty)
@@ -63,4 +71,8 @@ DEF(buffer)
 DEF(byteOffset)
 DEF(byteLength)
 
+DEFSYMBOL(self)
+DEFSYMBOL(__isexternal__)
+
 #undef DEF
+#undef DEFSYMBOL

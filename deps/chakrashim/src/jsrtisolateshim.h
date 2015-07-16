@@ -36,6 +36,12 @@ enum CachedPropertyIdRef {
   Count
 };
 
+enum CachedSymbolPropertyIdRef {
+#define DEFSYMBOL(x, ...) x,
+#include "jsrtcachedpropertyidref.inc"
+  SymbolCount
+};
+
 class IsolateShim {
  public:
 
@@ -67,6 +73,8 @@ class IsolateShim {
   // Symbols propertyIdRef
   JsPropertyIdRef GetSelfSymbolPropertyIdRef();
   JsPropertyIdRef GetKeepAliveObjectSymbolPropertyIdRef();
+  JsPropertyIdRef GetCachedSymbolPropertyIdRef(
+    CachedSymbolPropertyIdRef cachedSymbolPropertyIdRef);
 
   // String propertyIdRef
   JsPropertyIdRef GetProxyTrapPropertyIdRef(ProxyTraps trap);
@@ -97,10 +105,8 @@ class IsolateShim {
   static void CALLBACK JsContextBeforeCollectCallback(
     _In_ JsRef contextRef, _In_opt_ void *data);
 
-  JsPropertyIdRef EnsurePrivateSymbol(JsPropertyIdRef * propertyIdRefPtr);
-
   JsRuntimeHandle runtime;
-  JsPropertyIdRef selfSymbolPropertyIdRef;
+  JsPropertyIdRef symbolPropertyIdRefs[CachedSymbolPropertyIdRef::SymbolCount];
   JsPropertyIdRef cachedPropertyIdRefs[CachedPropertyIdRef::Count];
   bool isDisposing;
 

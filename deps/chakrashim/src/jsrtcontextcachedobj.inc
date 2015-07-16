@@ -30,14 +30,21 @@
 DEFTYPE(ArrayBuffer)
 DEFTYPE(Boolean)
 DEFTYPE(Date)
+DEFTYPE(Error)
+DEFTYPE(EvalError)
 DEFTYPE(Function)
 DEFTYPE(Number)
 DEFTYPE(Object)
 DEFTYPE(Proxy)
+DEFTYPE(RangeError)
+DEFTYPE(ReferenceError)
 DEFTYPE(RegExp)
 DEFTYPE(String)
-DEFTYPE(Uint8Array)
+DEFTYPE(SyntaxError)
+DEFTYPE(TypeError)
 DEFTYPE(Uint32Array)
+DEFTYPE(Uint8Array)
+DEFTYPE(URIError)
 
 
 // These prototype functions will be cached/shimmed

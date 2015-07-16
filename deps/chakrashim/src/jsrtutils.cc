@@ -76,12 +76,7 @@ JsErrorCode GetProperty(_In_ JsValueRef ref,
     return error;
   }
 
-  error = JsConvertValueToNumber(value, &value);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  return JsNumberToInt(value, intValue);
+  return ValueToIntLikely(value, intValue);
 }
 
 JsErrorCode SetProperty(_In_ JsValueRef ref,
@@ -200,12 +195,7 @@ JsErrorCode CallGetter(
     return error;
   }
 
-  error = JsConvertValueToNumber(value, &value);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  return JsNumberToInt(value, result);
+  return ValueToIntLikely(value, result);
 }
 
 JsErrorCode GetPropertyOfGlobal(_In_ const wchar_t *propertyName,
