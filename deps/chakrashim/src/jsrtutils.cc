@@ -965,30 +965,9 @@ JsErrorCode HasIndexedProperty(_In_ JsValueRef object,
   return error;
 }
 
-JsErrorCode IsOfGlobalType(
-  _In_ JsValueRef objectRef,
-  _In_ const wchar_t *typeName,
-  _Out_ bool *result
-  ) {
-  // the JS equivlant to what we do is: this.constructor.prototype ==
-  // object.prototype
-  JsErrorCode error;
-  JsValueRef valRef;
-
-  error = GetPropertyOfGlobal(typeName, &valRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = InstanceOf(objectRef, valRef, result);
-
-  return error;
-}
-
-bool IsOfGlobalType(_In_ JsValueRef objectRef,
-                    _In_ const wchar_t *typeName) {
+bool IsOfGlobalType(_In_ JsValueRef ref, _In_ const wchar_t *typeName) {
   bool result;
-  return IsOfGlobalType(objectRef, typeName, &result) == JsNoError && result;
+  return InstanceOfGlobalType(ref, typeName, &result) == JsNoError && result;
 }
 
 JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,

@@ -25,24 +25,24 @@
 
 namespace v8 {
 
-using jsrt::IsOfGlobalType;
-
-bool Value::IsUndefined() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
+static bool IsOfType(const Value* ref, JsValueType type) {
+  JsValueType valueType;
+  if (JsGetValueType(const_cast<Value*>(ref), &valueType) != JsNoError) {
     return false;
   }
+  return valueType == type;
+}
 
-  return (type == JsValueType::JsUndefined);
+static bool IsOfType(const Value* ref, const wchar_t* type) {
+  return jsrt::IsOfGlobalType(const_cast<Value*>(ref), type);
+}
+
+bool Value::IsUndefined() const {
+  return IsOfType(this, JsValueType::JsUndefined);
 }
 
 bool Value::IsNull() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
-    return false;
-  }
-
-  return (type == JsValueType::JsNull);
+  return IsOfType(this, JsValueType::JsNull);
 }
 
 bool Value::IsTrue() const {
@@ -64,29 +64,15 @@ bool Value::IsFalse() const {
 }
 
 bool Value::IsString() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
-    return false;
-  }
-  return (type == JsValueType::JsString);
+  return IsOfType(this, JsValueType::JsString);
 }
 
 bool Value::IsFunction() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
-    return false;
-  }
-
-  return (type == JsValueType::JsFunction);
+  return IsOfType(this, JsValueType::JsFunction);
 }
 
 bool Value::IsArray() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
-    return false;
-  }
-
-  return (type == JsValueType::JsArray);
+  return IsOfType(this, JsValueType::JsArray);
 }
 
 bool Value::IsObject() const {
@@ -95,8 +81,7 @@ bool Value::IsObject() const {
     return false;
   }
 
-  return (type == JsValueType::JsObject || type == JsValueType::JsFunction ||
-      type == JsValueType::JsError);
+  return type >= JsValueType::JsObject && type != JsSymbol;
 }
 
 bool Value::IsExternal() const {
@@ -104,29 +89,15 @@ bool Value::IsExternal() const {
 }
 
 bool Value::IsTypedArray() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
-    return false;
-  }
-  return (type == JsValueType::JsTypedArray);
+  return IsOfType(this, JsValueType::JsTypedArray);
 }
 
 bool Value::IsBoolean() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
-    return false;
-  }
-
-  return (type == JsValueType::JsBoolean);
+  return IsOfType(this, JsValueType::JsBoolean);
 }
 
 bool Value::IsNumber() const {
-  JsValueType type;
-  if (JsGetValueType((JsValueRef)this, &type) != JsNoError) {
-    return false;
-  }
-
-  return (type == JsValueType::JsNumber);
+  return IsOfType(this, JsValueType::JsNumber);
 }
 
 bool Value::IsInt32() const {
@@ -165,43 +136,33 @@ bool Value::IsUint32() const {
 }
 
 bool Value::IsDate() const {
-  bool result;
-  if (IsOfGlobalType((JsValueRef)this, L"Date", &result) != JsNoError) {
-    return false;
-  }
-
-  return result;
+  return IsOfType(this, L"Date");
 }
 
 bool Value::IsBooleanObject() const {
-  return IsOfGlobalType((JsValueRef)this, L"Boolean");
+  return IsOfType(this, L"Boolean");
 }
 
 bool Value::IsNumberObject() const {
-  return IsOfGlobalType((JsValueRef)this, L"Number");
+  return IsOfType(this, L"Number");
 }
 
 bool Value::IsStringObject() const {
-  return IsOfGlobalType((JsValueRef)this, L"String");
+  return IsOfType(this, L"String");
 }
 
 bool Value::IsNativeError() const {
-  return IsOfGlobalType((JsValueRef)this, L"Error")
-    || IsOfGlobalType((JsValueRef)this, L"EvalError")
-    || IsOfGlobalType((JsValueRef)this, L"RangeError")
-    || IsOfGlobalType((JsValueRef)this, L"ReferenceError")
-    || IsOfGlobalType((JsValueRef)this, L"SyntaxError")
-    || IsOfGlobalType((JsValueRef)this, L"TypeError")
-    || IsOfGlobalType((JsValueRef)this, L"URIError");
+  return IsOfType(this, L"Error")
+    || IsOfType(this, L"EvalError")
+    || IsOfType(this, L"RangeError")
+    || IsOfType(this, L"ReferenceError")
+    || IsOfType(this, L"SyntaxError")
+    || IsOfType(this, L"TypeError")
+    || IsOfType(this, L"URIError");
 }
 
 bool Value::IsRegExp() const {
-  bool result;
-  if (IsOfGlobalType((JsValueRef)this, L"RegExp", &result) != JsNoError) {
-    return false;
-  }
-
-  return result;
+  return IsOfType(this, L"RegExp");
 }
 
 Local<Boolean> Value::ToBoolean() const {
