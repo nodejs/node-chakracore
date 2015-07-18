@@ -206,8 +206,6 @@ struct FunctionTemplateData : public TemplateData {
       }
       templateData->properties.Dispose();
       templateData->prototypeTemplate.Dispose();
-      IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(
-        templateData->functionTemplate);
       delete templateData;
     }
   }
@@ -231,8 +229,6 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
     return Local<FunctionTemplate>();
   }
   templateData->functionTemplate = functionTemplateRef;
-  IsolateShim::FromIsolate(isolate)->RegisterJsValueRefContextShim(
-    functionTemplateRef);
   return Local<FunctionTemplate>::New(
     static_cast<FunctionTemplate*>(functionTemplateRef));
 }
@@ -320,24 +316,22 @@ void FunctionTemplate::SetHiddenPrototype(bool value) {
 }
 
 bool FunctionTemplate::HasInstance(Handle<Value> object) {
-  return ContextShim::ExecuteInContextOf<bool>(this, [&]() {
-    void *externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError) {
-      return false;
-    }
+  void *externalData;
+  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    return false;
+  }
 
-    FunctionTemplateData *functionTemplateData =
-      reinterpret_cast<FunctionTemplateData*>(externalData);
-    FunctionCallbackData * functionCallbackData =
-      functionTemplateData->callbackData;
+  FunctionTemplateData *functionTemplateData =
+    reinterpret_cast<FunctionTemplateData*>(externalData);
+  FunctionCallbackData * functionCallbackData =
+    functionTemplateData->callbackData;
 
-    bool result;
-    if (jsrt::InstanceOf(*object, *GetFunction(), &result) != JsNoError) {
-      return false;
-    }
+  bool result;
+  if (jsrt::InstanceOf(*object, *GetFunction(), &result) != JsNoError) {
+    return false;
+  }
 
-    return result;
-  });
+  return result;
 }
 
 }  // namespace v8

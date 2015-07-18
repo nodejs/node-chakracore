@@ -117,8 +117,6 @@ Local<Value> Script::Run() {
 
 static void CALLBACK UnboundScriptFinalizeCallback(void * data) {
   JsValueRef * unboundScriptData = static_cast<JsValueRef *>(data);
-  jsrt::IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(
-    *unboundScriptData);
   delete unboundScriptData;
 }
 Local<UnboundScript> Script::GetUnboundScript() {
@@ -139,17 +137,12 @@ Local<UnboundScript> Script::GetUnboundScript() {
     return Local<UnboundScript>();
   }
   *unboundScriptData = unboundScriptRef;
-
-  // CHAKRA-REVIEW: Since chakra doesn't allow access of object from another
-  // context, we need to keep track of the context the unbound script is
-  jsrt::IsolateShim::GetCurrent()->RegisterJsValueRefContextShim(
-    unboundScriptRef);
   return Local<UnboundScript>(static_cast<UnboundScript*>(unboundScriptRef));
 }
 
 Local<Script> UnboundScript::BindToCurrentContext() {
   jsrt::ContextShim * contextShim =
-    jsrt::IsolateShim::GetCurrent()->GetJsValueRefContextShim(this);
+    jsrt::IsolateShim::GetCurrent()->GetContextShimOfObject(this);
   if (contextShim == jsrt::ContextShim::GetCurrent()) {
     JsValueRef scriptRef;
     if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError) {

@@ -53,7 +53,7 @@ class IsolateShim {
 
   ContextShim * GetContextShim(JsContextRef contextRef);
   JsRuntimeHandle GetRuntimeHandle();
-  ContextShim * GetObjectContext(JsValueRef valueRef);
+  ContextShim * GetContextShimOfObject(JsValueRef valueRef);
 
   void Enter();
   void Exit();
@@ -66,22 +66,12 @@ class IsolateShim {
 
   // Symbols propertyIdRef
   JsPropertyIdRef GetSelfSymbolPropertyIdRef();
-  JsPropertyIdRef GetCrossContextTargetSymbolPropertyIdRef();
   JsPropertyIdRef GetKeepAliveObjectSymbolPropertyIdRef();
-  JsPropertyIdRef GetProxySymbolPropertyIdRef();
-  JsPropertyIdRef GetFinalizerSymbolPropertyIdRef();
 
   // String propertyIdRef
   JsPropertyIdRef GetProxyTrapPropertyIdRef(ProxyTraps trap);
   JsPropertyIdRef GetCachedPropertyIdRef(
     CachedPropertyIdRef cachedPropertyIdRef);
-
-  // CHAKRA-REVIEW: Work around the fact that chakra doesn't support cross
-  // context use of object, we need to keep track of the context of these object
-  // so we can switch back and forth
-  void RegisterJsValueRefContextShim(JsValueRef valueRef);
-  void UnregisterJsValueRefContextShim(JsValueRef valueRef);
-  ContextShim * GetJsValueRefContextShim(JsValueRef valueRef);
 
   void DisableExecution();
   bool IsExeuctionDisabled();
@@ -111,10 +101,6 @@ class IsolateShim {
 
   JsRuntimeHandle runtime;
   JsPropertyIdRef selfSymbolPropertyIdRef;
-  JsPropertyIdRef crossContextTargetSymbolPropertyIdRef;
-  JsPropertyIdRef keepAliveObjectSymbolPropertyIdRef;
-  JsPropertyIdRef proxySymbolPropertyIdRef;
-  JsPropertyIdRef finalizerSymbolPropertyIdRef;
   JsPropertyIdRef cachedPropertyIdRefs[CachedPropertyIdRef::Count];
   bool isDisposing;
 
@@ -125,8 +111,6 @@ class IsolateShim {
   friend class v8::TryCatch;
   v8::TryCatch * tryCatchStackTop;
 
-  std::unordered_map<JsContextRef, ContextShim *> contextShimMap;
-  std::unordered_map<JsValueRef, ContextShim *> jsValueRefToContextShimMap;
   std::vector<void *> messageListeners;
 
   // Node only has 4 slots (internals::Internals::kNumIsolateDataSlots = 4)

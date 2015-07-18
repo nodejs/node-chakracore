@@ -95,7 +95,7 @@ Local<Value> Function::Call(
 
   for (int i = 0; i < argc + 1; i++) {
     JsValueRef valueRef = args.get()[i];
-    ContextShim * objectContextShim = isolateShim->GetObjectContext(valueRef);
+    ContextShim * objectContextShim = isolateShim->GetContextShimOfObject(valueRef);
     if (currentContextShim == objectContextShim) {
       continue;
     }

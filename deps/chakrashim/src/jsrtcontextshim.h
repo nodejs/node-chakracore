@@ -172,19 +172,6 @@ class ContextShim {
   std::vector<void*> embedderData;
 };
 
-template <class R>
-R ContextShim::ExecuteInContextOf(
-    JsValueRef object, const std::function<R()> & fn) {
-  IsolateShim * isolateShim = IsolateShim::GetCurrent();
-  ContextShim * contextShim = isolateShim->GetJsValueRefContextShim(object);
-  if (contextShim != nullptr &&
-      contextShim != isolateShim->GetCurrentContextShim()) {
-    ContextShim::Scope scope(contextShim);
-    return fn();
-  }
-  return fn();
-}
-
 JsValueRef CALLBACK PrototypeFunctionCrossContextShim(
     JsValueRef callee,
     bool isConstructCall,

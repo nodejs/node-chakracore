@@ -33,10 +33,6 @@ IsolateShim::IsolateShim(JsRuntimeHandle runtime)
     : runtime(runtime),
       contextScopeStack(nullptr),
       selfSymbolPropertyIdRef(JS_INVALID_REFERENCE),
-      crossContextTargetSymbolPropertyIdRef(JS_INVALID_REFERENCE),
-      keepAliveObjectSymbolPropertyIdRef(JS_INVALID_REFERENCE),
-      proxySymbolPropertyIdRef(JS_INVALID_REFERENCE),
-      finalizerSymbolPropertyIdRef(JS_INVALID_REFERENCE),
       cachedPropertyIdRefs(),
       isDisposing(false),
       tryCatchStackTop(nullptr) {
@@ -139,11 +135,12 @@ bool IsolateShim::IsDisposing() {
   return isDisposing;
 }
 
+//TODO: Chakra: This is not called after cross context work in chakra. Fix this else we will 
+// leak chakrashim object.
 void CALLBACK IsolateShim::JsContextBeforeCollectCallback(
     _In_ JsRef contextRef, _In_opt_ void *data) {
   IsolateShim * isolateShim = reinterpret_cast<IsolateShim *>(data);
-  ContextShim * contextShim = isolateShim->contextShimMap[contextRef];
-  isolateShim->contextShimMap.erase(contextRef);
+  ContextShim * contextShim = isolateShim->GetContextShim(contextRef);
   delete contextShim;
 }
 
@@ -161,14 +158,22 @@ bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
     delete contextShim;
     return false;
   }
-  contextShimMap[contextRef] = contextShim;
+  if (JsSetContextData(contextRef, contextShim) != JsNoError) {
+    delete contextShim;
+    return false;
+  }
   *context = contextRef;
   return true;
 }
 
 ContextShim * IsolateShim::GetContextShim(JsContextRef contextRef) {
   assert(contextRef != JS_INVALID_REFERENCE);
-  return contextShimMap[contextRef];
+  void *data;
+  if (JsGetContextData(contextRef, &data) != JsNoError) {
+    return nullptr;
+  }
+  ContextShim* contextShim = static_cast<jsrt::ContextShim *>(data);
+  return contextShim;
 }
 
 bool IsolateShim::GetMemoryUsage(size_t * memoryUsage) {
@@ -239,22 +244,10 @@ JsPropertyIdRef IsolateShim::GetSelfSymbolPropertyIdRef() {
   return EnsurePrivateSymbol(&selfSymbolPropertyIdRef);
 }
 
-JsPropertyIdRef IsolateShim::GetCrossContextTargetSymbolPropertyIdRef() {
-  return EnsurePrivateSymbol(&crossContextTargetSymbolPropertyIdRef);
-}
-
 JsPropertyIdRef IsolateShim::GetKeepAliveObjectSymbolPropertyIdRef() {
   // CHAKRA-TODO: has a bug with symbols and proxy, just a real property name
   return GetCachedPropertyIdRef(CachedPropertyIdRef::__keepalive__);
   // return EnsurePrivateSymbol(&keepAliveObjectSymbolPropertyIdRef);
-}
-
-JsPropertyIdRef IsolateShim::GetProxySymbolPropertyIdRef() {
-  return EnsurePrivateSymbol(&proxySymbolPropertyIdRef);
-}
-
-JsPropertyIdRef IsolateShim::GetFinalizerSymbolPropertyIdRef() {
-  return EnsurePrivateSymbol(&finalizerSymbolPropertyIdRef);
 }
 
 JsPropertyIdRef IsolateShim::EnsurePrivateSymbol(
@@ -296,38 +289,14 @@ JsPropertyIdRef IsolateShim::GetProxyTrapPropertyIdRef(ProxyTraps trap) {
   return GetCachedPropertyIdRef(GetProxyTrapCachedPropertyIdRef(trap));
 }
 
-void IsolateShim::RegisterJsValueRefContextShim(JsValueRef valueRef) {
-  jsValueRefToContextShimMap[valueRef] = this->GetCurrentContextShim();
-}
-
-void IsolateShim::UnregisterJsValueRefContextShim(JsValueRef valueRef) {
-  jsValueRefToContextShimMap.erase(valueRef);
-}
-
-ContextShim * IsolateShim::GetJsValueRefContextShim(JsValueRef valueRef) {
-  auto i = jsValueRefToContextShimMap.find(valueRef);
-  return i != jsValueRefToContextShimMap.end() ? i->second : nullptr;
-}
-
-ContextShim * IsolateShim::GetObjectContext(JsValueRef valueRef) {
-  // CHAKRA-REVIEW: Chakra doesn't have an API to tell what context an object is
-  // in. HACK: Go thru the list of context and see which one works
-  JsValueType valueType;
-  if (this->contextScopeStack != nullptr) {
-    if (JsGetValueType(valueRef, &valueType) == JsNoError) {
-      return this->GetCurrentContextShim();
-    }
+ContextShim * IsolateShim::GetContextShimOfObject(JsValueRef valueRef) {
+  JsContextRef contextRef;
+  if (JsGetContextOfObject(valueRef, &contextRef) != JsNoError) 
+  {
+    return nullptr;
   }
-
-  auto i = this->contextShimMap.begin();
-  for (; i != this->contextShimMap.end(); i++) {
-    ContextShim * contextShim = (*i).second;
-    ContextShim::Scope scope(contextShim);
-    if (JsGetValueType(valueRef, &valueType) == JsNoError) {
-      return contextShim;
-    }
-  }
-  return nullptr;
+  assert(contextRef != nullptr);
+  return GetContextShim(contextRef);
 }
 
 void IsolateShim::DisableExecution() {

@@ -725,8 +725,6 @@ void CALLBACK FinalizeCallback(void *data) {
     objectData->namedPropertyInterceptorData.Dispose();
     objectData->indexedPropertyInterceptorData.Dispose();
 
-    IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(
-      objectData->objectInstance);
     delete objectData;
   }
 }
@@ -908,7 +906,6 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
   }
 
   objectData->objectInstance = newInstanceRef;
-  IsolateShim::GetCurrent()->RegisterJsValueRefContextShim(newInstanceRef);
   return Local<Object>::New(static_cast<Object*>(newInstanceRef));
 }
 

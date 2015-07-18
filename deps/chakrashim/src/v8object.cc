@@ -599,33 +599,31 @@ ObjectTemplate* Object::GetObjectTemplate() {
 JsErrorCode Object::GetObjectData(ObjectData** objectData) {
   *objectData = nullptr;
 
-  return ContextShim::ExecuteInContextOf<JsErrorCode>(this, [=]() {
-    Local<Object> obj(static_cast<Object*>(this));
+  Local<Object> obj(static_cast<Object*>(this));
 
-    if (obj->IsUndefined()) {
-      return JsNoError;
-    }
+  if (obj->IsUndefined()) {
+    return JsNoError;
+  }
 
-    JsErrorCode error;
-    JsValueRef self = this;
-    {
-      JsPropertyIdRef selfSymbolIdRef =
-        jsrt::IsolateShim::GetCurrent()->GetSelfSymbolPropertyIdRef();
-      if (selfSymbolIdRef != JS_INVALID_REFERENCE) {
-        JsValueRef result;
-        error = JsGetProperty(this, selfSymbolIdRef, &result);
-        if (error != JsNoError) {
-          return error;
-        }
+  JsErrorCode error;
+  JsValueRef self = this;
+  {
+    JsPropertyIdRef selfSymbolIdRef =
+      jsrt::IsolateShim::GetCurrent()->GetSelfSymbolPropertyIdRef();
+    if (selfSymbolIdRef != JS_INVALID_REFERENCE) {
+      JsValueRef result;
+      error = JsGetProperty(this, selfSymbolIdRef, &result);
+      if (error != JsNoError) {
+        return error;
+      }
 
-        if (!Local<Value>(static_cast<Value*>(result))->IsUndefined()) {
-          self = result;
-        }
+      if (!Local<Value>(static_cast<Value*>(result))->IsUndefined()) {
+        self = result;
       }
     }
+  }
 
-    return JsGetExternalData(self, reinterpret_cast<void **>(objectData));
-  });
+  return JsGetExternalData(self, reinterpret_cast<void **>(objectData));
 }
 
 JsErrorCode Object::InternalFieldHelper(void ***internalFields, int *count) {
@@ -826,7 +824,7 @@ Local<Object> Object::Clone() {
 
 Local<Context> Object::CreationContext() {
   jsrt::ContextShim * contextShim =
-    jsrt::IsolateShim::GetCurrent()->GetObjectContext(this);
+    jsrt::IsolateShim::GetCurrent()->GetContextShimOfObject(this);
   if (contextShim == nullptr) {
     return Local<Context>();
   }

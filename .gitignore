@@ -76,6 +76,8 @@ deps/zlib/zlib.target.mk
 # test artifacts
 tools/faketime
 icu_config.gypi
+/.vs
+/jsrt
 test.tap
 
 # Xcode workspaces and project folders
