@@ -63,7 +63,10 @@ IsolateShim::~IsolateShim() {
 
   JsRuntimeHandle runtime;
   JsErrorCode error =
-    JsCreateRuntime(JsRuntimeAttributeAllowScriptInterrupt, nullptr, &runtime);
+    JsCreateRuntime(static_cast<JsRuntimeAttributes>(
+                      JsRuntimeAttributeAllowScriptInterrupt |
+                      JsRuntimeAttributeEnableExperimentalFeatures),
+                    nullptr, &runtime);
   if (error != JsNoError) {
     return nullptr;
   }
