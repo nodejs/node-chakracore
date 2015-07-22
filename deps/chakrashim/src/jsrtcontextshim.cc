@@ -630,6 +630,10 @@ JsValueRef ContextShim::GetProxyConstructor() {
   return globalConstructor[GlobalType::Proxy];
 }
 
+JsValueRef ContextShim::GetGlobalType(GlobalType index) {
+  return globalConstructor[index];
+}
+
 JsValueRef ContextShim::GetGetOwnPropertyDescriptorFunction() {
   return getOwnPropertyDescriptorFunction;
 }

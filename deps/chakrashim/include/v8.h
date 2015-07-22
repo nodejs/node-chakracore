@@ -360,11 +360,12 @@ class EXPORT Eternal : private Persistent<T> {
 // values created will then be added to that array. So the GC will see the array
 // on the stack and then keep those local references alive.
 class EXPORT HandleScope {
-  template <class T>
-  friend class Local;
+  template <class T> friend class Local;
+  static const int kOnStackLocals = 5;  // Arbitrary number of refs on stack
 
  private:
-  JsValueRef _refs;
+  JsValueRef _locals[kOnStackLocals];   // Save some refs on stack
+  JsValueRef _refs;                     // More refs go to a JS array
   int _count;
   HandleScope *_prev;
   JsContextRef _contextRef;

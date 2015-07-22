@@ -25,6 +25,8 @@
 
 namespace v8 {
 
+using jsrt::ContextShim;
+
 static bool IsOfType(const Value* ref, JsValueType type) {
   JsValueType valueType;
   if (JsGetValueType(const_cast<Value*>(ref), &valueType) != JsNoError) {
@@ -33,8 +35,11 @@ static bool IsOfType(const Value* ref, JsValueType type) {
   return valueType == type;
 }
 
-static bool IsOfType(const Value* ref, const wchar_t* type) {
-  return jsrt::IsOfGlobalType(const_cast<Value*>(ref), type);
+static bool IsOfType(const Value* ref, ContextShim::GlobalType index) {
+    bool result;
+    return jsrt::InstanceOf(const_cast<Value*>(ref),
+                            ContextShim::GetCurrent()->GetGlobalType(index),
+                            &result) == JsNoError && result;
 }
 
 bool Value::IsUndefined() const {
@@ -136,33 +141,33 @@ bool Value::IsUint32() const {
 }
 
 bool Value::IsDate() const {
-  return IsOfType(this, L"Date");
+  return IsOfType(this, ContextShim::GlobalType::Date);
 }
 
 bool Value::IsBooleanObject() const {
-  return IsOfType(this, L"Boolean");
+  return IsOfType(this, ContextShim::GlobalType::Boolean);
 }
 
 bool Value::IsNumberObject() const {
-  return IsOfType(this, L"Number");
+  return IsOfType(this, ContextShim::GlobalType::Number);
 }
 
 bool Value::IsStringObject() const {
-  return IsOfType(this, L"String");
+  return IsOfType(this, ContextShim::GlobalType::String);
 }
 
 bool Value::IsNativeError() const {
-  return IsOfType(this, L"Error")
-    || IsOfType(this, L"EvalError")
-    || IsOfType(this, L"RangeError")
-    || IsOfType(this, L"ReferenceError")
-    || IsOfType(this, L"SyntaxError")
-    || IsOfType(this, L"TypeError")
-    || IsOfType(this, L"URIError");
+  return IsOfType(this, ContextShim::GlobalType::Error)
+    || IsOfType(this, ContextShim::GlobalType::EvalError)
+    || IsOfType(this, ContextShim::GlobalType::RangeError)
+    || IsOfType(this, ContextShim::GlobalType::ReferenceError)
+    || IsOfType(this, ContextShim::GlobalType::SyntaxError)
+    || IsOfType(this, ContextShim::GlobalType::TypeError)
+    || IsOfType(this, ContextShim::GlobalType::URIError);
 }
 
 bool Value::IsRegExp() const {
-  return IsOfType(this, L"RegExp");
+  return IsOfType(this, ContextShim::GlobalType::RegExp);
 }
 
 Local<Boolean> Value::ToBoolean() const {
@@ -227,40 +232,21 @@ Local<Int32> Value::ToInt32() const {
 }
 
 bool Value::BooleanValue() const {
-  JsValueRef ref;
-  if (IsBoolean()) {
-    ref = (JsValueRef)this;
-  } else {
-    if (JsConvertValueToBoolean((JsValueRef)this, &ref) != JsNoError) {
-      return false;
-    }
-  }
-
   bool value;
-
-  if (JsBooleanToBool((JsValueRef)this, &value) != JsNoError) {
+  if (jsrt::ValueToNative</*LIKELY*/true>(JsConvertValueToBoolean,
+                                          JsBooleanToBool,
+                                          (JsValueRef)this,
+                                          &value) != JsNoError) {
     return false;
   }
-
   return value;
 }
 
 double Value::NumberValue() const {
-  JsValueRef ref;
-  if (IsNumber()) {
-    ref = (JsValueRef)this;
-  } else {
-    if (JsConvertValueToNumber((JsValueRef)this, &ref) != JsNoError) {
-      return 0;
-    }
-  }
-
   double value;
-
-  if (JsNumberToDouble(ref, &value) != JsNoError) {
-    return false;
+  if (jsrt::ValueToDoubleLikely((JsValueRef)this, &value) != JsNoError) {
+    return 0;
   }
-
   return value;
 }
 
@@ -273,16 +259,10 @@ uint32_t Value::Uint32Value() const {
 }
 
 int32_t Value::Int32Value() const {
-  JsValueRef ref;
-  if (JsConvertValueToNumber((JsValueRef)this, &ref) != JsNoError) {
-    return 0;
-  }
-
   int intValue;
-  if (JsNumberToInt(ref, &intValue) != JsNoError) {
+  if (jsrt::ValueToIntLikely((JsValueRef)this, &intValue) != JsNoError) {
     return 0;
   }
-
   return intValue;
 }
 

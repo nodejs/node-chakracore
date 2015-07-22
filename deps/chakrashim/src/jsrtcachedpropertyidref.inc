@@ -18,6 +18,14 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#ifndef DEF
+#define DEF(x)
+#endif
+
+#ifndef DEFSYMBOL
+#define DEFSYMBOL(x)
+#endif
+
 DEF(apply)
 DEF(construct)
 DEF(defineProperty)
@@ -59,4 +67,12 @@ DEF(testFunctionType)
 DEF(throwAccessorErrorFunctions)
 DEF(toString)
 
+DEFSYMBOL(self)
+DEFSYMBOL(crossContextTarget)
+DEFSYMBOL(keepAliveObject)
+DEFSYMBOL(proxy)
+DEFSYMBOL(finalizer)
+DEFSYMBOL(__isexternal__)
+
 #undef DEF
+#undef DEFSYMBOL

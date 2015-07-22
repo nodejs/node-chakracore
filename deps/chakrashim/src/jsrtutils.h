@@ -350,4 +350,50 @@ class JsArguments {
 // create and set the exception on the context
 void SetOutOfMemoryErrorIfExist(_In_ JsErrorCode errorCode);
 
+
+template <bool LIKELY,
+          class JsConvertToValueFunc,
+          class JsValueToNativeFunc,
+          class T>
+JsErrorCode ValueToNative(const JsConvertToValueFunc& JsConvertToValue,
+                          const JsValueToNativeFunc& JsValueToNative,
+                          JsValueRef value, T* nativeValue) {
+  JsErrorCode error;
+
+  // If LIKELY, try JsValueToNative first. Likely to succeed.
+  if (LIKELY) {
+    error = JsValueToNative(value, nativeValue);
+    if (error != JsErrorInvalidArgument) {
+      return error;
+    }
+  }
+
+  // Perform JS conversion first, then to native.
+  error = JsConvertToValue(value, &value);
+  if (error != JsNoError) {
+    return error;
+  }
+  return JsValueToNative(value, nativeValue);
+}
+
+inline JsErrorCode ValueToInt(JsValueRef value, int* intValue) {
+  return ValueToNative</*LIKELY*/false>(
+    JsConvertValueToNumber, JsNumberToInt, value, intValue);
+}
+
+inline JsErrorCode ValueToIntLikely(JsValueRef value, int* intValue) {
+  return ValueToNative</*LIKELY*/true>(
+    JsConvertValueToNumber, JsNumberToInt, value, intValue);
+}
+
+inline JsErrorCode ValueToDouble(JsValueRef value, double* dblValue) {
+  return ValueToNative</*LIKELY*/false>(
+    JsConvertValueToNumber, JsNumberToDouble, value, dblValue);
+}
+
+inline JsErrorCode ValueToDoubleLikely(JsValueRef value, double* dblValue) {
+  return ValueToNative</*LIKELY*/true>(
+    JsConvertValueToNumber, JsNumberToDouble, value, dblValue);
+}
+
 }  // namespace jsrt

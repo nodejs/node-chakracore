@@ -67,6 +67,18 @@ JsErrorCode GetProperty(_In_ JsValueRef ref,
   return error;
 }
 
+JsErrorCode GetProperty(_In_ JsValueRef ref,
+                        _In_ JsPropertyIdRef propId,
+                        _Out_ int *intValue) {
+  JsValueRef value;
+  JsErrorCode error = JsGetProperty(ref, propId, &value);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return ValueToIntLikely(value, intValue);
+}
+
 JsErrorCode SetProperty(_In_ JsValueRef ref,
                         _In_ const wchar_t* propName,
                         _In_ JsValueRef propValue) {
@@ -164,6 +176,26 @@ JsErrorCode CallProperty(
   }
 
   return CallProperty(ref, idRef, arguments, argumentCount, result);
+}
+
+JsErrorCode CallGetter(
+    _In_ JsValueRef ref,
+    _In_ const wchar_t *propertyName,
+    _Out_ JsValueRef* result) {
+  return CallProperty(ref, propertyName, nullptr, 0, result);
+}
+
+JsErrorCode CallGetter(
+    _In_ JsValueRef ref,
+    _In_ const wchar_t *propertyName,
+    _Out_ int* result) {
+  JsValueRef value;
+  JsErrorCode error = CallGetter(ref, propertyName, &value);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return ValueToIntLikely(value, result);
 }
 
 JsErrorCode GetPropertyOfGlobal(_In_ const wchar_t *propertyName,
