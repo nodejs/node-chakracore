@@ -1,10 +1,9 @@
 Evented I/O for javascript.
 ===
-
-Node.js uses the V8 JavaScript engine by default. This GitHub fork enables
-Node.js to optionally use the Chakra JavaScript engine on Windows 10, allowing
-Node.js to run on Windows on ARM. Our goal is to merge back into master after
-stabilizing this code, fixing key gaps and responding to early community
+Node.js uses the V8 JavaScript engine by default. This project enables 
+Node.js to optionally use the Chakra JavaScript engine on Windows 10, allowing 
+Node.js to run on Windows 10 IoT. Our goal is to merge back into master after 
+stabilizing this code, fixing key gaps and responding to early community 
 feedback.
 
 ### How it works
@@ -16,42 +15,27 @@ implemented most essential V8 APIs so that the underlying JavaScript engine
 change is transparent to Node.js and other native addon modules written for V8.
 All we need is to rebuild node.exe and native addon modules with Chakra.
 
+### How to get started
+
+You will need the following installed on your PC to start using Node.js with Chakra 
+
+* [Windows 10](http://www.microsoft.com/en-us/windows/windows-10-upgrade)
+* [Visual Studio 2015](https://www.visualstudio.com/vs-2015-product-editions)
+(with Tools and Windows SDK) 
+* [Node.js Tools for Windows IoT](https://github.com/ms-iot/ntvsiot/releases)
+
+Checkout IoT specific instructions and samples [here](IoT-Readme.md).
+
 <a name="windows_with_chakra"></a>
 ### How to build (with Chakra on Windows)
 
-Prerequisites:
-
-    * Windows 10 (latest)
-    * Python 2.6 or 2.7
-    * Visual Studio 2015 (RC or later)
-    * Windows 10 Tools (Bundled in Visual Studio 2015, or install separately.)
+In addition to the above installations. You will need to install 
+[Python 2.6 or 2.7](https://www.python.org) to build Node.js for Chakra
 
 To build node.exe:
 
 ```sh
 vcbuild chakra nosign [x86|x64|arm]
-```
-
-<a name="build_native_addon_modules_with_chakra"></a>
-### How to build and install native addon modules
-
-Assume [local_repo] is the dir of your local clone of this repo. Add your build
-of node.exe to the front of PATH:
-
-```sh
-set path=[local_repo]\release;%path%
-```
-
-To build a native addon module:
-
-```sh
-node.exe [local_repo]\deps\npm\node_modules\node-gyp\bin\node-gyp.js rebuild --nodedir=[local_repo]
-```
-
-To install a native addon module:
-
-```sh
-node.exe [local_repo]\deps\npm\bin\npm-cli.js install [native_addon] --nodedir=[local_repo]
 ```
 
 ### Original README
