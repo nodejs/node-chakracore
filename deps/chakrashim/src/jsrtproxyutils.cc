@@ -135,9 +135,9 @@ JsErrorCode TryParseUInt32(
   size_t strLength;
 
   error = JsStringToPointer(strRef, &strPtr, &strLength);
-
   if (error != JsNoError) {
-    return error;
+    // If strRef is not a string, just return not Uint32
+    return error == JsErrorInvalidArgument ? JsNoError : error;
   }
 
   // empty string

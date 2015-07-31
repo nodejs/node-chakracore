@@ -836,7 +836,6 @@ class EXPORT Object : public Value {
   Local<Value> GetPrototype();
   bool SetPrototype(Handle<Value> prototype);
   Maybe<bool> SetPrototype(Local<Context> context, Local<Value> prototype);
-  Local<Value> GetConstructor();
   Local<Array> GetPropertyNames();
   Local<Array> GetOwnPropertyNames();
   bool HasOwnProperty(Handle<String> key);

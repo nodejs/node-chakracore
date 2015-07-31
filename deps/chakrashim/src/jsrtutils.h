@@ -203,11 +203,6 @@ JsErrorCode GetPropertyNames(_In_ JsValueRef object,
                              _Out_ JsValueRef *namesArray);
 
 JsErrorCode AddExternalData(_In_ JsValueRef ref,
-                            _In_ const wchar_t *externalDataName,
-                            _In_ void *data,
-                            _In_ JsFinalizeCallback onObjectFinalize);
-
-JsErrorCode AddExternalData(_In_ JsValueRef ref,
                             _In_ JsPropertyIdRef externalDataPropertyId,
                             _In_ void *data,
                             _In_ JsFinalizeCallback onObjectFinalize);
@@ -216,26 +211,8 @@ JsErrorCode AddExternalData(_In_ JsValueRef ref,
                             _In_ void *data,
                             _In_ JsFinalizeCallback onObjectFinalize);
 
-JsErrorCode GetExternalDataDefaultName(
-                                       _Out_ const wchar_t **defaultName);
-
-JsErrorCode HasExternalData(_In_ JsValueRef ref,
-                            _In_ const wchar_t *externalDataName,
-                            _Out_ bool *result);
-
-JsErrorCode HasExternalData(_In_ JsValueRef ref,
-                            _Out_ bool *result);
-
-JsErrorCode HasExternalData(_In_ JsValueRef ref,
-                            JsPropertyIdRef propertyId,
-                            _Out_ bool *result);
-
 JsErrorCode GetExternalData(_In_ JsValueRef ref,
                             _In_ JsPropertyIdRef idRef,
-                            _Out_ void **data);
-
-JsErrorCode GetExternalData(_In_ JsValueRef ref,
-                            _In_ const wchar_t *externalDataName,
                             _Out_ void **data);
 
 JsErrorCode GetExternalData(_In_ JsValueRef ref,
@@ -294,8 +271,8 @@ JsErrorCode DefineProperty(_In_ JsValueRef object,
                            _In_ JsValueRef getter,
                            _In_ JsValueRef setter);
 
-JsErrorCode GetPropertyIdFromJsString(_In_ JsValueRef stringRef,
-                                      _Out_ JsPropertyIdRef *idRef);
+JsErrorCode GetPropertyIdFromName(_In_ JsValueRef nameRef,
+                                  _Out_ JsPropertyIdRef *idRef);
 
 JsErrorCode GetPropertyIdFromValue(_In_ JsValueRef valueRef,
                                    _Out_ JsPropertyIdRef *idRef);
@@ -311,18 +288,9 @@ JsErrorCode GetIndexedProperty(_In_ JsValueRef object,
                                _In_ int index,
                                _Out_ JsValueRef *value);
 
-JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,
-                               _In_ JsValueRef nameStringRef);
-
-JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,
-                               _In_ const wchar_t * name);
-
 // used for debugging
 JsErrorCode StringifyObject(_In_ JsValueRef object,
                             _Out_ const wchar_t **stringifiedObject);
-
-JsErrorCode GetConstructorName(_In_ JsValueRef objectRef,
-                               _Out_ const wchar_t **name);
 
 void Unimplemented(const char * message);
 

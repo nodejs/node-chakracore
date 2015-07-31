@@ -141,29 +141,29 @@ JsValueRef CALLBACK GetCallback(_In_ JsValueRef callee,
   JsValueRef prop = arguments[2];
 
   // intercept "__getSelf__" call from Object::InternalFieldHelper
-  {
-    JsValueType valueType;
-    if (JsGetValueType(prop, &valueType) == JsNoError &&
-        valueType == JsValueType::JsSymbol) {
-      JsPropertyIdRef selfSymbolPropertyIdRef =
-        jsrt::IsolateShim::GetCurrent()->GetSelfSymbolPropertyIdRef();
-      JsPropertyIdRef idRef;
-      if (JsGetPropertyIdFromSymbol(prop, &idRef) == JsNoError &&
-          selfSymbolPropertyIdRef == idRef) {
-        return object;  // return proxy target
-      }
+  JsValueType propValueType;
+  if (JsGetValueType(prop, &propValueType) != JsNoError) {
+    return GetUndefined();
+  }
+  if (propValueType == JsValueType::JsSymbol) {
+    JsPropertyIdRef selfSymbolPropertyIdRef =
+      jsrt::IsolateShim::GetCurrent()->GetSelfSymbolPropertyIdRef();
+    JsPropertyIdRef idRef;
+    if (JsGetPropertyIdFromSymbol(prop, &idRef) == JsNoError &&
+        selfSymbolPropertyIdRef == idRef) {
+      return object;  // return proxy target
     }
   }
 
   if (JsGetExternalData(object, &externalData) != JsNoError) {
     return GetUndefined();
   }
-
   ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
 
-  bool isPropIntType;
+  bool isPropIntType = false;
   unsigned int index;
-  if (TryParseUInt32(prop, &isPropIntType, &index) != JsNoError) {
+  if (propValueType == JsValueType::JsString &&
+      TryParseUInt32(prop, &isPropIntType, &index) != JsNoError) {
     return GetUndefined();
   }
 
