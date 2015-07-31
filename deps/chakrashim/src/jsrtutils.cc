@@ -273,37 +273,10 @@ JsErrorCode GetArrayLength(_In_ JsValueRef arrayRef,
   return error;
 }
 
-JsErrorCode InstanceOf(_In_ JsValueRef first,
-                       _In_ JsValueRef second,
-                       _Out_ bool *result) {
-  JsValueRef instanceOfFunction =
-    ContextShim::GetCurrent()->GetInstanceOfFunction();
-  JsValueRef args[] = { nullptr, first, second };
-  JsValueRef resultRef;
-  JsErrorCode error = JsCallFunction(instanceOfFunction,
-                                     args, _countof(args), &resultRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsBooleanToBool(resultRef, result);
-
-  return error;
-}
-
-JsErrorCode InstanceOfGlobalType(_In_ JsValueRef first,
-                                 _In_ const wchar_t* typeName,
-                                 _Out_ bool *result) {
-  JsValueRef typeRef;
-  JsErrorCode error;
-  error = jsrt::GetPropertyOfGlobal(typeName, &typeRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = jsrt::InstanceOf(first, typeRef, result);
-  return error;
+bool InstanceOf(_In_ JsValueRef first,
+                _In_ JsValueRef second) {
+  bool result;
+  return JsInstanceOf(first, second, &result) == JsNoError && result;
 }
 
 JsErrorCode CloneObject(_In_ JsValueRef source,
@@ -995,11 +968,6 @@ JsErrorCode HasIndexedProperty(_In_ JsValueRef object,
 
   error = JsHasIndexedProperty(object, indexRef, result);
   return error;
-}
-
-bool IsOfGlobalType(_In_ JsValueRef ref, _In_ const wchar_t *typeName) {
-  bool result;
-  return InstanceOfGlobalType(ref, typeName, &result) == JsNoError && result;
 }
 
 JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,

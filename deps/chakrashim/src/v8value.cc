@@ -36,10 +36,8 @@ static bool IsOfType(const Value* ref, JsValueType type) {
 }
 
 static bool IsOfType(const Value* ref, ContextShim::GlobalType index) {
-    bool result;
-    return jsrt::InstanceOf(const_cast<Value*>(ref),
-                            ContextShim::GetCurrent()->GetGlobalType(index),
-                            &result) == JsNoError && result;
+  return jsrt::InstanceOf(const_cast<Value*>(ref),
+                          ContextShim::GetCurrent()->GetGlobalType(index));
 }
 
 bool Value::IsUndefined() const {
@@ -102,7 +100,11 @@ bool Value::IsTypedArray() const {
 }
 
 bool Value::IsUint8Array() const {
-  return IsOfType(this, ContextShim::GlobalType::Uint8Array);
+  JsTypedArrayType typedArrayType;
+  return JsGetTypedArrayInfo(const_cast<Value*>(this),
+                             &typedArrayType,
+                             nullptr, nullptr, nullptr) == JsNoError &&
+    typedArrayType == JsTypedArrayType::JsArrayTypeUint8;
 }
 
 bool Value::IsBoolean() const {

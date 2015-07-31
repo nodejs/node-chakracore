@@ -188,13 +188,8 @@ JsErrorCode SetException(_In_ const wchar_t* message,
 JsErrorCode GetArrayLength(_In_ JsValueRef arrayRef,
                            _Out_ unsigned int *arraySize);
 
-JsErrorCode InstanceOf(_In_ JsValueRef first,
-                       _In_ JsValueRef second,
-                       _Out_ bool *result);
-
-JsErrorCode InstanceOfGlobalType(_In_ JsValueRef first,
-                                 _In_ const wchar_t* typeName,
-                                 _Out_ bool *result);
+bool InstanceOf(_In_ JsValueRef first,
+                _In_ JsValueRef second);
 
 JsErrorCode CloneObject(_In_ JsValueRef source,
                         _In_ JsValueRef target,
@@ -314,10 +309,7 @@ JsErrorCode SetIndexedProperty(_In_ JsValueRef object,
 
 JsErrorCode GetIndexedProperty(_In_ JsValueRef object,
                                _In_ int index,
-                               _In_ JsValueRef *value);
-
-bool IsOfGlobalType(_In_ JsValueRef objectRef,
-                    _In_ const wchar_t *typeName);
+                               _Out_ JsValueRef *value);
 
 JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,
                                _In_ JsValueRef nameStringRef);

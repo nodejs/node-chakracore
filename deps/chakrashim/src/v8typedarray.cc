@@ -29,32 +29,26 @@ using jsrt::CachedPropertyIdRef;
 
 Local<ArrayBuffer> ArrayBufferView::Buffer() {
   JsValueRef result;
-  if (JsGetProperty(this,
-                    IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
-                      CachedPropertyIdRef::buffer),
-                    &result) != JsNoError) {
+  if (JsGetTypedArrayInfo(this,
+                          nullptr, &result, nullptr, nullptr) != JsNoError) {
     return Local<ArrayBuffer>();
   }
   return static_cast<ArrayBuffer*>(result);
 }
 
 size_t ArrayBufferView::ByteOffset() {
-  int result;
-  if (jsrt::GetProperty(this,
-                        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
-                          CachedPropertyIdRef::byteOffset),
-                        &result) != JsNoError) {
+  unsigned int result;
+  if (JsGetTypedArrayInfo(this,
+                          nullptr, nullptr, &result, nullptr) != JsNoError) {
     return 0;
   }
   return result;
 }
 
 size_t ArrayBufferView::ByteLength() {
-  int result;
-  if (jsrt::GetProperty(this,
-                        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
-                          CachedPropertyIdRef::byteLength),
-                        &result) != JsNoError) {
+  unsigned int result;
+  if (JsGetTypedArrayInfo(this,
+                          nullptr, nullptr, nullptr, &result) != JsNoError) {
     return 0;
   }
   return result;

@@ -140,7 +140,7 @@ struct FunctionCallbackData {
       if (!isConstructCall) {
         return *result;
       } else if (!result.IsEmpty()) {
-        if (!result->Equals(Undefined()) && !result->Equals(Null())) {
+        if (!result->IsUndefined() && !result->IsNull()) {
           return *result;
         }
       }
@@ -316,22 +316,7 @@ void FunctionTemplate::SetHiddenPrototype(bool value) {
 }
 
 bool FunctionTemplate::HasInstance(Handle<Value> object) {
-  void *externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
-    return false;
-  }
-
-  FunctionTemplateData *functionTemplateData =
-    reinterpret_cast<FunctionTemplateData*>(externalData);
-  FunctionCallbackData * functionCallbackData =
-    functionTemplateData->callbackData;
-
-  bool result;
-  if (jsrt::InstanceOf(*object, *GetFunction(), &result) != JsNoError) {
-    return false;
-  }
-
-  return result;
+  return jsrt::InstanceOf(*object, *GetFunction());
 }
 
 }  // namespace v8
