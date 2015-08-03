@@ -35,6 +35,7 @@ set noperfctr_arg=
 set noperfctr_msi_arg=
 set i18n_arg=
 set download_arg=
+set release_urls_arg=
 set engine=
 set engine_arg=
 set openssl_no_asm=
@@ -89,6 +90,7 @@ if "%config%"=="Debug" set debug_arg=--debug
 if defined nosnapshot set snapshot_arg=--without-snapshot
 if defined noetw set noetw_arg=--without-etw& set noetw_msi_arg=/p:NoETW=1
 if defined noperfctr set noperfctr_arg=--without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
+if defined RELEASE_URLBASE set release_urlbase_arg=--release-urlbase=%RELEASE_URLBASE%
 if not "%engine%"=="" set engine_arg=--engine="%engine%"
 
 if "%i18n_arg%"=="full-icu" set i18n_arg=--with-intl=full-icu
@@ -145,6 +147,7 @@ if defined nobuild goto sign
 @rem Build the sln with msbuild.
 msbuild node.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
+if "%target%" == "Clean" goto exit
 
 :sign
 @rem Skip signing if the `nosign` option was specified.
