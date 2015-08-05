@@ -1,3 +1,327 @@
+### v2.13.3 (2015-07-23):
+
+#### I'M SAVING THE GOOD JOKES FOR MORE INTERESTING RELEASES
+
+It's pretty hard to outdo last week's release buuuuut~ I promise I'll have a
+treat when we release our shiny new **Teams and Organizations** feature! :D
+(Coming Soon™). It'll be a real *gem*.
+
+That means it's a pretty low-key release this week. We got some nice
+documentation tweaks, a few bugfixes, and other such things, though!
+
+Oh, and a _bunch of version bumps_. Thanks, `semver`!
+
+#### IT'S THE LITTLE THINGS THAT MATTER
+
+* [`2fac6ae`](https://github.com/npm/npm/commit/2fac6aeffefba2934c3db395b525d931599c34d8)
+  [#9012](https://github.com/npm/npm/issues/9012) A convenience for releases --
+  using the globally-installed npm before now was causing minor annoyances, so
+  we just use the exact same npm we're releasing to build the new release.
+  ([@zkat](https://github.com/zkat))
+
+#### WHAT DOES THIS BUTTON DO?
+
+There's a couple of doc updates! The last one might be interesting.
+
+* [`4cd3205`](https://github.com/npm/npm/commit/4cd32050c0f89b7f1ae486354fa2c35eea302ba5)
+  [#9002](https://github.com/npm/npm/issues/9002) Updated docs to list the
+  various files that npm automatically includes and excludes, regardless of
+  settings.
+  ([@SimenB](https://github.com/SimenB))
+* [`cf09e75`](https://github.com/npm/npm/commit/cf09e754931739af32647d667b671e72a4c79081)
+
+  [#9022](https://github.com/npm/npm/issues/9022) Document the `"access"` field
+  in `"publishConfig"`. Did you know you don't need to use `--access=public`
+  when publishing scoped packages?! Just put it in your `package.json`!
+  Go refresh yourself on scopes packages by [checking our docs](https://docs.npmjs.com/getting-started/scoped-packages) on them.
+
+  ([@boennemann](https://github.com/boennemann))
+* [`bfd73da`](https://github.com/npm/npm/commit/bfd73da33349cc2afb8278953b2ae16ea95023de)
+  [#9013](https://github.com/npm/npm/issues/9013) fixed typo in changelog
+  ([@radarhere](https://github.com/radarhere))
+
+#### THE SEMVER MAJOR VERSION APOCALYPSE IS UPON US
+
+Basically, `semver` is up to `@5`, and that meant we needed to go in an update a
+bunch of our dependencies manually. `node-gyp` is still pending update, since
+it's not ours, though!
+
+* [`9232e58`](https://github.com/npm/npm/commit/9232e58d54c032c23716ef976023d36a42bfdcc9)
+  [#8972](https://github.com/npm/npm/issues/8972) `init-package-json@1.7.1`
+  ([@othiym23](https://github.com/othiym23))
+* [`ba44f6b`](https://github.com/npm/npm/commit/ba44f6b4201a4faee025341b123e372d8f45b6d9)
+  [#8972](https://github.com/npm/npm/issues/8972) `normalize-package-data@2.3.1`
+  ([@othiym23](https://github.com/othiym23))
+* [`3901d3c`](https://github.com/npm/npm/commit/3901d3cf191880bb4420b1d6b8aedbcd8fc26cdf)
+  [#8972](https://github.com/npm/npm/issues/8972) `npm-install-checks@1.0.6`
+  ([@othiym23](https://github.com/othiym23))
+* [`ffcc7dd`](https://github.com/npm/npm/commit/ffcc7dd12f8bb94ff0f64c465c57e460b3f24a24)
+  [#8972](https://github.com/npm/npm/issues/8972) `npm-package-arg@4.0.2`
+  ([@othiym23](https://github.com/othiym23))
+* [`7128f9e`](https://github.com/npm/npm/commit/7128f9ec10c0c8482087511b716dbddb54249626)
+  [#8972](https://github.com/npm/npm/issues/8972) `npm-registry-client@6.5.1`
+  ([@othiym23](https://github.com/othiym23))
+* [`af28911`](https://github.com/npm/npm/commit/af28911ecd54a844f848c6ae41887097d6aa2f3b)
+  [#8972](https://github.com/npm/npm/issues/8972) `read-installed@4.0.2`
+  ([@othiym23](https://github.com/othiym23))
+* [`3cc817a`](https://github.com/npm/npm/commit/3cc817a0f34f698b580ff6ff02308700efc54f7c)
+  [#8972](https://github.com/npm/npm/issues/8972) node-gyp needs its own version
+  of semver
+  ([@othiym23](https://github.com/othiym23))
+* [`f98eccc`](https://github.com/npm/npm/commit/f98eccc6e3a6699ca0aa9ecbad93a3b995583871)
+  [#8972](https://github.com/npm/npm/issues/8972) `semver@5.0.1`: Stop including
+  browser builds.
+  ([@isaacs](https://github.com/isaacs))
+
+#### \*BUMP\*
+
+And some other version bumps for good measure.
+
+* [`254ecfb`](https://github.com/npm/npm/commit/254ecfb04f026c2fd16427db01a53600c1892c8b)
+  [#8990](https://github.com/npm/npm/issues/8990) `marked-man@0.1.5`: Fixes an
+  issue with documentation rendering where backticks in 2nd-level headers would
+  break rendering (?!?!)
+  ([@steveklabnik](https://github.com/steveklabnik))
+* [`79efd79`](https://github.com/npm/npm/commit/79efd79ac216da8cee8636fb2ed926b0196a4eb6)
+  `minimatch@2.0.10`: A pattern like `'*.!(x).!(y)'` should not match a name
+  like `'a.xyz.yab'`.
+  ([@isaacs](https://github.com/isaacs))
+* [`39c7dc9`](https://github.com/npm/npm/commit/39c7dc9a4e17cd35a5ed882ba671821c9a900f9e)
+  `request@2.60.0`: A few bug fixes and doc updates.
+  ([@simov](https://github.com/simov))
+* [`72d3c3a`](https://github.com/npm/npm/commit/72d3c3a9e1e461608aa21b14c01a650333330da9)
+  `rimraf@2.4.2`: Minor doc and dep updates
+  ([@isaacs](https://github.com/isaacs))
+* [`7513035`](https://github.com/npm/npm/commit/75130356a06f5f4fbec3786aac9f9f0b36dfe010)
+  `nock@2.9.1`
+  ([@pgte](https://github.com/pgte))
+* [`3d9aa82`](https://github.com/npm/npm/commit/3d9aa82260f0643a32c13d0c1ed16f644b6fd4ab)
+  Fixes this thing where Kat decided to save `nock` as a regular dependency ;)
+  ([@othiym23](https://github.com/othiym23))
+
+### v2.13.2 (2015-07-16):
+
+#### HOLD ON TO YOUR TENTACLES... IT'S NPM RELEASE TIME!
+
+Kat: Hooray! Full team again, and we've got a pretty small patch  release this
+week, about everyone's favorite recurring issue: git URLs!
+
+Rebecca: No Way! Again?
+
+Kat: The ride never ends! In the meantime, there's some fun, exciting work in
+the background to get orgs and teams out the door. Keep an eye out for news. :)
+
+Rebecca: And make sure to keep an eye out for patches for the super-fresh
+`npm@3`!
+
+#### LET'S GIT INKY
+
+Rebecca: So what's this about another git URL issue?
+
+Kat: Welp, I apparently broke backwards-compatibility on what are actually
+invalid `git+https` URLs! So I'm making it work, but we're gonna deprecate URLs
+that look like `git+https://user@host:path/is/here`.
+
+Rebecca: What should we use instead?!
+
+Kat: Just do me a solid and use `git+ssh://user@host:path/here` or
+`git+https://user@host/absolute/https/path` instead!
+
+* [`769f06e`](https://github.com/npm/npm/commit/769f06e5455d7a9fc738379de2e05868df0dab6f)
+  Updated tests for `getResolved` so the URLs are run through
+  `normalize-git-url`.
+  ([@zkat](https://github.com/zkat))
+* [`edbae68`](https://github.com/npm/npm/commit/edbae685bf48971e878ced373d6825fc1891ee47)
+  [#8881](https://github.com/npm/npm/issues/8881) Added tests to verify that `git+https:` URLs are handled compatibly.
+  ([@zkat](https://github.com/zkat))
+
+#### NEWS FLASH! DOCUMENTATION IMPROVEMENTS!
+
+* [`bad4e014`](https://github.com/npm/npm/commit/bad4e0143cc95754a682f1da543b2b4e196e924b)
+  [#8924](https://github.com/npm/npm/pull/8924) Make sure documented default
+  values in `lib/cache.js` properly correspond to current code.
+  ([@watilde](https://github.com/watilde))
+* [`e7a11fd`](https://github.com/npm/npm/commit/e7a11fdf70e333cdfe3dac94a1a30907adb76d59)
+  [#8036](https://github.com/npm/npm/issues/8036) Clarify the documentation for
+  `.npmrc` to clarify that it's not read at the project level when doing global
+  installs.
+  ([@espadrine](https://github.com/espadrine))
+
+#### STAY FRESH~
+
+Kat: That's it for npm core changes!
+
+Rebecca: Great! Let's look at the fresh new dependencies, then!
+
+Kat: See you all next week!
+
+Both: Stay Freeesh~
+
+(some cat form of Forrest can be seen snoring in the corner)
+
+* [`bfa1f45`](https://github.com/npm/npm/bfa1f45ee760d05039557d2245b7e3df9fda8def)
+  `normalize-git-url@3.0.1`: Fixes url normalization such that `git+https:`
+  accepts scp syntax, but get converted into absolute-path `https:` URLs. Also
+  fixes scp syntax so you can have absolute paths after the `:`
+  (`git@myhost.org:/some/absolute/place.git`)
+  ([@zkat](https://github.com/zkat))
+* [`6f757d2`](https://github.com/npm/npm/6f757d22b53f91da0bebec6b5d16c1f4dbe130b4)
+  `glob@5.0.15`: Better handling of ENOTSUP
+  ([@isaacs](https://github.com/isaacs))
+* [`0920819`](https://github.com/npm/npm/09208197fb8b0c6d5dbf6bd7f59970cf366de989)
+  `node-gyp@2.0.2`: Fixes an issue with long paths on Win32
+  ([@TooTallNate](https://github.com/TooTallNate))
+
+### v2.13.1 (2015-07-09):
+
+#### KAUAI WAS NICE. I MISS IT.
+
+But Forrest's still kinda on vacation, and not just mentally, because he's
+hanging out with the fine meatbags at CascadiaFest. Enjoy this small bug
+release.
+
+#### MAKE OURSELVES HAPPY
+
+* [`40981f2`](https://github.com/npm/npm/commit/40981f2e0c9c12bb003ccf188169afd1d201f5af)
+  [#8862](https://github.com/npm/npm/issues/8862) Make the lifecycle's safety
+  check work with scoped packages. ([@tcort](https://github.com/tcort))
+* [`5125856`](https://github.com/npm/npm/commit/512585622481dbbda9a0306932468d59efaff658)
+  [#8855](https://github.com/npm/npm/issues/8855) Make dependency versions of
+  `"*"` match `"latest"` when all versions are prerelease.
+  ([@iarna](https://github.com/iarna))
+* [`22fdc1d`](https://github.com/npm/npm/commit/22fdc1d52602ba7098af978c75fca8f7d1060141)
+  Visually emphasize the correct way to write lifecycle scripts.
+  ([@josh-egan](https://github.com/josh-egan))
+
+#### MAKE TRAVIS HAPPY
+
+* [`413c3ac`](https://github.com/npm/npm/commit/413c3ac2ab2437f3011c6ca0d1630109ec14e604)
+  Use npm's `2.x` branch for testing its `2.x` branch.
+  ([@iarna](https://github.com/iarna))
+* [`7602f64`](https://github.com/npm/npm/commit/7602f64826f7a465d9f3a20bd87a376d992607e6)
+  Don't prompt for GnuPG passphrase in version lifecycle tests.
+  ([@othiym23](https://github.com/othiym23))
+
+#### MAKE `npm outdated` HAPPY
+
+* [`d338668`](https://github.com/npm/npm/commit/d338668601d1ebe5247a26237106e80ea8cd7f48)
+  [#8796](https://github.com/npm/npm/issues/8796) `fstream-npm@1.0.4`: When packing the
+  package tarball, npm no longer crashes for packages with certain combinations of
+  `.npmignore` entries, `.gitignore` entries, and lifecycle scripts.
+  ([@iarna](https://github.com/iarna))
+* [`dbe7c9c`](https://github.com/npm/npm/commit/dbe7c9c74734be870d16dd61b9e7f746123011f6)
+  `nock@2.7.0`: Add matching based on query strings.
+  ([@othiym23](https://github.com/othiym23))
+
+There are new versions of `strip-ansi` and `ansi-regex`, but npm only uses them
+indirectly, so we pushed them down into their dependencies where they can get
+updated at their own pace.
+
+* [`06b6ca5`](https://github.com/npm/npm/commit/06b6ca5b5333025f10c8d901628859bd4678e027)
+  undeduplicate `ansi-regex` ([@othiym23](https://github.com/othiym23))
+* [`b168e33`](https://github.com/npm/npm/commit/b168e33ad46faf47020a45f72ba8cec8c644bdb9)
+  undeduplicate `strip-ansi` ([@othiym23](https://github.com/othiym23))
+
+### v2.13.0 (2015-07-02):
+
+#### FORREST IS OUT! LET'S SNEAK IN ALL THE THINGS!
+
+Well, not _everything_. Just a couple of goodies, like the new `npm ping`
+command, and the ability to add files to the commits created by `npm version`
+with the new version hooks. There's also a couple of bugfixes in `npm` itself
+and some of its dependencies. Here we go!
+
+#### YES HELLO THIS IS NPM REGISTRY SORRY NO DOG HERE
+
+Yes, that's right! We now have a dedicated `npm ping` command. It's super simple
+and super easy. You ping. We tell you whether you pinged right by saying hello
+right back. This should help out folks dealing with things like proxy issues or
+other registry-access debugging issues. Give it a shot!
+
+This addresses [#5750](https://github.com/npm/npm/issues/5750), and will help
+with the `npm doctor` stuff described in
+[#6756](https://github.com/npm/npm/issues/6756).
+
+* [`f1f7a85`](https://github.com/npm/npm/commit/f1f7a85)
+  Add ping command to CLI
+  ([@michaelnisi](https://github.com/michaelnisi))
+* [`8cec629`](https://github.com/npm/npm/commit/8cec629)
+  Add ping command to npm-registry-client
+  ([@michaelnisi](https://github.com/michaelnisi))
+* [`0c0c92d`](https://github.com/npm/npm/0c0c92d)
+  Fixed ping command issues (added docs, tests, fixed minor bugs, etc)
+  ([@zkat](https://github.com/zkat))
+
+#### I'VE WANTED THIS FOR `version` SINCE LIKE LITERALLY FOREVER AND A DAY
+
+Seriously! This patch lets you add files to the `version` commit before it's
+made, So you can add additional metadata files, more automated changes to
+`package.json`, or even generate `CHANGELOG.md` automatically pre-commit if
+you're into that sort of thing. I'm so happy this is there I can't even. Do you
+have other fun usecases for this? Tell
+[npmbot (@npmjs)](http://twitter.com/npmjs) about it!
+
+* [`582f170`](https://github.com/npm/npm/commit/582f170)
+  [#8620](https://github.com/npm/npm/issues/8620) version: Allow scripts to add
+  files to the commit.
+  ([@jamestalmage](https://github.com/jamestalmage))
+
+#### ALL YOUR FILE DESCRIPTORS ARE BELONG TO US
+
+We've had problems in the past with things like `EMFILE` errors popping up when
+trying to install packages with a bunch of dependencies. Isaac patched up
+[`graceful-fs`](https://github.com/isaacs/node-graceful-fs) to handle this case
+better, so we should be seeing fewer of those.
+
+* [`022691a`](https://github.com/npm/npm/commit/022691a)
+  `graceful-fs@4.1.2`: Updated so we can monkey patch globally.
+  ([@isaacs](https://github.com/isaacs))
+* [`c9fb0fd`](https://github.com/npm/npm/commit/c9fb0fd)
+  Globally monkey-patch graceful-fs. This should fix some errors when installing
+  packages with lots of dependencies.
+  ([@isaacs](https://github.com/isaacs))
+
+#### READ THE FINE DOCS. THEY'VE IMPROVED
+
+* [`5587d0d`](https://github.com/npm/npm/commit/5587d0d)
+  Nice clarification for `directories.bin`
+  ([@ujane](https://github.com/ujane))
+* [`20673c7`](https://github.com/npm/npm/commit/20673c7)
+  Hey, Windows folks! Check out
+  [`nvm-windows`](https://github.com/coreybutler/nvm-windows)
+  ([@ArtskydJ](https://github.com/ArtskydJ))
+
+#### MORE NUMBERS! MORE VALUE!
+
+* [`5afa2d5`](https://github.com/npm/npm/commit/5afa2d5)
+  `validate-npm-package-name@2.2.2`: Documented package name rules in README
+  ([@zeusdeux](https://github.com/zeusdeux))
+* [`021f4d9`](https://github.com/npm/npm/commit/021f4d9)
+  `rimraf@2.4.1`: [#74](https://github.com/isaacs/rimraf/issues/74) Use async
+  function for bin (to better handle Window's `EBUSY`)
+  ([@isaacs](https://github.com/isaacs))
+* [`5223432`](https://github.com/npm/npm/commit/5223432)
+  `osenv@0.1.3`: Use `os.homedir()` polyfill for more reliable output. io.js
+  added the function and the polyfill does a better job than the prior solution.
+  ([@sindresorhus](https://github.com/sindresorhus))
+* [`8ebbc90`](https://github.com/npm/npm/commit/8ebbc90)
+  `npm-cache-filename@1.0.2`: Make sure different git references get different
+  cache folders. This should prevent `foo/bar#v1.0` and `foo/bar#master` from
+  sharing the same cache folder.
+  ([@tomekwi](https://github.com/tomekwi))
+* [`367b854`](https://github.com/npm/npm/commit/367b854)
+  `lru-cache@2.6.5`: Minor test/typo changes
+  ([@isaacs](https://github.com/isaacs))
+* [`9fcae61`](https://github.com/npm/npm/commit/9fcae61)
+  `glob@5.0.13`: Tiny doc change + stop firing 'match' events for ignored items.
+  ([@isaacs](https://github.com/isaacs))
+
+#### OH AND ONE MORE THING
+
+* [`7827249`](https://github.com/npm/npm/commit/7827249)
+  `PeerDependencies` errors now include the package version.
+  ([@NickHeiner](https://github.com/NickHeiner))
+
 ### v2.12.1 (2015-06-25):
 
 #### HEY WHERE DID EVERYBODY GO

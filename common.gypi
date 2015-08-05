@@ -196,6 +196,8 @@
           }],
         ],
         'GenerateDebugInformation': 'true',
+        'GenerateMapFile': 'true', # /MAP
+        'MapExports': 'true', # /MAPINFO:EXPORTS
         'RandomizedBaseAddress': 2, # enable ASLR
         'DataExecutionPrevention': 2, # enable DEP
         'AllowIsolation': 'true',

@@ -4,9 +4,9 @@ var assert = require('assert');
 
 // simulate `cat readfile.js | node readfile.js`
 
-if (process.platform === 'win32') {
-  console.error('No /dev/stdin on windows.  Skipping test.');
-  process.exit();
+if (common.isWindows) {
+  console.log('1..0 # Skipped: No /dev/stdin on windows.');
+  return;
 }
 
 var fs = require('fs');
