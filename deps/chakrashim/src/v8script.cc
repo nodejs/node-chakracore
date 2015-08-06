@@ -91,9 +91,6 @@ Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name) {
       }
     }
   }
-
-  jsrt::SetOutOfMemoryErrorIfExist(error);
-
   return Local<Script>();
 }
 
@@ -104,11 +101,8 @@ Local<Value> Script::Run() {
   }
 
   JsValueRef result;
-  JsErrorCode errorCode = JsCallFunction(scriptFunction, nullptr, 0, &result);
-
-  jsrt::SetOutOfMemoryErrorIfExist(errorCode);
-
-  if (errorCode != JsNoError) {
+  if (JsCallFunction(scriptFunction, nullptr, 
+                     0, &result) != JsNoError) {
     return Local<Value>();
   }
 

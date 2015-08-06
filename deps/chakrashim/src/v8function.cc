@@ -66,18 +66,12 @@ Local<Value> Function::Call(
   JsValueRef result;
   {
     TryCatch tryCatch;
-    JsErrorCode error =
-      JsCallFunction((JsValueRef)this, args.get(), argc + 1, &result);
-
-    jsrt::SetOutOfMemoryErrorIfExist(error);
-
-    if (error == JsNoError) {
-      return Local<Value>::New(static_cast<Value*>(result));
-    }
-    if (error != JsErrorInvalidArgument) {
+    if (JsCallFunction((JsValueRef)this, args.get(), 
+                       argc + 1, &result) != JsNoError) {
       tryCatch.CheckReportExternalException();
       return Local<Value>();
     }
+    return Local<Value>::New(static_cast<Value*>(result));
   }
 
   // Invalid argument may mean some of the object are from another context
@@ -110,12 +104,8 @@ Local<Value> Function::Call(
 
   {
       TryCatch tryCatch;
-      JsErrorCode error = JsCallFunction((JsValueRef)this,
-          args.get(), argc + 1, &result);
-
-      jsrt::SetOutOfMemoryErrorIfExist(error);
-
-      if (error != JsNoError) {
+      if (JsCallFunction((JsValueRef)this,
+                         args.get(), argc + 1, &result) != JsNoError) {
           tryCatch.CheckReportExternalException();
           return Local<Value>();
       }
