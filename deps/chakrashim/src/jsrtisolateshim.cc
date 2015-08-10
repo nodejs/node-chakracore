@@ -245,9 +245,7 @@ JsPropertyIdRef IsolateShim::GetSelfSymbolPropertyIdRef() {
 }
 
 JsPropertyIdRef IsolateShim::GetKeepAliveObjectSymbolPropertyIdRef() {
-  // CHAKRA-TODO: has a bug with symbols and proxy, just a real property name
-  return GetCachedPropertyIdRef(CachedPropertyIdRef::__keepalive__);
-  // return EnsurePrivateSymbol(&keepAliveObjectSymbolPropertyIdRef);
+  return GetCachedSymbolPropertyIdRef(CachedSymbolPropertyIdRef::__keepalive__);
 }
 
 template <class Index, class CreatePropertyIdFunc>

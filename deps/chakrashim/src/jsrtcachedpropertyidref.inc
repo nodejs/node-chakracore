@@ -42,7 +42,6 @@ DEF(ownKeys)
 DEF(preventExtensions)
 DEF(set)
 DEF(setPrototypeOf)
-DEF(__keepalive__)
 DEF(length)
 DEF(writable)
 DEF(configurable)
@@ -77,6 +76,7 @@ DEFSYMBOL(self)
 DEFSYMBOL(__external__)
 DEFSYMBOL(__hiddenvalues__)
 DEFSYMBOL(__isexternal__)
+DEFSYMBOL(__keepalive__)
 
 #undef DEF
 #undef DEFSYMBOL
