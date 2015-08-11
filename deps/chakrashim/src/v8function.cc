@@ -66,60 +66,12 @@ Local<Value> Function::Call(
   JsValueRef result;
   {
     TryCatch tryCatch;
-    JsErrorCode error =
-      JsCallFunction((JsValueRef)this, args.get(), argc + 1, &result);
-
-    jsrt::SetOutOfMemoryErrorIfExist(error);
-
-    if (error == JsNoError) {
-      return Local<Value>::New(static_cast<Value*>(result));
-    }
-    if (error != JsErrorInvalidArgument) {
+    if (JsCallFunction((JsValueRef)this, args.get(),
+                       argc + 1, &result) != JsNoError) {
       tryCatch.CheckReportExternalException();
       return Local<Value>();
     }
-  }
-
-  // Invalid argument may mean some of the object are from another context
-  // Check and marshal and call again.
-
-  // NOTE: Ideally, we will never run into this situation where we will
-  // also marshal correctly and use object from the same context.
-  // But CopyProperty in node_contextify.cc violate that so, we have this
-  // to paper over it.
-  IsolateShim * isolateShim = IsolateShim::GetCurrent();
-  ContextShim * currentContextShim = isolateShim->GetCurrentContextShim();
-  if (currentContextShim == nullptr) {
-    return Local<Value>();
-  }
-
-  for (int i = 0; i < argc + 1; i++) {
-    JsValueRef valueRef = args.get()[i];
-    ContextShim * objectContextShim = isolateShim->GetContextShimOfObject(valueRef);
-    if (currentContextShim == objectContextShim) {
-      continue;
-    }
-    if (objectContextShim != nullptr) {
-      ContextShim::Scope scope(objectContextShim);
-      args.get()[i] = valueRef;
-    } else {
-      // Can't find a context
-      return Local<Value>();
-    }
-  }
-
-  {
-      TryCatch tryCatch;
-      JsErrorCode error = JsCallFunction((JsValueRef)this,
-          args.get(), argc + 1, &result);
-
-      jsrt::SetOutOfMemoryErrorIfExist(error);
-
-      if (error != JsNoError) {
-          tryCatch.CheckReportExternalException();
-          return Local<Value>();
-      }
-      return Local<Value>::New(static_cast<Value*>(result));
+    return Local<Value>::New(static_cast<Value*>(result));
   }
 }
 
@@ -131,7 +83,7 @@ void Function::SetName(Handle<String> name) {
                                      (JsValueRef)*name,
                                      JS_INVALID_REFERENCE,
                                      JS_INVALID_REFERENCE);
-  // CHAKRA-TODO: Check error?
+  CHAKRA_ASSERT(error == JsNoError);
 }
 
 Function *Function::Cast(Value *obj) {

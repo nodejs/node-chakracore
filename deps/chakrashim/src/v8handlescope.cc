@@ -20,6 +20,7 @@
 
 #include "v8.h"
 #include "jsrt.h"
+#include "jsrtutils.h"
 
 namespace v8 {
 
@@ -41,8 +42,9 @@ HandleScope::~HandleScope() {
   AddRefRecord * currRecord = this->_addRefRecordHead;
   while (currRecord != nullptr) {
     AddRefRecord * nextRecord = currRecord->_next;
-    // CHAKRA-TODO: Report error?
-    JsRelease(currRecord->_ref, nullptr);
+    // Don't crash even if we fail to release the scope
+    JsErrorCode errorCode = JsRelease(currRecord->_ref, nullptr);
+    CHAKRA_ASSERT(errorCode == JsNoError);
     delete currRecord;
     currRecord = nextRecord;
   }

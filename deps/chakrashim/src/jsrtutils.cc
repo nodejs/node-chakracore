@@ -897,16 +897,4 @@ void Fatal(const char * format, ...) {
 
   abort();
 }
-
-void SetOutOfMemoryErrorIfExist(_In_ JsErrorCode errorCode) {
-  if (errorCode == JsErrorOutOfMemory) {
-    const wchar_t txt[] = L"process out of memory";
-    JsValueRef msg, err;
-    if (JsPointerToString(txt, _countof(txt) - 1, &msg) == JsNoError &&
-      JsCreateError(msg, &err) == JsNoError) {
-      JsSetException(err);
-    }
-  }
-}
-
 }  // namespace jsrt

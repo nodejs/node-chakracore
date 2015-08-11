@@ -319,11 +319,6 @@ class JsArguments {
   }
 };
 
-// Check if the errorCode was JsErrorOutOfMemory and if yes,
-// create and set the exception on the context
-void SetOutOfMemoryErrorIfExist(_In_ JsErrorCode errorCode);
-
-
 template <bool LIKELY,
           class JsConvertToValueFunc,
           class JsValueToNativeFunc,

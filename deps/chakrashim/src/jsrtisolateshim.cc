@@ -113,6 +113,8 @@ bool IsolateShim::Dispose() {
     // Set the current IsolateShim scope
     v8::Isolate::Scope scope(ToIsolate(this));
     if (JsDisposeRuntime(runtime) != JsNoError) {
+      // Can't do much at this point. Assert that this doesn't happen in debug
+      CHAKRA_ASSERT(false);
       return false;
     }
   }
@@ -135,8 +137,8 @@ bool IsolateShim::IsDisposing() {
   return isDisposing;
 }
 
-//TODO: Chakra: This is not called after cross context work in chakra. Fix this else we will 
-// leak chakrashim object.
+// CHAKRA-TODO: This is not called after cross context work in chakra. Fix this
+// else we will leak chakrashim object.
 void CALLBACK IsolateShim::JsContextBeforeCollectCallback(
     _In_ JsRef contextRef, _In_opt_ void *data) {
   IsolateShim * isolateShim = reinterpret_cast<IsolateShim *>(data);
@@ -185,7 +187,6 @@ void IsolateShim::DisposeAll() {
   IsolateShim * curr = s_isolateList;
   s_isolateList = nullptr;
   while (curr) {
-    // CHAKRA-TODO: Handle error?
     curr->Dispose();
     curr = curr->next;
   }
@@ -202,10 +203,10 @@ void IsolateShim::PushScope(
   scope->previous = this->contextScopeStack;
   this->contextScopeStack = scope;
 
-  // CHAKRA-TODO: Error handling?
-  JsSetCurrentContext(contextShim->GetContextRef());
+  // Don't crash even if we fail to set the context
+  JsErrorCode errorCode = JsSetCurrentContext(contextShim->GetContextRef());
+  CHAKRA_ASSERT(errorCode == JsNoError);
 
-  // CHAKRA-TODO: Error handling?
   if (!contextShim->EnsureInitialized()) {
     Fatal("Failed to initialize context");
   }
@@ -215,7 +216,6 @@ void IsolateShim::PopScope(ContextShim::Scope * scope) {
   assert(this->contextScopeStack == scope);
   ContextShim::Scope * prevScope = scope->previous;
   if (prevScope != nullptr) {
-    // Marshal the pending exception
     JsValueRef exception = JS_INVALID_REFERENCE;
     bool hasException;
     if (scope->contextShim != prevScope->contextShim &&
@@ -224,9 +224,12 @@ void IsolateShim::PopScope(ContextShim::Scope * scope) {
         JsGetAndClearException(&exception) == JsNoError) {
     }
 
-    JsSetCurrentContext(prevScope->contextShim->GetContextRef());
+    // Don't crash even if we fail to set the context
+    JsErrorCode errorCode = JsSetCurrentContext(
+      prevScope->contextShim->GetContextRef());
+    CHAKRA_ASSERT(errorCode == JsNoError);
 
-    // CHAKRA-TODO: Error handling?
+    // Propagate the exception to parent scope
     if (exception != JS_INVALID_REFERENCE) {
       JsSetException(exception);
     }
@@ -245,9 +248,7 @@ JsPropertyIdRef IsolateShim::GetSelfSymbolPropertyIdRef() {
 }
 
 JsPropertyIdRef IsolateShim::GetKeepAliveObjectSymbolPropertyIdRef() {
-  // CHAKRA-TODO: has a bug with symbols and proxy, just a real property name
-  return GetCachedPropertyIdRef(CachedPropertyIdRef::__keepalive__);
-  // return EnsurePrivateSymbol(&keepAliveObjectSymbolPropertyIdRef);
+  return GetCachedSymbolPropertyIdRef(CachedSymbolPropertyIdRef::__keepalive__);
 }
 
 template <class Index, class CreatePropertyIdFunc>
@@ -296,8 +297,7 @@ JsPropertyIdRef IsolateShim::GetProxyTrapPropertyIdRef(ProxyTraps trap) {
 
 ContextShim * IsolateShim::GetContextShimOfObject(JsValueRef valueRef) {
   JsContextRef contextRef;
-  if (JsGetContextOfObject(valueRef, &contextRef) != JsNoError) 
-  {
+  if (JsGetContextOfObject(valueRef, &contextRef) != JsNoError) {
     return nullptr;
   }
   assert(contextRef != nullptr);
@@ -327,7 +327,7 @@ bool IsolateShim::AddMessageListener(void * that) {
   try {
     messageListeners.push_back(that);
     return true;
-  } catch (...) {
+  } catch(...) {
     return false;
   }
 }
