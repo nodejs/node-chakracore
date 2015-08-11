@@ -137,8 +137,8 @@ bool IsolateShim::IsDisposing() {
   return isDisposing;
 }
 
-//TODO: Chakra: This is not called after cross context work in chakra. Fix this else we will 
-// leak chakrashim object.
+// CHAKRA-TODO: This is not called after cross context work in chakra. Fix this
+// else we will leak chakrashim object.
 void CALLBACK IsolateShim::JsContextBeforeCollectCallback(
     _In_ JsRef contextRef, _In_opt_ void *data) {
   IsolateShim * isolateShim = reinterpret_cast<IsolateShim *>(data);
@@ -225,7 +225,8 @@ void IsolateShim::PopScope(ContextShim::Scope * scope) {
     }
 
     // Don't crash even if we fail to set the context
-    JsErrorCode errorCode = JsSetCurrentContext(prevScope->contextShim->GetContextRef());
+    JsErrorCode errorCode = JsSetCurrentContext(
+      prevScope->contextShim->GetContextRef());
     CHAKRA_ASSERT(errorCode == JsNoError);
 
     // Propagate the exception to parent scope
@@ -296,8 +297,7 @@ JsPropertyIdRef IsolateShim::GetProxyTrapPropertyIdRef(ProxyTraps trap) {
 
 ContextShim * IsolateShim::GetContextShimOfObject(JsValueRef valueRef) {
   JsContextRef contextRef;
-  if (JsGetContextOfObject(valueRef, &contextRef) != JsNoError) 
-  {
+  if (JsGetContextOfObject(valueRef, &contextRef) != JsNoError) {
     return nullptr;
   }
   assert(contextRef != nullptr);
@@ -327,7 +327,7 @@ bool IsolateShim::AddMessageListener(void * that) {
   try {
     messageListeners.push_back(that);
     return true;
-  } catch (...) {
+  } catch(...) {
     return false;
   }
 }

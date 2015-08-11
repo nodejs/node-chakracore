@@ -66,7 +66,7 @@ Local<Value> Function::Call(
   JsValueRef result;
   {
     TryCatch tryCatch;
-    if (JsCallFunction((JsValueRef)this, args.get(), 
+    if (JsCallFunction((JsValueRef)this, args.get(),
                        argc + 1, &result) != JsNoError) {
       tryCatch.CheckReportExternalException();
       return Local<Value>();

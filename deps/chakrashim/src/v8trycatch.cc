@@ -81,7 +81,8 @@ void TryCatch::GetAndClearException() {
   if (hasException) {
     JsValueRef exceptionRef;
     errorCode = JsGetAndClearException(&exceptionRef);
-    // We came here through JsHasException, so script shouldn't be in disabled state.
+    // We came here through JsHasException, so script shouldn't be in disabled 
+    // state.
     CHAKRA_ASSERT(errorCode != JsErrorInDisabledState);
     if (errorCode == JsNoError) {
       error = exceptionRef;
