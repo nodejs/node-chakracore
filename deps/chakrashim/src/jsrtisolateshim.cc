@@ -113,6 +113,8 @@ bool IsolateShim::Dispose() {
     // Set the current IsolateShim scope
     v8::Isolate::Scope scope(ToIsolate(this));
     if (JsDisposeRuntime(runtime) != JsNoError) {
+      // Can't do much at this point. Assert that this doesn't happen in debug
+      CHAKRA_ASSERT(false);
       return false;
     }
   }
@@ -185,7 +187,6 @@ void IsolateShim::DisposeAll() {
   IsolateShim * curr = s_isolateList;
   s_isolateList = nullptr;
   while (curr) {
-    // CHAKRA-TODO: Handle error?
     curr->Dispose();
     curr = curr->next;
   }
@@ -202,10 +203,10 @@ void IsolateShim::PushScope(
   scope->previous = this->contextScopeStack;
   this->contextScopeStack = scope;
 
-  // CHAKRA-TODO: Error handling?
-  JsSetCurrentContext(contextShim->GetContextRef());
+  // Don't crash even if we fail to set the context
+  JsErrorCode errorCode = JsSetCurrentContext(contextShim->GetContextRef());
+  CHAKRA_ASSERT(errorCode == JsNoError);
 
-  // CHAKRA-TODO: Error handling?
   if (!contextShim->EnsureInitialized()) {
     Fatal("Failed to initialize context");
   }
@@ -215,7 +216,6 @@ void IsolateShim::PopScope(ContextShim::Scope * scope) {
   assert(this->contextScopeStack == scope);
   ContextShim::Scope * prevScope = scope->previous;
   if (prevScope != nullptr) {
-    // Marshal the pending exception
     JsValueRef exception = JS_INVALID_REFERENCE;
     bool hasException;
     if (scope->contextShim != prevScope->contextShim &&
@@ -224,9 +224,11 @@ void IsolateShim::PopScope(ContextShim::Scope * scope) {
         JsGetAndClearException(&exception) == JsNoError) {
     }
 
-    JsSetCurrentContext(prevScope->contextShim->GetContextRef());
+    // Don't crash even if we fail to set the context
+    JsErrorCode errorCode = JsSetCurrentContext(prevScope->contextShim->GetContextRef());
+    CHAKRA_ASSERT(errorCode == JsNoError);
 
-    // CHAKRA-TODO: Error handling?
+    // Propagate the exception to parent scope
     if (exception != JS_INVALID_REFERENCE) {
       JsSetException(exception);
     }

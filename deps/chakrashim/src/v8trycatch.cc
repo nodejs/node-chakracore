@@ -50,15 +50,14 @@ bool TryCatch::HasCaught() const {
   if (error != JS_INVALID_REFERENCE) {
     return true;
   }
-
   bool hasException;
   JsErrorCode errorCode = JsHasException(&hasException);
   if (errorCode != JsNoError) {
     if (errorCode == JsErrorInDisabledState) {
       return true;
     }
-    // CHAKRA-TODO: report error
-    assert(false);
+    // Should never get errorCode other than JsNoError/JsErrorInDisabledState
+    CHAKRA_ASSERT(false);
     return false;
   }
 
@@ -73,20 +72,20 @@ void TryCatch::GetAndClearException() {
   bool hasException;
   JsErrorCode errorCode = JsHasException(&hasException);
   if (errorCode != JsNoError) {
-    // CHAKRA-TODO: report error
-    assert(errorCode == JsErrorInDisabledState);
+    // If script is in disabled state, no need to fail here.
+    // We will fail subsequent calls to Jsrt anyway.
+    CHAKRA_ASSERT(errorCode == JsErrorInDisabledState);
     return;
   }
 
   if (hasException) {
     JsValueRef exceptionRef;
     errorCode = JsGetAndClearException(&exceptionRef);
-    if (errorCode != JsNoError) {
-      // CHAKRA-TODO: report error
-      assert(errorCode == JsErrorInDisabledState);
-      return;
+    // We came here through JsHasException, so script shouldn't be in disabled state.
+    CHAKRA_ASSERT(errorCode != JsErrorInDisabledState);
+    if (errorCode == JsNoError) {
+      error = exceptionRef;
     }
-    error = exceptionRef;
   }
 }
 

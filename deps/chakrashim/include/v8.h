@@ -1448,9 +1448,6 @@ class EXPORT Isolate {
   static Isolate* New();
   static Isolate* GetCurrent();
 
-  typedef bool (*abort_on_uncaught_exception_t)();
-  void SetAbortOnUncaughtException(abort_on_uncaught_exception_t callback);
-
   void Enter();
   void Exit();
   void Dispose();
