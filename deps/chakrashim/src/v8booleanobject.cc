@@ -44,12 +44,7 @@ Local<Value> BooleanObject::New(bool value) {
 }
 
 BooleanObject *BooleanObject::Cast(v8::Value *obj) {
-  if (!obj->IsBooleanObject()) {
-    // CHAKRA-TODO: what should we return in this case?
-    // just exit and print?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsBooleanObject());
   return static_cast<BooleanObject*>(obj);
 }
 

@@ -173,7 +173,7 @@ Local<Value> Object::Get(uint32_t index) {
   return Local<Value>::New(static_cast<Value*>(valueRef));
 }
 
-bool Object::Has(Handle<String> key) {
+bool Object::Has(Handle<Value> key) {
   JsValueRef propertyIdRef;
   if (GetPropertyIdFromName((JsValueRef)*key, &propertyIdRef) != JsNoError) {
     return false;
@@ -187,7 +187,7 @@ bool Object::Has(Handle<String> key) {
   return result;
 }
 
-bool Object::Delete(Handle<String> key) {
+bool Object::Delete(Handle<Value> key) {
   JsPropertyIdRef idRef;
 
   if (GetPropertyIdFromName((JsValueRef)*key, &idRef) != JsNoError) {
@@ -804,7 +804,7 @@ Local<Value> Object::GetRealNamedProperty(Handle<String> key) {
 MaybeLocal<Value> Object::GetRealNamedProperty(Local<Context> context,
                                                Local<Name> key) {
   TryCatch try_catch;
-  Local<Value> result = GetRealNamedProperty(key);
+  Local<Value> result = this->Get(key);  // CHAKRA-TODO: skip interceptors?
   if (try_catch.HasCaught()) {
     return MaybeLocal<Value>();
   }
@@ -832,11 +832,7 @@ Local<Object> Object::New(Isolate* isolate) {
 }
 
 Object *Object::Cast(Value *obj) {
-  if (!obj->IsObject()) {
-    // CHAKRA-TODO: report error?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsObject());
   return static_cast<Object*>(obj);
 }
 

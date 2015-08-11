@@ -48,12 +48,7 @@ Local<Value> NumberObject::New(Isolate * isolate, double value) {
 }
 
 NumberObject *NumberObject::Cast(v8::Value *obj) {
-  if (!obj->IsNumberObject()) {
-    // CHAKRA-TODO: what should we return in this case?
-    // just exit and print?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsNumberObject());
   return static_cast<NumberObject*>(obj);
 }
 

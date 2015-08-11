@@ -43,12 +43,7 @@ Local<Value> StringObject::New(Handle<String> value) {
 }
 
 StringObject *StringObject::Cast(v8::Value *obj) {
-  if (!obj->IsBooleanObject()) {
-    // CHAKRA-TODO: what should we return in this case?
-    // just exit and print?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsStringObject());
   return static_cast<StringObject*>(obj);
 }
 

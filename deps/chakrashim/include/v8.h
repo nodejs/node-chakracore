@@ -27,41 +27,41 @@
 
 #pragma once
 
-// CHAKRA-TODO: winsock2.h should be included before windows.h, otherwise you
-// get redefintion conflicts with winsock.h. Hack this here to avoid those
-// conflicts, but should look at how to fix in core Node.js code.
+// Stops windows.h from including winsock.h (conflicting with winsock2.h).
+#ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_
+#endif
 
-// CHAKRA-TODO: Force the version here?
+#if defined(_WIN32_WINNT) && (_WIN32_WINNT < _WIN32_WINNT_WIN10)
+#pragma message("warning: chakrashim requires Windows 10 SDK. "\
+                "Redefine _WIN32_WINNT to _WIN32_WINNT_WIN10.")
 #undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0601   // CHAKRA-TODO: should this be win10?
+#endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT _WIN32_WINNT_WIN10
+#endif
 
 #ifndef USE_EDGEMODE_JSRT
-#define USE_EDGEMODE_JSRT     // Only works wtih edge JSRT
+#define USE_EDGEMODE_JSRT     // Only works with edge JSRT
 #endif
 
 #include <jsrt.h>
 
 #ifndef _CHAKRART_H_
-// CHAKRA-TODO: Enable this check
-// #error Wrong Windows SDK version
+#error Wrong Windows SDK version
 #endif
 
 #include <stdio.h>
 #include <stdint.h>
 #include <memory>
+#include "v8config.h"
 
-// CHAKRA-TODO: This allows native modules to link against node. We should
-// investigate adding an option to compile this into a standalone DLL/LIB like
-// V8 does.
+#ifdef BUILDING_CHAKRASHIM
 #define EXPORT __declspec(dllexport)
-
+#else
+#define EXPORT __declspec(dllimport)
+#endif
 #define V8_EXPORT EXPORT
-#define V8_INLINE inline
-#define V8_DEPRECATED(message, declarator) declarator
-#define V8_WARN_UNUSED_RESULT
-#define V8_UNLIKELY(condition) (condition)
-#define V8_LIKELY(condition) (condition)
 
 #define TYPE_CHECK(T, S)                                       \
   while (false) {                                              \
@@ -96,11 +96,11 @@ class RegExp;
 class Promise;
 class Script;
 class Signature;
+class StartupData;
 class StackFrame;
 class String;
 class StringObject;
 class Uint32;
-template <class T> class Handle;
 template <class T> class Local;
 template <class T> class Maybe;
 template <class T> class MaybeLocal;
@@ -202,39 +202,34 @@ typedef bool (*EntropySource)(unsigned char* buffer, size_t length);
 typedef void (*FatalErrorCallback)(const char *location, const char *message);
 typedef void (*JitCodeEventHandler)(const JitCodeEvent *event);
 
-EXPORT Handle<Primitive> Undefined(Isolate* isolate = nullptr);
-EXPORT Handle<Primitive> Null(Isolate* isolate = nullptr);
-EXPORT Handle<Boolean> True(Isolate* isolate = nullptr);
-EXPORT Handle<Boolean> False(Isolate* isolate = nullptr);
-EXPORT bool SetResourceConstraints(ResourceConstraints *constraints);
 
 template <class T>
-class EXPORT Handle {
+class HandleBase {
  protected:
   JsRef _ref;
 
  public:
-  Handle();
-  Handle(T *val);
+  HandleBase();
+  HandleBase(T *val);
   template <class S>
-  Handle(Handle<S> that);
+  HandleBase(HandleBase<S> that);
   bool IsEmpty() const;
   void Clear();
   T *operator->() const;
   T *operator*() const;
   template <class S>
-  bool operator==(Handle<S> that) const;
+  bool operator==(HandleBase<S> that) const;
   template <class S>
-  bool operator!=(Handle<S> that) const;
+  bool operator!=(HandleBase<S> that) const;
 
   template <class S>
-  Handle<S> As();
+  HandleBase<S> As();
   template <class S>
-  static Handle<T> Cast(Handle<S> that);
+  static HandleBase<T> Cast(HandleBase<S> that);
 };
 
 template <class T>
-class EXPORT Local : public Handle<T> {
+class Local : public HandleBase<T> {
  public:
   Local();
   template <class S>
@@ -242,17 +237,23 @@ class EXPORT Local : public Handle<T> {
   template <class S>
   Local(Local<S> that);
   template <class S>
-  Local(Handle<S> that);
+  Local(HandleBase<S> that);
   template <class S>
   Local<S> As();
   template <class S>
   static Local<T> Cast(Local<S> that);
-  static Local<T> New(Handle<T> that);
-  static Local<T> New(Isolate* isolate, Handle<T> that);
+  static Local<T> New(HandleBase<T> that);
+  static Local<T> New(Isolate* isolate, HandleBase<T> that);
   static Local<T> New(Isolate* isolate, const Persistent<T>& that);
  private:
   template <class F> friend class MaybeLocal;
 };
+
+
+// Handle is an alias for Local for historical reasons.
+template <class T>
+using Handle = Local<T>;
+
 
 template <class T>
 class MaybeLocal {
@@ -324,7 +325,7 @@ EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
 }
 
 template <class T>
-class EXPORT Persistent : public Handle<T> {
+class Persistent : public HandleBase<T> {
  private:
   std::shared_ptr<chakrashim::WeakReferenceCallbackWrapper> _weakWrapper;
 
@@ -342,12 +343,12 @@ class EXPORT Persistent : public Handle<T> {
   explicit Persistent(S *that);
 
   template <class S>
-  explicit Persistent(Handle<S> that);
+  explicit Persistent(HandleBase<S> that);
   template <class S>
-  explicit Persistent(Isolate* isolate, Handle<S> that);
+  explicit Persistent(Isolate* isolate, HandleBase<S> that);
 
   Persistent(const Persistent<T> &that);
-  explicit Persistent(const Handle<T> &that);
+  explicit Persistent(const HandleBase<T> &that);
 
   template <class S>
   Persistent<S> As();
@@ -366,7 +367,7 @@ class EXPORT Persistent : public Handle<T> {
 
   void Reset();
   template <class S>
-  void Reset(Isolate* isolate, const Handle<S>& other);
+  void Reset(Isolate* isolate, const HandleBase<S>& other);
   template <class S>
   void Reset(Isolate* isolate, const Persistent<S>& other);
 
@@ -374,7 +375,7 @@ class EXPORT Persistent : public Handle<T> {
   Persistent<T>& operator=(const Persistent<T> &rhs);
 
   // CHAKRA: Addition from v8 API
-  Persistent<T>& operator=(const Handle<T> &rhs);
+  Persistent<T>& operator=(const HandleBase<T> &rhs);
 
   // CHAKRA: Addition from v8 API
   template <class S>
@@ -382,7 +383,7 @@ class EXPORT Persistent : public Handle<T> {
 
   // CHAKRA: Addition from v8 API
   template <class S>
-  Persistent<T>& operator=(const Handle<S> &rhs);
+  Persistent<T>& operator=(const HandleBase<S> &rhs);
 
   // CHAKRA: Addition from v8 API
   template <class S>
@@ -390,11 +391,11 @@ class EXPORT Persistent : public Handle<T> {
 
   template <class S>
   static Persistent<T> Cast(Persistent<S> that);
-  static Persistent<T> New(Handle<T> that);
+  static Persistent<T> New(HandleBase<T> that);
 };
 
 template <class T>
-class EXPORT Eternal : private Persistent<T> {
+class Eternal : private Persistent<T> {
  public:
   Eternal() {}
   template<class S>
@@ -813,17 +814,17 @@ class EXPORT Uint32 : public Integer {
 
 class EXPORT Object : public Value {
  public:
-  bool Set(
-    Handle<Value> key, Handle<Value> value, PropertyAttribute attribs = None);
+  bool Set(Handle<Value> key, Handle<Value> value,
+           PropertyAttribute attribs = None);
   Maybe<bool> Set(Local<Context> context,
                   Local<Value> key, Local<Value> value);
   bool Set(uint32_t index, Handle<Value> value);
-  bool ForceSet(
-    Handle<Value> key, Handle<Value> value, PropertyAttribute attribs = None);
+  bool ForceSet(Handle<Value> key, Handle<Value> value,
+                PropertyAttribute attribs = None);
   Local<Value> Get(Handle<Value> key);
   Local<Value> Get(uint32_t index);
-  bool Has(Handle<String> key);
-  bool Delete(Handle<String> key);
+  bool Has(Handle<Value> key);
+  bool Delete(Handle<Value> key);
   Maybe<bool> Delete(Local<Context> context, Local<Value> key);
   bool Delete(uint32_t index);
   bool SetAccessor(
@@ -1063,7 +1064,7 @@ class EXPORT Function : public Object {
     int length = 0);
   Local<Object> NewInstance() const;
   Local<Object> NewInstance(int argc, Handle<Value> argv[]) const;
-  Local<Value> Call(Handle<Object> recv, int argc, Handle<Value> argv[]);
+  Local<Value> Call(Handle<Value> recv, int argc, Handle<Value> argv[]);
   void SetName(Handle<String> name);
   // Handle<Value> GetName() const;
 
@@ -1352,6 +1353,14 @@ class EXPORT AccessorSignature : public Data {
     Handle<FunctionTemplate> receiver = Handle<FunctionTemplate>());
 };
 
+
+EXPORT Handle<Primitive> Undefined(Isolate* isolate = nullptr);
+EXPORT Handle<Primitive> Null(Isolate* isolate = nullptr);
+EXPORT Handle<Boolean> True(Isolate* isolate = nullptr);
+EXPORT Handle<Boolean> False(Isolate* isolate = nullptr);
+EXPORT bool SetResourceConstraints(ResourceConstraints *constraints);
+
+
 class EXPORT ResourceConstraints {
  public:
   void set_stack_limit(uint32_t *value) {}
@@ -1428,6 +1437,8 @@ class EXPORT HeapStatistics {
   size_t heap_size_limit() { return 0; }
 };
 
+typedef void(*FunctionEntryHook)(uintptr_t function,
+                                 uintptr_t return_addr_location);
 typedef int* (*CounterLookupCallback)(const char* name);
 typedef void* (*CreateHistogramCallback)(
   const char* name, int min, int max, size_t buckets);
@@ -1435,6 +1446,27 @@ typedef void (*AddHistogramSampleCallback)(void* histogram, int sample);
 
 class EXPORT Isolate {
  public:
+  struct CreateParams {
+    CreateParams()
+       : entry_hook(NULL),
+         code_event_handler(NULL),
+         snapshot_blob(NULL),
+         counter_lookup_callback(NULL),
+         create_histogram_callback(NULL),
+         add_histogram_sample_callback(NULL),
+         array_buffer_allocator(NULL) {
+     }
+
+     FunctionEntryHook entry_hook;
+     JitCodeEventHandler code_event_handler;
+     ResourceConstraints constraints;
+     StartupData* snapshot_blob;
+     CounterLookupCallback counter_lookup_callback;
+     CreateHistogramCallback create_histogram_callback;
+     AddHistogramSampleCallback add_histogram_sample_callback;
+     ArrayBuffer::Allocator* array_buffer_allocator;
+   };
+
   class EXPORT Scope {
    public:
     explicit Scope(Isolate* isolate) : isolate_(isolate) { isolate->Enter(); }
@@ -1445,6 +1477,7 @@ class EXPORT Isolate {
     Scope& operator=(const Scope&);
   };
 
+  static Isolate* New(const CreateParams& params);
   static Isolate* New();
   static Isolate* GetCurrent();
 
@@ -1508,6 +1541,9 @@ class EXPORT JitCodeEvent {
     } name;
     void* new_code_start;
   };
+};
+
+class EXPORT StartupData {
 };
 
 class EXPORT V8 {
@@ -1638,67 +1674,67 @@ class EXPORT Locker {
 };
 
 //
-// Handle<T> members
+// HandleBase<T> members
 //
 
 template <class T>
-Handle<T>::Handle(T *val)
+HandleBase<T>::HandleBase(T *val)
     : _ref(val) {
 }
 
 template <class T>
-Handle<T>::Handle()
+HandleBase<T>::HandleBase()
     : _ref(JS_INVALID_REFERENCE) {
 }
 
 template <class T>
 template <class S>
-Handle<T>::Handle(Handle<S> that)
+HandleBase<T>::HandleBase(HandleBase<S> that)
     : _ref(*that) {
 }
 
 template <class T>
-bool Handle<T>::IsEmpty() const {
+bool HandleBase<T>::IsEmpty() const {
   return _ref == JS_INVALID_REFERENCE;
 }
 
 template <class T>
-void Handle<T>::Clear() {
+void HandleBase<T>::Clear() {
   _ref = JS_INVALID_REFERENCE;
 }
 
 template <class T>
-T *Handle<T>::operator->() const {
+T *HandleBase<T>::operator->() const {
   return static_cast<T *>(_ref);
 }
 
 template <class T>
-T *Handle<T>::operator*() const {
+T *HandleBase<T>::operator*() const {
   return static_cast<T *>(_ref);
 }
 
 template <class T>
 template <class S>
-bool Handle<T>::operator==(Handle<S> that) const {
+bool HandleBase<T>::operator==(HandleBase<S> that) const {
   return _ref == *that;
 }
 
 template <class T>
 template <class S>
-bool Handle<T>::operator!=(Handle<S> that) const {
+bool HandleBase<T>::operator!=(HandleBase<S> that) const {
   return _ref != *that;
 }
 
 template <class T>
 template <class S>
-Handle<S> Handle<T>::As() {
-  return Handle<S>::Cast(*this);
+HandleBase<S> HandleBase<T>::As() {
+  return HandleBase<S>::Cast(*this);
 }
 
 template <class T>
 template <class S>
-Handle<T> Handle<T>::Cast(Handle<S> that) {
-  return Handle<T>(T::Cast(*that));
+HandleBase<T> HandleBase<T>::Cast(HandleBase<S> that) {
+  return HandleBase<T>(T::Cast(*that));
 }
 
 //
@@ -1716,19 +1752,19 @@ Local<T>::Local() {
 template <class T>
 template <class S>
 Local<T>::Local(S *that)
-    : Handle<T>(that) {
+    : HandleBase<T>(that) {
 }
 
 template <class T>
 template <class S>
 Local<T>::Local(Local<S> that)
-    : Handle<T>(*that) {
+    : HandleBase<T>(*that) {
 }
 
 template <class T>
 template <class S>
-Local<T>::Local(Handle<S> that)
-    : Handle<T>(reinterpret_cast<T*>(*that)) {
+Local<T>::Local(HandleBase<S> that)
+    : HandleBase<T>(reinterpret_cast<T*>(*that)) {
 }
 
 template <class T>
@@ -1744,7 +1780,7 @@ Local<T> Local<T>::Cast(Local<S> that) {
 }
 
 template <class T>
-Local<T> Local<T>::New(Handle<T> that) {
+Local<T> Local<T>::New(HandleBase<T> that) {
   if (!HandleScope::GetCurrent()->AddLocal(*that)) {
     return Local<T>();
   }
@@ -1753,7 +1789,7 @@ Local<T> Local<T>::New(Handle<T> that) {
 
 // Context are not javascript values, so we need to specialize them
 template <>
-inline Local<Context> Local<Context>::New(Handle<Context> that) {
+inline Local<Context> Local<Context>::New(HandleBase<Context> that) {
   if (!HandleScope::GetCurrent()->AddLocalContext(*that)) {
     return Local<Context>();
   }
@@ -1761,7 +1797,7 @@ inline Local<Context> Local<Context>::New(Handle<Context> that) {
 }
 
 template <class T>
-Local<T> Local<T>::New(Isolate* isolate, Handle<T> that) {
+Local<T> Local<T>::New(Isolate* isolate, HandleBase<T> that) {
   return New(that);
 }
 
@@ -1780,9 +1816,9 @@ Persistent<T>::Persistent() {
 
 template <class T>
 Persistent<T>::Persistent(const Persistent<T> &that)
-    : Handle<T>(*that), _weakWrapper(that._weakWrapper) {
+    : HandleBase<T>(*that), _weakWrapper(that._weakWrapper) {
   // CONSIDER: Whether we need to do a type/inheritance check here
-  // CHAKRA-TODO: Handle error?
+  // CHAKRA-TODO: HandleBase error?
   if (_ref != JS_INVALID_REFERENCE && !IsWeak()) {
     JsAddRef(_ref, nullptr);
   }
@@ -1791,9 +1827,9 @@ Persistent<T>::Persistent(const Persistent<T> &that)
 template <class T>
 template <class S>
 Persistent<T>::Persistent(Persistent<S> that)
-    : Handle<T>(*that), _weakWrapper(that._weakWrapper) {
+    : HandleBase<T>(*that), _weakWrapper(that._weakWrapper) {
   // CONSIDER: Whether we need to do a type/inheritance check here
-  // CHAKRA-TODO: Handle error?
+  // CHAKRA-TODO: HandleBase error?
   if (_ref != JS_INVALID_REFERENCE && !IsWeak()) {
     JsAddRef(_ref, nullptr);
   }
@@ -1802,9 +1838,9 @@ Persistent<T>::Persistent(Persistent<S> that)
 template <class T>
 template <class S>
 Persistent<T>::Persistent(Isolate* isolate, Persistent<S> that)
-    : Handle<T>(*that), _weakWrapper(that._weakWrapper) {
+    : HandleBase<T>(*that), _weakWrapper(that._weakWrapper) {
   // CONSIDER: Whether we need to do a type/inheritance check here
-  // CHAKRA-TODO: Handle error?
+  // CHAKRA-TODO: HandleBase error?
   if (_ref != JS_INVALID_REFERENCE && !IsWeak()) {
     JsAddRef(_ref, nullptr);
   }
@@ -1813,27 +1849,17 @@ Persistent<T>::Persistent(Isolate* isolate, Persistent<S> that)
 template <class T>
 template <class S>
 Persistent<T>::Persistent(S *that)
-    : Handle<T>(that) {
-  // CHAKRA-TODO: Handle error?
+    : HandleBase<T>(that) {
+  // CHAKRA-TODO: HandleBase error?
   if (_ref != JS_INVALID_REFERENCE) {
     JsAddRef(_ref, nullptr);
   }
 }
 
 template <class T>
-Persistent<T>::Persistent(const Handle<T> &that)
-    : Handle<T>(*that) {
-  // CHAKRA-TODO: Handle error?
-  if (_ref != JS_INVALID_REFERENCE) {
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-template <class T>
-template <class S>
-Persistent<T>::Persistent(Handle<S> that)
-    : Handle<T>(*that) {
-  // CHAKRA-TODO: Handle error?
+Persistent<T>::Persistent(const HandleBase<T> &that)
+    : HandleBase<T>(*that) {
+  // CHAKRA-TODO: HandleBase error?
   if (_ref != JS_INVALID_REFERENCE) {
     JsAddRef(_ref, nullptr);
   }
@@ -1841,9 +1867,19 @@ Persistent<T>::Persistent(Handle<S> that)
 
 template <class T>
 template <class S>
-Persistent<T>::Persistent(Isolate* isolate, Handle<S> that)
-    : Handle<T>(*that) {
-  // CHAKRA-TODO: Handle error?
+Persistent<T>::Persistent(HandleBase<S> that)
+    : HandleBase<T>(*that) {
+  // CHAKRA-TODO: HandleBase error?
+  if (_ref != JS_INVALID_REFERENCE) {
+    JsAddRef(_ref, nullptr);
+  }
+}
+
+template <class T>
+template <class S>
+Persistent<T>::Persistent(Isolate* isolate, HandleBase<S> that)
+    : HandleBase<T>(*that) {
+  // CHAKRA-TODO: HandleBase error?
   if (_ref != JS_INVALID_REFERENCE) {
     JsAddRef(_ref, nullptr);
   }
@@ -1871,7 +1907,7 @@ Persistent<T>& Persistent<T>::operator=(const Persistent<T> &rhs) {
 }
 
 template <class T>
-Persistent<T>& Persistent<T>::operator=(const Handle<T> &rhs) {
+Persistent<T>& Persistent<T>::operator=(const HandleBase<T> &rhs) {
   SetNewRef(*rhs);
   return *this;
 }
@@ -1892,7 +1928,7 @@ Persistent<T>& Persistent<T>::operator=(const Persistent<S> &rhs) {
 
 template <class T>
 template <class S>
-Persistent<T>& Persistent<T>::operator=(const Handle<S> &rhs) {
+Persistent<T>& Persistent<T>::operator=(const HandleBase<S> &rhs) {
   SetNewRef(*rhs);
   return *this;
 }
@@ -1922,7 +1958,7 @@ Persistent<S> Persistent<T>::As() {
 
 template <class T>
 void Persistent<T>::Dispose() {
-  // CHAKRA-TODO: Handle error?
+  // CHAKRA-TODO: HandleBase error?
   if (_ref != JS_INVALID_REFERENCE && !V8::IsDead()) {
     if (IsWeak()) {
       if (_weakWrapper.unique()) {
@@ -1944,7 +1980,7 @@ void Persistent<T>::Reset() {
 
 template <class T>
 template <class S>
-void Persistent<T>::Reset(Isolate* isolate, const Handle<S>& other) {
+void Persistent<T>::Reset(Isolate* isolate, const HandleBase<S>& other) {
   *this = other;
 }
 
@@ -2011,7 +2047,7 @@ Persistent<T> Persistent<T>::Cast(Persistent<S> that) {
 }
 
 template <class T>
-Persistent<T> Persistent<T>::New(Handle<T> that) {
+Persistent<T> Persistent<T>::New(HandleBase<T> that) {
   return Persistent<T>(that);
 }
 

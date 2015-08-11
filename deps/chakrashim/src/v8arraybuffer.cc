@@ -107,6 +107,7 @@ ArrayBuffer::Contents ArrayBuffer::GetContents() {
 }
 
 ArrayBuffer* ArrayBuffer::Cast(Value* obj) {
+  CHAKRA_ASSERT(obj->IsArrayBuffer());
   return static_cast<ArrayBuffer*>(obj);
 }
 

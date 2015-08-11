@@ -27,6 +27,14 @@ namespace v8 {
 HeapProfiler dummyHeapProfiler;
 CpuProfiler dummyCpuProfiler;
 
+Isolate* Isolate::New(const CreateParams& params) {
+  Isolate* iso = jsrt::IsolateShim::New();
+  if (params.array_buffer_allocator) {
+    V8::SetArrayBufferAllocator(params.array_buffer_allocator);
+  }
+  return iso;
+}
+
 Isolate* Isolate::New() {
   return jsrt::IsolateShim::New();
 }

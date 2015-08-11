@@ -18,6 +18,7 @@
     ],
     'defines': [
       'USE_EDGEMODE_JSRT=1',
+      'BUILDING_CHAKRASHIM=1',
     ],
     'conditions': [
       [ 'target_arch=="ia32"', { 'defines': [ '__i386__=1' ] } ],
@@ -33,6 +34,7 @@
       ],
       'defines': [
         'USE_EDGEMODE_JSRT=1',
+        'BUILDING_CHAKRASHIM=1',
         '_WIN32_WINNT=0x0A00',  # WIN10
       ],
       'libraries': [
@@ -50,6 +52,7 @@
     'sources': [
       'include/libplatform/libplatform.h',
       'include/v8.h',
+      'include/v8config.h',
       'include/v8-debug.h',
       'include/v8-platform.h',
       'include/v8-profiler.h',

@@ -45,11 +45,7 @@ Local<Integer> Integer::NewFromUnsigned(Isolate* isolate, uint32_t value) {
 }
 
 Integer *Integer::Cast(v8::Value *obj) {
-  // CHAKRA-TODO: should we call convert here? or just do cast?
-  if (!obj->IsInt32()) {
-    return nullptr;  // CHAKRA-TODO: report an error?
-  }
-
+  CHAKRA_ASSERT(obj->IsInt32());
   return static_cast<Integer*>(obj);
 }
 

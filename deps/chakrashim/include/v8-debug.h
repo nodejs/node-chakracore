@@ -61,6 +61,10 @@ class EXPORT Debug {
                           const uint16_t* command, int length,
                           ClientData* client_data = NULL) {
   }
+  static MaybeLocal<Value> GetMirror(Local<Context> context,
+                                     Handle<Value> obj) {
+    return MaybeLocal<Value>();
+  }
 };
 
 }  // namespace v8

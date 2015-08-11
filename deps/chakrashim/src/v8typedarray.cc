@@ -91,6 +91,7 @@ Local<Uint8Array> Uint8Array::New(Handle<ArrayBuffer> array_buffer,
 }
 
 Uint8Array* Uint8Array::Cast(Value* obj) {
+  CHAKRA_ASSERT(obj->IsUint8Array());
   return static_cast<Uint8Array*>(obj);
 }
 
@@ -101,6 +102,7 @@ Local<Uint32Array> Uint32Array::New(Handle<ArrayBuffer> array_buffer,
 }
 
 Uint32Array* Uint32Array::Cast(Value* obj) {
+  // CHAKRA-TODO: CHAKRA_ASSERT(obj->IsUint32Array());
   return static_cast<Uint32Array*>(obj);
 }
 
