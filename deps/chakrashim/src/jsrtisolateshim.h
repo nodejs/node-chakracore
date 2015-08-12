@@ -57,9 +57,9 @@ class IsolateShim {
   static IsolateShim * FromIsolate(v8::Isolate * isolate);
   static void DisposeAll();
 
-  ContextShim * GetContextShim(JsContextRef contextRef);
+  static ContextShim * GetContextShim(JsContextRef contextRef);
   JsRuntimeHandle GetRuntimeHandle();
-  ContextShim * GetContextShimOfObject(JsValueRef valueRef);
+  static ContextShim * GetContextShimOfObject(JsValueRef valueRef);
 
   void Enter();
   void Exit();

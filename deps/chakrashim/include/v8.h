@@ -605,6 +605,14 @@ class EXPORT Value : public Data {
   bool IsArrayBuffer() const;
   bool IsTypedArray() const;
   bool IsUint8Array() const;
+  bool IsUint8ClampedArray() const;
+  bool IsInt8Array() const;
+  bool IsUint16Array() const;
+  bool IsInt16Array() const;
+  bool IsUint32Array() const;
+  bool IsInt32Array() const;
+  bool IsFloat32Array() const;
+  bool IsFloat64Array() const;
   Local<Boolean> ToBoolean(Isolate* isolate = nullptr) const;
   Local<Number> ToNumber(Isolate* isolate = nullptr) const;
   Local<String> ToString(Isolate* isolate = nullptr) const;
@@ -968,8 +976,6 @@ class ReturnValue {
   }
 
   Value** _value;
-  //Local<Context> _context;
-
   template <typename F> friend class FunctionCallbackInfo;
   template <typename F> friend class PropertyCallbackInfo;
 };
@@ -1167,6 +1173,42 @@ class EXPORT Uint8Array : public TypedArray {
   Uint8Array();
 };
 
+class EXPORT Uint8ClampedArray : public TypedArray {
+ public:
+  static Local<Uint8ClampedArray> New(Handle<ArrayBuffer> array_buffer,
+                                      size_t byte_offset, size_t length);
+  static Uint8ClampedArray* Cast(Value* obj);
+ private:
+  Uint8ClampedArray();
+};
+
+class EXPORT Int8Array : public TypedArray {
+ public:
+  static Local<Int8Array> New(Handle<ArrayBuffer> array_buffer,
+                              size_t byte_offset, size_t length);
+  static Int8Array* Cast(Value* obj);
+ private:
+  Int8Array();
+};
+
+class EXPORT Uint16Array : public TypedArray {
+ public:
+  static Local<Uint16Array> New(Handle<ArrayBuffer> array_buffer,
+                                size_t byte_offset, size_t length);
+  static Uint16Array* Cast(Value* obj);
+ private:
+  Uint16Array();
+};
+
+class EXPORT Int16Array : public TypedArray {
+ public:
+  static Local<Int16Array> New(Handle<ArrayBuffer> array_buffer,
+                               size_t byte_offset, size_t length);
+  static Int16Array* Cast(Value* obj);
+ private:
+  Int16Array();
+};
+
 class EXPORT Uint32Array : public TypedArray {
  public:
   static Local<Uint32Array> New(Handle<ArrayBuffer> array_buffer,
@@ -1174,6 +1216,33 @@ class EXPORT Uint32Array : public TypedArray {
   static Uint32Array* Cast(Value* obj);
  private:
   Uint32Array();
+};
+
+class EXPORT Int32Array : public TypedArray {
+ public:
+  static Local<Int32Array> New(Handle<ArrayBuffer> array_buffer,
+                               size_t byte_offset, size_t length);
+  static Int32Array* Cast(Value* obj);
+ private:
+  Int32Array();
+};
+
+class EXPORT Float32Array : public TypedArray {
+ public:
+  static Local<Float32Array> New(Handle<ArrayBuffer> array_buffer,
+                                 size_t byte_offset, size_t length);
+  static Float32Array* Cast(Value* obj);
+ private:
+  Float32Array();
+};
+
+class EXPORT Float64Array : public TypedArray {
+ public:
+  static Local<Float64Array> New(Handle<ArrayBuffer> array_buffer,
+                                 size_t byte_offset, size_t length);
+  static Float64Array* Cast(Value* obj);
+ private:
+  Float64Array();
 };
 
 enum AccessType {

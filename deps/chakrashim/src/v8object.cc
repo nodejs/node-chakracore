@@ -144,8 +144,6 @@ bool Object::Set(uint32_t index, Handle<Value> value) {
   return true;
 }
 
-// CHAKRA-TODO: maybe add an overload that gets a Handle<String> ?
-// CHAKRA-TODO: what if an integer is passsed here?
 Local<Value> Object::Get(Handle<Value> key) {
   JsPropertyIdRef idRef;
 
@@ -161,7 +159,6 @@ Local<Value> Object::Get(Handle<Value> key) {
   return Local<Value>::New(static_cast<Value*>(valueRef));
 }
 
-
 Local<Value> Object::Get(uint32_t index) {
   JsValueRef valueRef;
 
@@ -169,7 +166,6 @@ Local<Value> Object::Get(uint32_t index) {
     return Local<Value>();
   }
 
-  // CHAKRA-TODO: allocate new local here? or just return Local(value)?
   return Local<Value>::New(static_cast<Value*>(valueRef));
 }
 
@@ -457,7 +453,6 @@ Local<Value> Object::GetPrototype() {
     return Local<Value>();
   }
 
-  // CHAKRA-TODO: allocate new local here? or just return Local(value)?
   return Local<Value>::New(static_cast<Value*>(protoypeRef));
 }
 
@@ -788,7 +783,7 @@ Local<Object> Object::Clone() {
 
 Local<Context> Object::CreationContext() {
   jsrt::ContextShim * contextShim =
-    jsrt::IsolateShim::GetCurrent()->GetContextShimOfObject(this);
+    jsrt::IsolateShim::GetContextShimOfObject(this);
   if (contextShim == nullptr) {
     return Local<Context>();
   }
@@ -818,8 +813,8 @@ Maybe<PropertyAttribute> Object::GetRealNamedPropertyAttributes(
 }
 
 Isolate* Object::GetIsolate() {
-  // CHAKRA-TODO
-  return Isolate::GetCurrent();
+  return IsolateShim::GetContextShimOfObject(this)->
+    GetIsolateShim()->GetCurrentAsIsolate();
 }
 
 Local<Object> Object::New(Isolate* isolate) {

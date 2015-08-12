@@ -99,13 +99,24 @@ bool Value::IsTypedArray() const {
   return IsOfType(this, JsValueType::JsTypedArray);
 }
 
-bool Value::IsUint8Array() const {
-  JsTypedArrayType typedArrayType;
-  return JsGetTypedArrayInfo(const_cast<Value*>(this),
-                             &typedArrayType,
-                             nullptr, nullptr, nullptr) == JsNoError &&
-    typedArrayType == JsTypedArrayType::JsArrayTypeUint8;
+#define DEFINE_TYPEDARRAY_CHECK(ArrayType) \
+  bool Value::Is##ArrayType##Array() const { \
+  JsTypedArrayType typedArrayType; \
+  return JsGetTypedArrayInfo(const_cast<Value*>(this), \
+                             &typedArrayType, \
+                             nullptr, nullptr, nullptr) == JsNoError && \
+  typedArrayType == JsTypedArrayType::JsArrayType##ArrayType; \
 }
+
+DEFINE_TYPEDARRAY_CHECK(Uint8)
+DEFINE_TYPEDARRAY_CHECK(Uint8Clamped)
+DEFINE_TYPEDARRAY_CHECK(Int8)
+DEFINE_TYPEDARRAY_CHECK(Uint16)
+DEFINE_TYPEDARRAY_CHECK(Int16)
+DEFINE_TYPEDARRAY_CHECK(Uint32)
+DEFINE_TYPEDARRAY_CHECK(Int32)
+DEFINE_TYPEDARRAY_CHECK(Float32)
+DEFINE_TYPEDARRAY_CHECK(Float64)
 
 bool Value::IsBoolean() const {
   return IsOfType(this, JsValueType::JsBoolean);

@@ -168,6 +168,7 @@ bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
   return true;
 }
 
+/* static */
 ContextShim * IsolateShim::GetContextShim(JsContextRef contextRef) {
   assert(contextRef != JS_INVALID_REFERENCE);
   void *data;
@@ -295,6 +296,7 @@ JsPropertyIdRef IsolateShim::GetProxyTrapPropertyIdRef(ProxyTraps trap) {
   return GetCachedPropertyIdRef(GetProxyTrapCachedPropertyIdRef(trap));
 }
 
+/* static */
 ContextShim * IsolateShim::GetContextShimOfObject(JsValueRef valueRef) {
   JsContextRef contextRef;
   if (JsGetContextOfObject(valueRef, &contextRef) != JsNoError) {

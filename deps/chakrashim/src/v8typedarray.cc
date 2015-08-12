@@ -84,26 +84,46 @@ Local<T> NewTypedArray(ContextShim::GlobalType constructorIndex,
   return static_cast<T*>(result);
 }
 
-Local<Uint8Array> Uint8Array::New(Handle<ArrayBuffer> array_buffer,
-                                  size_t byte_offset, size_t length) {
-  return NewTypedArray<Uint8Array>(ContextShim::GlobalType::Uint8Array,
-                                   array_buffer, byte_offset, length);
+#define DEFINE_TYPEDARRAY_NEW(ArrayType) \
+  Local<ArrayType##Array> v8::ArrayType##Array::New(  \
+                            Handle<ArrayBuffer> array_buffer, size_t byte_offset,  \
+                            size_t length) {  \
+    return NewTypedArray<ArrayType##Array>( \
+             ContextShim::GlobalType::ArrayType##Array, \
+             array_buffer, byte_offset, length);  \
 }
 
-Uint8Array* Uint8Array::Cast(Value* obj) {
-  CHAKRA_ASSERT(obj->IsUint8Array());
-  return static_cast<Uint8Array*>(obj);
+
+#define DEFINE_TYPEDARRAY_CAST(ArrayType) \
+  ArrayType##Array* ArrayType##Array::Cast(Value* obj) {  \
+    CHAKRA_ASSERT(obj->Is##ArrayType##Array()); \
+    return static_cast<ArrayType##Array*>(obj); \
 }
 
-Local<Uint32Array> Uint32Array::New(Handle<ArrayBuffer> array_buffer,
-                                    size_t byte_offset, size_t length) {
-  return NewTypedArray<Uint32Array>(ContextShim::GlobalType::Uint32Array,
-                                   array_buffer, byte_offset, length);
-}
+DEFINE_TYPEDARRAY_NEW(Uint8)
+DEFINE_TYPEDARRAY_CAST(Uint8)
 
-Uint32Array* Uint32Array::Cast(Value* obj) {
-  // CHAKRA-TODO: CHAKRA_ASSERT(obj->IsUint32Array());
-  return static_cast<Uint32Array*>(obj);
-}
+DEFINE_TYPEDARRAY_NEW(Uint8Clamped)
+DEFINE_TYPEDARRAY_CAST(Uint8Clamped)
 
+DEFINE_TYPEDARRAY_NEW(Int8)
+DEFINE_TYPEDARRAY_CAST(Int8)
+
+DEFINE_TYPEDARRAY_NEW(Uint16)
+DEFINE_TYPEDARRAY_CAST(Uint16)
+
+DEFINE_TYPEDARRAY_NEW(Int16)
+DEFINE_TYPEDARRAY_CAST(Int16)
+
+DEFINE_TYPEDARRAY_NEW(Uint32)
+DEFINE_TYPEDARRAY_CAST(Uint32)
+
+DEFINE_TYPEDARRAY_NEW(Int32)
+DEFINE_TYPEDARRAY_CAST(Int32)
+
+DEFINE_TYPEDARRAY_NEW(Float32)
+DEFINE_TYPEDARRAY_CAST(Float32)
+
+DEFINE_TYPEDARRAY_NEW(Float64)
+DEFINE_TYPEDARRAY_CAST(Float64)
 }  // namespace v8

@@ -136,7 +136,7 @@ Local<UnboundScript> Script::GetUnboundScript() {
 
 Local<Script> UnboundScript::BindToCurrentContext() {
   jsrt::ContextShim * contextShim =
-    jsrt::IsolateShim::GetCurrent()->GetContextShimOfObject(this);
+    jsrt::IsolateShim::GetContextShimOfObject(this);
   if (contextShim == jsrt::ContextShim::GetCurrent()) {
     JsValueRef scriptRef;
     if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError) {
