@@ -1433,6 +1433,7 @@ class EXPORT HeapStatistics {
   size_t total_heap_size() { return this->heapSize; }
   size_t total_heap_size_executable() { return 0; }
   size_t total_physical_size() { return 0; }
+  size_t total_available_size() { return 0; }
   size_t used_heap_size() { return this->heapSize; }
   size_t heap_size_limit() { return 0; }
 };
