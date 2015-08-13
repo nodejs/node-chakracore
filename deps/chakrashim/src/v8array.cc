@@ -41,11 +41,7 @@ Local<Array> Array::New(Isolate* isolate, int length) {
 }
 
 Array *Array::Cast(Value *obj) {
-  if (!obj->IsArray()) {
-    // CHAKRA-TODO: report error?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsArray());
   return static_cast<Array*>(obj);
 }
 

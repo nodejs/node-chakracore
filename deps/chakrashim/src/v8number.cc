@@ -18,8 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrt.h"
+#include "jsrtutils.h"
 
 namespace v8 {
 
@@ -38,13 +37,7 @@ Local<Number> Number::New(Isolate* isolate, double value) {
 }
 
 Number *Number::Cast(v8::Value *obj) {
-  if (!obj->IsNumber()) {
-    // CHAKRA-TODO: report an error here!
-    // CHAKRA-TODO: What is the best behavior here? Should we return a pointer
-    // to undefined/null instead?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsNumber());
   return static_cast<Number*>(obj);
 }
 

@@ -28,7 +28,7 @@ __declspec(thread) JsSourceContext currentContext;
 
 Local<Script> Script::Compile(Handle<String> source, ScriptOrigin* origin) {
   if (origin) {
-    return Compile(source, origin->ResourceName());
+    return Compile(source, origin->ResourceName().As<String>());
   }
 
   Isolate* isolate = Isolate::GetCurrent();
@@ -230,7 +230,8 @@ Local<UnboundScript> ScriptCompiler::CompileUnbound(
 
 Local<Script> ScriptCompiler::Compile(
     Isolate* isolate, Source* source, CompileOptions options) {
-  return Script::Compile(source->source_string, source->resource_name);
+  return Script::Compile(source->source_string,
+                         source->resource_name.As<String>());
 }
 
 }  // namespace v8

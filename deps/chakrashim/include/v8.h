@@ -27,37 +27,41 @@
 
 #pragma once
 
-// CHAKRA-TODO: winsock2.h should be included before windows.h, otherwise you
-// get redefintion conflicts with winsock.h. Hack this here to avoid those
-// conflicts, but should look at how to fix in core Node.js code.
+// Stops windows.h from including winsock.h (conflicting with winsock2.h).
+#ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_
+#endif
 
-// CHAKRA-TODO: Force the version here?
+#if defined(_WIN32_WINNT) && (_WIN32_WINNT < _WIN32_WINNT_WIN10)
+#pragma message("warning: chakrashim requires Windows 10 SDK. "\
+                "Redefine _WIN32_WINNT to _WIN32_WINNT_WIN10.")
 #undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0601   // CHAKRA-TODO: should this be win10?
+#endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT _WIN32_WINNT_WIN10
+#endif
 
 #ifndef USE_EDGEMODE_JSRT
-#define USE_EDGEMODE_JSRT     // Only works wtih edge JSRT
+#define USE_EDGEMODE_JSRT     // Only works with edge JSRT
 #endif
 
 #include <jsrt.h>
 
 #ifndef _CHAKRART_H_
-// CHAKRA-TODO: Enable this check
-// #error Wrong Windows SDK version
+#error Wrong Windows SDK version
 #endif
 
 #include <stdio.h>
 #include <stdint.h>
 #include <memory>
+#include "v8config.h"
 
-// CHAKRA-TODO: This allows native modules to link against node. We should
-// investigate adding an option to compile this into a standalone DLL/LIB like
-// V8 does.
+#ifdef BUILDING_CHAKRASHIM
 #define EXPORT __declspec(dllexport)
-
-
-# define V8_DEPRECATED(message, declarator) declarator
+#else
+#define EXPORT __declspec(dllimport)
+#endif
+#define V8_EXPORT EXPORT
 
 namespace v8 {
 
@@ -179,7 +183,7 @@ EXPORT Handle<Boolean> False(Isolate* isolate = nullptr);
 EXPORT bool SetResourceConstraints(ResourceConstraints *constraints);
 
 template <class T>
-class EXPORT Handle {
+class Handle {
  protected:
   JsRef _ref;
 
@@ -204,7 +208,7 @@ class EXPORT Handle {
 };
 
 template <class T>
-class EXPORT Local : public Handle<T> {
+class Local : public Handle<T> {
  public:
   Local();
   template <class S>
@@ -262,7 +266,7 @@ EXPORT JsValueRef MarshalJsValueRefToContext(
 }
 
 template <class T>
-class EXPORT Persistent : public Handle<T> {
+class Persistent : public Handle<T> {
  private:
   std::shared_ptr<chakrashim::WeakReferenceCallbackWrapper> _weakWrapper;
 
@@ -332,7 +336,7 @@ class EXPORT Persistent : public Handle<T> {
 };
 
 template <class T>
-class EXPORT Eternal : private Persistent<T> {
+class Eternal : private Persistent<T> {
  public:
   Eternal() {}
   template<class S>
@@ -695,15 +699,15 @@ class EXPORT Uint32 : public Integer {
 
 class EXPORT Object : public Value {
  public:
-  bool Set(
-    Handle<Value> key, Handle<Value> value, PropertyAttribute attribs = None);
+  bool Set(Handle<Value> key, Handle<Value> value,
+           PropertyAttribute attribs = None);
   bool Set(uint32_t index, Handle<Value> value);
-  bool ForceSet(
-    Handle<Value> key, Handle<Value> value, PropertyAttribute attribs = None);
+  bool ForceSet(Handle<Value> key, Handle<Value> value,
+                PropertyAttribute attribs = None);
   Local<Value> Get(Handle<Value> key);
   Local<Value> Get(uint32_t index);
-  bool Has(Handle<String> key);
-  bool Delete(Handle<String> key);
+  bool Has(Handle<Value> key);
+  bool Delete(Handle<Value> key);
   bool Delete(uint32_t index);
   bool SetAccessor(
     Handle<String> name,
@@ -950,7 +954,7 @@ class EXPORT Function : public Object {
     int length = 0);
   Local<Object> NewInstance() const;
   Local<Object> NewInstance(int argc, Handle<Value> argv[]) const;
-  Local<Value> Call(Handle<Object> recv, int argc, Handle<Value> argv[]);
+  Local<Value> Call(Handle<Value> recv, int argc, Handle<Value> argv[]);
   void SetName(Handle<String> name);
   // Handle<Value> GetName() const;
 

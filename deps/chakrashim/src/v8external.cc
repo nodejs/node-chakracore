@@ -80,10 +80,7 @@ bool External::IsExternal(const v8::Value* value) {
 }
 
 External* External::Cast(v8::Value* obj) {
-  if (!obj->IsExternal()) {
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsExternal());
   return static_cast<External*>(obj);
 }
 

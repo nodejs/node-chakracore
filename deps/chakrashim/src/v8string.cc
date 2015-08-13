@@ -283,12 +283,7 @@ Local<String> String::Empty(Isolate* isolate) {
 }
 
 String* String::Cast(v8::Value *obj) {
-  if (!obj->IsString()) {
-    // CHAKRA-TODO: What is the best behavior here? Should we return a pointer
-    // to undefined/null instead?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsString());
   return static_cast<String*>(obj);
 }
 

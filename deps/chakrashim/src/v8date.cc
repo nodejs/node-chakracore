@@ -48,12 +48,7 @@ Local<Value> Date::New(Isolate * isolate, double time) {
 
 // Not Implemented
 Date *Date::Cast(v8::Value *obj) {
-  if (!obj->IsDate()) {
-    // CHAKRA-TODO: what should we return in this case?
-    // just exit and print?
-    return nullptr;
-  }
-
+  CHAKRA_ASSERT(obj->IsDate());
   return static_cast<Date*>(obj);
 }
 
