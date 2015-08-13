@@ -714,7 +714,6 @@ class EXPORT Object : public Value {
     PropertyAttribute attribute = None);
   Local<Value> GetPrototype();
   bool SetPrototype(Handle<Value> prototype);
-  Local<Value> GetConstructor();
   Local<Array> GetPropertyNames();
   Local<Array> GetOwnPropertyNames();
   bool HasOwnProperty(Handle<String> key);

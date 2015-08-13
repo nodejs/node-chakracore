@@ -29,8 +29,6 @@ namespace v8 {
 using std::unique_ptr;
 using namespace jsrt;
 
-const wchar_t *HIDDEN_VALUES_TABLE_PROPERTY_NAME = L"__hiddenvalues__";
-
 enum AccessorType {
   Setter = 0,
   Getter = 1
@@ -167,8 +165,7 @@ Local<Value> Object::Get(uint32_t index) {
 
 bool Object::Has(Handle<String> key) {
   JsValueRef propertyIdRef;
-  if (GetPropertyIdFromJsString((JsValueRef)*key,
-                                &propertyIdRef) != JsNoError) {
+  if (GetPropertyIdFromName((JsValueRef)*key, &propertyIdRef) != JsNoError) {
     return false;
   }
 
@@ -183,7 +180,7 @@ bool Object::Has(Handle<String> key) {
 bool Object::Delete(Handle<String> key) {
   JsPropertyIdRef idRef;
 
-  if (GetPropertyIdFromJsString((JsValueRef)*key, &idRef) != JsNoError) {
+  if (GetPropertyIdFromName((JsValueRef)*key, &idRef) != JsNoError) {
     return false;
   }
 
@@ -256,8 +253,12 @@ Local<String> v8::Object::GetConstructorName() {
     return Local<String>();
   }
 
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  JsPropertyIdRef idRef = iso->GetCachedPropertyIdRef(
+    CachedPropertyIdRef::name);
+
   JsValueRef name;
-  if (GetProperty(constructor, L"name", &name) != JsNoError) {
+  if (JsGetProperty(constructor, idRef, &name) != JsNoError) {
     return Local<String>();
   }
 
@@ -361,7 +362,7 @@ bool Object::SetAccessor(Handle<String> name,
   JsValueRef setterRef = JS_INVALID_REFERENCE;
 
   JsPropertyIdRef idRef;
-  if (GetPropertyIdFromJsString((JsValueRef)*name, &idRef) != JsNoError) {
+  if (GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
     return false;
   }
 
@@ -449,40 +450,27 @@ bool Object::SetPrototype(Handle<Value> prototype) {
   return true;
 }
 
-Local<Value> Object::GetConstructor() {
-  JsValueRef constructorRef;
-
-  if (GetObjectConstructor((JsValueRef)this, &constructorRef) != JsNoError) {
-    return Local<Value>();
-  }
-
-  return Local<Value>::New(static_cast<Value*>(constructorRef));
-}
-
 // Create an object that will hold the hidden values
 bool Object::SetHiddenValue(Handle<String> key, Handle<Value> value) {
-  JsPropertyIdRef hiddenValuesTablePropertyIdRef;
-  if (JsGetPropertyIdFromName(HIDDEN_VALUES_TABLE_PROPERTY_NAME,
-                              &hiddenValuesTablePropertyIdRef) != JsNoError) {
-    return false;
-  }
-
-  bool hasHiddenValues;
-  if (JsHasProperty((JsValueRef)this,
-                    hiddenValuesTablePropertyIdRef,
-                    &hasHiddenValues) != JsNoError) {
-    return false;
-  }
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  JsPropertyIdRef hiddenValuesIdRef = iso->GetCachedSymbolPropertyIdRef(
+    CachedSymbolPropertyIdRef::__hiddenvalues__);
 
   JsValueRef hiddenValuesTable;
-  if (!hasHiddenValues) {
+  if (JsGetProperty((JsValueRef)this,
+                    hiddenValuesIdRef,
+                    &hiddenValuesTable) != JsNoError) {
+    return false;
+  }
+
+  if (static_cast<Value*>(hiddenValuesTable)->IsUndefined()) {
     if (JsCreateObject(&hiddenValuesTable) != JsNoError) {
       return false;
     }
 
     if (DefineProperty((JsValueRef)this,
-                       hiddenValuesTablePropertyIdRef,
-                       PropertyDescriptorOptionValues::True,
+                       hiddenValuesIdRef,
+                       PropertyDescriptorOptionValues::False,
                        PropertyDescriptorOptionValues::False,
                        PropertyDescriptorOptionValues::False,
                        hiddenValuesTable,
@@ -490,22 +478,9 @@ bool Object::SetHiddenValue(Handle<String> key, Handle<Value> value) {
                        JS_INVALID_REFERENCE) != JsNoError) {
       return false;
     }
-  } else {
-    if (JsGetProperty((JsValueRef)this,
-                      hiddenValuesTablePropertyIdRef,
-                      &hiddenValuesTable) != JsNoError) {
-      return false;
-    }
   }
 
-  JsPropertyIdRef keyIdRef;
-
-  if (GetPropertyIdFromJsString((JsValueRef)*key, &keyIdRef) != JsNoError) {
-    return false;
-  }
-
-  if (JsSetProperty(hiddenValuesTable,
-                    keyIdRef, (JsValueRef)*value, false) != JsNoError) {
+  if (jsrt::SetProperty(hiddenValuesTable, *key, *value) != JsNoError) {
     return false;
   }
 
@@ -513,34 +488,23 @@ bool Object::SetHiddenValue(Handle<String> key, Handle<Value> value) {
 }
 
 Local<Value> Object::GetHiddenValue(Handle<String> key) {
-  JsPropertyIdRef hiddenValuesTablePropertyIdRef;
-  if (JsGetPropertyIdFromName(HIDDEN_VALUES_TABLE_PROPERTY_NAME,
-                              &hiddenValuesTablePropertyIdRef) != JsNoError) {
-    return Local<Value>();
-  }
-
-  bool hasHiddenValues;
-
-  if (JsHasProperty((JsValueRef)this,
-                    hiddenValuesTablePropertyIdRef,
-                    &hasHiddenValues) != JsNoError) {
-    return Local<Value>();
-  }
-
-  if (!hasHiddenValues) {
-    return Local<Value>();
-  }
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  JsPropertyIdRef hiddenValuesIdRef = iso->GetCachedSymbolPropertyIdRef(
+    CachedSymbolPropertyIdRef::__hiddenvalues__);
 
   JsValueRef hiddenValuesTable;
-
   if (JsGetProperty((JsValueRef)this,
-                    hiddenValuesTablePropertyIdRef,
+                    hiddenValuesIdRef,
                     &hiddenValuesTable) != JsNoError) {
     return Local<Value>();
   }
 
+  if (static_cast<Value*>(hiddenValuesTable)->IsUndefined()) {
+    return Local<Value>();
+  }
+
   JsPropertyIdRef keyIdRef;
-  if (GetPropertyIdFromJsString((JsValueRef)*key, &keyIdRef) != JsNoError) {
+  if (GetPropertyIdFromName((JsValueRef)*key, &keyIdRef) != JsNoError) {
     return Local<Value>();
   }
 
@@ -778,8 +742,8 @@ int Object::GetIndexedPropertiesExternalArrayDataLength() {
 
 Local<Object> Object::Clone() {
   JsValueRef constructor;
-  if (GetObjectConstructor((JsValueRef)this,
-                           &constructor) != JsNoError) {
+  if (jsrt::GetObjectConstructor((JsValueRef)this,
+                                 &constructor) != JsNoError) {
     return Local<Object>();
   }
 

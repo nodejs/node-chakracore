@@ -24,23 +24,13 @@
 
 namespace jsrt {
 
-const wchar_t * DEFAULT_EXTENRAL_DATA_NAME = L"__external__";
-
 JsErrorCode GetProperty(_In_ JsValueRef ref,
                         _In_ JsValueRef propName,
                         _Out_ JsValueRef *result) {
   JsPropertyIdRef idRef;
   JsErrorCode error;
 
-  size_t strLength;
-  const  wchar_t *strPtr;
-
-  error = JsStringToPointer(propName, &strPtr, &strLength);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetPropertyIdFromName(strPtr, &idRef);
+  error = GetPropertyIdFromName(propName, &idRef);
   if (error != JsNoError) {
     return error;
   }
@@ -101,15 +91,7 @@ JsErrorCode SetProperty(_In_ JsValueRef ref,
   JsPropertyIdRef idRef;
   JsErrorCode error;
 
-  size_t strLength;
-  const  wchar_t *strPtr;
-
-  error = JsStringToPointer(propName, &strPtr, &strLength);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetPropertyIdFromName(strPtr, &idRef);
+  error = GetPropertyIdFromName(propName, &idRef);
   if (error != JsNoError) {
     return error;
   }
@@ -125,15 +107,7 @@ JsErrorCode DeleteProperty(_In_ JsValueRef ref,
   JsPropertyIdRef idRef;
   JsErrorCode error;
 
-  size_t strLength;
-  const  wchar_t *strPtr;
-
-  error = JsStringToPointer(propName, &strPtr, &strLength);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetPropertyIdFromName(strPtr, &idRef);
+  error = GetPropertyIdFromName(propName, &idRef);
   if (error != JsNoError) {
     return error;
   }
@@ -535,12 +509,6 @@ JsErrorCode GetPropertyNames(_In_ JsValueRef object,
   return error;
 }
 
-JsErrorCode GetExternalDataDefaultName(
-                                       _Out_ const wchar_t **defaultName) {
-  *defaultName = DEFAULT_EXTENRAL_DATA_NAME;
-  return JsNoError;
-}
-
 JsErrorCode AddExternalData(_In_ JsValueRef ref,
                             _In_ JsPropertyIdRef externalDataPropertyId,
                             _In_ void *data,
@@ -564,81 +532,19 @@ JsErrorCode AddExternalData(_In_ JsValueRef ref,
 }
 
 JsErrorCode AddExternalData(_In_ JsValueRef ref,
-                            _In_ const wchar_t *externalDataName,
                             _In_ void *data,
                             _In_ JsFinalizeCallback onObjectFinalize) {
-  JsErrorCode error;
-  JsPropertyIdRef idRef;
-  error = JsGetPropertyIdFromName(externalDataName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  JsPropertyIdRef propId = iso->GetCachedSymbolPropertyIdRef(
+    CachedSymbolPropertyIdRef::__external__);
 
-  return AddExternalData(ref, idRef, data, onObjectFinalize);
-}
-
-JsErrorCode AddExternalData(_In_ JsValueRef ref,
-                            _In_ void *data,
-                            _In_ JsFinalizeCallback onObjectFinalize) {
-  JsErrorCode error;
-  JsPropertyIdRef defaultExternalDataPropertyIdRef;
-  error = JsGetPropertyIdFromName(DEFAULT_EXTENRAL_DATA_NAME,
-                                  &defaultExternalDataPropertyIdRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-
-  return AddExternalData(
-    ref, defaultExternalDataPropertyIdRef, data, onObjectFinalize);
-}
-
-JsErrorCode HasExternalData(_In_ JsValueRef ref,
-                            JsPropertyIdRef propertyId,
-                            _Out_ bool *result) {
-  return JsHasProperty(ref, propertyId, result);
-}
-
-JsErrorCode HasExternalData(_In_ JsValueRef ref,
-                            _In_ const wchar_t *externalDataName,
-                            _Out_ bool *result) {
-  JsErrorCode error;
-  JsPropertyIdRef idRef;
-  error = JsGetPropertyIdFromName(externalDataName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  return HasExternalData(ref, idRef, result);
-}
-
-JsErrorCode HasExternalData(_In_ JsValueRef ref,
-                            _Out_ bool *result) {
-  JsErrorCode error;
-  JsPropertyIdRef defaultExternalDataPropertyIdRef;
-  error = JsGetPropertyIdFromName(DEFAULT_EXTENRAL_DATA_NAME,
-                                  &defaultExternalDataPropertyIdRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  return HasExternalData(ref, defaultExternalDataPropertyIdRef, result);
+  return AddExternalData(ref, propId, data, onObjectFinalize);
 }
 
 JsErrorCode GetExternalData(_In_ JsValueRef ref,
                             _In_ JsPropertyIdRef idRef,
                             _Out_ void **data) {
   JsErrorCode error;
-  bool hasProperty;
-  error = HasExternalData(ref, idRef, &hasProperty);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  if (!hasProperty) {
-    *data = nullptr;
-    return JsNoError;
-  }
 
   JsValueRef externalObject;
   error = JsGetProperty(ref, idRef, &externalObject);
@@ -647,35 +553,21 @@ JsErrorCode GetExternalData(_In_ JsValueRef ref,
   }
 
   error = JsGetExternalData(externalObject, data);
-  return error;
-}
-
-JsErrorCode GetExternalData(_In_ JsValueRef ref,
-                            _In_ const wchar_t *externalDataName,
-                            _Out_ void **data) {
-  JsErrorCode error;
-  JsPropertyIdRef propertyIdRef;
-  error = JsGetPropertyIdFromName(externalDataName, &propertyIdRef);
-  if (error != JsNoError) {
-    return error;
+  if (error == JsErrorInvalidArgument) {
+    *data = nullptr;
+    error = JsNoError;
   }
 
-  error = GetExternalData(ref, propertyIdRef, data);
   return error;
 }
 
 JsErrorCode GetExternalData(_In_ JsValueRef ref,
                             _Out_ void **data) {
-  JsErrorCode error;
-  JsPropertyIdRef defaultExternalDataPropertyIdRef;
-  error = JsGetPropertyIdFromName(DEFAULT_EXTENRAL_DATA_NAME,
-                                  &defaultExternalDataPropertyIdRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  JsPropertyIdRef propId = iso->GetCachedSymbolPropertyIdRef(
+    CachedSymbolPropertyIdRef::__external__);
 
-  error = GetExternalData(ref, defaultExternalDataPropertyIdRef, data);
-  return error;
+  return GetExternalData(ref, propId, data);
 }
 
 JsErrorCode CreateFunctionWithExternalData(
@@ -876,15 +768,17 @@ JsErrorCode DefineProperty(_In_ JsValueRef object,
 }
 
 // CHAKRA-TODO: cache the property ids in a hash table?
-JsErrorCode GetPropertyIdFromJsString(_In_ JsValueRef stringRef,
-                                      _Out_ JsPropertyIdRef *idRef) {
+JsErrorCode GetPropertyIdFromName(_In_ JsValueRef nameRef,
+                                  _Out_ JsPropertyIdRef *idRef) {
   JsErrorCode error;
   const wchar_t *propertyName;
   size_t propertyNameSize;
 
-  error = JsStringToPointer(stringRef, &propertyName, &propertyNameSize);
+  // Expect the name be either a String or a Symbol
+  error = JsStringToPointer(nameRef, &propertyName, &propertyNameSize);
   if (error != JsNoError) {
-    return error;
+    return error == JsErrorInvalidArgument ?
+      JsGetPropertyIdFromSymbol(nameRef, idRef) : error;
   }
 
   error = JsGetPropertyIdFromName(propertyName, idRef);
@@ -894,28 +788,27 @@ JsErrorCode GetPropertyIdFromJsString(_In_ JsValueRef stringRef,
 JsErrorCode GetPropertyIdFromValue(_In_ JsValueRef valueRef,
                                    _Out_ JsPropertyIdRef *idRef) {
   JsErrorCode error;
-  JsValueRef stringRef;
-  error = JsConvertValueToString(valueRef, &stringRef);
 
-  if (error != JsNoError) {
-    return error;
+  error = GetPropertyIdFromName(valueRef, idRef);
+  if (error == JsErrorInvalidArgument) {
+    error = JsConvertValueToString(valueRef, &valueRef);
+    if (error != JsNoError) {
+      return error;
+    }
+
+    error = GetPropertyIdFromName(valueRef, idRef);
   }
 
-  error = GetPropertyIdFromJsString(stringRef, idRef);
   return error;
 }
 
 JsErrorCode GetObjectConstructor(_In_ JsValueRef objectRef,
                                  _Out_ JsValueRef *constructorRef) {
-  JsErrorCode error;
-  JsPropertyIdRef constructorPropertyIdRef;
-  error = JsGetPropertyIdFromName(L"constructor", &constructorPropertyIdRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  JsPropertyIdRef constructorPropertyIdRef = iso->GetCachedPropertyIdRef(
+    CachedPropertyIdRef::constructor);
 
-  error = JsGetProperty(objectRef, constructorPropertyIdRef, constructorRef);
-  return error;
+  return JsGetProperty(objectRef, constructorPropertyIdRef, constructorRef);
 }
 
 JsErrorCode SetIndexedProperty(_In_ JsValueRef object,
@@ -960,20 +853,12 @@ JsErrorCode DeleteIndexedProperty(_In_ JsValueRef object,
 }
 
 JsErrorCode HasProperty(_In_ JsValueRef object,
-                        _In_ JsValueRef prop,
+                        _In_ JsValueRef propName,
                         _Out_ bool *result) {
   JsPropertyIdRef idRef;
   JsErrorCode error;
 
-  size_t strLength;
-  const  wchar_t *strPtr;
-
-  error = JsStringToPointer(prop, &strPtr, &strLength);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetPropertyIdFromName(strPtr, &idRef);
+  error = GetPropertyIdFromName(propName, &idRef);
   if (error != JsNoError) {
     return error;
   }
@@ -1002,42 +887,6 @@ bool IsOfGlobalType(_In_ JsValueRef ref, _In_ const wchar_t *typeName) {
   return InstanceOfGlobalType(ref, typeName, &result) == JsNoError && result;
 }
 
-JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,
-                               _In_ const wchar_t * name) {
-  JsValueRef stringRef;
-  JsErrorCode error = JsPointerToString(name, wcslen(name), &stringRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  return SetConstructorName(objectRef, stringRef);
-}
-
-JsErrorCode SetConstructorName(_In_ JsValueRef objectRef,
-                               _In_ JsValueRef nameStringRef) {
-  JsErrorCode error;
-  JsValueRef constructorObj = JS_INVALID_REFERENCE;
-
-  error = GetProperty(objectRef, L"constructor", &constructorObj);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  if (constructorObj == JS_INVALID_REFERENCE) {
-    return JsErrorInvalidArgument;
-  }
-
-  JsPropertyIdRef namePropertyIdRef;
-  error = JsGetPropertyIdFromName(L"name", &namePropertyIdRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsSetProperty(constructorObj,
-                        namePropertyIdRef, nameStringRef, false);
-  return error;
-}
-
 // used for debugging
 
 JsErrorCode StringifyObject(_In_ JsValueRef object,
@@ -1059,35 +908,6 @@ JsErrorCode StringifyObject(_In_ JsValueRef object,
 
   size_t stringLength;
   return JsStringToPointer(jsonResult, stringifiedObject, &stringLength);
-}
-
-JsErrorCode GetConstructorName(_In_ JsValueRef objectRef,
-                               _Out_ const wchar_t **name) {
-  JsErrorCode error;
-  JsValueRef constructorObj = JS_INVALID_REFERENCE;
-
-  error = GetProperty(objectRef, L"constructor", &constructorObj);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  if (constructorObj == JS_INVALID_REFERENCE) {
-    return JsErrorInvalidArgument;
-  }
-
-  JsValueRef stringRef = JS_INVALID_REFERENCE;
-  error = GetProperty(constructorObj, L"name", &stringRef);
-  if (error != JsNoError) {
-    return error;
-  }
-  if (stringRef == JS_INVALID_REFERENCE) {
-    return JsErrorInvalidArgument;
-  }
-
-  size_t dummyLength;
-  error = JsStringToPointer(stringRef, name, &dummyLength);
-
-  return error;
 }
 
 void Unimplemented(const char * message) {
