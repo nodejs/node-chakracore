@@ -18,26 +18,22 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "jsrtutils.h"
+#include "v8chakra.h"
 
 namespace v8 {
-namespace chakrashim {
 
-struct WeakReferenceCallbackWrapper {
-  void *parameters;
-  WeakCallbackData<Value, void>::Callback callback;
-};
-
-static void CALLBACK WeakReferenceCallbackWrapperCallback(
-    _In_ JsRef ref, _In_opt_ void *data) {
-  WeakReferenceCallbackWrapper *callbackWrapper =
-    reinterpret_cast<WeakReferenceCallbackWrapper*>(data);
+void CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
+                                                          void *data) {
+  chakrashim::WeakReferenceCallbackWrapper *callbackWrapper =
+    reinterpret_cast<chakrashim::WeakReferenceCallbackWrapper*>(data);
   WeakCallbackData<Value, void> callbackData(
     Isolate::GetCurrent(),
-    static_cast<Value*>(ref),
-    callbackWrapper->parameters);
+    callbackWrapper->parameters,
+    static_cast<Value*>(ref));
   callbackWrapper->callback(callbackData);
 }
+
+namespace chakrashim {
 
 static void CALLBACK DummyObjectBeforeCollectCallback(
   _In_ JsRef ref, _In_opt_ void *data) {
@@ -55,14 +51,9 @@ void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive) {
 
 void SetObjectWeakReferenceCallback(
     JsValueRef object,
-    WeakCallbackData<Value,
-    void>::Callback callback,
+    WeakCallbackData<Value, void>::Callback callback,
     void* parameters,
     std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper) {
-  if (jsrt::IsolateShim::GetCurrent()->IsDisposing()) {
-    return;
-  }
-
   if (callback == nullptr || object == JS_INVALID_REFERENCE) {
     return;
   }
@@ -76,7 +67,8 @@ void SetObjectWeakReferenceCallback(
   callbackWrapper->callback = callback;
 
   JsSetObjectBeforeCollectCallback(
-    object, callbackWrapper, WeakReferenceCallbackWrapperCallback);
+    object, callbackWrapper,
+    v8::Utils::WeakReferenceCallbackWrapperCallback);
 }
 
 }  // namespace chakrashim

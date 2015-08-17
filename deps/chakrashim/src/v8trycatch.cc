@@ -104,7 +104,7 @@ Handle<Value> TryCatch::ReThrow() {
   }
   rethrow = true;
 
-  return Local<Value>::New(static_cast<Value *>(error));
+  return Local<Value>::New(error);
 }
 
 Local<Value> TryCatch::Exception() const {
@@ -116,7 +116,7 @@ Local<Value> TryCatch::Exception() const {
     return Local<Value>();
   }
 
-  return Local<Value>::New(static_cast<Value *>(error));
+  return Local<Value>::New(error);
 }
 
 Local<Value> TryCatch::StackTrace() const {
@@ -138,7 +138,7 @@ Local<Value> TryCatch::StackTrace() const {
     return Local<Value>();
   }
 
-  return Local<Value>::New(static_cast<Value *>(trace));
+  return Local<Value>::New(trace);
 }
 
 Local<v8::Message> TryCatch::Message() const {

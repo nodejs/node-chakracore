@@ -43,7 +43,7 @@ Local<Value> Date::New(Isolate * isolate, double time) {
     return Local<Value>();
   }
 
-  return Local<Date>::New(static_cast<Date*>(newDateRef));
+  return Local<Date>::New(newDateRef);
 }
 
 // Not Implemented

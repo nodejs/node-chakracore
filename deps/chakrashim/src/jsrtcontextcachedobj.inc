@@ -55,16 +55,8 @@ DEFTYPE(URIError)
 
 
 // These prototype functions will be cached/shimmed
-DEFMETHOD(ArrayBuffer,    toString)
-DEFMETHOD(ArrayBuffer,    slice)
-DEFMETHOD(Boolean,        toString)
-DEFMETHOD(Date,           toString)
-DEFMETHOD(Function,       toString)
-DEFMETHOD(Number,         toString)
 DEFMETHOD(Object,         toString)
-DEFMETHOD(RegExp,         toString)
 DEFMETHOD(String,         concat)
-DEFMETHOD(String,         toString)
 
 #undef DEFTYPE
 #undef DEFMETHOD

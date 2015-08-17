@@ -32,7 +32,7 @@ Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate, size_t byte_length) {
                           &result) != JsNoError) {
     return Local<ArrayBuffer>();
   }
-  return static_cast<ArrayBuffer*>(result);
+  return Local<ArrayBuffer>::New(result);
 }
 
 struct ArrayBufferFinalizeInfo {
@@ -75,7 +75,7 @@ Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate,
     }
     return Local<ArrayBuffer>();
   }
-  return static_cast<ArrayBuffer*>(result);
+  return Local<ArrayBuffer>::New(result);
 }
 
 size_t ArrayBuffer::ByteLength() const {

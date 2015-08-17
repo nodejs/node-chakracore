@@ -33,7 +33,7 @@ Local<Number> Number::New(Isolate* isolate, double value) {
     return Local<Number>();
   }
 
-  return Local<Number>::New(static_cast<Number*>(ref));
+  return Local<Number>::New(ref);
 }
 
 Number *Number::Cast(v8::Value *obj) {

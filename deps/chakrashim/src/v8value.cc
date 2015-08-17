@@ -50,7 +50,7 @@ bool Value::IsNull() const {
 
 bool Value::IsTrue() const {
   bool isTrue;
-  if (JsEquals(*True(), (JsValueRef)this, &isTrue) != JsNoError) {
+  if (JsEquals(jsrt::GetTrue(), (JsValueRef)this, &isTrue) != JsNoError) {
     return false;
   }
 
@@ -59,7 +59,7 @@ bool Value::IsTrue() const {
 
 bool Value::IsFalse() const {
   bool isFalse;
-  if (JsEquals(*False(), (JsValueRef)this, &isFalse) != JsNoError) {
+  if (JsEquals(jsrt::GetFalse(), (JsValueRef)this, &isFalse) != JsNoError) {
     return false;
   }
 
@@ -197,7 +197,7 @@ Local<Boolean> Value::ToBoolean(Isolate* isolate) const {
     return Local<Boolean>();
   }
 
-  return Local<Boolean>::New(static_cast<Boolean*>(value));
+  return Local<Boolean>::New(value);
 }
 
 Local<Number> Value::ToNumber(Isolate* isolate) const {
@@ -206,7 +206,7 @@ Local<Number> Value::ToNumber(Isolate* isolate) const {
     return Local<Number>();
   }
 
-  return Local<Number>::New(static_cast<Number*>(value));
+  return Local<Number>::New(value);
 }
 
 Local<String> Value::ToString(Isolate* isolate) const {
@@ -215,7 +215,7 @@ Local<String> Value::ToString(Isolate* isolate) const {
     return Local<String>();
   }
 
-  return Local<String>::New(static_cast<String*>(value));
+  return Local<String>::New(value);
 }
 
 Local<Object> Value::ToObject(Isolate* isolate) const {
@@ -224,7 +224,7 @@ Local<Object> Value::ToObject(Isolate* isolate) const {
     return Local<Object>();
   }
 
-  return Local<Object>::New(static_cast<Object*>(value));
+  return Local<Object>::New(value);
 }
 
 Local<Integer> Value::ToInteger(Isolate* isolate) const {
@@ -236,7 +236,7 @@ Local<Integer> Value::ToInteger(Isolate* isolate) const {
     return Local<Integer>();
   }
 
-  return Local<Integer>::New(static_cast<Integer*>(integerRef));
+  return Local<Integer>::New(integerRef);
 }
 
 

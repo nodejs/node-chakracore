@@ -62,7 +62,7 @@ Local<External> External::New(Isolate* isolate, void* value) {
     return Local<External>();
   }
 
-  return Local<External>::New(static_cast<External*>(externalRef));
+  return Local<External>::New(externalRef);
 }
 
 bool External::IsExternal(const v8::Value* value) {

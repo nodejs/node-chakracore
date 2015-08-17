@@ -104,7 +104,9 @@ class Uint32;
 template <class T> class Local;
 template <class T> class Maybe;
 template <class T> class MaybeLocal;
-template <class T> class Persistent;
+template<class T> class NonCopyablePersistentTraits;
+template<class T> class PersistentBase;
+template<class T, class M = NonCopyablePersistentTraits<T> > class Persistent;
 template<typename T> class FunctionCallbackInfo;
 template<typename T> class PropertyCallbackInfo;
 
@@ -204,49 +206,112 @@ typedef void (*JitCodeEventHandler)(const JitCodeEvent *event);
 
 
 template <class T>
-class HandleBase {
- protected:
-  JsRef _ref;
-
+class Local {
  public:
-  HandleBase();
-  HandleBase(T *val);
-  template <class S>
-  HandleBase(HandleBase<S> that);
-  bool IsEmpty() const;
-  void Clear();
-  T *operator->() const;
-  T *operator*() const;
-  template <class S>
-  bool operator==(HandleBase<S> that) const;
-  template <class S>
-  bool operator!=(HandleBase<S> that) const;
+  V8_INLINE Local() : val_(0) {}
 
   template <class S>
-  HandleBase<S> As();
-  template <class S>
-  static HandleBase<T> Cast(HandleBase<S> that);
-};
+  V8_INLINE Local(Local<S> that)
+      : val_(reinterpret_cast<T*>(*that)) {
+    TYPE_CHECK(T, S);
+  }
 
-template <class T>
-class Local : public HandleBase<T> {
- public:
-  Local();
+  V8_INLINE bool IsEmpty() const { return val_ == 0; }
+  V8_INLINE void Clear() { val_ = 0; }
+  V8_INLINE T* operator->() const { return val_; }
+  V8_INLINE T* operator*() const { return val_; }
+
   template <class S>
-  Local(S *that);
+  V8_INLINE bool operator==(const Local<S>& that) const {
+    return val_ == that.val_;
+  }
+
   template <class S>
-  Local(Local<S> that);
+  V8_INLINE bool operator==(const Persistent<S>& that) const {
+    return val_ == that.val_;
+  }
+
   template <class S>
-  Local(HandleBase<S> that);
+  V8_INLINE bool operator!=(const Local<S>& that) const {
+    return !operator==(that);
+  }
+
   template <class S>
-  Local<S> As();
+  V8_INLINE bool operator!=(const Persistent<S>& that) const {
+    return !operator==(that);
+  }
+
   template <class S>
-  static Local<T> Cast(Local<S> that);
-  static Local<T> New(HandleBase<T> that);
-  static Local<T> New(Isolate* isolate, HandleBase<T> that);
-  static Local<T> New(Isolate* isolate, const Persistent<T>& that);
+  V8_INLINE static Local<T> Cast(Local<S> that) {
+    return Local<T>(T::Cast(*that));
+  }
+
+  template <class S>
+  V8_INLINE Local<S> As() {
+    return Local<S>::Cast(*this);
+  }
+
+  V8_INLINE static Local<T> New(Isolate* isolate, Local<T> that);
+  V8_INLINE static Local<T> New(Isolate* isolate,
+                                const Persistent<T>& that);
+
  private:
+  friend struct AcessorExternalDataType;
+  friend class AccessorSignature;
+  friend class Array;
+  friend class ArrayBuffer;
+  friend class ArrayBufferView;
+  friend class BooleanObject;
+  friend class Context;
+  friend class Date;
+  friend class Debug;
+  friend class External;
+  friend class Function;
+  friend struct FunctionCallbackData;
+  friend class FunctionTemplate;
+  friend struct FunctionTemplateData;
+  friend class HandleScope;
+  friend class Integer;
+  friend class Number;
+  friend class NumberObject;
+  friend class Object;
+  friend struct ObjectData;
+  friend class ObjectTemplate;
+  friend class Signature;
+  friend class Script;
+  friend class StackFrame;
+  friend class StackTrace;
+  friend class String;
+  friend class StringObject;
+  friend class Utils;
+  friend class TryCatch;
+  friend class UnboundScript;
+  friend class Value;
+  template <class F> friend class FunctionCallbackInfo;
   template <class F> friend class MaybeLocal;
+  template <class F> friend class PersistentBase;
+  template<class F, class M> friend class Persistent;
+  friend EXPORT Local<Primitive> Undefined(Isolate* isolate);
+  friend EXPORT Local<Primitive> Null(Isolate* isolate);
+  friend EXPORT Local<Boolean> True(Isolate* isolate);
+  friend EXPORT Local<Boolean> False(Isolate* isolate);
+
+  template <class S>
+  V8_INLINE Local(S* that)
+      : val_(that) {}
+  V8_INLINE static Local<T> New(Isolate* isolate, T* that) {
+    return New(that);
+  }
+
+  V8_INLINE Local(const Persistent<T>& that)
+    : val_(*that) {
+  }
+  V8_INLINE static Local<T> New(T* that);
+  V8_INLINE static Local<T> New(JsValueRef ref) {
+    return New(static_cast<T*>(ref));
+  }
+
+  T* val_;
 };
 
 
@@ -269,7 +334,7 @@ class MaybeLocal {
 
   template <class S>
   bool ToLocal(Local<S>* out) const {
-    out->_ref = IsEmpty() ? nullptr : this->val_;
+    out->val_ = IsEmpty() ? nullptr : this->val_;
     return !IsEmpty();
   }
 
@@ -289,27 +354,31 @@ class MaybeLocal {
   T* val_;
 };
 
-template<class T, class P>
+
+template <class T, class P>
 class WeakCallbackData {
  public:
   typedef void (*Callback)(const WeakCallbackData<T, P>& data);
 
-  Isolate* GetIsolate() const { return isolate_; }
-  Local<T> GetValue() const { return handle_; }
-  P* GetParameter() const { return parameter_; }
+  WeakCallbackData(Isolate* isolate, P* parameter, Local<T> handle)
+      : isolate_(isolate), parameter_(parameter), handle_(handle) {}
 
-  WeakCallbackData(Isolate* isolate, Local<T> handle, P* parameter)
-    : isolate_(isolate), handle_(handle), parameter_(parameter) {
-  }
+  V8_INLINE Isolate* GetIsolate() const { return isolate_; }
+  V8_INLINE P* GetParameter() const { return parameter_; }
+  V8_INLINE Local<T> GetValue() const { return handle_; }
+
  private:
   Isolate* isolate_;
-  Local<T> handle_;
   P* parameter_;
+  Local<T> handle_;
 };
 
+
 namespace chakrashim {
-class InternalMethods;
-struct WeakReferenceCallbackWrapper;
+struct WeakReferenceCallbackWrapper {
+  void *parameters;
+  WeakCallbackData<Value, void>::Callback callback;
+};
 template class EXPORT std::shared_ptr<WeakReferenceCallbackWrapper>;
 
 // A helper method for setting an object with a WeakReferenceCallback. The
@@ -324,89 +393,198 @@ EXPORT void SetObjectWeakReferenceCallback(
 EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
 }
 
+
 template <class T>
-class Persistent : public HandleBase<T> {
- private:
-  std::shared_ptr<chakrashim::WeakReferenceCallbackWrapper> _weakWrapper;
-
-  void SetNewRef(JsValueRef ref);
-
+class PersistentBase {
  public:
-  Persistent();
-  ~Persistent();
-  template <class S>
-  explicit Persistent(Persistent<S> that);
-  template <class S>
-  explicit Persistent(Isolate* isolate, Persistent<S> that);
+  V8_INLINE void Reset();
 
   template <class S>
-  explicit Persistent(S *that);
+  V8_INLINE void Reset(Isolate* isolate, const Handle<S>& other);
 
   template <class S>
-  explicit Persistent(HandleBase<S> that);
-  template <class S>
-  explicit Persistent(Isolate* isolate, HandleBase<S> that);
+  V8_INLINE void Reset(Isolate* isolate, const PersistentBase<S>& other);
 
-  Persistent(const Persistent<T> &that);
-  explicit Persistent(const HandleBase<T> &that);
+  V8_INLINE bool IsEmpty() const { return val_ == NULL; }
+  V8_INLINE void Empty() { Reset(); }
 
   template <class S>
-  Persistent<S> As();
-  void Dispose();
+  V8_INLINE bool operator==(const PersistentBase<S>& that) const {
+    return val_ == that.val_;
+  }
+
+  template <class S>
+  V8_INLINE bool operator==(const Handle<S>& that) const {
+    return val_ == that.val_;
+  }
+
+  template <class S>
+  V8_INLINE bool operator!=(const PersistentBase<S>& that) const {
+    return !operator==(that);
+  }
+
+  template <class S>
+  V8_INLINE bool operator!=(const Handle<S>& that) const {
+    return !operator==(that);
+  }
+
+  template <typename P>
+  V8_INLINE V8_DEPRECATE_SOON(
+      "use WeakCallbackInfo version",
+      void SetWeak(P* parameter,
+                   typename WeakCallbackData<T, P>::Callback callback));
 
   template<typename P>
-  void SetWeak(
-    P* parameter,
-    typename WeakCallbackData<T, P>::Callback callback);
+  V8_INLINE P* ClearWeak();
 
-  void ClearWeak();
-  void MarkIndependent();
-  bool IsNearDeath() const;
-  bool IsWeak() const;
-  void SetWrapperClassId(uint16_t class_id);
+  V8_INLINE void ClearWeak() { ClearWeak<void>(); }
+  V8_INLINE void MarkIndependent();
+  V8_INLINE void MarkPartiallyDependent();
+  V8_INLINE bool IsIndependent() const;
+  V8_INLINE bool IsNearDeath() const;
+  V8_INLINE bool IsWeak() const;
+  V8_INLINE void SetWrapperClassId(uint16_t class_id);
 
-  void Reset();
-  template <class S>
-  void Reset(Isolate* isolate, const HandleBase<S>& other);
-  template <class S>
-  void Reset(Isolate* isolate, const Persistent<S>& other);
+ private:
+  template<class F> friend class Local;
+  template<class F1, class F2> friend class Persistent;
 
-  // CHAKRA: Addition from v8 API
-  Persistent<T>& operator=(const Persistent<T> &rhs);
+  explicit V8_INLINE PersistentBase(T* val) : val_(val) {}
+  PersistentBase(PersistentBase& other) = delete;  // NOLINT
+  void operator=(PersistentBase&) = delete;
+  V8_INLINE static T* New(Isolate* isolate, T* that);
 
-  // CHAKRA: Addition from v8 API
-  Persistent<T>& operator=(const HandleBase<T> &rhs);
-
-  // CHAKRA: Addition from v8 API
-  template <class S>
-  Persistent<T>& operator=(const Persistent<S> &rhs);
-
-  // CHAKRA: Addition from v8 API
-  template <class S>
-  Persistent<T>& operator=(const HandleBase<S> &rhs);
-
-  // CHAKRA: Addition from v8 API
-  template <class S>
-  Persistent<T>& operator=(S* that);
-
-  template <class S>
-  static Persistent<T> Cast(Persistent<S> that);
-  static Persistent<T> New(HandleBase<T> that);
+  T* val_;
+  std::shared_ptr<chakrashim::WeakReferenceCallbackWrapper> _weakWrapper;
 };
+
+
+template<class T>
+class NonCopyablePersistentTraits {
+ public:
+  typedef Persistent<T, NonCopyablePersistentTraits<T> > NonCopyablePersistent;
+  static const bool kResetInDestructor = true;  // chakra: changed to true!
+  template<class S, class M>
+  V8_INLINE static void Copy(const Persistent<S, M>& source,
+                             NonCopyablePersistent* dest) {
+    Uncompilable<Object>();
+  }
+  template<class O> V8_INLINE static void Uncompilable() {
+    TYPE_CHECK(O, Primitive);
+  }
+};
+
+
+template<class T>
+struct CopyablePersistentTraits {
+  typedef Persistent<T, CopyablePersistentTraits<T> > CopyablePersistent;
+  static const bool kResetInDestructor = true;
+  template<class S, class M>
+  static V8_INLINE void Copy(const Persistent<S, M>& source,
+                             CopyablePersistent* dest) {
+    // do nothing, just allow copy
+  }
+};
+
+
+template <class T, class M>
+class Persistent : public PersistentBase<T> {
+ public:
+  V8_INLINE Persistent() : PersistentBase<T>(0) { }
+
+  template <class S>
+  V8_INLINE Persistent(Isolate* isolate, Handle<S> that)
+      : PersistentBase<T>(PersistentBase<T>::New(isolate, *that)) {
+    TYPE_CHECK(T, S);
+  }
+
+  template <class S, class M2>
+  V8_INLINE Persistent(Isolate* isolate, const Persistent<S, M2>& that)
+    : PersistentBase<T>(PersistentBase<T>::New(isolate, *that)) {
+    TYPE_CHECK(T, S);
+  }
+
+  V8_INLINE Persistent(const Persistent& that) : PersistentBase<T>(0) {
+    Copy(that);
+  }
+
+  template <class S, class M2>
+  V8_INLINE Persistent(const Persistent<S, M2>& that) : PersistentBase<T>(0) {
+    Copy(that);
+  }
+
+  V8_INLINE Persistent& operator=(const Persistent& that) { // NOLINT
+    Copy(that);
+    return *this;
+  }
+
+  template <class S, class M2>
+  V8_INLINE Persistent& operator=(const Persistent<S, M2>& that) { // NOLINT
+    Copy(that);
+    return *this;
+  }
+
+  V8_INLINE ~Persistent() {
+    if (M::kResetInDestructor) this->Reset();
+  }
+
+  template <class S>
+  V8_INLINE static Persistent<T>& Cast(Persistent<S>& that) { // NOLINT
+    return reinterpret_cast<Persistent<T>&>(that);
+  }
+
+  template <class S>
+  V8_INLINE Persistent<S>& As() { // NOLINT
+    return Persistent<S>::Cast(*this);
+  }
+
+ private:
+  friend class Object;
+  friend struct ObjectData;
+  friend class ObjectTemplate;
+  friend struct ObjectTemplateData;
+  friend struct TemplateData;
+  friend struct FunctionCallbackData;
+  friend class FunctionTemplate;
+  friend struct FunctionTemplateData;
+  friend class Utils;
+  template<class F> friend class Local;
+  template<class F> friend class ReturnValue;
+
+  V8_INLINE Persistent(T* that)
+    : PersistentBase<T>(PersistentBase<T>::New(nullptr, that)) { }
+
+  V8_INLINE T* operator*() const { return this->val_; }
+  V8_INLINE T* operator->() const { return this->val_; }
+
+  template<class S, class M2>
+  V8_INLINE void Copy(const Persistent<S, M2>& that);
+
+  template <class S>
+  V8_INLINE Persistent& operator=(const Local<S>& other) {
+    Reset(nullptr, other);
+    return *this;
+  }
+  V8_INLINE Persistent& operator=(JsRef other) {
+    return operator=(Local<T>(static_cast<T*>(other)));
+  }
+};
+
 
 template <class T>
 class Eternal : private Persistent<T> {
  public:
   Eternal() {}
+
   template<class S>
   Eternal(Isolate* isolate, Local<S> handle) {
     Set(isolate, handle);
   }
 
   Local<T> Get(Isolate* isolate) {
-    return Local<T>::New(*this);
+    return Local<T>::New(isolate, *this);
   }
-  bool IsEmpty() { return __super::IsEmpty(); }
+
   template<class S> void Set(Isolate* isolate, Local<S> handle) {
     Reset(isolate, handle);
   }
@@ -873,16 +1051,16 @@ class EXPORT Object : public Value {
   static Object *Cast(Value *obj);
 
  private:
-  bool Set(Handle<Value> key,
-           Handle<Value> value,
-           PropertyAttribute attribs,
+  friend class ObjectTemplate;
+  friend class Utils;
+
+  bool Set(Handle<Value> key, Handle<Value> value, PropertyAttribute attribs,
            bool force);
   JsErrorCode GetObjectData(struct ObjectData** objectData);
   JsErrorCode InternalFieldHelper(void ***externalArray, int *count);
   JsErrorCode ExternalArrayDataHelper(ExternalArrayData **data);
   bool SupportsExternalArrayData(ExternalArrayData **data);
 
-  friend ObjectTemplate;
   bool SetAccessor(Handle<String> name,
                    AccessorGetterCallback getter,
                    AccessorSetterCallback setter,
@@ -891,7 +1069,6 @@ class EXPORT Object : public Value {
                    PropertyAttribute attribute,
                    Handle<AccessorSignature> signature);
 
-  friend chakrashim::InternalMethods;
   ObjectTemplate* GetObjectTemplate();
 };
 
@@ -986,7 +1163,7 @@ class FunctionCallbackInfo {
   int Length() const { return _length; }
   Local<Value> operator[](int i) const {
     return (i >= 0 && i < _length) ?
-      Local<Value>(_args[i]) : Local<Value>(static_cast<Value*>(*Undefined()));
+      _args[i] : Undefined(nullptr).As<Value>();
   }
   Local<Function> Callee() const { return _callee; }
   Local<Object> This() const { return _thisPointer; }
@@ -1048,15 +1225,13 @@ class PropertyCallbackInfo {
        : _data(data),
          _thisObject(thisObject),
          _holder(holder),
-         _returnValue(static_cast<Value*>(JS_INVALID_REFERENCE)),
-         _context(Context::GetCurrent()) {
+         _returnValue(static_cast<Value*>(JS_INVALID_REFERENCE)) {
   }
  private:
   Local<Value> _data;
   Local<Object> _thisObject;
   Local<Object> _holder;
   Value* _returnValue;
-  Local<Context> _context;
 };
 
 typedef void (*FunctionCallback)(const FunctionCallbackInfo<Value>& info);
@@ -1353,7 +1528,6 @@ class EXPORT ObjectTemplate : public Template {
   static Local<ObjectTemplate> New(Isolate* isolate);
 
   Local<Object> NewInstance();
-  Local<Object> NewInstance(Handle<Object> prototype);
   void SetClassName(Handle<String> name);
   void SetSupportsOverrideToString();
 
@@ -1391,6 +1565,14 @@ class EXPORT ObjectTemplate : public Template {
     bool turned_on_by_default = true);
 
   void SetInternalFieldCount(int value);
+
+ private:
+  friend struct FunctionCallbackData;
+  friend struct FunctionTemplateData;
+  friend class Utils;
+
+  Local<Object> NewInstance(Handle<Object> prototype);
+  Handle<String> GetClassName();
 };
 
 class EXPORT External : public Value {
@@ -1423,10 +1605,10 @@ class EXPORT AccessorSignature : public Data {
 };
 
 
-EXPORT Handle<Primitive> Undefined(Isolate* isolate = nullptr);
-EXPORT Handle<Primitive> Null(Isolate* isolate = nullptr);
-EXPORT Handle<Boolean> True(Isolate* isolate = nullptr);
-EXPORT Handle<Boolean> False(Isolate* isolate = nullptr);
+EXPORT Handle<Primitive> Undefined(Isolate* isolate);
+EXPORT Handle<Primitive> Null(Isolate* isolate);
+EXPORT Handle<Boolean> True(Isolate* isolate);
+EXPORT Handle<Boolean> False(Isolate* isolate);
 EXPORT bool SetResourceConstraints(ResourceConstraints *constraints);
 
 
@@ -1745,137 +1927,36 @@ class EXPORT Locker {
   explicit Locker(Isolate* isolate) {}
 };
 
-//
-// HandleBase<T> members
-//
-
-template <class T>
-HandleBase<T>::HandleBase(T *val)
-    : _ref(val) {
-}
-
-template <class T>
-HandleBase<T>::HandleBase()
-    : _ref(JS_INVALID_REFERENCE) {
-}
-
-template <class T>
-template <class S>
-HandleBase<T>::HandleBase(HandleBase<S> that)
-    : _ref(*that) {
-}
-
-template <class T>
-bool HandleBase<T>::IsEmpty() const {
-  return _ref == JS_INVALID_REFERENCE;
-}
-
-template <class T>
-void HandleBase<T>::Clear() {
-  _ref = JS_INVALID_REFERENCE;
-}
-
-template <class T>
-T *HandleBase<T>::operator->() const {
-  return static_cast<T *>(_ref);
-}
-
-template <class T>
-T *HandleBase<T>::operator*() const {
-  return static_cast<T *>(_ref);
-}
-
-template <class T>
-template <class S>
-bool HandleBase<T>::operator==(HandleBase<S> that) const {
-  return _ref == *that;
-}
-
-template <class T>
-template <class S>
-bool HandleBase<T>::operator!=(HandleBase<S> that) const {
-  return _ref != *that;
-}
-
-template <class T>
-template <class S>
-HandleBase<S> HandleBase<T>::As() {
-  return HandleBase<S>::Cast(*this);
-}
-
-template <class T>
-template <class S>
-HandleBase<T> HandleBase<T>::Cast(HandleBase<S> that) {
-  return HandleBase<T>(T::Cast(*that));
-}
 
 //
 // Local<T> members
 //
 
 template <class T>
-Local<T>::Local() {
-}
-
-// CHAKRA-TODO: This one is a little strange. It's used in a couple of places
-// outside of the class to cast from a Persistent<T> to a Local<T>. This seems
-// incorrect since the persistent handle could be released, and there would be
-// no scope holding on to the local handle. Something to look at later.
-template <class T>
-template <class S>
-Local<T>::Local(S *that)
-    : HandleBase<T>(that) {
-}
-
-template <class T>
-template <class S>
-Local<T>::Local(Local<S> that)
-    : HandleBase<T>(*that) {
-}
-
-template <class T>
-template <class S>
-Local<T>::Local(HandleBase<S> that)
-    : HandleBase<T>(reinterpret_cast<T*>(*that)) {
-}
-
-template <class T>
-template <class S>
-Local<S> Local<T>::As() {
-  return Local<S>::Cast(*this);
-}
-
-template <class T>
-template <class S>
-Local<T> Local<T>::Cast(Local<S> that) {
-  return Local<T>(T::Cast(*that));
-}
-
-template <class T>
-Local<T> Local<T>::New(HandleBase<T> that) {
-  if (!HandleScope::GetCurrent()->AddLocal(*that)) {
+Local<T> Local<T>::New(T* that) {
+  if (!HandleScope::GetCurrent()->AddLocal(that)) {
     return Local<T>();
   }
-  return Local<T>(*that);
+  return Local<T>(that);
 }
 
 // Context are not javascript values, so we need to specialize them
 template <>
-inline Local<Context> Local<Context>::New(HandleBase<Context> that) {
-  if (!HandleScope::GetCurrent()->AddLocalContext(*that)) {
+Local<Context> Local<Context>::New(Context* that) {
+  if (!HandleScope::GetCurrent()->AddLocalContext(that)) {
     return Local<Context>();
   }
-  return Local<Context>(*that);
+  return Local<Context>(that);
 }
 
 template <class T>
-Local<T> Local<T>::New(Isolate* isolate, HandleBase<T> that) {
-  return New(that);
+Local<T> Local<T>::New(Isolate* isolate, Local<T> that) {
+  return New(isolate, *that);
 }
 
 template <class T>
 Local<T> Local<T>::New(Isolate* isolate, const Persistent<T>& that) {
-  return New(that);
+  return New(isolate, *that);
 }
 
 //
@@ -1883,245 +1964,113 @@ Local<T> Local<T>::New(Isolate* isolate, const Persistent<T>& that) {
 //
 
 template <class T>
-Persistent<T>::Persistent() {
-}
-
-template <class T>
-Persistent<T>::Persistent(const Persistent<T> &that)
-    : HandleBase<T>(*that), _weakWrapper(that._weakWrapper) {
-  // CONSIDER: Whether we need to do a type/inheritance check here
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE && !IsWeak()) {
-    JsAddRef(_ref, nullptr);
+T* PersistentBase<T>::New(Isolate* isolate, T* that) {
+  if (that) {
+    JsAddRef(static_cast<JsRef>(that), nullptr);
   }
+  return that;
 }
 
-template <class T>
-template <class S>
-Persistent<T>::Persistent(Persistent<S> that)
-    : HandleBase<T>(*that), _weakWrapper(that._weakWrapper) {
-  // CONSIDER: Whether we need to do a type/inheritance check here
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE && !IsWeak()) {
-    JsAddRef(_ref, nullptr);
-  }
-}
+template <class T, class M>
+template <class S, class M2>
+void Persistent<T, M>::Copy(const Persistent<S, M2>& that) {
+  TYPE_CHECK(T, S);
+  this->Reset();
+  if (that.IsEmpty()) return;
 
-template <class T>
-template <class S>
-Persistent<T>::Persistent(Isolate* isolate, Persistent<S> that)
-    : HandleBase<T>(*that), _weakWrapper(that._weakWrapper) {
-  // CONSIDER: Whether we need to do a type/inheritance check here
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE && !IsWeak()) {
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-template <class T>
-template <class S>
-Persistent<T>::Persistent(S *that)
-    : HandleBase<T>(that) {
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE) {
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-template <class T>
-Persistent<T>::Persistent(const HandleBase<T> &that)
-    : HandleBase<T>(*that) {
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE) {
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-template <class T>
-template <class S>
-Persistent<T>::Persistent(HandleBase<S> that)
-    : HandleBase<T>(*that) {
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE) {
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-template <class T>
-template <class S>
-Persistent<T>::Persistent(Isolate* isolate, HandleBase<S> that)
-    : HandleBase<T>(*that) {
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE) {
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-// Note to code reviwer: We duplicate code here in order to prevent any
-
-template <class T>
-Persistent<T>::~Persistent() {
-  Dispose();
-}
-
-template <class T>
-Persistent<T>& Persistent<T>::operator=(const Persistent<T> &rhs) {
-  if (this != &rhs) {
-    if (!rhs.IsWeak()) {
-      SetNewRef(*rhs);
-    } else {
-      Dispose();
-      _ref = rhs._ref;
-      _weakWrapper = rhs._weakWrapper;
-    }
-  }
-  return *this;
-}
-
-template <class T>
-Persistent<T>& Persistent<T>::operator=(const HandleBase<T> &rhs) {
-  SetNewRef(*rhs);
-  return *this;
-}
-
-template <class T>
-template <class S>
-Persistent<T>& Persistent<T>::operator=(const Persistent<S> &rhs) {
-  if (!rhs.IsWeak()) {
-    SetNewRef(*rhs);
-  } else {
-    Dispose();
-    _ref = rhs._ref;
-    _weakWrapper = rhs._weakWrapper;
+  this->val_ = that.val_;
+  this->_weakWrapper = that._weakWrapper;
+  if (val_ && !IsWeak()) {
+    JsAddRef(val_, nullptr);
   }
 
-  return *this;
+  M::Copy(that, this);
 }
 
 template <class T>
-template <class S>
-Persistent<T>& Persistent<T>::operator=(const HandleBase<S> &rhs) {
-  SetNewRef(*rhs);
-  return *this;
-}
-
-template <class T>
-template <class S>
-Persistent<T>& Persistent<T>::operator=(S* that) {
-  SetNewRef(reinterpret_cast<JsValueRef>(that));
-  return *this;
-}
-
-template <class T>
-void Persistent<T>::SetNewRef(JsValueRef ref) {
-  Dispose();
-
-  _ref = ref;
-  if (_ref != JS_INVALID_REFERENCE) {
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-template <class T>
-template <class S>
-Persistent<S> Persistent<T>::As() {
-  return Persistent<S>::Cast(*this);
-}
-
-template <class T>
-void Persistent<T>::Dispose() {
-  // CHAKRA-TODO: HandleBase error?
-  if (_ref != JS_INVALID_REFERENCE && !V8::IsDead()) {
-    if (IsWeak()) {
-      if (_weakWrapper.unique()) {
-        chakrashim::ClearObjectWeakReferenceCallback(_ref, /*revive*/false);
-      }
-      _weakWrapper.reset();
-    } else {
-      JsRelease(_ref, nullptr);
-    }
-
-    _ref = JS_INVALID_REFERENCE;
-  }
-}
-
-template <class T>
-void Persistent<T>::Reset() {
-  Dispose();
-}
-
-template <class T>
-template <class S>
-void Persistent<T>::Reset(Isolate* isolate, const HandleBase<S>& other) {
-  *this = other;
-}
-
-template <class T>
-template <class S>
-void Persistent<T>::Reset(Isolate* isolate, const Persistent<S>& other) {
-  *this = other;
-}
-
-template <class T>
-template<typename P>
-void Persistent<T>::SetWeak(
-  P* parameter,
-  typename WeakCallbackData<T, P>::Callback callback) {
-  if (_ref != JS_INVALID_REFERENCE) {
-    bool wasStrong = !IsWeak();
-    typedef typename WeakCallbackData<Value, void>::Callback Callback;
-    chakrashim::SetObjectWeakReferenceCallback(
-      _ref, reinterpret_cast<Callback>(callback), parameter, &_weakWrapper);
-    if (wasStrong) {
-      JsRelease(_ref, nullptr);
-    }
-  }
-}
-
-template <class T>
-void Persistent<T>::ClearWeak() {
-  if (_ref != JS_INVALID_REFERENCE && IsWeak()) {
-    if (_weakWrapper.unique()) {
-      chakrashim::ClearObjectWeakReferenceCallback(_ref, /*revive*/true);
-    }
-    _weakWrapper.reset();
-
-    JsAddRef(_ref, nullptr);
-  }
-}
-
-template <class T>
-void Persistent<T>::MarkIndependent() {
-  // CONSIDER: It's a little unclear from the documentation just what this is
-  // supposed to do...
-}
-
-template <class T>
-bool Persistent<T>::IsNearDeath() const {
-  // CHAKRA-TODO: Always return true for an assert for now, need to implement.
+bool PersistentBase<T>::IsNearDeath() const {
   return true;
 }
 
 template <class T>
-bool Persistent<T>::IsWeak() const {
+bool PersistentBase<T>::IsWeak() const {
   return static_cast<bool>(_weakWrapper);
 }
 
 template <class T>
-void Persistent<T>::SetWrapperClassId(uint16_t class_id) {
-  // CONSIDER: Ignore. We don't do anything with this.
+void PersistentBase<T>::Reset() {
+  if (this->IsEmpty()) return;
+
+  if (IsWeak()) {
+    if (_weakWrapper.unique()) {
+      chakrashim::ClearObjectWeakReferenceCallback(val_, /*revive*/false);
+    }
+    _weakWrapper.reset();
+  } else {
+    JsRelease(val_, nullptr);
+  }
+
+  val_ = nullptr;
 }
 
 template <class T>
 template <class S>
-Persistent<T> Persistent<T>::Cast(Persistent<S> that) {
-  return Persistent<T>(T::Cast(*that));
+void PersistentBase<T>::Reset(Isolate* isolate, const Handle<S>& other) {
+  TYPE_CHECK(T, S);
+  Reset();
+  if (other.IsEmpty()) return;
+  this->val_ = New(isolate, other.val_);
 }
 
 template <class T>
-Persistent<T> Persistent<T>::New(HandleBase<T> that) {
-  return Persistent<T>(that);
+template <class S>
+void PersistentBase<T>::Reset(Isolate* isolate,
+                              const PersistentBase<S>& other) {
+  TYPE_CHECK(T, S);
+  Reset();
+  if (other.IsEmpty()) return;
+  this->val_ = New(isolate, other.val_);
 }
+
+template <class T>
+template <typename P>
+void PersistentBase<T>::SetWeak(
+    P* parameter,
+    typename WeakCallbackData<T, P>::Callback callback) {
+  if (this->IsEmpty()) return;
+
+  bool wasStrong = !IsWeak();
+  typedef typename WeakCallbackData<Value, void>::Callback Callback;
+  chakrashim::SetObjectWeakReferenceCallback(
+    val_, reinterpret_cast<Callback>(callback), parameter, &_weakWrapper);
+  if (wasStrong) {
+    JsRelease(val_, nullptr);
+  }
+}
+
+template <class T>
+template <typename P>
+P* PersistentBase<T>::ClearWeak() {
+  if (!IsWeak()) return nullptr;
+
+  P* parameters = reinterpret_cast<P*>(_weakWrapper->parameters);
+  if (_weakWrapper.unique()) {
+    chakrashim::ClearObjectWeakReferenceCallback(val_, /*revive*/true);
+  }
+  _weakWrapper.reset();
+
+  JsAddRef(val_, nullptr);
+  return parameters;
+}
+
+template <class T>
+void PersistentBase<T>::MarkIndependent() {
+}
+
+template <class T>
+void PersistentBase<T>::SetWrapperClassId(uint16_t class_id) {
+}
+
 
 //
 // HandleScope template members

@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "jsrt.h"
 #include "v8.h"
 #include "jsrtproxyutils.h"
 #include "jsrtcontextshim.h"

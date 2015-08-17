@@ -18,7 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
+#include "v8chakra.h"
 #include "jsrtutils.h"
 
 namespace v8 {
@@ -39,8 +39,7 @@ Local<Value> BooleanObject::New(bool value) {
     return Local<Value>();
   }
 
-  return Local<BooleanObject>::New(
-    static_cast<BooleanObject*>(newBooleanObjectRef));
+  return Local<BooleanObject>::New(newBooleanObjectRef);
 }
 
 BooleanObject *BooleanObject::Cast(v8::Value *obj) {

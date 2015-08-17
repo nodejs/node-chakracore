@@ -73,22 +73,22 @@ static JsErrorCode NewTypedArray(ContextShim::GlobalType constructorIndex,
 }
 
 template <class T>
-Local<T> NewTypedArray(ContextShim::GlobalType constructorIndex,
-                       Handle<ArrayBuffer> array_buffer,
-                       size_t byte_offset, size_t length) {
+Local<T> Utils::NewTypedArray(ContextShim::GlobalType constructorIndex,
+                              Handle<ArrayBuffer> array_buffer,
+                              size_t byte_offset, size_t length) {
   JsValueRef result;
-  if (NewTypedArray(constructorIndex, array_buffer, byte_offset, length,
-                    &result) != JsNoError) {
+  if (v8::NewTypedArray(constructorIndex, array_buffer, byte_offset, length,
+                        &result) != JsNoError) {
     return Local<T>();
   }
-  return static_cast<T*>(result);
+  return Local<T>::New(result);
 }
 
 #define DEFINE_TYPEDARRAY_NEW(ArrayType) \
   Local<ArrayType##Array> v8::ArrayType##Array::New(  \
                             Handle<ArrayBuffer> array_buffer, size_t byte_offset,  \
                             size_t length) {  \
-    return NewTypedArray<ArrayType##Array>( \
+    return Utils::NewTypedArray<ArrayType##Array>( \
              ContextShim::GlobalType::ArrayType##Array, \
              array_buffer, byte_offset, length);  \
 }

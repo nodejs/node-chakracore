@@ -38,8 +38,7 @@ Local<Value> StringObject::New(Handle<String> value) {
     return Local<Value>();
   }
 
-  return Local<StringObject>::New(
-    static_cast<StringObject*>(newStringObjectRef));
+  return Local<StringObject>::New(newStringObjectRef);
 }
 
 StringObject *StringObject::Cast(v8::Value *obj) {

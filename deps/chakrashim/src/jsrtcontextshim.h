@@ -104,9 +104,6 @@ class ContextShim {
 
   static ContextShim * GetCurrent();
 
-  template <class R>
-  static R ExecuteInContextOf(JsValueRef object, const std::function<R()> & fn);
-
  private:
   ContextShim(IsolateShim * isolateShim, JsContextRef context, bool exposeGC,
               JsValueRef globalObjectTemplateInstance);
@@ -172,10 +169,4 @@ class ContextShim {
   std::vector<void*> embedderData;
 };
 
-JsValueRef CALLBACK PrototypeFunctionCrossContextShim(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
 }  // namespace jsrt

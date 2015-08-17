@@ -185,7 +185,7 @@ bool ContextShim::InitializeGlobalPrototypeFunctions() {
                   GlobalType type, JsPropertyIdRef functionIdRef) {
     // Cache the builtin function on the type's prototype
     JsValueRef prototype;
-    if (!InitializeBuiltIn(&globalPrototypeFunction[index],
+    return InitializeBuiltIn(&globalPrototypeFunction[index],
                            [=, &prototype](JsValueRef * value) {
       JsErrorCode error = JsGetProperty(
         globalConstructor[type], prototypeIdRef, &prototype);
@@ -194,19 +194,7 @@ bool ContextShim::InitializeGlobalPrototypeFunctions() {
       }
 
       return JsGetProperty(prototype, functionIdRef, value);
-    })) {
-      return false;
-    }
-
-    // Replace the builtin function with a cross context shim function
-    JsValueRef function;
-    if (JsCreateFunction(jsrt::PrototypeFunctionCrossContextShim,
-        reinterpret_cast<void*>(index),
-        &function) != JsNoError) {
-        return false;
-    }
-    return JsSetProperty(prototype, functionIdRef, function,
-        false) == JsNoError;
+    });
   };
 
   struct TypeMethodPair {
@@ -234,18 +222,26 @@ bool ContextShim::InitializeGlobalPrototypeFunctions() {
 // Replace (cached) Object.prototype.toString with a shim to support
 // ObjectTemplate class name. Called after InitializeGlobalPrototypeFunctions().
 bool ContextShim::InitializeObjectPrototypeToStringShim() {
-  JsValueRef function;
-  if (!InitializeBuiltIn(&function, [=](JsValueRef * value) {
-    JsErrorCode error = JsCreateFunction(
-      v8::chakrashim::InternalMethods::ObjectPrototypeToStringShim,
-      GetGlobalPrototypeFunction(GlobalPrototypeFunction::Object_toString),
-      value);
-    if (error != JsNoError) {
-      return error;
-    }
+  IsolateShim* iso = GetIsolateShim();
 
-    return JsNoError;
-  })) {
+  JsValueRef objectPrototype;
+  if (JsGetProperty(GetObjectConstructor(),
+                    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::prototype),
+                    &objectPrototype) != JsNoError) {
+    return false;
+  }
+
+  JsValueRef function;
+  if (JsCreateFunction(v8::Utils::ObjectPrototypeToStringShim,
+                       GetGlobalPrototypeFunction(
+                         GlobalPrototypeFunction::Object_toString),
+                       &function) != JsNoError) {
+    return false;
+  }
+
+  if (JsSetProperty(objectPrototype,
+                    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::toString),
+                    function, false) != JsNoError) {
     return false;
   }
 
@@ -665,54 +661,32 @@ JsValueRef ContextShim::GetCreateTargetFunction() {
                                &createTargetFunction);
 }
 
+}  // namespace jsrt
 
-// This shim enables a builtin prototype function to support cross context
-// objects. When "this" argument is cross context, marshal all arguments and
-// make the call in "this" argument context. Otherwise delegate the call to
-// cached function in current context.
-JsValueRef CALLBACK PrototypeFunctionCrossContextShim(
+namespace v8 {
+
+// This shim wraps Object.prototype.toString to supports ObjectTemplate class
+// name.
+JsValueRef CALLBACK Utils::ObjectPrototypeToStringShim(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState) {
-    ContextShim * originalContextShim = ContextShim::GetCurrent();
-    ContextShim::GlobalPrototypeFunction index =
-        *reinterpret_cast<ContextShim::GlobalPrototypeFunction*>(&callbackState);
-
-    JsValueRef function = originalContextShim->GetGlobalPrototypeFunction(index);
-    JsValueRef result;
-    if (JsCallFunction(function, arguments, argumentCount,
-        &result) != JsNoError) {
-        return JS_INVALID_REFERENCE;
-    }
-    return result;
-}
-
-}  // namespace jsrt
-
-namespace v8 {
-namespace chakrashim {
-
-// This shim wraps Object.prototype.toString to supports ObjectTemplate class
-// name.
-JsValueRef CALLBACK InternalMethods::ObjectPrototypeToStringShim(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
   if (argumentCount >= 1) {
     using namespace v8;
     Isolate* iso = Isolate::GetCurrent();
     HandleScope scope(iso);
 
     Object* obj = static_cast<Object*>(arguments[0]);
-    Local<String> str = InternalMethods::GetClassName(obj);
-    if (!str.IsEmpty()) {
-      str = String::Concat(String::NewFromUtf8(iso, "[object "), str);
-      str = String::Concat(str, String::NewFromUtf8(iso, "]"));
-      return *str;
+    ObjectTemplate* objTemplate = obj->GetObjectTemplate();
+    if (objTemplate) {
+      Local<String> str = objTemplate->GetClassName();
+      if (!str.IsEmpty()) {
+        str = String::Concat(String::NewFromUtf8(iso, "[object "), str);
+        str = String::Concat(str, String::NewFromUtf8(iso, "]"));
+        return *str;
+      }
     }
   }
 
@@ -725,5 +699,4 @@ JsValueRef CALLBACK InternalMethods::ObjectPrototypeToStringShim(
   return result;
 }
 
-}  // namespace chakrashim
 }  // namespace v8

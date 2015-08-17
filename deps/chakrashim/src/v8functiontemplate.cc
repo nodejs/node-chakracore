@@ -50,23 +50,20 @@ struct FunctionCallbackData {
                        Handle<Value> aData,
                        Handle<Signature> aSignature)
       : callback(aCallback),
-        data(Persistent<Value>(aData)),
-        signature(Persistent<Signature>(aSignature)),
-        instanceTemplate(),
-        prototype() {
+        data(nullptr, aData),
+        signature(nullptr, aSignature) {
     HandleScope scope;
-    instanceTemplate =
-      Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
+    instanceTemplate = ObjectTemplate::New(nullptr);
   }
 
   static void CALLBACK FinalizeCallback(_In_opt_ void *data) {
     if (data != nullptr) {
       FunctionCallbackData* templateData =
         reinterpret_cast<FunctionCallbackData*>(data);
-      templateData->data.Dispose();
-      templateData->signature.Dispose();
-      templateData->instanceTemplate.Dispose();
-      templateData->prototype.Dispose();
+      templateData->data.Reset();
+      templateData->signature.Reset();
+      templateData->instanceTemplate.Reset();
+      templateData->prototype.Reset();
       delete templateData;
     }
   }
@@ -80,9 +77,8 @@ struct FunctionCallbackData {
       return true;
     }
 
-    Local<FunctionTemplate> receiver =
-      reinterpret_cast<FunctionTemplate*>(*signature);
-    return chakrashim::CheckSignature(receiver, thisPointer, holder);
+    return Utils::CheckSignature(signature.As<FunctionTemplate>(),
+                                 thisPointer, holder);
   }
 
   static JsValueRef CALLBACK FunctionInvoked(_In_ JsValueRef callee,
@@ -100,7 +96,7 @@ struct FunctionCallbackData {
       return JS_INVALID_REFERENCE;
     }
 
-    FunctionCallbackData *callbackData =
+    FunctionCallbackData* callbackData =
       reinterpret_cast<FunctionCallbackData*>(externalData);
 
     Local<Object> thisPointer;
@@ -113,7 +109,7 @@ struct FunctionCallbackData {
         return JS_INVALID_REFERENCE;
       }
     } else {
-      thisPointer = Local<Object>::New(static_cast<Object*>(arguments[-1]));
+      thisPointer = static_cast<Object*>(arguments[-1]);
     }
 
     if (callbackData->callback != nullptr) {
@@ -130,7 +126,7 @@ struct FunctionCallbackData {
         holder,
         isConstructCall,
         callbackData->data,
-        Local<Function>::New(static_cast<Function*>(callee)));
+        static_cast<Function*>(callee));
 
       callbackData->callback(args);
       Handle<Value> result = args.GetReturnValue().Get();
@@ -160,8 +156,7 @@ struct FunctionTemplateData : public TemplateData {
       : prototypeTemplate() {
     this->callbackData = callbackData;
     this->functionTemplate = JS_INVALID_REFERENCE;
-    this->prototypeTemplate =
-      Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
+    this->prototypeTemplate = ObjectTemplate::New(nullptr);
   }
 
   // Create the function lazily so that we can use the class name
@@ -177,8 +172,7 @@ struct FunctionTemplateData : public TemplateData {
 
     JsValueRef function;
     {
-      Handle<String> className = chakrashim::InternalMethods::GetClassName(
-        *callbackData->instanceTemplate);
+      Handle<String> className = callbackData->instanceTemplate->GetClassName();
       if (!className.IsEmpty()) {
         error = JsCreateNamedFunction(*className,
                                       FunctionCallbackData::FunctionInvoked,
@@ -204,8 +198,8 @@ struct FunctionTemplateData : public TemplateData {
         // function not created, delete callbackData explictly
         delete templateData->callbackData;
       }
-      templateData->properties.Dispose();
-      templateData->prototypeTemplate.Dispose();
+      templateData->properties.Reset();
+      templateData->prototypeTemplate.Reset();
       delete templateData;
     }
   }
@@ -229,8 +223,7 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
     return Local<FunctionTemplate>();
   }
   templateData->functionTemplate = functionTemplateRef;
-  return Local<FunctionTemplate>::New(
-    static_cast<FunctionTemplate*>(functionTemplateRef));
+  return Local<FunctionTemplate>::New(functionTemplateRef);
 }
 
 Local<Function> FunctionTemplate::GetFunction() {
@@ -248,16 +241,16 @@ Local<Function> FunctionTemplate::GetFunction() {
     static_cast<Function*>(functionTemplateData->EnsureProperties());
 
   if (functionCallbackData->prototype.IsEmpty()) {
-    functionCallbackData->prototype = Persistent<Object>(
-      functionTemplateData->prototypeTemplate->NewInstance());
-
+    functionCallbackData->prototype =
+      functionTemplateData->prototypeTemplate->NewInstance();
     if (functionCallbackData->prototype.IsEmpty() ||
         jsrt::SetProperty(*functionCallbackData->prototype,
                           L"constructor", *function) != JsNoError) {
       return Local<Function>();
     }
 
-    function->Set(String::New(L"prototype"), functionCallbackData->prototype);
+    function->Set(String::New(L"prototype"),
+                  functionCallbackData->prototype.As<Value>());
   }
 
   return function;
@@ -273,7 +266,7 @@ Local<ObjectTemplate> FunctionTemplate::InstanceTemplate() {
     reinterpret_cast<FunctionTemplateData*>(externalData);
   FunctionCallbackData * functionCallbackData =
     functionTemplateData->callbackData;
-  return Local<ObjectTemplate>::New(*functionCallbackData->instanceTemplate);
+  return functionCallbackData->instanceTemplate;
 }
 
 Local<ObjectTemplate> FunctionTemplate::PrototypeTemplate() {
@@ -284,18 +277,10 @@ Local<ObjectTemplate> FunctionTemplate::PrototypeTemplate() {
 
   FunctionTemplateData *functionTemplateData =
     reinterpret_cast<FunctionTemplateData*>(externalData);
-
   if (functionTemplateData->prototypeTemplate.IsEmpty()) {
-    functionTemplateData->prototypeTemplate =
-      Persistent<ObjectTemplate>(ObjectTemplate::New(Isolate::GetCurrent()));
+    functionTemplateData->prototypeTemplate = ObjectTemplate::New(nullptr);
   }
-
-  // The V8 specs are silent on what's supposed to happen here if the function
-  // has been created. If you try and modify the prototype template, what's
-  // supposed to happen given that the prototype object must have already been
-  // created?
-
-  return Local<ObjectTemplate>::New(*functionTemplateData->prototypeTemplate);
+  return functionTemplateData->prototypeTemplate;
 }
 
 void FunctionTemplate::SetClassName(Handle<String> name) {
