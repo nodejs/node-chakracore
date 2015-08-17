@@ -31,7 +31,7 @@ Local<Integer> Integer::New(Isolate* isolate, int32_t value) {
     return Local<Integer>();
   }
 
-  return Local<Integer>::New(static_cast<Integer*>(ref));
+  return Local<Integer>::New(ref);
 }
 
 Local<Integer> Integer::NewFromUnsigned(Isolate* isolate, uint32_t value) {
@@ -41,10 +41,10 @@ Local<Integer> Integer::NewFromUnsigned(Isolate* isolate, uint32_t value) {
     return Local<Integer>();
   }
 
-  return Local<Integer>::New(static_cast<Integer*>(ref));
+  return Local<Integer>::New(ref);
 }
 
-Integer *Integer::Cast(v8::Value *obj) {
+Integer* Integer::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsInt32());
   return static_cast<Integer*>(obj);
 }

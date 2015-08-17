@@ -18,7 +18,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
 #include "v8chakra.h"
 #include "jsrtutils.h"
 #include <cassert>
@@ -50,9 +49,8 @@ typedef struct AcessorExternalDataType {
       return true;
     }
 
-    Local<FunctionTemplate> receiver =
-      reinterpret_cast<FunctionTemplate*>(*signature);
-    return chakrashim::CheckSignature(receiver, thisPointer, holder);
+    Local<FunctionTemplate> receiver = signature.As<FunctionTemplate>();
+    return Utils::CheckSignature(receiver, thisPointer, holder);
   }
 } AccessorExternalData;
 
@@ -61,9 +59,8 @@ struct InternalFieldDataStruct {
   int size;
 };
 
-bool Object::Set(
-    Handle<Value> key, Handle<Value> value, PropertyAttribute attribs) {
-  return Set(key, value, attribs, /*force*/false);
+bool Object::Set(Handle<Value> key, Handle<Value> value) {
+  return Set(key, value, PropertyAttribute::None, /*force*/false);
 }
 
 bool Object::Set(Handle<Value> key,
@@ -148,7 +145,7 @@ Local<Value> Object::Get(Handle<Value> key) {
     return Local<Value>();
   }
 
-  return Local<Value>::New(static_cast<Value*>(valueRef));
+  return Local<Value>::New(valueRef);
 }
 
 
@@ -159,8 +156,7 @@ Local<Value> Object::Get(uint32_t index) {
     return Local<Value>();
   }
 
-  // CHAKRA-TODO: allocate new local here? or just return Local(value)?
-  return Local<Value>::New(static_cast<Value*>(valueRef));
+  return Local<Value>::New(valueRef);
 }
 
 bool Object::Has(Handle<Value> key) {
@@ -218,7 +214,7 @@ Local<Array> Object::GetPropertyNames() {
     return Local<Array>();
   }
 
-  return Local<Array>::New(static_cast<Array*>(arrayRef));
+  return Local<Array>::New(arrayRef);
 }
 
 Local<Array> Object::GetOwnPropertyNames() {
@@ -228,7 +224,7 @@ Local<Array> Object::GetOwnPropertyNames() {
     return Local<Array>();
   }
 
-  return Local<Array>::New(static_cast<Array*>(arrayRef));
+  return Local<Array>::New(arrayRef);
 }
 
 bool Object::HasOwnProperty(Handle<String> key) {
@@ -265,11 +261,11 @@ Local<String> v8::Object::GetConstructorName() {
   return Local<String>::New(static_cast<String*>(name));
 }
 
-JsValueRef CALLBACK AccessorHandler(JsValueRef callee,
-                                    bool isConstructCall,
-                                    JsValueRef *arguments,
-                                    unsigned short argumentCount,
-                                    void *callbackState) {
+JsValueRef CALLBACK Utils::AccessorHandler(JsValueRef callee,
+                                           bool isConstructCall,
+                                           JsValueRef *arguments,
+                                           unsigned short argumentCount,
+                                           void *callbackState) {
   void *externalData;
   JsValueRef result = JS_INVALID_REFERENCE;
 
@@ -287,7 +283,7 @@ JsValueRef CALLBACK AccessorHandler(JsValueRef callee,
 
   AccessorExternalData *accessorData =
     static_cast<AccessorExternalData*>(externalData);
-  Local<Value> dataLocal = Local<Value>::New(accessorData->data);
+  Local<Value> dataLocal = accessorData->data;
 
   JsValueRef thisRef = JS_INVALID_REFERENCE;
   if (argumentCount > 0) {
@@ -302,8 +298,7 @@ JsValueRef CALLBACK AccessorHandler(JsValueRef callee,
     return JS_INVALID_REFERENCE;
   }
 
-  Local<String> propertyNameLocal =
-    Local<String>::New(accessorData->propertyName);
+  Local<String> propertyNameLocal = accessorData->propertyName;
   switch (accessorData->type) {
     case Setter:
     {
@@ -369,12 +364,12 @@ bool Object::SetAccessor(Handle<String> name,
   if (getter != nullptr) {
     AccessorExternalData *externalData = new AccessorExternalData();
     externalData->type = Getter;
-    externalData->propertyName = Persistent<String>::New(name);
+    externalData->propertyName = name;
     externalData->getter = getter;
-    externalData->data = Persistent<Value>::New(data);
-    externalData->signature = Persistent<AccessorSignature>::New(signature);
+    externalData->data = data;
+    externalData->signature = signature;
 
-    if (CreateFunctionWithExternalData(AccessorHandler,
+    if (CreateFunctionWithExternalData(Utils::AccessorHandler,
                                        externalData,
                                        AcessorExternalObjectFinalizeCallback,
                                        &getterRef) != JsNoError) {
@@ -385,12 +380,12 @@ bool Object::SetAccessor(Handle<String> name,
   if (setter != nullptr) {
     AccessorExternalData *externalData = new AccessorExternalData();
     externalData->type = Setter;
-    externalData->propertyName = Persistent<String>::New(name);
+    externalData->propertyName = name;
     externalData->setter = setter;
-    externalData->data = Persistent<Value>::New(data);
-    externalData->signature = Persistent<AccessorSignature>::New(signature);
+    externalData->data = data;
+    externalData->signature = signature;
 
-    if (CreateFunctionWithExternalData(AccessorHandler,
+    if (CreateFunctionWithExternalData(Utils::AccessorHandler,
                                        externalData,
                                        AcessorExternalObjectFinalizeCallback,
                                        &setterRef) != JsNoError) {
@@ -748,7 +743,8 @@ Local<Object> Object::Clone() {
   }
 
   JsValueRef obj;
-  if (JsCallFunction(constructor, nullptr, 0, &obj) != JsNoError) {
+  JsValueRef args[] = { nullptr };
+  if (JsCallFunction(constructor, args, _countof(args), &obj) != JsNoError) {
     return Local<Object>();
   }
 

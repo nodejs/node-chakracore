@@ -18,12 +18,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-
-// Internal header for the v8-chakra bridge
-
 #pragma once
 #include "v8.h"
-#include <assert.h>
+#include "jsrtutils.h"
 
 namespace v8 {
 
@@ -62,11 +59,74 @@ struct TemplateData {
   Object* EnsureProperties();
 };
 
-namespace chakrashim {
-
-class InternalMethods {
+class Utils {
  public:
-  static Handle<String> GetClassName(ObjectTemplate* objectTemplate);
+  static JsValueRef CALLBACK AccessorHandler(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+
+  static JsValueRef CALLBACK GetCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+  static JsValueRef CALLBACK SetCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+  static JsValueRef CALLBACK DeletePropertyCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+
+  static JsValueRef HasPropertyHandler(
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    bool checkInPrototype);
+  static JsValueRef CALLBACK HasCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+
+  static JsValueRef GetPropertiesEnumeratorHandler(
+    JsValueRef* arguments,
+    unsigned int argumentsCount);
+  static JsValueRef CALLBACK EnumerateCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+
+  static JsValueRef GetPropertiesHandler(
+    JsValueRef* arguments,
+    unsigned int argumentsCount,
+    bool getFromPrototype);
+  static JsValueRef CALLBACK OwnKeysCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+  static JsValueRef CALLBACK GetOwnPropertyDescriptorCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState);
+
+  static void CALLBACK WeakReferenceCallbackWrapperCallback(
+    JsRef ref, void *data);
 
   static JsValueRef CALLBACK ObjectPrototypeToStringShim(
     JsValueRef callee,
@@ -75,18 +135,16 @@ class InternalMethods {
     unsigned short argumentCount,
     void *callbackState);
 
-  static Handle<String> GetClassName(Object* obj) {
-    return GetClassName(obj->GetObjectTemplate());
-  }
-
   static bool IsInstanceOf(Object* obj, ObjectTemplate* objectTemplate) {
     return obj->GetObjectTemplate() == objectTemplate;
   }
+
+  static bool CheckSignature(Local<FunctionTemplate> receiver,
+                             Local<Object> thisPointer,
+                             Local<Object>* holder);
+
+  template <class Func>
+  static Local<Value> NewError(Handle<String> message, const Func& f);
 };
-
-bool CheckSignature(Local<FunctionTemplate> receiver, Local<Object> thisPointer,
-                    Local<Object>* holder);
-
-}  // namespace chakrashim
 
 }  // namespace v8

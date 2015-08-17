@@ -29,9 +29,9 @@ bool Boolean::Value() const {
 
 Handle<Boolean> Boolean::New(Isolate* isolate, bool value) {
   if (value) {
-    return True();
+    return True(isolate);
   } else {
-    return False();
+    return False(isolate);
   }
 }
 

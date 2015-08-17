@@ -18,8 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrt.h"
+#include "v8chakra.h"
 #include "jsrtutils.h"
 
 namespace v8 {
@@ -37,7 +36,7 @@ Local<Array> Array::New(Isolate* isolate, int length) {
     return Local<Array>();
   }
 
-  return Local<Array>::New(static_cast<Array*>(newArrayRef));
+  return Local<Array>::New(newArrayRef);
 }
 
 Array *Array::Cast(Value *obj) {

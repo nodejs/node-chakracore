@@ -254,7 +254,7 @@ bool ContextShim::InitializeObjectPrototypeToStringShim() {
   JsValueRef function;
   if (!InitializeBuiltIn(&function, [=](JsValueRef * value) {
     JsErrorCode error = JsCreateFunction(
-      v8::chakrashim::InternalMethods::ObjectPrototypeToStringShim,
+      v8::Utils::ObjectPrototypeToStringShim,
       GetGlobalPrototypeFunction(GlobalPrototypeFunction::Object_toString),
       value);
     if (error != JsNoError) {
@@ -771,27 +771,29 @@ JsValueRef ContextShim::GetCreateTargetFunction() {
 }  // namespace jsrt
 
 namespace v8 {
-namespace chakrashim {
 
 // This shim wraps Object.prototype.toString to supports ObjectTemplate class
 // name.
-JsValueRef CALLBACK InternalMethods::ObjectPrototypeToStringShim(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
+JsValueRef CALLBACK Utils::ObjectPrototypeToStringShim(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState) {
   if (argumentCount >= 1) {
     using namespace v8;
     Isolate* iso = Isolate::GetCurrent();
     HandleScope scope(iso);
 
     Object* obj = static_cast<Object*>(arguments[0]);
-    Local<String> str = InternalMethods::GetClassName(obj);
-    if (!str.IsEmpty()) {
-      str = String::Concat(String::NewFromUtf8(iso, "[object "), str);
-      str = String::Concat(str, String::NewFromUtf8(iso, "]"));
-      return *str;
+    ObjectTemplate* objTemplate = obj->GetObjectTemplate();
+    if (objTemplate) {
+      Local<String> str = objTemplate->GetClassName();
+      if (!str.IsEmpty()) {
+        str = String::Concat(String::NewFromUtf8(iso, "[object "), str);
+        str = String::Concat(str, String::NewFromUtf8(iso, "]"));
+        return *str;
+      }
     }
   }
 
@@ -804,5 +806,4 @@ JsValueRef CALLBACK InternalMethods::ObjectPrototypeToStringShim(
   return result;
 }
 
-}  // namespace chakrashim
 }  // namespace v8

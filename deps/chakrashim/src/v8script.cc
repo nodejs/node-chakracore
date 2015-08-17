@@ -86,7 +86,7 @@ Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name) {
           &scriptObject);
 
         if (error == JsNoError) {
-          return Local<Script>::New(static_cast<Script *>(scriptObject));
+          return Local<Script>::New(scriptObject);
         }
       }
     }
@@ -112,7 +112,7 @@ Local<Value> Script::Run() {
     return Local<Value>();
   }
 
-  return Local<Value>::New(static_cast<Value *>(result));
+  return Local<Value>::New(result);
 }
 
 static void CALLBACK UnboundScriptFinalizeCallback(void * data) {
@@ -144,7 +144,7 @@ Local<UnboundScript> Script::GetUnboundScript() {
   // context, we need to keep track of the context the unbound script is
   jsrt::IsolateShim::GetCurrent()->RegisterJsValueRefContextShim(
     unboundScriptRef);
-  return Local<UnboundScript>(static_cast<UnboundScript*>(unboundScriptRef));
+  return Local<UnboundScript>::New(unboundScriptRef);
 }
 
 Local<Script> UnboundScript::BindToCurrentContext() {
@@ -156,7 +156,7 @@ Local<Script> UnboundScript::BindToCurrentContext() {
       return Local<Script>();
     }
     // Same context, we can reuse the same script object
-    return Local<Script>(static_cast<Script *>(scriptRef));
+    return Local<Script>::New(scriptRef);
   }
 
   // Create a script object in another context
@@ -216,7 +216,7 @@ Local<Script> UnboundScript::BindToCurrentContext() {
     return Local<Script>();
   }
 
-  return Local<Script>(static_cast<Script*>(scriptObject));
+  return Local<Script>::New(scriptObject);
 }
 
 Local<UnboundScript> ScriptCompiler::CompileUnbound(

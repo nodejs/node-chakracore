@@ -52,7 +52,7 @@ bool Value::IsNull() const {
 
 bool Value::IsTrue() const {
   bool isTrue;
-  if (JsEquals(*True(), (JsValueRef)this, &isTrue) != JsNoError) {
+  if (JsEquals(jsrt::GetTrue(), (JsValueRef)this, &isTrue) != JsNoError) {
     return false;
   }
 
@@ -61,7 +61,7 @@ bool Value::IsTrue() const {
 
 bool Value::IsFalse() const {
   bool isFalse;
-  if (JsEquals(*False(), (JsValueRef)this, &isFalse) != JsNoError) {
+  if (JsEquals(jsrt::GetFalse(), (JsValueRef)this, &isFalse) != JsNoError) {
     return false;
   }
 
@@ -176,7 +176,7 @@ Local<Boolean> Value::ToBoolean() const {
     return Local<Boolean>();
   }
 
-  return Local<Boolean>::New(static_cast<Boolean*>(value));
+  return Local<Boolean>::New(value);
 }
 
 Local<Number> Value::ToNumber() const {
@@ -185,7 +185,7 @@ Local<Number> Value::ToNumber() const {
     return Local<Number>();
   }
 
-  return Local<Number>::New(static_cast<Number*>(value));
+  return Local<Number>::New(value);
 }
 
 Local<String> Value::ToString() const {
@@ -194,7 +194,7 @@ Local<String> Value::ToString() const {
     return Local<String>();
   }
 
-  return Local<String>::New(static_cast<String*>(value));
+  return Local<String>::New(value);
 }
 
 Local<Object> Value::ToObject() const {
@@ -203,7 +203,7 @@ Local<Object> Value::ToObject() const {
     return Local<Object>();
   }
 
-  return Local<Object>::New(static_cast<Object*>(value));
+  return Local<Object>::New(value);
 }
 
 Local<Integer> Value::ToInteger() const {
@@ -215,7 +215,7 @@ Local<Integer> Value::ToInteger() const {
     return Local<Integer>();
   }
 
-  return Local<Integer>::New(static_cast<Integer*>(integerRef));
+  return Local<Integer>::New(integerRef);
 }
 
 

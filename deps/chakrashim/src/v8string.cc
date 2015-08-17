@@ -316,7 +316,7 @@ Local<String> String::New(const wchar_t *data, int length) {
     return Local<String>();
   }
 
-  return Local<String>::New(static_cast<String*>(strRef));
+  return Local<String>::New(strRef);
 }
 
 Local<String> String::New(const uint16_t *data, int length) {
@@ -343,7 +343,7 @@ Local<String> String::Concat(Handle<String> left, Handle<String> right) {
     return Local<String>();
   }
 
-  return Local<String>::New(static_cast<String*>(result));
+  return Local<String>::New(result);
 }
 
 Local<String> String::NewExternal(

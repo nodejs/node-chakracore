@@ -43,11 +43,10 @@ Local<Value> NumberObject::New(Isolate * isolate, double value) {
     return Local<Value>();
   }
 
-  return Local<NumberObject>::New(
-    static_cast<NumberObject*>(newNumberObjectRef));
+  return Local<NumberObject>::New(newNumberObjectRef);
 }
 
-NumberObject *NumberObject::Cast(v8::Value *obj) {
+NumberObject* NumberObject::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsNumberObject());
   return static_cast<NumberObject*>(obj);
 }

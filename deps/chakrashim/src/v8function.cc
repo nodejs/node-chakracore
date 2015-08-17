@@ -51,7 +51,7 @@ Local<Object> Function::NewInstance(int argc, Handle<Value> argv[]) const {
     return Local<Object>();
   }
 
-  return Local<Object>::New(static_cast<Object*>(newInstance));
+  return Local<Object>::New(newInstance);
 }
 
 Local<Value> Function::Call(Handle<Value> recv,
@@ -120,7 +120,7 @@ Local<Value> Function::Call(Handle<Value> recv,
           tryCatch.CheckReportExternalException();
           return Local<Value>();
       }
-      return Local<Value>::New(static_cast<Value*>(result));
+    return Local<Value>::New(result);
   }
 }
 

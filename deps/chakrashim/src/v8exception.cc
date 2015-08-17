@@ -18,37 +18,37 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
+#include "v8chakra.h"
 
 namespace v8 {
 
 template <class Func>
-static Local<Value> CreateError(Handle<String> message, const Func& f) {
+static Local<Value> Utils::NewError(Handle<String> message, const Func& f) {
   JsValueRef value;
   if (f(*message, &value) != JsNoError) {
     return Local<Value>();
   }
-  return Local<Value>::New(static_cast<Value*>(value));
+  return Local<Value>::New(value);
 }
 
 Local<Value> Exception::RangeError(Handle<String> message) {
-  return CreateError(message, JsCreateRangeError);
+  return Utils::NewError(message, JsCreateRangeError);
 }
 
 Local<Value> Exception::ReferenceError(Handle<String> message) {
-  return CreateError(message, JsCreateReferenceError);
+  return Utils::NewError(message, JsCreateReferenceError);
 }
 
 Local<Value> Exception::SyntaxError(Handle<String> message) {
-  return CreateError(message, JsCreateSyntaxError);
+  return Utils::NewError(message, JsCreateSyntaxError);
 }
 
 Local<Value> Exception::TypeError(Handle<String> message) {
-  return CreateError(message, JsCreateTypeError);
+  return Utils::NewError(message, JsCreateTypeError);
 }
 
 Local<Value> Exception::Error(Handle<String> message) {
-  return CreateError(message, JsCreateError);
+  return Utils::NewError(message, JsCreateError);
 }
 
 }  // namespace v8
