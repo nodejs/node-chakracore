@@ -898,3 +898,83 @@ void Fatal(const char * format, ...) {
   abort();
 }
 }  // namespace jsrt
+
+#ifndef JSRT_HAS_NEW_APIs
+// On TH2 machines, public SDK won't be updated sooner to include new
+// JSRT APIs. In order to use these new APIs till they are not available
+// in public SDK of TH2, a workaround is to dynamically load their process
+// address and call them.
+#if NTDDI_VERSION == NTDDI_WIN10
+static HMODULE ChakraModule = nullptr;
+void PrintErrorAndAbort(const char * procName) {
+  int ret = GetLastError();
+  fwprintf(stderr,
+           L"FATAL ERROR: Unable to load proc %S from chakra.dll. "
+           L"Error Code=0x%x\n",
+           procName, ret);
+  fflush(stderr);
+  abort();
+}
+
+void LoadChakraDll() {
+  if (ChakraModule == nullptr) {
+    ChakraModule = GetModuleHandle("chakra.dll");
+    if (ChakraModule == nullptr) {
+      int ret = GetLastError();
+      fwprintf(stderr,
+               L"FATAL ERROR: Unable to load module chakra.dll. "
+               L"ErrorCode=0x%x\n", ret);
+      fflush(stderr);
+      abort();
+    }
+  }
+}
+
+#define DEFINE_CHAKRA_DLL_FUNCTION(Method, Signature, Parameters) \
+  typedef JsErrorCode (WINAPI* _##Method##_)##Signature##; \
+  static _##Method##_ __##Method##_ = nullptr; \
+  JsErrorCode Method##Signature## {  \
+    if (__##Method##_ == nullptr) {  \
+      LoadChakraDll();  \
+      __##Method##_ = (_##Method##_)GetProcAddress(ChakraModule, #Method); \
+      if (__##Method##_ == nullptr) { \
+        PrintErrorAndAbort(#Method);  \
+      } \
+    } \
+  return __##Method##_##Parameters##; \
+}
+
+DEFINE_CHAKRA_DLL_FUNCTION
+(JsGetContextOfObject,
+  (JsValueRef object, JsContextRef *context),
+  (object, context))
+
+DEFINE_CHAKRA_DLL_FUNCTION
+(JsGetContextData,
+  (JsContextRef context, void **data),
+  (context, data))
+
+DEFINE_CHAKRA_DLL_FUNCTION
+(JsSetContextData,
+  (JsContextRef context, void *data),
+  (context, data))
+
+DEFINE_CHAKRA_DLL_FUNCTION
+(JsInstanceOf,
+  (JsValueRef object, JsValueRef constructor, bool *result),
+  (object, constructor, result))
+
+DEFINE_CHAKRA_DLL_FUNCTION
+(JsGetTypedArrayInfo,
+  (JsValueRef typedArray, JsTypedArrayType *arrayType, JsValueRef *arrayBuffer,
+  unsigned int *byteOffset, unsigned int *byteLength),
+  (typedArray, arrayType, arrayBuffer, byteOffset, byteLength))
+
+DEFINE_CHAKRA_DLL_FUNCTION
+(JsCreateExternalArrayBuffer,
+  (void *data, unsigned int byteLength, JsFinalizeCallback finalizeCallback,
+  void *callbackState, JsValueRef *result),
+  (data, byteLength, finalizeCallback, callbackState, result))
+
+#endif
+#endif

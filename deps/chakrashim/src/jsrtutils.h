@@ -363,5 +363,31 @@ inline JsErrorCode ValueToDoubleLikely(JsValueRef value, double* dblValue) {
   return ValueToNative</*LIKELY*/true>(
     JsConvertValueToNumber, JsNumberToDouble, value, dblValue);
 }
-
 }  // namespace jsrt
+
+#ifndef JSRT_HAS_NEW_APIs
+// For TH2 machines, use dynamically loaded chakra procs
+#if NTDDI_VERSION == NTDDI_WIN10
+JsErrorCode JsGetContextOfObject(_In_ JsValueRef object,
+                                 _Out_ JsContextRef *context);
+JsErrorCode JsGetContextData(_In_ JsContextRef context,
+                             _Out_ void **data);
+JsErrorCode JsSetContextData(_In_ JsContextRef context,
+                             _In_ void *data);
+JsErrorCode JsInstanceOf(_In_ JsValueRef object,
+                         _In_ JsValueRef constructor,
+                         _Out_ bool *result);
+JsErrorCode JsGetTypedArrayInfo(_In_ JsValueRef object,
+                                _Out_opt_ JsTypedArrayType *arrayType,
+                                _Out_opt_ JsValueRef *arrayBuffer,
+                                _Out_opt_ unsigned int *byteOffset,
+                                _Out_opt_ unsigned int *byteLength);
+JsErrorCode JsCreateExternalArrayBuffer(_In_ void *data,
+                                        _In_ unsigned int byteLength,
+                                        _In_opt_ JsFinalizeCallback
+                                        finalizeCallback,
+                                        _In_opt_ void *callbackState,
+                                        _Out_ JsValueRef *result);
+#define JsRuntimeAttributeEnableExperimentalFeatures 0x00000020
+#endif
+#endif
