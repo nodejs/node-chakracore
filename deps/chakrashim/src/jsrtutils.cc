@@ -854,7 +854,6 @@ JsErrorCode HasIndexedProperty(_In_ JsValueRef object,
   error = JsHasIndexedProperty(object, indexRef, result);
   return error;
 }
-
 // used for debugging
 
 JsErrorCode StringifyObject(_In_ JsValueRef object,
@@ -904,7 +903,6 @@ void Fatal(const char * format, ...) {
 // JSRT APIs. In order to use these new APIs till they are not available
 // in public SDK of TH2, a workaround is to dynamically load their process
 // address and call them.
-#if NTDDI_VERSION == NTDDI_WIN10
 static HMODULE ChakraModule = nullptr;
 void PrintErrorAndAbort(const char * procName) {
   int ret = GetLastError();
@@ -930,13 +928,13 @@ void LoadChakraDll() {
   }
 }
 
-#define DEFINE_CHAKRA_DLL_FUNCTION(Method, Signature, Parameters) \
+#define DEFINE_CHAKRA_DLL_FUNCTION(Method, Signature, Parameters, MethodName) \
   typedef JsErrorCode (WINAPI* _##Method##_)##Signature##; \
   static _##Method##_ __##Method##_ = nullptr; \
   JsErrorCode Method##Signature## {  \
     if (__##Method##_ == nullptr) {  \
       LoadChakraDll();  \
-      __##Method##_ = (_##Method##_)GetProcAddress(ChakraModule, #Method); \
+      __##Method##_ = (_##Method##_)GetProcAddress(ChakraModule, MethodName); \
       if (__##Method##_ == nullptr) { \
         PrintErrorAndAbort(#Method);  \
       } \
@@ -947,34 +945,39 @@ void LoadChakraDll() {
 DEFINE_CHAKRA_DLL_FUNCTION
 (JsGetContextOfObject,
   (JsValueRef object, JsContextRef *context),
-  (object, context))
+  (object, context),
+  "JsGetContextOfObject")
 
 DEFINE_CHAKRA_DLL_FUNCTION
 (JsGetContextData,
   (JsContextRef context, void **data),
-  (context, data))
+  (context, data),
+  "JsGetContextData")
 
 DEFINE_CHAKRA_DLL_FUNCTION
 (JsSetContextData,
   (JsContextRef context, void *data),
-  (context, data))
+  (context, data),
+  "JsSetContextData")
 
 DEFINE_CHAKRA_DLL_FUNCTION
 (JsInstanceOf,
   (JsValueRef object, JsValueRef constructor, bool *result),
-  (object, constructor, result))
+  (object, constructor, result),
+  "JsInstanceOf")
 
 DEFINE_CHAKRA_DLL_FUNCTION
 (JsGetTypedArrayInfo,
   (JsValueRef typedArray, JsTypedArrayType *arrayType, JsValueRef *arrayBuffer,
   unsigned int *byteOffset, unsigned int *byteLength),
-  (typedArray, arrayType, arrayBuffer, byteOffset, byteLength))
+  (typedArray, arrayType, arrayBuffer, byteOffset, byteLength),
+  "JsGetTypedArrayInfo")
 
 DEFINE_CHAKRA_DLL_FUNCTION
 (JsCreateExternalArrayBuffer,
   (void *data, unsigned int byteLength, JsFinalizeCallback finalizeCallback,
   void *callbackState, JsValueRef *result),
-  (data, byteLength, finalizeCallback, callbackState, result))
+  (data, byteLength, finalizeCallback, callbackState, result),
+  "JsCreateExternalArrayBuffer")
 
-#endif
 #endif
