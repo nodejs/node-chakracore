@@ -324,11 +324,11 @@ bool ContextShim::InitializeBuiltIns() {
 }
 
 static JsValueRef CALLBACK ProxyOfGlobalGetPrototypeOfCallback(
-    _In_ JsValueRef callee,
-    _In_ bool isConstructCall,
-    _In_ JsValueRef *arguments,
-    _In_ unsigned short argumentCount,
-    _In_opt_ void *callbackState) {
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,
+    void *callbackState) {
   // Return the target (which is the global object)
   return arguments[1];
 }

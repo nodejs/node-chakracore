@@ -139,8 +139,8 @@ bool IsolateShim::IsDisposing() {
 
 // CHAKRA-TODO: This is not called after cross context work in chakra. Fix this
 // else we will leak chakrashim object.
-void CALLBACK IsolateShim::JsContextBeforeCollectCallback(
-    _In_ JsRef contextRef, _In_opt_ void *data) {
+void CALLBACK IsolateShim::JsContextBeforeCollectCallback(JsRef contextRef,
+                                                          void *data) {
   IsolateShim * isolateShim = reinterpret_cast<IsolateShim *>(data);
   ContextShim * contextShim = isolateShim->GetContextShim(contextRef);
   delete contextShim;

@@ -56,7 +56,7 @@ struct FunctionCallbackData {
     instanceTemplate = ObjectTemplate::New(nullptr);
   }
 
-  static void CALLBACK FinalizeCallback(_In_opt_ void *data) {
+  static void CALLBACK FinalizeCallback(void *data) {
     if (data != nullptr) {
       FunctionCallbackData* templateData =
         reinterpret_cast<FunctionCallbackData*>(data);
@@ -81,10 +81,10 @@ struct FunctionCallbackData {
                                  thisPointer, holder);
   }
 
-  static JsValueRef CALLBACK FunctionInvoked(_In_ JsValueRef callee,
-                                             _In_ bool isConstructCall,
-                                             _In_ JsValueRef *arguments,
-                                             _In_ unsigned short argumentCount,
+  static JsValueRef CALLBACK FunctionInvoked(JsValueRef callee,
+                                             bool isConstructCall,
+                                             JsValueRef *arguments,
+                                             unsigned short argumentCount,
                                              void *callbackState) {
     HandleScope scope;
 
@@ -190,7 +190,7 @@ struct FunctionTemplateData : public TemplateData {
     this->properties = function;
   }
 
-  static void CALLBACK FinalizeCallback(_In_opt_ void *data) {
+  static void CALLBACK FinalizeCallback(void *data) {
     if (data != nullptr) {
       FunctionTemplateData * templateData =
         reinterpret_cast<FunctionTemplateData*>(data);

@@ -35,8 +35,7 @@ void CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
 
 namespace chakrashim {
 
-static void CALLBACK DummyObjectBeforeCollectCallback(
-  _In_ JsRef ref, _In_opt_ void *data) {
+static void CALLBACK DummyObjectBeforeCollectCallback(JsRef ref, void *data) {
   // Do nothing, only used to revive an object temporarily
 }
 

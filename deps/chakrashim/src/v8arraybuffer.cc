@@ -46,7 +46,7 @@ struct ArrayBufferFinalizeInfo {
   }
 };
 
-static void CALLBACK ExternalArrayBufferFinalizeCallback(_In_opt_ void *data) {
+static void CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
     static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
 
