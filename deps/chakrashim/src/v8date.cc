@@ -29,17 +29,15 @@ using jsrt::ContextShim;
 Local<Value> Date::New(Isolate * isolate, double time) {
   JsValueRef dateConstructor = IsolateShim::FromIsolate(isolate)
                                 ->GetCurrentContextShim()->GetDateConstructor();
-  JsValueRef newDateRef;
-  JsValueRef numberRef;
 
+  JsValueRef numberRef;
   if (JsDoubleToNumber(time, &numberRef) != JsNoError) {
     return Local<Value>();
   }
 
-  JsValueRef args[] = { nullptr, numberRef };
-
-  if (JsConstructObject(dateConstructor,
-                        args, _countof(args), &newDateRef) != JsNoError) {
+  JsValueRef newDateRef;
+  if (jsrt::ConstructObject(dateConstructor,
+                            numberRef, &newDateRef) != JsNoError) {
     return Local<Value>();
   }
 

@@ -100,22 +100,13 @@ JsErrorCode CreateProxy(
 
   JsValueRef proxyConfigObj;
   error = CreateProxyTrapConfig(config, &proxyConfigObj);
-
   if (error != JsNoError) {
     return error;
   }
 
   JsValueRef proxyConstructorRef =
     ContextShim::GetCurrent()->GetProxyConstructor();
-
-  if (error != JsNoError) {
-    return error;
-  }
-
-  JsValueRef args[] = { nullptr, target, proxyConfigObj };
-
-  error = JsConstructObject(proxyConstructorRef, args, _countof(args), result);
-
+  error = ConstructObject(proxyConstructorRef, target, proxyConfigObj, result);
   return error;
 }
 

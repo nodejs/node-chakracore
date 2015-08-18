@@ -258,10 +258,10 @@ JsErrorCode CloneObject(_In_ JsValueRef source,
                         _In_ bool clonePrototype) {
   JsValueRef cloneObjectFunction =
     ContextShim::GetCurrent()->GetCloneObjectFunction();
-  JsValueRef args[] = { nullptr, source, target };
+
   JsValueRef resultRef;
-  JsErrorCode error = JsCallFunction(cloneObjectFunction,
-                                     args, _countof(args), &resultRef);
+  JsErrorCode error = CallFunction(cloneObjectFunction,
+                                   source, target, &resultRef);
   if (error != JsNoError) {
     return error;
   }
@@ -385,12 +385,9 @@ JsErrorCode IsCaseInsensitiveStringValueInArray(_In_ JsValueRef arrayRef,
 JsErrorCode GetOwnPropertyDescriptor(_In_ JsValueRef ref,
                                      _In_ JsValueRef prop,
                                      _Out_ JsValueRef* result) {
-  JsValueRef getOwnPropertyDescriptorFunction =
-    ContextShim::GetCurrent()->GetGetOwnPropertyDescriptorFunction();
-  JsValueRef args[] = { nullptr, ref, prop };
-  JsErrorCode error = JsCallFunction(getOwnPropertyDescriptorFunction,
-                                     args, _countof(args), result);
-  return error;
+  return CallFunction(
+    ContextShim::GetCurrent()->GetGetOwnPropertyDescriptorFunction(),
+    ref, prop, result);
 }
 
 JsErrorCode IsZero(_In_ JsValueRef value,
@@ -405,42 +402,30 @@ JsErrorCode IsUndefined(_In_ JsValueRef value,
 
 JsErrorCode GetEnumerableNamedProperties(_In_ JsValueRef object,
                                          _Out_ JsValueRef *result) {
-  JsValueRef getEnumerableNamedPropertiesFunction =
-    ContextShim::GetCurrent()->GetGetEnumerableNamedPropertiesFunction();
-  JsValueRef args[] = { nullptr, object };
-  JsErrorCode error = JsCallFunction(getEnumerableNamedPropertiesFunction,
-                                     args, _countof(args), result);
-  return error;
+  return CallFunction(
+    ContextShim::GetCurrent()->GetGetEnumerableNamedPropertiesFunction(),
+    object, result);
 }
 
 JsErrorCode GetEnumerableIndexedProperties(_In_ JsValueRef object,
                                            _Out_ JsValueRef *result) {
-  JsValueRef getEnumerableIndexedPropertiesFunction =
-    ContextShim::GetCurrent()->GetGetEnumerableIndexedPropertiesFunction();
-  JsValueRef args[] = { nullptr, object };
-  JsErrorCode error = JsCallFunction(getEnumerableIndexedPropertiesFunction,
-                                     args, _countof(args), result);
-  return error;
+  return CallFunction(
+    ContextShim::GetCurrent()->GetGetEnumerableIndexedPropertiesFunction(),
+    object, result);
 }
 
 JsErrorCode GetIndexedOwnKeys(_In_ JsValueRef object,
                               _Out_ JsValueRef *result) {
-  JsValueRef getIndexedOwnKeysFunction =
-    ContextShim::GetCurrent()->GetGetIndexedOwnKeysFunction();
-  JsValueRef args[] = { nullptr, object };
-  JsErrorCode error = JsCallFunction(getIndexedOwnKeysFunction,
-                                     args, _countof(args), result);
-  return error;
+  return CallFunction(
+    ContextShim::GetCurrent()->GetGetIndexedOwnKeysFunction(),
+    object, result);
 }
 
 JsErrorCode GetNamedOwnKeys(_In_ JsValueRef object,
                             _Out_ JsValueRef *result) {
-  JsValueRef getNamedOwnKeysFunction =
-    ContextShim::GetCurrent()->GetGetNamedOwnKeysFunction();
-  JsValueRef args[] = { nullptr, object };
-  JsErrorCode error = JsCallFunction(getNamedOwnKeysFunction,
-                                     args, _countof(args), result);
-  return error;
+  return CallFunction(
+    ContextShim::GetCurrent()->GetGetNamedOwnKeysFunction(),
+    object, result);
 }
 
 JsErrorCode ConcatArray(_In_ JsValueRef first,
@@ -453,33 +438,24 @@ JsErrorCode ConcatArray(_In_ JsValueRef first,
 
 JsErrorCode CreateEnumerationIterator(_In_ JsValueRef enumeration,
                                       _Out_ JsValueRef *result) {
-  JsValueRef createEnumerationIteratorFunction =
-    ContextShim::GetCurrent()->GetCreateEnumerationIteratorFunction();
-  JsValueRef args[] = { nullptr, enumeration };
-  JsErrorCode error = JsCallFunction(createEnumerationIteratorFunction,
-                                     args, _countof(args), result);
-  return error;
+  return CallFunction(
+    ContextShim::GetCurrent()->GetCreateEnumerationIteratorFunction(),
+    enumeration, result);
 }
 
-JsErrorCode CreatePropertyDescriptorsEnumerationIterator(
-    _In_ JsValueRef enumeration,
-    _Out_ JsValueRef *result) {
-  JsValueRef function = ContextShim::GetCurrent()
-                    ->GetCreatePropertyDescriptorsEnumerationIteratorFunction();
-  JsValueRef args[] = { nullptr, enumeration };
-  JsErrorCode error = JsCallFunction(function,
-                                     args, _countof(args), result);
-  return error;
+JsErrorCode CreatePropertyDescriptorsEnumerationIterator(JsValueRef enumeration,
+                                                         JsValueRef *result) {
+  return CallFunction(
+    ContextShim::GetCurrent()
+      ->GetCreatePropertyDescriptorsEnumerationIteratorFunction(),
+    enumeration, result);
 }
 
 JsErrorCode GetPropertyNames(_In_ JsValueRef object,
-                             _Out_ JsValueRef *namesArray) {
-  JsValueRef getPropertyNamesFunction =
-    ContextShim::GetCurrent()->GetGetPropertyNamesFunction();
-  JsValueRef args[] = { nullptr, object };
-  JsErrorCode error = JsCallFunction(getPropertyNamesFunction,
-                                     args, _countof(args), namesArray);
-  return error;
+                             _Out_ JsValueRef *result) {
+  return CallFunction(
+    ContextShim::GetCurrent()->GetGetPropertyNamesFunction(),
+    object, result);
 }
 
 JsErrorCode AddExternalData(_In_ JsValueRef ref,
