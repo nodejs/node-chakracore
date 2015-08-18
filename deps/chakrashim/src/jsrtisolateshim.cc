@@ -132,8 +132,8 @@ bool IsolateShim::IsDisposing() {
   return isDisposing;
 }
 
-void CALLBACK IsolateShim::JsContextBeforeCollectCallback(
-    _In_ JsRef contextRef, _In_opt_ void *data) {
+void CALLBACK IsolateShim::JsContextBeforeCollectCallback(JsRef contextRef,
+                                                          void *data) {
   IsolateShim * isolateShim = reinterpret_cast<IsolateShim *>(data);
   ContextShim * contextShim = isolateShim->contextShimMap[contextRef];
   isolateShim->contextShimMap.erase(contextRef);

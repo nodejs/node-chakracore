@@ -48,7 +48,7 @@ CachedPropertyIdRef GetProxyTrapCachedPropertyIdRef(ProxyTraps trap) {
 }
 
 JsErrorCode SetPropertyOnTrapConfig(
-    ProxyTraps trap, JsNativeFunction callback, _In_ JsValueRef configObj) {
+    ProxyTraps trap, JsNativeFunction callback, JsValueRef configObj) {
   if (callback == nullptr) {
     return JsNoError;
   }
@@ -70,7 +70,7 @@ JsErrorCode SetPropertyOnTrapConfig(
 
 JsErrorCode CreateProxyTrapConfig(
     const JsNativeFunction proxyConf[ProxyTraps::TrapCount],
-    _Out_ JsValueRef *confObj) {
+    JsValueRef *confObj) {
   JsErrorCode error = JsNoError;
 
   error = JsCreateObject(confObj);
@@ -93,9 +93,9 @@ JsErrorCode CreateProxyTrapConfig(
 }
 
 JsErrorCode CreateProxy(
-    _In_ JsValueRef target,
-    _In_ const JsNativeFunction config[ProxyTraps::TrapCount],
-    _Out_ JsValueRef *result) {
+    JsValueRef target,
+    const JsNativeFunction config[ProxyTraps::TrapCount],
+    JsValueRef *result) {
   JsErrorCode error;
 
   JsValueRef proxyConfigObj;

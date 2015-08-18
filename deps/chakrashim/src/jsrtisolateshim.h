@@ -112,8 +112,8 @@ class IsolateShim {
   explicit IsolateShim(JsRuntimeHandle runtime);
   ~IsolateShim();
   static v8::Isolate * ToIsolate(IsolateShim * isolate);
-  static void CALLBACK JsContextBeforeCollectCallback(
-    _In_ JsRef contextRef, _In_opt_ void *data);
+  static void CALLBACK JsContextBeforeCollectCallback(JsRef contextRef,
+                                                      void *data);
 
   JsRuntimeHandle runtime;
   JsPropertyIdRef symbolPropertyIdRefs[CachedSymbolPropertyIdRef::SymbolCount];
