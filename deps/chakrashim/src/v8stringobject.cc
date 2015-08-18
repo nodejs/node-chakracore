@@ -29,12 +29,9 @@ Local<Value> StringObject::New(Handle<String> value) {
   JsValueRef stringObjectConstructor =
     ContextShim::GetCurrent()->GetStringObjectConstructor();
 
-  JsValueRef args[] = { nullptr, *value };
   JsValueRef newStringObjectRef;
-  if (JsConstructObject(stringObjectConstructor,
-                        args,
-                        _countof(args),
-                        &newStringObjectRef) != JsNoError) {
+  if (jsrt::ConstructObject(stringObjectConstructor,
+                            *value, &newStringObjectRef) != JsNoError) {
     return Local<Value>();
   }
 

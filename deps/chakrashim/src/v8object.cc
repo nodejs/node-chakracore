@@ -743,8 +743,7 @@ Local<Object> Object::Clone() {
   }
 
   JsValueRef obj;
-  JsValueRef args[] = { nullptr };
-  if (JsCallFunction(constructor, args, _countof(args), &obj) != JsNoError) {
+  if (jsrt::ConstructObject(constructor, &obj) != JsNoError) {
     return Local<Object>();
   }
 
@@ -752,7 +751,7 @@ Local<Object> Object::Clone() {
     return Local<Object>();
   }
 
-  return Local<Object>::New(static_cast<Object*>(obj));
+  return Local<Object>::New(obj);
 }
 
 Local<Context> Object::CreationContext() {
