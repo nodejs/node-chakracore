@@ -828,6 +828,20 @@ JsErrorCode HasIndexedProperty(JsValueRef object,
   error = JsHasIndexedProperty(object, indexRef, result);
   return error;
 }
+JsErrorCode ParseScript(const wchar_t *script,
+                        JsSourceContext sourceContext,
+                        const wchar_t *sourceUrl,
+                        bool isStrictMode,
+                        JsValueRef *result) {
+  if (isStrictMode) {
+    // do not append new line so the line numbers on error stack are correct
+    std::wstring useStrictTag(L"'use strict'; ");
+    return JsParseScript(useStrictTag.append(script).c_str(), sourceContext,
+                  sourceUrl, result);
+  } else {
+    return JsParseScript(script, sourceContext, sourceUrl, result);
+  }
+}
 // used for debugging
 
 JsErrorCode StringifyObject(JsValueRef object,
