@@ -25,6 +25,7 @@
 namespace v8 {
 
 __declspec(thread) JsSourceContext currentContext;
+extern bool g_useStrict;
 
 Local<Script> Script::Compile(Handle<String> source, ScriptOrigin* origin) {
   if (origin) {
@@ -75,9 +76,8 @@ Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name) {
 
     if (error == JsNoError) {
       JsValueRef scriptFunction;
-      error = JsParseScript(script,
-        currentContext++, filename, &scriptFunction);
-
+      error = jsrt::ParseScript(
+        script, currentContext++, filename, g_useStrict, &scriptFunction);
       if (error == JsNoError) {
         JsValueRef scriptObject;
         error = CreateScriptObject(sourceRef,
@@ -104,7 +104,7 @@ Local<Value> Script::Run() {
   }
 
   JsValueRef result;
-  JsErrorCode errorCode = JsCallFunction(scriptFunction, nullptr, 0, &result);
+  JsErrorCode errorCode = jsrt::CallFunction(scriptFunction, &result);
 
   jsrt::SetOutOfMemoryErrorIfExist(errorCode);
 
@@ -193,8 +193,8 @@ Local<Script> UnboundScript::BindToCurrentContext() {
   }
 
   JsValueRef scriptFunction;
-  if (JsParseScript(source,
-                    currentContext++, filename, &scriptFunction) != JsNoError) {
+  if (jsrt::ParseScript(source, currentContext++, filename,
+                        g_useStrict, &scriptFunction) != JsNoError) {
     return Local<Script>();
   }
 

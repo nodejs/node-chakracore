@@ -860,6 +860,20 @@ bool IsOfGlobalType(JsValueRef ref, const wchar_t *typeName) {
   return InstanceOfGlobalType(ref, typeName, &result) == JsNoError && result;
 }
 
+JsErrorCode ParseScript(const wchar_t *script,
+                        JsSourceContext sourceContext,
+                        const wchar_t *sourceUrl,
+                        bool isStrictMode,
+                        JsValueRef *result) {
+  if (isStrictMode) {
+    // do not append new line so the line numbers on error stack are correct
+    std::wstring useStrictTag(L"'use strict'; ");
+    return JsParseScript(useStrictTag.append(script).c_str(), sourceContext,
+                  sourceUrl, result);
+  } else {
+    return JsParseScript(script, sourceContext, sourceUrl, result);
+  }
+}
 // used for debugging
 
 JsErrorCode StringifyObject(JsValueRef object,

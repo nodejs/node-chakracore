@@ -278,6 +278,14 @@ JsErrorCode GetIndexedProperty(JsValueRef object,
 bool IsOfGlobalType(JsValueRef objectRef,
                     const wchar_t *typeName);
 
+// CHAKRA-TODO : Currently Chakra's ParseScript doesn't support strictMode
+// flag. As a workaround, prepend the script text with 'use strict'.
+JsErrorCode ParseScript(const wchar_t *script,
+                        JsSourceContext sourceContext,
+                        const wchar_t *sourceUrl,
+                        bool isStrictMode,
+                        JsValueRef *result);
+
 // used for debugging
 JsErrorCode StringifyObject(JsValueRef object,
                             const wchar_t **stringifiedObject);
