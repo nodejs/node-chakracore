@@ -23,6 +23,7 @@
 
 namespace v8 {
 
+using CachedPropertyIdRef = jsrt::CachedPropertyIdRef;
 using jsrt::IsolateShim;
 using jsrt::ContextShim;
 
@@ -68,7 +69,8 @@ Local<Array> StackTrace::AsArray() {
 int StackFrame::GetLineNumber() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   int result;
-  if (jsrt::CallGetter(frame, L"getLineNumber", &result) != JsNoError) {
+  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getLineNumber,
+                       &result) != JsNoError) {
     return 0;
   }
   return result;
@@ -77,7 +79,8 @@ int StackFrame::GetLineNumber() const {
 int StackFrame::GetColumn() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   int result;
-  if (jsrt::CallGetter(frame, L"getColumn", &result) != JsNoError) {
+  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getColumn,
+                       &result) != JsNoError) {
     return 0;
   }
   return result;
@@ -91,7 +94,8 @@ int StackFrame::GetScriptId() const {
 Local<String> StackFrame::GetScriptName() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   JsValueRef result;
-  if (jsrt::CallGetter(frame, L"getScriptName", &result) != JsNoError) {
+  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getScriptName,
+                       &result) != JsNoError) {
     return Local<String>();
   }
   return static_cast<String*>(result);
@@ -100,7 +104,8 @@ Local<String> StackFrame::GetScriptName() const {
 Local<String> StackFrame::GetFunctionName() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   JsValueRef result;
-  if (jsrt::CallGetter(frame, L"getFunctionName", &result) != JsNoError) {
+  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getFunctionName,
+                       &result) != JsNoError) {
     return Local<String>();
   }
   return static_cast<String*>(result);

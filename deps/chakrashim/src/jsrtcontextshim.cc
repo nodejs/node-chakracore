@@ -294,9 +294,10 @@ bool ContextShim::InitializeBuiltIns() {
 
   if (!InitializeBuiltIn(&getOwnPropertyDescriptorFunction,
                          [this](JsValueRef * value) {
-                           return GetProperty(GetObjectConstructor(),
-                                              L"getOwnPropertyDescriptor",
-                                              value);
+                           return GetProperty(
+                             GetObjectConstructor(),
+                             CachedPropertyIdRef::getOwnPropertyDescriptor,
+                             value);
                          })) {
     return false;
   }
@@ -399,7 +400,7 @@ bool ContextShim::EnsureInitialized() {
 bool ContextShim::ExposeGc() {
   JsValueRef collectGarbageRef;
   if (jsrt::GetPropertyOfGlobal(L"CollectGarbage",
-                                &collectGarbageRef) != JsNoError) {
+    &collectGarbageRef) != JsNoError) {
     return false;
   }
 
@@ -447,7 +448,7 @@ void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
       embedderData.resize(minSize);
     }
     embedderData[index] = value;
-  } catch (const std::exception&) {
+  } catch(const std::exception&) {
   }
 }
 

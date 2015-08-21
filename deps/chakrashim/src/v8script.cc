@@ -23,6 +23,8 @@
 
 namespace v8 {
 
+using CachedPropertyIdRef = jsrt::CachedPropertyIdRef;
+
 __declspec(thread) JsSourceContext currentContext;
 extern bool g_useStrict;
 
@@ -40,17 +42,20 @@ static JsErrorCode CreateScriptObject(JsValueRef sourceRef,
     return error;
   }
 
-  error = jsrt::SetProperty(*scriptObject, L"source", sourceRef);
+  error = jsrt::SetProperty(*scriptObject, CachedPropertyIdRef::source,
+                            sourceRef);
   if (error != JsNoError) {
     return error;
   }
 
-  error = jsrt::SetProperty(*scriptObject, L"filename", filenameRef);
+  error = jsrt::SetProperty(*scriptObject, CachedPropertyIdRef::filename,
+                            filenameRef);
   if (error != JsNoError) {
     return error;
   }
 
-  return jsrt::SetProperty(*scriptObject, L"function", scriptFunction);
+  return jsrt::SetProperty(*scriptObject, CachedPropertyIdRef::function,
+                           scriptFunction);
 }
 
 // Compiled script object, bound to the context that was active when this
@@ -97,7 +102,8 @@ Local<Script> Script::Compile(Handle<String> source,
 
 MaybeLocal<Value> Script::Run(Local<Context> context) {
   JsValueRef scriptFunction;
-  if (jsrt::GetProperty(this, L"function", &scriptFunction) != JsNoError) {
+  if (jsrt::GetProperty(this, CachedPropertyIdRef::function,
+                        &scriptFunction) != JsNoError) {
     return Local<Value>();
   }
 
@@ -130,7 +136,8 @@ Local<UnboundScript> Script::GetUnboundScript() {
     return Local<UnboundScript>();
   }
 
-  if (jsrt::SetProperty(unboundScriptRef, L"script", this) != JsNoError) {
+  if (jsrt::SetProperty(unboundScriptRef, CachedPropertyIdRef::script,
+                        this) != JsNoError) {
     delete unboundScriptData;
     return Local<UnboundScript>();
   }
@@ -143,7 +150,8 @@ Local<Script> UnboundScript::BindToCurrentContext() {
     jsrt::IsolateShim::GetContextShimOfObject(this);
   if (contextShim == jsrt::ContextShim::GetCurrent()) {
     JsValueRef scriptRef;
-    if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError) {
+    if (jsrt::GetProperty(this, CachedPropertyIdRef::script,
+                          &scriptRef) != JsNoError) {
       return Local<Script>();
     }
     // Same context, we can reuse the same script object
@@ -159,18 +167,19 @@ Local<Script> UnboundScript::BindToCurrentContext() {
   {
     jsrt::ContextShim::Scope scope(contextShim);
     JsValueRef scriptRef;
-    if (jsrt::GetProperty(this, L"script", &scriptRef) != JsNoError) {
+    if (jsrt::GetProperty(this, CachedPropertyIdRef::script,
+                          &scriptRef) != JsNoError) {
       return Local<Script>();
     }
 
     JsValueRef originalSourceRef;
-    if (jsrt::GetProperty(scriptRef,
-                          L"source", &originalSourceRef) != JsNoError) {
+    if (jsrt::GetProperty(scriptRef, CachedPropertyIdRef::source,
+                          &originalSourceRef) != JsNoError) {
       return Local<Script>();
     }
     JsValueRef originalFilenameRef;
-    if (jsrt::GetProperty(scriptRef,
-                          L"filename", &originalFilenameRef) != JsNoError) {
+    if (jsrt::GetProperty(scriptRef, CachedPropertyIdRef::filename,
+                          &originalFilenameRef) != JsNoError) {
       return Local<Script>();
     }
     if (JsStringToPointer(originalSourceRef,
