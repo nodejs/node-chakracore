@@ -277,7 +277,7 @@
     process._tickDomainCallback = _tickDomainCallback;
 
     // This tickInfo thing is used so that the C++ code in src/node.cc
-    // can have easy accesss to our nextTick state, and avoid unnecessary
+    // can have easy access to our nextTick state, and avoid unnecessary
     // calls into JS land.
     const tickInfo = process._setupNextTick(_tickCallback, _runMicrotasks);
 
@@ -802,8 +802,7 @@
     });
 
     process.on('removeListener', function(type, listener) {
-      if (signalWraps.hasOwnProperty(type) &&
-          NativeModule.require('events').listenerCount(this, type) === 0) {
+      if (signalWraps.hasOwnProperty(type) && this.listenerCount(type) === 0) {
         signalWraps[type].close();
         delete signalWraps[type];
       }
