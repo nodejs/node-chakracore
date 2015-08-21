@@ -18,8 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrtutils.h"
+#include "v8chakra.h"
 #include <memory>
 
 namespace v8 {
@@ -28,14 +27,7 @@ __declspec(thread) JsSourceContext currentContext;
 extern bool g_useStrict;
 
 Local<Script> Script::Compile(Handle<String> source, ScriptOrigin* origin) {
-  if (origin) {
-    return Compile(source, origin->ResourceName().As<String>());
-  }
-
-  Isolate* isolate = Isolate::GetCurrent();
-  HandleScope scope(isolate);
-  Local<String> filename = String::NewFromUtf8(isolate, "");
-  return Compile(source, filename);
+  return FromMaybe(Compile(Local<Context>(), source, origin));
 }
 
 // Create a object to hold the script infomration
@@ -63,28 +55,31 @@ static JsErrorCode CreateScriptObject(JsValueRef sourceRef,
 
 // Compiled script object, bound to the context that was active when this
 // function was called. When run it will always use this context.
-Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name) {
+MaybeLocal<Script> Script::Compile(Local<Context> context,
+                                   Handle<String> source,
+                                   ScriptOrigin* origin) {
   JsErrorCode error;
   JsValueRef filenameRef;
-  const wchar_t* filename;
-  error = jsrt::ToString(*file_name, &filenameRef, &filename);
+  const wchar_t* filename = L"";
+
+  if (origin != nullptr) {
+    error = jsrt::ToString(*origin->ResourceName(), &filenameRef, &filename);
+  } else {
+    error = JsPointerToString(filename, 0, &filenameRef);
+  }
 
   if (error == JsNoError) {
     JsValueRef sourceRef;
     const wchar_t *script;
     error = jsrt::ToString(*source, &sourceRef, &script);
-
     if (error == JsNoError) {
       JsValueRef scriptFunction;
-      error = jsrt::ParseScript(
-        script, currentContext++, filename, g_useStrict, &scriptFunction);
+      error = jsrt::ParseScript(script, currentContext++, filename, g_useStrict,
+                                &scriptFunction);
       if (error == JsNoError) {
         JsValueRef scriptObject;
-        error = CreateScriptObject(sourceRef,
-          filenameRef,
-          scriptFunction,
-          &scriptObject);
-
+        error = CreateScriptObject(sourceRef, filenameRef, scriptFunction,
+                                   &scriptObject);
         if (error == JsNoError) {
           return Local<Script>::New(scriptObject);
         }
@@ -94,19 +89,28 @@ Local<Script> Script::Compile(Handle<String> source, Handle<String> file_name) {
   return Local<Script>();
 }
 
-Local<Value> Script::Run() {
+Local<Script> Script::Compile(Handle<String> source,
+                              Handle<String> file_name) {
+  ScriptOrigin origin(file_name);
+  return FromMaybe(Compile(Local<Context>(), source, &origin));
+}
+
+MaybeLocal<Value> Script::Run(Local<Context> context) {
   JsValueRef scriptFunction;
   if (jsrt::GetProperty(this, L"function", &scriptFunction) != JsNoError) {
     return Local<Value>();
   }
 
   JsValueRef result;
-  if (JsCallFunction(scriptFunction, nullptr,
-                     0, &result) != JsNoError) {
+  if (JsCallFunction(scriptFunction, nullptr, 0, &result) != JsNoError) {
     return Local<Value>();
   }
 
   return Local<Value>::New(result);
+}
+
+Local<Value> Script::Run() {
+  return FromMaybe(Run(Local<Context>()));
 }
 
 static void CALLBACK UnboundScriptFinalizeCallback(void * data) {
@@ -206,19 +210,31 @@ Local<Script> UnboundScript::BindToCurrentContext() {
   return Local<Script>::New(scriptObject);
 }
 
-Local<UnboundScript> ScriptCompiler::CompileUnbound(
+MaybeLocal<UnboundScript> ScriptCompiler::CompileUnboundScript(
     Isolate* isolate, Source* source, CompileOptions options) {
-  Local<Script> script = Compile(isolate, source, options);
-  if (script.IsEmpty()) {
+  MaybeLocal<Script> maybe = Compile(Local<Context>(), source, options);
+  if (maybe.IsEmpty()) {
     return Local<UnboundScript>();
   }
-  return script->GetUnboundScript();
+  return FromMaybe(maybe)->GetUnboundScript();
 }
 
-Local<Script> ScriptCompiler::Compile(
+Local<UnboundScript> ScriptCompiler::CompileUnbound(
     Isolate* isolate, Source* source, CompileOptions options) {
-  return Script::Compile(source->source_string,
-                         source->resource_name.As<String>());
+  return FromMaybe(CompileUnboundScript(isolate, source, options));
+}
+
+MaybeLocal<Script> ScriptCompiler::Compile(Local<Context> context,
+                                           Source* source,
+                                           CompileOptions options) {
+  ScriptOrigin origin(source->resource_name);
+  return Script::Compile(context, source->source_string, &origin);
+}
+
+Local<Script> ScriptCompiler::Compile(Isolate* isolate,
+                                      Source* source,
+                                      CompileOptions options) {
+  return FromMaybe(Compile(Local<Context>(), source, options));
 }
 
 }  // namespace v8

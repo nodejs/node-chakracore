@@ -56,6 +56,7 @@
       'include/v8-debug.h',
       'include/v8-platform.h',
       'include/v8-profiler.h',
+      'include/v8-version.h',
       'src/jsrtcachedpropertyidref.inc',
       'src/jsrtcontextcachedobj.inc',
       'src/jsrtcontextshim.cc',

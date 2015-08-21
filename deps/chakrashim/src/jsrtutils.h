@@ -449,11 +449,10 @@ JsErrorCode JsGetTypedArrayInfo(JsValueRef object,
                                 JsValueRef *arrayBuffer,
                                 unsigned int *byteOffset,
                                 unsigned int *byteLength);
-JsErrorCode JsCreateExternalArrayBuffer(
-  void *data,
-  unsigned int byteLength,
-  JsFinalizeCallback finalizeCallback,
-  void *callbackState,
-  JsValueRef *result);
+JsErrorCode JsCreateExternalArrayBuffer(void *data,
+                                        unsigned int byteLength,
+                                        JsFinalizeCallback finalizeCallback,
+                                        void *callbackState,
+                                        JsValueRef *result);
 #define JsRuntimeAttributeEnableExperimentalFeatures 0x00000020
 #endif

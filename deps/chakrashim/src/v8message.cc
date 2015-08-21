@@ -18,13 +18,17 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
+#include "v8chakra.h"
 
 namespace v8 {
 
-Local<String> Message::GetSourceLine() const {
+MaybeLocal<String> Message::GetSourceLine(Local<Context> context) const {
   // CHAKRA-TODO: Figure out how to transmit this info...?
   return Local<String>();
+}
+
+Local<String> Message::GetSourceLine() const {
+  return FromMaybe(GetSourceLine(Local<Context>()));
 }
 
 Handle<Value> Message::GetScriptResourceName() const {
@@ -32,19 +36,31 @@ Handle<Value> Message::GetScriptResourceName() const {
   return Handle<Value>();
 }
 
-int Message::GetLineNumber() const {
+Maybe<int> Message::GetLineNumber(Local<Context> context) const {
   // CHAKRA-TODO: Figure out how to transmit this info...?
-  return 0;
+  return Nothing<int>();
+}
+
+int Message::GetLineNumber() const {
+  return FromMaybe(GetLineNumber(Local<Context>()));
+}
+
+Maybe<int> Message::GetStartColumn(Local<Context> context) const {
+  // CHAKRA-TODO: Figure out how to transmit this info...?
+  return Nothing<int>();
 }
 
 int Message::GetStartColumn() const {
+  return FromMaybe(GetStartColumn(Local<Context>()));
+}
+
+Maybe<int> Message::GetEndColumn(Local<Context> context) const {
   // CHAKRA-TODO: Figure out how to transmit this info...?
-  return 0;
+  return Nothing<int>();
 }
 
 int Message::GetEndColumn() const {
-  // CHAKRA-TODO: Figure out how to transmit this info...?
-  return 0;
+  return FromMaybe(GetEndColumn(Local<Context>()));
 }
 
 }  // namespace v8

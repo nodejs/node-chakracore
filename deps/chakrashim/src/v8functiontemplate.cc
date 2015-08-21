@@ -52,7 +52,7 @@ struct FunctionCallbackData {
       : callback(aCallback),
         data(nullptr, aData),
         signature(nullptr, aSignature) {
-    HandleScope scope;
+    HandleScope scope(nullptr);
     instanceTemplate = ObjectTemplate::New(nullptr);
   }
 
@@ -86,7 +86,7 @@ struct FunctionCallbackData {
                                              JsValueRef *arguments,
                                              unsigned short argumentCount,
                                              void *callbackState) {
-    HandleScope scope;
+    HandleScope scope(nullptr);
 
     JsValueRef functionCallbackDataRef = JsValueRef(callbackState);
     void* externalData;
@@ -226,7 +226,7 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
   return Local<FunctionTemplate>::New(functionTemplateRef);
 }
 
-Local<Function> FunctionTemplate::GetFunction() {
+MaybeLocal<Function> FunctionTemplate::GetFunction(Local<Context> context) {
   void* externalData;
   if (JsGetExternalData(this, &externalData) != JsNoError) {
     return Local<Function>();
@@ -249,11 +249,15 @@ Local<Function> FunctionTemplate::GetFunction() {
       return Local<Function>();
     }
 
-    function->Set(String::New(L"prototype"),
+    function->Set(String::NewFromUtf8(nullptr, "prototype"),
                   functionCallbackData->prototype.As<Value>());
   }
 
   return function;
+}
+
+Local<Function> FunctionTemplate::GetFunction() {
+  return FromMaybe(GetFunction(Local<Context>()));
 }
 
 Local<ObjectTemplate> FunctionTemplate::InstanceTemplate() {

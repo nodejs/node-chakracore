@@ -24,13 +24,21 @@ namespace v8 {
 
 void CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
                                                           void *data) {
-  chakrashim::WeakReferenceCallbackWrapper *callbackWrapper =
-    reinterpret_cast<chakrashim::WeakReferenceCallbackWrapper*>(data);
-  WeakCallbackData<Value, void> callbackData(
-    Isolate::GetCurrent(),
-    callbackWrapper->parameters,
-    static_cast<Value*>(ref));
-  callbackWrapper->callback(callbackData);
+  const chakrashim::WeakReferenceCallbackWrapper *callbackWrapper =
+    reinterpret_cast<const chakrashim::WeakReferenceCallbackWrapper*>(data);
+  if (callbackWrapper->isWeakCallbackInfo) {
+    WeakCallbackInfo<void>::Callback callback;
+    void* fields[kInternalFieldsInWeakCallback] = {};
+    WeakCallbackInfo<void> info(Isolate::GetCurrent(),
+                                callbackWrapper->parameters,
+                                fields, &callback);
+    callbackWrapper->infoCallback(info);
+  } else {
+    WeakCallbackData<Value, void> data(Isolate::GetCurrent(),
+                                       callbackWrapper->parameters,
+                                       static_cast<Value*>(ref));
+    callbackWrapper->dataCallback(data);
+  }
 }
 
 namespace chakrashim {
@@ -48,11 +56,12 @@ void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive) {
     object, nullptr, revive ? DummyObjectBeforeCollectCallback : nullptr);
 }
 
-void SetObjectWeakReferenceCallback(
+template <class Callback, class Func>
+void SetObjectWeakReferenceCallbackCommon(
     JsValueRef object,
-    WeakCallbackData<Value, void>::Callback callback,
-    void* parameters,
-    std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper) {
+    Callback callback,
+    std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper,
+    const Func& initWrapper) {
   if (callback == nullptr || object == JS_INVALID_REFERENCE) {
     return;
   }
@@ -62,12 +71,39 @@ void SetObjectWeakReferenceCallback(
   }
 
   WeakReferenceCallbackWrapper *callbackWrapper = (*weakWrapper).get();
-  callbackWrapper->parameters = parameters;
-  callbackWrapper->callback = callback;
+  initWrapper(callbackWrapper);
 
   JsSetObjectBeforeCollectCallback(
     object, callbackWrapper,
     v8::Utils::WeakReferenceCallbackWrapperCallback);
+}
+
+void SetObjectWeakReferenceCallback(
+    JsValueRef object,
+    WeakCallbackInfo<void>::Callback callback,
+    void* parameters,
+    std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper) {
+  SetObjectWeakReferenceCallbackCommon(
+    object, callback, weakWrapper,
+    [=](WeakReferenceCallbackWrapper *callbackWrapper) {
+      callbackWrapper->parameters = parameters;
+      callbackWrapper->infoCallback = callback;
+      callbackWrapper->isWeakCallbackInfo = true;
+  });
+}
+
+void SetObjectWeakReferenceCallback(
+    JsValueRef object,
+    WeakCallbackData<Value, void>::Callback callback,
+    void* parameters,
+    std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper) {
+  SetObjectWeakReferenceCallbackCommon(
+    object, callback, weakWrapper,
+    [=](WeakReferenceCallbackWrapper *callbackWrapper) {
+      callbackWrapper->parameters = parameters;
+      callbackWrapper->dataCallback = callback;
+      callbackWrapper->isWeakCallbackInfo = false;
+  });
 }
 
 }  // namespace chakrashim

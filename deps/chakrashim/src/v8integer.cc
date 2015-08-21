@@ -35,12 +35,15 @@ Local<Integer> Integer::New(Isolate* isolate, int32_t value) {
 }
 
 Local<Integer> Integer::NewFromUnsigned(Isolate* isolate, uint32_t value) {
-  JsValueRef ref;
-
-  if (JsIntToNumber(value, &ref) != JsNoError) {
-    return Local<Integer>();
+  if (static_cast<int32_t>(value) >= 0) {
+    return New(isolate, static_cast<int32_t>(value));
   }
 
+  // Otherwise doesn't fit in int32, use double
+  JsValueRef ref;
+  if (JsDoubleToNumber(value, &ref) != JsNoError) {
+    return Local<Integer>();
+  }
   return Local<Integer>::New(ref);
 }
 

@@ -18,9 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrt.h"
-#include "jsrtUtils.h"
+#include "v8chakra.h"
 #include <math.h>
 
 namespace v8 {
@@ -118,6 +116,10 @@ DEFINE_TYPEDARRAY_CHECK(Int32)
 DEFINE_TYPEDARRAY_CHECK(Float32)
 DEFINE_TYPEDARRAY_CHECK(Float64)
 
+bool Value::IsDataView() const {
+  return IsOfType(this, JsValueType::JsDataView);
+}
+
 bool Value::IsBoolean() const {
   return IsOfType(this, JsValueType::JsBoolean);
 }
@@ -191,7 +193,7 @@ bool Value::IsRegExp() const {
   return IsOfType(this, ContextShim::GlobalType::RegExp);
 }
 
-Local<Boolean> Value::ToBoolean(Isolate* isolate) const {
+MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;
   if (JsConvertValueToBoolean((JsValueRef)this, &value) != JsNoError) {
     return Local<Boolean>();
@@ -200,7 +202,7 @@ Local<Boolean> Value::ToBoolean(Isolate* isolate) const {
   return Local<Boolean>::New(value);
 }
 
-Local<Number> Value::ToNumber(Isolate* isolate) const {
+MaybeLocal<Number> Value::ToNumber(Local<Context> context) const {
   JsValueRef value;
   if (JsConvertValueToNumber((JsValueRef)this, &value) != JsNoError) {
     return Local<Number>();
@@ -209,7 +211,7 @@ Local<Number> Value::ToNumber(Isolate* isolate) const {
   return Local<Number>::New(value);
 }
 
-Local<String> Value::ToString(Isolate* isolate) const {
+MaybeLocal<String> Value::ToString(Local<Context> context) const {
   JsValueRef value;
   if (JsConvertValueToString((JsValueRef)this, &value) != JsNoError) {
     return Local<String>();
@@ -218,7 +220,11 @@ Local<String> Value::ToString(Isolate* isolate) const {
   return Local<String>::New(value);
 }
 
-Local<Object> Value::ToObject(Isolate* isolate) const {
+MaybeLocal<String> Value::ToDetailString(Local<Context> context) const {
+  return ToString(context);
+}
+
+MaybeLocal<Object> Value::ToObject(Local<Context> context) const {
   JsValueRef value;
   if (JsConvertValueToObject((JsValueRef)this, &value) != JsNoError) {
     return Local<Object>();
@@ -227,73 +233,155 @@ Local<Object> Value::ToObject(Isolate* isolate) const {
   return Local<Object>::New(value);
 }
 
-Local<Integer> Value::ToInteger(Isolate* isolate) const {
-  int64_t value = this->IntegerValue();
+MaybeLocal<Integer> Value::ToInteger(Local<Context> context) const {
+  Maybe<int64_t> maybeValue = this->IntegerValue(context);
+  if (maybeValue.IsNothing()) {
+    return Local<Integer>();
+  }
 
   JsValueRef integerRef;
-
-  if (JsIntToNumber(static_cast<int>(value), &integerRef) != JsNoError) {
+  if (JsIntToNumber(static_cast<int>(maybeValue.FromJust()),
+                    &integerRef) != JsNoError) {
     return Local<Integer>();
   }
 
   return Local<Integer>::New(integerRef);
 }
 
+MaybeLocal<Uint32> Value::ToUint32(Local<Context> context) const {
+  Local<Integer> jsValue = Integer::NewFromUnsigned(nullptr,
+                                                    this->Uint32Value());
+  return jsValue.As<Uint32>();
+}
+
+MaybeLocal<Int32> Value::ToInt32(Local<Context> context) const {
+  Local<Integer> jsValue = Integer::New(nullptr, this->Int32Value());
+  return jsValue.As<Int32>();
+}
+
+Local<Boolean> Value::ToBoolean(Isolate* isolate) const {
+  return FromMaybe(ToBoolean(Local<Context>()));
+}
+
+Local<Number> Value::ToNumber(Isolate* isolate) const {
+  return FromMaybe(ToNumber(Local<Context>()));
+}
+
+Local<String> Value::ToString(Isolate* isolate) const {
+  return FromMaybe(ToString(Local<Context>()));
+}
+
+Local<String> Value::ToDetailString(Isolate* isolate) const {
+  return FromMaybe(ToDetailString(Local<Context>()));
+}
+
+Local<Object> Value::ToObject(Isolate* isolate) const {
+  return FromMaybe(ToObject(Local<Context>()));
+}
+
+Local<Integer> Value::ToInteger(Isolate* isolate) const {
+  return FromMaybe(ToInteger(Local<Context>()));
+}
 
 Local<Uint32> Value::ToUint32(Isolate* isolate) const {
-  Local<Integer> jsValue =
-    Integer::NewFromUnsigned(Isolate::GetCurrent(), this->Uint32Value());
-  return Local<Uint32>(static_cast<Uint32*>(*jsValue));
+  return FromMaybe(ToUint32(Local<Context>()));
 }
 
 Local<Int32> Value::ToInt32(Isolate* isolate) const {
-  Local<Integer> jsValue =
-    Integer::New(Isolate::GetCurrent(), this->Int32Value());
-  return Local<Int32>(static_cast<Int32*>(*jsValue));
+  return FromMaybe(ToInt32(Local<Context>()));
 }
 
-bool Value::BooleanValue() const {
+MaybeLocal<Uint32> Value::ToArrayIndex(Local<Context> context) const {
+  if (IsNumber()) {
+    return ToUint32(context);
+  }
+
+  MaybeLocal<String> maybeString = ToString(context);
+  bool isUint32;
+  uint32_t uint32Value;
+  if (maybeString.IsEmpty() ||
+      jsrt::TryParseUInt32(*FromMaybe(maybeString),
+                           &isUint32, &uint32Value) != JsNoError) {
+    return Local<Uint32>();
+  }
+
+  return Integer::NewFromUnsigned(nullptr, uint32Value).As<Uint32>();
+}
+
+Local<Uint32> Value::ToArrayIndex() const {
+  return FromMaybe(ToArrayIndex(Local<Context>()));
+}
+
+Maybe<bool> Value::BooleanValue(Local<Context> context) const {
   bool value;
   if (jsrt::ValueToNative</*LIKELY*/true>(JsConvertValueToBoolean,
                                           JsBooleanToBool,
                                           (JsValueRef)this,
                                           &value) != JsNoError) {
-    return false;
+    return Nothing<bool>();
   }
-  return value;
+  return Just(value);
+}
+
+Maybe<double> Value::NumberValue(Local<Context> context) const {
+  double value;
+  if (jsrt::ValueToDoubleLikely((JsValueRef)this, &value) != JsNoError) {
+    return Nothing<double>();
+  }
+  return Just(value);
+}
+
+Maybe<int64_t> Value::IntegerValue(Local<Context> context) const {
+  Maybe<double> maybe = NumberValue(context);
+  return maybe.IsNothing() ?
+    Nothing<int64_t>() : Just(static_cast<int64_t>(maybe.FromJust()));
+}
+
+Maybe<uint32_t> Value::Uint32Value(Local<Context> context) const {
+  Maybe<int32_t> maybe = Int32Value(context);
+  return maybe.IsNothing() ?
+    Nothing<uint32_t>() : Just(static_cast<uint32_t>(maybe.FromJust()));
+}
+
+Maybe<int32_t> Value::Int32Value(Local<Context> context) const {
+  int intValue;
+  if (jsrt::ValueToIntLikely((JsValueRef)this, &intValue) != JsNoError) {
+    return Nothing<int32_t>();
+  }
+  return Just(intValue);
+}
+
+bool Value::BooleanValue() const {
+  return FromMaybe(BooleanValue(Local<Context>()));
 }
 
 double Value::NumberValue() const {
-  double value;
-  if (jsrt::ValueToDoubleLikely((JsValueRef)this, &value) != JsNoError) {
-    return 0;
-  }
-  return value;
+  return FromMaybe(NumberValue(Local<Context>()));
 }
 
 int64_t Value::IntegerValue() const {
-  return (int64_t)NumberValue();
+  return FromMaybe(IntegerValue(Local<Context>()));
 }
 
 uint32_t Value::Uint32Value() const {
-  return (uint32_t)Int32Value();
+  return FromMaybe(Uint32Value(Local<Context>()));
 }
 
 int32_t Value::Int32Value() const {
-  int intValue;
-  if (jsrt::ValueToIntLikely((JsValueRef)this, &intValue) != JsNoError) {
-    return 0;
+  return FromMaybe(Int32Value(Local<Context>()));
+}
+
+Maybe<bool> Value::Equals(Local<Context> context, Handle<Value> that) const {
+  bool equals;
+  if (JsEquals((JsValueRef)this, *that, &equals) != JsNoError) {
+    return Nothing<bool>();
   }
-  return intValue;
+
+  return Just(equals);
 }
 
 bool Value::Equals(Handle<Value> that) const {
-  bool equals;
-  if (JsEquals((JsValueRef)this, *that, &equals) != JsNoError) {
-    return false;
-  }
-
-  return equals;
+  return FromMaybe(Equals(Local<Context>(), that));
 }
 
 bool Value::StrictEquals(Handle<Value> that) const {

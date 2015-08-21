@@ -18,10 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrt.h"
-#include "jsrtutils.h"
-
+#include "v8chakra.h"
 #include <memory>
 
 namespace v8 {
@@ -31,11 +28,8 @@ using jsrt::ContextShim;
 using jsrt::PropertyDescriptorOptionValues;
 using jsrt::DefineProperty;
 
-Local<Object> Function::NewInstance() const {
-  return NewInstance(0, nullptr);
-}
-
-Local<Object> Function::NewInstance(int argc, Handle<Value> argv[]) const {
+MaybeLocal<Object> Function::NewInstance(Local<Context> context,
+                                         int argc, Handle<Value> argv[]) const {
   jsrt::JsArguments<> args(argc + 1);
   args[0] = nullptr;  // first argument is a null object
 
@@ -54,8 +48,17 @@ Local<Object> Function::NewInstance(int argc, Handle<Value> argv[]) const {
   return Local<Object>::New(newInstance);
 }
 
-Local<Value> Function::Call(Handle<Value> recv,
-                            int argc, Handle<Value> argv[]) {
+Local<Object> Function::NewInstance(int argc, Handle<Value> argv[]) const {
+  return FromMaybe(NewInstance(Local<Context>(), argc, argv));
+}
+
+Local<Object> Function::NewInstance() const {
+  return NewInstance(0, nullptr);
+}
+
+MaybeLocal<Value> Function::Call(Local<Context> context,
+                                 Handle<Value> recv, int argc,
+                                 Handle<Value> argv[]) {
   jsrt::JsArguments<> args(argc + 1);
   args[0] = *recv;
 
@@ -71,8 +74,13 @@ Local<Value> Function::Call(Handle<Value> recv,
       tryCatch.CheckReportExternalException();
       return Local<Value>();
     }
-    return Local<Value>::New(result);
   }
+  return Local<Value>::New(result);
+}
+
+Local<Value> Function::Call(Handle<Value> recv,
+                            int argc, Handle<Value> argv[]) {
+  return FromMaybe(Call(Local<Context>(), recv, argc, argv));
 }
 
 void Function::SetName(Handle<String> name) {

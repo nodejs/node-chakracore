@@ -19,7 +19,6 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
-#include "jsrtutils.h"
 
 namespace v8 {
 
@@ -59,7 +58,7 @@ struct ObjectTemplateData : public TemplateData {
         indexedPropertyEnumerator(nullptr),
         internalFieldCount(0),
         supportsOverrideToString(false) {
-    HandleScope scope;
+    HandleScope scope(nullptr);
     properties = Object::New();
   }
 
@@ -327,7 +326,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
 
   if (isPropIntType) {
     if (objectData->indexedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->indexedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
@@ -381,7 +380,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
     }
   } else {  // named property...
     if (objectData->namedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->namedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
@@ -449,7 +448,7 @@ JsValueRef CALLBACK Utils::HasCallback(JsValueRef callee,
 JsValueRef Utils::GetPropertiesHandler(JsValueRef* arguments,
                                        unsigned int argumentsCount,
                                        bool getFromPrototype) {
-  HandleScope scope;
+  HandleScope scope(nullptr);
   void* externalData;
 
   JsValueRef object = arguments[1];
@@ -579,7 +578,7 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     int queryResultInt = 0;
 
     if (objectData->indexedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->indexedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
@@ -645,7 +644,7 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     // from the proxy in order to go through the interceptor
     int queryResultInt = 0;
     if (objectData->namedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->namedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
@@ -736,8 +735,12 @@ JsValueRef CALLBACK GetSelf(JsValueRef callee,
   return reinterpret_cast<JsValueRef>(callbackState);
 }
 
-Local<Object> ObjectTemplate::NewInstance() {
+MaybeLocal<Object> ObjectTemplate::NewInstance(Local<Context> context) {
   return NewInstance(Local<Object>());
+}
+
+Local<Object> ObjectTemplate::NewInstance() {
+  return FromMaybe(NewInstance(Local<Context>()));
 }
 
 Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
@@ -900,6 +903,19 @@ void ObjectTemplate::SetAccessor(Handle<String> name,
                                  AccessControl settings,
                                  PropertyAttribute attribute,
                                  Handle<AccessorSignature> signature) {
+  return SetAccessor(name,
+                     reinterpret_cast<AccessorNameGetterCallback>(getter),
+                     reinterpret_cast<AccessorNameSetterCallback>(setter),
+                     data, settings, attribute, signature);
+}
+
+void ObjectTemplate::SetAccessor(Handle<Name> name,
+                                 AccessorNameGetterCallback getter,
+                                 AccessorNameSetterCallback setter,
+                                 Handle<Value> data,
+                                 AccessControl settings,
+                                 PropertyAttribute attribute,
+                                 Handle<AccessorSignature> signature) {
   void* externalData;
   if (JsGetExternalData(this, &externalData) != JsNoError) {
     return;
@@ -968,6 +984,16 @@ void ObjectTemplate::SetIndexedPropertyHandler(
   objectTemplateData->indexedPropertyInterceptorData = data;
 }
 
+void ObjectTemplate::SetHandler(
+    const IndexedPropertyHandlerConfiguration& config) {
+  SetIndexedPropertyHandler(
+    config.getter,
+    config.setter,
+    config.query,
+    config.deleter,
+    config.enumerator,
+    config.data);
+}
 
 void ObjectTemplate::SetAccessCheckCallbacks(
     NamedSecurityCallback named_callback,

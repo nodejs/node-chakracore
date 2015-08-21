@@ -18,30 +18,11 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrtutils.h"
+#include "v8chakra.h"
 
 namespace v8 {
 
 using std::unique_ptr;
-
-String::AsciiValue::AsciiValue(Handle<v8::Value> obj)
-    : _str(nullptr), _length(0) {
-  Handle<String> str = obj->ToString();
-  if (str.IsEmpty()) {
-    return;
-  }
-
-  _length = str->Utf8Length();
-  _str = new char[_length + 1];
-  str->WriteUtf8(_str);
-}
-
-String::AsciiValue::~AsciiValue() {
-  if (_str != nullptr) {
-    delete _str;
-  }
-}
 
 String::Utf8Value::Utf8Value(Handle<v8::Value> obj)
     : _str(nullptr), _length(0) {
@@ -163,59 +144,6 @@ int String::Write(uint16_t *buffer, int start, int length, int options) const {
     options);
 }
 
-int String::WriteAscii(char *buffer, int start, int length, int options) const {
-  if (length == 0) {
-    // bail out if we are required to write no chars
-    return 0;
-  }
-
-  if (start < 0) {
-    // illegal bail out
-    return 0;
-  }
-
-  const wchar_t* str;
-  size_t stringLength;
-  if (JsStringToPointer((JsValueRef)this, &str, &stringLength) != JsNoError) {
-    // error
-    return 0;
-  }
-
-  if (stringLength == 0) {
-    if (!(options & String::NO_NULL_TERMINATION)) {
-      buffer[0] = '\0';
-    }
-    // bail out if string is empty
-    return 0;
-  }
-
-  if (length < 0) {
-    // in case length was not provided we want to copy the whole string
-    length = static_cast<int>(stringLength);
-  }
-  unsigned int count = (length + start) < static_cast<int>(stringLength) ?
-    length : static_cast<int>(stringLength) - start;
-
-  wchar_t* mutableStr = const_cast<wchar_t*>(str);
-
-  if (start > 0) {
-    // pointer arithmatic to start the copying from the 'start' parameter
-    mutableStr += start;
-  }
-
-  JsErrorCode convertResult =
-    jsrt::StringConvert::ToChar(mutableStr, count, buffer, count);
-  if (convertResult != JsNoError) {
-    return 0;
-  }
-
-  if (!(options & String::NO_NULL_TERMINATION)) {
-    buffer[count++] = '\0';
-  }
-
-  return count;
-}
-
 int String::WriteOneByte(
     uint8_t* buffer, int start, int length, int options) const {
   return WriteRaw(
@@ -279,7 +207,7 @@ int String::WriteUtf8(
 }
 
 Local<String> String::Empty(Isolate* isolate) {
-  return String::New(L"", 0);
+  return FromMaybe(String::New(L"", 0));
 }
 
 String* String::Cast(v8::Value *obj) {
@@ -288,13 +216,14 @@ String* String::Cast(v8::Value *obj) {
 }
 
 template <class ToWide>
-Local<String> String::New(const ToWide& toWide, const char *data, int length) {
+MaybeLocal<String> String::New(const ToWide& toWide,
+                               const char *data, int length) {
   if (length < 0) {
     length = static_cast<int>(strlen(data));
   }
 
   if (length == 0) {
-    return Empty();
+    return Empty(nullptr);
   }
 
   unique_ptr<wchar_t[]> str(new wchar_t[length]);
@@ -306,7 +235,7 @@ Local<String> String::New(const ToWide& toWide, const char *data, int length) {
   return New(str.get(), static_cast<int>(charsWritten));
 }
 
-Local<String> String::New(const wchar_t *data, int length) {
+MaybeLocal<String> String::New(const wchar_t *data, int length) {
   if (length < 0) {
     length = static_cast<int>(wcslen(data));
   }
@@ -319,16 +248,53 @@ Local<String> String::New(const wchar_t *data, int length) {
   return Local<String>::New(strRef);
 }
 
-Local<String> String::New(const uint16_t *data, int length) {
-  return New(reinterpret_cast<const wchar_t *>(data), length);
-}
-
-Local<String> String::NewSymbol(const char *data, int length) {
+MaybeLocal<String> String::NewFromUtf8(Isolate* isolate,
+                                       const char* data,
+                                       v8::NewStringType type,
+                                       int length) {
   return New(jsrt::StringConvert::ToWChar, data, length);
 }
 
-Local<String> String::NewSymbol(const wchar_t *data, int length) {
-  return New(data, length);
+Local<String> String::NewFromUtf8(Isolate* isolate,
+                                  const char* data,
+                                  NewStringType type,
+                                  int length) {
+  return FromMaybe(NewFromUtf8(isolate, data,
+                               static_cast<v8::NewStringType>(type), length));
+}
+
+MaybeLocal<String> String::NewFromOneByte(Isolate* isolate,
+                                          const uint8_t* data,
+                                          v8::NewStringType type,
+                                          int length) {
+  return New(jsrt::StringConvert::CopyRaw<char, wchar_t>,
+             reinterpret_cast<const char*>(data),
+             length);
+}
+
+Local<String> String::NewFromOneByte(Isolate* isolate,
+                                     const uint8_t* data,
+                                     NewStringType type,
+                                     int length) {
+  return FromMaybe(NewFromOneByte(isolate, data,
+                                  static_cast<v8::NewStringType>(type),
+                                  length));
+}
+
+MaybeLocal<String> String::NewFromTwoByte(Isolate* isolate,
+                                          const uint16_t* data,
+                                          v8::NewStringType type,
+                                          int length) {
+  return New(reinterpret_cast<const wchar_t*>(data), length);
+}
+
+Local<String> String::NewFromTwoByte(Isolate* isolate,
+                                     const uint16_t* data,
+                                     NewStringType type,
+                                     int length) {
+  return FromMaybe(NewFromTwoByte(isolate, data,
+                                  static_cast<v8::NewStringType>(type),
+                                  length));
 }
 
 Local<String> String::Concat(Handle<String> left, Handle<String> right) {
@@ -346,60 +312,47 @@ Local<String> String::Concat(Handle<String> left, Handle<String> right) {
   return Local<String>::New(result);
 }
 
-Local<String> String::NewExternal(
+MaybeLocal<String> String::NewExternalTwoByte(
     Isolate* isolate, ExternalStringResource* resource) {
   if (resource->data() != nullptr) {
-    auto newStr = New(resource->data(), static_cast<int>(resource->length()));
+    auto newStr = NewFromTwoByte(nullptr, resource->data(),
+                                 v8::NewStringType::kNormal,
+                                 static_cast<int>(resource->length()));
     delete resource;
-
     return newStr;
   }
 
   // otherwise the resource is empty just delete it and return an empty string
   delete resource;
-  return Empty();
+  return Empty(nullptr);
 }
 
-Local<String> String::NewExternal(
-    Isolate* isolate, ExternalOneByteStringResource *resource) {
+Local<String> String::NewExternal(Isolate* isolate,
+                                  ExternalStringResource* resource) {
+  return FromMaybe(NewExternalTwoByte(isolate, resource));
+}
+
+MaybeLocal<String> String::NewExternalOneByte(
+    Isolate* isolate, ExternalOneByteStringResource* resource) {
   if (resource->data() != nullptr) {
-    auto newStr = New(
-      jsrt::StringConvert::ToWChar,
-      resource->data(),
+    auto newStr = NewFromOneByte(
+      nullptr,
+      reinterpret_cast<const uint8_t*>(resource->data()),
+      v8::NewStringType::kNormal,
       static_cast<int>(resource->length()));
-    delete resource;
 
+    delete resource;
     return newStr;
   }
 
   // otherwise the resource is empty just delete it and return an empty string
   delete resource;
-  return Empty();
+  return Empty(nullptr);
 }
 
-Local<String> String::NewFromUtf8(Isolate* isolate,
-                                  const char* data,
-                                  NewStringType type,
-                                  int length) {
-  return New(jsrt::StringConvert::ToWChar, data, length);
-}
-
-Local<String> String::NewFromOneByte(Isolate* isolate,
-                                     const uint8_t* data,
-                                     NewStringType type,
-                                     int length) {
-  return New(
-    jsrt::StringConvert::CopyRaw<char,
-    wchar_t>,
-    reinterpret_cast<const char*>(data),
-    length);
-}
-
-Local<String> String::NewFromTwoByte(Isolate* isolate,
-                                     const uint16_t* data,
-                                     NewStringType type,
-                                     int length) {
-  return New(data, length);
+Local<String> String::NewExternal(Isolate* isolate,
+                                  ExternalOneByteStringResource *resource) {
+  return FromMaybe(NewExternalOneByte(isolate, resource));
 }
 
 }  // namespace v8

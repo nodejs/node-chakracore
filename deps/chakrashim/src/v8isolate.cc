@@ -143,6 +143,11 @@ void Isolate::SetAddHistogramSampleFunction(AddHistogramSampleCallback) {
   CHAKRA_UNIMPLEMENTED();
 }
 
+bool Isolate::IdleNotificationDeadline(double deadline_in_seconds) {
+  CHAKRA_UNIMPLEMENTED();
+  return false;
+}
+
 bool Isolate::IdleNotification(int idle_time_in_ms) {
   CHAKRA_UNIMPLEMENTED();
   return false;

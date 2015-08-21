@@ -18,13 +18,17 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrt.h"
+#include "v8chakra.h"
 
 namespace v8 {
 
 int32_t Int32::Value() const {
   return Int32Value();
+}
+
+Int32* Int32::Cast(v8::Value* obj) {
+  CHAKRA_ASSERT(obj->IsInt32());
+  return static_cast<Int32*>(obj);
 }
 
 }  // namespace v8

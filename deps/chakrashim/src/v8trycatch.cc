@@ -19,13 +19,11 @@
 // IN THE SOFTWARE.
 
 
-#include "v8.h"
-#include "jsrtutils.h"
-#include <cassert>
+#include "v8chakra.h"
 
 namespace v8 {
 
-TryCatch::TryCatch()
+TryCatch::TryCatch(Isolate* isolate)
     : error(JS_INVALID_REFERENCE),
       rethrow(false),
       verbose(false) {
@@ -119,7 +117,7 @@ Local<Value> TryCatch::Exception() const {
   return Local<Value>::New(error);
 }
 
-Local<Value> TryCatch::StackTrace() const {
+MaybeLocal<Value> TryCatch::StackTrace(Local<Context> context) const {
   if (error == JS_INVALID_REFERENCE) {
     const_cast<TryCatch*>(this)->GetAndClearException();
   }
@@ -139,6 +137,10 @@ Local<Value> TryCatch::StackTrace() const {
   }
 
   return Local<Value>::New(trace);
+}
+
+Local<Value> TryCatch::StackTrace() const {
+  return FromMaybe(StackTrace(Local<Context>()));
 }
 
 Local<v8::Message> TryCatch::Message() const {

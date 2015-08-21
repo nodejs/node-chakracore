@@ -154,4 +154,16 @@ class Utils {
                                 size_t byte_offset, size_t length);
 };
 
+
+template <class T>
+T FromMaybe(Maybe<T> maybe, const T& def = T()) {
+  return maybe.FromMaybe(def);
+}
+
+template <class T>
+Local<T> FromMaybe(MaybeLocal<T> maybe, const Local<T>& def = Local<T>()) {
+  return maybe.FromMaybe(def);
+}
+
+
 }  // namespace v8
