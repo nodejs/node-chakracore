@@ -27,13 +27,17 @@ double Number::Value() const {
 }
 
 Local<Number> Number::New(Isolate* isolate, double value) {
-  JsValueRef ref;
+  return Local<Number>::New(isolate, From(value));
+}
 
+Local<Number> Number::From(double value) {
+  JsValueRef ref;
   if (JsDoubleToNumber(value, &ref) != JsNoError) {
     return Local<Number>();
   }
 
-  return Local<Number>::New(ref);
+  // For perf reason, this doesn't allocate a real Handle
+  return Local<Number>(ref);
 }
 
 Number *Number::Cast(v8::Value *obj) {

@@ -59,7 +59,7 @@ struct ObjectTemplateData : public TemplateData {
         indexedPropertyEnumerator(nullptr),
         internalFieldCount(0),
         supportsOverrideToString(false) {
-    HandleScope scope;
+    HandleScope scope(nullptr);
     properties = Object::New();
   }
 
@@ -327,7 +327,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
 
   if (isPropIntType) {
     if (objectData->indexedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->indexedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
@@ -381,7 +381,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
     }
   } else {  // named property...
     if (objectData->namedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->namedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
@@ -449,7 +449,7 @@ JsValueRef CALLBACK Utils::HasCallback(JsValueRef callee,
 JsValueRef Utils::GetPropertiesHandler(JsValueRef* arguments,
                                        unsigned int argumentsCount,
                                        bool getFromPrototype) {
-  HandleScope scope;
+  HandleScope scope(nullptr);
   void* externalData;
 
   JsValueRef object = arguments[1];
@@ -497,13 +497,13 @@ JsValueRef Utils::GetPropertiesHandler(JsValueRef* arguments,
     }
   }
 
-  JsValueRef conatenatedArray;
+  JsValueRef concatenatedArray;
   if (ConcatArray(indexedProperties,
-                  namedProperties, &conatenatedArray) != JsNoError) {
+                  namedProperties, &concatenatedArray) != JsNoError) {
     return GetUndefined();
   }
 
-  return conatenatedArray;
+  return concatenatedArray;
 }
 
 JsValueRef Utils::GetPropertiesEnumeratorHandler(JsValueRef* arguments,
@@ -579,7 +579,7 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     int queryResultInt = 0;
 
     if (objectData->indexedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->indexedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
@@ -645,7 +645,7 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     // from the proxy in order to go through the interceptor
     int queryResultInt = 0;
     if (objectData->namedPropertyQuery != nullptr) {
-      HandleScope scope;
+      HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
         *objectData->namedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),

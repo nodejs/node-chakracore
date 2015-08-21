@@ -18,7 +18,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "jsrtutils.h"
 #include "v8chakra.h"
 #include "chakra_natives.h"
 #include <algorithm>
@@ -73,6 +72,7 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
         JS_INVALID_REFERENCE),
       getNamedOwnKeysFunction(JS_INVALID_REFERENCE),
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
+      getStackTraceFunction(JS_INVALID_REFERENCE),
       forEachNonConfigurablePropertyFunction(JS_INVALID_REFERENCE),
       testFunctionTypeFunction(JS_INVALID_REFERENCE),
       createTargetFunction(JS_INVALID_REFERENCE) {
@@ -449,13 +449,13 @@ bool ContextShim::ExecuteChakraShimJS() {
     return false;
   }
   JsValueRef initFunction;
-  if (JsCallFunction(getInitFunction, nullptr, 0, &initFunction) != JsNoError) {
+  if (CallFunction(getInitFunction, &initFunction) != JsNoError) {
     return false;
   }
   JsValueRef result;
   JsValueRef arguments[] = { this->keepAliveObject };
-  return JsCallFunction(
-    initFunction, arguments, _countof(arguments), &result) == JsNoError;
+  return JsCallFunction(initFunction, arguments, _countof(arguments),
+                        &result) == JsNoError;
 }
 
 bool ContextShim::RegisterCrossContextObject(JsValueRef fakeTarget,
@@ -727,6 +727,11 @@ JsValueRef ContextShim::GetGetIndexedOwnKeysFunction() {
                                &getIndexedOwnKeysFunction);
 }
 
+JsValueRef ContextShim::GetGetStackTraceFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::getStackTrace,
+                               &getStackTraceFunction);
+}
+
 void ContextShim::EnsureThrowAccessorErrorFunctions() {
   if (throwAccessorErrorFunctions[0] == JS_INVALID_REFERENCE) {
     JsValueRef arr = JS_INVALID_REFERENCE;
@@ -799,8 +804,8 @@ JsValueRef CALLBACK Utils::ObjectPrototypeToStringShim(
 
   JsValueRef function = callbackState;
   JsValueRef result;
-  if (JsCallFunction(function,
-                     arguments, argumentCount, &result) != JsNoError) {
+  if (JsCallFunction(function, arguments, argumentCount,
+                     &result) != JsNoError) {
     return JS_INVALID_REFERENCE;
   }
   return result;

@@ -52,7 +52,7 @@ struct FunctionCallbackData {
       : callback(aCallback),
         data(nullptr, aData),
         signature(nullptr, aSignature) {
-    HandleScope scope;
+    HandleScope scope(nullptr);
     instanceTemplate = ObjectTemplate::New(nullptr);
   }
 
@@ -86,7 +86,7 @@ struct FunctionCallbackData {
                                              JsValueRef *arguments,
                                              unsigned short argumentCount,
                                              void *callbackState) {
-    HandleScope scope;
+    HandleScope scope(nullptr);
 
     JsValueRef functionCallbackDataRef = JsValueRef(callbackState);
     void* externalData;
@@ -245,16 +245,22 @@ Local<Function> FunctionTemplate::GetFunction() {
     static_cast<Function*>(functionTemplateData->EnsureProperties());
 
   if (functionCallbackData->prototype.IsEmpty()) {
-    functionCallbackData->prototype =
+    IsolateShim* iso = IsolateShim::GetCurrent();
+    Local<Object> prototype =
       functionTemplateData->prototypeTemplate->NewInstance();
-    if (functionCallbackData->prototype.IsEmpty() ||
-        jsrt::SetProperty(*functionCallbackData->prototype,
-                          L"constructor", *function) != JsNoError) {
+    if (prototype.IsEmpty() ||
+        JsSetProperty(*prototype,
+                      iso->GetCachedPropertyIdRef(
+                        jsrt::CachedPropertyIdRef::constructor),
+                      *function, false) != JsNoError ||
+        JsSetProperty(*function,
+                      iso->GetCachedPropertyIdRef(
+                        jsrt::CachedPropertyIdRef::prototype),
+                      *prototype, false) != JsNoError) {
       return Local<Function>();
     }
 
-    function->Set(String::New(L"prototype"),
-                  functionCallbackData->prototype.As<Value>());
+    functionCallbackData->prototype = prototype;
   }
 
   return function;
@@ -306,22 +312,7 @@ void FunctionTemplate::SetHiddenPrototype(bool value) {
 
 bool FunctionTemplate::HasInstance(Handle<Value> object) {
   return ContextShim::ExecuteInContextOf<bool>(this, [&]() {
-    void *externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError) {
-      return false;
-    }
-
-    FunctionTemplateData *functionTemplateData =
-      reinterpret_cast<FunctionTemplateData*>(externalData);
-    FunctionCallbackData * functionCallbackData =
-      functionTemplateData->callbackData;
-
-    bool result;
-    if (jsrt::InstanceOf(*object, *GetFunction(), &result) != JsNoError) {
-      return false;
-    }
-
-    return result;
+    return jsrt::InstanceOf(*object, *GetFunction());
   });
 }
 

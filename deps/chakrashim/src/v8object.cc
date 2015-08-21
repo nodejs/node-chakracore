@@ -19,7 +19,6 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
-#include "jsrtutils.h"
 #include <cassert>
 #include <memory>
 
@@ -63,10 +62,8 @@ bool Object::Set(Handle<Value> key, Handle<Value> value) {
   return Set(key, value, PropertyAttribute::None, /*force*/false);
 }
 
-bool Object::Set(Handle<Value> key,
-                 Handle<Value> value,
-                 PropertyAttribute attribs,
-                 bool force) {
+bool Object::Set(Handle<Value> key, Handle<Value> value,
+                 PropertyAttribute attribs, bool force) {
   JsPropertyIdRef idRef;
 
   if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
@@ -117,11 +114,6 @@ bool Object::Set(Handle<Value> key,
   return true;
 }
 
-bool Object::ForceSet(
-    Handle<Value> key, Handle<Value> value, PropertyAttribute attribs) {
-  return Set(key, value, attribs, /*force*/true);
-}
-
 bool Object::Set(uint32_t index, Handle<Value> value) {
   if (SetIndexedProperty((JsValueRef)this,
                          index, (JsValueRef)(*value)) != JsNoError) {
@@ -131,8 +123,11 @@ bool Object::Set(uint32_t index, Handle<Value> value) {
   return true;
 }
 
-// CHAKRA-TODO: maybe add an overload that gets a Handle<String> ?
-// CHAKRA-TODO: what if an integer is passsed here?
+bool Object::ForceSet(Handle<Value> key, Handle<Value> value,
+                      PropertyAttribute attribs) {
+  return Set(key, value, attribs, /*force*/true);
+}
+
 Local<Value> Object::Get(Handle<Value> key) {
   JsPropertyIdRef idRef;
 
@@ -148,7 +143,6 @@ Local<Value> Object::Get(Handle<Value> key) {
   return Local<Value>::New(valueRef);
 }
 
-
 Local<Value> Object::Get(uint32_t index) {
   JsValueRef valueRef;
 
@@ -159,14 +153,61 @@ Local<Value> Object::Get(uint32_t index) {
   return Local<Value>::New(valueRef);
 }
 
-bool Object::Has(Handle<Value> key) {
-  JsValueRef propertyIdRef;
-  if (GetPropertyIdFromName((JsValueRef)*key, &propertyIdRef) != JsNoError) {
-    return false;
+PropertyAttribute Object::GetPropertyAttributes(Handle<Value> key) {
+  JsValueRef desc;
+  if (jsrt::GetOwnPropertyDescriptor(this, *key, &desc) != JsNoError) {
+    return PropertyAttribute::None;
   }
 
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  PropertyAttribute attr = PropertyAttribute::None;
+  JsValueRef value;
+
+  if (JsGetProperty(desc,
+                    iso->GetCachedPropertyIdRef(
+                      CachedPropertyIdRef::enumerable),
+                    &value) != JsNoError) {
+    return PropertyAttribute::None;
+  }
+  if (!Local<Value>(value)->BooleanValue()) {
+    attr = static_cast<PropertyAttribute>(attr | PropertyAttribute::DontEnum);
+  }
+
+  if (JsGetProperty(desc,
+                    iso->GetCachedPropertyIdRef(
+                      CachedPropertyIdRef::configurable),
+                    &value) != JsNoError) {
+    return PropertyAttribute::None;
+  }
+  if (!Local<Value>(value)->BooleanValue()) {
+    attr = static_cast<PropertyAttribute>(attr | PropertyAttribute::DontDelete);
+  }
+
+  if (JsGetProperty(desc,
+                    iso->GetCachedPropertyIdRef(
+                      CachedPropertyIdRef::writable),
+                    &value) != JsNoError) {
+    return PropertyAttribute::None;
+  }
+  if (!Local<Value>(value)->IsUndefined() &&
+      !Local<Value>(value)->BooleanValue()) {
+    attr = static_cast<PropertyAttribute>(attr | PropertyAttribute::ReadOnly);
+  }
+
+  return attr;
+}
+
+Local<Value> Object::GetOwnPropertyDescriptor(Local<String> key) {
+  JsValueRef result;
+  if (jsrt::GetOwnPropertyDescriptor(this, *key, &result) != JsNoError) {
+    return Local<Value>();
+  }
+  return Local<Value>::New(result);
+}
+
+bool Object::Has(Handle<Value> key) {
   bool result;
-  if (JsHasProperty((JsValueRef)this, propertyIdRef, &result) != JsNoError) {
+  if (jsrt::HasProperty(this, *key, &result) != JsNoError) {
     return false;
   }
 
@@ -200,126 +241,19 @@ bool Object::Delete(Handle<Value> key) {
   return result;
 }
 
+bool Object::Has(uint32_t index) {
+  bool result;
+  if (jsrt::HasIndexedProperty(this, index, &result) != JsNoError) {
+    return false;
+  }
+  return result;
+}
+
 bool Object::Delete(uint32_t index) {
   if (DeleteIndexedProperty((JsValueRef)this, index) != JsNoError) {
     return false;
   }
   return true;
-}
-
-Local<Array> Object::GetPropertyNames() {
-  JsValueRef arrayRef;
-
-  if (jsrt::GetPropertyNames((JsValueRef)this, &arrayRef) != JsNoError) {
-    return Local<Array>();
-  }
-
-  return Local<Array>::New(arrayRef);
-}
-
-Local<Array> Object::GetOwnPropertyNames() {
-  JsValueRef arrayRef;
-
-  if (JsGetOwnPropertyNames((JsValueRef)this, &arrayRef) != JsNoError) {
-    return Local<Array>();
-  }
-
-  return Local<Array>::New(arrayRef);
-}
-
-bool Object::HasOwnProperty(Handle<String> key) {
-  JsValueRef result;
-  if (jsrt::HasOwnProperty((JsValueRef)this,
-                           (JsValueRef)*key, &result) != JsNoError) {
-    return false;
-  }
-
-  bool boolValue;
-  if (JsBooleanToBool(result, &boolValue) != JsNoError) {
-    return false;
-  }
-
-  return boolValue;
-}
-
-Local<String> v8::Object::GetConstructorName() {
-  JsValueRef constructor;
-  if (jsrt::GetObjectConstructor((JsValueRef)this,
-                                 &constructor) != JsNoError) {
-    return Local<String>();
-  }
-
-  IsolateShim* iso = IsolateShim::GetCurrent();
-  JsPropertyIdRef idRef = iso->GetCachedPropertyIdRef(
-    CachedPropertyIdRef::name);
-
-  JsValueRef name;
-  if (JsGetProperty(constructor, idRef, &name) != JsNoError) {
-    return Local<String>();
-  }
-
-  return Local<String>::New(static_cast<String*>(name));
-}
-
-JsValueRef CALLBACK Utils::AccessorHandler(JsValueRef callee,
-                                           bool isConstructCall,
-                                           JsValueRef *arguments,
-                                           unsigned short argumentCount,
-                                           void *callbackState) {
-  void *externalData;
-  JsValueRef result = JS_INVALID_REFERENCE;
-
-  if (JsGetUndefinedValue(&result) != JsNoError) {
-    return JS_INVALID_REFERENCE;
-  }
-
-  if (GetExternalData(callee, &externalData) != JsNoError) {
-    return result;
-  }
-
-  if (externalData == nullptr) {
-    return result;
-  }
-
-  AccessorExternalData *accessorData =
-    static_cast<AccessorExternalData*>(externalData);
-  Local<Value> dataLocal = accessorData->data;
-
-  JsValueRef thisRef = JS_INVALID_REFERENCE;
-  if (argumentCount > 0) {
-    thisRef = arguments[0];
-  }
-  // this is ok since the first argument will stay on the stack as long as we
-  // are in this function
-  Local<Object> thisLocal(static_cast<Object*>(thisRef));
-
-  Local<Object> holder;
-  if (!accessorData->CheckSignature(thisLocal, &holder)) {
-    return JS_INVALID_REFERENCE;
-  }
-
-  Local<String> propertyNameLocal = accessorData->propertyName;
-  switch (accessorData->type) {
-    case Setter:
-    {
-      assert(argumentCount == 2);
-      PropertyCallbackInfo<void> info(dataLocal, thisLocal, holder);
-      accessorData->setter(
-        propertyNameLocal, static_cast<Value*>(arguments[1]), info);
-      break;
-    }
-    case Getter:
-    {
-      PropertyCallbackInfo<Value> info(dataLocal, thisLocal, holder);
-      accessorData->getter(propertyNameLocal, info);
-      result = info.GetReturnValue().Get();
-      break;
-    }
-     default:
-      break;
-  }
-
-  return result;
 }
 
 void CALLBACK AcessorExternalObjectFinalizeCallback(void *data) {
@@ -328,22 +262,6 @@ void CALLBACK AcessorExternalObjectFinalizeCallback(void *data) {
       static_cast<AccessorExternalData*>(data);
     delete accessorData;
   }
-}
-
-bool Object::SetAccessor(Handle<String> name,
-                         AccessorGetterCallback getter,
-                         AccessorSetterCallback setter,
-                         v8::Handle<Value> data,
-                         AccessControl settings,
-                         PropertyAttribute attributes) {
-  return SetAccessor(
-    name,
-    getter,
-    setter,
-    data,
-    settings,
-    attributes,
-    Handle<AccessorSignature>());
 }
 
 bool Object::SetAccessor(Handle<String> name,
@@ -426,6 +344,36 @@ bool Object::SetAccessor(Handle<String> name,
   return true;
 }
 
+bool Object::SetAccessor(Handle<String> name,
+                         AccessorGetterCallback getter,
+                         AccessorSetterCallback setter,
+                         v8::Handle<Value> data,
+                         AccessControl settings,
+                         PropertyAttribute attributes) {
+  return SetAccessor(name, getter, setter, data, settings, attributes,
+                     Handle<AccessorSignature>());
+}
+
+Local<Array> Object::GetPropertyNames() {
+  JsValueRef arrayRef;
+
+  if (jsrt::GetPropertyNames((JsValueRef)this, &arrayRef) != JsNoError) {
+    return Local<Array>();
+  }
+
+  return Local<Array>::New(arrayRef);
+}
+
+Local<Array> Object::GetOwnPropertyNames() {
+  JsValueRef arrayRef;
+
+  if (JsGetOwnPropertyNames((JsValueRef)this, &arrayRef) != JsNoError) {
+    return Local<Array>();
+  }
+
+  return Local<Array>::New(arrayRef);
+}
+
 Local<Value> Object::GetPrototype() {
   JsValueRef protoypeRef;
 
@@ -443,6 +391,127 @@ bool Object::SetPrototype(Handle<Value> prototype) {
   }
 
   return true;
+}
+
+Local<String> Object::ObjectProtoToString() {
+  ContextShim* contextShim = ContextShim::GetCurrent();
+  JsValueRef toString = contextShim->GetGlobalPrototypeFunction(
+    ContextShim::GlobalPrototypeFunction::Object_toString);
+
+  JsValueRef result;
+  JsValueRef args[] = { this };
+  if (JsCallFunction(toString, args, _countof(args), &result) != JsNoError) {
+    return Local<String>();
+  }
+  return Local<String>::New(result);
+}
+
+Local<String> v8::Object::GetConstructorName() {
+  JsValueRef constructor;
+  if (jsrt::GetObjectConstructor((JsValueRef)this,
+                                 &constructor) != JsNoError) {
+    return Local<String>();
+  }
+
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  JsPropertyIdRef idRef = iso->GetCachedPropertyIdRef(
+    CachedPropertyIdRef::name);
+
+  JsValueRef name;
+  if (JsGetProperty(constructor, idRef, &name) != JsNoError) {
+    return Local<String>();
+  }
+
+  return Local<String>::New(static_cast<String*>(name));
+}
+
+bool Object::HasOwnProperty(Handle<String> key) {
+  JsValueRef result;
+  if (jsrt::HasOwnProperty((JsValueRef)this,
+                           (JsValueRef)*key, &result) != JsNoError) {
+    return false;
+  }
+
+  bool boolValue;
+  if (JsBooleanToBool(result, &boolValue) != JsNoError) {
+    return false;
+  }
+
+  return boolValue;
+}
+
+bool Object::HasRealNamedProperty(Handle<String> key) {
+  return Has(key);
+}
+
+bool Object::HasRealIndexedProperty(uint32_t index) {
+  return Has(index);
+}
+
+Local<Value> Object::GetRealNamedProperty(Handle<String> key) {
+  // CHAKRA-TODO: how to skip interceptors?
+  return Get(key);
+}
+
+JsValueRef CALLBACK Utils::AccessorHandler(JsValueRef callee,
+                                           bool isConstructCall,
+                                           JsValueRef *arguments,
+                                           unsigned short argumentCount,
+                                           void *callbackState) {
+  void *externalData;
+  JsValueRef result = JS_INVALID_REFERENCE;
+
+  if (JsGetUndefinedValue(&result) != JsNoError) {
+    return JS_INVALID_REFERENCE;
+  }
+
+  if (GetExternalData(callee, &externalData) != JsNoError) {
+    return result;
+  }
+
+  if (externalData == nullptr) {
+    return result;
+  }
+
+  AccessorExternalData *accessorData =
+    static_cast<AccessorExternalData*>(externalData);
+  Local<Value> dataLocal = accessorData->data;
+
+  JsValueRef thisRef = JS_INVALID_REFERENCE;
+  if (argumentCount > 0) {
+    thisRef = arguments[0];
+  }
+  // this is ok since the first argument will stay on the stack as long as we
+  // are in this function
+  Local<Object> thisLocal(static_cast<Object*>(thisRef));
+
+  Local<Object> holder;
+  if (!accessorData->CheckSignature(thisLocal, &holder)) {
+    return JS_INVALID_REFERENCE;
+  }
+
+  Local<String> propertyNameLocal = accessorData->propertyName;
+  switch (accessorData->type) {
+    case Setter:
+    {
+      assert(argumentCount == 2);
+      PropertyCallbackInfo<void> info(dataLocal, thisLocal, holder);
+      accessorData->setter(
+        propertyNameLocal, static_cast<Value*>(arguments[1]), info);
+      break;
+    }
+    case Getter:
+    {
+      PropertyCallbackInfo<Value> info(dataLocal, thisLocal, holder);
+      accessorData->getter(propertyNameLocal, info);
+      result = info.GetReturnValue().Get();
+      break;
+    }
+     default:
+      break;
+  }
+
+  return result;
 }
 
 // Create an object that will hold the hidden values
@@ -582,6 +651,15 @@ int Object::InternalFieldCount() {
   }
 
   return result;
+}
+
+Local<Value> Object::GetInternalField(int index) {
+  void* p = GetAlignedPointerFromInternalField(index);
+  return static_cast<Value*>(p);
+}
+
+void Object::SetInternalField(int index, Handle<Value> value) {
+  SetAlignedPointerInInternalField(index, *value);
 }
 
 void *Object::GetAlignedPointerFromInternalField(int index) {
@@ -762,11 +840,6 @@ Local<Context> Object::CreationContext() {
   }
   return Local<Context>::New(
     static_cast<Context *>(contextShim->GetContextRef()));
-}
-
-Local<Value> Object::GetRealNamedProperty(Handle<String> key) {
-  // CHAKRA-TODO: how to skip interceptors?
-  return this->Get(key);
 }
 
 Local<Object> Object::New(Isolate* isolate) {

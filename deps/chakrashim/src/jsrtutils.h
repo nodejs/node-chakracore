@@ -149,6 +149,14 @@ JsErrorCode CallProperty(JsValueRef ref,
                          unsigned short argumentCount,
                          JsValueRef *result);
 
+JsErrorCode CallGetter(JsValueRef ref,
+                       const wchar_t *propertyName,
+                       JsValueRef* result);
+
+JsErrorCode CallGetter(JsValueRef ref,
+                       const wchar_t *propertyName,
+                       int* result);
+
 JsErrorCode GetPropertyOfGlobal(const wchar_t *propertyName,
                                 JsValueRef *ref);
 
@@ -164,20 +172,10 @@ JsValueRef GetTrue();
 
 JsValueRef GetFalse();
 
-// NOT IMPELEMENTED
-JsErrorCode SetException(const wchar_t* message,
-                         const wchar_t* stackTrace);
-
 JsErrorCode GetArrayLength(JsValueRef arrayRef,
                            unsigned int *arraySize);
 
-JsErrorCode InstanceOf(JsValueRef first,
-                       JsValueRef second,
-                       bool *result);
-
-JsErrorCode InstanceOfGlobalType(JsValueRef first,
-                                 const wchar_t* typeName,
-                                 bool *result);
+bool InstanceOf(JsValueRef first, JsValueRef second);
 
 JsErrorCode CloneObject(JsValueRef source,
                         JsValueRef target,
@@ -275,9 +273,6 @@ JsErrorCode GetIndexedProperty(JsValueRef object,
                                int index,
                                JsValueRef *value);
 
-bool IsOfGlobalType(JsValueRef objectRef,
-                    const wchar_t *typeName);
-
 // CHAKRA-TODO : Currently Chakra's ParseScript doesn't support strictMode
 // flag. As a workaround, prepend the script text with 'use strict'.
 JsErrorCode ParseScript(const wchar_t *script,
@@ -285,10 +280,6 @@ JsErrorCode ParseScript(const wchar_t *script,
                         const wchar_t *sourceUrl,
                         bool isStrictMode,
                         JsValueRef *result);
-
-// used for debugging
-JsErrorCode StringifyObject(JsValueRef object,
-                            const wchar_t **stringifiedObject);
 
 void Unimplemented(const char * message);
 

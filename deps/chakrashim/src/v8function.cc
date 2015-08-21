@@ -37,7 +37,7 @@ Local<Object> Function::NewInstance() const {
 
 Local<Object> Function::NewInstance(int argc, Handle<Value> argv[]) const {
   jsrt::JsArguments<> args(argc + 1);
-  args[0] = nullptr;  // first argument is a null object
+  args[0] = jsrt::GetUndefined();
 
   if (argc > 0) {
     for (int i = 0; i < argc; i++) {

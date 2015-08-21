@@ -24,6 +24,11 @@
         # to avoid subtle bugs
         'cflags': [ '-fno-strict-aliasing' ],
       }],
+      ['node_engine=="chakra"', {
+        'defines': [
+          'BUILDING_CHAKRASHIM=1',  # other deps don't import chakrashim exports
+        ],
+      }],
     ],
     "sources": [
       "src/agent.cc",

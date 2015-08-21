@@ -57,11 +57,10 @@
 #include "v8config.h"
 
 #ifdef BUILDING_CHAKRASHIM
-#define EXPORT __declspec(dllexport)
+#define V8_EXPORT __declspec(dllexport)
 #else
-#define EXPORT __declspec(dllimport)
+#define V8_EXPORT __declspec(dllimport)
 #endif
-#define V8_EXPORT EXPORT
 
 #define TYPE_CHECK(T, S)                                       \
   while (false) {                                              \
@@ -253,10 +252,10 @@ class Handle {
   template<class F> friend class PersistentBase;
   template<class F> friend class Handle;
   template<class F> friend class Local;
-  friend EXPORT Handle<Primitive> Undefined(Isolate* isolate);
-  friend EXPORT Handle<Primitive> Null(Isolate* isolate);
-  friend EXPORT Handle<Boolean> True(Isolate* isolate);
-  friend EXPORT Handle<Boolean> False(Isolate* isolate);
+  friend V8_EXPORT Handle<Primitive> Undefined(Isolate* isolate);
+  friend V8_EXPORT Handle<Primitive> Null(Isolate* isolate);
+  friend V8_EXPORT Handle<Boolean> True(Isolate* isolate);
+  friend V8_EXPORT Handle<Boolean> False(Isolate* isolate);
 
   V8_INLINE explicit Handle(T* val) : val_(val) {}
   V8_INLINE static Handle<T> New(Isolate* isolate, T* that) {
@@ -309,6 +308,7 @@ template <class T> class Local : public Handle<T> {
   friend struct AcessorExternalDataType;
   friend class AccessorSignature;
   friend class Array;
+  friend class Boolean;
   friend class BooleanObject;
   friend class Context;
   friend class Date;
@@ -382,20 +382,20 @@ struct WeakReferenceCallbackWrapper {
   void *parameters;
   WeakCallbackData<Value, void>::Callback callback;
 };
-template class EXPORT std::shared_ptr<WeakReferenceCallbackWrapper>;
+template class V8_EXPORT std::shared_ptr<WeakReferenceCallbackWrapper>;
 
 // A helper method for setting an object with a WeakReferenceCallback. The
 // callback will be called before the object is released.
-EXPORT void SetObjectWeakReferenceCallback(
+V8_EXPORT void SetObjectWeakReferenceCallback(
     JsValueRef object,
     WeakCallbackData<Value, void>::Callback callback,
     void* parameters,
     std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper);
 // A helper method for turning off the WeakReferenceCallback that was set using
 // the previous method
-EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
+V8_EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
 
-EXPORT JsValueRef MarshalJsValueRefToContext(
+V8_EXPORT JsValueRef MarshalJsValueRefToContext(
   JsValueRef value, JsContextRef context);
 }
 
@@ -597,6 +597,59 @@ class Eternal : private Persistent<T> {
   }
 };
 
+
+template<class T>
+class UniquePersistent : public PersistentBase<T> {
+  struct RValue {
+    V8_INLINE explicit RValue(UniquePersistent* obj) : object(obj) {}
+    UniquePersistent* object;
+  };
+
+public:
+  V8_INLINE UniquePersistent() : PersistentBase<T>(0) {}
+
+  template <class S>
+  V8_INLINE UniquePersistent(Isolate* isolate, Handle<S> that)
+    : PersistentBase<T>(PersistentBase<T>::New(isolate, *that)) {
+    TYPE_CHECK(T, S);
+  }
+
+  template <class S>
+  V8_INLINE UniquePersistent(Isolate* isolate, const PersistentBase<S>& that)
+    : PersistentBase<T>(PersistentBase<T>::New(isolate, that.val_)) {
+    TYPE_CHECK(T, S);
+  }
+
+  V8_INLINE UniquePersistent(RValue rvalue)
+      : PersistentBase<T>(rvalue.object->val_) {
+    this._weakWrapper = rvalue.object->_weakWrapper;
+    rvalue.object->val_ = 0;
+    rvalue.object->_weakWrapper.reset();
+  }
+
+  V8_INLINE ~UniquePersistent() { this->Reset(); }
+
+  template<class S>
+  V8_INLINE UniquePersistent& operator=(UniquePersistent<S> rhs) {
+    TYPE_CHECK(T, S);
+    this->Reset();
+    this->val_ = rhs.val_;
+    this->_weakWrapper = rhs._weakWrapper;
+    rhs.val_ = 0;
+    rhs._weakWrapper.reset();
+    return *this;
+  }
+
+  V8_INLINE operator RValue() { return RValue(this); }
+
+  UniquePersistent Pass() { return UniquePersistent(RValue(this)); }
+
+private:
+  UniquePersistent(UniquePersistent&);
+  void operator=(UniquePersistent&);
+};
+
+
 // CHAKRA: Chakra's GC behavior does not exactly match up with V8's GC behavior.
 // V8 uses a HandleScope to keep Local references alive, which means that as
 // long as the HandleScope is on the stack, the Local references will not be
@@ -607,12 +660,19 @@ class Eternal : private Persistent<T> {
 // will create a JS array and will hold that reference on the stack. Any local
 // values created will then be added to that array. So the GC will see the array
 // on the stack and then keep those local references alive.
-class EXPORT HandleScope {
+class V8_EXPORT HandleScope {
+ public:
+  HandleScope(Isolate* isolate);
+  ~HandleScope();
+
+  static int NumberOfHandles(Isolate* isolate);
+
+ private:
+  friend class EscapableHandleScope;
   template <class T> friend class Handle;
   template <class T> friend class Local;
   static const int kOnStackLocals = 5;  // Arbitrary number of refs on stack
 
- private:
   JsValueRef _locals[kOnStackLocals];   // Save some refs on stack
   JsValueRef _refs;                     // More refs go to a JS array
   int _count;
@@ -629,15 +689,11 @@ class EXPORT HandleScope {
 
   static HandleScope *GetCurrent();
 
- public:
-  HandleScope(Isolate* isolate = nullptr);
-  ~HandleScope();
-
   template <class T>
   Local<T> Close(Handle<T> value);
 };
 
-class EXPORT EscapableHandleScope : public HandleScope {
+class V8_EXPORT EscapableHandleScope : public HandleScope {
  public:
   EscapableHandleScope(Isolate* isolate) : HandleScope(isolate) {}
 
@@ -645,7 +701,7 @@ class EXPORT EscapableHandleScope : public HandleScope {
   Local<T> Escape(Handle<T> value) { return Close(value); }
 };
 
-class EXPORT Data {
+class V8_EXPORT Data {
  public:
 };
 
@@ -658,12 +714,12 @@ class ScriptOrigin {
   Handle<Value> resource_name_;
 };
 
-class EXPORT UnboundScript {
+class V8_EXPORT UnboundScript {
  public:
   Local<Script> BindToCurrentContext();
 };
 
-class EXPORT Script {
+class V8_EXPORT Script {
  public:
   static Local<Script> Compile(
     Handle<String> source, ScriptOrigin* origin = NULL);
@@ -672,7 +728,7 @@ class EXPORT Script {
   Local<UnboundScript> GetUnboundScript();
 };
 
-class EXPORT ScriptCompiler {
+class V8_EXPORT ScriptCompiler {
  public:
   struct CachedData {
     // CHAKRA-TODO: Not implemented
@@ -712,7 +768,7 @@ class EXPORT ScriptCompiler {
     CompileOptions options = kNoCompileOptions);
 };
 
-class EXPORT Message {
+class V8_EXPORT Message {
  public:
   Local<String> GetSourceLine() const;
   Handle<Value> GetScriptResourceName() const;
@@ -727,7 +783,7 @@ class EXPORT Message {
 
 typedef void (*MessageCallback)(Handle<Message> message, Handle<Value> error);
 
-class EXPORT StackTrace {
+class V8_EXPORT StackTrace {
  public:
   enum StackTraceOptions {
     kLineNumber = 1,
@@ -753,7 +809,7 @@ class EXPORT StackTrace {
     StackTraceOptions options = kOverview);
 };
 
-class EXPORT StackFrame {
+class V8_EXPORT StackFrame {
  public:
   int GetLineNumber() const;
   int GetColumn() const;
@@ -765,7 +821,7 @@ class EXPORT StackFrame {
   bool IsConstructor() const;
 };
 
-class EXPORT Value : public Data {
+class V8_EXPORT Value : public Data {
  public:
   bool IsUndefined() const;
   bool IsNull() const;
@@ -797,6 +853,8 @@ class EXPORT Value : public Data {
   bool IsInt32Array() const;
   bool IsFloat32Array() const;
   bool IsFloat64Array() const;
+  bool IsDataView() const;
+
   Local<Boolean> ToBoolean() const;
   Local<Number> ToNumber() const;
   Local<String> ToString() const;
@@ -805,6 +863,9 @@ class EXPORT Value : public Data {
   Local<Integer> ToInteger() const;
   Local<Uint32> ToUint32() const;
   Local<Int32> ToInt32() const;
+
+  Local<Uint32> ToArrayIndex() const;
+
   bool BooleanValue() const;
   double NumberValue() const;
   int64_t IntegerValue() const;
@@ -818,135 +879,73 @@ class EXPORT Value : public Data {
   }
 };
 
-class EXPORT Primitive : public Value {
+class V8_EXPORT Primitive : public Value {
  public:
 };
 
-class EXPORT Boolean : public Primitive {
+class V8_EXPORT Boolean : public Primitive {
  public:
   bool Value() const;
-
   static Handle<Boolean> New(Isolate* isolate, bool value);
+
+ private:
+  friend class BooleanObject;
+  template <class F> friend class ReturnValue;
+  static Local<Boolean> From(bool value);
 };
 
-class EXPORT String : public Primitive {
+class V8_EXPORT String : public Primitive {
  public:
-  class EXPORT AsciiValue {
-   public:
-    explicit AsciiValue(Handle<v8::Value> obj);
-    ~AsciiValue();
-    char *operator*() { return _str; }
-    const char *operator*() const { return _str; }
-    int length() const { return static_cast<int>(_length); }
-   private:
-    AsciiValue(const AsciiValue&);
-    void operator=(const AsciiValue&);
-
-    char* _str;
-    size_t _length;
-  };
-
-  class EXPORT ExternalAsciiStringResource {
-   public:
-    virtual ~ExternalAsciiStringResource() {}
-    virtual const char *data() const = 0;
-    virtual size_t length() const = 0;
-  };
-
-  class EXPORT ExternalStringResource {
-   public:
-    virtual ~ExternalStringResource() {}
-    virtual const uint16_t* data() const = 0;
-    virtual size_t length() const = 0;
-  };
-
-  class EXPORT Utf8Value {
-   public:
-    explicit Utf8Value(Handle<v8::Value> obj);
-    ~Utf8Value();
-    char *operator*() { return _str; }
-    const char *operator*() const { return _str; }
-    int length() const { return static_cast<int>(_length); }
-   private:
-    Utf8Value(const Utf8Value&);
-    void operator=(const Utf8Value&);
-
-    char* _str;
-    size_t _length;
-  };
-
-  class EXPORT Value {
-   public:
-    explicit Value(Handle<v8::Value> obj);
-    ~Value();
-    uint16_t *operator*() { return _str; }
-    const uint16_t *operator*() const { return _str; }
-    int length() const { return _length; }
-   private:
-    Value(const Value&);
-    void operator=(const Value&);
-
-    uint16_t* _str;
-    size_t _length;
-  };
+  int Length() const;
+  int Utf8Length() const;
+  bool IsOneByte() const { return false; }
+  bool ContainsOnlyOneByte() const { return false; }
 
   enum WriteOptions {
     NO_OPTIONS = 0,
     HINT_MANY_WRITES_EXPECTED = 1,
     NO_NULL_TERMINATION = 2,
     PRESERVE_ONE_BYTE_NULL = 4,
-    // Used by WriteUtf8 to replace orphan surrogate code units with the
-    // unicode replacement character. Needs to be set to guarantee valid UTF-8
-    // output.
     REPLACE_INVALID_UTF8 = 8
   };
 
-  int Length() const;
-  int Utf8Length() const;
-  bool IsOneByte() const { return false; }
-  bool ContainsOnlyOneByte() const { return false; }
+  int Write(uint16_t *buffer,
+            int start = 0,
+            int length = -1,
+            int options = NO_OPTIONS) const;
+  int WriteOneByte(uint8_t* buffer,
+                   int start = 0,
+                   int length = -1,
+                   int options = NO_OPTIONS) const;
+  int WriteUtf8(char *buffer,
+                int length = -1,
+                int *nchars_ref = NULL,
+                int options = NO_OPTIONS) const;
 
-  int Write(
-    uint16_t *buffer,
-    int start = 0,
-    int length = -1,
-    int options = NO_OPTIONS) const;
-  int WriteAscii(
-    char *buffer,
-    int start = 0,
-    int length = -1,
-    int options = NO_OPTIONS) const;
-  int WriteOneByte(
-    uint8_t* buffer,
-    int start = 0,
-    int length = -1,
-    int options = NO_OPTIONS) const;
-  int WriteUtf8(
-    char *buffer,
-    int length = -1,
-    int *nchars_ref = NULL,
-    int options = NO_OPTIONS) const;
-
-  static Local<String> Empty(Isolate* isolate = nullptr);
-  static String *Cast(v8::Value *obj);
-  template <class ToWide> static Local<String> New(
-    const ToWide& toWide, const char *data, int length = -1);
-  static Local<String> New(const wchar_t *data, int length = -1);
-  static Local<String> New(const uint16_t *data, int length = -1);
-  static Local<String> NewSymbol(const char *data, int length = -1);
-  static Local<String> NewSymbol(const wchar_t *data, int length = -1);
-  static Local<String> Concat(Handle<String> left, Handle<String> right);
-  static Local<String> NewExternal(
-    Isolate* isolate, ExternalStringResource* resource);
-  static Local<String> NewExternal(
-    Isolate* isolate, ExternalAsciiStringResource *resource);
-
+  static Local<String> Empty(Isolate* isolate);
   bool IsExternal() const { return false; }
   bool IsExternalAscii() const { return false; }
+
+  class V8_EXPORT ExternalAsciiStringResource {
+   public:
+    virtual ~ExternalAsciiStringResource() {}
+    virtual const char *data() const = 0;
+    virtual size_t length() const = 0;
+  };
+
+  class V8_EXPORT ExternalStringResource {
+   public:
+    virtual ~ExternalStringResource() {}
+    virtual const uint16_t* data() const = 0;
+    virtual size_t length() const = 0;
+  };
+
   ExternalStringResource* GetExternalStringResource() const { return NULL; }
   const ExternalAsciiStringResource* GetExternalAsciiStringResource() const {
     return NULL;
   }
+
+  static String *Cast(v8::Value *obj);
 
   enum NewStringType {
     kNormalString, kInternalizedString, kUndetectableString
@@ -967,37 +966,89 @@ class EXPORT String : public Primitive {
                                       NewStringType type = kNormalString,
                                       int length = -1);
 
+  static Local<String> Concat(Handle<String> left, Handle<String> right);
+  static Local<String> NewExternal(
+    Isolate* isolate, ExternalStringResource* resource);
+  static Local<String> NewExternal(
+    Isolate* isolate, ExternalAsciiStringResource *resource);
+
+  class V8_EXPORT Utf8Value {
+   public:
+    explicit Utf8Value(Handle<v8::Value> obj);
+    ~Utf8Value();
+    char *operator*() { return _str; }
+    const char *operator*() const { return _str; }
+    int length() const { return static_cast<int>(_length); }
+   private:
+    Utf8Value(const Utf8Value&);
+    void operator=(const Utf8Value&);
+
+    char* _str;
+    size_t _length;
+  };
+
+  class V8_EXPORT Value {
+   public:
+    explicit Value(Handle<v8::Value> obj);
+    ~Value();
+    uint16_t *operator*() { return _str; }
+    const uint16_t *operator*() const { return _str; }
+    int length() const { return _length; }
+   private:
+    Value(const Value&);
+    void operator=(const Value&);
+
+    uint16_t* _str;
+    size_t _length;
+  };
+
+ private:
+  template <class ToWide>
+  static Local<String> New(const ToWide& toWide,
+                           const char *data, int length = -1);
+  static Local<String> New(const wchar_t *data, int length = -1);
+
   JsValueRef _ref;
 };
 
-class EXPORT Number : public Primitive {
+class V8_EXPORT Number : public Primitive {
  public:
   double Value() const;
-
   static Local<Number> New(Isolate* isolate, double value);
   static Number *Cast(v8::Value *obj);
+
+ private:
+  friend class Integer;
+  template <class F> friend class ReturnValue;
+  static Local<Number> From(double value);
 };
 
-class EXPORT Integer : public Number {
+class V8_EXPORT Integer : public Number {
  public:
   static Local<Integer> New(Isolate* isolate, int32_t value);
   static Local<Integer> NewFromUnsigned(Isolate* isolate, uint32_t value);
   static Integer *Cast(v8::Value *obj);
 
   int64_t Value() const;
+
+ private:
+  friend class Utils;
+  template <class F> friend class ReturnValue;
+  static Local<Integer> From(int32_t value);
+  static Local<Integer> From(uint32_t value);
 };
 
-class EXPORT Int32 : public Integer {
+class V8_EXPORT Int32 : public Integer {
  public:
   int32_t Value() const;
 };
 
-class EXPORT Uint32 : public Integer {
+class V8_EXPORT Uint32 : public Integer {
  public:
   uint32_t Value() const;
 };
 
-class EXPORT Object : public Value {
+class V8_EXPORT Object : public Value {
  public:
   bool Set(Handle<Value> key, Handle<Value> value);
   bool Set(uint32_t index, Handle<Value> value);
@@ -1005,37 +1056,57 @@ class EXPORT Object : public Value {
                 PropertyAttribute attribs = None);
   Local<Value> Get(Handle<Value> key);
   Local<Value> Get(uint32_t index);
+  PropertyAttribute GetPropertyAttributes(Handle<Value> key);
+  Local<Value> GetOwnPropertyDescriptor(Local<String> key);
   bool Has(Handle<Value> key);
   bool Delete(Handle<Value> key);
+  bool Has(uint32_t index);
   bool Delete(uint32_t index);
-  bool SetAccessor(
-    Handle<String> name,
-    AccessorGetterCallback getter,
-    AccessorSetterCallback setter = 0,
-    Handle<Value> data = Handle<Value>(),
-    AccessControl settings = DEFAULT,
-    PropertyAttribute attribute = None);
-  Local<Value> GetPrototype();
-  bool SetPrototype(Handle<Value> prototype);
+  bool SetAccessor(Handle<String> name,
+                   AccessorGetterCallback getter,
+                   AccessorSetterCallback setter = 0,
+                   Handle<Value> data = Handle<Value>(),
+                   AccessControl settings = DEFAULT,
+                   PropertyAttribute attribute = None);
   Local<Array> GetPropertyNames();
   Local<Array> GetOwnPropertyNames();
-  bool HasOwnProperty(Handle<String> key);
+  Local<Value> GetPrototype();
+  bool SetPrototype(Handle<Value> prototype);
+  Local<String> ObjectProtoToString();
   Local<String> GetConstructorName();
+
   int InternalFieldCount();
+  Local<Value> GetInternalField(int index);
+  void SetInternalField(int index, Handle<Value> value);
+  void* GetAlignedPointerFromInternalField(int index);
+  void SetAlignedPointerInInternalField(int index, void* value);
+
+  bool HasOwnProperty(Handle<String> key);
+  bool HasRealNamedProperty(Handle<String> key);
+  bool HasRealIndexedProperty(uint32_t index);
+  bool HasRealNamedCallbackProperty(Handle<String> key);
+
+  Local<Value> GetRealNamedPropertyInPrototypeChain(Handle<String> key);
+  Local<Value> GetRealNamedProperty(Handle<String> key);
+
   bool SetHiddenValue(Handle<String> key, Handle<Value> value);
   Local<Value> GetHiddenValue(Handle<String> key);
-  void SetIndexedPropertiesToExternalArrayData(
-    void *data, ExternalArrayType array_type, int number_of_elements);
+
+  Local<Object> Clone();
+  Local<Context> CreationContext();
+
+  void SetIndexedPropertiesToExternalArrayData(void *data,
+                                               ExternalArrayType array_type,
+                                               int number_of_elements);
   bool HasIndexedPropertiesInExternalArrayData();
   void *GetIndexedPropertiesExternalArrayData();
   ExternalArrayType GetIndexedPropertiesExternalArrayDataType();
   int GetIndexedPropertiesExternalArrayDataLength();
 
-  void* GetAlignedPointerFromInternalField(int index);
-  void SetAlignedPointerInInternalField(int index, void* value);
-  Local<Object> Clone();
-  Local<Context> CreationContext();
-  Local<Value> GetRealNamedProperty(Handle<String> key);
+  Local<Value> CallAsFunction(Handle<Value> recv,
+                              int argc,
+                              Handle<Value> argv[]);
+  Local<Value> CallAsConstructor(int argc, Handle<Value> argv[]);
 
   static Local<Object> New(Isolate* isolate = nullptr);
   static Object *Cast(Value *obj);
@@ -1048,8 +1119,6 @@ class EXPORT Object : public Value {
            bool force);
   JsErrorCode GetObjectData(struct ObjectData** objectData);
   JsErrorCode InternalFieldHelper(void ***externalArray, int *count);
-  JsErrorCode ExternalArrayDataHelper(ExternalArrayData **data);
-  bool SupportsExternalArrayData(ExternalArrayData **data);
 
   bool SetAccessor(Handle<String> name,
                    AccessorGetterCallback getter,
@@ -1062,15 +1131,16 @@ class EXPORT Object : public Value {
   ObjectTemplate* GetObjectTemplate();
 };
 
-class EXPORT Array : public Object {
+class V8_EXPORT Array : public Object {
  public:
   uint32_t Length() const;
+  Local<Object> CloneElementAt(uint32_t index);
 
   static Local<Array> New(Isolate* isolate = nullptr, int length = 0);
   static Array *Cast(Value *obj);
 };
 
-class EXPORT BooleanObject : public Object {
+class V8_EXPORT BooleanObject : public Object {
  public:
   static Local<Value> New(bool value);
   bool ValueOf() const;
@@ -1078,27 +1148,27 @@ class EXPORT BooleanObject : public Object {
 };
 
 
-class EXPORT StringObject : public Object {
+class V8_EXPORT StringObject : public Object {
  public:
   static Local<Value> New(Handle<String> value);
   Local<String> ValueOf() const;
   static StringObject* Cast(Value* obj);
 };
 
-class EXPORT NumberObject : public Object {
+class V8_EXPORT NumberObject : public Object {
  public:
   static Local<Value> New(Isolate * isolate, double value);
   double ValueOf() const;
   static NumberObject* Cast(Value* obj);
 };
 
-class EXPORT Date : public Object {
+class V8_EXPORT Date : public Object {
  public:
   static Local<Value> New(Isolate * isolate, double time);
   static Date *Cast(Value *obj);
 };
 
-class EXPORT RegExp : public Object {
+class V8_EXPORT RegExp : public Object {
  public:
   enum Flags {
     kNone = 0,
@@ -1125,30 +1195,29 @@ class ReturnValue {
       chakrashim::MarshalJsValueRefToContext(*handle, *_context));
   }
   // Fast primitive setters
-  void Set(bool value) { Set(Boolean::New(Isolate::GetCurrent(), value)); }
-  void Set(double i) { Set(Number::New(Isolate::GetCurrent(), i)); }
-  void Set(int32_t i) { Set(Integer::New(Isolate::GetCurrent(), i)); }
-  void Set(uint32_t i) {
-    Set(Integer::NewFromUnsigned(Isolate::GetCurrent(), i));
-  }
+  void Set(bool value) { Set(Boolean::From(value)); }
+  void Set(double value) { Set(Number::From(value)); }
+  void Set(int32_t value) { Set(Integer::From(value)); }
+  void Set(uint32_t value) { Set(Integer::From(value)); }
   // Fast JS primitive setters
-  void SetNull() { Set(Null(Isolate::GetCurrent())); }
-  void SetUndefined() { Set(Undefined(Isolate::GetCurrent())); }
-  void SetEmptyString() { Set(String::New(L"", 0)); }
+  void SetNull() { Set(Null(nullptr)); }
+  void SetUndefined() { Set(Undefined(nullptr)); }
+  void SetEmptyString() { Set(String::Empty(nullptr)); }
   // Convenience getter for Isolate
   Isolate* GetIsolate() { return Isolate::GetCurrent(); }
 
   Value* Get() const { return *_value; }
+
  private:
+  template <typename F> friend class FunctionCallbackInfo;
+  template <typename F> friend class PropertyCallbackInfo;
+
   ReturnValue(Value** value, Handle<Context> context)
     : _value(value), _context(context) {
   }
 
   Value** _value;
   Local<Context> _context;
-
-  template <typename F> friend class FunctionCallbackInfo;
-  template <typename F> friend class PropertyCallbackInfo;
 };
 
 template<typename T>
@@ -1232,7 +1301,7 @@ class PropertyCallbackInfo {
 
 typedef void (*FunctionCallback)(const FunctionCallbackInfo<Value>& info);
 
-class EXPORT Function : public Object {
+class V8_EXPORT Function : public Object {
  public:
   static Local<Function> New(
     Isolate * isolate,
@@ -1275,9 +1344,9 @@ class V8_EXPORT Promise : public Object {
 };
 
 
-class EXPORT ArrayBuffer : public Object {
+class V8_EXPORT ArrayBuffer : public Object {
  public:
-  class EXPORT Allocator {  // NOLINT
+  class V8_EXPORT Allocator {  // NOLINT
    public:
     virtual ~Allocator() {}
     virtual void* Allocate(size_t length) = 0;
@@ -1285,7 +1354,7 @@ class EXPORT ArrayBuffer : public Object {
     virtual void Free(void* data, size_t length) = 0;
   };
 
-  class EXPORT Contents {  // NOLINT
+  class V8_EXPORT Contents {  // NOLINT
    public:
     Contents() : data_(NULL), byte_length_(0) {}
     void* Data() const { return data_; }
@@ -1311,7 +1380,7 @@ class EXPORT ArrayBuffer : public Object {
   ArrayBuffer();
 };
 
-class EXPORT ArrayBufferView : public Object {
+class V8_EXPORT ArrayBufferView : public Object {
  public:
   Local<ArrayBuffer> Buffer();
   size_t ByteOffset();
@@ -1322,7 +1391,7 @@ class EXPORT ArrayBufferView : public Object {
   ArrayBufferView();
 };
 
-class EXPORT TypedArray : public ArrayBufferView {
+class V8_EXPORT TypedArray : public ArrayBufferView {
  public:
   size_t Length();
   static TypedArray* Cast(Value* obj);
@@ -1330,7 +1399,7 @@ class EXPORT TypedArray : public ArrayBufferView {
   TypedArray();
 };
 
-class EXPORT Uint8Array : public TypedArray {
+class V8_EXPORT Uint8Array : public TypedArray {
  public:
   static Local<Uint8Array> New(Handle<ArrayBuffer> array_buffer,
                                size_t byte_offset, size_t length);
@@ -1339,7 +1408,7 @@ class EXPORT Uint8Array : public TypedArray {
   Uint8Array();
 };
 
-class EXPORT Uint8ClampedArray : public TypedArray {
+class V8_EXPORT Uint8ClampedArray : public TypedArray {
  public:
   static Local<Uint8ClampedArray> New(Handle<ArrayBuffer> array_buffer,
                                       size_t byte_offset, size_t length);
@@ -1348,7 +1417,7 @@ class EXPORT Uint8ClampedArray : public TypedArray {
   Uint8ClampedArray();
 };
 
-class EXPORT Int8Array : public TypedArray {
+class V8_EXPORT Int8Array : public TypedArray {
  public:
   static Local<Int8Array> New(Handle<ArrayBuffer> array_buffer,
                               size_t byte_offset, size_t length);
@@ -1357,7 +1426,7 @@ class EXPORT Int8Array : public TypedArray {
   Int8Array();
 };
 
-class EXPORT Uint16Array : public TypedArray {
+class V8_EXPORT Uint16Array : public TypedArray {
  public:
   static Local<Uint16Array> New(Handle<ArrayBuffer> array_buffer,
                                 size_t byte_offset, size_t length);
@@ -1366,7 +1435,7 @@ class EXPORT Uint16Array : public TypedArray {
   Uint16Array();
 };
 
-class EXPORT Int16Array : public TypedArray {
+class V8_EXPORT Int16Array : public TypedArray {
  public:
   static Local<Int16Array> New(Handle<ArrayBuffer> array_buffer,
                                size_t byte_offset, size_t length);
@@ -1375,7 +1444,7 @@ class EXPORT Int16Array : public TypedArray {
   Int16Array();
 };
 
-class EXPORT Uint32Array : public TypedArray {
+class V8_EXPORT Uint32Array : public TypedArray {
  public:
   static Local<Uint32Array> New(Handle<ArrayBuffer> array_buffer,
                                 size_t byte_offset, size_t length);
@@ -1384,7 +1453,7 @@ class EXPORT Uint32Array : public TypedArray {
   Uint32Array();
 };
 
-class EXPORT Int32Array : public TypedArray {
+class V8_EXPORT Int32Array : public TypedArray {
  public:
   static Local<Int32Array> New(Handle<ArrayBuffer> array_buffer,
                                size_t byte_offset, size_t length);
@@ -1393,7 +1462,7 @@ class EXPORT Int32Array : public TypedArray {
   Int32Array();
 };
 
-class EXPORT Float32Array : public TypedArray {
+class V8_EXPORT Float32Array : public TypedArray {
  public:
   static Local<Float32Array> New(Handle<ArrayBuffer> array_buffer,
                                  size_t byte_offset, size_t length);
@@ -1402,7 +1471,7 @@ class EXPORT Float32Array : public TypedArray {
   Float32Array();
 };
 
-class EXPORT Float64Array : public TypedArray {
+class V8_EXPORT Float64Array : public TypedArray {
  public:
   static Local<Float64Array> New(Handle<ArrayBuffer> array_buffer,
                                  size_t byte_offset, size_t length);
@@ -1424,7 +1493,7 @@ typedef bool (*NamedSecurityCallback)(
 typedef bool (*IndexedSecurityCallback)(
   Local<Object> host, uint32_t index, AccessType type, Local<Value> data);
 
-class EXPORT Template : public Data {
+class V8_EXPORT Template : public Data {
  public:
   void Set(Handle<String> name,
            Handle<Data> value,
@@ -1436,7 +1505,7 @@ class EXPORT Template : public Data {
   Template();
 };
 
-class EXPORT FunctionTemplate : public Template {
+class V8_EXPORT FunctionTemplate : public Template {
  public:
   static Local<FunctionTemplate> New(
     Isolate* isolate,
@@ -1453,7 +1522,7 @@ class EXPORT FunctionTemplate : public Template {
   bool HasInstance(Handle<Value> object);
 };
 
-class EXPORT ObjectTemplate : public Template {
+class V8_EXPORT ObjectTemplate : public Template {
  public:
   static Local<ObjectTemplate> New(Isolate* isolate);
 
@@ -1504,7 +1573,7 @@ class EXPORT ObjectTemplate : public Template {
   Handle<String> GetClassName();
 };
 
-class EXPORT External : public Value {
+class V8_EXPORT External : public Value {
  public:
   static Local<Value> Wrap(void* data);
   static inline void* Unwrap(Handle<Value> obj);
@@ -1515,7 +1584,7 @@ class EXPORT External : public Value {
   void* Value() const;
 };
 
-class EXPORT Signature : public Data {
+class V8_EXPORT Signature : public Data {
  public:
   static Local<Signature> New(Isolate* isolate,
                               Handle<FunctionTemplate> receiver =
@@ -1526,7 +1595,7 @@ class EXPORT Signature : public Data {
   Signature();
 };
 
-class EXPORT AccessorSignature : public Data {
+class V8_EXPORT AccessorSignature : public Data {
  public:
   static Local<AccessorSignature> New(
     Isolate* isolate,
@@ -1534,19 +1603,19 @@ class EXPORT AccessorSignature : public Data {
 };
 
 
-EXPORT Handle<Primitive> Undefined(Isolate* isolate);
-EXPORT Handle<Primitive> Null(Isolate* isolate);
-EXPORT Handle<Boolean> True(Isolate* isolate);
-EXPORT Handle<Boolean> False(Isolate* isolate);
-EXPORT bool SetResourceConstraints(ResourceConstraints *constraints);
+V8_EXPORT Handle<Primitive> Undefined(Isolate* isolate);
+V8_EXPORT Handle<Primitive> Null(Isolate* isolate);
+V8_EXPORT Handle<Boolean> True(Isolate* isolate);
+V8_EXPORT Handle<Boolean> False(Isolate* isolate);
+V8_EXPORT bool SetResourceConstraints(ResourceConstraints *constraints);
 
 
-class EXPORT ResourceConstraints {
+class V8_EXPORT ResourceConstraints {
  public:
   void set_stack_limit(uint32_t *value) {}
 };
 
-class EXPORT Exception {
+class V8_EXPORT Exception {
  public:
   static Local<Value> RangeError(Handle<String> message);
   static Local<Value> ReferenceError(Handle<String> message);
@@ -1572,7 +1641,7 @@ typedef void (*GCPrologueCallback)(GCType type, GCCallbackFlags flags);
 typedef void (*GCEpilogueCallback)(GCType type, GCCallbackFlags flags);
 
 
-class EXPORT HeapStatistics {
+class V8_EXPORT HeapStatistics {
  private:
   size_t heapSize;
 
@@ -1595,9 +1664,9 @@ typedef void* (*CreateHistogramCallback)(
   const char* name, int min, int max, size_t buckets);
 typedef void (*AddHistogramSampleCallback)(void* histogram, int sample);
 
-class EXPORT Isolate {
+class V8_EXPORT Isolate {
  public:
-  class EXPORT Scope {
+  class V8_EXPORT Scope {
    public:
     explicit Scope(Isolate* isolate) : isolate_(isolate) { isolate->Enter(); }
     ~Scope() { isolate_->Exit(); }
@@ -1645,7 +1714,7 @@ class EXPORT Isolate {
   int ContextDisposedNotification();
 };
 
-class EXPORT JitCodeEvent {
+class V8_EXPORT JitCodeEvent {
  public:
   enum EventType {
     CODE_ADDED,
@@ -1665,10 +1734,10 @@ class EXPORT JitCodeEvent {
   };
 };
 
-class EXPORT StartupData {
+class V8_EXPORT StartupData {
 };
 
-class EXPORT V8 {
+class V8_EXPORT V8 {
  public:
   static void SetFatalErrorHandler(FatalErrorCallback that);
   static void SetArrayBufferAllocator(ArrayBuffer::Allocator* allocator);
@@ -1691,33 +1760,40 @@ class EXPORT V8 {
   static void InitializePlatform(Platform* platform) {}
 };
 
-class EXPORT TryCatch {
- private:
-  void GetAndClearException();
- private:
-  JsValueRef error;
-  TryCatch* prev;
-  bool rethrow;
-  bool verbose;
+class V8_EXPORT TryCatch {
  public:
   TryCatch();
   ~TryCatch();
+
   bool HasCaught() const;
+  bool CanContinue() const;
   bool HasTerminated() const;
   Handle<Value> ReThrow();
   Local<Value> Exception() const;
   Local<Value> StackTrace() const;
   Local<v8::Message> Message() const;
+  void Reset();
   void SetVerbose(bool value);
+  void SetCaptureMessage(bool value);
+
+ private:
+  friend class Function;
+
+  void GetAndClearException();
   void CheckReportExternalException();
+
+  JsValueRef error;
+  TryCatch* prev;
+  bool rethrow;
+  bool verbose;
 };
 
-class EXPORT ExtensionConfiguration {
+class V8_EXPORT ExtensionConfiguration {
 };
 
-class EXPORT Context {
+class V8_EXPORT Context {
  public:
-  class EXPORT Scope {
+  class V8_EXPORT Scope {
    private:
     Scope * previous;
     void * context;
@@ -1742,7 +1818,7 @@ class EXPORT Context {
   Handle<Value> GetSecurityToken();
 };
 
-class EXPORT Locker {
+class V8_EXPORT Locker {
   // Don't need to implement this for Chakra
  public:
   explicit Locker(Isolate* isolate) {}

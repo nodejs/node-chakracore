@@ -94,6 +94,7 @@
       'src/v8returnvalue.cc',
       'src/v8script.cc',
       'src/v8signature.cc',
+      'src/v8stacktrace.cc',
       'src/v8string.cc',
       'src/v8stringobject.cc',
       'src/v8template.cc',

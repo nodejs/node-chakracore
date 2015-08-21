@@ -18,9 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "jsrt.h"
-#include "jsrtUtils.h"
+#include "v8chakra.h"
 #include <math.h>
 
 namespace v8 {
@@ -36,10 +34,8 @@ static bool IsOfType(const Value* ref, JsValueType type) {
 }
 
 static bool IsOfType(const Value* ref, ContextShim::GlobalType index) {
-    bool result;
     return jsrt::InstanceOf(const_cast<Value*>(ref),
-                            ContextShim::GetCurrent()->GetGlobalType(index),
-                            &result) == JsNoError && result;
+                            ContextShim::GetCurrent()->GetGlobalType(index));
 }
 
 bool Value::IsUndefined() const {
@@ -93,8 +89,16 @@ bool Value::IsExternal() const {
   return External::IsExternal(this);
 }
 
+bool Value::IsArrayBuffer() const {
+  return IsOfType(this, JsValueType::JsArrayBuffer);
+}
+
 bool Value::IsTypedArray() const {
   return IsOfType(this, JsValueType::JsTypedArray);
+}
+
+bool Value::IsDataView() const {
+  return IsOfType(this, JsValueType::JsDataView);
 }
 
 bool Value::IsBoolean() const {
@@ -197,6 +201,10 @@ Local<String> Value::ToString() const {
   return Local<String>::New(value);
 }
 
+Local<String> Value::ToDetailString() const {
+  return ToString();
+}
+
 Local<Object> Value::ToObject() const {
   JsValueRef value;
   if (JsConvertValueToObject((JsValueRef)this, &value) != JsNoError) {
@@ -229,6 +237,23 @@ Local<Int32> Value::ToInt32() const {
   Local<Integer> jsValue =
     Integer::New(Isolate::GetCurrent(), this->Int32Value());
   return Local<Int32>(static_cast<Int32*>(*jsValue));
+}
+
+Local<Uint32> Value::ToArrayIndex() const {
+  if (IsNumber()) {
+    return ToUint32();
+  }
+
+  Local<String> maybeString = ToString();
+  bool isUint32;
+  uint32_t uint32Value;
+  if (maybeString.IsEmpty() ||
+      jsrt::TryParseUInt32(*maybeString,
+                           &isUint32, &uint32Value) != JsNoError) {
+    return Local<Uint32>();
+  }
+
+  return static_cast<Uint32*>(*Integer::NewFromUnsigned(nullptr, uint32Value));
 }
 
 bool Value::BooleanValue() const {
