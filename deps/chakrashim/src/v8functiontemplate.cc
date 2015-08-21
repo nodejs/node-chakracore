@@ -241,16 +241,22 @@ MaybeLocal<Function> FunctionTemplate::GetFunction(Local<Context> context) {
     static_cast<Function*>(functionTemplateData->EnsureProperties());
 
   if (functionCallbackData->prototype.IsEmpty()) {
-    functionCallbackData->prototype =
+    IsolateShim* iso = IsolateShim::GetCurrent();
+    Local<Object> prototype =
       functionTemplateData->prototypeTemplate->NewInstance();
-    if (functionCallbackData->prototype.IsEmpty() ||
-        jsrt::SetProperty(*functionCallbackData->prototype,
-                          L"constructor", *function) != JsNoError) {
+    if (prototype.IsEmpty() ||
+        JsSetProperty(*prototype,
+                      iso->GetCachedPropertyIdRef(
+                        jsrt::CachedPropertyIdRef::constructor),
+                      *function, false) != JsNoError ||
+        JsSetProperty(*function,
+                      iso->GetCachedPropertyIdRef(
+                        jsrt::CachedPropertyIdRef::prototype),
+                      *prototype, false) != JsNoError) {
       return Local<Function>();
     }
 
-    function->Set(String::NewFromUtf8(nullptr, "prototype"),
-                  functionCallbackData->prototype.As<Value>());
+    functionCallbackData->prototype = prototype;
   }
 
   return function;

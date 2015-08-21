@@ -54,7 +54,7 @@ size_t ArrayBufferView::ByteLength() {
   return result;
 }
 
-static JsErrorCode NewTypedArray(ContextShim::GlobalType constructorIndex,
+JsErrorCode Utils::NewTypedArray(ContextShim::GlobalType constructorIndex,
                                  Handle<ArrayBuffer> array_buffer,
                                  size_t byte_offset, size_t length,
                                  JsValueRef* result) {
@@ -66,8 +66,8 @@ static JsErrorCode NewTypedArray(ContextShim::GlobalType constructorIndex,
   JsValueRef args[4] = {
     contextShim->GetUndefined(),
     *array_buffer,
-    *Uint32::NewFromUnsigned(iso, static_cast<uint32_t>(byte_offset)),
-    *Uint32::NewFromUnsigned(iso, static_cast<uint32_t>(length)),
+    *Integer::From(byte_offset),
+    *Integer::From(length)
   };
   return JsConstructObject(constructor, args, _countof(args), result);
 }
@@ -77,8 +77,8 @@ Local<T> Utils::NewTypedArray(ContextShim::GlobalType constructorIndex,
                               Handle<ArrayBuffer> array_buffer,
                               size_t byte_offset, size_t length) {
   JsValueRef result;
-  if (v8::NewTypedArray(constructorIndex, array_buffer, byte_offset, length,
-                        &result) != JsNoError) {
+  if (NewTypedArray(constructorIndex, array_buffer, byte_offset, length,
+                    &result) != JsNoError) {
     return Local<T>();
   }
   return Local<T>::New(result);

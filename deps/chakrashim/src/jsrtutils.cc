@@ -154,7 +154,8 @@ JsErrorCode CallGetter(
     JsValueRef ref,
     const wchar_t *propertyName,
     JsValueRef* result) {
-  return CallProperty(ref, propertyName, nullptr, 0, result);
+  JsValueRef args[] = { ref };
+  return CallProperty(ref, propertyName, args, _countof(args), result);
 }
 
 JsErrorCode CallGetter(
@@ -279,9 +280,12 @@ JsErrorCode CloneObject(JsValueRef source,
 JsErrorCode HasOwnProperty(JsValueRef object,
                            JsValueRef prop,
                            JsValueRef *result) {
+  JsValueRef hasOwnPropertyFunction =
+    ContextShim::GetCurrent()->GetGlobalPrototypeFunction(
+      ContextShim::GlobalPrototypeFunction::Object_hasOwnProperty);
+
   JsValueRef args[] = { object, prop };
-  return jsrt::CallProperty(
-      object, L"hasOwnProperty", args, _countof(args), result);
+  return JsCallFunction(hasOwnPropertyFunction, args, _countof(args), result);
 }
 
 JsErrorCode IsValueInArray(
@@ -431,7 +435,10 @@ JsErrorCode ConcatArray(JsValueRef first,
                         JsValueRef *result) {
   JsValueRef args[] = { first, second };
 
-  return CallProperty(first, L"concat", args, _countof(args), result);
+  return CallProperty(first,
+                      IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
+                        CachedPropertyIdRef::concat),
+                      args, _countof(args), result);
 }
 
 JsErrorCode CreateEnumerationIterator(JsValueRef enumeration,
@@ -841,28 +848,6 @@ JsErrorCode ParseScript(const wchar_t *script,
   } else {
     return JsParseScript(script, sourceContext, sourceUrl, result);
   }
-}
-// used for debugging
-
-JsErrorCode StringifyObject(JsValueRef object,
-                            const wchar_t **stringifiedObject) {
-  JsValueRef jsonObj = JS_INVALID_REFERENCE;
-  JsErrorCode error;
-  error = GetPropertyOfGlobal(L"JSON", &jsonObj);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  JsValueRef args[] = { jsonObj, object };
-  JsValueRef jsonResult;
-  error = jsrt::CallProperty(jsonObj,
-                             L"stringify", args, _countof(args), &jsonResult);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  size_t stringLength;
-  return JsStringToPointer(jsonResult, stringifiedObject, &stringLength);
 }
 
 void Unimplemented(const char * message) {

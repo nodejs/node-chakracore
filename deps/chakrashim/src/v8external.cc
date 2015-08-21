@@ -39,17 +39,12 @@ inline void* External::Unwrap(Handle<v8::Value> obj) {
 
 Local<External> External::New(Isolate* isolate, void* value) {
   JsValueRef externalRef;
-
   if (JsCreateExternalObject(value, nullptr, &externalRef) != JsNoError) {
     return Local<External>();
   }
 
   IsolateShim* iso = IsolateShim::FromIsolate(isolate);
   JsValueRef trueRef = iso->GetCurrentContextShim()->GetTrue();
-  if (JsGetTrueValue(&trueRef) != JsNoError) {
-    return Local<External>();
-  }
-
   if (jsrt::DefineProperty(externalRef,
                            iso->GetCachedSymbolPropertyIdRef(
                              jsrt::CachedSymbolPropertyIdRef::__isexternal__),

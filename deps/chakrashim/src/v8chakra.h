@@ -24,6 +24,8 @@
 
 namespace v8 {
 
+using jsrt::ContextShim;
+
 struct ObjectTemplateData;
 
 extern __declspec(thread) bool g_EnableDebug;
@@ -148,8 +150,12 @@ class Utils {
   template <class Func>
   static Local<Value> NewError(Handle<String> message, const Func& f);
 
+  static JsErrorCode NewTypedArray(ContextShim::GlobalType constructorIndex,
+                                   Handle<ArrayBuffer> array_buffer,
+                                   size_t byte_offset, size_t length,
+                                   JsValueRef* result);
   template <class T>
-  static Local<T> NewTypedArray(jsrt::ContextShim::GlobalType constructorIndex,
+  static Local<T> NewTypedArray(ContextShim::GlobalType constructorIndex,
                                 Handle<ArrayBuffer> array_buffer,
                                 size_t byte_offset, size_t length);
 };

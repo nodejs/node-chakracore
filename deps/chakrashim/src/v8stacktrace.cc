@@ -34,7 +34,7 @@ Local<StackTrace> StackTrace::CurrentStackTrace(Isolate* isolate,
 
   JsValueRef getStackTrace = contextShim->GetGetStackTraceFunction();
   JsValueRef stackTrace;
-  if (JsCallFunction(getStackTrace, nullptr, 0, &stackTrace) != JsNoError) {
+  if (jsrt::CallFunction(getStackTrace, &stackTrace) != JsNoError) {
     return Local<StackTrace>();
   }
 
@@ -61,6 +61,10 @@ int StackTrace::GetFrameCount() const {
   return static_cast<int>(length);
 }
 
+Local<Array> StackTrace::AsArray() {
+  return Local<Array>(reinterpret_cast<Array*>(this));
+}
+
 int StackFrame::GetLineNumber() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   int result;
@@ -73,7 +77,7 @@ int StackFrame::GetLineNumber() const {
 int StackFrame::GetColumn() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   int result;
-  if (jsrt::CallGetter(frame, L"getColumnNumber", &result) != JsNoError) {
+  if (jsrt::CallGetter(frame, L"getColumn", &result) != JsNoError) {
     return 0;
   }
   return result;
@@ -87,7 +91,7 @@ int StackFrame::GetScriptId() const {
 Local<String> StackFrame::GetScriptName() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   JsValueRef result;
-  if (jsrt::CallGetter(frame, L"getFileName", &result) != JsNoError) {
+  if (jsrt::CallGetter(frame, L"getScriptName", &result) != JsNoError) {
     return Local<String>();
   }
   return static_cast<String*>(result);

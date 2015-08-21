@@ -27,26 +27,26 @@
       Reflect_construct = Reflect.construct;
 
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
-    this.funcName = funcName;
-    this.fileName = fileName;
+    this.column = columnNumber;
     this.lineNumber = lineNumber;
-    this.columnNumber = columnNumber;
+    this.scriptName = fileName;
+    this.functionName = funcName;
   }
 
   StackFrame.prototype.getFunctionName = function() {
-    return this.funcName;
+      return this.functionName;
   };
 
-  StackFrame.prototype.getFileName = function() {
-    return this.fileName;
+  StackFrame.prototype.getScriptName = function() {
+      return this.scriptName;
   };
 
   StackFrame.prototype.getLineNumber = function() {
     return this.lineNumber;
   };
 
-  StackFrame.prototype.getColumnNumber = function() {
-    return this.columnNumber;
+  StackFrame.prototype.getColumn = function() {
+    return this.column;
   };
 
   StackFrame.prototype.isEval = function() {
@@ -54,9 +54,9 @@
     return false;
   };
 
-  StackFrame.prototype.toString = function() {
-    return (this.funcName ? this.funcName : 'Anonymous function') + ' (' +
-      this.fileName + ':' + this.lineNumber + ':' + this.columnNumber + ')';
+  StackFrame.prototype.toString = function () {
+    return (this.functionName || 'Anonymous function') + ' (' +
+      this.scriptName + ':' + this.lineNumber + ':' + this.column + ')';
   };
 
   function prepareStackTrace(error, stack) {

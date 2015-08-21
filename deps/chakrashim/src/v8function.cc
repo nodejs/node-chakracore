@@ -31,7 +31,7 @@ using jsrt::DefineProperty;
 MaybeLocal<Object> Function::NewInstance(Local<Context> context,
                                          int argc, Handle<Value> argv[]) const {
   jsrt::JsArguments<> args(argc + 1);
-  args[0] = nullptr;  // first argument is a null object
+  args[0] = jsrt::GetUndefined();
 
   if (argc > 0) {
     for (int i = 0; i < argc; i++) {
@@ -69,8 +69,8 @@ MaybeLocal<Value> Function::Call(Local<Context> context,
   JsValueRef result;
   {
     TryCatch tryCatch;
-    if (JsCallFunction((JsValueRef)this, args,
-                       argc + 1, &result) != JsNoError) {
+    if (JsCallFunction((JsValueRef)this, args, argc + 1,
+                       &result) != JsNoError) {
       tryCatch.CheckReportExternalException();
       return Local<Value>();
     }

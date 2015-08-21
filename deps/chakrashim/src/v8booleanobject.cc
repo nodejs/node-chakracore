@@ -19,23 +19,19 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
-#include "jsrtutils.h"
 
 namespace v8 {
 
+using jsrt::ContextShim;
+
 Local<Value> BooleanObject::New(bool value) {
-  jsrt::ContextShim * contextShim = jsrt::ContextShim::GetCurrent();
-
   JsValueRef booleanObjectConstructor =
-    contextShim->GetBooleanObjectConstructor();
-  JsValueRef newBooleanObjectRef;
-  JsValueRef args[] =
-    { nullptr, value ? contextShim->GetTrue() : contextShim->GetFalse() };
+    ContextShim::GetCurrent()->GetBooleanObjectConstructor();
 
-  if (JsConstructObject(booleanObjectConstructor,
-                        args,
-                        _countof(args),
-                        &newBooleanObjectRef) != JsNoError) {
+  JsValueRef newBooleanObjectRef;
+  if (jsrt::ConstructObject(booleanObjectConstructor,
+                            *Boolean::From(value),
+                            &newBooleanObjectRef) != JsNoError) {
     return Local<Value>();
   }
 

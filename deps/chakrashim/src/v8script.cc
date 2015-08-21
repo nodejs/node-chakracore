@@ -102,7 +102,7 @@ MaybeLocal<Value> Script::Run(Local<Context> context) {
   }
 
   JsValueRef result;
-  if (JsCallFunction(scriptFunction, nullptr, 0, &result) != JsNoError) {
+  if (jsrt::CallFunction(scriptFunction, &result) != JsNoError) {
     return Local<Value>();
   }
 

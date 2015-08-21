@@ -289,10 +289,6 @@ JsErrorCode ParseScript(const wchar_t *script,
                         bool isStrictMode,
                         JsValueRef *result);
 
-// used for debugging
-JsErrorCode StringifyObject(JsValueRef object,
-                            const wchar_t **stringifiedObject);
-
 void Unimplemented(const char * message);
 
 void Fatal(const char * format, ...);
