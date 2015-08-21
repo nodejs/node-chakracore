@@ -58,6 +58,15 @@ JsErrorCode GetProperty(JsValueRef ref,
 }
 
 JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        JsValueRef *result) {
+  JsPropertyIdRef idRef =
+    IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef);
+
+  return JsGetProperty(ref, idRef, result);
+}
+
+JsErrorCode GetProperty(JsValueRef ref,
                         JsPropertyIdRef propId,
                         int *intValue) {
   JsValueRef value;
@@ -70,19 +79,11 @@ JsErrorCode GetProperty(JsValueRef ref,
 }
 
 JsErrorCode SetProperty(JsValueRef ref,
-                        const wchar_t* propName,
+                        CachedPropertyIdRef cachedIdRef,
                         JsValueRef propValue) {
-  JsPropertyIdRef idRef;
-  JsErrorCode error;
-
-  error = JsGetPropertyIdFromName(propName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsSetProperty(ref, idRef, propValue, false);
-
-  return error;
+  JsPropertyIdRef idRef =
+    IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef);
+  return JsSetProperty(ref, idRef, propValue, false);
 }
 
 JsErrorCode SetProperty(JsValueRef ref,
@@ -118,14 +119,16 @@ JsErrorCode DeleteProperty(JsValueRef ref,
 }
 
 JsErrorCode CallProperty(JsValueRef ref,
-                         JsPropertyIdRef idRef,
+                         CachedPropertyIdRef cachedIdRef,
                          JsValueRef *arguments,
                          unsigned short argumentCount,
                          JsValueRef *result) {
   JsValueRef propertyRef;
   JsErrorCode error;
 
-  error = JsGetProperty(ref, idRef, &propertyRef);
+  error = JsGetProperty(ref,
+    jsrt::IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef),
+    &propertyRef);
   if (error != JsNoError) {
     return error;
   }
@@ -134,34 +137,18 @@ JsErrorCode CallProperty(JsValueRef ref,
   return error;
 }
 
-JsErrorCode CallProperty(JsValueRef ref,
-                         const wchar_t *propertyName,
-                         JsValueRef *arguments,
-                         unsigned short argumentCount,
-                         JsValueRef *result) {
-  JsPropertyIdRef idRef;
-  JsErrorCode error;
-
-  error = JsGetPropertyIdFromName(propertyName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  return CallProperty(ref, idRef, arguments, argumentCount, result);
-}
-
 JsErrorCode CallGetter(JsValueRef ref,
-                       const wchar_t *propertyName,
+                       CachedPropertyIdRef cachedIdRef,
                        JsValueRef* result) {
   JsValueRef args[] = { ref };
-  return CallProperty(ref, propertyName, args, _countof(args), result);
+  return CallProperty(ref, cachedIdRef, args, _countof(args), result);
 }
 
 JsErrorCode CallGetter(JsValueRef ref,
-                       const wchar_t *propertyName,
+                       CachedPropertyIdRef cachedIdRef,
                        int* result) {
   JsValueRef value;
-  JsErrorCode error = CallGetter(ref, propertyName, &value);
+  JsErrorCode error = CallGetter(ref, cachedIdRef, &value);
   if (error != JsNoError) {
     return error;
   }
@@ -171,40 +158,40 @@ JsErrorCode CallGetter(JsValueRef ref,
 
 JsErrorCode GetPropertyOfGlobal(const wchar_t *propertyName,
                                 JsValueRef *ref) {
-  JsErrorCode error = JsNoError;
-  JsValueRef globalRef;
+  JsErrorCode error;
+  JsPropertyIdRef propertyIdRef, globalRef;
 
-  error = JsGetGlobalObject(&globalRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = GetProperty(globalRef, propertyName, ref);
-
-  return error;
-}
-
-JsErrorCode SetPropertyOfGlobal(const wchar_t *propertyName,
-                                JsValueRef ref) {
-  JsErrorCode error = JsNoError;
-  JsValueRef globalRef;
-
-  error = JsGetGlobalObject(&globalRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
-
-  JsPropertyIdRef propertyIdRef;
   error = JsGetPropertyIdFromName(propertyName, &propertyIdRef);
   if (error != JsNoError) {
     return error;
   }
 
-  error = JsSetProperty(globalRef, propertyIdRef, ref, false);
+  error = JsGetGlobalObject(&globalRef);
 
-  return error;
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return JsGetProperty(globalRef, propertyIdRef, ref);
+}
+
+JsErrorCode SetPropertyOfGlobal(const wchar_t *propertyName,
+                                JsValueRef ref) {
+  JsErrorCode error;
+  JsPropertyIdRef propertyIdRef, globalRef;
+
+  error = JsGetPropertyIdFromName(propertyName, &propertyIdRef);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  error = JsGetGlobalObject(&globalRef);
+
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return JsSetProperty(globalRef, propertyIdRef, ref, false);
 }
 
 JsValueRef GetTrue() {
@@ -442,8 +429,7 @@ JsErrorCode ConcatArray(JsValueRef first,
   JsValueRef args[] = { first, second };
 
   return CallProperty(first,
-                      IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
-                        CachedPropertyIdRef::concat),
+                      CachedPropertyIdRef::concat,
                       args, _countof(args), result);
 }
 

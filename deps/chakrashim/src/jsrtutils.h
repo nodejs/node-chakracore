@@ -64,12 +64,20 @@ JsErrorCode GetProperty(JsValueRef ref,
                         const wchar_t *propertyName,
                         JsValueRef *result);
 
+JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        JsValueRef *result);
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        int *intValue);
+
 JsErrorCode SetProperty(JsValueRef ref,
                         JsValueRef propName,
                         JsValueRef propValue);
 
 JsErrorCode SetProperty(JsValueRef ref,
-                        const wchar_t* propName,
+                        CachedPropertyIdRef cachedIdRef,
                         JsValueRef propValue);
 
 JsErrorCode DeleteIndexedProperty(JsValueRef object,
@@ -138,28 +146,21 @@ JsErrorCode ConcatArray(JsValueRef first,
                         JsValueRef *result);
 
 JsErrorCode CallProperty(JsValueRef ref,
-                         JsPropertyIdRef idRef,
-                         JsValueRef *arguments,
-                         unsigned short argumentCount,
-                         JsValueRef *result);
-
-JsErrorCode CallProperty(JsValueRef ref,
-                         const wchar_t *propertyName,
+                         CachedPropertyIdRef cachedIdRef,
                          JsValueRef *arguments,
                          unsigned short argumentCount,
                          JsValueRef *result);
 
 JsErrorCode CallGetter(JsValueRef ref,
-                       const wchar_t *propertyName,
+                       CachedPropertyIdRef cachedIdRef,
                        JsValueRef* result);
 
 JsErrorCode CallGetter(JsValueRef ref,
-                       const wchar_t *propertyName,
+                       CachedPropertyIdRef cachedIdRef,
                        int* result);
 
 JsErrorCode GetPropertyOfGlobal(const wchar_t *propertyName,
                                 JsValueRef *ref);
-
 
 JsErrorCode SetPropertyOfGlobal(const wchar_t *propertyName,
                                 JsValueRef ref);

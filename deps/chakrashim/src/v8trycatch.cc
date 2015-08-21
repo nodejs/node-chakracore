@@ -128,8 +128,9 @@ Local<Value> TryCatch::StackTrace() const {
     return Local<Value>();
   }
 
-  JsPropertyIdRef stack;
-  if (JsGetPropertyIdFromName(L"stack", &stack) != JsNoError) {
+  JsPropertyIdRef stack = jsrt::IsolateShim::GetCurrent()
+    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::stack);
+  if (stack == JS_INVALID_REFERENCE) {
     return Local<Value>();
   }
 
