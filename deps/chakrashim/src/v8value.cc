@@ -121,9 +121,7 @@ bool Value::IsInt32() const {
     return false;
   }
 
-  double second;
-
-  return (modf(value, &second) == 0.0);
+  return trunc(value) == value;
 }
 
 bool Value::IsUint32() const {
@@ -133,15 +131,11 @@ bool Value::IsUint32() const {
 
   double value = NumberValue();
   // check that the value is smaller than 32 bit maximum
-  if (value > UINT_MAX) {
+  if (value < 0 || value > UINT_MAX) {
     return false;
   }
 
-
-  double second;
-  // CHAKRA-TODO: nadavbar: replace this with trunc. Not used for since for some
-  // reason my math.h file does not contain it Probably a version problem
-  return (modf(value, &second) == 0.0 && value >= 0.0);
+  return trunc(value) == value;
 }
 
 bool Value::IsDate() const {

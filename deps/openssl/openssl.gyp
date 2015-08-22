@@ -854,12 +854,6 @@
                 'openssl/crypto/armv4cpuid.S',
               ]
             }],
-            ['OS=="win" and target_arch=="arm"', {
-              'sources!': [
-                # This is mostly needed for ASM and doesn't compile on windows
-                'openssl/crypto/armcap.c',
-              ],
-            }],
             ['OS=="win" and target_arch=="ia32"', {
               'sources': [
                 'asm/x86-win32-masm/aes/aes-586.asm',

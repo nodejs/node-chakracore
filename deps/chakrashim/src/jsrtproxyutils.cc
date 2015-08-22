@@ -112,10 +112,6 @@ JsErrorCode CreateProxy(
 
 JsErrorCode TryParseUInt32(
     JsValueRef strRef, bool* isUInt32, unsigned int *uint32Value) {
-  // since we are using proxies here, the value will always be of type string
-  // the fastest thing that we can do here is try and
-  // javascript max array size: 2^32-1 = 4,294,967,295 = 4.29:
-
   JsErrorCode error;
 
   *isUInt32 = false;
@@ -154,25 +150,26 @@ JsErrorCode TryParseUInt32(
     }
   }
 
-  *isUInt32 = true;
   // use std:stoull as it the most comprehenisve way to convert string to int
-  // there is some performance issue here, so we migth optimiaze this code using
+  // there is some performance issue here, so we might optimize this code using
   // the results in here: string to int conversion - naive approach is the
   // fastest:
   // http://tinodidriksen.com/2010/02/16/cpp-convert-string-to-int-speed/
 
-  wchar_t* strEnd = const_cast<wchar_t*>(strPtr) + strLength;
-
+  wchar_t* strEnd;
   unsigned long longVal = std::wcstoul(strPtr, &strEnd, 10);
+  if (strEnd != strPtr + strLength) {
+    return JsNoError;
+  }
 
   if (longVal == ULONG_MAX) {
     // check if errno is set:
     if (errno == ERANGE) {
-      *isUInt32 = false;
       return JsNoError;
     }
   }
 
+  *isUInt32 = true;
   *uint32Value = longVal;
   return JsNoError;
 }

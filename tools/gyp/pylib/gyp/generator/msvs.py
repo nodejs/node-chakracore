@@ -2618,7 +2618,6 @@ def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
                   msvs_windows_target_platform_version])
   return [props]
 
-
 def _GetMSBuildConfigurationDetails(spec, build_file):
   properties = {}
   for name, settings in spec['configurations'].iteritems():
