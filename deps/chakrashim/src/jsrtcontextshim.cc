@@ -400,7 +400,7 @@ bool ContextShim::EnsureInitialized() {
 bool ContextShim::ExposeGc() {
   JsValueRef collectGarbageRef;
   if (jsrt::GetPropertyOfGlobal(L"CollectGarbage",
-    &collectGarbageRef) != JsNoError) {
+                                &collectGarbageRef) != JsNoError) {
     return false;
   }
 

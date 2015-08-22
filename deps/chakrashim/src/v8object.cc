@@ -19,7 +19,6 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
-#include "jsrtutils.h"
 #include <cassert>
 #include <memory>
 
@@ -787,58 +786,6 @@ void Object::SetAlignedPointerInInternalField(int index, void *value) {
   }
 
   arrayRef[index] = value;
-}
-
-static JsTypedArrayType ConvertArrayType(ExternalArrayType array_type) {
-  switch (array_type) {
-    case ExternalArrayType::kExternalInt8Array:
-      return JsTypedArrayType::JsArrayTypeInt8;
-    case ExternalArrayType::kExternalUint8Array:
-      return JsTypedArrayType::JsArrayTypeUint8;
-    case ExternalArrayType::kExternalInt16Array:
-      return JsTypedArrayType::JsArrayTypeInt16;
-    case ExternalArrayType::kExternalUint16Array:
-      return JsTypedArrayType::JsArrayTypeUint16;
-    case ExternalArrayType::kExternalInt32Array:
-      return JsTypedArrayType::JsArrayTypeInt32;
-    case ExternalArrayType::kExternalUint32Array:
-      return JsTypedArrayType::JsArrayTypeUint32;
-    case ExternalArrayType::kExternalFloat32Array:
-      return JsTypedArrayType::JsArrayTypeFloat32;
-    case ExternalArrayType::kExternalFloat64Array:
-      return JsTypedArrayType::JsArrayTypeFloat64;
-    case ExternalArrayType::kExternalUint8ClampedArray:
-      return JsTypedArrayType::JsArrayTypeUint8Clamped;
-  }
-
-  assert(false);
-  return JsTypedArrayType();
-}
-
-static ExternalArrayType ConvertArrayType(JsTypedArrayType type) {
-  switch (type) {
-    case JsTypedArrayType::JsArrayTypeInt8:
-      return ExternalArrayType::kExternalInt8Array;
-    case JsTypedArrayType::JsArrayTypeUint8:
-      return ExternalArrayType::kExternalUint8Array;
-    case JsTypedArrayType::JsArrayTypeInt16:
-      return ExternalArrayType::kExternalInt16Array;
-    case JsTypedArrayType::JsArrayTypeUint16:
-      return ExternalArrayType::kExternalUint16Array;
-    case JsTypedArrayType::JsArrayTypeInt32:
-      return ExternalArrayType::kExternalInt32Array;
-    case JsTypedArrayType::JsArrayTypeUint32:
-      return ExternalArrayType::kExternalUint32Array;
-    case JsTypedArrayType::JsArrayTypeFloat32:
-      return ExternalArrayType::kExternalFloat32Array;
-    case JsTypedArrayType::JsArrayTypeFloat64:
-      return ExternalArrayType::kExternalFloat64Array;
-    case JsTypedArrayType::JsArrayTypeUint8Clamped:
-      return ExternalArrayType::kExternalUint8ClampedArray;
-  }
-
-  assert(false);
-  return ExternalArrayType();
 }
 
 Local<Object> Object::Clone() {

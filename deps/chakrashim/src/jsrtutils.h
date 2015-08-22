@@ -172,10 +172,6 @@ JsValueRef GetTrue();
 
 JsValueRef GetFalse();
 
-// NOT IMPELEMENTED
-JsErrorCode SetException(const wchar_t* message,
-                         const wchar_t* stackTrace);
-
 JsErrorCode GetArrayLength(JsValueRef arrayRef,
                            unsigned int *arraySize);
 

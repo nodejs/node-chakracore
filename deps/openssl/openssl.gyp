@@ -79,12 +79,6 @@
               'defines': [
                 '<@(openssl_defines_asm)',
                 '<@(openssl_defines_ia32_elf)',
-            ['OS=="win" and target_arch=="arm"', {
-              'sources!': [
-                # This is mostly needed for ASM and doesn't compile on windows
-                'openssl/crypto/armcap.c',
-              ],
-            }],
               ],
               'sources': ['<@(openssl_sources_ia32_elf_gas)'],
             }, 'target_arch=="x64" and OS=="mac"', {

@@ -1365,8 +1365,6 @@ class V8_EXPORT Object : public Value {
                   PropertyAttribute attribs, bool force);
   JsErrorCode GetObjectData(struct ObjectData** objectData);
   JsErrorCode InternalFieldHelper(void ***externalArray, int *count);
-  JsErrorCode ExternalArrayDataHelper(ExternalArrayData **data);
-  bool SupportsExternalArrayData(ExternalArrayData **data);
 
   Maybe<bool> SetAccessor(Handle<Name> name,
                           AccessorNameGetterCallback getter,
@@ -1510,8 +1508,7 @@ class FunctionCallbackInfo {
          _isConstructorCall(isConstructorCall),
          _data(data),
          _callee(callee),
-         _returnValue(static_cast<Value*>(JS_INVALID_REFERENCE)),
-         _context(Context::GetCurrent()) {
+         _returnValue(static_cast<Value*>(JS_INVALID_REFERENCE)) {
   }
 
  private:
@@ -1523,7 +1520,6 @@ class FunctionCallbackInfo {
   bool _isConstructorCall;
   Value** _args;
   Value* _returnValue;
-  Local<Context> _context;
 };
 
 

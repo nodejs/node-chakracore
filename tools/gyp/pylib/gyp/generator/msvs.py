@@ -2685,7 +2685,6 @@ def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
 
   return properties
 
-
 def _GetMSBuildConfigurationDetails(spec, build_file):
   properties = {}
   for name, settings in spec['configurations'].iteritems():

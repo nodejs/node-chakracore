@@ -137,18 +137,16 @@ JsErrorCode CallProperty(JsValueRef ref,
   return error;
 }
 
-JsErrorCode CallGetter(
-  JsValueRef ref,
-  CachedPropertyIdRef cachedIdRef,
-  JsValueRef* result) {
+JsErrorCode CallGetter(JsValueRef ref,
+                       CachedPropertyIdRef cachedIdRef,
+                       JsValueRef* result) {
   JsValueRef args[] = { ref };
   return CallProperty(ref, cachedIdRef, args, _countof(args), result);
 }
 
-JsErrorCode CallGetter(
-  JsValueRef ref,
-  CachedPropertyIdRef cachedIdRef,
-  int* result) {
+JsErrorCode CallGetter(JsValueRef ref,
+                       CachedPropertyIdRef cachedIdRef,
+                       int* result) {
   JsValueRef value;
   JsErrorCode error = CallGetter(ref, cachedIdRef, &value);
   if (error != JsNoError) {

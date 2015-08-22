@@ -36,8 +36,7 @@ set noperfctr_msi_arg=
 set i18n_arg=
 set download_arg=
 set release_urls_arg=
-set engine=
-set engine_arg=
+set engine=v8
 set openssl_no_asm=
 
 :next-arg
@@ -103,7 +102,6 @@ if defined nosnapshot set snapshot_arg=--without-snapshot
 if defined noetw set noetw_arg=--without-etw& set noetw_msi_arg=/p:NoETW=1
 if defined noperfctr set noperfctr_arg=--without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
 if defined RELEASE_URLBASE set release_urlbase_arg=--release-urlbase=%RELEASE_URLBASE%
-if not "%engine%"=="" set engine_arg=--engine="%engine%"
 
 if "%i18n_arg%"=="full-icu" set i18n_arg=--with-intl=full-icu
 if "%i18n_arg%"=="small-icu" set i18n_arg=--with-intl=small-icu
@@ -147,7 +145,7 @@ goto exit
 if defined noprojgen goto msbuild
 
 @rem Generate the VS project.
-python configure %download_arg% %i18n_arg% %debug_arg% %snapshot_arg% %noetw_arg% %noperfctr_arg% %engine_arg% %openssl_no_asm% --dest-cpu=%target_arch% --tag=%TAG%
+python configure %download_arg% %i18n_arg% %debug_arg% %snapshot_arg% %noetw_arg% %noperfctr_arg% --engine=%engine% %openssl_no_asm% --dest-cpu=%target_arch% --tag=%TAG%
 if errorlevel 1 goto create-msvs-files-failed
 if not exist node.sln goto create-msvs-files-failed
 echo Project files generated.
@@ -240,6 +238,7 @@ goto exit
 :arm-requires-openssl-no-asm
 echo openssl asm is currently not supported on arm
 echo use 'openssl-no-asm' as additional argument
+goto exit
 
 :help
 echo vcbuild.bat [debug/release] [msi] [test-all/test-uv/test-internet/test-pummel/test-simple/test-message] [clean] [noprojgen] [small-icu/full-icu/intl-none] [nobuild] [nosign] [x86/x64] [download-all]

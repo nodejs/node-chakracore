@@ -92,7 +92,6 @@
         'tools/msvs/genfiles',
         'deps/uv/src/ares',
         '<(SHARED_INTERMEDIATE_DIR)', # for node_natives.h
-        'deps/v8' # include/v8_platform.h
       ],
 
       'sources': [
@@ -348,6 +347,9 @@
           ],
         }],
         ['node_engine=="chakra"', {
+          'include_dirs': [
+            'deps/chakrashim' # include/v8_platform.h
+          ],
           'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
         }],
 

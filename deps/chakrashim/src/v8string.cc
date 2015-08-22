@@ -301,11 +301,11 @@ Local<String> String::Concat(Handle<String> left, Handle<String> right) {
   JsValueRef args[] = { *left, *right };
   JsValueRef result;
 
-  JsValueRef stringContextFunction =
+  JsValueRef stringConcatFunction =
     jsrt::ContextShim::GetCurrent()->GetStringConcatFunction();
-  JsErrorCode concatResult =
-    JsCallFunction(stringContextFunction, args, _countof(args), &result);
-  if (concatResult != JsNoError) {
+  JsErrorCode error = JsCallFunction(stringConcatFunction,
+                                     args, _countof(args), &result);
+  if (error != JsNoError) {
     return Local<String>();
   }
 
