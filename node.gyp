@@ -79,7 +79,7 @@
 
   'targets': [
     {
-      'target_name': 'iojs',
+      'target_name': 'node',
       'type': '<(node_target_type)',
 
       'dependencies': [
@@ -177,7 +177,6 @@
       'defines': [
         'NODE_ARCH="<(target_arch)"',
         'NODE_PLATFORM="<(OS)"',
-        'NODE_V8_OPTIONS="<(node_v8_options)"',
         'NODE_WANT_INTERNALS=1',
       ],
 
@@ -185,6 +184,9 @@
       'conditions': [
         [ 'node_tag!=""', {
           'defines': [ 'NODE_TAG="<(node_tag)"' ],
+        }],
+        [ 'node_v8_options!=""', {
+          'defines': [ 'NODE_V8_OPTIONS="<(node_v8_options)"'],
         }],
         # No node_main.cc for anything except executable
         [ 'node_target_type!="executable"', {
@@ -546,10 +548,10 @@
             {
               'action_name': 'node_dtrace_provider_o',
               'inputs': [
-                '<(OBJ_DIR)/iojs/src/node_dtrace.o',
+                '<(OBJ_DIR)/node/src/node_dtrace.o',
               ],
               'outputs': [
-                '<(OBJ_DIR)/iojs/src/node_dtrace_provider.o'
+                '<(OBJ_DIR)/node/src/node_dtrace_provider.o'
               ],
               'action': [ 'dtrace', '-G', '-xnolibs', '-s', 'src/node_provider.d',
                 '<@(_inputs)', '-o', '<@(_outputs)' ]
@@ -599,7 +601,7 @@
                 '<(SHARED_INTERMEDIATE_DIR)/v8constants.h'
               ],
               'outputs': [
-                '<(OBJ_DIR)/iojs/src/node_dtrace_ustack.o'
+                '<(OBJ_DIR)/node/src/node_dtrace_ustack.o'
               ],
               'conditions': [
                 [ 'target_arch=="ia32"', {

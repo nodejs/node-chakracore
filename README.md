@@ -1,41 +1,34 @@
 
-io.js
+Node.js
 =====
 
-[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/nodejs/io.js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/nodejs/node?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 This repository began as a GitHub fork of
 [joyent/node](https://github.com/joyent/node).
 
-io.js contributions, releases, and contributorship are under an
+Node.js contributions, releases, and contributorship are under an
 [open governance model](./GOVERNANCE.md).
 We intend to land, with increasing regularity, releases which are
 compatible with the npm ecosystem that has been built to date for
 Node.js.
 
-## Is it io.js or IO.js or iojs or IOjs or iOjS?
-
-The official name is **io.js**, which should never be capitalized,
-especially not at the start of a sentence, unless it is being
-displayed in a location that is customarily all-caps (such as
-the title of man pages).
-
 ## Download
 
 Binaries, installers, and source tarballs are available at
-<https://iojs.org>.
+<https://nodejs.org>.
 
-**Releases** are available at <https://iojs.org/dist/>, listed under
-their version string. The <https://iojs.org/dist/latest/> symlink
+**Releases** are available at <https://nodejs.org/dist/>, listed under
+their version string. The <https://nodejs.org/dist/latest/> symlink
 will point to the latest release directory.
 
 **Nightly** builds are available at
-<https://iojs.org/download/nightly/>, listed under their version
+<https://nodejs.org/download/nightly/>, listed under their version
 string which includes their date (in UTC time) and the commit SHA at
 the HEAD of the release.
 
 **API documentation** is available in each release and nightly
-directory under _docs_. <https://iojs.org/api/> points to the latest version.
+directory under _docs_. <https://nodejs.org/api/> points to the latest version.
 
 ### Verifying Binaries
 
@@ -45,10 +38,10 @@ download. To check that a downloaded file matches the checksum, run
 it through `sha256sum` with a command such as:
 
 ```
-$ grep iojs-vx.y.z.tar.gz SHASUMS256.txt | sha256sum -c -
+$ grep node-vx.y.z.tar.gz SHASUMS256.txt | sha256sum -c -
 ```
 
-_(Where "iojs-vx.y.z.tar.gz" is the name of the file you have
+_(Where "node-vx.y.z.tar.gz" is the name of the file you have
 downloaded)_
 
 Additionally, releases (not nightlies) have GPG signed copies of
@@ -57,18 +50,19 @@ to verify that the file has not been tampered with.
 
 To verify a SHASUM256.txt.asc, you will first need to import all of
 the GPG keys of individuals authorized to create releases. They are
-listed at the bottom of this README. Use a command such as this to
-import the keys:
+listed at the bottom of this README under [Release Team](#release-team).
+Use a command such as this to import the keys:
 
 ```
 $ gpg --keyserver pool.sks-keyservers.net \
   --recv-keys DD8F2338BAE7501E3DD5AC78C273792F7D83545D
 ```
 
-_(Include each of the key fingerprints at the end of this command.)_
+_(See the bottom of this README for a full script to import active
+release keys)_
 
 You can then use `gpg --verify SHASUMS256.txt.asc` to verify that the
-file has been signed by an authorized member of the io.js team.
+file has been signed by an authorized member of the Node.js team.
 
 Once verified, use the SHASUMS256.txt.asc file to get the checksum for
 the binary verification command above.
@@ -116,13 +110,13 @@ $ make doc
 To read the documentation:
 
 ```text
-$ man doc/iojs.1
+$ man doc/node.1
 ```
 
-To test if io.js was built correctly:
+To test if Node.js was built correctly:
 
 ```
-$ iojs -e "console.log('Hello from io.js ' + process.version)"
+$ node -e "console.log('Hello from node.js ' + process.version)"
 ```
 
 ### Windows
@@ -146,10 +140,10 @@ To run the tests:
 > vcbuild test
 ```
 
-To test if io.js was built correctly:
+To test if Node.js was built correctly:
 
 ```
-$ iojs -e "console.log('Hello from io.js ' + process.version)"
+$ node -e "console.log('Hello from node.js ' + process.version)"
 ```
 
 ### Android / Android based devices, aka. Firefox OS
@@ -262,11 +256,11 @@ as `deps/icu` (You'll have: `deps/icu/source/...`)
 > vcbuild full-icu
 ```
 
-# Building io.js with FIPS-compliant OpenSSL
+# Building Node.js with FIPS-compliant OpenSSL
 
 NOTE: Windows is not yet supported
 
-It is possible to build io.js with
+It is possible to build Node.js with
 [OpenSSL FIPS module](https://www.openssl.org/docs/fips/fipsnotes.html).
 
 **Note** that building in this way does **not** allow you to
@@ -302,13 +296,12 @@ Instructions:
    (http://csrc.nist.gov/groups/STM/cmvp/documents/140-1/140sp/140sp1747.pdf).
    The only exception is that `./config no-asm` can be
    used in place of `./config` )
-6. Get into io.js checkout folder
+6. Get into Node.js checkout folder
 7. `./configure --openssl-fips=/path/to/openssl-fips/installdir`
    For example on ubuntu 12 the installation directory was
    /usr/local/ssl/fips-2.0
-8. Build io.js with `make -j`
+8. Build Node.js with `make -j`
 9. Verify with `node -p "process.versions.openssl"` (`1.0.2a-fips`)
-
 
 ## Resources for Newcomers
 
@@ -316,12 +309,12 @@ Instructions:
 * [GOVERNANCE.md](./GOVERNANCE.md)
 * IRC:
   [#io.js on Freenode.net](http://webchat.freenode.net?channels=io.js&uio=d4)
-* [iojs/io.js on Gitter](https://gitter.im/nodejs/io.js)
+* [nodejs/node on Gitter](https://gitter.im/nodejs/node)
 
 ## Security
 
-All security bugs in io.js are taken seriously and should be reported by
-emailing security@iojs.org. This will be delivered to a subset of the project
+All security bugs in node.js are taken seriously and should be reported by
+emailing security@nodejs.org. This will be delivered to a subset of the project
 team who handle security issues. Please don't disclose security bugs
 public until they have been handled by the security team.
 
@@ -331,12 +324,11 @@ handling your report.
 
 ## Current Project Team Members
 
-The io.js project team comprises a group of core collaborators and a sub-group
+The Node.js project team comprises a group of core collaborators and a sub-group
 that forms the _Technical Steering Committee_ (TSC) which governs the project. For more
-information about the governance of the io.js project, see
+information about the governance of the Node.js project, see
 [GOVERNANCE.md](./GOVERNANCE.md).
 
-=======
 ### TSC (Technical Steering Committee)
 
 * **Ben Noordhuis** &lt;info@bnoordhuis.nl&gt; ([@bnoordhuis](https://github.com/bnoordhuis))
@@ -344,13 +336,9 @@ information about the governance of the io.js project, see
 * **Fedor Indutny** &lt;fedor.indutny@gmail.com&gt; ([@indutny](https://github.com/indutny))
 * **Trevor Norris** &lt;trev.norris@gmail.com&gt; ([@trevnorris](https://github.com/trevnorris))
 * **Chris Dickinson** &lt;christopher.s.dickinson@gmail.com&gt; ([@chrisdickinson](https://github.com/chrisdickinson))
-  - Release GPG key: 9554F04D7259F04124DE6B476D5A82AC7E37093B
 * **Rod Vagg** &lt;rod@vagg.org&gt; ([@rvagg](https://github.com/rvagg))
-  - Release GPG key: DD8F2338BAE7501E3DD5AC78C273792F7D83545D
 * **Jeremiah Senkpiel** &lt;fishrock123@rocketmail.com&gt; ([@fishrock123](https://github.com/fishrock123))
-  - Release GPG key: FD3A5288F042B6850C66B31F09FE44734EB7990E
 * **Colin Ihrig** &lt;cjihrig@gmail.com&gt; ([@cjihrig](https://github.com/cjihrig))
-  - Release GPG key: 94AE36675C464D64BAFA68DD7434390BDBE9B9C5
 * **Alexis Campailla** &lt;orangemocha@nodejs.org&gt; ([@orangemocha](https://github.com/orangemocha))
 * **Julien Gilli** &lt;jgilli@nodejs.org&gt; ([@misterdjules](https://github.com/misterdjules))
 * **James M Snell** &lt;jasnell@gmail.com&gt; ([@jasnell](https://github.com/jasnell))
@@ -392,4 +380,36 @@ information about the governance of the io.js project, see
 * **João Reis** &lt;reis@janeasystems.com&gt; ([@joaocgreis](https://github.com/joaocgreis))
 
 Collaborators & TSC members follow the [COLLABORATOR_GUIDE.md](./COLLABORATOR_GUIDE.md) in
-maintaining the io.js project.
+maintaining the Node.js project.
+
+### Release Team
+
+Releases of Node.js and io.js will be signed with one of the following GPG keys:
+
+* **Chris Dickinson** &lt;christopher.s.dickinson@gmail.com&gt;: `9554F04D7259F04124DE6B476D5A82AC7E37093B`
+* **Colin Ihrig** &lt;cjihrig@gmail.com&gt; `94AE36675C464D64BAFA68DD7434390BDBE9B9C5`
+* **Sam Roberts** &lt;octetcloud@keybase.io&gt; `0034A06D9D9B0064CE8ADF6BF1747F4AD2306D93`
+* **Jeremiah Senkpiel** &lt;fishrock@keybase.io&gt; `FD3A5288F042B6850C66B31F09FE44734EB7990E`
+* **James M Snell** &lt;jasnell@keybase.io&gt; `71DCFD284A79C3B38668286BC97EC7A07EDE3FC1`
+* **Rod Vagg** &lt;rod@vagg.org&gt; `DD8F2338BAE7501E3DD5AC78C273792F7D83545D`
+
+The full set of trusted release keys can be imported by running:
+
+```
+gpg --keyserver pool.sks-keyservers.net --recv-keys 9554F04D7259F04124DE6B476D5A82AC7E37093B
+gpg --keyserver pool.sks-keyservers.net --recv-keys 94AE36675C464D64BAFA68DD7434390BDBE9B9C5
+gpg --keyserver pool.sks-keyservers.net --recv-keys 0034A06D9D9B0064CE8ADF6BF1747F4AD2306D93
+gpg --keyserver pool.sks-keyservers.net --recv-keys FD3A5288F042B6850C66B31F09FE44734EB7990E
+gpg --keyserver pool.sks-keyservers.net --recv-keys 71DCFD284A79C3B38668286BC97EC7A07EDE3FC1
+gpg --keyserver pool.sks-keyservers.net --recv-keys DD8F2338BAE7501E3DD5AC78C273792F7D83545D
+```
+
+See the section above on [Verifying Binaries](#verifying-binaries) for
+details on what to do with these keys to verify a downloaded file is official.
+
+Previous releases of Node.js have been signed with one of the following GPG
+keys:
+
+* Julien Gilli &lt;jgilli@fastmail.fm&gt; `114F43EE0176B71C7BC219DD50A3051F888C628D`
+* Timothy J Fontaine &lt;tjfontaine@gmail.com&gt; `7937DFD2AB06298B2293C3187D33FF9D0246406D`
+* Isaac Z. Schlueter &lt;i@izs.me&gt; `93C7E9E91B49E432C2F75674B0A78B0A6C481CF6`

@@ -32,13 +32,13 @@ process.  Of course, in a normal web server, you might have many
 connections open, and it is not reasonable to abruptly shut those down
 because an error was triggered by someone else.
 
-The better approach is send an error response to the request that
+The better approach is to send an error response to the request that
 triggered the error, while letting the others finish in their normal
 time, and stop listening for new requests in that worker.
 
 In this way, `domain` usage goes hand-in-hand with the cluster module,
 since the master process can fork a new worker when a worker
-encounters an error.  For io.js programs that scale to multiple
+encounters an error.  For Node.js programs that scale to multiple
 machines, the terminating proxy or service registry can take note of
 the failure, and react accordingly.
 

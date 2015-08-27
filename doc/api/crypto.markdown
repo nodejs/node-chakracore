@@ -67,7 +67,7 @@ Example:
 
 ## crypto.createCredentials(details)
 
-    Stability: 0 - Deprecated. Use [tls.createSecureContext][] instead.
+    Stability: 0 - Deprecated: Use [tls.createSecureContext][] instead.
 
 Creates a credentials object, with the optional details being a
 dictionary with keys:
@@ -86,7 +86,7 @@ dictionary with keys:
   <http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT>
   for details on the format.
 
-If no 'ca' details are given, then io.js will use the default
+If no 'ca' details are given, then Node.js will use the default
 publicly trusted list of CAs as given in
 <http://mxr.mozilla.org/mozilla/source/security/nss/lib/ckfw/builtins/certdata.txt>.
 
@@ -135,7 +135,7 @@ Returned by `crypto.createHash`.
 
 Updates the hash content with the given `data`, the encoding of which
 is given in `input_encoding` and can be `'utf8'`, `'ascii'` or
-`'binary'`.  If no encoding is provided and the input is a string an
+`'binary'`.  If no encoding is provided, and the input is a string, an
 encoding of `'binary'` is enforced. If `data` is a `Buffer` then
 `input_encoding` is ignored.
 
@@ -323,7 +323,7 @@ called.
 
 You can disable auto padding if the data has been encrypted without
 standard block padding to prevent `decipher.final` from checking and
-removing it. Can only work if the input data's length is a multiple of
+removing it. This will only work if the input data's length is a multiple of
 the ciphers block size. You must call this before streaming data to
 `decipher.update`.
 
@@ -750,7 +750,7 @@ unified Stream API, and before there were Buffer objects for handling
 binary data.
 
 As such, the streaming classes don't have the typical methods found on
-other io.js classes, and many methods accepted and returned
+other Node.js classes, and many methods accepted and returned
 Binary-encoded strings by default rather than Buffers.  This was
 changed to use Buffers by default instead.
 

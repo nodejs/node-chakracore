@@ -5,7 +5,9 @@ PYTHON ?= python
 DESTDIR ?=
 SIGN ?=
 PREFIX ?= /usr/local
-STAGINGSERVER ?= iojs-www
+FLAKY_TESTS ?= run
+TEST_CI_ARGS ?=
+STAGINGSERVER ?= node-www
 
 OSTYPE := $(shell uname -s | tr '[A-Z]' '[a-z]')
 
@@ -13,9 +15,9 @@ OSTYPE := $(shell uname -s | tr '[A-Z]' '[a-z]')
 EXEEXT := $(shell $(PYTHON) -c \
 		"import sys; print('.exe' if sys.platform == 'win32' else '')")
 
-NODE ?= ./iojs$(EXEEXT)
-NODE_EXE = iojs$(EXEEXT)
-NODE_G_EXE = iojs_g$(EXEEXT)
+NODE ?= ./node$(EXEEXT)
+NODE_EXE = node$(EXEEXT)
+NODE_G_EXE = node_g$(EXEEXT)
 
 # Flags for packaging.
 BUILD_DOWNLOAD_FLAGS ?= --download=all
@@ -99,19 +101,39 @@ test/gc/node_modules/weak/build/Release/weakref.node: $(NODE_EXE)
 		--directory="$(shell pwd)/test/gc/node_modules/weak" \
 		--nodedir="$(shell pwd)"
 
-build-addons: $(NODE_EXE)
-	rm -rf test/addons/doc-*/
+# Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
+test/addons/.docbuildstamp: doc/api/addons.markdown
+	$(RM) -r test/addons/doc-*/
 	$(NODE) tools/doc/addon-verify.js
-	$(foreach dir, \
-			$(sort $(dir $(wildcard test/addons/*/*.gyp))), \
-			$(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp rebuild \
-					--directory="$(shell pwd)/$(dir)" \
-					--nodedir="$(shell pwd)" && ) echo "build done"
+	touch $@
+
+ADDONS_BINDING_GYPS := \
+	$(filter-out test/addons/doc-*/binding.gyp, \
+		$(wildcard test/addons/*/binding.gyp))
+
+# Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
+test/addons/.buildstamp: $(ADDONS_BINDING_GYPS) | test/addons/.docbuildstamp
+	# Cannot use $(wildcard test/addons/*/) here, it's evaluated before
+	# embedded addons have been generated from the documentation.
+	for dirname in test/addons/*/; do \
+		$(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp rebuild \
+			--directory="$$PWD/$$dirname" \
+			--nodedir="$$PWD"; \
+	done
+	touch $@
+
+# .buildstamp and .docbuildstamp need $(NODE_EXE) but cannot depend on it
+# directly because it calls make recursively.  The parent make cannot know
+# if the subprocess touched anything so it pessimistically assumes that
+# .buildstamp and .docbuildstamp are out of date and need a rebuild.
+# Just goes to show that recursive make really is harmful...
+# TODO(bnoordhuis) Force rebuild after gyp or node-gyp update.
+build-addons: $(NODE_EXE) test/addons/.buildstamp
 
 test-gc: all test/gc/node_modules/weak/build/Release/weakref.node
 	$(PYTHON) tools/test.py --mode=release gc
 
-test-build: all build-addons
+test-build: | all build-addons
 
 test-all: test-build test/gc/node_modules/weak/build/Release/weakref.node
 	$(PYTHON) tools/test.py --mode=debug,release
@@ -119,8 +141,9 @@ test-all: test-build test/gc/node_modules/weak/build/Release/weakref.node
 test-all-valgrind: test-build
 	$(PYTHON) tools/test.py --mode=debug,release --valgrind
 
-test-ci:
-	$(PYTHON) tools/test.py -p tap --logfile test.tap --mode=release message parallel sequential
+test-ci: | build-addons
+	$(PYTHON) tools/test.py -p tap --logfile test.tap --mode=release --flaky-tests=$(FLAKY_TESTS) \
+		$(TEST_CI_ARGS) addons message parallel sequential
 
 test-release: test-build
 	$(PYTHON) tools/test.py --mode=release
@@ -267,7 +290,7 @@ ifeq ($(DESTCPU),ia32)
 override DESTCPU=x86
 endif
 
-TARNAME=iojs-$(FULLVERSION)
+TARNAME=node-$(FULLVERSION)
 TARBALL=$(TARNAME).tar
 BINARYNAME=$(TARNAME)-$(PLATFORM)-$(ARCH)
 BINARYTAR=$(BINARYNAME).tar
@@ -311,11 +334,11 @@ $(PKG): release-only
 	$(MAKE) install V=$(V) DESTDIR=$(PKGDIR)
 	SIGN="$(CODESIGN_CERT)" PKGDIR="$(PKGDIR)" bash tools/osx-codesign.sh
 	cat tools/osx-pkg.pmdoc/index.xml.tmpl \
-		| sed -E "s/\\{iojsversion\\}/$(FULLVERSION)/g" \
+		| sed -E "s/\\{nodeversion\\}/$(FULLVERSION)/g" \
 		| sed -E "s/\\{npmversion\\}/$(NPMVERSION)/g" \
 		> tools/osx-pkg.pmdoc/index.xml
 	$(PACKAGEMAKER) \
-		--id "org.iojs.pkg" \
+		--id "org.node.pkg" \
 		--doc tools/osx-pkg.pmdoc \
 		--out $(PKG)
 	SIGN="$(PRODUCTSIGN_CERT)" PKG="$(PKG)" bash tools/osx-productsign.sh
@@ -324,13 +347,13 @@ pkg: $(PKG)
 
 pkg-upload: pkg
 	ssh $(STAGINGSERVER) "mkdir -p staging/$(DISTTYPEDIR)/$(FULLVERSION)"
-	scp -p iojs-$(FULLVERSION).pkg $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION).pkg
-	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION).pkg.done"
+	scp -p node-$(FULLVERSION).pkg $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION).pkg
+	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION).pkg.done"
 
 $(TARBALL): release-only $(NODE_EXE) doc
 	git checkout-index -a -f --prefix=$(TARNAME)/
 	mkdir -p $(TARNAME)/doc/api
-	cp doc/iojs.1 $(TARNAME)/doc/iojs.1
+	cp doc/node.1 $(TARNAME)/doc/node.1
 	cp -r out/doc/api/* $(TARNAME)/doc/api/
 	rm -rf $(TARNAME)/deps/v8/{test,samples,tools/profviz} # too big
 	rm -rf $(TARNAME)/doc/images # too big
@@ -350,11 +373,11 @@ tar: $(TARBALL)
 
 tar-upload: tar
 	ssh $(STAGINGSERVER) "mkdir -p staging/$(DISTTYPEDIR)/$(FULLVERSION)"
-	scp -p iojs-$(FULLVERSION).tar.gz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION).tar.gz
-	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION).tar.gz.done"
+	scp -p node-$(FULLVERSION).tar.gz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION).tar.gz
+	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION).tar.gz.done"
 ifeq ($(XZ), 0)
-	scp -p iojs-$(FULLVERSION).tar.xz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION).tar.xz
-	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION).tar.xz.done"
+	scp -p node-$(FULLVERSION).tar.xz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION).tar.xz
+	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION).tar.xz.done"
 endif
 
 doc-upload: tar
@@ -415,11 +438,11 @@ binary: $(BINARYTAR)
 
 binary-upload: binary
 	ssh $(STAGINGSERVER) "mkdir -p staging/$(DISTTYPEDIR)/$(FULLVERSION)"
-	scp -p iojs-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.gz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.gz
-	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.gz.done"
+	scp -p node-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.gz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.gz
+	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.gz.done"
 ifeq ($(XZ), 0)
-	scp -p iojs-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.xz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.xz
-	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/iojs-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.xz.done"
+	scp -p node-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.xz $(STAGINGSERVER):staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.xz
+	ssh $(STAGINGSERVER) "touch staging/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION)-$(OSTYPE)-$(ARCH).tar.xz.done"
 endif
 
 haswrk=$(shell which wrk > /dev/null 2>&1; echo $$?)

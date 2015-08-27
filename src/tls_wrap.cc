@@ -432,7 +432,7 @@ void TLSWrap::ClearOut() {
 
   // We need to check whether an error occurred or the connection was
   // shutdown cleanly (SSL_ERROR_ZERO_RETURN) even when read == 0.
-  // See iojs#1642 and SSL_read(3SSL) for details.
+  // See node#1642 and SSL_read(3SSL) for details.
   if (read <= 0) {
     int err;
     Local<Value> arg = GetSSLError(read, &err, nullptr);
@@ -561,8 +561,8 @@ int TLSWrap::DoWrite(WriteWrap* w,
     }
   if (empty) {
     ClearOut();
-    // However if there any data that should be written to socket,
-    // callback should not be invoked immediately
+    // However, if there is any data that should be written to the socket,
+    // the callback should not be invoked immediately
     if (BIO_pending(enc_out_) == 0)
       return stream_->DoWrite(w, bufs, count, send_handle);
   }

@@ -8,7 +8,7 @@ File I/O is provided by simple wrappers around standard POSIX functions.  To
 use this module do `require('fs')`. All the methods have asynchronous and
 synchronous forms.
 
-The asynchronous form always take a completion callback as its last argument.
+The asynchronous form always takes a completion callback as its last argument.
 The arguments passed to the completion callback depend on the method, but the
 first argument is always reserved for an exception. If the operation was
 completed successfully, then the first argument will be `null` or `undefined`.
@@ -59,8 +59,8 @@ In busy processes, the programmer is _strongly encouraged_ to use the
 asynchronous versions of these calls. The synchronous versions will block
 the entire process until they complete--halting all connections.
 
-Relative path to filename can be used, remember however that this path will be
-relative to `process.cwd()`.
+The relative path to a filename can be used. Remember, however, that this path
+will be relative to `process.cwd()`.
 
 Most fs functions let you omit the callback argument. If you do, a default
 callback is used that rethrows errors. To get a trace to the original call
@@ -72,7 +72,7 @@ site, set the NODE_DEBUG environment variable:
     }
     bad();
 
-    $ env NODE_DEBUG=fs iojs script.js
+    $ env NODE_DEBUG=fs node script.js
     fs.js:66
             throw err;
                   ^
@@ -511,14 +511,14 @@ to `'utf8'`.
 
 Example:
 
-    fs.writeFile('message.txt', 'Hello io.js', function (err) {
+    fs.writeFile('message.txt', 'Hello Node.js', function (err) {
       if (err) throw err;
       console.log('It\'s saved!');
     });
 
 If `options` is a string, then it specifies the encoding. Example:
 
-    fs.writeFile('message.txt', 'Hello io.js', 'utf8', callback);
+    fs.writeFile('message.txt', 'Hello Node.js', 'utf8', callback);
 
 ## fs.writeFileSync(filename, data[, options])
 
@@ -574,7 +574,7 @@ stat object:
 
 These stat objects are instances of `fs.Stat`.
 
-If you want to be notified when the file was modified, not just accessed
+If you want to be notified when the file was modified, not just accessed,
 you need to compare `curr.mtime` and `prev.mtime`.
 
 _Note: when an `fs.watchFile` operation results in an `ENOENT` error, it will
@@ -671,9 +671,7 @@ callback, and have some fallback logic if it is null.
 
 ## fs.exists(path, callback)
 
-`fs.exists()` is **deprecated**. For supported alternatives please check out
-[`fs.stat`](fs.html#fs_fs_stat_path_callback) or
-[`fs.access`](fs.html#fs_fs_access_path_mode_callback).
+    Stability: 0 - Deprecated: Use [fs.stat][] or [fs.access][] instead.
 
 Test whether or not the given path exists by checking with the file system.
 Then call the `callback` argument with either true or false.  Example:
@@ -682,24 +680,18 @@ Then call the `callback` argument with either true or false.  Example:
       console.log(exists ? "it's there" : 'no passwd!');
     });
 
-`fs.exists()` is an anachronism and exists only for historical reasons.
-There should almost never be a reason to use it in your own code.
-
-In particular, checking if a file exists before opening it is an anti-pattern
-that leaves you vulnerable to race conditions: another process may remove the
-file between the calls to `fs.exists()` and `fs.open()`.  Just open the file
-and handle the error when it's not there.
-
-
+`fs.exists()` should not be used to check if a file exists before calling
+`fs.open()`. Doing so introduces a race condition since other processes may
+change the file's state between the two calls. Instead, user code should
+call `fs.open()` directly and handle the error raised if the file is
+non-existent.
 
 ## fs.existsSync(path)
 
 Synchronous version of [`fs.exists`](fs.html#fs_fs_exists_path_callback).
 Returns `true` if the file exists, `false` otherwise.
 
-`fs.existsSync()` is **deprecated**. For supported alternatives please check
-out [`fs.statSync`](fs.html#fs_fs_statsync_path) or
-[`fs.accessSync`](fs.html#fs_fs_accesssync_path_mode).
+    Stability: 0 - Deprecated: Use [fs.statSync][] or [fs.accessSync][] instead.
 
 ## fs.access(path[, mode], callback)
 
@@ -794,7 +786,7 @@ The times in the stat object have the following semantics:
   an earlier value than the current `birthtime` using the `utimes(2)`
   system call.
 
-Prior to io.js v1.0 and Node v0.12, the `ctime` held the `birthtime` on Windows
+Prior to Node v0.12, the `ctime` held the `birthtime` on Windows
 systems.  Note that as of v0.12, `ctime` is not "creation time", and
 on Unix systems, it never was.
 
@@ -907,3 +899,9 @@ See more details in [fs.watch](#fs_fs_watch_filename_options_listener).
 * `error` {Error object}
 
 Emitted when an error occurs.
+
+
+[fs.stat]: #fs_fs_stat_path_callback
+[fs.access]: #fs_fs_access_path_mode_callback
+[fs.statSync]: #fs_fs_statsync_path
+[fs.accessSync]: #fs_fs_accesssync_path_mode
