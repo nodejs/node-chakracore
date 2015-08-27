@@ -26,6 +26,7 @@
       Object_keys = Object.keys,
       Reflect_construct = Reflect.construct;
 
+  // Simulate V8 JavaScript stack trace API
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
     this.column = columnNumber;
     this.lineNumber = lineNumber;
@@ -37,7 +38,7 @@
       return this.functionName;
   };
 
-  StackFrame.prototype.getScriptName = function() {
+  StackFrame.prototype.getFileName = function () {
       return this.scriptName;
   };
 
@@ -45,7 +46,7 @@
     return this.lineNumber;
   };
 
-  StackFrame.prototype.getColumn = function() {
+  StackFrame.prototype.getColumnNumber = function () {
     return this.column;
   };
 

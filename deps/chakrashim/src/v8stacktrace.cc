@@ -79,7 +79,7 @@ int StackFrame::GetLineNumber() const {
 int StackFrame::GetColumn() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   int result;
-  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getColumn,
+  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getColumnNumber,
                        &result) != JsNoError) {
     return 0;
   }
@@ -94,7 +94,7 @@ int StackFrame::GetScriptId() const {
 Local<String> StackFrame::GetScriptName() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   JsValueRef result;
-  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getScriptName,
+  if (jsrt::CallGetter(frame, CachedPropertyIdRef::getFileName,
                        &result) != JsNoError) {
     return Local<String>();
   }
