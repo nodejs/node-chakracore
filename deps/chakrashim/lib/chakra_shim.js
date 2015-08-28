@@ -245,20 +245,7 @@
       isUintRegex.lastIndex = 0;
       return result;
     };
-    utils.isInstanceOf = function(a, b) {
-      return (a instanceof b);
-    };
     utils.cloneObject = cloneObject;
-    utils.forEachNonConfigurableProperty = function (source, callback) {
-      Object_getOwnPropertyNames(source).forEach(function (key) {
-        var desc = Object_getOwnPropertyDescriptor(source, key);
-        if (desc && !desc.configurable && !callback(key, desc)) {
-          return false;
-        }
-      });
-
-      return true;
-    };
     utils.getPropertyNames = function(a) {
       var names = [];
       for(var propertyName in a) {
@@ -317,86 +304,6 @@
       });
       return props;
     };
-
-    var createEmptyLambdaFunction = function (length) {
-      if (length === undefined) {
-        return () => { };
-      }
-
-      // length is specified when we are marshalling a bound function of given
-      // length
-      var func;
-      switch (length) {
-        case 0: func = () => { }; break;
-        case 1: func = (x1) => { }; break;
-        case 2: func = (x1, x2) => { }; break;
-        case 3: func = (x1, x2, x3) => { }; break;
-        case 4: func = (x1, x2, x3, x4) => { }; break;
-        case 5: func = (x1, x2, x3, x4, x5) => { }; break;
-        case 6: func = (x1, x2, x3, x4, x5, x6) => { }; break;
-        case 7: func = (x1, x2, x3, x4, x5, x6, x7) => { }; break;
-        case 8: func = (x1, x2, x3, x4, x5, x6, x7, x8) => { }; break;
-        default: {
-          var str = "(x1";
-          for (var i = 2; i <= length; i++) {
-            str += ", x" + i;
-          }
-          str += ") => { }";
-          func = eval(str);
-        }
-      }
-      return func.bind({});
-    };
-    var createEmptyStrictModeFunction = function () {
-      return function () { "use strict"; return arguments; };
-    };
-
-    var BOUND_FUNCTION_TAG = Symbol("BOUND_FUNCTION_TAG"),
-        Function_prototype_bind = Function.prototype.bind;
-    Function.prototype.bind = function () {
-      var r = Function_prototype_bind.apply(this, arguments);
-      r[BOUND_FUNCTION_TAG] = true;
-      return r;
-    };
-
-    var NORMAL_FUNCTION = 0,
-        BOUND_FUNCTION = 1,
-        STRICTMODE_FUNCTION = 2;
-    var TYPE_BITS = 2, // lower 2 bits for type
-        TYPE_MASK = (1 << TYPE_BITS) - 1;
-
-    utils.testFunctionType = function (func) {
-      if (func[BOUND_FUNCTION_TAG]) {
-        return (func.length << TYPE_BITS) | BOUND_FUNCTION;
-      }
-
-      var desc = Object_getOwnPropertyDescriptor(func, 'caller');
-      return (desc && desc.get) ? STRICTMODE_FUNCTION: NORMAL_FUNCTION;
-    };
-    utils.createTargetFunction = function (type) {
-      switch (type & TYPE_MASK) {
-        case BOUND_FUNCTION:
-          return createEmptyLambdaFunction(type >> TYPE_BITS);
-        case STRICTMODE_FUNCTION:
-          return createEmptyStrictModeFunction();
-      }
-      return createEmptyLambdaFunction();
-    };
-
-    utils.throwAccessorErrorFunctions = (function () {
-      var arr = [];
-
-      var x = createEmptyLambdaFunction(0);
-      arr.push(Object_getOwnPropertyDescriptor(x, 'caller').get);
-
-      var x = createEmptyStrictModeFunction();
-      arr.push(Object_getOwnPropertyDescriptor(x, 'caller').get);
-      arr.push(Object_getOwnPropertyDescriptor(x, 'arguments').get);
-      arr.push(Object_getOwnPropertyDescriptor(x(), 'callee').get);
-
-      return arr;
-    })();
-
     utils.getStackTrace = function () {
       return captureStackTrace({}, utils.getStackTrace)();
     };

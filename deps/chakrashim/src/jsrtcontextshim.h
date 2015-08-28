@@ -18,8 +18,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include <functional>
-#include <unordered_map>
 #include <vector>
 
 namespace jsrt {
@@ -81,9 +79,7 @@ class ContextShim {
   JsValueRef GetReflectObject();
   JsValueRef GetReflectFunctionForTrap(ProxyTraps traps);
 
-  JsValueRef GetInstanceOfFunction();
   JsValueRef GetCloneObjectFunction();
-  JsValueRef GetForEachNonConfigurablePropertyFunction();
   JsValueRef GetGetPropertyNamesFunction();
   JsValueRef GetGetEnumerableNamedPropertiesFunction();
   JsValueRef GetGetEnumerableIndexedPropertiesFunction();
@@ -92,12 +88,6 @@ class ContextShim {
   JsValueRef GetGetNamedOwnKeysFunction();
   JsValueRef GetGetIndexedOwnKeysFunction();
   JsValueRef GetGetStackTraceFunction();
-
-  void EnsureThrowAccessorErrorFunctions();
-  bool FindThrowAccessorErrorFunction(JsValueRef func, int* index);
-  JsValueRef GetThrowAccessorErrorFunction(int index);
-  JsValueRef GetTestFunctionTypeFunction();
-  JsValueRef GetCreateTargetFunction();
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
@@ -147,10 +137,7 @@ class ContextShim {
 
   JsValueRef promiseContinuationFunction;
 
-  JsValueRef instanceOfFunction;
   JsValueRef cloneObjectFunction;
-  JsValueRef forEachNonConfigurablePropertyFunction;
-  JsValueRef isUintFunction;
   JsValueRef getPropertyNamesFunction;
 
   JsValueRef getEnumerableNamedPropertiesFunction;
@@ -160,11 +147,6 @@ class ContextShim {
   JsValueRef getNamedOwnKeysFunction;
   JsValueRef getIndexedOwnKeysFunction;
   JsValueRef getStackTraceFunction;
-
-  static const int THROWACCESSORERRORFUNCTIONS = 4;
-  JsValueRef throwAccessorErrorFunctions[THROWACCESSORERRORFUNCTIONS];
-  JsValueRef testFunctionTypeFunction;
-  JsValueRef createTargetFunction;
 
   std::vector<void*> embedderData;
 };

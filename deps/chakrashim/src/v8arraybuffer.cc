@@ -79,14 +79,13 @@ Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate,
 }
 
 size_t ArrayBuffer::ByteLength() const {
-  int result;
-  if (jsrt::GetProperty(const_cast<ArrayBuffer*>(this),
-                        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
-                          CachedPropertyIdRef::byteLength),
-                        &result) != JsNoError) {
+  BYTE* buffer;
+  unsigned int length;
+  if (JsGetArrayBufferStorage(const_cast<ArrayBuffer*>(this),
+                              &buffer, &length) != JsNoError) {
     return 0;
   }
-  return result;
+  return length;
 }
 
 void ArrayBuffer::Neuter() {

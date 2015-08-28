@@ -60,9 +60,7 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       exposeGC(exposeGC),
       globalObjectTemplateInstance(globalObjectTemplateInstance),
       promiseContinuationFunction(JS_INVALID_REFERENCE),
-      instanceOfFunction(JS_INVALID_REFERENCE),
       cloneObjectFunction(JS_INVALID_REFERENCE),
-      isUintFunction(JS_INVALID_REFERENCE),
       getPropertyNamesFunction(JS_INVALID_REFERENCE),
       getOwnPropertyDescriptorFunction(JS_INVALID_REFERENCE),
       getEnumerableNamedPropertiesFunction(JS_INVALID_REFERENCE),
@@ -72,13 +70,9 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
         JS_INVALID_REFERENCE),
       getNamedOwnKeysFunction(JS_INVALID_REFERENCE),
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
-      getStackTraceFunction(JS_INVALID_REFERENCE),
-      forEachNonConfigurablePropertyFunction(JS_INVALID_REFERENCE),
-      testFunctionTypeFunction(JS_INVALID_REFERENCE),
-      createTargetFunction(JS_INVALID_REFERENCE) {
+      getStackTraceFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
-  memset(throwAccessorErrorFunctions, 0, sizeof(throwAccessorErrorFunctions));
 }
 
 ContextShim::~ContextShim() {
@@ -560,20 +554,9 @@ JsValueRef ContextShim::GetCachedShimFunction(CachedPropertyIdRef id,
   return *func;
 }
 
-JsValueRef ContextShim::GetInstanceOfFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::isInstanceOf,
-                               &instanceOfFunction);
-}
-
 JsValueRef ContextShim::GetCloneObjectFunction() {
   return GetCachedShimFunction(CachedPropertyIdRef::cloneObject,
                                &cloneObjectFunction);
-}
-
-JsValueRef ContextShim::GetForEachNonConfigurablePropertyFunction() {
-  return GetCachedShimFunction(
-    CachedPropertyIdRef::forEachNonConfigurableProperty,
-    &forEachNonConfigurablePropertyFunction);
 }
 
 JsValueRef ContextShim::GetGetPropertyNamesFunction() {
@@ -618,47 +601,6 @@ JsValueRef ContextShim::GetGetIndexedOwnKeysFunction() {
 JsValueRef ContextShim::GetGetStackTraceFunction() {
   return GetCachedShimFunction(CachedPropertyIdRef::getStackTrace,
                                &getStackTraceFunction);
-}
-
-void ContextShim::EnsureThrowAccessorErrorFunctions() {
-  if (throwAccessorErrorFunctions[0] == JS_INVALID_REFERENCE) {
-    JsValueRef arr = JS_INVALID_REFERENCE;
-    GetCachedShimFunction(CachedPropertyIdRef::throwAccessorErrorFunctions,
-                          &arr);
-    for (int i = 0; i < THROWACCESSORERRORFUNCTIONS; i++) {
-      CHAKRA_VERIFY(jsrt::GetIndexedProperty(
-        arr, i, &throwAccessorErrorFunctions[i]) == JsNoError);
-    }
-  }
-}
-
-bool ContextShim::FindThrowAccessorErrorFunction(JsValueRef func, int* index) {
-  EnsureThrowAccessorErrorFunctions();
-
-  JsValueRef* end = throwAccessorErrorFunctions + THROWACCESSORERRORFUNCTIONS;
-  JsValueRef* p = std::find(throwAccessorErrorFunctions, end, func);
-  if (p != end) {
-    *index = p - throwAccessorErrorFunctions;
-    return true;
-  }
-
-  return false;
-}
-
-JsValueRef ContextShim::GetThrowAccessorErrorFunction(int index) {
-  CHAKRA_ASSERT(index < THROWACCESSORERRORFUNCTIONS);
-  EnsureThrowAccessorErrorFunctions();
-  return throwAccessorErrorFunctions[index];
-}
-
-JsValueRef ContextShim::GetTestFunctionTypeFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::testFunctionType,
-                               &testFunctionTypeFunction);
-}
-
-JsValueRef ContextShim::GetCreateTargetFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::createTargetFunction,
-                               &createTargetFunction);
 }
 
 }  // namespace jsrt
