@@ -154,9 +154,10 @@ void TryCatch::SetVerbose(bool value) {
 }
 
 void TryCatch::CheckReportExternalException() {
-  // This is only used by Function::Call. If caller explictly uses a TryCatch
-  // and SetVerbose, we'll report the external exception message.
-  if (prev != nullptr && prev->verbose) {
+  // This is only used by Function::Call. If caller does not use TryCatch to
+  // handle external exceptions, or uses a TryCatch and SetVerbose(),
+  // we'll report the external exception message (triggers uncaughtException).
+  if (prev == nullptr || prev->verbose) {
     jsrt::IsolateShim::GetCurrent()->ForEachMessageListener([this](
         void * messageListener) {
       ((v8::MessageCallback)messageListener)(Message(), Exception());
