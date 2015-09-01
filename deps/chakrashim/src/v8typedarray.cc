@@ -66,8 +66,8 @@ JsErrorCode Utils::NewTypedArray(ContextShim::GlobalType constructorIndex,
   JsValueRef args[4] = {
     contextShim->GetUndefined(),
     *array_buffer,
-    *Integer::From(byte_offset),
-    *Integer::From(length)
+    *Integer::From(static_cast<uint32_t>(byte_offset)),
+    *Integer::From(static_cast<uint32_t>(length))
   };
   return JsConstructObject(constructor, args, _countof(args), result);
 }
