@@ -671,6 +671,11 @@
           'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
         }],
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'SubSystem': 1, # /subsystem:console
+        },
+      },
       'defines': [
         # gtest's ASSERT macros conflict with our own.
         'GTEST_DONT_DEFINE_ASSERT_EQ=1',
