@@ -415,7 +415,7 @@ inline JsErrorCode ValueToDoubleLikely(JsValueRef value, double* dblValue) {
 }
 }  // namespace jsrt
 
-// For TH2 machines, use dynamically loaded chakra procs
+// For TH + next machines, use dynamically loaded chakra procs
 #ifndef JSRT_HAS_NEW_APIs
 #define JsGetContextOfObject JsGetContextOfObject_Indirect
 #define JsGetContextData JsGetContextData_Indirect

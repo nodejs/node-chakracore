@@ -856,9 +856,9 @@ void Fatal(const char * format, ...) {
 }  // namespace jsrt
 
 #ifndef JSRT_HAS_NEW_APIs
-// On TH2 machines, public SDK won't be updated sooner to include new
+// On TH + next machines, public SDK won't be updated sooner to include new
 // JSRT APIs. In order to use these new APIs till they are not available
-// in public SDK of TH2, a workaround is to dynamically load their process
+// in public SDK of TH + next, a workaround is to dynamically load their process
 // address and call them.
 static HMODULE ChakraModule = nullptr;
 void PrintErrorAndAbort(const char * procName) {
