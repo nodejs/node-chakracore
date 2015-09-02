@@ -1528,7 +1528,6 @@ class V8_EXPORT ObjectTemplate : public Template {
 
   Local<Object> NewInstance();
   void SetClassName(Handle<String> name);
-  void SetSupportsOverrideToString();
 
   void SetAccessor(
     Handle<String> name,
