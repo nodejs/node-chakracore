@@ -1862,7 +1862,6 @@ class V8_EXPORT ObjectTemplate : public Template {
   V8_WARN_UNUSED_RESULT MaybeLocal<Object> NewInstance(Local<Context> context);
 
   void SetClassName(Handle<String> name);
-  void SetSupportsOverrideToString();
 
   void SetAccessor(Handle<String> name,
                    AccessorGetterCallback getter,

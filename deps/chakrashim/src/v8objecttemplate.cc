@@ -40,7 +40,6 @@ struct ObjectTemplateData : public TemplateData {
   IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
   Persistent<Value> indexedPropertyInterceptorData;
   int internalFieldCount;
-  bool supportsOverrideToString;
 
   ObjectTemplateData()
       : namedPropertyGetter(nullptr),
@@ -53,8 +52,7 @@ struct ObjectTemplateData : public TemplateData {
         indexedPropertyQuery(nullptr),
         indexedPropertyDeleter(nullptr),
         indexedPropertyEnumerator(nullptr),
-        internalFieldCount(0),
-        supportsOverrideToString(false) {
+        internalFieldCount(0) {
     HandleScope scope(nullptr);
     properties = Object::New();
   }
@@ -877,23 +875,6 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
     if (error != JsNoError) {
       return Local<Object>();
     }
-
-    // this trick is needed in order to support the equals operator correctly:
-    if (objectTemplateData->supportsOverrideToString) {
-      JsValueRef proxyRef = newInstanceRef;
-
-      error = JsCreateObject(&newInstanceRef);
-
-      if (error != JsNoError) {
-        return Local<Object>();
-      }
-
-      error = JsSetPrototype(newInstanceRef, proxyRef);
-
-      if (error != JsNoError) {
-        return Local<Object>();
-      }
-    }
   }
 
   // clone the object template into the new instance
@@ -1090,17 +1071,6 @@ Handle<String> ObjectTemplate::GetClassName() {
   ObjectTemplateData* objectTemplateData =
     reinterpret_cast<ObjectTemplateData*>(externalData);
   return objectTemplateData->className;
-}
-
-void ObjectTemplate::SetSupportsOverrideToString() {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
-    return;
-  }
-
-  ObjectTemplateData *objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
-  objectTemplateData->supportsOverrideToString = true;
 }
 
 }  // namespace v8
