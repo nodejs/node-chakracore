@@ -33,6 +33,26 @@ extern ArrayBuffer::Allocator* g_arrayBufferAllocator;
 
 struct ObjectData {
  public:
+  struct FieldValue {
+   public:
+    FieldValue() : value(nullptr) {}
+    ~FieldValue() { Reset(); }
+
+    void SetRef(JsValueRef ref);
+    JsValueRef GetRef() const;
+    bool IsRef() const;
+
+    void SetPointer(void* ptr);
+    void* GetPointer() const;
+
+   private:
+    static const UINT_PTR kValueRefTag = 1;
+    static const UINT_PTR kValueRefMask = ~kValueRefTag;
+    void Reset();
+
+    void* value;
+  };
+
   JsValueRef objectInstance;
   Persistent<ObjectTemplate> objectTemplate;  // Original ObjectTemplate
   NamedPropertyGetterCallback namedPropertyGetter;
@@ -48,9 +68,13 @@ struct ObjectData {
   IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
   Persistent<Value> indexedPropertyInterceptorData;
   int internalFieldCount;
-  void **internalFields;
+  FieldValue* internalFields;
 
   ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData);
+  void Dispose();
+  static void CALLBACK FinalizeCallback(void *data);
+
+  static FieldValue* GetInternalField(Object* object, int index);
 };
 
 struct TemplateData {
