@@ -984,7 +984,7 @@ class V8_EXPORT String : public Primitive {
     void operator=(const Utf8Value&);
 
     char* _str;
-    size_t _length;
+    int _length;
   };
 
   class V8_EXPORT Value {
@@ -999,7 +999,7 @@ class V8_EXPORT String : public Primitive {
     void operator=(const Value&);
 
     uint16_t* _str;
-    size_t _length;
+    int _length;
   };
 
  private:
@@ -1112,14 +1112,12 @@ class V8_EXPORT Object : public Value {
   static Object *Cast(Value *obj);
 
  private:
+  friend struct ObjectData;
   friend class ObjectTemplate;
   friend class Utils;
 
   bool Set(Handle<Value> key, Handle<Value> value, PropertyAttribute attribs,
            bool force);
-  JsErrorCode GetObjectData(struct ObjectData** objectData);
-  JsErrorCode InternalFieldHelper(void ***externalArray, int *count);
-
   bool SetAccessor(Handle<String> name,
                    AccessorGetterCallback getter,
                    AccessorSetterCallback setter,
@@ -1128,6 +1126,7 @@ class V8_EXPORT Object : public Value {
                    PropertyAttribute attribute,
                    Handle<AccessorSignature> signature);
 
+  JsErrorCode GetObjectData(struct ObjectData** objectData);
   ObjectTemplate* GetObjectTemplate();
 };
 

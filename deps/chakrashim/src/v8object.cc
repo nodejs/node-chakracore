@@ -599,9 +599,7 @@ JsErrorCode Object::GetObjectData(ObjectData** objectData) {
   *objectData = nullptr;
 
   return ContextShim::ExecuteInContextOf<JsErrorCode>(this, [=]() {
-    Local<Object> obj(static_cast<Object*>(this));
-
-    if (obj->IsUndefined()) {
+    if (this->IsUndefined()) {
       return JsNoError;
     }
 
@@ -617,7 +615,7 @@ JsErrorCode Object::GetObjectData(ObjectData** objectData) {
           return error;
         }
 
-        if (!Local<Value>(static_cast<Value*>(result))->IsUndefined()) {
+        if (!Local<Value>(result)->IsUndefined()) {
           self = result;
         }
       }
@@ -627,77 +625,37 @@ JsErrorCode Object::GetObjectData(ObjectData** objectData) {
   });
 }
 
-JsErrorCode Object::InternalFieldHelper(void ***internalFields, int *count) {
-  struct ObjectData *objectData = nullptr;
-
-  JsErrorCode error = GetObjectData(&objectData);
-  if (error != JsNoError || objectData == nullptr) {
-    *internalFields = nullptr;
-    *count = 0;
-    return error;
-  }
-
-  *internalFields = objectData->internalFields;
-  *count = objectData->internalFieldCount;
-  return JsNoError;
-}
-
 int Object::InternalFieldCount() {
-  int result;
-  void **arrayRef;
-
-  if (InternalFieldHelper(&arrayRef, &result) != JsNoError) {
+  ObjectData* objectData;
+  if (GetObjectData(&objectData) != JsNoError || !objectData) {
     return 0;
   }
 
-  return result;
+  return objectData->internalFieldCount;
 }
 
 Local<Value> Object::GetInternalField(int index) {
-  void* p = GetAlignedPointerFromInternalField(index);
-  return static_cast<Value*>(p);
+  ObjectData::FieldValue* field = ObjectData::GetInternalField(this, index);
+  return field ? field->GetRef() : nullptr;
 }
 
 void Object::SetInternalField(int index, Handle<Value> value) {
-  SetAlignedPointerInInternalField(index, *value);
+  ObjectData::FieldValue* field = ObjectData::GetInternalField(this, index);
+  if (field) {
+    field->SetRef(*value);
+  }
 }
 
-void *Object::GetAlignedPointerFromInternalField(int index) {
-  if (index < 0) {
-    return nullptr;
-  }
-
-  int length;
-  void **arrayRef;
-
-  if (InternalFieldHelper(&arrayRef, &length) != JsNoError) {
-    return nullptr;
-  }
-
-  if (index >= length || arrayRef == nullptr) {
-    return nullptr;
-  }
-
-  return arrayRef[index];
+void* Object::GetAlignedPointerFromInternalField(int index) {
+  ObjectData::FieldValue* field = ObjectData::GetInternalField(this, index);
+  return field ? field->GetPointer() : nullptr;
 }
 
 void Object::SetAlignedPointerInInternalField(int index, void *value) {
-  if (index < 0) {
-    return;
+  ObjectData::FieldValue* field = ObjectData::GetInternalField(this, index);
+  if (field) {
+    field->SetPointer(value);
   }
-
-  int length;
-  void **arrayRef;
-
-  if (InternalFieldHelper(&arrayRef, &length) != JsNoError) {
-    return;
-  }
-
-  if (index >= length || arrayRef == nullptr) {
-    return;
-  }
-
-  arrayRef[index] = value;
 }
 
 static JsTypedArrayType ConvertArrayType(ExternalArrayType array_type) {

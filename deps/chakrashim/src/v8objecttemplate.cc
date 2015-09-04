@@ -25,9 +25,6 @@ namespace v8 {
 
 using namespace jsrt;
 
-class ExternalType {
-};
-
 struct ObjectTemplateData : public TemplateData {
  public:
   Persistent<String> className;
@@ -89,6 +86,46 @@ struct ObjectTemplateData : public TemplateData {
   }
 };
 
+void ObjectData::FieldValue::SetRef(JsValueRef ref) {
+  Reset();
+
+  if (JsAddRef(ref, nullptr) != JsNoError) {
+    return;  // fail
+  }
+
+  value = reinterpret_cast<void*>(
+    reinterpret_cast<UINT_PTR>(ref) | kValueRefTag);
+  CHAKRA_ASSERT(GetRef() == ref);
+}
+
+JsValueRef ObjectData::FieldValue::GetRef() const {
+  CHAKRA_ASSERT(IsRef() || !value);
+  return reinterpret_cast<JsValueRef>(
+    reinterpret_cast<UINT_PTR>(value) & kValueRefMask);
+}
+
+bool ObjectData::FieldValue::IsRef() const {
+  return (reinterpret_cast<UINT_PTR>(value) & kValueRefTag) != 0;
+}
+
+void ObjectData::FieldValue::SetPointer(void* ptr) {
+  Reset();
+  value = ptr;
+  CHAKRA_ASSERT(GetPointer() == ptr);
+}
+
+void* ObjectData::FieldValue::GetPointer() const {
+  CHAKRA_ASSERT(!IsRef());
+  return value;
+}
+
+void ObjectData::FieldValue::Reset() {
+  if (IsRef()) {
+    JsRelease(GetRef(), nullptr);
+  }
+  value = nullptr;
+}
+
 ObjectData::ObjectData(ObjectTemplate* objectTemplate,
                        ObjectTemplateData *templateData)
     : objectTemplate(objectTemplate),
@@ -108,8 +145,42 @@ ObjectData::ObjectData(ObjectTemplate* objectTemplate,
         nullptr, templateData->indexedPropertyInterceptorData),
       internalFieldCount(templateData->internalFieldCount) {
   if (internalFieldCount > 0) {
-    internalFields = new void *[internalFieldCount];
+    internalFields = new FieldValue[internalFieldCount];
   }
+}
+
+void ObjectData::Dispose() {
+  if (internalFieldCount > 0) {
+    delete[] internalFields;
+  }
+
+  objectTemplate.Reset();
+  namedPropertyInterceptorData.Reset();
+  indexedPropertyInterceptorData.Reset();
+
+  IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(objectInstance);
+
+  delete this;
+}
+
+void CALLBACK ObjectData::FinalizeCallback(void *data) {
+  if (data != nullptr) {
+    ObjectData* objectData = reinterpret_cast<ObjectData*>(data);
+    objectData->Dispose();
+  }
+}
+
+ObjectData::FieldValue* ObjectData::GetInternalField(Object* object,
+                                                     int index) {
+  ObjectData* objectData;
+  if (object->GetObjectData(&objectData) != JsNoError ||
+      !objectData ||
+      index < 0 ||
+      index >= objectData->internalFieldCount) {
+    return nullptr;
+  }
+
+  return &objectData->internalFields[index];
 }
 
 // Callbacks used with proxies:
@@ -700,22 +771,6 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
   }
 }
 
-void CALLBACK FinalizeCallback(void *data) {
-  if (data != nullptr) {
-    ObjectData* objectData = reinterpret_cast<ObjectData*>(data);
-    if (objectData->internalFieldCount > 0) {
-      delete[] objectData->internalFields;
-    }
-    objectData->objectTemplate.Reset();
-    objectData->namedPropertyInterceptorData.Reset();
-    objectData->indexedPropertyInterceptorData.Reset();
-
-    IsolateShim::GetCurrent()->UnregisterJsValueRefContextShim(
-      objectData->objectInstance);
-    delete objectData;
-  }
-}
-
 Local<ObjectTemplate> ObjectTemplate::New(Isolate* isolate) {
   JsValueRef objectTemplateRef;
   ObjectTemplateData* templateData = new ObjectTemplateData();
@@ -755,7 +810,8 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
 
   JsValueRef newInstanceRef = JS_INVALID_REFERENCE;
   if (JsCreateExternalObject(objectData,
-                             FinalizeCallback, &newInstanceRef) != JsNoError) {
+                             ObjectData::FinalizeCallback,
+                             &newInstanceRef) != JsNoError) {
     return Local<Object>();
   }
 
