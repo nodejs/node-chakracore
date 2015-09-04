@@ -23,8 +23,7 @@
   var Object_defineProperty = Object.defineProperty,
       Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
       Object_getOwnPropertyNames = Object.getOwnPropertyNames,
-      Object_keys = Object.keys,
-      Reflect_construct = Reflect.construct;
+      Object_keys = Object.keys;
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
@@ -186,58 +185,6 @@
     Error.captureStackTrace = captureStackTrace;
   }
 
-  function cloneObject(source, target) {
-    Object_getOwnPropertyNames(source).forEach(function(key) {
-      try {
-        var desc = Object_getOwnPropertyDescriptor(source, key);
-        if (desc.value === source) desc.value = target;
-        Object_defineProperty(target, key, desc);
-      } catch (e) {
-        // Catch sealed properties errors
-      }
-    });
-  }
-
-  // Chakra Error instances have some enumerable properties (error number and
-  // stack), causing node formatting differences. Try make those properties
-  // non-enumerable when creating Error instances.
-  // NOTE: This doesn't work if Error is created in Chakra runtime.
-  function patchErrorTypes() {
-    function makePropertiesNonEnumerable(e) {
-      Object_keys(e).forEach(function (key) {
-        Object_defineProperty(e, key, { enumerable: false });
-      });
-      return e;
-    }
-
-    var builtInError = Error;
-
-    [Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
-      URIError
-    ].forEach(function (type) {
-      var newType = (function () {
-        // Make anonymous function. It may appear in error.stack
-        return function () {
-          return makePropertiesNonEnumerable(
-            Reflect_construct(type, arguments));
-        };
-      })();
-      cloneObject(type, newType);
-      newType.toString = function () {
-        return type.toString();
-      };
-      this[type.name] = newType;
-    });
-
-    // Delegate Error.stackTraceLimit to saved Error constructor
-    Object_defineProperty(this['Error'], 'stackTraceLimit', {
-      enumerable: false,
-      configurable: true,
-      get: function () { return builtInError.stackTraceLimit; },
-      set: function (value) { builtInError.stackTraceLimit = value; }
-    });
-  }
-
   function patchUtils(utils) {
     var isUintRegex = /^(0|[1-9]\\d*)$/;
     var isUint = function(value) {
@@ -245,7 +192,17 @@
       isUintRegex.lastIndex = 0;
       return result;
     };
-    utils.cloneObject = cloneObject;
+    utils.cloneObject = function(source, target) {
+      Object_getOwnPropertyNames(source).forEach(function(key) {
+        try {
+          var desc = Object_getOwnPropertyDescriptor(source, key);
+          if (desc.value === source) desc.value = target;
+          Object_defineProperty(target, key, desc);
+        } catch (e) {
+          // Catch sealed properties errors
+        }
+      });
+    };
     utils.getPropertyNames = function(a) {
       var names = [];
       for(var propertyName in a) {
@@ -310,7 +267,6 @@
   }
 
   // patch console
-  patchErrorTypes();
   patchErrorStack();
 
   // this is the keepAlive object that we will put some utilities function on
