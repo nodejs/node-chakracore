@@ -145,14 +145,8 @@ bool Object::ForceSet(Handle<Value> key, Handle<Value> value,
 }
 
 MaybeLocal<Value> Object::Get(Local<Context> context, Local<Value> key) {
-  JsPropertyIdRef idRef;
-
-  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
-    return Local<Value>();
-  }
-
   JsValueRef valueRef;
-  if (JsGetProperty((JsValueRef)this, idRef, &valueRef) != JsNoError) {
+  if (jsrt::GetProperty((JsValueRef)this, *key, &valueRef) != JsNoError) {
     return Local<Value>();
   }
 
@@ -253,19 +247,11 @@ bool Object::Has(Handle<Value> key) {
 }
 
 Maybe<bool> Object::Delete(Local<Context> context, Local<Value> key) {
-  JsPropertyIdRef idRef;
-
-  if (GetPropertyIdFromName((JsValueRef)*key, &idRef) != JsNoError) {
-    return Nothing<bool>();
-  }
-
   JsValueRef resultRef;
-  if (JsDeleteProperty((JsValueRef)this,
-                       idRef, false, &resultRef) != JsNoError) {
+  if (jsrt::DeleteProperty(this, *key, &resultRef) != JsNoError) {
     return Nothing<bool>();
   }
 
-  // get result
   return Just(Local<Value>(resultRef)->BooleanValue());
 }
 

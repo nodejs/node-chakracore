@@ -233,13 +233,15 @@ MaybeLocal<Integer> Value::ToInteger(Local<Context> context) const {
     return Local<Integer>();
   }
 
-  JsValueRef integerRef;
-  if (JsIntToNumber(static_cast<int>(maybeValue.FromJust()),
-                    &integerRef) != JsNoError) {
-    return Local<Integer>();
+  int64_t value = maybeValue.FromJust();
+  int intValue = static_cast<int>(value);
+
+  if (value == static_cast<int64_t>(intValue)) {
+    return Integer::New(nullptr, intValue);
   }
 
-  return Local<Integer>::New(integerRef);
+  // does not fit int, use double
+  return Number::New(nullptr, value).As<Integer>();
 }
 
 MaybeLocal<Uint32> Value::ToUint32(Local<Context> context) const {

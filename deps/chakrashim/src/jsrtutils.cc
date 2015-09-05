@@ -24,6 +24,15 @@
 
 namespace jsrt {
 
+JsErrorCode UintToValue(uint32_t value, JsValueRef* result) {
+  if (static_cast<int>(value) >= 0) {
+    return JsIntToNumber(static_cast<int>(value), result);
+  }
+
+  // Otherwise doesn't fit int, use double
+  return JsDoubleToNumber(value, result);
+}
+
 JsErrorCode GetProperty(JsValueRef ref,
                         JsValueRef propName,
                         JsValueRef *result) {
@@ -274,10 +283,10 @@ JsErrorCode HasOwnProperty(JsValueRef object,
 }
 
 JsErrorCode IsValueInArray(
-  JsValueRef arrayRef,
-  JsValueRef valueRef,
-  std::function<JsErrorCode(JsValueRef, JsValueRef, bool*)> comperator,
-  bool* result) {
+    JsValueRef arrayRef,
+    JsValueRef valueRef,
+    std::function<JsErrorCode(JsValueRef, JsValueRef, bool*)> comparator,
+    bool* result) {
   JsErrorCode error;
   unsigned int length;
   *result = false;
@@ -299,8 +308,8 @@ JsErrorCode IsValueInArray(
       return error;
     }
 
-    if (comperator != nullptr) {
-      error = comperator(valueRef, itemRef, result);
+    if (comparator != nullptr) {
+      error = comparator(valueRef, itemRef, result);
     } else {
       error = JsEquals(itemRef, valueRef, result);
     }
@@ -750,11 +759,11 @@ JsErrorCode GetObjectConstructor(JsValueRef objectRef,
 }
 
 JsErrorCode SetIndexedProperty(JsValueRef object,
-                               int index,
+                               unsigned int index,
                                JsValueRef value) {
   JsErrorCode error;
   JsValueRef indexRef;
-  error = JsIntToNumber(index, &indexRef);
+  error = UintToValue(index, &indexRef);
   if (error != JsNoError) {
     return error;
   }
@@ -764,11 +773,11 @@ JsErrorCode SetIndexedProperty(JsValueRef object,
 }
 
 JsErrorCode GetIndexedProperty(JsValueRef object,
-                               int index,
+                               unsigned int index,
                                JsValueRef *value) {
   JsErrorCode error;
   JsValueRef indexRef;
-  error = JsIntToNumber(index, &indexRef);
+  error = UintToValue(index, &indexRef);
   if (error != JsNoError) {
     return error;
   }
@@ -778,10 +787,10 @@ JsErrorCode GetIndexedProperty(JsValueRef object,
 }
 
 JsErrorCode DeleteIndexedProperty(JsValueRef object,
-                                  int index) {
+                                  unsigned int index) {
   JsErrorCode error;
   JsValueRef indexRef;
-  error = JsIntToNumber(index, &indexRef);
+  error = UintToValue(index, &indexRef);
   if (error != JsNoError) {
     return error;
   }
@@ -807,11 +816,11 @@ JsErrorCode HasProperty(JsValueRef object,
 }
 
 JsErrorCode HasIndexedProperty(JsValueRef object,
-                               int index,
+                               unsigned int index,
                                bool *result) {
   JsErrorCode error;
   JsValueRef indexRef;
-  error = JsIntToNumber(index, &indexRef);
+  error = UintToValue(index, &indexRef);
   if (error != JsNoError) {
     return error;
   }
@@ -819,6 +828,7 @@ JsErrorCode HasIndexedProperty(JsValueRef object,
   error = JsHasIndexedProperty(object, indexRef, result);
   return error;
 }
+
 JsErrorCode ParseScript(const wchar_t *script,
                         JsSourceContext sourceContext,
                         const wchar_t *sourceUrl,

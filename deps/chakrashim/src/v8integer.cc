@@ -44,12 +44,14 @@ Local<Integer> Integer::NewFromUnsigned(Isolate* isolate, uint32_t value) {
 }
 
 Local<Integer> Integer::From(uint32_t value) {
-  if (static_cast<int32_t>(value) >= 0) {
-    return From(static_cast<int32_t>(value));
+  JsValueRef ref;
+
+  if (jsrt::UintToValue(value, &ref) != JsNoError) {
+    return Local<Integer>();
   }
 
-  // Otherwise doesn't fit in int32, use double
-  return Number::From(value).As<Integer>();
+  // For perf reason, this doesn't allocate a real Handle
+  return Local<Integer>(ref);
 }
 
 Integer* Integer::Cast(v8::Value* obj) {
