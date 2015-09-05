@@ -56,6 +56,8 @@ namespace jsrt {
 
 JsErrorCode InitializePromise();
 
+JsErrorCode UintToValue(uint32_t value, JsValueRef* result);
+
 JsErrorCode GetProperty(JsValueRef ref,
                         JsValueRef propName,
                         JsValueRef *result);
@@ -81,7 +83,7 @@ JsErrorCode SetProperty(JsValueRef ref,
                         JsValueRef propValue);
 
 JsErrorCode DeleteIndexedProperty(JsValueRef object,
-                                  int index);
+                                  unsigned int index);
 
 JsErrorCode DeleteProperty(JsValueRef ref,
                            JsValueRef propName,
@@ -120,7 +122,7 @@ JsErrorCode HasProperty(JsValueRef object,
                         bool *result);
 
 JsErrorCode HasIndexedProperty(JsValueRef object,
-                               int index,
+                               unsigned int index,
                                bool *result);
 
 JsErrorCode GetEnumerableNamedProperties(JsValueRef object,
@@ -267,11 +269,11 @@ JsErrorCode GetObjectConstructor(JsValueRef objectRef,
                                  JsValueRef *constructorRef);
 
 JsErrorCode SetIndexedProperty(JsValueRef object,
-                               int index,
+                               unsigned int index,
                                JsValueRef value);
 
 JsErrorCode GetIndexedProperty(JsValueRef object,
-                               int index,
+                               unsigned int index,
                                JsValueRef *value);
 
 // CHAKRA-TODO : Currently Chakra's ParseScript doesn't support strictMode

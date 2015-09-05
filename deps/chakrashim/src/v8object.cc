@@ -129,14 +129,8 @@ bool Object::ForceSet(Handle<Value> key, Handle<Value> value,
 }
 
 Local<Value> Object::Get(Handle<Value> key) {
-  JsPropertyIdRef idRef;
-
-  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
-    return Local<Value>();
-  }
-
   JsValueRef valueRef;
-  if (JsGetProperty((JsValueRef)this, idRef, &valueRef) != JsNoError) {
+  if (jsrt::GetProperty((JsValueRef)this, *key, &valueRef) != JsNoError) {
     return Local<Value>();
   }
 
@@ -215,31 +209,14 @@ bool Object::Has(Handle<Value> key) {
 }
 
 bool Object::Delete(Handle<Value> key) {
-  JsPropertyIdRef idRef;
-
-  if (GetPropertyIdFromName((JsValueRef)*key, &idRef) != JsNoError) {
-    return false;
-  }
-
   JsValueRef resultRef;
-  if (JsDeleteProperty((JsValueRef)this,
-                       idRef, false, &resultRef) != JsNoError) {
+  if (jsrt::DeleteProperty(this, *key, &resultRef) != JsNoError) {
     return false;
   }
 
-  // get result:
-  JsValueRef booleanRef;
-  if (JsConvertValueToBoolean(resultRef, &booleanRef) != JsNoError) {
-    return false;
-  }
-
-  bool result;
-  if (JsBooleanToBool(booleanRef, &result) != JsNoError) {
-    return false;
-  }
-
-  return result;
+  return Local<Value>(resultRef)->BooleanValue();
 }
+
 
 bool Object::Has(uint32_t index) {
   bool result;

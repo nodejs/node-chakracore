@@ -210,14 +210,14 @@ Local<Object> Value::ToObject() const {
 
 Local<Integer> Value::ToInteger() const {
   int64_t value = this->IntegerValue();
+  int intValue = static_cast<int>(value);
 
-  JsValueRef integerRef;
-
-  if (JsIntToNumber(static_cast<int>(value), &integerRef) != JsNoError) {
-    return Local<Integer>();
+  if (value == static_cast<int64_t>(intValue)) {
+    return Integer::New(nullptr, intValue);
   }
 
-  return Local<Integer>::New(integerRef);
+  // does not fit int, use double
+  return Number::New(nullptr, value).As<Integer>();
 }
 
 
