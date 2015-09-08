@@ -7,7 +7,7 @@ IoT Device
 * [Install Windows 10](http://www.microsoft.com/en-us/windows/windows-10-upgrade)
 * [Install Visual Studio 2015](https://www.visualstudio.com/vs-2015-product-editions)
 (with Tools and Windows SDK)
-* [Install Node.js Tools for Windows IoT](https://github.com/ms-iot/ntvsiot/releases)
+* [Install Node.js Tools for Windows IoT](https://aka.ms/nt4winiot)
 
 ### Step 2: Set up your Device
 
