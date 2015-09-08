@@ -22,7 +22,7 @@ You will need the following installed on your PC to start using Node.js with Cha
 * [Windows 10](http://www.microsoft.com/en-us/windows/windows-10-upgrade)
 * [Visual Studio 2015](https://www.visualstudio.com/vs-2015-product-editions)
 (with Tools and Windows SDK) 
-* [Node.js Tools for Windows IoT](https://github.com/ms-iot/ntvsiot/releases)
+* [Node.js Tools for Windows IoT](https://aka.ms/nt4winiot)
 
 Checkout IoT specific instructions and samples [here](IoT-Readme.md).
 
