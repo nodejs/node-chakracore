@@ -1793,6 +1793,7 @@ class V8_EXPORT FunctionTemplate : public Template {
   void SetClassName(Handle<String> name);
   void SetHiddenPrototype(bool value);
   bool HasInstance(Handle<Value> object);
+  void Inherit(Handle<FunctionTemplate> parent);
 };
 
 enum class PropertyHandlerFlags {

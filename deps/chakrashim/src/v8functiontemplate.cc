@@ -151,6 +151,7 @@ struct FunctionTemplateData : public TemplateData {
   FunctionCallbackData * callbackData;
   Persistent<ObjectTemplate> prototypeTemplate;
   JsValueRef functionTemplate;
+  Persistent<FunctionTemplate> parent;
 
   explicit FunctionTemplateData(FunctionCallbackData * callbackData)
       : prototypeTemplate() {
@@ -244,6 +245,21 @@ MaybeLocal<Function> FunctionTemplate::GetFunction(Local<Context> context) {
     IsolateShim* iso = IsolateShim::GetCurrent();
     Local<Object> prototype =
       functionTemplateData->prototypeTemplate->NewInstance();
+
+    // inherit from parent
+    if (!functionTemplateData->parent.IsEmpty())
+    {
+        Local<Function> parent = functionTemplateData->parent->GetFunction();
+
+        JsValueRef parentPrototype;
+        if (JsGetProperty(*parent, iso->GetCachedPropertyIdRef(
+            jsrt::CachedPropertyIdRef::prototype), &parentPrototype
+            ) != JsNoError)
+            return Local<Function>();
+        if (JsSetPrototype(*prototype, parentPrototype) != JsNoError)
+            return Local<Function>();
+    }
+
     if (prototype.IsEmpty() ||
         JsSetProperty(*prototype,
                       iso->GetCachedPropertyIdRef(
@@ -314,4 +330,15 @@ bool FunctionTemplate::HasInstance(Handle<Value> object) {
   return jsrt::InstanceOf(*object, *GetFunction());
 }
 
+void FunctionTemplate::Inherit(Handle<FunctionTemplate> parent)
+{
+    void *externalData;
+    if (JsGetExternalData(this, &externalData) != JsNoError) {
+        return;
+    }
+
+    FunctionTemplateData *functionTemplateData =
+        reinterpret_cast<FunctionTemplateData*>(externalData);
+    functionTemplateData->parent = parent;
+}
 }  // namespace v8
