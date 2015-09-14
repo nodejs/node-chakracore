@@ -86,8 +86,8 @@ Local<T> Utils::NewTypedArray(ContextShim::GlobalType constructorIndex,
 
 #define DEFINE_TYPEDARRAY_NEW(ArrayType) \
   Local<ArrayType##Array> v8::ArrayType##Array::New(  \
-                            Handle<ArrayBuffer> array_buffer, size_t byte_offset,  \
-                            size_t length) {  \
+                        Handle<ArrayBuffer> array_buffer, size_t byte_offset, \
+                        size_t length) {  \
     return Utils::NewTypedArray<ArrayType##Array>( \
              ContextShim::GlobalType::ArrayType##Array, \
              array_buffer, byte_offset, length);  \

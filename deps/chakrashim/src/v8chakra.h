@@ -35,7 +35,7 @@ struct ObjectData {
  public:
   struct FieldValue {
    public:
-    FieldValue() : value(nullptr), isRefValue(false){}
+    FieldValue() : value(nullptr), isRefValue(false) {}
     ~FieldValue() { Reset(); }
 
     void SetRef(JsValueRef ref);

@@ -644,7 +644,7 @@ class Persistent : public PersistentBase<T> {
 
 template <class T>
 class Global : public PersistentBase<T> {
-public:
+ public:
   V8_INLINE Global() : PersistentBase<T>(nullptr) {}
 
   template <class S>
@@ -682,7 +682,7 @@ public:
 
   Global Pass() { return static_cast<Global&&>(*this); }
 
-private:
+ private:
   Global(Global&) = delete;
   void operator=(Global&) = delete;
 };
@@ -1464,7 +1464,7 @@ class ReturnValue {
 
   Value* Get() const { return *_value; }
  private:
-  ReturnValue(Value** value)
+  explicit ReturnValue(Value** value)
     : _value(value) {
   }
 
@@ -2050,17 +2050,17 @@ class V8_EXPORT Isolate {
          create_histogram_callback(NULL),
          add_histogram_sample_callback(NULL),
          array_buffer_allocator(NULL) {
-     }
+    }
 
-     FunctionEntryHook entry_hook;
-     JitCodeEventHandler code_event_handler;
-     ResourceConstraints constraints;
-     StartupData* snapshot_blob;
-     CounterLookupCallback counter_lookup_callback;
-     CreateHistogramCallback create_histogram_callback;
-     AddHistogramSampleCallback add_histogram_sample_callback;
-     ArrayBuffer::Allocator* array_buffer_allocator;
-   };
+    FunctionEntryHook entry_hook;
+    JitCodeEventHandler code_event_handler;
+    ResourceConstraints constraints;
+    StartupData* snapshot_blob;
+    CounterLookupCallback counter_lookup_callback;
+    CreateHistogramCallback create_histogram_callback;
+    AddHistogramSampleCallback add_histogram_sample_callback;
+    ArrayBuffer::Allocator* array_buffer_allocator;
+  };
 
   class V8_EXPORT Scope {
    public:

@@ -616,7 +616,6 @@ JsValueRef CALLBACK Utils::ObjectPrototypeToStringShim(
     unsigned short argumentCount,
     void *callbackState) {
   if (argumentCount >= 1) {
-    using namespace v8;
     Isolate* iso = Isolate::GetCurrent();
     HandleScope scope(iso);
 
