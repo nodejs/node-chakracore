@@ -251,17 +251,18 @@ Local<Function> FunctionTemplate::GetFunction() {
       functionTemplateData->prototypeTemplate->NewInstance();
 
     // inherit from parent
-    if (!functionTemplateData->parent.IsEmpty())
-    {
+    if (!functionTemplateData->parent.IsEmpty()) {
         Local<Function> parent = functionTemplateData->parent->GetFunction();
 
         JsValueRef parentPrototype;
-        if (JsGetProperty(*parent, iso->GetCachedPropertyIdRef(
-            jsrt::CachedPropertyIdRef::prototype), &parentPrototype
-            ) != JsNoError)
-            return Local<Function>();
-        if (JsSetPrototype(*prototype, parentPrototype) != JsNoError)
-            return Local<Function>();
+        if (JsGetProperty(*parent,
+                          iso->GetCachedPropertyIdRef(
+                            jsrt::CachedPropertyIdRef::prototype),
+                          &parentPrototype) != JsNoError ||
+            JsSetPrototype(*prototype,
+                           parentPrototype) != JsNoError) {
+          return Local<Function>();
+        }
     }
 
     if (prototype.IsEmpty() ||
@@ -332,11 +333,10 @@ bool FunctionTemplate::HasInstance(Handle<Value> object) {
   });
 }
 
-void FunctionTemplate::Inherit(Handle<FunctionTemplate> parent)
-{
+void FunctionTemplate::Inherit(Handle<FunctionTemplate> parent) {
     void *externalData;
     if (JsGetExternalData(this, &externalData) != JsNoError) {
-        return;
+      return;
     }
 
     FunctionTemplateData *functionTemplateData =

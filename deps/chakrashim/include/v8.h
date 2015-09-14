@@ -605,7 +605,7 @@ class UniquePersistent : public PersistentBase<T> {
     UniquePersistent* object;
   };
 
-public:
+ public:
   V8_INLINE UniquePersistent() : PersistentBase<T>(0) {}
 
   template <class S>
@@ -644,7 +644,7 @@ public:
 
   UniquePersistent Pass() { return UniquePersistent(RValue(this)); }
 
-private:
+ private:
   UniquePersistent(UniquePersistent&);
   void operator=(UniquePersistent&);
 };
