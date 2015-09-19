@@ -36,11 +36,11 @@ set noperfctr_msi_arg=
 set i18n_arg=
 set download_arg=
 set release_urls_arg=
+set build_release=
 set engine=v8
 set openssl_no_asm=
 
 :next-arg
-set build_release=
 if "%1"=="" goto args-done
 if /i "%1"=="debug"         set config=Debug&goto arg-ok
 if /i "%1"=="release"       set config=Release&goto arg-ok
@@ -84,8 +84,10 @@ echo Warning: ignoring invalid command line option `%1`.
 :arg-ok
 shift
 goto next-arg
+
+:args-done
+
 if defined build_release (
-  set nosnapshot=1
   set config=Release
   set msi=1
   set licensertf=1
@@ -93,8 +95,6 @@ if defined build_release (
   set i18n_arg=small-icu
 )
 
-
-:args-done
 if "%target_arch%"=="arm" (
     if not "%openssl_no_asm%"=="--openssl-no-asm" goto arm-requires-openssl-no-asm
 )
@@ -222,11 +222,11 @@ if not defined SSHCONFIG (
   exit /b 1
 )
 if not defined STAGINGSERVER set STAGINGSERVER=node-www
-ssh -F %SSHCONFIG% %STAGINGSERVER% "mkdir -p staging/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%"
-scp -F %SSHCONFIG% Release\node.exe %STAGINGSERVER%:staging/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%/node.exe
-scp -F %SSHCONFIG% Release\node.lib %STAGINGSERVER%:staging/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%/node.lib
-scp -F %SSHCONFIG% node-v%FULLVERSION%-%target_arch%.msi %STAGINGSERVER%:staging/%DISTTYPEDIR%/v%FULLVERSION%/
-ssh -F %SSHCONFIG% %STAGINGSERVER% "touch staging/%DISTTYPEDIR%/v%FULLVERSION%/node-v%FULLVERSION%-%target_arch%.msi.done staging/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%.done"
+ssh -F %SSHCONFIG% %STAGINGSERVER% "mkdir -p nodejs/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%"
+scp -F %SSHCONFIG% Release\node.exe %STAGINGSERVER%:nodejs/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%/node.exe
+scp -F %SSHCONFIG% Release\node.lib %STAGINGSERVER%:nodejs/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%/node.lib
+scp -F %SSHCONFIG% node-v%FULLVERSION%-%target_arch%.msi %STAGINGSERVER%:nodejs/%DISTTYPEDIR%/v%FULLVERSION%/
+ssh -F %SSHCONFIG% %STAGINGSERVER% "touch nodejs/%DISTTYPEDIR%/v%FULLVERSION%/node-v%FULLVERSION%-%target_arch%.msi.done nodejs/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%.done && chmod -R ug=rw-x+X,o=r+X nodejs/%DISTTYPEDIR%/v%FULLVERSION%/node-v%FULLVERSION%-%target_arch%.msi* nodejs/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%*"
 
 :run
 @rem Run tests if requested.
@@ -274,10 +274,10 @@ echo   vcbuild.bat                : builds release build
 echo   vcbuild.bat debug          : builds debug build
 echo   vcbuild.bat release msi    : builds release build and MSI installer package
 echo   vcbuild.bat test           : builds debug build and runs tests
+echo   vcbuild.bat build-release  : builds the release distribution as used by nodejs.org
 goto exit
 
 :exit
-echo   vcbuild.bat build-release  : builds the release distribution as used by nodejs.org
 goto :EOF
 
 rem ***************

@@ -248,7 +248,7 @@ may be beyond the end of the buffer. Defaults to `false`.
 
 Decodes and returns a string from buffer data encoded using the specified
 character set encoding. If `encoding` is `undefined` or `null`, then `encoding`
-defaults to `'utf8'. The `start` and `end` parameters default to `0` and
+defaults to `'utf8'`. The `start` and `end` parameters default to `0` and
 `buffer.length` when `undefined`.
 
     buf = new Buffer(26);
@@ -364,7 +364,7 @@ region in the same buffer
     // efghijghijklmnopqrstuvwxyz
 
 
-### buf.slice([start][, end])
+### buf.slice([start[, end]])
 
 * `start` Number, Optional, Default: 0
 * `end` Number, Optional, Default: `buffer.length`

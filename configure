@@ -25,7 +25,8 @@ import nodedownload
 # parse our options
 parser = optparse.OptionParser()
 
-valid_os = ('win', 'mac', 'solaris', 'freebsd', 'openbsd', 'linux', 'android')
+valid_os = ('win', 'mac', 'solaris', 'freebsd', 'openbsd', 'linux',
+            'android', 'aix')
 valid_arch = ('arm', 'arm64', 'ia32', 'mips', 'mipsel', 'ppc', 'ppc64', 'x32',
               'x64', 'x86')
 valid_arm_float_abi = ('soft', 'softfp', 'hard')
@@ -83,6 +84,13 @@ parser.add_option("--fully-static",
     dest="fully_static",
     help="Generate an executable without external dynamic libraries. This "
          "will not work on OSX when using default compilation environment")
+
+parser.add_option("--link-module",
+    action="append",
+    dest="linked_module",
+    help="Path to a JS file to be bundled in the binary as a builtin."
+         "This module will be referenced by basename without extension."
+         "Can be used multiple times")
 
 parser.add_option("--openssl-no-asm",
     action="store_true",
@@ -328,6 +336,11 @@ parser.add_option('--xcode',
     dest='use_xcode',
     help='generate build files for use with xcode')
 
+parser.add_option('--enable-asan',
+    action='store_true',
+    dest='enable_asan',
+    help='build with asan')
+
 parser.add_option('--enable-static',
     action='store_true',
     dest='enable_static',
@@ -486,8 +499,8 @@ def check_compiler(o):
     o['variables']['gas_version'] = get_gas_version(CC)
 
 
-def cc_macros():
-  """Checks predefined macros using the CC command."""
+def cc_macros(cc=None):
+  """Checks predefined macros using the C compiler command."""
 
   if os.name == 'nt':
     k = {}
@@ -495,7 +508,7 @@ def cc_macros():
     k['__ARM_NEON__'] = True
     return k
   try:
-    p = subprocess.Popen(shlex.split(CC) + ['-dM', '-E', '-'],
+    p = subprocess.Popen(shlex.split(cc or CC) + ['-dM', '-E', '-'],
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
@@ -553,7 +566,12 @@ def is_arm_hard_float_abi():
 def host_arch_cc():
   """Host architecture check using the CC command."""
 
-  k = cc_macros()
+  if sys.platform.startswith('aix'):
+    # we only support gcc at this point and the default on AIX
+    # would be xlc so hard code gcc
+    k = cc_macros('gcc')
+  else:
+    k = cc_macros()
 
   matchup = {
     '__aarch64__' : 'arm64',
@@ -708,6 +726,10 @@ def configure_node(o):
   if options.enable_static:
     o['variables']['node_target_type'] = 'static_library'
 
+  if options.linked_module:
+    o['variables']['library_files'] = options.linked_module
+
+  o['variables']['asan'] = int(options.enable_asan or 0)
 
 def configure_library(lib, output):
   shared_lib = 'shared_' + lib

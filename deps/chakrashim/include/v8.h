@@ -1022,6 +1022,8 @@ enum class NewStringType { kNormal, kInternalized };
 
 class V8_EXPORT String : public Name {
  public:
+  static const int kMaxLength = (1 << 28) - 16;
+
   int Length() const;
   int Utf8Length() const;
   bool IsOneByte() const { return false; }

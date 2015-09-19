@@ -11,6 +11,7 @@ exports.libDir = path.join(exports.testDir, '../lib');
 exports.tmpDirName = 'tmp';
 exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
 exports.isWindows = process.platform === 'win32';
+exports.isAix = process.platform === 'aix';
 
 function rimrafSync(p) {
   try {
@@ -434,15 +435,6 @@ exports.hasMultiLocalhost = function hasMultiLocalhost() {
   var ret = t.bind('127.0.0.2', exports.PORT);
   t.close();
   return ret === 0;
-};
-
-exports.isValidHostname = function(str) {
-  // See http://stackoverflow.com/a/3824105
-  var re = new RegExp(
-    '^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])' +
-    '(\\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9]))*$');
-
-  return !!str.match(re) && str.length <= 255;
 };
 
 exports.fileExists = function(pathname) {

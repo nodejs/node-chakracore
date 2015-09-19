@@ -54,8 +54,6 @@
         'compiler/test-basic-block-profiler.cc',
         'compiler/test-branch-combine.cc',
         'compiler/test-changes-lowering.cc',
-        'compiler/test-codegen-deopt.cc',
-        'compiler/test-control-reducer.cc',
         'compiler/test-gap-resolver.cc',
         'compiler/test-graph-visualizer.cc',
         'compiler/test-instruction.cc',
@@ -165,8 +163,6 @@
         'test-weakmaps.cc',
         'test-weaksets.cc',
         'trace-extension.cc',
-        '../../src/startup-data-util.h',
-        '../../src/startup-data-util.cc'
       ],
       'conditions': [
         ['v8_target_arch=="ia32"', {

@@ -99,9 +99,10 @@ for things like sessions and login.
 Because workers are all separate processes, they can be killed or
 re-spawned depending on your program's needs, without affecting other
 workers.  As long as there are some workers still alive, the server will
-continue to accept connections.  Node.js does not automatically manage the
-number of workers for you, however.  It is your responsibility to manage
-the worker pool for your application's needs.
+continue to accept connections.  If no workers are alive, existing connections
+will be dropped and new connections will be refused.  Node.js does not
+automatically manage the number of workers for you, however.  It is your
+responsibility to manage the worker pool for your application's needs.
 
 ## cluster.schedulingPolicy
 
@@ -425,15 +426,17 @@ exit, the master may choose not to respawn a worker based on this value.
     // kill worker
     worker.kill();
 
-### worker.send(message[, sendHandle])
+### worker.send(message[, sendHandle][, callback])
 
 * `message` {Object}
 * `sendHandle` {Handle object}
+* `callback` {Function}
+* Return: Boolean
 
 Send a message to a worker or master, optionally with a handle.
 
 In the master this sends a message to a specific worker. It is identical to
-[child.send()](child_process.html#child_process_child_send_message_sendhandle).
+[ChildProcess.send()][].
 
 In a worker this sends a message to the master. It is identical to
 `process.send()`.
@@ -643,3 +646,5 @@ Similar to the `cluster.on('exit')` event, but specific to this worker.
 This event is the same as the one provided by `child_process.fork()`.
 
 In a worker you can also use `process.on('error')`.
+
+[ChildProcess.send()]: child_process.html#child_process_child_send_message_sendhandle_callback

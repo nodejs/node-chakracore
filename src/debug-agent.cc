@@ -39,7 +39,6 @@ using v8::Context;
 using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
-using v8::Handle;
 using v8::HandleScope;
 using v8::Integer;
 using v8::Isolate;
@@ -160,7 +159,10 @@ void Agent::Stop() {
 
 void Agent::WorkerRun() {
   static const char* argv[] = { "node", "--debug-agent" };
-  Isolate* isolate = Isolate::New();
+  Isolate::CreateParams params;
+  ArrayBufferAllocator array_buffer_allocator;
+  params.array_buffer_allocator = &array_buffer_allocator;
+  Isolate* isolate = Isolate::New(params);
   {
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);

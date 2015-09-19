@@ -57,7 +57,6 @@ using v8::EscapableHandleScope;
 using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
-using v8::Handle;
 using v8::HandleScope;
 using v8::Integer;
 using v8::Isolate;
@@ -69,6 +68,7 @@ using v8::Object;
 using v8::Persistent;
 using v8::String;
 using v8::Uint32;
+using v8::Uint32Array;
 using v8::Uint8Array;
 using v8::Value;
 using v8::WeakCallbackData;
@@ -78,7 +78,7 @@ class CallbackInfo {
  public:
   static inline void Free(char* data, void* hint);
   static inline CallbackInfo* New(Isolate* isolate,
-                                  Handle<Object> object,
+                                  Local<Object> object,
                                   FreeCallback callback,
                                   void* hint = 0);
   inline void Dispose(Isolate* isolate);
@@ -87,7 +87,7 @@ class CallbackInfo {
   static void WeakCallback(const WeakCallbackData<Object, CallbackInfo>&);
   inline void WeakCallback(Isolate* isolate, Local<Object> object);
   inline CallbackInfo(Isolate* isolate,
-                      Handle<Object> object,
+                      Local<Object> object,
                       FreeCallback callback,
                       void* hint);
   ~CallbackInfo();
@@ -104,7 +104,7 @@ void CallbackInfo::Free(char* data, void*) {
 
 
 CallbackInfo* CallbackInfo::New(Isolate* isolate,
-                                Handle<Object> object,
+                                Local<Object> object,
                                 FreeCallback callback,
                                 void* hint) {
   return new CallbackInfo(isolate, object, callback, hint);
@@ -122,7 +122,7 @@ Persistent<Object>* CallbackInfo::persistent() {
 
 
 CallbackInfo::CallbackInfo(Isolate* isolate,
-                           Handle<Object> object,
+                           Local<Object> object,
                            FreeCallback callback,
                            void* hint)
     : persistent_(isolate, object),
@@ -162,12 +162,12 @@ void CallbackInfo::WeakCallback(Isolate* isolate, Local<Object> object) {
 
 // Buffer methods
 
-bool HasInstance(Handle<Value> val) {
+bool HasInstance(Local<Value> val) {
   return val->IsObject() && HasInstance(val.As<Object>());
 }
 
 
-bool HasInstance(Handle<Object> obj) {
+bool HasInstance(Local<Object> obj) {
   if (!obj->IsUint8Array())
     return false;
   Local<Uint8Array> array = obj.As<Uint8Array>();
@@ -176,7 +176,7 @@ bool HasInstance(Handle<Object> obj) {
 }
 
 
-char* Data(Handle<Value> val) {
+char* Data(Local<Value> val) {
   CHECK(val->IsObject());
   // Use a fully qualified name here to work around a bug in gcc 4.2.
   // It mistakes an unadorned call to Data() for the v8::String::Data type.
@@ -184,7 +184,7 @@ char* Data(Handle<Value> val) {
 }
 
 
-char* Data(Handle<Object> obj) {
+char* Data(Local<Object> obj) {
   CHECK(obj->IsUint8Array());
   Local<Uint8Array> ui = obj.As<Uint8Array>();
   ArrayBuffer::Contents ab_c = ui->Buffer()->GetContents();
@@ -192,13 +192,13 @@ char* Data(Handle<Object> obj) {
 }
 
 
-size_t Length(Handle<Value> val) {
+size_t Length(Local<Value> val) {
   CHECK(val->IsObject());
   return Length(val.As<Object>());
 }
 
 
-size_t Length(Handle<Object> obj) {
+size_t Length(Local<Object> obj) {
   CHECK(obj->IsUint8Array());
   Local<Uint8Array> ui = obj.As<Uint8Array>();
   return ui->ByteLength();
@@ -393,43 +393,6 @@ MaybeLocal<Object> New(Environment* env, char* data, size_t length) {
 }
 
 
-void Create(const FunctionCallbackInfo<Value>& args) {
-  Isolate* isolate = args.GetIsolate();
-  Environment* env = Environment::GetCurrent(args);
-
-  CHECK(args[0]->IsNumber());
-
-  int64_t length = args[0]->IntegerValue();
-
-  if (length < 0 || length > kMaxLength) {
-    return env->ThrowRangeError("invalid Buffer length");
-  }
-
-  void* data;
-  if (length > 0) {
-    data = malloc(length);
-    if (data == nullptr) {
-      return env->ThrowRangeError(
-          "Buffer allocation failed - process out of memory");
-    }
-  } else {
-    data = nullptr;
-  }
-
-  Local<ArrayBuffer> ab =
-      ArrayBuffer::New(isolate,
-                       data,
-                       length,
-                       ArrayBufferCreationMode::kInternalized);
-  Local<Uint8Array> ui = Uint8Array::New(ab, 0, length);
-  Maybe<bool> mb =
-      ui->SetPrototype(env->context(), env->buffer_prototype_object());
-  if (!mb.FromMaybe(false))
-    return env->ThrowError("Unable to set Object prototype");
-  args.GetReturnValue().Set(ui);
-}
-
-
 void CreateFromString(const FunctionCallbackInfo<Value>& args) {
   CHECK(args[0]->IsString());
   CHECK(args[1]->IsString());
@@ -449,29 +412,6 @@ void CreateFromArrayBuffer(const FunctionCallbackInfo<Value>& args) {
     return env->ThrowTypeError("argument is not an ArrayBuffer");
   Local<ArrayBuffer> ab = args[0].As<ArrayBuffer>();
   Local<Uint8Array> ui = Uint8Array::New(ab, 0, ab->ByteLength());
-  Maybe<bool> mb =
-      ui->SetPrototype(env->context(), env->buffer_prototype_object());
-  if (!mb.FromMaybe(false))
-    return env->ThrowError("Unable to set Object prototype");
-  args.GetReturnValue().Set(ui);
-}
-
-
-void Slice(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args[0]->IsUint8Array());
-  CHECK(args[1]->IsNumber());
-  CHECK(args[2]->IsNumber());
-  Environment* env = Environment::GetCurrent(args);
-  Local<Uint8Array> ab_ui = args[0].As<Uint8Array>();
-  Local<ArrayBuffer> ab = ab_ui->Buffer();
-  ArrayBuffer::Contents ab_c = ab->GetContents();
-  size_t offset = ab_ui->ByteOffset();
-  size_t start = args[1]->NumberValue() + offset;
-  size_t end = args[2]->NumberValue() + offset;
-  CHECK_GE(end, start);
-  size_t size = end - start;
-  CHECK_GE(ab_c.ByteLength(), start + size);
-  Local<Uint8Array> ui = Uint8Array::New(ab, start, size);
   Maybe<bool> mb =
       ui->SetPrototype(env->context(), env->buffer_prototype_object());
   if (!mb.FromMaybe(false))
@@ -835,7 +775,7 @@ void Compare(const FunctionCallbackInfo<Value> &args) {
 
   size_t cmp_length = MIN(obj_a_length, obj_b_length);
 
-  int32_t val = memcmp(obj_a_data, obj_b_data, cmp_length);
+  int val = cmp_length > 0 ? memcmp(obj_a_data, obj_b_data, cmp_length) : 0;
 
   // Normalize val to be an integer in the range of [1, -1] since
   // implementations of memcmp() can vary by platform.
@@ -990,20 +930,31 @@ void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {
   env->SetMethod(proto, "utf8Write", Utf8Write);
 
   env->SetMethod(proto, "copy", Copy);
+
+  CHECK(args[1]->IsObject());
+  Local<Object> bObj = args[1].As<Object>();
+
+  uint32_t* const fields = env->array_buffer_allocator_info()->fields();
+  uint32_t const fields_count =
+      env->array_buffer_allocator_info()->fields_count();
+
+  Local<ArrayBuffer> array_buffer =
+      ArrayBuffer::New(env->isolate(), fields, sizeof(*fields) * fields_count);
+
+  bObj->Set(String::NewFromUtf8(env->isolate(), "flags"),
+            Uint32Array::New(array_buffer, 0, fields_count));
 }
 
 
-void Initialize(Handle<Object> target,
-                Handle<Value> unused,
-                Handle<Context> context) {
+void Initialize(Local<Object> target,
+                Local<Value> unused,
+                Local<Context> context) {
   Environment* env = Environment::GetCurrent(context);
 
   env->SetMethod(target, "setupBufferJS", SetupBufferJS);
-  env->SetMethod(target, "create", Create);
   env->SetMethod(target, "createFromString", CreateFromString);
   env->SetMethod(target, "createFromArrayBuffer", CreateFromArrayBuffer);
 
-  env->SetMethod(target, "slice", Slice);
   env->SetMethod(target, "byteLengthUtf8", ByteLengthUtf8);
   env->SetMethod(target, "compare", Compare);
   env->SetMethod(target, "fill", Fill);
@@ -1024,6 +975,10 @@ void Initialize(Handle<Object> target,
   target->Set(env->context(),
               FIXED_ONE_BYTE_STRING(env->isolate(), "kMaxLength"),
               Integer::NewFromUnsigned(env->isolate(), kMaxLength)).FromJust();
+
+  target->Set(env->context(),
+              FIXED_ONE_BYTE_STRING(env->isolate(), "kStringMaxLength"),
+              Integer::New(env->isolate(), String::kMaxLength)).FromJust();
 }
 
 

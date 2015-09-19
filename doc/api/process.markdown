@@ -59,6 +59,9 @@ finished running the process will exit. Therefore you **must** only perform
 checks on the module's state (like for unit tests). The callback takes one
 argument, the code the process is exiting with.
 
+This event is only emitted when node exits explicitly by process.exit() or
+implicitly by the event loop draining.
+
 Example of listening for `exit`:
 
     process.on('exit', function(code) {
@@ -68,6 +71,16 @@ Example of listening for `exit`:
       }, 0);
       console.log('About to exit with code:', code);
     });
+
+
+## Event: 'message'
+
+* `message` {Object} a parsed JSON object or primitive value
+* `sendHandle` {Handle object} a [net.Socket][] or [net.Server][] object, or
+  undefined.
+
+Messages sent by [ChildProcess.send()][] are obtained using the `'message'`
+event on the child's process object.
 
 
 ## Event: 'beforeExit'
@@ -206,15 +219,15 @@ Note:
   install a listener but that won't stop the debugger from starting.
 - `SIGTERM` and `SIGINT` have default handlers on non-Windows platforms that resets
   the terminal mode before exiting with code `128 + signal number`. If one of
-  these signals has a listener installed, its default behaviour will be removed
+  these signals has a listener installed, its default behavior will be removed
   (Node.js will no longer exit).
-- `SIGPIPE` is ignored by default, it can have a listener installed.
+- `SIGPIPE` is ignored by default. It can have a listener installed.
 - `SIGHUP` is generated on Windows when the console window is closed, and on other
   platforms under various similar conditions, see signal(7). It can have a
   listener installed, however Node.js will be unconditionally terminated by
   Windows about 10 seconds later. On non-Windows platforms, the default
-  behaviour of `SIGHUP` is to terminate Node.js, but once a listener has been
-  installed its default behaviour will be removed.
+  behavior of `SIGHUP` is to terminate Node.js, but once a listener has been
+  installed its default behavior will be removed.
 - `SIGTERM` is not supported on Windows, it can be listened on.
 - `SIGINT` from the terminal is supported on all platforms, and can usually be
   generated with `CTRL+C` (though this may be configurable). It is not generated
@@ -229,10 +242,10 @@ Note:
 - `SIGSTOP` cannot have a listener installed.
 
 Note that Windows does not support sending Signals, but Node.js offers some
-emulation with `process.kill()`, and `child_process.kill()`:
-- Sending signal `0` can be used to search for the existence of a process
-- Sending `SIGINT`, `SIGTERM`, and `SIGKILL` cause the unconditional exit of the
-  target process.
+emulation with `process.kill()`, and `child_process.kill()`. Sending signal `0`
+can be used to test for the existence of a process. Sending `SIGINT`,
+`SIGTERM`, and `SIGKILL` cause the unconditional termination of the target
+process.
 
 ## process.stdout
 
@@ -246,13 +259,7 @@ For example, a `console.log` equivalent could look like this:
 
 `process.stderr` and `process.stdout` are unlike other streams in Node.js in
 that they cannot be closed (`end()` will throw), they never emit the `finish`
-event and that writes are usually blocking.
-
-- They are blocking in the case that they refer to regular files or TTY file
-  descriptors.
-- In the case they refer to pipes:
-  - They are blocking in Linux/Unix.
-  - They are non-blocking like other streams in Windows.
+event and that writes are always blocking.
 
 To check if Node.js is being run in a TTY context, read the `isTTY` property
 on `process.stderr`, `process.stdout`, or `process.stdin`:
@@ -710,12 +717,12 @@ string describing the signal to send.  Signal names are strings like
 'SIGINT' or 'SIGHUP'.  If omitted, the signal will be 'SIGTERM'.
 See [Signal Events](#process_signal_events) and kill(2) for more information.
 
-Will throw an error if target does not exist, and as a special case, a signal of
-`0` can be used to test for the existence of a process.
+Will throw an error if target does not exist, and as a special case, a signal
+of `0` can be used to test for the existence of a process.
 
-Note that just because the name of this function is `process.kill`, it is
-really just a signal sender, like the `kill` system call.  The signal sent
-may do something other than kill the target process.
+Note that even though the name of this function is `process.kill`, it is really
+just a signal sender, like the `kill` system call.  The signal sent may do
+something other than kill the target process.
 
 Example of sending a signal to yourself:
 
@@ -904,6 +911,38 @@ a diff reading, useful for benchmarks and measuring intervals:
     }, 1000);
 
 
+## process.send(message[, sendHandle][, callback])
+
+* `message` {Object}
+* `sendHandle` {Handle object}
+
+When Node.js is spawned with an IPC channel attached, it can send messages to its
+parent process using `process.send()`. Each will be received as a
+['message'](child_process.html#child_process_event_message)
+event on the parent's `ChildProcess` object.
+
+If Node.js was not spawned with an IPC channel, `process.send()` will be undefined.
+
+
+## process.disconnect()
+
+Close the IPC channel to the parent process, allowing this child to exit
+gracefully once there are no other connections keeping it alive.
+
+Identical to the parent process's
+[ChildProcess.disconnect()](child_process.html#child_process_child_disconnect).
+
+If Node.js was not spawned with an IPC channel, `process.disconnect()` will be
+undefined.
+
+
+### process.connected
+
+* {Boolean} Set to false after `process.disconnect()` is called
+
+If `process.connected` is false, it is no longer possible to send messages.
+
+
 ## process.mainModule
 
 Alternate way to retrieve
@@ -915,4 +954,7 @@ to the same module.
 
 As with `require.main`, it will be `undefined` if there was no entry script.
 
+[ChildProcess.send()]: child_process.html#child_process_child_send_message_sendhandle_callback
 [EventEmitter]: events.html#events_class_events_eventemitter
+[net.Server]: net.html#net_class_net_server
+[net.Socket]: net.html#net_class_net_socket

@@ -40,8 +40,7 @@ var c_ucs = new Buffer(b_ucs, 'ucs2');
 assert.equal(c_bin.length, c_ucs.length);
 // make sure Buffers from externals are the same
 for (var i = 0; i < c_bin.length; i++) {
-  assert.equal(c_bin[i], c_ucs[i], c_bin[i] + ' == ' + c_ucs[i] +
-               ' : index ' + i);
+  assert.equal(c_bin[i], c_ucs[i]);
 }
 // check resultant strings
 assert.equal(c_bin.toString('ucs2'), c_ucs.toString('ucs2'));
@@ -63,19 +62,14 @@ var PRE_3OF4_APEX = Math.ceil((EXTERN_APEX / 4) * 3) - RADIOS;
     var pumped_string2 = slice2.toString('hex');
     var decoded = new Buffer(pumped_string, 'hex');
 
-    var metadata = '\nEXTERN_APEX=1031913 - pumped_string.length=';
-    metadata += pumped_string.length + '\n';
-
     // the string are the same?
     for (var k = 0; k < pumped_string.length; ++k) {
-      assert.equal(pumped_string[k], pumped_string2[k],
-                   metadata + 'chars should be the same at ' + k);
+      assert.equal(pumped_string[k], pumped_string2[k]);
     }
 
     // the recoded buffer is the same?
     for (var i = 0; i < decoded.length; ++i) {
-      assert.equal(datum[i], decoded[i],
-                   metadata + 'bytes should be the same at ' + i);
+      assert.equal(datum[i], decoded[i]);
     }
   }
 })();
@@ -89,20 +83,14 @@ var PRE_3OF4_APEX = Math.ceil((EXTERN_APEX / 4) * 3) - RADIOS;
     var pumped_string2 = slice2.toString('base64');
     var decoded = new Buffer(pumped_string, 'base64');
 
-    var metadata = '\nEXTERN_APEX=1031913 - data=" + slice.length';
-    metadata += ' pumped_string.length=' + pumped_string.length + '\n';
-
     // the string are the same?
     for (var k = 0; k < pumped_string.length - 3; ++k) {
-      assert.equal(pumped_string[k], pumped_string2[k],
-                   metadata + 'chars should be the same for two slices at '
-                   + k + ' ' + pumped_string[k] + ' ' + pumped_string2[k]);
+      assert.equal(pumped_string[k], pumped_string2[k]);
     }
 
     // the recoded buffer is the same?
     for (var i = 0; i < decoded.length; ++i) {
-      assert.equal(datum[i], decoded[i],
-                   metadata + 'bytes should be the same at ' + i);
+      assert.equal(datum[i], decoded[i]);
     }
   }
 })();
@@ -118,4 +106,70 @@ var PRE_3OF4_APEX = Math.ceil((EXTERN_APEX / 4) * 3) - RADIOS;
 
   assert.equal(a, b);
   assert.equal(b, c);
+})();
+
+// v8 fails silently if string length > v8::String::kMaxLength
+(function() {
+  // v8::String::kMaxLength defined in v8.h
+  const kStringMaxLength = process.binding('buffer').kStringMaxLength;
+
+  assert.throws(function() {
+    new Buffer(kStringMaxLength + 1).toString();
+  }, /toString failed|Invalid array buffer length/);
+
+  try {
+    new Buffer(kStringMaxLength * 4);
+  } catch(e) {
+    assert.equal(e.message, 'Invalid array buffer length');
+    console.log(
+        '1..0 # Skipped: intensive toString tests due to memory confinements');
+    return;
+  }
+
+  assert.throws(function() {
+    new Buffer(kStringMaxLength + 1).toString('ascii');
+  }, /toString failed/);
+
+  assert.throws(function() {
+    new Buffer(kStringMaxLength + 1).toString('utf8');
+  }, /toString failed/);
+
+  assert.throws(function() {
+    new Buffer(kStringMaxLength * 2 + 2).toString('utf16le');
+  }, /toString failed/);
+
+  assert.throws(function() {
+    new Buffer(kStringMaxLength + 1).toString('binary');
+  }, /toString failed/);
+
+  assert.throws(function() {
+    new Buffer(kStringMaxLength + 1).toString('base64');
+  }, /toString failed/);
+
+  assert.throws(function() {
+    new Buffer(kStringMaxLength + 1).toString('hex');
+  }, /toString failed/);
+
+  var maxString = new Buffer(kStringMaxLength).toString();
+  assert.equal(maxString.length, kStringMaxLength);
+  // Free the memory early instead of at the end of the next assignment
+  maxString = undefined;
+
+  maxString = new Buffer(kStringMaxLength).toString('binary');
+  assert.equal(maxString.length, kStringMaxLength);
+  maxString = undefined;
+
+  maxString =
+      new Buffer(kStringMaxLength + 1).toString('binary', 1);
+  assert.equal(maxString.length, kStringMaxLength);
+  maxString = undefined;
+
+  maxString =
+      new Buffer(kStringMaxLength + 1).toString('binary', 0, kStringMaxLength);
+  assert.equal(maxString.length, kStringMaxLength);
+  maxString = undefined;
+
+  maxString = new Buffer(kStringMaxLength + 2).toString('utf16le');
+  assert.equal(maxString.length, (kStringMaxLength + 2) / 2);
+  maxString = undefined;
 })();

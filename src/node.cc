@@ -52,6 +52,10 @@
 #include <string.h>
 #include <sys/types.h>
 
+#if defined(LEAK_SANITIZER)
+#include <sanitizer/lsan_interface.h>
+#endif
+
 #if defined(_MSC_VER)
 #include <direct.h>
 #include <io.h>
@@ -88,7 +92,6 @@ using v8::Exception;
 using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
-using v8::Handle;
 using v8::HandleScope;
 using v8::HeapStatistics;
 using v8::Integer;
@@ -147,38 +150,6 @@ static uv_async_t dispatch_debug_messages_async;
 
 static Isolate* node_isolate = nullptr;
 static v8::Platform* default_platform;
-
-class ArrayBufferAllocator : public ArrayBuffer::Allocator {
- public:
-  // Impose an upper limit to avoid out of memory errors that bring down
-  // the process.
-  static const size_t kMaxLength = 0x3fffffff;
-  static ArrayBufferAllocator the_singleton;
-  virtual ~ArrayBufferAllocator() = default;
-  virtual void* Allocate(size_t length) override;
-  virtual void* AllocateUninitialized(size_t length) override;
-  virtual void Free(void* data, size_t length) override;
- private:
-  ArrayBufferAllocator() = default;
-  DISALLOW_COPY_AND_ASSIGN(ArrayBufferAllocator);
-};
-
-ArrayBufferAllocator ArrayBufferAllocator::the_singleton;
-
-
-void* ArrayBufferAllocator::Allocate(size_t length) {
-  return calloc(length, 1);
-}
-
-
-void* ArrayBufferAllocator::AllocateUninitialized(size_t length) {
-  return malloc(length);
-}
-
-
-void ArrayBufferAllocator::Free(void* data, size_t length) {
-  free(data);
-}
 
 
 static void CheckImmediate(uv_check_t* handle) {
@@ -431,7 +402,9 @@ static inline const char *errno_string(int errorno) {
 #endif
 
 #ifdef ENOTEMPTY
+# if ENOTEMPTY != EEXIST
   ERRNO_CASE(ENOTEMPTY);
+# endif
 #endif
 
 #ifdef ENOTSOCK
@@ -654,7 +627,9 @@ const char *signo_string(int signo) {
 #endif
 
 #ifdef SIGLOST
+# if SIGLOST != SIGABRT
   SIGNO_CASE(SIGLOST);
+# endif
 #endif
 
 #ifdef SIGPWR
@@ -919,6 +894,14 @@ Local<Value> WinapiErrnoException(Isolate* isolate,
 #endif
 
 
+void* ArrayBufferAllocator::Allocate(size_t size) {
+  if (env_ == nullptr || !env_->array_buffer_allocator_info()->no_zero_fill())
+    return calloc(size, 1);
+  env_->array_buffer_allocator_info()->reset_fill_flag();
+  return malloc(size);
+}
+
+
 void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -935,7 +918,7 @@ void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
 
   if (!tick_callback_function->IsFunction()) {
     fprintf(stderr, "process._tickDomainCallback assigned to non-function\n");
-    abort();
+    ABORT();
   }
 
   process_object->Set(env->tick_callback_string(), tick_callback_function);
@@ -1018,11 +1001,11 @@ void SetupPromises(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-Handle<Value> MakeCallback(Environment* env,
-                           Handle<Value> recv,
-                           const Handle<Function> callback,
+Local<Value> MakeCallback(Environment* env,
+                           Local<Value> recv,
+                           const Local<Function> callback,
                            int argc,
-                           Handle<Value> argv[]) {
+                           Local<Value> argv[]) {
   // If you hit this assertion, you forgot to enter the v8::Context first.
   CHECK_EQ(env->context(), env->isolate()->GetCurrentContext());
 
@@ -1099,43 +1082,43 @@ Handle<Value> MakeCallback(Environment* env,
 
 
 // Internal only.
-Handle<Value> MakeCallback(Environment* env,
-                           Handle<Object> recv,
+Local<Value> MakeCallback(Environment* env,
+                           Local<Object> recv,
                            uint32_t index,
                            int argc,
-                           Handle<Value> argv[]) {
+                           Local<Value> argv[]) {
   Local<Value> cb_v = recv->Get(index);
   CHECK(cb_v->IsFunction());
   return MakeCallback(env, recv.As<Value>(), cb_v.As<Function>(), argc, argv);
 }
 
 
-Handle<Value> MakeCallback(Environment* env,
-                           Handle<Object> recv,
-                           Handle<String> symbol,
+Local<Value> MakeCallback(Environment* env,
+                           Local<Object> recv,
+                           Local<String> symbol,
                            int argc,
-                           Handle<Value> argv[]) {
+                           Local<Value> argv[]) {
   Local<Value> cb_v = recv->Get(symbol);
   CHECK(cb_v->IsFunction());
   return MakeCallback(env, recv.As<Value>(), cb_v.As<Function>(), argc, argv);
 }
 
 
-Handle<Value> MakeCallback(Environment* env,
-                           Handle<Object> recv,
+Local<Value> MakeCallback(Environment* env,
+                           Local<Object> recv,
                            const char* method,
                            int argc,
-                           Handle<Value> argv[]) {
+                           Local<Value> argv[]) {
   Local<String> method_string = OneByteString(env->isolate(), method);
   return MakeCallback(env, recv, method_string, argc, argv);
 }
 
 
-Handle<Value> MakeCallback(Isolate* isolate,
-                           Handle<Object> recv,
+Local<Value> MakeCallback(Isolate* isolate,
+                           Local<Object> recv,
                            const char* method,
                            int argc,
-                           Handle<Value> argv[]) {
+                           Local<Value> argv[]) {
   EscapableHandleScope handle_scope(isolate);
   Local<Context> context = recv->CreationContext();
   Environment* env = Environment::GetCurrent(context);
@@ -1145,11 +1128,11 @@ Handle<Value> MakeCallback(Isolate* isolate,
 }
 
 
-Handle<Value> MakeCallback(Isolate* isolate,
-                           Handle<Object> recv,
-                           Handle<String> symbol,
+Local<Value> MakeCallback(Isolate* isolate,
+                           Local<Object> recv,
+                           Local<String> symbol,
                            int argc,
-                           Handle<Value> argv[]) {
+                           Local<Value> argv[]) {
   EscapableHandleScope handle_scope(isolate);
   Local<Context> context = recv->CreationContext();
   Environment* env = Environment::GetCurrent(context);
@@ -1159,11 +1142,11 @@ Handle<Value> MakeCallback(Isolate* isolate,
 }
 
 
-Handle<Value> MakeCallback(Isolate* isolate,
-                           Handle<Object> recv,
-                           Handle<Function> callback,
+Local<Value> MakeCallback(Isolate* isolate,
+                           Local<Object> recv,
+                           Local<Function> callback,
                            int argc,
-                           Handle<Value> argv[]) {
+                           Local<Value> argv[]) {
   EscapableHandleScope handle_scope(isolate);
   Local<Context> context = recv->CreationContext();
   Environment* env = Environment::GetCurrent(context);
@@ -1234,18 +1217,6 @@ enum encoding ParseEncoding(const char* encoding,
     return BUFFER;
   } else if (strcasecmp(encoding, "hex") == 0) {
     return HEX;
-  } else if (strcasecmp(encoding, "raw") == 0) {
-    if (!no_deprecation) {
-      fprintf(stderr, "'raw' (array of integers) has been removed. "
-                      "Use 'binary'.\n");
-    }
-    return BINARY;
-  } else if (strcasecmp(encoding, "raws") == 0) {
-    if (!no_deprecation) {
-      fprintf(stderr, "'raws' encoding has been renamed to 'binary'. "
-                      "Please update your code.\n");
-    }
-    return BINARY;
   } else {
     return default_encoding;
   }
@@ -1253,7 +1224,7 @@ enum encoding ParseEncoding(const char* encoding,
 
 
 enum encoding ParseEncoding(Isolate* isolate,
-                            Handle<Value> encoding_v,
+                            Local<Value> encoding_v,
                             enum encoding default_encoding) {
   if (!encoding_v->IsString())
     return default_encoding;
@@ -1277,7 +1248,7 @@ Local<Value> Encode(Isolate* isolate, const uint16_t* buf, size_t len) {
 
 // Returns -1 if the handle was not valid for decoding
 ssize_t DecodeBytes(Isolate* isolate,
-                    Handle<Value> val,
+                    Local<Value> val,
                     enum encoding encoding) {
   HandleScope scope(isolate);
 
@@ -1295,14 +1266,14 @@ ssize_t DecodeBytes(Isolate* isolate,
 ssize_t DecodeWrite(Isolate* isolate,
                     char* buf,
                     size_t buflen,
-                    Handle<Value> val,
+                    Local<Value> val,
                     enum encoding encoding) {
   return StringBytes::Write(isolate, buf, buflen, val, encoding, nullptr);
 }
 
 void AppendExceptionLine(Environment* env,
-                         Handle<Value> er,
-                         Handle<Message> message) {
+                         Local<Value> er,
+                         Local<Message> message) {
   if (message.IsEmpty())
     return;
 
@@ -1316,8 +1287,6 @@ void AppendExceptionLine(Environment* env,
       return;
     err_obj->SetHiddenValue(env->processed_string(), True(env->isolate()));
   }
-
-  char arrow[1024];
 
   // Print (filename):(line number): (message).
   node::Utf8Value filename(env->isolate(), message->GetScriptResourceName());
@@ -1351,6 +1320,9 @@ void AppendExceptionLine(Environment* env,
   int start = message->GetStartColumn();
   int end = message->GetEndColumn();
 
+  char arrow[1024];
+  int max_off = sizeof(arrow) - 2;
+
   int off = snprintf(arrow,
                      sizeof(arrow),
                      "%s:%i\n%s\n",
@@ -1358,27 +1330,28 @@ void AppendExceptionLine(Environment* env,
                      linenum,
                      sourceline_string);
   CHECK_GE(off, 0);
+  if (off > max_off) {
+    off = max_off;
+  }
 
   // Print wavy underline (GetUnderline is deprecated).
   for (int i = 0; i < start; i++) {
-    if (sourceline_string[i] == '\0' ||
-        static_cast<size_t>(off) >= sizeof(arrow)) {
+    if (sourceline_string[i] == '\0' || off >= max_off) {
       break;
     }
-    CHECK_LT(static_cast<size_t>(off), sizeof(arrow));
+    CHECK_LT(off, max_off);
     arrow[off++] = (sourceline_string[i] == '\t') ? '\t' : ' ';
   }
   for (int i = start; i < end; i++) {
-    if (sourceline_string[i] == '\0' ||
-        static_cast<size_t>(off) >= sizeof(arrow)) {
+    if (sourceline_string[i] == '\0' || off >= max_off) {
       break;
     }
-    CHECK_LT(static_cast<size_t>(off), sizeof(arrow));
+    CHECK_LT(off, max_off);
     arrow[off++] = '^';
   }
-  CHECK_LE(static_cast<size_t>(off - 1), sizeof(arrow) - 1);
-  arrow[off++] = '\n';
-  arrow[off] = '\0';
+  CHECK_LE(off, max_off);
+  arrow[off] = '\n';
+  arrow[off + 1] = '\0';
 
   Local<String> arrow_str = String::NewFromUtf8(env->isolate(), arrow);
   Local<Value> msg;
@@ -1401,8 +1374,8 @@ void AppendExceptionLine(Environment* env,
 
 
 static void ReportException(Environment* env,
-                            Handle<Value> er,
-                            Handle<Message> message) {
+                            Local<Value> er,
+                            Local<Message> message) {
   HandleScope scope(env->isolate());
 
   AppendExceptionLine(env, er, message);
@@ -1477,8 +1450,8 @@ static void ReportException(Environment* env, const TryCatch& try_catch) {
 
 // Executes a str within the current v8 context.
 static Local<Value> ExecuteString(Environment* env,
-                                  Handle<String> source,
-                                  Handle<String> filename) {
+                                  Local<String> source,
+                                  Local<String> filename) {
   EscapableHandleScope scope(env->isolate());
   TryCatch try_catch;
 
@@ -1541,7 +1514,7 @@ void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
 
 
 static void Abort(const FunctionCallbackInfo<Value>& args) {
-  abort();
+  ABORT();
 }
 
 
@@ -1701,7 +1674,7 @@ static const char* name_by_gid(gid_t gid) {
 #endif
 
 
-static uid_t uid_by_name(Isolate* isolate, Handle<Value> value) {
+static uid_t uid_by_name(Isolate* isolate, Local<Value> value) {
   if (value->IsUint32()) {
     return static_cast<uid_t>(value->Uint32Value());
   } else {
@@ -1711,7 +1684,7 @@ static uid_t uid_by_name(Isolate* isolate, Handle<Value> value) {
 }
 
 
-static gid_t gid_by_name(Isolate* isolate, Handle<Value> value) {
+static gid_t gid_by_name(Isolate* isolate, Local<Value> value) {
   if (value->IsUint32()) {
     return static_cast<gid_t>(value->Uint32Value());
   } else {
@@ -2068,7 +2041,7 @@ struct node_module* get_linked_module(const char* name) {
   return mp;
 }
 
-typedef void (UV_DYNAMIC* extInit)(Handle<Object> exports);
+typedef void (UV_DYNAMIC* extInit)(Local<Object> exports);
 
 // DLOpen is process.dlopen(module, filename).
 // Used to load 'module.node' dynamically shared objects.
@@ -2114,12 +2087,15 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
     return;
   }
   if (mp->nm_version != NODE_MODULE_VERSION) {
-    uv_dlclose(&lib);
     char errmsg[1024];
     snprintf(errmsg,
              sizeof(errmsg),
              "Module version mismatch. Expected %d, got %d.",
              NODE_MODULE_VERSION, mp->nm_version);
+
+    // NOTE: `mp` is allocated inside of the shared library's memory, calling
+    // `uv_dlclose` will deallocate it
+    uv_dlclose(&lib);
     env->ThrowError(errmsg);
     return;
   }
@@ -2158,20 +2134,20 @@ static void OnFatalError(const char* location, const char* message) {
     fprintf(stderr, "FATAL ERROR: %s\n", message);
   }
   fflush(stderr);
-  abort();
+  ABORT();
 }
 
 
 NO_RETURN void FatalError(const char* location, const char* message) {
   OnFatalError(location, message);
   // to suppress compiler warning
-  abort();
+  ABORT();
 }
 
 
 void FatalException(Isolate* isolate,
-                    Handle<Value> error,
-                    Handle<Message> message) {
+                    Local<Value> error,
+                    Local<Message> message) {
   HandleScope scope(isolate);
 
   Environment* env = Environment::GetCurrent(isolate);
@@ -2204,7 +2180,11 @@ void FatalException(Isolate* isolate,
 
   if (false == caught->BooleanValue()) {
     ReportException(env, error, message);
-    exit(1);
+    if (abort_on_uncaught_exception) {
+      ABORT();
+    } else {
+      exit(1);
+    }
   }
 }
 
@@ -2217,7 +2197,7 @@ void FatalException(Isolate* isolate, const TryCatch& try_catch) {
 }
 
 
-void OnMessage(Handle<Message> message, Handle<Value> error) {
+void OnMessage(Local<Message> message, Local<Value> error) {
   // The current version of V8 sends messages for errors only
   // (thus `error` is always set).
   FatalException(Isolate::GetCurrent(), error, message);
@@ -2486,7 +2466,7 @@ static void EnvEnumerator(const PropertyCallbackInfo<Array>& info) {
 }
 
 
-static Handle<Object> GetFeatures(Environment* env) {
+static Local<Object> GetFeatures(Environment* env) {
   EscapableHandleScope scope(env->isolate());
 
   Local<Object> obj = Object::New(env->isolate());
@@ -2759,22 +2739,25 @@ void SetupProcessObject(Environment* env,
 #endif
 
 #if defined(NODE_RELEASE_URLBASE)
-#  define _RELEASE_URLPFX NODE_RELEASE_URLBASE "v" NODE_VERSION_STRING "/"
-#  define _RELEASE_URLFPFX _RELEASE_URLPFX "node-v" NODE_VERSION_STRING
+#  define NODE_RELEASE_URLPFX NODE_RELEASE_URLBASE "v" NODE_VERSION_STRING "/"
+#  define NODE_RELEASE_URLFPFX NODE_RELEASE_URLPFX "node-v" NODE_VERSION_STRING
 
   READONLY_PROPERTY(release,
                     "sourceUrl",
                     OneByteString(env->isolate(),
-                    _RELEASE_URLFPFX ".tar.gz"));
+                    NODE_RELEASE_URLFPFX ".tar.gz"));
   READONLY_PROPERTY(release,
                     "headersUrl",
                     OneByteString(env->isolate(),
-                    _RELEASE_URLFPFX "-headers.tar.gz"));
+                    NODE_RELEASE_URLFPFX "-headers.tar.gz"));
 #  ifdef _WIN32
   READONLY_PROPERTY(release,
                     "libUrl",
                     OneByteString(env->isolate(),
-                    _RELEASE_URLPFX "win-" NODE_ARCH "/node.lib"));
+                    strcmp(NODE_ARCH, "ia32") ? NODE_RELEASE_URLPFX "win-"
+                                                NODE_ARCH "/node.lib"
+                                              : NODE_RELEASE_URLPFX
+                                                "win-x86/node.lib"));
 #  endif
 #endif
 
@@ -3098,7 +3081,7 @@ static void PrintHelp() {
          "  --icu-data-dir=dir    set ICU data load path to dir\n"
          "                        (overrides NODE_ICU_DATA)\n"
 #if !defined(NODE_HAVE_SMALL_ICU)
-         "                        Note: linked-in ICU data is\n"
+         "                        note: linked-in ICU data is\n"
          "                        present.\n"
 #endif
 #endif
@@ -3110,13 +3093,14 @@ static void PrintHelp() {
          "NODE_PATH               ':'-separated list of directories\n"
 #endif
          "                        prefixed to the module search path.\n"
-         "NODE_DISABLE_COLORS     Set to 1 to disable colors in the REPL\n"
+         "NODE_DISABLE_COLORS     set to 1 to disable colors in the REPL\n"
 #if defined(NODE_HAVE_I18N_SUPPORT)
-         "NODE_ICU_DATA           Data path for ICU (Intl object) data\n"
+         "NODE_ICU_DATA           data path for ICU (Intl object) data\n"
 #if !defined(NODE_HAVE_SMALL_ICU)
          "                        (will extend linked-in data)\n"
 #endif
 #endif
+         "NODE_REPL_HISTORY       path to the persistent REPL history file\n"
          "\n"
          "Documentation can be found at https://nodejs.org/\n");
 }
@@ -3573,9 +3557,9 @@ inline void PlatformInit() {
     // Anything but EBADF means something is seriously wrong.  We don't
     // have to special-case EINTR, fstat() is not interruptible.
     if (errno != EBADF)
-      abort();
+      ABORT();
     if (fd != open("/dev/null", O_RDWR))
-      abort();
+      ABORT();
   }
 
   CHECK_EQ(err, 0);
@@ -3596,10 +3580,6 @@ inline void PlatformInit() {
 
   RegisterSignalHandler(SIGINT, SignalExit, true);
   RegisterSignalHandler(SIGTERM, SignalExit, true);
-
-  // Block SIGPROF signals when sleeping in epoll_wait/kevent/etc.  Avoids the
-  // performance penalty of frequent EINTR wakeups when the profiler is running.
-  uv_loop_configure(uv_default_loop(), UV_LOOP_BLOCK_SIGNAL, SIGPROF);
 
   // Raise the open file descriptor limit.
   struct rlimit lim;
@@ -3642,25 +3622,6 @@ void Init(int* argc,
                 DispatchDebugMessagesAsyncCallback);
   uv_unref(reinterpret_cast<uv_handle_t*>(&dispatch_debug_messages_async));
 
-#if defined(__ARM_ARCH_6__) || \
-    defined(__ARM_ARCH_6J__) || \
-    defined(__ARM_ARCH_6K__) || \
-    defined(__ARM_ARCH_6M__) || \
-    defined(__ARM_ARCH_6T2__) || \
-    defined(__ARM_ARCH_6ZK__) || \
-    defined(__ARM_ARCH_6Z__)
-  // See https://github.com/nodejs/node/issues/1376
-  // and https://code.google.com/p/v8/issues/detail?id=4019
-  // TODO(bnoordhuis): Remove test/parallel/test-arm-math-exp-regress-1376.js
-  // and this workaround when v8:4019 has been fixed and the patch back-ported.
-  V8::SetFlagsFromString("--nofast_math", sizeof("--nofast_math") - 1);
-  // See https://github.com/nodejs/node/pull/2220#issuecomment-126200059
-  // and https://code.google.com/p/v8/issues/detail?id=4338
-  // TODO(targos): Remove this workaround when v8:4338 has been fixed and the
-  // patch back-ported.
-  V8::SetFlagsFromString("--novector_ics", sizeof("--novector_ics") - 1);
-#endif
-
 #if defined(NODE_V8_OPTIONS)
   // Should come before the call to V8::SetFlagsFromCommandLine()
   // so the user can disable a flag --foo at run-time by passing
@@ -3684,6 +3645,15 @@ void Init(int* argc,
     }
   }
 
+#ifdef __POSIX__
+  // Block SIGPROF signals when sleeping in epoll_wait/kevent/etc.  Avoids the
+  // performance penalty of frequent EINTR wakeups when the profiler is running.
+  // Only do this for v8.log profiling, as it breaks v8::CpuProfiler users.
+  if (v8_is_profiling) {
+    uv_loop_configure(uv_default_loop(), UV_LOOP_BLOCK_SIGNAL, SIGPROF);
+  }
+#endif
+
 #if defined(NODE_HAVE_I18N_SUPPORT)
   if (icu_data_dir == nullptr) {
     // if the parameter isn't given, use the env variable.
@@ -3698,7 +3668,7 @@ void Init(int* argc,
 #endif
   // The const_cast doesn't violate conceptual const-ness.  V8 doesn't modify
   // the argv array or the elements it points to.
-  if (v8_argc != 0)
+  if (v8_argc > 1)
     V8::SetFlagsFromCommandLine(&v8_argc, const_cast<char**>(v8_argv), true);
 
   // Anything that's still in v8_argv is not a V8 or a node option.
@@ -3717,7 +3687,11 @@ void Init(int* argc,
     V8::SetFlagsFromString(expose_debug_as, sizeof(expose_debug_as) - 1);
   }
 
-  V8::SetArrayBufferAllocator(&ArrayBufferAllocator::the_singleton);
+  // Unconditionally force typed arrays to allocate outside the v8 heap. This
+  // is to prevent memory pointers from being moved around that are returned by
+  // Buffer::Data().
+  const char no_typed_array_heap[] = "--typed_array_max_size_in_heap=0";
+  V8::SetFlagsFromString(no_typed_array_heap, sizeof(no_typed_array_heap) - 1);
 
   if (!use_debug_agent) {
     RegisterDebugSignalHandler();
@@ -3782,7 +3756,7 @@ int EmitExit(Environment* env) {
   Local<Object> process_object = env->process_object();
   process_object->Set(env->exiting_string(), True(env->isolate()));
 
-  Handle<String> exitCode = env->exit_code_string();
+  Local<String> exitCode = env->exit_code_string();
   int code = process_object->Get(exitCode)->Int32Value();
 
   Local<Value> args[] = {
@@ -3799,7 +3773,7 @@ int EmitExit(Environment* env) {
 
 // Just a convenience method
 Environment* CreateEnvironment(Isolate* isolate,
-                               Handle<Context> context,
+                               Local<Context> context,
                                int argc,
                                const char* const* argv,
                                int exec_argc,
@@ -3821,7 +3795,7 @@ Environment* CreateEnvironment(Isolate* isolate,
 }
 
 static Environment* CreateEnvironment(Isolate* isolate,
-                                      Handle<Context> context,
+                                      Local<Context> context,
                                       NodeInstanceData* instance_data) {
   return CreateEnvironment(isolate,
                            instance_data->event_loop(),
@@ -3849,7 +3823,7 @@ static void HandleCleanup(Environment* env,
 
 Environment* CreateEnvironment(Isolate* isolate,
                                uv_loop_t* loop,
-                               Handle<Context> context,
+                               Local<Context> context,
                                int argc,
                                const char* const* argv,
                                int exec_argc,
@@ -3920,7 +3894,10 @@ Environment* CreateEnvironment(Isolate* isolate,
 // node instance.
 static void StartNodeInstance(void* arg) {
   NodeInstanceData* instance_data = static_cast<NodeInstanceData*>(arg);
-  Isolate* isolate = Isolate::New();
+  Isolate::CreateParams params;
+  ArrayBufferAllocator* array_buffer_allocator = new ArrayBufferAllocator();
+  params.array_buffer_allocator = array_buffer_allocator;
+  Isolate* isolate = Isolate::New(params);
   if (track_heap_objects) {
     isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
   }
@@ -3935,6 +3912,7 @@ static void StartNodeInstance(void* arg) {
     HandleScope handle_scope(isolate);
     Local<Context> context = Context::New(isolate);
     Environment* env = CreateEnvironment(isolate, context, instance_data);
+    array_buffer_allocator->set_env(env);
     Context::Scope context_scope(context);
     if (instance_data->is_main())
       env->set_using_abort_on_uncaught_exc(abort_on_uncaught_exception);
@@ -3977,6 +3955,11 @@ static void StartNodeInstance(void* arg) {
       instance_data->set_exit_code(exit_code);
     RunAtExit(env);
 
+#if defined(LEAK_SANITIZER)
+    __lsan_do_leak_check();
+#endif
+
+    array_buffer_allocator->set_env(nullptr);
     env->Dispose();
     env = nullptr;
   }
@@ -3984,6 +3967,7 @@ static void StartNodeInstance(void* arg) {
   CHECK_NE(isolate, nullptr);
   isolate->Dispose();
   isolate = nullptr;
+  delete array_buffer_allocator;
   if (instance_data->is_main())
     node_isolate = nullptr;
 }

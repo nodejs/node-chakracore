@@ -42,32 +42,32 @@ inline v8::Local<TypeName> PersistentToLocal(
     const v8::Persistent<TypeName>& persistent);
 
 // Call with valid HandleScope and while inside Context scope.
-v8::Handle<v8::Value> MakeCallback(Environment* env,
-                                   v8::Handle<v8::Object> recv,
+v8::Local<v8::Value> MakeCallback(Environment* env,
+                                   v8::Local<v8::Object> recv,
                                    const char* method,
                                    int argc = 0,
-                                   v8::Handle<v8::Value>* argv = nullptr);
+                                   v8::Local<v8::Value>* argv = nullptr);
 
 // Call with valid HandleScope and while inside Context scope.
-v8::Handle<v8::Value> MakeCallback(Environment* env,
-                                   v8::Handle<v8::Object> recv,
+v8::Local<v8::Value> MakeCallback(Environment* env,
+                                   v8::Local<v8::Object> recv,
                                    uint32_t index,
                                    int argc = 0,
-                                   v8::Handle<v8::Value>* argv = nullptr);
+                                   v8::Local<v8::Value>* argv = nullptr);
 
 // Call with valid HandleScope and while inside Context scope.
-v8::Handle<v8::Value> MakeCallback(Environment* env,
-                                   v8::Handle<v8::Object> recv,
-                                   v8::Handle<v8::String> symbol,
+v8::Local<v8::Value> MakeCallback(Environment* env,
+                                   v8::Local<v8::Object> recv,
+                                   v8::Local<v8::String> symbol,
                                    int argc = 0,
-                                   v8::Handle<v8::Value>* argv = nullptr);
+                                   v8::Local<v8::Value>* argv = nullptr);
 
 // Call with valid HandleScope and while inside Context scope.
-v8::Handle<v8::Value> MakeCallback(Environment* env,
-                                   v8::Handle<v8::Value> recv,
-                                   v8::Handle<v8::Function> callback,
+v8::Local<v8::Value> MakeCallback(Environment* env,
+                                   v8::Local<v8::Value> recv,
+                                   v8::Local<v8::Function> callback,
                                    int argc = 0,
-                                   v8::Handle<v8::Value>* argv = nullptr);
+                                   v8::Local<v8::Value>* argv = nullptr);
 
 bool KickNextTick();
 
@@ -77,7 +77,7 @@ bool KickNextTick();
 v8::Local<v8::Object> AddressToJS(
     Environment* env,
     const sockaddr* addr,
-    v8::Local<v8::Object> info = v8::Handle<v8::Object>());
+    v8::Local<v8::Object> info = v8::Local<v8::Object>());
 
 template <typename T, int (*F)(const typename T::HandleType*, sockaddr*, int*)>
 void GetSockOrPeerName(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -95,16 +95,18 @@ void GetSockOrPeerName(const v8::FunctionCallbackInfo<v8::Value>& args) {
 #ifdef _WIN32
 // emulate snprintf() on windows, _snprintf() doesn't zero-terminate the buffer
 // on overflow...
+// VS 2015 added a standard conform snprintf
+#if defined( _MSC_VER ) && (_MSC_VER < 1900)
 #include <stdarg.h>
-inline static int snprintf(char* buf, unsigned int len, const char* fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  int n = _vsprintf_p(buf, len, fmt, ap);
-  if (len)
-    buf[len - 1] = '\0';
-  va_end(ap);
-  return n;
+inline static int snprintf(char *buffer, size_t n, const char *format, ...) {
+  va_list argp;
+  va_start(argp, format);
+  int ret = _vscprintf(format, argp);
+  vsnprintf_s(buffer, n, _TRUNCATE, format, argp);
+  va_end(argp);
+  return ret;
 }
+#endif
 #endif
 
 #if defined(__x86_64__)
@@ -130,8 +132,8 @@ inline static int snprintf(char* buf, unsigned int len, const char* fmt, ...) {
 #endif
 
 void AppendExceptionLine(Environment* env,
-                         v8::Handle<v8::Value> er,
-                         v8::Handle<v8::Message> message);
+                         v8::Local<v8::Value> er,
+                         v8::Local<v8::Message> message);
 
 NO_RETURN void FatalError(const char* location, const char* message);
 
@@ -162,7 +164,7 @@ inline bool IsBigEndian() {
 }
 
 // parse index for external array data
-inline MUST_USE_RESULT bool ParseArrayIndex(v8::Handle<v8::Value> arg,
+inline MUST_USE_RESULT bool ParseArrayIndex(v8::Local<v8::Value> arg,
                                             size_t def,
                                             size_t* ret) {
   if (arg->IsUndefined()) {
@@ -225,6 +227,20 @@ NODE_DEPRECATED("Use ThrowUVException(isolate)",
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
   return ThrowUVException(isolate, errorno, syscall, message, path);
 })
+
+class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
+ public:
+  ArrayBufferAllocator() : env_(nullptr) { }
+
+  inline void set_env(Environment* env) { env_ = env; }
+
+  virtual void* Allocate(size_t size);  // Defined in src/node.cc
+  virtual void* AllocateUninitialized(size_t size) { return malloc(size); }
+  virtual void Free(void* data, size_t) { free(data); }
+
+ private:
+  Environment* env_;
+};
 
 enum NodeInstanceType { MAIN, WORKER };
 

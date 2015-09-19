@@ -44,10 +44,11 @@
         'compiler/compiler-test-utils.h',
         'compiler/control-equivalence-unittest.cc',
         'compiler/control-flow-optimizer-unittest.cc',
-        'compiler/control-reducer-unittest.cc',
+        'compiler/dead-code-elimination-unittest.cc',
         'compiler/diamond-unittest.cc',
         'compiler/graph-reducer-unittest.cc',
         'compiler/graph-reducer-unittest.h',
+        'compiler/graph-trimmer-unittest.cc',
         'compiler/graph-unittest.cc',
         'compiler/graph-unittest.h',
         'compiler/instruction-selector-unittest.cc',
@@ -88,11 +89,11 @@
         'libplatform/task-queue-unittest.cc',
         'libplatform/worker-thread-unittest.cc',
         'heap/gc-idle-time-handler-unittest.cc',
+        'heap/memory-reducer-unittest.cc',
+        'heap/heap-unittest.cc',
         'run-all-unittests.cc',
         'test-utils.h',
         'test-utils.cc',
-        '../../src/startup-data-util.h',
-        '../../src/startup-data-util.cc'
       ],
       'conditions': [
         ['v8_target_arch=="arm"', {

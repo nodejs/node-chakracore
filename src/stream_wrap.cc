@@ -27,7 +27,6 @@ using v8::Context;
 using v8::EscapableHandleScope;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
-using v8::Handle;
 using v8::HandleScope;
 using v8::Integer;
 using v8::Local;
@@ -40,9 +39,9 @@ using v8::Undefined;
 using v8::Value;
 
 
-void StreamWrap::Initialize(Handle<Object> target,
-                            Handle<Value> unused,
-                            Handle<Context> context) {
+void StreamWrap::Initialize(Local<Object> target,
+                            Local<Value> unused,
+                            Local<Context> context) {
   Environment* env = Environment::GetCurrent(context);
 
   Local<FunctionTemplate> sw =
@@ -81,7 +80,7 @@ StreamWrap::StreamWrap(Environment* env,
 
 
 void StreamWrap::AddMethods(Environment* env,
-                            v8::Handle<v8::FunctionTemplate> target,
+                            v8::Local<v8::FunctionTemplate> target,
                             int flags) {
   env->SetProtoMethod(target, "setBlocking", SetBlocking);
   StreamBase::AddMethods<StreamWrap>(env, target, flags);
@@ -180,7 +179,7 @@ static Local<Object> AcceptHandle(Environment* env, StreamWrap* parent) {
   handle = wrap->UVHandle();
 
   if (uv_accept(parent->stream(), reinterpret_cast<uv_stream_t*>(handle)))
-    abort();
+    ABORT();
 
   return scope.Escape(wrap_obj);
 }

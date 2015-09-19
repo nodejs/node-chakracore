@@ -37,9 +37,10 @@
           'OTHER_CFLAGS': [ '-Wno-strict-aliasing' ],
         },
         'conditions': [
-          ['OS != "win"', {
-            'defines': [ 'EV_VERIFY=2' ],
-          }],
+          ['OS == "android"', {
+            'cflags': [ '-fPIE' ],
+            'ldflags': [ '-fPIE', '-pie' ]
+          }]
         ]
       },
       'Release': {
@@ -128,7 +129,7 @@
           }]
         ]
       }],
-      ['OS in "freebsd linux openbsd solaris android"', {
+      ['OS in "freebsd dragonflybsd linux openbsd solaris android"', {
         'cflags': [ '-Wall' ],
         'cflags_cc': [ '-fno-rtti', '-fno-exceptions' ],
         'target_conditions': [
