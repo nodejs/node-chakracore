@@ -36,12 +36,26 @@ inline void Environment::IsolateData::Put() {
   }
 }
 
+// Create string properties as internalized one byte strings.
+//
+// Internalized because it makes property lookups a little faster and because
+// the string is created in the old space straight away.  It's going to end up
+// in the old space sooner or later anyway but now it doesn't go through
+// v8::Eternal's new space handling first.
+//
+// One byte because our strings are ASCII and we can safely skip V8's UTF-8
+// decoding step.  It's a one-time cost, but why pay it when you don't have to?
 inline Environment::IsolateData::IsolateData(v8::Isolate* isolate,
                                              uv_loop_t* loop)
     : event_loop_(loop),
       isolate_(isolate),
 #define V(PropertyName, StringValue)                                          \
-    PropertyName ## _(isolate, FIXED_ONE_BYTE_STRING(isolate, StringValue)),
+    PropertyName ## _(isolate,                                                \
+                      v8::String::NewFromOneByte(                             \
+                          isolate,                                            \
+                          reinterpret_cast<const uint8_t*>(StringValue),      \
+                          v8::NewStringType::kInternalized,                   \
+                          sizeof(StringValue) - 1).ToLocalChecked()),
     PER_ISOLATE_STRING_PROPERTIES(V)
 #undef V
     ref_count_(0) {}
@@ -207,6 +221,13 @@ inline Environment::Environment(v8::Local<v8::Context> context,
   set_as_external(v8::External::New(isolate(), this));
   set_binding_cache_object(v8::Object::New(isolate()));
   set_module_load_list_array(v8::Array::New(isolate()));
+
+  v8::Local<v8::FunctionTemplate> fn = v8::FunctionTemplate::New(isolate());
+  fn->SetClassName(FIXED_ONE_BYTE_STRING(isolate(), "InternalFieldObject"));
+  v8::Local<v8::ObjectTemplate> obj = fn->InstanceTemplate();
+  obj->SetInternalFieldCount(1);
+  set_generic_internal_field_template(obj);
+
   RB_INIT(&cares_task_list_);
   handle_cleanup_waiting_ = 0;
 }
@@ -464,7 +485,10 @@ inline void Environment::SetMethod(v8::Local<v8::Object> that,
                                    v8::FunctionCallback callback) {
   v8::Local<v8::Function> function =
       NewFunctionTemplate(callback)->GetFunction();
-  v8::Local<v8::String> name_string = v8::String::NewFromUtf8(isolate(), name);
+  // kInternalized strings are created in the old space.
+  const v8::NewStringType type = v8::NewStringType::kInternalized;
+  v8::Local<v8::String> name_string =
+      v8::String::NewFromUtf8(isolate(), name, type).ToLocalChecked();
   that->Set(name_string, function);
   function->SetName(name_string);  // NODE_SET_METHOD() compatibility.
 }
@@ -475,7 +499,10 @@ inline void Environment::SetProtoMethod(v8::Local<v8::FunctionTemplate> that,
   v8::Local<v8::Signature> signature = v8::Signature::New(isolate(), that);
   v8::Local<v8::Function> function =
       NewFunctionTemplate(callback, signature)->GetFunction();
-  v8::Local<v8::String> name_string = v8::String::NewFromUtf8(isolate(), name);
+  // kInternalized strings are created in the old space.
+  const v8::NewStringType type = v8::NewStringType::kInternalized;
+  v8::Local<v8::String> name_string =
+      v8::String::NewFromUtf8(isolate(), name, type).ToLocalChecked();
   that->PrototypeTemplate()->Set(name_string, function);
   function->SetName(name_string);  // NODE_SET_PROTOTYPE_METHOD() compatibility.
 }
@@ -485,9 +512,18 @@ inline void Environment::SetTemplateMethod(v8::Local<v8::FunctionTemplate> that,
                                            v8::FunctionCallback callback) {
   v8::Local<v8::Function> function =
       NewFunctionTemplate(callback)->GetFunction();
-  v8::Local<v8::String> name_string = v8::String::NewFromUtf8(isolate(), name);
+  // kInternalized strings are created in the old space.
+  const v8::NewStringType type = v8::NewStringType::kInternalized;
+  v8::Local<v8::String> name_string =
+      v8::String::NewFromUtf8(isolate(), name, type).ToLocalChecked();
   that->Set(name_string, function);
   function->SetName(name_string);  // NODE_SET_METHOD() compatibility.
+}
+
+inline v8::Local<v8::Object> Environment::NewInternalFieldObject() {
+  v8::MaybeLocal<v8::Object> m_obj =
+      generic_internal_field_template()->NewInstance(context());
+  return m_obj.ToLocalChecked();
 }
 
 #define V(PropertyName, StringValue)                                          \

@@ -52,6 +52,10 @@
 #include <string.h>
 #include <sys/types.h>
 
+#if defined(NODE_HAVE_I18N_SUPPORT)
+#include <unicode/uvernum.h>
+#endif
+
 #if defined(LEAK_SANITIZER)
 #include <sanitizer/lsan_interface.h>
 #endif
@@ -2674,6 +2678,12 @@ void SetupProcessObject(Environment* env,
                     "ares",
                     FIXED_ONE_BYTE_STRING(env->isolate(), ARES_VERSION_STR));
 
+#if defined(NODE_HAVE_I18N_SUPPORT) && defined(U_ICU_VERSION)
+  READONLY_PROPERTY(versions,
+                    "icu",
+                    OneByteString(env->isolate(), U_ICU_VERSION));
+#endif
+
   const char node_modules_version[] = NODE_STRINGIFY(NODE_MODULE_VERSION);
   READONLY_PROPERTY(
       versions,
@@ -2960,7 +2970,7 @@ void LoadEnvironment(Environment* env) {
   env->isolate()->AddMessageListener(OnMessage);
 
   // Compile, execute the src/node.js file. (Which was included as static C
-  // string in node_natives.h. 'natve_node' is the string containing that
+  // string in node_natives.h. 'native_node' is the string containing that
   // source code.)
 
   // The node.js file returns a function 'f'

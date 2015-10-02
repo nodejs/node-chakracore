@@ -39,7 +39,7 @@ namespace node {
 #endif
 
 // Strings are per-isolate primitives but Environment proxies them
-// for the sake of convenience.
+// for the sake of convenience.  Strings should be ASCII-only.
 #define PER_ISOLATE_STRING_PROPERTIES(V)                                      \
   V(address_string, "address")                                                \
   V(args_string, "args")                                                      \
@@ -237,6 +237,7 @@ namespace node {
   V(context, v8::Context)                                                     \
   V(domain_array, v8::Array)                                                  \
   V(fs_stats_constructor_function, v8::Function)                              \
+  V(generic_internal_field_template, v8::ObjectTemplate)                      \
   V(jsstream_constructor_template, v8::FunctionTemplate)                      \
   V(module_load_list_array, v8::Array)                                        \
   V(pipe_constructor_template, v8::FunctionTemplate)                          \
@@ -488,6 +489,7 @@ class Environment {
                                 const char* name,
                                 v8::FunctionCallback callback);
 
+  inline v8::Local<v8::Object> NewInternalFieldObject();
 
   // Strings are shared across shared contexts. The getters simply proxy to
   // the per-isolate primitive.

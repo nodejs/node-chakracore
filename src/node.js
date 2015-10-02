@@ -1,8 +1,9 @@
 // Hello, and welcome to hacking node.js!
 //
-// This file is invoked by node::Load in src/node.cc, and responsible for
-// bootstrapping the node.js core. Special caution is given to the performance
-// of the startup process, so many dependencies are invoked lazily.
+// This file is invoked by node::LoadEnvironment in src/node.cc, and is
+// responsible for bootstrapping the node.js core. As special caution is given
+// to the performance of the startup process, many dependencies are invoked
+// lazily.
 
 'use strict';
 
@@ -10,7 +11,7 @@
   this.global = this;
 
   function startup() {
-    var EventEmitter = NativeModule.require('events').EventEmitter;
+    var EventEmitter = NativeModule.require('events');
 
     process.__proto__ = Object.create(EventEmitter.prototype, {
       constructor: {

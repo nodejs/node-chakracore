@@ -19,6 +19,7 @@
 #include "CNNICHashWhitelist.inc"
 
 #include <errno.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -4623,6 +4624,7 @@ class PBKDF2Request : public AsyncWrap {
         iter_(iter) {
     if (key() == nullptr)
       FatalError("node::PBKDF2Request()", "Out of Memory");
+    Wrap(object, this);
   }
 
   ~PBKDF2Request() override {
@@ -4760,7 +4762,7 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
   char* salt = nullptr;
   ssize_t passlen = -1;
   ssize_t saltlen = -1;
-  ssize_t keylen = -1;
+  double keylen = -1;
   ssize_t iter = -1;
   PBKDF2Request* req = nullptr;
   Local<Object> obj;
@@ -4813,8 +4815,8 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
     goto err;
   }
 
-  keylen = args[3]->Int32Value();
-  if (keylen < 0) {
+  keylen = args[3]->NumberValue();
+  if (keylen < 0 || isnan(keylen) || isinf(keylen)) {
     type_error = "Bad key length";
     goto err;
   }
@@ -4832,7 +4834,7 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
     digest = EVP_sha1();
   }
 
-  obj = Object::New(env->isolate());
+  obj = env->NewInternalFieldObject();
   req = new PBKDF2Request(env,
                           obj,
                           digest,
@@ -4841,7 +4843,7 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
                           saltlen,
                           salt,
                           iter,
-                          keylen);
+                          static_cast<ssize_t>(keylen));
 
   if (args[5]->IsFunction()) {
     obj->Set(env->ondone_string(), args[5]);
@@ -4884,6 +4886,7 @@ class RandomBytesRequest : public AsyncWrap {
         data_(static_cast<char*>(malloc(size))) {
     if (data() == nullptr)
       FatalError("node::RandomBytesRequest()", "Out of Memory");
+    Wrap(object, this);
   }
 
   ~RandomBytesRequest() override {
@@ -5000,7 +5003,7 @@ void RandomBytes(const FunctionCallbackInfo<Value>& args) {
   if (size < 0 || size > Buffer::kMaxLength)
     return env->ThrowRangeError("size is not a valid Smi");
 
-  Local<Object> obj = Object::New(env->isolate());
+  Local<Object> obj = env->NewInternalFieldObject();
   RandomBytesRequest* req = new RandomBytesRequest(env, obj, size);
 
   if (args[1]->IsFunction()) {
@@ -5320,13 +5323,13 @@ void InitCryptoOnce() {
   CRYPTO_set_locking_callback(crypto_lock_cb);
   CRYPTO_THREADID_set_callback(crypto_threadid_cb);
 
-#ifdef OPENSSL_FIPS
+#ifdef NODE_FIPS_MODE
   if (!FIPS_mode_set(1)) {
     int err = ERR_get_error();
     fprintf(stderr, "openssl fips failed: %s\n", ERR_error_string(err, NULL));
     UNREACHABLE();
   }
-#endif  // OPENSSL_FIPS
+#endif  // NODE_FIPS_MODE
 
 
   // Turn off compression. Saves memory and protects against CRIME attacks.
