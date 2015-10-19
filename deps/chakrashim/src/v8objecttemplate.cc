@@ -39,6 +39,8 @@ struct ObjectTemplateData : public TemplateData {
   IndexedPropertyDeleterCallback indexedPropertyDeleter;
   IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
   Persistent<Value> indexedPropertyInterceptorData;
+  FunctionCallback functionCallDelegate;
+  Persistent<Value> functionCallDelegateInterceptorData;
   int internalFieldCount;
 
   ObjectTemplateData()
@@ -52,6 +54,8 @@ struct ObjectTemplateData : public TemplateData {
         indexedPropertyQuery(nullptr),
         indexedPropertyDeleter(nullptr),
         indexedPropertyEnumerator(nullptr),
+        functionCallDelegate(nullptr),
+        functionCallDelegateInterceptorData(nullptr),
         internalFieldCount(0) {
     HandleScope scope(nullptr);
     properties = Object::New();
@@ -68,6 +72,10 @@ struct ObjectTemplateData : public TemplateData {
       indexedPropertyGetter != nullptr ||
       indexedPropertyQuery != nullptr ||
       indexedPropertySetter != nullptr;
+    /*
+    CHAKRA: functionCallDelegate is intentionaly not added as interceptors because it can be invoked
+    through Object::CallAsFunction or Object::CallAsConstructor
+    */
   }
 
   static void CALLBACK FinalizeCallback(void *data) {
@@ -1041,6 +1049,22 @@ void ObjectTemplate::SetAccessCheckCallbacks(
     Handle<Value> data,
     bool turned_on_by_default) {
   // CHAKRA-TODO
+}
+
+void ObjectTemplate::SetCallAsFunctionHandler(
+    FunctionCallback callback,
+    Handle<Value> data) {
+    void* externalData;
+    if (JsGetExternalData(this, &externalData) != JsNoError)
+    {
+        return;
+    }
+
+    ObjectTemplateData *objectTemplateData =
+        reinterpret_cast<ObjectTemplateData*>(externalData);
+
+    objectTemplateData->functionCallDelegate = callback;
+    objectTemplateData->functionCallDelegateInterceptorData = data;
 }
 
 void ObjectTemplate::SetInternalFieldCount(int value) {

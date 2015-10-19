@@ -1794,6 +1794,8 @@ class V8_EXPORT FunctionTemplate : public Template {
   Local<ObjectTemplate> PrototypeTemplate();
   void SetClassName(Handle<String> name);
   void SetHiddenPrototype(bool value);
+  void SetCallHandler(FunctionCallback callback,
+                      Handle<Value> data = Handle<Value>());
   bool HasInstance(Handle<Value> object);
   void Inherit(Handle<FunctionTemplate> parent);
 };
@@ -1908,6 +1910,8 @@ class V8_EXPORT ObjectTemplate : public Template {
     bool turned_on_by_default = true);
 
   void SetInternalFieldCount(int value);
+  void SetCallAsFunctionHandler(FunctionCallback callback,
+                                Handle<Value> data = Handle<Value>());
 
  private:
   friend struct FunctionCallbackData;
