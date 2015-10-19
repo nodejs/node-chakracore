@@ -57,24 +57,42 @@
     ['node_engine=="v8"', {
       'target_defaults': {
         'defines': [
-          'NODE_ENGINE="v8"',
-          'NODE_ENGINE_V8=1',
+          'NODE_ENGINE="<(node_engine)"',
+          'NODE_ENGINE_V8',
         ],
       },
       'variables': {
         'node_engine_include_dir%': 'deps/v8/include'
       },
     }],
-    ['node_engine=="chakra"', {
+    ['node_engine=="chakra" or node_engine=="chakracore"', {
       'target_defaults': {
         'defines': [
-          'NODE_ENGINE="chakra"',
-          'NODE_ENGINE_CHAKRA=1'
+          'NODE_ENGINE="<(node_engine)"',
+          'USE_EDGEMODE_JSRT',
         ],
-        'msvs_windows_target_platform_version': '<(msvs_windows_target_platform_version)',
+        'conditions': [
+          ['node_engine=="chakra"', {
+            'defines': [ 'NODE_ENGINE_CHAKRA' ],
+          }],
+          ['node_engine=="chakracore"', {
+            'defines': [ 'NODE_ENGINE_CHAKRACORE' ],
+          }],
+          ['node_engine=="chakra" or target_arch=="arm"', {
+            'msvs_windows_target_platform_version': '<(msvs_windows_target_platform_version)',
+          }],
+        ],
       },
       'variables': {
-        'node_engine_include_dir%': 'deps/chakrashim/include'
+        'node_engine_include_dir%': 'deps/chakrashim/include',
+        'conditions': [
+          ['node_engine=="chakra"', {
+            'node_engine_libs': [ '-lchakrart.lib' ],
+          }],
+          ['node_engine=="chakracore"', {
+            'node_engine_libs': [ '-lchakracore.lib' ],
+          }],
+        ],
       },
     }],
   ],

@@ -19,7 +19,6 @@
 // IN THE SOFTWARE.
 
 #include "v8.h"
-#include "jsrt.h"
 #include "jsrtutils.h"
 
 namespace v8 {

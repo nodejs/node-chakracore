@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "jsrt.h"
 #include "jsrtutils.h"
 
 namespace jsrt {

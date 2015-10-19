@@ -30,6 +30,7 @@ static JsContextRef g_debugContext = JS_INVALID_REFERENCE;
 bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
   HRESULT hr = S_OK;
 
+#ifdef NODE_ENGINE_CHAKRA
   if (!g_EnableDebug) {
     // JsStartDebugging needs COM initialization
     IfComFailError(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
@@ -44,7 +45,11 @@ bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
     }
   }
 
- error:
+error:
+#else
+  hr = E_FAIL;  // ChakraCore does not support JsStartDebugging
+#endif
+
   return SUCCEEDED(hr);
 }
 

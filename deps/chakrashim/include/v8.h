@@ -32,20 +32,35 @@
 #define _WINSOCKAPI_
 #endif
 
-#if defined(_WIN32_WINNT) && (_WIN32_WINNT < _WIN32_WINNT_WIN10)
-#pragma message("warning: chakrashim requires Windows 10 SDK. "\
-                "Redefine _WIN32_WINNT to _WIN32_WINNT_WIN10.")
+#if defined(NODE_ENGINE_CHAKRA) || defined(_M_ARM)
+#define CHAKRA_MIN_WIN32_WINNT _WIN32_WINNT_WIN10
+#define CHAKRA_MIN_WIN32_WINNT_STR "_WIN32_WINNT_WIN10"
+#else
+#define CHAKRA_MIN_WIN32_WINNT _WIN32_WINNT_WIN7
+#define CHAKRA_MIN_WIN32_WINNT_STR "_WIN32_WINNT_WIN7"
+#endif
+
+#if defined(_WIN32_WINNT) && (_WIN32_WINNT < CHAKRA_MIN_WIN32_WINNT)
+#pragma message("warning: chakrashim requires minimum " \
+                CHAKRA_MIN_WIN32_WINNT_STR \
+                ". Redefine _WIN32_WINNT to " \
+                CHAKRA_MIN_WIN32_WINNT_STR ".")
 #undef _WIN32_WINNT
 #endif
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT _WIN32_WINNT_WIN10
+#define _WIN32_WINNT CHAKRA_MIN_WIN32_WINNT
 #endif
 
 #ifndef USE_EDGEMODE_JSRT
 #define USE_EDGEMODE_JSRT     // Only works with edge JSRT
 #endif
 
+#ifdef NODE_ENGINE_CHAKRA
 #include <jsrt.h>
+#else
+#define _JSRT_
+#include <chakrart.h>
+#endif
 
 #ifndef _CHAKRART_H_
 #error Wrong Windows SDK version
@@ -105,11 +120,11 @@ class Uint32;
 template <class T> class Local;
 template <class T> class Maybe;
 template <class T> class MaybeLocal;
-template<class T> class NonCopyablePersistentTraits;
-template<class T> class PersistentBase;
-template<class T, class M = NonCopyablePersistentTraits<T> > class Persistent;
-template<typename T> class FunctionCallbackInfo;
-template<typename T> class PropertyCallbackInfo;
+template <class T> class NonCopyablePersistentTraits;
+template <class T> class PersistentBase;
+template <class T, class M = NonCopyablePersistentTraits<T> > class Persistent;
+template <typename T> class FunctionCallbackInfo;
+template <typename T> class PropertyCallbackInfo;
 
 class JitCodeEvent;
 class RetainedObjectInfo;
@@ -236,7 +251,7 @@ class Local {
   }
 
   template <class S>
-  V8_INLINE bool operator==(const Persistent<S>& that) const {
+  V8_INLINE bool operator==(const PersistentBase<S>& that) const {
     return val_ == that.val_;
   }
 
@@ -246,7 +261,7 @@ class Local {
   }
 
   template <class S>
-  V8_INLINE bool operator!=(const Persistent<S>& that) const {
+  V8_INLINE bool operator!=(const PersistentBase<S>& that) const {
     return !operator==(that);
   }
 
@@ -262,7 +277,7 @@ class Local {
 
   V8_INLINE static Local<T> New(Isolate* isolate, Local<T> that);
   V8_INLINE static Local<T> New(Isolate* isolate,
-                                const Persistent<T>& that);
+                                const PersistentBase<T>& that);
 
  private:
   friend struct AcessorExternalDataType;
@@ -315,8 +330,8 @@ class Local {
 
   V8_INLINE Local(JsValueRef that)
     : val_(static_cast<T*>(that)) {}
-  V8_INLINE Local(const Persistent<T>& that)
-    : val_(*that) {
+  V8_INLINE Local(const PersistentBase<T>& that)
+    : val_(that.val_) {
   }
   V8_INLINE static Local<T> New(T* that);
   V8_INLINE static Local<T> New(JsValueRef ref) {
@@ -2317,8 +2332,8 @@ Local<T> Local<T>::New(Isolate* isolate, Local<T> that) {
 }
 
 template <class T>
-Local<T> Local<T>::New(Isolate* isolate, const Persistent<T>& that) {
-  return New(isolate, *that);
+Local<T> Local<T>::New(Isolate* isolate, const PersistentBase<T>& that) {
+  return New(isolate, that.val_);
 }
 
 //

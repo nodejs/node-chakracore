@@ -36,7 +36,7 @@ const char *V8::GetVersion() {
   if (versionStr[0] == '\0') {
     HMODULE hModule;
     if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          TEXT("chakra"), &hModule)) {
+                          TEXT(NODE_ENGINE), &hModule)) {
       WCHAR filename[_MAX_PATH];
       DWORD len = GetModuleFileNameW(hModule, filename, _countof(filename));
       if (len > 0) {
@@ -112,9 +112,11 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
 }
 
 bool V8::Initialize() {
+#ifdef NODE_ENGINE_CHAKRA
   if (g_EnableDebug && JsStartDebugging() != JsNoError) {
     return false;
   }
+#endif
   return true;
 }
 
