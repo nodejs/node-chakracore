@@ -327,6 +327,25 @@ void FunctionTemplate::SetHiddenPrototype(bool value) {
   // CHAKRA-TODO
 }
 
+void FunctionTemplate::SetCallHandler(FunctionCallback callback,
+                                      Handle<Value> data) {
+  void* externalData;
+  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    return;
+  }
+
+  FunctionCallbackData* callbackData =
+    new FunctionCallbackData(callback, data, Handle<Signature>());
+  FunctionTemplateData *functionTemplateData =
+    reinterpret_cast<FunctionTemplateData*>(externalData);
+
+  // delete old callbackData explictly
+  if (functionTemplateData->callbackData != nullptr) {
+    delete functionTemplateData->callbackData;
+  }
+  functionTemplateData->callbackData = callbackData;
+}
+
 bool FunctionTemplate::HasInstance(Handle<Value> object) {
   return ContextShim::ExecuteInContextOf<bool>(this, [&]() {
     return jsrt::InstanceOf(*object, *GetFunction());
