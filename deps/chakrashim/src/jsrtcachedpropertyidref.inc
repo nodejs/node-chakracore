@@ -70,6 +70,8 @@ DEF(getColumnNumber)
 DEF(getLineNumber)
 DEF(prototype)
 DEF(toString)
+DEF(isMapIterator)
+DEF(isSetIterator)
 
 
 DEFSYMBOL(self)

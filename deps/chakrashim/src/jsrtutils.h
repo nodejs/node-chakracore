@@ -217,6 +217,12 @@ JsErrorCode ToString(JsValueRef ref,
                      const wchar_t** str,
                      bool alreadyString = false);
 
+JsErrorCode IsValueMapIterator(JsValueRef value,
+                               JsValueRef *resultRef);
+
+JsErrorCode IsValueSetIterator(JsValueRef value,
+                               JsValueRef *resultRef);
+
 // the possible values for the property descriptor options
 enum PropertyDescriptorOptionValues {
   True,

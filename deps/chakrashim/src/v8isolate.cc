@@ -43,6 +43,11 @@ Isolate *Isolate::GetCurrent() {
   return jsrt::IsolateShim::GetCurrentAsIsolate();
 }
 
+void Isolate::SetAbortOnUncaughtExceptionCallback(
+  AbortOnUncaughtExceptionCallback callback) {
+  // CHAKRA-TODO: To be implemented
+}
+
 void Isolate::Enter() {
   return jsrt::IsolateShim::FromIsolate(this)->Enter();
 }

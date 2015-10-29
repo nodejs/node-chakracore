@@ -135,7 +135,7 @@ map.set(1, 2);
 var mirror = Debug.MakeMirror(map.entries(), true);
 var vals = mirror.preview();
 var valsOutput = [];
-for (const o of vals) {
+for (let o of vals) {
   valsOutput.push(o);
 }
 

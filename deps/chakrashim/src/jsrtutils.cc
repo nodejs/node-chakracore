@@ -554,6 +554,21 @@ JsErrorCode ToString(JsValueRef ref,
   return error;
 }
 
+JsErrorCode IsValueMapIterator(JsValueRef value,
+                        JsValueRef *resultRef) {
+  return CallFunction(
+    ContextShim::GetCurrent()->GetIsMapIteratorFunction(),
+    value, resultRef);
+}
+
+
+JsErrorCode IsValueSetIterator(JsValueRef value,
+                               JsValueRef *resultRef) {
+  return CallFunction(
+    ContextShim::GetCurrent()->GetIsSetIteratorFunction(),
+    value, resultRef);
+}
+
 PropertyDescriptorOptionValues GetPropertyDescriptorOptionValue(bool b) {
   return b ?
     PropertyDescriptorOptionValues::True :

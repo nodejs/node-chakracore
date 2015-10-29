@@ -52,6 +52,7 @@ DEFTYPE(Int32Array)
 DEFTYPE(Float32Array)
 DEFTYPE(Float64Array)
 DEFTYPE(URIError)
+DEFTYPE(Promise)
 
 
 // These prototype functions will be cached/shimmed

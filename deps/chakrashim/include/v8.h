@@ -955,6 +955,9 @@ class V8_EXPORT Value : public Data {
   bool IsFloat32Array() const;
   bool IsFloat64Array() const;
   bool IsDataView() const;
+  bool IsMapIterator() const;
+  bool IsSetIterator() const;
+  bool IsPromise() const;
 
   V8_WARN_UNUSED_RESULT MaybeLocal<Boolean> ToBoolean(
     Local<Context> context) const;
@@ -2096,6 +2099,9 @@ class V8_EXPORT Isolate {
   static Isolate* New(const CreateParams& params);
   static Isolate* New();
   static Isolate* GetCurrent();
+  typedef bool(*AbortOnUncaughtExceptionCallback)(Isolate*);
+  void SetAbortOnUncaughtExceptionCallback(
+    AbortOnUncaughtExceptionCallback callback);
 
   void Enter();
   void Exit();

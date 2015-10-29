@@ -70,7 +70,9 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
         JS_INVALID_REFERENCE),
       getNamedOwnKeysFunction(JS_INVALID_REFERENCE),
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
-      getStackTraceFunction(JS_INVALID_REFERENCE) {
+      getStackTraceFunction(JS_INVALID_REFERENCE),
+      isMapIteratorFunction(JS_INVALID_REFERENCE),
+      isSetIteratorFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -601,6 +603,16 @@ JsValueRef ContextShim::GetGetIndexedOwnKeysFunction() {
 JsValueRef ContextShim::GetGetStackTraceFunction() {
   return GetCachedShimFunction(CachedPropertyIdRef::getStackTrace,
                                &getStackTraceFunction);
+}
+
+JsValueRef ContextShim::GetIsMapIteratorFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::isMapIterator,
+                               &isMapIteratorFunction);
+}
+
+JsValueRef ContextShim::GetIsSetIteratorFunction() {
+  return GetCachedShimFunction(CachedPropertyIdRef::isSetIterator,
+                               &isSetIteratorFunction);
 }
 
 }  // namespace jsrt

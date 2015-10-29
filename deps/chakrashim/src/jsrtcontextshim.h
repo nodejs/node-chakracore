@@ -88,6 +88,8 @@ class ContextShim {
   JsValueRef GetGetNamedOwnKeysFunction();
   JsValueRef GetGetIndexedOwnKeysFunction();
   JsValueRef GetGetStackTraceFunction();
+  JsValueRef GetIsMapIteratorFunction();
+  JsValueRef GetIsSetIteratorFunction();
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
@@ -147,6 +149,8 @@ class ContextShim {
   JsValueRef getNamedOwnKeysFunction;
   JsValueRef getIndexedOwnKeysFunction;
   JsValueRef getStackTraceFunction;
+  JsValueRef isMapIteratorFunction;
+  JsValueRef isSetIteratorFunction;
 
   std::vector<void*> embedderData;
 };

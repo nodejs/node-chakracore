@@ -23,7 +23,12 @@
   var Object_defineProperty = Object.defineProperty,
       Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
       Object_getOwnPropertyNames = Object.getOwnPropertyNames,
-      Object_keys = Object.keys;
+      Object_keys = Object.keys,
+      Map_keys = Map.prototype.keys,
+      Map_values = Map.prototype.values,
+      Map_entries = Map.prototype.entries,
+      Set_entries = Set.prototype.entries,
+      Set_values = Set.prototype.values;
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
@@ -185,8 +190,40 @@
     Error.captureStackTrace = captureStackTrace;
   }
 
+  var mapIteratorSym = Symbol('MapIterator');
+  function patchMapIterator() {
+    var originalMapMethods = [];
+    originalMapMethods.push(['entries', Map_entries]);
+    originalMapMethods.push(['values', Map_values]);
+    originalMapMethods.push(['keys', Map_keys]);
+
+    originalMapMethods.forEach(function (pair) {
+      Map.prototype[pair[0]] = function () {
+        var result = pair[1].apply(this);
+        Object_defineProperty(result, mapIteratorSym, { value: true, enumerable: false, writable: false });
+        return result;
+      }
+    });
+  }
+ 
+  var setIteratorSym = Symbol('SetIterator');
+  function patchSetIterator() {
+    var originalSetMethods = [];
+    originalSetMethods.push(['entries', Set_entries]);
+    originalSetMethods.push(['values', Set_values]);
+
+    originalSetMethods.forEach(function (pair) {
+      Set.prototype[pair[0]] = function () {
+        var result = pair[1].apply(this);
+        Object_defineProperty(result, setIteratorSym, { value: true, enumerable: false, writable: false });
+        return result;
+      }
+    });
+  }
+
   function patchUtils(utils) {
     var isUintRegex = /^(0|[1-9]\\d*)$/;
+   
     var isUint = function(value) {
       var result = isUintRegex.test(value);
       isUintRegex.lastIndex = 0;
@@ -264,10 +301,22 @@
     utils.getStackTrace = function () {
       return captureStackTrace({}, utils.getStackTrace)();
     };
+    utils.isMapIterator = function (value) {
+      return value[mapIteratorSym] == true;
+    }
+    utils.isSetIterator = function (value) {
+      return value[setIteratorSym] == true;
+    }
   }
 
   // patch console
   patchErrorStack();
+
+  // patch map iterators
+  patchMapIterator();
+
+  // patch set iterators
+  patchSetIterator();
 
   // this is the keepAlive object that we will put some utilities function on
   patchUtils(this);

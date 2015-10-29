@@ -73,7 +73,7 @@ rules:
   # ECMAScript 6
   # list: http://eslint.org/docs/rules/#ecmascript-6
   ## Suggest using 'const' wherever possible
-  prefer-const: 2
+  prefer-const: 1
 
   # Strict Mode
   # list: https://github.com/eslint/eslint/tree/master/docs/rules#strict-mode

@@ -187,6 +187,30 @@ bool Value::IsRegExp() const {
   return IsOfType(this, ContextShim::GlobalType::RegExp);
 }
 
+bool Value::IsMapIterator() const {
+  JsValueRef resultRef = JS_INVALID_REFERENCE;
+  JsErrorCode errorCode = jsrt::IsValueMapIterator(
+    const_cast<Value*>(this), &resultRef);
+  if (errorCode != JsNoError) {
+    return false;
+  }
+  return Local<Value>(resultRef)->BooleanValue();
+}
+
+bool Value::IsSetIterator() const {
+  JsValueRef resultRef = JS_INVALID_REFERENCE;
+  JsErrorCode errorCode = jsrt::IsValueSetIterator(
+    const_cast<Value*>(this), &resultRef);
+  if (errorCode != JsNoError) {
+    return false;
+  }
+  return Local<Value>(resultRef)->BooleanValue();
+}
+
+bool Value::IsPromise() const {
+  return IsOfType(this, ContextShim::GlobalType::Promise);
+}
+
 MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;
   if (JsConvertValueToBoolean((JsValueRef)this, &value) != JsNoError) {
