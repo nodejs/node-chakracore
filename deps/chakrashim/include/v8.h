@@ -58,11 +58,10 @@
 #ifdef NODE_ENGINE_CHAKRA
 #include <jsrt.h>
 #else
-#define _JSRT_
-#include <chakrart.h>
+#include "chakracore.h"
 #endif
 
-#ifndef _CHAKRART_H_
+#if (defined(NODE_ENGINE_CHAKRA) && !defined(_CHAKRART_H_))
 #error Wrong Windows SDK version
 #endif
 
