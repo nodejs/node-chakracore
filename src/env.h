@@ -42,6 +42,7 @@ namespace node {
 // for the sake of convenience.  Strings should be ASCII-only.
 #define PER_ISOLATE_STRING_PROPERTIES(V)                                      \
   V(address_string, "address")                                                \
+  V(alpn_buffer_string, "alpnBuffer")                                         \
   V(args_string, "args")                                                      \
   V(argv_string, "argv")                                                      \
   V(arrow_message_string, "arrowMessage")                                     \
@@ -69,7 +70,7 @@ namespace node {
   V(dev_string, "dev")                                                        \
   V(disposed_string, "_disposed")                                             \
   V(domain_string, "domain")                                                  \
-  V(domain_abort_uncaught_exc_string, "_makeCallbackAbortOnUncaught")         \
+  V(emitting_top_level_domain_error_string, "_emittingTopLevelDomainError")   \
   V(exchange_string, "exchange")                                              \
   V(idle_string, "idle")                                                      \
   V(irq_string, "irq")                                                        \
@@ -130,6 +131,7 @@ namespace node {
   V(netmask_string, "netmask")                                                \
   V(nice_string, "nice")                                                      \
   V(nlink_string, "nlink")                                                    \
+  V(npn_buffer_string, "npnBuffer")                                           \
   V(nsname_string, "nsname")                                                  \
   V(ocsp_request_string, "OCSPRequest")                                       \
   V(offset_string, "offset")                                                  \
@@ -180,6 +182,7 @@ namespace node {
   V(serial_string, "serial")                                                  \
   V(scavenge_string, "scavenge")                                              \
   V(scopeid_string, "scopeid")                                                \
+  V(selected_npn_buffer_string, "selectedNpnBuffer")                          \
   V(sent_shutdown_string, "sentShutdown")                                     \
   V(serial_number_string, "serialNumber")                                     \
   V(service_string, "service")                                                \
@@ -205,6 +208,7 @@ namespace node {
   V(timestamp_string, "timestamp")                                            \
   V(title_string, "title")                                                    \
   V(tls_npn_string, "tls_npn")                                                \
+  V(tls_alpn_string, "tls_alpn")                                              \
   V(tls_ocsp_string, "tls_ocsp")                                              \
   V(tls_sni_string, "tls_sni")                                                \
   V(tls_string, "tls")                                                        \
@@ -227,6 +231,7 @@ namespace node {
   V(zero_return_string, "ZERO_RETURN")                                        \
 
 #define ENVIRONMENT_STRONG_PERSISTENT_PROPERTIES(V)                           \
+  V(add_properties_by_index_function, v8::Function)                           \
   V(as_external, v8::External)                                                \
   V(async_hooks_init_function, v8::Function)                                  \
   V(async_hooks_pre_function, v8::Function)                                   \
@@ -432,14 +437,8 @@ class Environment {
   inline ares_channel* cares_channel_ptr();
   inline ares_task_list* cares_task_list();
 
-  inline bool using_abort_on_uncaught_exc() const;
-  inline void set_using_abort_on_uncaught_exc(bool value);
-
   inline bool using_domains() const;
   inline void set_using_domains(bool value);
-
-  inline bool using_asyncwrap() const;
-  inline void set_using_asyncwrap(bool value);
 
   inline bool printed_error() const;
   inline void set_printed_error(bool value);
@@ -540,8 +539,6 @@ class Environment {
   ares_channel cares_channel_;
   ares_task_list cares_task_list_;
   bool using_domains_;
-  bool using_abort_on_uncaught_exc_;
-  bool using_asyncwrap_;
   bool printed_error_;
   bool trace_sync_io_;
   debugger::Agent debugger_agent_;

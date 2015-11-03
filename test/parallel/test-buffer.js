@@ -550,6 +550,9 @@ for (var i = 0; i < segments.length; ++i) {
 }
 assert.equal(b.toString('binary', 0, pos), 'Madness?! This is node.js!');
 
+// Regression test for https://github.com/nodejs/node/issues/3496.
+assert.equal(Buffer('=bad'.repeat(1e4), 'base64').length, 0);
+
 // Creating buffers larger than pool size.
 var l = Buffer.poolSize + 5;
 var s = '';
@@ -1224,3 +1227,10 @@ assert.throws(function() {
 assert.throws(function() {
   new Buffer(null);
 }, /must start with number, buffer, array or string/);
+
+
+// Test prototype getters don't throw
+assert.equal(Buffer.prototype.parent, undefined);
+assert.equal(Buffer.prototype.offset, undefined);
+assert.equal(SlowBuffer.prototype.parent, undefined);
+assert.equal(SlowBuffer.prototype.offset, undefined);

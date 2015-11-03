@@ -66,14 +66,15 @@ and tap `R<CR>` (that's the letter `R` followed by a carriage return) a few
 times.
 
 
-## NPN and SNI
+## ALPN, NPN and SNI
 
 <!-- type=misc -->
 
-NPN (Next Protocol Negotiation) and SNI (Server Name Indication) are TLS
+ALPN (Application-Layer Protocol Negotiation Extension), NPN (Next
+Protocol Negotiation) and SNI (Server Name Indication) are TLS
 handshake extensions allowing you:
 
-  * NPN - to use one TLS server for multiple protocols (HTTP, SPDY)
+  * ALPN/NPN - to use one TLS server for multiple protocols (HTTP, SPDY, HTTP/2)
   * SNI - to use one TLS server for multiple hostnames with different SSL
     certificates.
 
@@ -162,7 +163,9 @@ automatically set as a listener for the [secureConnection][] event.  The
     the `key`, `cert` and `ca` options.)
 
   - `key`: A string or `Buffer` containing the private key of the server in
-    PEM format. (Could be an array of keys). (Required)
+    PEM format. To support multiple keys using different algorithms, an array
+    can be provided. It can either be a plain array of keys, or an array of
+    objects in the format `{pem: key, passphrase: passphrase}`. (Required)
 
   - `passphrase`: A string of passphrase for the private key or pfx.
 
@@ -248,6 +251,12 @@ automatically set as a listener for the [secureConnection][] event.  The
 
   - `NPNProtocols`: An array or `Buffer` of possible NPN protocols. (Protocols
     should be ordered by their priority).
+
+  - `ALPNProtocols`: An array or `Buffer` of possible ALPN
+    protocols. (Protocols should be ordered by their priority). When
+    the server receives both NPN and ALPN extensions from the client,
+    ALPN takes precedence over NPN and the server does not send an NPN
+    extension to the client.
 
   - `SNICallback(servername, cb)`: A function that will be called if client
     supports SNI TLS extension. Two argument will be passed to it: `servername`,
@@ -372,9 +381,16 @@ Creates a new client connection to the given `port` and `host` (old API) or
     fails; `err.code` contains the OpenSSL error code. Default: `true`.
 
   - `NPNProtocols`: An array of strings or `Buffer`s containing supported NPN
-    protocols. `Buffer`s should have following format: `0x05hello0x05world`,
-    where first byte is next protocol name's length. (Passing array should
-    usually be much simpler: `['hello', 'world']`.)
+    protocols. `Buffer`s should have the following format:
+    `0x05hello0x05world`, where first byte is next protocol name's
+    length. (Passing array should usually be much simpler:
+    `['hello', 'world']`.)
+
+  - `ALPNProtocols`: An array of strings or `Buffer`s containing
+    supported ALPN protocols. `Buffer`s should have following format:
+    `0x05hello0x05world`, where the first byte is the next protocol
+    name's length. (Passing array should usually be much simpler:
+    `['hello', 'world']`.)
 
   - `servername`: Servername for SNI (Server Name Indication) TLS extension.
 
@@ -387,6 +403,11 @@ Creates a new client connection to the given `port` and `host` (old API) or
     OpenSSL and are defined in the constant [SSL_METHODS][].
 
   - `session`: A `Buffer` instance, containing TLS session.
+
+  - `minDHSize`: Minimum size of DH parameter in bits to accept a TLS
+    connection. When a server offers DH parameter with a size less
+    than this, the TLS connection is destroyed and throws an
+    error. Default: 1024.
 
 The `callback` parameter will be added as a listener for the
 ['secureConnect'][] event.
@@ -449,18 +470,19 @@ Or
 Wrapper for instance of [net.Socket][], replaces internal socket read/write
 routines to perform transparent encryption/decryption of incoming/outgoing data.
 
-## new tls.TLSSocket(socket, options)
+## new tls.TLSSocket(socket[, options])
 
 Construct a new TLSSocket object from existing TCP socket.
 
 `socket` is an instance of [net.Socket][]
 
-`options` is an object that might contain following properties:
+`options` is an optional object that might contain following properties:
 
   - `secureContext`: An optional TLS context object from
      `tls.createSecureContext( ... )`
 
-  - `isServer`: If true - TLS socket will be instantiated in server-mode
+  - `isServer`: If `true` - TLS socket will be instantiated in server-mode.
+    Default: `false`
 
   - `server`: An optional [net.Server][] instance
 
@@ -469,6 +491,8 @@ Construct a new TLSSocket object from existing TCP socket.
   - `rejectUnauthorized`: Optional, see [tls.createSecurePair][]
 
   - `NPNProtocols`: Optional, see [tls.createServer][]
+
+  - `ALPNProtocols`: Optional, see [tls.createServer][]
 
   - `SNICallback`: Optional, see [tls.createServer][]
 
@@ -486,7 +510,10 @@ dictionary with keys:
 
 * `pfx` : A string or buffer holding the PFX or PKCS12 encoded private
   key, certificate and CA certificates
-* `key` : A string holding the PEM encoded private key
+* `key`: A string or `Buffer` containing the private key of the server in
+  PEM format. To support multiple keys using different algorithms, an array
+  can be provided. It can either be a plain array of keys, or an array of
+  objects in the format `{pem: key, passphrase: passphrase}`. (Required)
 * `passphrase` : A string of passphrase for the private key or pfx
 * `cert` : A string holding the PEM encoded certificate
 * `ca` : Either a string or list of strings of PEM encoded CA
@@ -506,7 +533,7 @@ publicly trusted list of CAs as given in
 <http://mxr.mozilla.org/mozilla/source/security/nss/lib/ckfw/builtins/certdata.txt>.
 
 
-## tls.createSecurePair([context][, isServer][, requestCert][, rejectUnauthorized])
+## tls.createSecurePair([context][, isServer][, requestCert][, rejectUnauthorized][, options])
 
 Creates a new secure pair object with two streams, one of which reads/writes
 encrypted data, and one reads/writes cleartext data.
@@ -524,6 +551,8 @@ and the cleartext one is used as a replacement for the initial encrypted stream.
  - `rejectUnauthorized`: A boolean indicating whether a server should
    automatically reject clients with invalid certificates. Only applies to
    servers with `requestCert` enabled.
+
+ - `options`: An object with common SSL options. See [tls.TLSSocket][].
 
 `tls.createSecurePair()` returns a SecurePair object with `cleartext` and
 `encrypted` stream properties.
@@ -563,7 +592,13 @@ server. If `socket.authorized` is false, then
 `socket.authorizationError` is set to describe how authorization
 failed. Implied but worth mentioning: depending on the settings of the TLS
 server, you unauthorized connections may be accepted.
-`socket.npnProtocol` is a string containing selected NPN protocol.
+
+`socket.npnProtocol` is a string containing the selected NPN protocol
+and `socket.alpnProtocol` is a string containing the selected ALPN
+protocol, When both NPN and ALPN extensions are received, ALPN takes
+precedence over NPN and the next protocol is selected by ALPN. When
+ALPN has no selected protocol, this returns false.
+
 `socket.servername` is a string containing servername requested with
 SNI.
 
@@ -603,6 +638,16 @@ perform lookup in external storage using given `sessionId`, and invoke
 NOTE: adding this event listener will have an effect only on connections
 established after addition of event listener.
 
+Here's an example for using TLS session resumption:
+
+    var tlsSessionStore = {};
+    server.on('newSession', function(id, data, cb) {
+      tlsSessionStore[id.toString('hex')] = data;
+      cb();
+    });
+    server.on('resumeSession', function(id, cb) {
+      cb(null, tlsSessionStore[id.toString('hex')] || null);
+    });
 
 ### Event: 'OCSPRequest'
 
@@ -726,8 +771,9 @@ The listener will be called no matter if the server's certificate was
 authorized or not. It is up to the user to test `tlsSocket.authorized`
 to see if the server certificate was signed by one of the specified CAs.
 If `tlsSocket.authorized === false` then the error can be found in
-`tlsSocket.authorizationError`. Also if NPN was used - you can check
-`tlsSocket.npnProtocol` for negotiated protocol.
+`tlsSocket.authorizationError`. Also if ALPN or NPN was used - you can
+check `tlsSocket.alpnProtocol` or `tlsSocket.npnProtocol` for the
+negotiated protocol.
 
 ### Event: 'OCSPResponse'
 
@@ -798,6 +844,19 @@ Example:
 See SSL_CIPHER_get_name() and SSL_CIPHER_get_version() in
 http://www.openssl.org/docs/ssl/ssl.html#DEALING_WITH_CIPHERS for more
 information.
+
+### tlsSocket.getEphemeralKeyInfo()
+
+Returns an object representing a type, name and size of parameter of
+an ephemeral key exchange in [Perfect forward Secrecy][] on a client
+connection. It returns an empty object when the key exchange is not
+ephemeral. As it is only supported on a client socket, it returns null
+if this is called on a server socket. The supported types are 'DH' and
+'ECDH'. The `name` property is only available in 'ECDH'.
+
+Example:
+
+    { type: 'ECDH', name: 'prime256v1', size: 256 }
 
 ### tlsSocket.renegotiate(options, callback)
 
@@ -877,6 +936,7 @@ The numeric representation of the local port.
 [net.Server.address()]: net.html#net_server_address
 ['secureConnect']: #tls_event_secureconnect
 [secureConnection]: #tls_event_secureconnection
+[Perfect Forward Secrecy]: #tls_perfect_forward_secrecy
 [Stream]: stream.html#stream_stream
 [SSL_METHODS]: http://www.openssl.org/docs/ssl/ssl.html#DEALING_WITH_PROTOCOL_METHODS
 [tls.Server]: #tls_class_tls_server

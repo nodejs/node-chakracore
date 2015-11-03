@@ -22,6 +22,8 @@
 
     process.EventEmitter = EventEmitter; // process.EventEmitter is deprecated
 
+    startup.setupProcessObject();
+
     // do this good and early, since it handles errors.
     startup.processFatal();
 
@@ -93,6 +95,24 @@
         process.argv[1] = path.resolve(process.argv[1]);
 
         var Module = NativeModule.require('module');
+
+        // check if user passed `-c` or `--check` arguments to Node.
+        if (process._syntax_check_only != null) {
+          var vm = NativeModule.require('vm');
+          var fs = NativeModule.require('fs');
+          var internalModule = NativeModule.require('internal/module');
+          // read the source
+          var filename = Module._resolveFilename(process.argv[1]);
+          var source = fs.readFileSync(filename, 'utf-8');
+          // remove shebang and BOM
+          source = internalModule.stripBOM(source.replace(/^\#\!.*/, ''));
+          // wrap it
+          source = Module.wrap(source);
+          // compile the script, this will throw if it fails
+          new vm.Script(source, {filename: filename, displayErrors: true});
+          process.exit(0);
+        }
+
         startup.preloadModules();
         if (global.v8debug &&
             process.execArgv.some(function(arg) {
@@ -157,6 +177,15 @@
     }
   }
 
+  startup.setupProcessObject = function() {
+    process._setupProcessObject(setPropByIndex);
+
+    function setPropByIndex() {
+      for (var i = 0; i < arguments.length; i++)
+        this.push(arguments[i]);
+    }
+  };
+
   startup.globalVariables = function() {
     global.process = process;
     global.global = global;
@@ -194,13 +223,6 @@
   };
 
   startup.processFatal = function() {
-    process._makeCallbackAbortOnUncaught = function() {
-      try {
-        return this[1].apply(this[0], arguments);
-      } catch (err) {
-        process._fatalException(err);
-      }
-    };
 
     process._fatalException = function(er) {
       var caught;

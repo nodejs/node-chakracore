@@ -47,9 +47,7 @@ new (process.binding('tty_wrap').TTY)();
 
 crypto.randomBytes(1, noop);
 
-try {
-  fs.unlinkSync(common.PIPE);
-} catch(e) { }
+common.refreshTmpDir();
 
 net.createServer(function(c) {
   c.end();
@@ -75,16 +73,17 @@ process.on('SIGINT', () => process.exit());
 
 // Run from closed net server above.
 function checkTLS() {
-  let options = {
+  const options = {
     key: fs.readFileSync(common.fixturesDir + '/keys/ec-key.pem'),
     cert: fs.readFileSync(common.fixturesDir + '/keys/ec-cert.pem')
   };
-  let server = tls.createServer(options, noop).listen(common.PORT, function() {
-    tls.connect(common.PORT, { rejectUnauthorized: false }, function() {
-      this.destroy();
-      server.close();
+  const server = tls.createServer(options, noop)
+    .listen(common.PORT, function() {
+      tls.connect(common.PORT, { rejectUnauthorized: false }, function() {
+        this.destroy();
+        server.close();
+      });
     });
-  });
 }
 
 zlib.createGzip();
