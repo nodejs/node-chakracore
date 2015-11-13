@@ -78,8 +78,8 @@ if /i "%1"=="intl-none"     set i18n_arg=%1&goto arg-ok
 if /i "%1"=="download-all"  set download_arg="--download=all"&goto arg-ok
 if /i "%1"=="ignore-flaky"  set test_args=%test_args% --flaky-tests=dontcare&goto arg-ok
 if /i "%1"=="v8"            set engine=v8&goto arg-ok
-if /i "%1"=="chakra"        set engine=chakra&goto arg-ok
-if /i "%1"=="chakracore"    set engine=chakracore&goto arg-ok
+if /i "%1"=="chakra"        set engine=chakra&set chakra_jslint=deps\chakrashim\lib&goto arg-ok
+if /i "%1"=="chakracore"    set engine=chakracore&set chakra_jslint=deps\chakrashim\lib&goto arg-ok
 if /i "%1"=="openssl-no-asm" set openssl_no_asm=--openssl-no-asm&goto arg-ok
 if /i "%1"=="sdk"           set sdk=1&goto arg-ok
 
@@ -323,7 +323,7 @@ goto jslint
 :jslint
 if not defined jslint goto exit
 echo running jslint
-%config%\node tools\eslint\bin\eslint.js src lib test tools\eslint-rules --rulesdir tools\eslint-rules --reset --quiet
+%config%\node tools\eslint\bin\eslint.js src lib test %chakra_jslint% tools\eslint-rules --rulesdir tools\eslint-rules --reset --quiet
 goto exit
 
 :create-msvs-files-failed

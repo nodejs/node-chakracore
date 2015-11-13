@@ -17,8 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
-
-(function () {
+'use strict';
+(function() {
   // Save original builtIns
   var Object_defineProperty = Object.defineProperty,
       Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
@@ -39,18 +39,18 @@
   }
 
   StackFrame.prototype.getFunctionName = function() {
-      return this.functionName;
+    return this.functionName;
   };
 
-  StackFrame.prototype.getFileName = function () {
-      return this.scriptName;
+  StackFrame.prototype.getFileName = function() {
+    return this.scriptName;
   };
 
   StackFrame.prototype.getLineNumber = function() {
     return this.lineNumber;
   };
 
-  StackFrame.prototype.getColumnNumber = function () {
+  StackFrame.prototype.getColumnNumber = function() {
     return this.column;
   };
 
@@ -59,7 +59,7 @@
     return false;
   };
 
-  StackFrame.prototype.toString = function () {
+  StackFrame.prototype.toString = function() {
     return (this.functionName || 'Anonymous function') + ' (' +
       this.scriptName + ':' + this.lineNumber + ':' + this.column + ')';
   };
@@ -149,7 +149,7 @@
 
   function captureStackTrace(err, func) {
     var currentStack;
-    try { throw new Error; } catch (e) { currentStack = e.stack; }
+    try { throw new Error(); } catch (e) { currentStack = e.stack; }
     var isPrepared = false;
     var skipDepth = func ? findFuncDepth(func) : 0;
 
@@ -162,7 +162,7 @@
     }
 
     Object_defineProperty(err, 'stack', {
-      get: function () {
+      get: function() {
         if (isPrepared) {
           return currentStack;
         }
@@ -175,7 +175,7 @@
         isPrepared = true;
         return currentStack;
       },
-      set: function (value) {
+      set: function(value) {
         currentStack = value;
         isPrepared = true;
       },
@@ -190,40 +190,42 @@
     Error.captureStackTrace = captureStackTrace;
   }
 
-  var mapIteratorSym = Symbol('MapIterator');
+  var mapIteratorProperty = 'MapIteratorIndicator';
   function patchMapIterator() {
     var originalMapMethods = [];
     originalMapMethods.push(['entries', Map_entries]);
     originalMapMethods.push(['values', Map_values]);
     originalMapMethods.push(['keys', Map_keys]);
 
-    originalMapMethods.forEach(function (pair) {
-      Map.prototype[pair[0]] = function () {
+    originalMapMethods.forEach(function(pair) {
+      Map.prototype[pair[0]] = function() {
         var result = pair[1].apply(this);
-        Object_defineProperty(result, mapIteratorSym, { value: true, enumerable: false, writable: false });
+        Object_defineProperty(result, mapIteratorProperty,
+          { value: true, enumerable: false, writable: false });
         return result;
-      }
+      };
     });
   }
- 
-  var setIteratorSym = Symbol('SetIterator');
+
+  var setIteratorProperty = 'SetIteratorIndicator';
   function patchSetIterator() {
     var originalSetMethods = [];
     originalSetMethods.push(['entries', Set_entries]);
     originalSetMethods.push(['values', Set_values]);
 
-    originalSetMethods.forEach(function (pair) {
-      Set.prototype[pair[0]] = function () {
+    originalSetMethods.forEach(function(pair) {
+      Set.prototype[pair[0]] = function() {
         var result = pair[1].apply(this);
-        Object_defineProperty(result, setIteratorSym, { value: true, enumerable: false, writable: false });
+        Object_defineProperty(result, setIteratorProperty,
+          { value: true, enumerable: false, writable: false });
         return result;
-      }
+      };
     });
   }
 
   function patchUtils(utils) {
     var isUintRegex = /^(0|[1-9]\\d*)$/;
-   
+
     var isUint = function(value) {
       var result = isUintRegex.test(value);
       isUintRegex.lastIndex = 0;
@@ -242,7 +244,7 @@
     };
     utils.getPropertyNames = function(a) {
       var names = [];
-      for(var propertyName in a) {
+      for (var propertyName in a) {
         names.push(propertyName);
       }
       return names;
@@ -268,8 +270,8 @@
       return {
         next: function() {
           if (i === props.length)
-            return { done: true }
-          return { value : props[i++] };
+            return { done: true };
+          return { value: props[i++] };
         }
       };
     };
@@ -277,8 +279,8 @@
       var i = 0;
       return {
         next: function() {
-          if (i === props.length) return { done: true }
-          return { name : props[i++], enumerable : true };
+          if (i === props.length) return { done: true };
+          return { name: props[i++], enumerable: true };
         }
       };
     };
@@ -298,15 +300,15 @@
       });
       return props;
     };
-    utils.getStackTrace = function () {
+    utils.getStackTrace = function() {
       return captureStackTrace({}, utils.getStackTrace)();
     };
-    utils.isMapIterator = function (value) {
-      return value[mapIteratorSym] == true;
-    }
-    utils.isSetIterator = function (value) {
-      return value[setIteratorSym] == true;
-    }
+    utils.isMapIterator = function(value) {
+      return value[mapIteratorProperty] == true;
+    };
+    utils.isSetIterator = function(value) {
+      return value[setIteratorProperty] == true;
+    };
   }
 
   // patch console
@@ -320,4 +322,4 @@
 
   // this is the keepAlive object that we will put some utilities function on
   patchUtils(this);
-})
+});
