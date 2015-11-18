@@ -359,7 +359,7 @@
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
         }],
-        ['node_engine=="chakra" or node_engine=="chakracore"', {
+        ['node_engine=="chakracore"', {
           'include_dirs': [
             'deps/chakrashim' # include/v8_platform.h
           ],
@@ -683,7 +683,7 @@
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
         }],
-        ['node_engine=="chakra" or node_engine=="chakracore"', {
+        ['node_engine=="chakracore"', {
           'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
         }],
       ],

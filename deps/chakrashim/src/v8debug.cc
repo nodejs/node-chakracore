@@ -30,7 +30,7 @@ static JsContextRef g_debugContext = JS_INVALID_REFERENCE;
 bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
   HRESULT hr = S_OK;
 
-#ifdef NODE_ENGINE_CHAKRA
+#ifndef NODE_ENGINE_CHAKRACORE
   if (!g_EnableDebug) {
     // JsStartDebugging needs COM initialization
     IfComFailError(CoInitializeEx(nullptr, COINIT_MULTITHREADED));

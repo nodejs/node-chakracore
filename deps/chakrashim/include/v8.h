@@ -32,7 +32,7 @@
 #define _WINSOCKAPI_
 #endif
 
-#if defined(NODE_ENGINE_CHAKRA) || defined(_M_ARM)
+#if defined(_M_ARM)
 #define CHAKRA_MIN_WIN32_WINNT _WIN32_WINNT_WIN10
 #define CHAKRA_MIN_WIN32_WINNT_STR "_WIN32_WINNT_WIN10"
 #else
@@ -55,15 +55,7 @@
 #define USE_EDGEMODE_JSRT     // Only works with edge JSRT
 #endif
 
-#ifdef NODE_ENGINE_CHAKRA
-#include <jsrt.h>
-#else
 #include "chakracore.h"
-#endif
-
-#if (defined(NODE_ENGINE_CHAKRA) && !defined(_CHAKRART_H_))
-#error Wrong Windows SDK version
-#endif
 
 #include <stdio.h>
 #include <stdint.h>

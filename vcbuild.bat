@@ -39,9 +39,6 @@ set release_urls_arg=
 set build_release=
 set engine=v8
 set openssl_no_asm=
-set sdk=
-set sdk_target_arch=
-set save_release=
 
 :next-arg
 if "%1"=="" goto args-done
@@ -78,10 +75,8 @@ if /i "%1"=="intl-none"     set i18n_arg=%1&goto arg-ok
 if /i "%1"=="download-all"  set download_arg="--download=all"&goto arg-ok
 if /i "%1"=="ignore-flaky"  set test_args=%test_args% --flaky-tests=dontcare&goto arg-ok
 if /i "%1"=="v8"            set engine=v8&goto arg-ok
-if /i "%1"=="chakra"        set engine=chakra&set chakra_jslint=deps\chakrashim\lib&goto arg-ok
 if /i "%1"=="chakracore"    set engine=chakracore&set chakra_jslint=deps\chakrashim\lib&goto arg-ok
 if /i "%1"=="openssl-no-asm" set openssl_no_asm=--openssl-no-asm&goto arg-ok
-if /i "%1"=="sdk"           set sdk=1&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
 
@@ -104,22 +99,6 @@ if "%target_arch%"=="arm" (
     if not "%openssl_no_asm%"=="--openssl-no-asm" goto arm-requires-openssl-no-asm
 )
 
-if defined sdk (
-  if "%target_arch%"=="x86" (
-    @rem gyp target_arch and process.arch are still ia32
-    set sdk_target_arch=ia32
-  ) else (
-    set sdk_target_arch=%target_arch%
-  )
-
-  if not defined msi (
-    set save_release=1
-  ) else (
-    set noprojgen=1
-    set nobuild=1
-  )
-)
-
 if "%config%"=="Debug" set debug_arg=--debug
 if defined nosnapshot set snapshot_arg=--without-snapshot
 if defined noetw set noetw_arg=--without-etw& set noetw_msi_arg=/p:NoETW=1
@@ -129,11 +108,6 @@ if defined RELEASE_URLBASE set release_urlbase_arg=--release-urlbase=%RELEASE_UR
 if "%i18n_arg%"=="full-icu" set i18n_arg=--with-intl=full-icu
 if "%i18n_arg%"=="small-icu" set i18n_arg=--with-intl=small-icu
 if "%i18n_arg%"=="intl-none" set i18n_arg=--with-intl=none
-
-if defined NODE_VERSION_TAG (
-    set DISTTYPE=custom
-    set CUSTOMTAG=%NODE_VERSION_TAG%
-)
 
 if not exist "%~dp0deps\icu" goto no-depsicu
 if "%target%"=="Clean" echo deleting %~dp0deps\icu
@@ -220,27 +194,10 @@ if "%target%" == "Clean" goto exit
 
 :sign
 @rem Skip signing if the `nosign` option was specified.
-if defined nosign goto save_release
-@rem Also skip signing if building msi with sdk
-if defined sdk if defined msi goto save_release
+if defined nosign goto licensertf
 
 signtool sign /a /d "node" /t http://timestamp.globalsign.com/scripts/timestamp.dll Release\node.exe
 if errorlevel 1 echo Failed to sign exe&goto exit
-
-:save_release
-@rem Save a copy of .exe/.lib for release
-if not defined save_release goto licensertf
-
-set engine_files=
-set engine_libs=
-if "%engine%"=="chakracore" (
-  set engine_files=chakracore.dll chakracore.pdb
-  set engine_libs=chakracore.lib
-)
-robocopy "%~dp0%config%" "%~dp0%config%\%sdk_target_arch%" node.exe node.pdb %engine_files%
-if errorlevel 8 echo Failed to save built binaries&goto exit
-robocopy "%~dp0%config%" "%~dp0%config%\sdk\%sdk_target_arch%" node.lib %engine_libs%
-if errorlevel 8 echo Failed to save libs&goto exit
 
 :licensertf
 @rem Skip license.rtf generation if not requested.
@@ -254,31 +211,12 @@ if errorlevel 1 echo Failed to generate license.rtf&goto exit
 if not defined msi goto run
 
 :msibuild
-if defined NODE_VERSION_TAG (
-  set NODE_FULL_VERSION=%NODE_VERSION%.%NODE_VERSION_TAG%
-) else (
-  set NODE_FULL_VERSION=%NODE_VERSION%
-)
-if not defined sdk (
-  set NODE_NAME=Node.js
-  set NODE_SHORTNAME=nodejs
-  set NODE_MSIOUTPUT=node-v%FULLVERSION%-%target_arch%
-) else (
-  if "%engine%"=="chakra" (
-    set NODE_NAME=Node.js (%engine% next^)
-    set NODE_SHORTNAME=nodejs (%engine% next^)
-  ) else (
-    set NODE_NAME=Node.js (%engine%^)
-    set NODE_SHORTNAME=nodejs (%engine%^)
-  )
-  set NODE_MSIOUTPUT=node-%engine%-v%FULLVERSION%-%target_arch%
-)
-echo Building %NODE_MSIOUTPUT%
-msbuild "%~dp0tools\msvs\msi\nodemsi.sln" /m /t:Clean,Build /p:PlatformToolset=%PLATFORM_TOOLSET% /p:GypMsvsVersion=%GYP_MSVS_VERSION% /p:Configuration=%config% /p:Platform=%target_arch% /p:SdkTargetArch=%sdk_target_arch% /p:NodeMsiOutput="%NODE_MSIOUTPUT%" /p:NodeEngine=%engine% /p:NodeName="%NODE_NAME%" /p:NodeShortName="%NODE_SHORTNAME%" /p:NodeUseSdk=%sdk% /p:NodeFullVersion=%NODE_FULL_VERSION% /p:NodeVersion=%NODE_VERSION% /p:FullVersion=%FULLVERSION% /p:DistTypeDir=%DISTTYPEDIR% %noetw_msi_arg% %noperfctr_msi_arg% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
+echo Building node-v%FULLVERSION%-%target_arch%.msi
+msbuild "%~dp0tools\msvs\msi\nodemsi.sln" /m /t:Clean,Build /p:PlatformToolset=%PLATFORM_TOOLSET% /p:GypMsvsVersion=%GYP_MSVS_VERSION% /p:Configuration=%config% /p:Platform=%target_arch% /p:NodeVersion=%NODE_VERSION% /p:FullVersion=%FULLVERSION% /p:DistTypeDir=%DISTTYPEDIR% %noetw_msi_arg% %noperfctr_msi_arg% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
 
 if defined nosign goto upload
-signtool sign /a /d "node" /t http://timestamp.globalsign.com/scripts/timestamp.dll "%NODE_MSIOUTPUT%.msi"
+signtool sign /a /d "node" /t http://timestamp.globalsign.com/scripts/timestamp.dll node-v%FULLVERSION%-%target_arch%.msi
 if errorlevel 1 echo Failed to sign msi&goto exit
 
 :upload

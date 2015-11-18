@@ -112,7 +112,7 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
 }
 
 bool V8::Initialize() {
-#ifdef NODE_ENGINE_CHAKRA
+#ifndef NODE_ENGINE_CHAKRACORE
   if (g_EnableDebug && JsStartDebugging() != JsNoError) {
     return false;
   }

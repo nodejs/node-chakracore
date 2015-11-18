@@ -3394,7 +3394,7 @@ static void StartDebug(Environment* env, bool wait) {
 
   env->debugger_agent()->set_dispatch_handler(
         DispatchMessagesDebugAgentCallback);
-#if defined(NODE_ENGINE_CHAKRA) || defined(NODE_ENGINE_CHAKRACORE)
+#if defined(NODE_ENGINE_CHAKRACORE)
     // ChakraShim does not support debugger_agent
     debugger_running = v8::Debug::EnableAgent();
 #else
