@@ -137,6 +137,8 @@ template class SSLWrap<TLSWrap>;
 template void SSLWrap<TLSWrap>::AddMethods(Environment* env,
                                            Local<FunctionTemplate> t);
 template void SSLWrap<TLSWrap>::InitNPN(SecureContext* sc);
+template void SSLWrap<TLSWrap>::SetSNIContext(SecureContext* sc);
+template int SSLWrap<TLSWrap>::SetCACerts(SecureContext* sc);
 template SSL_SESSION* SSLWrap<TLSWrap>::GetSessionCallback(
     SSL* s,
     unsigned char* key,
@@ -2264,6 +2266,8 @@ void SSLWrap<Base>::CertCbDone(const FunctionCallbackInfo<Value>& args) {
       rv = SSL_use_PrivateKey(w->ssl_, pkey);
     if (rv && chain != nullptr)
       rv = SSL_set1_chain(w->ssl_, chain);
+    if (rv)
+      rv = w->SetCACerts(sc);
     if (!rv) {
       unsigned long err = ERR_get_error();
       if (!err)
@@ -2311,6 +2315,30 @@ void SSLWrap<Base>::DestroySSL() {
   SSL_free(ssl_);
   env_->isolate()->AdjustAmountOfExternalAllocatedMemory(-kExternalSize);
   ssl_ = nullptr;
+}
+
+
+template <class Base>
+void SSLWrap<Base>::SetSNIContext(SecureContext* sc) {
+  InitNPN(sc);
+  CHECK_EQ(SSL_set_SSL_CTX(ssl_, sc->ctx_), sc->ctx_);
+
+  SetCACerts(sc);
+}
+
+
+template <class Base>
+int SSLWrap<Base>::SetCACerts(SecureContext* sc) {
+  int err = SSL_set1_verify_cert_store(ssl_, SSL_CTX_get_cert_store(sc->ctx_));
+  if (err != 1)
+    return err;
+
+  STACK_OF(X509_NAME)* list = SSL_dup_CA_list(
+      SSL_CTX_get_client_CA_list(sc->ctx_));
+
+  // NOTE: `SSL_set_client_CA_list` takes the ownership of `list`
+  SSL_set_client_CA_list(ssl_, list);
+  return 1;
 }
 
 
@@ -2627,8 +2655,7 @@ int Connection::SelectSNIContextCallback_(SSL *s, int *ad, void* arg) {
       if (secure_context_constructor_template->HasInstance(ret)) {
         conn->sni_context_.Reset(env->isolate(), ret);
         SecureContext* sc = Unwrap<SecureContext>(ret.As<Object>());
-        InitNPN(sc);
-        SSL_set_SSL_CTX(s, sc->ctx_);
+        conn->SetSNIContext(sc);
       } else {
         return SSL_TLSEXT_ERR_NOACK;
       }
@@ -3394,10 +3421,14 @@ void Hmac::HmacInit(const char* hash_type, const char* key, int key_len) {
     return env()->ThrowError("Unknown message digest");
   }
   HMAC_CTX_init(&ctx_);
+  int result = 0;
   if (key_len == 0) {
-    HMAC_Init(&ctx_, "", 0, md_);
+    result = HMAC_Init(&ctx_, "", 0, md_);
   } else {
-    HMAC_Init(&ctx_, key, key_len, md_);
+    result = HMAC_Init(&ctx_, key, key_len, md_);
+  }
+  if (!result) {
+    return ThrowCryptoError(env(), ERR_get_error());
   }
   initialised_ = true;
 }
@@ -3518,7 +3549,8 @@ void Hash::New(const FunctionCallbackInfo<Value>& args) {
 
   Hash* hash = new Hash(env, args.This());
   if (!hash->HashInit(*hash_type)) {
-    return env->ThrowError("Digest method not supported");
+    return ThrowCryptoError(env, ERR_get_error(),
+                            "Digest method not supported");
   }
 }
 
@@ -3530,6 +3562,9 @@ bool Hash::HashInit(const char* hash_type) {
     return false;
   EVP_MD_CTX_init(&mdctx_);
   EVP_DigestInit_ex(&mdctx_, md_, nullptr);
+  if (0 != ERR_peek_error()) {
+    return false;
+  }
   initialised_ = true;
   return true;
 }
@@ -3745,6 +3780,29 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
   // cf. the test of `test_bad_rsa_privkey.pem` for an example.
   if (pkey == nullptr || 0 != ERR_peek_error())
     goto exit;
+
+#ifdef NODE_FIPS_MODE
+  /* Validate DSA2 parameters from FIPS 186-4 */
+  if (EVP_PKEY_DSA == pkey->type) {
+    size_t L = BN_num_bits(pkey->pkey.dsa->p);
+    size_t N = BN_num_bits(pkey->pkey.dsa->q);
+    bool result = false;
+
+    if (L == 1024 && N == 160)
+      result = true;
+    else if (L == 2048 && N == 224)
+      result = true;
+    else if (L == 2048 && N == 256)
+      result = true;
+    else if (L == 3072 && N == 256)
+      result = true;
+
+    if (!result) {
+      fatal = true;
+      goto exit;
+    }
+  }
+#endif  // NODE_FIPS_MODE
 
   if (EVP_SignFinal(&mdctx_, *sig, sig_len, pkey))
     fatal = false;
@@ -4211,7 +4269,8 @@ void DiffieHellman::Initialize(Environment* env, Local<Object> target) {
 
 bool DiffieHellman::Init(int primeLength, int g) {
   dh = DH_new();
-  DH_generate_parameters_ex(dh, primeLength, g, 0);
+  if (!DH_generate_parameters_ex(dh, primeLength, g, 0))
+    return false;
   bool result = VerifyContext();
   if (!result)
     return false;
@@ -4304,7 +4363,7 @@ void DiffieHellman::New(const FunctionCallbackInfo<Value>& args) {
   }
 
   if (!initialized) {
-    return env->ThrowError("Initialization failed");
+    return ThrowCryptoError(env, ERR_get_error(), "Initialization failed");
   }
 }
 
@@ -4315,11 +4374,11 @@ void DiffieHellman::GenerateKeys(const FunctionCallbackInfo<Value>& args) {
   DiffieHellman* diffieHellman = Unwrap<DiffieHellman>(args.Holder());
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   if (!DH_generate_key(diffieHellman->dh)) {
-    return env->ThrowError("Key generation failed");
+    return ThrowCryptoError(env, ERR_get_error(), "Key generation failed");
   }
 
   int dataSize = BN_num_bytes(diffieHellman->dh->pub_key);
@@ -4338,7 +4397,7 @@ void DiffieHellman::GetPrime(const FunctionCallbackInfo<Value>& args) {
   DiffieHellman* diffieHellman = Unwrap<DiffieHellman>(args.Holder());
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   int dataSize = BN_num_bytes(diffieHellman->dh->p);
@@ -4356,7 +4415,7 @@ void DiffieHellman::GetGenerator(const FunctionCallbackInfo<Value>& args) {
   DiffieHellman* diffieHellman = Unwrap<DiffieHellman>(args.Holder());
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   int dataSize = BN_num_bytes(diffieHellman->dh->g);
@@ -4374,7 +4433,7 @@ void DiffieHellman::GetPublicKey(const FunctionCallbackInfo<Value>& args) {
   DiffieHellman* diffieHellman = Unwrap<DiffieHellman>(args.Holder());
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   if (diffieHellman->dh->pub_key == nullptr) {
@@ -4397,7 +4456,7 @@ void DiffieHellman::GetPrivateKey(const FunctionCallbackInfo<Value>& args) {
   DiffieHellman* diffieHellman = Unwrap<DiffieHellman>(args.Holder());
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   if (diffieHellman->dh->priv_key == nullptr) {
@@ -4420,7 +4479,7 @@ void DiffieHellman::ComputeSecret(const FunctionCallbackInfo<Value>& args) {
   DiffieHellman* diffieHellman = Unwrap<DiffieHellman>(args.Holder());
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   ClearErrorOnReturn clear_error_on_return;
@@ -4453,7 +4512,7 @@ void DiffieHellman::ComputeSecret(const FunctionCallbackInfo<Value>& args) {
     delete[] data;
 
     if (!checked) {
-      return env->ThrowError("Invalid key");
+      return ThrowCryptoError(env, ERR_get_error(), "Invalid Key");
     } else if (checkResult) {
       if (checkResult & DH_CHECK_PUBKEY_TOO_SMALL) {
         return env->ThrowError("Supplied key is too small");
@@ -4490,7 +4549,7 @@ void DiffieHellman::SetPublicKey(const FunctionCallbackInfo<Value>& args) {
   Environment* env = diffieHellman->env();
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   if (args.Length() == 0) {
@@ -4509,7 +4568,7 @@ void DiffieHellman::SetPrivateKey(const FunctionCallbackInfo<Value>& args) {
   Environment* env = diffieHellman->env();
 
   if (!diffieHellman->initialised_) {
-    return env->ThrowError("Not initialized");
+    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
   }
 
   if (args.Length() == 0) {
@@ -4531,7 +4590,8 @@ void DiffieHellman::VerifyErrorGetter(Local<String> property,
   DiffieHellman* diffieHellman = Unwrap<DiffieHellman>(args.Holder());
 
   if (!diffieHellman->initialised_)
-    return diffieHellman->env()->ThrowError("Not initialized");
+    return ThrowCryptoError(diffieHellman->env(), ERR_get_error(),
+                            "Not initialized");
 
   args.GetReturnValue().Set(diffieHellman->verifyError_);
 }

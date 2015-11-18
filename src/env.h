@@ -236,6 +236,7 @@ namespace node {
   V(async_hooks_init_function, v8::Function)                                  \
   V(async_hooks_pre_function, v8::Function)                                   \
   V(async_hooks_post_function, v8::Function)                                  \
+  V(async_hooks_destroy_function, v8::Function)                               \
   V(binding_cache_object, v8::Object)                                         \
   V(buffer_constructor_function, v8::Function)                                \
   V(buffer_prototype_object, v8::Object)                                      \
@@ -446,6 +447,8 @@ class Environment {
   void PrintSyncTrace() const;
   inline void set_trace_sync_io(bool value);
 
+  inline int64_t get_async_wrap_uid();
+
   bool KickNextTick();
 
   inline uint32_t* heap_statistics_buffer() const;
@@ -541,6 +544,7 @@ class Environment {
   bool using_domains_;
   bool printed_error_;
   bool trace_sync_io_;
+  int64_t async_wrap_uid_;
   debugger::Agent debugger_agent_;
 
   HandleWrapQueue handle_wrap_queue_;

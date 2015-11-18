@@ -137,9 +137,17 @@ Object.defineProperty(exports, 'opensslCli', {get: function() {
   return opensslCli;
 }, enumerable: true });
 
-Object.defineProperty(exports, 'hasCrypto', {get: function() {
-  return process.versions.openssl ? true : false;
-}});
+Object.defineProperty(exports, 'hasCrypto', {
+  get: function() {
+    return process.versions.openssl ? true : false;
+  }
+});
+
+Object.defineProperty(exports, 'hasFipsCrypto', {
+  get: function() {
+    return process.config.variables.openssl_fips ? true : false;
+  }
+});
 
 if (exports.isWindows) {
   exports.PIPE = '\\\\.\\pipe\\libuv-test';
@@ -370,11 +378,6 @@ exports.mustCall = function(fn, expected) {
     context.actual++;
     return fn.apply(this, arguments);
   };
-};
-
-exports.checkSpawnSyncRet = function(ret) {
-  assert.strictEqual(ret.status, 0);
-  assert.strictEqual(ret.error, undefined);
 };
 
 var etcServicesFileName = path.join('/etc', 'services');

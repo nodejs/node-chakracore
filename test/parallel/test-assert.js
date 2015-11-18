@@ -438,7 +438,8 @@ function testBlockTypeError(method, block) {
     method(block);
     threw = false;
   } catch (e) {
-    assert.equal(e.toString(), 'TypeError: block must be a function');
+    assert.equal(e.toString(),
+                 'TypeError: "block" argument must be a function');
   }
 
   assert.ok(threw);
@@ -465,6 +466,6 @@ testBlockTypeError(assert.doesNotThrow, undefined);
 
 // https://github.com/nodejs/node/issues/3275
 assert.throws(() => { throw 'error'; }, err => err === 'error');
-assert.throws(() => { throw Error(); }, err => err instanceof Error);
+assert.throws(() => { throw new Error(); }, err => err instanceof Error);
 
 console.log('All OK');
