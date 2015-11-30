@@ -223,6 +223,12 @@ JsErrorCode IsValueMapIterator(JsValueRef value,
 JsErrorCode IsValueSetIterator(JsValueRef value,
                                JsValueRef *resultRef);
 
+JsValueRef CALLBACK CollectGarbage(JsValueRef callee,
+                                   bool isConstructCall,
+                                   JsValueRef *arguments,
+                                   unsigned short argumentCount,
+                                   void *callbackState);
+
 // the possible values for the property descriptor options
 enum PropertyDescriptorOptionValues {
   True,
@@ -423,33 +429,3 @@ inline JsErrorCode ValueToDoubleLikely(JsValueRef value, double* dblValue) {
 }
 }  // namespace jsrt
 
-// For TH + next machines, use dynamically loaded chakra procs
-#ifndef JSRT_HAS_NEW_APIs
-#define JsGetContextOfObject JsGetContextOfObject_Indirect
-#define JsGetContextData JsGetContextData_Indirect
-#define JsSetContextData JsSetContextData_Indirect
-#define JsInstanceOf JsInstanceOf_Indirect
-#define JsGetTypedArrayInfo JsGetTypedArrayInfo_Indirect
-#define JsCreateExternalArrayBuffer JsCreateExternalArrayBuffer_Indirect
-
-JsErrorCode JsGetContextOfObject(JsValueRef object,
-                                 JsContextRef *context);
-JsErrorCode JsGetContextData(JsContextRef context,
-                             void **data);
-JsErrorCode JsSetContextData(JsContextRef context,
-                             void *data);
-JsErrorCode JsInstanceOf(JsValueRef object,
-                         JsValueRef constructor,
-                         bool *result);
-JsErrorCode JsGetTypedArrayInfo(JsValueRef object,
-                                JsTypedArrayType *arrayType,
-                                JsValueRef *arrayBuffer,
-                                unsigned int *byteOffset,
-                                unsigned int *byteLength);
-JsErrorCode JsCreateExternalArrayBuffer(void *data,
-                                        unsigned int byteLength,
-                                        JsFinalizeCallback finalizeCallback,
-                                        void *callbackState,
-                                        JsValueRef *result);
-#define JsRuntimeAttributeEnableExperimentalFeatures 0x00000020
-#endif
