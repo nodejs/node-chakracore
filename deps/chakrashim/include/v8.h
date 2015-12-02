@@ -778,7 +778,7 @@ class ScriptOrigin {
       resource_name_(resource_name),
       resource_line_offset_(resource_line_offset),
       resource_column_offset_(resource_column_offset) {}
-  Handle<Value> ResourceName() const {
+  Local<Value> ResourceName() const {
     return resource_name_;
   }
   Local<Integer> ResourceLineOffset() const {
@@ -788,7 +788,7 @@ class ScriptOrigin {
     return resource_column_offset_;
   }
  private:
-  Handle<Value> resource_name_;
+  Local<Value> resource_name_;
   Local<Integer> resource_line_offset_;
   Local<Integer> resource_column_offset_;
 };

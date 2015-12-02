@@ -18,6 +18,12 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 'use strict';
+
+// CHAKRA-TODO doesn't implement the debugger. So add a dummy 'Debug' on
+// global object for now.
+Object.defineProperty(this, 'Debug',
+     { value: {}, enumerable: false, configurable: false, writable: false });
+
 (function() {
   // Save original builtIns
   var Object_defineProperty = Object.defineProperty,
