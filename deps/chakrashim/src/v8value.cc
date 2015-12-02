@@ -258,29 +258,16 @@ MaybeLocal<Integer> Value::ToInteger(Local<Context> context) const {
   }
   double doubleValue = maybe.FromJust();
 
-  // If this is Infinity, return number as it is.
-  if (isinf(doubleValue)) {
-    // v8::Integer::Cast hits assert since the number is not a valid Int32, but
-    // still want to return Integer to align with v8. Hence directly cast to
-    // Integer here.
-    return Local<Integer>(
-      reinterpret_cast<Integer*>(const_cast<Value*>(this)));
-  }
-
-  // return 0 if this is NaN.
-  if (doubleValue != doubleValue) {
-    return Integer::New(nullptr, 0);
-  }
-
-  int64_t value = static_cast<int64_t>(doubleValue);
+  double value = isfinite(doubleValue) ? trunc(doubleValue) :
+                  (isnan(doubleValue) ? 0 : doubleValue);
   int intValue = static_cast<int>(value);
-
-  if (value == static_cast<int64_t>(intValue)) {
+  if (value == intValue) {
     return Integer::New(nullptr, intValue);
   }
 
-  // does not fit int, use double
-  return Number::New(nullptr, value).As<Integer>();
+  Value* result = value == doubleValue ?
+                    const_cast<Value*>(this) : *Number::New(nullptr, value);
+  return Local<Integer>(reinterpret_cast<Integer*>(result));
 }
 
 MaybeLocal<Uint32> Value::ToUint32(Local<Context> context) const {
