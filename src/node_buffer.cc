@@ -477,10 +477,11 @@ void StringSlice<UCS2>(const FunctionCallbackInfo<Value>& args) {
   // need to reorder on BE platforms.  See http://nodejs.org/api/buffer.html
   // regarding Node's "ucs2" encoding specification.
   const bool aligned = (reinterpret_cast<uintptr_t>(data) % sizeof(*buf) == 0);
-  if (IsLittleEndian() && aligned) {
-    buf = reinterpret_cast<const uint16_t*>(data);
-  } else {
+  if (IsLittleEndian() && !aligned) {
     // Make a copy to avoid unaligned accesses in v8::String::NewFromTwoByte().
+    // This applies ONLY to little endian platforms, as misalignment will be
+    // handled by a byte-swapping operation in StringBytes::Encode on
+    // big endian platforms.
     uint16_t* copy = new uint16_t[length];
     for (size_t i = 0, k = 0; i < length; i += 1, k += 2) {
       // Assumes that the input is little endian.
@@ -490,6 +491,8 @@ void StringSlice<UCS2>(const FunctionCallbackInfo<Value>& args) {
     }
     buf = copy;
     release = true;
+  } else {
+    buf = reinterpret_cast<const uint16_t*>(data);
   }
 
   args.GetReturnValue().Set(StringBytes::Encode(env->isolate(), buf, length));
@@ -730,14 +733,36 @@ void ReadDoubleBE(const FunctionCallbackInfo<Value>& args) {
 
 
 template <typename T, enum Endianness endianness>
-uint32_t WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
-  SPREAD_ARG(args[0], ts_obj);
+void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
 
-  T val = args[1]->NumberValue();
-  uint32_t offset = args[2]->Uint32Value();
+  bool should_assert = args.Length() < 4;
+
+  if (should_assert) {
+    THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
+  }
+
+  Local<Uint8Array> ts_obj = args[0].As<Uint8Array>();
+  ArrayBuffer::Contents ts_obj_c = ts_obj->Buffer()->GetContents();
+  const size_t ts_obj_offset = ts_obj->ByteOffset();
+  const size_t ts_obj_length = ts_obj->ByteLength();
+  char* const ts_obj_data =
+      static_cast<char*>(ts_obj_c.Data()) + ts_obj_offset;
+  if (ts_obj_length > 0)
+    CHECK_NE(ts_obj_data, nullptr);
+
+  T val = args[1]->NumberValue(env->context()).FromMaybe(0);
+  size_t offset = args[2]->IntegerValue(env->context()).FromMaybe(0);
+
   size_t memcpy_num = sizeof(T);
   if (offset + sizeof(T) > ts_obj_length)
     memcpy_num = ts_obj_length - offset;
+
+  if (should_assert) {
+    CHECK_NOT_OOB(offset + memcpy_num >= memcpy_num);
+    CHECK_NOT_OOB(offset + memcpy_num <= ts_obj_length);
+  }
+  CHECK_LE(offset + memcpy_num, ts_obj_length);
 
   union NoAlias {
     T val;
@@ -749,31 +774,26 @@ uint32_t WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   if (endianness != GetEndianness())
     Swizzle(na.bytes, sizeof(na.bytes));
   memcpy(ptr, na.bytes, memcpy_num);
-  return offset + memcpy_num;
 }
 
 
 void WriteFloatLE(const FunctionCallbackInfo<Value>& args) {
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  args.GetReturnValue().Set(WriteFloatGeneric<float, kLittleEndian>(args));
+  WriteFloatGeneric<float, kLittleEndian>(args);
 }
 
 
 void WriteFloatBE(const FunctionCallbackInfo<Value>& args) {
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  args.GetReturnValue().Set(WriteFloatGeneric<float, kBigEndian>(args));
+  WriteFloatGeneric<float, kBigEndian>(args);
 }
 
 
 void WriteDoubleLE(const FunctionCallbackInfo<Value>& args) {
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  args.GetReturnValue().Set(WriteFloatGeneric<double, kLittleEndian>(args));
+  WriteFloatGeneric<double, kLittleEndian>(args);
 }
 
 
 void WriteDoubleBE(const FunctionCallbackInfo<Value>& args) {
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  args.GetReturnValue().Set(WriteFloatGeneric<double, kBigEndian>(args));
+  WriteFloatGeneric<double, kBigEndian>(args);
 }
 
 

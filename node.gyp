@@ -12,6 +12,7 @@
     'node_use_openssl%': 'true',
     'node_shared_openssl%': 'false',
     'node_v8_options%': '',
+    'node_enable_v8_vtunejit%': 'false',
     'node_target_type%': 'executable',
     'node_engine%': 'v8',
     'node_core_target_name%': 'node',
@@ -74,6 +75,7 @@
       'lib/internal/freelist.js',
       'lib/internal/linkedlist.js',
       'lib/internal/module.js',
+      'lib/internal/readline.js',
       'lib/internal/repl.js',
       'lib/internal/socket_list.js',
       'lib/internal/util.js',
@@ -217,6 +219,13 @@
             [ 'icu_small=="true"', {
               'defines': [ 'NODE_HAVE_SMALL_ICU=1' ],
           }]],
+        }],
+        [ 'node_enable_v8_vtunejit=="true" and (target_arch=="x64" or \
+           target_arch=="ia32" or target_arch=="x32")', {
+          'defines': [ 'NODE_ENABLE_VTUNE_PROFILING' ],
+          'dependencies': [
+            'deps/v8/src/third_party/vtune/v8vtune.gyp:v8_vtune'
+          ],
         }],
         [ 'node_use_openssl=="true"', {
           'defines': [ 'HAVE_OPENSSL=1' ],

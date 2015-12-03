@@ -357,9 +357,10 @@ of argument validation.
 
 <!--type=misc-->
 
-A JavaScript "exception" is a value that is thrown as a result of an invalid operation or
-as the target of a `throw` statement. While it is not required that these values inherit from
-`Error`, all exceptions thrown by Node.js or the JavaScript runtime *will* be instances of Error.
+A JavaScript exception is a value that is thrown as a result of an invalid operation or
+as the target of a `throw` statement. While it is not required that these values are instances of
+`Error` or classes which inherit from `Error`, all exceptions thrown by Node.js or the JavaScript
+runtime *will* be instances of Error.
 
 Some exceptions are *unrecoverable* at the JavaScript layer. These exceptions will always bring
 down the process. These are usually failed `assert()` checks or `abort()` calls in the C++ layer.
@@ -469,7 +470,7 @@ often a sign that a connected socket was not `.end()`'d appropriately.
 
 [Error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
 [below]: #errors_error_propagation_and_interception
-[fs.readFileSync]: fs.html#fs_fs_readfilesync_filename_options
+[fs.readFileSync]: fs.html#fs_fs_readfilesync_file_options
 [stream-based]: stream.html
 [event emitter-based]: events.html#events_class_events_eventemitter
 [domains]: domain.html

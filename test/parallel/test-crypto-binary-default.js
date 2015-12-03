@@ -324,11 +324,13 @@ var rfc2202_sha1 = [
 ];
 
 for (var i = 0, l = rfc2202_md5.length; i < l; i++) {
-  assert.equal(rfc2202_md5[i]['hmac'],
-               crypto.createHmac('md5', rfc2202_md5[i]['key'])
-                   .update(rfc2202_md5[i]['data'])
-                   .digest('hex'),
-               'Test HMAC-MD5 : Test case ' + (i + 1) + ' rfc 2202');
+  if (!common.hasFipsCrypto) {
+    assert.equal(rfc2202_md5[i]['hmac'],
+                 crypto.createHmac('md5', rfc2202_md5[i]['key'])
+                     .update(rfc2202_md5[i]['data'])
+                     .digest('hex'),
+                 'Test HMAC-MD5 : Test case ' + (i + 1) + ' rfc 2202');
+  }
 }
 for (var i = 0, l = rfc2202_sha1.length; i < l; i++) {
   assert.equal(rfc2202_sha1[i]['hmac'],
@@ -339,15 +341,19 @@ for (var i = 0, l = rfc2202_sha1.length; i < l; i++) {
 }
 
 // Test hashing
-var a0 = crypto.createHash('sha1').update('Test123').digest('hex');
-var a1 = crypto.createHash('md5').update('Test123').digest('binary');
+var a1 = crypto.createHash('sha1').update('Test123').digest('hex');
 var a2 = crypto.createHash('sha256').update('Test123').digest('base64');
 var a3 = crypto.createHash('sha512').update('Test123').digest(); // binary
 var a4 = crypto.createHash('sha1').update('Test123').digest('buffer');
 
-assert.equal(a0, '8308651804facb7b9af8ffc53a33a22d6a1c8ac2', 'Test SHA1');
-assert.equal(a1, 'h\u00ea\u00cb\u0097\u00d8o\fF!\u00fa+\u000e\u0017\u00ca' +
-             '\u00bd\u008c', 'Test MD5 as binary');
+if (!common.hasFipsCrypto) {
+  var a0 = crypto.createHash('md5').update('Test123').digest('binary');
+  assert.equal(a0, 'h\u00ea\u00cb\u0097\u00d8o\fF!\u00fa+\u000e\u0017\u00ca' +
+               '\u00bd\u008c', 'Test MD5 as binary');
+}
+
+assert.equal(a1, '8308651804facb7b9af8ffc53a33a22d6a1c8ac2', 'Test SHA1');
+
 assert.equal(a2, '2bX1jws4GYKTlxhloUB09Z66PoJZW+y+hq5R8dnx9l4=',
              'Test SHA256 as base64');
 
@@ -490,12 +496,13 @@ function testCipher4(key, iv) {
   assert.equal(txt, plaintext, 'encryption and decryption with key and iv');
 }
 
+if (!common.hasFipsCrypto) {
+  testCipher1('MySecretKey123');
+  testCipher1(new Buffer('MySecretKey123'));
 
-testCipher1('MySecretKey123');
-testCipher1(new Buffer('MySecretKey123'));
-
-testCipher2('0123456789abcdef');
-testCipher2(new Buffer('0123456789abcdef'));
+  testCipher2('0123456789abcdef');
+  testCipher2(new Buffer('0123456789abcdef'));
+}
 
 testCipher3('0123456789abcd0123456789', '12345678');
 testCipher3('0123456789abcd0123456789', new Buffer('12345678'));

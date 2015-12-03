@@ -144,7 +144,7 @@
         // If -i or --interactive were passed, or stdin is a TTY.
         if (process._forceRepl || NativeModule.require('tty').isatty(0)) {
           // REPL
-          var cliRepl = Module.requireRepl();
+          var cliRepl = NativeModule.require('internal/repl');
           cliRepl.createInternalRepl(process.env, function(err, repl) {
             if (err) {
               throw err;
@@ -955,7 +955,7 @@
   };
 
   NativeModule.wrapper = [
-    '(function (exports, require, module, __filename, __dirname) { ',
+    '(function (exports, require, module, __filename, __dirname) {\n',
     '\n});'
   ];
 

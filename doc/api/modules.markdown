@@ -79,7 +79,7 @@ by checking `require.main.filename`.
 <!-- type=misc -->
 
 The semantics of Node.js's `require()` function were designed to be general
-enough to support a number of sane directory structures. Package manager
+enough to support a number of reasonable directory structures. Package manager
 programs such as `dpkg`, `rpm`, and `npm` will hopefully find it possible to
 build native packages from Node.js modules without modification.
 
@@ -339,7 +339,8 @@ example, then `require('./some-library')` would attempt to load:
 If the module identifier passed to `require()` is not a native module,
 and does not begin with `'/'`, `'../'`, or `'./'`, then Node.js starts at the
 parent directory of the current module, and adds `/node_modules`, and
-attempts to load the module from that location.
+attempts to load the module from that location. Node will not append
+`node_modules` to a path already ending in `node_modules`.
 
 If it is not found there, then it moves to the parent directory, and so
 on, until the root of the file system is reached.

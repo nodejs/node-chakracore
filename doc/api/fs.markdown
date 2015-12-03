@@ -307,6 +307,8 @@ start at 0. The `encoding` can be any one of those accepted by [Buffer][].
 
 If `fd` is specified, `ReadStream` will ignore the `path` argument and will use
 the specified file descriptor. This means that no `open` event will be emitted.
+Note that `fd` should be blocking; non-blocking `fd`s should be passed to
+`net.Socket`.
 
 If `autoClose` is false, then the file descriptor won't be closed, even if
 there's an error.  It is your responsibility to close it and make sure
@@ -341,7 +343,8 @@ default mode `w`. The `defaultEncoding` can be any one of those accepted by [Buf
 
 Like `ReadStream` above, if `fd` is specified, `WriteStream` will ignore the
 `path` argument and will use the specified file descriptor. This means that no
-`open` event will be emitted.
+`open` event will be emitted. Note that `fd` should be blocking; non-blocking
+`fd`s should be passed to `net.Socket`.
 
 If `options` is a string, then it specifies the encoding.
 
@@ -364,10 +367,10 @@ non-existent.
 
 ## fs.existsSync(path)
 
+    Stability: 0 - Deprecated: Use [fs.statSync][] or [fs.accessSync][] instead.
+
 Synchronous version of [`fs.exists`][].
 Returns `true` if the file exists, `false` otherwise.
-
-    Stability: 0 - Deprecated: Use [fs.statSync][] or [fs.accessSync][] instead.
 
 ## fs.fchmod(fd, mode, callback)
 
@@ -525,6 +528,11 @@ The exclusive flag `'x'` (`O_EXCL` flag in open(2)) ensures that `path` is newly
 created. On POSIX systems, `path` is considered to exist even if it is a symlink
 to a non-existent file. The exclusive flag may or may not work with network file
 systems.
+
+`flags` can also be a number as documented by open(2); commonly used constants
+are available from `require('constants')`.  On Windows, flags are translated to
+their equivalent ones where applicable, e.g. `O_WRONLY` to `FILE_GENERIC_WRITE`,
+or `O_EXCL|O_CREAT` to `CREATE_NEW`, as accepted by CreateFileW.
 
 On Linux, positional writes don't work when the file is opened in append mode.
 The kernel ignores the position argument and always appends the data to
