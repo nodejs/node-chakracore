@@ -4,7 +4,7 @@ The following steps will help you get started with Node.js and Chakra on your
 IoT Device
 
 ### Step 1: Set up your PC 
-* [Install Windows 10](http://www.microsoft.com/en-us/windows/windows-10-upgrade)
+* [Install Windows 10](https://www.microsoft.com/software-download/windows10)
 * [Install Visual Studio 2015](https://www.visualstudio.com/vs-2015-product-editions)
 (with Tools and Windows SDK)
 * [Install Node.js Tools for Windows IoT](https://aka.ms/nt4winiot)
