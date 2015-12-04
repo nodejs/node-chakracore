@@ -6,35 +6,39 @@
     <ProductVersion>3.5</ProductVersion>
     <ProjectGuid>{1d808ff0-b5a9-4be9-859d-b334b6f48be2}</ProjectGuid>
     <SchemaVersion>2.0</SchemaVersion>
-    <OutputName>$(NodeMsiOutput)</OutputName>
+    <OutputName>node-v$(FullVersion)-$(Platform)</OutputName>
     <OutputType>Package</OutputType>
     <EnableProjectHarvesting>True</EnableProjectHarvesting>
     <WixTargetsPath Condition=" '$(WixTargetsPath)' == '' AND '$(MSBuildExtensionsPath32)' != '' ">$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets</WixTargetsPath>
     <WixTargetsPath Condition=" '$(WixTargetsPath)' == '' ">$(MSBuildExtensionsPath)\Microsoft\WiX\v3.x\Wix.targets</WixTargetsPath>
     <NodeVersion Condition=" '$(NodeVersion)' == '' ">0.0.0.0</NodeVersion>
   </PropertyGroup>
-  <PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <OutputPath>..\..\..\</OutputPath>
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
-    <DefineConstants>SdkTargetArch=$(SdkTargetArch);NodeEngine=$(NodeEngine);NodeName=$(NodeName);NodeShortName=$(NodeShortName);NodeUseSdk=$(NodeUseSdk);ProductFullVersion=$(NodeFullVersion);ProductVersion=$(NodeVersion);FullVersion=$(FullVersion);DistTypeDir=$(DistTypeDir);NoETW=$(NoETW);NoPerfCtr=$(NoPerfCtr);NodeSdkSourceDir=..\..\..\$(Configuration)\sdk;NpmSourceDir=..\..\..\deps\npm</DefineConstants>
+    <DefineConstants>Debug;ProductVersion=$(NodeVersion);FullVersion=$(FullVersion);DistTypeDir=$(DistTypeDir);NoETW=$(NoETW);NoPerfCtr=$(NoPerfCtr);NpmSourceDir=..\..\..\deps\npm\;ProgramFilesFolderId=ProgramFilesFolder</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <DefineConstants>$(DefineConstants);Debug</DefineConstants>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <OutputPath>..\..\..\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+    <DefineConstants>Debug;ProductVersion=$(NodeVersion);FullVersion=$(FullVersion);DistTypeDir=$(DistTypeDir);NoETW=$(NoETW);NoPerfCtr=$(NoPerfCtr);NpmSourceDir=..\..\..\deps\npm\;ProgramFilesFolderId=ProgramFilesFolder</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Platform)' == 'x86' ">
-    <DefineConstants>$(DefineConstants);ProgramFilesFolderId=ProgramFilesFolder</DefineConstants>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <OutputPath>..\..\..\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+    <DefineConstants>Debug;ProductVersion=$(NodeVersion);FullVersion=$(FullVersion);DistTypeDir=$(DistTypeDir);NoETW=$(NoETW);NoPerfCtr=$(NoPerfCtr);NpmSourceDir=..\..\..\deps\npm\;ProgramFilesFolderId=ProgramFiles64Folder</DefineConstants>
+    <Cultures>en-US</Cultures>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Platform)' == 'x64' ">
-    <DefineConstants>$(DefineConstants);ProgramFilesFolderId=ProgramFiles64Folder</DefineConstants>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <OutputPath>..\..\..\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+    <DefineConstants>Debug;ProductVersion=$(NodeVersion);FullVersion=$(FullVersion);DistTypeDir=$(DistTypeDir);NoETW=$(NoETW);NoPerfCtr=$(NoPerfCtr);NpmSourceDir=..\..\..\deps\npm\;ProgramFilesFolderId=ProgramFiles64Folder</DefineConstants>
   </PropertyGroup>
   <PropertyGroup>
     <EnableProjectHarvesting>True</EnableProjectHarvesting>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="product.wxs" />
-    <Compile Include="..\..\..\sdk.wxs" Condition=" '$(NodeUseSdk)' != '' ">
-      <Link>sdk.wxs</Link>
-    </Compile>
     <Compile Include="..\..\..\npm.wxs">
       <Link>npm.wxs</Link>
     </Compile>
@@ -65,16 +69,6 @@
   </ItemGroup>
   <Import Project="$(WixTargetsPath)" />
   <Target Name="BeforeBuild">
-    <Exec Condition=" '$(NodeUseSdk)' != '' "
-          Command="robocopy $(SolutionDir)..\..\..  $(SolutionDir)..\..\..\$(Configuration)\sdk *.h *.inc common.gypi /XD debug release build icu core /S /NJH /NFL /NDL /NP
-if ERRORLEVEL 8 goto failed
-exit 0
-:failed
-echo Copy source header files failed
-exit 1"/>
-    <HeatDirectory Condition=" '$(NodeUseSdk)' != '' "
-                   ToolPath="$(WixToolPath)" Directory="..\..\..\$(Configuration)\sdk" PreprocessorVariable="var.NodeSdkSourceDir" DirectoryRefId="INSTALLDIR" ComponentGroupName="NodeSdkFiles" GenerateGuidsNow="true" SuppressFragments="false" OutputFile="..\..\..\sdk.wxs" RunAsSeparateProcess="true">
-    </HeatDirectory>
     <HeatDirectory ToolPath="$(WixToolPath)" Directory="..\..\..\deps\npm" PreprocessorVariable="var.NpmSourceDir" DirectoryRefId="NodeModulesFolder" ComponentGroupName="NpmSourceFiles" GenerateGuidsNow="true" SuppressFragments="false" OutputFile="..\..\..\npm.wxs" RunAsSeparateProcess="true">
     </HeatDirectory>
   </Target>

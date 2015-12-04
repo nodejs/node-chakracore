@@ -41,6 +41,7 @@ _UpgradeReport_Files/
 ipch/
 *.sdf
 *.opensdf
+/.vs
 
 /config.mk
 /config.gypi
@@ -82,7 +83,6 @@ deps/npm/node_modules/.bin/
 # test artifacts
 tools/faketime
 icu_config.gypi
-/.vs
 test.tap
 
 # Xcode workspaces and project folders

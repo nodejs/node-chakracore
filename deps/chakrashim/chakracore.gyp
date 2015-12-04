@@ -4,11 +4,16 @@
     'library%': 'static_library',     # build chakracore as static library or dll
     'component%': 'static_library',   # link crt statically or dynamically
     'chakra_dir%': 'core',
+    'msvs_windows_target_platform_version_prop': '',
 
     'conditions': [
       ['target_arch=="ia32"', { 'Platform': 'x86' }],
       ['target_arch=="x64"', { 'Platform': 'x64' }],
-      ['target_arch=="arm"', { 'Platform': 'arm' }],
+      ['target_arch=="arm"', {
+        'Platform': 'arm',
+        'msvs_windows_target_platform_version_prop':
+          '/p:WindowsTargetPlatformVersion=$(WindowsTargetPlatformVersion)',
+      }],
     ],
   },
 
@@ -45,6 +50,7 @@
             '/p:Platform=<(Platform)',
             '/p:Configuration=$(ConfigurationName)',
             '/p:RuntimeLib=<(component)',
+            '<(msvs_windows_target_platform_version_prop)',
             '/m',
             '<@(_inputs)',
           ],

@@ -11,7 +11,7 @@
     'msvs_multi_core_compile': '0',   # we do enable multicore compiles, but not using the V8 way
     'python%': 'python',
     'node_engine%': 'v8',
-    'msvs_windows_target_platform_version': 'v10.0', # used for node_engine=chakra
+    'msvs_windows_target_platform_version': 'v10.0', # used for node_engine==chakracore
 
     'node_tag%': '',
     'uv_library%': 'static_library',
@@ -70,7 +70,6 @@
         'defines': [
           'NODE_ENGINE="<(node_engine)"',
           'NODE_ENGINE_CHAKRACORE',
-          'USE_EDGEMODE_JSRT',
         ],
         'conditions': [
           ['target_arch=="arm"', {
@@ -291,9 +290,9 @@
             'ldflags': [ '-m32' ],
           }],
           [ 'target_arch=="ppc64" and OS!="aix"', {
-	    'cflags': [ '-m64', '-mminimal-toc' ],
-	    'ldflags': [ '-m64' ],
-	   }],
+            'cflags': [ '-m64', '-mminimal-toc' ],
+            'ldflags': [ '-m64' ],
+          }],
           [ 'OS=="solaris"', {
             'cflags': [ '-pthreads' ],
             'ldflags': [ '-pthreads' ],
