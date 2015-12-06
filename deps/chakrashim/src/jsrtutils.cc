@@ -866,11 +866,35 @@ void Unimplemented(const char * message) {
 }
 
 void Fatal(const char * format, ...) {
+  bool hasException;
+  JsErrorCode errorCode;
+  JsValueRef exceptionRef;
+  JsValueRef stackRef;
+  JsValueRef strErrorRef;
+  size_t stringLength;
+  const wchar_t* strError;
+
   va_list args;
   va_start(args, format);
   fprintf(stderr, "FATAL ERROR: ");
   vfprintf(stderr, format, args);
   va_end(args);
+
+  errorCode = JsHasException(&hasException);
+  if (!hasException || errorCode != JsNoError) {
+    if (errorCode != JsNoError)
+      fprintf(stderr, "\nImportant: While trying to check Javascript "
+        "exception, JsHasException has also failed.\n");
+    else
+      fprintf(stderr, "\nImportant: This didn't happen because of an "
+        "uncaught Javascript exception.\n");
+  }
+  else if (JsGetAndClearException(&exceptionRef) == JsNoError &&
+           GetProperty(exceptionRef, L"stack", &stackRef) == JsNoError &&
+           JsConvertValueToString(stackRef, &strErrorRef) == JsNoError  &&
+           JsStringToPointer(strErrorRef, &strError, &stringLength) == JsNoError) {
+    fwprintf(stderr, L"\n%s\n", strError);
+  }
 
 #ifdef DEBUG
   __debugbreak();
