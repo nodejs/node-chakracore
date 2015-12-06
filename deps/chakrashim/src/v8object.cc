@@ -65,7 +65,20 @@ bool Object::Set(Handle<Value> key, Handle<Value> value) {
 bool Object::Set(Handle<Value> key, Handle<Value> value,
                  PropertyAttribute attribs, bool force) {
   JsPropertyIdRef idRef;
+  JsValueType typeKey;
 
+  if (JsGetValueType((JsValueRef)*key, &typeKey) != JsNoError) {
+    return false;
+  }
+
+  if (typeKey == JsNumber && this->IsArray()) {
+    int index;
+    if (JsNumberToInt((JsValueRef)*key, &index) != JsNoError) {
+      return false;
+    }
+    return Set((uint32_t)index, value);
+  }
+  
   if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
     return false;
   }
