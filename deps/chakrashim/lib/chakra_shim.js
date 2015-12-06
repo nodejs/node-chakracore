@@ -382,17 +382,25 @@
       }
       return createEmptyLambdaFunction();
     };
+    
+    function getOwnNamedDescriptor(fnc, name) {
+      var desc = Object_getOwnPropertyDescriptor(fnc, name);
+      if (typeof desc !== 'undefined')
+        return desc.get;
+      else
+        return function () { throw Error('Given descriptor was `undefined`'); };
+    }
 
     utils.throwAccessorErrorFunctions = (function () {
       var arr = [];
 
-      var x = createEmptyLambdaFunction(0);
-      arr.push(Object_getOwnPropertyDescriptor(x, 'caller').get);
+      var fnc = createEmptyLambdaFunction(0);
+      arr.push(getOwnNamedDescriptor(fnc, 'caller'));
 
-      var x = createEmptyStrictModeFunction();
-      arr.push(Object_getOwnPropertyDescriptor(x, 'caller').get);
-      arr.push(Object_getOwnPropertyDescriptor(x, 'arguments').get);
-      arr.push(Object_getOwnPropertyDescriptor(x(), 'callee').get);
+      fnc = createEmptyStrictModeFunction();
+      arr.push(getOwnNamedDescriptor(fnc, 'caller'));
+      arr.push(getOwnNamedDescriptor(fnc, 'arguments'));
+      arr.push(getOwnNamedDescriptor(fnc(), 'callee'));
 
       return arr;
     })();
