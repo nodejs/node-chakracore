@@ -888,11 +888,11 @@ void Fatal(const char * format, ...) {
     else
       fprintf(stderr, "\nImportant: This didn't happen because of an "
         "uncaught Javascript exception.\n");
-  }
-  else if (JsGetAndClearException(&exceptionRef) == JsNoError &&
+  } else if (JsGetAndClearException(&exceptionRef) == JsNoError &&
            GetProperty(exceptionRef, L"stack", &stackRef) == JsNoError &&
            JsConvertValueToString(stackRef, &strErrorRef) == JsNoError  &&
-           JsStringToPointer(strErrorRef, &strError, &stringLength) == JsNoError) {
+           JsStringToPointer(strErrorRef, &strError,
+                             &stringLength) == JsNoError) {
     fwprintf(stderr, L"\n%s\n", strError);
   }
 
