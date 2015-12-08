@@ -145,8 +145,13 @@ bool Object::ForceSet(Handle<Value> key, Handle<Value> value,
 }
 
 MaybeLocal<Value> Object::Get(Local<Context> context, Local<Value> key) {
+  JsPropertyIdRef idRef;
+  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+    return Local<Value>();
+  }
+
   JsValueRef valueRef;
-  if (jsrt::GetProperty((JsValueRef)this, *key, &valueRef) != JsNoError) {
+  if (JsGetProperty((JsValueRef)this, idRef, &valueRef) != JsNoError) {
     return Local<Value>();
   }
 

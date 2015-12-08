@@ -729,21 +729,25 @@ JsErrorCode DefineProperty(JsValueRef object,
   return error;
 }
 
-// CHAKRA-TODO: cache the property ids in a hash table?
 JsErrorCode GetPropertyIdFromName(JsValueRef nameRef,
                                   JsPropertyIdRef *idRef) {
   JsErrorCode error;
   const wchar_t *propertyName;
   size_t propertyNameSize;
 
-  // Expect the name be either a String or a Symbol
+  // Expect the name be either a String or a Symbol.
   error = JsStringToPointer(nameRef, &propertyName, &propertyNameSize);
   if (error != JsNoError) {
-    return error == JsErrorInvalidArgument ?
-      JsGetPropertyIdFromSymbol(nameRef, idRef) : error;
+    if (error == JsErrorInvalidArgument) {
+      error = JsGetPropertyIdFromSymbol(nameRef, idRef);
+      if (error == JsErrorPropertyNotSymbol) {
+        error = JsErrorInvalidArgument; // Neither String nor Symbol
+      }
+    }
+  } else {
+    error = JsGetPropertyIdFromName(propertyName, idRef);
   }
 
-  error = JsGetPropertyIdFromName(propertyName, idRef);
   return error;
 }
 
