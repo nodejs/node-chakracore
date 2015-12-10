@@ -172,6 +172,15 @@ bool Value::IsNumberObject() const {
 bool Value::IsStringObject() const {
   return IsOfType(this, ContextShim::GlobalType::String);
 }
+bool Value::IsMap() const
+{
+    return IsOfType(this, ContextShim::GlobalType::Map);
+}
+
+bool Value::IsSet() const
+{
+    return IsOfType(this, ContextShim::GlobalType::Set);
+}
 
 bool Value::IsNativeError() const {
   return IsOfType(this, ContextShim::GlobalType::Error)

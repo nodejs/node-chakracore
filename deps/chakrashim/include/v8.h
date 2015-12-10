@@ -963,6 +963,8 @@ class V8_EXPORT Value : public Data {
   bool IsDataView() const;
   bool IsMapIterator() const;
   bool IsSetIterator() const;
+  bool IsMap() const;
+  bool IsSet() const;
   bool IsPromise() const;
 
   V8_WARN_UNUSED_RESULT MaybeLocal<Boolean> ToBoolean(
