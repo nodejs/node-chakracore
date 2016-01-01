@@ -17,6 +17,8 @@ exports.libDir = path.join(exports.testDir, '../lib');
 exports.tmpDirName = 'tmp';
 exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
 exports.isWindows = process.platform === 'win32';
+exports.isChakraEngine = process.jsEngine === 'chakracore' ||
+                         process.jsEngine === 'chakra';
 exports.isAix = process.platform === 'aix';
 exports.isLinuxPPCBE = (process.platform === 'linux') &&
                        (process.arch === 'ppc64') &&
@@ -516,4 +518,12 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
   } else {
     return expectedExitCodes.indexOf(exitCode) > -1;
   }
+};
+
+exports.engineSpecificMessage = function(messageObject) {
+  var jsEngine = process.jsEngine || 'v8'; //default is 'v8'
+  if (process.jsEngine === 'chakra') { // Treat "chakra" and "chakracore" same
+    jsEngine = 'chakracore';
+  }
+  return messageObject[jsEngine];
 };
