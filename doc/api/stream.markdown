@@ -4,8 +4,8 @@
 
 A stream is an abstract interface implemented by various objects in
 Node.js.  For example a [request to an HTTP server][] is a stream, as is
-[stdout][]. Streams are readable, writable, or both. All streams are
-instances of [EventEmitter][]
+[`stdout`][]. Streams are readable, writable, or both. All streams are
+instances of [`EventEmitter`][].
 
 You can load the Stream base classes by doing `require('stream')`.
 There are base classes provided for [Readable][] streams, [Writable][]
@@ -50,9 +50,9 @@ Almost all Node.js programs, no matter how simple, use Streams in some
 way. Here is an example of using Streams in an Node.js program:
 
 ```javascript
-var http = require('http');
+const http = require('http');
 
-var server = http.createServer(function (req, res) {
+var server = http.createServer( (req, res) => {
   // req is an http.IncomingMessage, which is a Readable Stream
   // res is an http.ServerResponse, which is a Writable Stream
 
@@ -62,18 +62,18 @@ var server = http.createServer(function (req, res) {
   req.setEncoding('utf8');
 
   // Readable streams emit 'data' events once a listener is added
-  req.on('data', function (chunk) {
+  req.on('data', (chunk) => {
     body += chunk;
   });
 
   // the end event tells you that you have entire body
-  req.on('end', function () {
+  req.on('end', () => {
     try {
       var data = JSON.parse(body);
     } catch (er) {
       // uh oh!  bad json!
       res.statusCode = 400;
-      return res.end('error: ' + er.message);
+      return res.end(`error: ${er.message}`);
     }
 
     // write back something interesting to the user:
@@ -126,7 +126,7 @@ mode, then data will be lost.
 
 You can switch to flowing mode by doing any of the following:
 
-* Adding a [`'data'` event][] handler to listen for data.
+* Adding a [`'data'`][] event handler to listen for data.
 * Calling the [`resume()`][] method to explicitly open the flow.
 * Calling the [`pipe()`][] method to send the data to a [Writable][].
 
@@ -134,7 +134,7 @@ You can switch back to paused mode by doing either of the following:
 
 * If there are no pipe destinations, by calling the [`pause()`][]
   method.
-* If there are pipe destinations, by removing any [`'data'` event][]
+* If there are pipe destinations, by removing any [`'data'`][] event
   handlers, and removing all pipe destinations by calling the
   [`unpipe()`][] method.
 
@@ -153,7 +153,7 @@ Examples of readable streams include:
 * [crypto streams][]
 * [tcp sockets][]
 * [child process stdout and stderr][]
-* [process.stdin][]
+* [`process.stdin`][]
 
 #### Event: 'close'
 
@@ -161,13 +161,13 @@ Emitted when the stream and any of its underlying resources (a file
 descriptor, for example) have been closed. The event indicates that
 no more events will be emitted, and no further computation will occur.
 
-Not all streams will emit the 'close' event.
+Not all streams will emit the `'close'` event.
 
 #### Event: 'data'
 
 * `chunk` {Buffer | String} The chunk of data.
 
-Attaching a `data` event listener to a stream that has not been
+Attaching a `'data'` event listener to a stream that has not been
 explicitly paused will switch the stream into flowing mode. Data will
 then be passed as soon as it is available.
 
@@ -176,7 +176,7 @@ possible, this is the best way to do so.
 
 ```javascript
 var readable = getReadableStreamSomehow();
-readable.on('data', function(chunk) {
+readable.on('data', (chunk) => {
   console.log('got %d bytes of data', chunk.length);
 });
 ```
@@ -185,16 +185,16 @@ readable.on('data', function(chunk) {
 
 This event fires when there will be no more data to read.
 
-Note that the `end` event **will not fire** unless the data is
+Note that the `'end'` event **will not fire** unless the data is
 completely consumed.  This can be done by switching into flowing mode,
 or by calling `read()` repeatedly until you get to the end.
 
 ```javascript
 var readable = getReadableStreamSomehow();
-readable.on('data', function(chunk) {
+readable.on('data', (chunk) => {
   console.log('got %d bytes of data', chunk.length);
 });
-readable.on('end', function() {
+readable.on('end', () => {
   console.log('there will be no more data.');
 });
 ```
@@ -216,30 +216,30 @@ hadn't already.
 
 ```javascript
 var readable = getReadableStreamSomehow();
-readable.on('readable', function() {
+readable.on('readable', () => {
   // there is some data to read now
 });
 ```
 
-Once the internal buffer is drained, a `readable` event will fire
+Once the internal buffer is drained, a `'readable'` event will fire
 again when more data is available.
 
-The `readable` event is not emitted in the "flowing" mode with the
+The `'readable'` event is not emitted in the "flowing" mode with the
 sole exception of the last one, on end-of-stream.
 
-The 'readable' event indicates that the stream has new information:
+The `'readable'` event indicates that the stream has new information:
 either new data is available or the end of the stream has been reached.
 In the former case, `.read()` will return that data. In the latter case,
 `.read()` will return null. For instance, in the following example, `foo.txt`
 is an empty file:
 
 ```javascript
-var fs = require('fs');
+const fs = require('fs');
 var rr = fs.createReadStream('foo.txt');
-rr.on('readable', function() {
+rr.on('readable', () => {
   console.log('readable:', rr.read());
 });
-rr.on('end', function() {
+rr.on('end', () => {
   console.log('end');
 });
 ```
@@ -275,16 +275,16 @@ readable.isPaused() // === false
 * Return: `this`
 
 This method will cause a stream in flowing mode to stop emitting
-`data` events, switching out of flowing mode.  Any data that becomes
+`'data'` events, switching out of flowing mode.  Any data that becomes
 available will remain in the internal buffer.
 
 ```javascript
 var readable = getReadableStreamSomehow();
-readable.on('data', function(chunk) {
+readable.on('data', (chunk) => {
   console.log('got %d bytes of data', chunk.length);
   readable.pause();
   console.log('there will be no more data for 1 second');
-  setTimeout(function() {
+  setTimeout(() => {
     console.log('now data will start flowing again');
     readable.resume();
   }, 1000);
@@ -335,7 +335,7 @@ end.
 
 ```javascript
 reader.pipe(writer, { end: false });
-reader.on('end', function() {
+reader.on('end', () => {
   writer.end('Goodbye\n');
 });
 ```
@@ -366,7 +366,7 @@ drained.
 
 ```javascript
 var readable = getReadableStreamSomehow();
-readable.on('readable', function() {
+readable.on('readable', () => {
   var chunk;
   while (null !== (chunk = readable.read())) {
     console.log('got %d bytes of data', chunk.length);
@@ -375,9 +375,9 @@ readable.on('readable', function() {
 ```
 
 If this method returns a data chunk, then it will also trigger the
-emission of a [`'data'` event][].
+emission of a [`'data'`][] event.
 
-Note that calling `readable.read([size])` after the `end` event has been
+Note that calling `readable.read([size])` after the `'end'` event has been
 triggered will return `null`. No runtime error will be raised.
 
 #### readable.resume()
@@ -389,13 +389,13 @@ events.
 
 This method will switch the stream into flowing mode.  If you do *not*
 want to consume the data from a stream, but you *do* want to get to
-its `end` event, you can call [`readable.resume()`][] to open the flow of
+its `'end'` event, you can call [`readable.resume()`][] to open the flow of
 data.
 
 ```javascript
 var readable = getReadableStreamSomehow();
 readable.resume();
-readable.on('end', function() {
+readable.on('end', () => {
   console.log('got to the end, but did not read anything');
 });
 ```
@@ -420,7 +420,7 @@ as strings, always use this method.
 ```javascript
 var readable = getReadableStreamSomehow();
 readable.setEncoding('utf8');
-readable.on('data', function(chunk) {
+readable.on('data', (chunk) => {
   assert.equal(typeof chunk, 'string');
   console.log('got %d characters of string data', chunk.length);
 });
@@ -443,7 +443,7 @@ var writable = fs.createWriteStream('file.txt');
 // All the data from readable goes into 'file.txt',
 // but only for the first second
 readable.pipe(writable);
-setTimeout(function() {
+setTimeout(() => {
   console.log('stop writing to file.txt');
   readable.unpipe(writable);
   console.log('manually close the file stream');
@@ -460,7 +460,7 @@ parser, which needs to "un-consume" some data that it has
 optimistically pulled out of the source, so that the stream can be
 passed on to some other party.
 
-Note that `stream.unshift(chunk)` cannot be called after the `end` event
+Note that `stream.unshift(chunk)` cannot be called after the `'end'` event
 has been triggered; a runtime error will be raised.
 
 If you find that you must often call `stream.unshift(chunk)` in your
@@ -471,7 +471,7 @@ for Stream Implementors, below.)
 // Pull off a header delimited by \n\n
 // use unshift() if we get too much
 // Call the callback with (error, header, stream)
-var StringDecoder = require('string_decoder').StringDecoder;
+const StringDecoder = require('string_decoder').StringDecoder;
 function parseHeader(stream, callback) {
   stream.on('error', callback);
   stream.on('readable', onReadable);
@@ -528,12 +528,12 @@ as a convenience for interacting with old Node.js programs and libraries.
 For example:
 
 ```javascript
-var OldReader = require('./old-api-module.js').OldReader;
-var oreader = new OldReader;
-var Readable = require('stream').Readable;
-var myReader = new Readable().wrap(oreader);
+const OldReader = require('./old-api-module.js').OldReader;
+const Readable = require('stream').Readable;
+const oreader = new OldReader;
+const myReader = new Readable().wrap(oreader);
 
-myReader.on('readable', function() {
+myReader.on('readable', () => {
   myReader.read(); // etc.
 });
 ```
@@ -565,11 +565,11 @@ Examples of writable streams include:
 * [crypto streams][]
 * [tcp sockets][]
 * [child process stdin][]
-* [process.stdout][], [process.stderr][]
+* [`process.stdout`][], [`process.stderr`][]
 
 #### Event: 'drain'
 
-If a [`writable.write(chunk)`][] call returns false, then the `drain`
+If a [`writable.write(chunk)`][] call returns false, then the `'drain'`
 event will indicate when it is appropriate to begin writing more data
 to the stream.
 
@@ -615,10 +615,10 @@ to the underlying system, this event is emitted.
 ```javascript
 var writer = getWritableStreamSomehow();
 for (var i = 0; i < 100; i ++) {
-  writer.write('hello, #' + i + '!\n');
+  writer.write('hello, #${i}!\n');
 }
 writer.end('this is the end\n');
-writer.on('finish', function() {
+writer.on('finish', () => {
   console.error('all writes are now complete.');
 });
 ```
@@ -633,7 +633,7 @@ stream, adding this writable to its set of destinations.
 ```javascript
 var writer = getWritableStreamSomehow();
 var reader = getReadableStreamSomehow();
-writer.on('pipe', function(src) {
+writer.on('pipe', (src) => {
   console.error('something is piping into the writer');
   assert.equal(src, reader);
 });
@@ -650,7 +650,7 @@ readable stream, removing this writable from its set of destinations.
 ```javascript
 var writer = getWritableStreamSomehow();
 var reader = getReadableStreamSomehow();
-writer.on('unpipe', function(src) {
+writer.on('unpipe', (src) => {
   console.error('something has stopped piping into the writer');
   assert.equal(src, reader);
 });
@@ -671,7 +671,7 @@ Buffered data will be flushed either at `.uncork()` or at `.end()` call.
 * `callback` {Function} Optional callback for when the stream is finished
 
 Call this method when no more data will be written to the stream.  If
-supplied, the callback is attached as a listener on the `finish` event.
+supplied, the callback is attached as a listener on the `'finish'` event.
 
 Calling [`write()`][] after calling [`end()`][] will raise an error.
 
@@ -710,7 +710,7 @@ If the data had to be buffered internally, then it will return
 This return value is strictly advisory.  You MAY continue to write,
 even if it returns `false`.  However, writes will be buffered in
 memory, so it is best not to do this excessively.  Instead, wait for
-the `drain` event before writing more data.
+the `'drain'` event before writing more data.
 
 
 ## API for Stream Implementors
@@ -907,7 +907,7 @@ passed, it signals the end of the stream (EOF), after which no more data
 can be written.
 
 The data added with `push` can be pulled out by calling the `read()` method
-when the `'readable'`event fires.
+when the `'readable'` event fires.
 
 This API is designed to be as flexible as possible.  For example,
 you may be wrapping a lower-level source which has some sort of
@@ -955,8 +955,8 @@ This is a basic example of a Readable stream.  It emits the numerals
 from 1 to 1,000,000 in ascending order, and then ends.
 
 ```javascript
-var Readable = require('stream').Readable;
-var util = require('util');
+const Readable = require('stream').Readable;
+const util = require('util');
 util.inherits(Counter, Readable);
 
 function Counter(opt) {
@@ -995,8 +995,8 @@ below for a better implementation.
 // Using Readable directly for this is sub-optimal.  See the
 // alternative example below under the Transform section.
 
-var Readable = require('stream').Readable;
-var util = require('util');
+const Readable = require('stream').Readable;
+const util = require('util');
 
 util.inherits(SimpleProtocol, Readable);
 
@@ -1012,13 +1012,13 @@ function SimpleProtocol(source, options) {
   this._source = source;
 
   var self = this;
-  source.on('end', function() {
+  source.on('end', () => {
     self.push(null);
   });
 
   // give it a kick whenever the source is readable
   // read(0) will not consume any bytes
-  source.on('readable', function() {
+  source.on('readable', () => {
     self.read(0);
   });
 
@@ -1118,8 +1118,8 @@ initialized.
 
 #### Events: 'finish' and 'end'
 
-The [`finish`][] and [`end`][] events are from the parent Writable
-and Readable classes respectively. The `finish` event is fired after
+The [`'finish'`][] and [`'end'`][] events are from the parent Writable
+and Readable classes respectively. The `'finish'` event is fired after
 `.end()` is called and all chunks have been processed by `_transform`,
 `end` is fired after all data has been output which is after the callback
 in `_flush` has been called.
@@ -1210,8 +1210,8 @@ would be piped into the parser, which is a more idiomatic Node.js stream
 approach.
 
 ```javascript
-var util = require('util');
-var Transform = require('stream').Transform;
+const util = require('util');
+const Transform = require('stream').Transform;
 util.inherits(SimpleProtocol, Transform);
 
 function SimpleProtocol(options) {
@@ -1467,7 +1467,7 @@ var writable = new stream.Writable({
 <!--type=misc-->
 
 Both Writable and Readable streams will buffer data on an internal
-object which can be retrieved from `_writableState.getBuffer()` or 
+object which can be retrieved from `_writableState.getBuffer()` or
 `_readableState.buffer`, respectively.
 
 The amount of data that will potentially be buffered depends on the
@@ -1510,7 +1510,7 @@ no longer have to worry about losing `'data'` chunks.
 Most programs will continue to function normally.  However, this
 introduces an edge case in the following conditions:
 
-* No [`'data'` event][] handler is added.
+* No [`'data'`][] event handler is added.
 * The [`resume()`][] method is never called.
 * The stream is not piped to any writable destination.
 
@@ -1518,10 +1518,10 @@ For example, consider the following code:
 
 ```javascript
 // WARNING!  BROKEN!
-net.createServer(function(socket) {
+net.createServer((socket) => {
 
   // we add an 'end' method, but never consume the data
-  socket.on('end', function() {
+  socket.on('end', () => {
     // It will never get here.
     socket.end('I got your message (but didnt read it)\n');
   });
@@ -1538,9 +1538,9 @@ start the flow of data:
 
 ```javascript
 // Workaround
-net.createServer(function(socket) {
+net.createServer((socket) => {
 
-  socket.on('end', function() {
+  socket.on('end', () => {
     socket.end('I got your message (but didnt read it)\n');
   });
 
@@ -1589,9 +1589,9 @@ respectively. These options can be used to implement parsers and
 serializers with Transform streams.
 
 ```javascript
-var util = require('util');
-var StringDecoder = require('string_decoder').StringDecoder;
-var Transform = require('stream').Transform;
+const util = require('util');
+const StringDecoder = require('string_decoder').StringDecoder;
+const Transform = require('stream').Transform;
 util.inherits(JSONParseStream, Transform);
 
 // Gets \n-delimited JSON string data, and emits the parsed objects
@@ -1671,60 +1671,60 @@ code) will know when to check again, by calling `stream.read(0)`.  In
 those cases, you *may* call `stream.push('')`.
 
 So far, the only use case for this functionality is in the
-[tls.CryptoStream][] class, which is deprecated in Node.js/io.js v1.0.  If you
+[`tls.CryptoStream`][] class, which is deprecated in Node.js/io.js v1.0.  If you
 find that you have to use `stream.push('')`, please consider another
 approach, because it almost certainly indicates that something is
 horribly wrong.
 
-[request to an HTTP server]: http.html#http_http_incomingmessage
-[EventEmitter]: events.html#events_class_events_eventemitter
-[Object mode]: #stream_object_mode
+[_read]: #stream_readable_read_size_1
+[_write]: #stream_writable_write_chunk_encoding_callback_1
+[`'data'`]: #stream_event_data
+[`'end'`]: #stream_event_end
+[`'finish'`]: #stream_event_finish
+[`_read()`]: #stream_readable_read_size_1
+[`_read(size)`]: #stream_readable_read_size_1
+[`_write()`]: #stream_writable_write_chunk_encoding_callback_1
+[`_write(chunk, encoding, callback)`]: #stream_writable_write_chunk_encoding_callback_1
+[`end()`]: #stream_writable_end_chunk_encoding_callback
+[`EventEmitter`]: events.html#events_class_events_eventemitter
+[`pause()`]: #stream_readable_pause
+[`pipe()`]: #stream_readable_pipe_destination_options
+[`process.stderr`]: process.html#process_process_stderr
+[`process.stdin`]: process.html#process_process_stdin
+[`process.stdout`]: process.html#process_process_stdout
+[`readable.resume()`]: #stream_readable_resume
+[`resume()`]: #stream_readable_resume
+[`stdout`]: process.html#process_process_stdout
+[`stream.push()`]: #stream_readable_push_chunk_encoding
 [`stream.push(chunk)`]: #stream_readable_push_chunk_encoding
 [`stream.push(null)`]: #stream_readable_push_chunk_encoding
-[`stream.push()`]: #stream_readable_push_chunk_encoding
+[`stream.write(chunk)`]: #stream_writable_write_chunk_encoding_callback
+[`tls.CryptoStream`]: tls.html#tls_class_cryptostream
 [`unpipe()`]: #stream_readable_unpipe_destination
-[unpiped]: #stream_readable_unpipe_destination
-[tcp sockets]: net.html#net_class_net_socket
-[http responses, on the client]: http.html#http_http_incomingmessage
-[http requests, on the server]: http.html#http_http_incomingmessage
-[http requests, on the client]: http.html#http_class_http_clientrequest
-[http responses, on the server]: http.html#http_class_http_serverresponse
-[fs read streams]: fs.html#fs_class_fs_readstream
-[fs write streams]: fs.html#fs_class_fs_writestream
-[zlib streams]: zlib.html
-[zlib]: zlib.html
-[crypto streams]: crypto.html
-[crypto]: crypto.html
-[tls.CryptoStream]: tls.html#tls_class_cryptostream
-[process.stdin]: process.html#process_process_stdin
-[stdout]: process.html#process_process_stdout
-[process.stdout]: process.html#process_process_stdout
-[process.stderr]: process.html#process_process_stderr
-[child process stdout and stderr]: child_process.html#child_process_child_stdout
-[child process stdin]: child_process.html#child_process_child_stdin
+[`unpipe()`]: #stream_readable_unpipe_destination
+[`util.inherits`]: util.html#util_util_inherits_constructor_superconstructor
+[`writable.write(chunk)`]: #stream_writable_write_chunk_encoding_callback
+[`write()`]: #stream_writable_write_chunk_encoding_callback
+[`write(chunk, encoding, callback)`]: #stream_writable_write_chunk_encoding_callback
 [API for Stream Consumers]: #stream_api_for_stream_consumers
 [API for Stream Implementors]: #stream_api_for_stream_implementors
-[Readable]: #stream_class_stream_readable
-[Writable]: #stream_class_stream_writable
+[child process stdin]: child_process.html#child_process_child_stdin
+[child process stdout and stderr]: child_process.html#child_process_child_stdout
+[crypto streams]: crypto.html
+[crypto]: crypto.html
 [Duplex]: #stream_class_stream_duplex
+[fs read streams]: fs.html#fs_class_fs_readstream
+[fs write streams]: fs.html#fs_class_fs_writestream
+[http requests, on the client]: http.html#http_class_http_clientrequest
+[http requests, on the server]: http.html#http_http_incomingmessage
+[http responses, on the client]: http.html#http_http_incomingmessage
+[http responses, on the server]: http.html#http_class_http_serverresponse
+[Object mode]: #stream_object_mode
+[Readable]: #stream_class_stream_readable
+[request to an HTTP server]: http.html#http_http_incomingmessage
+[tcp sockets]: net.html#net_class_net_socket
 [Transform]: #stream_class_stream_transform
-[`end`]: #stream_event_end
-[`finish`]: #stream_event_finish
-[`_read(size)`]: #stream_readable_read_size_1
-[`_read()`]: #stream_readable_read_size_1
-[_read]: #stream_readable_read_size_1
-[`writable.write(chunk)`]: #stream_writable_write_chunk_encoding_callback
-[`write(chunk, encoding, callback)`]: #stream_writable_write_chunk_encoding_callback
-[`write()`]: #stream_writable_write_chunk_encoding_callback
-[`stream.write(chunk)`]: #stream_writable_write_chunk_encoding_callback
-[`_write(chunk, encoding, callback)`]: #stream_writable_write_chunk_encoding_callback_1
-[`_write()`]: #stream_writable_write_chunk_encoding_callback_1
-[_write]: #stream_writable_write_chunk_encoding_callback_1
-[`util.inherits`]: util.html#util_util_inherits_constructor_superconstructor
-[`end()`]: #stream_writable_end_chunk_encoding_callback
-[`'data'` event]: #stream_event_data
-[`resume()`]: #stream_readable_resume
-[`readable.resume()`]: #stream_readable_resume
-[`pause()`]: #stream_readable_pause
-[`unpipe()`]: #stream_readable_unpipe_destination
-[`pipe()`]: #stream_readable_pipe_destination_options
+[unpiped]: #stream_readable_unpipe_destination
+[Writable]: #stream_class_stream_writable
+[zlib streams]: zlib.html
+[zlib]: zlib.html

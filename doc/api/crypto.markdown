@@ -14,7 +14,7 @@ decipher, sign and verify methods.
 
 The class used for working with signed public key & challenges. The most
 common usage for this series of functions is when dealing with the `<keygen>`
-element. http://www.openssl.org/docs/apps/spkac.html
+element. https://www.openssl.org/docs/apps/spkac.html
 
 Returned by `crypto.Certificate`.
 
@@ -89,7 +89,7 @@ data as it is streamed.
 
 Class for decrypting data.
 
-Returned by `crypto.createDecipher` and `crypto.createDecipheriv`.
+Returned by [`crypto.createDecipher`][] and [`crypto.createDecipheriv`][].
 
 Decipher objects are [streams][] that are both readable and writable.
 The written enciphered data is used to produce the plain-text data on
@@ -125,7 +125,7 @@ You can disable auto padding if the data has been encrypted without
 standard block padding to prevent `decipher.final` from checking and
 removing it. This will only work if the input data's length is a multiple of
 the ciphers block size. You must call this before streaming data to
-`decipher.update`.
+[`decipher.update`][].
 
 ### decipher.update(data[, input_encoding][, output_encoding])
 
@@ -260,28 +260,45 @@ then a buffer is returned.
 
 Sets the EC Diffie-Hellman private key. Key encoding can be `'binary'`,
 `'hex'` or `'base64'`. If no encoding is provided, then a buffer is
-expected.
-
-Example (obtaining a shared secret):
-
-    var crypto = require('crypto');
-    var alice = crypto.createECDH('secp256k1');
-    var bob = crypto.createECDH('secp256k1');
-
-    alice.generateKeys();
-    bob.generateKeys();
-
-    var alice_secret = alice.computeSecret(bob.getPublicKey(), null, 'hex');
-    var bob_secret = bob.computeSecret(alice.getPublicKey(), null, 'hex');
-
-    /* alice_secret and bob_secret should be the same */
-    console.log(alice_secret == bob_secret);
+expected. If `private_key` is not valid for the curve specified when
+the ECDH object was created, then an error is thrown. Upon setting
+the private key, the associated public point (key) is also generated
+and set in the ECDH object.
 
 ### ECDH.setPublicKey(public_key[, encoding])
 
+    Stability: 0 - Deprecated
+
 Sets the EC Diffie-Hellman public key. Key encoding can be `'binary'`,
 `'hex'` or `'base64'`. If no encoding is provided, then a buffer is
-expected.
+expected. Note that there is not normally a reason to call this
+method. This is because ECDH only needs your private key and the
+other party's public key to compute the shared secret. Thus, usually
+either `generateKeys` or `setPrivateKey` will be called.
+Note that `setPrivateKey` attempts to generate the public point/key
+associated with the private key being set.
+
+Example (obtaining a shared secret):
+
+    const crypto = require('crypto');
+    const alice = crypto.createECDH('secp256k1');
+    const bob = crypto.createECDH('secp256k1');
+
+    // Note: This is a shortcut way to specify one of Alice's previous private
+    // keys. It would be unwise to use such a predictable private key in a real
+    // application.
+    alice.setPrivateKey(
+      crypto.createHash('sha256').update('alice', 'utf8').digest()
+    );
+
+    // Bob uses a newly generated cryptographically strong pseudorandom key pair
+    bob.generateKeys();
+
+    const alice_secret = alice.computeSecret(bob.getPublicKey(), null, 'hex');
+    const bob_secret = bob.computeSecret(alice.getPublicKey(), null, 'hex');
+
+    // alice_secret and bob_secret should be the same shared secret value
+    console.log(alice_secret === bob_secret);
 
 ## Class: Hash
 
@@ -426,15 +443,15 @@ is used to compute the hash.  Once the writable side of the stream is ended,
 use the `read()` method to get the enciphered contents.  The legacy `update`
 and `final` methods are also supported.
 
-Note: `createCipher` derives keys with the OpenSSL function [EVP_BytesToKey][]
+Note: `createCipher` derives keys with the OpenSSL function [`EVP_BytesToKey`][]
 with the digest algorithm set to MD5, one iteration, and no salt. The lack of
 salt allows dictionary attacks as the same password always creates the same key.
 The low iteration count and non-cryptographically secure hash algorithm allow
 passwords to be tested very rapidly.
 
-In line with OpenSSL's recommendation to use pbkdf2 instead of EVP_BytesToKey it
-is recommended you derive a key and iv yourself with [crypto.pbkdf2][] and to
-then use [createCipheriv()][] to create the cipher stream.
+In line with OpenSSL's recommendation to use pbkdf2 instead of [`EVP_BytesToKey`][] it
+is recommended you derive a key and iv yourself with [`crypto.pbkdf2`][] and to
+then use [`createCipheriv()`][] to create the cipher stream.
 
 ## crypto.createCipheriv(algorithm, key, iv)
 
@@ -448,7 +465,7 @@ the raw key used by the algorithm.  `iv` is an [initialization vector][].
 
 ## crypto.createCredentials(details)
 
-    Stability: 0 - Deprecated: Use [tls.createSecureContext][] instead.
+    Stability: 0 - Deprecated: Use [`tls.createSecureContext`][] instead.
 
 Creates a credentials object, with the optional details being a
 dictionary with keys:
@@ -464,7 +481,7 @@ dictionary with keys:
   (Certificate Revocation List)
 * `ciphers`: A string describing the ciphers to use or exclude.
   Consult
-  <http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT>
+  <https://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT>
   for details on the format.
 
 If no 'ca' details are given, then Node.js will use the default
@@ -474,12 +491,12 @@ publicly trusted list of CAs as given in
 ## crypto.createDecipher(algorithm, password)
 
 Creates and returns a decipher object, with the given algorithm and
-key.  This is the mirror of the [createCipher()][] above.
+key.  This is the mirror of the [`createCipher()`][] above.
 
 ## crypto.createDecipheriv(algorithm, key, iv)
 
 Creates and returns a decipher object, with the given algorithm, key
-and iv.  This is the mirror of the [createCipheriv()][] above.
+and iv.  This is the mirror of the [`createCipheriv()`][] above.
 
 ## crypto.createDiffieHellman(prime[, prime_encoding][, generator][, generator_encoding])
 
@@ -500,7 +517,7 @@ If no `generator` is specified, then `2` is used.
 ## crypto.createECDH(curve_name)
 
 Creates an Elliptic Curve (EC) Diffie-Hellman key exchange object using a
-predefined curve specified by the `curve_name` string. Use [getCurves()][] to
+predefined curve specified by the `curve_name` string. Use [`getCurves()`][] to
 obtain a list of available curve names. On recent releases,
 `openssl ecparam -list_curves` will also display the name and description of
 each available elliptic curve.
@@ -518,20 +535,20 @@ algorithms.
 
 Example: this program that takes the sha256 sum of a file
 
-    var filename = process.argv[2];
-    var crypto = require('crypto');
-    var fs = require('fs');
+    const filename = process.argv[2];
+    const crypto = require('crypto');
+    const fs = require('fs');
 
-    var shasum = crypto.createHash('sha256');
+    const shasum = crypto.createHash('sha256');
 
-    var s = fs.ReadStream(filename);
-    s.on('data', function(d) {
+    const s = fs.ReadStream(filename);
+    s.on('data', (d) => {
       shasum.update(d);
     });
 
-    s.on('end', function() {
+    s.on('end', () => {
       var d = shasum.digest('hex');
-      console.log(d + '  ' + filename);
+      console.log(`${d}  ${filename}`);
     });
 
 ## crypto.createHmac(algorithm, key)
@@ -564,7 +581,7 @@ Returns an array with the names of the supported ciphers.
 
 Example:
 
-    var ciphers = crypto.getCiphers();
+    const ciphers = crypto.getCiphers();
     console.log(ciphers); // ['aes-128-cbc', 'aes-128-ccm', ...]
 
 ## crypto.getCurves()
@@ -573,7 +590,7 @@ Returns an array with the names of the supported elliptic curves.
 
 Example:
 
-    var curves = crypto.getCurves();
+    const curves = crypto.getCurves();
     console.log(curves); // ['secp256k1', 'secp384r1', ...]
 
 ## crypto.getDiffieHellman(group_name)
@@ -583,23 +600,23 @@ supported groups are: `'modp1'`, `'modp2'`, `'modp5'` (defined in
 [RFC 2412][], but see [Caveats][]) and `'modp14'`, `'modp15'`,
 `'modp16'`, `'modp17'`, `'modp18'` (defined in [RFC 3526][]).  The
 returned object mimics the interface of objects created by
-[crypto.createDiffieHellman()][] above, but will not allow changing
-the keys (with [diffieHellman.setPublicKey()][] for example). The
+[`crypto.createDiffieHellman()`][] above, but will not allow changing
+the keys (with [`diffieHellman.setPublicKey()`][] for example). The
 advantage of using this routine is that the parties do not have to
 generate nor exchange group modulus beforehand, saving both processor
 and communication time.
 
 Example (obtaining a shared secret):
 
-    var crypto = require('crypto');
-    var alice = crypto.getDiffieHellman('modp14');
-    var bob = crypto.getDiffieHellman('modp14');
+    const crypto = require('crypto');
+    const alice = crypto.getDiffieHellman('modp14');
+    const bob = crypto.getDiffieHellman('modp14');
 
     alice.generateKeys();
     bob.generateKeys();
 
-    var alice_secret = alice.computeSecret(bob.getPublicKey(), null, 'hex');
-    var bob_secret = bob.computeSecret(alice.getPublicKey(), null, 'hex');
+    const alice_secret = alice.computeSecret(bob.getPublicKey(), null, 'hex');
+    const bob_secret = bob.computeSecret(alice.getPublicKey(), null, 'hex');
 
     /* alice_secret and bob_secret should be the same */
     console.log(alice_secret == bob_secret);
@@ -610,7 +627,7 @@ Returns an array with the names of the supported hash algorithms.
 
 Example:
 
-    var hashes = crypto.getHashes();
+    const hashes = crypto.getHashes();
     console.log(hashes); // ['sha', 'sha1', 'sha1WithRSAEncryption', ...]
 
 ## crypto.pbkdf2(password, salt, iterations, keylen[, digest], callback)
@@ -635,7 +652,7 @@ Example:
       console.log(key.toString('hex'));  // 'c5e478d...1469e50'
     });
 
-You can get a list of supported digest functions with [crypto.getHashes()][].
+You can get a list of supported digest functions with [`crypto.getHashes()`][].
 
 ## crypto.pbkdf2Sync(password, salt, iterations, keylen[, digest])
 
@@ -694,7 +711,7 @@ NOTE: All paddings are defined in `constants` module.
 Generates cryptographically strong pseudo-random data. Usage:
 
     // async
-    crypto.randomBytes(256, function(ex, buf) {
+    crypto.randomBytes(256, (ex, buf) => {
       if (ex) throw ex;
       console.log('Have %d bytes of random data: %s', buf.length, buf);
     });
@@ -761,6 +778,17 @@ default, set the `crypto.DEFAULT_ENCODING` field to 'binary'.  Note
 that new programs will probably expect buffers, so only use this as a
 temporary measure.
 
+Usage of `ECDH` with non-dynamically generated key pairs has been simplified.
+Now, `setPrivateKey` can be called with a preselected private key and the
+associated public point (key) will be computed and stored in the object.
+This allows you to only store and provide the private part of the EC key pair.
+`setPrivateKey` now also validates that the private key is valid for the curve.
+`ECDH.setPublicKey` is now deprecated as its inclusion in the API is not
+useful. Either a previously stored private key should be set, which
+automatically generates the associated public key, or `generateKeys` should be
+called. The main drawback of `ECDH.setPublicKey` is that it can be used to put
+the ECDH key pair into an inconsistent state.
+
 ## Caveats
 
 The crypto module still supports some algorithms which are already
@@ -782,22 +810,25 @@ Based on the recommendations of [NIST SP 800-131A]:
 
 See the reference for other recommendations and details.
 
-[stream]: stream.html
-[streams]: stream.html
+[`createCipher()`]: #crypto_crypto_createcipher_algorithm_password
+[`createCipheriv()`]: #crypto_crypto_createcipheriv_algorithm_key_iv
+[`crypto.createDecipher`]: #crypto_crypto_createdecipher_algorithm_password
+[`crypto.createDecipheriv`]: #crypto_crypto_createdecipheriv_algorithm_key_iv
+[`crypto.createDiffieHellman()`]: #crypto_crypto_creatediffiehellman_prime_prime_encoding_generator_generator_encoding
+[`crypto.getHashes()`]: #crypto_crypto_gethashes
+[`crypto.pbkdf2`]: #crypto_crypto_pbkdf2_password_salt_iterations_keylen_digest_callback
+[`decipher.update`]: #crypto_decipher_update_data_input_encoding_output_encoding
+[`diffieHellman.setPublicKey()`]: #crypto_diffiehellman_setpublickey_public_key_encoding
+[`EVP_BytesToKey`]: https://www.openssl.org/docs/crypto/EVP_BytesToKey.html
+[`getCurves()`]: #crypto_crypto_getcurves
+[`tls.createSecureContext`]: tls.html#tls_tls_createsecurecontext_details
 [buffer]: buffer.html
 [buffers]: buffer.html
-[createCipher()]: #crypto_crypto_createcipher_algorithm_password
-[createCipheriv()]: #crypto_crypto_createcipheriv_algorithm_key_iv
-[getCurves()]: #crypto_crypto_getcurves
-[crypto.createDiffieHellman()]: #crypto_crypto_creatediffiehellman_prime_prime_encoding_generator_generator_encoding
-[tls.createSecureContext]: tls.html#tls_tls_createsecurecontext_details
-[diffieHellman.setPublicKey()]: #crypto_diffiehellman_setpublickey_public_key_encoding
-[RFC 2412]: http://www.rfc-editor.org/rfc/rfc2412.txt
-[RFC 3526]: http://www.rfc-editor.org/rfc/rfc3526.txt
-[crypto.pbkdf2]: #crypto_crypto_pbkdf2_password_salt_iterations_keylen_digest_callback
-[EVP_BytesToKey]: https://www.openssl.org/docs/crypto/EVP_BytesToKey.html
-[NIST SP 800-132]: http://csrc.nist.gov/publications/nistpubs/800-132/nist-sp800-132.pdf
-[NIST SP 800-131A]: http://csrc.nist.gov/publications/nistpubs/800-131A/sp800-131A.pdf
-[initialization vector]: http://en.wikipedia.org/wiki/Initialization_vector
 [Caveats]: #crypto_caveats
-[crypto.getHashes()]: #crypto_crypto_gethashes
+[initialization vector]: https://en.wikipedia.org/wiki/Initialization_vector
+[NIST SP 800-131A]: http://csrc.nist.gov/publications/nistpubs/800-131A/sp800-131A.pdf
+[NIST SP 800-132]: http://csrc.nist.gov/publications/nistpubs/800-132/nist-sp800-132.pdf
+[RFC 2412]: https://www.rfc-editor.org/rfc/rfc2412.txt
+[RFC 3526]: https://www.rfc-editor.org/rfc/rfc3526.txt
+[stream]: stream.html
+[streams]: stream.html

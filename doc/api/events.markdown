@@ -10,7 +10,8 @@ is opened. All objects which emit events are instances of `events.EventEmitter`.
 You can access this module by doing: `require("events");`
 
 Typically, event names are represented by a camel-cased string, however,
-there aren't any strict restrictions on that, as any string will be accepted.
+there aren't any strict restrictions on that, as any valid property key will be
+accepted.
 
 Functions can then be attached to objects, to be executed when an event
 is emitted. These functions are called _listeners_. Inside a listener
@@ -23,7 +24,7 @@ attached to.
 Use `require('events')` to access the EventEmitter class.
 
 ```javascript
-var EventEmitter = require('events');
+const EventEmitter = require('events');
 ```
 
 When an `EventEmitter` instance experiences an error, the typical action is
@@ -59,7 +60,7 @@ Returns the number of listeners for a given event.
 
 ### Event: 'newListener'
 
-* `event` {String} The event name
+* `event` {String|Symbol} The event name
 * `listener` {Function} The event handler function
 
 This event is emitted *before* a listener is added. When this event is
@@ -70,7 +71,7 @@ added.
 
 ### Event: 'removeListener'
 
-* `event` {String} The event name
+* `event` {String|Symbol} The event name
 * `listener` {Function} The event handler function
 
 This event is emitted *after* a listener is removed.  When this event is
@@ -106,7 +107,7 @@ This can be useful to increment/decrement max listeners to avoid the warning
 while not being irresponsible and setting a too big number.
 
     emitter.setMaxListeners(emitter.getMaxListeners() + 1);
-    emitter.once('event', function () {
+    emitter.once('event', () => {
       // do stuff
       emitter.setMaxListeners(Math.max(emitter.getMaxListeners() - 1, 0));
     });
@@ -121,7 +122,7 @@ Returns the number of listeners listening to the `type` of event.
 
 Returns a copy of the array of listeners for the specified event.
 
-    server.on('connection', function (stream) {
+    server.on('connection', (stream) => {
       console.log('someone connected!');
     });
     console.log(util.inspect(server.listeners('connection'))); // [ [Function] ]
@@ -133,7 +134,7 @@ No checks are made to see if the `listener` has already been added. Multiple
 calls passing the same combination of `event` and `listener` will result in the
 `listener` being added multiple times.
 
-    server.on('connection', function (stream) {
+    server.on('connection', (stream) => {
       console.log('someone connected!');
     });
 
@@ -145,7 +146,7 @@ Adds a **one time** listener for the event. This listener is
 invoked only the next time the event is fired, after which
 it is removed.
 
-    server.once('connection', function (stream) {
+    server.once('connection', (stream) => {
       console.log('Ah, we have our first user!');
     });
 
