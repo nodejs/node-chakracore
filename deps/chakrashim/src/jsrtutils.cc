@@ -250,7 +250,7 @@ JsErrorCode CloneObject(JsValueRef source,
                         JsValueRef target,
                         bool clonePrototype) {
   JsValueRef cloneObjectFunction =
-    ContextShim::GetCurrent()->GetCloneObjectFunction();
+    ContextShim::GetCurrent()->GetcloneObjectFunction();
 
   JsValueRef resultRef;
   JsErrorCode error = CallFunction(cloneObjectFunction,
@@ -399,28 +399,28 @@ JsErrorCode IsUndefined(JsValueRef value,
 JsErrorCode GetEnumerableNamedProperties(JsValueRef object,
                                          JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetEnumerableNamedPropertiesFunction(),
+    ContextShim::GetCurrent()->GetgetEnumerableNamedPropertiesFunction(),
     object, result);
 }
 
 JsErrorCode GetEnumerableIndexedProperties(JsValueRef object,
                                            JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetEnumerableIndexedPropertiesFunction(),
+    ContextShim::GetCurrent()->GetgetEnumerableIndexedPropertiesFunction(),
     object, result);
 }
 
 JsErrorCode GetIndexedOwnKeys(JsValueRef object,
                               JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetIndexedOwnKeysFunction(),
+    ContextShim::GetCurrent()->GetgetIndexedOwnKeysFunction(),
     object, result);
 }
 
 JsErrorCode GetNamedOwnKeys(JsValueRef object,
                             JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetNamedOwnKeysFunction(),
+    ContextShim::GetCurrent()->GetgetNamedOwnKeysFunction(),
     object, result);
 }
 
@@ -437,7 +437,7 @@ JsErrorCode ConcatArray(JsValueRef first,
 JsErrorCode CreateEnumerationIterator(JsValueRef enumeration,
                                       JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetCreateEnumerationIteratorFunction(),
+    ContextShim::GetCurrent()->GetcreateEnumerationIteratorFunction(),
     enumeration, result);
 }
 
@@ -445,14 +445,14 @@ JsErrorCode CreatePropertyDescriptorsEnumerationIterator(JsValueRef enumeration,
                                                          JsValueRef *result) {
   return CallFunction(
     ContextShim::GetCurrent()
-      ->GetCreatePropertyDescriptorsEnumerationIteratorFunction(),
+      ->GetcreatePropertyDescriptorsEnumerationIteratorFunction(),
     enumeration, result);
 }
 
 JsErrorCode GetPropertyNames(JsValueRef object,
                              JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetPropertyNamesFunction(),
+    ContextShim::GetCurrent()->GetgetPropertyNamesFunction(),
     object, result);
 }
 
@@ -554,20 +554,16 @@ JsErrorCode ToString(JsValueRef ref,
   return error;
 }
 
-JsErrorCode IsValueMapIterator(JsValueRef value,
-                        JsValueRef *resultRef) {
-  return CallFunction(
-    ContextShim::GetCurrent()->GetIsMapIteratorFunction(),
-    value, resultRef);
-}
 
+#define DEF_IS_TYPE(F) \
+JsErrorCode Call##F##(JsValueRef value, JsValueRef *resultRef) { \
+  return CallFunction( \
+    ContextShim::GetCurrent()->Get##F##Function(), \
+    value, resultRef); \
+} \
 
-JsErrorCode IsValueSetIterator(JsValueRef value,
-                               JsValueRef *resultRef) {
-  return CallFunction(
-    ContextShim::GetCurrent()->GetIsSetIteratorFunction(),
-    value, resultRef);
-}
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
 
 PropertyDescriptorOptionValues GetPropertyDescriptorOptionValue(bool b) {
   return b ?
@@ -741,7 +737,7 @@ JsErrorCode GetPropertyIdFromName(JsValueRef nameRef,
     if (error == JsErrorInvalidArgument) {
       error = JsGetPropertyIdFromSymbol(nameRef, idRef);
       if (error == JsErrorPropertyNotSymbol) {
-        error = JsErrorInvalidArgument; // Neither String nor Symbol
+        error = JsErrorInvalidArgument;  // Neither String nor Symbol
       }
     }
   } else {

@@ -33,7 +33,7 @@ Local<StackTrace> StackTrace::CurrentStackTrace(Isolate* isolate,
   IsolateShim* iso = IsolateShim::FromIsolate(isolate);
   ContextShim* contextShim = iso->GetCurrentContextShim();
 
-  JsValueRef getStackTrace = contextShim->GetGetStackTraceFunction();
+  JsValueRef getStackTrace = contextShim->GetgetStackTraceFunction();
   JsValueRef stackTrace;
   if (jsrt::CallFunction(getStackTrace, &stackTrace) != JsNoError) {
     return Local<StackTrace>();

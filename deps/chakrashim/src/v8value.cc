@@ -33,11 +33,6 @@ static bool IsOfType(const Value* ref, JsValueType type) {
   return valueType == type;
 }
 
-static bool IsOfType(const Value* ref, ContextShim::GlobalType index) {
-  return jsrt::InstanceOf(const_cast<Value*>(ref),
-                          ContextShim::GetCurrent()->GetGlobalType(index));
-}
-
 bool Value::IsUndefined() const {
   return IsOfType(this, JsValueType::JsUndefined);
 }
@@ -157,68 +152,28 @@ bool Value::IsUint32() const {
   return trunc(value) == value;
 }
 
-bool Value::IsDate() const {
-  return IsOfType(this, ContextShim::GlobalType::Date);
-}
+#define IS_TYPE_FUNCTION(v8ValueFunc, chakrashimFunc) \
+bool Value::##v8ValueFunc##() const { \
+JsValueRef resultRef = JS_INVALID_REFERENCE; \
+JsErrorCode errorCode = jsrt::Call##chakrashimFunc##( \
+  const_cast<Value*>(this), &resultRef); \
+if (errorCode != JsNoError) { \
+  return false; \
+} \
+return Local<Value>(resultRef)->BooleanValue(); \
+} \
 
-bool Value::IsBooleanObject() const {
-  return IsOfType(this, ContextShim::GlobalType::Boolean);
-}
-
-bool Value::IsNumberObject() const {
-  return IsOfType(this, ContextShim::GlobalType::Number);
-}
-
-bool Value::IsStringObject() const {
-  return IsOfType(this, ContextShim::GlobalType::String);
-}
-bool Value::IsMap() const
-{
-    return IsOfType(this, ContextShim::GlobalType::Map);
-}
-
-bool Value::IsSet() const
-{
-    return IsOfType(this, ContextShim::GlobalType::Set);
-}
-
-bool Value::IsNativeError() const {
-  return IsOfType(this, ContextShim::GlobalType::Error)
-    || IsOfType(this, ContextShim::GlobalType::EvalError)
-    || IsOfType(this, ContextShim::GlobalType::RangeError)
-    || IsOfType(this, ContextShim::GlobalType::ReferenceError)
-    || IsOfType(this, ContextShim::GlobalType::SyntaxError)
-    || IsOfType(this, ContextShim::GlobalType::TypeError)
-    || IsOfType(this, ContextShim::GlobalType::URIError);
-}
-
-bool Value::IsRegExp() const {
-  return IsOfType(this, ContextShim::GlobalType::RegExp);
-}
-
-bool Value::IsMapIterator() const {
-  JsValueRef resultRef = JS_INVALID_REFERENCE;
-  JsErrorCode errorCode = jsrt::IsValueMapIterator(
-    const_cast<Value*>(this), &resultRef);
-  if (errorCode != JsNoError) {
-    return false;
-  }
-  return Local<Value>(resultRef)->BooleanValue();
-}
-
-bool Value::IsSetIterator() const {
-  JsValueRef resultRef = JS_INVALID_REFERENCE;
-  JsErrorCode errorCode = jsrt::IsValueSetIterator(
-    const_cast<Value*>(this), &resultRef);
-  if (errorCode != JsNoError) {
-    return false;
-  }
-  return Local<Value>(resultRef)->BooleanValue();
-}
-
-bool Value::IsPromise() const {
-  return IsOfType(this, ContextShim::GlobalType::Promise);
-}
+IS_TYPE_FUNCTION(IsBooleanObject, isBooleanObject)
+IS_TYPE_FUNCTION(IsDate, isDate)
+IS_TYPE_FUNCTION(IsMap, isMap)
+IS_TYPE_FUNCTION(IsNativeError, isNativeError)
+IS_TYPE_FUNCTION(IsPromise, isPromise)
+IS_TYPE_FUNCTION(IsRegExp, isRegExp)
+IS_TYPE_FUNCTION(IsSet, isSet)
+IS_TYPE_FUNCTION(IsStringObject, isStringObject)
+IS_TYPE_FUNCTION(IsNumberObject, isNumberObject)
+IS_TYPE_FUNCTION(IsMapIterator, isMapIterator)
+IS_TYPE_FUNCTION(IsSetIterator, isSetIterator)
 
 MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;

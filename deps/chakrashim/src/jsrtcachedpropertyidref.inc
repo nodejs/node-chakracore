@@ -26,6 +26,9 @@
 #define DEFSYMBOL(x)
 #endif
 
+#ifndef DEF_IS_TYPE
+#define DEF_IS_TYPE(x) DEF(x)
+#endif
 
 DEF(apply)
 DEF(concat)
@@ -70,9 +73,6 @@ DEF(getColumnNumber)
 DEF(getLineNumber)
 DEF(prototype)
 DEF(toString)
-DEF(isMapIterator)
-DEF(isSetIterator)
-
 
 DEFSYMBOL(self)
 DEFSYMBOL(__external__)
@@ -80,5 +80,19 @@ DEFSYMBOL(__hiddenvalues__)
 DEFSYMBOL(__isexternal__)
 DEFSYMBOL(__keepalive__)
 
+DEF_IS_TYPE(isMapIterator)
+DEF_IS_TYPE(isSetIterator)
+DEF_IS_TYPE(isBooleanObject)
+DEF_IS_TYPE(isDate)
+DEF_IS_TYPE(isMap)
+DEF_IS_TYPE(isNativeError)
+DEF_IS_TYPE(isPromise)
+DEF_IS_TYPE(isRegExp)
+DEF_IS_TYPE(isSet)
+DEF_IS_TYPE(isStringObject)
+DEF_IS_TYPE(isNumberObject)
+
+
 #undef DEF
 #undef DEFSYMBOL
+#undef DEF_IS_TYPE

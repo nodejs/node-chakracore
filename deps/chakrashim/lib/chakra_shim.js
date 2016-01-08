@@ -30,6 +30,7 @@ Object.defineProperty(this, 'Debug',
       Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
       Object_getOwnPropertyNames = Object.getOwnPropertyNames,
       Object_keys = Object.keys,
+      Object_prototype_toString = Object.prototype.toString,
       Map_keys = Map.prototype.keys,
       Map_values = Map.prototype.values,
       Map_entries = Map.prototype.entries,
@@ -315,6 +316,45 @@ Object.defineProperty(this, 'Debug',
     utils.isSetIterator = function(value) {
       return value[setIteratorProperty] == true;
     };
+    function compareType(o, expectedType) {
+      return Object_prototype_toString.call(o) === '[object ' +
+            expectedType + ']';
+    };
+    utils.isBooleanObject = function(obj) {
+      return compareType(obj, 'Boolean');
+    };
+    utils.isDate = function(obj) {
+      return compareType(obj, 'Date');
+    };
+    utils.isMap = function(obj) {
+      return compareType(obj, 'Map');
+    };
+    utils.isNativeError = function(obj) {
+      return compareType(obj, 'Error') ||
+        obj instanceof Error ||
+        obj instanceof EvalError ||
+        obj instanceof RangeError ||
+        obj instanceof ReferenceError ||
+        obj instanceof SyntaxError ||
+        obj instanceof TypeError ||
+        obj instanceof URIError;
+    };
+    utils.isPromise = function(obj) {
+      return compareType(obj, 'Object') && obj instanceof Promise;
+    };
+    utils.isRegExp = function(obj) {
+      return compareType(obj, 'RegExp');
+    };
+    utils.isSet = function(obj) {
+      return compareType(obj, 'Set');
+    };
+    utils.isStringObject = function(obj) {
+      return compareType(obj, 'String');
+    };
+    utils.isNumberObject = function(obj) {
+      return compareType(obj, 'Number');
+    };
+
   }
 
   // patch console

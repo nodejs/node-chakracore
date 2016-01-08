@@ -217,11 +217,12 @@ JsErrorCode ToString(JsValueRef ref,
                      const wchar_t** str,
                      bool alreadyString = false);
 
-JsErrorCode IsValueMapIterator(JsValueRef value,
-                               JsValueRef *resultRef);
+#define DEF_IS_TYPE(F) \
+JsErrorCode Call##F##(JsValueRef value,  \
+JsValueRef *resultRef); \
 
-JsErrorCode IsValueSetIterator(JsValueRef value,
-                               JsValueRef *resultRef);
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
 
 JsValueRef CALLBACK CollectGarbage(JsValueRef callee,
                                    bool isConstructCall,

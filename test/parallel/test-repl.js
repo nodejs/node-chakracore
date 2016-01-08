@@ -194,7 +194,10 @@ function error_test() {
         chakracore : /^SyntaxError: Invalid usage of 'eval' in strict mode/})
     },
     { client: client_unix, send: '(function() { "use strict"; if (true) function f() { } })()',
-      expect: /^SyntaxError: In strict mode code, functions can only be declared at top level or immediately within another function/ },
+      expect: common.engineSpecificMessage({
+        v8 : /^SyntaxError: In strict mode code, functions can only be declared at top level or immediately within another function/,
+        chakracore : /^SyntaxError: Syntax error/})
+    },
     // Named functions can be used:
     { client: client_unix, send: 'function blah() { return 1; }',
       expect: prompt_unix },
