@@ -2138,12 +2138,14 @@ class V8_EXPORT Isolate {
     Isolate* isolate, GCType type, GCCallbackFlags flags);
   typedef void (*GCEpilogueCallback)(
     Isolate* isolate, GCType type, GCCallbackFlags flags);
+  typedef void(*GCCallback)(Isolate* isolate, GCType type,
+                            GCCallbackFlags flags);
   void AddGCPrologueCallback(
-    GCPrologueCallback callback, GCType gc_type_filter = kGCTypeAll);
-  void RemoveGCPrologueCallback(GCPrologueCallback callback);
+    GCCallback callback, GCType gc_type_filter = kGCTypeAll);
+  void RemoveGCPrologueCallback(GCCallback callback);
   void AddGCEpilogueCallback(
-    GCEpilogueCallback callback, GCType gc_type_filter = kGCTypeAll);
-  void RemoveGCEpilogueCallback(GCEpilogueCallback callback);
+    GCCallback callback, GCType gc_type_filter = kGCTypeAll);
+  void RemoveGCEpilogueCallback(GCCallback callback);
 
   void SetCounterFunction(CounterLookupCallback);
   void SetCreateHistogramFunction(CreateHistogramCallback);

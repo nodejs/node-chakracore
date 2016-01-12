@@ -123,17 +123,17 @@ CpuProfiler* Isolate::GetCpuProfiler() {
 }
 
 void Isolate::AddGCPrologueCallback(
-    GCPrologueCallback callback, GCType gc_type_filter) {
+  GCCallback callback, GCType gc_type_filter) {
 }
 
-void Isolate::RemoveGCPrologueCallback(GCPrologueCallback callback) {
+void Isolate::RemoveGCPrologueCallback(GCCallback callback) {
 }
 
 void Isolate::AddGCEpilogueCallback(
-    GCEpilogueCallback callback, GCType gc_type_filter) {
+  GCCallback callback, GCType gc_type_filter) {
 }
 
-void Isolate::RemoveGCEpilogueCallback(GCEpilogueCallback callback) {
+void Isolate::RemoveGCEpilogueCallback(GCCallback callback) {
 }
 
 void Isolate::SetCounterFunction(CounterLookupCallback) {
