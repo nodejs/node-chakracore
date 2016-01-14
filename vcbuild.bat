@@ -185,8 +185,8 @@ goto run
 if defined noprojgen goto msbuild
 
 @rem Generate the VS project.
-echo configure %configure_flags% %enable_vtune_profiling% --engine=%engine% %openssl_no_asm% --dest-cpu=%target_arch% --tag=%TAG%
-python configure %configure_flags% %enable_vtune_profiling% --engine=%engine% %openssl_no_asm% --dest-cpu=%target_arch% --tag=%TAG%
+echo configure %configure_flags% --engine=%engine% %openssl_no_asm% --dest-cpu=%target_arch% --tag=%TAG%
+python configure %configure_flags% --engine=%engine% %openssl_no_asm% --dest-cpu=%target_arch% --tag=%TAG%
 if errorlevel 1 goto create-msvs-files-failed
 if not exist node.sln goto create-msvs-files-failed
 echo Project files generated.
