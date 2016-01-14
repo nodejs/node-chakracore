@@ -165,8 +165,7 @@ In cases like this, you may not want to track the rejection as a developer
 error like you would for other `'unhandledRejection'` events. To address
 this, you can either attach a dummy `.catch(function() { })` handler to
 `resource.loaded`, preventing the `'unhandledRejection'` event from being
-emitted, or you can use the `'rejectionHandled'` event. Below is an
-explanation of how to do that.
+emitted, or you can use the [`'rejectionHandled'`][] event.
 
 ## Exit Codes
 
@@ -891,7 +890,7 @@ See [the tty docs][] for more information.
 
 ## process.title
 
-Getter/setter to set what is displayed in `ps.
+Getter/setter to set what is displayed in `ps`.
 
 When used as a setter, the maximum length is platform-specific and probably
 short.
@@ -953,6 +952,7 @@ Will print something like:
 [`net.Socket`]: net.html#net_class_net_socket
 [`process.exit()`]: #process_process_exit_code
 [`promise.catch(...)`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch
+[`'rejectionHandled'`]: #process_event_rejectionhandled
 [`require.main`]: modules.html#modules_accessing_the_main_module
 [`setTimeout(fn, 0)`]: timers.html#timers_settimeout_callback_delay_arg
 [Signal Events]: #process_signal_events

@@ -334,12 +334,19 @@ Returns a new [`WriteStream`][] object. (See [Writable Stream][]).
     { flags: 'w',
       defaultEncoding: 'utf8',
       fd: null,
-      mode: 0o666 }
+      mode: 0o666,
+      autoClose: true }
 
 `options` may also include a `start` option to allow writing data at
 some position past the beginning of the file.  Modifying a file rather
 than replacing it may require a `flags` mode of `r+` rather than the
 default mode `w`. The `defaultEncoding` can be any one of those accepted by [`Buffer`][].
+
+If `autoClose` is set to true (default behavior) on `error` or `end`
+the file descriptor will be closed automatically. If `autoClose` is false,
+then the file descriptor won't be closed, even if there's an error.
+It is your responsiblity to close it and make sure
+there's no file descriptor leak.
 
 Like [`ReadStream`][], if `fd` is specified, `WriteStream` will ignore the
 `path` argument and will use the specified file descriptor. This means that no
@@ -659,7 +666,7 @@ Synchronous rmdir(2). Returns `undefined`.
 ## fs.stat(path, callback)
 
 Asynchronous stat(2). The callback gets two arguments `(err, stats)` where
-`stats` is a [`fs.Stats`][] object.  See the [`fs.Stats`][] section below for more
+`stats` is a [`fs.Stats`][] object.  See the [`fs.Stats`][] section for more
 information.
 
 ## fs.statSync(path)
@@ -743,7 +750,7 @@ The supported boolean members are `persistent` and `recursive`. `persistent`
 indicates whether the process should continue to run as long as files are being
 watched. `recursive` indicates whether all subdirectories should be watched, or
 only the current directory. This applies when a directory is specified, and only
-on supported platforms (See Caveats below).
+on supported platforms (See [Caveats][]).
 
 The default is `{ persistent: true, recursive: false }`.
 
@@ -929,6 +936,7 @@ Synchronous versions of [`fs.write()`][]. Returns the number of bytes written.
 
 [`Buffer.byteLength`]: buffer.html#buffer_class_method_buffer_bytelength_string_encoding
 [`Buffer`]: buffer.html#buffer_buffer
+[Caveats]: #fs_caveats
 [`fs.access()`]: #fs_fs_access_path_mode_callback
 [`fs.accessSync()`]: #fs_fs_accesssync_path_mode
 [`fs.appendFile()`]: fs.html#fs_fs_appendfile_file_data_options_callback

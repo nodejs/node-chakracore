@@ -232,6 +232,22 @@ line interface:
       process.exit(0);
     });
 
+## Example: Read File Stream Line-by-Line
+
+A common case for `readline`'s `input` option is to pass a filesystem readable
+stream to it. This is how one could craft line-by-line parsing of a file:
+
+    const readline = require('readline');
+    const fs = require('fs');
+
+    const rl = readline.createInterface({
+      input: fs.createReadStream('sample.txt')
+    });
+
+    rl.on('line', function (line) {
+      console.log('Line from file:', line);
+    });
+
 ## readline.clearLine(stream, dir)
 
 Clears current line of given TTY stream in a specified direction.
@@ -247,7 +263,7 @@ Clears the screen from the current position of the cursor down.
 
 ## readline.createInterface(options)
 
-Creates a readline `Interface` instance. Accepts an `options Object that takes
+Creates a readline `Interface` instance. Accepts an `options` Object that takes
 the following values:
 
  - `input` - the readable stream to listen to (Required).

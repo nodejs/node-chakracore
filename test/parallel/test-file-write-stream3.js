@@ -1,16 +1,15 @@
 'use strict';
-var common = require('../common');
-var assert = require('assert');
-
-var path = require('path'),
-    fs = require('fs');
+const common = require('../common');
+const assert = require('assert');
+const path = require('path');
+const fs = require('fs');
 
 
 var filepath = path.join(common.tmpDir, 'write_pos.txt');
 
 
-var cb_expected = 'write open close write open close write open close ',
-    cb_occurred = '';
+const cb_expected = 'write open close write open close write open close ';
+let cb_occurred = '';
 
 var fileDataInitial = 'abcdefghijklmnopqrstuvwxyz';
 
@@ -124,10 +123,10 @@ function run_test_2() {
 
 
 function run_test_3() {
-  var file, buffer, options;
+  var file, options;
 
-  var data = '\u2026\u2026',    // 3 bytes * 2 = 6 bytes in UTF-8
-      fileData;
+  const data = '\u2026\u2026';    // 3 bytes * 2 = 6 bytes in UTF-8
+  let fileData;
 
   options = { start: 10,
               flags: 'r+' };
@@ -167,7 +166,7 @@ function run_test_3() {
 
 
 function run_test_4() {
-  var file, options;
+  var options;
 
   options = { start: -5,
               flags: 'r+' };
