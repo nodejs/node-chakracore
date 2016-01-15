@@ -27,14 +27,10 @@ Prerequisites:
 * [Visual
 Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio
   -vs.aspx)
-* **Myles Borins** &lt;myles.borins@gmail.com&gt; `C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8`
-* **Evan Lucas** &lt;evanlucas@me.com&gt; `B9AE9905FFD7803F25714661B63B535A4C206CA9`
 
 ```sh
 vcbuild chakracore nosign [x86|x64|arm]
 ```
-gpg --keyserver pool.sks-keyservers.net --recv-keys C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8
-gpg --keyserver pool.sks-keyservers.net --recv-keys B9AE9905FFD7803F25714661B63B535A4C206CA9
 
 ### Original README
 
