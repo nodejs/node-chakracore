@@ -26,16 +26,17 @@ Object.defineProperty(this, 'Debug',
 
 (function() {
   // Save original builtIns
-  var Object_defineProperty = Object.defineProperty,
-      Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
-      Object_getOwnPropertyNames = Object.getOwnPropertyNames,
-      Object_keys = Object.keys,
-      Object_prototype_toString = Object.prototype.toString,
-      Map_keys = Map.prototype.keys,
-      Map_values = Map.prototype.values,
-      Map_entries = Map.prototype.entries,
-      Set_entries = Set.prototype.entries,
-      Set_values = Set.prototype.values;
+  var
+    Object_defineProperty = Object.defineProperty,
+    Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
+    Object_getOwnPropertyNames = Object.getOwnPropertyNames,
+    Object_keys = Object.keys,
+    Object_prototype_toString = Object.prototype.toString,
+    Map_keys = Map.prototype.keys,
+    Map_values = Map.prototype.values,
+    Map_entries = Map.prototype.entries,
+    Set_entries = Set.prototype.entries,
+    Set_values = Set.prototype.values;
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
