@@ -55,9 +55,9 @@ var syntaxArgs = [
 
     // stderr should have a syntax error message
     var match = c.stderr.match(common.engineSpecificMessage({
-                                v8: /^SyntaxError: Unexpected identifier$/m,
-                                chakracore: /^SyntaxError: Expected ';'$/m})
-								);
+      v8: /^SyntaxError: Unexpected identifier$/m,
+      chakracore: /^SyntaxError: Expected ';'$/m})
+	);
     assert(match, 'stderr incorrect');
 
     assert.equal(c.status, 1, 'code == ' + c.status);
