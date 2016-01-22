@@ -187,7 +187,7 @@
     });
 
     return ensureStackTrace;
-  };
+  }
 
   function patchErrorStack() {
     Error.captureStackTrace = captureStackTrace;
@@ -315,7 +315,7 @@
     function compareType(o, expectedType) {
       return Object_prototype_toString.call(o) === '[object ' +
             expectedType + ']';
-    };
+    }
     utils.isBooleanObject = function(obj) {
       return compareType(obj, 'Boolean');
     };

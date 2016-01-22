@@ -2064,6 +2064,25 @@ class V8_EXPORT HeapStatistics {
   size_t heap_size_limit() { return 0; }
 };
 
+class V8_EXPORT HeapSpaceStatistics {
+public:
+  HeapSpaceStatistics() {}
+  const char* space_name() { return ""; }
+  size_t space_size() { return 0; }
+  size_t space_used_size() { return 0; }
+  size_t space_available_size() { return 0; }
+  size_t physical_space_size() { return 0; }
+
+private:
+  const char* space_name_;
+  size_t space_size_;
+  size_t space_used_size_;
+  size_t space_available_size_;
+  size_t physical_space_size_;
+
+  friend class Isolate;
+};
+
 typedef void(*FunctionEntryHook)(uintptr_t function,
                                  uintptr_t return_addr_location);
 typedef int* (*CounterLookupCallback)(const char* name);
@@ -2116,6 +2135,9 @@ class V8_EXPORT Isolate {
   void Dispose();
 
   void GetHeapStatistics(HeapStatistics *heap_statistics);
+  size_t NumberOfHeapSpaces();
+  bool GetHeapSpaceStatistics(HeapSpaceStatistics* space_statistics,
+                              size_t index);
   int64_t AdjustAmountOfExternalAllocatedMemory(int64_t change_in_bytes);
   void SetData(uint32_t slot, void* data);
   void* GetData(uint32_t slot);
