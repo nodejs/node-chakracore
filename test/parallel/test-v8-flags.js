@@ -1,5 +1,5 @@
 'use strict';
-require('../common');
+var common = require('../common');
 var assert = require('assert');
 var v8 = require('v8');
 var vm = require('vm');

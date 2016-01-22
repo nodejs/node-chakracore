@@ -1,0 +1,38 @@
+[eval]
+SyntaxError: 'with' statements are not allowed in strict mode
+   at exports.runInThisContext (vm.js:53:3)
+   at Anonymous function ([eval]-wrapper:6:1)
+   at Module.prototype._compile (module.js:423:3)
+   at Anonymous function (node.js:613:7)
+   at nextTickCallbackWith0Args (node.js:452:9)
+   at _tickCallback (node.js:381:13)
+42
+42
+Error: hello
+   at Global code ([eval]:1:1)
+   at exports.runInThisContext (vm.js:54:3)
+   at Anonymous function ([eval]-wrapper:6:1)
+   at Module.prototype._compile (module.js:423:3)
+   at Anonymous function (node.js:613:7)
+   at nextTickCallbackWith0Args (node.js:452:9)
+   at _tickCallback (node.js:381:13)
+Error: hello
+   at Global code ([eval]:1:15)
+   at exports.runInThisContext (vm.js:54:3)
+   at Anonymous function ([eval]-wrapper:6:1)
+   at Module.prototype._compile (module.js:423:3)
+   at Anonymous function (node.js:613:7)
+   at nextTickCallbackWith0Args (node.js:452:9)
+   at _tickCallback (node.js:381:13)
+100
+ReferenceError: Variable undefined in strict mode
+   at Global code ([eval]:1:28)
+   at exports.runInThisContext (vm.js:54:3)
+   at Anonymous function ([eval]-wrapper:6:1)
+   at Module.prototype._compile (module.js:423:3)
+   at Anonymous function (node.js:613:7)
+   at nextTickCallbackWith0Args (node.js:452:9)
+   at _tickCallback (node.js:381:13)
+10
+10
+done

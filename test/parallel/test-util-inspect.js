@@ -4,6 +4,12 @@ const assert = require('assert');
 const util = require('util');
 const vm = require('vm');
 
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
+
 assert.equal(util.inspect(1), '1');
 assert.equal(util.inspect(false), 'false');
 assert.equal(util.inspect(''), "''");
