@@ -140,6 +140,7 @@
         }
 
       } else {
+        startup.preloadModules();
         // If -i or --interactive were passed, or stdin is a TTY.
         if (process._forceRepl || NativeModule.require('tty').isatty(0)) {
           // REPL
@@ -192,10 +193,9 @@
 
       if (typeof ar !== 'undefined') {
         if (Array.isArray(ar)) {
-          return [
-            (hrValues[0] * 0x100000000 + hrValues[1]) - ar[0],
-            hrValues[2] - ar[1]
-          ];
+          const sec = (hrValues[0] * 0x100000000 + hrValues[1]) - ar[0];
+          const nsec = hrValues[2] - ar[1];
+          return [nsec < 0 ? sec - 1 : sec, nsec < 0 ? nsec + 1e9 : nsec];
         }
 
         throw new TypeError('process.hrtime() only accepts an Array tuple');
@@ -821,7 +821,8 @@
     var signalWraps = {};
 
     function isSignal(event) {
-      return event.slice(0, 3) === 'SIG' &&
+      return typeof event === 'string' &&
+             event.slice(0, 3) === 'SIG' &&
              startup.lazyConstants().hasOwnProperty(event);
     }
 

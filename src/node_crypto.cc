@@ -3611,8 +3611,7 @@ bool Hash::HashInit(const char* hash_type) {
   if (md_ == nullptr)
     return false;
   EVP_MD_CTX_init(&mdctx_);
-  EVP_DigestInit_ex(&mdctx_, md_, nullptr);
-  if (0 != ERR_peek_error()) {
+  if (EVP_DigestInit_ex(&mdctx_, md_, nullptr) <= 0) {
     return false;
   }
   initialised_ = true;
@@ -4677,6 +4676,8 @@ void ECDH::Initialize(Environment* env, Local<Object> target) {
 
 void ECDH::New(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+
+  MarkPopErrorOnReturn mark_pop_error_on_return;
 
   // TODO(indutny): Support raw curves?
   CHECK(args[0]->IsString());
