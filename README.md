@@ -25,8 +25,7 @@ Prerequisites:
 
 * [Python 2.6 or 2.7](https://www.python.org)
 * [Visual
-Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio
-  -vs.aspx)
+Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
 
 ```sh
 vcbuild chakracore nosign [x86|x64|arm]
