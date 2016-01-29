@@ -31,7 +31,7 @@ try {
   assert.strictEqual(SlowBuffer(buffer.kMaxLength).length, buffer.kMaxLength);
 } catch (e) {
   assert.equal(e.message, common.engineSpecificMessage({
-    v8 : 'Invalid array buffer length',
+    v8 : 'Array buffer allocation failed',
     chakracore : 'Invalid offset/length when creating typed array'
   }));
 }

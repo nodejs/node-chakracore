@@ -10,12 +10,12 @@ start Node.js with the `debug` argument followed by the path to the script to
 debug; a prompt will be displayed indicating successful launch of the debugger:
 
 ```
-% node debug myscript.js
+$ node debug myscript.js
 < debugger listening on port 5858
 connecting... ok
 break in /home/indutny/Code/git/indutny/myscript.js:1
   1 x = 5;
-  2 setTimeout(function () {
+  2 setTimeout(() => {
   3   debugger;
 debug>
 ```
@@ -31,7 +31,7 @@ For example, suppose `myscript.js` is written as:
 ```js
 // myscript.js
 x = 5;
-setTimeout(function () {
+setTimeout(() => {
   debugger;
   console.log('world');
 }, 1000);
@@ -41,24 +41,24 @@ console.log('hello');
 Once the debugger is run, a breakpoint will occur at line 4:
 
 ```
-% node debug myscript.js
+$ node debug myscript.js
 < debugger listening on port 5858
 connecting... ok
 break in /home/indutny/Code/git/indutny/myscript.js:1
   1 x = 5;
-  2 setTimeout(function () {
+  2 setTimeout(() => {
   3   debugger;
 debug> cont
 < hello
 break in /home/indutny/Code/git/indutny/myscript.js:3
   1 x = 5;
-  2 setTimeout(function () {
+  2 setTimeout(() => {
   3   debugger;
   4   console.log('world');
   5 }, 1000);
 debug> next
 break in /home/indutny/Code/git/indutny/myscript.js:4
-  2 setTimeout(function () {
+  2 setTimeout(() => {
   3   debugger;
   4   console.log('world');
   5 }, 1000);
@@ -78,7 +78,6 @@ break in /home/indutny/Code/git/indutny/myscript.js:5
   6 console.log('hello');
   7
 debug> quit
-%
 ```
 
 The `repl` command allows code to be evaluated remotely. The `next` command
@@ -121,7 +120,7 @@ It is also possible to set a breakpoint in a file (module) that
 isn't loaded yet:
 
 ```
-% ./node debug test/fixtures/break-in-module/main.js
+$ ./node debug test/fixtures/break-in-module/main.js
 < debugger listening on port 5858
 connecting to port 5858... ok
 break in test/fixtures/break-in-module/main.js:1
@@ -136,7 +135,7 @@ Warning: script 'mod.js' was not loaded yet.
 debug> c
 break in test/fixtures/break-in-module/mod.js:23
  21
- 22 exports.hello = function() {
+ 22 exports.hello = () => {
  23   return 'hello from module';
  24 };
  25

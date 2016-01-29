@@ -13,6 +13,7 @@ namespace node {
 
 using v8::AccessType;
 using v8::Array;
+using v8::ArrayBuffer;
 using v8::Boolean;
 using v8::Context;
 using v8::Debug;
@@ -40,6 +41,7 @@ using v8::ScriptCompiler;
 using v8::ScriptOrigin;
 using v8::String;
 using v8::TryCatch;
+using v8::Uint8Array;
 using v8::UnboundScript;
 using v8::V8;
 using v8::Value;
@@ -507,24 +509,57 @@ class ContextifyScript : public BaseObject {
     Local<Integer> lineOffset = GetLineOffsetArg(args, 1);
     Local<Integer> columnOffset = GetColumnOffsetArg(args, 1);
     bool display_errors = GetDisplayErrorsArg(args, 1);
+    MaybeLocal<Uint8Array> cached_data_buf = GetCachedData(env, args, 1);
+    bool produce_cached_data = GetProduceCachedData(env, args, 1);
     if (try_catch.HasCaught()) {
       try_catch.ReThrow();
       return;
     }
 
+    ScriptCompiler::CachedData* cached_data = nullptr;
+    if (!cached_data_buf.IsEmpty()) {
+      ArrayBuffer::Contents contents =
+          cached_data_buf.ToLocalChecked()->Buffer()->GetContents();
+      cached_data = new ScriptCompiler::CachedData(
+          static_cast<uint8_t*>(contents.Data()), contents.ByteLength());
+    }
+
     ScriptOrigin origin(filename, lineOffset, columnOffset);
-    ScriptCompiler::Source source(code, origin);
-    Local<UnboundScript> v8_script =
-        ScriptCompiler::CompileUnbound(env->isolate(), &source);
+    ScriptCompiler::Source source(code, origin, cached_data);
+    ScriptCompiler::CompileOptions compile_options =
+        ScriptCompiler::kNoCompileOptions;
+
+    if (source.GetCachedData() != nullptr)
+      compile_options = ScriptCompiler::kConsumeCodeCache;
+    else if (produce_cached_data)
+      compile_options = ScriptCompiler::kProduceCodeCache;
+
+    Local<UnboundScript> v8_script = ScriptCompiler::CompileUnbound(
+        env->isolate(),
+        &source,
+        compile_options);
 
     if (v8_script.IsEmpty()) {
       if (display_errors) {
-        AppendExceptionLine(env, try_catch.Exception(), try_catch.Message());
+        DecorateErrorStack(env, try_catch);
       }
       try_catch.ReThrow();
       return;
     }
     contextify_script->script_.Reset(env->isolate(), v8_script);
+
+    if (compile_options == ScriptCompiler::kConsumeCodeCache) {
+      args.This()->Set(
+          env->cached_data_rejected_string(),
+          Boolean::New(env->isolate(), source.GetCachedData()->rejected));
+    } else if (compile_options == ScriptCompiler::kProduceCodeCache) {
+      const ScriptCompiler::CachedData* cached_data = source.GetCachedData();
+      MaybeLocal<Object> buf = Buffer::Copy(
+          env,
+          reinterpret_cast<const char*>(cached_data->data),
+          cached_data->length);
+      args.This()->Set(env->cached_data_string(), buf.ToLocalChecked());
+    }
   }
 
 
@@ -605,6 +640,30 @@ class ContextifyScript : public BaseObject {
     }
   }
 
+  static void DecorateErrorStack(Environment* env, const TryCatch& try_catch) {
+    Local<Value> exception = try_catch.Exception();
+
+    if (!exception->IsObject())
+      return;
+
+    Local<Object> err_obj = exception.As<Object>();
+
+    if (IsExceptionDecorated(env, err_obj))
+      return;
+
+    AppendExceptionLine(env, exception, try_catch.Message());
+    Local<Value> stack = err_obj->Get(env->stack_string());
+    Local<Value> arrow = err_obj->GetHiddenValue(env->arrow_message_string());
+
+    if (!(stack->IsString() && arrow->IsString()))
+      return;
+
+    Local<String> decorated_stack = String::Concat(arrow.As<String>(),
+                                                   stack.As<String>());
+    err_obj->Set(env->stack_string(), decorated_stack);
+    err_obj->SetHiddenValue(env->decorated_string(), True(env->isolate()));
+  }
+
   static int64_t GetTimeoutArg(const FunctionCallbackInfo<Value>& args,
                                const int i) {
     if (args[i]->IsUndefined() || args[i]->IsString()) {
@@ -677,6 +736,43 @@ class ContextifyScript : public BaseObject {
   }
 
 
+  static MaybeLocal<Uint8Array> GetCachedData(
+      Environment* env,
+      const FunctionCallbackInfo<Value>& args,
+      const int i) {
+    if (!args[i]->IsObject()) {
+      return MaybeLocal<Uint8Array>();
+    }
+    Local<Value> value = args[i].As<Object>()->Get(env->cached_data_string());
+    if (value->IsUndefined()) {
+      return MaybeLocal<Uint8Array>();
+    }
+
+    if (!value->IsUint8Array()) {
+      Environment::ThrowTypeError(
+          args.GetIsolate(),
+          "options.cachedData must be a Buffer instance");
+      return MaybeLocal<Uint8Array>();
+    }
+
+    return value.As<Uint8Array>();
+  }
+
+
+  static bool GetProduceCachedData(
+      Environment* env,
+      const FunctionCallbackInfo<Value>& args,
+      const int i) {
+    if (!args[i]->IsObject()) {
+      return false;
+    }
+    Local<Value> value =
+        args[i].As<Object>()->Get(env->produce_cached_data_string());
+
+    return value->IsTrue();
+  }
+
+
   static Local<Integer> GetLineOffsetArg(
                                       const FunctionCallbackInfo<Value>& args,
                                       const int i) {
@@ -744,7 +840,7 @@ class ContextifyScript : public BaseObject {
     if (result.IsEmpty()) {
       // Error occurred during execution of the script.
       if (display_errors) {
-        AppendExceptionLine(env, try_catch.Exception(), try_catch.Message());
+        DecorateErrorStack(env, try_catch);
       }
       try_catch.ReThrow();
       return false;

@@ -532,17 +532,18 @@ console.log(b.toString());
   // Prints: hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ```
 
-### buf.indexOf(value[, byteOffset])
+### buf.indexOf(value[, byteOffset][, encoding])
 
 * `value` String, Buffer or Number
 * `byteOffset` Number, Optional, Default: 0
+* `encoding` String, Optional, Default: `utf8`
 * Return: Number
 
 Operates similar to [`Array#indexOf()`][] in that it returns either the
 starting index position of `value` in Buffer or `-1` if the Buffer does not
-contain `value`. The `value` can be a String, Buffer or Number. Strings are
-interpreted as UTF8. Buffers will use the entire Buffer (to compare a partial
-Buffer use [`Buffer#slice()`][]). Numbers can range from 0 to 255.
+contain `value`. The `value` can be a String, Buffer or Number. Strings are by
+default interpreted as UTF8. Buffers will use the entire Buffer (to compare a
+partial Buffer use [`Buffer#slice()`][]).  Numbers can range from 0 to 255.
 
 ```js
 const buf = new Buffer('this is a buffer');
@@ -559,6 +560,13 @@ buf.indexOf(new Buffer('a buffer example'));
   // returns -1
 buf.indexOf(new Buffer('a buffer example').slice(0,8));
   // returns 8
+
+const utf16Buffer = new Buffer('\u039a\u0391\u03a3\u03a3\u0395', 'ucs2');
+
+utf16Buffer.indexOf('\u03a3',  0, 'ucs2');
+  // returns 4
+utf16Buffer.indexOf('\u03a3', -4, 'ucs2');
+  // returns 6
 ```
 
 ### buf.includes(value[, byteOffset][, encoding])
@@ -1000,7 +1008,7 @@ When undefined, `offset` defaults to `0`, and `encoding` defaults to `'utf8'`.
 The `length` parameter is the number of bytes to write, when undefined `length`
 defaults to `buffer.length - offset`. If the Buffer did not contain enough
 space to fit the entire string, only a partial amount of the string will be
-written however, the will not write only partially encoded characters. The
+written however, it will not write only partially encoded characters. The
 return value indicates the number of octets written.
 
 ```js

@@ -102,14 +102,18 @@ Example: Using `Cipher` objects as streams:
 const crypto = require('crypto');
 const cipher = crypto.createCipher('aes192', 'a password');
 
+var encrypted = '';
 cipher.on('readable', () => {
   var data = cipher.read();
   if (data)
-    console.log(data.toString('hex'));
-    // Prints: b919f20fc5ac2f9c1d2cce94cb1d9c2d
+    encrypted += data.toString('hex');
+});
+cipher.on('end', () => {
+  console.log(encrypted);
+  // Prints: ca981be48e90867604588e75d04feabb63cc007a8f8ad89b10616ed84d815504
 });
 
-cipher.write('clear text data');
+cipher.write('some clear text data');
 cipher.end();
 ```
 
@@ -132,9 +136,10 @@ Example: Using the `cipher.update()` and `cipher.final()` methods:
 const crypto = require('crypto');
 const cipher = crypto.createCipher('aes192', 'a password');
 
-cipher.update('clear text data');
-console.log(cipher.final('hex'));
-  // Prints: b919f20fc5ac2f9c1d2cce94cb1d9c2d
+var encrypted = cipher.update('some clear text data', 'utf8', 'hex');
+encrypted += cipher.final('hex');
+console.log(encrypted);
+  // Prints: ca981be48e90867604588e75d04feabb63cc007a8f8ad89b10616ed84d815504
 ```
 
 ### cipher.final([output_encoding])
@@ -212,20 +217,25 @@ Example: Using `Decipher` objects as streams:
 const crypto = require('crypto');
 const decipher = crypto.createDecipher('aes192', 'a password');
 
+var decrypted = '';
 decipher.on('readable', () => {
   var data = decipher.read();
   if (data)
-    console.log(data.toString());
-    // Prints: clear text data
+  decrypted += data.toString('utf8');
+});
+decipher.on('end', () => {
+  console.log(decrypted);
+  // Prints: some clear text data
 });
 
-decipher.write('b919f20fc5ac2f9c1d2cce94cb1d9c2d', 'hex');
+var encrypted = 'ca981be48e90867604588e75d04feabb63cc007a8f8ad89b10616ed84d815504';
+decipher.write(encrypted, 'hex');
 decipher.end();
 ```
 
 Example: Using `Decipher` and piped streams:
 
-```
+```js
 const crypto = require('crypto');
 const fs = require('fs');
 const decipher = crypto.createDecipher('aes192', 'a password');
@@ -242,9 +252,11 @@ Example: Using the `decipher.update()` and `decipher.final()` methods:
 const crypto = require('crypto');
 const decipher = crypto.createDecipher('aes192', 'a password');
 
-decipher.update('b919f20fc5ac2f9c1d2cce94cb1d9c2d', 'hex');
-console.log(decipher.final('utf8'));
-  // Prints: clear text data
+var encrypted = 'ca981be48e90867604588e75d04feabb63cc007a8f8ad89b10616ed84d815504';
+var decrypted = decipher.update(encrypted, 'hex', 'utf8');
+decrypted += decipher.final('utf8');
+console.log(decrypted);
+  // Prints: some clear text data
 ```
 
 ### decipher.final([output_encoding])
@@ -842,7 +854,7 @@ The `key` is the raw key used by the `algorithm` and `iv` is an
 
 ### crypto.createCredentials(details)
 
-    Stability: 0 - Deprecated: Use [`tls.createSecureContext`][] instead.
+    Stability: 0 - Deprecated: Use [`tls.createSecureContext()`][] instead.
 
 The `crypto.createCredentials()` method is a deprecated alias for creating
 and returning a `tls.SecureContext` object. The `crypto.createCredentials()`
@@ -1062,13 +1074,12 @@ const hashes = crypto.getHashes();
 console.log(hashes); // ['sha', 'sha1', 'sha1WithRSAEncryption', ...]
 ```
 
-### crypto.pbkdf2(password, salt, iterations, keylen[, digest], callback)
+### crypto.pbkdf2(password, salt, iterations, keylen, digest, callback)
 
 Provides an asynchronous Password-Based Key Derivation Function 2 (PBKDF2)
 implementation.  A selected HMAC digest algorithm specified by `digest` is
 applied to derive a key of the requested byte length (`keylen`) from the
-`password`, `salt` and `iterations`. If the `digest` algorithm is not specified,
-a default of `'sha1'` is used.
+`password`, `salt` and `iterations`.
 
 The supplied `callback` function is called with two arguments: `err` and
 `derivedKey`. If an error occurs, `err` will be set; otherwise `err` will be
@@ -1095,13 +1106,12 @@ crypto.pbkdf2('secret', 'salt', 100000, 512, 'sha512', (err, key) => {
 An array of supported digest functions can be retrieved using
 [`crypto.getHashes()`][].
 
-### crypto.pbkdf2Sync(password, salt, iterations, keylen[, digest])
+### crypto.pbkdf2Sync(password, salt, iterations, keylen, digest)
 
 Provides a synchronous Password-Based Key Derivation Function 2 (PBKDF2)
 implementation.  A selected HMAC digest algorithm specified by `digest` is
 applied to derive a key of the requested byte length (`keylen`) from the
-`password`, `salt` and `iterations`. If the `digest` algorithm is not specified,
-a default of `'sha1'` is used.
+`password`, `salt` and `iterations`.
 
 If an error occurs an Error will be thrown, otherwise the derived key will be
 returned as a [`Buffer`][].
@@ -1327,7 +1337,7 @@ See the reference for other recommendations and details.
 [`diffieHellman.setPublicKey()`]: #crypto_diffiehellman_setpublickey_public_key_encoding
 [`EVP_BytesToKey`]: https://www.openssl.org/docs/crypto/EVP_BytesToKey.html
 [`getCurves()`]: #crypto_crypto_getcurves
-[`tls.createSecureContext`]: tls.html#tls_tls_createsecurecontext_details
+[`tls.createSecureContext()`]: tls.html#tls_tls_createsecurecontext_details
 [`Buffer`]: buffer.html
 [buffers]: buffer.html
 [Caveats]: #crypto_support_for_weak_or_compromised_algorithms

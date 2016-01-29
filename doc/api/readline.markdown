@@ -118,8 +118,9 @@ the `input` stream receives a `^C`, respectively known as `SIGINT`.
 
 `function (line) {}`
 
-Emitted whenever the `input` stream receives a `\n`, usually received when the
-user hits enter, or return. This is a good hook to listen for user input.
+Emitted whenever the `input` stream receives an end of line (`\n`, `\r`, or
+`\r\n`), usually received when the user hits enter, or return. This is a good
+hook to listen for user input.
 
 Example of listening for `'line'`:
 
@@ -265,7 +266,7 @@ const rl = readline.createInterface({
   input: fs.createReadStream('sample.txt')
 });
 
-rl.on('line', function (line) {
+rl.on('line', (line) => {
   console.log('Line from file:', line);
 });
 ```

@@ -11,11 +11,11 @@ By executing `node` without any arguments from the command-line you will be
 dropped into the REPL. It has simplistic emacs line-editing.
 
 ```
-mjr:~$ node
+$ node
 Type '.help' for options.
 > a = [ 1, 2, 3];
 [ 1, 2, 3 ]
-> a.forEach(function (v){
+> a.forEach((v) => {
 ...   console.log(v);
 ...   });
 1
@@ -101,7 +101,7 @@ repl.start('> ').context.m = msg;
 Things in the `context` object appear as local within the REPL:
 
 ```
-mjr:~$ node repl_test.js
+$ node repl_test.js
 > m
 'message'
 ```
@@ -139,7 +139,7 @@ For example, if you have defined an `inspect()` function on an object, like this
 ```
 > var obj = {foo: 'this will not show up in the inspect() output'};
 undefined
-> obj.inspect = function() {
+> obj.inspect = () => {
 ...   return {bar: 'baz'};
 ... };
 [Function]

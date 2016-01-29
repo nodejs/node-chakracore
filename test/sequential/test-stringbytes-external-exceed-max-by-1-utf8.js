@@ -23,7 +23,7 @@ try {
   gc();
 } catch (e) {
   // If the exception is not due to memory confinement then rethrow it.
-  if (e.message !== 'Invalid array buffer length') throw (e);
+  if (e.message !== 'Array buffer allocation failed') throw (e);
   console.log(skipMessage);
   return;
 }
@@ -36,7 +36,7 @@ if (common.isChakraEngine) {
 
 assert.throws(function() {
   buf.toString();
-}, /"toString\(\)" failed|Invalid array buffer length/);
+}, /"toString\(\)" failed|Array buffer allocation failed/);
 
 assert.throws(function() {
   buf.toString('utf8');
