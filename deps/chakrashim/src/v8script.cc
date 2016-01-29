@@ -245,5 +245,4 @@ Local<Script> ScriptCompiler::Compile(Isolate* isolate,
                                       CompileOptions options) {
   return FromMaybe(Compile(Local<Context>(), source, options));
 }
-
 }  // namespace v8

@@ -822,8 +822,20 @@ class V8_EXPORT ScriptCompiler {
  public:
   struct CachedData {
     // CHAKRA-TODO: Not implemented
-   private:
-    CachedData();  // Make sure it is not constructed as it is not implemented.
+    enum BufferPolicy {
+      BufferNotOwned,
+      BufferOwned
+    };
+
+   const uint8_t* data;
+   int length;
+   bool rejected = true;
+   BufferPolicy buffer_policy;
+
+    CachedData();
+    CachedData(const uint8_t* data, int length,
+               BufferPolicy buffer_policy = BufferNotOwned) {
+    }
   };
 
   class Source {
@@ -839,6 +851,8 @@ class V8_EXPORT ScriptCompiler {
       : source_string(source_string) {
     }
 
+    const CachedData* GetCachedData() const { return nullptr; }
+
    private:
     friend ScriptCompiler;
     Local<String> source_string;
@@ -847,6 +861,10 @@ class V8_EXPORT ScriptCompiler {
 
   enum CompileOptions {
     kNoCompileOptions = 0,
+    kProduceParserCache,
+    kConsumeParserCache,
+    kProduceCodeCache,
+    kConsumeCodeCache
   };
 
   static V8_DEPRECATE_SOON("Use maybe version",
