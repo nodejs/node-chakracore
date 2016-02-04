@@ -293,6 +293,7 @@ class Local {
   friend class Object;
   friend struct ObjectData;
   friend class ObjectTemplate;
+  friend class Private;
   friend class Signature;
   friend class Script;
   friend class StackFrame;
@@ -1039,6 +1040,17 @@ class V8_EXPORT Value : public Data {
   }
 };
 
+class V8_EXPORT Private : public Data {
+public:
+  Local<Value> Name() const;
+  static Local<Private> New(Isolate* isolate,
+                            Local<String> name = Local<String>());
+  static Local<Private> ForApi(Isolate* isolate, Local<String> name);
+
+private:
+  Private();
+};
+
 class V8_EXPORT Primitive : public Value {
  public:
 };
@@ -1380,8 +1392,17 @@ class V8_EXPORT Object : public Value {
   V8_WARN_UNUSED_RESULT Maybe<PropertyAttribute> GetRealNamedPropertyAttributes(
     Local<Context> context, Local<Name> key);
 
-  bool SetHiddenValue(Handle<String> key, Handle<Value> value);
-  Local<Value> GetHiddenValue(Handle<String> key);
+  V8_DEPRECATE_SOON("Use v8::Object::SetPrivate instead.",
+                    bool SetHiddenValue(Handle<String> key,
+                                        Handle<Value> value));
+  V8_DEPRECATE_SOON("Use v8::Object::GetPrivate instead.",
+                    Local<Value> GetHiddenValue(Handle<String> key));
+
+  Maybe<bool> HasPrivate(Local<Context> context, Local<Private> key);
+  Maybe<bool> SetPrivate(Local<Context> context, Local<Private> key,
+                         Local<Value> value);
+  Maybe<bool> DeletePrivate(Local<Context> context, Local<Private> key);
+  MaybeLocal<Value> GetPrivate(Local<Context> context, Local<Private> key);
 
   Local<Object> Clone();
   Local<Context> CreationContext();

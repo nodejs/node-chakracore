@@ -31,7 +31,9 @@
     Map_values = Map.prototype.values,
     Map_entries = Map.prototype.entries,
     Set_entries = Set.prototype.entries,
-    Set_values = Set.prototype.values;
+    Set_values = Set.prototype.values,
+    Symbol_keyFor = Symbol.keyFor,
+    Symbol_for = Symbol.for;
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
@@ -350,7 +352,12 @@
     utils.isNumberObject = function(obj) {
       return compareType(obj, 'Number');
     };
-
+    utils.getSymbolKeyFor = function(symbol) {
+      return Symbol_keyFor(symbol);
+    };
+    utils.getSymbolFor = function(key) {
+      return Symbol_for(key);
+    };
   }
 
   // patch console

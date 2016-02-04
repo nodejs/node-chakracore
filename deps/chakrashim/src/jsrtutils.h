@@ -297,6 +297,21 @@ JsErrorCode ParseScript(const wchar_t *script,
                         bool isStrictMode,
                         JsValueRef *result);
 
+JsErrorCode GetHiddenValuesTable(JsValueRef object,
+                                JsPropertyIdRef* hiddenValueIdRef,
+                                JsValueRef* hiddenValuesTable,
+                                bool* isUndefined);
+
+JsErrorCode GetPrivate(JsValueRef object, JsValueRef key,
+                           JsValueRef *result);
+
+JsErrorCode SetPrivate(JsValueRef object, JsValueRef key,
+                           JsValueRef value);
+
+bool HasPrivate(JsValueRef object, JsValueRef key);
+
+bool DeletePrivate(JsValueRef object, JsValueRef key);
+
 void Unimplemented(const char * message);
 
 void Fatal(const char * format, ...);
