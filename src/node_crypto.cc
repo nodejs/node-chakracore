@@ -521,10 +521,7 @@ int SSL_CTX_use_certificate_chain(SSL_CTX* ctx,
     // the CA certificates.
     int r;
 
-    if (ctx->extra_certs != nullptr) {
-      sk_X509_pop_free(ctx->extra_certs, X509_free);
-      ctx->extra_certs = nullptr;
-    }
+    SSL_CTX_clear_extra_chain_certs(ctx);
 
     for (int i = 0; i < sk_X509_num(extra_certs); i++) {
       X509* ca = sk_X509_value(extra_certs, i);
@@ -1195,6 +1192,7 @@ void SSLWrap<Base>::AddMethods(Environment* env, Local<FunctionTemplate> t) {
   env->SetProtoMethod(t, "setOCSPResponse", SetOCSPResponse);
   env->SetProtoMethod(t, "requestOCSP", RequestOCSP);
   env->SetProtoMethod(t, "getEphemeralKeyInfo", GetEphemeralKeyInfo);
+  env->SetProtoMethod(t, "getProtocol", GetProtocol);
 
 #ifdef SSL_set_max_send_fragment
   env->SetProtoMethod(t, "setMaxSendFragment", SetMaxSendFragment);
@@ -1957,6 +1955,15 @@ void SSLWrap<Base>::GetCurrentCipher(const FunctionCallbackInfo<Value>& args) {
 }
 
 
+template <class Base>
+void SSLWrap<Base>::GetProtocol(const FunctionCallbackInfo<Value>& args) {
+  Base* w = Unwrap<Base>(args.Holder());
+
+  const char* tls_version = SSL_get_version(w->ssl_);
+  args.GetReturnValue().Set(OneByteString(args.GetIsolate(), tls_version));
+}
+
+
 #ifdef OPENSSL_NPN_NEGOTIATED
 template <class Base>
 int SSLWrap<Base>::AdvertiseNextProtoCallback(SSL* s,
@@ -1968,10 +1975,12 @@ int SSLWrap<Base>::AdvertiseNextProtoCallback(SSL* s,
   HandleScope handle_scope(env->isolate());
   Context::Scope context_scope(env->context());
 
-  Local<Value> npn_buffer =
-      w->object()->GetHiddenValue(env->npn_buffer_string());
+  auto npn_buffer =
+      w->object()->GetPrivate(
+          env->context(),
+          env->npn_buffer_private_symbol()).ToLocalChecked();
 
-  if (npn_buffer.IsEmpty()) {
+  if (npn_buffer->IsUndefined()) {
     // No initialization - no NPN protocols
     *data = reinterpret_cast<const unsigned char*>("");
     *len = 0;
@@ -1997,19 +2006,23 @@ int SSLWrap<Base>::SelectNextProtoCallback(SSL* s,
   HandleScope handle_scope(env->isolate());
   Context::Scope context_scope(env->context());
 
-  Local<Value> npn_buffer =
-      w->object()->GetHiddenValue(env->npn_buffer_string());
+  auto npn_buffer =
+      w->object()->GetPrivate(
+          env->context(),
+          env->npn_buffer_private_symbol()).ToLocalChecked();
 
-  if (npn_buffer.IsEmpty()) {
+  if (npn_buffer->IsUndefined()) {
     // We should at least select one protocol
     // If server is using NPN
     *out = reinterpret_cast<unsigned char*>(const_cast<char*>("http/1.1"));
     *outlen = 8;
 
     // set status: unsupported
-    bool r = w->object()->SetHiddenValue(env->selected_npn_buffer_string(),
-                                         False(env->isolate()));
-    CHECK(r);
+    CHECK(
+        w->object()->SetPrivate(
+            env->context(),
+            env->selected_npn_buffer_private_symbol(),
+            False(env->isolate())).FromJust());
 
     return SSL_TLSEXT_ERR_OK;
   }
@@ -2035,9 +2048,11 @@ int SSLWrap<Base>::SelectNextProtoCallback(SSL* s,
       break;
   }
 
-  bool r = w->object()->SetHiddenValue(env->selected_npn_buffer_string(),
-                                       result);
-  CHECK(r);
+  CHECK(
+      w->object()->SetPrivate(
+          env->context(),
+          env->selected_npn_buffer_private_symbol(),
+          result).FromJust());
 
   return SSL_TLSEXT_ERR_OK;
 }
@@ -2047,14 +2062,14 @@ template <class Base>
 void SSLWrap<Base>::GetNegotiatedProto(
     const FunctionCallbackInfo<Value>& args) {
   Base* w = Unwrap<Base>(args.Holder());
+  Environment* env = w->env();
 
   if (w->is_client()) {
-    Local<Value> selected_npn_buffer =
-        w->object()->GetHiddenValue(w->env()->selected_npn_buffer_string());
-
-    if (selected_npn_buffer.IsEmpty() == false)
-      args.GetReturnValue().Set(selected_npn_buffer);
-
+    auto selected_npn_buffer =
+        w->object()->GetPrivate(
+            env->context(),
+            env->selected_npn_buffer_private_symbol()).ToLocalChecked();
+    args.GetReturnValue().Set(selected_npn_buffer);
     return;
   }
 
@@ -2079,9 +2094,11 @@ void SSLWrap<Base>::SetNPNProtocols(const FunctionCallbackInfo<Value>& args) {
   if (args.Length() < 1 || !Buffer::HasInstance(args[0]))
     return env->ThrowTypeError("Must give a Buffer as first argument");
 
-  Local<Value> npn_buffer =  Local<Value>::New(env->isolate(), args[0]);
-  bool r = w->object()->SetHiddenValue(env->npn_buffer_string(), npn_buffer);
-  CHECK(r);
+  CHECK(
+      w->object()->SetPrivate(
+          env->context(),
+          env->npn_buffer_private_symbol(),
+          args[0]).FromJust());
 }
 #endif  // OPENSSL_NPN_NEGOTIATED
 
@@ -2104,7 +2121,9 @@ int SSLWrap<Base>::SelectALPNCallback(SSL* s,
   Context::Scope context_scope(env->context());
 
   Local<Value> alpn_buffer =
-      w->object()->GetHiddenValue(env->alpn_buffer_string());
+      w->object()->GetPrivate(
+          env->context(),
+          env->alpn_buffer_private_symbol()).ToLocalChecked();
   CHECK(Buffer::HasInstance(alpn_buffer));
   const unsigned char* alpn_protos =
       reinterpret_cast<const unsigned char*>(Buffer::Data(alpn_buffer));
@@ -2167,10 +2186,11 @@ void SSLWrap<Base>::SetALPNProtocols(
     int r = SSL_set_alpn_protos(w->ssl_, alpn_protos, alpn_protos_len);
     CHECK_EQ(r, 0);
   } else {
-    Local<Value> alpn_buffer =  Local<Value>::New(env->isolate(), args[0]);
-    bool ret = w->object()->SetHiddenValue(env->alpn_buffer_string(),
-                                           alpn_buffer);
-    CHECK(ret);
+    CHECK(
+        w->object()->SetPrivate(
+          env->context(),
+          env->alpn_buffer_private_symbol(),
+          args[0]).FromJust());
     // Server should select ALPN protocol from list of advertised by client
     SSL_CTX_set_alpn_select_cb(w->ssl_->ctx, SelectALPNCallback, nullptr);
   }
@@ -5177,7 +5197,7 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
 
   if (args[5]->IsFunction()) {
     obj->Set(env->ondone_string(), args[5]);
-    // XXX(trevnorris): This will need to go with the rest of domains.
+
     if (env->in_domain())
       obj->Set(env->domain_string(), env->domain_array()->Get(0));
     uv_queue_work(env->event_loop(),
@@ -5338,7 +5358,7 @@ void RandomBytes(const FunctionCallbackInfo<Value>& args) {
 
   if (args[1]->IsFunction()) {
     obj->Set(FIXED_ONE_BYTE_STRING(args.GetIsolate(), "ondone"), args[1]);
-    // XXX(trevnorris): This will need to go with the rest of domains.
+
     if (env->in_domain())
       obj->Set(env->domain_string(), env->domain_array()->Get(0));
     uv_queue_work(env->event_loop(),

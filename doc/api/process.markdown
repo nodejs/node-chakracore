@@ -59,7 +59,7 @@ is emitted with the following arguments:
 
 There is no notion of a top level for a promise chain at which rejections can
 always be handled. Being inherently asynchronous in nature, a promise rejection
-can be be handled at a future point in time — possibly much later than the
+can be handled at a future point in time — possibly much later than the
 event loop turn it takes for the `'unhandledRejection'` event to be emitted.
 
 Another way of stating this is that, unlike in synchronous code where there is
@@ -422,6 +422,31 @@ But this will:
 ```js
 process.env.foo = 'bar';
 console.log(process.env.foo);
+```
+
+Assigning a property on `process.env` will implicitly convert the value
+to a string.
+
+Example:
+
+```js
+process.env.test = null;
+console.log(process.env.test);
+// => 'null'
+process.env.test = undefined;
+console.log(process.env.test);
+// => 'undefined'
+```
+
+Use `delete` to delete a property from `process.env`.
+
+Example:
+
+```js
+process.env.TEST = 1;
+delete process.env.TEST;
+console.log(process.env.TEST);
+// => undefined
 ```
 
 ## process.execArgv

@@ -501,7 +501,10 @@ bench-events: all
 bench-util: all
 	@$(NODE) benchmark/common.js util
 
-bench-all: bench bench-misc bench-array bench-buffer bench-url bench-events
+bench-dgram: all
+	@$(NODE) benchmark/common.js dgram
+
+bench-all: bench bench-misc bench-array bench-buffer bench-url bench-events bench-dgram bench-util
 
 bench: bench-net bench-http bench-fs bench-tls
 
@@ -514,7 +517,7 @@ bench-idle:
 	$(NODE) benchmark/idle_clients.js &
 
 jslint:
-	$(NODE) tools/eslint/bin/eslint.js src lib test tools/eslint-rules \
+	$(NODE) tools/eslint/bin/eslint.js lib src test tools/doc tools/eslint-rules \
 		--rulesdir tools/eslint-rules --quiet
 
 CPPLINT_EXCLUDE ?=
