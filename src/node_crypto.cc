@@ -116,21 +116,6 @@ static X509_NAME *cnnic_ev_name =
     d2i_X509_NAME(nullptr, &cnnic_ev_p,
                   sizeof(CNNIC_EV_ROOT_CA_SUBJECT_DATA)-1);
 
-// Forcibly clear OpenSSL's error stack on return. This stops stale errors
-// from popping up later in the lifecycle of crypto operations where they
-// would cause spurious failures. It's a rather blunt method, though.
-// ERR_clear_error() isn't necessarily cheap either.
-struct ClearErrorOnReturn {
-  ~ClearErrorOnReturn() { ERR_clear_error(); }
-};
-
-// Pop errors from OpenSSL's error stack that were added
-// between when this was constructed and destructed.
-struct MarkPopErrorOnReturn {
-  MarkPopErrorOnReturn() { ERR_set_mark(); }
-  ~MarkPopErrorOnReturn() { ERR_pop_to_mark(); }
-};
-
 static uv_mutex_t* locks;
 
 const char* const root_certs[] = {
@@ -171,7 +156,11 @@ template int SSLWrap<TLSWrap>::SelectNextProtoCallback(
     unsigned int inlen,
     void* arg);
 #endif
+
+#ifdef NODE__HAVE_TLSEXT_STATUS_CB
 template int SSLWrap<TLSWrap>::TLSExtStatusCallback(SSL* s, void* arg);
+#endif
+
 template void SSLWrap<TLSWrap>::DestroySSL();
 template int SSLWrap<TLSWrap>::SSLCertCallback(SSL* s, void* arg);
 template void SSLWrap<TLSWrap>::WaitForCertCb(CertCb cb, void* arg);
@@ -532,10 +521,7 @@ int SSL_CTX_use_certificate_chain(SSL_CTX* ctx,
     // the CA certificates.
     int r;
 
-    if (ctx->extra_certs != nullptr) {
-      sk_X509_pop_free(ctx->extra_certs, X509_free);
-      ctx->extra_certs = nullptr;
-    }
+    SSL_CTX_clear_extra_chain_certs(ctx);
 
     for (int i = 0; i < sk_X509_num(extra_certs); i++) {
       X509* ca = sk_X509_value(extra_certs, i);
@@ -1206,6 +1192,7 @@ void SSLWrap<Base>::AddMethods(Environment* env, Local<FunctionTemplate> t) {
   env->SetProtoMethod(t, "setOCSPResponse", SetOCSPResponse);
   env->SetProtoMethod(t, "requestOCSP", RequestOCSP);
   env->SetProtoMethod(t, "getEphemeralKeyInfo", GetEphemeralKeyInfo);
+  env->SetProtoMethod(t, "getProtocol", GetProtocol);
 
 #ifdef SSL_set_max_send_fragment
   env->SetProtoMethod(t, "setMaxSendFragment", SetMaxSendFragment);
@@ -1968,6 +1955,15 @@ void SSLWrap<Base>::GetCurrentCipher(const FunctionCallbackInfo<Value>& args) {
 }
 
 
+template <class Base>
+void SSLWrap<Base>::GetProtocol(const FunctionCallbackInfo<Value>& args) {
+  Base* w = Unwrap<Base>(args.Holder());
+
+  const char* tls_version = SSL_get_version(w->ssl_);
+  args.GetReturnValue().Set(OneByteString(args.GetIsolate(), tls_version));
+}
+
+
 #ifdef OPENSSL_NPN_NEGOTIATED
 template <class Base>
 int SSLWrap<Base>::AdvertiseNextProtoCallback(SSL* s,
@@ -1979,10 +1975,12 @@ int SSLWrap<Base>::AdvertiseNextProtoCallback(SSL* s,
   HandleScope handle_scope(env->isolate());
   Context::Scope context_scope(env->context());
 
-  Local<Value> npn_buffer =
-      w->object()->GetHiddenValue(env->npn_buffer_string());
+  auto npn_buffer =
+      w->object()->GetPrivate(
+          env->context(),
+          env->npn_buffer_private_symbol()).ToLocalChecked();
 
-  if (npn_buffer.IsEmpty()) {
+  if (npn_buffer->IsUndefined()) {
     // No initialization - no NPN protocols
     *data = reinterpret_cast<const unsigned char*>("");
     *len = 0;
@@ -2008,19 +2006,23 @@ int SSLWrap<Base>::SelectNextProtoCallback(SSL* s,
   HandleScope handle_scope(env->isolate());
   Context::Scope context_scope(env->context());
 
-  Local<Value> npn_buffer =
-      w->object()->GetHiddenValue(env->npn_buffer_string());
+  auto npn_buffer =
+      w->object()->GetPrivate(
+          env->context(),
+          env->npn_buffer_private_symbol()).ToLocalChecked();
 
-  if (npn_buffer.IsEmpty()) {
+  if (npn_buffer->IsUndefined()) {
     // We should at least select one protocol
     // If server is using NPN
     *out = reinterpret_cast<unsigned char*>(const_cast<char*>("http/1.1"));
     *outlen = 8;
 
     // set status: unsupported
-    bool r = w->object()->SetHiddenValue(env->selected_npn_buffer_string(),
-                                         False(env->isolate()));
-    CHECK(r);
+    CHECK(
+        w->object()->SetPrivate(
+            env->context(),
+            env->selected_npn_buffer_private_symbol(),
+            False(env->isolate())).FromJust());
 
     return SSL_TLSEXT_ERR_OK;
   }
@@ -2046,9 +2048,11 @@ int SSLWrap<Base>::SelectNextProtoCallback(SSL* s,
       break;
   }
 
-  bool r = w->object()->SetHiddenValue(env->selected_npn_buffer_string(),
-                                       result);
-  CHECK(r);
+  CHECK(
+      w->object()->SetPrivate(
+          env->context(),
+          env->selected_npn_buffer_private_symbol(),
+          result).FromJust());
 
   return SSL_TLSEXT_ERR_OK;
 }
@@ -2058,14 +2062,14 @@ template <class Base>
 void SSLWrap<Base>::GetNegotiatedProto(
     const FunctionCallbackInfo<Value>& args) {
   Base* w = Unwrap<Base>(args.Holder());
+  Environment* env = w->env();
 
   if (w->is_client()) {
-    Local<Value> selected_npn_buffer =
-        w->object()->GetHiddenValue(w->env()->selected_npn_buffer_string());
-
-    if (selected_npn_buffer.IsEmpty() == false)
-      args.GetReturnValue().Set(selected_npn_buffer);
-
+    auto selected_npn_buffer =
+        w->object()->GetPrivate(
+            env->context(),
+            env->selected_npn_buffer_private_symbol()).ToLocalChecked();
+    args.GetReturnValue().Set(selected_npn_buffer);
     return;
   }
 
@@ -2090,9 +2094,11 @@ void SSLWrap<Base>::SetNPNProtocols(const FunctionCallbackInfo<Value>& args) {
   if (args.Length() < 1 || !Buffer::HasInstance(args[0]))
     return env->ThrowTypeError("Must give a Buffer as first argument");
 
-  Local<Value> npn_buffer =  Local<Value>::New(env->isolate(), args[0]);
-  bool r = w->object()->SetHiddenValue(env->npn_buffer_string(), npn_buffer);
-  CHECK(r);
+  CHECK(
+      w->object()->SetPrivate(
+          env->context(),
+          env->npn_buffer_private_symbol(),
+          args[0]).FromJust());
 }
 #endif  // OPENSSL_NPN_NEGOTIATED
 
@@ -2115,7 +2121,9 @@ int SSLWrap<Base>::SelectALPNCallback(SSL* s,
   Context::Scope context_scope(env->context());
 
   Local<Value> alpn_buffer =
-      w->object()->GetHiddenValue(env->alpn_buffer_string());
+      w->object()->GetPrivate(
+          env->context(),
+          env->alpn_buffer_private_symbol()).ToLocalChecked();
   CHECK(Buffer::HasInstance(alpn_buffer));
   const unsigned char* alpn_protos =
       reinterpret_cast<const unsigned char*>(Buffer::Data(alpn_buffer));
@@ -2178,10 +2186,11 @@ void SSLWrap<Base>::SetALPNProtocols(
     int r = SSL_set_alpn_protos(w->ssl_, alpn_protos, alpn_protos_len);
     CHECK_EQ(r, 0);
   } else {
-    Local<Value> alpn_buffer =  Local<Value>::New(env->isolate(), args[0]);
-    bool ret = w->object()->SetHiddenValue(env->alpn_buffer_string(),
-                                           alpn_buffer);
-    CHECK(ret);
+    CHECK(
+        w->object()->SetPrivate(
+          env->context(),
+          env->alpn_buffer_private_symbol(),
+          args[0]).FromJust());
     // Server should select ALPN protocol from list of advertised by client
     SSL_CTX_set_alpn_select_cb(w->ssl_->ctx, SelectALPNCallback, nullptr);
   }
@@ -2278,7 +2287,12 @@ int SSLWrap<Base>::SSLCertCallback(SSL* s, void* arg) {
     info->Set(env->tls_ticket_string(),
               Boolean::New(env->isolate(), sess->tlsext_ticklen != 0));
   }
-  bool ocsp = s->tlsext_status_type == TLSEXT_STATUSTYPE_ocsp;
+
+  bool ocsp = false;
+#ifdef NODE__HAVE_TLSEXT_STATUS_CB
+  ocsp = s->tlsext_status_type == TLSEXT_STATUSTYPE_ocsp;
+#endif
+
   info->Set(env->ocsp_request_string(), Boolean::New(env->isolate(), ocsp));
 
   Local<Value> argv[] = { info };
@@ -3626,8 +3640,7 @@ bool Hash::HashInit(const char* hash_type) {
   if (md_ == nullptr)
     return false;
   EVP_MD_CTX_init(&mdctx_);
-  EVP_DigestInit_ex(&mdctx_, md_, nullptr);
-  if (0 != ERR_peek_error()) {
+  if (EVP_DigestInit_ex(&mdctx_, md_, nullptr) <= 0) {
     return false;
   }
   initialised_ = true;
@@ -4693,6 +4706,8 @@ void ECDH::Initialize(Environment* env, Local<Object> target) {
 void ECDH::New(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
+  MarkPopErrorOnReturn mark_pop_error_on_return;
+
   // TODO(indutny): Support raw curves?
   CHECK(args[0]->IsString());
   node::Utf8Value curve(env->isolate(), args[0]);
@@ -5182,7 +5197,7 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
 
   if (args[5]->IsFunction()) {
     obj->Set(env->ondone_string(), args[5]);
-    // XXX(trevnorris): This will need to go with the rest of domains.
+
     if (env->in_domain())
       obj->Set(env->domain_string(), env->domain_array()->Get(0));
     uv_queue_work(env->event_loop(),
@@ -5343,7 +5358,7 @@ void RandomBytes(const FunctionCallbackInfo<Value>& args) {
 
   if (args[1]->IsFunction()) {
     obj->Set(FIXED_ONE_BYTE_STRING(args.GetIsolate(), "ondone"), args[1]);
-    // XXX(trevnorris): This will need to go with the rest of domains.
+
     if (env->in_domain())
       obj->Set(env->domain_string(), env->domain_array()->Get(0));
     uv_queue_work(env->event_loop(),
@@ -5384,7 +5399,7 @@ void GetSSLCiphers(const FunctionCallbackInfo<Value>& args) {
   STACK_OF(SSL_CIPHER)* ciphers = SSL_get_ciphers(ssl);
 
   for (int i = 0; i < sk_SSL_CIPHER_num(ciphers); ++i) {
-    SSL_CIPHER* cipher = sk_SSL_CIPHER_value(ciphers, i);
+    const SSL_CIPHER* cipher = sk_SSL_CIPHER_value(ciphers, i);
     arr->Set(i, OneByteString(args.GetIsolate(), SSL_CIPHER_get_name(cipher)));
   }
 

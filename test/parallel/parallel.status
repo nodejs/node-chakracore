@@ -7,14 +7,12 @@ prefix parallel
 [true] # This section applies to all platforms
 
 [$system==win32]
-test-cluster-shared-leak             : PASS,FLAKY
 test-debug-no-context                : PASS,FLAKY
 test-tls-ticket-cluster              : PASS,FLAKY
+test-tick-processor                  : PASS,FLAKY
 
 [$system==linux]
-test-http-client-timeout-event       : PASS,FLAKY
-test-child-process-buffering         : PASS,FLAKY
-test-child-process-exit-code         : PASS,FLAKY
+test-tick-processor                  : PASS,FLAKY
 
 [$system==macos]
 

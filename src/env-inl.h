@@ -50,12 +50,25 @@ inline Environment::IsolateData::IsolateData(v8::Isolate* isolate,
     : event_loop_(loop),
       isolate_(isolate),
 #define V(PropertyName, StringValue)                                          \
-    PropertyName ## _(isolate,                                                \
-                      v8::String::NewFromOneByte(                             \
-                          isolate,                                            \
-                          reinterpret_cast<const uint8_t*>(StringValue),      \
-                          v8::NewStringType::kInternalized,                   \
-                          sizeof(StringValue) - 1).ToLocalChecked()),
+    PropertyName ## _(                                                        \
+        isolate,                                                              \
+        v8::Private::ForApi(                                                  \
+            isolate,                                                          \
+            v8::String::NewFromOneByte(                                       \
+                isolate,                                                      \
+                reinterpret_cast<const uint8_t*>(StringValue),                \
+                v8::NewStringType::kInternalized,                             \
+                sizeof(StringValue) - 1).ToLocalChecked())),
+  PER_ISOLATE_PRIVATE_SYMBOL_PROPERTIES(V)
+#undef V
+#define V(PropertyName, StringValue)                                          \
+    PropertyName ## _(                                                        \
+        isolate,                                                              \
+        v8::String::NewFromOneByte(                                           \
+            isolate,                                                          \
+            reinterpret_cast<const uint8_t*>(StringValue),                    \
+            v8::NewStringType::kInternalized,                                 \
+            sizeof(StringValue) - 1).ToLocalChecked()),
     PER_ISOLATE_STRING_PROPERTIES(V)
 #undef V
     ref_count_(0) {}
@@ -242,6 +255,7 @@ inline Environment::~Environment() {
   isolate_data()->Put();
 
   delete[] heap_statistics_buffer_;
+  delete[] heap_space_statistics_buffer_;
   delete[] http_parser_buffer_;
 }
 
@@ -373,6 +387,17 @@ inline void Environment::set_heap_statistics_buffer(uint32_t* pointer) {
   CHECK_EQ(heap_statistics_buffer_, nullptr);  // Should be set only once.
   heap_statistics_buffer_ = pointer;
 }
+
+inline uint32_t* Environment::heap_space_statistics_buffer() const {
+  CHECK_NE(heap_space_statistics_buffer_, nullptr);
+  return heap_space_statistics_buffer_;
+}
+
+inline void Environment::set_heap_space_statistics_buffer(uint32_t* pointer) {
+  CHECK_EQ(heap_space_statistics_buffer_, nullptr);  // Should be set only once.
+  heap_space_statistics_buffer_ = pointer;
+}
+
 
 inline char* Environment::http_parser_buffer() const {
   return http_parser_buffer_;
@@ -513,21 +538,31 @@ inline v8::Local<v8::Object> Environment::NewInternalFieldObject() {
   return m_obj.ToLocalChecked();
 }
 
-#define V(PropertyName, StringValue)                                          \
+#define VP(PropertyName, StringValue) V(v8::Private, PropertyName, StringValue)
+#define VS(PropertyName, StringValue) V(v8::String, PropertyName, StringValue)
+#define V(TypeName, PropertyName, StringValue)                                \
   inline                                                                      \
-  v8::Local<v8::String> Environment::IsolateData::PropertyName() const {      \
+  v8::Local<TypeName> Environment::IsolateData::PropertyName() const {        \
     /* Strings are immutable so casting away const-ness here is okay. */      \
     return const_cast<IsolateData*>(this)->PropertyName ## _.Get(isolate());  \
   }
-  PER_ISOLATE_STRING_PROPERTIES(V)
+  PER_ISOLATE_PRIVATE_SYMBOL_PROPERTIES(VP)
+  PER_ISOLATE_STRING_PROPERTIES(VS)
 #undef V
+#undef VS
+#undef VP
 
-#define V(PropertyName, StringValue)                                          \
-  inline v8::Local<v8::String> Environment::PropertyName() const {            \
+#define VP(PropertyName, StringValue) V(v8::Private, PropertyName, StringValue)
+#define VS(PropertyName, StringValue) V(v8::String, PropertyName, StringValue)
+#define V(TypeName, PropertyName, StringValue)                                \
+  inline v8::Local<TypeName> Environment::PropertyName() const {              \
     return isolate_data()->PropertyName();                                    \
   }
-  PER_ISOLATE_STRING_PROPERTIES(V)
+  PER_ISOLATE_PRIVATE_SYMBOL_PROPERTIES(VP)
+  PER_ISOLATE_STRING_PROPERTIES(VS)
 #undef V
+#undef VS
+#undef VP
 
 #define V(PropertyName, TypeName)                                             \
   inline v8::Local<TypeName> Environment::PropertyName() const {              \
@@ -540,6 +575,7 @@ inline v8::Local<v8::Object> Environment::NewInternalFieldObject() {
 #undef V
 
 #undef ENVIRONMENT_STRONG_PERSISTENT_PROPERTIES
+#undef PER_ISOLATE_PRIVATE_SYMBOL_PROPERTIES
 #undef PER_ISOLATE_STRING_PROPERTIES
 
 }  // namespace node

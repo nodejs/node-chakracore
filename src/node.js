@@ -63,13 +63,11 @@
 
     } else if (process.argv[1] == 'debug') {
       // Start the debugger agent
-      var d = NativeModule.require('_debugger');
-      d.start();
+      NativeModule.require('_debugger').start();
 
     } else if (process.argv[1] == '--debug-agent') {
       // Start the debugger agent
-      var d = NativeModule.require('_debug_agent');
-      d.start();
+      NativeModule.require('_debug_agent').start();
 
     } else if (process.profProcess) {
       NativeModule.require('internal/v8_prof_processor');
@@ -142,8 +140,7 @@
         }
 
       } else {
-        var Module = NativeModule.require('module');
-
+        startup.preloadModules();
         // If -i or --interactive were passed, or stdin is a TTY.
         if (process._forceRepl || NativeModule.require('tty').isatty(0)) {
           // REPL
@@ -192,15 +189,22 @@
     }
 
     process.hrtime = function hrtime(ar) {
-      const ret = [0, 0];
-      if (_hrtime(hrValues, ar)) {
-        ret[0] = (hrValues[0] * 0x100000000 + hrValues[1]) - ar[0];
-        ret[1] = hrValues[2] - ar[1];
-      } else {
-        ret[0] = hrValues[0] * 0x100000000 + hrValues[1];
-        ret[1] = hrValues[2];
+      _hrtime(hrValues);
+
+      if (typeof ar !== 'undefined') {
+        if (Array.isArray(ar)) {
+          const sec = (hrValues[0] * 0x100000000 + hrValues[1]) - ar[0];
+          const nsec = hrValues[2] - ar[1];
+          return [nsec < 0 ? sec - 1 : sec, nsec < 0 ? nsec + 1e9 : nsec];
+        }
+
+        throw new TypeError('process.hrtime() only accepts an Array tuple');
       }
-      return ret;
+
+      return [
+        hrValues[0] * 0x100000000 + hrValues[1],
+        hrValues[2]
+      ];
     };
   };
 
@@ -586,7 +590,7 @@
       // getcwd(3) can fail if the current working directory has been deleted.
       // Fall back to the directory name of the (absolute) executable path.
       // It's not really correct but what are the alternatives?
-      var cwd = path.dirname(process.execPath);
+      cwd = path.dirname(process.execPath);
     }
 
     var module = new Module(name);
@@ -601,7 +605,7 @@
              'global.require = require;\n' +
              'return require("vm").runInThisContext(' +
              JSON.stringify(body) + ', { filename: ' +
-             JSON.stringify(name) + ' });\n';
+             JSON.stringify(name) + ', displayErrors: true });\n';
     // Defer evaluation for a tick.  This is a workaround for deferred
     // events not firing when evaluating scripts from the command line,
     // see https://github.com/nodejs/node/issues/1600.
@@ -817,7 +821,8 @@
     var signalWraps = {};
 
     function isSignal(event) {
-      return event.slice(0, 3) === 'SIG' &&
+      return typeof event === 'string' &&
+             event.slice(0, 3) === 'SIG' &&
              startup.lazyConstants().hasOwnProperty(event);
     }
 
@@ -983,7 +988,8 @@
 
     var fn = runInThisContext(source, {
       filename: this.filename,
-      lineOffset: 0
+      lineOffset: 0,
+      displayErrors: true
     });
     fn(this.exports, NativeModule.require, this, this.filename);
 

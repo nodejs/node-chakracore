@@ -40,4 +40,6 @@ To test if Node.js was built correctly with ChakraCore:
 ```batch
 C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
+
+
 ```

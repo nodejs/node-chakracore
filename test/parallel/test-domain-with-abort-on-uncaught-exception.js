@@ -31,7 +31,6 @@ const domainErrHandlerExMessage = 'exception from domain error handler';
 if (process.argv[2] === 'child') {
   var domain = require('domain');
   var d = domain.create();
-  var triggeredProcessUncaughtException = false;
 
   process.on('uncaughtException', function onUncaughtException() {
     // The process' uncaughtException event must not be emitted when
@@ -116,17 +115,7 @@ if (process.argv[2] === 'child') {
     var child = exec(cmdToExec);
 
     if (child) {
-      var childTriggeredOnUncaughtExceptionHandler = false;
-      child.on('message', function onChildMsg(msg) {
-        if (msg === 'triggeredProcessUncaughtEx') {
-          childTriggeredOnUncaughtExceptionHandler = true;
-        }
-      });
-
       child.on('exit', function onChildExited(exitCode, signal) {
-        var expectedExitCodes;
-        var expectedSignals;
-
         // When throwing errors from the top-level domain error handler
         // outside of a try/catch block, the process should not exit gracefully
         if (!options.useTryCatch && options.throwInDomainErrHandler) {
@@ -151,24 +140,24 @@ if (process.argv[2] === 'child') {
   }
 
   testDomainExceptionHandling('--abort_on_uncaught_exception', {
-                              throwInDomainErrHandler: false,
-                              useTryCatch: false
-                            });
+    throwInDomainErrHandler: false,
+    useTryCatch: false
+  });
 
   testDomainExceptionHandling('--abort_on_uncaught_exception', {
-                              throwInDomainErrHandler: false,
-                              useTryCatch: true
-                            });
+    throwInDomainErrHandler: false,
+    useTryCatch: true
+  });
 
   testDomainExceptionHandling('--abort_on_uncaught_exception', {
-                              throwInDomainErrHandler: true,
-                              useTryCatch: false
-                            });
+    throwInDomainErrHandler: true,
+    useTryCatch: false
+  });
 
   testDomainExceptionHandling('--abort_on_uncaught_exception', {
-                              throwInDomainErrHandler: true,
-                              useTryCatch: true
-                            });
+    throwInDomainErrHandler: true,
+    useTryCatch: true
+  });
 
   testDomainExceptionHandling({
     throwInDomainErrHandler: false

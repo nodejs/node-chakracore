@@ -25,26 +25,38 @@ rules:
   no-dupe-keys: 2
   ## check duplicate switch-case
   no-duplicate-case: 2
+  ## disallow superfluous semicolons
+  no-extra-semi: 2
   ## disallow assignment of exceptional params
   no-ex-assign: 2
-  ## disallow use of reserved words as keys like enum, class
-  no-reserved-keys: 2
   ## disallow unreachable code
   no-unreachable: 2
   ## require valid typeof compared string like typeof foo === 'strnig'
   valid-typeof: 2
+  ## disallow controls characters in regular expressions
+  no-control-regex: 2
+  ## disallow extra boolean casts
+  no-extra-boolean-cast : 2
+  ## validate regular expressions
+  no-invalid-regexp: 2
+  ## forbid weird whitespace characters
+  no-irregular-whitespace: 2
+  ## avoid unexpected multiline expressions
+  no-unexpected-multiline: 2
 
   # Best Practices
   # list: https://github.com/eslint/eslint/tree/master/docs/rules#best-practices
   ## require falls through comment on switch-case
   no-fallthrough: 2
+  ## disallow declaring the same variable more than once
+  no-redeclare: 2
 
   # Stylistic Issues
   # list: https://github.com/eslint/eslint/tree/master/docs/rules#stylistic-issues
   ## use single quote, we can use double quote when escape chars
   quotes: [2, "single", "avoid-escape"]
   ## 2 space indentation
-  indent: [2, 2]
+  indent: [2, 2, {SwitchCase: 1}]
   ## add space after comma
   comma-spacing: 2
   ## put semi-colon
@@ -67,13 +79,23 @@ rules:
   eol-last: 2
   ## no trailing spaces
   no-trailing-spaces: 2
-  # require space after keywords, eg 'for (..)'
+  ## require space after keywords, eg 'for (..)'
   space-after-keywords: 2
+  ## no leading/trailing spaces in parens
+  space-in-parens: [2, "never"]
+  ## no spaces with non-word unary operators, require for word unary operators
+  space-unary-ops: 2
 
   # ECMAScript 6
   # list: http://eslint.org/docs/rules/#ecmascript-6
   ## Suggest using 'const' wherever possible
   prefer-const: 2
+  ## Enforce parens around arrow function arguments
+  arrow-parens: [2, "always"]
+  ## Require a space on each side of arrow operator
+  arrow-spacing: [2, {"before": true, "after": true}]
+  ## Prevent using => in a condition where <= is intended
+  no-arrow-condition: 2
 
   # Strict Mode
   # list: https://github.com/eslint/eslint/tree/master/docs/rules#strict-mode
@@ -84,6 +106,8 @@ rules:
   # list: https://github.com/eslint/eslint/tree/master/docs/rules#variables
   ## disallow use of undefined variables (globals)
   no-undef: 2
+  ## disallow declaration of variables that are not used in the code
+  no-unused-vars: [2, {"args": "none"}]
 
   # Custom rules in tools/eslint-rules
   require-buffer: 2
@@ -110,5 +134,3 @@ globals:
   DTRACE_NET_SERVER_CONNECTION         : false
   LTTNG_NET_SERVER_CONNECTION          : false
   COUNTER_NET_SERVER_CONNECTION        : false
-  escape                               : false
-  unescape                             : false

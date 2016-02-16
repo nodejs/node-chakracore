@@ -31,33 +31,37 @@ automatically added to the `'request'` event.
 
 Example:
 
-    // curl -k https://localhost:8000/
-    const https = require('https');
-    const fs = require('fs');
+```js
+// curl -k https://localhost:8000/
+const https = require('https');
+const fs = require('fs');
 
-    const options = {
-      key: fs.readFileSync('test/fixtures/keys/agent2-key.pem'),
-      cert: fs.readFileSync('test/fixtures/keys/agent2-cert.pem')
-    };
+const options = {
+  key: fs.readFileSync('test/fixtures/keys/agent2-key.pem'),
+  cert: fs.readFileSync('test/fixtures/keys/agent2-cert.pem')
+};
 
-    https.createServer(options, (req, res) => {
-      res.writeHead(200);
-      res.end('hello world\n');
-    }).listen(8000);
+https.createServer(options, (req, res) => {
+  res.writeHead(200);
+  res.end('hello world\n');
+}).listen(8000);
+```
 
 Or
 
-    const https = require('https');
-    const fs = require('fs');
+```js
+const https = require('https');
+const fs = require('fs');
 
-    const options = {
-      pfx: fs.readFileSync('server.pfx')
-    };
+const options = {
+  pfx: fs.readFileSync('server.pfx')
+};
 
-    https.createServer(options, (req, res) => {
-      res.writeHead(200);
-      res.end('hello world\n');
-    }).listen(8000);
+https.createServer(options, (req, res) => {
+  res.writeHead(200);
+  res.end('hello world\n');
+}).listen(8000);
+```
 
 ### server.close([callback])
 
@@ -78,19 +82,21 @@ automatically parsed with [`url.parse()`][].
 
 Example:
 
-    const https = require('https');
+```js
+const https = require('https');
 
-    https.get('https://encrypted.google.com/', (res) => {
-      console.log('statusCode: ', res.statusCode);
-      console.log('headers: ', res.headers);
+https.get('https://encrypted.google.com/', (res) => {
+  console.log('statusCode: ', res.statusCode);
+  console.log('headers: ', res.headers);
 
-      res.on('data', (d) => {
-        process.stdout.write(d);
-      });
+  res.on('data', (d) => {
+    process.stdout.write(d);
+  });
 
-    }).on('error', (e) => {
-      console.error(e);
-    });
+}).on('error', (e) => {
+  console.error(e);
+});
+```
 
 ## https.globalAgent
 
@@ -107,28 +113,30 @@ All options from [`http.request()`][] are valid.
 
 Example:
 
-    const https = require('https');
+```js
+const https = require('https');
 
-    var options = {
-      hostname: 'encrypted.google.com',
-      port: 443,
-      path: '/',
-      method: 'GET'
-    };
+var options = {
+  hostname: 'encrypted.google.com',
+  port: 443,
+  path: '/',
+  method: 'GET'
+};
 
-    var req = https.request(options, (res) => {
-      console.log('statusCode: ', res.statusCode);
-      console.log('headers: ', res.headers);
+var req = https.request(options, (res) => {
+  console.log('statusCode: ', res.statusCode);
+  console.log('headers: ', res.headers);
 
-      res.on('data', (d) => {
-        process.stdout.write(d);
-      });
-    });
-    req.end();
+  res.on('data', (d) => {
+    process.stdout.write(d);
+  });
+});
+req.end();
 
-    req.on('error', (e) => {
-      console.error(e);
-    });
+req.on('error', (e) => {
+  console.error(e);
+});
+```
 
 The options argument has the following options
 
@@ -164,7 +172,7 @@ The following options from [`tls.connect()`][] can also be specified. However, a
 - `key`: Private key to use for SSL. Default `null`.
 - `passphrase`: A string of passphrase for the private key or pfx. Default `null`.
 - `cert`: Public x509 certificate to use. Default `null`.
-- `ca`: A string, `Buffer` or array of strings or `Buffer`s of trusted
+- `ca`: A string, [`Buffer`][] or array of strings or [`Buffer`][]s of trusted
   certificates in PEM format. If this is omitted several well known "root"
   CAs will be used, like VeriSign. These are used to authorize connections.
 - `ciphers`: A string describing the ciphers to use or exclude. Consult
@@ -177,44 +185,50 @@ The following options from [`tls.connect()`][] can also be specified. However, a
 - `secureProtocol`: The SSL method to use, e.g. `SSLv3_method` to force
   SSL version 3. The possible values depend on your installation of
   OpenSSL and are defined in the constant [`SSL_METHODS`][].
+- `servername`: Servername for SNI (Server Name Indication) TLS extension.
 
 In order to specify these options, use a custom [`Agent`][].
 
 Example:
 
-    var options = {
-      hostname: 'encrypted.google.com',
-      port: 443,
-      path: '/',
-      method: 'GET',
-      key: fs.readFileSync('test/fixtures/keys/agent2-key.pem'),
-      cert: fs.readFileSync('test/fixtures/keys/agent2-cert.pem')
-    };
-    options.agent = new https.Agent(options);
+```js
+var options = {
+  hostname: 'encrypted.google.com',
+  port: 443,
+  path: '/',
+  method: 'GET',
+  key: fs.readFileSync('test/fixtures/keys/agent2-key.pem'),
+  cert: fs.readFileSync('test/fixtures/keys/agent2-cert.pem')
+};
+options.agent = new https.Agent(options);
 
-    var req = https.request(options, (res) => {
-      ...
-    }
+var req = https.request(options, (res) => {
+  ...
+}
+```
 
 Alternatively, opt out of connection pooling by not using an `Agent`.
 
 Example:
 
-    var options = {
-      hostname: 'encrypted.google.com',
-      port: 443,
-      path: '/',
-      method: 'GET',
-      key: fs.readFileSync('test/fixtures/keys/agent2-key.pem'),
-      cert: fs.readFileSync('test/fixtures/keys/agent2-cert.pem'),
-      agent: false
-    };
+```js
+var options = {
+  hostname: 'encrypted.google.com',
+  port: 443,
+  path: '/',
+  method: 'GET',
+  key: fs.readFileSync('test/fixtures/keys/agent2-key.pem'),
+  cert: fs.readFileSync('test/fixtures/keys/agent2-cert.pem'),
+  agent: false
+};
 
-    var req = https.request(options, (res) => {
-      ...
-    }
+var req = https.request(options, (res) => {
+  ...
+}
+```
 
 [`Agent`]: #https_class_https_agent
+[`Buffer`]: buffer.html#buffer_buffer
 [`globalAgent`]: #https_https_globalagent
 [`http.Agent`]: http.html#http_class_http_agent
 [`http.close()`]: http.html#http_server_close_callback

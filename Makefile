@@ -105,12 +105,12 @@ test/gc/node_modules/weak/build/Release/weakref.node: $(NODE_EXE)
 
 # Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
 test/addons/.docbuildstamp: doc/api/addons.markdown
-	$(RM) -r test/addons/doc-*/
+	$(RM) -r test/addons/??_*/
 	$(NODE) tools/doc/addon-verify.js
 	touch $@
 
 ADDONS_BINDING_GYPS := \
-	$(filter-out test/addons/doc-*/binding.gyp, \
+	$(filter-out test/addons/??_*/binding.gyp, \
 		$(wildcard test/addons/*/binding.gyp))
 
 # Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
@@ -294,7 +294,12 @@ endif
 
 TARNAME=node-$(FULLVERSION)
 TARBALL=$(TARNAME).tar
+# Custom user-specified variation, use it directly
+ifdef VARIATION
+BINARYNAME=$(TARNAME)-$(PLATFORM)-$(ARCH)-$(VARIATION)
+else
 BINARYNAME=$(TARNAME)-$(PLATFORM)-$(ARCH)
+endif
 BINARYTAR=$(BINARYNAME).tar
 # OSX doesn't have xz installed by default, http://macpkg.sourceforge.net/
 XZ=$(shell which xz > /dev/null 2>&1; echo $$?)
@@ -493,7 +498,13 @@ bench-url: all
 bench-events: all
 	@$(NODE) benchmark/common.js events
 
-bench-all: bench bench-misc bench-array bench-buffer bench-url bench-events
+bench-util: all
+	@$(NODE) benchmark/common.js util
+
+bench-dgram: all
+	@$(NODE) benchmark/common.js dgram
+
+bench-all: bench bench-misc bench-array bench-buffer bench-url bench-events bench-dgram bench-util
 
 bench: bench-net bench-http bench-fs bench-tls
 
@@ -506,8 +517,8 @@ bench-idle:
 	$(NODE) benchmark/idle_clients.js &
 
 jslint:
-	$(NODE) tools/eslint/bin/eslint.js src lib test tools/eslint-rules \
-		--rulesdir tools/eslint-rules --reset --quiet
+	$(NODE) tools/eslint/bin/eslint.js lib src test tools/doc tools/eslint-rules \
+		--rulesdir tools/eslint-rules --quiet
 
 CPPLINT_EXCLUDE ?=
 CPPLINT_EXCLUDE += src/node_lttng.cc
@@ -517,7 +528,7 @@ CPPLINT_EXCLUDE += src/node_win32_perfctr_provider.cc
 CPPLINT_EXCLUDE += src/queue.h
 CPPLINT_EXCLUDE += src/tree.h
 CPPLINT_EXCLUDE += src/v8abbr.h
-CPPLINT_EXCLUDE += $(wildcard test/addons/doc-*/*.cc test/addons/doc-*/*.h)
+CPPLINT_EXCLUDE += $(wildcard test/addons/??_*/*.cc test/addons/??_*/*.h)
 
 CPPLINT_FILES = $(filter-out $(CPPLINT_EXCLUDE), $(wildcard \
 	deps/debugger-agent/include/* \

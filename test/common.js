@@ -338,7 +338,7 @@ function leakedGlobals() {
       leaked.push(val);
 
   return leaked;
-};
+}
 exports.leakedGlobals = leakedGlobals;
 
 // Turn this off if the test should not check for global leaks.
@@ -438,7 +438,7 @@ exports.getServiceName = function getServiceName(port, protocol) {
     if (matches && matches.length > 1) {
       serviceName = matches[1];
     }
-  } catch(e) {
+  } catch (e) {
     console.error('Cannot read file: ', etcServicesFileName);
     return undefined;
   }
@@ -471,7 +471,7 @@ exports.fail = function(msg) {
 // A stream to push an array into a REPL
 function ArrayStream() {
   this.run = function(data) {
-    data.forEach(line => {
+    data.forEach((line) => {
       this.emit('data', line + '\n');
     });
   };
