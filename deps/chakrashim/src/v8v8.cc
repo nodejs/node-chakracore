@@ -102,6 +102,18 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
                 || startsWith(arg, "--harmony")
                 || startsWith(arg, "--stack-size="))) {
       argv[i] = nullptr;
+    } else if (equals("--help", arg)) {
+        char* helpText =
+          "Options:\n"
+          " --use_strict (enforce strict mode)\n"
+          "     type: bool  default: false\n"
+          " --expose_gc (expose gc extension)\n"
+          "     type: bool  default: false\n"
+          " --harmony (Ignored in node running with chakracore)\n"
+          " --debug (Ignored in node running with chakracore)\n"
+          " --stack-size (Ignored in node running with chakracore)\n";
+        fprintf(stdout, helpText);
+        exit(0);
     }
   }
 
