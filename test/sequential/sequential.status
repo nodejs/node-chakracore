@@ -22,3 +22,8 @@ prefix sequential
 # regressions until this work is complete
 [$system==aix]
 test-fs-watch               : FAIL,PASS
+
+[$jsEngine==chakracore]
+test-http-regr-gh-2928 : SKIP
+test-net-GH-5504 : SKIP
+test-vm-timeout-rethrow : SKIP
