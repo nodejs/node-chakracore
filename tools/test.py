@@ -1564,10 +1564,17 @@ def Main():
           print "Can't determine the arch of: '%s'" % vm
           print archEngineContext.stderr.rstrip()
           continue
+        jsEngineContext = Execute([vm, "-p", "process.jsEngine"], context)
+        jsEngine = jsEngineContext.stdout.rstrip()
+        if jsEngineContext.exit_code is not 0 or jsEngine == "undefined":
+          print "Can't determine the jsEngine of: '%s'" % vm
+          print jsEngineContext.stderr.rstrip()
+          continue
         env = {
           'mode': mode,
           'system': utils.GuessOS(),
           'arch': vmArch,
+          'jsengine': jsEngine, # variable names are lowercased
         }
         test_list = root.ListTests([], path, context, arch, mode)
         unclassified_tests += test_list
