@@ -41,3 +41,19 @@ To test if Node.js was built correctly with ChakraCore:
 C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
+
+## Resources for Newcomers
+
+* [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
+* [CONTRIBUTING.md](./CONTRIBUTING.md)
+* [GOVERNANCE.md](./GOVERNANCE.md)
+
+## Current Project Team Members
+
+This project is maintained by the members of the [nodejs/node-chakracore]
+(https://github.com/orgs/nodejs/teams/node-chakracore) team. 
+[Team members from the Node.js project]
+(https://github.com/nodejs/node#current-project-team-members) are also
+considered Collaborators with respect to [COLLABORATOR_GUIDE.md]
+(./COLLABORATOR_GUIDE.md) and [GOVERNANCE.md](./GOVERNANCE.md), however
+they are not required nor expected to actively maintain this project.
