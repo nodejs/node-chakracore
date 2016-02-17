@@ -28,5 +28,11 @@ try {
   return;
 }
 
+// Skip 'toString()' check for chakra engine because it verifies limit of v8
+// specific kStringMaxLength variable.
+if (common.isChakraEngine) {
+  return;
+}
+
 const maxString = buf.toString('binary');
 assert.equal(maxString.length, kStringMaxLength);

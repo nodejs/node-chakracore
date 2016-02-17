@@ -4,6 +4,12 @@ const assert = require('assert');
 const path = require('path');
 const child_process = require('child_process');
 
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
+
 var nodeBinary = process.argv[0];
 
 var preloadOption = function(preloads) {

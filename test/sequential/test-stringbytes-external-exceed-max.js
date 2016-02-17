@@ -28,6 +28,12 @@ try {
   return;
 }
 
+// Skip 'toString()' check for chakra engine because it verifies limit of v8
+// specific kStringMaxLength variable.
+if (common.isChakraEngine) {
+  return;
+}
+
 assert.throws(function() {
   buf.toString('utf16le');
 }, /"toString\(\)" failed/);

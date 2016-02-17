@@ -3,6 +3,12 @@ var common = require('../common');
 var assert = require('assert');
 var spawn = require('child_process').spawn;
 
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
+
 const PORT_MIN = common.PORT + 1337;
 const PORT_MAX = PORT_MIN + 2;
 
