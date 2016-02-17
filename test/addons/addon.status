@@ -1,0 +1,51 @@
+prefix addons
+
+# To mark a test as flaky, list the test name in the appropriate section
+# below, without ".js", followed by ": PASS,FLAKY". Example:
+# sample-test                        : PASS,FLAKY
+
+[true] # This section applies to all platforms
+
+[$system==win32]
+
+[$system==linux]
+
+[$system==macos]
+
+[$system==solaris]
+
+[$system==freebsd]
+
+[$system==aix]
+
+[$jsEngine==chakracore]
+01_callbacks/test : SKIP
+02_object_factory/test : SKIP
+03_function_factory/test : SKIP
+04_wrapping_c_objects/test : SKIP
+05_factory_of_wrapped_objects/test : SKIP
+06_passing_wrapped_objects_around/test : SKIP
+07_atexit_hooks/test : SKIP
+async-hello-world/test : SKIP
+at-exit/test : SKIP
+buffer-free-callback/test : SKIP
+heap-profiler/test : SKIP
+hello-world-function-export/test : SKIP
+hello-world/test : SKIP
+load-long-path/test : SKIP
+make-callback-recurse/test : SKIP
+make-callback/test : SKIP
+null-buffer-neuter/test : SKIP
+openssl-binding/test : SKIP
+parse-encoding/test : SKIP
+repl-domain-abort/test : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-at-max : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-exceed-max : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1-ascii : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1-base64 : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1-binary : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1-hex : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1-utf8 : SKIP
+stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-2 : SKIP
+symlinked-module/test : SKIP
+zlib-binding/test : SKIP

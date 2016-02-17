@@ -36,3 +36,36 @@ test-debug-signal-cluster                : PASS, FLAKY
 
 #covered by https://github.com/nodejs/node/issues/8271
 test-child-process-fork-dgram            : PASS, FLAKY
+
+[$jsEngine==chakracore]
+test-crypto-dh : SKIP
+test-force-repl : SKIP
+test-force-repl-with-eval : SKIP
+test-fs-stat : SKIP
+test-http-same-map : SKIP
+test-intl : SKIP
+test-promises-unhandled-rejections : SKIP
+test-promises-warning-on-unhandled-rejection : SKIP
+test-repl : SKIP
+test-repl-mode : SKIP
+test-repl-tab-complete : SKIP
+test-repl-timeout-throw : SKIP
+test-string-decoder : SKIP
+test-timers-blocking-callback : SKIP
+test-timers-same-timeout-wrong-list-deleted : SKIP
+test-util-inspect-proxy : SKIP
+test-util-inspect-simd : SKIP
+test-vm-cached-data : SKIP
+test-vm-context : SKIP
+test-vm-create-and-run-in-context : SKIP
+test-vm-global-identity : SKIP
+test-vm-low-stack-space : SKIP
+test-vm-preserves-property : SKIP
+test-vm-proxies : SKIP
+test-vm-strict-mode : SKIP
+test-vm-timeout : SKIP
+
+[$jsEngine==chakracore && $arch==x64]
+test-buffer-includes : SKIP
+test-buffer-indexof : SKIP
+test-buffer-slow : SKIP
