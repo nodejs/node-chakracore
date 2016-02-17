@@ -1,4 +1,9 @@
-# Contributing to Node.js
+# Contributing to Node.js on ChakraCore
+
+Contributions to this repository should be limited to the integration of Node.js
+with the ChakraCore engine. For all contributions not related to the ChakraCore
+build, please go to https://github.com/nodejs/.
+
 
 ## Code of Conduct
 
@@ -10,19 +15,12 @@ expectations the Node Foundation requires of its contributors.
 
 When opening new issues or commenting on existing issues on this repository
 please make sure discussions are related to concrete technical issues with the
-Node.js software.
-
-For general help using Node.js, please file an issue at the
-[Node.js help repository](https://github.com/nodejs/help/issues).
-
-Discussion of non-technical topics including subjects like intellectual
-property, trademark and high level project questions should move to the
-[node-forward discussions repository](https://github.com/node-forward/discussions)
-instead.
+Node.js on ChakraCore software.
 
 ## Code Contributions
 
-The Node.js project has an open governance model and welcomes new contributors.
+The Node.js on ChakraCore project has an open governance model and welcomes new
+contributors.
 Individuals making significant and valuable contributions are made
 _Collaborators_ and given commit-access to the project. See the
 [GOVERNANCE.md](./GOVERNANCE.md) document for more information about how this
@@ -32,28 +30,20 @@ This document will guide you through the contribution process.
 
 ### Step 1: Fork
 
-Fork the project [on GitHub](https://github.com/nodejs/node) and check out your
-copy locally.
+Fork the project [on GitHub](https://github.com/nodejs/node-chakracore) and
+check out your copy locally.
 
 ```text
-$ git clone git@github.com:username/node.git
+$ git clone git@github.com:username/node-chakracore.git
 $ cd node
-$ git remote add upstream git://github.com/nodejs/node.git
+$ git remote add upstream git://github.com/nodejs/node-chakracore.git
 ```
 
 #### Which branch?
 
-For developing new features and bug fixes, the `master` branch should be pulled
-and built upon.
+For developing new features and bug fixes, the `chakracore-master` branch
+should be pulled and built upon.
 
-#### Respect the stability index
-
-The rules for the master branch are less strict; consult the
-[stability index](./doc/api/documentation.markdown#stability-index) for details.
-
-In a nutshell, modules are at varying levels of API stability. Bug fixes are
-always welcome but API or behavioral changes to modules at stability level 3
-(Locked) are off-limits.
 
 #### Dependencies
 
@@ -63,21 +53,19 @@ in those directories or its subdirectories should be sent to their respective
 projects. Do not send your patch to us, we cannot accept it.
 
 In case of doubt, open an issue in the
-[issue tracker](https://github.com/nodejs/node/issues/) or contact one of the
-[project Collaborators](https://github.com/nodejs/node/#current-project-team-members).
+[issue tracker](https://github.com/nodejs/node-chakracore/issues/) or
+contact one of the [project Collaborators]
+(https://github.com/nodejs/node-chakracore/#current-project-team-members).
 Especially do so if you plan to work on something big. Nothing is more
 frustrating than seeing your hard work go to waste because your vision
-does not align with the project team. Node.js has two IRC channels,
-[#Node.js](http://webchat.freenode.net/?channels=node.js) for general help and questions, and
-[#Node-dev](http://webchat.freenode.net/?channels=node-dev) for development of node core specifically.
-
+does not align with the project team. 
 
 ### Step 2: Branch
 
 Create a feature branch and start hacking:
 
 ```text
-$ git checkout -b my-feature-branch -t origin/master
+$ git checkout -b my-feature-branch -t origin/chakracore-master
 ```
 
 ### Step 3: Commit
@@ -126,7 +114,7 @@ Use `git rebase` (not `git merge`) to sync your work from time to time.
 
 ```text
 $ git fetch upstream
-$ git rebase upstream/master
+$ git rebase upstream/chakracore-master
 ```
 
 
