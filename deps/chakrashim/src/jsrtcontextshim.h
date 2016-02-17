@@ -21,7 +21,6 @@
 #include <vector>
 
 namespace jsrt {
-
 class ContextShim {
  public:
   // This has the same layout as v8::Context::Scope
@@ -79,17 +78,6 @@ class ContextShim {
   JsValueRef GetReflectObject();
   JsValueRef GetReflectFunctionForTrap(ProxyTraps traps);
 
-  JsValueRef GetCloneObjectFunction();
-  JsValueRef GetGetPropertyNamesFunction();
-  JsValueRef GetGetEnumerableNamedPropertiesFunction();
-  JsValueRef GetGetEnumerableIndexedPropertiesFunction();
-  JsValueRef GetCreateEnumerationIteratorFunction();
-  JsValueRef GetCreatePropertyDescriptorsEnumerationIteratorFunction();
-  JsValueRef GetGetNamedOwnKeysFunction();
-  JsValueRef GetGetIndexedOwnKeysFunction();
-  JsValueRef GetGetStackTraceFunction();
-  JsValueRef GetIsMapIteratorFunction();
-  JsValueRef GetIsSetIteratorFunction();
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
@@ -138,21 +126,30 @@ class ContextShim {
   JsValueRef getOwnPropertyDescriptorFunction;
 
   JsValueRef promiseContinuationFunction;
-
-  JsValueRef cloneObjectFunction;
-  JsValueRef getPropertyNamesFunction;
-
-  JsValueRef getEnumerableNamedPropertiesFunction;
-  JsValueRef getEnumerableIndexedPropertiesFunction;
-  JsValueRef createEnumerationIteratorFunction;
-  JsValueRef createPropertyDescriptorsEnumerationIteratorFunction;
-  JsValueRef getNamedOwnKeysFunction;
-  JsValueRef getIndexedOwnKeysFunction;
-  JsValueRef getStackTraceFunction;
-  JsValueRef isMapIteratorFunction;
-  JsValueRef isSetIteratorFunction;
-
   std::vector<void*> embedderData;
+
+#define DECLARE_CHAKRASHIM_FUNCTION_GETTER(F) \
+public: \
+JsValueRef Get##F##Function(); \
+private: \
+JsValueRef F##Function; \
+
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(cloneObject);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getPropertyNames);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getEnumerableNamedProperties);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getEnumerableIndexedProperties);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(createEnumerationIterator);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER
+  (createPropertyDescriptorsEnumerationIterator);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getNamedOwnKeys);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getIndexedOwnKeys);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getStackTrace);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getSymbolFor);
+
+#define DEF_IS_TYPE(F) DECLARE_CHAKRASHIM_FUNCTION_GETTER(F)
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
 };
 
 }  // namespace jsrt

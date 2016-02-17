@@ -176,4 +176,15 @@ void Isolate::GetHeapStatistics(HeapStatistics *heap_statistics) {
   heap_statistics->set_heap_size(memoryUsage);
 }
 
+size_t Isolate::NumberOfHeapSpaces() {
+  //Chakra doesn't expose HEAP space stats
+  return 0;
+}
+
+bool Isolate::GetHeapSpaceStatistics(HeapSpaceStatistics* space_statistics,
+                                     size_t index) {
+  //Chakra doesn't expose HEAP space stats
+  return true;
+}
+
 }  // namespace v8

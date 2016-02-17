@@ -50,6 +50,8 @@ ContextShim * ContextShim::New(IsolateShim * isolateShim, bool exposeGC,
                          globalObjectTemplateInstance);
 }
 
+#define DEF_IS_TYPE(F) F##Function(JS_INVALID_REFERENCE),
+
 ContextShim::ContextShim(IsolateShim * isolateShim,
                          JsContextRef context,
                          bool exposeGC,
@@ -60,19 +62,21 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       exposeGC(exposeGC),
       globalObjectTemplateInstance(globalObjectTemplateInstance),
       promiseContinuationFunction(JS_INVALID_REFERENCE),
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
       cloneObjectFunction(JS_INVALID_REFERENCE),
       getPropertyNamesFunction(JS_INVALID_REFERENCE),
       getOwnPropertyDescriptorFunction(JS_INVALID_REFERENCE),
       getEnumerableNamedPropertiesFunction(JS_INVALID_REFERENCE),
       getEnumerableIndexedPropertiesFunction(JS_INVALID_REFERENCE),
       createEnumerationIteratorFunction(JS_INVALID_REFERENCE),
-      createPropertyDescriptorsEnumerationIteratorFunction(
-        JS_INVALID_REFERENCE),
+      createPropertyDescriptorsEnumerationIteratorFunction
+        (JS_INVALID_REFERENCE),
       getNamedOwnKeysFunction(JS_INVALID_REFERENCE),
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
       getStackTraceFunction(JS_INVALID_REFERENCE),
-      isMapIteratorFunction(JS_INVALID_REFERENCE),
-      isSetIteratorFunction(JS_INVALID_REFERENCE) {
+      getSymbolKeyForFunction(JS_INVALID_REFERENCE),
+      getSymbolForFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -507,10 +511,6 @@ JsValueRef ContextShim::GetDateConstructor() {
   return globalConstructor[GlobalType::Date];
 }
 
-JsValueRef ContextShim::GetRegExpConstructor() {
-  return globalConstructor[GlobalType::RegExp];
-}
-
 JsValueRef ContextShim::GetProxyConstructor() {
   return globalConstructor[GlobalType::Proxy];
 }
@@ -557,64 +557,27 @@ JsValueRef ContextShim::GetCachedShimFunction(CachedPropertyIdRef id,
   return *func;
 }
 
-JsValueRef ContextShim::GetCloneObjectFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::cloneObject,
-                               &cloneObjectFunction);
-}
+#define CHAKRASHIM_FUNCTION_GETTER(F) \
+JsValueRef ContextShim::Get##F##Function() { \
+return GetCachedShimFunction(CachedPropertyIdRef::F, \
+                             &##F##Function); \
+} \
 
-JsValueRef ContextShim::GetGetPropertyNamesFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::getPropertyNames,
-                               &getPropertyNamesFunction);
-}
+CHAKRASHIM_FUNCTION_GETTER(cloneObject)
+CHAKRASHIM_FUNCTION_GETTER(getPropertyNames)
+CHAKRASHIM_FUNCTION_GETTER(getEnumerableNamedProperties)
+CHAKRASHIM_FUNCTION_GETTER(getEnumerableIndexedProperties)
+CHAKRASHIM_FUNCTION_GETTER(createEnumerationIterator)
+CHAKRASHIM_FUNCTION_GETTER(createPropertyDescriptorsEnumerationIterator)
+CHAKRASHIM_FUNCTION_GETTER(getNamedOwnKeys)
+CHAKRASHIM_FUNCTION_GETTER(getIndexedOwnKeys)
+CHAKRASHIM_FUNCTION_GETTER(getStackTrace)
+CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor)
+CHAKRASHIM_FUNCTION_GETTER(getSymbolFor)
 
-JsValueRef ContextShim::GetGetEnumerableNamedPropertiesFunction() {
-  return GetCachedShimFunction(
-    CachedPropertyIdRef::getEnumerableNamedProperties,
-    &getEnumerableNamedPropertiesFunction);
-}
-
-JsValueRef ContextShim::GetGetEnumerableIndexedPropertiesFunction() {
-  return GetCachedShimFunction(
-    CachedPropertyIdRef::getEnumerableIndexedProperties,
-    &getEnumerableIndexedPropertiesFunction);
-}
-
-JsValueRef ContextShim::GetCreateEnumerationIteratorFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::createEnumerationIterator,
-                               &createEnumerationIteratorFunction);
-}
-
-JsValueRef
-ContextShim::GetCreatePropertyDescriptorsEnumerationIteratorFunction() {
-  return GetCachedShimFunction(
-    CachedPropertyIdRef::createPropertyDescriptorsEnumerationIterator,
-    &createPropertyDescriptorsEnumerationIteratorFunction);
-}
-
-JsValueRef ContextShim::GetGetNamedOwnKeysFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::getNamedOwnKeys,
-                               &getNamedOwnKeysFunction);
-}
-
-JsValueRef ContextShim::GetGetIndexedOwnKeysFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::getIndexedOwnKeys,
-                               &getIndexedOwnKeysFunction);
-}
-
-JsValueRef ContextShim::GetGetStackTraceFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::getStackTrace,
-                               &getStackTraceFunction);
-}
-
-JsValueRef ContextShim::GetIsMapIteratorFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::isMapIterator,
-                               &isMapIteratorFunction);
-}
-
-JsValueRef ContextShim::GetIsSetIteratorFunction() {
-  return GetCachedShimFunction(CachedPropertyIdRef::isSetIterator,
-                               &isSetIteratorFunction);
-}
+#define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
 
 }  // namespace jsrt
 

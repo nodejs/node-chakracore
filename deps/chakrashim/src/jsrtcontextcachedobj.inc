@@ -27,21 +27,12 @@
 #endif
 
 // These global constructors will be cached
-DEFTYPE(ArrayBuffer)
 DEFTYPE(Boolean)
 DEFTYPE(Date)
-DEFTYPE(Error)
-DEFTYPE(EvalError)
-DEFTYPE(Function)
 DEFTYPE(Number)
 DEFTYPE(Object)
 DEFTYPE(Proxy)
-DEFTYPE(RangeError)
-DEFTYPE(ReferenceError)
-DEFTYPE(RegExp)
 DEFTYPE(String)
-DEFTYPE(SyntaxError)
-DEFTYPE(TypeError)
 DEFTYPE(Uint8Array)
 DEFTYPE(Uint8ClampedArray)
 DEFTYPE(Int8Array)
@@ -51,10 +42,7 @@ DEFTYPE(Uint32Array)
 DEFTYPE(Int32Array)
 DEFTYPE(Float32Array)
 DEFTYPE(Float64Array)
-DEFTYPE(URIError)
-DEFTYPE(Promise)
-DEFTYPE(Map)
-DEFTYPE(Set)
+
 
 
 // These prototype functions will be cached/shimmed

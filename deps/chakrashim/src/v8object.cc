@@ -595,80 +595,55 @@ JsValueRef CALLBACK Utils::AccessorHandler(JsValueRef callee,
   return result;
 }
 
-// Create an object that will hold the hidden values
+Maybe<bool> Object::HasPrivate(Local<Context> context, Local<Private> key) {
+  return Just(jsrt::HasPrivate((JsValueRef)this, (JsValueRef)*key));
+}
+
+
+Maybe<bool> Object::DeletePrivate(Local<Context> context, Local<Private> key) {
+  return Just(jsrt::DeletePrivate((JsValueRef)this, (JsValueRef)*key));
+}
+
+Local<Value> Object::GetHiddenValue(Handle<String> key) {
+  JsValueRef result;
+  if (jsrt::GetPrivate((JsValueRef)this, (JsValueRef)*key, &result)
+      != JsNoError) {
+    result = GetUndefined();
+  }
+
+  return Local<Value>::New(static_cast<Value*>(result));
+}
+
+MaybeLocal<Value> Object::GetPrivate(Local<Context> context,
+                                     Local<Private> key) {
+  JsValueRef result;
+  if (jsrt::GetPrivate((JsValueRef)this, (JsValueRef)*key, &result)
+      != JsNoError) {
+    result = GetUndefined();
+  }
+
+  return Local<Value>::New(static_cast<Value*>(result));
+}
+
 bool Object::SetHiddenValue(Handle<String> key, Handle<Value> value) {
-  IsolateShim* iso = IsolateShim::FromIsolate(this->GetIsolate());
-  JsPropertyIdRef hiddenValuesIdRef = iso->GetCachedSymbolPropertyIdRef(
-    CachedSymbolPropertyIdRef::__hiddenvalues__);
-
-  JsValueRef hiddenValuesTable;
-  if (JsGetProperty((JsValueRef)this,
-                    hiddenValuesIdRef,
-                    &hiddenValuesTable) != JsNoError) {
-    return false;
-  }
-
-  if (static_cast<Value*>(hiddenValuesTable)->IsUndefined()) {
-    if (JsCreateObject(&hiddenValuesTable) != JsNoError) {
-      return false;
-    }
-
-    if (DefineProperty((JsValueRef)this,
-                       hiddenValuesIdRef,
-                       PropertyDescriptorOptionValues::False,
-                       PropertyDescriptorOptionValues::False,
-                       PropertyDescriptorOptionValues::False,
-                       hiddenValuesTable,
-                       JS_INVALID_REFERENCE,
-                       JS_INVALID_REFERENCE) != JsNoError) {
-      return false;
-    }
-  }
-
-  if (jsrt::SetProperty(hiddenValuesTable, *key, *value) != JsNoError) {
+  if (jsrt::SetPrivate((JsValueRef)this, (JsValueRef)*key,
+                           (JsValueRef)*value) != JsNoError) {
     return false;
   }
 
   return true;
 }
 
-Local<Value> Object::GetHiddenValue(Handle<String> key) {
-  IsolateShim* iso = IsolateShim::FromIsolate(this->GetIsolate());
-  JsPropertyIdRef hiddenValuesIdRef = iso->GetCachedSymbolPropertyIdRef(
-    CachedSymbolPropertyIdRef::__hiddenvalues__);
-
-  JsValueRef hiddenValuesTable;
-  if (JsGetProperty((JsValueRef)this,
-                    hiddenValuesIdRef,
-                    &hiddenValuesTable) != JsNoError) {
-    return Local<Value>();
+Maybe<bool> Object::SetPrivate(Local<Context> context, Local<Private> key,
+                               Local<Value> value) {
+  if (jsrt::SetPrivate((JsValueRef)this, (JsValueRef)*key,
+                           (JsValueRef)*value) != JsNoError) {
+    return Just(false);
   }
 
-  if (static_cast<Value*>(hiddenValuesTable)->IsUndefined()) {
-    return Local<Value>();
-  }
-
-  JsPropertyIdRef keyIdRef;
-  if (GetPropertyIdFromName((JsValueRef)*key, &keyIdRef) != JsNoError) {
-    return Local<Value>();
-  }
-
-  bool hasKey;
-  if (JsHasProperty(hiddenValuesTable, keyIdRef, &hasKey) != JsNoError) {
-    return Local<Value>();
-  }
-
-  if (!hasKey) {
-    return Local<Value>();
-  }
-
-  JsValueRef result;
-  if (JsGetProperty(hiddenValuesTable, keyIdRef, &result) != JsNoError) {
-    return Local<Value>();
-  }
-
-  return Local<Value>::New(static_cast<Value*>(result));
+  return Just(true);
 }
+
 
 ObjectTemplate* Object::GetObjectTemplate() {
   ObjectData *objectData = nullptr;

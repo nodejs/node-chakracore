@@ -1,4 +1,4 @@
-﻿Node.js on ChakraCore
+Node.js on ChakraCore
 ===
 This project enables Node.js to optionally use the ChakraCore JavaScript engine. This project is still **work in progress** and not an officially supported Node.js branch. Please refer to the original [PR](https://github.com/nodejs/node/pull/4765).
 
@@ -40,6 +40,4 @@ To test if Node.js was built correctly with ChakraCore:
 ```batch
 C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
-
-
 ```

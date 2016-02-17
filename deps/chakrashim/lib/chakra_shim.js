@@ -19,22 +19,21 @@
 // IN THE SOFTWARE.
 'use strict';
 
-// CHAKRA-TODO doesn't implement the debugger. So add a dummy 'Debug' on
-// global object for now.
-Object.defineProperty(this, 'Debug',
-     { value: {}, enumerable: false, configurable: false, writable: false });
-
 (function() {
   // Save original builtIns
-  var Object_defineProperty = Object.defineProperty,
-      Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
-      Object_getOwnPropertyNames = Object.getOwnPropertyNames,
-      Object_keys = Object.keys,
-      Map_keys = Map.prototype.keys,
-      Map_values = Map.prototype.values,
-      Map_entries = Map.prototype.entries,
-      Set_entries = Set.prototype.entries,
-      Set_values = Set.prototype.values;
+  var
+    Object_defineProperty = Object.defineProperty,
+    Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
+    Object_getOwnPropertyNames = Object.getOwnPropertyNames,
+    Object_keys = Object.keys,
+    Object_prototype_toString = Object.prototype.toString,
+    Map_keys = Map.prototype.keys,
+    Map_values = Map.prototype.values,
+    Map_entries = Map.prototype.entries,
+    Set_entries = Set.prototype.entries,
+    Set_values = Set.prototype.values,
+    Symbol_keyFor = Symbol.keyFor,
+    Symbol_for = Symbol.for;
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
@@ -190,7 +189,7 @@ Object.defineProperty(this, 'Debug',
     });
 
     return ensureStackTrace;
-  };
+  }
 
   function patchErrorStack() {
     Error.captureStackTrace = captureStackTrace;
@@ -314,6 +313,50 @@ Object.defineProperty(this, 'Debug',
     };
     utils.isSetIterator = function(value) {
       return value[setIteratorProperty] == true;
+    };
+    function compareType(o, expectedType) {
+      return Object_prototype_toString.call(o) === '[object ' +
+            expectedType + ']';
+    }
+    utils.isBooleanObject = function(obj) {
+      return compareType(obj, 'Boolean');
+    };
+    utils.isDate = function(obj) {
+      return compareType(obj, 'Date');
+    };
+    utils.isMap = function(obj) {
+      return compareType(obj, 'Map');
+    };
+    utils.isNativeError = function(obj) {
+      return compareType(obj, 'Error') ||
+        obj instanceof Error ||
+        obj instanceof EvalError ||
+        obj instanceof RangeError ||
+        obj instanceof ReferenceError ||
+        obj instanceof SyntaxError ||
+        obj instanceof TypeError ||
+        obj instanceof URIError;
+    };
+    utils.isPromise = function(obj) {
+      return compareType(obj, 'Object') && obj instanceof Promise;
+    };
+    utils.isRegExp = function(obj) {
+      return compareType(obj, 'RegExp');
+    };
+    utils.isSet = function(obj) {
+      return compareType(obj, 'Set');
+    };
+    utils.isStringObject = function(obj) {
+      return compareType(obj, 'String');
+    };
+    utils.isNumberObject = function(obj) {
+      return compareType(obj, 'Number');
+    };
+    utils.getSymbolKeyFor = function(symbol) {
+      return Symbol_keyFor(symbol);
+    };
+    utils.getSymbolFor = function(key) {
+      return Symbol_for(key);
     };
   }
 

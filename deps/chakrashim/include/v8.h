@@ -293,6 +293,7 @@ class Local {
   friend class Object;
   friend struct ObjectData;
   friend class ObjectTemplate;
+  friend class Private;
   friend class Signature;
   friend class Script;
   friend class StackFrame;
@@ -822,8 +823,20 @@ class V8_EXPORT ScriptCompiler {
  public:
   struct CachedData {
     // CHAKRA-TODO: Not implemented
-   private:
-    CachedData();  // Make sure it is not constructed as it is not implemented.
+    enum BufferPolicy {
+      BufferNotOwned,
+      BufferOwned
+    };
+
+   const uint8_t* data;
+   int length;
+   bool rejected = true;
+   BufferPolicy buffer_policy;
+
+    CachedData();
+    CachedData(const uint8_t* data, int length,
+               BufferPolicy buffer_policy = BufferNotOwned) {
+    }
   };
 
   class Source {
@@ -839,6 +852,8 @@ class V8_EXPORT ScriptCompiler {
       : source_string(source_string) {
     }
 
+    const CachedData* GetCachedData() const { return nullptr; }
+
    private:
     friend ScriptCompiler;
     Local<String> source_string;
@@ -847,6 +862,10 @@ class V8_EXPORT ScriptCompiler {
 
   enum CompileOptions {
     kNoCompileOptions = 0,
+    kProduceParserCache,
+    kConsumeParserCache,
+    kProduceCodeCache,
+    kConsumeCodeCache
   };
 
   static V8_DEPRECATE_SOON("Use maybe version",
@@ -1019,6 +1038,17 @@ class V8_EXPORT Value : public Data {
   template <class T> static Value* Cast(T* value) {
     return static_cast<Value*>(value);
   }
+};
+
+class V8_EXPORT Private : public Data {
+public:
+  Local<Value> Name() const;
+  static Local<Private> New(Isolate* isolate,
+                            Local<String> name = Local<String>());
+  static Local<Private> ForApi(Isolate* isolate, Local<String> name);
+
+private:
+  Private();
 };
 
 class V8_EXPORT Primitive : public Value {
@@ -1362,8 +1392,17 @@ class V8_EXPORT Object : public Value {
   V8_WARN_UNUSED_RESULT Maybe<PropertyAttribute> GetRealNamedPropertyAttributes(
     Local<Context> context, Local<Name> key);
 
-  bool SetHiddenValue(Handle<String> key, Handle<Value> value);
-  Local<Value> GetHiddenValue(Handle<String> key);
+  V8_DEPRECATE_SOON("Use v8::Object::SetPrivate instead.",
+                    bool SetHiddenValue(Handle<String> key,
+                                        Handle<Value> value));
+  V8_DEPRECATE_SOON("Use v8::Object::GetPrivate instead.",
+                    Local<Value> GetHiddenValue(Handle<String> key));
+
+  Maybe<bool> HasPrivate(Local<Context> context, Local<Private> key);
+  Maybe<bool> SetPrivate(Local<Context> context, Local<Private> key,
+                         Local<Value> value);
+  Maybe<bool> DeletePrivate(Local<Context> context, Local<Private> key);
+  MaybeLocal<Value> GetPrivate(Local<Context> context, Local<Private> key);
 
   Local<Object> Clone();
   Local<Context> CreationContext();
@@ -2064,6 +2103,25 @@ class V8_EXPORT HeapStatistics {
   size_t heap_size_limit() { return 0; }
 };
 
+class V8_EXPORT HeapSpaceStatistics {
+public:
+  HeapSpaceStatistics() {}
+  const char* space_name() { return ""; }
+  size_t space_size() { return 0; }
+  size_t space_used_size() { return 0; }
+  size_t space_available_size() { return 0; }
+  size_t physical_space_size() { return 0; }
+
+private:
+  const char* space_name_;
+  size_t space_size_;
+  size_t space_used_size_;
+  size_t space_available_size_;
+  size_t physical_space_size_;
+
+  friend class Isolate;
+};
+
 typedef void(*FunctionEntryHook)(uintptr_t function,
                                  uintptr_t return_addr_location);
 typedef int* (*CounterLookupCallback)(const char* name);
@@ -2116,6 +2174,9 @@ class V8_EXPORT Isolate {
   void Dispose();
 
   void GetHeapStatistics(HeapStatistics *heap_statistics);
+  size_t NumberOfHeapSpaces();
+  bool GetHeapSpaceStatistics(HeapSpaceStatistics* space_statistics,
+                              size_t index);
   int64_t AdjustAmountOfExternalAllocatedMemory(int64_t change_in_bytes);
   void SetData(uint32_t slot, void* data);
   void* GetData(uint32_t slot);

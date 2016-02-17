@@ -285,6 +285,7 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
     return GetFalse();
   }
 
+  Local<Value> setCallbackResult;
   if (isPropIntType) {
     if (objectData->indexedPropertySetter) {
       PropertyCallbackInfo<Value> info(
@@ -293,13 +294,12 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertySetter(
         index, reinterpret_cast<Value*>(value), info);
-      return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+
+      setCallbackResult = info.GetReturnValue().Get();
     } else {  // use default JS behavior
       if (jsrt::SetIndexedProperty(object, index, value) != JsNoError) {
         return GetFalse();
       }
-
-      return GetTrue();
     }
   } else {
     if (objectData->namedPropertySetter) {
@@ -309,14 +309,23 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertySetter(
         reinterpret_cast<String*>(prop), reinterpret_cast<Value*>(value), info);
-      return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      
+      setCallbackResult = info.GetReturnValue().Get();
     } else {  // use default JS behavior
       if (jsrt::SetProperty(object, prop, value) != JsNoError) {
         return GetFalse();
       }
-
-      return GetTrue();
     }
+  }
+  
+  /* Per NamedPropertySetter documentation :
+  Returns the value if the setter intercepts the request.
+  Otherwise, returns an empty handle.
+  */
+  if (setCallbackResult.IsEmpty()) {
+    return GetFalse();
+  } else {
+    return GetTrue();
   }
 }
 
@@ -344,6 +353,7 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
     return GetFalse();
   }
 
+  Local<Value> deleteCallbackResult;
   if (isPropIntType) {
     if (objectData->indexedPropertyDeleter != nullptr) {
       PropertyCallbackInfo<Boolean> info(
@@ -351,13 +361,13 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyDeleter(index, info);
-      return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+     
+      deleteCallbackResult = info.GetReturnValue().Get();
+     
     } else {
       if (DeleteIndexedProperty(object, index) != JsNoError) {
         return GetFalse();
       }
-
-      return GetTrue();
     }
   } else {
     if (objectData->namedPropertyDeleter != nullptr) {
@@ -366,13 +376,27 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyDeleter(reinterpret_cast<String*>(prop), info);
-      return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+
+      deleteCallbackResult = info.GetReturnValue().Get();
     } else {  // use default JS behavior
       if (jsrt::DeleteProperty(object, prop, &result) != JsNoError) {
         return GetFalse();
       }
+    }
+  }
 
-      return result;
+  /* Per NamedPropertyDeleter documentation :
+  Returns a non-empty handle if the deleter intercepts the request.
+  The return value is true if the property could be deleted and false
+  otherwise.
+  */
+  if (deleteCallbackResult.IsEmpty()) {
+    return GetFalse();
+  } else {
+    if (deleteCallbackResult->BooleanValue()) {
+      return GetTrue();
+    } else {
+      return GetFalse();
     }
   }
 }

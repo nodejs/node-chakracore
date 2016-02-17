@@ -250,7 +250,7 @@ JsErrorCode CloneObject(JsValueRef source,
                         JsValueRef target,
                         bool clonePrototype) {
   JsValueRef cloneObjectFunction =
-    ContextShim::GetCurrent()->GetCloneObjectFunction();
+    ContextShim::GetCurrent()->GetcloneObjectFunction();
 
   JsValueRef resultRef;
   JsErrorCode error = CallFunction(cloneObjectFunction,
@@ -399,28 +399,28 @@ JsErrorCode IsUndefined(JsValueRef value,
 JsErrorCode GetEnumerableNamedProperties(JsValueRef object,
                                          JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetEnumerableNamedPropertiesFunction(),
+    ContextShim::GetCurrent()->GetgetEnumerableNamedPropertiesFunction(),
     object, result);
 }
 
 JsErrorCode GetEnumerableIndexedProperties(JsValueRef object,
                                            JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetEnumerableIndexedPropertiesFunction(),
+    ContextShim::GetCurrent()->GetgetEnumerableIndexedPropertiesFunction(),
     object, result);
 }
 
 JsErrorCode GetIndexedOwnKeys(JsValueRef object,
                               JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetIndexedOwnKeysFunction(),
+    ContextShim::GetCurrent()->GetgetIndexedOwnKeysFunction(),
     object, result);
 }
 
 JsErrorCode GetNamedOwnKeys(JsValueRef object,
                             JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetNamedOwnKeysFunction(),
+    ContextShim::GetCurrent()->GetgetNamedOwnKeysFunction(),
     object, result);
 }
 
@@ -437,7 +437,7 @@ JsErrorCode ConcatArray(JsValueRef first,
 JsErrorCode CreateEnumerationIterator(JsValueRef enumeration,
                                       JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetCreateEnumerationIteratorFunction(),
+    ContextShim::GetCurrent()->GetcreateEnumerationIteratorFunction(),
     enumeration, result);
 }
 
@@ -445,14 +445,14 @@ JsErrorCode CreatePropertyDescriptorsEnumerationIterator(JsValueRef enumeration,
                                                          JsValueRef *result) {
   return CallFunction(
     ContextShim::GetCurrent()
-      ->GetCreatePropertyDescriptorsEnumerationIteratorFunction(),
+      ->GetcreatePropertyDescriptorsEnumerationIteratorFunction(),
     enumeration, result);
 }
 
 JsErrorCode GetPropertyNames(JsValueRef object,
                              JsValueRef *result) {
   return CallFunction(
-    ContextShim::GetCurrent()->GetGetPropertyNamesFunction(),
+    ContextShim::GetCurrent()->GetgetPropertyNamesFunction(),
     object, result);
 }
 
@@ -554,20 +554,16 @@ JsErrorCode ToString(JsValueRef ref,
   return error;
 }
 
-JsErrorCode IsValueMapIterator(JsValueRef value,
-                        JsValueRef *resultRef) {
-  return CallFunction(
-    ContextShim::GetCurrent()->GetIsMapIteratorFunction(),
-    value, resultRef);
-}
 
+#define DEF_IS_TYPE(F) \
+JsErrorCode Call##F##(JsValueRef value, JsValueRef *resultRef) { \
+  return CallFunction( \
+    ContextShim::GetCurrent()->Get##F##Function(), \
+    value, resultRef); \
+} \
 
-JsErrorCode IsValueSetIterator(JsValueRef value,
-                               JsValueRef *resultRef) {
-  return CallFunction(
-    ContextShim::GetCurrent()->GetIsSetIteratorFunction(),
-    value, resultRef);
-}
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
 
 PropertyDescriptorOptionValues GetPropertyDescriptorOptionValue(bool b) {
   return b ?
@@ -741,7 +737,7 @@ JsErrorCode GetPropertyIdFromName(JsValueRef nameRef,
     if (error == JsErrorInvalidArgument) {
       error = JsGetPropertyIdFromSymbol(nameRef, idRef);
       if (error == JsErrorPropertyNotSymbol) {
-        error = JsErrorInvalidArgument; // Neither String nor Symbol
+        error = JsErrorInvalidArgument;  // Neither String nor Symbol
       }
     }
   } else {
@@ -861,6 +857,153 @@ JsErrorCode ParseScript(const wchar_t *script,
   } else {
     return JsParseScript(script, sourceContext, sourceUrl, result);
   }
+}
+
+#define RETURN_IF_JSERROR(err, returnValue) \
+if (err != JsNoError) { \
+  return returnValue; \
+}
+
+JsErrorCode GetHiddenValuesTable(JsValueRef object,
+                                JsPropertyIdRef* hiddenValueIdRef,
+                                JsValueRef* hiddenValuesTable,
+                                bool* isUndefined) {
+  *isUndefined = true;
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  *hiddenValueIdRef = iso->GetCachedSymbolPropertyIdRef(
+    CachedSymbolPropertyIdRef::__hiddenvalues__);
+  JsErrorCode errorCode;
+
+  errorCode = JsGetProperty(object, *hiddenValueIdRef, hiddenValuesTable);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  errorCode = IsUndefined(*hiddenValuesTable, isUndefined);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  return JsNoError;
+}
+
+bool HasPrivate(JsValueRef object, JsValueRef key) {
+  JsPropertyIdRef hiddenValuesIdRef;
+  JsValueRef hiddenValuesTable;
+  JsErrorCode errorCode;
+  bool isUndefined;
+
+  errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
+                                  &hiddenValuesTable, &isUndefined);
+  RETURN_IF_JSERROR(errorCode, false);
+
+  if (isUndefined) {
+    return false;
+  }
+
+  JsValueRef hasPropertyRef;
+  errorCode = jsrt::HasOwnProperty(hiddenValuesTable, key, &hasPropertyRef);
+  RETURN_IF_JSERROR(errorCode, false);
+
+  bool hasKey;
+  errorCode = JsBooleanToBool(hasPropertyRef, &hasKey);
+  RETURN_IF_JSERROR(errorCode, false);
+
+  return hasKey;
+}
+
+bool DeletePrivate(JsValueRef object, JsValueRef key) {
+  JsPropertyIdRef hiddenValuesIdRef;
+  JsValueRef hiddenValuesTable;
+  JsErrorCode errorCode;
+  bool isUndefined;
+
+  errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
+                                  &hiddenValuesTable, &isUndefined);
+  RETURN_IF_JSERROR(errorCode, false);
+
+  if (isUndefined) {
+    return false;
+  }
+
+  JsValueRef deleteResultRef;
+  errorCode = jsrt::DeleteProperty(hiddenValuesTable, key, &deleteResultRef);
+  RETURN_IF_JSERROR(errorCode, false);
+
+  bool hasDeleted;
+  errorCode = JsBooleanToBool(deleteResultRef, &hasDeleted);
+  RETURN_IF_JSERROR(errorCode, false);
+
+  return hasDeleted;
+}
+
+JsErrorCode GetPrivate(JsValueRef object, JsValueRef key,
+                       JsValueRef *result) {
+  JsPropertyIdRef hiddenValuesIdRef;
+  JsValueRef hiddenValuesTable;
+  JsErrorCode errorCode;
+  JsValueRef undefinedValueRef = GetUndefined();
+  bool isUndefined;
+
+  errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
+                                  &hiddenValuesTable, &isUndefined);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  if (isUndefined) {
+      *result = undefinedValueRef;
+      return JsNoError;
+  }
+
+  JsPropertyIdRef keyIdRef;
+  errorCode = GetPropertyIdFromName(key, &keyIdRef);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  // Is 'key' present in hiddenValuesTable? If not, return undefined
+  JsValueRef hasPropertyRef;
+  errorCode = HasOwnProperty(hiddenValuesTable, key, &hasPropertyRef);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  bool hasKey;
+  errorCode = JsBooleanToBool(hasPropertyRef, &hasKey);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  if (!hasKey) {
+    *result = undefinedValueRef;
+    return JsNoError;
+  }
+
+  errorCode = JsGetProperty(hiddenValuesTable, keyIdRef, result);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  return JsNoError;
+}
+
+JsErrorCode SetPrivate(JsValueRef object, JsValueRef key,
+                           JsValueRef value) {
+  JsPropertyIdRef hiddenValuesIdRef;
+  JsValueRef hiddenValuesTable;
+  JsErrorCode errorCode;
+  bool isUndefined;
+
+  errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
+                                  &hiddenValuesTable, &isUndefined);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  // if '__hiddenvalues__' is not defined on object, define it
+  if (isUndefined) {
+    errorCode = JsCreateObject(&hiddenValuesTable);
+    RETURN_IF_JSERROR(errorCode, errorCode);
+
+    errorCode = DefineProperty(object, hiddenValuesIdRef,
+                               PropertyDescriptorOptionValues::False,
+                               PropertyDescriptorOptionValues::False,
+                               PropertyDescriptorOptionValues::False,
+                               hiddenValuesTable,
+                               JS_INVALID_REFERENCE,
+                               JS_INVALID_REFERENCE);
+    RETURN_IF_JSERROR(errorCode, errorCode);
+  }
+
+  errorCode = jsrt::SetProperty(hiddenValuesTable, key, value);
+  RETURN_IF_JSERROR(errorCode, errorCode);
+
+  return JsNoError;
 }
 
 void Unimplemented(const char * message) {
