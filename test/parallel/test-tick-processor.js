@@ -4,6 +4,13 @@ var assert = require('assert');
 var cp = require('child_process');
 var common = require('../common');
 
+// Skip running this test for chakra engine because it doesn't
+// support -prof option.
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine.');
+  return;
+}
+
 // TODO(mhdawson) Currently the test-tick-processor functionality in V8
 // depends on addresses being smaller than a full 64 bits.  Aix supports
 // the full 64 bits and the result is that it does not process the
