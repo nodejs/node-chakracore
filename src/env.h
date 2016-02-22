@@ -72,6 +72,7 @@ namespace node {
   V(bytes_string, "bytes")                                                    \
   V(bytes_parsed_string, "bytesParsed")                                       \
   V(cached_data_string, "cachedData")                                         \
+  V(cached_data_produced_string, "cachedDataProduced")                        \
   V(cached_data_rejected_string, "cachedDataRejected")                        \
   V(callback_string, "callback")                                              \
   V(change_string, "change")                                                  \
@@ -314,6 +315,19 @@ class Environment {
     DISALLOW_COPY_AND_ASSIGN(AsyncHooks);
   };
 
+  class AsyncCallbackScope {
+   public:
+    explicit AsyncCallbackScope(Environment* env);
+    ~AsyncCallbackScope();
+
+    inline bool in_makecallback();
+
+   private:
+    Environment* env_;
+
+    DISALLOW_COPY_AND_ASSIGN(AsyncCallbackScope);
+  };
+
   class DomainFlag {
    public:
     inline uint32_t* fields();
@@ -338,13 +352,9 @@ class Environment {
    public:
     inline uint32_t* fields();
     inline int fields_count() const;
-    inline bool in_tick() const;
-    inline bool last_threw() const;
     inline uint32_t index() const;
     inline uint32_t length() const;
-    inline void set_in_tick(bool value);
     inline void set_index(uint32_t value);
-    inline void set_last_threw(bool value);
 
    private:
     friend class Environment;  // So we can call the constructor.
@@ -357,8 +367,6 @@ class Environment {
     };
 
     uint32_t fields_[kFieldsCount];
-    bool in_tick_;
-    bool last_threw_;
 
     DISALLOW_COPY_AND_ASSIGN(TickInfo);
   };
@@ -466,7 +474,7 @@ class Environment {
 
   inline int64_t get_async_wrap_uid();
 
-  bool KickNextTick();
+  bool KickNextTick(AsyncCallbackScope* scope);
 
   inline uint32_t* heap_statistics_buffer() const;
   inline void set_heap_statistics_buffer(uint32_t* pointer);
@@ -569,6 +577,7 @@ class Environment {
   bool using_domains_;
   bool printed_error_;
   bool trace_sync_io_;
+  size_t makecallback_cntr_;
   int64_t async_wrap_uid_;
   debugger::Agent debugger_agent_;
 

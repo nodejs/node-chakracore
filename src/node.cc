@@ -6,6 +6,7 @@
 #include "node_javascript.h"
 #include "node_version.h"
 #include "node_internals.h"
+#include "node_revert.h"
 
 #if defined HAVE_PERFCTR
 #include "node_counters.h"
@@ -1126,10 +1127,10 @@ void SetupPromises(const FunctionCallbackInfo<Value>& args) {
 
 
 Local<Value> MakeCallback(Environment* env,
-                           Local<Value> recv,
-                           const Local<Function> callback,
-                           int argc,
-                           Local<Value> argv[]) {
+                          Local<Value> recv,
+                          const Local<Function> callback,
+                          int argc,
+                          Local<Value> argv[]) {
   // If you hit this assertion, you forgot to enter the v8::Context first.
   CHECK_EQ(env->context(), env->isolate()->GetCurrentContext());
 
@@ -1138,6 +1139,8 @@ Local<Value> MakeCallback(Environment* env,
   Local<Object> object, domain;
   bool ran_init_callback = false;
   bool has_domain = false;
+
+  Environment::AsyncCallbackScope callback_scope(env);
 
   // TODO(trevnorris): Adding "_asyncQueue" to the "this" in the init callback
   // is a horrible way to detect usage. Rethink how detection should happen.
@@ -1159,51 +1162,45 @@ Local<Value> MakeCallback(Environment* env,
     }
   }
 
-  TryCatch try_catch;
-  try_catch.SetVerbose(true);
-
   if (has_domain) {
     Local<Value> enter_v = domain->Get(env->enter_string());
     if (enter_v->IsFunction()) {
-        enter_v.As<Function>()->Call(domain, 0, nullptr);
-      if (try_catch.HasCaught())
-        return Undefined(env->isolate());
+      if (enter_v.As<Function>()->Call(domain, 0, nullptr).IsEmpty()) {
+        FatalError("node::MakeCallback",
+                   "domain enter callback threw, please report this");
+      }
     }
   }
 
   if (ran_init_callback && !pre_fn.IsEmpty()) {
-    try_catch.SetVerbose(false);
-    pre_fn->Call(object, 0, nullptr);
-    if (try_catch.HasCaught())
+    if (pre_fn->Call(object, 0, nullptr).IsEmpty())
       FatalError("node::MakeCallback", "pre hook threw");
-    try_catch.SetVerbose(true);
   }
 
   Local<Value> ret = callback->Call(recv, argc, argv);
 
   if (ran_init_callback && !post_fn.IsEmpty()) {
-    try_catch.SetVerbose(false);
-    post_fn->Call(object, 0, nullptr);
-    if (try_catch.HasCaught())
+    if (post_fn->Call(object, 0, nullptr).IsEmpty())
       FatalError("node::MakeCallback", "post hook threw");
-    try_catch.SetVerbose(true);
+  }
+
+  if (ret.IsEmpty()) {
+    return Undefined(env->isolate());
   }
 
   if (has_domain) {
     Local<Value> exit_v = domain->Get(env->exit_string());
     if (exit_v->IsFunction()) {
-      exit_v.As<Function>()->Call(domain, 0, nullptr);
-      if (try_catch.HasCaught())
-        return Undefined(env->isolate());
+      if (exit_v.As<Function>()->Call(domain, 0, nullptr).IsEmpty()) {
+        FatalError("node::MakeCallback",
+                   "domain exit callback threw, please report this");
+      }
     }
   }
 
-  if (try_catch.HasCaught()) {
+  if (!env->KickNextTick(&callback_scope)) {
     return Undefined(env->isolate());
   }
-
-  if (!env->KickNextTick())
-    return Undefined(env->isolate());
 
   return ret;
 }
@@ -1864,7 +1861,6 @@ static gid_t gid_by_name(Isolate* isolate, Local<Value> value) {
   }
 }
 
-
 static void GetUid(const FunctionCallbackInfo<Value>& args) {
   // uid_t is an uint32_t on all supported platforms.
   args.GetReturnValue().Set(static_cast<uint32_t>(getuid()));
@@ -2454,9 +2450,10 @@ static void LinkedBinding(const FunctionCallbackInfo<Value>& args) {
     return env->ThrowError("Linked module has no declared entry point.");
   }
 
-  cache->Set(module_name, module->Get(exports_prop));
+  auto effective_exports = module->Get(exports_prop);
+  cache->Set(module_name, effective_exports);
 
-  args.GetReturnValue().Set(exports);
+  args.GetReturnValue().Set(effective_exports);
 }
 
 static void ProcessTitleGetter(Local<String> property,
@@ -3044,6 +3041,16 @@ void SetupProcessObject(Environment* env,
     READONLY_PROPERTY(process, "traceDeprecation", True(env->isolate()));
   }
 
+  // --security-revert flags
+#define V(code, _, __)                                                        \
+  do {                                                                        \
+    if (IsReverted(REVERT_ ## code)) {                                        \
+      READONLY_PROPERTY(process, "REVERT_" #code, True(env->isolate()));      \
+    }                                                                         \
+  } while (0);
+  REVERSIONS(V)
+#undef V
+
   size_t exec_path_len = 2 * PATH_MAX;
   char* exec_path = new char[exec_path_len];
   Local<String> exec_path_value;
@@ -3293,19 +3300,19 @@ static void PrintHelp() {
          "\n"
          "Environment variables:\n"
 #ifdef _WIN32
-         "NODE_PATH               ';'-separated list of directories\n"
+         "NODE_PATH                ';'-separated list of directories\n"
 #else
-         "NODE_PATH               ':'-separated list of directories\n"
+         "NODE_PATH                ':'-separated list of directories\n"
 #endif
-         "                        prefixed to the module search path.\n"
-         "NODE_DISABLE_COLORS     set to 1 to disable colors in the REPL\n"
+         "                         prefixed to the module search path.\n"
+         "NODE_DISABLE_COLORS      set to 1 to disable colors in the REPL\n"
 #if defined(NODE_HAVE_I18N_SUPPORT)
-         "NODE_ICU_DATA           data path for ICU (Intl object) data\n"
+         "NODE_ICU_DATA            data path for ICU (Intl object) data\n"
 #if !defined(NODE_HAVE_SMALL_ICU)
-         "                        (will extend linked-in data)\n"
+         "                         (will extend linked-in data)\n"
 #endif
 #endif
-         "NODE_REPL_HISTORY       path to the persistent REPL history file\n"
+         "NODE_REPL_HISTORY        path to the persistent REPL history file\n"
          "\n"
          "Documentation can be found at https://nodejs.org/\n");
 }
@@ -3411,6 +3418,9 @@ static void ParseArgs(int* argc,
       track_heap_objects = true;
     } else if (strcmp(arg, "--throw-deprecation") == 0) {
       throw_deprecation = true;
+    } else if (strncmp(arg, "--security-revert=", 18) == 0) {
+      const char* cve = arg + 18;
+      Revert(cve);
     } else if (strcmp(arg, "--prof-process") == 0) {
       prof_process = true;
       short_circuit = true;
@@ -4151,7 +4161,10 @@ static void StartNodeInstance(void* arg) {
     if (instance_data->use_debug_agent())
       StartDebug(env, debug_wait_connect);
 
-    LoadEnvironment(env);
+    {
+      Environment::AsyncCallbackScope callback_scope(env);
+      LoadEnvironment(env);
+    }
 
     env->set_trace_sync_io(trace_sync_io);
 

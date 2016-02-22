@@ -351,7 +351,7 @@ for (var i = 0; i < str.length ; i++) {
   buf[i] = str.charCodeAt(i);
 }
 
-console.log(buf);
+console.log(buf.toString('ascii'));
   // Prints: Node.js
 ```
 
@@ -471,16 +471,19 @@ console.log(buf1.equals(buf3));
   // Prints: false
 ```
 
-### buf.fill(value[, offset[, end]])
+### buf.fill(value[, offset[, end]][, encoding])
 
-* `value` {String or Number}
+* `value` {String|Buffer|Number}
 * `offset` {Number} Default: 0
-* `end` {Number} Default: `buffer.length`
+* `end` {Number} Default: `buf.length`
+* `encoding` {String} Default: `'utf8'`
 * Return: {Buffer}
 
-Fills the Buffer with the specified value. If the `offset` and `end` are not
-given it will fill the entire Buffer. The method returns a reference to the
-Buffer so calls can be chained.
+Fills the Buffer with the specified value. If the `offset` (defaults to `0`)
+and `end` (defaults to `buf.length`) are not given the entire buffer will be
+filled. The method returns a reference to the Buffer, so calls can be chained.
+This is meant as a small simplification to creating a Buffer. Allowing the
+creation and fill of the Buffer to be done on a single line:
 
 ```js
 const b = new Buffer(50).fill('h');
@@ -488,9 +491,21 @@ console.log(b.toString());
   // Prints: hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 ```
 
+`encoding` is only relevant if `value` is a string. Otherwise it is ignored.
+`value` is coerced to a `uint32` value if it is not a String or Number.
+
+The `fill()` operation writes bytes into the Buffer dumbly. If the final write
+falls in between a multi-byte character then whatever bytes fit into the buffer
+are written.
+
+```js
+Buffer(3).fill('\u0222');
+  // Prints: <Buffer c8 a2 c8>
+```
+
 ### buf.indexOf(value[, byteOffset][, encoding])
 
-* `value` {String, Buffer or Number}
+* `value` {String|Buffer|Number}
 * `byteOffset` {Number} Default: 0
 * `encoding` {String} Default: `'utf8'`
 * Return: {Number}
@@ -527,7 +542,7 @@ utf16Buffer.indexOf('\u03a3', -4, 'ucs2');
 
 ### buf.includes(value[, byteOffset][, encoding])
 
-* `value` {String, Buffer or Number}
+* `value` {String|Buffer|Number}
 * `byteOffset` {Number} Default: 0
 * `encoding` {String} Default: `'utf8'`
 * Return: {Boolean}
@@ -604,7 +619,7 @@ modify the length of a Buffer should therefore treat `length` as read-only and
 use [`buf.slice()`][] to create a new Buffer.
 
 ```js
-const buf = new Buffer(10);
+var buf = new Buffer(10);
 buf.write('abcdefghj', 0, 'ascii');
 console.log(buf.length);
   // Prints: 10

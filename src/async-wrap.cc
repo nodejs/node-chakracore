@@ -173,16 +173,19 @@ void LoadAsyncWrapperInfo(Environment* env) {
 
 
 Local<Value> AsyncWrap::MakeCallback(const Local<Function> cb,
-                                      int argc,
-                                      Local<Value>* argv) {
+                                     int argc,
+                                     Local<Value>* argv) {
   CHECK(env()->context() == env()->isolate()->GetCurrentContext());
 
   Local<Function> pre_fn = env()->async_hooks_pre_function();
   Local<Function> post_fn = env()->async_hooks_post_function();
+  Local<Value> uid = Integer::New(env()->isolate(), get_uid());
   Local<Object> context = object();
   Local<Object> process = env()->process_object();
   Local<Object> domain;
   bool has_domain = false;
+
+  Environment::AsyncCallbackScope callback_scope(env());
 
   if (env()->using_domains()) {
     Local<Value> domain_v = context->Get(env()->domain_string());
@@ -194,52 +197,45 @@ Local<Value> AsyncWrap::MakeCallback(const Local<Function> cb,
     }
   }
 
-  TryCatch try_catch(env()->isolate());
-  try_catch.SetVerbose(true);
-
   if (has_domain) {
     Local<Value> enter_v = domain->Get(env()->enter_string());
     if (enter_v->IsFunction()) {
-      enter_v.As<Function>()->Call(domain, 0, nullptr);
-      if (try_catch.HasCaught())
-        return Undefined(env()->isolate());
+      if (enter_v.As<Function>()->Call(domain, 0, nullptr).IsEmpty()) {
+        FatalError("node::AsyncWrap::MakeCallback",
+                   "domain enter callback threw, please report this");
+      }
     }
   }
 
   if (ran_init_callback() && !pre_fn.IsEmpty()) {
-    try_catch.SetVerbose(false);
-    pre_fn->Call(context, 0, nullptr);
-    if (try_catch.HasCaught())
+    if (pre_fn->Call(context, 1, &uid).IsEmpty())
       FatalError("node::AsyncWrap::MakeCallback", "pre hook threw");
-    try_catch.SetVerbose(true);
   }
 
   Local<Value> ret = cb->Call(context, argc, argv);
 
-  if (try_catch.HasCaught()) {
-    return Undefined(env()->isolate());
+  if (ran_init_callback() && !post_fn.IsEmpty()) {
+    if (post_fn->Call(context, 1, &uid).IsEmpty())
+      FatalError("node::AsyncWrap::MakeCallback", "post hook threw");
   }
 
-  if (ran_init_callback() && !post_fn.IsEmpty()) {
-    try_catch.SetVerbose(false);
-    post_fn->Call(context, 0, nullptr);
-    if (try_catch.HasCaught())
-      FatalError("node::AsyncWrap::MakeCallback", "post hook threw");
-    try_catch.SetVerbose(true);
+  if (ret.IsEmpty()) {
+    return Undefined(env()->isolate());
   }
 
   if (has_domain) {
     Local<Value> exit_v = domain->Get(env()->exit_string());
     if (exit_v->IsFunction()) {
-      exit_v.As<Function>()->Call(domain, 0, nullptr);
-      if (try_catch.HasCaught())
-        return Undefined(env()->isolate());
+      if (exit_v.As<Function>()->Call(domain, 0, nullptr).IsEmpty()) {
+        FatalError("node::AsyncWrap::MakeCallback",
+                   "domain exit callback threw, please report this");
+      }
     }
   }
 
   Environment::TickInfo* tick_info = env()->tick_info();
 
-  if (tick_info->in_tick()) {
+  if (callback_scope.in_makecallback()) {
     return ret;
   }
 
@@ -252,14 +248,7 @@ Local<Value> AsyncWrap::MakeCallback(const Local<Function> cb,
     return ret;
   }
 
-  tick_info->set_in_tick(true);
-
-  env()->tick_callback_function()->Call(process, 0, nullptr);
-
-  tick_info->set_in_tick(false);
-
-  if (try_catch.HasCaught()) {
-    tick_info->set_last_threw(true);
+  if (env()->tick_callback_function()->Call(process, 0, nullptr).IsEmpty()) {
     return Undefined(env()->isolate());
   }
 

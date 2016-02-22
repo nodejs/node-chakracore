@@ -220,6 +220,13 @@ function error_test() {
       expect: prompt_multiline },
     { client: client_unix, send: '})()',
       expect: '1' },
+    // Multiline function call
+    { client: client_unix, send: 'function f(){}; f(f(1,',
+      expect: prompt_multiline },
+    { client: client_unix, send: '2)',
+      expect: prompt_multiline },
+    { client: client_unix, send: ')',
+      expect: 'undefined\n' + prompt_unix },
     // npm prompt error message
     { client: client_unix, send: 'npm install foobar',
       expect: expect_npm },
@@ -325,6 +332,19 @@ function error_test() {
     // access to internal modules without the --expose_internals flag.
     { client: client_unix, send: 'require("internal/repl")',
       expect: /^Error: Cannot find module 'internal\/repl'/ },
+    // REPL should handle quotes within regexp literal in multiline mode
+    { client: client_unix, send: "function x(s) {\nreturn s.replace(/'/,'');\n}",
+      expect: prompt_multiline + prompt_multiline +
+            'undefined\n' + prompt_unix },
+    { client: client_unix, send: "function x(s) {\nreturn s.replace(/\'/,'');\n}",
+      expect: prompt_multiline + prompt_multiline +
+            'undefined\n' + prompt_unix },
+    { client: client_unix, send: 'function x(s) {\nreturn s.replace(/"/,"");\n}',
+      expect: prompt_multiline + prompt_multiline +
+            'undefined\n' + prompt_unix },
+    { client: client_unix, send: 'function x(s) {\nreturn s.replace(/.*/,"");\n}',
+      expect: prompt_multiline + prompt_multiline +
+            'undefined\n' + prompt_unix },
   ]);
 }
 
