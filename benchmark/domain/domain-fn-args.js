@@ -1,3 +1,4 @@
+'use strict';
 var common = require('../common.js');
 var domain = require('domain');
 
@@ -11,14 +12,14 @@ var gargs = [1, 2, 3];
 
 function main(conf) {
 
-  var args, ret, n = +conf.n;
-  var arguments = gargs.slice(0, conf.arguments);
+  var args, n = +conf.n;
+  var myArguments = gargs.slice(0, conf.arguments);
   bench.start();
 
   bdomain.enter();
   for (var i = 0; i < n; i++) {
-    if (arguments.length >= 2) {
-      args = Array.prototype.slice.call(arguments, 1);
+    if (myArguments.length >= 2) {
+      args = Array.prototype.slice.call(myArguments, 1);
       ret = fn.apply(this, args);
     } else {
       ret = fn.call(this);

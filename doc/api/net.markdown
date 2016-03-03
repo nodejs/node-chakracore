@@ -48,11 +48,13 @@ Example:
 ```js
 var server = net.createServer((socket) => {
   socket.end('goodbye\n');
+}).on('error', (err) => {
+  // handle errors here
+  throw err;
 });
 
 // grab a random port.
-server.listen((err) => {
-  if (err) throw err;
+server.listen(() => {
   address = server.address();
   console.log('opened server on %j', address);
 });
@@ -107,7 +109,7 @@ The last parameter `callback` will be added as a listener for the
 [`'listening'`][] event.
 
 The parameter `backlog` behaves the same as in
-[`server.listen(port, \[host\], \[backlog\], \[callback\])`][].
+[`server.listen(port[, hostname][, backlog][, callback])`][`server.listen(port, host, backlog, callback)`].
 
 ### server.listen(options[, callback])
 
@@ -121,8 +123,8 @@ The parameter `backlog` behaves the same as in
 
 The `port`, `host`, and `backlog` properties of `options`, as well as the
 optional callback function, behave as they do on a call to
-[`server.listen(port, \[host\], \[backlog\], \[callback\])`][]. Alternatively,
-the `path` option can be used to specify a UNIX socket.
+[`server.listen(port[, hostname][, backlog][, callback])`][`server.listen(port, host, backlog, callback)`].
+Alternatively, the `path` option can be used to specify a UNIX socket.
 
 If `exclusive` is `false` (default), then cluster workers will use the same
 underlying handle, allowing connection handling duties to be shared. When
@@ -167,7 +169,7 @@ double-backslashes, such as:
         path.join('\\\\?\\pipe', process.cwd(), 'myctl'))
 
 The parameter `backlog` behaves the same as in
-[`server.listen(port, \[host\], \[backlog\], \[callback\])`][].
+[`server.listen(port[, hostname][, backlog][, callback])`][`server.listen(port, host, backlog, callback)`].
 
 ### server.listen(port[, hostname][, backlog][, callback])
 
@@ -392,7 +394,7 @@ The `connectListener` parameter will be added as a listener for the
 ### socket.connect(path[, connectListener])
 ### socket.connect(port[, host][, connectListener])
 
-As [`socket.connect(options\[, connectListener\])`][],
+As [`socket.connect(options\[, connectListener\])`][`socket.connect(options, connectListener)`],
 with options either as either `{port: port, host: host}` or `{path: path}`.
 
 ### socket.destroy()
@@ -660,9 +662,10 @@ const server = net.createServer((c) => {
   c.write('hello\r\n');
   c.pipe(c);
 });
-server.listen(8124, (err) => {
-  // 'listening' listener
-  if (err) throw err;
+server.on('error', (err) => {
+  throw err;
+});
+server.listen(8124, () => {
   console.log('server bound');
 });
 ```
@@ -677,9 +680,8 @@ To listen on the socket `/tmp/echo.sock` the third line from the last would
 just be changed to
 
 ```js
-server.listen('/tmp/echo.sock', (err) => {
-  // 'listening' listener
-  if (err) throw err;
+server.listen('/tmp/echo.sock', () => {
+  console.log('server bound');
 });
 ```
 
@@ -723,8 +725,8 @@ Returns true if input is a version 6 IP address, otherwise returns false.
 [`pause()`]: #net_socket_pause
 [`resume()`]: #net_socket_resume
 [`server.getConnections()`]: #net_server_getconnections_callback
-[`server.listen(port, \[host\], \[backlog\], \[callback\])`]: #net_server_listen_port_hostname_backlog_callback
-[`socket.connect(options\[, connectListener\])`]: #net_socket_connect_options_connectlistener
+[`server.listen(port, host, backlog, callback)`]: #net_server_listen_port_hostname_backlog_callback
+[`socket.connect(options, connectListener)`]: #net_socket_connect_options_connectlistener
 [`socket.connect`]: #net_socket_connect_options_connectlistener
 [`socket.setTimeout()`]: #net_socket_settimeout_timeout_callback
 [`stream.setEncoding()`]: stream.html#stream_readable_setencoding_encoding

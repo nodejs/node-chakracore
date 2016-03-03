@@ -1,3 +1,4 @@
+'use strict';
 var common = require('../common.js');
 var StringDecoder = require('string_decoder').StringDecoder;
 
@@ -21,6 +22,7 @@ function main(conf) {
   var chunks = [];
   var str = '';
   var isBase64 = (encoding === 'base64-ascii' || encoding === 'base64-utf8');
+  var i;
 
   if (encoding === 'ascii' || encoding === 'base64-ascii')
     alpha = ASC_ALPHA;
@@ -31,7 +33,7 @@ function main(conf) {
 
   var sd = new StringDecoder(isBase64 ? 'base64' : encoding);
 
-  for (var i = 0; i < inLen; ++i) {
+  for (i = 0; i < inLen; ++i) {
     if (i > 0 && (i % chunkLen) === 0 && !isBase64) {
       chunks.push(new Buffer(str, encoding));
       str = '';
@@ -52,7 +54,7 @@ function main(conf) {
   var nChunks = chunks.length;
 
   bench.start();
-  for (var i = 0; i < n; ++i) {
+  for (i = 0; i < n; ++i) {
     for (var j = 0; j < nChunks; ++j)
       sd.write(chunks[j]);
   }

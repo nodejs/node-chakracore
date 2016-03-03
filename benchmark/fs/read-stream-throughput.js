@@ -1,4 +1,5 @@
 // test the throughput of the fs.WriteStream class.
+'use strict';
 
 var path = require('path');
 var common = require('../common.js');
@@ -11,7 +12,7 @@ var type, encoding, size;
 
 var bench = common.createBenchmark(main, {
   type: ['buf', 'asc', 'utf'],
-  size: [1024, 4096, 65535, 1024*1024]
+  size: [1024, 4096, 65535, 1024 * 1024]
 });
 
 function main(conf) {

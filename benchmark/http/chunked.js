@@ -6,9 +6,9 @@
 // always as hot as it could be.
 //
 // Verify that our assumptions are valid.
+'use strict';
 
 var common = require('../common.js');
-var PORT = common.PORT;
 
 var bench = common.createBenchmark(main, {
   num: [1, 4, 8, 16],
@@ -17,7 +17,7 @@ var bench = common.createBenchmark(main, {
 });
 
 function main(conf) {
-  http = require('http');
+  const http = require('http');
   var chunk = new Buffer(conf.size);
   chunk.fill('8');
 

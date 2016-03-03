@@ -21,8 +21,9 @@ ifdef ENABLE_V8_TAP
   TAP_V8_BENCHMARKS := --junitout v8-benchmarks-tap.xml
 endif
 
+V8_TEST_OPTIONS = $(V8_EXTRA_TEST_OPTIONS)
 ifdef DISABLE_V8_I18N
-  V8_TEST_NO_I18N := --noi18n
+  V8_TEST_OPTIONS += --noi18n
   V8_BUILD_OPTIONS += i18nsupport=off
 endif
 
@@ -111,9 +112,9 @@ v8:
 	$(MAKE) -C deps/v8 $(V8_ARCH) $(V8_BUILD_OPTIONS)
 
 test: | cctest  # Depends on 'all'.
-	$(PYTHON) tools/test.py --mode=release message parallel sequential -J
 	$(MAKE) jslint
 	$(MAKE) cpplint
+	$(PYTHON) tools/test.py --mode=release message parallel sequential -J
 
 test-parallel: all
 	$(PYTHON) tools/test.py --mode=release parallel -J
@@ -210,7 +211,7 @@ test-timers-clean:
 test-v8:
 	# note: performs full test unless QUICKCHECK is specified
 	deps/v8/tools/run-tests.py --arch=$(V8_ARCH) \
-        --mode=$(BUILDTYPE_LOWER) $(V8_TEST_NO_I18N) $(QUICKCHECK_ARG) \
+        --mode=$(BUILDTYPE_LOWER) $(V8_TEST_OPTIONS) $(QUICKCHECK_ARG) \
         --no-presubmit \
         --shell-dir=$(PWD)/deps/v8/out/$(V8_ARCH).$(BUILDTYPE_LOWER) \
 	 $(TAP_V8)
@@ -578,7 +579,7 @@ bench-idle:
 
 jslint:
 	$(NODE) tools/eslint/bin/eslint.js lib src test tools/doc tools/eslint-rules \
-		--rulesdir tools/eslint-rules --quiet
+		--rulesdir tools/eslint-rules
 
 CPPLINT_EXCLUDE ?=
 CPPLINT_EXCLUDE += src/node_lttng.cc

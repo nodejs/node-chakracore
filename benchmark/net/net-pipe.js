@@ -1,4 +1,5 @@
 // test the speed of .pipe() with sockets
+'use strict';
 
 var common = require('../common.js');
 var PORT = common.PORT;
@@ -35,7 +36,6 @@ function main(conf) {
       break;
     default:
       throw new Error('invalid type: ' + type);
-      break;
   }
 
   server();

@@ -19,6 +19,7 @@
 #include "CNNICHashWhitelist.inc"
 
 #include <errno.h>
+#include <limits.h>  // INT_MAX
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,6 +63,7 @@ static const int X509_NAME_FLAGS = ASN1_STRFLGS_ESC_CTRL
 namespace node {
 namespace crypto {
 
+using v8::AccessorSignature;
 using v8::Array;
 using v8::Boolean;
 using v8::Context;
@@ -323,7 +325,8 @@ void SecureContext::Initialize(Environment* env, Local<Object> target) {
       nullptr,
       env->as_external(),
       DEFAULT,
-      static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+      static_cast<PropertyAttribute>(ReadOnly | DontDelete),
+      AccessorSignature::New(env->isolate(), t));
 
   target->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "SecureContext"),
               t->GetFunction());
@@ -1137,9 +1140,7 @@ int SecureContext::TicketKeyCallback(SSL* ssl,
 
 void SecureContext::CtxGetter(Local<String> property,
                               const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope(info.GetIsolate());
-
-  SSL_CTX* ctx = Unwrap<SecureContext>(info.Holder())->ctx_;
+  SSL_CTX* ctx = Unwrap<SecureContext>(info.This())->ctx_;
   Local<External> ext = External::New(info.GetIsolate(), ctx);
   info.GetReturnValue().Set(ext);
 }
@@ -1212,7 +1213,8 @@ void SSLWrap<Base>::AddMethods(Environment* env, Local<FunctionTemplate> t) {
       nullptr,
       env->as_external(),
       DEFAULT,
-      static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+      static_cast<PropertyAttribute>(ReadOnly | DontDelete),
+      AccessorSignature::New(env->isolate(), t));
 }
 
 
@@ -2369,10 +2371,8 @@ void SSLWrap<Base>::CertCbDone(const FunctionCallbackInfo<Value>& args) {
 
 template <class Base>
 void SSLWrap<Base>::SSLGetter(Local<String> property,
-                        const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope(info.GetIsolate());
-
-  SSL* ssl = Unwrap<Base>(info.Holder())->ssl_;
+                              const PropertyCallbackInfo<Value>& info) {
+  SSL* ssl = Unwrap<Base>(info.This())->ssl_;
   Local<External> ext = External::New(info.GetIsolate(), ssl);
   info.GetReturnValue().Set(ext);
 }
@@ -3126,8 +3126,10 @@ void CipherBase::Init(const char* cipher_type,
   HandleScope scope(env()->isolate());
 
 #ifdef NODE_FIPS_MODE
-  return env()->ThrowError(
-    "crypto.createCipher() is not supported in FIPS mode.");
+  if (FIPS_mode()) {
+    return env()->ThrowError(
+        "crypto.createCipher() is not supported in FIPS mode.");
+  }
 #endif  // NODE_FIPS_MODE
 
   CHECK_EQ(cipher_, nullptr);
@@ -3367,7 +3369,7 @@ void CipherBase::Update(const FunctionCallbackInfo<Value>& args) {
   // Only copy the data if we have to, because it's a string
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (!decoder.Decode(env, args[0].As<String>(), args[1], BINARY))
+    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8))
       return;
     r = cipher->Update(decoder.out(), decoder.size(), &out, &out_len);
   } else {
@@ -3546,7 +3548,7 @@ void Hmac::HmacUpdate(const FunctionCallbackInfo<Value>& args) {
   bool r;
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (!decoder.Decode(env, args[0].As<String>(), args[1], BINARY))
+    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8))
       return;
     r = hmac->HmacUpdate(decoder.out(), decoder.size());
   } else {
@@ -3664,7 +3666,7 @@ void Hash::HashUpdate(const FunctionCallbackInfo<Value>& args) {
   bool r;
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (!decoder.Decode(env, args[0].As<String>(), args[1], BINARY))
+    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8))
       return;
     r = hash->HashUpdate(decoder.out(), decoder.size());
   } else {
@@ -3816,7 +3818,7 @@ void Sign::SignUpdate(const FunctionCallbackInfo<Value>& args) {
   Error err;
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (!decoder.Decode(env, args[0].As<String>(), args[1], BINARY))
+    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8))
       return;
     err = sign->SignUpdate(decoder.out(), decoder.size());
   } else {
@@ -3858,7 +3860,7 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
 
 #ifdef NODE_FIPS_MODE
   /* Validate DSA2 parameters from FIPS 186-4 */
-  if (EVP_PKEY_DSA == pkey->type) {
+  if (FIPS_mode() && EVP_PKEY_DSA == pkey->type) {
     size_t L = BN_num_bits(pkey->pkey.dsa->p);
     size_t N = BN_num_bits(pkey->pkey.dsa->q);
     bool result = false;
@@ -4018,7 +4020,7 @@ void Verify::VerifyUpdate(const FunctionCallbackInfo<Value>& args) {
   Error err;
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (!decoder.Decode(env, args[0].As<String>(), args[1], BINARY))
+    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8))
       return;
     err = verify->VerifyUpdate(decoder.out(), decoder.size());
   } else {
@@ -4117,12 +4119,11 @@ void Verify::VerifyFinal(const FunctionCallbackInfo<Value>& args) {
 
   THROW_AND_RETURN_IF_NOT_STRING_OR_BUFFER(args[1]);
 
-  // BINARY works for both buffers and binary strings.
-  enum encoding encoding = BINARY;
+  enum encoding encoding = UTF8;
   if (args.Length() >= 3) {
     encoding = ParseEncoding(env->isolate(),
                              args[2]->ToString(env->isolate()),
-                             BINARY);
+                             UTF8);
   }
 
   ssize_t hlen = StringBytes::Size(env->isolate(), args[1], encoding);
@@ -4310,12 +4311,14 @@ void DiffieHellman::Initialize(Environment* env, Local<Object> target) {
   env->SetProtoMethod(t, "setPublicKey", SetPublicKey);
   env->SetProtoMethod(t, "setPrivateKey", SetPrivateKey);
 
-  t->InstanceTemplate()->SetAccessor(env->verify_error_string(),
-                                     DiffieHellman::VerifyErrorGetter,
-                                     nullptr,
-                                     env->as_external(),
-                                     DEFAULT,
-                                     attributes);
+  t->InstanceTemplate()->SetAccessor(
+      env->verify_error_string(),
+      DiffieHellman::VerifyErrorGetter,
+      nullptr,
+      env->as_external(),
+      DEFAULT,
+      attributes,
+      AccessorSignature::New(env->isolate(), t));
 
   target->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "DiffieHellman"),
               t->GetFunction());
@@ -4330,12 +4333,14 @@ void DiffieHellman::Initialize(Environment* env, Local<Object> target) {
   env->SetProtoMethod(t2, "getPublicKey", GetPublicKey);
   env->SetProtoMethod(t2, "getPrivateKey", GetPrivateKey);
 
-  t2->InstanceTemplate()->SetAccessor(env->verify_error_string(),
-                                      DiffieHellman::VerifyErrorGetter,
-                                      nullptr,
-                                      env->as_external(),
-                                      DEFAULT,
-                                      attributes);
+  t2->InstanceTemplate()->SetAccessor(
+      env->verify_error_string(),
+      DiffieHellman::VerifyErrorGetter,
+      nullptr,
+      env->as_external(),
+      DEFAULT,
+      attributes,
+      AccessorSignature::New(env->isolate(), t2));
 
   target->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "DiffieHellmanGroup"),
               t2->GetFunction());
@@ -4953,12 +4958,12 @@ class PBKDF2Request : public AsyncWrap {
   PBKDF2Request(Environment* env,
                 Local<Object> object,
                 const EVP_MD* digest,
-                ssize_t passlen,
+                int passlen,
                 char* pass,
-                ssize_t saltlen,
+                int saltlen,
                 char* salt,
-                ssize_t iter,
-                ssize_t keylen)
+                int iter,
+                int keylen)
       : AsyncWrap(env, object, AsyncWrap::PROVIDER_CRYPTO),
         digest_(digest),
         error_(0),
@@ -4987,7 +4992,7 @@ class PBKDF2Request : public AsyncWrap {
     return digest_;
   }
 
-  inline ssize_t passlen() const {
+  inline int passlen() const {
     return passlen_;
   }
 
@@ -4995,7 +5000,7 @@ class PBKDF2Request : public AsyncWrap {
     return pass_;
   }
 
-  inline ssize_t saltlen() const {
+  inline int saltlen() const {
     return saltlen_;
   }
 
@@ -5003,7 +5008,7 @@ class PBKDF2Request : public AsyncWrap {
     return salt_;
   }
 
-  inline ssize_t keylen() const {
+  inline int keylen() const {
     return keylen_;
   }
 
@@ -5011,7 +5016,7 @@ class PBKDF2Request : public AsyncWrap {
     return key_;
   }
 
-  inline ssize_t iter() const {
+  inline int iter() const {
     return iter_;
   }
 
@@ -5044,13 +5049,13 @@ class PBKDF2Request : public AsyncWrap {
  private:
   const EVP_MD* digest_;
   int error_;
-  ssize_t passlen_;
+  int passlen_;
   char* pass_;
-  ssize_t saltlen_;
+  int saltlen_;
   char* salt_;
-  ssize_t keylen_;
+  int keylen_;
   char* key_;
-  ssize_t iter_;
+  int iter_;
 };
 
 
@@ -5107,10 +5112,11 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
   const char* type_error = nullptr;
   char* pass = nullptr;
   char* salt = nullptr;
-  ssize_t passlen = -1;
-  ssize_t saltlen = -1;
-  double keylen = -1;
-  ssize_t iter = -1;
+  int passlen = -1;
+  int saltlen = -1;
+  double raw_keylen = -1;
+  int keylen = -1;
+  int iter = -1;
   PBKDF2Request* req = nullptr;
   Local<Object> obj;
 
@@ -5162,11 +5168,14 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
     goto err;
   }
 
-  keylen = args[3]->NumberValue();
-  if (keylen < 0 || isnan(keylen) || isinf(keylen)) {
+  raw_keylen = args[3]->NumberValue();
+  if (raw_keylen < 0.0 || isnan(raw_keylen) || isinf(raw_keylen) ||
+      raw_keylen > INT_MAX) {
     type_error = "Bad key length";
     goto err;
   }
+
+  keylen = static_cast<int>(raw_keylen);
 
   if (args[4]->IsString()) {
     node::Utf8Value digest_name(env->isolate(), args[4]);
@@ -5190,7 +5199,7 @@ void PBKDF2(const FunctionCallbackInfo<Value>& args) {
                           saltlen,
                           salt,
                           iter,
-                          static_cast<ssize_t>(keylen));
+                          keylen);
 
   if (args[5]->IsFunction()) {
     obj->Set(env->ondone_string(), args[5]);
@@ -5665,14 +5674,21 @@ void InitCryptoOnce() {
   SSL_library_init();
   OpenSSL_add_all_algorithms();
   SSL_load_error_strings();
+  OPENSSL_config(NULL);
 
   crypto_lock_init();
   CRYPTO_set_locking_callback(crypto_lock_cb);
   CRYPTO_THREADID_set_callback(crypto_threadid_cb);
 
 #ifdef NODE_FIPS_MODE
-  if (!FIPS_mode_set(1)) {
-    int err = ERR_get_error();
+  /* Override FIPS settings in cnf file, if needed. */
+  unsigned long err = 0;
+  if (enable_fips_crypto || force_fips_crypto) {
+    if (0 == FIPS_mode() && !FIPS_mode_set(1)) {
+      err = ERR_get_error();
+    }
+  }
+  if (0 != err) {
     fprintf(stderr, "openssl fips failed: %s\n", ERR_error_string(err, NULL));
     UNREACHABLE();
   }
@@ -5739,6 +5755,29 @@ void SetEngine(const FunctionCallbackInfo<Value>& args) {
 }
 #endif  // !OPENSSL_NO_ENGINE
 
+void GetFipsCrypto(const FunctionCallbackInfo<Value>& args) {
+  if (FIPS_mode()) {
+    args.GetReturnValue().Set(1);
+  } else {
+    args.GetReturnValue().Set(0);
+  }
+}
+
+void SetFipsCrypto(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+#ifdef NODE_FIPS_MODE
+  bool mode = args[0]->BooleanValue();
+  if (force_fips_crypto) {
+    return env->ThrowError(
+        "Cannot set FIPS mode, it was forced with --force-fips at startup.");
+  } else if (!FIPS_mode_set(mode)) {
+    unsigned long err = ERR_get_error();
+    return ThrowCryptoError(env, err);
+  }
+#else
+  return env->ThrowError("Cannot set FIPS mode in a non-FIPS build.");
+#endif /* NODE_FIPS_MODE */
+}
 
 // FIXME(bnoordhuis) Handle global init correctly.
 void InitCrypto(Local<Object> target,
@@ -5763,6 +5802,8 @@ void InitCrypto(Local<Object> target,
 #ifndef OPENSSL_NO_ENGINE
   env->SetMethod(target, "setEngine", SetEngine);
 #endif  // !OPENSSL_NO_ENGINE
+  env->SetMethod(target, "getFipsCrypto", GetFipsCrypto);
+  env->SetMethod(target, "setFipsCrypto", SetFipsCrypto);
   env->SetMethod(target, "PBKDF2", PBKDF2);
   env->SetMethod(target, "randomBytes", RandomBytes);
   env->SetMethod(target, "getSSLCiphers", GetSSLCiphers);

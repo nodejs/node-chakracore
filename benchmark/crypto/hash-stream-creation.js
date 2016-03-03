@@ -1,5 +1,6 @@
 // throughput benchmark
 // creates a single hasher, then pushes a bunch of data through it
+'use strict';
 var common = require('../common.js');
 var crypto = require('crypto');
 
@@ -19,9 +20,6 @@ function main(conf) {
     // use the legacy, just so that we can compare them.
     api = 'legacy';
   }
-
-  var crypto = require('crypto');
-  var assert = require('assert');
 
   var message;
   var encoding;
