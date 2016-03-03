@@ -2453,7 +2453,7 @@ bool PersistentBase<T>::IsWeak() const {
 
 template <class T>
 void PersistentBase<T>::Reset() {
-  if (this->IsEmpty()) return;
+  if (this->IsEmpty() || V8::IsDead()) return;
 
   if (IsWeak()) {
     if (_weakWrapper.unique()) {

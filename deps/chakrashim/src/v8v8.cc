@@ -26,6 +26,7 @@
 
 namespace v8 {
 
+bool g_disposed = false;
 bool g_exposeGC = false;
 bool g_useStrict = false;
 ArrayBuffer::Allocator* g_arrayBufferAllocator = nullptr;
@@ -124,6 +125,9 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
 }
 
 bool V8::Initialize() {
+  if (g_disposed) {
+    return false; // Can no longer Initialize if Disposed
+  }
 #ifndef NODE_ENGINE_CHAKRACORE
   if (g_EnableDebug && JsStartDebugging() != JsNoError) {
     return false;
@@ -142,11 +146,11 @@ void V8::SetArrayBufferAllocator(ArrayBuffer::Allocator* allocator) {
 }
 
 bool V8::IsDead() {
-  // CHAKRA-TODO
-  return false;
+  return g_disposed;
 }
 
 bool V8::Dispose() {
+  g_disposed = true;
   jsrt::IsolateShim::DisposeAll();
   Debug::Dispose();
   return true;
