@@ -1,3 +1,4 @@
+'use strict';
 var common = require('../common.js');
 var crypto = require('crypto');
 var keylen = {'aes-128-gcm': 16, 'aes-192-gcm': 24, 'aes-256-gcm': 32};
@@ -30,7 +31,7 @@ function AEAD_Bench(cipher, message, associate_data, key, iv, n, len) {
     var bob = crypto.createDecipheriv(cipher, key, iv);
     bob.setAuthTag(tag);
     bob.setAAD(associate_data);
-    var clear = bob.update(enc);
+    bob.update(enc);
     bob.final();
   }
 

@@ -1,4 +1,5 @@
 // test the throughput of the fs.WriteStream class.
+'use strict';
 
 var path = require('path');
 var common = require('../common.js');
@@ -28,7 +29,7 @@ function main(conf) {
       encoding = 'ascii';
       break;
     case 'utf':
-      chunk = new Array(Math.ceil(size/2) + 1).join('ü');
+      chunk = new Array(Math.ceil(size / 2) + 1).join('ü');
       encoding = 'utf8';
       break;
     default:

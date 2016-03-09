@@ -15,7 +15,7 @@ const prompt_npm = 'npm should be run outside of the ' +
                    'node repl, in your normal shell.\n' +
                    '(Press Control-D to exit.)\n';
 const expect_npm = prompt_npm + prompt_unix;
-var server_tcp, server_unix, client_tcp, client_unix, timer;
+var server_tcp, server_unix, client_tcp, client_unix, timer, replServer;
 
 // absolute path to test/fixtures/a.js
 var moduleFilename = require('path').join(common.fixturesDir, 'a');
@@ -47,9 +47,17 @@ function clean_up() {
   clearTimeout(timer);
 }
 
+function strict_mode_error_test() {
+  send_expect([
+    { client: client_unix, send: 'ref = 1',
+      expect: /^ReferenceError:\sref\sis\snot\sdefined\n\s+at\srepl:1:5/ },
+  ]);
+}
+
 function error_test() {
   // The other stuff is done so reuse unix socket
   var read_buffer = '';
+  var run_strict_test = true;
   client_unix.removeAllListeners('data');
 
   client_unix.on('data', function(data) {
@@ -71,6 +79,10 @@ function error_test() {
       read_buffer = '';
       if (client_unix.list && client_unix.list.length > 0) {
         send_expect(client_unix.list);
+      } else if (run_strict_test) {
+        replServer.replMode = repl.REPL_MODE_STRICT;
+        run_strict_test = false;
+        strict_mode_error_test();
       } else {
         console.error('End of Error test, running TCP test.');
         tcp_test();
@@ -82,6 +94,10 @@ function error_test() {
       read_buffer = '';
       if (client_unix.list && client_unix.list.length > 0) {
         send_expect(client_unix.list);
+      } else if (run_strict_test) {
+        replServer.replMode = repl.REPL_MODE_STRICT;
+        run_strict_test = false;
+        strict_mode_error_test();
       } else {
         console.error('End of Error test, running TCP test.\n');
         tcp_test();
@@ -419,12 +435,13 @@ function unix_test() {
       socket.end();
     });
 
-    repl.start({
+    replServer = repl.start({
       prompt: prompt_unix,
       input: socket,
       output: socket,
       useGlobal: true
-    }).context.message = message;
+    });
+    replServer.context.message = message;
   });
 
   server_unix.on('listening', function() {

@@ -81,18 +81,21 @@ var opensslCli = null;
 var inFreeBSDJail = null;
 var localhostIPv4 = null;
 
-exports.localIPv6Hosts = [
-  // Debian/Ubuntu
-  'ip6-localhost',
-  'ip6-loopback',
+exports.localIPv6Hosts = ['localhost'];
+if (process.platform === 'linux') {
+  exports.localIPv6Hosts = [
+    // Debian/Ubuntu
+    'ip6-localhost',
+    'ip6-loopback',
 
-  // SUSE
-  'ipv6-localhost',
-  'ipv6-loopback',
+    // SUSE
+    'ipv6-localhost',
+    'ipv6-loopback',
 
-  // Typically universal
-  'localhost',
-];
+    // Typically universal
+    'localhost',
+  ];
+}
 
 Object.defineProperty(exports, 'inFreeBSDJail', {
   get: function() {
@@ -162,7 +165,7 @@ Object.defineProperty(exports, 'hasCrypto', {
 
 Object.defineProperty(exports, 'hasFipsCrypto', {
   get: function() {
-    return process.config.variables.openssl_fips ? true : false;
+    return exports.hasCrypto && require('crypto').fips;
   }
 });
 

@@ -1,3 +1,4 @@
+'use strict';
 var common = require('../common');
 
 var bench = common.createBenchmark(main, {
@@ -43,7 +44,7 @@ function main(conf) {
     var r = Buffer.byteLength(strings[index], encoding);
 
     if (r !== results[index])
-      throw Error('incorrect return value');
+      throw new Error('incorrect return value');
   }
   bench.end(n);
 }

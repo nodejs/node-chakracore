@@ -750,10 +750,11 @@ console.log(`Spawned child pid: ${grep.pid}`);
 grep.stdin.end();
 ```
 
-### child.send(message[, sendHandle][, callback])
+### child.send(message[, sendHandle[, options]][, callback])
 
 * `message` {Object}
 * `sendHandle` {Handle}
+* `options` {Object}
 * `callback` {Function}
 * Return: {Boolean}
 
@@ -801,6 +802,14 @@ passing a TCP server or socket object to the child process. The child will
 receive the object as the second argument passed to the callback function
 registered on the `process.on('message')` event.
 
+The `options` argument, if present, is an object used to parameterize the
+sending of certain types of handles. `options` supports the following
+properties:
+
+  * `keepOpen` - A Boolean value that can be used when passing instances of
+    `net.Socket`. When `true`, the socket is kept open in the sending process.
+    Defaults to `false`.
+
 The optional `callback` is a function that is invoked after the message is
 sent but before the child may have received it.  The function is called with a
 single argument: `null` on success, or an [`Error`][] object on failure.
@@ -817,7 +826,7 @@ used to implement flow control.
 #### Example: sending a server object
 
 The `sendHandle` argument can be used, for instance, to pass the handle of
-a TSCP server object to the child process as illustrated in the example below:
+a TCP server object to the child process as illustrated in the example below:
 
 ```js
 const child = require('child_process').fork('child.js');
