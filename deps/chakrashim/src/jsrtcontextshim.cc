@@ -413,14 +413,18 @@ bool ContextShim::ExposeGc() {
 }
 
 bool ContextShim::ExecuteChakraShimJS() {
-  wchar_t buffer[_countof(chakra_shim_native)];
+  wchar_t buffer[_countof(chakra_shim_native) + 1];
 
-  if (StringConvert::CopyRaw<char, wchar_t>(chakra_shim_native,
+  if (StringConvert::CopyRaw<unsigned char, wchar_t>(chakra_shim_native,
       _countof(chakra_shim_native),
       buffer,
       _countof(chakra_shim_native)) != JsNoError) {
     return false;
   }
+
+  // Ensure the buffer is null terminated
+  buffer[_countof(chakra_shim_native)] = L'\0';
+
   JsValueRef getInitFunction;
   if (JsParseScript(buffer,
                     JS_SOURCE_CONTEXT_NONE,
