@@ -239,8 +239,13 @@ Local<Value> Object::GetOwnPropertyDescriptor(Local<String> key) {
 }
 
 Maybe<bool> Object::Has(Local<Context> context, Local<Value> key) {
+  JsPropertyIdRef idRef;
+  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+    return Nothing<bool>();
+  }
+
   bool result;
-  if (jsrt::HasProperty(this, *key, &result) != JsNoError) {
+  if (JsHasProperty(this, idRef, &result) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -252,12 +257,17 @@ bool Object::Has(Handle<Value> key) {
 }
 
 Maybe<bool> Object::Delete(Local<Context> context, Local<Value> key) {
-  JsValueRef resultRef;
-  if (jsrt::DeleteProperty(this, *key, &resultRef) != JsNoError) {
+  JsPropertyIdRef idRef;
+  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
     return Nothing<bool>();
   }
 
-  return Just(Local<Value>(resultRef)->BooleanValue());
+  JsValueRef result;
+  if (JsDeleteProperty(this, idRef, false, &result) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  return Just(Local<Value>(result)->BooleanValue());
 }
 
 bool Object::Delete(Handle<Value> key) {

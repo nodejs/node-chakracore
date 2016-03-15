@@ -116,8 +116,7 @@ class Utils {
 
   static JsValueRef HasPropertyHandler(
     JsValueRef *arguments,
-    unsigned short argumentCount,
-    bool checkInPrototype);
+    unsigned short argumentCount);
   static JsValueRef CALLBACK HasCallback(
     JsValueRef callee,
     bool isConstructCall,

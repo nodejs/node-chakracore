@@ -236,14 +236,16 @@ JsValueRef CALLBACK Utils::GetCallback(JsValueRef callee,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyGetter(index, info);
-      return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-    } else {
-      if (GetIndexedProperty(object, index, &result) != JsNoError) {
-        return GetUndefined();
+      result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      if (result != JS_INVALID_REFERENCE) {
+        return result;
       }
-
-      return result;
     }
+
+    if (GetIndexedProperty(object, index, &result) != JsNoError) {
+      return GetUndefined();
+    }
+    return result;
   } else {
     if (objectData->namedPropertyGetter) {
       PropertyCallbackInfo<Value> info(
@@ -251,14 +253,17 @@ JsValueRef CALLBACK Utils::GetCallback(JsValueRef callee,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
-      return reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-    } else {
-      // use default JS behavior, on the prototype..
-      if (jsrt::GetProperty(object, prop, &result) != JsNoError) {
-        return GetUndefined();
+      result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      if (result != JS_INVALID_REFERENCE) {
+        return result;
       }
-      return result;
     }
+
+    // use default JS behavior, on the prototype..
+    if (jsrt::GetProperty(object, prop, &result) != JsNoError) {
+      return GetUndefined();
+    }
+    return result;
   }
 }
 
@@ -294,12 +299,13 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertySetter(
         index, reinterpret_cast<Value*>(value), info);
-
-      setCallbackResult = info.GetReturnValue().Get();
-    } else {  // use default JS behavior
-      if (jsrt::SetIndexedProperty(object, index, value) != JsNoError) {
-        return GetFalse();
+      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+        return GetTrue(); // intercepted
       }
+    }
+    // use default JS behavior
+    if (jsrt::SetIndexedProperty(object, index, value) != JsNoError) {
+      return GetFalse();
     }
   } else {
     if (objectData->namedPropertySetter) {
@@ -309,24 +315,17 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertySetter(
         reinterpret_cast<String*>(prop), reinterpret_cast<Value*>(value), info);
-      
-      setCallbackResult = info.GetReturnValue().Get();
-    } else {  // use default JS behavior
-      if (jsrt::SetProperty(object, prop, value) != JsNoError) {
-        return GetFalse();
+      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+        return GetTrue(); // intercepted
       }
     }
+    // use default JS behavior
+    if (jsrt::SetProperty(object, prop, value) != JsNoError) {
+      return GetFalse();
+    }
   }
-  
-  /* Per NamedPropertySetter documentation :
-  Returns the value if the setter intercepts the request.
-  Otherwise, returns an empty handle.
-  */
-  if (setCallbackResult.IsEmpty()) {
-    return GetFalse();
-  } else {
-    return GetTrue();
-  }
+
+  return GetTrue();
 }
 
 JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
@@ -338,7 +337,6 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
 
   JsValueRef object = arguments[1];
   JsValueRef prop = arguments[2];
-
   JsValueRef result;
 
   if (JsGetExternalData(object, &externalData) != JsNoError) {
@@ -361,14 +359,16 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyDeleter(index, info);
-     
-      deleteCallbackResult = info.GetReturnValue().Get();
-     
-    } else {
-      if (DeleteIndexedProperty(object, index) != JsNoError) {
-        return GetFalse();
+      result = info.GetReturnValue().Get();
+      if (result != JS_INVALID_REFERENCE) {
+        return result; // intercepted
       }
     }
+    // use default JS behavior
+    if (jsrt::DeleteIndexedProperty(object, index) != JsNoError) {
+      return GetFalse();
+    }
+    return GetTrue(); // no result from JsDeleteIndexedProperty
   } else {
     if (objectData->namedPropertyDeleter != nullptr) {
       PropertyCallbackInfo<Boolean> info(
@@ -376,39 +376,21 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyDeleter(reinterpret_cast<String*>(prop), info);
-
-      deleteCallbackResult = info.GetReturnValue().Get();
-    } else {  // use default JS behavior
-      if (jsrt::DeleteProperty(object, prop, &result) != JsNoError) {
-        return GetFalse();
+      result = info.GetReturnValue().Get();
+      if (result != JS_INVALID_REFERENCE) {
+        return result; // intercepted
       }
     }
-  }
-
-  /* Per NamedPropertyDeleter documentation :
-  Returns a non-empty handle if the deleter intercepts the request.
-  The return value is true if the property could be deleted and false
-  otherwise.
-  */
-  if (deleteCallbackResult.IsEmpty()) {
-    return GetFalse();
-  } else {
-    if (deleteCallbackResult->BooleanValue()) {
-      return GetTrue();
-    } else {
+    // use default JS behavior
+    if (jsrt::DeleteProperty(object, prop, &result) != JsNoError) {
       return GetFalse();
     }
+    return result;
   }
 }
 
 JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
-                                     unsigned short argumentCount,
-                                     bool checkInPrototype) {
-  // algorithm is as follows:
-  // 1. try to get the property descriptor - if it's not zero - return true
-  // 2. list all of the properties using the enumerator, check if it's there
-  // 3. call the target has method
-
+                                     unsigned short argumentCount) {
   void* externalData;
 
   JsValueRef object = arguments[1];
@@ -434,52 +416,29 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyQuery(index, info);
-      JsValueRef queryResult =
-        reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-
-      bool isQueryResultZero;
-      if (IsZero(queryResult, &isQueryResultZero) != JsNoError) {
-        return GetFalse();
-      }
-
-      if (!isQueryResultZero) {
-        return GetTrue();
+      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+        return GetTrue(); // intercepted
       }
     }
 
-    if (objectData->indexedPropertyEnumerator != nullptr) {
-      PropertyCallbackInfo<Array> info(
+    if (objectData->indexedPropertyGetter) {
+      // indexed array properties were set
+      PropertyCallbackInfo<Value> info(
         *objectData->indexedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyEnumerator(info);
-      JsValueRef indexedProperties =
-        reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-
-      bool valueInIndexedProps;
-      if (jsrt::IsValueInArray(indexedProperties,
-                               prop, &valueInIndexedProps) != JsNoError) {
-        return GetFalse();
-      }
-
-      if (valueInIndexedProps) {
-        return GetTrue();
+      objectData->indexedPropertyGetter(index, info);
+      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+        return GetTrue(); // intercepted
       }
     }
 
-    if (checkInPrototype) {
-      bool hasProperty;
-      if (jsrt::HasIndexedProperty(object, index, &hasProperty) != JsNoError) {
-        return GetFalse();
-      }
-
-
-      return hasProperty ? GetTrue() : GetFalse();
-    } else {
-      JsValueRef result;
-      jsrt::HasOwnProperty(object, prop, &result);
-      return result;
+    // fallback to default JS behavior
+    bool hasProperty;
+    if (jsrt::HasIndexedProperty(object, index, &hasProperty) != JsNoError) {
+      return GetFalse();
     }
+    return hasProperty ? GetTrue() : GetFalse();
   } else {  // named property...
     if (objectData->namedPropertyQuery != nullptr) {
       HandleScope scope(nullptr);
@@ -488,54 +447,28 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyQuery(reinterpret_cast<String*>(prop), info);
-      JsValueRef queryResult =
-        reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-
-      bool isQueryResultZero;
-      if (IsZero(queryResult, &isQueryResultZero) != JsNoError) {
-        return GetFalse();
-      }
-
-      if (!isQueryResultZero) {
-        return GetTrue();
+      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+        return GetTrue(); // intercepted
       }
     }
 
-    if (objectData->namedPropertyEnumerator != nullptr) {
-      PropertyCallbackInfo<Array> info(
+    if (objectData->namedPropertyGetter) {
+      PropertyCallbackInfo<Value> info(
         *objectData->namedPropertyInterceptorData,
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyEnumerator(info);
-      JsValueRef namedProperties =
-        reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-
-      bool valueInNamedProps;
-      if (jsrt::IsCaseInsensitiveStringValueInArray(namedProperties,
-                                            prop,
-                                            &valueInNamedProps) != JsNoError) {
-        return GetFalse();
-      }
-
-      if (valueInNamedProps) {
-        return GetTrue();
+      objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
+      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+        return GetTrue(); // intercepted
       }
     }
 
-    if (checkInPrototype) {
-      bool hasProperty;
-      if (jsrt::HasProperty(object, prop, &hasProperty) != JsNoError) {
-        return GetFalse();
-      }
-
-      return hasProperty ? GetTrue() : GetFalse();
-    } else {
-      JsValueRef result;
-      if (jsrt::HasOwnProperty(object, prop, &result) != JsNoError) {
-          return GetFalse();
-      }
-      return result;
+    // fallback to default JS behavior
+    bool hasProperty;
+    if (jsrt::HasProperty(object, prop, &hasProperty) != JsNoError) {
+      return GetFalse();
     }
+    return hasProperty ? GetTrue() : GetFalse();
   }
 }
 
@@ -544,7 +477,7 @@ JsValueRef CALLBACK Utils::HasCallback(JsValueRef callee,
                                        JsValueRef *arguments,
                                        unsigned short argumentCount,
                                        void *callbackState) {
-  return HasPropertyHandler(arguments, argumentCount, false);
+  return HasPropertyHandler(arguments, argumentCount);
 }
 
 JsValueRef Utils::GetPropertiesHandler(JsValueRef* arguments,
@@ -642,14 +575,6 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState) {
-  // algorithm is as follows:
-  // For indexed and named properties:
-  //   1. If there are no getters & property query callbacks - call the objects
-  //   method 2. If there is a query getter - use it, also call the getter on
-  //   the proxy itself in order to have the interception work 3. if the value
-  //   is null and query result is zero - return undefined, else - return the
-  //   property descriptor object
-
   void* externalData;
   JsValueRef object = arguments[1];
   JsValueRef prop = arguments[2];
@@ -667,18 +592,10 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     return GetUndefined();
   }
 
+  JsValueRef queryResult = JS_INVALID_REFERENCE;
+  JsValueRef value = JS_INVALID_REFERENCE;
+
   if (isPropIntType) {
-    if (objectData->indexedPropertyQuery == nullptr &&
-        objectData->indexedPropertyGetter == nullptr) {
-      // default case - no interceptors are defined
-      if (GetOwnPropertyDescriptor(object, prop, &descriptor) != JsNoError) {
-        return GetUndefined();
-      }
-      return descriptor;
-    }
-
-    int queryResultInt = 0;
-
     if (objectData->indexedPropertyQuery != nullptr) {
       HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
@@ -686,17 +603,9 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyQuery(index, info);
-      JsValueRef queryResult =
-        reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-
-      double queryResultDouble;
-      if (JsNumberToDouble(queryResult, &queryResultDouble) != JsNoError) {
-        return GetUndefined();
-      }
-      queryResultInt = static_cast<int>(queryResultDouble);
+      queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
     }
 
-    JsValueRef value;
     if (objectData->indexedPropertyGetter != nullptr) {
       PropertyCallbackInfo<Value> info(
         *objectData->indexedPropertyInterceptorData,
@@ -704,47 +613,17 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyGetter(index, info);
       value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-    } else {
+    }
+
+    // if queryResult valid, ensure value available
+    if (queryResult != JS_INVALID_REFERENCE && value == JS_INVALID_REFERENCE) {
       if (GetIndexedProperty(object, index, &value) != JsNoError) {
         return GetUndefined();
       }
     }
-
-    bool isUndefined;
-    if (IsUndefined(value, &isUndefined) != JsNoError) {
-      return GetUndefined();
-    }
-
-    // no value & no property descriptor - we treat the property descriptor as
-    // undefined
-    if (isUndefined && queryResultInt == 0) {
-      return GetUndefined();
-    }
-
-    v8::PropertyAttribute attributes =
-      static_cast<v8::PropertyAttribute>(queryResultInt);
-    if (CreatePropertyDescriptor(attributes, value,
-                                 JS_INVALID_REFERENCE, JS_INVALID_REFERENCE,
-                                 &descriptor) != JsNoError) {
-      return GetUndefined();
-    }
-
-    return descriptor;
-
   } else {  // named property...
-    // first we go for the default case - no getter and no query:
-    if (objectData->namedPropertyQuery == nullptr &&
-        objectData->namedPropertyGetter == nullptr) {
-      if (GetOwnPropertyDescriptor(object, prop, &descriptor) != JsNoError) {
-        return GetUndefined();
-      }
-
-      return descriptor;
-    }
-
     // query the property descriptor if there is such, and then get the value
     // from the proxy in order to go through the interceptor
-    int queryResultInt = 0;
     if (objectData->namedPropertyQuery != nullptr) {
       HandleScope scope(nullptr);
       PropertyCallbackInfo<Integer> info(
@@ -752,18 +631,8 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyQuery(reinterpret_cast<String*>(prop), info);
-      JsValueRef queryResult =
-        reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-
-      double queryResultDouble;
-      if (JsNumberToDouble(queryResult, &queryResultDouble) != JsNoError) {
-        return GetUndefined();
-      }
-
-      queryResultInt = static_cast<int>(queryResultDouble);
+      queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
     }
-
-    JsValueRef value;
 
     if (objectData->namedPropertyGetter != nullptr) {
       PropertyCallbackInfo<Value> info(
@@ -772,33 +641,40 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
       value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-    } else {
+    }
+
+    // if queryResult valid, ensure value available
+    if (queryResult != JS_INVALID_REFERENCE && value == JS_INVALID_REFERENCE) {
       if (GetProperty(object, prop, &value) != JsNoError) {
         return GetUndefined();
       }
     }
+  }
 
-    bool isUndefined;
-    if (IsUndefined(value, &isUndefined) != JsNoError) {
+  // if neither is intercepted, fallback to default
+  if (queryResult == JS_INVALID_REFERENCE && value == JS_INVALID_REFERENCE) {
+    if (GetOwnPropertyDescriptor(object, prop, &descriptor) != JsNoError) {
       return GetUndefined();
     }
-
-    // no value & no property descriptor - we treat the property descriptor as
-    // undefined
-    if (isUndefined && queryResultInt == 0) {
-      return GetUndefined();
-    }
-
-    v8::PropertyAttribute attributes =
-      static_cast<v8::PropertyAttribute>(queryResultInt);
-    if (CreatePropertyDescriptor(attributes, value,
-                                 JS_INVALID_REFERENCE, JS_INVALID_REFERENCE,
-                                 &descriptor) != JsNoError) {
-      return GetUndefined();
-    }
-
     return descriptor;
   }
+
+  int queryResultInt = v8::PropertyAttribute::DontEnum;
+  if (queryResult != JS_INVALID_REFERENCE) {
+    if (jsrt::ValueToIntLikely(queryResult, &queryResultInt) != JsNoError) {
+      return GetUndefined();
+    }
+  }
+
+  v8::PropertyAttribute attributes =
+    static_cast<v8::PropertyAttribute>(queryResultInt);
+  if (CreatePropertyDescriptor(attributes, value,
+                               JS_INVALID_REFERENCE, JS_INVALID_REFERENCE,
+                               &descriptor) != JsNoError) {
+    return GetUndefined();
+  }
+
+  return descriptor;
 }
 
 Local<ObjectTemplate> ObjectTemplate::New(Isolate* isolate) {
@@ -889,10 +765,10 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
       proxyConf[ProxyTraps::OwnKeysTrap] = Utils::OwnKeysCallback;
     }
 
-    if (objectTemplateData->indexedPropertyEnumerator != nullptr ||
-        objectTemplateData->namedPropertyEnumerator != nullptr ||
-        objectTemplateData->indexedPropertyQuery != nullptr ||
-        objectTemplateData->namedPropertyQuery != nullptr) {
+    if (objectTemplateData->indexedPropertyQuery != nullptr ||
+        objectTemplateData->namedPropertyQuery != nullptr ||
+        objectTemplateData->indexedPropertyGetter != nullptr ||
+        objectTemplateData->namedPropertyGetter != nullptr) {
       proxyConf[ProxyTraps::HasTrap] = Utils::HasCallback;
     }
 
