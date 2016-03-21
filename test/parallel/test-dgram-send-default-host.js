@@ -4,24 +4,12 @@ const common = require('../common');
 const assert = require('assert');
 const dgram = require('dgram');
 
-if (common.isWindows) {
-  // on Windows this test will fail
-  // see https://github.com/nodejs/node/pull/5407
-  console.log('1..0 # Skipped: This test does not apply on Windows.');
-  return;
-}
-
 const client = dgram.createSocket('udp4');
 
-const timer = setTimeout(function() {
-  throw new Error('Timeout');
-}, common.platformTimeout(2000));
-
-const toSend = [new Buffer(256), new Buffer(256), new Buffer(256), 'hello'];
-
-toSend[0].fill('x');
-toSend[1].fill('y');
-toSend[2].fill('z');
+const toSend = [Buffer.alloc(256, 'x'),
+                Buffer.alloc(256, 'y'),
+                Buffer.alloc(256, 'z'),
+                'hello'];
 
 client.on('listening', function() {
   client.send(toSend[0], 0, toSend[0].length, common.PORT);
@@ -36,7 +24,6 @@ client.on('message', function(buf, info) {
 
   if (toSend.length === 0) {
     client.close();
-    clearTimeout(timer);
   }
 });
 

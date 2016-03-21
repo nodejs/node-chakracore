@@ -97,6 +97,9 @@ class ExternString: public ResourceType {
   private:
     ExternString(Isolate* isolate, const TypeName* data, size_t length)
       : isolate_(isolate), data_(data), length_(length) { }
+    static MaybeLocal<String> NewExternal(Isolate* isolate,
+                                          ExternString* h_str);
+
     Isolate* isolate_;
     const TypeName* data_;
     size_t length_;
@@ -107,6 +110,20 @@ typedef ExternString<String::ExternalOneByteStringResource,
                      char> ExternOneByteString;
 typedef ExternString<String::ExternalStringResource,
                      uint16_t> ExternTwoByteString;
+
+
+template <>
+MaybeLocal<String> ExternOneByteString::NewExternal(
+    Isolate* isolate, ExternOneByteString* h_str) {
+  return String::NewExternalOneByte(isolate, h_str);
+}
+
+
+template <>
+MaybeLocal<String> ExternTwoByteString::NewExternal(
+    Isolate* isolate, ExternTwoByteString* h_str) {
+  return String::NewExternalTwoByte(isolate, h_str);
+}
 
 
 //// Base 64 ////

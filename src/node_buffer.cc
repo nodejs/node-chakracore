@@ -48,7 +48,14 @@
   CHECK_NOT_OOB(end <= end_max);                                            \
   size_t length = end - start;
 
+#define BUFFER_MALLOC(length)                                               \
+  zero_fill_all_buffers ? calloc(length, 1) : malloc(length)
+
 namespace node {
+
+// if true, all Buffer and SlowBuffer instances will automatically zero-fill
+bool zero_fill_all_buffers = false;
+
 namespace Buffer {
 
 using v8::ArrayBuffer;
@@ -72,27 +79,24 @@ using v8::Uint32;
 using v8::Uint32Array;
 using v8::Uint8Array;
 using v8::Value;
-using v8::WeakCallbackData;
-
+using v8::WeakCallbackInfo;
 
 class CallbackInfo {
  public:
   static inline void Free(char* data, void* hint);
   static inline CallbackInfo* New(Isolate* isolate,
-                                  Local<Object> object,
+                                  Local<ArrayBuffer> object,
                                   FreeCallback callback,
                                   void* hint = 0);
-  inline void Dispose(Isolate* isolate);
-  inline Persistent<Object>* persistent();
  private:
-  static void WeakCallback(const WeakCallbackData<Object, CallbackInfo>&);
-  inline void WeakCallback(Isolate* isolate, Local<Object> object);
+  static void WeakCallback(const WeakCallbackInfo<CallbackInfo>&);
+  inline void WeakCallback(Isolate* isolate, char* const data);
   inline CallbackInfo(Isolate* isolate,
-                      Local<Object> object,
+                      Local<ArrayBuffer> object,
                       FreeCallback callback,
                       void* hint);
   ~CallbackInfo();
-  Persistent<Object> persistent_;
+  Persistent<ArrayBuffer> persistent_;
   FreeCallback const callback_;
   void* const hint_;
   DISALLOW_COPY_AND_ASSIGN(CallbackInfo);
@@ -105,31 +109,29 @@ void CallbackInfo::Free(char* data, void*) {
 
 
 CallbackInfo* CallbackInfo::New(Isolate* isolate,
-                                Local<Object> object,
+                                Local<ArrayBuffer> object,
                                 FreeCallback callback,
                                 void* hint) {
   return new CallbackInfo(isolate, object, callback, hint);
 }
 
 
-void CallbackInfo::Dispose(Isolate* isolate) {
-  WeakCallback(isolate, PersistentToLocal(isolate, persistent_));
-}
-
-
-Persistent<Object>* CallbackInfo::persistent() {
-  return &persistent_;
-}
-
-
 CallbackInfo::CallbackInfo(Isolate* isolate,
-                           Local<Object> object,
+                           Local<ArrayBuffer> object,
                            FreeCallback callback,
                            void* hint)
     : persistent_(isolate, object),
       callback_(callback),
       hint_(hint) {
-  persistent_.SetWeak(this, WeakCallback);
+  ArrayBuffer::Contents obj_c = object->GetContents();
+  char* const data = static_cast<char*>(obj_c.Data());
+  if (object->ByteLength() != 0)
+    CHECK_NE(data, nullptr);
+
+  object->SetAlignedPointerInInternalField(kBufferInternalFieldIndex, data);
+
+  persistent_.SetWeak(this, WeakCallback,
+                      v8::WeakCallbackType::kInternalFields);
   persistent_.SetWrapperClassId(BUFFER_ID);
   persistent_.MarkIndependent();
   isolate->AdjustAmountOfExternalAllocatedMemory(sizeof(*this));
@@ -142,25 +144,19 @@ CallbackInfo::~CallbackInfo() {
 
 
 void CallbackInfo::WeakCallback(
-    const WeakCallbackData<Object, CallbackInfo>& data) {
-  data.GetParameter()->WeakCallback(data.GetIsolate(), data.GetValue());
+    const WeakCallbackInfo<CallbackInfo>& data) {
+  CallbackInfo* self = data.GetParameter();
+  self->WeakCallback(
+      data.GetIsolate(),
+      static_cast<char*>(data.GetInternalField(kBufferInternalFieldIndex)));
+  delete self;
 }
 
 
-void CallbackInfo::WeakCallback(Isolate* isolate, Local<Object> object) {
-  CHECK(object->IsArrayBuffer());
-  Local<ArrayBuffer> buf = object.As<ArrayBuffer>();
-  ArrayBuffer::Contents obj_c = buf->GetContents();
-  char* const obj_data = static_cast<char*>(obj_c.Data());
-  if (buf->ByteLength() != 0)
-    CHECK_NE(obj_data, nullptr);
-
-  buf->Neuter();
-  callback_(obj_data, hint_);
+void CallbackInfo::WeakCallback(Isolate* isolate, char* const data) {
+  callback_(data, hint_);
   int64_t change_in_bytes = -static_cast<int64_t>(sizeof(*this));
   isolate->AdjustAmountOfExternalAllocatedMemory(change_in_bytes);
-
-  delete this;
 }
 
 
@@ -220,7 +216,7 @@ MaybeLocal<Object> New(Isolate* isolate,
   // nullptr for zero-sized allocation requests.  Normalize by always using
   // a nullptr.
   if (length > 0) {
-    data = static_cast<char*>(malloc(length));
+    data = static_cast<char*>(BUFFER_MALLOC(length));
 
     if (data == nullptr)
       return Local<Object>();
@@ -266,7 +262,7 @@ MaybeLocal<Object> New(Environment* env, size_t length) {
 
   void* data;
   if (length > 0) {
-    data = malloc(length);
+    data = BUFFER_MALLOC(length);
     if (data == nullptr)
       return Local<Object>();
   } else {
@@ -429,7 +425,20 @@ void CreateFromArrayBuffer(const FunctionCallbackInfo<Value>& args) {
   if (!args[0]->IsArrayBuffer())
     return env->ThrowTypeError("argument is not an ArrayBuffer");
   Local<ArrayBuffer> ab = args[0].As<ArrayBuffer>();
-  Local<Uint8Array> ui = Uint8Array::New(ab, 0, ab->ByteLength());
+
+  size_t ab_length = ab->ByteLength();
+  size_t offset;
+  size_t max_length;
+
+  CHECK_NOT_OOB(ParseArrayIndex(args[1], 0, &offset));
+  CHECK_NOT_OOB(ParseArrayIndex(args[2], ab_length - offset, &max_length));
+
+  if (offset >= ab_length)
+    return env->ThrowRangeError("'offset' is out of bounds");
+  if (max_length > ab_length - offset)
+    return env->ThrowRangeError("'length' is out of bounds");
+
+  Local<Uint8Array> ui = Uint8Array::New(ab, offset, max_length);
   Maybe<bool> mb =
       ui->SetPrototype(env->context(), env->buffer_prototype_object());
   if (!mb.FromMaybe(false))

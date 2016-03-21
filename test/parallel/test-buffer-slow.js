@@ -9,7 +9,7 @@ const SlowBuffer = buffer.SlowBuffer;
 const ones = [1, 1, 1, 1];
 
 // should create a Buffer
-let sb = new SlowBuffer(4);
+let sb = SlowBuffer(4);
 assert(sb instanceof Buffer);
 assert.strictEqual(sb.length, 4);
 sb.fill(1);
@@ -28,7 +28,8 @@ assert.deepEqual(sb, ones);
 // should work with edge cases
 assert.strictEqual(SlowBuffer(0).length, 0);
 try {
-  assert.strictEqual(SlowBuffer(buffer.kMaxLength).length, buffer.kMaxLength);
+  assert.strictEqual(
+    SlowBuffer(buffer.kMaxLength).length, buffer.kMaxLength);
 } catch (e) {
   assert.equal(e.message, common.engineSpecificMessage({
     v8 : 'Array buffer allocation failed',
@@ -52,11 +53,11 @@ var expectedError = common.engineSpecificMessage({
   chakracore : 'Invalid offset/length when creating typed array'
 });
 assert.throws(function() {
-  new SlowBuffer(Infinity);
+  SlowBuffer(Infinity);
 }, expectedError);
 assert.throws(function() {
-  new SlowBuffer(-1);
+  SlowBuffer(-1);
 }, expectedError);
 assert.throws(function() {
-  new SlowBuffer(buffer.kMaxLength + 1);
+  SlowBuffer(buffer.kMaxLength + 1);
 }, expectedError);

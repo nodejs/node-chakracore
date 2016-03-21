@@ -190,10 +190,11 @@ The times in the stat object have the following semantics:
 * `birthtime` "Birth Time" -  Time of file creation. Set once when the
   file is created.  On filesystems where birthtime is not available,
   this field may instead hold either the `ctime` or
-  `1970-01-01T00:00Z` (ie, unix epoch timestamp `0`).  On Darwin and
-  other FreeBSD variants, also set if the `atime` is explicitly set to
-  an earlier value than the current `birthtime` using the `utimes(2)`
-  system call.
+  `1970-01-01T00:00Z` (ie, unix epoch timestamp `0`). Note that this
+  value may be greater than `atime` or `mtime` in this case. On Darwin
+  and other FreeBSD variants, also set if the `atime` is explicitly
+  set to an earlier value than the current `birthtime` using the
+  `utimes(2)` system call.
 
 Prior to Node v0.12, the `ctime` held the `birthtime` on Windows
 systems.  Note that as of v0.12, `ctime` is not "creation time", and
@@ -382,7 +383,7 @@ default mode `w`. The `defaultEncoding` can be any one of those accepted by [`Bu
 If `autoClose` is set to true (default behavior) on `error` or `end`
 the file descriptor will be closed automatically. If `autoClose` is false,
 then the file descriptor won't be closed, even if there's an error.
-It is your responsiblity to close it and make sure
+It is your responsibility to close it and make sure
 there's no file descriptor leak.
 
 Like [`ReadStream`][], if `fd` is specified, `WriteStream` will ignore the
@@ -742,7 +743,7 @@ Here is an example below:
 fs.symlink('./foo', './new-port');
 ```
 
-It would create a symlic link named with "new-port" that points to "foo".
+It creates a symbolic link named "new-port" that points to "foo".
 
 ## fs.symlinkSync(target, path[, type])
 

@@ -295,6 +295,24 @@ they were registered, passing the supplied arguments to each.
 
 Returns `true` if event had listeners, `false` otherwise.
 
+### emitter.eventNames()
+
+Returns an array listing the events for which the emitter has registered
+listeners. The values in the array will be strings or Symbols.
+
+```js
+const EventEmitter = require('events');
+const myEE = new EventEmitter();
+myEE.on('foo', () => {});
+myEE.on('bar', () => {});
+
+const sym = Symbol('symbol');
+myEE.on(sym, () => {});
+
+console.log(myErr.eventNames());
+  // Prints ['foo', 'bar', Symbol('symbol')]
+```
+
 ### emitter.getMaxListeners()
 
 Returns the current max listener value for the `EventEmitter` which is either
@@ -376,6 +394,43 @@ server.removeListener('connection', callback);
 listener array. If any single listener has been added multiple times to the
 listener array for the specified `event`, then `removeListener` must be called
 multiple times to remove each instance.
+
+Note that once an event has been emitted, all listeners attached to it at the
+time of emitting will be called in order. This implies that any `removeListener()`
+or `removeAllListeners()` calls *after* emitting and *before* the last listener
+finishes execution will not remove them from `emit()` in progress. Subsequent
+events will behave as expected.
+
+```js
+const myEmitter = new MyEmitter();
+
+var callbackA = () => {
+  console.log('A');
+  myEmitter.removeListener('event', callbackB);
+};
+
+var callbackB = () => {
+  console.log('B');
+};
+
+myEmitter.on('event', callbackA);
+
+myEmitter.on('event', callbackB);
+
+// callbackA removes listener callbackB but it will still be called.
+// Interal listener array at time of emit [callbackA, callbackB]
+myEmitter.emit('event');
+  // Prints:
+  //   A
+  //   B
+
+// callbackB is now removed.
+// Interal listener array [callbackA]
+myEmitter.emit('event');
+  // Prints:
+  //   A
+
+```
 
 Because listeners are managed using an internal array, calling this will
 change the position indices of any listener registered *after* the listener

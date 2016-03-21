@@ -23,8 +23,7 @@ function main(conf) {
   var chunk;
   switch (type) {
     case 'buf':
-      chunk = new Buffer(size);
-      chunk.fill('b');
+      chunk = Buffer.alloc(size, 'b');
       break;
     case 'asc':
       chunk = new Array(size + 1).join('a');
@@ -45,9 +44,10 @@ function main(conf) {
 
   server = tls.createServer(options, onConnection);
   setTimeout(done, dur * 1000);
+  var conn;
   server.listen(common.PORT, function() {
     var opt = { port: common.PORT, rejectUnauthorized: false };
-    var conn = tls.connect(opt, function() {
+    conn = tls.connect(opt, function() {
       bench.start();
       conn.on('drain', write);
       write();
@@ -68,8 +68,8 @@ function main(conf) {
   function done() {
     var mbits = (received * 8) / (1024 * 1024);
     bench.end(mbits);
-    conn.destroy();
+    if (conn)
+      conn.destroy();
     server.close();
   }
 }
-

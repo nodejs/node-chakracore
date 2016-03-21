@@ -28,11 +28,7 @@ function testSloppyMode() {
   cli.input.emit('data', `
     let y = 3
   `.trim() + '\n');
-  const re = common.engineSpecificMessage({
-    v8 : /SyntaxError: Block-scoped/,
-    chakracore : /./
-  });
-  assert.ok(re.test(cli.output.accumulator.join('')));
+  assert.equal(cli.output.accumulator.join(''), 'undefined\n> ');
 }
 
 function testStrictMode() {
