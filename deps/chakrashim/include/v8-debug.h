@@ -54,9 +54,9 @@ class V8_EXPORT Debug {
   static void Dispose();
   static void DisableAgent() {}
   static bool IsAgentEnabled();
-  static void ProcessDebugMessages() {}
-  static Local<Context> GetDebugContext();
-  static void SetMessageHandler(MessageHandler handler) {}
+  static void ProcessDebugMessages(Isolate* isolate) {}
+  static Local<Context> GetDebugContext(Isolate* isolate);
+  static void SetMessageHandler(Isolate* isolate, MessageHandler handler) {}
   static void SendCommand(Isolate* isolate,
                           const uint16_t* command, int length,
                           ClientData* client_data = NULL) {

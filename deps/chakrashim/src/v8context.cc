@@ -98,6 +98,14 @@ void Context::SetAlignedPointerInEmbedderData(int index, void* value) {
   return contextShim->SetAlignedPointerInEmbedderData(index, value);
 }
 
+void Context::SetEmbedderData(int index, Local<Value> value) {
+    SetAlignedPointerInEmbedderData(index, *value);
+}
+
+Local<Value> Context::GetEmbedderData(int index) {
+  return Local<Value>(GetAlignedPointerFromEmbedderData(index));
+}
+
 void Context::SetSecurityToken(Handle<Value> token) {
   // CHAKRA-TODO
 }

@@ -308,6 +308,7 @@ class Local {
   template <class F> friend class MaybeLocal;
   template <class F> friend class PersistentBase;
   template <class F, class M> friend class Persistent;
+  template <class F> friend class Local;
   friend V8_EXPORT Local<Primitive> Undefined(Isolate* isolate);
   friend V8_EXPORT Local<Primitive> Null(Isolate* isolate);
   friend V8_EXPORT Local<Boolean> True(Isolate* isolate);
@@ -1268,6 +1269,10 @@ class V8_EXPORT Object : public Value {
   V8_WARN_UNUSED_RESULT Maybe<bool> Set(Local<Context> context, uint32_t index,
                                         Local<Value> value);
 
+  V8_WARN_UNUSED_RESULT Maybe<bool> DefineOwnProperty(
+      Local<Context> context, Local<Name> key, Local<Value> value,
+      PropertyAttribute attributes = None);
+
   V8_DEPRECATE_SOON("Use maybe version",
                     bool ForceSet(Handle<Value> key, Handle<Value> value,
                                   PropertyAttribute attribs = None));
@@ -2208,6 +2213,9 @@ class V8_EXPORT Isolate {
     GCCallback callback, GCType gc_type_filter = kGCTypeAll);
   void RemoveGCEpilogueCallback(GCCallback callback);
 
+  void CancelTerminateExecution();
+  void TerminateExecution();
+
   void SetCounterFunction(CounterLookupCallback);
   void SetCreateHistogramFunction(CreateHistogramCallback);
   void SetAddHistogramSampleFunction(AddHistogramSampleCallback);
@@ -2371,6 +2379,8 @@ class V8_EXPORT Context {
   Isolate* GetIsolate();
   void* GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void* value);
+  void SetEmbedderData(int index, Local<Value> value);
+  Local<Value> GetEmbedderData(int index);
   void SetSecurityToken(Handle<Value> token);
   Handle<Value> GetSecurityToken();
 };

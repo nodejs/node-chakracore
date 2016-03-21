@@ -57,9 +57,8 @@ bool Debug::IsAgentEnabled() {
   return g_EnableDebug;
 }
 
-Local<Context> Debug::GetDebugContext() {
+Local<Context> Debug::GetDebugContext(Isolate* isolate) {
   if (g_debugContext == JS_INVALID_REFERENCE) {
-    Isolate* isolate = Isolate::GetCurrent();
     HandleScope scope(isolate);
     g_debugContext = *Context::New(isolate);
     JsAddRef(g_debugContext, nullptr);

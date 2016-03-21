@@ -129,6 +129,12 @@ Maybe<bool> Object::Set(Local<Context> context,
   return Just(true);
 }
 
+Maybe<bool> Object::DefineOwnProperty(
+    Local<Context> context, Local<Name> key, Local<Value> value,
+    PropertyAttribute attributes) {
+  return Set(key, value, attributes, /*force*/true);
+}
+
 bool Object::Set(uint32_t index, Handle<Value> value) {
   return FromMaybe(Set(Local<Context>(), index, value));
 }

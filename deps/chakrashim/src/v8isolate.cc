@@ -136,6 +136,14 @@ void Isolate::AddGCEpilogueCallback(
 void Isolate::RemoveGCEpilogueCallback(GCCallback callback) {
 }
 
+void Isolate::CancelTerminateExecution() {
+  jsrt::IsolateShim::FromIsolate(this)->EnableExecution();
+}
+
+void Isolate::TerminateExecution() {
+  jsrt::IsolateShim::FromIsolate(this)->DisableExecution();
+}
+
 void Isolate::SetCounterFunction(CounterLookupCallback) {
   CHAKRA_UNIMPLEMENTED();
 }

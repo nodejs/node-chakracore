@@ -157,7 +157,7 @@ bool V8::Dispose() {
 }
 
 void V8::TerminateExecution(Isolate* isolate) {
-  jsrt::IsolateShim::FromIsolate(isolate)->DisableExecution();
+  isolate->TerminateExecution();
 }
 
 bool V8::IsExeuctionDisabled(Isolate* isolate) {
@@ -165,7 +165,7 @@ bool V8::IsExeuctionDisabled(Isolate* isolate) {
 }
 
 void V8::CancelTerminateExecution(Isolate* isolate) {
-  jsrt::IsolateShim::FromIsolate(isolate)->EnableExecution();
+  isolate->CancelTerminateExecution();
 }
 
 void V8::FromJustIsNothing() {
