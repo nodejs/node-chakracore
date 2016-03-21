@@ -19,14 +19,18 @@
 // IN THE SOFTWARE.
 'use strict';
 
-(function() {
+(function(keepAlive) {
   // Save original builtIns
   var
+    Function_prototype_toString = Function.prototype.toString,
     Object_defineProperty = Object.defineProperty,
     Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
     Object_getOwnPropertyNames = Object.getOwnPropertyNames,
     Object_keys = Object.keys,
     Object_prototype_toString = Object.prototype.toString,
+    Object_setPrototypeOf = Object.setPrototypeOf,
+    Reflect_apply = Reflect.apply,
+    Reflect_construct = Reflect.construct,
     Map_keys = Map.prototype.keys,
     Map_values = Map.prototype.values,
     Map_entries = Map.prototype.entries,
@@ -34,6 +38,8 @@
     Set_values = Set.prototype.values,
     Symbol_keyFor = Symbol.keyFor,
     Symbol_for = Symbol.for;
+  var BuiltInError = Error;
+  var global = this;
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(funcName, fileName, lineNumber, columnNumber) {
@@ -69,9 +75,9 @@
       this.scriptName + ':' + this.lineNumber + ':' + this.column + ')';
   };
 
+  // default StackTrace stringify function
   function prepareStackTrace(error, stack) {
-    var stackString = (error.name ? error.name : 'Error') +
-      ': ' + error.message;
+    var stackString = (error.name || 'Error') + ': ' + (error.message || '');
 
     for (var i = 0; i < stack.length; i++) {
       stackString += '\n   at ' + stack[i].toString();
@@ -80,16 +86,14 @@
     return stackString;
   }
 
-  function parseStack(stack, skipDepth, startFunc) {
-    // remove the first line so this function won't be seen
+  // Parse 'stack' string into StackTrace frames. Skip top 'skipDepth' frames,
+  // and optionally skip top to 'startName' function frames.
+  function parseStack(stack, skipDepth, startName) {
     var splittedStack = stack.split('\n');
-    splittedStack.splice(0, 2);
+    splittedStack.splice(0, skipDepth + 1); // also skip top name/message line
     var errstack = [];
 
-    var startName = skipDepth < 0 ? startFunc.name : undefined;
-    skipDepth = Math.max(0, skipDepth);
-
-    for (var i = skipDepth; i < splittedStack.length; i++) {
+    for (var i = 0; i < splittedStack.length; i++) {
       var parens = /\(/.exec(splittedStack[i]);
       var funcName = splittedStack[i].substr(6, parens.index - 7);
 
@@ -130,8 +134,12 @@
   }
 
   function findFuncDepth(func) {
+    if (!func) {
+      return 0;
+    }
+
     try {
-      var curr = captureStackTrace.caller;
+      var curr = privateCaptureStackTrace.caller;
       var limit = Error.stackTraceLimit;
       var skipDepth = 0;
       while (curr) {
@@ -152,43 +160,114 @@
     return 0;
   }
 
+  function withStackTraceLimitOffset(offset, f) {
+    var oldLimit = BuiltInError.stackTraceLimit;
+    if (typeof oldLimit === 'number') {
+      BuiltInError.stackTraceLimit = oldLimit + offset;
+    }
+    try {
+      return f();
+    } finally {
+      BuiltInError.stackTraceLimit = oldLimit;
+    }
+  }
+
   function captureStackTrace(err, func) {
-    var currentStack;
-    try { throw new Error(); } catch (e) { currentStack = e.stack; }
+    // skip 3 frames: lambda, withStackTraceLimitOffset, this frame
+    return privateCaptureStackTrace(err, func,
+      withStackTraceLimitOffset(3, () => new BuiltInError()),
+      3);
+  }
+
+  // private captureStackTrace implementation
+  //  err, func -- args from Error.captureStackTrace
+  //  e -- a new Error object which already captured stack
+  //  skipDepth -- known number of top frames to be skipped
+  function privateCaptureStackTrace(err, func, e, skipDepth) {
+    var currentStack = e;
     var isPrepared = false;
-    var skipDepth = func ? findFuncDepth(func) : 0;
+    var oldStackDesc = Object_getOwnPropertyDescriptor(e, 'stack');
+
+    var funcSkipDepth = findFuncDepth(func);
+    var startFuncName = (func && funcSkipDepth < 0) ? func.name : undefined;
+    skipDepth += Math.max(funcSkipDepth, 0);
 
     var currentStackTrace;
     function ensureStackTrace() {
       if (!currentStackTrace) {
-        currentStackTrace = parseStack(currentStack, skipDepth, func);
+        currentStackTrace = parseStack(
+          Reflect_apply(oldStackDesc.get, e) || '', // Call saved old getter
+          skipDepth, startFuncName);
       }
       return currentStackTrace;
     }
 
+    function stackGetter() {
+      if (!isPrepared) {
+        var prep = Error.prepareStackTrace || prepareStackTrace;
+        stackSetter(prep(err, ensureStackTrace()));
+      }
+      return currentStack;
+    }
+    function stackSetter(value) {
+      currentStack = value;
+      isPrepared = true;
+      // Notify original Error object of this setter call. Without knowing
+      // this Chakra runtime would reset stack at throw time.
+      Reflect_apply(oldStackDesc.set, e, [value]);
+    }
     Object_defineProperty(err, 'stack', {
-      get: function() {
-        if (isPrepared) {
-          return currentStack;
-        }
-        var errstack = ensureStackTrace();
-        if (Error.prepareStackTrace) {
-          currentStack = Error.prepareStackTrace(err, errstack);
-        } else {
-          currentStack = prepareStackTrace(err, errstack);
-        }
-        isPrepared = true;
-        return currentStack;
-      },
-      set: function(value) {
-        currentStack = value;
-        isPrepared = true;
-      },
-      configurable: true,
-      enumerable: false
+      get: stackGetter, set: stackSetter, configurable: true, enumerable: false
     });
 
-    return ensureStackTrace;
+    return ensureStackTrace; // For chakrashim native to get stack frames
+  }
+
+  // patch Error types to hook with Error.captureStackTrace/prepareStackTrace
+  function patchErrorTypes() {
+    // save a map from wrapper to builtin native types
+    var typeToNative = new Map();
+
+    // patch all these builtin Error types
+    [
+      Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
+      URIError
+    ].forEach(function(type) {
+      var newType = function __newType() {
+        /*global new target*/
+        var e = withStackTraceLimitOffset(
+          3, () => Reflect_construct(type, arguments, new.target || newType));
+        // skip 3 frames: lambda, withStackTraceLimitOffset, this frame
+        privateCaptureStackTrace(e, undefined, e, 3);
+        return e;
+      };
+
+      Object_defineProperty(newType, 'name', {
+        value: type.name,
+        writable: false, enumerable: false, configurable: true
+      });
+      newType.prototype = type.prototype;
+      newType.prototype.constructor = newType;
+      if (type !== BuiltInError) {
+        Object_setPrototypeOf(newType, Error);
+      }
+      global[type.name] = newType;
+      typeToNative.set(newType, type);
+    });
+
+    // Delegate Error.stackTraceLimit to builtin Error constructor
+    Object_defineProperty(Error, 'stackTraceLimit', {
+      enumerable: false,
+      configurable: true,
+      get: function() { return BuiltInError.stackTraceLimit; },
+      set: function(value) { BuiltInError.stackTraceLimit = value; }
+    });
+
+    Function.prototype.toString = function toString() {
+      return Reflect_apply(Function_prototype_toString,
+        typeToNative.get(this) || this, arguments);
+    };
+    typeToNative.set(Function.prototype.toString, Function_prototype_toString);
   }
 
   function patchErrorStack() {
@@ -360,15 +439,10 @@
     };
   }
 
-  // patch console
+  patchErrorTypes();
   patchErrorStack();
-
-  // patch map iterators
   patchMapIterator();
-
-  // patch set iterators
   patchSetIterator();
 
-  // this is the keepAlive object that we will put some utilities function on
-  patchUtils(this);
+  patchUtils(keepAlive);
 });

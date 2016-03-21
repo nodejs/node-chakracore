@@ -437,7 +437,7 @@ bool ContextShim::ExecuteChakraShimJS() {
     return false;
   }
   JsValueRef result;
-  JsValueRef arguments[] = { this->keepAliveObject };
+  JsValueRef arguments[] = { this->globalObject, this->keepAliveObject };
   return JsCallFunction(initFunction, arguments, _countof(arguments),
                         &result) == JsNoError;
 }
