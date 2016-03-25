@@ -63,19 +63,17 @@ Local<Context> Debug::GetDebugContext(Isolate* isolate) {
     g_debugContext = *Context::New(isolate);
     JsAddRef(g_debugContext, nullptr);
 
+    Local<Object> global = Context::GetCurrent()->Global();
+
     // CHAKRA-TODO: Chakra doesn't fully implement the debugger without
     // --debug flag. Add a dummy 'Debug' on global object if it doesn't
     // already exist.
     {
       Context::Scope context_scope(g_debugContext);
-      wchar_t * debugScript = L""
-        "if(this['Debug'] == undefined) { "
-           "Object.defineProperty(this, 'Debug', { value: {}, "
-                "enumerable : false, configurable : false, writable : false "
-            "}); "
-         "}";
-      JsValueRef result;
-      if (JsRunScript(debugScript, JS_SOURCE_CONTEXT_NONE, L"", &result) != JsNoError) {
+      jsrt::ContextShim* contextShim = jsrt::ContextShim::GetCurrent();
+      JsValueRef ensureDebug = contextShim->GetensureDebugFunction();
+      JsValueRef unused;
+      if (jsrt::CallFunction(ensureDebug, *global, &unused) != JsNoError) {
         return Local<Context>();
       }
     }

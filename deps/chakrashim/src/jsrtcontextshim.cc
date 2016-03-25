@@ -76,7 +76,8 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getIndexedOwnKeysFunction(JS_INVALID_REFERENCE),
       getStackTraceFunction(JS_INVALID_REFERENCE),
       getSymbolKeyForFunction(JS_INVALID_REFERENCE),
-      getSymbolForFunction(JS_INVALID_REFERENCE) {
+      getSymbolForFunction(JS_INVALID_REFERENCE),
+      ensureDebugFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -578,6 +579,7 @@ CHAKRASHIM_FUNCTION_GETTER(getIndexedOwnKeys)
 CHAKRASHIM_FUNCTION_GETTER(getStackTrace)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolFor)
+CHAKRASHIM_FUNCTION_GETTER(ensureDebug)
 
 #define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"

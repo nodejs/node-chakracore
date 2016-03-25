@@ -307,6 +307,81 @@
     });
   }
 
+  // Ensure global Debug object if not already exists, and patch it.
+  function ensureDebug(otherGlobal) {
+    if (!global.Debug) {
+      Object_defineProperty(global, 'Debug', {
+        value: {}, enumerable : false, configurable : false, writable : false
+      });
+    }
+
+    otherProcess = otherGlobal.process;
+    patchDebug(global.Debug);
+  }
+
+  var otherProcess;
+
+  function patchDebug(Debug) {
+    if (!Debug || Debug.MakeMirror) {
+      return;
+    }
+
+    class Mirror {
+      constructor(type) {
+        this.type_ = type;
+      }
+      type() {
+        return this.type_;
+      }
+    }
+
+    class ValueMirror extends Mirror {
+      constructor(type, value) {
+        super(type);
+        this.value_ = value;
+      }
+      value() {
+        return this.value_;
+      }
+    }
+
+    class UndefinedMirror extends ValueMirror {
+      constructor() {
+        super('undefined', undefined);
+      }
+    }
+    const undefinedMirror = new UndefinedMirror();
+
+    class ObjectMirror extends ValueMirror {
+      constructor(type, value) {
+        super(type || 'object', value);
+      }
+    }
+
+    class PromiseMirror extends ObjectMirror {
+      constructor(value) {
+        super('promise', value);
+      }
+      status() {
+        return '<unknown>';
+      }
+      promiseValue() {
+        return new ValueMirror('<unknown>', '<unknown>');
+      }
+    }
+
+    const util = otherProcess.binding('util');
+
+    Debug.MakeMirror = (value) => {
+      if (util.isPromise(value)) {
+        return new PromiseMirror(value);
+      }
+
+      // Not supporting other types
+      return undefinedMirror;
+    };
+  }
+
   function patchUtils(utils) {
     var isUintRegex = /^(0|[1-9]\\d*)$/;
 
@@ -437,6 +512,7 @@
     utils.getSymbolFor = function(key) {
       return Symbol_for(key);
     };
+    utils.ensureDebug = ensureDebug;
   }
 
   patchErrorTypes();
