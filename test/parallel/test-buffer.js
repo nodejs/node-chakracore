@@ -681,10 +681,7 @@ assert.equal(Buffer('=bad'.repeat(1e4), 'base64').length, 0);
 {
   // Creating buffers larger than pool size.
   const l = Buffer.poolSize + 5;
-  let s = '';
-  for (let i = 0; i < l; i++) {
-    s += 'h';
-  }
+  const s = 'h'.repeat(l);
 
   const b = new Buffer(s);
 
@@ -1039,6 +1036,16 @@ assert.throws(function() {
 }, RangeError);
 assert.throws(function() {
   Buffer(0xFFFFFFFFF);
+}, RangeError);
+
+// issue GH-5587
+assert.throws(function() {
+  var buf = new Buffer(8);
+  buf.writeFloatLE(0, 5);
+}, RangeError);
+assert.throws(function() {
+  var buf = new Buffer(16);
+  buf.writeDoubleLE(0, 9);
 }, RangeError);
 
 

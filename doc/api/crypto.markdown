@@ -19,6 +19,21 @@ console.log(hash);
   //   c0fa1bc00531bd78ef38c628449c5102aeabd49b5dc3a2a516ea6ea959d6658e
 ```
 
+## Determining if crypto support is unavailable
+
+It is possible for Node.js to be built without including support for the
+`crypto` module. In such cases, calling `require('crypto')` will result in an
+error being thrown.
+
+```js
+var crypto;
+try {
+  crypto = require('crypto');
+} catch (err) {
+  console.log('crypto support is disabled!');
+}
+```
+
 ## Class: Certificate
 
 SPKAC is a Certificate Signing Request mechanism originally implemented by
@@ -325,19 +340,19 @@ const crypto = require('crypto');
 const assert = require('assert');
 
 // Generate Alice's keys...
-const alice = crypto.createDiffieHellman(11);
+const alice = crypto.createDiffieHellman(2048);
 const alice_key = alice.generateKeys();
 
 // Generate Bob's keys...
-const bob = crypto.createDiffieHellman(11);
+const bob = crypto.createDiffieHellman(alice.getPrime(), alice.getGenerator());
 const bob_key = bob.generateKeys();
 
 // Exchange and generate the secret...
 const alice_secret = alice.computeSecret(bob_key);
 const bob_secret = bob.computeSecret(alice_key);
 
-assert(alice_secret, bob_secret);
-  // OK
+// OK
+assert.equal(alice_secret.toString('hex'), bob_secret.toString('hex'));
 ```
 
 ### diffieHellman.computeSecret(other_public_key[, input_encoding][, output_encoding])
@@ -669,10 +684,15 @@ provided a string is returned; otherwise a [`Buffer`][] is returned;
 The `Hmac` object can not be used again after `hmac.digest()` has been
 called. Multiple calls to `hmac.digest()` will result in an error being thrown.
 
-### hmac.update(data)
+### hmac.update(data[, input_encoding])
 
-Update the `Hmac` content with the given `data`. This can be called
-many times with new data as it is streamed.
+Updates the `Hmac` content with the given `data`, the encoding of which
+is given in `input_encoding` and can be `'utf8'`, `'ascii'` or
+`'binary'`. If `encoding` is not provided, and the `data` is a string, an
+encoding of `'utf8'` is enforced. If `data` is a [`Buffer`][] then
+`input_encoding` is ignored.
+
+This can be called many times with new data as it is streamed.
 
 ## Class: Sign
 
@@ -733,10 +753,15 @@ returned.
 The `Sign` object can not be again used after `sign.sign()` method has been
 called. Multiple calls to `sign.sign()` will result in an error being thrown.
 
-### sign.update(data)
+### sign.update(data[, input_encoding])
 
-Updates the sign object with the given `data`. This can be called many times
-with new data as it is streamed.
+Updates the `Sign` content with the given `data`, the encoding of which
+is given in `input_encoding` and can be `'utf8'`, `'ascii'` or
+`'binary'`. If `encoding` is not provided, and the `data` is a string, an
+encoding of `'utf8'` is enforced. If `data` is a [`Buffer`][] then
+`input_encoding` is ignored.
+
+This can be called many times with new data as it is streamed.
 
 ## Class: Verify
 
@@ -780,10 +805,15 @@ console.log(verify.verify(public_key, signature));
   // Prints true or false
 ```
 
-### verifier.update(data)
+### verifier.update(data[, input_encoding])
 
-Updates the verifier object with the given `data`. This can be called many
-times with new data as it is streamed.
+Updates the `Verify` content with the given `data`, the encoding of which
+is given in `input_encoding` and can be `'utf8'`, `'ascii'` or
+`'binary'`. If `encoding` is not provided, and the `data` is a string, an
+encoding of `'utf8'` is enforced. If `data` is a [`Buffer`][] then
+`input_encoding` is ignored.
+
+This can be called many times with new data as it is streamed.
 
 ### verifier.verify(object, signature[, signature_format])
 
@@ -811,7 +841,7 @@ or [buffers][`Buffer`]. The default value is `'buffer'`, which makes methods
 default to [`Buffer`][] objects.
 
 The `crypto.DEFAULT_ENCODING` mechanism is provided for backwards compatibility
-with legacy programs that expect `'utf8'` to be the default encoding.
+with legacy programs that expect `'binary'` to be the default encoding.
 
 New applications should expect the default to be `'buffer'`. This property may
 become deprecated in a future Node.js release.
@@ -1246,7 +1276,7 @@ there is a problem generating the bytes.
 // Synchronous
 const buf = crypto.randomBytes(256);
 console.log(
-  `${buf.length}` bytes of random data: ${buf.toString('hex')});
+  `${buf.length} bytes of random data: ${buf.toString('hex')}`);
 ```
 
 The `crypto.randomBytes()` method will block until there is sufficient entropy.
