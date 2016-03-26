@@ -5,6 +5,12 @@ const assert = require('assert');
 
 const common = require('../common');
 
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
+
 const fixture = path.join(
   common.fixturesDir,
   'debugger-util-regression-fixture.js'
