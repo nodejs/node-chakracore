@@ -77,7 +77,9 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getStackTraceFunction(JS_INVALID_REFERENCE),
       getSymbolKeyForFunction(JS_INVALID_REFERENCE),
       getSymbolForFunction(JS_INVALID_REFERENCE),
-      ensureDebugFunction(JS_INVALID_REFERENCE) {
+      ensureDebugFunction(JS_INVALID_REFERENCE),
+      enqueueMicrotaskFunction(JS_INVALID_REFERENCE),
+      dequeueMicrotaskFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -458,22 +460,21 @@ void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
   }
 }
 
-JsValueRef ContextShim::GetPromiseContinuationFunction() {
-  if (promiseContinuationFunction == JS_INVALID_REFERENCE) {
-    JsValueRef process;
-    if (jsrt::GetPropertyOfGlobal(L"process", &process) != JsNoError) {
-      return JS_INVALID_REFERENCE;
+void ContextShim::RunMicrotasks() {
+  JsValueRef dequeueMicrotaskFunction = GetdequeueMicrotaskFunction();
+
+  for (;;) {
+    JsValueRef task;
+    if (jsrt::CallFunction(dequeueMicrotaskFunction, &task) != JsNoError ||
+      reinterpret_cast<v8::Value*>(task)->IsUndefined()) {
+      break;
     }
 
-    JsValueRef nextTick;
-    if (jsrt::GetProperty(process, L"nextTick", &nextTick) != JsNoError) {
-      return JS_INVALID_REFERENCE;
+    JsValueRef notUsed;
+    if (jsrt::CallFunction(task, &notUsed) != JsNoError) {
+      JsGetAndClearException(&notUsed); // swallow any exception from task
     }
-
-    // CHAKRA-REVIEW: Do we need to root this?
-    promiseContinuationFunction = nextTick;  // save in context data
   }
-  return promiseContinuationFunction;
 }
 
 JsValueRef ContextShim::GetUndefined() {
@@ -580,6 +581,8 @@ CHAKRASHIM_FUNCTION_GETTER(getStackTrace)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolFor)
 CHAKRASHIM_FUNCTION_GETTER(ensureDebug)
+CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
+CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
 
 #define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"

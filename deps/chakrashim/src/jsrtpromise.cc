@@ -25,11 +25,11 @@ namespace jsrt {
 
 static void CALLBACK PromiseContinuationCallback(JsValueRef task,
                                                  void *callbackState) {
-  JsValueRef promiseContinuationFunction =
-    ContextShim::GetCurrent()->GetPromiseContinuationFunction();
+  JsValueRef enqueueMicrotaskFunction =
+    ContextShim::GetCurrent()->GetenqueueMicrotaskFunction();
 
   JsValueRef result;
-  jsrt::CallFunction(promiseContinuationFunction, task, &result);
+  jsrt::CallFunction(enqueueMicrotaskFunction, task, &result);
 }
 
 JsErrorCode InitializePromise() {

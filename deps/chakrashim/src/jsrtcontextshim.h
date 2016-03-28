@@ -57,7 +57,6 @@ class ContextShim {
   IsolateShim * GetIsolateShim();
   JsContextRef GetContextRef();
 
-  JsValueRef GetPromiseContinuationFunction();
   JsValueRef GetTrue();
   JsValueRef GetFalse();
   JsValueRef GetUndefined();
@@ -81,6 +80,7 @@ class ContextShim {
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
+  void RunMicrotasks();
 
   static ContextShim * GetCurrent();
 
@@ -147,6 +147,8 @@ JsValueRef F##Function; \
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getSymbolFor);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(ensureDebug);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
 
 #define DEF_IS_TYPE(F) DECLARE_CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"

@@ -104,6 +104,7 @@ void Isolate::SetJitCodeEventHandler(JitCodeEventOptions options,
 }
 
 void Isolate::RunMicrotasks() {
+  jsrt::ContextShim::GetCurrent()->RunMicrotasks();
 }
 
 void Isolate::SetAutorunMicrotasks(bool autorun) {

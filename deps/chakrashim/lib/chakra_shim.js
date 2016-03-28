@@ -382,6 +382,9 @@
     };
   }
 
+  // Simulate v8 micro tasks queue
+  var microTasks = [];
+
   function patchUtils(utils) {
     var isUintRegex = /^(0|[1-9]\\d*)$/;
 
@@ -513,6 +516,12 @@
       return Symbol_for(key);
     };
     utils.ensureDebug = ensureDebug;
+    utils.enqueueMicrotask = function(task) {
+      microTasks.push(task);
+    };
+    utils.dequeueMicrotask = function(task) {
+      return microTasks.shift();
+    };
   }
 
   patchErrorTypes();
