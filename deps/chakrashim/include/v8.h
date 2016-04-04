@@ -2167,6 +2167,11 @@ class V8_EXPORT Isolate {
     Scope& operator=(const Scope&);
   };
 
+  enum GarbageCollectionType {
+    kFullGarbageCollection,
+    kMinorGarbageCollection
+  };
+
   static Isolate* New(const CreateParams& params);
   static Isolate* New();
   static Isolate* GetCurrent();
@@ -2215,6 +2220,7 @@ class V8_EXPORT Isolate {
 
   void CancelTerminateExecution();
   void TerminateExecution();
+  void RequestGarbageCollectionForTesting(GarbageCollectionType type);
 
   void SetCounterFunction(CounterLookupCallback);
   void SetCreateHistogramFunction(CreateHistogramCallback);

@@ -145,6 +145,10 @@ void Isolate::TerminateExecution() {
   jsrt::IsolateShim::FromIsolate(this)->DisableExecution();
 }
 
+void Isolate::RequestGarbageCollectionForTesting(GarbageCollectionType type) {
+  JsCollectGarbage(jsrt::IsolateShim::FromIsolate(this)->GetRuntimeHandle());
+}
+
 void Isolate::SetCounterFunction(CounterLookupCallback) {
   CHAKRA_UNIMPLEMENTED();
 }
