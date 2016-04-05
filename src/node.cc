@@ -118,6 +118,7 @@ using v8::Locker;
 using v8::MaybeLocal;
 using v8::Message;
 using v8::Name;
+using v8::Null;
 using v8::Number;
 using v8::Object;
 using v8::ObjectTemplate;
@@ -1193,23 +1194,38 @@ Local<Value> MakeCallback(Environment* env,
   }
 
   if (ran_init_callback && !pre_fn.IsEmpty()) {
-    if (pre_fn->Call(object, 0, nullptr).IsEmpty())
-      FatalError("node::MakeCallback", "pre hook threw");
+    TryCatch try_catch(env->isolate());
+    MaybeLocal<Value> ar = pre_fn->Call(env->context(), object, 0, nullptr);
+    if (ar.IsEmpty()) {
+      ClearFatalExceptionHandlers(env);
+      FatalException(env->isolate(), try_catch);
+      return Local<Value>();
+    }
   }
 
   Local<Value> ret = callback->Call(recv, argc, argv);
 
   if (ran_init_callback && !post_fn.IsEmpty()) {
-    if (post_fn->Call(object, 0, nullptr).IsEmpty())
-      FatalError("node::MakeCallback", "post hook threw");
+    Local<Value> did_throw = Boolean::New(env->isolate(), ret.IsEmpty());
+    // Currently there's no way to retrieve an uid from node::MakeCallback().
+    // This needs to be fixed.
+    Local<Value> vals[] =
+        { Undefined(env->isolate()).As<Value>(), did_throw };
+    TryCatch try_catch(env->isolate());
+    MaybeLocal<Value> ar =
+        post_fn->Call(env->context(), object, ARRAY_SIZE(vals), vals);
+    if (ar.IsEmpty()) {
+      ClearFatalExceptionHandlers(env);
+      FatalException(env->isolate(), try_catch);
+      return Local<Value>();
+    }
   }
 
   if (ret.IsEmpty()) {
-    if (callback_scope.in_makecallback())
-      return ret;
-    // NOTE: Undefined() is returned here for backwards compatibility.
-    else
-      return Undefined(env->isolate());
+    // NOTE: For backwards compatibility with public API we return Undefined()
+    // if the top level call threw.
+    return callback_scope.in_makecallback() ?
+        ret : Undefined(env->isolate()).As<Value>();
   }
 
   if (has_domain) {
@@ -1222,7 +1238,23 @@ Local<Value> MakeCallback(Environment* env,
     }
   }
 
-  if (!env->KickNextTick(&callback_scope)) {
+  if (callback_scope.in_makecallback()) {
+    return ret;
+  }
+
+  Environment::TickInfo* tick_info = env->tick_info();
+
+  if (tick_info->length() == 0) {
+    env->isolate()->RunMicrotasks();
+  }
+
+  Local<Object> process = env->process_object();
+
+  if (tick_info->length() == 0) {
+    tick_info->set_index(0);
+  }
+
+  if (env->tick_callback_function()->Call(process, 0, nullptr).IsEmpty()) {
     return Undefined(env->isolate());
   }
 
@@ -2384,6 +2416,25 @@ void OnMessage(Local<Message> message, Local<Value> error) {
 }
 
 
+void ClearFatalExceptionHandlers(Environment* env) {
+  Local<Object> process = env->process_object();
+  Local<Value> events =
+      process->Get(env->context(), env->events_string()).ToLocalChecked();
+
+  if (events->IsObject()) {
+    events.As<Object>()->Set(
+        env->context(),
+        OneByteString(env->isolate(), "uncaughtException"),
+        Undefined(env->isolate())).FromJust();
+  }
+
+  process->Set(
+      env->context(),
+      env->domain_string(),
+      Undefined(env->isolate())).FromJust();
+}
+
+
 static void Binding(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -3276,8 +3327,12 @@ void LoadEnvironment(Environment* env) {
 
   env->SetMethod(env->process_object(), "_rawDebug", RawDebug);
 
+  // Expose the global object as a property on itself
+  // (Allows you to set stuff on `global` from anywhere in JavaScript.)
+  global->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "global"), global);
+
   Local<Value> arg = env->process_object();
-  f->Call(global, 1, &arg);
+  f->Call(Null(env->isolate()), ARRAY_SIZE(&arg), &arg);
 }
 
 static void PrintHelp();

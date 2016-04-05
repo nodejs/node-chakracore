@@ -16,6 +16,8 @@
     'node_tag%': '',
     'uv_library%': 'static_library',
 
+    'openssl_fips%': '',
+
     # Default to -O0 for debug builds.
     'v8_optimized_debug%': 0,
 
@@ -300,6 +302,14 @@
 	    'cflags': [ '-m64', '-mminimal-toc' ],
 	    'ldflags': [ '-m64' ],
 	   }],
+          [ 'target_arch=="s390"', {
+            'cflags': [ '-m31' ],
+            'ldflags': [ '-m31' ],
+          }],
+          [ 'target_arch=="s390x"', {
+            'cflags': [ '-m64' ],
+            'ldflags': [ '-m64' ],
+          }],
           [ 'OS=="solaris"', {
             'cflags': [ '-pthreads' ],
             'ldflags': [ '-pthreads' ],

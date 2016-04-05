@@ -28,7 +28,7 @@ parser = optparse.OptionParser()
 valid_os = ('win', 'mac', 'solaris', 'freebsd', 'openbsd', 'linux',
             'android', 'aix')
 valid_arch = ('arm', 'arm64', 'ia32', 'mips', 'mipsel', 'ppc', 'ppc64', 'x32',
-              'x64', 'x86')
+              'x64', 'x86', 's390', 's390x')
 valid_arm_float_abi = ('soft', 'softfp', 'hard')
 valid_arm_fpu = ('vfp', 'vfpv3', 'vfpv3-d16', 'neon')
 valid_mips_arch = ('loongson', 'r1', 'r2', 'r6', 'rx')
@@ -616,6 +616,8 @@ def host_arch_cc():
     '__PPC64__'   : 'ppc64',
     '__PPC__'     : 'ppc',
     '__x86_64__'  : 'x64',
+    '__s390__'    : 's390',
+    '__s390x__'   : 's390x',
   }
 
   rtn = 'ia32' # default
@@ -623,7 +625,8 @@ def host_arch_cc():
   for i in matchup:
     if i in k and k[i] != '0':
       rtn = matchup[i]
-      break
+      if rtn != 's390':
+        break
 
   return rtn
 
@@ -854,21 +857,6 @@ def configure_static(o):
       if options.enable_asan:
         o['libraries'] += ['-static-libasan']
 
-
-def configure_winsdk(o):
-  if flavor != 'win':
-    return
-
-  winsdk_dir = os.environ.get('WindowsSdkDir')
-
-  if winsdk_dir and os.path.isfile(winsdk_dir + '\\bin\\ctrpp.exe'):
-    print('Found ctrpp in WinSDK--will build generated files '
-          'into tools/msvs/genfiles.')
-    o['variables']['node_has_winsdk'] = 'true'
-    return
-
-  print('ctrpp not found in WinSDK path--using pre-gen files '
-        'from tools/msvs/genfiles.')
 
 def write(filename, data):
   filename = os.path.join(root_dir, filename)
@@ -1151,7 +1139,6 @@ configure_library('http_parser', output)
 configure_library('libuv', output)
 configure_v8(output)
 configure_openssl(output)
-configure_winsdk(output)
 configure_intl(output)
 configure_static(output)
 configure_engine(output)

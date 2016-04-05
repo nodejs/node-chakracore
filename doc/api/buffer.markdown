@@ -468,7 +468,7 @@ additional performance that `Buffer.allocUnsafe(size)` provides.
 
 ### Class Method: Buffer.byteLength(string[, encoding])
 
-* `string` {String}
+* `string` {String | Buffer | TypedArray | DataView | ArrayBuffer}
 * `encoding` {String} Default: `'utf8'`
 * Return: {Number}
 
@@ -486,6 +486,11 @@ console.log(`${str}: ${str.length} characters, ` +
 
 // ½ + ¼ = ¾: 9 characters, 12 bytes
 ```
+
+When `string` is a `Buffer`/[`DataView`][]/[`TypedArray`][]/`ArrayBuffer`,
+returns the actual byte length.
+
+Otherwise, converts to `String` and returns the byte length of string.
 
 ### Class Method: Buffer.compare(buf1, buf2)
 
@@ -1067,8 +1072,10 @@ const buf = Buffer.from([1,-2,3,4]);
 
 buf.readInt32BE();
   // returns 33424132
-buf.readInt32LE(1);
+buf.readInt32LE();
   // returns 67370497
+buf.readInt32LE(1);
+  // throws RangeError: Index out of range
 ```
 
 ### buf.readIntBE(offset, byteLength[, noAssert])
@@ -1395,7 +1402,8 @@ console.log(`${len} bytes: ${buf.toString('utf8', 0, len)}`);
 
 Writes `value` to the Buffer at the specified `offset` with specified endian
 format (`writeDoubleBE()` writes big endian, `writeDoubleLE()` writes little
-endian). The `value` argument must be a valid 64-bit double.
+endian). The `value` argument *should* be a valid 64-bit double. Behavior is
+not defined when `value` is anything other than a 64-bit double.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
@@ -1427,7 +1435,7 @@ console.log(buf);
 
 Writes `value` to the Buffer at the specified `offset` with specified endian
 format (`writeFloatBE()` writes big endian, `writeFloatLE()` writes little
-endian). Behavior is unspecified if `value` is anything other than a 32-bit
+endian). Behavior is not defined when `value` is anything other than a 32-bit
 float.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
@@ -1457,8 +1465,9 @@ console.log(buf);
 * `noAssert` {Boolean} Default: false
 * Return: {Number} The offset plus the number of written bytes
 
-Writes `value` to the Buffer at the specified `offset`. The `value` must be a
-valid signed 8-bit integer.
+Writes `value` to the Buffer at the specified `offset`. The `value` should be a
+valid signed 8-bit integer.  Behavior is not defined when `value` is anything
+other than a signed 8-bit integer.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
@@ -1485,7 +1494,8 @@ console.log(buf);
 
 Writes `value` to the Buffer at the specified `offset` with specified endian
 format (`writeInt16BE()` writes big endian, `writeInt16LE()` writes little
-endian). The `value` must be a valid signed 16-bit integer.
+endian). The `value` should be a valid signed 16-bit integer. Behavior is
+not defined when `value` is anything other than a signed 16-bit integer.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
@@ -1512,7 +1522,8 @@ console.log(buf);
 
 Writes `value` to the Buffer at the specified `offset` with specified endian
 format (`writeInt32BE()` writes big endian, `writeInt32LE()` writes little
-endian). The `value` must be a valid signed 32-bit integer.
+endian). The `value` should be a valid signed 32-bit integer. Behavior is
+not defined when `value` is anything other than a signed 32-bit integer.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
@@ -1558,6 +1569,8 @@ that `value` may be too large for the specific function and `offset` may be
 beyond the end of the Buffer leading to the values being silently dropped. This
 should not be used unless you are certain of correctness.
 
+Behavior is not defined when `value` is anything other than an integer.
+
 ### buf.writeUInt8(value, offset[, noAssert])
 
 * `value` {Number} Bytes to be written to Buffer
@@ -1565,8 +1578,9 @@ should not be used unless you are certain of correctness.
 * `noAssert` {Boolean} Default: false
 * Return: {Number} The offset plus the number of written bytes
 
-Writes `value` to the Buffer at the specified `offset`. The `value` must be a
-valid unsigned 8-bit integer.
+Writes `value` to the Buffer at the specified `offset`. The `value` should be a
+valid unsigned 8-bit integer.  Behavior is not defined when `value` is anything
+other than an unsigned 8-bit integer.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
@@ -1596,7 +1610,8 @@ console.log(buf);
 
 Writes `value` to the Buffer at the specified `offset` with specified endian
 format (`writeUInt16BE()` writes big endian, `writeUInt16LE()` writes little
-endian). The `value` must be a valid unsigned 16-bit integer.
+endian). The `value` should be a valid unsigned 16-bit integer. Behavior is
+not defined when `value` is anything other than an unsigned 16-bit integer.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
@@ -1630,7 +1645,8 @@ console.log(buf);
 
 Writes `value` to the Buffer at the specified `offset` with specified endian
 format (`writeUInt32BE()` writes big endian, `writeUInt32LE()` writes little
-endian). The `value` must be a valid unsigned 32-bit integer.
+endian). The `value` should be a valid unsigned 32-bit integer. Behavior is
+not defined when `value` is anything other than an unsigned 32-bit integer.
 
 Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
@@ -1675,6 +1691,8 @@ Set `noAssert` to true to skip validation of `value` and `offset`. This means
 that `value` may be too large for the specific function and `offset` may be
 beyond the end of the Buffer leading to the values being silently dropped. This
 should not be used unless you are certain of correctness.
+
+Behavior is not defined when `value` is anything other than an unsigned integer.
 
 ## buffer.INSPECT_MAX_BYTES
 
@@ -1763,3 +1781,5 @@ console.log(buf);
 [buffer_allocunsafe]: #buffer_class_method_buffer_allocraw_size
 [buffer_alloc]: #buffer_class_method_buffer_alloc_size_fill_encoding
 [`TypedArray.from()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/from
+[`DataView`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
+[`TypedArray`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray
