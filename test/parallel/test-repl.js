@@ -49,7 +49,10 @@ function clean_up() {
 function strict_mode_error_test() {
   send_expect([
     { client: client_unix, send: 'ref = 1',
-      expect: /^ReferenceError:\sref\sis\snot\sdefined\n\s+at\srepl:1:5/ },
+      expect: common.engineSpecificMessage({
+        v8: /^ReferenceError:\sref\sis\snot\sdefined\n\s+at\srepl:1:5/,
+        chakracore: /^ReferenceError: Variable undefined in strict mode/
+      })},
   ]);
 }
 
@@ -237,11 +240,14 @@ function error_test() {
       expect: '1' },
     // Multiline function call
     { client: client_unix, send: 'function f(){}; f(f(1,',
-      expect: prompt_multiline },
+      expect: prompt_multiline,
+      chakracore: 'https://github.com/Microsoft/ChakraCore/issues/767' },
     { client: client_unix, send: '2)',
-      expect: prompt_multiline },
+      expect: prompt_multiline,
+      chakracore: 'skip' },
     { client: client_unix, send: ')',
-      expect: 'undefined\n' + prompt_unix },
+      expect: 'undefined\n' + prompt_unix,
+      chakracore: 'skip' },
     // npm prompt error message
     { client: client_unix, send: 'npm install foobar',
       expect: expect_npm },
@@ -362,7 +368,7 @@ function error_test() {
             'undefined\n' + prompt_unix },
     { client: client_unix, send: '{ var x = 4; }',
       expect: 'undefined\n' + prompt_unix },
-  ]);
+  ].filter((v) => !common.engineSpecificMessage(v)));
 }
 
 function tcp_test() {

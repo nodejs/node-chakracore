@@ -11,7 +11,10 @@ process.on('exit', () => {
 });
 
 common.ArrayStream.prototype.write = function(output) {
-  if (/var foo bar;/.test(output))
+  if (common.engineSpecificMessage({
+    v8: /var foo bar;/,
+    chakracore: /Expected ';'/  // chakra does not show source
+  }).test(output))
     found = true;
 };
 

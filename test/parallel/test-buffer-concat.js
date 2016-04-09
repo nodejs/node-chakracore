@@ -1,5 +1,5 @@
 'use strict';
-require('../common');
+const common = require('../common');
 var assert = require('assert');
 
 var zero = [];
@@ -23,7 +23,9 @@ assert(flatLongLen.toString() === (new Array(10 + 1).join('asdf')));
 assertWrongList();
 assertWrongList(null);
 assertWrongList(Buffer.from('hello'));
-assertWrongList([42]);
+if (!common.isChakraEngine) { // Skip on chakra, new Uint8Array(NaN) throws
+  assertWrongList([42]);
+}
 assertWrongList(['hello', 'world']);
 assertWrongList(['hello', Buffer.from('world')]);
 

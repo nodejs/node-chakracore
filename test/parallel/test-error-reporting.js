@@ -18,8 +18,10 @@ function errExec(script, callback) {
       assert.ok(stderr.split('\n').length > 2);
     }
 
-    // Assert the script is mentioned in error output.
-    assert.ok(stderr.indexOf(script) >= 0);
+    if (!common.isChakraEngine) { // chakra does not output script
+      // Assert the script is mentioned in error output.
+      assert.ok(stderr.indexOf(script) >= 0);
+    }
 
     // Proxy the args for more tests.
     callback(err, stdout, stderr);
@@ -50,7 +52,9 @@ errExec('throws_error3.js', function(err, stdout, stderr) {
 
 // throw ILLEGAL error
 errExec('throws_error4.js', function(err, stdout, stderr) {
-  assert.ok(/\/\*\*/.test(stderr));
+  if (!common.isChakraEngine) { // chakra does not output source line
+    assert.ok(/\/\*\*/.test(stderr));
+  }
   assert.ok(/SyntaxError/.test(stderr));
 });
 

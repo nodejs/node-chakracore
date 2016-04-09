@@ -26,6 +26,12 @@ const common = require('../common');
  * not --abort_on_uncaught_exception is passed on the command line.
  */
 
+if (common.isChakraEngine) {
+  console.log(`1..0 # Skipped: This test is disabled for chakra engine
+    because it depends on v8-option --abort-on-uncaught-exception`);
+  return;
+}
+
 const domainErrHandlerExMessage = 'exception from domain error handler';
 
 if (process.argv[2] === 'child') {

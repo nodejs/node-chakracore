@@ -17,7 +17,10 @@ const stream = fs.createWriteStream(file, {
 });
 
 const size = kStringMaxLength / 200;
-const a = Buffer.alloc(common.isChakraEngine ? Math.round(size) : size).fill('a');
+const a = Buffer.alloc(common.engineSpecificMessage({
+  v8: size,
+  chakracore: Math.trunc(size)
+})).fill('a');
 
 for (var i = 0; i < 201; i++) {
   stream.write(a);

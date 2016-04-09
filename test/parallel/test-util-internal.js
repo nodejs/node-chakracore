@@ -1,7 +1,7 @@
 'use strict';
 // Flags: --expose_internals
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const internalUtil = require('internal/util');
 const spawnSync = require('child_process').spawnSync;
@@ -48,7 +48,9 @@ try {
   arrowMessage = internalUtil.getHiddenValue(err, 'node:arrowMessage');
 }
 
-assert(/bad_syntax\.js:1/.test(arrowMessage));
+if (!common.isChakraEngine) {  // chakra does not show script/source
+  assert(/bad_syntax\.js:1/.test(arrowMessage));
+}
 
 const args = [
   '--expose-internals',

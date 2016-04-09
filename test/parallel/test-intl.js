@@ -60,14 +60,21 @@ if (!haveIntl) {
 
   // Check with toLocaleString
   var localeString = dtf.format(date0);
-  assert.equal(localeString, 'Jan 70');
+  assert.equal(localeString, common.engineSpecificMessage({
+    v8: 'Jan 70',
+    chakracore: '\u200EJan\u200E \u200E70'
+  }));
 
   // Options to request GMT
   var optsGMT = {timeZone: GMT};
 
   // Test format
   localeString = date0.toLocaleString(['en'], optsGMT);
-  assert.equal(localeString, '1/1/1970, 12:00:00 AM');
+  assert.equal(localeString, common.engineSpecificMessage({
+    v8: '1/1/1970, 12:00:00 AM',
+    chakracore: '\u200E1\u200E/\u200E1\u200E/\u200E1970\u200E '
+      + '\u200E12\u200E:\u200E00\u200E:\u200E00\u200E \u200EAM'
+  }));
 
   // number format
   assert.equal(new Intl.NumberFormat(['en']).format(12345.67890), '12,345.679');

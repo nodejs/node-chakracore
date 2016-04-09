@@ -967,9 +967,14 @@ assert.equal(0, Buffer.from('hello').slice(0, 0).length);
 // Call .fill() first, stops valgrind warning about uninitialized memory reads.
 Buffer.allocUnsafe(3.3).fill().toString();
   // throws bad argument error in commit 43cb4ec
-Buffer.alloc(3.3).fill().toString();
+Buffer.alloc(common.engineSpecificMessage({
+  v8: 3.3,
+  chakracore: Math.trunc(3.3)})) // new Uint8Array(3.3) throws
+  .fill().toString();
 assert.equal(Buffer.allocUnsafe(-1).length, 0);
-assert.equal(Buffer.allocUnsafe(NaN).length, 0);
+if (!common.isChakraEngine) { // Skip on chakra, new Uint8Array(NaN) throws
+  assert.equal(Buffer.allocUnsafe(NaN).length, 0);
+}
 assert.equal(Buffer.allocUnsafe(3.3).length, 3);
 assert.equal(Buffer.from({length: 3.3}).length, 3);
 assert.equal(Buffer.from({length: 'BAM'}).length, 0);

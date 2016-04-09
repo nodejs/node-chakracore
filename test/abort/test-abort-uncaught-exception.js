@@ -5,6 +5,12 @@ const assert = require('assert');
 const spawn = require('child_process').spawn;
 const node = process.execPath;
 
+if (common.isChakraEngine) {
+  console.log(`1..0 # Skipped: This test is disabled for chakra engine
+    because it depends on v8-option --abort-on-uncaught-exception`);
+  return;
+}
+
 if (process.argv[2] === 'child') {
   throw new Error('child error');
 } else {
