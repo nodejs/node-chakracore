@@ -1,8 +1,14 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const util = require('util');
 const vm = require('vm');
+
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
 
 assert.equal(util.inspect(1), '1');
 assert.equal(util.inspect(false), 'false');
@@ -24,7 +30,10 @@ assert.equal(util.inspect([1, [2, 3]]), '[ 1, [ 2, 3 ] ]');
 
 assert.equal(util.inspect({}), '{}');
 assert.equal(util.inspect({a: 1}), '{ a: 1 }');
-assert.equal(util.inspect({a: function() {}}), '{ a: [Function] }');
+assert.equal(util.inspect({a: function() {}}), common.engineSpecificMessage({
+  v8 : '{ a: [Function] }',
+  chakracore : '{ a: [Function: a] }'
+}));
 assert.equal(util.inspect({a: 1, b: 2}), '{ a: 1, b: 2 }');
 assert.equal(util.inspect({'a': {}}), '{ a: {} }');
 assert.equal(util.inspect({'a': {'b': 2}}), '{ a: { b: 2 } }');
@@ -212,7 +221,10 @@ assert.equal(util.inspect(value), '[ 1, 2, 3, growingLength: [Getter] ]');
 // Function with properties
 value = function() {};
 value.aprop = 42;
-assert.equal(util.inspect(value), '{ [Function] aprop: 42 }');
+assert.equal(util.inspect(value), common.engineSpecificMessage({
+  v8 : '{ [Function] aprop: 42 }',
+  chakracore : '{ [Function: value] aprop: 42 }'
+}));
 
 // Regular expressions with properties
 value = /123/ig;

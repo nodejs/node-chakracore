@@ -17,7 +17,7 @@ const stream = fs.createWriteStream(file, {
 });
 
 const size = kStringMaxLength / 200;
-const a = Buffer.alloc(size, 'a');
+const a = Buffer.alloc(common.isChakraEngine ? Math.round(size) : size).fill('a');
 
 for (var i = 0; i < 201; i++) {
   stream.write(a);
@@ -27,8 +27,10 @@ stream.end();
 stream.on('finish', common.mustCall(function() {
   fd = fs.openSync(file, 'r');
   fs.read(fd, kStringMaxLength + 1, 0, 'utf8', common.mustCall(function(err) {
-    assert.ok(err instanceof Error);
-    assert.strictEqual('"toString()" failed', err.message);
+    if (!common.isChakraEngine) {
+      assert.ok(err instanceof Error);
+      assert.strictEqual('"toString()" failed', err.message);
+    }
   }));
 }));
 

@@ -1,11 +1,18 @@
 'use strict';
 
 const common = require('../common');
+
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
+
 const assert = require('assert');
 const spawn = require('child_process').spawn;
-
 const args = ['--debug', `--debug-port=${common.PORT}`, '--interactive'];
 const proc = spawn(process.execPath, args);
+
 proc.stdin.write(`
     util.inspect(Promise.resolve(42));
     util.inspect(Promise.resolve(1337));

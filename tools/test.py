@@ -780,7 +780,7 @@ TIMEOUT_SCALEFACTOR = {
 class Context(object):
 
   def __init__(self, workspace, buildspace, verbose, vm, args, expect_fail,
-               timeout, processor, suppress_dialogs, store_unexpected_output):
+               timeout, processor, suppress_dialogs, store_unexpected_output, engine):
     self.workspace = workspace
     self.buildspace = buildspace
     self.verbose = verbose
@@ -791,6 +791,7 @@ class Context(object):
     self.processor = processor
     self.suppress_dialogs = suppress_dialogs
     self.store_unexpected_output = store_unexpected_output
+    self.engine = engine
 
   def GetVm(self, arch, mode):
     if arch == 'none':
@@ -1324,6 +1325,8 @@ def BuildOptions():
       default="")
   result.add_option('--temp-dir',
       help='Optional path to change directory used for tests', default=False)
+  result.add_option("-e", "--engine", help="The javascript engine used by node.js",
+      default='v8')
   return result
 
 
@@ -1488,7 +1491,8 @@ def Main():
                     options.timeout,
                     processor,
                     options.suppress_dialogs,
-                    options.store_unexpected_output)
+                    options.store_unexpected_output,
+                    options.engine)
   # First build the required targets
   if not options.no_build:
     reqs = [ ]

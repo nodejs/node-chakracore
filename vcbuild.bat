@@ -37,6 +37,7 @@ set build_release=
 set enable_vtune_arg=
 set configure_flags=
 set build_addons=
+set engine=v8
 
 :next-arg
 if "%1"=="" goto args-done
@@ -46,6 +47,7 @@ if /i "%1"=="clean"         set target=Clean&goto arg-ok
 if /i "%1"=="ia32"          set target_arch=x86&goto arg-ok
 if /i "%1"=="x86"           set target_arch=x86&goto arg-ok
 if /i "%1"=="x64"           set target_arch=x64&goto arg-ok
+if /i "%1"=="arm"           set target_arch=arm&goto arg-ok
 if /i "%1"=="vc2013"        set target_env=vc2013&goto arg-ok
 if /i "%1"=="vc2015"        set target_env=vc2015&goto arg-ok
 if /i "%1"=="noprojgen"     set noprojgen=1&goto arg-ok
@@ -75,6 +77,8 @@ if /i "%1"=="intl-none"     set i18n_arg=%1&goto arg-ok
 if /i "%1"=="download-all"  set download_arg="--download=all"&goto arg-ok
 if /i "%1"=="ignore-flaky"  set test_args=%test_args% --flaky-tests=dontcare&goto arg-ok
 if /i "%1"=="enable-vtune"  set enable_vtune_arg=1&goto arg-ok
+if /i "%1"=="v8"            set engine=v8&goto arg-ok
+if /i "%1"=="chakracore"    set engine=chakracore&set chakra_jslint=deps\chakrashim\lib&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
 
@@ -181,8 +185,8 @@ goto run
 if defined noprojgen goto msbuild
 
 @rem Generate the VS project.
-echo configure %configure_flags% --dest-cpu=%target_arch% --tag=%TAG%
-python configure %configure_flags% --dest-cpu=%target_arch% --tag=%TAG%
+echo configure %configure_flags% --engine=%engine% --dest-cpu=%target_arch% --tag=%TAG%
+python configure %configure_flags% --engine=%engine% --dest-cpu=%target_arch% --tag=%TAG%
 if errorlevel 1 goto create-msvs-files-failed
 if not exist node.sln goto create-msvs-files-failed
 echo Project files generated.
@@ -194,6 +198,7 @@ if defined nobuild goto sign
 @rem Build the sln with msbuild.
 set "msbplatform=Win32"
 if "%target_arch%"=="x64" set "msbplatform=x64"
+if "%target_arch%"=="arm" set "msbplatform=ARM"
 msbuild node.sln /m /t:%target% /p:Configuration=%config% /p:Platform=%msbplatform% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
 if "%target%" == "Clean" goto exit
@@ -279,6 +284,7 @@ goto run-tests
 if "%test_args%"=="" goto jslint
 if "%config%"=="Debug" set test_args=--mode=debug %test_args%
 if "%config%"=="Release" set test_args=--mode=release %test_args%
+set test_args=--engine %engine% %test_args%
 echo running 'cctest'
 "%config%\cctest"
 echo running 'python tools\test.py %test_args%'
@@ -289,7 +295,7 @@ goto jslint
 if not defined jslint goto exit
 if not exist tools\eslint\bin\eslint.js goto no-lint
 echo running jslint
-%config%\node tools\eslint\bin\eslint.js benchmark lib src test tools\doc tools\eslint-rules --rulesdir tools\eslint-rules
+%config%\node tools\eslint\bin\eslint.js benchmark lib src test %chakra_jslint% tools\doc tools\eslint-rules --rulesdir tools\eslint-rules
 goto exit
 
 :no-lint

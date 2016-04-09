@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const buffer = require('buffer');
 const Buffer = buffer.Buffer;
@@ -31,7 +31,10 @@ try {
   assert.strictEqual(
     SlowBuffer(buffer.kMaxLength).length, buffer.kMaxLength);
 } catch (e) {
-  assert.equal(e.message, 'Array buffer allocation failed');
+  assert.equal(e.message, common.engineSpecificMessage({
+    v8 : 'Array buffer allocation failed',
+    chakracore : 'Invalid offset/length when creating typed array'
+  }));
 }
 
 // should work with number-coercible values
@@ -45,12 +48,16 @@ assert.strictEqual(SlowBuffer({}).length, 0);
 assert.strictEqual(SlowBuffer('string').length, 0);
 
 // should throw with invalid length
+var expectedError = common.engineSpecificMessage({
+  v8 : 'invalid Buffer length',
+  chakracore : 'Invalid offset/length when creating typed array'
+});
 assert.throws(function() {
   SlowBuffer(Infinity);
-}, 'invalid Buffer length');
+}, expectedError);
 assert.throws(function() {
   SlowBuffer(-1);
-}, 'invalid Buffer length');
+}, expectedError);
 assert.throws(function() {
   SlowBuffer(buffer.kMaxLength + 1);
-}, 'invalid Buffer length');
+}, expectedError);

@@ -2895,6 +2895,11 @@ void SetupProcessObject(Environment* env,
                                     env->as_external());
   CHECK(maybe.FromJust());
 
+  // process.jsEngine
+  READONLY_PROPERTY(process,
+                    "jsEngine",
+                    FIXED_ONE_BYTE_STRING(env->isolate(), NODE_ENGINE));
+
   // process.version
   READONLY_PROPERTY(process,
                     "version",
@@ -2923,7 +2928,7 @@ void SetupProcessObject(Environment* env,
                     "node",
                     OneByteString(env->isolate(), NODE_VERSION + 1));
   READONLY_PROPERTY(versions,
-                    "v8",
+                    NODE_ENGINE,
                     OneByteString(env->isolate(), V8::GetVersion()));
   READONLY_PROPERTY(versions,
                     "uv",
@@ -3618,7 +3623,12 @@ static void StartDebug(Environment* env, bool wait) {
 
   env->debugger_agent()->set_dispatch_handler(
         DispatchMessagesDebugAgentCallback);
+#if defined(NODE_ENGINE_CHAKRACORE)
+  // ChakraShim does not support debugger_agent
+  debugger_running = v8::Debug::EnableAgent();
+#else
   debugger_running = env->debugger_agent()->Start(debug_port, wait);
+#endif
   if (debugger_running == false) {
     fprintf(stderr, "Starting debugger on port %d failed\n", debug_port);
     fflush(stderr);
