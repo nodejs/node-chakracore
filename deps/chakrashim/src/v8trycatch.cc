@@ -26,6 +26,7 @@ namespace v8 {
 TryCatch::TryCatch(Isolate* isolate)
     : error(JS_INVALID_REFERENCE),
       rethrow(false),
+      user(true),
       verbose(false) {
   jsrt::IsolateShim * isolateShim = jsrt::IsolateShim::GetCurrent();
   prev = isolateShim->tryCatchStackTop;
@@ -156,13 +157,20 @@ void TryCatch::SetVerbose(bool value) {
 }
 
 void TryCatch::CheckReportExternalException() {
+  // Let caller TryCatch record the exception
+  TryCatch* tryCatch = (prev != nullptr && prev->user) ? prev : this;
+  if (tryCatch == prev) {
+    tryCatch->GetAndClearException();
+  }
+
   // This is only used by Function::Call. If caller does not use TryCatch to
   // handle external exceptions, or uses a TryCatch and SetVerbose(),
   // we'll report the external exception message (triggers uncaughtException).
   if (prev == nullptr || prev->verbose) {
-    jsrt::IsolateShim::GetCurrent()->ForEachMessageListener([this](
-        void * messageListener) {
-      ((v8::MessageCallback)messageListener)(Message(), Exception());
+    jsrt::IsolateShim::GetCurrent()->ForEachMessageListener(
+      [tryCatch](void * messageListener) {
+        ((v8::MessageCallback)messageListener)(tryCatch->Message(),
+                                               tryCatch->Exception());
     });
   } else {
     rethrow = true;  // Otherwise leave the exception as is

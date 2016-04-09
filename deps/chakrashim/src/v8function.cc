@@ -69,6 +69,7 @@ MaybeLocal<Value> Function::Call(Local<Context> context,
   JsValueRef result;
   {
     TryCatch tryCatch;
+    tryCatch.SetNonUser();
     if (JsCallFunction((JsValueRef)this, args, argc + 1,
                        &result) != JsNoError) {
       tryCatch.CheckReportExternalException();

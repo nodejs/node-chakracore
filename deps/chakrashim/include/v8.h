@@ -2350,12 +2350,14 @@ class V8_EXPORT TryCatch {
  private:
   friend class Function;
 
+  void SetNonUser() { user = false; }
   void GetAndClearException();
   void CheckReportExternalException();
 
   JsValueRef error;
   TryCatch* prev;
   bool rethrow;
+  bool user;
   bool verbose;
 };
 
