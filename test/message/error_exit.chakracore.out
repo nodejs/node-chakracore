@@ -6,3 +6,4 @@ AssertionError: 1 == 2
    at Module.prototype.load (module.js:*:*)
    at Module._load (module.js:*:*)
    at Module.runMain (module.js:*:*)
+   at startup (node.js:*:*)

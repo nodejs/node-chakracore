@@ -4,8 +4,8 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (node.js:*:*)
-   at nextTickCallbackWith0Args (node.js:*:*)
-   at _tickCallback (node.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at _tickCallback (internal/process/next_tick.js:*:*)
 42
 42
 Error: hello
@@ -14,16 +14,16 @@ Error: hello
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (node.js:*:*)
-   at nextTickCallbackWith0Args (node.js:*:*)
-   at _tickCallback (node.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at _tickCallback (internal/process/next_tick.js:*:*)
 Error: hello
    at Global code ([eval]:1:15)
    at exports.runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (node.js:*:*)
-   at nextTickCallbackWith0Args (node.js:*:*)
-   at _tickCallback (node.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at _tickCallback (internal/process/next_tick.js:*:*)
 100
 ReferenceError: Variable undefined in strict mode
    at Global code ([eval]:1:28)
@@ -31,8 +31,8 @@ ReferenceError: Variable undefined in strict mode
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (node.js:*:*)
-   at nextTickCallbackWith0Args (node.js:*:*)
-   at _tickCallback (node.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at _tickCallback (internal/process/next_tick.js:*:*)
 10
 10
 done
