@@ -134,7 +134,7 @@ class MessageTestConfiguration(test.TestConfiguration):
           if not exists(output_path):
             print "Could not find %s or %s" % (output_path, engine_output_path)
             continue
-          result.append(MessageTestCase(test, file_path, output_path,
+        result.append(MessageTestCase(test, file_path, output_path,
                                       arch, mode, self.context, self))
     return result
 
