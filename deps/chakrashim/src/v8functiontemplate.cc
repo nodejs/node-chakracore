@@ -86,6 +86,10 @@ struct FunctionCallbackData {
                                              JsValueRef *arguments,
                                              unsigned short argumentCount,
                                              void *callbackState) {
+    // Script engine could have switched context. Make sure to invoke the
+    // callback in the current callee context.
+    ContextShim* contextShim = IsolateShim::GetContextShimOfObject(callee);
+    ContextShim::Scope contextScope(contextShim);
     HandleScope scope(nullptr);
 
     JsValueRef functionCallbackDataRef = JsValueRef(callbackState);
