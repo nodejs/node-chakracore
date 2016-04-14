@@ -68,7 +68,8 @@ class ZCtx : public AsyncWrap {
         windowBits_(0),
         write_in_progress_(false),
         pending_close_(false),
-        refs_(0) {
+        refs_(0),
+        gzip_id_bytes_read_(0) {
     MakeWeak<ZCtx>(this);
   }
 
@@ -225,6 +226,8 @@ class ZCtx : public AsyncWrap {
   static void Process(uv_work_t* work_req) {
     ZCtx *ctx = ContainerOf(&ZCtx::work_req_, work_req);
 
+    const Bytef* next_expected_header_byte = nullptr;
+
     // If the avail_out is left at 0, then it means that it ran out
     // of room.  If there was avail_out left over, then it means
     // that all of the input was consumed.
@@ -235,6 +238,50 @@ class ZCtx : public AsyncWrap {
         ctx->err_ = deflate(&ctx->strm_, ctx->flush_);
         break;
       case UNZIP:
+        if (ctx->strm_.avail_in > 0) {
+          next_expected_header_byte = ctx->strm_.next_in;
+        }
+
+        switch (ctx->gzip_id_bytes_read_) {
+          case 0:
+            if (next_expected_header_byte == nullptr) {
+              break;
+            }
+
+            if (*next_expected_header_byte == GZIP_HEADER_ID1) {
+              ctx->gzip_id_bytes_read_ = 1;
+              next_expected_header_byte++;
+
+              if (ctx->strm_.avail_in == 1) {
+                // The only available byte was already read.
+                break;
+              }
+            } else {
+              ctx->mode_ = INFLATE;
+              break;
+            }
+
+            // fallthrough
+          case 1:
+            if (next_expected_header_byte == nullptr) {
+              break;
+            }
+
+            if (*next_expected_header_byte == GZIP_HEADER_ID2) {
+              ctx->gzip_id_bytes_read_ = 2;
+              ctx->mode_ = GUNZIP;
+            } else {
+              // There is no actual difference between INFLATE and INFLATERAW
+              // (after initialization).
+              ctx->mode_ = INFLATE;
+            }
+
+            break;
+          default:
+            CHECK(0 && "invalid number of gzip magic number bytes read");
+        }
+
+        // fallthrough
       case INFLATE:
       case GUNZIP:
       case INFLATERAW:
@@ -332,7 +379,7 @@ class ZCtx : public AsyncWrap {
 
     // call the write() cb
     Local<Value> args[2] = { avail_in, avail_out };
-    ctx->MakeCallback(env->callback_string(), ARRAY_SIZE(args), args);
+    ctx->MakeCallback(env->callback_string(), arraysize(args), args);
 
     ctx->Unref();
     if (ctx->pending_close_)
@@ -354,7 +401,7 @@ class ZCtx : public AsyncWrap {
       OneByteString(env->isolate(), message),
       Number::New(env->isolate(), ctx->err_)
     };
-    ctx->MakeCallback(env->onerror_string(), ARRAY_SIZE(args), args);
+    ctx->MakeCallback(env->onerror_string(), arraysize(args), args);
 
     // no hope of rescue.
     if (ctx->write_in_progress_)
@@ -591,6 +638,7 @@ class ZCtx : public AsyncWrap {
   bool write_in_progress_;
   bool pending_close_;
   unsigned int refs_;
+  unsigned int gzip_id_bytes_read_;
 };
 
 
