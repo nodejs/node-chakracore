@@ -234,7 +234,6 @@
       URIError
     ].forEach(function(type) {
       var newType = function __newType() {
-        /*global new target*/
         var e = withStackTraceLimitOffset(
           3, () => Reflect_construct(type, arguments, new.target || newType));
         // skip 3 frames: lambda, withStackTraceLimitOffset, this frame
