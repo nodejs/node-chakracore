@@ -1,5 +1,21 @@
 # ChakraShim ChangeLog
 
+## 2016-04-20, node-chakracore-6.0.0-pre7
+
+### Commits
+
+* [[`589206a`] (https://github.com/nodejs/node-chakracore/commit/589206a)] - chakrashim: remove a jslint comment
+* [[`5dafb03`] (https://github.com/nodejs/node-chakracore/commit/5dafb03)] - Merge branch 'nodejs/master' into chakracore-master
+* [[`8fb96bc`] (https://github.com/nodejs/node-chakracore/commit/8fb96bc)] - test: update 5 node-chakracore message test baselines
+* [[`40b5f7c`] (https://github.com/nodejs/node-chakracore/commit/40b5f7c)] - test: fix wrong python script indentation
+* [[`bb0707b`] (https://github.com/nodejs/node-chakracore/commit/bb0707b)] - test: patch tests for chakra
+* [[`df8d10e`] (https://github.com/nodejs/node-chakracore/commit/df8d10e)] - chakrashim: correct function callback context
+* [[`41d9652`] (https://github.com/nodejs/node-chakracore/commit/41d9652)] - chakrashim: let caller TryCatch record exception
+* [[`53c2d8e`] (https://github.com/nodejs/node-chakracore/commit/53c2d8e)] - test: skip null-buffer-neuter on node-chakracore
+* [[`313cec1`] (https://github.com/nodejs/node-chakracore/commit/313cec1)] - chakrashim: add test/addons dependency stubs
+* [[`0cd4cb8`] (https://github.com/nodejs/node-chakracore/commit/0cd4cb8)] - gyp: revert incorrect quote_cmd fix
+* [[`c864edf`] (https://github.com/nodejs/node-chakracore/commit/c864edf)] - Merge branch 'nodejs/master' into chakracore-master
+
 ## 2016-04-01, node-chakracore-6.0.0-pre6
 
 ### Commits
