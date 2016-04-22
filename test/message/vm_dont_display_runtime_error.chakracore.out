@@ -7,7 +7,7 @@ Error: boo!
    at Module.prototype._compile (module.js:*)
    at Module._extensions[.js] (module.js:*)
    at Module.prototype.load (module.js:*)
+   at tryModuleLoad (module.js:*)
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
    at startup (node.js:*)
-   at Anonymous function (node.js:*)
