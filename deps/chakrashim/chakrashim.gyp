@@ -80,6 +80,7 @@
         'src/v8arraybuffer.cc',
         'src/v8boolean.cc',
         'src/v8booleanobject.cc',
+        'src/v8chakra.cc',
         'src/v8chakra.h',
         'src/v8context.cc',
         'src/v8date.cc',

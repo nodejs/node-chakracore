@@ -25,14 +25,64 @@
 namespace v8 {
 
 using jsrt::ContextShim;
-
-struct ObjectTemplateData;
+class ObjectTemplateData;
 
 extern __declspec(thread) bool g_EnableDebug;
 extern ArrayBuffer::Allocator* g_arrayBufferAllocator;
 
-struct ObjectData {
+// External object data types
+enum class ExternalDataTypes {
+  Unknown,
+  ObjectTemplateData,
+  ObjectData,
+  FunctionTemplateData,
+  FunctionCallbackData,
+};
+
+// Base class for external object data
+class ExternalData {
+ private:
+  const ExternalDataTypes type;
+
  public:
+  ExternalData(ExternalDataTypes type) : type(type) {}
+  virtual ~ExternalData() {}
+
+  ExternalDataTypes GetType() const { return type; }
+
+  template <class T>
+  static bool Is(T* data) {
+    return data->GetType() == T::ExternalDataType;
+  }
+
+  static JsErrorCode GetExternalData(JsValueRef ref, ExternalData** data) {
+    return JsGetExternalData(ref, reinterpret_cast<void**>(data));
+  }
+
+  template <class T>
+  static JsErrorCode GetExternalData(JsValueRef ref, T** data) {
+    ExternalData* p = nullptr;
+    JsErrorCode error = GetExternalData(ref, &p);
+    *data = (error == JsNoError
+            && p != nullptr
+            && p->GetType() == T::ExternalDataType) ?
+              static_cast<T*>(p) : nullptr;
+
+    CHAKRA_ASSERT(*data == nullptr || (error == JsNoError && Is(*data)));
+    return error;
+  }
+
+  template <class T>
+  static bool TryGet(JsValueRef ref, T** data) {
+    return GetExternalData(ref, data) == JsNoError && *data != nullptr;
+  }
+};
+
+class ObjectData: public ExternalData {
+ public:
+  static const ExternalDataTypes ExternalDataType =
+    ExternalDataTypes::ObjectData;
+
   struct FieldValue {
    public:
     FieldValue() : value(nullptr), isRefValue(false) {}
@@ -70,20 +120,27 @@ struct ObjectData {
   FieldValue* internalFields;
 
   ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData);
-  void Dispose();
+  ~ObjectData();
   static void CALLBACK FinalizeCallback(void *data);
 
   static FieldValue* GetInternalField(Object* object, int index);
 };
 
-struct TemplateData {
- protected:
+class TemplateData : public ExternalData {
+ private:
   Persistent<Object> properties;
-  virtual void CreateProperties();  // Allow properties to be created lazily
 
  public:
-  virtual ~TemplateData() {}
+  explicit TemplateData(ExternalDataTypes type) : ExternalData(type) {}
+  virtual ~TemplateData() {
+    properties.Reset();
+  }
+
+  static bool Is(ExternalData* data);
+  virtual JsValueRef NewInstance(JsValueRef templateRef) = 0;
+
   Object* EnsureProperties();
+  JsErrorCode CopyPropertiesTo(JsValueRef newInstance);
 };
 
 class Utils {
@@ -180,6 +237,15 @@ class Utils {
   static Local<T> NewTypedArray(ContextShim::GlobalType constructorIndex,
                                 Handle<ArrayBuffer> array_buffer,
                                 size_t byte_offset, size_t length);
+
+  static ObjectTemplate* EnsureObjectTemplate(
+      Persistent<ObjectTemplate>& objectTemplate) {
+    if (objectTemplate.IsEmpty()) {
+      // Create ObjectTemplate lazily
+      objectTemplate = ObjectTemplate::New(nullptr);
+    }
+    return *objectTemplate;
+  }
 };
 
 

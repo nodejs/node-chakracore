@@ -28,13 +28,14 @@ Template::Template() {
 }
 
 void Template::Set(
-    Handle<String> name, Handle<Data> value, PropertyAttribute attributes) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+    Local<Name> name, Local<Data> value, PropertyAttribute attributes) {
+  ExternalData* externalData = nullptr;
+  if (!ExternalData::TryGet(this, &externalData)) {
+    CHAKRA_ASSERT(false); // This should never happen
     return;
   }
 
-  TemplateData *templateData = reinterpret_cast<TemplateData*>(externalData);
+  TemplateData *templateData = static_cast<TemplateData*>(externalData);
   Object* properties = templateData->EnsureProperties();
   if (properties != nullptr) {
     properties->ForceSet(name, value.As<Value>(), attributes);

@@ -39,6 +39,14 @@
     } \
   }
 
+#define IfJsErrorRet(expr, ...) \
+  { \
+    JsErrorCode _error = (expr); \
+    if (_error != JsNoError) { \
+      return _error, ##__VA_ARGS__; \
+    } \
+  }
+
 #define CHAKRA_UNIMPLEMENTED() jsrt::Unimplemented(__FUNCTION__)
 #define CHAKRA_UNIMPLEMENTED_(message) jsrt::Unimplemented(message)
 

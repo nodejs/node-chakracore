@@ -119,7 +119,6 @@ template <typename T> class PropertyCallbackInfo;
 
 class JitCodeEvent;
 class RetainedObjectInfo;
-struct ExternalArrayData;
 
 enum PropertyAttribute {
   None = 0,
@@ -283,15 +282,15 @@ class Local {
   friend class Debug;
   friend class External;
   friend class Function;
-  friend struct FunctionCallbackData;
+  friend class FunctionCallbackData;
   friend class FunctionTemplate;
-  friend struct FunctionTemplateData;
+  friend class FunctionTemplateData;
   friend class HandleScope;
   friend class Integer;
   friend class Number;
   friend class NumberObject;
   friend class Object;
-  friend struct ObjectData;
+  friend class ObjectData;
   friend class ObjectTemplate;
   friend class Private;
   friend class Signature;
@@ -619,13 +618,13 @@ class Persistent : public PersistentBase<T> {
 
  private:
   friend class Object;
-  friend struct ObjectData;
+  friend class ObjectData;
   friend class ObjectTemplate;
-  friend struct ObjectTemplateData;
-  friend struct TemplateData;
-  friend struct FunctionCallbackData;
+  friend class ObjectTemplateData;
+  friend class TemplateData;
+  friend class FunctionCallbackData;
   friend class FunctionTemplate;
-  friend struct FunctionTemplateData;
+  friend class FunctionTemplateData;
   friend class Utils;
   template <class F> friend class Local;
   template <class F> friend class ReturnValue;
@@ -1430,7 +1429,7 @@ class V8_EXPORT Object : public Value {
   static Object *Cast(Value *obj);
 
  private:
-  friend struct ObjectData;
+  friend class ObjectData;
   friend class ObjectTemplate;
   friend class Utils;
 
@@ -1444,7 +1443,7 @@ class V8_EXPORT Object : public Value {
                           PropertyAttribute attribute,
                           Handle<AccessorSignature> signature);
 
-  JsErrorCode GetObjectData(struct ObjectData** objectData);
+  JsErrorCode GetObjectData(ObjectData** objectData);
   ObjectTemplate* GetObjectTemplate();
 };
 
@@ -1837,10 +1836,9 @@ typedef bool (*IndexedSecurityCallback)(
 
 class V8_EXPORT Template : public Data {
  public:
-  void Set(Handle<String> name,
-           Handle<Data> value,
+  void Set(Local<Name> name, Local<Data> value,
            PropertyAttribute attributes = None);
-  void Set(Isolate* isolate, const char* name, Handle<Data> value) {
+  V8_INLINE void Set(Isolate* isolate, const char* name, Local<Data> value) {
     Set(v8::String::NewFromUtf8(isolate, name), value);
   }
  private:
@@ -1850,11 +1848,9 @@ class V8_EXPORT Template : public Data {
 class V8_EXPORT FunctionTemplate : public Template {
  public:
   static Local<FunctionTemplate> New(
-    Isolate* isolate,
-    FunctionCallback callback = 0,
-    Handle<Value> data = Handle<Value>(),
-    Handle<Signature> signature = Handle<Signature>(),
-    int length = 0);
+      Isolate* isolate, FunctionCallback callback = 0,
+      Local<Value> data = Local<Value>(),
+      Local<Signature> signature = Local<Signature>(), int length = 0);
 
   V8_DEPRECATE_SOON("Use maybe version", Local<Function> GetFunction());
   V8_WARN_UNUSED_RESULT MaybeLocal<Function> GetFunction(
@@ -1984,8 +1980,8 @@ class V8_EXPORT ObjectTemplate : public Template {
                                 Handle<Value> data = Handle<Value>());
 
  private:
-  friend struct FunctionCallbackData;
-  friend struct FunctionTemplateData;
+  friend class FunctionCallbackData;
+  friend class FunctionTemplateData;
   friend class Utils;
 
   Local<Object> NewInstance(Handle<Object> prototype);

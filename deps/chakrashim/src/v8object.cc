@@ -692,7 +692,7 @@ JsErrorCode Object::GetObjectData(ObjectData** objectData) {
     }
   }
 
-  return JsGetExternalData(self, reinterpret_cast<void **>(objectData));
+  return ExternalData::GetExternalData(self, objectData);
 }
 
 int Object::InternalFieldCount() {

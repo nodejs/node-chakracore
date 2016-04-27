@@ -24,8 +24,11 @@ namespace v8 {
 
 using namespace jsrt;
 
-struct ObjectTemplateData : public TemplateData {
+class ObjectTemplateData : public TemplateData {
  public:
+  static const ExternalDataTypes ExternalDataType =
+    ExternalDataTypes::ObjectTemplateData;
+
   Persistent<String> className;
   NamedPropertyGetterCallback namedPropertyGetter;
   NamedPropertySetterCallback namedPropertySetter;
@@ -44,7 +47,8 @@ struct ObjectTemplateData : public TemplateData {
   int internalFieldCount;
 
   ObjectTemplateData()
-      : namedPropertyGetter(nullptr),
+      : TemplateData(ExternalDataType),
+        namedPropertyGetter(nullptr),
         namedPropertySetter(nullptr),
         namedPropertyQuery(nullptr),
         namedPropertyDeleter(nullptr),
@@ -57,8 +61,21 @@ struct ObjectTemplateData : public TemplateData {
         functionCallDelegate(nullptr),
         functionCallDelegateInterceptorData(nullptr),
         internalFieldCount(0) {
-    HandleScope scope(nullptr);
-    properties = Object::New();
+  }
+
+  ~ObjectTemplateData() {
+      className.Reset();
+      namedPropertyInterceptorData.Reset();
+      indexedPropertyInterceptorData.Reset();
+      functionCallDelegateInterceptorData.Reset();
+  }
+
+  static void CALLBACK FinalizeCallback(void *data) {
+    if (data != nullptr) {
+      ObjectTemplateData* objectTemplateData =
+        reinterpret_cast<ObjectTemplateData*>(data);
+      delete objectTemplateData;
+    }
   }
 
   bool AreInterceptorsRequired() {
@@ -78,16 +95,13 @@ struct ObjectTemplateData : public TemplateData {
     */
   }
 
-  static void CALLBACK FinalizeCallback(void *data) {
-    if (data != nullptr) {
-      ObjectTemplateData* templateData =
-        reinterpret_cast<ObjectTemplateData*>(data);
-      templateData->className.Reset();
-      templateData->properties.Reset();
-      templateData->namedPropertyInterceptorData.Reset();
-      templateData->indexedPropertyInterceptorData.Reset();
-      delete templateData;
-    }
+  virtual JsValueRef NewInstance(JsValueRef templateRef) {
+#ifdef DEBUG
+    ObjectTemplateData* data;
+    CHAKRA_ASSERT(ExternalData::TryGet(templateRef, &data) && data == this);
+#endif
+    ObjectTemplate* objectTemplate = static_cast<ObjectTemplate*>(templateRef);
+    return *objectTemplate->NewInstance();
   }
 };
 
@@ -136,7 +150,8 @@ void ObjectData::FieldValue::Reset() {
 
 ObjectData::ObjectData(ObjectTemplate* objectTemplate,
                        ObjectTemplateData *templateData)
-    : objectTemplate(objectTemplate),
+    : ExternalData(ExternalDataType),
+      objectTemplate(objectTemplate),
       namedPropertyGetter(templateData->namedPropertyGetter),
       namedPropertySetter(templateData->namedPropertySetter),
       namedPropertyQuery(templateData->namedPropertyQuery),
@@ -157,7 +172,7 @@ ObjectData::ObjectData(ObjectTemplate* objectTemplate,
   }
 }
 
-void ObjectData::Dispose() {
+ObjectData::~ObjectData() {
   if (internalFieldCount > 0) {
     delete[] internalFields;
   }
@@ -165,14 +180,12 @@ void ObjectData::Dispose() {
   objectTemplate.Reset();
   namedPropertyInterceptorData.Reset();
   indexedPropertyInterceptorData.Reset();
-
-  delete this;
 }
 
 void CALLBACK ObjectData::FinalizeCallback(void *data) {
   if (data != nullptr) {
     ObjectData* objectData = reinterpret_cast<ObjectData*>(data);
-    objectData->Dispose();
+    delete objectData;
   }
 }
 
@@ -195,7 +208,6 @@ JsValueRef CALLBACK Utils::GetCallback(JsValueRef callee,
                                        JsValueRef *arguments,
                                        unsigned short argumentCount,
                                        void *callbackState) {
-  void* externalData;
   JsValueRef result;
 
   JsValueRef object = arguments[1];
@@ -216,10 +228,10 @@ JsValueRef CALLBACK Utils::GetCallback(JsValueRef callee,
     }
   }
 
-  if (JsGetExternalData(object, &externalData) != JsNoError) {
+  ObjectData* objectData = nullptr;
+  if (!ExternalData::TryGet(object, &objectData)) {
     return GetUndefined();
   }
-  ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
 
   bool isPropIntType = false;
   unsigned int index;
@@ -272,17 +284,14 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
                                        JsValueRef *arguments,
                                        unsigned short argumentCount,
                                        void *callbackState) {
-  void* externalData;
-
   JsValueRef object = arguments[1];
   JsValueRef prop = arguments[2];
   JsValueRef value = arguments[3];
 
-  if (JsGetExternalData(object, &externalData) != JsNoError) {
+  ObjectData* objectData = nullptr;
+  if (!ExternalData::TryGet(object, &objectData)) {
     return GetFalse();
   }
-
-  ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
 
   bool isPropIntType;
   unsigned int index;
@@ -333,17 +342,14 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
                                                   JsValueRef *arguments,
                                                   unsigned short argumentCount,
                                                   void *callbackState) {
-  void* externalData;
-
   JsValueRef object = arguments[1];
   JsValueRef prop = arguments[2];
   JsValueRef result;
 
-  if (JsGetExternalData(object, &externalData) != JsNoError) {
+  ObjectData* objectData = nullptr;
+  if (!ExternalData::TryGet(object, &objectData)) {
     return GetFalse();
   }
-
-  ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
 
   bool isPropIntType;
   unsigned int index;
@@ -391,16 +397,13 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
 
 JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
                                      unsigned short argumentCount) {
-  void* externalData;
-
   JsValueRef object = arguments[1];
   JsValueRef prop = arguments[2];
 
-  if (JsGetExternalData(object, &externalData) != JsNoError) {
+  ObjectData* objectData = nullptr;
+  if (!ExternalData::TryGet(object, &objectData)) {
     return GetFalse();
   }
-
-  ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
 
   bool isPropIntType;
   unsigned int index;
@@ -484,15 +487,13 @@ JsValueRef Utils::GetPropertiesHandler(JsValueRef* arguments,
                                        unsigned int argumentsCount,
                                        bool getFromPrototype) {
   HandleScope scope(nullptr);
-  void* externalData;
-
   JsValueRef object = arguments[1];
 
-  if (JsGetExternalData(object, &externalData) != JsNoError) {
+  ObjectData* objectData = nullptr;
+  if (!ExternalData::TryGet(object, &objectData)) {
     return GetUndefined();
   }
 
-  ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
   JsValueRef indexedProperties;
   if (objectData->indexedPropertyEnumerator != nullptr) {
     PropertyCallbackInfo<Array> info(
@@ -575,16 +576,14 @@ JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState) {
-  void* externalData;
   JsValueRef object = arguments[1];
   JsValueRef prop = arguments[2];
   JsValueRef descriptor;
 
-  if (JsGetExternalData(object, &externalData) != JsNoError) {
+  ObjectData* objectData = nullptr;
+  if (!ExternalData::TryGet(object, &objectData)) {
     return GetUndefined();
   }
-
-  ObjectData *objectData = reinterpret_cast<ObjectData*>(externalData);
 
   bool isPropIntType;
   unsigned int index;
@@ -708,20 +707,17 @@ Local<Object> ObjectTemplate::NewInstance() {
 }
 
 Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+  ObjectTemplateData* objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return Local<Object>();
   }
 
-  ObjectTemplateData *objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
-
   ObjectData *objectData = new ObjectData(this, objectTemplateData);
-
   JsValueRef newInstanceRef = JS_INVALID_REFERENCE;
   if (JsCreateExternalObject(objectData,
                              ObjectData::FinalizeCallback,
                              &newInstanceRef) != JsNoError) {
+    delete objectData;
     return Local<Object>();
   }
 
@@ -789,55 +785,8 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
   }
 
   // clone the object template into the new instance
-  JsValueRef propertyNames;
-  if (JsGetOwnPropertyNames(objectTemplateData->EnsureProperties(),
-                            &propertyNames) != JsNoError) {
+  if (objectTemplateData->CopyPropertiesTo(newInstanceRef) != JsNoError) {
     return Local<Object>();
-  }
-
-  unsigned int length;
-  if (GetArrayLength(propertyNames, &length) != JsNoError) {
-    return Local<Object>();
-  }
-
-  for (unsigned int index = 0; index < length; index++) {
-    JsValueRef indexValue;
-    if (JsIntToNumber(index, &indexValue) != JsNoError) {
-      return Local<Object>();
-    }
-
-    JsValueRef propertyNameValue;
-    if (JsGetIndexedProperty(propertyNames,
-                             indexValue, &propertyNameValue) != JsNoError) {
-      return Local<Object>();
-    }
-
-    const wchar_t *propertyName;
-    size_t propertyNameLength;
-    if (JsStringToPointer(propertyNameValue,
-                          &propertyName, &propertyNameLength) != JsNoError) {
-      return Local<Object>();
-    }
-
-    JsPropertyIdRef propertyId;
-    if (JsGetPropertyIdFromName(propertyName, &propertyId) != JsNoError) {
-      return Local<Object>();
-    }
-
-    JsValueRef propertyDescriptor;
-    if (JsGetOwnPropertyDescriptor(objectTemplateData->EnsureProperties(),
-                                   propertyId,
-                                   &propertyDescriptor) != JsNoError) {
-      return Local<Object>();
-    }
-
-    bool result;
-    if (JsDefineProperty(newInstanceRef,
-                         propertyId,
-                         propertyDescriptor,
-                         &result) != JsNoError) {
-      return Local<Object>();
-    }
   }
 
   objectData->objectInstance = newInstanceRef;
@@ -864,15 +813,16 @@ void ObjectTemplate::SetAccessor(Handle<Name> name,
                                  AccessControl settings,
                                  PropertyAttribute attribute,
                                  Handle<AccessorSignature> signature) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+  ObjectTemplateData *objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return;
   }
 
-  ObjectTemplateData *objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
-  objectTemplateData->EnsureProperties()->SetAccessor(
-    name, getter, setter, data, settings, attribute, signature);
+  Object* properties = objectTemplateData->EnsureProperties();
+  if (properties != nullptr) {
+    properties->SetAccessor(
+      name, getter, setter, data, settings, attribute, signature);
+  }
 }
 
 void ObjectTemplate::SetNamedPropertyHandler(
@@ -882,14 +832,10 @@ void ObjectTemplate::SetNamedPropertyHandler(
     NamedPropertyDeleterCallback remover,
     NamedPropertyEnumeratorCallback enumerator,
     Handle<Value> data) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+  ObjectTemplateData *objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return;
   }
-
-  ObjectTemplateData *objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
-
   objectTemplateData->namedPropertyGetter = getter;
   objectTemplateData->namedPropertySetter = setter;
   objectTemplateData->namedPropertyQuery = query;
@@ -916,13 +862,10 @@ void ObjectTemplate::SetIndexedPropertyHandler(
     IndexedPropertyDeleterCallback remover,
     IndexedPropertyEnumeratorCallback enumerator,
     Handle<Value> data) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+  ObjectTemplateData *objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return;
   }
-
-  ObjectTemplateData *objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
 
   objectTemplateData->indexedPropertyGetter = getter;
   objectTemplateData->indexedPropertySetter = setter;
@@ -951,52 +894,45 @@ void ObjectTemplate::SetAccessCheckCallbacks(
   // CHAKRA-TODO
 }
 
-void ObjectTemplate::SetCallAsFunctionHandler(
-    FunctionCallback callback,
-    Handle<Value> data) {
-    void* externalData;
-    if (JsGetExternalData(this, &externalData) != JsNoError)
-    {
-        return;
-    }
-
-    ObjectTemplateData *objectTemplateData =
-        reinterpret_cast<ObjectTemplateData*>(externalData);
-
-    objectTemplateData->functionCallDelegate = callback;
-    objectTemplateData->functionCallDelegateInterceptorData = data;
-}
-
-void ObjectTemplate::SetInternalFieldCount(int value) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+void ObjectTemplate::SetCallAsFunctionHandler(FunctionCallback callback,
+                                              Handle<Value> data) {
+  ObjectTemplateData* objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
+    CHAKRA_ASSERT(false); // This should never happen
     return;
   }
 
-  ObjectTemplateData *objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
+  objectTemplateData->functionCallDelegate = callback;
+  objectTemplateData->functionCallDelegateInterceptorData = data;
+}
+
+void ObjectTemplate::SetInternalFieldCount(int value) {
+  ObjectTemplateData* objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
+    CHAKRA_ASSERT(false); // This should never happen
+    return;
+  }
+
   objectTemplateData->internalFieldCount = value;
 }
 
 void ObjectTemplate::SetClassName(Handle<String> className) {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+  ObjectTemplateData* objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
+    CHAKRA_ASSERT(false); // This should never happen
     return;
   }
 
-  ObjectTemplateData *objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
   objectTemplateData->className = className;
 }
 
 Handle<String> ObjectTemplate::GetClassName() {
-  void* externalData;
-  if (JsGetExternalData(this, &externalData) != JsNoError) {
+  ObjectTemplateData* objectTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &objectTemplateData)) {
+    CHAKRA_ASSERT(false); // This should never happen
     return Handle<String>();
   }
 
-  ObjectTemplateData* objectTemplateData =
-    reinterpret_cast<ObjectTemplateData*>(externalData);
   return objectTemplateData->className;
 }
 
