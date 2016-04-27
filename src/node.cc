@@ -127,8 +127,6 @@ using v8::PromiseRejectMessage;
 using v8::PropertyCallbackInfo;
 using v8::ScriptOrigin;
 using v8::SealHandleScope;
-using v8::StackFrame;
-using v8::StackTrace;
 using v8::String;
 using v8::TryCatch;
 using v8::Uint32;
@@ -701,6 +699,12 @@ const char *signo_string(int signo) {
 #ifdef SIGPWR
 # if SIGPWR != SIGLOST
   SIGNO_CASE(SIGPWR);
+# endif
+#endif
+
+#ifdef SIGINFO
+# if !defined(SIGPWR) || SIGINFO != SIGPWR
+  SIGNO_CASE(SIGINFO);
 # endif
 #endif
 
@@ -1719,7 +1723,7 @@ void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
   Local<String> owner_sym = env->owner_string();
 
   for (auto w : *env->handle_wrap_queue()) {
-    if (w->persistent().IsEmpty() || (w->flags_ & HandleWrap::kUnref))
+    if (w->persistent().IsEmpty() || !HandleWrap::HasRef(w))
       continue;
     Local<Object> object = w->object();
     Local<Value> owner = object->Get(owner_sym);
@@ -3227,7 +3231,10 @@ void SetupProcessObject(Environment* env,
   env->SetMethod(process, "_setupDomainUse", SetupDomainUse);
 
   // pre-set _events object for faster emit checks
-  process->Set(env->events_string(), Object::New(env->isolate()));
+  Local<Object> events_obj = Object::New(env->isolate());
+  maybe = events_obj->SetPrototype(env->context(), Null(env->isolate()));
+  CHECK(maybe.FromJust());
+  process->Set(env->events_string(), events_obj);
 }
 
 
@@ -3372,7 +3379,7 @@ static bool ParseDebugOpt(const char* arg) {
 
 static void PrintHelp() {
   // XXX: If you add an option here, please also add it to doc/node.1 and
-  // doc/api/cli.markdown
+  // doc/api/cli.md
   printf("Usage: node [options] [ -e script | script.js ] [arguments] \n"
          "       node debug script.js [arguments] \n"
          "\n"

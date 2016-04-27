@@ -27,6 +27,9 @@
     # Don't bake anything extra into the snapshot.
     'v8_use_external_startup_data%': 0,
 
+    # Don't compile with -B, we don't bundle ld.gold.
+    'linux_use_bundled_gold%': 0,
+
     'conditions': [
       ['OS == "win"', {
         'os_posix': 0,
@@ -346,7 +349,7 @@
           'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
           'PREBINDING': 'NO',                       # No -Wl,-prebind
-          'MACOSX_DEPLOYMENT_TARGET': '10.5',       # -mmacosx-version-min=10.5
+          'MACOSX_DEPLOYMENT_TARGET': '10.7',       # -mmacosx-version-min=10.7
           'USE_HEADERMAP': 'NO',
           'OTHER_CFLAGS': [
             '-fno-strict-aliasing',

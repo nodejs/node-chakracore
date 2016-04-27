@@ -168,7 +168,7 @@ function error_test() {
     // should throw
     { client: client_unix, send: 'JSON.parse(\'{\');',
       expect: common.engineSpecificMessage({
-        v8 : /^SyntaxError: Unexpected end of input/,
+        v8 : /^SyntaxError: Unexpected end of JSON input/,
         chakracore : /^SyntaxError: Syntax error/})
     },
     // invalid RegExps are a special case of syntax error,

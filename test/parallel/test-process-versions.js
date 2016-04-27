@@ -1,6 +1,6 @@
 'use strict';
-var common = require('../common');
-var assert = require('assert');
+const common = require('../common');
+const assert = require('assert');
 
 var expected_keys = ['ares', 'http_parser', 'modules', 'node',
                      'uv', 'zlib'];
@@ -14,4 +14,7 @@ if (!common.isChakraEngine && typeof Intl !== 'undefined') {
   expected_keys.push('icu');
 }
 
-assert.deepEqual(Object.keys(process.versions).sort(), expected_keys.sort());
+expected_keys.sort();
+const actual_keys = Object.keys(process.versions).sort();
+
+assert.deepStrictEqual(actual_keys, expected_keys);

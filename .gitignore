@@ -41,7 +41,8 @@ _UpgradeReport_Files/
 ipch/
 *.sdf
 *.opensdf
-/.vs
+*.VC.opendb
+.vs/
 
 /config.mk
 /config.gypi

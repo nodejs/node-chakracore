@@ -6,8 +6,8 @@
 namespace node {
 
 using v8::Isolate;
-using v8::String;
 using v8::Local;
+using v8::String;
 using v8::Value;
 
 static int MakeUtf8String(Isolate* isolate,
@@ -47,7 +47,9 @@ TwoByteValue::TwoByteValue(Isolate* isolate, Local<Value> value)
     return;
 
   // Allocate enough space to include the null terminator
-  size_t len = StringBytes::StorageSize(isolate, string, UCS2) + 1;
+  size_t len =
+      StringBytes::StorageSize(isolate, string, UCS2) +
+      sizeof(uint16_t);
   if (len > sizeof(str_st_)) {
     str_ = static_cast<uint16_t*>(malloc(len));
     CHECK_NE(str_, nullptr);

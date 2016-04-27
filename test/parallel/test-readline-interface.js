@@ -27,6 +27,25 @@ function isWarned(emitter) {
   var rli;
   var called;
 
+  // disable history
+  fi = new FakeInput();
+  rli = new readline.Interface({ input: fi, output: fi, terminal: terminal,
+                              historySize: 0 });
+  assert.strictEqual(rli.historySize, 0);
+
+  fi.emit('data', 'asdf\n');
+  assert.deepStrictEqual(rli.history, terminal ? [] : undefined);
+  rli.close();
+
+  // default history size 30
+  fi = new FakeInput();
+  rli = new readline.Interface({ input: fi, output: fi, terminal: terminal});
+  assert.strictEqual(rli.historySize, 30);
+
+  fi.emit('data', 'asdf\n');
+  assert.deepStrictEqual(rli.history, terminal ? ['asdf'] : undefined);
+  rli.close();
+
   // sending a full line
   fi = new FakeInput();
   rli = new readline.Interface({ input: fi, output: fi, terminal: terminal });
@@ -335,7 +354,7 @@ function isWarned(emitter) {
   assert.equal(readline.getStringWidth('\u001b[31m\u001b[39m'), 0);
   assert.equal(readline.getStringWidth('> '), 2);
 
-  assert.deepEqual(fi.listeners(terminal ? 'keypress' : 'data'), []);
+  assert.deepStrictEqual(fi.listeners(terminal ? 'keypress' : 'data'), []);
 
   // check EventEmitter memory leak
   for (var i = 0; i < 12; i++) {
