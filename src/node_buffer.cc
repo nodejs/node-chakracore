@@ -994,10 +994,12 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
   bool is_forward = args[4]->IsTrue();
 
   const char* haystack = ts_obj_data;
-  const size_t haystack_length = ts_obj_length;
-  // Extended latin-1 characters are 2 bytes in Utf8.
+  // Round down to the nearest multiple of 2 in case of UCS2.
+  const size_t haystack_length = (enc == UCS2) ?
+      ts_obj_length &~ 1 : ts_obj_length;  // NOLINT(whitespace/operators)
+
   const size_t needle_length =
-      enc == BINARY ? needle->Length() : needle->Utf8Length();
+      StringBytes::Size(args.GetIsolate(), needle, enc);
 
   if (needle_length == 0 || haystack_length == 0) {
     return args.GetReturnValue().Set(-1);
@@ -1009,7 +1011,8 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
   }
   size_t offset = static_cast<size_t>(opt_offset);
   CHECK_LT(offset, haystack_length);
-  if (is_forward && needle_length + offset > haystack_length) {
+  if ((is_forward && needle_length + offset > haystack_length) ||
+      needle_length > haystack_length) {
     return args.GetReturnValue().Set(-1);
   }
 
@@ -1111,7 +1114,8 @@ void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
   }
   size_t offset = static_cast<size_t>(opt_offset);
   CHECK_LT(offset, haystack_length);
-  if (is_forward && needle_length + offset > haystack_length) {
+  if ((is_forward && needle_length + offset > haystack_length) ||
+      needle_length > haystack_length) {
     return args.GetReturnValue().Set(-1);
   }
 

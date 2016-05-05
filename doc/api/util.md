@@ -179,6 +179,14 @@ formatted string:
  - `customInspect` - if `false`, then custom `inspect(depth, opts)` functions
    defined on the objects being inspected won't be called. Defaults to `true`.
 
+ - `showProxy` - if `true`, then objects and functions that are Proxy objects
+   will be introspected to show their `target` and `hander` objects. Defaults to
+   `false`.
+
+ - `maxArrayLength` - specifies the maximum number of Array and TypedArray
+   elements to include when formatting. Defaults to `100`. Set to `null` to
+   show all array elements. Set to `0` or negative to show no array elements.
+
 Example of inspecting all properties of the `util` object:
 
 ```js
@@ -341,7 +349,6 @@ possible to obtain an incorrect result when the `object` argument manipulates
 `@@toStringTag`.
 
 ```js
-// This example requires the `--harmony-tostring` flag
 const util = require('util');
 const obj = { name: 'Error', message: 'an error occurred' };
 

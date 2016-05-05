@@ -114,10 +114,10 @@ v8:
 	tools/make-v8.sh v8
 	$(MAKE) -C deps/v8 $(V8_ARCH) $(V8_BUILD_OPTIONS)
 
-test: | cctest  # Depends on 'all'.
-	$(PYTHON) tools/test.py --mode=release message parallel sequential -J
-	$(MAKE) jslint
-	$(MAKE) cpplint
+test: | build-addons cctest  # Both targets depend on 'all'.
+	$(PYTHON) tools/test.py --mode=release -J \
+		addon doctool message parallel sequential
+	$(MAKE) lint
 
 test-parallel: all
 	$(PYTHON) tools/test.py --mode=release parallel -J
@@ -141,7 +141,10 @@ ADDONS_BINDING_GYPS := \
 		$(wildcard test/addons/*/binding.gyp))
 
 # Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
-test/addons/.buildstamp: $(ADDONS_BINDING_GYPS) | test/addons/.docbuildstamp
+test/addons/.buildstamp: $(ADDONS_BINDING_GYPS) \
+	deps/uv/include/*.h deps/v8/include/*.h \
+	src/node.h src/node_buffer.h src/node_object_wrap.h \
+	| test/addons/.docbuildstamp
 	# Cannot use $(wildcard test/addons/*/) here, it's evaluated before
 	# embedded addons have been generated from the documentation.
 	for dirname in test/addons/*/; do \
@@ -173,7 +176,7 @@ test-all-valgrind: test-build
 test-ci: | build-addons
 	$(PYTHON) tools/test.py $(PARALLEL_ARGS) -p tap --logfile test.tap \
 		--mode=release --flaky-tests=$(FLAKY_TESTS) \
-		$(TEST_CI_ARGS) addons message parallel sequential
+		$(TEST_CI_ARGS) addons doctool message parallel sequential
 
 test-release: test-build
 	$(PYTHON) tools/test.py --mode=release
@@ -455,6 +458,7 @@ $(TARBALL): release-only $(NODE_EXE) doc
 	rm -rf $(TARNAME)/.{editorconfig,git*,mailmap}
 	rm -rf $(TARNAME)/tools/{eslint,eslint-rules,osx-pkg.pmdoc,pkgsrc}
 	rm -rf $(TARNAME)/tools/{osx-*,license-builder.sh,cpplint.py}
+	rm -rf $(TARNAME)/test*.tap
 	find $(TARNAME)/ -name ".eslint*" -maxdepth 2 | xargs rm
 	find $(TARNAME)/ -type l | xargs rm # annoying on windows
 	tar -cf $(TARNAME).tar $(TARNAME)

@@ -69,7 +69,6 @@
 #if defined(_MSC_VER)
 #include <direct.h>
 #include <io.h>
-#define strcasecmp _stricmp
 #define getpid GetCurrentProcessId
 #define umask _umask
 typedef int mode_t;
@@ -106,6 +105,7 @@ using v8::Boolean;
 using v8::Context;
 using v8::EscapableHandleScope;
 using v8::Exception;
+using v8::Float64Array;
 using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
@@ -1380,27 +1380,27 @@ enum encoding ParseEncoding(const char* encoding,
       break;
   }
 
-  if (strcasecmp(encoding, "utf8") == 0) {
+  if (StringEqualNoCase(encoding, "utf8")) {
     return UTF8;
-  } else if (strcasecmp(encoding, "utf-8") == 0) {
+  } else if (StringEqualNoCase(encoding, "utf-8")) {
     return UTF8;
-  } else if (strcasecmp(encoding, "ascii") == 0) {
+  } else if (StringEqualNoCase(encoding, "ascii")) {
     return ASCII;
-  } else if (strcasecmp(encoding, "base64") == 0) {
+  } else if (StringEqualNoCase(encoding, "base64")) {
     return BASE64;
-  } else if (strcasecmp(encoding, "ucs2") == 0) {
+  } else if (StringEqualNoCase(encoding, "ucs2")) {
     return UCS2;
-  } else if (strcasecmp(encoding, "ucs-2") == 0) {
+  } else if (StringEqualNoCase(encoding, "ucs-2")) {
     return UCS2;
-  } else if (strcasecmp(encoding, "utf16le") == 0) {
+  } else if (StringEqualNoCase(encoding, "utf16le")) {
     return UCS2;
-  } else if (strcasecmp(encoding, "utf-16le") == 0) {
+  } else if (StringEqualNoCase(encoding, "utf-16le")) {
     return UCS2;
-  } else if (strcasecmp(encoding, "binary") == 0) {
+  } else if (StringEqualNoCase(encoding, "binary")) {
     return BINARY;
-  } else if (strcasecmp(encoding, "buffer") == 0) {
+  } else if (StringEqualNoCase(encoding, "buffer")) {
     return BUFFER;
-  } else if (strcasecmp(encoding, "hex") == 0) {
+  } else if (StringEqualNoCase(encoding, "hex")) {
     return HEX;
   } else {
     return default_encoding;
@@ -2220,6 +2220,38 @@ void Hrtime(const FunctionCallbackInfo<Value>& args) {
   fields[2] = t % NANOS_PER_SEC;
 }
 
+// Microseconds in a second, as a float, used in CPUUsage() below
+#define MICROS_PER_SEC 1e6
+
+// CPUUsage use libuv's uv_getrusage() this-process resource usage accessor,
+// to access ru_utime (user CPU time used) and ru_stime (system CPU time used),
+// which are uv_timeval_t structs (long tv_sec, long tv_usec).
+// Returns those values as Float64 microseconds in the elements of the array
+// passed to the function.
+void CPUUsage(const FunctionCallbackInfo<Value>& args) {
+  uv_rusage_t rusage;
+
+  // Call libuv to get the values we'll return.
+  int err = uv_getrusage(&rusage);
+  if (err) {
+    // On error, return the strerror version of the error code.
+    Local<String> errmsg = OneByteString(args.GetIsolate(), uv_strerror(err));
+    args.GetReturnValue().Set(errmsg);
+    return;
+  }
+
+  // Get the double array pointer from the Float64Array argument.
+  CHECK(args[0]->IsFloat64Array());
+  Local<Float64Array> array = args[0].As<Float64Array>();
+  CHECK_EQ(array->Length(), 2);
+  Local<ArrayBuffer> ab = array->Buffer();
+  double* fields = static_cast<double*>(ab->GetContents().Data());
+
+  // Set the Float64Array elements to be user / system values in microseconds.
+  fields[0] = MICROS_PER_SEC * rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec;
+  fields[1] = MICROS_PER_SEC * rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec;
+}
+
 extern "C" void node_module_register(void* m) {
   struct node_module* mp = reinterpret_cast<struct node_module*>(m);
 
@@ -2948,6 +2980,13 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(versions,
                     "icu",
                     OneByteString(env->isolate(), U_ICU_VERSION));
+
+  if (icu_data_dir != nullptr) {
+    // Did the user attempt (via env var or parameter) to set an ICU path?
+    READONLY_PROPERTY(process,
+                      "icu_data_dir",
+                      OneByteString(env->isolate(), icu_data_dir));
+  }
 #endif
 
   const char node_modules_version[] = NODE_STRINGIFY(NODE_MODULE_VERSION);
@@ -3216,6 +3255,8 @@ void SetupProcessObject(Environment* env,
   env->SetMethod(process, "_debugEnd", DebugEnd);
 
   env->SetMethod(process, "hrtime", Hrtime);
+
+  env->SetMethod(process, "cpuUsage", CPUUsage);
 
   env->SetMethod(process, "dlopen", DLOpen);
 

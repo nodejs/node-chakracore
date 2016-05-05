@@ -151,6 +151,11 @@ Stop watching for changes on the given `fs.FSWatcher`.
 
 Emitted when the ReadStream's file is opened.
 
+### Event: 'close'
+
+Emitted when the `ReadStream`'s underlying file descriptor has been closed
+using the `fs.close()` method.
+
 ### readStream.path
 
 The path to the file the stream is reading from as specified in the first
@@ -237,6 +242,11 @@ on Unix systems, it never was.
 * `fd` {Integer} Integer file descriptor used by the WriteStream.
 
 Emitted when the WriteStream's file is opened.
+
+### Event: 'close'
+
+Emitted when the `WriteStream`'s underlying file descriptor has been closed
+using the `fs.close()` method.
 
 ### writeStream.bytesWritten
 
@@ -563,8 +573,8 @@ Synchronous fdatasync(2). Returns `undefined`.
 * `callback` {Function}
 
 Asynchronous fstat(2). The callback gets two arguments `(err, stats)` where
-`stats` is a `fs.Stats` object. `fstat()` is identical to [`stat()`][], except that
-the file to be stat-ed is specified by the file descriptor `fd`.
+`stats` is a [`fs.Stats`][] object. `fstat()` is identical to [`stat()`][],
+except that the file to be stat-ed is specified by the file descriptor `fd`.
 
 ## fs.fstatSync(fd)
 
@@ -678,9 +688,9 @@ Synchronous link(2). Returns `undefined`.
 * `callback` {Function}
 
 Asynchronous lstat(2). The callback gets two arguments `(err, stats)` where
-`stats` is a `fs.Stats` object. `lstat()` is identical to `stat()`, except that if
-`path` is a symbolic link, then the link itself is stat-ed, not the file that it
-refers to.
+`stats` is a [`fs.Stats`][] object. `lstat()` is identical to `stat()`,
+except that if `path` is a symbolic link, then the link itself is stat-ed,
+not the file that it refers to.
 
 ## fs.lstatSync(path)
 
@@ -797,8 +807,8 @@ the end of the file.
 
 _Note: The behavior of `fs.open()` is platform specific for some flags. As such,
 opening a directory on OS X and Linux with the `'a+'` flag - see example below -
-will return an error. Whereas on Windows and FreeBSD a file descriptor will be
-returned._
+will return an error. In contrast, on Windows and FreeBSD, a file descriptor
+will be returned._
 
 ```js
 // OS X and Linux
@@ -962,7 +972,7 @@ Synchronous version of [`fs.read()`][]. Returns the number of `bytesRead`.
   * `encoding` {String} default = `'utf8'`
 * `callback` {Function}
 
-Asynchronous realpath(2). The `callback` gets two arguments `(err,
+Asynchronous realpath(3). The `callback` gets two arguments `(err,
 resolvedPath)`. May use `process.cwd` to resolve relative paths.
 
 The optional `options` argument can be a string specifying an encoding, or an
@@ -976,7 +986,7 @@ the path returned will be passed as a `Buffer` object.
 * `options` {String | Object}
   * `encoding` {String} default = `'utf8'`
 
-Synchronous realpath(2). Returns the resolved path.
+Synchronous realpath(3). Returns the resolved path.
 
 The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use for

@@ -160,7 +160,8 @@ Emitted when the stream and any of its underlying resources (a file
 descriptor, for example) have been closed. The event indicates that
 no more events will be emitted, and no further computation will occur.
 
-Not all streams will emit the `'close'` event.
+Not all streams will emit the `'close'` event as the `'close'` event is
+optional.
 
 #### Event: 'data'
 
@@ -573,6 +574,15 @@ Examples of writable streams include:
 * [child process stdin][]
 * [`process.stdout`][], [`process.stderr`][]
 
+#### Event: 'close'
+
+Emitted when the stream and any of its underlying resources (a file descriptor,
+for example) have been closed. The event indicates that no more events will be
+emitted, and no further computation will occur.
+
+Not all streams will emit the `'close'` event as the `'close'` event is
+optional.
+
 #### Event: 'drain'
 
 If a [`stream.write(chunk)`][stream-write] call returns `false`, then the
@@ -695,6 +705,7 @@ file.end('world!');
 #### writable.setDefaultEncoding(encoding)
 
 * `encoding` {String} The new default encoding
+* Return: `this`
 
 Sets the default encoding for a writable stream.
 
