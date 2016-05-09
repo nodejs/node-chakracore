@@ -10,7 +10,7 @@ if (common.hasCrypto) {
   expected_keys.push('openssl');
 }
 
-if (!common.isChakraEngine && typeof Intl !== 'undefined') {
+if (typeof Intl !== 'undefined') {
   expected_keys.push('icu');
 }
 
