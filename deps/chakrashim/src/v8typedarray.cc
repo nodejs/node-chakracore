@@ -54,6 +54,18 @@ size_t ArrayBufferView::ByteLength() {
   return result;
 }
 
+size_t TypedArray::Length() {
+  JsValueRef typedArrayRef = (JsValueRef)this;
+  int result;
+  if (jsrt::GetProperty(typedArrayRef,
+                        IsolateShim::GetCurrent()->GetCachedPropertyIdRef
+                        (jsrt::CachedPropertyIdRef::length),
+                       &result) != JsNoError) {
+                    return 0;
+  }
+  return result;
+}
+
 JsErrorCode Utils::NewTypedArray(ContextShim::GlobalType constructorIndex,
                                  Handle<ArrayBuffer> array_buffer,
                                  size_t byte_offset, size_t length,

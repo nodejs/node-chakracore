@@ -101,6 +101,7 @@
         'src/v8objecttemplate.cc',
         'src/v8persistent.cc',
         'src/v8private.cc',
+        'src/v8proxy.cc',
         'src/v8script.cc',
         'src/v8signature.cc',
         'src/v8stacktrace.cc',

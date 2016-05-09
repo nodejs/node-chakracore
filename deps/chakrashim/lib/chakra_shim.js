@@ -521,6 +521,10 @@
     utils.dequeueMicrotask = function(task) {
       return microTasks.shift();
     };
+    utils.isProxy = function(value) {
+      // CHAKRA-TODO: Need to add JSRT API to detect this
+      return false;
+    };
   }
 
   patchErrorTypes();
