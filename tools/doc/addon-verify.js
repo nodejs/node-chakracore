@@ -10,7 +10,7 @@ const verifyDir = path.resolve(rootDir, 'test', 'addons');
 
 const contents = fs.readFileSync(doc).toString();
 
-const tokens = marked.lexer(contents, {});
+const tokens = marked.lexer(contents);
 let files = null;
 let id = 0;
 
@@ -89,6 +89,7 @@ ${files[name]}
       targets: [
         {
           target_name: 'addon',
+          defines: [ 'V8_DEPRECATION_WARNINGS=1' ],
           sources: files.map(function(file) {
             return file.name;
           })

@@ -36,8 +36,8 @@ BUILDTYPE_LOWER := $(shell echo $(BUILDTYPE) | tr '[A-Z]' '[a-z]')
 EXEEXT := $(shell $(PYTHON) -c \
 		"import sys; print('.exe' if sys.platform == 'win32' else '')")
 
-NODE ?= ./node$(EXEEXT)
 NODE_EXE = node$(EXEEXT)
+NODE ?= ./$(NODE_EXE)
 NODE_G_EXE = node_g$(EXEEXT)
 
 # Flags for packaging.
@@ -116,7 +116,7 @@ v8:
 
 test: | build-addons cctest  # Both targets depend on 'all'.
 	$(PYTHON) tools/test.py --mode=release -J \
-		addon doctool message parallel sequential
+		addon doctool known_issues message parallel sequential
 	$(MAKE) lint
 
 test-parallel: all
@@ -127,13 +127,14 @@ test-valgrind: all
 
 test/gc/node_modules/weak/build/Release/weakref.node: $(NODE_EXE)
 	$(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp rebuild \
+		--python="$(PYTHON)" \
 		--directory="$(shell pwd)/test/gc/node_modules/weak" \
 		--nodedir="$(shell pwd)"
 
 # Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
-test/addons/.docbuildstamp: doc/api/addons.md
+test/addons/.docbuildstamp: tools/doc/addon-verify.js doc/api/addons.md
 	$(RM) -r test/addons/??_*/
-	$(NODE) tools/doc/addon-verify.js
+	$(NODE) $<
 	touch $@
 
 ADDONS_BINDING_GYPS := \
@@ -144,11 +145,12 @@ ADDONS_BINDING_GYPS := \
 test/addons/.buildstamp: $(ADDONS_BINDING_GYPS) \
 	deps/uv/include/*.h deps/v8/include/*.h \
 	src/node.h src/node_buffer.h src/node_object_wrap.h \
-	| test/addons/.docbuildstamp
+	test/addons/.docbuildstamp
 	# Cannot use $(wildcard test/addons/*/) here, it's evaluated before
 	# embedded addons have been generated from the documentation.
 	for dirname in test/addons/*/; do \
 		$(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp rebuild \
+			--python="$(PYTHON)" \
 			--directory="$$PWD/$$dirname" \
 			--nodedir="$$PWD" || exit 1 ; \
 	done
@@ -176,7 +178,7 @@ test-all-valgrind: test-build
 test-ci: | build-addons
 	$(PYTHON) tools/test.py $(PARALLEL_ARGS) -p tap --logfile test.tap \
 		--mode=release --flaky-tests=$(FLAKY_TESTS) \
-		$(TEST_CI_ARGS) addons doctool message parallel sequential
+		$(TEST_CI_ARGS) addons doctool known_issues message parallel sequential
 
 test-release: test-build
 	$(PYTHON) tools/test.py --mode=release
@@ -200,7 +202,7 @@ test-debugger: all
 	$(PYTHON) tools/test.py debugger
 
 test-known-issues: all
-	$(PYTHON) tools/test.py known_issues --expect-fail
+	$(PYTHON) tools/test.py known_issues
 
 test-npm: $(NODE_EXE)
 	NODE=$(NODE) tools/test-npm.sh
@@ -258,7 +260,9 @@ apidoc_dirs = out/doc out/doc/api/ out/doc/api/assets
 
 apiassets = $(subst api_assets,api/assets,$(addprefix out/,$(wildcard doc/api_assets/*)))
 
-doc: $(apidoc_dirs) $(apiassets) $(apidocs) tools/doc/ $(NODE_EXE)
+doc-only: $(apidoc_dirs) $(apiassets) $(apidocs) tools/doc/
+
+doc: $(NODE_EXE) doc-only
 
 $(apidoc_dirs):
 	mkdir -p $@
@@ -269,11 +273,11 @@ out/doc/api/assets/%: doc/api_assets/% out/doc/api/assets/
 out/doc/%: doc/%
 	cp -r $< $@
 
-out/doc/api/%.json: doc/api/%.md $(NODE_EXE)
+out/doc/api/%.json: doc/api/%.md
 	$(NODE) tools/doc/generate.js --format=json $< > $@
 
-out/doc/api/%.html: doc/api/%.md $(NODE_EXE)
-	$(NODE) tools/doc/generate.js --format=html --template=doc/template.html $< > $@
+out/doc/api/%.html: doc/api/%.md
+	$(NODE) tools/doc/generate.js --node-version=$(FULLVERSION) --format=html --template=doc/template.html $< > $@
 
 docopen: out/doc/api/all.html
 	-google-chrome out/doc/api/all.html
@@ -663,5 +667,5 @@ endif
 	blog blogclean tar binary release-only bench-http-simple bench-idle \
 	bench-all bench bench-misc bench-array bench-buffer bench-net \
 	bench-http bench-fs bench-tls cctest run-ci test-v8 test-v8-intl \
-	test-v8-benchmarks test-v8-all v8 lint-ci bench-ci jslint-ci \
+	test-v8-benchmarks test-v8-all v8 lint-ci bench-ci jslint-ci doc-only \
 	$(TARBALL)-headers

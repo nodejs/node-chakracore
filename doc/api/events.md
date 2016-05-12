@@ -29,27 +29,6 @@ the `eventEmitter.emit()` method is used to trigger the event.
 
 ```js
 const EventEmitter = require('events');
-const util = require('util');
-
-function MyEmitter() {
-  EventEmitter.call(this);
-}
-util.inherits(MyEmitter, EventEmitter);
-
-const myEmitter = new MyEmitter();
-myEmitter.on('event', () => {
-  console.log('an event occurred!');
-});
-myEmitter.emit('event');
-```
-
-Any object can become an `EventEmitter` through inheritance. The example above
-uses the traditional Node.js style prototypical inheritance using
-the `util.inherits()` method. It is, however, possible to use ES6 classes as
-well:
-
-```js
-const EventEmitter = require('events');
 
 class MyEmitter extends EventEmitter {}
 
@@ -526,6 +505,6 @@ Returns a reference to the `EventEmitter` so calls can be chained.
 [`fs.ReadStream`]: fs.html#fs_class_fs_readstream
 [`emitter.setMaxListeners(n)`]: #events_emitter_setmaxlisteners_n
 [`EventEmitter.defaultMaxListeners`]: #events_eventemitter_defaultmaxlisteners
-[`emitter.listenerCount()`]: #events_emitter_listenercount_event
+[`emitter.listenerCount()`]: #events_emitter_listenercount_eventname
 [`domain`]: domain.html
 [stream]: stream.html

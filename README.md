@@ -1,6 +1,13 @@
 Node.js on ChakraCore
 ===
 This project enables Node.js to optionally use the ChakraCore JavaScript engine. This project is still **work in progress** and not an officially supported Node.js branch. Please refer to the original [PR](https://github.com/nodejs/node/pull/4765).
+## Resources for Newcomers
+
+* [Website](https://nodejs.org/en/)
+* [Contributing to the project](./CONTRIBUTING.md)
+* IRC (general questions): [#node.js on chat.freenode.net](https://webchat.freenode.net?channels=node.js&uio=d4)
+* IRC (node core development): [#node-dev on chat.reenode.net](https://webchat.freenode.net?channels=node-dev&uio=d4)
+
 
 ### How it works
 
@@ -36,7 +43,6 @@ vcbuild chakracore nobuild test [x86|x64|arm]
 ```
 
 To test if Node.js was built correctly with ChakraCore:
-
 ```batch
 C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
