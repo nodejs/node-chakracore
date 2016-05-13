@@ -30,8 +30,8 @@ d.on('error', function(er) {
   }
 
   const typeErrMsg = common.engineSpecificMessage({
-    v8 : "Cannot read property 'isDirectory' of undefined",
-    chakracore : "Unable to get property 'isDirectory' of undefined or\
+    v8: "Cannot read property 'isDirectory' of undefined",
+    chakracore: "Unable to get property 'isDirectory' of undefined or\
  null reference"
   });
 

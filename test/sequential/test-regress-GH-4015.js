@@ -8,8 +8,8 @@ var cmd = '"' + process.execPath + '" ' +
 
 exec(cmd, function(err, stdout, stderr) {
   const expectedError = common.engineSpecificMessage({
-    v8 : /RangeError: Maximum call stack size exceeded/,
-    chakracore : /Error: Out of stack space/
+    v8: /RangeError: Maximum call stack size exceeded/,
+    chakracore: /Error: Out of stack space/
   });
   assert(expectedError.test(stderr));
 });

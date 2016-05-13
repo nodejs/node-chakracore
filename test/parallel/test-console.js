@@ -35,12 +35,10 @@ global.process.stderr.write = function(string) {
   errStrings.push(string);
 };
 
-
 var expectedFuncToString = common.engineSpecificMessage({
-  v8 : "{ foo: 'bar', inspect: [Function] }\n",
-  chakracore : "{ foo: 'bar', inspect: [Function: inspect] }\n"
+  v8: "{ foo: 'bar', inspect: [Function] }\n",
+  chakracore: "{ foo: 'bar', inspect: [Function: inspect] }\n"
 });
-
 
 // test console.log()
 console.log('foo');
@@ -118,6 +116,8 @@ for (const expected of expectedStrings) {
   assert.equal(expected + '\n', errStrings.shift());   // console.warn  (stderr)
 }
 
+assert.equal(expectedFuncToString, strings.shift());
+assert.equal(expectedFuncToString, strings.shift());
 assert.notEqual(-1, strings.shift().indexOf('foo: [Object]'));
 assert.equal(-1, strings.shift().indexOf('baz'));
 assert.ok(/^label: \d+\.\d{3}ms$/.test(strings.shift().trim()));
@@ -138,3 +138,4 @@ assert.throws(() => {
 assert.doesNotThrow(() => {
   console.assert(true, 'this should not throw');
 });
+

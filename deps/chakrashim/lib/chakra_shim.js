@@ -310,7 +310,7 @@
   function ensureDebug(otherGlobal) {
     if (!global.Debug) {
       Object_defineProperty(global, 'Debug', {
-        value: {}, enumerable : false, configurable : false, writable : false
+        value: {}, enumerable: false, configurable: false, writable: false
       });
     }
 

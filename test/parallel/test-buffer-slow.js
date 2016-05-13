@@ -36,8 +36,8 @@ try {
     SlowBuffer(buffer.kMaxLength).length, buffer.kMaxLength);
 } catch (e) {
   assert.equal(e.message, common.engineSpecificMessage({
-    v8 : 'Array buffer allocation failed',
-    chakracore : 'Invalid offset/length when creating typed array'
+    v8: 'Array buffer allocation failed',
+    chakracore: 'Invalid offset/length when creating typed array'
   }));
 }
 
@@ -53,8 +53,8 @@ assert.strictEqual(SlowBuffer('string').length, 0);
 
 // should throw with invalid length
 var expectedError = common.engineSpecificMessage({
-  v8 : 'invalid Buffer length',
-  chakracore : 'Invalid offset/length when creating typed array'
+  v8: 'invalid Buffer length',
+  chakracore: 'Invalid offset/length when creating typed array'
 });
 assert.throws(function() {
   SlowBuffer(Infinity);

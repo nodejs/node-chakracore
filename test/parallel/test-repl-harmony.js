@@ -8,8 +8,8 @@ var child = spawn(process.execPath, args);
 
 var input = '(function(){"use strict"; const y=1;y=2})()\n';
 var expectedOutput = common.engineSpecificMessage({
-  v8 : /^> TypeError: Assignment to constant variable.\n/,
-  chakracore : /^> SyntaxError: Assignment to const\n/
+  v8: /^> TypeError: Assignment to constant variable.\n/,
+  chakracore: /^> SyntaxError: Assignment to const\n/
 });
 
 child.stderr.setEncoding('utf8');

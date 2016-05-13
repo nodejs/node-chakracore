@@ -7,13 +7,13 @@ var msg = {test: 'this'};
 var nodeCopyPath = path.join(common.tmpDir, 'node-copy.exe');
 var chakracoreCopyPath = path.join(common.tmpDir, 'chakracore.dll');
 var exePaths = [
-    {srcPath : process.execPath,
-     destPath : nodeCopyPath}];
+    {srcPath: process.execPath,
+     destPath: nodeCopyPath}];
 if (common.isChakraEngine) {
   // chakra needs chakracore.dll as well
   exePaths.push(
-      {srcPath : process.execPath.replace('node.exe', 'chakracore.dll'),
-       destPath : chakracoreCopyPath});
+      {srcPath: process.execPath.replace('node.exe', 'chakracore.dll'),
+       destPath: chakracoreCopyPath});
 }
 
 if (process.env.FORK) {

@@ -31,6 +31,6 @@ execFile(node, traceWarn, function(er, stdout, stderr) {
   assert(/^\(.+\)\sWarning: a bad practice warning/.test(stderr));
   assert(common.engineSpecificMessage({
     v8: /at Object\.\<anonymous\>\s\(.+warnings.js:3:9\)/,
-    chakracore:/at Anonymous function\s\(.+warnings.js:3:1\)/
+    chakracore: /at Anonymous function\s\(.+warnings.js:3:1\)/
   }).test(stderr));
 });

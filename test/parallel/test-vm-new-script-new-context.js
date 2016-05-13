@@ -26,8 +26,8 @@ assert.throws(function() {
   script.runInNewContext();
 },
 common.engineSpecificMessage({
-  v8 : /not defined/,
-  chakracore : /undefined or null/
+  v8: /not defined/,
+  chakracore: /undefined or null/
 }));
 
 global.hello = 5;
@@ -66,8 +66,8 @@ assert.throws(function() {
   script.runInNewContext();
 },
 common.engineSpecificMessage({
-  v8 : /f is not defined/,
-  chakracore : /'a' of undefined or null/
+  v8: /f is not defined/,
+  chakracore: /'a' of undefined or null/
 }));
 
 console.error('invalid this');
