@@ -140,13 +140,13 @@ generated output.
 
 ```js
 const exec = require('child_process').exec;
-const child = exec('cat *.js bad_file | wc -l',
-  (error, stdout, stderr) => {
-    console.log(`stdout: ${stdout}`);
-    console.log(`stderr: ${stderr}`);
-    if (error !== null) {
-      console.log(`exec error: ${error}`);
-    }
+exec('cat *.js bad_file | wc -l', (error, stdout, stderr) => {
+  if (error) {
+    console.error(`exec error: ${error}`);
+    return;
+  }
+  console.log(`stdout: ${stdout}`);
+  console.log(`stderr: ${stderr}`);
 });
 ```
 
@@ -1040,9 +1040,9 @@ to the same value.
 ## `maxBuffer` and Unicode
 
 It is important to keep in mind that the `maxBuffer` option specifies the
-largest number of *octets* allowed on `stdout` or `stderr` - if this value is
-exceeded then the child process is terminated. This particularly impacts
-output that includes multi-byte character encodings such as UTF-8 or UTF-16.
+largest number of *octets* allowed on `stdout` or `stderr`. If this value is
+exceeded, then the child process is terminated. This particularly impacts
+output that includes multibyte character encodings such as UTF-8 or UTF-16.
 For instance, the following will output 13 UTF-8 encoded octets to `stdout`
 although there are only 4 characters:
 

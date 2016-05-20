@@ -17,7 +17,7 @@ if (common.isChakraEngine) {
 // addresses correctly and runs out of memory
 // Disabling until we get a fix upstreamed into V8
 if (common.isAix) {
-  console.log('1..0 # Skipped: Aix address range too big for scripts.');
+  common.skip('Aix address range too big for scripts.');
   return;
 }
 
@@ -26,29 +26,29 @@ process.chdir(common.tmpDir);
 // Unknown checked for to prevent flakiness, if pattern is not found,
 // then a large number of unknown ticks should be present
 runTest(/LazyCompile.*\[eval\]:1|.*%  UNKNOWN/,
-  `function f() {
-     for (var i = 0; i < 1000000; i++) {
-       i++;
-     }
-     setImmediate(function() { f(); });
-   };
-   setTimeout(function() { process.exit(0); }, 2000);
-   f();`);
+        `function f() {
+           for (var i = 0; i < 1000000; i++) {
+             i++;
+           }
+           setImmediate(function() { f(); });
+         };
+         setTimeout(function() { process.exit(0); }, 2000);
+         f();`);
 if (common.isWindows ||
     common.isSunOS ||
     common.isAix ||
     common.isLinuxPPCBE ||
     common.isFreeBSD) {
-  console.log('1..0 # Skipped: C++ symbols are not mapped for this os.');
+  common.skip('C++ symbols are not mapped for this os.');
   return;
 }
 runTest(/RunInDebugContext/,
-  `function f() {
-     require(\'vm\').runInDebugContext(\'Debug\');
-     setImmediate(function() { f(); });
-   };
-   setTimeout(function() { process.exit(0); }, 2000);
-   f();`);
+        `function f() {
+           require(\'vm\').runInDebugContext(\'Debug\');
+           setImmediate(function() { f(); });
+         };
+         setTimeout(function() { process.exit(0); }, 2000);
+         f();`);
 
 function runTest(pattern, code) {
   cp.execFileSync(process.execPath, ['-prof', '-pe', code]);

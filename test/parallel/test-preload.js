@@ -13,7 +13,7 @@ if (common.isChakraEngine) {
 
 // Refs: https://github.com/nodejs/node/pull/2253
 if (common.isSunOS) {
-  console.log('1..0 # Skipped: unreliable on SunOS');
+  common.skip('unreliable on SunOS');
   return;
 }
 
@@ -87,7 +87,7 @@ var stdinStdout = '';
 stdinProc.stdout.on('data', function(d) {
   stdinStdout += d;
 });
-stdinProc.on('exit', function(code) {
+stdinProc.on('close', function(code) {
   assert.equal(code, 0);
   assert.equal(stdinStdout, 'A\nhello\n');
 });
@@ -103,7 +103,7 @@ var replStdout = '';
 replProc.stdout.on('data', function(d) {
   replStdout += d;
 });
-replProc.on('exit', function(code) {
+replProc.on('close', function(code) {
   assert.equal(code, 0);
   const output = [
     'A',

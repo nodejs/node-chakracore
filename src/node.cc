@@ -168,6 +168,11 @@ bool force_fips_crypto = false;
 bool no_process_warnings = false;
 bool trace_warnings = false;
 
+// Set in node.cc by ParseArgs when --preserve-symlinks is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/module.js
+bool config_preserve_symlinks = false;
+
 // process-relative uptime base, initialized at start-up
 static double prog_start_time;
 static bool debugger_running;
@@ -2504,7 +2509,7 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
     cache->Set(module, exports);
   } else if (!strcmp(*module_v, "constants")) {
     exports = Object::New(env->isolate());
-    DefineConstants(exports);
+    DefineConstants(env->isolate(), exports);
     cache->Set(module, exports);
   } else if (!strcmp(*module_v, "natives")) {
     exports = Object::New(env->isolate());
@@ -3386,6 +3391,13 @@ void LoadEnvironment(Environment* env) {
   f->Call(Null(env->isolate()), 1, &arg);
 }
 
+
+void FreeEnvironment(Environment* env) {
+  CHECK_NE(env, nullptr);
+  env->Dispose();
+}
+
+
 static void PrintHelp();
 
 static bool ParseDebugOpt(const char* arg) {
@@ -3465,6 +3477,8 @@ static void PrintHelp() {
          "                        note: linked-in ICU data is\n"
          "                        present.\n"
 #endif
+         "  --preserve-symlinks   preserve symbolic links when resolving\n"
+         "                        and caching modules.\n"
 #endif
          "\n"
          "Environment variables:\n"
@@ -3594,6 +3608,8 @@ static void ParseArgs(int* argc,
     } else if (strncmp(arg, "--security-revert=", 18) == 0) {
       const char* cve = arg + 18;
       Revert(cve);
+    } else if (strcmp(arg, "--preserve-symlinks") == 0) {
+      config_preserve_symlinks = true;
     } else if (strcmp(arg, "--prof-process") == 0) {
       prof_process = true;
       short_circuit = true;

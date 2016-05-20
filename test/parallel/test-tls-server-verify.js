@@ -2,7 +2,7 @@
 var common = require('../common');
 
 if (!common.opensslCli) {
-  console.log('1..0 # Skipped: node compiled without OpenSSL CLI.');
+  common.skip('node compiled without OpenSSL CLI.');
   return;
 }
 
@@ -99,12 +99,14 @@ var testCases =
     ];
 
 if (!common.hasCrypto) {
-  console.log('1..0 # Skipped: missing crypto');
+  common.skip('missing crypto');
   return;
 }
 var tls = require('tls');
 
-var constants = require('constants');
+const SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION =
+  require('crypto').constants.SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+
 var assert = require('assert');
 var fs = require('fs');
 var spawn = require('child_process').spawn;
@@ -262,7 +264,7 @@ function runTest(port, testIndex) {
    */
   if (tcase.renegotiate) {
     serverOptions.secureOptions =
-        constants.SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
+        SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
   }
 
   var renegotiated = false;

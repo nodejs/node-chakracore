@@ -18,8 +18,9 @@ assert.equal(util.inspect(function() {}), '[Function]');
 assert.equal(util.inspect(undefined), 'undefined');
 assert.equal(util.inspect(null), 'null');
 assert.equal(util.inspect(/foo(bar\n)?/gi), '/foo(bar\\n)?/gi');
-assert.equal(util.inspect(new Date('Sun, 14 Feb 2010 11:48:40 GMT')),
+assert.strictEqual(util.inspect(new Date('Sun, 14 Feb 2010 11:48:40 GMT')),
   new Date('2010-02-14T12:48:40+01:00').toISOString());
+assert.strictEqual(util.inspect(new Date('')), (new Date('')).toString());
 
 assert.equal(util.inspect('\n\u0001'), "'\\n\\u0001'");
 
@@ -213,9 +214,14 @@ assert.equal(util.inspect(value), '{ a: [Circular] }');
 
 // Array with dynamic properties
 value = [1, 2, 3];
-value.__defineGetter__('growingLength', function() {
-  this.push(true); return this.length;
-});
+Object.defineProperty(
+  value,
+  'growingLength',
+  {
+    enumerable: true,
+    get: () => { this.push(true); return this.length; }
+  }
+);
 assert.equal(util.inspect(value), '[ 1, 2, 3, growingLength: [Getter] ]');
 
 // Function with properties
