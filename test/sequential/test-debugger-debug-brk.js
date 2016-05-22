@@ -5,6 +5,12 @@ var spawn = require('child_process').spawn;
 
 var script = common.fixturesDir + '/empty.js';
 
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
+
 function fail() {
   assert(0); // `node --debug-brk script.js` should not quit
 }
