@@ -41,6 +41,12 @@ vcbuild chakracore nosign [x86|x64|arm]
 ```batch
 vcbuild chakracore nobuild test [x86|x64|arm]
 ```
+* [bengl](https://github.com/bengl) - **Bryan English** &lt;bryan@bryanenglish.com&gt;
+* [bmeck](https://github.com/bmeck) - **Bradley Farias** &lt;bradley.meck@gmail.com&gt;
+* [firedfox](https://github.com/firedfox) - **Daniel Wang** &lt;wangyang0123@gmail.com&gt;
+* [jhamhader](https://github.com/jhamhader) - **Yuval Brik** &lt;yuval@brik.org.il&gt;
+* [othiym23](https://github.com/othiym23) - **Forrest L Norvell** &lt;ogd@aoaioxxysz.net&gt;
+* [yorkie](https://github.com/yorkie) - **Yorkie Liu** &lt;yorkiefixer@gmail.com&gt;
 
 To test if Node.js was built correctly with ChakraCore:
 ```batch

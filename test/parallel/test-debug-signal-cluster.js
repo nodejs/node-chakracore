@@ -9,7 +9,7 @@ if (common.isChakraEngine) {
   return;
 }
 
-var port = common.PORT + 42;
+const PORT_MIN = common.PORT + 1;  // The fixture uses common.PORT.
 var args = ['--debug-port=' + port,
             common.fixturesDir + '/clustered-server/app.js'];
 var options = { stdio: ['inherit', 'inherit', 'pipe', 'ipc'] };

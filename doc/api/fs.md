@@ -914,7 +914,7 @@ const tmpDir = '/tmp';
 fs.mkdtemp(tmpDir, (err, folder) => {
   if (err) throw err;
   console.log(folder);
-    // Will print something similar to `/tmp-abc123`.
+    // Will print something similar to `/tmpabc123`.
     // Note that a new temporary directory is created
     // at the file system root rather than *within*
     // the /tmp directory.
@@ -931,7 +931,7 @@ fs.mkdtemp(tmpDir + path.sep, (err, folder) => {
 });
 ```
 
-## fs.mkdtempSync(template)
+## fs.mkdtempSync(prefix)
 <!-- YAML
 added: v5.10.0
 -->
@@ -1467,6 +1467,7 @@ to be notified of filesystem changes.
 * On OS X, this uses `kqueue` for files and 'FSEvents' for directories.
 * On SunOS systems (including Solaris and SmartOS), this uses `event ports`.
 * On Windows systems, this feature depends on `ReadDirectoryChangesW`.
+* On Aix systems, this feature depends on `AHAFS`, which must be enabled.
 
 If the underlying functionality is not available for some reason, then
 `fs.watch` will not be able to function. For example, watching files or
@@ -1930,6 +1931,7 @@ The following constants are meant for use with the [`fs.Stats`][] object's
 [`fs.FSWatcher`]: #fs_class_fs_fswatcher
 [`fs.futimes()`]: #fs_fs_futimes_fd_atime_mtime_callback
 [`fs.lstat()`]: #fs_fs_lstat_path_callback
+[`fs.mkdtemp()`]: #fs_fs_mkdtemp_prefix_callback
 [`fs.open()`]: #fs_fs_open_path_flags_mode_callback
 [`fs.read()`]: #fs_fs_read_fd_buffer_offset_length_position_callback
 [`fs.readFile`]: #fs_fs_readfile_file_options_callback
