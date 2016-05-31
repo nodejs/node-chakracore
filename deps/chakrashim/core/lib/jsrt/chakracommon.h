@@ -313,7 +313,12 @@
         ///     Calling <c>JsSetException</c> will also dispatch the exception to the script debugger
         ///     (if any) giving the debugger a chance to break on the exception.
         /// </summary>
-        JsRuntimeAttributeDispatchSetExceptionsToDebugger = 0x00000040
+        JsRuntimeAttributeDispatchSetExceptionsToDebugger = 0x00000040,
+        /// <summary>
+        ///     Runtime will enable Simdjs experimental feature.
+        /// </summary>
+        JsRuntimeAttributeEnableSimdjsFeature = 0x00000080
+
     } JsRuntimeAttributes;
 
     /// <summary>
