@@ -26,9 +26,10 @@ namespace v8 {
 
 HeapProfiler dummyHeapProfiler;
 CpuProfiler dummyCpuProfiler;
+extern bool g_enableSimdjs;
 
 Isolate* Isolate::New(const CreateParams& params) {
-  Isolate* iso = jsrt::IsolateShim::New();
+  Isolate* iso = jsrt::IsolateShim::New(g_enableSimdjs);
   if (params.array_buffer_allocator) {
     V8::SetArrayBufferAllocator(params.array_buffer_allocator);
   }

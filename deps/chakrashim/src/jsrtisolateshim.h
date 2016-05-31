@@ -51,7 +51,7 @@ class IsolateShim {
   bool Dispose();
   bool IsDisposing();
 
-  static v8::Isolate * New();
+  static v8::Isolate * New(bool enableSimd = false);
   static v8::Isolate * GetCurrentAsIsolate();
   static IsolateShim * GetCurrent();
   static IsolateShim * FromIsolate(v8::Isolate * isolate);
