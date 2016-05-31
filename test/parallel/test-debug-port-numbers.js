@@ -11,6 +11,12 @@ const spawn = require('child_process').spawn;
 // instead of just the debugger process.
 const detached = !common.isWindows;
 
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
+  'because debugger support is not implemented yet.');
+  return;
+}
+
 const children = [];
 for (let i = 0; i < 4; i += 1) {
   const port = common.PORT + i;
