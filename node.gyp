@@ -721,7 +721,10 @@
           ],
         }],
         ['node_engine=="chakracore"', {
-          'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
+          'dependencies': [ 
+             'deps/chakrashim/chakrashim.gyp:chakrashim',
+             'deps/uv/uv.gyp:libuv'
+          ],
         }],
       ],
       'msvs_settings': {

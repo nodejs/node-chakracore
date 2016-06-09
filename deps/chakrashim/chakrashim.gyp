@@ -16,7 +16,8 @@
 
       'include_dirs': [
         'include',
-        '<(SHARED_INTERMEDIATE_DIR)'
+        '<(SHARED_INTERMEDIATE_DIR)',
+        './../uv/include'
       ],
       'defines': [
         'BUILDING_CHAKRASHIM=1',

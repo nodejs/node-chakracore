@@ -101,6 +101,8 @@ Local<Script> Script::Compile(Handle<String> source,
 }
 
 MaybeLocal<Value> Script::Run(Local<Context> context) {
+  jsrt::IsolateShim::GetCurrent()->SetScriptExecuted();
+
   JsValueRef scriptFunction;
   if (jsrt::GetProperty(this, CachedPropertyIdRef::function,
                         &scriptFunction) != JsNoError) {

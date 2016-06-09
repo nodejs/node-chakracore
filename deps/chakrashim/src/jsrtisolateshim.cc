@@ -24,6 +24,9 @@
 #include <vector>
 #include <algorithm>
 
+namespace v8 {
+extern bool g_disableIdleGc;
+}
 namespace jsrt {
 
 /* static */ __declspec(thread) IsolateShim * IsolateShim::s_currentIsolate;
@@ -48,6 +51,11 @@ IsolateShim::~IsolateShim() {
   assert(runtime == JS_INVALID_REFERENCE);
   assert(this->next == nullptr);
   assert(this->prevnext == nullptr);
+
+  if (IsolateShim::IsIdleGcEnabled()) {
+    uv_close(reinterpret_cast<uv_handle_t*>(idleGc_prepare_handle()), nullptr);
+    uv_close(reinterpret_cast<uv_handle_t*>(idleGc_timer_handle()), nullptr);
+  }
 }
 
 /* static */ v8::Isolate * IsolateShim::New(bool enableSimd) {
@@ -57,19 +65,28 @@ IsolateShim::~IsolateShim() {
     return nullptr;
   }
 
+  bool disableIdleGc = v8::g_disableIdleGc;
   JsRuntimeHandle runtime;
   JsErrorCode error =
     JsCreateRuntime(static_cast<JsRuntimeAttributes>(
       JsRuntimeAttributeAllowScriptInterrupt |
       JsRuntimeAttributeEnableExperimentalFeatures |
-      (enableSimd? JsRuntimeAttributeEnableSimdjsFeature :
-       JsRuntimeAttributeNone)),
-                    nullptr, &runtime);
+      (enableSimd ? JsRuntimeAttributeEnableSimdjsFeature :
+       JsRuntimeAttributeNone) |
+      (disableIdleGc ? JsRuntimeAttributeNone :
+       JsRuntimeAttributeEnableIdleProcessing)), nullptr, &runtime);
   if (error != JsNoError) {
     return nullptr;
   }
 
-  return ToIsolate(new IsolateShim(runtime));
+  IsolateShim* newIsolateshim = new IsolateShim(runtime);
+  if (!disableIdleGc) {
+    uv_prepare_init(uv_default_loop(), newIsolateshim->idleGc_prepare_handle());
+    uv_unref(reinterpret_cast<uv_handle_t*>(newIsolateshim->idleGc_prepare_handle()));
+    uv_timer_init(uv_default_loop(), newIsolateshim->idleGc_timer_handle());
+    uv_unref(reinterpret_cast<uv_handle_t*>(newIsolateshim->idleGc_timer_handle()));
+  }
+  return ToIsolate(newIsolateshim);
 }
 
 /* static */ IsolateShim * IsolateShim::FromIsolate(v8::Isolate * isolate) {

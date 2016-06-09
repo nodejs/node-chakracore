@@ -397,6 +397,11 @@ bool ContextShim::EnsureInitialized() {
     return false;
   }
 
+  // add idleGC callback into prepareQueue
+  if (IsolateShim::IsIdleGcEnabled()) {
+    uv_prepare_start(IsolateShim::GetCurrent()->idleGc_prepare_handle(), PrepareIdleGC);
+  }
+
   return true;
 }
 

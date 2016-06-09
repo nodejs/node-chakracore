@@ -1061,5 +1061,47 @@ JsValueRef CALLBACK CollectGarbage(
   return jsrt::GetUndefined();
 }
 
+void IdleGC(uv_timer_t *timerHandler) {
+  unsigned int nextIdleTicks;
+  CHAKRA_VERIFY(JsIdle(&nextIdleTicks) == JsNoError);
+  DWORD currentTicks = GetTickCount();
+
+  // If idleGc completed, we don't need to schedule anything.
+  // simply reset the script execution flag so that idleGC
+  // is retriggered only when scripts are executed.
+  if (nextIdleTicks == UINT_MAX) {
+    IsolateShim::GetCurrent()->ResetScriptExecuted();
+    IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
+    return;
+  }
+
+  // If IdleGC didn't complete, retry doing it after diff.
+  if (nextIdleTicks > currentTicks) {
+    unsigned int diff = nextIdleTicks - currentTicks;
+    ScheduleIdleGcTask(diff);
+  } else {
+    IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
+  }
+}
+
+void PrepareIdleGC(uv_prepare_t* prepareHandler) {
+  // If there were no scripts executed, return
+  if (!IsolateShim::GetCurrent()->IsJsScriptExecuted()) {
+    return;
+  }
+
+  // If idleGC task already scheduled, return
+  if (IsolateShim::GetCurrent()->IsIdleGcScheduled()) {
+    return;
+  }
+
+  ScheduleIdleGcTask();
+}
+
+void ScheduleIdleGcTask(uint64_t timeoutInMilliSeconds) {
+  uv_timer_start(IsolateShim::GetCurrent()->idleGc_timer_handle(),
+                 IdleGC, timeoutInMilliSeconds, 0);
+  IsolateShim::GetCurrent()->SetIsIdleGcScheduled();
+}
 }  // namespace jsrt
 

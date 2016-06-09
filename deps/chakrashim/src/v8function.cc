@@ -59,6 +59,8 @@ Local<Object> Function::NewInstance() const {
 MaybeLocal<Value> Function::Call(Local<Context> context,
                                  Handle<Value> recv, int argc,
                                  Handle<Value> argv[]) {
+  IsolateShim::GetCurrent()->SetScriptExecuted();
+
   jsrt::JsArguments<> args(argc + 1);
   args[0] = *recv;
 

@@ -21,6 +21,7 @@
 #pragma once
 
 #include "v8.h"
+#include "uv.h"
 #include "jsrtproxyutils.h"
 #include "jsrtcontextshim.h"
 #include "jsrtisolateshim.h"
@@ -324,6 +325,12 @@ void Unimplemented(const char * message);
 
 void Fatal(const char * format, ...);
 
+void ScheduleIdleGcTask(uint64_t timeoutInMilliSeconds = 1000);
+
+void PrepareIdleGC(uv_prepare_t* prepareHandler);
+
+void IdleGC(uv_timer_t *timerHandler);
+
 // Arguments buffer for JsCallFunction
 template <int STATIC_COUNT = 4>
 class JsArguments {
@@ -451,5 +458,6 @@ inline JsErrorCode ValueToDoubleLikely(JsValueRef value, double* dblValue) {
   return ValueToNative</*LIKELY*/true>(
     JsConvertValueToNumber, JsNumberToDouble, value, dblValue);
 }
+
 }  // namespace jsrt
 

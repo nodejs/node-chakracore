@@ -18,6 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#include "uv.h"
 #include <unordered_map>
 #include <vector>
 
@@ -25,7 +26,7 @@ namespace v8 {
 
 class Isolate;
 class TryCatch;
-
+extern bool g_disableIdleGc;
 }  // namespace v8
 
 namespace jsrt {
@@ -84,7 +85,9 @@ class IsolateShim {
   void DisableExecution();
   bool IsExeuctionDisabled();
   void EnableExecution();
-
+  static inline bool IsIdleGcEnabled() {
+    return !v8::g_disableIdleGc;
+  }
 
   bool AddMessageListener(void * that);
   void RemoveMessageListeners(void * that);
@@ -97,6 +100,38 @@ class IsolateShim {
 
   void SetData(unsigned int slot, void* data);
   void* GetData(unsigned int slot);
+
+  inline uv_prepare_t* idleGc_prepare_handle() {
+    return &idleGc_prepare_handle_;
+  }
+
+  inline uv_timer_t* idleGc_timer_handle() {
+    return &idleGc_timer_handle_;
+  }
+
+  inline bool IsJsScriptExecuted() {
+    return jsScriptExecuted;
+  }
+
+  inline void SetScriptExecuted() {
+    jsScriptExecuted = true;
+  }
+  inline void ResetScriptExecuted() {
+    jsScriptExecuted = false;
+  }
+
+  inline void SetIsIdleGcScheduled() {
+    isIdleGcScheduled = true;
+  }
+
+  inline void ResetIsIdleGcScheduled() {
+    isIdleGcScheduled = false;
+  }
+
+  inline bool IsIdleGcScheduled() {
+    return isIdleGcScheduled;
+  }
+
  private:
   // Construction/Destruction should go thru New/Dispose
   explicit IsolateShim(JsRuntimeHandle runtime);
@@ -126,6 +161,10 @@ class IsolateShim {
   static IsolateShim * s_isolateList;
 
   static __declspec(thread) IsolateShim * s_currentIsolate;
-};
 
+  uv_prepare_t idleGc_prepare_handle_;
+  uv_timer_t idleGc_timer_handle_;
+  bool jsScriptExecuted = false;
+  bool isIdleGcScheduled = false;
+};
 }  // namespace jsrt
