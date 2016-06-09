@@ -5,7 +5,7 @@
 #include "RuntimeByteCodePch.h"
 
 #if DBG_DUMP
-static const wchar_t * const SymbolTypeNames[] = { L"Function", L"Variable", L"MemberName", L"Formal", L"Unknown" };
+static const char16 * const SymbolTypeNames[] = { _u("Function"), _u("Variable"), _u("MemberName"), _u("Formal"), _u("Unknown") };
 #endif
 
 bool Symbol::GetIsArguments() const
@@ -72,11 +72,7 @@ bool Symbol::IsInSlot(FuncInfo *funcInfo, bool ensureSlotAlloc)
     }
     if (funcInfo->GetHasHeapArguments() && this->GetIsFormal() && ByteCodeGenerator::NeedScopeObjectForArguments(funcInfo, funcInfo->root))
     {
-        // Rest is a special case - it will be in a register.
-        if (funcInfo->root->sxFnc.pnodeRest != this->decl)
-        {
-            return true;
-        }
+        return true;
     }
     if (this->GetIsGlobalCatch())
     {
@@ -86,6 +82,12 @@ bool Symbol::IsInSlot(FuncInfo *funcInfo, bool ensureSlotAlloc)
     {
         return true;
     }
+    // If body and param scopes are not merged then an inner scope slot is used
+    if (!this->GetIsArguments() && this->scope->GetScopeType() == ScopeType_Parameter && !this->scope->GetCanMergeWithBodyScope())
+    {
+        return true;
+    }
+
     return this->GetHasNonLocalReference() && (ensureSlotAlloc || this->GetIsCommittedToSlot());
 }
 
@@ -173,13 +175,13 @@ void Symbol::SetHasMaybeEscapedUseInternal(ByteCodeGenerator * byteCodeGenerator
     hasMaybeEscapedUse = true;
     if (PHASE_TESTTRACE(Js::StackFuncPhase, byteCodeGenerator->TopFuncInfo()->byteCodeFunction))
     {
-        Output::Print(L"HasMaybeEscapedUse: %s\n", this->GetName().GetBuffer());
+        Output::Print(_u("HasMaybeEscapedUse: %s\n"), this->GetName().GetBuffer());
         Output::Flush();
     }
     if (this->GetHasFuncAssignment())
     {
         this->GetScope()->GetFunc()->SetHasMaybeEscapedNestedFunc(
-            DebugOnly(this->symbolType == STFunction ? L"MaybeEscapedUseFuncDecl" : L"MaybeEscapedUse"));
+            DebugOnly(this->symbolType == STFunction ? _u("MaybeEscapedUseFuncDecl") : _u("MaybeEscapedUse")));
     }
 }
 
@@ -199,16 +201,16 @@ void Symbol::SetHasFuncAssignmentInternal(ByteCodeGenerator * byteCodeGenerator)
     FuncInfo * top = byteCodeGenerator->TopFuncInfo();
     if (PHASE_TESTTRACE(Js::StackFuncPhase, top->byteCodeFunction))
     {
-        Output::Print(L"HasFuncAssignment: %s\n", this->GetName().GetBuffer());
+        Output::Print(_u("HasFuncAssignment: %s\n"), this->GetName().GetBuffer());
         Output::Flush();
     }
 
     if (this->GetHasMaybeEscapedUse() || this->GetScope()->GetIsObject())
     {
         byteCodeGenerator->TopFuncInfo()->SetHasMaybeEscapedNestedFunc(DebugOnly(
-            this->GetIsFormal() ? L"FormalAssignment" :
-            this->GetScope()->GetIsObject() ? L"ObjectScopeAssignment" :
-            L"MaybeEscapedUse"));
+            this->GetIsFormal() ? _u("FormalAssignment") :
+            this->GetScope()->GetIsObject() ? _u("ObjectScopeAssignment") :
+            _u("MaybeEscapedUse")));
     }
 }
 
@@ -219,7 +221,7 @@ void Symbol::RestoreHasFuncAssignment()
     hasFuncAssignment = true;
     if (PHASE_TESTTRACE1(Js::StackFuncPhase))
     {
-        Output::Print(L"RestoreHasFuncAssignment: %s\n", this->GetName().GetBuffer());
+        Output::Print(_u("RestoreHasFuncAssignment: %s\n"), this->GetName().GetBuffer());
         Output::Flush();
     }
 }
@@ -239,7 +241,23 @@ Symbol * Symbol::GetFuncScopeVarSym() const
     if (fncScopeSym == nullptr && parentFuncInfo->GetParamScope() != nullptr)
     {
         // We couldn't find the sym in the body scope, try finding it in the parameter scope.
-        fncScopeSym = parentFuncInfo->GetParamScope()->FindLocalSymbol(this->GetName());
+        Scope* paramScope = parentFuncInfo->GetParamScope();
+        fncScopeSym = paramScope->FindLocalSymbol(this->GetName());
+        if (fncScopeSym == nullptr)
+        {
+            FuncInfo* parentParentFuncInfo = paramScope->GetEnclosingScope()->GetFunc();
+            if (parentParentFuncInfo->root->sxFnc.IsAsync())
+            {
+                // In the case of async functions the func-scope var sym might have
+                // come from the parent function parameter scope due to the syntax
+                // desugaring implementation of async functions.
+                fncScopeSym = parentParentFuncInfo->GetBodyScope()->FindLocalSymbol(this->GetName());
+                if (fncScopeSym == nullptr)
+                {
+                    fncScopeSym = parentParentFuncInfo->GetParamScope()->FindLocalSymbol(this->GetName());
+                }
+            }
+        }
     }
     Assert(fncScopeSym);
     // Parser should have added a fake var decl node for block scoped functions in non-strict mode
@@ -254,7 +272,7 @@ Symbol * Symbol::GetFuncScopeVarSym() const
 }
 
 #if DBG_DUMP
-const wchar_t * Symbol::GetSymbolTypeName()
+const char16 * Symbol::GetSymbolTypeName()
 {
     return SymbolTypeNames[symbolType];
 }

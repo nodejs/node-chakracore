@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -220,7 +220,7 @@
     <default>
       <files>let_stackfunc.js</files>
       <baseline>let_stackfunc.baseline</baseline>
-      <compile-flags>-letconst -testtrace:stackfunc -off:simpleJit -off:deferparse -on:stackfunc</compile-flags>
+      <compile-flags>-testtrace:stackfunc -off:simpleJit -off:deferparse -on:stackfunc</compile-flags>
       <tags>exclude_fre</tags>
     </default>
   </test>
@@ -228,7 +228,7 @@
     <default>
       <files>let_blockescape.js</files>
       <baseline>let_blockescape.baseline</baseline>
-      <compile-flags>-letconst -testtrace:stackfunc -off:simpleJit -off:deferparse -on:stackfunc</compile-flags>
+      <compile-flags>-testtrace:stackfunc -off:simpleJit -off:deferparse -on:stackfunc</compile-flags>
       <tags>exclude_fre</tags>
     </default>
   </test>
@@ -423,7 +423,7 @@
     <default>
       <files>let_stackfunc.js</files>
       <baseline>let_stackfunc.deferparse.baseline</baseline>
-      <compile-flags>-letconst -testtrace:stackfunc -off:simpleJit -Force:Deferparse -on:stackfunc</compile-flags>
+      <compile-flags>-testtrace:stackfunc -off:simpleJit -Force:Deferparse -on:stackfunc</compile-flags>
       <tags>exclude_fre,exclude_dynapogo</tags>
     </default>
   </test>
@@ -431,7 +431,7 @@
     <default>
       <files>let_blockescape.js</files>
       <baseline>let_blockescape.deferparse.baseline</baseline>
-      <compile-flags>-letconst -testtrace:stackfunc -off:simpleJit -Force:Deferparse -on:stackfunc</compile-flags>
+      <compile-flags>-testtrace:stackfunc -off:simpleJit -Force:Deferparse -on:stackfunc</compile-flags>
       <tags>exclude_fre,exclude_dynapogo</tags>
     </default>
   </test>
@@ -647,6 +647,13 @@
   </test>
   <test>
     <default>
+      <files>box_jitloopbody3.js</files>
+      <compile-flags>-forcejitloopbody -force:deferparse -bgjit-</compile-flags>
+      <tags>exclude_fre,exclude_arm</tags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>602481.js</files>
       <tags>exclude_dynapogo</tags>
     </default>
@@ -681,6 +688,13 @@
       <baseline>box_blockscope.baseline</baseline>
       <compile-flags>-off:simplejit -testtrace:stackfunc</compile-flags>
       <tags>exclude_fre,exclude_arm,exclude_dynapogo</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>box_native_emptyframe.js</files>
+      <baseline>box_native_emptyframe.baseline</baseline>
+      <compile-flags>-lic:1</compile-flags>
     </default>
   </test>
 </regress-exe>

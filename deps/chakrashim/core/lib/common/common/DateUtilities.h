@@ -8,9 +8,9 @@ namespace Js
 {
     // Global date constants
     extern const double g_kdblJanuary1st1970;
-    extern const wchar_t g_rgpszDay[7][4];
-    extern const wchar_t g_rgpszMonth[12][4];
-    extern const wchar_t g_rgpszZone[8][4];
+    extern const char16 g_rgpszDay[7][4];
+    extern const char16 g_rgpszMonth[12][4];
+    extern const char16 g_rgpszZone[8][4];
 
     // Utility methods to manipulate various date formats
     class DateUtilities
@@ -28,7 +28,7 @@ namespace Js
         static HRESULT WinRTDateToES5Date(INT64 winrtDate, __out double* pResult);
         static HRESULT ES5DateToWinRTDate(double es5Date, __out INT64* pResult);
         static HRESULT WinRTTimeSpanToNumberV6(INT64 span, __out double* pResult);
-        static HRESULT NumberToWinRTTimeSpanV6(double span, __out INT64* pResult);       
+        static HRESULT NumberToWinRTTimeSpanV6(double span, __out INT64* pResult);
 
         static double TimeFromSt(SYSTEMTIME *pst);
         static double DayTimeFromSt(SYSTEMTIME *pst);

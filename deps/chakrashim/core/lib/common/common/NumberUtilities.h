@@ -1,4 +1,4 @@
-//-------------------------------------------------------------------------------------------------------
+﻿//-------------------------------------------------------------------------------------------------------
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
@@ -20,10 +20,20 @@ namespace Js
         static const uint64     k_PointFive = 0x3FE0000000000000ull;
         static const uint64     k_NegPointFive = 0xBFE0000000000000ull;
         static const uint64     k_NegOne    = 0xBFF0000000000000ull;
+        static const uint64     k_OnePointZero = 0x3FF0000000000000ull;
+        // 2^52
+        static const uint64     k_TwoToFraction = 0x4330000000000000ull;
+        // -2^52
+        static const uint64     k_NegTwoToFraction = 0xC330000000000000ull;
 
         static const uint32     k_Float32Zero      = 0x00000000ul;
         static const uint32     k_Float32PointFive = 0x3F000000ul;
         static const uint32     k_Float32NegPointFive = 0xBF000000ul;
+        static const uint32     k_Float32NegZero   = 0x80000000ul;
+        // 2^23
+        static const uint32     k_Float32TwoToFraction = 0x4B000000ul;
+        // -2^23
+        static const uint32     k_Float32NegTwoToFraction = 0xCB000000ul;
 
         static const double     MAX_VALUE;
         static const double     MIN_VALUE;
@@ -31,6 +41,7 @@ namespace Js
         static const double     NEGATIVE_INFINITY;
         static const double     POSITIVE_INFINITY;
         static const double     NEG_ZERO;
+        static const double     ONE_POINT_ZERO;
 
         static const BYTE AbsDoubleCst[];
         static const BYTE AbsFloatCst[];
@@ -44,7 +55,7 @@ namespace Js
     {
     public:
         static bool IsDigit(int ch);
-        static BOOL NumberUtilities::FHexDigit(wchar_t ch, int *pw);
+        static BOOL NumberUtilities::FHexDigit(char16 ch, int *pw);
         static ulong MulLu(ulong lu1, ulong lu2, ulong *pluHi);
         static int AddLu(ulong *plu1, ulong lu2);
 
@@ -57,8 +68,10 @@ namespace Js
 
         static bool IsFinite(double value);
         static bool IsNan(double value);
+        static bool IsFloat32NegZero(float value);
         static bool IsSpecial(double value, uint64 nSpecial);
         static uint64 ToSpecial(double value);
+        static uint32 ToSpecial(float value);
 
         // Convert a given UINT16 into its corresponding string.
         // outBufferSize is in WCHAR elements (and used only for ASSERTs)
@@ -66,7 +79,7 @@ namespace Js
         static charcount_t UInt16ToString(uint16 integer, __out __ecount(outBufferSize) WCHAR* outBuffer, charcount_t outBufferSize, char widthForPaddingZerosInsteadSpaces);
 
         // Try to parse an integer string to find out if the string contains an index property name.
-        static BOOL TryConvertToUInt32(const wchar_t* str, int length, uint32* intVal);
+        static BOOL TryConvertToUInt32(const char16* str, int length, uint32* intVal);
 
         static double Modulus(double dblLeft, double dblRight);
 
@@ -81,15 +94,15 @@ namespace Js
         template<typename EncodedChar>
         static double StrToDbl(const EncodedChar *psz, const EncodedChar **ppchLim, bool& likelyInt);
 
-        static BOOL FDblToStr(double dbl, __out_ecount(nDstBufSize) wchar_t *psz, int nDstBufSize);
-        static int FDblToStr(double dbl, NumberUtilities::FormatType ft, int nDigits, __out_ecount(cchDst) wchar_t *pchDst, int cchDst);
+        static BOOL FDblToStr(double dbl, __out_ecount(nDstBufSize) char16 *psz, int nDstBufSize);
+        static int FDblToStr(double dbl, NumberUtilities::FormatType ft, int nDigits, __out_ecount(cchDst) char16 *pchDst, int cchDst);
 
         static BOOL FNonZeroFiniteDblToStr(double dbl, _Out_writes_(nDstBufSize) WCHAR* psz, int nDstBufSize);
         _Success_(return) static BOOL FNonZeroFiniteDblToStr(double dbl, _In_range_(2, 36) int radix, _Out_writes_(nDstBufSize) WCHAR* psz, int nDstBufSize);
 
         static double DblFromDecimal(DECIMAL * pdecIn);
 
-        static void CodePointAsSurrogatePair(codepoint_t codePointValue, __out wchar_t* first, __out wchar_t* second);
+        static void CodePointAsSurrogatePair(codepoint_t codePointValue, __out char16* first, __out char16* second);
         static codepoint_t SurrogatePairAsCodePoint(codepoint_t first, codepoint_t second);
 
         static bool IsSurrogateUpperPart(codepoint_t codePointValue);

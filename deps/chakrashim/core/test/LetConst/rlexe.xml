@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -198,6 +198,11 @@
   </test>
   <test>
     <default>
+      <files>tdz2.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>eval1.js</files>
       <baseline>eval1.baseline</baseline>
     </default>
@@ -366,6 +371,12 @@
       <files>loopinit.js</files>
       <compile-flags>-loopinterpretcount:1 -bgjit-</compile-flags>
       <baseline>loopinit.baseline</baseline>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>letlet.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
 </regress-exe>

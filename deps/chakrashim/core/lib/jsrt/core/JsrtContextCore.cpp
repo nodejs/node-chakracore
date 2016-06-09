@@ -3,8 +3,8 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "Runtime.h"
-#include "jsrtcontext.h"
-#include "jsrtcontextcore.h"
+#include "JsrtContext.h"
+#include "JsrtContextCore.h"
 
 JsrtContext *JsrtContext::New(JsrtRuntime * runtime)
 {
@@ -33,22 +33,22 @@ JsrtContextCore::JsrtContextCore(JsrtRuntime * runtime) :
 /* static */
 JsrtContextCore *JsrtContextCore::New(JsrtRuntime * runtime)
 {
-    return RecyclerNewFinalizedLeaf(runtime->GetThreadContext()->EnsureRecycler(), JsrtContextCore, runtime);
+    return RecyclerNewFinalized(runtime->GetThreadContext()->EnsureRecycler(), JsrtContextCore, runtime);
 }
 
 void JsrtContextCore::Dispose(bool isShutdown)
 {
-    if (nullptr != this->GetScriptContext())
+    if (nullptr != this->GetJavascriptLibrary())
     {
-        this->GetScriptContext()->MarkForClose();
-        this->SetScriptContext(nullptr);
+        this->GetJavascriptLibrary()->GetScriptContext()->MarkForClose();
+        this->SetJavascriptLibrary(nullptr);
         Unlink();
     }
 }
 
 Js::ScriptContext* JsrtContextCore::EnsureScriptContext()
 {
-    Assert(this->GetScriptContext() == nullptr);
+    Assert(this->GetJavascriptLibrary() == nullptr);
 
     ThreadContext* localThreadContext = this->GetRuntime()->GetThreadContext();
 
@@ -59,10 +59,11 @@ Js::ScriptContext* JsrtContextCore::EnsureScriptContext()
     hostContext = HeapNew(ChakraCoreHostScriptContext, newScriptContext);
     newScriptContext->SetHostScriptContext(hostContext);
 
-    this->SetScriptContext(newScriptContext.Detach());
+    this->SetJavascriptLibrary(newScriptContext.Detach()->GetLibrary());
 
     Js::JavascriptLibrary *library = this->GetScriptContext()->GetLibrary();
     Assert(library != nullptr);
+    localThreadContext->GetRecycler()->RootRelease(library->GetGlobalObject());
 
     library->GetEvalFunctionObject()->SetEntryPoint(&Js::GlobalObject::EntryEval);
     library->GetFunctionConstructor()->SetEntryPoint(&Js::JavascriptFunction::NewInstance);

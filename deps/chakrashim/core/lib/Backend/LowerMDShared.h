@@ -1,7 +1,8 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
 #pragma once
 
 class Lowerer;
@@ -55,6 +56,10 @@ public:
     static const Js::OpCode MDExtend32Opcode;
     static const Js::OpCode MDTestOpcode;
     static const Js::OpCode MDOrOpcode;
+    static const Js::OpCode MDXorOpcode;
+#if _M_X64
+    static const Js::OpCode MDMovUint64ToFloat64Opcode;
+#endif
     static const Js::OpCode MDOverflowBranchOpcode;
     static const Js::OpCode MDNotOverflowBranchOpcode;
     static const Js::OpCode MDConvertFloat32ToFloat64Opcode;
@@ -191,7 +196,7 @@ public:
      static void            EmitPtrInstr(IR::Instr *instr);
             void            EmitLoadVar(IR::Instr *instr, bool isFromUint32 = false, bool isHelper = false);
             void            EmitLoadVarNoCheck(IR::RegOpnd * dst, IR::RegOpnd * src, IR::Instr *instrLoad, bool isFromUint32, bool isHelper);
-            bool            EmitLoadInt32(IR::Instr *instr);
+            bool            EmitLoadInt32(IR::Instr *instr, bool conversionFromObjectAllowed);
             void            EmitIntToFloat(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);
             void            EmitUIntToFloat(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);
             void            EmitFloatToInt(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);
@@ -243,6 +248,7 @@ public:
             IR::Instr *         LowerCallPut(IR::Instr * callInstr);
             IR::Instr *         LoadHelperArgument(IR::Instr * instr, IR::Opnd * opndArg);
             IR::Instr *         LoadDoubleHelperArgument(IR::Instr * instr, IR::Opnd * opndArg);
+            IR::Instr *         LoadFloatHelperArgument(IR::Instr * instr, IR::Opnd * opndArg);
             IR::Instr *         LowerEntryInstr(IR::EntryInstr * entryInstr);
             IR::Instr *         LowerExitInstr(IR::ExitInstr * exitInstr);
             IR::Instr *         LowerEntryInstrAsmJs(IR::EntryInstr * entryInstr);
@@ -305,25 +311,56 @@ public:
     IR::Instr*          Simd128LoadConst(IR::Instr* instr);
     bool                Simd128TryLowerMappedInstruction(IR::Instr *instr);
     IR::Instr*          Simd128LowerUnMappedInstruction(IR::Instr *instr);
-    IR::Instr*          Simd128LowerConstructor(IR::Instr *instr);
+    IR::Instr*          Simd128LowerConstructor_2(IR::Instr *instr);
+    IR::Instr*          Simd128LowerConstructor_4(IR::Instr *instr);
+    IR::Instr*          Simd128LowerConstructor_8(IR::Instr *instr);
+    IR::Instr*          Simd128LowerConstructor_16(IR::Instr *instr);
     IR::Instr*          Simd128LowerLdLane(IR::Instr *instr);
-    IR::Instr*          SIMD128LowerReplaceLane(IR::Instr *instr);
+    IR::Instr*          SIMD128LowerReplaceLane_4(IR::Instr *instr);
+    IR::Instr*          SIMD128LowerReplaceLane_8(IR::Instr *instr);
+    IR::Instr*          SIMD128LowerReplaceLane_16(IR::Instr *instr);
     IR::Instr*          Simd128LowerSplat(IR::Instr *instr);
     IR::Instr*          Simd128LowerRcp(IR::Instr *instr, bool removeInstr = true);
     IR::Instr*          Simd128LowerSqrt(IR::Instr *instr);
     IR::Instr*          Simd128LowerRcpSqrt(IR::Instr *instr);
     IR::Instr*          Simd128LowerSelect(IR::Instr *instr);
-    IR::Instr*          Simd128LowerNegI4(IR::Instr *instr);
+    IR::Instr*          Simd128LowerNeg(IR::Instr *instr);
     IR::Instr*          Simd128LowerMulI4(IR::Instr *instr);
+    IR::Instr*          Simd128LowerShift(IR::Instr *instr);
+    IR::Instr*          Simd128LowerMulI16(IR::Instr *instr);
+    IR::Instr*          Simd128LowerInt32x4FromFloat32x4(IR::Instr *instr);
+    IR::Instr*          Simd128LowerUint32x4FromFloat32x4(IR::Instr *instr);
+    IR::Instr*          Simd128LowerFloat32x4FromUint32x4(IR::Instr *instr);
+    IR::Instr*          Simd128AsmJsLowerLoadElem(IR::Instr *instr);
     IR::Instr*          Simd128LowerLoadElem(IR::Instr *instr);
+    IR::Instr*          Simd128ConvertToLoad(IR::Opnd *dst, IR::Opnd *src1, uint8 dataWidth, IR::Instr* instr, byte scaleFactor = 0);
+    IR::Instr*          Simd128AsmJsLowerStoreElem(IR::Instr *instr);
     IR::Instr*          Simd128LowerStoreElem(IR::Instr *instr);
+    IR::Instr*          Simd128ConvertToStore(IR::Opnd *dst, IR::Opnd *src1, uint8 dataWidth, IR::Instr* instr, byte scaleFactor = 0);
+    void                Simd128LoadHeadSegment(IR::IndirOpnd *indirOpnd, ValueType arrType, IR::Instr *instr);
+    void                Simd128GenerateUpperBoundCheck(IR::RegOpnd *indexOpnd, IR::IndirOpnd *indirOpnd, ValueType arrType, IR::Instr *instr);
+    IR::Instr*          Simd128LowerSwizzle_4(IR::Instr *instr);
+    IR::Instr*          Simd128LowerShuffle_4(IR::Instr *instr);
     IR::Instr*          Simd128LowerShuffle(IR::Instr *instr);
-    IR::Opnd *          EnregisterIntConst(IR::Instr* instr, IR::Opnd *constOpnd);
+    IR::Instr*          Simd128LowerNotEqual(IR::Instr* instr);
+    IR::Instr*          Simd128LowerLessThan(IR::Instr* instr);
+    IR::Instr*          Simd128LowerLessThanOrEqual(IR::Instr* instr);
+    IR::Instr*          Simd128LowerGreaterThanOrEqual(IR::Instr* instr);
+    IR::Instr*          Simd128LowerMinMax_F4(IR::Instr* instr);
+    IR::Instr*          Simd128LowerMinMaxNum(IR::Instr* instr);
+    IR::Instr*          Simd128LowerAnyTrue(IR::Instr* instr);
+    IR::Instr*          Simd128LowerAllTrue(IR::Instr* instr);
+    BYTE                Simd128GetTypedArrBytesPerElem(ValueType arrType);
+    IR::Instr*          Simd128CanonicalizeToBools(IR::Instr* instr, const Js::OpCode& cmpOpcode, IR::Opnd& dstOpnd);
+    IR::Opnd*           EnregisterIntConst(IR::Instr* instr, IR::Opnd *constOpnd, IRType type = TyInt32);
     SList<IR::Opnd*>  * Simd128GetExtendedArgs(IR::Instr *instr);
     void                GenerateCheckedSimdLoad(IR::Instr * instr);
     void                GenerateSimdStore(IR::Instr * instr);
+    void                CheckShuffleLanes_4(uint8 lanes[], uint8 lanesSrc[], uint *fromSrc1, uint *fromSrc2);
+    void                InsertShufps(uint8 lanes[], IR::Opnd *dst, IR::Opnd *src1, IR::Opnd *src2, IR::Instr *insertBeforeInstr);
 
 private:
+
     void GenerateFlagInlineCacheCheckForGetterSetter(
         IR::Instr * insertBeforeInstr,
         IR::RegOpnd * opndInlineCache,

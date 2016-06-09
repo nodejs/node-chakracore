@@ -503,7 +503,7 @@ var tests = [
         }
     },
     {
-        name: "Derived class constructor leaks lambda which performs super (lamdba comes from middle derived class)",
+        name: "Derived class constructor leaks lambda which performs super (lambda comes from middle derived class)",
         body: function() {
             class A {
                 constructor() {
@@ -577,7 +577,7 @@ var tests = [
         }
     },
     {
-        name: "Derived class constructor leaks lambda which references 'this' in TDZ (lamdba comes from middle derived class)",
+        name: "Derived class constructor leaks lambda which references 'this' in TDZ (lambda comes from middle derived class)",
         body: function() {
             class A {
                 constructor() {
@@ -609,7 +609,7 @@ var tests = [
             class NullExtendsExpression extends null {
             };
 
-            assert.throws(function() { new NullExtendsExpression(); }, TypeError, "Class that extends null throws when we attempt to call super as [[construct]]", "Function 'super' is not a constructor");
+            assert.throws(function() { new NullExtendsExpression(); }, TypeError, "Class that extends null throws when we attempt to call super as [[construct]]");
         }
     },
     {

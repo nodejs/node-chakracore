@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
-// Verfies the order of getOwnPropertyDescriptor trap called for ownKeys
+// Verifies the order of getOwnPropertyDescriptor trap called for ownKeys
 function test1() {
     var obj = {};
     var proxy = new Proxy(obj, {
@@ -36,7 +36,7 @@ function test1() {
     print(Object.keys(proxy2));
     print('***Testing Object.getOwnPropertySymbols()');
     print(Object.getOwnPropertySymbols(proxy2).length);
-   
+
     print('***Testing Object.freeze()');
     try{
         Object.freeze(proxy2);
@@ -139,9 +139,40 @@ function test3() {
     {
         print(symbols[i].toString())
     }
-   
+
+}
+
+function test4() {
+    print("***Traps whose value is null are ignored");
+
+    function getProxy(trap, result, obj) {
+        const proxy = new Proxy(obj, {
+            [trap]: () => {
+                print(`"${trap}" called`);
+                return result;
+            }
+        });
+        return new Proxy(proxy, {
+            [trap]: null
+        });
+    }
+
+    Object.getPrototypeOf(getProxy("getPrototypeOf", {}, {}));
+    Object.setPrototypeOf(getProxy("setPrototypeOf", true, {}), {});
+    Object.isExtensible(getProxy("isExtensible", true, {}));
+    Object.preventExtensions(getProxy("preventExtensions", false, {}));
+    Object.getOwnPropertyDescriptor(getProxy("getOwnPropertyDescriptor", undefined, {}));
+    Object.defineProperty(getProxy("defineProperty", true, {}), "prop", { value: 0 });
+    "prop" in getProxy("has", true, {});
+    getProxy("get", 0, {}).prop;
+    getProxy("set", true, {}).prop = 0;
+    delete getProxy("deleteProperty", true, {}).prop;
+    Object.keys(getProxy("ownKeys", [], {}));
+    getProxy("apply", 0, function () {})();
+    new (getProxy("construct", {}, function () {}));
 }
 
 test1();
 test2();
 test3();
+test4();

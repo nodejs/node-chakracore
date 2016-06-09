@@ -18,10 +18,6 @@ class VirtualAllocWrapper
 public:
     LPVOID  Alloc(LPVOID lpAddress, size_t dwSize, DWORD allocationType, DWORD protectFlags, bool isCustomHeapAllocation = false);
     BOOL    Free(LPVOID lpAddress, size_t dwSize, DWORD dwFreeType);
-    bool        IsPreReservedRegionPresent();
-    bool        IsInRange(void * address);
-    LPVOID      GetPreReservedStartAddress();
-    LPVOID      GetPreReservedEndAddress();
 };
 
 /*
@@ -39,21 +35,79 @@ public:
 #else // _M_X64_OR_ARM64
     static const uint PreReservedAllocationSegmentCount = 4096; //(4096 * 64K) == 256MB, if 64k is the AllocationGranularity
 #endif
-
+#if !_M_X64_OR_ARM64 && _CONTROL_FLOW_GUARD
+    static const unsigned MaxPreReserveSegment = 6;
+#endif
 public:
     PreReservedVirtualAllocWrapper();
-    BOOL Shutdown();
+    ~PreReservedVirtualAllocWrapper();
     LPVOID      Alloc(LPVOID lpAddress, size_t dwSize, DWORD allocationType, DWORD protectFlags, bool isCustomHeapAllocation = false);
-    BOOL        Free(LPVOID lpAddress,  size_t dwSize, DWORD dwFreeType);
-    bool        IsPreReservedRegionPresent();
+    BOOL        Free(LPVOID lpAddress, size_t dwSize, DWORD dwFreeType);
+
     bool        IsInRange(void * address);
-    LPVOID      GetPreReservedStartAddress();
+    LPVOID      EnsurePreReservedRegion();
+
     LPVOID      GetPreReservedEndAddress();
+
+#if !_M_X64_OR_ARM64 && _CONTROL_FLOW_GUARD
+    static int  NumPreReservedSegment() { return numPreReservedSegment; }
+#endif
+
+#if DBG_DUMP || defined(ENABLE_IR_VIEWER)
+    bool        IsPreReservedEndAddress(LPVOID address)
+    {
+        return IsPreReservedRegionPresent() && address == GetPreReservedEndAddress();
+    }
+#endif
 private:
+    LPVOID      EnsurePreReservedRegionInternal();
+    bool        IsPreReservedRegionPresent();
+    LPVOID      GetPreReservedStartAddress();
     BVStatic<PreReservedAllocationSegmentCount>     freeSegments;
     LPVOID                                          preReservedStartAddress;
     CriticalSection                                 cs;
+
+#if !_M_X64_OR_ARM64 && _CONTROL_FLOW_GUARD
+    static uint  numPreReservedSegment;
+#endif
 };
+
+#if defined(ENABLE_JIT_CLAMP)
+
+class AutoEnableDynamicCodeGen
+{
+public:
+    AutoEnableDynamicCodeGen(bool enable = true);
+    ~AutoEnableDynamicCodeGen();
+
+private:
+    bool enabled;
+
+    typedef
+    BOOL
+    (WINAPI *PSET_THREAD_INFORMATION_PROC)(
+        _In_ HANDLE                   hThread,
+        _In_ THREAD_INFORMATION_CLASS ThreadInformationClass,
+        _In_reads_bytes_(ThreadInformationSize) PVOID ThreadInformation,
+        _In_ DWORD                    ThreadInformationSize
+    );
+
+    typedef
+    BOOL
+    (WINAPI *PGET_THREAD_INFORMATION_PROC)(
+        _In_ HANDLE                   hThread,
+        _In_ THREAD_INFORMATION_CLASS ThreadInformationClass,
+        _Out_writes_bytes_(ThreadInformationSize) PVOID ThreadInformation,
+        _In_ DWORD                    ThreadInformationSize
+    );
+
+    static PSET_THREAD_INFORMATION_PROC SetThreadInformationProc;
+    static PGET_THREAD_INFORMATION_PROC GetThreadInformationProc;
+    static PROCESS_MITIGATION_DYNAMIC_CODE_POLICY processPolicy;
+    static CriticalSection processPolicyCS;
+    static volatile bool processPolicyObtained;
+};
+#endif
 
 template<typename TVirtualAlloc = VirtualAllocWrapper>
 class PageAllocatorBase;

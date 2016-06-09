@@ -1,7 +1,8 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
 #pragma once
 
 #if DYNAMIC_INTERPRETER_THUNK
@@ -32,20 +33,20 @@ class StackSym;
 class Func;
 struct InlinedFrameLayout;
 
-typedef intptr IntConstType;
-typedef uintptr  UIntConstType;
-typedef IntMath<intptr>::Type IntConstMath;
+typedef intptr_t IntConstType;
+typedef uintptr_t  UIntConstType;
+typedef IntMath<intptr_t>::Type IntConstMath;
 typedef double  FloatConstType;
 
-#include "..\Backend\EmitBuffer.h"
-#include "..\Backend\InterpreterThunkEmitter.h"
-#include "..\Runtime\Bytecode\BackEndOpCodeAttr.h"
-#include "..\Backend\BackEndOpCodeAttrAsmJs.h"
-#include "..\Backend\CodeGenNumberAllocator.h"
-#include "..\Backend\NativeCodeData.h"
-#include "..\Backend\JnHelperMethod.h"
-#include "..\Backend\IRType.h"
-#include "..\Backend\InlineeFrameInfo.h"
+#include "EmitBuffer.h"
+#include "InterpreterThunkEmitter.h"
+#include "BackendOpCodeAttr.h"
+#include "BackendOpCodeAttrAsmJs.h"
+#include "CodeGenNumberAllocator.h"
+#include "NativeCodeData.h"
+#include "JnHelperMethod.h"
+#include "IRType.h"
+#include "InlineeFrameInfo.h"
 
 NativeCodeGenerator * NewNativeCodeGenerator(Js::ScriptContext * nativeCodeGen);
 void DeleteNativeCodeGenerator(NativeCodeGenerator * nativeCodeGen);
@@ -57,7 +58,6 @@ void UpdateNativeCodeGeneratorForDebugMode(NativeCodeGenerator* nativeCodeGen);
 CriticalSection *GetNativeCodeGenCriticalSection(NativeCodeGenerator *pNativeCodeGen);
 bool TryReleaseNonHiPriWorkItem(Js::ScriptContext* scriptContext, CodeGenWorkItem* workItem);
 void NativeCodeGenEnterScriptStart(NativeCodeGenerator * nativeCodeGen);
-bool IsNativeFunctionAddr(Js::ScriptContext *scriptContext, void * address);
 void FreeNativeCodeGenAllocation(Js::ScriptContext* scriptContext, void* address);
 CodeGenAllocators* GetForegroundAllocator(NativeCodeGenerator * nativeCodeGen, PageAllocator* pageallocator);
 void GenerateFunction(NativeCodeGenerator * nativeCodeGen, Js::FunctionBody * functionBody, Js::ScriptFunction * function = NULL);
@@ -73,6 +73,10 @@ BOOL IsIntermediateCodeGenThunk(Js::JavascriptMethod codeAddress);
 BOOL IsAsmJsCodeGenThunk(Js::JavascriptMethod codeAddress);
 typedef Js::JavascriptMethod (*CheckCodeGenFunction)(Js::ScriptFunction * function);
 CheckCodeGenFunction GetCheckCodeGenFunction(Js::JavascriptMethod codeAddress);
+Js::JavascriptMethod GetCheckCodeGenThunk();
+#ifdef ASMJS_PLAT
+Js::JavascriptMethod GetCheckAsmJsCodeGenThunk();
+#endif
 
 uint GetBailOutRegisterSaveSlotCount();
 uint GetBailOutReserveSlotCount();
@@ -259,17 +263,24 @@ enum VTableValue {
     VtableNativeFloatArray,
     VtableJavascriptNativeIntArray,
     VtableJavascriptRegExp,
+    VtableScriptFunction,
+    VtableJavascriptGeneratorFunction,
     VtableStackScriptFunction,
     VtableConcatStringMulti,
     VtableCompoundString,
     // SIMD_JS
     VtableSimd128F4,
     VtableSimd128I4,
+    VtableSimd128I8,
+    VtableSimd128I16,
+    VtableSimd128U4,
+    VtableSimd128U8,
+    VtableSimd128U16,
     Count
 };
 
 #if DBG_DUMP || defined(ENABLE_IR_VIEWER)
-const wchar_t *GetVtableName(VTableValue value);
+const char16 *GetVtableName(VTableValue value);
 #endif
 
 enum AuxArrayValue {

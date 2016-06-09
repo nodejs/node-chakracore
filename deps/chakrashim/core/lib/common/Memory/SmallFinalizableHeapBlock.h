@@ -27,12 +27,11 @@ public:
 
     void SetAttributes(void * address, unsigned char attributes);
 
-#if defined(PARTIAL_GC_ENABLED) || defined(CONCURRENT_GC_ENABLED)
+#if ENABLE_PARTIAL_GC || ENABLE_CONCURRENT_GC
     static bool CanRescanFullBlock();
     static bool RescanObject(SmallFinalizableHeapBlockT<TBlockAttributes> * block, __in_ecount(localObjectSize) char * objectAddress, uint localObjectSize, uint objectIndex, Recycler * recycler);
     bool RescanTrackedObject(FinalizableObject * object, uint objectIndex,  Recycler * recycler);
 #endif
-    template<bool pageheap>
     SweepState Sweep(RecyclerSweep& sweepeData, bool queuePendingSweep, bool allocable);
     void DisposeObjects();
     void TransferDisposedObjects();
@@ -84,7 +83,7 @@ public:
     virtual bool GetFreeObjectListOnAllocator(FreeObject ** freeObjectList) override;
 #endif
 #if DBG
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
     void FinishPartialCollect();
 #endif
     bool IsPendingDispose() const { return isPendingDispose; }

@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeDebugPch.h"
-#include "Language\JavascriptStackWalker.h"
+#include "Language/JavascriptStackWalker.h"
 
 namespace Js
 {
@@ -212,8 +212,7 @@ namespace Js
         // Note: there also could be plain OutOfMemoryException and StackOverflowException, no special handling for these.
         if (!exceptionObject->IsDebuggerSkip() ||
             exceptionObject == scriptContext->GetThreadContext()->GetPendingOOMErrorObject() ||
-            exceptionObject == scriptContext->GetThreadContext()->GetPendingSOErrorObject() ||
-            !scriptContext)
+            exceptionObject == scriptContext->GetThreadContext()->GetPendingSOErrorObject())
         {
             throw exceptionObject->CloneIfStaticExceptionObject(scriptContext);
         }

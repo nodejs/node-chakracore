@@ -76,7 +76,7 @@ var tests = [
     },
 
     {
-        name: "Set constructor populates the set with values from given optional iteratable argument",
+        name: "Set constructor populates the set with values from given optional iterable argument",
         body: function () {
             var s = new Set([ 'a', 'b', 'c' ]);
 
@@ -332,9 +332,9 @@ var tests = [
             assert.isTrue(set.has(3.14159), "Set contains floating point number");
             assert.isTrue(set.has(3.0 + 0.14159), "Set contains floating point number even if calculated differently");
             assert.isTrue(set.has("hello"), "Set contains string");
-            assert.isTrue(set.has("hel" + "lo"), "Set contains string even if differnt reference identity");
+            assert.isTrue(set.has("hel" + "lo"), "Set contains string even if different reference identity");
             assert.isTrue(set.has(8589934592), "Set contains 64 bit integer value");
-            assert.isTrue(set.has(65536 + 8589869056), "Set contains 64 bit integer value even if calculated diffrently");
+            assert.isTrue(set.has(65536 + 8589869056), "Set contains 64 bit integer value even if calculated differently");
 
             set.add(-0);
             assert.isTrue(set.has(-0), "Set contains -0");
@@ -725,6 +725,21 @@ var tests = [
         body: function () {
             var func3 = function () { };
             assert.throws(function () { Array()(func3(...new Set([func3, func3]))) }, TypeError, "Should throw TypeError");
+        }
+    },
+
+    {
+        name: "Values that are int versus double should compare and hash equal (github #390)",
+        body: function() {
+            var set = new Set();
+
+            set.add(1);
+            assert.isTrue(set.has(1), "sanity check, set has value 1");
+
+            var value = 1.1;
+            value -= 0.1; // value is now 1.0, a double, rather than an int
+
+            assert.isTrue(set.has(value), "1.0 should be equal to the value 1 and set has it");
         }
     },
 ];

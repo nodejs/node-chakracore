@@ -1,15 +1,15 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
+this.WScript.LoadScriptFile("..\\UnitTestFramework\\SimdJsHelpers.js");
 function asmModule(stdlib, imports) {
     "use asm";
     var i4 = stdlib.SIMD.Int32x4;
     var i4check = i4.check;
     var i4splat = i4.splat;
-    var i4fromFloat64x2 = i4.fromFloat64x2;
-    var i4fromFloat64x2Bits = i4.fromFloat64x2Bits;
+    
     var i4fromFloat32x4 = i4.fromFloat32x4;
     var i4fromFloat32x4Bits = i4.fromFloat32x4Bits;
     //var i4abs = i4.abs;
@@ -35,8 +35,7 @@ function asmModule(stdlib, imports) {
     var f4 = stdlib.SIMD.Float32x4;
     var f4check = f4.check;
     var f4splat = f4.splat;
-    var f4fromFloat64x2 = f4.fromFloat64x2;
-    var f4fromFloat64x2Bits = f4.fromFloat64x2Bits;
+    
     var f4fromInt32x4 = f4.fromInt32x4;
     var f4fromInt32x4Bits = f4.fromInt32x4Bits;
     var f4abs = f4.abs;
@@ -45,11 +44,11 @@ function asmModule(stdlib, imports) {
     var f4sub = f4.sub;
     var f4mul = f4.mul;
     var f4div = f4.div;
-    var f4clamp = f4.clamp;
+    
     var f4min = f4.min;
     var f4max = f4.max;
-    var f4reciprocal = f4.reciprocal;
-    var f4reciprocalSqrt = f4.reciprocalSqrt;
+
+
     var f4sqrt = f4.sqrt;
     //var f4swizzle = f4.swizzle;
     //var f4shuffle = f4.shuffle;
@@ -61,10 +60,6 @@ function asmModule(stdlib, imports) {
     var f4greaterThanOrEqual = f4.greaterThanOrEqual;
 
     var f4select = f4.select;
-    var f4and = f4.and;
-    var f4or = f4.or;
-    var f4xor = f4.xor;
-    var f4not = f4.not;
 
     var fround = stdlib.Math.fround;
 
@@ -212,20 +207,11 @@ function asmModule(stdlib, imports) {
 var m = asmModule(this, { g1: SIMD.Float32x4(90934.2, 123.9, 419.39, 449.0), g2: SIMD.Int32x4(-1065353216, -1073741824, -1077936128, -1082130432) });
 
 
-print("Func1");
-print(m.func1().toString());
+equalSimd([100, 0, 200, 0], m.func1(), SIMD.Int32x4, "TestWithLane");
+equalSimd([100, 137701, 200, 133219], m.func2(), SIMD.Int32x4, "TestWithLane");
+equalSimd([100, -1278847, 200, -60147], m.func3(), SIMD.Int32x4, "TestWithLane");
 
-print("Func2");
-print(m.func2().toString());
-
-print("Func3");
-print(m.func3().toString());
-
-print("Func4");
-print(m.func4().toString());
-
-print("Func5");
-print(m.func5().toString());
-
-print("Func6");
-print(m.func6().toString());
+equalSimd([0, 100, 0, 200], m.func4(), SIMD.Int32x4, "TestWithLane");
+equalSimd([-319033, 100, 570565, 200], m.func5(), SIMD.Int32x4, "TestWithLane");
+equalSimd([-1035531, 100, 571491, 200], m.func6(), SIMD.Int32x4, "TestWithLane");
+print("PASS");

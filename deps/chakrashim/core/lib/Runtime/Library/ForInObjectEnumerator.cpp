@@ -4,11 +4,11 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
 
-#include "Types\DynamicObjectEnumerator.h"
-#include "Types\DynamicObjectSnapshotEnumerator.h"
-#include "Types\DynamicObjectSnapshotEnumeratorWPCache.h"
-#include "Library\ForInObjectEnumerator.h"
-#include "Library\NullEnumerator.h"
+#include "Types/DynamicObjectEnumerator.h"
+#include "Types/DynamicObjectSnapshotEnumerator.h"
+#include "Types/DynamicObjectSnapshotEnumeratorWPCache.h"
+#include "Library/ForInObjectEnumerator.h"
+#include "Library/NullEnumerator.h"
 
 namespace Js
 {
@@ -76,8 +76,8 @@ namespace Js
 
         if (firstPrototype != nullptr)
         {
-            Recycler *recyler = scriptContext->GetRecycler();
-            propertyIds = RecyclerNew(recyler, BVSparse<Recycler>, recyler);
+            Recycler *recycler = scriptContext->GetRecycler();
+            propertyIds = RecyclerNew(recycler, BVSparse<Recycler>, recycler);
         }
     }
 

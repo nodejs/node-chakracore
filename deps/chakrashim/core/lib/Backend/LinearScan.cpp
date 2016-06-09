@@ -1,10 +1,11 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-#include "BackEnd.h"
 
-#include "SCCLiveness.h"
+#include "Backend.h"
+
+#include "SccLiveness.h"
 
 #if DBG_DUMP || ENABLE_DEBUG_CONFIG_OPTIONS
 char const * const RegNames[RegNumCount] =
@@ -14,9 +15,9 @@ char const * const RegNames[RegNumCount] =
 #undef REGDAT
 };
 
-wchar_t const * const RegNamesW[RegNumCount] =
+char16 const * const RegNamesW[RegNumCount] =
 {
-#define REGDAT(Name, ListName, ...) L"" STRINGIZEW(ListName) L"",
+#define REGDAT(Name, ListName, ...) _u("") STRINGIZEW(ListName) _u(""),
 #include "RegList.h"
 #undef REGDAT
 };
@@ -97,7 +98,7 @@ bool LoweredBasicBlock::Equals(LoweredBasicBlock* otherBlock)
 void
 LinearScan::RegAlloc()
 {
-    NoRecoverMemoryJitArenaAllocator tempAlloc(L"BE-LinearScan", this->func->m_alloc->GetPageAllocator(), Js::Throw::OutOfMemory);
+    NoRecoverMemoryJitArenaAllocator tempAlloc(_u("BE-LinearScan"), this->func->m_alloc->GetPageAllocator(), Js::Throw::OutOfMemory);
     this->tempAlloc = &tempAlloc;
     this->opHelperSpilledLiveranges = JitAnew(&tempAlloc, SList<Lifetime *>, &tempAlloc);
     this->activeLiveranges = JitAnew(&tempAlloc, SList<Lifetime *>, &tempAlloc);
@@ -298,7 +299,7 @@ LinearScan::RegAlloc()
     }
     if (PHASE_TRACE(Js::StackPackPhase, this->func))
     {
-        Output::Print(L"---------------------------\n");
+        Output::Print(_u("---------------------------\n"));
     }
 #endif // DBG_DUMP
     DebugOnly(this->func->allowRemoveBailOutArgInstr = true);
@@ -793,7 +794,7 @@ LinearScan::SetDstReg(IR::Instr *instr)
 
     StackSym * stackSym = regOpnd->m_sym;
 
-    // Arg slot sym can be in an RegOpnd for param passed via registers
+    // Arg slot sym can be in a RegOpnd for param passed via registers
     // Just use the assigned register
     if (stackSym == nullptr || stackSym->IsArgSlotSym())
     {
@@ -1197,6 +1198,14 @@ struct FuncBailOutData
     // SIMD_JS
     BVFixed * simd128F4Syms;
     BVFixed * simd128I4Syms;
+    BVFixed * simd128I8Syms;
+    BVFixed * simd128I16Syms;
+    BVFixed * simd128U4Syms;
+    BVFixed * simd128U8Syms;
+    BVFixed * simd128U16Syms;
+    BVFixed * simd128B4Syms;
+    BVFixed * simd128B8Syms;
+    BVFixed * simd128B16Syms;
 
     void Initialize(Func * func, JitArenaAllocator * tempAllocator);
     void FinalizeLocalOffsets(JitArenaAllocator *allocator, GlobalBailOutRecordDataTable *table, uint **lastUpdatedRowIndices);
@@ -1214,6 +1223,14 @@ FuncBailOutData::Initialize(Func * func, JitArenaAllocator * tempAllocator)
     // SIMD_JS
     this->simd128F4Syms = BVFixed::New(localsCount, tempAllocator);
     this->simd128I4Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128I8Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128I16Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128U4Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128U8Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128U16Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128B4Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128B8Syms = BVFixed::New(localsCount, tempAllocator);
+    this->simd128B16Syms = BVFixed::New(localsCount, tempAllocator);
 }
 
 void
@@ -1240,10 +1257,20 @@ FuncBailOutData::FinalizeLocalOffsets(JitArenaAllocator *allocator, GlobalBailOu
             bool isInt = losslessInt32Syms->Test(i) != 0;
 
             // SIMD_JS
-            bool isSimd128F4 = simd128F4Syms->Test(i) != 0;
-            bool isSimd128I4 = simd128I4Syms->Test(i) != 0;
+            bool isSimd128F4  = simd128F4Syms->Test(i) != 0;
+            bool isSimd128I4  = simd128I4Syms->Test(i) != 0;
+            bool isSimd128I8  = simd128I8Syms->Test(i) != 0;
+            bool isSimd128I16 = simd128I16Syms->Test(i) != 0;
+            bool isSimd128U4  = simd128U4Syms->Test(i) != 0;
+            bool isSimd128U8  = simd128U8Syms->Test(i) != 0;
+            bool isSimd128U16 = simd128U16Syms->Test(i) != 0;
+            bool isSimd128B4  = simd128B4Syms->Test(i) != 0;
+            bool isSimd128B8  = simd128B8Syms->Test(i) != 0;
+            bool isSimd128B16 = simd128B16Syms->Test(i) != 0;
 
-            globalBailOutRecordDataTable->AddOrUpdateRow(allocator, bailOutRecordId, i, isFloat, isInt, isSimd128F4, isSimd128I4, localOffsets[i], &((*lastUpdatedRowIndices)[i]));
+            globalBailOutRecordDataTable->AddOrUpdateRow(allocator, bailOutRecordId, i, isFloat, isInt, 
+                isSimd128F4, isSimd128I4, isSimd128I8, isSimd128I16, isSimd128U4, isSimd128U8, isSimd128U16,
+                isSimd128B4, isSimd128B8, isSimd128B16, localOffsets[i], &((*lastUpdatedRowIndices)[i]));
             Assert(globalBailOutRecordDataTable->globalBailOutRecordDataRows[(*lastUpdatedRowIndices)[i]].regSlot  == i);
             bailOutRecord->localOffsetsCount++;
         }
@@ -1260,6 +1287,14 @@ FuncBailOutData::Clear(JitArenaAllocator * tempAllocator)
     // SIMD_JS
     simd128F4Syms->Delete(tempAllocator);
     simd128I4Syms->Delete(tempAllocator);
+    simd128I8Syms->Delete(tempAllocator);
+    simd128I16Syms->Delete(tempAllocator);
+    simd128U4Syms->Delete(tempAllocator);
+    simd128U8Syms->Delete(tempAllocator);
+    simd128U16Syms->Delete(tempAllocator);
+    simd128B4Syms->Delete(tempAllocator);
+    simd128B8Syms->Delete(tempAllocator);
+    simd128B16Syms->Delete(tempAllocator);
 }
 
 GlobalBailOutRecordDataTable *
@@ -1325,7 +1360,7 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
 #if DBG_DUMP
     if(PHASE_DUMP(Js::BailOutPhase, this->func))
     {
-        Output::Print(L"-------------------Bailout dump -------------------------\n");
+        Output::Print(_u("-------------------Bailout dump -------------------------\n"));
         instr->Dump();
     }
 #endif
@@ -1395,9 +1430,9 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
 #if DBG_DUMP
         if(PHASE_DUMP(Js::BailOutPhase, this->func))
         {
-            Output::Print(L"Constant stack sym #%d (argOut:%s): ",  i, IsTrueOrFalse(stackSym->HasArgSlotNum()));
+            Output::Print(_u("Constant stack sym #%d (argOut:%s): "),  i, IsTrueOrFalse(stackSym->HasArgSlotNum()));
             stackSym->Dump();
-            Output::Print(L" (0x%p (Var) Offset: %d)\n", varValue, funcBailOutData[index].localOffsets[i]);
+            Output::Print(_u(" (0x%p (Var) Offset: %d)\n"), varValue, funcBailOutData[index].localOffsets[i]);
         }
 #endif
         iterator.RemoveCurrent(this->func->m_alloc);
@@ -1446,6 +1481,38 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
         {
             funcBailOutData[index].simd128I4Syms->Set(i);
         }
+        else if (copyStackSym->IsSimd128I8())
+        {
+            funcBailOutData[index].simd128I8Syms->Set(i);
+        }
+        else if (copyStackSym->IsSimd128I16())
+        {
+            funcBailOutData[index].simd128I16Syms->Set(i);
+        }
+        else if (copyStackSym->IsSimd128U4())
+        {
+            funcBailOutData[index].simd128U4Syms->Set(i);
+        }
+        else if (copyStackSym->IsSimd128U8())
+        {
+            funcBailOutData[index].simd128U8Syms->Set(i);
+        }
+        else if (copyStackSym->IsSimd128U16())
+        {
+            funcBailOutData[index].simd128U16Syms->Set(i);
+        }
+        else if (copyStackSym->IsSimd128B4())
+        {
+            funcBailOutData[index].simd128B4Syms->Set(i);
+        }
+        else if (copyStackSym->IsSimd128B8())
+        {
+            funcBailOutData[index].simd128B8Syms->Set(i);
+        }
+        else if (copyStackSym->IsSimd128B16())
+        {
+            funcBailOutData[index].simd128B16Syms->Set(i);
+        }
         iter.RemoveCurrent(this->func->m_alloc);
     }
     NEXT_SLISTBASE_ENTRY_EDITING;
@@ -1486,6 +1553,38 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
         {
             funcBailOutData[index].simd128I4Syms->Set(i);
         }
+        else if (stackSym->IsSimd128I8())
+        {
+            funcBailOutData[index].simd128I8Syms->Set(i);
+        }
+        else if (stackSym->IsSimd128I16())
+        {
+            funcBailOutData[index].simd128I16Syms->Set(i);
+        }
+        else if (stackSym->IsSimd128U4())
+        {
+            funcBailOutData[index].simd128U4Syms->Set(i);
+        }
+        else if (stackSym->IsSimd128U8())
+        {
+            funcBailOutData[index].simd128U8Syms->Set(i);
+        }
+        else if (stackSym->IsSimd128U16())
+        {
+            funcBailOutData[index].simd128U16Syms->Set(i);
+        }
+        else if (stackSym->IsSimd128B4())
+        {
+            funcBailOutData[index].simd128B4Syms->Set(i);
+        }
+        else if (stackSym->IsSimd128B8())
+        {
+            funcBailOutData[index].simd128B8Syms->Set(i);
+        }
+        else if (stackSym->IsSimd128B16())
+        {
+            funcBailOutData[index].simd128B16Syms->Set(i);
+        }
     }
     NEXT_BITSET_IN_SPARSEBV;
 
@@ -1522,12 +1621,14 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
 
         // Need to allow filling the formal args slots.
 
-        Js::PropertyIdOnRegSlotsContainer *propertyIdContainer = functionBody->GetPropertyIdOnRegSlotsContainer();
+        Js::PropertyIdOnRegSlotsContainer *propertyIdContainer = functionBody->GetPropertyIdOnRegSlotsContainerWithLock();
         bool hasFormalArgs = propertyIdContainer != nullptr && propertyIdContainer->propertyIdsForFormalArgs != nullptr;
 
         if (hasFormalArgs)
         {
-            for (uint32 index = functionBody->GetFirstNonTempLocalIndex(); index < functionBody->GetEndNonTempLocalIndex(); index++)
+            Assert(functionBody->GetInParamsCount() > 0);
+            uint32 endIndex = min(functionBody->GetFirstNonTempLocalIndex() + functionBody->GetInParamsCount() - 1, functionBody->GetEndNonTempLocalIndex());
+            for (uint32 index = functionBody->GetFirstNonTempLocalIndex(); index < endIndex; index++)
             {
                 StackSym * stackSym = this->func->m_symTable->FindStackSym(index);
                 if (stackSym != nullptr)
@@ -1584,6 +1685,14 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
         // SIMD_JS
         BVFixed * argOutSimd128F4Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
         BVFixed * argOutSimd128I4Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128I8Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128I16Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128U4Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128U8Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128U16Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128B4Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128B8Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
+        BVFixed * argOutSimd128B16Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocator);
 
         int* outParamOffsets = bailOutInfo->outParamOffsets = NativeCodeDataNewArrayZ(allocator, int, bailOutInfo->totalOutParamCount);
 #ifdef _M_IX86
@@ -1635,6 +1744,15 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
                 // SIMD_JS
                 currentBailOutRecord->argOutOffsetInfo->argOutSimd128F4Syms = nullptr;
                 currentBailOutRecord->argOutOffsetInfo->argOutSimd128I4Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I8Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I16Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U4Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U8Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U16Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128B4Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128B8Syms = nullptr;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128B16Syms = nullptr;
+
                 currentBailOutRecord->argOutOffsetInfo->argOutSymStart = 0;
                 currentBailOutRecord->argOutOffsetInfo->outParamOffsets = nullptr;
                 currentBailOutRecord->argOutOffsetInfo->startCallOutParamCounts = nullptr;
@@ -1660,15 +1778,23 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
                 currentBailOutRecord->argOutOffsetInfo->argOutFloat64Syms = argOutFloat64Syms;
                 currentBailOutRecord->argOutOffsetInfo->argOutLosslessInt32Syms = argOutLosslessInt32Syms;
                 // SIMD_JS
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128F4Syms = argOutSimd128F4Syms;
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I4Syms = argOutSimd128I4Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128F4Syms  = argOutSimd128F4Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I4Syms  = argOutSimd128I4Syms  ;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I8Syms  = argOutSimd128I8Syms  ;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I16Syms = argOutSimd128I16Syms ;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U4Syms  = argOutSimd128U4Syms  ;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U8Syms  = argOutSimd128U8Syms  ;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U16Syms = argOutSimd128U16Syms ;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128B4Syms = argOutSimd128U4Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128B8Syms = argOutSimd128U8Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128B16Syms = argOutSimd128U16Syms;
 
 
             }
 #if DBG_DUMP
             if (PHASE_DUMP(Js::BailOutPhase, this->func))
             {
-                Output::Print(L"Bailout function: %s [#%d] \n", currentStartCallFunc->GetJnFunction()->GetDisplayName(),
+                Output::Print(_u("Bailout function: %s [#%d] \n"), currentStartCallFunc->GetJnFunction()->GetDisplayName(),
                     currentStartCallFunc->GetJnFunction()->GetFunctionNumber());
             }
 #endif
@@ -1697,9 +1823,9 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
 #if DBG_DUMP
                             if (PHASE_DUMP(Js::BailOutPhase, this->func))
                             {
-                                Output::Print(L"OutParam #%d: ", argSlot);
+                                Output::Print(_u("OutParam #%d: "), argSlot);
                                 sym->Dump();
-                                Output::Print(L" (0x%p (Var)))\n", varValue);
+                                Output::Print(_u(" (0x%p (Var)))\n"), varValue);
                             }
 #endif
                             iterator.RemoveCurrent(func->m_alloc);
@@ -1743,15 +1869,47 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
                                 {
                                     argOutSimd128I4Syms->Set(outParamOffsetIndex);
                                 }
+                                else if (copyStackSym->IsSimd128I8())
+                                {
+                                    argOutSimd128I8Syms->Set(outParamOffsetIndex);
+                                }
+                                else if (copyStackSym->IsSimd128I16())
+                                {
+                                    argOutSimd128I16Syms->Set(outParamOffsetIndex);
+                                }
+                                else if (copyStackSym->IsSimd128U4())
+                                {
+                                    argOutSimd128U4Syms->Set(outParamOffsetIndex);
+                                }
+                                else if (copyStackSym->IsSimd128U8())
+                                {
+                                    argOutSimd128U8Syms->Set(outParamOffsetIndex);
+                                }
+                                else if (copyStackSym->IsSimd128U16())
+                                {
+                                    argOutSimd128U16Syms->Set(outParamOffsetIndex);
+                                }
+                                else if (copyStackSym->IsSimd128B4())
+                                {
+                                    argOutSimd128B4Syms->Set(outParamOffsetIndex);
+                                }
+                                else if (copyStackSym->IsSimd128B8())
+                                {
+                                    argOutSimd128B8Syms->Set(outParamOffsetIndex);
+                                }
+                                else if (copyStackSym->IsSimd128B16())
+                                {
+                                    argOutSimd128B16Syms->Set(outParamOffsetIndex);
+                                }
                             }
 #if DBG_DUMP
                             if (PHASE_DUMP(Js::BailOutPhase, this->func))
                             {
-                                Output::Print(L"OutParam #%d: ", argSlot);
+                                Output::Print(_u("OutParam #%d: "), argSlot);
                                 sym->Dump();
-                                Output::Print(L" Copy Prop sym:");
+                                Output::Print(_u(" Copy Prop sym:"));
                                 copyStackSym->Dump();
-                                Output::Print(L"\n");
+                                Output::Print(_u("\n"));
                             }
 #endif
                             iter.RemoveCurrent(func->m_alloc);
@@ -1872,12 +2030,44 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
                     {
                         argOutSimd128I4Syms->Set(outParamOffsetIndex);
                     }
+                    else if (sym->IsSimd128I8())
+                    {
+                        argOutSimd128I8Syms->Set(outParamOffsetIndex);
+                    }
+                    else if (sym->IsSimd128I16())
+                    {
+                        argOutSimd128I16Syms->Set(outParamOffsetIndex);
+                    }
+                    else if (sym->IsSimd128U4())
+                    {
+                        argOutSimd128U4Syms->Set(outParamOffsetIndex);
+                    }
+                    else if (sym->IsSimd128U8())
+                    {
+                        argOutSimd128U8Syms->Set(outParamOffsetIndex);
+                    }
+                    else if (sym->IsSimd128U16())
+                    {
+                        argOutSimd128U16Syms->Set(outParamOffsetIndex);
+                    }
+                    else if (sym->IsSimd128B4())
+                    {
+                        argOutSimd128B4Syms->Set(outParamOffsetIndex);
+                    }
+                    else if (sym->IsSimd128B8())
+                    {
+                        argOutSimd128B8Syms->Set(outParamOffsetIndex);
+                    }
+                    else if (sym->IsSimd128B16())
+                    {
+                        argOutSimd128B16Syms->Set(outParamOffsetIndex);
+                    }
 #if DBG_DUMP
                     if (PHASE_DUMP(Js::BailOutPhase, this->func))
                     {
-                        Output::Print(L"OutParam #%d: ", argSlot);
+                        Output::Print(_u("OutParam #%d: "), argSlot);
                         sym->Dump();
-                        Output::Print(L"\n");
+                        Output::Print(_u("\n"));
                     }
 #endif
                 }
@@ -1930,8 +2120,8 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
 #if DBG_DUMP
         if(PHASE_DUMP(Js::BailOutPhase, this->func))
         {
-            wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
-            Output::Print(L"Bailout function: %s [%s]\n", funcBailOutData[i].func->GetJnFunction()->GetDisplayName(), funcBailOutData[i].func->GetJnFunction()->GetDebugNumberSet(debugStringBuffer), i);
+            char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+            Output::Print(_u("Bailout function: %s [%s]\n"), funcBailOutData[i].func->GetJnFunction()->GetDisplayName(), funcBailOutData[i].func->GetJnFunction()->GetDebugNumberSet(debugStringBuffer), i);
             funcBailOutData[i].bailOutRecord->Dump();
         }
 #endif
@@ -2473,6 +2663,38 @@ LinearScan::FindReg(Lifetime *newLifetime, IR::RegOpnd *regOpnd, bool force)
         {
             type = TySimd128I4;
         }
+        else if (newLifetime->isSimd128I8)
+        {
+            type = TySimd128I8;
+        }
+        else if (newLifetime->isSimd128I16)
+        {
+            type = TySimd128I16;
+        }
+        else if (newLifetime->isSimd128U4)
+        {
+            type = TySimd128U4;
+        }
+        else if (newLifetime->isSimd128U8)
+        {
+            type = TySimd128U8;
+        }
+        else if (newLifetime->isSimd128U16)
+        {
+            type = TySimd128U16;
+        }
+        else if (newLifetime->isSimd128B4)
+        {
+            type = TySimd128B4;
+        }
+        else if (newLifetime->isSimd128B8)
+        {
+            type = TySimd128B8;
+        }
+        else if (newLifetime->isSimd128B16)
+        {
+            type = TySimd128B16;
+        }
         else if (newLifetime->isSimd128D2)
         {
             type = TySimd128D2;
@@ -2528,7 +2750,7 @@ LinearScan::FindReg(Lifetime *newLifetime, IR::RegOpnd *regOpnd, bool force)
                 BitVector regsBvTemp = regsBv;
                 regsBvTemp.And(this->calleeSavedRegs);
 
-                regIndex = GetPreferrencedRegIndex(newLifetime, regsBvTemp);
+                regIndex = GetPreferencedRegIndex(newLifetime, regsBvTemp);
 
                 if (regIndex == BVInvalidIndex)
                 {
@@ -2537,7 +2759,7 @@ LinearScan::FindReg(Lifetime *newLifetime, IR::RegOpnd *regOpnd, bool force)
                         // No callee saved regs is found and the lifetime only across helper
                         // calls, we can also use a caller saved regs to make use of the
                         // save and restore around helper blocks
-                        regIndex = GetPreferrencedRegIndex(newLifetime, regsBv);
+                        regIndex = GetPreferencedRegIndex(newLifetime, regsBv);
                     }
                     else
                     {
@@ -2550,7 +2772,7 @@ LinearScan::FindReg(Lifetime *newLifetime, IR::RegOpnd *regOpnd, bool force)
             }
             else
             {
-                regIndex = GetPreferrencedRegIndex(newLifetime, regsBv);
+                regIndex = GetPreferencedRegIndex(newLifetime, regsBv);
             }
         }
         else
@@ -2603,7 +2825,7 @@ LinearScan::FindReg(Lifetime *newLifetime, IR::RegOpnd *regOpnd, bool force)
         if (tryCallerSavedRegs)
         {
             Assert(newLifetime);
-            regIndex = GetPreferrencedRegIndex(newLifetime, callerSavedAvailableBv);
+            regIndex = GetPreferencedRegIndex(newLifetime, callerSavedAvailableBv);
             if (BVInvalidIndex == regIndex)
             {
                 tryCallerSavedRegs = false;
@@ -2640,7 +2862,7 @@ LinearScan::FindReg(Lifetime *newLifetime, IR::RegOpnd *regOpnd, bool force)
 }
 
 BVIndex
-LinearScan::GetPreferrencedRegIndex(Lifetime *lifetime, BitVector freeRegs)
+LinearScan::GetPreferencedRegIndex(Lifetime *lifetime, BitVector freeRegs)
 {
     BitVector freePreferencedRegs = freeRegs;
 
@@ -2802,10 +3024,10 @@ LinearScan::SpillLiveRange(Lifetime * spilledRange, IR::Instr *insertionInstr)
 #if DBG_DUMP
     if (PHASE_TRACE(Js::LinearScanPhase, this->func))
     {
-        Output::Print(L"**** Spill: ");
+        Output::Print(_u("**** Spill: "));
         sym->Dump();
-        Output::Print(L"(%S)", RegNames[reg]);
-        Output::Print(L"  SpillCount:%d  Length:%d   Cost:%d\n",
+        Output::Print(_u("(%S)"), RegNames[reg]);
+        Output::Print(_u("  SpillCount:%d  Length:%d   Cost:%d\n"),
             spilledRange->useCount, spilledRange->end - spilledRange->start, this->GetSpillCost(spilledRange));
     }
 #endif
@@ -2963,7 +3185,7 @@ LinearScan::AllocateStackSpace(Lifetime *spilledRange)
                 if (Js::Configuration::Global.flags.Trace.IsEnabled(Js::StackPackPhase, this->func->GetSourceContextId(), this->func->GetLocalFunctionId()))
                 {
                     spilledSym->Dump();
-                    Output::Print(L" *** stack packed at offset %3d  (%4d - %4d)\n", spilledSym->m_offset, spilledRange->start, spilledRange->end);
+                    Output::Print(_u(" *** stack packed at offset %3d  (%4d - %4d)\n"), spilledSym->m_offset, spilledRange->start, spilledRange->end);
                 }
 #endif
                 break;
@@ -2989,7 +3211,7 @@ LinearScan::AllocateStackSpace(Lifetime *spilledRange)
         if (Js::Configuration::Global.flags.Trace.IsEnabled(Js::StackPackPhase, this->func->GetSourceContextId(), this->func->GetLocalFunctionId()))
         {
             spilledSym->Dump();
-            Output::Print(L" at offset %3d  (%4d - %4d)\n", spilledSym->m_offset, spilledRange->start, spilledRange->end);
+            Output::Print(_u(" at offset %3d  (%4d - %4d)\n"), spilledSym->m_offset, spilledRange->start, spilledRange->end);
         }
 #endif
         if (newStackSlot != nullptr)
@@ -3126,9 +3348,9 @@ LinearScan::InsertStore(IR::Instr *instr, StackSym *sym, RegNum reg)
 #if DBG_DUMP
     if (PHASE_TRACE(Js::LinearScanPhase, this->func))
     {
-        Output::Print(L"...Inserting store for ");
+        Output::Print(_u("...Inserting store for "));
         sym->Dump();
-        Output::Print(L"  Cost:%d\n", this->GetSpillCost(sym->scratch.linearScan.lifetime));
+        Output::Print(_u("  Cost:%d\n"), this->GetSpillCost(sym->scratch.linearScan.lifetime));
     }
 #endif
 }
@@ -3198,15 +3420,15 @@ LinearScan::InsertLoad(IR::Instr *instr, StackSym *sym, RegNum reg)
 #if DBG_DUMP
     if (PHASE_TRACE(Js::LinearScanPhase, this->func))
     {
-        Output::Print(L"...Inserting load for ");
+        Output::Print(_u("...Inserting load for "));
         sym->Dump();
         if (sym->scratch.linearScan.lifetime)
         {
-            Output::Print(L"  Cost:%d\n", this->GetSpillCost(sym->scratch.linearScan.lifetime));
+            Output::Print(_u("  Cost:%d\n"), this->GetSpillCost(sym->scratch.linearScan.lifetime));
         }
         else
         {
-            Output::Print(L"\n");
+            Output::Print(_u("\n"));
         }
     }
 #endif
@@ -4135,9 +4357,9 @@ LinearScan::ReconcileRegContent(Lifetime ** branchRegContent, Lifetime **labelRe
 #if DBG_DUMP
         if (PHASE_TRACE(Js::SecondChancePhase, this->func))
         {
-            Output::Print(L"****** Spilling reg because of bad compensation code order: ");
+            Output::Print(_u("****** Spilling reg because of bad compensation code order: "));
             lifetime->sym->Dump();
-            Output::Print(L"\n");
+            Output::Print(_u("\n"));
         }
 #endif
     }
@@ -4316,10 +4538,10 @@ void LinearScan::SecondChanceAllocateToReg(Lifetime *lifetime, RegNum reg)
 #if DBG_DUMP
     if (PHASE_TRACE(Js::SecondChancePhase, this->func))
     {
-        Output::Print(L"**** Second chance: ");
+        Output::Print(_u("**** Second chance: "));
         lifetime->sym->Dump();
-        Output::Print(L"\t Reg: %S  ", RegNames[reg]);
-        Output::Print(L"  SpillCount:%d  Length:%d   Cost:%d  %S\n",
+        Output::Print(_u("\t Reg: %S  "), RegNames[reg]);
+        Output::Print(_u("  SpillCount:%d  Length:%d   Cost:%d  %S\n"),
             lifetime->useCount, lifetime->end - lifetime->start, this->GetSpillCost(lifetime),
             lifetime->isLiveAcrossCalls ? "LiveAcrossCalls" : "");
     }
@@ -4645,7 +4867,7 @@ void LinearScan::PrintStats() const
     this->func->GetJnFunction()->DumpFullFunctionName();
     Output::SkipToColumn(45);
 
-    Output::Print(L"Instrs:%5d, Lds:%4d, Strs:%4d, WLds: %4d, WStrs: %4d, WRefs: %4d\n",
+    Output::Print(_u("Instrs:%5d, Lds:%4d, Strs:%4d, WLds: %4d, WStrs: %4d, WRefs: %4d\n"),
         instrCount, loadCount, storeCount, wLoadCount, wStoreCount, wLoadCount+wStoreCount);
 }
 

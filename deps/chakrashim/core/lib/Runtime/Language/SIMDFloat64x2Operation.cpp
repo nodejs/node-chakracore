@@ -1,7 +1,8 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
 #include "RuntimeLanguagePch.h"
 
 #if defined(_M_ARM32_OR_ARM64)
@@ -17,38 +18,11 @@ namespace Js
         return result;
     }
 
-    SIMDValue SIMDFloat64x2Operation::OpFloat64x2(const SIMDValue& v)
-    {// overload function with input parameter as SIMDValue for completeness
-        SIMDValue result;
-
-        result = v;
-
-        return result;
-    }
-
-    SIMDValue SIMDFloat64x2Operation::OpZero()
-    {
-        SIMDValue result;
-
-        result.f64[SIMD_X] = result.f64[SIMD_Y] = 0;
-
-        return result;
-    }
-
     SIMDValue SIMDFloat64x2Operation::OpSplat(double x)
     {
         SIMDValue result;
 
         result.f64[SIMD_X] = result.f64[SIMD_Y] = x;
-
-        return result;
-    }
-
-    SIMDValue SIMDFloat64x2Operation::OpSplat(const SIMDValue& v)
-    {
-        SIMDValue result;
-
-        result.f64[SIMD_X] = result.f64[SIMD_Y] = v.f64[SIMD_X];
 
         return result;
     }
@@ -72,21 +46,6 @@ namespace Js
         result.f64[SIMD_Y] = (double)(v.i32[SIMD_Y]);
 
         return result;
-    }
-
-    SIMDValue SIMDFloat64x2Operation::OpFromFloat32x4Bits(const SIMDValue& v)
-    {
-        SIMDValue result;
-
-        result.f64[SIMD_X] = v.f64[SIMD_X];
-        result.f64[SIMD_Y] = v.f64[SIMD_Y];
-
-        return result;
-    }
-
-    SIMDValue SIMDFloat64x2Operation::OpFromInt32x4Bits(const SIMDValue& v)
-    {
-        return OpFromFloat32x4Bits(v);
     }
 
     // Unary Ops
@@ -320,21 +279,6 @@ namespace Js
         return result;
     }
 
-    SIMDValue SIMDFloat64x2Operation::OpClamp(const SIMDValue& value, const SIMDValue& lower, const SIMDValue& upper)
-    {
-        SIMDValue result;
-
-        // lower clamp
-        result.f64[SIMD_X] = value.f64[SIMD_X] < lower.f64[SIMD_X] ? lower.f64[SIMD_X] : value.f64[SIMD_X];
-        result.f64[SIMD_Y] = value.f64[SIMD_Y] < lower.f64[SIMD_Y] ? lower.f64[SIMD_Y] : value.f64[SIMD_Y];
-
-        // upper clamp
-        result.f64[SIMD_X] = result.f64[SIMD_X] > upper.f64[SIMD_X] ? upper.f64[SIMD_X] : result.f64[SIMD_X];
-        result.f64[SIMD_Y] = result.f64[SIMD_Y] > upper.f64[SIMD_Y] ? upper.f64[SIMD_Y] : result.f64[SIMD_Y];
-
-        return result;
-    }
-
     SIMDValue SIMDFloat64x2Operation::OpSelect(const SIMDValue& mV, const SIMDValue& tV, const SIMDValue& fV)
     {
         SIMDValue result;
@@ -344,19 +288,6 @@ namespace Js
         SIMDValue falseResult = SIMDInt32x4Operation::OpAnd(notValue, fV);
 
         result = SIMDInt32x4Operation::OpOr(trueResult, falseResult);
-
-        return result;
-    }
-
-    // Get SignMask
-    int SIMDFloat64x2Operation::OpGetSignMask(const SIMDValue& v)
-    {
-        int result;
-
-        int mx = (v.f64[SIMD_X] < 0.0 || 1 / v.f64[SIMD_X] == JavascriptNumber::NEGATIVE_INFINITY) ? 1 : 0;
-        int my = (v.f64[SIMD_Y] < 0.0 || 1 / v.f64[SIMD_Y] == JavascriptNumber::NEGATIVE_INFINITY) ? 1 : 0;
-
-        result = mx | my << 1;
 
         return result;
     }

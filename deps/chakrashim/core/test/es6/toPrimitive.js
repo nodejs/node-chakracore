@@ -71,12 +71,12 @@ var tests = [
 
             delete Date.prototype[Symbol.toPrimitive];
             assert.isFalse(Date.prototype.hasOwnProperty(Symbol.toPrimitive),"Property is configurable, should be able to delete");
-            assert.areEqual(d.toString()+10,d+10,"(fall back to OriginalToPrimitve) addition provides no hint resulting default hint which is string");
-            assert.areEqual(d.valueOf(), (new Number(d)).valueOf(),"(fall back to OriginalToPrimitve) conversion toNumber calls toPrimitive with hint number");
+            assert.areEqual(d.toString()+10,d+10,"(fall back to OriginalToPrimitive) addition provides no hint resulting default hint which is string");
+            assert.areEqual(d.valueOf(), (new Number(d)).valueOf(),"(fall back to OriginalToPrimitive) conversion toNumber calls toPrimitive with hint number");
        }
     },
     {
-       name: "Object toPrimitve Test",
+       name: "Object toPrimitive Test",
        body: function ()
        {
             var o = { toString : function () {return "o"}, valueOf : function() { return 0;}};
@@ -107,20 +107,22 @@ var tests = [
        }
     },
     {
-       name: "Object toPrimitve must be Function else Throws typeError",
+       name: "Object toPrimitive must be Function or null else Throws typeError",
        body: function ()
        {
             var o = { toString : function () {return "o"}, valueOf : function() { return 0;}};
 
             o[Symbol.toPrimitive]  = {}; // can only be a  function else type error
-            assert.throws(function() {var a = o+1;}, TypeError, "o[Symbol.toPrimitive] must be a function");
+            assert.throws(function() {var a = o+1;}, TypeError, "o[Symbol.toPrimitive] must be a function", "The value of the property 'Symbol.toPrimitive' is not a Function object");
 
+            o[Symbol.toPrimitive] = null;
+            assert.doesNotThrow(function() {var a = o+1;}, "If o[Symbol.toPrimitive] is null it is ignored");
         }
     },
-// In ScriptLangugageVersion6 the ActiveXObject constructor is removed and is unable to be used for this test. Disabling until different object type can be found
+// In ScriptLanguageVersion6 the ActiveXObject constructor is removed and is unable to be used for this test. Disabling until different object type can be found
 // that can be used instead.
 //    {
-//       name: "Object toPrimitve must return  ECMA Type else TypeError",
+//       name: "Object toPrimitive must return  ECMA Type else TypeError",
 //       body: function ()
 //       {
 //            var o = { toString : function () {return "o"}, valueOf : function() { return 0;}};

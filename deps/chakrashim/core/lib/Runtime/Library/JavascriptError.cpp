@@ -4,7 +4,7 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
 #include "errstr.h"
-#include "Library\JavascriptErrorDebug.h"
+#include "Library/JavascriptErrorDebug.h"
 
 #ifdef ERROR_TRACE
 #define TRACE_ERROR(...) { Trace(__VA_ARGS__); }
@@ -53,19 +53,16 @@ namespace Js
         SetEnumerable(propertyId, false);
     }
 
-    Var JavascriptError::NewInstance(RecyclableObject* function, JavascriptError* pError, CallInfo callInfo, Arguments args)
+    Var JavascriptError::NewInstance(RecyclableObject* function, JavascriptError* pError, CallInfo callInfo, Var newTarget, Var message)
     {
         ScriptContext* scriptContext = function->GetScriptContext();
 
-        AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
-
-        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && (callInfo.Flags & (CallFlags_Value|CallFlags_NewTarget)) && newTarget != nullptr && RecyclableObject::Is(newTarget);
+        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
         JavascriptString* messageString = nullptr;
 
-        if (args.Info.Count >= 2 && !JavascriptOperators::GetTypeId(args[1]) == TypeIds_Undefined)
+        if (JavascriptOperators::GetTypeId(message) != TypeIds_Undefined)
         {
-            messageString = JavascriptConversion::ToString(args[1], scriptContext);
+            messageString = JavascriptConversion::ToString(message, scriptContext);
         }
 
         if (messageString)
@@ -95,29 +92,26 @@ namespace Js
         // Process the arguments for IE specific behaviors for numbers and description
 
         JavascriptString* descriptionString = nullptr;
+        Var message;
         bool hasNumber = false;
         double number = 0;
         if (args.Info.Count >= 3)
         {
             hasNumber = true;
             number = JavascriptConversion::ToNumber(args[1], scriptContext);
+            message = args[2];
 
-            // Get rid of this arg.  NewInstance only expects a message arg.
-            args.Values++;
-            args.Info.Count--;
-
-            descriptionString = JavascriptConversion::ToString(args[1], scriptContext);
+            descriptionString = JavascriptConversion::ToString(message, scriptContext);
         }
         else if (args.Info.Count == 2)
         {
-            if (!hasNumber)
-            {
-                descriptionString = JavascriptConversion::ToString(args[1], scriptContext);
-            }
+            message = args[1];
+            descriptionString = JavascriptConversion::ToString(message, scriptContext);
         }
         else
         {
             hasNumber = true;
+            message = scriptContext->GetLibrary()->GetUndefined();
             descriptionString = scriptContext->GetLibrary()->GetEmptyString();
         }
 
@@ -130,7 +124,8 @@ namespace Js
         JavascriptOperators::SetProperty(pError, pError, PropertyIds::description, descriptionString, scriptContext);
         pError->SetNotEnumerable(PropertyIds::description);
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 
     Var JavascriptError::NewEvalErrorInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -141,7 +136,9 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptError* pError = scriptContext->GetLibrary()->CreateEvalError();
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        Var message = args.Info.Count > 1 ? args[1] : scriptContext->GetLibrary()->GetUndefined();
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 
     Var JavascriptError::NewRangeErrorInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -152,7 +149,9 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptError* pError = scriptContext->GetLibrary()->CreateRangeError();
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        Var message = args.Info.Count > 1 ? args[1] : scriptContext->GetLibrary()->GetUndefined();
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 
     Var JavascriptError::NewReferenceErrorInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -163,7 +162,9 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptError* pError = scriptContext->GetLibrary()->CreateReferenceError();
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        Var message = args.Info.Count > 1 ? args[1] : scriptContext->GetLibrary()->GetUndefined();
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 
     Var JavascriptError::NewSyntaxErrorInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -174,7 +175,9 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptError* pError = scriptContext->GetLibrary()->CreateSyntaxError();
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        Var message = args.Info.Count > 1 ? args[1] : scriptContext->GetLibrary()->GetUndefined();
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 
     Var JavascriptError::NewTypeErrorInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -185,7 +188,9 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptError* pError = scriptContext->GetLibrary()->CreateTypeError();
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        Var message = args.Info.Count > 1 ? args[1] : scriptContext->GetLibrary()->GetUndefined();
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 
     Var JavascriptError::NewURIErrorInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -196,7 +201,9 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptError* pError = scriptContext->GetLibrary()->CreateURIError();
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        Var message = args.Info.Count > 1 ? args[1] : scriptContext->GetLibrary()->GetUndefined();
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 
 #ifdef ENABLE_PROJECTION
@@ -208,7 +215,9 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptError* pError = scriptContext->GetHostScriptContext()->CreateWinRTError(nullptr, nullptr);
 
-        return JavascriptError::NewInstance(function, pError, callInfo, args);
+        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
+        Var message = args.Info.Count > 1 ? args[1] : scriptContext->GetLibrary()->GetUndefined();
+        return JavascriptError::NewInstance(function, pError, callInfo, newTarget, message);
     }
 #endif
 
@@ -225,7 +234,7 @@ namespace Js
 
         if (args[0] == 0 || !JavascriptOperators::IsObject(args[0]))
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedObject, L"Error.prototype.toString");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedObject, _u("Error.prototype.toString"));
         }
 
         RecyclableObject * thisError = RecyclableObject::FromVar(args[0]);
@@ -242,7 +251,7 @@ namespace Js
         }
         else
         {
-            outputStr = scriptContext->GetLibrary()->CreateStringFromCppLiteral(L"Error");
+            outputStr = scriptContext->GetLibrary()->CreateStringFromCppLiteral(_u("Error"));
         }
 
         // get error.message
@@ -261,7 +270,7 @@ namespace Js
 
         if (nameLen > 0 && msgLen > 0)
         {
-           outputStr = JavascriptString::Concat(outputStr, scriptContext->GetLibrary()->CreateStringFromCppLiteral(L": "));
+           outputStr = JavascriptString::Concat(outputStr, scriptContext->GetLibrary()->CreateStringFromCppLiteral(_u(": ")));
            outputStr = JavascriptString::Concat(outputStr, message);
         }
         else if (msgLen > 0)
@@ -420,8 +429,8 @@ namespace Js
         else
         {
             messageString = scriptContext->GetLibrary()->GetEmptyString();
-            // Set an empty string so we will return it as an runtime message with the error code to IE
-            pError->originalRuntimeErrorMessage = L"";
+            // Set an empty string so we will return it as a runtime message with the error code to IE
+            pError->originalRuntimeErrorMessage = _u("");
         }
 
         JavascriptOperators::InitProperty(pError, PropertyIds::message, messageString);
@@ -438,7 +447,7 @@ namespace Js
     void JavascriptError::SetErrorMessage(JavascriptError *pError, HRESULT hr, ScriptContext* scriptContext, va_list argList)
     {
         Assert(FAILED(hr));
-        wchar_t * allocatedString = nullptr;
+        char16 * allocatedString = nullptr;
 
         if (FACILITY_CONTROL == HRESULT_FACILITY(hr) || FACILITY_JSCRIPT == HRESULT_FACILITY(hr))
         {
@@ -452,7 +461,7 @@ namespace Js
                     size_t len = _vscwprintf(message, argList);
                     Assert(len > 0);
                     len = AllocSizeMath::Add(len, 1);
-                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), wchar_t, len);
+                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, len);
 
 #pragma prefast(push)
 #pragma prefast(disable:26014, "allocatedString allocated size more than msglen")
@@ -476,7 +485,7 @@ namespace Js
                 if (message != nullptr)
                 {
                     uint32 len = SysStringLen(message) +1;
-                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), wchar_t, len);
+                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, len);
                     wcscpy_s(allocatedString, len, message);
                     SysFreeString(message);
                 }
@@ -488,7 +497,7 @@ namespace Js
     void JavascriptError::SetErrorMessage(JavascriptError *pError, HRESULT hr, PCWSTR varName, ScriptContext* scriptContext)
     {
         Assert(FAILED(hr));
-        wchar_t * allocatedString = nullptr;
+        char16 * allocatedString = nullptr;
 
         if (FACILITY_CONTROL == HRESULT_FACILITY(hr) || FACILITY_JSCRIPT == HRESULT_FACILITY(hr))
         {
@@ -502,12 +511,12 @@ namespace Js
                     uint32 msglen = SysStringLen(message);
                     size_t varlen = wcslen(varName);
                     size_t len = AllocSizeMath::Add(msglen, varlen);
-                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), wchar_t, len);
+                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, len);
                     size_t outputIndex = 0;
                     for (size_t i = 0; i < msglen; i++)
                     {
                         Assert(outputIndex < len);
-                        if (message[i] == L'%' && i + 1 < msglen && message[i+1] == L's')
+                        if (message[i] == _u('%') && i + 1 < msglen && message[i+1] == _u('s'))
                         {
                             Assert(len - outputIndex >= varlen);
                             wcscpy_s(allocatedString + outputIndex, len - outputIndex, varName);
@@ -541,7 +550,7 @@ namespace Js
                 if (message != nullptr)
                 {
                     uint32 len = SysStringLen(message) +1;
-                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), wchar_t, len);
+                    allocatedString = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, len);
                     wcscpy_s(allocatedString, len, message);
                     SysFreeString(message);
                 }
@@ -557,7 +566,7 @@ namespace Js
 
     BOOL JavascriptError::GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        wchar_t const *pszMessage = nullptr;
+        char16 const *pszMessage = nullptr;
         GetRuntimeErrorWithScriptEnter(this, &pszMessage);
 
         if (pszMessage)
@@ -571,7 +580,7 @@ namespace Js
 
     BOOL JavascriptError::GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        stringBuilder->AppendCppLiteral(L"Error");
+        stringBuilder->AppendCppLiteral(_u("Error"));
         return TRUE;
     }
 
@@ -600,7 +609,7 @@ namespace Js
 
         if (pMessage != NULL)
         {
-            *pMessage = L"";  // default to have IE load the error message, by returning empty-string
+            *pMessage = _u("");  // default to have IE load the error message, by returning empty-string
 
             // The description property always overrides any error message
             Var description = Js::JavascriptOperators::GetProperty(errorObject, Js::PropertyIds::description, scriptContext, NULL);
@@ -688,7 +697,7 @@ namespace Js
 
     bool JavascriptError::ThrowCantAssign(PropertyOperationFlags flags, ScriptContext* scriptContext, PropertyId propertyId)
     {
-        if (flags == PropertyOperation_ThrowIfNonWritable)
+        if (flags & PropertyOperation_ThrowIfNonWritable)
         {
             if (scriptContext->GetThreadContext()->RecordImplicitException())
             {
@@ -701,7 +710,7 @@ namespace Js
 
     bool JavascriptError::ThrowCantAssign(PropertyOperationFlags flags, ScriptContext* scriptContext, uint32 index)
     {
-        if (flags == PropertyOperation_ThrowIfNonWritable)
+        if (flags & PropertyOperation_ThrowIfNonWritable)
         {
             if (scriptContext->GetThreadContext()->RecordImplicitException())
             {
@@ -861,5 +870,46 @@ namespace Js
         {
             ThrowTypeError(scriptContext, hCode, varName);
         }
+    }
+
+    JavascriptError* JavascriptError::CreateFromCompileScriptException(ScriptContext* scriptContext, CompileScriptException* cse)
+    {
+        HRESULT hr = cse->ei.scode;
+        Js::JavascriptError * error = Js::JavascriptError::MapParseError(scriptContext, hr);
+        const Js::PropertyRecord *record;
+        Var value;
+
+        if (cse->ei.bstrDescription)
+        {
+            value = JavascriptString::NewCopySz(cse->ei.bstrDescription, scriptContext);
+            JavascriptOperators::OP_SetProperty(error, PropertyIds::message, value, scriptContext);
+        }
+
+        if (cse->hasLineNumberInfo)
+        {
+            value = JavascriptNumber::New(cse->line, scriptContext);
+            scriptContext->GetOrAddPropertyRecord(_u("line"), &record);
+            JavascriptOperators::OP_SetProperty(error, record->GetPropertyId(), value, scriptContext);
+        }
+
+        if (cse->hasLineNumberInfo)
+        {
+            value = JavascriptNumber::New(cse->ichMin - cse->ichMinLine, scriptContext);
+            scriptContext->GetOrAddPropertyRecord(_u("column"), &record);
+            JavascriptOperators::OP_SetProperty(error, record->GetPropertyId(), value, scriptContext);
+        }
+
+        if (cse->hasLineNumberInfo)
+        {
+            value = JavascriptNumber::New(cse->ichLim - cse->ichMin, scriptContext);
+            JavascriptOperators::OP_SetProperty(error, PropertyIds::length, value, scriptContext);
+        }
+
+        if (cse->bstrLine != nullptr)
+        {
+            value = JavascriptString::NewCopySz(cse->bstrLine, scriptContext);
+            JavascriptOperators::OP_SetProperty(error, PropertyIds::source, value, scriptContext);
+        }
+        return error;
     }
 }

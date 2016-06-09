@@ -45,9 +45,11 @@ namespace Js
         static const charcount_t DIAG_MAX_FUNCTION_STRING = 256;
 
     protected:
-        static Var NewInstanceHelper(ScriptContext *scriptContext, RecyclableObject* function, CallInfo callInfo, Js::ArgumentReader& args, bool isGenerator = false);
+        enum class FunctionKind { Normal, Generator, Async };
+        static Var NewInstanceHelper(ScriptContext *scriptContext, RecyclableObject* function, CallInfo callInfo, Js::ArgumentReader& args, FunctionKind functionKind = FunctionKind::Normal);
 
         JavascriptFunction(DynamicType * type);
+
     public:
         JavascriptFunction(DynamicType * type, FunctionInfo * functionInfo);
         JavascriptFunction(DynamicType * type, FunctionInfo * functionInfo, ConstructorCache* cache);
@@ -62,6 +64,8 @@ namespace Js
             static FunctionInfo Call;
             static FunctionInfo ToString;
             static FunctionInfo SymbolHasInstance;
+
+            static FunctionInfo NewAsyncFunctionInstance;
         };
 
         static const int numberLinesPrependedToAnonymousFunction = 1;
@@ -76,6 +80,8 @@ namespace Js
         static Var EntryCall(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryToString(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntrySymbolHasInstance(RecyclableObject* function, CallInfo callInfo, ...);
+
+        static Var NewAsyncFunctionInstance(RecyclableObject* function, CallInfo callInfo, ...);
 
         static bool Is(Var aValue);
         static JavascriptFunction* FromVar(Var aValue);
@@ -134,7 +140,7 @@ namespace Js
         DeferDeserializeFunctionInfo * GetDeferDeserializeFunctionInfo() const;
         FunctionBody * GetFunctionBody() const;
         virtual JavascriptString* GetDisplayNameImpl() const;
-        JavascriptString* DisplayNameHelper(const wchar_t* name, charcount_t length) const;
+        JavascriptString* DisplayNameHelper(const char16* name, charcount_t length) const;
         JavascriptString* GetDisplayName() const;
         bool GetFunctionName(JavascriptString** name) const;
         bool IsLibraryCode() const;
@@ -193,8 +199,12 @@ namespace Js
         static bool IsBuiltinProperty(Var objectWithProperty, PropertyIds propertyId);
 #endif
         private:
-        static int  ResumeForOutOfBoundsArrayRefs(int exceptionCode, PEXCEPTION_POINTERS exceptionInfo);
+            static int CallRootEventFilter(int exceptionCode, PEXCEPTION_POINTERS exceptionInfo);
+#if ENABLE_NATIVE_CODEGEN && defined(_M_X64)
+            static bool ResumeForOutOfBoundsArrayRefs(int exceptionCode, PEXCEPTION_POINTERS exceptionInfo);
+#endif
     };
+#if ENABLE_NATIVE_CODEGEN && defined(_M_X64)
     class ArrayAccessDecoder
     {
     public:
@@ -224,6 +234,7 @@ namespace Js
         };
         static InstructionData CheckValidInstr(BYTE* &pc, PEXCEPTION_POINTERS exceptionInfo, FunctionBody* funcBody);
     };
+#endif
 
     //
     // ---- implementation shared with diagnostics ----
@@ -233,9 +244,9 @@ namespace Js
     {
         auto library = scriptContext->GetLibrary();
         String sourceString;
-        sourceString = library->CreateStringFromCppLiteral(JS_DISPLAY_STRING_FUNCTION_HEADER); //L"function "
+        sourceString = library->CreateStringFromCppLiteral(JS_DISPLAY_STRING_FUNCTION_HEADER); //_u("function ")
         sourceString = StringHelper::Concat(sourceString, name);
-        sourceString = StringHelper::Concat(sourceString, library->CreateStringFromCppLiteral(JS_DISPLAY_STRING_FUNCTION_BODY)); //L"() { [native code] }"
+        sourceString = StringHelper::Concat(sourceString, library->CreateStringFromCppLiteral(JS_DISPLAY_STRING_FUNCTION_BODY)); //_u("() { [native code] }")
         return sourceString;
     }
 

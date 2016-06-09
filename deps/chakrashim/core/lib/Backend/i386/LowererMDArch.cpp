@@ -1,10 +1,11 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-#include "BackEnd.h"
+
+#include "Backend.h"
 #include "LowererMDArch.h"
-#include "Library\JavascriptGeneratorFunction.h"
+#include "Library/JavascriptGeneratorFunction.h"
 
 const Js::OpCode LowererMD::MDExtend32Opcode = Js::OpCode::MOV;
 
@@ -102,6 +103,14 @@ LowererMDArch::GetAssignOp(IRType type)
         return Js::OpCode::MOVSS;
     case TySimd128F4:
     case TySimd128I4:
+    case TySimd128I8:
+    case TySimd128I16:
+    case TySimd128U4:
+    case TySimd128U8:
+    case TySimd128U16:
+    case TySimd128B4:
+    case TySimd128B8:
+    case TySimd128B16:
     case TySimd128D2:
         return Js::OpCode::MOVUPS;
     default:
@@ -830,7 +839,7 @@ LowererMDArch::LowerAsmJsCallI(IR::Instr * callInstr)
 
     IR::RegOpnd* functionTypeRegOpnd = IR::RegOpnd::New(TyMachReg, m_func);
 
-    IR::IndirOpnd* functionInfoIndirOpnd = IR::IndirOpnd::New(functionObjOpnd->AsRegOpnd(), Js::RecyclableObject::GetTypeOffset(), TyMachReg, m_func);
+    IR::IndirOpnd* functionInfoIndirOpnd = IR::IndirOpnd::New(functionObjOpnd->AsRegOpnd(), Js::RecyclableObject::GetOffsetOfType(), TyMachReg, m_func);
 
     IR::Instr* instr = IR::Instr::New(Js::OpCode::MOV, functionTypeRegOpnd, functionInfoIndirOpnd, m_func);
 
@@ -1139,15 +1148,15 @@ LowererMDArch::LowerCall(IR::Instr * callInstr, uint32 argCount, RegNum regNum)
 
             StackSym * newDstStackSym = StackSym::New(dstType, this->m_func);
 
-            Assert(dstType == TyMachDouble);
-            this->m_func->StackAllocate(newDstStackSym, MachDouble);
+            Assert(dstOpnd->IsFloat());
+            this->m_func->StackAllocate(newDstStackSym, TySize[dstType]);
 
             IR::SymOpnd * newDstOpnd = IR::SymOpnd::New(newDstStackSym, dstType, this->m_func);
 
             floatPopInstr->SetDst(newDstOpnd);
             callInstr->InsertAfter(floatPopInstr);
 
-            movInstr = IR::Instr::New(Js::OpCode::MOVSD, oldDst, newDstOpnd, this->m_func);
+            movInstr = IR::Instr::New(assignOp, oldDst, newDstOpnd, this->m_func);
             floatPopInstr->InsertAfter(movInstr);
         }
         else
@@ -1351,6 +1360,26 @@ LowererMDArch::LoadDoubleHelperArgument(IR::Instr * instrInsert, IR::Opnd * opnd
         float64Opnd = opndArg;
     }
     instr = IR::Instr::New(Js::OpCode::MOVSD, opnd, float64Opnd, this->m_func);
+    instrInsert->InsertBefore(instr);
+    LowererMD::Legalize(instr);
+    return instrPrev;
+}
+
+IR::Instr *
+LowererMDArch::LoadFloatHelperArgument(IR::Instr * instrInsert, IR::Opnd * opndArg)
+{
+    IR::Instr * instrPrev;
+    IR::Instr * instr;
+    IR::Opnd * opnd;
+    IR::RegOpnd * espOpnd = IR::RegOpnd::New(nullptr, this->GetRegStackPointer(), TyMachReg, this->m_func);
+
+    opnd = IR::IndirOpnd::New(espOpnd, -4, TyMachReg, this->m_func);
+    instrPrev = IR::Instr::New(Js::OpCode::LEA, espOpnd, opnd, this->m_func);
+    instrInsert->InsertBefore(instrPrev);
+
+    opnd = IR::IndirOpnd::New(espOpnd, (int32)0, TyFloat32, this->m_func);
+
+    instr = IR::Instr::New(Js::OpCode::MOVSS, opnd, opndArg, this->m_func);
     instrInsert->InsertBefore(instr);
     LowererMD::Legalize(instr);
     return instrPrev;
@@ -1735,7 +1764,8 @@ LowererMDArch::LowerExitInstrAsmJs(IR::ExitInstr * exitInstr)
     exitInstr = LowerExitInstrCommon(exitInstr);
 
     // get asm.js return type
-    Js::AsmJsRetType asmRetType = m_func->GetJnFunction()->GetAsmJsFunctionInfo()->GetReturnType();
+    Js::AsmJsFunctionInfo* asmJsFuncInfo = m_func->GetJnFunction()->GetAsmJsFunctionInfoWithLock();
+    Js::AsmJsRetType asmRetType = asmJsFuncInfo->GetReturnType();
     IRType regType;
     if (asmRetType.which() == Js::AsmJsRetType::Double)
     {
@@ -1752,6 +1782,38 @@ LowererMDArch::LowerExitInstrAsmJs(IR::ExitInstr * exitInstr)
     else if (asmRetType.toVarType().isInt32x4())
     {
         regType = TySimd128I4;
+    }
+    else if (asmRetType.toVarType().isInt16x8())
+    {
+        regType = TySimd128I8;
+    }
+    else if (asmRetType.toVarType().isInt8x16())
+    {
+        regType = TySimd128I16;
+    }
+    else if (asmRetType.toVarType().isUint32x4())
+    {
+        regType = TySimd128U4;
+    }
+    else if (asmRetType.toVarType().isUint16x8())
+    {
+        regType = TySimd128U8;
+    }
+    else if (asmRetType.toVarType().isUint8x16())
+    {
+        regType = TySimd128U16;
+    }
+    else if (asmRetType.toVarType().isBool32x4())
+    {
+        regType = TySimd128B4;
+    }
+    else if (asmRetType.toVarType().isBool16x8())
+    {
+        regType = TySimd128B8;
+    }
+    else if (asmRetType.toVarType().isBool8x16())
+    {
+        regType = TySimd128B16;
     }
     else if (asmRetType.toVarType().isFloat64x2())
     {
@@ -1776,7 +1838,7 @@ LowererMDArch::LowerExitInstrAsmJs(IR::ExitInstr * exitInstr)
     {
 
         // Generate RET
-        int32 alignedSize = Math::Align<int32>(m_func->GetJnFunction()->GetAsmJsFunctionInfo()->GetArgByteSize(), MachStackAlignment);
+        int32 alignedSize = Math::Align<int32>(asmJsFuncInfo->GetArgByteSize(), MachStackAlignment);
         IR::IntConstOpnd * intSrc = IR::IntConstOpnd::New(alignedSize + MachPtr, TyMachReg, m_func);
         IR::RegOpnd * retReg = IR::RegOpnd::New(nullptr, GetRegReturnAsmJs(regType), regType, m_func);
         IR::Instr *retInstr = IR::Instr::New(Js::OpCode::RET, m_func);
@@ -2157,7 +2219,7 @@ LowererMDArch::EmitUIntToFloat(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrIns
 }
 
 bool
-LowererMDArch::EmitLoadInt32(IR::Instr *instrLoad)
+LowererMDArch::EmitLoadInt32(IR::Instr *instrLoad, bool conversionFromObjectAllowed)
 {
     // if(doShiftFirst)
     // {
@@ -2333,7 +2395,14 @@ LowererMDArch::EmitLoadInt32(IR::Instr *instrLoad)
             return true;
         }
 
-        this->lowererMD->m_lowerer->LowerUnaryHelperMem(instrLoad, IR::HelperConv_ToInt32);
+        if (conversionFromObjectAllowed)
+        {
+            lowererMD->m_lowerer->LowerUnaryHelperMem(instrLoad, IR::HelperConv_ToInt32);
+        }
+        else
+        {
+            lowererMD->m_lowerer->LowerUnaryHelperMemWithBoolReference(instrLoad, IR::HelperConv_ToInt32_NoObjects, true /*useBoolForBailout*/);
+        }
     }
     else
     {
@@ -3603,7 +3672,7 @@ LowererMDArch::FinalLower()
             if (instr->GetSrc2())
             {
                 // CMOV inserted before regalloc have a dummy src1 to simulate the fact that
-                // CMOV is not an definite def of the dst.
+                // CMOV is not a definite def of the dst.
                 instr->SwapOpnds();
                 instr->FreeSrc2();
             }

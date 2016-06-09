@@ -3,10 +3,11 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLanguagePch.h"
-#include "Library\JavascriptNumberObject.h"
-#include "Library\JavascriptStringObject.h"
-#include "Library\DateImplementation.h"
-#include "Library\JavascriptDate.h"
+#include "Library/JavascriptNumberObject.h"
+#include "Library/JavascriptStringObject.h"
+#include "Library/JavascriptSimdObject.h"
+#include "Library/DateImplementation.h"
+#include "Library/JavascriptDate.h"
 
 extern "C" PVOID _ReturnAddress(VOID);
 #pragma intrinsic(_ReturnAddress)
@@ -32,7 +33,7 @@ namespace Js
     }
 
     //ES5 9.11  Undefined, Null, Boolean, Number, String - return false
-    //If Object has an [[Call]] internal method, then return true, otherwise return false
+    //If Object has a [[Call]] internal method, then return true, otherwise return false
     bool JavascriptConversion::IsCallable(Var aValue)
     {
         if (!RecyclableObject::Is(aValue))
@@ -237,7 +238,7 @@ CommonNumber:
     template bool JavascriptConversion::SameValueCommon<true>(Var aLeft, Var aRight);
 
     //----------------------------------------------------------------------------
-    // ToObject() takes a value and converts it to a Object type
+    // ToObject() takes a value and converts it to an Object type
     // Implementation of ES5 9.9
     // The spec indicates that this method should throw a TypeError if the supplied value is Undefined or Null.
     // Our implementation returns FALSE in this scenario, expecting the caller to throw the TypeError.
@@ -264,6 +265,7 @@ CommonNumber:
     BOOL JavascriptConversion::ToObject(Var aValue, ScriptContext* scriptContext, RecyclableObject** object)
     {
         Assert(object);
+
         switch (JavascriptOperators::GetTypeId(aValue))
         {
             case TypeIds_Undefined:
@@ -277,7 +279,14 @@ CommonNumber:
 
             default:
             {
-                *object = RecyclableObject::FromVar(aValue)->ToObject(scriptContext);
+                if (IsSimdType(aValue))
+                {
+                    *object = scriptContext->GetLibrary()->CreateSIMDObject(aValue, JavascriptOperators::GetTypeId(aValue));
+                }
+                else
+                {
+                    *object = RecyclableObject::FromVar(aValue)->ToObject(scriptContext);
+                }
                 return TRUE;
             }
         }
@@ -419,9 +428,16 @@ CommonNumber:
             return JavascriptUInt64Number::FromVar(aValue)->ToJavascriptNumber();
 
         default:
-            // if no Method exists this function falls back to OrdinaryToPrimitive
-            // if IsES6ToPrimitiveEnabled flag is off we also fall back to OrdinaryToPrimitive
-            return MethodCallToPrimitive(aValue, hint, requestContext);
+            if (IsSimdType(aValue))
+            {
+                return aValue;
+            }
+            else
+            {
+                // if no Method exists this function falls back to OrdinaryToPrimitive
+                // if IsES6ToPrimitiveEnabled flag is off we also fall back to OrdinaryToPrimitive
+                return MethodCallToPrimitive(aValue, hint, requestContext);
+            }
         }
     }
 
@@ -456,29 +472,27 @@ CommonNumber:
         RecyclableObject *const recyclableObject = RecyclableObject::FromVar(aValue);
         ScriptContext *const scriptContext = recyclableObject->GetScriptContext();
 
-        /*7.3.7 GetMethod (O, P)
-        The abstract operation GetMethod is used to get the value of a specific property of an object when the value of the property is expected to be a function.
-        The operation is called with arguments O and P where O is the object, P is the property key. This abstract operation performs the following steps:
-
-        Assert: Type(O) is Object.
-        Assert: IsPropertyKey(P) is true.
-        Let func be the result of calling the [[Get]] internal method of O passing P and O as the arguments.
-        ReturnIfAbrupt(func).
-        If func is undefined, then return undefined.
-        If IsCallable(func) is false, then throw a TypeError exception.
-        Return func.*/
+        //7.3.9 GetMethod(V, P)
+        //  The abstract operation GetMethod is used to get the value of a specific property of an ECMAScript language value when the value of the
+        //  property is expected to be a function. The operation is called with arguments V and P where V is the ECMAScript language value, P is the
+        //  property key. This abstract operation performs the following steps:
+        //  1. Assert: IsPropertyKey(P) is true.
+        //  2. Let func be ? GetV(V, P).
+        //  3. If func is either undefined or null, return undefined.
+        //  4. If IsCallable(func) is false, throw a TypeError exception.
+        //  5. Return func.
         Var varMethod;
 
         if (!(requestContext->GetConfig()->IsES6ToPrimitiveEnabled()
             && JavascriptOperators::GetPropertyReference(recyclableObject, PropertyIds::_symbolToPrimitive, &varMethod, requestContext)
-            && !JavascriptOperators::IsUndefinedObject(varMethod)))
+            && !JavascriptOperators::IsUndefinedOrNull(varMethod)))
         {
             return OrdinaryToPrimitive(aValue, hint, requestContext);
         }
         if (!JavascriptFunction::Is(varMethod))
         {
             // Don't error if we disabled implicit calls
-            JavascriptError::TryThrowTypeError(scriptContext, requestContext, JSERR_NeedFunction, requestContext->GetPropertyName(PropertyIds::_symbolToPrimitive)->GetBuffer());
+            JavascriptError::TryThrowTypeError(scriptContext, requestContext, JSERR_Property_NeedFunction, requestContext->GetPropertyName(PropertyIds::_symbolToPrimitive)->GetBuffer());
             return requestContext->GetLibrary()->GetNull();
         }
 
@@ -488,15 +502,15 @@ CommonNumber:
 
         if (hint == JavascriptHint::HintString)
         {
-            hintString = requestContext->GetLibrary()->CreateStringFromCppLiteral(L"string");
+            hintString = requestContext->GetLibrary()->CreateStringFromCppLiteral(_u("string"));
         }
         else if (hint == JavascriptHint::HintNumber)
         {
-            hintString = requestContext->GetLibrary()->CreateStringFromCppLiteral(L"number");
+            hintString = requestContext->GetLibrary()->CreateStringFromCppLiteral(_u("number"));
         }
         else
         {
-            hintString = requestContext->GetLibrary()->CreateStringFromCppLiteral(L"default");
+            hintString = requestContext->GetLibrary()->CreateStringFromCppLiteral(_u("default"));
         }
 
         // If exoticToPrim is not undefined, then
@@ -530,7 +544,7 @@ CommonNumber:
         else
         {
             // Don't error if we disabled implicit calls
-            JavascriptError::TryThrowTypeError(scriptContext, requestContext, JSERR_FunctionArgument_Invalid, L"[Symbol.toPrimitive]");
+            JavascriptError::TryThrowTypeError(scriptContext, requestContext, JSERR_FunctionArgument_Invalid, _u("[Symbol.toPrimitive]"));
             return requestContext->GetLibrary()->GetNull();
         }
     }
@@ -563,7 +577,7 @@ CommonNumber:
         return result;
     }
 
-    JavascriptString *JavascriptConversion::CoerseString(Var aValue, ScriptContext* scriptContext, const wchar_t* apiNameForErrorMsg)
+    JavascriptString *JavascriptConversion::CoerseString(Var aValue, ScriptContext* scriptContext, const char16* apiNameForErrorMsg)
     {
         if (!JavascriptConversion::CheckObjectCoercible(aValue, scriptContext))
         {
@@ -650,6 +664,30 @@ CommonNumber:
 
             case TypeIds_Symbol:
                 return JavascriptSymbol::FromVar(aValue)->ToString(scriptContext);
+
+            case TypeIds_SymbolObject:
+                return JavascriptSymbol::ToString(JavascriptSymbolObject::FromVar(aValue)->GetValue(), scriptContext);
+
+            case TypeIds_SIMDBool8x16:
+            case TypeIds_SIMDBool16x8:
+            case TypeIds_SIMDBool32x4:
+            case TypeIds_SIMDInt8x16:
+            case TypeIds_SIMDInt16x8:
+            case TypeIds_SIMDInt32x4:
+            case TypeIds_SIMDUint8x16:
+            case TypeIds_SIMDUint16x8:
+            case TypeIds_SIMDUint32x4:
+            case TypeIds_SIMDFloat32x4:
+            {
+                Assert(aValue);
+                RecyclableObject *obj = nullptr;
+                if (!JavascriptConversion::ToObject(aValue, scriptContext, &obj))
+                {
+                    JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedSimd, _u("SIMDType.toString"));
+                }
+                JavascriptSIMDObject* simdObject = static_cast<JavascriptSIMDObject*>(obj);
+                return JavascriptString::FromVar(simdObject->ToString(scriptContext));
+            }
 
             case TypeIds_GlobalObject:
                 aValue = static_cast<Js::GlobalObject*>(aValue)->ToThis();
@@ -794,11 +832,16 @@ CommonNumber:
         case TypeIds_SIMDFloat32x4:
         case TypeIds_SIMDFloat64x2:
         case TypeIds_SIMDInt32x4:
-        {   // SIMD review: may need update once spec is finalized
-            if (scriptContext->GetConfig()->IsSimdjsEnabled())
-            {
-                return true;
-            }
+        case TypeIds_SIMDInt16x8:
+        case TypeIds_SIMDInt8x16:
+        case TypeIds_SIMDBool32x4:
+        case TypeIds_SIMDBool16x8:
+        case TypeIds_SIMDBool8x16:
+        case TypeIds_SIMDUint32x4:
+        case TypeIds_SIMDUint16x8:
+        case TypeIds_SIMDUint8x16:
+        {
+            return true;
         }
 
         default:
@@ -898,7 +941,15 @@ CommonNumber:
 
             case TypeIds_SIMDFloat32x4:
             case TypeIds_SIMDInt32x4:
+            case TypeIds_SIMDInt16x8:
+            case TypeIds_SIMDInt8x16:
             case TypeIds_SIMDFloat64x2:
+            case TypeIds_SIMDBool32x4:
+            case TypeIds_SIMDBool16x8:
+            case TypeIds_SIMDBool8x16:
+            case TypeIds_SIMDUint32x4:
+            case TypeIds_SIMDUint16x8:
+            case TypeIds_SIMDUint8x16:
                 JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
 
             default:
@@ -954,6 +1005,19 @@ CommonNumber:
 
             case TypeIds_VariantDate:
                 return ToInteger(ToNumber_Full(aValue, scriptContext));
+
+            case TypeIds_SIMDFloat32x4:
+            case TypeIds_SIMDFloat64x2:
+            case TypeIds_SIMDInt32x4:
+            case TypeIds_SIMDInt16x8:
+            case TypeIds_SIMDInt8x16:
+            case TypeIds_SIMDBool32x4:
+            case TypeIds_SIMDBool16x8:
+            case TypeIds_SIMDBool8x16:
+            case TypeIds_SIMDUint32x4:
+            case TypeIds_SIMDUint16x8:
+            case TypeIds_SIMDUint8x16:
+                JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
 
             default:
                 {
@@ -1041,6 +1105,19 @@ CommonNumber:
 
         case TypeIds_VariantDate:
             return ToInt32(ToNumber_Full(aValue, scriptContext));
+
+        case TypeIds_SIMDFloat32x4:
+        case TypeIds_SIMDFloat64x2:
+        case TypeIds_SIMDInt32x4:
+        case TypeIds_SIMDInt16x8:
+        case TypeIds_SIMDInt8x16:
+        case TypeIds_SIMDBool32x4:
+        case TypeIds_SIMDBool16x8:
+        case TypeIds_SIMDBool8x16:
+        case TypeIds_SIMDUint32x4:
+        case TypeIds_SIMDUint16x8:
+        case TypeIds_SIMDUint8x16:
+            JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
 
         default:
             AssertMsg(JavascriptOperators::IsObject(aValue), "bad type object in conversion ToInteger32");
@@ -1141,6 +1218,19 @@ CommonNumber:
 
             case TypeIds_VariantDate:
                 return ToInt32Finite(ToNumber_Full(aValue, scriptContext), result);
+
+            case TypeIds_SIMDFloat32x4:
+            case TypeIds_SIMDFloat64x2:
+            case TypeIds_SIMDInt32x4:
+            case TypeIds_SIMDInt16x8:
+            case TypeIds_SIMDInt8x16:
+            case TypeIds_SIMDBool32x4:
+            case TypeIds_SIMDBool16x8:
+            case TypeIds_SIMDBool8x16:
+            case TypeIds_SIMDUint32x4:
+            case TypeIds_SIMDUint16x8:
+            case TypeIds_SIMDUint8x16:
+                JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
 
             default:
                 {
@@ -1278,6 +1368,19 @@ CommonNumber:
             case TypeIds_VariantDate:
                 return JavascriptMath::ToUInt32(ToNumber_Full(aValue, scriptContext));
 
+            case TypeIds_SIMDFloat32x4:
+            case TypeIds_SIMDFloat64x2:
+            case TypeIds_SIMDInt32x4:
+            case TypeIds_SIMDInt16x8:
+            case TypeIds_SIMDInt8x16:
+            case TypeIds_SIMDBool32x4:
+            case TypeIds_SIMDBool16x8:
+            case TypeIds_SIMDBool8x16:
+            case TypeIds_SIMDUint32x4:
+            case TypeIds_SIMDUint16x8:
+            case TypeIds_SIMDUint8x16:
+                JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
+
             default:
                 {
                     AssertMsg(JavascriptOperators::IsObject(aValue), "bad type object in conversion ToUInt32");
@@ -1351,6 +1454,19 @@ CommonNumber:
 
             case TypeIds_VariantDate:
                 return ToUInt16(ToNumber_Full(aValue, scriptContext));
+
+            case TypeIds_SIMDFloat32x4:
+            case TypeIds_SIMDFloat64x2:
+            case TypeIds_SIMDInt32x4:
+            case TypeIds_SIMDInt16x8:
+            case TypeIds_SIMDInt8x16:
+            case TypeIds_SIMDBool32x4:
+            case TypeIds_SIMDBool16x8:
+            case TypeIds_SIMDBool8x16:
+            case TypeIds_SIMDUint32x4:
+            case TypeIds_SIMDUint16x8:
+            case TypeIds_SIMDUint8x16:
+                JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
 
             default:
                 {

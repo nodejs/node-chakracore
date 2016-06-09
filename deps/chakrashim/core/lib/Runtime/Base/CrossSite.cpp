@@ -3,9 +3,9 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeBasePch.h"
-#include "Library\JavascriptProxy.h"
-#include "Library\HostObjectBase.h"
-#include "Types\WithScopeObject.h"
+#include "Library/JavascriptProxy.h"
+#include "Library/HostObjectBase.h"
+#include "Types/WithScopeObject.h"
 
 namespace Js
 {
@@ -218,7 +218,7 @@ namespace Js
             }
         }
 
-        // We have a object marshaled, we need to keep track of the related script context
+        // We have an object marshaled, we need to keep track of the related script context
         // so optimization overrides can be updated as a group
         scriptContext->optimizationOverrides.Merge(&object->GetScriptContext()->optimizationOverrides);
 
@@ -264,7 +264,7 @@ namespace Js
         if (funcInfo->HasBody())
         {
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-            wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+            char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
             entryPoint = (JavascriptMethod)ScriptFunction::FromVar(function)->GetEntryPointInfo()->address;
             if (funcInfo->IsDeferred() && scriptContext->IsProfiling())
@@ -273,7 +273,7 @@ namespace Js
                 entryPoint = Js::ScriptContext::GetProfileModeThunk(entryPoint);
             }
 
-            OUTPUT_TRACE(Js::ScriptProfilerPhase, L"CrossSite::ProfileThunk FunctionNumber : %s, Entrypoint : 0x%08X\n", funcInfo->GetFunctionProxy()->GetDebugNumberSet(debugStringBuffer), entryPoint);
+            OUTPUT_TRACE(Js::ScriptProfilerPhase, _u("CrossSite::ProfileThunk FunctionNumber : %s, Entrypoint : 0x%08X\n"), funcInfo->GetFunctionProxy()->GetDebugNumberSet(debugStringBuffer), entryPoint);
         }
         else
         {

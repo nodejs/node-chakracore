@@ -76,7 +76,7 @@ var tests = [
     },
 
     {
-        name: "Map constructor populates the map with key-values pairs from given optional iteratable argument",
+        name: "Map constructor populates the map with key-values pairs from given optional iterable argument",
         body: function () {
             var m = new Map([ ['a', 1], ['b', 2], ['c', 3] ]);
 
@@ -398,9 +398,9 @@ var tests = [
             assert.isTrue(map.has(3.14159), "Map contains floating point number");
             assert.isTrue(map.has(3.0 + 0.14159), "Map contains floating point number even if calculated differently");
             assert.isTrue(map.has("hello"), "Map contains string");
-            assert.isTrue(map.has("hel" + "lo"), "Map contains string even if differnt reference identity");
+            assert.isTrue(map.has("hel" + "lo"), "Map contains string even if different reference identity");
             assert.isTrue(map.has(8589934592), "Map contains 64 bit integer value");
-            assert.isTrue(map.has(65536 + 8589869056), "Map contains 64 bit integer value even if calculated diffrently");
+            assert.isTrue(map.has(65536 + 8589869056), "Map contains 64 bit integer value even if calculated differently");
 
             map.set(-0, 5);
             assert.isTrue(map.has(-0), "Map contains -0");
@@ -802,6 +802,21 @@ var tests = [
                 // do not use assert.areEqual(-0, ...) because it compares -0 and +0 as equal
                 assert.isTrue(+Infinity === 1 / key && key === 0, "-0 keys are normalized to +0");
             });
+        }
+    },
+
+    {
+        name: "Keys that are int versus double should compare and hash equal (github #390)",
+        body: function() {
+            var map = new Map();
+
+            map.set(1, "test");
+            assert.areEqual("test", map.get(1), "sanity check, map has key-value pair { 1, 'test' }");
+
+            var key = 1.1;
+            key -= 0.1; // key is now 1.0, a double, rather than an int
+
+            assert.areEqual("test", map.get(key), "1.0 should be equal to the key 1 and map to 'test'");
         }
     },
 ];

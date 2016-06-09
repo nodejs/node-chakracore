@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeByteCodePch.h"
-#include "BackEndOpcodeAttr.h"
+#include "BackendOpCodeAttr.h"
 
 namespace OpCodeAttr
 {
@@ -18,7 +18,7 @@ namespace OpCodeAttr
 enum OpCodeAttrEnum
 {
     None                        = 0x00000000,
-    OpSideEffect                = 0x00000001, // If dst is unused and src can’t call implicitcalls, it still can not be dead-stored (Could throw an exception, etc)
+    OpSideEffect                = 0x00000001, // If dst is unused and src can't call implicitcalls, it still can not be dead-stored (Could throw an exception, etc)
     OpUseAllFields              = 0x00000002,
 
     OpTempNumberSources         = 0x00000004, // OpCode does support temp values as source
@@ -38,7 +38,7 @@ enum OpCodeAttrEnum
     OpFastFldInstr              = 0x00004000,
     OpBailOutRec                = 0x00008000,
 
-    OpInlinableBuiltIn          = 0x00010000, // OpCode is an inlineable built-in, such as InlineMathSin, etc.
+    OpInlinableBuiltIn          = 0x00010000, // OpCode is an inlinable built-in, such as InlineMathSin, etc.
     OpNonIntTransfer            = 0x00020000, // OpCode may transfer a non-integer value from the non-constant source to the destination
     OpIsInt32                   = 0x00040000, // OpCode converts its srcs to int32 or a narrower int type, and produces an int32
     OpProducesNumber            = 0x00080000, // OpCode always produces a number
@@ -60,14 +60,14 @@ enum OpCodeAttrEnum
 static const int OpcodeAttributes[] =
 {
 #define DEF_OP(name, jnLayout, attrib, ...) attrib,
-#include "ByteCode\OpCodeList.h"
+#include "ByteCode/OpCodeList.h"
 #undef DEF_OP
 };
 
 static const int ExtendedOpcodeAttributes[] =
 {
 #define DEF_OP(name, jnLayout, attrib, ...) attrib,
-#include "ByteCode\ExtendedOpCodeList.h"
+#include "ByteCode/ExtendedOpCodeList.h"
 #undef DEF_OP
 };
 

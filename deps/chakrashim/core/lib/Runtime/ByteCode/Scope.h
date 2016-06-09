@@ -36,6 +36,9 @@ private:
     BYTE capturesAll : 1;
     BYTE mustInstantiate : 1;
     BYTE hasCrossScopeFuncAssignment : 1;
+    BYTE hasDuplicateFormals : 1;
+    BYTE canMergeWithBodyScope : 1;
+    BYTE hasLocalInClosure : 1;
 public:
 #if DBG
     BYTE isRestored : 1;
@@ -50,6 +53,9 @@ public:
         capturesAll(false),
         mustInstantiate(false),
         hasCrossScopeFuncAssignment(false),
+        hasDuplicateFormals(false),
+        canMergeWithBodyScope(true),
+        hasLocalInClosure(false),
         location(Js::Constants::NoRegister),
         symbolTable(nullptr),
         m_symList(nullptr),
@@ -222,7 +228,10 @@ public:
 
     bool IsInnerScope() const
     {
-        return scopeType == ScopeType_Block || scopeType == ScopeType_Catch || scopeType == ScopeType_CatchParamPattern || scopeType == ScopeType_GlobalEvalBlock;
+        return scopeType == ScopeType_Block
+            || scopeType == ScopeType_Catch
+            || scopeType == ScopeType_CatchParamPattern
+            || scopeType == ScopeType_GlobalEvalBlock;
     }
 
     int Count() const
@@ -280,11 +289,19 @@ public:
     void SetScopeSlotCount(uint i) { scopeSlotCount = i; }
     uint GetScopeSlotCount() const { return scopeSlotCount; }
 
+    void SetHasDuplicateFormals() { hasDuplicateFormals = true; }
+    bool GetHasDuplicateFormals() { return hasDuplicateFormals; }
+
+    void SetCannotMergeWithBodyScope() { Assert(this->scopeType == ScopeType_Parameter); canMergeWithBodyScope = false; }
+    bool GetCanMergeWithBodyScope() const { return canMergeWithBodyScope; }
+
     void SetHasLocalInClosure(bool has);
+    void SetHasOwnLocalInClosure(bool has) { hasLocalInClosure = has; }
+    bool GetHasOwnLocalInClosure() const { return hasLocalInClosure; }
 
     bool HasInnerScopeIndex() const { return innerScopeIndex != (uint)-1; }
     uint GetInnerScopeIndex() const { return innerScopeIndex; }
-    void SetInnerScopeIndex(uint index) { Assert(innerScopeIndex == (uint)-1 || innerScopeIndex == index); innerScopeIndex = index; }
+    void SetInnerScopeIndex(uint index) { innerScopeIndex = index; }
 
     int AddScopeSlot();
 

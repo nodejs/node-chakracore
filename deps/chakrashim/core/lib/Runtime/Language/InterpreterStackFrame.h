@@ -1,7 +1,8 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
 #pragma once
 
 extern "C" PVOID _ReturnAddress(VOID);
@@ -76,6 +77,7 @@ namespace Js
         StackScriptFunction * stackNestedFunctions;
         FrameDisplay * localFrameDisplay;
         Var localClosure;
+        Var paramClosure;
         Var *innerScopeArray;
         ScriptContext* scriptContext;
         ScriptFunction * function;
@@ -103,6 +105,7 @@ namespace Js
         UINT16 m_flags;                // based on InterpreterStackFrameFlags
 
         bool closureInitDone : 1;
+        bool isParamScopeDone : 1;
 #if ENABLE_PROFILE_INFO
         bool switchProfileMode : 1;
         bool isAutoProfiling : 1;
@@ -187,6 +190,17 @@ namespace Js
         template <class T> void OP_SimdLdArrConstIndex(const unaligned T* playout);
         template <class T> void OP_SimdStArrGeneric(const unaligned T* playout);
         template <class T> void OP_SimdStArrConstIndex(const unaligned T* playout);
+        template <class T> void OP_SimdInt32x4FromFloat32x4(const unaligned T* playout);
+        template <class T> void OP_SimdUint32x4FromFloat32x4(const unaligned T* playout);
+
+        template <class T> void OP_SimdInt16x8(const unaligned T* playout);
+        template <class T> void OP_SimdInt8x16(const unaligned T* playout);
+        template <class T> void OP_SimdUint32x4(const unaligned T* playout);
+        template <class T> void OP_SimdUint16x8(const unaligned T* playout);
+        template <class T> void OP_SimdUint8x16(const unaligned T* playout);
+        template <class T> void OP_SimdBool32x4(const unaligned T* playout);
+        template <class T> void OP_SimdBool16x8(const unaligned T* playout);
+        template <class T> void OP_SimdBool8x16(const unaligned T* playout);
 
         template <typename RegSlotType>
         Var GetRegAllowStackVarEnableOnly(RegSlotType localRegisterID) const;
@@ -226,10 +240,13 @@ namespace Js
         static uint32 GetOffsetOfArguments() { return offsetof(InterpreterStackFrame, m_arguments); }
         static uint32 GetOffsetOfInParams() { return offsetof(InterpreterStackFrame, m_inParams); }
         static uint32 GetOffsetOfInSlotsCount() { return offsetof(InterpreterStackFrame, m_inSlotsCount); }
-        void PrintStack(const int* const intSrc, const float* const fltSrc, const double* const dblSrc, int intConstCount, int floatConstCount, int doubleConstCount, const wchar_t* state);
+        void PrintStack(const int* const intSrc, const float* const fltSrc, const double* const dblSrc, int intConstCount, int floatConstCount, int doubleConstCount, const char16* state);
 
         static uint32 GetStartLocationOffset() { return offsetof(InterpreterStackFrame, m_reader) + ByteCodeReader::GetStartLocationOffset(); }
         static uint32 GetCurrentLocationOffset() { return offsetof(InterpreterStackFrame, m_reader) + ByteCodeReader::GetCurrentLocationOffset(); }
+
+        bool IsParamScopeDone() const { return isParamScopeDone; }
+        void SetIsParamScopeDone(bool value) { isParamScopeDone = value; }
 
         static bool IsBrLong(OpCode op, const byte * ip)
         {
@@ -302,6 +319,8 @@ namespace Js
 
         Var ProcessWithDebugging();
         Var DebugProcess();
+
+        bool IsInDebugMode() const { return this->GetFunctionBody()->IsInDebugMode(); }
 
         // This will be called for reseting outs when resume from break on error happened
         void ResetOut();
@@ -547,6 +566,8 @@ namespace Js
         template <class T> inline Var OP_ProfiledLdObjSlot(Var instance, const unaligned T* playout);
         template <class T> inline Var OP_LdEnvObjSlot(Var instance, const unaligned T* playout);
         template <class T> inline Var OP_ProfiledLdEnvObjSlot(Var instance, const unaligned T* playout);
+        template <class T> inline Var OP_LdModuleSlot(Var instance, const unaligned T* playout);
+        inline void OP_StModuleSlot(Var instance, int32 slotIndex1, int32 slotIndex2, Var value);
         inline void OP_StSlot(Var instance, int32 slotIndex, Var value);
         inline void OP_StSlotChkUndecl(Var instance, int32 slotIndex, Var value);
         inline void OP_StEnvSlot(Var instance, int32 slotIndex1, int32 slotIndex2, Var value);
@@ -555,6 +576,7 @@ namespace Js
         inline void OP_StObjSlotChkUndecl(Var instance, int32 slotIndex, Var value);
         inline void OP_StEnvObjSlot(Var instance, int32 slotIndex1, int32 slotIndex2, Var value);
         inline void OP_StEnvObjSlotChkUndecl(Var instance, int32 slotIndex1, int32 slotIndex2, Var value);
+        inline void OP_StModuleSlot(Var instance, int32 slotIndex1, int32 slotIndex2);
         inline void* OP_LdArgCnt();
         template <bool letArgs> Var LdHeapArgumentsImpl(Var argsArray, ScriptContext* scriptContext);
         inline Var OP_LdHeapArguments(Var argsArray, ScriptContext* scriptContext);
@@ -649,6 +671,7 @@ namespace Js
         template <class T> void OP_InitGetElemI(const unaligned T * playout);
         template <class T> void OP_InitComputedProperty(const unaligned T * playout);
         template <class T> void OP_InitProto(const unaligned T * playout);
+        void OP_BeginBodyScope();
 
         uint CallLoopBody(JavascriptMethod address);
         uint CallAsmJsLoopBody(JavascriptMethod address);
@@ -714,6 +737,8 @@ namespace Js
         void SetLocalFrameDisplay(FrameDisplay *frameDisplay);
         Var  GetLocalClosure() const;
         void SetLocalClosure(Var closure);
+        Var  GetParamClosure() const;
+        void SetParamClosure(Var closure);
         void TrySetRetOffset();
     };
 

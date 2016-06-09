@@ -31,7 +31,6 @@ namespace Js
             SuperReference                 = 0x00100,
             ClassMethod                    = 0x00200, // The function is a class method
             ClassConstructor               = 0x00400, // The function is a class constructor
-            DefaultConstructor             = 0x00800, // The function is a default class constructor
             Lambda                         = 0x01000,
             CapturesThis                   = 0x02000, // Only lambdas will set this; denotes whether the lambda referred to this, used by debugger
             Generator                      = 0x04000,
@@ -41,6 +40,7 @@ namespace Js
         FunctionInfo(JavascriptMethod entryPoint, Attributes attributes = None, LocalFunctionId functionId = Js::Constants::NoFunctionId, FunctionBody* functionBodyImpl = NULL);
 
         static DWORD GetFunctionBodyImplOffset() { return offsetof(FunctionInfo, functionBodyImpl); }
+        static DWORD GetAttributesOffset() { return offsetof(FunctionInfo, attributes); }
 
         void VerifyOriginalEntryPoint() const;
         JavascriptMethod GetOriginalEntryPoint() const;
@@ -52,7 +52,6 @@ namespace Js
         bool IsLambda() const { return ((this->attributes & Lambda) != 0); }
         bool IsConstructor() const { return ((this->attributes & ErrorOnNew) == 0); }
         bool IsGenerator() const { return ((this->attributes & Generator) != 0); }
-        bool IsDefaultConstructor() const { return ((this->attributes & DefaultConstructor) != 0); }
         bool IsClassConstructor() const { return ((this->attributes & ClassConstructor) != 0); }
         bool IsClassMethod() const { return ((this->attributes & ClassMethod) != 0); }
         bool HasSuperReference() const { return ((this->attributes & SuperReference) != 0); }

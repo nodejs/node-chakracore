@@ -1,7 +1,8 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
 #include "RuntimeLanguagePch.h"
 
 #define BASE_VALUE_TYPE(t, b) const ValueType ValueType::##t(b);
@@ -737,6 +738,16 @@ bool ValueType::IsSimd128(IRType type) const
         return IsSimd128Float32x4();
     case TySimd128I4:
         return IsSimd128Int32x4();
+    case TySimd128I8:
+        return IsSimd128Int16x8();
+    case TySimd128I16:
+        return IsSimd128Int8x16();
+    case TySimd128U4:
+        return IsSimd128Uint32x4();
+    case TySimd128U8:
+        return IsSimd128Uint16x8();
+    case TySimd128U16:
+        return IsSimd128Uint8x16();
     case TySimd128D2:
         return IsSimd128Float64x2();
     default:
@@ -755,9 +766,29 @@ bool ValueType::IsSimd128Int32x4() const
     return IsObject() && GetObjectType() == ObjectType::Simd128Int32x4;
 }
 
+bool ValueType::IsSimd128Int16x8() const
+{
+    return IsObject() && GetObjectType() == ObjectType::Simd128Int16x8;
+}
+
 bool ValueType::IsSimd128Int8x16() const
 {
     return IsObject() && GetObjectType() == ObjectType::Simd128Int8x16;
+}
+
+bool ValueType::IsSimd128Uint32x4() const
+{
+    return IsObject() && GetObjectType() == ObjectType::Simd128Uint32x4;
+}
+
+bool ValueType::IsSimd128Uint16x8() const
+{
+    return IsObject() && GetObjectType() == ObjectType::Simd128Uint16x8;
+}
+
+bool ValueType::IsSimd128Uint8x16() const
+{
+    return IsObject() && GetObjectType() == ObjectType::Simd128Uint8x16;
 }
 
 bool ValueType::IsSimd128Float64x2() const
@@ -780,9 +811,24 @@ bool ValueType::IsLikelySimd128Int32x4() const
     return IsLikelyObject() && GetObjectType() == ObjectType::Simd128Int32x4;
 }
 
+bool ValueType::IsLikelySimd128Int16x8() const
+{
+    return IsLikelyObject() && GetObjectType() == ObjectType::Simd128Int16x8;
+}
+
 bool ValueType::IsLikelySimd128Int8x16() const
 {
     return IsLikelyObject() && GetObjectType() == ObjectType::Simd128Int8x16;
+}
+
+bool ValueType::IsLikelySimd128Uint16x8() const
+{
+    return IsLikelyObject() && GetObjectType() == ObjectType::Simd128Uint16x8;
+}
+
+bool ValueType::IsLikelySimd128Uint8x16() const
+{
+    return IsLikelyObject() && GetObjectType() == ObjectType::Simd128Uint8x16;
 }
 
 bool ValueType::IsLikelySimd128Float64x2() const
@@ -1228,7 +1274,10 @@ void ValueType::InitializeTypeIdToBitsMap()
 
     TypeIdToBits[TypeIds_SIMDFloat32x4     ] = GetObject(ObjectType::Simd128Float32x4).bits;
     TypeIdToBits[TypeIds_SIMDInt32x4       ] = GetObject(ObjectType::Simd128Int32x4).bits;
-    TypeIdToBits[TypeIds_SIMDInt8x16       ] = GetObject(ObjectType::Simd128Int8x16).bits;
+    TypeIdToBits[TypeIds_SIMDInt16x8       ] = GetObject(ObjectType::Simd128Int16x8).bits;
+    TypeIdToBits[TypeIds_SIMDInt8x16       ] = GetObject(ObjectType::Simd128Uint8x16).bits;
+    TypeIdToBits[TypeIds_SIMDUint16x8      ] = GetObject(ObjectType::Simd128Uint16x8).bits;
+    TypeIdToBits[TypeIds_SIMDUint8x16      ] = GetObject(ObjectType::Simd128Int8x16).bits;
     TypeIdToBits[TypeIds_SIMDFloat64x2     ] = GetObject(ObjectType::Simd128Float64x2).bits;
 
 

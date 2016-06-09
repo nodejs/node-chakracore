@@ -71,12 +71,12 @@ class ObjTypeGuardBucket
 {
 private:
     BVSparse<JitArenaAllocator>* guardedPropertyOps;
-    bool needsMonoCheck;
+    Js::Type *                   monoGuardType;
 
 public:
-    ObjTypeGuardBucket() : guardedPropertyOps(nullptr), needsMonoCheck(false) {}
+    ObjTypeGuardBucket() : guardedPropertyOps(nullptr), monoGuardType(nullptr) {}
 
-    ObjTypeGuardBucket(BVSparse<JitArenaAllocator>* guardedPropertyOps) : needsMonoCheck(false)
+    ObjTypeGuardBucket(BVSparse<JitArenaAllocator>* guardedPropertyOps) : monoGuardType(nullptr)
     {
         this->guardedPropertyOps = (guardedPropertyOps != nullptr ? guardedPropertyOps->CopyNew() : nullptr);
     }
@@ -84,15 +84,16 @@ public:
     void Copy(ObjTypeGuardBucket *pNew) const
     {
         pNew->guardedPropertyOps = this->guardedPropertyOps ? this->guardedPropertyOps->CopyNew() : nullptr;
-        pNew->needsMonoCheck = this->needsMonoCheck;
+        pNew->monoGuardType = this->monoGuardType;
     }
 
     BVSparse<JitArenaAllocator> *GetGuardedPropertyOps() const  { return this->guardedPropertyOps; }
     void SetGuardedPropertyOps(BVSparse<JitArenaAllocator> *guardedPropertyOps) { this->guardedPropertyOps = guardedPropertyOps; }
     void AddToGuardedPropertyOps(uint propertyOpId) { Assert(this->guardedPropertyOps != nullptr); this->guardedPropertyOps->Set(propertyOpId); }
 
-    bool NeedsMonoCheck() const { return this->needsMonoCheck; }
-    void SetNeedsMonoCheck(bool value) { this->needsMonoCheck = value; }
+    bool NeedsMonoCheck() const { return this->monoGuardType != nullptr; }
+    void SetMonoGuardType(Js::Type *type) { this->monoGuardType = type; }
+    Js::Type * GetMonoGuardType() const { return this->monoGuardType; }
 
 #if DBG_DUMP
     void Dump() const;
@@ -168,7 +169,7 @@ public:
 
 #if DBG_DUMP
     void         Dump();
-    void         Dump(bool verbose, const wchar_t *form);
+    void         Dump(bool verbose, const char16 *form);
 #endif
 
     JitArenaAllocator *       alloc;
@@ -374,6 +375,7 @@ public:
     BVSparse<JitArenaAllocator> *           noImplicitCallJsArrayHeadSegmentSymUses;
     BVSparse<JitArenaAllocator> *           noImplicitCallArrayLengthSymUses;
     BVSparse<JitArenaAllocator> *           cloneStrCandidates;
+    BVSparse<JitArenaAllocator> *           couldRemoveNegZeroBailoutForDef; // Deadstore pass only
     Loop * backwardPassCurrentLoop;
 
     // Global optimizer data
@@ -416,6 +418,7 @@ private:
         noImplicitCallJsArrayHeadSegmentSymUses(nullptr),
         noImplicitCallArrayLengthSymUses(nullptr),
         cloneStrCandidates(nullptr),
+        couldRemoveNegZeroBailoutForDef(nullptr),
         byteCodeUpwardExposedUsed(nullptr),
         isAirLockCompensationBlock(false),
 #if DBG
@@ -619,9 +622,9 @@ public:
     struct MemSetCandidate : public MemOpCandidate
     {
         BailoutConstantValue constant;
-        StackSym* varSym;
+        StackSym* srcSym;
 
-        MemSetCandidate() : MemOpCandidate(MemOpCandidate::MEMSET), varSym(nullptr) {}
+        MemSetCandidate() : MemOpCandidate(MemOpCandidate::MEMSET), srcSym(nullptr) {}
     };
 
     struct MemCopyCandidate : public MemOpCandidate
@@ -665,8 +668,8 @@ public:
         BVSparse<JitArenaAllocator> *inductionVariablesUsedAfterLoop;
         InductionVariableChangeInfoMap *inductionVariableChangeInfoMap;
         InductionVariableOpndPerUnrollMap *inductionVariableOpndPerUnrollMap;
-        // This assumes that all memop operation use the same index and has the same length
-        // Temporary map to reuse existing startIndexOpnd while emiting
+        // This assumes that all memop operations use the same index and have the same length
+        // Temporary map to reuse existing startIndexOpnd while emitting
         // 0 = !increment & !alreadyChanged, 1 = !increment & alreadyChanged, 2 = increment & !alreadyChanged, 3 = increment & alreadyChanged
         IR::RegOpnd* startIndexOpndCache[4];
     } MemOpInfo;

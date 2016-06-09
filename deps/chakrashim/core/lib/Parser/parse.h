@@ -23,16 +23,15 @@ enum
     koplCmp,    // < <= > >=
     koplShf,    // << >> >>>
     koplAdd,    // + -
-    koplExpo,   // **
     koplMul,    // * / %
+    koplExpo,   // **
     koplUni,    // unary operators
     koplLim
 };
 enum ParseType
 {
     ParseType_Upfront,
-    ParseType_Deferred,
-    ParseType_Reparse
+    ParseType_Deferred
 };
 
 enum DestructuringInitializerContext
@@ -70,13 +69,6 @@ class HashTbl;
 typedef void (*ParseErrorCallback)(void *data, charcount_t position, charcount_t length, HRESULT hr);
 
 struct PidRefStack;
-struct CatchPidRef
-{
-    IdentPtr pid;
-    PidRefStack *ref;
-};
-
-typedef SListBase<CatchPidRef> CatchPidRefList;
 
 struct DeferredFunctionStub;
 
@@ -145,7 +137,7 @@ public:
     static IdentPtr PidFromNode(ParseNodePtr pnode);
 
     ParseNode* CopyPnode(ParseNode* pnode);
-    IdentPtr GenerateIdentPtr(__ecount(len) wchar_t* name,long len);
+    IdentPtr GenerateIdentPtr(__ecount(len) char16* name,long len);
 
     ArenaAllocator *GetAllocator() { return &m_nodeAllocator;}
 
@@ -158,13 +150,13 @@ public:
 
     void RestorePidRefForSym(Symbol *sym);
 
-    HRESULT ValidateSyntax(LPCUTF8 pszSrc, size_t encodedCharCount, bool isGenerator, CompileScriptException *pse, void (Parser::*validateFunction)());
+    HRESULT ValidateSyntax(LPCUTF8 pszSrc, size_t encodedCharCount, bool isGenerator, bool isAsync, CompileScriptException *pse, void (Parser::*validateFunction)());
 
-    // Should be called when the UTF-8 source was produced from UTF-16. This is really CESU-8 source in that it encodes surragate pairs
-    // as 2 three byte sequences instead of 4 bytes as required UTF-8. It also is is loss-less converison of invalid UTF-16 sequences.
-    // This is important in Javascript because Javascript engines are required not report invalid UTF-16 sequences and to consider
-    // the UTF-16 characters pre-canonacalized. Converting this UTF-16 with invalid sequences to valid UTF-8 and back would cause
-    // all invalid UTF-16 seqences to be replace by one or more Unicode replacement characters (0xFFFD), losing the original
+    // Should be called when the UTF-8 source was produced from UTF-16. This is really CESU-8 source in that it encodes surrogate pairs
+    // as 2 three byte sequences instead of 4 bytes as required by UTF-8. It also is a lossless conversion of invalid UTF-16 sequences.
+    // This is important in Javascript because Javascript engines are required not to report invalid UTF-16 sequences and to consider
+    // the UTF-16 characters pre-canonicalization. Converting this UTF-16 with invalid sequences to valid UTF-8 and back would cause
+    // all invalid UTF-16 sequences to be replaced by one or more Unicode replacement characters (0xFFFD), losing the original
     // invalid sequences.
     HRESULT ParseCesu8Source(__out ParseNodePtr* parseTree, LPCUTF8 pSrc, size_t length, ULONG grfsrc, CompileScriptException *pse,
         Js::LocalFunctionId * nextFunctionId, SourceContextInfo * sourceContextInfo);
@@ -178,7 +170,7 @@ public:
     // Used by deferred parsing to parse a deferred function.
     HRESULT ParseSourceWithOffset(__out ParseNodePtr* parseTree, LPCUTF8 pSrc, size_t offset, size_t cbLength, charcount_t cchOffset,
         bool isCesu8, ULONG grfscr, CompileScriptException *pse, Js::LocalFunctionId * nextFunctionId, ULONG lineNumber,
-        SourceContextInfo * sourceContextInfo, Js::ParseableFunctionInfo* functionInfo, bool isReparse);
+        SourceContextInfo * sourceContextInfo, Js::ParseableFunctionInfo* functionInfo);
 
 protected:
     HRESULT ParseSourceInternal(
@@ -200,14 +192,12 @@ private:
     size_t      m_originalLength;             // source length in characters excluding comments and literals
     Js::LocalFunctionId * m_nextFunctionId;
     SourceContextInfo*    m_sourceContextInfo;
-    CatchPidRefList *m_catchPidRefList;
 
     ParseErrorCallback  m_errorCallback;
     void *              m_errorCallbackData;
     BOOL                m_uncertainStructure;
     bool                m_hasParallelJob;
     bool                m_doingFastScan;
-    Span                m_asgToConst;
     int                 m_nextBlockId;
 
     // RegexPattern objects created for literal regexes are recycler-allocated and need to be kept alive until the function body
@@ -241,14 +231,6 @@ private:
 
 
     void InitPids();
-
-    CatchPidRefList *GetCatchPidRefList() const { return m_catchPidRefList; }
-    void SetCatchPidRefList(CatchPidRefList *list) { m_catchPidRefList = list; }
-    CatchPidRefList *EnsureCatchPidRefList();
-
-    // True if we need to create PID's and bind names to decls in deferred functions.
-    // Do this if we need to support early let/const errors.
-    bool BindDeferredPidRefs() const;
 
     /***********************************************************************
     Members needed just for parsing.
@@ -333,8 +315,6 @@ public:
     ParseNodePtr CreateBlockScopedDeclNode(IdentPtr pid, OpCode nodeType);
 
     void RegisterRegexPattern(UnifiedRegex::RegexPattern *const regexPattern);
-    bool IsReparsing() const { return m_parseType == ParseType_Reparse; }
-
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
     WCHAR* GetParseType() const
@@ -342,11 +322,9 @@ public:
         switch(m_parseType)
         {
             case ParseType_Upfront:
-                return L"Upfront";
+                return _u("Upfront");
             case ParseType_Deferred:
-                return L"Deferred";
-            case ParseType_Reparse:
-                return L"Reparse";
+                return _u("Deferred");
         }
         Assert(false);
         return NULL;
@@ -364,6 +342,7 @@ private:
     template <OpCode nop> ParseNodePtr CreateNodeWithScanner(charcount_t ichMin);
     ParseNodePtr CreateStrNodeWithScanner(IdentPtr pid);
     ParseNodePtr CreateIntNodeWithScanner(long lw);
+    ParseNodePtr CreateProgNodeWithScanner(bool isModuleSource);
 
     static void InitNode(OpCode nop,ParseNodePtr pnode);
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
@@ -373,14 +352,18 @@ private:
     ParseNodePtr m_currentNodeNonLambdaDeferredFunc; // current function or NULL
     ParseNodePtr m_currentNodeFunc; // current function or NULL
     ParseNodePtr m_currentNodeDeferredFunc; // current function or NULL
-    ParseNodePtr m_currentNodeProg; // current programm
+    ParseNodePtr m_currentNodeProg; // current program
     DeferredFunctionStub *m_currDeferredStub;
+    DeferredFunctionStub *m_prevSiblingDeferredStub;
     long * m_pCurrentAstSize;
     ParseNodePtr * m_ppnodeScope;  // function list tail
     ParseNodePtr * m_ppnodeExprScope; // function expression list tail
     ParseNodePtr * m_ppnodeVar;  // variable list tail
     bool m_inDeferredNestedFunc; // true if parsing a function in deferred mode, nested within the current node
     bool m_isInBackground;
+
+    // This bool is used for deferring the shorthand initializer error ( {x = 1}) - as it is allowed in the destructuring grammar.
+    bool m_hasDeferredShorthandInitError;
     uint * m_pnestedCount; // count of functions nested at one level below the current node
 
     struct WellKnownPropertyPids
@@ -396,6 +379,11 @@ private:
         IdentPtr __proto__;
         IdentPtr of;
         IdentPtr target;
+        IdentPtr from;
+        IdentPtr as;
+        IdentPtr default;
+        IdentPtr _star; // Special '*' identifier for modules
+        IdentPtr _starDefaultStar; // Special '*default*' identifier for modules
     };
 
     WellKnownPropertyPids wellKnownPropertyPids;
@@ -405,7 +393,6 @@ private:
     Js::ParseableFunctionInfo* m_functionBody; // For a deferred parsed function, the function body is non-null
     ParseType m_parseType;
 
-    uint m_parsingDuplicate;
     uint m_arrayDepth;
     uint m_funcInArrayDepth; // Count func depth within array literal
     charcount_t m_funcInArray;
@@ -494,7 +481,7 @@ private:
 
     void MarkEvalCaller()
     {
-        if (m_currentNodeFunc)
+        if (this->GetCurrentFunctionNode())
         {
             ParseNodePtr pnodeFunc = GetCurrentFunctionNode();
             pnodeFunc->sxFnc.SetCallsEval(true);
@@ -506,6 +493,49 @@ private:
             PushDynamicBlock();
         }
     }
+
+    struct ParserState
+    {
+        ParseNodePtr *m_ppnodeScopeSave;
+        ParseNodePtr *m_ppnodeExprScopeSave;
+        charcount_t m_funcInArraySave;
+        long *m_pCurrentAstSizeSave;
+        uint m_funcInArrayDepthSave;
+        uint m_nestedCountSave;
+#if DEBUG
+        // For very basic validation purpose - to check that we are not going restore to some other block.
+        BlockInfoStack *m_currentBlockInfo;
+#endif
+    };
+
+    // This function is going to capture some of the important current state of the parser to an object. Once we learn
+    // that we need to reparse the grammar again we could use RestoreStateFrom to restore that state to the parser.
+    void CaptureState(ParserState *state);
+    void RestoreStateFrom(ParserState *state);
+    // Future recommendation : Consider consolidating Parser::CaptureState and Scanner::Capture together if we do CaptureState more often.
+
+public:
+    IdentPtrList* GetRequestedModulesList();
+    ModuleImportOrExportEntryList* GetModuleImportEntryList();
+    ModuleImportOrExportEntryList* GetModuleLocalExportEntryList();
+    ModuleImportOrExportEntryList* GetModuleIndirectExportEntryList();
+    ModuleImportOrExportEntryList* GetModuleStarExportEntryList();
+
+protected:
+    IdentPtrList* EnsureRequestedModulesList();
+    ModuleImportOrExportEntryList* EnsureModuleImportEntryList();
+    ModuleImportOrExportEntryList* EnsureModuleLocalExportEntryList();
+    ModuleImportOrExportEntryList* EnsureModuleIndirectExportEntryList();
+    ModuleImportOrExportEntryList* EnsureModuleStarExportEntryList();
+
+    void AddModuleSpecifier(IdentPtr moduleRequest);
+    ModuleImportOrExportEntry* AddModuleImportOrExportEntry(ModuleImportOrExportEntryList* importOrExportEntryList, IdentPtr importName, IdentPtr localName, IdentPtr exportName, IdentPtr moduleRequest);
+    ModuleImportOrExportEntry* AddModuleImportOrExportEntry(ModuleImportOrExportEntryList* importOrExportEntryList, ModuleImportOrExportEntry* importOrExportEntry);
+    void AddModuleLocalExportEntry(ParseNodePtr varDeclNode);
+    void CheckForDuplicateExportEntry(ModuleImportOrExportEntryList* exportEntryList, IdentPtr exportName);
+
+    ParseNodePtr CreateModuleImportDeclNode(IdentPtr localName);
+    void MarkIdentifierReferenceIsModuleExport(IdentPtr localName);
 
 public:
     WellKnownPropertyPids* names(){ return &wellKnownPropertyPids; }
@@ -620,7 +650,6 @@ private:
     void CheckArgumentsUse(IdentPtr pid, ParseNodePtr pnodeFnc);
 
     void CheckStrictModeEvalArgumentsUsage(IdentPtr pid, ParseNodePtr pnode = NULL);
-    void CheckStrictModeFncDeclNotSourceElement(const bool isSourceElement, const BOOL isDeclaration);
 
     // environments on which the strict mode is set, if found
     enum StrictModeEnvironment
@@ -628,12 +657,12 @@ private:
         SM_NotUsed,         // StrictMode environment is don't care
         SM_OnGlobalCode,    // The current environment is a global code
         SM_OnFunctionCode,  // The current environment is a function code
-        SM_DeferedParse     // StrictMode used in defered parse cases
+        SM_DeferredParse    // StrictMode used in deferred parse cases
     };
 
     template<bool buildAST> ParseNodePtr ParseArrayLiteral();
 
-    template<bool buildAST> ParseNodePtr ParseStatement(bool isSourceElement = false);
+    template<bool buildAST> ParseNodePtr ParseStatement();
     template<bool buildAST> ParseNodePtr ParseVariableDeclaration(
         tokens declarationType,
         charcount_t ichMin,
@@ -642,7 +671,8 @@ private:
         BOOL singleDefOnly = FALSE,
         BOOL allowInit = TRUE,
         BOOL isTopVarParse = TRUE,
-        BOOL isFor = FALSE);
+        BOOL isFor = FALSE,
+        BOOL* nativeForOk = nullptr);
     BOOL TokIsForInOrForOf();
 
     template<bool buildAST>
@@ -702,7 +732,7 @@ private:
 
     template<bool buildAST> void ParseComputedName(ParseNodePtr* ppnodeName, LPCOLESTR* ppNameHint, LPCOLESTR* ppFullNameHint = nullptr, ulong *pNameLength = nullptr, ulong *pShortNameOffset = nullptr);
     template<bool buildAST> ParseNodePtr ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint);
-    template<bool buildAST> ParseNodePtr ParseFncDecl(ushort flags, LPCOLESTR pNameHint = NULL, const bool isSourceElement = false, const bool needsPIDOnRCurlyScan = false, bool resetParsingSuperRestrictionState = true, bool fUnaryOrParen = false);
+    template<bool buildAST> ParseNodePtr ParseFncDecl(ushort flags, LPCOLESTR pNameHint = NULL, const bool needsPIDOnRCurlyScan = false, bool resetParsingSuperRestrictionState = true, bool fUnaryOrParen = false);
     template<bool buildAST> bool ParseFncNames(ParseNodePtr pnodeFnc, ParseNodePtr pnodeFncParent, ushort flags, ParseNodePtr **pLastNodeRef);
     template<bool buildAST> void ParseFncFormals(ParseNodePtr pnodeFnc, ushort flags);
     template<bool buildAST> bool ParseFncDeclHelper(ParseNodePtr pnodeFnc, ParseNodePtr pnodeFncParent, LPCOLESTR pNameHint, ushort flags, bool *pHasName, bool fUnaryOrParen, bool noStmtContext, bool *pNeedScanRCurly);
@@ -781,6 +811,17 @@ private:
         charcount_t ichMin,
         _Out_opt_ BOOL* pfCanAssign = nullptr);
 
+    bool IsImportOrExportStatementValidHere();
+
+    template<bool buildAST> ParseNodePtr ParseImportDeclaration();
+    template<bool buildAST> void ParseImportClause(ModuleImportOrExportEntryList* importEntryList, bool parsingAfterComma = false);
+
+    template<bool buildAST> ParseNodePtr ParseExportDeclaration();
+    template<bool buildAST> ParseNodePtr ParseDefaultExportClause();
+
+    template<bool buildAST> void ParseNamedImportOrExportClause(ModuleImportOrExportEntryList* importOrExportEntryList, bool isExportClause);
+    template<bool buildAST> IdentPtr ParseImportOrExportFromClause(bool throwIfNotFound);
+
     BOOL NodeIsIdent(ParseNodePtr pnode, IdentPtr pid);
     BOOL NodeIsEvalName(ParseNodePtr pnode);
     BOOL IsJSONValid(ParseNodePtr pnodeExpr)
@@ -842,10 +883,11 @@ private:
         bool topLevel = true,
         DestructuringInitializerContext initializerContext = DIC_None,
         bool allowIn = true,
-        BOOL *forInOfOkay = nullptr);
+        BOOL *forInOfOkay = nullptr,
+        BOOL *nativeForOkay = nullptr);
 
     template <bool buildAST>
-    ParseNodePtr ParseDestructuredVarDecl(tokens declarationType, bool isDecl, bool *hasSeenRest, bool topLevel = true);
+    ParseNodePtr ParseDestructuredVarDecl(tokens declarationType, bool isDecl, bool *hasSeenRest, bool topLevel = true, bool allowEmptyExpression = true);
 
     template <bool buildAST>
     ParseNodePtr ParseDestructuredInitializer(ParseNodePtr lhsNode,
@@ -853,7 +895,8 @@ private:
         bool topLevel,
         DestructuringInitializerContext initializerContext,
         bool allowIn,
-        BOOL *forInOfOkay);
+        BOOL *forInOfOkay,
+        BOOL *nativeForOkay);
 
     template<bool CheckForNegativeInfinity> static bool IsNaNOrInfinityLiteral(LPCOLESTR str);
 
@@ -884,9 +927,8 @@ public:
 
 private:
     void DeferOrEmitPotentialSpreadError(ParseNodePtr pnodeT);
-    template<bool buildAST> void TrackAssignment(ParseNodePtr pnodeT, IdentToken* pToken, charcount_t ichMin, charcount_t ichLim);
     PidRefStack* PushPidRef(IdentPtr pid);
-    PidRefStack* FindOrAddPidRef(IdentPtr pid, int blockId, int maxScopeId = -1);
+    PidRefStack* FindOrAddPidRef(IdentPtr pid, int blockId);
     void RemovePrevPidRef(IdentPtr pid, PidRefStack *lastRef);
     void SetPidRefsInScopeDynamic(IdentPtr pid, int blockId);
 
@@ -951,8 +993,7 @@ private:
         fFncMethod      = 1 << 5,
         fFncClassMember = 1 << 6,
         fFncGenerator   = 1 << 7,
-        fFncSetter      = 1 << 8,
-        fFncAsync       = 1 << 9,
+        fFncAsync       = 1 << 8,
     };
 
     //
@@ -963,11 +1004,11 @@ private:
     {
     private:
         Scanner_t* m_scanner;
-        BOOL m_forcePid;
+        bool m_forcePid;
         BYTE m_oldScannerDeferredParseFlags;
 
     public:
-        AutoTempForcePid(Scanner_t* scanner, BOOL forcePid)
+        AutoTempForcePid(Scanner_t* scanner, bool forcePid)
             : m_scanner(scanner), m_forcePid(forcePid)
         {
             if (forcePid)

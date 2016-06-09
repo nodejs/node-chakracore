@@ -4,8 +4,9 @@
 //-------------------------------------------------------------------------------------------------------
 #include <JsrtPch.h>
 #include "JsrtRuntime.h"
-#include "Base\ThreadContextTLSEntry.h"
-#include "Base\ThreadBoundThreadContextManager.h"
+#include "jsrtHelper.h"
+#include "Base/ThreadContextTlsEntry.h"
+#include "Base/ThreadBoundThreadContextManager.h"
 JsrtRuntime::JsrtRuntime(ThreadContext * threadContext, bool useIdle, bool dispatchExceptions)
 {
     Assert(threadContext != NULL);
@@ -97,6 +98,7 @@ void JsrtRuntime::RecyclerCollectCallbackStatic(void * context, RecyclerCollectC
         JsrtRuntime * _this = reinterpret_cast<JsrtRuntime *>(context);
         try
         {
+            JsrtCallbackState scope(reinterpret_cast<ThreadContext*>(_this->GetThreadContext()));
             _this->beforeCollectCallback(_this->callbackContext);
         }
         catch (...)

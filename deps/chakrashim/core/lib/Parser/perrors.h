@@ -53,7 +53,7 @@ LSC_ERROR_MSG( 1047, ERRFncDeclNotSourceElement, "In strict mode, function decla
 LSC_ERROR_MSG( 1048, ERRKeywordNotId  , "The use of a keyword for an identifier is invalid")
 LSC_ERROR_MSG( 1049, ERRFutureReservedWordNotId, "The use of a future reserved word for an identifier is invalid")
 LSC_ERROR_MSG( 1050, ERRFutureReservedWordInStrictModeNotId, "The use of a future reserved word for an identifier is invalid. The identifier name is reserved in strict mode.")
-LSC_ERROR_MSG( 1051, ERRSetterMustHaveOneArgument  , "Setter functions must have one argument")
+LSC_ERROR_MSG( 1051, ERRSetterMustHaveOneParameter, "Setter functions must have exactly one parameter")
 LSC_ERROR_MSG( 1052, ERRRedeclaration  , "Let/Const redeclaration") // "var x; let x;" is also a redeclaration
 LSC_ERROR_MSG( 1053, ERRUninitializedConst  , "Const must be initialized")
 LSC_ERROR_MSG( 1054, ERRDeclOutOfStmt  , "Declaration outside statement context")
@@ -69,7 +69,7 @@ LSC_ERROR_MSG( 1062, ERRnoDArrow      , "Expected '=>'")
 LSC_ERROR_MSG( 1063, ERRInvalidCodePoint      , "Invalid codepoint value in the escape sequence.")
 LSC_ERROR_MSG( 1064, ERRMissingCurlyBrace      , "Closing curly brace ('}') expected.")
 LSC_ERROR_MSG( 1065, ERRRestLastArg, "The rest parameter must be the last parameter in a formals list.")
-LSC_ERROR_MSG( 1066, ERRRestWithDefault, "The rest parameter cannot have a default intializer.")
+LSC_ERROR_MSG( 1066, ERRRestWithDefault, "The rest parameter cannot have a default initializer.")
 LSC_ERROR_MSG( 1067, ERRUnexpectedEllipsis, "Unexpected ... operator")
 
 LSC_ERROR_MSG( 1068, ERRDestructInit, "Destructuring declarations must have an initializer")
@@ -87,3 +87,16 @@ LSC_ERROR_MSG( 1077, ERRDestructNotInit, "Destructuring declarations cannot have
 LSC_ERROR_MSG(1079, ERRInvalidNewTarget, "Invalid use of the 'new.target' keyword")
 LSC_ERROR_MSG(1080, ERRForInNoInitAllowed, "for-in loop head declarations cannot have an initializer")
 LSC_ERROR_MSG(1081, ERRForOfNoInitAllowed, "for-of loop head declarations cannot have an initializer")
+LSC_ERROR_MSG(1082, ERRNonSimpleParamListInStrictMode, "Cannot apply strict mode on functions with non-simple parameter list")
+
+LSC_ERROR_MSG(1083, ERRBadAwait, "'await' expression not allowed in this context")
+
+LSC_ERROR_MSG(1084, ERRGetterMustHaveNoParameters, "Getter functions must have no parameters")
+
+LSC_ERROR_MSG(1085, ERREvalNotSupportedInParamScope, "'eval' is not allowed in the default initializer")
+LSC_ERROR_MSG(1086, ERRInvalidUseofExponentiationOperator, "Invalid unary operator on the left hand side of exponentiation (**) operator")
+
+LSC_ERROR_MSG(1087, ERRInvalidModuleImportOrExport, "Module import or export statement unexpected here")
+LSC_ERROR_MSG(1088, ERRInvalidExportName, "Unable to resolve module export name")
+
+LSC_ERROR_MSG(1089, ERRLetIDInLexicalDecl, "'let' is not an allowed identifier in lexical declarations")

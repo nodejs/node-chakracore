@@ -3,8 +3,8 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLanguagePch.h"
-#include "Language\JavascriptFunctionArgIndex.h"
-#include "Language\InterpreterStackFrame.h"
+#include "Language/JavascriptFunctionArgIndex.h"
+#include "Language/InterpreterStackFrame.h"
 
 #define FAligned(VALUE, TYPE) ((((LONG_PTR)VALUE) & (sizeof(TYPE)-1)) == 0)
 
@@ -284,7 +284,7 @@ namespace Js
             return inlinedFrameWalker.GetArgv(/* includeThis = */ false);
         }
         else 
-#endif            
+#endif
             if (this->GetCurrentFunction()->GetFunctionInfo()->IsGenerator())
         {
             JavascriptGenerator* gen = JavascriptGenerator::FromVar(this->GetCurrentArgv()[JavascriptFunctionArgIndex_This]);
@@ -300,9 +300,9 @@ namespace Js
     {
         if (this->IsJavascriptFrame())
         {
-            if (this->interpreterFrame 
+            if (this->interpreterFrame
 #if ENABLE_NATIVE_CODEGEN
-               && this->lastInternalFrameInfo.codeAddress == nullptr
+                && this->lastInternalFrameInfo.codeAddress == nullptr
 #endif
                 )
             {
@@ -423,7 +423,7 @@ namespace Js
             else
             {
                 //Get the function from the interpreterFrame in jit loop body case
-                //This is exactly same as this->GetCurrentFunctionFromPhysicalFrame() if the interperterFrame is not
+                //This is exactly same as this->GetCurrentFunctionFromPhysicalFrame() if the interpreterFrame is not
                 //called from bailout path.
                 Assert(this->lastInternalFrameInfo.codeAddress);
                 function = this->interpreterFrame->GetJavascriptFunction();
@@ -450,7 +450,7 @@ namespace Js
             {
                 if(functionBody->GetUtf8SourceInfo()->IsDynamic())
                 {
-                    *sourceFileName = L"Dynamic Code";
+                    *sourceFileName = _u("Dynamic Code");
                 }
                 else
                 {
@@ -837,6 +837,7 @@ namespace Js
                 this->lastInternalFrameInfo.frameConsumed = true;
             }
 #endif //ENABLE_NATIVE_CODEGEN
+
             return true;
         }
 

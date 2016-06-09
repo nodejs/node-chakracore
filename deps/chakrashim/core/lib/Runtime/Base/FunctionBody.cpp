@@ -3,35 +3,37 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeBasePch.h"
-#include "ByteCode\ByteCodeAPI.h"
-#include "ByteCode\ByteCodeDumper.h"
-#include "Language\AsmJsTypes.h"
-#include "Language\AsmJsModule.h"
-#include "ByteCode\ByteCodeSerializer.h"
-#include "Language\FunctionCodeGenRuntimeData.h"
+#include "ByteCode/ByteCodeApi.h"
+#include "ByteCode/ByteCodeDumper.h"
+#include "Language/AsmJsTypes.h"
+#include "Language/AsmJsModule.h"
+#include "ByteCode/ByteCodeSerializer.h"
+#include "Language/FunctionCodeGenRuntimeData.h"
 
-#include "ByteCode\ScopeInfo.h"
-#include "Base\EtwTrace.h"
+#include "ByteCode/ScopeInfo.h"
+#include "Base/EtwTrace.h"
 
 #ifdef DYNAMIC_PROFILE_MUTATOR
-#include "Language\DynamicProfileMutator.h"
+#include "Language/DynamicProfileMutator.h"
 #endif
-#include "Language\SourceDynamicProfileManager.h"
+#include "Language/SourceDynamicProfileManager.h"
 
-#include "Debug\ProbeContainer.h"
-#include "Debug\DebugContext.h"
+#include "Debug/ProbeContainer.h"
+#include "Debug/DebugContext.h"
 
 #include "Parser.h"
 #include "RegexCommon.h"
 #include "RegexPattern.h"
-#include "Library\RegexHelper.h"
+#include "Library/RegexHelper.h"
 
-#include "Language\InterpreterStackFrame.h"
-#include "Library\ModuleRoot.h"
-#include "Types\PathTypeHandler.h"
+#include "Language/InterpreterStackFrame.h"
+#include "Library/ModuleRoot.h"
+#include "Types/PathTypeHandler.h"
+#include "Common/MathUtil.h"
 
 namespace Js
 {
+    CriticalSection FunctionProxy::GlobalLock;
 
 #ifdef FIELD_ACCESS_STATS
     void FieldAccessStats::Add(FieldAccessStats* other)
@@ -56,31 +58,69 @@ namespace Js
 #endif
 
     // FunctionProxy methods
-    FunctionProxy::FunctionProxy(JavascriptMethod entryPoint, Attributes attributes, int nestedCount, int derivedSize, LocalFunctionId functionId, ScriptContext* scriptContext, Utf8SourceInfo* utf8SourceInfo, uint functionNumber):
+    FunctionProxy::FunctionProxy(JavascriptMethod entryPoint, Attributes attributes, LocalFunctionId functionId, ScriptContext* scriptContext, Utf8SourceInfo* utf8SourceInfo, uint functionNumber):
         FunctionInfo(entryPoint, attributes, functionId, (FunctionBody*) this),
-        m_nestedCount(nestedCount),
         m_isTopLevel(false),
         m_isPublicLibraryCode(false),
-        m_derivedSize(derivedSize),
         m_scriptContext(scriptContext),
         m_utf8SourceInfo(utf8SourceInfo),
         m_referenceInParentFunction(nullptr),
         m_functionNumber(functionNumber),
-        m_defaultEntryPointInfo(nullptr),
-        m_functionObjectTypeList(nullptr)
+        m_defaultEntryPointInfo(nullptr)
     {
         PERF_COUNTER_INC(Code, TotalFunction);
     }
 
-    uint FunctionProxy::GetSourceContextId() const
+    inline Recycler* FunctionProxy::GetRecycler() const
     {
-        return m_utf8SourceInfo->GetSrcInfo()->sourceContextInfo->sourceContextId;
+        return m_scriptContext->GetRecycler(); 
     }
 
-    wchar_t* FunctionProxy::GetDebugNumberSet(wchar(&bufferToWriteTo)[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE]) const
+    inline void* FunctionProxy::GetAuxPtr(AuxPointerType e) const
+    {
+        if (this->auxPtrs == nullptr)
+        {
+            return nullptr;
+        }
+
+        // On process detach this can be called from another thread but the ThreadContext should be locked
+        Assert(ThreadContext::GetContextForCurrentThread() || ThreadContext::GetCriticalSection()->IsLocked());
+        return AuxPtrsT::GetAuxPtr(this, e);
+    }
+    inline void* FunctionProxy::GetAuxPtrWithLock(AuxPointerType e) const
+    {
+        if (this->auxPtrs == nullptr)
+        {
+            return nullptr;
+        }
+        AutoCriticalSection autoCS(&GlobalLock);
+        return AuxPtrsT::GetAuxPtr(this, e);
+    }
+
+    inline void FunctionProxy::SetAuxPtr(AuxPointerType e, void* ptr)
+    {
+        // On process detach this can be called from another thread but the ThreadContext should be locked
+        Assert(ThreadContext::GetContextForCurrentThread() || ThreadContext::GetCriticalSection()->IsLocked());
+        
+        if (ptr == nullptr && GetAuxPtr(e) == nullptr)
+        {
+            return;
+        }
+
+        // when setting ptr to null we never need to promote
+        AutoCriticalSection aucoCS(&GlobalLock);
+        AuxPtrsT::SetAuxPtr(this, e, ptr);
+    }
+
+    uint FunctionProxy::GetSourceContextId() const
+    {
+        return this->GetUtf8SourceInfo()->GetSrcInfo()->sourceContextInfo->sourceContextId;
+    }
+
+    char16* FunctionProxy::GetDebugNumberSet(wchar(&bufferToWriteTo)[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE]) const
     {
         // (#%u.%u), #%u --> (source file Id . function Id) , function Number
-        int len = swprintf_s(bufferToWriteTo, MAX_FUNCTION_BODY_DEBUG_STRING_SIZE, L" (#%d.%u), #%u",
+        int len = swprintf_s(bufferToWriteTo, MAX_FUNCTION_BODY_DEBUG_STRING_SIZE, _u(" (#%d.%u), #%u"),
             (int)this->GetSourceContextId(), this->GetLocalFunctionId(), this->GetFunctionNumber());
         Assert(len > 8);
         return bufferToWriteTo;
@@ -99,15 +139,15 @@ namespace Js
     }
 
     LPCUTF8
-    ParseableFunctionInfo::GetSource(const wchar_t* reason) const
+    ParseableFunctionInfo::GetSource(const char16* reason) const
     {
-        return this->m_utf8SourceInfo->GetSource(reason == nullptr ? L"ParseableFunctionInfo::GetSource" : reason) + this->StartOffset();
+        return this->GetUtf8SourceInfo()->GetSource(reason == nullptr ? _u("ParseableFunctionInfo::GetSource") : reason) + this->StartOffset();
     }
 
     LPCUTF8
-    ParseableFunctionInfo::GetStartOfDocument(const wchar_t* reason) const
+    ParseableFunctionInfo::GetStartOfDocument(const char16* reason) const
     {
-        return this->m_utf8SourceInfo->GetSource(reason == nullptr ? L"ParseableFunctionInfo::GetStartOfDocument" : reason);
+        return this->GetUtf8SourceInfo()->GetSource(reason == nullptr ? _u("ParseableFunctionInfo::GetStartOfDocument") : reason);
     }
 
     bool
@@ -134,7 +174,7 @@ namespace Js
         return this->m_cbStartOffset;
     }
 
-    void ParseableFunctionInfo::RegisterFuncToDiag(ScriptContext * scriptContext, wchar_t const * pszTitle)
+    void ParseableFunctionInfo::RegisterFuncToDiag(ScriptContext * scriptContext, char16 const * pszTitle)
     {
         // Register the function to the PDM as eval code (the debugger app will show file as 'eval code')
         scriptContext->GetDebugContext()->RegisterFunction(this, pszTitle);
@@ -157,7 +197,7 @@ namespace Js
         if (!statementMaps)
         {
             statementMaps = RecyclerNew(recycler, StatementMapList, recycler);
-            this->pStatementMaps = statementMaps;
+            this->SetStatementMaps(statementMaps);
         }
 
         statementMaps->Add(pStatementMap);
@@ -297,7 +337,7 @@ namespace Js
     // in utf8SourceInfo map whose source range is unknown and can't be reparsed.)
     void FunctionBody::FinishSourceInfo()
     {
-        m_utf8SourceInfo->SetFunctionBody(this);
+        this->GetUtf8SourceInfo()->SetFunctionBody(this);
     }
 
     RegSlot FunctionBody::GetFrameDisplayRegister() const
@@ -340,7 +380,7 @@ namespace Js
         this->m_sourceInfo.m_probeBackingBlock = probeBackingBlock;
     }
 
-    FunctionBody * FunctionBody::NewFromRecycler(ScriptContext * scriptContext, const wchar_t * displayName, uint displayNameLength, uint displayShortNameOffset, uint nestedCount,
+    FunctionBody * FunctionBody::NewFromRecycler(ScriptContext * scriptContext, const char16 * displayName, uint displayNameLength, uint displayShortNameOffset, uint nestedCount,
         Utf8SourceInfo* sourceInfo, uint uScriptId, Js::LocalFunctionId functionId, Js::PropertyRecordList* boundPropertyRecords, Attributes attributes
 #ifdef PERF_COUNTERS
             , bool isDeserializedFunction
@@ -355,7 +395,7 @@ namespace Js
             );
     }
 
-    FunctionBody * FunctionBody::NewFromRecycler(ScriptContext * scriptContext, const wchar_t * displayName, uint displayNameLength, uint displayShortNameOffset, uint nestedCount,
+    FunctionBody * FunctionBody::NewFromRecycler(ScriptContext * scriptContext, const char16 * displayName, uint displayNameLength, uint displayShortNameOffset, uint nestedCount,
         Utf8SourceInfo* sourceInfo, uint uFunctionNumber, uint uScriptId, Js::LocalFunctionId  functionId, Js::PropertyRecordList* boundPropertyRecords, Attributes attributes
 #ifdef PERF_COUNTERS
             , bool isDeserializedFunction
@@ -363,26 +403,23 @@ namespace Js
             )
     {
 #ifdef PERF_COUNTERS
-            return RecyclerNewWithBarrierFinalizedPlus(scriptContext->GetRecycler(), nestedCount * sizeof(FunctionBody*), FunctionBody, scriptContext, displayName, displayNameLength, displayShortNameOffset, nestedCount, sourceInfo, uFunctionNumber, uScriptId, functionId, boundPropertyRecords, attributes, isDeserializedFunction);
+            return RecyclerNewWithBarrierFinalized(scriptContext->GetRecycler(), FunctionBody, scriptContext, displayName, displayNameLength, displayShortNameOffset, nestedCount, sourceInfo, uFunctionNumber, uScriptId, functionId, boundPropertyRecords, attributes, isDeserializedFunction);
 #else
-            return RecyclerNewWithBarrierFinalizedPlus(scriptContext->GetRecycler(), nestedCount * sizeof(FunctionBody*), FunctionBody, scriptContext, displayName, displayNameLength, displayShortNameOffset, nestedCount, sourceInfo, uFunctionNumber, uScriptId, functionId, boundPropertyRecords, attributes);
+            return RecyclerNewWithBarrierFinalized(scriptContext->GetRecycler(), FunctionBody, scriptContext, displayName, displayNameLength, displayShortNameOffset, nestedCount, sourceInfo, uFunctionNumber, uScriptId, functionId, boundPropertyRecords, attributes);
 #endif
     }
 
 
-    FunctionBody::FunctionBody(ScriptContext* scriptContext, const wchar_t* displayName, uint displayNameLength, uint displayShortNameOffset, uint nestedCount,
+    FunctionBody::FunctionBody(ScriptContext* scriptContext, const char16* displayName, uint displayNameLength, uint displayShortNameOffset, uint nestedCount,
         Utf8SourceInfo* utf8SourceInfo, uint uFunctionNumber, uint uScriptId,
         Js::LocalFunctionId  functionId, Js::PropertyRecordList* boundPropertyRecords, Attributes attributes
-    #ifdef PERF_COUNTERS
+#ifdef PERF_COUNTERS
         , bool isDeserializedFunction
-    #endif
+#endif
         ) :
-        ParseableFunctionInfo(scriptContext->CurrentThunk, nestedCount, sizeof(FunctionBody), functionId, utf8SourceInfo, scriptContext, uFunctionNumber, displayName, displayNameLength, displayShortNameOffset, attributes, boundPropertyRecords),
+        ParseableFunctionInfo(scriptContext->CurrentThunk, nestedCount, functionId, utf8SourceInfo, scriptContext, uFunctionNumber, displayName, displayNameLength, displayShortNameOffset, attributes, boundPropertyRecords),
+        counters(this),
         m_uScriptId(uScriptId),
-        m_varCount(0),
-        m_outParamMaxDepth(0),
-        m_firstTmpReg(Constants::NoRegister),
-        loopCount(0),
         cleanedUp(false),
         sourceInfoCleanedUp(false),
         profiledLdElemCount(0),
@@ -399,31 +436,22 @@ namespace Js
         m_depth(0),
         inlineDepth(0),
         m_pendingLoopHeaderRelease(false),
-        inlineCacheCount(0),
-        rootObjectLoadInlineCacheStart(0),
-        rootObjectStoreInlineCacheStart(0),
-        isInstInlineCacheCount(0),
-        objLiteralCount(0),
-        literalRegexCount(0),
-        innerScopeCount(0),
         hasCachedScopePropIds(false),
-        m_byteCodeCount(0),
-        m_byteCodeWithoutLDACount(0),
         m_argUsedForBranch(0),
-        m_byteCodeInLoopCount(0),
         m_envDepth((uint16)-1),
+        interpretedCount(0),
+        loopInterpreterLimit(CONFIG_FLAG(LoopInterpretCount)),
+        savedPolymorphicCacheState(0),
+        debuggerScopeIndex(0),
         flags(Flags_HasNoExplicitReturnValue),
         m_hasFinally(false),
 #if ENABLE_PROFILE_INFO
         dynamicProfileInfo(nullptr),
-        polymorphicCallSiteInfoHead(nullptr),
 #endif
         savedInlinerVersion(0),
 #if ENABLE_NATIVE_CODEGEN
         savedImplicitCallsFlags(ImplicitCall_HasNoInfo),
 #endif
-        savedPolymorphicCacheState(0),
-        functionBailOutRecord(nullptr),
         hasExecutionDynamicProfileInfo(false),
         m_hasAllNonLocalReferenced(false),
         m_hasSetIsObject(false),
@@ -431,41 +459,29 @@ namespace Js
         m_CallsEval(false),
         m_ChildCallsEval(false),
         m_hasReferenceableBuiltInArguments(false),
+        m_isParamAndBodyScopeMerged(true),
         m_firstFunctionObject(true),
         m_inlineCachesOnFunctionObject(false),
         m_hasDoneAllNonLocalReferenced(false),
         m_hasFunctionCompiledSent(false),
         byteCodeCache(nullptr),
-        stackNestedFuncParent(nullptr),
-        localClosureRegister(Constants::NoRegister),
-        localFrameDisplayRegister(Constants::NoRegister),
-        envRegister(Constants::NoRegister),
-        thisRegisterForEventHandler(Constants::NoRegister),
-        firstInnerScopeRegister(Constants::NoRegister),
-        funcExprScopeRegister(Constants::NoRegister),
+        m_hasLocalClosureRegister(false),
+        m_hasParamClosureRegister(false),
+        m_hasLocalFrameDisplayRegister(false),
+        m_hasEnvRegister(false),
+        m_hasThisRegisterForEventHandler(false),
+        m_hasFirstInnerScopeRegister(false),
+        m_hasFuncExprScopeRegister(false),
+        m_hasFirstTmpRegister(false),
         m_tag(TRUE),
         m_nativeEntryPointUsed(FALSE),
-        debuggerScopeIndex(0),
         bailOnMisingProfileCount(0),
         bailOnMisingProfileRejitCount(0),
-        auxBlock(nullptr),
-        auxContextBlock(nullptr),
         byteCodeBlock(nullptr),
         entryPoints(nullptr),
-        loopHeaderArray(nullptr),
         m_constTable(nullptr),
-        literalRegexes(nullptr),
-        asmJsFunctionInfo(nullptr),
-        asmJsModuleInfo(nullptr),
-        m_codeGenRuntimeData(nullptr),
-        m_codeGenGetSetRuntimeData(nullptr),
-        pStatementMaps(nullptr),
         inlineCaches(nullptr),
-        polymorphicInlineCachesHead(nullptr),
         cacheIdToPropertyIdMap(nullptr),
-        referencedPropertyIdMap(nullptr),
-        propertyIdsForScopeSlotArray(nullptr),
-        propertyIdOnRegSlotsContainer(nullptr),
         executionMode(ExecutionMode::Interpreter),
         interpreterLimit(0),
         autoProfilingInterpreter0Limit(0),
@@ -476,29 +492,26 @@ namespace Js
         fullJitThreshold(0),
         fullJitRequeueThreshold(0),
         committedProfiledIterations(0),
-        simpleJitEntryPointInfo(nullptr),
         wasCalledFromLoop(false),
         hasScopeObject(false),
         hasNestedLoop(false),
         recentlyBailedOutOfJittedLoopBody(false),
-        serializationIndex(-1),
         m_isAsmJsScheduledForFullJIT(false),
-        m_asmJsTotalLoopCount(0),
-
+        m_asmJsTotalLoopCount(0)
         //
         // Even if the function does not require any locals, we must always have "R0" to propagate
         // a return value.  By enabling this here, we avoid unnecessary conditionals during execution.
         //
-        m_constCount(1)
 #ifdef IR_VIEWER
         ,m_isIRDumpEnabled(false)
         ,m_irDumpBaseObject(nullptr)
 #endif /* IR_VIEWER */
         , m_isFromNativeCodeModule(false)
-        , interpretedCount(0)
-        , loopInterpreterLimit(CONFIG_FLAG(LoopInterpretCount))
         , hasHotLoop(false)
         , m_isPartialDeserializedFunction(false)
+#if DBG
+        , m_isSerialized(false)
+#endif
 #ifdef PERF_COUNTERS
         , m_isDeserializedFunction(isDeserializedFunction)
 #endif
@@ -516,6 +529,8 @@ namespace Js
         , callCountStats(0)
 #endif
     {
+        SetCountField(CounterFields::ConstantCount, 1);
+
         this->SetDefaultFunctionEntryPointInfo((FunctionEntryPointInfo*) this->GetDefaultEntryPointInfo(), DefaultEntryThunk);
         this->m_hasBeenParsed = true;
 
@@ -550,18 +565,6 @@ namespace Js
     }
 
     ByteBlock*
-    FunctionBody::GetAuxiliaryData()
-    {
-        return this->auxBlock;
-    }
-
-    ByteBlock*
-    FunctionBody::GetAuxiliaryContextData()
-    {
-        return this->auxContextBlock;
-    }
-
-    ByteBlock*
     FunctionBody::GetByteCode()
     {
         return this->byteCodeBlock;
@@ -581,19 +584,7 @@ namespace Js
         }
     }
 
-    const ByteCodeCache *
-    FunctionBody::GetByteCodeCache() const
-    {
-        return byteCodeCache;
-    }
-
-    const int
-    FunctionBody::GetSerializationIndex() const
-    {
-        return serializationIndex;
-    }
-
-    const wchar_t* ParseableFunctionInfo::GetExternalDisplayName() const
+    const char16* ParseableFunctionInfo::GetExternalDisplayName() const
     {
         return GetExternalDisplayName(this);
     }
@@ -601,13 +592,13 @@ namespace Js
     RegSlot
     FunctionBody::GetLocalsCount()
     {
-        return m_constCount + m_varCount;
+        return GetConstantCount() + GetVarCount();
     }
 
     RegSlot
     FunctionBody::GetVarCount()
     {
-        return m_varCount;
+        return this->GetCountField(CounterFields::VarCount);
     }
 
     // Returns the number of non-temp local vars.
@@ -622,14 +613,15 @@ namespace Js
     FunctionBody::GetFirstNonTempLocalIndex()
     {
         // First local var starts when the const vars end.
-        return m_constCount;
+        return GetConstantCount();
     }
 
     uint32
     FunctionBody::GetEndNonTempLocalIndex()
     {
         // It will give the index on which current non temp locals ends, which is a first temp reg.
-        return m_firstTmpReg != Constants::NoRegister ? m_firstTmpReg : GetLocalsCount();
+        RegSlot firstTmpReg = GetFirstTmpRegister();
+        return firstTmpReg != Constants::NoRegister ? firstTmpReg : GetLocalsCount();
     }
 
     bool
@@ -650,23 +642,29 @@ namespace Js
     }
 
     void
-    FunctionBody::SetConstantCount(
-        RegSlot cNewConstants)                // New register count
+    FunctionBody::CheckAndSetConstantCount(RegSlot cNewConstants) // New register count
     {
         CheckNotExecuting();
-        AssertMsg(m_constCount <= cNewConstants, "Cannot shrink register usage");
+        AssertMsg(GetConstantCount() <= cNewConstants, "Cannot shrink register usage");
 
-        m_constCount = cNewConstants;
+        this->SetConstantCount(cNewConstants);
     }
-
     void
-    FunctionBody::SetVarCount(
-        RegSlot cNewVars)                     // New register count
+    FunctionBody::SetConstantCount(RegSlot cNewConstants) // New register count
+    {
+        this->SetCountField(CounterFields::ConstantCount, cNewConstants);
+    }
+    void
+    FunctionBody::CheckAndSetVarCount(RegSlot cNewVars)
     {
         CheckNotExecuting();
-        AssertMsg(m_varCount <= cNewVars, "Cannot shrink register usage");
-
-        m_varCount = cNewVars;
+        AssertMsg(this->GetVarCount() <= cNewVars, "Cannot shrink register usage");
+        this->SetVarCount(cNewVars);
+    }
+    void
+    FunctionBody::SetVarCount(RegSlot cNewVars) // New register count
+    {
+        this->SetCountField(FunctionBody::CounterFields::VarCount, cNewVars);
     }
 
     RegSlot
@@ -678,8 +676,8 @@ namespace Js
     RegSlot
     FunctionBody::GetFirstTmpReg()
     {
-        AssertMsg(m_firstTmpReg != Constants::NoRegister, "First temp hasn't been set yet");
-        return m_firstTmpReg;
+        AssertMsg(GetFirstTmpRegister() != Constants::NoRegister, "First temp hasn't been set yet");
+        return GetFirstTmpRegister();
     }
 
     void
@@ -687,30 +685,34 @@ namespace Js
         RegSlot firstTmpReg)
     {
         CheckNotExecuting();
-        AssertMsg(m_firstTmpReg == Constants::NoRegister, "Should not be resetting the first temp");
+        AssertMsg(GetFirstTmpRegister() == Constants::NoRegister, "Should not be resetting the first temp");
 
-        m_firstTmpReg = firstTmpReg;
+        SetFirstTmpRegister(firstTmpReg);
     }
 
     RegSlot
     FunctionBody::GetTempCount()
     {
-        return GetLocalsCount() - m_firstTmpReg;
+        return GetLocalsCount() - GetFirstTmpRegister();
     }
 
     void
-    FunctionBody::SetOutParamDepth(
-        RegSlot cOutParamsDepth)
+    FunctionBody::SetOutParamMaxDepth(RegSlot cOutParamsDepth)
     {
-        CheckNotExecuting();
-        m_outParamMaxDepth = cOutParamsDepth;
+        SetCountField(CounterFields::OutParamMaxDepth, cOutParamsDepth);
     }
 
+    void
+    FunctionBody::CheckAndSetOutParamMaxDepth(RegSlot cOutParamsDepth)
+    {
+        CheckNotExecuting();
+        SetOutParamMaxDepth(cOutParamsDepth);
+    }
 
     RegSlot
-    FunctionBody::GetOutParamsDepth()
+    FunctionBody::GetOutParamMaxDepth()
     {
-        return m_outParamMaxDepth;
+        return GetCountField(CounterFields::OutParamMaxDepth);
     }
 
     ModuleID
@@ -755,7 +757,7 @@ namespace Js
     void
     FunctionBody::CheckEmpty()
     {
-        AssertMsg((this->byteCodeBlock == nullptr) && (this->auxBlock == nullptr) && (this->auxContextBlock == nullptr), "Function body may only be set once");
+        AssertMsg((this->byteCodeBlock == nullptr) && (this->GetAuxiliaryData() == nullptr) && (this->GetAuxiliaryContextData() == nullptr), "Function body may only be set once");
     }
 
 
@@ -863,7 +865,7 @@ namespace Js
     FunctionBody::SetNativeThrowSpanSequence(SmallSpanSequence *seq, uint loopNum, LoopEntryPointInfo* entryPoint)
     {
         Assert(loopNum != LoopHeader::NoLoop);
-        LoopHeader *loopHeader = this->GetLoopHeader(loopNum);
+        LoopHeader *loopHeader = this->GetLoopHeaderWithLock(loopNum);
         Assert(loopHeader);
         Assert(entryPoint->loopHeader == loopHeader);
 
@@ -910,9 +912,9 @@ namespace Js
     bool
     ParseableFunctionInfo::IsTrackedPropertyId(PropertyId pid)
     {
-        Assert(this->m_boundPropertyRecords != nullptr);
+        Assert(this->GetBoundPropertyRecords() != nullptr);
 
-        PropertyRecordList* trackedProperties = this->m_boundPropertyRecords;
+        PropertyRecordList* trackedProperties = this->GetBoundPropertyRecords();
         const PropertyRecord* prop = nullptr;
         if (trackedProperties->TryGetValue(pid, &prop))
         {
@@ -927,14 +929,14 @@ namespace Js
     PropertyId
     ParseableFunctionInfo::GetOrAddPropertyIdTracked(JsUtil::CharacterBuffer<WCHAR> const& propName)
     {
-        Assert(this->m_boundPropertyRecords != nullptr);
+        Assert(this->GetBoundPropertyRecords() != nullptr);
 
         const Js::PropertyRecord* propRecord = nullptr;
 
         this->m_scriptContext->GetOrAddPropertyRecord(propName, &propRecord);
 
         PropertyId pid = propRecord->GetPropertyId();
-        this->m_boundPropertyRecords->Item(pid, propRecord);
+        this->GetBoundPropertyRecords()->Item(pid, propRecord);
 
         return pid;
     }
@@ -947,12 +949,6 @@ namespace Js
         entryPoint->SetCodeGenRecorded(baseAddress, size, data, transferData, numberChunks);
     }
 #endif
-    
-    int
-    FunctionBody::GetNextDebuggerScopeIndex()
-    {
-        return this->debuggerScopeIndex++;
-    }
 
     SmallSpanSequence::SmallSpanSequence()
         : pStatementBuffer(nullptr),
@@ -1020,15 +1016,16 @@ namespace Js
         CopyDeferParseField(m_dontInline);
         CopyDeferParseField(m_inParamCount);
         CopyDeferParseField(m_grfscr);
-        CopyDeferParseField(m_scopeInfo);
+        other->SetScopeInfo(this->GetScopeInfo());
         CopyDeferParseField(m_utf8SourceHasBeenSet);
 #if DBG
         CopyDeferParseField(deferredParseNextFunctionId);
         CopyDeferParseField(scopeObjectSize);
 #endif
         CopyDeferParseField(scopeSlotArraySize);
-        CopyDeferParseField(cachedSourceString);
-        CopyDeferParseField(deferredStubs);
+        CopyDeferParseField(paramScopeSlotArraySize);
+        other->SetCachedSourceString(this->GetCachedSourceString());
+        other->SetDeferredStubs(this->GetDeferredStubs());
         CopyDeferParseField(m_isAsmjsMode);
         CopyDeferParseField(m_isAsmJsFunction);
 #undef CopyDeferParseField
@@ -1038,39 +1035,24 @@ namespace Js
 
     void FunctionProxy::SetReferenceInParentFunction(FunctionProxyPtrPtr reference)
     {
-        if (reference)
-        {
-            // Tag the reference so that the child function doesn't
-            // keep the parent alive. If the parent function is going away,
-            // it'll clear its children's references.
-            this->m_referenceInParentFunction = reference;
-        }
-        else
-        {
-            this->m_referenceInParentFunction = nullptr;
-        }
+        // No need to tag the reference because the first field of the nested array 
+        // is count, so the reference here won't be same as address of the parent nested 
+        // array (even for index 0)
+        this->m_referenceInParentFunction = reference;
     }
 
     void FunctionProxy::UpdateReferenceInParentFunction(FunctionProxy* newFunctionInfo)
     {
         if (this->m_referenceInParentFunction)
         {
-#ifdef RECYCLER_WRITE_BARRIER
-            if (newFunctionInfo == nullptr)
-            {
-                (*m_referenceInParentFunction).NoWriteBarrierSet(nullptr);
-                return;
-            }
-#endif
-
-            (*m_referenceInParentFunction) = newFunctionInfo;
+            *m_referenceInParentFunction = newFunctionInfo;
         }
     }
 
     // DeferDeserializeFunctionInfo methods
 
-    DeferDeserializeFunctionInfo::DeferDeserializeFunctionInfo(int nestedCount, LocalFunctionId functionId, ByteCodeCache* byteCodeCache, const byte* serializedFunction, Utf8SourceInfo* sourceInfo, ScriptContext* scriptContext, uint functionNumber, const wchar_t* displayName, uint displayNameLength, uint displayShortNameOffset, NativeModule *nativeModule, Attributes attributes) :
-        FunctionProxy(DefaultDeferredDeserializeThunk, (Attributes)(attributes | DeferredDeserialize), nestedCount, sizeof(DeferDeserializeFunctionInfo), functionId, scriptContext, sourceInfo, functionNumber),
+    DeferDeserializeFunctionInfo::DeferDeserializeFunctionInfo(int nestedCount, LocalFunctionId functionId, ByteCodeCache* byteCodeCache, const byte* serializedFunction, Utf8SourceInfo* sourceInfo, ScriptContext* scriptContext, uint functionNumber, const char16* displayName, uint displayNameLength, uint displayShortNameOffset, NativeModule *nativeModule, Attributes attributes) :
+        FunctionProxy(DefaultDeferredDeserializeThunk, (Attributes)(attributes | DeferredDeserialize), functionId, scriptContext, sourceInfo, functionNumber),
         m_cache(byteCodeCache),
         m_functionBytes(serializedFunction),
         m_displayName(nullptr),
@@ -1083,7 +1065,7 @@ namespace Js
         SetDisplayName(displayName, displayNameLength, displayShortNameOffset, FunctionProxy::SetDisplayNameFlagsDontCopy);
     }
 
-    DeferDeserializeFunctionInfo* DeferDeserializeFunctionInfo::New(ScriptContext* scriptContext, int nestedCount, LocalFunctionId functionId, ByteCodeCache* byteCodeCache, const byte* serializedFunction, Utf8SourceInfo* sourceInfo, const wchar_t* displayName, uint displayNameLength, uint displayShortNameOffset, NativeModule *nativeModule, Attributes attributes)
+    DeferDeserializeFunctionInfo* DeferDeserializeFunctionInfo::New(ScriptContext* scriptContext, int nestedCount, LocalFunctionId functionId, ByteCodeCache* byteCodeCache, const byte* serializedFunction, Utf8SourceInfo* sourceInfo, const char16* displayName, uint displayNameLength, uint displayShortNameOffset, NativeModule *nativeModule, Attributes attributes)
     {
         return RecyclerNewFinalized(scriptContext->GetRecycler(),
             DeferDeserializeFunctionInfo,
@@ -1101,17 +1083,17 @@ namespace Js
             attributes);
     }
 
-    const wchar_t*
+    const char16*
     DeferDeserializeFunctionInfo::GetDisplayName() const
     {
         return this->m_displayName;
     }
 
     // ParseableFunctionInfo methods
-    ParseableFunctionInfo::ParseableFunctionInfo(JavascriptMethod entryPoint, int nestedCount, int derivedSize,
+    ParseableFunctionInfo::ParseableFunctionInfo(JavascriptMethod entryPoint, int nestedCount,
         LocalFunctionId functionId, Utf8SourceInfo* sourceInfo, ScriptContext* scriptContext, uint functionNumber,
-        const wchar_t* displayName, uint displayNameLength, uint displayShortNameOffset, Attributes attributes, Js::PropertyRecordList* propertyRecords) :
-      FunctionProxy(entryPoint, attributes, nestedCount, derivedSize, functionId, scriptContext, sourceInfo, functionNumber),
+        const char16* displayName, uint displayNameLength, uint displayShortNameOffset, Attributes attributes, Js::PropertyRecordList* propertyRecords) :
+      FunctionProxy(entryPoint, attributes, functionId, scriptContext, sourceInfo, functionNumber),
 #if DYNAMIC_INTERPRETER_THUNK
       m_dynamicInterpreterThunk(nullptr),
 #endif
@@ -1139,22 +1121,29 @@ namespace Js
       m_columnNumber(0),
       m_isEval(false),
       m_isDynamicFunction(false),
-      m_scopeInfo(nullptr),
       m_displayName(nullptr),
       m_displayNameLength(0),
       m_displayShortNameOffset(0),
-      deferredStubs(nullptr),
       scopeSlotArraySize(0),
-      cachedSourceString(nullptr),
-      m_boundPropertyRecords(propertyRecords),
+      paramScopeSlotArraySize(0),
       m_reparsed(false),
-      m_isAsmJsFunction(false),
+      m_isAsmJsFunction(false)
 #if DBG
-      m_wasEverAsmjsMode(false),
-      scopeObjectSize(0),
+      ,m_wasEverAsmjsMode(false)
+      ,scopeObjectSize(0)
 #endif
-      isByteCodeDebugMode(false)
     {
+        if (nestedCount > 0)
+        {
+            nestedArray = RecyclerNewPlusZ(m_scriptContext->GetRecycler(),
+                nestedCount*sizeof(FunctionProxy*), NestedArray, nestedCount);
+        }
+        else
+        {
+            nestedArray = nullptr;
+        }
+
+        SetBoundPropertyRecords(propertyRecords);
         if ((attributes & Js::FunctionInfo::DeferredParse) == 0)
         {
             void* validationCookie = nullptr;
@@ -1176,30 +1165,28 @@ namespace Js
     }
 
     ParseableFunctionInfo* ParseableFunctionInfo::New(ScriptContext* scriptContext, int nestedCount,
-        LocalFunctionId functionId, Utf8SourceInfo* sourceInfo, const wchar_t* displayName, uint displayNameLength, uint displayShortNameOffset, Js::PropertyRecordList* propertyRecords, Attributes attributes)
+        LocalFunctionId functionId, Utf8SourceInfo* sourceInfo, const char16* displayName, uint displayNameLength, uint displayShortNameOffset, Js::PropertyRecordList* propertyRecords, Attributes attributes)
     {
         Assert(scriptContext->DeferredParsingThunk == ProfileDeferredParsingThunk
             || scriptContext->DeferredParsingThunk == DefaultDeferredParsingThunk);
 #ifdef PERF_COUNTERS
-        PERF_COUNTER_INC(Code, DeferedFunction);
+        PERF_COUNTER_INC(Code, DeferredFunction);
 #endif
         uint newFunctionNumber = scriptContext->GetThreadContext()->NewFunctionNumber();
         if (!sourceInfo->GetSourceContextInfo()->IsDynamic())
         {
-            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, L"Function was deferred from parsing - ID: %d; Display Name: %s; Utf8SourceInfo ID: %d; Source Length: %d; Source Url:%s\n", newFunctionNumber, displayName, sourceInfo->GetSourceInfoId(), sourceInfo->GetCchLength(), sourceInfo->GetSourceContextInfo()->url);
+            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, _u("Function was deferred from parsing - ID: %d; Display Name: %s; Utf8SourceInfo ID: %d; Source Length: %d; Source Url:%s\n"), newFunctionNumber, displayName, sourceInfo->GetSourceInfoId(), sourceInfo->GetCchLength(), sourceInfo->GetSourceContextInfo()->url);
         }
         else
         {
-            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, L"Function was deferred from parsing - ID: %d; Display Name: %s; Utf8SourceInfo ID: %d; Source Length: %d;\n", newFunctionNumber, displayName, sourceInfo->GetSourceInfoId(), sourceInfo->GetCchLength());
+            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, _u("Function was deferred from parsing - ID: %d; Display Name: %s; Utf8SourceInfo ID: %d; Source Length: %d;\n"), newFunctionNumber, displayName, sourceInfo->GetSourceInfoId(), sourceInfo->GetCchLength());
         }
 
         // When generating a new defer parse function, we always use a new function number
-        return RecyclerNewWithBarrierFinalizedPlus(scriptContext->GetRecycler(),
-            nestedCount * sizeof(FunctionBody*),
+        return RecyclerNewWithBarrierFinalized(scriptContext->GetRecycler(),
             ParseableFunctionInfo,
             scriptContext->DeferredParsingThunk,
             nestedCount,
-            sizeof(ParseableFunctionInfo),
             functionId,
             sourceInfo,
             scriptContext,
@@ -1213,7 +1200,7 @@ namespace Js
 
     DWORD_PTR FunctionProxy::GetSecondaryHostSourceContext() const
     {
-        return this->m_utf8SourceInfo->GetSecondaryHostSourceContext();
+        return this->GetUtf8SourceInfo()->GetSecondaryHostSourceContext();
     }
 
     DWORD_PTR FunctionProxy::GetHostSourceContext() const
@@ -1228,7 +1215,7 @@ namespace Js
 
     SRCINFO const * FunctionProxy::GetHostSrcInfo() const
     {
-        return m_utf8SourceInfo->GetSrcInfo();
+        return this->GetUtf8SourceInfo()->GetSrcInfo();
     }
 
     //
@@ -1367,7 +1354,7 @@ namespace Js
         m_reportedInParamCount = 0;
     }
 
-    const wchar_t*
+    const char16*
     ParseableFunctionInfo::GetDisplayName() const
     {
         return this->m_displayName;
@@ -1378,20 +1365,18 @@ namespace Js
         Assert(pnodeFnc->nop == knopFncDecl);
 
         Recycler *recycler = GetScriptContext()->GetRecycler();
-        this->deferredStubs = BuildDeferredStubTree(pnodeFnc, recycler);
+        this->SetDeferredStubs(BuildDeferredStubTree(pnodeFnc, recycler));
     }
 
     FunctionProxyArray ParseableFunctionInfo::GetNestedFuncArray()
     {
-        // The array is allocated as extra bytes past the end of the struct.
-        Assert(this->m_nestedCount > 0);
-
-        return (FunctionProxyArray )((char*)this + m_derivedSize);
+        Assert(GetNestedArray() != nullptr);
+        return GetNestedArray()->functionProxyArray;
     }
 
     void ParseableFunctionInfo::SetNestedFunc(FunctionProxy* nestedFunc, uint index, ulong flags)
     {
-        AssertMsg(index < this->m_nestedCount, "Trying to write past the nested func array");
+        AssertMsg(index < this->GetNestedCount(), "Trying to write past the nested func array");
 
         FunctionProxyArray nested = this->GetNestedFuncArray();
         nested[index] = nestedFunc;
@@ -1402,7 +1387,7 @@ namespace Js
 
             if (!this->GetSourceContextInfo()->IsDynamic() && nestedFunc->IsDeferredParseFunction() && nestedFunc->GetParseableFunctionInfo()->GetIsDeclaration() && this->GetIsTopLevel() && !(flags & fscrEvalCode))
             {
-                this->m_utf8SourceInfo->TrackDeferredFunction(nestedFunc->GetLocalFunctionId(), nestedFunc->GetParseableFunctionInfo());
+                this->GetUtf8SourceInfo()->TrackDeferredFunction(nestedFunc->GetLocalFunctionId(), nestedFunc->GetParseableFunctionInfo());
             }
         }
 
@@ -1415,7 +1400,7 @@ namespace Js
 
     FunctionProxyPtrPtr ParseableFunctionInfo::GetNestedFuncReference(uint index)
     {
-        AssertMsg(index < this->m_nestedCount, "Trying to write past the nested func array");
+        AssertMsg(index < this->GetNestedCount(), "Trying to write past the nested func array");
 
         FunctionProxyArray nested = this->GetNestedFuncArray();
         return &nested[index];
@@ -1446,18 +1431,14 @@ namespace Js
 
     void ParseableFunctionInfo::ClearNestedFunctionParentFunctionReference()
     {
-        if (this->m_nestedCount > 0)
+        this->ForEachNestedFunc([](FunctionProxy* proxy, uint32 index) 
         {
-            // If the function is x-domain all the nested functions should also be marked as x-domain
-            FunctionProxyArray nested = this->GetNestedFuncArray();
-            for (uint i = 0; i < this->m_nestedCount; ++i)
+            if (proxy)
             {
-                if (nested[i])
-                {
-                    nested[i]->SetReferenceInParentFunction(nullptr);
-                }
+                proxy->SetReferenceInParentFunction(nullptr);
             }
-        }
+            return true;
+        });
     }
 
     //
@@ -1514,9 +1495,10 @@ namespace Js
     template <typename Fn>
     void FunctionProxy::MapFunctionObjectTypes(Fn func)
     {
-        if (m_functionObjectTypeList)
+        FunctionTypeWeakRefList* functionObjectTypeList = static_cast<FunctionTypeWeakRefList*>(this->GetAuxPtr(AuxPointerType::FunctionObjectTypeList));
+        if (functionObjectTypeList != nullptr)
         {
-            m_functionObjectTypeList->Map([&] (int, FunctionTypeWeakRef* typeWeakRef)
+            functionObjectTypeList->Map([&](int, FunctionTypeWeakRef* typeWeakRef)
             {
                 if (typeWeakRef)
                 {
@@ -1537,13 +1519,14 @@ namespace Js
 
     FunctionProxy::FunctionTypeWeakRefList* FunctionProxy::EnsureFunctionObjectTypeList()
     {
-        if (m_functionObjectTypeList == nullptr)
+        FunctionTypeWeakRefList* functionObjectTypeList = static_cast<FunctionTypeWeakRefList*>(this->GetAuxPtr(AuxPointerType::FunctionObjectTypeList));
+        if (functionObjectTypeList == nullptr)
         {
             Recycler* recycler = this->GetScriptContext()->GetRecycler();
-            m_functionObjectTypeList = RecyclerNew(recycler, FunctionTypeWeakRefList, recycler);
+            this->SetAuxPtr(AuxPointerType::FunctionObjectTypeList, RecyclerNew(recycler, FunctionTypeWeakRefList, recycler));
         }
 
-        return m_functionObjectTypeList;
+        return static_cast<FunctionTypeWeakRefList*>(this->GetAuxPtr(AuxPointerType::FunctionObjectTypeList));
     }
 
     void FunctionProxy::RegisterFunctionObjectType(DynamicType* functionType)
@@ -1554,10 +1537,10 @@ namespace Js
         Recycler * recycler = this->GetScriptContext()->GetRecycler();
         FunctionTypeWeakRef* weakRef = recycler->CreateWeakReferenceHandle(functionType);
         typeList->SetAtFirstFreeSpot(weakRef);
-        OUTPUT_TRACE(Js::ExpirableCollectPhase, L"Registered type 0x%p on function body %p, count = %d\n", functionType, this, typeList->Count());
+        OUTPUT_TRACE(Js::ExpirableCollectPhase, _u("Registered type 0x%p on function body %p, count = %d\n"), functionType, this, typeList->Count());
     }
 
-    void DeferDeserializeFunctionInfo::SetDisplayName(const wchar_t* displayName)
+    void DeferDeserializeFunctionInfo::SetDisplayName(const char16* displayName)
     {
         size_t len = wcslen(displayName);
         if (len > UINT_MAX)
@@ -1568,7 +1551,7 @@ namespace Js
         SetDisplayName(displayName, (uint)len, 0);
     }
 
-    void DeferDeserializeFunctionInfo::SetDisplayName(const wchar_t* pszDisplayName, uint displayNameLength, uint displayShortNameOffset, SetDisplayNameFlags flags /* default to None */)
+    void DeferDeserializeFunctionInfo::SetDisplayName(const char16* pszDisplayName, uint displayNameLength, uint displayShortNameOffset, SetDisplayNameFlags flags /* default to None */)
     {
         this->m_displayNameLength = displayNameLength;
         this->m_displayShortNameOffset = displayShortNameOffset;
@@ -1665,10 +1648,7 @@ namespace Js
         Recycler* recycler = this->m_scriptContext->GetRecycler();
         propertyRecordList = RecyclerNew(recycler, Js::PropertyRecordList, recycler);
 
-        bool isDebugReparse = m_scriptContext->IsInDebugOrSourceRundownMode() && !this->m_utf8SourceInfo->GetIsLibraryCode();
-        bool isAsmJsReparse = false;
-        bool isReparse = isDebugReparse;
-
+        bool isDebugOrAsmJsReparse = false;
         FunctionBody* funcBody = nullptr;
 
         // If m_hasBeenParsed = true, one of the following things happened things happened:
@@ -1683,10 +1663,10 @@ namespace Js
                 this->m_displayName,
                 this->m_displayNameLength,
                 this->m_displayShortNameOffset,
-                this->m_nestedCount,
-                this->m_utf8SourceInfo,
+                this->GetNestedCount(),
+                this->GetUtf8SourceInfo(),
                 this->m_functionNumber,
-                m_utf8SourceInfo->GetSrcInfo()->sourceContextInfo->sourceContextId, /* script id */
+                this->GetUtf8SourceInfo()->GetSrcInfo()->sourceContextInfo->sourceContextId, /* script id */
                 this->functionId, /* function id */
                 propertyRecordList,
                 (Attributes)(this->GetAttributes() & ~(Attributes::DeferredDeserialize | Attributes::DeferredParse))
@@ -1696,22 +1676,22 @@ namespace Js
                 );
 
             this->Copy(funcBody);
-            PERF_COUNTER_DEC(Code, DeferedFunction);
+            PERF_COUNTER_DEC(Code, DeferredFunction);
 
             if (!this->GetSourceContextInfo()->IsDynamic())
             {
-                PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, L"TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d; Is Top Level: %s; Source Url: %s\n", m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(), this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? L"True" : L"False", this->GetSourceContextInfo()->url);
+                PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, _u("TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d; Is Top Level: %s; Source Url: %s\n"), m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(), this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? _u("True") : _u("False"), this->GetSourceContextInfo()->url);
             }
             else
             {
-                PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, L"TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d\n; Is Top Level: %s;", m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(),  this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? L"True" : L"False");
+                PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, _u("TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d\n; Is Top Level: %s;"), m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(),  this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? _u("True") : _u("False"));
             }
 
             if (!this->GetIsTopLevel() &&
                 !this->GetSourceContextInfo()->IsDynamic() &&
                 this->m_scriptContext->DoUndeferGlobalFunctions())
             {
-                this->m_utf8SourceInfo->UndeferGlobalFunctions([this](JsUtil::SimpleDictionaryEntry<Js::LocalFunctionId, Js::ParseableFunctionInfo*> func)
+                this->GetUtf8SourceInfo()->UndeferGlobalFunctions([this](JsUtil::SimpleDictionaryEntry<Js::LocalFunctionId, Js::ParseableFunctionInfo*> func)
                 {
                     Js::ParseableFunctionInfo *nextFunc = func.Value();
                     JavascriptExceptionObject* pExceptionObject = nullptr;
@@ -1746,22 +1726,25 @@ namespace Js
         }
         else
         {
-            isAsmJsReparse = m_isAsmjsMode && !isDebugReparse;
-            isReparse |= isAsmJsReparse;
+            bool isDebugReparse = m_scriptContext->IsScriptContextInSourceRundownOrDebugMode() && !this->GetUtf8SourceInfo()->GetIsLibraryCode();
+            bool isAsmJsReparse = m_isAsmjsMode && !isDebugReparse;
+
+            isDebugOrAsmJsReparse = isAsmJsReparse || isDebugReparse;
+
             funcBody = this->GetFunctionBody();
 
-            if (isReparse)
+            if (isDebugOrAsmJsReparse)
             {
     #if ENABLE_DEBUG_CONFIG_OPTIONS
-                wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+                char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
     #endif
     #if DBG
                 Assert(
                     funcBody->IsReparsed()
-                    || m_scriptContext->IsInDebugOrSourceRundownMode()
+                    || m_scriptContext->IsScriptContextInSourceRundownOrDebugMode()
                     || m_isAsmjsMode);
     #endif
-                OUTPUT_TRACE(Js::DebuggerPhase, L"Full nested reparse of function: %s (%s)\n", funcBody->GetDisplayName(), funcBody->GetDebugNumberSet(debugStringBuffer));
+                OUTPUT_TRACE(Js::DebuggerPhase, _u("Full nested reparse of function: %s (%s)\n"), funcBody->GetDisplayName(), funcBody->GetDebugNumberSet(debugStringBuffer));
 
                 if (funcBody->GetByteCode())
                 {
@@ -1780,13 +1763,8 @@ namespace Js
 #if ENABLE_PROFILE_INFO
             Assert(!funcBody->HasExecutionDynamicProfileInfo());
 #endif
-
-            // In debug mode, the eval code will be asked to recompile again.
-            AssertMsg(isDebugReparse || !(funcBody->GetGrfscr() & (fscrImplicitThis | fscrImplicitParents)),
-                        "Deferred parsing of event handler body?");
-
             // In debug or asm.js mode, the scriptlet will be asked to recompile again.
-            AssertMsg(isReparse || funcBody->GetGrfscr() & fscrGlobalCode || CONFIG_FLAG(DeferNested), "Deferred parsing of non-global procedure?");
+            AssertMsg(isDebugOrAsmJsReparse || funcBody->GetGrfscr() & fscrGlobalCode || CONFIG_FLAG(DeferNested), "Deferred parsing of non-global procedure?");
 
             HRESULT hr = NO_ERROR;
             HRESULT hrParser = NO_ERROR;
@@ -1816,12 +1794,12 @@ namespace Js
                     // (not a function declaration statement).
                     grfscr |= fscrDeferredFncExpression;
                 }
-                if (!CONFIG_FLAG(DeferNested) || isDebugReparse || isAsmJsReparse)
+                if (!CONFIG_FLAG(DeferNested) || isDebugOrAsmJsReparse)
                 {
                     grfscr &= ~fscrDeferFncParse; // Disable deferred parsing if not DeferNested, or doing a debug/asm.js re-parse
                 }
 
-                if (isReparse)
+                if (isDebugOrAsmJsReparse)
                 {
                     grfscr |= fscrNoAsmJs; // Disable asm.js when debugging or if linking failed
                 }
@@ -1835,8 +1813,8 @@ namespace Js
                     uint nextFunctionId = funcBody->GetLocalFunctionId();
                     hrParser = ps.ParseSourceWithOffset(&parseTree, pszStart, offset, length, charOffset, isCesu8, grfscr, &se,
                         &nextFunctionId, funcBody->GetRelativeLineNumber(), funcBody->GetSourceContextInfo(),
-                        funcBody, isReparse);
-                    Assert(FAILED(hrParser) || nextFunctionId == funcBody->deferredParseNextFunctionId || isReparse || isByteCodeDeserialization);
+                        funcBody);
+                    Assert(FAILED(hrParser) || nextFunctionId == funcBody->deferredParseNextFunctionId || isDebugOrAsmJsReparse || isByteCodeDeserialization);
 
                     if (FAILED(hrParser))
                     {
@@ -1845,10 +1823,10 @@ namespace Js
                     }
                     else
                     {
-                        TRACE_BYTECODE(L"\nDeferred parse %s\n", funcBody->GetDisplayName());
+                        TRACE_BYTECODE(_u("\nDeferred parse %s\n"), funcBody->GetDisplayName());
                         Js::AutoDynamicCodeReference dynamicFunctionReference(m_scriptContext);
 
-                        bool forceNoNative = isReparse ? this->GetScriptContext()->IsInterpreted() : false;
+                        bool forceNoNative = isDebugOrAsmJsReparse ? this->GetScriptContext()->IsInterpreted() : false;
                         hrParseCodeGen = GenerateByteCode(parseTree, grfscr, m_scriptContext,
                             funcBody->GetParseableFunctionInfoRef(), funcBody->GetSourceIndex(),
                             forceNoNative, &ps, &se, funcBody->GetScopeInfo(), functionRef);
@@ -1948,10 +1926,10 @@ namespace Js
             this->m_displayName,
             this->m_displayNameLength,
             this->m_displayShortNameOffset,
-            this->m_nestedCount,
-            this->m_utf8SourceInfo,
+            this->GetNestedCount(),
+            this->GetUtf8SourceInfo(),
             this->m_functionNumber,
-            m_utf8SourceInfo->GetSrcInfo()->sourceContextInfo->sourceContextId, /* script id */
+            this->GetUtf8SourceInfo()->GetSrcInfo()->sourceContextInfo->sourceContextId, /* script id */
             this->functionId, /* function id */
             propertyRecordList,
             (Attributes)(this->GetAttributes() & ~(Attributes::DeferredDeserialize | Attributes::DeferredParse))
@@ -1961,15 +1939,15 @@ namespace Js
             );
 
         this->Copy(funcBody);
-        PERF_COUNTER_DEC(Code, DeferedFunction);
+        PERF_COUNTER_DEC(Code, DeferredFunction);
 
         if (!this->GetSourceContextInfo()->IsDynamic())
         {
-            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, L"TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d; Is Top Level: %s; Source Url: %s\n", m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(), this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? L"True" : L"False", this->GetSourceContextInfo()->url);
+            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, _u("TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d; Is Top Level: %s; Source Url: %s\n"), m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(), this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? _u("True") : _u("False"), this->GetSourceContextInfo()->url);
         }
         else
         {
-            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, L"TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d\n; Is Top Level: %s;", m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(), this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? L"True" : L"False");
+            PHASE_PRINT_TESTTRACE1(Js::DeferParsePhase, _u("TestTrace: Deferred function parsed - ID: %d; Display Name: %s; Length: %d; Nested Function Count: %d; Utf8SourceInfo: %d; Source Length: %d\n; Is Top Level: %s;"), m_functionNumber, m_displayName, this->m_cchLength, this->GetNestedCount(), this->m_utf8SourceInfo->GetSourceInfoId(), this->m_utf8SourceInfo->GetCchLength(), this->GetIsTopLevel() ? _u("True") : _u("False"));
         }
 
 #if ENABLE_PROFILE_INFO
@@ -1994,7 +1972,7 @@ namespace Js
         // if parser throws, it will be caught by function trying to bytecode gen the asm.js module, so don't need to catch/rethrow here
         hrParser = ps->ParseSourceWithOffset(parseTree, pszStart, offset, length, charOffset, isCesu8, grfscr, se,
                     &nextFunctionId, funcBody->GetRelativeLineNumber(), funcBody->GetSourceContextInfo(),
-                    funcBody, false);
+                    funcBody);
 
         Assert(FAILED(hrParser) || funcBody->deferredParseNextFunctionId == nextFunctionId);
         if (FAILED(hrParser))
@@ -2039,9 +2017,9 @@ namespace Js
         {
             if (!this->GetSourceContextInfo()->IsDynamic()  && !this->GetIsTopLevel())
             {
-                this->m_utf8SourceInfo->StopTrackingDeferredFunction(this->GetLocalFunctionId());
+                this->GetUtf8SourceInfo()->StopTrackingDeferredFunction(this->GetLocalFunctionId());
             }
-            PERF_COUNTER_DEC(Code, DeferedFunction);
+            PERF_COUNTER_DEC(Code, DeferredFunction);
         }
     }
 
@@ -2063,21 +2041,21 @@ namespace Js
         return *sourceName != nullptr;
     }
 
-    const wchar_t* FunctionProxy::WrapWithBrackets(const wchar_t* name, charcount_t sz, ScriptContext* scriptContext)
+    const char16* FunctionProxy::WrapWithBrackets(const char16* name, charcount_t sz, ScriptContext* scriptContext)
     {
-        wchar_t * wrappedName = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), wchar_t, sz + 3); //[]\0
-        wrappedName[0] = L'[';
-        wchar_t *next = wrappedName;
+        char16 * wrappedName = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, sz + 3); //[]\0
+        wrappedName[0] = _u('[');
+        char16 *next = wrappedName;
         js_wmemcpy_s(++next, sz, name, sz);
-        wrappedName[sz + 1] = L']';
-        wrappedName[sz + 2] = L'\0';
+        wrappedName[sz + 1] = _u(']');
+        wrappedName[sz + 2] = _u('\0');
         return wrappedName;
 
     }
 
-    const wchar_t* FunctionProxy::GetShortDisplayName(charcount_t * shortNameLength)
+    const char16* FunctionProxy::GetShortDisplayName(charcount_t * shortNameLength)
     {
-        const wchar_t* name = this->GetDisplayName();
+        const char16* name = this->GetDisplayName();
         uint nameLength = this->GetDisplayNameLength();
 
         if (name == nullptr)
@@ -2092,7 +2070,7 @@ namespace Js
             return name;
         }
         uint shortNameOffset = this->GetShortDisplayNameOffset();
-        const wchar_t * shortName = name + shortNameOffset;
+        const char16 * shortName = name + shortNameOffset;
         bool isBracketCase = shortNameOffset != 0 && name[shortNameOffset-1] == '[';
         Assert(nameLength >= shortNameOffset);
         *shortNameLength = nameLength - shortNameOffset;
@@ -2103,15 +2081,15 @@ namespace Js
         }
 
         Assert(name[nameLength - 1] == ']');
-        wchar_t * finalshorterName = RecyclerNewArrayLeaf(this->GetScriptContext()->GetRecycler(), wchar_t, *shortNameLength);
+        char16 * finalshorterName = RecyclerNewArrayLeaf(this->GetScriptContext()->GetRecycler(), char16, *shortNameLength);
         js_wmemcpy_s(finalshorterName, *shortNameLength, shortName, *shortNameLength - 1); // we don't want the last character in shorterName
-        finalshorterName[*shortNameLength - 1] = L'\0';
+        finalshorterName[*shortNameLength - 1] = _u('\0');
         *shortNameLength = *shortNameLength - 1;
         return finalshorterName;
     }
 
     /*static*/
-    bool FunctionProxy::IsConstantFunctionName(const wchar_t* srcName)
+    bool FunctionProxy::IsConstantFunctionName(const char16* srcName)
     {
         if (srcName == Js::Constants::GlobalFunction ||
             srcName == Js::Constants::AnonymousFunction ||
@@ -2127,14 +2105,14 @@ namespace Js
 
     /*static */
     /*Return value: Whether the target value is a recycler pointer or not*/
-    bool FunctionProxy::SetDisplayName(const wchar_t* srcName, const wchar_t** destName, uint displayNameLength,  ScriptContext * scriptContext, SetDisplayNameFlags flags /* default to None */)
+    bool FunctionProxy::SetDisplayName(const char16* srcName, const char16** destName, uint displayNameLength,  ScriptContext * scriptContext, SetDisplayNameFlags flags /* default to None */)
     {
         Assert(destName);
         Assert(scriptContext);
 
         if (srcName == nullptr)
         {
-            *destName = (L"");
+            *destName = (_u(""));
             return false;
         }
         else if (IsConstantFunctionName(srcName) || (flags & SetDisplayNameFlagsDontCopy) != 0)
@@ -2147,17 +2125,17 @@ namespace Js
             uint  numCharacters =  displayNameLength + 1;
             Assert((flags & SetDisplayNameFlagsDontCopy) == 0);
 
-            *destName = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), wchar_t, numCharacters);
-            js_wmemcpy_s((wchar_t *)*destName, numCharacters, srcName, numCharacters);
-            ((wchar_t *)(*destName))[numCharacters - 1] = L'\0';
+            *destName = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, numCharacters);
+            js_wmemcpy_s((char16 *)*destName, numCharacters, srcName, numCharacters);
+            ((char16 *)(*destName))[numCharacters - 1] = _u('\0');
 
             return true;
         }
     }
 
-    void FunctionProxy::SetDisplayName(const wchar_t* srcName, WriteBarrierPtr<const wchar_t>* destName, uint displayNameLength, ScriptContext * scriptContext, SetDisplayNameFlags flags /* default to None */)
+    void FunctionProxy::SetDisplayName(const char16* srcName, WriteBarrierPtr<const char16>* destName, uint displayNameLength, ScriptContext * scriptContext, SetDisplayNameFlags flags /* default to None */)
     {
-        const wchar_t* dest = nullptr;
+        const char16* dest = nullptr;
         bool targetIsRecyclerMemory = SetDisplayName(srcName, &dest, displayNameLength, scriptContext, flags);
 
         if (targetIsRecyclerMemory)
@@ -2169,7 +2147,7 @@ namespace Js
             destName->NoWriteBarrierSet(dest);
         }
     }
-    void ParseableFunctionInfo::SetDisplayName(const wchar_t* pszDisplayName)
+    void ParseableFunctionInfo::SetDisplayName(const char16* pszDisplayName)
     {
         size_t len = wcslen(pszDisplayName);
         if (len > UINT_MAX)
@@ -2179,7 +2157,7 @@ namespace Js
         }
         SetDisplayName(pszDisplayName, (uint)len, 0);
     }
-    void ParseableFunctionInfo::SetDisplayName(const wchar_t* pszDisplayName, uint displayNameLength, uint displayShortNameOffset, SetDisplayNameFlags flags /* default to None */)
+    void ParseableFunctionInfo::SetDisplayName(const char16* pszDisplayName, uint displayNameLength, uint displayShortNameOffset, SetDisplayNameFlags flags /* default to None */)
     {
         this->m_displayNameLength = displayNameLength;
         this->m_displayShortNameOffset = displayShortNameOffset;
@@ -2187,10 +2165,6 @@ namespace Js
     }
 
     // SourceInfo methods
-    FunctionBody::StatementMapList * FunctionBody::GetStatementMaps() const
-    {
-        return this->pStatementMaps;
-    }
 
     /* static */ FunctionBody::StatementMap * FunctionBody::GetNextNonSubexpressionStatementMap(StatementMapList *statementMapList, int & startingAtIndex)
     {
@@ -2212,7 +2186,7 @@ namespace Js
     {
         AssertMsg(statementMapList != nullptr, "Must have valid statementMapList to execute");
 
-        FunctionBody::StatementMap *map = statementMapList->Item(startingAtIndex);
+        StatementMap *map = statementMapList->Item(startingAtIndex);
         while (startingAtIndex && map->isSubexpression)
         {
             map = statementMapList->Item(--startingAtIndex);
@@ -2227,7 +2201,7 @@ namespace Js
     {
         if (!m_utf8SourceHasBeenSet)
         {
-            this->m_utf8SourceInfo = scriptContext->GetSource(sourceIndex);
+            this->SetUtf8SourceInfo(scriptContext->GetSource(sourceIndex));
             this->m_sourceIndex = sourceIndex;
             this->m_cchStartOffset = other.m_cchStartOffset;
             this->m_cchLength = other.m_cchLength;
@@ -2271,7 +2245,7 @@ namespace Js
             this->m_isEval = isEval;
             this->m_isDynamicFunction = isDynamicFunction;
 
-            // It would have been better if we detect and reject large source buffer eariler before parsing
+            // It would have been better if we detect and reject large source buffer earlier before parsing
             size_t cbMin = node->sxFnc.cbMin;
             size_t lengthInBytes = node->sxFnc.LengthInBytes();
             if (cbMin > UINT_MAX || lengthInBytes > UINT_MAX)
@@ -2346,7 +2320,7 @@ namespace Js
         if (start > end) return false;
         charcount_t cchLength = end - start;
         if (start < this->m_cchStartOffset || cchLength > this->m_cchLength) return false;
-        LPCUTF8 src = this->GetSource(L"FunctionBody::HasLineBreak");
+        LPCUTF8 src = this->GetSource(_u("FunctionBody::HasLineBreak"));
         LPCUTF8 last = src + this->LengthInBytes();
         size_t offset = this->LengthInBytes() == this->m_cchLength ?
             start - this->m_cchStartOffset :
@@ -2448,19 +2422,19 @@ namespace Js
     {
         Assert(this->IsReparsed());
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-        wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+        char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
         if(!!pnode->sxFnc.ChildCallsEval() != this->GetChildCallsEval())
         {
-            OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, L"Child calls eval is different on debug reparse: %s(%s)\n", this->GetExternalDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
+            OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, _u("Child calls eval is different on debug reparse: %s(%s)\n"), this->GetExternalDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
         }
         if(!!pnode->sxFnc.CallsEval() != this->GetCallsEval())
         {
-            OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, L"Calls eval is different on debug reparse: %s(%s)\n", this->GetExternalDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
+            OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, _u("Calls eval is different on debug reparse: %s(%s)\n"), this->GetExternalDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
         }
         if(!!pnode->sxFnc.HasReferenceableBuiltInArguments() != this->HasReferenceableBuiltInArguments())
         {
-            OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, L"Referencable Built in args is different on debug reparse: %s(%s)\n", this->GetExternalDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
+            OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, _u("Referenceable Built in args is different on debug reparse: %s(%s)\n"), this->GetExternalDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
         }
 
         pnode->sxFnc.SetChildCallsEval(this->GetChildCallsEval());
@@ -2549,7 +2523,7 @@ namespace Js
             bool doSlowLookup = !canAllocateLineCache;
             if (canAllocateLineCache)
             {
-                HRESULT hr = m_utf8SourceInfo->EnsureLineOffsetCacheNoThrow();
+                HRESULT hr = this->GetUtf8SourceInfo()->EnsureLineOffsetCacheNoThrow();
                 if (FAILED(hr))
                 {
                     if (hr != E_OUTOFMEMORY)
@@ -2559,7 +2533,7 @@ namespace Js
                     }
 
                     // Clear the cache so it is not used.
-                    this->m_utf8SourceInfo->DeleteLineOffsetCache();
+                    this->GetUtf8SourceInfo()->DeleteLineOffsetCache();
 
                     // We can try and do the slow lookup below
                     doSlowLookup = true;
@@ -2567,7 +2541,7 @@ namespace Js
             }
 
             charcount_t cacheLine = 0;
-            this->m_utf8SourceInfo->GetLineInfoForCharPosition(startCharOfStatement, &cacheLine, &column, &lineByteOffset, doSlowLookup);
+            this->GetUtf8SourceInfo()->GetLineInfoForCharPosition(startCharOfStatement, &cacheLine, &column, &lineByteOffset, doSlowLookup);
 
             // Update the tracking variables to jump to the line position (only need to jump if not on the first line).
             if (cacheLine > 0)
@@ -2606,7 +2580,7 @@ namespace Js
         Assert(statementIndex != nullptr);
         Assert(statementLength != nullptr);
 
-        Assert(m_scriptContext->IsInDebugMode());
+        Assert(this->IsInDebugMode());
 
         StatementMap * statement = GetEnclosingStatementMapFromByteCode(byteCodeOffset, false);
         Assert(statement != nullptr);
@@ -2619,7 +2593,7 @@ namespace Js
         }
 
         Assert(m_utf8SourceInfo);
-        const SRCINFO * srcInfo = m_utf8SourceInfo->GetSrcInfo();
+        const SRCINFO * srcInfo = GetUtf8SourceInfo()->GetSrcInfo();
 
         // Offset from the beginning of the document minus any host-supplied source characters.
         // Host supplied characters are inserted (for example) around onload:
@@ -2646,13 +2620,13 @@ namespace Js
     Js::RootObjectBase * FunctionBody::GetRootObject() const
     {
         // Safe to be used by the JIT thread
-        Assert(this->m_constTable != nullptr);
-        return (Js::RootObjectBase *)this->m_constTable[Js::FunctionBody::RootObjectRegSlot - FunctionBody::FirstRegSlot];
+        Assert(this->GetConstTable() != nullptr);
+        return (Js::RootObjectBase *)this->GetConstTable()[Js::FunctionBody::RootObjectRegSlot - FunctionBody::FirstRegSlot];
     }
 
     Js::RootObjectBase * FunctionBody::LoadRootObject() const
     {
-        if (this->GetModuleID() == kmodGlobal)
+        if ((this->GetGrfscr() & fscrIsModuleCode) == fscrIsModuleCode || this->GetModuleID() == kmodGlobal)
         {
             return JavascriptOperators::OP_LdRoot(this->GetScriptContext());
         }
@@ -2777,7 +2751,7 @@ namespace Js
                 regex::Interval* pSourceSpan = &(statementMaps->Item(i)->sourceSpan);
                 if (FunctionBody::IsDummyGlobalRetStatement(pSourceSpan))
                 {
-                    // Workaround for handling global return, which is a empty range.
+                    // Workaround for handling global return, which is an empty range.
                     continue;
                 }
 
@@ -2858,7 +2832,7 @@ namespace Js
             {
                 if (Configuration::Global.flags.Dump.IsEnabled(DynamicProfilePhase, this->GetSourceContextId(), this->GetLocalFunctionId()))
                 {
-                    Output::Print(L"Loaded:");
+                    Output::Print(_u("Loaded:"));
                     this->dynamicProfileInfo->Dump(this);
                 }
             }
@@ -2877,6 +2851,7 @@ namespace Js
         return
             !this->m_isFromNativeCodeModule &&
             !this->m_isAsmJsFunction &&
+            !this->GetAsmJsModuleInfo() &&
             !this->HasExecutionDynamicProfileInfo() &&
             DynamicProfileInfo::IsEnabled(this);
     }
@@ -2902,7 +2877,7 @@ namespace Js
     BOOL FunctionBody::IsNativeOriginalEntryPoint() const
     {
 #if ENABLE_NATIVE_CODEGEN
-        return IsNativeFunctionAddr(this->GetScriptContext(), this->originalEntryPoint);
+        return this->GetScriptContext()->IsNativeAddress(this->originalEntryPoint);
 #else
         return false;
 #endif
@@ -3016,7 +2991,7 @@ namespace Js
     bool FunctionProxy::HasValidEntryPoint() const
     {
         if (!m_scriptContext->HadProfiled() &&
-            !(m_scriptContext->IsInDebugMode() && m_scriptContext->IsExceptionWrapperForBuiltInsEnabled()))
+            !(this->m_scriptContext->IsScriptContextInDebugMode() && m_scriptContext->IsExceptionWrapperForBuiltInsEnabled()))
         {
             return this->HasValidNonProfileEntryPoint();
         }
@@ -3197,24 +3172,6 @@ namespace Js
         }
         TraceExecutionMode();
 
-        if(entryPointInfo->GetJitMode() == ExecutionMode::SimpleJit)
-        {
-            Assert(GetExecutionMode() == ExecutionMode::SimpleJit);
-            SetSimpleJitEntryPointInfo(entryPointInfo);
-            ResetSimpleJitCallCount();
-        }
-        else
-        {
-            Assert(entryPointInfo->GetJitMode() == ExecutionMode::FullJit);
-            Assert(GetExecutionMode() == ExecutionMode::FullJit);
-            entryPointInfo->callsCount =
-                static_cast<uint8>(
-                    min(
-                        static_cast<uint>(static_cast<uint8>(CONFIG_FLAG(MinBailOutsBeforeRejit))) *
-                            (Js::FunctionEntryPointInfo::GetDecrCallCountPerBailout() - 1),
-                        0xffu));
-        }
-
         JS_ETW(EtwTrace::LogMethodNativeLoadEvent(this, entryPointInfo));
 
 #ifdef _M_ARM
@@ -3249,11 +3206,11 @@ namespace Js
     void FunctionBody::SetLoopBodyEntryPoint(Js::LoopHeader * loopHeader, EntryPointInfo* entryPointInfo, Js::JavascriptMethod entryPoint)
     {
 #if DBG_DUMP
-        uint loopNum = this->GetLoopNumber(loopHeader);
+        uint loopNum = this->GetLoopNumberWithLock(loopHeader);
         if (PHASE_TRACE1(Js::JITLoopBodyPhase))
         {
             DumpFunctionId(true);
-            Output::Print(L": %-20s LoopBody EntryPt  Loop: %2d Address : %x\n", GetDisplayName(), loopNum, entryPoint);
+            Output::Print(_u(": %-20s LoopBody EntryPt  Loop: %2d Address : %x\n"), GetDisplayName(), loopNum, entryPoint);
             Output::Flush();
         }
 #endif
@@ -3265,7 +3222,7 @@ namespace Js
         {
             loopHeader->interpretCount = entryPointInfo->GetFunctionBody()->GetLoopInterpretCount(loopHeader) - 1;
         }
-        JS_ETW(EtwTrace::LogLoopBodyLoadEvent(this, loopHeader, ((LoopEntryPointInfo*) entryPointInfo)));
+        JS_ETW(EtwTrace::LogLoopBodyLoadEvent(this, loopHeader, ((LoopEntryPointInfo*) entryPointInfo), ((uint16)this->GetLoopNumberWithLock(loopHeader))));
     }
 #endif
 
@@ -3282,14 +3239,14 @@ namespace Js
         PERF_COUNTER_ADD(Code, DynamicByteCodeSize, byteCodeSize);
 #endif
 
-        m_byteCodeCount = byteCodeCount;
-        m_byteCodeInLoopCount = byteCodeInLoopCount;
-        m_byteCodeWithoutLDACount = byteCodeWithoutLDACount;
+        SetByteCodeCount(byteCodeCount);
+        SetByteCodeInLoopCount(byteCodeInLoopCount);
+        SetByteCodeWithoutLDACount(byteCodeWithoutLDACount);
 
         InitializeExecutionModeAndLimits();
 
-        this->auxBlock = auxBlock;
-        this->auxContextBlock = auxContextBlock;
+        this->SetAuxiliaryData(auxBlock);
+        this->SetAuxiliaryContextData(auxContextBlock);
 
         // Memory barrier needed here to make sure the background codegen thread's inliner
         // gets all the assignment before it sees that the function has been parse
@@ -3302,15 +3259,25 @@ namespace Js
         // on the function bodies list so we should register it now
         if (!this->m_isFuncRegistered)
         {
-            this->m_utf8SourceInfo->SetFunctionBody(this);
+            this->GetUtf8SourceInfo()->SetFunctionBody(this);
         }
     }
 
     uint
     FunctionBody::GetLoopNumber(LoopHeader const * loopHeader) const
     {
-        Assert(loopHeader >=  this->loopHeaderArray);
-        uint loopNum = (uint)(loopHeader - this->loopHeaderArray);
+        LoopHeader* loopHeaderArray = this->GetLoopHeaderArray();
+        Assert(loopHeader >= loopHeaderArray);
+        uint loopNum = (uint)(loopHeader - loopHeaderArray);
+        Assert(loopNum < GetLoopCount());
+        return loopNum;
+    }
+    uint
+    FunctionBody::GetLoopNumberWithLock(LoopHeader const * loopHeader) const
+    {
+        LoopHeader* loopHeaderArray = this->GetLoopHeaderArrayWithLock();
+        Assert(loopHeader >= loopHeaderArray);
+        uint loopNum = (uint)(loopHeader - loopHeaderArray);
         Assert(loopNum < GetLoopCount());
         return loopNum;
     }
@@ -3396,20 +3363,21 @@ namespace Js
     {
         ((ParseableFunctionInfo*) this)->CopyFunctionInfoInto(scriptContext, newFunctionBody, sourceIndex);
 
-        newFunctionBody->m_constCount = this->m_constCount;
-        newFunctionBody->m_varCount = this->m_varCount;
-        newFunctionBody->m_outParamMaxDepth = this->m_outParamMaxDepth;
+        newFunctionBody->SetConstantCount(this->GetConstantCount());
+        newFunctionBody->SetVarCount(this->GetVarCount());
+        newFunctionBody->SetOutParamMaxDepth(this->GetOutParamMaxDepth());
 
-        newFunctionBody->m_firstTmpReg = this->m_firstTmpReg;
-        newFunctionBody->localClosureRegister = this->localClosureRegister;
-        newFunctionBody->localFrameDisplayRegister = this->localFrameDisplayRegister;
-        newFunctionBody->envRegister = this->envRegister;
-        newFunctionBody->thisRegisterForEventHandler = this->thisRegisterForEventHandler;
-        newFunctionBody->firstInnerScopeRegister = this->firstInnerScopeRegister;
-        newFunctionBody->funcExprScopeRegister = this->funcExprScopeRegister;
-        newFunctionBody->innerScopeCount = this->innerScopeCount;
+        newFunctionBody->SetFirstTmpRegister(this->GetFirstTmpRegister());
+        newFunctionBody->SetLocalClosureRegister(this->GetLocalClosureRegister());
+        newFunctionBody->SetParamClosureRegister(this->GetParamClosureRegister());
+        newFunctionBody->SetLocalFrameDisplayRegister(this->GetLocalFrameDisplayRegister());
+        newFunctionBody->SetEnvRegister(this->GetEnvRegister());
+        newFunctionBody->SetThisRegisterForEventHandler(this->GetThisRegisterForEventHandler());
+        newFunctionBody->SetFirstInnerScopeRegister(this->GetFirstInnerScopeRegister());
+        newFunctionBody->SetFuncExprScopeRegister(this->GetFuncExprScopeRegister());
+        newFunctionBody->SetInnerScopeCount(this->GetInnerScopeCount());
         newFunctionBody->hasCachedScopePropIds = this->hasCachedScopePropIds;
-        newFunctionBody->loopCount = this->loopCount;
+        newFunctionBody->SetLoopCount(this->GetLoopCount());
         newFunctionBody->profiledDivOrRemCount = this->profiledDivOrRemCount;
         newFunctionBody->profiledSwitchCount = this->profiledSwitchCount;
         newFunctionBody->profiledCallSiteCount = this->profiledCallSiteCount;
@@ -3428,16 +3396,16 @@ namespace Js
         newFunctionBody->m_pendingLoopHeaderRelease = this->m_pendingLoopHeaderRelease;
         newFunctionBody->m_envDepth = this->m_envDepth;
 
-        if (this->m_constTable != nullptr)
+        if (this->GetConstTable() != nullptr)
         {
             this->CloneConstantTable(newFunctionBody);
         }
 
         newFunctionBody->cacheIdToPropertyIdMap = this->cacheIdToPropertyIdMap;
-        newFunctionBody->referencedPropertyIdMap = this->referencedPropertyIdMap;
-        newFunctionBody->propertyIdsForScopeSlotArray = this->propertyIdsForScopeSlotArray;
-        newFunctionBody->propertyIdOnRegSlotsContainer = this->propertyIdOnRegSlotsContainer;
-        newFunctionBody->scopeSlotArraySize = this->scopeSlotArraySize;
+        newFunctionBody->SetReferencedPropertyIdMap(this->GetReferencedPropertyIdMap());
+        newFunctionBody->SetPropertyIdsForScopeSlotArray(this->GetPropertyIdsForScopeSlotArray(), this->scopeSlotArraySize);
+        newFunctionBody->SetPropertyIdOnRegSlotsContainer(this->GetPropertyIdOnRegSlotsContainer());
+        
 
         if (this->byteCodeBlock == nullptr)
         {
@@ -3446,29 +3414,27 @@ namespace Js
         else
         {
             newFunctionBody->byteCodeBlock = this->byteCodeBlock->Clone(this->m_scriptContext->GetRecycler());
-
-            newFunctionBody->isByteCodeDebugMode = this->isByteCodeDebugMode;
-            newFunctionBody->m_byteCodeCount = this->m_byteCodeCount;
-            newFunctionBody->m_byteCodeWithoutLDACount = this->m_byteCodeWithoutLDACount;
-            newFunctionBody->m_byteCodeInLoopCount = this->m_byteCodeInLoopCount;
+            newFunctionBody->SetByteCodeCount( this->GetByteCodeCount());
+            newFunctionBody->SetByteCodeWithoutLDACount(this->GetByteCodeWithoutLDACount());
+            newFunctionBody->SetByteCodeInLoopCount(this->GetByteCodeInLoopCount());
 
 #ifdef PERF_COUNTERS
             DWORD byteCodeSize = this->byteCodeBlock->GetLength();
 #endif
-            if (this->auxBlock)
+            if (this->GetAuxiliaryData())
             {
-                newFunctionBody->auxBlock = this->auxBlock->Clone(this->m_scriptContext->GetRecycler());
+                newFunctionBody->SetAuxiliaryData( this->GetAuxiliaryData()->Clone(this->m_scriptContext->GetRecycler()));
 
 #ifdef PERF_COUNTERS
-                byteCodeSize += this->auxBlock->GetLength();
+                byteCodeSize += this->GetAuxiliaryData()->GetLength();
 #endif
             }
 
-            if (this->auxContextBlock)
+            if (this->GetAuxiliaryContextData())
             {
-                newFunctionBody->auxContextBlock = this->auxContextBlock->Clone(scriptContext->GetRecycler(), scriptContext);
+                newFunctionBody->SetAuxiliaryContextData(this->GetAuxiliaryContextData()->Clone(scriptContext->GetRecycler(), scriptContext));
 #ifdef PERF_COUNTERS
-                byteCodeSize += this->auxContextBlock->GetLength();
+                byteCodeSize += this->GetAuxiliaryContextData()->GetLength();
 #endif
             }
 
@@ -3490,7 +3456,7 @@ namespace Js
             {
                 Recycler* recycler = newFunctionBody->GetScriptContext()->GetRecycler();
                 StatementMapList * newStatementMaps = RecyclerNew(recycler, StatementMapList, recycler);
-                newFunctionBody->pStatementMaps = newStatementMaps;
+                newFunctionBody->SetStatementMaps(newStatementMaps);
                 pStatementMaps->Map([recycler, newStatementMaps](int index, FunctionBody::StatementMap* oldStatementMap)
                 {
                     FunctionBody::StatementMap* newStatementMap = StatementMap::New(recycler);
@@ -3510,26 +3476,27 @@ namespace Js
         }
 
         // Create a new inline cache
-        newFunctionBody->inlineCacheCount = this->inlineCacheCount;
-        newFunctionBody->rootObjectLoadInlineCacheStart = this->rootObjectLoadInlineCacheStart;
-        newFunctionBody->rootObjectStoreInlineCacheStart = this->rootObjectStoreInlineCacheStart;
-        newFunctionBody->isInstInlineCacheCount = this->isInstInlineCacheCount;
-        newFunctionBody->referencedPropertyIdCount = this->referencedPropertyIdCount;
+        newFunctionBody->SetInlineCacheCount(this->GetInlineCacheCount());
+        newFunctionBody->SetRootObjectLoadInlineCacheStart(this->GetRootObjectLoadInlineCacheStart());
+        newFunctionBody->SetRootObjectStoreInlineCacheStart(this->GetRootObjectStoreInlineCacheStart());
+        newFunctionBody->SetIsInstInlineCacheCount(this->GetIsInstInlineCacheCount());
+        newFunctionBody->SetReferencedPropertyIdCount(this->GetReferencedPropertyIdCount());
         newFunctionBody->AllocateInlineCache();
 
-        newFunctionBody->objLiteralCount = this->objLiteralCount;
+        newFunctionBody->SetObjLiteralCount(this->GetObjLiteralCount());
         newFunctionBody->AllocateObjectLiteralTypeArray();
 
-        newFunctionBody->simpleJitEntryPointInfo = nullptr;
-        newFunctionBody->loopInterpreterLimit = loopInterpreterLimit;
+        newFunctionBody->SetSimpleJitEntryPointInfo(nullptr);
+        newFunctionBody->SetLoopInterpreterLimit(this->GetLoopInterpreterLimit());
         newFunctionBody->ReinitializeExecutionModeAndLimits();
 
         // Clone literal regexes
-        newFunctionBody->literalRegexCount = this->literalRegexCount;
+        uint32 literalRegexCount = this->GetLiteralRegexCount();
+        newFunctionBody->SetLiteralRegexCount(literalRegexCount);
         newFunctionBody->AllocateLiteralRegexArray();
-        for(uint i = 0; i < this->literalRegexCount; ++i)
+        for(uint i = 0; i < literalRegexCount; ++i)
         {
-            const auto literalRegex = this->literalRegexes[i];
+            const auto literalRegex = this->GetLiteralRegexes()[i];
             if(!literalRegex)
             {
                 Assert(!newFunctionBody->GetLiteralRegex(i));
@@ -3558,11 +3525,10 @@ namespace Js
             }
         }
 
-        newFunctionBody->serializationIndex = this->serializationIndex;
         newFunctionBody->m_isFromNativeCodeModule = this->m_isFromNativeCodeModule;
     }
 
-    FunctionBody *
+    ParseableFunctionInfo *
     FunctionBody::Clone(ScriptContext * scriptContext, uint sourceIndex)
     {
 #if ENABLE_NATIVE_CODEGEN && defined(ENABLE_PREJIT)
@@ -3586,17 +3552,17 @@ namespace Js
         }
 
         FunctionBody * newFunctionBody = FunctionBody::NewFromRecycler(scriptContext, this->GetDisplayName(), this->GetDisplayNameLength(),
-                this->GetShortDisplayNameOffset(), this->m_nestedCount, sourceInfo, this->m_functionNumber, this->m_uScriptId,
-                this->GetLocalFunctionId(), this->m_boundPropertyRecords,
+                this->GetShortDisplayNameOffset(), this->GetNestedCount(), sourceInfo, this->m_functionNumber, this->m_uScriptId,
+                this->GetLocalFunctionId(), this->GetBoundPropertyRecords(),
                 this->GetAttributes()
 #ifdef PERF_COUNTERS
                 , false
 #endif
                 );
 
-        if (this->m_scopeInfo != nullptr)
+        if (this->GetScopeInfo() != nullptr)
         {
-            newFunctionBody->SetScopeInfo(m_scopeInfo->CloneFor(newFunctionBody));
+            newFunctionBody->SetScopeInfo(this->GetScopeInfo()->CloneFor(newFunctionBody));
         }
 
         newFunctionBody->CloneSourceInfo(scriptContext, (*this), this->m_scriptContext, sourceIndex);
@@ -3614,7 +3580,7 @@ namespace Js
         }
 #endif
 
-        newFunctionBody->byteCodeCache = this->byteCodeCache;
+        newFunctionBody->SetByteCodeCache(this->GetByteCodeCache());
 
 #if ENABLE_NATIVE_CODEGEN
         if (newFunctionBody->GetByteCode() && (IsIntermediateCodeGenThunk(this->GetOriginalEntryPoint())
@@ -3640,23 +3606,29 @@ namespace Js
 
     void FunctionBody::SetStackNestedFuncParent(FunctionBody * parentFunctionBody)
     {
-        Assert(this->stackNestedFuncParent == nullptr);
+        Assert(this->GetStackNestedFuncParent() == nullptr);
         Assert(CanDoStackNestedFunc());
         Assert(parentFunctionBody->DoStackNestedFunc());
-        this->stackNestedFuncParent = this->GetScriptContext()->GetRecycler()->CreateWeakReferenceHandle(parentFunctionBody);
+
+        this->SetAuxPtr(AuxPointerType::StackNestedFuncParent, this->GetScriptContext()->GetRecycler()->CreateWeakReferenceHandle(parentFunctionBody));
     }
 
-    FunctionBody * FunctionBody::GetStackNestedFuncParent()
+    FunctionBody * FunctionBody::GetStackNestedFuncParentStrongRef() 
     {
-        Assert(this->stackNestedFuncParent);
-        return this->stackNestedFuncParent->Get();
+        Assert(this->GetStackNestedFuncParent() != nullptr);
+        return this->GetStackNestedFuncParent()->Get();
+    }
+
+    RecyclerWeakReference<FunctionBody> * FunctionBody::GetStackNestedFuncParent()
+    {
+        return static_cast<RecyclerWeakReference<FunctionBody>*>(this->GetAuxPtr(AuxPointerType::StackNestedFuncParent));
     }
 
     FunctionBody * FunctionBody::GetAndClearStackNestedFuncParent()
     {
-        if (this->stackNestedFuncParent)
+        if (this->GetAuxPtr(AuxPointerType::StackNestedFuncParent))
         {
-            FunctionBody * parentFunctionBody = GetStackNestedFuncParent();
+            FunctionBody * parentFunctionBody = GetStackNestedFuncParentStrongRef();
             ClearStackNestedFuncParent();
             return parentFunctionBody;
         }
@@ -3665,7 +3637,7 @@ namespace Js
 
     void FunctionBody::ClearStackNestedFuncParent()
     {
-        this->stackNestedFuncParent = nullptr;
+        this->SetAuxPtr(AuxPointerType::StackNestedFuncParent, nullptr);
     }
 
     ParseableFunctionInfo* ParseableFunctionInfo::CopyFunctionInfoInto(ScriptContext *scriptContext, Js::ParseableFunctionInfo* newFunctionInfo, uint sourceIndex)
@@ -3682,10 +3654,10 @@ namespace Js
         newFunctionInfo->m_isPublicLibraryCode = this->m_isPublicLibraryCode;
 
         newFunctionInfo->scopeSlotArraySize = this->scopeSlotArraySize;
+        newFunctionInfo->paramScopeSlotArraySize = this->paramScopeSlotArraySize;
 
-        for (uint index = 0; index < this->m_nestedCount; index++)
+        this->ForEachNestedFunc([&](FunctionProxy* proxy, uint32 index)
         {
-            FunctionProxy* proxy = this->GetNestedFunc(index);
             if (proxy)
             {
                 // Deserialize the proxy here if we have to
@@ -3709,7 +3681,8 @@ namespace Js
                 // 0u is an empty value for the bit-mask 'flags', when initially parsing this is used to track defer-parse functions.
                 newFunctionInfo->SetNestedFunc(nullptr, index, 0u);
             }
-        }
+            return true;
+        });
 
         return newFunctionInfo;
     }
@@ -3733,12 +3706,18 @@ namespace Js
             sourceInfo = scriptContext->GetSource(sourceIndex);
         }
 
-        ParseableFunctionInfo* newFunctionInfo = ParseableFunctionInfo::New(scriptContext, this->m_nestedCount, this->GetLocalFunctionId(), sourceInfo, this->GetDisplayName(), this->GetDisplayNameLength(),
-            this->GetShortDisplayNameOffset(), this->m_boundPropertyRecords, this->GetAttributes());
+        ParseableFunctionInfo* newFunctionInfo = ParseableFunctionInfo::New(scriptContext,
+            this->GetNestedCount(),
+            this->GetLocalFunctionId(), 
+            sourceInfo, this->GetDisplayName(), 
+            this->GetDisplayNameLength(),
+            this->GetShortDisplayNameOffset(), 
+            this->GetBoundPropertyRecords(), 
+            this->GetAttributes());
 
-        if (this->m_scopeInfo != nullptr)
+        if (this->GetScopeInfo() != nullptr)
         {
-            newFunctionInfo->SetScopeInfo(m_scopeInfo->CloneFor(newFunctionInfo));
+            newFunctionInfo->SetScopeInfo(GetScopeInfo()->CloneFor(newFunctionInfo));
         }
 
         newFunctionInfo->CloneSourceInfo(scriptContext, (*this), this->m_scriptContext, sourceIndex);
@@ -3755,17 +3734,17 @@ namespace Js
         uint rootObjectStoreInlineCacheStart,
         uint totalFieldAccessInlineCacheCount, uint isInstInlineCacheCount)
     {
-        Assert(this->rootObjectLoadInlineCacheStart == 0);
-        Assert(this->rootObjectLoadMethodInlineCacheStart == 0);
-        Assert(this->rootObjectStoreInlineCacheStart == 0);
-        Assert(this->inlineCacheCount == 0);
-        Assert(this->isInstInlineCacheCount == 0);
+        Assert(this->GetRootObjectLoadInlineCacheStart() == 0);
+        Assert(this->GetRootObjectLoadMethodInlineCacheStart() == 0);
+        Assert(this->GetRootObjectStoreInlineCacheStart() == 0);
+        Assert(this->GetInlineCacheCount() == 0);
+        Assert(this->GetIsInstInlineCacheCount() == 0);
 
-        this->rootObjectLoadInlineCacheStart = rootObjectLoadInlineCacheStart;
-        this->rootObjectLoadMethodInlineCacheStart = rootObjectLoadMethodInlineCacheStart;
-        this->rootObjectStoreInlineCacheStart = rootObjectStoreInlineCacheStart;
-        this->inlineCacheCount = totalFieldAccessInlineCacheCount;
-        this->isInstInlineCacheCount = isInstInlineCacheCount;
+        this->SetRootObjectLoadInlineCacheStart(rootObjectLoadInlineCacheStart);
+        this->SetRootObjectLoadMethodInlineCacheStart(rootObjectLoadMethodInlineCacheStart);
+        this->SetRootObjectStoreInlineCacheStart(rootObjectStoreInlineCacheStart);
+        this->SetInlineCacheCount(totalFieldAccessInlineCacheCount);
+        this->SetIsInstInlineCacheCount(isInstInlineCacheCount);
 
         this->CreateCacheIdToPropertyIdMap();
     }
@@ -3811,22 +3790,21 @@ namespace Js
 
     void FunctionBody::CreateReferencedPropertyIdMap(uint referencedPropertyIdCount)
     {
-        this->referencedPropertyIdCount = referencedPropertyIdCount;
+        this->SetReferencedPropertyIdCount(referencedPropertyIdCount);
         this->CreateReferencedPropertyIdMap();
     }
 
     void FunctionBody::CreateReferencedPropertyIdMap()
     {
-        Assert(this->referencedPropertyIdMap == nullptr);
+        Assert(this->GetReferencedPropertyIdMap() == nullptr);
         uint count = this->GetReferencedPropertyIdCount();
         if (count!= 0)
         {
-            this->referencedPropertyIdMap =
-                RecyclerNewArrayLeaf(this->m_scriptContext->GetRecycler(), PropertyId, count);
+            this->SetReferencedPropertyIdMap(RecyclerNewArrayLeaf(this->m_scriptContext->GetRecycler(), PropertyId, count));
 #if DBG
             for (uint i = 0; i < count; i++)
             {
-                this->referencedPropertyIdMap[i] = Js::Constants::NoProperty;
+                this->GetReferencedPropertyIdMap()[i] = Js::Constants::NoProperty;
             }
 #endif
         }
@@ -3838,7 +3816,7 @@ namespace Js
         uint count = this->GetReferencedPropertyIdCount();
         for (uint i = 0; i < count; i++)
         {
-            Assert(this->referencedPropertyIdMap[i] != Js::Constants::NoProperty);
+            Assert(this->GetReferencedPropertyIdMap()[i] != Js::Constants::NoProperty);
         }
     }
 #endif
@@ -3853,28 +3831,45 @@ namespace Js
         return GetReferencedPropertyIdWithMapIndex(mapIndex);
     }
 
+    PropertyId FunctionBody::GetReferencedPropertyIdWithLock(uint index)
+    {
+        if (index < (uint)TotalNumberOfBuiltInProperties)
+        {
+            return index;
+        }
+        uint mapIndex = index - TotalNumberOfBuiltInProperties;
+        return GetReferencedPropertyIdWithMapIndexWithLock(mapIndex);
+    }
+
     PropertyId FunctionBody::GetReferencedPropertyIdWithMapIndex(uint mapIndex)
     {
-        Assert(this->referencedPropertyIdMap);
+        Assert(this->GetReferencedPropertyIdMap());
         Assert(mapIndex < this->GetReferencedPropertyIdCount());
-        return this->referencedPropertyIdMap[mapIndex];
+        return this->GetReferencedPropertyIdMap()[mapIndex];
+    }
+
+    PropertyId FunctionBody::GetReferencedPropertyIdWithMapIndexWithLock(uint mapIndex)
+    {
+        Assert(this->GetReferencedPropertyIdMapWithLock());
+        Assert(mapIndex < this->GetReferencedPropertyIdCount());
+        return this->GetReferencedPropertyIdMapWithLock()[mapIndex];
     }
 
     void FunctionBody::SetReferencedPropertyIdWithMapIndex(uint mapIndex, PropertyId propertyId)
     {
         Assert(propertyId >= TotalNumberOfBuiltInProperties);
         Assert(mapIndex < this->GetReferencedPropertyIdCount());
-        Assert(this->referencedPropertyIdMap != nullptr);
-        Assert(this->referencedPropertyIdMap[mapIndex] == Js::Constants::NoProperty);
-        this->referencedPropertyIdMap[mapIndex] = propertyId;
+        Assert(this->GetReferencedPropertyIdMap() != nullptr);
+        Assert(this->GetReferencedPropertyIdMap()[mapIndex] == Js::Constants::NoProperty);
+        this->GetReferencedPropertyIdMap()[mapIndex] = propertyId;
     }
 
     void FunctionBody::CreateConstantTable()
     {
-        Assert(this->m_constTable == nullptr);
-        Assert(m_constCount > FirstRegSlot);
+        Assert(this->GetConstTable() == nullptr);
+        Assert(GetConstantCount() > FirstRegSlot);
 
-        this->m_constTable = RecyclerNewArrayZ(this->m_scriptContext->GetRecycler(), Var, m_constCount);
+        this->SetConstTable(RecyclerNewArrayZ(this->m_scriptContext->GetRecycler(), Var, GetConstantCount()));
 
         // Initialize with the root object, which will always be recorded here.
         Js::RootObjectBase * rootObject = this->LoadRootObject();
@@ -3892,11 +3887,11 @@ namespace Js
 
     void FunctionBody::RecordConstant(RegSlot location, Var var)
     {
-        Assert(location < m_constCount);
-        Assert(this->m_constTable);
+        Assert(location < GetConstantCount());
+        Assert(this->GetConstTable());
         Assert(var != nullptr);
-        Assert(this->m_constTable[location - FunctionBody::FirstRegSlot] == nullptr);
-        this->m_constTable[location - FunctionBody::FirstRegSlot] = var;
+        Assert(this->GetConstTable()[location - FunctionBody::FirstRegSlot] == nullptr);
+        this->GetConstTable()[location - FunctionBody::FirstRegSlot] = var;
     }
 
     void FunctionBody::RecordNullObject(RegSlot location)
@@ -3974,19 +3969,21 @@ namespace Js
     void FunctionBody::InitConstantSlots(Var *dstSlots)
     {
         // Initialize the given slots from the constant table.
-        Assert(m_constCount > FunctionBody::FirstRegSlot);
+        uint32 constCount = GetConstantCount();
+        Assert(constCount > FunctionBody::FirstRegSlot);
 
-        js_memcpy_s(dstSlots, (m_constCount - FunctionBody::FirstRegSlot) * sizeof(Var), this->m_constTable, (m_constCount - FunctionBody::FirstRegSlot) * sizeof(Var));
+        js_memcpy_s(dstSlots, (constCount - FunctionBody::FirstRegSlot) * sizeof(Var),
+            this->GetConstTable(), (constCount - FunctionBody::FirstRegSlot) * sizeof(Var));
     }
 
 
     Var FunctionBody::GetConstantVar(RegSlot location)
     {
-        Assert(this->m_constTable);
-        Assert(location < m_constCount);
+        Assert(this->GetConstTable());
+        Assert(location < GetConstantCount());
         Assert(location != 0);
 
-        return this->m_constTable[location - FunctionBody::FirstRegSlot];
+        return this->GetConstTable()[location - FunctionBody::FirstRegSlot];
     }
 
 
@@ -3996,7 +3993,8 @@ namespace Js
         newFunc->CreateConstantTable();
 
         // Start walking the slots after the root object.
-        for (RegSlot reg = FunctionBody::RootObjectRegSlot + 1; reg < m_constCount; reg++)
+        RegSlot constCount = GetConstantCount();
+        for (RegSlot reg = FunctionBody::RootObjectRegSlot + 1; reg < constCount; reg++)
         {
             Var oldVar = this->GetConstantVar(reg);
             Assert(oldVar != nullptr);
@@ -4066,9 +4064,9 @@ namespace Js
     {
         if(this->GetScopeObjectChain())
         {
-            wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+            char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 
-            Output::Print(L"%s (%s) :\n", this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
+            Output::Print(_u("%s (%s) :\n"), this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
             this->GetScopeObjectChain()->pScopeChain->Map( [=] (uint index, DebuggerScope* scope )
             {
                 scope->Dump();
@@ -4082,7 +4080,7 @@ namespace Js
         // Native Offsets
         if (this->nativeOffsetMaps.Count() > 0)
         {
-            Output::Print(L"Native Map: baseAddr: 0x%0Ix, size: 0x%0Ix\nstatementId, offset range, address range\n",
+            Output::Print(_u("Native Map: baseAddr: 0x%0Ix, size: 0x%0Ix\nstatementId, offset range, address range\n"),
                           this->GetNativeAddress(),
                           this->GetCodeSize());
 
@@ -4092,7 +4090,7 @@ namespace Js
             {
                 const NativeOffsetMap* map = &this->nativeOffsetMaps.Item(i);
 
-                Output::Print(L"S%4d, (%5d, %5d)  (0x%012Ix, 0x%012Ix)\n", map->statementIndex,
+                Output::Print(_u("S%4d, (%5d, %5d)  (0x%012Ix, 0x%012Ix)\n"), map->statementIndex,
                                                       map->nativeOffsetSpan.begin,
                                                       map->nativeOffsetSpan.end,
                                                       map->nativeOffsetSpan.begin + this->GetNativeAddress(),
@@ -4108,13 +4106,13 @@ namespace Js
         StatementMapList * pStatementMaps = this->GetStatementMaps();
         if (pStatementMaps)
         {
-            Output::Print(L"Statement Map:\nstatementId, SourceSpan, ByteCodeSpan\n");
+            Output::Print(_u("Statement Map:\nstatementId, SourceSpan, ByteCodeSpan\n"));
             int count = pStatementMaps->Count();
             for(int i = 0; i < count; i++)
             {
                 StatementMap* map = pStatementMaps->Item(i);
 
-                Output::Print(L"S%4d, (C%5d, C%5d)  (B%5d, B%5d) Inner=%d\n", i,
+                Output::Print(_u("S%4d, (C%5d, C%5d)  (B%5d, B%5d) Inner=%d\n"), i,
                                                       map->sourceSpan.begin,
                                                       map->sourceSpan.end,
                                                       map->byteCodeSpan.begin,
@@ -4130,7 +4128,7 @@ namespace Js
         // Native Throw Map
         if (this->nativeThrowSpanSequence)
         {
-            Output::Print(L"Native Throw Map: baseAddr: 0x%0Ix, size: 0x%Ix\nstatementId, offset range, address range\n",
+            Output::Print(_u("Native Throw Map: baseAddr: 0x%0Ix, size: 0x%Ix\nstatementId, offset range, address range\n"),
                           this->GetNativeAddress(),
                           this->GetCodeSize());
 
@@ -4141,7 +4139,7 @@ namespace Js
                 StatementData data;
                 if (this->nativeThrowSpanSequence->Item(i, iter, data))
                 {
-                    Output::Print(L"S%4d, (%5d -----)  (0x%012Ix --------)\n", data.sourceBegin, // statementIndex
+                    Output::Print(_u("S%4d, (%5d -----)  (0x%012Ix --------)\n"), data.sourceBegin, // statementIndex
                         data.bytecodeBegin, // nativeOffset
                         data.bytecodeBegin + this->GetNativeAddress());
                 }
@@ -4166,10 +4164,10 @@ namespace Js
         ULONG line;
         LONG col;
 
-        LPCUTF8 source = GetStartOfDocument(L"FunctionBody::PrintStatementSourceLineFromStartOffset");
+        LPCUTF8 source = GetStartOfDocument(_u("FunctionBody::PrintStatementSourceLineFromStartOffset"));
         Utf8SourceInfo* sourceInfo = this->GetUtf8SourceInfo();
         Assert(sourceInfo != nullptr);
-        LPCUTF8 sourceInfoSrc = sourceInfo->GetSource(L"FunctionBody::PrintStatementSourceLineFromStartOffset");
+        LPCUTF8 sourceInfoSrc = sourceInfo->GetSource(_u("FunctionBody::PrintStatementSourceLineFromStartOffset"));
         if(!sourceInfoSrc)
         {
             Assert(sourceInfo->GetIsLibraryCode());
@@ -4177,9 +4175,9 @@ namespace Js
         }
         if( source != sourceInfoSrc )
         {
-            Output::Print(L"\nDETECTED MISMATCH:\n");
-            Output::Print(L"GetUtf8SourceInfo()->GetSource(): 0x%08X: %.*s ...\n", sourceInfo, 16, sourceInfo);
-            Output::Print(L"GetStartOfDocument():             0x%08X: %.*s ...\n", source, 16, source);
+            Output::Print(_u("\nDETECTED MISMATCH:\n"));
+            Output::Print(_u("GetUtf8SourceInfo()->GetSource(): 0x%08X: %.*s ...\n"), sourceInfo, 16, sourceInfo);
+            Output::Print(_u("GetStartOfDocument():             0x%08X: %.*s ...\n"), source, 16, source);
 
             AssertMsg(false, "Non-matching start of document");
         }
@@ -4191,17 +4189,17 @@ namespace Js
         {
             color = Output::SetConsoleForeground(12);
         }
-        Output::Print(L"\n\n  Line %3d: ", line + 1);
+        Output::Print(_u("\n\n  Line %3d: "), line + 1);
         // Need to match up cchStartOffset to appropriate cbStartOffset given function's cbStartOffset and cchStartOffset
         size_t i = utf8::CharacterIndexToByteIndex(source, sourceInfo->GetCbLength(), cchStartOffset, this->m_cbStartOffset, this->m_cchStartOffset);
 
         size_t lastOffset = StartOffset() + LengthInBytes();
         for (;i < lastOffset && source[i] != '\n' && source[i] != '\r'; i++)
         {
-            Output::Print(L"%C", source[i]);
+            Output::Print(_u("%C"), source[i]);
         }
-        Output::Print(L"\n");
-        Output::Print(L"  Col %4d:%s^\n", col + 1, ((col+1)<10000) ? L" " : L"");
+        Output::Print(_u("\n"));
+        Output::Print(_u("  Col %4d:%s^\n"), col + 1, ((col+1)<10000) ? _u(" ") : _u(""));
 
         if (color != 0)
         {
@@ -4268,10 +4266,10 @@ namespace Js
         // get source info
         //
 
-        LPCUTF8 source = GetStartOfDocument(L"IR Viewer FunctionBody::GetSourceLineFromStartOffset");
+        LPCUTF8 source = GetStartOfDocument(_u("IR Viewer FunctionBody::GetSourceLineFromStartOffset"));
         Utf8SourceInfo* sourceInfo = this->GetUtf8SourceInfo();
         Assert(sourceInfo != nullptr);
-        LPCUTF8 sourceInfoSrc = sourceInfo->GetSource(L"IR Viewer FunctionBody::GetSourceLineFromStartOffset");
+        LPCUTF8 sourceInfoSrc = sourceInfo->GetSource(_u("IR Viewer FunctionBody::GetSourceLineFromStartOffset"));
         if (!sourceInfoSrc)
         {
             Assert(sourceInfo->GetIsLibraryCode());
@@ -4279,9 +4277,9 @@ namespace Js
         }
         if (source != sourceInfoSrc)
         {
-            Output::Print(L"\nDETECTED MISMATCH:\n");
-            Output::Print(L"GetUtf8SourceInfo()->GetSource(): 0x%08X: %.*s ...\n", sourceInfo, 16, sourceInfo);
-            Output::Print(L"GetStartOfDocument():             0x%08X: %.*s ...\n", source, 16, source);
+            Output::Print(_u("\nDETECTED MISMATCH:\n"));
+            Output::Print(_u("GetUtf8SourceInfo()->GetSource(): 0x%08X: %.*s ...\n"), sourceInfo, 16, sourceInfo);
+            Output::Print(_u("GetStartOfDocument():             0x%08X: %.*s ...\n"), source, 16, source);
 
             AssertMsg(false, "Non-matching start of document");
         }
@@ -4452,14 +4450,15 @@ namespace Js
         SetFlags(set, Flags_NonUserCode);
 
         // Propagate setting for all functions in this scope (nested).
-        for (uint uIndex = 0; uIndex < this->m_nestedCount; uIndex++)
+        this->ForEachNestedFunc([&](FunctionProxy* proxy, uint32 index)
         {
-            Js::FunctionBody * pBody = this->GetNestedFunc(uIndex)->GetFunctionBody();
+            Js::FunctionBody * pBody = proxy->GetFunctionBody();
             if (pBody != nullptr)
             {
                 pBody->SetIsNonUserCode(set);
             }
-        }
+            return true;
+        });
     }
 
     void FunctionBody::InsertSymbolToRegSlotList(JsUtil::CharacterBuffer<WCHAR> const& propName, RegSlot reg, RegSlot totalRegsCount)
@@ -4475,29 +4474,29 @@ namespace Js
     {
         if (totalRegsCount > 0)
         {
-            if (this->propertyIdOnRegSlotsContainer == nullptr)
+            if (this->GetPropertyIdOnRegSlotsContainer() == nullptr)
             {
-                this->propertyIdOnRegSlotsContainer = PropertyIdOnRegSlotsContainer::New(m_scriptContext->GetRecycler());
+                this->SetPropertyIdOnRegSlotsContainer(PropertyIdOnRegSlotsContainer::New(m_scriptContext->GetRecycler()));
             }
 
-            if (this->propertyIdOnRegSlotsContainer->propertyIdsForRegSlots == nullptr)
+            if (this->GetPropertyIdOnRegSlotsContainer()->propertyIdsForRegSlots == nullptr)
             {
-                this->propertyIdOnRegSlotsContainer->CreateRegSlotsArray(m_scriptContext->GetRecycler(), totalRegsCount);
+                this->GetPropertyIdOnRegSlotsContainer()->CreateRegSlotsArray(m_scriptContext->GetRecycler(), totalRegsCount);
             }
 
-            Assert(this->propertyIdOnRegSlotsContainer != nullptr);
-            this->propertyIdOnRegSlotsContainer->Insert(reg, propertyId);
+            Assert(this->GetPropertyIdOnRegSlotsContainer() != nullptr);
+            this->GetPropertyIdOnRegSlotsContainer()->Insert(reg, propertyId);
         }
     }
 
     void FunctionBody::SetPropertyIdsOfFormals(PropertyIdArray * formalArgs)
     {
         Assert(formalArgs);
-        if (this->propertyIdOnRegSlotsContainer == nullptr)
+        if (this->GetPropertyIdOnRegSlotsContainer() == nullptr)
         {
-            this->propertyIdOnRegSlotsContainer = PropertyIdOnRegSlotsContainer::New(m_scriptContext->GetRecycler());
+            this->SetPropertyIdOnRegSlotsContainer(PropertyIdOnRegSlotsContainer::New(m_scriptContext->GetRecycler()));
         }
-        this->propertyIdOnRegSlotsContainer->SetFormalArgs(formalArgs);
+        this->GetPropertyIdOnRegSlotsContainer()->SetFormalArgs(formalArgs);
     }
 
     HRESULT FunctionBody::RegisterFunction(BOOL fChangeMode, BOOL fOnlyCurrent)
@@ -4520,7 +4519,7 @@ namespace Js
 
         if (!fOnlyCurrent)
         {
-            for (uint uIndex = 0; uIndex < this->m_nestedCount; uIndex++)
+            for (uint uIndex = 0; uIndex < this->GetNestedCount(); uIndex++)
             {
                 Js::ParseableFunctionInfo * pBody = this->GetNestedFunctionForExecution(uIndex);
                 if (pBody == nullptr || !pBody->IsFunctionParsed())
@@ -4558,7 +4557,7 @@ namespace Js
     {
         // Some assumptions by Logger interface.
         // to send NULL as a name in case the name is anonymous and hint is anonymous code.
-        const wchar_t *pwszName = GetExternalDisplayName();
+        const char16 *pwszName = GetExternalDisplayName();
 
         IDebugDocumentContext *pDebugDocumentContext = nullptr;
         this->m_scriptContext->GetDocumentContext(this->m_scriptContext, this, &pDebugDocumentContext);
@@ -4571,7 +4570,7 @@ namespace Js
 #if DBG
         if (m_iProfileSession >= m_scriptContext->GetProfileSession())
         {
-            OUTPUT_TRACE_DEBUGONLY(Js::ScriptProfilerPhase, L"FunctionBody::ReportFunctionCompiled, Duplicate compile event (%d < %d) for FunctionNumber : %d\n",
+            OUTPUT_TRACE_DEBUGONLY(Js::ScriptProfilerPhase, _u("FunctionBody::ReportFunctionCompiled, Duplicate compile event (%d < %d) for FunctionNumber : %d\n"),
                 m_iProfileSession, m_scriptContext->GetProfileSession(), m_functionNumber);
         }
 
@@ -4623,7 +4622,7 @@ namespace Js
 #if DBG
         if (!this->HasValidEntryPoint())
         {
-            OUTPUT_TRACE_DEBUGONLY(Js::ScriptProfilerPhase, L"FunctionBody::SetEntryToProfileMode, Assert due to HasValidEntryPoint(), directEntrypoint : 0x%0IX, originalentrypoint : 0x%0IX\n",
+            OUTPUT_TRACE_DEBUGONLY(Js::ScriptProfilerPhase, _u("FunctionBody::SetEntryToProfileMode, Assert due to HasValidEntryPoint(), directEntrypoint : 0x%0IX, originalentrypoint : 0x%0IX\n"),
                 (JavascriptMethod)this->GetDefaultEntryPointInfo()->address, this->originalEntryPoint);
 
             AssertMsg(false, "Not a valid EntryPoint");
@@ -4636,25 +4635,28 @@ namespace Js
 #if DBG
     void FunctionBody::MustBeInDebugMode()
     {
-        Assert(m_scriptContext->IsInDebugMode());
-        Assert(IsByteCodeDebugMode());
+        Assert(GetUtf8SourceInfo()->IsInDebugMode());
         Assert(m_sourceInfo.pSpanSequence == nullptr);
-        Assert(pStatementMaps != nullptr);
+        Assert(this->GetStatementMaps() != nullptr);
     }
 #endif
 
     void FunctionBody::CleanupToReparse()
     {
+#if DBG
+        bool isCleaningUpOldValue = this->counters.isCleaningUp;
+        this->counters.isCleaningUp = true;
+#endif
         // The current function is already compiled. In order to prep this function to ready for debug mode, most of the previous information need to be thrown away.
         // Clean up the nested functions
-        for (uint i = 0; i < m_nestedCount; i++)
+        this->ForEachNestedFunc([&](FunctionProxy* proxy, uint32 index)
         {
-            FunctionProxy* proxy = GetNestedFunc(i);
             if (proxy && proxy->IsFunctionBody())
             {
                 proxy->GetFunctionBody()->CleanupToReparse();
             }
-        }
+            return true;
+        });
 
         CleanupRecyclerData(/* isShutdown */ false, true /* capture entry point cleanup stack trace */);
 
@@ -4677,21 +4679,20 @@ namespace Js
             this->GetDefaultFunctionEntryPointInfo()->entryPointIndex = 0;
         }
 
-        this->auxBlock = nullptr;
-        this->auxContextBlock = nullptr;
+        this->SetAuxiliaryData(nullptr);
+        this->SetAuxiliaryContextData(nullptr);
         this->byteCodeBlock = nullptr;
-        this->loopHeaderArray = nullptr;
-        this->m_constTable = nullptr;
-        this->m_scopeInfo = nullptr;
-        this->m_codeGenRuntimeData = nullptr;
-        this->m_codeGenGetSetRuntimeData = nullptr;
+        this->SetLoopHeaderArray(nullptr);
+        this->SetConstTable(nullptr);
+        this->SetScopeInfo(nullptr);
+        this->SetCodeGenRuntimeData(nullptr);
         this->cacheIdToPropertyIdMap = nullptr;
-        this->referencedPropertyIdMap = nullptr;
-        this->literalRegexes = nullptr;
-        this->propertyIdsForScopeSlotArray = nullptr;
-        this->propertyIdOnRegSlotsContainer = nullptr;
-        this->pStatementMaps = nullptr;
-
+        this->SetReferencedPropertyIdMap(nullptr);
+        this->SetLiteralRegexs(nullptr);
+        this->SetPropertyIdsForScopeSlotArray(nullptr, 0);
+        this->SetStatementMaps(nullptr);
+        this->SetCodeGenGetSetRuntimeData(nullptr);
+        this->SetPropertyIdOnRegSlotsContainer(nullptr);
         this->profiledLdElemCount = 0;
         this->profiledStElemCount = 0;
         this->profiledCallSiteCount = 0;
@@ -4700,52 +4701,51 @@ namespace Js
         this->profiledSwitchCount = 0;
         this->profiledReturnTypeCount = 0;
         this->profiledSlotCount = 0;
-        this->loopCount = 0;
+        this->SetLoopCount(0);
 
         this->m_envDepth = (uint16)-1;
 
-        this->m_byteCodeCount = 0;
-        this->m_byteCodeWithoutLDACount = 0;
-        this->m_byteCodeInLoopCount = 0;
-
-        this->functionBailOutRecord = nullptr;
+        this->SetByteCodeCount(0);
+        this->SetByteCodeWithoutLDACount(0);
+        this->SetByteCodeInLoopCount(0);
 
 #if ENABLE_PROFILE_INFO
         this->dynamicProfileInfo = nullptr;
 #endif
         this->hasExecutionDynamicProfileInfo = false;
 
-        this->m_firstTmpReg = Constants::NoRegister;
-        this->m_varCount = 0;
-        this->m_constCount = 0;
-        this->localClosureRegister = Constants::NoRegister;
-        this->localFrameDisplayRegister = Constants::NoRegister;
-        this->envRegister = Constants::NoRegister;
-        this->thisRegisterForEventHandler = Constants::NoRegister;
-        this->firstInnerScopeRegister = Constants::NoRegister;
-        this->funcExprScopeRegister = Constants::NoRegister;
-        this->innerScopeCount = 0;
+        this->SetFirstTmpRegister(Constants::NoRegister);
+        this->SetVarCount(0);
+        this->SetConstantCount(0);
+        this->SetLocalClosureRegister(Constants::NoRegister);
+        this->SetParamClosureRegister(Constants::NoRegister);
+        this->SetLocalFrameDisplayRegister(Constants::NoRegister);
+        this->SetEnvRegister(Constants::NoRegister);
+        this->SetThisRegisterForEventHandler(Constants::NoRegister);
+        this->SetFirstInnerScopeRegister(Constants::NoRegister);
+        this->SetFuncExprScopeRegister(Constants::NoRegister);
+        this->SetInnerScopeCount(0);
         this->hasCachedScopePropIds = false;
 
         this->ResetObjectLiteralTypes();
 
-        this->inlineCacheCount = 0;
-        this->rootObjectLoadInlineCacheStart = 0;
-        this->rootObjectLoadMethodInlineCacheStart = 0;
-        this->rootObjectStoreInlineCacheStart = 0;
-        this->isInstInlineCacheCount = 0;
+        this->SetInlineCacheCount(0);
+        this->SetRootObjectLoadInlineCacheStart(0);
+        this->SetRootObjectLoadMethodInlineCacheStart(0);
+        this->SetRootObjectStoreInlineCacheStart(0);
+        this->SetIsInstInlineCacheCount(0);
         this->m_inlineCachesOnFunctionObject = false;
-        this->referencedPropertyIdCount = 0;
+        this->SetReferencedPropertyIdCount(0);
 #if ENABLE_PROFILE_INFO
-        this->polymorphicCallSiteInfoHead = nullptr;
+        this->SetPolymorphicCallSiteInfoHead(nullptr);
 #endif
 
-        this->interpretedCount = 0;
+        this->SetInterpretedCount(0);
 
         this->m_hasDoneAllNonLocalReferenced = false;
 
-        this->debuggerScopeIndex = 0;
-        this->m_utf8SourceInfo->DeleteLineOffsetCache();
+        this->SetDebuggerScopeIndex(0);
+        this->GetUtf8SourceInfo()->DeleteLineOffsetCache();
 
         // Reset to default.
         this->flags = Flags_HasNoExplicitReturnValue;
@@ -4759,7 +4759,7 @@ namespace Js
 
         recentlyBailedOutOfJittedLoopBody = false;
 
-        loopInterpreterLimit = CONFIG_FLAG(LoopInterpretCount);
+        SetLoopInterpreterLimit(CONFIG_FLAG(LoopInterpretCount));
         ReinitializeExecutionModeAndLimits();
 
         Assert(this->m_sourceInfo.m_probeCount == 0);
@@ -4782,6 +4782,10 @@ namespace Js
             Assert(m_scriptContext->GetRecycler()->IsValidObject(m_sourceInfo.m_auxStatementData));
             m_sourceInfo.m_auxStatementData = nullptr;
         }
+
+#if DBG
+        this->counters.isCleaningUp = isCleaningUpOldValue;
+#endif
     }
 
     void FunctionBody::SetEntryToDeferParseForDebugger()
@@ -4808,12 +4812,14 @@ namespace Js
 
         // Set other state back to before parse as well
         this->SetStackNestedFunc(false);
-        this->stackNestedFuncParent = nullptr;
+        this->SetAuxPtr(AuxPointerType::StackNestedFuncParent, nullptr);
         this->SetReparsed(true);
 #if DBG
-        wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
-        OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, L"Regenerate Due To Debug Mode: function %s (%s) from script context %p\n",
+        char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+        OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, _u("Regenerate Due To Debug Mode: function %s (%s) from script context %p\n"),
             this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer), m_scriptContext);
+
+        this->counters.bgThreadCallStarted = false; // asuming background jit is stopped and allow the counter setters access again
 #endif
     }
 
@@ -5214,6 +5220,12 @@ namespace Js
         this->scopeProperties->Add(scopeProperty);
     }
 
+    bool DebuggerScope::HasProperty(Js::PropertyId propertyId)
+    {
+        int i = -1;
+        return GetPropertyIndex(propertyId, i);
+    }
+
     bool DebuggerScope::GetPropertyIndex(Js::PropertyId propertyId, int& index)
     {
         if (!this->HasProperties())
@@ -5242,16 +5254,16 @@ namespace Js
     {
         int indent = (GetScopeDepth() - 1) * 4;
 
-        Output::Print(indent, L"Begin scope: Address: %p Type: %s Location: %d Sibling: %p Range: [%d, %d]\n ", this, GetDebuggerScopeTypeString(scopeType), scopeLocation, this->siblingScope, range.begin, range.end);
+        Output::Print(indent, _u("Begin scope: Address: %p Type: %s Location: %d Sibling: %p Range: [%d, %d]\n "), this, GetDebuggerScopeTypeString(scopeType), scopeLocation, this->siblingScope, range.begin, range.end);
         if (this->HasProperties())
         {
             this->scopeProperties->Map( [=] (int i, Js::DebuggerScopeProperty& scopeProperty) {
-                Output::Print(indent, L"%s(%d) Location: %d Const: %s Initialized: %d\n", ThreadContext::GetContextForCurrentThread()->GetPropertyName(scopeProperty.propId)->GetBuffer(),
-                    scopeProperty.propId, scopeProperty.location, scopeProperty.IsConst() ? L"true": L"false", scopeProperty.byteCodeInitializationOffset);
+                Output::Print(indent, _u("%s(%d) Location: %d Const: %s Initialized: %d\n"), ThreadContext::GetContextForCurrentThread()->GetPropertyName(scopeProperty.propId)->GetBuffer(),
+                    scopeProperty.propId, scopeProperty.location, scopeProperty.IsConst() ? _u("true"): _u("false"), scopeProperty.byteCodeInitializationOffset);
             });
         }
 
-        Output::Print(L"\n");
+        Output::Print(_u("\n"));
     }
 
     // Returns the debugger scope type in string format.
@@ -5260,26 +5272,30 @@ namespace Js
         switch (scopeType)
         {
         case DiagExtraScopesType::DiagBlockScopeDirect:
-            return L"DiagBlockScopeDirect";
+            return _u("DiagBlockScopeDirect");
         case DiagExtraScopesType::DiagBlockScopeInObject:
-            return L"DiagBlockScopeInObject";
+            return _u("DiagBlockScopeInObject");
         case DiagExtraScopesType::DiagBlockScopeInSlot:
-            return L"DiagBlockScopeInSlot";
+            return _u("DiagBlockScopeInSlot");
         case DiagExtraScopesType::DiagBlockScopeRangeEnd:
-            return L"DiagBlockScopeRangeEnd";
+            return _u("DiagBlockScopeRangeEnd");
         case DiagExtraScopesType::DiagCatchScopeDirect:
-            return L"DiagCatchScopeDirect";
+            return _u("DiagCatchScopeDirect");
         case DiagExtraScopesType::DiagCatchScopeInObject:
-            return L"DiagCatchScopeInObject";
+            return _u("DiagCatchScopeInObject");
         case DiagExtraScopesType::DiagCatchScopeInSlot:
-            return L"DiagCatchScopeInSlot";
+            return _u("DiagCatchScopeInSlot");
         case DiagExtraScopesType::DiagUnknownScope:
-            return L"DiagUnknownScope";
+            return _u("DiagUnknownScope");
         case DiagExtraScopesType::DiagWithScope:
-            return L"DiagWithScope";
+            return _u("DiagWithScope");
+        case DiagExtraScopesType::DiagParamScope:
+            return _u("DiagParamScope");
+        case DiagExtraScopesType::DiagParamScopeInObject:
+            return _u("DiagParamScopeInObject");
         default:
             AssertMsg(false, "Missing a debug scope type.");
-            return L"";
+            return _u("");
         }
     }
 #endif
@@ -5450,6 +5466,12 @@ namespace Js
     {
         return this->scopeType == Js::DiagBlockScopeInSlot
             || this->scopeType == Js::DiagCatchScopeInSlot;
+    }
+
+    bool DebuggerScope::IsParamScope() const
+    {
+        return this->scopeType == Js::DiagParamScope
+            || this->scopeType == Js::DiagParamScopeInObject;
     }
 
     // Gets whether or not the scope has any properties in it.
@@ -5640,7 +5662,7 @@ namespace Js
         {
             Js::DebuggerScope *debuggerScope = pScopeChain->Item(i);
             DebuggerScopeProperty debuggerScopeProperty;
-            if (debuggerScope->TryGetProperty(propertyId, location, &debuggerScopeProperty))
+            if (!debuggerScope->IsParamScope() && debuggerScope->TryGetProperty(propertyId, location, &debuggerScopeProperty))
             {
                 bool isOffsetInScope = debuggerScope->IsOffsetInScope(offset);
 
@@ -5667,7 +5689,7 @@ namespace Js
     {
         Assert(this->inlineCaches == nullptr);
         uint isInstInlineCacheStart = this->GetInlineCacheCount();
-        uint totalCacheCount = isInstInlineCacheStart + isInstInlineCacheCount;
+        uint totalCacheCount = isInstInlineCacheStart + GetIsInstInlineCacheCount();
 
         if (totalCacheCount != 0)
         {
@@ -5679,7 +5701,7 @@ namespace Js
                 byte, totalCacheCount);
 #endif
             uint i = 0;
-            uint plainInlineCacheEnd = rootObjectLoadInlineCacheStart;
+            uint plainInlineCacheEnd = GetRootObjectLoadInlineCacheStart();
             __analysis_assume(plainInlineCacheEnd <= totalCacheCount);
             for (; i < plainInlineCacheEnd; i++)
             {
@@ -5688,14 +5710,14 @@ namespace Js
             }
             Js::RootObjectBase * rootObject = this->GetRootObject();
             ThreadContext * threadContext = this->GetScriptContext()->GetThreadContext();
-            uint rootObjectLoadInlineCacheEnd = rootObjectLoadMethodInlineCacheStart;
+            uint rootObjectLoadInlineCacheEnd = GetRootObjectLoadMethodInlineCacheStart();
             __analysis_assume(rootObjectLoadInlineCacheEnd <= totalCacheCount);
             for (; i < rootObjectLoadInlineCacheEnd; i++)
             {
                 inlineCaches[i] = rootObject->GetInlineCache(
                     threadContext->GetPropertyName(this->GetPropertyIdFromCacheId(i)), false, false);
             }
-            uint rootObjectLoadMethodInlineCacheEnd = rootObjectStoreInlineCacheStart;
+            uint rootObjectLoadMethodInlineCacheEnd = GetRootObjectStoreInlineCacheStart();
             __analysis_assume(rootObjectLoadMethodInlineCacheEnd <= totalCacheCount);
             for (; i < rootObjectLoadMethodInlineCacheEnd; i++)
             {
@@ -5799,7 +5821,7 @@ namespace Js
     {
         Assert(GetPolymorphicInlineCache(index) == nullptr);
         // Only create polymorphic inline caches for non-root inline cache indexes
-        if (index < rootObjectLoadInlineCacheStart
+        if (index < GetRootObjectLoadInlineCacheStart()
 #if DBG
             && !PHASE_OFF1(Js::PolymorphicInlineCachePhase)
 #endif
@@ -5810,16 +5832,16 @@ namespace Js
             if (PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
             {
                 this->DumpFullFunctionName();
-                Output::Print(L": New PIC, index = %d, size = %d\n", index, PolymorphicInlineCache::GetInitialSize());
+                Output::Print(_u(": New PIC, index = %d, size = %d\n"), index, PolymorphicInlineCache::GetInitialSize());
             }
 
 #endif
 #if PHASE_PRINT_INTRUSIVE_TESTTRACE1
-            wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+            char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
             PHASE_PRINT_INTRUSIVE_TESTTRACE1(
                 Js::PolymorphicInlineCachePhase,
-                L"TestTrace PIC:  New, Function %s (%s), 0x%x, index = %d, size = %d\n", this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer), polymorphicInlineCache, index, PolymorphicInlineCache::GetInitialSize());
+                _u("TestTrace PIC:  New, Function %s (%s), 0x%x, index = %d, size = %d\n"), this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer), polymorphicInlineCache, index, PolymorphicInlineCache::GetInitialSize());
 
             uint indexInPolymorphicCache = polymorphicInlineCache->GetInlineCacheIndexForType(inlineCache->GetType());
             inlineCache->CopyTo(propertyId, m_scriptContext, &(polymorphicInlineCache->GetInlineCaches()[indexInPolymorphicCache]));
@@ -5843,21 +5865,24 @@ namespace Js
         if (PHASE_VERBOSE_TRACE1(Js::PolymorphicInlineCachePhase))
         {
             this->DumpFullFunctionName();
-            Output::Print(L": Bigger PIC, index = %d, oldSize = %d, newSize = %d\n", index, polymorphicInlineCacheSize, newPolymorphicInlineCacheSize);
+            Output::Print(_u(": Bigger PIC, index = %d, oldSize = %d, newSize = %d\n"), index, polymorphicInlineCacheSize, newPolymorphicInlineCacheSize);
         }
 #endif
 #if PHASE_PRINT_INTRUSIVE_TESTTRACE1
-        wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+        char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
         PHASE_PRINT_INTRUSIVE_TESTTRACE1(
             Js::PolymorphicInlineCachePhase,
-            L"TestTrace PIC:  Bigger, Function %s (%s), 0x%x, index = %d, size = %d\n", this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer), newPolymorphicInlineCache, index, newPolymorphicInlineCacheSize);
+            _u("TestTrace PIC:  Bigger, Function %s (%s), 0x%x, index = %d, size = %d\n"), this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer), newPolymorphicInlineCache, index, newPolymorphicInlineCacheSize);
         return newPolymorphicInlineCache;
     }
 
     void FunctionBody::ResetInlineCaches()
     {
-        isInstInlineCacheCount = inlineCacheCount = rootObjectLoadInlineCacheStart = rootObjectStoreInlineCacheStart = 0;
+        SetInlineCacheCount(0);
+        SetRootObjectLoadInlineCacheStart(0);
+        SetRootObjectStoreInlineCacheStart(0);
+        SetIsInstInlineCacheCount(0);
         this->inlineCaches = nullptr;
         this->polymorphicInlineCaches.Reset();
     }
@@ -5872,108 +5897,121 @@ namespace Js
 
     uint FunctionBody::NewObjectLiteral()
     {
-        Assert(objLiteralTypes == nullptr);
-        return objLiteralCount++;
+        Assert(this->GetObjectLiteralTypes() == nullptr);
+        return IncObjLiteralCount();
     }
 
     DynamicType ** FunctionBody::GetObjectLiteralTypeRef(uint index)
     {
-        Assert(index < objLiteralCount);
-        Assert(objLiteralTypes != nullptr);
-        return objLiteralTypes + index;
+        Assert(index < GetObjLiteralCount());
+        DynamicType ** literalTypes = this->GetObjectLiteralTypes();
+        Assert(literalTypes != nullptr);
+        return literalTypes + index;
+    }
+    DynamicType ** FunctionBody::GetObjectLiteralTypeRefWithLock(uint index)
+    {
+        Assert(index < GetObjLiteralCount());
+        DynamicType ** literalTypes = this->GetObjectLiteralTypesWithLock();
+        Assert(literalTypes != nullptr);
+        return literalTypes + index;
     }
 
     void FunctionBody::AllocateObjectLiteralTypeArray()
     {
-        Assert(objLiteralTypes == nullptr);
+        Assert(this->GetObjectLiteralTypes() == nullptr);
+        uint objLiteralCount = GetObjLiteralCount();
         if (objLiteralCount == 0)
         {
             return;
         }
 
-        objLiteralTypes = RecyclerNewArrayZ(this->GetScriptContext()->GetRecycler(), DynamicType *, objLiteralCount);
+        this->SetObjectLiteralTypes(RecyclerNewArrayZ(this->GetScriptContext()->GetRecycler(), DynamicType *, objLiteralCount));
     }
 
     uint FunctionBody::NewLiteralRegex()
     {
-        Assert(!this->literalRegexes);
-        return literalRegexCount++;
+        Assert(!this->GetLiteralRegexes());
+        return IncLiteralRegexCount();
     }
 
-    uint FunctionBody::GetLiteralRegexCount() const
-    {
-        return literalRegexCount;
-    }
 
     void FunctionBody::AllocateLiteralRegexArray()
     {
-        Assert(!this->literalRegexes);
-
+        Assert(!this->GetLiteralRegexes());
+        uint32 literalRegexCount = GetLiteralRegexCount();
         if (literalRegexCount == 0)
         {
             return;
         }
 
-        this->literalRegexes =
-            RecyclerNewArrayZ(m_scriptContext->GetRecycler(), UnifiedRegex::RegexPattern *, literalRegexCount);
+        this->SetLiteralRegexs(RecyclerNewArrayZ(m_scriptContext->GetRecycler(), UnifiedRegex::RegexPattern *, literalRegexCount));
     }
 
 #ifndef TEMP_DISABLE_ASMJS
     AsmJsFunctionInfo* FunctionBody::AllocateAsmJsFunctionInfo()
     {
-        Assert( !this->asmJsFunctionInfo );
-        this->asmJsFunctionInfo = RecyclerNew( m_scriptContext->GetRecycler(), AsmJsFunctionInfo );
-        return this->asmJsFunctionInfo;
+        Assert( !this->GetAsmJsFunctionInfo() );
+        this->SetAuxPtr(AuxPointerType::AsmJsFunctionInfo, RecyclerNew( m_scriptContext->GetRecycler(), AsmJsFunctionInfo));
+        return this->GetAsmJsFunctionInfo();
     }
 
     AsmJsModuleInfo* FunctionBody::AllocateAsmJsModuleInfo()
     {
-        Assert( !this->asmJsModuleInfo );
+        Assert( !this->GetAsmJsModuleInfo() );
         Recycler* rec = m_scriptContext->GetRecycler();
-        this->asmJsModuleInfo = RecyclerNew( rec, AsmJsModuleInfo, rec );
-        return this->asmJsModuleInfo;
+        this->SetAuxPtr(AuxPointerType::AsmJsModuleInfo, RecyclerNew(rec, AsmJsModuleInfo, rec));
+        return this->GetAsmJsModuleInfo();
     }
 #endif
 
     UnifiedRegex::RegexPattern *FunctionBody::GetLiteralRegex(const uint index)
     {
-        Assert(index < literalRegexCount);
-        Assert(this->literalRegexes);
+        Assert(index < GetLiteralRegexCount());
+        Assert(this->GetLiteralRegexes());
 
-        return this->literalRegexes[index];
+        return this->GetLiteralRegexes()[index];
+    }
+
+    UnifiedRegex::RegexPattern *FunctionBody::GetLiteralRegexWithLock(const uint index)
+    {
+        Assert(index < GetLiteralRegexCount());
+        Assert(this->GetLiteralRegexesWithLock());
+
+        return this->GetLiteralRegexesWithLock()[index];
     }
 
     void FunctionBody::SetLiteralRegex(const uint index, UnifiedRegex::RegexPattern *const pattern)
     {
-        Assert(index < literalRegexCount);
-        Assert(this->literalRegexes);
+        Assert(index < GetLiteralRegexCount());
+        Assert(this->GetLiteralRegexes());
 
-        if (this->literalRegexes[index] && this->literalRegexes[index] == pattern)
+        auto literalRegexes = this->GetLiteralRegexes();
+        if (literalRegexes[index] && literalRegexes[index] == pattern)
         {
             return;
         }
-        Assert(!this->literalRegexes[index]);
+        Assert(!literalRegexes[index]);
 
-        this->literalRegexes[index] = pattern;
+        literalRegexes[index] = pattern;
     }
 
     void FunctionBody::ResetObjectLiteralTypes()
     {
-        this->objLiteralTypes = nullptr;
-        this->objLiteralCount = 0;
+        this->SetObjectLiteralTypes(nullptr);
+        this->SetObjLiteralCount(0);
     }
 
     void FunctionBody::ResetLiteralRegexes()
     {
-        literalRegexCount = 0;
-        this->literalRegexes = nullptr;
+        SetLiteralRegexCount(0);
+        this->SetLiteralRegexs(nullptr);
     }
 
     void FunctionBody::ResetProfileIds()
     {
 #if ENABLE_PROFILE_INFO
         Assert(!HasDynamicProfileInfo()); // profile data relies on the profile ID counts; it should not have been created yet
-        Assert(!this->m_codeGenRuntimeData); // relies on 'profiledCallSiteCount'
+        Assert(!this->GetCodeGenRuntimeData()); // relies on 'profiledCallSiteCount'
 
         profiledCallSiteCount = 0;
         profiledArrayCallSiteCount = 0;
@@ -5995,17 +6033,18 @@ namespace Js
         ResetLoops();
         ResetProfileIds();
 
-        m_firstTmpReg = Constants::NoRegister;
-        localClosureRegister = Constants::NoRegister;
-        localFrameDisplayRegister = Constants::NoRegister;
-        envRegister = Constants::NoRegister;
-        thisRegisterForEventHandler = Constants::NoRegister;
-        firstInnerScopeRegister = Constants::NoRegister;
-        funcExprScopeRegister = Constants::NoRegister;
-        innerScopeCount = 0;
+        SetFirstTmpRegister(Constants::NoRegister);
+        SetLocalClosureRegister(Constants::NoRegister);
+        SetParamClosureRegister(Constants::NoRegister);
+        SetLocalFrameDisplayRegister(Constants::NoRegister);
+        SetEnvRegister(Constants::NoRegister);
+        SetThisRegisterForEventHandler(Constants::NoRegister);
+        SetFirstInnerScopeRegister(Constants::NoRegister);
+        SetFuncExprScopeRegister(Constants::NoRegister);
+        SetInnerScopeCount(0);
         hasCachedScopePropIds = false;
-        m_constCount = 0;
-        this->m_constTable = nullptr;
+        this->SetConstantCount(0);
+        this->SetConstTable(nullptr);
         this->byteCodeBlock = nullptr;
 
         // There is other state that is set by the byte code generator but the state should be the same each time byte code
@@ -6025,18 +6064,20 @@ namespace Js
     {
         Assert(profiledCallSiteId < profiledCallSiteCount);
 
-        return this->m_codeGenRuntimeData ? this->m_codeGenRuntimeData[profiledCallSiteId] : nullptr;
+        auto codeGenRuntimeData = this->GetCodeGenRuntimeDataWithLock();
+        return codeGenRuntimeData ? codeGenRuntimeData[profiledCallSiteId] : nullptr;
     }
 
     const FunctionCodeGenRuntimeData *FunctionBody::GetInlineeCodeGenRuntimeDataForTargetInlinee(const ProfileId profiledCallSiteId, Js::FunctionBody *inlineeFuncBody) const
     {
         Assert(profiledCallSiteId < profiledCallSiteCount);
 
-        if (!this->m_codeGenRuntimeData)
+        auto codeGenRuntimeData = this->GetCodeGenRuntimeDataWithLock();
+        if (!codeGenRuntimeData)
         {
             return nullptr;
         }
-        const FunctionCodeGenRuntimeData *runtimeData = this->m_codeGenRuntimeData[profiledCallSiteId];
+        const FunctionCodeGenRuntimeData *runtimeData = codeGenRuntimeData[profiledCallSiteId];
         while (runtimeData && runtimeData->GetFunctionBody() != inlineeFuncBody)
         {
             runtimeData = runtimeData->GetNext();
@@ -6053,17 +6094,18 @@ namespace Js
         Assert(profiledCallSiteId < profiledCallSiteCount);
         Assert(inlinee);
 
-        if(!this->m_codeGenRuntimeData)
+        if(!this->GetCodeGenRuntimeData())
         {
             const auto codeGenRuntimeData = RecyclerNewArrayZ(recycler, FunctionCodeGenRuntimeData *, profiledCallSiteCount);
-            this->m_codeGenRuntimeData = codeGenRuntimeData;
+            this->SetCodeGenRuntimeData(codeGenRuntimeData);
         }
 
-        const auto inlineeData = this->m_codeGenRuntimeData[profiledCallSiteId];
+        auto codeGenRuntimeData = this->GetCodeGenRuntimeData();
+        const auto inlineeData = codeGenRuntimeData[profiledCallSiteId];
 
         if(!inlineeData)
         {
-            return this->m_codeGenRuntimeData[profiledCallSiteId] = RecyclerNew(recycler, FunctionCodeGenRuntimeData, inlinee);
+            return codeGenRuntimeData[profiledCallSiteId] = RecyclerNew(recycler, FunctionCodeGenRuntimeData, inlinee);
         }
 
         // Find the right code gen runtime data
@@ -6081,51 +6123,55 @@ namespace Js
 
         FunctionCodeGenRuntimeData *runtimeData = RecyclerNew(recycler, FunctionCodeGenRuntimeData, inlinee);
         runtimeData->SetupRuntimeDataChain(inlineeData);
-        return this->m_codeGenRuntimeData[profiledCallSiteId] = runtimeData;
+        return codeGenRuntimeData[profiledCallSiteId] = runtimeData;
     }
 
-    const FunctionCodeGenRuntimeData *FunctionBody::GetLdFldInlineeCodeGenRuntimeData(const uint inlineCacheIndex) const
+    const FunctionCodeGenRuntimeData *FunctionBody::GetLdFldInlineeCodeGenRuntimeData(const InlineCacheIndex inlineCacheIndex) const
     {
-        Assert(inlineCacheIndex < inlineCacheCount);
+        Assert(inlineCacheIndex < GetInlineCacheCount());
 
-        return this->m_codeGenGetSetRuntimeData ? this->m_codeGenGetSetRuntimeData[inlineCacheIndex] : nullptr;
+        FunctionCodeGenRuntimeData ** data = (FunctionCodeGenRuntimeData **)this->GetCodeGenGetSetRuntimeDataWithLock();
+        return (data != nullptr) ? data[inlineCacheIndex] : nullptr;
     }
 
     FunctionCodeGenRuntimeData *FunctionBody::EnsureLdFldInlineeCodeGenRuntimeData(
         Recycler *const recycler,
-        __in_range(0, this->inlineCacheCount - 1) const uint inlineCacheIndex,
+        const InlineCacheIndex inlineCacheIndex,
         FunctionBody *const inlinee)
     {
         Assert(recycler);
         Assert(inlineCacheIndex < this->GetInlineCacheCount());
         Assert(inlinee);
 
-        if(!this->m_codeGenGetSetRuntimeData)
+        if (this->GetCodeGenGetSetRuntimeData() == nullptr)
         {
             const auto codeGenRuntimeData = RecyclerNewArrayZ(recycler, FunctionCodeGenRuntimeData *, this->GetInlineCacheCount());
-            this->m_codeGenGetSetRuntimeData = codeGenRuntimeData;
+            this->SetCodeGenGetSetRuntimeData(codeGenRuntimeData);
         }
 
-        const auto inlineeData = this->m_codeGenGetSetRuntimeData[inlineCacheIndex];
-        if(inlineeData)
+        FunctionCodeGenRuntimeData **codeGenGetSetRuntimeData = this->GetCodeGenGetSetRuntimeData();
+        const auto inlineeData = codeGenGetSetRuntimeData[inlineCacheIndex];
+        if (inlineeData)
         {
             return inlineeData;
         }
 
-        return this->m_codeGenGetSetRuntimeData[inlineCacheIndex] = RecyclerNew(recycler, FunctionCodeGenRuntimeData, inlinee);
+        return codeGenGetSetRuntimeData[inlineCacheIndex] = RecyclerNew(recycler, FunctionCodeGenRuntimeData, inlinee);
     }
 #endif
 
     void FunctionBody::AllocateLoopHeaders()
     {
-        Assert(this->loopHeaderArray == nullptr);
+        Assert(this->GetLoopHeaderArray() == nullptr);
 
+        uint loopCount = GetLoopCount();
         if (loopCount != 0)
         {
-            this->loopHeaderArray = RecyclerNewArrayZ(this->m_scriptContext->GetRecycler(), LoopHeader, loopCount);
+            this->SetLoopHeaderArray(RecyclerNewArrayZ(this->m_scriptContext->GetRecycler(), LoopHeader, loopCount));
+            auto loopHeaderArray = this->GetLoopHeaderArray();
             for (uint i = 0; i < loopCount; i++)
             {
-                this->loopHeaderArray[i].Init(this);
+                loopHeaderArray[i].Init(this);
             }
         }
     }
@@ -6142,8 +6188,8 @@ namespace Js
 
     void FunctionBody::ResetLoops()
     {
-        loopCount = 0;
-        this->loopHeaderArray = nullptr;
+        SetLoopCount(0);
+        this->SetLoopHeaderArray(nullptr);
     }
 
     void FunctionBody::RestoreOldDefaultEntryPoint(FunctionEntryPointInfo* oldEntryPointInfo,
@@ -6214,19 +6260,25 @@ namespace Js
 
     LoopHeader *FunctionBody::GetLoopHeader(uint index) const
     {
-        Assert(this->loopHeaderArray != nullptr);
-        Assert(index < loopCount);
-        return &this->loopHeaderArray[index];
+        Assert(this->GetLoopHeaderArray() != nullptr);
+        Assert(index < GetLoopCount());
+        return &this->GetLoopHeaderArray()[index];
     }
 
+    LoopHeader *FunctionBody::GetLoopHeaderWithLock(uint index) const
+    {
+        Assert(this->GetLoopHeaderArrayWithLock() != nullptr);
+        Assert(index < GetLoopCount());
+        return &this->GetLoopHeaderArrayWithLock()[index];
+    }
     FunctionEntryPointInfo *FunctionBody::GetSimpleJitEntryPointInfo() const
     {
-        return simpleJitEntryPointInfo;
+        return static_cast<FunctionEntryPointInfo *>(this->GetAuxPtr(AuxPointerType::SimpleJitEntryPointInfo));
     }
 
     void FunctionBody::SetSimpleJitEntryPointInfo(FunctionEntryPointInfo *const entryPointInfo)
     {
-        simpleJitEntryPointInfo = entryPointInfo;
+        this->SetAuxPtr(AuxPointerType::SimpleJitEntryPointInfo, entryPointInfo);
     }
 
     void FunctionBody::VerifyExecutionMode(const ExecutionMode executionMode) const
@@ -6342,7 +6394,7 @@ namespace Js
         switch(GetExecutionMode())
         {
             case ExecutionMode::Interpreter:
-                if(interpretedCount < interpreterLimit)
+                if(GetInterpretedCount() < interpreterLimit)
                 {
                     VerifyExecutionMode(GetExecutionMode());
                     return false;
@@ -6354,7 +6406,7 @@ namespace Js
                 if(autoProfilingInterpreter0Limit != 0 || autoProfilingInterpreter1Limit != 0)
                 {
                     SetExecutionMode(ExecutionMode::AutoProfilingInterpreter);
-                    interpretedCount = 0;
+                    SetInterpretedCount(0);
                     return true;
                 }
                 goto TransitionFromAutoProfilingInterpreter;
@@ -6365,7 +6417,7 @@ namespace Js
                     autoProfilingInterpreter0Limit == 0 && profilingInterpreter0Limit == 0
                         ? autoProfilingInterpreter1Limit
                         : autoProfilingInterpreter0Limit;
-                if(interpretedCount < autoProfilingInterpreterLimit)
+                if(GetInterpretedCount() < autoProfilingInterpreterLimit)
                 {
                     VerifyExecutionMode(GetExecutionMode());
                     return false;
@@ -6386,7 +6438,7 @@ namespace Js
                 if(profilingInterpreter0Limit != 0 || profilingInterpreter1Limit != 0)
                 {
                     SetExecutionMode(ExecutionMode::ProfilingInterpreter);
-                    interpretedCount = 0;
+                    SetInterpretedCount(0);
                     return true;
                 }
                 goto TransitionFromProfilingInterpreter;
@@ -6397,7 +6449,7 @@ namespace Js
                     profilingInterpreter0Limit == 0 && autoProfilingInterpreter1Limit == 0 && simpleJitLimit == 0
                         ? profilingInterpreter1Limit
                         : profilingInterpreter0Limit;
-                if(interpretedCount < profilingInterpreterLimit)
+                if(GetInterpretedCount() < profilingInterpreterLimit)
                 {
                     VerifyExecutionMode(GetExecutionMode());
                     return false;
@@ -6421,7 +6473,7 @@ namespace Js
 
                     // Zero the interpreted count here too, so that we can determine how many interpreter iterations ran
                     // while waiting for simple JIT
-                    interpretedCount = 0;
+                    SetInterpretedCount(0);
                     return true;
                 }
                 goto TransitionToProfilingInterpreter;
@@ -6666,7 +6718,7 @@ namespace Js
 
         Assert(fullJitThreshold >= scale);
         this->fullJitThreshold = fullJitThreshold - scale;
-        interpretedCount = 0;
+        SetInterpretedCount(0);
         SetExecutionMode(GetDefaultInterpreterExecutionMode());
         SetFullJitThreshold(fullJitThreshold);
         TryTransitionToNextInterpreterExecutionMode();
@@ -6776,7 +6828,7 @@ namespace Js
         switch(GetExecutionMode())
         {
             case ExecutionMode::Interpreter:
-                CommitExecutedIterations(interpreterLimit, interpretedCount);
+                CommitExecutedIterations(interpreterLimit, GetInterpretedCount());
                 break;
 
             case ExecutionMode::AutoProfilingInterpreter:
@@ -6784,7 +6836,7 @@ namespace Js
                     autoProfilingInterpreter0Limit == 0 && profilingInterpreter0Limit == 0
                         ? autoProfilingInterpreter1Limit
                         : autoProfilingInterpreter0Limit,
-                    interpretedCount);
+                    GetInterpretedCount());
                 break;
 
             case ExecutionMode::ProfilingInterpreter:
@@ -6792,7 +6844,7 @@ namespace Js
                     GetSimpleJitEntryPointInfo()
                         ? profilingInterpreter1Limit
                         : profilingInterpreter0Limit,
-                    interpretedCount);
+                    GetInterpretedCount());
                 break;
 
             case ExecutionMode::SimpleJit:
@@ -6866,7 +6918,7 @@ namespace Js
             simpleJitLimit = simpleJitNewLimit;
         }
 
-        interpretedCount = 0;
+        SetInterpretedCount(0);
         ResetSimpleJitCallCount();
     }
 
@@ -6882,6 +6934,7 @@ namespace Js
 
     void FunctionBody::ResetSimpleJitCallCount()
     {
+        uint32 interpretedCount = GetInterpretedCount();
         SetSimpleJitCallCount(
             simpleJitLimit > interpretedCount
                 ? simpleJitLimit - static_cast<uint16>(interpretedCount)
@@ -6897,6 +6950,7 @@ namespace Js
         {
             case ExecutionMode::ProfilingInterpreter:
             {
+                uint32 interpretedCount = GetInterpretedCount();
                 const uint16 clampedInterpretedCount =
                     interpretedCount <= MAXUINT16
                         ? static_cast<uint16>(interpretedCount)
@@ -6966,13 +7020,13 @@ namespace Js
         Assert(PHASE_TRACE(Phase::ExecutionModePhase, this));
         Assert(initializedExecutionModeAndLimits);
 
-        wchar_t functionIdString[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+        char16 functionIdString[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
         Output::Print(
-            L"ExecutionMode - "
-                L"function: %s (%s), "
-                L"mode: %S, "
-                L"size: %u, "
-                L"limits: %hu.%hu.%hu.%hu.%hu = %hu",
+            _u("ExecutionMode - ")
+                _u("function: %s (%s), ")
+                _u("mode: %S, ")
+                _u("size: %u, ")
+                _u("limits: %hu.%hu.%hu.%hu.%hu = %hu"),
             GetDisplayName(),
                 GetDebugNumberSet(functionIdString),
             ExecutionModeName(executionMode),
@@ -6986,10 +7040,10 @@ namespace Js
 
         if(eventDescription)
         {
-            Output::Print(L", event: %S", eventDescription);
+            Output::Print(_u(", event: %S"), eventDescription);
         }
 
-        Output::Print(L"\n");
+        Output::Print(_u("\n"));
         Output::Flush();
     }
 
@@ -7003,15 +7057,26 @@ namespace Js
         return
             !PHASE_OFF(Js::SimpleJitPhase, this) &&
             !GetScriptContext()->GetConfig()->IsNoNative() &&
-            !GetScriptContext()->IsInDebugMode() &&
+            !this->IsInDebugMode() &&
             DoInterpreterProfile() &&
+            (!IsNewSimpleJit() || DoInterpreterAutoProfile()) &&
+            !IsGenerator(); // Generator JIT requires bailout which SimpleJit cannot do since it skips GlobOpt
+    }
+
+    bool FunctionBody::DoSimpleJitWithLock() const
+    {
+        return
+            !PHASE_OFF(Js::SimpleJitPhase, this) &&
+            !GetScriptContext()->GetConfig()->IsNoNative() &&
+            !this->IsInDebugMode() &&
+            DoInterpreterProfileWithLock() &&
             (!IsNewSimpleJit() || DoInterpreterAutoProfile()) &&
             !IsGenerator(); // Generator JIT requires bailout which SimpleJit cannot do since it skips GlobOpt
     }
 
     bool FunctionBody::DoSimpleJitDynamicProfile() const
     {
-        Assert(DoSimpleJit());
+        Assert(DoSimpleJitWithLock());
 
         return !PHASE_OFF(Js::SimpleJitDynamicProfilePhase, this) && !IsNewSimpleJit();
     }
@@ -7020,7 +7085,24 @@ namespace Js
     {
 #if ENABLE_PROFILE_INFO
         // Switch off profiling is asmJsFunction
-        if (this->GetIsAsmJsFunction())
+        if (this->GetIsAsmJsFunction() || this->GetAsmJsModuleInfo())
+        {
+            return false;
+        }
+        else
+        {
+            return !PHASE_OFF(InterpreterProfilePhase, this) && DynamicProfileInfo::IsEnabled(this);
+        }
+#else
+        return false;
+#endif
+    }
+
+    bool FunctionBody::DoInterpreterProfileWithLock() const
+    {
+#if ENABLE_PROFILE_INFO
+        // Switch off profiling is asmJsFunction
+        if (this->GetIsAsmJsFunction() || this->GetAsmJsModuleInfoWithLock())
         {
             return false;
         }
@@ -7037,7 +7119,7 @@ namespace Js
     {
         Assert(DoInterpreterProfile());
 
-        return !PHASE_OFF(InterpreterAutoProfilePhase, this) && !GetScriptContext()->IsInDebugMode();
+        return !PHASE_OFF(InterpreterAutoProfilePhase, this) && !this->IsInDebugMode();
     }
 
     bool FunctionBody::WasCalledFromLoop() const
@@ -7075,10 +7157,10 @@ namespace Js
 
         {
             // Reduce the loop interpreter limit too, for the same reasons as above
-            const uint oldLoopInterpreterLimit = loopInterpreterLimit;
+            const uint oldLoopInterpreterLimit = GetLoopInterpreterLimit();
             const uint newLoopInterpreterLimit = GetReducedLoopInterpretCount();
             Assert(newLoopInterpreterLimit <= oldLoopInterpreterLimit);
-            loopInterpreterLimit = newLoopInterpreterLimit;
+            SetLoopInterpreterLimit(newLoopInterpreterLimit);
 
             // Adjust loop headers' interpret counts to ensure that loops will still be profiled a number of times before
             // loop bodies are jitted
@@ -7163,10 +7245,10 @@ namespace Js
     {
         if(loopHeader->isNested)
         {
-            Assert(loopInterpreterLimit >= GetReducedLoopInterpretCount());
+            Assert(GetLoopInterpreterLimit() >= GetReducedLoopInterpretCount());
             return GetReducedLoopInterpretCount();
         }
-        return loopInterpreterLimit;
+        return GetLoopInterpreterLimit();
     }
 
     bool FunctionBody::DoObjectHeaderInlining()
@@ -7242,7 +7324,7 @@ namespace Js
                 // be a Utf8SourceInfo pinned by it.
                 Assert(this->m_utf8SourceInfo);
 
-                this->m_utf8SourceInfo->RemoveFunctionBody(this);
+                this->GetUtf8SourceInfo()->RemoveFunctionBody(this);
             }
 
             if (this->m_sourceInfo.pSpanSequence != nullptr)
@@ -7355,7 +7437,7 @@ namespace Js
                 }
             }
 
-            uint totalCacheCount = inlineCacheCount + GetIsInstInlineCacheCount();
+            uint totalCacheCount = GetInlineCacheCount() + GetIsInstInlineCacheCount();
             for (; i < totalCacheCount; i++)
             {
                 if (nullptr != this->inlineCaches[i])
@@ -7376,11 +7458,12 @@ namespace Js
 
         }
 
-        if (nullptr != this->m_codeGenRuntimeData)
+        auto codeGenRuntimeData = this->GetCodeGenRuntimeData();
+        if (nullptr != codeGenRuntimeData)
         {
             for (ProfileId i = 0; i < this->profiledCallSiteCount; i++)
             {
-                const FunctionCodeGenRuntimeData* runtimeData = this->m_codeGenRuntimeData[i];
+                const FunctionCodeGenRuntimeData* runtimeData = codeGenRuntimeData[i];
                 if (nullptr != runtimeData)
                 {
                     runtimeData->MapInlineCaches([&](InlineCache* inlineCache)
@@ -7405,11 +7488,12 @@ namespace Js
             }
         }
 
-        if (nullptr != this->m_codeGenGetSetRuntimeData)
+        FunctionCodeGenRuntimeData **codeGenGetSetRuntimeData = this->GetCodeGenGetSetRuntimeData();
+        if (codeGenGetSetRuntimeData != nullptr)
         {
             for (uint i = 0; i < this->GetInlineCacheCount(); i++)
             {
-                const FunctionCodeGenRuntimeData* runtimeData = this->m_codeGenGetSetRuntimeData[i];
+                const FunctionCodeGenRuntimeData* runtimeData = codeGenGetSetRuntimeData[i];
                 if (nullptr != runtimeData)
                 {
                     runtimeData->MapInlineCaches([&](InlineCache* inlineCache)
@@ -7443,9 +7527,9 @@ namespace Js
             }
         }
 
-        while (polymorphicInlineCachesHead)
+        while (this->GetPolymorphicInlineCachesHead())
         {
-            polymorphicInlineCachesHead->Finalize(IsScriptContextShutdown);
+            this->GetPolymorphicInlineCachesHead()->Finalize(IsScriptContextShutdown);
         }
         polymorphicInlineCaches.Reset();
     }
@@ -7520,28 +7604,31 @@ namespace Js
         {
             return;
         }
+#if DBG
+        this->counters.isCleaningUp = true;
+#endif
 
         CleanupRecyclerData(isScriptContextClosing, false /* capture entry point cleanup stack trace */);
         this->ResetObjectLiteralTypes();
 
         // Manually clear these values to break any circular references
         // that might prevent the script context from being disposed
-        this->auxBlock = nullptr;
-        this->auxContextBlock = nullptr;
+        this->SetAuxiliaryData(nullptr);
+        this->SetAuxiliaryContextData(nullptr);
         this->byteCodeBlock = nullptr;
         this->entryPoints = nullptr;
-        this->loopHeaderArray = nullptr;
-        this->m_constTable = nullptr;
-        this->m_codeGenRuntimeData = nullptr;
-        this->m_codeGenGetSetRuntimeData = nullptr;
+        this->SetLoopHeaderArray(nullptr);
+        this->SetConstTable(nullptr);
+        this->SetCodeGenRuntimeData(nullptr);
+        this->SetCodeGenGetSetRuntimeData(nullptr);
+        this->SetPropertyIdOnRegSlotsContainer(nullptr);
         this->inlineCaches = nullptr;
         this->polymorphicInlineCaches.Reset();
-        this->polymorphicInlineCachesHead = nullptr;
+        this->SetPolymorphicInlineCachesHead(nullptr);
         this->cacheIdToPropertyIdMap = nullptr;
-        this->referencedPropertyIdMap = nullptr;
-        this->literalRegexes = nullptr;
-        this->propertyIdsForScopeSlotArray = nullptr;
-        this->propertyIdOnRegSlotsContainer = nullptr;
+        this->SetReferencedPropertyIdMap(nullptr);
+        this->SetLiteralRegexs(nullptr);
+        this->SetPropertyIdsForScopeSlotArray(nullptr, 0);
 
 #if DYNAMIC_INTERPRETER_THUNK
         if (this->HasInterpreterThunkGenerated())
@@ -7563,8 +7650,9 @@ namespace Js
 #endif
 
 #if ENABLE_PROFILE_INFO
-        this->polymorphicCallSiteInfoHead = nullptr;
+        this->SetPolymorphicCallSiteInfoHead(nullptr);
 #endif
+
         this->cleanedUp = true;
     }
 
@@ -7574,8 +7662,8 @@ namespace Js
     {
         // We might not have the byte code block yet if we defer parsed.
         DWORD byteCodeSize = (this->byteCodeBlock? this->byteCodeBlock->GetLength() : 0)
-            + (this->auxBlock? this->auxBlock->GetLength() : 0)
-            + (this->auxContextBlock? this->auxContextBlock->GetLength() : 0);
+            + (this->GetAuxiliaryData() ? this->GetAuxiliaryData()->GetLength() : 0)
+            + (this->GetAuxiliaryContextData() ? this->GetAuxiliaryContextData()->GetLength() : 0);
         PERF_COUNTER_SUB(Code, DynamicByteCodeSize, byteCodeSize);
 
         if (this->m_isDeserializedFunction)
@@ -7591,8 +7679,8 @@ namespace Js
     {
         // DisableJIT-TODO: Move this to be under if DYNAMIC_PROFILE
 #if ENABLE_NATIVE_CODEGEN
-        // (See also the FunctionBody member written in CaptureDymamicProfileState.)
-        this->savedPolymorphicCacheState = entryPointInfo->GetPendingPolymorphicCacheState();
+        // (See also the FunctionBody member written in CaptureDynamicProfileState.)
+        this->SetSavedPolymorphicCacheState(entryPointInfo->GetPendingPolymorphicCacheState());
         this->savedInlinerVersion = entryPointInfo->GetPendingInlinerVersion();
         this->savedImplicitCallsFlags = entryPointInfo->GetPendingImplicitCallFlags();
 #endif
@@ -7609,6 +7697,10 @@ namespace Js
     {
         Assert(this->dynamicProfileInfo != nullptr);
         return this->savedPolymorphicCacheState;
+    }
+    void FunctionBody::SetSavedPolymorphicCacheState(uint32 state)
+    {
+        this->savedPolymorphicCacheState = state;
     }
 #endif
 
@@ -7794,9 +7886,9 @@ namespace Js
     void
     FunctionBody::DumpFullFunctionName()
     {
-        wchar_t debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
+        char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 
-        Output::Print(L"Function %s (%s)", this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
+        Output::Print(_u("Function %s (%s)"), this->GetDisplayName(), this->GetDebugNumberSet(debugStringBuffer));
     }
 
     void FunctionBody::DumpFunctionId(bool pad)
@@ -7806,17 +7898,17 @@ namespace Js
         {
             if (this->IsDynamicScript())
             {
-                Output::Print(pad? L"Dy.%-3d" : L"Dyn#%d", this->GetLocalFunctionId());
+                Output::Print(pad? _u("Dy.%-3d") : _u("Dyn#%d"), this->GetLocalFunctionId());
             }
             else
             {
                 // Function from LoadFile
-                Output::Print(pad? L"%-5d" : L"#%d", this->GetLocalFunctionId());
+                Output::Print(pad? _u("%-5d") : _u("#%d"), this->GetLocalFunctionId());
             }
         }
         else
         {
-            Output::Print(pad? L"%2d.%-3d" : L"#%d.%d", sourceContextId, this->GetLocalFunctionId());
+            Output::Print(pad? _u("%2d.%-3d") : _u("#%d.%d"), sourceContextId, this->GetLocalFunctionId());
         }
     }
 
@@ -7836,10 +7928,10 @@ namespace Js
     /*static*/
     void FunctionBody::GetShortNameFromUrl(__in LPCWSTR pchUrl, _Out_writes_z_(cchBuffer) LPWSTR pchShortName, __in size_t cchBuffer)
     {
-        LPCWSTR pchFile = wcsrchr(pchUrl, L'/');
+        LPCWSTR pchFile = wcsrchr(pchUrl, _u('/'));
         if (pchFile == nullptr)
         {
-            pchFile = wcsrchr(pchUrl, L'\\');
+            pchFile = wcsrchr(pchUrl, _u('\\'));
         }
 
         LPCWSTR pchToCopy = pchUrl;
@@ -8070,6 +8162,9 @@ namespace Js
             } autoCleanup(this);
 
             ScriptContext* scriptContext = GetScriptContext();
+
+            // If we start transferring more data from the jit thread, corresponding fields on the
+            // entryPointInfo should be rolled back in EntryPointInfo::OnNativeCodeInstallFailure
             PinTypeRefs(scriptContext);
             InstallGuards(scriptContext);
             FreeJitTransferData();
@@ -8085,6 +8180,19 @@ namespace Js
             this->jitTransferData = RecyclerNew(recycler, EntryPointInfo::JitTransferData);
         }
         return this->jitTransferData;
+    }
+
+    void EntryPointInfo::OnNativeCodeInstallFailure()
+    {
+        // If more data is transferred from the background thread to the main thread in ProcessJitTransferData, 
+        // corresponding fields on the entryPointInfo should be rolled back here.
+        this->runtimeTypeRefs = nullptr;
+        this->FreePropertyGuards();
+        this->equivalentTypeCacheCount = 0;
+        this->equivalentTypeCaches = nullptr;
+        this->UnregisterEquivalentTypeCaches();
+
+        this->ResetOnNativeCodeInstallFailure();
     }
 
 #ifdef FIELD_ACCESS_STATS
@@ -8137,31 +8245,6 @@ namespace Js
         Assert(this->equivalentTypeCacheCount == 0 && this->equivalentTypeCaches == nullptr);
         Assert(this->propertyGuardCount == 0 && this->propertyGuardWeakRefs == nullptr);
 
-        class AutoCleanup
-        {
-            EntryPointInfo *entryPointInfo;
-        public:
-            AutoCleanup(EntryPointInfo *entryPointInfo) : entryPointInfo(entryPointInfo)
-            {
-            }
-
-            void Done()
-            {
-                entryPointInfo = nullptr;
-            }
-            ~AutoCleanup()
-            {
-                if (entryPointInfo)
-                {
-                    entryPointInfo->equivalentTypeCacheCount = 0;
-                    entryPointInfo->equivalentTypeCaches = nullptr;
-                    entryPointInfo->propertyGuardCount = 0;
-                    entryPointInfo->propertyGuardWeakRefs = nullptr;
-                    entryPointInfo->UnregisterEquivalentTypeCaches();
-                }
-            }
-        } autoCleanup(this);
-
         for (int i = 0; i < this->jitTransferData->lazyBailoutPropertyCount; i++)
         {
             Assert(this->jitTransferData->lazyBailoutProperties != nullptr);
@@ -8177,7 +8260,7 @@ namespace Js
             }
             else
             {
-                OUTPUT_TRACE2(Js::LazyBailoutPhase, this->GetFunctionBody(), L"Lazy bailout - Invalidation due to property: %s \n", scriptContext->GetPropertyName(propertyId)->GetBuffer());
+                OUTPUT_TRACE2(Js::LazyBailoutPhase, this->GetFunctionBody(), _u("Lazy bailout - Invalidation due to property: %s \n"), scriptContext->GetPropertyName(propertyId)->GetBuffer());
                 this->Invalidate(true);
                 return;
             }
@@ -8318,8 +8401,6 @@ namespace Js
         {
             Js::Throw::OutOfMemory();
         }
-
-        autoCleanup.Done();
     }
 
     PropertyGuard* EntryPointInfo::RegisterSharedPropertyGuard(Js::PropertyId propertyId, ScriptContext* scriptContext)
@@ -8462,11 +8543,11 @@ namespace Js
             record.SetBailOutKind();
             if (PHASE_TRACE1(Js::LazyBailoutPhase))
             {
-                Output::Print(L"On stack lazy bailout. Property: %s Old IP: 0x%x New IP: 0x%x ", propertyRecord->GetBuffer(), instructionPointer, record.instructionPointer);
+                Output::Print(_u("On stack lazy bailout. Property: %s Old IP: 0x%x New IP: 0x%x "), propertyRecord->GetBuffer(), instructionPointer, record.instructionPointer);
 #if DBG
                 record.Dump(functionBody);
 #endif
-                Output::Print(L"\n");
+                Output::Print(_u("\n"));
             }
         }
         else
@@ -8794,10 +8875,13 @@ namespace Js
     }
 
 #if ENABLE_NATIVE_CODEGEN
-    void EntryPointInfo::ResetOnNativeCodeInstallFailure()
+    // This function needs review when we enable lazy bailouts- 
+    // Is calling Reset enough? Does Reset sufficiently resets the state of the entryPointInfo?
+    void EntryPointInfo::ResetOnLazyBailoutFailure()
     {
-        // Reset the entry point without attempting to create a new default and GenerateFunction on it.
-        // Do this for LoopEntryPointInfo or if we throw during FunctionEntryPointInfo::Invalidate.
+        Assert(PHASE_ON1(Js::LazyBailoutPhase));
+
+        // Reset the entry point upon a lazy bailout.
         this->Reset(true);
         Assert(this->address != nullptr);
         FreeNativeCodeGenAllocation(GetScriptContext(), this->address);
@@ -8961,13 +9045,27 @@ namespace Js
     }
 
 #if ENABLE_NATIVE_CODEGEN
-    void FunctionEntryPointInfo::OnNativeCodeInstallFailure()
+    void FunctionEntryPointInfo::ResetOnNativeCodeInstallFailure()
     {
-        this->Invalidate(false);
-#if ENABLE_DEBUG_CONFIG_OPTIONS
-        this->SetCleanupReason(CleanupReason::NativeCodeInstallFailure);
+        this->functionProxy->MapFunctionObjectTypes([&](DynamicType* type)
+        {
+            Assert(type->GetTypeId() == TypeIds_Function);
+
+            ScriptFunctionType* functionType = (ScriptFunctionType*)type;
+            if (functionType->GetEntryPointInfo() == this)
+            {
+                if (!this->GetIsAsmJSFunction())
+                {
+                    functionType->SetEntryPoint(GetCheckCodeGenThunk());
+                }
+#ifdef ASMJS_PLAT
+                else
+                {
+                    functionType->SetEntryPoint(GetCheckAsmJsCodeGenThunk());
+                }
 #endif
-        this->Cleanup(false, true /* capture cleanup stack */);
+            }
+        });
     }
 
     void FunctionEntryPointInfo::EnterExpirableCollectMode()
@@ -8993,7 +9091,7 @@ namespace Js
         FunctionEntryPointInfo* entryPoint = functionBody->GetDefaultFunctionEntryPointInfo();
         if (entryPoint->IsCodeGenPending())
         {
-            OUTPUT_TRACE(Js::LazyBailoutPhase, L"Skipping creating new entrypoint as one is already pending\n");
+            OUTPUT_TRACE(Js::LazyBailoutPhase, _u("Skipping creating new entrypoint as one is already pending\n"));
         }
         else
         {
@@ -9013,7 +9111,7 @@ namespace Js
                 {
                     if (entryPointInfo)
                     {
-                        entryPointInfo->ResetOnNativeCodeInstallFailure();
+                        entryPointInfo->ResetOnLazyBailoutFailure();
                     }
                 }
             } autoCleanup(this);
@@ -9109,7 +9207,7 @@ namespace Js
                 newEntryPoint = defaultEntryPointInfo;
             }
 
-            OUTPUT_TRACE(Js::ExpirableCollectPhase,  L"Expiring 0x%p\n", this);
+            OUTPUT_TRACE(Js::ExpirableCollectPhase,  _u("Expiring 0x%p\n"), this);
             this->functionProxy->MapFunctionObjectTypes([&] (DynamicType* type)
             {
                 Assert(type->GetTypeId() == TypeIds_Function);
@@ -9117,7 +9215,7 @@ namespace Js
                 ScriptFunctionType* functionType = (ScriptFunctionType*) type;
                 if (functionType->GetEntryPointInfo() == this)
                 {
-                    OUTPUT_TRACE(Js::ExpirableCollectPhase, L"Type 0x%p uses this entry point- switching to default entry point\n", this);
+                    OUTPUT_TRACE(Js::ExpirableCollectPhase, _u("Type 0x%p uses this entry point- switching to default entry point\n"), this);
                     functionType->SetEntryPointInfo(newEntryPoint);
                     // we are allowed to replace the entry point on the type only if it's
                     // directly using the jitted code or a type is referencing this entry point
@@ -9126,6 +9224,12 @@ namespace Js
                     {
                         functionType->SetEntryPoint(this->functionProxy->GetDirectEntryPoint(newEntryPoint));
                     }
+                }
+                else
+                {
+                    Assert(functionType->GetEntryPointInfo()->IsFunctionEntryPointInfo());                    
+                    Assert(((FunctionEntryPointInfo*)functionType->GetEntryPointInfo())->IsCleanedUp() 
+                        || (DWORD_PTR)functionType->GetEntryPoint() != this->GetNativeAddress());
                 }
             });
 
@@ -9235,9 +9339,12 @@ namespace Js
     }
 
 #if ENABLE_NATIVE_CODEGEN
-    void LoopEntryPointInfo::OnNativeCodeInstallFailure()
+    void LoopEntryPointInfo::ResetOnNativeCodeInstallFailure()
     {
-        this->ResetOnNativeCodeInstallFailure();
+        // Since we call the address on the entryPointInfo for loop bodies, all we need to do is to roll back
+        // the fields on the entryPointInfo related to transferring data from jit thread to main thread (already 
+        // being done in EntryPointInfo::OnNativeCodeInstallFailure). On the next loop iteration, the interpreter
+        // will call EntryPointInfo::EnsureIsReadyToCall and we'll try to process jit transfer data again.
     }
 #endif
 
@@ -9300,7 +9407,7 @@ namespace Js
         }
         funcBody->DumpFullFunctionName();
         Output::SkipToColumn(55);
-        Output::Print(L"Calls:%6d  Loads:%9d  Stores:%9d  Total refs:%9d\n", this->callCountStats,
+        Output::Print(_u("Calls:%6d  Loads:%9d  Stores:%9d  Total refs:%9d\n"), this->callCountStats,
             loads, stores, loads + stores);
     }
 #endif
@@ -9346,7 +9453,7 @@ namespace Js
 
         uint maxRecursiveInlineDepth = (uint)CONFIG_FLAG(RecursiveInlineDepthMax);
         uint maxRecursiveBytecodeBudget = (uint)CONFIG_FLAG(RecursiveInlineThreshold);
-        uint numberOfAllowedFuncs = maxRecursiveBytecodeBudget / this->m_byteCodeWithoutLDACount;
+        uint numberOfAllowedFuncs = maxRecursiveBytecodeBudget / this->GetByteCodeWithoutLDACount();
         uint maxDepth;
 
         if (recursiveInlineSpan == 1)
@@ -9363,17 +9470,182 @@ namespace Js
     }
 
 
-    static const wchar_t LoopWStr[] = L"Loop";
-    size_t FunctionBody::GetLoopBodyName(uint loopNumber, _Out_writes_opt_z_(size) wchar_t* nameBuffer, _In_ size_t size)
+    static const char16 LoopWStr[] = _u("Loop");
+    size_t FunctionBody::GetLoopBodyName(uint loopNumber, _Out_writes_opt_z_(sizeInChars) WCHAR* displayName, _In_ size_t sizeInChars)
     {
-        const wchar_t* functionName = this->GetExternalDisplayName();
+        const char16* functionName = this->GetExternalDisplayName();
         size_t length = wcslen(functionName) + /*length of largest int32*/ 10 + _countof(LoopWStr) + /*null*/ 1;
-        if (size < length || nameBuffer == nullptr)
+        if (sizeInChars < length || displayName == nullptr)
         {
             return length;
         }
-        int charsWritten = swprintf_s(nameBuffer, length, L"%s%s%u", functionName, LoopWStr, loopNumber + 1);
+        int charsWritten = swprintf_s(displayName, length, _u("%s%s%u"), functionName, LoopWStr, loopNumber + 1);
         Assert(charsWritten != -1);
         return charsWritten + /*nullptr*/ 1;
+    }
+
+    void FunctionBody::MapAndSetEnvRegister(RegSlot reg)
+    {
+        Assert(!m_hasEnvRegister);
+        SetEnvRegister(this->MapRegSlot(reg));
+    }
+    void FunctionBody::SetEnvRegister(RegSlot reg)
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasEnvRegister = false;
+        }
+        else
+        {
+            m_hasEnvRegister = true;
+            SetCountField(CounterFields::EnvRegister, reg);
+        }
+    }
+    RegSlot FunctionBody::GetEnvRegister() const
+    {
+        return m_hasEnvRegister ? GetCountField(CounterFields::EnvRegister) : Constants::NoRegister;
+    }
+    void FunctionBody::MapAndSetThisRegisterForEventHandler(RegSlot reg)
+    {
+        Assert(!m_hasThisRegisterForEventHandler);
+        SetThisRegisterForEventHandler(this->MapRegSlot(reg));
+    }
+    void FunctionBody::SetThisRegisterForEventHandler(RegSlot reg)
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasThisRegisterForEventHandler = false;
+        }
+        else
+        {
+            m_hasThisRegisterForEventHandler = true;
+            SetCountField(CounterFields::ThisRegisterForEventHandler, reg);
+        }
+    }
+    RegSlot FunctionBody::GetThisRegisterForEventHandler() const
+    {
+        return m_hasThisRegisterForEventHandler ? GetCountField(CounterFields::ThisRegisterForEventHandler) : Constants::NoRegister;
+    }
+    void FunctionBody::SetLocalClosureRegister(RegSlot reg)
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasLocalClosureRegister = false;
+        }
+        else
+        {
+            m_hasLocalClosureRegister = true;
+            SetCountField(CounterFields::LocalClosureRegister, reg);
+        }
+    }
+    void FunctionBody::MapAndSetLocalClosureRegister(RegSlot reg)
+    {
+        Assert(!m_hasLocalClosureRegister);
+        SetLocalClosureRegister(this->MapRegSlot(reg));
+    }
+    RegSlot FunctionBody::GetLocalClosureRegister() const
+    {
+        return m_hasLocalClosureRegister ? GetCountField(CounterFields::LocalClosureRegister) : Constants::NoRegister;
+    }
+    void FunctionBody::SetParamClosureRegister(RegSlot reg)
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasParamClosureRegister = false;
+        }
+        else
+        {
+            m_hasParamClosureRegister = true;
+            SetCountField(CounterFields::ParamClosureRegister, reg);
+        }
+    }
+    void FunctionBody::MapAndSetParamClosureRegister(RegSlot reg)
+    {
+        Assert(!m_hasParamClosureRegister);
+        SetParamClosureRegister(this->MapRegSlot(reg));
+    }
+    RegSlot FunctionBody::GetParamClosureRegister() const
+    {
+        return m_hasParamClosureRegister ? GetCountField(CounterFields::ParamClosureRegister) : Constants::NoRegister;
+    }
+    void FunctionBody::MapAndSetLocalFrameDisplayRegister(RegSlot reg)
+    {
+        Assert(!m_hasLocalFrameDisplayRegister);
+        SetLocalFrameDisplayRegister(this->MapRegSlot(reg));
+    }
+    void FunctionBody::SetLocalFrameDisplayRegister(RegSlot reg)
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasLocalFrameDisplayRegister = false;
+        }
+        else
+        {
+            m_hasLocalFrameDisplayRegister = true;
+            SetCountField(CounterFields::LocalFrameDisplayRegister, reg);
+        }
+    }
+    RegSlot FunctionBody::GetLocalFrameDisplayRegister() const
+    {
+        return m_hasLocalFrameDisplayRegister ? GetCountField(CounterFields::LocalFrameDisplayRegister) : Constants::NoRegister;
+    }
+    void FunctionBody::MapAndSetFirstInnerScopeRegister(RegSlot reg)
+    {
+        Assert(!m_hasFirstInnerScopeRegister);
+        SetFirstInnerScopeRegister(this->MapRegSlot(reg));
+    }
+    void FunctionBody::SetFirstInnerScopeRegister(RegSlot reg)
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasFirstInnerScopeRegister = false;
+        }
+        else
+        {
+            m_hasFirstInnerScopeRegister = true;
+            SetCountField(CounterFields::FirstInnerScopeRegister, reg);
+        }
+    }
+    RegSlot FunctionBody::GetFirstInnerScopeRegister() const
+    {
+        return m_hasFirstInnerScopeRegister ? GetCountField(CounterFields::FirstInnerScopeRegister) : Constants::NoRegister;
+    }
+    void FunctionBody::MapAndSetFuncExprScopeRegister(RegSlot reg)
+    {
+        Assert(!m_hasFuncExprScopeRegister);
+        SetFuncExprScopeRegister(this->MapRegSlot(reg));
+    }
+    void FunctionBody::SetFuncExprScopeRegister(RegSlot reg)
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasFuncExprScopeRegister = false;
+        }
+        else
+        {
+            m_hasFuncExprScopeRegister = true;
+            SetCountField(CounterFields::FuncExprScopeRegister, reg);
+        }
+    }
+    RegSlot FunctionBody::GetFuncExprScopeRegister() const
+    {
+        return m_hasFuncExprScopeRegister ? GetCountField(CounterFields::FuncExprScopeRegister) : Constants::NoRegister;
+    }
+
+    void FunctionBody::SetFirstTmpRegister(RegSlot reg) 
+    {
+        if (reg == Constants::NoRegister)
+        {
+            m_hasFirstTmpRegister = false;
+        }
+        else
+        {
+            m_hasFirstTmpRegister = true;
+            SetCountField(CounterFields::FirstTmpRegister, reg);
+        }
+    }
+    RegSlot FunctionBody::GetFirstTmpRegister() const
+    {
+        return m_hasFirstTmpRegister ? this->GetCountField(CounterFields::FirstTmpRegister) : Constants::NoRegister;
     }
 }

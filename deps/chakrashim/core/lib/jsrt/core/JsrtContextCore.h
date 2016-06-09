@@ -156,11 +156,24 @@ public:
         return nullptr;
     }
 
-    Js::JavascriptFunction* InitializeHostPromiseContinuationFunction() override
+    HRESULT EnqueuePromiseTask(Js::Var taskVar) override
     {
         AssertMsg(false, "jsrt should have set the promise callback");
-        return GetScriptContext()->GetLibrary()->GetThrowerFunction();
+        return E_NOTIMPL;
     }
+
+    HRESULT FetchImportedModule(Js::ModuleRecordBase* referencingModule, LPCOLESTR specifier, Js::ModuleRecordBase** dependentModuleRecord) override
+    {
+        AssertMsg(false, "not implemented");
+        return S_FALSE;
+    }
+
+    HRESULT NotifyHostAboutModuleReady(Js::ModuleRecordBase* referencingModule, Js::Var exceptionVar) override
+    {
+        AssertMsg(false, "not implemented");
+        return S_FALSE;
+    }
+
 
 #if DBG_DUMP || defined(PROFILE_EXEC) || defined(PROFILE_MEM)
     void EnsureParentInfo(Js::ScriptContext* scriptContext = NULL) override

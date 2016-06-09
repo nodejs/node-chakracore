@@ -47,6 +47,8 @@ namespace Js
             static FunctionInfo LookupSetter;
             static FunctionInfo Is;
             static FunctionInfo Assign;
+            static FunctionInfo Values;
+            static FunctionInfo Entries;
         };
 
         static Var NewInstance(RecyclableObject* function, CallInfo callInfo, ...);
@@ -77,7 +79,8 @@ namespace Js
         static Var EntryLookupSetter(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryIs(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryAssign(RecyclableObject* function, CallInfo callInfo, ...);
-
+        static Var EntryValues(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var EntryEntries(RecyclableObject* function, CallInfo callInfo, ...);
 
         static Var GetPrototypeOf(RecyclableObject* obj, ScriptContext* scriptContext);
         static BOOL ChangePrototype(RecyclableObject* object, RecyclableObject* newPrototype, bool validate, ScriptContext* scriptContext);
@@ -90,6 +93,9 @@ namespace Js
 
         static Var GetOwnPropertyDescriptorHelper(RecyclableObject* obj, Var propertyKey, ScriptContext* scriptContext);
         static BOOL GetOwnPropertyDescriptorHelper(RecyclableObject* obj, PropertyId propertyId, ScriptContext* scriptContext, PropertyDescriptor& propertyDescriptor);
+
+        // Param valuesToReturn should be set to true when we are looking for values from an object otherwise entries will be returned
+        static Var GetValuesOrEntries(RecyclableObject* object, bool valuesToReturn, ScriptContext* scriptContext);
 
         // Presently used in the projection as a mechanism of calling the general object prototype toString.
         static JavascriptString* ToStringInternal(Var thisArg, ScriptContext* scriptContext)
@@ -108,8 +114,7 @@ namespace Js
         static Var CreateKeysHelper(RecyclableObject* object, ScriptContext* scriptContext, BOOL enumNonEnumerable, bool includeSymbolProperties, bool includeStringProperties, bool includeSpecialProperties);
 
         static void ModifyGetterSetterFuncName(const PropertyRecord * propertyRecord, const PropertyDescriptor& descriptor, ScriptContext* scriptContext);
-        static wchar_t * ConstructName(const PropertyRecord * propertyRecord, const wchar_t * getOrSetStr, ScriptContext* scriptContext);
-        static wchar_t * ConstructAccessorNameES6(const PropertyRecord * propertyRecord, const wchar_t * getOrSetStr, ScriptContext* scriptContext);
+        static char16 * ConstructName(const PropertyRecord * propertyRecord, const char16 * getOrSetStr, ScriptContext* scriptContext);
         static Var DefinePropertiesHelper(RecyclableObject* object, RecyclableObject* properties, ScriptContext* scriptContext);
         static Var DefinePropertiesHelperForGenericObjects(RecyclableObject* object, RecyclableObject* properties, ScriptContext* scriptContext);
         static Var DefinePropertiesHelperForProxyObjects(RecyclableObject* object, RecyclableObject* properties, ScriptContext* scriptContext);

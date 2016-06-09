@@ -1,7 +1,8 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
 #include "RuntimeLibraryPch.h"
 
 namespace Js
@@ -35,25 +36,20 @@ namespace Js
         return JavascriptSIMDFloat64x2::New(&result, requestContext);
     }
 
-    JavascriptSIMDFloat64x2* JavascriptSIMDFloat64x2::FromFloat32x4Bits(JavascriptSIMDFloat32x4 *instance, ScriptContext* requestContext)
-    {
-        return JavascriptSIMDFloat64x2::New(&instance->GetValue(), requestContext);
-    }
-
     JavascriptSIMDFloat64x2* JavascriptSIMDFloat64x2::FromInt32x4(JavascriptSIMDInt32x4   *instance, ScriptContext* requestContext)
     {
         SIMDValue result = SIMDFloat64x2Operation::OpFromInt32x4(instance->GetValue());
         return JavascriptSIMDFloat64x2::New(&result, requestContext);
     }
 
-    JavascriptSIMDFloat64x2* JavascriptSIMDFloat64x2::FromInt32x4Bits(JavascriptSIMDInt32x4   *instance, ScriptContext* requestContext)
-    {
-        return JavascriptSIMDFloat64x2::New(&instance->GetValue(), requestContext);
-    }
-
     BOOL JavascriptSIMDFloat64x2::GetProperty(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
         return GetPropertyBuiltIns(propertyId, value, requestContext);
+    }
+
+    RecyclableObject * JavascriptSIMDFloat64x2::CloneToScriptContext(ScriptContext* requestContext)
+    {
+        return JavascriptSIMDFloat64x2::New(&value, requestContext);
     }
 
     BOOL JavascriptSIMDFloat64x2::GetProperty(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
@@ -65,6 +61,8 @@ namespace Js
         {
             return true;
         }
+
+        *value = requestContext->GetMissingPropertyResult();
         return false;
     }
 
@@ -80,11 +78,9 @@ namespace Js
         case PropertyIds::toString:
             *value = requestContext->GetLibrary()->GetSIMDFloat64x2ToStringFunction();
             return true;
-        case PropertyIds::signMask:
-            *value = GetSignMask();
-            return true;
         }
 
+        *value = requestContext->GetMissingPropertyResult();
         return false;
     }
 
@@ -102,16 +98,16 @@ namespace Js
 
         if (args.Info.Count == 0 || JavascriptOperators::GetTypeId(args[0]) != TypeIds_SIMDFloat64x2)
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedSimd, L"SIMDFloat64x2.toString");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedSimd, _u("SIMDFloat64x2.toString"));
         }
 
         JavascriptSIMDFloat64x2 *instance = JavascriptSIMDFloat64x2::FromVar(args[0]);
         Assert(instance);
 
-        wchar_t stringBuffer[1024];
+        char16 stringBuffer[SIMD_STRING_BUFFER_MAX];
         SIMDValue value = instance->GetValue();
 
-        swprintf_s(stringBuffer, 1024, L"Float64x2(%.1f,%.1f)", value.f64[SIMD_X], value.f64[SIMD_Y]);
+        JavascriptSIMDFloat64x2::ToStringBuffer(value, stringBuffer, SIMD_STRING_BUFFER_MAX);
 
         JavascriptString* string = JavascriptString::NewCopySzFromArena(stringBuffer, scriptContext, scriptContext->GeneralAllocator());
 
@@ -123,12 +119,5 @@ namespace Js
     Var JavascriptSIMDFloat64x2::Copy(ScriptContext* requestContext)
     {
         return JavascriptSIMDFloat64x2::New(&this->value, requestContext);
-    }
-
-    __inline Var JavascriptSIMDFloat64x2::GetSignMask()
-    {
-        int signMask = SIMDFloat64x2Operation::OpGetSignMask(value);
-
-        return TaggedInt::ToVarUnchecked(signMask);
     }
 }

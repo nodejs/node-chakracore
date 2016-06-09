@@ -6,16 +6,16 @@
 
 #include <time.h>
 
-#include "Common\DaylightTimeHelper.h"
-#include "Common\DateUtilities.h"
+#include "Common/DaylightTimeHelper.h"
+#include "Common/DateUtilities.h"
 
 namespace Js {
 
     static const double TicksPerMinute = 60000.0;
     static const double TicksPerDay = TicksPerMinute * 60 * 24;
-    static const double TicksPerlargestTZOffset = TicksPerMinute * 60 * 24 + 1;
+    static const double TicksPerLargestTZOffset = TicksPerMinute * 60 * 24 + 1;
     static const double TicksPerNonLeapYear = TicksPerDay * 365;
-    static const double TicksPerSafeEndOfYear = TicksPerNonLeapYear - TicksPerlargestTZOffset;
+    static const double TicksPerSafeEndOfYear = TicksPerNonLeapYear - TicksPerLargestTZOffset;
     static const int daysInMonthLeap[] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     static const double criticalMin = DateUtilities::TvFromDate(1601, 0, 1, 0); // minimal year for which windows has time zone information
     static const double criticalMax = DateUtilities::TvFromDate(USHRT_MAX-1, 0, 0, 0);
@@ -114,7 +114,7 @@ namespace Js {
     {
         if (g_timezonedll == NULL)
         {
-            HMODULE hLocal = LoadLibraryExW(L"api-ms-win-core-timezone-l1-1-0.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+            HMODULE hLocal = LoadLibraryExW(_u("api-ms-win-core-timezone-l1-1-0.dll"), nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
             if (hLocal != NULL)
             {
                 if (InterlockedCompareExchangePointer((PVOID*) &g_timezonedll, hLocal, NULL) != NULL)
@@ -126,7 +126,7 @@ namespace Js {
 
         if (g_timezonedll == NULL)
         {
-            HMODULE hLocal = LoadLibraryExW(L"kernel32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+            HMODULE hLocal = LoadLibraryExW(_u("kernel32.dll"), nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
             if (hLocal != NULL)
             {
                 if (InterlockedCompareExchangePointer((PVOID*) &g_timezonedll, hLocal, NULL) != NULL)
@@ -362,10 +362,10 @@ namespace Js {
     bool DaylightTimeHelper::IsCritical(double time, TimeZoneInfo *timeZoneInfo)
     {
         return time > criticalMin && time < criticalMax &&
-            (abs(time - timeZoneInfo->daylightDate) < TicksPerlargestTZOffset ||
-            abs(time - timeZoneInfo->standardDate) < TicksPerlargestTZOffset ||
+            (abs(time - timeZoneInfo->daylightDate) < TicksPerLargestTZOffset ||
+            abs(time - timeZoneInfo->standardDate) < TicksPerLargestTZOffset ||
             time > timeZoneInfo->january1 + TicksPerSafeEndOfYear ||
-            (timeZoneInfo->isJanuary1Critical && time - timeZoneInfo->january1 < TicksPerlargestTZOffset));
+            (timeZoneInfo->isJanuary1Critical && time - timeZoneInfo->january1 < TicksPerLargestTZOffset));
      }
 
 

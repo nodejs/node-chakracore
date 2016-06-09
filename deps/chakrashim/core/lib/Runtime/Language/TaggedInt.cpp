@@ -405,7 +405,7 @@ LblDone:
     Var TaggedInt::ShiftRight(Var aLeft, Var aRight)
     {
         //
-        // If aLeft was a Int31 coming in, then the result must always be a Int31 going out because
+        // If aLeft was an Int31 coming in, then the result must always be an Int31 going out because
         // shifting right only makes value smaller. Therefore, we may call ToVarUnchecked()
         // directly.
         //
@@ -419,7 +419,7 @@ LblDone:
     Var TaggedInt::ShiftRightU(Var aLeft, Var aRight, ScriptContext* scriptContext)
     {
         //
-        // If aLeft was a Int31 coming in, then the result must always be a Int31 going out because
+        // If aLeft was an Int31 coming in, then the result must always be an Int31 going out because
         // shifting right only makes value smaller. Therefore, we may call ToVarUnchecked()
         // directly.
         //
@@ -430,18 +430,18 @@ LblDone:
         return JavascriptNumber::ToVar(uValue >> (nShift & 0x1F), scriptContext);
     }
 
-    void TaggedInt::ToBuffer(Var aValue, __out_ecount_z(bufSize) wchar_t * buffer, uint bufSize)
+    void TaggedInt::ToBuffer(Var aValue, __out_ecount_z(bufSize) char16 * buffer, uint bufSize)
     {
         return ToBuffer(ToInt32(aValue), buffer, bufSize);
     }
 
-    void TaggedInt::ToBuffer(int value, __out_ecount_z(bufSize) wchar_t * buffer, uint bufSize)
+    void TaggedInt::ToBuffer(int value, __out_ecount_z(bufSize) char16 * buffer, uint bufSize)
     {
         Assert(bufSize > 10);
         _itow_s(value, buffer, bufSize, 10);
     }
 
-    void TaggedInt::ToBuffer(uint value, __out_ecount_z(bufSize) wchar_t * buffer, uint bufSize)
+    void TaggedInt::ToBuffer(uint value, __out_ecount_z(bufSize) char16 * buffer, uint bufSize)
     {
         Assert(bufSize > 10);
         _ultow_s(value, buffer, bufSize, 10);
@@ -454,14 +454,14 @@ LblDone:
 
     JavascriptString* TaggedInt::ToString(int value, ScriptContext* scriptContext)
     {
-        wchar_t szBuffer[20];
+        char16 szBuffer[20];
         ToBuffer(value, szBuffer, _countof(szBuffer));
 
         return JavascriptString::NewCopySz(szBuffer, scriptContext);
     }
     JavascriptString* TaggedInt::ToString(uint value, ScriptContext* scriptContext)
     {
-        wchar_t szBuffer[20];
+        char16 szBuffer[20];
         ToBuffer(value, szBuffer, _countof(szBuffer));
 
         return JavascriptString::NewCopySz(szBuffer, scriptContext);
@@ -469,7 +469,7 @@ LblDone:
 
     Var TaggedInt::NegateUnchecked(Var aValue)
     {
-        AssertMsg( Is(aValue), "Ensure var is actually an 'TaggedInt'");
+        AssertMsg( Is(aValue), "Ensure var is actually a 'TaggedInt'");
         AssertMsg( aValue != ToVarUnchecked(0), "Do not use NegateUnchecked on zero because NegativeZero is special");
         AssertMsg( aValue != ToVarUnchecked(k_nMinValue), "Do not use NegateUnchecked on min value because it cannot be represented");
 

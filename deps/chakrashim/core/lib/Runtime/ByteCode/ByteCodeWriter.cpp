@@ -225,7 +225,7 @@ namespace Js
         if (currentAstSize == maxAstSize)
         {
             float astBytecodeRatio = (float)currentAstSize / (float)byteCount;
-            Output::Print(L"\tAST Bytecode ratio: %f\n", astBytecodeRatio);
+            Output::Print(_u("\tAST Bytecode ratio: %f\n"), astBytecodeRatio);
         }
 #endif
 
@@ -1626,14 +1626,15 @@ StoreCommon:
         switch (op)
         {
             case OpCode::LdLocalSlot:
+            case OpCode::LdParamSlot:
             case OpCode::LdLocalObjSlot:
+            case OpCode::LdParamObjSlot:
                 if ((DoDynamicProfileOpcode(AggressiveIntTypeSpecPhase) || DoDynamicProfileOpcode(FloatTypeSpecPhase)) &&
                     profileId != Constants::NoProfileId)
                 {
                     OpCodeUtil::ConvertNonCallOpToProfiled(op);
                 }
                 break;
-
             default:
             {
                 AssertMsg(false, "The specified OpCode is not intended for slot access");
@@ -1681,6 +1682,8 @@ StoreCommon:
             case OpCode::StEnvSlotChkUndecl:
             case OpCode::StEnvObjSlot:
             case OpCode::StEnvObjSlotChkUndecl:
+            case OpCode::StModuleSlot:
+            case OpCode::LdModuleSlot:
             {
                 break;
             }
@@ -1710,6 +1713,7 @@ StoreCommon:
             case OpCode::LdInnerObjSlot:
             case OpCode::LdEnvSlot:
             case OpCode::LdEnvObjSlot:
+            case OpCode::LdModuleSlot:
                 if ((DoDynamicProfileOpcode(AggressiveIntTypeSpecPhase) || DoDynamicProfileOpcode(FloatTypeSpecPhase)) &&
                     profileId != Constants::NoProfileId)
                 {
@@ -1915,7 +1919,7 @@ StoreCommon:
             {
                 OpCodeUtil::ConvertNonCallOpToProfiled(op);
             }
-            break;          
+            break;
 
         case OpCode::LdLocalMethodFld:
             if (registerCacheIdForCall)
@@ -2822,7 +2826,7 @@ StoreCommon:
 
     void ByteCodeWriter::EndStatement(ParseNode* node)
     {
-        AssertMsg(m_pMatchingNode, "EndStatement unmatched to StartStartment");
+        AssertMsg(m_pMatchingNode, "EndStatement unmatched to StartStatement");
         if (m_pMatchingNode != node)
         {
             return;
@@ -2911,7 +2915,7 @@ StoreCommon:
 
         debuggerScope->SetParentScope(m_currentDebuggerScope);
         m_currentDebuggerScope = debuggerScope;
-        OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, L"PushDebuggerScope() - Pushed scope 0x%p of type %d.\n", m_currentDebuggerScope, m_currentDebuggerScope->scopeType);
+        OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, _u("PushDebuggerScope() - Pushed scope 0x%p of type %d.\n"), m_currentDebuggerScope, m_currentDebuggerScope->scopeType);
     }
 
     // Pops the current debugger scope from the stack.
@@ -2919,7 +2923,7 @@ StoreCommon:
     {
         Assert(m_currentDebuggerScope);
 
-        OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, L"PopDebuggerScope() - Popped scope 0x%p of type %d.\n", m_currentDebuggerScope, m_currentDebuggerScope->scopeType);
+        OUTPUT_VERBOSE_TRACE(Js::DebuggerPhase, _u("PopDebuggerScope() - Popped scope 0x%p of type %d.\n"), m_currentDebuggerScope, m_currentDebuggerScope->scopeType);
         if (m_currentDebuggerScope != nullptr)
         {
             m_currentDebuggerScope = m_currentDebuggerScope->GetParentScope();
@@ -3169,7 +3173,7 @@ StoreCommon:
         }
         else
         {
-            ByteBlock* finalByteCodeBlock = ByteBlock::New(alloc, /*intialContent*/nullptr, cbFinalData);
+            ByteBlock* finalByteCodeBlock = ByteBlock::New(alloc, /*initialContent*/nullptr, cbFinalData);
 
             DataChunk* currentChunk = head;
             size_t bytesLeftToCopy = cbFinalData;

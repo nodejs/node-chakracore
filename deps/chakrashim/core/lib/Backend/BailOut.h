@@ -1,7 +1,8 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
 #pragma once
 
 struct GlobalBailOutRecordDataTable;
@@ -26,7 +27,12 @@ public:
         bailOutOffset(bailOutOffset), bailOutFunc(bailOutFunc),
         byteCodeUpwardExposedUsed(nullptr), polymorphicCacheIndex((uint)-1), startCallCount(0), startCallInfo(nullptr), bailOutInstr(nullptr),
         totalOutParamCount(0), argOutSyms(nullptr), bailOutRecord(nullptr), wasCloned(false), isInvertedBranch(false), sharedBailOutKind(true), outParamInlinedArgSlot(nullptr),
-        liveVarSyms(nullptr), liveLosslessInt32Syms(nullptr), liveFloat64Syms(nullptr), liveSimd128F4Syms(nullptr), liveSimd128I4Syms(nullptr), liveSimd128D2Syms(nullptr), branchConditionOpnd(nullptr),
+        liveVarSyms(nullptr), liveLosslessInt32Syms(nullptr), 
+        liveFloat64Syms(nullptr), liveSimd128F4Syms(nullptr), 
+        liveSimd128I4Syms(nullptr), liveSimd128I8Syms(nullptr), liveSimd128I16Syms(nullptr),
+        liveSimd128U4Syms(nullptr), liveSimd128U8Syms(nullptr), liveSimd128U16Syms(nullptr),
+        liveSimd128B4Syms(nullptr), liveSimd128B8Syms(nullptr), liveSimd128B16Syms(nullptr),
+        liveSimd128D2Syms(nullptr), branchConditionOpnd(nullptr),
         stackLiteralBailOutInfoCount(0), stackLiteralBailOutInfo(nullptr)
     {
         Assert(bailOutOffset != Js::Constants::NoByteCodeOffset);
@@ -98,6 +104,14 @@ public:
     // SIMD_JS
     BVSparse<JitArenaAllocator> * liveSimd128F4Syms;
     BVSparse<JitArenaAllocator> * liveSimd128I4Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128I8Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128I16Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128U4Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128U8Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128U16Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128B4Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128B8Syms;
+    BVSparse<JitArenaAllocator> * liveSimd128B16Syms;
     BVSparse<JitArenaAllocator> * liveSimd128D2Syms;
 
     int * outParamOffsets;
@@ -116,7 +130,7 @@ public:
     // The actual bailout instr, this is normally the instr that has the bailout info.
     // 1) If we haven't generated bailout (which happens in lowerer) for this bailout info, this is either of:
     // - the instr that has bailout info.
-    // - in case of shared bailout this will be the BailTarget instr (corresponds to the call to SaveReesgtersAndBailOut,
+    // - in case of shared bailout this will be the BailTarget instr (corresponds to the call to SaveRegistersAndBailOut,
     //   while other instrs sharing bailout info will just have checks and JMP to BailTarget).
     // 2) After we generated bailout, this becomes label instr. In case of shared bailout other instrs JMP to this label.
     IR::Instr * bailOutInstr;
@@ -152,10 +166,10 @@ class BailOutRecord
 public:
     BailOutRecord(uint32 bailOutOffset, uint bailOutCacheIndex, IR::BailOutKind kind, Func *bailOutFunc);
     static Js::Var BailOut(BailOutRecord const * bailOutRecord);
-    static Js::Var BailOutFromFunction(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord, void * returnAddress, void * argoutRestoreAddress);
+    static Js::Var BailOutFromFunction(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord, void * returnAddress, void * argoutRestoreAddress, Js::ImplicitCallFlags savedImplicitCallFlags);
     static uint32 BailOutFromLoopBody(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord);
 
-    static Js::Var BailOutInlined(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord, void * returnAddress);
+    static Js::Var BailOutInlined(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord, void * returnAddress, Js::ImplicitCallFlags savedImplicitCallFlags);
     static uint32 BailOutFromLoopBodyInlined(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord, void * returnAddress);
 
     static Js::Var BailOutForElidedYield(void * framePointer);
@@ -171,7 +185,9 @@ public:
     template <size_t N>
     void FillNativeRegToByteCodeRegMap(uint (&nativeRegToByteCodeRegMap)[N]);
 
-    void IsOffsetNativeIntOrFloat(uint offsetIndex, int argOutSlotStart, bool * pIsFloat64, bool * pIsInt32, bool * pIsSimd128F4, bool * pIsSImd128I4) const;
+    void IsOffsetNativeIntOrFloat(uint offsetIndex, int argOutSlotStart, bool * pIsFloat64, bool * pIsInt32, 
+        bool * pIsSimd128F4, bool * pIsSimd128I4, bool * pIsSimd128I8, bool * pIsSimd128I16, 
+        bool * pIsSimd128U4, bool * pIsSimd128U8, bool * pIsSimd128U16, bool * pIsSimd128B4, bool * pIsSimd128B8, bool * pIsSimd128B16) const;
 
     template <typename Fn>
     void MapStartCallParamCounts(Fn fn);
@@ -184,6 +200,13 @@ public:
     template <typename Fn>
     void MapArgOutOffsets(Fn fn);
 
+    enum BailoutRecordType : byte
+    {
+        Normal = 0,
+        Branch = 1,
+        Shared = 2
+    };
+    BailoutRecordType GetType() { return type; }
 protected:
     struct BailOutReturnValue
     {
@@ -194,9 +217,9 @@ protected:
         uint32 bailOutOffset, void * returnAddress, IR::BailOutKind bailOutKind, Js::Var branchValue = nullptr, Js::Var * registerSaves = nullptr,
         BailOutReturnValue * returnValue = nullptr, void * argoutRestoreAddress = nullptr);
     static Js::Var BailOutCommon(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord,
-        uint32 bailOutOffset, void * returnAddress, IR::BailOutKind bailOutKind, Js::Var branchValue = nullptr, BailOutReturnValue * returnValue = nullptr, void * argoutRestoreAddress = nullptr);
+        uint32 bailOutOffset, void * returnAddress, IR::BailOutKind bailOutKind, Js::ImplicitCallFlags savedImplicitCallFlags, Js::Var branchValue = nullptr, BailOutReturnValue * returnValue = nullptr, void * argoutRestoreAddress = nullptr);
     static Js::Var BailOutInlinedCommon(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord,
-        uint32 bailOutOffset, void * returnAddress, IR::BailOutKind bailOutKind, Js::Var branchValue = nullptr);
+        uint32 bailOutOffset, void * returnAddress, IR::BailOutKind bailOutKind, Js::ImplicitCallFlags savedImplicitCallFlags, Js::Var branchValue = nullptr);
     static uint32 BailOutFromLoopBodyCommon(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord,
         uint32 bailOutOffset, IR::BailOutKind bailOutKind, Js::Var branchValue = nullptr);
     static uint32 BailOutFromLoopBodyInlinedCommon(Js::JavascriptCallStackLayout * layout, BailOutRecord const * bailOutRecord,
@@ -212,7 +235,7 @@ protected:
 
     static void UpdatePolymorphicFieldAccess(Js::JavascriptFunction *  function, BailOutRecord const * bailOutRecord);
 
-    static void ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::ScriptFunction * innerMostInlinee, BailOutRecord const * bailOutRecord, IR::BailOutKind bailOutKind, void * returnAddress);
+    static void ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::ScriptFunction * innerMostInlinee, BailOutRecord const * bailOutRecord, IR::BailOutKind bailOutKind, Js::ImplicitCallFlags savedImplicitCallFlags, void * returnAddress);
     static void ScheduleLoopBodyCodeGen(Js::ScriptFunction * function, Js::ScriptFunction * innerMostInlinee, BailOutRecord const * bailOutRecord, IR::BailOutKind bailOutKind);
 
     void RestoreValues(IR::BailOutKind bailOutKind, Js::JavascriptCallStackLayout * layout, Js::InterpreterStackFrame * newInstance, Js::ScriptContext * scriptContext,
@@ -222,7 +245,9 @@ protected:
         void * argoutRestoreAddress = nullptr) const;
     void RestoreValue(IR::BailOutKind bailOutKind, Js::JavascriptCallStackLayout * layout, Js::Var * values, Js::ScriptContext * scriptContext,
         bool fromLoopBody, Js::Var * registerSaves, Js::InterpreterStackFrame * newInstance, Js::Var* pArgumentsObject, void * argoutRestoreAddress,
-        uint regSlot, int offset, bool isLocal, bool isFloat64, bool isInt32, bool isSimd128F4, bool isSimd128I4) const;
+        uint regSlot, int offset, bool isLocal, bool isFloat64, bool isInt32, 
+        bool isSimd128F4, bool isSimd128I4, bool isSimd128I8, bool isSimd128I16, 
+        bool isSimd128U4, bool isSimd128U8, bool isSimd128U16, bool isSimd128B4, bool isSimd128B8, bool isSimd128B16 ) const;
     void RestoreInlineFrame(InlinedFrameLayout *inlinedFrame, Js::JavascriptCallStackLayout * layout, Js::Var * registerSaves);
 
     void AdjustOffsetsForDiagMode(Js::JavascriptCallStackLayout * layout, Js::ScriptFunction * function) const;
@@ -244,6 +269,14 @@ protected:
         // SIMD_JS
         BVFixed * argOutSimd128F4Syms;
         BVFixed * argOutSimd128I4Syms;
+        BVFixed * argOutSimd128I8Syms;
+        BVFixed * argOutSimd128I16Syms;
+        BVFixed * argOutSimd128U4Syms;
+        BVFixed * argOutSimd128U8Syms;
+        BVFixed * argOutSimd128U16Syms;
+        BVFixed * argOutSimd128B4Syms;
+        BVFixed * argOutSimd128B8Syms;
+        BVFixed * argOutSimd128B16Syms;
         uint * startCallOutParamCounts;
         int * outParamOffsets;
         uint startCallCount;
@@ -282,6 +315,7 @@ protected:
     void DumpLocalOffsets(uint count, int argOutSlotStart);
     void DumpValue(int offset, bool isFloat64);
 #endif
+    BailoutRecordType type;
     ushort bailOutCount;
     uint32 m_bailOutRecordId;
 
@@ -303,22 +337,22 @@ public:
     BranchBailOutRecord(uint32 trueBailOutOffset, uint32 falseBailOutOffset, Js::RegSlot resultByteCodeReg, IR::BailOutKind kind, Func *bailOutFunc);
 
     static Js::Var BailOut(BranchBailOutRecord const * bailOutRecord, BOOL cond);
-    static Js::Var BailOutFromFunction(Js::JavascriptCallStackLayout * layout, BranchBailOutRecord const * bailOutRecord, BOOL cond, void * returnAddress, void * argoutRestoreAddress);
+    static Js::Var BailOutFromFunction(Js::JavascriptCallStackLayout * layout, BranchBailOutRecord const * bailOutRecord, BOOL cond, void * returnAddress, void * argoutRestoreAddress, Js::ImplicitCallFlags savedImplicitCallFlags);
     static uint32 BailOutFromLoopBody(Js::JavascriptCallStackLayout * layout, BranchBailOutRecord const * bailOutRecord, BOOL cond);
 
-    static Js::Var BailOutInlined(Js::JavascriptCallStackLayout * layout, BranchBailOutRecord const * bailOutRecord, BOOL cond, void * returnAddress);
+    static Js::Var BailOutInlined(Js::JavascriptCallStackLayout * layout, BranchBailOutRecord const * bailOutRecord, BOOL cond, void * returnAddress, Js::ImplicitCallFlags savedImplicitCallFlags);
     static uint32 BailOutFromLoopBodyInlined(Js::JavascriptCallStackLayout * layout, BranchBailOutRecord const * bailOutRecord, BOOL cond, void * returnAddress);
 private:
     uint falseBailOutOffset;
 };
 
-class FunctionBailOutRecord
+class SharedBailOutRecord : public BailOutRecord
 {
 public:
-    FunctionBailOutRecord() : constantCount(0), constants(nullptr) {}
+    Js::FunctionBody* functionBody; // function body in which the bailout originally was before possible hoisting
 
-    uint constantCount;
-    Js::Var * constants;
+    SharedBailOutRecord(uint32 bailOutOffset, uint bailOutCacheIndex, IR::BailOutKind kind, Func *bailOutFunc);
+    static size_t GetOffsetOfFunctionBody() { return offsetof(SharedBailOutRecord, functionBody); }
 };
 
 template <typename Fn>
@@ -368,6 +402,14 @@ struct GlobalBailOutRecordDataRow
     // SIMD_JS
     unsigned isSimd128F4 : 1;
     unsigned isSimd128I4 : 1;
+    unsigned isSimd128I8 : 1;
+    unsigned isSimd128I16 : 1;
+    unsigned isSimd128B4 : 1;
+    unsigned isSimd128B8 : 1;
+    unsigned isSimd128B16 : 1;
+    unsigned isSimd128U4 : 1;
+    unsigned isSimd128U8 : 1;
+    unsigned isSimd128U16 : 1;
 };
 
 struct GlobalBailOutRecordDataTable
@@ -383,7 +425,9 @@ struct GlobalBailOutRecordDataTable
     bool isInlinedConstructor;
     bool isLoopBody;
     void Finalize(NativeCodeData::Allocator *allocator, JitArenaAllocator *tempAlloc);
-    void AddOrUpdateRow(JitArenaAllocator *allocator, uint32 bailOutRecordId, uint32 regSlot, bool isFloat, bool isInt, bool isSimd128F4, bool isSimd128I4, int32 offset, uint *lastUpdatedRowIndex);
+    void AddOrUpdateRow(JitArenaAllocator *allocator, uint32 bailOutRecordId, uint32 regSlot, bool isFloat, bool isInt, 
+        bool isSimd128F4, bool isSimd128I4, bool isSimd128I8, bool isSimd128I16, bool isSimd128U4, bool isSimd128U8, bool isSimd128U16, bool isSimd128B4, bool isSimd128B8, bool isSimd128B16, 
+        int32 offset, uint *lastUpdatedRowIndex);
 
     template<class Fn>
     void IterateGlobalBailOutRecordTableRows(uint32 bailOutRecordId, Fn callback)

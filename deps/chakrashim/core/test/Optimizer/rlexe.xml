@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -35,6 +35,12 @@
     <default>
       <files>bug3831075.js</files>
       <compile-flags>-loopinterpretcount:1 -off:bailonnoprofile</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>bug5579910.js</files>
+      <compile-flags>-bgjit- -mic:1</compile-flags>
     </default>
   </test>
   <test>
@@ -82,6 +88,13 @@
   <test>
     <default>
       <files>shru_peep.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>shru_intrange.js</files>
+      <compile-flags>-lic:1 -off:simplejit</compile-flags>
+      <baseline>shru_intrange.baseline</baseline>
     </default>
   </test>
   <test>
@@ -1092,6 +1105,13 @@
       <baseline>LossyLosslessInt32.baseline</baseline>
     </default>
   </test>
+    <test>
+    <default>
+      <files>LossyLosslessInt32.js</files>
+      <compile-flags>-off:simplejit</compile-flags>
+      <baseline>LossyLosslessInt32.baseline</baseline>
+    </default>
+  </test>
   <test>
     <default>
       <files>AggressiveIntTypeSpec.js</files>
@@ -1319,6 +1339,38 @@
     <default>
       <files>trycatch_assert.js</files>
       <baseline>trycatch_assert.baseline</baseline>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>ToVarI32_x64.js</files>
+      <compile-flags>-force:rejit -off:ArrayCheckHoist -off:aggressiveinttypespec -off:bailonnoprofile -off:nativearray</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>forcedTypeSpecOnLoopHeader.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>memop-upperbound.js</files>
+      <baseline>memop-upperbound.baseline</baseline>
+      <compile-flags>-lic:1 -off:nativearray</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>forceRejitBugs.js</files>
+      <compile-flags>-mic:1 -off:simplejit -force:rejit</compile-flags>
+      <baseline>forceRejitBugs.baseline</baseline>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>negativeZero_bugs.js</files>
+      <compile-flags>-mic:2 -off:simplejit</compile-flags>
+      <baseline>negativeZero_bugs.baseline</baseline>
     </default>
   </test>
 </regress-exe>

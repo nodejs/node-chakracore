@@ -1,8 +1,9 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-#include "BackEnd.h"
+
+#include "Backend.h"
 
 const Js::ArgSlot StackSym::InvalidSlot = (Js::ArgSlot)-1;
 
@@ -741,6 +742,9 @@ StackSym::GetSimd128EquivSym(IRType type, Func *func)
     case TySimd128I4:
         return this->GetSimd128I4EquivSym(func);
         break;
+    case TySimd128I16:
+        return this->GetSimd128I16EquivSym(func);
+        break;
     case TySimd128D2:
         return this->GetSimd128D2EquivSym(func);
         break;
@@ -760,6 +764,12 @@ StackSym *
 StackSym::GetSimd128I4EquivSym(Func *func)
 {
     return this->GetTypeEquivSym(TySimd128I4, func);
+}
+
+StackSym *
+StackSym::GetSimd128I16EquivSym(Func *func)
+{
+    return this->GetTypeEquivSym(TySimd128I16, func);
 }
 
 StackSym *
@@ -795,7 +805,7 @@ StackSym::GetTypeEquivSym(IRType type, Func *func)
     int i = 1;
     while (sym != this)
     {
-        Assert(i <= 5); // circular of at most 6 syms : var, f64, i32, simd128I4, simd128F4, simd12D2
+        Assert(i <= 5); // circular of at most 6 syms : var, f64, i32, simd128I4, simd128F4, simd128D2
         if (sym->m_type == type)
         {
             return sym;
@@ -942,14 +952,14 @@ PropertySym::FindOrCreate(SymID stackSymID, int32 propertyId, uint32 propertyIdI
     return PropertySym::New(stackSymID, propertyId, propertyIdIndex, inlineCacheIndex, fieldKind, func);
 }
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-const wchar_t* PropertySym::GetName() const
+const char16* PropertySym::GetName() const
 {
     if (this->m_fieldKind == PropertyKindData)
     {
         return m_func->GetJnFunction()->GetScriptContext()->GetPropertyNameLocked(this->m_propertyId)->GetBuffer();
     }
     Assert(false);
-    return L"";
+    return _u("");
 }
 #endif
 #if DBG_DUMP || defined(ENABLE_IR_VIEWER)
@@ -970,11 +980,11 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
     {
         if (this->IsStackSym() && this->AsStackSym()->IsArgSlotSym())
         {
-            Output::Print(L"arg ");
+            Output::Print(_u("arg "));
         }
         else if (this->IsStackSym() && this->AsStackSym()->IsParamSlotSym())
         {
-            Output::Print(L"param ");
+            Output::Print(_u("param "));
         }
     }
     else
@@ -983,23 +993,23 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
         {
             if (this->AsStackSym()->m_isInlinedArgSlot)
             {
-                Output::Print(L"iarg%d", this->AsStackSym()->GetArgSlotNum());
+                Output::Print(_u("iarg%d"), this->AsStackSym()->GetArgSlotNum());
             }
             else
             {
-                Output::Print(L"arg%d", this->AsStackSym()->GetArgSlotNum());
+                Output::Print(_u("arg%d"), this->AsStackSym()->GetArgSlotNum());
             }
-            Output::Print(L"(s%d)", m_id);
+            Output::Print(_u("(s%d)"), m_id);
         }
         else if (this->IsStackSym() && this->AsStackSym()->IsParamSlotSym())
         {
-            Output::Print(L"prm%d", this->AsStackSym()->GetParamSlotNum());
+            Output::Print(_u("prm%d"), this->AsStackSym()->GetParamSlotNum());
         }
         else
         {
             if (!this->IsPropertySym() || !SimpleForm)
             {
-                Output::Print(L"s%d", m_id);
+                Output::Print(_u("s%d"), m_id);
             }
             if (this->IsStackSym())
             {
@@ -1013,7 +1023,7 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
                         {
                             uint index = sym->GetByteCodeRegSlot() - functionBody->GetConstantCount();
                             Js::PropertyId propertyId = functionBody->GetPropertyIdOnRegSlotsContainer()->propertyIdsForRegSlots[index];
-                            Output::Print(L"(%s)", functionBody->GetScriptContext()->GetPropertyNameLocked(propertyId)->GetBuffer());
+                            Output::Print(_u("(%s)"), functionBody->GetScriptContext()->GetPropertyNameLocked(propertyId)->GetBuffer());
                         }
                     }
                 }
@@ -1021,7 +1031,7 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
                 {
                     if (this->AsStackSym()->HasObjectTypeSym() && !SimpleForm)
                     {
-                        Output::Print(L"<s%d>", this->AsStackSym()->GetObjectTypeSym()->m_id);
+                        Output::Print(_u("<s%d>"), this->AsStackSym()->GetObjectTypeSym()->m_id);
                     }
                 }
                 else
@@ -1029,14 +1039,14 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
                     StackSym *varSym = this->AsStackSym()->GetVarEquivSym(nullptr);
                     if (varSym)
                     {
-                        Output::Print(L"(s%d)", varSym->m_id);
+                        Output::Print(_u("(s%d)"), varSym->m_id);
                     }
                 }
                 if (!SimpleForm)
                 {
                     if (this->AsStackSym()->m_builtInIndex != Js::BuiltinFunction::None)
                     {
-                        Output::Print(L"[ffunc]");
+                        Output::Print(_u("[ffunc]"));
                     }
                 }
             }
@@ -1053,7 +1063,7 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
 
         if (!SimpleForm)
         {
-            Output::Print(L"(");
+            Output::Print(_u("("));
         }
 
         Js::ScriptContext* scriptContext;
@@ -1064,17 +1074,17 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
             propertySym->m_stackSym->Dump(flags, valueType);
             scriptContext = propertySym->m_func->GetScriptContext();
             Js::PropertyRecord const* fieldName = scriptContext->GetPropertyNameLocked(propertySym->m_propertyId);
-            Output::Print(L"->%s", fieldName->GetBuffer());
+            Output::Print(_u("->%s"), fieldName->GetBuffer());
             break;
         }
         case PropertyKindSlots:
         case PropertyKindSlotArray:
             propertySym->m_stackSym->Dump(flags, valueType);
-            Output::Print(L"[%d]", propertySym->m_propertyId);
+            Output::Print(_u("[%d]"), propertySym->m_propertyId);
             break;
         case PropertyKindLocalSlots:
             propertySym->m_stackSym->Dump(flags, valueType);
-            Output::Print(L"l[%d]", propertySym->m_propertyId);
+            Output::Print(_u("l[%d]"), propertySym->m_propertyId);
             break;
         default:
             AssertMsg(0, "Unknown field kind");
@@ -1083,7 +1093,7 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
 
         if (!SimpleForm)
         {
-            Output::Print(L")");
+            Output::Print(_u(")"));
         }
     }
 }

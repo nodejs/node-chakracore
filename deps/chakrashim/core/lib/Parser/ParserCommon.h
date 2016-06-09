@@ -34,6 +34,20 @@ enum ErrorTypeEnum
 struct ParseNode;
 typedef ParseNode *ParseNodePtr;
 
+struct Ident;
+typedef Ident *IdentPtr;
+
+struct ModuleImportOrExportEntry
+{
+    IdentPtr moduleRequest;
+    IdentPtr importName;
+    IdentPtr localName;
+    IdentPtr exportName;
+};
+
+typedef SList<ModuleImportOrExportEntry, ArenaAllocator> ModuleImportOrExportEntryList;
+typedef SList<IdentPtr, ArenaAllocator> IdentPtrList;
+
 //
 // Below was moved from scrutil.h to share with chakradiag.
 //

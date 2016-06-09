@@ -52,9 +52,13 @@ namespace Js
         JavascriptProxy(DynamicType * type, ScriptContext * scriptContext, RecyclableObject* target, RecyclableObject* handler);
         static BOOL Is(Var obj);
         static JavascriptProxy* FromVar(Var obj) { Assert(Is(obj)); return static_cast<JavascriptProxy*>(obj); }
-        RecyclableObject* GetTarget() const { return target; }
-        RecyclableObject* GetHandler() const { return handler; }
-
+#ifndef IsJsDiag
+        RecyclableObject* GetTarget();
+        RecyclableObject* GetHandler();
+#else
+        RecyclableObject* GetTarget() { return target; }
+        RecyclableObject* GetHandler() { return handler; }
+#endif
         static Var NewInstance(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryRevocable(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryRevoke(RecyclableObject* function, CallInfo callInfo, ...);
@@ -64,6 +68,8 @@ namespace Js
 
         static BOOL GetOwnPropertyDescriptor(RecyclableObject* obj, PropertyId propertyId, ScriptContext* scriptContext, PropertyDescriptor* propertyDescriptor);
         static BOOL DefineOwnPropertyDescriptor(RecyclableObject* obj, PropertyId propId, const PropertyDescriptor& descriptor, bool throwOnError, ScriptContext* scriptContext);
+
+        static DWORD GetOffsetOfTarget() { return offsetof(JavascriptProxy, target); }
 
         virtual BOOL HasProperty(PropertyId propertyId) override;
         virtual BOOL HasOwnProperty(PropertyId propertyId) override;
@@ -166,7 +172,7 @@ namespace Js
 
                 if (!(JavascriptString::Is(element) || JavascriptSymbol::Is(element)))
                 {
-                    JavascriptError::ThrowTypeError(scriptContext, JSERR_InconsistentTrapResult, L"ownKeys");
+                    JavascriptError::ThrowTypeError(scriptContext, JSERR_InconsistentTrapResult, _u("ownKeys"));
                 }
 
                 JavascriptConversion::ToPropertyKey(element, scriptContext, &propertyRecord);

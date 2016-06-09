@@ -8,7 +8,7 @@ namespace Js
 {
     ObjectPrototypeObject::ObjectPrototypeObject(DynamicType* type) : DynamicObject(type)
     {
-        __proto__Enabled = GetScriptContext()->GetConfig()->Is__proto__Enabled();
+        __proto__Enabled = true; // TODO[ianhall]: Does this still apply if __proto__ is now always enabled? Check with JC
     }
 
     ObjectPrototypeObject * ObjectPrototypeObject::New(Recycler * recycler, DynamicType * type)
@@ -40,7 +40,7 @@ namespace Js
         RecyclableObject* object;
         if (args.Info.Count < 1 || !JavascriptConversion::ToObject(arg0, scriptContext, &object))
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedObject, L"Object.prototype.__proto__");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedObject, _u("Object.prototype.__proto__"));
         }
 
         // 3. Return O.[[GetPrototypeOf]]().
@@ -73,7 +73,7 @@ namespace Js
         // 4. If Type(O) is not Object, return undefined.
         if (args.Info.Count < 1 || !JavascriptConversion::CheckObjectCoercible(arg0, scriptContext))
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedObject, L"Object.prototype.__proto__");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedObject, _u("Object.prototype.__proto__"));
         }
         else if (args.Info.Count < 2 || !JavascriptOperators::IsObjectOrNull(args[1]) || !JavascriptOperators::IsObject(arg0))
         {
@@ -105,9 +105,9 @@ namespace Js
 
     void ObjectPrototypeObject::PostDefineOwnProperty__proto__(RecyclableObject* obj)
     {
-        ScriptContext* scriptContext = this->GetScriptContext();
-        if (obj == this && scriptContext->GetConfig()->Is__proto__Enabled())
+        if (obj == this)
         {
+            ScriptContext* scriptContext = this->GetScriptContext();
             Var getter, setter;
 
             // __proto__Enabled is now only used by diagnostics to decide displaying __proto__ or [prototype].

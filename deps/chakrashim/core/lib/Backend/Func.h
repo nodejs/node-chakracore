@@ -75,7 +75,6 @@ public:
         Js::RegSlot returnValueRegSlot = Js::Constants::NoRegister, const bool isInlinedConstructor = false,
         Js::ProfileId callSiteIdInParentFunc = UINT16_MAX, bool isGetterSetter = false);
 public:
-    ArenaAllocator *GetCodeGenAllocator() const { return &this->m_codeGenAllocators->allocator; }
     CodeGenAllocators * const GetCodeGenAllocators()
     {
         return this->GetTopFunc()->m_codeGenAllocators;
@@ -195,7 +194,7 @@ static const unsigned __int64 c_debugFillPattern8 = 0xcececececececece;
 #elif defined(_M_X64) || defined(_M_ARM64)
     static const unsigned __int64 c_debugFillPattern = c_debugFillPattern8;
 #else
-#error unsuported platform
+#error unsupported platform
 #endif
 
 #endif
@@ -266,6 +265,9 @@ static const unsigned __int64 c_debugFillPattern8 = 0xcececececececece;
 
     StackSym *GetLocalClosureSym() const { return m_localClosureSym; }
     void SetLocalClosureSym(StackSym *sym) { m_localClosureSym = sym; }
+
+    StackSym *GetParamClosureSym() const { return m_paramClosureSym; }
+    void SetParamClosureSym(StackSym *sym) { m_paramClosureSym = sym; }
 
     StackSym *GetLocalFrameDisplaySym() const { return m_localFrameDisplaySym; }
     void SetLocalFrameDisplaySym(StackSym *sym) { m_localFrameDisplaySym = sym; }
@@ -469,6 +471,7 @@ public:
     StackSym *          m_scriptContextSym;
     StackSym *          m_functionBodySym;
     StackSym *          m_localClosureSym;
+    StackSym *          m_paramClosureSym;
     StackSym *          m_localFrameDisplaySym;
     StackSym *          m_bailoutReturnValueSym;
     StackSym *          m_hasBailedOutSym;
@@ -502,6 +505,7 @@ public:
     unsigned int        m_labelCount;
     BitVector           m_regsUsed;
     StackSym *          tempSymDouble;
+    StackSym *          tempSymBool;
     uint32              loopCount;
     Js::ProfileId       callSiteIdInParentFunc;
     bool                m_isLeaf: 1;  // This is set in the IRBuilder and might be inaccurate after inlining

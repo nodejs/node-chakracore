@@ -39,7 +39,7 @@ namespace regex
         }
 
         // Info:        Return a list with the given value appended to this one <Note this modifies existing list>
-        //              It is requred that the tail passed is empty if this is empty list otherwise its the last node of this list
+        //              It is required that the tail passed is empty if this is empty list otherwise its the last node of this list
         // Parameters:  value - the value to append
         //              tail - last node of the new list
         ImmutableList<T> * Append(T value, ArenaAllocator * a, ImmutableList<T> **tail)
@@ -90,7 +90,7 @@ namespace regex
         }
 
         // Info:        Return the list which is resulted by appending array to the current list<Note this modifies existing list>
-        //              It is requred that the tail passed is empty if this is empty list otherwise its the last node of this list
+        //              It is required that the tail passed is empty if this is empty list otherwise its the last node of this list
         // Parameters:  arr - the array to append
         //              count - the elements in the array
         //              tail - last node of the new list
@@ -577,7 +577,7 @@ namespace regex
             return WhereInPlace([&](T seen) {return seen != value;});
         }
 
-        // Info:        Return the value from a list with exacly one element. Throw if there are 0 or 2+ elements.
+        // Info:        Return the value from a list with exactly one element. Throw if there are 0 or 2+ elements.
         T ToSingle()
         {
             Js::VerifyCatastrophic(Count()==1);
@@ -706,7 +706,7 @@ namespace regex
             auto arr = ToReferenceArrayInHeap(size);
             QuickSort<T *, true>::Sort(arr, arr+(size-1), comparer);
 
-            // Converet the reference Array into the List
+            // Convert the reference Array into the List
             auto result = (ImmutableList<T>*)(arr[0] - offsetof(ImmutableList<T>, value));
             auto current = result;
             for(size_t i = 1; i<size; ++i)
@@ -731,7 +731,7 @@ namespace regex
             auto arr = ToReferenceArrayInHeap(size);
             QuickSort<T *, true>::Sort(arr, arr+(size-1), comparer);
 
-            // Converet the reference Array into the List
+            // Convert the reference Array into the List
             auto result = (ImmutableList<T>*)(arr[0] - offsetof(ImmutableList<T>, value));
             result->next = nullptr;
             for(size_t i = 1; i<size; ++i)
@@ -861,7 +861,7 @@ namespace regex
 
         void Append(T newEntry)
         {
-            // Genreate new chunk
+            // Generate new chunk
             if (currentIndex == arraySize)
             {
                 T * newChunk = AllocatorNewArray(TAllocator, allocator, T, arraySize + chunkSize);
@@ -964,7 +964,7 @@ namespace regex
 
         void AppendBool(bool value)
         {
-            this->Append(value ? L"true" : L"false");
+            this->Append(value ? _u("true") : _u("false"));
         }
 
         void Append(LPCWSTR str)
@@ -980,7 +980,7 @@ namespace regex
                 Js::Throw::OutOfMemory();
             }
 
-            // Genreate new chunk
+            // Generate new chunk
             if (currentIndex == chunkSize)
             {
                 StringChunk *newChunk = new StringChunk();
@@ -1009,8 +1009,8 @@ namespace regex
         template<class TAllocator>
         LPCWSTR Get(TAllocator *allocator)
         {
-            wchar_t *str = AllocatorNewArray(TAllocator, allocator, wchar_t, stringSize);
-            str[0] = L'\0';
+            char16 *str = AllocatorNewArray(TAllocator, allocator, char16, stringSize);
+            str[0] = _u('\0');
 
             auto current = head;
             while (current != nullptr)

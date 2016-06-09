@@ -47,20 +47,20 @@ struct AorW< UTF8Char >
     // Expressing the args as "arrays of size N" ensures that the both args
     // are the same length. If not, we get a compile time error.
     template< size_t N >
-    static const UTF8Char* Choose( const char (&a)[N], const wchar_t (&w)[N] )
+    static const UTF8Char* Choose( const char (&a)[N], const char16 (&w)[N] )
     {
         // The reinterpret_cast is necessary to go from signed to unsigned char
         return reinterpret_cast< const UTF8Char* >(a);
     }
 
     template< size_t N >
-    static const bool Test(const char (&a)[N], const wchar_t (&w)[N], LPCUTF8 value)
+    static const bool Test(const char (&a)[N], const char16 (&w)[N], LPCUTF8 value)
     {
         return 0 == memcmp(a, value, (N - 1) * sizeof(utf8char_t));
     }
 
     template< size_t N >
-    static const bool Test(const char (&a)[N], const wchar_t (&w)[N], LPCUTF8 start, LPCUTF8 end)
+    static const bool Test(const char (&a)[N], const char16 (&w)[N], LPCUTF8 start, LPCUTF8 end)
     {
         return (end - start == N - 1) && (0 == memcmp(a, start, (N - 1) * sizeof(utf8char_t)));
     }
@@ -71,21 +71,21 @@ template<>
 struct AorW< OLECHAR >
 {
     template< size_t N >
-    static const wchar_t* Choose( const char (&a)[N], const wchar_t (&w)[N] )
+    static const char16* Choose( const char (&a)[N], const char16 (&w)[N] )
     {
         return w;
     }
 
     template < size_t N >
-    static bool Test(const char (&a)[N], const wchar_t (&w)[N], const wchar_t *value)
+    static bool Test(const char (&a)[N], const char16 (&w)[N], const char16 *value)
     {
-        return 0 == memcmp(w, value, (N - 1) * sizeof(wchar_t));
+        return 0 == memcmp(w, value, (N - 1) * sizeof(char16));
     }
 
     template < size_t N >
-    static bool Test(const char (&a)[N], const wchar_t (&w)[N], const wchar_t *start, const wchar_t *end)
+    static bool Test(const char (&a)[N], const char16 (&w)[N], const char16 *start, const char16 *end)
     {
-        return (end - start == N - 1) && (0 == memcmp(w, start, (N - 1) * sizeof(wchar_t)));
+        return (end - start == N - 1) && (0 == memcmp(w, start, (N - 1) * sizeof(char16)));
     }
 };
 
@@ -202,7 +202,7 @@ void Scanner<EncodingPolicy>::SetText(EncodedCharPtr pszSrc, size_t offset, size
     m_startLine = lineNumber;
     m_pchStartLine = m_currentCharacter;
     m_ptoken->tk = tkNone;
-    m_fHtmlComments = (grfscr & fscrHtmlComments) != 0;
+    m_fIsModuleCode = (grfscr & fscrIsModuleCode) != 0;
     m_fHadEol = FALSE;
     m_fSyntaxColor = (grfscr & fscrSyntaxColor) != 0;
     m_DeferredParseFlags = ScanFlagNone;
@@ -212,7 +212,7 @@ template <typename EncodingPolicy>
 void Scanner<EncodingPolicy>::PrepareForBackgroundParse(Js::ScriptContext *scriptContext)
 {
     scriptContext->GetThreadContext()->GetStandardChars((EncodedChar*)0);
-    scriptContext->GetThreadContext()->GetStandardChars((wchar_t*)0);
+    scriptContext->GetThreadContext()->GetStandardChars((char16*)0);
 }
 
 //-----------------------------------------------------------------------------
@@ -606,7 +606,7 @@ ulong Scanner<EncodingPolicy>::UnescapeToTempBuf(EncodedCharPtr p, EncodedCharPt
         }
         else
         {
-            wchar_t lower, upper;
+            char16 lower, upper;
             Js::NumberUtilities::CodePointAsSurrogatePair(codePoint, &lower, &upper);
             m_tempChBuf.AppendCh(lower);
             m_tempChBuf.AppendCh(upper);
@@ -640,7 +640,7 @@ IdentPtr Scanner<EncodingPolicy>::PidOfIdentiferAt(EncodedCharPtr p, EncodedChar
     else
     {
         Assert(sizeof(EncodedChar) == 2);
-        return m_phtbl->PidHashNameLen(reinterpret_cast< const wchar_t * >(p), (long)(last - p));
+        return m_phtbl->PidHashNameLen(reinterpret_cast< const char16 * >(p), (long)(last - p));
     }
 }
 
@@ -677,10 +677,6 @@ typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanN
                 return pchT;
         case 'o':
         case 'O':
-            if (!this->m_scriptContext->GetConfig()->IsES6NumericLiteralEnabled())
-            {
-                goto LDefaultFScanNumber;
-            }
             // Octal
             *pdbl = Js::NumberUtilities::DblFromOctal(p + 2, &pchT);
             if (pchT == p + 2)
@@ -693,10 +689,6 @@ typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanN
 
         case 'b':
         case 'B':
-            if (!this->m_scriptContext->GetConfig()->IsES6NumericLiteralEnabled())
-            {
-                goto LDefaultFScanNumber;
-            }
             // Binary
             *pdbl = Js::NumberUtilities::DblFromBinary(p + 2, &pchT);
             if (pchT == p + 2)
@@ -708,7 +700,6 @@ typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanN
             return  pchT;
 
         default:
-LDefaultFScanNumber :
             // Octal
             *pdbl = Js::NumberUtilities::DblFromOctal(p, &pchT);
             Assert(pchT > p);
@@ -773,10 +764,6 @@ BOOL Scanner<EncodingPolicy>::oFScanNumber(double *pdbl, bool& likelyInt)
             break;
         case 'o':
         case 'O':
-            if (!this->m_scriptContext->GetConfig()->IsES6NumericLiteralEnabled())
-            {
-                goto LDefaultoFScanNumber;
-            }
             *pdbl = Js::NumberUtilities::DblFromOctal(m_currentCharacter + 2, &pchT);
             if (pchT == m_currentCharacter + 2)
             {
@@ -790,11 +777,6 @@ BOOL Scanner<EncodingPolicy>::oFScanNumber(double *pdbl, bool& likelyInt)
 
         case 'b':
         case 'B':
-            if (!this->m_scriptContext->GetConfig()->IsES6NumericLiteralEnabled())
-            {
-                goto LDefaultoFScanNumber;
-            }
-
             *pdbl = Js::NumberUtilities::DblFromBinary(m_currentCharacter + 2, &pchT);
             if (pchT == m_currentCharacter + 2)
             {
@@ -807,7 +789,6 @@ BOOL Scanner<EncodingPolicy>::oFScanNumber(double *pdbl, bool& likelyInt)
             break;
 
         default:
-LDefaultoFScanNumber :
             // Octal.
             *pdbl = Js::NumberUtilities::DblFromOctal(m_currentCharacter, &pchT);
             Assert(pchT > m_currentCharacter);
@@ -884,7 +865,7 @@ tokens Scanner<EncodingPolicy>::RescanRegExp()
     tokens tk = tkNone;
 
     {
-        ArenaAllocator alloc(L"RescanRegExp", m_parser->GetAllocator()->GetPageAllocator(), m_parser->GetAllocator()->outOfMemoryFunc);
+        ArenaAllocator alloc(_u("RescanRegExp"), m_parser->GetAllocator()->GetPageAllocator(), m_parser->GetAllocator()->outOfMemoryFunc);
         tk = ScanRegExpConstant(&alloc);
     }
 
@@ -917,7 +898,7 @@ tokens Scanner<EncodingPolicy>::RescanRegExpNoAST()
     tokens tk = tkNone;
 
     {
-        ArenaAllocator alloc(L"RescanRegExp", m_parser->GetAllocator()->GetPageAllocator(), m_parser->GetAllocator()->outOfMemoryFunc);
+        ArenaAllocator alloc(_u("RescanRegExp"), m_parser->GetAllocator()->GetPageAllocator(), m_parser->GetAllocator()->outOfMemoryFunc);
         {
             tk = ScanRegExpConstantNoAST(&alloc);
         }
@@ -953,7 +934,7 @@ tokens Scanner<EncodingPolicy>::RescanRegExpTokenizer()
 
     ThreadContext *threadContext = ThreadContext::GetContextForCurrentThread();
     threadContext->EnsureRecycler();
-    Js::TempArenaAllocatorObject *alloc = threadContext->GetTemporaryAllocator(L"RescanRegExp");
+    Js::TempArenaAllocatorObject *alloc = threadContext->GetTemporaryAllocator(_u("RescanRegExp"));
     __try
     {
         tk = ScanRegExpConstantNoAST(alloc->GetAllocator());
@@ -985,7 +966,7 @@ tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
 #endif
     ArenaAllocator* ctAllocator = alloc;
     UnifiedRegex::StandardChars<EncodedChar>* standardEncodedChars = m_scriptContext->GetThreadContext()->GetStandardChars((EncodedChar*)0);
-    UnifiedRegex::StandardChars<wchar_t>* standardChars = m_scriptContext->GetThreadContext()->GetStandardChars((wchar_t*)0);
+    UnifiedRegex::StandardChars<char16>* standardChars = m_scriptContext->GetThreadContext()->GetStandardChars((char16*)0);
 #if ENABLE_REGEX_CONFIG_OPTIONS
     UnifiedRegex::DebugWriter *w = 0;
     if (REGEX_CONFIG_FLAG(RegexDebug))
@@ -1052,7 +1033,7 @@ tokens Scanner<EncodingPolicy>::ScanRegExpConstantNoAST(ArenaAllocator* alloc)
 
     ThreadContext *threadContext = m_fSyntaxColor ? ThreadContext::GetContextForCurrentThread() : m_scriptContext->GetThreadContext();
     UnifiedRegex::StandardChars<EncodedChar>* standardEncodedChars = threadContext->GetStandardChars((EncodedChar*)0);
-    UnifiedRegex::StandardChars<wchar_t>* standardChars = threadContext->GetStandardChars((wchar_t*)0);
+    UnifiedRegex::StandardChars<char16>* standardChars = threadContext->GetStandardChars((char16*)0);
     charcount_t totalLen = 0, bodyChars = 0, totalChars = 0, bodyLen = 0;
     UnifiedRegex::Parser<EncodingPolicy, true> parser
             ( m_scriptContext
@@ -1175,11 +1156,6 @@ tokens Scanner<EncodingPolicy>::ScanStringConstant(OLECHAR delim, EncodedCharPtr
     int wT;
     EncodedCharPtr p = *pp;
     EncodedCharPtr last = m_pchLast;
-
-    if (stringTemplateMode)
-    {
-        Assert(m_scriptContext->GetConfig()->IsES6StringTemplateEnabled());
-    }
 
     // Reset
     m_OctOrLeadingZeroOnLastTKNumber = false;
@@ -1382,7 +1358,7 @@ LMainDefault:
                 }
                 else
                 {
-                    ch = (wchar_t)codePoint;
+                    ch = (char16)codePoint;
                 }
 
                 // In raw mode we want the last hex character or the closing curly. c should hold one or the other.
@@ -1453,9 +1429,9 @@ LTwoHex:
                 }
 
                 wT = (c = ReadFirst(p, last)) - '0';
-                if ((wchar_t)wT > 7)
+                if ((char16)wT > 7)
                 {
-                    if (ch != 0 || ((wchar_t)wT <= 9))
+                    if (ch != 0 || ((char16)wT <= 9))
                     {
                         m_OctOrLeadingZeroOnLastTKNumber = true;
                     }
@@ -1485,7 +1461,7 @@ LTwoHex:
 
 LOneOctal:
                 wT = (c = ReadFirst(p, last)) - '0';
-                if ((wchar_t)wT > 7)
+                if ((char16)wT > 7)
                 {
                     p--;
                     break;
@@ -1581,7 +1557,7 @@ LBreak:
     {
         createPid = false;
 
-        if ((m_tempChBuf.m_ichCur == 10) && (0 == memcmp(L"use strict", m_tempChBuf.m_prgch, m_tempChBuf.m_ichCur * sizeof(OLECHAR))))
+        if ((m_tempChBuf.m_ichCur == 10) && (0 == memcmp(_u("use strict"), m_tempChBuf.m_prgch, m_tempChBuf.m_ichCur * sizeof(OLECHAR))))
         {
             createPid = true;
         }
@@ -1638,6 +1614,8 @@ tokens Scanner<EncodingPolicy>::SkipComment(EncodedCharPtr *pp, /* out */ bool* 
                 return tkNone;
             }
             break;
+
+        // ES 2015 11.3 Line Terminators
         case kchLS:         // 0x2028, classifies as new line
         case kchPS:         // 0x2029, classifies as new line
 LEcmaLineBreak:
@@ -1780,6 +1758,7 @@ tokens Scanner<EncodingPolicy>::ScanCore(bool identifyKwds)
     m_fHadEol = FALSE;
     CharTypes chType;
     charcount_t commentStartLine;
+    bool seenDelimitedCommentEnd = false;
 
     if (m_scanState && *p != 0)
     {
@@ -1807,8 +1786,6 @@ tokens Scanner<EncodingPolicy>::ScanCore(bool identifyKwds)
         {
             AssertMsg(m_fStringTemplateDepth > 0,
                 "Shouldn't be trying to parse a string template end or middle token if we aren't scanning a string template");
-            AssertMsg(m_scriptContext->GetConfig()->IsES6StringTemplateEnabled(),
-                "Shouldn't be in string template parse mode if string templates are not enabled.");
 
             m_scanState = ScanStateNormal;
 
@@ -1832,7 +1809,6 @@ LLoop:
         switch (ch)
         {
         default:
-LLoopDefault:
             if (ch == kchLS ||
                 ch == kchPS )
             {
@@ -1961,16 +1937,19 @@ LEof:
             }
         case '(': Assert(chType == _C_LPR); token = tkLParen; break;
         case ')': Assert(chType == _C_RPR); token = tkRParen; break;
-        case ',': Assert(chType == _C_CMA); token = tkComma; break;
+        case ',': Assert(chType == _C_CMA); token = tkComma;  break;
         case ';': Assert(chType == _C_SMC); token = tkSColon; break;
         case '[': Assert(chType == _C_LBR); token = tkLBrack; break;
         case ']': Assert(chType == _C_RBR); token = tkRBrack; break;
-        case '~': Assert(chType == _C_TIL); token = tkTilde; break;
-        case '?': Assert(chType == _C_QUE); token = tkQMark; break;
-        case '{': Assert(chType == _C_LC); token = tkLCurly; break;
+        case '~': Assert(chType == _C_TIL); token = tkTilde;  break;
+        case '?': Assert(chType == _C_QUE); token = tkQMark;  break;
+        case '{': Assert(chType == _C_LC);  token = tkLCurly; break;
 
+        // ES 2015 11.3 Line Terminators
         case '\r':
         case '\n':
+        // kchLS:
+        // kchPS:
 LNewLine:
             m_currentCharacter = p;
             ScanNewLine(ch);
@@ -2028,16 +2007,9 @@ LIdentifier:
         case '`':
             Assert(chType == _C_BKQ);
 
-            if (m_scriptContext->GetConfig()->IsES6StringTemplateEnabled())
-            {
-                pchT = p;
-                token = ScanStringTemplateBegin(&pchT);
-                p = pchT;
-            }
-            else
-            {
-                goto LLoopDefault;
-            }
+            pchT = p;
+            token = ScanStringTemplateBegin(&pchT);
+            p = pchT;
             break;
 
         case '}':
@@ -2078,11 +2050,8 @@ LIdentifier:
                 }
                 break;
             case '>':
-                if (m_scriptContext->GetConfig()->IsES6LambdaEnabled())
-                {
-                    p++;
-                    token = tkDArrow;
-                }
+                p++;
+                token = tkDArrow;
                 break;
             }
             break;
@@ -2124,36 +2093,11 @@ LIdentifier:
             case '-':
                 p++;
                 token = tkDec;
-                if (m_fHtmlComments)
+                if (!m_fIsModuleCode)
                 {
-                    int i = 0;
-                    while ('-' == PeekFirst(p + i, last)) //Have already seen --, skip any further - characters
-                        i++;
-                    if ('>' == PeekFirst(p + i++, last)) //This means we've got a --------------------------->.
+                    if ('>' == PeekFirst(p, last) && (m_fHadEol || seenDelimitedCommentEnd)) // --> HTMLCloseComment
                     {
-                        //If that precedes an EOF or }NWL (disregarding whitespace), then it is a comment.
-                        OLECHAR nextChar;
-                        nextChar = NextNonWhiteChar(&p[i], last);
-                        if (nextChar == 0)
-                        {
-                            //Treat the -----------------------------> EOF as if it were EOF
-                            token = tkEOF;
-                            ++p;
-                        }
-                        else if (nextChar == '}')
-                        {
-                            CharTypes nextNextCharType = this->charClassifier->GetCharType(NextNonWhiteCharPlusOne(&p[i], last));
-                            if (nextNextCharType == _C_NWL
-                                // Corner case: If we have reached the end of the source, either we are at the end of the file or the end of
-                                // a deferred function. We treat this case as NWL.
-                                // TODO(tcare): Update to ES6 spec. Tracked in Bug 1164686
-                                || (last == m_pchLast && nextNextCharType == _C_NUL))
-                            {
-                                //Treat the -----------------------------> }NWL as if it were }NWL
-                                p += i;
-                                continue;
-                            }
-                        }
+                        goto LSkipLineComment;
                     }
                 }
                 break;
@@ -2192,7 +2136,7 @@ LIdentifier:
             case '/':
                 if (p >= last)
                 {
-                    AssertMsg(m_fHtmlComments, "Do we have other line comment cases scanning pass last?");
+                    AssertMsg(!m_fIsModuleCode, "Do we have other line comment cases scanning pass last?");
 
                     // Effective source length may have excluded HTMLCommentSuffix "//... -->". If we are scanning
                     // those, we have passed "last" already. Move back and return EOF.
@@ -2288,6 +2232,7 @@ LMultiLineComment:
                     // of deciding whether to defer AST and byte code generation.
                     m_parser->ReduceDeferredScriptLength((ULONG)(pchT - m_pchMinTok));
                     p = pchT;
+                    seenDelimitedCommentEnd = true;
                     goto LLoop;
                 }
                 p = pchT;
@@ -2323,7 +2268,8 @@ LMultiLineComment:
                 }
                 break;
             case '!':
-                if (m_fHtmlComments && PeekFirst(p + 1, last) == '-' && PeekFirst(p + 2, last) == '-')
+                // ES 2015 B.1.3 -  HTML comments are only allowed when parsing non-module code.
+                if (!m_fIsModuleCode && PeekFirst(p + 1, last) == '-' && PeekFirst(p + 2, last) == '-')
                 {
                     // This is a "<!--" comment - treat as //
                     if (p >= last)
@@ -2504,11 +2450,32 @@ void Scanner<EncodingPolicy>::Capture(_Out_ RestorePoint* restorePoint, uint fun
 template <typename EncodingPolicy>
 void Scanner<EncodingPolicy>::SeekTo(const RestorePoint& restorePoint)
 {
+    SeekAndScan<false>(restorePoint);
+}
+
+template <typename EncodingPolicy>
+void Scanner<EncodingPolicy>::SeekToForcingPid(const RestorePoint& restorePoint)
+{
+    SeekAndScan<true>(restorePoint);
+}
+
+template <typename EncodingPolicy>
+template <bool forcePid>
+void Scanner<EncodingPolicy>::SeekAndScan(const RestorePoint& restorePoint)
+{
     this->m_currentCharacter = this->m_pchBase + restorePoint.m_ichMinTok + restorePoint.m_cMinTokMultiUnits;
     this->m_pchMinLine = this->m_pchBase + restorePoint.m_ichMinLine + restorePoint.m_cMinLineMultiUnits;
     this->m_cMinLineMultiUnits = restorePoint.m_cMinLineMultiUnits;
     this->RestoreMultiUnits(restorePoint.m_cMinTokMultiUnits);
-    this->Scan();
+
+    if (forcePid)
+    {
+        this->ScanForcingPid();
+    }
+    else
+    {
+        this->Scan();
+    }
 
     this->m_line = restorePoint.m_line;
     this->m_fHadEol = restorePoint.m_fHadEol;

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Condition="'$(ChakraBuildPathImported)'!='true'" Project="$(SolutionDir)Chakra.Build.Paths.props" />
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.ProjectConfiguration.props" />
@@ -24,6 +24,7 @@
         $(MSBuildThisFileDirectory)..;
         $(MSBuildThisFileDirectory)..\..\Common;
         $(MSBuildThisFileDirectory)..\..\Parser;
+        $(MSBuildThisFileDirectory)..\..\Runtime\ByteCode;
         $(MSBuildThisFileDirectory)..\..\Backend;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
@@ -52,13 +53,13 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)ScriptContextProfiler.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ScriptContextOptimizationOverrideInfo.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)SourceHolder.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)ScriptMemoryDumper.cpp" />    
+    <ClCompile Include="$(MSBuildThisFileDirectory)ScriptMemoryDumper.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)StackProber.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)TestEtwEventSink.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)TempArenaAllocatorObject.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ThreadBoundThreadContextManager.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ThreadContext.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)ThreadContextTLSEntry.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)ThreadContextTlsEntry.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ThreadServiceWrapperBase.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Utf8SourceInfo.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WindowsFoundationAdapter.cpp" />
@@ -68,7 +69,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CompactCounters.h" />
     <ClInclude Include="RuntimeBasePch.h" />
+    <ClInclude Include="AuxPtrs.h" />
     <ClInclude Include="CallInfo.h" />
     <ClInclude Include="CharStringCache.h" />
     <ClInclude Include="Constants.h" />
@@ -100,15 +103,15 @@
     <ClInclude Include="TempArenaAllocatorObject.h" />
     <ClInclude Include="TestEtwEventSink.h" />
     <ClInclude Include="ThreadBoundThreadContextManager.h" />
+    <ClInclude Include="ThreadConfigFlagsList.h" />
     <ClInclude Include="ThreadContext.h" />
-    <ClInclude Include="ThreadContextTLSEntry.h" />
+    <ClInclude Include="ThreadContextTlsEntry.h" />
     <ClInclude Include="ThreadServiceWrapper.h" />
     <ClInclude Include="ThreadServiceWrapperBase.h" />
     <ClInclude Include="Utf8SourceInfo.h" />
     <ClInclude Include="WindowsFoundationAdapter.h" />
     <ClInclude Include="WindowsGlobalizationAdapter.h" />
-    <None Include="ScriptContext.inl" />
   </ItemGroup>
-  <Import Project="$(BuildConfigPropsPath)Chakra.Build.targets" Condition="exists('$(BuildConfigPropsPath)Chakra.Build.targets')"/>
+  <Import Project="$(BuildConfigPropsPath)Chakra.Build.targets" Condition="exists('$(BuildConfigPropsPath)Chakra.Build.targets')" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

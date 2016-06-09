@@ -167,6 +167,7 @@ namespace Js
 
     BOOL DynamicObject::GetObjectArrayItem(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
+        *value = requestContext->GetMissingItemResult();
         return HasObjectArray() && GetObjectArrayOrFlagsAsArray()->GetItem(originalInstance, index, value, requestContext);
     }
 
@@ -522,7 +523,7 @@ namespace Js
 
         if (PHASE_TRACE1(Js::ObjectHeaderInliningPhase))
         {
-            Output::Print(L"ObjectHeaderInlining: De-optimizing the object.\n");
+            Output::Print(_u("ObjectHeaderInlining: De-optimizing the object.\n"));
             Output::Flush();
         }
 
@@ -622,7 +623,7 @@ namespace Js
         // Get type handler again, in case it got changed by SetIsPrototype.
         currentTypeHandler = this->GetTypeHandler();
 
-        // Set the object array as an prototype as well, so if it is an ES5 array, we will disable the array set element fast path
+        // Set the object array as a prototype as well, so if it is an ES5 array, we will disable the array set element fast path
         ArrayObject * objectArray = this->GetObjectArray();
         if (objectArray)
         {
@@ -671,7 +672,7 @@ namespace Js
 
         // Consider: Because we've disabled fixed properties on DOM objects, we don't need to rely on a type change here to
         // invalidate fixed properties.  Under some circumstances (with F12 tools enabled) an object which
-        // is already in the new context can be reset and newType == oldType. If we reeanable fixed properties on DOM objects
+        // is already in the new context can be reset and newType == oldType. If we re-enable fixed properties on DOM objects
         // we'll have to investigate and address this issue.
         // Assert(newType != oldType);
         // We only expect DOM objects to ever be reset and we explicitly disable fixed properties on DOM objects.
@@ -705,19 +706,19 @@ namespace Js
         //     of being wrapped in CrossSite<>.
 
         Var stackTraceValue = nullptr;
-        if (this->GetInternalProperty(this, InternalPropertyIds::StackTrace, &stackTraceValue, nullptr, nullptr))
+        if (this->GetInternalProperty(this, InternalPropertyIds::StackTrace, &stackTraceValue, nullptr, this->GetScriptContext()))
         {
             this->SetInternalProperty(InternalPropertyIds::StackTrace, nullptr, PropertyOperation_None, nullptr);
         }
 
         Var weakMapKeyMapValue = nullptr;
-        if (this->GetInternalProperty(this, InternalPropertyIds::WeakMapKeyMap, &weakMapKeyMapValue, nullptr, nullptr))
+        if (this->GetInternalProperty(this, InternalPropertyIds::WeakMapKeyMap, &weakMapKeyMapValue, nullptr, this->GetScriptContext()))
         {
             this->SetInternalProperty(InternalPropertyIds::WeakMapKeyMap, nullptr, PropertyOperation_Force, nullptr);
         }
 
         Var mutationBpValue = nullptr;
-        if (this->GetInternalProperty(this, InternalPropertyIds::MutationBp, &mutationBpValue, nullptr, nullptr))
+        if (this->GetInternalProperty(this, InternalPropertyIds::MutationBp, &mutationBpValue, nullptr, this->GetScriptContext()))
         {
             this->SetInternalProperty(InternalPropertyIds::MutationBp, nullptr, PropertyOperation_Force, nullptr);
         }

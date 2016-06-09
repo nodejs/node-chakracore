@@ -2,7 +2,7 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-#include "BackEnd.h"
+#include "Backend.h"
 
 #ifdef ENABLE_NATIVE_CODEGEN
 #ifdef _M_X64
@@ -189,8 +189,8 @@ const BYTE InterpreterThunkEmitter::HeaderSize = sizeof(InterpreterThunk);
 const BYTE InterpreterThunkEmitter::ThunkSize = sizeof(Call);
 const uint InterpreterThunkEmitter::ThunksPerBlock = (BlockSize - HeaderSize) / ThunkSize;
 
-InterpreterThunkEmitter::InterpreterThunkEmitter(AllocationPolicyManager * policyManager, ArenaAllocator* allocator, void * interpreterThunk) :
-    emitBufferManager(policyManager, allocator, /*scriptContext*/ nullptr, L"Interpreter thunk buffer", /*allocXdata*/ false),
+InterpreterThunkEmitter::InterpreterThunkEmitter(ArenaAllocator* allocator, CustomHeap::CodePageAllocators * codePageAllocators, void * interpreterThunk) :
+    emitBufferManager(allocator, codePageAllocators, /*scriptContext*/ nullptr, _u("Interpreter thunk buffer")),
     allocation(nullptr),
     allocator(allocator),
     thunkCount(0),
@@ -554,12 +554,12 @@ DWORD InterpreterThunkEmitter::CopyWithAlignment(
 void InterpreterThunkEmitter::Close()
 {
 #if PDATA_ENABLED
-    auto unregiserPdata = ([&] (const ThunkBlock& block)
+    auto unregisterPdata = ([&] (const ThunkBlock& block)
     {
         PDataManager::UnregisterPdata((PRUNTIME_FUNCTION) block.GetPdata());
     });
-    thunkBlocks.Iterate(unregiserPdata);
-    freeListedThunkBlocks.Iterate(unregiserPdata);
+    thunkBlocks.Iterate(unregisterPdata);
+    freeListedThunkBlocks.Iterate(unregisterPdata);
 #endif
     this->thunkBlocks.Clear(allocator);
     this->freeListedThunkBlocks.Clear(allocator);

@@ -16,7 +16,7 @@ namespace Js
                 uint16 preventdataSlotIndexFalseRef;
                 uint16 dataSlotIndex;
             };
-            intptr ptrSlot1;
+            intptr_t ptrSlot1;
         };
         union
         {
@@ -26,24 +26,23 @@ namespace Js
                 bool isInlineSlot;
                 bool isStoreFieldEnabled;
             };
-            intptr ptrSlot2;
+            intptr_t ptrSlot2;
         };
-        intptr blank;
+        intptr_t blank;
     };
 
     CompileAssert(sizeof(PropertyCache) == sizeof(InlineCacheAllocator::CacheLayout));
     CompileAssert(offsetof(PropertyCache, blank) == offsetof(InlineCacheAllocator::CacheLayout, strongRef));
 
-    class PropertyString sealed : public JavascriptString
+    class PropertyString : public JavascriptString
     {
     protected:
         PropertyCache* propCache;
-        bool registerScriptContext;
         const Js::PropertyRecord* m_propertyRecord;
         DEFINE_VTABLE_CTOR(PropertyString, JavascriptString);
         DECLARE_CONCRETE_STRING_CLASS;
 
-        PropertyString(StaticType* type, const Js::PropertyRecord* propertyRecord, bool registerScriptContext);
+        PropertyString(StaticType* type, const Js::PropertyRecord* propertyRecord);
     public:
         PropertyCache const * GetPropertyCache() const;
         void ClearPropertyCache();
@@ -55,7 +54,17 @@ namespace Js
 
         virtual void const * GetOriginalStringReference() override;
         virtual RecyclableObject * CloneToScriptContext(ScriptContext* requestContext) override;
+        virtual bool IsAreanaAllocPropertyString() { return false; }
 
         static uint32 GetOffsetOfPropertyCache() { return offsetof(PropertyString, propCache); }
+    };
+
+    class AreanaAllocPropertyString sealed : public PropertyString
+    {
+        friend PropertyString;
+    protected:
+        AreanaAllocPropertyString(StaticType* type, const Js::PropertyRecord* propertyRecord);
+    public:
+        virtual bool IsAreanaAllocPropertyString() override { return true; }
     };
 }

@@ -2,7 +2,7 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-// Shared intepreter loop
+// Shared interpreter loop
 //
 // This holds the single definition of the interpreter loop.
 // It allows for configurable copies of the loop that do extra work without
@@ -233,7 +233,6 @@ SWAP_BP_FOR_OPCODE:
             }
             case INTERPRETER_OPCODE::ExtendedMediumLayoutPrefix:
             {
-#ifndef INTERPRETER_ASMJS  // Asmjs doesn't have any extended opcodes for now, remove that case
                 ip = [this](const byte * ip) -> const byte *
                 {
                     INTERPRETER_OPCODE op = (INTERPRETER_OPCODE)(ReadByteOp<INTERPRETER_OPCODE>(ip
@@ -262,7 +261,6 @@ SWAP_BP_FOR_OPCODE:
                     // Aborting the current interpreter loop to switch the profile mode
                     return nullptr;
                 }
-#endif
 #endif
                 break;
             }
@@ -309,7 +307,6 @@ SWAP_BP_FOR_OPCODE:
             }
             case INTERPRETER_OPCODE::ExtendedLargeLayoutPrefix:
             {
-#ifndef INTERPRETER_ASMJS  // Asmjs doesn't have any extended opcodes for now, remove that case
                 ip = [this](const byte * ip) -> const byte *
                 {
                     INTERPRETER_OPCODE op = (INTERPRETER_OPCODE)(ReadByteOp<INTERPRETER_OPCODE>(ip
@@ -338,7 +335,6 @@ SWAP_BP_FOR_OPCODE:
                     // Aborting the current interpreter loop to switch the profile mode
                     return nullptr;
                 }
-#endif
 #endif
                 break;
             }

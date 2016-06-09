@@ -14,8 +14,8 @@ SetProcessValidCallTargets(
     _In_ HANDLE hProcess,
     _In_ PVOID VirtualAddress,
     _In_ SIZE_T RegionSize,
-    _In_ ULONG NumberOfOffets,
-    _In_reads_(NumberOfOffets) PCFG_CALL_TARGET_INFO OffsetInformation
+    _In_ ULONG NumberOfOffsets,
+    _In_reads_(NumberOfOffsets) PCFG_CALL_TARGET_INFO OffsetInformation
     );
 #endif
 #endif
@@ -101,7 +101,7 @@ namespace Js
                     {
                         *length = 0;
                     }
-                    return L"\0";
+                    return _u("\0");
                 }
             }
 
@@ -113,7 +113,7 @@ namespace Js
         {
             *length = 0;
         }
-        return L"\0";
+        return _u("\0");
     }
 
     HRESULT DelayLoadWinRtString::WindowsCompareStringOrdinal(_In_opt_ HSTRING string1, _In_opt_ HSTRING string2, _Out_ INT32 * result)
@@ -398,9 +398,15 @@ namespace Js
     BOOL DelayLoadWinCoreMemory::SetProcessCallTargets(_In_ HANDLE hProcess,
         _In_ PVOID VirtualAddress,
         _In_ SIZE_T RegionSize,
-        _In_ ULONG NumberOfOffets,
-        _In_reads_(NumberOfOffets) PCFG_CALL_TARGET_INFO OffsetInformation)
+        _In_ ULONG NumberOfOffsets,
+        _In_reads_(NumberOfOffsets) PCFG_CALL_TARGET_INFO OffsetInformation)
     {
+#if defined(ENABLE_JIT_CLAMP)
+        // Ensure that dynamic code generation is allowed for this thread as
+        // this is required for the call to SetProcessValidCallTargets to
+        // succeed.
+        AutoEnableDynamicCodeGen enableCodeGen;
+#endif
 
 #if defined(DELAYLOAD_SET_CFG_TARGET)
         if (m_hModule)
@@ -415,12 +421,12 @@ namespace Js
             }
 
             Assert(m_pfnSetProcessValidCallTargets != nullptr);
-            return m_pfnSetProcessValidCallTargets(hProcess, VirtualAddress, RegionSize, NumberOfOffets, OffsetInformation);
+            return m_pfnSetProcessValidCallTargets(hProcess, VirtualAddress, RegionSize, NumberOfOffsets, OffsetInformation);
         }
 
         return FALSE;
 #else
-        return SetProcessValidCallTargets(hProcess, VirtualAddress, RegionSize, NumberOfOffets, OffsetInformation);
+        return SetProcessValidCallTargets(hProcess, VirtualAddress, RegionSize, NumberOfOffsets, OffsetInformation);
 #endif
     }
 #endif
@@ -491,7 +497,7 @@ namespace Js
         {
             if (m_pfnRoGetMetadataFile == nullptr)
             {
-                m_pfnRoGetMetadataFile = (PFNCWRoGetMettadataFile)GetFunction("RoGetMetaDataFile");
+                m_pfnRoGetMetadataFile = (PFNCWRoGetMetadataFile)GetFunction("RoGetMetaDataFile");
                 if (m_pfnRoGetMetadataFile == nullptr)
                 {
                     return E_UNEXPECTED;

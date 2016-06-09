@@ -24,7 +24,7 @@
 #ifdef RECYCLER_WRITE_BARRIER_BYTE
 #ifdef _M_X64_OR_ARM64
 X64WriteBarrierCardTableManager RecyclerWriteBarrierManager::x64CardTableManager;
-X64WriteBarrierCardTableManager::CommitedSectionBitVector X64WriteBarrierCardTableManager::commitedSections(&HeapAllocator::Instance);
+X64WriteBarrierCardTableManager::CommittedSectionBitVector X64WriteBarrierCardTableManager::committedSections(&HeapAllocator::Instance);
 
 BYTE* RecyclerWriteBarrierManager::cardTable = RecyclerWriteBarrierManager::x64CardTableManager.Initialize();
 #else
@@ -92,7 +92,7 @@ X64WriteBarrierCardTableManager::OnSegmentAlloc(_In_ char* segmentAddress, size_
     bool needCommit = false;
     for (BVIndex i = sectionStartIndex; i <= sectionLastIndex; i++)
     {
-        if (!commitedSections.Test(i))
+        if (!committedSections.Test(i))
         {
             needCommit = true;
             break;
@@ -154,7 +154,7 @@ X64WriteBarrierCardTableManager::OnSegmentAlloc(_In_ char* segmentAddress, size_
 
         for (; sectionIndex <= sectionLastIndex; sectionIndex++)
         {
-            commitedSections.Set(sectionIndex);
+            committedSections.Set(sectionIndex);
         }
 
         SetCommitState(OnCommitBitSet);
@@ -168,7 +168,7 @@ X64WriteBarrierCardTableManager::OnSegmentAlloc(_In_ char* segmentAddress, size_
         // Since setting sectionIndex threw the exception, we don't clear it, we clear until the index before it
         for (BVIndex i = sectionStartIndex; i < sectionIndex; i++)
         {
-            BOOLEAN wasSet = commitedSections.TestAndClear(i);
+            BOOLEAN wasSet = committedSections.TestAndClear(i);
             Assert(wasSet == TRUE);
         }
 
@@ -275,7 +275,7 @@ RecyclerWriteBarrierManager::WriteBarrier(void * address)
     // Global to process, use global configuration here
     if (PHASE_VERBOSE_TRACE1(Js::SWBPhase))
     {
-        Output::Print(L"Writing to 0x%p (CIndex: %u)\n", address, index);
+        Output::Print(_u("Writing to 0x%p (CIndex: %u)\n"), address, index);
     }
 #endif
 }
@@ -290,7 +290,7 @@ RecyclerWriteBarrierManager::WriteBarrier(void * address, size_t ptrCount)
     uintptr_t endIndex = GetCardTableIndex(endAddress);
     Assert(startIndex <= endIndex);
     memset(cardTable + startIndex, 1, endIndex - startIndex);
-    GlobalSwbVerboseTrace(L"Writing to 0x%p (CIndex: %u-%u)\n", address, startIndex, endIndex);
+    GlobalSwbVerboseTrace(_u("Writing to 0x%p (CIndex: %u-%u)\n"), address, startIndex, endIndex);
 #else
     uint bitShift = (((uint)address) >> s_BitArrayCardTableShift);
     uint bitMask = 0xFFFFFFFF << bitShift;
@@ -344,7 +344,7 @@ RecyclerWriteBarrierManager::ResetWriteBarrier(void * address, size_t pageCount)
     // Global to process, use global configuration here
     if (PHASE_VERBOSE_TRACE1(Js::SWBPhase))
     {
-        Output::Print(L"Resetting %u pages at CIndex: %u\n", address, pageCount, cardIndex);
+        Output::Print(_u("Resetting %u pages at CIndex: %u\n"), address, pageCount, cardIndex);
     }
 #endif
 }

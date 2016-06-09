@@ -1,16 +1,16 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
+this.WScript.LoadScriptFile("..\\UnitTestFramework\\SimdJsHelpers.js");
 function asmModule(stdlib, imports) {
     "use asm";
 
     var i4 = stdlib.SIMD.Int32x4;
     var i4check = i4.check;
     var i4extractLane = i4.extractLane;
-    var i4fromFloat64x2 = i4.fromFloat64x2;
-    var i4fromFloat64x2Bits = i4.fromFloat64x2Bits;
+    
     var i4fromFloat32x4 = i4.fromFloat32x4;
     var i4fromFloat32x4Bits = i4.fromFloat32x4Bits;
     //var i4abs = i4.abs;
@@ -34,8 +34,7 @@ function asmModule(stdlib, imports) {
 
     var f4 = stdlib.SIMD.Float32x4;
     var f4check = f4.check;
-    var f4fromFloat64x2 = f4.fromFloat64x2;
-    var f4fromFloat64x2Bits = f4.fromFloat64x2Bits;
+    
     var f4fromInt32x4 = f4.fromInt32x4;
     var f4fromInt32x4Bits = f4.fromInt32x4Bits;
     var f4abs = f4.abs;
@@ -44,11 +43,11 @@ function asmModule(stdlib, imports) {
     var f4sub = f4.sub;
     var f4mul = f4.mul;
     var f4div = f4.div;
-    var f4clamp = f4.clamp;
+    
     var f4min = f4.min;
     var f4max = f4.max;
-    var f4reciprocal = f4.reciprocal;
-    var f4reciprocalSqrt = f4.reciprocalSqrt;
+
+
     var f4sqrt = f4.sqrt;
     var f4swizzle = f4.swizzle;
     var f4shuffle = f4.shuffle;
@@ -60,10 +59,6 @@ function asmModule(stdlib, imports) {
     var f4greaterThanOrEqual = f4.greaterThanOrEqual;
 
     var f4select = f4.select;
-    var f4and = f4.and;
-    var f4or = f4.or;
-    var f4xor = f4.xor;
-    var f4not = f4.not;
 
 
     var fround = stdlib.Math.fround;
@@ -175,11 +170,11 @@ var ret2 = m.func2();
 var ret3 = m.func3();
 
 
-print(typeof (ret1));
-print(ret1.toString());
+equalSimd([12, 28, 8, 12], ret1, SIMD.Int32x4, "");
+equalSimd([14148, -8852664, 160, 13660], ret2, SIMD.Int32x4, "");
+equalSimd([500, -147992, 968, 44], ret3, SIMD.Int32x4, "");
 
-print(typeof (ret2));
-print(ret2.toString());
+print("PASS");
 
-print(typeof (ret3));
-print(ret3.toString());
+
+

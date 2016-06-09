@@ -307,7 +307,7 @@ namespace Js
 #if ENABLE_DEBUG_CONFIG_OPTIONS
         if (Js::Configuration::Global.flags.TestTrace.IsEnabled(Js::CopyOnAccessArrayPhase))
         {
-            Output::Print(L"Create copy-on-access array: func(#%2d) index(%d) length(%d)\n",
+            Output::Print(_u("Create copy-on-access array: func(#%2d) index(%d) length(%d)\n"),
                 functionBody->GetFunctionNumber(), lib->cacheForCopyOnAccessArraySegments->GetCount(), ints->count);
             Output::Flush();
         }
@@ -629,7 +629,7 @@ SECOND_PASS:
         uint32 endIndex;
         if(UInt32Math::Add(startIndex, length - 1, &endIndex))
         {
-            JavascriptError::ThrowRangeError(this->GetScriptContext(), JSERR_ArrayLengthAssignIncorrect);
+            return nullptr;
         }
         if (endIndex >= this->length)
         {
@@ -639,7 +639,7 @@ SECOND_PASS:
             }
             else
             {
-                JavascriptError::ThrowRangeError(this->GetScriptContext(), JSERR_ArrayLengthAssignIncorrect);
+                return nullptr;
             }
         }
 
@@ -930,11 +930,17 @@ SECOND_PASS:
     }
 
     template<typename T>
-    void JavascriptArray::DirectSetItemAtRangeFromArray(uint32 toStartIndex, uint32 length, JavascriptArray *fromArray, uint32 fromStartIndex)
+    bool JavascriptArray::DirectSetItemAtRangeFromArray(uint32 toStartIndex, uint32 length, JavascriptArray *fromArray, uint32 fromStartIndex)
     {
         if (length == 0)
         {
-            return;
+            return true;
+        }
+
+        // Do not do a memcopy from an array that has missing values
+        if (fromArray == nullptr || fromArray == this || !fromArray->HasNoMissingValues())
+        {
+            return false;
         }
 
         bool isBtree = false;
@@ -947,51 +953,55 @@ SECOND_PASS:
             for (uint i = 0; i < length; i++)
             {
                 T val;
-                if (fromArray->DirectGetItemAt(fromStartIndex + i, &val))
+                if (!fromArray->DirectGetItemAt(fromStartIndex + i, &val))
                 {
-                    DirectSetItem_Full(toStartIndex + i, val);
+                    return false;
                 }
+                DirectSetItem_Full(toStartIndex + i, val);
             }
-            return;
+            return true;
         }
 
-        SparseArraySegment<T> *toSegment = PrepareSegmentForMemOp<T>(toStartIndex, length);
-
-        Assert(fromArray->head);
-        Assert(fromArray->length >= (fromStartIndex + length));
-
-
+        const auto isSegmentValid = [length](Js::SparseArraySegment<T>* segment, uint32 startIndex) {
+            uint32 end, segmentEnd;
+            // Check the segment is long enough
+            return (
+                segment &&
+                !UInt32Math::Add(startIndex, length, &end) &&
+                !UInt32Math::Add(segment->left, segment->length, &segmentEnd) &&
+                startIndex >= segment->left &&
+                startIndex < segmentEnd &&
+                segmentEnd >= end
+            );
+        };
         //Find the segment where itemIndex is present or is at the boundary
-        SparseArraySegmentBase* current = fromArray->GetBeginLookupSegment(fromStartIndex, false);
-        Assert(current);
-        Assert(GetSegmentMap() == nullptr  && fromArray->GetSegmentMap() == nullptr);
-
-        while (current && length)
+        Js::SparseArraySegment<T>* fromSegment = (Js::SparseArraySegment<T>*)fromArray->GetBeginLookupSegment(fromStartIndex, false);
+        if (!isSegmentValid(fromSegment, fromStartIndex))
         {
-            int memcopySize = length;
-            int startOffset;
-            if (fromStartIndex >= current->left && fromStartIndex < (current->left + current->length))
-            {
-                startOffset = fromStartIndex - current->left;
-                if ((startOffset + length) > current->length)
-                {
-                    memcopySize = current->length - startOffset;
-                }
-
-
-                js_memcpy_s(toSegment->elements + toStartIndex, memcopySize * sizeof(T), (((Js::SparseArraySegment<T>*)current)->elements + startOffset), memcopySize * sizeof(T));
-
-                fromArray->SetLastUsedSegment(current);
-                fromStartIndex = fromStartIndex + memcopySize;
-                toStartIndex = toStartIndex + memcopySize;
-                length = length - memcopySize;
-
-            }
-            current = current->next;
+            return false;
         }
 
-        Assert(length == 0);
+        // Check the from segment first so we don't prepare the toSegment in case it is invalid
+        SparseArraySegment<T> *toSegment = PrepareSegmentForMemOp<T>(toStartIndex, length);
+        if (!isSegmentValid(toSegment, toStartIndex))
+        {
+            return false;
+        }
+        Assert(GetSegmentMap() == nullptr && fromArray->GetSegmentMap() == nullptr);
 
+        int memcopySize = length;
+        int toStartOffset = toStartIndex - toSegment->left;
+        int fromStartOffset = fromStartIndex - fromSegment->left;
+        Assert((fromStartOffset + length) <= fromSegment->length);
+
+        js_memcpy_s(
+            toSegment->elements + toStartOffset,
+            (toSegment->size - toStartOffset) * sizeof(T),
+            fromSegment->elements + fromStartOffset,
+            memcopySize * sizeof(T)
+        );
+
+        fromArray->SetLastUsedSegment(fromSegment);
         this->SetLastUsedSegment(toSegment);
 #if DBG
         if (Js::Configuration::Global.flags.MemOpMissingValueValidate)
@@ -1002,10 +1012,25 @@ SECOND_PASS:
             }
         }
 #endif
+        return true;
     }
     template<typename T>
-    void JavascriptArray::DirectSetItemAtRange(uint32 startIndex, uint32 length, T newValue)
+    bool JavascriptArray::DirectSetItemAtRange(uint32 startIndex, uint32 length, T newValue)
     {
+        bool isBtree = false;
+
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+        isBtree = Js::Configuration::Global.flags.ForceArrayBTree;
+#endif
+        if (GetSegmentMap() || isBtree)
+        {
+            for (uint i = startIndex; i < startIndex + length; i++)
+            {
+                DirectSetItem_Full<T>(i, newValue);
+            }
+            return true;
+        }
+
         if (startIndex == 0 && head != EmptySegment && length < head->size)
         {
             if (newValue == (T)0 || newValue == (T)(-1))
@@ -1074,32 +1099,23 @@ SECOND_PASS:
         {
             DirectSetItemAtRangeFull<T>(startIndex, length, newValue);
         }
+        return true;
     }
 
     template<typename T>
-    void JavascriptArray::DirectSetItemAtRangeFull(uint32 startIndex, uint32 length, T newValue)
+    bool JavascriptArray::DirectSetItemAtRangeFull(uint32 startIndex, uint32 length, T newValue)
     {
         if (length == 0)
         {
-            return;
+            return true;
         }
-
-        bool isBtree = false;
-
-#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-        isBtree = Js::Configuration::Global.flags.ForceArrayBTree;
-#endif
-        if (GetSegmentMap() || isBtree)
-        {
-            for (uint i = startIndex; i < startIndex + length; i++)
-            {
-                DirectSetItem_Full<T>(i, newValue);
-            }
-            return;
-        }
+        Assert(!GetSegmentMap());
 
         SparseArraySegment<T> *current = PrepareSegmentForMemOp<T>(startIndex, length);
-
+        if (current == nullptr)
+        {
+            return false;
+        }
         if (newValue == (T)0 || newValue == (T)(-1))
         {
             memset((((Js::SparseArraySegment<T>*)current)->elements + (startIndex - current->left)), ((int)(intptr_t)newValue), sizeof(T)* length);
@@ -1121,7 +1137,7 @@ SECOND_PASS:
             }
         }
 #endif
-
+        return true;
     }
 
     template<typename T>

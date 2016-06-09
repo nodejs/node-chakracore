@@ -27,7 +27,7 @@ namespace Js
             this->SetIsBlockVariable(scopeSlot, sym->GetIsBlockVar());
         }
 
-        TRACE_BYTECODE(L"%12s %d\n", sym->GetName().GetBuffer(), sym->GetScopeSlot());
+        TRACE_BYTECODE(_u("%12s %d\n"), sym->GetName().GetBuffer(), sym->GetScopeSlot());
     }
 
     //
@@ -54,8 +54,8 @@ namespace Js
     {
         int count = scope->Count();
 
-        // Add same name args place holder slot counts
-        AddSlotCount(count, scope->GetFunc()->sameNameArgsPlaceHolderSlotCount);
+        // Add argsPlaceHolder which includes same name args and destructuring patterns on parameters
+        AddSlotCount(count, scope->GetFunc()->argsPlaceHolderSlotCount);
         AddSlotCount(count, scope->GetFunc()->thisScopeSlot != Js::Constants::NoRegister ? 1 : 0);
         AddSlotCount(count, scope->GetFunc()->newTargetScopeSlot != Js::Constants::NoRegister ? 1 : 0);
 
@@ -67,9 +67,11 @@ namespace Js
         scopeInfo->mustInstantiate = scope->GetMustInstantiate();
         scopeInfo->isCached = (scope->GetFunc()->GetBodyScope() == scope) && scope->GetFunc()->GetHasCachedScope();
         scopeInfo->isGlobalEval = scope->GetScopeType() == ScopeType_GlobalEvalBlock;
+        scopeInfo->canMergeWithBodyScope = scope->GetCanMergeWithBodyScope();
+        scopeInfo->hasLocalInClosure = scope->GetHasOwnLocalInClosure();
 
-        TRACE_BYTECODE(L"\nSave ScopeInfo: %s parent: %s #symbols: %d %s\n",
-            scope->GetFunc()->name, parent->GetDisplayName(), count, scopeInfo->isObject ? L"isObject" : L"");
+        TRACE_BYTECODE(_u("\nSave ScopeInfo: %s parent: %s #symbols: %d %s\n"),
+            scope->GetFunc()->name, parent->GetDisplayName(), count, scopeInfo->isObject ? _u("isObject") : _u(""));
 
         MapSymbolData mapSymbolData = { byteCodeGenerator, scope->GetFunc() };
         scope->ForEachSymbol([&mapSymbolData, scopeInfo, scope](Symbol * sym)
@@ -139,7 +141,7 @@ namespace Js
         FunctionBody* parent = parentFunc->byteCodeFunction->GetFunctionBody();
         ParseableFunctionInfo* funcBody = func->byteCodeFunction;
 
-        TRACE_BYTECODE(L"\nSave ScopeInfo: %s parent: %s\n\n",
+        TRACE_BYTECODE(_u("\nSave ScopeInfo: %s parent: %s\n\n"),
             funcBody->GetDisplayName(), parent->GetDisplayName());
 
         funcBody->SetScopeInfo(FromParent(parent));
@@ -193,7 +195,8 @@ namespace Js
         // We will have to implement encoding block scope info to enable, which will also
         // enable defer parsing function that are in block scopes.
 
-        Assert(byteCodeGenerator->GetCurrentScope() == funcInfo->GetBodyScope());
+        Scope* currentScope = byteCodeGenerator->GetCurrentScope();
+        Assert(currentScope == funcInfo->GetBodyScope());
         if (funcInfo->IsDeferred())
         {
             // Don't need to remember the parent function if we have a global function
@@ -204,14 +207,33 @@ namespace Js
 #if DBG
                 if (funcInfo->GetFuncExprScope() && funcInfo->GetFuncExprScope()->GetIsObject())
                 {
-                    Assert(byteCodeGenerator->GetCurrentScope()->GetEnclosingScope() == funcInfo->GetFuncExprScope() &&
-                        byteCodeGenerator->GetCurrentScope()->GetEnclosingScope()->GetEnclosingScope() ==
-                        (parentFunc->IsGlobalFunction() ? parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
+                    if (funcInfo->paramScope && !funcInfo->paramScope->GetCanMergeWithBodyScope())
+                    {
+                        Assert(currentScope->GetEnclosingScope()->GetEnclosingScope() == funcInfo->GetFuncExprScope());
+                    }
+                    else
+                    {
+                        Assert(currentScope->GetEnclosingScope() == funcInfo->GetFuncExprScope() &&
+                            currentScope->GetEnclosingScope()->GetEnclosingScope() ==
+                            (parentFunc->IsGlobalFunction() ? parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
+                    }
                 }
                 else
                 {
-                    Assert(byteCodeGenerator->GetCurrentScope()->GetEnclosingScope() ==
-                        (parentFunc->IsGlobalFunction() ? parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
+                    if (currentScope->GetEnclosingScope() == parentFunc->GetParamScope())
+                    {
+                        Assert(!parentFunc->GetParamScope()->GetCanMergeWithBodyScope());
+                        Assert(funcInfo->GetParamScope()->GetCanMergeWithBodyScope());
+                    }
+                    else if (currentScope->GetEnclosingScope() == funcInfo->GetParamScope())
+                    {
+                        Assert(!funcInfo->GetParamScope()->GetCanMergeWithBodyScope());
+                    }
+                    else
+                    { 
+                        Assert(currentScope->GetEnclosingScope() ==
+                            (parentFunc->IsGlobalFunction() ? parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
+                    }
                 }
 #endif
                 Js::ScopeInfo::SaveParentScopeInfo(parentFunc, funcInfo);
@@ -244,6 +266,11 @@ namespace Js
             scope->SetIsObject();
         }
         scope->SetMustInstantiate(this->mustInstantiate);
+        if (!this->GetCanMergeWithBodyScope())
+        {
+            scope->SetCannotMergeWithBodyScope();
+        }
+        scope->SetHasOwnLocalInClosure(this->hasLocalInClosure);
         if (parser)
         {
             scriptContext = parser->GetScriptContext();
@@ -251,8 +278,8 @@ namespace Js
         }
         else
         {
-            TRACE_BYTECODE(L"\nRestore ScopeInfo: %s #symbols: %d %s\n",
-                funcInfo->name, symbolCount, isObject ? L"isObject" : L"");
+            TRACE_BYTECODE(_u("\nRestore ScopeInfo: %s #symbols: %d %s\n"),
+                funcInfo->name, symbolCount, isObject ? _u("isObject") : _u(""));
 
             Assert(!this->isCached || scope == funcInfo->GetBodyScope());
             funcInfo->SetHasCachedScope(this->isCached);
@@ -319,7 +346,7 @@ namespace Js
                     parser->RestorePidRefForSym(sym);
                 }
 
-                TRACE_BYTECODE(L"%12s %d\n", sym->GetName().GetBuffer(), sym->GetScopeSlot());
+                TRACE_BYTECODE(_u("%12s %d\n"), sym->GetName().GetBuffer(), sym->GetScopeSlot());
             }
         }
         this->scope = scope;

@@ -19,13 +19,13 @@ namespace Js
 
     BOOL ArgumentsObject::GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        stringBuilder->AppendCppLiteral(L"{...}");
+        stringBuilder->AppendCppLiteral(_u("{...}"));
         return TRUE;
     }
 
     BOOL ArgumentsObject::GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        stringBuilder->AppendCppLiteral(L"Object, (Arguments)");
+        stringBuilder->AppendCppLiteral(_u("Object, (Arguments)"));
         return TRUE;
     }
 
@@ -113,7 +113,7 @@ namespace Js
     {
     }
 
-    HeapArgumentsObject::HeapArgumentsObject(Recycler *recyler, ActivationObject* obj, uint32 formalCount, DynamicType * type)
+    HeapArgumentsObject::HeapArgumentsObject(Recycler *recycler, ActivationObject* obj, uint32 formalCount, DynamicType * type)
         : ArgumentsObject(type), frameObject(obj), formalCount(formalCount), numOfArguments(0), callerDeleted(false), deletedArgs(nullptr)
     {
     }
@@ -233,8 +233,8 @@ namespace Js
         {
             if (this->deletedArgs == nullptr)
             {
-                Recycler *recyler = GetScriptContext()->GetRecycler();
-                deletedArgs = RecyclerNew(recyler, BVSparse<Recycler>, recyler);
+                Recycler *recycler = GetScriptContext()->GetRecycler();
+                deletedArgs = RecyclerNew(recycler, BVSparse<Recycler>, recycler);
             }
 
             if (!this->deletedArgs->Test(index))
@@ -349,6 +349,7 @@ namespace Js
             return true;
         }
 
+        *value = requestContext->GetMissingPropertyResult();
         return false;
     }
 
@@ -364,6 +365,7 @@ namespace Js
             return true;
         }
 
+        *value = requestContext->GetMissingPropertyResult();
         return false;
     }
 

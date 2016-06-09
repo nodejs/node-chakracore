@@ -54,12 +54,12 @@ namespace PerfCounter
         {
             if (IsProviderInitialized())
             {
-                wchar_t wszModuleName[_MAX_PATH];
+                char16 wszModuleName[_MAX_PATH];
                 if (!GetModuleFileName(NULL, wszModuleName, _MAX_PATH))
                 {
                     return false;
                 }
-                wchar_t wszFilename[_MAX_FNAME];
+                char16 wszFilename[_MAX_FNAME];
                 _wsplitpath_s(wszModuleName, NULL, 0, NULL, 0, wszFilename, _MAX_FNAME, NULL, 0);
 
                 return __super::Initialize(wszFilename, GetCurrentProcessId());
@@ -120,7 +120,7 @@ namespace PerfCounter
         static Counter& GetFunctionNativeCodeSizeCounter() { return instance.GetCounter(13); }
         static Counter& GetDeferDeserializeFunctionProxyCounter() { return instance.GetCounter(14); }
         static Counter& GetDeserializedFunctionBodyCounter() { return instance.GetCounter(15); }
-        static Counter& GetDeferedFunctionCounter() { return instance.GetCounter(16); }
+        static Counter& GetDeferredFunctionCounter() { return instance.GetCounter(16); }
 
     private:
         static DefaultCounterSetInstance<CodeCounterSetDefinition> instance;

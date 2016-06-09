@@ -170,9 +170,9 @@ namespace Js
 #endif
         template<typename T> void DirectSetItem_Full(uint32 itemIndex, T newValue);
         template<typename T> SparseArraySegment<T>* PrepareSegmentForMemOp(uint32 startIndex, uint32 length);
-        template<typename T> void DirectSetItemAtRange(uint32 startIndex, uint32 length, T newValue);
-        template<typename T> void DirectSetItemAtRangeFull(uint32 startIndex, uint32 length, T newValue);
-        template<typename T> void DirectSetItemAtRangeFromArray(uint32 startIndex, uint32 length, JavascriptArray *fromArray, uint32 fromStartIndex);
+        template<typename T> bool DirectSetItemAtRange(uint32 startIndex, uint32 length, T newValue);
+        template<typename T> bool DirectSetItemAtRangeFull(uint32 startIndex, uint32 length, T newValue);
+        template<typename T> bool DirectSetItemAtRangeFromArray(uint32 startIndex, uint32 length, JavascriptArray *fromArray, uint32 fromStartIndex);
 #if DBG
         template <typename T> void VerifyNotNeedMarshal(T value) {};
         template <> void VerifyNotNeedMarshal<Var>(Var value) { Assert(value == JavascriptArray::MissingItem || !CrossSite::NeedMarshalVar(value, this->GetScriptContext())); }
@@ -289,7 +289,7 @@ namespace Js
         static Var EntryPopNonJavascriptArray(ScriptContext * scriptContext, Var object);
 
 #if DEBUG
-        static BOOL GetIndex(const wchar_t* propName, ulong *pIndex);
+        static BOOL GetIndex(const char16* propName, ulong *pIndex);
 #endif
 
         uint32 GetNextIndex(uint32 index) const;
@@ -467,6 +467,8 @@ namespace Js
         static Var FindHelper(JavascriptArray* pArr, Js::TypedArrayBase* typedArrayBase, RecyclableObject* obj, int64 length, Arguments& args, ScriptContext* scriptContext);
         template <typename T = uint32>
         static Var ReduceHelper(JavascriptArray* pArr, Js::TypedArrayBase* typedArrayBase, RecyclableObject* obj, T length, Arguments& args, ScriptContext* scriptContext);
+        template <typename T>
+        static Var FilterHelper(JavascriptArray* pArr, RecyclableObject* obj, T length, Arguments& args, ScriptContext* scriptContext);
         template <typename T = uint32>
         static Var ReduceRightHelper(JavascriptArray* pArr, Js::TypedArrayBase* typedArrayBase, RecyclableObject* obj, T length, Arguments& args, ScriptContext* scriptContext);
         static Var OfHelper(bool isTypedArrayEntryPoint, Arguments& args, ScriptContext* scriptContext);
@@ -726,6 +728,7 @@ namespace Js
         BOOL DirectGetItemAt(const BigIndex& index, Var* outVal) { return index.GetItem(this, outVal); }
         void DirectSetItemAt(const BigIndex& index, Var newValue) { index.SetItem(this, newValue); }
         void DirectSetItemIfNotExist(const BigIndex& index, Var newValue) { index.SetItemIfNotExist(this, newValue); }
+        void DirectAppendItem(Var newValue) { BigIndex(this->GetLength()).SetItem(this, newValue); }
         void TruncateToProperties(const BigIndex& index, uint32 start);
 
         template<typename T>

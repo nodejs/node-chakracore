@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -396,6 +396,11 @@
   <test>
     <default>
       <files>bug542360.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>crosssite_bind_main.js</files>
     </default>
   </test>
   <test>

@@ -30,7 +30,6 @@ protected:
     friend class HeapBucketGroup;
 
     void ResetMarks(ResetMarkFlags flags);
-    template<bool pageheap>
     void Sweep(RecyclerSweep& recyclerSweep);
 #if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
     size_t GetNonEmptyHeapBlockCount(bool checkCount) const;
@@ -206,22 +205,20 @@ public:
     void ScanInitialImplicitRoots(Recycler * recycler);
     void ScanNewImplicitRoots(Recycler * recycler);
 
-    template<bool pageheap>
     void Sweep(RecyclerSweep& recyclerSweep);
-#if defined(PARTIAL_GC_ENABLED) || defined(CONCURRENT_GC_ENABLED)
     uint Rescan(Recycler * recycler, RescanFlags flags);
+#if ENABLE_CONCURRENT_GC
     void SweepPendingObjects(RecyclerSweep& recyclerSweep);
 #endif
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
     void SweepPartialReusePages(RecyclerSweep& recyclerSweep);
     void FinishPartialCollect(RecyclerSweep * recyclerSweep);
 #endif
-#ifdef CONCURRENT_GC_ENABLED
+#if ENABLE_CONCURRENT_GC
     void PrepareSweep();
     void SetupBackgroundSweep(RecyclerSweep& recyclerSweep);
     void TransferPendingEmptyHeapBlocks(RecyclerSweep& recyclerSweep);
 #endif
-    template<bool pageheap>
     void SweepFinalizableObjects(RecyclerSweep& recyclerSweep);
     void DisposeObjects();
     void TransferDisposedObjects();

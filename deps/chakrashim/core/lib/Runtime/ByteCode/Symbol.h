@@ -23,6 +23,7 @@ private:
     Js::PropertyId position;        // argument position in function declaration
     Js::RegSlot location;           // register in which the symbol resides
     Js::PropertyId scopeSlot;
+    Js::PropertyId moduleIndex;
     Symbol *next;
 
     SymbolType symbolType;
@@ -41,6 +42,8 @@ private:
     BYTE hasNonCommittedReference : 1;
     BYTE hasVisitedCapturingFunc : 1;
     BYTE isTrackedForDebugger : 1; // Whether the sym is tracked for debugger scope. This is fine because a sym can only be added to (not more than) one scope.
+    BYTE isModuleExportStorage : 1; // If true, this symbol should be stored in the global scope export storage array.
+    BYTE isModuleImport : 1; // If true, this symbol is the local name of a module import statement
 
     // These are get and set a lot, don't put it in bit fields, we are exceeding the number of bits anyway
     bool hasFuncAssignment;
@@ -72,21 +75,24 @@ public:
         hasVisitedCapturingFunc(false),
         isTrackedForDebugger(false),
         isNonSimpleParameter(false),
-        assignmentState(NotAssigned)
+        assignmentState(NotAssigned),
+        isModuleExportStorage(false),
+        isModuleImport(false),
+        moduleIndex(Js::Constants::NoProperty)
     {
         SetSymbolType(symbolType);
 
         // Set it so we don't have to check it explicitly
-        isEval = MatchName(L"eval", 4);
+        isEval = MatchName(_u("eval"), 4);
 
         if (PHASE_TESTTRACE1(Js::StackFuncPhase) && hasFuncAssignment)
         {
-            Output::Print(L"HasFuncDecl: %s\n", this->GetName().GetBuffer());
+            Output::Print(_u("HasFuncDecl: %s\n"), this->GetName().GetBuffer());
             Output::Flush();
         }
     }
 
-    bool MatchName(const wchar_t *key, int length)
+    bool MatchName(const char16 *key, int length)
     {
         return name == SymbolName(key, length);
     }
@@ -140,6 +146,36 @@ public:
     bool GetIsBlockVar() const
     {
         return isBlockVar;
+    }
+
+    void SetIsModuleExportStorage(bool is)
+    {
+        isModuleExportStorage = is;
+    }
+
+    bool GetIsModuleExportStorage() const
+    {
+        return isModuleExportStorage;
+    }
+
+    void SetIsModuleImport(bool is)
+    {
+        isModuleImport = is;
+    }
+
+    bool GetIsModuleImport() const
+    {
+        return isModuleImport;
+    }
+
+    void SetModuleIndex(Js::PropertyId index)
+    {
+        moduleIndex = index;
+    }
+
+    Js::PropertyId GetModuleIndex()
+    {
+        return moduleIndex;
     }
 
     void SetIsGlobalCatch(bool is)
@@ -340,7 +376,7 @@ public:
     }
 
 #if DBG_DUMP
-    const wchar_t *GetSymbolTypeName();
+    const char16 *GetSymbolTypeName();
 #endif
 
     const JsUtil::CharacterBuffer<WCHAR>& GetName() const

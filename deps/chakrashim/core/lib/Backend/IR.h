@@ -4,7 +4,7 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 
-#include "Language\JavascriptNativeOperators.h"
+#include "Language/JavascriptNativeOperators.h"
 
 class Func;
 class BasicBlock;
@@ -52,13 +52,6 @@ public:
         void* * jmpTable = JitAnewArrayZ(allocator, void*, tableSize);
         branchTargets->jmpTable = jmpTable;
         return branchTargets;
-    }
-
-    static void Delete(JitArenaAllocator * allocator, BranchJumpTableWrapper * branchTargets)
-    {
-        Assert(allocator != nullptr && branchTargets != nullptr);
-        JitAdeleteArray(allocator, branchTargets->tableSize, branchTargets->jmpTable);
-        JitAdelete(allocator, branchTargets);
     }
 };
 
@@ -286,7 +279,7 @@ public:
     virtual void    Dump(IRDumpFlags flags);
             void    Dump();
             void    DumpSimple();
-    wchar_t*        DumpString();
+    char16*        DumpString();
     void            DumpGlobOptInstrString();
     void            Dump(int window);
     void            DumpRange(Instr *instrEnd);
@@ -456,7 +449,7 @@ public:
     Instr *         m_prev;
     Func *          m_func;
 #if DBG_DUMP
-    wchar_t *       globOptInstrString;
+    char16 *       globOptInstrString;
 #endif
     // These should be together to pack into a uint32
     Js::OpCode      m_opcode;

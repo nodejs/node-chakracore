@@ -277,21 +277,8 @@ protected:
     Segment * segment;
     HeapBlockType const heapBlockType;
     bool needOOMRescan;                             // Set if we OOMed while marking a particular object
-#ifdef CONCURRENT_GC_ENABLED
+#if ENABLE_CONCURRENT_GC
     bool isPendingConcurrentSweep;
-#endif
-
-#ifdef RECYCLER_PAGE_HEAP
-    PageHeapMode pageHeapMode;
-    DWORD guardPageOldProtectFlags;
-    char* guardPageAddress;
-    StackBackTrace* pageHeapAllocStack;
-    StackBackTrace* pageHeapFreeStack;
-
-public:
-    __inline bool InPageHeapMode() const { return pageHeapMode != PageHeapMode::PageHeapModeOff; }
-    void CapturePageHeapAllocStack();
-    void CapturePageHeapFreeStack();
 #endif
 
 public:
@@ -302,9 +289,6 @@ public:
     HeapBlock(HeapBlockType heapBlockType) :
         heapBlockType(heapBlockType),
         needOOMRescan(false)
-#ifdef RECYCLER_PAGE_HEAP
-        , pageHeapAllocStack(nullptr), pageHeapFreeStack(nullptr)
-#endif
     {
         Assert(GetHeapBlockType() <= HeapBlock::HeapBlockType::BlockTypeCount);
     }
@@ -356,9 +340,9 @@ public:
 enum SweepMode
 {
     SweepMode_InThread,
-#ifdef CONCURRENT_GC_ENABLED
+#if ENABLE_CONCURRENT_GC
     SweepMode_Concurrent,
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
     SweepMode_ConcurrentPartial
 #endif
 #endif
@@ -371,7 +355,7 @@ enum SweepState
     SweepStateSwept,                // the block is partially allocated, no object needs to be swept or finalized
     SweepStateFull,                 // the block is full, no object needs to be swept or finalized
     SweepStatePendingDispose,       // the block has object that needs to be finalized
-#ifdef CONCURRENT_GC_ENABLED
+#if ENABLE_CONCURRENT_GC
     SweepStatePendingSweep,         // the block has object that needs to be swept
 #endif
 };
@@ -402,11 +386,6 @@ class SmallHeapBlockT : public HeapBlock
     template <typename TBlockType>
     friend class SmallNormalHeapBucketBase;
 
-#ifdef JD_PRIVATE
-    friend class HeapBlockHelper;
-    friend class EXT_CLASS;
-#endif
-
 public:
     static const ushort InvalidAddressBit = 0xFFFF;
 
@@ -436,7 +415,7 @@ public:
     ushort lastFreeCount;
     ushort markCount;
 
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
     ushort oldFreeCount;
 #endif
     bool   isInAllocator;
@@ -478,17 +457,6 @@ public:
     template<bool checkPageHeap=true>
     bool HasFreeObject() const
     {
-#ifdef RECYCLER_PAGE_HEAP
-        // in pageheap, we point freeObjectList to end of the allocable block to cheat the system.
-        // but sometimes we need to know if it's really no free block or not.
-        if (checkPageHeap)
-        {
-            if (this->pageHeapMode != PageHeapMode::PageHeapModeOff)
-            {
-                return false;
-            }
-        }
-#endif
         return freeObjectList != nullptr;
     }
 
@@ -577,22 +545,14 @@ public:
     void SetObjectMarkedBit(void* objectAddress) override;
     virtual size_t GetObjectSize(void* object) override { return objectSize; }
 
-#ifdef RECYCLER_PAGE_HEAP
-    char * GetPageHeapObjectAddress();
-#endif
-
-    template <bool pageheap>
     uint GetMarkCountForSweep();
-
-    template <bool pageheap>
     SweepState Sweep(RecyclerSweep& recyclerSweep, bool queuePendingSweep, bool allocable, ushort finalizeCount = 0, bool hasPendingDispose = false);
-
-    template <bool pageheap, SweepMode mode>
+    template <SweepMode mode>
     void SweepObjects(Recycler * recycler);
 
     uint GetAndClearLastFreeCount();
-#ifdef PARTIAL_GC_ENABLED
     void ClearAllAllocBytes();      // Reset all unaccounted alloc bytes and the new alloc count
+#if ENABLE_PARTIAL_GC
     uint GetAndClearUnaccountedAllocBytes();
     void AdjustPartialUncollectedAllocBytes(RecyclerSweep& recyclerSweep, uint const expectSweepCount);
     bool DoPartialReusePage(RecyclerSweep const& recyclerSweep, uint& expectFreeByteCount);
@@ -601,26 +561,12 @@ public:
 #endif
 #endif
     void TransferProcessedObjects(FreeObject * list, FreeObject * tail);
-
-    template<bool pageheap>
     BOOL ReassignPages(Recycler * recycler);
-
-    template<bool pageheap>
-    __inline const uint GetPageHeapModePageCount() const;
-
-#ifdef RECYCLER_PAGE_HEAP
-    void ClearPageHeapState();
-#endif
-
-    template<bool pageheap>
     BOOL SetPage(__in_ecount_pagesize char * baseAddress, PageSegment * pageSegment, Recycler * recycler);
 
-    template<bool pageheap>
     void ReleasePages(Recycler * recycler);
-    template<bool pageheap>
     void ReleasePagesSweep(Recycler * recycler);
     void ReleasePagesShutdown(Recycler * recycler);
-    template<bool pageheap>
     void BackgroundReleasePagesSweep(Recycler* recycler);
 
     void Reset();
@@ -634,11 +580,6 @@ public:
 
 #ifdef RECYCLER_SLOW_CHECK_ENABLED
     void Check(bool expectFull, bool expectPending);
-#endif
-#ifdef RECYCLER_PAGE_HEAP
-    void VerifyPageHeapAllocation(_In_ char* allocation, PageHeapMode mode);
-    void EnablePageHeap();
-    void ClearPageHeap();
 #endif
 #ifdef RECYCLER_MEMORY_VERIFY
     void Verify(bool pendingDispose = false);
@@ -666,7 +607,7 @@ protected:
     SmallHeapBlockT(HeapBucket * bucket, ushort objectSize, ushort objectCount, HeapBlockType heapBlockType);
 
     ushort GetAddressIndex(void * objectAddress);
-    ushort GetInteriorAddressIndex(void * interorAddress);
+    ushort GetInteriorAddressIndex(void * interiorAddress);
     ushort GetObjectIndexFromBitIndex(ushort bitIndex);
 
     template <SweepMode mode>

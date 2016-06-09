@@ -1,17 +1,19 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
 
 namespace Js
 {
-    JavascriptSIMDFloat32x4::JavascriptSIMDFloat32x4(StaticType *type) : RecyclableObject(type)
+    const char16 JavascriptSIMDFloat32x4::TypeName[] = _u("SIMD.Float32x4");
+
+    JavascriptSIMDFloat32x4::JavascriptSIMDFloat32x4(StaticType *type) : JavascriptSIMDType(type)
     {
         Assert(type->GetTypeId() == TypeIds_SIMDFloat32x4);
     }
 
-    JavascriptSIMDFloat32x4::JavascriptSIMDFloat32x4(SIMDValue *val, StaticType *type) : RecyclableObject(type), value(*val)
+    JavascriptSIMDFloat32x4::JavascriptSIMDFloat32x4(SIMDValue *val, StaticType *type) : JavascriptSIMDType(val, type)
     {
         Assert(type->GetTypeId() == TypeIds_SIMDFloat32x4);
     }
@@ -39,106 +41,42 @@ namespace Js
         return reinterpret_cast<JavascriptSIMDFloat32x4 *>(aValue);
     }
 
-    JavascriptSIMDFloat32x4* JavascriptSIMDFloat32x4::FromFloat64x2(JavascriptSIMDFloat64x2 *instance, ScriptContext* requestContext)
+    Var JavascriptSIMDFloat32x4::CallToLocaleString(RecyclableObject& obj, ScriptContext& requestContext, SIMDValue simdValue,
+        const Var* args, uint numArgs, CallInfo callInfo)
     {
-        SIMDValue result = SIMDFloat32x4Operation::OpFromFloat64x2(instance->GetValue());
-
-        return JavascriptSIMDFloat32x4::New(&result, requestContext);
+        char16 *typeString = _u("SIMD.Float32x4(");
+        return JavascriptSIMDObject::FromVar(&obj)->ToLocaleString<float, 4>(args, numArgs, typeString,
+            simdValue.f32, &callInfo, &requestContext);
     }
 
-    JavascriptSIMDFloat32x4* JavascriptSIMDFloat32x4::FromFloat64x2Bits(JavascriptSIMDFloat64x2 *instance, ScriptContext* requestContext)
+    void JavascriptSIMDFloat32x4::ToStringBuffer(SIMDValue& value, __out_ecount(countBuffer) char16* stringBuffer, size_t countBuffer, ScriptContext* scriptContext)
     {
-        return JavascriptSIMDFloat32x4::New(&instance->GetValue(), requestContext);
+        const char16* f0 = JavascriptNumber::ToStringRadix10((double)value.f32[0], scriptContext)->GetSz();
+        const char16* f1 = JavascriptNumber::ToStringRadix10((double)value.f32[1], scriptContext)->GetSz();
+        const char16* f2 = JavascriptNumber::ToStringRadix10((double)value.f32[2], scriptContext)->GetSz();
+        const char16* f3 = JavascriptNumber::ToStringRadix10((double)value.f32[3], scriptContext)->GetSz();
+
+        swprintf_s(stringBuffer, countBuffer, _u("SIMD.Float32x4(%s, %s, %s, %s)"), f0, f1, f2, f3);
     }
 
-    JavascriptSIMDFloat32x4* JavascriptSIMDFloat32x4::FromInt32x4(JavascriptSIMDInt32x4 *instance, ScriptContext* requestContext)
+    const char16* JavascriptSIMDFloat32x4::GetTypeName()
     {
-        SIMDValue result = SIMDFloat32x4Operation::OpFromInt32x4(instance->GetValue());
-        return JavascriptSIMDFloat32x4::New(&result, requestContext);
+        return JavascriptSIMDFloat32x4::TypeName;
     }
 
-    JavascriptSIMDFloat32x4* JavascriptSIMDFloat32x4::FromInt32x4Bits(JavascriptSIMDInt32x4 *instance, ScriptContext* requestContext)
+    RecyclableObject * JavascriptSIMDFloat32x4::CloneToScriptContext(ScriptContext* requestContext)
     {
-        return JavascriptSIMDFloat32x4::New(&instance->GetValue(), requestContext);
-    }
-
-    BOOL JavascriptSIMDFloat32x4::GetProperty(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
-    {
-        return GetPropertyBuiltIns(propertyId, value, requestContext);
-    }
-
-    BOOL JavascriptSIMDFloat32x4::GetProperty(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
-    {
-        PropertyRecord const* propertyRecord;
-        this->GetScriptContext()->FindPropertyRecord(propertyNameString, &propertyRecord);
-
-        if (propertyRecord != nullptr && GetPropertyBuiltIns(propertyRecord->GetPropertyId(), value, requestContext))
-        {
-            return true;
-        }
-        return false;
-    }
-
-    BOOL JavascriptSIMDFloat32x4::GetPropertyReference(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
-    {
-        return JavascriptSIMDFloat32x4::GetProperty(originalInstance, propertyId, value, info, requestContext);
+        return JavascriptSIMDFloat32x4::New(&value, requestContext);
     }
 
     bool JavascriptSIMDFloat32x4::GetPropertyBuiltIns(PropertyId propertyId, Var* value, ScriptContext* requestContext)
     {
-        switch (propertyId)
-        {
-        case PropertyIds::toString:
-            *value = requestContext->GetLibrary()->GetSIMDFloat32x4ToStringFunction();
-            return true;
-        case PropertyIds::signMask:
-            *value = GetSignMask();
-            return true;
-        }
-
         return false;
     }
-
-    // Entry Points
-
-    Var JavascriptSIMDFloat32x4::EntryToString(RecyclableObject* function, CallInfo callInfo, ...)
-    {
-        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
-
-        ARGUMENTS(args, callInfo);
-        ScriptContext* scriptContext = function->GetScriptContext();
-
-        AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
-        Assert(!(callInfo.Flags & CallFlags_New));
-
-        if (args.Info.Count == 0 || JavascriptOperators::GetTypeId(args[0]) != TypeIds_SIMDFloat32x4)
-        {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedSimd, L"SIMDFloat32x4.toString");
-        }
-
-        JavascriptSIMDFloat32x4 *instance = JavascriptSIMDFloat32x4::FromVar(args[0]);
-        Assert(instance);
-
-        wchar_t stringBuffer[1024];
-        SIMDValue value = instance->GetValue();
-
-        swprintf_s(stringBuffer, 1024, L"Float32x4(%.1f,%.1f,%.1f,%.1f)", value.f32[SIMD_X], value.f32[SIMD_Y], value.f32[SIMD_Z], value.f32[SIMD_W]);
-
-        JavascriptString* string = JavascriptString::NewCopySzFromArena(stringBuffer, scriptContext, scriptContext->GeneralAllocator());
-
-        return string;
-    }
-
-    // End Entry Points
 
     Var JavascriptSIMDFloat32x4::Copy(ScriptContext* requestContext)
     {
         return JavascriptSIMDFloat32x4::New(&this->value, requestContext);
     }
 
-    __inline Var JavascriptSIMDFloat32x4::GetSignMask()
-    {
-        int signMask = SIMDFloat32x4Operation::OpGetSignMask(value);
-        return TaggedInt::ToVarUnchecked(signMask);
-    }
 }

@@ -214,7 +214,6 @@ namespace Js {
         static bool Is(Var aValue);
         static RecyclableObject* FromVar(Var varValue);
         RecyclableObject(Type * type);
-        static DWORD GetTypeOffset() { return offsetof(RecyclableObject, type); }
 #if DBG_EXTRAFIELD
         // This dtor should only be call when OOM occurs and RecyclableObject ctor has completed
         // as the base class, or we have a stack instance
@@ -286,6 +285,7 @@ namespace Js {
         virtual BOOL IsConfigurable(PropertyId propertyId) { return false; }
         virtual BOOL IsEnumerable(PropertyId propertyId) { return false; }
         virtual BOOL IsExtensible() { return false; }
+        virtual BOOL IsProtoImmutable() const { return false; }
         virtual BOOL PreventExtensions() { return false; };     // Sets [[Extensible]] flag of instance to false
         virtual void ThrowIfCannotDefineProperty(PropertyId propId, PropertyDescriptor descriptor);
         virtual void ThrowIfCannotGetOwnPropertyDescriptor(PropertyId propId) {}
@@ -366,7 +366,7 @@ namespace Js {
         }
         virtual void Mark(Recycler *recycler) override { AssertMsg(false, "Mark called on object that isn't TrackableObject"); }
 
-        static uint32 GetOffsetOfType();
+        static uint32 GetOffsetOfType() { return offsetof(RecyclableObject, type); }
 
         virtual void InvalidateCachedScope() { return; }
         virtual BOOL HasDeferredTypeHandler() const { return false; }

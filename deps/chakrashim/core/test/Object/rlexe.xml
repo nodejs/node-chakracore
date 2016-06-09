@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -51,9 +51,15 @@
   </test>
   <test>
     <default>
-      <files>propertyIsEnumarable.js</files>
-      <baseline>propertyIsEnumarable_2.baseline</baseline>
+      <files>propertyIsEnumerable.js</files>
+      <baseline>propertyIsEnumerable.baseline</baseline>
       <tags>Slow</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>propertyDescriptorNonObject.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>

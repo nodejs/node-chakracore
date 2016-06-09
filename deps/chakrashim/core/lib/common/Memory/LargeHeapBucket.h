@@ -25,11 +25,11 @@ public:
         largePageHeapBlockList(nullptr),
 #endif
         pendingDisposeLargeBlockList(nullptr)
-#ifdef CONCURRENT_GC_ENABLED
+#if ENABLE_CONCURRENT_GC
         , pendingSweepLargeBlockList(nullptr)
-#endif
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
         , partialSweptLargeBlockList(nullptr)
+#endif
 #endif
     {
     }
@@ -43,7 +43,7 @@ public:
     template <ObjectInfoBits attributes, bool nothrow>
     char* Alloc(Recycler * recycler, size_t sizeCat);
 #ifdef RECYCLER_PAGE_HEAP
-    char *PageHeapAlloc(Recycler * recycler, size_t sizeCat, ObjectInfoBits attributes, PageHeapMode mode, bool nothrow);
+    char *PageHeapAlloc(Recycler * recycler, size_t sizeCat, size_t size, ObjectInfoBits attributes, PageHeapMode mode, bool nothrow);
 #endif
     void ExplicitFree(void * object, size_t sizeCat);
 
@@ -51,7 +51,6 @@ public:
     void ScanInitialImplicitRoots(Recycler * recycler);
     void ScanNewImplicitRoots(Recycler * recycler);
 
-    template<bool pageheap>
     void Sweep(RecyclerSweep& recyclerSweep);
     void ReinsertLargeHeapBlock(LargeHeapBlock * heapBlock);
 
@@ -69,16 +68,16 @@ public:
     void VerifyMark();
     void VerifyLargeHeapBlockCount();
 
-#if defined(PARTIAL_GC_ENABLED) || defined(CONCURRENT_GC_ENABLED)
     size_t Rescan(RescanFlags flags);
+#if ENABLE_PARTIAL_GC || ENABLE_CONCURRENT_GC
     void SweepPendingObjects(RecyclerSweep& recyclerSweep);
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
     void FinishPartialCollect(RecyclerSweep * recyclerSweep);
 #endif
 
-#ifdef CONCURRENT_GC_ENABLED
+#if ENABLE_CONCURRENT_GC
     void ConcurrentTransferSweptObjects(RecyclerSweep& recyclerSweep);
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
     void ConcurrentPartialTransferSweptObjects(RecyclerSweep& recyclerSweep);
 #endif
 #endif
@@ -94,23 +93,20 @@ public:
 #endif
 
 private:
-    char * SnailAlloc(Recycler * recycler, size_t sizeCat, ObjectInfoBits attributes, bool nothrow);
+    char * SnailAlloc(Recycler * recycler, size_t sizeCat, size_t size, ObjectInfoBits attributes, bool nothrow);
     char * TryAlloc(Recycler * recycler, size_t sizeCat, ObjectInfoBits attributes);
-    char * TryAllocFromNewHeapBlock(Recycler * recycler, size_t sizeCat, ObjectInfoBits attributes, bool nothrow);
+    char * TryAllocFromNewHeapBlock(Recycler * recycler, size_t sizeCat, size_t size, ObjectInfoBits attributes, bool nothrow);
     char * TryAllocFromFreeList(Recycler * recycler, size_t sizeCat, ObjectInfoBits attributes);
     char * TryAllocFromExplicitFreeList(Recycler * recycler, size_t sizeCat, ObjectInfoBits attributes);
 
     template <class Fn> void ForEachLargeHeapBlock(Fn fn);
     template <class Fn> void ForEachEditingLargeHeapBlock(Fn fn);
     void Finalize(Recycler* recycler, LargeHeapBlock* heapBlock);
-    template<bool pageheap>
     void SweepLargeHeapBlockList(RecyclerSweep& recyclerSweep, LargeHeapBlock * heapBlockList);
 
     void ConstructFreelist(LargeHeapBlock * heapBlock);
 
-#if defined(PARTIAL_GC_ENABLED) || defined(CONCURRENT_GC_ENABLED)
     size_t Rescan(LargeHeapBlock * list, Recycler * recycler, bool isPartialSwept, RescanFlags flags);
-#endif
 
     LargeHeapBlock * fullLargeBlockList;
     LargeHeapBlock * largeBlockList;
@@ -118,9 +114,10 @@ private:
     LargeHeapBlock * largePageHeapBlockList;
 #endif
     LargeHeapBlock * pendingDisposeLargeBlockList;
-#ifdef CONCURRENT_GC_ENABLED
+#if ENABLE_CONCURRENT_GC
     LargeHeapBlock * pendingSweepLargeBlockList;
-#ifdef PARTIAL_GC_ENABLED
+#if ENABLE_PARTIAL_GC
+    // Used for concurrent-partial GC
     LargeHeapBlock * partialSweptLargeBlockList;
 #endif
 #endif

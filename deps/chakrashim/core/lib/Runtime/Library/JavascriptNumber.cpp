@@ -4,8 +4,8 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
 #include "errstr.h"
-#include "Library\EngineInterfaceObject.h"
-#include "Library\IntlEngineInterfaceExtensionObject.h"
+#include "Library/EngineInterfaceObject.h"
+#include "Library/IntlEngineInterfaceExtensionObject.h"
 
 namespace Js
 {
@@ -235,7 +235,27 @@ namespace Js
         }
         else if(TryGetInt32Value(y, &intY))
         {
-            return ::pow(x, intY);
+            // For exponent in [-8, 8], aggregate the product according to binary representation
+            // of exponent. This acceleration may lead to significant deviation for larger exponent
+            if (intY >= -8 && intY <= 8)
+            {
+                uint32 uexp = static_cast<uint32>(intY >= 0 ? intY : -intY);
+                for (double result = 1.0; ; x *= x)
+                {
+                    if ((uexp & 1) != 0)
+                    {
+                        result *= x;
+                    }
+                    if ((uexp >>= 1) == 0)
+                    {
+                        return (intY < 0 ? (1.0 / result) : result);
+                    }
+                }
+            }
+            else
+            {
+                return ::pow(x, intY);
+            }
         }
 
         return ::pow(x, y);
@@ -267,7 +287,7 @@ namespace Js
 
         AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
         Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && RecyclableObject::Is(newTarget);
+        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
         Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr
             || JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch);
 
@@ -451,7 +471,7 @@ namespace Js
 
         if (args.Info.Count == 0)
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toExponential");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toExponential"));
         }
 
         AssertMsg(args.Info.Count > 0, "negative arg count");
@@ -469,7 +489,7 @@ namespace Js
                 }
             }
 
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toExponential");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toExponential"));
         }
 
         JavascriptString * nanF;
@@ -515,7 +535,7 @@ namespace Js
 
         if (args.Info.Count == 0)
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toFixed");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toFixed"));
         }
         AssertMsg(args.Info.Count > 0, "negative arg count");
 
@@ -532,7 +552,7 @@ namespace Js
                 }
             }
 
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toFixed");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toFixed"));
         }
         int fractionDigits = 0;
         bool isFractionDigitsInfinite = false;
@@ -589,7 +609,7 @@ namespace Js
 
         if (args.Info.Count == 0)
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toPrecision");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toPrecision"));
         }
         AssertMsg(args.Info.Count > 0, "negative arg count");
 
@@ -606,7 +626,7 @@ namespace Js
                 }
             }
 
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toPrecision");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toPrecision"));
         }
         if(args.Info.Count < 2 || JavascriptOperators::GetTypeId(args[1]) == TypeIds_Undefined)
         {
@@ -648,29 +668,40 @@ namespace Js
 
         if (args.Info.Count == 0)
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toLocaleString");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toLocaleString"));
         }
+        return JavascriptNumber::ToLocaleStringIntl(args, callInfo, scriptContext);
+    }
+    
+    JavascriptString* JavascriptNumber::ToLocaleStringIntl(Var* values, CallInfo callInfo, ScriptContext* scriptContext)
+    {
+        Assert(values);
+        ArgumentReader args(&callInfo, values);
+        return JavascriptNumber::ToLocaleStringIntl(args, callInfo, scriptContext);
+    }
 
+    JavascriptString* JavascriptNumber::ToLocaleStringIntl(ArgumentReader& args, CallInfo callInfo, ScriptContext* scriptContext)
+    {
+       Assert(scriptContext);
 #ifdef ENABLE_INTL_OBJECT
         if(CONFIG_FLAG(IntlBuiltIns) && scriptContext->IsIntlEnabled()){
 
             EngineInterfaceObject* nativeEngineInterfaceObj = scriptContext->GetLibrary()->GetEngineInterfaceObject();
             if (nativeEngineInterfaceObj)
             {
-                IntlEngineInterfaceExtensionObject* intlExtenionObject = static_cast<IntlEngineInterfaceExtensionObject*>(nativeEngineInterfaceObj->GetEngineExtension(EngineInterfaceExtensionKind_Intl));
-                JavascriptFunction* func = intlExtenionObject->GetNumberToLocaleString();
+                IntlEngineInterfaceExtensionObject* intlExtensionObject = static_cast<IntlEngineInterfaceExtensionObject*>(nativeEngineInterfaceObj->GetEngineExtension(EngineInterfaceExtensionKind_Intl));
+                JavascriptFunction* func = intlExtensionObject->GetNumberToLocaleString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    return JavascriptString::FromVar(func->CallFunction(args));
                 }
                 // Initialize Number.prototype.toLocaleString
                 scriptContext->GetLibrary()->InitializeIntlForNumberPrototype();
-                func = intlExtenionObject->GetNumberToLocaleString();
+                func = intlExtensionObject->GetNumberToLocaleString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    return JavascriptString::FromVar(func->CallFunction(args));
                 }
-                AssertMsg(false, "Intl code didn't initialized Number.prototype.toLocaleString method.");
             }
         }
 #endif
@@ -683,11 +714,11 @@ namespace Js
                 Var result;
                 if (RecyclableObject::FromVar(args[0])->InvokeBuiltInOperationRemotely(EntryToLocaleString, args, &result))
                 {
-                    return result;
+                    return JavascriptString::FromVar(result);
                 }
             }
 
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toLocaleString");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toLocaleString"));
         }
 
         return JavascriptNumber::ToLocaleString(value, scriptContext);
@@ -704,7 +735,7 @@ namespace Js
 
         if (args.Info.Count == 0)
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toString");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toString"));
         }
 
         // Optimize base 10 of TaggedInt numbers
@@ -725,7 +756,7 @@ namespace Js
                 }
             }
 
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.toString");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.toString"));
         }
 
         int radix = 10;
@@ -752,7 +783,7 @@ namespace Js
 
         if( radix < 2 || radix >36 )
         {
-            JavascriptError::ThrowRangeError(scriptContext, JSERR_FunctionArgument_Invalid, L"Number.prototype.toString");
+            JavascriptError::ThrowRangeError(scriptContext, JSERR_FunctionArgument_Invalid, _u("Number.prototype.toString"));
         }
 
         return ToStringRadixHelper(value, radix, scriptContext);
@@ -770,7 +801,7 @@ namespace Js
 
         if (args.Info.Count == 0)
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.valueOf");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.valueOf"));
         }
 
         //avoid creation of a new Number
@@ -802,7 +833,7 @@ namespace Js
                 }
             }
 
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, L"Number.prototype.valueOf");
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedNumber, _u("Number.prototype.valueOf"));
         }
     }
 
@@ -810,8 +841,8 @@ namespace Js
 
     JavascriptString* JavascriptNumber::ToString(double value, ScriptContext* scriptContext)
     {
-        wchar_t szBuffer[bufSize];
-        int cchWritten = swprintf_s(szBuffer, _countof(szBuffer), L"%g", value);
+        char16 szBuffer[bufSize];
+        int cchWritten = swprintf_s(szBuffer, _countof(szBuffer), _u("%g"), value);
 
         return JavascriptString::NewCopyBuffer(szBuffer, cchWritten, scriptContext);
     }
@@ -843,7 +874,7 @@ namespace Js
         string = scriptContext->GetLastNumberToStringRadix10(value);
         if (string == nullptr)
         {
-            wchar_t szBuffer[bufSize];
+            char16 szBuffer[bufSize];
 
             if(!Js::NumberUtilities::FNonZeroFiniteDblToStr(value, szBuffer, bufSize))
             {
@@ -866,7 +897,7 @@ namespace Js
             return string;
         }
 
-        wchar_t szBuffer[bufSize];
+        char16 szBuffer[bufSize];
 
         if (!Js::NumberUtilities::FNonZeroFiniteDblToStr(value, radix, szBuffer, _countof(szBuffer)))
         {
@@ -967,7 +998,7 @@ namespace Js
         JavascriptString *result = nullptr;
 
         JavascriptString *dblStr = JavascriptString::FromVar(FormatDoubleToString(value, NumberUtilities::FormatFixed, -1, scriptContext));
-        const wchar_t* szValue = dblStr->GetSz();
+        const char16* szValue = dblStr->GetSz();
 
         count = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, szValue, NULL, NULL, 0);
 
@@ -979,7 +1010,7 @@ namespace Js
         {
             if( count > bufSize )
             {
-                pszRes = pszToBeFreed = HeapNewArray(wchar_t, count);
+                pszRes = pszToBeFreed = HeapNewArray(char16, count);
             }
             else
             {

@@ -2,8 +2,8 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-#include "BackEnd.h"
-#include "Language\SourceDynamicProfileManager.h"
+#include "Backend.h"
+#include "Language/SourceDynamicProfileManager.h"
 
 CodeGenWorkItem::CodeGenWorkItem(
     JsUtil::JobManager *const manager,
@@ -76,10 +76,10 @@ bool CodeGenWorkItem::ShouldSpeculativelyJitBasedOnProfile() const
     Js::FunctionBody* functionBody = this->GetFunctionBody();
 
     uint loopPercentage = (functionBody->GetByteCodeInLoopCount()*100) / (functionBody->GetByteCodeCount() + 1);
-    uint straighLineSize = functionBody->GetByteCodeCount() - functionBody->GetByteCodeInLoopCount();
+    uint straightLineSize = functionBody->GetByteCodeCount() - functionBody->GetByteCodeInLoopCount();
 
     // This ensures only small and loopy functions are prejitted.
-    if(loopPercentage >= 50 || straighLineSize < 300)
+    if(loopPercentage >= 50 || straightLineSize < 300)
     {
         Js::SourceDynamicProfileManager* profileManager = functionBody->GetSourceContextInfo()->sourceDynamicProfileManager;
         if(profileManager != nullptr)
@@ -206,12 +206,7 @@ void CodeGenWorkItem::RecordNativeCodeSize(Func *func, size_t bytes, ushort pdat
     bool canAllocInPreReservedHeapPageSegment = func->CanAllocInPreReservedHeapPageSegment();
 #endif
     EmitBufferAllocation *allocation = func->GetEmitBufferManager()->AllocateBuffer(bytes, &buffer, pdataCount, xdataSize, canAllocInPreReservedHeapPageSegment, true);
-
-#if DBG
-    MEMORY_BASIC_INFORMATION memBasicInfo;
-    size_t resultBytes = VirtualQuery(allocation->allocation->address, &memBasicInfo, sizeof(memBasicInfo));
-    Assert(resultBytes != 0 && memBasicInfo.Protect == PAGE_EXECUTE);
-#endif
+    Assert(func->GetEmitBufferManager()->IsBufferExecuteReadOnly(allocation));
 
     Assert(allocation != nullptr);
     if (buffer == nullptr)

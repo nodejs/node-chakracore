@@ -4,7 +4,7 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeTypePch.h"
 #include "cmperr.h"
-#include "Language\JavascriptStackWalker.h"
+#include "Language/JavascriptStackWalker.h"
 
 namespace Js
 {
@@ -92,13 +92,13 @@ namespace Js
 
     BOOL ActivationObject::GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        stringBuilder->AppendCppLiteral(L"{ActivationObject}");
+        stringBuilder->AppendCppLiteral(_u("{ActivationObject}"));
         return TRUE;
     }
 
     BOOL ActivationObject::GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        stringBuilder->AppendCppLiteral(L"Object, (ActivationObject)");
+        stringBuilder->AppendCppLiteral(_u("Object, (ActivationObject)"));
         return TRUE;
     }
 
@@ -129,6 +129,8 @@ namespace Js
     BlockActivationObject* BlockActivationObject::Clone(ScriptContext *scriptContext)
     {
         DynamicType* type = this->GetDynamicType();
+        type->GetTypeHandler()->ClearSingletonInstance(); //We are going to share the type.
+
         BlockActivationObject* blockScopeClone = DynamicObject::NewObject<BlockActivationObject>(scriptContext->GetRecycler(), type);
         int slotCapacity = this->GetTypeHandler()->GetSlotCapacity();
 

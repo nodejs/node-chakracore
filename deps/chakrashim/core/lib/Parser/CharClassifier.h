@@ -35,7 +35,7 @@ enum CharTypeFlags : uint
 
 enum CharTypes
 {
-    _C_UNK,    // Unkown grouping
+    _C_UNK,    // Unknown grouping
     _C_ERR,    // illegal character
     _C_NUL,    // NUL character
     _C_LET,    // letter (A-Z,a-z)
@@ -231,7 +231,7 @@ namespace Js
             return count;
         }
 
-        const wchar_t SkipBiDirectionalChars(_In_z_ wchar_t* &pszRef) const
+        const char16 SkipBiDirectionalChars(_In_z_ char16* &pszRef) const
         {
             while (*pszRef != '\0')
             {
@@ -249,7 +249,7 @@ namespace Js
         const OLECHAR* SkipWhiteSpace(LPCOLESTR psz) const
         {
             // Fast path for the case in which first character is not space
-            wchar_t firstChar = *psz;
+            char16 firstChar = *psz;
             if (firstChar == 0)
             {
                 return psz;
@@ -270,7 +270,7 @@ namespace Js
             {
                 return pStr;
             }
-            wchar_t firstChar = *pStr;
+            char16 firstChar = *pStr;
             if (!this->IsWhiteSpace(firstChar) &&
                 (skipWhiteSpaceStartEndFunc != &SkipWhiteSpaceSurrogateStartEnd
                 || !Js::NumberUtilities::IsSurrogateLowerPart(firstChar)))

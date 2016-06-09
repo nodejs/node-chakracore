@@ -20,7 +20,34 @@ var tests = [
       assert.throws(function () { eval("var x = function*(a =) { return a; }"); },          SyntaxError, "Incomplete default expression throws in a generator function",      "Syntax error");
       assert.throws(function () { eval("var x = class { * foo(a =) { return a; } }"); },    SyntaxError, "Incomplete default expression throws in a class generator method",  "Syntax error");
 
-      assert.throws(function () { eval("function foo(a *= 5)"); }, SyntaxError, "Other assignment operators do not work");
+      // Duplicate parameters
+      assert.throws(function () { eval("function f(a, b, a, c = 10) { }"); },               SyntaxError, "Duplicate parameters are not allowed before the default argument", "Duplicate formal parameter names not allowed in this context");
+      assert.throws(function () { eval("function f(a, b = 10, a) { }"); },                  SyntaxError, "Duplicate parameters are not allolwed after the default argument", "Duplicate formal parameter names not allowed in this context");
+      assert.throws(function () { eval("function f(a, b, a, c) { \"use strict\"; }"); },    SyntaxError, "When function is in strict mode duplicate parameters are not allowed for simple parameter list", "Duplicate formal parameter names not allowed in strict mode");
+      assert.throws(function () { eval("function f(a, b = 1) { \"use strict\"; }"); },      SyntaxError, "Strict mode cannot be applied to functions with default parameters", "Cannot apply strict mode on functions with non-simple parameter list");
+      assert.throws(function () { eval("function f() { \"use strict\"; function g(a, b, a) { } }"); },      SyntaxError, "When a function is already in strict mode duplicate parameters are not allowed for simple parameter list", "Duplicate formal parameter names not allowed in strict mode");
+      assert.throws(function () { eval("function f() { \"use strict\"; function g(a, b, a = 10) { } }"); }, SyntaxError, "When a function is already in strict mode duplicate parameters are not allowed for formal parameter list", "Duplicate formal parameter names not allowed in strict mode");
+
+      assert.doesNotThrow(function f() { "use strict"; function g(a, b = 10) { } },           "Default arguments are allowed for functions which are already in strict mode");
+      assert.doesNotThrow(function f(a, b, a, c) { return a + b + c; },                       "In non-strict mode duplicate parameters are allowed");
+      
+      assert.doesNotThrow(function () { var obj = { set f(a = 1) {} }; }, "Default parameters can be used with setters inside an object literal");
+      assert.doesNotThrow(function () { class c { set f(a = 1) {} }; }, "Default parameters can be used with setters inside a class");
+      assert.doesNotThrow(function () { var obj = { set f({a}) {} }; }, "Setter can have destructured param list");
+      assert.doesNotThrow(function () { var obj = { set f({a, b}) {} }; }, "Setter can have destructured param list with more than one parameter");
+      assert.doesNotThrow(function () { var obj = { set f([a, b]) {} }; }, "Setter can have destructured array pattern with more than one parameter");
+      assert.doesNotThrow(function () { var obj = { set f([a, ...b]) {} }; }, "Setter can have destructured array pattern with rest");
+      assert.throws(function () { eval("var obj = { set f(...a) {} };"); }, SyntaxError, "Rest parameter cannot be used with setters inside an object literal", "Unexpected ... operator");
+      assert.throws(function () { eval("var obj = { set f(a, b = 1) {} };"); }, SyntaxError, "Setters can have only one parameter even if one of them is default parameter", "Setter functions must have exactly one parameter");
+      assert.throws(function () { eval("var obj = { set f(a = 1, b) {} };"); }, SyntaxError, "Setters can have only one parameter even if one of them is default parameter", "Setter functions must have exactly one parameter");
+      assert.throws(function () { eval("var obj = { set f(a = 1, ...b) {} };") }, SyntaxError, "Setters can have only one parameter even if one of them is rest parameter", "Setter functions must have exactly one parameter");
+      assert.throws(function () { eval("var obj = { set f(a = 1, {b}) {} };"); }, SyntaxError, "Setters can have only one parameter even if one of them is destructured parameter", "Setter functions must have exactly one parameter");
+      assert.throws(function () { eval("var obj = { set f({a}, b = 1) {} };"); }, SyntaxError, "Setters can have only one parameter even if one of them is default parameter", "Setter functions must have exactly one parameter");
+      assert.throws(function () { eval("var obj = { get f(a = 1) {} };"); }, SyntaxError, "Getter cannnot have any parameter even if it is default parameter", "Getter functions must have no parameters");
+      assert.throws(function () { eval("var obj = { get f(...a) {} };"); }, SyntaxError, "Getter cannot have any parameter even if it is rest parameter", "Getter functions must have no parameters");
+      assert.throws(function () { eval("var obj = { get f({a}) {} };"); }, SyntaxError, "Getter cannot have any parameter even if it is destructured parameter", "Getter functions must have no parameters");
+
+      assert.throws(function () { eval("function foo(a *= 5)"); },                          SyntaxError, "Other assignment operators do not work");
 
       // Redeclaration errors - non-simple in this case means any parameter list with a default expression
       assert.doesNotThrow(function () { eval("function foo(a = 1) { var a; }"); },            "Var redeclaration with a non-simple parameter list");
@@ -35,10 +62,6 @@ var tests = [
 
       assert.throws(function () { eval("x = 3 => x"); },                                    SyntaxError, "Lambda formals without parentheses cannot have default expressions", "Expected \'(\'");
       assert.throws(function () { eval("var a = 0, b = 0; (x = ++a,++b) => x"); },          SyntaxError, "Default expressions cannot have comma separated expressions",        "Expected identifier");
-
-      // Bug 263626: Checking strict formal parameters with defaults should not throw
-      function foostrict1(a = 1, b) { "use strict"; }
-      function foostrict2(a, b = 1) { "use strict"; }
     }
   },
   {
@@ -63,6 +86,19 @@ var tests = [
       this.val = { test : "test" };
       function thisTest(a = this.val, b = this.val = 1.1, c = this.val, d = this.val2 = 2, e = this.val2) { return [a,b,c,d,e]; }
       assert.areEqual([{test:"test"}, 1.1, 1.1, 2, 2], thisTest(), "'this' is able to be referenced and modified");
+
+      var expAValue, expBValue, expCValue;
+      function f(a = 10, b = 20, c) {
+          assert.areEqual(a, expAValue, "First argument");
+          assert.areEqual(b, expBValue, "Second argument");
+          assert.areEqual(c, expCValue, "Third argument");
+      }
+      expAValue = null, expBValue = 20, expCValue = 1;
+      f(null, undefined, 1);
+      expAValue = null, expBValue = null, expCValue = null;
+      f(null, null, null);
+      expAValue = 10, expBValue = null, expCValue = 3;
+      f(undefined, null, 3);
 
       function lambdaCapture() {
         this.propA = 1;
@@ -96,10 +132,9 @@ var tests = [
       assert.throws(function () { eval("function foo(a = b, b = a) {}; foo();"); },   ReferenceError, "Unevaluated parameters cannot be referenced in a default initializer", "Use before declaration");
       assert.throws(function () { eval("function foo(a = a, b = b) {}; foo();"); },   ReferenceError, "Unevaluated parameters cannot be referenced in a default initializer", "Use before declaration");
       assert.throws(function () { eval("function foo(a = (b = 5), b) {}; foo();"); }, ReferenceError, "Unevaluated parameters cannot be modified in a default initializer", "Use before declaration");
-      assert.throws(function () { eval("function foo(a = eval('b'), b) {}; foo();"); }, ReferenceError, "Future default references using eval are not allowed", "Use before declaration");
 
       function argsFoo(a = (arguments[1] = 5), b) { return b };
-      assert.areEqual(undefined, argsFoo(),     "Unevaluated paramaters are referencable using the arguments object");
+      assert.areEqual(undefined, argsFoo(),     "Unevaluated parameters are referenceable using the arguments object");
       assert.areEqual(undefined, argsFoo(1),    "Side effects on the arguments object are allowed but has no effect on default parameter initialization");
       assert.areEqual(2,         argsFoo(1, 2), "Side effects on the arguments object are allowed but has no effect on default parameter initialization");
     }
@@ -136,6 +171,55 @@ var tests = [
                     ReferenceError,
                     "Named function expression does not leak name into subsequent default expressions",
                     "'bar' is undefined");
+      function foo6(a = b1) {
+          {
+              function b1() {
+                  return 2;
+              }
+          }
+          assert.areEqual(1, a, "First argument should get the initial value from outer variable");
+          assert.areEqual(2, b1(), "Block scoped function should be visible in the body also");
+      }
+      var b1 = 1;
+      foo6();
+      
+      var a1 = 10; 
+      function foo7(b = function () { return a1; }) { 
+          assert.areEqual(undefined, a1, "Inside the function body the assignment hasn't happened yet"); 
+          var a1 = 20; 
+          assert.areEqual(20, a1, "Assignment to the symbol inside the function changes the value"); 
+          return b; 
+      } 
+      assert.areEqual(10, foo7()(), "Function in the param scope correctly binds to the outer variable");
+      
+      function foo8(a = x1, b = function g() {
+          return function h() {
+              assert.areEqual(10, x1, "x1 is captured from the outer scope");
+          };
+      }) {
+          var x1 = 100;
+          b()();
+      };
+      var x1 = 10;
+      foo8();
+      
+      var x2 = 1;
+      function foo9(a = x2, b = function() { return x2; }) {
+          {
+             function x2() {
+            }
+          }
+          var x2 = 2;
+          return b;
+      }
+      assert.areEqual(1, foo9()(), "Symbol capture at the param scope is unaffected by the inner definitions");
+      
+      var x3 = 1;
+      function foo10(a = x3, b = function(_x) { return x3; }) {
+          var x3 = 2;
+          return b;
+      }
+      assert.areEqual(1, foo10()(), "Symbol capture at the param scope is unaffected by other references in the body and param");
     }
   },
   {
@@ -173,137 +257,6 @@ var tests = [
     }
   },
   {
-    name: "Basic eval in parameter scope",
-    body: function () {
-      assert.areEqual(1,
-                      function (a = eval("1")) { return a; }(),
-                      "Eval with static constant works in parameter scope");
-
-      {
-        let b = 2;
-        assert.areEqual(2,
-                        function (a = eval("b")) { return a; }(),
-                        "Eval with parent var reference works in parameter scope");
-      }
-
-      assert.areEqual(1,
-                      function (a, b = eval("arguments[0]")) { return b; }(1),
-                      "Eval with arguments reference works in parameter scope");
-
-      function testSelf(a = eval("testSelf(1)")) {
-        return a;
-      }
-      assert.areEqual(1, testSelf(1), "Eval with reference to the current function works in parameter scope");
-
-      var testSelfExpr = function (a = eval("testSelfExpr(1)")) {
-        return a;
-      }
-      assert.areEqual(1, testSelfExpr(), "Eval with reference to the current function expression works in parameter scope");
-
-      {
-        let a = 1, b = 2, c = 3;
-        function testEvalRef(a = eval("a"), b = eval("b"), c = eval("c")) {
-          return [a, b, c];
-        }
-        assert.throws(function () { testEvalRef(); },
-                      ReferenceError,
-                      "Eval with reference to the current formal throws",
-                      "Use before declaration");
-
-        function testEvalRef2(x = eval("a"), y = eval("b"), z = eval("c")) {
-          return [x, y, z];
-        }
-        assert.areEqual([1, 2, 3], testEvalRef2(), "Eval with references works in parameter scope");
-      }
-    }
-  },
-  {
-    name: "Eval declarations in parameter scope",
-    body: function() {
-      // Redeclarations of formals - var
-      assert.throws(function () { return function (a = eval("var a = 2"), b = a) { return [a, b]; }() },
-                    ReferenceError,
-                    "Redeclaring the current formal using var inside an eval throws",
-                    "Let/Const redeclaration");
-      assert.doesNotThrow(function () { "use strict"; return function (a = eval("var a = 2"), b = a) { return [a, b]; }() },
-                          "Redeclaring the current formal using var inside a strict mode eval does not throw");
-      assert.doesNotThrow(function () { "use strict"; return function (a = eval("var a = 2"), b = a) { return [a, b]; }() },
-                          "Redeclaring the current formal using var inside a strict mode function eval does not throw");
-
-      assert.throws(function () { function foo(a = eval("var b"), b, c = b) { return [a, b, c]; } foo(); },
-                    ReferenceError,
-                    "Redeclaring a future formal using var inside an eval throws",
-                    "Let/Const redeclaration");
-
-      assert.throws(function () { function foo(a, b = eval("var a"), c = a) { return [a, b, c]; } foo(); },
-                    ReferenceError,
-                    "Redeclaring a previous formal using var inside an eval throws",
-                    "Let/Const redeclaration");
-
-      // Let and const do not leak outside of an eval, so the test cases below should never throw.
-
-      // Redeclarations of formals - let
-      assert.doesNotThrow(function (a = eval("let a")) { return a; },
-                          "Attempting to redeclare the current formal using let inside an eval does not leak");
-
-      assert.doesNotThrow(function (a = eval("let b"), b) { return [a, b]; },
-                          "Attempting to redeclare a future formal using let inside an eval does not leak");
-
-      assert.doesNotThrow(function (a, b = eval("let a")) { return [a, b]; },
-                          "Attempting to redeclare a previous formal using let inside an eval does not leak");
-
-      // Redeclarations of formals - const
-      assert.doesNotThrow(function (a = eval("const a = 1")) { return a; },
-                          "Attempting to redeclare the current formal using const inside an eval does not leak");
-
-      assert.doesNotThrow(function (a = eval("const b = 1"), b) { return [a, b]; },
-                          "Attempting to redeclare a future formal using const inside an eval does not leak");
-
-      assert.doesNotThrow(function (a, b = eval("const a = 1")) { return [a, b]; },
-                          "Attempting to redeclare a previous formal using const inside an eval does not leak");
-
-      // Conditional declarations
-      function test(x = eval("var a = 1; let b = 2; const c = 3;")) {
-        if (x === undefined) {
-          // only a should be visible
-          assert.areEqual(1, a, "Var declarations leak out of eval into parameter scope");
-        } else {
-          // none should be visible
-          assert.throws(function () { a }, ReferenceError, "Ignoring the default value does not result in an eval declaration leaking", "'a' is undefined");
-        }
-
-        assert.throws(function () { b }, ReferenceError, "Let declarations do not leak out of eval to parameter scope",   "'b' is undefined");
-        assert.throws(function () { c }, ReferenceError, "Const declarations do not leak out of eval to parameter scope", "'c' is undefined");
-      }
-      test();
-      test(123);
-
-      // Redefining locals
-      function foo(a = eval("var x = 1;")) {
-        assert.areEqual(1, x, "Shadowed parameter scope var declaration retains its original value before the body declaration");
-        var x = 10;
-        assert.areEqual(10, x, "Shadowed parameter scope var declaration uses its new value in the body declaration");
-      }
-
-      assert.doesNotThrow(function() { foo(); }, "Redefining a local var with an eval var does not throw");
-      assert.throws(function() { return function(a = eval("var x = 1;")) { let x = 2; }(); },   ReferenceError, "Redefining a local let declaration with a parameter scope eval var declaration leak throws",   "Let/Const redeclaration");
-      assert.throws(function() { return function(a = eval("var x = 1;")) { const x = 2; }(); }, ReferenceError, "Redefining a local const declaration with a parameter scope eval var declaration leak throws", "Let/Const redeclaration");
-
-      // Function bodies defined in eval
-      function funcArrow(a = eval("() => 1"), b = a()) { return [a(), b]; }
-      assert.areEqual([1,1], funcArrow(), "Defining an arrow function body inside an eval works at default parameter scope");
-
-      function funcDecl(a = eval("function foo() { return 1; }"), b = foo()) { return [a, b, foo()]; }
-      assert.areEqual([undefined, 1, 1], funcDecl(), "Declaring a function inside an eval works at default parameter scope");
-
-      function genFuncDecl(a = eval("function * foo() { return 1; }"), b = foo().next().value) { return [a, b, foo().next().value]; }
-      assert.areEqual([undefined, 1, 1], genFuncDecl(), "Declaring a generator function inside an eval works at default parameter scope");
-
-      function funcExpr(a = eval("var f = function () { return 1; }"), b = f()) { return [a, b, f()]; }
-      assert.areEqual([undefined, 1, 1], funcExpr(), "Declaring a function inside an eval works at default parameter scope");
-    }
-  },
-  {
     name: "Arrow function bodies in parameter scope",
     body: function () {
       // Nested parameter scopes
@@ -315,27 +268,27 @@ var tests = [
     }
   },
   {
-    name: "Split parameter scope",
-    body: function () {
-      function g() {
-        return 3 * 3;
-      }
-
-      function f(h = () => eval("g()")) { // cannot combine scopes
-        function g() {
-          return 2 * 3;
-          }
-        return h(); // 9
-      }
-    }
-    // TODO(tcare): Re-enable when split scope support is implemented
-    //assert.areEqual(9, f(), "Paramater scope remains split");
-  },
-  {
     name: "OS 1583694: Arguments sym is not set correctly on undo defer",
     body: function () {
       eval();
       var arguments;
+    }
+  },
+  {
+    name: "Split parameter scope",
+    body: function () {
+        assert.doesNotThrow(function f(a = 1, b = class c { f() { return 2; }}) { }, "Class methods that do not refer to a formal are allowed in the param scope");
+
+        assert.throws(function () { eval("function f(a = eval('1')) { }") }, SyntaxError, "Eval is not allowed in the parameter scope", "'eval' is not allowed in the default initializer");
+        assert.throws(function () { eval("function f(a, b = function () { eval('1'); }) { }") }, SyntaxError, "Evals in child functions are not allowed in the parameter scope", "'eval' is not allowed in the default initializer");
+        assert.throws(function () { eval("function f(a, b = function () { function f() { eval('1'); } }) { }") }, SyntaxError, "Evals in nested child functions are not allowed in the parameter scope", "'eval' is not allowed in the default initializer");
+        assert.throws(function () { eval("function f(a, b = eval('a')) { }") }, SyntaxError, "Eval is not allowed in the parameter scope", "'eval' is not allowed in the default initializer");
+        assert.throws(function () { eval("async function f(a = eval('b')) { }"); }, SyntaxError, "Eval is not allowed in the param scope of async functions", "'eval' is not allowed in the default initializer");
+        assert.throws(function () { eval("function f(a = async function(y) { eval('b'); }) { }"); }, SyntaxError, "Eval is not allowed in the param scope of nested async functions", "'eval' is not allowed in the default initializer");
+        
+        assert.doesNotThrow(function (a = eval) { }, "An assignment of eval does not cause syntax error");
+        assert.doesNotThrow(function (a = eval()) { }, "If no arguments are passed to eval then it won't cause syntax error");
+        assert.doesNotThrow(function () { eval("function f( x = function y() { function z() { x; }; }) { }"); }, "Split scope functions inside eval shouldn't throw");
     }
   },
   {
@@ -402,6 +355,30 @@ var tests = [
         }
         f3(undefined, undefined, 30);
 
+        function f4 (a, b, c, d = 1) {
+            var e = 10;
+            assert.areEqual(2, arguments[0], "Unmapped arguments value has the expected value in the body");
+            (function () {
+                eval('');
+            }());
+        };
+        f4.call(1, 2);
+        
+        function f5 (a, b, c, d = 1) {
+            var e = 10;
+            var d = 11;
+            assert.areEqual(2, arguments[0], "Unmapped arguments value has the expected value, even with duplicate symbol in the body");
+            (function () {
+                eval('');
+            }());
+        };
+        f5.call(1, 2);
+    }
+  },
+  {
+    name: "Param of lambda has default as function",
+    body: function () {
+        assert.doesNotThrow(function () { eval("[ (a = function () { }) => {} ];"); }, "Lambda defined, inside an array literal, has a default as a function should not assert");
     }
   }
 ];

@@ -34,10 +34,7 @@ namespace Js
         Var computedNameVar;
         bool hasInlineCaches;
         bool hasSuperReference;
-        bool isDefaultConstructor;
         bool isActiveScript;
-        static const wchar_t diagDefaultCtor[];
-        static const wchar_t diagDefaultExtendsCtor[];
 
         bool HasFunctionBody();
         Var FormatToString(JavascriptString* inputString);
@@ -72,6 +69,7 @@ namespace Js
         static uint32 GetOffsetOfEnvironment() { return offsetof(ScriptFunction, environment); }
         static uint32 GetOffsetOfCachedScopeObj() { return offsetof(ScriptFunction, cachedScopeObj); };
         static uint32 GetOffsetOfHasInlineCaches() { return offsetof(ScriptFunction, hasInlineCaches); };
+        static uint32 GetOffsetOfHomeObj() { return  offsetof(ScriptFunction, homeObj); }
 
         void ChangeEntryPoint(ProxyEntryPointInfo* entryPointInfo, JavascriptMethod entryPoint);
         JavascriptMethod UpdateThunkEntryPoint(FunctionEntryPointInfo* entryPointInfo, JavascriptMethod entryPoint);
@@ -88,20 +86,16 @@ namespace Js
         bool HasSuperReference() { return hasSuperReference; }
         void SetHasSuperReference(bool has) { hasSuperReference = has; }
 
-        bool IsDefaultConstructor() { return isDefaultConstructor; }
-        void SetIsDefaultConstructor(bool has) { isDefaultConstructor = has; }
-
         void SetIsActiveScript(bool is) { isActiveScript = is; }
 
         virtual Var GetHomeObj() const override { return homeObj; }
         virtual void SetHomeObj(Var homeObj) override { this->homeObj = homeObj; }
         virtual void SetComputedNameVar(Var computedNameVar) override { this->computedNameVar = computedNameVar; }
-        bool GetSymbolName(const wchar_t** symbolName, charcount_t *length) const;
+        bool GetSymbolName(const char16** symbolName, charcount_t *length) const;
         virtual Var GetComputedNameVar() const override { return this->computedNameVar; }
         virtual JavascriptString* GetDisplayNameImpl() const;
         JavascriptString* GetComputedName() const;
         virtual bool IsAnonymousFunction() const override;
-        virtual BOOL GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
 
         virtual JavascriptFunction* GetRealFunctionObject() { return this; }
     };

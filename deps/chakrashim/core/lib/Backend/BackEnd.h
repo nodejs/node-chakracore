@@ -10,46 +10,40 @@
 // Runtime Includes
 // =================
 #include "Runtime.h"
-#include "ByteCode\StatementReader.h"
-#include "Language\EHBailoutData.h"
-#include "Language\AsmJsTypes.h"
-#include "Language\AsmJsModule.h"
-#include "Language\ProfilingHelpers.h"
-#include "Language\FunctionCodeGenRuntimeData.h"
-#include "Language\FunctionCodeGenJitTimeData.h"
-#include "Language\JavascriptMathOperators.h"
-#include "Language\JavascriptMathOperators.inl"
-#include "Language\JavascriptStackWalker.h"
-#include "Language\CodeGenRecyclableData.h"
-#include "Library\JavascriptGenerator.h"
-#include "Library\JavascriptRegularExpression.h"
+#include "ByteCode/StatementReader.h"
+#include "Language/EHBailoutData.h"
+#include "Language/AsmJsTypes.h"
+#include "Language/AsmJsModule.h"
+#include "Language/ProfilingHelpers.h"
+#include "Language/FunctionCodeGenRuntimeData.h"
+#include "Language/FunctionCodeGenJitTimeData.h"
+#include "Language/JavascriptMathOperators.h"
+#include "Language/JavascriptMathOperators.inl"
+#include "Language/JavascriptStackWalker.h"
+#include "Language/CodeGenRecyclableData.h"
+#include "Library/JavascriptGenerator.h"
+#include "Library/JavascriptRegularExpression.h"
+#include "Library/StackScriptFunction.h"
+#include "Library/JavascriptProxy.h"
+#include "Library/JavascriptGeneratorFunction.h"
 
-#include "Library\StackScriptFunction.h"
+#include "Language/InterpreterStackFrame.h"
+#include "Language/ReadOnlyDynamicProfileInfo.h"
 
-#include "Language\InterpreterStackFrame.h"
-#include "Language\ReadOnlyDynamicProfileInfo.h"
+#include "Library/StackScriptFunction.h"
 
-// SIMD types
-#include "Library\JavascriptSIMDFloat32x4.h"
-#include "Library\JavascriptSIMDFloat64x2.h"
-#include "Library\JavascriptSIMDInt32x4.h"
-#include "Library\JavascriptSIMDInt8x16.h"
-// SIMD operations
-#include "Language\SIMDFloat32x4Operation.h"
-#include "Language\SIMDFloat64x2Operation.h"
-#include "Language\SIMDInt32x4Operation.h"
-#include "Language\SIMDInt8x16Operation.h"
-// SIMD libs
-#include "Library\SIMDFloat32x4Lib.h"
-#include "Library\SIMDFloat64x2Lib.h"
-#include "Library\SIMDInt32x4Lib.h"
-#include "Library\SIMDInt8x16Lib.h"
+#include "Language/InterpreterStackFrame.h"
+#include "Language/ReadOnlyDynamicProfileInfo.h"
+
+// SIMD_JS
+#include "Library/SimdLib.h"
+#include "Language/SimdOps.h"
 
 // =================
 // Common Includes
 // =================
-#include "DataStructures\Pair.h"
-#include "DataStructures\HashTable.h"
+#include "DataStructures/Pair.h"
+#include "DataStructures/HashTable.h"
 // =================
 
 //
@@ -123,8 +117,8 @@ enum IRDumpFlags
 #include "CodeGenAllocators.h"
 #include "IRType.h"
 #include "md.h"
-#include "..\Runtime\ByteCode\BackEndOpcodeAttr.h"
-#include "BackEndOpCodeAttrAsmJs.h"
+#include "../Runtime/ByteCode/BackendOpCodeAttr.h"
+#include "BackendOpCodeAttrAsmJs.h"
 
 #include "JnHelperMethod.h"
 #include "Reg.h"

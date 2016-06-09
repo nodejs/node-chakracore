@@ -2,8 +2,8 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-#include "BackEnd.h"
-#include "SCCLiveness.h"
+#include "Backend.h"
+#include "SccLiveness.h"
 
 extern const IRType RegTypes[RegNumCount];
 
@@ -103,7 +103,7 @@ void
 LinearScanMD::LegalizeConstantUse(IR::Instr * instr, IR::Opnd * opnd)
 {
     Assert(opnd->IsAddrOpnd() || opnd->IsIntConstOpnd());
-    intptr value = opnd->IsAddrOpnd() ? (intptr)opnd->AsAddrOpnd()->m_address : opnd->AsIntConstOpnd()->GetValue();
+    intptr_t value = opnd->IsAddrOpnd() ? (intptr_t)opnd->AsAddrOpnd()->m_address : opnd->AsIntConstOpnd()->GetValue();
     if (value == 0
         && instr->m_opcode == Js::OpCode::MOV
         && !instr->GetDst()->IsRegOpnd()
@@ -111,7 +111,7 @@ LinearScanMD::LegalizeConstantUse(IR::Instr * instr, IR::Opnd * opnd)
     {
         Assert(this->linearScan->instrUseRegs.IsEmpty());
 
-        // MOV doesn't have a imm8 encoding for 32-bit/64-bit assignment, so if we have a register available,
+        // MOV doesn't have an imm8 encoding for 32-bit/64-bit assignment, so if we have a register available,
         // we should hoist it and generate xor reg, reg and MOV dst, reg
         BitVector regsBv;
         regsBv.Copy(this->linearScan->activeRegs);
@@ -229,6 +229,11 @@ LinearScanMD::GenerateBailOut(IR::Instr * instr, __in_ecount(registerSaveSymsCou
     Func *const func = instr->m_func;
     BailOutInfo *const bailOutInfo = instr->GetBailOutInfo();
     IR::Instr *firstInstr = instr->m_prev;
+
+    // Code analysis doesn't do inter-procesure analysis and cannot infer the value of registerSaveSymsCount,
+    // but the passed in registerSaveSymsCount is static value RegNumCount-1, so reg-1 in below loop is always a valid index.
+    __analysis_assume(static_cast<int>(registerSaveSymsCount) == static_cast<int>(RegNumCount-1));
+    Assert(static_cast<int>(registerSaveSymsCount) == static_cast<int>(RegNumCount-1));
 
     // Save registers used for parameters, and rax, if necessary, into the shadow space allocated for register parameters:
     //     mov  [rsp + 16], rdx

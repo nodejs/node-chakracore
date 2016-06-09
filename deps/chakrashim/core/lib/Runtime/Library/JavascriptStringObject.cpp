@@ -250,6 +250,7 @@ namespace Js
             return str->GetItemAt(index, value);
         }
 
+        *value = requestContext->GetMissingPropertyResult();
         return false;
     }
 
@@ -380,15 +381,15 @@ namespace Js
 
     BOOL JavascriptStringObject::GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        stringBuilder->Append(L'"');
+        stringBuilder->Append(_u('"'));
         stringBuilder->Append(this->InternalUnwrap()->GetString(), this->InternalUnwrap()->GetLength());
-        stringBuilder->Append(L'"');
+        stringBuilder->Append(_u('"'));
         return TRUE;
     }
 
     BOOL JavascriptStringObject::GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
     {
-        stringBuilder->AppendCppLiteral(L"String");
+        stringBuilder->AppendCppLiteral(_u("String"));
         return TRUE;
     }
 } // namespace Js
