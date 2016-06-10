@@ -462,7 +462,7 @@
       return props;
     };
     utils.getStackTrace = function() {
-      return captureStackTrace({}, utils.getStackTrace)();
+      return captureStackTrace({}, undefined)();
     };
     utils.isMapIterator = function(value) {
       return value[mapIteratorProperty] == true;

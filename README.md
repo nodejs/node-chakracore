@@ -1,13 +1,6 @@
 Node.js on ChakraCore
 ===
 This project enables Node.js to optionally use the ChakraCore JavaScript engine. This project is still **work in progress** and not an officially supported Node.js branch. Please refer to the original [PR](https://github.com/nodejs/node/pull/4765).
-## Resources for Newcomers
-
-* [Website](https://nodejs.org/en/)
-* [Contributing to the project](./CONTRIBUTING.md)
-* IRC (general questions): [#node.js on chat.freenode.net](https://webchat.freenode.net?channels=node.js&uio=d4)
-* IRC (node core development): [#node-dev on chat.reenode.net](https://webchat.freenode.net?channels=node-dev&uio=d4)
-
 
 ### How it works
 
@@ -41,14 +34,9 @@ vcbuild chakracore nosign [x86|x64|arm]
 ```batch
 vcbuild chakracore nobuild test [x86|x64|arm]
 ```
-* [bengl](https://github.com/bengl) - **Bryan English** &lt;bryan@bryanenglish.com&gt;
-* [bmeck](https://github.com/bmeck) - **Bradley Farias** &lt;bradley.meck@gmail.com&gt;
-* [firedfox](https://github.com/firedfox) - **Daniel Wang** &lt;wangyang0123@gmail.com&gt;
-* [jhamhader](https://github.com/jhamhader) - **Yuval Brik** &lt;yuval@brik.org.il&gt;
-* [othiym23](https://github.com/othiym23) - **Forrest L Norvell** &lt;ogd@aoaioxxysz.net&gt;
-* [yorkie](https://github.com/yorkie) - **Yorkie Liu** &lt;yorkiefixer@gmail.com&gt;
 
 To test if Node.js was built correctly with ChakraCore:
+
 ```batch
 C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
