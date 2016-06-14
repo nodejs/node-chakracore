@@ -3,5 +3,6 @@ ReferenceError: 'undefined_reference_error_maker' is undefined
    at _combinedTickCallback (internal/process/next_tick.js:*:*)
    at _tickCallback (internal/process/next_tick.js:*:*)
    at Module.runMain (module.js:*:*)
+   at run (node.js:*:*)
    at startup (node.js:*:*)
    at Anonymous function (node.js:*:*)

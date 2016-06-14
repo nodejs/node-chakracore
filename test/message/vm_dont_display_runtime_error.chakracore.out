@@ -10,4 +10,4 @@ Error: boo!
    at tryModuleLoad (module.js:*)
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
-   at startup (node.js:*)
+   at run (node.js:*)
