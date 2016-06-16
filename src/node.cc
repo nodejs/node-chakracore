@@ -4279,10 +4279,18 @@ static void StartNodeInstance(void* arg) {
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);
     HandleScope handle_scope(isolate);
+#ifndef NODE_ENGINE_CHAKRACORE
     IsolateData isolate_data(isolate, instance_data->event_loop(),
                              array_buffer_allocator.zero_fill_field());
+#endif
     Local<Context> context = Context::New(isolate);
     Context::Scope context_scope(context);
+    // CHAKRA-TODO : fix this to create isolate_data before setting context
+#if defined(NODE_ENGINE_CHAKRACORE)
+    IsolateData isolate_data(isolate, instance_data->event_loop(),
+                             array_buffer_allocator.zero_fill_field());
+
+#endif
     Environment env(&isolate_data, context);
     env.Start(instance_data->argc(),
               instance_data->argv(),
@@ -4314,9 +4322,10 @@ static void StartNodeInstance(void* arg) {
       do {
         v8::platform::PumpMessageLoop(default_platform, isolate);
         more = uv_run(env.event_loop(), UV_RUN_ONCE);
+
         if (more == false) {
           v8::platform::PumpMessageLoop(default_platform, isolate);
-
+          EmitBeforeExit(&env);
 
           // Emit `beforeExit` if the loop became alive either after emitting
           // event, or after running some callbacks.
