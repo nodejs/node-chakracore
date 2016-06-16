@@ -368,6 +368,12 @@ function error_test() {
             'undefined\n' + prompt_unix },
     { client: client_unix, send: '{ var x = 4; }',
       expect: 'undefined\n' + prompt_unix },
+    // Illegal token is not recoverable outside string literal, RegExp literal,
+    // or block comment. https://github.com/nodejs/node/issues/3611
+    {
+      client: client_unix, send: 'a = 3.5e',
+      expect: /^SyntaxError: Unexpected token ILLEGAL/
+    },
   ].filter((v) => !common.engineSpecificMessage(v)));
 }
 
@@ -382,10 +388,10 @@ function tcp_test() {
     repl.start(prompt_tcp, socket);
   });
 
-  server_tcp.listen(common.PORT, function() {
+  server_tcp.listen(0, function() {
     var read_buffer = '';
 
-    client_tcp = net.createConnection(common.PORT);
+    client_tcp = net.createConnection(this.address().port);
 
     client_tcp.on('connect', function() {
       assert.equal(true, client_tcp.readable);

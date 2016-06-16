@@ -58,13 +58,6 @@ v8::Local<v8::Value> MakeCallback(Environment* env,
 // Call with valid HandleScope and while inside Context scope.
 v8::Local<v8::Value> MakeCallback(Environment* env,
                                    v8::Local<v8::Object> recv,
-                                   uint32_t index,
-                                   int argc = 0,
-                                   v8::Local<v8::Value>* argv = nullptr);
-
-// Call with valid HandleScope and while inside Context scope.
-v8::Local<v8::Value> MakeCallback(Environment* env,
-                                   v8::Local<v8::Object> recv,
                                    v8::Local<v8::String> symbol,
                                    int argc = 0,
                                    v8::Local<v8::Value>* argv = nullptr);
@@ -145,6 +138,12 @@ NO_RETURN void FatalError(const char* location, const char* message);
 
 v8::Local<v8::Value> BuildStatsObject(Environment* env, const uv_stat_t* s);
 
+void SetupProcessObject(Environment* env,
+                        int argc,
+                        const char* const* argv,
+                        int exec_argc,
+                        const char* const* exec_argv);
+
 enum Endianness {
   kLittleEndian,  // _Not_ LITTLE_ENDIAN, clashes with endian.h.
   kBigEndian
@@ -187,33 +186,16 @@ inline MUST_USE_RESULT bool ParseArrayIndex(v8::Local<v8::Value> arg,
   return true;
 }
 
-void ThrowError(v8::Isolate* isolate, const char* errmsg);
-void ThrowTypeError(v8::Isolate* isolate, const char* errmsg);
-void ThrowRangeError(v8::Isolate* isolate, const char* errmsg);
-void ThrowErrnoException(v8::Isolate* isolate,
-                         int errorno,
-                         const char* syscall = nullptr,
-                         const char* message = nullptr,
-                         const char* path = nullptr);
-void ThrowUVException(v8::Isolate* isolate,
-                      int errorno,
-                      const char* syscall = nullptr,
-                      const char* message = nullptr,
-                      const char* path = nullptr,
-                      const char* dest = nullptr);
-
 class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
  public:
-  ArrayBufferAllocator() : env_(nullptr) { }
-
-  inline void set_env(Environment* env) { env_ = env; }
+  inline uint32_t* zero_fill_field() { return &zero_fill_field_; }
 
   virtual void* Allocate(size_t size);  // Defined in src/node.cc
   virtual void* AllocateUninitialized(size_t size) { return malloc(size); }
   virtual void Free(void* data, size_t) { free(data); }
 
  private:
-  Environment* env_;
+  uint32_t zero_fill_field_ = 1;  // Boolean but exposed as uint32 to JS land.
 };
 
 // Clear any domain and/or uncaughtException handlers to force the error's
@@ -221,7 +203,7 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
 // by clearing all callbacks that could handle the error.
 void ClearFatalExceptionHandlers(Environment* env);
 
-enum NodeInstanceType { MAIN, WORKER };
+enum NodeInstanceType { MAIN, WORKER, REMOTE_DEBUG_SERVER };
 
 class NodeInstanceData {
   public:
@@ -263,6 +245,10 @@ class NodeInstanceData {
 
     bool is_worker() {
       return node_instance_type_ == WORKER;
+    }
+
+    bool is_remote_debug_server() {
+      return node_instance_type_ == REMOTE_DEBUG_SERVER;
     }
 
     int argc() {

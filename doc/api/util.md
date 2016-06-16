@@ -389,7 +389,7 @@ util.isError({ name: 'Error', message: 'an error occurred' });
 
 Note that this method relies on `Object.prototype.toString()` behavior. It is
 possible to obtain an incorrect result when the `object` argument manipulates
-the `@@toStringTag` or overrides the `toString()` method.
+`@@toStringTag`.
 
 ```js
 const util = require('util');
@@ -580,7 +580,7 @@ util.isString(5);
   // false
 ```
 
-## util.isSymbol(object)
+### util.isSymbol(object)
 
     Stability: 0 - Deprecated
 

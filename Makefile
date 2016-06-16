@@ -118,7 +118,7 @@ test: all
 	$(MAKE) build-addons
 	$(MAKE) cctest
 	$(PYTHON) tools/test.py --mode=release -J \
-		addon doctool known_issues message parallel sequential
+		addon doctool known_issues message pseudo-tty parallel sequential
 	$(MAKE) lint
 
 test-parallel: all
@@ -143,11 +143,15 @@ ADDONS_BINDING_GYPS := \
 	$(filter-out test/addons/??_*/binding.gyp, \
 		$(wildcard test/addons/*/binding.gyp))
 
+ADDONS_BINDING_SOURCES := \
+	$(filter-out test/addons/??_*/*.cc, $(wildcard test/addons/*/*.cc)) \
+	$(filter-out test/addons/??_*/*.h, $(wildcard test/addons/*/*.h))
+
 # Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
 # Depends on node-gyp package.json so that build-addons is (re)executed when
 # node-gyp is updated as part of an npm update.
 test/addons/.buildstamp: deps/npm/node_modules/node-gyp/package.json \
-	$(ADDONS_BINDING_GYPS) \
+	$(ADDONS_BINDING_GYPS) $(ADDONS_BINDING_SOURCES) \
 	deps/uv/include/*.h deps/v8/include/*.h \
 	src/node.h src/node_buffer.h src/node_object_wrap.h \
 	test/addons/.docbuildstamp
@@ -183,7 +187,8 @@ test-all-valgrind: test-build
 test-ci: | build-addons
 	$(PYTHON) tools/test.py $(PARALLEL_ARGS) -p tap --logfile test.tap \
 		--mode=release --flaky-tests=$(FLAKY_TESTS) \
-		$(TEST_CI_ARGS) addons doctool known_issues message parallel sequential
+		$(TEST_CI_ARGS) addons doctool known_issues message pseudo-tty parallel \
+		sequential
 
 test-release: test-build
 	$(PYTHON) tools/test.py --mode=release
@@ -438,6 +443,10 @@ PACKAGEMAKER ?= /Developer/Applications/Utilities/PackageMaker.app/Contents/MacO
 PKGDIR=out/dist-osx
 
 release-only:
+	@if `grep -q REPLACEME doc/api/*.md`; then \
+		echo 'Please update Added: tags in the documentation first.' ; \
+		exit 1 ; \
+	fi
 	@if [ "$(shell git status --porcelain | egrep -v '^\?\? ')" = "" ]; then \
 		exit 0 ; \
 	else \

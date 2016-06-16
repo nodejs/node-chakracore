@@ -28,7 +28,7 @@ const preloadOption = function(preloads) {
 };
 
 const fixture = function(name) {
-  return path.join(__dirname, '../fixtures/' + name);
+  return path.join(common.fixturesDir, name);
 };
 
 const fixtureA = fixture('printA.js');
@@ -144,7 +144,7 @@ childProcess.exec(nodeBinary + ' '
   });
 
 // https://github.com/nodejs/node/issues/1691
-process.chdir(path.join(__dirname, '../fixtures/'));
+process.chdir(common.fixturesDir);
 childProcess.exec(nodeBinary + ' '
   + '--expose_debug_as=v8debug '
   + '--require ' + fixture('cluster-preload.js') + ' '

@@ -577,8 +577,8 @@ a listener for the `'listening'` event.  See also [`net.Server.listen(path)`][].
 
 Begin accepting connections on the specified `port` and `hostname`. If the
 `hostname` is omitted, the server will accept connections on any IPv6 address
-(`::`) when IPv6 is available, or any IPv4 address (`0.0.0.0`) otherwise. A
-port value of zero will assign a random port.
+(`::`) when IPv6 is available, or any IPv4 address (`0.0.0.0`) otherwise. Use a
+port value of zero to have the operating system assign an available port.
 
 To listen to a unix socket, supply a filename instead of port and hostname.
 
@@ -859,7 +859,7 @@ Example:
 ```js
 var body = 'hello world';
 response.writeHead(200, {
-  'Content-Length': body.length,
+  'Content-Length': Buffer.byteLength(body),
   'Content-Type': 'text/plain' });
 ```
 
@@ -909,6 +909,14 @@ following additional events, methods, and properties.
 
 Indicates that the underlying connection was closed.
 Just like `'end'`, this event occurs only once per response.
+
+### message.destroy([error])
+
+* `error` {Error}
+
+Calls `destroy()` on the socket that received the `IncomingMessage`. If `error`
+is provided, an `'error'` event is emitted and `error` is passed as an argument
+to any listeners on the event.
 
 ### message.headers
 
@@ -1173,7 +1181,7 @@ var options = {
   method: 'POST',
   headers: {
     'Content-Type': 'application/x-www-form-urlencoded',
-    'Content-Length': postData.length
+    'Content-Length': Buffer.byteLength(postData)
   }
 };
 
