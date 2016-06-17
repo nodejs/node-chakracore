@@ -248,7 +248,7 @@
             'deps/v8/src/third_party/vtune/v8vtune.gyp:v8_vtune'
           ],
         }],
-        [ 'v8_inspector=="true"', {
+        [ 'v8_inspector=="true" and node_engine=="v8"', {
           'defines': [
             'HAVE_INSPECTOR=1',
             'V8_INSPECTOR_USE_STL=1',
@@ -751,6 +751,17 @@
              'deps/uv/uv.gyp:libuv'
           ],
         }],
+        [ 'v8_inspector=="true" and node_engine=="v8"', {
+          'dependencies': [
+            'deps/openssl/openssl.gyp:openssl',
+            'deps/http_parser/http_parser.gyp:http_parser',
+            'deps/uv/uv.gyp:libuv'
+          ],
+          'sources': [
+            'src/inspector_socket.cc',
+            'test/cctest/test_inspector_socket.cc'
+          ]
+        }]
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -770,20 +781,6 @@
       'sources': [
         'test/cctest/util.cc',
       ],
-
-      'conditions': [
-        ['v8_inspector=="true"', {
-          'dependencies': [
-            'deps/openssl/openssl.gyp:openssl',
-            'deps/http_parser/http_parser.gyp:http_parser',
-            'deps/uv/uv.gyp:libuv'
-          ],
-          'sources': [
-            'src/inspector_socket.cc',
-            'test/cctest/test_inspector_socket.cc'
-          ]
-        }]
-      ]
     }
   ], # end targets
 
