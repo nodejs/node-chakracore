@@ -1,5 +1,35 @@
 # ChakraShim ChangeLog
 
+## 2016-06-23, node-chakracore-7.0.0-pre8
+
+### Commits
+
+* [[`89dbaf8`] (https://github.com/nodejs/node-chakracore/commit/89dbaf8)] - build: merged conditions for v8_inspector
+* [[`f2ad532`] (https://github.com/nodejs/node-chakracore/commit/f2ad532)] - lib,test: fixed jslint errors
+* [[`b3610fe`] (https://github.com/nodejs/node-chakracore/commit/b3610fe)] - test: fixed unit test for error message
+* [[`8b48ffd`] (https://github.com/nodejs/node-chakracore/commit/8b48ffd)] - src,build: added todo for isolate_data
+* [[`0402b9e`] (https://github.com/nodejs/node-chakracore/commit/0402b9e)] - Merge 'nodejs/master' into chakracore-master
+* [[`1ec0729`] (https://github.com/nodejs/node-chakracore/commit/1ec0729)] - chakrashim: implement triggering GC when idle
+* [[`8641dc0`] (https://github.com/nodejs/node-chakracore/commit/8641dc0)] - doc,deps,test:  fixed deps\test after upgrade to 1.2
+* [[`4dd7c22`] (https://github.com/nodejs/node-chakracore/commit/4dd7c22)] - build: do not build icu for chakracore-master
+* [[`8f00534`] (https://github.com/nodejs/node-chakracore/commit/8f00534)] - deps: Modified chakracore to enable/disable SIMD
+* [[`7cd4c61`] (https://github.com/nodejs/node-chakracore/commit/7cd4c61)] - chakrashim: updated chakracore to 1.2
+* [[`407e16c`] (https://github.com/nodejs/node-chakracore/commit/407e16c)] - test: Suppress debugger test and fixed jslint
+* [[`5556a39`] (https://github.com/nodejs/node-chakracore/commit/5556a39)] - deps: Expose `--harmony-simd` in node+chakracore
+* [[`2684f39`] (https://github.com/nodejs/node-chakracore/commit/2684f39)] - deps: Modified chakracore to enable/disable SIMD
+* [[`3b6a55e`] (https://github.com/nodejs/node-chakracore/commit/3b6a55e)] - Merge 'nodejs/master into chakracore-master
+* [[`8d11795`] (https://github.com/nodejs/node-chakracore/commit/8d11795)] - tool: modified eslint rule for line-breaks
+* [[`2048b2c`] (https://github.com/nodejs/node-chakracore/commit/2048b2c)] - test: Disabled a debugger unit test
+* [[`6fd464c`] (https://github.com/nodejs/node-chakracore/commit/6fd464c)] - Merge 'nodejs/master' into chakracore-master
+* [[`b1e66d7`] (https://github.com/nodejs/node-chakracore/commit/b1e66d7)] - tools: fixed jslint errors after merge
+* [[`60e2711`] (https://github.com/nodejs/node-chakracore/commit/60e2711)] - Merge nodejs/master into chakracore-master
+* [[`574b01e`] (https://github.com/nodejs/node-chakracore/commit/574b01e)] - test: fixed test case after merge
+* [[`7c88be6`] (https://github.com/nodejs/node-chakracore/commit/7c88be6)] - deps: added chakrashim apis for Proxy
+* [[`ca75446`] (https://github.com/nodejs/node-chakracore/commit/ca75446)] - Merge branch 'nodejs/master' into chakracore-master
+* [[`c7129ab`] (https://github.com/nodejs/node-chakracore/commit/c7129ab)] - test: update message/...chakracore.out
+* [[`007b8f6`] (https://github.com/nodejs/node-chakracore/commit/007b8f6)] - Merge branch 'nodejs/master' into chakracore-master
+* [[`2a8b3b0`] (https://github.com/nodejs/node-chakracore/commit/2a8b3b0)] - chakrashim: correct Template properties support
+
 ## 2016-04-20, node-chakracore-6.0.0-pre7
 
 ### Commits
