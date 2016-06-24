@@ -17,8 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
-'use strict';
 
+/* eslint-disable strict */
 (function(keepAlive) {
   // Save original builtIns
   var
@@ -42,12 +42,28 @@
   var global = this;
 
   // Simulate V8 JavaScript stack trace API
-  function StackFrame(funcName, fileName, lineNumber, columnNumber) {
+  function StackFrame(func, funcName, fileName, lineNumber, columnNumber) {
     this.column = columnNumber;
     this.lineNumber = lineNumber;
     this.scriptName = fileName;
     this.functionName = funcName;
+    this.function = func;
   }
+
+  StackFrame.prototype.getFunction = function() {
+    // TODO: Fix if .stack is called from different callsite
+    // from where Error() or Error.captureStackTrace was called
+    return this.function;
+  };
+
+  StackFrame.prototype.getTypeName = function() {
+    //TODO : Fix this
+    return this.functionName;
+  };
+
+  StackFrame.prototype.getMethodName = function() {
+    return this.functionName;
+  };
 
   StackFrame.prototype.getFunctionName = function() {
     return this.functionName;
@@ -66,6 +82,21 @@
   };
 
   StackFrame.prototype.isEval = function() {
+    // TODO
+    return false;
+  };
+
+  StackFrame.prototype.isToplevel = function() {
+    // TODO
+    return false;
+  };
+
+  StackFrame.prototype.isNative = function() {
+    // TODO
+    return false;
+  };
+
+  StackFrame.prototype.isConstructor = function() {
     // TODO
     return false;
   };
@@ -89,13 +120,32 @@
   // Parse 'stack' string into StackTrace frames. Skip top 'skipDepth' frames,
   // and optionally skip top to 'startName' function frames.
   function parseStack(stack, skipDepth, startName) {
-    var splittedStack = stack.split('\n');
-    splittedStack.splice(0, skipDepth + 1); // also skip top name/message line
+    var stackSplitter = /\)\s*at/;
+    var reStackDetails = /\s(?:at\s)?(.*)\s\((.*)/;
+    var fileDetailsSplitter = /:(\d+)/;
+
+    var curr = parseStack;
+    var splittedStack = stack.split(stackSplitter);
     var errstack = [];
 
     for (var i = 0; i < splittedStack.length; i++) {
-      var parens = /\(/.exec(splittedStack[i]);
-      var funcName = splittedStack[i].substr(6, parens.index - 7);
+      // parseStack has 1 frame lesser than skipDepth. So skip calling .caller
+      // once. After that, continue calling .caller
+      if (skipDepth != 1 && curr) {
+        try {
+          curr = curr.caller;
+        } catch (e) {
+          curr = undefined;  // .caller might not be allowed in curr's context
+        }
+      }
+
+      if (skipDepth-- > 0) {
+        continue;
+      }
+
+      var func = curr;
+      var stackDetails = reStackDetails.exec(splittedStack[i]);
+      var funcName = stackDetails[1];
 
       if (startName) {
         if (funcName === startName) {
@@ -107,28 +157,14 @@
         funcName = null;
       }
 
-      var location = splittedStack[i].substr(parens.index + 1,
-          splittedStack[i].length - parens.index - 2);
+      var fileDetails = stackDetails[2].split(fileDetailsSplitter);
 
-      var fileName = location;
-      var lineNumber = 0;
-      var columnNumber = 0;
+      var fileName = fileDetails[0];
+      var lineNumber = fileDetails[1] ? fileDetails[1] : 0;
+      var columnNumber = fileDetails[3] ? fileDetails[3] : 0;
 
-      var colonPattern = /:[0-9]+/g;
-      var firstColon = colonPattern.exec(location);
-      if (firstColon) {
-        fileName = location.substr(0, firstColon.index);
-
-        var secondColon = colonPattern.exec(location);
-        if (secondColon) {
-          lineNumber = parseInt(location.substr(firstColon.index + 1,
-              secondColon.index - firstColon.index - 1), 10);
-          columnNumber = parseInt(location.substr(secondColon.index + 1,
-              location.length - secondColon.index), 10);
-        }
-      }
       errstack.push(
-          new StackFrame(funcName, fileName, lineNumber, columnNumber));
+          new StackFrame(func, funcName, fileName, lineNumber, columnNumber));
     }
     return errstack;
   }
@@ -190,7 +226,7 @@
 
     var funcSkipDepth = findFuncDepth(func);
     var startFuncName = (func && funcSkipDepth < 0) ? func.name : undefined;
-    skipDepth += Math.max(funcSkipDepth, 0);
+    skipDepth += Math.max(funcSkipDepth - 1, 0);
 
     var currentStackTrace;
     function ensureStackTrace() {
@@ -216,6 +252,13 @@
       // this Chakra runtime would reset stack at throw time.
       Reflect_apply(oldStackDesc.set, e, [value]);
     }
+
+    // To retain overriden stackAccessors below,notify Chakra runtime to not
+    // reset stack for this error object.
+    if (e !== err) {
+      Reflect_apply(oldStackDesc.set, err, ['']);
+    }
+
     Object_defineProperty(err, 'stack', {
       get: stackGetter, set: stackSetter, configurable: true, enumerable: false
     });
