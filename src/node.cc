@@ -3766,13 +3766,10 @@ static void StartDebug(Environment* env, bool wait) {
   } else {
     env->debugger_agent()->set_dispatch_handler(
           DispatchMessagesDebugAgentCallback);
-#if defined(NODE_ENGINE_CHAKRACORE)
-  // ChakraShim does not support debugger_agent
-  debugger_running = v8::Debug::EnableAgent();
-#else
+
    debugger_running =
         env->debugger_agent()->Start(debug_host, debug_port, wait);
-#endif
+
     if (debugger_running == false) {
       fprintf(stderr, "Starting debugger on %s:%d failed\n",
               debug_host.c_str(), debug_port);
@@ -4235,6 +4232,13 @@ void Init(int* argc,
   if (v8_argc > 1) {
     exit(9);
   }
+
+  // CHAKRA-TODO : fix this to not do it here
+#ifdef NODE_ENGINE_CHAKRACORE
+  if (debug_wait_connect) {
+      v8::Debug::ExposeDebug();
+  }
+#endif
 
   // Unconditionally force typed arrays to allocate outside the v8 heap. This
   // is to prevent memory pointers from being moved around that are returned by

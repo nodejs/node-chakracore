@@ -57,9 +57,10 @@ Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate,
   ArrayBufferFinalizeInfo* callbackState = nullptr;
 
   if (mode == ArrayBufferCreationMode::kInternalized) {
-      ArrayBufferFinalizeInfo info = { g_arrayBufferAllocator,
-                                       data,
-                                       byte_length };
+      ArrayBufferFinalizeInfo info = {
+          jsrt::IsolateShim::FromIsolate(isolate)->g_arrayBufferAllocator,
+          data,
+          byte_length };
       finalizeCallback = ExternalArrayBufferFinalizeCallback;
       callbackState = new ArrayBufferFinalizeInfo(info);
   }

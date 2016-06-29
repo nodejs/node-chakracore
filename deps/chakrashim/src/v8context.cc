@@ -20,6 +20,8 @@
 
 #include "v8.h"
 #include "jsrtutils.h"
+#include "v8-debug.h"
+#include "chakra_natives.h"
 #include <assert.h>
 
 namespace v8 {
@@ -71,7 +73,45 @@ Local<Context> Context::New(Isolate* external_isolate,
     return Local<Context>();
   }
 
-  return Local<Context>::New(external_isolate, static_cast<Context *>(context));
+  Local<Context> thisContext = Local<Context>::New(
+      external_isolate, static_cast<Context *>(context));
+
+  if (v8::Debug::IsDebugExposed()) {
+    // If JavaScript debugging APIs need to be exposed then make sure
+    // debugContext is avaliable and chakra_debug.js is compiled. Inject
+    // v8debug object from chakra_debug.js in this context global object
+    if (isoShim->debugContext == nullptr) {
+      JsContextRef debugContextRef;
+      isoShim->NewContext(&debugContextRef, false, *glob);
+      jsrt::ContextShim* debugContextShim = isoShim->GetContextShim(
+          debugContextRef);
+
+      isoShim->debugContext = debugContextShim;
+      JsValueRef debugObject = JS_INVALID_REFERENCE;
+
+      {
+        Local<Context> debugContextLocal = Local<Context>::New(
+            external_isolate, static_cast<Context *>(debugContextRef));
+        Context::Scope context_scope(debugContextLocal);
+
+        JsValueRef chakraDebugObject;
+        if (debugContextShim->ExecuteChakraDebugShimJS(&chakraDebugObject)) {
+          JsPropertyIdRef propertyIdRef;
+          JsGetPropertyIdFromName(L"DebugObject", &propertyIdRef);
+          JsGetProperty(chakraDebugObject, propertyIdRef, &debugObject);
+          v8::Debug::SetChakraDebugObject(chakraDebugObject);
+          // Set chakraDebugObject properties in MessageQueue
+        }
+      }
+
+      if (debugObject != JS_INVALID_REFERENCE) {
+        Context::Scope context_scope(thisContext);
+        jsrt::SetPropertyOfGlobal(L"v8debug", debugObject);
+      }
+    }
+  }
+
+  return thisContext;
 }
 
 Local<Context> Context::GetCurrent() {

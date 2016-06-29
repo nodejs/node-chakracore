@@ -54,6 +54,9 @@
 #define CHAKRA_VERIFY(expr) if (!(expr)) { \
   jsrt::Fatal("internal error %s(%d): %s", __FILE__, __LINE__, #expr); }
 
+#define CHAKRA_VERIFY_NOERROR(errorCode) if (errorCode != JsNoError) { \
+  jsrt::Fatal("internal error %s(%d): %x", __FILE__, __LINE__, errorCode); }
+
 #ifdef DEBUG
 #define CHAKRA_ASSERT(expr) assert(expr)
 #else

@@ -2,6 +2,7 @@
   'variables': {
     'library_files': [
       'lib/chakra_shim.js',
+      'lib/chakra_debug.js'
     ],
   },
 

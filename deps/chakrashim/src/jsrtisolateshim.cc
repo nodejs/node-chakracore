@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <vector>
 #include <algorithm>
+#include "v8-debug.h"
 
 namespace v8 {
 extern bool g_disableIdleGc;
@@ -30,6 +31,7 @@ extern bool g_disableIdleGc;
 namespace jsrt {
 
 /* static */ __declspec(thread) IsolateShim * IsolateShim::s_currentIsolate;
+/* static */ __declspec(thread) IsolateShim * IsolateShim::s_previousIsolate;
 /* static */ IsolateShim * IsolateShim::s_isolateList = nullptr;
 
 IsolateShim::IsolateShim(JsRuntimeHandle runtime)
@@ -39,7 +41,9 @@ IsolateShim::IsolateShim(JsRuntimeHandle runtime)
       cachedPropertyIdRefs(),
       embeddedData(),
       isDisposing(false),
-      tryCatchStackTop(nullptr) {
+      tryCatchStackTop(nullptr),
+      g_arrayBufferAllocator(nullptr),
+      debugContext(nullptr) {
   // CHAKRA-TODO: multithread locking for s_isolateList?
   this->prevnext = &s_isolateList;
   this->next = s_isolateList;
@@ -60,11 +64,12 @@ IsolateShim::~IsolateShim() {
 
 /* static */ v8::Isolate * IsolateShim::New() {
   // CHAKRA-TODO: Disable multiple isolate for now until it is fully implemented
+  /*
   if (s_isolateList != nullptr) {
     CHAKRA_UNIMPLEMENTED_("multiple isolate");
     return nullptr;
   }
-
+  */
   bool disableIdleGc = v8::g_disableIdleGc;
   JsRuntimeHandle runtime;
   JsErrorCode error =
@@ -75,6 +80,12 @@ IsolateShim::~IsolateShim() {
        JsRuntimeAttributeEnableIdleProcessing)), nullptr, &runtime);
   if (error != JsNoError) {
     return nullptr;
+  }
+  
+  if (v8::Debug::IsDebugExposed()) {
+    // If JavaScript debugging APIs need to be exposed then
+    // runtime should be in debugging mode from start
+    v8::Debug::StartDebugging(runtime);
   }
 
   IsolateShim* newIsolateshim = new IsolateShim(runtime);
@@ -108,7 +119,8 @@ IsolateShim::~IsolateShim() {
 void IsolateShim::Enter() {
   // CHAKRA-TODO: we don't support multiple isolate currently, this also doesn't
   // support reentrence
-  assert(s_currentIsolate == nullptr);
+  assert(s_currentIsolate == nullptr || s_currentIsolate == this);
+  s_previousIsolate = s_currentIsolate;
   s_currentIsolate = this;
 }
 
@@ -116,7 +128,8 @@ void IsolateShim::Exit() {
   // CHAKRA-TODO: we don't support multiple isolate currently, this also doesn't
   // support reentrence
   assert(s_currentIsolate == this);
-  s_currentIsolate = nullptr;
+  s_currentIsolate = s_previousIsolate;
+  s_previousIsolate = nullptr;
 }
 
 JsRuntimeHandle IsolateShim::GetRuntimeHandle() {

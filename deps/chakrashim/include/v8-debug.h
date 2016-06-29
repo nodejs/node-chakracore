@@ -27,8 +27,43 @@
 
 #pragma once
 #include <v8.h>
+#include "uv.h"
+#include <queue>
 
 namespace v8 {
+    class V8_EXPORT MessageQueue {
+    public:
+        MessageQueue();
+        ~MessageQueue();
+        void SaveMessage(const uint16_t* command, int length);
+        wchar_t* PopMessage();
+        void SetProcessMessageFunctions(
+            JsValueRef chakraDebugObject,
+            JsValueRef processDebuggerMessageFn,
+            JsValueRef processDebugEventFn,
+            JsValueRef processShouldContinueFn);
+        void ProcessDebuggerMessage();
+        void ProcessDebugEvent(
+            JsDiagDebugEvent debugEvent,
+            JsValueRef eventData);
+        bool ShouldContinue(JsDiagDebugEvent debugEvent);
+        bool IsEmpty();
+        void WaitForMessage();
+        bool waitingForMessage;
+        bool isProcessingDebuggerMsg;
+        int debugEventProcessCount;
+    private:
+        std::queue<wchar_t*> *msgQueue;
+        JsValueRef chakraDebugObject;
+        JsValueRef processDebuggerMessageFn;
+        JsValueRef processDebugEventFn;
+        JsValueRef processShouldContinueFn;
+        uv_sem_t newMsgSem;
+        uv_cond_t cond;
+        uv_mutex_t mutex;
+
+        uv_mutex_t msgMutex;
+    };
 
 // NOT IMPLEMENTED
 class V8_EXPORT Debug {
@@ -46,6 +81,9 @@ class V8_EXPORT Debug {
   typedef void (*DebugMessageDispatchHandler)();
   typedef void (*MessageHandler)(const Message& message);
 
+  static MessageQueue messageQueue;
+  static MessageHandler handler;
+  static void ExposeDebug();
   static void DebugBreak(Isolate *isolate = NULL) {}
   static void SetDebugMessageDispatchHandler(
     DebugMessageDispatchHandler handler, bool provide_locker = false) {}
@@ -56,15 +94,31 @@ class V8_EXPORT Debug {
   static bool IsAgentEnabled();
   static void ProcessDebugMessages(Isolate* isolate) {}
   static Local<Context> GetDebugContext(Isolate* isolate);
-  static void SetMessageHandler(Isolate* isolate, MessageHandler handler) {}
+  static void SetMessageHandler(Isolate* isolate, MessageHandler handler);
   static void SendCommand(Isolate* isolate,
-                          const uint16_t* command, int length,
-                          ClientData* client_data = NULL) {
-  }
+      const uint16_t* command, int length,
+      ClientData* client_data = NULL);
   static MaybeLocal<Value> GetMirror(Local<Context> context,
                                      Handle<Value> obj) {
     return MaybeLocal<Value>();
   }
+  static void StartDebugging(JsRuntimeHandle runtime);
+  static void SetChakraDebugObject(JsValueRef chakraDebugObject);
+  static void InstallHostCallback(
+      JsValueRef chakraDebugObject,
+      const wchar_t *name,
+      JsNativeFunction nativeFunction);
+  static bool IsDebugExposed();
+};
+
+class MessageImpl : public Debug::Message {
+  public:
+    MessageImpl(Local<String> v8Str);
+    virtual Local<String> GetJSON() const;
+    virtual Isolate* GetIsolate() const;
+    static Local<String> JsValueRefToV8String(JsValueRef result);
+  private:
+    Local<String> v8Str;
 };
 
 }  // namespace v8

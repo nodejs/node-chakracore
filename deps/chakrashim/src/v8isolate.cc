@@ -30,7 +30,9 @@ CpuProfiler dummyCpuProfiler;
 Isolate* Isolate::New(const CreateParams& params) {
   Isolate* iso = jsrt::IsolateShim::New();
   if (params.array_buffer_allocator) {
-    V8::SetArrayBufferAllocator(params.array_buffer_allocator);
+    CHAKRA_VERIFY(!jsrt::IsolateShim::FromIsolate(iso)->g_arrayBufferAllocator);
+    jsrt::IsolateShim::FromIsolate(iso)->g_arrayBufferAllocator =
+        params.array_buffer_allocator;
   }
   return iso;
 }

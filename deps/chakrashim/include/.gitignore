@@ -1,2 +1,4 @@
 chakracore.h
 chakracommon.h
+chakracommonwindows.h
+chakradebug.h
