@@ -26,8 +26,10 @@
       'variables': {
         'chakracore_sln': '<(chakra_dir)/build/Chakra.Core.sln',
         'chakracore_header': [
-          '<(chakra_dir)/lib/jsrt/chakracore.h',
-          '<(chakra_dir)/lib/jsrt/chakracommon.h'
+          '<(chakra_dir)/lib/Jsrt/ChakraCore.h',
+          '<(chakra_dir)/lib/Jsrt/ChakraCommon.h',
+          '<(chakra_dir)/lib/Jsrt/ChakraCommonWindows.h',
+          '<(chakra_dir)/lib/Jsrt/ChakraDebug.h',
         ],
         'chakracore_binaries': [
           '<(chakra_dir)/build/vcbuild/bin/<(Platform)_$(ConfigurationName)/chakracore.dll',
