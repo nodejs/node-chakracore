@@ -58,7 +58,7 @@ IsolateShim::~IsolateShim() {
   }
 }
 
-/* static */ v8::Isolate * IsolateShim::New(bool enableSimd) {
+/* static */ v8::Isolate * IsolateShim::New() {
   // CHAKRA-TODO: Disable multiple isolate for now until it is fully implemented
   if (s_isolateList != nullptr) {
     CHAKRA_UNIMPLEMENTED_("multiple isolate");
@@ -71,8 +71,6 @@ IsolateShim::~IsolateShim() {
     JsCreateRuntime(static_cast<JsRuntimeAttributes>(
       JsRuntimeAttributeAllowScriptInterrupt |
       JsRuntimeAttributeEnableExperimentalFeatures |
-      (enableSimd ? JsRuntimeAttributeEnableSimdjsFeature :
-       JsRuntimeAttributeNone) |
       (disableIdleGc ? JsRuntimeAttributeNone :
        JsRuntimeAttributeEnableIdleProcessing)), nullptr, &runtime);
   if (error != JsNoError) {

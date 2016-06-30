@@ -29,7 +29,6 @@ namespace v8 {
 bool g_disposed = false;
 bool g_exposeGC = false;
 bool g_useStrict = false;
-bool g_enableSimdjs = false;
 bool g_disableIdleGc = false;
 ArrayBuffer::Allocator* g_arrayBufferAllocator = nullptr;
 
@@ -99,11 +98,6 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
       }
     } else if (equals("--use-strict", arg) || equals("--use_strict", arg)) {
       g_useStrict = true;
-      if (remove_flags) {
-        argv[i] = nullptr;
-      }
-    } else if (equals("--harmony-simd", arg) || equals("--harmony_simd", arg)) {
-      g_enableSimdjs = true;
       if (remove_flags) {
         argv[i] = nullptr;
       }
