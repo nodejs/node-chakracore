@@ -3,34 +3,37 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at exports.runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
-   at Anonymous function (node.js:*:*)
+   at Anonymous function (bootstrap_node.js:*:*)
    at _combinedTickCallback (internal/process/next_tick.js:*:*)
    at _tickCallback (internal/process/next_tick.js:*:*)
 42
 42
 Error: hello
    at Global code ([eval]:1:1)
+   at Script.prototype.runInThisContext (vm.js:*:*)      
    at exports.runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
-   at Anonymous function (node.js:*:*)
+   at Anonymous function (bootstrap_node.js:*:*)
    at _combinedTickCallback (internal/process/next_tick.js:*:*)
    at _tickCallback (internal/process/next_tick.js:*:*)
 Error: hello
    at Global code ([eval]:1:15)
+   at Script.prototype.runInThisContext (vm.js:*:*)   
    at exports.runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
-   at Anonymous function (node.js:*:*)
+   at Anonymous function (bootstrap_node.js:*:*)
    at _combinedTickCallback (internal/process/next_tick.js:*:*)
    at _tickCallback (internal/process/next_tick.js:*:*)
 100
 ReferenceError: Variable undefined in strict mode
    at Global code ([eval]:1:28)
+   at Script.prototype.runInThisContext (vm.js:*:*)      
    at exports.runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
-   at Anonymous function (node.js:*:*)
+   at Anonymous function (bootstrap_node.js:*:*)
    at _combinedTickCallback (internal/process/next_tick.js:*:*)
    at _tickCallback (internal/process/next_tick.js:*:*)
 10

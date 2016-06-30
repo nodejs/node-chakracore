@@ -2,6 +2,7 @@ beginning
 middle
 Error: boo!
    at Global code (test.vm:*)
+   at Script.prototype.runInThisContext (vm.js:*:*)      
    at exports.runInThisContext (vm.js:*)
    at Anonymous function (*test*message*vm_dont_display_runtime_error.js:*)
    at Module.prototype._compile (module.js:*)
@@ -10,4 +11,3 @@ Error: boo!
    at tryModuleLoad (module.js:*)
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
-   at run (node.js:*)

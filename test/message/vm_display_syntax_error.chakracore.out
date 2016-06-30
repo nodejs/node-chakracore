@@ -8,8 +8,8 @@ SyntaxError: Expected identifier
    at tryModuleLoad (module.js:*)
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
-   at run (node.js:*)
-   at startup (node.js:*)
+   at run (bootstrap_node.js:*)
+   at startup (bootstrap_node.js:*)
 SyntaxError: Expected identifier
    at exports.runInThisContext (vm.js:*)
    at Anonymous function (*test*message*vm_display_syntax_error.js:*)
@@ -19,5 +19,5 @@ SyntaxError: Expected identifier
    at tryModuleLoad (module.js:*)
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
-   at run (node.js:*)
-   at startup (node.js:*)
+   at run (bootstrap_node.js:*)
+   at startup (bootstrap_node.js:*)

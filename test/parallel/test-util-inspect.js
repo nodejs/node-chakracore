@@ -4,12 +4,6 @@ const assert = require('assert');
 const util = require('util');
 const vm = require('vm');
 
-if (common.isChakraEngine) {
-  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
-  'because debugger support is not implemented yet.');
-  return;
-}
-
 assert.equal(util.inspect(1), '1');
 assert.equal(util.inspect(false), 'false');
 assert.equal(util.inspect(''), "''");
@@ -31,8 +25,8 @@ assert.equal(util.inspect([1, [2, 3]]), '[ 1, [ 2, 3 ] ]');
 
 assert.equal(util.inspect({}), '{}');
 assert.equal(util.inspect({a: 1}), '{ a: 1 }');
-assert.equal(util.inspect({a: function() {}}), '{ a: [Function: a] }');
-  v8: '{ a: [Function] }',
+assert.equal(util.inspect({a: function() {}}), common.engineSpecificMessage({
+  v8: '{ a: [Function: a] }',
   chakracore: '{ a: [Function: a] }'
 }));
 assert.equal(util.inspect({a: 1, b: 2}), '{ a: 1, b: 2 }');
@@ -227,8 +221,8 @@ assert.equal(util.inspect(value), '[ 1, 2, 3, growingLength: [Getter] ]');
 // Function with properties
 value = function() {};
 value.aprop = 42;
-assert.equal(util.inspect(value), '{ [Function: value] aprop: 42 }');
-  v8: '{ [Function] aprop: 42 }',
+assert.equal(util.inspect(value), common.engineSpecificMessage({
+  v8: '{ [Function: value] aprop: 42 }',
   chakracore: '{ [Function: value] aprop: 42 }'
 }));
 
@@ -263,19 +257,22 @@ assert.equal(util.inspect(a), '[ \'foo\', , \'baz\' ]');
 assert.equal(util.inspect(a, true), '[ \'foo\', , \'baz\', [length]: 3 ]');
 assert.equal(util.inspect(new Array(5)), '[ , , , ,  ]');
 
-// test for Array constructor in different context
-{
-  const Debug = require('vm').runInDebugContext('Debug');
-  const map = new Map();
-  map.set(1, 2);
-  const mirror = Debug.MakeMirror(map.entries(), true);
-  const vals = mirror.preview();
-  const valsOutput = [];
-  for (const o of vals) {
-    valsOutput.push(o);
-  }
+// Skip for chakra engine as debugger support not yet present
+if (!common.isChakraEngine) {
+    // test for Array constructor in different context
+  {
+    const Debug = require('vm').runInDebugContext('Debug');
+    const map = new Map();
+    map.set(1, 2);
+    const mirror = Debug.MakeMirror(map.entries(), true);
+    const vals = mirror.preview();
+    const valsOutput = [];
+    for (const o of vals) {
+      valsOutput.push(o);
+    }
 
-  assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
+    assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
+  }
 }
 
 // test for other constructors in different context
@@ -286,7 +283,10 @@ assert.strictEqual(util.inspect(obj), 'Map { 1 => 2 }');
 obj = require('vm').runInNewContext('var s=new Set();s.add(1);s.add(2);s', {});
 assert.strictEqual(util.inspect(obj), 'Set { 1, 2 }');
 obj = require('vm').runInNewContext('fn=function(){};new Promise(fn,fn)', {});
-assert.strictEqual(util.inspect(obj), 'Promise { <pending> }');
+assert.strictEqual(util.inspect(obj), common.engineSpecificMessage({
+  v8: 'Promise { <pending> }',
+  chakracore: 'Promise {}'
+}));
 
 // test for property descriptors
 var getter = Object.create(null, {
@@ -549,41 +549,61 @@ assert.equal(util.inspect(set, true), 'Set { \'foo\', [size]: 1, bar: 42 }');
 }
 
 // test Promise
-assert.equal(util.inspect(Promise.resolve(3)), 'Promise { 3 }');
-assert.equal(util.inspect(Promise.reject(3)), 'Promise { <rejected> 3 }');
-assert.equal(util.inspect(new Promise(function() {})), 'Promise { <pending> }');
+assert.equal(util.inspect(Promise.resolve(3)), common.engineSpecificMessage({
+  v8: 'Promise { 3 }',
+  chakracore: 'Promise {}'
+}));
+assert.equal(util.inspect(Promise.reject(3)), common.engineSpecificMessage({
+  v8: 'Promise { <rejected> 3 }',
+  chakracore: 'Promise {}'
+}));
+assert.equal(util.inspect(new Promise(function() {})),
+  common.engineSpecificMessage({
+    v8: 'Promise { <pending> }',
+    chakracore: 'Promise {}'
+  }));
 var promise = Promise.resolve('foo');
 promise.bar = 42;
-assert.equal(util.inspect(promise), 'Promise { \'foo\', bar: 42 }');
+assert.equal(util.inspect(promise), common.engineSpecificMessage({
+  v8: 'Promise { \'foo\', bar: 42 }',
+  chakracore: 'Promise { bar: 42 }'
+}));
 
 // Make sure it doesn't choke on polyfills. Unlike Set/Map, there is no standard
 // interface to synchronously inspect a Promise, so our techniques only work on
 // a bonafide native Promise.
 var oldPromise = Promise;
 global.Promise = function() { this.bar = 42; };
-assert.equal(util.inspect(new Promise()), '{ bar: 42 }');
+assert.equal(util.inspect(new Promise()), common.engineSpecificMessage({
+  v8: 'Promise {  bar: 42 }',
+  chakracore: 'Promise { \'<unknown>\', bar: 42 }'
+}));
 global.Promise = oldPromise;
 
-// Map/Set Iterators
-var m = new Map([['foo', 'bar']]);
-assert.strictEqual(util.inspect(m.keys()), 'MapIterator { \'foo\' }');
-assert.strictEqual(util.inspect(m.values()), 'MapIterator { \'bar\' }');
-assert.strictEqual(util.inspect(m.entries()),
-                   'MapIterator { [ \'foo\', \'bar\' ] }');
-// make sure the iterator doesn't get consumed
-var keys = m.keys();
-assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+// Skip for chakra engine as debugger support not yet present
+// below code uses `Debug.MakeMirror` to inspect
+if (!common.isChakraEngine) {
+  // Map/Set Iterators
+  var m = new Map([['foo', 'bar']]);
+  assert.strictEqual(util.inspect(m.keys()), 'MapIterator { \'foo\' }');
+  assert.strictEqual(util.inspect(m.values()), 'MapIterator { \'bar\' }');
+  assert.strictEqual(util.inspect(m.entries()),
+                      'MapIterator { [ \'foo\', \'bar\' ] }');
+  // make sure the iterator doesn't get consumed
+  var keys = m.keys();
+  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
 
-var s = new Set([1, 3]);
-assert.strictEqual(util.inspect(s.keys()), 'SetIterator { 1, 3 }');
-assert.strictEqual(util.inspect(s.values()), 'SetIterator { 1, 3 }');
-assert.strictEqual(util.inspect(s.entries()),
-                   'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
-// make sure the iterator doesn't get consumed
-keys = s.keys();
-assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
-assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+  var s = new Set([1, 3]);
+  assert.strictEqual(util.inspect(s.keys()), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(s.values()), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(s.entries()),
+                      'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
+  // make sure the iterator doesn't get consumed
+  keys = s.keys();
+  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+}
 
 // Test alignment of items in container
 // Assumes that the first numeric character is the start of an item.
@@ -637,7 +657,10 @@ checkAlignment(new Map(big_array.map(function(y) { return [y, null]; })));
   assert.equal(util.inspect(new MapSubclass([['foo', 42]])),
               'MapSubclass { \'foo\' => 42 }');
   assert.equal(util.inspect(new PromiseSubclass(function() {})),
-               'PromiseSubclass { <pending> }');
+    common.engineSpecificMessage({
+      v8: 'PromiseSubclass { <pending> }',
+      chakracore: 'PromiseSubclass {}'
+    }));
 }
 
 // Corner cases.

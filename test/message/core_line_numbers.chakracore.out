@@ -1,5 +1,5 @@
 RangeError: Invalid input
-   at error (punycode.js:67:*)
+   at error (punycode.js:42:*)
    at decode (punycode.js:*:*)
    at Anonymous function (*test*message*core_line_numbers.js:*:*)
    at Module.prototype._compile (module.js:*:*)
@@ -8,4 +8,4 @@ RangeError: Invalid input
    at tryModuleLoad (module.js:*)
    at Module._load (module.js:*:*)
    at Module.runMain (module.js:*:*)
-   at run (node.js:*:*)
+   at run (bootstrap_node.js:*:*)
