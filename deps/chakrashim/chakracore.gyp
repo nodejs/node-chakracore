@@ -50,6 +50,7 @@
             '/p:Platform=<(Platform)',
             '/p:Configuration=$(ConfigurationName)',
             '/p:RuntimeLib=<(component)',
+            '/p:AdditionalPreprocessorDefinitions=COMPILE_DISABLE_Simdjs=1',
             '<(msvs_windows_target_platform_version_prop)',
             '/m',
             '<@(_inputs)',
