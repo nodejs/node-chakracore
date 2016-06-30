@@ -780,6 +780,30 @@
             'deps/v8/tools/gyp/v8.gyp:v8',
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
+          'conditions' : [
+              ['v8_inspector=="true', {
+                'dependencies': [
+                    'deps/openssl/openssl.gyp:openssl',
+                    'deps/http_parser/http_parser.gyp:http_parser',
+                    'deps/uv/uv.gyp:libuv'
+                ],
+                'sources': [
+                    'src/inspector_socket.cc',
+                    'test/cctest/test_inspector_socket.cc'
+                ]
+              }],
+              ['node_use_v8_platform=="true"', {
+                 'dependencies': [
+                    'deps/v8/tools/gyp/v8.gyp:v8_libplatform',
+                ],
+              }],
+              ['node_use_bundled_v8=="true"', {
+                'dependencies': [
+                    'deps/v8/tools/gyp/v8.gyp:v8',
+                    'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+                ],
+              }],
+          ]
         }],
         ['node_engine=="chakracore"', {
           'dependencies': [ 
@@ -787,17 +811,6 @@
              'deps/uv/uv.gyp:libuv'
           ],
         }],
-        [ 'v8_inspector=="true" and node_engine=="v8"', {
-          'dependencies': [
-            'deps/openssl/openssl.gyp:openssl',
-            'deps/http_parser/http_parser.gyp:http_parser',
-            'deps/uv/uv.gyp:libuv'
-          ],
-          'sources': [
-            'src/inspector_socket.cc',
-            'test/cctest/test_inspector_socket.cc'
-          ]
-        }]
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -817,17 +830,6 @@
       'sources': [
         'test/cctest/util.cc',
       ],
-        [ 'node_use_v8_platform=="true"', {
-          'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform',
-          ],
-        }],
-        [ 'node_use_bundled_v8=="true"', {
-          'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
-          ],
-        }],
     }
   ], # end targets
 
