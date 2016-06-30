@@ -27,56 +27,56 @@ using v8::Value;
 
 template <typename ResourceType, typename TypeName>
 class ExternString: public ResourceType {
-  public:
-    ~ExternString() override {
-      free(const_cast<TypeName*>(data_));
-      isolate()->AdjustAmountOfExternalAllocatedMemory(-byte_length());
+ public:
+  ~ExternString() override {
+    free(const_cast<TypeName*>(data_));
+    isolate()->AdjustAmountOfExternalAllocatedMemory(-byte_length());
+  }
+
+  const TypeName* data() const override {
+    return data_;
+  }
+
+  size_t length() const override {
+    return length_;
+  }
+
+  int64_t byte_length() const {
+    return length() * sizeof(*data());
+  }
+
+  static Local<String> NewFromCopy(Isolate* isolate,
+                                   const TypeName* data,
+                                   size_t length) {
+    EscapableHandleScope scope(isolate);
+
+    if (length == 0)
+      return scope.Escape(String::Empty(isolate));
+
+    TypeName* new_data =
+        static_cast<TypeName*>(malloc(length * sizeof(*new_data)));
+    if (new_data == nullptr) {
+      return Local<String>();
     }
+    memcpy(new_data, data, length * sizeof(*new_data));
 
-    const TypeName* data() const override {
-      return data_;
-    }
+    return scope.Escape(ExternString<ResourceType, TypeName>::New(isolate,
+                                                                  new_data,
+                                                                  length));
+  }
 
-    size_t length() const override {
-      return length_;
-    }
+  // uses "data" for external resource, and will be free'd on gc
+  static Local<String> New(Isolate* isolate,
+                           const TypeName* data,
+                           size_t length) {
+    EscapableHandleScope scope(isolate);
 
-    int64_t byte_length() const {
-      return length() * sizeof(*data());
-    }
+    if (length == 0)
+      return scope.Escape(String::Empty(isolate));
 
-    static Local<String> NewFromCopy(Isolate* isolate,
-                                     const TypeName* data,
-                                     size_t length) {
-      EscapableHandleScope scope(isolate);
-
-      if (length == 0)
-        return scope.Escape(String::Empty(isolate));
-
-      TypeName* new_data =
-          static_cast<TypeName*>(malloc(length * sizeof(*new_data)));
-      if (new_data == nullptr) {
-        return Local<String>();
-      }
-      memcpy(new_data, data, length * sizeof(*new_data));
-
-      return scope.Escape(ExternString<ResourceType, TypeName>::New(isolate,
-                                                                    new_data,
-                                                                    length));
-    }
-
-    // uses "data" for external resource, and will be free'd on gc
-    static Local<String> New(Isolate* isolate,
-                             const TypeName* data,
-                             size_t length) {
-      EscapableHandleScope scope(isolate);
-
-      if (length == 0)
-        return scope.Escape(String::Empty(isolate));
-
-      ExternString* h_str = new ExternString<ResourceType, TypeName>(isolate,
-                                                                     data,
-                                                                     length);
+    ExternString* h_str = new ExternString<ResourceType, TypeName>(isolate,
+                                                                   data,
+                                                                   length);
       // CHAKRA-TODO: Revert this change. Currently chakrashim
       // String::NewExternal deletes h_str immediately. Avoid accessing h_str
       // after passing it to String::NewExternal.
@@ -84,25 +84,25 @@ class ExternString: public ResourceType {
       MaybeLocal<String> str = String::NewExternal(isolate, h_str);
       isolate->AdjustAmountOfExternalAllocatedMemory(byte_length);
 
-      if (str.IsEmpty()) {
-        delete h_str;
-        return Local<String>();
-      }
-
-      return scope.Escape(str.ToLocalChecked());
+    if (str.IsEmpty()) {
+      delete h_str;
+      return Local<String>();
     }
 
-    inline Isolate* isolate() const { return isolate_; }
+    return scope.Escape(str.ToLocalChecked());
+  }
 
-  private:
-    ExternString(Isolate* isolate, const TypeName* data, size_t length)
-      : isolate_(isolate), data_(data), length_(length) { }
-    static MaybeLocal<String> NewExternal(Isolate* isolate,
-                                          ExternString* h_str);
+  inline Isolate* isolate() const { return isolate_; }
 
-    Isolate* isolate_;
-    const TypeName* data_;
-    size_t length_;
+ private:
+  ExternString(Isolate* isolate, const TypeName* data, size_t length)
+    : isolate_(isolate), data_(data), length_(length) { }
+  static MaybeLocal<String> NewExternal(Isolate* isolate,
+                                        ExternString* h_str);
+
+  Isolate* isolate_;
+  const TypeName* data_;
+  size_t length_;
 };
 
 
@@ -276,7 +276,6 @@ size_t StringBytes::Write(Isolate* isolate,
   switch (encoding) {
     case ASCII:
     case LATIN1:
-    case BINARY:
       if (is_extern && str->IsOneByte()) {
         memcpy(buf, data, nbytes);
       } else {
@@ -381,8 +380,7 @@ size_t StringBytes::StorageSize(Isolate* isolate,
   size_t data_size = 0;
   bool is_buffer = Buffer::HasInstance(val);
 
-  if (is_buffer &&
-      (encoding == BUFFER || encoding == BINARY || encoding == LATIN1)) {
+  if (is_buffer && (encoding == BUFFER || encoding == LATIN1)) {
     return Buffer::Length(val);
   }
 
@@ -391,7 +389,6 @@ size_t StringBytes::StorageSize(Isolate* isolate,
   switch (encoding) {
     case ASCII:
     case LATIN1:
-    case BINARY:
       data_size = str->Length();
       break;
 
@@ -432,8 +429,7 @@ size_t StringBytes::Size(Isolate* isolate,
   size_t data_size = 0;
   bool is_buffer = Buffer::HasInstance(val);
 
-  if (is_buffer &&
-      (encoding == BUFFER || encoding == BINARY || encoding == LATIN1))
+  if (is_buffer && (encoding == BUFFER || encoding == LATIN1))
     return Buffer::Length(val);
 
   const char* data;
@@ -445,7 +441,6 @@ size_t StringBytes::Size(Isolate* isolate,
   switch (encoding) {
     case ASCII:
     case LATIN1:
-    case BINARY:
       data_size = str->Length();
       break;
 
@@ -649,7 +644,6 @@ Local<Value> StringBytes::Encode(Isolate* isolate,
       break;
 
     case LATIN1:
-    case BINARY:
       if (buflen < EXTERN_APEX)
         val = OneByteString(isolate, buf, buflen);
       else

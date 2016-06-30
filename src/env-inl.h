@@ -49,8 +49,7 @@ inline IsolateData::IsolateData(v8::Isolate* isolate, uv_loop_t* event_loop,
             sizeof(StringValue) - 1).ToLocalChecked()),
     PER_ISOLATE_STRING_PROPERTIES(V)
 #undef V
-    isolate_(isolate), event_loop_(event_loop),
-    zero_fill_field_(zero_fill_field) {}
+    event_loop_(event_loop), zero_fill_field_(zero_fill_field) {}
 
 inline uv_loop_t* IsolateData::event_loop() const {
   return event_loop_;
@@ -349,7 +348,7 @@ inline ares_channel* Environment::cares_channel_ptr() {
   return &cares_channel_;
 }
 
-inline ares_task_list* Environment::cares_task_list() {
+inline node_ares_task_list* Environment::cares_task_list() {
   return &cares_task_list_;
 }
 

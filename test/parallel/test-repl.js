@@ -213,7 +213,7 @@ function error_test() {
     },
     { client: client_unix, send: '(function() { "use strict"; if (true) function f() { } })()',
       expect: common.engineSpecificMessage({
-        v8: /^SyntaxError: In strict mode code, functions can only be declared at top level or immediately within another function/,
+        v8: /^SyntaxError: In strict mode code, functions can only be declared at top level or inside a block./,
         chakracore: /^SyntaxError: Syntax error/})
     },
     // Named functions can be used:
@@ -270,7 +270,7 @@ function error_test() {
     // fail when we are not inside a String and a line continuation is used
     { client: client_unix, send: '[] \\',
       expect: common.engineSpecificMessage({
-        v8: /^SyntaxError: Unexpected token ILLEGAL/,
+        v8: /^SyntaxError: Invalid or unexpected token/,
         chakracore: /^SyntaxError: Invalid character/})
     },
     // do not fail when a String is created with line continuation
@@ -372,7 +372,7 @@ function error_test() {
     // or block comment. https://github.com/nodejs/node/issues/3611
     {
       client: client_unix, send: 'a = 3.5e',
-      expect: /^SyntaxError: Unexpected token ILLEGAL/
+      expect: /^SyntaxError: Invalid or unexpected token/
     },
   ].filter((v) => !common.engineSpecificMessage(v)));
 }

@@ -19,9 +19,9 @@ ifdef QUICKCHECK
 endif
 
 ifdef ENABLE_V8_TAP
-  TAP_V8 := --junitout v8-tap.xml
-  TAP_V8_INTL := --junitout v8-intl-tap.xml
-  TAP_V8_BENCHMARKS := --junitout v8-benchmarks-tap.xml
+  TAP_V8 := --junitout $(PWD)/v8-tap.xml
+  TAP_V8_INTL := --junitout $(PWD)/v8-intl-tap.xml
+  TAP_V8_BENCHMARKS := --junitout $(PWD)/v8-benchmarks-tap.xml
 endif
 
 V8_TEST_OPTIONS = $(V8_EXTRA_TEST_OPTIONS)
@@ -671,18 +671,12 @@ jslint-ci:
 		tools/eslint-rules tools/jslint.js
 
 CPPLINT_EXCLUDE ?=
-CPPLINT_EXCLUDE += src/node_lttng.cc
 CPPLINT_EXCLUDE += src/node_root_certs.h
-CPPLINT_EXCLUDE += src/node_lttng_tp.h
-CPPLINT_EXCLUDE += src/node_win32_perfctr_provider.cc
 CPPLINT_EXCLUDE += src/queue.h
 CPPLINT_EXCLUDE += src/tree.h
-CPPLINT_EXCLUDE += src/v8abbr.h
 CPPLINT_EXCLUDE += $(wildcard test/addons/??_*/*.cc test/addons/??_*/*.h)
 
 CPPLINT_FILES = $(filter-out $(CPPLINT_EXCLUDE), $(wildcard \
-	deps/debugger-agent/include/* \
-	deps/debugger-agent/src/* \
 	src/*.c \
 	src/*.cc \
 	src/*.h \

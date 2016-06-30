@@ -20,7 +20,7 @@ var tests = [
   {input: false, output: 'false'},
   {input: 42, output: '42'},
   {input: function() {}, output: common.engineSpecificMessage({
-    v8: '[Function]',
+    v8: '[Function: input]',
     chakracore: '[Function: input]'
   })},
   {input: parseInt('not a number', 10), output: 'NaN'},

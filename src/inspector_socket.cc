@@ -1,4 +1,6 @@
 #include "inspector_socket.h"
+#include "util.h"
+#include "util-inl.h"
 
 #define NODE_WANT_INTERNALS 1
 #include "base64.h"
@@ -20,6 +22,7 @@ struct http_parsing_state_s {
   http_parser parser;
   http_parser_settings parser_settings;
   handshake_cb callback;
+  bool done;
   bool parsing_value;
   char* ws_key;
   char* path;
@@ -86,8 +89,6 @@ static void close_connection(inspector_socket_t* inspector) {
   if (!uv_is_closing(socket)) {
     uv_read_stop(reinterpret_cast<uv_stream_t*>(socket));
     uv_close(socket, dispose_inspector);
-  } else if (inspector->ws_state->close_cb) {
-    inspector->ws_state->close_cb(inspector, 0);
   }
 }
 
@@ -274,9 +275,6 @@ static void invoke_read_callback(inspector_socket_t* inspector,
 }
 
 static void shutdown_complete(inspector_socket_t* inspector) {
-  if (inspector->ws_state->close_cb) {
-    inspector->ws_state->close_cb(inspector, 0);
-  }
   close_connection(inspector);
 }
 
@@ -445,9 +443,10 @@ static int header_value_cb(http_parser* parser, const char* at, size_t length) {
   struct http_parsing_state_s* state = (struct http_parsing_state_s*)
       (reinterpret_cast<inspector_socket_t*>(parser->data))->http_parsing_state;
   state->parsing_value = true;
-  if (state->current_header && strncmp(state->current_header,
-                                       SEC_WEBSOCKET_KEY_HEADER,
-                                       sizeof(SEC_WEBSOCKET_KEY_HEADER)) == 0) {
+  if (state->current_header &&
+      node::StringEqualNoCaseN(state->current_header,
+                               SEC_WEBSOCKET_KEY_HEADER,
+                               sizeof(SEC_WEBSOCKET_KEY_HEADER))) {
     append(&state->ws_key, at, length);
   }
   return 0;
@@ -484,24 +483,42 @@ static void handshake_complete(inspector_socket_t* inspector) {
            inspector->http_parsing_state->path);
 }
 
-static void cleanup_http_parsing_state(struct http_parsing_state_s* state) {
+static void cleanup_http_parsing_state(inspector_socket_t* inspector) {
+  struct http_parsing_state_s* state = inspector->http_parsing_state;
   free(state->current_header);
   free(state->path);
   free(state->ws_key);
   free(state);
+  inspector->http_parsing_state = nullptr;
+}
+
+static void report_handshake_failure_cb(uv_handle_t* handle) {
+  dispose_inspector(handle);
+  inspector_socket_t* inspector =
+      static_cast<inspector_socket_t*>(handle->data);
+  handshake_cb cb = inspector->http_parsing_state->callback;
+  cleanup_http_parsing_state(inspector);
+  cb(inspector, kInspectorHandshakeFailed, nullptr);
+}
+
+static void close_and_report_handshake_failure(inspector_socket_t* inspector) {
+  uv_handle_t* socket = reinterpret_cast<uv_handle_t*>(&inspector->client);
+  if (uv_is_closing(socket)) {
+    report_handshake_failure_cb(socket);
+  } else {
+    uv_read_stop(reinterpret_cast<uv_stream_t*>(socket));
+    uv_close(socket, report_handshake_failure_cb);
+  }
 }
 
 static void handshake_failed(inspector_socket_t* inspector) {
-  http_parsing_state_s* state = inspector->http_parsing_state;
   const char HANDSHAKE_FAILED_RESPONSE[] =
       "HTTP/1.0 400 Bad Request\r\n"
       "Content-Type: text/html; charset=UTF-8\r\n\r\n"
       "WebSockets request was expected\r\n";
   write_to_client(inspector, HANDSHAKE_FAILED_RESPONSE,
                   sizeof(HANDSHAKE_FAILED_RESPONSE) - 1);
-  close_connection(inspector);
-  inspector->http_parsing_state = nullptr;
-  state->callback(inspector, kInspectorHandshakeFailed, state->path);
+  close_and_report_handshake_failure(inspector);
 }
 
 // init_handshake references message_complete_cb
@@ -544,11 +561,10 @@ static int message_complete_cb(http_parser* parser) {
     int len = sizeof(accept_response);
     if (write_to_client(inspector, accept_response, len) >= 0) {
       handshake_complete(inspector);
+      inspector->http_parsing_state->done = true;
     } else {
-      state->callback(inspector, kInspectorHandshakeFailed, nullptr);
-      close_connection(inspector);
+      close_and_report_handshake_failure(inspector);
     }
-    inspector->http_parsing_state = nullptr;
   } else {
     handshake_failed(inspector);
   }
@@ -567,26 +583,20 @@ static void data_received_cb(uv_stream_s* client, ssize_t nread,
 #endif
   inspector_socket_t* inspector =
       reinterpret_cast<inspector_socket_t*>((client->data));
-  http_parsing_state_s* state = inspector->http_parsing_state;
   if (nread < 0 || nread == UV_EOF) {
-    inspector->http_parsing_state->callback(inspector,
-                                            kInspectorHandshakeFailed,
-                                            nullptr);
-    close_connection(inspector);
-    inspector->http_parsing_state = nullptr;
+    close_and_report_handshake_failure(inspector);
   } else {
+    http_parsing_state_s* state = inspector->http_parsing_state;
     http_parser* parser = &state->parser;
-    ssize_t parsed = http_parser_execute(parser, &state->parser_settings,
-                                         inspector->buffer,
-                                         nread);
-    if (parsed < nread) {
+    http_parser_execute(parser, &state->parser_settings, inspector->buffer,
+                        nread);
+    if (parser->http_errno != HPE_OK) {
       handshake_failed(inspector);
     }
+    if (inspector->http_parsing_state->done) {
+      cleanup_http_parsing_state(inspector);
+    }
     inspector->data_len = 0;
-  }
-
-  if (inspector->http_parsing_state == nullptr) {
-    cleanup_http_parsing_state(state);
   }
 }
 
@@ -602,6 +612,7 @@ static void init_handshake(inspector_socket_t* inspector) {
   if (state->path) {
     state->path[0] = '\0';
   }
+  state->done = false;
   http_parser_init(&state->parser, HTTP_REQUEST);
   state->parser.data = inspector;
   http_parser_settings* settings = &state->parser_settings;

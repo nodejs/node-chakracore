@@ -13,6 +13,11 @@
     'node_engine%': 'v8',
     'msvs_windows_target_platform_version': 'v10.0', # used for node_engine==chakracore
 
+    'node_shared%': 'false',
+    'node_use_v8_platform%': 'true',
+    'node_use_bundled_v8%': 'true',
+    'node_module_version%': '',
+
     'node_tag%': '',
     'uv_library%': 'static_library',
 
@@ -327,6 +332,9 @@
               }],
             ],
             'ldflags!': [ '-rdynamic' ],
+          }],
+          [ 'node_shared=="true"', {
+            'cflags': [ '-fPIC' ],
           }],
         ],
       }],

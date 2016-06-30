@@ -4,6 +4,7 @@
 #include "env.h"
 #include "env-inl.h"
 #include "node.h"
+#include "node_mutex.h"
 #include "node_version.h"
 #include "v8-platform.h"
 #include "util.h"
@@ -35,6 +36,7 @@ const char DEVTOOLS_HASH[] = "521e5b7e2b7cc66b4006a8a54cb9c4e57494a5ef";
 
 void PrintDebuggerReadyMessage(int port) {
   fprintf(stderr, "Debugger listening on port %d.\n"
+    "Warning: This is an experimental feature and could change at any time.\n"
     "To start debugging, open the following URL in Chrome:\n"
     "    chrome-devtools://devtools/remote/serve_file/"
     "@%s/inspector.html?"
@@ -47,7 +49,7 @@ bool AcceptsConnection(inspector_socket_t* socket, const char* path) {
 }
 
 void DisposeInspector(inspector_socket_t* socket, int status) {
-  free(socket);
+  delete socket;
 }
 
 void DisconnectAndDisposeIO(inspector_socket_t* socket) {
@@ -110,9 +112,11 @@ void SendTargentsListResponse(inspector_socket_t* socket, int port) {
   char buffer[sizeof(LIST_RESPONSE_TEMPLATE) + 4096];
   char title[2048];  // uv_get_process_title trims the title if too long
   int err = uv_get_process_title(title, sizeof(title));
-  ASSERT_EQ(0, err);
+  if (err != 0) {
+    snprintf(title, sizeof(title), "Node.js");
+  }
   char* c = title;
-  while (!c) {
+  while (*c != '\0') {
     if (*c < ' ' || *c == '\"') {
       *c = '_';
     }
@@ -187,12 +191,11 @@ class AgentImpl {
   void Write(const std::string& message);
 
   uv_sem_t start_sem_;
-  uv_cond_t pause_cond_;
-  uv_mutex_t queue_lock_;
-  uv_mutex_t pause_lock_;
+  ConditionVariable pause_cond_;
+  Mutex pause_lock_;
+  Mutex queue_lock_;
   uv_thread_t thread_;
   uv_loop_t child_loop_;
-  uv_tcp_t server_;
 
   int port_;
   bool wait_;
@@ -237,21 +240,18 @@ class ChannelImpl final : public blink::protocol::FrontendChannel {
   explicit ChannelImpl(AgentImpl* agent): agent_(agent) {}
   virtual ~ChannelImpl() {}
  private:
-  virtual void sendProtocolResponse(int sessionId, int callId,
-                                    std::unique_ptr<DictionaryValue> message)
-                                    override {
-    sendMessageToFrontend(std::move(message));
+  void sendProtocolResponse(int callId, const String16& message) override {
+    sendMessageToFrontend(message);
   }
 
-  virtual void sendProtocolNotification(
-      std::unique_ptr<DictionaryValue> message) override {
-    sendMessageToFrontend(std::move(message));
+  void sendProtocolNotification(const String16& message) override {
+    sendMessageToFrontend(message);
   }
 
-  virtual void flush() override { }
+  void flushProtocolNotifications() override { }
 
-  void sendMessageToFrontend(std::unique_ptr<DictionaryValue> message) {
-    agent_->Write(message->toJSONString().utf8());
+  void sendMessageToFrontend(const String16& message) {
+    agent_->Write(message.utf8());
   }
 
   AgentImpl* const agent_;
@@ -289,9 +289,10 @@ class V8NodeInspector : public blink::V8Inspector {
     terminated_ = false;
     running_nested_loop_ = true;
     do {
-      uv_mutex_lock(&agent_->pause_lock_);
-      uv_cond_wait(&agent_->pause_cond_, &agent_->pause_lock_);
-      uv_mutex_unlock(&agent_->pause_lock_);
+      {
+        Mutex::ScopedLock scoped_lock(agent_->pause_lock_);
+        agent_->pause_cond_.Wait(scoped_lock);
+      }
       while (v8::platform::PumpMessageLoop(platform_, isolate_))
         {}
     } while (!terminated_);
@@ -320,17 +321,14 @@ AgentImpl::AgentImpl(Environment* env) : port_(0),
                                          inspector_(nullptr),
                                          platform_(nullptr),
                                          dispatching_messages_(false) {
-  int err;
-  err = uv_sem_init(&start_sem_, 0);
-  CHECK_EQ(err, 0);
+  CHECK_EQ(0, uv_sem_init(&start_sem_, 0));
+  memset(&data_written_, 0, sizeof(data_written_));
+  memset(&io_thread_req_, 0, sizeof(io_thread_req_));
 }
 
 AgentImpl::~AgentImpl() {
   if (!inspector_)
     return;
-  uv_mutex_destroy(&queue_lock_);
-  uv_mutex_destroy(&pause_lock_);
-  uv_cond_destroy(&pause_cond_);
   uv_close(reinterpret_cast<uv_handle_t*>(&data_written_), nullptr);
 }
 
@@ -345,12 +343,6 @@ void AgentImpl::Start(v8::Platform* platform, int port, bool wait) {
   err = uv_loop_init(&child_loop_);
   CHECK_EQ(err, 0);
   err = uv_async_init(env->event_loop(), &data_written_, nullptr);
-  CHECK_EQ(err, 0);
-  err = uv_mutex_init(&queue_lock_);
-  CHECK_EQ(err, 0);
-  err = uv_mutex_init(&pause_lock_);
-  CHECK_EQ(err, 0);
-  err = uv_cond_init(&pause_cond_);
   CHECK_EQ(err, 0);
 
   uv_unref(reinterpret_cast<uv_handle_t*>(&data_written_));
@@ -401,14 +393,12 @@ void AgentImpl::ThreadCbIO(void* agent) {
 // static
 void AgentImpl::OnSocketConnectionIO(uv_stream_t* server, int status) {
   if (status == 0) {
-    inspector_socket_t* socket =
-        static_cast<inspector_socket_t*>(malloc(sizeof(*socket)));
-    ASSERT_NE(nullptr, socket);
+    inspector_socket_t* socket = new inspector_socket_t();
     memset(socket, 0, sizeof(*socket));
     socket->data = server->data;
     if (inspector_accept(server, socket,
                          AgentImpl::OnInspectorHandshakeIO) != 0) {
-      free(socket);
+      delete socket;
     }
   }
 }
@@ -427,6 +417,7 @@ bool AgentImpl::OnInspectorHandshakeIO(inspector_socket_t* socket,
     agent->OnInspectorConnectionIO(socket);
     return true;
   case kInspectorHandshakeFailed:
+    delete socket;
     return false;
   default:
     UNREACHABLE();
@@ -439,6 +430,7 @@ void AgentImpl::OnRemoteDataIO(uv_stream_t* stream,
                            const uv_buf_t* b) {
   inspector_socket_t* socket = static_cast<inspector_socket_t*>(stream->data);
   AgentImpl* agent = static_cast<AgentImpl*>(socket->data);
+  Mutex::ScopedLock scoped_lock(agent->pause_lock_);
   if (read > 0) {
     std::string str(b->base, read);
     agent->PushPendingMessage(&agent->message_queue_, str);
@@ -458,12 +450,7 @@ void AgentImpl::OnRemoteDataIO(uv_stream_t* stream,
     agent->parent_env_->isolate()
         ->RequestInterrupt(InterruptCallback, agent);
     uv_async_send(&agent->data_written_);
-  } else if (read < 0) {
-    if (agent->client_socket_ == socket) {
-      agent->client_socket_ = nullptr;
-    }
-    DisconnectAndDisposeIO(socket);
-  } else {
+  } else if (read <= 0) {
     // EOF
     if (agent->client_socket_ == socket) {
       agent->client_socket_ = nullptr;
@@ -471,22 +458,21 @@ void AgentImpl::OnRemoteDataIO(uv_stream_t* stream,
           new SetConnectedTask(agent, false));
       uv_async_send(&agent->data_written_);
     }
+    DisconnectAndDisposeIO(socket);
   }
-  uv_cond_broadcast(&agent->pause_cond_);
+  agent->pause_cond_.Broadcast(scoped_lock);
 }
 
 void AgentImpl::PushPendingMessage(std::vector<std::string>* queue,
-                               const std::string& message) {
-  uv_mutex_lock(&queue_lock_);
+                                   const std::string& message) {
+  Mutex::ScopedLock scoped_lock(queue_lock_);
   queue->push_back(message);
-  uv_mutex_unlock(&queue_lock_);
 }
 
 void AgentImpl::SwapBehindLock(std::vector<std::string> AgentImpl::*queue,
-                           std::vector<std::string>* output) {
-  uv_mutex_lock(&queue_lock_);
+                               std::vector<std::string>* output) {
+  Mutex::ScopedLock scoped_lock(queue_lock_);
   (this->*queue).swap(*output);
-  uv_mutex_unlock(&queue_lock_);
 }
 
 // static
@@ -534,6 +520,7 @@ void AgentImpl::WorkerRunIO() {
 
 void AgentImpl::OnInspectorConnectionIO(inspector_socket_t* socket) {
   if (client_socket_) {
+    DisconnectAndDisposeIO(socket);
     return;
   }
   client_socket_ = socket;
@@ -585,23 +572,23 @@ Agent::~Agent() {
 
 void Agent::Start(v8::Platform* platform, int port, bool wait) {
   impl->Start(platform, port, wait);
-};
+}
 
 void Agent::Stop() {
   impl->Stop();
-};
+}
 
 bool Agent::IsStarted() {
   return impl->IsStarted();
-};
+}
 
 bool Agent::IsConnected() {
   return impl->IsConnected();
-};
+}
 
 void Agent::WaitForDisconnect() {
   impl->WaitForDisconnect();
-};
+}
 
 }  // namespace inspector
 }  // namespace node

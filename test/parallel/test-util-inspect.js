@@ -31,7 +31,7 @@ assert.equal(util.inspect([1, [2, 3]]), '[ 1, [ 2, 3 ] ]');
 
 assert.equal(util.inspect({}), '{}');
 assert.equal(util.inspect({a: 1}), '{ a: 1 }');
-assert.equal(util.inspect({a: function() {}}), common.engineSpecificMessage({
+assert.equal(util.inspect({a: function() {}}), '{ a: [Function: a] }');
   v8: '{ a: [Function] }',
   chakracore: '{ a: [Function: a] }'
 }));
@@ -227,7 +227,7 @@ assert.equal(util.inspect(value), '[ 1, 2, 3, growingLength: [Getter] ]');
 // Function with properties
 value = function() {};
 value.aprop = 42;
-assert.equal(util.inspect(value), common.engineSpecificMessage({
+assert.equal(util.inspect(value), '{ [Function: value] aprop: 42 }');
   v8: '{ [Function] aprop: 42 }',
   chakracore: '{ [Function: value] aprop: 42 }'
 }));
