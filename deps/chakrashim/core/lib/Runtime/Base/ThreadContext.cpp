@@ -99,7 +99,7 @@ ThreadContext::RecyclableData::RecyclableData(Recycler *const recycler) :
 #define ALLOC_XDATA (false)
 #endif
 
-ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, JsUtil::ThreadService::ThreadServiceCallback threadServiceCallback, bool enableExperimentalFeatures, bool enableSimdjsFeature) :
+ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, JsUtil::ThreadService::ThreadServiceCallback threadServiceCallback, bool enableExperimentalFeatures) :
     currentThreadId(::GetCurrentThreadId()),
     stackLimitForCurrentThread(0),
     stackProber(nullptr),
@@ -176,7 +176,7 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     dynamicObjectEnumeratorCacheMap(&HeapAllocator::Instance, 16),
     //threadContextFlags(ThreadContextFlagNoFlag),
     telemetryBlock(&localTelemetryBlock),
-    configuration(enableExperimentalFeatures, enableSimdjsFeature),
+    configuration(enableExperimentalFeatures),
     jsrtRuntime(nullptr),
     rootPendingClose(nullptr),
     wellKnownHostTypeHTMLAllCollectionTypeId(Js::TypeIds_Undefined),
