@@ -31,7 +31,7 @@ extern bool g_disableIdleGc;
 
 namespace jsrt {
 
-enum CachedPropertyIdRef {
+enum CachedPropertyIdRef : int {
 #define DEF(x, ...) x,
 #include "jsrtcachedpropertyidref.inc"
   Count
@@ -46,7 +46,7 @@ enum CachedSymbolPropertyIdRef {
 class IsolateShim {
  public:
 
-  bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
+  bool NewContext(JsContextRef * context, bool exposeGC,
                                JsValueRef globalObjectTemplateInstance);
   bool GetMemoryUsage(size_t * memoryUsage);
   bool Dispose();
@@ -137,8 +137,8 @@ class IsolateShim {
   explicit IsolateShim(JsRuntimeHandle runtime);
   ~IsolateShim();
   static v8::Isolate * ToIsolate(IsolateShim * isolate);
-  static void CALLBACK JsContextBeforeCollectCallback(JsRef contextRef,
-                                                      void *data);
+  static void CHAKRA_CALLBACK JsContextBeforeCollectCallback(JsRef contextRef,
+                                                             void *data);
 
   JsRuntimeHandle runtime;
   JsPropertyIdRef symbolPropertyIdRefs[CachedSymbolPropertyIdRef::SymbolCount];
@@ -160,7 +160,7 @@ class IsolateShim {
   // CHAKRA-TODO: support multiple shims
   static IsolateShim * s_isolateList;
 
-  static __declspec(thread) IsolateShim * s_currentIsolate;
+  static THREAD_LOCAL IsolateShim * s_currentIsolate;
 
   uv_prepare_t idleGc_prepare_handle_;
   uv_timer_t idleGc_timer_handle_;

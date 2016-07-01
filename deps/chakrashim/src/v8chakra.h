@@ -27,7 +27,7 @@ namespace v8 {
 using jsrt::ContextShim;
 class ObjectTemplateData;
 
-extern __declspec(thread) bool g_EnableDebug;
+extern THREAD_LOCAL bool g_EnableDebug;
 extern ArrayBuffer::Allocator* g_arrayBufferAllocator;
 
 // External object data types
@@ -98,8 +98,8 @@ class ObjectData: public ExternalData {
    private:
     void Reset();
 
-    bool isRefValue;
     void* value;
+    bool isRefValue;
   };
 
   JsValueRef objectInstance;
@@ -121,7 +121,7 @@ class ObjectData: public ExternalData {
 
   ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData);
   ~ObjectData();
-  static void CALLBACK FinalizeCallback(void *data);
+  static void CHAKRA_CALLBACK FinalizeCallback(void *data);
 
   static FieldValue* GetInternalField(Object* object, int index);
 };
@@ -145,26 +145,26 @@ class TemplateData : public ExternalData {
 
 class Utils {
  public:
-  static JsValueRef CALLBACK AccessorHandler(
+  static JsValueRef CHAKRA_CALLBACK AccessorHandler(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState);
 
-  static JsValueRef CALLBACK GetCallback(
+  static JsValueRef CHAKRA_CALLBACK GetCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState);
-  static JsValueRef CALLBACK SetCallback(
+  static JsValueRef CHAKRA_CALLBACK SetCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState);
-  static JsValueRef CALLBACK DeletePropertyCallback(
+  static JsValueRef CHAKRA_CALLBACK DeletePropertyCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
@@ -174,7 +174,7 @@ class Utils {
   static JsValueRef HasPropertyHandler(
     JsValueRef *arguments,
     unsigned short argumentCount);
-  static JsValueRef CALLBACK HasCallback(
+  static JsValueRef CHAKRA_CALLBACK HasCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
@@ -184,7 +184,7 @@ class Utils {
   static JsValueRef GetPropertiesEnumeratorHandler(
     JsValueRef* arguments,
     unsigned int argumentsCount);
-  static JsValueRef CALLBACK EnumerateCallback(
+  static JsValueRef CHAKRA_CALLBACK EnumerateCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
@@ -195,23 +195,23 @@ class Utils {
     JsValueRef* arguments,
     unsigned int argumentsCount,
     bool getFromPrototype);
-  static JsValueRef CALLBACK OwnKeysCallback(
+  static JsValueRef CHAKRA_CALLBACK OwnKeysCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState);
-  static JsValueRef CALLBACK GetOwnPropertyDescriptorCallback(
+  static JsValueRef CHAKRA_CALLBACK GetOwnPropertyDescriptorCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
     unsigned short argumentCount,
     void *callbackState);
 
-  static void CALLBACK WeakReferenceCallbackWrapperCallback(
+  static void CHAKRA_CALLBACK WeakReferenceCallbackWrapperCallback(
     JsRef ref, void *data);
 
-  static JsValueRef CALLBACK ObjectPrototypeToStringShim(
+  static JsValueRef CHAKRA_CALLBACK ObjectPrototypeToStringShim(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
@@ -254,6 +254,8 @@ class Utils {
     }
     return **objectTemplate;
   }
+
+  static MaybeLocal<String> NewString(const char *data, int length = -1);
 };
 
 

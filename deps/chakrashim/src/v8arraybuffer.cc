@@ -46,7 +46,7 @@ struct ArrayBufferFinalizeInfo {
   }
 };
 
-static void CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
+static void CHAKRA_CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
     static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
 

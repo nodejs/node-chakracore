@@ -18,6 +18,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+// xplat-todo: The string utilities in this file uses Windows only APIs. Need to
+// implement differently for cross-platform.
+#ifdef _WIN32
+
 #include "jsrtutils.h"
 #include <memory>
 namespace jsrt {
@@ -195,3 +199,5 @@ JsErrorCode StringConvert::InternalToWChar(const char *str,
 }
 
 }  // namespace jsrt
+
+#endif  // _WIN32

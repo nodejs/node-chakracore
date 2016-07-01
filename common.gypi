@@ -84,7 +84,13 @@
       },
       'variables': {
         'node_engine_include_dir%': 'deps/chakrashim/include',
-        'node_engine_libs': '-lchakracore.lib',
+        'conditions': [
+          ['OS == "win"', {
+            'node_engine_libs': '-lchakracore.lib',
+          }, {
+            'node_engine_libs': '',
+          }],
+        ],
       },
     }],
   ],

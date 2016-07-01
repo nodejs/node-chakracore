@@ -25,6 +25,8 @@
 
 namespace jsrt {
 
+using jsrt::chakra_shim_native;
+
 ContextShim::Scope::Scope(ContextShim * contextShim) {
   contextShim->GetIsolateShim()->PushScope(this, contextShim);
 }
@@ -50,7 +52,7 @@ ContextShim * ContextShim::New(IsolateShim * isolateShim, bool exposeGC,
                          globalObjectTemplateInstance);
 }
 
-#define DEF_IS_TYPE(F) F##Function(JS_INVALID_REFERENCE),
+#define DEF_IS_TYPE(F) , F##Function(JS_INVALID_REFERENCE)
 
 ContextShim::ContextShim(IsolateShim * isolateShim,
                          JsContextRef context,
@@ -61,12 +63,10 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       initialized(false),
       exposeGC(exposeGC),
       globalObjectTemplateInstance(globalObjectTemplateInstance),
+      getOwnPropertyDescriptorFunction(JS_INVALID_REFERENCE),
       promiseContinuationFunction(JS_INVALID_REFERENCE),
-#include "jsrtcachedpropertyidref.inc"
-#undef DEF_IS_TYPE
       cloneObjectFunction(JS_INVALID_REFERENCE),
       getPropertyNamesFunction(JS_INVALID_REFERENCE),
-      getOwnPropertyDescriptorFunction(JS_INVALID_REFERENCE),
       getEnumerableNamedPropertiesFunction(JS_INVALID_REFERENCE),
       getEnumerableIndexedPropertiesFunction(JS_INVALID_REFERENCE),
       createEnumerationIteratorFunction(JS_INVALID_REFERENCE),
@@ -79,7 +79,9 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getSymbolForFunction(JS_INVALID_REFERENCE),
       ensureDebugFunction(JS_INVALID_REFERENCE),
       enqueueMicrotaskFunction(JS_INVALID_REFERENCE),
-      dequeueMicrotaskFunction(JS_INVALID_REFERENCE) {
+      dequeueMicrotaskFunction(JS_INVALID_REFERENCE)
+#include "jsrtcachedpropertyidref.inc"
+      {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -156,17 +158,17 @@ bool ContextShim::InitializeBuiltIn(JsValueRef * builtInValue, Fn getBuiltIn) {
 }
 
 bool ContextShim::InitializeBuiltIn(JsValueRef * builtInValue,
-                                    const wchar_t* globalName) {
+                                    const char* globalName) {
   return InitializeBuiltIn(builtInValue,
                            [=](JsValueRef * value) {
     return jsrt::GetProperty(globalObject, globalName, value);
   });
 }
 
-static const wchar_t* s_globalTypeNames[] = {
-#define DEFTYPE(T) L#T,
+static const char* s_globalTypeNames[] = {
+#define DEFTYPE(T) #T,
 #include "jsrtcontextcachedobj.inc"
-  L""
+  ""
 };
 
 bool ContextShim::InitializeGlobalTypes() {
@@ -206,12 +208,12 @@ bool ContextShim::InitializeGlobalPrototypeFunctions() {
 
   const TypeMethodPair pairs[GlobalPrototypeFunction::_FunctionCount] = {
 #define DEFMETHOD(T, M) { \
-    GlobalType::##T, \
-    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::##M) },
+    GlobalType::T, \
+    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::M) },
 #include "jsrtcontextcachedobj.inc"
   };
 
-  for (int i = 0; i < _countof(pairs); i++) {
+  for (size_t i = 0; i < _countof(pairs); i++) {
     if (!init(static_cast<GlobalPrototypeFunction>(i),
               pairs[i].type, pairs[i].functionIdRef)) {
       return false;
@@ -326,7 +328,7 @@ bool ContextShim::InitializeBuiltIns() {
   return true;
 }
 
-static JsValueRef CALLBACK ProxyOfGlobalGetPrototypeOfCallback(
+static JsValueRef CHAKRA_CALLBACK ProxyOfGlobalGetPrototypeOfCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
@@ -339,7 +341,7 @@ static JsValueRef CALLBACK ProxyOfGlobalGetPrototypeOfCallback(
 bool ContextShim::InitializeReflect() {
   if (!InitializeBuiltIn(&reflectObject,
                          [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"Reflect", value);
+                           return GetPropertyOfGlobal("Reflect", value);
                          })) {
     return false;
   }
@@ -413,7 +415,7 @@ bool ContextShim::ExposeGc() {
     return false;
   }
 
-  if (jsrt::SetPropertyOfGlobal(L"gc", collectGarbageRef) != JsNoError) {
+  if (jsrt::SetPropertyOfGlobal("gc", collectGarbageRef) != JsNoError) {
     return false;
   }
 
@@ -421,22 +423,17 @@ bool ContextShim::ExposeGc() {
 }
 
 bool ContextShim::ExecuteChakraShimJS() {
-  wchar_t buffer[_countof(chakra_shim_native) + 1];
-
-  if (StringConvert::CopyRaw<unsigned char, wchar_t>(chakra_shim_native,
-      _countof(chakra_shim_native),
-      buffer,
-      _countof(chakra_shim_native)) != JsNoError) {
-    return false;
-  }
-
-  // Ensure the buffer is null terminated
-  buffer[_countof(chakra_shim_native)] = L'\0';
+  // xplat-todo: Currently chakra_shim_native is not null-terminated, but JSRT
+  // API requires null-terminator. Make a copy and null-terminate it.
+  // Remove this when new API signature available.
+  char buffer[_countof(jsrt::chakra_shim_native) + 1];
+  memmove(buffer, chakra_shim_native, _countof(chakra_shim_native));
+  buffer[_countof(chakra_shim_native)] = '\0';
 
   JsValueRef getInitFunction;
-  if (JsParseScript(buffer,
+  if (JsParseScriptUtf8(buffer,
                     JS_SOURCE_CONTEXT_NONE,
-                    L"chakra_shim.js",
+                    "chakra_shim.js",
                     &getInitFunction) != JsNoError) {
     return false;
   }
@@ -571,7 +568,7 @@ JsValueRef ContextShim::GetCachedShimFunction(CachedPropertyIdRef id,
 #define CHAKRASHIM_FUNCTION_GETTER(F) \
 JsValueRef ContextShim::Get##F##Function() { \
 return GetCachedShimFunction(CachedPropertyIdRef::F, \
-                             &##F##Function); \
+                             &F##Function); \
 } \
 
 CHAKRASHIM_FUNCTION_GETTER(cloneObject)
@@ -599,7 +596,7 @@ namespace v8 {
 
 // This shim wraps Object.prototype.toString to supports ObjectTemplate class
 // name.
-JsValueRef CALLBACK Utils::ObjectPrototypeToStringShim(
+JsValueRef CHAKRA_CALLBACK Utils::ObjectPrototypeToStringShim(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,

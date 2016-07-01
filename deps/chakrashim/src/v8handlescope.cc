@@ -23,13 +23,13 @@
 
 namespace v8 {
 
-__declspec(thread) HandleScope *current = nullptr;
+THREAD_LOCAL HandleScope *current = nullptr;
 
 HandleScope::HandleScope(Isolate* isolate)
-    : _prev(current),
-      _locals(),
+    : _locals(),
       _refs(JS_INVALID_REFERENCE),
       _count(0),
+      _prev(current),
       _contextRef(JS_INVALID_REFERENCE),
       _addRefRecordHead(nullptr) {
   current = this;
@@ -44,6 +44,7 @@ HandleScope::~HandleScope() {
     // Don't crash even if we fail to release the scope
     JsErrorCode errorCode = JsRelease(currRecord->_ref, nullptr);
     CHAKRA_ASSERT(errorCode == JsNoError);
+    UNUSED(errorCode);
     delete currRecord;
     currRecord = nextRecord;
   }
@@ -54,7 +55,7 @@ HandleScope *HandleScope::GetCurrent() {
 }
 
 bool HandleScope::AddLocal(JsValueRef value) {
-  if (_count < _countof(_locals)) {
+  if (static_cast<size_t>(_count) < _countof(_locals)) {
     _locals[_count++] = value;
     return true;
   }

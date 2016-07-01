@@ -539,9 +539,15 @@
           ],
         }],
         [ '(OS=="freebsd" or OS=="linux") and node_shared=="false"', {
-          'ldflags': [ '-Wl,-z,noexecstack',
-                       '-Wl,--whole-archive <(V8_BASE)',
-                       '-Wl,--no-whole-archive' ]
+          'ldflags': [ '-Wl,-z,noexecstack' ],
+          'conditions': [
+            [ 'node_engine=="v8"', {
+              'ldflags': [
+                '-Wl,--whole-archive <(V8_BASE)',
+                '-Wl,--no-whole-archive',
+              ],
+            }],
+          ],
         }],
         [ 'OS=="sunos"', {
           'ldflags': [ '-Wl,-M,/usr/lib/ld/map.noexstk' ],
@@ -806,7 +812,7 @@
           ]
         }],
         ['node_engine=="chakracore"', {
-          'dependencies': [ 
+          'dependencies': [
              'deps/chakrashim/chakrashim.gyp:chakrashim',
              'deps/uv/uv.gyp:libuv'
           ],

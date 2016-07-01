@@ -23,7 +23,7 @@
 
 namespace jsrt {
 
-static void CALLBACK PromiseContinuationCallback(JsValueRef task,
+static void CHAKRA_CALLBACK PromiseContinuationCallback(JsValueRef task,
                                                  void *callbackState) {
   JsValueRef enqueueMicrotaskFunction =
     ContextShim::GetCurrent()->GetenqueueMicrotaskFunction();

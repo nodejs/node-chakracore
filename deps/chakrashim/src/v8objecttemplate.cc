@@ -70,7 +70,7 @@ class ObjectTemplateData : public TemplateData {
       functionCallDelegateInterceptorData.Reset();
   }
 
-  static void CALLBACK FinalizeCallback(void *data) {
+  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
     if (data != nullptr) {
       ObjectTemplateData* objectTemplateData =
         reinterpret_cast<ObjectTemplateData*>(data);
@@ -112,16 +112,14 @@ void ObjectData::FieldValue::SetRef(JsValueRef ref) {
     return;  // fail
   }
 
-  value = reinterpret_cast<void*>(
-    reinterpret_cast<UINT_PTR>(ref));
+  value = reinterpret_cast<void*>(ref);
   isRefValue = true;
   CHAKRA_ASSERT(GetRef() == ref);
 }
 
 JsValueRef ObjectData::FieldValue::GetRef() const {
   CHAKRA_ASSERT(IsRef() || !value);
-  return reinterpret_cast<JsValueRef>(
-    reinterpret_cast<UINT_PTR>(value));
+  return reinterpret_cast<JsValueRef>(value);
 }
 
 bool ObjectData::FieldValue::IsRef() const {
@@ -182,7 +180,7 @@ ObjectData::~ObjectData() {
   indexedPropertyInterceptorData.Reset();
 }
 
-void CALLBACK ObjectData::FinalizeCallback(void *data) {
+void CHAKRA_CALLBACK ObjectData::FinalizeCallback(void *data) {
   if (data != nullptr) {
     ObjectData* objectData = reinterpret_cast<ObjectData*>(data);
     delete objectData;
@@ -203,7 +201,7 @@ ObjectData::FieldValue* ObjectData::GetInternalField(Object* object,
 }
 
 // Callbacks used with proxies:
-JsValueRef CALLBACK Utils::GetCallback(JsValueRef callee,
+JsValueRef CHAKRA_CALLBACK Utils::GetCallback(JsValueRef callee,
                                        bool isConstructCall,
                                        JsValueRef *arguments,
                                        unsigned short argumentCount,
@@ -279,7 +277,7 @@ JsValueRef CALLBACK Utils::GetCallback(JsValueRef callee,
   }
 }
 
-JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
+JsValueRef CHAKRA_CALLBACK Utils::SetCallback(JsValueRef callee,
                                        bool isConstructCall,
                                        JsValueRef *arguments,
                                        unsigned short argumentCount,
@@ -337,7 +335,7 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
   return GetTrue();
 }
 
-JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
+JsValueRef CHAKRA_CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
                                                   bool isConstructCall,
                                                   JsValueRef *arguments,
                                                   unsigned short argumentCount,
@@ -475,7 +473,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
   }
 }
 
-JsValueRef CALLBACK Utils::HasCallback(JsValueRef callee,
+JsValueRef CHAKRA_CALLBACK Utils::HasCallback(JsValueRef callee,
                                        bool isConstructCall,
                                        JsValueRef *arguments,
                                        unsigned short argumentCount,
@@ -554,7 +552,7 @@ JsValueRef Utils::GetPropertiesEnumeratorHandler(JsValueRef* arguments,
   return result;
 }
 
-JsValueRef CALLBACK Utils::EnumerateCallback(JsValueRef callee,
+JsValueRef CHAKRA_CALLBACK Utils::EnumerateCallback(JsValueRef callee,
                                              bool isConstructCall,
                                              JsValueRef *arguments,
                                              unsigned short argumentCount,
@@ -562,7 +560,7 @@ JsValueRef CALLBACK Utils::EnumerateCallback(JsValueRef callee,
   return GetPropertiesEnumeratorHandler(arguments, argumentCount);
 }
 
-JsValueRef CALLBACK Utils::OwnKeysCallback(JsValueRef callee,
+JsValueRef CHAKRA_CALLBACK Utils::OwnKeysCallback(JsValueRef callee,
                                            bool isConstructCall,
                                            JsValueRef *arguments,
                                            unsigned short argumentCount,
@@ -570,7 +568,7 @@ JsValueRef CALLBACK Utils::OwnKeysCallback(JsValueRef callee,
   return GetPropertiesHandler(arguments, argumentCount, false);
 }
 
-JsValueRef CALLBACK Utils::GetOwnPropertyDescriptorCallback(
+JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
@@ -690,11 +688,11 @@ Local<ObjectTemplate> ObjectTemplate::New(Isolate* isolate) {
   return Local<ObjectTemplate>::New(objectTemplateRef);
 }
 
-JsValueRef CALLBACK GetSelf(JsValueRef callee,
-                            bool isConstructCall,
-                            JsValueRef *arguments,
-                            unsigned short argumentCount,
-                            void *callbackState) {
+JsValueRef CHAKRA_CALLBACK GetSelf(JsValueRef callee,
+                                   bool isConstructCall,
+                                   JsValueRef *arguments,
+                                   unsigned short argumentCount,
+                                   void *callbackState) {
   return reinterpret_cast<JsValueRef>(callbackState);
 }
 

@@ -21,6 +21,9 @@
 #include <vector>
 
 namespace jsrt {
+
+class IsolateShim;
+
 class ContextShim {
  public:
   // This has the same layout as v8::Context::Scope
@@ -95,7 +98,7 @@ class ContextShim {
 
   template <typename Fn>
   bool InitializeBuiltIn(JsValueRef * builtInValue, Fn getBuiltIn);
-  bool InitializeBuiltIn(JsValueRef * builtInValue, const wchar_t* globalName);
+  bool InitializeBuiltIn(JsValueRef * builtInValue, const char* globalName);
   bool InitializeGlobalTypes();
   bool KeepAlive(JsValueRef value);
   JsValueRef GetCachedShimFunction(CachedPropertyIdRef id, JsValueRef* func);

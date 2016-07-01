@@ -51,9 +51,9 @@ bool Utils::CheckSignature(Local<FunctionTemplate> receiver,
   bool matched = Utils::IsInstanceOf(*thisPointer, *receiverInstanceTemplate);
 
   if (!matched) {
-    const wchar_t txt[] = L"Illegal invocation";
+    const char txt[] = "Illegal invocation";
     JsValueRef msg, err;
-    if (JsPointerToString(txt, _countof(txt) - 1, &msg) == JsNoError &&
+    if (JsPointerToStringUtf8(txt, _countof(txt) - 1, &msg) == JsNoError &&
         JsCreateTypeError(msg, &err) == JsNoError) {
       JsSetException(err);
     }

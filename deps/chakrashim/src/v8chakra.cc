@@ -64,13 +64,8 @@ JsErrorCode TemplateData::CopyPropertiesTo(JsValueRef newInstance) {
     IfJsErrorRet(JsGetIndexedProperty(propertyNames, indexValue,
                                       &propertyNameValue));
 
-    const wchar_t *propertyName;
-    size_t propertyNameLength;
-    IfJsErrorRet(JsStringToPointer(propertyNameValue,
-                                   &propertyName, &propertyNameLength));
-
     JsPropertyIdRef propertyId;
-    IfJsErrorRet(JsGetPropertyIdFromName(propertyName, &propertyId));
+    IfJsErrorRet(jsrt::GetPropertyIdFromName(propertyNameValue, &propertyId));
 
     JsValueRef propertyDescriptor;
     IfJsErrorRet(JsGetOwnPropertyDescriptor(propertiesRef, propertyId,

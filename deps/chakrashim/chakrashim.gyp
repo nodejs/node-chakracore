@@ -34,6 +34,9 @@
             'chakracore.gyp:chakracore#host',
           ],
         }],
+        [ 'OS in "linux"', {
+          'cflags_cc': [ '-fexceptions' ],
+        }],
       ],
       'msvs_use_library_dependency_inputs': 1,
 
@@ -45,13 +48,17 @@
           'BUILDING_CHAKRASHIM=1',
         ],
         'libraries': [
-          '-lole32.lib',
-          '-lversion.lib',
           '<@(node_engine_libs)',
         ],
         'conditions': [
           [ 'target_arch=="arm"', {
             'defines': [ '__arm__=1' ]
+          }],
+          ['OS == "win"', {
+            'libraries': [
+              '-lole32.lib',
+              '-lversion.lib',
+            ],
           }],
         ],
       },

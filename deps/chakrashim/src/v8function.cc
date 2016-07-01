@@ -97,6 +97,7 @@ void Function::SetName(Handle<String> name) {
                  JS_INVALID_REFERENCE,
                  JS_INVALID_REFERENCE);
   CHAKRA_ASSERT(error == JsNoError);
+  UNUSED(error);
 }
 
 Function *Function::Cast(Value *obj) {

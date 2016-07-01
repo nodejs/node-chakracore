@@ -22,8 +22,8 @@
 
 namespace v8 {
 
-void CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
-                                                          void *data) {
+void CHAKRA_CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
+                                                                 void *data) {
   const chakrashim::WeakReferenceCallbackWrapper *callbackWrapper =
     reinterpret_cast<const chakrashim::WeakReferenceCallbackWrapper*>(data);
   if (callbackWrapper->isWeakCallbackInfo) {
@@ -43,7 +43,8 @@ void CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
 
 namespace chakrashim {
 
-static void CALLBACK DummyObjectBeforeCollectCallback(JsRef ref, void *data) {
+static void CHAKRA_CALLBACK DummyObjectBeforeCollectCallback(JsRef ref,
+                                                             void *data) {
   // Do nothing, only used to revive an object temporarily
 }
 

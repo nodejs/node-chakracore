@@ -12,10 +12,12 @@ A rebuild node.exe and native addon modules with ChakraCore is required for this
 ### Issues
 Please report all issues related to Node-ChakraCore on this separate [issue page](https://github.com/nodejs/node-chakracore/issues).
 
-### Prebuilt Node binaries
+### Windows
+
+#### Prebuilt Node binaries
 You can download and install prebuilt Node-ChakraCore from [here](https://github.com/nodejs/node-chakracore/releases).
 
-### How to build
+#### How to build
 If you are looking to build this yourself. Here's what you will need.
 
 Prerequisites:
@@ -29,7 +31,7 @@ Build Command:
 vcbuild chakracore nosign [x86|x64|arm]
 ```
 
-### How to test
+#### How to test
 
 ```batch
 vcbuild chakracore nobuild test [x86|x64|arm]
@@ -40,4 +42,30 @@ To test if Node.js was built correctly with ChakraCore:
 ```batch
 C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
+```
+
+### Linux
+
+NOTE: This is work in progress and contents are subject to change.
+
+The build and test steps are similar to official node.js, with a few
+customizations to build and run with chakracore.
+
+#### How to build
+
+```
+configure --engine=chakracore
+make
+```
+
+#### How to test
+
+```
+$ node -e "console.log('Hello from Node.js ' + process.jsEngine)"
+Hello from Node.js chakracore
+```
+
+To run unit tests:
+```
+$ make test
 ```

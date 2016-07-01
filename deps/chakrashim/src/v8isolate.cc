@@ -90,11 +90,13 @@ void Isolate::SetPromiseRejectCallback(PromiseRejectCallback callback) {
 
 bool Isolate::AddMessageListener(MessageCallback that, Handle<Value> data) {
   // Ignore data parameter.  Node doesn't use it.
-  return jsrt::IsolateShim::FromIsolate(this)->AddMessageListener(that);
+  return jsrt::IsolateShim::FromIsolate(this)->AddMessageListener(
+    reinterpret_cast<void*>(that));
 }
 
 void Isolate::RemoveMessageListeners(MessageCallback that) {
-  jsrt::IsolateShim::FromIsolate(this)->RemoveMessageListeners(that);
+  jsrt::IsolateShim::FromIsolate(this)->RemoveMessageListeners(
+    reinterpret_cast<void*>(that));
 }
 
 void Isolate::SetJitCodeEventHandler(JitCodeEventOptions options,

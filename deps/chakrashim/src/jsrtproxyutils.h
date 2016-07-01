@@ -44,7 +44,7 @@ enum ProxyTraps {
   TrapCount
 };
 
-enum CachedPropertyIdRef;
+enum CachedPropertyIdRef: int;
 CachedPropertyIdRef GetProxyTrapCachedPropertyIdRef(ProxyTraps trap);
 
 JsErrorCode CreateProxy(

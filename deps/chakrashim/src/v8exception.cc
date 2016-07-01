@@ -23,7 +23,7 @@
 namespace v8 {
 
 template <class Func>
-static Local<Value> Utils::NewError(Handle<String> message, const Func& f) {
+Local<Value> Utils::NewError(Handle<String> message, const Func& f) {
   JsValueRef value;
   if (f(*message, &value) != JsNoError) {
     return Local<Value>();

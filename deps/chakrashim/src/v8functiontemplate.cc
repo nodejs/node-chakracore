@@ -58,7 +58,7 @@ class FunctionCallbackData : public ExternalData {
     prototype.Reset();
   }
 
-  static void CALLBACK FinalizeCallback(void *data) {
+  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
     if (data != nullptr) {
       FunctionCallbackData* functionCallbackData =
         reinterpret_cast<FunctionCallbackData*>(data);
@@ -89,13 +89,13 @@ class FunctionCallbackData : public ExternalData {
                                  thisPointer, holder);
   }
 
-  static JsValueRef CALLBACK FunctionInvoked(JsValueRef callee,
+  static JsValueRef CHAKRA_CALLBACK FunctionInvoked(JsValueRef callee,
                                              bool isConstructCall,
                                              JsValueRef *arguments,
                                              unsigned short argumentCount,
                                              void *callbackState) {
     // Script engine could have switched context. Make sure to invoke the
-    // callback in the current callee context.
+    // CHAKRA_CALLBACK in the current callee context.
     ContextShim* contextShim = IsolateShim::GetContextShimOfObject(callee);
     ContextShim::Scope contextScope(contextShim);
     HandleScope scope(nullptr);
@@ -148,7 +148,7 @@ class FunctionCallbackData : public ExternalData {
       }
     }
 
-    // no callback is attach just return the new instance
+    // no CHAKRA_CALLBACK is attach just return the new instance
     return *thisPointer;
   }
 };
@@ -188,7 +188,7 @@ class FunctionTemplateData : public TemplateData {
     functionInstance.Reset();
   }
 
-  static void CALLBACK FinalizeCallback(void *data) {
+  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
     if (data != nullptr) {
       FunctionTemplateData * functionTemplateData =
         reinterpret_cast<FunctionTemplateData*>(data);

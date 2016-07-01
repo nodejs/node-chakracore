@@ -303,7 +303,7 @@ bool Object::Delete(uint32_t index) {
   return FromMaybe(Delete(Local<Context>(), index));
 }
 
-void CALLBACK AcessorExternalObjectFinalizeCallback(void *data) {
+void CHAKRA_CALLBACK AcessorExternalObjectFinalizeCallback(void *data) {
   if (data != nullptr) {
     AccessorExternalData *accessorData =
       static_cast<AccessorExternalData*>(data);
@@ -550,11 +550,11 @@ Maybe<PropertyAttribute> Object::GetRealNamedPropertyAttributes(
   return GetPropertyAttributes(context, key);
 }
 
-JsValueRef CALLBACK Utils::AccessorHandler(JsValueRef callee,
-                                           bool isConstructCall,
-                                           JsValueRef *arguments,
-                                           unsigned short argumentCount,
-                                           void *callbackState) {
+JsValueRef CHAKRA_CALLBACK Utils::AccessorHandler(JsValueRef callee,
+                                                  bool isConstructCall,
+                                                  JsValueRef *arguments,
+                                                  unsigned short argumentCount,
+                                                  void *callbackState) {
   void *externalData;
   JsValueRef result = JS_INVALID_REFERENCE;
 

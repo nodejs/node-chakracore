@@ -19,6 +19,7 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
+#include <limits.h>
 #include <math.h>
 
 namespace v8 {
@@ -153,9 +154,9 @@ bool Value::IsUint32() const {
 }
 
 #define IS_TYPE_FUNCTION(v8ValueFunc, chakrashimFunc) \
-bool Value::##v8ValueFunc##() const { \
+bool Value::v8ValueFunc() const { \
 JsValueRef resultRef = JS_INVALID_REFERENCE; \
-JsErrorCode errorCode = jsrt::Call##chakrashimFunc##( \
+JsErrorCode errorCode = jsrt::Call##chakrashimFunc( \
   const_cast<Value*>(this), &resultRef); \
 if (errorCode != JsNoError) { \
   return false; \

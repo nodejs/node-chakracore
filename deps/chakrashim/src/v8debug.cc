@@ -24,10 +24,11 @@
 
 namespace v8 {
 
-__declspec(thread) bool g_EnableDebug = false;
+THREAD_LOCAL bool g_EnableDebug = false;
 static JsContextRef g_debugContext = JS_INVALID_REFERENCE;
 
 bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
+#ifdef _WIN32
   HRESULT hr = S_OK;
 
 #ifndef NODE_ENGINE_CHAKRACORE
@@ -51,6 +52,9 @@ error:
 #endif
 
   return SUCCEEDED(hr);
+#else
+  return false;  // CHAKRA-TODO: xplat debug?
+#endif
 }
 
 bool Debug::IsAgentEnabled() {
@@ -83,9 +87,11 @@ Local<Context> Debug::GetDebugContext(Isolate* isolate) {
 }
 
 void Debug::Dispose() {
+#ifdef _WIN32
   if (g_EnableDebug) {
     CoUninitialize();
   }
+#endif
 }
 
 }  // namespace v8
