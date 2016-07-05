@@ -343,7 +343,6 @@ goto run-tests
 if "%test_args%"=="" goto jslint
 if "%config%"=="Debug" set test_args=--mode=debug %test_args%
 if "%config%"=="Release" set test_args=--mode=release %test_args%
-set test_args=--engine %engine% %test_args%
 echo running 'cctest'
 "%config%\cctest"
 echo running 'python tools\test.py %test_args%'

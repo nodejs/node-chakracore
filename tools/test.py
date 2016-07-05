@@ -834,7 +834,7 @@ class Context(object):
 
   def __init__(self, workspace, buildspace, verbose, vm, args, expect_fail,
                timeout, processor, suppress_dialogs,
-               store_unexpected_output, engine, repeat):
+               store_unexpected_output, repeat):
     self.workspace = workspace
     self.buildspace = buildspace
     self.verbose = verbose
@@ -845,7 +845,6 @@ class Context(object):
     self.processor = processor
     self.suppress_dialogs = suppress_dialogs
     self.store_unexpected_output = store_unexpected_output
-    self.engine = engine
     self.repeat = repeat
 
   def GetVm(self, arch, mode):
@@ -874,6 +873,11 @@ class Context(object):
 
   def GetTimeout(self, mode):
     return self.timeout * TIMEOUT_SCALEFACTOR[ARCH_GUESS or 'ia32'][mode]
+
+  def GetEngine(self, arch, mode):
+    vm = self.GetVm(arch, mode)
+    engine = Execute([vm, "-p", "process.jsEngine || 'v8'"], self)
+    return engine.stdout.strip() if engine.exit_code is 0 else 'v8'
 
 def RunTestCases(cases_to_run, progress, tasks, flaky_tests_mode):
   progress = PROGRESS_INDICATORS[progress](cases_to_run, flaky_tests_mode)
@@ -1380,8 +1384,6 @@ def BuildOptions():
       default="")
   result.add_option('--temp-dir',
       help='Optional path to change directory used for tests', default=False)
-  result.add_option("-e", "--engine", help="The javascript engine used by node.js",
-      default='v8')
   result.add_option('--repeat',
       help='Number of times to repeat given tests',
       default=1, type="int")
@@ -1551,7 +1553,6 @@ def Main():
                     processor,
                     options.suppress_dialogs,
                     options.store_unexpected_output,
-                    options.engine,
                     options.repeat)
   # First build the required targets
   if not options.no_build:
