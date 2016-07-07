@@ -23,10 +23,12 @@
 namespace v8 {
 
 using jsrt::ContextShim;
+using jsrt::IsolateShim;
 
-Local<Value> BooleanObject::New(bool value) {
-  JsValueRef booleanObjectConstructor =
-    ContextShim::GetCurrent()->GetBooleanObjectConstructor();
+Local<Value> BooleanObject::New(Isolate* isolate, bool value) {
+  JsValueRef booleanObjectConstructor = IsolateShim::FromIsolate(isolate)
+                                             ->GetCurrentContextShim()
+                                             ->GetBooleanObjectConstructor();
 
   JsValueRef newBooleanObjectRef;
   if (jsrt::ConstructObject(booleanObjectConstructor,
@@ -36,6 +38,10 @@ Local<Value> BooleanObject::New(bool value) {
   }
 
   return Local<BooleanObject>::New(newBooleanObjectRef);
+}
+
+Local<Value> BooleanObject::New(bool value) {
+  return New(IsolateShim::GetCurrentAsIsolate(), value);
 }
 
 BooleanObject *BooleanObject::Cast(v8::Value *obj) {
