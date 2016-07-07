@@ -151,7 +151,7 @@ void ObjectData::FieldValue::Reset() {
 ObjectData::ObjectData(ObjectTemplate* objectTemplate,
                        ObjectTemplateData *templateData)
     : ExternalData(ExternalDataType),
-      objectTemplate(objectTemplate),
+      objectTemplate(nullptr, Utils::ToLocal(objectTemplate)),
       namedPropertyGetter(templateData->namedPropertyGetter),
       namedPropertySetter(templateData->namedPropertySetter),
       namedPropertyQuery(templateData->namedPropertyQuery),
@@ -192,7 +192,7 @@ void CALLBACK ObjectData::FinalizeCallback(void *data) {
 ObjectData::FieldValue* ObjectData::GetInternalField(Object* object,
                                                      int index) {
   ObjectData* objectData;
-  if (object->GetObjectData(&objectData) != JsNoError ||
+  if (Utils::GetObjectData(object, &objectData) != JsNoError ||
       !objectData ||
       index < 0 ||
       index >= objectData->internalFieldCount) {
@@ -309,7 +309,7 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
       objectData->indexedPropertySetter(
         index, reinterpret_cast<Value*>(value), info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return GetTrue(); // intercepted
+        return GetTrue();  // intercepted
       }
     }
     // use default JS behavior
@@ -325,7 +325,7 @@ JsValueRef CALLBACK Utils::SetCallback(JsValueRef callee,
       objectData->namedPropertySetter(
         reinterpret_cast<String*>(prop), reinterpret_cast<Value*>(value), info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return GetTrue(); // intercepted
+        return GetTrue();  // intercepted
       }
     }
     // use default JS behavior
@@ -367,14 +367,14 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
       objectData->indexedPropertyDeleter(index, info);
       result = info.GetReturnValue().Get();
       if (result != JS_INVALID_REFERENCE) {
-        return result; // intercepted
+        return result;  // intercepted
       }
     }
     // use default JS behavior
     if (jsrt::DeleteIndexedProperty(object, index) != JsNoError) {
       return GetFalse();
     }
-    return GetTrue(); // no result from JsDeleteIndexedProperty
+    return GetTrue();  // no result from JsDeleteIndexedProperty
   } else {
     if (objectData->namedPropertyDeleter != nullptr) {
       PropertyCallbackInfo<Boolean> info(
@@ -384,7 +384,7 @@ JsValueRef CALLBACK Utils::DeletePropertyCallback(JsValueRef callee,
       objectData->namedPropertyDeleter(reinterpret_cast<String*>(prop), info);
       result = info.GetReturnValue().Get();
       if (result != JS_INVALID_REFERENCE) {
-        return result; // intercepted
+        return result;  // intercepted
       }
     }
     // use default JS behavior
@@ -420,7 +420,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyQuery(index, info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return GetTrue(); // intercepted
+        return GetTrue();  // intercepted
       }
     }
 
@@ -432,7 +432,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->indexedPropertyGetter(index, info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return GetTrue(); // intercepted
+        return GetTrue();  // intercepted
       }
     }
 
@@ -451,7 +451,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyQuery(reinterpret_cast<String*>(prop), info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return GetTrue(); // intercepted
+        return GetTrue();  // intercepted
       }
     }
 
@@ -462,7 +462,7 @@ JsValueRef Utils::HasPropertyHandler(JsValueRef *arguments,
         /*holder*/reinterpret_cast<Object*>(object));
       objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return GetTrue(); // intercepted
+        return GetTrue();  // intercepted
       }
     }
 
@@ -898,7 +898,7 @@ void ObjectTemplate::SetCallAsFunctionHandler(FunctionCallback callback,
                                               Handle<Value> data) {
   ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    CHAKRA_ASSERT(false);  // This should never happen
     return;
   }
 
@@ -909,7 +909,7 @@ void ObjectTemplate::SetCallAsFunctionHandler(FunctionCallback callback,
 void ObjectTemplate::SetInternalFieldCount(int value) {
   ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    CHAKRA_ASSERT(false);  // This should never happen
     return;
   }
 
@@ -919,7 +919,7 @@ void ObjectTemplate::SetInternalFieldCount(int value) {
 void ObjectTemplate::SetClassName(Handle<String> className) {
   ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    CHAKRA_ASSERT(false);  // This should never happen
     return;
   }
 
@@ -929,7 +929,7 @@ void ObjectTemplate::SetClassName(Handle<String> className) {
 Handle<String> ObjectTemplate::GetClassName() {
   ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    CHAKRA_ASSERT(false);  // This should never happen
     return Handle<String>();
   }
 

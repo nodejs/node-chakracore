@@ -663,25 +663,26 @@ Maybe<bool> Object::SetPrivate(Local<Context> context, Local<Private> key,
 
 ObjectTemplate* Object::GetObjectTemplate() {
   ObjectData *objectData = nullptr;
-  return GetObjectData(&objectData) == JsNoError && objectData != nullptr ?
+  return Utils::GetObjectData(this, &objectData) == JsNoError
+          && objectData != nullptr ?
     *objectData->objectTemplate : nullptr;
 }
 
-JsErrorCode Object::GetObjectData(ObjectData** objectData) {
+JsErrorCode Utils::GetObjectData(Object* object, ObjectData** objectData) {
   *objectData = nullptr;
 
-  if (this->IsUndefined()) {
+  if (object->IsUndefined()) {
     return JsNoError;
   }
 
   JsErrorCode error;
-  JsValueRef self = this;
+  JsValueRef self = object;
   {
     JsPropertyIdRef selfSymbolIdRef =
       jsrt::IsolateShim::GetCurrent()->GetSelfSymbolPropertyIdRef();
     if (selfSymbolIdRef != JS_INVALID_REFERENCE) {
       JsValueRef result;
-      error = JsGetProperty(this, selfSymbolIdRef, &result);
+      error = JsGetProperty(object, selfSymbolIdRef, &result);
       if (error != JsNoError) {
         return error;
       }
@@ -697,7 +698,7 @@ JsErrorCode Object::GetObjectData(ObjectData** objectData) {
 
 int Object::InternalFieldCount() {
   ObjectData* objectData;
-  if (GetObjectData(&objectData) != JsNoError || !objectData) {
+  if (Utils::GetObjectData(this, &objectData) != JsNoError || !objectData) {
     return 0;
   }
 

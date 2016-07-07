@@ -291,7 +291,6 @@ class Local {
   friend class Number;
   friend class NumberObject;
   friend class Object;
-  friend class ObjectData;
   friend class ObjectTemplate;
   friend class Private;
   friend class Proxy;
@@ -462,7 +461,7 @@ V8_EXPORT void SetObjectWeakReferenceCallback(
 // A helper method for turning off the WeakReferenceCallback that was set using
 // the previous method
 V8_EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
-}
+}  // namespace chakrashim
 
 enum class WeakCallbackType { kParameter, kInternalFields };
 
@@ -620,7 +619,6 @@ class Persistent : public PersistentBase<T> {
 
  private:
   friend class Object;
-  friend class ObjectData;
   friend class ObjectTemplate;
   friend class ObjectTemplateData;
   friend class TemplateData;
@@ -669,7 +667,7 @@ class Global : public PersistentBase<T> {
   }
 
   V8_INLINE Global(Global&& other) : PersistentBase<T>(other.val_) {
-    this._weakWrapper = other._weakWrapper;
+    this->_weakWrapper = other._weakWrapper;
     other.val_ = nullptr;
     other._weakWrapper.reset();
   }
@@ -692,8 +690,8 @@ class Global : public PersistentBase<T> {
   Global Pass() { return static_cast<Global&&>(*this); }
 
  private:
-  Global(Global&) = delete;
-  void operator=(Global&) = delete;
+  Global(const Global&) = delete;
+  void operator=(const Global&) = delete;
 };
 
 
@@ -830,10 +828,10 @@ class V8_EXPORT ScriptCompiler {
       BufferOwned
     };
 
-   const uint8_t* data;
-   int length;
-   bool rejected = true;
-   BufferPolicy buffer_policy;
+    const uint8_t* data;
+    int length;
+    bool rejected = true;
+    BufferPolicy buffer_policy;
 
     CachedData();
     CachedData(const uint8_t* data, int length,
@@ -1044,13 +1042,13 @@ class V8_EXPORT Value : public Data {
 };
 
 class V8_EXPORT Private : public Data {
-public:
+ public:
   Local<Value> Name() const;
   static Local<Private> New(Isolate* isolate,
                             Local<String> name = Local<String>());
   static Local<Private> ForApi(Isolate* isolate, Local<String> name);
 
-private:
+ private:
   Private();
 };
 
@@ -1432,7 +1430,6 @@ class V8_EXPORT Object : public Value {
   static Object *Cast(Value *obj);
 
  private:
-  friend class ObjectData;
   friend class ObjectTemplate;
   friend class Utils;
 
@@ -1446,7 +1443,6 @@ class V8_EXPORT Object : public Value {
                           PropertyAttribute attribute,
                           Handle<AccessorSignature> signature);
 
-  JsErrorCode GetObjectData(ObjectData** objectData);
   ObjectTemplate* GetObjectTemplate();
 };
 
@@ -1537,6 +1533,7 @@ class ReturnValue {
   Isolate* GetIsolate() { return Isolate::GetCurrent(); }
 
   Value* Get() const { return *_value; }
+
  private:
   explicit ReturnValue(Value** value)
     : _value(value) {
@@ -1681,7 +1678,7 @@ class V8_EXPORT Promise : public Object {
 };
 
 class V8_EXPORT Proxy : public Object {
-public:
+ public:
   Local<Object> GetTarget();
   Local<Value> GetHandler();
   bool IsRevoked();
@@ -1693,7 +1690,7 @@ public:
 
   V8_INLINE static Proxy* Cast(Value* obj);
 
-private:
+ private:
   Proxy();
   static void CheckCast(Value* obj);
 };
@@ -1736,6 +1733,7 @@ class V8_EXPORT ArrayBuffer : public Object {
   Contents GetContents();
 
   static ArrayBuffer* Cast(Value* obj);
+
  private:
   ArrayBuffer();
 };
@@ -2126,7 +2124,7 @@ class V8_EXPORT HeapStatistics {
 };
 
 class V8_EXPORT HeapSpaceStatistics {
-public:
+ public:
   HeapSpaceStatistics() {}
   const char* space_name() { return ""; }
   size_t space_size() { return 0; }
@@ -2134,7 +2132,7 @@ public:
   size_t space_available_size() { return 0; }
   size_t physical_space_size() { return 0; }
 
-private:
+ private:
   const char* space_name_;
   size_t space_size_;
   size_t space_used_size_;

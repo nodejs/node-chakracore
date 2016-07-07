@@ -28,8 +28,8 @@ using jsrt::ContextShim;
 
 class FunctionCallbackData : public ExternalData {
  public:
-   static const ExternalDataTypes ExternalDataType =
-      ExternalDataTypes::FunctionCallbackData;
+  static const ExternalDataTypes ExternalDataType =
+    ExternalDataTypes::FunctionCallbackData;
 
  private:
   FunctionCallback callback;
@@ -71,7 +71,7 @@ class FunctionCallbackData : public ExternalData {
   }
 
   Local<Object> NewInstance() {
-    Utils::EnsureObjectTemplate(instanceTemplate);
+    Utils::EnsureObjectTemplate(&instanceTemplate);
     return !instanceTemplate.IsEmpty() ?
       instanceTemplate->NewInstance(prototype) : Local<Object>();
   }
@@ -102,7 +102,7 @@ class FunctionCallbackData : public ExternalData {
 
     FunctionCallbackData* callbackData = nullptr;
     if (!ExternalData::TryGet(JsValueRef(callbackState), &callbackData)) {
-      CHAKRA_ASSERT(false); // This should never happen
+      CHAKRA_ASSERT(false);  // This should never happen
       return JS_INVALID_REFERENCE;
     }
 
@@ -206,11 +206,11 @@ class FunctionTemplateData : public TemplateData {
   }
 
   ObjectTemplate* EnsurePrototypeTemplate() {
-    return Utils::EnsureObjectTemplate(prototypeTemplate);
+    return Utils::EnsureObjectTemplate(&prototypeTemplate);
   }
 
   ObjectTemplate* EnsureInstanceTemplate() {
-    return Utils::EnsureObjectTemplate(instanceTemplate);
+    return Utils::EnsureObjectTemplate(&instanceTemplate);
   }
 
   Function* EnsureFunction() {
@@ -319,7 +319,7 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
 MaybeLocal<Function> FunctionTemplate::GetFunction(Local<Context> context) {
   FunctionTemplateData* functionTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &functionTemplateData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    CHAKRA_ASSERT(false);  // This should never happen
     return Local<Function>();
   }
 
@@ -333,7 +333,7 @@ Local<Function> FunctionTemplate::GetFunction() {
 Local<ObjectTemplate> FunctionTemplate::InstanceTemplate() {
   FunctionTemplateData* functionTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &functionTemplateData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    CHAKRA_ASSERT(false);  // This should never happen
     return Local<ObjectTemplate>();
   }
 
@@ -343,7 +343,7 @@ Local<ObjectTemplate> FunctionTemplate::InstanceTemplate() {
 Local<ObjectTemplate> FunctionTemplate::PrototypeTemplate() {
   FunctionTemplateData* functionTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &functionTemplateData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    CHAKRA_ASSERT(false);  // This should never happen
     return Local<ObjectTemplate>();
   }
 

@@ -45,7 +45,7 @@ class ExternalData {
   const ExternalDataTypes type;
 
  public:
-  ExternalData(ExternalDataTypes type) : type(type) {}
+  explicit ExternalData(ExternalDataTypes type) : type(type) {}
   virtual ~ExternalData() {}
 
   ExternalDataTypes GetType() const { return type; }
@@ -218,6 +218,14 @@ class Utils {
     unsigned short argumentCount,
     void *callbackState);
 
+  // Create a Local<T> internally (use private constructor)
+  template <class T>
+  static Local<T> ToLocal(T* that) {
+    return Local<T>(that);
+  }
+
+  static JsErrorCode GetObjectData(Object* object, ObjectData** objectData);
+
   static bool IsInstanceOf(Object* obj, ObjectTemplate* objectTemplate) {
     return obj->GetObjectTemplate() == objectTemplate;
   }
@@ -239,12 +247,12 @@ class Utils {
                                 size_t byte_offset, size_t length);
 
   static ObjectTemplate* EnsureObjectTemplate(
-      Persistent<ObjectTemplate>& objectTemplate) {
-    if (objectTemplate.IsEmpty()) {
+      Persistent<ObjectTemplate>* objectTemplate) {
+    if (objectTemplate->IsEmpty()) {
       // Create ObjectTemplate lazily
-      objectTemplate = ObjectTemplate::New(nullptr);
+      *objectTemplate = ObjectTemplate::New(nullptr);
     }
-    return *objectTemplate;
+    return **objectTemplate;
   }
 };
 
