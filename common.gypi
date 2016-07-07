@@ -331,6 +331,7 @@
                 'ldflags': [ '-maix64' ],
               }],
             ],
+            'ldflags': [ '-Wl,-bbigtoc' ],
             'ldflags!': [ '-rdynamic' ],
           }],
           [ 'node_shared=="true"', {
