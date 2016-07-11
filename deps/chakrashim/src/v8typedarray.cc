@@ -54,6 +54,20 @@ size_t ArrayBufferView::ByteLength() {
   return result;
 }
 
+bool ArrayBufferView::HasBuffer() const {
+  JsValueRef result;
+  if (JsGetTypedArrayInfo((JsValueRef)this,
+                          nullptr, &result, nullptr, nullptr) != JsNoError) {
+    return false;
+  }
+  return result != nullptr;
+}
+
+ArrayBufferView* ArrayBufferView::Cast(Value* obj) {
+  CHAKRA_ASSERT(obj->IsArrayBufferView());
+  return static_cast<ArrayBufferView*>(obj);
+}
+
 size_t TypedArray::Length() {
   JsValueRef typedArrayRef = (JsValueRef)this;
   int result;

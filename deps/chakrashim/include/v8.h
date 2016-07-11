@@ -969,6 +969,7 @@ class V8_EXPORT Value : public Data {
   bool IsRegExp() const;
   bool IsExternal() const;
   bool IsArrayBuffer() const;
+  bool IsArrayBufferView() const;
   bool IsTypedArray() const;
   bool IsUint8Array() const;
   bool IsUint8ClampedArray() const;

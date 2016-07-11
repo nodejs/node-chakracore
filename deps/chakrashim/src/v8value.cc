@@ -111,6 +111,11 @@ DEFINE_TYPEDARRAY_CHECK(Int32)
 DEFINE_TYPEDARRAY_CHECK(Float32)
 DEFINE_TYPEDARRAY_CHECK(Float64)
 
+
+bool Value::IsArrayBufferView() const {
+  return IsTypedArray() || IsDataView();
+}
+
 bool Value::IsDataView() const {
   return IsOfType(this, JsValueType::JsDataView);
 }
