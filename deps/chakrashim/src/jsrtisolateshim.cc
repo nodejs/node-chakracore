@@ -225,9 +225,7 @@ void IsolateShim::PushScope(
   JsErrorCode errorCode = JsSetCurrentContext(contextShim->GetContextRef());
   CHAKRA_ASSERT(errorCode == JsNoError);
 
-  if (!contextShim->EnsureInitialized()) {
-    Fatal("Failed to initialize context");
-  }
+  contextShim->EnsureInitialized();
 }
 
 void IsolateShim::PopScope(ContextShim::Scope * scope) {

@@ -60,6 +60,13 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       context(context),
       initialized(false),
       exposeGC(exposeGC),
+      trueRef(JS_INVALID_REFERENCE),
+      falseRef(JS_INVALID_REFERENCE),
+      undefinedRef(JS_INVALID_REFERENCE),
+      nullRef(JS_INVALID_REFERENCE),
+      zero(JS_INVALID_REFERENCE),
+      globalObject(JS_INVALID_REFERENCE),
+      proxyOfGlobal(JS_INVALID_REFERENCE),
       globalObjectTemplateInstance(globalObjectTemplateInstance),
       promiseContinuationFunction(JS_INVALID_REFERENCE),
 #include "jsrtcachedpropertyidref.inc"
@@ -305,10 +312,6 @@ bool ContextShim::InitializeBuiltIns() {
     return false;
   }
 
-  if (!InitializeReflect()) {
-    return false;
-  }
-
   if (DefineProperty(globalObject,
                      GetIsolateShim()->GetKeepAliveObjectSymbolPropertyIdRef(),
                      PropertyDescriptorOptionValues::False,
@@ -336,27 +339,6 @@ static JsValueRef CALLBACK ProxyOfGlobalGetPrototypeOfCallback(
   return arguments[1];
 }
 
-bool ContextShim::InitializeReflect() {
-  if (!InitializeBuiltIn(&reflectObject,
-                         [](JsValueRef * value) {
-                           return GetPropertyOfGlobal(L"Reflect", value);
-                         })) {
-    return false;
-  }
-
-  for (unsigned int i = 0; i < ProxyTraps::TrapCount; i++) {
-    if (!InitializeBuiltIn(&reflectFunctions[i],
-        [this, i](JsValueRef * value) {
-          return JsGetProperty(reflectObject,
-              this->GetIsolateShim()->GetProxyTrapPropertyIdRef((ProxyTraps)i),
-              value);
-        })) {
-      return false;
-    }
-  }
-  return true;
-}
-
 bool ContextShim::InitializeProxyOfGlobal() {
   return InitializeBuiltIn(&proxyOfGlobal,
                            [this](JsValueRef * value) {
@@ -368,9 +350,18 @@ bool ContextShim::InitializeProxyOfGlobal() {
   });
 }
 
-bool ContextShim::EnsureInitialized() {
-  if (initialized) {
-    return true;
+
+bool ContextShim::DoInitializeContextShim() {
+  JsContextRef currentContext = IsolateShim::GetCurrent()
+                                 ->GetCurrentContextShim()->GetContextRef();
+
+  JsContextRef thisContext = GetContextRef();
+  bool needToSwitchContext = currentContext != thisContext;
+
+  if (needToSwitchContext) {
+    if (JsSetCurrentContext(thisContext) != JsNoError) {
+      return false;
+    }
   }
 
   if (jsrt::InitializePromise() != JsNoError) {
@@ -389,8 +380,6 @@ bool ContextShim::EnsureInitialized() {
     return false;
   }
 
-  initialized = true;
-
   // Following is a special one-time initialization that needs to marshal
   // objects to this context. Do it after marking initialized = true.
   if (!CheckConfigGlobalObjectTemplate()) {
@@ -399,10 +388,28 @@ bool ContextShim::EnsureInitialized() {
 
   // add idleGC callback into prepareQueue
   if (IsolateShim::IsIdleGcEnabled()) {
-    uv_prepare_start(IsolateShim::GetCurrent()->idleGc_prepare_handle(), PrepareIdleGC);
+    uv_prepare_start(IsolateShim::GetCurrent()->idleGc_prepare_handle(),
+                     PrepareIdleGC);
   }
 
+  if (needToSwitchContext) {
+    if (JsSetCurrentContext(currentContext) != JsNoError) {
+      return false;
+    }
+  }
   return true;
+}
+
+void ContextShim::EnsureInitialized() {
+  if (initialized) {
+    return;
+  }
+
+  initialized = true;
+
+  if (!DoInitializeContextShim()) {
+      Fatal("Failed to initialize context");
+  }
 }
 
 bool ContextShim::ExposeGc() {
@@ -477,82 +484,58 @@ void ContextShim::RunMicrotasks() {
 
     JsValueRef notUsed;
     if (jsrt::CallFunction(task, &notUsed) != JsNoError) {
-      JsGetAndClearException(&notUsed); // swallow any exception from task
+      JsGetAndClearException(&notUsed);  // swallow any exception from task
     }
   }
 }
 
-JsValueRef ContextShim::GetUndefined() {
-  return undefinedRef;
-}
+// check initialization state first instead of calling
+// InitializeCurrentContextShim to save a function call for cases where
+// contextshim is already initialized
+#define DECLARE_GETOBJECT(name, object) \
+JsValueRef ContextShim::Get##name() { \
+  CHAKRA_ASSERT(object != JS_INVALID_REFERENCE); \
+  return object; \
+} \
 
-JsValueRef ContextShim::GetTrue() {
-  return trueRef;
-}
+DECLARE_GETOBJECT(True, trueRef)
+DECLARE_GETOBJECT(False, falseRef)
+DECLARE_GETOBJECT(Undefined, undefinedRef)
+DECLARE_GETOBJECT(Null, nullRef)
+DECLARE_GETOBJECT(Zero, zero)
+DECLARE_GETOBJECT(ObjectConstructor,
+                  globalConstructor[GlobalType::Object])
+DECLARE_GETOBJECT(BooleanObjectConstructor,
+                  globalConstructor[GlobalType::Boolean])
+DECLARE_GETOBJECT(NumberObjectConstructor,
+                  globalConstructor[GlobalType::Number])
+DECLARE_GETOBJECT(StringObjectConstructor,
+                  globalConstructor[GlobalType::String])
+DECLARE_GETOBJECT(DateConstructor,
+                  globalConstructor[GlobalType::Date])
+DECLARE_GETOBJECT(ProxyConstructor,
+                  globalConstructor[GlobalType::Proxy])
+DECLARE_GETOBJECT(GetOwnPropertyDescriptorFunction,
+                  getOwnPropertyDescriptorFunction)
+DECLARE_GETOBJECT(StringConcatFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::String_concat])
 
-JsValueRef ContextShim::GetFalse() {
-  return falseRef;
-}
-
-JsValueRef ContextShim::GetNull() {
-  return nullRef;
-}
-
-JsValueRef ContextShim::GetZero() {
-  return zero;
-}
-
-JsValueRef ContextShim::GetObjectConstructor() {
-  return globalConstructor[GlobalType::Object];
-}
-
-JsValueRef ContextShim::GetBooleanObjectConstructor() {
-  return globalConstructor[GlobalType::Boolean];
-}
-
-JsValueRef ContextShim::GetNumberObjectConstructor() {
-  return globalConstructor[GlobalType::Number];
-}
-
-JsValueRef ContextShim::GetStringObjectConstructor() {
-  return globalConstructor[GlobalType::String];
-}
-
-JsValueRef ContextShim::GetDateConstructor() {
-  return globalConstructor[GlobalType::Date];
-}
-
-JsValueRef ContextShim::GetProxyConstructor() {
-  return globalConstructor[GlobalType::Proxy];
-}
-
-JsValueRef ContextShim::GetGlobalType(GlobalType index) {
-  return globalConstructor[index];
-}
-
-JsValueRef ContextShim::GetGetOwnPropertyDescriptorFunction() {
-  return getOwnPropertyDescriptorFunction;
-}
-
-JsValueRef ContextShim::GetStringConcatFunction() {
-  return globalPrototypeFunction[GlobalPrototypeFunction::String_concat];
-}
-
-JsValueRef ContextShim::GetGlobalPrototypeFunction(
-    GlobalPrototypeFunction index) {
-  return globalPrototypeFunction[index];
-}
 
 JsValueRef ContextShim::GetProxyOfGlobal() {
+  EnsureInitialized();
+  CHAKRA_ASSERT(proxyOfGlobal != JS_INVALID_REFERENCE);
   return proxyOfGlobal;
 }
 
-JsValueRef ContextShim::GetReflectObject() {
-  return reflectObject;
+JsValueRef ContextShim::GetGlobalType(GlobalType index) {
+  CHAKRA_ASSERT(globalConstructor[index] != JS_INVALID_REFERENCE);
+  return globalConstructor[index];
 }
-
-JsValueRef ContextShim::GetReflectFunctionForTrap(ProxyTraps trap) {
-  return reflectFunctions[trap];
+JsValueRef ContextShim::GetGlobalPrototypeFunction(
+    GlobalPrototypeFunction index) {
+  CHAKRA_ASSERT(globalPrototypeFunction[index] != JS_INVALID_REFERENCE);
+  return globalPrototypeFunction[index];
 }
 
 JsValueRef ContextShim::GetCachedShimFunction(CachedPropertyIdRef id,

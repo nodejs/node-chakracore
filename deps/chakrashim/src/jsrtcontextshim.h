@@ -52,7 +52,7 @@ class ContextShim {
   static ContextShim * New(IsolateShim * isolateShim, bool exposeGC,
                            JsValueRef globalObjectTemplateInstance);
   ~ContextShim();
-  bool EnsureInitialized();
+  void EnsureInitialized();
 
   IsolateShim * GetIsolateShim();
   JsContextRef GetContextRef();
@@ -74,9 +74,6 @@ class ContextShim {
   JsValueRef GetStringConcatFunction();
   JsValueRef GetGlobalPrototypeFunction(GlobalPrototypeFunction index);
   JsValueRef GetProxyOfGlobal();
-  JsValueRef GetReflectObject();
-  JsValueRef GetReflectFunctionForTrap(ProxyTraps traps);
-
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
@@ -87,9 +84,9 @@ class ContextShim {
  private:
   ContextShim(IsolateShim * isolateShim, JsContextRef context, bool exposeGC,
               JsValueRef globalObjectTemplateInstance);
+  bool DoInitializeContextShim();
   bool InitializeBuiltIns();
   bool InitializeProxyOfGlobal();
-  bool InitializeReflect();
   bool InitializeGlobalPrototypeFunctions();
   bool InitializeObjectPrototypeToStringShim();
 
@@ -119,8 +116,6 @@ class ContextShim {
   JsValueRef globalConstructor[GlobalType::_TypeCount];
   JsValueRef globalObject;
   JsValueRef proxyOfGlobal;
-  JsValueRef reflectObject;
-  JsValueRef reflectFunctions[ProxyTraps::TrapCount];
 
   JsValueRef globalPrototypeFunction[GlobalPrototypeFunction::_FunctionCount];
   JsValueRef getOwnPropertyDescriptorFunction;
@@ -129,10 +124,10 @@ class ContextShim {
   std::vector<void*> embedderData;
 
 #define DECLARE_CHAKRASHIM_FUNCTION_GETTER(F) \
-public: \
-JsValueRef Get##F##Function(); \
-private: \
-JsValueRef F##Function; \
+ public: \
+   JsValueRef Get##F##Function(); \
+ private: \
+   JsValueRef F##Function; \
 
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(cloneObject);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getPropertyNames);
