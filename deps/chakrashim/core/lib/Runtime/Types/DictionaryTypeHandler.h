@@ -214,34 +214,41 @@ namespace Js
         void SetPropertyValueInfo(PropertyValueInfo* info, RecyclableObject* instance, T propIndex, PropertyAttributes attributes, InlineCacheFlags flags = InlineCacheNoFlags);
 
         template<bool allowLetConstGlobal>
-        __inline BOOL HasProperty_Internal(DynamicObject* instance, PropertyId propertyId, bool *noRedecl, bool *pDeclaredProperty, bool *pNonconfigurableProperty);
+        inline BOOL HasProperty_Internal(DynamicObject* instance, PropertyId propertyId, bool *noRedecl, bool *pDeclaredProperty, bool *pNonconfigurableProperty);
         template<bool allowLetConstGlobal>
-        __inline PropertyIndex GetPropertyIndex_Internal(PropertyRecord const* propertyRecord);
+        inline PropertyIndex GetPropertyIndex_Internal(PropertyRecord const* propertyRecord);
         template<bool allowLetConstGlobal>
-        __inline BOOL GetProperty_Internal(DynamicObject* instance, Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext);
+        inline BOOL GetProperty_Internal(DynamicObject* instance, Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext);
         template<bool allowLetConstGlobal>
-        __inline BOOL SetProperty_Internal(DynamicObject* instance, PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info, bool isInit = false);
+        inline BOOL SetProperty_Internal(DynamicObject* instance, PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info, bool isInit = false);
         template<bool allowLetConstGlobal>
-        __inline DescriptorFlags  GetSetter_Internal(DynamicObject* instance, PropertyId propertyId, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext);
+        inline DescriptorFlags  GetSetter_Internal(DynamicObject* instance, PropertyId propertyId, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext);
         template<bool allowLetConstGlobal>
-        __inline BOOL DeleteProperty_Internal(DynamicObject* instance, PropertyId propertyId, PropertyOperationFlags flags);
+        inline BOOL DeleteProperty_Internal(DynamicObject* instance, PropertyId propertyId, PropertyOperationFlags flags);
 
 
         template<bool allowLetConstGlobal, typename PropertyType>
-        __inline BOOL GetPropertyFromDescriptor(DynamicObject* instance, Var originalInstance, DictionaryPropertyDescriptor<T>* descriptor,
+        inline BOOL GetPropertyFromDescriptor(DynamicObject* instance, Var originalInstance, DictionaryPropertyDescriptor<T>* descriptor,
             Var* value, PropertyValueInfo* info, PropertyType propertyT, ScriptContext* requestContext);
         template<bool allowLetConstGlobal>
-        __inline DescriptorFlags GetSetterFromDescriptor(DynamicObject* instance, DictionaryPropertyDescriptor<T> * descriptor, Var* setterValue, PropertyValueInfo* info);
+        inline DescriptorFlags GetSetterFromDescriptor(DynamicObject* instance, DictionaryPropertyDescriptor<T> * descriptor, Var* setterValue, PropertyValueInfo* info);
         template <bool allowLetConstGlobal>
-        __inline void SetPropertyWithDescriptor(DynamicObject* instance, PropertyId propertyId, DictionaryPropertyDescriptor<T> * descriptor,
+        inline void SetPropertyWithDescriptor(DynamicObject* instance, PropertyId propertyId, DictionaryPropertyDescriptor<T> * descriptor,
             Var value, PropertyOperationFlags flags, PropertyValueInfo* info);
 
     protected:
         virtual BOOL FreezeImpl(DynamicObject* instance, bool isConvertedType) override;
         virtual BigDictionaryTypeHandler* NewBigDictionaryTypeHandler(Recycler* recycler, int slotCapacity, uint16 inlineSlotCapacity, uint16 offsetOfInlineSlots);
         static Var CanonicalizeAccessor(Var accessor, /*const*/ JavascriptLibrary* library);
+
+#if ENABLE_TTD
+    public:
+        virtual void MarkObjectSlots_TTD(TTD::SnapshotExtractor* extractor, DynamicObject* obj) const override;
+
+        virtual uint32 ExtractSlotInfo_TTD(TTD::NSSnapType::SnapHandlerPropertyEntry* entryInfo, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const override;
+#endif
     };
 
     template <bool allowLetConstGlobal>
-    __inline PropertyAttributes GetLetConstGlobalPropertyAttributes(PropertyAttributes attributes);
+    inline PropertyAttributes GetLetConstGlobalPropertyAttributes(PropertyAttributes attributes);
 }

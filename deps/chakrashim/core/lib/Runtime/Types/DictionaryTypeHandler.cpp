@@ -114,7 +114,7 @@ namespace Js
                 *propertyId = propertyRecord->GetPropertyId();
                 PropertyString* propertyString = type->GetScriptContext()->GetPropertyString(*propertyId);
                 *propertyStringName = propertyString;
-                T dataSlot = descriptor.GetDataPropertyIndex<false>();
+                T dataSlot = descriptor.template GetDataPropertyIndex<false>();
                 if (dataSlot != NoSlots && (attribs & PropertyWritable))
                 {
                     uint16 inlineOrAuxSlotIndex;
@@ -213,9 +213,9 @@ namespace Js
         DictionaryPropertyDescriptor<T>* descriptor;
         if (this->propertyMap->TryGetReference(propertyRecord, &descriptor) && !(descriptor->Attributes & PropertyDeleted))
         {
-            AssertMsg(descriptor->GetDataPropertyIndex<false>() != Constants::NoSlot, "We don't support equivalent object type spec on accessors.");
-            AssertMsg(descriptor->GetDataPropertyIndex<false>() <= Constants::PropertyIndexMax, "We don't support equivalent object type spec on big property indexes.");
-            T propertyIndex = descriptor->GetDataPropertyIndex<false>();
+            AssertMsg(descriptor->template GetDataPropertyIndex<false>() != Constants::NoSlot, "We don't support equivalent object type spec on accessors.");
+            AssertMsg(descriptor->template GetDataPropertyIndex<false>() <= Constants::PropertyIndexMax, "We don't support equivalent object type spec on big property indexes.");
+            T propertyIndex = descriptor->template GetDataPropertyIndex<false>();
             info.slotIndex = propertyIndex <= Constants::PropertyIndexMax ?
                 AdjustValidSlotIndexForInlineSlots(static_cast<PropertyIndex>(propertyIndex)) : Constants::NoSlot;
             info.isAuxSlot = propertyIndex >= GetInlineSlotCapacity();
@@ -276,7 +276,7 @@ namespace Js
                 return false;
             }
 
-            absSlotIndex = descriptor->GetDataPropertyIndex<false>();
+            absSlotIndex = descriptor->template GetDataPropertyIndex<false>();
             if (absSlotIndex <= Constants::PropertyIndexMax)
             {
                 relSlotIndex = AdjustValidSlotIndexForInlineSlots(static_cast<PropertyIndex>(absSlotIndex));
@@ -313,7 +313,7 @@ namespace Js
         DictionaryPropertyDescriptor<T>* descriptor;
         if (propertyMap->TryGetReference(propertyRecord, &descriptor) && !(descriptor->Attributes & PropertyDeleted))
         {
-            return descriptor->GetDataPropertyIndex<allowLetConstGlobal>();
+            return descriptor->template GetDataPropertyIndex<allowLetConstGlobal>();
         }
         else
         {
@@ -498,7 +498,7 @@ namespace Js
             }
         }
 
-        T dataSlot = descriptor->GetDataPropertyIndex<allowLetConstGlobal>();
+        T dataSlot = descriptor->template GetDataPropertyIndex<allowLetConstGlobal>();
         if (dataSlot != NoSlots)
         {
             *value = instance->GetSlot(dataSlot);
@@ -629,7 +629,7 @@ namespace Js
         {
             return None;
         }
-        if (descriptor->GetDataPropertyIndex<allowLetConstGlobal>() != NoSlots)
+        if (descriptor->template GetDataPropertyIndex<allowLetConstGlobal>() != NoSlots)
         {
             // not a setter but shadows
             if (allowLetConstGlobal && (descriptor->Attributes & PropertyLetConstGlobal))
@@ -702,15 +702,16 @@ namespace Js
         Assert(!GetIsOrMayBecomeShared());
         DynamicObject* localSingletonInstance = this->singletonInstance != nullptr ? this->singletonInstance->Get() : nullptr;
         Assert(this->singletonInstance == nullptr || localSingletonInstance == instance);
-        T dataSlot = descriptor->GetDataPropertyIndex<allowLetConstGlobal>();
-        if (dataSlot != NoSlots)
+
+        T dataSlotAllowLetConstGlobal = descriptor->template GetDataPropertyIndex<allowLetConstGlobal>();
+        if (dataSlotAllowLetConstGlobal != NoSlots)
         {
             if (allowLetConstGlobal
                 && (descriptor->Attributes & PropertyNoRedecl)
                 && !(flags & PropertyOperation_AllowUndecl))
             {
                 ScriptContext* scriptContext = instance->GetScriptContext();
-                if (scriptContext->IsUndeclBlockVar(instance->GetSlot(dataSlot)))
+                if (scriptContext->IsUndeclBlockVar(instance->GetSlot(dataSlotAllowLetConstGlobal)))
                 {
                     JavascriptError::ThrowReferenceError(scriptContext, JSERR_UseBeforeDeclaration);
                 }
@@ -736,13 +737,13 @@ namespace Js
                 InvalidateFixedField(instance, propertyId, descriptor);
             }
 
-            SetSlotUnchecked(instance, dataSlot, value);
+            SetSlotUnchecked(instance, dataSlotAllowLetConstGlobal, value);
 
             // If we just added a fixed method, don't populate the inline cache so that we always take the slow path
             // when overwriting this property and correctly invalidate any JIT-ed code that hard-coded this method.
             if (descriptor->IsInitialized && !descriptor->IsFixed)
             {
-                SetPropertyValueInfo(info, instance, dataSlot, GetLetConstGlobalPropertyAttributes<allowLetConstGlobal>(descriptor->Attributes));
+                SetPropertyValueInfo(info, instance, dataSlotAllowLetConstGlobal, GetLetConstGlobalPropertyAttributes<allowLetConstGlobal>(descriptor->Attributes));
             }
             else
             {
@@ -756,7 +757,7 @@ namespace Js
 
             // Wait for the setter to return before setting up the inline cache info, as the setter may change
             // the attributes
-            T dataSlot = descriptor->GetDataPropertyIndex<false>();
+            T dataSlot = descriptor->template GetDataPropertyIndex<false>();
             if (dataSlot != NoSlots)
             {
                 SetPropertyValueInfo(info, instance, dataSlot, descriptor->Attributes);
@@ -777,6 +778,8 @@ namespace Js
         DictionaryPropertyDescriptor<T>* descriptor;
         bool throwIfNotExtensible = (flags & (PropertyOperation_ThrowIfNotExtensible | PropertyOperation_StrictMode)) != 0;
         bool isForce = (flags & PropertyOperation_Force) != 0;
+
+        JavascriptLibrary::CheckAndInvalidateIsConcatSpreadableCache(propertyId, scriptContext);
 
         Assert(propertyId != Constants::NoProperty);
         PropertyRecord const* propertyRecord = scriptContext->GetPropertyName(propertyId);
@@ -899,7 +902,7 @@ namespace Js
 
             if (descriptor->HasNonLetConstGlobal())
             {
-                T dataSlot = descriptor->GetDataPropertyIndex<false>();
+                T dataSlot = descriptor->template GetDataPropertyIndex<false>();
                 if (dataSlot != NoSlots)
                 {
                     SetSlotUnchecked(instance, dataSlot, undefined);
@@ -1279,7 +1282,7 @@ namespace Js
             descriptor = propertyMap->GetReferenceAt(index);
             if (descriptor->HasNonLetConstGlobal())
             {
-                if (descriptor->GetDataPropertyIndex<false>() != NoSlots)
+                if (descriptor->template GetDataPropertyIndex<false>() != NoSlots)
                 {
                     // Only data descriptor has Writable property
                     descriptor->Attributes &= ~(PropertyWritable | PropertyConfigurable);
@@ -1369,7 +1372,7 @@ namespace Js
                     return false;
                 }
 
-                if (descriptor->GetDataPropertyIndex<false>() != NoSlots && (descriptor->Attributes & PropertyWritable))
+                if (descriptor->template GetDataPropertyIndex<false>() != NoSlots && (descriptor->Attributes & PropertyWritable))
                 {
                     // Only data descriptor has [[Writable]] property
                     return false;
@@ -1403,7 +1406,7 @@ namespace Js
                 return false;
             }
 
-            if (descriptor->GetDataPropertyIndex<false>() == NoSlots)
+            if (descriptor->template GetDataPropertyIndex<false>() == NoSlots)
             {
                 bool getset = false;
                 if (descriptor->GetGetterPropertyIndex() != NoSlots)
@@ -1872,7 +1875,7 @@ namespace Js
             return false;
         }
         // This function is only used by LdRootFld, so the index will allow let const globals
-        Assert(descriptor->GetDataPropertyIndex<true>() == index);
+        Assert(descriptor->template GetDataPropertyIndex<true>() == index);
         if (descriptor->Attributes & PropertyDeleted)
         {
             return false;
@@ -2120,7 +2123,7 @@ namespace Js
         {
             DictionaryPropertyDescriptor<T>* descriptor = this->propertyMap->GetReferenceAt(propertyIndex);
 
-            T dataPropertyIndex = descriptor->GetDataPropertyIndex<false>();
+            T dataPropertyIndex = descriptor->template GetDataPropertyIndex<false>();
             if (dataPropertyIndex != NoSlots)
             {
                 SetSlotUnchecked(instance, dataPropertyIndex, undefined);
@@ -2199,7 +2202,7 @@ namespace Js
                     // to be explicitly invalidated if the property value changes.
                     if (hasNewType)
                     {
-                        T dataSlot = descriptor->GetDataPropertyIndex<false>();
+                        T dataSlot = descriptor->template GetDataPropertyIndex<false>();
                         if (dataSlot != NoSlots)
                         {
                             Var value = instance->GetSlot(dataSlot);
@@ -2365,7 +2368,7 @@ namespace Js
                 {
                     return false;
                 }
-                T dataSlot = descriptor->GetDataPropertyIndex<false>();
+                T dataSlot = descriptor->template GetDataPropertyIndex<false>();
                 if (dataSlot != NoSlots)
                 {
                     Assert(!IsInternalPropertyId(propertyRecord->GetPropertyId()));
@@ -2494,7 +2497,7 @@ namespace Js
             if (descriptor.Attributes & PropertyLetConstGlobal)
             {
                 *propertyRecord = propertyMap->GetKeyAt(index);
-                *value = instance->GetSlot(descriptor.GetDataPropertyIndex<true>());
+                *value = instance->GetSlot(descriptor.template GetDataPropertyIndex<true>());
                 *isConst = (descriptor.Attributes & PropertyConst) != 0;
 
                 index += 1;
@@ -2628,6 +2631,101 @@ namespace Js
             newTypeHandler->DumpFixedFields();
             Output::Print(_u("\n"));
             Output::Flush();
+        }
+    }
+#endif
+
+#if ENABLE_TTD
+    template <typename T>
+    void DictionaryTypeHandlerBase<T>::MarkObjectSlots_TTD(TTD::SnapshotExtractor* extractor, DynamicObject* obj) const
+    {
+        for(auto iter = this->propertyMap->GetIterator(); iter.IsValid(); iter.MoveNext())
+        {
+            DictionaryPropertyDescriptor<T> descriptor = iter.CurrentValue();
+
+            //
+            //TODO: not sure about relationship with PropertyLetConstGlobal here need to -- check how GetProperty works
+            //      maybe we need to template this with allowLetGlobalConst as well
+            //
+
+            Js::PropertyId pid = iter.CurrentKey()->GetPropertyId();
+            if(!DynamicTypeHandler::ShouldMarkPropertyId_TTD(pid) | (!descriptor.IsInitialized) | (descriptor.Attributes & PropertyDeleted))
+            {
+                continue;
+            }
+
+            uint32 dIndex = descriptor.template GetDataPropertyIndex<false>();
+            if(dIndex != NoSlots)
+            {
+                Js::Var dValue = obj->GetSlot(dIndex);
+                extractor->MarkVisitVar(dValue);
+            }
+            else
+            {
+                uint32 gIndex = descriptor.GetGetterPropertyIndex();
+                if(gIndex != NoSlots)
+                {
+                    Js::Var gValue = obj->GetSlot(gIndex);
+                    extractor->MarkVisitVar(gValue);
+                }
+
+                uint32 sIndex = descriptor.GetSetterPropertyIndex();
+                if(sIndex != NoSlots)
+                {
+                    Js::Var sValue = obj->GetSlot(sIndex);
+                    extractor->MarkVisitVar(sValue);
+                }
+            }
+        }
+    }
+
+    template <typename T>
+    uint32 DictionaryTypeHandlerBase<T>::ExtractSlotInfo_TTD(TTD::NSSnapType::SnapHandlerPropertyEntry* entryInfo, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const
+    {
+        uint32 maxSlot = 0;
+
+        for(auto iter = this->propertyMap->GetIterator(); iter.IsValid(); iter.MoveNext())
+        {
+            DictionaryPropertyDescriptor<T> descriptor = iter.CurrentValue();
+            Js::PropertyId pid = iter.CurrentKey()->GetPropertyId();
+
+            uint32 dIndex = descriptor.template GetDataPropertyIndex<false>();
+            if(dIndex != NoSlots)
+            {
+                maxSlot = max(maxSlot, dIndex);
+
+                TTD::NSSnapType::SnapEntryDataKindTag tag = descriptor.IsInitialized ? TTD::NSSnapType::SnapEntryDataKindTag::Data : TTD::NSSnapType::SnapEntryDataKindTag::Clear;
+                TTD::NSSnapType::ExtractSnapPropertyEntryInfo(entryInfo + dIndex, pid, descriptor.Attributes, tag);
+            }
+            else
+            {
+                uint32 gIndex = descriptor.GetGetterPropertyIndex();
+                if(gIndex != NoSlots)
+                {
+                    maxSlot = max(maxSlot, gIndex);
+
+                    TTD::NSSnapType::SnapEntryDataKindTag tag = descriptor.IsInitialized ? TTD::NSSnapType::SnapEntryDataKindTag::Getter : TTD::NSSnapType::SnapEntryDataKindTag::Clear;
+                    TTD::NSSnapType::ExtractSnapPropertyEntryInfo(entryInfo + gIndex, pid, descriptor.Attributes, tag);
+                }
+
+                uint32 sIndex = descriptor.GetSetterPropertyIndex();
+                if(sIndex != NoSlots)
+                {
+                    maxSlot = max(maxSlot, sIndex);
+
+                    TTD::NSSnapType::SnapEntryDataKindTag tag = descriptor.IsInitialized ? TTD::NSSnapType::SnapEntryDataKindTag::Setter : TTD::NSSnapType::SnapEntryDataKindTag::Clear;
+                    TTD::NSSnapType::ExtractSnapPropertyEntryInfo(entryInfo + sIndex, pid, descriptor.Attributes, tag);
+                }
+            }
+        }
+
+        if(this->propertyMap->Count() == 0)
+        {
+            return 0;
+        }
+        else
+        {
+            return maxSlot + 1;
         }
     }
 #endif

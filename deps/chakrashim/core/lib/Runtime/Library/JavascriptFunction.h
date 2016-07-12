@@ -31,7 +31,7 @@ namespace Js
 
     private:
          // noinline, we want to use own stack frame.
-        __declspec(noinline) JavascriptFunction* FindCaller(BOOL* foundThis, JavascriptFunction* nullValue, ScriptContext* requestContext);
+        _NOINLINE JavascriptFunction* FindCaller(BOOL* foundThis, JavascriptFunction* nullValue, ScriptContext* requestContext);
 
         BOOL GetCallerProperty(Var originalInstance, Var* value, ScriptContext* requestContext);
         BOOL GetArgumentsProperty(Var originalInstance, Var* value, ScriptContext* requestContext);
@@ -82,6 +82,7 @@ namespace Js
         static Var EntrySymbolHasInstance(RecyclableObject* function, CallInfo callInfo, ...);
 
         static Var NewAsyncFunctionInstance(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var NewAsyncFunctionInstanceRestrictedMode(RecyclableObject* function, CallInfo callInfo, ...);
 
         static bool Is(Var aValue);
         static JavascriptFunction* FromVar(Var aValue);

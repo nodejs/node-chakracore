@@ -7,7 +7,7 @@
 
 namespace Js
 {
-    __inline BOOL JavascriptProxy::Is(Var obj)
+    BOOL JavascriptProxy::Is(Var obj)
     {
         return JavascriptOperators::GetTypeId(obj) == TypeIds_Proxy;
     }
@@ -321,6 +321,9 @@ namespace Js
                 return FALSE;
             JavascriptError::ThrowTypeError(scriptContext, JSERR_ErrorOnRevokedProxy, _u("get"));
         }
+
+        RecyclableObject *target = this->target;
+
         JavascriptFunction* getGetMethod = GetMethodHelper(PropertyIds::get, scriptContext);
         Var getGetResult;
         if (nullptr == getGetMethod || scriptContext->IsHeapEnumInProgress())
@@ -979,7 +982,9 @@ namespace Js
         {
             return FALSE;
         }
-        return propertyDescriptor.IsWritable();
+
+        // If property descriptor has getter/setter we should check if writable is specified before checking IsWritable
+        return propertyDescriptor.WritableSpecified() ? propertyDescriptor.IsWritable() : FALSE;
     }
 
     BOOL JavascriptProxy::IsConfigurable(PropertyId propertyId)
@@ -1199,8 +1204,7 @@ namespace Js
 
         JavascriptArray* resultArray = JavascriptArray::FromVar(resultVar);
 
-        const PropertyRecord* propertyRecord;
-        PropertyDescriptor propertyDescriptor;
+        const PropertyRecord* propertyRecord;        
         if (integrityLevel == IntegrityLevel::IntegrityLevel_sealed)
         {
             //8. If level is "sealed", then
@@ -1244,6 +1248,7 @@ namespace Js
                 AssertMsg(JavascriptSymbol::Is(itemVar) || JavascriptString::Is(itemVar), "Invariant check during ownKeys proxy trap should make sure we only get property key here. (symbol or string primitives)");
                 JavascriptConversion::ToPropertyKey(itemVar, scriptContext, &propertyRecord);
                 PropertyId propertyId = propertyRecord->GetPropertyId();
+                PropertyDescriptor propertyDescriptor;
                 if (JavascriptObject::GetOwnPropertyDescriptorHelper(obj, propertyId, scriptContext, propertyDescriptor))
                 {
                     if (propertyDescriptor.IsDataDescriptor())
@@ -2350,4 +2355,60 @@ namespace Js
 
         return trapResult;
     }
+
+#if ENABLE_TTD
+    void JavascriptProxy::MarkVisitKindSpecificPtrs(TTD::SnapshotExtractor* extractor)
+    {
+        if(this->handler != nullptr)
+        {
+            extractor->MarkVisitVar(this->handler);
+        }
+
+        if(this->target != nullptr)
+        {
+            extractor->MarkVisitVar(this->target);
+        }
+    }
+
+    TTD::NSSnapObjects::SnapObjectType JavascriptProxy::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapProxyObject;
+    }
+
+    void JavascriptProxy::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        uint32 depOnCount = (this->handler != nullptr ? 1 : 0) + (this->target != nullptr ? 1 : 0);
+        TTD_PTR_ID* depOnArray = (depOnCount != 0) ? alloc.SlabAllocateArray<TTD_PTR_ID>(depOnCount) : nullptr;
+
+        TTD::NSSnapObjects::SnapProxyInfo* spi = alloc.SlabAllocateStruct<TTD::NSSnapObjects::SnapProxyInfo>();
+
+        uint32 pos = 0;
+        spi->HandlerId = TTD_INVALID_PTR_ID;
+        if(this->handler != nullptr)
+        {
+            spi->HandlerId = TTD_CONVERT_VAR_TO_PTR_ID(this->handler);
+            depOnArray[pos] = TTD_CONVERT_VAR_TO_PTR_ID(this->handler);
+
+            pos++;
+        }
+
+        spi->TargetId = TTD_INVALID_PTR_ID;
+        if(this->target != nullptr)
+        {
+            spi->TargetId = TTD_CONVERT_VAR_TO_PTR_ID(this->target);
+            depOnArray[pos] = TTD_CONVERT_VAR_TO_PTR_ID(this->target);
+
+            pos++;
+        }
+
+        if(depOnCount == 0)
+        {
+            TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapProxyInfo*, TTD::NSSnapObjects::SnapObjectType::SnapProxyObject>(objData, spi);
+        }
+        else
+        {
+            TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapProxyInfo*, TTD::NSSnapObjects::SnapObjectType::SnapProxyObject>(objData, spi, alloc, depOnCount, depOnArray);
+        }
+    }
+#endif
 }

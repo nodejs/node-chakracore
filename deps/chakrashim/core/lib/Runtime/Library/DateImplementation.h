@@ -5,6 +5,8 @@
 #pragma once
 struct _SYSTEMTIME;
 
+using namespace PlatformAgnostic;
+
 namespace Js {
     struct SZS;
 
@@ -80,15 +82,10 @@ namespace Js {
         };
 
         template <class ScriptContext>
-        static long GetDaylightBias(const TIME_ZONE_INFORMATION *const pTz, const ScriptContext *const scriptContext);
-        template <class ScriptContext>
-        static long GetStandardBias(const TIME_ZONE_INFORMATION *const pTz, const ScriptContext *const scriptContext);
-
-        template <class ScriptContext>
         static double GetTvLcl(double tv, ScriptContext * scriptContext, TZD *ptzd = nullptr);
         template <class ScriptContext>
         static double GetTvUtc(double tv, ScriptContext * scriptContext);
-        static boolean UtcTimeFromStrCore(
+        static bool UtcTimeFromStrCore(
             __in_ecount_z(ulength) const char16 *psz,
             unsigned int ulength,
             double &retVal,
@@ -140,9 +137,11 @@ namespace Js {
         static bool TryParseIsoString(const char16 *const str, const size_t length, double &timeValue, ScriptContext *scriptContext);
 
         static JavascriptString* ConvertVariantDateToString(double variantDateDouble, ScriptContext* scriptContext);
-        static JavascriptString* GetDateDefaultString(Js::YMD *pymd, TZD *ptzd,DateTimeFlag noDateTime,ScriptContext* scriptContext);
-        static JavascriptString* GetDateGmtString(Js::YMD *pymd,ScriptContext* scriptContext);
-        static JavascriptString* GetDateLocaleString(Js::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime,ScriptContext* scriptContext);
+        static JavascriptString* GetDateDefaultString(DateTime::YMD *pymd, TZD *ptzd,DateTimeFlag noDateTime,ScriptContext* scriptContext);
+        static JavascriptString* GetDateGmtString(DateTime::YMD *pymd,ScriptContext* scriptContext);
+#ifdef ENABLE_GLOBALIZATION // todo-xplat: Implement this ICU?
+        static JavascriptString* GetDateLocaleString(DateTime::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime,ScriptContext* scriptContext);
+#endif
 
         static double DateFncUTC(ScriptContext* scriptContext, Arguments args);
         static bool FBig(char16 ch);
@@ -167,7 +166,7 @@ namespace Js {
         ///    Make sure m_tvLcl is valid. (Shared with hybrid debugging, which may use a fake scriptContext.)
         ///------------------------------------------------------------------------------
         template <class ScriptContext>
-        __inline void EnsureTvLcl(ScriptContext* scriptContext)
+        inline void EnsureTvLcl(ScriptContext* scriptContext)
         {
             if (!(m_grfval & DateValueType::Local))
             {
@@ -176,7 +175,7 @@ namespace Js {
             }
         }
 
-        __inline void EnsureTvLcl(void)
+        inline void EnsureTvLcl(void)
         {
             EnsureTvLcl(m_scriptContext);
         }
@@ -185,7 +184,7 @@ namespace Js {
         /// Make sure m_ymdLcl is valid. (Shared with hybrid debugging, which may use a fake scriptContext.)
         ///------------------------------------------------------------------------------
         template <class ScriptContext>
-        __inline void EnsureYmdLcl(ScriptContext* scriptContext)
+        inline void EnsureYmdLcl(ScriptContext* scriptContext)
         {
             if (m_grfval & DateValueType::YearMonthDayLocal)
             {
@@ -196,7 +195,7 @@ namespace Js {
             m_grfval |= DateValueType::YearMonthDayLocal;
         }
 
-        __inline void EnsureYmdLcl(void)
+        inline void EnsureYmdLcl(void)
         {
             EnsureYmdLcl(m_scriptContext);
         }
@@ -204,7 +203,7 @@ namespace Js {
         ///------------------------------------------------------------------------------
         /// Make sure m_ymdUtc is valid.
         ///------------------------------------------------------------------------------
-        __inline void EnsureYmdUtc(void)
+        inline void EnsureYmdUtc(void)
         {
             if (m_grfval & DateValueType::YearMonthDayUTC)
             {
@@ -215,13 +214,13 @@ namespace Js {
         }
 
 
-        __inline Var GetFullYear()
+        inline Var GetFullYear()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar(m_ymdLcl.year, m_scriptContext);
         }
 
-        __inline Var GetYear()
+        inline Var GetYear()
         {
             EnsureYmdLcl();
             // WOOB bug 1099381: ES5 spec B.2.4: getYear() must return YearFromTime() - 1900.
@@ -230,43 +229,43 @@ namespace Js {
             return JavascriptNumber::ToVar(value, m_scriptContext);
         }
 
-        __inline Var GetMonth()
+        inline Var GetMonth()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar(m_ymdLcl.mon, m_scriptContext);
         }
 
-        __inline Var GetDate()
+        inline Var GetDate()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar(m_ymdLcl.mday + 1, m_scriptContext);
         }
 
-        __inline Var GetDay()
+        inline Var GetDay()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar(m_ymdLcl.wday, m_scriptContext);
         }
 
-        __inline Var GetHours()
+        inline Var GetHours()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar((m_ymdLcl.time / 3600000)%24, m_scriptContext);
         }
 
-        __inline Var GetMinutes()
+        inline Var GetMinutes()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar((m_ymdLcl.time / 60000) % 60, m_scriptContext);
         }
 
-        __inline Var GetSeconds()
+        inline Var GetSeconds()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar((m_ymdLcl.time / 1000) % 60, m_scriptContext);
         }
 
-        __inline Var GetDateMilliSeconds()
+        inline Var GetDateMilliSeconds()
         {
             EnsureYmdLcl();
             return JavascriptNumber::ToVar(m_ymdLcl.time % 1000, m_scriptContext);
@@ -279,43 +278,20 @@ namespace Js {
         static StringBuilder* ConvertVariantDateToString(double dbl, ScriptContext* scriptContext, NewStringBuilderFunc newStringBuilder);
 
         template <class StringBuilder, class ScriptContext, class NewStringBuilderFunc>
-        static StringBuilder* GetDateDefaultString(Js::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime, ScriptContext* scriptContext, NewStringBuilderFunc newStringBuilder);
+        static StringBuilder* GetDateDefaultString(DateTime::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime, ScriptContext* scriptContext, NewStringBuilderFunc newStringBuilder);
 
     private:
         double                  m_tvUtc;
         double                  m_tvLcl;
-        Js::YMD                 m_ymdUtc;
-        Js::YMD                 m_ymdLcl;
+        DateTime::YMD           m_ymdUtc;
+        DateTime::YMD           m_ymdLcl;
         TZD                     m_tzd;
-        unsigned long           m_grfval; // Which fields are valid. m_tvUtc is always valid.
+        uint32                  m_grfval; // Which fields are valid. m_tvUtc is always valid.
         ScriptContext *         m_scriptContext;
         bool                    m_modified : 1; // Whether SetDateData was called on this class
 
         friend JavascriptDate;
-        friend HiResTimer;
     };
-
-    ///
-    /// Gets the daylight bias to use, in minutes. (Shared with hybrid debugging, which may use a fake scriptContext.)
-    ///
-    template <class ScriptContext>
-    long DateImplementation::GetDaylightBias(const TIME_ZONE_INFORMATION *const pTz, const ScriptContext *const scriptContext)
-    {
-        Assert(pTz);
-        Assert(scriptContext);
-        return pTz->DaylightBias;
-    }
-
-    ///
-    /// Gets the standard bias to use, in minutes. (Shared with hybrid debugging, which may use a fake scriptContext.)
-    ///
-    template <class ScriptContext>
-    long DateImplementation::GetStandardBias(const TIME_ZONE_INFORMATION *const pTz, const ScriptContext *const scriptContext)
-    {
-        Assert(pTz);
-        Assert(scriptContext);
-        return pTz->StandardBias;
-    }
 
     ///
     /// Use tv as the UTC time and return the corresponding local time. (Shared with hybrid debugging, which may use a fake scriptContext.)
@@ -400,7 +376,7 @@ namespace Js {
     StringBuilder* DateImplementation::ConvertVariantDateToString(double dbl, ScriptContext* scriptContext, NewStringBuilderFunc newStringBuilder)
     {
         TZD tzd;
-        YMD ymd;
+        DateTime::YMD ymd;
         double tv = GetTvUtc(JsLocalTimeFromVarDate(dbl), scriptContext);
 
         tv = GetTvLcl(tv, scriptContext, &tzd);
@@ -422,7 +398,7 @@ namespace Js {
     //  NewStringBuilderFunc: A function that returns a StringBuilder*, used to create a StringBuilder.
     //
     template <class StringBuilder, class ScriptContext, class NewStringBuilderFunc>
-    StringBuilder* DateImplementation::GetDateDefaultString(Js::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime, ScriptContext* scriptContext, NewStringBuilderFunc newStringBuilder)
+    StringBuilder* DateImplementation::GetDateDefaultString(DateTime::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime, ScriptContext* scriptContext, NewStringBuilderFunc newStringBuilder)
     {
         int hour, min;
 
@@ -433,7 +409,7 @@ namespace Js {
             const charcount_t cchWritten = NumberUtilities::UInt16ToString(value, buffer, charCapacity, 2);
             Assert(cchWritten != 0);
         };
-        const auto ConvertLongToString = [](const long value, char16 *const buffer, const CharCount charCapacity)
+        const auto ConvertLongToString = [](const int32 value, char16 *const buffer, const CharCount charCapacity)
         {
             const errno_t err = _ltow_s(value, buffer, charCapacity, 10);
             Assert(err == 0);
@@ -499,13 +475,15 @@ namespace Js {
             // check the IsDaylightSavings?
             if (ptzd->fDst == false)
             {
-                const char16 *const standardName = scriptContext->GetTimeZoneInfo()->StandardName;
-                bs->AppendChars(standardName, static_cast<CharCount>(wcslen(standardName)));
+                size_t nameLength;
+                const WCHAR *const standardName = scriptContext->GetStandardName(&nameLength, pymd);
+                bs->AppendChars(standardName, static_cast<CharCount>(nameLength));
             }
             else
             {
-                const char16 *const daylightName = scriptContext->GetTimeZoneInfo()->DaylightName;
-                bs->AppendChars(daylightName, static_cast<CharCount>(wcslen(daylightName)));
+                size_t nameLength;
+                const WCHAR *const daylightName = scriptContext->GetDaylightName(&nameLength, pymd);
+                bs->AppendChars(daylightName, static_cast<CharCount>(nameLength));
             }
 
             bs->AppendChars(_u(')'));

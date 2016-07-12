@@ -229,7 +229,7 @@ namespace UnifiedRegex
         static const uint leafMask = branchingPerLeafLevel - 1;
 
         static const uint levels = 1 + (CharWidth - bitsPerLeafLevel) / bitsPerInnerLevel;
-
+        
         inline static uint innerIdx(uint level, uint v)
         {
             return (v >> ((level + 1) * bitsPerInnerLevel)) & innerMask;
@@ -419,7 +419,7 @@ namespace UnifiedRegex
         _Success_(return) bool GetNextRange(Char searchCharStart, _Out_ Char *outLowerChar, _Out_ Char *outHigherChar);
         bool Get_helper(uint k) const;
 
-        __inline bool Get(Char kc) const
+        inline bool Get(Char kc) const
         {
             if (IsCompact())
             {
@@ -474,12 +474,6 @@ namespace UnifiedRegex
         inline Char GetCompactChar(uint index) const
         {
             return (Char)(GetCompactCharU(index));
-        }
-
-        //Replaces an existing character with a new value
-        inline void ReplaceCompactChar(uint index, Char value)
-        {
-            ReplaceCompactChar(index, (Char)(value));
         }
 
         //Replaces an existing character with a new value
@@ -734,7 +728,7 @@ namespace UnifiedRegex
         void CloneFrom(ArenaAllocator* allocator, const CharSet<Char>& other);
         bool Get_helper(uint k) const;
 
-        __inline bool Get(Char kc) const
+        inline bool Get(Char kc) const
         {
             if (CTU(kc) < CharSetNode::directSize)
                 return direct.Get(CTU(kc));

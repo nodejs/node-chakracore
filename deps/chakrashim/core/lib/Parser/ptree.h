@@ -97,7 +97,7 @@ struct PnUniSlot : PnUni
 
 struct PnInt
 {
-    long lw;
+    int32 lw;
 };
 
 struct PnFlt
@@ -203,6 +203,7 @@ enum FncFlags
     kFunctionIsAsync                            = 1 << 28, // function is async
     kFunctionHasDirectSuper                     = 1 << 29, // super()
     kFunctionIsDefaultModuleExport              = 1 << 30, // function is the default export of a module
+    kFunctionHasAnyWriteToFormals               = 1 << 31  // To Track if there are any writes to formals.
 };
 
 struct RestorePoint;
@@ -214,8 +215,8 @@ struct PnFnc
     ParseNodePtr pnodeName;
     IdentPtr pid;
     LPCOLESTR hint;
-    ulong hintLength;
-    ulong hintOffset;
+    uint32 hintLength;
+    uint32 hintOffset;
     bool  isNameIdentifierRef;
     ParseNodePtr pnodeScopes;
     ParseNodePtr pnodeBodyScope;
@@ -233,7 +234,7 @@ struct PnFnc
     uint16 firstDefaultArg; // Position of the first default argument, if any
 
     unsigned int fncFlags;
-    long astSize;
+    int32 astSize;
     size_t cbMin; // Min an Lim UTF8 offsets.
     size_t cbLim;
     ULONG lineNumber;   // Line number relative to the current source buffer of the function declaration.
@@ -245,7 +246,7 @@ struct PnFnc
     RestorePoint *pRestorePoint;
     DeferredFunctionStub *deferredStub;
 
-    static const long MaxStackClosureAST = 800000;
+    static const int32 MaxStackClosureAST = 800000;
 
 private:
     void SetFlags(uint flags, bool set)
@@ -278,6 +279,7 @@ public:
     void SetDoesNotEscape(bool set = true) { SetFlags(kFunctionDoesNotEscape, set); }
     void SetHasDefaultArguments(bool set = true) { SetFlags(kFunctionHasDefaultArguments, set); }
     void SetHasHeapArguments(bool set = true) { SetFlags(kFunctionHasHeapArguments, set); }
+    void SetHasAnyWriteToFormals(bool set = true) { SetFlags((uint)kFunctionHasAnyWriteToFormals, set); }
     void SetHasNonSimpleParameterList(bool set = true) { SetFlags(kFunctionHasNonSimpleParameterList, set); }
     void SetHasNonThisStmt(bool set = true) { SetFlags(kFunctionHasNonThisStmt, set); }
     void SetHasReferenceableBuiltInArguments(bool set = true) { SetFlags(kFunctionHasReferenceableBuiltInArguments, set); }
@@ -311,6 +313,7 @@ public:
     bool GetStrictMode() const { return HasFlags(kFunctionStrictMode); }
     bool HasDefaultArguments() const { return HasFlags(kFunctionHasDefaultArguments); }
     bool HasHeapArguments() const { return true; /* HasFlags(kFunctionHasHeapArguments); Disabling stack arguments. Always return HeapArguments as True */ }
+    bool HasAnyWriteToFormals() const { return HasFlags((uint)kFunctionHasAnyWriteToFormals); }
     bool HasOnlyThisStmts() const { return !HasFlags(kFunctionHasNonThisStmt); }
     bool HasReferenceableBuiltInArguments() const { return HasFlags(kFunctionHasReferenceableBuiltInArguments); }
     bool HasSuperReference() const { return HasFlags(kFunctionHasSuperReference); }

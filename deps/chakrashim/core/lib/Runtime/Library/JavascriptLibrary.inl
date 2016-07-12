@@ -15,13 +15,13 @@ namespace Js
     }
 
     // Specialization for the empty string
-    template<> JavascriptString* JavascriptLibrary::CreateStringFromCppLiteral(const char16(&value)[1]) const
+    template<> inline JavascriptString* JavascriptLibrary::CreateStringFromCppLiteral(const char16(&value)[1]) const
     {
         return GetEmptyString();
     }
-
+    
     // Specialization for single-char strings
-    template<> JavascriptString* JavascriptLibrary::CreateStringFromCppLiteral(const char16(&value)[2]) const
+    template<> inline JavascriptString* JavascriptLibrary::CreateStringFromCppLiteral(const char16(&value)[2]) const
     {
         return charStringCache.GetStringForChar(value[0]);
     }
@@ -31,6 +31,15 @@ namespace Js
     {
         // The PID need to be tracked because it is assigned to the runtime function's nameId
         return AddFunctionToLibraryObject(object, scriptContext->GetOrAddPropertyIdTracked(propertyName), functionInfo, length);
+    }
+
+    inline void JavascriptLibrary::CheckAndInvalidateIsConcatSpreadableCache(PropertyId propertyId, ScriptContext *scriptContext)
+    {
+        if (!PHASE_OFF1(IsConcatSpreadableCachePhase) && propertyId == PropertyIds::_symbolIsConcatSpreadable)
+        {
+            OUTPUT_TRACE(Phase::IsConcatSpreadableCachePhase, _u("IsConcatSpreadableCache invalidated\n"));
+            scriptContext->GetThreadContext()->GetIsConcatSpreadableCache()->Invalidate();
+        }
     }
 
 #if ENABLE_COPYONACCESS_ARRAY

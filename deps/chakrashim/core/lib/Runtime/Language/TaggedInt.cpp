@@ -20,14 +20,14 @@ namespace Js
     }
 
     // Explicitly marking noinline and stdcall since this is called from inline asm
-    __declspec(noinline) Var __stdcall TaggedInt::OverflowHelper(int overflowValue, ScriptContext* scriptContext)
+    _NOINLINE Var __stdcall TaggedInt::OverflowHelper(int overflowValue, ScriptContext* scriptContext)
     {
         Assert( IsOverflow(overflowValue) );
         return JavascriptNumber::NewInlined(static_cast<double>(overflowValue), scriptContext);
     }
 
     // noinline since it's a rare edge case and we don't want to bloat mainline code
-    __declspec(noinline) Var TaggedInt::DivideByZero(int nLeft, ScriptContext* scriptContext)
+    _NOINLINE Var TaggedInt::DivideByZero(int nLeft, ScriptContext* scriptContext)
     {
         if (nLeft == 0)
         {
@@ -59,7 +59,8 @@ namespace Js
         //
 
 #if INT32VAR
-        __try
+        // 0x80000000 / -1 (or %) will trigger an integer overflow exception
+        if (nLeft != INT_MIN || nRight != -1)
         {
 #endif
             if ((nLeft % nRight) == 0)
@@ -75,9 +76,6 @@ namespace Js
             }
 #if INT32VAR
         }
-        // 0x80000000 / -1 will trigger an integer overflow exception
-        __except(GetExceptionCode() == STATUS_INTEGER_OVERFLOW)
-        {}
 #endif
         //
         // Fallback to creating a floating-point number to preserve the fractional portion.
@@ -111,15 +109,15 @@ namespace Js
         }
         int result;
 #if INT32VAR
-        __try
+        // 0x80000000 / -1 (or %) will trigger an integer overflow exception
+        if (nLeft != INT_MIN || nRight != -1)
         {
 #endif
             result = nLeft % nRight;
 
 #if INT32VAR
         }
-        // 0x80000000 / -1 will trigger an integer overflow exception
-        __except(GetExceptionCode() == STATUS_INTEGER_OVERFLOW)
+        else
         {
             int64 left64 = nLeft;
             int64 right64 = nRight;
@@ -196,7 +194,7 @@ namespace Js
         __int64 int64Result = (__int64)nLeft * (__int64)nRight;
         nResult = (int)int64Result;
 
-        if (((int64Result >> 32) == 0 && (nResult > 0 || nResult == 0 && nLeft+nRight >= 0))
+        if (((int64Result >> 32) == 0 && (nResult > 0 || (nResult == 0 && nLeft+nRight >= 0)))
             || ((int64Result >> 32) == -1 && nResult < 0))
         {
             return JavascriptNumber::ToVar(nResult,scriptContext);
@@ -224,7 +222,7 @@ namespace Js
         nResult = (int)int64Result;
 
         if (((int64Result >> 32) == 0 && nResult > 0)
-            || (int64Result >> 32) == -1 && nResult < 0)
+            || ((int64Result >> 32) == -1 && nResult < 0))
         {
             if (!TaggedInt::IsOverflow(nResult))
             {
@@ -493,7 +491,7 @@ LblDone:
     }
 
     // Explicitly marking noinline and stdcall since this is called from inline asm
-    __declspec(noinline) Var __stdcall TaggedInt::IncrementOverflowHelper(ScriptContext* scriptContext)
+    _NOINLINE Var __stdcall TaggedInt::IncrementOverflowHelper(ScriptContext* scriptContext)
     {
         return JavascriptNumber::New( k_nMaxValue + 1.0, scriptContext );
     }
@@ -537,7 +535,7 @@ LblDone:
     }
 
     // Explicitly marking noinline and stdcall since this is called from inline asm
-    __declspec(noinline) Var __stdcall TaggedInt::DecrementUnderflowHelper(ScriptContext* scriptContext)
+    _NOINLINE Var __stdcall TaggedInt::DecrementUnderflowHelper(ScriptContext* scriptContext)
     {
         return JavascriptNumber::New( k_nMinValue - 1.0, scriptContext );
     }

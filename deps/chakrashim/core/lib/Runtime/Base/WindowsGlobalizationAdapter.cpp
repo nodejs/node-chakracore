@@ -202,12 +202,12 @@ namespace Js
     };
 #endif
 
-    __inline DelayLoadWindowsGlobalization* WindowsGlobalizationAdapter::GetWindowsGlobalizationLibrary(_In_ ScriptContext* scriptContext)
+    inline DelayLoadWindowsGlobalization* WindowsGlobalizationAdapter::GetWindowsGlobalizationLibrary(_In_ ScriptContext* scriptContext)
     {
         return this->GetWindowsGlobalizationLibrary(scriptContext->GetThreadContext());
     }
 
-    __inline DelayLoadWindowsGlobalization* WindowsGlobalizationAdapter::GetWindowsGlobalizationLibrary(_In_ ThreadContext* threadContext)
+    inline DelayLoadWindowsGlobalization* WindowsGlobalizationAdapter::GetWindowsGlobalizationLibrary(_In_ ThreadContext* threadContext)
     {
         return threadContext->GetWindowsGlobalizationLibrary();
     }
@@ -308,6 +308,7 @@ namespace Js
 
 #endif
 
+#if ENABLE_UNICODE_API
     HRESULT WindowsGlobalizationAdapter::EnsureDataTextObjectsInitialized(DelayLoadWindowsGlobalization *library)
     {
         HRESULT hr = S_OK;
@@ -329,6 +330,7 @@ namespace Js
 
         return hr;
     }
+#endif
 
 #ifdef ENABLE_INTL_OBJECT
     HRESULT WindowsGlobalizationAdapter::CreateLanguage(_In_ ScriptContext* scriptContext, _In_z_ PCWSTR languageTag, ILanguage** language)
@@ -383,7 +385,6 @@ namespace Js
 
         // Construct HSTRING of timeZoneId passed
         IfFailThrowHr(GetWindowsGlobalizationLibrary(scriptContext)->WindowsCreateStringReference(timeZoneId, static_cast<UINT32>(wcslen(timeZoneId)), &timeZoneHeader, &timeZone));
-        Assert(timeZone);
 
         // The warning is timeZone could be '0'. This is valid scenario and in that case, ChangeTimeZone() would
         // return error HR in which case we will throw.
@@ -475,16 +476,6 @@ if (this->object) \
             DetachAndReleaseFactoryObjects(percentFormatterFactory);
             DetachAndReleaseFactoryObjects(incrementNumberRounderActivationFactory);
             DetachAndReleaseFactoryObjects(significantDigitsRounderActivationFactory);
-        }
-    }
-
-    void WindowsGlobalizationAdapter::ResetCharClassifierFactoryObjects()
-    {
-        // Reset only if its not initialized completely.
-        if (!this->initializedCharClassifierObjects)
-        {
-            this->hrForCharClassifierObjectsInit = S_OK;
-            DetachAndReleaseFactoryObjects(unicodeStatics);
         }
     }
 
