@@ -213,8 +213,6 @@
         'src/util.cc',
         'src/string_search.cc',
         'deps/http_parser/http_parser.h',
-        'deps/v8/include/v8.h',
-        'deps/v8/include/v8-debug.h',
         '<(SHARED_INTERMEDIATE_DIR)/node_natives.h',
         # javascript files to make for an even more pleasant IDE experience
         '<@(library_files)',
@@ -248,22 +246,8 @@
               'product_extension': 'so.<(node_module_version)',
             }]
           ],
-        }],
-        [ 'node_use_bundled_v8=="true"', {
-          'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
-          ],
-        }],
-        [ 'node_use_v8_platform=="true"', {
-          'defines': [
-            'NODE_USE_V8_PLATFORM=1',
-          ],
-        }, {
-          'defines': [
-            'NODE_USE_V8_PLATFORM=0',
-          ],
-        }],
+        }],        
+        
         [ 'node_tag!=""', {
           'defines': [ 'NODE_TAG="<(node_tag)"' ],
         }],
@@ -461,15 +445,36 @@
         }],
 
         [ 'node_engine=="v8"', {
-          'include_dirs': [
+           'sources': [
+            'deps/v8/include/v8.h',
+            'deps/v8/include/v8-debug.h',
+          ],
+           'include_dirs': [
             'deps/v8' # include/v8_platform.h
           ],
-          'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
-          ],
+           'conditions' : [
+            ['node_use_bundled_v8=="true"', {
+                'dependencies': [
+                   'deps/v8/tools/gyp/v8.gyp:v8',
+                   'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+                ],
+            }],
+            [ 'node_use_v8_platform=="true"', {
+                 'defines': [
+                    'NODE_USE_V8_PLATFORM=1',
+                ],
+              }, {
+                'defines': [
+                   'NODE_USE_V8_PLATFORM=0',
+                ],
+            }],
+          ]
         }],
         ['node_engine=="chakracore"', {
+           'sources': [
+             'deps/chakrashim/include/v8.h',
+             'deps/chakrashim/include/v8-debug.h',
+          ],
           'include_dirs': [
             'deps/chakrashim' # include/v8_platform.h
           ],
@@ -837,7 +842,7 @@
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
           'conditions' : [
-              ['v8_inspector=="true', {
+              ['v8_inspector=="true"', {
                 'dependencies': [
                     'deps/openssl/openssl.gyp:openssl',
                     'deps/http_parser/http_parser.gyp:http_parser',
