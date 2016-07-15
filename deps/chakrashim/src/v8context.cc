@@ -41,7 +41,7 @@ Local<Object> Context::Global() {
   // V8 Global is actually proxy where the actual global is it's prototype.
   // No need to create handle here, the context will keep it alive
   return Local<Object>(static_cast<Object *>(
-    jsrt::ContextShim::GetCurrent()->GetProxyOfGlobal()));
+    jsrt::IsolateShim::GetContextShim((JsContextRef*)this)->GetProxyOfGlobal()));
 }
 
 extern bool g_exposeGC;

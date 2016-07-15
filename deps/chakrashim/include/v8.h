@@ -974,6 +974,7 @@ class V8_EXPORT Value : public Data {
   bool IsRegExp() const;
   bool IsExternal() const;
   bool IsArrayBuffer() const;
+  bool IsArrayBufferView() const;
   bool IsTypedArray() const;
   bool IsUint8Array() const;
   bool IsUint8ClampedArray() const;
@@ -1460,7 +1461,8 @@ class V8_EXPORT Array : public Object {
 
 class V8_EXPORT BooleanObject : public Object {
  public:
-  static Local<Value> New(bool value);
+  static Local<Value> New(Isolate* isolate, bool value);
+  V8_DEPRECATED("Pass an isolate", static Local<Value> New(bool value));
   bool ValueOf() const;
   static BooleanObject* Cast(Value* obj);
 };

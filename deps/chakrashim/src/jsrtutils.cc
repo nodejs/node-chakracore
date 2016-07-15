@@ -638,28 +638,6 @@ JsErrorCode DefineProperty(JsValueRef object,
   return error;
 }
 
-JsErrorCode DefineProperty(JsValueRef object,
-                           const char * propertyName,
-                           PropertyDescriptorOptionValues writable,
-                           PropertyDescriptorOptionValues enumerable,
-                           PropertyDescriptorOptionValues configurable,
-                           JsValueRef value,
-                           JsValueRef getter,
-                           JsValueRef setter) {
-  JsErrorCode error;
-  JsPropertyIdRef propertyIdRef;
-
-  error = JsGetPropertyIdFromNameUtf8(propertyName, &propertyIdRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = DefineProperty(
-    object, propertyIdRef, writable, enumerable, configurable, value,
-    getter, setter);
-  return error;
-}
-
 JsErrorCode GetPropertyIdFromName(JsValueRef nameRef,
                                   JsPropertyIdRef *idRef) {
   JsErrorCode error;

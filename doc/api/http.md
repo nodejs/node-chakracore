@@ -676,8 +676,8 @@ already been bound to a port or domain socket.
 
 Listening on a file descriptor is not supported on Windows.
 
-This function is asynchronous. The last parameter `callback` will be added as
-a listener for the `'listening'` event. See also [`net.Server.listen()`][].
+This function is asynchronous. `callback` will be added as a listener for the
+`'listening'` event. See also [`net.Server.listen()`][].
 
 Returns `server`.
 
@@ -688,8 +688,8 @@ added: v0.1.90
 
 Start a UNIX socket server listening for connections on the given `path`.
 
-This function is asynchronous. The last parameter `callback` will be added as
-a listener for the `'listening'` event.  See also [`net.Server.listen(path)`][].
+This function is asynchronous. `callback` will be added as a listener for the
+`'listening'` event.  See also [`net.Server.listen(path)`][].
 
 ### server.listen(port[, hostname][, backlog][, callback])
 <!-- YAML
@@ -699,7 +699,7 @@ added: v0.1.90
 Begin accepting connections on the specified `port` and `hostname`. If the
 `hostname` is omitted, the server will accept connections on any IPv6 address
 (`::`) when IPv6 is available, or any IPv4 address (`0.0.0.0`) otherwise. Use a
-port value of zero to have the operating system assign an available port.
+port value of `0` to have the operating system assign an available port.
 
 To listen to a unix socket, supply a filename instead of port and hostname.
 
@@ -708,8 +708,8 @@ The actual length will be determined by your OS through sysctl settings such as
 `tcp_max_syn_backlog` and `somaxconn` on linux. The default value of this
 parameter is 511 (not 512).
 
-This function is asynchronous. The last parameter `callback` will be added as
-a listener for the `'listening'` event.  See also [`net.Server.listen(port)`][].
+This function is asynchronous. `callback` will be added as a listener for the
+`'listening'` event.  See also [`net.Server.listen(port)`][].
 
 ### server.listening
 <!-- YAML
@@ -1004,8 +1004,8 @@ be called multiple times to provide successive parts of the body.
 
 `chunk` can be a string or a buffer. If `chunk` is a string,
 the second parameter specifies how to encode it into a byte stream.
-By default the `encoding` is `'utf8'`. The last parameter `callback`
-will be called when this chunk of data is flushed.
+By default the `encoding` is `'utf8'`. `callback` will be called when this chunk
+of data is flushed.
 
 **Note**: This is the raw HTTP body and has nothing to do with
 higher-level multi-part body encodings that may be used.
@@ -1290,7 +1290,7 @@ $ node
 }
 ```
 
-If you would like to extract the params from the query string,
+If you would like to extract the parameters from the query string,
 you can use the `require('querystring').parse` function, or pass
 `true` as the second argument to `require('url').parse`.  Example:
 
