@@ -2,6 +2,8 @@
 
 | subsystem | maintainers |
 | --- | --- |
+| `benchmark/*` | @nodejs/benchmarking, @mscdex |
+| `bootstrap_node.js` | @fishrock123 |
 | `lib/assert` | @nodejs/testing |
 | `lib/buffer` | @nodejs/buffer |
 | `lib/child_process` | @bnoordhuis, @cjihrig |
@@ -16,7 +18,6 @@
 | `lib/timers` | @fishrock123, @misterdjules |
 | `lib/util` | @bnoordhuis, @cjihrig, @evanlucas |
 | `lib/zlib` | @addaleax, @bnoordhuis, @indutny |
-| `bootstrap_node.js` | @fishrock123 |
 | `src/async-wrap.*` | @trevnorris |
 | `src/node_crypto.*` | @nodejs/crypto |
 | `test/*` | @nodejs/testing |
@@ -65,7 +66,7 @@ Please use these when possible / appropriate
   * minor vs. patch: roughly: "does it add a new method / does it add a new section to the docs"
   * major vs. everything else: run last versions tests against this version, if they pass, **probably** minor or patch
   * A breaking change helper ([full source](https://gist.github.com/chrisdickinson/ba532fa0e4e243fb7b44)):
-  ```
+  ```sh
   git checkout $(git show -s --pretty='%T' $(git show-ref -d $(git describe --abbrev=0) | tail -n1 | awk '{print $1}')) -- test; make -j8 test
   ```
 

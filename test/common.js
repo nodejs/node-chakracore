@@ -7,6 +7,7 @@ var os = require('os');
 var child_process = require('child_process');
 const stream = require('stream');
 const util = require('util');
+const Timer = process.binding('timer_wrap').Timer;
 
 const testRoot = path.resolve(process.env.NODE_TEST_DIR ||
                               path.dirname(__filename));
@@ -28,6 +29,7 @@ exports.isSunOS = process.platform === 'sunos';
 exports.isFreeBSD = process.platform === 'freebsd';
 
 exports.enoughTestMem = os.totalmem() > 0x20000000; /* 512MB */
+exports.rootDir = exports.isWindows ? 'c:\\' : '/';
 
 function rimrafSync(p) {
   try {
@@ -488,4 +490,10 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
 exports.engineSpecificMessage = function(messageObject) {
   var jsEngine = process.jsEngine || 'v8'; //default is 'v8'
   return messageObject[jsEngine];
+};
+
+exports.busyLoop = function busyLoop(time) {
+  var startTime = Timer.now();
+  var stopTime = startTime + time;
+  while (Timer.now() < stopTime) {}
 };

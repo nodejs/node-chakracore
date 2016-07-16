@@ -249,6 +249,9 @@
             }]
           ],
         }],
+        [ 'node_enable_d8=="true"', {
+          'dependencies': [ 'deps/v8/src/d8.gyp:d8' ],
+        }],
         [ 'node_use_bundled_v8=="true"', {
           'dependencies': [
             'deps/v8/tools/gyp/v8.gyp:v8',
@@ -569,7 +572,8 @@
             'mkssldef_flags': [
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
-              'NEXTPROTONEG,PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,TLSEXT',
+              'NEXTPROTONEG,PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,'
+              'STDIO,TLSEXT',
               # Defines.
               '-DWIN32',
               # Symbols to filter from the export list.
@@ -837,15 +841,27 @@
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
           'conditions' : [
-              ['v8_inspector=="true', {
-                'dependencies': [
-                    'deps/openssl/openssl.gyp:openssl',
-                    'deps/http_parser/http_parser.gyp:http_parser',
-                    'deps/uv/uv.gyp:libuv'
-                ],
+              ['v8_inspector=="true"', {
                 'sources': [
                     'src/inspector_socket.cc',
                     'test/cctest/test_inspector_socket.cc'
+          ],
+          'conditions': [
+            [ 'node_shared_openssl=="false"', {
+              'dependencies': [
+                'deps/openssl/openssl.gyp:openssl'
+              ]
+            }],
+            [ 'node_shared_http_parser=="false"', {
+              'dependencies': [
+                'deps/http_parser/http_parser.gyp:http_parser'
+              ]
+            }],
+            [ 'node_shared_libuv=="false"', {
+              'dependencies': [
+                'deps/uv/uv.gyp:libuv'
+              ]
+            }]
                 ]
               }],
               ['node_use_v8_platform=="true"', {

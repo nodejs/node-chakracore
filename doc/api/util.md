@@ -20,7 +20,7 @@ The `util.debuglog()` method is used to create a function that conditionally
 writes debug messages to `stderr` based on the existence of the `NODE_DEBUG`
 environment variable.  If the `section` name appears within the value of that
 environment variable, then the returned function operates similar to
-`console.error()`.  If not, then the returned function is a no-op.
+[`console.error()`][].  If not, then the returned function is a no-op.
 
 For example:
 
@@ -34,7 +34,7 @@ debuglog('hello from foo [%d]', 123);
 If this program is run with `NODE_DEBUG=foo` in the environment, then
 it will output something like:
 
-```
+```txt
 FOO 3245: hello from foo [123]
 ```
 
@@ -52,7 +52,7 @@ it is marked as deprecated.
 ```js
 const util = require('util');
 
-exports.puts = util.deprecate(() => {
+exports.puts = util.deprecate(function() {
   for (var i = 0, len = arguments.length; i < len; ++i) {
     process.stdout.write(arguments[i] + '\n');
   }
@@ -145,14 +145,14 @@ const util = require('util');
 const EventEmitter = require('events');
 
 function MyStream() {
-    EventEmitter.call(this);
+  EventEmitter.call(this);
 }
 
 util.inherits(MyStream, EventEmitter);
 
 MyStream.prototype.write = function(data) {
-    this.emit('data', data);
-}
+  this.emit('data', data);
+};
 
 const stream = new MyStream();
 
@@ -161,7 +161,7 @@ console.log(MyStream.super_ === EventEmitter); // true
 
 stream.on('data', (data) => {
   console.log(`Received data: "${data}"`);
-})
+});
 stream.write('It works!'); // Received data: "It works!"
 ```
 
@@ -651,20 +651,20 @@ Deprecated predecessor of `console.log`.
 
 ### util._extend(obj)
 
-    Stability: 0 - Deprecated: Use Object.assign() instead.
+    Stability: 0 - Deprecated: Use [`Object.assign()`] instead.
 
 The `util._extend()` method was never intended to be used outside of internal
 Node.js modules. The community found and used it anyway.
 
 It is deprecated and should not be used in new code. JavaScript comes with very
-similar built-in functionality through `Object.assign()`.
+similar built-in functionality through [`Object.assign()`].
 
 [`Array.isArray`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
 [constructor]: https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Object/constructor
 [semantically incompatible]: https://github.com/nodejs/node/issues/4179
 [Customizing `util.inspect` colors]: #util_customizing_util_inspect_colors
-[here]: #util_customizing_util_inspect_colors
 [`Error`]: errors.html#errors_class_error
 [`console.log()`]: console.html#console_console_log_data
 [`console.error()`]: console.html#console_console_error_data
 [`Buffer.isBuffer()`]: buffer.html#buffer_class_method_buffer_isbuffer_obj
+[`Object.assign()`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Object/assign

@@ -114,7 +114,7 @@ significant impact* on performance. Use of the `--zero-fill-buffers` option is
 recommended only when absolutely necessary to enforce that newly allocated
 `Buffer` instances cannot contain potentially sensitive data.
 
-```
+```txt
 $ node --zero-fill-buffers
 > Buffer.allocUnsafe(5);
 <Buffer 00 00 00 00 00>
@@ -256,7 +256,7 @@ Buffers can be iterated over using the ECMAScript 2015 (ES6) `for..of` syntax:
 const buf = Buffer.from([1, 2, 3]);
 
 for (var b of buf)
-  console.log(b)
+  console.log(b);
 
 // Prints:
 //   1
@@ -982,7 +982,8 @@ Operates similar to [`Array#indexOf()`][] in that it returns either the
 starting index position of `value` in Buffer or `-1` if the Buffer does not
 contain `value`. The `value` can be a String, Buffer or Number. Strings are by
 default interpreted as UTF8. Buffers will use the entire Buffer (to compare a
-partial Buffer use [`buf.slice()`][]).  Numbers can range from 0 to 255.
+partial Buffer use [`buf.slice()`][]). Numbers will be interpreted as unsigned 8-bit
+integer values between `0` and `255`.
 
 ```js
 const buf = Buffer.from('this is a buffer');
@@ -1021,7 +1022,8 @@ added: v5.3.0
 Operates similar to [`Array#includes()`][]. The `value` can be a String, Buffer
 or Number. Strings are interpreted as UTF8 unless overridden with the
 `encoding` argument. Buffers will use the entire Buffer (to compare a partial
-Buffer use [`buf.slice()`][]). Numbers can range from 0 to 255.
+Buffer use [`buf.slice()`][]). Numbers will be interpreted as unsigned 8-bit
+integer values between `0` and `255`.
 
 The `byteOffset` indicates the index in `buf` where searching begins.
 

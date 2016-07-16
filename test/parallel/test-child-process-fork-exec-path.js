@@ -21,8 +21,7 @@ if (process.env.FORK) {
   assert.equal(process.argv[0], nodeCopyPath);
   process.send(msg);
   process.exit();
-}
-else {
+} else {
   common.refreshTmpDir();
   try {
     exePaths.forEach(function(value) {

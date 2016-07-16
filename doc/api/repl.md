@@ -324,7 +324,7 @@ replServer.defineCommand('saybye', function() {
 
 The new commands can then be used from within the REPL instance:
 
-```
+```txt
 > .sayhello Node.js User
 Hello, Node.js User!
 > .saybye
@@ -382,6 +382,8 @@ added: v0.1.91
      `undefined`. Defaults to `false`.
   * `writer` {Function} The function to invoke to format the output of each
      command before writing to `output`. Defaults to [`util.inspect()`][].
+  * `completer` {Function} An optional function used for custom Tab auto
+     completion. See [`readline.InterfaceCompleter`][] for an example.
   * `replMode` - A flag that specifies whether the default evaluator executes
     all JavaScript commands in strict mode, default mode, or a hybrid mode
     ("magic" mode.) Acceptable values are:
@@ -492,7 +494,7 @@ net.createServer((socket) => {
     output: socket
   }).on('exit', () => {
     socket.end();
-  })
+  });
 }).listen('/tmp/node-repl-sock');
 
 net.createServer((socket) => {
@@ -522,7 +524,6 @@ For an example of running a REPL instance over `curl(1)`,
 see: https://gist.github.com/2053342
 
 [stream]: stream.html
-[`readline.prompt`]: readline.html#readline_rl_prompt_preservecursor
 [`util.inspect()`]: util.html#util_util_inspect_object_options
-[here]: util.html#util_custom_inspect_function_on_objects
 [`readline.Interface`]: readline.html#readline_class_interface
+[`readline.InterfaceCompleter`]: readline.html#readline_use_of_the_completer_function
