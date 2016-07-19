@@ -837,7 +837,7 @@
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
           ],
           'conditions' : [
-              ['v8_inspector=="true', {
+              ['v8_inspector=="true"', {
                 'dependencies': [
                     'deps/openssl/openssl.gyp:openssl',
                     'deps/http_parser/http_parser.gyp:http_parser',
