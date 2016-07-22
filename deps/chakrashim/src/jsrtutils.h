@@ -62,7 +62,6 @@ using std::max;
 #include "jsrtproxyutils.h"
 #include "jsrtcontextshim.h"
 #include "jsrtisolateshim.h"
-#include "jsrtstringutils.h"
 
 #define IfComFailError(v) \
   { \

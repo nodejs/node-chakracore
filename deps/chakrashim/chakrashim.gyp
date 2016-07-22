@@ -80,8 +80,6 @@
         'src/jsrtpromise.cc',
         'src/jsrtproxyutils.cc',
         'src/jsrtproxyutils.h',
-        'src/jsrtstringutils.cc',
-        'src/jsrtstringutils.h',
         'src/jsrtutils.cc',
         'src/jsrtutils.h',
         'src/v8array.cc',

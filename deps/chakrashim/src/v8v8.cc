@@ -18,11 +18,15 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#include <algorithm>
 #include "v8.h"
 #include "v8chakra.h"
 #include "jsrtutils.h"
 #include "v8-debug.h"
-#include <algorithm>
+
+#ifndef _WIN32
+#include "ChakraCoreVersion.h"
+#endif
 
 namespace v8 {
 
@@ -63,6 +67,11 @@ const char *V8::GetVersion() {
       }
     }
 #else
+  sprintf(versionStr, "%d.%d.%d.%d",
+          CHAKRA_CORE_MAJOR_VERSION,
+          CHAKRA_CORE_MINOR_VERSION,
+          CHAKRA_CORE_VERSION_RELEASE,
+          CHAKRA_CORE_VERSION_RELEASE_QFE);
 #endif
   }
 
