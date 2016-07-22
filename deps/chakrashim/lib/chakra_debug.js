@@ -854,31 +854,34 @@
   V8CommandProcessor.prototype.evaluate = function (request, response) {
     // {'command':'evaluate','arguments':{'expression':'x','disable_break':true,'maxStringLength':10000,'frame':0},'type':'request','seq':35}
     // {'seq':37,'request_seq':35,'type':'response','command':'evaluate','success':true,'body':{'handle':13,'type':'number','value':1,'text':'1'},'refs':[],'running':false}
-      if (globalExecutionState) {
-          var frames = globalExecutionState.GetFrames();
-          var frame = frames[0];
-          if (request.arguments) {
-              if (typeof request.arguments.frame == 'number') {
-                  for (var i = 0; i < frames.length; ++i) {
-                      if (request.arguments.frame == frames[i].GetIndex()) {
-                          frame = frames[i];
-                          break;
-                      }
-                  }
-              } else if (request.arguments.global == true) {
-                  frame = frames[frames.length - 1];
-              }
-
-              var evalResult = frame.Evaluate(request.arguments.expression);
-              AddChildrens(evalResult[1]);
-              response.success = evalResult[0];
-              response.body = evalResult[1];
-              response.refs = [];
-          } else {
-              response.pending = true;
-              pendingMessages.push({ request: request, response: response });
+    if (globalExecutionState) {
+      var frames = globalExecutionState.GetFrames();
+      var frame = frames[0];
+      if (request.arguments) {
+        if (typeof request.arguments.frame == 'number') {
+          for (var i = 0; i < frames.length; ++i) {
+            if (request.arguments.frame == frames[i].GetIndex()) {
+              frame = frames[i];
+              break;
+            }
           }
+        } else if (request.arguments.global == true) {
+          frame = frames[frames.length - 1];
+        }
+
+        var evalResult = frame.Evaluate(request.arguments.expression);
+        AddChildrens(evalResult[1]);
+        response.success = evalResult[0];
+        response.body = evalResult[1];
+        response.refs = [];
+      } else {
+        response.success = false;
       }
+    }
+    else {
+      response.pending = true;
+      pendingMessages.push({ request: request, response: response });
+    }
   };
 
   V8CommandProcessor.prototype.threads = function (request, response) {
