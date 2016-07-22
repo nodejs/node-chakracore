@@ -23,6 +23,12 @@
 
 #define WIN32_LEAN_AND_MEAN 1
 
+#if (DBG || ENABLE_DEBUG_CONFIG_OPTIONS)
+#define HOST_ENABLE_TTD 1
+#else 
+#define HOST_ENABLE_TTD 0
+#endif
+
 #define ENABLE_TEST_HOOKS 1
 #include "CommonDefines.h"
 #include <map>

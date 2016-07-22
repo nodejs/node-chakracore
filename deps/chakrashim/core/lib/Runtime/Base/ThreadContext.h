@@ -325,6 +325,10 @@ public:
         {
             EnableExperimentalFeatures();
             ResetExperimentalFeaturesFromConfig();
+
+#if TTD_VSCODE_WORK_AROUNDS
+            m_Simdjs = false;
+#endif
         }
     }
 
@@ -990,7 +994,6 @@ public:
 #endif
 
 #if ENABLE_TTD
-    bool IsTTRequested;
     bool IsTTRecordRequested;
     bool IsTTDebugRequested;
     char16* TTDUri;
@@ -999,9 +1002,6 @@ public:
 
     //The event log for time-travel (or null if TTD is not turned on)
     TTD::EventLog* TTDLog;
-
-    //return true if thread context is initialized for TTD
-    bool IsTTDInitialized() const;
 
     //Initialize the context for time-travel
     void InitTimeTravel(LPCWSTR ttdDirectory, bool doRecord, bool doReplay, uint32 snapInterval, uint32 snapHistoryLength);

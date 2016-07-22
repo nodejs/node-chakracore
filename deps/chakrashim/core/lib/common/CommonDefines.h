@@ -326,15 +326,28 @@
 
 ////////
 //Time Travel flags
+
+//If this is being included from in CH see if TTD is enabled there and do the same here -- otherwise check DBG and ENABLE_DEBUG_CONFIG_OPTIONS values
+#ifdef HOST_ENABLE_TTD
+#define ENABLE_TTD HOST_ENABLE_TTD
+#else
 #define ENABLE_TTD 1
+#endif 
 
 #if ENABLE_TTD
 //Enable debugging specific aspects of TTD
 #define ENABLE_TTD_DEBUGGING 1
 
-//A workaround for VSCode getting angry with timing (adds a Sleep before sending msgs)
-//Also makes step out behave the same as step back
+//A VSCode & node getting angry about SIMD objects
 #define TTD_VSCODE_WORK_AROUNDS 1
+#define TTD_VSCODE_HIJACK_OUT_FOR_REVERSE_CONTINUE 0
+
+//A workaround for some unimplemented code parse features (force debug mode)
+//Enable to turn these features off for good performance measurements.
+#define TTD_DYNAMIC_DECOMPILATION_WORK_AROUNDS 1
+
+//A workaround for copy on access native arrays -- disable them for now and we should have support later
+#define TTD_DISABLE_COPYONACCESS_ARRAY_WORK_AROUNDS 1
 
 //Enable various sanity checking features and asserts
 #define ENABLE_TTD_INTERNAL_DIAGNOSTICS 1
@@ -354,6 +367,7 @@
 #if ENABLE_TTD_INTERNAL_DIAGNOSTICS
 #define ENABLE_SNAPSHOT_COMPARE 1
 #define ENABLE_OBJECT_SOURCE_TRACKING 0
+#define ENABLE_VALUE_TRACE 0
 #define ENABLE_BASIC_TRACE 0
 #define ENABLE_FULL_BC_TRACE 0
 #else
