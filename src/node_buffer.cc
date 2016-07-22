@@ -252,6 +252,24 @@ size_t Length(Local<Value> val) {
   return ui->ByteLength();
 }
 
+#if ENABLE_TTD_NODE
+void TTDAsyncModRegister(v8::Local<v8::Object> val, byte* initialModPosition)
+{
+    CHECK(val->IsUint8Array());
+    Local<Uint8Array> ui = val.As<Uint8Array>();
+    ui->Buffer()->TTDRawBufferNotifyRegisterForModification(initialModPosition);
+}
+void TTDAsyncModNotify(byte* finalModPosition)
+{
+    v8::ArrayBuffer::TTDRawBufferAsyncModifyComplete(finalModPosition);
+}
+void TTDSyncDataModNotify(v8::Local<v8::Object> val, UINT32 index, UINT32 count)
+{
+    CHECK(val->IsUint8Array());
+    Local<Uint8Array> ui = val.As<Uint8Array>();
+    ui->Buffer()->TTDRawBufferModifyNotifySync(ui->ByteOffset() + index, count);
+}
+#endif
 
 size_t Length(Local<Object> obj) {
   CHECK(obj->IsUint8Array());
@@ -606,6 +624,9 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
 
   memmove(target_data + target_start, ts_obj_data + source_start, to_copy);
   args.GetReturnValue().Set(to_copy);
+#if ENABLE_TTD_NODE
+  ArrayBuffer::TTDRawBufferCopyNotify(target->Buffer(), target_offset + target_start, ts_obj->Buffer(), ts_obj_offset + source_start, to_copy);
+#endif
 }
 
 
@@ -622,6 +643,7 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   size_t str_length;
   enum encoding enc;
   CHECK(fill_length + start <= ts_obj_length);
+  TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill");
 
   // First check if Buffer has been passed.
   if (Buffer::HasInstance(args[1])) {
@@ -735,6 +757,9 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
                                         encoding,
                                         nullptr);
   args.GetReturnValue().Set(written);
+#if ENABLE_TTD_NODE
+  args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset + offset, written);
+#endif
 }
 
 
@@ -863,6 +888,9 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
   if (endianness != GetEndianness())
     Swizzle(na.bytes, sizeof(na.bytes));
   memcpy(ptr, na.bytes, memcpy_num);
+#if ENABLE_TTD_NODE
+  ts_obj->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset + offset, memcpy_num);
+#endif
 }
 
 
@@ -1224,6 +1252,10 @@ void Swap16(const FunctionCallbackInfo<Value>& args) {
   }
 
   args.GetReturnValue().Set(args[0]);
+  
+#if ENABLE_TTD_NODE
+  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset, ts_obj_length);
+#endif
 }
 
 
@@ -1250,6 +1282,10 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
   }
 
   args.GetReturnValue().Set(args[0]);
+  
+#if ENABLE_TTD_NODE
+  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset, ts_obj_length);
+#endif
 }
 
 
@@ -1278,8 +1314,11 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   }
 
   args.GetReturnValue().Set(args[0]);
+  
+#if ENABLE_TTD_NODE
+  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset, ts_obj_length);
+#endif
 }
-
 
 // pass Buffer object to load prototype methods
 void SetupBufferJS(const FunctionCallbackInfo<Value>& args) {

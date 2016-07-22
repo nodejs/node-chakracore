@@ -106,6 +106,24 @@ ArrayBuffer::Contents ArrayBuffer::GetContents() {
   return contents;
 }
 
+//#if ENABLE_TTD_NODE
+void ArrayBuffer::TTDRawBufferNotifyRegisterForModification(byte* initialModPosition)
+{
+    JsTTDRawBufferAsyncModificationRegister(this, initialModPosition);
+}
+void ArrayBuffer::TTDRawBufferAsyncModifyComplete(byte* finalModPosition)
+{
+    JsTTDRawBufferAsyncModifyComplete(finalModPosition);
+}
+void ArrayBuffer::TTDRawBufferModifyNotifySync(UINT32 index, UINT32 count)
+{
+    JsTTDRawBufferModifySyncIndirect(this, index, count);
+}
+void ArrayBuffer::TTDRawBufferCopyNotify(Local<ArrayBuffer> dst, UINT32 dstindex, Local<ArrayBuffer> src, UINT32 srcIndex, UINT32 count)
+{
+    JsTTDRawBufferCopySyncIndirect(*dst, dstindex, *src, srcIndex, count);
+}
+//#endif
 ArrayBuffer* ArrayBuffer::Cast(Value* obj) {
   CHAKRA_ASSERT(obj->IsArrayBuffer());
   return static_cast<ArrayBuffer*>(obj);

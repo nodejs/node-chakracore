@@ -49,7 +49,7 @@ class ContextShim {
     _FunctionCount
   };
 
-  static ContextShim * New(IsolateShim * isolateShim, bool exposeGC,
+  static ContextShim * New(IsolateShim * isolateShim, bool exposeGC, bool runUnderTT,
                            JsValueRef globalObjectTemplateInstance);
   ~ContextShim();
   void EnsureInitialized();

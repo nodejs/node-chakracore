@@ -275,12 +275,6 @@ JsErrorCode CreateContextCore(_In_ JsRuntimeHandle runtimeHandle, _In_ bool crea
             context->GetScriptContext()->InitializeCoreImage_TTD();
             threadContext->TTDLog->PopMode(TTD::TTDMode::ExcludedExecution);
         }
-
-#if TTD_VSCODE_WORK_AROUNDS
-        //There seems to be some locking missing when Node runs the debugger (asserts on FunctionBody.cpp line 97)
-        context->GetScriptContext()->ForceNoNative();
-#endif
-
 #endif
 
         JsrtDebugManager* jsrtDebugManager = runtime->GetJsrtDebugManager();

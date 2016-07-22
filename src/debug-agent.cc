@@ -158,7 +158,7 @@ void Agent::WorkerRun() {
   Isolate::CreateParams params;
   ArrayBufferAllocator array_buffer_allocator;
   params.array_buffer_allocator = &array_buffer_allocator;
-  Isolate* isolate = Isolate::New(params);
+  Isolate* isolate = Isolate::New(params, nullptr, false, false, UINT32_MAX, UINT32_MAX);
   {
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);

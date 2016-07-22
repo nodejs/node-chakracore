@@ -30,6 +30,216 @@ extern bool g_disableIdleGc;
 }
 namespace jsrt {
 
+    void ConvertToStdString(const wchar_t* src, std::string& dest)
+    {
+        size_t strlen = wcslen(src);
+        for(size_t i = 0; i < strlen; ++i)
+        {
+            dest.push_back((char)src[i]);
+        }
+    }
+    void CreateDirectoryIfNeeded(const char* path)
+    {
+        bool isPathDirName = (path[strlen(path) - 1] == L'\\');
+        std::string fullpath(path);
+        if(!isPathDirName)
+        {
+            fullpath.append("\\");
+        }
+        DWORD dwAttrib = GetFileAttributes(fullpath.c_str());
+        if((dwAttrib != INVALID_FILE_ATTRIBUTES) && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            return;
+        }
+        BOOL success = CreateDirectory(fullpath.c_str(), NULL);
+        if(!success)
+        {
+            DWORD lastError = GetLastError();
+            LPTSTR pTemp = NULL;
+            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY, NULL, lastError, LANG_NEUTRAL, (LPTSTR)&pTemp, 0, NULL);
+            fprintf(stderr, ": %s", pTemp);
+        }
+    }
+    void DeleteDirectory(const char* path)
+    {
+        HANDLE hFile;
+        WIN32_FIND_DATA FileInformation;
+        bool isPathDirName = (path[strlen(path) - 1] == L'\\');
+        std::string strPattern(path);
+        if(!isPathDirName)
+        {
+            strPattern.append("\\");
+        }
+        strPattern.append("*.*");
+        hFile = ::FindFirstFile(strPattern.c_str(), &FileInformation);
+        if(hFile != INVALID_HANDLE_VALUE)
+        {
+            do
+            {
+                if(FileInformation.cFileName[0] != '.')
+                {
+                    std::string strFilePath(path);
+                    if(!isPathDirName)
+                    {
+                        strFilePath.append("\\");
+                    }
+                    strFilePath.append(FileInformation.cFileName);
+                    if(FileInformation.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                    {
+                        DeleteDirectory(strFilePath.c_str());
+                        ::RemoveDirectory(strFilePath.c_str());
+                    }
+                    else
+                    {
+                        ::SetFileAttributes(strFilePath.c_str(), FILE_ATTRIBUTE_NORMAL);
+                        ::DeleteFile(strFilePath.c_str());
+                    }
+                }
+            } while(::FindNextFile(hFile, &FileInformation) == TRUE);
+            ::FindClose(hFile);
+        }
+    }
+    void GetFileFromURI(const char* uri, std::string& res)
+    {
+        int urilen = (int)strlen(uri);
+        int fpos = 0;
+        for(int spos = urilen - 1; spos >= 0; --spos)
+        {
+            if(uri[spos] == L'\\' || uri[spos] == L'/')
+            {
+                fpos = spos + 1;
+                break;
+            }
+        }
+        res.append(uri + fpos);
+    }
+    void GetDefaultTTDDirectory(std::string& res, const char* optExtraDir)
+    {
+        char* path = (char*)CoTaskMemAlloc(MAX_PATH * sizeof(char));
+        path[0] = '\0';
+        GetModuleFileName(NULL, path, MAX_PATH);
+        char* spos = path + strlen(path);
+        while(spos != path && *spos != '\\')
+        {
+            spos--;
+        }
+        int ccount = (int)((((byte*)spos) - ((byte*)path)) / sizeof(char));
+        res.append(path, 0, ccount);
+        if(res.back() != '\\')
+        {
+            res.append("\\");
+        }
+        res.append(optExtraDir);
+        if(res.back() != '\\')
+        {
+            res.append("\\");
+        }
+        CoTaskMemFree(path);
+    }
+    void CALLBACK GetTTDDirectory(const wchar_t* uri, wchar_t** fullTTDUri)
+    {
+        std::string logDir;
+        std::string uriStr;
+        ConvertToStdString(uri, uriStr);
+        GetDefaultTTDDirectory(logDir, uriStr.c_str());
+        if(logDir.back() != '\\')
+        {
+            logDir.push_back('\\');
+        }
+        const char* sstr = logDir.c_str();
+        int uriLength = (int)(strlen(sstr) + 1);
+        *fullTTDUri = (wchar_t*)CoTaskMemAlloc(uriLength * sizeof(wchar_t));
+        for(int i = 0; i < uriLength; ++i)
+        {
+            (*fullTTDUri)[i] = (wchar_t)sstr[i];
+        }
+    }
+    void CALLBACK TTInitializeForWriteLogStreamCallback(const wchar_t* uri)
+    {
+        std::string uriStr;
+        ConvertToStdString(uri, uriStr);
+        CreateDirectoryIfNeeded(uriStr.c_str());
+        DeleteDirectory(uriStr.c_str());
+    }
+    static HANDLE TTOpenStream_Helper(const char* uri, bool read, bool write)
+    {
+        HANDLE res = INVALID_HANDLE_VALUE;
+        if(read)
+        {
+            res = CreateFile(uri, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        }
+        else
+        {
+            res = CreateFile(uri, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        }
+        if(res == INVALID_HANDLE_VALUE)
+        {
+            DWORD lastError = GetLastError();
+            LPTSTR pTemp = NULL;
+            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY, NULL, lastError, LANG_NEUTRAL, (LPTSTR)&pTemp, 0, NULL);
+            fprintf(stderr, ": %s\n", pTemp);
+            fprintf(stderr, "Failed on file: %s\n", uri);
+        }
+        return res;
+    }
+    HANDLE CALLBACK TTGetLogStreamCallback(const wchar_t* uri, bool read, bool write)
+    {
+        std::string uriString;
+        ConvertToStdString(uri, uriString);
+        std::string logFile(uriString);
+        logFile.append("ttdlog.log");
+        return TTOpenStream_Helper(logFile.c_str(), read, write);
+    }
+    HANDLE CALLBACK TTGetSnapshotStreamCallback(const wchar_t* uri, const wchar_t* snapId, bool read, bool write)
+    {
+        std::string uriStr;
+        ConvertToStdString(uri, uriStr);
+        std::string snapIdStr;
+        ConvertToStdString(snapId, snapIdStr);
+        std::string snapFile(uriStr);
+        snapFile.append("\\snap_");
+        snapFile.append(snapIdStr);
+        snapFile.append(".snp");
+        return TTOpenStream_Helper(snapFile.c_str(), read, write);
+    }
+    HANDLE CALLBACK TTGetSrcCodeStreamCallback(const wchar_t* snapContainerUri, const wchar_t* documentid, const wchar_t* srcFileName, bool read, bool write)
+    {
+        std::string snapContainerUriStr;
+        ConvertToStdString(snapContainerUri, snapContainerUriStr);
+        std::string documentidStr;
+        ConvertToStdString(documentid, documentidStr);
+        std::string srcFileNameStr;
+        ConvertToStdString(srcFileName, srcFileNameStr);
+        std::string sFile;
+        GetFileFromURI(srcFileNameStr.c_str(), sFile);
+        std::string srcPath(snapContainerUriStr);
+        srcPath.append(documentidStr);
+        srcPath.append("_");
+        srcPath.append(sFile);
+        return TTOpenStream_Helper(srcPath.c_str(), read, write);
+    }
+    bool CALLBACK TTReadBytesFromStreamCallback(HANDLE strm, BYTE* buff, DWORD size, DWORD* readCount)
+    {
+        *readCount = 0;
+        BOOL ok = ReadFile(strm, buff, size, readCount, NULL);
+        return ok ? true : false;
+    }
+    bool CALLBACK TTWriteBytesToStreamCallback(HANDLE strm, BYTE* buff, DWORD size, DWORD* writtenCount)
+    {
+        BOOL ok = WriteFile(strm, buff, size, writtenCount, NULL);
+        return ok ? true : false;
+    }
+    void CALLBACK TTFlushAndCloseStreamCallback(HANDLE strm, bool read, bool write)
+    {
+        if(strm != INVALID_HANDLE_VALUE)
+        {
+            if(write)
+            {
+                FlushFileBuffers(strm);
+            }
+            CloseHandle(strm);
+        }
+    }
 /* static */ __declspec(thread) IsolateShim * IsolateShim::s_currentIsolate;
 /* static */ __declspec(thread) IsolateShim * IsolateShim::s_previousIsolate;
 /* static */ IsolateShim * IsolateShim::s_isolateList = nullptr;
@@ -62,7 +272,7 @@ IsolateShim::~IsolateShim() {
   }
 }
 
-/* static */ v8::Isolate * IsolateShim::New() {
+/* static */ v8::Isolate * IsolateShim::New(const char* uri, bool doRecord, bool doReplay, uint32_t snapInterval, uint32_t snapHistoryLength) {
   // CHAKRA-TODO: Disable multiple isolate for now until it is fully implemented
   /*
   if (s_isolateList != nullptr) {
@@ -71,13 +281,28 @@ IsolateShim::~IsolateShim() {
   }
   */
   bool disableIdleGc = v8::g_disableIdleGc;
-  JsRuntimeHandle runtime;
-  JsErrorCode error =
-    JsCreateRuntime(static_cast<JsRuntimeAttributes>(
+    JsRuntimeAttributes attributes = static_cast<JsRuntimeAttributes>(
       JsRuntimeAttributeAllowScriptInterrupt |
       JsRuntimeAttributeEnableExperimentalFeatures |
-      (disableIdleGc ? JsRuntimeAttributeNone :
-       JsRuntimeAttributeEnableIdleProcessing)), nullptr, &runtime);
+        (disableIdleGc ? JsRuntimeAttributeNone : JsRuntimeAttributeEnableIdleProcessing));
+
+  JsRuntimeHandle runtime;
+  JsErrorCode error;
+  if(uri == nullptr) {
+      error = JsCreateRuntime(attributes, nullptr, &runtime);
+  }
+  else
+  {
+      if(doRecord) {
+          error = JsTTDCreateRecordRuntime(static_cast<JsRuntimeAttributes>(JsRuntimeAttributeAllowScriptInterrupt | JsRuntimeAttributeEnableExperimentalFeatures), const_cast<char*>(uri), strlen(uri), snapInterval, snapHistoryLength, nullptr, &runtime);
+      }
+      else {
+          error = JsTTDCreateDebugRuntime(static_cast<JsRuntimeAttributes>(JsRuntimeAttributeAllowScriptInterrupt | JsRuntimeAttributeEnableExperimentalFeatures), const_cast<char*>(uri), strlen(uri), nullptr, &runtime);
+      }
+      if(error == JsNoError) {
+          JsTTDSetIOCallbacks(runtime, &GetTTDDirectory, &TTInitializeForWriteLogStreamCallback, &TTGetLogStreamCallback, &TTGetSnapshotStreamCallback, &TTGetSrcCodeStreamCallback, &TTReadBytesFromStreamCallback, &TTWriteBytesToStreamCallback, &TTFlushAndCloseStreamCallback);
+      }
+  }
   if (error != JsNoError) {
     return nullptr;
   }
@@ -176,10 +401,10 @@ void CALLBACK IsolateShim::JsContextBeforeCollectCallback(JsRef contextRef,
   delete contextShim;
 }
 
-bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
+bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC, bool runUnderTT,
                              JsValueRef globalObjectTemplateInstance) {
   ContextShim * contextShim =
-    ContextShim::New(this, exposeGC, globalObjectTemplateInstance);
+    ContextShim::New(this, exposeGC, runUnderTT, globalObjectTemplateInstance);
   if (contextShim == nullptr) {
     return false;
   }
@@ -378,4 +603,58 @@ void* IsolateShim::GetData(uint32_t slot) {
   return slot < _countof(this->embeddedData) ? embeddedData[slot] : nullptr;
 }
 
+/*static*/ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate, uint64_t* moveMode, int64_t* nextEventTime)
+{
+    INT64 snapEventTime = -1;
+    INT64 snapEventEndTime = -1;
+    int64_t origNETime = *nextEventTime;
+    JsTTDMoveMode _moveMode = (JsTTDMoveMode)(*moveMode);
+    JsRuntimeHandle rHandle = jsrt::IsolateShim::FromIsolate(isolate)->GetRuntimeHandle();
+    bool needFreshCtxs = false;
+    JsErrorCode error = JsTTDGetSnapTimeTopLevelEventMove(rHandle, _moveMode, nextEventTime, &needFreshCtxs, &snapEventTime, &snapEventEndTime);
+    if(error != JsNoError)
+    {
+        if(error == JsErrorCategoryUsage)
+        {
+            printf("Start time not in log range.");
+            ExitProcess(0);
+        }
+        else
+        {
+            printf("Fatal Error in Move!!!");
+            ExitProcess(1);
+        }
+    }
+    JsTTDPrepContextsForTopLevelEventMove(rHandle, needFreshCtxs);
+    if((*moveMode & JsTTDMoveMode::JsTTDMoveScanIntervalBeforeDebugExecute) == JsTTDMoveMode::JsTTDMoveScanIntervalBeforeDebugExecute)
+    {
+        JsTTDPreExecuteSnapShotInterval(snapEventTime, snapEventEndTime, ((JsTTDMoveMode)(*moveMode)));
+        _moveMode = (JsTTDMoveMode)(_moveMode & ~JsTTDMoveMode::JsTTDMoveScanIntervalBeforeDebugExecute); //did scan so no longer needed
+        error = JsTTDGetSnapTimeTopLevelEventMove(rHandle, _moveMode, nextEventTime, &needFreshCtxs, &snapEventTime, nullptr);
+        if(error != JsNoError)
+        {
+            if(error == JsErrorCategoryUsage)
+            {
+                printf("Start time not in log range.");
+                ExitProcess(0);
+            }
+            else
+            {
+                printf("Fatal Error in Move!!!");
+                ExitProcess(1);
+            }
+        }
+        JsTTDPrepContextsForTopLevelEventMove(rHandle, needFreshCtxs);
+    }
+    JsTTDMoveToTopLevelEvent(_moveMode, snapEventTime, *nextEventTime);
+    JsErrorCode res = JsTTDReplayExecution(&_moveMode, nextEventTime);
+    //update before we return
+    *moveMode = (uint64_t)_moveMode;
+    if(*nextEventTime == -1)
+    {
+        printf("\nReached end of Execution -- Exiting.\n");
+        return FALSE;
+    }
+    return TRUE;
+}
 }  // namespace jsrt

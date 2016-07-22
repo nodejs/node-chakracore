@@ -75,6 +75,7 @@
 // Forward-declare libuv loop
 struct uv_loop_s;
 
+#define ENABLE_TTD_NODE 1
 // Forward-declare these functions now to stop MSVS from becoming
 // terminally confused when it's done in node_internals.h
 namespace node {

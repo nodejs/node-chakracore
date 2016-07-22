@@ -29,7 +29,8 @@ namespace v8 {
 bool g_disposed = false;
 bool g_exposeGC = false;
 bool g_useStrict = false;
-bool g_disableIdleGc = false;
+bool g_enableSimdjs = false;
+bool g_disableIdleGc = true;
 
 const char *V8::GetVersion() {
   static char versionStr[32] = {};

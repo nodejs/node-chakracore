@@ -296,6 +296,10 @@
         });
         return _scripts;
       },
+      ClearMemoizedScriptInfo: function() {
+          _scripts = [];
+          _scriptHandles = [];
+      },
       GetScript: function (scriptId) {
         if (!_scripts[scriptId]) {
           this.GetScripts();
@@ -669,6 +673,7 @@
     /* {'command':'continue','type':'request','seq':1} */
     /* {'command':'continue','arguments':{'stepaction':'in','stepcount':1},'type':'request','seq':1} */
     var success = true;
+    var clearMemoizedScriptInfo = false;
     if (request.arguments && request.arguments.stepaction) {
       var jsDiagSetStepType = 0;
       if (request.arguments.stepaction == 'in') {
@@ -680,6 +685,10 @@
       } else if (request.arguments.stepaction == 'next') {
         /* JsDiagStepTypeStepOver */
         jsDiagSetStepType = 2;
+      } else if (request.arguments.stepaction == 'back') {
+          /* JsDiagStepTypeStepBack */
+          jsDiagSetStepType = 3;
+          clearMemoizedScriptInfo = true; //we may recreate the script context -- invalidating scriptIds so clear any memoized info
       } else {
         throw new Error('Unhandled stepaction: ' + request.arguments.stepaction);
       }
@@ -690,6 +699,9 @@
     }
 
     response.success = success;
+    if (clearMemoizedScriptInfo){
+        DebugManager.ScriptsManager.ClearMemoizedScriptInfo();
+    }
 
     // We are continuing, delete the globalExecutionState
     globalExecutionState = undefined;

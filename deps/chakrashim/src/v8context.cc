@@ -49,6 +49,7 @@ Local<Object> Context::Global() {
 extern bool g_exposeGC;
 
 Local<Context> Context::New(Isolate* external_isolate,
+                            bool runUnderTT,
                             ExtensionConfiguration* extensions,
                             Handle<ObjectTemplate> global_template,
                             Handle<Value> global_object) {
@@ -69,7 +70,7 @@ Local<Context> Context::New(Isolate* external_isolate,
 
   JsContextRef context;
   jsrt::IsolateShim* isoShim = jsrt::IsolateShim::FromIsolate(external_isolate);
-  if (!isoShim->NewContext(&context, g_exposeGC, *glob)) {
+  if (!isoShim->NewContext(&context, g_exposeGC, runUnderTT, *glob)) {
     return Local<Context>();
   }
 
@@ -82,7 +83,7 @@ Local<Context> Context::New(Isolate* external_isolate,
     // v8debug object from chakra_debug.js in this context global object
     if (isoShim->debugContext == nullptr) {
       JsContextRef debugContextRef;
-      isoShim->NewContext(&debugContextRef, false, *glob);
+      isoShim->NewContext(&debugContextRef, false, false, *glob);
       jsrt::ContextShim* debugContextShim = isoShim->GetContextShim(
           debugContextRef);
 
