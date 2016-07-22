@@ -48,7 +48,9 @@ namespace Js
             isSwitchOptDisabled(false),
             isEquivalentObjTypeSpecDisabled(false),
             isObjTypeSpecDisabled_jitLoopBody(false),
+            isPowIntIntTypeSpecDisabled(false),
             isLoopImplicitCallInfoDisabled(false),
+            isStackArgOptDisabled(false),
             ldElemInfo(nullptr),
             stElemInfo(nullptr)
         {
@@ -84,9 +86,11 @@ namespace Js
             this->isFloorInliningDisabled = profileInfo->IsFloorInliningDisabled();
             this->isNoProfileBailoutsDisabled = profileInfo->IsNoProfileBailoutsDisabled();
             this->isSwitchOptDisabled = profileInfo->IsSwitchOptDisabled();
+            this->isStackArgOptDisabled = profileInfo->IsStackArgOptDisabled();
             this->isEquivalentObjTypeSpecDisabled = profileInfo->IsEquivalentObjTypeSpecDisabled();
             this->isObjTypeSpecDisabled_jitLoopBody = profileInfo->IsObjTypeSpecDisabledInJitLoopBody();
-            this->isLoopImplicitCallInfoDisabled = profileInfo->IsLoopImplicitCallInfoDisabled();
+            this->isPowIntIntTypeSpecDisabled = profileInfo->IsPowIntIntTypeSpecDisabled();
+			this->isLoopImplicitCallInfoDisabled = profileInfo->IsLoopImplicitCallInfoDisabled();
         }
 
         void OnBackgroundAllocatorReset()
@@ -185,6 +189,16 @@ namespace Js
         void DisableSwitchOpt()
         {
             this->isSwitchOptDisabled = true;
+        }
+
+        bool IsStackArgOptDisabled()
+        {
+            return this->isStackArgOptDisabled;
+        }
+
+        void DisableStackArgOpt()
+        {
+            this->isStackArgOptDisabled = true;
         }
 
         bool IsEquivalentObjTypeSpecDisabled() const
@@ -342,11 +356,15 @@ namespace Js
             return this->isNoProfileBailoutsDisabled;
         }
 
+        bool IsPowIntIntTypeSpecDisabled() const
+        {
+            return this->isPowIntIntTypeSpecDisabled;
+        }
+
         bool IsLoopImplicitCallInfoDisabled() const
         {
             return this->isLoopImplicitCallInfoDisabled;
         }
-
 
     private:
         const DynamicProfileInfo * profileInfo;
@@ -383,7 +401,9 @@ namespace Js
         bool isSwitchOptDisabled : 1;
         bool isEquivalentObjTypeSpecDisabled : 1;
         bool isObjTypeSpecDisabled_jitLoopBody : 1;
+        bool isPowIntIntTypeSpecDisabled : 1;
         bool isLoopImplicitCallInfoDisabled : 1;
+        bool isStackArgOptDisabled : 1;
         const LdElemInfo *ldElemInfo;
         const StElemInfo *stElemInfo;
 

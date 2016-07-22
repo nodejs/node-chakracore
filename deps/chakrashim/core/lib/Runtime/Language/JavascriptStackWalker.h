@@ -9,7 +9,9 @@
 typedef Js::X86StackFrame StackFrame;
 #elif defined(_M_X64)
 #include "Language/amd64/StackFrame.h"
+#ifdef _WIN32 // xplat-todo
 #include "Language/amd64/StackFrame.inl"
+#endif
 typedef Js::Amd64StackFrame StackFrame;
 #elif defined(_M_ARM)
 #include "Language/arm/StackFrame.h"
@@ -93,7 +95,8 @@ namespace Js
             Assert(currentIndex == -1);
         }
 
-        static bool             FromPhysicalFrame(InlinedFrameWalker& self, StackFrame& physicalFrame, Js::ScriptFunction *parent, bool fromBailout = false, int loopNum = -1, const JavascriptStackWalker * const walker = nullptr, bool noAlloc = false);
+        static bool             FromPhysicalFrame(InlinedFrameWalker& self, StackFrame& physicalFrame, Js::ScriptFunction *parent, bool fromBailout = false, 
+                                                  int loopNum = -1, const JavascriptStackWalker * const walker = nullptr, bool useInternalFrameInfo = false, bool noAlloc = false);
         void                    Close();
         bool                    Next(CallInfo& callInfo);
         size_t                  GetArgc() const;
@@ -127,7 +130,7 @@ namespace Js
                 return (InlinedFrame*)next;
             }
 
-            static InlinedFrame *FromPhysicalFrame(StackFrame& currentFrame, const JavascriptStackWalker * const stackWalker, void *entry, EntryPointInfo* entryPointInfo);
+            static InlinedFrame *FromPhysicalFrame(StackFrame& currentFrame, const JavascriptStackWalker * const stackWalker, void *entry, EntryPointInfo* entryPointInfo, bool useInternalFrameInfo);
 
         };
 
@@ -150,21 +153,23 @@ namespace Js
         void *framePointer;
         size_t stackCheckCodeHeight;
         InternalFrameType frameType;
-        InternalFrameType loopBodyFrameType;
-        bool frameConsumed;
+        JavascriptFunction* function;
+        bool hasInlinedFramesOnStack;
+        bool previousInterpreterFrameIsFromBailout;
 
         InternalFrameInfo() :
             codeAddress(nullptr),
             framePointer(nullptr),
             stackCheckCodeHeight((uint)-1),
             frameType(InternalFrameType_None),
-            loopBodyFrameType(InternalFrameType_None),
-            frameConsumed(false)
+            function(nullptr),
+            hasInlinedFramesOnStack(false),
+            previousInterpreterFrameIsFromBailout(false)
         {
         }
 
         void Clear();
-        void Set(void *codeAddress, void *framePointer, size_t stackCheckCodeHeight, InternalFrameType frameType, InternalFrameType loopBodyFrameType);
+        void Set(void *codeAddress, void *framePointer, size_t stackCheckCodeHeight, InternalFrameType frameType, JavascriptFunction* function, bool hasInlinedFramesOnStack, bool previousInterpreterFrameIsFromBailout);
     };
 #endif
 
@@ -201,7 +206,6 @@ namespace Js
         }
 
         Var GetPermanentArguments() const;
-        void SetPermanentArguments(Var args);
 
         void *GetCurrentCodeAddr() const;
 
@@ -226,22 +230,22 @@ namespace Js
 
 #if ENABLE_NATIVE_CODEGEN
         void ClearCachedInternalFrameInfo();
-        void SetCachedInternalFrameInfo(InternalFrameType frameType, InternalFrameType loopBodyFrameType);
+        void SetCachedInternalFrameInfo(InternalFrameType frameType, JavascriptFunction* function, bool hasInlinedFramesOnStack, bool prevIntFrameIsFromBailout);
         InternalFrameInfo GetCachedInternalFrameInfo() const { return this->lastInternalFrameInfo; }
 #endif
         bool IsCurrentPhysicalFrameForLoopBody() const;
 
         // noinline, we want to use own stack frame.
-        static __declspec(noinline) BOOL GetCaller(JavascriptFunction** ppFunc, ScriptContext* scriptContext);
-        static __declspec(noinline) BOOL GetCaller(JavascriptFunction** ppFunc, uint32* byteCodeOffset, ScriptContext* scriptContext);
-        static __declspec(noinline) bool GetThis(Var* pThis, int moduleId, ScriptContext* scriptContext);
-        static __declspec(noinline) bool GetThis(Var* pThis, int moduleId, JavascriptFunction* func, ScriptContext* scriptContext);
+        static _NOINLINE BOOL GetCaller(JavascriptFunction** ppFunc, ScriptContext* scriptContext);
+        static _NOINLINE BOOL GetCaller(JavascriptFunction** ppFunc, uint32* byteCodeOffset, ScriptContext* scriptContext);
+        static _NOINLINE bool GetThis(Var* pThis, int moduleId, ScriptContext* scriptContext);
+        static _NOINLINE bool GetThis(Var* pThis, int moduleId, JavascriptFunction* func, ScriptContext* scriptContext);
 
         static bool IsDisplayCaller(JavascriptFunction* func);
         bool GetDisplayCaller(JavascriptFunction ** ppFunc);
         PCWSTR GetCurrentNativeLibraryEntryName() const;
         static bool IsLibraryStackFrameEnabled(Js::ScriptContext * scriptContext);
-
+        
         // Walk frames (until walkFrame returns true)
         template <class WalkFrame>
         ushort WalkUntil(ushort stackTraceLimit, WalkFrame walkFrame, bool onlyOnDebugMode = false, bool filterDiagnosticsOM = false)
@@ -298,7 +302,6 @@ namespace Js
         {
             return previousInterpreterFrameIsFromBailout;
         }
-
 #if DBG
         static bool ValidateTopJitFrame(Js::ScriptContext* scriptContext);
 #endif
@@ -315,20 +318,28 @@ namespace Js
 #endif
         CallInfo                inlinedFrameCallInfo;
         bool                    inlinedFramesBeingWalked    : 1;
+        bool                    hasInlinedFramesOnStack     : 1;
         bool                    isJavascriptFrame           : 1;
         bool                    isNativeLibraryFrame        : 1;
         bool                    isInitialFrame              : 1; // If we need to walk the initial frame
         bool                    shouldDetectPartiallyInitializedInterpreterFrame : 1;
         bool                    previousInterpreterFrameIsFromBailout : 1;
-        bool                    ehFramesBeingWalkedFromBailout : 1;
-        bool                    forceFullWalk; // ignoring hasCaller
+        bool                    previousInterpreterFrameIsForLoopBody : 1;
+        bool                    forceFullWalk               : 1; // ignoring hasCaller
 
-        Var GetThisFromFrame() const;
-        Var GetCurrentArgumentsObject() const;
-        void SetCurrentArgumentsObject(Var args);
-        Var GetCurrentNativeArgumentsObject() const;
-        void SetCurrentNativeArgumentsObject(Var args);
+        Var GetThisFromFrame() const;                   // returns 'this' object from the physical frame
+        Var GetCurrentArgumentsObject() const;          // returns arguments object from the current frame, which may be virtual (belonging to an inlinee)
+        void SetCurrentArgumentsObject(Var args);       // sets arguments object for the current frame, which may be virtual (belonging to an inlinee)
+        Var GetCurrentNativeArgumentsObject() const;    // returns arguments object from the physical native frame
+        void SetCurrentNativeArgumentsObject(Var args); // sets arguments object on the physical native frame
+        bool TryGetByteCodeOffsetFromInterpreterFrame(uint32& offset) const;
 #if ENABLE_NATIVE_CODEGEN
+        bool TryGetByteCodeOffsetFromNativeFrame(uint32& offset) const;
+        bool TryGetByteCodeOffsetOfInlinee(Js::JavascriptFunction* function, uint loopNum, DWORD_PTR pCodeAddr, Js::FunctionBody** inlinee, uint32& offset, bool useInternalFrameInfo) const;
+        uint GetLoopNumber(bool& usedInternalFrameInfo) const;
+        bool InlinedFramesBeingWalked() const;
+		bool HasInlinedFramesOnStack() const;
+        bool PreviousInterpreterFrameIsFromBailout() const;
         InternalFrameInfo lastInternalFrameInfo;
 #endif
         mutable StackFrame currentFrame;

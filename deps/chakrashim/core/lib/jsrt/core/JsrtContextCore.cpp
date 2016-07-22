@@ -17,10 +17,17 @@ bool JsrtContext::Is(void * ref)
     return VirtualTableInfo<JsrtContextCore>::HasVirtualTable(ref);
 }
 
-void JsrtContext::OnScriptLoad(Js::JavascriptFunction * scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo)
+void JsrtContext::OnScriptLoad(Js::JavascriptFunction * scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo, CompileScriptException* compileException)
 {
-    ((JsrtContextCore *)this)->OnScriptLoad(scriptFunction, utf8SourceInfo);
+    ((JsrtContextCore *)this)->OnScriptLoad(scriptFunction, utf8SourceInfo, compileException);
 }
+
+#if ENABLE_TTD
+void JsrtContext::OnScriptLoad_TTDCallback(void* jsrtCtx, Js::JavascriptFunction * scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo, CompileScriptException* compileException)
+{
+    ((JsrtContextCore *)jsrtCtx)->OnScriptLoad(scriptFunction, utf8SourceInfo, compileException);
+}
+#endif
 
 JsrtContextCore::JsrtContextCore(JsrtRuntime * runtime) :
     JsrtContext(runtime)
@@ -40,7 +47,15 @@ void JsrtContextCore::Dispose(bool isShutdown)
 {
     if (nullptr != this->GetJavascriptLibrary())
     {
-        this->GetJavascriptLibrary()->GetScriptContext()->MarkForClose();
+        Js::ScriptContext* scriptContxt = this->GetJavascriptLibrary()->GetScriptContext();
+        if (this->GetRuntime()->GetJsrtDebugManager() != nullptr)
+        {
+            this->GetRuntime()->GetJsrtDebugManager()->ClearDebugDocument(scriptContxt);
+        }
+        scriptContxt->EnsureClearDebugDocument();
+        scriptContxt->GetDebugContext()->GetProbeContainer()->UninstallInlineBreakpointProbe(NULL);
+        scriptContxt->GetDebugContext()->GetProbeContainer()->UninstallDebuggerScriptOptionCallback();
+        scriptContxt->MarkForClose();
         this->SetJavascriptLibrary(nullptr);
         Unlink();
     }
@@ -71,7 +86,49 @@ Js::ScriptContext* JsrtContextCore::EnsureScriptContext()
     return this->GetScriptContext();
 }
 
-void JsrtContextCore::OnScriptLoad(Js::JavascriptFunction * scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo)
+void JsrtContextCore::OnScriptLoad(Js::JavascriptFunction * scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo, CompileScriptException* compileException)
 {
-    // Do nothing
+    JsrtDebugManager* jsrtDebugManager = this->GetRuntime()->GetJsrtDebugManager();
+    if (jsrtDebugManager != nullptr)
+    {
+        jsrtDebugManager->ReportScriptCompile(scriptFunction, utf8SourceInfo, compileException);
+    }
 }
+
+HRESULT ChakraCoreHostScriptContext::FetchImportedModule(Js::ModuleRecordBase* referencingModule, LPCOLESTR specifier, Js::ModuleRecordBase** dependentModuleRecord)
+{
+    if (fetchImportedModuleCallback == nullptr)
+    {
+        return E_INVALIDARG;
+    }
+    Js::JavascriptString* specifierVar = Js::JavascriptString::NewCopySz(specifier, GetScriptContext());
+    JsModuleRecord dependentRecord = JS_INVALID_REFERENCE;
+    {
+        AUTO_NO_EXCEPTION_REGION;
+        JsErrorCode errorCode = fetchImportedModuleCallback(referencingModule, specifierVar, &dependentRecord);
+        if (errorCode == JsNoError)
+        {
+            *dependentModuleRecord = static_cast<Js::ModuleRecordBase*>(dependentRecord);
+            return NOERROR;
+        }
+    }
+    return E_INVALIDARG;
+}
+
+HRESULT ChakraCoreHostScriptContext::NotifyHostAboutModuleReady(Js::ModuleRecordBase* referencingModule, Js::Var exceptionVar)
+{
+    if (notifyModuleReadyCallback == nullptr)
+    {
+        return E_INVALIDARG;
+    }
+    {
+        AUTO_NO_EXCEPTION_REGION;
+        JsErrorCode errorCode = notifyModuleReadyCallback(referencingModule, exceptionVar);
+        if (errorCode == JsNoError)
+        {
+            return NOERROR;
+        }
+    }
+    return E_INVALIDARG;
+}
+

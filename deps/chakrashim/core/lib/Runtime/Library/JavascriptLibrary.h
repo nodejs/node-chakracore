@@ -165,7 +165,7 @@ namespace Js
         static DWORD GetCharStringCacheOffset() { return offsetof(JavascriptLibrary, charStringCache); }
         static DWORD GetCharStringCacheAOffset() { return GetCharStringCacheOffset() + CharStringCache::GetCharStringCacheAOffset(); }
         const  JavascriptLibraryBase* GetLibraryBase() const { return static_cast<const JavascriptLibraryBase*>(this); }
-        void SetGlobalObject(GlobalObject* globalObject) {globalObject = globalObject; }
+        void SetGlobalObject(GlobalObject* globalObject) {this->globalObject = globalObject; }
         static DWORD GetRandSeed0Offset() { return offsetof(JavascriptLibrary, randSeed0); }
         static DWORD GetRandSeed1Offset() { return offsetof(JavascriptLibrary, randSeed1); }
 
@@ -185,6 +185,7 @@ namespace Js
         DynamicType * generatorConstructorPrototypeObjectType;
         DynamicType * constructorPrototypeObjectType;
         DynamicType * heapArgumentsType;
+        DynamicType * heapArgumentsTypeStrictMode;
         DynamicType * activationObjectType;
         DynamicType * arrayType;
         DynamicType * nativeIntArrayType;
@@ -242,6 +243,7 @@ namespace Js
         DynamicType * stdCallFunctionWithDeferredPrototypeType;
         DynamicType * idMappedFunctionWithPrototypeType;
         DynamicType * externalConstructorFunctionWithDeferredPrototypeType;
+        DynamicType * defaultExternalConstructorFunctionWithDeferredPrototypeType;
         DynamicType * boundFunctionType;
         DynamicType * regexConstructorType;
         DynamicType * crossSiteDeferredPrototypeFunctionType;
@@ -471,18 +473,6 @@ namespace Js
         template <size_t N>
         JavascriptFunction * AddFunctionToLibraryObjectWithPropertyName(DynamicObject* object, const char16(&propertyName)[N], FunctionInfo * functionInfo, int length);
 
-        bool isHybridDebugging; // If this library is in hybrid debugging mode
-        bool isLibraryReadyForHybridDebugging; // If this library is ready for hybrid debugging (library objects using deferred type handler have been un-deferred)
-
-        bool IsHybridDebugging() const { return isHybridDebugging; }
-        void EnsureLibraryReadyForHybridDebugging();
-        DynamicObject* EnsureReadyIfHybridDebugging(DynamicObject* obj);
-        template <class T> T* EnsureReadyIfHybridDebugging(T* obj)
-        {
-            DynamicObject * dynamicObject = obj;
-            return (T*)EnsureReadyIfHybridDebugging(dynamicObject);
-        }
-
         static SimpleTypeHandler<1> SharedPrototypeTypeHandler;
         static SimpleTypeHandler<1> SharedFunctionWithoutPrototypeTypeHandler;
         static SimpleTypeHandler<1> SharedFunctionWithPrototypeTypeHandlerV11;
@@ -523,8 +513,6 @@ namespace Js
 #if ENABLE_COPYONACCESS_ARRAY
                               cacheForCopyOnAccessArraySegments(nullptr),
 #endif
-                              isHybridDebugging(false),
-                              isLibraryReadyForHybridDebugging(false),
                               referencedPropertyRecords(nullptr),
                               stringTemplateCallsiteObjectList(nullptr),
                               moduleRecordList(nullptr),
@@ -534,7 +522,7 @@ namespace Js
                               bindRefChunkEnd(nullptr),
                               dynamicFunctionReference(nullptr)
         {
-            globalObject = globalObject;
+            this->globalObject = globalObject;
         }
 
         void Initialize(ScriptContext* scriptContext, GlobalObject * globalObject);
@@ -641,6 +629,49 @@ namespace Js
         const PropertyDescriptor* GetDefaultPropertyDescriptor() const { return &defaultPropertyDescriptor; }
         DynamicObject* GetMissingPropertyHolder() const { return missingPropertyHolder; }
 
+#if ENABLE_TTD
+        Js::PropertyId ExtractPrimitveSymbolId_TTD(Var value);
+        Js::RecyclableObject* CreatePrimitveSymbol_TTD(Js::PropertyId pid);
+        Js::RecyclableObject* CreatePrimitveSymbol_TTD(Js::JavascriptString* str);
+
+        Js::RecyclableObject* CreateBooleanObject_TTD(Var value);
+        Js::RecyclableObject* CreateNumberObject_TTD(Var value);
+        Js::RecyclableObject* CreateStringObject_TTD(Var value);
+        Js::RecyclableObject* CreateSymbolObject_TTD(Var value);
+
+        Js::RecyclableObject* CreateDate_TTD(double value);
+        Js::RecyclableObject* CreateRegex_TTD(const char16* patternSource, uint32 patternLength, UnifiedRegex::RegexFlags flags, CharCount lastIndex);
+        Js::RecyclableObject* CreateError_TTD();
+
+        Js::RecyclableObject* CreateES5Array_TTD();
+
+        Js::RecyclableObject* CreateSet_TTD();
+        Js::RecyclableObject* CreateWeakSet_TTD();
+        static void AddSetElementInflate_TTD(Js::JavascriptSet* set, Var value);
+        static void AddWeakSetElementInflate_TTD(Js::JavascriptWeakSet* set, Var value);
+
+        Js::RecyclableObject* CreateMap_TTD();
+        Js::RecyclableObject* CreateWeakMap_TTD();
+        static void AddMapElementInflate_TTD(Js::JavascriptMap* map, Var key, Var value);
+        static void AddWeakMapElementInflate_TTD(Js::JavascriptWeakMap* map, Var key, Var value);
+
+        Js::RecyclableObject* CreateExternalFunction_TTD(Js::JavascriptString* fname);
+        Js::RecyclableObject* CreateBoundFunction_TTD(RecyclableObject* function, Var bThis, uint32 ct, Var* args);
+
+        Js::RecyclableObject* CreateProxy_TTD(RecyclableObject* handler, RecyclableObject* target);
+        Js::RecyclableObject* CreateRevokeFunction_TTD(RecyclableObject* proxy);
+
+        Js::RecyclableObject* CreateHeapArguments_TTD(uint32 numOfArguments, uint32 formalCount, ActivationObject* frameObject, byte* deletedArray);
+        Js::RecyclableObject* CreateES5HeapArguments_TTD(uint32 numOfArguments, uint32 formalCount, ActivationObject* frameObject, byte* deletedArray);
+
+        Js::JavascriptPromiseCapability* CreatePromiseCapability_TTD(Var promise, Var resolve, Var reject);
+        Js::JavascriptPromiseReaction* CreatePromiseReaction_TTD(RecyclableObject* handler, JavascriptPromiseCapability* capabilities);
+
+        Js::RecyclableObject* CreatePromise_TTD(uint32 status, Var result, JsUtil::List<Js::JavascriptPromiseReaction*, HeapAllocator>& resolveReactions, JsUtil::List<Js::JavascriptPromiseReaction*, HeapAllocator>& rejectReactions);
+        JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper* CreateAlreadyDefinedWrapper_TTD(bool alreadyDefined);
+        Js::RecyclableObject* CreatePromiseResolveOrRejectFunction_TTD(RecyclableObject* promise, bool isReject, JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper* alreadyResolved);
+        Js::RecyclableObject* CreatePromiseReactionTaskFunction_TTD(JavascriptPromiseReaction* reaction, Var argument);
+#endif
 
 #ifdef ENABLE_INTL_OBJECT
         DynamicObject* GetINTLObject() const { return IntlObject; }
@@ -807,7 +838,7 @@ namespace Js
         FinalizableObject* GetPinnedJsrtContextObject();
         void EnqueueTask(Var taskVar);
 
-        HeapArgumentsObject* CreateHeapArguments(Var frameObj, uint formalCount);
+        HeapArgumentsObject* CreateHeapArguments(Var frameObj, uint formalCount, bool isStrictMode = false);
         JavascriptArray* CreateArray();
         JavascriptArray* CreateArray(uint32 length);
         JavascriptArray *CreateArrayOnStack(void *const stackAllocationPointer);
@@ -1008,6 +1039,8 @@ namespace Js
         RecyclableObject* TryGetStringTemplateCallsiteObject(ParseNodePtr pnode);
         RecyclableObject* TryGetStringTemplateCallsiteObject(RecyclableObject* callsite);
 
+        static void CheckAndInvalidateIsConcatSpreadableCache(PropertyId propertyId, ScriptContext *scriptContext);
+
 #if DBG_DUMP
         static const char16* GetStringTemplateCallsiteObjectKey(Var callsite);
 #endif
@@ -1065,8 +1098,6 @@ namespace Js
         void NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
 
         static bool ArrayIteratorPrototypeHasUserDefinedNext(ScriptContext *scriptContext);
-
-        HRESULT EnsureReadyIfHybridDebugging(bool isScriptEngineReady = true);
 
         CharStringCache& GetCharStringCache() { return charStringCache;  }
         static JavascriptLibrary * FromCharStringCache(CharStringCache * cache)

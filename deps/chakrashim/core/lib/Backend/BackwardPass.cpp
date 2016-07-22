@@ -2,13 +2,6 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-class JitArenaAllocator;
-template <>
-void
-BVSparse<JitArenaAllocator>::QueueInFreeList(BVSparseNode *curNode)
-{
-    AllocatorDeleteInline(JitArenaAllocator, this->alloc, curNode);
-}
 
 #include "Backend.h"
 
@@ -259,12 +252,104 @@ BackwardPass::CleanupBackwardPassInfoInFlowGraph()
     }
     NEXT_BLOCK_IN_FUNC_DEAD_OR_ALIVE;
 }
+
+/*
+*   We Insert ArgIns at the start of the function for all the formals.
+*   Unused formals will be deadstored during the deadstore pass.
+*   We need ArgIns only for the outermost function(inliner).
+*/
+void
+BackwardPass::InsertArgInsForFormals()
+{
+    if (func->IsStackArgsEnabled() && !func->GetJnFunction()->GetHasImplicitArgIns())
+    {
+        IR::Instr * insertAfterInstr = func->m_headInstr->m_next;
+        AssertMsg(insertAfterInstr->IsLabelInstr(), "First Instr of the first block should always have a label");
+
+        Js::ArgSlot paramsCount = insertAfterInstr->m_func->GetJnFunction()->GetInParamsCount() - 1;
+        IR::Instr *     argInInstr = nullptr;
+        for (Js::ArgSlot argumentIndex = 1; argumentIndex <= paramsCount; argumentIndex++)
+        {
+            IR::SymOpnd *   srcOpnd;
+            StackSym *      symSrc = StackSym::NewParamSlotSym(argumentIndex + 1, func);
+            StackSym *      symDst = StackSym::New(func);
+            IR::RegOpnd * dstOpnd = IR::RegOpnd::New(symDst, TyVar, func);
+
+            func->SetArgOffset(symSrc, (argumentIndex + LowererMD::GetFormalParamOffset()) * MachPtr);
+
+            srcOpnd = IR::SymOpnd::New(symSrc, TyVar, func);
+
+            argInInstr = IR::Instr::New(Js::OpCode::ArgIn_A, dstOpnd, srcOpnd, func);
+            insertAfterInstr->InsertAfter(argInInstr);
+            insertAfterInstr = argInInstr;
+
+            AssertMsg(!func->HasStackSymForFormal(argumentIndex - 1), "Already has a stack sym for this formal?");
+            this->func->TrackStackSymForFormalIndex(argumentIndex - 1, symDst);
+        }
+
+        if (PHASE_VERBOSE_TRACE1(Js::StackArgFormalsOptPhase) && paramsCount > 0)
+        {
+            Output::Print(_u("StackArgFormals : %s (%d) :Inserting ArgIn_A for LdSlot (formals) in the start of Deadstore pass. \n"), func->GetJnFunction()->GetDisplayName(), func->GetJnFunction()->GetFunctionNumber());
+            Output::Flush();
+        }
+    }
+}
+
+void
+BackwardPass::ProcessBailOnStackArgsOutOfActualsRange()
+{
+    IR::Instr * instr = this->currentInstr;
+
+    if (tag == Js::DeadStorePhase && 
+        (instr->m_opcode == Js::OpCode::LdElemI_A || instr->m_opcode == Js::OpCode::TypeofElem) && 
+        instr->HasBailOutInfo() && !IsPrePass())
+    {
+        if (instr->DoStackArgsOpt(this->func))
+        {
+            AssertMsg(instr->GetBailOutKind() & IR::BailOnStackArgsOutOfActualsRange, "Stack args bail out is not set when the optimization is turned on? ");
+            if (instr->GetBailOutKind() & ~IR::BailOnStackArgsOutOfActualsRange)
+            {
+                Assert(instr->GetBailOutKind() == (IR::BailOnStackArgsOutOfActualsRange | IR::BailOutOnImplicitCallsPreOp));
+                //We are sure at this point, that we will not have any implicit calls as we wouldn't have done this optimization in the first place.
+                instr->SetBailOutKind(IR::BailOnStackArgsOutOfActualsRange);
+            }
+        }
+        else if (instr->GetBailOutKind() & IR::BailOnStackArgsOutOfActualsRange)
+        {
+            //If we don't decide to do StackArgs, then remove the bail out at this point.
+            //We would have optimistically set the bailout in the forward pass, and by the end of forward pass - we
+            //turned off stack args for some reason. So we are removing it in the deadstore pass.
+            IR::BailOutKind bailOutKind = instr->GetBailOutKind() & ~IR::BailOnStackArgsOutOfActualsRange;
+            if (bailOutKind == IR::BailOutInvalid)
+            {
+                instr->ClearBailOutInfo();
+            }
+            else
+            {
+                instr->SetBailOutKind(bailOutKind);
+            }
+        }
+    }
+}
+
 void
 BackwardPass::Optimize()
 {
     if (tag == Js::BackwardPhase && PHASE_OFF(tag, this->func))
     {
         return;
+    }
+
+    if (tag == Js::DeadStorePhase)
+    {
+        if (!this->func->DoLoopFastPaths() || !this->func->DoFastPaths())
+        {
+            //arguments[] access is similar to array fast path hence disable when array fastpath is disabled.
+            //loopFastPath is always true except explicitly disabled
+            //defaultDoFastPath can be false when we the source code size is huge
+            func->SetHasStackArgs(false);
+        }
+        InsertArgInsForFormals();
     }
 
     NoRecoverMemoryJitArenaAllocator localAlloc(tag == Js::BackwardPhase? _u("BE-Backward") : _u("BE-DeadStore"),
@@ -451,7 +536,7 @@ BackwardPass::MergeSuccBlocksInfo(BasicBlock * block)
             char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
             // save the byteCodeUpwardExposedUsed from deleting for the block right after the memop loop
-            if (this->tag == Js::DeadStorePhase && !this->IsPrePass() && globOpt->DoMemOp(block->loop) && blockSucc->loop != block->loop)
+            if (this->tag == Js::DeadStorePhase && !this->IsPrePass() && globOpt->HasMemOp(block->loop) && blockSucc->loop != block->loop)
             {
                 Assert(block->loop->memOpInfo->inductionVariablesUsedAfterLoop == nullptr);
                 block->loop->memOpInfo->inductionVariablesUsedAfterLoop = JitAnew(this->tempAlloc, BVSparse<JitArenaAllocator>, this->tempAlloc);
@@ -1825,6 +1910,17 @@ BackwardPass::ProcessBailOutInfo(IR::Instr * instr)
             BVSparse<JitArenaAllocator> * byteCodeUpwardExposedUsed = byteCodeUsesInstr->byteCodeUpwardExposedUsed;
             if (byteCodeUpwardExposedUsed != nullptr)
             {
+                //Stack Args for Formals optimization.
+                //We will restore the scope object in the bail out path, when we restore Heap arguments object.
+                //So we don't to mark the sym for scope object separately for restoration.
+                //When StackArgs for formal opt is ON , Scope object sym is used by formals access only, which will be replaced by ArgIns and Ld_A 
+                //So it is ok to clear the bit here.
+                //Clearing the bit in byteCodeUpwardExposedUsed here.
+                if (instr->m_func->IsStackArgsEnabled() && instr->m_func->GetScopeObjSym())
+                {
+                    byteCodeUpwardExposedUsed->Clear(instr->m_func->GetScopeObjSym()->m_id);
+                }
+
                 this->currentBlock->byteCodeUpwardExposedUsed->Or(byteCodeUpwardExposedUsed);
 #if DBG
                 FOREACH_BITSET_IN_SPARSEBV(symId, byteCodeUpwardExposedUsed)
@@ -2421,7 +2517,16 @@ BackwardPass::ProcessBlock(BasicBlock * block)
 
         this->currentInstr = instr;
         this->currentRegion = this->currentBlock->GetFirstInstr()->AsLabelInstr()->GetRegion();
+        
+        IR::Instr * insertedInstr = TryChangeInstrForStackArgOpt();
+        if (insertedInstr != nullptr)
+        {
+            instrPrev = insertedInstr;
+            continue;
+        }
 
+        ProcessBailOnStackArgsOutOfActualsRange();
+        
         if (ProcessNoImplicitCallUses(instr) || this->ProcessBailOutInfo(instr))
         {
             continue;
@@ -2431,6 +2536,11 @@ BackwardPass::ProcessBlock(BasicBlock * block)
         if (this->TrackNoImplicitCallInlinees(instr))
         {
             instrPrev = instrNext->m_prev;
+            continue;
+        }
+
+        if (CanDeadStoreInstrForScopeObjRemoval() && DeadStoreOrChangeInstrForScopeObjRemoval())
+        {
             continue;
         }
 
@@ -2509,6 +2619,11 @@ BackwardPass::ProcessBlock(BasicBlock * block)
         {
             switch(instr->m_opcode)
             {
+                case Js::OpCode::LdSlot:
+                {
+                    DeadStoreOrChangeInstrForScopeObjRemoval();
+                    break;
+                }
                 case Js::OpCode::InlineArrayPush:
                 case Js::OpCode::InlineArrayPop:
                 {
@@ -2740,6 +2855,200 @@ BackwardPass::ProcessBlock(BasicBlock * block)
         DumpBlockData(block);
     }
 #endif
+}
+
+bool 
+BackwardPass::CanDeadStoreInstrForScopeObjRemoval(Sym *sym) const
+{
+    if (tag == Js::DeadStorePhase && this->currentInstr->m_func->IsStackArgsEnabled())
+    {
+        Func * currFunc = this->currentInstr->m_func;
+        switch (this->currentInstr->m_opcode)
+        {
+            case Js::OpCode::LdHeapArguments:
+            case Js::OpCode::LdHeapArgsCached:
+            case Js::OpCode::LdLetHeapArguments:
+            case Js::OpCode::LdLetHeapArgsCached:
+            {
+                if (this->currentInstr->GetSrc1()->IsScopeObjOpnd(currFunc))
+                {
+                    /*
+                    *   We don't really dead store these instructions. We just want the source sym of these instructions (which is the scope object)
+                    *   to NOT be tracked as USED by this instruction.
+                    *   In case of LdXXHeapArgsXXX opcodes, they will effectively be lowered to dest = MOV NULL, in the lowerer phase.
+                    */
+                    return true;
+                }
+                break;
+            }
+            case Js::OpCode::LdSlot:
+            {
+                if (sym && IsFormalParamSym(currFunc, sym))
+                {
+                    return true;
+                }
+                break;
+            }
+            case Js::OpCode::CommitScope:
+            {
+                return this->currentInstr->GetSrc1()->IsScopeObjOpnd(currFunc);
+            }
+            case Js::OpCode::BrFncCachedScopeEq:
+            case Js::OpCode::BrFncCachedScopeNeq:
+            {
+                return this->currentInstr->GetSrc2()->IsScopeObjOpnd(currFunc);
+            }
+        }
+    }
+    return false;
+}
+
+/*
+* This is for Eliminating Scope Object Creation during Heap arguments optimization.
+*/
+bool
+BackwardPass::DeadStoreOrChangeInstrForScopeObjRemoval()
+{
+    IR::Instr * instr = this->currentInstr;
+    Func * currFunc = instr->m_func;
+
+    if (this->tag == Js::DeadStorePhase && instr->m_func->IsStackArgsEnabled() && !IsPrePass())
+    {
+        switch (instr->m_opcode)
+        {
+            /*
+            *   This LdSlot loads the formal from the formals array. We replace this a Ld_A <ArgInSym>.
+            *   ArgInSym is inserted at the beginning of the function during the start of the deadstore pass- for the top func.
+            *   In case of inlinee, it will be from the source sym of the ArgOut Instruction to the inlinee.
+            */
+            case Js::OpCode::LdSlot:
+            {
+                IR::Opnd * src1 = instr->GetSrc1();
+                if (src1 && src1->IsSymOpnd())
+                {
+                    Sym * sym = src1->AsSymOpnd()->m_sym;
+                    Assert(sym);
+                    if (IsFormalParamSym(currFunc, sym))
+                    {
+                        AssertMsg(!currFunc->GetJnFunction()->GetHasImplicitArgIns(), "We don't have mappings between named formals and arguments object here");
+
+                        instr->m_opcode = Js::OpCode::Ld_A;
+                        PropertySym * propSym = sym->AsPropertySym();
+                        Js::ArgSlot    value = (Js::ArgSlot)propSym->m_propertyId;
+
+                        Assert(currFunc->HasStackSymForFormal(value));
+                        StackSym * paramStackSym = currFunc->GetStackSymForFormal(value);
+                        IR::RegOpnd * srcOpnd = IR::RegOpnd::New(paramStackSym, TyVar, currFunc);
+                        instr->ReplaceSrc1(srcOpnd);
+                        this->ProcessSymUse(paramStackSym, true, true);
+
+                        if (PHASE_VERBOSE_TRACE1(Js::StackArgFormalsOptPhase))
+                        {
+                            Output::Print(_u("StackArgFormals : %s (%d) :Replacing LdSlot with Ld_A in Deadstore pass. \n"), instr->m_func->GetJnFunction()->GetDisplayName(), instr->m_func->GetJnFunction()->GetFunctionNumber());
+                            Output::Flush();
+                        }
+                    }
+                }
+                break;
+            }
+            case Js::OpCode::CommitScope:
+            {
+                if (instr->GetSrc1()->IsScopeObjOpnd(currFunc))
+                {
+                    instr->Remove();
+                    return true;
+                }
+                break;
+            }
+            case Js::OpCode::BrFncCachedScopeEq:
+            case Js::OpCode::BrFncCachedScopeNeq:
+            {
+                if (instr->GetSrc2()->IsScopeObjOpnd(currFunc))
+                {
+                    instr->Remove();
+                    return true;
+                }
+                break;
+            }
+        }
+    }
+    return false;
+}
+
+IR::Instr *
+BackwardPass::TryChangeInstrForStackArgOpt()
+{
+    IR::Instr * instr = this->currentInstr;
+    if (instr->DoStackArgsOpt(this->func))
+    {
+        switch (instr->m_opcode)
+        {
+            case Js::OpCode::TypeofElem:
+            {
+                /*
+                    Before:
+                        dst = TypeOfElem arguments[i] <(BailOnStackArgsOutOfActualsRange)>
+
+                    After:
+                        tmpdst = LdElemI_A arguments[i] <(BailOnStackArgsOutOfActualsRange)>
+                        dst = TypeOf tmpdst
+                */
+
+                AssertMsg(instr->HasBailOutInfo() && (instr->GetBailOutKind() & IR::BailOutKind::BailOnStackArgsOutOfActualsRange), "Why is the bailout kind not set, when it is StackArgOptimized?");
+
+                instr->m_opcode = Js::OpCode::LdElemI_A;
+                IR::Opnd * dstOpnd = instr->UnlinkDst();
+
+                IR::RegOpnd * elementOpnd = IR::RegOpnd::New(StackSym::New(instr->m_func), IRType::TyVar, instr->m_func);
+                instr->SetDst(elementOpnd);
+
+                IR::Instr * typeOfInstr = IR::Instr::New(Js::OpCode::Typeof, dstOpnd, elementOpnd, instr->m_func);
+                instr->InsertAfter(typeOfInstr);
+
+                return typeOfInstr;
+            }
+        }
+    }
+    return nullptr;
+}
+
+void
+BackwardPass::TraceDeadStoreOfInstrsForScopeObjectRemoval()
+{
+    IR::Instr * instr = this->currentInstr;
+
+    if (instr->m_func->IsStackArgsEnabled())
+    {
+        if ((instr->m_opcode == Js::OpCode::InitCachedScope || instr->m_opcode == Js::OpCode::NewScopeObject) && !IsPrePass())
+        {
+            if (PHASE_TRACE1(Js::StackArgFormalsOptPhase))
+            {
+                Output::Print(_u("StackArgFormals : %s (%d) :Removing Scope object creation in Deadstore pass. \n"), instr->m_func->GetJnFunction()->GetDisplayName(), instr->m_func->GetJnFunction()->GetFunctionNumber());
+                Output::Flush();
+            }
+        }
+    }
+}
+
+bool
+BackwardPass::IsFormalParamSym(Func * func, Sym * sym) const
+{
+    Assert(sym);
+    
+    if (sym->IsPropertySym())
+    {
+        //If the sym is a propertySym, then see if the propertyId is within the range of the formals 
+        //We can have other properties stored in the scope object other than the formals (following the formals).
+        PropertySym * propSym = sym->AsPropertySym();
+        IntConstType    value = propSym->m_propertyId;
+        return func->IsFormalsArraySym(propSym->m_stackSym->m_id) &&
+            (value >= 0 && value < func->GetJnFunction()->GetInParamsCount() - 1);
+    }
+    else
+    {
+        Assert(sym->IsStackSym());
+        return !!func->IsFormalsArraySym(sym->AsStackSym()->m_id);
+    }
 }
 
 #if DBG_DUMP
@@ -3779,6 +4088,12 @@ bool
 BackwardPass::ProcessSymUse(Sym * sym, bool isRegOpndUse, BOOLEAN isNonByteCodeUse)
 {
     BasicBlock * block = this->currentBlock;
+    
+    if (CanDeadStoreInstrForScopeObjRemoval(sym))   
+    {
+        return false;
+    }
+
     if (sym->IsPropertySym())
     {
         PropertySym * propertySym = sym->AsPropertySym();
@@ -4075,8 +4390,8 @@ BackwardPass::TrackObjTypeSpecProperties(IR::PropertySymOpnd *opnd, BasicBlock *
             {
                 // If there is no upstream type check that is live and could protect guarded properties, we better
                 // not have any properties remaining.
-                ObjTypeGuardBucket* bucket = block->stackSymToGuardedProperties->Get(opnd->GetObjectSym()->m_id);
-                Assert(opnd->IsTypeAvailable() || bucket == nullptr || bucket->GetGuardedPropertyOps()->IsEmpty());
+                ObjTypeGuardBucket* objTypeGuardBucket = block->stackSymToGuardedProperties->Get(opnd->GetObjectSym()->m_id);
+                Assert(opnd->IsTypeAvailable() || objTypeGuardBucket == nullptr || objTypeGuardBucket->GetGuardedPropertyOps()->IsEmpty());
             }
 #endif
         }
@@ -5146,9 +5461,9 @@ BackwardPass::TrackIntUsage(IR::Instr *const instr)
             case Js::OpCode::ShrU_I4:
 
             case Js::OpCode::Conv_Str:
-            case Js::OpCode::Coerse_Str:
-            case Js::OpCode::Coerse_Regex:
-            case Js::OpCode::Coerse_StrOrRegex:
+            case Js::OpCode::Coerce_Str:
+            case Js::OpCode::Coerce_Regex:
+            case Js::OpCode::Coerce_StrOrRegex:
             case Js::OpCode::Conv_PrimStr:
 
             case Js::OpCode::Add_Ptr:
@@ -6265,7 +6580,14 @@ BackwardPass::DeadStoreInstr(IR::Instr *instr)
         tempBv.Copy(this->currentBlock->byteCodeUpwardExposedUsed);
 #endif
         PropertySym *unusedPropertySym = nullptr;
-        GlobOpt::TrackByteCodeSymUsed(instr, this->currentBlock->byteCodeUpwardExposedUsed, &unusedPropertySym);
+        
+        // Do not track the Scope Obj - we will be restoring it in the bailout path while restoring Heap arguments object.
+        // See InterpreterStackFrame::TrySetFrameObjectInHeapArgObj
+        if (!(instr->m_func->IsStackArgsEnabled() && instr->m_opcode == Js::OpCode::LdSlotArr &&
+            instr->GetSrc1() && instr->GetSrc1()->IsScopeObjOpnd(instr->m_func)))
+        {
+            GlobOpt::TrackByteCodeSymUsed(instr, this->currentBlock->byteCodeUpwardExposedUsed, &unusedPropertySym);
+        }
 #if DBG
         BVSparse<JitArenaAllocator> tempBv2(this->tempAlloc);
         tempBv2.Copy(this->currentBlock->byteCodeUpwardExposedUsed);
@@ -6303,6 +6625,19 @@ BackwardPass::DeadStoreInstr(IR::Instr *instr)
     }
 #endif
 
+    
+    if (instr->m_opcode == Js::OpCode::ArgIn_A)
+    {
+        //Ignore tracking ArgIn for "this", as argInsCount only tracks other params - unless it is a asmjs function(which doesn't have a "this").
+        if (instr->GetSrc1()->AsSymOpnd()->m_sym->AsStackSym()->GetParamSlotNum() != 1 || func->GetJnFunction()->GetIsAsmjsMode())
+        {
+            Assert(this->func->argInsCount > 0);
+            this->func->argInsCount--;
+        }
+    }
+
+    TraceDeadStoreOfInstrsForScopeObjectRemoval();
+    
     block->RemoveInstr(instr);
     return true;
 }
@@ -6504,7 +6839,7 @@ BackwardPass::ProcessInlineeStart(IR::Instr* inlineeStart)
     inlineeStart->IterateMetaArgs([&](IR::Instr* metaArg)
     {
         if (i == Js::Constants::InlineeMetaArgIndex_ArgumentsObject &&
-            inlineeStart->m_func->GetHasArgumentObject())
+            inlineeStart->m_func->GetJnFunction()->GetUsesArgumentsObject())
         {
             Assert(!inlineeStart->m_func->GetHasUnoptimizedArgumentsAcccess());
             // Do not remove arguments object meta arg if there is a reference to arguments object
@@ -7124,7 +7459,7 @@ BackwardPass::DoDeadStoreLdStForMemop(IR::Instr *instr)
 
     Loop *loop = this->currentBlock->loop;
 
-    if (globOpt->DoMemOp(loop))
+    if (globOpt->HasMemOp(loop))
     {
         if (instr->m_opcode == Js::OpCode::StElemI_A && instr->GetDst()->IsIndirOpnd())
         {
@@ -7192,7 +7527,7 @@ BackwardPass::RestoreInductionVariableValuesAfterMemOp(Loop *loop)
 bool
 BackwardPass::IsEmptyLoopAfterMemOp(Loop *loop)
 {
-    if (globOpt->DoMemOp(loop))
+    if (globOpt->HasMemOp(loop))
     {
         const auto IsInductionVariableUse = [&](IR::Opnd *opnd) -> bool
         {

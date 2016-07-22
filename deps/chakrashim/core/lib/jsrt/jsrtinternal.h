@@ -177,7 +177,7 @@ JsErrorCode ContextAPIWrapper(Fn fn)
 
 // allowInObjectBeforeCollectCallback only when current API is guaranteed not to do recycler allocation.
 template <class Fn>
-JsErrorCode ContextAPINoScriptWrapper(Fn fn, bool allowInObjectBeforeCollectCallback = false)
+JsErrorCode ContextAPINoScriptWrapper(Fn fn, bool allowInObjectBeforeCollectCallback = false, bool scriptExceptionAllowed = false)
 {
     JsrtContext *currentContext = JsrtContext::GetCurrent();
     JsErrorCode errCode = CheckContext(currentContext, /*verifyRuntimeState*/true, allowInObjectBeforeCollectCallback);
@@ -204,7 +204,7 @@ JsErrorCode ContextAPINoScriptWrapper(Fn fn, bool allowInObjectBeforeCollectCall
             errCode != JsErrorInExceptionState &&
             errCode != JsErrorInDisabledState &&
             errCode != JsErrorOutOfMemory &&
-            errCode != JsErrorScriptException &&
+            (scriptExceptionAllowed || errCode != JsErrorScriptException) &&
             errCode != JsErrorScriptTerminated);
     }
     CATCH_STATIC_JAVASCRIPT_EXCEPTION_OBJECT
@@ -226,6 +226,70 @@ JsErrorCode ContextAPINoScriptWrapper(Fn fn, bool allowInObjectBeforeCollectCall
     CATCH_OTHER_EXCEPTIONS
 
     return errCode;
+}
+
+template <class Fn>
+JsErrorCode SetContextAPIWrapper(JsrtContext* newContext, Fn fn)
+{
+    JsrtContext* oldContext = JsrtContext::GetCurrent();
+    Js::ScriptContext* scriptContext = newContext->GetScriptContext();
+
+    JsErrorCode errorCode = JsNoError;
+    try
+    {
+        // For now, treat this like an out of memory; consider if we should do something else here.
+
+        AUTO_NESTED_HANDLED_EXCEPTION_TYPE((ExceptionType)(ExceptionType_OutOfMemory | ExceptionType_StackOverflow | ExceptionType_JavascriptException));
+        if (JsrtContext::TrySetCurrent(newContext))
+        {
+            // Enter script
+            BEGIN_ENTER_SCRIPT(scriptContext, true, true, true)
+            {
+                errorCode = fn(scriptContext);
+            }
+            END_ENTER_SCRIPT
+        }
+        else
+        {
+            errorCode = JsErrorWrongThread;
+        }
+
+        // These are error codes that should only be produced by the wrappers and should never
+        // be produced by the internal calls.
+        Assert(errorCode != JsErrorFatal &&
+            errorCode != JsErrorNoCurrentContext &&
+            errorCode != JsErrorInExceptionState &&
+            errorCode != JsErrorInDisabledState &&
+            errorCode != JsErrorOutOfMemory &&
+            errorCode != JsErrorScriptException &&
+            errorCode != JsErrorScriptTerminated);
+    }
+    catch (Js::OutOfMemoryException)
+    {
+        errorCode = JsErrorOutOfMemory;
+    }
+    catch (Js::JavascriptExceptionObject *  exceptionObject)
+    {
+        scriptContext->GetThreadContext()->SetRecordedException(exceptionObject);
+        errorCode = JsErrorScriptException;
+    }
+    catch (Js::ScriptAbortException)
+    {
+        Assert(scriptContext->GetThreadContext()->GetRecordedException() == nullptr);
+        scriptContext->GetThreadContext()->SetRecordedException(scriptContext->GetThreadContext()->GetPendingTerminatedErrorObject());
+        errorCode = JsErrorScriptTerminated;
+    }
+    catch (Js::EvalDisabledException)
+    {
+        errorCode = JsErrorScriptEvalDisabled;
+    }
+    catch (Js::StackOverflowException)
+    {
+        return JsErrorOutOfMemory;
+    }
+    CATCH_OTHER_EXCEPTIONS
+    JsrtContext::TrySetCurrent(oldContext);
+    return errorCode;
 }
 
 void HandleScriptCompileError(Js::ScriptContext * scriptContext, CompileScriptException * se);

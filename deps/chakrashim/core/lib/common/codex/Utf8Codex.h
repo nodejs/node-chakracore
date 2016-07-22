@@ -3,8 +3,17 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
+
+#ifdef _WIN32
 #include <windows.h>
 #include <wtypes.h>
+#else
+// TODO: Abstract out into it's own file
+#include "pal.h"
+#include "inc/rt/palrt.h"
+#include <stdint.h>
+#endif
+
 
 // Utf8Codex.h needs to be self contained, so these type defs are duplicated from CommonTypeDefs.h
 #ifdef _WIN32
@@ -17,8 +26,58 @@ typedef char16_t char16;
 
 typedef char16 wchar;
 
-typedef unsigned __int32 uint32;
 
+#ifndef _WIN32
+// Templates are defined here in order to avoid a dependency on C++
+// <type_traits> header file,
+// or on compiler-specific contructs.
+extern "C++" {
+
+    template <size_t S>
+    struct _ENUM_FLAG_INTEGER_FOR_SIZE;
+
+    template <>
+    struct _ENUM_FLAG_INTEGER_FOR_SIZE<1>
+    {
+        typedef int8_t type;
+    };
+
+    template <>
+    struct _ENUM_FLAG_INTEGER_FOR_SIZE<2>
+    {
+        typedef int16_t type;
+    };
+
+    template <>
+    struct _ENUM_FLAG_INTEGER_FOR_SIZE<4>
+    {
+        typedef int32_t type;
+    };
+
+    // used as an approximation of std::underlying_type<T>
+    template <class T>
+        struct _ENUM_FLAG_SIZED_INTEGER
+    {
+        typedef typename _ENUM_FLAG_INTEGER_FOR_SIZE<sizeof(T)>::type
+    type;
+    };
+
+}
+
+#define DEFINE_ENUM_FLAG_OPERATORS(ENUMTYPE) \
+extern "C++" { \
+inline ENUMTYPE operator | (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) | ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) |= ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE operator & (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) & ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE &operator &= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) &= ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE operator ~ (ENUMTYPE a) { return ENUMTYPE(~((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a)); } \
+inline ENUMTYPE operator ^ (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) ^ ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) ^= ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+}
+
+#endif
+
+typedef unsigned __int32 uint32;
 // charcount_t represents a count of characters in a String
 // It is unsigned and the maximum value is (INT_MAX-1)
 typedef uint32 charcount_t;
@@ -102,6 +161,9 @@ namespace utf8
     // special cases ASCII to avoid a call the most common characters.
     LPUTF8 EncodeFull(char16 ch, __out_ecount(3) LPUTF8 ptr);
 
+    // Encode a surrogate pair into a utf8 sequence 
+    LPUTF8 EncodeSurrogatePair(char16 surrogateHigh, char16 surrogateLow, __out_ecount(3) LPUTF8 ptr);
+
     // Encode ch into a UTF8 sequence ignoring surrogate pairs (which are encoded as two
     // separate code points).
     inline LPUTF8 Encode(char16 ch, __out_ecount(3) LPUTF8 ptr)
@@ -112,6 +174,46 @@ namespace utf8
             return ptr + 1;
         }
         return EncodeFull(ch, ptr);
+    }
+
+    // Encode ch into a UTF8 sequence while being aware of surrogate pairs.
+    inline LPUTF8 EncodeTrueUtf8(char16 ch, const char16** source, charcount_t* cch, __out_ecount(3) LPUTF8 ptr)
+    {
+        if (ch < 0x80)
+        {
+            *ptr = static_cast<utf8char_t>(ch);
+            return ptr + 1;
+        }
+        else if (ch < 0xD800 || (ch >= 0xE000 && ch <= 0xFFFF))
+        {
+            return EncodeFull(ch, ptr);
+        } 
+
+        // We're now decoding a surrogate pair. If the input is malformed (eg. low surrogate is absent)
+        // we'll instead encode the unicode replacement character as utf8
+        if (*cch > 0)
+        {
+            char16 surrogateHigh = ch;
+            char16 surrogateLow = **source;
+
+            // Validate that the surrogate code units are within the appropriate 
+            // ranges for high and low surrogates
+            if ((surrogateHigh >= 0xD800 && surrogateHigh <= 0xDBFF) &&
+                (surrogateLow >= 0xDC00 && surrogateLow <= 0xDFFF))
+            {
+                // Consume the low surrogate
+                *source = *source + 1;
+                *cch = *cch - 1;
+
+                return EncodeSurrogatePair(surrogateHigh, surrogateLow, ptr);
+            }
+        }
+
+        // Invalid input: insert the unicode replacement character instead
+        ptr[0] = 0xEF;
+        ptr[1] = 0xBF;
+        ptr[2] = 0xBD;
+        return ptr + 3;
     }
 
     // Return true if ch is a lead byte of a UTF8 multi-unit sequence.
@@ -203,6 +305,10 @@ namespace utf8
     // Like EncodeInto but ensures that buffer[return value] == 0.
     __range(0, cch * 3)
     size_t EncodeIntoAndNullTerminate(__out_ecount(cch * 3 + 1) utf8char_t *buffer, __in_ecount(cch) const char16 *source, charcount_t cch);
+
+    // Like EncodeInto but ensures that buffer[return value] == 0.
+    __range(0, cch * 3)
+    size_t EncodeTrueUtf8IntoAndNullTerminate(__out_ecount(cch * 3 + 1) utf8char_t *buffer, __in_ecount(cch) const char16 *source, charcount_t cch);
 
     // Returns true if the pch refers to a UTF-16LE encoding of the given UTF-8 encoding bch.
     bool CharsAreEqual(__in_ecount(cch) LPCOLESTR pch, LPCUTF8 bch, size_t cch, DecodeOptions options = doDefault);

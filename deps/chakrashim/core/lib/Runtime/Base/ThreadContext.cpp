@@ -57,7 +57,7 @@ void (*InitializeAdditionalProperties)(ThreadContext *threadContext) = DefaultIn
 // To make sure the marker function doesn't get inlined, optimized away, or merged with other functions we disable optimization.
 // If this method ends up causing a perf problem in the future, we should replace it with asm versions which should be lighter.
 #pragma optimize("g", off)
-__declspec(noinline) extern "C" void* MarkerForExternalDebugStep()
+_NOINLINE extern "C" void* MarkerForExternalDebugStep()
 {
     // We need to return something here to prevent this function from being merged with other empty functions by the linker.
     static int __dummy;
@@ -69,7 +69,7 @@ CriticalSection ThreadContext::s_csThreadContext;
 size_t ThreadContext::processNativeCodeSize = 0;
 ThreadContext * ThreadContext::globalListFirst = nullptr;
 ThreadContext * ThreadContext::globalListLast = nullptr;
-uint ThreadContext::activeScriptSiteCount = 0;
+__declspec(thread) uint ThreadContext::activeScriptSiteCount = 0;
 
 const Js::PropertyRecord * const ThreadContext::builtInPropertyRecords[] =
 {
@@ -114,7 +114,11 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     isOptimizedForManyInstances(Js::Configuration::Global.flags.OptimizeForManyInstances),
     bgJit(Js::Configuration::Global.flags.BgJit),
     pageAllocator(allocationPolicyManager, PageAllocatorType_Thread, Js::Configuration::Global.flags, 0, PageAllocator::DefaultMaxFreePageCount,
-        false, &backgroundPageQueue),
+        false
+#if ENABLE_BACKGROUND_PAGE_FREEING
+        , &backgroundPageQueue
+#endif
+        ),
     recycler(nullptr),
     hasCollectionCallBack(false),
     callDispose(true),
@@ -184,9 +188,20 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     loopDepth(0),
     maxGlobalFunctionExecTime(0.0),
     isAllJITCodeInPreReservedRegion(true),
-    activityId(GUID_NULL),
     tridentLoadAddress(nullptr),
     debugManager(nullptr)
+#if ENABLE_TTD
+    , IsTTRequested(false)
+    , IsTTRecordRequested(false)
+    , IsTTDebugRequested(false)
+    , TTDUri(nullptr)
+    , TTSnapInterval(2000)
+    , TTSnapHistoryLength(UINT32_MAX)
+    , TTDLog(nullptr)
+    , TTDInitializeTTDUriFunction(nullptr)
+    , TTDWriteInitializeFunction(nullptr)
+    , TTDStreamFunctions({ 0 })
+#endif
 #ifdef ENABLE_DIRECTCALL_TELEMETRY
     , directCallTelemetry(this)
 #endif
@@ -200,14 +215,15 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
 
     isScriptActive = false;
 
+#ifdef ENABLE_CUSTOM_ENTROPY
     entropy.Initialize();
-
+#endif
+    
 #if ENABLE_NATIVE_CODEGEN
     this->bailOutRegisterSaveSpace = AnewArrayZ(this->GetThreadAlloc(), Js::Var, GetBailOutRegisterSaveSlotCount());
 #endif
 
-    // SIMD_JS
-#if ENABLE_NATIVE_CODEGEN
+#if defined(ENABLE_SIMDJS) && ENABLE_NATIVE_CODEGEN
     simdFuncInfoToOpcodeMap = Anew(this->GetThreadAlloc(), FuncInfoToOpcodeMap, this->GetThreadAlloc());
     simdOpcodeToSignatureMap = AnewArrayZ(this->GetThreadAlloc(), SimdFuncSignature, Js::Simd128OpcodeCount());
     {
@@ -218,7 +234,7 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
 
 #include "ByteCode/OpCodesSimd.h"
     }
-#endif
+#endif // defined(ENABLE_SIMDJS) && ENABLE_NATIVE_CODEGEN
 
 #if DBG_DUMP
     scriptSiteCount = 0;
@@ -326,6 +342,20 @@ ThreadContext::~ThreadContext()
         AutoCriticalSection autocs(ThreadContext::GetCriticalSection());
         ThreadContext::Unlink(this, &ThreadContext::globalListFirst, &ThreadContext::globalListLast);
     }
+
+#if ENABLE_TTD
+    if(this->TTDUri != nullptr)
+    {
+        HeapDeleteArray(wcslen(this->TTDUri) + 1, this->TTDUri);
+        this->TTDUri = nullptr;
+    }
+
+    if(this->TTDLog != nullptr)
+    {
+        HeapDelete(this->TTDLog);
+        this->TTDLog = nullptr;
+    }
+#endif
 
 #ifdef LEAK_REPORT
     if (Js::Configuration::Global.flags.IsEnabled(Js::LeakReportFlag))
@@ -548,7 +578,7 @@ void ThreadContext::ValidateThreadContext()
 #endif
 }
 
-#if ENABLE_NATIVE_CODEGEN
+#if ENABLE_NATIVE_CODEGEN && defined(ENABLE_SIMDJS)
 void ThreadContext::AddSimdFuncToMaps(Js::OpCode op, ...)
 {
     Assert(simdFuncInfoToOpcodeMap != nullptr);
@@ -577,7 +607,7 @@ void ThreadContext::AddSimdFuncToMaps(Js::OpCode op, ...)
         simdFuncSignature.args[iArg] = va_arg(arguments, ValueType);
     }
 
-    simdOpcodeToSignatureMap[Js::SimdOpcodeAsIndex(op)] = simdFuncSignature;
+    simdOpcodeToSignatureMap[Js::SIMDUtils::SimdOpcodeAsIndex(op)] = simdFuncSignature;
 
     va_end(arguments);
 }
@@ -626,8 +656,7 @@ Js::OpCode ThreadContext::GetSimdOpcodeFromFuncInfo(Js::FunctionInfo * funcInfo)
 void ThreadContext::GetSimdFuncSignatureFromOpcode(Js::OpCode op, SimdFuncSignature &funcSignature)
 {
     Assert(simdOpcodeToSignatureMap != nullptr);
-    funcSignature = simdOpcodeToSignatureMap[SimdOpcodeAsIndex(op)];
-
+    funcSignature = simdOpcodeToSignatureMap[Js::SIMDUtils::SimdOpcodeAsIndex(op)];
 }
 #endif
 
@@ -875,6 +904,26 @@ ThreadContext::CreatePropertyRecordWeakRef(const Js::PropertyRecord * propertyRe
 Js::PropertyRecord const *
 ThreadContext::UncheckedAddPropertyId(JsUtil::CharacterBuffer<WCHAR> const& propertyName, bool bind, bool isSymbol)
 {
+#if ENABLE_TTD
+    if(this->TTDLog != nullptr && this->TTDLog->ShouldPerformDebugAction_SymbolCreation())
+    {
+        //We reload all properties that occour in the trace so they only way we get here in TTD mode is:
+        //(1) if the program is creating a new symbol (which always gets a fresh id) and we should recreate it or 
+        //(2) if it is forcing arguments in debug parse mode (instead of regular which we recorded in)
+        if(isSymbol)
+        {
+            Js::PropertyId propertyId = Js::Constants::NoProperty;
+            this->TTDLog->ReplaySymbolCreationEvent(&propertyId);
+
+            //Don't recreate the symbol below, instead return the known symbol by looking up on the pid
+            const Js::PropertyRecord* res = this->GetPropertyName(propertyId);
+            AssertMsg(res != nullptr, "This should never happen!!!");
+
+            return res;
+        }
+    }
+#endif
+
     this->propertyMap->EnsureCapacity();
 
     // Automatically bind direct (single-character) property names, so that they can be
@@ -922,6 +971,14 @@ ThreadContext::UncheckedAddPropertyId(JsUtil::CharacterBuffer<WCHAR> const& prop
     }
 
     Js::PropertyId propertyId = this->GetNextPropertyId();
+
+#if ENABLE_TTD
+    if(isSymbol & (this->TTDLog != nullptr && this->TTDLog->ShouldPerformRecordAction_SymbolCreation()))
+    {
+        this->TTDLog->RecordSymbolCreationEvent(propertyId);
+    }
+#endif
+
     propertyRecord->pid = propertyId;
 
     AddPropertyRecordInternal(propertyRecord);
@@ -947,6 +1004,13 @@ ThreadContext::AddPropertyRecordInternal(const Js::PropertyRecord * propertyReco
     if (!propertyRecord->IsSymbol())
     {
         Assert(FindPropertyRecord(propertyName, propertyNameLength) == nullptr);
+    }
+#endif
+
+#if ENABLE_TTD
+    if(this->TTDLog != nullptr)
+    {
+        this->TTDLog->AddPropertyRecord(propertyRecord);
     }
 #endif
 
@@ -1413,10 +1477,9 @@ ThreadContext::SetForceOneIdleCollection()
 BOOLEAN
 ThreadContext::IsOnStack(void const *ptr)
 {
-
-#if defined(_M_IX86)
+#if defined(_M_IX86) && defined(_MSC_VER)
     return ptr < (void*)__readfsdword(0x4) && ptr >= (void*)__readfsdword(0xE0C);
-#elif defined(_M_AMD64)
+#elif defined(_M_AMD64) && defined(_MSC_VER)
     return ptr < (void*)__readgsqword(0x8) && ptr >= (void*)__readgsqword(0x1478);
 #elif defined(_M_ARM)
     ULONG lowLimit, highLimit;
@@ -1428,6 +1491,8 @@ ThreadContext::IsOnStack(void const *ptr)
     ::GetCurrentThreadStackLimits(&lowLimit, &highLimit);
     bool isOnStack = (void*)lowLimit <= ptr && ptr < (void*)highLimit;
     return isOnStack;
+#elif !defined(_MSC_VER)
+    return ::IsAddressOnStack((ULONG_PTR) ptr);
 #else
     AssertMsg(FALSE, "IsOnStack -- not implemented yet case");
     Js::Throw::NotImplemented();
@@ -1451,7 +1516,7 @@ ThreadContext::SetStackLimitForCurrentThread(PBYTE limit)
     this->stackLimitForCurrentThread = limit;
 }
 
-__declspec(noinline) //Win8 947081: might use wrong _AddressOfReturnAddress() if this and caller are inlined
+_NOINLINE //Win8 947081: might use wrong _AddressOfReturnAddress() if this and caller are inlined
 bool
 ThreadContext::IsStackAvailable(size_t size)
 {
@@ -1487,7 +1552,7 @@ ThreadContext::IsStackAvailable(size_t size)
     return false;
 }
 
-__declspec(noinline) //Win8 947081: might use wrong _AddressOfReturnAddress() if this and caller are inlined
+_NOINLINE //Win8 947081: might use wrong _AddressOfReturnAddress() if this and caller are inlined
 bool
 ThreadContext::IsStackAvailableNoThrow(size_t size)
 {
@@ -1564,8 +1629,8 @@ void
 ThreadContext::ProbeStack(size_t size, Js::RecyclableObject * obj, Js::ScriptContext *scriptContext)
 {
     AssertCanHandleStackOverflowCall(obj->IsExternal() ||
-        Js::JavascriptOperators::GetTypeId(obj) == Js::TypeIds_Function &&
-        Js::JavascriptFunction::FromVar(obj)->IsExternalFunction());
+        (Js::JavascriptOperators::GetTypeId(obj) == Js::TypeIds_Function &&
+        Js::JavascriptFunction::FromVar(obj)->IsExternalFunction()));
     if (!this->IsStackAvailable(size))
     {
         if (this->IsExecutionDisabled())
@@ -1576,8 +1641,8 @@ ThreadContext::ProbeStack(size_t size, Js::RecyclableObject * obj, Js::ScriptCon
         }
 
         if (obj->IsExternal() ||
-            Js::JavascriptOperators::GetTypeId(obj) == Js::TypeIds_Function &&
-            Js::JavascriptFunction::FromVar(obj)->IsExternalFunction())
+            (Js::JavascriptOperators::GetTypeId(obj) == Js::TypeIds_Function &&
+            Js::JavascriptFunction::FromVar(obj)->IsExternalFunction()))
         {
             Js::JavascriptError::ThrowStackOverflowError(scriptContext);
         }
@@ -1763,6 +1828,52 @@ ThreadContext::IsInAsyncHostOperation() const
         }
     }
     return false;
+}
+#endif
+
+#if ENABLE_TTD
+
+bool ThreadContext::IsTTDInitialized() const
+{
+    return (this->TTDLog != nullptr);
+}
+
+void ThreadContext::InitTimeTravel(LPCWSTR ttdDirectory, bool doRecord, bool doReplay, uint32 snapInterval, uint32 snapHistoryLength)
+{
+    AssertMsg(this->TTDLog == nullptr, "We should only init once.");
+    AssertMsg((doRecord & !doReplay) || (!doRecord && doReplay), "Should be exactly 1 of record or replay.");
+
+    this->TTDLog = HeapNew(TTD::EventLog, this, ttdDirectory, snapInterval, snapHistoryLength);
+
+    if(doRecord)
+    {
+        this->TTDLog->InitForTTDRecord();
+    }
+
+    if(doReplay)
+    {
+        this->TTDLog->InitForTTDReplay();
+    }
+}
+
+void ThreadContext::BeginCtxTimeTravel(Js::ScriptContext* ctx, const HostScriptContextCallbackFunctor& callbackFunctor)
+{
+    AssertMsg(!ctx->IsTTDDetached(), "We don't want to run time travel on multiple contexts yet.");
+
+    this->TTDLog->StartTimeTravelOnScript(ctx, callbackFunctor);
+}
+
+void ThreadContext::EndCtxTimeTravel(Js::ScriptContext* ctx)
+{
+    AssertMsg(!ctx->IsTTDDetached(), "We don't want to run time travel on multiple contexts yet.");
+
+    this->TTDLog->SetGlobalMode(TTD::TTDMode::Detached);
+    this->TTDLog->StopTimeTravelOnScript(ctx);
+}
+
+void ThreadContext::EmitTTDLogIfNeeded()
+{
+    this->TTDLog->EmitLogIfNeeded();
 }
 #endif
 
@@ -1965,7 +2076,7 @@ void ThreadContext::ReleaseDebugManager()
     Assert(crefSContextForDiag > 0);
     Assert(this->debugManager != nullptr);
 
-    long lref = InterlockedDecrement(&crefSContextForDiag);
+    LONG lref = InterlockedDecrement(&crefSContextForDiag);
 
     if (lref == 0)
     {
@@ -2711,16 +2822,16 @@ void ThreadContext::NotifyInlineCacheBatchUnregistered(uint count)
 void
 ThreadContext::InvalidateProtoInlineCaches(Js::PropertyId propertyId)
 {
-    if (PHASE_TRACE1(Js::TraceInlineCacheInvalidationPhase))
-    {
-        Output::Print(_u("InlineCacheInvalidation: invalidating proto caches for property %s(%u)\n"),
-            GetPropertyName(propertyId)->GetBuffer(), propertyId);
-        Output::Flush();
-    }
-
     InlineCacheList* inlineCacheList;
     if (protoInlineCacheByPropId.TryGetValueAndRemove(propertyId, &inlineCacheList))
     {
+        if (PHASE_TRACE1(Js::TraceInlineCacheInvalidationPhase))
+        {
+            Output::Print(_u("InlineCacheInvalidation: invalidating proto caches for property %s(%u)\n"),
+                          GetPropertyName(propertyId)->GetBuffer(), propertyId);
+            Output::Flush();
+        }
+
         InvalidateAndDeleteInlineCacheList(inlineCacheList);
     }
 }
@@ -2728,16 +2839,16 @@ ThreadContext::InvalidateProtoInlineCaches(Js::PropertyId propertyId)
 void
 ThreadContext::InvalidateStoreFieldInlineCaches(Js::PropertyId propertyId)
 {
-    if (PHASE_TRACE1(Js::TraceInlineCacheInvalidationPhase))
-    {
-        Output::Print(_u("InlineCacheInvalidation: invalidating store field caches for property %s(%u)\n"),
-            GetPropertyName(propertyId)->GetBuffer(), propertyId);
-        Output::Flush();
-    }
-
     InlineCacheList* inlineCacheList;
     if (storeFieldInlineCacheByPropId.TryGetValueAndRemove(propertyId, &inlineCacheList))
     {
+        if (PHASE_TRACE1(Js::TraceInlineCacheInvalidationPhase))
+        {
+            Output::Print(_u("InlineCacheInvalidation: invalidating store field caches for property %s(%u)\n"),
+                          GetPropertyName(propertyId)->GetBuffer(), propertyId);
+            Output::Flush();
+        }
+
         InvalidateAndDeleteInlineCacheList(inlineCacheList);
     }
 }
@@ -3107,8 +3218,63 @@ ThreadContext::InvalidateAllProtoInlineCaches()
     {
         InvalidateAndDeleteInlineCacheList(inlineCacheList);
     });
-    protoInlineCacheByPropId.ResetNoDelete();
+    protoInlineCacheByPropId.Reset();
 }
+
+#if DBG
+
+// Verifies if object is registered in any proto InlineCache
+bool
+ThreadContext::IsObjectRegisteredInProtoInlineCaches(Js::DynamicObject * object)
+{
+    return protoInlineCacheByPropId.MapUntil([object](Js::PropertyId propertyId, InlineCacheList* inlineCacheList)
+    {
+        FOREACH_SLISTBASE_ENTRY(Js::InlineCache*, inlineCache, inlineCacheList)
+        {
+            if (inlineCache != nullptr && !inlineCache->IsEmpty())
+            {
+                // Verify this object is not present in prototype chain of inlineCache's type
+                bool isObjectPresentOnPrototypeChain =
+                    Js::JavascriptOperators::MapObjectAndPrototypesUntil<true>(inlineCache->GetType()->GetPrototype(), [=](Js::RecyclableObject* prototype)
+                {
+                    return prototype == object;
+                });
+                if (isObjectPresentOnPrototypeChain) {
+                    return true;
+                }
+            }
+        }
+        NEXT_SLISTBASE_ENTRY;
+        return false;
+    });
+}
+
+// Verifies if object is registered in any storeField InlineCache
+bool
+ThreadContext::IsObjectRegisteredInStoreFieldInlineCaches(Js::DynamicObject * object)
+{
+    return storeFieldInlineCacheByPropId.MapUntil([object](Js::PropertyId propertyId, InlineCacheList* inlineCacheList)
+    {
+        FOREACH_SLISTBASE_ENTRY(Js::InlineCache*, inlineCache, inlineCacheList)
+        {
+            if (inlineCache != nullptr && !inlineCache->IsEmpty())
+            {
+                // Verify this object is not present in prototype chain of inlineCache's type
+                bool isObjectPresentOnPrototypeChain =
+                    Js::JavascriptOperators::MapObjectAndPrototypesUntil<true>(inlineCache->GetType()->GetPrototype(), [=](Js::RecyclableObject* prototype)
+                {
+                    return prototype == object;
+                });
+                if (isObjectPresentOnPrototypeChain) {
+                    return true;
+                }
+            }
+        }
+        NEXT_SLISTBASE_ENTRY;
+        return false;
+    });
+}
+#endif
 
 bool
 ThreadContext::AreAllProtoInlineCachesInvalidated()
@@ -3123,7 +3289,7 @@ ThreadContext::InvalidateAllStoreFieldInlineCaches()
     {
         InvalidateAndDeleteInlineCacheList(inlineCacheList);
     });
-    storeFieldInlineCacheByPropId.ResetNoDelete();
+    storeFieldInlineCacheByPropId.Reset();
 }
 
 bool
@@ -3468,7 +3634,7 @@ BOOL ThreadContext::IsNativeAddress(void * pCodeAddr)
     {
         return TRUE;
     }
-    
+
     if (!this->IsAllJITCodeInPreReservedRegion())
     {
         CustomHeap::CodePageAllocators::AutoLock autoLock(&this->codePageAllocators);
@@ -3674,7 +3840,14 @@ ThreadServiceWrapper* ThreadContext::GetThreadServiceWrapper()
 
 uint ThreadContext::GetRandomNumber()
 {
+#ifdef ENABLE_CUSTOM_ENTROPY
     return (uint)GetEntropy().GetRand();
+#else
+    uint randomNumber = 0;
+    errno_t e = rand_s(&randomNumber);
+    Assert(e == 0);
+    return randomNumber;
+#endif
 }
 
 #ifdef ENABLE_JS_ETW
@@ -3896,6 +4069,7 @@ void ThreadContext::ClearThreadContextFlag(ThreadContextFlags contextFlag)
     this->threadContextFlags = (ThreadContextFlags)(this->threadContextFlags & ~contextFlag);
 }
 
+#ifdef ENABLE_GLOBALIZATION
 #ifdef _CONTROL_FLOW_GUARD
 Js::DelayLoadWinCoreMemory * ThreadContext::GetWinCoreMemoryLibrary()
 {
@@ -3967,6 +4141,7 @@ Js::DelayLoadWinRtFoundation* ThreadContext::GetWinRtFoundationLibrary()
     return &delayLoadWinRtFoundationLibrary;
 }
 #endif
+#endif // ENABLE_GLOBALIZATION
 
 bool ThreadContext::IsCFGEnabled()
 {
@@ -4119,6 +4294,8 @@ ThreadContext::ClearRootTrackerScriptContext(Js::ScriptContext * scriptContext)
 }
 #endif
 
+#ifdef ENABLE_BASIC_TELEMETRY
+#if ENABLE_NATIVE_CODEGEN
 JITTimer::JITTimer()
 {
     Reset();
@@ -4170,6 +4347,7 @@ void JITTimer::LogTime(double ms)
         stats.greaterThan300ms++;
     }
 }
+#endif // NATIVE_CODE_GEN
 
 ParserTimer::ParserTimer()
 {
@@ -4226,6 +4404,7 @@ void ParserTimer::LogTime(double ms)
         stats.greaterThan300ms++;
     }
 }
+#endif // ENABLE_BASIC_TELEMETRY
 
 AutoTagNativeLibraryEntry::AutoTagNativeLibraryEntry(Js::RecyclableObject* function, Js::CallInfo callInfo, PCWSTR name, void* addr)
 {

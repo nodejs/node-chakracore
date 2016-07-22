@@ -262,17 +262,17 @@ GlobOpt::DoFieldPRE(Loop *loop) const
     return DoFieldOpts(loop);
 }
 
-bool GlobOpt::DoMemOp(Loop *loop)
+bool GlobOpt::HasMemOp(Loop *loop)
 {
 #pragma prefast(suppress: 6285, "logical-or of constants is by design")
     return (
         loop &&
+        loop->doMemOp &&
         (
             !PHASE_OFF(Js::MemSetPhase, this->func) ||
             !PHASE_OFF(Js::MemCopyPhase, this->func)
         ) &&
         loop->memOpInfo &&
-        loop->memOpInfo->doMemOp &&
         loop->memOpInfo->candidates &&
         !loop->memOpInfo->candidates->Empty()
     );
@@ -421,7 +421,6 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
         return;
     }
 
-    Sym *sym;
     IR::Opnd * dstOpnd = instr->GetDst();
     if (dstOpnd)
     {
@@ -463,6 +462,7 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
         return;
     }
 
+    Sym *sym;
     IR::JnHelperMethod fnHelper;
     switch(instr->m_opcode)
     {
@@ -539,9 +539,10 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
     case Js::OpCode::InlineeEnd:
         Assert(!instr->UsesAllFields());
 
-        // Kill all live 'arguments' fields, as 'inlineeFunction.arguments' cannot be copy-propped across different instances of
-        // the same inlined function.
+        // Kill all live 'arguments' and 'caller' fields, as 'inlineeFunction.arguments' and 'inlineeFunction.caller' 
+        // cannot be copy-propped across different instances of the same inlined function.
         KillLiveFields(argumentsEquivBv, bv);
+        KillLiveFields(callerEquivBv, bv);
         break;
 
     case Js::OpCode::CallDirect:
@@ -688,8 +689,8 @@ GlobOpt::PreparePrepassFieldHoisting(Loop * loop)
 
                 // Set object type live on prepass so we can track if it got killed in the loop. (see FinishOptHoistedPropOps)
                 JsTypeValueInfo* typeValueInfo = JsTypeValueInfo::New(this->alloc, nullptr, nullptr);
-                typeValueInfo->SetSymStore(typeSym);
                 typeValueInfo->SetIsShared();
+                this->SetSymStoreDirect(typeValueInfo, typeSym);
 
                 ValueNumber typeValueNumber = this->NewValueNumber();
                 Value* landingPadTypeValue = NewValue(typeValueNumber, typeValueInfo);
@@ -1197,7 +1198,7 @@ GlobOpt::HoistFieldLoadValue(Loop * loop, Value * newValue, SymID symId, Js::OpC
     else
     {
         this->SetValue(&this->blockData, newValue, newStackSym);
-        newValue->GetValueInfo()->SetSymStore(newStackSym);
+        this->SetSymStoreDirect(newValue->GetValueInfo(), newStackSym);
     }
 
 
@@ -1852,7 +1853,7 @@ GlobOpt::CopyStoreFieldHoistStackSym(IR::Instr * storeFldInstr, PropertySym * sy
 
     Value * dstVal = this->CopyValue(src1Val);
     TrackCopiedValueForKills(dstVal);
-    dstVal->GetValueInfo()->SetSymStore(copySym);
+    this->SetSymStoreDirect(dstVal->GetValueInfo(), copySym);
     this->SetValue(&this->blockData, dstVal, copySym);
 
     // Copy the type specialized sym as well, in case we have a use for them
@@ -2659,7 +2660,7 @@ GlobOpt::OptNewScObject(IR::Instr** instrPtr, Value* srcVal)
 
     if (!instr->IsNewScObjectInstr())
     {
-        return false;
+        return nullptr;
     }
 
     bool isCtorInlined = instr->m_opcode == Js::OpCode::NewScObjectNoCtor;
@@ -2932,7 +2933,7 @@ GlobOpt::SetObjectTypeFromTypeSym(StackSym *typeSym, const Js::Type *type, Js::E
     else
     {
         JsTypeValueInfo* valueInfo = JsTypeValueInfo::New(this->alloc, type, typeSet);
-        valueInfo->SetSymStore(typeSym);
+        this->SetSymStoreDirect(valueInfo, typeSym);
         Value* value = NewValue(valueInfo);
         SetValue(blockData, value, typeSym);
     }

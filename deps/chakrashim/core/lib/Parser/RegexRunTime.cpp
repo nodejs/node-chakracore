@@ -124,7 +124,7 @@ namespace UnifiedRegex
     }
 #endif
 
-    __inline void Matcher::QueryContinue(uint &qcTicks)
+    inline void Matcher::QueryContinue(uint &qcTicks)
     {
         // See definition of TimePerQc for description of regex QC heuristics
 
@@ -139,7 +139,7 @@ namespace UnifiedRegex
         DoQueryContinue(qcTicks);
     }
 
-    __inline bool Matcher::HardFail
+    inline bool Matcher::HardFail
         ( const Char* const input
         , const CharCount inputLength
         , CharCount &matchStart
@@ -181,7 +181,7 @@ namespace UnifiedRegex
         return true;
     }
 
-    __inline bool Matcher::PopAssertion(CharCount &inputOffset, const uint8 *&instPointer, ContStack &contStack, AssertionStack &assertionStack, bool succeeded)
+    inline bool Matcher::PopAssertion(CharCount &inputOffset, const uint8 *&instPointer, ContStack &contStack, AssertionStack &assertionStack, bool succeeded)
     {
         AssertionInfo* info = assertionStack.Top();
         Assert(info != 0);
@@ -221,7 +221,7 @@ namespace UnifiedRegex
         }
     }
 
-    __inline void Matcher::SaveInnerGroups(
+    inline void Matcher::SaveInnerGroups(
         const int fromGroupId,
         const int toGroupId,
         const bool reset,
@@ -277,7 +277,7 @@ namespace UnifiedRegex
         }
     }
 
-    __inline void Matcher::SaveInnerGroups_AllUndefined(
+    inline void Matcher::SaveInnerGroups_AllUndefined(
         const int fromGroupId,
         const int toGroupId,
         const Char *const input,
@@ -313,17 +313,29 @@ namespace UnifiedRegex
 #endif
     }
 
-    __inline void Matcher::ResetGroup(int groupId)
+    inline void Matcher::ResetGroup(int groupId)
     {
         GroupInfo* info = GroupIdToGroupInfo(groupId);
         info->Reset();
     }
 
-    __inline void Matcher::ResetInnerGroups(int minGroupId, int maxGroupId)
+    inline void Matcher::ResetInnerGroups(int minGroupId, int maxGroupId)
     {
         for (int i = minGroupId; i <= maxGroupId; i++)
             ResetGroup(i);
     }
+
+#if ENABLE_REGEX_CONFIG_OPTIONS
+    bool Inst::IsBaselineMode()
+    {
+        return Js::Configuration::Global.flags.BaselineMode;
+    }
+
+    Label Inst::GetPrintLabel(Label label)
+    {
+        return IsBaselineMode() ? (Label)0xFFFF : label;
+    }
+#endif
 
     // ----------------------------------------------------------------------
     // Mixins
@@ -508,11 +520,11 @@ namespace UnifiedRegex
     }
 
     template <typename ScannerT>
-    __inline bool
+    inline bool
     ScannerMixinT<ScannerT>::Match(Matcher& matcher, const char16 * const input, const CharCount inputLength, CharCount& inputOffset) const
     {
         Assert(length <= matcher.program->rep.insts.litbufLen - offset);
-        return scanner.Match<1>
+        return scanner.template Match<1>
             ( input
             , inputLength
             , inputOffset
@@ -534,15 +546,15 @@ namespace UnifiedRegex
 #endif
 
     // explicit instantiation
-    template ScannerMixinT<TextbookBoyerMoore<char16>>;
-    template ScannerMixinT<TextbookBoyerMooreWithLinearMap<char16>>;
+    template struct ScannerMixinT<TextbookBoyerMoore<char16>>;
+    template struct ScannerMixinT<TextbookBoyerMooreWithLinearMap<char16>>;
 
     // ----------------------------------------------------------------------
     // EquivScannerMixinT
     // ----------------------------------------------------------------------
 
     template <uint lastPatCharEquivClassSize>
-    __inline bool EquivScannerMixinT<lastPatCharEquivClassSize>::Match(Matcher& matcher, const char16* const input, const CharCount inputLength, CharCount& inputOffset) const
+    inline bool EquivScannerMixinT<lastPatCharEquivClassSize>::Match(Matcher& matcher, const char16* const input, const CharCount inputLength, CharCount& inputOffset) const
     {
         Assert(length * CaseInsensitive::EquivClassSize <= matcher.program->rep.insts.litbufLen - offset);
         CompileAssert(lastPatCharEquivClassSize >= 1 && lastPatCharEquivClassSize <= CaseInsensitive::EquivClassSize);
@@ -657,7 +669,7 @@ namespace UnifiedRegex
 #if ENABLE_REGEX_CONFIG_OPTIONS
     void JumpMixin::Print(DebugWriter* w, const char16* litbuf) const
     {
-        w->Print(_u("targetLabel: L%04x"), targetLabel);
+        w->Print(_u("targetLabel: L%04x"), Inst::GetPrintLabel(targetLabel));
     }
 #endif
 
@@ -673,21 +685,22 @@ namespace UnifiedRegex
     {
         w->Print(_u("loopId: %d, repeats: "), loopId);
         repeats.Print(w);
-        w->Print(_u(", exitLabel: L%04x, hasOuterLoops: %s, hasInnerNondet: %s"), exitLabel, hasOuterLoops ? _u("true") : _u("false"), hasInnerNondet ? _u("true") : _u("false"));
+        w->Print(_u(", exitLabel: L%04x, hasOuterLoops: %s, hasInnerNondet: %s"),
+            Inst::GetPrintLabel(exitLabel), hasOuterLoops ? _u("true") : _u("false"), hasInnerNondet ? _u("true") : _u("false"));
     }
 #endif
 
 #if ENABLE_REGEX_CONFIG_OPTIONS
     void RepeatLoopMixin::Print(DebugWriter* w, const char16* litbuf) const
     {
-        w->Print(_u("beginLabel: L%04x"), beginLabel);
+        w->Print(_u("beginLabel: L%04x"), Inst::GetPrintLabel(beginLabel));
     }
 #endif
 
 #if ENABLE_REGEX_CONFIG_OPTIONS
     void TryMixin::Print(DebugWriter* w, const char16* litbuf) const
     {
-        w->Print(_u("failLabel: L%04x"), failLabel);
+        w->Print(_u("failLabel: L%04x"), Inst::GetPrintLabel(failLabel));
     }
 #endif
 
@@ -768,7 +781,7 @@ namespace UnifiedRegex
     // FailInst
     // ----------------------------------------------------------------------
 
-    __inline bool FailInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool FailInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         return matcher.Fail(FAIL_PARAMETERS);
     }
@@ -785,7 +798,7 @@ namespace UnifiedRegex
     // SuccInst
     // ----------------------------------------------------------------------
 
-    __inline bool SuccInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SuccInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         GroupInfo* info = matcher.GroupIdToGroupInfo(0);
         info->offset = matchStart;
@@ -805,7 +818,7 @@ namespace UnifiedRegex
     // JumpInst
     // ----------------------------------------------------------------------
 
-    __inline bool JumpInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool JumpInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         instPointer = matcher.LabelToInstPointer(targetLabel);
         return false;
@@ -825,7 +838,7 @@ namespace UnifiedRegex
     // JumpIfNotCharInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool JumpIfNotCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool JumpIfNotCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -853,7 +866,7 @@ namespace UnifiedRegex
     // MatchCharOrJumpInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool MatchCharOrJumpInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchCharOrJumpInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -885,7 +898,7 @@ namespace UnifiedRegex
     // JumpIfNotSetInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool JumpIfNotSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool JumpIfNotSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -913,7 +926,7 @@ namespace UnifiedRegex
     // MatchSetOrJumpInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool MatchSetOrJumpInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchSetOrJumpInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -944,7 +957,7 @@ namespace UnifiedRegex
     // Switch10Inst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool Switch10Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool Switch10Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (inputOffset >= inputLength)
             return matcher.Fail(FAIL_PARAMETERS);
@@ -1002,7 +1015,7 @@ namespace UnifiedRegex
     // Switch20Inst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool Switch20Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool Switch20Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (inputOffset >= inputLength)
             return matcher.Fail(FAIL_PARAMETERS);
@@ -1060,7 +1073,7 @@ namespace UnifiedRegex
     // SwitchAndConsume10Inst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SwitchAndConsume10Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SwitchAndConsume10Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (inputOffset >= inputLength)
             return matcher.Fail(FAIL_PARAMETERS);
@@ -1120,7 +1133,7 @@ namespace UnifiedRegex
     // SwitchAndConsume20Inst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SwitchAndConsume20Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SwitchAndConsume20Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (inputOffset >= inputLength)
             return matcher.Fail(FAIL_PARAMETERS);
@@ -1180,7 +1193,7 @@ namespace UnifiedRegex
     // BOITestInst
     // ----------------------------------------------------------------------
 
-    __inline bool BOITestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BOITestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (inputOffset > 0)
         {
@@ -1208,7 +1221,7 @@ namespace UnifiedRegex
     // EOITestInst
     // ----------------------------------------------------------------------
 
-    __inline bool EOITestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool EOITestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (inputOffset < inputLength)
         {
@@ -1236,7 +1249,7 @@ namespace UnifiedRegex
     // BOLTestInst
     // ----------------------------------------------------------------------
 
-    __inline bool BOLTestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BOLTestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1260,7 +1273,7 @@ namespace UnifiedRegex
     // EOLTestInst
     // ----------------------------------------------------------------------
 
-    __inline bool EOLTestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool EOLTestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1284,7 +1297,7 @@ namespace UnifiedRegex
     // WordBoundaryTestInst
     // ----------------------------------------------------------------------
 
-    __inline bool WordBoundaryTestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool WordBoundaryTestInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1310,7 +1323,7 @@ namespace UnifiedRegex
     // MatchCharInst
     // ----------------------------------------------------------------------
 
-    __inline bool MatchCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1337,7 +1350,7 @@ namespace UnifiedRegex
     // MatchChar2Inst
     // ----------------------------------------------------------------------
 
-    __inline bool MatchChar2Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchChar2Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1364,7 +1377,7 @@ namespace UnifiedRegex
     // MatchChar3Inst
     // ----------------------------------------------------------------------
 
-    __inline bool MatchChar3Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchChar3Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1391,7 +1404,7 @@ namespace UnifiedRegex
     // MatchChar4Inst
     // ----------------------------------------------------------------------
 
-    __inline bool MatchChar4Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchChar4Inst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1419,12 +1432,12 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<bool IsNegation>
-    __inline bool MatchSetInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchSetInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
 #endif
-        if (inputOffset >= inputLength || set.Get(input[inputOffset]) == IsNegation)
+        if (inputOffset >= inputLength || this->set.Get(input[inputOffset]) == IsNegation)
             return matcher.Fail(FAIL_PARAMETERS);
 
         inputOffset++;
@@ -1437,7 +1450,7 @@ namespace UnifiedRegex
     int MatchSetInst<IsNegation>::Print(DebugWriter* w, Label label, const Char* litbuf) const
     {
         w->Print(_u("L%04x: MatchSet("), label);
-        SetMixin::Print(w, litbuf);
+        SetMixin<IsNegation>::Print(w, litbuf);
         w->PrintEOL(_u(")"));
         return sizeof(*this);
     }
@@ -1447,7 +1460,7 @@ namespace UnifiedRegex
     // MatchLiteralInst
     // ----------------------------------------------------------------------
 
-    __inline bool MatchLiteralInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchLiteralInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         Assert(length <= matcher.program->rep.insts.litbufLen - offset);
 
@@ -1503,7 +1516,7 @@ namespace UnifiedRegex
     // MatchLiteralEquivInst
     // ----------------------------------------------------------------------
 
-    __inline bool MatchLiteralEquivInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchLiteralEquivInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (length > inputLength - inputOffset)
             return matcher.Fail(FAIL_PARAMETERS);
@@ -1550,7 +1563,7 @@ namespace UnifiedRegex
     // MatchTrieInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool MatchTrieInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchTrieInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (!trie.Match
             ( input
@@ -1585,7 +1598,7 @@ namespace UnifiedRegex
     // OptMatchCharInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool OptMatchCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool OptMatchCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1611,7 +1624,7 @@ namespace UnifiedRegex
     // OptMatchSetInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool OptMatchSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool OptMatchSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -1637,7 +1650,7 @@ namespace UnifiedRegex
     // SyncToCharAndContinueInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SyncToCharAndContinueInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToCharAndContinueInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         const Char matchC = c;
 #if ENABLE_REGEX_CONFIG_OPTIONS
@@ -1670,7 +1683,7 @@ namespace UnifiedRegex
     // SyncToChar2SetAndContinueInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SyncToChar2SetAndContinueInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToChar2SetAndContinueInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         const Char matchC0 = cs[0];
         const Char matchC1 = cs[1];
@@ -1706,9 +1719,9 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<bool IsNegation>
-    __inline bool SyncToSetAndContinueInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToSetAndContinueInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
 #endif
@@ -1731,7 +1744,7 @@ namespace UnifiedRegex
     int SyncToSetAndContinueInst<IsNegation>::Print(DebugWriter* w, Label label, const Char* litbuf) const
     {
         w->Print(_u("L%04x: SyncToSetAndContinue("), label);
-        SetMixin::Print(w, litbuf);
+        SetMixin<IsNegation>::Print(w, litbuf);
         w->PrintEOL(_u(")"));
         return sizeof(*this);
     }
@@ -1742,9 +1755,9 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template <typename ScannerT>
-    __inline bool SyncToLiteralAndContinueInstT<ScannerT>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToLiteralAndContinueInstT<ScannerT>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
-        if (!Match(matcher, input, inputLength, inputOffset))
+        if (!this->Match(matcher, input, inputLength, inputOffset))
             return matcher.HardFail(HARDFAIL_PARAMETERS(ImmediateFail));
 
         matchStart = inputOffset;
@@ -1774,7 +1787,7 @@ namespace UnifiedRegex
     // SyncToCharAndConsumeInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SyncToCharAndConsumeInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToCharAndConsumeInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         const Char matchC = c;
 #if ENABLE_REGEX_CONFIG_OPTIONS
@@ -1810,7 +1823,7 @@ namespace UnifiedRegex
     // SyncToChar2SetAndConsumeInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SyncToChar2SetAndConsumeInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToChar2SetAndConsumeInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         const Char matchC0 = cs[0];
         const Char matchC1 = cs[1];
@@ -1848,9 +1861,9 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<bool IsNegation>
-    __inline bool SyncToSetAndConsumeInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToSetAndConsumeInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
 #endif
@@ -1875,7 +1888,7 @@ namespace UnifiedRegex
     int SyncToSetAndConsumeInst<IsNegation>::Print(DebugWriter* w, Label label, const Char* litbuf) const
     {
         w->Print(_u("L%04x: SyncToSetAndConsume("), label);
-        SetMixin::Print(w, litbuf);
+        SetMixin<IsNegation>::Print(w, litbuf);
         w->PrintEOL(_u(")"));
         return sizeof(*this);
     }
@@ -1886,9 +1899,9 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template <typename ScannerT>
-    __inline bool SyncToLiteralAndConsumeInstT<ScannerT>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToLiteralAndConsumeInstT<ScannerT>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
-        if (!Match(matcher, input, inputLength, inputOffset))
+        if (!this->Match(matcher, input, inputLength, inputOffset))
             return matcher.HardFail(HARDFAIL_PARAMETERS(ImmediateFail));
 
         matchStart = inputOffset;
@@ -1919,7 +1932,7 @@ namespace UnifiedRegex
     // SyncToCharAndBackupInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SyncToCharAndBackupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToCharAndBackupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (backup.lower > inputLength - matchStart)
             // Even match at very end doesn't allow for minimum backup
@@ -1982,7 +1995,7 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<bool IsNegation>
-    __inline bool SyncToSetAndBackupInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToSetAndBackupInst<IsNegation>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (backup.lower > inputLength - matchStart)
             // Even match at very end doesn't allow for minimum backup
@@ -2000,7 +2013,7 @@ namespace UnifiedRegex
             // No use looking for match until minimum backup is possible
             inputOffset = matchStart + backup.lower;
 
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
         while (inputOffset < inputLength && matchSet.Get(input[inputOffset]) == IsNegation)
         {
 #if ENABLE_REGEX_CONFIG_OPTIONS
@@ -2033,7 +2046,7 @@ namespace UnifiedRegex
     int SyncToSetAndBackupInst<IsNegation>::Print(DebugWriter* w, Label label, const Char* litbuf) const
     {
         w->Print(_u("L%04x: SyncToSetAndBackup("), label);
-        SetMixin::Print(w, litbuf);
+        SetMixin<IsNegation>::Print(w, litbuf);
         w->Print(_u(", "));
         BackupMixin::Print(w, litbuf);
         w->PrintEOL(_u(")"));
@@ -2045,7 +2058,7 @@ namespace UnifiedRegex
     // SyncToLiteralAndBackupInst (optimized instruction)
     // ----------------------------------------------------------------------
     template <typename ScannerT>
-    __inline bool SyncToLiteralAndBackupInstT<ScannerT>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToLiteralAndBackupInstT<ScannerT>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (backup.lower > inputLength - matchStart)
             // Even match at very end doesn't allow for minimum backup
@@ -2063,7 +2076,7 @@ namespace UnifiedRegex
             // No use looking for match until minimum backup is possible
             inputOffset = matchStart + backup.lower;
 
-        if (!Match(matcher, input, inputLength, inputOffset))
+        if (!this->Match(matcher, input, inputLength, inputOffset))
             return matcher.HardFail(HARDFAIL_PARAMETERS(ImmediateFail));
 
         nextSyncInputOffset = inputOffset + 1;
@@ -2107,7 +2120,7 @@ namespace UnifiedRegex
     // SyncToLiteralsAndBackupInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool SyncToLiteralsAndBackupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool SyncToLiteralsAndBackupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (backup.lower > inputLength - matchStart)
             // Even match at very end doesn't allow for minimum backup
@@ -2224,7 +2237,7 @@ namespace UnifiedRegex
     // MatchGroupInst
     // ----------------------------------------------------------------------
 
-    __inline bool MatchGroupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool MatchGroupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         GroupInfo* const info = matcher.GroupIdToGroupInfo(groupId);
         if (!info->IsUndefined() && info->length > 0)
@@ -2365,7 +2378,7 @@ namespace UnifiedRegex
     // BeginDefineGroupInst
     // ----------------------------------------------------------------------
 
-    __inline bool BeginDefineGroupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginDefineGroupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         GroupInfo *const groupInfo = matcher.GroupIdToGroupInfo(groupId);
         Assert(groupInfo->IsUndefined());
@@ -2390,7 +2403,7 @@ namespace UnifiedRegex
     // EndDefineGroupInst
     // ----------------------------------------------------------------------
 
-    __inline bool EndDefineGroupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool EndDefineGroupInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (!noNeedToSave)
         {
@@ -2426,7 +2439,7 @@ namespace UnifiedRegex
     // DefineGroupFixedInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool DefineGroupFixedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool DefineGroupFixedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (!noNeedToSave)
         {
@@ -2464,7 +2477,7 @@ namespace UnifiedRegex
     // BeginLoopInst
     // ----------------------------------------------------------------------
 
-    __inline bool BeginLoopInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginLoopInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(loopId);
 
@@ -2544,7 +2557,7 @@ namespace UnifiedRegex
     // RepeatLoopInst
     // ----------------------------------------------------------------------
 
-    __inline bool RepeatLoopInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool RepeatLoopInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         BeginLoopInst* begin = matcher.L2I(BeginLoop, beginLabel);
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(begin->loopId);
@@ -2632,7 +2645,7 @@ namespace UnifiedRegex
     // BeginLoopIfCharInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool BeginLoopIfCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginLoopIfCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -2679,7 +2692,7 @@ namespace UnifiedRegex
     // BeginLoopIfSetInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool BeginLoopIfSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginLoopIfSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -2728,7 +2741,7 @@ namespace UnifiedRegex
     // RepeatLoopIfCharInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool RepeatLoopIfCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool RepeatLoopIfCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         BeginLoopIfCharInst* begin = matcher.L2I(BeginLoopIfChar, beginLabel);
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(begin->loopId);
@@ -2795,7 +2808,7 @@ namespace UnifiedRegex
     // RepeatLoopIfSetInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool RepeatLoopIfSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool RepeatLoopIfSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         BeginLoopIfSetInst* begin = matcher.L2I(BeginLoopIfSet, beginLabel);
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(begin->loopId);
@@ -2862,7 +2875,7 @@ namespace UnifiedRegex
     // BeginLoopFixedInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool BeginLoopFixedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginLoopFixedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(loopId);
 
@@ -2912,7 +2925,7 @@ namespace UnifiedRegex
     // RepeatLoopFixedInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool RepeatLoopFixedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool RepeatLoopFixedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         BeginLoopFixedInst* begin = matcher.L2I(BeginLoopFixed, beginLabel);
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(begin->loopId);
@@ -2971,7 +2984,7 @@ namespace UnifiedRegex
     // LoopSetInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool LoopSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool LoopSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(loopId);
 
@@ -2990,7 +3003,7 @@ namespace UnifiedRegex
         loopInfo->startInputOffset = inputOffset;
 
         // Consume as many elements of set as possible
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
         const CharCount loopMatchStart = inputOffset;
         const CharCountOrFlag repeatsUpper = repeats.upper;
         const CharCount inputEndOffset =
@@ -3043,7 +3056,7 @@ namespace UnifiedRegex
     // BeginLoopFixedGroupLastIterationInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool BeginLoopFixedGroupLastIterationInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginLoopFixedGroupLastIterationInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         Assert(matcher.GroupIdToGroupInfo(groupId)->IsUndefined());
 
@@ -3108,7 +3121,7 @@ namespace UnifiedRegex
     // RepeatLoopFixedGroupLastIterationInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool RepeatLoopFixedGroupLastIterationInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool RepeatLoopFixedGroupLastIterationInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         BeginLoopFixedGroupLastIterationInst* begin = matcher.L2I(BeginLoopFixedGroupLastIteration, beginLabel);
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(begin->loopId);
@@ -3174,7 +3187,7 @@ namespace UnifiedRegex
     // BeginGreedyLoopNoBacktrackInst
     // ----------------------------------------------------------------------
 
-    __inline bool BeginGreedyLoopNoBacktrackInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginGreedyLoopNoBacktrackInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(loopId);
 
@@ -3203,7 +3216,7 @@ namespace UnifiedRegex
     // RepeatGreedyLoopNoBacktrackInst
     // ----------------------------------------------------------------------
 
-    __inline bool RepeatGreedyLoopNoBacktrackInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool RepeatGreedyLoopNoBacktrackInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         BeginGreedyLoopNoBacktrackInst* begin = matcher.L2I(BeginGreedyLoopNoBacktrack, beginLabel);
         LoopInfo* loopInfo = matcher.LoopIdToLoopInfo(begin->loopId);
@@ -3247,13 +3260,13 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<ChompMode Mode>
-    __inline bool ChompCharInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool ChompCharInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         const Char matchC = c;
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
 #endif
-        if(Mode == ChompMode::Star || inputOffset < inputLength && input[inputOffset] == matchC)
+        if(Mode == ChompMode::Star || (inputOffset < inputLength && input[inputOffset] == matchC))
         {
             while(true)
             {
@@ -3294,13 +3307,13 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<ChompMode Mode>
-    __inline bool ChompSetInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool ChompSetInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
 #endif
-        if(Mode == ChompMode::Star || inputOffset < inputLength && matchSet.Get(input[inputOffset]))
+        if(Mode == ChompMode::Star || (inputOffset < inputLength && matchSet.Get(input[inputOffset])))
         {
             while(true)
             {
@@ -3341,7 +3354,7 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<ChompMode Mode>
-    __inline bool ChompCharGroupInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool ChompCharGroupInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         Assert(matcher.GroupIdToGroupInfo(groupId)->IsUndefined());
 
@@ -3350,7 +3363,7 @@ namespace UnifiedRegex
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
 #endif
-        if(Mode == ChompMode::Star || inputOffset < inputLength && input[inputOffset] == matchC)
+        if(Mode == ChompMode::Star || (inputOffset < inputLength && input[inputOffset] == matchC))
         {
             while(true)
             {
@@ -3408,16 +3421,16 @@ namespace UnifiedRegex
     // ----------------------------------------------------------------------
 
     template<ChompMode Mode>
-    __inline bool ChompSetGroupInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool ChompSetGroupInst<Mode>::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         Assert(matcher.GroupIdToGroupInfo(groupId)->IsUndefined());
 
         const CharCount inputStartOffset = inputOffset;
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
 #endif
-        if(Mode == ChompMode::Star || inputOffset < inputLength && matchSet.Get(input[inputOffset]))
+        if(Mode == ChompMode::Star || (inputOffset < inputLength && matchSet.Get(input[inputOffset])))
         {
             while(true)
             {
@@ -3474,7 +3487,7 @@ namespace UnifiedRegex
     // ChompCharBoundedInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool ChompCharBoundedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool ChompCharBoundedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         const Char matchC = c;
         const CharCount loopMatchStart = inputOffset;
@@ -3517,9 +3530,9 @@ namespace UnifiedRegex
     // ChompSetBoundedInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool ChompSetBoundedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool ChompSetBoundedInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
         const CharCount loopMatchStart = inputOffset;
         const CharCountOrFlag repeatsUpper = repeats.upper;
         const CharCount inputEndOffset =
@@ -3560,11 +3573,11 @@ namespace UnifiedRegex
     // ChompSetBoundedGroupLastCharInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool ChompSetBoundedGroupLastCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool ChompSetBoundedGroupLastCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         Assert(matcher.GroupIdToGroupInfo(groupId)->IsUndefined());
 
-        const RuntimeCharSet<Char>& matchSet = set;
+        const RuntimeCharSet<Char>& matchSet = this->set;
         const CharCount loopMatchStart = inputOffset;
         const CharCountOrFlag repeatsUpper = repeats.upper;
         const CharCount inputEndOffset =
@@ -3624,7 +3637,7 @@ namespace UnifiedRegex
     // TryInst
     // ----------------------------------------------------------------------
 
-    __inline bool TryInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool TryInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         // CHOICEPOINT: Resume at fail label on backtrack
         PUSH(contStack, ResumeCont, inputOffset, failLabel);
@@ -3650,7 +3663,7 @@ namespace UnifiedRegex
     // TryIfCharInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool TryIfCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool TryIfCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -3687,7 +3700,7 @@ namespace UnifiedRegex
     // TryMatchCharInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool TryMatchCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool TryMatchCharInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -3725,7 +3738,7 @@ namespace UnifiedRegex
     // TryIfSetInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool TryIfSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool TryIfSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -3762,7 +3775,7 @@ namespace UnifiedRegex
     // TryMatchSetInst (optimized instruction)
     // ----------------------------------------------------------------------
 
-    __inline bool TryMatchSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool TryMatchSetInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
 #if ENABLE_REGEX_CONFIG_OPTIONS
         matcher.CompStats();
@@ -3800,7 +3813,7 @@ namespace UnifiedRegex
     // BeginAssertionInst
     // ----------------------------------------------------------------------
 
-    __inline bool BeginAssertionInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool BeginAssertionInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         Assert(instPointer == (uint8*)this);
 
@@ -3825,7 +3838,8 @@ namespace UnifiedRegex
 #if ENABLE_REGEX_CONFIG_OPTIONS
     int BeginAssertionInst::Print(DebugWriter* w, Label label, const Char* litbuf) const
     {
-        w->Print(_u("L%04x: BeginAssertion(isNegation: %s, nextLabel: L%04x, "), label, isNegation ? _u("true") : _u("false"), nextLabel);
+        w->Print(_u("L%04x: BeginAssertion(isNegation: %s, nextLabel: L%04x, "),
+            label, isNegation ? _u("true") : _u("false"), GetPrintLabel(nextLabel));
         BodyGroupsMixin::Print(w, litbuf);
         w->PrintEOL(_u(")"));
         return sizeof(*this);
@@ -3836,7 +3850,7 @@ namespace UnifiedRegex
     // EndAssertionInst
     // ----------------------------------------------------------------------
 
-    __inline bool EndAssertionInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
+    inline bool EndAssertionInst::Exec(REGEX_INST_EXEC_PARAMETERS) const
     {
         if (!matcher.PopAssertion(inputOffset, instPointer, contStack, assertionStack, true))
             // Body of negative assertion succeeded, so backtrack
@@ -3889,7 +3903,7 @@ namespace UnifiedRegex
     // ResumeCont
     // ----------------------------------------------------------------------
 
-    __inline bool ResumeCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool ResumeCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         inputOffset = origInputOffset;
         instPointer = matcher.LabelToInstPointer(origInstLabel);
@@ -3908,7 +3922,7 @@ namespace UnifiedRegex
     // RestoreLoopCont
     // ----------------------------------------------------------------------
 
-    __inline bool RestoreLoopCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool RestoreLoopCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         matcher.QueryContinue(qcTicks);
 
@@ -3931,7 +3945,7 @@ namespace UnifiedRegex
     // RestoreGroupCont
     // ----------------------------------------------------------------------
 
-    __inline bool RestoreGroupCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool RestoreGroupCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         *matcher.GroupIdToGroupInfo(groupId) = origGroupInfo;
         return false; // KEEP BACKTRACKING
@@ -3951,7 +3965,7 @@ namespace UnifiedRegex
     // ResetGroupCont
     // ----------------------------------------------------------------------
 
-    __inline bool ResetGroupCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool ResetGroupCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         matcher.ResetGroup(groupId);
         return false; // KEEP BACKTRACKING
@@ -3969,7 +3983,7 @@ namespace UnifiedRegex
     // ResetGroupRangeCont
     // ----------------------------------------------------------------------
 
-    __inline bool ResetGroupRangeCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool ResetGroupRangeCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         matcher.ResetInnerGroups(fromGroupId, toGroupId);
         return false; // KEEP BACKTRACKING
@@ -3987,7 +4001,7 @@ namespace UnifiedRegex
     // RepeatLoopCont
     // ----------------------------------------------------------------------
 
-    __inline bool RepeatLoopCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool RepeatLoopCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         matcher.QueryContinue(qcTicks);
 
@@ -4023,7 +4037,7 @@ namespace UnifiedRegex
     // PopAssertionCont
     // ----------------------------------------------------------------------
 
-    __inline bool PopAssertionCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool PopAssertionCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         Assert(!assertionStack.IsEmpty());
         if (matcher.PopAssertion(inputOffset, instPointer, contStack, assertionStack, false))
@@ -4046,7 +4060,7 @@ namespace UnifiedRegex
     // RewindLoopFixedCont
     // ----------------------------------------------------------------------
 
-    __inline bool RewindLoopFixedCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool RewindLoopFixedCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         matcher.QueryContinue(qcTicks);
 
@@ -4096,7 +4110,7 @@ namespace UnifiedRegex
     // RewindLoopSetCont
     // ----------------------------------------------------------------------
 
-    __inline bool RewindLoopSetCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool RewindLoopSetCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         matcher.QueryContinue(qcTicks);
 
@@ -4137,7 +4151,7 @@ namespace UnifiedRegex
     // RewindLoopFixedGroupLastIterationCont
     // ----------------------------------------------------------------------
 
-    __inline bool RewindLoopFixedGroupLastIterationCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
+    inline bool RewindLoopFixedGroupLastIterationCont::Exec(REGEX_CONT_EXEC_PARAMETERS)
     {
         matcher.QueryContinue(qcTicks);
 
@@ -4355,7 +4369,7 @@ namespace UnifiedRegex
         return true; // STOP EXECUTION
     }
 
-    __inline bool Matcher::RunContStack(const Char* const input, CharCount &inputOffset, const uint8 *&instPointer, ContStack &contStack, AssertionStack &assertionStack, uint &qcTicks)
+    inline bool Matcher::RunContStack(const Char* const input, CharCount &inputOffset, const uint8 *&instPointer, ContStack &contStack, AssertionStack &assertionStack, uint &qcTicks)
     {
         while (true)
         {
@@ -4395,7 +4409,7 @@ namespace UnifiedRegex
     const uint32 maxInstTag = instTags[(sizeof(instTags) / sizeof(uint32)) - 1];
 #endif
 
-    __inline void Matcher::Run(const Char* const input, const CharCount inputLength, CharCount &matchStart, CharCount &nextSyncInputOffset, ContStack &contStack, AssertionStack &assertionStack, uint &qcTicks, bool firstIteration)
+    inline void Matcher::Run(const Char* const input, const CharCount inputLength, CharCount &matchStart, CharCount &nextSyncInputOffset, ContStack &contStack, AssertionStack &assertionStack, uint &qcTicks, bool firstIteration)
     {
         CharCount inputOffset = matchStart;
         const uint8 *instPointer = program->rep.insts.insts;
@@ -4441,7 +4455,7 @@ namespace UnifiedRegex
     }
 #endif
 
-    __inline bool Matcher::MatchHere(const Char* const input, const CharCount inputLength, CharCount &matchStart, CharCount &nextSyncInputOffset, ContStack &contStack, AssertionStack &assertionStack, uint &qcTicks, bool firstIteration)
+    inline bool Matcher::MatchHere(const Char* const input, const CharCount inputLength, CharCount &matchStart, CharCount &nextSyncInputOffset, ContStack &contStack, AssertionStack &assertionStack, uint &qcTicks, bool firstIteration)
     {
         // Reset the continuation and assertion stacks ready for fresh run
         // NOTE: We used to do this after the Run, but it's safer to do it here in case unusual control flow exits
@@ -4465,7 +4479,7 @@ namespace UnifiedRegex
         return WasLastMatchSuccessful();
     }
 
-    __inline bool Matcher::MatchSingleCharCaseInsensitive(const Char* const input, const CharCount inputLength, CharCount offset, const Char c)
+    inline bool Matcher::MatchSingleCharCaseInsensitive(const Char* const input, const CharCount inputLength, CharCount offset, const Char c)
     {
         CaseInsensitive::MappingSource mappingSource = program->GetCaseMappingSource();
 
@@ -4508,7 +4522,7 @@ namespace UnifiedRegex
         return false;
     }
 
-    __inline bool Matcher::MatchSingleCharCaseInsensitiveHere(
+    inline bool Matcher::MatchSingleCharCaseInsensitiveHere(
         CaseInsensitive::MappingSource mappingSource,
         const Char* const input,
         const CharCount offset,
@@ -4517,7 +4531,7 @@ namespace UnifiedRegex
         return (standardChars->ToCanonical(mappingSource, input[offset]) == standardChars->ToCanonical(mappingSource, c));
     }
 
-    __inline bool Matcher::MatchSingleCharCaseSensitive(const Char* const input, const CharCount inputLength, CharCount offset, const Char c)
+    inline bool Matcher::MatchSingleCharCaseSensitive(const Char* const input, const CharCount inputLength, CharCount offset, const Char c)
     {
         // If sticky flag is present, break since the 1st character didn't match the pattern character
         if ((program->flags & StickyRegexFlag) != 0)
@@ -4558,7 +4572,7 @@ namespace UnifiedRegex
         return false;
     }
 
-    __inline bool Matcher::MatchBoundedWord(const Char* const input, const CharCount inputLength, CharCount offset)
+    inline bool Matcher::MatchBoundedWord(const Char* const input, const CharCount inputLength, CharCount offset)
     {
         const StandardChars<Char>& stdchrs = *standardChars;
 
@@ -4638,7 +4652,7 @@ namespace UnifiedRegex
         return true;
     }
 
-    __inline bool Matcher::MatchLeadingTrailingSpaces(const Char* const input, const CharCount inputLength, CharCount offset)
+    inline bool Matcher::MatchLeadingTrailingSpaces(const Char* const input, const CharCount inputLength, CharCount offset)
     {
         GroupInfo* const info = GroupIdToGroupInfo(0);
         Assert(offset <= inputLength);
@@ -4700,7 +4714,7 @@ namespace UnifiedRegex
         return false;
     }
 
-    __inline bool Matcher::MatchOctoquad(const Char* const input, const CharCount inputLength, CharCount offset, OctoquadMatcher* matcher)
+    inline bool Matcher::MatchOctoquad(const Char* const input, const CharCount inputLength, CharCount offset, OctoquadMatcher* matcher)
     {
         if (matcher->Match
             ( input
@@ -4723,7 +4737,7 @@ namespace UnifiedRegex
         }
     }
 
-    __inline bool Matcher::MatchBOILiteral2(const Char* const input, const CharCount inputLength, CharCount offset, DWORD literal2)
+    inline bool Matcher::MatchBOILiteral2(const Char* const input, const CharCount inputLength, CharCount offset, DWORD literal2)
     {
         if (offset == 0 && inputLength >= 2)
         {
@@ -5009,6 +5023,7 @@ namespace UnifiedRegex
 #if ENABLE_REGEX_CONFIG_OPTIONS
     void Program::Print(DebugWriter* w)
     {
+        const bool isBaselineMode = Js::Configuration::Global.flags.BaselineMode;
         w->PrintEOL(_u("Program {"));
         w->Indent();
         w->PrintEOL(_u("source:       %s"), source);
@@ -5034,8 +5049,9 @@ namespace UnifiedRegex
                 }
                 uint8* instsLim = rep.insts.insts + rep.insts.instsLen;
                 uint8* curr = rep.insts.insts;
+                int i = 0;
                 while (curr != instsLim)
-                    curr += ((Inst*)curr)->Print(w, (Label)(curr - rep.insts.insts), rep.insts.litbuf);
+                    curr += ((Inst*)curr)->Print(w, (Label)(isBaselineMode ? i++ : curr - rep.insts.insts), rep.insts.litbuf);
                 w->Unindent();
                 w->PrintEOL(_u("}"));
             }
@@ -5062,6 +5078,10 @@ namespace UnifiedRegex
         w->PrintEOL(_u("}"));
     }
 #endif
+
+    // Template parameter here is the max number of cases
+    template void UnifiedRegex::SwitchMixin<10>::AddCase(char16, unsigned int);
+    template void UnifiedRegex::SwitchMixin<20>::AddCase(char16, unsigned int);
 
 #define M(...)
 #define MTemplate(TagName, TemplateDeclaration, GenericClassName, SpecializedClassName) template struct SpecializedClassName;

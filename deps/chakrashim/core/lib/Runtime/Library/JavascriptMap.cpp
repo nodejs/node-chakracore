@@ -87,11 +87,9 @@ namespace Js
 
         if (iter != nullptr)
         {
-            Var nextItem;
             Var undefined = library->GetUndefined();
 
-            while (JavascriptOperators::IteratorStepAndValue(iter, scriptContext, &nextItem))
-            {
+            JavascriptOperators::DoIteratorStepAndValue(iter, scriptContext, [&](Var nextItem) {
                 if (!JavascriptOperators::IsObject(nextItem))
                 {
                     JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedObject);
@@ -112,8 +110,8 @@ namespace Js
                 }
 
                 // CONSIDER: if adder is the default built-in, fast path it and skip the JS call?
-                adder->GetEntryPoint()(adder, CallInfo(CallFlags_Value, 3), mapObject, key, value);
-            }
+                CALL_FUNCTION(adder, CallInfo(CallFlags_Value, 3), mapObject, key, value);
+            });
         }
 
         return isCtorSuperCall ?
@@ -191,7 +189,7 @@ namespace Js
             Var key = iterator.Current().Key();
             Var value = iterator.Current().Value();
 
-            callBackFn->GetEntryPoint()(callBackFn, CallInfo(CallFlags_Value, 4), thisArg, value, key, map);
+            CALL_FUNCTION(callBackFn, CallInfo(CallFlags_Value, 4), thisArg, value, key, map);
         }
 
         return scriptContext->GetLibrary()->GetUndefined();
@@ -407,4 +405,54 @@ namespace Js
 
         return args[0];
     }
+
+#if ENABLE_TTD
+    void JavascriptMap::MarkVisitKindSpecificPtrs(TTD::SnapshotExtractor* extractor)
+    {
+        auto iterator = GetIterator();
+        while(iterator.Next())
+        {
+            extractor->MarkVisitVar(iterator.Current().Key());
+            extractor->MarkVisitVar(iterator.Current().Value());
+        }
+    }
+
+    TTD::NSSnapObjects::SnapObjectType JavascriptMap::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapMapObject;
+    }
+
+    void JavascriptMap::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTD::NSSnapObjects::SnapMapInfo* smi = alloc.SlabAllocateStruct<TTD::NSSnapObjects::SnapMapInfo>();
+        smi->MapSize = 0;
+
+        if(this->Size() == 0)
+        {
+            smi->MapKeyValueArray = nullptr;
+        }
+        else
+        {
+            smi->MapKeyValueArray = alloc.SlabAllocateArray<TTD::TTDVar>(this->Size() * 2);
+
+            auto iter = this->GetIterator();
+            while(iter.Next())
+            {
+                smi->MapKeyValueArray[smi->MapSize] = iter.Current().Key();
+                smi->MapKeyValueArray[smi->MapSize + 1] = iter.Current().Value();
+                smi->MapSize += 2;
+            }
+        }
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapMapInfo*, TTD::NSSnapObjects::SnapObjectType::SnapMapObject>(objData, smi);
+    }
+
+    JavascriptMap* JavascriptMap::CreateForSnapshotRestore(ScriptContext* ctx)
+    {
+        JavascriptMap* res = ctx->GetLibrary()->CreateMap();
+        res->map = RecyclerNew(ctx->GetRecycler(), MapDataMap, ctx->GetRecycler());
+
+        return res;
+    }
+#endif
 }

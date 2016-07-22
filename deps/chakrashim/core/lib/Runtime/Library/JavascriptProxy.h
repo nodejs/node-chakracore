@@ -37,13 +37,13 @@ namespace Js
             SetPropertyWPCacheKind,
         } SetPropertyTrapKind;
 
-        typedef enum KeysTrapKind {
+        enum KeysTrapKind {
             GetOwnPropertyNamesKind,
             GetOwnPropertySymbolKind,
             KeysKind
         };
 
-        typedef enum IntegrityLevel {
+        enum IntegrityLevel {
             IntegrityLevel_sealed,
             IntegrityLevel_frozen
         };
@@ -155,7 +155,7 @@ namespace Js
 
         void PropertyIdFromInt(uint32 index, PropertyRecord const** propertyRecord);
 
-        Var PropertyKeysTrap(KeysTrapKind keysTrapKind);
+        JavascriptArray* PropertyKeysTrap(KeysTrapKind keysTrapKind);
 
         template <class Fn>
         void GetOwnPropertyKeysHelper(ScriptContext* scriptContext, RecyclableObject* trapResultArray, uint32 len, JavascriptArray* trapResult,
@@ -215,5 +215,12 @@ namespace Js
         template <class Fn, class GetPropertyIdFunc>
         BOOL GetPropertyDescriptorTrap(Var originalInstance, Fn fn, GetPropertyIdFunc getPropertyId, PropertyDescriptor* resultDescriptor, ScriptContext* requestContext);
 
+#if ENABLE_TTD
+    public:
+        virtual void MarkVisitKindSpecificPtrs(TTD::SnapshotExtractor* extractor) override;
+
+        virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
+        virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
+#endif
     };
 }

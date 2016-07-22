@@ -4,6 +4,7 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeDebugPch.h"
 #include "Language/JavascriptStackWalker.h"
+#include "Language/InterpreterStackFrame.h"
 
 namespace Js
 {
@@ -92,7 +93,7 @@ namespace Js
         this->debugManager->stepController.ResetReturnedValueList();
     }
 
-    void ProbeContainer::UpdateFramePointers(bool fMatchWithCurrentScriptContext)
+    void ProbeContainer::UpdateFramePointers(bool fMatchWithCurrentScriptContext, DWORD_PTR dispatchHaltFrameAddress)
     {
         ArenaAllocator* pDiagArena = debugManager->GetDiagnosticArena()->Arena();
         framePointers = Anew(pDiagArena, DiagStack, pDiagArena);
@@ -124,22 +125,29 @@ namespace Js
                 {
                     if (interpreterFrame)
                     {
-                        frm = Anew(pDiagArena, DiagInterpreterStackFrame, interpreterFrame, frameIndex);
+                        if (dispatchHaltFrameAddress == 0 || interpreterFrame->GetStackAddress() > dispatchHaltFrameAddress)
+                        {
+                            frm = Anew(pDiagArena, DiagInterpreterStackFrame, interpreterFrame, frameIndex);
+                        }
                     }
                     else
                     {
+                        void* stackAddress = walker.GetCurrentArgv();
+                        if (dispatchHaltFrameAddress == 0 || reinterpret_cast<DWORD_PTR>(stackAddress) > dispatchHaltFrameAddress)
+                        {
 #if ENABLE_NATIVE_CODEGEN
-                        if (func->IsScriptFunction())
-                        {
-                            frm = Anew(pDiagArena, DiagNativeStackFrame,
-                                ScriptFunction::FromVar(walker.GetCurrentFunction()), walker.GetByteCodeOffset(), walker.GetCurrentArgv(), walker.GetCurrentCodeAddr(), frameIndex);
-                        }
-                        else
+                            if (func->IsScriptFunction())
+                            {
+                                frm = Anew(pDiagArena, DiagNativeStackFrame,
+                                    ScriptFunction::FromVar(walker.GetCurrentFunction()), walker.GetByteCodeOffset(), stackAddress, walker.GetCurrentCodeAddr(), frameIndex);
+                            }
+                            else
 #else
-                        Assert(!func->IsScriptFunction());
+                            Assert(!func->IsScriptFunction());
 #endif
-                        {
-                            frm = Anew(pDiagArena, DiagRuntimeStackFrame, func, walker.GetCurrentNativeLibraryEntryName(), walker.GetCurrentArgv(), frameIndex);
+                            {
+                                frm = Anew(pDiagArena, DiagRuntimeStackFrame, func, walker.GetCurrentNativeLibraryEntryName(), stackAddress, frameIndex);
+                            }
                         }
                     }
                 }
@@ -161,11 +169,11 @@ namespace Js
         }
     }
 
-    WeakDiagStack * ProbeContainer::GetFramePointers()
+    WeakDiagStack * ProbeContainer::GetFramePointers(DWORD_PTR dispatchHaltFrameAddress)
     {
         if (framePointers == nullptr || this->debugSessionNumber < debugManager->GetDebugSessionNumber())
         {
-            UpdateFramePointers(/*fMatchWithCurrentScriptContext*/true);
+            UpdateFramePointers(/*fMatchWithCurrentScriptContext*/true, dispatchHaltFrameAddress);
             this->debugSessionNumber = debugManager->GetDebugSessionNumber();
         }
 
@@ -247,8 +255,8 @@ namespace Js
             return;
         }
 
-        __try
-        {
+        TryFinally([&]()
+          {
             InitializeLocation(pHaltState);
             OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchStepHandler: initialized location: pHaltState=%p, pHaltState->IsValid()=%d\n"),
                 pHaltState, pHaltState->IsValid());
@@ -277,11 +285,11 @@ namespace Js
                     }
                 }
             }
-        }
-        __finally
-        {
+          },
+          [&](bool) 
+          {
             DestroyLocation();
-        }
+          });
 
         OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchStepHandler: end: pHaltState=%p\n"), pHaltState);
     }
@@ -295,7 +303,7 @@ namespace Js
             return;
         }
 
-        __try
+        TryFinally([&]()
         {
             InitializeLocation(pHaltState, /* We don't need to match script context, stop at any available script function */ false);
             OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchAsyncBreak: initialized location: pHaltState=%p, pHaltState->IsValid()=%d\n"),
@@ -315,11 +323,11 @@ namespace Js
                     debugManager->asyncBreakController.DispatchAndReset(pHaltState);
                 }
             }
-        }
-        __finally
+        },
+        [&](bool)
         {
             DestroyLocation();
-        }
+        });
 
         OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchAsyncBreak: end: pHaltState=%p\n"), pHaltState);
     }
@@ -335,7 +343,7 @@ namespace Js
 
         Assert(pHaltState->stopType == STOP_INLINEBREAKPOINT);
 
-        __try
+        TryFinally([&]()
         {
             InitializeLocation(pHaltState);
             OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchInlineBreakpoint: initialized location: pHaltState=%p, pHaltState->IsValid()=%d\n"),
@@ -358,11 +366,12 @@ namespace Js
 
                 haltCallbackProbe->DispatchHalt(pHaltState);
             }
-        }
-        __finally
+        },
+        [&](bool)
         {
             DestroyLocation();
-        }
+        });
+        
         OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchInlineBreakpoint: end: pHaltState=%p\n"), pHaltState);
     }
 
@@ -384,7 +393,7 @@ namespace Js
         // Will store current offset of the bytecode block.
         int currentOffset = -1;
 
-        __try
+        TryFinally([&]()       
         {
             InitializeLocation(pHaltState, false);
             OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchExceptionBreakpoint: initialized location: pHaltState=%p, IsInterpreterFrame=%d\n"),
@@ -435,8 +444,8 @@ namespace Js
                     fSuccess = true;
                 }
             }
-        }
-        __finally
+        },
+        [&](bool)
         {
             // If the next statement has changed, we need to log that to exception object so that it will not try to advance to next statement again.
             pHaltState->exceptionObject->SetIgnoreAdvanceToNextStatement(IsNextStatementChanged);
@@ -448,7 +457,7 @@ namespace Js
             }
 
             DestroyLocation();
-        }
+        });
 
         OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchExceptionBreakpoint: end: pHaltState=%p, fSuccess=%d\n"), pHaltState, fSuccess);
         return fSuccess;
@@ -467,7 +476,7 @@ namespace Js
         // will store Current offset of the bytecode block.
         int currentOffset = -1;
 
-        __try
+        TryFinally([&]()        
         {
             InitializeLocation(pHaltState);
             OUTPUT_TRACE(Js::DebuggerPhase, _u("ProbeContainer::DispatchMutationBreakpoint: initialized location: pHaltState=%p, pHaltState->IsValid()=%d\n"),
@@ -494,8 +503,8 @@ namespace Js
 
                 haltCallbackProbe->DispatchHalt(pHaltState);
             }
-        }
-        __finally
+        },
+        [&](bool)
         {
             // Restore the current offset;
             if (currentOffset != -1 && pHaltState->topFrame->IsInterpreterFrame())
@@ -503,7 +512,7 @@ namespace Js
                 pHaltState->SetCurrentOffset(currentOffset);
             }
             DestroyLocation();
-        }
+        });
 
     }
 
@@ -514,7 +523,7 @@ namespace Js
             return;
         }
 
-         __try
+        TryFinally([&]()        
         {
             InitializeLocation(pHaltState);
 
@@ -529,17 +538,7 @@ namespace Js
                     }
                 });
 
-                if (localPendingProbeList->Count() == 0)
-                {
-                    // The breakpoint could have been initiated by hybrid debugging
-                    if (Js::Configuration::Global.IsHybridDebugging())
-                    {
-                        debugManager->stepController.Deactivate(pHaltState);
-                        debugManager->asyncBreakController.Deactivate();
-                        haltCallbackProbe->DispatchHalt(pHaltState);
-                    }
-                }
-                else
+                if (localPendingProbeList->Count() != 0)
                 {
                     localPendingProbeList->MapUntil([&](int index, Probe * probe)
                     {
@@ -554,12 +553,12 @@ namespace Js
                     });
                 }
             }
-        }
-        __finally
+        },
+        [&](bool)
         {
             pendingProbeList->Clear();
             DestroyLocation();
-        }
+        });
     }
 
     void ProbeContainer::UpdateStep(bool fDuringSetupDebugApp/*= false*/)
@@ -899,6 +898,11 @@ namespace Js
         debugManager->asyncBreakController.Deactivate();
     }
 
+    bool ProbeContainer::IsAsyncActivate() const
+    {
+        return this->pAsyncHaltCallback != nullptr;
+    }
+
     void ProbeContainer::PrepDiagForEnterScript()
     {
         // This will be called from ParseScriptText.
@@ -948,7 +952,7 @@ namespace Js
         bool fHasAllowed = false;
         bool fIsInNonUserCode = false;
 
-        if (debugManager != nullptr)
+        if (this->IsExceptionReportingEnabled() && (debugManager != nullptr))
         {
             fHasAllowed = !debugManager->pThreadContext->HasCatchHandler();
             if (!fHasAllowed)
@@ -981,6 +985,11 @@ namespace Js
         }
 
         return fHasAllowed;
+    }
+
+    bool ProbeContainer::IsExceptionReportingEnabled()
+    {
+        return this->debuggerOptionsCallback == nullptr || this->debuggerOptionsCallback->IsExceptionReportingEnabled();
     }
 
     bool ProbeContainer::IsFirstChanceExceptionEnabled()

@@ -15,7 +15,11 @@ RecyclerPageAllocator::RecyclerPageAllocator(Recycler* recycler, AllocationPolic
         flagTable,
 #endif
         0, maxFreePageCount,
-        true, &zeroPageQueue, maxAllocPageCount)
+        true,
+#if ENABLE_BACKGROUND_PAGE_ZEROING
+        &zeroPageQueue,
+#endif
+        maxAllocPageCount)
 {
     this->recycler = recycler;
 }
@@ -105,7 +109,7 @@ template <typename T>
 bool
 RecyclerPageAllocator::ResetAllWriteWatch(DListBase<T> * segmentList)
 {
-    DListBase<T>::Iterator i(segmentList);
+    typename DListBase<T>::Iterator i(segmentList);
     while (i.Next())
     {
         T& segment = i.Data();
@@ -193,10 +197,10 @@ size_t
 RecyclerPageAllocator::GetAllWriteWatchPageCount(DListBase<T> * segmentList)
 {
     size_t totalCount = 0;
-    DListBase<T>::Iterator i(segmentList);
-    while (i.Next())
+    _TYPENAME DListBase<T>::Iterator it(segmentList);
+    while (it.Next())
     {
-        T& segment = i.Data();
+        T& segment = it.Data();
         for (uint i = 0; i < segment.GetPageCount(); i++)
         {
             void * address = segment.GetAddress() + i * AutoSystemInfo::PageSize;

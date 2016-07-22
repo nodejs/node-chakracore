@@ -6,12 +6,16 @@
 
 #include "CommonMinMemory.h"
 
+#ifdef _WIN32
 typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+#endif
 
-#include <wchar.h>
-
+// If we're using the PAL for C++ standard library compat,
+// we don't need to include wchar for string handling
+#ifndef USING_PAL_STDLIB
 // === C Runtime Header Files ===
+#include <wchar.h>
 #include <stdarg.h>
 #include <float.h>
 #include <limits.h>
@@ -21,18 +25,16 @@ typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 #include <math.h>
 #endif
 #include <time.h>
-
 #include <io.h>
-
 #include <malloc.h>
-extern "C" void * _AddressOfReturnAddress(void);
+#endif
 
 #include "Common/GetCurrentFrameId.h"
 
 namespace Js
 {
     typedef int32 PropertyId;
-    typedef unsigned long ModuleID;
+    typedef uint32 ModuleID;
 }
 
 #define IsTrueOrFalse(value)     ((value) ? _u("True") : _u("False"))
@@ -58,7 +60,6 @@ template<> struct IntMath<uint16> { using Type = UInt16Math; };
 template<> struct IntMath<uint32> { using Type = UInt32Math; };
 template<> struct IntMath<int64> { using Type = Int64Math; };
 
-#include "Common/DaylightTimeHelper.h"
 #include "Common/DateUtilities.h"
 #include "Common/NumberUtilitiesBase.h"
 #include "Common/NumberUtilities.h"
@@ -72,6 +73,7 @@ template<> struct IntMath<int64> { using Type = Int64Math; };
 
 // Exceptions
 #include "Exceptions/ExceptionBase.h"
+#include "Exceptions/InScriptExceptionBase.h"
 #include "Exceptions/InternalErrorException.h"
 #include "Exceptions/OutOfMemoryException.h"
 #include "Exceptions/OperationAbortedException.h"
@@ -138,7 +140,10 @@ class AutoExpDummyClass
 
 #pragma warning(push)
 #if defined(PROFILE_RECYCLER_ALLOC) || defined(HEAP_TRACK_ALLOC) || defined(ENABLE_DEBUG_CONFIG_OPTIONS)
+#ifdef _MSC_VER
 #include <typeinfo.h>
+#else
+#include <typeinfo>
+#endif
 #endif
 #pragma warning(pop)
-
