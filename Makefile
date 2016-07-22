@@ -112,7 +112,7 @@ cctest: all
 
 v8:
 	tools/make-v8.sh v8
-	$(MAKE) -C deps/v8 $(V8_ARCH) $(V8_BUILD_OPTIONS)
+	$(MAKE) -C deps/v8 $(V8_ARCH).$(BUILDTYPE_LOWER) $(V8_BUILD_OPTIONS)
 
 test: all
 	$(MAKE) build-addons
@@ -246,7 +246,7 @@ test-timers-clean:
 
 
 ifneq ("","$(wildcard deps/v8/tools/run-tests.py)")
-test-v8:
+test-v8: v8
 	# note: performs full test unless QUICKCHECK is specified
 	deps/v8/tools/run-tests.py --arch=$(V8_ARCH) \
         --mode=$(BUILDTYPE_LOWER) $(V8_TEST_OPTIONS) $(QUICKCHECK_ARG) \
@@ -254,14 +254,14 @@ test-v8:
         --shell-dir=$(PWD)/deps/v8/out/$(V8_ARCH).$(BUILDTYPE_LOWER) \
 	 $(TAP_V8)
 
-test-v8-intl:
+test-v8-intl: v8
 	# note: performs full test unless QUICKCHECK is specified
 	deps/v8/tools/run-tests.py --arch=$(V8_ARCH) \
         --mode=$(BUILDTYPE_LOWER) --no-presubmit $(QUICKCHECK_ARG) \
         --shell-dir=deps/v8/out/$(V8_ARCH).$(BUILDTYPE_LOWER) intl \
         $(TAP_V8_INTL)
 
-test-v8-benchmarks:
+test-v8-benchmarks: v8
 	deps/v8/tools/run-tests.py --arch=$(V8_ARCH) --mode=$(BUILDTYPE_LOWER) \
         --download-data $(QUICKCHECK_ARG) --no-presubmit \
         --shell-dir=deps/v8/out/$(V8_ARCH).$(BUILDTYPE_LOWER) benchmarks \
@@ -678,13 +678,11 @@ bench-idle:
 	$(NODE) benchmark/idle_clients.js &
 
 jslint:
-	$(NODE) tools/jslint.js -J benchmark lib src test tools/doc \
-	  tools/eslint-rules tools/jslint.js
+	$(NODE) tools/jslint.js -J benchmark lib src test tools
 
 jslint-ci:
 	$(NODE) tools/jslint.js $(PARALLEL_ARGS) -f tap -o test-eslint.tap \
-		benchmark lib src test tools/doc \
-		tools/eslint-rules tools/jslint.js
+		benchmark lib src test tools
 
 CPPLINT_EXCLUDE ?=
 CPPLINT_EXCLUDE += src/node_root_certs.h

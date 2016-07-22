@@ -149,10 +149,11 @@ most convenient for scripts).
 added: v0.1.18
 -->
 
-The `'uncaughtException'` event is emitted when an exception bubbles all the
-way back to the event loop. By default, Node.js handles such exceptions by
-printing the stack trace to `stderr` and exiting. Adding a handler for the
-`'uncaughtException'` event overrides this default behavior.
+The `'uncaughtException'` event is emitted when an uncaught JavaScript
+exception bubbles all the way back to the event loop. By default, Node.js
+handles such exceptions by printing the stack trace to `stderr` and exiting.
+Adding a handler for the `'uncaughtException'` event overrides this default
+behavior.
 
 The listener function is called with the `Error` object passed as the only
 argument.
@@ -161,7 +162,7 @@ For example:
 
 ```js
 process.on('uncaughtException', (err) => {
-  console.log(`Caught exception: ${err}`);
+  fs.writeSync(1, `Caught exception: ${err}`);
 });
 
 setTimeout(() => {
@@ -192,8 +193,12 @@ times nothing happens - but the 10th time, the system becomes corrupted.
 
 The correct use of `'uncaughtException'` is to perform synchronous cleanup
 of allocated resources (e.g. file descriptors, handles, etc) before shutting
-down the process. It is not safe to resume normal operation after
-`'uncaughtException'`.
+down the process. **It is not safe to resume normal operation after
+`'uncaughtException'`.**
+
+To restart a crashed application in a more reliable way, whether `uncaughtException`
+is emitted or not, an external monitor should be employed in a separate process
+to detect application failures and recover or restart as needed.
 
 ### Event: 'unhandledRejection'
 <!-- YAML
@@ -201,11 +206,11 @@ added: v1.4.1
 -->
 
 The `'unhandledRejection`' event is emitted whenever a `Promise` is rejected and
-no error handler is attached to the promise within a turn of the event loop. 
+no error handler is attached to the promise within a turn of the event loop.
 When programming with Promises, exceptions are encapsulated as "rejected
 promises". Rejections can be caught and handled using [`promise.catch()`][] and
 are propagated through a `Promise` chain. The `'unhandledRejection'` event is
-useful for detecting and keeping track of promises that were rejected whose 
+useful for detecting and keeping track of promises that were rejected whose
 rejections have not yet been handled.
 
 The listener function is called with the following arguments:
@@ -283,7 +288,7 @@ command-line option can be used to suppress the default console output but the
 The following example illustrates the warning that is printed to `stderr` when
 too many listeners have been added to an event
 
-```
+```txt
 $ node
 > event.defaultMaxListeners = 1;
 > process.on('foo', () => {});
@@ -295,7 +300,7 @@ $ node
 In contrast, the following example turns off the default warning output and
 adds a custom handler to the `'warning'` event:
 
-```
+```txt
 $ node --no-warnings
 > var p = process.on('warning', (warning) => console.warn('Do not do that!'));
 > event.defaultMaxListeners = 1;
@@ -467,7 +472,7 @@ process.argv.forEach((val, index) => {
 
 Launching the Node.js process as:
 
-```
+```sh
 $ node process-2.js one two=three four
 ```
 
@@ -637,7 +642,7 @@ An example of this object looks like:
   SHLVL: '1',
   HOME: '/Users/maciej',
   LOGNAME: 'maciej',
-  _: '/usr/local/bin/node' 
+  _: '/usr/local/bin/node'
 }
 ```
 
@@ -645,7 +650,7 @@ It is possible to modify this object, but such modifications will not be
 reflected outside the Node.js process. In other words, the following example
 would not work:
 
-```
+```sh
 $ node -e 'process.env.foo = "bar"' && echo $foo
 ```
 
@@ -703,7 +708,7 @@ process.emitWarning('Something happened!');
   // Emits: (node: 56338) Warning: Something happened!
 ```
 
-```
+```js
 // Emit a warning using a string and a name...
 process.emitWarning('Something Happened!', 'CustomWarning');
   // Emits: (node:56338) CustomWarning: Something Happened!
@@ -713,7 +718,7 @@ In each of the previous examples, an `Error` object is generated internally by
 `process.emitWarning()` and passed through to the
 [`process.on('warning')`][process_warning] event.
 
-```
+```js
 process.on('warning', (warning) => {
   console.warn(warning.name);
   console.warn(warning.message);
@@ -725,7 +730,7 @@ If `warning` is passed as an `Error` object, it will be passed through to the
 `process.on('warning')` event handler unmodified (and the optional `name`
 and `ctor` arguments will be ignored):
 
-```
+```js
 // Emit a warning using an Error object...
 const myWarning = new Error('Warning! Something happened!');
 myWarning.name = 'CustomWarning';
@@ -756,7 +761,7 @@ As a best practice, warnings should be emitted only once per process. To do
 so, it is recommended to place the `emitWarning()` behind a simple boolean
 flag as illustrated in the example below:
 
-```
+```js
 var warned = false;
 function emitMyWarning() {
   if (!warned) {
@@ -784,7 +789,7 @@ the same execution environment as the parent.
 
 For example:
 
-```
+```sh
 $ node --harmony script.js --version
 ```
 
@@ -810,7 +815,7 @@ that started the Node.js process.
 
 For example:
 
-```
+```sh
 /usr/local/bin/node
 ```
 
@@ -1108,10 +1113,10 @@ console.log(util.inspect(process.memoryUsage()));
 Will generate:
 
 ```js
-{ 
+{
   rss: 4935680,
   heapTotal: 1826816,
-  heapUsed: 650472 
+  heapUsed: 650472
 }
 ```
 
@@ -1501,7 +1506,7 @@ To check if Node.js is being run in a [TTY][] context, check the `isTTY`
 property on `process.stderr`, `process.stdout`, or `process.stdin`.
 
 For instance:
-```
+```sh
 $ node -p "Boolean(process.stdin.isTTY)"
 true
 $ echo "foo" | node -p "Boolean(process.stdin.isTTY)"
@@ -1664,11 +1669,10 @@ cases:
 [`process.argv`]: #process_process_argv
 [`process.exit()`]: #process_process_exit_code
 [`process.kill()`]: #process_process_kill_pid_signal
-[`process.execPath`]: #process_process_execPath
+[`process.execPath`]: #process_process_execpath
 [`promise.catch()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch
 [`require.main`]: modules.html#modules_accessing_the_main_module
 [`setTimeout(fn, 0)`]: timers.html#timers_settimeout_callback_delay_arg
-[child_process `'disconnect'` event]: child_process.html#child_process_event_disconnect
 [process_emit_warning]: #process_process_emitwarning_warning_name_ctor
 [process_warning]: #process_event_warning
 [Signal Events]: #process_signal_events

@@ -78,10 +78,11 @@ added: v0.6.9
 * `multicastAddress` {String}
 * `multicastInterface` {String}, Optional
 
-Tells the kernel to join a multicast group at the given `multicastAddress`
-using the `IP_ADD_MEMBERSHIP` socket option. If the `multicastInterface`
-argument is not specified, the operating system will try to add membership to
-all valid networking interfaces.
+Tells the kernel to join a multicast group at the given `multicastAddress` and
+`multicastInterface` using the `IP_ADD_MEMBERSHIP` socket option. If the
+`multicastInterface` argument is not specified, the operating system will choose
+one interface and will add membership to it. To add membership to every
+available interface, call `addMembership` multiple times, once per interface.
 
 ### socket.address()
 
@@ -424,7 +425,6 @@ and `udp6` sockets). The bound address and port can be retrieved using
 [`EventEmitter`]: events.html
 [`Buffer`]: buffer.html
 [`'close'`]: #dgram_event_close
-[`addMembership()`]: #dgram_socket_addmembership_multicastaddress_multicastinterface
 [`close()`]: #dgram_socket_close_callback
 [`dgram.createSocket()`]: #dgram_dgram_createsocket_options_callback
 [`dgram.Socket#bind()`]: #dgram_socket_bind_options_callback

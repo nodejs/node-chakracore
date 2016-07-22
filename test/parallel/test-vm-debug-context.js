@@ -41,9 +41,9 @@ assert.strictEqual(vm.runInDebugContext(undefined), undefined);
 
 // See https://github.com/nodejs/node/issues/1190, accessing named interceptors
 // and accessors inside a debug event listener should not crash.
-(function() {
-  var Debug = vm.runInDebugContext('Debug');
-  var breaks = 0;
+{
+  const Debug = vm.runInDebugContext('Debug');
+  let breaks = 0;
 
   function ondebugevent(evt, exc) {
     if (evt !== Debug.DebugEvent.Break) return;
@@ -61,10 +61,10 @@ assert.strictEqual(vm.runInDebugContext(undefined), undefined);
   assert.equal(breaks, 0);
   breakpoint();
   assert.equal(breaks, 1);
-})();
+}
 
 // Can set listeners and breakpoints on a single line file
-(function() {
+{
   const Debug = vm.runInDebugContext('Debug');
   const fn = require(common.fixturesDir + '/exports-function-with-param');
   let called = false;
@@ -79,7 +79,7 @@ assert.strictEqual(vm.runInDebugContext(undefined), undefined);
   fn('foo');
   assert.strictEqual(Debug.showBreakPoints(fn), '(arg) { [B0]return arg; }');
   assert.strictEqual(called, true);
-})();
+}
 
 // See https://github.com/nodejs/node/issues/1190, fatal errors should not
 // crash the process.

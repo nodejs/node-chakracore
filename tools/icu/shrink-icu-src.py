@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 import optparse
 import os
-import pprint
 import re
-import shlex
-import subprocess
 import sys
 import shutil
-import string
 
 parser = optparse.OptionParser()
 
@@ -37,7 +33,7 @@ if os.path.isdir(options.icusmall):
     shutil.rmtree(options.icusmall)
 
 if not os.path.isdir(options.icusrc):
-    print 'Missing source ICU dir --icusrc=%' % (options.icusrc)
+    print 'Missing source ICU dir --icusrc=%s' % (options.icusrc)
     sys.exit(1)
 
 
