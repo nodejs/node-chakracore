@@ -2653,6 +2653,51 @@ typedef UINT32 DWORD;
         JsStringFree(
             _In_ char* stringValue);
 
+    // -------- Experimental new String APIs ----------------------------------
+
+    CHAKRA_API
+        JsCreateString(
+            const char *content,
+            size_t length,
+            _Out_ JsValueRef *value);
+
+    CHAKRA_API
+        JsCreateStringUtf8(
+            const uint8_t *content,
+            size_t length,
+            _Out_ JsValueRef *value);
+
+    CHAKRA_API
+        JsCreateStringUtf16(
+            const uint16_t *content,
+            size_t length,
+            _Out_ JsValueRef *value);
+
+
+    CHAKRA_API
+        JsWriteString(
+            JsValueRef value,
+            int start,
+            int length,
+            char* buffer,
+            _Out_opt_ size_t* written);
+
+    CHAKRA_API
+        JsWriteStringUtf16(
+            JsValueRef value,
+            int start,
+            int length,
+            uint16_t* buffer,
+            _Out_opt_ size_t* written);
+
+    CHAKRA_API
+        JsWriteStringUtf8(
+            JsValueRef value,
+            uint8_t* buffer,
+            size_t bufferSize,
+            _Out_opt_ size_t* length);
+
+
 #ifdef _WIN32
 #include "ChakraCommonWindows.h"
 #endif // _WIN32

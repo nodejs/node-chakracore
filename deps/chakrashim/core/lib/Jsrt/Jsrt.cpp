@@ -3388,6 +3388,188 @@ CHAKRA_API JsStringFree(_In_ char* stringValue)
     return JsNoError;
 }
 
+
+// -------- Experimental new String APIs ----------------------------------
+
+
+template <class SrcChar, class DstChar>
+static void CastCopy(const SrcChar* src, DstChar* dst, size_t count)
+{
+    const SrcChar* end = src + count;
+    while (src < end)
+    {
+        *dst++ = static_cast<DstChar>(*src++);
+    }
+}
+
+CHAKRA_API JsCreateString(
+    const char *content,
+    size_t length,
+    _Out_ JsValueRef *value)
+{
+    PARAM_NOT_NULL(content);
+
+    AutoArrayPtr<uint16_t> data(HeapNewNoThrowArray(uint16_t, length), length);
+    if (!data)
+    {
+        return JsErrorOutOfMemory;
+    }
+
+    // Cast source char to "unsigned" for correct cast
+    CastCopy((unsigned char*)content, (uint16_t*)data, length);
+
+    return JsPointerToString(
+        reinterpret_cast<const char16*>((uint16_t*)data), length, value);
+}
+
+CHAKRA_API JsCreateStringUtf8(
+    const uint8_t *content,
+    size_t length,
+    _Out_ JsValueRef *value)
+{
+    PARAM_NOT_NULL(content);
+    utf8::NarrowToWide wstr((LPCSTR)content, length);
+    if (!wstr)
+    {
+        return JsErrorOutOfMemory;
+    }
+
+    return JsPointerToString(wstr, wstr.Length(), value);
+}
+
+CHAKRA_API JsCreateStringUtf16(
+    const uint16_t *content,
+    size_t length,
+    _Out_ JsValueRef *value)
+{
+    return JsPointerToString(
+        reinterpret_cast<const char16*>(content), length, value);
+}
+
+
+template <class CopyFunc>
+JsErrorCode WriteStringCopy(
+    JsValueRef value,
+    int start,
+    int length,
+    _Out_opt_ size_t* written,
+    const CopyFunc& copyFunc)
+{
+    if (written)
+    {
+        *written = 0;  // init to 0 for default
+    }
+
+    const char16* str = nullptr;
+    size_t strLength = 0;
+    JsErrorCode errorCode = JsStringToPointer(value, &str, &strLength);
+    if (errorCode != JsNoError)
+    {
+        return errorCode;
+    }
+
+    if (start < 0 || (size_t)start > strLength)
+    {
+        return JsNoError;  // start out of range, no chars written
+    }
+
+    size_t count = min(static_cast<size_t>(length), strLength - start);
+    if (count == 0)
+    {
+        return JsNoError;  // no chars written
+    }
+
+    errorCode = copyFunc(str + start, count);
+    if (errorCode != JsNoError)
+    {
+        return errorCode;
+    }
+
+    if (written)
+    {
+        *written = count;
+    }
+
+    return JsNoError;
+}
+
+CHAKRA_API JsWriteString(
+    JsValueRef value,
+    int start,
+    int length,
+    char* buffer,
+    _Out_opt_ size_t* written)
+{
+    return WriteStringCopy(value, start, length, written,
+        [buffer](const char16* src, size_t count)
+        {
+            PARAM_NOT_NULL(buffer);
+            CastCopy(src, buffer, count);
+            return JsNoError;
+        });
+}
+
+CHAKRA_API JsWriteStringUtf16(
+    JsValueRef value,
+    int start,
+    int length,
+    uint16_t* buffer,
+    _Out_opt_ size_t* written)
+{
+    return WriteStringCopy(value, start, length, written,
+        [buffer](const char16* src, size_t count)
+        {
+            PARAM_NOT_NULL(buffer);
+            memmove(buffer, src, sizeof(char16) * count);
+            return JsNoError;
+        });
+}
+
+CHAKRA_API JsWriteStringUtf8(
+    JsValueRef value,
+    uint8_t* buffer,
+    size_t bufferSize,
+    _Out_opt_ size_t* length)
+{
+    const char16* str = nullptr;
+    size_t strLength = 0;
+    JsErrorCode errorCode = JsStringToPointer(value, &str, &strLength);
+    if (errorCode != JsNoError)
+    {
+        return errorCode;
+    }
+
+    utf8::WideToNarrow utf8Str(str, strLength);
+    if (!buffer)
+    {
+        if (length)
+        {
+            *length = utf8Str.Length();
+        }
+    }
+    else
+    {
+        size_t count = min(bufferSize, utf8Str.Length());
+        if (count < utf8Str.Length())
+        {
+            // Try to copy whole characters if buffer size insufficient
+            auto maxFitChars = utf8::ByteIndexIntoCharacterIndex(
+                (LPCUTF8)(const char*)utf8Str, count,
+                utf8::DecodeOptions::doChunkedEncoding);
+            count = utf8::CharacterIndexToByteIndex(
+                (LPCUTF8)(const char*)utf8Str, utf8Str.Length(), maxFitChars);
+        }
+        memmove(buffer, utf8Str, sizeof(uint8_t) * count);
+        if (length)
+        {
+            *length = count;
+        }
+    }
+
+    return JsNoError;
+}
+
+
 /////////////////////
 
 CHAKRA_API JsTTDCreateRecordRuntime(_In_ JsRuntimeAttributes attributes, _In_reads_(infoUriCount) const byte* infoUri, _In_ size_t infoUriCount,
