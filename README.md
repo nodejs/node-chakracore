@@ -24,8 +24,8 @@ improve the TTD functionality so check in often for updates!
 ### Setup
 To get started with TTD you will need the following:
 
-- VSCode Insider Build from [here](https://code.visualstudio.com/insiders) 
-- Install Node-ChakraCore with TTD from [here]()  
+- Install VSCode Insider build from [here](https://aka.ms/vscode-insider) 
+- Install Node-ChakraCore with TTD from [here](https://aka.ms/nodettdinstaller)  
    (or build the ```debugging-ttd-preview``` branch from [node/node-chakracore](https://github.com/nodejs/node-chakracore))
 
 Note: Currently TTD support is available on Windows only.  Linux support will be available soon.
