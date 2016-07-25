@@ -14,12 +14,10 @@ allowing developers to deeply inspect the code as it was during the original
 execution. 
 
 ## How to get started
-This is a preview of the TTD functionality we are adding to Node & ChakraCore. 
-There are bugs and performance issues that make it unsuitable for use as a 
-production debugger. However, we are developing in the open we want to share 
-our progress and hopefully  get feedback, bug reports, functionality requests, 
-and pull-requests from the community. We are working to stabilize and rapidly 
-improve the TTD functionality so check in often for updates!
+This is a very early preview of the TTD functionality that we are adding to Node & ChakraCore. 
+It is not intended for any production use. However, we are developing in the open and wanted to share 
+our progress to get feedback, bug reports, functionality requests, and pull-requests from the community. 
+We are working to stabilize and rapidly improve the TTD functionality so check in often for updates!
 
 ### Setup
 To get started with TTD you will need the following:
