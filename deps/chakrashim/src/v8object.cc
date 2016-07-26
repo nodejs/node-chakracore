@@ -63,6 +63,7 @@ Maybe<bool> Object::Set(Local<Context> context,
   return Set(key, value, PropertyAttribute::None, /*force*/false);
 }
 
+// CHAKRA-TODO: Convert this function to javascript
 bool Object::Set(Handle<Value> key, Handle<Value> value) {
   return FromMaybe(Set(Local<Context>(), key, value));
 }
@@ -184,47 +185,22 @@ Local<Value> Object::Get(uint32_t index) {
 
 Maybe<PropertyAttribute> Object::GetPropertyAttributes(Local<Context> context,
                                                        Local<Value> key) {
-  JsValueRef desc;
-  if (jsrt::GetOwnPropertyDescriptor(this, *key, &desc) != JsNoError) {
+  JsValueRef getPropertyAttributesFunction =
+    jsrt::ContextShim::GetCurrent()->GetgetPropertyAttributesFunction();
+
+  JsValueRef result;
+  if (jsrt::CallFunction(getPropertyAttributesFunction, (JsValueRef) this,
+                         (JsValueRef)*key, &result) != JsNoError) {
     return Nothing<PropertyAttribute>();
   }
 
-  IsolateShim* iso = IsolateShim::FromIsolate(GetIsolate());
-  PropertyAttribute attr = PropertyAttribute::None;
-  JsValueRef value;
-
-  if (JsGetProperty(desc,
-                    iso->GetCachedPropertyIdRef(
-                      CachedPropertyIdRef::enumerable),
-                    &value) != JsNoError) {
+  int attributesValue;
+  if (jsrt::ValueToInt(result, &attributesValue) != JsNoError ||
+      attributesValue == -1) {
     return Nothing<PropertyAttribute>();
   }
-  if (!Local<Value>(value)->BooleanValue()) {
-    attr = static_cast<PropertyAttribute>(attr | PropertyAttribute::DontEnum);
-  }
 
-  if (JsGetProperty(desc,
-                    iso->GetCachedPropertyIdRef(
-                      CachedPropertyIdRef::configurable),
-                    &value) != JsNoError) {
-    return Nothing<PropertyAttribute>();
-  }
-  if (!Local<Value>(value)->BooleanValue()) {
-    attr = static_cast<PropertyAttribute>(attr | PropertyAttribute::DontDelete);
-  }
-
-  if (JsGetProperty(desc,
-                    iso->GetCachedPropertyIdRef(
-                      CachedPropertyIdRef::writable),
-                    &value) != JsNoError) {
-    return Nothing<PropertyAttribute>();
-  }
-  if (!Local<Value>(value)->IsUndefined() &&
-      !Local<Value>(value)->BooleanValue()) {
-    attr = static_cast<PropertyAttribute>(attr | PropertyAttribute::ReadOnly);
-  }
-
-  return Just(attr);
+  return Just(static_cast<PropertyAttribute>(attributesValue));
 }
 
 PropertyAttribute Object::GetPropertyAttributes(Handle<Value> key) {

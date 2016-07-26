@@ -101,20 +101,6 @@ JsErrorCode GetOwnPropertyDescriptor(JsValueRef ref,
                                      JsValueRef prop,
                                      JsValueRef* result);
 
-JsErrorCode IsValueInArray(JsValueRef arrayRef,
-                           JsValueRef valueRef,
-                           bool* result);
-
-JsErrorCode IsValueInArray(
-  JsValueRef arrayRef,
-  JsValueRef valueRef,
-  std::function<JsErrorCode(JsValueRef, JsValueRef, bool*)> comperator,
-  bool* result);
-
-JsErrorCode IsCaseInsensitiveStringValueInArray(JsValueRef arrayRef,
-                                                JsValueRef valueRef,
-                                                bool* result);
-
 JsErrorCode IsZero(JsValueRef value,
                    bool *result);
 

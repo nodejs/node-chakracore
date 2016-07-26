@@ -28,10 +28,10 @@ __declspec(thread) HandleScope *current = nullptr;
 HandleScope::HandleScope(Isolate* isolate)
     : _prev(current),
       _locals(),
-      _refs(JS_INVALID_REFERENCE),
       _count(0),
       _contextRef(JS_INVALID_REFERENCE),
       _addRefRecordHead(nullptr) {
+  _locals[0] = JS_INVALID_REFERENCE;
   current = this;
 }
 
@@ -54,28 +54,25 @@ HandleScope *HandleScope::GetCurrent() {
 }
 
 bool HandleScope::AddLocal(JsValueRef value) {
-  if (_count < _countof(_locals)) {
-    _locals[_count++] = value;
-    return true;
-  }
+  // _locals is full, save them in _locals[0]
+  if (_count == kOnStackLocals) {
+    if (_locals[0] == JS_INVALID_REFERENCE) {
+      if (JsCreateArray(0, &_locals[0]) != JsNoError) {
+        return AddLocalAddRef(value);
+      }
+    }
 
-  if (_refs == JS_INVALID_REFERENCE) {
-    if (JsCreateArray(1, &_refs) != JsNoError) {
+    JsValueRef arrayPushFunction =
+        jsrt::ContextShim::GetCurrent()->GetArrayPushFunction();
+
+    JsValueRef result;
+    if (JsCallFunction(arrayPushFunction, _locals,
+                       _countof(_locals), &result) != JsNoError) {
       return AddLocalAddRef(value);
     }
+    _count = 0;
   }
-
-  JsValueRef index;
-
-  if (JsIntToNumber(_count - _countof(_locals), &index) != JsNoError) {
-    return AddLocalAddRef(value);
-  }
-
-  if (JsSetIndexedProperty(_refs, index, value) != JsNoError) {
-    return AddLocalAddRef(value);
-  }
-
-  _count++;
+  _locals[1 + _count++] = value;
   return true;
 }
 

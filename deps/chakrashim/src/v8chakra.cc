@@ -37,6 +37,7 @@ bool TemplateData::Is(ExternalData* data) {
       || data->GetType() == ExternalDataTypes::FunctionTemplateData;
 }
 
+// CHAKRA-TODO: Convert this function to javascript?
 // Clone the template properties into the new instance
 JsErrorCode TemplateData::CopyPropertiesTo(JsValueRef newInstance) {
   if (properties.IsEmpty()) {
@@ -84,7 +85,7 @@ JsErrorCode TemplateData::CopyPropertiesTo(JsValueRef newInstance) {
       TemplateData* templateData = static_cast<TemplateData*>(data);
       value = templateData->NewInstance(value);
       if (value == JS_INVALID_REFERENCE) {
-        return JsErrorFatal; // Just to indicate failed
+        return JsErrorFatal;  // Just to indicate failed
       }
       IfJsErrorRet(JsSetProperty(propertyDescriptor, valueIdRef, value, false));
     }

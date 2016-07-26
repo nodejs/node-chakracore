@@ -568,6 +568,26 @@
       // CHAKRA-TODO: Need to add JSRT API to detect this
       return false;
     };
+    utils.getPropertyAttributes = function(object, value) {
+      var descriptor = Object_getOwnPropertyDescriptor(object, value);
+      if (descriptor == undefined) {
+        return -1;
+      }
+
+      var attributes = 0;
+      // taken from v8.h. Update if this changes in future
+      const ReadOnly = 1, DontEnum = 2, DontDelete = 4;
+      if (!descriptor.writable) {
+        attributes |= ReadOnly;
+      }
+      if (!descriptor.enumerable) {
+        attributes |= DontEnum;
+      }
+      if (!descriptor.configurable) {
+        attributes |= DontDelete;
+      }
+      return attributes;
+    };
   }
 
   patchErrorTypes();

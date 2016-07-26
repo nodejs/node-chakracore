@@ -734,10 +734,11 @@ class V8_EXPORT HandleScope {
  private:
   friend class EscapableHandleScope;
   template <class T> friend class Local;
-  static const int kOnStackLocals = 5;  // Arbitrary number of refs on stack
+  static const int kOnStackLocals = 8;  // Arbitrary number of refs on stack
 
-  JsValueRef _locals[kOnStackLocals];   // Save some refs on stack
-  JsValueRef _refs;                     // More refs go to a JS array
+  // Save some refs on stack. 1st element on stack
+  // is the JavascriptArray where other refs go.
+  JsValueRef _locals[kOnStackLocals + 1];
   int _count;
   HandleScope *_prev;
   JsContextRef _contextRef;
