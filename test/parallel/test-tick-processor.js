@@ -1,8 +1,8 @@
 'use strict';
+const common = require('../common');
 const fs = require('fs');
 const assert = require('assert');
 const cp = require('child_process');
-const common = require('../common');
 
 // Skip running this test for chakra engine because it doesn't
 // support -prof option.

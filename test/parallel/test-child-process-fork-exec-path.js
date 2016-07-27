@@ -1,8 +1,8 @@
 'use strict';
+const common = require('../common');
 var assert = require('assert');
 var fs = require('fs');
 var path = require('path');
-var common = require('../common');
 var msg = {test: 'this'};
 var nodeCopyPath = path.join(common.tmpDir, 'node-copy.exe');
 var chakracoreCopyPath = path.join(common.tmpDir, 'chakracore.dll');

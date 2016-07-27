@@ -627,55 +627,47 @@ ifneq ($(haswrk), 0)
 endif
 
 bench-net: all
-	@$(NODE) benchmark/common.js net
+	@$(NODE) benchmark/run.js net
 
 bench-crypto: all
-	@$(NODE) benchmark/common.js crypto
+	@$(NODE) benchmark/run.js crypto
 
 bench-tls: all
-	@$(NODE) benchmark/common.js tls
+	@$(NODE) benchmark/run.js tls
 
 bench-http: wrk all
-	@$(NODE) benchmark/common.js http
+	@$(NODE) benchmark/run.js http
 
 bench-fs: all
-	@$(NODE) benchmark/common.js fs
+	@$(NODE) benchmark/run.js fs
 
 bench-misc: all
 	@$(MAKE) -C benchmark/misc/function_call/
-	@$(NODE) benchmark/common.js misc
+	@$(NODE) benchmark/run.js misc
 
 bench-array: all
-	@$(NODE) benchmark/common.js arrays
+	@$(NODE) benchmark/run.js arrays
 
 bench-buffer: all
-	@$(NODE) benchmark/common.js buffers
+	@$(NODE) benchmark/run.js buffers
 
 bench-url: all
-	@$(NODE) benchmark/common.js url
+	@$(NODE) benchmark/run.js url
 
 bench-events: all
-	@$(NODE) benchmark/common.js events
+	@$(NODE) benchmark/run.js events
 
 bench-util: all
-	@$(NODE) benchmark/common.js util
+	@$(NODE) benchmark/run.js util
 
 bench-dgram: all
-	@$(NODE) benchmark/common.js dgram
+	@$(NODE) benchmark/run.js dgram
 
 bench-all: bench bench-misc bench-array bench-buffer bench-url bench-events bench-dgram bench-util
 
 bench: bench-net bench-http bench-fs bench-tls
 
 bench-ci: bench
-
-bench-http-simple:
-	benchmark/http_simple_bench.sh
-
-bench-idle:
-	$(NODE) benchmark/idle_server.js &
-	sleep 1
-	$(NODE) benchmark/idle_clients.js &
 
 jslint:
 	$(NODE) tools/jslint.js -J benchmark lib src test tools
@@ -706,7 +698,16 @@ cpplint:
 
 ifneq ("","$(wildcard tools/eslint/bin/eslint.js)")
 lint: jslint cpplint
+CONFLICT_RE=^>>>>>>> [0-9A-Fa-f]+|^<<<<<<< [A-Za-z]+
 lint-ci: jslint-ci cpplint
+	@if ! ( grep -IEqrs "$(CONFLICT_RE)" benchmark deps doc lib src test tools ) \
+		&& ! ( find . -maxdepth 1 -type f | xargs grep -IEqs "$(CONFLICT_RE)" ); then \
+		exit 0 ; \
+	else \
+		echo "" >&2 ; \
+		echo "Conflict marker detected in one or more files. Please fix them first." >&2 ; \
+		exit 1 ; \
+	fi
 else
 lint:
 	@echo "Linting is not available through the source tarball."
