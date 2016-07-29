@@ -27,8 +27,7 @@ if (process.env.FORK) {
     exePaths.forEach(function(value) {
       fs.unlinkSync(value.destPath);
     });
-  }
-  catch (e) {
+  } catch (e) {
     if (e.code !== 'ENOENT') throw e;
   }
 

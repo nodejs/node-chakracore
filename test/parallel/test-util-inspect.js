@@ -576,7 +576,7 @@ assert.equal(util.inspect(promise), common.engineSpecificMessage({
 var oldPromise = Promise;
 global.Promise = function() { this.bar = 42; };
 assert.equal(util.inspect(new Promise()), common.engineSpecificMessage({
-  v8: 'Promise {  bar: 42 }',
+  v8: '{ bar: 42 }',
   chakracore: 'Promise { \'<unknown>\', bar: 42 }'
 }));
 global.Promise = oldPromise;
