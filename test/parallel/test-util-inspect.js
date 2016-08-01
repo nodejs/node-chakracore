@@ -486,6 +486,7 @@ test_lines({
 
 // test boxed primitives output the correct values
 assert.equal(util.inspect(new String('test')), '[String: \'test\']');
+assert.equal(util.inspect(Object(Symbol('test'))), '[Symbol: Symbol(test)]');
 assert.equal(util.inspect(new Boolean(false)), '[Boolean: false]');
 assert.equal(util.inspect(new Boolean(true)), '[Boolean: true]');
 assert.equal(util.inspect(new Number(0)), '[Number: 0]');
@@ -575,7 +576,7 @@ assert.equal(util.inspect(promise), common.engineSpecificMessage({
 var oldPromise = Promise;
 global.Promise = function() { this.bar = 42; };
 assert.equal(util.inspect(new Promise()), common.engineSpecificMessage({
-  v8: 'Promise {  bar: 42 }',
+  v8: '{ bar: 42 }',
   chakracore: 'Promise { \'<unknown>\', bar: 42 }'
 }));
 global.Promise = oldPromise;

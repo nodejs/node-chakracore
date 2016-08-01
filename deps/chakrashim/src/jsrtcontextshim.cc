@@ -52,7 +52,7 @@ ContextShim * ContextShim::New(IsolateShim * isolateShim, bool exposeGC,
                          globalObjectTemplateInstance);
 }
 
-#define DEF_IS_TYPE(F) , F##Function(JS_INVALID_REFERENCE)
+#define DEF_IS_TYPE(F) F##Function(JS_INVALID_REFERENCE),
 
 ContextShim::ContextShim(IsolateShim * isolateShim,
                          JsContextRef context,
@@ -62,6 +62,7 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       context(context),
       initialized(false),
       exposeGC(exposeGC),
+      globalObjectTemplateInstance(globalObjectTemplateInstance),
       trueRef(JS_INVALID_REFERENCE),
       falseRef(JS_INVALID_REFERENCE),
       undefinedRef(JS_INVALID_REFERENCE),
@@ -69,9 +70,9 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       zero(JS_INVALID_REFERENCE),
       globalObject(JS_INVALID_REFERENCE),
       proxyOfGlobal(JS_INVALID_REFERENCE),
-      globalObjectTemplateInstance(globalObjectTemplateInstance),
-      getOwnPropertyDescriptorFunction(JS_INVALID_REFERENCE),
       promiseContinuationFunction(JS_INVALID_REFERENCE),
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
       cloneObjectFunction(JS_INVALID_REFERENCE),
       getPropertyNamesFunction(JS_INVALID_REFERENCE),
       getEnumerableNamedPropertiesFunction(JS_INVALID_REFERENCE),
@@ -86,9 +87,8 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getSymbolForFunction(JS_INVALID_REFERENCE),
       ensureDebugFunction(JS_INVALID_REFERENCE),
       enqueueMicrotaskFunction(JS_INVALID_REFERENCE),
-      dequeueMicrotaskFunction(JS_INVALID_REFERENCE)
-#include "jsrtcachedpropertyidref.inc"
-      {
+      dequeueMicrotaskFunction(JS_INVALID_REFERENCE),
+      getPropertyAttributesFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -304,16 +304,6 @@ bool ContextShim::InitializeBuiltIns() {
     return false;
   }
 
-  if (!InitializeBuiltIn(&getOwnPropertyDescriptorFunction,
-                         [this](JsValueRef * value) {
-                           return GetProperty(
-                             GetObjectConstructor(),
-                             CachedPropertyIdRef::getOwnPropertyDescriptor,
-                             value);
-                         })) {
-    return false;
-  }
-
   if (DefineProperty(globalObject,
                      GetIsolateShim()->GetKeepAliveObjectSymbolPropertyIdRef(),
                      PropertyDescriptorOptionValues::False,
@@ -513,10 +503,14 @@ DECLARE_GETOBJECT(DateConstructor,
 DECLARE_GETOBJECT(ProxyConstructor,
                   globalConstructor[GlobalType::Proxy])
 DECLARE_GETOBJECT(GetOwnPropertyDescriptorFunction,
-                  getOwnPropertyDescriptorFunction)
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                      ::Object_getOwnPropertyDescriptor])
 DECLARE_GETOBJECT(StringConcatFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::String_concat])
+DECLARE_GETOBJECT(ArrayPushFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Array_push])
 
 
 JsValueRef ContextShim::GetProxyOfGlobal() {
@@ -568,6 +562,7 @@ CHAKRASHIM_FUNCTION_GETTER(getSymbolFor)
 CHAKRASHIM_FUNCTION_GETTER(ensureDebug)
 CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
 CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
+CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
 
 #define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"

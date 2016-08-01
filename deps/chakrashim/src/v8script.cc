@@ -32,6 +32,7 @@ Local<Script> Script::Compile(Handle<String> source, ScriptOrigin* origin) {
   return FromMaybe(Compile(Local<Context>(), source, origin));
 }
 
+// CHAKRA-TODO: Convert this function to javascript
 // Create a object to hold the script infomration
 static JsErrorCode CreateScriptObject(JsValueRef sourceRef,
                                       JsValueRef filenameRef,

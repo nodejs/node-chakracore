@@ -35,11 +35,6 @@ global.process.stderr.write = function(string) {
   errStrings.push(string);
 };
 
-var expectedFuncToString = common.engineSpecificMessage({
-  v8: "{ foo: 'bar', inspect: [Function] }\n",
-  chakracore: "{ foo: 'bar', inspect: [Function: inspect] }\n"
-});
-
 // test console.log()
 console.log('foo');
 console.log('foo', 'bar');
@@ -115,6 +110,12 @@ for (const expected of expectedStrings) {
   assert.equal(expected + '\n', strings.shift());      // console.info  (stdout)
   assert.equal(expected + '\n', errStrings.shift());   // console.warn  (stderr)
 }
+
+
+var expectedFuncToString = common.engineSpecificMessage({
+  v8: "{ foo: 'bar', inspect: [Function: inspect] }\n",
+  chakracore: "{ foo: 'bar', inspect: [Function: inspect] }\n"
+});
 
 assert.equal(expectedFuncToString, strings.shift());
 assert.equal(expectedFuncToString, strings.shift());

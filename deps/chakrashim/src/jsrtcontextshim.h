@@ -75,6 +75,7 @@ class ContextShim {
   JsValueRef GetGlobalType(GlobalType index);
   JsValueRef GetGetOwnPropertyDescriptorFunction();
   JsValueRef GetStringConcatFunction();
+  JsValueRef GetArrayPushFunction();
   JsValueRef GetGlobalPrototypeFunction(GlobalPrototypeFunction index);
   JsValueRef GetProxyOfGlobal();
 
@@ -127,10 +128,14 @@ class ContextShim {
   std::vector<void*> embedderData;
 
 #define DECLARE_CHAKRASHIM_FUNCTION_GETTER(F) \
- public: \
-   JsValueRef Get##F##Function(); \
- private: \
-   JsValueRef F##Function; \
+public: \
+  JsValueRef Get##F##Function(); \
+private: \
+  JsValueRef F##Function; \
+
+#define DEF_IS_TYPE(F) DECLARE_CHAKRASHIM_FUNCTION_GETTER(F)
+#include "jsrtcachedpropertyidref.inc"
+#undef DEF_IS_TYPE
 
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(cloneObject);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getPropertyNames);
@@ -147,10 +152,7 @@ class ContextShim {
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(ensureDebug);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
-
-#define DEF_IS_TYPE(F) DECLARE_CHAKRASHIM_FUNCTION_GETTER(F)
-#include "jsrtcachedpropertyidref.inc"
-#undef DEF_IS_TYPE
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
 };
 
 }  // namespace jsrt

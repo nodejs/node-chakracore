@@ -281,55 +281,6 @@ JsErrorCode HasOwnProperty(JsValueRef object,
   return JsCallFunction(hasOwnPropertyFunction, args, _countof(args), result);
 }
 
-JsErrorCode IsValueInArray(
-    JsValueRef arrayRef,
-    JsValueRef valueRef,
-    std::function<JsErrorCode(JsValueRef, JsValueRef, bool*)> comparator,
-    bool* result) {
-  JsErrorCode error;
-  unsigned int length;
-  *result = false;
-  error = GetArrayLength(arrayRef, &length);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  for (unsigned int index = 0; index < length; index++) {
-    JsValueRef indexValue;
-    error = JsIntToNumber(index, &indexValue);
-    if (error != JsNoError) {
-      return error;
-    }
-
-    JsValueRef itemRef;
-    error = JsGetIndexedProperty(arrayRef, indexValue, &itemRef);
-    if (error != JsNoError) {
-      return error;
-    }
-
-    if (comparator != nullptr) {
-      error = comparator(valueRef, itemRef, result);
-    } else {
-      error = JsEquals(itemRef, valueRef, result);
-    }
-
-    if (error != JsNoError) {
-      return error;
-    }
-
-    if (*result)
-      return JsNoError;
-  }
-
-  return JsNoError;
-}
-
-JsErrorCode IsValueInArray(JsValueRef arrayRef,
-                           JsValueRef valueRef,
-                           bool* result) {
-  return IsValueInArray(arrayRef, valueRef, nullptr, result);
-}
-
 JsErrorCode GetOwnPropertyDescriptor(JsValueRef ref,
                                      JsValueRef prop,
                                      JsValueRef* result) {
@@ -506,6 +457,7 @@ PropertyDescriptorOptionValues GetPropertyDescriptorOptionValue(bool b) {
     PropertyDescriptorOptionValues::False;
 }
 
+// CHAKRA-TODO: Convert this function to javascript
 JsErrorCode CreatePropertyDescriptor(
     PropertyDescriptorOptionValues writable,
     PropertyDescriptorOptionValues enumerable,
@@ -845,6 +797,7 @@ bool DeletePrivate(JsValueRef object, JsValueRef key) {
   return hasDeleted;
 }
 
+// CHAKRA-TODO: Convert this function to javascript
 JsErrorCode GetPrivate(JsValueRef object, JsValueRef key,
                        JsValueRef *result) {
   JsPropertyIdRef hiddenValuesIdRef;

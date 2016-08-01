@@ -33,6 +33,7 @@ DEFTYPE(Number)
 DEFTYPE(Object)
 DEFTYPE(Proxy)
 DEFTYPE(String)
+DEFTYPE(Array)
 DEFTYPE(Uint8Array)
 DEFTYPE(Uint8ClampedArray)
 DEFTYPE(Int8Array)
@@ -46,9 +47,12 @@ DEFTYPE(Float64Array)
 
 
 // These prototype functions will be cached/shimmed
+DEFMETHOD(Object,         getOwnPropertyDescriptor)
 DEFMETHOD(Object,         hasOwnProperty)
 DEFMETHOD(Object,         toString)
 DEFMETHOD(String,         concat)
+DEFMETHOD(Array,          push)
+
 
 #undef DEFTYPE
 #undef DEFMETHOD

@@ -3770,8 +3770,8 @@ static void StartDebug(Environment* env, bool wait) {
   // ChakraShim does not support debugger_agent
   debugger_running = v8::Debug::EnableAgent();
 #else
-   debugger_running =
-        env->debugger_agent()->Start(debug_host, debug_port, wait);
+  debugger_running =
+     env->debugger_agent()->Start(debug_host, debug_port, wait);
 #endif
     if (debugger_running == false) {
       fprintf(stderr, "Starting debugger on %s:%d failed\n",

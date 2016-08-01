@@ -1,9 +1,8 @@
 'use strict';
+const common = require('../common');
 const path = require('path');
 const spawn = require('child_process').spawn;
 const assert = require('assert');
-
-const common = require('../common');
 
 if (common.isChakraEngine) {
   console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
