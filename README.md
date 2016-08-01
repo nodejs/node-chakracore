@@ -70,14 +70,12 @@ Prerequisites:
 Install building tools and ChakraCore dependencies:
 
 ```
-sudo apt-get install -y build-essential cmake clang uuid-dev libunwind-dev libicu-dev liblttng-ust-dev
+sudo apt-get install -y build-essential cmake clang libunwind-dev libicu-dev
 ```
 
-Clone this repo and check out `xplat` branch:
+Clone this repo and check out **`xplat`** branch:
 
 ```
-git clone https://github.com/nodejs/node-chakracore.git
-cd node-chakracore
 git checkout xplat
 ```
 
