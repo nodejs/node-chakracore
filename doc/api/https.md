@@ -1,6 +1,6 @@
 # HTTPS
 
-    Stability: 2 - Stable
+> Stability: 2 - Stable
 
 HTTPS is the HTTP protocol over TLS/SSL. In Node.js this is implemented as a
 separate module.
@@ -107,8 +107,8 @@ Example:
 const https = require('https');
 
 https.get('https://encrypted.google.com/', (res) => {
-  console.log('statusCode: ', res.statusCode);
-  console.log('headers: ', res.headers);
+  console.log('statusCode:', res.statusCode);
+  console.log('headers:', res.headers);
 
   res.on('data', (d) => {
     process.stdout.write(d);
@@ -151,8 +151,8 @@ var options = {
 };
 
 var req = https.request(options, (res) => {
-  console.log('statusCode: ', res.statusCode);
-  console.log('headers: ', res.headers);
+  console.log('statusCode:', res.statusCode);
+  console.log('headers:', res.headers);
 
   res.on('data', (d) => {
     process.stdout.write(d);

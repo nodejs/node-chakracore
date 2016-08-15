@@ -9,7 +9,11 @@
 #include "v8-platform.h"
 #include "util.h"
 
+#include "platform/v8_inspector/public/InspectorVersion.h"
 #include "platform/v8_inspector/public/V8Inspector.h"
+#include "platform/v8_inspector/public/V8InspectorClient.h"
+#include "platform/v8_inspector/public/V8InspectorSession.h"
+#include "platform/v8_inspector/public/V8StackTrace.h"
 #include "platform/inspector_protocol/FrontendChannel.h"
 #include "platform/inspector_protocol/String16.h"
 #include "platform/inspector_protocol/Values.h"
@@ -36,7 +40,7 @@ const char TAG_CONNECT[] = "#connect";
 const char TAG_DISCONNECT[] = "#disconnect";
 
 const char DEVTOOLS_PATH[] = "/node";
-const char DEVTOOLS_HASH[] = "851972d6da7463c353d712d2cb6c1ec23fa6c4fe";
+const char DEVTOOLS_HASH[] = V8_INSPECTOR_REVISION;
 
 void PrintDebuggerReadyMessage(int port) {
   fprintf(stderr, "Debugger listening on port %d.\n"
@@ -48,8 +52,8 @@ void PrintDebuggerReadyMessage(int port) {
       port, DEVTOOLS_HASH, port);
 }
 
-bool AcceptsConnection(inspector_socket_t* socket, const char* path) {
-  return strncmp(DEVTOOLS_PATH, path, sizeof(DEVTOOLS_PATH)) == 0;
+bool AcceptsConnection(inspector_socket_t* socket, const std::string& path) {
+  return 0 == path.compare(0, sizeof(DEVTOOLS_PATH) - 1, DEVTOOLS_PATH);
 }
 
 void DisposeInspector(inspector_socket_t* socket, int status) {
@@ -63,10 +67,7 @@ void DisconnectAndDisposeIO(inspector_socket_t* socket) {
 }
 
 void OnBufferAlloc(uv_handle_t* handle, size_t len, uv_buf_t* buf) {
-  if (len > 0) {
-    buf->base = static_cast<char*>(malloc(len));
-    CHECK_NE(buf->base, nullptr);
-  }
+  buf->base = new char[len];
   buf->len = len;
 }
 
@@ -133,18 +134,19 @@ void SendTargentsListResponse(inspector_socket_t* socket, int port) {
   SendHttpResponse(socket, buffer, len);
 }
 
-bool RespondToGet(inspector_socket_t* socket, const char* path, int port) {
+bool RespondToGet(inspector_socket_t* socket, const std::string& path,
+                  int port) {
   const char PATH[] = "/json";
   const char PATH_LIST[] = "/json/list";
   const char PATH_VERSION[] = "/json/version";
   const char PATH_ACTIVATE[] = "/json/activate/";
-  if (!strncmp(PATH_VERSION, path, sizeof(PATH_VERSION))) {
+  if (0 == path.compare(0, sizeof(PATH_VERSION) - 1, PATH_VERSION)) {
     SendVersionResponse(socket);
-  } else if (!strncmp(PATH_LIST, path, sizeof(PATH_LIST)) ||
-             !strncmp(PATH, path, sizeof(PATH)))  {
+  } else if (0 == path.compare(0, sizeof(PATH_LIST) - 1, PATH_LIST) ||
+             0 == path.compare(0, sizeof(PATH) - 1, PATH)) {
     SendTargentsListResponse(socket, port);
-  } else if (!strncmp(path, PATH_ACTIVATE, sizeof(PATH_ACTIVATE) - 1) &&
-             atoi(path + (sizeof(PATH_ACTIVATE) - 1)) == getpid()) {
+  } else if (0 == path.compare(0, sizeof(PATH_ACTIVATE) - 1, PATH_ACTIVATE) &&
+             atoi(path.substr(sizeof(PATH_ACTIVATE) - 1).c_str()) == getpid()) {
     const char TARGET_ACTIVATED[] = "Target activated";
     SendHttpResponse(socket, TARGET_ACTIVATED, sizeof(TARGET_ACTIVATED) - 1);
   } else {
@@ -157,7 +159,8 @@ bool RespondToGet(inspector_socket_t* socket, const char* path, int port) {
 
 namespace inspector {
 
-using blink::protocol::DictionaryValue;
+
+class V8NodeInspector;
 
 class AgentImpl {
  public:
@@ -165,23 +168,29 @@ class AgentImpl {
   ~AgentImpl();
 
   // Start the inspector agent thread
-  void Start(v8::Platform* platform, int port, bool wait);
+  bool Start(v8::Platform* platform, int port, bool wait);
   // Stop the inspector agent
   void Stop();
 
   bool IsStarted();
-  bool IsConnected() {  return connected_; }
+  bool IsConnected() {  return state_ == State::kConnected; }
   void WaitForDisconnect();
+
+  void FatalException(v8::Local<v8::Value> error,
+                      v8::Local<v8::Message> message);
 
  private:
   using MessageQueue = std::vector<std::pair<int, String16>>;
+  enum class State { kNew, kAccepting, kConnected, kDone, kError };
 
   static void ThreadCbIO(void* agent);
   static void OnSocketConnectionIO(uv_stream_t* server, int status);
   static bool OnInspectorHandshakeIO(inspector_socket_t* socket,
                                      enum inspector_handshake_event state,
-                                     const char* path);
+                                     const std::string& path);
   static void WriteCbIO(uv_async_t* async);
+
+  void InstallInspectorOnProcess();
 
   void WorkerRunIO();
   void OnInspectorConnectionIO(inspector_socket_t* socket);
@@ -195,6 +204,7 @@ class AgentImpl {
                      const String16& message);
   void SwapBehindLock(MessageQueue* vector1, MessageQueue* vector2);
   void PostIncomingMessage(const String16& message);
+  State ToState(State state);
 
   uv_sem_t start_sem_;
   ConditionVariable pause_cond_;
@@ -205,14 +215,14 @@ class AgentImpl {
 
   int port_;
   bool wait_;
-  bool connected_;
   bool shutting_down_;
+  State state_;
   node::Environment* parent_env_;
 
-  uv_async_t data_written_;
+  uv_async_t* data_written_;
   uv_async_t io_thread_req_;
   inspector_socket_t* client_socket_;
-  blink::V8Inspector* inspector_;
+  V8NodeInspector* inspector_;
   v8::Platform* platform_;
   MessageQueue incoming_message_queue_;
   MessageQueue outgoing_message_queue_;
@@ -272,16 +282,23 @@ class ChannelImpl final : public blink::protocol::FrontendChannel {
   AgentImpl* const agent_;
 };
 
-class V8NodeInspector : public blink::V8Inspector {
+// Used in V8NodeInspector::currentTimeMS() below.
+#define NANOS_PER_MSEC 1000000
+
+class V8NodeInspector : public blink::V8InspectorClient {
  public:
   V8NodeInspector(AgentImpl* agent, node::Environment* env,
                   v8::Platform* platform)
-                  : blink::V8Inspector(env->isolate(), env->context()),
-                    agent_(agent),
+                  : agent_(agent),
                     isolate_(env->isolate()),
                     platform_(platform),
                     terminated_(false),
-                    running_nested_loop_(false) {}
+                    running_nested_loop_(false),
+                    inspector_(
+                        blink::V8Inspector::create(env->isolate(), this)) {
+    inspector_->contextCreated(
+        blink::V8ContextInfo(env->context(), 1, "NodeJS Main Context"));
+  }
 
   void runMessageLoopOnPause(int context_group_id) override {
     if (running_nested_loop_)
@@ -300,8 +317,29 @@ class V8NodeInspector : public blink::V8Inspector {
     running_nested_loop_ = false;
   }
 
+  double currentTimeMS() override {
+    return uv_hrtime() * 1.0 / NANOS_PER_MSEC;
+  }
+
   void quitMessageLoopOnPause() override {
     terminated_ = true;
+  }
+
+  void connectFrontend() {
+    session_ = inspector_->connect(1, new ChannelImpl(agent_), nullptr);
+  }
+
+  void disconnectFrontend() {
+    session_.reset();
+  }
+
+  void dispatchMessageFromFrontend(const String16& message) {
+    CHECK(session_);
+    session_->dispatchProtocolMessage(message);
+  }
+
+  blink::V8Inspector* inspector() {
+    return inspector_.get();
   }
 
  private:
@@ -310,13 +348,16 @@ class V8NodeInspector : public blink::V8Inspector {
   v8::Platform* platform_;
   bool terminated_;
   bool running_nested_loop_;
+  std::unique_ptr<blink::V8Inspector> inspector_;
+  std::unique_ptr<blink::V8InspectorSession> session_;
 };
 
 AgentImpl::AgentImpl(Environment* env) : port_(0),
                                          wait_(false),
-                                         connected_(false),
                                          shutting_down_(false),
+                                         state_(State::kNew),
                                          parent_env_(env),
+                                         data_written_(new uv_async_t()),
                                          client_socket_(nullptr),
                                          inspector_(nullptr),
                                          platform_(nullptr),
@@ -324,30 +365,93 @@ AgentImpl::AgentImpl(Environment* env) : port_(0),
                                          frontend_session_id_(0),
                                          backend_session_id_(0) {
   CHECK_EQ(0, uv_sem_init(&start_sem_, 0));
-  memset(&data_written_, 0, sizeof(data_written_));
   memset(&io_thread_req_, 0, sizeof(io_thread_req_));
+  CHECK_EQ(0, uv_async_init(env->event_loop(), data_written_, nullptr));
+  uv_unref(reinterpret_cast<uv_handle_t*>(data_written_));
 }
 
 AgentImpl::~AgentImpl() {
-  if (!inspector_)
-    return;
-  uv_close(reinterpret_cast<uv_handle_t*>(&data_written_), nullptr);
+  auto close_cb = [](uv_handle_t* handle) {
+    delete reinterpret_cast<uv_async_t*>(handle);
+  };
+  uv_close(reinterpret_cast<uv_handle_t*>(data_written_), close_cb);
+  data_written_ = nullptr;
 }
 
-void AgentImpl::Start(v8::Platform* platform, int port, bool wait) {
+void InspectorConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  v8::Isolate* isolate = info.GetIsolate();
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+
+  CHECK(info.Data()->IsArray());
+  v8::Local<v8::Array> args = info.Data().As<v8::Array>();
+  CHECK_EQ(args->Length(), 3);
+
+  v8::Local<v8::Value> inspector_method =
+      args->Get(context, 0).ToLocalChecked();
+  CHECK(inspector_method->IsFunction());
+  v8::Local<v8::Value> node_method =
+      args->Get(context, 1).ToLocalChecked();
+  CHECK(node_method->IsFunction());
+  v8::Local<v8::Value> config_value =
+      args->Get(context, 2).ToLocalChecked();
+  CHECK(config_value->IsObject());
+  v8::Local<v8::Object> config_object = config_value.As<v8::Object>();
+
+  std::vector<v8::Local<v8::Value>> call_args(info.Length());
+  for (int i = 0; i < info.Length(); ++i) {
+    call_args[i] = info[i];
+  }
+
+  v8::Local<v8::String> in_call_key = OneByteString(isolate, "in_call");
+  bool in_call = config_object->Has(context, in_call_key).FromMaybe(false);
+  if (!in_call) {
+    CHECK(config_object->Set(context,
+                             in_call_key,
+                             v8::True(isolate)).FromJust());
+    CHECK(!inspector_method.As<v8::Function>()->Call(
+        context,
+        info.Holder(),
+        call_args.size(),
+        call_args.data()).IsEmpty());
+  }
+
+  v8::TryCatch try_catch(info.GetIsolate());
+  node_method.As<v8::Function>()->Call(context,
+                                       info.Holder(),
+                                       call_args.size(),
+                                       call_args.data());
+  CHECK(config_object->Delete(context, in_call_key).FromJust());
+  if (try_catch.HasCaught())
+    try_catch.ReThrow();
+}
+
+void InspectorWrapConsoleCall(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+
+  if (args.Length() != 3 || !args[0]->IsFunction() ||
+      !args[1]->IsFunction() || !args[2]->IsObject()) {
+    return env->ThrowError("inspector.wrapConsoleCall takes exactly 3 "
+        "arguments: two functions and an object.");
+  }
+
+  v8::Local<v8::Array> array = v8::Array::New(env->isolate(), args.Length());
+  CHECK(array->Set(env->context(), 0, args[0]).FromJust());
+  CHECK(array->Set(env->context(), 1, args[1]).FromJust());
+  CHECK(array->Set(env->context(), 2, args[2]).FromJust());
+  args.GetReturnValue().Set(v8::Function::New(env->context(),
+                                              InspectorConsoleCall,
+                                              array).ToLocalChecked());
+}
+
+bool AgentImpl::Start(v8::Platform* platform, int port, bool wait) {
   auto env = parent_env_;
   inspector_ = new V8NodeInspector(this, env, platform);
-
-  int err;
-
   platform_ = platform;
 
-  err = uv_loop_init(&child_loop_);
-  CHECK_EQ(err, 0);
-  err = uv_async_init(env->event_loop(), &data_written_, nullptr);
-  CHECK_EQ(err, 0);
+  InstallInspectorOnProcess();
 
-  uv_unref(reinterpret_cast<uv_handle_t*>(&data_written_));
+  int err = uv_loop_init(&child_loop_);
+  CHECK_EQ(err, 0);
 
   port_ = port;
   wait_ = wait;
@@ -356,20 +460,19 @@ void AgentImpl::Start(v8::Platform* platform, int port, bool wait) {
   CHECK_EQ(err, 0);
   uv_sem_wait(&start_sem_);
 
+  if (state_ == State::kError) {
+    Stop();
+    return false;
+  }
+  state_ = State::kAccepting;
   if (wait) {
     DispatchMessages();
   }
+  return true;
 }
 
 void AgentImpl::Stop() {
-  // TODO(repenaxa): hop on the right thread.
-  DisconnectAndDisposeIO(client_socket_);
   int err = uv_thread_join(&thread_);
-  CHECK_EQ(err, 0);
-
-  uv_run(&child_loop_, UV_RUN_NOWAIT);
-
-  err = uv_loop_close(&child_loop_);
   CHECK_EQ(err, 0);
   delete inspector_;
 }
@@ -384,6 +487,62 @@ void AgentImpl::WaitForDisconnect() {
   inspector_->runMessageLoopOnPause(0);
 }
 
+#define READONLY_PROPERTY(obj, str, var)                                      \
+  do {                                                                        \
+    obj->DefineOwnProperty(env->context(),                                    \
+                           OneByteString(env->isolate(), str),                \
+                           var,                                               \
+                           v8::ReadOnly).FromJust();                          \
+  } while (0)
+
+void AgentImpl::InstallInspectorOnProcess() {
+  auto env = parent_env_;
+  v8::Local<v8::Object> process = env->process_object();
+  v8::Local<v8::Object> inspector = v8::Object::New(env->isolate());
+  READONLY_PROPERTY(process, "inspector", inspector);
+  env->SetMethod(inspector, "wrapConsoleCall", InspectorWrapConsoleCall);
+}
+
+String16 ToProtocolString(v8::Local<v8::Value> value) {
+  if (value.IsEmpty() || value->IsNull() || value->IsUndefined() ||
+      !value->IsString()) {
+    return String16();
+  }
+  v8::Local<v8::String> string_value = v8::Local<v8::String>::Cast(value);
+  wstring buffer(string_value->Length(), '\0');
+  string_value->Write(&buffer[0], 0, string_value->Length());
+  return String16(buffer);
+}
+
+void AgentImpl::FatalException(v8::Local<v8::Value> error,
+                               v8::Local<v8::Message> message) {
+  if (!IsStarted())
+    return;
+  auto env = parent_env_;
+  v8::Local<v8::Context> context = env->context();
+
+  int script_id = message->GetScriptOrigin().ScriptID()->Value();
+  std::unique_ptr<blink::V8StackTrace> stack_trace =
+      inspector_->inspector()->createStackTrace(message->GetStackTrace());
+
+  if (stack_trace && !stack_trace->isEmpty() &&
+      String16::fromInteger(script_id) == stack_trace->topScriptId()) {
+    script_id = 0;
+  }
+
+  inspector_->inspector()->exceptionThrown(
+      context,
+      "Uncaught",
+      error,
+      ToProtocolString(message->Get()),
+      ToProtocolString(message->GetScriptResourceName()),
+      message->GetLineNumber(context).FromMaybe(0),
+      message->GetStartColumn(context).FromMaybe(0),
+      std::move(stack_trace),
+      script_id);
+  WaitForDisconnect();
+}
+
 // static
 void AgentImpl::ThreadCbIO(void* agent) {
   static_cast<AgentImpl*>(agent)->WorkerRunIO();
@@ -393,7 +552,6 @@ void AgentImpl::ThreadCbIO(void* agent) {
 void AgentImpl::OnSocketConnectionIO(uv_stream_t* server, int status) {
   if (status == 0) {
     inspector_socket_t* socket = new inspector_socket_t();
-    memset(socket, 0, sizeof(*socket));
     socket->data = server->data;
     if (inspector_accept(server, socket,
                          AgentImpl::OnInspectorHandshakeIO) != 0) {
@@ -404,8 +562,8 @@ void AgentImpl::OnSocketConnectionIO(uv_stream_t* server, int status) {
 
 // static
 bool AgentImpl::OnInspectorHandshakeIO(inspector_socket_t* socket,
-                                   enum inspector_handshake_event state,
-                                   const char* path) {
+                                       enum inspector_handshake_event state,
+                                       const std::string& path) {
   AgentImpl* agent = static_cast<AgentImpl*>(socket->data);
   switch (state) {
   case kInspectorHandshakeHttpGet:
@@ -429,7 +587,6 @@ void AgentImpl::OnRemoteDataIO(inspector_socket_t* socket,
   Mutex::ScopedLock scoped_lock(pause_lock_);
   if (read > 0) {
     String16 str = String16::fromUTF8(buf->base, read);
-    PostIncomingMessage(str);
     // TODO(pfeldman): Instead of blocking execution while debugger
     // engages, node should wait for the run callback from the remote client
     // and initiate its startup. This is a change to node.cc that should be
@@ -438,11 +595,7 @@ void AgentImpl::OnRemoteDataIO(inspector_socket_t* socket,
       wait_ = false;
       uv_sem_post(&start_sem_);
     }
-
-    platform_->CallOnForegroundThread(parent_env_->isolate(),
-        new DispatchOnInspectorBackendTask(this));
-    parent_env_->isolate()->RequestInterrupt(InterruptCallback, this);
-    uv_async_send(&data_written_);
+    PostIncomingMessage(str);
   } else if (read <= 0) {
     // EOF
     if (client_socket_ == socket) {
@@ -453,7 +606,7 @@ void AgentImpl::OnRemoteDataIO(inspector_socket_t* socket,
     DisconnectAndDisposeIO(socket);
   }
   if (buf) {
-    free(buf->base);
+    delete[] buf->base;
   }
   pause_cond_.Broadcast(scoped_lock);
 }
@@ -477,8 +630,10 @@ void AgentImpl::WriteCbIO(uv_async_t* async) {
 void AgentImpl::WorkerRunIO() {
   sockaddr_in addr;
   uv_tcp_t server;
-  int err = uv_async_init(&child_loop_, &io_thread_req_, AgentImpl::WriteCbIO);
-  CHECK_EQ(0, err);
+  int err = uv_loop_init(&child_loop_);
+  CHECK_EQ(err, 0);
+  err = uv_async_init(&child_loop_, &io_thread_req_, AgentImpl::WriteCbIO);
+  CHECK_EQ(err, 0);
   io_thread_req_.data = this;
   uv_tcp_init(&child_loop_, &server);
   uv_ip4_addr("0.0.0.0", port_, &addr);
@@ -489,19 +644,26 @@ void AgentImpl::WorkerRunIO() {
     err = uv_listen(reinterpret_cast<uv_stream_t*>(&server), 1,
                     OnSocketConnectionIO);
   }
-  if (err == 0) {
-    PrintDebuggerReadyMessage(port_);
-  } else {
+  if (err != 0) {
     fprintf(stderr, "Unable to open devtools socket: %s\n", uv_strerror(err));
-    ABORT();
+    state_ = State::kError;  // Safe, main thread is waiting on semaphore
+    uv_close(reinterpret_cast<uv_handle_t*>(&io_thread_req_), nullptr);
+    uv_close(reinterpret_cast<uv_handle_t*>(&server), nullptr);
+    uv_loop_close(&child_loop_);
+    uv_sem_post(&start_sem_);
+    return;
   }
+  PrintDebuggerReadyMessage(port_);
   if (!wait_) {
     uv_sem_post(&start_sem_);
   }
   uv_run(&child_loop_, UV_RUN_DEFAULT);
   uv_close(reinterpret_cast<uv_handle_t*>(&io_thread_req_), nullptr);
   uv_close(reinterpret_cast<uv_handle_t*>(&server), nullptr);
-  uv_run(&child_loop_, UV_RUN_DEFAULT);
+  DisconnectAndDisposeIO(client_socket_);
+  uv_run(&child_loop_, UV_RUN_NOWAIT);
+  err = uv_loop_close(&child_loop_);
+  CHECK_EQ(err, 0);
 }
 
 void AgentImpl::AppendMessage(MessageQueue* queue, int session_id,
@@ -521,7 +683,7 @@ void AgentImpl::PostIncomingMessage(const String16& message) {
   platform_->CallOnForegroundThread(isolate,
                                     new DispatchOnInspectorBackendTask(this));
   isolate->RequestInterrupt(InterruptCallback, this);
-  uv_async_send(&data_written_);
+  uv_async_send(data_written_);
 }
 
 void AgentImpl::OnInspectorConnectionIO(inspector_socket_t* socket) {
@@ -544,23 +706,26 @@ void AgentImpl::DispatchMessages() {
   for (const MessageQueue::value_type& pair : tasks) {
     const String16& message = pair.second;
     if (message == TAG_CONNECT) {
-      CHECK_EQ(false, connected_);
+      CHECK_EQ(State::kAccepting, state_);
       backend_session_id_++;
-      connected_ = true;
+      state_ = State::kConnected;
       fprintf(stderr, "Debugger attached.\n");
-      inspector_->connectFrontend(new ChannelImpl(this));
+      inspector_->connectFrontend();
     } else if (message == TAG_DISCONNECT) {
-      CHECK(connected_);
-      connected_ = false;
-      if (!shutting_down_)
+      CHECK_EQ(State::kConnected, state_);
+      if (shutting_down_) {
+        state_ = State::kDone;
+      } else {
         PrintDebuggerReadyMessage(port_);
+        state_ = State::kAccepting;
+      }
       inspector_->quitMessageLoopOnPause();
       inspector_->disconnectFrontend();
     } else {
       inspector_->dispatchMessageFromFrontend(message);
     }
   }
-  uv_async_send(&data_written_);
+  uv_async_send(data_written_);
   dispatching_messages_ = false;
 }
 
@@ -577,8 +742,8 @@ Agent::~Agent() {
   delete impl;
 }
 
-void Agent::Start(v8::Platform* platform, int port, bool wait) {
-  impl->Start(platform, port, wait);
+bool Agent::Start(v8::Platform* platform, int port, bool wait) {
+  return impl->Start(platform, port, wait);
 }
 
 void Agent::Stop() {
@@ -596,6 +761,12 @@ bool Agent::IsConnected() {
 void Agent::WaitForDisconnect() {
   impl->WaitForDisconnect();
 }
+
+void Agent::FatalException(v8::Local<v8::Value> error,
+                           v8::Local<v8::Message> message) {
+  impl->FatalException(error, message);
+}
+
 
 }  // namespace inspector
 }  // namespace node

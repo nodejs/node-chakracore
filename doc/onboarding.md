@@ -1,14 +1,12 @@
-## pre-setup
+# Onboarding
 
-Ensure everyone is added to https://github.com/orgs/nodejs/teams/collaborators
+This document is an outline of the things we tell new Collaborators at their
+onboarding session.
 
+* Prior to the onboarding session, add the new Collaborators to
+[the Collaborators team](https://github.com/orgs/nodejs/teams/collaborators).
 
-## onboarding to nodejs
-
-### intros
-
-
-### **thank you** for doing this
+## **thank you** for doing this
 
   * going to cover four things:
     * local setup
@@ -16,8 +14,7 @@ Ensure everyone is added to https://github.com/orgs/nodejs/teams/collaborators
     * issues, labels, and reviewing code
     * merging code
 
-
-### setup:
+## setup
 
   * notifications setup
     * use https://github.com/notifications or set up email
@@ -34,7 +31,7 @@ Ensure everyone is added to https://github.com/orgs/nodejs/teams/collaborators
   * `#node-dev` on `chat.freenode.net` is the best place to interact with the CTC / other collaborators
 
 
-### a little deeper about the project
+## a little deeper about the project
 
   * collaborators are effectively part owners
     * the project has the goals of its contributors
@@ -46,7 +43,7 @@ Ensure everyone is added to https://github.com/orgs/nodejs/teams/collaborators
     * generally: try to be nice to people
 
 
-### managing the issue tracker
+## managing the issue tracker
 
   * you have (mostly) free rein – don't hesitate to close an issue if you are confident that it should be closed
     * this will come more naturally over time
@@ -110,11 +107,10 @@ Ensure everyone is added to https://github.com/orgs/nodejs/teams/collaborators
     * To start CI testing from this screen, you need to fill in two elements on the form:
       * The `CERTIFY_SAFE` box should be checked. By checking it, you are indicating that you have reviewed the code you are about to test and you are confident that it does not contain any malicious code. (We don't want people hijacking our CI hosts to attack other hosts on the internet, for example!)
       * The `PR_ID` box should be filled in with the number identifying the pull request containing the code you wish to test. For example, if the URL for the pull request is https://github.com/nodejs/node/issues/7006, then put `7006` in the `PR_ID`.
-      * The remaining elements on the form are typically unchanged.
-      * There is a checkbox for `POST_STATUS_TO_PR`. At the time of this writing, that checkbox does not do anything, but that is likely to change soon. Until that functionality is working, you will want to go back to the PR you are testing and paste `CI: <URL-of-the-CI-test-run>` into a comment on the pull request.
+      * The remaining elements on the form are typically unchanged with the exception of `POST_STATUS_TO_PR`. Check that if you want a CI status indicator to be automatically inserted into the PR.
 
 
-### process for getting code in:
+## process for getting code in
 
   * the collaborator guide is a great resource: https://github.com/nodejs/node/blob/master/COLLABORATOR_GUIDE.md#technical-howto
 
@@ -146,7 +142,7 @@ Ensure everyone is added to https://github.com/orgs/nodejs/teams/collaborators
     * Info on PRs that don't like to apply found under [**"If `git am` fails"**](./onboarding-extras.md#if-git-am-fails).
 
 
-### Landing PRs
+## Landing PRs
 
 * Please never use GitHub's green "Merge Pull Request" button.
   * If you do, please force-push removing the merge.
@@ -169,12 +165,13 @@ Landing a PR
     * `Reviewed-By: human <email>`
       * Easiest to use `git log` then do a search
       * (`/Name` + `enter` (+ `n` as much as you need to) in vim)
+      * Only include collaborators who have commented "LGTM"
     * `PR-URL: <full-pr-url>`
 * `git push upstream master`
     * close the original PR with "Landed in `<commit hash>`".
 
 
-### exercise: make PRs adding yourselves to the README.
+## exercise: make PRs adding yourselves to the README
 
   * Example: https://github.com/nodejs/node/commit/7b09aade8468e1c930f36b9c81e6ac2ed5bc8732
     * to see full URL: `git log 7b09aade8468e1c930f36b9c81e6ac2ed5bc8732 -1`
@@ -184,7 +181,7 @@ Landing a PR
   * Make sure to added the `PR-URL: <full-pr-url>`!
 
 
-### final notes:
+## final notes
 
   * don't worry about making mistakes: everybody makes them, there's a lot to internalize and that takes time (and we recognize that!)
   * very few (no?) mistakes are unrecoverable

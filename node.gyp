@@ -9,6 +9,7 @@
     'node_use_v8_platform%': 'true',
     'node_use_bundled_v8%': 'true',
     'node_shared%': 'false',
+    'force_dynamic_crt%': 0,
     'node_module_version%': '',
     'node_shared_zlib%': 'false',
     'node_shared_http_parser%': 'false',
@@ -143,6 +144,7 @@
         'src/fs_event_wrap.cc',
         'src/cares_wrap.cc',
         'src/connection_wrap.cc',
+        'src/connect_wrap.cc',
         'src/handle_wrap.cc',
         'src/js_stream.cc',
         'src/node.cc',
@@ -180,6 +182,7 @@
         'src/base-object.h',
         'src/base-object-inl.h',
         'src/connection_wrap.h',
+        'src/connect_wrap.h',
         'src/debug-agent.h',
         'src/env.h',
         'src/env-inl.h',
@@ -246,8 +249,8 @@
             'NODE_SHARED_MODE',
           ],
           'conditions': [
-            [ 'node_module_version!=""', {
-              'product_extension': 'so.<(node_module_version)',
+            [ 'node_module_version!="" and OS!="win"', {
+              'product_extension': '<(shlib_suffix)',
             }]
           ],
         }],
@@ -315,7 +318,7 @@
             'src/inspector_agent.cc',
             'src/inspector_socket.cc',
             'src/inspector_socket.h',
-            'src/inspector-agent.h',
+            'src/inspector_agent.h',
           ],
           'dependencies': [
             'deps/v8_inspector/third_party/v8_inspector/platform/'
@@ -364,12 +367,19 @@
                   'conditions': [
                     ['OS in "linux freebsd" and node_shared=="false"', {
                       'ldflags': [
-                        '-Wl,--whole-archive <(PRODUCT_DIR)/<(OPENSSL_PRODUCT)',
+                        '-Wl,--whole-archive,'
+                            '<(PRODUCT_DIR)/obj.target/deps/openssl/'
+                            '<(OPENSSL_PRODUCT)',
                         '-Wl,--no-whole-archive',
                       ],
                     }],
+                    # openssl.def is based on zlib.def, zlib symbols
+                    # are always exported.
                     ['use_openssl_def==1', {
                       'sources': ['<(SHARED_INTERMEDIATE_DIR)/openssl.def'],
+                    }],
+                    ['OS=="win" and use_openssl_def==0', {
+                      'sources': ['deps/zlib/win32/zlib.def'],
                     }],
                   ],
                 }],
@@ -583,6 +593,8 @@
               '-X^DSO',
               '-X^_',
               '-X^private_',
+              # Base generated DEF on zlib.def
+              '-Bdeps/zlib/win32/zlib.def'
             ],
           },
           'conditions': [

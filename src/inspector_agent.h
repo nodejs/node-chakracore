@@ -12,6 +12,10 @@ class Environment;
 
 namespace v8 {
 class Platform;
+template<typename T>
+class Local;
+class Value;
+class Message;
 }  // namespace v8
 
 namespace node {
@@ -25,13 +29,16 @@ class Agent {
   ~Agent();
 
   // Start the inspector agent thread
-  void Start(v8::Platform* platform, int port, bool wait);
+  bool Start(v8::Platform* platform, int port, bool wait);
   // Stop the inspector agent
   void Stop();
 
   bool IsStarted();
   bool IsConnected();
   void WaitForDisconnect();
+
+  void FatalException(v8::Local<v8::Value> error,
+                      v8::Local<v8::Message> message);
  private:
   AgentImpl* impl;
 };

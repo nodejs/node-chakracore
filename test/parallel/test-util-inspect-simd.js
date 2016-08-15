@@ -17,9 +17,10 @@ assert.strictEqual(
 
 assert.strictEqual(
     inspect(SIMD.Bool8x16()),
-    'Bool8x16 [\n  false,\n  false,\n  false,\n  false,\n  false,\n' +
-    '  false,\n  false,\n  false,\n  false,\n  false,\n  false,\n' +
-    '  false,\n  false,\n  false,\n  false,\n  false ]');
+    'Bool8x16 [\r\n  false,\r\n  false,\r\n  false,\r\n  false,\r\n' +
+    '  false,\r\n  false,\r\n  false,\r\n  false,\r\n  false,\r\n' +
+    '  false,\r\n  false,\r\n  false,\r\n  false,\r\n  false,\r\n' +
+    '  false,\r\n  false ]');
 
 assert.strictEqual(
     inspect(SIMD.Bool32x4()),
@@ -59,3 +60,12 @@ if (typeof SIMD.Uint8x16 === 'function') {
       inspect(SIMD.Uint8x16()),
       'Uint8x16 [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]');
 }
+
+// Tests from test-inspect.js that should not fail with --harmony_simd.
+assert.strictEqual(inspect([]), '[]');
+assert.strictEqual(inspect([0]), '[ 0 ]');
+assert.strictEqual(inspect({}), '{}');
+assert.strictEqual(inspect({foo: 42}), '{ foo: 42 }');
+assert.strictEqual(inspect(null), 'null');
+assert.strictEqual(inspect(true), 'true');
+assert.strictEqual(inspect(false), 'false');

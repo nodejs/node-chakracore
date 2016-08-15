@@ -33,7 +33,8 @@ const benchmarks = cli.benchmarks();
 
 if (benchmarks.length === 0) {
   console.error('no benchmarks found');
-  process.exit(1);
+  process.exitCode = 1;
+  return;
 }
 
 // Create queue from the benchmarks list such both node versions are tested
@@ -65,7 +66,7 @@ console.log('"binary", "filename", "configuration", "rate", "time"');
     }
     conf = conf.slice(1);
 
-    // Escape qoutes (") for correct csv formatting
+    // Escape quotes (") for correct csv formatting
     conf = conf.replace(/"/g, '""');
 
     console.log(`"${job.binary}", "${job.filename}", "${conf}", ` +

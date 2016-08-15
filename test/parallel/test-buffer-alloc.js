@@ -984,7 +984,6 @@ Buffer.alloc(common.engineSpecificMessage({
   v8: 3.3,
   chakracore: Math.trunc(3.3)})) // new Uint8Array(3.3) throws
   .fill().toString();
-assert.equal(Buffer.allocUnsafe(-1).length, 0);
 if (!common.isChakraEngine) { // Skip on chakra, new Uint8Array(NaN) throws
   assert.equal(Buffer.allocUnsafe(NaN).length, 0);
 }
@@ -1484,3 +1483,21 @@ assert.equal(ubuf.buffer.byteLength, 10);
 assert.doesNotThrow(() => {
   Buffer.from(new ArrayBuffer());
 });
+
+assert.throws(() => Buffer.alloc(-Buffer.poolSize),
+              '"size" argument must not be negative');
+assert.throws(() => Buffer.alloc(-100),
+              '"size" argument must not be negative');
+assert.throws(() => Buffer.allocUnsafe(-Buffer.poolSize),
+              '"size" argument must not be negative');
+assert.throws(() => Buffer.allocUnsafe(-100),
+              '"size" argument must not be negative');
+assert.throws(() => Buffer.allocUnsafeSlow(-Buffer.poolSize),
+              '"size" argument must not be negative');
+assert.throws(() => Buffer.allocUnsafeSlow(-100),
+              '"size" argument must not be negative');
+
+assert.throws(() => Buffer.alloc({ valueOf: () => 1 }),
+              /"size" argument must be a number/);
+assert.throws(() => Buffer.alloc({ valueOf: () => -1 }),
+              /"size" argument must be a number/);
