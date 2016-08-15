@@ -389,7 +389,7 @@ function error_test() {
     // Avoid emitting stack trace
     { client: client_unix, send: 'a = 3.5e',
       expect: /^(?!\s+at\s)/gm },
-].filter((v) => !common.engineSpecificMessage(v)));
+  ].filter((v) => !common.engineSpecificMessage(v)));
 }
 
 function tcp_test() {

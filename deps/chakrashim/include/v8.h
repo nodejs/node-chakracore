@@ -1603,6 +1603,8 @@ class PropertyCallbackInfo {
   Local<Value> Data() const { return _data; }
   Local<Object> This() const { return _thisObject; }
   Local<Object> Holder() const { return _holder; }
+  // CHAKRA-TODO
+  bool ShouldThrowOnError() const { return true; }
   ReturnValue<T> GetReturnValue() const {
     return ReturnValue<T>(
       &(const_cast<PropertyCallbackInfo<T>*>(this)->_returnValue));
