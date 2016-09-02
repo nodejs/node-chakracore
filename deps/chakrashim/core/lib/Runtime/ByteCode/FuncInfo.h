@@ -116,7 +116,6 @@ public:
     Js::RegSlot firstTmpReg;
     Js::RegSlot curTmpReg;
     int argsPlaceHolderSlotCount;   // count of place holder slots for same name args and destructuring patterns
-    int localPropIdOffset;
     Js::RegSlot firstThunkArgReg;
     short thunkArgCount;
     short staticFuncId;
@@ -172,14 +171,19 @@ public:
     typedef JsUtil::BaseDictionary<SlotKey, Js::ProfileId, ArenaAllocator, PowerOf2SizePolicy, SlotKeyComparer> SlotProfileIdMap;
     SlotProfileIdMap slotProfileIdMap;
     Js::PropertyId thisScopeSlot;
+    Js::PropertyId innerThisScopeSlot; // Used in case of split scope
     Js::PropertyId superScopeSlot;
+    Js::PropertyId innerSuperScopeSlot; // Used in case of split scope
     Js::PropertyId superCtorScopeSlot;
+    Js::PropertyId innerSuperCtorScopeSlot; // Used in case of split scope
     Js::PropertyId newTargetScopeSlot;
+    Js::PropertyId innerNewTargetScopeSlot; // Used in case of split scope
     bool isThisLexicallyCaptured;
     bool isSuperLexicallyCaptured;
     bool isSuperCtorLexicallyCaptured;
     bool isNewTargetLexicallyCaptured;
     Symbol *argumentsSymbol;
+    Symbol *innerArgumentsSymbol;
     JsUtil::List<Js::RegSlot, ArenaAllocator> nonUserNonTempRegistersToInitialize;
 
     // constRegsCount is set to 2 because R0 is the return register, and R1 is the root object.
@@ -253,7 +257,7 @@ public:
     //    1) new Function code's global code
     //    2) global code generated from the reparsing deferred parse function
 
-    bool IsFakeGlobalFunction(ulong flags) const {
+    bool IsFakeGlobalFunction(uint32 flags) const {
         return IsGlobalFunction() && !(flags & fscrGlobalCode);
     }
 
@@ -287,6 +291,22 @@ public:
     {
         Assert(argumentsSymbol == nullptr || argumentsSymbol == sym);
         argumentsSymbol = sym;
+    }
+
+    Symbol *GetInnerArgumentsSymbol() const
+    {
+        return innerArgumentsSymbol;
+    }
+
+    void SetInnerArgumentsSymbol(Symbol *sym)
+    {
+        Assert(innerArgumentsSymbol == nullptr || innerArgumentsSymbol == sym);
+        innerArgumentsSymbol = sym;
+    }
+
+    bool IsInnerArgumentsSymbol(Symbol* sym)
+    {
+        return innerArgumentsSymbol != nullptr && innerArgumentsSymbol == sym;
     }
 
     bool GetCallsEval() const {
@@ -743,10 +763,11 @@ public:
         return profileId;
     }
 
-    void EnsureThisScopeSlot(Scope* scope);
-    void EnsureSuperScopeSlot(Scope* scope);
-    void EnsureSuperCtorScopeSlot(Scope* scope);
-    void EnsureNewTargetScopeSlot(Scope* scope);
+    void EnsureThisScopeSlot();
+    void EnsureSuperScopeSlot();
+    void EnsureSuperCtorScopeSlot();
+    void EnsureNewTargetScopeSlot();
+    void UseInnerSpecialScopeSlots();
 
     void SetIsThisLexicallyCaptured()
     {

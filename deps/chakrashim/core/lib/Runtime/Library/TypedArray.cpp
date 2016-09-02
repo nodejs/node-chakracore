@@ -10,21 +10,10 @@
 
 #define INSTANTIATE_BUILT_IN_ENTRYPOINTS(typeName) \
     template Var typeName::NewInstance(RecyclableObject* function, CallInfo callInfo, ...); \
-    template Var typeName::EntrySet(RecyclableObject* function, CallInfo callInfo, ...); \
-    template Var typeName::EntrySubarray(RecyclableObject* function, CallInfo callInfo, ...); \
+    template Var typeName::EntrySet(RecyclableObject* function, CallInfo callInfo, ...);
 
 namespace Js
 {
-    /*static*/
-    PropertyId const TypedArrayBase::specialPropertyIds[] =
-    {
-        PropertyIds::length,
-        PropertyIds::buffer,
-        PropertyIds::byteOffset,
-        PropertyIds::byteLength,
-        PropertyIds::BYTES_PER_ELEMENT
-    };
-
     // explicitly instantiate these function for the built in entry point FunctionInfo
     INSTANTIATE_BUILT_IN_ENTRYPOINTS(Int8Array)
     INSTANTIATE_BUILT_IN_ENTRYPOINTS(Uint8Array)
@@ -38,6 +27,309 @@ namespace Js
     INSTANTIATE_BUILT_IN_ENTRYPOINTS(Int64Array)
     INSTANTIATE_BUILT_IN_ENTRYPOINTS(Uint64Array)
     INSTANTIATE_BUILT_IN_ENTRYPOINTS(BoolArray)
+
+    template<> BOOL Uint8ClampedArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8ClampedArray &&
+               ( VirtualTableInfo<Uint8ClampedArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Uint8ClampedArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint8Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8Array &&
+              ( VirtualTableInfo<Uint8Array>::HasVirtualTable(aValue) ||
+                VirtualTableInfo<CrossSiteObject<Uint8Array>>::HasVirtualTable(aValue)
+              );
+    }
+
+    template<> BOOL Int8Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int8Array &&
+               ( VirtualTableInfo<Int8Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Int8Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+
+    template<> BOOL Int16Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int16Array &&
+               ( VirtualTableInfo<Int16Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Int16Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint16Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint16Array &&
+              ( VirtualTableInfo<Uint16Array>::HasVirtualTable(aValue) ||
+                VirtualTableInfo<CrossSiteObject<Uint16Array>>::HasVirtualTable(aValue)
+              );
+    }
+
+    template<> BOOL Int32Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int32Array &&
+               ( VirtualTableInfo<Int32Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Int32Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint32Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint32Array &&
+               ( VirtualTableInfo<Uint32Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Uint32Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Float32Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float32Array &&
+               ( VirtualTableInfo<Float32Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Float32Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Float64Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float64Array &&
+               ( VirtualTableInfo<Float64Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Float64Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Int64Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int64Array &&
+               ( VirtualTableInfo<Int64Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Int64Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint64Array::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint64Array &&
+               ( VirtualTableInfo<Uint64Array>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Uint64Array>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL BoolArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_BoolArray &&
+               ( VirtualTableInfo<BoolArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<BoolArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint8ClampedVirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8ClampedArray &&
+               ( VirtualTableInfo<Uint8ClampedVirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Uint8ClampedVirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint8VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8Array &&
+               ( VirtualTableInfo<Uint8VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Uint8VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+
+    template<> BOOL Int8VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int8Array &&
+               ( VirtualTableInfo<Int8VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Int8VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Int16VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int16Array &&
+               ( VirtualTableInfo<Int16VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Int16VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint16VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint16Array &&
+               ( VirtualTableInfo<Uint16VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Uint16VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Int32VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int32Array &&
+               ( VirtualTableInfo<Int32VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Int32VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Uint32VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint32Array &&
+               ( VirtualTableInfo<Uint32VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Uint32VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Float32VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float32Array &&
+               ( VirtualTableInfo<Float32VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Float32VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template<> BOOL Float64VirtualArray::Is(Var aValue)
+    {
+        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float64Array &&
+               ( VirtualTableInfo<Float64VirtualArray>::HasVirtualTable(aValue) ||
+                 VirtualTableInfo<CrossSiteObject<Float64VirtualArray>>::HasVirtualTable(aValue)
+               );
+    }
+
+    template <typename TypeName, bool clamped, bool virtualAllocated>
+    TypedArray<TypeName, clamped, virtualAllocated>* TypedArray<TypeName, clamped, virtualAllocated>::FromVar(Var aValue)
+    {
+        AssertMsg(TypedArray::Is(aValue), "invalid TypedArray");
+        return static_cast<TypedArray<TypeName, clamped, virtualAllocated>*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint8ClampedArray* Uint8ClampedArray::FromVar(Var aValue)
+    {
+        AssertMsg(Uint8ClampedArray::Is(aValue), "invalid Uint8ClampedArray");
+        return static_cast<Uint8ClampedArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint8Array* Uint8Array::FromVar(Var aValue)
+    {
+        AssertMsg(Uint8Array::Is(aValue), "invalid Uint8Array");
+        return static_cast<Uint8Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Int8Array* Int8Array::FromVar(Var aValue)
+    {
+        AssertMsg(Int8Array::Is(aValue), "invalid Int8Array");
+        return static_cast<Int8Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Int16Array* Int16Array::FromVar(Var aValue)
+    {
+        AssertMsg(Int16Array::Is(aValue), "invalid Int16Array");
+        return static_cast<Int16Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint16Array* Uint16Array::FromVar(Var aValue)
+    {
+        AssertMsg(Uint16Array::Is(aValue), "invalid Uint16Array");
+        return static_cast<Uint16Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Int32Array* Int32Array::FromVar(Var aValue)
+    {
+        AssertMsg(Int32Array::Is(aValue), "invalid Int32Array");
+        return static_cast<Int32Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint32Array* Uint32Array::FromVar(Var aValue)
+    {
+        AssertMsg(Uint32Array::Is(aValue), "invalid Uint32Array");
+        return static_cast<Uint32Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Float32Array* Float32Array::FromVar(Var aValue)
+    {
+        AssertMsg(Float32Array::Is(aValue), "invalid Float32Array");
+        return static_cast<Float32Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Float64Array* Float64Array::FromVar(Var aValue)
+    {
+        AssertMsg(Float64Array::Is(aValue), "invalid Float64Array");
+        return static_cast<Float64Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Int64Array* Int64Array::FromVar(Var aValue)
+    {
+        AssertMsg(Int64Array::Is(aValue), "invalid Int64Array");
+        return static_cast<Int64Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint64Array* Uint64Array::FromVar(Var aValue)
+    {
+        AssertMsg(Uint64Array::Is(aValue), "invalid Uint64Array");
+        return static_cast<Uint64Array*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Int8VirtualArray* Int8VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Int8VirtualArray::Is(aValue), "invalid Int8Array");
+        return static_cast<Int8VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint8ClampedVirtualArray* Uint8ClampedVirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Uint8ClampedVirtualArray::Is(aValue), "invalid Uint8ClampedArray");
+        return static_cast<Uint8ClampedVirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint8VirtualArray* Uint8VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Uint8VirtualArray::Is(aValue), "invalid Uint8Array");
+        return static_cast<Uint8VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Int16VirtualArray* Int16VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Int16VirtualArray::Is(aValue), "invalid Int16Array");
+        return static_cast<Int16VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint16VirtualArray* Uint16VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Uint16VirtualArray::Is(aValue), "invalid Uint16Array");
+        return static_cast<Uint16VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Int32VirtualArray* Int32VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Int32VirtualArray::Is(aValue), "invalid Int32Array");
+        return static_cast<Int32VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Uint32VirtualArray* Uint32VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Uint32VirtualArray::Is(aValue), "invalid Uint32Array");
+        return static_cast<Uint32VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Float32VirtualArray* Float32VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Float32VirtualArray::Is(aValue), "invalid Float32Array");
+        return static_cast<Float32VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> Float64VirtualArray* Float64VirtualArray::FromVar(Var aValue)
+    {
+        AssertMsg(Float64VirtualArray::Is(aValue), "invalid Float64Array");
+        return static_cast<Float64VirtualArray*>(RecyclableObject::FromVar(aValue));
+    }
+
+    template<> BoolArray* BoolArray::FromVar(Var aValue)
+    {
+        AssertMsg(BoolArray::Is(aValue), "invalid BoolArray");
+        return static_cast<BoolArray*>(RecyclableObject::FromVar(aValue));
+    }
 
     TypedArrayBase::TypedArrayBase(ArrayBuffer* arrayBuffer, uint32 offSet, uint mappedLength, uint elementSize, DynamicType* type) :
         ArrayBufferParent(type, mappedLength, arrayBuffer),
@@ -126,7 +418,7 @@ namespace Js
             else if (ArrayBuffer::Is(firstArgument))
             {
                 // Constructor(ArrayBuffer buffer,
-                //  optional unsigned long byteOffset, optional unsigned long length)
+                //  optional uint32 byteOffset, optional uint32 length)
                 arrayBuffer = ArrayBuffer::FromVar(firstArgument);
                 if (arrayBuffer->IsDetached())
                 {
@@ -148,7 +440,7 @@ namespace Js
                         (iteratorFn != scriptContext->GetLibrary()->GetArrayPrototypeValuesFunction() ||
                             !JavascriptArray::Is(firstArgument) || JavascriptLibrary::ArrayIteratorPrototypeHasUserDefinedNext(scriptContext)))
                     {
-                        Var iterator = iteratorFn->GetEntryPoint()(iteratorFn, CallInfo(Js::CallFlags_Value, 1), RecyclableObject::FromVar(firstArgument));
+                        Var iterator = CALL_FUNCTION(iteratorFn, CallInfo(Js::CallFlags_Value, 1), RecyclableObject::FromVar(firstArgument));
 
                         if (!JavascriptOperators::IsObject(iterator))
                         {
@@ -340,29 +632,8 @@ namespace Js
             object;
     };
 
-    inline BOOL TypedArrayBase::IsBuiltinProperty(PropertyId propertyId)
-    {
-        // We only return the builtins in pre-ES6 mode
-        if (!GetScriptContext()->GetConfig()->IsES6TypedArrayExtensionsEnabled() &&
-            (propertyId == PropertyIds::length ||
-            propertyId == PropertyIds::buffer ||
-            propertyId == PropertyIds::byteOffset ||
-            propertyId == PropertyIds::byteLength ||
-            propertyId == PropertyIds::BYTES_PER_ELEMENT))
-        {
-            return TRUE;
-        }
-
-        return FALSE;
-    }
-
     BOOL TypedArrayBase::HasProperty(PropertyId propertyId)
     {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return true;
-        }
-
         uint32 index = 0;
         if (GetScriptContext()->IsNumericPropertyId(propertyId, &index) && (index < this->GetLength()))
         {
@@ -374,10 +645,6 @@ namespace Js
 
     BOOL TypedArrayBase::DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags)
     {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
         uint32 index = 0;
         if (GetScriptContext()->IsNumericPropertyId(propertyId, &index) && (index < this->GetLength()))
         {
@@ -386,34 +653,6 @@ namespace Js
         }
         return DynamicObject::DeleteProperty(propertyId, flags);
 
-    }
-
-    BOOL TypedArrayBase::GetSpecialPropertyName(uint32 index, Var *propertyName, ScriptContext * requestContext)
-    {
-        uint length = GetSpecialPropertyCount();
-        if (index < length)
-        {
-            *propertyName = requestContext->GetPropertyString(specialPropertyIds[index]);
-            return true;
-        }
-        return false;
-    }
-
-    // Returns the number of special non-enumerable properties this type has.
-    uint TypedArrayBase::GetSpecialPropertyCount() const
-    {
-        if (GetScriptContext()->GetConfig()->IsES6TypedArrayExtensionsEnabled())
-        {
-            return 0;
-        }
-
-        return _countof(specialPropertyIds);
-    }
-
-    // Returns the list of special non-enumerable properties for the type.
-    PropertyId const * TypedArrayBase::GetSpecialPropertyIds() const
-    {
-        return specialPropertyIds;
     }
 
     BOOL TypedArrayBase::GetPropertyReference(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
@@ -434,11 +673,6 @@ namespace Js
             return true;
         }
 
-        if (GetPropertyBuiltIns(propertyId, value))
-        {
-            return true;
-        }
-
         return DynamicObject::GetProperty(originalInstance, propertyId, value, info, requestContext);
     }
 
@@ -447,45 +681,7 @@ namespace Js
         AssertMsg(!PropertyRecord::IsPropertyNameNumeric(propertyNameString->GetString(), propertyNameString->GetLength()),
             "Numeric property names should have been converted to uint or PropertyRecord*");
 
-        PropertyRecord const* propertyRecord;
-        this->GetScriptContext()->FindPropertyRecord(propertyNameString, &propertyRecord);
-
-        if (propertyRecord != nullptr && GetPropertyBuiltIns(propertyRecord->GetPropertyId(), value))
-        {
-            return true;
-        }
-
         return DynamicObject::GetProperty(originalInstance, propertyNameString, value, info, requestContext);
-    }
-
-    BOOL TypedArrayBase::GetPropertyBuiltIns(PropertyId propertyId, Var* value)
-    {
-        //
-        // Only return built-ins for pre-ES6 mode
-        //
-        if (!GetScriptContext()->GetConfig()->IsES6TypedArrayExtensionsEnabled())
-        {
-            switch (propertyId)
-            {
-            case PropertyIds::length:
-                *value = JavascriptNumber::ToVar(this->GetLength(), GetScriptContext());
-                return true;
-            case PropertyIds::byteLength:
-                *value = JavascriptNumber::ToVar(this->GetByteLength(), GetScriptContext());
-                return true;
-            case PropertyIds::byteOffset:
-                *value = JavascriptNumber::ToVar(this->GetByteOffset(), GetScriptContext());
-                return true;
-            case PropertyIds::buffer:
-                *value = GetArrayBuffer();
-                return true;
-            case PropertyIds::BYTES_PER_ELEMENT:
-                *value = JavascriptNumber::ToVar(this->GetBytesPerElement(), GetScriptContext());
-                return true;
-            }
-        }
-
-        return false;
     }
 
     BOOL TypedArrayBase::HasItem(uint32 index)
@@ -518,11 +714,7 @@ namespace Js
     {
         uint32 index;
 
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
-        else if (GetScriptContext()->IsNumericPropertyId(propertyId, &index))
+        if (GetScriptContext()->IsNumericPropertyId(propertyId, &index))
         {
             this->DirectSetItem(index, value);
             return true;
@@ -538,13 +730,6 @@ namespace Js
         AssertMsg(!PropertyRecord::IsPropertyNameNumeric(propertyNameString->GetString(), propertyNameString->GetLength()),
             "Numeric property names should have been converted to uint or PropertyRecord*");
 
-        PropertyRecord const* propertyRecord;
-        this->GetScriptContext()->FindPropertyRecord(propertyNameString, &propertyRecord);
-
-        if (propertyRecord != nullptr && IsBuiltinProperty(propertyRecord->GetPropertyId()))
-        {
-            return false;
-        }
 
         return DynamicObject::SetProperty(propertyNameString, value, flags, info);
     }
@@ -563,10 +748,6 @@ namespace Js
 
     BOOL TypedArrayBase::IsEnumerable(PropertyId propertyId)
     {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
         uint32 index = 0;
         if (GetScriptContext()->IsNumericPropertyId(propertyId, &index))
         {
@@ -577,10 +758,6 @@ namespace Js
 
     BOOL TypedArrayBase::IsConfigurable(PropertyId propertyId)
     {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
         uint32 index = 0;
         if (GetScriptContext()->IsNumericPropertyId(propertyId, &index))
         {
@@ -597,10 +774,6 @@ namespace Js
 
     BOOL TypedArrayBase::IsWritable(PropertyId propertyId)
     {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
         uint32 index = 0;
         if (GetScriptContext()->IsNumericPropertyId(propertyId, &index))
         {
@@ -613,17 +786,8 @@ namespace Js
     BOOL TypedArrayBase::SetEnumerable(PropertyId propertyId, BOOL value)
     {
         ScriptContext* scriptContext = GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (value)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
         uint32 index;
+
         // all numeric properties are enumerable
         if (scriptContext->IsNumericPropertyId(propertyId, &index) )
         {
@@ -641,17 +805,8 @@ namespace Js
     BOOL TypedArrayBase::SetWritable(PropertyId propertyId, BOOL value)
     {
         ScriptContext* scriptContext = GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (value)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
         uint32 index;
+
         // default is writable
         if (scriptContext->IsNumericPropertyId(propertyId, &index))
         {
@@ -669,17 +824,8 @@ namespace Js
     BOOL TypedArrayBase::SetConfigurable(PropertyId propertyId, BOOL value)
     {
         ScriptContext* scriptContext = GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (value)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
         uint32 index;
+
         // default is not configurable
         if (scriptContext->IsNumericPropertyId(propertyId, &index))
         {
@@ -697,18 +843,8 @@ namespace Js
     BOOL TypedArrayBase::SetAttributes(PropertyId propertyId, PropertyAttributes attributes)
     {
         ScriptContext* scriptContext = this->GetScriptContext();
-
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (attributes != PropertyNone)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
         uint32 index;
+
         if (scriptContext->IsNumericPropertyId(propertyId, &index))
         {
             VerifySetItemAttributes(propertyId, attributes);
@@ -721,13 +857,8 @@ namespace Js
     BOOL TypedArrayBase::SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags)
     {
         ScriptContext* scriptContext = this->GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                GetScriptContext()->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-        }
-
         uint32 index;
+
         if (scriptContext->IsNumericPropertyId(propertyId, &index))
         {
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
@@ -741,17 +872,8 @@ namespace Js
     {
         ScriptContext* scriptContext = GetScriptContext();
 
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (attributes != PropertyNone)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
         uint32 index;
+
         if (scriptContext->IsNumericPropertyId(propertyId, &index))
         {
             VerifySetItemAttributes(propertyId, attributes);
@@ -954,7 +1076,7 @@ namespace Js
     }
 
     template <typename TypeName, bool clamped, bool virtualAllocated>
-    __inline Var TypedArray<TypeName, clamped, virtualAllocated>::Create(ArrayBuffer* arrayBuffer, uint32 byteOffSet, uint32 mappedLength, JavascriptLibrary* javascriptLibrary)
+    inline Var TypedArray<TypeName, clamped, virtualAllocated>::Create(ArrayBuffer* arrayBuffer, uint32 byteOffSet, uint32 mappedLength, JavascriptLibrary* javascriptLibrary)
     {
         uint32 totalLength, mappedByteLength;
 
@@ -1091,6 +1213,7 @@ namespace Js
         return args[0];
     }
 
+    // ES2017 22.2.3.32 get %TypedArray%.prototype[@@toStringTag]
     Var TypedArrayBase::EntryGetterSymbolToStringTag(RecyclableObject* function, CallInfo callInfo, ...)
     {
         PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
@@ -1101,13 +1224,25 @@ namespace Js
 
         Assert(!(callInfo.Flags & CallFlags_New));
 
+        // 1. Let O be the this value.
+        // 2. If Type(O) is not Object, return undefined.
+        // 3. If O does not have a[[TypedArrayName]] internal slot, return undefined.
         if (args.Info.Count == 0 || !TypedArrayBase::Is(args[0]))
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedTypedArray);
+            if (scriptContext->GetConfig()->IsES6ToStringTagEnabled())
+            {
+                return library->GetUndefined();
+            }
+            else
+            {
+                JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedTypedArray);
+            }
         }
 
+        // 4. Let name be O.[[TypedArrayName]].
+        // 5. Assert: name is a String value.
+        // 6. Return name.
         Var name;
-
         switch (JavascriptOperators::GetTypeId(args[0]))
         {
         case TypeIds_Int8Array:
@@ -1180,7 +1315,6 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        Assert(!scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled());
 
         // This method is only called in pre-ES6 compat modes. In those modes, we need to throw an error
         // if the this argument is not the same type as our TypedArray template instance.
@@ -1250,33 +1384,6 @@ namespace Js
         if (args.Info.Count == 0 || !TypedArrayBase::Is(args[0]))
         {
             JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedTypedArray);
-        }
-
-        return CommonSubarray(args);
-    }
-
-    template <typename TypeName, bool clamped, bool virtualAllocated>
-    Var TypedArray<TypeName, clamped, virtualAllocated>::EntrySubarray(RecyclableObject* function, CallInfo callInfo, ...)
-    {
-        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
-
-        ARGUMENTS(args, callInfo);
-        ScriptContext* scriptContext = function->GetScriptContext();
-
-        Assert(!(callInfo.Flags & CallFlags_New));
-        Assert(!scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled());
-
-        // This method is only called in pre-ES6 compat modes. In those modes, we need to throw an error
-        // if the this argument is not the same type as our TypedArray template instance.
-        if (args.Info.Count == 0 || !TypedArray::Is(args[0]))
-        {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedTypedArray);
-        }
-
-        // In ES5, it is an error to call subarray with no begin parameter.
-        if (args.Info.Count < 2)
-        {
-            JavascriptError::ThrowRangeError(scriptContext, JSERR_InvalidTypedArraySubarrayLength);
         }
 
         return CommonSubarray(args);
@@ -1361,7 +1468,7 @@ namespace Js
 
             Js::Var constructorArgs[] = { constructor, buffer, JavascriptNumber::ToVar(beginByteOffset, scriptContext), JavascriptNumber::ToVar(newLength, scriptContext) };
             Js::CallInfo constructorCallInfo(Js::CallFlags_New, _countof(constructorArgs));
-            newTypedArray = JavascriptOperators::NewScObject(constructor, Js::Arguments(constructorCallInfo, constructorArgs), scriptContext);
+            newTypedArray = RecyclableObject::FromVar(TypedArrayBase::TypedArrayCreate(constructor, &Js::Arguments(constructorCallInfo, constructorArgs), newLength, scriptContext));
         }
         else
         {
@@ -1447,7 +1554,7 @@ namespace Js
 
                 Js::Var constructorArgs[] = { constructor, JavascriptNumber::ToVar(len, scriptContext) };
                 Js::CallInfo constructorCallInfo(Js::CallFlags_New, _countof(constructorArgs));
-                newObj = JavascriptOperators::NewScObject(constructor, Js::Arguments(constructorCallInfo, constructorArgs), scriptContext);
+                newObj = TypedArrayBase::TypedArrayCreate(constructor, &Js::Arguments(constructorCallInfo, constructorArgs), len, scriptContext);
 
                 TypedArrayBase* newTypedArrayBase = nullptr;
                 JavascriptArray* newArr = nullptr;
@@ -1511,7 +1618,7 @@ namespace Js
 
             Js::Var constructorArgs[] = { constructor, JavascriptNumber::ToVar(len, scriptContext) };
             Js::CallInfo constructorCallInfo(Js::CallFlags_New, _countof(constructorArgs));
-            newObj = JavascriptOperators::NewScObject(constructor, Js::Arguments(constructorCallInfo, constructorArgs), scriptContext);
+            newObj = TypedArrayBase::TypedArrayCreate(constructor, &Js::Arguments(constructorCallInfo, constructorArgs), len, scriptContext);
 
             TypedArrayBase* newTypedArrayBase = nullptr;
             JavascriptArray* newArr = nullptr;
@@ -1755,7 +1862,7 @@ namespace Js
                 // We know that the TypedArray.HasItem will be true because k < length and we can skip the check in the TypedArray version of filter.
                 element = typedArrayBase->DirectGetItem(k);
 
-                selected = callBackFn->GetEntryPoint()(callBackFn, CallInfo(flags, 4), thisArg,
+                selected = CALL_FUNCTION(callBackFn, CallInfo(flags, 4), thisArg,
                     element,
                     JavascriptNumber::ToVar(k, scriptContext),
                     typedArrayBase);
@@ -1770,7 +1877,7 @@ namespace Js
 
             Js::Var constructorArgs[] = { constructor, JavascriptNumber::ToVar(captured, scriptContext) };
             Js::CallInfo constructorCallInfo(Js::CallFlags_New, _countof(constructorArgs));
-            newObj = RecyclableObject::FromVar(JavascriptOperators::NewScObject(constructor, Js::Arguments(constructorCallInfo, constructorArgs), scriptContext));
+            newObj = RecyclableObject::FromVar(TypedArrayBase::TypedArrayCreate(constructor, &Js::Arguments(constructorCallInfo, constructorArgs), captured, scriptContext));
 
             if (TypedArrayBase::Is(newObj))
             {
@@ -1904,7 +2011,7 @@ namespace Js
 
             element = typedArrayBase->DirectGetItem(k);
 
-            callBackFn->GetEntryPoint()(callBackFn, CallInfo(flags, 4), thisArg,
+            CALL_FUNCTION(callBackFn, CallInfo(flags, 4), thisArg,
                 element,
                 JavascriptNumber::ToVar(k, scriptContext),
                 typedArrayBase);
@@ -2310,7 +2417,7 @@ namespace Js
             ScriptContext* scriptContext = compFn->GetScriptContext();
             Var undefined = scriptContext->GetLibrary()->GetUndefined();
             double dblResult;
-            Var retVal = compFn->GetEntryPoint()(compFn, CallInfo(CallFlags_Value, 3),
+            Var retVal = CALL_FUNCTION(compFn, CallInfo(CallFlags_Value, 3),
                 undefined,
                 JavascriptNumber::ToVarWithCheck((double)x, scriptContext),
                 JavascriptNumber::ToVarWithCheck((double)y, scriptContext));
@@ -2405,7 +2512,7 @@ namespace Js
         }
 
         // Get the elements comparison function for the type of this TypedArray
-        void* elementCompare = typedArrayBase->GetCompareElementsFunction();
+        void* elementCompare = reinterpret_cast<void*>(typedArrayBase->GetCompareElementsFunction());
 
         Assert(elementCompare);
 
@@ -2541,7 +2648,7 @@ namespace Js
         return false;
     }
 
-    BOOL TypedArrayBase::ValidateIndexAndDirectSetItem(__in Js::Var index, __in Js::Var value, __in bool * isNumericIndex)
+    _Use_decl_annotations_ BOOL TypedArrayBase::ValidateIndexAndDirectSetItem(Js::Var index, Js::Var value, bool * isNumericIndex)
     {
         bool skipSetItem = false;
         uint32 indexToSet = ValidateAndReturnIndex(index, &skipSetItem, isNumericIndex);
@@ -2572,7 +2679,7 @@ namespace Js
     //    b. if index < 0 or index >= length, skip set operation
     //    NOTE: if index == -0, it is treated as 0 and perform set operation
     //          as per 7.1.12.1 of ES6 spec 7.1.12.1 ToString Applied to the Number Type
-    uint32 TypedArrayBase::ValidateAndReturnIndex(__in Js::Var index, __in bool * skipOperation, __in bool * isNumericIndex)
+    _Use_decl_annotations_ uint32 TypedArrayBase::ValidateAndReturnIndex(Js::Var index, bool * skipOperation, bool * isNumericIndex)
     {
         *skipOperation = false;
         *isNumericIndex = true;
@@ -2733,626 +2840,434 @@ namespace Js
         return Js::JavascriptNumber::ToVarNoCheck(currentRes, scriptContext);
     }
 
-    template<> BOOL Uint8ClampedArray::Is(Var aValue)
+    // static
+    Var TypedArrayBase::ValidateTypedArray(Var aValue, ScriptContext *scriptContext)
     {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8ClampedArray &&
-               ( VirtualTableInfo<Uint8ClampedArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Uint8ClampedArray>>::HasVirtualTable(aValue)
-               );
+        if (!TypedArrayBase::Is(aValue))
+        {
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedTypedArray);
+        }
+
+        TypedArrayBase *typedArrayBase = TypedArrayBase::FromVar(aValue);
+        ArrayBuffer *arrayBuffer = typedArrayBase->GetArrayBuffer();
+        if (arrayBuffer->IsDetached())
+        {
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_DetachedTypedArray);
+        }
+
+        return arrayBuffer;
     }
 
-    template<> BOOL Uint8Array::Is(Var aValue)
+    // static
+    Var TypedArrayBase::TypedArrayCreate(Var constructor, Arguments *args, uint32 length, ScriptContext *scriptContext)
     {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8Array &&
-              ( VirtualTableInfo<Uint8Array>::HasVirtualTable(aValue) ||
-                VirtualTableInfo<CrossSiteObject<Uint8Array>>::HasVirtualTable(aValue)
-              );
+        Var newObj = JavascriptOperators::NewScObject(constructor, *args, scriptContext);
+
+        TypedArrayBase::ValidateTypedArray(newObj, scriptContext);
+
+        // ECMA262 22.2.4.6 TypedArrayCreate line 3. "If argumentList is a List of a single Number" (args[0] == constructor)
+        if (args->Info.Count == 2 && TypedArrayBase::FromVar(newObj)->GetLength() < length)
+        {
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_InvalidTypedArrayLength);
+        }
+
+        return newObj;
     }
 
-    template<> BOOL Int8Array::Is(Var aValue)
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType TypedArrayBase::GetSnapTag_TTD() const
     {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int8Array &&
-               ( VirtualTableInfo<Int8Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Int8Array>>::HasVirtualTable(aValue)
-               );
+        return TTD::NSSnapObjects::SnapObjectType::SnapTypedArrayObject;
     }
 
-
-    template<> BOOL Int16Array::Is(Var aValue)
+    void TypedArrayBase::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
     {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int16Array &&
-               ( VirtualTableInfo<Int16Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Int16Array>>::HasVirtualTable(aValue)
-               );
+        TTD::NSSnapObjects::SnapTypedArrayInfo* stai = alloc.SlabAllocateStruct<TTD::NSSnapObjects::SnapTypedArrayInfo>();
+        stai->ArrayBufferAddr = TTD_CONVERT_VAR_TO_PTR_ID(this->GetArrayBuffer());
+        stai->ByteOffset = this->GetByteOffset();
+        stai->Length = this->GetLength();
+
+        TTD_PTR_ID* depArray = alloc.SlabAllocateArray<TTD_PTR_ID>(1);
+        depArray[0] = TTD_CONVERT_VAR_TO_PTR_ID(this->GetArrayBuffer());
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapTypedArrayInfo*, TTD::NSSnapObjects::SnapObjectType::SnapTypedArrayObject>(objData, stai, alloc, 1, depArray);
     }
+#endif
 
-    template<> BOOL Uint16Array::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint16Array &&
-              ( VirtualTableInfo<Uint16Array>::HasVirtualTable(aValue) ||
-                VirtualTableInfo<CrossSiteObject<Uint16Array>>::HasVirtualTable(aValue)
-              );
-    }
-
-    template<> BOOL Int32Array::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int32Array &&
-               ( VirtualTableInfo<Int32Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Int32Array>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Uint32Array::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint32Array &&
-               ( VirtualTableInfo<Uint32Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Uint32Array>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Float32Array::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float32Array &&
-               ( VirtualTableInfo<Float32Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Float32Array>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Float64Array::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float64Array &&
-               ( VirtualTableInfo<Float64Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Float64Array>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Int64Array::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int64Array &&
-               ( VirtualTableInfo<Int64Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Int64Array>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Uint64Array::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint64Array &&
-               ( VirtualTableInfo<Uint64Array>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Uint64Array>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL BoolArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_BoolArray &&
-               ( VirtualTableInfo<BoolArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<BoolArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Uint8ClampedVirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8ClampedArray &&
-               ( VirtualTableInfo<Uint8ClampedVirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Uint8ClampedVirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Uint8VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint8Array &&
-               ( VirtualTableInfo<Uint8VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Uint8VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-
-    template<> BOOL Int8VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int8Array &&
-               ( VirtualTableInfo<Int8VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Int8VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Int16VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int16Array &&
-               ( VirtualTableInfo<Int16VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Int16VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Uint16VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint16Array &&
-               ( VirtualTableInfo<Uint16VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Uint16VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Int32VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Int32Array &&
-               ( VirtualTableInfo<Int32VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Int32VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Uint32VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Uint32Array &&
-               ( VirtualTableInfo<Uint32VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Uint32VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Float32VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float32Array &&
-               ( VirtualTableInfo<Float32VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Float32VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template<> BOOL Float64VirtualArray::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_Float64Array &&
-               ( VirtualTableInfo<Float64VirtualArray>::HasVirtualTable(aValue) ||
-                 VirtualTableInfo<CrossSiteObject<Float64VirtualArray>>::HasVirtualTable(aValue)
-               );
-    }
-
-    template <typename TypeName, bool clamped, bool virtualAllocated>
-    TypedArray<TypeName, clamped, virtualAllocated>* TypedArray<TypeName, clamped, virtualAllocated>::FromVar(Var aValue)
-    {
-        AssertMsg(TypedArray::Is(aValue), "invalid TypedArray");
-        return static_cast<TypedArray<TypeName, clamped, virtualAllocated>*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint8ClampedArray* Uint8ClampedArray::FromVar(Var aValue)
-    {
-        AssertMsg(Uint8ClampedArray::Is(aValue), "invalid Uint8ClampedArray");
-        return static_cast<Uint8ClampedArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint8Array* Uint8Array::FromVar(Var aValue)
-    {
-        AssertMsg(Uint8Array::Is(aValue), "invalid Uint8Array");
-        return static_cast<Uint8Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Int8Array* Int8Array::FromVar(Var aValue)
-    {
-        AssertMsg(Int8Array::Is(aValue), "invalid Int8Array");
-        return static_cast<Int8Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Int16Array* Int16Array::FromVar(Var aValue)
-    {
-        AssertMsg(Int16Array::Is(aValue), "invalid Int16Array");
-        return static_cast<Int16Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint16Array* Uint16Array::FromVar(Var aValue)
-    {
-        AssertMsg(Uint16Array::Is(aValue), "invalid Uint16Array");
-        return static_cast<Uint16Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Int32Array* Int32Array::FromVar(Var aValue)
-    {
-        AssertMsg(Int32Array::Is(aValue), "invalid Int32Array");
-        return static_cast<Int32Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint32Array* Uint32Array::FromVar(Var aValue)
-    {
-        AssertMsg(Uint32Array::Is(aValue), "invalid Uint32Array");
-        return static_cast<Uint32Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Float32Array* Float32Array::FromVar(Var aValue)
-    {
-        AssertMsg(Float32Array::Is(aValue), "invalid Float32Array");
-        return static_cast<Float32Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Float64Array* Float64Array::FromVar(Var aValue)
-    {
-        AssertMsg(Float64Array::Is(aValue), "invalid Float64Array");
-        return static_cast<Float64Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Int64Array* Int64Array::FromVar(Var aValue)
-    {
-        AssertMsg(Int64Array::Is(aValue), "invalid Int64Array");
-        return static_cast<Int64Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint64Array* Uint64Array::FromVar(Var aValue)
-    {
-        AssertMsg(Uint64Array::Is(aValue), "invalid Uint64Array");
-        return static_cast<Uint64Array*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Int8VirtualArray* Int8VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Int8VirtualArray::Is(aValue), "invalid Int8Array");
-        return static_cast<Int8VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint8ClampedVirtualArray* Uint8ClampedVirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Uint8ClampedVirtualArray::Is(aValue), "invalid Uint8ClampedArray");
-        return static_cast<Uint8ClampedVirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint8VirtualArray* Uint8VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Uint8VirtualArray::Is(aValue), "invalid Uint8Array");
-        return static_cast<Uint8VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Int16VirtualArray* Int16VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Int16VirtualArray::Is(aValue), "invalid Int16Array");
-        return static_cast<Int16VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint16VirtualArray* Uint16VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Uint16VirtualArray::Is(aValue), "invalid Uint16Array");
-        return static_cast<Uint16VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Int32VirtualArray* Int32VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Int32VirtualArray::Is(aValue), "invalid Int32Array");
-        return static_cast<Int32VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Uint32VirtualArray* Uint32VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Uint32VirtualArray::Is(aValue), "invalid Uint32Array");
-        return static_cast<Uint32VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Float32VirtualArray* Float32VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Float32VirtualArray::Is(aValue), "invalid Float32Array");
-        return static_cast<Float32VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> Float64VirtualArray* Float64VirtualArray::FromVar(Var aValue)
-    {
-        AssertMsg(Float64VirtualArray::Is(aValue), "invalid Float64Array");
-        return static_cast<Float64VirtualArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    template<> BoolArray* BoolArray::FromVar(Var aValue)
-    {
-        AssertMsg(BoolArray::Is(aValue), "invalid BoolArray");
-        return static_cast<BoolArray*>(RecyclableObject::FromVar(aValue));
-    }
-
-    __inline BOOL Int8Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int8Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToInt8);
     }
 
-    __inline BOOL Int8VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int8VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToInt8);
     }
 
-    __inline BOOL Int8Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int8Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToInt8);
     }
 
-    __inline BOOL Int8VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int8VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToInt8);
     }
 
-    __inline Var Int8Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Int8Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline Var Int8VirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Int8VirtualArray::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Uint8Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint8Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt8);
     }
-    __inline BOOL Uint8VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+
+    template<>
+    inline BOOL Uint8VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt8);
     }
 
-    __inline BOOL Uint8Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint8Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt8);
     }
-    __inline BOOL Uint8VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+
+    template<>
+    inline BOOL Uint8VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt8);
     }
 
-    __inline Var Uint8Array::DirectGetItem(__in uint32 index)
-    {
-        return BaseTypedDirectGetItem(index);
-    }
-    __inline Var Uint8VirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint8Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
+    template<>
+    inline Var Uint8VirtualArray::DirectGetItem(__in uint32 index)
+    {
+        return BaseTypedDirectGetItem(index);
+    }
 
-    __inline BOOL Uint8ClampedArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint8ClampedArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt8Clamped);
     }
 
-    __inline BOOL Uint8ClampedArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint8ClampedArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt8Clamped);
     }
 
-    __inline Var Uint8ClampedArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint8ClampedArray::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Uint8ClampedVirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint8ClampedVirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt8Clamped);
     }
 
-    __inline BOOL Uint8ClampedVirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint8ClampedVirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt8Clamped);
     }
 
-    __inline Var Uint8ClampedVirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint8ClampedVirtualArray::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Int16Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int16Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToInt16);
     }
 
-    __inline BOOL Int16Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int16Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToInt16);
     }
 
-    __inline Var Int16Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Int16Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Int16VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int16VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToInt16);
     }
 
-    __inline BOOL Int16VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int16VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToInt16);
     }
 
-    __inline Var Int16VirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Int16VirtualArray::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-
-    __inline BOOL Uint16Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint16Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt16);
     }
 
-    __inline BOOL Uint16Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint16Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt16);
     }
 
-    __inline Var Uint16Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint16Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Uint16VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint16VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt16);
     }
 
-    __inline BOOL Uint16VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint16VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt16);
     }
 
-    __inline Var Uint16VirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint16VirtualArray::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-
-
-    __inline BOOL Int32Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int32Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToInt32);
     }
 
-    __inline BOOL Int32Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int32Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToInt32);
     }
 
-    __inline Var Int32Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Int32Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Int32VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int32VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToInt32);
     }
 
-    __inline BOOL Int32VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int32VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToInt32);
     }
 
-    __inline Var Int32VirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Int32VirtualArray::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-
-    __inline BOOL Uint32Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint32Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt32);
     }
 
-    __inline BOOL Uint32Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint32Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt32);
     }
 
-    __inline Var Uint32Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint32Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Uint32VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint32VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt32);
     }
 
-    __inline BOOL Uint32VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint32VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt32);
     }
 
-    __inline Var Uint32VirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint32VirtualArray::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-
-
-    __inline BOOL Float32Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float32Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToFloat);
     }
 
-    __inline BOOL Float32Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float32Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToFloat);
     }
 
+    template<>
     Var Float32Array::DirectGetItem(__in uint32 index)
     {
         return TypedDirectGetItemWithCheck(index);
     }
 
-    __inline BOOL Float32VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float32VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToFloat);
     }
 
-    __inline BOOL Float32VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float32VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToFloat);
     }
 
+    template<>
     Var Float32VirtualArray::DirectGetItem(__in uint32 index)
     {
         return TypedDirectGetItemWithCheck(index);
     }
 
-
-    __inline BOOL Float64Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float64Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToNumber);
     }
 
-    __inline BOOL Float64Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float64Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToNumber);
     }
 
-    __inline Var Float64Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Float64Array::DirectGetItem(__in uint32 index)
     {
         return TypedDirectGetItemWithCheck(index);
     }
 
-    __inline BOOL Float64VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float64VirtualArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToNumber);
     }
 
-    __inline BOOL Float64VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Float64VirtualArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToNumber);
     }
 
-    __inline Var Float64VirtualArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Float64VirtualArray::DirectGetItem(__in uint32 index)
     {
         return TypedDirectGetItemWithCheck(index);
     }
 
-
-    __inline BOOL Int64Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int64Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToInt64);
     }
 
-    __inline BOOL Int64Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Int64Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToInt64);
     }
 
-    __inline Var Int64Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Int64Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL Uint64Array::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint64Array::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToUInt64);
     }
 
-    __inline BOOL Uint64Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL Uint64Array::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToUInt64);
     }
 
-    __inline Var Uint64Array::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var Uint64Array::DirectGetItem(__in uint32 index)
     {
         return BaseTypedDirectGetItem(index);
     }
 
-    __inline BOOL BoolArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL BoolArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItem(index, value, JavascriptConversion::ToBool);
     }
 
-    __inline BOOL BoolArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    template<>
+    inline BOOL BoolArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         return BaseTypedDirectSetItemNoSet(index, value, JavascriptConversion::ToBool);
     }
 
-    __inline Var BoolArray::DirectGetItem(__in uint32 index)
+    template<>
+    inline Var BoolArray::DirectGetItem(__in uint32 index)
     {
         if (index < GetLength())
         {
@@ -3394,19 +3309,19 @@ namespace Js
         JavascriptError::ThrowTypeError(function->GetScriptContext(), JSERR_This_NeedTypedArray);
     }
 
-    __inline Var CharArray::Subarray(uint32 begin, uint32 end)
+    inline Var CharArray::Subarray(uint32 begin, uint32 end)
     {
         AssertMsg(FALSE, "not supported in char array");
         JavascriptError::ThrowTypeError(GetScriptContext(), JSERR_This_NeedTypedArray);
     }
 
-    __inline CharArray* CharArray::FromVar(Var aValue)
+    inline CharArray* CharArray::FromVar(Var aValue)
     {
         AssertMsg(CharArray::Is(aValue), "invalid CharArray");
         return static_cast<CharArray*>(RecyclableObject::FromVar(aValue));
     }
 
-    __inline BOOL CharArray::DirectSetItem(__in uint32 index, __in Js::Var value)
+    inline BOOL CharArray::DirectSetItem(__in uint32 index, __in Js::Var value)
     {
         ScriptContext* scriptContext = GetScriptContext();
         // A typed array is Integer Indexed Exotic object, so doing a get translates to 9.4.5.9 IntegerIndexedElementSet
@@ -3438,7 +3353,7 @@ namespace Js
         return TRUE;
     }
 
-    __inline BOOL CharArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
+    inline BOOL CharArray::DirectSetItemNoSet(__in uint32 index, __in Js::Var value)
     {
         ScriptContext* scriptContext = GetScriptContext();
         // A typed array is Integer Indexed Exotic object, so doing a get translates to 9.4.5.9 IntegerIndexedElementSet
@@ -3452,7 +3367,7 @@ namespace Js
         return FALSE;
     }
 
-    __inline Var CharArray::DirectGetItem(__in uint32 index)
+    inline Var CharArray::DirectGetItem(__in uint32 index)
     {
         // A typed array is Integer Indexed Exotic object, so doing a get translates to 9.4.5.8 IntegerIndexedElementGet
         if (this->IsDetachedBuffer())
@@ -3487,4 +3402,18 @@ namespace Js
 #endif
         return object;
     }
+
+    // Instantiate the constructor function directly
+    template TypedArray<int8>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<uint8,false>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<uint8,true>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<int16>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<uint16>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<int32>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<uint32>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<float>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<double>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<int64>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<uint64>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
+    template TypedArray<bool>::TypedArray(ArrayBuffer*, uint32, uint32, DynamicType*);
 }

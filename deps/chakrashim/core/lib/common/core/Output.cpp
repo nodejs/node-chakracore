@@ -4,8 +4,10 @@
 //-------------------------------------------------------------------------------------------------------
 #include "CommonCorePch.h"
 
+#ifndef USING_PAL_STDLIB
 #include <string.h>
 #include <stdarg.h>
+#endif
 
 // Initialization order
 //  AB AutoSystemInfo
@@ -27,7 +29,9 @@ CriticalSection     Output::s_critsect;
 AutoFILE            Output::s_outputFile; // Create a separate output file that is not thread-local.
 #ifdef ENABLE_TRACE
 Js::ILogger*        Output::s_inMemoryLogger = nullptr;
+#ifdef STACK_BACK_TRACE
 Js::IStackTraceHelper* Output::s_stackTraceHelper = nullptr;
+#endif
 unsigned int Output::s_traceEntryId = 0;
 #endif
 
@@ -52,6 +56,7 @@ Output::VerboseNote(const char16 * format, ...)
         va_list argptr;
         va_start(argptr, format);
         size_t size = vfwprintf(stdout, format, argptr);
+        fflush(stdout);
         va_end(argptr);
         return size;
     }
@@ -100,7 +105,7 @@ Output::TraceWithPrefix(Js::Phase phase, const char16 prefix[], const char16 *fo
         va_list argptr;
         va_start(argptr, form);
         WCHAR prefixValue[512];
-        swprintf_s(prefixValue, _u("%s: %s: "), Js::PhaseNames[static_cast<int>(phase)], prefix);
+        _snwprintf_s(prefixValue, _countof(prefixValue), _TRUNCATE, _u("%s: %s: "), Js::PhaseNames[static_cast<int>(phase)], prefix);
         retValue += Output::VTrace(_u("%s"), prefixValue, form, argptr);
     }
 
@@ -144,17 +149,20 @@ Output::VTrace(const char16* shortPrefixFormat, const char16* prefix, const char
 {
     size_t retValue = 0;
 
+#if CONFIG_RICH_TRACE_FORMAT
     if (CONFIG_FLAG(RichTraceFormat))
     {
         InterlockedIncrement(&s_traceEntryId);
         retValue += Output::Print(_u("[%d ~%d %s] "), s_traceEntryId, ::GetCurrentThreadId(), prefix);
     }
     else
+#endif
     {
         retValue += Output::Print(shortPrefixFormat, prefix);
     }
     retValue += Output::VPrint(form, argptr);
 
+#ifdef STACK_BACK_TRACE
     // Print stack trace.
     if (s_stackTraceHelper)
     {
@@ -194,6 +202,7 @@ Output::VTrace(const char16* shortPrefixFormat, const char16* prefix, const char
             retValue += s_stackTraceHelper->PrintStackTrace(c_framesToSkip, c_frameCount);
         }
     }
+#endif
 
     return retValue;
 }
@@ -344,10 +353,7 @@ Output::PrintBuffer(const char16 * buf, size_t size)
         }
     }
 
-    if (IsDebuggerPresent())
-    {
-        Output::Flush();
-    }
+    Output::Flush();
 
     return size;
 }
@@ -373,6 +379,9 @@ void Output::Flush()
 void Output::DirectPrint(char16 const * string)
 {
     AutoCriticalSection autocs(&s_critsect);
+
+    // xplat-todo: support console color
+#ifdef _WIN32
     WORD oldValue = 0;
     BOOL restoreColor = FALSE;
     HANDLE hConsole = NULL;
@@ -387,12 +396,17 @@ void Output::DirectPrint(char16 const * string)
             restoreColor = SetConsoleTextAttribute(hConsole, Output::s_color);
         }
     }
+#endif // _WIN32
+
     fwprintf(stdout, _u("%s"), string);
 
+    // xplat-todo: support console color
+#ifdef _WIN32
     if (restoreColor)
     {
         SetConsoleTextAttribute(hConsole, oldValue);
     }
+#endif // _WIN32
 }
 ///----------------------------------------------------------------------------
 ///
@@ -465,15 +479,15 @@ Output::SetInMemoryLogger(Js::ILogger* logger)
     s_inMemoryLogger = logger;
 }
 
+#ifdef STACK_BACK_TRACE
 void
 Output::SetStackTraceHelper(Js::IStackTraceHelper* helper)
 {
     AssertMsg(s_stackTraceHelper == nullptr, "This cannot be called more than once.");
-#ifndef STACK_BACK_TRACE
-    AssertMsg("STACK_BACK_TRACE must be defined");
-#endif
     s_stackTraceHelper = helper;
 }
+#endif
+
 #endif // ENABLE_TRACE
 
 //
@@ -484,6 +498,9 @@ WORD
 Output::SetConsoleForeground(WORD color)
 {
     AutoCriticalSection autocs(&s_critsect);
+
+    // xplat-todo: support console color
+#ifdef _WIN32
     _CONSOLE_SCREEN_BUFFER_INFO info;
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -494,6 +511,7 @@ Output::SetConsoleForeground(WORD color)
         Output::s_hasColor = Output::s_color != info.wAttributes;
         return info.wAttributes;
     }
+#endif // _WIN32
 
     return 0;
 }

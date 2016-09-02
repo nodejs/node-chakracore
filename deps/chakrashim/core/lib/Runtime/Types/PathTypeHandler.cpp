@@ -252,6 +252,8 @@ namespace Js
         Assert(value != nullptr || IsInternalPropertyId(propertyId));
         PropertyIndex index = PathTypeHandlerBase::GetPropertyIndex(propertyId);
 
+        JavascriptLibrary::CheckAndInvalidateIsConcatSpreadableCache(propertyId, instance->GetScriptContext());
+
         if (index != Constants::NoSlot)
         {
             // If type is shared then the handler must be shared as well.  This is a weaker invariant than in AddPropertyInternal,
@@ -1047,14 +1049,14 @@ namespace Js
                 {
                     typeHandlerToUpdate->typePath = newTypePath;
 
-                    DynamicType * nextType = typeHandlerToUpdate->GetPredecessorType();
-                    if (nextType == nullptr)
+                    DynamicType * currPredecessorType = typeHandlerToUpdate->GetPredecessorType();
+                    if (currPredecessorType == nullptr)
                     {
                         break;
                     }
 
-                    Assert(nextType->GetTypeHandler()->IsPathTypeHandler());
-                    typeHandlerToUpdate = (PathTypeHandlerBase *)nextType->GetTypeHandler();
+                    Assert(currPredecessorType->GetTypeHandler()->IsPathTypeHandler());
+                    typeHandlerToUpdate = (PathTypeHandlerBase *)currPredecessorType->GetTypeHandler();
                     if (typeHandlerToUpdate->typePath != oldTypePath)
                     {
                         break;
@@ -1389,8 +1391,8 @@ namespace Js
         }
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-            DynamicType* oldType = instance->GetDynamicType();
-            RecyclerWeakReference<DynamicObject>* oldSingletonInstance = GetSingletonInstance();
+        DynamicType* oldTypeDebug = instance->GetDynamicType();
+        RecyclerWeakReference<DynamicObject>* oldSingletonInstance = GetSingletonInstance();
 #endif
 
         if ((GetIsOrMayBecomeShared() && IsolatePrototypes()))
@@ -1410,9 +1412,7 @@ namespace Js
         {
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-            DynamicType* oldType = instance->GetDynamicType();
-            RecyclerWeakReference<DynamicObject>* oldSingletonInstance = GetSingletonInstance();
-            TraceFixedFieldsBeforeSetIsProto(instance, this, oldType, oldSingletonInstance);
+            TraceFixedFieldsBeforeSetIsProto(instance, this, oldTypeDebug, oldSingletonInstance);
 #endif
 
             if (ChangeTypeOnProto())
@@ -1444,7 +1444,7 @@ namespace Js
             SetFlags(IsPrototypeFlag);
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-            TraceFixedFieldsAfterSetIsProto(instance, this, typeHandler, oldType, instance->GetDynamicType(), oldSingletonInstance);
+            TraceFixedFieldsAfterSetIsProto(instance, this, typeHandler, oldTypeDebug, instance->GetDynamicType(), oldSingletonInstance);
 #endif
 
         }
@@ -1901,6 +1901,42 @@ namespace Js
             Output::Print(_u("\n"));
             Output::Flush();
         }
+    }
+#endif
+
+#if ENABLE_TTD
+    void PathTypeHandlerBase::MarkObjectSlots_TTD(TTD::SnapshotExtractor* extractor, DynamicObject* obj) const
+    {
+        uint32 plength = this->GetPathLength();
+
+        for(uint32 index = 0; index < plength; ++index)
+        {
+            Js::PropertyId pid = typePath->GetPropertyIdUnchecked(index)->GetPropertyId();
+
+            if(DynamicTypeHandler::ShouldMarkPropertyId_TTD(pid))
+            {
+                Js::Var value = obj->GetSlot(index);
+                extractor->MarkVisitVar(value);
+            }
+        }
+    }
+
+    uint32 PathTypeHandlerBase::ExtractSlotInfo_TTD(TTD::NSSnapType::SnapHandlerPropertyEntry* entryInfo, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const
+    {
+        uint32 plength = this->GetPathLength();
+
+        for(uint32 index = 0; index < plength; ++index)
+        {
+            TTD::NSSnapType::ExtractSnapPropertyEntryInfo(entryInfo + index, typePath->GetPropertyIdUnchecked(index)->GetPropertyId(), PropertyDynamicTypeDefaults, TTD::NSSnapType::SnapEntryDataKindTag::Data);
+        }
+
+        return plength;
+    }
+
+    Js::PropertyIndex PathTypeHandlerBase::GetPropertyIndex_EnumerateTTD(const Js::PropertyRecord* pRecord)
+    {
+        //The regular LookupInline is fine for path types
+        return this->typePath->LookupInline(pRecord->GetPropertyId(), GetPathLength());
     }
 #endif
 

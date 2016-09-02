@@ -77,6 +77,10 @@ struct BVSparseNode
     BVSparseNode(BVIndex beginIndex, BVSparseNode * nextNode);
 
     void init(BVIndex beginIndex, BVSparseNode * nextNode);
+
+    // Needed for the NatVis Extension for visualizing BitVectors
+    // in Visual Studio
+#ifdef _WIN32
     bool ToString(
         __out_ecount(strSize) char *const str,
         const size_t strSize,
@@ -84,6 +88,7 @@ struct BVSparseNode
         const bool isInSequence = false,
         const bool isFirstInSequence = false,
         const bool isLastInSequence = false) const;
+#endif
 };
 
 CompileAssert(sizeof(BVSparseNode) == 16); // Performance assert, BVSparseNode is heavily used in the backend, do perf measurement before changing this.
@@ -186,8 +191,11 @@ public:
             // this & bv != empty
             bool            Test(BVSparse const * bv) const;
 
+            // Needed for the VS NatVis Extension
+#ifdef _WIN32
             void            ToString(__out_ecount(strSize) char *const str, const size_t strSize) const;
             template<class F> void ToString(__out_ecount(strSize) char *const str, const size_t strSize, const F ReadNode) const;
+#endif
 
             TAllocator *    GetAllocator() const { return alloc; }
 #if DBG_DUMP
@@ -466,7 +474,11 @@ BOOLEAN
 BVSparse<TAllocator>::TestAndClear(BVIndex i)
 {
     BVSparseNode ** prevNextField;
-    BVSparseNode * current = this->NodeFromIndex(i, &prevNextField);
+    BVSparseNode * current = this->NodeFromIndex(i, &prevNextField, false /* create */);
+    if (current == nullptr)
+    {
+        return false;
+    }
     BVIndex bvIndex = SparseBVUnit::Offset(i);
     BOOLEAN bit = current->data.Test(bvIndex);
     current->data.Clear(bvIndex);
@@ -891,13 +903,15 @@ BVSparse<TAllocator>::Test(BVSparse const * bv) const
     return false;
 }
 
+#ifdef _WIN32
+
 template<class TAllocator>
 template<class F>
 void BVSparse<TAllocator>::ToString(__out_ecount(strSize) char *const str, const size_t strSize, const F ReadNode) const
 {
     Assert(str);
 
-    if(strSize == 0)
+    if (strSize == 0)
     {
         return;
     }
@@ -907,16 +921,16 @@ void BVSparse<TAllocator>::ToString(__out_ecount(strSize) char *const str, const
     bool isFirstInSequence = true;
     size_t length = 0;
     BVSparseNode *nodePtr = head;
-    while(nodePtr)
+    while (nodePtr)
     {
         bool readSuccess;
         const BVSparseNode node(ReadNode(nodePtr, &readSuccess));
-        if(!readSuccess)
+        if (!readSuccess)
         {
             str[0] = '\0';
             return;
         }
-        if(node.data.IsEmpty())
+        if (node.data.IsEmpty())
         {
             nodePtr = node.next;
             continue;
@@ -924,7 +938,7 @@ void BVSparse<TAllocator>::ToString(__out_ecount(strSize) char *const str, const
         empty = false;
 
         size_t writtenLength;
-        if(!node.ToString(&str[length], strSize - length, &writtenLength, true, isFirstInSequence, !node.next))
+        if (!node.ToString(&str[length], strSize - length, &writtenLength, true, isFirstInSequence, !node.next))
         {
             return;
         }
@@ -934,7 +948,7 @@ void BVSparse<TAllocator>::ToString(__out_ecount(strSize) char *const str, const
         nodePtr = node.next;
     }
 
-    if(empty && _countof("{}") < strSize)
+    if (empty && _countof("{}") < strSize)
     {
         strcpy_s(str, strSize, "{}");
     }
@@ -947,14 +961,15 @@ void BVSparse<TAllocator>::ToString(__out_ecount(strSize) char *const str, const
         str,
         strSize,
         [](BVSparseNode *const nodePtr, bool *const successRef) -> BVSparseNode
-        {
-            Assert(nodePtr);
-            Assert(successRef);
+    {
+        Assert(nodePtr);
+        Assert(successRef);
 
-            *successRef = true;
-            return *nodePtr;
-        });
+        *successRef = true;
+        return *nodePtr;
+    });
 }
+#endif
 
 #if DBG_DUMP
 

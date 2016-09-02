@@ -70,6 +70,9 @@ namespace Js
         // Minimum stack required to be able to execute a JITted Javascript function.
         static const unsigned MinStackJIT = 0x930 * WIN64_STACK_FACTOR;
 
+        // Maximum stack space allowed to avoid generating ProbeCurrentStack
+        static const unsigned MaxStackSizeForNoProbe = 0x64;
+
 #if (defined(_M_ARM32_OR_ARM64) || defined(_M_AMD64))
 #if DBG
         static const unsigned MinStackInterpreter = 0x4000; // 16 KB
@@ -92,7 +95,6 @@ namespace Js
         static const unsigned MinStackRegex = 8 * 0x400 * WIN64_STACK_FACTOR; // 8 KB
 
         static const unsigned MinStackRuntime = 32 * 0x0400 * WIN64_STACK_FACTOR;
-        static const unsigned MinStackHost = 40 * 0x0400 * WIN64_STACK_FACTOR;
         static const unsigned MinStackCallout = 32 * 0x0400 * WIN64_STACK_FACTOR;
 
         static const unsigned MinStackParseOneTerm = 0x100 * WIN64_STACK_FACTOR;

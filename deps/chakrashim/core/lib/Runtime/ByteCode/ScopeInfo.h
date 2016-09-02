@@ -15,6 +15,7 @@ namespace Js {
         {
             ByteCodeGenerator* byteCodeGenerator;
             FuncInfo* func;
+            int nonScopeSymbolCount;
         };
 
         struct SymbolInfo
@@ -27,6 +28,9 @@ namespace Js {
             SymbolType symbolType;
             bool hasFuncAssignment;
             bool isBlockVariable;
+            bool isFuncExpr;
+            bool isModuleExportStorage;
+            bool isModuleImport;
         };
 
     private:
@@ -92,6 +96,27 @@ namespace Js {
             symbols[i].isBlockVariable = is;
         }
 
+        void SetIsFuncExpr(int i, bool is)
+        {
+            Assert(!areNamesCached);
+            Assert(i >= 0 && i < symbolCount);
+            symbols[i].isFuncExpr = is;
+        }
+
+        void SetIsModuleExportStorage(int i, bool is)
+        {
+            Assert(!areNamesCached);
+            Assert(i >= 0 && i < symbolCount);
+            symbols[i].isModuleExportStorage = is;
+        }
+
+        void SetIsModuleImport(int i, bool is)
+        {
+            Assert(!areNamesCached);
+            Assert(i >= 0 && i < symbolCount);
+            symbols[i].isModuleImport = is;
+        }
+
         void SetPropertyName(int i, PropertyRecord const* name)
         {
             Assert(!areNamesCached);
@@ -118,10 +143,28 @@ namespace Js {
             return symbols[i].hasFuncAssignment;
         }
 
+        bool GetIsModuleExportStorage(int i)
+        {
+            Assert(i >= 0 && i < symbolCount);
+            return symbols[i].isModuleExportStorage;
+        }
+
+        bool GetIsModuleImport(int i)
+        {
+            Assert(i >= 0 && i < symbolCount);
+            return symbols[i].isModuleImport;
+        }
+
         bool GetIsBlockVariable(int i)
         {
             Assert(i >= 0 && i < symbolCount);
             return symbols[i].isBlockVariable;
+        }
+
+        bool GetIsFuncExpr(int i)
+        {
+            Assert(i >= 0 && i < symbolCount);
+            return symbols[i].isFuncExpr;
         }
 
         PropertyRecord const* GetPropertyName(int i)
@@ -206,7 +249,6 @@ namespace Js {
 
         static void SaveScopeInfoForDeferParse(ByteCodeGenerator* byteCodeGenerator, FuncInfo* parentFunc, FuncInfo* func);
 
-        ScopeInfo *CloneFor(ParseableFunctionInfo *body);
         void EnsurePidTracking(ScriptContext* scriptContext);
 
         void GetScopeInfo(Parser *parser, ByteCodeGenerator* byteCodeGenerator, FuncInfo* funcInfo, Scope* scope);

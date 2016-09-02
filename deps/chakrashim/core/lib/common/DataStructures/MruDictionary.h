@@ -111,7 +111,7 @@ namespace JsUtil
             Assert(mruListCapacity > 0);
         }
 
-        static MruDictionary *New(TAllocator *const allocator, const int mruListCapacity)
+        static MruDictionary *New(TAllocator *const allocator, DECLSPEC_GUARD_OVERFLOW const int mruListCapacity)
         {
             return AllocatorNew(TAllocator, allocator, MruDictionary, allocator, mruListCapacity);
         }
@@ -189,7 +189,7 @@ namespace JsUtil
             if(dictionary.Count() / 2 <= mruListCount)
             {
                 dictionary.MapAndRemoveIf(
-                    [](const TDictionary::EntryType &dictionaryEntry) -> bool
+                    [](const typename TDictionary::EntryType &dictionaryEntry) -> bool
                     {
                         return !dictionaryEntry.Value().Entry();
                     });

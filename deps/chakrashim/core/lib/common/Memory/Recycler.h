@@ -9,7 +9,7 @@
 namespace Js
 {
     class Profiler;
-    enum Phase;
+    enum Phase: unsigned short;
 };
 
 namespace JsUtil
@@ -17,7 +17,9 @@ namespace JsUtil
     class ThreadService;
 };
 
+#ifdef STACK_BACK_TRACE
 class StackBackTraceNode;
+#endif
 class ScriptEngineBase;
 class JavascriptThreadService;
 
@@ -567,10 +569,10 @@ public:
 
 private:
     // Static entry point for thread creation
-    static unsigned int StaticThreadProc(LPVOID lpParameter);
+    static unsigned int CALLBACK StaticThreadProc(LPVOID lpParameter);
 
     // Static entry point for thread service usage
-    static void StaticBackgroundWorkCallback(void * callbackData);
+    static void CALLBACK StaticBackgroundWorkCallback(void * callbackData);
 
 private:
     WorkFunc workFunc;
@@ -699,15 +701,24 @@ private:
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
     struct PinRecord
     {
+#ifdef STACK_BACK_TRACE
         PinRecord() : refCount(0), stackBackTraces(nullptr) {}
+#else
+        PinRecord() : refCount(0) {}
+#endif
         PinRecord& operator=(uint newRefCount)
         {
-            Assert(stackBackTraces == nullptr); Assert(newRefCount == 0); refCount = 0; return *this;
+#ifdef STACK_BACK_TRACE
+            Assert(stackBackTraces == nullptr);
+#endif
+            Assert(newRefCount == 0); refCount = 0; return *this;
         }
         PinRecord& operator++() { ++refCount; return *this; }
         PinRecord& operator--() { --refCount; return *this; }
         operator uint() const { return refCount; }
+#ifdef STACK_BACK_TRACE
         StackBackTraceNode * stackBackTraces;
+#endif
     private:
         uint refCount;
     };
@@ -722,13 +733,15 @@ private:
     uint weakReferenceCleanupId;
 
     void * transientPinnedObject;
+#ifdef STACK_BACK_TRACE
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
     StackBackTrace * transientPinnedObjectStackBackTrace;
+#endif
 #endif
 
     struct GuestArenaAllocator : public ArenaAllocator
     {
-        GuestArenaAllocator(__in LPCWSTR name, PageAllocator * pageAllocator, void (*outOfMemoryFunc)())
+        GuestArenaAllocator(__in char16 const*  name, PageAllocator * pageAllocator, void (*outOfMemoryFunc)())
             : ArenaAllocator(name, pageAllocator, outOfMemoryFunc), pendingDelete(false)
         {
         }
@@ -736,18 +749,18 @@ private:
     };
     DListBase<GuestArenaAllocator> guestArenaList;
     DListBase<ArenaData*> externalGuestArenaList;    // guest arenas are scanned for roots
-    HeapInfo autoHeap;
 #ifdef RECYCLER_PAGE_HEAP
-    __inline bool IsPageHeapEnabled() const { return isPageHeapEnabled; }
+
+    inline bool IsPageHeapEnabled() const { return isPageHeapEnabled; }
     template<ObjectInfoBits attributes>
     bool IsPageHeapEnabled(size_t size);
-    __inline bool ShouldCapturePageHeapAllocStack() const { return capturePageHeapAllocStack; }
+    inline bool ShouldCapturePageHeapAllocStack() const { return capturePageHeapAllocStack; }
     bool isPageHeapEnabled;
     bool capturePageHeapAllocStack;
     bool capturePageHeapFreeStack;
 #else
-    __inline const bool IsPageHeapEnabled() const { return false; }
-    __inline bool ShouldCapturePageHeapAllocStack() const { return false; }
+    inline const bool IsPageHeapEnabled() const { return false; }
+    inline bool ShouldCapturePageHeapAllocStack() const { return false; }
 #endif
 
 
@@ -790,6 +803,7 @@ private:
     bool HasPendingTrackObjects() const { return markContext.HasPendingTrackObjects() || parallelMarkContext1.HasPendingTrackObjects() || parallelMarkContext2.HasPendingTrackObjects() || parallelMarkContext3.HasPendingTrackObjects(); }
 
     RecyclerCollectionWrapper * collectionWrapper;
+
     HANDLE mainThreadHandle;
     void * stackBase;
     class SavedRegisterState
@@ -910,7 +924,6 @@ private:
     HANDLE concurrentWorkDoneEvent; // concurrent threads use this event to tell main thread that the work allocated is done
     HANDLE concurrentThread;
 
-
     template <uint parallelId>
     void ParallelWorkFunc();
 
@@ -979,6 +992,10 @@ private:
     PageAllocator backgroundProfilerPageAllocator;
     DListBase<ArenaAllocator> backgroundProfilerArena;
 #endif
+
+    // destruct autoHeap after backgroundProfilerPageAllocator;
+    HeapInfo autoHeap;
+
 #ifdef PROFILE_MEM
     RecyclerMemoryData * memoryData;
 #endif
@@ -1056,7 +1073,7 @@ public:
 
     void LogMemProtectHeapSize(bool fromGC);
 
-    char* Realloc(void* buffer, size_t existingBytes, size_t requestedBytes, bool truncate = true);
+    char* Realloc(void* buffer, DECLSPEC_GUARD_OVERFLOW size_t existingBytes, DECLSPEC_GUARD_OVERFLOW size_t requestedBytes, bool truncate = true);
     void SetTelemetryBlock(RecyclerWatsonTelemetryBlock * telemetryBlock) { this->telemetryBlock = telemetryBlock; }
 
     void Prime();
@@ -1101,9 +1118,9 @@ public:
     }
 
 #ifdef RECYCLER_PAGE_HEAP
-    __inline bool ShouldCapturePageHeapFreeStack() const { return capturePageHeapFreeStack; }
+    inline bool ShouldCapturePageHeapFreeStack() const { return capturePageHeapFreeStack; }
 #else
-    __inline bool ShouldCapturePageHeapFreeStack() const { return false; }
+    inline bool ShouldCapturePageHeapFreeStack() const { return false; }
 #endif
 
     void SetIsThreadBound();
@@ -1250,7 +1267,7 @@ public:
 
 #ifdef TRACE_OBJECT_LIFETIME
 #define DEFINE_RECYCLER_ALLOC_TRACE(AllocFunc, AllocWithAttributesFunc, attributes) \
-    __inline char* AllocFunc##Trace(size_t size) \
+    inline char* AllocFunc##Trace(size_t size) \
     { \
         return AllocWithAttributesFunc<(ObjectInfoBits)(attributes | TraceBit), /* nothrow = */ false>(size); \
     }
@@ -1258,22 +1275,22 @@ public:
 #define DEFINE_RECYCLER_ALLOC_TRACE(AllocFunc, AllocWithAttributeFunc, attributes)
 #endif
 #define DEFINE_RECYCLER_ALLOC_BASE(AllocFunc, AllocWithAttributesFunc, attributes) \
-    __inline char * AllocFunc(size_t size) \
+    inline char * AllocFunc(DECLSPEC_GUARD_OVERFLOW size_t size) \
     { \
         return AllocWithAttributesFunc<attributes, /* nothrow = */ false>(size); \
     } \
-    __forceinline char * AllocFunc##Inlined(size_t size) \
+    __forceinline char * AllocFunc##Inlined(DECLSPEC_GUARD_OVERFLOW size_t size) \
     { \
         return AllocWithAttributesFunc##Inlined<attributes, /* nothrow = */ false>(size);  \
     } \
     DEFINE_RECYCLER_ALLOC_TRACE(AllocFunc, AllocWithAttributesFunc, attributes);
 
 #define DEFINE_RECYCLER_NOTHROW_ALLOC_BASE(AllocFunc, AllocWithAttributesFunc, attributes) \
-    __inline char * NoThrow##AllocFunc(size_t size) \
+    inline char * NoThrow##AllocFunc(DECLSPEC_GUARD_OVERFLOW size_t size) \
     { \
         return AllocWithAttributesFunc<attributes, /* nothrow = */ true>(size); \
     } \
-    __inline char * NoThrow##AllocFunc##Inlined(size_t size) \
+    inline char * NoThrow##AllocFunc##Inlined(DECLSPEC_GUARD_OVERFLOW size_t size) \
     { \
         return AllocWithAttributesFunc##Inlined<attributes, /* nothrow = */ true>(size);  \
     } \
@@ -1309,7 +1326,7 @@ public:
     DEFINE_RECYCLER_NOTHROW_ALLOC_ZERO(AllocImplicitRoot, ImplicitRootBit);
 
     template <ObjectInfoBits enumClass>
-    char * AllocEnumClass(size_t size)
+    char * AllocEnumClass(DECLSPEC_GUARD_OVERFLOW size_t size)
     {
         Assert((enumClass & EnumClassMask) != 0);
         Assert((enumClass & ~EnumClassMask) == 0);
@@ -1317,7 +1334,7 @@ public:
     }
 
     template <ObjectInfoBits infoBits>
-    char * AllocWithInfoBits(size_t size)
+    char * AllocWithInfoBits(DECLSPEC_GUARD_OVERFLOW size_t size)
     {
         return AllocWithAttributes<infoBits, /* nothrow = */ false>(size);
     }
@@ -1376,7 +1393,7 @@ public:
     template <typename TBlockAttributes>
     void SetExplicitFreeBitOnSmallBlock(HeapBlock* heapBlock, size_t sizeCat, void* buffer, ObjectInfoBits attributes);
 
-    char* HeapAllocR(HeapInfo* eHeap, size_t size)
+    char* HeapAllocR(HeapInfo* eHeap, DECLSPEC_GUARD_OVERFLOW size_t size)
     {
         return RealAlloc<LeafBit, /* nothrow = */ false>(eHeap, size);
     }
@@ -1389,10 +1406,10 @@ public:
     void RootRelease(void* obj, uint *count = nullptr);
 
     template <ObjectInfoBits attributes, bool nothrow>
-    __inline char* RealAlloc(HeapInfo* heap, size_t size);
+    inline char* RealAlloc(HeapInfo* heap, DECLSPEC_GUARD_OVERFLOW size_t size);
 
     template <ObjectInfoBits attributes, bool isSmallAlloc, bool nothrow>
-    __inline char* RealAllocFromBucket(HeapInfo* heap, size_t size);
+    inline char* RealAllocFromBucket(HeapInfo* heap, DECLSPEC_GUARD_OVERFLOW size_t size);
 
     void EnterIdleDecommit();
     void LeaveIdleDecommit();
@@ -1508,23 +1525,23 @@ private:
 
     // Allocation
     template <ObjectInfoBits attributes, bool nothrow>
-    __inline char * AllocWithAttributesInlined(size_t size);
+    inline char * AllocWithAttributesInlined(DECLSPEC_GUARD_OVERFLOW size_t size);
     template <ObjectInfoBits attributes, bool nothrow>
-    char * AllocWithAttributes(size_t size)
+    char * AllocWithAttributes(DECLSPEC_GUARD_OVERFLOW size_t size)
     {
         return AllocWithAttributesInlined<attributes, nothrow>(size);
     }
 
     template <ObjectInfoBits attributes, bool nothrow>
-    __inline char* AllocZeroWithAttributesInlined(size_t size);
+    inline char* AllocZeroWithAttributesInlined(DECLSPEC_GUARD_OVERFLOW size_t size);
 
     template <ObjectInfoBits attributes, bool nothrow>
-    char* AllocZeroWithAttributes(size_t size)
+    char* AllocZeroWithAttributes(DECLSPEC_GUARD_OVERFLOW size_t size)
     {
         return AllocZeroWithAttributesInlined<attributes, nothrow>(size);
     }
 
-    char* AllocWeakReferenceEntry(size_t size)
+    char* AllocWeakReferenceEntry(DECLSPEC_GUARD_OVERFLOW size_t size)
     {
         return AllocWithAttributes<WeakReferenceEntryBits, /* nothrow = */ false>(size);
     }
@@ -1539,10 +1556,10 @@ private:
         return (ticks > tickCountNextDispose && this->hasDisposableObject);
     }
 
-    char* TryLargeAlloc(HeapInfo* heap, size_t size, ObjectInfoBits attributes, bool nothrow);
+    char* TryLargeAlloc(HeapInfo* heap, DECLSPEC_GUARD_OVERFLOW size_t size, ObjectInfoBits attributes, bool nothrow);
 
     template <bool nothrow>
-    char* LargeAlloc(HeapInfo* heap, size_t size, ObjectInfoBits attributes);
+    char* LargeAlloc(HeapInfo* heap, DECLSPEC_GUARD_OVERFLOW size_t size, ObjectInfoBits attributes);
     void OutOfMemory();
 
     // Collection
@@ -1606,9 +1623,9 @@ private:
         void* candidate;
     } blockCache;
 
-    __inline void ScanObjectInline(void ** obj, size_t byteCount);
-    __inline void ScanObjectInlineInterior(void ** obj, size_t byteCount);
-    __inline void ScanMemoryInline(void ** obj, size_t byteCount);
+    inline void ScanObjectInline(void ** obj, size_t byteCount);
+    inline void ScanObjectInlineInterior(void ** obj, size_t byteCount);
+    inline void ScanMemoryInline(void ** obj, size_t byteCount);
     void ScanMemory(void ** obj, size_t byteCount) { if (byteCount != 0) { ScanMemoryInline(obj, byteCount); } }
     bool AddMark(void * candidate, size_t byteCount);
 
@@ -1652,6 +1669,7 @@ private:
 #if ENABLE_CONCURRENT_GC
     void BackgroundFinishPartialCollect(RecyclerSweep * recyclerSweep);
 #endif
+
 #endif
 
     size_t RescanMark(DWORD waitTime);
@@ -1683,12 +1701,12 @@ private:
     bool AbortConcurrent(bool restoreState);
     void FinalizeConcurrent(bool restoreState);
 
-    static unsigned int  StaticThreadProc(LPVOID lpParameter);
+    static unsigned int CALLBACK StaticThreadProc(LPVOID lpParameter);
     static int ExceptFilter(LPEXCEPTION_POINTERS pEP);
     DWORD ThreadProc();
 
     void DoBackgroundWork(bool forceForeground = false);
-    static void StaticBackgroundWorkCallback(void * callbackData);
+    static void CALLBACK StaticBackgroundWorkCallback(void * callbackData);
 
     BOOL CollectOnConcurrentThread();
     bool StartConcurrent(CollectionState const state);
@@ -1759,7 +1777,7 @@ private:
     friend class HeapBucketT;
     template <typename TBlockType>
     friend class SmallNormalHeapBucketBase;
-    template <typename T, ObjectInfoBits attributes = LeafBit>
+    template <typename T, ObjectInfoBits attributes>
     friend class RecyclerFastAllocator;
 
 #ifdef RECYCLER_TRACE
@@ -2100,6 +2118,9 @@ public:
         Recycler* recycler = this->m_recycler;
         if (recycler->IsPageHeapEnabled() && recycler->ShouldCapturePageHeapFreeStack())
         {
+            Assert(recycler->IsPageHeapEnabled());
+
+#ifdef STACK_BACK_TRACE
             if (this->isUsingLargeHeapBlock)
             {
                 LargeHeapBlock* largeHeapBlock = (LargeHeapBlock*)this->m_heapBlock;
@@ -2108,6 +2129,7 @@ public:
                     largeHeapBlock->CapturePageHeapFreeStack();
                 }
             }
+#endif
         }
 #endif
 
@@ -2219,7 +2241,7 @@ Recycler::RemoveSmallAllocator(SmallHeapBlockAllocatorType * allocator, size_t s
 
 template <ObjectInfoBits attributes, typename SmallHeapBlockAllocatorType>
 char *
-Recycler::SmallAllocatorAlloc(SmallHeapBlockAllocatorType * allocator, size_t sizeCat, size_t size)
+Recycler::SmallAllocatorAlloc(SmallHeapBlockAllocatorType * allocator, DECLSPEC_GUARD_OVERFLOW size_t sizeCat, size_t size)
 {
     return autoHeap.SmallAllocatorAlloc<attributes>(this, allocator, sizeCat, size);
 }
@@ -2294,7 +2316,13 @@ template <bool isLeaf>
 class ListTypeAllocatorFunc<Recycler, isLeaf>
 {
 public:
+    typedef char * (Recycler::*AllocFuncType)(size_t);
     typedef bool (Recycler::*FreeFuncType)(void*, size_t);
+
+    static AllocFuncType GetAllocFunc()
+    {
+        return isLeaf ? &Recycler::AllocLeaf : &Recycler::Alloc;
+    }
 
     static FreeFuncType GetFreeFunc()
     {
@@ -2372,7 +2400,10 @@ struct ForceLeafAllocator<RecyclerNonLeafAllocator>
     typedef RecyclerLeafAllocator AllocatorType;
 };
 
-#ifdef PROFILE_EXEC
+// TODO: enable -profile for GC phases.
+// access the same profiler object from multiple GC threads which shares one recyler object,
+// but profiler object is not thread safe
+#if defined(PROFILE_EXEC) && 0
 #define RECYCLER_PROFILE_EXEC_BEGIN(recycler, phase) if (recycler->profiler != nullptr) { recycler->profiler->Begin(phase); }
 #define RECYCLER_PROFILE_EXEC_END(recycler, phase) if (recycler->profiler != nullptr) { recycler->profiler->End(phase); }
 
@@ -2398,7 +2429,7 @@ struct ForceLeafAllocator<RecyclerNonLeafAllocator>
 }
 
 _Ret_notnull_ inline void * __cdecl
-operator new(size_t byteSize, Recycler * alloc, HeapInfo * heapInfo)
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, Recycler * alloc, HeapInfo * heapInfo)
 {
     return alloc->HeapAllocR(heapInfo, byteSize);
 }
@@ -2410,7 +2441,7 @@ operator delete(void * obj, Recycler * alloc, HeapInfo * heapInfo)
 }
 
 _Ret_notnull_ inline void * __cdecl
-operator new(size_t byteSize, Recycler * recycler, ObjectInfoBits enumClassBits)
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, Recycler * recycler, ObjectInfoBits enumClassBits)
 {
     AssertCanHandleOutOfMemory();
     Assert(byteSize != 0);
@@ -2423,7 +2454,7 @@ operator new(size_t byteSize, Recycler * recycler, ObjectInfoBits enumClassBits)
 
 template<ObjectInfoBits infoBits>
 _Ret_notnull_ inline void * __cdecl
-operator new(size_t byteSize, Recycler * recycler, const InfoBitsWrapper<infoBits>&)
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, Recycler * recycler, const InfoBitsWrapper<infoBits>&)
 {
     AssertCanHandleOutOfMemory();
     Assert(byteSize != 0);

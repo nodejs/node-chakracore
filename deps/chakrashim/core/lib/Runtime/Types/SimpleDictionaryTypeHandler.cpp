@@ -78,6 +78,45 @@ namespace Js
         return propertyRecord;
     }
 
+#if ENABLE_TTD
+    template<typename TMapKey>
+    TMapKey TMapKey_ConvertKey_TTD(ThreadContext* threadContext, const PropertyRecord* key)
+    {
+        return key;
+    }
+
+    template<>
+    JavascriptString* TMapKey_ConvertKey_TTD(ThreadContext* threadContext, const PropertyRecord* key)
+    {
+        AssertMsg(false, "I never want to do this.");
+
+        return nullptr;
+    }
+
+    template<typename TMapKey>
+    TMapKey TMapKey_ConvertKey_TTD(ThreadContext* threadContext, JavascriptString* key)
+    {
+        AssertMsg(false, "I never want to do this.");
+
+        return nullptr;
+    }
+
+    template<>
+    const PropertyRecord* TMapKey_ConvertKey_TTD(ThreadContext* threadContext, JavascriptString* key)
+    {
+        PropertyRecord const * propertyRecord;
+        if(VirtualTableInfo<Js::PropertyString>::HasVirtualTable(key))
+        {
+            propertyRecord = ((PropertyString*)key)->GetPropertyRecord();
+        }
+        else
+        {
+            threadContext->GetOrAddPropertyId(key->GetString(), key->GetLength(), &propertyRecord);
+        }
+        return propertyRecord;
+    }
+#endif
+
     bool TPropertyKey_IsInternalPropertyId(JavascriptString* key)
     {
         // WARNING: This will return false for PropertyStrings that are actually InternalPropertyIds
@@ -445,9 +484,9 @@ namespace Js
             propertyKey = propertyMap->GetKeyAt(i);
 
             // newTH->nextPropertyIndex will be less than desc.propertyIndex, when we have function with same name parameters
-            if (newTypeHandler->nextPropertyIndex < (U::PropertyIndexType)descriptor.propertyIndex)
+            if (newTypeHandler->nextPropertyIndex < static_cast<typename U::PropertyIndexType>(descriptor.propertyIndex))
             {
-                newTypeHandler->nextPropertyIndex = (U::PropertyIndexType)descriptor.propertyIndex;
+                newTypeHandler->nextPropertyIndex = static_cast<typename U::PropertyIndexType>(descriptor.propertyIndex);
             }
 
             Assert(newTypeHandler->nextPropertyIndex == descriptor.propertyIndex);
@@ -455,7 +494,7 @@ namespace Js
             newTypeHandler->Add(TMapKey_ConvertKey<UMapKey>(scriptContext, propertyKey), descriptor.Attributes, descriptor.isInitialized, descriptor.isFixed, transferUsedAsFixed && descriptor.usedAsFixed, scriptContext);
         }
 
-        newTypeHandler->nextPropertyIndex = (U::PropertyIndexType)nextPropertyIndex;
+        newTypeHandler->nextPropertyIndex = static_cast<typename U::PropertyIndexType>(nextPropertyIndex);
         newTypeHandler->SetNumDeletedProperties(numDeletedProperties);
 
         ClearSingletonInstance();
@@ -727,7 +766,7 @@ namespace Js
     }
 
     template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
-    __inline BOOL SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::FindNextProperty_BigPropertyIndex(ScriptContext* scriptContext, TPropertyIndex& index,
+    inline BOOL SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::FindNextProperty_BigPropertyIndex(ScriptContext* scriptContext, TPropertyIndex& index,
         JavascriptString** propertyStringName, PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols)
     {
         Assert(propertyStringName);
@@ -850,7 +889,7 @@ namespace Js
     }
 
     template <typename TPropertyIndex>
-    __inline PropertyIndex DisallowBigPropertyIndex(TPropertyIndex index)
+    inline PropertyIndex DisallowBigPropertyIndex(TPropertyIndex index)
     {
         if (index <= Constants::PropertyIndexMax)
         {
@@ -861,7 +900,7 @@ namespace Js
 
     template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
     template <bool allowLetConstGlobal>
-    __inline PropertyIndex SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::GetPropertyIndex_Internal(const PropertyRecord* propertyRecord)
+    inline PropertyIndex SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::GetPropertyIndex_Internal(const PropertyRecord* propertyRecord)
     {
         SimpleDictionaryPropertyDescriptor<TPropertyIndex>* descriptor;
         if (propertyMap->TryGetReference(propertyRecord, &descriptor) && !(descriptor->Attributes & (PropertyDeleted | (!allowLetConstGlobal ? PropertyLetConstGlobal : 0))))
@@ -1263,6 +1302,8 @@ namespace Js
         Assert(propertyId != Constants::NoProperty);
         PropertyRecord const* propertyRecord = instance->GetScriptContext()->GetPropertyName(propertyId);
 
+        JavascriptLibrary::CheckAndInvalidateIsConcatSpreadableCache(propertyId, instance->GetScriptContext());
+
         // It can be the case that propertyRecord is a symbol property and it has the same string description as
         // another property which is in the propertyMap. If we are in a string-keyed type handler, the propertyMap
         // will find that normal property when we call TryGetReference with the symbol propertyRecord. However,
@@ -1645,7 +1686,8 @@ namespace Js
         }
         else
         {
-            return ConvertToNonSharedSimpleDictionaryType(instance)->DeleteProperty_Internal<allowLetConstGlobal>(instance, propertyId, propertyOperationFlags);
+            SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported> *simpleBase = ConvertToNonSharedSimpleDictionaryType(instance);
+            return simpleBase->DeleteProperty_Internal<allowLetConstGlobal>(instance, propertyId, propertyOperationFlags);
         }
         return true;
     }
@@ -3108,6 +3150,80 @@ namespace Js
                 : ConvertToTypeHandler<BigSimpleDictionaryTypeHandler, TMapKey>(instance);
     }
 
+#if ENABLE_TTD
+    template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
+    void SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::MarkObjectSlots_TTD(TTD::SnapshotExtractor* extractor, DynamicObject* obj) const
+    {
+        ThreadContext* threadContext = obj->GetScriptContext()->GetThreadContext();
+
+        for(auto iter = this->propertyMap->GetIterator(); iter.IsValid(); iter.MoveNext())
+        {
+            SimpleDictionaryPropertyDescriptor<TPropertyIndex> descriptor = iter.CurrentValue();
+            AssertMsg(descriptor.propertyIndex != NoSlots, "Huh");
+
+            TMapKey key = iter.CurrentKey();
+            const PropertyRecord* pRecord = TMapKey_ConvertKey_TTD<const Js::PropertyRecord*>(threadContext, key);
+            Js::PropertyId pid = pRecord->GetPropertyId();
+
+            //
+            //TODO: not sure about relationship with PropertyLetConstGlobal here need to -- check how GetProperty works
+            //      maybe we need to template this with allowLetGlobalConst as well
+            //
+
+            if(DynamicTypeHandler::ShouldMarkPropertyId_TTD(pid) & descriptor.isInitialized & !(descriptor.Attributes & PropertyDeleted))
+            {
+                Js::Var value = obj->GetSlot(descriptor.propertyIndex);
+
+                extractor->MarkVisitVar(value);
+            }
+        }
+    }
+
+    template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
+    uint32 SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::ExtractSlotInfo_TTD(TTD::NSSnapType::SnapHandlerPropertyEntry* entryInfo, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const
+    {
+        uint32 maxSlot = 0;
+
+        for(auto iter = this->propertyMap->GetIterator(); iter.IsValid(); iter.MoveNext())
+        {
+            SimpleDictionaryPropertyDescriptor<TPropertyIndex> descriptor = iter.CurrentValue();
+            AssertMsg(descriptor.propertyIndex != NoSlots, "Huh");
+
+            uint32 index = descriptor.propertyIndex;
+            maxSlot = max(maxSlot, index);
+
+            TMapKey key = iter.CurrentKey();
+            const PropertyRecord* pRecord = TMapKey_ConvertKey_TTD<const Js::PropertyRecord*>(threadContext, key);
+            TTD::NSSnapType::SnapEntryDataKindTag tag = descriptor.isInitialized ? TTD::NSSnapType::SnapEntryDataKindTag::Data : TTD::NSSnapType::SnapEntryDataKindTag::Clear;
+
+            TTD::NSSnapType::ExtractSnapPropertyEntryInfo(entryInfo + index, pRecord->GetPropertyId(), descriptor.Attributes, tag);
+        }
+
+        if(this->propertyMap->Count() == 0)
+        {
+            return 0;
+        }
+        else
+        {
+            return maxSlot + 1;
+        }
+    }
+
+    template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
+    Js::PropertyIndex SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::GetPropertyIndex_EnumerateTTD(const Js::PropertyRecord* pRecord)
+    {
+        SimpleDictionaryPropertyDescriptor<TPropertyIndex>* descriptor;
+        if(propertyMap->TryGetReference(pRecord, &descriptor))
+        {
+            AssertMsg(!(descriptor->Attributes & PropertyDeleted), "We found this during enum so what is going on here?");
+
+            return DisallowBigPropertyIndex(descriptor->propertyIndex);
+        }
+
+        return Constants::NoSlot;
+    }
+#endif
+
     template <>
     BigSimpleDictionaryTypeHandler* SimpleDictionaryTypeHandlerBase<BigPropertyIndex, const PropertyRecord*, false>::ConvertToBigSimpleDictionaryTypeHandler(DynamicObject* instance)
     {
@@ -3155,4 +3271,11 @@ namespace Js
     template class SimpleDictionaryTypeHandlerBase<PropertyIndex, JavascriptString*, true>;
     template class SimpleDictionaryTypeHandlerBase<BigPropertyIndex, JavascriptString*, false>;
     template class SimpleDictionaryTypeHandlerBase<BigPropertyIndex, JavascriptString*, true>;
+
+    template void Js::SimpleDictionaryTypeHandlerBase<unsigned short, Js::PropertyRecord const*, false>::Add<Js::PropertyRecord const*>(Js::PropertyRecord const*, unsigned char, bool, bool, bool, Js::ScriptContext* const);
+    template void Js::SimpleDictionaryTypeHandlerBase<unsigned short, Js::PropertyRecord const*, true>::Add<Js::PropertyRecord const*>(Js::PropertyRecord const*, unsigned char, bool, bool, bool, Js::ScriptContext* const);
+
+    // Instantiated here since this method is defined in this file
+    template void Js::PropertyIndexRangesBase<Js::PropertyIndexRanges<int> >::VerifySlotCapacity(int);
+    template void Js::PropertyIndexRangesBase<Js::PropertyIndexRanges<unsigned short> >::VerifySlotCapacity(int);
 }

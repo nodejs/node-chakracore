@@ -52,6 +52,36 @@ struct Cloner
     bool clonedInstrGetOrigArgSlotSym;
 };
 
+/*
+* This class keeps track of various information required for Stack Arguments optimization with formals.
+*/
+class StackArgWithFormalsTracker
+{
+private:
+    BVSparse<JitArenaAllocator> *  formalsArraySyms;    //Tracks Formal parameter Array - Is this Bv required explicitly?
+    StackSym**                     formalsIndexToStackSymMap; //Tracks the stack sym for each formal
+    StackSym*                      m_scopeObjSym;   // Tracks the stack sym for the scope object that is created.
+    JitArenaAllocator*             alloc;
+
+public:
+    StackArgWithFormalsTracker(JitArenaAllocator *alloc):
+        formalsArraySyms(nullptr), 
+        formalsIndexToStackSymMap(nullptr), 
+        m_scopeObjSym(nullptr),
+        alloc(alloc)
+    {    
+    }
+
+    BVSparse<JitArenaAllocator> * GetFormalsArraySyms();
+    void SetFormalsArraySyms(SymID symId);
+
+    StackSym ** GetFormalsIndexToStackSymMap();
+    void SetStackSymInFormalsIndexMap(StackSym * sym, Js::ArgSlot formalsIndex, Js::ArgSlot formalsCount);
+
+    void SetScopeObjSym(StackSym * sym);
+    StackSym * GetScopeObjSym();
+};
+
 typedef JsUtil::Pair<uint32, IR::LabelInstr*> YieldOffsetResumeLabel;
 typedef JsUtil::List<YieldOffsetResumeLabel, JitArenaAllocator> YieldOffsetResumeLabelList;
 typedef HashTable<uint32, JitArenaAllocator> SlotArrayCheckTable;
@@ -233,6 +263,12 @@ static const unsigned __int64 c_debugFillPattern8 = 0xcececececececece;
         Assert(this->m_jnFunction);     // For now we always have a function body
         return this->m_jnFunction->GetHasFinally();
     }
+    bool HasThis() const
+    {
+        Assert(this->IsTopFunc());
+        Assert(this->m_jnFunction);     // For now we always have a function body
+        return this->m_jnFunction->GetHasThis();
+    }
     Js::ArgSlot GetInParamsCount() const
     {
         Assert(this->IsTopFunc());
@@ -245,7 +281,16 @@ static const unsigned __int64 c_debugFillPattern8 = 0xcececececececece;
         Assert(this->m_jnFunction);     // For now we always have a function body
         return this->m_jnFunction->GetIsGlobalFunc();
     }
-
+    bool IsLambda() const
+    {
+        Assert(this->IsTopFunc());
+        Assert(this->m_jnFunction);     // For now we always have a function body
+        return this->m_jnFunction->IsLambda();
+    }
+    bool IsTrueLeaf() const
+    {
+        return !GetHasCalls() && !GetHasImplicitCalls();
+    }
     RecyclerWeakReference<Js::FunctionBody> *GetWeakFuncRef() const;
     Js::FunctionBody * GetJnFunction() const { return m_jnFunction; }
 
@@ -273,6 +318,7 @@ static const unsigned __int64 c_debugFillPattern8 = 0xcececececececece;
     void SetLocalFrameDisplaySym(StackSym *sym) { m_localFrameDisplaySym = sym; }
 
     uint8 *GetCallsCountAddress() const;
+    uint *GetJittedLoopIterationsSinceLastBailoutAddress() const;
 
     void EnsurePinnedTypeRefs();
     void PinTypeRef(void* typeRef);
@@ -515,7 +561,8 @@ public:
     bool                hasBailout: 1;
     bool                hasBailoutInEHRegion : 1;
     bool                hasStackArgs: 1;
-    bool                hasArgumentObject : 1;
+    bool                hasImplicitParamLoad : 1; // True if there is a load of CallInfo, FunctionObject
+    bool                hasThrow : 1;
     bool                hasUnoptimizedArgumentsAcccess : 1; // True if there are any arguments access beyond the simple case of this.apply pattern
     bool                m_canDoInlineArgsOpt : 1;
     bool                hasApplyTargetInlining:1;
@@ -576,11 +623,34 @@ public:
 
     bool                GetThisOrParentInlinerHasArguments() const { return thisOrParentInlinerHasArguments; }
 
-    bool                GetHasStackArgs() const { return this->hasStackArgs;}
+    bool                GetHasStackArgs()
+    {
+                        bool isStackArgOptDisabled = false;
+                        if (HasProfileInfo())
+                        {
+                            isStackArgOptDisabled = GetProfileInfo()->IsStackArgOptDisabled();
+                        }
+                        return this->hasStackArgs && !isStackArgOptDisabled && !PHASE_OFF1(Js::StackArgOptPhase);
+    }
     void                SetHasStackArgs(bool has) { this->hasStackArgs = has;}
 
-    bool                GetHasArgumentObject() const { return this->hasArgumentObject;}
-    void                SetHasArgumentObject() { this->hasArgumentObject = true;}
+    bool                IsStackArgsEnabled()
+    {
+                        Func* curFunc = this;
+                        bool isStackArgsEnabled = this->m_jnFunction->GetUsesArgumentsObject() && curFunc->GetHasStackArgs();
+                        Func * topFunc = curFunc->GetTopFunc();
+                        if (topFunc != nullptr)
+                        {
+                            isStackArgsEnabled = isStackArgsEnabled && topFunc->GetHasStackArgs();
+                        }
+                        return isStackArgsEnabled;
+    }
+
+    bool                GetHasImplicitParamLoad() const { return this->hasImplicitParamLoad; }
+    void                SetHasImplicitParamLoad() { this->hasImplicitParamLoad = true; }
+
+    bool                GetHasThrow() const { return this->hasThrow; }
+    void                SetHasThrow() { this->hasThrow = true; }
 
     bool                GetHasUnoptimizedArgumentsAcccess() const { return this->hasUnoptimizedArgumentsAcccess; }
     void                SetHasUnoptimizedArgumentsAccess(bool args)
@@ -618,6 +688,9 @@ public:
 
     bool                GetHasMarkTempObjects() const { return this->hasMarkTempObjects; }
     void                SetHasMarkTempObjects() { this->hasMarkTempObjects = true; }
+
+    bool                GetHasNonSimpleParams() const { return this->hasNonSimpleParams; }
+    void                SetHasNonSimpleParams() { this->hasNonSimpleParams = true; }
 
     bool                GetHasImplicitCalls() const { return this->hasImplicitCalls;}
     void                SetHasImplicitCalls(bool has) { this->hasImplicitCalls = has;}
@@ -730,6 +803,18 @@ public:
     void AddSlotArrayCheck(IR::SymOpnd *fieldOpnd);
     void AddFrameDisplayCheck(IR::SymOpnd *fieldOpnd, uint32 slotId = (uint32)-1);
 
+    void EnsureStackArgWithFormalsTracker();
+
+    BOOL IsFormalsArraySym(SymID symId);
+    void TrackFormalsArraySym(SymID symId);
+
+    void TrackStackSymForFormalIndex(Js::ArgSlot formalsIndex, StackSym * sym);
+    StackSym* GetStackSymForFormal(Js::ArgSlot formalsIndex);
+    bool HasStackSymForFormal(Js::ArgSlot formalsIndex);
+
+    void SetScopeObjSym(StackSym * sym);
+    StackSym * GetScopeObjSym();
+
 #if DBG
     bool                allowRemoveBailOutArgInstr;
 #endif
@@ -750,6 +835,8 @@ public:
     BVSparse<JitArenaAllocator> *  argObjSyms;
     BVSparse<JitArenaAllocator> *  m_nonTempLocalVars;  // Only populated in debug mode as part of IRBuilder. Used in GlobOpt and BackwardPass.
     InlineeFrameInfo*              frameInfo;
+    Js::ArgSlot argInsCount;        // This count doesn't include the ArgIn instr for "this".
+
     uint32 m_inlineeId;
 
     IR::LabelInstr *    m_bailOutNoSaveLabel;
@@ -772,6 +859,7 @@ private:
     bool                stackClosure;
     bool                hasAnyStackNestedFunc;
     bool                hasMarkTempObjects;
+    bool                hasNonSimpleParams;
     Cloner *            m_cloner;
     InstrMap *          m_cloneMap;
     Js::ReadOnlyDynamicProfileInfo *const profileInfo;
@@ -782,6 +870,7 @@ private:
     int32           m_hasLocalVarChangedOffset;    // Offset on stack of 1 byte which indicates if any local var has changed.
     CodeGenAllocators *const m_codeGenAllocators;
     YieldOffsetResumeLabelList * m_yieldOffsetResumeLabelList;
+    StackArgWithFormalsTracker * stackArgWithFormalsTracker;
 
     StackSym *CreateInlineeStackSym();
     IR::SymOpnd *GetInlineeOpndAtOffset(int32 offset);

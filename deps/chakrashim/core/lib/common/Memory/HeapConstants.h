@@ -2,6 +2,8 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+#pragma once
+
 class HeapConstants
 {
 public:
@@ -15,6 +17,12 @@ public:
     static const uint MaxMediumObjectSize = 8 * 1024; // Maximum medium object size is 8K
 #else
     static const uint MaxMediumObjectSize = 9216;
+#endif
+
+#if defined(_M_IX86_OR_ARM32)
+    // Only if a pointer points to first 8k region of a large object, it will set the mark bit in the chunk->MarkBits
+    // If the pointer points outside of that region, no mark bit will be set
+    static const uint MaxLargeObjectMarkOffset = 8 * 1024; 
 #endif
 
     static const uint ObjectAllocationShift = 4;        // 16

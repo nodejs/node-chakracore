@@ -80,11 +80,17 @@ inline T* PostAllocationCallback(const type_info& objType, T *obj)
 #endif
 
 // Any allocator
-#define AllocatorNewBase(AllocatorType, alloc, AllocFunc, T, ...) VALIDATE_OBJECT(T, new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, 0, (size_t)-1), &AllocatorType::AllocFunc) T(__VA_ARGS__))
-#define AllocatorNewPlusBase(AllocatorType, alloc, AllocFunc, size, T, ...) VALIDATE_OBJECT(T, new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, size, (size_t)-1), &AllocatorType::AllocFunc, size) T(__VA_ARGS__))
-#define AllocatorNewArrayBase(AllocatorType, alloc, AllocFunc, T, count) AllocateArray<AllocatorType, T, false>(TRACK_ALLOC_INFO(alloc, T, AllocatorType, 0, count), &AllocatorType::AllocFunc, count)
-#define AllocatorNewStructBase(AllocatorType, alloc, AllocFunc, T) new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, 0, (size_t)-1), &AllocatorType::AllocFunc) T
-#define AllocatorNewStructPlusBase(AllocatorType, alloc, AllocFunc, size, T) new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, size, (size_t)-1), &AllocatorType::AllocFunc, size) T
+#define AllocatorNewBaseFuncPtr(AllocatorType, alloc, AllocFuncPtr, T, ...) VALIDATE_OBJECT(T, new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, 0, (size_t)-1), AllocFuncPtr) T(__VA_ARGS__))
+#define AllocatorNewPlusBaseFuncPtr(AllocatorType, alloc, AllocFuncPtr, size, T, ...) VALIDATE_OBJECT(T, new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, size, (size_t)-1), AllocFuncPtr, size) T(__VA_ARGS__))
+#define AllocatorNewArrayBaseFuncPtr(AllocatorType, alloc, AllocFuncPtr, T, count) AllocateArray<AllocatorType, T, false>(TRACK_ALLOC_INFO(alloc, T, AllocatorType, 0, count), AllocFuncPtr, count)
+#define AllocatorNewStructBaseFuncPtr(AllocatorType, alloc, AllocFuncPtr, T) new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, 0, (size_t)-1),AllocFuncPtr) T
+#define AllocatorNewStructPlusBaseFuncPtr(AllocatorType, alloc, AllocFuncPtr, size, T) new (TRACK_ALLOC_INFO(static_cast<AllocatorType *>(alloc), T, AllocatorType, size, (size_t)-1), AllocFuncPtr, size) T
+
+#define AllocatorNewBase(AllocatorType, alloc, AllocFunc, T, ...) AllocatorNewBaseFuncPtr(AllocatorType, alloc, &AllocatorType::AllocFunc, T, __VA_ARGS__)
+#define AllocatorNewPlusBase(AllocatorType, alloc, AllocFunc, size, T, ...) AllocatorNewPlusBaseFuncPtr(AllocatorType, alloc, &AllocatorType::AllocFunc, size, T, __VA_ARGS__)
+#define AllocatorNewArrayBase(AllocatorType, alloc, AllocFunc, T, count) AllocatorNewArrayBaseFuncPtr(AllocatorType, alloc, &AllocatorType::AllocFunc, T, count)
+#define AllocatorNewStructBase(AllocatorType, alloc, AllocFunc, T) AllocatorNewStructBaseFuncPtr(AllocatorType, alloc, &AllocatorType::AllocFunc, T)
+#define AllocatorNewStructPlusBase(AllocatorType, alloc, AllocFunc, size, T) AllocatorNewStructPlusBaseFuncPtr(AllocatorType, alloc, &AllocatorType::AllocFunc, size, T)
 
 #define AllocatorNew(AllocatorType, alloc, T, ...) AllocatorNewBase(AllocatorType, alloc, Alloc, T, __VA_ARGS__)
 #define AllocatorNewLeaf(AllocatorType, alloc, T, ...) AllocatorNewBase(AllocatorType, alloc, AllocLeaf, T, __VA_ARGS__)
@@ -178,8 +184,13 @@ template <typename TAllocator, bool isLeaf>
 class ListTypeAllocatorFunc
 {
 public:
+    typedef char * (TAllocator::*AllocFuncType)(size_t);
     typedef void(TAllocator::*FreeFuncType)(void*, size_t);
 
+    static AllocFuncType GetAllocFunc()
+    {
+        return isLeaf ? &TAllocator::AllocLeaf: &TAllocator::Alloc;
+    }
     static FreeFuncType GetFreeFunc()
     {
         return &TAllocator::Free;
@@ -220,7 +231,7 @@ void DeleteObject(typename AllocatorInfo<TAllocator, T>::AllocatorType * allocat
 }
 
 template <typename TAllocator, typename T>
-void DeleteObjectInline(typename TAllocator * allocator, T * obj)
+void DeleteObjectInline(TAllocator * allocator, T * obj)
 {
     obj->~T();
     allocator->FreeInline(obj, sizeof(T));
@@ -259,7 +270,7 @@ void DeleteObject(typename AllocatorInfo<TAllocator, T>::AllocatorType * allocat
 #define ZERO_LENGTH_ARRAY (void *)sizeof(void *)
 template <typename TAllocator, typename T, bool nothrow>
 _When_(nothrow, _Ret_writes_to_maybenull_(count, 0)) _When_(!nothrow, _Ret_writes_to_(count, 0))
-__inline T * AllocateArray(TAllocator * allocator, char * (TAllocator::*AllocFunc)(size_t), size_t count)
+inline T * AllocateArray(TAllocator * allocator, char * (TAllocator::*AllocFunc)(size_t), DECLSPEC_GUARD_OVERFLOW size_t count)
 {
     if (count == 0 && TAllocator::FakeZeroLengthArray)
     {
@@ -336,16 +347,16 @@ void AssertValue(void * mem, T value, uint byteCount)
 #define __PLACEMENT_NEW_INLINE
 
 _Ret_notnull_
-__inline void * __cdecl
+inline void * __cdecl
 operator new(
-size_t byteSize,
+DECLSPEC_GUARD_OVERFLOW size_t byteSize,
 _In_ void * previousAllocation) throw()
 {
     return previousAllocation;
 }
 
 
-__inline  void __cdecl
+inline  void __cdecl
 operator delete(
 void * allocationToFree,                // Allocation to free
 void * previousAllocation               // Previously allocated memory
@@ -361,7 +372,7 @@ void * previousAllocation               // Previously allocated memory
 //----------------------------------------
 template <typename TAllocator>
 _Ret_notnull_ void * __cdecl
-operator new(size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc)(size_t))
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc)(size_t))
 {
     AssertCanHandleOutOfMemory();
     Assert(byteSize != 0);
@@ -371,8 +382,8 @@ operator new(size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc
 }
 
 template <typename TAllocator>
-_Ret_notnull_ __inline void * __cdecl
-operator new[](size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc)(size_t))
+_Ret_notnull_ inline void * __cdecl
+operator new[](DECLSPEC_GUARD_OVERFLOW size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc)(size_t))
 {
     AssertCanHandleOutOfMemory();
     Assert(byteSize != 0 || !TAllocator::FakeZeroLengthArray);
@@ -382,8 +393,8 @@ operator new[](size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFu
 }
 
 template <typename TAllocator>
-_Ret_notnull_ __inline void * __cdecl
-operator new(size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc)(size_t), size_t plusSize)
+_Ret_notnull_ inline void * __cdecl
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc)(size_t), DECLSPEC_GUARD_OVERFLOW size_t plusSize)
 {
     AssertCanHandleOutOfMemory();
     Assert(byteSize != 0);
@@ -399,8 +410,8 @@ operator new(size_t byteSize, TAllocator * alloc, char * (TAllocator::*AllocFunc
 // nothrow operator new overrides
 //----------------------------------------
 template <typename TAllocator>
-_Ret_maybenull_ __inline void * __cdecl
-operator new(size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t))
+_Ret_maybenull_ inline void * __cdecl
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t))
 {
     Assert(nothrow);
     Assert(byteSize != 0);
@@ -410,8 +421,8 @@ operator new(size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocat
 
 
 template <typename TAllocator>
-_Ret_maybenull_ __inline void * __cdecl
-operator new[](size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t))
+_Ret_maybenull_ inline void * __cdecl
+operator new[](DECLSPEC_GUARD_OVERFLOW size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t))
 {
     Assert(nothrow);
     Assert(byteSize != 0 || !TAllocator::FakeZeroLengthArray);
@@ -421,8 +432,8 @@ operator new[](size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAlloc
 
 
 template <typename TAllocator>
-_Ret_maybenull_ __inline void * __cdecl
-operator new(size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t), size_t plusSize)
+_Ret_maybenull_ inline void * __cdecl
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t), DECLSPEC_GUARD_OVERFLOW size_t plusSize)
 {
     Assert(nothrow);
     Assert(byteSize != 0);
@@ -435,8 +446,8 @@ operator new(size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocat
 
 
 template <typename TAllocator>
-_Ret_maybenull_ __inline void * __cdecl
-operator new(size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t), size_t plusSize, bool prefix)
+_Ret_maybenull_ inline void * __cdecl
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize, TAllocator * alloc, bool nothrow, char * (TAllocator::*AllocFunc)(size_t), DECLSPEC_GUARD_OVERFLOW size_t plusSize, bool prefix)
 {
     Assert(nothrow);
     Assert(prefix);

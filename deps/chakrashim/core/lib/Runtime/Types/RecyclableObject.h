@@ -74,22 +74,22 @@ namespace Js {
         static void SetCacheInfo(PropertyValueInfo* info, FunctionBody *const functionBody, PolymorphicInlineCache *const polymorphicInlineCache, const InlineCacheIndex inlineCacheIndex, const bool allowResizingPolymorphicInlineCache);
         static void ClearCacheInfo(PropertyValueInfo* info);
 
-        __inline InlineCache * GetInlineCache() const
+        inline InlineCache * GetInlineCache() const
         {
             return this->inlineCache;
         }
 
-        __inline PolymorphicInlineCache * GetPolymorphicInlineCache() const
+        inline PolymorphicInlineCache * GetPolymorphicInlineCache() const
         {
             return this->polymorphicInlineCache;
         }
 
-        __inline FunctionBody * GetFunctionBody() const
+        inline FunctionBody * GetFunctionBody() const
         {
             return this->functionBody;
         }
 
-        __inline uint GetInlineCacheIndex() const
+        inline uint GetInlineCacheIndex() const
         {
             return this->inlineCacheIndex;
         }
@@ -234,13 +234,12 @@ namespace Js {
         void ClearWritableDataOnlyDetectionBit();
         bool IsWritableDataOnlyDetectionBitSet();
 
-        __inline Type * GetType() const { return type; }
+        inline Type * GetType() const { return type; }
 
         // In order to avoid a branch, every object has an entry point if it gets called like a
         // function - however, if it can't be called like a function, it's set to DefaultEntryPoint
         // which will emit an error.
         static Var DefaultEntryPoint(RecyclableObject* function, CallInfo callInfo, ...);
-        static Var DefaultExternalEntryPoint(RecyclableObject* function, CallInfo callInfo, Var* arguments);
 
         virtual PropertyId GetPropertyId(PropertyIndex index) { return Constants::NoProperty; }
         virtual PropertyId GetPropertyId(BigPropertyIndex index) { return Constants::NoProperty; }
@@ -279,8 +278,8 @@ namespace Js {
         virtual BOOL GetEnumerator(BOOL enumNonEnumerable, Var* enumerator, ScriptContext * requestContext, bool preferSnapshotSemantics = true, bool enumSymbols = false);
         virtual BOOL ToPrimitive(JavascriptHint hint, Var* value, ScriptContext * requestContext);
         virtual BOOL SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None);
-        virtual BOOL Equals(Var other, BOOL* value, ScriptContext* requestContext);
-        virtual BOOL StrictEquals(Var other, BOOL* value, ScriptContext* requestContext);
+        virtual BOOL Equals(__in Var other, __out BOOL* value, ScriptContext* requestContext);
+        virtual BOOL StrictEquals(__in Var other, __out BOOL* value, ScriptContext* requestContext);
         virtual BOOL IsWritable(PropertyId propertyId) { return false; }
         virtual BOOL IsConfigurable(PropertyId propertyId) { return false; }
         virtual BOOL IsEnumerable(PropertyId propertyId) { return false; }
@@ -380,6 +379,27 @@ namespace Js {
 #if defined(PROFILE_RECYCLER_ALLOC) && defined(RECYCLER_DUMP_OBJECT_GRAPH)
     public:
         static bool DumpObjectFunction(type_info const * typeinfo, bool isArray, void * objectAddress);
+#endif
+
+#if ENABLE_TTD
+    public:
+        //Do any additional marking that is needed for a TT snapshotable object
+        virtual void MarkVisitKindSpecificPtrs(TTD::SnapshotExtractor* extractor)
+        {
+            ;
+        }
+
+        //Do the path processing for our "core path" computation to find wellknown objects in a brute force manner.
+        virtual void ProcessCorePaths()
+        {
+            ;
+        }
+
+        //Get the SnapObjectType tag that this object maps to
+        virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const;
+
+        //Do the extraction of the SnapObject for each of the kinds of objects in the heap
+        virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc);
 #endif
 
     private:

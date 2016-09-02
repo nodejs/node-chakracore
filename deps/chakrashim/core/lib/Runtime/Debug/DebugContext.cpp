@@ -148,8 +148,18 @@ namespace Js
             return hr;
         }
 
+        // Cache ScriptContext as multiple calls below can go out of engine and ScriptContext can be closed which will delete DebugContext
+        Js::ScriptContext* cachedScriptContext = this->scriptContext;
+
         utf8SourceInfoList->MapUntil([&](int index, Js::Utf8SourceInfo * sourceInfo) -> bool
         {
+            if (cachedScriptContext->IsClosed())
+            {
+                // ScriptContext could be closed in previous iteration
+                hr = E_FAIL;
+                return true;
+            }
+
             OUTPUT_TRACE(Js::DebuggerPhase, _u("DebugContext::RundownSourcesAndReparse scriptContext 0x%p, sourceInfo 0x%p, HasDebugDocument %d\n"),
                 this->scriptContext, sourceInfo, sourceInfo->HasDebugDocument());
 
@@ -197,12 +207,20 @@ namespace Js
 
             if (this->hostDebugContext != nullptr && sourceInfo->GetSourceContextInfo())
             {
+                // This call goes out of engine
                 this->hostDebugContext->SetThreadDescription(sourceInfo->GetSourceContextInfo()->url); // the HRESULT is omitted.
             }
 
             bool fHasDoneSourceRundown = false;
             for (int i = 0; i < pFunctionsToRegister->Count(); i++)
             {
+                if (cachedScriptContext->IsClosed())
+                {
+                    // ScriptContext could be closed in previous iteration
+                    hr = E_FAIL;
+                    return true;
+                }
+
                 Js::FunctionBody* pFuncBody = pFunctionsToRegister->Item(i);
                 if (pFuncBody == nullptr)
                 {
@@ -211,14 +229,8 @@ namespace Js
 
                 if (shouldReparseFunctions)
                 {
-                    if (this->scriptContext == nullptr || this->scriptContext->IsClosed())
-                    {
-                        // scriptContext can be closed in previous call
-                        hr = E_FAIL;
-                        return true;
-                    }
 
-                    BEGIN_JS_RUNTIME_CALL_EX_AND_TRANSLATE_EXCEPTION_AND_ERROROBJECT_TO_HRESULT_NESTED(this->scriptContext, false)
+                    BEGIN_JS_RUNTIME_CALL_EX_AND_TRANSLATE_EXCEPTION_AND_ERROROBJECT_TO_HRESULT_NESTED(cachedScriptContext, false)
                     {
                         pFuncBody->Parse();
                         // This is the first call to the function, ensure dynamic profile info
@@ -228,13 +240,11 @@ namespace Js
                     }
                     END_JS_RUNTIME_CALL_AND_TRANSLATE_EXCEPTION_AND_ERROROBJECT_TO_HRESULT(hr);
 
-                    if (hr != S_OK)
-                    {
-                        break;
-                    }
+                    // Debugger attach/detach failure is catastrophic, take down the process
+                    DEBUGGER_ATTACHDETACH_FATAL_ERROR_IF_FAILED(hr);
                 }
 
-                if (!fHasDoneSourceRundown && shouldPerformSourceRundown)
+                if (!fHasDoneSourceRundown && shouldPerformSourceRundown && !cachedScriptContext->IsClosed())
                 {
                     BEGIN_TRANSLATE_OOM_TO_HRESULT_NESTED
                     {
@@ -260,19 +270,25 @@ namespace Js
             return false;
         });
 
-        if (this->scriptContext != nullptr && !this->scriptContext->IsClosed())
+        if (!cachedScriptContext->IsClosed())
         {
-            if (shouldPerformSourceRundown && this->scriptContext->HaveCalleeSources())
+            if (shouldPerformSourceRundown && cachedScriptContext->HaveCalleeSources() && this->hostDebugContext != nullptr)
             {
-                this->scriptContext->MapCalleeSources([=](Js::Utf8SourceInfo* calleeSourceInfo)
+                cachedScriptContext->MapCalleeSources([=](Js::Utf8SourceInfo* calleeSourceInfo)
                 {
-                    if (this->hostDebugContext != nullptr)
+                    if (!cachedScriptContext->IsClosed())
                     {
+                        // This call goes out of engine
                         this->hostDebugContext->ReParentToCaller(calleeSourceInfo);
                     }
                 });
             }
         }
+        else
+        {
+            hr = E_FAIL;
+        }
+
         threadContext->ReleaseTemporaryAllocator(tempAllocator);
 
         return hr;
@@ -400,13 +416,8 @@ namespace Js
     template<class TMapFunction>
     void DebugContext::MapUTF8SourceInfoUntil(TMapFunction map)
     {
-        this->scriptContext->GetSourceList()->MapUntil([=](int i, RecyclerWeakReference<Js::Utf8SourceInfo>* sourceInfoWeakRef) -> bool {
-            Js::Utf8SourceInfo* sourceInfo = sourceInfoWeakRef->Get();
-            if (sourceInfo)
-            {
-                return map(sourceInfo);
-            }
-            return false;
+        this->scriptContext->MapScript([=](Js::Utf8SourceInfo* sourceInfo) -> bool {
+            return map(sourceInfo);
         });
     }
 }

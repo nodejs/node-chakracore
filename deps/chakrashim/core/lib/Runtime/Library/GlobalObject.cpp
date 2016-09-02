@@ -3,7 +3,9 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
+#ifndef USING_PAL_STDLIB
 #include <strsafe.h>
+#endif
 #include "ByteCode/ByteCodeApi.h"
 #include "Exceptions/EvalDisabledException.h"
 
@@ -167,7 +169,7 @@ namespace Js
 
         // used arbitrary defaults for these, but it seems to work
         ModuleID moduleID = 0;
-        ulong grfscr = 0;
+        uint32 grfscr = 0;
         LPCOLESTR pszTitle = _u("");
         BOOL registerDocument = false;
 
@@ -223,7 +225,7 @@ namespace Js
         Js::Var lineNumber = Js::JavascriptNumber::ToVar((int64) lineNum, scriptContext);
         Js::Var colNumber = Js::JavascriptNumber::ToVar((int64) colNum, scriptContext);
         Js::Var functionIdNumberVar = Js::JavascriptNumber::ToVar(functionId, scriptContext);
-        Js::Var utf8SourceInfoVar = Js::JavascriptNumber::ToVar((long) utf8SrcInfo, scriptContext);
+        Js::Var utf8SourceInfoVar = Js::JavascriptNumber::ToVar((int32) utf8SrcInfo, scriptContext);
 
         // assign properties to function info object
         SetProperty(fnInfoObj, _u("filename"), filenameString);
@@ -396,18 +398,18 @@ namespace Js
 
         Js::JavascriptNumber *jsUtf8SourceInfoNumber = NULL;
         Js::JavascriptNumber *jsFunctionIdNumber = NULL;
-        long utf8SourceInfoNumber = 0;  // null
-        long functionIdNumber = -1;  // start with invalid function id
+        int32 utf8SourceInfoNumber = 0;  // null
+        int32 functionIdNumber = -1;  // start with invalid function id
 
         // extract value of jsVarUtf8SourceInfo
         if (Js::TaggedInt::Is(jsVarUtf8SourceInfo))
         {
-            utf8SourceInfoNumber = (long)TaggedInt::ToInt64(jsVarUtf8SourceInfo); // REVIEW: just truncate?
+            utf8SourceInfoNumber = (int32)TaggedInt::ToInt64(jsVarUtf8SourceInfo); // REVIEW: just truncate?
         }
         else if (Js::JavascriptNumber::Is(jsVarUtf8SourceInfo))
         {
             jsUtf8SourceInfoNumber = (Js::JavascriptNumber *)jsVarUtf8SourceInfo;
-            utf8SourceInfoNumber = (long)JavascriptNumber::GetValue(jsUtf8SourceInfoNumber);    // REVIEW: just truncate?
+            utf8SourceInfoNumber = (int32)JavascriptNumber::GetValue(jsUtf8SourceInfoNumber);    // REVIEW: just truncate?
         }
         else
         {
@@ -418,12 +420,12 @@ namespace Js
         // extract value of jsVarFunctionId
         if (Js::TaggedInt::Is(jsVarFunctionId))
         {
-            functionIdNumber = (long)TaggedInt::ToInt64(jsVarFunctionId); // REVIEW: just truncate?
+            functionIdNumber = (int32)TaggedInt::ToInt64(jsVarFunctionId); // REVIEW: just truncate?
         }
         else if (Js::JavascriptNumber::Is(jsVarFunctionId))
         {
             jsFunctionIdNumber = (Js::JavascriptNumber *)jsVarFunctionId;
-            functionIdNumber = (long)JavascriptNumber::GetValue(jsFunctionIdNumber); // REVIEW: just truncate?
+            functionIdNumber = (int32)JavascriptNumber::GetValue(jsFunctionIdNumber); // REVIEW: just truncate?
         }
         else
         {
@@ -561,7 +563,7 @@ namespace Js
     }
 
     Var GlobalObject::VEval(JavascriptLibrary* library, FrameDisplay* environment, ModuleID moduleID, bool strictMode, bool isIndirect,
-        Arguments& args, bool isLibraryCode, bool registerDocument, ulong additionalGrfscr)
+        Arguments& args, bool isLibraryCode, bool registerDocument, uint32 additionalGrfscr)
     {
         Assert(library);
         ScriptContext* scriptContext = library->GetScriptContext();
@@ -596,11 +598,13 @@ namespace Js
         FastEvalMapString key(sourceString, sourceLen, moduleID, strictMode, isLibraryCode);
         if (!scriptContext->IsInEvalMap(key, isIndirect, &pfuncScript))
         {
-            ulong grfscr = additionalGrfscr | fscrReturnExpression | fscrEval | fscrEvalCode | fscrGlobalCode;
+            uint32 grfscr = additionalGrfscr | fscrReturnExpression | fscrEval | fscrEvalCode | fscrGlobalCode;
+
             if (isLibraryCode)
             {
                 grfscr |= fscrIsLibraryCode;
             }
+
             pfuncScript = library->GetGlobalObject()->EvalHelper(scriptContext, argString->GetSz(), argString->GetLength(), moduleID,
                 grfscr, Constants::EvalCode, doRegisterDocument, isIndirect, strictMode);
             Assert(!pfuncScript->GetFunctionInfo()->IsGenerator());
@@ -624,6 +628,43 @@ namespace Js
             {
                 // Identifying if any non library function escaped for not being in debug mode.
                 Throw::FatalInternalError();
+            }
+        }
+#endif
+
+#if ENABLE_TTD
+        //
+        //TODO: We may (probably?) want to use the debugger source rundown functionality here instead
+        //
+        if(!isLibraryCode && (scriptContext->ShouldPerformRecordTopLevelFunction() | scriptContext->ShouldPerformDebugAction()))
+        {
+            //Make sure we have the body and text information available
+            FunctionBody* globalBody = TTD::JsSupport::ForceAndGetFunctionBody(pfuncScript->GetParseableFunctionInfo());
+            if(!scriptContext->TTDContextInfo->IsBodyAlreadyLoadedAtTopLevel(globalBody))
+            {
+                uint64 bodyIdCtr = 0;
+
+                if(scriptContext->ShouldPerformRecordTopLevelFunction())
+                {
+                    const TTD::NSSnapValues::TopLevelEvalFunctionBodyResolveInfo* tbfi = scriptContext->GetThreadContext()->TTDLog->AddEvalFunction(globalBody, moduleID, sourceString, sourceLen, additionalGrfscr, registerDocument, isIndirect, strictMode);
+
+                    //We always want to register the top-level load but we don't always need to log the event
+                    if(scriptContext->ShouldPerformRecordAction())
+                    {
+                        scriptContext->GetThreadContext()->TTDLog->RecordTopLevelCodeAction(tbfi->TopLevelBase.TopLevelBodyCtr);
+                    }
+
+                    bodyIdCtr = tbfi->TopLevelBase.TopLevelBodyCtr;
+                }
+
+                if(scriptContext->ShouldPerformDebugAction())
+                {
+                    bodyIdCtr = scriptContext->GetThreadContext()->TTDLog->ReplayTopLevelCodeAction();
+                }
+
+                //walk global body to (1) add functions to pin set (2) build parent map
+                scriptContext->TTDContextInfo->ProcessFunctionBodyOnLoad(globalBody, nullptr);
+                scriptContext->TTDContextInfo->RegisterEvalScript(globalBody, bodyIdCtr);
             }
         }
 #endif
@@ -700,12 +741,13 @@ namespace Js
             // Executing the eval causes the scope chain to escape.
             pfuncScript->InvalidateCachedScopeChain();
         }
-        Var varResult = pfuncScript->GetEntryPoint()(pfuncScript, CallInfo(CallFlags_Eval, 1), varThis);
+        Var varResult = CALL_FUNCTION(pfuncScript, CallInfo(CallFlags_Eval, 1), varThis);
         pfuncScript->SetEnvironment(nullptr);
         return varResult;
     }
 
-    ScriptFunction* GlobalObject::ProfileModeEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, ulong grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode)
+#ifdef ENABLE_SCRIPT_PROFILING
+    ScriptFunction* GlobalObject::ProfileModeEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, uint32 grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode)
     {
 #if ENABLE_DEBUG_CONFIG_OPTIONS
         char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
@@ -728,6 +770,7 @@ namespace Js
 
         return pEvalFunction;
     }
+#endif
 
     void GlobalObject::ValidateSyntax(ScriptContext* scriptContext, const char16 *source, int sourceLength, bool isGenerator, bool isAsync, void (Parser::*validateSyntax)())
     {
@@ -790,7 +833,7 @@ namespace Js
         }
     }
 
-    ScriptFunction* GlobalObject::DefaultEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, ulong grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode)
+    ScriptFunction* GlobalObject::DefaultEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, uint32 grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode)
     {
         Assert(sourceLength >= 0);
         AnalysisAssert(scriptContext);
@@ -846,7 +889,8 @@ namespace Js
 
             grfscr = grfscr | fscrDynamicCode;
 
-            hrParser = parser.ParseCesu8Source(&parseTree, utf8Source, cbSource, grfscr, &se, &sourceContextInfo->nextLocalFunctionId,
+            // fscrEval signifies direct eval in parser
+            hrParser = parser.ParseCesu8Source(&parseTree, utf8Source, cbSource, isIndirect ? grfscr & ~fscrEval : grfscr, &se, &sourceContextInfo->nextLocalFunctionId,
                 sourceContextInfo);
             sourceInfo->SetParseFlags(grfscr);
 
@@ -961,7 +1005,7 @@ namespace Js
 
 #ifdef IR_VIEWER
     Var GlobalObject::IRDumpEvalHelper(ScriptContext* scriptContext, const char16 *source,
-        int sourceLength, ModuleID moduleID, ulong grfscr, LPCOLESTR pszTitle,
+        int sourceLength, ModuleID moduleID, uint32 grfscr, LPCOLESTR pszTitle,
         BOOL registerDocument, BOOL isIndirect, BOOL strictMode)
     {
         // TODO (t-doilij) clean up this function, specifically used for IR dump (don't execute bytecode; potentially dangerous)
@@ -1579,6 +1623,41 @@ LHexError:
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
+#if ENABLE_TTD && ENABLE_DEBUG_CONFIG_OPTIONS
+    //Log a string in the telemetry system (and print to the console)
+    Var GlobalObject::EntryTelemetryLog(RecyclableObject* function, CallInfo callInfo, ...)
+    {
+        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
+        ARGUMENTS(args, callInfo);
+
+        AssertMsg(args.Info.Count >= 2 && Js::JavascriptString::Is(args[1]), "Bad arguments!!!");
+
+        Js::JavascriptString* jsString = Js::JavascriptString::FromVar(args[1]);
+        bool doPrint = (args.Info.Count == 3) && Js::JavascriptBoolean::Is(args[2]) && (Js::JavascriptBoolean::FromVar(args[2])->GetValue());
+
+        if(function->GetScriptContext()->ShouldPerformDebugAction())
+        {
+            function->GetScriptContext()->GetThreadContext()->TTDLog->ReplayTelemetryLogEvent(jsString);
+        }
+
+        if(function->GetScriptContext()->ShouldPerformRecordAction())
+        {
+            function->GetScriptContext()->GetThreadContext()->TTDLog->RecordTelemetryLogEvent(jsString, doPrint);
+        }
+
+        if(doPrint)
+        {
+            //
+            //TODO: the host should give us a print callback which we can use here
+            //
+            wprintf(_u("%ls\n"), jsString->GetSz());
+            fflush(stdout);
+        }
+
+        return function->GetScriptContext()->GetLibrary()->GetUndefined();
+    }
+#endif
+
     //Pattern match is unique to RuntimeObject. Only leading and trailing * are implemented
     //Example: *pat*tern* actually matches all the strings having pat*tern as substring.
     BOOL GlobalObject::MatchPatternHelper(JavascriptString *propertyName, JavascriptString *pattern, ScriptContext *scriptContext)
@@ -2129,11 +2208,11 @@ LHexError:
         return TRUE;
     }
 
-    BOOL GlobalObject::StrictEquals(Js::Var other, BOOL* value, ScriptContext * requestContext)
+    BOOL GlobalObject::StrictEquals(__in Js::Var other, __out BOOL* value, ScriptContext * requestContext)
     {
         if (this == other)
         {
-            *value = true;
+            *value = TRUE;
             return TRUE;
         }
         else if (this->directHostObject)
@@ -2144,14 +2223,15 @@ LHexError:
         {
             return this->hostObject->StrictEquals(other, value, requestContext);
         }
+        *value = FALSE;
         return FALSE;
     }
 
-    BOOL GlobalObject::Equals(Js::Var other, BOOL* value, ScriptContext * requestContext)
+    BOOL GlobalObject::Equals(__in Js::Var other, __out BOOL* value, ScriptContext * requestContext)
     {
         if (this == other)
         {
-            *value = true;
+            *value = TRUE;
             return TRUE;
         }
         else if (this->directHostObject)
@@ -2163,7 +2243,23 @@ LHexError:
             return this->hostObject->Equals(other, value, requestContext);
         }
 
-        *value = false;
+        *value = FALSE;
         return TRUE;
     }
+
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType GlobalObject::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapWellKnownObject;
+    }
+
+    void GlobalObject::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        //
+        //TODO: we assume that the global object is always set right (e.g., ignore the directHostObject and secureDirectHostObject values) we need to verify that this is ok and/or what to do about it
+        //
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<void*, TTD::NSSnapObjects::SnapObjectType::SnapWellKnownObject>(objData, nullptr);
+    }
+#endif
 }

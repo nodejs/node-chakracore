@@ -61,6 +61,8 @@ namespace Js
     const int magicEndOfAsmJsFuncInfo = *(int*)"]asmfuncinfo";
     const int magicStartOfAsmJsModuleInfo = *(int*)"asmmodinfo[";
     const int magicEndOfAsmJsModuleInfo = *(int*)"]asmmodinfo";
+    const int magicStartOfPropIdsOfFormals = *(int*)"propIdOfFormals["; 
+    const int magicEndOfPropIdsOfFormals = *(int*)"]propIdOfFormals";
 #endif
 
     // Serialized files are architecture specific
@@ -146,11 +148,12 @@ public:
         : byteCount(byteCount), pv(pv)
     { }
 };
+} // namespace Js
 
 template<>
-struct DefaultComparer<ByteBuffer*>
+struct DefaultComparer<Js::ByteBuffer*>
 {
-    static bool Equals(ByteBuffer const * str1, ByteBuffer const * str2)
+    static bool Equals(Js::ByteBuffer const * str1, Js::ByteBuffer const * str2)
     {
         if (str1->byteCount != str2->byteCount)
         {
@@ -159,12 +162,14 @@ struct DefaultComparer<ByteBuffer*>
         return memcmp(str1->pv, str2->pv, str1->byteCount)==0;
     }
 
-    static hash_t GetHashCode(ByteBuffer const * str)
+    static hash_t GetHashCode(Js::ByteBuffer const * str)
     {
         return JsUtil::CharacterBuffer<char>::StaticGetHashCode(str->s8, str->byteCount);
     }
 };
 
+namespace Js
+{
 struct IndexEntry
 {
     BufferBuilderByte* isPropertyRecord;
@@ -205,7 +210,8 @@ enum FunctionFlags
     ffIsNamedFunctionExpression        = 0x20000,
     ffIsAsmJsMode                      = 0x40000,
     ffIsAsmJsFunction                  = 0x80000,
-    ffIsAnonymous                      = 0x100000
+    ffIsAnonymous                      = 0x100000,
+    ffUsesArgumentsObject              = 0x200000
 };
 
 // Kinds of constant
@@ -784,7 +790,7 @@ public:
             opStart = reader.GetIP();
             opStart; // For prefast. It can't figure out that opStart is captured in saveBlock above.
             LayoutSize layoutSize;
-            OpCodeAsmJs op = (OpCodeAsmJs)reader.ReadOp(layoutSize);
+            OpCodeAsmJs op = reader.ReadAsmJsOp(layoutSize);
             if (op == OpCodeAsmJs::EndOfBlock)
             {
                 saveBlock();
@@ -862,13 +868,18 @@ public:
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_3);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_1Float32x4_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Bool32x4_1Float32x4_2)
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_1Float32x4_2);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Bool32x4_1Float32x4_2);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Float4);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2Int4);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_3Int4);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Float1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2Float1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Int16x8_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Int8x16_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Uint8x16_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Uint32x4_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Uint16x8_1);
                 //DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Float64x2_1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Int32x4_1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Float32x4_1);
@@ -883,6 +894,11 @@ public:
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_3Int4);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_2Int1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_2Int2);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Int8x16_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Int16x8_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Uint8x16_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Uint16x8_1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Uint32x4_1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Int32x4_1Int1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2Int1Float1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Float1Float32x4_1Int1);
@@ -1027,7 +1043,7 @@ public:
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_2);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_3);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Bool8x16_1);
-                
+
                 DEFAULT_LAYOUT_WITH_ONEBYTE(AsmSimdTypedArr);
 
 
@@ -1088,12 +1104,6 @@ public:
                 cantGenerate = true;
             }
         };
-
-        if (function->HasCachedScopePropIds())
-        {
-            AuxRecord record = { sakPropertyIdArrayForCachedScope, 0 };
-            auxRecords.Prepend(record);
-        }
 
         while(!cantGenerate)
         {
@@ -1182,6 +1192,8 @@ public:
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Class);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(ElementU);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(ElementRootU);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(ElementScopedC);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(ElementScopedC2);
                 DEFAULT_LAYOUT(BrProperty);
                 DEFAULT_LAYOUT(BrEnvProperty);
                 DEFAULT_LAYOUT(BrLocalProperty);
@@ -1198,14 +1210,6 @@ public:
                             auto layout = reader.AuxNoReg();
                             AuxRecord record = { sakFuncInfoArray, layout->Offset };
                             auxRecords.Prepend(record);
-                            saveBlock();
-                            break;
-                        }
-                        case OpCode::CommitScope:
-                        {
-                            // The propertyId array should be saved by the InitCacheScope
-                            auto layout = reader.AuxNoReg();
-                            Assert(layout);
                             saveBlock();
                             break;
                         }
@@ -1546,10 +1550,6 @@ public:
 
             case sakPropertyIdArray:
                 writeAuxPropertyIdArray(auxRecord.offset, 0);
-                break;
-
-            case sakPropertyIdArrayForCachedScope:
-                writeAuxPropertyIdArray(auxRecord.offset, ActivationObjectEx::ExtraSlotCount());
                 break;
 
             case sakFuncInfoArray:
@@ -1941,12 +1941,58 @@ public:
     }
 
     template <typename TStructType>
-    uint32 PrependStruct(BufferBuilderList & builder, LPWSTR clue, TStructType * value)
+    uint32 PrependStruct(BufferBuilderList & builder, LPCWSTR clue, TStructType * value)
     {
         auto entry = Anew(alloc, ConstantSizedBufferBuilderOf<TStructType>, clue, *value);
         builder.list = builder.list->Prepend(entry, alloc);
 
         return sizeof(serialization_alignment TStructType);
+    }
+
+    uint32 AddPropertyIdOfFormals(BufferBuilderList & builder, FunctionBody * function)
+    {
+        uint32 size = 0;
+#ifdef BYTE_CODE_MAGIC_CONSTANTS
+        size += PrependInt32(builder, _u("Start propertyids of formals"), magicStartOfPropIdsOfFormals);
+#endif
+
+        PropertyIdArray * propIds = function->GetFormalsPropIdArray(false);
+        if (propIds == nullptr)
+        {
+            size += PrependBool(builder, _u("ExportsIdArrayLength"), false);
+        }
+        else
+        {
+            size += PrependBool(builder, _u("ExportsIdArrayLength"), true);
+
+            int32 extraSlotCount = 0;
+            if (function->HasCachedScopePropIds())
+            {
+                extraSlotCount = ActivationObjectEx::ExtraSlotCount();
+            }
+
+            size += PrependInt32(builder, _u("ExportsIdArrayLength"), propIds->count);
+            size += PrependInt32(builder, _u("ExtraSlotsCount"), extraSlotCount);
+            size += PrependByte(builder, _u("ExportsIdArrayDups"), propIds->hadDuplicates);
+            size += PrependByte(builder, _u("ExportsIdArray__proto__"), propIds->has__proto__);
+            size += PrependByte(builder, _u("ExportsIdArrayHasNonSimpleParams"), propIds->hasNonSimpleParams);
+
+            for (uint i = 0; i < propIds->count; i++)
+            {
+                PropertyId propertyId = encodePossiblyBuiltInPropertyId(propIds->elements[i]);
+                size += PrependInt32(builder, _u("ExportsIdArrayElem"), propertyId);
+            }
+
+            auto slots = propIds->elements + propIds->count;
+            for (int i = 0; i < extraSlotCount; i++)
+            {
+                size += PrependInt32(builder, _u("Extra Slot"), slots[i]);
+            }
+        }
+#ifdef BYTE_CODE_MAGIC_CONSTANTS
+        size += PrependInt32(builder, _u("End of prop ids for formals array"), magicEndOfPropIdsOfFormals);
+#endif
+        return size;
     }
 
 #ifndef TEMP_DISABLE_ASMJS
@@ -2135,6 +2181,7 @@ public:
             | (function->m_isFuncRegistered ? ffIsFuncRegistered : 0)
             | (function->m_isStrictMode ? ffIsStrictMode : 0)
             | (function->m_doBackendArgumentsOptimization ? ffDoBackendArgumentsOptimization : 0)
+            | (function->m_usesArgumentsObject ? ffUsesArgumentsObject : 0)
             | (function->m_isEval ? ffIsEval : 0)
             | (function->m_isDynamicFunction ? ffIsDynamicFunction : 0)
             | (function->m_hasAllNonLocalReferenced ? ffhasAllNonLocalReferenced : 0)
@@ -2262,6 +2309,7 @@ public:
                 }
             }
 
+            AddPropertyIdOfFormals(builder, function);
 
             AddCacheIdToPropertyIdMap(builder, function);
             AddReferencedPropertyIdMap(builder, function);
@@ -2553,7 +2601,7 @@ public:
         return ReadInt32(buffer, remainingBytes, (int*)value);
     }
 
-    const byte * ReadULong(const byte * buffer, ulong * value)
+    const byte * ReadULong(const byte * buffer, uint32 * value)
     {
         auto remainingBytes = (raw + totalSize) - buffer;
         return ReadInt32(buffer, remainingBytes, (int*)value);
@@ -3295,6 +3343,66 @@ public:
         return current;
     }
 
+    const byte * ReadPropertyIdOfFormals(const byte * current, FunctionBody * function)
+    {
+#ifdef BYTE_CODE_MAGIC_CONSTANTS
+        int constant = 0;
+        current = ReadInt32(current, &constant);
+        Assert(constant == magicStartOfPropIdsOfFormals);
+#endif
+
+        bool isPropertyIdArrayAvailable = false;
+        current = ReadBool(current, &isPropertyIdArrayAvailable);
+
+        if (!isPropertyIdArrayAvailable)
+        {
+            return current;
+        }
+
+        uint32 count = 0;
+        current = ReadUInt32(current, &count);
+
+        int32 extraSlotCount = 0;
+        current = ReadInt32(current, &extraSlotCount);
+
+        PropertyIdArray * propIds = function->AllocatePropertyIdArrayForFormals((extraSlotCount + count) * sizeof(PropertyId),count);
+        propIds->count = count;
+        
+
+        bool hadDuplicates = false;
+        current = ReadBool(current, &hadDuplicates);
+        propIds->hadDuplicates = hadDuplicates;
+
+        bool has__proto__ = false;
+        current = ReadBool(current, &has__proto__);
+        propIds->has__proto__ = has__proto__;
+
+        bool hasNonSimpleParams = false;
+        current = ReadBool(current, &hasNonSimpleParams);
+        propIds->hasNonSimpleParams = hasNonSimpleParams;
+
+        int id = 0;
+        for (uint i = 0; i < propIds->count; ++i)
+        {
+            current = ReadInt32(current, &id);
+            PropertyId propertyId = function->GetByteCodeCache()->LookupPropertyId(id);
+            propIds->elements[i] = propertyId;
+        }
+
+        for (int i = 0; i < extraSlotCount; ++i)
+        {
+            current = ReadInt32(current, &id);
+            propIds->elements[propIds->count + i] = id;
+        }
+
+#ifdef BYTE_CODE_MAGIC_CONSTANTS
+        current = ReadInt32(current, &constant);
+        Assert(constant == magicEndOfPropIdsOfFormals);
+#endif
+
+        return current;
+    }
+
 #ifndef TEMP_DISABLE_ASMJS
     const byte * ReadAsmJsFunctionInfo(const byte * current, FunctionBody * function)
     {
@@ -3659,6 +3767,7 @@ public:
         (*function)->m_dontInline = (bitflags & ffDontInline) ? true : false;
         (*function)->m_isStrictMode = (bitflags & ffIsStrictMode) ? true : false;
         (*function)->m_doBackendArgumentsOptimization = (bitflags & ffDoBackendArgumentsOptimization) ? true : false;
+        (*function)->m_usesArgumentsObject = (bitflags & ffUsesArgumentsObject) ? true : false;
         (*function)->m_isEval = (bitflags & ffIsEval) ? true : false;
         (*function)->m_isDynamicFunction = (bitflags & ffIsDynamicFunction) ? true : false;
 
@@ -3787,6 +3896,7 @@ public:
             // Auxiliary
             current = ReadAuxiliary(current, *functionBody);
 
+            current = ReadPropertyIdOfFormals(current, *functionBody);
 
             // Inline cache
             current = ReadCacheIdToPropertyIdMap(current, *functionBody);
@@ -4183,17 +4293,17 @@ HRESULT ByteCodeSerializer::SerializeToBuffer(ScriptContext * scriptContext, Are
     return hr;
 }
 
-HRESULT ByteCodeSerializer::DeserializeFromBuffer(ScriptContext * scriptContext, ulong scriptFlags, LPCUTF8 utf8Source, SRCINFO const * srcInfo, byte * buffer, NativeModule *nativeModule, FunctionBody** function, uint sourceIndex)
+HRESULT ByteCodeSerializer::DeserializeFromBuffer(ScriptContext * scriptContext, uint32 scriptFlags, LPCUTF8 utf8Source, SRCINFO const * srcInfo, byte * buffer, NativeModule *nativeModule, FunctionBody** function, uint sourceIndex)
 {
     return ByteCodeSerializer::DeserializeFromBufferInternal(scriptContext, scriptFlags, utf8Source, /* sourceHolder */ nullptr, srcInfo, buffer, nativeModule, function, sourceIndex);
 }
 // Deserialize function body from supplied buffer
-HRESULT ByteCodeSerializer::DeserializeFromBuffer(ScriptContext * scriptContext, ulong scriptFlags, ISourceHolder* sourceHolder, SRCINFO const * srcInfo, byte * buffer, NativeModule *nativeModule, FunctionBody** function, uint sourceIndex)
+HRESULT ByteCodeSerializer::DeserializeFromBuffer(ScriptContext * scriptContext, uint32 scriptFlags, ISourceHolder* sourceHolder, SRCINFO const * srcInfo, byte * buffer, NativeModule *nativeModule, FunctionBody** function, uint sourceIndex)
 {
     AssertMsg(sourceHolder != nullptr, "SourceHolder can't be null, if you have an empty source then pass ISourceHolder::GetEmptySourceHolder()");
     return ByteCodeSerializer::DeserializeFromBufferInternal(scriptContext, scriptFlags, /* utf8Source */ nullptr, sourceHolder, srcInfo, buffer, nativeModule, function, sourceIndex);
 }
-HRESULT ByteCodeSerializer::DeserializeFromBufferInternal(ScriptContext * scriptContext, ulong scriptFlags, LPCUTF8 utf8Source, ISourceHolder* sourceHolder, SRCINFO const * srcInfo, byte * buffer, NativeModule *nativeModule, FunctionBody** function, uint sourceIndex)
+HRESULT ByteCodeSerializer::DeserializeFromBufferInternal(ScriptContext * scriptContext, uint32 scriptFlags, LPCUTF8 utf8Source, ISourceHolder* sourceHolder, SRCINFO const * srcInfo, byte * buffer, NativeModule *nativeModule, FunctionBody** function, uint sourceIndex)
 {
     //ETW Event start
     JS_ETW(EventWriteJSCRIPT_BYTECODEDESERIALIZE_START(scriptContext, 0));
@@ -4328,4 +4438,4 @@ SerializedFuncInfoArray::SerializedFuncInfoArray( uint offset, int count ) :
 
 }
 
-}
+} // namespace Js

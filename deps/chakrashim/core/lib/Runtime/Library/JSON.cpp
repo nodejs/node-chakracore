@@ -63,7 +63,7 @@ namespace JSON
         __declspec (align(8)) JSONParser parser(scriptContext, reviver);
         Js::Var result = NULL;
 
-        __try
+        TryFinally([&]()
         {
             result = parser.Parse(input);
 
@@ -85,11 +85,11 @@ namespace JSON
                 Js::JavascriptOperators::InitProperty(root, propertyId, result);
                 result = parser.Walk(scriptContext->GetLibrary()->GetEmptyString(), propertyId, root);
             }
-        }
-        __finally
+        },
+        [&](bool/*hasException*/)
         {
             parser.Finalizer();
-        }
+        });
 
         return result;
     }
@@ -362,7 +362,7 @@ namespace JSON
                 len = min(static_cast<charcount_t>(JSONspaceSize), Js::JavascriptString::FromVar(space)->GetLength());
                 if(len)
                 {
-                    wmemcpy_s(buffer, JSONspaceSize, Js::JavascriptString::FromVar(space)->GetString(), len);
+                    js_wmemcpy_s(buffer, JSONspaceSize, Js::JavascriptString::FromVar(space)->GetString(), len);
                 }
                 break;
             }
@@ -374,7 +374,7 @@ namespace JSON
                     len = min(static_cast<charcount_t>(JSONspaceSize), Js::JavascriptString::FromVar(spaceString)->GetLength());
                     if(len)
                     {
-                        wmemcpy_s(buffer, JSONspaceSize, Js::JavascriptString::FromVar(spaceString)->GetString(), len);
+                        js_wmemcpy_s(buffer, JSONspaceSize, Js::JavascriptString::FromVar(spaceString)->GetString(), len);
                     }
                 }
                 break;
@@ -603,17 +603,7 @@ namespace JSON
             if (JavascriptProxy::Is(object))
             {
                 JavascriptProxy* proxyObject = JavascriptProxy::FromVar(object);
-                Var propertyKeysTrapResult = proxyObject->PropertyKeysTrap(JavascriptProxy::KeysTrapKind::GetOwnPropertyNamesKind);
-
-                AssertMsg(JavascriptArray::Is(propertyKeysTrapResult), "PropertyKeysTrap should return JavascriptArray.");
-                JavascriptArray* proxyResult;
-                if (JavascriptArray::Is(propertyKeysTrapResult))
-                {
-                    proxyResult = JavascriptArray::FromVar(propertyKeysTrapResult);
-                } else
-                {
-                    proxyResult = scriptContext->GetLibrary()->CreateArray(0);
-                }
+                JavascriptArray* proxyResult = proxyObject->PropertyKeysTrap(JavascriptProxy::KeysTrapKind::GetOwnPropertyNamesKind);
 
                 // filter enumerable keys
                 uint32 resultLength = proxyResult->GetLength();
@@ -660,7 +650,7 @@ namespace JSON
                     {
                         Js::Var propertyNameVar;
                         enumerator->Reset();
-                        while ((propertyNameVar = enumerator->GetCurrentAndMoveNext(id)) != NULL)
+                        while ((propertyNameVar = enumerator->MoveAndGetNext(id)) != NULL)
                         {
                             if (!Js::JavascriptOperators::IsUndefinedObject(propertyNameVar, undefined))
                             {
@@ -702,7 +692,7 @@ namespace JSON
                             enumerator->Reset();
                             uint32 index = 0;
                             Js::Var propertyNameVar;
-                            while ((propertyNameVar = enumerator->GetCurrentAndMoveNext(id)) != NULL && index < precisePropertyCount)
+                            while ((propertyNameVar = enumerator->MoveAndGetNext(id)) != NULL && index < precisePropertyCount)
                             {
                                 if (!Js::JavascriptOperators::IsUndefinedObject(propertyNameVar, undefined))
                                 {
@@ -935,7 +925,7 @@ namespace JSON
         Js::Var propertyNameVar;
         Js::PropertyId id;
         enumerator->Reset();
-        while ((propertyNameVar = enumerator->GetCurrentAndMoveNext(id)) != NULL)
+        while ((propertyNameVar = enumerator->MoveAndGetNext(id)) != NULL)
         {
             if (!Js::JavascriptOperators::IsUndefinedObject(propertyNameVar, this->scriptContext->GetLibrary()->GetUndefined()))
             {

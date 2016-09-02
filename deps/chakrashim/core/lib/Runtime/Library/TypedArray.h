@@ -15,14 +15,9 @@ namespace Js
     class TypedArrayBase : public ArrayBufferParent
     {
         friend ArrayBuffer;
-    private:
-        static PropertyId const specialPropertyIds[];
 
     protected:
         DEFINE_VTABLE_CTOR_ABSTRACT(TypedArrayBase, ArrayBufferParent);
-
-    private:
-        BOOL GetPropertyBuiltIns(Js::PropertyId propertyId, Js::Var* value);
 
     public:
         static Var GetDefaultConstructor(Var object, ScriptContext* scriptContext);
@@ -126,9 +121,6 @@ namespace Js
         virtual BOOL SetAttributes(PropertyId propertyId, PropertyAttributes attributes) override;
         virtual BOOL SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags) override;
 
-        virtual BOOL GetSpecialPropertyName(uint32 index, Var *propertyName, ScriptContext * requestContext) override;
-        virtual uint GetSpecialPropertyCount() const override;
-        virtual PropertyId const * GetSpecialPropertyIds() const override;
         virtual BOOL InitProperty(Js::PropertyId propertyId, Js::Var value, PropertyOperationFlags flags = PropertyOperation_None, Js::PropertyValueInfo* info = NULL) override;
         virtual BOOL SetPropertyWithAttributes(PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags = PropertyOperation_None, SideEffects possibleSideEffects = SideEffects_Any) override;
         static BOOL Is(Var aValue);
@@ -137,6 +129,8 @@ namespace Js
         // Returns false if this is not a TypedArray or it's not detached
         static BOOL IsDetachedTypedArray(Var aValue);
         static HRESULT GetBuffer(Var aValue, ArrayBuffer** outBuffer, uint32* outOffset, uint32* outLength);
+        static Var ValidateTypedArray(Var aValue, ScriptContext *scriptContext);
+        static Var TypedArrayCreate(Var constructor, Arguments *args, uint32 length, ScriptContext *scriptContext);
 
         virtual BOOL DirectSetItem(__in uint32 index, __in Js::Var value) = 0;
         virtual BOOL DirectSetItemNoSet(__in uint32 index, __in Js::Var value) = 0;
@@ -157,8 +151,8 @@ namespace Js
         virtual BOOL GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
 
         static bool TryGetLengthForOptimizedTypedArray(const Var var, uint32 *const lengthRef, TypeId *const typeIdRef);
-        BOOL ValidateIndexAndDirectSetItem(__in Js::Var index, __in Js::Var value, __in bool * isNumericIndex);
-        uint32 ValidateAndReturnIndex(__in Js::Var index, __in bool * skipOperation, __in bool * isNumericIndex);
+        BOOL ValidateIndexAndDirectSetItem(__in Js::Var index, __in Js::Var value, __out bool * isNumericIndex);
+        uint32 ValidateAndReturnIndex(__in Js::Var index, __out bool * skipOperation, __out bool * isNumericIndex);
 
         // objectArray support
         virtual BOOL SetItemWithAttributes(uint32 index, Var value, PropertyAttributes attributes) override;
@@ -167,13 +161,13 @@ namespace Js
         template<typename T, bool checkNaNAndNegZero> Var FindMinOrMax(Js::ScriptContext * scriptContext, bool findMax);
 
     protected:
-        inline BOOL IsBuiltinProperty(PropertyId);
         static Var CreateNewInstanceFromIterator(RecyclableObject *iterator, ScriptContext *scriptContext, uint32 elementSize, PFNCreateTypedArray pfnCreateTypedArray);
         static Var CreateNewInstance(Arguments& args, ScriptContext* scriptContext, uint32 elementSize, PFNCreateTypedArray pfnCreateTypedArray );
         static int32 ToLengthChecked(Var lengthVar, uint32 elementSize, ScriptContext* scriptContext);
         static bool ArrayIteratorPrototypeHasUserDefinedNext(ScriptContext *scriptContext);
 
-        virtual void* GetCompareElementsFunction() = 0;
+        typedef int(__cdecl* CompareElementsFunction)(void*, const void*, const void*);
+        virtual CompareElementsFunction GetCompareElementsFunction() = 0;
 
         virtual Var Subarray(uint32 begin, uint32 end) = 0;
         int32 BYTES_PER_ELEMENT;
@@ -183,6 +177,12 @@ namespace Js
     public:
         static uint32 GetOffsetOfBuffer()  { return offsetof(TypedArrayBase, buffer); }
         static uint32 GetOffsetOfLength()  { return offsetof(TypedArrayBase, length); }
+
+#if ENABLE_TTD
+    public:
+        virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
+        virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
+#endif
     };
 
     template <typename TypeName, bool clamped = false, bool virtualAllocated = false>
@@ -210,7 +210,6 @@ namespace Js
         public:
             static FunctionInfo NewInstance;
             static FunctionInfo Set;
-            static FunctionInfo Subarray;
         };
 
         TypedArray(ArrayBuffer* arrayBuffer, uint32 byteOffset, uint32 mappedLength, DynamicType* type);
@@ -219,14 +218,13 @@ namespace Js
         static Var NewInstance(RecyclableObject* function, CallInfo callInfo, ...);
 
         static Var EntrySet(RecyclableObject* function, CallInfo callInfo, ...);
-        static Var EntrySubarray(RecyclableObject* function, CallInfo callInfo, ...);
 
         Var Subarray(uint32 begin, uint32 end);
 
         static BOOL Is(Var aValue);
         static TypedArray<TypeName, clamped, virtualAllocated>* FromVar(Var aValue);
 
-        __inline Var BaseTypedDirectGetItem(__in uint32 index)
+        inline Var BaseTypedDirectGetItem(__in uint32 index)
         {
             if (this->IsDetachedBuffer()) // 9.4.5.8 IntegerIndexedElementGet
             {
@@ -242,7 +240,7 @@ namespace Js
             return GetLibrary()->GetUndefined();
         }
 
-        __inline Var TypedDirectGetItemWithCheck(__in uint32 index)
+        inline Var TypedDirectGetItemWithCheck(__in uint32 index)
         {
             if (this->IsDetachedBuffer()) // 9.4.5.8 IntegerIndexedElementGet
             {
@@ -258,7 +256,7 @@ namespace Js
             return GetLibrary()->GetUndefined();
         }
 
-        __inline BOOL DirectSetItemAtRange(TypedArray *fromArray, __in int32 iSrcStart, __in int32 iDstStart, __in uint32 length, TypeName(*convFunc)(Var value, ScriptContext* scriptContext))
+        inline BOOL DirectSetItemAtRange(TypedArray *fromArray, __in int32 iSrcStart, __in int32 iDstStart, __in uint32 length, TypeName(*convFunc)(Var value, ScriptContext* scriptContext))
         {
             TypeName* dstBuffer = (TypeName*)buffer;
             TypeName* srcBuffer = (TypeName*)fromArray->buffer;
@@ -308,7 +306,7 @@ namespace Js
             return true;
         }
 
-        __inline BOOL DirectSetItemAtRange(__in int32 start, __in uint32 length, __in Js::Var value, TypeName(*convFunc)(Var value, ScriptContext* scriptContext))
+        inline BOOL DirectSetItemAtRange(__in int32 start, __in uint32 length, __in Js::Var value, TypeName(*convFunc)(Var value, ScriptContext* scriptContext))
         {
             if (CrossSite::IsCrossSiteObjectTyped(this))
             {
@@ -362,7 +360,7 @@ namespace Js
             return TRUE;
         }
 
-        __inline BOOL BaseTypedDirectSetItem(__in uint32 index, __in Js::Var value, TypeName (*convFunc)(Var value, ScriptContext* scriptContext))
+        inline BOOL BaseTypedDirectSetItem(__in uint32 index, __in Js::Var value, TypeName (*convFunc)(Var value, ScriptContext* scriptContext))
         {
             // This call can potentially invoke user code, and may end up detaching the underlying array (this).
             // Therefore it was brought out and above the IsDetached check
@@ -387,7 +385,7 @@ namespace Js
             return TRUE;
         }
 
-        __inline BOOL BaseTypedDirectSetItemNoSet(__in uint32 index, __in Js::Var value, TypeName (*convFunc)(Var value, ScriptContext* scriptContext))
+        inline BOOL BaseTypedDirectSetItemNoSet(__in uint32 index, __in Js::Var value, TypeName (*convFunc)(Var value, ScriptContext* scriptContext))
         {
             // This call can potentially invoke user code, and may end up detaching the underlying array (this).
             // Therefore it was brought out and above the IsDetached check
@@ -414,7 +412,7 @@ namespace Js
         }
 
     protected:
-        void* GetCompareElementsFunction()
+        CompareElementsFunction GetCompareElementsFunction()
         {
             return &TypedArrayCompareElementsHelper<TypeName>;
         }
@@ -460,32 +458,42 @@ namespace Js
         virtual Var  DirectGetItem(__in uint32 index) override;
 
     protected:
-        void* GetCompareElementsFunction()
+        CompareElementsFunction GetCompareElementsFunction()
         {
             return &TypedArrayCompareElementsHelper<char16>;
         }
     };
 
-    typedef TypedArray<int8> Int8Array;
-    typedef TypedArray<uint8,false> Uint8Array;
-    typedef TypedArray<uint8,true> Uint8ClampedArray;
-    typedef TypedArray<int16> Int16Array;
-    typedef TypedArray<uint16> Uint16Array;
-    typedef TypedArray<int32> Int32Array;
-    typedef TypedArray<uint32> Uint32Array;
-    typedef TypedArray<float> Float32Array;
-    typedef TypedArray<double> Float64Array;
-    typedef TypedArray<int64> Int64Array;
-    typedef TypedArray<uint64> Uint64Array;
-    typedef TypedArray<bool> BoolArray;
-    typedef TypedArray<int8, false, true> Int8VirtualArray;
-    typedef TypedArray<uint8, false, true> Uint8VirtualArray;
-    typedef TypedArray<uint8, true, true> Uint8ClampedVirtualArray;
-    typedef TypedArray<int16, false, true> Int16VirtualArray;
-    typedef TypedArray<uint16, false, true> Uint16VirtualArray;
-    typedef TypedArray<int32, false, true> Int32VirtualArray;
-    typedef TypedArray<uint32, false, true> Uint32VirtualArray;
-    typedef TypedArray<float, false, true> Float32VirtualArray;
-    typedef TypedArray<double, false, true> Float64VirtualArray;
+#if defined(__clang__)
+// hack for clang message: "...add an explicit instantiation declaration to .."
+#define __EXPLICIT_INSTANTINATE_TA(x) x;\
+            template<> FunctionInfo Js::x::EntryInfo::NewInstance;\
+            template<> FunctionInfo Js::x::EntryInfo::Set
+#else // MSVC
+#define __EXPLICIT_INSTANTINATE_TA(x) x
+#endif
 
+    typedef TypedArray<int8>        __EXPLICIT_INSTANTINATE_TA(Int8Array);
+    typedef TypedArray<uint8,false> __EXPLICIT_INSTANTINATE_TA(Uint8Array);
+    typedef TypedArray<uint8,true>  __EXPLICIT_INSTANTINATE_TA(Uint8ClampedArray);
+    typedef TypedArray<int16>       __EXPLICIT_INSTANTINATE_TA(Int16Array);
+    typedef TypedArray<uint16>      __EXPLICIT_INSTANTINATE_TA(Uint16Array);
+    typedef TypedArray<int32>       __EXPLICIT_INSTANTINATE_TA(Int32Array);
+    typedef TypedArray<uint32>      __EXPLICIT_INSTANTINATE_TA(Uint32Array);
+    typedef TypedArray<float>       __EXPLICIT_INSTANTINATE_TA(Float32Array);
+    typedef TypedArray<double>      __EXPLICIT_INSTANTINATE_TA(Float64Array);
+    typedef TypedArray<int64>       __EXPLICIT_INSTANTINATE_TA(Int64Array);
+    typedef TypedArray<uint64>      __EXPLICIT_INSTANTINATE_TA(Uint64Array);
+    typedef TypedArray<bool>        __EXPLICIT_INSTANTINATE_TA(BoolArray);
+    typedef TypedArray<int8, false, true>   __EXPLICIT_INSTANTINATE_TA(Int8VirtualArray);
+    typedef TypedArray<uint8, false, true>  __EXPLICIT_INSTANTINATE_TA(Uint8VirtualArray);
+    typedef TypedArray<uint8, true, true>   __EXPLICIT_INSTANTINATE_TA(Uint8ClampedVirtualArray);
+    typedef TypedArray<int16, false, true>  __EXPLICIT_INSTANTINATE_TA(Int16VirtualArray);
+    typedef TypedArray<uint16, false, true> __EXPLICIT_INSTANTINATE_TA(Uint16VirtualArray);
+    typedef TypedArray<int32, false, true>  __EXPLICIT_INSTANTINATE_TA(Int32VirtualArray);
+    typedef TypedArray<uint32, false, true> __EXPLICIT_INSTANTINATE_TA(Uint32VirtualArray);
+    typedef TypedArray<float, false, true>  __EXPLICIT_INSTANTINATE_TA(Float32VirtualArray);
+    typedef TypedArray<double, false, true> __EXPLICIT_INSTANTINATE_TA(Float64VirtualArray);
+
+#undef __EXPLICIT_INSTANTINATE_TA
 }

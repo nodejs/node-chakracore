@@ -44,7 +44,7 @@ public:
 }
 
 template <ObjectInfoBits attributes, bool nothrow>
-__inline char *
+inline char *
 Recycler::AllocWithAttributesInlined(size_t size)
 {
     // All tracked objects are client tracked objects
@@ -199,7 +199,7 @@ Recycler::AllocWithAttributesInlined(size_t size)
 }
 
 template <ObjectInfoBits attributes, bool nothrow>
-__inline char *
+inline char *
 Recycler::AllocZeroWithAttributesInlined(size_t size)
 {
     char* obj = AllocWithAttributesInlined<attributes, nothrow>(size);
@@ -280,7 +280,7 @@ bool Recycler::IsPageHeapEnabled(size_t size)
 template <ObjectInfoBits attributes>
 void Recycler::VerifyPageHeapFillAfterAlloc(char* memBlock, size_t size)
 {
-    if (IsPageHeapEnabled())
+    if (IsPageHeapEnabled() && memBlock != nullptr)
     {
         HeapBlock* heapBlock = this->FindHeapBlock(memBlock);
 
@@ -304,7 +304,7 @@ void Recycler::VerifyPageHeapFillAfterAlloc(char* memBlock, size_t size)
 #endif
 
 template <ObjectInfoBits attributes, bool isSmallAlloc, bool nothrow>
-__inline char*
+inline char*
 Recycler::RealAllocFromBucket(HeapInfo* heap, size_t size)
 {
     // Align the size
@@ -372,7 +372,7 @@ Recycler::RealAllocFromBucket(HeapInfo* heap, size_t size)
 }
 
 template <ObjectInfoBits attributes, bool nothrow>
-__inline char*
+inline char*
 Recycler::RealAlloc(HeapInfo* heap, size_t size)
 {
 #ifdef RECYCLER_STRESS
@@ -402,34 +402,33 @@ Recycler::RealAlloc(HeapInfo* heap, size_t size)
 
     char* addr = LargeAlloc<nothrow>(heap, size, attributes);
 #if DBG
-    if (IsPageHeapEnabled())
-    {
-        this->VerifyPageHeapFillAfterAlloc<attributes>(addr, size);
-    }
+    this->VerifyPageHeapFillAfterAlloc<attributes>(addr, size);
 #endif
     return addr;
 }
 
 template<typename T>
-__inline RecyclerWeakReference<T>* Recycler::CreateWeakReferenceHandle(T* pStrongReference)
+inline RecyclerWeakReference<T>* Recycler::CreateWeakReferenceHandle(T* pStrongReference)
 {
     // Return the weak reference that calling Add on the WR map returns
     // The entry returned is recycler-allocated memory
     RecyclerWeakReference<T>* weakRef = (RecyclerWeakReference<T>*) this->weakReferenceMap.Add((char*) pStrongReference, this);
 #if DBG
+#if ENABLE_RECYCLER_TYPE_TRACKING
     if (weakRef->typeInfo == nullptr)
     {
         weakRef->typeInfo = &typeid(T);
 #ifdef TRACK_ALLOC
         TrackAllocWeakRef(weakRef);
 #endif
-}
+    }
+#endif
 #endif
     return weakRef;
 }
 
 template<typename T>
-__inline bool Recycler::FindOrCreateWeakReferenceHandle(T* pStrongReference, RecyclerWeakReference<T> **ppWeakRef)
+inline bool Recycler::FindOrCreateWeakReferenceHandle(T* pStrongReference, RecyclerWeakReference<T> **ppWeakRef)
 {
     // Ensure that the given strong ref has a weak ref in the map.
     // Return a result to indicate whether a new weak ref was created.
@@ -437,9 +436,11 @@ __inline bool Recycler::FindOrCreateWeakReferenceHandle(T* pStrongReference, Rec
 #if DBG
     if (!ret)
     {
+#if ENABLE_RECYCLER_TYPE_TRACKING
         (*ppWeakRef)->typeInfo = &typeid(T);
 #ifdef TRACK_ALLOC
         TrackAllocWeakRef(*ppWeakRef);
+#endif
 #endif
     }
 #endif
@@ -447,12 +448,12 @@ __inline bool Recycler::FindOrCreateWeakReferenceHandle(T* pStrongReference, Rec
 }
 
 template<typename T>
-__inline bool Recycler::TryGetWeakReferenceHandle(T* pStrongReference, RecyclerWeakReference<T> **weakReference)
+inline bool Recycler::TryGetWeakReferenceHandle(T* pStrongReference, RecyclerWeakReference<T> **weakReference)
 {
     return this->weakReferenceMap.TryGetValue((char*) pStrongReference, (RecyclerWeakReferenceBase**)weakReference);
 }
 
-__inline HeapBlock*
+inline HeapBlock*
 Recycler::FindHeapBlock(void* candidate)
 {
     if ((size_t)candidate < 0x10000)
@@ -467,7 +468,7 @@ Recycler::FindHeapBlock(void* candidate)
     return heapBlockMap.GetHeapBlock(candidate);
 }
 
-__inline void
+inline void
 Recycler::ScanObjectInline(void ** obj, size_t byteCount)
 {
     // This is never called during parallel marking
@@ -482,7 +483,7 @@ Recycler::ScanObjectInline(void ** obj, size_t byteCount)
     }
 }
 
-__inline void
+inline void
 Recycler::ScanObjectInlineInterior(void ** obj, size_t byteCount)
 {
     // This is never called during parallel marking
@@ -491,7 +492,7 @@ Recycler::ScanObjectInlineInterior(void ** obj, size_t byteCount)
     markContext.ScanObject<false, true>(obj, byteCount);
 }
 
-__inline void
+inline void
 Recycler::ScanMemoryInline(void ** obj, size_t byteCount)
 {
     // This is never called during parallel marking
@@ -506,7 +507,7 @@ Recycler::ScanMemoryInline(void ** obj, size_t byteCount)
     }
 }
 
-__inline bool
+inline bool
 Recycler::AddMark(void * candidate, size_t byteCount) throw()
 {
     // This is never called during parallel marking
@@ -527,7 +528,7 @@ Recycler::NotifyFree(T * heapBlock)
         this->isForceSweeping = true;
         heapBlock->isForceSweeping = true;
 #endif
-        heapBlock->SweepObjects<SweepMode_InThread>(this);
+        heapBlock->template SweepObjects<SweepMode_InThread>(this);
 #if DBG || defined(RECYCLER_STATS)
         heapBlock->isForceSweeping = false;
         this->isForceSweeping = false;
@@ -557,7 +558,7 @@ Recycler::NotifyFree(T * heapBlock)
 }
 
 template <class TBlockAttributes>
-__inline ushort
+inline ushort
 SmallHeapBlockT<TBlockAttributes>::GetObjectBitDelta()
 {
     return this->objectSize / HeapConstants::ObjectGranularity;

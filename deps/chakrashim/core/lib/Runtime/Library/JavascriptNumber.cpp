@@ -7,6 +7,8 @@
 #include "Library/EngineInterfaceObject.h"
 #include "Library/IntlEngineInterfaceExtensionObject.h"
 
+using namespace PlatformAgnostic;
+
 namespace Js
 {
     DEFINE_RECYCLER_TRACKER_PERF_COUNTER(JavascriptNumber);
@@ -162,6 +164,66 @@ namespace Js
         return Is_NoTaggedIntCheck(object) && TryGetInt32Value(GetValue(object), &i) ? i : 0;
     }
 
+    int32 JavascriptNumber::DirectPowIntInt(bool* isOverflow, int32 x, int32 y)
+    {
+        if (y < 0)
+        {
+            *isOverflow = true;
+            return 0;
+        }
+
+        uint32 uexp = static_cast<uint32>(y);
+        int32 result = 1;
+
+        while (true)
+        {
+            if ((uexp & 1) != 0)
+            {
+                if (Int32Math::Mul(result, x, &result))
+                {
+                    *isOverflow = true;
+                    break;
+                }
+            }
+            if ((uexp >>= 1) == 0)
+            {
+                *isOverflow = false;
+                break;
+            }
+            if (Int32Math::Mul(x, x, &x))
+            {
+                *isOverflow = true;
+                break;
+            }
+        }
+
+        return *isOverflow ? 0 : result;
+    }
+
+    double JavascriptNumber::DirectPowDoubleInt(double x, int32 y)
+    {
+        // For exponent in [-8, 8], aggregate the product according to binary representation
+        // of exponent. This acceleration may lead to significant deviation for larger exponent
+        if (y >= -8 && y <= 8)
+        {
+            uint32 uexp = static_cast<uint32>(y >= 0 ? y : -y);
+            for (double result = 1.0; ; x *= x)
+            {
+                if ((uexp & 1) != 0)
+                {
+                    result *= x;
+                }
+                if ((uexp >>= 1) == 0)
+                {
+                    return (y < 0 ? (1.0 / result) : result);
+                }
+            }
+        }
+
+        // always call pow(double, double) in C runtime which has a bug to process pow(double, int).
+        return ::pow(x, static_cast<double>(y));
+    }
+
 #if _M_IX86
 
     extern "C" double __cdecl __libm_sse2_pow(double, double);
@@ -209,7 +271,6 @@ namespace Js
         }
     }
 
-
 #elif defined(_M_AMD64) || defined(_M_ARM32_OR_ARM64)
 
     double JavascriptNumber::DirectPow(double x, double y)
@@ -233,29 +294,10 @@ namespace Js
             // pow([+/-] 1, Infinity) = NaN according to javascript, but not for CRT pow.
             return JavascriptNumber::NaN;
         }
-        else if(TryGetInt32Value(y, &intY))
+        else if (TryGetInt32Value(y, &intY))
         {
-            // For exponent in [-8, 8], aggregate the product according to binary representation
-            // of exponent. This acceleration may lead to significant deviation for larger exponent
-            if (intY >= -8 && intY <= 8)
-            {
-                uint32 uexp = static_cast<uint32>(intY >= 0 ? intY : -intY);
-                for (double result = 1.0; ; x *= x)
-                {
-                    if ((uexp & 1) != 0)
-                    {
-                        result *= x;
-                    }
-                    if ((uexp >>= 1) == 0)
-                    {
-                        return (intY < 0 ? (1.0 / result) : result);
-                    }
-                }
-            }
-            else
-            {
-                return ::pow(x, intY);
-            }
+            // check fast path
+            return DirectPowDoubleInt(x, intY);
         }
 
         return ::pow(x, y);
@@ -672,7 +714,7 @@ namespace Js
         }
         return JavascriptNumber::ToLocaleStringIntl(args, callInfo, scriptContext);
     }
-    
+
     JavascriptString* JavascriptNumber::ToLocaleStringIntl(Var* values, CallInfo callInfo, ScriptContext* scriptContext)
     {
         Assert(values);
@@ -770,7 +812,7 @@ namespace Js
             {
                 radix = TaggedInt::ToInt32(aRadix);
             }
-            else if(!JavascriptOperators::GetTypeId(aRadix) == TypeIds_Undefined)
+            else if(JavascriptOperators::GetTypeId(aRadix) != TypeIds_Undefined)
             {
                 radix = (int)JavascriptConversion::ToInteger(aRadix,scriptContext);
             }
@@ -984,7 +1026,7 @@ namespace Js
         WCHAR   szRes[bufSize];
         WCHAR * pszRes = NULL;
         WCHAR * pszToBeFreed = NULL;
-        int     count;
+        size_t  count;
 
         if (!Js::NumberUtilities::IsFinite(value))
         {
@@ -999,10 +1041,12 @@ namespace Js
 
         JavascriptString *dblStr = JavascriptString::FromVar(FormatDoubleToString(value, NumberUtilities::FormatFixed, -1, scriptContext));
         const char16* szValue = dblStr->GetSz();
+        const size_t szLength = dblStr->GetLength();
 
-        count = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, szValue, NULL, NULL, 0);
+        pszRes = szRes;
+        count = Numbers::Utility::NumberToDefaultLocaleString(szValue, szLength, pszRes, bufSize);
 
-        if( count <= 0 )
+        if( count == 0 )
         {
             return dblStr;
         }
@@ -1011,26 +1055,23 @@ namespace Js
             if( count > bufSize )
             {
                 pszRes = pszToBeFreed = HeapNewArray(char16, count);
-            }
-            else
-            {
-                pszRes = szRes;
+
+                count = Numbers::Utility::NumberToDefaultLocaleString(szValue, szLength, pszRes, count);
+
+                if ( count == 0 )
+                {
+                     AssertMsg(false, "GetNumberFormatEx failed");
+                     JavascriptError::ThrowError(scriptContext, VBSERR_InternalError);
+                }
             }
 
-            int newCount = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, szValue, NULL, pszRes, count);
-
-            if (newCount <= 0 )
-            {
-                AssertMsg(false, "GetNumberFormatEx failed");
-                JavascriptError::ThrowError(scriptContext, VBSERR_InternalError);
-            }
-            else
+            if ( count != 0 )
             {
                 result = JavascriptString::NewCopySz(pszRes, scriptContext);
             }
         }
 
-        if (pszToBeFreed)
+        if ( pszToBeFreed )
         {
             HeapDeleteArray(count, pszToBeFreed);
         }

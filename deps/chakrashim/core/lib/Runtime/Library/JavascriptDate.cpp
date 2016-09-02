@@ -88,8 +88,23 @@ namespace Js
 
             // ES5 15.9.2.1: Date() should returns a string exactly the same as (new Date().toString()).
             JavascriptDate* pDate = NewInstanceAsConstructor(args, scriptContext, /* forceCurrentDate */ true);
+            JavascriptString* res = JavascriptDate::ToString(pDate);
 
-            return JavascriptDate::ToString(pDate);
+#if ENABLE_TTD
+            if(scriptContext->ShouldPerformDebugAction())
+            {
+                scriptContext->GetThreadContext()->TTDLog->ReplayDateStringEvent(scriptContext, &res);
+            }
+            else if(scriptContext->ShouldPerformRecordAction())
+            {
+                scriptContext->GetThreadContext()->TTDLog->RecordDateStringEvent(res);
+            }
+            else
+            {
+                ;
+            }
+#endif
+            return res;
         }
         else
         {
@@ -119,7 +134,24 @@ namespace Js
         //
         if (forceCurrentDate || args.Info.Count == 1)
         {
-            pDate->m_date.SetTvUtc(DateImplementation::NowFromHiResTimer(scriptContext));
+            double resTime = DateImplementation::NowFromHiResTimer(scriptContext);
+
+#if ENABLE_TTD
+            if(scriptContext->ShouldPerformDebugAction())
+            {
+                scriptContext->GetThreadContext()->TTDLog->ReplayDateTimeEvent(&resTime);
+            }
+            else if(scriptContext->ShouldPerformRecordAction())
+            {
+                scriptContext->GetThreadContext()->TTDLog->RecordDateTimeEvent(resTime);
+            }
+            else
+            {
+                ;
+            }
+#endif
+
+            pDate->m_date.SetTvUtc(resTime);
             return pDate;
         }
 
@@ -215,6 +247,11 @@ namespace Js
         //The allowed values for hint are "default", "number", and "string"
         if (args.Info.Count == 2)
         {
+            if (!JavascriptOperators::IsObjectType(JavascriptOperators::GetTypeId(args[0])))
+            {
+                JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedObject, _u("Date[Symbol.toPrimitive]"));
+            }
+
             if (JavascriptString::Is(args[1]))
             {
                 JavascriptString* StringObject = JavascriptString::FromVar(args[1]);
@@ -235,13 +272,8 @@ namespace Js
                 //anything else should throw a type error
             }
         }
-        else if (args.Info.Count == 1)
-        {
-            //7.1.1 ToPrimitive Note: Date objects treat no hint as if the hint were String.
-            return JavascriptConversion::OrdinaryToPrimitive(args[0], JavascriptHint::HintString/*tryFirst*/, scriptContext);
-        }
 
-        JavascriptError::ThrowTypeError(scriptContext, JSERR_FunctionArgument_Invalid, _u("Date[Symbol.toPrimitive]"));
+        JavascriptError::ThrowTypeError(scriptContext, JSERR_InvalidHint, _u("Date[Symbol.toPrimitive]"));
     }
 
     Var JavascriptDate::EntryGetDate(RecyclableObject* function, CallInfo callInfo, ...)
@@ -772,6 +804,22 @@ namespace Js
         Assert(!(callInfo.Flags & CallFlags_New));
 
         double dblRetVal = DateImplementation::NowInMilliSeconds(scriptContext);
+
+#if ENABLE_TTD
+        if(scriptContext->ShouldPerformDebugAction())
+        {
+            scriptContext->GetThreadContext()->TTDLog->ReplayDateTimeEvent(&dblRetVal);
+        }
+        else if(scriptContext->ShouldPerformRecordAction())
+        {
+            scriptContext->GetThreadContext()->TTDLog->RecordDateTimeEvent(dblRetVal);
+        }
+        else
+        {
+            ;
+        }
+#endif
+
         return JavascriptNumber::ToVarNoCheck(dblRetVal,scriptContext);
     }
 
@@ -781,11 +829,10 @@ namespace Js
 
         ARGUMENTS(args, callInfo);
         ScriptContext* scriptContext = function->GetScriptContext();
-
         Assert(!(callInfo.Flags & CallFlags_New));
 
-        double dblRetVal = DateImplementation::DateFncUTC(scriptContext,args);
-        return JavascriptNumber::ToVarNoCheck(dblRetVal,scriptContext);
+        double dblRetVal = DateImplementation::DateFncUTC(scriptContext, args);
+        return JavascriptNumber::ToVarNoCheck(dblRetVal, scriptContext);
     }
 
     double JavascriptDate::ParseHelper(ScriptContext *scriptContext, JavascriptString *str)
@@ -1282,7 +1329,7 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_Property_NeedFunction, scriptContext->GetPropertyName(PropertyIds::toISOString)->GetBuffer());
         }
         RecyclableObject* toISOFunc = RecyclableObject::FromVar(toISO);
-        return toISOFunc->GetEntryPoint()(toISOFunc, 1, thisObj);
+        return CALL_FUNCTION(toISOFunc, CallInfo(1), thisObj);
     }
 
     Var JavascriptDate::EntryToLocaleDateString(RecyclableObject* function, CallInfo callInfo, ...)
@@ -1565,6 +1612,23 @@ namespace Js
         }
         return FALSE;
     }
+
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType JavascriptDate::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapDateObject;
+    }
+
+    void JavascriptDate::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        AssertMsg(this->GetTypeId() == TypeIds_Date, "We don't handle WinRT or other types of dates yet!");
+
+        double* millis = alloc.SlabAllocateStruct<double>();
+        *millis = m_date.GetMilliSeconds();
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<double*, TTD::NSSnapObjects::SnapObjectType::SnapDateObject>(objData, millis);
+    }
+#endif
 
     BOOL JavascriptDate::ToPrimitive(JavascriptHint hint, Var* result, ScriptContext * requestContext)
     {

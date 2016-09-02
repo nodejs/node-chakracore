@@ -6,39 +6,39 @@
 
 namespace Js
 {
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    JavascriptEnumerator* DynamicObjectSnapshotEnumerator<T, enumNonEnumerable, enumSymbols>::New(ScriptContext* scriptContext, DynamicObject* object)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    JavascriptEnumerator* DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>::New(ScriptContext* scriptContext, DynamicObject* object)
     {
         DynamicObjectSnapshotEnumerator* enumerator = RecyclerNew(scriptContext->GetRecycler(), DynamicObjectSnapshotEnumerator, scriptContext);
         enumerator->Initialize(object);
         return enumerator;
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    Var DynamicObjectSnapshotEnumerator<T, enumNonEnumerable, enumSymbols>::GetCurrentAndMoveNextFromArray(PropertyId& propertyId, PropertyAttributes* attributes)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    Var DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>::MoveAndGetNextFromArray(PropertyId& propertyId, PropertyAttributes* attributes)
     {
-        if (arrayEnumerator)
+        if (this->arrayEnumerator)
         {
-            Var currentIndex = arrayEnumerator->GetCurrentAndMoveNext(propertyId, attributes);
+            Var currentIndex = this->arrayEnumerator->MoveAndGetNext(propertyId, attributes);
             if(currentIndex != nullptr)
             {
                 return currentIndex;
             }
-            arrayEnumerator = nullptr;
+            this->arrayEnumerator = nullptr;
         }
 
         return nullptr;
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    JavascriptString * DynamicObjectSnapshotEnumerator<T, enumNonEnumerable, enumSymbols>::GetCurrentAndMoveNextFromObject(T& index, PropertyId& propertyId, PropertyAttributes* attributes)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    JavascriptString * DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>::MoveAndGetNextFromObject(BigPropertyIndex& index, PropertyId& propertyId, PropertyAttributes* attributes)
     {
         JavascriptString* propertyString = nullptr;
-        auto newIndex = objectIndex;
+        auto newIndex = this->objectIndex;
         do
         {
             newIndex++;
-            if (!object->FindNextProperty(newIndex, &propertyString, &propertyId, attributes, GetTypeToEnumerate(), !enumNonEnumerable, /*enumSymbols*/enumSymbols) || newIndex >= initialPropertyCount)
+            if (!this->object->FindNextProperty(newIndex, &propertyString, &propertyId, attributes, this->GetTypeToEnumerate(), !enumNonEnumerable, /*enumSymbols*/enumSymbols) || newIndex >= initialPropertyCount)
             {
                 newIndex--;
                 propertyString = nullptr;
@@ -51,34 +51,30 @@ namespace Js
         return propertyString;
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    Var DynamicObjectSnapshotEnumerator<T, enumNonEnumerable, enumSymbols>::GetCurrentAndMoveNext(PropertyId& propertyId, PropertyAttributes* attributes)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    Var DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>::MoveAndGetNext(PropertyId& propertyId, PropertyAttributes* attributes)
     {
-        Var currentIndex = GetCurrentAndMoveNextFromArray(propertyId, attributes);
+        Var currentIndex = MoveAndGetNextFromArray(propertyId, attributes);
         return (currentIndex != nullptr)? currentIndex :
-            this->GetCurrentAndMoveNextFromObject(objectIndex, propertyId, attributes);
+            this->MoveAndGetNextFromObject(this->objectIndex, propertyId, attributes);
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    void DynamicObjectSnapshotEnumerator<T, enumNonEnumerable, enumSymbols>::Reset()
+    template <bool enumNonEnumerable, bool enumSymbols>
+    void DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>::Reset()
     {
         __super::Reset();
-        initialPropertyCount = object->GetPropertyCount();
+        initialPropertyCount = this->object->GetPropertyCount();
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    void DynamicObjectSnapshotEnumerator<T, enumNonEnumerable, enumSymbols>::Initialize(DynamicObject* object)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    void DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>::Initialize(DynamicObject* object)
     {
         __super::Initialize(object);
         initialPropertyCount = object->GetPropertyCount();
     }
 
-    template class DynamicObjectSnapshotEnumerator<PropertyIndex, true, true>;
-    template class DynamicObjectSnapshotEnumerator<PropertyIndex, true, false>;
-    template class DynamicObjectSnapshotEnumerator<PropertyIndex, false, true>;
-    template class DynamicObjectSnapshotEnumerator<PropertyIndex, false, false>;
-    template class DynamicObjectSnapshotEnumerator<BigPropertyIndex, true, true>;
-    template class DynamicObjectSnapshotEnumerator<BigPropertyIndex, true, false>;
-    template class DynamicObjectSnapshotEnumerator<BigPropertyIndex, false, true>;
-    template class DynamicObjectSnapshotEnumerator<BigPropertyIndex, false, false>;
+    template class DynamicObjectSnapshotEnumerator<true, true>;
+    template class DynamicObjectSnapshotEnumerator<true, false>;
+    template class DynamicObjectSnapshotEnumerator<false, true>;
+    template class DynamicObjectSnapshotEnumerator<false, false>;
 }

@@ -54,7 +54,7 @@ enum ETWEventGCActivationKind : unsigned
 
 DefaultRecyclerCollectionWrapper DefaultRecyclerCollectionWrapper::Instance;
 
-__inline bool
+inline bool
 DefaultRecyclerCollectionWrapper::IsCollectionDisabled(Recycler * recycler)
 {
     // GC shouldn't be triggered during heap enum, unless we missed a case where it allocate memory (which
@@ -117,9 +117,9 @@ DefaultRecyclerCollectionWrapper::DisposeObjects(Recycler * recycler)
 
 static void* GetStackBase();
 
-template __forceinline char * Recycler::AllocWithAttributesInlined<NoBit, false>(size_t size);
-template __forceinline char* Recycler::RealAlloc<NoBit, false>(HeapInfo* heap, size_t size);
-template __forceinline _Ret_notnull_ void * __cdecl operator new<Recycler>(size_t byteSize, Recycler * alloc, char * (Recycler::*AllocFunc)(size_t));
+template _ALWAYSINLINE char * Recycler::AllocWithAttributesInlined<NoBit, false>(size_t size);
+template _ALWAYSINLINE char* Recycler::RealAlloc<NoBit, false>(HeapInfo* heap, size_t size);
+template _ALWAYSINLINE _Ret_notnull_ void * __cdecl operator new<Recycler>(size_t byteSize, Recycler * alloc, char * (Recycler::*AllocFunc)(size_t));
 
 Recycler::Recycler(AllocationPolicyManager * policyManager, IdleDecommitPageAllocator * pageAllocator, void (*outOfMemoryFunc)(), Js::ConfigFlagsTable& configFlagsTable) :
     collectionState(CollectionStateNotCollecting),
@@ -325,7 +325,7 @@ Recycler::Recycler(AllocationPolicyManager * policyManager, IdleDecommitPageAllo
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
     // recycler requires at least Recycler::PrimaryMarkStackReservedPageCount to function properly for the main mark context
-    this->markContext.SetMaxPageCount(max<size_t>(GetRecyclerFlagsTable().MaxMarkStackPageCount, Recycler::PrimaryMarkStackReservedPageCount));
+    this->markContext.SetMaxPageCount(max(static_cast<size_t>(GetRecyclerFlagsTable().MaxMarkStackPageCount), static_cast<size_t>(Recycler::PrimaryMarkStackReservedPageCount)));
     this->parallelMarkContext1.SetMaxPageCount(GetRecyclerFlagsTable().MaxMarkStackPageCount);
     this->parallelMarkContext2.SetMaxPageCount(GetRecyclerFlagsTable().MaxMarkStackPageCount);
     this->parallelMarkContext3.SetMaxPageCount(GetRecyclerFlagsTable().MaxMarkStackPageCount);
@@ -484,7 +484,7 @@ Recycler::~Recycler()
     CheckLeaks(this->IsInDllCanUnloadNow()? _u("DllCanUnloadNow") : this->IsInDetachProcess()? _u("DetachProcess") : _u("Destructor"));
 #endif
 
-    AUTO_LEAK_REPORT_SECTION(this->GetRecyclerFlagsTable(), _u("Skipped finalizers"));
+    AUTO_LEAK_REPORT_SECTION_0(this->GetRecyclerFlagsTable(), _u("Skipped finalizers"));
 
 #if ENABLE_CONCURRENT_GC
     Assert(concurrentThread == nullptr);
@@ -571,6 +571,7 @@ Recycler::SetIsThreadBound()
     Assert(mainThreadHandle == nullptr);
     ::DuplicateHandle(::GetCurrentProcess(), ::GetCurrentThread(), ::GetCurrentProcess(),  &mainThreadHandle,
         0, FALSE, DUPLICATE_SAME_ACCESS);
+
     stackBase = GetStackBase();
 }
 
@@ -588,12 +589,14 @@ Recycler::RootAddRef(void* obj, uint *count)
             this->scanPinnedObjectMap = true;
             RECYCLER_PERF_COUNTER_INC(PinnedObject);
         }
+#ifdef STACK_BACK_TRACE
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
         if (GetRecyclerFlagsTable().LeakStackTrace)
         {
             StackBackTraceNode::Prepend(&NoCheckHeapAllocator::Instance, refCount.stackBackTraces,
                 transientPinnedObjectStackBackTrace);
         }
+#endif
 #endif
     }
 
@@ -605,11 +608,13 @@ Recycler::RootAddRef(void* obj, uint *count)
 
     transientPinnedObject = obj;
 
+#ifdef STACK_BACK_TRACE
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
     if (GetRecyclerFlagsTable().LeakStackTrace)
     {
         transientPinnedObjectStackBackTrace = StackBackTrace::Capture(&NoCheckHeapAllocator::Instance);
     }
+#endif
 #endif
 }
 
@@ -628,11 +633,13 @@ Recycler::RootRelease(void* obj, uint *count)
             *count = (refCount != nullptr) ? *refCount : 0;
         }
 
+#ifdef STACK_BACK_TRACE
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
         if (GetRecyclerFlagsTable().LeakStackTrace)
         {
             transientPinnedObjectStackBackTrace->Delete(&NoCheckHeapAllocator::Instance);
         }
+#endif
 #endif
     }
     else
@@ -658,6 +665,7 @@ Recycler::RootRelease(void* obj, uint *count)
 
         if (newRefCount != 0)
         {
+#ifdef STACK_BACK_TRACE
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
             if (GetRecyclerFlagsTable().LeakStackTrace)
             {
@@ -665,11 +673,14 @@ Recycler::RootRelease(void* obj, uint *count)
                     StackBackTrace::Capture(&NoCheckHeapAllocator::Instance));
             }
 #endif
+#endif
             return;
         }
+#ifdef STACK_BACK_TRACE
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
         StackBackTraceNode::DeleteAll(&NoCheckHeapAllocator::Instance, refCount->stackBackTraces);
         refCount->stackBackTraces = nullptr;
+#endif
 #endif
 #if ENABLE_CONCURRENT_GC
         // Don't delete the entry if we are in concurrent find root state
@@ -1083,6 +1094,7 @@ bool Recycler::ExplicitFreeInternal(void* buffer, size_t size, size_t sizeCat)
     Assert((info.GetAttributes() & ~ObjectInfoBits::LeafBit) == 0);          // Only NoBit or LeafBit
 
 #if DBG || defined(RECYCLER_MEMORY_VERIFY) || defined(RECYCLER_PAGE_HEAP)
+
     // Either the mainThreadHandle is null (we're not thread bound)
     // or we should be calling this function on the main script thread
     Assert(this->mainThreadHandle == NULL ||
@@ -1094,6 +1106,7 @@ bool Recycler::ExplicitFreeInternal(void* buffer, size_t size, size_t sizeCat)
 #ifdef RECYCLER_PAGE_HEAP
     if (this->IsPageHeapEnabled())
     {
+#ifdef STACK_BACK_TRACE
         if (this->ShouldCapturePageHeapFreeStack())
         {
             if (heapBlock->IsLargeHeapBlock())
@@ -1105,6 +1118,7 @@ bool Recycler::ExplicitFreeInternal(void* buffer, size_t size, size_t sizeCat)
                 }
             }
         }
+#endif
 
         // Don't do actual explicit free in page heap mode
         return false;
@@ -1331,11 +1345,21 @@ void Recycler::TrackNativeAllocatedMemoryBlock(Recycler * recycler, void * memBl
  * FindRoots
  *------------------------------------------------------------------------------------------------*/
 
-
+// xplat-todo: Unify these two variants of GetStackBase
+#ifdef _WIN32
 static void* GetStackBase()
 {
     return ((NT_TIB *)NtCurrentTeb())->StackBase;
 }
+#else
+static void* GetStackBase()
+{
+    ULONG_PTR highLimit = 0;
+    ULONG_PTR lowLimit = 0;
+    ::GetCurrentThreadStackLimits(&lowLimit, &highLimit);
+    return (void*) highLimit;
+}
+#endif
 
 #if _M_IX86
 // REVIEW: For x86, do we care about scanning esp/ebp?
@@ -1532,8 +1556,10 @@ size_t Recycler::ScanPinnedObjects()
             {
                 if (refCount == 0)
                 {
+#ifdef STACK_BACK_TRACE
 #if defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT)
                     Assert(refCount.stackBackTraces == nullptr);
+#endif
 #endif
                     // Only remove if we are not doing this in the background.
                     return !background;
@@ -3078,7 +3104,7 @@ Recycler::FinishDisposeObjectsNow()
 }
 
 template <CollectionFlags flags>
-__inline
+inline
 bool
 Recycler::FinishDisposeObjectsWrapped()
 {
@@ -3871,10 +3897,10 @@ Recycler::IsReentrantState() const
 
 #ifdef ENABLE_JS_ETW
 template <Js::Phase phase> static ETWEventGCActivationKind GetETWEventGCActivationKind();
-template <> static ETWEventGCActivationKind GetETWEventGCActivationKind<Js::GarbageCollectPhase>() { return ETWEvent_GarbageCollect; }
-template <> static ETWEventGCActivationKind GetETWEventGCActivationKind<Js::ThreadCollectPhase>() { return ETWEvent_ThreadCollect; }
-template <> static ETWEventGCActivationKind GetETWEventGCActivationKind<Js::ConcurrentCollectPhase>() { return ETWEvent_ConcurrentCollect; }
-template <> static ETWEventGCActivationKind GetETWEventGCActivationKind<Js::PartialCollectPhase>() { return ETWEvent_PartialCollect; }
+template <> ETWEventGCActivationKind GetETWEventGCActivationKind<Js::GarbageCollectPhase>() { return ETWEvent_GarbageCollect; }
+template <> ETWEventGCActivationKind GetETWEventGCActivationKind<Js::ThreadCollectPhase>() { return ETWEvent_ThreadCollect; }
+template <> ETWEventGCActivationKind GetETWEventGCActivationKind<Js::ConcurrentCollectPhase>() { return ETWEvent_ConcurrentCollect; }
+template <> ETWEventGCActivationKind GetETWEventGCActivationKind<Js::PartialCollectPhase>() { return ETWEvent_PartialCollect; }
 #endif
 
 template <Js::Phase phase>
@@ -5240,6 +5266,8 @@ Recycler::FinishConcurrentCollect(CollectionFlags flags)
 
 #ifdef PROFILE_EXEC
     Js::Phase concurrentPhase = Js::ConcurrentCollectPhase;
+    // TODO: Remove this workaround for unreferenced local after enabled -profile for GC
+    static_cast<Js::Phase>(concurrentPhase);
 #endif
 #if ENABLE_PARTIAL_GC
     RECYCLER_PROFILE_EXEC_BEGIN2(this, Js::RecyclerPhase,
@@ -5630,8 +5658,8 @@ Recycler::ThreadProc()
 #ifdef ENABLE_JS_ETW
     // Create an ETW ActivityId for this thread, to help tools correlate ETW events we generate
     GUID activityId = { 0 };
-    auto result = EventActivityIdControl(EVENT_ACTIVITY_CTRL_CREATE_SET_ID, &activityId);
-    Assert(result == ERROR_SUCCESS);
+    auto eventActivityIdControlResult = EventActivityIdControl(EVENT_ACTIVITY_CTRL_CREATE_SET_ID, &activityId);
+    Assert(eventActivityIdControlResult == ERROR_SUCCESS);
 #endif
 
     // Signal that the thread has started
@@ -5942,7 +5970,7 @@ Recycler::ShouldIdleCollectOnExit()
         return true;
     }
 
-    ulong nextTime = tickCountNextCollection - tickDiffToNextCollect;
+    uint32 nextTime = tickCountNextCollection - tickDiffToNextCollect;
     // We will try to start a concurrent collect if we are within .9 ms to next scheduled collection, AND,
     // the size of allocation is larger than 32M. This is similar to CollectionAllocation logic, just
     // earlier in both time heuristic and size heuristic, so we can do some concurrent GC while we are
@@ -6168,8 +6196,8 @@ RecyclerParallelThread::StaticThreadProc(LPVOID lpParameter)
 #ifdef ENABLE_JS_ETW
         // Create an ETW ActivityId for this thread, to help tools correlate ETW events we generate
         GUID activityId = { 0 };
-        auto result = EventActivityIdControl(EVENT_ACTIVITY_CTRL_CREATE_SET_ID, &activityId);
-        Assert(result == ERROR_SUCCESS);
+        auto eventActivityIdControlResult = EventActivityIdControl(EVENT_ACTIVITY_CTRL_CREATE_SET_ID, &activityId);
+        Assert(eventActivityIdControlResult == ERROR_SUCCESS);
 #endif
 
         // If this thread is created on demand we already have work to process and do not need to wait
@@ -7718,6 +7746,7 @@ Recycler::ReportLeaks()
             LeakReport::Print(_u("Recycler Leaked Object: %d bytes (%d objects)\n"),
                 param.stats.markData.markBytes, param.stats.markData.markCount);
 
+#ifdef STACK_BACK_TRACE
             if (GetRecyclerFlagsTable().LeakStackTrace)
             {
                 LeakReport::StartSection(_u("Pinned object stack traces"));
@@ -7726,6 +7755,7 @@ Recycler::ReportLeaks()
                 LeakReport::EndRedirectOutput();
                 LeakReport::EndSection();
             }
+#endif
         }
         LeakReport::EndSection();
     }
@@ -7774,6 +7804,7 @@ Recycler::CheckLeaks(char16 const * header)
 
         if (param.stats.markData.markCount != 0)
         {
+#ifdef STACK_BACK_TRACE
             if (GetRecyclerFlagsTable().LeakStackTrace)
             {
                 Output::Print(_u("-------------------------------------------------------------------------------------\n"));
@@ -7781,6 +7812,7 @@ Recycler::CheckLeaks(char16 const * header)
                 Output::Print(_u("-------------------------------------------------------------------------------------\n"));
                 this->PrintPinnedObjectStackTraces();
             }
+#endif
 
             Output::Print(_u("-------------------------------------------------------------------------------------\n"));
             Output::Print(_u("Recycler Leaked Object: %d bytes (%d objects)\n"),
@@ -7846,6 +7878,7 @@ Recycler::ReportOnProcessDetach(Fn fn)
     fn();
 }
 
+#ifdef STACK_BACK_TRACE
 void
 Recycler::PrintPinnedObjectStackTraces()
 {
@@ -7857,6 +7890,7 @@ Recycler::PrintPinnedObjectStackTraces()
         }
     );
 }
+#endif
 #endif
 
 #if defined(RECYCLER_DUMP_OBJECT_GRAPH) ||  defined(LEAK_REPORT) || defined(CHECK_MEMORY_LEAK)
@@ -8188,3 +8222,6 @@ RecyclerHeapObjectInfo::GetSize() const
 #endif
     return size;
 }
+
+template char* Recycler::AllocWithAttributesInlined<(Memory::ObjectInfoBits)32, false>(size_t);
+

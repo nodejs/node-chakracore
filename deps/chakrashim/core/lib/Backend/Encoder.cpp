@@ -595,7 +595,7 @@ void Encoder::RecordInlineeFrame(Func* inlinee, uint32 currentOffset)
 {
     // The only restriction for not supporting loop bodies is that inlinee frame map is created on FunctionEntryPointInfo & not
     // the base class EntryPointInfo.
-    if (!this->m_func->IsLoopBody() && !this->m_func->IsSimpleJit())
+    if (!(this->m_func->IsLoopBody() && PHASE_OFF(Js::InlineInJitLoopBodyPhase, this->m_func)) && !this->m_func->IsSimpleJit())
     {
         InlineeFrameRecord* record = nullptr;
         if (inlinee->frameInfo && inlinee->m_hasInlineArgsOpt)
@@ -642,6 +642,12 @@ Encoder::ShortenBranchesAndLabelAlign(BYTE **codeStart, ptrdiff_t *codeSize)
     BYTE* buffEnd = buffStart + *codeSize;
     ptrdiff_t newCodeSize = *codeSize;
 
+    RelocList* relocList = m_encoderMD.GetRelocList();
+
+    if (relocList == nullptr)
+    {
+        return false;
+    }
 
 #if DBG
     // Sanity check
@@ -661,8 +667,6 @@ Encoder::ShortenBranchesAndLabelAlign(BYTE **codeStart, ptrdiff_t *codeSize)
         , &m_origPragmaInstrToRecordOffset
         , &m_origOffsetBuffer );
 
-    RelocList* relocList = m_encoderMD.GetRelocList();
-    Assert(relocList != nullptr);
     // Here we mark BRs to be shortened and adjust Labels and relocList entries offsets.
     uint32 offsetBuffIndex = 0, pragmaInstToRecordOffsetIndex = 0, inlineeFrameRecordsIndex = 0, inlineeFrameMapIndex = 0;
     int32 totalBytesSaved = 0;

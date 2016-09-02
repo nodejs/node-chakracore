@@ -12,6 +12,9 @@
 
 #include "ByteCode/ScopeInfo.h"
 #include "Base/EtwTrace.h"
+#ifdef VTUNE_PROFILING
+#include "Base/VTuneChakraProfile.h"
+#endif
 
 #ifdef DYNAMIC_PROFILE_MUTATOR
 #include "Language/DynamicProfileMutator.h"
@@ -33,6 +36,13 @@
 
 namespace Js
 {
+    // The VS2013 linker treats this as a redefinition of an already
+    // defined constant and complains. So skip the declaration if we're compiling
+    // with VS2013 or below.
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+    uint const ScopeSlots::MaxEncodedSlotCount;
+#endif
+
     CriticalSection FunctionProxy::GlobalLock;
 
 #ifdef FIELD_ACCESS_STATS
@@ -71,12 +81,12 @@ namespace Js
         PERF_COUNTER_INC(Code, TotalFunction);
     }
 
-    inline Recycler* FunctionProxy::GetRecycler() const
+    Recycler* FunctionProxy::GetRecycler() const
     {
-        return m_scriptContext->GetRecycler(); 
+        return m_scriptContext->GetRecycler();
     }
 
-    inline void* FunctionProxy::GetAuxPtr(AuxPointerType e) const
+    void* FunctionProxy::GetAuxPtr(AuxPointerType e) const
     {
         if (this->auxPtrs == nullptr)
         {
@@ -87,7 +97,8 @@ namespace Js
         Assert(ThreadContext::GetContextForCurrentThread() || ThreadContext::GetCriticalSection()->IsLocked());
         return AuxPtrsT::GetAuxPtr(this, e);
     }
-    inline void* FunctionProxy::GetAuxPtrWithLock(AuxPointerType e) const
+
+    void* FunctionProxy::GetAuxPtrWithLock(AuxPointerType e) const
     {
         if (this->auxPtrs == nullptr)
         {
@@ -97,11 +108,11 @@ namespace Js
         return AuxPtrsT::GetAuxPtr(this, e);
     }
 
-    inline void FunctionProxy::SetAuxPtr(AuxPointerType e, void* ptr)
+    void FunctionProxy::SetAuxPtr(AuxPointerType e, void* ptr)
     {
         // On process detach this can be called from another thread but the ThreadContext should be locked
         Assert(ThreadContext::GetContextForCurrentThread() || ThreadContext::GetCriticalSection()->IsLocked());
-        
+
         if (ptr == nullptr && GetAuxPtr(e) == nullptr)
         {
             return;
@@ -548,7 +559,7 @@ namespace Js
 
         this->AddEntryPointToEntryPointList(this->GetDefaultFunctionEntryPointInfo());
 
-        Assert(this->GetDefaultEntryPointInfo()->address != nullptr);
+        Assert(this->GetDefaultEntryPointInfo()->jsMethod != nullptr);
 
         InitDisableInlineApply();
         InitDisableInlineSpread();
@@ -562,6 +573,34 @@ namespace Js
         this->m_defaultEntryPointInfo = (ProxyEntryPointInfo*) entryPointInfo;
         this->defaultFunctionEntryPointInfo = entryPointInfo;
         SetOriginalEntryPoint(originalEntryPoint);
+    }
+
+    Var
+    FunctionBody::GetFormalsPropIdArrayOrNullObj()
+    {
+        Var formalsPropIdArray = this->GetAuxPtrWithLock(AuxPointerType::FormalsPropIdArray);
+        if (formalsPropIdArray == nullptr)
+        {
+            return GetScriptContext()->GetLibrary()->GetNull();
+        }
+        return formalsPropIdArray;
+    }
+
+    PropertyIdArray*
+    FunctionBody::GetFormalsPropIdArray(bool checkForNull)
+    {
+        if (checkForNull)
+        {
+            Assert(this->GetAuxPtrWithLock(AuxPointerType::FormalsPropIdArray));
+        }
+        return static_cast<PropertyIdArray*>(this->GetAuxPtrWithLock(AuxPointerType::FormalsPropIdArray));
+    }
+
+    void 
+    FunctionBody::SetFormalsPropIdArray(PropertyIdArray * propIdArray)
+    {
+        AssertMsg(propIdArray == nullptr || this->GetAuxPtrWithLock(AuxPointerType::FormalsPropIdArray) == nullptr, "Already set?");
+        this->SetAuxPtr(AuxPointerType::FormalsPropIdArray, propIdArray);
     }
 
     ByteBlock*
@@ -946,7 +985,7 @@ namespace Js
     FunctionBody::RecordNativeBaseAddress(BYTE* baseAddress, ptrdiff_t size, NativeCodeData * data, NativeCodeData * transferData,
         CodeGenNumberChunk * numberChunks, EntryPointInfo* entryPoint, uint loopNum)
     {
-        entryPoint->SetCodeGenRecorded(baseAddress, size, data, transferData, numberChunks);
+        entryPoint->SetCodeGenRecorded(reinterpret_cast<Js::JavascriptMethod>(baseAddress), size, data, transferData, numberChunks);
     }
 #endif
 
@@ -1010,6 +1049,7 @@ namespace Js
         CopyDeferParseField(m_isStrictMode);
         CopyDeferParseField(m_isGlobalFunc);
         CopyDeferParseField(m_doBackendArgumentsOptimization);
+        CopyDeferParseField(m_usesArgumentsObject);
         CopyDeferParseField(m_isEval);
         CopyDeferParseField(m_isDynamicFunction);
         CopyDeferParseField(m_hasImplicitArgIns);
@@ -1035,8 +1075,8 @@ namespace Js
 
     void FunctionProxy::SetReferenceInParentFunction(FunctionProxyPtrPtr reference)
     {
-        // No need to tag the reference because the first field of the nested array 
-        // is count, so the reference here won't be same as address of the parent nested 
+        // No need to tag the reference because the first field of the nested array
+        // is count, so the reference here won't be same as address of the parent nested
         // array (even for index 0)
         this->m_referenceInParentFunction = reference;
     }
@@ -1104,6 +1144,7 @@ namespace Js
       m_isNameIdentifierRef (true),
       m_isStaticNameFunction(false),
       m_doBackendArgumentsOptimization(true),
+      m_usesArgumentsObject(false),
       m_isStrictMode(false),
       m_isAsmjsMode(false),
       m_dontInline(false),
@@ -1151,7 +1192,7 @@ namespace Js
 #if ENABLE_NATIVE_CODEGEN
             validationCookie = (void*)scriptContext->GetNativeCodeGenerator();
 #endif
-             
+
             this->m_defaultEntryPointInfo = RecyclerNewFinalized(scriptContext->GetRecycler(),
                 FunctionEntryPointInfo, this, entryPoint, scriptContext->GetThreadContext(), validationCookie);
         }
@@ -1167,8 +1208,14 @@ namespace Js
     ParseableFunctionInfo* ParseableFunctionInfo::New(ScriptContext* scriptContext, int nestedCount,
         LocalFunctionId functionId, Utf8SourceInfo* sourceInfo, const char16* displayName, uint displayNameLength, uint displayShortNameOffset, Js::PropertyRecordList* propertyRecords, Attributes attributes)
     {
-        Assert(scriptContext->DeferredParsingThunk == ProfileDeferredParsingThunk
-            || scriptContext->DeferredParsingThunk == DefaultDeferredParsingThunk);
+#ifdef ENABLE_SCRIPT_PROFILING
+        Assert(
+            scriptContext->DeferredParsingThunk == ProfileDeferredParsingThunk ||
+            scriptContext->DeferredParsingThunk == DefaultDeferredParsingThunk);
+#else
+        Assert(scriptContext->DeferredParsingThunk == DefaultDeferredParsingThunk);
+#endif
+
 #ifdef PERF_COUNTERS
         PERF_COUNTER_INC(Code, DeferredFunction);
 #endif
@@ -1296,12 +1343,12 @@ namespace Js
     }
 
     void
-    ParseableFunctionInfo::SetGrfscr(ulong grfscr)
+    ParseableFunctionInfo::SetGrfscr(uint32 grfscr)
     {
         this->m_grfscr = grfscr;
     }
 
-    ulong
+    uint32
     ParseableFunctionInfo::GetGrfscr() const
     {
         return this->m_grfscr;
@@ -1374,7 +1421,7 @@ namespace Js
         return GetNestedArray()->functionProxyArray;
     }
 
-    void ParseableFunctionInfo::SetNestedFunc(FunctionProxy* nestedFunc, uint index, ulong flags)
+    void ParseableFunctionInfo::SetNestedFunc(FunctionProxy* nestedFunc, uint index, uint32 flags)
     {
         AssertMsg(index < this->GetNestedCount(), "Trying to write past the nested func array");
 
@@ -1431,7 +1478,7 @@ namespace Js
 
     void ParseableFunctionInfo::ClearNestedFunctionParentFunctionReference()
     {
-        this->ForEachNestedFunc([](FunctionProxy* proxy, uint32 index) 
+        this->ForEachNestedFunc([](FunctionProxy* proxy, uint32 index)
         {
             if (proxy)
             {
@@ -1474,7 +1521,8 @@ namespace Js
     ScriptFunctionType * FunctionProxy::EnsureDeferredPrototypeType()
     {
         Assert(this->GetFunctionProxy() == this);
-        return (deferredPrototypeType != nullptr)? deferredPrototypeType : AllocDeferredPrototypeType();
+        return deferredPrototypeType != nullptr ?
+            static_cast<ScriptFunctionType*>(deferredPrototypeType) : AllocDeferredPrototypeType();
     }
 
     ScriptFunctionType * FunctionProxy::AllocDeferredPrototypeType()
@@ -1487,8 +1535,8 @@ namespace Js
 
     JavascriptMethod FunctionProxy::GetDirectEntryPoint(ProxyEntryPointInfo* entryPoint) const
     {
-        Assert((JavascriptMethod)entryPoint->address != nullptr);
-        return (JavascriptMethod)entryPoint->address;
+        Assert(entryPoint->jsMethod != nullptr);
+        return entryPoint->jsMethod;
     }
 
     // Function object type list methods
@@ -1780,7 +1828,7 @@ namespace Js
 
                 LPCUTF8 pszStart = this->GetStartOfDocument();
 
-                ulong grfscr = funcBody->GetGrfscr() | fscrDeferredFnc;
+                uint32 grfscr = funcBody->GetGrfscr() | fscrDeferredFnc;
 
                 // For the global function we want to re-use the glo functionbody which is already created in the non-debug mode
                 if (!funcBody->GetIsGlobalFunc())
@@ -1897,6 +1945,9 @@ namespace Js
 
         if (fParsed == TRUE)
         {
+            // Restore if the function has nameIdentifier reference, as that name on the left side will not be parsed again while deferparse.
+            funcBody->SetIsNameIdentifierRef(this->GetIsNameIdentifierRef());
+
             this->UpdateFunctionBodyImpl(funcBody);
             this->m_hasBeenParsed = true;
         }
@@ -1965,7 +2016,7 @@ namespace Js
 
         LPCUTF8 pszStart = this->GetStartOfDocument();
 
-        ulong grfscr = funcBody->GetGrfscr() | fscrDeferredFnc | fscrDeferredFncExpression;
+        uint32 grfscr = funcBody->GetGrfscr() | fscrDeferredFnc | fscrDeferredFncExpression;
 
         uint nextFunctionId = funcBody->GetLocalFunctionId();
 
@@ -2023,7 +2074,7 @@ namespace Js
         }
     }
 
-    bool ParseableFunctionInfo::IsFakeGlobalFunc(ulong flags) const
+    bool ParseableFunctionInfo::IsFakeGlobalFunc(uint32 flags) const
     {
         return GetIsGlobalFunc() && !(flags & fscrGlobalCode);
     }
@@ -2196,41 +2247,6 @@ namespace Js
             return nullptr;
         }
         return map;
-    }
-    void ParseableFunctionInfo::CloneSourceInfo(ScriptContext* scriptContext, const ParseableFunctionInfo& other, ScriptContext* othersScriptContext, uint sourceIndex)
-    {
-        if (!m_utf8SourceHasBeenSet)
-        {
-            this->SetUtf8SourceInfo(scriptContext->GetSource(sourceIndex));
-            this->m_sourceIndex = sourceIndex;
-            this->m_cchStartOffset = other.m_cchStartOffset;
-            this->m_cchLength = other.m_cchLength;
-            this->m_lineNumber = other.m_lineNumber;
-            this->m_columnNumber = other.m_columnNumber;
-            this->m_isEval = other.m_isEval;
-            this->m_isDynamicFunction = other.m_isDynamicFunction;
-            this->m_cbStartOffset =  other.StartOffset();
-            this->m_cbLength = other.LengthInBytes();
-            this->m_utf8SourceHasBeenSet = true;
-
-            if (this->IsFunctionBody())
-            {
-                this->GetFunctionBody()->FinishSourceInfo();
-            }
-        }
-#if DBG
-        else
-        {
-            AssertMsg(this->m_cchStartOffset == other.m_cchStartOffset, "Mismatched source character start offset");
-            AssertMsg(this->StartOffset() == other.StartOffset(), "Mismatched source start offset");
-            AssertMsg(this->m_cchLength == other.m_cchLength, "Mismatched source character length");
-            AssertMsg(this->LengthInBytes() == other.LengthInBytes(), "Mismatch source byte length");
-            AssertMsg(this->GetUtf8SourceInfo()->GetSourceHolder() == scriptContext->GetSource(this->m_sourceIndex)->GetSourceHolder(),
-                      "Mismatched source holder pointer");
-            AssertMsg(this->m_isEval == other.m_isEval, "Mismatched source type");
-            AssertMsg(this->m_isDynamicFunction == other.m_isDynamicFunction, "Mismatch source type");
-       }
-#endif
     }
 
     void ParseableFunctionInfo::SetSourceInfo(uint sourceIndex, ParseNodePtr node, bool isEval, bool isDynamicFunction)
@@ -2741,7 +2757,7 @@ namespace Js
         return FALSE;
     }
 
-    void FunctionBody::FindClosestStatements(long characterOffset, StatementLocation *firstStatementLocation, StatementLocation *secondStatementLocation)
+    void FunctionBody::FindClosestStatements(int32 characterOffset, StatementLocation *firstStatementLocation, StatementLocation *secondStatementLocation)
     {
         auto statementMaps = this->GetStatementMaps();
         if (statementMaps)
@@ -2937,7 +2953,7 @@ namespace Js
     //      if (profiling) - ProfileDeferredParsingThunk, ProfileDeferredDeserializeThunk, ProfileEntryThunk, CheckCodeGenThunk
     bool FunctionProxy::HasValidNonProfileEntryPoint() const
     {
-        JavascriptMethod directEntryPoint = (JavascriptMethod)this->GetDefaultEntryPointInfo()->address;
+        JavascriptMethod directEntryPoint = this->GetDefaultEntryPointInfo()->jsMethod;
         JavascriptMethod originalEntryPoint = this->originalEntryPoint;
 
         // Check the direct entry point to see if it is codegen thunk
@@ -2955,9 +2971,10 @@ namespace Js
 #endif
         ;
     }
+#ifdef ENABLE_SCRIPT_PROFILING
     bool FunctionProxy::HasValidProfileEntryPoint() const
     {
-        JavascriptMethod directEntryPoint = (JavascriptMethod)this->GetDefaultEntryPointInfo()->address;
+        JavascriptMethod directEntryPoint = this->GetDefaultEntryPointInfo()->jsMethod;
         if (this->originalEntryPoint == DefaultDeferredParsingThunk)
         {
             return directEntryPoint == ProfileDeferredParsingThunk;
@@ -2987,6 +3004,7 @@ namespace Js
         return true;
 #endif
     }
+#endif
 
     bool FunctionProxy::HasValidEntryPoint() const
     {
@@ -2995,18 +3013,27 @@ namespace Js
         {
             return this->HasValidNonProfileEntryPoint();
         }
+#ifdef ENABLE_SCRIPT_PROFILING
         if (m_scriptContext->IsProfiling())
         {
             return this->HasValidProfileEntryPoint();
         }
+
         return this->HasValidNonProfileEntryPoint() || this->HasValidProfileEntryPoint();
+#else
+        return this->HasValidNonProfileEntryPoint();
+#endif
     }
 
 #endif
     void ParseableFunctionInfo::SetDeferredParsingEntryPoint()
     {
+#ifdef ENABLE_SCRIPT_PROFILING
         Assert(m_scriptContext->DeferredParsingThunk == ProfileDeferredParsingThunk
             || m_scriptContext->DeferredParsingThunk == DefaultDeferredParsingThunk);
+#else
+        Assert(m_scriptContext->DeferredParsingThunk == DefaultDeferredParsingThunk);
+#endif
 
         this->SetEntryPoint(this->GetDefaultEntryPointInfo(), m_scriptContext->DeferredParsingThunk);
         originalEntryPoint = DefaultDeferredParsingThunk;
@@ -3014,10 +3041,17 @@ namespace Js
 
     void ParseableFunctionInfo::SetInitialDefaultEntryPoint()
     {
+#ifdef ENABLE_SCRIPT_PROFILING
         Assert(m_scriptContext->CurrentThunk == ProfileEntryThunk || m_scriptContext->CurrentThunk == DefaultEntryThunk);
         Assert(originalEntryPoint == DefaultDeferredParsingThunk || originalEntryPoint == ProfileDeferredParsingThunk ||
                originalEntryPoint == DefaultDeferredDeserializeThunk || originalEntryPoint == ProfileDeferredDeserializeThunk ||
                originalEntryPoint == DefaultEntryThunk || originalEntryPoint == ProfileEntryThunk);
+#else
+        Assert(m_scriptContext->CurrentThunk == DefaultEntryThunk);
+        Assert(originalEntryPoint == DefaultDeferredParsingThunk ||
+               originalEntryPoint == DefaultDeferredDeserializeThunk ||
+               originalEntryPoint == DefaultEntryThunk);
+#endif
         Assert(this->m_defaultEntryPointInfo != nullptr);
 
         // CONSIDER: we can optimize this to generate the dynamic interpreter thunk up front
@@ -3124,7 +3158,7 @@ namespace Js
             return;
         }
         bool isAsmJs = this->GetIsAsmjsMode();
-        Assert(IsIntermediateCodeGenThunk((JavascriptMethod)entryPointInfo->address) || CONFIG_FLAG(Prejit) || this->m_isFromNativeCodeModule || isAsmJs);
+        Assert(IsIntermediateCodeGenThunk(entryPointInfo->jsMethod) || CONFIG_FLAG(Prejit) || this->m_isFromNativeCodeModule || isAsmJs);
         entryPointInfo->EnsureIsReadyToCall();
 
         // keep originalEntryPoint updated with the latest known good native entry point
@@ -3135,11 +3169,11 @@ namespace Js
 
         if (entryPointInfo->entryPointIndex == 0 && this->NeedEnsureDynamicProfileInfo())
         {
-            entryPointInfo->address = DynamicProfileInfo::EnsureDynamicProfileInfoThunk;
+            entryPointInfo->jsMethod = DynamicProfileInfo::EnsureDynamicProfileInfoThunk;
         }
         else
         {
-            entryPointInfo->address = directEntryPoint;
+            entryPointInfo->jsMethod = reinterpret_cast<Js::JavascriptMethod>(directEntryPoint);
         }
         if (isAsmJs)
         {
@@ -3173,6 +3207,9 @@ namespace Js
         TraceExecutionMode();
 
         JS_ETW(EtwTrace::LogMethodNativeLoadEvent(this, entryPointInfo));
+#ifdef VTUNE_PROFILING
+        VTuneChakraProfile::LogMethodNativeLoadEvent(this, entryPointInfo);
+#endif
 
 #ifdef _M_ARM
         // For ARM we need to make sure that pipeline is synchronized with memory/cache for newly jitted code.
@@ -3200,7 +3237,7 @@ namespace Js
 #if DBG
         this->GetLoopNumber(loopHeader);
 #endif
-        return (Js::JavascriptMethod)(loopHeader->GetEntryPointInfo(entryPointIndex)->address);
+        return loopHeader->GetEntryPointInfo(entryPointIndex)->jsMethod;
     }
 
     void FunctionBody::SetLoopBodyEntryPoint(Js::LoopHeader * loopHeader, EntryPointInfo* entryPointInfo, Js::JavascriptMethod entryPoint)
@@ -3215,14 +3252,25 @@ namespace Js
         }
 #endif
         Assert(((LoopEntryPointInfo*) entryPointInfo)->loopHeader == loopHeader);
-        Assert(entryPointInfo->address == nullptr);
-        entryPointInfo->address = (void*)entryPoint;
+        Assert(reinterpret_cast<void*>(entryPointInfo->jsMethod) == nullptr);
+        entryPointInfo->jsMethod = entryPoint;
+
+        ((Js::LoopEntryPointInfo*)entryPointInfo)->totalJittedLoopIterations = 
+            static_cast<uint8>(
+                min(
+                    static_cast<uint>(static_cast<uint8>(CONFIG_FLAG(MinBailOutsBeforeRejitForLoops))) *
+                    (Js::LoopEntryPointInfo::GetDecrLoopCountPerBailout() - 1),
+                    0xffu));
+
         // reset the counter to 1 less than the threshold for TJLoopBody
         if (loopHeader->GetCurrentEntryPointInfo()->GetIsAsmJSFunction())
         {
             loopHeader->interpretCount = entryPointInfo->GetFunctionBody()->GetLoopInterpretCount(loopHeader) - 1;
         }
         JS_ETW(EtwTrace::LogLoopBodyLoadEvent(this, loopHeader, ((LoopEntryPointInfo*) entryPointInfo), ((uint16)this->GetLoopNumberWithLock(loopHeader))));
+#ifdef VTUNE_PROFILING
+        VTuneChakraProfile::LogLoopBodyLoadEvent(this, loopHeader, ((LoopEntryPointInfo*)entryPointInfo), ((uint16)this->GetLoopNumberWithLock(loopHeader)));
+#endif
     }
 #endif
 
@@ -3359,251 +3407,6 @@ namespace Js
         }
     }
 
-    void FunctionBody::CloneByteCodeInto(ScriptContext * scriptContext, FunctionBody *newFunctionBody, uint sourceIndex)
-    {
-        ((ParseableFunctionInfo*) this)->CopyFunctionInfoInto(scriptContext, newFunctionBody, sourceIndex);
-
-        newFunctionBody->SetConstantCount(this->GetConstantCount());
-        newFunctionBody->SetVarCount(this->GetVarCount());
-        newFunctionBody->SetOutParamMaxDepth(this->GetOutParamMaxDepth());
-
-        newFunctionBody->SetFirstTmpRegister(this->GetFirstTmpRegister());
-        newFunctionBody->SetLocalClosureRegister(this->GetLocalClosureRegister());
-        newFunctionBody->SetParamClosureRegister(this->GetParamClosureRegister());
-        newFunctionBody->SetLocalFrameDisplayRegister(this->GetLocalFrameDisplayRegister());
-        newFunctionBody->SetEnvRegister(this->GetEnvRegister());
-        newFunctionBody->SetThisRegisterForEventHandler(this->GetThisRegisterForEventHandler());
-        newFunctionBody->SetFirstInnerScopeRegister(this->GetFirstInnerScopeRegister());
-        newFunctionBody->SetFuncExprScopeRegister(this->GetFuncExprScopeRegister());
-        newFunctionBody->SetInnerScopeCount(this->GetInnerScopeCount());
-        newFunctionBody->hasCachedScopePropIds = this->hasCachedScopePropIds;
-        newFunctionBody->SetLoopCount(this->GetLoopCount());
-        newFunctionBody->profiledDivOrRemCount = this->profiledDivOrRemCount;
-        newFunctionBody->profiledSwitchCount = this->profiledSwitchCount;
-        newFunctionBody->profiledCallSiteCount = this->profiledCallSiteCount;
-        newFunctionBody->profiledArrayCallSiteCount = this->profiledArrayCallSiteCount;
-        newFunctionBody->profiledReturnTypeCount = this->profiledReturnTypeCount;
-        newFunctionBody->profiledLdElemCount = this->profiledLdElemCount;
-        newFunctionBody->profiledStElemCount = this->profiledStElemCount;
-        newFunctionBody->profiledSlotCount = this->profiledSlotCount;
-        newFunctionBody->flags = this->flags;
-        newFunctionBody->m_isFuncRegistered = this->m_isFuncRegistered;
-        newFunctionBody->m_isFuncRegisteredToDiag = this->m_isFuncRegisteredToDiag;
-        newFunctionBody->m_hasBailoutInstrInJittedCode = this->m_hasBailoutInstrInJittedCode;
-        newFunctionBody->m_depth = this->m_depth;
-        newFunctionBody->inlineDepth = 0;
-        newFunctionBody->recentlyBailedOutOfJittedLoopBody = false;
-        newFunctionBody->m_pendingLoopHeaderRelease = this->m_pendingLoopHeaderRelease;
-        newFunctionBody->m_envDepth = this->m_envDepth;
-
-        if (this->GetConstTable() != nullptr)
-        {
-            this->CloneConstantTable(newFunctionBody);
-        }
-
-        newFunctionBody->cacheIdToPropertyIdMap = this->cacheIdToPropertyIdMap;
-        newFunctionBody->SetReferencedPropertyIdMap(this->GetReferencedPropertyIdMap());
-        newFunctionBody->SetPropertyIdsForScopeSlotArray(this->GetPropertyIdsForScopeSlotArray(), this->scopeSlotArraySize);
-        newFunctionBody->SetPropertyIdOnRegSlotsContainer(this->GetPropertyIdOnRegSlotsContainer());
-        
-
-        if (this->byteCodeBlock == nullptr)
-        {
-            newFunctionBody->SetDeferredParsingEntryPoint();
-        }
-        else
-        {
-            newFunctionBody->byteCodeBlock = this->byteCodeBlock->Clone(this->m_scriptContext->GetRecycler());
-            newFunctionBody->SetByteCodeCount( this->GetByteCodeCount());
-            newFunctionBody->SetByteCodeWithoutLDACount(this->GetByteCodeWithoutLDACount());
-            newFunctionBody->SetByteCodeInLoopCount(this->GetByteCodeInLoopCount());
-
-#ifdef PERF_COUNTERS
-            DWORD byteCodeSize = this->byteCodeBlock->GetLength();
-#endif
-            if (this->GetAuxiliaryData())
-            {
-                newFunctionBody->SetAuxiliaryData( this->GetAuxiliaryData()->Clone(this->m_scriptContext->GetRecycler()));
-
-#ifdef PERF_COUNTERS
-                byteCodeSize += this->GetAuxiliaryData()->GetLength();
-#endif
-            }
-
-            if (this->GetAuxiliaryContextData())
-            {
-                newFunctionBody->SetAuxiliaryContextData(this->GetAuxiliaryContextData()->Clone(scriptContext->GetRecycler(), scriptContext));
-#ifdef PERF_COUNTERS
-                byteCodeSize += this->GetAuxiliaryContextData()->GetLength();
-#endif
-            }
-
-            if (this->GetProbeBackingBlock())
-            {
-                newFunctionBody->SetProbeBackingBlock(this->GetProbeBackingBlock()->Clone(scriptContext->GetRecycler()));
-                newFunctionBody->m_sourceInfo.m_probeCount = m_sourceInfo.m_probeCount;
-            }
-
-#ifdef PERF_COUNTERS
-            PERF_COUNTER_ADD(Code, DynamicByteCodeSize, byteCodeSize);
-            PERF_COUNTER_ADD(Code, TotalByteCodeSize, byteCodeSize);
-#endif
-            newFunctionBody->SetFrameDisplayRegister(this->GetFrameDisplayRegister());
-            newFunctionBody->SetObjectRegister(this->GetObjectRegister());
-
-            StatementMapList * pStatementMaps = this->GetStatementMaps();
-            if (pStatementMaps != nullptr)
-            {
-                Recycler* recycler = newFunctionBody->GetScriptContext()->GetRecycler();
-                StatementMapList * newStatementMaps = RecyclerNew(recycler, StatementMapList, recycler);
-                newFunctionBody->SetStatementMaps(newStatementMaps);
-                pStatementMaps->Map([recycler, newStatementMaps](int index, FunctionBody::StatementMap* oldStatementMap)
-                {
-                    FunctionBody::StatementMap* newStatementMap = StatementMap::New(recycler);
-                    *newStatementMap = *oldStatementMap;
-                    newStatementMaps->Add(newStatementMap);
-                });
-            }
-
-            if (this->m_sourceInfo.pSpanSequence != nullptr)
-            {
-                // Span sequence is heap allocated
-                newFunctionBody->m_sourceInfo.pSpanSequence = this->m_sourceInfo.pSpanSequence->Clone();
-            }
-
-            Assert(newFunctionBody->GetDirectEntryPoint(newFunctionBody->GetDefaultEntryPointInfo()) == scriptContext->CurrentThunk);
-            Assert(newFunctionBody->IsInterpreterThunk());
-        }
-
-        // Create a new inline cache
-        newFunctionBody->SetInlineCacheCount(this->GetInlineCacheCount());
-        newFunctionBody->SetRootObjectLoadInlineCacheStart(this->GetRootObjectLoadInlineCacheStart());
-        newFunctionBody->SetRootObjectStoreInlineCacheStart(this->GetRootObjectStoreInlineCacheStart());
-        newFunctionBody->SetIsInstInlineCacheCount(this->GetIsInstInlineCacheCount());
-        newFunctionBody->SetReferencedPropertyIdCount(this->GetReferencedPropertyIdCount());
-        newFunctionBody->AllocateInlineCache();
-
-        newFunctionBody->SetObjLiteralCount(this->GetObjLiteralCount());
-        newFunctionBody->AllocateObjectLiteralTypeArray();
-
-        newFunctionBody->SetSimpleJitEntryPointInfo(nullptr);
-        newFunctionBody->SetLoopInterpreterLimit(this->GetLoopInterpreterLimit());
-        newFunctionBody->ReinitializeExecutionModeAndLimits();
-
-        // Clone literal regexes
-        uint32 literalRegexCount = this->GetLiteralRegexCount();
-        newFunctionBody->SetLiteralRegexCount(literalRegexCount);
-        newFunctionBody->AllocateLiteralRegexArray();
-        for(uint i = 0; i < literalRegexCount; ++i)
-        {
-            const auto literalRegex = this->GetLiteralRegexes()[i];
-            if(!literalRegex)
-            {
-                Assert(!newFunctionBody->GetLiteralRegex(i));
-                continue;
-            }
-
-            const auto source = literalRegex->GetSource();
-            newFunctionBody->SetLiteralRegex(
-                i,
-                RegexHelper::CompileDynamic(
-                    scriptContext,
-                    source.GetBuffer(),
-                    source.GetLength(),
-                    literalRegex->GetFlags(),
-                    true));
-        }
-
-        if (this->DoJITLoopBody())
-        {
-            newFunctionBody->AllocateLoopHeaders();
-
-            for (uint i = 0; i < this->GetLoopCount(); i++)
-            {
-                newFunctionBody->GetLoopHeader(i)->startOffset = GetLoopHeader(i)->startOffset;
-                newFunctionBody->GetLoopHeader(i)->endOffset = GetLoopHeader(i)->endOffset;
-            }
-        }
-
-        newFunctionBody->m_isFromNativeCodeModule = this->m_isFromNativeCodeModule;
-    }
-
-    ParseableFunctionInfo *
-    FunctionBody::Clone(ScriptContext * scriptContext, uint sourceIndex)
-    {
-#if ENABLE_NATIVE_CODEGEN && defined(ENABLE_PREJIT)
-        bool isNested = sourceIndex != Constants::InvalidSourceIndex;
-#endif
-        Utf8SourceInfo* sourceInfo = nullptr;
-        if(sourceIndex == Constants::InvalidSourceIndex)
-        {
-            // If we're copying a source info across script contexts, we need
-            // to create a copy of the Utf8SourceInfo (just the structure, not the source code itself)
-            // because a Utf8SourceInfo must reference only function bodies created within that script
-            // context
-            Utf8SourceInfo* oldSourceInfo = GetUtf8SourceInfo();
-            SRCINFO* srcInfo = GetHostSrcInfo()->Clone(scriptContext);
-            sourceInfo = scriptContext->CloneSourceCrossContext(oldSourceInfo, srcInfo);
-            sourceIndex = scriptContext->SaveSourceNoCopy(sourceInfo, oldSourceInfo->GetCchLength(), oldSourceInfo->GetIsCesu8());
-        }
-        else
-        {
-            sourceInfo = scriptContext->GetSource(sourceIndex);
-        }
-
-        FunctionBody * newFunctionBody = FunctionBody::NewFromRecycler(scriptContext, this->GetDisplayName(), this->GetDisplayNameLength(),
-                this->GetShortDisplayNameOffset(), this->GetNestedCount(), sourceInfo, this->m_functionNumber, this->m_uScriptId,
-                this->GetLocalFunctionId(), this->GetBoundPropertyRecords(),
-                this->GetAttributes()
-#ifdef PERF_COUNTERS
-                , false
-#endif
-                );
-
-        if (this->GetScopeInfo() != nullptr)
-        {
-            newFunctionBody->SetScopeInfo(this->GetScopeInfo()->CloneFor(newFunctionBody));
-        }
-
-        newFunctionBody->CloneSourceInfo(scriptContext, (*this), this->m_scriptContext, sourceIndex);
-        CloneByteCodeInto(scriptContext, newFunctionBody, sourceIndex);
-
-#if DBG
-        newFunctionBody->m_iProfileSession = this->m_iProfileSession;
-        newFunctionBody->deferredParseNextFunctionId = this->deferredParseNextFunctionId;
-#endif
-
-#if ENABLE_PROFILE_INFO
-        if (this->HasDynamicProfileInfo())
-        {
-            newFunctionBody->EnsureDynamicProfileInfo();
-        }
-#endif
-
-        newFunctionBody->SetByteCodeCache(this->GetByteCodeCache());
-
-#if ENABLE_NATIVE_CODEGEN
-        if (newFunctionBody->GetByteCode() && (IsIntermediateCodeGenThunk(this->GetOriginalEntryPoint())
-            || IsNativeOriginalEntryPoint()))
-        {
-#ifdef ENABLE_PREJIT
-            if (Js::Configuration::Global.flags.Prejit)
-            {
-                if (!isNested)
-                {
-                    GenerateAllFunctions(scriptContext->GetNativeCodeGenerator(), newFunctionBody);
-                }
-            }
-            else
-#endif
-            {
-                GenerateFunction(scriptContext->GetNativeCodeGenerator(), newFunctionBody);
-            }
-        }
-#endif
-        return newFunctionBody;
-    }
-
     void FunctionBody::SetStackNestedFuncParent(FunctionBody * parentFunctionBody)
     {
         Assert(this->GetStackNestedFuncParent() == nullptr);
@@ -3613,7 +3416,7 @@ namespace Js
         this->SetAuxPtr(AuxPointerType::StackNestedFuncParent, this->GetScriptContext()->GetRecycler()->CreateWeakReferenceHandle(parentFunctionBody));
     }
 
-    FunctionBody * FunctionBody::GetStackNestedFuncParentStrongRef() 
+    FunctionBody * FunctionBody::GetStackNestedFuncParentStrongRef()
     {
         Assert(this->GetStackNestedFuncParent() != nullptr);
         return this->GetStackNestedFuncParent()->Get();
@@ -3638,96 +3441,6 @@ namespace Js
     void FunctionBody::ClearStackNestedFuncParent()
     {
         this->SetAuxPtr(AuxPointerType::StackNestedFuncParent, nullptr);
-    }
-
-    ParseableFunctionInfo* ParseableFunctionInfo::CopyFunctionInfoInto(ScriptContext *scriptContext, Js::ParseableFunctionInfo* newFunctionInfo, uint sourceIndex)
-    {
-        newFunctionInfo->m_inParamCount = this->m_inParamCount;
-        newFunctionInfo->m_grfscr = this->m_grfscr;
-
-        newFunctionInfo->m_isDeclaration = this->m_isDeclaration;
-        newFunctionInfo->m_hasImplicitArgIns = this->m_hasImplicitArgIns;
-        newFunctionInfo->m_isAccessor = this->m_isAccessor;
-        newFunctionInfo->m_isGlobalFunc = this->m_isGlobalFunc;
-        newFunctionInfo->m_dontInline = this->m_dontInline;
-        newFunctionInfo->m_isTopLevel = this->m_isTopLevel;
-        newFunctionInfo->m_isPublicLibraryCode = this->m_isPublicLibraryCode;
-
-        newFunctionInfo->scopeSlotArraySize = this->scopeSlotArraySize;
-        newFunctionInfo->paramScopeSlotArraySize = this->paramScopeSlotArraySize;
-
-        this->ForEachNestedFunc([&](FunctionProxy* proxy, uint32 index)
-        {
-            if (proxy)
-            {
-                // Deserialize the proxy here if we have to
-                ParseableFunctionInfo* body = proxy->EnsureDeserialized();
-                FunctionProxy* newBody;
-
-                if (body->IsDeferredParseFunction())
-                {
-                    newBody = body->Clone(scriptContext, sourceIndex);
-                }
-                else
-                {
-                    newBody = body->GetFunctionBody()->Clone(scriptContext, sourceIndex);
-                }
-
-                // 0u is an empty value for the bit-mask 'flags', when initially parsing this is used to track defer-parse functions.
-                newFunctionInfo->SetNestedFunc(newBody, index, 0u);
-            }
-            else
-            {
-                // 0u is an empty value for the bit-mask 'flags', when initially parsing this is used to track defer-parse functions.
-                newFunctionInfo->SetNestedFunc(nullptr, index, 0u);
-            }
-            return true;
-        });
-
-        return newFunctionInfo;
-    }
-
-    ParseableFunctionInfo* ParseableFunctionInfo::Clone(ScriptContext *scriptContext, uint sourceIndex)
-    {
-        Utf8SourceInfo* sourceInfo = nullptr;
-        if(sourceIndex == Constants::InvalidSourceIndex)
-        {
-            // If we're copying a source info across script contexts, we need
-            // to create a copy of the Utf8SourceInfo (just the structure, not the source code itself)
-            // because a Utf8SourceInfo must reference only function bodies created within that script
-            // context
-            Utf8SourceInfo* oldSourceInfo = GetUtf8SourceInfo();
-            SRCINFO* srcInfo = GetHostSrcInfo()->Clone(scriptContext);
-            sourceInfo = scriptContext->CloneSourceCrossContext(oldSourceInfo, srcInfo);
-            sourceIndex = scriptContext->SaveSourceNoCopy(sourceInfo, oldSourceInfo->GetCchLength(), oldSourceInfo->GetIsCesu8());
-        }
-        else
-        {
-            sourceInfo = scriptContext->GetSource(sourceIndex);
-        }
-
-        ParseableFunctionInfo* newFunctionInfo = ParseableFunctionInfo::New(scriptContext,
-            this->GetNestedCount(),
-            this->GetLocalFunctionId(), 
-            sourceInfo, this->GetDisplayName(), 
-            this->GetDisplayNameLength(),
-            this->GetShortDisplayNameOffset(), 
-            this->GetBoundPropertyRecords(), 
-            this->GetAttributes());
-
-        if (this->GetScopeInfo() != nullptr)
-        {
-            newFunctionInfo->SetScopeInfo(GetScopeInfo()->CloneFor(newFunctionInfo));
-        }
-
-        newFunctionInfo->CloneSourceInfo(scriptContext, (*this), this->m_scriptContext, sourceIndex);
-        CopyFunctionInfoInto(scriptContext, newFunctionInfo, sourceIndex);
-
-#if DBG
-        newFunctionInfo->deferredParseNextFunctionId = this->deferredParseNextFunctionId;
-#endif
-
-        return newFunctionInfo;
     }
 
     void FunctionBody::CreateCacheIdToPropertyIdMap(uint rootObjectLoadInlineCacheStart, uint rootObjectLoadMethodInlineCacheStart,
@@ -3929,7 +3642,7 @@ namespace Js
         this->RecordConstant(location, intConst);
     }
 
-    void FunctionBody::RecordStrConstant(RegSlot location, LPCOLESTR psz, ulong cch)
+    void FunctionBody::RecordStrConstant(RegSlot location, LPCOLESTR psz, uint32 cch)
     {
         ScriptContext *scriptContext = this->GetScriptContext();
         PropertyRecord const * propertyRecord;
@@ -3986,74 +3699,6 @@ namespace Js
         return this->GetConstTable()[location - FunctionBody::FirstRegSlot];
     }
 
-
-    void FunctionBody::CloneConstantTable(FunctionBody *newFunc)
-    {
-        // Creating the constant table initializes the root object.
-        newFunc->CreateConstantTable();
-
-        // Start walking the slots after the root object.
-        RegSlot constCount = GetConstantCount();
-        for (RegSlot reg = FunctionBody::RootObjectRegSlot + 1; reg < constCount; reg++)
-        {
-            Var oldVar = this->GetConstantVar(reg);
-            Assert(oldVar != nullptr);
-            if (TaggedInt::Is(oldVar))
-            {
-                newFunc->RecordIntConstant(reg, TaggedInt::ToInt32(oldVar));
-            }
-            else if (oldVar == &Js::NullFrameDisplay)
-            {
-                newFunc->RecordNullDisplayConstant(reg);
-            }
-            else if (oldVar == &Js::StrictNullFrameDisplay)
-            {
-                newFunc->RecordStrictNullDisplayConstant(reg);
-            }
-            else
-            {
-                switch (JavascriptOperators::GetTypeId(oldVar))
-                {
-                case Js::TypeIds_Undefined:
-                    newFunc->RecordUndefinedObject(reg);
-                    break;
-
-                case Js::TypeIds_Null:
-                    newFunc->RecordNullObject(reg);
-                    break;
-
-                case Js::TypeIds_Number:
-                    newFunc->RecordFloatConstant(reg, JavascriptNumber::GetValue(oldVar));
-                    break;
-
-                case Js::TypeIds_String:
-                {
-                    JavascriptString *str = JavascriptString::FromVar(oldVar);
-                    newFunc->RecordStrConstant(reg, str->GetSz(), str->GetLength());
-                    break;
-                }
-                case Js::TypeIds_ES5Array:
-                    newFunc->RecordConstant(reg, oldVar);
-                    break;
-                case Js::TypeIds_Boolean:
-                    if (Js::JavascriptBoolean::FromVar(oldVar)->GetValue())
-                    {
-                        newFunc->RecordTrueObject(reg);
-                    }
-                    else
-                    {
-                        newFunc->RecordFalseObject(reg);
-                    }
-                    break;
-
-                default:
-                    AssertMsg(UNREACHED, "Unexpected object type in CloneConstantTable");
-                    break;
-                }
-            }
-        }
-    }
-
 #if DBG_DUMP
     void FunctionBody::Dump()
     {
@@ -4099,7 +3744,7 @@ namespace Js
         }
     }
 #endif
-    
+
     void FunctionBody::DumpStatementMaps()
     {
         // Source Map to ByteCode
@@ -4237,7 +3882,6 @@ namespace Js
         return startOffset;
     }
 
-
 #ifdef IR_VIEWER
 /* BEGIN potentially reusable code */
 
@@ -4340,6 +3984,13 @@ namespace Js
 /* END potentially reusable code */
 #endif /* IR_VIEWER */
 
+#if ENABLE_TTD
+    void FunctionBody::GetSourceLineFromStartOffset_TTD(const uint startOffset, ULONG* line, LONG* col)
+    {
+        GetLineCharOffsetFromStartChar(startOffset, line, col);
+    }
+#endif
+
 #ifdef IR_VIEWER
     Js::DynamicObject * FunctionBody::GetIRDumpBaseObject()
     {
@@ -4352,16 +4003,7 @@ namespace Js
 #endif /* IR_VIEWER */
 
 #ifdef VTUNE_PROFILING
-#ifdef CDECL
-#define ORIGINAL_CDECL CDECL
-#undef CDECL
-#endif
-    // Not enabled in ChakraCore
-#include "jitProfiling.h"
-#ifdef ORIGINAL_CDECL
-#undef CDECL
-#endif
-#define CDECL ORIGINAL_CDECL
+#include "jitprofiling.h"
 
     int EntryPointInfo::GetNativeOffsetMapCount() const
     {
@@ -4499,6 +4141,7 @@ namespace Js
         this->GetPropertyIdOnRegSlotsContainer()->SetFormalArgs(formalArgs);
     }
 
+#ifdef ENABLE_SCRIPT_PROFILING
     HRESULT FunctionBody::RegisterFunction(BOOL fChangeMode, BOOL fOnlyCurrent)
     {
         if (!this->IsFunctionParsed())
@@ -4594,20 +4237,20 @@ namespace Js
         //  If the entrypoint is CodeGenOnDemand or CodeGen - then we don't change the entry points
         ProxyEntryPointInfo* defaultEntryPointInfo = this->GetDefaultEntryPointInfo();
 
-        if (!IsIntermediateCodeGenThunk((JavascriptMethod) defaultEntryPointInfo->address)
-            && defaultEntryPointInfo->address != DynamicProfileInfo::EnsureDynamicProfileInfoThunk)
+        if (!IsIntermediateCodeGenThunk(defaultEntryPointInfo->jsMethod)
+            && defaultEntryPointInfo->jsMethod != DynamicProfileInfo::EnsureDynamicProfileInfoThunk)
         {
             if (this->originalEntryPoint == DefaultDeferredParsingThunk)
             {
-                defaultEntryPointInfo->address = ProfileDeferredParsingThunk;
+                defaultEntryPointInfo->jsMethod = ProfileDeferredParsingThunk;
             }
             else if (this->originalEntryPoint == DefaultDeferredDeserializeThunk)
             {
-                defaultEntryPointInfo->address = ProfileDeferredDeserializeThunk;
+                defaultEntryPointInfo->jsMethod = ProfileDeferredDeserializeThunk;
             }
             else
             {
-                defaultEntryPointInfo->address = ProfileEntryThunk;
+                defaultEntryPointInfo->jsMethod = ProfileEntryThunk;
             }
         }
 
@@ -4615,7 +4258,7 @@ namespace Js
         // to make sure that new JavascriptFunction instances use profile thunk.
         if (this->deferredPrototypeType)
         {
-            this->deferredPrototypeType->SetEntryPoint((JavascriptMethod)this->GetDefaultEntryPointInfo()->address);
+            this->deferredPrototypeType->SetEntryPoint(this->GetDefaultEntryPointInfo()->jsMethod);
             this->deferredPrototypeType->SetEntryPointInfo(this->GetDefaultEntryPointInfo());
         }
 
@@ -4623,7 +4266,7 @@ namespace Js
         if (!this->HasValidEntryPoint())
         {
             OUTPUT_TRACE_DEBUGONLY(Js::ScriptProfilerPhase, _u("FunctionBody::SetEntryToProfileMode, Assert due to HasValidEntryPoint(), directEntrypoint : 0x%0IX, originalentrypoint : 0x%0IX\n"),
-                (JavascriptMethod)this->GetDefaultEntryPointInfo()->address, this->originalEntryPoint);
+                this->GetDefaultEntryPointInfo()->jsMethod, this->originalEntryPoint);
 
             AssertMsg(false, "Not a valid EntryPoint");
         }
@@ -4631,6 +4274,7 @@ namespace Js
 
 #endif //ENABLE_NATIVE_CODEGEN
     }
+#endif // ENABLE_SCRIPT_PROFILING
 
 #if DBG
     void FunctionBody::MustBeInDebugMode()
@@ -4687,6 +4331,7 @@ namespace Js
         this->SetScopeInfo(nullptr);
         this->SetCodeGenRuntimeData(nullptr);
         this->cacheIdToPropertyIdMap = nullptr;
+        this->SetFormalsPropIdArray(nullptr);
         this->SetReferencedPropertyIdMap(nullptr);
         this->SetLiteralRegexs(nullptr);
         this->SetPropertyIdsForScopeSlotArray(nullptr, 0);
@@ -4791,16 +4436,22 @@ namespace Js
     void FunctionBody::SetEntryToDeferParseForDebugger()
     {
         ProxyEntryPointInfo* defaultEntryPointInfo = this->GetDefaultEntryPointInfo();
-        if (defaultEntryPointInfo->address != DefaultDeferredParsingThunk && defaultEntryPointInfo->address != ProfileDeferredParsingThunk)
+        if (defaultEntryPointInfo->jsMethod != DefaultDeferredParsingThunk
+#ifdef ENABLE_SCRIPT_PROFILING
+            && defaultEntryPointInfo->jsMethod != ProfileDeferredParsingThunk
+#endif
+            )
         {
+#ifdef ENABLE_SCRIPT_PROFILING
             // Just change the thunk, the cleanup will be done once the function gets called.
             if (this->m_scriptContext->CurrentThunk == ProfileEntryThunk)
             {
-                defaultEntryPointInfo->address = ProfileDeferredParsingThunk;
+                defaultEntryPointInfo->jsMethod = ProfileDeferredParsingThunk;
             }
             else
+#endif
             {
-                defaultEntryPointInfo->address = DefaultDeferredParsingThunk;
+                defaultEntryPointInfo->jsMethod = DefaultDeferredParsingThunk;
             }
 
             this->originalEntryPoint = DefaultDeferredParsingThunk;
@@ -4852,13 +4503,13 @@ namespace Js
         this->entryPoints->ClearAndZero();
         this->CreateNewDefaultEntryPoint();
         this->originalEntryPoint = DefaultEntryThunk;
-        m_defaultEntryPointInfo->address = m_scriptContext->CurrentThunk;
+        m_defaultEntryPointInfo->jsMethod = m_scriptContext->CurrentThunk;
 
         if (this->deferredPrototypeType)
         {
             // Update old entry points on the deferred prototype type,
             // as they may point to old native code gen regions which age gone now.
-            this->deferredPrototypeType->SetEntryPoint((JavascriptMethod)this->GetDefaultEntryPointInfo()->address);
+            this->deferredPrototypeType->SetEntryPoint(this->GetDefaultEntryPointInfo()->jsMethod);
             this->deferredPrototypeType->SetEntryPointInfo(this->GetDefaultEntryPointInfo());
         }
         ReinitializeExecutionModeAndLimits();
@@ -5078,24 +4729,6 @@ namespace Js
         return Item(index, iter, data);
     }
 
-    SmallSpanSequence * SmallSpanSequence::Clone()
-    {
-        SmallSpanSequence *pNewSequence = HeapNew(SmallSpanSequence);
-        pNewSequence->baseValue = baseValue;
-
-        if (pStatementBuffer)
-        {
-            pNewSequence->pStatementBuffer = pStatementBuffer->Clone();
-        }
-
-        if (pActualOffsetList)
-        {
-            pNewSequence->pActualOffsetList = pActualOffsetList->Clone();
-        }
-
-        return pNewSequence;
-    }
-
     PropertyIdOnRegSlotsContainer * PropertyIdOnRegSlotsContainer::New(Recycler * recycler)
     {
         return RecyclerNew(recycler, PropertyIdOnRegSlotsContainer);
@@ -5299,6 +4932,15 @@ namespace Js
         }
     }
 #endif
+
+#if ENABLE_TTD
+    Js::PropertyId DebuggerScope::GetPropertyIdForSlotIndex_TTD(uint32 slotIndex) const
+    {
+        const Js::DebuggerScopeProperty& scopeProperty = this->scopeProperties->Item(slotIndex);
+        return scopeProperty.propId;
+    }
+#endif
+
     // Updates the current offset of where the property is first initialized.  This is used to
     // detect whether or not a property is in a dead zone when broken in the debugger.
     // location                 - The slot array index or register slot location of where the property is stored.
@@ -5964,6 +5606,14 @@ namespace Js
     }
 #endif
 
+    PropertyIdArray * FunctionBody::AllocatePropertyIdArrayForFormals(uint32 size, uint32 count)
+    {
+        //TODO: saravind: Should the allocation be a Leaf Allocation?
+        PropertyIdArray * formalsPropIdArray = RecyclerNewPlus(GetScriptContext()->GetRecycler(), size, Js::PropertyIdArray, count);
+        SetFormalsPropIdArray(formalsPropIdArray);
+        return formalsPropIdArray;
+    }
+
     UnifiedRegex::RegexPattern *FunctionBody::GetLiteralRegex(const uint index)
     {
         Assert(index < GetLiteralRegexCount());
@@ -6251,7 +5901,7 @@ namespace Js
                 directEntryPoint = currentThunk == DefaultEntryThunk ? originalEntryPoint : currentThunk;
             }
 
-            entryPointInfo->address = directEntryPoint;
+            entryPointInfo->jsMethod = directEntryPoint;
             SetDefaultFunctionEntryPointInfo(entryPointInfo, originalEntryPoint);
         }
 
@@ -6784,7 +6434,7 @@ namespace Js
         const bool doSimpleJit = DoSimpleJit();
         const bool doInterpreterProfile = DoInterpreterProfile();
         const bool fullyScaled =
-            IsNewSimpleJit() && doSimpleJit && ScaleLimit(simpleJitLimit) ||
+            (IsNewSimpleJit() && doSimpleJit && ScaleLimit(simpleJitLimit)) ||
             (
                 doInterpreterProfile
                     ?   DoInterpreterAutoProfile() &&
@@ -6795,9 +6445,9 @@ namespace Js
                 IsNewSimpleJit()
                     ?   doInterpreterProfile &&
                         (ScaleLimit(profilingInterpreter1Limit) || ScaleLimit(profilingInterpreter0Limit))
-                    :   doInterpreterProfile && ScaleLimit(profilingInterpreter0Limit) ||
-                        doSimpleJit && ScaleLimit(simpleJitLimit) ||
-                        doInterpreterProfile && ScaleLimit(profilingInterpreter1Limit)
+                    :   (doInterpreterProfile && ScaleLimit(profilingInterpreter0Limit)) ||
+                        (doSimpleJit && ScaleLimit(simpleJitLimit)) ||
+                        (doInterpreterProfile && ScaleLimit(profilingInterpreter1Limit))
             );
         Assert(fullyScaled);
         Assert(scale == 0);
@@ -6878,12 +6528,12 @@ namespace Js
         VerifyExecutionModeLimits();
 
         if(&limit == profilingInterpreter0Limit.AddressOf() ||
-            !IsNewSimpleJit() && &limit == simpleJitLimit.AddressOf() ||
+            (!IsNewSimpleJit() && &limit == simpleJitLimit.AddressOf()) ||
             &limit == profilingInterpreter1Limit.AddressOf())
         {
             const uint16 newCommittedProfiledIterations = committedProfiledIterations + clampedExecutedIterations;
             committedProfiledIterations =
-                newCommittedProfiledIterations >= committedProfiledIterations ? newCommittedProfiledIterations : MAXUINT16;
+                newCommittedProfiledIterations >= committedProfiledIterations ? newCommittedProfiledIterations : UINT16_MAX;
         }
     }
 
@@ -6901,7 +6551,9 @@ namespace Js
         // Simple JIT counts down and transitions on overflow
         const uint8 callCount = simpleJitEntryPointInfo->callsCount;
         Assert(simpleJitLimit == 0 ? callCount == 0 : simpleJitLimit > callCount);
-        return callCount == 0 ? simpleJitLimit : simpleJitLimit - callCount - 1;
+        return callCount == 0 ?
+            static_cast<uint16>(simpleJitLimit) :
+            static_cast<uint16>(simpleJitLimit) - callCount - 1;
     }
 
     void FunctionBody::ResetSimpleJitLimitAndCallCount()
@@ -6952,11 +6604,11 @@ namespace Js
             {
                 uint32 interpretedCount = GetInterpretedCount();
                 const uint16 clampedInterpretedCount =
-                    interpretedCount <= MAXUINT16
+                    interpretedCount <= UINT16_MAX
                         ? static_cast<uint16>(interpretedCount)
-                        : MAXUINT16;
+                        : UINT16_MAX;
                 const uint16 newProfiledIterations = profiledIterations + clampedInterpretedCount;
-                profiledIterations = newProfiledIterations >= profiledIterations ? newProfiledIterations : MAXUINT16;
+                profiledIterations = newProfiledIterations >= profiledIterations ? newProfiledIterations : UINT16_MAX;
                 break;
             }
 
@@ -6964,7 +6616,7 @@ namespace Js
                 if(!IsNewSimpleJit())
                 {
                     const uint16 newProfiledIterations = profiledIterations + GetSimpleJitExecutedIterations();
-                    profiledIterations = newProfiledIterations >= profiledIterations ? newProfiledIterations : MAXUINT16;
+                    profiledIterations = newProfiledIterations >= profiledIterations ? newProfiledIterations : UINT16_MAX;
                 }
                 break;
         }
@@ -7567,7 +7219,7 @@ namespace Js
                     // isShutdown is false because cleanup is called only in the !isShutdown case
                     entryPoint->Finalize(isShutdown);
 
-#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+#if ENABLE_DEBUG_STACK_BACK_TRACE
                     // Do this separately since calling EntryPoint::Finalize doesn't capture the stack trace
                     // and in some calls to CleanupRecyclerData, we do want the stack trace captured.
 
@@ -7626,6 +7278,7 @@ namespace Js
         this->polymorphicInlineCaches.Reset();
         this->SetPolymorphicInlineCachesHead(nullptr);
         this->cacheIdToPropertyIdMap = nullptr;
+        this->SetFormalsPropIdArray(nullptr);
         this->SetReferencedPropertyIdMap(nullptr);
         this->SetLiteralRegexs(nullptr);
         this->SetPropertyIdsForScopeSlotArray(nullptr, 0);
@@ -7738,7 +7391,9 @@ namespace Js
 
     void FunctionBody::InitDisableInlineApply()
     {
-        SetDisableInlineApply(this->functionId != Js::Constants::NoFunctionId && PHASE_OFF(Js::InlinePhase, this) || PHASE_OFF(Js::InlineApplyPhase, this));
+        SetDisableInlineApply(
+            (this->functionId != Js::Constants::NoFunctionId && PHASE_OFF(Js::InlinePhase, this)) ||
+            PHASE_OFF(Js::InlineApplyPhase, this));
     }
 
     bool FunctionBody::CheckCalleeContextForInlining(FunctionProxy* calleeFunctionProxy)
@@ -8184,7 +7839,7 @@ namespace Js
 
     void EntryPointInfo::OnNativeCodeInstallFailure()
     {
-        // If more data is transferred from the background thread to the main thread in ProcessJitTransferData, 
+        // If more data is transferred from the background thread to the main thread in ProcessJitTransferData,
         // corresponding fields on the entryPointInfo should be rolled back here.
         this->runtimeTypeRefs = nullptr;
         this->FreePropertyGuards();
@@ -8519,7 +8174,6 @@ namespace Js
         BYTE* instructionPointer = *addressOfInstructionPointer;
         Assert(instructionPointer > (BYTE*)this->nativeAddress && instructionPointer < ((BYTE*)this->nativeAddress + this->codeSize));
         size_t offset = instructionPointer - (BYTE*)this->nativeAddress;
-        LazyBailOutRecord record;
         int found = this->bailoutRecordMap->BinarySearch([=](const LazyBailOutRecord& record, int index)
         {
             // find the closest entry which is greater than the current offset.
@@ -8673,14 +8327,17 @@ namespace Js
             Type *type = reinterpret_cast<Type*>(this->guard->GetValue());
             if (!recycler->IsObjectMarked(type))
             {
-                this->guard->Invalidate();
+                this->guard->InvalidateDuringSweep();
             }
             else
             {
                 isAnyTypeLive = true;
             }
         }
-
+        uint16 nonNullIndex = 0;
+#if DBG
+        bool isGuardValuePresent = false;
+#endif
         for (int i = 0; i < EQUIVALENT_TYPE_CACHE_SIZE; i++)
         {
             Type *type = this->types[i];
@@ -8692,11 +8349,29 @@ namespace Js
                 }
                 else
                 {
+                    // compact the types array by moving non-null types
+                    // at the beginning.
+                    this->types[nonNullIndex++] = type;
                     isAnyTypeLive = true;
+#if DBG
+                    isGuardValuePresent = this->guard->GetValue() == reinterpret_cast<intptr_t>(type) ? true : isGuardValuePresent;
+#endif
                 }
             }
         }
+        if (nonNullIndex > 0)
+        {
+            memset((void*)(this->types + nonNullIndex), 0, sizeof(Js::Type*) * (EQUIVALENT_TYPE_CACHE_SIZE - nonNullIndex));
+        }
+        else if(guard->IsInvalidatedDuringSweep())
+        {
+            // just mark this as actual invalidated since there are no types
+            // present
+            guard->Invalidate();
+        }
 
+        // verify if guard value is valid, it is present in one of the types
+        AssertMsg(!this->guard->IsValid() || isGuardValuePresent, "After ClearUnusedTypes, valid guard value should be one of the cached equivalent types.");
         return isAnyTypeLive;
     }
 
@@ -8713,7 +8388,7 @@ namespace Js
     }
 #endif
 
-#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+#if ENABLE_DEBUG_STACK_BACK_TRACE
     void EntryPointInfo::CaptureCleanupStackTrace()
     {
         if (this->cleanupStack != nullptr)
@@ -8741,7 +8416,7 @@ namespace Js
 
         this->Cleanup(isShutdown, false);
 
-#if DBG
+#if ENABLE_DEBUG_STACK_BACK_TRACE
         if (this->cleanupStack != nullptr)
         {
             this->cleanupStack->Delete(&NoCheckHeapAllocator::Instance);
@@ -8820,11 +8495,12 @@ namespace Js
 #if !DBG
             captureCleanupStack = captureCleanupStack && Js::Configuration::Global.flags.FreTestDiagMode;
 #endif
-
+#if ENABLE_DEBUG_STACK_BACK_TRACE
             if (captureCleanupStack)
             {
                 this->CaptureCleanupStackTrace();
             }
+#endif
 #endif
 
 #if ENABLE_NATIVE_CODEGEN
@@ -8875,7 +8551,7 @@ namespace Js
     }
 
 #if ENABLE_NATIVE_CODEGEN
-    // This function needs review when we enable lazy bailouts- 
+    // This function needs review when we enable lazy bailouts-
     // Is calling Reset enough? Does Reset sufficiently resets the state of the entryPointInfo?
     void EntryPointInfo::ResetOnLazyBailoutFailure()
     {
@@ -8883,9 +8559,9 @@ namespace Js
 
         // Reset the entry point upon a lazy bailout.
         this->Reset(true);
-        Assert(this->address != nullptr);
-        FreeNativeCodeGenAllocation(GetScriptContext(), this->address);
-        this->address = nullptr;
+        Assert(this->jsMethod != nullptr);
+        FreeNativeCodeGenAllocation(GetScriptContext(), this->jsMethod);
+        this->jsMethod = nullptr;
     }
 #endif
 
@@ -8898,8 +8574,8 @@ namespace Js
     }
 #endif
 
-    FunctionEntryPointInfo::FunctionEntryPointInfo(FunctionProxy * functionProxy, void * address, ThreadContext* context, void* cookie) :
-        EntryPointInfo(address, functionProxy->GetScriptContext()->GetLibrary(), cookie, context),
+    FunctionEntryPointInfo::FunctionEntryPointInfo(FunctionProxy * functionProxy, Js::JavascriptMethod method, ThreadContext* context, void* cookie) :
+        EntryPointInfo(method, functionProxy->GetScriptContext()->GetLibrary(), cookie, context),
         localVarSlotsOffset(Js::Constants::InvalidOffset),
         localVarChangedOffset(Js::Constants::InvalidOffset),
         callsCount(0),
@@ -9188,7 +8864,7 @@ namespace Js
                     // the new entrypoint will be set to interpreter
                     newEntryPoint = functionBody->CreateNewDefaultEntryPoint();
                     newEntryPoint->SetIsAsmJSFunction(true);
-                    newEntryPoint->address = AsmJsDefaultEntryThunk;
+                    newEntryPoint->jsMethod = AsmJsDefaultEntryThunk;
                     newEntryPoint->SetModuleAddress(GetModuleAddress());
                     functionBody->SetIsAsmJsFullJitScheduled(false);
                     functionBody->SetExecutionMode(functionBody->GetDefaultInterpreterExecutionMode());
@@ -9227,8 +8903,8 @@ namespace Js
                 }
                 else
                 {
-                    Assert(functionType->GetEntryPointInfo()->IsFunctionEntryPointInfo());                    
-                    Assert(((FunctionEntryPointInfo*)functionType->GetEntryPointInfo())->IsCleanedUp() 
+                    Assert(functionType->GetEntryPointInfo()->IsFunctionEntryPointInfo());
+                    Assert(((FunctionEntryPointInfo*)functionType->GetEntryPointInfo())->IsCleanedUp()
                         || (DWORD_PTR)functionType->GetEntryPoint() != this->GetNativeAddress());
                 }
             });
@@ -9249,9 +8925,9 @@ namespace Js
                 const JavascriptMethod simpleJitNativeAddress = reinterpret_cast<JavascriptMethod>(GetNativeAddress());
                 functionBody->MapEntryPoints([&](const int entryPointIndex, FunctionEntryPointInfo *const entryPointInfo)
                 {
-                    if(entryPointInfo != this && entryPointInfo->address == simpleJitNativeAddress)
+                    if(entryPointInfo != this && entryPointInfo->jsMethod == simpleJitNativeAddress)
                     {
-                        entryPointInfo->address = newDirectEntryPoint;
+                        entryPointInfo->jsMethod = newDirectEntryPoint;
                     }
                 });
                 if(functionBody->GetOriginalEntryPoint_Unchecked() == simpleJitNativeAddress)
@@ -9326,7 +9002,7 @@ namespace Js
 
                 if (validationCookie == currentCookie)
                 {
-                    scriptContext->FreeLoopBody((Js::JavascriptMethod)this->GetNativeAddress());
+                    scriptContext->FreeFunctionEntryPoint(reinterpret_cast<Js::JavascriptMethod>(this->GetNativeAddress()));
                 }
             }
 
@@ -9342,7 +9018,7 @@ namespace Js
     void LoopEntryPointInfo::ResetOnNativeCodeInstallFailure()
     {
         // Since we call the address on the entryPointInfo for loop bodies, all we need to do is to roll back
-        // the fields on the entryPointInfo related to transferring data from jit thread to main thread (already 
+        // the fields on the entryPointInfo related to transferring data from jit thread to main thread (already
         // being done in EntryPointInfo::OnNativeCodeInstallFailure). On the next loop iteration, the interpreter
         // will call EntryPointInfo::EnsureIsReadyToCall and we'll try to process jit transfer data again.
     }
@@ -9632,7 +9308,7 @@ namespace Js
         return m_hasFuncExprScopeRegister ? GetCountField(CounterFields::FuncExprScopeRegister) : Constants::NoRegister;
     }
 
-    void FunctionBody::SetFirstTmpRegister(RegSlot reg) 
+    void FunctionBody::SetFirstTmpRegister(RegSlot reg)
     {
         if (reg == Constants::NoRegister)
         {

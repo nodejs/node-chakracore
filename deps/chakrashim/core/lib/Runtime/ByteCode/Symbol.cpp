@@ -66,7 +66,7 @@ bool Symbol::NeedsSlotAlloc(FuncInfo *funcInfo)
 
 bool Symbol::IsInSlot(FuncInfo *funcInfo, bool ensureSlotAlloc)
 {
-    if (this->GetIsGlobal())
+    if (this->GetIsGlobal() || this->GetIsModuleExportStorage())
     {
         return false;
     }
@@ -83,7 +83,7 @@ bool Symbol::IsInSlot(FuncInfo *funcInfo, bool ensureSlotAlloc)
         return true;
     }
     // If body and param scopes are not merged then an inner scope slot is used
-    if (!this->GetIsArguments() && this->scope->GetScopeType() == ScopeType_Parameter && !this->scope->GetCanMergeWithBodyScope())
+    if (this->scope->GetScopeType() == ScopeType_Parameter && !this->scope->GetCanMergeWithBodyScope())
     {
         return true;
     }
@@ -93,6 +93,10 @@ bool Symbol::IsInSlot(FuncInfo *funcInfo, bool ensureSlotAlloc)
 
 bool Symbol::GetIsCommittedToSlot() const
 {
+    if (!PHASE_ON1(Js::DelayCapturePhase))
+    {
+        return true;
+    }
     return isCommittedToSlot || this->scope->GetFunc()->GetCallsEval() || this->scope->GetFunc()->GetChildCallsEval();
 }
 
@@ -105,58 +109,10 @@ Js::PropertyId Symbol::EnsureScopeSlot(FuncInfo *funcInfo)
     return this->scopeSlot;
 }
 
-void Symbol::SetHasNonLocalReference(bool b, ByteCodeGenerator *byteCodeGenerator)
+void Symbol::SetHasNonLocalReference()
 {
-    this->hasNonLocalReference = b;
-
-    // The symbol's home function will tell us which child function we're currently processing.
-    // This is the one that captures the symbol, from the declaring function's perspective.
-    // So based on that information, note either that, (a.) the symbol is committed to the heap from its
-    // inception, (b.) the symbol must be committed when the capturing function is instantiated.
-
-    FuncInfo *funcHome = this->scope->GetFunc();
-    FuncInfo *funcChild = funcHome->GetCurrentChildFunction();
-
-    // If this is not a local property, or not all its references can be tracked, or
-    // it's not scoped to the function, or we're in debug mode, disable the delayed capture optimization.
-    if (funcHome->IsGlobalFunction() ||
-        funcHome->GetCallsEval() ||
-        funcHome->GetChildCallsEval() ||
-        funcChild == nullptr ||
-        this->GetScope() != funcHome->GetBodyScope() ||
-        byteCodeGenerator->IsInDebugMode() ||
-        PHASE_OFF(Js::DelayCapturePhase, funcHome->byteCodeFunction))
-    {
-        this->SetIsCommittedToSlot();
-    }
-
-    if (this->isCommittedToSlot)
-    {
-        return;
-    }
-
-    AnalysisAssert(funcChild);
-    ParseNode *pnodeChild = funcChild->root;
-
-    Assert(pnodeChild && pnodeChild->nop == knopFncDecl);
-
-    if (pnodeChild->sxFnc.IsDeclaration())
-    {
-        // The capturing function is a declaration but may still be limited to an inner scope.
-        Scope *scopeChild = funcHome->GetCurrentChildScope();
-        if (scopeChild == this->scope || scopeChild->GetScopeType() == ScopeType_FunctionBody)
-        {
-            // The symbol is captured on entry to the scope in which it's declared.
-            // (Check the scope type separately so that we get the special parameter list and
-            // named function expression cases as well.)
-            this->SetIsCommittedToSlot();
-            return;
-        }
-    }
-
-    // There is a chance we can limit the region in which the symbol lives on the heap.
-    // Note which function captures the symbol.
-    funcChild->AddCapturedSym(this);
+    this->hasNonLocalReference = true;
+    this->scope->SetHasOwnLocalInClosure(true);
 }
 
 void Symbol::SetHasMaybeEscapedUse(ByteCodeGenerator * byteCodeGenerator)
@@ -243,21 +199,6 @@ Symbol * Symbol::GetFuncScopeVarSym() const
         // We couldn't find the sym in the body scope, try finding it in the parameter scope.
         Scope* paramScope = parentFuncInfo->GetParamScope();
         fncScopeSym = paramScope->FindLocalSymbol(this->GetName());
-        if (fncScopeSym == nullptr)
-        {
-            FuncInfo* parentParentFuncInfo = paramScope->GetEnclosingScope()->GetFunc();
-            if (parentParentFuncInfo->root->sxFnc.IsAsync())
-            {
-                // In the case of async functions the func-scope var sym might have
-                // come from the parent function parameter scope due to the syntax
-                // desugaring implementation of async functions.
-                fncScopeSym = parentParentFuncInfo->GetBodyScope()->FindLocalSymbol(this->GetName());
-                if (fncScopeSym == nullptr)
-                {
-                    fncScopeSym = parentParentFuncInfo->GetParamScope()->FindLocalSymbol(this->GetName());
-                }
-            }
-        }
     }
     Assert(fncScopeSym);
     // Parser should have added a fake var decl node for block scoped functions in non-strict mode

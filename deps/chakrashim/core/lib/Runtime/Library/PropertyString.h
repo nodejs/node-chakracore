@@ -54,17 +54,22 @@ namespace Js
 
         virtual void const * GetOriginalStringReference() override;
         virtual RecyclableObject * CloneToScriptContext(ScriptContext* requestContext) override;
-        virtual bool IsAreanaAllocPropertyString() { return false; }
+        virtual bool IsArenaAllocPropertyString() { return false; }
 
         static uint32 GetOffsetOfPropertyCache() { return offsetof(PropertyString, propCache); }
+
+#if ENABLE_TTD
+        //Get the associated property id for this string if there is on (e.g. it is a propertystring otherwise return Js::PropertyIds::_none)
+        virtual Js::PropertyId TryGetAssociatedPropertyId() const override { return this->m_propertyRecord->GetPropertyId(); }
+#endif
     };
 
-    class AreanaAllocPropertyString sealed : public PropertyString
+    class ArenaAllocPropertyString sealed : public PropertyString
     {
         friend PropertyString;
     protected:
-        AreanaAllocPropertyString(StaticType* type, const Js::PropertyRecord* propertyRecord);
+        ArenaAllocPropertyString(StaticType* type, const Js::PropertyRecord* propertyRecord);
     public:
-        virtual bool IsAreanaAllocPropertyString() override { return true; }
+        virtual bool IsArenaAllocPropertyString() override { return true; }
     };
 }

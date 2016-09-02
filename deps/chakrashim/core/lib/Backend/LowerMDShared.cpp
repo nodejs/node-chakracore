@@ -185,6 +185,8 @@ LowererMD::LowerCallHelper(IR::Instr *instrCall)
     prevInstr = ChangeToHelperCall(instrCall, helperMethod);
 #endif
 
+    prevInstr = instrCall;
+
     while (argOpnd)
     {
         Assert(argOpnd->IsRegOpnd());
@@ -193,23 +195,28 @@ LowererMD::LowerCallHelper(IR::Instr *instrCall)
         Assert(regArg->m_sym->m_isSingleDef);
         IR::Instr *instrArg = regArg->m_sym->m_instrDef;
 
-        Assert(instrArg->m_opcode == Js::OpCode::ArgOut_A);
-        prevInstr = LoadHelperArgument(instrArg, instrArg->UnlinkSrc1());
+        Assert(instrArg->m_opcode == Js::OpCode::ArgOut_A || 
+            (helperMethod == IR::JnHelperMethod::HelperOP_InitCachedScope && instrArg->m_opcode == Js::OpCode::ExtendArg_A));
+        prevInstr = LoadHelperArgument(prevInstr, instrArg->GetSrc1());
 
-        regArg->Free(this->m_func);
         argOpnd = instrArg->GetSrc2();
-
-        if (argOpnd)
-        {
-            instrArg->UnlinkSrc2();
-        }
 
         if (prevInstr == instrArg)
         {
             prevInstr = prevInstr->m_prev;
         }
 
-        instrArg->Remove();
+        if (instrArg->m_opcode == Js::OpCode::ArgOut_A)
+        {
+            instrArg->UnlinkSrc1();
+            if (argOpnd)
+            {
+                instrArg->UnlinkSrc2();
+            }
+
+            regArg->Free(this->m_func);
+            instrArg->Remove();
+        }
     }
 
     prevInstr = m_lowerer->LoadScriptContext(prevInstr);
@@ -494,7 +501,9 @@ LowererMD::Init(Lowerer *lowerer)
 {
     m_lowerer = lowerer;
     this->lowererMDArch.Init(this);
+#ifdef ENABLE_SIMDJS
     Simd128InitOpcodeMap();
+#endif
 }
 
 ///----------------------------------------------------------------------------
@@ -523,7 +532,7 @@ LowererMD::LoadInputParamCount(IR::Instr * instrInsert, int adjust, bool needFla
 
     // Mask off call flags from callinfo
     instr = IR::Instr::New(Js::OpCode::AND, dstOpnd, dstOpnd,
-        IR::IntConstOpnd::New((Js::CallFlags_ExtraArg << Js::CallInfo::ksizeofCount) | 0x00FFFFFF, TyUint32, this->m_func, true), this->m_func);
+        IR::IntConstOpnd::New((Js::CallFlags_ExtraArg << static_cast<unsigned>(Js::CallInfo::ksizeofCount)) | 0x00FFFFFF, TyUint32, this->m_func, true), this->m_func);
     instrInsert->InsertBefore(instr);
 
     // Shift and mask the "calling eval" bit and subtract it from the incoming count.
@@ -647,13 +656,17 @@ LowererMD::ChangeToHelperCall(IR::Instr * callInstr,  IR::JnHelperMethod helperM
     IR::Instr * bailOutInstr = callInstr;
     if (callInstr->HasBailOutInfo())
     {
-        if (callInstr->GetBailOutKind() == IR::BailOutOnNotPrimitive)
+        IR::BailOutKind bailOutKind = callInstr->GetBailOutKind();
+        if (bailOutKind == IR::BailOutOnNotPrimitive ||
+            bailOutKind == IR::BailOutOnPowIntIntOverflow)
         {
             callInstr = IR::Instr::New(callInstr->m_opcode, callInstr->m_func);
             bailOutInstr->TransferTo(callInstr);
             bailOutInstr->InsertBefore(callInstr);
 
-            bailOutInstr->m_opcode = Js::OpCode::BailOnNotPrimitive;
+            bailOutInstr->m_opcode = bailOutKind == IR::BailOutOnNotPrimitive
+                                        ? Js::OpCode::BailOnNotPrimitive
+                                        : Js::OpCode::BailOnPowIntIntOverflow;
             bailOutInstr->SetSrc1(opndBailOutArg);
         }
         else
@@ -683,7 +696,8 @@ LowererMD::ChangeToHelperCall(IR::Instr * callInstr,  IR::JnHelperMethod helperM
         {
             this->m_lowerer->LowerBailOnNotObject(bailOutInstr, nullptr, labelBailOut);
         }
-        else if (bailOutInstr->m_opcode == Js::OpCode::BailOnNotPrimitive)
+        else if (bailOutInstr->m_opcode == Js::OpCode::BailOnNotPrimitive ||
+            bailOutInstr->m_opcode == Js::OpCode::BailOnPowIntIntOverflow)
         {
             this->m_lowerer->LowerBailOnTrue(bailOutInstr, labelBailOut);
         }
@@ -2046,6 +2060,7 @@ LowererMD::LoadFunctionObjectOpnd(IR::Instr *instr, IR::Opnd *&functionObjOpnd)
         instr->InsertBefore(mov1);
         functionObjOpnd = mov1->GetDst()->AsRegOpnd();
         instrPrev = mov1;
+        instr->m_func->SetHasImplicitParamLoad();
     }
     else
     {
@@ -2731,10 +2746,10 @@ bool LowererMD::GenerateFastCmXxTaggedInt(IR::Instr *instr)
 
     // AND r1, (notEqualResult - equalResult)
     {
-        IR::Instr * and = IR::Instr::New(Js::OpCode::AND, r1, r1, m_func);
-        and->SetSrc2(IR::AddrOpnd::New((void*)((size_t)notEqualResult - (size_t)equalResult), IR::AddrOpndKind::AddrOpndKindDynamicMisc, this->m_func));
-        instr->InsertBefore(and);
-        Legalize(and);
+        IR::Instr * andInstr = IR::Instr::New(Js::OpCode::AND, r1, r1, m_func);
+        andInstr->SetSrc2(IR::AddrOpnd::New((void*)((size_t)notEqualResult - (size_t)equalResult), IR::AddrOpndKind::AddrOpndKindDynamicMisc, this->m_func));
+        instr->InsertBefore(andInstr);
+        Legalize(andInstr);
     }
 
     // ADD r1, equalResult
@@ -5100,7 +5115,7 @@ LowererMD::GenerateFastBrBReturn(IR::Instr *instr)
     instr->InsertBefore(checkFirstPrototypeNullInstr);
     instr->InsertBefore(IR::BranchInstr::New(Js::OpCode::JNE, labelHelper, this->m_func));
 
-    typedef Js::DynamicObjectSnapshotEnumeratorWPCache<Js::BigPropertyIndex, true, false> SmallDynamicObjectSnapshotEnumeratorWPCache;
+    typedef Js::DynamicObjectSnapshotEnumeratorWPCache<true, false> SmallDynamicObjectSnapshotEnumeratorWPCache;
 
     // MOV currentEnumeratorOpnd, forInEnumerator->currentEnumerator
     // CMP currentEnumeratorOpnd, SmallDynamicObjectSnapshotEnumeratorWPCache::`vtable
@@ -7074,7 +7089,7 @@ LowererMD::EnsureAdjacentArgs(IR::Instr * instrArg)
     while (opnd->IsSymOpnd())
     {
         sym = opnd->AsSymOpnd()->m_sym->AsStackSym();
-        IR::Instr * instrNextArg = sym->m_instrDef;
+        instrNextArg = sym->m_instrDef;
         Assert(instrNextArg);
         instrNextArg->SinkInstrBefore(instrArg);
         instrArg = instrNextArg;
@@ -7695,7 +7710,7 @@ void LowererMD::ConvertFloatToInt32(IR::Opnd* intOpnd, IR::Opnd* floatOpnd, IR::
         IR::Opnd* dstOpnd = intOpnd;
 #endif
         // CVTTSD2SI dst, floatOpnd
-        IR::Instr* instr = IR::Instr::New(floatOpnd->IsFloat64() ? Js::OpCode::CVTTSD2SI : Js::OpCode::CVTTSS2SI, dstOpnd, floatOpnd, this->m_func);
+        instr = IR::Instr::New(floatOpnd->IsFloat64() ? Js::OpCode::CVTTSD2SI : Js::OpCode::CVTTSS2SI, dstOpnd, floatOpnd, this->m_func);
         instInsert->InsertBefore(instr);
 
         // CMP dst, 0x80000000 {0x8000000000000000 on x64}    -- Check for overflow
@@ -7736,7 +7751,7 @@ void LowererMD::ConvertFloatToInt32(IR::Opnd* intOpnd, IR::Opnd* floatOpnd, IR::
         if (floatOpnd->IsFloat32())
         {
             float64Opnd = IR::RegOpnd::New(TyFloat64, m_func);
-            IR::Instr* instr = IR::Instr::New(Js::OpCode::CVTSS2SD, float64Opnd, floatOpnd, m_func);
+            instr = IR::Instr::New(Js::OpCode::CVTSS2SD, float64Opnd, floatOpnd, m_func);
             instInsert->InsertBefore(instr);
         }
         else
@@ -7747,7 +7762,7 @@ void LowererMD::ConvertFloatToInt32(IR::Opnd* intOpnd, IR::Opnd* floatOpnd, IR::
         if (float64Opnd->IsRegOpnd())
         {
             floatStackOpnd = IR::SymOpnd::New(tempSymDouble, TyMachDouble, m_func);
-            IR::Instr* instr = IR::Instr::New(Js::OpCode::MOVSD, floatStackOpnd, float64Opnd, m_func);
+            instr = IR::Instr::New(Js::OpCode::MOVSD, floatStackOpnd, float64Opnd, m_func);
             instInsert->InsertBefore(instr);
         }
         else
@@ -7974,12 +7989,11 @@ LowererMD::LowerCommitScope(IR::Instr *instrCommit)
     opnd = IR::IndirOpnd::New(baseOpnd, Js::ActivationObjectEx::GetOffsetOfCommitFlag(), TyInt8, this->m_func);
     instrCommit->SetDst(opnd);
     instrCommit->SetSrc1(IR::IntConstOpnd::New(1, TyInt8, this->m_func));
-    IR::IntConstOpnd *intConstOpnd = instrCommit->UnlinkSrc2()->AsIntConstOpnd();
+    
     LowererMD::ChangeToAssign(instrCommit);
 
-    const Js::PropertyIdArray *propIds = Js::ByteCodeReader::ReadPropertyIdArrayWithLock(intConstOpnd->AsUint32(), instrCommit->m_func->GetJnFunction());
-    intConstOpnd->Free(this->m_func);
-
+    const Js::PropertyIdArray *propIds = instrCommit->m_func->GetJnFunction()->GetFormalsPropIdArray();
+    
     uint firstVarSlot = (uint)Js::ActivationObjectEx::GetFirstVarSlot(propIds);
     if (firstVarSlot < propIds->count)
     {
@@ -8037,6 +8051,7 @@ LowererMD::GetImplicitParamSlotSym(Js::ArgSlot argSlot, Func * func)
 
     StackSym * stackSym = StackSym::NewParamSlotSym(argSlot, func);
     func->SetArgOffset(stackSym, (2 + argSlot) * MachPtr);
+    func->SetHasImplicitParamLoad();
     return stackSym;
 }
 
@@ -8694,6 +8709,18 @@ void LowererMD::GenerateFastInlineBuiltInCall(IR::Instr* instr, IR::JnHelperMeth
         Assert(helperMethod == (IR::JnHelperMethod)0);
         return GenerateFastInlineBuiltInMathAbs(instr);
 
+    case Js::OpCode::InlineMathPow:
+#ifdef _M_IX86
+        if (!instr->GetSrc2()->IsFloat())
+        {
+#endif
+            this->GenerateFastInlineBuiltInMathPow(instr);
+            break;
+#ifdef _M_IX86
+        }
+        // fallthrough
+#endif
+
     case Js::OpCode::InlineMathAcos:
     case Js::OpCode::InlineMathAsin:
     case Js::OpCode::InlineMathAtan:
@@ -8701,7 +8728,6 @@ void LowererMD::GenerateFastInlineBuiltInCall(IR::Instr* instr, IR::JnHelperMeth
     case Js::OpCode::InlineMathCos:
     case Js::OpCode::InlineMathExp:
     case Js::OpCode::InlineMathLog:
-    case Js::OpCode::InlineMathPow:
     case Js::OpCode::Expo_A:        //** operator reuses InlineMathPow fastpath
     case Js::OpCode::InlineMathSin:
     case Js::OpCode::InlineMathTan:
@@ -8759,6 +8785,7 @@ void LowererMD::GenerateFastInlineBuiltInCall(IR::Instr* instr, IR::JnHelperMeth
             IR::Instr *floatCall = IR::Instr::New(Js::OpCode::CALL, floatCallDst, s1, this->m_func);
             instr->InsertBefore(floatCall);
 #endif
+            instr->m_func->SetHasCalls();
             // Save the result.
             instr->m_opcode = Js::OpCode::MOVSD;
             instr->SetSrc1(floatCall->GetDst());
@@ -9325,6 +9352,55 @@ void LowererMD::GenerateFastInlineBuiltInMathAbs(IR::Instr* inlineInstr)
     {
         AssertMsg(FALSE, "GenerateFastInlineBuiltInMathAbs: unexpected type of the src!");
     }
+}
+
+void LowererMD::GenerateFastInlineBuiltInMathPow(IR::Instr* instr)
+{
+#ifdef _M_IX86
+    AssertMsg(!instr->GetSrc2()->IsFloat(), "Math.pow(*, double) needs customized lowering!");
+#endif
+
+    IR::JnHelperMethod directPowHelper = (IR::JnHelperMethod)0;
+    IR::Opnd* bailoutOpnd = nullptr;
+
+    if (!instr->GetSrc2()->IsFloat())
+    {
+        LoadHelperArgument(instr, instr->UnlinkSrc2());
+
+        if (instr->GetSrc1()->IsFloat())
+        {
+            directPowHelper = IR::HelperDirectMath_PowDoubleInt;
+            LoadDoubleHelperArgument(instr, instr->UnlinkSrc1());
+        }
+        else
+        {
+            directPowHelper = IR::HelperDirectMath_PowIntInt;
+            LoadHelperArgument(instr, instr->UnlinkSrc1());
+
+            if (!this->m_func->tempSymBool)
+            {
+                this->m_func->tempSymBool = StackSym::New(TyUint8, this->m_func);
+                this->m_func->StackAllocate(this->m_func->tempSymBool, TySize[TyUint8]);
+            }
+            IR::SymOpnd* boolOpnd = IR::SymOpnd::New(this->m_func->tempSymBool, TyUint8, this->m_func);
+            IR::RegOpnd* boolRefOpnd = IR::RegOpnd::New(TyMachReg, this->m_func);
+            this->m_lowerer->InsertLea(boolRefOpnd, boolOpnd, instr);
+            LoadHelperArgument(instr, boolRefOpnd);
+
+            bailoutOpnd = boolOpnd;
+        }
+    }
+#ifndef _M_IX86
+    else
+    {
+        AssertMsg(instr->GetSrc1()->IsFloat(), "Math.Pow(int, double) should not generated by GlobOpt!");
+        directPowHelper = IR::HelperDirectMath_Pow;
+        LoadDoubleHelperArgument(instr, instr->UnlinkSrc2());
+        LoadDoubleHelperArgument(instr, instr->UnlinkSrc1());
+    }
+#endif
+
+    ChangeToHelperCall(instr, directPowHelper, nullptr, bailoutOpnd);
 }
 
 void

@@ -9,25 +9,25 @@
 //----------------------------------------
 
 _Ret_maybenull_ void * __cdecl
-operator new(size_t byteSize)
+operator new(DECLSPEC_GUARD_OVERFLOW size_t byteSize)
 {
     return HeapNewNoThrowArray(char, byteSize);
 }
 
 _Ret_maybenull_ void * __cdecl
-operator new[](size_t byteSize)
+operator new[](DECLSPEC_GUARD_OVERFLOW size_t byteSize)
 {
     return HeapNewNoThrowArray(char, byteSize);
 }
 
 void __cdecl
-operator delete(void * obj)
+operator delete(void * obj) _NOEXCEPT_
 {
     HeapAllocator::Instance.Free(obj, (size_t)-1);
 }
 
 void __cdecl
-operator delete[](void * obj)
+operator delete[](void * obj) _NOEXCEPT_
 {
     HeapAllocator::Instance.Free(obj, (size_t)-1);
 }

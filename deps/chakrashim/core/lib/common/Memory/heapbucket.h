@@ -67,10 +67,11 @@ public:
 
     uint GetBucketIndex() const;
     uint GetMediumBucketIndex() const;
-protected:
-    template <typename TBlockType>
-    static void EnumerateObjects(TBlockType * heapBlockList, ObjectInfoBits infoBits, void (*CallBackFunction)(void * address, size_t size));
 
+    template <typename TBlockType>
+    static void EnumerateObjects(TBlockType * heapBlockList, ObjectInfoBits infoBits, void(*CallBackFunction)(void * address, size_t size));
+
+protected:
     HeapInfo * heapInfo;
     uint sizeCat;
 
@@ -83,7 +84,7 @@ protected:
 #ifdef RECYCLER_PAGE_HEAP
     bool isPageHeapEnabled;
 public:
-    bool IsPageHeapEnabled(ObjectInfoBits attributes) const
+    inline bool IsPageHeapEnabled(ObjectInfoBits attributes) const
     {
         // LargeHeapBlock does not support TrackBit today
         return isPageHeapEnabled && ((attributes & ClientTrackableObjectBits) == 0);
@@ -115,7 +116,7 @@ public:
 template <typename TBlockType>
 class HeapBucketT : public HeapBucket
 {
-    typedef typename SmallHeapBlockAllocator<TBlockType> TBlockAllocatorType;
+    typedef SmallHeapBlockAllocator<TBlockType> TBlockAllocatorType;
 
 public:
     HeapBucketT();
@@ -124,15 +125,15 @@ public:
     bool IntegrateBlock(char * blockAddress, PageSegment * segment, Recycler * recycler);
 
     template <ObjectInfoBits attributes, bool nothrow>
-    __inline char * RealAlloc(Recycler * recycler, size_t sizeCat, size_t size);
+    inline char * RealAlloc(Recycler * recycler, size_t sizeCat, size_t size);
 
 #ifdef RECYCLER_PAGE_HEAP
-    char * PageHeapAlloc(Recycler * recycler, size_t sizeCat, size_t size, ObjectInfoBits attributes, PageHeapMode mode, bool nothrow);
+    char * PageHeapAlloc(Recycler * recycler, DECLSPEC_GUARD_OVERFLOW size_t sizeCat, size_t size, ObjectInfoBits attributes, PageHeapMode mode, bool nothrow);
 #endif
 
     void ExplicitFree(void* object, size_t sizeCat);
 
-    char * SnailAlloc(Recycler * recycler, TBlockAllocatorType * allocator, size_t sizeCat, size_t size, ObjectInfoBits attributes, bool nothrow);
+    char * SnailAlloc(Recycler * recycler, TBlockAllocatorType * allocator, DECLSPEC_GUARD_OVERFLOW size_t sizeCat, size_t size, ObjectInfoBits attributes, bool nothrow);
 
     void ResetMarks(ResetMarkFlags flags);
     void ScanNewImplicitRoots(Recycler * recycler);
@@ -147,7 +148,7 @@ public:
     void SetupBackgroundSweep(RecyclerSweep& recyclerSweep);
 #endif
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-    friend class ScriptMemoryDumper;
+    friend class ::ScriptMemoryDumper;
 #endif
 
     TBlockAllocatorType * GetAllocator() { return &allocatorHead;}
@@ -161,7 +162,7 @@ protected:
     static bool const IsFinalizableWriteBarrierBucket = TBlockType::RequiredAttributes == FinalizableWithBarrierBit;
 #endif
 
-    void Initialize(HeapInfo * heapInfo, uint sizeCat);
+    void Initialize(HeapInfo * heapInfo, DECLSPEC_GUARD_OVERFLOW uint sizeCat);
     void AppendAllocableHeapBlockList(TBlockType * list);
     void DeleteHeapBlockList(TBlockType * list);
     static void DeleteEmptyHeapBlockList(TBlockType * list);
@@ -176,8 +177,8 @@ protected:
     template <class Fn> void ForEachAllocator(Fn fn);
 
     // Allocations
-    char * TryAllocFromNewHeapBlock(Recycler * recycler, TBlockAllocatorType * allocator, size_t sizeCat, size_t size, ObjectInfoBits attributes);
-    char * TryAlloc(Recycler * recycler, TBlockAllocatorType * allocator, size_t sizeCat, ObjectInfoBits attributes);
+    char * TryAllocFromNewHeapBlock(Recycler * recycler, TBlockAllocatorType * allocator, DECLSPEC_GUARD_OVERFLOW size_t sizeCat, size_t size, ObjectInfoBits attributes);
+    char * TryAlloc(Recycler * recycler, TBlockAllocatorType * allocator, DECLSPEC_GUARD_OVERFLOW size_t sizeCat, ObjectInfoBits attributes);
     TBlockType * CreateHeapBlock(Recycler * recycler);
     TBlockType * GetUnusedHeapBlock();
 
@@ -245,7 +246,7 @@ protected:
     friend class HeapBucketGroup;
 
     friend class HeapInfo;
-    friend typename TBlockType;
+    friend TBlockType;
 
     template <class TBucketAttributes>
     friend class SmallHeapBlockT;

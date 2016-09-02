@@ -7,7 +7,7 @@
 #if ENABLE_NATIVE_CODEGEN
 namespace Js
 {
-    ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, InlineCache* cache, uint cacheId, EntryPointInfo *entryPoint,
+    ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, InlineCache* cache, uint const cacheId, EntryPointInfo *entryPoint,
         FunctionBody* const topFunctionBody, FunctionBody *const functionBody, FieldAccessStatsPtr inlineCacheStats)
     {
         if (cache->IsEmpty())
@@ -53,7 +53,7 @@ namespace Js
         ScriptContext* scriptContext = functionBody->GetScriptContext();
         Recycler *const recycler = scriptContext->GetRecycler();
 
-        Js::PropertyId propertyId = functionBody->GetPropertyIdFromCacheId(cacheId);
+        Js::PropertyId const propertyId = functionBody->GetPropertyIdFromCacheId(cacheId);
         uint16 slotIndex = Constants::NoSlot;
         bool usesAuxSlot = false;
         DynamicObject* prototypeObject = nullptr;
@@ -129,7 +129,6 @@ namespace Js
             if (Js::DynamicType::Is(propertyOwnerType->GetTypeId()))
             {
                 Js::DynamicTypeHandler* propertyOwnerTypeHandler = ((Js::DynamicType*)propertyOwnerType)->GetTypeHandler();
-                Js::PropertyId propertyId = functionBody->GetPropertyIdFromCacheId(cacheId);
                 Js::PropertyRecord const * const fixedPropertyRecord = functionBody->GetScriptContext()->GetPropertyName(propertyId);
                 Var fixedProperty = nullptr;
                 Js::JavascriptFunction* functionObject = nullptr;
@@ -668,20 +667,17 @@ namespace Js
 
         if (PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))
         {
-            if (PHASE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))
+            if (typeSet)
             {
-                if (typeSet)
+                const PropertyRecord* propertyRecord = scriptContext->GetPropertyName(propertyId);
+                Output::Print(_u("Created ObjTypeSpecFldInfo: id %u, property %s(#%u), slot %u, type set: "),
+                              id, propertyRecord->GetBuffer(), propertyId, slotIndex);
+                for (uint16 ti = 0; ti < typeCount - 1; ti++)
                 {
-                    const PropertyRecord* propertyRecord = scriptContext->GetPropertyName(propertyId);
-                    Output::Print(_u("Created ObjTypeSpecFldInfo: id %u, property %s(#%u), slot %u, type set: "),
-                        id, propertyRecord->GetBuffer(), propertyId, slotIndex);
-                    for (uint16 ti = 0; ti < typeCount - 1; ti++)
-                    {
-                        Output::Print(_u("0x%p, "), typeSet->GetType(ti));
-                    }
-                    Output::Print(_u("0x%p\n"), typeSet->GetType(typeCount - 1));
-                    Output::Flush();
+                    Output::Print(_u("0x%p, "), typeSet->GetType(ti));
                 }
+                Output::Print(_u("0x%p\n"), typeSet->GetType(typeCount - 1));
+                Output::Flush();
             }
         }
 

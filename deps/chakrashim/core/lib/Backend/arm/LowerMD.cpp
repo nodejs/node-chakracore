@@ -199,6 +199,7 @@ IR::Instr *
 LowererMD::LowerCallHelper(IR::Instr *instrCall)
 {
     IR::Opnd *argOpnd = instrCall->UnlinkSrc2();
+    IR::Instr          *prevInstr = instrCall;
     IR::JnHelperMethod helperMethod = instrCall->GetSrc1()->AsHelperCallOpnd()->m_fnHelper;
     instrCall->FreeSrc1();
 
@@ -210,17 +211,22 @@ LowererMD::LowerCallHelper(IR::Instr *instrCall)
         Assert(regArg->m_sym->m_isSingleDef);
         IR::Instr *instrArg = regArg->m_sym->m_instrDef;
 
-        Assert(instrArg->m_opcode == Js::OpCode::ArgOut_A);
-        this->LoadHelperArgument(instrArg, instrArg->UnlinkSrc1());
+        Assert(instrArg->m_opcode == Js::OpCode::ArgOut_A ||
+            (helperMethod == IR::JnHelperMethod::HelperOP_InitCachedScope && instrArg->m_opcode == Js::OpCode::ExtendArg_A));
+        prevInstr = this->LoadHelperArgument(prevInstr, instrArg->GetSrc1());
 
-        regArg->Free(this->m_func);
         argOpnd = instrArg->GetSrc2();
 
-        if (argOpnd)
+        if (instrArg->m_opcode == Js::OpCode::ArgOut_A)
         {
-            instrArg->UnlinkSrc2();
+            instrArg->UnlinkSrc1();
+            if (argOpnd)
+            {
+                instrArg->UnlinkSrc2();
+            }
+            regArg->Free(this->m_func);
+            instrArg->Remove();
         }
-        instrArg->Remove();
     }
 
     this->m_lowerer->LoadScriptContext(instrCall);
@@ -236,6 +242,9 @@ LowererMD::LowerCall(IR::Instr * callInstr, Js::ArgSlot argCount)
     IR::Instr *retInstr = callInstr;
     IR::Opnd *targetOpnd = callInstr->GetSrc1();
     AssertMsg(targetOpnd, "Call without a target?");
+
+    // This is required here due to calls created during lowering
+    callInstr->m_func->SetHasCalls();
 
     if (targetOpnd->IsRegOpnd())
     {
@@ -1481,7 +1490,7 @@ LowererMD::LowerEntryInstr(IR::EntryInstr * entryInstr)
         //R12 acts a dummy zero register which we push to arguments slot
         //mov r12, 0
         Assert(r12Opnd == nullptr);
-        IR::RegOpnd* r12Opnd = IR::RegOpnd::New(nullptr, SCRATCH_REG, TyMachReg, this->m_func);
+        r12Opnd = IR::RegOpnd::New(nullptr, SCRATCH_REG, TyMachReg, this->m_func);
         IR::Instr * instrMov = IR::Instr::New(Js::OpCode::MOV, r12Opnd, IR::IntConstOpnd::New(0, TyMachReg, this->m_func), this->m_func);
         insertInstr->InsertBefore(instrMov);
         IR::LabelInstr *prologStartLabel = IR::LabelInstr::New(Js::OpCode::Label, this->m_func);
@@ -1984,7 +1993,7 @@ LowererMD::Init(Lowerer *lowerer)
 IR::Instr *
 LowererMD::LoadInputParamPtr(IR::Instr * instrInsert, IR::RegOpnd * optionalDstOpnd /* = nullptr */)
 {
-    if (this->m_func->GetJnFunction()->IsGenerator())
+    if (this->m_func->GetJnFunction()->IsCoroutine())
     {
         IR::RegOpnd * argPtrRegOpnd = Lowerer::LoadGeneratorArgsPtr(instrInsert);
         IR::IndirOpnd * indirOpnd = IR::IndirOpnd::New(argPtrRegOpnd, 1 * MachPtr, TyMachPtr, this->m_func);
@@ -2078,7 +2087,7 @@ LowererMD::LoadStackArgPtr(IR::Instr * instr)
         instr->SetSrc1(tmpOpnd);
         instr->SetSrc2(IR::IntConstOpnd::New(sizeof(Js::Var), TyMachReg, this->m_func));
     }
-    else if (this->m_func->GetJnFunction()->IsGenerator())
+    else if (this->m_func->GetJnFunction()->IsCoroutine())
     {
         IR::Instr *instr2 = LoadInputParamPtr(instr, instr->UnlinkDst()->AsRegOpnd());
         instr->Remove();
@@ -2167,27 +2176,30 @@ LowererMD::LoadHeapArguments(IR::Instr * instrArgs, bool force /* = false */, IR
 {
     ASSERT_INLINEE_FUNC(instrArgs);
     Func *func = instrArgs->m_func;
-
-    // s7 = formals are let decls
-    // s6 = memory context
-    // s5 = array of property ID's
-    // s4 = local frame instance
-    // s3 = address of first actual argument (after "this")
-    // s2 = actual argument count
-    // s1 = current function
-    // dst = JavascriptOperators::LoadHeapArguments(s1, s2, s3, s4, s5, s6, s7)
-
     IR::Instr * instrPrev = instrArgs->m_prev;
 
-    if (!force && func->GetHasStackArgs() && this->m_func->GetHasStackArgs())
+    if (!force && func->IsStackArgsEnabled())
     {
         // The initial args slot value is zero.
         instrArgs->m_opcode = Js::OpCode::MOV;
         instrArgs->ReplaceSrc1(IR::AddrOpnd::NewNull(func));
-        instrArgs->FreeSrc2();
+        if (PHASE_TRACE1(Js::StackArgFormalsOptPhase) && func->GetJnFunction()->GetInParamsCount() > 1)
+        {
+            Output::Print(_u("StackArgFormals : %s (%d) :Removing Heap Arguments object creation in Lowerer. \n"), instrArgs->m_func->GetJnFunction()->GetDisplayName(), instrArgs->m_func->GetJnFunction()->GetFunctionNumber());
+            Output::Flush();
+        }
     }
     else
     {
+        // s7 = formals are let decls
+        // s6 = memory context
+        // s5 = array of property ID's
+        // s4 = local frame instance
+        // s3 = address of first actual argument (after "this")
+        // s2 = actual argument count
+        // s1 = current function
+        // dst = JavascriptOperators::LoadHeapArguments(s1, s2, s3, s4, s5, s6, s7)
+
         // s7 = formals are let decls
         this->LoadHelperArgument(instrArgs, IR::IntConstOpnd::New(instrArgs->m_opcode == Js::OpCode::LdLetHeapArguments ? TRUE : FALSE, TyUint8, func));
 
@@ -2195,7 +2207,7 @@ LowererMD::LoadHeapArguments(IR::Instr * instrArgs, bool force /* = false */, IR
         this->m_lowerer->LoadScriptContext(instrArgs);
 
         // s5 = array of property ID's
-        IR::Opnd * argArray = instrArgs->UnlinkSrc2();
+        IR::Opnd * argArray = IR::AddrOpnd::New(instrArgs->m_func->GetJnFunction()->GetFormalsPropIdArrayOrNullObj(), IR::AddrOpndKindDynamicMisc, m_func);
         this->LoadHelperArgument(instrArgs, argArray);
 
         // s4 = local frame instance
@@ -2265,81 +2277,95 @@ LowererMD::LoadHeapArgsCached(IR::Instr * instrArgs)
     Assert(!this->m_func->GetJnFunction()->IsGenerator());
     ASSERT_INLINEE_FUNC(instrArgs);
     Func *func = instrArgs->m_func;
-
-    // s7 = formals are let decls
-    // s6 = memory context
-    // s5 = local frame instance
-    // s4 = address of first actual argument (after "this")
-    // s3 = formal argument count
-    // s2 = actual argument count
-    // s1 = current function
-    // dst = JavascriptOperators::LoadHeapArgsCached(s1, s2, s3, s4, s5, s6, s7)
-
     IR::Instr * instrPrev = instrArgs->m_prev;
 
-    // s7 = formals are let decls
-    IR::Opnd * formalsAreLetDecls = IR::IntConstOpnd::New((IntConstType)(instrArgs->m_opcode == Js::OpCode::LdLetHeapArgsCached), TyUint8, func);
-    this->LoadHelperArgument(instrArgs, formalsAreLetDecls);
-
-    // s6 = memory context
-    this->m_lowerer->LoadScriptContext(instrArgs);
-
-    // s5 = local frame instance
-    IR::Opnd * frameObj = instrArgs->UnlinkSrc1();
-    this->LoadHelperArgument(instrArgs, frameObj);
-
-    if (func->IsInlinee())
+    if (instrArgs->m_func->IsStackArgsEnabled())
     {
-        // s4 = address of first actual argument (after "this").
-        StackSym *firstRealArgSlotSym = func->GetInlineeArgvSlotOpnd()->m_sym->AsStackSym();
-        this->m_func->SetArgOffset(firstRealArgSlotSym, firstRealArgSlotSym->m_offset + MachPtr);
+        instrArgs->m_opcode = Js::OpCode::MOV;
+        instrArgs->ReplaceSrc1(IR::AddrOpnd::NewNull(func));
 
-        IR::Instr *instr = this->LoadStackAddress(firstRealArgSlotSym);
-        instrArgs->InsertBefore(instr);
-        this->LoadHelperArgument(instrArgs, instr->GetDst());
-
-        // s3 = formal argument count (without counting "this").
-        uint32 formalsCount = func->GetJnFunction()->GetInParamsCount() - 1;
-        this->LoadHelperArgument(instrArgs, IR::IntConstOpnd::New(formalsCount, TyUint32, func));
-
-        // s2 = actual argument count (without counting "this").
-        this->LoadHelperArgument(instrArgs, IR::IntConstOpnd::New(func->actualCount - 1, TyUint32, func));
-
-        // s1 = current function.
-        this->LoadHelperArgument(instrArgs, func->GetInlineeFunctionObjectSlotOpnd());
-
-        // Save the newly-created args object to its dedicated stack slot.
-        IR::SymOpnd *argObjSlotOpnd = func->GetInlineeArgumentsObjectSlotOpnd();
-        LowererMD::CreateAssign(argObjSlotOpnd, instrArgs->GetDst(), instrArgs->m_next);
+        if (PHASE_TRACE1(Js::StackArgFormalsOptPhase) && func->GetJnFunction()->GetInParamsCount() > 1)
+        {
+            Output::Print(_u("StackArgFormals : %s (%d) :Removing Heap Arguments object creation in Lowerer. \n"), instrArgs->m_func->GetJnFunction()->GetDisplayName(), instrArgs->m_func->GetJnFunction()->GetFunctionNumber());
+            Output::Flush();
+        }
     }
     else
     {
+        // s7 = formals are let decls
+        // s6 = memory context
+        // s5 = local frame instance
         // s4 = address of first actual argument (after "this")
-        IR::Instr * instr = this->LoadInputParamPtr(instrArgs);
-        this->LoadHelperArgument(instrArgs, instr->GetDst());
-
-        // s3 = formal argument count (without counting "this")
-        uint32 formalsCount = func->GetInParamsCount() - 1;
-        this->LoadHelperArgument(instrArgs, IR::IntConstOpnd::New(formalsCount, TyMachReg, func));
-
-        // s2 = actual argument count (without counting "this")
-        instr = this->LoadInputParamCount(instrArgs, -1);
-        this->LoadHelperArgument(instrArgs, instr->GetDst());
-
+        // s3 = formal argument count
+        // s2 = actual argument count
         // s1 = current function
-        StackSym * paramSym = GetImplicitParamSlotSym(0);
-        IR::Opnd * srcOpnd = IR::SymOpnd::New(paramSym, TyMachReg, func);
-        this->LoadHelperArgument(instrArgs, srcOpnd);
+        // dst = JavascriptOperators::LoadHeapArgsCached(s1, s2, s3, s4, s5, s6, s7)
 
 
-        // Save the newly-created args object to its dedicated stack slot.
-        IR::IndirOpnd *indirOpnd = IR::IndirOpnd::New(IR::RegOpnd::New(nullptr, FRAME_REG , TyMachReg, func),
-            -MachArgsSlotOffset, TyMachPtr, m_func);
-        LowererMD::CreateAssign(indirOpnd, instrArgs->GetDst(), instrArgs->m_next);
+        // s7 = formals are let decls
+        IR::Opnd * formalsAreLetDecls = IR::IntConstOpnd::New((IntConstType)(instrArgs->m_opcode == Js::OpCode::LdLetHeapArgsCached), TyUint8, func);
+        this->LoadHelperArgument(instrArgs, formalsAreLetDecls);
 
+        // s6 = memory context
+        this->m_lowerer->LoadScriptContext(instrArgs);
+
+        // s5 = local frame instance
+        IR::Opnd * frameObj = instrArgs->UnlinkSrc1();
+        this->LoadHelperArgument(instrArgs, frameObj);
+
+        if (func->IsInlinee())
+        {
+            // s4 = address of first actual argument (after "this").
+            StackSym *firstRealArgSlotSym = func->GetInlineeArgvSlotOpnd()->m_sym->AsStackSym();
+            this->m_func->SetArgOffset(firstRealArgSlotSym, firstRealArgSlotSym->m_offset + MachPtr);
+
+            IR::Instr *instr = this->LoadStackAddress(firstRealArgSlotSym);
+            instrArgs->InsertBefore(instr);
+            this->LoadHelperArgument(instrArgs, instr->GetDst());
+
+            // s3 = formal argument count (without counting "this").
+            uint32 formalsCount = func->GetJnFunction()->GetInParamsCount() - 1;
+            this->LoadHelperArgument(instrArgs, IR::IntConstOpnd::New(formalsCount, TyUint32, func));
+
+            // s2 = actual argument count (without counting "this").
+            this->LoadHelperArgument(instrArgs, IR::IntConstOpnd::New(func->actualCount - 1, TyUint32, func));
+
+            // s1 = current function.
+            this->LoadHelperArgument(instrArgs, func->GetInlineeFunctionObjectSlotOpnd());
+
+            // Save the newly-created args object to its dedicated stack slot.
+            IR::SymOpnd *argObjSlotOpnd = func->GetInlineeArgumentsObjectSlotOpnd();
+            LowererMD::CreateAssign(argObjSlotOpnd, instrArgs->GetDst(), instrArgs->m_next);
+        }
+        else
+        {
+            // s4 = address of first actual argument (after "this")
+            IR::Instr * instr = this->LoadInputParamPtr(instrArgs);
+            this->LoadHelperArgument(instrArgs, instr->GetDst());
+
+            // s3 = formal argument count (without counting "this")
+            uint32 formalsCount = func->GetInParamsCount() - 1;
+            this->LoadHelperArgument(instrArgs, IR::IntConstOpnd::New(formalsCount, TyMachReg, func));
+
+            // s2 = actual argument count (without counting "this")
+            instr = this->LoadInputParamCount(instrArgs, -1);
+            this->LoadHelperArgument(instrArgs, instr->GetDst());
+
+            // s1 = current function
+            StackSym * paramSym = GetImplicitParamSlotSym(0);
+            IR::Opnd * srcOpnd = IR::SymOpnd::New(paramSym, TyMachReg, func);
+            this->LoadHelperArgument(instrArgs, srcOpnd);
+
+
+            // Save the newly-created args object to its dedicated stack slot.
+            IR::IndirOpnd *indirOpnd = IR::IndirOpnd::New(IR::RegOpnd::New(nullptr, FRAME_REG, TyMachReg, func),
+                -MachArgsSlotOffset, TyMachPtr, m_func);
+            LowererMD::CreateAssign(indirOpnd, instrArgs->GetDst(), instrArgs->m_next);
+
+        }
+
+        this->ChangeToHelperCall(instrArgs, IR::HelperOp_LoadHeapArgsCached);
     }
-
-    this->ChangeToHelperCall(instrArgs, IR::HelperOp_LoadHeapArgsCached);
     return instrPrev;
 }
 
@@ -3420,7 +3446,7 @@ bool LowererMD::GenerateFastCmXxTaggedInt(IR::Instr *instr)
         LowererMD::CreateAssign(newSrc1, src1, instr);
         src1 = newSrc1;
     }
-    else if (dst->IsEqual(src2))
+    if (dst->IsEqual(src2))
     {
         IR::RegOpnd *newSrc2 = IR::RegOpnd::New(TyMachReg, m_func);
         LowererMD::CreateAssign(newSrc2, src2, instr);
@@ -5714,7 +5740,7 @@ LowererMD::GenerateFastBrBReturn(IR::Instr *instr)
     instr->InsertBefore(checkFirstPrototypeNullInstr);
     instr->InsertBefore(IR::BranchInstr::New(Js::OpCode::BNE, labelHelper, this->m_func));
 
-    typedef Js::DynamicObjectSnapshotEnumeratorWPCache<Js::BigPropertyIndex, true, false> SmallDynamicObjectSnapshotEnumeratorWPCache;
+    typedef Js::DynamicObjectSnapshotEnumeratorWPCache<true, false> SmallDynamicObjectSnapshotEnumeratorWPCache;
 
     // LDR currentEnumeratorOpnd, forInEnumerator->currentEnumerator
     // CMP currentEnumeratorOpnd, SmallDynamicObjectSnapshotEnumeratorWPCache::`vtable
@@ -7671,9 +7697,7 @@ LowererMD::LowerCommitScope(IR::Instr *instrCommit)
     instrCommit->SetSrc1(IR::IntConstOpnd::New(1, TyInt8, this->m_func));
     LowererMD::ChangeToAssign(instrCommit);
 
-    IR::IntConstOpnd *intConstOpnd = instrCommit->UnlinkSrc2()->AsIntConstOpnd();
-    const Js::PropertyIdArray *propIds = Js::ByteCodeReader::ReadPropertyIdArrayWithLock(intConstOpnd->GetValue(), instrCommit->m_func->GetJnFunction());
-    intConstOpnd->Free(this->m_func);
+    const Js::PropertyIdArray *propIds = instrCommit->m_func->GetJnFunction()->GetFormalsPropIdArray();
 
     uint firstVarSlot = (uint)Js::ActivationObjectEx::GetFirstVarSlot(propIds);
     if (firstVarSlot < propIds->count)
@@ -7767,6 +7791,7 @@ LowererMD::GetImplicitParamSlotSym(Js::ArgSlot argSlot, Func * func)
     // be confused with arg slot number from javascript
     StackSym * stackSym = StackSym::NewParamSlotSym(argSlot, func);
     func->SetArgOffset(stackSym, argSlot * MachPtr);
+    func->SetHasImplicitParamLoad();
     return stackSym;
 }
 
@@ -9216,7 +9241,7 @@ LowererMD::FinalLower()
                 if (canExpand)
                 {
                     uint32 expandedInstrCount = 0;   // The number of instrs the LDIMM expands into.
-                    FOREACH_INSTR_IN_RANGE(instr, instrPrev->m_next, instrNext)
+                    FOREACH_INSTR_IN_RANGE(instrCount, instrPrev->m_next, instrNext)
                     {
                         ++expandedInstrCount;
                     }

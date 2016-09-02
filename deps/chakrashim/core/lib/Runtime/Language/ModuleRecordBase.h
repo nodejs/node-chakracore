@@ -7,9 +7,10 @@
 namespace Js
 {
     class ModuleRecordBase;
-    typedef SList<PropertyId> ExportedNames; 
+    class ModuleNamespace;
+    typedef SList<PropertyId> ExportedNames;
     typedef SList<ModuleRecordBase*> ExportModuleRecordList;
-    typedef struct ModuleNameRecord
+    struct ModuleNameRecord
     {
         ModuleRecordBase* module;
         PropertyId bindingName;
@@ -19,19 +20,19 @@ namespace Js
     // ModuleRecord need to keep rootFunction etc. alive.
     class ModuleRecordBase : public FinalizableObject
     {
-    public: 
-        const unsigned long ModuleMagicNumber = *(const unsigned long*)"Mode";
-        ModuleRecordBase(JavascriptLibrary* library) : 
-            namespaceObject(nullptr), wasEvaluated(false), 
+    public:
+        static const uint32 ModuleMagicNumber;
+        ModuleRecordBase(JavascriptLibrary* library) :
+            namespaceObject(nullptr), wasEvaluated(false),
             javascriptLibrary(library),  magicNumber(ModuleMagicNumber){};
         bool WasEvaluated() { return wasEvaluated; }
         void SetWasEvaluated() { Assert(!wasEvaluated); wasEvaluated = true; }
         JavascriptLibrary* GetRealm() { return javascriptLibrary; }  // TODO: do we need to provide this method ?
-        ModuleNamespace* GetNamespace() { return namespaceObject; }
-        void SetNamespace(ModuleNamespace* moduleNamespace) { namespaceObject = moduleNamespace; }
+        virtual ModuleNamespace* GetNamespace() { return namespaceObject; }
+        virtual void SetNamespace(ModuleNamespace* moduleNamespace) { namespaceObject = moduleNamespace; }
 
         virtual ExportedNames* GetExportedNames(ExportModuleRecordList* exportStarSet) = 0;
-        // return false when "ambiguous". 
+        // return false when "ambiguous".
         // otherwise nullptr means "null" where we have circular reference/cannot resolve.
         virtual bool ResolveExport(PropertyId exportName, ResolveSet* resolveSet, ExportModuleRecordList* exportStarSet, ModuleNameRecord** exportRecord) = 0;
         virtual void ModuleDeclarationInstantiation() = 0;
@@ -39,7 +40,7 @@ namespace Js
         virtual bool IsSourceTextModuleRecord() { return false; }
 
     protected:
-        unsigned long magicNumber;
+        uint32 magicNumber;
         ModuleNamespace* namespaceObject;
         bool wasEvaluated;
         JavascriptLibrary* javascriptLibrary;

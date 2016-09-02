@@ -262,17 +262,17 @@ GlobOpt::DoFieldPRE(Loop *loop) const
     return DoFieldOpts(loop);
 }
 
-bool GlobOpt::DoMemOp(Loop *loop)
+bool GlobOpt::HasMemOp(Loop *loop)
 {
 #pragma prefast(suppress: 6285, "logical-or of constants is by design")
     return (
         loop &&
+        loop->doMemOp &&
         (
             !PHASE_OFF(Js::MemSetPhase, this->func) ||
             !PHASE_OFF(Js::MemCopyPhase, this->func)
         ) &&
         loop->memOpInfo &&
-        loop->memOpInfo->doMemOp &&
         loop->memOpInfo->candidates &&
         !loop->memOpInfo->candidates->Empty()
     );
@@ -421,7 +421,6 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
         return;
     }
 
-    Sym *sym;
     IR::Opnd * dstOpnd = instr->GetDst();
     if (dstOpnd)
     {
@@ -463,6 +462,7 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
         return;
     }
 
+    Sym *sym;
     IR::JnHelperMethod fnHelper;
     switch(instr->m_opcode)
     {
@@ -539,9 +539,10 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
     case Js::OpCode::InlineeEnd:
         Assert(!instr->UsesAllFields());
 
-        // Kill all live 'arguments' fields, as 'inlineeFunction.arguments' cannot be copy-propped across different instances of
-        // the same inlined function.
+        // Kill all live 'arguments' and 'caller' fields, as 'inlineeFunction.arguments' and 'inlineeFunction.caller' 
+        // cannot be copy-propped across different instances of the same inlined function.
         KillLiveFields(argumentsEquivBv, bv);
+        KillLiveFields(callerEquivBv, bv);
         break;
 
     case Js::OpCode::CallDirect:
@@ -688,8 +689,8 @@ GlobOpt::PreparePrepassFieldHoisting(Loop * loop)
 
                 // Set object type live on prepass so we can track if it got killed in the loop. (see FinishOptHoistedPropOps)
                 JsTypeValueInfo* typeValueInfo = JsTypeValueInfo::New(this->alloc, nullptr, nullptr);
-                typeValueInfo->SetSymStore(typeSym);
                 typeValueInfo->SetIsShared();
+                this->SetSymStoreDirect(typeValueInfo, typeSym);
 
                 ValueNumber typeValueNumber = this->NewValueNumber();
                 Value* landingPadTypeValue = NewValue(typeValueNumber, typeValueInfo);
@@ -1197,7 +1198,7 @@ GlobOpt::HoistFieldLoadValue(Loop * loop, Value * newValue, SymID symId, Js::OpC
     else
     {
         this->SetValue(&this->blockData, newValue, newStackSym);
-        newValue->GetValueInfo()->SetSymStore(newStackSym);
+        this->SetSymStoreDirect(newValue->GetValueInfo(), newStackSym);
     }
 
 
@@ -1852,7 +1853,7 @@ GlobOpt::CopyStoreFieldHoistStackSym(IR::Instr * storeFldInstr, PropertySym * sy
 
     Value * dstVal = this->CopyValue(src1Val);
     TrackCopiedValueForKills(dstVal);
-    dstVal->GetValueInfo()->SetSymStore(copySym);
+    this->SetSymStoreDirect(dstVal->GetValueInfo(), copySym);
     this->SetValue(&this->blockData, dstVal, copySym);
 
     // Copy the type specialized sym as well, in case we have a use for them
@@ -2153,6 +2154,35 @@ GlobOpt::CheckIfPropOpEmitsTypeCheck(IR::Instr *instr, IR::PropertySymOpnd *opnd
     return CheckIfInstrInTypeCheckSeqEmitsTypeCheck(instr, opnd);
 }
 
+IR::PropertySymOpnd *
+GlobOpt::CreateOpndForTypeCheckOnly(IR::PropertySymOpnd* opnd, Func* func)
+{
+    // Used only for CheckObjType instruction today. Future users should make a call
+    // whether the new operand is jit optimized in their scenario or not.
+
+    Assert(!opnd->IsRootObjectNonConfigurableFieldLoad());
+    IR::PropertySymOpnd *newOpnd = opnd->CopyCommon(func);
+
+    newOpnd->SetObjTypeSpecFldInfo(opnd->GetObjTypeSpecInfo());
+    newOpnd->SetUsesAuxSlot(opnd->UsesAuxSlot());
+    newOpnd->SetSlotIndex(opnd->GetSlotIndex());
+
+    newOpnd->objTypeSpecFlags = opnd->objTypeSpecFlags;
+    // If we're turning the instruction owning this operand into a CheckObjType, we will do a type check here
+    // only for the sake of downstream instructions, so the flags pertaining to this property access are
+    // irrelevant, because we don't do a property access here.
+    newOpnd->SetTypeCheckOnly(true);
+    newOpnd->usesFixedValue = false;
+
+    newOpnd->finalType = opnd->finalType;
+    newOpnd->guardedPropOps = opnd->guardedPropOps != nullptr ? opnd->guardedPropOps->CopyNew() : nullptr;
+    newOpnd->writeGuards = opnd->writeGuards != nullptr ? opnd->writeGuards->CopyNew() : nullptr;
+
+    newOpnd->SetIsJITOptimizedReg(true);
+
+    return newOpnd;
+}
+
 bool
 GlobOpt::FinishOptPropOp(IR::Instr *instr, IR::PropertySymOpnd *opnd, BasicBlock* block, bool updateExistingValue, bool* emitsTypeCheckOut, bool* changesTypeValueOut)
 {
@@ -2170,7 +2200,7 @@ GlobOpt::FinishOptPropOp(IR::Instr *instr, IR::PropertySymOpnd *opnd, BasicBlock
         isObjTypeSpecialized = ProcessPropOpInTypeCheckSeq<true>(instr, opnd, block, updateExistingValue, emitsTypeCheckOut, changesTypeValueOut, &isObjTypeChecked);
     }
 
-    if (opnd == instr->GetDst() && this->objectTypeSyms && !isObjTypeChecked)
+    if (opnd == instr->GetDst() && this->objectTypeSyms)
     {
         if (block == nullptr)
         {
@@ -2180,26 +2210,29 @@ GlobOpt::FinishOptPropOp(IR::Instr *instr, IR::PropertySymOpnd *opnd, BasicBlock
         // This is a property store that may change the layout of the object that it stores to. This means that
         // it may change any aliased object. Do two things to address this:
         // - Add all object types in this function to the set that may have had a property added. This will prevent
-        //   final type optimization across this instruction.
+        //   final type optimization across this instruction. (Only needed here for non-specialized stores.)
         // - Kill all type symbols that currently hold object-header-inlined types. Any of them may have their layout
         //   changed by the addition of a property.
 
         SymID opndId = opnd->HasObjectTypeSym() ? opnd->GetObjectTypeSym()->m_id : -1;
-        if (block->globOptData.maybeWrittenTypeSyms == nullptr)
+        if (!isObjTypeChecked)
         {
-            block->globOptData.maybeWrittenTypeSyms = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
-        }
-        if (isObjTypeSpecialized)
-        {
-            // The current object will be protected by a type check, unless no further accesses to it are
-            // protected by this access.
-            Assert(this->objectTypeSyms->Test(opndId));
-            this->objectTypeSyms->Clear(opndId);
-        }
-        block->globOptData.maybeWrittenTypeSyms->Or(this->objectTypeSyms);
-        if (isObjTypeSpecialized)
-        {
-            this->objectTypeSyms->Set(opndId);
+            if (block->globOptData.maybeWrittenTypeSyms == nullptr)
+            {
+                block->globOptData.maybeWrittenTypeSyms = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
+            }
+            if (isObjTypeSpecialized)
+            {
+                // The current object will be protected by a type check, unless no further accesses to it are
+                // protected by this access.
+                Assert(this->objectTypeSyms->Test(opndId));
+                this->objectTypeSyms->Clear(opndId);
+            }
+            block->globOptData.maybeWrittenTypeSyms->Or(this->objectTypeSyms);
+            if (isObjTypeSpecialized)
+            {
+                this->objectTypeSyms->Set(opndId);
+            }
         }
 
         if (!isObjTypeSpecialized || opnd->ChangesObjectLayout())
@@ -2659,7 +2692,7 @@ GlobOpt::OptNewScObject(IR::Instr** instrPtr, Value* srcVal)
 
     if (!instr->IsNewScObjectInstr())
     {
-        return false;
+        return nullptr;
     }
 
     bool isCtorInlined = instr->m_opcode == Js::OpCode::NewScObjectNoCtor;
@@ -2932,7 +2965,7 @@ GlobOpt::SetObjectTypeFromTypeSym(StackSym *typeSym, const Js::Type *type, Js::E
     else
     {
         JsTypeValueInfo* valueInfo = JsTypeValueInfo::New(this->alloc, type, typeSet);
-        valueInfo->SetSymStore(typeSym);
+        this->SetSymStoreDirect(valueInfo, typeSym);
         Value* value = NewValue(valueInfo);
         SetValue(blockData, value, typeSym);
     }

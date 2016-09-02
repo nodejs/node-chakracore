@@ -117,11 +117,6 @@ namespace Js
         return flags & TypeFlagMask_AreThisAndPrototypesEnsuredToHaveOnlyWritableDataProperties;
     }
 
-    BOOL Type::IsFalsy() const
-    {
-        return flags & TypeFlagMask_IsFalsy;
-    }
-
     void Type::SetIsFalsy(const bool truth)
     {
         if (truth)
@@ -178,6 +173,25 @@ namespace Js
 
         Output::Print(_u("%S{%x} %p"), typeinfo->name(), ((Type *)objectAddress)->GetTypeId(), objectAddress);
         return true;
+    }
+#endif
+
+#if ENABLE_TTD
+    void Type::ExtractSnapType(TTD::NSSnapType::SnapType* sType, TTD::NSSnapType::SnapHandler* optHandler, TTD::SlabAllocator& alloc) const
+    {
+        sType->TypePtrId = TTD_CONVERT_TYPEINFO_TO_PTR_ID(this);
+        sType->JsTypeId = this->GetTypeId();
+
+        sType->PrototypeVar = this->GetPrototype();
+
+        sType->ScriptContextLogId = this->GetScriptContext()->ScriptContextLogTag;
+        sType->TypeHandlerInfo = optHandler;
+
+        sType->HasNoEnumerableProperties = false;
+        if(Js::DynamicType::Is(this->typeId))
+        {
+            sType->HasNoEnumerableProperties = static_cast<const Js::DynamicType*>(this)->GetHasNoEnumerableProperties();
+        }
     }
 #endif
 }

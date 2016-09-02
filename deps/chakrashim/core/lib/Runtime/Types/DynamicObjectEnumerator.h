@@ -6,14 +6,14 @@
 
 namespace Js
 {
-    template <typename T, bool enumNonEnumerable, bool enumSymbols, bool snapShotSemantics>
+    template <bool enumNonEnumerable, bool enumSymbols, bool snapShotSemantics>
     class DynamicObjectEnumerator : public JavascriptEnumerator
     {
     protected:
         DynamicObject* object;
         JavascriptEnumerator* arrayEnumerator;
         DynamicType *initialType;
-        T objectIndex;
+        BigPropertyIndex objectIndex;
 
         DynamicObjectEnumerator(ScriptContext* scriptContext)
             : JavascriptEnumerator(scriptContext)
@@ -34,13 +34,9 @@ namespace Js
         DynamicType *GetTypeToEnumerate() const;
 
     public:
-        virtual Var GetCurrentIndex() override;
-        virtual Var GetCurrentValue() override;
-        virtual BOOL MoveNext(PropertyAttributes* attributes = nullptr) override;
         virtual void Reset() override;
-        virtual bool GetCurrentPropertyId(PropertyId *propertyId) override;
         virtual uint32 GetCurrentItemIndex() override;
-        virtual Var GetCurrentAndMoveNext(PropertyId& propertyId, PropertyAttributes* attributes = nullptr) override;
+        virtual Var MoveAndGetNext(PropertyId& propertyId, PropertyAttributes* attributes = nullptr) override;
 
         static uint32 GetOffsetOfObject() { return offsetof(DynamicObjectEnumerator, object); }
         static uint32 GetOffsetOfArrayEnumerator() { return offsetof(DynamicObjectEnumerator, arrayEnumerator); }

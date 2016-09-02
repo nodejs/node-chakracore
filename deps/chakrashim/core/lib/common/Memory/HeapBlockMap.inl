@@ -6,7 +6,7 @@
 #pragma once
 
 template <bool interlocked>
-__inline
+inline
 bool
 HeapBlockMap32::MarkInternal(L2MapChunk * chunk, void * candidate)
 {
@@ -53,7 +53,7 @@ HeapBlockMap32::MarkInternal(L2MapChunk * chunk, void * candidate)
 //
 
 template <bool interlocked>
-__inline
+inline
 void
 HeapBlockMap32::Mark(void * candidate, MarkContext * markContext)
 {
@@ -142,6 +142,10 @@ HeapBlockMap32::Mark(void * candidate, MarkContext * markContext)
         ((LargeHeapBlock*)chunk->map[id2])->Mark(candidate, markContext);
         break;
 
+    case HeapBlock::HeapBlockType::BlockTypeCount:
+        AssertMsg(false, "code should be unreachable");
+        break;
+
 #if DBG
     default:
         AssertMsg(false, "what's the new heap block type?");
@@ -149,8 +153,8 @@ HeapBlockMap32::Mark(void * candidate, MarkContext * markContext)
     }
 }
 
-template <bool interlocked, bool updateChunk>
-__inline
+template <bool interlocked, bool largeBlockType>
+inline
 bool
 HeapBlockMap32::MarkInteriorInternal(MarkContext * markContext, L2MapChunk *& chunk, void * originalCandidate, void * realCandidate)
 {
@@ -166,8 +170,15 @@ HeapBlockMap32::MarkInteriorInternal(MarkContext * markContext, L2MapChunk *& ch
         return true;
     }
 
-    if (updateChunk)
+    if (largeBlockType)
     {
+
+#if defined(_M_IX86_OR_ARM32)
+        // we only check the first MaxLargeObjectMarkOffset byte for marking purpuse. 
+        if ( (size_t)originalCandidate - (size_t)realCandidate > HeapConstants::MaxLargeObjectMarkOffset )
+            return true;
+#endif    
+
 #if defined(_M_X64_OR_ARM64)
         if (HeapBlockMap64::GetNodeIndex(originalCandidate) != HeapBlockMap64::GetNodeIndex(realCandidate))
         {
@@ -188,7 +199,7 @@ HeapBlockMap32::MarkInteriorInternal(MarkContext * markContext, L2MapChunk *& ch
 }
 
 template <bool interlocked>
-__inline
+inline
 void
 HeapBlockMap32::MarkInterior(void * candidate, MarkContext * markContext)
 {
@@ -305,6 +316,10 @@ HeapBlockMap32::MarkInterior(void * candidate, MarkContext * markContext)
         }
         break;
 
+    case HeapBlock::HeapBlockType::BlockTypeCount:
+        AssertMsg(false, "code should be unreachable");
+        break;
+
 #if DBG
     default:
         AssertMsg(false, "what's the new heap block type?");
@@ -320,7 +335,7 @@ HeapBlockMap32::MarkInterior(void * candidate, MarkContext * markContext)
 //
 
 template <bool interlocked>
-__inline
+inline
 void
 HeapBlockMap64::Mark(void * candidate, MarkContext * markContext)
 {
@@ -344,7 +359,7 @@ HeapBlockMap64::Mark(void * candidate, MarkContext * markContext)
 }
 
 template <bool interlocked>
-__inline
+inline
 void
 HeapBlockMap64::MarkInterior(void * candidate, MarkContext * markContext)
 {

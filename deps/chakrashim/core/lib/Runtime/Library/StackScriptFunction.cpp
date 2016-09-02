@@ -242,9 +242,12 @@ namespace Js
 
                     if (walker.IsBailedOutFromInlinee())
                     {
-                        // this is the interpret frame from bailing out of inline frame
-                        // Just mark we have inlinee to box so we will walk the native frame's list when we get there.
-                        hasInlineeToBox = true;
+                        if (!walker.IsCurrentPhysicalFrameForLoopBody())
+                        {
+                            // this is the interpret frame from bailing out of inline frame
+                            // Just mark we have inlinee to box so we will walk the native frame's list when we get there.
+                            hasInlineeToBox = true;
+                        }
                     }
                     else if (walker.IsBailedOutFromFunction())
                     {
@@ -268,9 +271,12 @@ namespace Js
                 {
                     if (walker.IsInlineFrame())
                     {
-                        // We may have function that are not in slots.  So we have to walk the stack function list of the inliner
-                        // to box all the needed function to catch those
-                        hasInlineeToBox = true;
+                        if (!walker.IsCurrentPhysicalFrameForLoopBody())
+                        {
+                            // We may have function that are not in slots.  So we have to walk the stack function list of the inliner
+                            // to box all the needed function to catch those
+                            hasInlineeToBox = true;
+                        }
                     }
                     else
                     {
@@ -753,4 +759,17 @@ namespace Js
         }
         return ScriptFunction::OP_NewScFunc(environment, proxyRef);
     }
+
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType StackScriptFunction::GetSnapTag_TTD() const
+    {
+        //Make sure this isn't accidentally handled by parent class
+        return TTD::NSSnapObjects::SnapObjectType::Invalid;
+    }
+
+    void StackScriptFunction::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<void*, TTD::NSSnapObjects::SnapObjectType::Invalid>(objData, nullptr);
+    }
+#endif
  }

@@ -6,10 +6,8 @@
 #define ENABLE_INTSAFE_SIGNED_FUNCTIONS 1
 #include <intsafe.h>
 
-#include "Common/DaylightTimeHelper.h"
 #include "Common/DateUtilities.h"
-
-#include <Windows.Foundation.h>
+#include "Common/Int64Math.h"
 
 namespace Js
 {
@@ -113,13 +111,12 @@ namespace Js
 
         if (!NumberUtilities::IsValidTryToInt64(es5DateAsInt64)) return INTSAFE_E_ARITHMETIC_OVERFLOW;
 
-        INT64 numTicks;
-        // We use the LongLong* functions since that's typedef'd to int64
         // First, we rebase it to the WinRT epoch, then we convert the time in milliseconds to ticks
-        if (SUCCEEDED(::Int64Add(es5DateAsInt64, jsEpochMilliseconds, reinterpret_cast<LONGLONG*>(&numTicks))))
+        INT64 numTicks;
+        if (!Int64Math::Add(es5DateAsInt64, jsEpochMilliseconds, &numTicks))
         {
             INT64 adjustedTicks = 0;
-            if (SUCCEEDED(::Int64Mult(numTicks, ticksPerMillisecond, reinterpret_cast<LONGLONG*>(&adjustedTicks))))
+            if (!Int64Math::Mul(numTicks, ticksPerMillisecond, &adjustedTicks))
             {
                 (*pRet) = adjustedTicks;
                 return S_OK;
@@ -165,7 +162,7 @@ namespace Js
         }
 
         //Otherwise the double multiplication might overflow
-        if (span > MAXINT64 / ticksPerMillisecond)
+        if (span > INT64_MAX / ticksPerMillisecond)
         {
             return INTSAFE_E_ARITHMETIC_OVERFLOW;
         }
@@ -309,7 +306,7 @@ namespace Js
     /// We then use DayFromYear to adjust if necessary.
     ///------------------------------------------------------------------------------
     void
-    DateUtilities::GetYmdFromTv(double tv, Js::YMD *pymd)
+    DateUtilities::GetYmdFromTv(double tv, DateTime::YMD *pymd)
     {
 //      AssertMem(pymd);
 

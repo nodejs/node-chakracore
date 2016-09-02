@@ -26,6 +26,14 @@ struct CapturedValues
     SListBase<ConstantStackSymValue> constantValues;           // Captured constant values during glob opt
     SListBase<CopyPropSyms> copyPropSyms;                      // Captured copy prop values during glob opt
     BVSparse<JitArenaAllocator> * argObjSyms;                  // Captured arg object symbols during glob opt
+
+    ~CapturedValues()
+    {
+        // Reset SListBase to be exception safe. Captured values are from GlobOpt->func->alloc
+        // in normal case the 2 SListBase are empty so no Clear needed, also no need to Clear in exception case
+        constantValues.Reset();
+        copyPropSyms.Reset();
+    }
 };
 
 class LoweredBasicBlock;
@@ -185,6 +193,7 @@ public:
     bool            EndsBasicBlock() const;
     bool            HasFallThrough() const;
     bool            DoStackArgsOpt(Func *topFunc) const;
+    bool            HasAnyLoadHeapArgsOpCode();
     bool            IsEqual(IR::Instr *instr) const;
 
     bool            IsCloned() const { return isCloned; }
@@ -250,7 +259,7 @@ public:
     void            TransferDstAttributesTo(Instr * instr);
     IR::Instr *     Copy();
     IR::Instr *     Clone();
-    IR::Instr *     ConvertToBailOutInstr(IR::Instr * bailOutTarget, BailOutKind kind);
+    IR::Instr *     ConvertToBailOutInstr(IR::Instr * bailOutTarget, BailOutKind kind, uint32 bailOutOffset = Js::Constants::NoByteCodeOffset);
     IR::Instr *     ConvertToBailOutInstr(BailOutInfo * bailOutInfo, BailOutKind kind, bool useAuxBailout = false);
     IR::Instr *     GetNextRealInstr() const;
     IR::Instr *     GetNextRealInstrOrLabel() const;
@@ -297,7 +306,7 @@ public:
 
     BailOutInfo *   GetBailOutInfo() const;
     BailOutInfo *   UnlinkBailOutInfo();
-    void            ReplaceBailOutInfo(BailOutInfo *newBailOutInfo);
+    bool            ReplaceBailOutInfo(BailOutInfo *newBailOutInfo);
     IR::Instr *     ShareBailOut();
     BailOutKind     GetBailOutKind() const;
     BailOutKind     GetBailOutKindNoBits() const;
@@ -997,9 +1006,9 @@ typedef BailOutInstrTemplate<BranchInstr> BranchBailOutInstr;
 #define FOREACH_INSTR_IN_RANGE(instr, instrList, instrLast)\
     {\
         INIT_PREV;\
-        IR::Instr *instrStop = instrLast ? ((IR::Instr*)instrLast)->m_next : nullptr; \
+        IR::Instr *instr##Stop = instrLast ? ((IR::Instr*)instrLast)->m_next : nullptr; \
         for ( IR::Instr *instr = instrList;\
-            instr != instrStop;\
+            instr != instr##Stop;\
             instr = instr->m_next)\
         {\
             CHECK_PREV(instr);
@@ -1017,9 +1026,9 @@ typedef BailOutInstrTemplate<BranchInstr> BranchBailOutInstr;
 #define FOREACH_INSTR_BACKWARD_IN_RANGE(instr, instrList, instrLast)\
     {\
         INIT_NEXT;\
-        IR::Instr *instrStop = instrLast ? ((IR::Instr*)instrLast)->m_prev : nullptr; \
+        IR::Instr *instr##Stop = instrLast ? ((IR::Instr*)instrLast)->m_prev : nullptr; \
         for ( IR::Instr *instr = instrList;\
-            instr != instrStop;\
+            instr != instr##Stop;\
             instr = instr->m_prev)\
         {\
             CHECK_NEXT(instr);
@@ -1028,9 +1037,9 @@ typedef BailOutInstrTemplate<BranchInstr> BranchBailOutInstr;
 #define FOREACH_INSTR_EDITING_IN_RANGE(instr, instrNext, instrList, instrLast)\
     {\
         IR::Instr * instrNext;\
-        IR::Instr *instrStop = instrLast ? ((IR::Instr*)instrLast)->m_next : nullptr; \
+        IR::Instr *instr##Stop = instrLast ? ((IR::Instr*)instrLast)->m_next : nullptr; \
         for ( IR::Instr *instr = instrList;\
-            instr != instrStop;\
+            instr != instr##Stop;\
             instr = instrNext)\
         {\
             instrNext = instr->m_next;
@@ -1048,9 +1057,9 @@ typedef BailOutInstrTemplate<BranchInstr> BranchBailOutInstr;
 #define FOREACH_INSTR_BACKWARD_EDITING_IN_RANGE(instr, instrPrev, instrList, instrLast)\
     {\
         IR::Instr * instrPrev;\
-        IR::Instr *instrStop = instrLast ? ((IR::Instr*)instrLast)->m_prev : nullptr; \
+        IR::Instr *instr##Stop = instrLast ? ((IR::Instr*)instrLast)->m_prev : nullptr; \
         for ( IR::Instr *instr = instrList;\
-            instr != instrStop;\
+            instr != instr##Stop;\
             instr = instrPrev)\
         {\
             instrPrev = instr->m_prev;

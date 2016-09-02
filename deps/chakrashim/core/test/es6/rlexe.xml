@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -67,13 +67,13 @@
   <test>
     <default>
       <files>es6IsConcatSpreadable.js</files>
-      <compile-flags>-es6isconcatspreadable -args summary -endargs</compile-flags>
+      <compile-flags>-es6tolength -es6isconcatspreadable -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>toPrimitive.js</files>
-      <compile-flags>-es6toprimitive -es6functionname -args summary -endargs</compile-flags>
+      <compile-flags>-es6regexsymbols -es6toprimitive -es6hasInstance -es6isconcatspreadable -es6functionname -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -90,20 +90,24 @@
   </test>
   <test>
     <default>
+      <files>function.name.js</files>
+      <compile-flags>-ES6Generators -es6toprimitive -ES6Classes -es6functionnamefull -force:deferparse -args summary -endargs</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>superDotOSBug3930962.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
       <tags>BugFix</tags>
     </default>
   </test>
-  <!-- OS BUG 7117880
   <test>
     <default>
       <files>toStringTag.js</files>
-      <compile-flags> -nonative -es6classes -es6generators -es6tostringtag -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
       <tags>exclude_dynapogo</tags>
     </default>
   </test>
-  -->
   <test>
     <default>
       <files>proto_basic.js</files>
@@ -416,14 +420,14 @@
   <test>
     <default>
       <files>ES6TypedArrayExtensions.js</files>
-      <compile-flags> -ES6 -ES6TypedArrayExtensions -es6tostringtag -ES6ObjectLiterals -es7Builtins -ES6Species -args summary -endargs</compile-flags>
+      <compile-flags>-ES6ObjectLiterals -ES6Species -args summary -endargs</compile-flags>
       <tags>Slow</tags>
     </default>
   </test>
   <test>
     <default>
       <files>ES6ArrayAPI.js</files>
-      <compile-flags>-ES6 -ES6ObjectLiterals -ES6TypedArrayExtensions -args summary -endargs</compile-flags>
+      <compile-flags>-ES6ObjectLiterals -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -441,7 +445,7 @@
   <test>
     <default>
       <files>ES6Symbol.js</files>
-      <compile-flags>-ES6ObjectLiterals -es6toprimitive -es6isConcatSpreadable -es6tostringtag -ES6Species -ES6HasInstance -ES6RegExSymbols -args summary -endargs</compile-flags>
+      <compile-flags>-ES6ObjectLiterals -es6toprimitive -es6isConcatSpreadable -ES6Species -ES6HasInstance -ES6RegExSymbols -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -454,7 +458,7 @@
   <test>
     <default>
       <files>ES6Promise.js</files>
-      <compile-flags> -ES6 -ES6Promise -es6tostringtag -ES6Species -args summary -endargs</compile-flags>
+      <compile-flags> -ES6 -ES6Promise -ES6Species -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -497,6 +501,12 @@
   </test>
   <test>
     <default>
+      <files>normalizeProp.js</files>
+      <baseline>normalizeProp.baseline</baseline>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>unicode_escape_sequences.js</files>
       <baseline>unicode_escape_sequences.baseline</baseline>
       <compile-flags> -ES6Unicode -ES6RegExSticky</compile-flags>
@@ -505,8 +515,8 @@
   </test>
   <test>
     <default>
-      <files>unicode_6_identifiers.js</files>
-      <baseline>unicode_6_identifiers.baseline</baseline>
+      <files>unicode_6_identifiers_utf8.js</files>
+      <baseline>unicode_6_identifiers_utf8.baseline</baseline>
       <compile-flags> -ES6Unicode</compile-flags>
       <tags>exclude_win7,exclude_ship</tags>
     </default>
@@ -584,7 +594,7 @@
   </test>
   <test>
     <default>
-      <files>unicode_idDeferParseFunctions.js</files>
+      <files>unicode_idDeferParseFunctions_utf8.js</files>
       <compile-flags>-ES6Unicode</compile-flags>
     </default>
   </test>
@@ -627,8 +637,8 @@
   </test>
   <test>
     <default>
-      <files>unicode_regex_surrogate.js</files>
-      <baseline>unicode_regex_surrogate.baseline</baseline>
+      <files>unicode_regex_surrogate_utf8.js</files>
+      <baseline>unicode_regex_surrogate_utf8.baseline</baseline>
       <compile-flags> -ES6Unicode -ES6RegExSticky</compile-flags>
       <tags>exclude_ship,Slow</tags>
       <timeout>300</timeout>
@@ -636,8 +646,8 @@
   </test>
   <test>
     <default>
-      <files>unicode_blue_533163.js</files>
-      <baseline>unicode_blue_533163.baseline</baseline>
+      <files>unicode_blue_533163_utf8.js</files>
+      <baseline>unicode_blue_533163_utf8.baseline</baseline>
       <compile-flags> -ES6Unicode</compile-flags>
       <tags>exclude_ship</tags>
     </default>
@@ -651,7 +661,7 @@
   <test>
     <default>
       <files>ES6Iterators-apis.js</files>
-      <compile-flags>-ES6 -es6tostringtag -Intl- -args summary -endargs</compile-flags>
+      <compile-flags>-ES6 -Intl- -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -704,6 +714,11 @@
     <default>
       <files>proxy-issue884.js</files>
       <baseline>proxy-issue884.baseline</baseline>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>nullPropertyDescriptor.js</files>
     </default>
   </test>
   <test>
@@ -783,7 +798,7 @@
   <test>
     <default>
       <files>generators-apis.js</files>
-      <compile-flags>-ES6Generators -es6tostringtag -JitES6Generators -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Generators -JitES6Generators -args summary -endargs</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
@@ -806,7 +821,7 @@
     <default>
       <files>generators-deferred.js</files>
       <compile-flags>-ES6Generators -JitES6Generators -ES6Classes -serialized</compile-flags>
-      <tags>exclude_arm</tags>
+      <tags>exclude_arm,exclude_forceserialized</tags>
     </default>
   </test>
   <test>
@@ -954,7 +969,7 @@
   <test>
     <default>
       <files>regex-prototype-properties.js</files>
-      <compile-flags>-ES6RegExPrototypeProperties -args summary -endargs</compile-flags>
+      <compile-flags>-ES6RegExPrototypeProperties -ES6PrototypeChain -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -1070,7 +1085,7 @@
   <test>
     <default>
       <files>bug_OS_2553885.js</files>
-      <tags>exclude_win7,BugFix</tags>
+      <tags>exclude_win7,BugFix,Intl</tags>
     </default>
   </test>
   <test>
@@ -1082,7 +1097,7 @@
 
   <test>
     <default>
-      <files>bug_OS3198161.js</files>
+      <files>bug_os3198161.js</files>
       <compile-flags>-es6all</compile-flags>
       <tags>BugFix</tags>
     </default>
@@ -1167,7 +1182,7 @@
 </test>
 <test>
     <default>
-        <files>Expo.js</files>
+        <files>expo.js</files>
         <compile-flags>-args summary -endargs -es7exponentiationoperator</compile-flags>
     </default>
 </test>
@@ -1179,9 +1194,8 @@
 </test>
 <test>
     <default>
-        <files>ES6HasInstance.js</files>
-        <compile-flags>-es6HasInstance</compile-flags>
-        <baseline>ES6HasInstance.baseline</baseline>
+        <files>es6HasInstance.js</files>
+        <compile-flags>-es6HasInstance -args summary -endargs</compile-flags>
     </default>
 </test>
 <test>
@@ -1227,14 +1241,76 @@
   <default>
     <files>await-futreserved-only-in-modules.js</files>
     <compile-flags>-ES6Module</compile-flags>
-    <tags>exclude_dynapogo</tags>
+    <tags>exclude_dynapogo, exclude_xplat</tags>
   </default>
+</test>
+  <test>
+    <default>
+      <files>moduletest1.js</files>
+      <compile-flags>-ES6Module</compile-flags>
+      <tags>exclude_dynapogo, exclude_xplat</tags>
+    </default>
+  </test>
+<test>
+    <default>
+        <files>module-syntax.js</files>
+        <compile-flags>-ES6Module -args summary -endargs</compile-flags>
+        <tags>exclude_xplat</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>module-syntax1.js</files>
+        <compile-flags>-ES6Module -args summary -endargs</compile-flags>
+        <tags>exclude_xplat</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>module-functionality.js</files>
+        <compile-flags>-ES6Module  -ES7AsyncAwait -args summary -endargs</compile-flags>
+        <tags>exclude_xplat,exclude_dynapogo</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>module-syntax.js</files>
+        <compile-flags>-ES6Module -force:deferparse -args summary -endargs</compile-flags>
+        <tags>exclude_xplat</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>module-syntax1.js</files>
+        <compile-flags>-ES6Module -force:deferparse -args summary -endargs</compile-flags>
+        <tags>exclude_xplat</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>module-namespace.js</files>
+        <compile-flags>-ES6Module  -ES7AsyncAwait -Es6ToStringTag</compile-flags>
+        <baseline>module-namespace.baseline</baseline>
+        <tags>exclude_xplat</tags>
+    </default>
 </test>
 <test>
   <default>
     <files>OS_5500719.js</files>
     <compile-flags>-forceserialized</compile-flags>
     <tags>exclude_dynapogo</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>iteratorclose.js</files>
+    <compile-flags>-off:deferparse -args summary -endargs</compile-flags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>iteratorclose.js</files>
+    <compile-flags>-force:deferparse -args summary -endargs</compile-flags>
   </default>
 </test>
 </regress-exe>

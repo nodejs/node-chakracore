@@ -31,6 +31,7 @@ namespace Js
     class MissingPropertyTypeHandler;
     class SourceTextModuleRecord;
     typedef RecyclerFastAllocator<JavascriptNumber, LeafBit> RecyclerJavascriptNumberAllocator;
+    typedef JsUtil::List<Var, Recycler> ListForListIterator;
 
     class UndeclaredBlockVariable : public RecyclableObject
     {
@@ -165,7 +166,7 @@ namespace Js
         static DWORD GetCharStringCacheOffset() { return offsetof(JavascriptLibrary, charStringCache); }
         static DWORD GetCharStringCacheAOffset() { return GetCharStringCacheOffset() + CharStringCache::GetCharStringCacheAOffset(); }
         const  JavascriptLibraryBase* GetLibraryBase() const { return static_cast<const JavascriptLibraryBase*>(this); }
-        void SetGlobalObject(GlobalObject* globalObject) {globalObject = globalObject; }
+        void SetGlobalObject(GlobalObject* globalObject) {this->globalObject = globalObject; }
         static DWORD GetRandSeed0Offset() { return offsetof(JavascriptLibrary, randSeed0); }
         static DWORD GetRandSeed1Offset() { return offsetof(JavascriptLibrary, randSeed1); }
 
@@ -221,6 +222,7 @@ namespace Js
         DynamicType * stringIteratorType;
         DynamicType * promiseType;
         DynamicType * javascriptEnumeratorIteratorType;
+        DynamicType * listIteratorType;
 
         JavascriptFunction* builtinFunctions[BuiltinFunction::Count];
 
@@ -242,6 +244,7 @@ namespace Js
         DynamicType * stdCallFunctionWithDeferredPrototypeType;
         DynamicType * idMappedFunctionWithPrototypeType;
         DynamicType * externalConstructorFunctionWithDeferredPrototypeType;
+        DynamicType * defaultExternalConstructorFunctionWithDeferredPrototypeType;
         DynamicType * boundFunctionType;
         DynamicType * regexConstructorType;
         DynamicType * crossSiteDeferredPrototypeFunctionType;
@@ -299,6 +302,7 @@ namespace Js
         DynamicType * proxyType;
         StaticType  * withType;
         DynamicType * SpreadArgumentType;
+        DynamicType * moduleNamespaceType;
         PropertyDescriptor defaultPropertyDescriptor;
 
         JavascriptString* nullString;
@@ -327,6 +331,7 @@ namespace Js
         JavascriptString* functionTypeDisplayString;
         JavascriptString* booleanTypeDisplayString;
         JavascriptString* numberTypeDisplayString;
+        JavascriptString* moduleTypeDisplayString;
 
         // SIMD_JS
         JavascriptString* simdFloat32x4DisplayString;
@@ -371,6 +376,8 @@ namespace Js
         JavascriptFunction* identityFunction;
         JavascriptFunction* throwerFunction;
         JavascriptFunction* promiseResolveFunction;
+        JavascriptFunction* generatorNextFunction;
+        JavascriptFunction* generatorThrowFunction;
 
         JavascriptFunction* objectValueOfFunction;
         JavascriptFunction* objectToStringFunction;
@@ -471,18 +478,6 @@ namespace Js
         template <size_t N>
         JavascriptFunction * AddFunctionToLibraryObjectWithPropertyName(DynamicObject* object, const char16(&propertyName)[N], FunctionInfo * functionInfo, int length);
 
-        bool isHybridDebugging; // If this library is in hybrid debugging mode
-        bool isLibraryReadyForHybridDebugging; // If this library is ready for hybrid debugging (library objects using deferred type handler have been un-deferred)
-
-        bool IsHybridDebugging() const { return isHybridDebugging; }
-        void EnsureLibraryReadyForHybridDebugging();
-        DynamicObject* EnsureReadyIfHybridDebugging(DynamicObject* obj);
-        template <class T> T* EnsureReadyIfHybridDebugging(T* obj)
-        {
-            DynamicObject * dynamicObject = obj;
-            return (T*)EnsureReadyIfHybridDebugging(dynamicObject);
-        }
-
         static SimpleTypeHandler<1> SharedPrototypeTypeHandler;
         static SimpleTypeHandler<1> SharedFunctionWithoutPrototypeTypeHandler;
         static SimpleTypeHandler<1> SharedFunctionWithPrototypeTypeHandlerV11;
@@ -490,12 +485,14 @@ namespace Js
         static SimpleTypeHandler<1> SharedFunctionWithLengthTypeHandler;
         static SimpleTypeHandler<2> SharedFunctionWithLengthAndNameTypeHandler;
         static SimpleTypeHandler<1> SharedIdMappedFunctionWithPrototypeTypeHandler;
+        static SimpleTypeHandler<2> SharedNamespaceSymbolTypeHandler;
         static MissingPropertyTypeHandler MissingPropertyHolderTypeHandler;
 
         static SimplePropertyDescriptor const SharedFunctionPropertyDescriptors[2];
         static SimplePropertyDescriptor const HeapArgumentsPropertyDescriptors[3];
         static SimplePropertyDescriptor const FunctionWithLengthAndPrototypeTypeDescriptors[2];
         static SimplePropertyDescriptor const FunctionWithLengthAndNameTypeDescriptors[2];
+        static SimplePropertyDescriptor const ModuleNamespaceTypeDescriptors[2];
 
     public:
 
@@ -523,8 +520,6 @@ namespace Js
 #if ENABLE_COPYONACCESS_ARRAY
                               cacheForCopyOnAccessArraySegments(nullptr),
 #endif
-                              isHybridDebugging(false),
-                              isLibraryReadyForHybridDebugging(false),
                               referencedPropertyRecords(nullptr),
                               stringTemplateCallsiteObjectList(nullptr),
                               moduleRecordList(nullptr),
@@ -534,7 +529,7 @@ namespace Js
                               bindRefChunkEnd(nullptr),
                               dynamicFunctionReference(nullptr)
         {
-            globalObject = globalObject;
+            this->globalObject = globalObject;
         }
 
         void Initialize(ScriptContext* scriptContext, GlobalObject * globalObject);
@@ -592,6 +587,7 @@ namespace Js
         JavascriptString* GetFunctionTypeDisplayString() const { return functionTypeDisplayString; }
         JavascriptString* GetBooleanTypeDisplayString() const { return booleanTypeDisplayString; }
         JavascriptString* GetNumberTypeDisplayString() const { return numberTypeDisplayString; }
+        JavascriptString* GetModuleTypeDisplayString() const { return moduleTypeDisplayString; }
 
         // SIMD_JS
         JavascriptString* GetSIMDFloat32x4DisplayString() const { return simdFloat32x4DisplayString; }
@@ -641,6 +637,47 @@ namespace Js
         const PropertyDescriptor* GetDefaultPropertyDescriptor() const { return &defaultPropertyDescriptor; }
         DynamicObject* GetMissingPropertyHolder() const { return missingPropertyHolder; }
 
+#if ENABLE_TTD
+        Js::PropertyId ExtractPrimitveSymbolId_TTD(Var value);
+        Js::RecyclableObject* CreatePrimitveSymbol_TTD(Js::PropertyId pid);
+        Js::RecyclableObject* CreatePrimitveSymbol_TTD(Js::JavascriptString* str);
+
+        Js::RecyclableObject* CreateDefaultBoxedObject_TTD(Js::TypeId kind);
+        void SetBoxedObjectValue_TTD(Js::RecyclableObject* obj, Js::Var value);
+
+        Js::RecyclableObject* CreateDate_TTD(double value);
+        Js::RecyclableObject* CreateRegex_TTD(const char16* patternSource, uint32 patternLength, UnifiedRegex::RegexFlags flags, CharCount lastIndex, Js::Var lastVar);
+        Js::RecyclableObject* CreateError_TTD();
+
+        Js::RecyclableObject* CreateES5Array_TTD();
+
+        Js::RecyclableObject* CreateSet_TTD();
+        Js::RecyclableObject* CreateWeakSet_TTD();
+        static void AddSetElementInflate_TTD(Js::JavascriptSet* set, Var value);
+        static void AddWeakSetElementInflate_TTD(Js::JavascriptWeakSet* set, Var value);
+
+        Js::RecyclableObject* CreateMap_TTD();
+        Js::RecyclableObject* CreateWeakMap_TTD();
+        static void AddMapElementInflate_TTD(Js::JavascriptMap* map, Var key, Var value);
+        static void AddWeakMapElementInflate_TTD(Js::JavascriptWeakMap* map, Var key, Var value);
+
+        Js::RecyclableObject* CreateExternalFunction_TTD(Js::JavascriptString* fname);
+        Js::RecyclableObject* CreateBoundFunction_TTD(RecyclableObject* function, Var bThis, uint32 ct, Var* args);
+
+        Js::RecyclableObject* CreateProxy_TTD(RecyclableObject* handler, RecyclableObject* target);
+        Js::RecyclableObject* CreateRevokeFunction_TTD(RecyclableObject* proxy);
+
+        Js::RecyclableObject* CreateHeapArguments_TTD(uint32 numOfArguments, uint32 formalCount, ActivationObject* frameObject, byte* deletedArray);
+        Js::RecyclableObject* CreateES5HeapArguments_TTD(uint32 numOfArguments, uint32 formalCount, ActivationObject* frameObject, byte* deletedArray);
+
+        Js::JavascriptPromiseCapability* CreatePromiseCapability_TTD(Var promise, Var resolve, Var reject);
+        Js::JavascriptPromiseReaction* CreatePromiseReaction_TTD(RecyclableObject* handler, JavascriptPromiseCapability* capabilities);
+
+        Js::RecyclableObject* CreatePromise_TTD(uint32 status, Var result, JsUtil::List<Js::JavascriptPromiseReaction*, HeapAllocator>& resolveReactions, JsUtil::List<Js::JavascriptPromiseReaction*, HeapAllocator>& rejectReactions);
+        JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper* CreateAlreadyDefinedWrapper_TTD(bool alreadyDefined);
+        Js::RecyclableObject* CreatePromiseResolveOrRejectFunction_TTD(RecyclableObject* promise, bool isReject, JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper* alreadyResolved);
+        Js::RecyclableObject* CreatePromiseReactionTaskFunction_TTD(JavascriptPromiseReaction* reaction, Var argument);
+#endif
 
 #ifdef ENABLE_INTL_OBJECT
         DynamicObject* GetINTLObject() const { return IntlObject; }
@@ -713,6 +750,7 @@ namespace Js
         DynamicType * GetJavascriptEnumeratorIteratorType() const { return javascriptEnumeratorIteratorType; }
         DynamicType * GetHeapArgumentsObjectType() const { return heapArgumentsType; }
         DynamicType * GetActivationObjectType() const { return activationObjectType; }
+        DynamicType * GetModuleNamespaceType() const { return moduleNamespaceType; }
         DynamicType * GetArrayType() const { return arrayType; }
         DynamicType * GetNativeIntArrayType() const { return nativeIntArrayType; }
 #if ENABLE_COPYONACCESS_ARRAY
@@ -736,6 +774,7 @@ namespace Js
         DynamicType * GetMapIteratorType() const { return mapIteratorType; }
         DynamicType * GetSetIteratorType() const { return setIteratorType; }
         DynamicType * GetStringIteratorType() const { return stringIteratorType; }
+        DynamicType * GetListIteratorType() const { return listIteratorType; }
         JavascriptFunction* GetDefaultAccessorFunction() const { return defaultAccessorFunction; }
         JavascriptFunction* GetStackTraceAccessorFunction() const { return stackTraceAccessorFunction; }
         JavascriptFunction* GetThrowTypeErrorAccessorFunction() const { return throwTypeErrorAccessorFunction; }
@@ -807,7 +846,7 @@ namespace Js
         FinalizableObject* GetPinnedJsrtContextObject();
         void EnqueueTask(Var taskVar);
 
-        HeapArgumentsObject* CreateHeapArguments(Var frameObj, uint formalCount);
+        HeapArgumentsObject* CreateHeapArguments(Var frameObj, uint formalCount, bool isStrictMode = false);
         JavascriptArray* CreateArray();
         JavascriptArray* CreateArray(uint32 length);
         JavascriptArray *CreateArrayOnStack(void *const stackAllocationPointer);
@@ -887,11 +926,14 @@ namespace Js
         JavascriptExternalFunction* CreateExternalConstructor(Js::ExternalMethod entryPoint, PropertyId nameId, RecyclableObject * prototype);
         JavascriptExternalFunction* CreateExternalConstructor(Js::ExternalMethod entryPoint, PropertyId nameId, InitializeMethod method, unsigned short deferredTypeSlots, bool hasAccessors);
         static DynamicTypeHandler * GetDeferredPrototypeGeneratorFunctionTypeHandler(ScriptContext* scriptContext);
+        static DynamicTypeHandler * GetDeferredPrototypeAsyncFunctionTypeHandler(ScriptContext* scriptContext);
         DynamicType * CreateDeferredPrototypeGeneratorFunctionType(JavascriptMethod entrypoint, bool isAnonymousFunction, bool isShared = false);
+        DynamicType * CreateDeferredPrototypeAsyncFunctionType(JavascriptMethod entrypoint, bool isAnonymousFunction, bool isShared = false);
 
         static DynamicTypeHandler * GetDeferredPrototypeFunctionTypeHandler(ScriptContext* scriptContext);
         static DynamicTypeHandler * GetDeferredAnonymousPrototypeFunctionTypeHandler();
         static DynamicTypeHandler * GetDeferredAnonymousPrototypeGeneratorFunctionTypeHandler();
+        static DynamicTypeHandler * GetDeferredAnonymousPrototypeAsyncFunctionTypeHandler();
 
         DynamicTypeHandler * GetDeferredFunctionTypeHandler();
         DynamicTypeHandler * ScriptFunctionTypeHandler(bool noPrototypeProperty, bool isAnonymousFunction);
@@ -900,6 +942,8 @@ namespace Js
         static DynamicTypeHandler * GetDeferredFunctionTypeHandlerBase();
         template<bool isNameAvailable, bool isPrototypeAvailable = true>
         static DynamicTypeHandler * GetDeferredGeneratorFunctionTypeHandlerBase();
+        template<bool isNameAvailable>
+        static DynamicTypeHandler * GetDeferredAsyncFunctionTypeHandlerBase();
 
         DynamicType * CreateDeferredPrototypeFunctionType(JavascriptMethod entrypoint);
         DynamicType * CreateDeferredPrototypeFunctionTypeNoProfileThunk(JavascriptMethod entrypoint, bool isShared = false);
@@ -922,11 +966,12 @@ namespace Js
 #endif
         JavascriptNumber* CreateNumber(double value, RecyclerJavascriptNumberAllocator * numberAllocator);
         JavascriptGeneratorFunction* CreateGeneratorFunction(JavascriptMethod entryPoint, GeneratorVirtualScriptFunction* scriptFunction);
+        JavascriptAsyncFunction* CreateAsyncFunction(JavascriptMethod entryPoint, GeneratorVirtualScriptFunction* scriptFunction);
         JavascriptExternalFunction* CreateExternalFunction(ExternalMethod entryPointer, PropertyId nameId, Var signature, JavascriptTypeId prototypeTypeId, UINT64 flags);
         JavascriptExternalFunction* CreateExternalFunction(ExternalMethod entryPointer, Var nameId, Var signature, JavascriptTypeId prototypeTypeId, UINT64 flags);
         JavascriptExternalFunction* CreateStdCallExternalFunction(StdCallJavascriptMethod entryPointer, PropertyId nameId, void *callbackState);
         JavascriptExternalFunction* CreateStdCallExternalFunction(StdCallJavascriptMethod entryPointer, Var nameId, void *callbackState);
-        JavascriptPromiseAsyncSpawnExecutorFunction* CreatePromiseAsyncSpawnExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generatorFunction, Var target);
+        JavascriptPromiseAsyncSpawnExecutorFunction* CreatePromiseAsyncSpawnExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var target);
         JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction* CreatePromiseAsyncSpawnStepArgumentExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var argument, JavascriptFunction* resolve = NULL, JavascriptFunction* reject = NULL, bool isReject = false);
         JavascriptPromiseCapabilitiesExecutorFunction* CreatePromiseCapabilitiesExecutorFunction(JavascriptMethod entryPoint, JavascriptPromiseCapability* capability);
         JavascriptPromiseResolveOrRejectFunction* CreatePromiseResolveOrRejectFunction(JavascriptMethod entryPoint, JavascriptPromise* promise, bool isReject, JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper* alreadyResolvedRecord);
@@ -973,6 +1018,8 @@ namespace Js
         JavascriptMapIterator* CreateMapIterator(JavascriptMap* map, JavascriptMapIteratorKind kind);
         JavascriptSetIterator* CreateSetIterator(JavascriptSet* set, JavascriptSetIteratorKind kind);
         JavascriptStringIterator* CreateStringIterator(JavascriptString* string);
+        JavascriptListIterator* CreateListIterator(ListForListIterator* list);
+
         JavascriptRegExp* CreateRegExp(UnifiedRegex::RegexPattern* pattern);
 
         DynamicObject* CreateIteratorResultObject(Var value, Var done);
@@ -982,6 +1029,8 @@ namespace Js
         RecyclableObject* CreateThrowErrorObject(JavascriptError* error);
 
         JavascriptFunction* EnsurePromiseResolveFunction();
+        JavascriptFunction* EnsureGeneratorNextFunction();
+        JavascriptFunction* EnsureGeneratorThrowFunction();
 
         void SetCrossSiteForSharedFunctionType(JavascriptFunction * function);
 
@@ -1007,6 +1056,8 @@ namespace Js
         void AddStringTemplateCallsiteObject(RecyclableObject* callsite);
         RecyclableObject* TryGetStringTemplateCallsiteObject(ParseNodePtr pnode);
         RecyclableObject* TryGetStringTemplateCallsiteObject(RecyclableObject* callsite);
+
+        static void CheckAndInvalidateIsConcatSpreadableCache(PropertyId propertyId, ScriptContext *scriptContext);
 
 #if DBG_DUMP
         static const char16* GetStringTemplateCallsiteObjectKey(Var callsite);
@@ -1065,8 +1116,6 @@ namespace Js
         void NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
 
         static bool ArrayIteratorPrototypeHasUserDefinedNext(ScriptContext *scriptContext);
-
-        HRESULT EnsureReadyIfHybridDebugging(bool isScriptEngineReady = true);
 
         CharStringCache& GetCharStringCache() { return charStringCache;  }
         static JavascriptLibrary * FromCharStringCache(CharStringCache * cache)
@@ -1214,6 +1263,7 @@ namespace Js
         static void __cdecl InitializeGeneratorFunctionPrototype(DynamicObject* generatorFunctionPrototype, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
         static void __cdecl InitializeGeneratorPrototype(DynamicObject* generatorPrototype, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
 
+        static void __cdecl JavascriptLibrary::InitializeAsyncFunction(DynamicObject *function, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
         static void __cdecl InitializeAsyncFunctionConstructor(DynamicObject* asyncFunctionConstructor, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
         static void __cdecl InitializeAsyncFunctionPrototype(DynamicObject* asyncFunctionPrototype, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
 

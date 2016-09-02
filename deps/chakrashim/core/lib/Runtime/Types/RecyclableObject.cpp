@@ -232,6 +232,18 @@ namespace Js
     }
 #endif
 
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType RecyclableObject::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::Invalid;
+    }
+
+    void RecyclableObject::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        AssertMsg(false, "Missing subtype implementation.");
+    }
+#endif
+
     BOOL RecyclableObject::SetPropertyWithAttributes(PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags, SideEffects possibleSideEffects)
     {
         // TODO: It appears as though this is never called. Some types (such as JavascriptNumber) don't override this, but they
@@ -284,14 +296,6 @@ namespace Js
     Var RecyclableObject::DefaultEntryPoint(RecyclableObject* function, CallInfo callInfo, ...)
     {
         ARGUMENTS(args, callInfo);
-        TypeId typeId = function->GetTypeId();
-        rtErrors err = typeId == TypeIds_Undefined || typeId == TypeIds_Null ? JSERR_NeedObject : JSERR_NeedFunction;
-        JavascriptError::ThrowTypeError(function->GetScriptContext(), err
-            /* TODO-ERROR: args.Info.Count > 0? args[0] : nullptr); */);
-    }
-
-    Var RecyclableObject::DefaultExternalEntryPoint(RecyclableObject* function, CallInfo callInfo, Var* arguments)
-    {
         TypeId typeId = function->GetTypeId();
         rtErrors err = typeId == TypeIds_Undefined || typeId == TypeIds_Null ? JSERR_NeedObject : JSERR_NeedFunction;
         JavascriptError::ThrowTypeError(function->GetScriptContext(), err
@@ -434,21 +438,24 @@ namespace Js
         return false;
     }
 
-    BOOL RecyclableObject::StrictEquals(Var aRight, BOOL* value, ScriptContext * requestContext)
+    BOOL RecyclableObject::StrictEquals(__in Var aRight, __out BOOL* value, ScriptContext * requestContext)
     {
+        *value = false;
         //StrictEquals is handled in JavascriptOperators::StrictEqual
         Throw::InternalError();
     }
 
 #pragma fenv_access (on)
-    BOOL RecyclableObject::Equals(Var aRight, BOOL* value, ScriptContext * requestContext)
+    BOOL RecyclableObject::Equals(__in Var aRight, __out BOOL* value, ScriptContext * requestContext)
     {
         Var aLeft = this;
         if (aLeft == aRight)
         {
             //In ES5 mode strict equals (===) on same instance of object type VariantDate succeeds.
             //Hence equals needs to succeed.
-            goto ReturnTrue;
+            //goto ReturnTrue;
+            *value = TRUE;
+            return TRUE;
         }
 
         double dblLeft, dblRight;

@@ -185,19 +185,19 @@ namespace Js
         void SetSlotUnchecked(DynamicObject * instance, int index, Var value);
 
     public:
-        __inline PropertyIndex AdjustSlotIndexForInlineSlots(PropertyIndex slotIndex)
+        inline PropertyIndex AdjustSlotIndexForInlineSlots(PropertyIndex slotIndex)
         {
             return slotIndex != Constants::NoSlot ? AdjustValidSlotIndexForInlineSlots(slotIndex) : Constants::NoSlot;
         }
 
-        __inline PropertyIndex AdjustValidSlotIndexForInlineSlots(PropertyIndex slotIndex)
+        inline PropertyIndex AdjustValidSlotIndexForInlineSlots(PropertyIndex slotIndex)
         {
             Assert(slotIndex != Constants::NoSlot);
             return slotIndex < inlineSlotCapacity ?
                 slotIndex + (offsetOfInlineSlots / sizeof(Var)) : slotIndex - (PropertyIndex)inlineSlotCapacity;
         }
 
-        __inline void PropertyIndexToInlineOrAuxSlotIndex(PropertyIndex propertyIndex, PropertyIndex * inlineOrAuxSlotIndex, bool * isInlineSlot) const
+        inline void PropertyIndexToInlineOrAuxSlotIndex(PropertyIndex propertyIndex, PropertyIndex * inlineOrAuxSlotIndex, bool * isInlineSlot) const
         {
             if (propertyIndex < inlineSlotCapacity)
             {
@@ -595,5 +595,41 @@ namespace Js
 
     private:
         virtual BOOL FreezeImpl(DynamicObject *instance, bool isConvertedType) = 0;
+
+#if ENABLE_TTD
+     public:
+         //Use the handler to identify all of the values in an object slot array and mark them
+         virtual void MarkObjectSlots_TTD(TTD::SnapshotExtractor* extractor, DynamicObject* obj) const = 0;
+
+         //Return true if the mark should visit the given property id (we want to skip most internal property ids)
+         static bool ShouldMarkPropertyId_TTD(Js::PropertyId pid)
+         {
+             //Use bitwise operators to allow compiler to reorder these operations since both conditions are cheap and we call in a tight loop
+             return ((pid != Js::Constants::NoProperty) & (!Js::IsInternalPropertyId(pid)));
+         }
+
+         //Use to extract the handler specific information during snapshot
+         virtual uint32 ExtractSlotInfo_TTD(TTD::NSSnapType::SnapHandlerPropertyEntry* entryInfo, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const = 0;
+
+         //Use to lookup the slotid for a propertyid 
+         virtual Js::PropertyIndex GetPropertyIndex_EnumerateTTD(const Js::PropertyRecord* pRecord);
+
+         //Extract the snap handler info
+         void ExtractSnapHandler(TTD::NSSnapType::SnapHandler* handler, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const;
+
+         //Set the extensible flag info in the handler
+         void SetExtensible_TTD();
+
+         //Return true if we should restore the given property id (we want to skip most internal property ids)
+         static bool ShouldRestorePropertyId_TTD(Js::PropertyId pid)
+         {
+             if((pid == Js::Constants::NoProperty) | Js::IsInternalPropertyId(pid))
+             {
+                 return false;
+             }
+
+             return true;
+         }
+#endif
     };
 }

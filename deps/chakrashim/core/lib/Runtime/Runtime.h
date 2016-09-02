@@ -54,6 +54,13 @@ class ByteCodeGenerator;
 interface IActiveScriptDataCache;
 class ActiveScriptProfilerHeapEnum;
 
+////////
+
+#include "Debug/TTSupport.h"
+#include "Debug/TTSerialize.h"
+
+////////
+
 namespace Js
 {
     //
@@ -95,6 +102,7 @@ namespace Js
     class JavascriptSetIterator;
     enum class JavascriptSetIteratorKind;
     class JavascriptStringIterator;
+    class JavascriptListIterator;
     class JavascriptPromise;
     class JavascriptPromiseCapability;
     class JavascriptPromiseReaction;
@@ -186,6 +194,7 @@ namespace Js
     class StackScriptFunction;
     class GeneratorVirtualScriptFunction;
     class JavascriptGeneratorFunction;
+    class JavascriptAsyncFunction;
     class AsmJsScriptFunction;
     class JavascriptRegExpConstructor;
     class JavascriptRegExpEnumerator;
@@ -248,13 +257,13 @@ namespace Js
     // asm.js
     namespace ArrayBufferView
     {
-        enum ViewType;
+        enum ViewType: int;
     }
     struct EmitExpressionInfo;
     struct AsmJsModuleMemory;
     namespace AsmJsLookupSource
     {
-        enum Source;
+        enum Source: int;
     }
     struct AsmJsByteCodeWriter;
     class AsmJsArrayView;
@@ -285,7 +294,7 @@ namespace Js
     class AsmJsModuleCompiler;
     class AsmJSCompiler;
     class AsmJSByteCodeGenerator;
-    enum AsmJSMathBuiltinFunction;
+    enum AsmJSMathBuiltinFunction: int;
     //////////////////////////////////////////////////////////////////////////
     typedef JsUtil::WeakReferenceDictionary<PropertyId, PropertyString, PowerOf2SizePolicy> PropertyStringCacheMap;
 
@@ -312,6 +321,17 @@ namespace Js
     };
 }
 
+namespace TTD
+{
+    //typedef for a pin set (ensure that objects are kept live).
+    typedef JsUtil::BaseHashSet<Js::PropertyRecord*, Recycler> PropertyRecordPinSet;
+    typedef JsUtil::BaseHashSet<Js::FunctionBody*, Recycler> FunctionBodyPinSet;
+    typedef JsUtil::BaseHashSet<Js::RecyclableObject*, Recycler> ObjectPinSet;
+    typedef JsUtil::BaseHashSet<Js::FrameDisplay*, Recycler> EnvironmentPinSet;
+    typedef JsUtil::BaseHashSet<Js::Var, Recycler> SlotArrayPinSet;
+}
+
+#include "PlatformAgnostic/ChakraPlatform.h"
 #include "DataStructures/EvalMapString.h"
 
 bool IsMathLibraryId(Js::PropertyId propertyId);
@@ -324,8 +344,10 @@ const Js::ModuleID kmodGlobal = 0;
 
 class SourceContextInfo;
 
-
+#ifdef ENABLE_SCRIPT_DEBUGGING
 #include "activdbg100.h"
+#endif
+
 #ifndef NTDDI_WIN10
 // These are only defined for the Win10 SDK and above
 // Consider: Refactor to avoid needing these?
@@ -346,9 +368,12 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Base/SourceHolder.h"
 #include "Base/Utf8SourceInfo.h"
 #include "Base/PropertyRecord.h"
+#ifdef ENABLE_GLOBALIZATION
 #include "Base/DelayLoadLibrary.h"
+#endif
 #include "Base/CallInfo.h"
 #include "Language/ExecutionMode.h"
+#include "Types/TypeId.h"
 #include "BackendApi.h"
 #include "DetachedStateBase.h"
 
@@ -359,7 +384,6 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "ByteCode/OpCodeUtil.h"
 #include "Language/Arguments.h"
 
-#include "Types/TypeId.h"
 #include "Types/RecyclableObject.h"
 #include "Base/ExpirableObject.h"
 #include "Types/Type.h"
@@ -406,8 +430,12 @@ enum tagDEBUG_EVENT_INFO_TYPE
 
 #include "Base/CharStringCache.h"
 
+#include "Types/DynamicObjectEnumerator.h"
+#include "Types/DynamicObjectSnapshotEnumerator.h"
+#include "Types/DynamicObjectSnapshotEnumeratorWPCache.h"
 #include "Library/JavascriptObject.h"
 #include "Library/BuiltInFlags.h"
+#include "Library/ForInObjectEnumerator.h"
 #include "Library/ExternalLibraryBase.h"
 #include "Library/JavascriptLibraryBase.h"
 #include "Library/JavascriptLibrary.h"
@@ -417,10 +445,14 @@ enum tagDEBUG_EVENT_INFO_TYPE
 
 #include "Library/MathLibrary.h"
 
-
-#include "Base/HiResTimer.h"
+// xplat-todo: We should get rid of this altogether and move the functionality it 
+// encapsulates to the Platform Agnostic Interface
+#ifdef _WIN32
+#if defined(ENABLE_GLOBALIZATION) || ENABLE_UNICODE_API
 #include "Base/WindowsGlobalizationAdapter.h"
 #include "Base/WindowsFoundationAdapter.h"
+#endif
+#endif
 #include "Base/Debug.h"
 
 #ifdef _M_X64
@@ -471,10 +503,26 @@ enum tagDEBUG_EVENT_INFO_TYPE
 
 #include "Language/ModuleRecordBase.h"
 #include "Language/SourceTextModuleRecord.h"
-#include "Language/ModuleNamespace.h"
+//#include "Language/ModuleNamespace.h"
 #include "Types/ScriptFunctionType.h"
 #include "Library/ScriptFunction.h"
 
+#include "Library/JavascriptProxy.h"
+
+#if ENABLE_TTD
+#include "screrror.h"
+
+#include "Debug/TTRuntimeInfoTracker.h"
+#include "Debug/TTInflateMap.h"
+#include "Debug/TTSnapTypes.h"
+#include "Debug/TTSnapValues.h"
+#include "Debug/TTSnapObjects.h"
+#include "Debug/TTSnapshot.h"
+#include "Debug/TTSnapshotExtractor.h"
+#include "Debug/TTEvents.h"
+#include "Debug/TTActionEvents.h"
+#include "Debug/TTEventLog.h"
+#endif
 
 //
 // .inl files

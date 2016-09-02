@@ -15,35 +15,43 @@ namespace Js
 
     JavascriptExternalFunction::JavascriptExternalFunction(ExternalMethod entryPoint, DynamicType* type)
         : RuntimeFunction(type, &EntryInfo::ExternalFunctionThunk), nativeMethod(entryPoint), signature(nullptr), callbackState(nullptr), initMethod(nullptr),
-        oneBit(1), typeSlots(0), hasAccessors(0), callCount(0), prototypeTypeId(-1), flags(0)
+        oneBit(1), typeSlots(0), hasAccessors(0), prototypeTypeId(-1), flags(0)
     {
         DebugOnly(VerifyEntryPoint());
     }
 
     JavascriptExternalFunction::JavascriptExternalFunction(ExternalMethod entryPoint, DynamicType* type, InitializeMethod method, unsigned short deferredSlotCount, bool accessors)
         : RuntimeFunction(type, &EntryInfo::ExternalFunctionThunk), nativeMethod(entryPoint), signature(nullptr), callbackState(nullptr), initMethod(method),
-        oneBit(1), typeSlots(deferredSlotCount), hasAccessors(accessors), callCount(0), prototypeTypeId(-1), flags(0)
+        oneBit(1), typeSlots(deferredSlotCount), hasAccessors(accessors),prototypeTypeId(-1), flags(0)
     {
         DebugOnly(VerifyEntryPoint());
     }
 
+    JavascriptExternalFunction::JavascriptExternalFunction(DynamicType* type, InitializeMethod method, unsigned short deferredSlotCount, bool accessors)
+        : RuntimeFunction(type, &EntryInfo::DefaultExternalFunctionThunk), nativeMethod(nullptr), signature(nullptr), callbackState(nullptr), initMethod(method),
+        oneBit(1), typeSlots(deferredSlotCount), hasAccessors(accessors), prototypeTypeId(-1), flags(0)
+    {
+        DebugOnly(VerifyEntryPoint());
+    }
+
+
     JavascriptExternalFunction::JavascriptExternalFunction(JavascriptExternalFunction* entryPoint, DynamicType* type)
         : RuntimeFunction(type, &EntryInfo::WrappedFunctionThunk), wrappedMethod(entryPoint), callbackState(nullptr), initMethod(nullptr),
-        oneBit(1), typeSlots(0), hasAccessors(0), callCount(0), prototypeTypeId(-1), flags(0)
+        oneBit(1), typeSlots(0), hasAccessors(0), prototypeTypeId(-1), flags(0)
     {
         DebugOnly(VerifyEntryPoint());
     }
 
     JavascriptExternalFunction::JavascriptExternalFunction(StdCallJavascriptMethod entryPoint, DynamicType* type)
         : RuntimeFunction(type, &EntryInfo::StdCallExternalFunctionThunk), stdCallNativeMethod(entryPoint), signature(nullptr), callbackState(nullptr), initMethod(nullptr),
-        oneBit(1), typeSlots(0), hasAccessors(0), callCount(0), prototypeTypeId(-1), flags(0)
+        oneBit(1), typeSlots(0), hasAccessors(0), prototypeTypeId(-1), flags(0)
     {
         DebugOnly(VerifyEntryPoint());
     }
 
     JavascriptExternalFunction::JavascriptExternalFunction(DynamicType *type)
         : RuntimeFunction(type, &EntryInfo::ExternalFunctionThunk), nativeMethod(nullptr), signature(nullptr), callbackState(nullptr), initMethod(nullptr),
-        oneBit(1), typeSlots(0), hasAccessors(0), callCount(0), prototypeTypeId(-1), flags(0)
+        oneBit(1), typeSlots(0), hasAccessors(0), prototypeTypeId(-1), flags(0)
     {
         DebugOnly(VerifyEntryPoint());
     }
@@ -112,69 +120,6 @@ namespace Js
 
         Js::TypeId typeId = Js::JavascriptOperators::GetTypeId(thisVar);
 
-        this->callCount++;
-        if (IS_JS_ETW(EventEnabledJSCRIPT_HOSTING_EXTERNAL_FUNCTION_CALL_START()))
-        {
-            JavascriptFunction* caller = nullptr;
-
-            // Lot the caller function if the call count of the external function pass certain threshold (randomly pick 256)
-            // we don't want to call stackwalk too often. The threshold can be adjusted as needed.
-            if (callCount >= ETW_MIN_COUNT_FOR_CALLER && ((callCount % ETW_MIN_COUNT_FOR_CALLER) == 0))
-            {
-                Js::JavascriptStackWalker stackWalker(scriptContext);
-                bool foundScriptCaller = false;
-                while(stackWalker.GetCaller(&caller))
-                {
-                    if(caller != nullptr && Js::ScriptFunction::Is(caller))
-                    {
-                        foundScriptCaller = true;
-                        break;
-                    }
-                }
-                if(foundScriptCaller)
-                {
-                    Var sourceString = caller->EnsureSourceString();
-                    Assert(JavascriptString::Is(sourceString));
-                    const char16* callerString = Js::JavascriptString::FromVar(sourceString)->GetSz();
-                    char16* outString = (char16*)callerString;
-                    int length = 0;
-                    if (wcschr(callerString, _u('\n')) != NULL || wcschr(callerString, _u('\n')) != NULL)
-                    {
-                        length = Js::JavascriptString::FromVar(sourceString)->GetLength();
-                        outString = HeapNewArray(char16, length+1);
-                        int j = 0;
-                        for (int i = 0; i < length; i++)
-                        {
-                            if (callerString[i] != _u('\n') && callerString[i] != _u('\r'))
-                            {
-                                outString[j++] = callerString[i];
-                            }
-                        }
-                        outString[j] = _u('\0');
-                    }
-                    JS_ETW(EventWriteJSCRIPT_HOSTING_CALLER_TO_EXTERNAL(scriptContext, this, typeId, outString, callCount));
-                    if (outString != callerString)
-                    {
-                        HeapDeleteArray(length+1, outString);
-                    }
-#if DBG_DUMP
-                    if (Js::Configuration::Global.flags.Trace.IsEnabled(Js::HostPhase))
-                    {
-                        Output::Print(_u("Large number of Call to trampoline: methodAddr= %p, Object typeid= %d, caller method= %s, callcount= %d\n"),
-                            this, typeId, callerString, callCount);
-                    }
-#endif
-                }
-            }
-            JS_ETW(EventWriteJSCRIPT_HOSTING_EXTERNAL_FUNCTION_CALL_START(scriptContext, this, typeId));
-#if DBG_DUMP
-            if (Js::Configuration::Global.flags.Trace.IsEnabled(Js::HostPhase))
-            {
-                Output::Print(_u("Call to trampoline: methodAddr= %p, Object typeid= %d\n"), this, typeId);
-            }
-#endif
-        }
-
         Js::RecyclableObject* directHostObject = nullptr;
         switch(typeId)
         {
@@ -229,36 +174,10 @@ namespace Js
         }
     }
 
-    Var JavascriptExternalFunction::FinishExternalCall(Var result)
-    {
-        ScriptContext * scriptContext = this->type->GetScriptContext();
-
-        if ( NULL == result )
-        {
-            result = scriptContext->GetLibrary()->GetUndefined();
-        }
-        else
-        {
-            result = CrossSite::MarshalVar(scriptContext, result);
-        }
-        if (IS_JS_ETW(EventEnabledJSCRIPT_HOSTING_EXTERNAL_FUNCTION_CALL_STOP()))
-        {
-            JS_ETW(EventWriteJSCRIPT_HOSTING_EXTERNAL_FUNCTION_CALL_STOP(scriptContext, this, 0));
-        }
-        return result;
-    }
-
     Var JavascriptExternalFunction::ExternalFunctionThunk(RecyclableObject* function, CallInfo callInfo, ...)
     {
         RUNTIME_ARGUMENTS(args, callInfo);
         JavascriptExternalFunction* externalFunction = static_cast<JavascriptExternalFunction*>(function);
-
-        // Deferred constructors which are not callable fall back to using the RecyclableObject::DefaultEntryPoint. In order to call
-        // this function we have to be inside script so all this and return before doing any of the external call preparation.
-        if (externalFunction->nativeMethod == Js::RecyclableObject::DefaultExternalEntryPoint)
-        {
-            return Js::RecyclableObject::DefaultExternalEntryPoint(function, callInfo, args.Values);
-        }
 
         ScriptContext * scriptContext = externalFunction->type->GetScriptContext();
 
@@ -268,6 +187,54 @@ namespace Js
 
         externalFunction->PrepareExternalCall(&args);
 
+#if ENABLE_TTD
+        Var result = nullptr;
+
+        //
+        //TODO: This may be a hot path so we may want to reduce the number of checks here and perhaps create a special TTD external function so only record code is needed here (see also in StdCallExternalFunctionThunk below).
+        //
+        if(scriptContext->ShouldPerformDebugAction())
+        {
+            TTD::TTDReplayExternalFunctionCallActionPopper logPopper(externalFunction);
+
+            scriptContext->GetThreadContext()->TTDLog->ReplayExternalCallEvent(externalFunction, args.Info.Count, args.Values, &result);
+        }
+        else if(scriptContext->ShouldPerformRecordAction())
+        {
+            //Root nesting depth handled in logPopper constructor, destructor, and Normal return paths -- the increment of nesting is handled by the popper but we need to add 1 to the value we record (so it matches)
+            TTD::NSLogEvents::EventLogEntry* callEvent = scriptContext->GetThreadContext()->TTDLog->RecordExternalCallEvent(externalFunction, scriptContext->TTDRootNestingCount + 1, args.Info.Count, args.Values);
+            TTD::TTDRecordExternalFunctionCallActionPopper logPopper(externalFunction, callEvent);
+
+            BEGIN_LEAVE_SCRIPT_WITH_EXCEPTION(scriptContext)
+            {
+                // Don't do stack probe since BEGIN_LEAVE_SCRIPT_WITH_EXCEPTION does that for us already
+                result = externalFunction->nativeMethod(function, callInfo, args.Values);
+            }
+            END_LEAVE_SCRIPT_WITH_EXCEPTION(scriptContext);
+
+            //no exception check below so I assume the external call cannot have an exception registered
+            logPopper.NormalReturn(false, result);
+        }
+        else
+        {
+            if(externalFunction->nativeMethod == nullptr)
+            {
+                //The only way this should happen is if the debugger is requesting a value to display that is an external accessor 
+                //or the debugger is running something that can fail (and it is ok with that).
+
+                result = function->GetScriptContext()->GetLibrary()->GetUndefined();
+            }
+            else
+            {
+                BEGIN_LEAVE_SCRIPT_WITH_EXCEPTION(scriptContext)
+                {
+                    // Don't do stack probe since BEGIN_LEAVE_SCRIPT_WITH_EXCEPTION does that for us already
+                    result = externalFunction->nativeMethod(function, callInfo, args.Values);
+                }
+                END_LEAVE_SCRIPT_WITH_EXCEPTION(scriptContext);
+            }
+        }
+#else
         Var result = nullptr;
         BEGIN_LEAVE_SCRIPT_WITH_EXCEPTION(scriptContext)
         {
@@ -275,8 +242,20 @@ namespace Js
             result = externalFunction->nativeMethod(function, callInfo, args.Values);
         }
         END_LEAVE_SCRIPT_WITH_EXCEPTION(scriptContext);
+#endif
+        if (result == nullptr)
+        {
+#pragma warning(push)
+#pragma warning(disable:6011) // scriptContext cannot be null here
+            result = scriptContext->GetLibrary()->GetUndefined();
+#pragma warning(pop)
+        }
+        else
+        {
+            result = CrossSite::MarshalVar(scriptContext, result);
+        }
 
-        return externalFunction->FinishExternalCall(result);
+        return result;
     }
 
     Var JavascriptExternalFunction::WrappedFunctionThunk(RecyclableObject* function, CallInfo callInfo, ...)
@@ -289,11 +268,18 @@ namespace Js
         Assert(scriptContext->GetThreadContext()->IsScriptActive());
 
         // Make sure the callee knows we are a wrapped function thunk
-        args.Info.Flags = (Js::CallFlags) (((long) args.Info.Flags) | CallFlags_Wrapped);
+        args.Info.Flags = (Js::CallFlags) (((int32) args.Info.Flags) | CallFlags_Wrapped);
 
         // don't need to leave script here, ExternalFunctionThunk will
         Assert(externalFunction->wrappedMethod->GetFunctionInfo()->GetOriginalEntryPoint() == JavascriptExternalFunction::ExternalFunctionThunk);
         return JavascriptFunction::CallFunction<true>(externalFunction->wrappedMethod, externalFunction->wrappedMethod->GetEntryPoint(), args);
+    }
+
+    Var JavascriptExternalFunction::DefaultExternalFunctionThunk(RecyclableObject* function, CallInfo callInfo, ...)
+    {
+        TypeId typeId = function->GetTypeId();
+        rtErrors err = typeId == TypeIds_Undefined || typeId == TypeIds_Null ? JSERR_NeedObject : JSERR_NeedFunction;
+        JavascriptError::ThrowTypeError(function->GetScriptContext(), err);
     }
 
     Var JavascriptExternalFunction::StdCallExternalFunctionThunk(RecyclableObject* function, CallInfo callInfo, ...)
@@ -307,11 +293,43 @@ namespace Js
         AnalysisAssert(scriptContext);
         Var result = NULL;
 
+#if ENABLE_TTD
+        if(scriptContext->ShouldPerformDebugAction())
+        {
+            TTD::TTDReplayExternalFunctionCallActionPopper logPopper(externalFunction);
+
+            scriptContext->GetThreadContext()->TTDLog->ReplayExternalCallEvent(externalFunction, args.Info.Count, args.Values, &result);
+        }
+        else if(scriptContext->ShouldPerformRecordAction())
+        {
+            //Root nesting depth handled in logPopper constructor, destructor, and Normal return paths -- the increment of nesting is handled by the popper but we need to add 1 to the value we record (so it matches)
+            TTD::NSLogEvents::EventLogEntry* callEvent = scriptContext->GetThreadContext()->TTDLog->RecordExternalCallEvent(externalFunction, scriptContext->TTDRootNestingCount + 1, args.Info.Count, args.Values);
+            TTD::TTDRecordExternalFunctionCallActionPopper logPopper(externalFunction, callEvent);
+
+            BEGIN_LEAVE_SCRIPT(scriptContext)
+            {
+                result = externalFunction->stdCallNativeMethod(function, ((callInfo.Flags & CallFlags_New) != 0), args.Values, args.Info.Count, externalFunction->callbackState);
+            }
+            END_LEAVE_SCRIPT(scriptContext);
+
+            //exception check is done explicitly below call can have an exception registered
+            logPopper.NormalReturn(true, result);
+        }
+        else
+        {
+            BEGIN_LEAVE_SCRIPT(scriptContext)
+            {
+                result = externalFunction->stdCallNativeMethod(function, ((callInfo.Flags & CallFlags_New) != 0), args.Values, args.Info.Count, externalFunction->callbackState);
+            }
+            END_LEAVE_SCRIPT(scriptContext);
+        }
+#else
         BEGIN_LEAVE_SCRIPT(scriptContext)
         {
             result = externalFunction->stdCallNativeMethod(function, ((callInfo.Flags & CallFlags_New) != 0), args.Values, args.Info.Count, externalFunction->callbackState);
         }
         END_LEAVE_SCRIPT(scriptContext);
+#endif
 
         if (result != nullptr && !Js::TaggedNumber::Is(result))
         {
@@ -329,7 +347,6 @@ namespace Js
                 Js::Throw::InternalError();
             }
         }
-
 
         if (scriptContext->HasRecordedException())
         {
@@ -349,7 +366,16 @@ namespace Js
             }
         }
 
-        return externalFunction->FinishExternalCall(result);
+        if (result == nullptr)
+        {
+            result = scriptContext->GetLibrary()->GetUndefined();
+        }
+        else
+        {
+            result = CrossSite::MarshalVar(scriptContext, result);
+        }
+
+        return result;
     }
 
     BOOL JavascriptExternalFunction::SetLengthProperty(Var length)
@@ -357,4 +383,20 @@ namespace Js
         return DynamicObject::SetPropertyWithAttributes(PropertyIds::length, length, PropertyConfigurable, NULL, PropertyOperation_None, SideEffects_None);
     }
 
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType JavascriptExternalFunction::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapExternalFunctionObject;
+    }
+
+    void JavascriptExternalFunction::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        Js::JavascriptString* nameString = this->GetDisplayName();
+
+        TTD::TTString* snapName = alloc.SlabAllocateStruct<TTD::TTString>();
+        alloc.CopyStringIntoWLength(nameString->GetSz(), nameString->GetLength(), *snapName);
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::TTString*, TTD::NSSnapObjects::SnapObjectType::SnapExternalFunctionObject>(objData, snapName);
+    }
+#endif
 }

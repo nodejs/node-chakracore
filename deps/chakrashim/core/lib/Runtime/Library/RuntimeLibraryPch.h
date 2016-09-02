@@ -76,6 +76,7 @@
 #include "Library/JavascriptSetIterator.h"
 #include "Library/JavascriptStringIterator.h"
 #include "Library/JavascriptEnumeratorIterator.h"
+#include "Library/JavascriptListIterator.h"
 
 #include "Library/UriHelper.h"
 #include "Library/HostObjectBase.h"
@@ -96,3 +97,9 @@
 #include "Library/ConcatString.inl"
 
 #endif // !IsJsDiag
+
+#ifdef IsJsDiag
+#define JS_DIAG_INLINE inline
+#else
+#define JS_DIAG_INLINE
+#endif

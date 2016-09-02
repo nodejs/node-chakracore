@@ -4,7 +4,9 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 
+#ifdef STACK_BACK_TRACE
 class StackBackTrace;
+#endif
 
 namespace Js {
 
@@ -21,17 +23,21 @@ namespace Js {
         static void __declspec(noreturn) FatalProjectionError();
 
         static void CheckAndThrowOutOfMemory(BOOLEAN status);
-#ifdef GENERATE_DUMP
-        static bool ReportAssert(__in LPSTR fileName, uint lineNumber, __in LPSTR error, __in LPSTR message);
+
+        static bool ReportAssert(__in LPCSTR fileName, uint lineNumber, __in LPCSTR error, __in LPCSTR message);
         static void LogAssert();
+#ifdef GENERATE_DUMP
         static int GenerateDump(PEXCEPTION_POINTERS exceptInfo, LPCWSTR filePath, int ret = EXCEPTION_CONTINUE_SEARCH, bool needLock = false);
         static void GenerateDump(LPCWSTR filePath, bool terminate = false, bool needLock = false);
         static void GenerateDumpForAssert(LPCWSTR filePath);
     private:
         static CriticalSection csGenerateDump;
+#ifdef STACK_BACK_TRACE
         __declspec(thread) static  StackBackTrace * stackBackTrace;
+
         static const int StackToSkip = 2;
         static const int StackTraceDepth = 40;
+#endif
 #endif
     };
 
@@ -203,6 +209,27 @@ namespace Js {
         return JsErrorOutOfMemory;  \
     }  \
 
+#if ENABLE_TTD
+#define CATCH_OTHER_EXCEPTIONS  \
+    catch (JsrtExceptionBase& e)  \
+    {  \
+        return e.GetJsErrorCode();  \
+    }   \
+    catch (Js::ExceptionBase)   \
+    {   \
+        AssertMsg(false, "Unexpected engine exception.");   \
+        return JsErrorFatal;    \
+    }   \
+    catch (TTD::TTDebuggerAbortException)   \
+    {   \
+        throw;   \
+    }   \
+    catch (...) \
+    {   \
+        AssertMsg(false, "Unexpected non-engine exception.");   \
+        return JsErrorFatal;    \
+    }
+#else
 #define CATCH_OTHER_EXCEPTIONS  \
     catch (JsrtExceptionBase& e)  \
     {  \
@@ -218,6 +245,7 @@ namespace Js {
         AssertMsg(false, "Unexpected non-engine exception.");   \
         return JsErrorFatal;    \
     }
+#endif
 
 // Use this version if execution is in script (use rarely)
 #define END_TRANSLATE_ERROROBJECT_TO_HRESULT_INSCRIPT(hr) \
@@ -228,8 +256,4 @@ namespace Js {
     catch (ex) \
     {
 
-#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-#define RAISE_FATL_INTERNAL_ERROR_IFFAILED(hr) if (hr != S_OK) Js::Throw::FatalInternalError();
-#else
-#define RAISE_FATL_INTERNAL_ERROR_IFFAILED(hr)
-#endif
+#define DEBUGGER_ATTACHDETACH_FATAL_ERROR_IF_FAILED(hr) if (hr != S_OK) Debugger_AttachDetach_fatal_error();

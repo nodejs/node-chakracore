@@ -9,7 +9,7 @@ namespace IR
     class LabelInstr;
 }
 
-enum JsNativeValueType;
+enum JsNativeValueType: int;
 
 namespace Js
 {
@@ -28,8 +28,8 @@ namespace Js
         if (errorObject != nullptr && Js::JavascriptError::Is(errorObject)) \
         { \
             HRESULT hr = Js::JavascriptError::GetRuntimeError(Js::RecyclableObject::FromVar(errorObject), nullptr); \
-            if (JavascriptError::GetErrorNumberFromResourceID(JSERR_Property_CannotGet_NullOrUndefined) == (long)hr \
-                || JavascriptError::GetErrorNumberFromResourceID(JSERR_UseBeforeDeclaration) == (long)hr) \
+            if (JavascriptError::GetErrorNumberFromResourceID(JSERR_Property_CannotGet_NullOrUndefined) == (int32)hr \
+                || JavascriptError::GetErrorNumberFromResourceID(JSERR_UseBeforeDeclaration) == (int32)hr) \
             { \
                 if (scriptContext->IsScriptContextInDebugMode()) \
                 { \
@@ -151,13 +151,13 @@ namespace Js
         static void OP_EnsureNoRootProperty(Var instance, PropertyId propertyId);
         static void OP_EnsureNoRootRedeclProperty(Var instance, PropertyId propertyId);
         static void OP_ScopedEnsureNoRedeclProperty(FrameDisplay *pDisplay, PropertyId propertyId, Var instanceDefault);
-        static Var  GetOwnPropertyNames(Var instance, ScriptContext *scriptContext);
-        static Var  GetOwnPropertySymbols(Var instance, ScriptContext *scriptContext);
-        static Var  GetOwnPropertyKeys(Var instance, ScriptContext *scriptContext);
+        static JavascriptArray*  GetOwnPropertyNames(Var instance, ScriptContext *scriptContext);
+        static JavascriptArray*  GetOwnPropertySymbols(Var instance, ScriptContext *scriptContext);
+        static JavascriptArray*  GetOwnPropertyKeys(Var instance, ScriptContext *scriptContext);
 
 
-        static Var  GetOwnEnumerablePropertyNames(Var instance, ScriptContext *scriptContext);
-        static Var  GetOwnEnumerablePropertyNamesSymbols(Var instance, ScriptContext *scriptContext);
+        static JavascriptArray*  GetOwnEnumerablePropertyNames(Var instance, ScriptContext *scriptContext);
+        static JavascriptArray*  GetOwnEnumerablePropertyNamesSymbols(Var instance, ScriptContext *scriptContext);
 
         static BOOL GetOwnPropertyDescriptor(RecyclableObject* obj, PropertyId propertyId, ScriptContext* scriptContext, PropertyDescriptor* propertyDescriptor);
         static BOOL GetOwnPropertyDescriptor(RecyclableObject* obj, JavascriptString* propertyKey, ScriptContext* scriptContext, PropertyDescriptor* propertyDescriptor);
@@ -408,6 +408,11 @@ namespace Js
         static RecyclableObject* GetIterator(Var instance, ScriptContext* scriptContext, bool optional = false);
         static RecyclableObject* GetIterator(RecyclableObject* instance, ScriptContext* scriptContext, bool optional = false);
         static RecyclableObject* IteratorNext(RecyclableObject* iterator, ScriptContext* scriptContext, Var value = nullptr);
+        static void IteratorClose(RecyclableObject* iterator, ScriptContext* scriptContext);
+
+        template <typename THandler>
+        static void DoIteratorStepAndValue(RecyclableObject* iterator, ScriptContext* scriptContext, THandler handler);
+
         static bool IteratorComplete(RecyclableObject* iterResult, ScriptContext* scriptContext);
         static Var IteratorValue(RecyclableObject* iterResult, ScriptContext* scriptContext);
         static bool IteratorStep(RecyclableObject* iterator, ScriptContext* scriptContext, RecyclableObject** result);
@@ -436,6 +441,7 @@ namespace Js
         static void CheckInnerFrameDisplayArgument(void *argHead);
         static Var LoadHeapArguments(JavascriptFunction *funcCallee, unsigned int count, Var *pParams, Var frameObj, Var vArray, ScriptContext* scriptContext, bool nonSimpleParamList);
         static Var LoadHeapArgsCached(JavascriptFunction *funcCallee, uint32 actualsCount, uint32 formalsCount, Var *pParams, Var frameObj, ScriptContext* scriptContext, bool nonSimpleParamList);
+        static Var FillScopeObject(JavascriptFunction *funcCallee, uint32 actualsCount, uint32 formalsCount, Var frameObj, Var * paramAddr, Js::PropertyIdArray *propIds, HeapArgumentsObject * argsObj, ScriptContext * scriptContext, bool nonSimpleParamList, bool useCachedScope);
         static HeapArgumentsObject *CreateHeapArguments(JavascriptFunction *funcCallee, uint32 actualsCount, uint32 formalsCount, Var frameObj, ScriptContext* scriptContext);
         static Var OP_InitCachedScope(Var varFunc, const PropertyIdArray *propIds, DynamicType ** literalType, bool formalsAreLetDecls, ScriptContext *scriptContext);
         static void OP_InvalidateCachedScope(Var varEnv, int32 envIndex);
@@ -554,16 +560,14 @@ namespace Js
 
         static Var OP_ResumeYield(ResumeYieldData* yieldData, RecyclableObject* iterator);
 
-        static Var OP_AsyncSpawn(Js::Var aGenerator, Js::Var aThis, ScriptContext* scriptContext);
-
         template <typename T>
-        static void * JitRecyclerAlloc(size_t size, Recycler* recycler)
+        static void * JitRecyclerAlloc(DECLSPEC_GUARD_OVERFLOW size_t size, Recycler* recycler)
         {
             TRACK_ALLOC_INFO(recycler, T, Recycler, size - sizeof(T), (size_t)-1);
             return recycler->AllocZero(size);
         }
 
-        static void * AllocMemForVarArray(size_t size, Recycler* recycler);
+        static void * AllocMemForVarArray(DECLSPEC_GUARD_OVERFLOW size_t size, Recycler* recycler);
         static void * AllocUninitializedNumber(RecyclerJavascriptNumberAllocator * allocator);
 
         static void ScriptAbort();
@@ -624,7 +628,7 @@ namespace Js
         static Var NewScObjectHostDispatchOrProxy(RecyclableObject * function, ScriptContext * requestContext);
         static Var NewScObjectCommon(RecyclableObject * functionObject, FunctionInfo * functionInfo, ScriptContext * scriptContext, bool isBaseClassConstructorNewScObject = false);
 
-        static BOOL Reject(bool throwOnError, ScriptContext* scriptContext, long errorCode, PropertyId propertyId);
+        static BOOL Reject(bool throwOnError, ScriptContext* scriptContext, int32 errorCode, PropertyId propertyId);
         static bool AreSamePropertyDescriptors(const PropertyDescriptor* x, const PropertyDescriptor* y, ScriptContext* scriptContext);
         static Var CanonicalizeAccessor(Var accessor, ScriptContext* scriptContext);
 

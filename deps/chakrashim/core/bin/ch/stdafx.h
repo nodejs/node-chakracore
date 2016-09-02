@@ -23,20 +23,31 @@
 
 #define WIN32_LEAN_AND_MEAN 1
 
-#define ENABLE_TEST_HOOKS 1
 #include "CommonDefines.h"
+#include <map>
+#include <string>
 
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <CommonPal.h>
+#endif // _WIN32
+
 #include <stdarg.h>
+#ifdef _MSC_VER
 #include <stdio.h>
 #include <io.h>
+#endif // _MSC_VER
 
 #if defined(_DEBUG)
 #define _DEBUG_WAS_DEFINED
 #undef _DEBUG
 #endif
-#include <map>
+
+#ifdef _WIN32
 #include <atlbase.h>
+#endif // _WIN32
+
 #ifdef _DEBUG_WAS_DEFINED
 #define _DEBUG
 #undef _DEBUG_WAS_DEFINED
@@ -52,11 +63,16 @@
 
 #if defined(DBG)
 
+#define _STRINGIZE_(x) #x
+#if !defined(_STRINGIZE)
+#define _STRINGIZE(x) _STRINGIZE_(x)
+#endif
+
 #define AssertMsg(exp, comment)   \
 do { \
 if (!(exp)) \
 { \
-    fprintf(stderr, "ASSERTION (%s, line %d) %s %s\n", __FILE__, __LINE__, _CRT_STRINGIZE(exp), comment); \
+    fprintf(stderr, "ASSERTION (%s, line %d) %s %s\n", __FILE__, __LINE__, _STRINGIZE(exp), comment); \
     fflush(stderr); \
     DebugBreak(); \
 } \
@@ -67,15 +83,96 @@ if (!(exp)) \
 
 #define Assert(exp)             AssertMsg(exp, #exp)
 #define _JSRT_
-#include "ChakraCommon.h"
+#include "ChakraCore.h"
 #include "Core/CommonTypedefs.h"
 #include "TestHooksRt.h"
 
 typedef void * Var;
 
+#include "Codex/Utf8Helper.h"
+using utf8::NarrowStringToWideDynamic;
+using utf8::WideStringToNarrowDynamic;
+#include "Helpers.h"
+
+#define IfJsErrorFailLog(expr) \
+do { \
+    JsErrorCode jsErrorCode = expr; \
+    if ((jsErrorCode) != JsNoError) { \
+        fwprintf(stderr, _u("ERROR: ") _u(#expr) _u(" failed. JsErrorCode=0x%x (%s)\n"), jsErrorCode, Helpers::JsErrorCodeToString(jsErrorCode)); \
+        fflush(stderr); \
+        goto Error; \
+    } \
+} while (0)
+
+#define IfJsErrorFailLogAndRet(expr) \
+do { \
+    JsErrorCode jsErrorCode = expr; \
+    if ((jsErrorCode) != JsNoError) { \
+        fwprintf(stderr, _u("ERROR: ") _u(#expr) _u(" failed. JsErrorCode=0x%x (%s)\n"), jsErrorCode, Helpers::JsErrorCodeToString(jsErrorCode)); \
+        fflush(stderr); \
+        Assert(false); \
+        return JS_INVALID_REFERENCE; \
+    } \
+} while (0)
+
+#define IfJsrtErrorFailLogAndRetFalse(expr) \
+do { \
+    JsErrorCode jsErrorCode = expr; \
+    if ((jsErrorCode) != JsNoError) { \
+        fwprintf(stderr, _u("ERROR: ") _u(#expr) _u(" failed. JsErrorCode=0x%x (%s)\n"), jsErrorCode, Helpers::JsErrorCodeToString(jsErrorCode)); \
+        fflush(stderr); \
+        Assert(false); \
+        return false; \
+    } \
+} while (0)
+
+#define IfJsrtErrorFailLogAndRetErrorCode(expr) \
+do { \
+    JsErrorCode jsErrorCode = expr; \
+    if ((jsErrorCode) != JsNoError) { \
+        fwprintf(stderr, _u("ERROR: ") _u(#expr) _u(" failed. JsErrorCode=0x%x (%s)\n"), jsErrorCode, Helpers::JsErrorCodeToString(jsErrorCode)); \
+        fflush(stderr); \
+        return (jsErrorCode); \
+    } \
+} while (0)
+
+#ifndef ENABLE_TEST_HOOKS
+#define ENABLE_TEST_HOOKS
+#endif
+
 #include "TestHooks.h"
 #include "ChakraRtInterface.h"
-#include "Helpers.h"
 #include "HostConfigFlags.h"
 #include "MessageQueue.h"
 #include "WScriptJsrt.h"
+#include "Debugger.h"
+
+template<class T, bool JSRTHeap>
+class AutoStringPtr
+{
+    T* data;
+public:
+    AutoStringPtr():data(nullptr) { }
+    ~AutoStringPtr()
+    {
+        if (data == nullptr)
+        {
+            return;
+        }
+
+        if (JSRTHeap)
+        {
+            ChakraRTInterface::JsStringFree((char*)data);
+        }
+        else
+        {
+            free(data);
+        }
+    }
+
+    T* operator*() { return data; }
+    T** operator&()  { return &data; }
+};
+
+typedef AutoStringPtr<char, true> AutoString;
+typedef AutoStringPtr<wchar_t, false> AutoWideString;

@@ -25,8 +25,6 @@ FLAG ES6 = 1 - setting child flag ES6Generators = 1
 FLAG ES6Generators = 1
 FLAG ES6 = 1 - setting child flag ES7ExponentiationOperator = 1
 FLAG ES7ExponentiationOperator = 1
-FLAG ES6 = 1 - setting child flag ES7Builtins = 1
-FLAG ES7Builtins = 1
 FLAG ES6 = 1 - setting child flag ES7ValuesEntries = 1
 FLAG ES7ValuesEntries = 1
 FLAG ES6 = 1 - setting child flag ES7TrailingComma = 1
@@ -63,8 +61,6 @@ FLAG ES6 = 1 - setting child flag ES6ToLength = 1
 FLAG ES6ToLength = 1
 FLAG ES6 = 1 - setting child flag ES6ToStringTag = 1
 FLAG ES6ToStringTag = 1
-FLAG ES6 = 1 - setting child flag ES6TypedArrayExtensions = 1
-FLAG ES6TypedArrayExtensions = 1
 FLAG ES6 = 1 - setting child flag ES6Unicode = 1
 FLAG ES6Unicode = 1
 FLAG ES6 = 1 - setting child flag ES6UnicodeVerbose = 1
@@ -81,5 +77,7 @@ FLAG ES6 = 1 - setting child flag ES6HasInstance = 1
 FLAG ES6HasInstance = 1
 FLAG ES6 = 1 - setting child flag ArrayBufferTransfer = 1
 FLAG ArrayBufferTransfer = 1
+FLAG ES6 = 1 - setting child flag ESObjectGetOwnPropertyDescriptors = 1
+FLAG ESObjectGetOwnPropertyDescriptors = 1
 FLAG WERExceptionSupport = 1
 default argument

@@ -6,11 +6,6 @@
 
 namespace Js
 {
-    PropertyId const ArrayBuffer::specialPropertyIds[] =
-    {
-        PropertyIds::byteLength
-    };
-
     ArrayBuffer* ArrayBuffer::NewFromDetachedState(DetachedStateBase* state, JavascriptLibrary *library)
     {
         ArrayBufferDetachedStateBase* arrayBufferState = (ArrayBufferDetachedStateBase *)state;
@@ -447,22 +442,33 @@ namespace Js
                 buffer = (BYTE*)allocator(length);
                 if (buffer == nullptr)
                 {
-                    recycler->CollectNow<CollectOnTypedArrayAllocation>();
+                    recycler->ReportExternalMemoryFree(length);
+                }
+            }
+
+            if (buffer == nullptr)
+            {
+                recycler->CollectNow<CollectOnTypedArrayAllocation>();
+
+                if (recycler->ReportExternalMemoryAllocation(length))
+                {
                     buffer = (BYTE*)allocator(length);
                     if (buffer == nullptr)
                     {
                         recycler->ReportExternalMemoryFailure(length);
                     }
                 }
+                else
+                {
+                    JavascriptError::ThrowOutOfMemoryError(GetScriptContext());
+                }
             }
 
-            if (buffer == nullptr)
+            if (buffer != nullptr)
             {
-                JavascriptError::ThrowOutOfMemoryError(GetScriptContext());
+                bufferLength = length;
+                ZeroMemory(buffer, bufferLength);
             }
-
-            bufferLength = length;
-            ZeroMemory(buffer, bufferLength);
         }
     }
 
@@ -473,263 +479,6 @@ namespace Js
         {
             JavascriptError::ThrowTypeError(GetScriptContext(), JSERR_FunctionArgument_Invalid);
         }
-    }
-
-
-    inline BOOL ArrayBuffer::IsBuiltinProperty(PropertyId propertyId)
-    {
-        // byteLength is only an instance property in pre-ES6
-        if (propertyId == PropertyIds::byteLength
-            && !GetScriptContext()->GetConfig()->IsES6TypedArrayExtensionsEnabled())
-            return TRUE;
-
-        return FALSE;
-    }
-
-    BOOL ArrayBuffer::HasProperty(PropertyId propertyId)
-    {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return true;
-        }
-
-        return DynamicObject::HasProperty(propertyId);
-    }
-
-    BOOL ArrayBuffer::DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags)
-    {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
-        return DynamicObject::DeleteProperty(propertyId, flags);
-
-    }
-
-    BOOL ArrayBuffer::GetSpecialPropertyName(uint32 index, Var *propertyName, ScriptContext * requestContext)
-    {
-        uint length = GetSpecialPropertyCount();
-        if (index < length)
-        {
-            *propertyName = requestContext->GetPropertyString(specialPropertyIds[index]);
-            return true;
-        }
-        return false;
-    }
-
-    // Returns the number of special non-enumerable properties this type has.
-    uint ArrayBuffer::GetSpecialPropertyCount() const
-    {
-        return this->GetScriptContext()->GetConfig()->IsES6TypedArrayExtensionsEnabled() ?
-            0 : _countof(specialPropertyIds);
-    }
-
-    // Returns the list of special non-enumerable properties for the type.
-    PropertyId const * ArrayBuffer::GetSpecialPropertyIds() const
-    {
-        return specialPropertyIds;
-    }
-
-    BOOL ArrayBuffer::GetPropertyReference(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
-    {
-        return ArrayBuffer::GetProperty(originalInstance, propertyId, value, info, requestContext);
-    }
-
-    BOOL ArrayBuffer::GetProperty(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
-    {
-        BOOL result;
-        if (GetPropertyBuiltIns(propertyId, value, &result))
-        {
-            return result;
-        }
-
-        return DynamicObject::GetProperty(originalInstance, propertyId, value, info, requestContext);
-    }
-
-    BOOL ArrayBuffer::GetProperty(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
-    {
-        BOOL result;
-        PropertyRecord const* propertyRecord;
-        this->GetScriptContext()->FindPropertyRecord(propertyNameString, &propertyRecord);
-
-        if (propertyRecord != nullptr && GetPropertyBuiltIns(propertyRecord->GetPropertyId(), value, &result))
-        {
-            return result;
-        }
-
-        return DynamicObject::GetProperty(originalInstance, propertyNameString, value, info, requestContext);
-    }
-
-    bool ArrayBuffer::GetPropertyBuiltIns(PropertyId propertyId, Var* value, BOOL* result)
-    {
-        // byteLength is only an instance property in pre-ES6
-        if (propertyId == PropertyIds::byteLength
-            && !GetScriptContext()->GetConfig()->IsES6TypedArrayExtensionsEnabled())
-        {
-            *value = JavascriptNumber::ToVar(this->GetByteLength(), GetScriptContext());
-            *result = true;
-            return true;
-        }
-
-        return false;
-    }
-
-    BOOL ArrayBuffer::SetProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info)
-    {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
-        else
-        {
-            return DynamicObject::SetProperty(propertyId, value, flags, info);
-        }
-    }
-
-    BOOL ArrayBuffer::SetProperty(JavascriptString* propertyNameString, Var value, PropertyOperationFlags flags, PropertyValueInfo* info)
-    {
-        PropertyRecord const* propertyRecord;
-        this->GetScriptContext()->FindPropertyRecord(propertyNameString, &propertyRecord);
-
-        if (propertyRecord != nullptr && IsBuiltinProperty(propertyRecord->GetPropertyId()))
-        {
-            return false;
-        }
-        else
-        {
-            return DynamicObject::SetProperty(propertyNameString, value, flags, info);
-        }
-    }
-
-
-    BOOL ArrayBuffer::IsEnumerable(PropertyId propertyId)
-    {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
-        return DynamicObject::IsEnumerable(propertyId);
-    }
-
-    BOOL ArrayBuffer::IsConfigurable(PropertyId propertyId)
-    {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
-        return DynamicObject::IsConfigurable(propertyId);
-    }
-
-
-    BOOL ArrayBuffer::InitProperty(Js::PropertyId propertyId, Js::Var value, PropertyOperationFlags flags, Js::PropertyValueInfo* info)
-    {
-        return SetProperty(propertyId, value, flags, info);
-    }
-
-    BOOL ArrayBuffer::IsWritable(PropertyId propertyId)
-    {
-        if (IsBuiltinProperty(propertyId))
-        {
-            return false;
-        }
-        return DynamicObject::IsWritable(propertyId);
-    }
-
-
-    BOOL ArrayBuffer::SetEnumerable(PropertyId propertyId, BOOL value)
-    {
-        ScriptContext* scriptContext = GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (value)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
-        return __super::SetEnumerable(propertyId, value);
-    }
-
-    BOOL ArrayBuffer::SetWritable(PropertyId propertyId, BOOL value)
-    {
-        ScriptContext* scriptContext = GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (value)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
-        return __super::SetWritable(propertyId, value);
-    }
-
-    BOOL ArrayBuffer::SetConfigurable(PropertyId propertyId, BOOL value)
-    {
-        ScriptContext* scriptContext = GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (value)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
-        return __super::SetConfigurable(propertyId, value);
-    }
-
-    BOOL ArrayBuffer::SetAttributes(PropertyId propertyId, PropertyAttributes attributes)
-    {
-        ScriptContext* scriptContext = this->GetScriptContext();
-
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (attributes != PropertyNone)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
-        return __super::SetAttributes(propertyId, attributes);
-    }
-
-    BOOL ArrayBuffer::SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags)
-    {
-        ScriptContext* scriptContext = this->GetScriptContext();
-        if (IsBuiltinProperty(propertyId))
-        {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                GetScriptContext()->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-        }
-
-        return __super::SetAccessors(propertyId, getter, setter, flags);
-    }
-
-
-
-    BOOL ArrayBuffer::SetPropertyWithAttributes(PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags, SideEffects possibleSideEffects)
-    {
-        ScriptContext* scriptContext = GetScriptContext();
-
-        if (IsBuiltinProperty(propertyId))
-        {
-            if (attributes != PropertyNone)
-            {
-                JavascriptError::ThrowTypeError(scriptContext, JSERR_DefineProperty_NotConfigurable,
-                    scriptContext->GetThreadContext()->GetPropertyName(propertyId)->GetBuffer());
-            }
-            return true;
-        }
-
-        return __super::SetPropertyWithAttributes(propertyId, value, attributes, info, flags, possibleSideEffects);
     }
 
     BOOL ArrayBuffer::GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
@@ -744,6 +493,17 @@ namespace Js
         return TRUE;
     }
 
+#if ENABLE_TTD
+    void ArrayBufferParent::MarkVisitKindSpecificPtrs(TTD::SnapshotExtractor* extractor)
+    {
+        extractor->MarkVisitVar(this->arrayBuffer);
+    }
+
+    void ArrayBufferParent::ProcessCorePaths()
+    {
+        this->GetScriptContext()->TTDWellKnownInfo->EnqueueNewPathVarAsNeeded(this, this->arrayBuffer, _u("!buffer"));
+    }
+#endif
 
     JavascriptArrayBuffer::JavascriptArrayBuffer(uint32 length, DynamicType * type) :
         ArrayBuffer(length, type, (IsValidVirtualBufferLength(length)) ? AllocWrapper : malloc)
@@ -852,30 +612,60 @@ namespace Js
             // matching scriptContext might have been deleted and the javascriptLibrary->scriptContext
             // field reset (but javascriptLibrary is still alive).
             // Use the recycler field off library instead of scriptcontext to avoid av.
+
+            // Recycler may not be available at Dispose. We need to
+            // free the memory and report that it has been freed at the same
+            // time. Otherwise, AllocationPolicyManager is unable to provide correct feedback
+#if _WIN64
+            //AsmJS Virtual Free
+            //TOD - see if isBufferCleared need to be added for free too
+            if (IsValidVirtualBufferLength(this->bufferLength) && !isBufferCleared)
+            {
+              LPVOID startBuffer = (LPVOID)((uint64)buffer);
+              BOOL fSuccess = VirtualFree((LPVOID)startBuffer, 0, MEM_RELEASE);
+              Assert(fSuccess);
+              isBufferCleared = true;
+            }
+            else
+            {
+              free(buffer);
+            }
+#else
+            free(buffer);
+#endif
             Recycler* recycler = GetType()->GetLibrary()->GetRecycler();
             recycler->ReportExternalMemoryFree(bufferLength);
+
+            buffer = nullptr;
+            bufferLength = 0;
     }
 
     void JavascriptArrayBuffer::Dispose(bool isShutdown)
     {
+        /* See JavascriptArrayBuffer::Finalize */
+    }
 
-#if _WIN64
-        //AsmJS Virtual Free
-        //TOD - see if isBufferCleared need to be added for free too
-        if (IsValidVirtualBufferLength(this->bufferLength) && !isBufferCleared)
+    // Copy memory from src to dst, truncate if dst smaller, zero extra memory
+    // if dst larger
+    static void MemCpyZero(__bcount(dstSize) BYTE* dst, size_t dstSize,
+                           __in_bcount(count) const BYTE* src, size_t count)
+    {
+        js_memcpy_s(dst, dstSize, src, min(dstSize, count));
+        if (dstSize > count)
         {
-            LPVOID startBuffer = (LPVOID)((uint64)buffer);
-            BOOL fSuccess = VirtualFree((LPVOID)startBuffer, 0, MEM_RELEASE);
-            Assert(fSuccess);
-            isBufferCleared = true;
+            ZeroMemory(dst + count, dstSize - count);
         }
-        else
+    }
+
+    // Same as realloc but zero newly allocated portion if newSize > oldSize
+    static BYTE* ReallocZero(BYTE* ptr, size_t oldSize, size_t newSize)
+    {
+        BYTE* ptrNew = (BYTE*)realloc(ptr, newSize);
+        if (ptrNew && newSize > oldSize)
         {
-            free(buffer);
+            ZeroMemory(ptrNew + oldSize, newSize - oldSize);
         }
-#else
-        free(buffer);
-#endif
+        return ptrNew;
     }
 
     ArrayBuffer * JavascriptArrayBuffer::TransferInternal(uint32 newBufferLength)
@@ -893,7 +683,11 @@ namespace Js
             {
                 if (!recycler->ReportExternalMemoryAllocation(newBufferLength - this->bufferLength))
                 {
-                    JavascriptError::ThrowOutOfMemoryError(GetScriptContext());
+                    recycler->CollectNow<CollectOnTypedArrayAllocation>();
+                    if (!recycler->ReportExternalMemoryAllocation(newBufferLength - this->bufferLength))
+                    {
+                        JavascriptError::ThrowOutOfMemoryError(GetScriptContext());
+                    }
                 }
             }
             // Contracting buffer
@@ -940,7 +734,7 @@ namespace Js
                         recycler->ReportExternalMemoryFailure(newBufferLength);
                         JavascriptError::ThrowOutOfMemoryError(GetScriptContext());
                     }
-                    js_memcpy_s(newBuffer, newBufferLength, this->buffer, newBufferLength);
+                    MemCpyZero(newBuffer, newBufferLength, this->buffer, this->bufferLength);
                 }
             }
             else
@@ -949,12 +743,12 @@ namespace Js
                 {
                     // we are transferring from an unoptimized buffer, but new length can be optimized, so move to that
                     newBuffer = (BYTE*)JavascriptArrayBuffer::AllocWrapper(newBufferLength);
-                    js_memcpy_s(newBuffer, newBufferLength, this->buffer, newBufferLength);
+                    MemCpyZero(newBuffer, newBufferLength, this->buffer, this->bufferLength);
                 }
                 else if (newBufferLength != this->bufferLength)
                 {
                     // both sides will just be regular ArrayBuffer, so realloc
-                    newBuffer = (BYTE*)realloc(this->buffer, newBufferLength);
+                    newBuffer = ReallocZero(this->buffer, this->bufferLength, newBufferLength);
                     if (!newBuffer)
                     {
                         recycler->ReportExternalMemoryFailure(newBufferLength);
@@ -974,6 +768,31 @@ namespace Js
 
         return newArrayBuffer;
     }
+
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType JavascriptArrayBuffer::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapArrayBufferObject;
+    }
+
+    void JavascriptArrayBuffer::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTD::NSSnapObjects::SnapArrayBufferInfo* sabi = alloc.SlabAllocateStruct<TTD::NSSnapObjects::SnapArrayBufferInfo>();
+
+        sabi->Length = this->GetByteLength();
+        if(sabi->Length == 0)
+        {
+            sabi->Buff = nullptr;
+        }
+        else
+        {
+            sabi->Buff = alloc.SlabAllocateArray<byte>(sabi->Length);
+            memcpy(sabi->Buff, this->GetBuffer(), sabi->Length);
+        }
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapArrayBufferInfo*, TTD::NSSnapObjects::SnapObjectType::SnapArrayBufferObject>(objData, sabi);
+    }
+#endif
 
     ProjectionArrayBuffer::ProjectionArrayBuffer(uint32 length, DynamicType * type) :
         ArrayBuffer(length, type, CoTaskMemAlloc)
@@ -1033,4 +852,30 @@ namespace Js
         : ArrayBuffer(buffer, length, type)
     {
     }
+
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType ExternalArrayBuffer::GetSnapTag_TTD() const
+    {
+        //We re-map ExternalArrayBuffers to regular buffers since the 'real' host will be gone when we replay
+        return TTD::NSSnapObjects::SnapObjectType::SnapArrayBufferObject;
+    }
+
+    void ExternalArrayBuffer::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTD::NSSnapObjects::SnapArrayBufferInfo* sabi = alloc.SlabAllocateStruct<TTD::NSSnapObjects::SnapArrayBufferInfo>();
+
+        sabi->Length = this->GetByteLength();
+        if(sabi->Length == 0)
+        {
+            sabi->Buff = nullptr;
+        }
+        else
+        {
+            sabi->Buff = alloc.SlabAllocateArray<byte>(sabi->Length);
+            memcpy(sabi->Buff, this->GetBuffer(), sabi->Length);
+        }
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapArrayBufferInfo*, TTD::NSSnapObjects::SnapObjectType::SnapArrayBufferObject>(objData, sabi);
+    }
+#endif
 }

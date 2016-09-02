@@ -35,7 +35,7 @@ namespace JSON
         Js::Var ret = ParseObject();
         if (m_token.tk != tkEOF)
         {
-            Js::JavascriptError::ThrowSyntaxError(scriptContext, ERRsyntax);
+            m_scanner.ThrowSyntaxError(JSERR_JsonSyntax);
         }
         return ret;
     }
@@ -131,16 +131,21 @@ namespace JSON
                 {
                     Js::JavascriptEnumerator* enumerator = static_cast<Js::JavascriptEnumerator*>(enumeratorVar);
                     Js::Var propertyNameVar;
-                    Js::PropertyId idMember;
 
-                    while(enumerator->MoveNext())
+                    while (true)
                     {
-                        propertyNameVar  = enumerator->GetCurrentIndex();
+                        Js::PropertyId idMember = Js::Constants::NoProperty;
+                        propertyNameVar = enumerator->MoveAndGetNext(idMember);
+                        if (propertyNameVar == nullptr)
+                        {
+                            break;
+                        }
+
                         //NOTE: If testing key value call enumerator->GetCurrentValue() to confirm value is correct;
 
-                        AssertMsg(!Js::JavascriptOperators::IsUndefinedObject(propertyNameVar,  undefined) && Js::JavascriptString::Is(propertyNameVar) , "bad enumeration on a JSON Object");
+                        AssertMsg(Js::JavascriptString::Is(propertyNameVar) , "bad enumeration on a JSON Object");
 
-                        if (enumerator->GetCurrentPropertyId(&idMember))
+                        if (idMember != Js::Constants::NoProperty)
                         {
                             Js::Var newElement = Walk(Js::JavascriptString::FromVar(propertyNameVar), idMember, value);
                             if (Js::JavascriptOperators::IsUndefinedObject(newElement, undefined))
@@ -232,7 +237,7 @@ namespace JSON
             }
             else
             {
-                Js::JavascriptError::ThrowSyntaxError(scriptContext, ERRbadNumber);
+                m_scanner.ThrowSyntaxError(JSERR_JsonBadNumber);
             }
 
         case tkLBrack:
@@ -260,11 +265,11 @@ namespace JSON
                     Scan();
                     if(tkRBrack == m_token.tk)
                     {
-                        Js::JavascriptError::ThrowSyntaxError(scriptContext, ERRillegalChar);
+                        m_scanner.ThrowSyntaxError(JSERR_JsonIllegalChar);
                     }
                 }
                 //check and consume the ending ']'
-                CheckCurrentToken(tkRBrack, ERRnoRbrack);
+                CheckCurrentToken(tkRBrack, JSERR_JsonNoRbrack);
                 return arrayObj;
 
             }
@@ -311,7 +316,7 @@ namespace JSON
                     //pick "name"
                     if(tkStrCon != m_token.tk)
                     {
-                        Js::JavascriptError::ThrowSyntaxError(scriptContext, ERRsyntax);
+                        m_scanner.ThrowSyntaxError(JSERR_JsonIllegalChar);
                     }
 
                     // currentStrLength = length w/o null-termination
@@ -332,7 +337,7 @@ namespace JSON
                             //check and consume ":"
                             if(Scan() != tkColon )
                             {
-                                Js::JavascriptError::ThrowSyntaxError(scriptContext, ERRnoColon);
+                                m_scanner.ThrowSyntaxError(JSERR_JsonNoColon);
                             }
                             Scan();
 
@@ -365,7 +370,7 @@ namespace JSON
                     //check and consume ":"
                     if(Scan() != tkColon )
                     {
-                        Js::JavascriptError::ThrowSyntaxError(scriptContext, ERRnoColon);
+                        m_scanner.ThrowSyntaxError(JSERR_JsonNoColon);
                     }
                     Scan();
                     Js::Var value = ParseObject();
@@ -404,12 +409,12 @@ namespace JSON
                 }
 
                 // check  and consume the ending '}"
-                CheckCurrentToken(tkRCurly, ERRnoRcurly);
+                CheckCurrentToken(tkRCurly, JSERR_JsonNoRcurly);
                 return object;
             }
 
         default:
-            Js::JavascriptError::ThrowSyntaxError(scriptContext, ERRsyntax);
+            m_scanner.ThrowSyntaxError(JSERR_JsonSyntax);
         }
     }
 } // namespace JSON

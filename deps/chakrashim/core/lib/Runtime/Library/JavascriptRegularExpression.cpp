@@ -100,16 +100,6 @@ namespace Js
         return static_cast<JavascriptRegExp *>(RecyclableObject::FromVar(aValue));
     }
 
-    void JavascriptRegExp::SetPattern(UnifiedRegex::RegexPattern* pattern)
-    {
-        this->pattern = pattern;
-    }
-
-    void JavascriptRegExp::SetSplitPattern(UnifiedRegex::RegexPattern* splitPattern)
-    {
-        this->splitPattern = splitPattern;
-    }
-
     CharCount JavascriptRegExp::GetLastIndexProperty(RecyclableObject* instance, ScriptContext* scriptContext)
     {
         int64 lastIndex = JavascriptConversion::ToLength(
@@ -231,6 +221,12 @@ namespace Js
         {
             return JavascriptConversion::ToString(args[1], scriptContext);
         }
+    }
+
+    bool JavascriptRegExp::ShouldApplyPrototypeWebWorkaround(Arguments& args, ScriptContext* scriptContext)
+    {
+        return scriptContext->GetConfig()->IsES6PrototypeChain() && \
+               args.Info.Count >= 1 && args[0] == scriptContext->GetLibrary()->GetRegExpPrototype();
     }
 
     Var JavascriptRegExp::NewInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -865,7 +861,7 @@ namespace Js
         if (JavascriptConversion::IsCallable(exec))
         {
             RecyclableObject* execFn = RecyclableObject::FromVar(exec);
-            Var result = execFn->GetEntryPoint()(execFn, CallInfo(CallFlags_Value, 2), thisObj, string);
+            Var result = CALL_FUNCTION(execFn, CallInfo(CallFlags_Value, 2), thisObj, string);
 
             if (!JavascriptOperators::IsObjectOrNull(result))
             {
@@ -963,7 +959,13 @@ namespace Js
         ARGUMENTS(args, callInfo);
         Assert(!(callInfo.Flags & CallFlags_New));
 
-        return GetJavascriptRegExp(args, _u("RegExp.prototype.options"), function->GetScriptContext())->GetOptions();
+        ScriptContext* scriptContext = function->GetScriptContext();
+        if (ShouldApplyPrototypeWebWorkaround(args, scriptContext))
+        {
+            return scriptContext->GetLibrary()->GetUndefined();
+        }
+
+        return GetJavascriptRegExp(args, _u("RegExp.prototype.options"), scriptContext)->GetOptions();
     }
 
     Var JavascriptRegExp::GetOptions()
@@ -1009,7 +1011,13 @@ namespace Js
         ARGUMENTS(args, callInfo);
         Assert(!(callInfo.Flags & CallFlags_New));
 
-        return GetJavascriptRegExp(args, _u("RegExp.prototype.source"), function->GetScriptContext())->ToString(true);
+        ScriptContext* scriptContext = function->GetScriptContext();
+        if (ShouldApplyPrototypeWebWorkaround(args, scriptContext))
+        {
+            return JavascriptString::NewCopyBuffer(_u("(?:)"), 4, scriptContext);
+        }
+
+        return GetJavascriptRegExp(args, _u("RegExp.prototype.source"), scriptContext)->ToString(true);
     }
 
 #define DEFINE_FLAG_GETTER(methodName, propertyName, patternMethodName) \
@@ -1019,7 +1027,13 @@ namespace Js
         ARGUMENTS(args, callInfo); \
         Assert(!(callInfo.Flags & CallFlags_New)); \
         \
-        JavascriptRegExp* pRegEx = GetJavascriptRegExp(args, _u("RegExp.prototype.") _u(#propertyName), function->GetScriptContext()); \
+        ScriptContext* scriptContext = function->GetScriptContext(); \
+        if (ShouldApplyPrototypeWebWorkaround(args, scriptContext)) \
+        {\
+            return scriptContext->GetLibrary()->GetUndefined(); \
+        }\
+        \
+        JavascriptRegExp* pRegEx = GetJavascriptRegExp(args, _u("RegExp.prototype.") _u(#propertyName), scriptContext); \
         return pRegEx->GetLibrary()->CreateBoolean(pRegEx->GetPattern()->##patternMethodName##()); \
     }
 
@@ -1496,4 +1510,32 @@ namespace Js
             ? specialPropertyIdsAll
             : specialPropertyIdsWithoutUnicode;
     }
+
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType JavascriptRegExp::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapRegexObject;
+    }
+
+    void JavascriptRegExp::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTD::NSSnapObjects::SnapRegexInfo* sri = alloc.SlabAllocateStruct<TTD::NSSnapObjects::SnapRegexInfo>();
+
+        UnifiedRegex::RegexPattern* pattern = this->pattern;
+        alloc.CopyStringIntoWLength(pattern->GetSource().GetBuffer(), pattern->GetSource().GetLength(), sri->RegexStr);
+        //split regex should be automatically generated from regex string and flags so no need to exttract it as well
+
+        sri->Flags = this->GetFlags();
+        sri->LastIndexVar = TTD_CONVERT_JSVAR_TO_TTDVAR(this->lastIndexVar);
+        sri->LastIndexOrFlag = this->lastIndexOrFlag;
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapRegexInfo*, TTD::NSSnapObjects::SnapObjectType::SnapRegexObject>(objData, sri);
+    }
+
+    void JavascriptRegExp::SetLastIndexInfo_TTD(CharCount lastIndex, Js::Var lastVar)
+    {
+        this->lastIndexOrFlag = lastIndex;
+        this->lastIndexVar = lastVar;
+    }
+#endif
 } // namespace Js

@@ -97,7 +97,7 @@ struct PnUniSlot : PnUni
 
 struct PnInt
 {
-    long lw;
+    int32 lw;
 };
 
 struct PnFlt
@@ -182,7 +182,7 @@ enum FncFlags
     kFunctionHasNonThisStmt                     = 1 << 7,
     kFunctionStrictMode                         = 1 << 8,
     kFunctionDoesNotEscape                      = 1 << 9, // function is known not to escape its declaring scope
-    kFunctionSubsumed                           = 1 << 10, // function expression is a parameter in a call that has no closing paren and should be treated as a global declaration (only occurs during error correction)
+    kFunctionIsModule                           = 1 << 10, // function is a module body
     kFunctionHasThisStmt                        = 1 << 11, // function has at least one this.assignment and might be a constructor
     kFunctionHasWithStmt                        = 1 << 12, // function (or child) uses with
     kFunctionIsLambda                           = 1 << 13,
@@ -203,6 +203,7 @@ enum FncFlags
     kFunctionIsAsync                            = 1 << 28, // function is async
     kFunctionHasDirectSuper                     = 1 << 29, // super()
     kFunctionIsDefaultModuleExport              = 1 << 30, // function is the default export of a module
+    kFunctionHasAnyWriteToFormals               = 1 << 31  // To Track if there are any writes to formals.
 };
 
 struct RestorePoint;
@@ -214,9 +215,10 @@ struct PnFnc
     ParseNodePtr pnodeName;
     IdentPtr pid;
     LPCOLESTR hint;
-    ulong hintLength;
-    ulong hintOffset;
+    uint32 hintLength;
+    uint32 hintOffset;
     bool  isNameIdentifierRef;
+    bool  nestedFuncEscapes;
     ParseNodePtr pnodeScopes;
     ParseNodePtr pnodeBodyScope;
     ParseNodePtr pnodeParams;
@@ -233,7 +235,7 @@ struct PnFnc
     uint16 firstDefaultArg; // Position of the first default argument, if any
 
     unsigned int fncFlags;
-    long astSize;
+    int32 astSize;
     size_t cbMin; // Min an Lim UTF8 offsets.
     size_t cbLim;
     ULONG lineNumber;   // Line number relative to the current source buffer of the function declaration.
@@ -245,7 +247,7 @@ struct PnFnc
     RestorePoint *pRestorePoint;
     DeferredFunctionStub *deferredStub;
 
-    static const long MaxStackClosureAST = 800000;
+    static const int32 MaxStackClosureAST = 800000;
 
 private:
     void SetFlags(uint flags, bool set)
@@ -265,6 +267,16 @@ private:
         return (fncFlags & flags) == flags;
     }
 
+    bool HasAnyFlags(uint flags) const
+    {
+        return (fncFlags & flags) != 0;
+    }
+
+    bool HasNoFlags(uint flags) const
+    {
+        return (fncFlags & flags) == 0;
+    }
+
 public:
     void ClearFlags()
     {
@@ -278,6 +290,7 @@ public:
     void SetDoesNotEscape(bool set = true) { SetFlags(kFunctionDoesNotEscape, set); }
     void SetHasDefaultArguments(bool set = true) { SetFlags(kFunctionHasDefaultArguments, set); }
     void SetHasHeapArguments(bool set = true) { SetFlags(kFunctionHasHeapArguments, set); }
+    void SetHasAnyWriteToFormals(bool set = true) { SetFlags((uint)kFunctionHasAnyWriteToFormals, set); }
     void SetHasNonSimpleParameterList(bool set = true) { SetFlags(kFunctionHasNonSimpleParameterList, set); }
     void SetHasNonThisStmt(bool set = true) { SetFlags(kFunctionHasNonThisStmt, set); }
     void SetHasReferenceableBuiltInArguments(bool set = true) { SetFlags(kFunctionHasReferenceableBuiltInArguments, set); }
@@ -299,9 +312,10 @@ public:
     void SetNameIsHidden(bool set = true) { SetFlags(kFunctionNameIsHidden, set); }
     void SetNested(bool set = true) { SetFlags(kFunctionNested, set); }
     void SetStrictMode(bool set = true) { SetFlags(kFunctionStrictMode, set); }
-    void SetSubsumed(bool set = true) { SetFlags(kFunctionSubsumed, set); }
+    void SetIsModule(bool set = true) { SetFlags(kFunctionIsModule, set); }
     void SetUsesArguments(bool set = true) { SetFlags(kFunctionUsesArguments, set); }
     void SetIsDefaultModuleExport(bool set = true) { SetFlags(kFunctionIsDefaultModuleExport, set); }
+    void SetNestedFuncEscapes(bool set = true) { nestedFuncEscapes = set; }
 
     bool CallsEval() const { return HasFlags(kFunctionCallsEval); }
     bool ChildCallsEval() const { return HasFlags(kFunctionChildCallsEval); }
@@ -311,6 +325,7 @@ public:
     bool GetStrictMode() const { return HasFlags(kFunctionStrictMode); }
     bool HasDefaultArguments() const { return HasFlags(kFunctionHasDefaultArguments); }
     bool HasHeapArguments() const { return true; /* HasFlags(kFunctionHasHeapArguments); Disabling stack arguments. Always return HeapArguments as True */ }
+    bool HasAnyWriteToFormals() const { return HasFlags((uint)kFunctionHasAnyWriteToFormals); }
     bool HasOnlyThisStmts() const { return !HasFlags(kFunctionHasNonThisStmt); }
     bool HasReferenceableBuiltInArguments() const { return HasFlags(kFunctionHasReferenceableBuiltInArguments); }
     bool HasSuperReference() const { return HasFlags(kFunctionHasSuperReference); }
@@ -321,20 +336,23 @@ public:
     bool HasWithStmt() const { return HasFlags(kFunctionHasWithStmt); }
     bool IsAccessor() const { return HasFlags(kFunctionIsAccessor); }
     bool IsAsync() const { return HasFlags(kFunctionIsAsync); }
+    bool IsConstructor() const { return HasNoFlags(kFunctionIsAsync|kFunctionIsLambda|kFunctionIsAccessor);  }
     bool IsClassConstructor() const { return HasFlags(kFunctionIsClassConstructor); }
     bool IsBaseClassConstructor() const { return HasFlags(kFunctionIsBaseClassConstructor); }
     bool IsClassMember() const { return HasFlags(kFunctionIsClassMember); }
     bool IsDeclaration() const { return HasFlags(kFunctionDeclaration); }
     bool IsGeneratedDefault() const { return HasFlags(kFunctionIsGeneratedDefault); }
     bool IsGenerator() const { return HasFlags(kFunctionIsGenerator); }
+    bool IsCoroutine() const { return HasAnyFlags(kFunctionIsGenerator | kFunctionIsAsync); }
     bool IsLambda() const { return HasFlags(kFunctionIsLambda); }
     bool IsMethod() const { return HasFlags(kFunctionIsMethod); }
     bool IsNested() const { return HasFlags(kFunctionNested); }
     bool IsStaticMember() const { return HasFlags(kFunctionIsStaticMember); }
-    bool IsSubsumed() const { return HasFlags(kFunctionSubsumed); }
+    bool IsModule() const { return HasFlags(kFunctionIsModule); }
     bool NameIsHidden() const { return HasFlags(kFunctionNameIsHidden); }
     bool UsesArguments() const { return HasFlags(kFunctionUsesArguments); }
     bool IsDefaultModuleExport() const { return HasFlags(kFunctionIsDefaultModuleExport); }
+    bool NestedFuncEscapes() const { return nestedFuncEscapes; }
 
     size_t LengthInBytes()
     {

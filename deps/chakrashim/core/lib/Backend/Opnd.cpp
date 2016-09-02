@@ -394,6 +394,19 @@ void Opnd::SetValueType(const ValueType valueType)
     m_valueType = valueType;
 }
 
+bool Opnd::IsScopeObjOpnd(Func * func)
+{
+    if (IsRegOpnd())
+    {
+        return this->GetStackSym() == func->GetScopeObjSym();
+    }
+    else if(IsSymOpnd() && AsSymOpnd()->m_sym->IsPropertySym())
+    {
+        return this->AsSymOpnd()->m_sym->AsPropertySym()->m_stackSym == func->GetScopeObjSym();
+    }
+    return false;
+}
+
 ValueType Opnd::FindProfiledValueType()
 {
     if (!this->GetValueType().IsUninitialized())
@@ -775,32 +788,6 @@ PropertySymOpnd::CopyWithoutFlowSensitiveInfo(Func *func)
 }
 
 PropertySymOpnd *
-PropertySymOpnd::CopyForTypeCheckOnly(Func *func)
-{
-    Assert(!IsRootObjectNonConfigurableFieldLoad());
-    PropertySymOpnd *newOpnd = CopyCommon(func);
-
-    newOpnd->objTypeSpecFldInfo = this->objTypeSpecFldInfo;
-    newOpnd->usesAuxSlot = usesAuxSlot;
-    newOpnd->slotIndex = slotIndex;
-
-    newOpnd->objTypeSpecFlags = this->objTypeSpecFlags;
-    // If we're turning the instruction owning this operand into a CheckObjType, we will do a type check here
-    // only for the sake of downstream instructions, so the flags pertaining to this property access are
-    // irrelevant, because we don't do a property access here.
-    newOpnd->SetTypeCheckOnly(true);
-    newOpnd->usesFixedValue = false;
-
-    newOpnd->finalType = this->finalType;
-    newOpnd->guardedPropOps = this->guardedPropOps != nullptr ? this->guardedPropOps->CopyNew() : nullptr;
-    newOpnd->writeGuards = this->writeGuards != nullptr ? this->writeGuards->CopyNew() : nullptr;
-
-    newOpnd->SetIsJITOptimizedReg(this->GetIsJITOptimizedReg());
-
-    return newOpnd;
-}
-
-PropertySymOpnd *
 PropertySymOpnd::CopyInternalSub(Func *func)
 {
     Assert(m_kind == OpndKindSym && this->IsPropertySymOpnd());
@@ -846,20 +833,43 @@ PropertySymOpnd::IsObjectHeaderInlined() const
 bool
 PropertySymOpnd::ChangesObjectLayout() const
 {
+    Js::Type *cachedType = this->IsMono() ? this->GetType() : this->GetFirstEquivalentType();
+
     Js::Type *finalType = this->GetFinalType();
-    if (finalType == nullptr || !Js::DynamicType::Is(finalType->GetTypeId()))
+    if (finalType && Js::DynamicType::Is(finalType->GetTypeId()))
+    {
+        // This is the case where final type opt may cause pro-active type transition to take place.
+
+        Assert(cachedType && Js::DynamicType::Is(cachedType->GetTypeId()));
+
+        Js::DynamicTypeHandler * cachedTypeHandler = (static_cast<Js::DynamicType*>(cachedType))->GetTypeHandler();
+        Js::DynamicTypeHandler * finalTypeHandler = (static_cast<Js::DynamicType*>(finalType))->GetTypeHandler();
+
+        return cachedTypeHandler->GetInlineSlotCapacity() != finalTypeHandler->GetInlineSlotCapacity() ||
+            cachedTypeHandler->GetOffsetOfInlineSlots() != finalTypeHandler->GetOffsetOfInlineSlots();
+    }
+
+    if (!this->HasInitialType())
     {
         return false;
     }
 
-    Js::Type *cachedType = this->IsMono() ? this->GetType() : this->GetFirstEquivalentType();
-    Assert(cachedType && Js::DynamicType::Is(cachedType->GetTypeId()));
+    Js::Type *initialType = this->GetInitialType();
+    if (initialType && Js::DynamicType::Is(initialType->GetTypeId()))
+    {
+        // This is the case where the type transition actually occurs. (This is the only case that's detectable
+        // during the loop pre-pass, since final types are not in place yet.)
 
-    Js::DynamicTypeHandler * cachedTypeHandler = (static_cast<Js::DynamicType*>(cachedType))->GetTypeHandler();
-    Js::DynamicTypeHandler * finalTypeHandler = (static_cast<Js::DynamicType*>(finalType))->GetTypeHandler();
+        Assert(cachedType && Js::DynamicType::Is(cachedType->GetTypeId()));
 
-    return cachedTypeHandler->GetInlineSlotCapacity() != finalTypeHandler->GetInlineSlotCapacity() ||
-        cachedTypeHandler->GetOffsetOfInlineSlots() != finalTypeHandler->GetOffsetOfInlineSlots();
+        Js::DynamicTypeHandler * cachedTypeHandler = (static_cast<Js::DynamicType*>(cachedType))->GetTypeHandler();
+        Js::DynamicTypeHandler * initialTypeHandler = (static_cast<Js::DynamicType*>(initialType))->GetTypeHandler();
+
+        return cachedTypeHandler->GetInlineSlotCapacity() != initialTypeHandler->GetInlineSlotCapacity() ||
+            cachedTypeHandler->GetOffsetOfInlineSlots() != initialTypeHandler->GetOffsetOfInlineSlots();
+    }
+
+    return false;
 }
 
 void

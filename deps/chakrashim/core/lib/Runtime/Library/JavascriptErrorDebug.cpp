@@ -8,13 +8,17 @@
 #include "errstr.h"
 #include "Library/JavascriptErrorDebug.h"
 
+#if defined(_MSC_VER) && !defined(__clang__)
 // Temporarily undefining "null" (defined in Common.h) to avoid compile errors when importing mscorlib.tlb
 #import <mscorlib.tlb> raw_interfaces_only \
     rename("Assert","CLRAssert") rename("ReportEvent","CLRReportEvent") rename("Debugger","CLRDebugger")
+#endif
 
 namespace Js
 {
+#if defined(_MSC_VER) && !defined(__clang__)
     using namespace mscorlib;
+#endif
 
     __declspec(thread)  char16 JavascriptErrorDebug::msgBuff[512];
 
@@ -235,6 +239,7 @@ namespace Js
         memset(proerrstr, 0, sizeof(*proerrstr));
         *pperrinfo = nullptr;
 
+#if defined(_MSC_VER) && !defined(__clang__)
         // GetErrorInfo returns S_FALSE if there is no rich error info
         // and S_OK if there is.
         IErrorInfo * perrinfo;
@@ -365,6 +370,10 @@ namespace Js
         }
         *pperrinfo = perrinfo;
         return hr;
+#else
+        // xplat-todo: Find out if we can implement richer error info on Linux
+        return hr;
+#endif
     }
 
     void JavascriptErrorDebug::SetErrorInfo()

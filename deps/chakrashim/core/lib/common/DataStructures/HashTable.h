@@ -33,7 +33,7 @@ public:
     SListBase<Bucket<T>> *  table;
 
 public:
-    static HashTable<T, TAllocator> * New(TAllocator *allocator, uint tableSize)
+    static HashTable<T, TAllocator> * New(TAllocator *allocator, DECLSPEC_GUARD_OVERFLOW uint tableSize)
     {
         return AllocatorNewPlus(TAllocator, allocator, (tableSize*sizeof(SListBase<Bucket<T>>)), HashTable, allocator, tableSize);
     }
@@ -241,7 +241,7 @@ public:
     {
         for (uint i = 0; i < this->tableSize; i++)
         {
-            SListBase<Bucket<T>>::Iterator iter2(&this2->table[i]);
+            _TYPENAME SListBase<Bucket<T>>::Iterator iter2(&this2->table[i]);
             iter2.Next();
             FOREACH_SLISTBASE_ENTRY_EDITING(Bucket<T>, bucket, &this->table[i], iter)
             {
@@ -274,7 +274,7 @@ public:
     {
         for (uint i = 0; i < this->tableSize; i++)
         {
-            SListBase<Bucket<T>>::Iterator iter2(&this2->table[i]);
+            _TYPENAME SListBase<Bucket<T>>::Iterator iter2(&this2->table[i]);
             iter2.Next();
             FOREACH_SLISTBASE_ENTRY_EDITING(Bucket<T>, bucket, &this->table[i], iter)
             {
@@ -316,7 +316,7 @@ public:
     {
         for (uint i = 0; i < this->tableSize; i++)
         {
-            SListBase<Bucket<T>>::Iterator iter2(&this2->table[i]);
+            _TYPENAME SListBase<Bucket<T>>::Iterator iter2(&this2->table[i]);
             iter2.Next();
             FOREACH_SLISTBASE_ENTRY_EDITING(Bucket<T>, bucket, &this->table[i], iter)
             {
@@ -355,7 +355,7 @@ public:
 
         for (uint i = 0; i < this->tableSize; i++)
         {
-            this->table[i].CopyTo<Bucket<T>::Copy>(this->alloc, newTable->table[i]);
+            this->table[i].template CopyTo<Bucket<T>::Copy>(this->alloc, newTable->table[i]);
         }
 #if PROFILE_DICTIONARY
         if (stats)
@@ -382,7 +382,7 @@ public:
 #endif
 
 protected:
-    HashTable(TAllocator * allocator, uint tableSize) : alloc(allocator), tableSize(tableSize)
+    HashTable(TAllocator * allocator, DECLSPEC_GUARD_OVERFLOW uint tableSize) : alloc(allocator), tableSize(tableSize)
     {
         Init();
 #if PROFILE_DICTIONARY

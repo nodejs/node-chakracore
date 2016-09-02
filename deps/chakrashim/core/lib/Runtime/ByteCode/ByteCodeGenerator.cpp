@@ -17,24 +17,36 @@ bool IsCallOfConstants(ParseNode *pnode)
 template <class PrefixFn, class PostfixFn>
 void Visit(ParseNode *pnode, ByteCodeGenerator* byteCodeGenerator, PrefixFn prefix, PostfixFn postfix, ParseNode * pnodeParent = nullptr);
 
+//the only point of this type (as opposed to using a lambda) is to provide a named type in code coverage
+template <typename TContext> class ParseNodeVisitor
+{
+    TContext* m_context;
+    void(*m_fn)(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator, TContext* context);
+public:
+
+    ParseNodeVisitor(TContext* ctx, void(*prefixParam)(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator, TContext* context)) :
+        m_context(ctx), m_fn(prefixParam)
+    {
+    }
+
+    void operator () (ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator)
+    {
+        if (m_fn)
+        {
+            m_fn(pnode, byteCodeGenerator, m_context);
+        }
+    }
+};
+
 template<class TContext>
 void VisitIndirect(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator, TContext* context,
     void (*prefix)(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator, TContext* context),
-    void (*postfix)(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator, TContext* context),
-    ParseNode *pnodeParent = nullptr)
+    void (*postfix)(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator, TContext* context))
 {
-    Visit(pnode, byteCodeGenerator,
-        [context, prefix](ParseNode * pnode, ByteCodeGenerator * byteCodeGenerator)
-        {
-            prefix(pnode, byteCodeGenerator, context);
-        },
-        [context, postfix](ParseNode * pnode, ByteCodeGenerator * byteCodeGenerator)
-        {
-            if (postfix)
-            {
-                postfix(pnode, byteCodeGenerator, context);
-            }
-        }, pnodeParent);
+    ParseNodeVisitor<TContext> prefixHelper(context, prefix);
+    ParseNodeVisitor<TContext> postfixHelper(context, postfix);
+
+    Visit(pnode, byteCodeGenerator, prefixHelper, postfixHelper, nullptr);
 }
 
 template <class PrefixFn, class PostfixFn>
@@ -274,11 +286,13 @@ void Visit(ParseNode *pnode, ByteCodeGenerator* byteCodeGenerator, PrefixFn pref
     }
     case knopClassDecl:
     {
-        // Visit the extends expression first, since it's bound outside the scope containing the class name.
-        Visit(pnode->sxClass.pnodeExtends, byteCodeGenerator, prefix, postfix);
         Visit(pnode->sxClass.pnodeDeclName, byteCodeGenerator, prefix, postfix);
         // Now visit the class name and methods.
         BeginVisitBlock(pnode->sxClass.pnodeBlock, byteCodeGenerator);
+        // The extends clause is bound to the scope which contains the class name
+        // (and the class name identifier is in a TDZ when the extends clause is evaluated).
+        // See ES 2017 14.5.13 Runtime Semantics: ClassDefinitionEvaluation.
+        Visit(pnode->sxClass.pnodeExtends, byteCodeGenerator, prefix, postfix);
         Visit(pnode->sxClass.pnodeName, byteCodeGenerator, prefix, postfix);
         Visit(pnode->sxClass.pnodeStaticMembers, byteCodeGenerator, prefix, postfix);
         Visit(pnode->sxClass.pnodeConstructor, byteCodeGenerator, prefix, postfix);
@@ -712,11 +726,6 @@ bool ByteCodeGenerator::IsFalse(ParseNode* node)
     return (node->nop == knopInt && node->sxInt.lw == 0) || node->nop == knopFalse;
 }
 
-bool ByteCodeGenerator::UseParserBindings() const
-{
-    return !PHASE_OFF1(Js::ParserBindPhase);
-}
-
 bool ByteCodeGenerator::IsES6DestructuringEnabled() const
 {
     return scriptContext->GetConfig()->IsES6DestructuringEnabled();
@@ -972,11 +981,7 @@ void ByteCodeGenerator::RestoreScopeInfo(Js::FunctionBody* functionBody)
         if (paramScopeInfo != nullptr)
         {
             paramScope = paramScopeInfo->GetScope();
-            Assert(paramScope || !UseParserBindings());
-            if (paramScope == nullptr || !UseParserBindings())
-            {
-                paramScope = Anew(alloc, Scope, alloc, ScopeType_Parameter, true);
-            }
+            Assert(paramScope);
             if (!paramScopeInfo->GetCanMergeWithBodyScope())
             {
                 paramScope->SetCannotMergeWithBodyScope();
@@ -986,18 +991,7 @@ void ByteCodeGenerator::RestoreScopeInfo(Js::FunctionBody* functionBody)
 
         Scope* bodyScope = scopeInfo->GetScope();
 
-        Assert(bodyScope || !UseParserBindings());
-        if (bodyScope == nullptr || !UseParserBindings())
-        {
-            if (scopeInfo->IsGlobalEval())
-            {
-                bodyScope = Anew(alloc, Scope, alloc, ScopeType_GlobalEvalBlock, true);
-            }
-            else
-            {
-                bodyScope = Anew(alloc, Scope, alloc, ScopeType_FunctionBody, true);
-            }
-        }
+        Assert(bodyScope);
         bodyScope->SetHasOwnLocalInClosure(scopeInfo->GetHasOwnLocalInClosure());
 
         FuncInfo* func = Anew(alloc, FuncInfo, functionBody->GetDisplayName(), alloc, paramScope, bodyScope, nullptr, functionBody);
@@ -1017,11 +1011,7 @@ void ByteCodeGenerator::RestoreScopeInfo(Js::FunctionBody* functionBody)
         if (funcExprScopeInfo)
         {
             Scope* funcExprScope = funcExprScopeInfo->GetScope();
-            Assert(funcExprScope || !UseParserBindings());
-            if (funcExprScope == nullptr || !UseParserBindings())
-            {
-                funcExprScope = Anew(alloc, Scope, alloc, ScopeType_FuncExpr, true);
-            }
+            Assert(funcExprScope);
             funcExprScope->SetFunc(func);
             func->SetFuncExprScope(funcExprScope);
             funcExprScopeInfo->GetScopeInfo(nullptr, this, func, funcExprScope);
@@ -1039,7 +1029,7 @@ void ByteCodeGenerator::RestoreScopeInfo(Js::FunctionBody* functionBody)
     {
         Assert(this->TopFuncInfo() == nullptr);
         // funcBody is glo
-        currentScope = Anew(alloc, Scope, alloc, ScopeType_Global, !UseParserBindings());
+        currentScope = Anew(alloc, Scope, alloc, ScopeType_Global);
         globalScope = currentScope;
 
         FuncInfo *func = Anew(alloc, FuncInfo, Js::Constants::GlobalFunction,
@@ -1063,11 +1053,6 @@ FuncInfo * ByteCodeGenerator::StartBindGlobalStatements(ParseNode *pnode)
     {
         currentScope = pnode->sxProg.scope;
         Assert(currentScope);
-        if (!currentScope || !UseParserBindings())
-        {
-            currentScope = Anew(alloc, Scope, alloc, ScopeType_Global, true);
-            pnode->sxProg.scope = currentScope;
-        }
         globalScope = currentScope;
     }
 
@@ -1113,7 +1098,7 @@ FuncInfo * ByteCodeGenerator::StartBindGlobalStatements(ParseNode *pnode)
     FuncInfo *funcInfo = Anew(alloc, FuncInfo, Js::Constants::GlobalFunction,
         alloc, nullptr, globalScope, pnode, byteCodeFunction);
 
-    long currentAstSize = pnode->sxFnc.astSize;
+    int32 currentAstSize = pnode->sxFnc.astSize;
     if (currentAstSize > this->maxAstSize)
     {
         this->maxAstSize = currentAstSize;
@@ -1279,6 +1264,10 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
         {
             attributes = (Js::FunctionInfo::Attributes)(attributes | Js::FunctionInfo::Attributes::ErrorOnNew);
         }
+        if (pnode->sxFnc.IsModule())
+        {
+            attributes = (Js::FunctionInfo::Attributes)(attributes | Js::FunctionInfo::Attributes::Module);
+        }
 
         if (createFunctionBody)
         {
@@ -1324,20 +1313,12 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
     Scope *funcExprScope = nullptr;
     if (funcExprWithName)
     {
-        if (!UseParserBindings())
-        {
-            funcExprScope = Anew(alloc, Scope, alloc, ScopeType_FuncExpr, true);
-            pnode->sxFnc.scope = funcExprScope;
-        }
-        else
-        {
-            funcExprScope = pnode->sxFnc.scope;
-            Assert(funcExprScope);
-        }
+        funcExprScope = pnode->sxFnc.scope;
+        Assert(funcExprScope);
         PushScope(funcExprScope);
         Symbol *sym = AddSymbolToScope(funcExprScope, name, nameLength, pnode->sxFnc.pnodeName, STFunction);
 
-        sym->SetFuncExpr(true);
+        sym->SetIsFuncExpr(true);
 
         sym->SetPosition(parsedFunctionBody->GetOrAddPropertyIdTracked(sym->GetName()));
 
@@ -1346,8 +1327,8 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
 
     Scope *paramScope = pnode->sxFnc.pnodeScopes ? pnode->sxFnc.pnodeScopes->sxBlock.scope : nullptr;
     Scope *bodyScope = pnode->sxFnc.pnodeBodyScope ? pnode->sxFnc.pnodeBodyScope->sxBlock.scope : nullptr;
-    Assert(paramScope != nullptr || !pnode->sxFnc.pnodeScopes || !UseParserBindings());
-    if (paramScope == nullptr || !UseParserBindings())
+    Assert(paramScope != nullptr || !pnode->sxFnc.pnodeScopes);
+    if (paramScope == nullptr)
     {
         paramScope = Anew(alloc, Scope, alloc, ScopeType_Parameter, true);
         if (pnode->sxFnc.pnodeScopes)
@@ -1355,7 +1336,7 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
             pnode->sxFnc.pnodeScopes->sxBlock.scope = paramScope;
         }
     }
-    if (bodyScope == nullptr || !UseParserBindings())
+    if (bodyScope == nullptr)
     {
         bodyScope = Anew(alloc, Scope, alloc, ScopeType_FunctionBody, true);
         if (pnode->sxFnc.pnodeBodyScope)
@@ -1399,7 +1380,7 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
     if (pnode->sxFnc.CallsEval())
     {
         funcInfo->SetCallsEval(true);
-        
+
         bodyScope->SetIsDynamic(true);
         bodyScope->SetIsObject();
         bodyScope->SetCapturesAll(true);
@@ -1411,13 +1392,6 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
         paramScope->SetMustInstantiate(true);
     }
 
-    if (pnode->sxFnc.IsAsync())
-    {
-        // For async methods we use the same parameter symbols in the inner function too.
-        // So mark them as having non local reference here.
-        funcInfo->paramScope->ForceAllSymbolNonLocalReference(this);
-    }
-
     PushFuncInfo(_u("StartBindFunction"), funcInfo);
 
     if (funcExprScope)
@@ -1426,7 +1400,7 @@ FuncInfo * ByteCodeGenerator::StartBindFunction(const char16 *name, uint nameLen
         funcInfo->funcExprScope = funcExprScope;
     }
 
-    long currentAstSize = pnode->sxFnc.astSize;
+    int32 currentAstSize = pnode->sxFnc.astSize;
     if (currentAstSize > this->maxAstSize)
     {
         this->maxAstSize = currentAstSize;
@@ -1465,11 +1439,6 @@ void ByteCodeGenerator::StartBindCatch(ParseNode *pnode)
 {
     Scope *scope = pnode->sxCatch.scope;
     Assert(scope);
-    if (scope == nullptr || !UseParserBindings())
-    {
-        scope = Anew(alloc, Scope, alloc, (pnode->sxCatch.pnodeParam->nop == knopParamPattern) ? ScopeType_CatchParamPattern : ScopeType_Catch, true);
-        pnode->sxCatch.scope = scope;
-    }
     Assert(currentScope);
     scope->SetFunc(currentScope->GetFunc());
     PushScope(scope);
@@ -1483,14 +1452,6 @@ void ByteCodeGenerator::EndBindCatch()
 void ByteCodeGenerator::PushScope(Scope *innerScope)
 {
     Assert(innerScope != nullptr);
-
-    if (isBinding
-        && currentScope != nullptr
-        && currentScope->GetScopeType() == ScopeType_FunctionBody
-        && innerScope->GetMustInstantiate())
-    {
-        Assert(innerScope->GetScopeType() != ScopeType_FunctionBody);
-    }
 
     innerScope->SetEnclosingScope(currentScope);
 
@@ -1573,33 +1534,19 @@ void ByteCodeGenerator::PopFuncInfo(char16 const * location)
 Symbol * ByteCodeGenerator::FindSymbol(Symbol **symRef, IdentPtr pid, bool forReference)
 {
     const char16 *key = nullptr;
-    int keyLength;
 
     Symbol *sym = nullptr;
-    if (!UseParserBindings())
+    Assert(symRef);
+    if (*symRef)
     {
-        key = reinterpret_cast<const char16*>(pid->Psz());
-        keyLength = pid->Cch();
-        sym = currentScope->FindSymbol(SymbolName(key, keyLength), STUnknown);
-        if (symRef)
-        {
-            *symRef = sym;
-        }
+        sym = *symRef;
     }
     else
     {
-        Assert(symRef);
-        if (*symRef)
-        {
-            sym = *symRef;
-        }
-        else
-        {
-            this->AssignPropertyId(pid);
-            return nullptr;
-        }
-        key = reinterpret_cast<const char16*>(sym->GetPid()->Psz());
+        this->AssignPropertyId(pid);
+        return nullptr;
     }
+    key = reinterpret_cast<const char16*>(sym->GetPid()->Psz());
 
     Scope *symScope = sym->GetScope();
     Assert(symScope);
@@ -1618,7 +1565,7 @@ Symbol * ByteCodeGenerator::FindSymbol(Symbol **symRef, IdentPtr pid, bool forRe
     }
 #endif
 
-    if (!(sym->GetIsGlobal()))
+    if (!sym->GetIsGlobal() && !sym->GetIsModuleExportStorage())
     {
         FuncInfo *top = funcInfoStack->Top();
 
@@ -1631,6 +1578,7 @@ Symbol * ByteCodeGenerator::FindSymbol(Symbol **symRef, IdentPtr pid, bool forRe
             if (scope != symScope && scope->GetIsDynamic())
             {
                 nonLocalRef = true;
+                sym->SetHasNonLocalReference();
                 symScope->SetIsObject();
             }
         }
@@ -1638,12 +1586,12 @@ Symbol * ByteCodeGenerator::FindSymbol(Symbol **symRef, IdentPtr pid, bool forRe
         if (nonLocalRef)
         {
             // Symbol referenced through a closure. Mark it as such and give it a property ID.
-            sym->SetHasNonLocalReference(true, this);
+            this->ProcessCapturedSym(sym);
             sym->SetPosition(top->byteCodeFunction->GetOrAddPropertyIdTracked(sym->GetName()));
             // If this is var is local to a function (meaning that it belongs to the function's scope
             // *or* to scope that need not be instantiated, like a function expression scope, which we'll
             // merge with the function scope, then indicate that fact.
-            symScope->SetHasLocalInClosure(true);
+            this->ProcessScopeWithCapturedSym(symScope);
             if (symScope->GetFunc()->GetHasArguments() && sym->GetIsFormal())
             {
                 // A formal is referenced non-locally. We need to allocate it on the heap, so
@@ -1659,23 +1607,14 @@ Symbol * ByteCodeGenerator::FindSymbol(Symbol **symRef, IdentPtr pid, bool forRe
                 top->SetHasClosureReference(true);
             }
         }
-        else if (sym->GetHasNonLocalReference() && !sym->GetIsCommittedToSlot() && !sym->HasVisitedCapturingFunc())
+        else if (!nonLocalRef && sym->GetHasNonLocalReference() && !sym->GetIsCommittedToSlot() && !sym->HasVisitedCapturingFunc())
         {
             sym->SetHasNonCommittedReference(true);
         }
 
-        if (sym->GetFuncExpr())
+        if (sym->GetIsFuncExpr())
         {
             symScope->GetFunc()->SetFuncExprNameReference(true);
-            // If the func expr is captured by a closure, and if it's not getting its own scope,
-            // we have to make the function's scope a dynamic object. That's because we have to init
-            // the property as non-writable, and if we put it directly in the slots we can't protect it from being
-            // overwritten.
-            if (nonLocalRef && !symScope->GetFunc()->GetCallsEval() && !symScope->GetFunc()->GetChildCallsEval())
-            {
-                symScope->GetFunc()->GetParamScope()->SetIsObject();
-                symScope->GetFunc()->GetBodyScope()->SetIsObject();
-            }
         }
     }
 
@@ -1686,63 +1625,33 @@ Symbol * ByteCodeGenerator::AddSymbolToScope(Scope *scope, const char16 *key, in
 {
     Symbol *sym = nullptr;
 
-    if (!UseParserBindings())
+    switch (varDecl->nop)
     {
-        SymbolName const symName(key, keyLength);
-
-        if (scope->GetScopeType() == ScopeType_FunctionBody)
-        {
-            sym = scope->GetFunc()->GetParamScope()->FindLocalSymbol(symName);
-        }
-
-        if (sym == nullptr)
-        {
-            sym = scope->FindLocalSymbol(symName);
-        }
-
-        if (sym == nullptr)
-        {
-            sym = Anew(alloc, Symbol, symName, varDecl, symbolType);
-
-            scope->AddNewSymbol(sym);
-#if DBG_DUMP
-            if (this->Trace())
-            {
-                Output::Print(_u("added symbol %s of type %s to scope %x\n"), key, sym->GetSymbolTypeName(), scope);
-            }
-#endif
-        }
+    case knopConstDecl:
+    case knopLetDecl:
+    case knopVarDecl:
+        sym = varDecl->sxVar.sym;
+        break;
+    case knopName:
+        AnalysisAssert(varDecl->sxPid.symRef);
+        sym = *varDecl->sxPid.symRef;
+        break;
+    default:
+        AnalysisAssert(0);
+        sym = nullptr;
+        break;
     }
-    else
-    {
-        switch (varDecl->nop)
-        {
-        case knopConstDecl:
-        case knopLetDecl:
-        case knopVarDecl:
-            sym = varDecl->sxVar.sym/*New*/;
-            break;
-        case knopName:
-            AnalysisAssert(varDecl->sxPid.symRef);
-            sym = *varDecl->sxPid.symRef;
-            break;
-        default:
-            AnalysisAssert(0);
-            sym = nullptr;
-            break;
-        }
 
-        if (sym->GetScope() != scope && sym->GetScope()->GetScopeType() != ScopeType_Parameter)
-        {
-            // This can happen when we have a function declared at global eval scope, and it has
-            // references in deferred function bodies inside the eval. The BCG creates a new global scope
-            // on such compiles, so we essentially have to migrate the symbol to the new scope.
-            // We check fscrEvalCode, not fscrEval, because the same thing can happen in indirect eval,
-            // when fscrEval is not set.
-            Assert(((this->flags & fscrEvalCode) && sym->GetIsGlobal() && sym->GetSymbolType() == STFunction) || this->IsConsoleScopeEval());
-            Assert(scope->GetScopeType() == ScopeType_Global);
-            scope->AddNewSymbol(sym);
-        }
+    if (sym->GetScope() != scope && sym->GetScope()->GetScopeType() != ScopeType_Parameter)
+    {
+        // This can happen when we have a function declared at global eval scope, and it has
+        // references in deferred function bodies inside the eval. The BCG creates a new global scope
+        // on such compiles, so we essentially have to migrate the symbol to the new scope.
+        // We check fscrEvalCode, not fscrEval, because the same thing can happen in indirect eval,
+        // when fscrEval is not set.
+        Assert(((this->flags & fscrEvalCode) && sym->GetIsGlobal() && sym->GetSymbolType() == STFunction) || this->IsConsoleScopeEval());
+        Assert(scope->GetScopeType() == ScopeType_Global);
+        scope->AddNewSymbol(sym);
     }
 
     Assert(sym && sym->GetScope() && (sym->GetScope() == scope || sym->GetScope()->GetScopeType() == ScopeType_Parameter));
@@ -1788,7 +1697,9 @@ bool ByteCodeGenerator::CanStackNestedFunc(FuncInfo * funcInfo, bool trace)
     char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
     Assert(!funcInfo->IsGlobalFunction());
-    bool const doStackNestedFunc = !funcInfo->HasMaybeEscapedNestedFunc() && !IsInDebugMode() && !funcInfo->byteCodeFunction->IsGenerator();
+    bool const doStackNestedFunc = !funcInfo->HasMaybeEscapedNestedFunc() && !IsInDebugMode()
+        && !funcInfo->byteCodeFunction->IsCoroutine()
+        && !funcInfo->byteCodeFunction->IsModule();
     if (!doStackNestedFunc)
     {
         return false;
@@ -1905,7 +1816,7 @@ bool ByteCodeGenerator::DoJitLoopBodies(FuncInfo *funcInfo) const
     return functionBody->ForceJITLoopBody() || funcInfo->byteCodeFunction->IsJitLoopBodyPhaseEnabled();
 }
 
-void ByteCodeGenerator::Generate(__in ParseNode *pnode, ulong grfscr, __in ByteCodeGenerator* byteCodeGenerator,
+void ByteCodeGenerator::Generate(__in ParseNode *pnode, uint32 grfscr, __in ByteCodeGenerator* byteCodeGenerator,
     __inout Js::ParseableFunctionInfo ** ppRootFunc, __in uint sourceIndex,
     __in bool forceNoNative, __in Parser* parser, Js::ScriptFunction **functionRef)
 {
@@ -2061,7 +1972,7 @@ void ByteCodeGenerator::CheckDeferParseHasMaybeEscapedNestedFunc()
 
 void ByteCodeGenerator::Begin(
     __in ArenaAllocator *alloc,
-    __in ulong grfscr,
+    __in uint32 grfscr,
     __in Js::ParseableFunctionInfo* pRootFunc)
 {
     this->alloc = alloc;
@@ -2106,7 +2017,7 @@ void ByteCodeGenerator::Begin(
     }
 }
 
-HRESULT GenerateByteCode(__in ParseNode *pnode, __in ulong grfscr, __in Js::ScriptContext* scriptContext, __inout Js::ParseableFunctionInfo ** ppRootFunc,
+HRESULT GenerateByteCode(__in ParseNode *pnode, __in uint32 grfscr, __in Js::ScriptContext* scriptContext, __inout Js::ParseableFunctionInfo ** ppRootFunc,
                          __in uint sourceIndex, __in bool forceNoNative, __in Parser* parser, __in CompileScriptException *pse, Js::ScopeInfo* parentScopeInfo,
                         Js::ScriptFunction ** functionRef)
 {
@@ -2264,28 +2175,7 @@ void AddVarsToScope(ParseNode *vars, ByteCodeGenerator *byteCodeGenerator)
 {
     while (vars != nullptr)
     {
-        Symbol *sym = nullptr;
-
-        if (!byteCodeGenerator->UseParserBindings()
-            && byteCodeGenerator->GetCurrentScope()->GetFunc()->GetParamScope() != nullptr)
-        {
-            SymbolName const symName(reinterpret_cast<const char16*>(vars->sxVar.pid->Psz()), vars->sxVar.pid->Cch());
-            // If we are not using parser bindings, we need to check that the sym is not in the parameter scope before adding it.
-            // Fetch the sym we just added from the param scope.
-            sym = byteCodeGenerator->GetCurrentScope()->GetFunc()->GetParamScope()->FindLocalSymbol(symName);
-
-            // Arguments needs to be created at parameter scope.
-            if (sym == nullptr && vars->grfpn & PNodeFlags::fpnArguments)
-            {
-                Scope* scope = byteCodeGenerator->GetCurrentScope()->GetFunc()->GetParamScope();
-                sym = byteCodeGenerator->AddSymbolToScope(scope, reinterpret_cast<const char16*>(vars->sxVar.pid->Psz()), vars->sxVar.pid->Cch(), vars, STVariable);
-            }
-        }
-
-        if (sym == nullptr)
-        {
-            sym = byteCodeGenerator->AddSymbolToFunctionScope(reinterpret_cast<const char16*>(vars->sxVar.pid->Psz()), vars->sxVar.pid->Cch(), vars, STVariable);
-        }
+        Symbol *sym = byteCodeGenerator->AddSymbolToFunctionScope(reinterpret_cast<const char16*>(vars->sxVar.pid->Psz()), vars->sxVar.pid->Cch(), vars, STVariable);
 
 #if DBG_DUMP
         if (sym->GetSymbolType() == STVariable && byteCodeGenerator->Trace())
@@ -2305,8 +2195,17 @@ void AddVarsToScope(ParseNode *vars, ByteCodeGenerator *byteCodeGenerator)
             vars->sxVar.sym = sym;
             if (sym->GetIsArguments())
             {
-                byteCodeGenerator->TopFuncInfo()->SetArgumentsSymbol(sym);
+                FuncInfo* funcInfo = byteCodeGenerator->TopFuncInfo();
+                funcInfo->SetArgumentsSymbol(sym);
+
+                if (funcInfo->paramScope && !funcInfo->paramScope->GetCanMergeWithBodyScope())
+                {
+                    Symbol* innerArgSym = funcInfo->bodyScope->FindLocalSymbol(sym->GetName());
+                    funcInfo->SetInnerArgumentsSymbol(innerArgSym);
+                    byteCodeGenerator->AssignRegister(innerArgSym);
+                }
             }
+
         }
         else
         {
@@ -2413,17 +2312,10 @@ FuncInfo* PreVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerato
     {
         // This is a deferred byte code gen, so we're done.
         // Process the formal arguments, even if there's no AST for the body, to support Function.length.
-        if (byteCodeGenerator->UseParserBindings())
-        {
-            Js::ArgSlot pos = 1;
-            // We skip the rest parameter here because it is not counted towards the in arg count.
-            MapFormalsWithoutRest(pnode, [&](ParseNode *pnode) { UInt16Math::Inc(pos); });
-            byteCodeGenerator->SetNumberOfInArgs(pos);
-        }
-        else
-        {
-            AddArgsToScope(pnode, byteCodeGenerator, false);
-        }
+        Js::ArgSlot pos = 1;
+        // We skip the rest parameter here because it is not counted towards the in arg count.
+        MapFormalsWithoutRest(pnode, [&](ParseNode *pnode) { UInt16Math::Inc(pos); });
+        byteCodeGenerator->SetNumberOfInArgs(pos);
         return funcInfo;
     }
 
@@ -2447,9 +2339,31 @@ FuncInfo* PreVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerato
         {
             // 3. the function directly references an 'arguments' identifier
             funcInfo->SetHasArguments(true);
+            funcInfo->GetParsedFunctionBody()->SetUsesArgumentsObject(true);
             if (pnode->sxFnc.HasHeapArguments())
             {
-                funcInfo->SetHasHeapArguments(true, !pnode->sxFnc.IsGenerator() /*= Optimize arguments in backend*/);
+                bool doStackArgsOpt = !pnode->sxFnc.HasAnyWriteToFormals();
+#ifdef PERF_HINT
+                if (PHASE_TRACE1(Js::PerfHintPhase) && !doStackArgsOpt)
+                {
+                    WritePerfHint(PerfHints::HeapArgumentsDueToWriteToFormals, funcInfo->GetParsedFunctionBody(), 0);
+                }
+#endif
+                //Go conservative if it has any nested functions, or any non-local references.
+                //With statements - need scope object to be present.
+                //Nested funtions - need scope object to be present - LdEnv/LdFrameDisplay needs it.
+                if ((doStackArgsOpt && pnode->sxFnc.funcInfo->GetParamScope()->Count() > 1) && (pnode->sxFnc.funcInfo->HasDeferredChild() || pnode->sxFnc.nestedCount > 0 ||
+                    pnode->sxFnc.HasWithStmt() || byteCodeGenerator->IsInDebugMode() || PHASE_OFF1(Js::StackArgFormalsOptPhase) || PHASE_OFF1(Js::StackArgOptPhase)))
+                {
+                    doStackArgsOpt = false;
+#ifdef PERF_HINT
+                    if (PHASE_TRACE1(Js::PerfHintPhase))
+                    {
+                        WritePerfHint(PerfHints::HeapArgumentsDueToNonLocalRef, funcInfo->GetParsedFunctionBody(), 0);
+                    }
+#endif
+                }
+                funcInfo->SetHasHeapArguments(true, !pnode->sxFnc.IsCoroutine() && doStackArgsOpt /*= Optimize arguments in backend*/);
                 if (funcInfo->inArgsCount == 0)
                 {
                     // If no formals to function, no need to create the propertyid array
@@ -2516,13 +2430,12 @@ void AssignFuncSymRegister(ParseNode * pnode, ByteCodeGenerator * byteCodeGenera
                 byteCodeGenerator->AssignRegister(sym);
                 pnode->location = sym->GetLocation();
 
-                Assert(byteCodeGenerator->GetCurrentScope()->GetFunc() == sym->GetScope()->GetFunc() ||
-                    sym->GetScope()->GetFunc()->root->sxFnc.IsAsync());
+                Assert(byteCodeGenerator->GetCurrentScope()->GetFunc() == sym->GetScope()->GetFunc());
                 if (byteCodeGenerator->GetCurrentScope()->GetFunc() != sym->GetScope()->GetFunc())
                 {
                     Assert(GetParentFuncInfo(byteCodeGenerator->GetCurrentScope()->GetFunc()) == sym->GetScope()->GetFunc());
                     sym->GetScope()->SetMustInstantiate(true);
-                    sym->SetHasNonLocalReference(true, byteCodeGenerator);
+                    byteCodeGenerator->ProcessCapturedSym(sym);
                     sym->GetScope()->GetFunc()->SetHasLocalInClosure(true);
                 }
 
@@ -2554,13 +2467,20 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
     // observed attributes. Propagate attributes to the parent function (if any).
     FuncInfo *top = byteCodeGenerator->TopFuncInfo();
     Symbol *sym = pnode->sxFnc.GetFuncSymbol();
-    bool funcExprWithName = !top->IsGlobalFunction() && sym && sym->GetFuncExpr();
+    bool funcExprWithName = !top->IsGlobalFunction() && sym && sym->GetIsFuncExpr();
 
     if (top->IsLambda())
     {
-        if (byteCodeGenerator->FindEnclosingNonLambda()->isThisLexicallyCaptured)
+        FuncInfo *enclosingNonLambda = byteCodeGenerator->FindEnclosingNonLambda();
+
+        if (enclosingNonLambda->isThisLexicallyCaptured)
         {
             top->byteCodeFunction->SetCapturesThis();
+        }
+
+        if (enclosingNonLambda->IsGlobalFunction())
+        {
+            top->byteCodeFunction->SetEnclosedByGlobalFunc();
         }
     }
 
@@ -2571,21 +2491,14 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
         if (top->byteCodeFunction->IsFunctionParsed() && top->GetParsedFunctionBody()->HasFuncExprNameReference())
         {
             top->SetFuncExprNameReference(true);
-            sym->SetHasNonLocalReference(true, byteCodeGenerator);
-            top->SetHasLocalInClosure(true);
         }
-        else if (top->HasDeferredChild())
+        if (sym->GetHasNonLocalReference())
         {
             // Before doing this, though, make sure there's no local symbol that hides the function name
             // from the nested functions. If a lookup starting at the current local scope finds some symbol
             // other than the func expr, then it's hidden. (See Win8 393618.)
             Assert(CONFIG_FLAG(DeferNested));
-            sym->SetHasNonLocalReference(true, byteCodeGenerator);
-            top->SetHasLocalInClosure(true);
-            if (pnode->sxFnc.pnodeBody)
-            {
-                top->GetParsedFunctionBody()->SetAllNonLocalReferenced(true);
-            }
+            byteCodeGenerator->ProcessCapturedSym(sym);
 
             if (!top->root->sxFnc.NameIsHidden())
             {
@@ -2594,12 +2507,18 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
                 {
                     top->GetParsedFunctionBody()->SetFuncExprNameReference(true);
                 }
-
-                top->GetBodyScope()->SetIsObject();
-                top->GetParamScope()->SetIsObject();
-                if (pnode->sxFnc.pnodeBody)
+                if (!sym->GetScope()->GetIsObject())
                 {
-                    top->GetParsedFunctionBody()->SetHasSetIsObject(true);
+                    // The function expression symbol will be emitted in the param/body scope.
+                    if (top->GetParamScope())
+                    {
+                        top->GetParamScope()->SetHasOwnLocalInClosure(true);
+                    }
+                    else
+                    {
+                        top->GetBodyScope()->SetHasOwnLocalInClosure(true);
+                    }
+                    top->SetHasLocalInClosure(true);
                 }
             }
         }
@@ -2631,6 +2550,32 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
     {
         if (!top->IsGlobalFunction())
         {
+            auto fnProcess = 
+                [byteCodeGenerator, top](Symbol *const sym)
+                {
+                    if (sym->GetHasNonLocalReference() && !sym->GetIsModuleExportStorage())
+                    {
+                        byteCodeGenerator->ProcessCapturedSym(sym);
+                    }
+                };
+
+            Scope *bodyScope = top->bodyScope;
+            Scope *paramScope = top->paramScope;
+            if (paramScope != nullptr)
+            {
+                if (paramScope->GetHasOwnLocalInClosure())
+                {
+                    paramScope->ForEachSymbol(fnProcess);
+                    top->SetHasLocalInClosure(true);
+                }
+            }
+
+            if (bodyScope->GetHasOwnLocalInClosure())
+            {
+                bodyScope->ForEachSymbol(fnProcess);
+                top->SetHasLocalInClosure(true);
+            }
+
             PostVisitBlock(pnode->sxFnc.pnodeBodyScope, byteCodeGenerator);
             PostVisitBlock(pnode->sxFnc.pnodeScopes, byteCodeGenerator);
         }
@@ -2677,13 +2622,13 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
                 top->GetChildCallsEval() ||
                 (top->GetHasArguments() && ByteCodeGenerator::NeedScopeObjectForArguments(top, pnode) && pnode->sxFnc.pnodeParams != nullptr) ||
                 top->GetHasLocalInClosure() ||
-                top->funcExprScope && top->funcExprScope->GetMustInstantiate() ||
+                (top->funcExprScope && top->funcExprScope->GetMustInstantiate()) ||
                 // When we have split scope normally either eval will be present or the GetHasLocalInClosure will be true as one of the formal is
                 // captured. But when we force split scope or split scope happens due to some other reasons we have to make sure we allocate frame
                 // slot register here.
                 (top->paramScope != nullptr && !top->paramScope->GetCanMergeWithBodyScope()))
             {
-                if (!top->GetCallsEval())
+                if (!top->GetCallsEval() && top->GetHasLocalInClosure())
                 {
                     byteCodeGenerator->AssignFrameSlotsRegister();
                 }
@@ -2773,7 +2718,7 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
         }
         else
         {
-            Assert(top->IsGlobalFunction());
+            Assert(top->IsGlobalFunction() || pnode->sxFnc.IsModule());
             // eval is called in strict mode
             bool newScopeForEval = (top->byteCodeFunction->GetIsStrictMode() && (byteCodeGenerator->GetFlags() & fscrEval));
 
@@ -2809,6 +2754,12 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
         return top;
     }
 
+    if (top->paramScope && top->paramScope->GetCanMergeWithBodyScope())
+    {
+        Scope::MergeParamAndBodyScopes(pnode);
+        Scope::RemoveParamScope(pnode);
+    }
+
     FuncInfo* const parentFunc = byteCodeGenerator->TopFuncInfo();
 
     Js::FunctionBody * parentFunctionBody = parentFunc->byteCodeFunction->GetFunctionBody();
@@ -2819,16 +2770,15 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
     // If we have any deferred child, we need to instantiate the fake global block scope if it is not empty
     if (parentFunc->IsGlobalFunction())
     {
-        if (hasAnyDeferredChild && byteCodeGenerator->IsEvalWithNoParentScopeInfo())
+        if (byteCodeGenerator->IsEvalWithNoParentScopeInfo())
         {
             Scope * globalEvalBlockScope = parentFunc->GetGlobalEvalBlockScope();
-            if (globalEvalBlockScope->Count() != 0 || parentFunc->isThisLexicallyCaptured)
+            if (globalEvalBlockScope->GetHasOwnLocalInClosure())
             {
-                // We must instantiate the eval block scope if we have any deferred child
-                // and force all symbol to have non local reference so it will be captured
-                // by the scope.
                 globalEvalBlockScope->SetMustInstantiate(true);
-                globalEvalBlockScope->ForceAllSymbolNonLocalReference(byteCodeGenerator);
+            }
+            if (hasAnyDeferredChild)
+            {
                 parentFunc->SetHasDeferredChild();
             }
         }
@@ -2851,22 +2801,31 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
         {
             Assert(CONFIG_FLAG(DeferNested));
             parentFunc->SetHasDeferredChild();
+        }
 
-            // Anything in parent may have non-local reference from deferredChild.
-            setHasNonLocalReference = true;
-            parentFunctionBody->SetAllNonLocalReferenced(true);
-
-            // If a deferred child has with, parent scopes may contain symbols called inside the with.
+        if (top->ChildHasWith() || pnode->sxFnc.HasWithStmt())
+        {
+            // Parent scopes may contain symbols called inside the with.
             // Current implementation needs the symScope isObject.
-            if (top->ChildHasWith() || pnode->sxFnc.HasWithStmt())
-            {
-                parentFunc->SetChildHasWith();
-                parentFunc->GetBodyScope()->SetIsObject();
-                parentFunc->GetParamScope()->SetIsObject();
 
+            parentFunc->SetChildHasWith();
+
+            if (parentFunc->GetBodyScope()->GetHasOwnLocalInClosure() ||
+                (parentFunc->GetParamScope()->GetHasOwnLocalInClosure() &&
+                 parentFunc->GetParamScope()->GetCanMergeWithBodyScope()))
+            {
+                parentFunc->GetBodyScope()->SetIsObject();
                 // Record this for future use in the no-refresh debugging.
                 parentFunctionBody->SetHasSetIsObject(true);
             }
+
+            if (parentFunc->GetParamScope()->GetHasOwnLocalInClosure() &&
+                !parentFunc->GetParamScope()->GetCanMergeWithBodyScope())
+            {
+                parentFunc->GetParamScope()->SetIsObject();
+                // Record this for future use in the no-refresh debugging.
+                parentFunctionBody->SetHasSetIsObject(true);
+            }       
         }
 
         // Propagate HasMaybeEscapedNestedFunc
@@ -2924,7 +2883,7 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
         top->AssignSuperCtorRegister();
     }
 
-    if (top->IsClassConstructor())
+    if ((top->root->sxFnc.IsConstructor() && (top->isNewTargetLexicallyCaptured || top->GetCallsEval() || top->GetChildCallsEval())) || top->IsClassConstructor())
     {
         if (top->IsBaseClassConstructor())
         {
@@ -2957,6 +2916,82 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
     AssignFuncSymRegister(pnode, byteCodeGenerator, top);
 
     return top;
+}
+
+void ByteCodeGenerator::ProcessCapturedSym(Symbol *sym)
+{
+    // The symbol's home function will tell us which child function we're currently processing.
+    // This is the one that captures the symbol, from the declaring function's perspective.
+    // So based on that information, note either that, (a.) the symbol is committed to the heap from its
+    // inception, (b.) the symbol must be committed when the capturing function is instantiated.
+
+    FuncInfo *funcHome = sym->GetScope()->GetFunc();
+    FuncInfo *funcChild = funcHome->GetCurrentChildFunction();
+
+    Assert(sym->NeedsSlotAlloc(funcHome) || sym->GetIsGlobal());
+
+    // If this is not a local property, or not all its references can be tracked, or
+    // it's not scoped to the function, or we're in debug mode, disable the delayed capture optimization.
+    if (funcHome->IsGlobalFunction() ||
+        funcHome->GetCallsEval() ||
+        funcHome->GetChildCallsEval() ||
+        funcChild == nullptr ||
+        sym->GetScope() != funcHome->GetBodyScope() ||
+        this->IsInDebugMode() ||
+        PHASE_OFF(Js::DelayCapturePhase, funcHome->byteCodeFunction))
+    {
+        sym->SetIsCommittedToSlot();
+    }
+
+    if (sym->GetIsCommittedToSlot())
+    {
+        return;
+    }
+
+    AnalysisAssert(funcChild);
+    ParseNode *pnodeChild = funcChild->root;
+
+    Assert(pnodeChild && pnodeChild->nop == knopFncDecl);
+
+    if (pnodeChild->sxFnc.IsDeclaration())
+    {
+        // The capturing function is a declaration but may still be limited to an inner scope.
+        Scope *scopeChild = funcHome->GetCurrentChildScope();
+        if (scopeChild == sym->GetScope() || scopeChild->GetScopeType() == ScopeType_FunctionBody)
+        {
+            // The symbol is captured on entry to the scope in which it's declared.
+            // (Check the scope type separately so that we get the special parameter list and
+            // named function expression cases as well.)
+            sym->SetIsCommittedToSlot();
+            return;
+        }
+    }
+
+    // There is a chance we can limit the region in which the symbol lives on the heap.
+    // Note which function captures the symbol.
+    funcChild->AddCapturedSym(sym);
+}
+
+void ByteCodeGenerator::ProcessScopeWithCapturedSym(Scope *scope)
+{
+    Assert(scope->GetHasOwnLocalInClosure());
+
+    // (Note: if any catch var is closure-captured, we won't merge the catch scope with the function scope.
+    // So don't mark the function scope "has local in closure".)
+    FuncInfo *func = scope->GetFunc();
+    bool notCatch = scope->GetScopeType() != ScopeType_Catch && scope->GetScopeType() != ScopeType_CatchParamPattern;
+    if (scope == func->GetBodyScope() || scope == func->GetParamScope() || (scope->GetCanMerge() && notCatch))
+    {
+        func->SetHasLocalInClosure(true);
+    }
+    else
+    {
+        if (scope->HasCrossScopeFuncAssignment())
+        {
+            func->SetHasMaybeEscapedNestedFunc(DebugOnly(_u("InstantiateScopeWithCrossScopeAssignment")));
+        }
+        scope->SetMustInstantiate(true);
+    }
 }
 
 void MarkInit(ParseNode* pnode)
@@ -3047,7 +3082,8 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
     // All the attributes we need to propagate downward should already be recorded by the parser.
     // - call to "eval()"
     // - nested in "with"
-    Js::ParseableFunctionInfo* parentFunc = pnodeParent->sxFnc.funcInfo->byteCodeFunction;
+    FuncInfo * parentFuncInfo = pnodeParent->sxFnc.funcInfo;
+    Js::ParseableFunctionInfo* parentFunc = parentFuncInfo->byteCodeFunction;
     ParseNode* pnodeScope;
     uint i = 0;
 
@@ -3056,9 +3092,15 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
 
     for (pnodeScope = pnodeScopeList; pnodeScope;)
     {
+        if (breakOnBodyScope && pnodeScope == pnodeParent->sxFnc.pnodeBodyScope)
+        {
+            break;
+        }
+
         switch (pnodeScope->nop)
         {
         case knopFncDecl:
+        {
             if (pLastReuseFunc)
             {
                 if (!byteCodeGenerator->IsInNonDebugMode())
@@ -3092,8 +3134,9 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
                 }
             }
             PreVisitFunction(pnodeScope, byteCodeGenerator);
+            FuncInfo *funcInfo = pnodeScope->sxFnc.funcInfo;
 
-            pnodeParent->sxFnc.funcInfo->OnStartVisitFunction(pnodeScope);
+            parentFuncInfo->OnStartVisitFunction(pnodeScope);
 
             if (pnodeScope->sxFnc.pnodeBody)
             {
@@ -3105,34 +3148,37 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
                     Js::FunctionProxy* proxy = pLastReuseFunc->GetNestedFunc((*pIndex));
                     if (proxy && !proxy->IsFunctionBody())
                     {
-                        proxy->UpdateFunctionBodyImpl(pnodeScope->sxFnc.funcInfo->byteCodeFunction->GetFunctionBody());
+                        proxy->UpdateFunctionBodyImpl(funcInfo->byteCodeFunction->GetFunctionBody());
                     }
                 }
+
+                Scope *paramScope = funcInfo->GetParamScope();
+                Scope *bodyScope = funcInfo->GetBodyScope();
 
                 BeginVisitBlock(pnodeScope->sxFnc.pnodeScopes, byteCodeGenerator);
                 i = 0;
                 ParseNodePtr containerScope = pnodeScope->sxFnc.pnodeScopes;
 
                 // Push the param scope
-                byteCodeGenerator->PushScope(pnodeScope->sxFnc.funcInfo->GetParamScope());
+                byteCodeGenerator->PushScope(paramScope);
 
-                if (pnodeScope->sxFnc.HasNonSimpleParameterList() && !pnodeScope->sxFnc.funcInfo->GetParamScope()->GetCanMergeWithBodyScope())
+                if (pnodeScope->sxFnc.HasNonSimpleParameterList() && !paramScope->GetCanMergeWithBodyScope())
                 {
                     // Set param scope as the current child scope.
-                    pnodeScope->sxFnc.funcInfo->SetCurrentChildScope(pnodeScope->sxFnc.funcInfo->GetParamScope());
+                    funcInfo->SetCurrentChildScope(paramScope);
                     Assert(containerScope->nop == knopBlock && containerScope->sxBlock.blockType == Parameter);
                     VisitNestedScopes(containerScope->sxBlock.pnodeScopes, pnodeScope, byteCodeGenerator, prefix, postfix, &i, true);
                     MapFormals(pnodeScope, [&](ParseNode *argNode) { Visit(argNode, byteCodeGenerator, prefix, postfix); });
                 }
 
                 // Push the body scope
-                byteCodeGenerator->PushScope(pnodeScope->sxFnc.funcInfo->GetBodyScope());
-                pnodeScope->sxFnc.funcInfo->SetCurrentChildScope(pnodeScope->sxFnc.funcInfo->GetBodyScope());
+                byteCodeGenerator->PushScope(bodyScope);
+                funcInfo->SetCurrentChildScope(bodyScope);
 
                 PreVisitBlock(pnodeScope->sxFnc.pnodeBodyScope, byteCodeGenerator);
                 AddVarsToScope(pnodeScope->sxFnc.pnodeVars, byteCodeGenerator);
 
-                if (!pnodeScope->sxFnc.HasNonSimpleParameterList() || pnodeScope->sxFnc.funcInfo->GetParamScope()->GetCanMergeWithBodyScope())
+                if (!pnodeScope->sxFnc.HasNonSimpleParameterList() || paramScope->GetCanMergeWithBodyScope())
                 {
                     VisitNestedScopes(containerScope, pnodeScope, byteCodeGenerator, prefix, postfix, &i);
                     MapFormals(pnodeScope, [&](ParseNode *argNode) { Visit(argNode, byteCodeGenerator, prefix, postfix); });
@@ -3142,7 +3188,7 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
                 {
                     byteCodeGenerator->AssignUndefinedConstRegister();
 
-                    if (!pnodeScope->sxFnc.funcInfo->GetParamScope()->GetCanMergeWithBodyScope())
+                    if (!paramScope->GetCanMergeWithBodyScope())
                     {
                         Assert(pnodeScope->sxFnc.pnodeBodyScope->sxBlock.scope);
                         VisitNestedScopes(pnodeScope->sxFnc.pnodeBodyScope->sxBlock.pnodeScopes, pnodeScope, byteCodeGenerator, prefix, postfix, &i);
@@ -3161,8 +3207,7 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
                     // Note that this can't be done for globals.
                     byteCodeGenerator->SetCurrentTopStatement(pnode->sxBin.pnode1);
                     Visit(pnode->sxBin.pnode1, byteCodeGenerator, prefix, postfix);
-                    if (!pnodeScope->sxFnc.funcInfo->GetCallsEval() &&
-                        !pnodeScope->sxFnc.funcInfo->GetChildCallsEval() &&
+                    if (!funcInfo->GetCallsEval() && !funcInfo->GetChildCallsEval() &&
                         // So that it will not be marked as init thus it will be added to the diagnostics symbols container.
                         !(byteCodeGenerator->ShouldTrackDebuggerMetadata()))
                     {
@@ -3182,45 +3227,41 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
                 // Make sure we at least zero-initialize its array in case, for instance, we get cloned
                 // before the function is called and the array filled in.
 
-                memset(pnodeScope->sxFnc.funcInfo->byteCodeFunction->GetNestedFuncArray(), 0, pnodeScope->sxFnc.nestedCount * sizeof(Js::FunctionBody*));
+                memset(funcInfo->byteCodeFunction->GetNestedFuncArray(), 0, pnodeScope->sxFnc.nestedCount * sizeof(Js::FunctionBody*));
             }
 
             if (!pnodeScope->sxFnc.pnodeBody)
             {
                 // For defer prase scenario push the scopes here
-                byteCodeGenerator->PushScope(pnodeScope->sxFnc.funcInfo->GetParamScope());
-                byteCodeGenerator->PushScope(pnodeScope->sxFnc.funcInfo->GetBodyScope());
+                byteCodeGenerator->PushScope(funcInfo->GetParamScope());
+                byteCodeGenerator->PushScope(funcInfo->GetBodyScope());
             }
 
-            pnodeScope->sxFnc.nestedIndex = *pIndex;
-            parentFunc->SetNestedFunc(pnodeScope->sxFnc.funcInfo->byteCodeFunction, (*pIndex)++, byteCodeGenerator->GetFlags());
+            if (!parentFuncInfo->IsFakeGlobalFunction(byteCodeGenerator->GetFlags()))
+            {
+                pnodeScope->sxFnc.nestedIndex = *pIndex;
+                parentFunc->SetNestedFunc(funcInfo->byteCodeFunction, (*pIndex)++, byteCodeGenerator->GetFlags());
+            }
 
             Assert(parentFunc);
 
-            pnodeParent->sxFnc.funcInfo->OnEndVisitFunction(pnodeScope);
+            parentFuncInfo->OnEndVisitFunction(pnodeScope);
 
             PostVisitFunction(pnodeScope, byteCodeGenerator);
-
-            // Merge parameter and body scopes, unless we are deferring the function.
-            // If we are deferring the function, we will need both scopes to do the proper binding when
-            // the function is undeferred. After the function is undeferred, it is safe to merge the scopes.
-            if (pnodeScope->sxFnc.funcInfo->paramScope != nullptr && pnodeScope->sxFnc.pnodeBody != nullptr && pnodeScope->sxFnc.funcInfo->paramScope->GetCanMergeWithBodyScope())
-            {
-                Scope::MergeParamAndBodyScopes(pnodeScope, byteCodeGenerator);
-            }
 
             pnodeScope = pnodeScope->sxFnc.pnodeNext;
 
             byteCodeGenerator->pCurrentFunction = pLastReuseFunc;
             break;
+        }
 
         case knopBlock:
         {
             PreVisitBlock(pnodeScope, byteCodeGenerator);
             bool isMergedScope;
-            pnodeParent->sxFnc.funcInfo->OnStartVisitScope(pnodeScope->sxBlock.scope, &isMergedScope);
+            parentFuncInfo->OnStartVisitScope(pnodeScope->sxBlock.scope, &isMergedScope);
             VisitNestedScopes(pnodeScope->sxBlock.pnodeScopes, pnodeParent, byteCodeGenerator, prefix, postfix, pIndex);
-            pnodeParent->sxFnc.funcInfo->OnEndVisitScope(pnodeScope->sxBlock.scope, isMergedScope);
+            parentFuncInfo->OnEndVisitScope(pnodeScope->sxBlock.scope, isMergedScope);
             PostVisitBlock(pnodeScope, byteCodeGenerator);
 
             pnodeScope = pnodeScope->sxBlock.pnodeNext;
@@ -3231,19 +3272,29 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
         {
             PreVisitCatch(pnodeScope, byteCodeGenerator);
 
-            Visit(pnodeScope->sxCatch.pnodeParam, byteCodeGenerator, prefix, postfix);
             if (pnodeScope->sxCatch.pnodeParam->nop == knopParamPattern)
             {
+                Parser::MapBindIdentifier(pnodeScope->sxCatch.pnodeParam->sxParamPattern.pnode1, [byteCodeGenerator](ParseNodePtr pnode)
+                {
+                    Assert(pnode->nop == knopLetDecl);
+                    pnode->sxVar.sym->SetLocation(byteCodeGenerator->NextVarRegister());
+                });
+
                 if (pnodeScope->sxCatch.pnodeParam->sxParamPattern.location == Js::Constants::NoRegister)
                 {
                     pnodeScope->sxCatch.pnodeParam->sxParamPattern.location = byteCodeGenerator->NextVarRegister();
                 }
             }
+            else
+            {
+                Visit(pnodeScope->sxCatch.pnodeParam, byteCodeGenerator, prefix, postfix);
+            }
+
             bool isMergedScope;
-            pnodeParent->sxFnc.funcInfo->OnStartVisitScope(pnodeScope->sxCatch.scope, &isMergedScope);
+            parentFuncInfo->OnStartVisitScope(pnodeScope->sxCatch.scope, &isMergedScope);
             VisitNestedScopes(pnodeScope->sxCatch.pnodeScopes, pnodeParent, byteCodeGenerator, prefix, postfix, pIndex);
 
-            pnodeParent->sxFnc.funcInfo->OnEndVisitScope(pnodeScope->sxCatch.scope, isMergedScope);
+            parentFuncInfo->OnEndVisitScope(pnodeScope->sxCatch.scope, isMergedScope);
             PostVisitCatch(pnodeScope, byteCodeGenerator);
 
             pnodeScope = pnodeScope->sxCatch.pnodeNext;
@@ -3254,9 +3305,9 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
         {
             PreVisitWith(pnodeScope, byteCodeGenerator);
             bool isMergedScope;
-            pnodeParent->sxFnc.funcInfo->OnStartVisitScope(pnodeScope->sxWith.scope, &isMergedScope);
+            parentFuncInfo->OnStartVisitScope(pnodeScope->sxWith.scope, &isMergedScope);
             VisitNestedScopes(pnodeScope->sxWith.pnodeScopes, pnodeParent, byteCodeGenerator, prefix, postfix, pIndex);
-            pnodeParent->sxFnc.funcInfo->OnEndVisitScope(pnodeScope->sxWith.scope, isMergedScope);
+            parentFuncInfo->OnEndVisitScope(pnodeScope->sxWith.scope, isMergedScope);
             PostVisitWith(pnodeScope, byteCodeGenerator);
             pnodeScope = pnodeScope->sxWith.pnodeNext;
             break;
@@ -3265,11 +3316,6 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
         default:
             AssertMsg(false, "Unexpected opcode in tree of scopes");
             return;
-        }
-
-        if (breakOnBodyScope && pnodeScope == pnodeParent->sxFnc.pnodeBodyScope)
-        {
-            break;
         }
     }
 }
@@ -3292,8 +3338,7 @@ void PreVisitBlock(ParseNode *pnodeBlock, ByteCodeGenerator *byteCodeGenerator)
     {
         isGlobalEvalBlockScope = true;
     }
-    Assert(!byteCodeGenerator->UseParserBindings() ||
-           !pnodeBlock->sxBlock.scope ||
+    Assert(!pnodeBlock->sxBlock.scope ||
            isGlobalEvalBlockScope == (pnodeBlock->sxBlock.scope->GetScopeType() == ScopeType_GlobalEvalBlock));
 
     ArenaAllocator *alloc = byteCodeGenerator->GetAllocator();
@@ -3318,7 +3363,7 @@ void PreVisitBlock(ParseNode *pnodeBlock, ByteCodeGenerator *byteCodeGenerator)
     else if (!(pnodeBlock->grfpn & fpnSyntheticNode) || isGlobalEvalBlockScope)
     {
         scope = pnodeBlock->sxBlock.scope;
-        if (!scope || !byteCodeGenerator->UseParserBindings())
+        if (!scope)
         {
             scope = Anew(alloc, Scope, alloc,
                          isGlobalEvalBlockScope? ScopeType_GlobalEvalBlock : ScopeType_Block, true);
@@ -3419,11 +3464,6 @@ void PreVisitCatch(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
         Parser::MapBindIdentifier(pnode->sxCatch.pnodeParam->sxParamPattern.pnode1, [&](ParseNodePtr item)
         {
             Symbol *sym = item->sxVar.sym;
-            if (!byteCodeGenerator->UseParserBindings())
-            {
-                sym = byteCodeGenerator->AddSymbolToScope(pnode->sxCatch.scope, reinterpret_cast<const char16*>(item->sxVar.pid->Psz()), item->sxVar.pid->Cch(), item, STVariable);
-                item->sxVar.sym = sym;
-            }
 #if DBG_DUMP
             if (byteCodeGenerator->Trace())
             {
@@ -3435,15 +3475,7 @@ void PreVisitCatch(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
     }
     else
     {
-        Symbol *sym;
-        if (!byteCodeGenerator->UseParserBindings())
-        {
-            sym = byteCodeGenerator->AddSymbolToScope(pnode->sxCatch.scope, reinterpret_cast<const char16*>(pnode->sxCatch.pnodeParam->sxPid.pid->Psz()), pnode->sxCatch.pnodeParam->sxPid.pid->Cch(), pnode->sxCatch.pnodeParam, STVariable);
-        }
-        else
-        {
-            sym = *pnode->sxCatch.pnodeParam->sxPid.symRef;
-        }
+        Symbol *sym = *pnode->sxCatch.pnodeParam->sxPid.symRef;
         Assert(sym->GetScope() == pnode->sxCatch.scope);
 #if DBG_DUMP
         if (byteCodeGenerator->Trace())
@@ -3939,8 +3971,8 @@ bool InvertableBlock(ParseNode* block, Symbol* outerVar, ParseNode* innerLoop, P
             return false;
         }
 
-        if (innerLoop->sxFor.pnodeBody->nop == knopBlock && innerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent()
-            || outerLoop->sxFor.pnodeBody->nop == knopBlock && outerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent())
+        if ((innerLoop->sxFor.pnodeBody->nop == knopBlock && innerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent())
+            || (outerLoop->sxFor.pnodeBody->nop == knopBlock && outerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent()))
         {
             // we can not invert loops if there are block scoped declarations inside
             return false;
@@ -4376,8 +4408,11 @@ void ByteCodeGenerator::MarkThisUsedInLambda()
     {
         // If the enclosing function is non-global or eval global, it will put "this" in a closure slot.
         parent->SetIsThisLexicallyCaptured();
-        Scope* scope = parent->IsGlobalFunction() ? parent->GetGlobalEvalBlockScope() : parent->GetBodyScope();
-        scope->SetHasLocalInClosure(true);
+        Scope* scope = parent->IsGlobalFunction() ? parent->GetGlobalEvalBlockScope() : 
+            (parent->GetParamScope() && !parent->GetParamScope()->GetCanMergeWithBodyScope()) ? parent->GetParamScope() :
+            parent->GetBodyScope();
+        scope->SetHasOwnLocalInClosure(true);
+        this->ProcessScopeWithCapturedSym(scope);
 
         this->TopFuncInfo()->SetHasClosureReference(true);
     }
@@ -4588,8 +4623,8 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
 
     case knopAsg:
         {
-        Symbol * sym = pnode->sxBin.pnode1->nop == knopName ? pnode->sxBin.pnode1->sxPid.sym : nullptr;
-            CheckFuncAssignment(sym, pnode->sxBin.pnode2, byteCodeGenerator);
+            Symbol * symName = pnode->sxBin.pnode1->nop == knopName ? pnode->sxBin.pnode1->sxPid.sym : nullptr;
+            CheckFuncAssignment(symName, pnode->sxBin.pnode2, byteCodeGenerator);
 
             if (pnode->IsInList())
             {
@@ -4797,7 +4832,8 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
             nonLambdaFunc->root->sxFnc.SetHasNewTargetReference();
             nonLambdaFunc->AssignNewTargetRegister();
             nonLambdaFunc->SetIsNewTargetLexicallyCaptured();
-            nonLambdaFunc->GetBodyScope()->SetHasLocalInClosure(true);
+            nonLambdaFunc->GetBodyScope()->SetHasOwnLocalInClosure(true);
+            byteCodeGenerator->ProcessScopeWithCapturedSym(nonLambdaFunc->GetBodyScope());
 
             func->SetHasClosureReference(true);
         }
@@ -4831,7 +4867,8 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
                 nonLambdaFunc->AssignUndefinedConstRegister();
             }
 
-            nonLambdaFunc->GetBodyScope()->SetHasLocalInClosure(true);
+            nonLambdaFunc->GetBodyScope()->SetHasOwnLocalInClosure(true);
+            byteCodeGenerator->ProcessScopeWithCapturedSym(nonLambdaFunc->GetBodyScope());
             func->SetHasClosureReference(true);
         }
         else
@@ -4891,9 +4928,9 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
                     // Set up super reference
                     if (containsSuperReference)
                     {
-                    parent->root->sxFnc.SetHasSuperReference();
-                    parent->AssignSuperRegister();
-                    parent->SetIsSuperLexicallyCaptured();
+                        parent->root->sxFnc.SetHasSuperReference();
+                        parent->AssignSuperRegister();
+                        parent->SetIsSuperLexicallyCaptured();
                     }
                     else if (containsDirectSuper)
                     {
@@ -4902,7 +4939,7 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
                         parent->SetIsSuperCtorLexicallyCaptured();
                     }
 
-                    parent->GetBodyScope()->SetHasLocalInClosure(true);
+                    byteCodeGenerator->ProcessScopeWithCapturedSym(parent->GetBodyScope());
                     funcInfo->SetHasClosureReference(true);
                 }
 
@@ -4991,18 +5028,6 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
         {
             sym = pnode->sxVar.sym;
             Assert(sym != nullptr);
-
-            if (sym->GetScope()->GetEnclosingFunc() != byteCodeGenerator->TopFuncInfo())
-            {
-                FuncInfo* parentFunc = GetParentFuncInfo(byteCodeGenerator->TopFuncInfo());
-                Assert(parentFunc == sym->GetScope()->GetEnclosingFunc());
-                if (parentFunc->root->sxFnc.IsAsync())
-                {
-                    // async functions produce a situation where a var decl can have a symbol
-                    // declared from an enclosing function.  In this case just no-op the vardecl.
-                    return;
-                }
-            }
 
             Assert(sym->GetScope()->GetEnclosingFunc() == byteCodeGenerator->TopFuncInfo());
 

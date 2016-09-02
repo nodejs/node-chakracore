@@ -69,7 +69,7 @@ Instr::IsPlainInstr() const
 bool
 Instr::DoStackArgsOpt(Func *topFunc) const
 {
-    return this->usesStackArgumentsObject && this->m_func->GetHasStackArgs() && topFunc->GetHasStackArgs();
+    return this->usesStackArgumentsObject && m_func->IsStackArgsEnabled();
 }
 
 bool
@@ -1045,10 +1045,11 @@ Instr::UnlinkBailOutInfo()
     return bailOutInfo;
 }
 
-void
+bool
 Instr::ReplaceBailOutInfo(BailOutInfo *newBailOutInfo)
 {
     BailOutInfo *oldBailOutInfo;
+    bool deleteOld = false;
 
 #if DBG
     newBailOutInfo->wasCopied = true;
@@ -1080,7 +1081,10 @@ Instr::ReplaceBailOutInfo(BailOutInfo *newBailOutInfo)
         JitArenaAllocator * alloc = this->m_func->m_alloc;
         oldBailOutInfo->Clear(alloc);
         JitAdelete(alloc, oldBailOutInfo);
+        deleteOld = true;
     }
+
+    return deleteOld;
 }
 
 IR::Instr *Instr::ShareBailOut()
@@ -1377,7 +1381,7 @@ LabelInstr::Init(Js::OpCode opcode, IRKind kind, Func *func, bool isOpHelper)
 
     this->m_pc.pc = nullptr;
     this->m_id = ++(func->GetTopFunc()->m_labelCount);
-    AssertMsg(this->m_id != 0, "Label numbers wrapped around??!?");
+    AssertMsg(this->m_id != 0, "Label numbers wrapped around?");
 }
 
 ///----------------------------------------------------------------------------
@@ -2942,10 +2946,10 @@ Instr::TransferTo(Instr * instr)
 }
 
 IR::Instr *
-Instr::ConvertToBailOutInstr(IR::Instr * bailOutTarget, IR::BailOutKind kind)
+Instr::ConvertToBailOutInstr(IR::Instr * bailOutTarget, IR::BailOutKind kind, uint32 bailOutOffset)
 {
     Func * func = bailOutTarget->m_func;
-    BailOutInfo * bailOutInfo = JitAnew(func->m_alloc, BailOutInfo, bailOutTarget->GetByteCodeOffset(), func);
+    BailOutInfo * bailOutInfo = JitAnew(func->m_alloc, BailOutInfo, bailOutOffset == Js::Constants::NoByteCodeOffset ? bailOutTarget->GetByteCodeOffset() : bailOutOffset , func);
 #if ENABLE_DEBUG_CONFIG_OPTIONS
     bailOutInfo->bailOutOpcode = this->m_opcode;
 #endif
@@ -3084,6 +3088,19 @@ Instr::ClearBailOutInfo()
         this->hasBailOutInfo = false;
         this->hasAuxBailOut = false;
     }
+}
+
+bool Instr::HasAnyLoadHeapArgsOpCode()
+{
+    switch (m_opcode)
+    {
+        case Js::OpCode::LdHeapArguments:
+        case Js::OpCode::LdHeapArgsCached:
+        case Js::OpCode::LdLetHeapArguments:
+        case Js::OpCode::LdLetHeapArgsCached:
+            return true;
+    }
+    return false;
 }
 
 bool Instr::CanHaveArgOutChain() const
@@ -3225,21 +3242,40 @@ bool Instr::HasAnyImplicitCalls() const
     {
         return true;
     }
-    if (OpCodeAttr::CallsValueOf(this->m_opcode))
+    if (OpCodeAttr::OpndHasImplicitCall(this->m_opcode))
     {
-        IR::Opnd *src1 = this->GetSrc1();
+        if (this->m_dst && 
+            ((this->m_dst->IsSymOpnd() && this->m_dst->AsSymOpnd()->m_sym->IsPropertySym()) || 
+             this->m_dst->IsIndirOpnd()))
+        {
+            return true;
+        }
 
+        IR::Opnd *src1 = this->GetSrc1();
         if (src1)
         {
+            if ((src1->IsSymOpnd() && src1->AsSymOpnd()->m_sym->IsPropertySym()) || src1->IsIndirOpnd())
+            {
+                return true;
+            }
+
             if (!src1->GetValueType().IsPrimitive())
             {
                 return true;
             }
 
             IR::Opnd *src2 = this->GetSrc2();
-            if(src2 && !src2->GetValueType().IsPrimitive())
+            if (src2)
             {
-                return true;
+                if ((src2->IsSymOpnd() && src2->AsSymOpnd()->m_sym->IsPropertySym()) || src2->IsIndirOpnd())
+                {
+                    return true;
+                }
+
+                if (!src2->GetValueType().IsPrimitive())
+                {
+                    return true;
+                }
             }
         }
     }

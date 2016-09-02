@@ -93,8 +93,8 @@ DbCheckPostLower::Check()
                 {
                     if (targetLabel->isOpHelper && !targetLabel->m_noHelperAssert)
                     {
-                        IR::Instr *instrNext = instr->GetNextRealInstrOrLabel();
-                        Assert(!(instrNext->IsLabelInstr() && instrNext->AsLabelInstr()->isOpHelper));
+                        IR::Instr *instrNextDebug = instr->GetNextRealInstrOrLabel();
+                        Assert(!(instrNextDebug->IsLabelInstr() && instrNextDebug->AsLabelInstr()->isOpHelper));
                     }
                 }
                 else
@@ -176,9 +176,11 @@ DbCheckPostLower::Check()
                     Assert(instr->GetDst()->AsRegOpnd()->GetReg() != RegNOREG);
                 }
                 break;
+            case Js::OpCode::CALL:
+                Assert(!instr->m_func->IsTrueLeaf());
+                break;
             }
 #endif
-            break;
         }
     } NEXT_INSTR_IN_FUNC_EDITING;
 }

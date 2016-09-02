@@ -6,7 +6,7 @@
 
 namespace Js
 {
-    class JavascriptArrayEnumeratorBase abstract : public JavascriptEnumerator
+    class JavascriptArrayEnumeratorBase _ABSTRACT : public JavascriptEnumerator
     {
     protected:
         JavascriptArray* arrayObject;
@@ -20,10 +20,6 @@ namespace Js
         DEFINE_VTABLE_CTOR_ABSTRACT(JavascriptArrayEnumeratorBase, JavascriptEnumerator)
 
         JavascriptArrayEnumeratorBase(JavascriptArray* arrayObject, ScriptContext* scriptContext, BOOL enumNonEnumerable, bool enumSymbols = false);
-        virtual Var GetCurrentIndex() override;
-        virtual Var GetCurrentValue() override;
-        virtual BOOL MoveNext(PropertyAttributes* attributes = nullptr) override;
         virtual uint32 GetCurrentItemIndex()  override { return index; }
-        virtual bool GetCurrentPropertyId(PropertyId *propertyId) override;
     };
 }

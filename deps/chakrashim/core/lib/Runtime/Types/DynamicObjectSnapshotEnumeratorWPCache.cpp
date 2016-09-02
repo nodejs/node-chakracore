@@ -6,16 +6,16 @@
 
 namespace Js
 {
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    JavascriptEnumerator* DynamicObjectSnapshotEnumeratorWPCache<T, enumNonEnumerable, enumSymbols>::New(ScriptContext* scriptContext, DynamicObject* object)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    JavascriptEnumerator* DynamicObjectSnapshotEnumeratorWPCache<enumNonEnumerable, enumSymbols>::New(ScriptContext* scriptContext, DynamicObject* object)
     {
         DynamicObjectSnapshotEnumeratorWPCache* enumerator = RecyclerNew(scriptContext->GetRecycler(), DynamicObjectSnapshotEnumeratorWPCache, scriptContext);
         enumerator->Initialize(object, false);
         return enumerator;
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    void DynamicObjectSnapshotEnumeratorWPCache<T, enumNonEnumerable, enumSymbols>::Initialize(DynamicObject* object, bool allowUnlockedType/*= false*/)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    void DynamicObjectSnapshotEnumeratorWPCache<enumNonEnumerable, enumSymbols>::Initialize(DynamicObject* object, bool allowUnlockedType/*= false*/)
     {
         __super::Initialize(object);
 
@@ -23,55 +23,55 @@ namespace Js
 
         if (!allowUnlockedType)
         {
-            Assert(initialType->GetIsLocked());
+            Assert(this->initialType->GetIsLocked());
         }
-        else if (initialType->GetIsLocked())
+        else if (this->initialType->GetIsLocked())
         {
             VirtualTableInfo<DynamicObjectSnapshotEnumeratorWPCache>::SetVirtualTable(this); // Fix vtable which could have been downgraded
         }
         else
         {
-            VirtualTableInfo<DynamicObjectSnapshotEnumerator>::SetVirtualTable(this); // Downgrade to normal snapshot enumerator
+            VirtualTableInfo<DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>>::SetVirtualTable(this); // Downgrade to normal snapshot enumerator
             return;
         }
 
         ScriptContext* scriptContext = this->GetScriptContext();
         ThreadContext * threadContext = scriptContext->GetThreadContext();
-        CachedData * data = (CachedData *)threadContext->GetDynamicObjectEnumeratorCache(initialType);
+        CachedData * data = (CachedData *)threadContext->GetDynamicObjectEnumeratorCache(this->initialType);
 
         if (data == nullptr || data->enumNonEnumerable != enumNonEnumerable || data->enumSymbols != enumSymbols)
         {
             data = RecyclerNewStructPlus(scriptContext->GetRecycler(),
-                initialPropertyCount * sizeof(PropertyString *) + initialPropertyCount * sizeof(T) + initialPropertyCount * sizeof(PropertyAttributes), CachedData);
+                this->initialPropertyCount * sizeof(PropertyString *) + this->initialPropertyCount * sizeof(BigPropertyIndex) + this->initialPropertyCount * sizeof(PropertyAttributes), CachedData);
             data->cachedCount = 0;
             data->strings = (PropertyString **)(data + 1);
-            data->indexes = (T *)(data->strings + initialPropertyCount);
-            data->attributes = (PropertyAttributes*)(data->indexes + initialPropertyCount);
+            data->indexes = (BigPropertyIndex *)(data->strings + this->initialPropertyCount);
+            data->attributes = (PropertyAttributes*)(data->indexes + this->initialPropertyCount);
             data->completed = false;
             data->enumNonEnumerable = enumNonEnumerable;
             data->enumSymbols = enumSymbols;
-            threadContext->AddDynamicObjectEnumeratorCache(initialType, data);
+            threadContext->AddDynamicObjectEnumeratorCache(this->initialType, data);
         }
         this->cachedData = data;
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
+    template <bool enumNonEnumerable, bool enumSymbols>
     JavascriptString *
-        DynamicObjectSnapshotEnumeratorWPCache<T, enumNonEnumerable, enumSymbols>::GetCurrentAndMoveNextFromObjectWPCache(T& index, PropertyId& propertyId, PropertyAttributes* attributes)
+    DynamicObjectSnapshotEnumeratorWPCache<enumNonEnumerable, enumSymbols>::MoveAndGetNextFromObjectWPCache(BigPropertyIndex& index, PropertyId& propertyId, PropertyAttributes* attributes)
     {
-        if (initialType != object->GetDynamicType())
+        if (this->initialType != this->object->GetDynamicType())
         {
             if (this->IsCrossSiteEnumerator())
             {
                 // downgrade back to the normal snapshot enumerator
-                VirtualTableInfo<CrossSiteEnumerator<DynamicObjectSnapshotEnumerator>>::SetVirtualTable(this);
+                VirtualTableInfo<CrossSiteEnumerator<DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>>>::SetVirtualTable(this);
             }
             else
             {
                 // downgrade back to the normal snapshot enumerator
-                VirtualTableInfo<DynamicObjectSnapshotEnumerator>::SetVirtualTable(this);
+                VirtualTableInfo<DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>>::SetVirtualTable(this);
             }
-            return this->GetCurrentAndMoveNextFromObject(objectIndex, propertyId, attributes);
+            return this->MoveAndGetNextFromObject(this->objectIndex, propertyId, attributes);
         }
         Assert(enumeratedCount <= cachedData->cachedCount);
         JavascriptString* propertyStringName;
@@ -82,27 +82,43 @@ namespace Js
             propertyStringName = propertyString;
             propertyId = propertyString->GetPropertyRecord()->GetPropertyId();
 
-#if DBG
+#if ENABLE_TTD
+            //
+            //TODO: We have code in MoveAndGetNextFromObject to record replay the order in which properties are enumerated. 
+            //      Since caching may happen differently at record/replay time we need to force this to ensure the log/order is consistent.
+            //      Later we may want to optimize by lifting the TTD code from the call and explicitly calling it here (but not the rest of the enumeration work).
+            //
+            Js::ScriptContext* actionCtx = this->object->GetScriptContext();
+            if(actionCtx->ShouldPerformRecordAction() | actionCtx->ShouldPerformDebugAction())
+            {
+                PropertyId tempPropertyId;
+                /* JavascriptString * tempPropertyString = */ this->MoveAndGetNextFromObject(this->objectIndex, tempPropertyId, attributes);
+
+                Assert(tempPropertyId == propertyId);
+                Assert(this->objectIndex == cachedData->indexes[enumeratedCount]);
+            }
+#elif DBG
             PropertyId tempPropertyId;
-            /* JavascriptString * tempPropertyString = */ this->GetCurrentAndMoveNextFromObject(objectIndex, tempPropertyId, attributes);
+            /* JavascriptString * tempPropertyString = */ this->MoveAndGetNextFromObject(this->objectIndex, tempPropertyId, attributes);
 
             Assert(tempPropertyId == propertyId);
-            Assert(objectIndex == cachedData->indexes[enumeratedCount]);
+            Assert(this->objectIndex == cachedData->indexes[enumeratedCount]);
 #endif
-            objectIndex = cachedData->indexes[enumeratedCount];
+
+            this->objectIndex = cachedData->indexes[enumeratedCount];
             propertyAttributes = cachedData->attributes[enumeratedCount];
 
             enumeratedCount++;
         }
         else if (!cachedData->completed)
         {
-            propertyStringName = this->GetCurrentAndMoveNextFromObject(objectIndex, propertyId, &propertyAttributes);
+            propertyStringName = this->MoveAndGetNextFromObject(this->objectIndex, propertyId, &propertyAttributes);
 
             if (propertyStringName && VirtualTableInfo<PropertyString>::HasVirtualTable(propertyStringName))
             {
-                Assert(enumeratedCount < initialPropertyCount);
+                Assert(enumeratedCount < this->initialPropertyCount);
                 cachedData->strings[enumeratedCount] = (PropertyString*)propertyStringName;
-                cachedData->indexes[enumeratedCount] = objectIndex;
+                cachedData->indexes[enumeratedCount] = this->objectIndex;
                 cachedData->attributes[enumeratedCount] = propertyAttributes;
                 cachedData->cachedCount = ++enumeratedCount;
             }
@@ -113,10 +129,23 @@ namespace Js
         }
         else
         {
-#if DBG
+#if ENABLE_TTD
+            //
+            //TODO: We have code in MoveAndGetNextFromObject to record replay the order in which properties are enumerated. 
+            //      Since caching may happen differently at record/replay time we need to force this to ensure the log/order is consistent.
+            //      Later we may want to optimize by lifting the TTD code from the call and explicitly calling it here (but not the rest of the enumeration work).
+            //
+            Js::ScriptContext* actionCtx = this->object->GetScriptContext();
+            if(actionCtx->ShouldPerformRecordAction() | actionCtx->ShouldPerformDebugAction())
+            {
+                PropertyId tempPropertyId;
+                /*JavascriptString* tempPropertyStringName =*/ this->MoveAndGetNextFromObject(this->objectIndex, tempPropertyId, attributes);
+            }
+#elif DBG
             PropertyId tempPropertyId;
-            Assert(this->GetCurrentAndMoveNextFromObject(objectIndex, tempPropertyId, attributes) == nullptr);
+            Assert(this->MoveAndGetNextFromObject(this->objectIndex, tempPropertyId, attributes) == nullptr);
 #endif
+
             propertyStringName = nullptr;
         }
 
@@ -128,37 +157,33 @@ namespace Js
         return propertyStringName;
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    Var DynamicObjectSnapshotEnumeratorWPCache<T, enumNonEnumerable, enumSymbols>::GetCurrentAndMoveNext(PropertyId& propertyId, PropertyAttributes* attributes)
+    template <bool enumNonEnumerable, bool enumSymbols>
+    Var DynamicObjectSnapshotEnumeratorWPCache<enumNonEnumerable, enumSymbols>::MoveAndGetNext(PropertyId& propertyId, PropertyAttributes* attributes)
     {
-        Var currentIndex = GetCurrentAndMoveNextFromArray(propertyId, attributes);
+        Var currentIndex = this->MoveAndGetNextFromArray(propertyId, attributes);
 
         if (currentIndex == nullptr)
         {
-            currentIndex = this->GetCurrentAndMoveNextFromObjectWPCache(objectIndex, propertyId, attributes);
+            currentIndex = this->MoveAndGetNextFromObjectWPCache(this->objectIndex, propertyId, attributes);
         }
 
         return currentIndex;
     }
 
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    void DynamicObjectSnapshotEnumeratorWPCache<T, enumNonEnumerable, enumSymbols>::Reset()
+    template <bool enumNonEnumerable, bool enumSymbols>
+    void DynamicObjectSnapshotEnumeratorWPCache<enumNonEnumerable, enumSymbols>::Reset()
     {
         // If we are reusing the enumerator the object type should be the same
-        Assert(object->GetDynamicType() == initialType);
-        Assert(initialPropertyCount == object->GetPropertyCount());
+        Assert(this->object->GetDynamicType() == this->initialType);
+        Assert(this->initialPropertyCount == this->object->GetPropertyCount());
 
         __super::Reset();
 
         this->enumeratedCount = 0;
     }
 
-    template class DynamicObjectSnapshotEnumeratorWPCache<PropertyIndex, true, true>;
-    template class DynamicObjectSnapshotEnumeratorWPCache<PropertyIndex, true, false>;
-    template class DynamicObjectSnapshotEnumeratorWPCache<PropertyIndex, false, true>;
-    template class DynamicObjectSnapshotEnumeratorWPCache<PropertyIndex, false, false>;
-    template class DynamicObjectSnapshotEnumeratorWPCache<BigPropertyIndex, true, true>;
-    template class DynamicObjectSnapshotEnumeratorWPCache<BigPropertyIndex, true, false>;
-    template class DynamicObjectSnapshotEnumeratorWPCache<BigPropertyIndex, false, true>;
-    template class DynamicObjectSnapshotEnumeratorWPCache<BigPropertyIndex, false, false>;
+    template class DynamicObjectSnapshotEnumeratorWPCache<true, true>;
+    template class DynamicObjectSnapshotEnumeratorWPCache<true, false>;
+    template class DynamicObjectSnapshotEnumeratorWPCache<false, true>;
+    template class DynamicObjectSnapshotEnumeratorWPCache<false, false>;
 };

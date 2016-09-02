@@ -319,7 +319,7 @@ namespace Js
         Assert(entryPoint == function->GetEntryPointInfo());
         Assert(entryPoint->IsCodeGenDone());
 
-        JavascriptMethod directEntryPoint = (JavascriptMethod)entryPoint->address;
+        JavascriptMethod directEntryPoint = entryPoint->jsMethod;
 
         // Check if it has changed already
         if (directEntryPoint == DynamicProfileInfo::EnsureDynamicProfileInfoThunk)
@@ -334,7 +334,7 @@ namespace Js
                 directEntryPoint = (JavascriptMethod)entryPoint->GetNativeAddress();
             }
 
-            entryPoint->address = directEntryPoint;
+            entryPoint->jsMethod = directEntryPoint;
         }
         else
         {
@@ -840,7 +840,7 @@ namespace Js
         return &arrayCallSiteInfo[index];
     }
 
-    __inline void DynamicProfileInfo::RecordFieldAccess(FunctionBody* functionBody, uint fieldAccessId, Var object, FldInfoFlags flags)
+    inline void DynamicProfileInfo::RecordFieldAccess(FunctionBody* functionBody, uint fieldAccessId, Var object, FldInfoFlags flags)
     {
         Assert(fieldAccessId < functionBody->GetProfiledFldCount());
         FldInfoFlags oldFlags = fldInfo[fieldAccessId].flags;
@@ -880,7 +880,7 @@ namespace Js
         }
     }
 
-    __inline void DynamicProfileInfo::RecordDivideResultType(FunctionBody* body, ProfileId divideId, Var object)
+    inline void DynamicProfileInfo::RecordDivideResultType(FunctionBody* body, ProfileId divideId, Var object)
     {
         Assert(divideId < body->GetProfiledDivOrRemCount());
         divideTypeInfo[divideId] = divideTypeInfo[divideId].Merge(object);
@@ -888,7 +888,7 @@ namespace Js
 
     // We are overloading the value types to store whether it is a mod by power of 2.
     // TaggedInt:
-    __inline void DynamicProfileInfo::RecordModulusOpType(FunctionBody* body, ProfileId profileId, bool isModByPowerOf2)
+    inline void DynamicProfileInfo::RecordModulusOpType(FunctionBody* body, ProfileId profileId, bool isModByPowerOf2)
     {
         Assert(profileId < body->GetProfiledDivOrRemCount());
         // allow one op of the modulus to be optimized - anyway
@@ -921,7 +921,7 @@ namespace Js
         return divideTypeInfo[divideId];
     }
 
-    __inline void DynamicProfileInfo::RecordSwitchType(FunctionBody* body, ProfileId switchId, Var object)
+    inline void DynamicProfileInfo::RecordSwitchType(FunctionBody* body, ProfileId switchId, Var object)
     {
         Assert(switchId < body->GetProfiledSwitchCount());
         switchTypeInfo[switchId] = switchTypeInfo[switchId].Merge(object);
@@ -942,12 +942,12 @@ namespace Js
             _u("New profile cache state: %d\n"), this->polymorphicCacheState);
     }
 
-    __inline void DynamicProfileInfo::RecordPolymorphicFieldAccess(FunctionBody* functionBody, uint fieldAccessId)
+    inline void DynamicProfileInfo::RecordPolymorphicFieldAccess(FunctionBody* functionBody, uint fieldAccessId)
     {
         this->RecordFieldAccess(functionBody, fieldAccessId, nullptr, FldInfo_Polymorphic);
     }
 
-    __inline void DynamicProfileInfo::RecordSlotLoad(FunctionBody* functionBody, ProfileId slotLoadId, Var object)
+    inline void DynamicProfileInfo::RecordSlotLoad(FunctionBody* functionBody, ProfileId slotLoadId, Var object)
     {
         Assert(slotLoadId < functionBody->GetProfiledSlotCount());
         slotInfo[slotLoadId] = slotInfo[slotLoadId].Merge(object);
@@ -958,7 +958,7 @@ namespace Js
         return static_cast<FldInfoFlags>(oldFlags | newFlags);
     }
 
-    __inline void DynamicProfileInfo::RecordParameterInfo(FunctionBody *functionBody, ArgSlot index, Var object)
+    inline void DynamicProfileInfo::RecordParameterInfo(FunctionBody *functionBody, ArgSlot index, Var object)
     {
         Assert(this->parameterInfo != nullptr);
         Assert(index < functionBody->GetProfiledInParamsCount());
@@ -972,13 +972,13 @@ namespace Js
         return parameterInfo[index];
     }
 
-    __inline void DynamicProfileInfo::RecordReturnTypeOnCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId, Var object)
+    inline void DynamicProfileInfo::RecordReturnTypeOnCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId, Var object)
     {
         Assert(callSiteId < functionBody->GetProfiledCallSiteCount());
         this->callSiteInfo[callSiteId].returnType = this->callSiteInfo[callSiteId].returnType.Merge(object);
     }
 
-    __inline void DynamicProfileInfo::RecordReturnType(FunctionBody* functionBody, ProfileId callSiteId, Var object)
+    inline void DynamicProfileInfo::RecordReturnType(FunctionBody* functionBody, ProfileId callSiteId, Var object)
     {
         Assert(callSiteId < functionBody->GetProfiledReturnTypeCount());
         this->returnTypeInfo[callSiteId] = this->returnTypeInfo[callSiteId].Merge(object);
@@ -997,7 +997,7 @@ namespace Js
         return this->returnTypeInfo[callSiteId];
     }
 
-    __inline void DynamicProfileInfo::RecordThisInfo(Var object, ThisType thisType)
+    inline void DynamicProfileInfo::RecordThisInfo(Var object, ThisType thisType)
     {
         this->thisInfo.valueType = this->thisInfo.valueType.Merge(object);
         this->thisInfo.thisType = max(this->thisInfo.thisType, thisType);
@@ -1558,6 +1558,8 @@ namespace Js
                 _u(" disableSwitchOpt : %s")
                 _u(" disableEquivalentObjTypeSpec : %s\n")
                 _u(" disableObjTypeSpec_jitLoopBody : %s\n"),
+                _u(" disablePowIntTypeSpec : %s\n"),
+                _u(" disableStackArgOpt : %s\n"),
                 IsTrueOrFalse(this->bits.disableAggressiveIntTypeSpec),
                 IsTrueOrFalse(this->bits.disableAggressiveIntTypeSpec_jitLoopBody),
                 IsTrueOrFalse(this->bits.disableAggressiveMulIntTypeSpec),
@@ -1590,7 +1592,9 @@ namespace Js
                 IsTrueOrFalse(this->bits.disableNoProfileBailouts),
                 IsTrueOrFalse(this->bits.disableSwitchOpt),
                 IsTrueOrFalse(this->bits.disableEquivalentObjTypeSpec),
-                IsTrueOrFalse(this->bits.disableObjTypeSpec_jitLoopBody));
+                IsTrueOrFalse(this->bits.disableObjTypeSpec_jitLoopBody),
+                IsTrueOrFalse(this->bits.disablePowIntIntTypeSpec),
+                IsTrueOrFalse(this->bits.disableStackArgOpt));
         }
     }
 
@@ -2296,6 +2300,12 @@ const char* GetBailOutKindName(IR::BailOutKind kind)
         position += ConcatBailOutKindBits(name, sizeof(name), position, offset);
     }
     ++offset;
+    if (kind & BailOutOnPowIntIntOverflow)
+    {
+        kind ^= BailOutOnPowIntIntOverflow;
+        position += ConcatBailOutKindBits(name, sizeof(name), position, offset);
+    }
+    ++offset;
     // BailOutOnResultConditions
 
     ++offset;
@@ -2332,6 +2342,12 @@ const char* GetBailOutKindName(IR::BailOutKind kind)
     if (kind & BailOutOnInvalidatedArrayLength)
     {
         kind ^= BailOutOnInvalidatedArrayLength;
+        position += ConcatBailOutKindBits(name, sizeof(name), position, offset);
+    }
+    ++offset;
+    if (kind & BailOnStackArgsOutOfActualsRange)
+    {
+        kind ^= BailOnStackArgsOutOfActualsRange;
         position += ConcatBailOutKindBits(name, sizeof(name), position, offset);
     }
     ++offset;

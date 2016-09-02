@@ -99,7 +99,12 @@ $PushDate = Get-Date $BuildPushDate -Format yyMMdd.HHmm
 
 $buildPushId, $buildPushIdPart1, $buildPushIdPart2, $buildPushIdString = GetBuildPushId $info
 
-$VersionString = "${Env:VERSION_MAJOR}.${Env:VERSION_MINOR}.${buildPushIdString}"
+$VersionMajor = UseValueOrDefault "$Env:VERSION_MAJOR" "1"
+$VersionMinor = UseValueOrDefault "$Env:VERSION_MINOR" "2"
+$VersionPatch = UseValueOrDefault "$Env:VERSION_PATCH" "0"
+$VersionQFE   = UseValueOrDefault "$Env:VERSION_QFE"   "0"
+
+$VersionString = "${VersionMajor}.${VersionMinor}.${VersionPatch}.${VersionQFE}"
 $PreviewVersionString = "${VersionString}-preview"
 
 # unless it is a build branch, subdivide the output directory by month
@@ -112,6 +117,7 @@ if ($BranchPath.StartsWith("build")) {
 $BuildIdentifier = "${buildPushIdString}_${PushDate}_${Username}_${CommitHash}"
 $ComputedDropPathSegment = "${BranchPath}\${YearAndMonth}${BuildIdentifier}"
 $BinariesDirectory = "${Env:BUILD_SOURCESDIRECTORY}\Build\VcBuild"
+$ObjectDirectory = "${BinariesDirectory}\obj\${BuildPlatform}_${BuildConfiguration}"
 
 # Create a sentinel file for each build flavor to track whether the build is complete.
 # * ${arch}_${flavor}.incomplete       # will be deleted when the build of this flavor completes
@@ -178,7 +184,7 @@ set TF_BUILD_SOURCEGETVERSION=LG:${branch}:${CommitHash}
 set TF_BUILD_DROPLOCATION=${BinariesDirectory}
 
 set TF_BUILD_SOURCESDIRECTORY=${Env:BUILD_SOURCESDIRECTORY}
-REM set TF_BUILD_BUILDDIRECTORY=${Env:AGENT_BUILDDIRECTORY}\b  # note: inferred location works
+set TF_BUILD_BUILDDIRECTORY=${ObjectDirectory}
 set TF_BUILD_BINARIESDIRECTORY=${BinariesDirectory}
 
 set TF_BUILD_BUILDDEFINITIONNAME=${Env:BUILD_DEFINITIONNAME}

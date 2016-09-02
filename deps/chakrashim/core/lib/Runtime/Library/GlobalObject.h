@@ -51,6 +51,10 @@ namespace Js
             static FunctionInfo UnEscape;
             static FunctionInfo CollectGarbage;
 
+#if ENABLE_TTD && ENABLE_DEBUG_CONFIG_OPTIONS
+            static FunctionInfo TelemetryLog;
+#endif
+
 #ifdef IR_VIEWER
             static FunctionInfo ParseIR;
             static FunctionInfo FunctionList;
@@ -73,6 +77,10 @@ namespace Js
 
         static Var EntryCollectGarbage(RecyclableObject* function, CallInfo callInfo, ...);
 
+#if ENABLE_TTD && ENABLE_DEBUG_CONFIG_OPTIONS
+        static Var EntryTelemetryLog(RecyclableObject* function, CallInfo callInfo, ...);
+#endif
+
 #ifdef IR_VIEWER
         static Var EntryParseIR(RecyclableObject *function, CallInfo callInfo, ...);
 #define _refactor_ /* FIXME (t-doilij) */
@@ -89,23 +97,25 @@ namespace Js
 
         static void ValidateSyntax(ScriptContext* scriptContext, const char16 *source, int sourceLength, bool isGenerator, bool isAsync, void (Parser::*validateSyntax)());
         static void UpdateThisForEval(Var &varThis, ModuleID moduleID, ScriptContext *scriptContext, BOOL strictMode) ;
-        static ScriptFunction* DefaultEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, ulong grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode);
-        static ScriptFunction* ProfileModeEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, ulong grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode);
+        static ScriptFunction* DefaultEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, uint32 grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode);
+#ifdef ENABLE_SCRIPT_PROFILING
+        static ScriptFunction* ProfileModeEvalHelper(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, uint32 grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode);
+#endif        
 #ifdef IR_VIEWER
         static Var IRDumpEvalHelper(ScriptContext* scriptContext, const char16 *source,
-            int sourceLength, ModuleID moduleID, ulong grfscr, LPCOLESTR pszTitle,
+            int sourceLength, ModuleID moduleID, uint32 grfscr, LPCOLESTR pszTitle,
             BOOL registerDocument, BOOL isIndirect, BOOL strictMode);
 #endif /* IR_VIEWER */
 
         static bool Is(Var aValue);
         static GlobalObject* FromVar(Var aValue);
 
-        typedef ScriptFunction* (*EvalHelperType)(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, ulong grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode);
+        typedef ScriptFunction* (*EvalHelperType)(ScriptContext* scriptContext, const char16 *source, int sourceLength, ModuleID moduleID, uint32 grfscr, LPCOLESTR pszTitle, BOOL registerDocument, BOOL isIndirect, BOOL strictMode);
         EvalHelperType EvalHelper;
 
         static Var EntryEvalHelper(ScriptContext* scriptContext, RecyclableObject* function, CallInfo callInfo, Arguments& args);
         static Var VEval(JavascriptLibrary* library, FrameDisplay* environment, ModuleID moduleID, bool isStrictMode, bool isIndirect,
-            Arguments& args, bool isLibraryCode, bool registerDocument, ulong additionalGrfscr);
+            Arguments& args, bool isLibraryCode, bool registerDocument, uint32 additionalGrfscr);
 
         virtual BOOL HasProperty(PropertyId propertyId) override;
         virtual BOOL HasOwnProperty(PropertyId propertyId) override;
@@ -132,8 +142,8 @@ namespace Js
         virtual DescriptorFlags GetSetter(PropertyId propertyId, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual DescriptorFlags GetSetter(JavascriptString* propertyNameString, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext) override;
 
-        virtual BOOL Equals(Var other, BOOL* value, ScriptContext * requestContext) override;
-        virtual BOOL StrictEquals(Var other, BOOL* value, ScriptContext * requestContext) override;
+        virtual BOOL Equals(__in Var other, __out BOOL* value, ScriptContext * requestContext) override;
+        virtual BOOL StrictEquals(__in Var other, __out BOOL* value, ScriptContext * requestContext) override;
         virtual BOOL GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
         virtual BOOL GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
 
@@ -155,5 +165,11 @@ namespace Js
 
         typedef JsUtil::BaseHashSet<PropertyId, Recycler, PowerOf2SizePolicy> ReservedPropertiesHashSet;
         ReservedPropertiesHashSet * reservedProperties;
+
+#if ENABLE_TTD
+    public:
+        virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
+        virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
+#endif
     };
 }

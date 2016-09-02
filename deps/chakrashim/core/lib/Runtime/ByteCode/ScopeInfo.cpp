@@ -12,19 +12,31 @@ namespace Js
     void ScopeInfo::SaveSymbolInfo(Symbol* sym, MapSymbolData* mapSymbolData)
     {
         // We don't need to create slot for or save "arguments"
-        if (!sym->GetIsArguments()
-            // Function expression may not have nonLocalReference, exclude them.
-            && (!sym->GetFuncExpr() || sym->GetHasNonLocalReference()))
+        bool needScopeSlot = !sym->GetIsArguments() && sym->GetHasNonLocalReference()
+            && (!mapSymbolData->func->IsInnerArgumentsSymbol(sym) || mapSymbolData->func->GetHasArguments());
+        Js::PropertyId scopeSlot = Constants::NoSlot;
+        
+        if (sym->GetIsModuleExportStorage())
+        {
+            // Export symbols aren't in slots but we need to persist the fact that they are export storage
+            scopeSlot = sym->GetScope()->GetScopeSlotCount() + mapSymbolData->nonScopeSymbolCount++;
+        }
+        else if (needScopeSlot)
         {
             // Any symbol may have non-local ref from deferred child. Allocate slot for it.
-            Assert(sym->GetHasNonLocalReference());
-            Js::PropertyId scopeSlot = sym->EnsureScopeSlot(mapSymbolData->func);
+            scopeSlot = sym->EnsureScopeSlot(mapSymbolData->func);
+        }
 
+        if (needScopeSlot || sym->GetIsModuleExportStorage())
+        {
             Js::PropertyId propertyId = sym->EnsurePosition(mapSymbolData->func);
             this->SetSymbolId(scopeSlot, propertyId);
             this->SetSymbolType(scopeSlot, sym->GetSymbolType());
             this->SetHasFuncAssignment(scopeSlot, sym->GetHasFuncAssignment());
             this->SetIsBlockVariable(scopeSlot, sym->GetIsBlockVar());
+            this->SetIsFuncExpr(scopeSlot, sym->GetIsFuncExpr());
+            this->SetIsModuleExportStorage(scopeSlot, sym->GetIsModuleExportStorage());
+            this->SetIsModuleImport(scopeSlot, sym->GetIsModuleImport());
         }
 
         TRACE_BYTECODE(_u("%12s %d\n"), sym->GetName().GetBuffer(), sym->GetScopeSlot());
@@ -73,39 +85,12 @@ namespace Js
         TRACE_BYTECODE(_u("\nSave ScopeInfo: %s parent: %s #symbols: %d %s\n"),
             scope->GetFunc()->name, parent->GetDisplayName(), count, scopeInfo->isObject ? _u("isObject") : _u(""));
 
-        MapSymbolData mapSymbolData = { byteCodeGenerator, scope->GetFunc() };
+        MapSymbolData mapSymbolData = { byteCodeGenerator, scope->GetFunc(), 0 };
         scope->ForEachSymbol([&mapSymbolData, scopeInfo, scope](Symbol * sym)
         {
             Assert(scope == sym->GetScope());
             scopeInfo->SaveSymbolInfo(sym, &mapSymbolData);
         });
-
-        return scopeInfo;
-    }
-
-    //
-    // Clone a ScopeInfo object
-    //
-    ScopeInfo *ScopeInfo::CloneFor(ParseableFunctionInfo *body)
-    {
-        auto count = this->symbolCount;
-        auto symbolsSize = count * sizeof(SymbolInfo);
-        auto scopeInfo = RecyclerNewPlusZ(parent->GetScriptContext()->GetRecycler(), symbolsSize,
-            ScopeInfo, parent, count);
-        scopeInfo->isDynamic = this->isDynamic;
-        scopeInfo->isObject = this->isObject;
-        scopeInfo->mustInstantiate = this->mustInstantiate;
-        scopeInfo->isCached = this->isCached;
-        scopeInfo->isGlobalEval = this->isGlobalEval;
-        if (funcExprScopeInfo)
-        {
-            scopeInfo->funcExprScopeInfo = funcExprScopeInfo->CloneFor(body);
-        }
-        if (paramScopeInfo)
-        {
-            scopeInfo->paramScopeInfo = paramScopeInfo->CloneFor(body);
-        }
-        memcpy_s(scopeInfo->symbols, symbolsSize, this->symbols, symbolsSize);
 
         return scopeInfo;
     }
@@ -174,7 +159,7 @@ namespace Js
         Scope* bodyScope = func->IsGlobalFunction() ? func->GetGlobalEvalBlockScope() : func->GetBodyScope();
         ScopeInfo* paramScopeInfo = nullptr;
         Scope* paramScope = func->GetParamScope();
-        if (paramScope && bodyScope->GetMustInstantiate())
+        if (paramScope && !paramScope->GetCanMergeWithBodyScope())
         {
             paramScopeInfo = FromScope(byteCodeGenerator, parent, paramScope, funcBody->GetScriptContext());
         }
@@ -215,7 +200,8 @@ namespace Js
                     {
                         Assert(currentScope->GetEnclosingScope() == funcInfo->GetFuncExprScope() &&
                             currentScope->GetEnclosingScope()->GetEnclosingScope() ==
-                            (parentFunc->IsGlobalFunction() ? parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
+                            (parentFunc->IsGlobalFunction() && parentFunc->GetGlobalEvalBlockScope()->GetMustInstantiate() ? 
+                             parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
                     }
                 }
                 else
@@ -232,7 +218,7 @@ namespace Js
                     else
                     { 
                         Assert(currentScope->GetEnclosingScope() ==
-                            (parentFunc->IsGlobalFunction() ? parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
+                            (parentFunc->IsGlobalFunction() && parentFunc->GetGlobalEvalBlockScope() && parentFunc->GetGlobalEvalBlockScope()->GetMustInstantiate() ? parentFunc->GetGlobalEvalBlockScope() : parentFunc->GetBodyScope()));
                     }
                 }
 #endif
@@ -285,14 +271,8 @@ namespace Js
             funcInfo->SetHasCachedScope(this->isCached);
             byteCodeGenerator->PushScope(scope);
 
-            if (byteCodeGenerator->UseParserBindings())
-            {
-                // The scope is already populated, so we're done.
-                return;
-            }
-
-            scriptContext = byteCodeGenerator->GetScriptContext();
-            alloc = byteCodeGenerator->GetAllocator();
+            // The scope is already populated, so we're done.
+            return;
         }
 
         // Load scope symbols
@@ -336,15 +316,17 @@ namespace Js
 
                 sym->SetScopeSlot(static_cast<PropertyId>(i));
                 sym->SetIsBlockVar(GetIsBlockVariable(i));
+                sym->SetIsFuncExpr(GetIsFuncExpr(i));
+                sym->SetIsModuleExportStorage(GetIsModuleExportStorage(i));
+                sym->SetIsModuleImport(GetIsModuleImport(i));
                 if (GetHasFuncAssignment(i))
                 {
                     sym->RestoreHasFuncAssignment();
                 }
                 scope->AddNewSymbol(sym);
-                if (parser)
-                {
-                    parser->RestorePidRefForSym(sym);
-                }
+                sym->SetHasNonLocalReference();
+                Assert(parser);
+                parser->RestorePidRefForSym(sym);
 
                 TRACE_BYTECODE(_u("%12s %d\n"), sym->GetName().GetBuffer(), sym->GetScopeSlot());
             }

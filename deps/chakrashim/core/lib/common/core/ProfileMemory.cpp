@@ -15,7 +15,12 @@ CriticalSection MemoryProfiler::s_cs;
 AutoPtr<MemoryProfiler, NoCheckHeapAllocator> MemoryProfiler::profilers(nullptr);
 
 MemoryProfiler::MemoryProfiler() :
-    pageAllocator(nullptr, Js::Configuration::Global.flags, PageAllocatorType_Max, 0, false, nullptr),
+    pageAllocator(nullptr, Js::Configuration::Global.flags,
+    PageAllocatorType_Max, 0, false
+#if ENABLE_BACKGROUND_PAGE_FREEING
+        , nullptr
+#endif
+        ),
     alloc(_u("MemoryProfiler"), &pageAllocator, Js::Throw::OutOfMemory),
     arenaDataMap(&alloc, 10)
 {
@@ -307,9 +312,9 @@ int MemoryProfiler::CreateArenaUsageSummary(ArenaAllocator * alloc, bool liveOnl
 
     summaries = AnewArray(alloc, ArenaMemoryDataSummary *, count);
 
-    for (int i = 0; i < count; i++)
+    for (int j = 0; j < count; j++)
     {
-        ArenaMemoryDataSummary * summary = arenaDataMap.Item(name[i]);
+        ArenaMemoryDataSummary * summary = arenaDataMap.Item(name[j]);
         ArenaMemoryData * data = summary->data;
 
         ArenaMemoryDataSummary * localSummary;

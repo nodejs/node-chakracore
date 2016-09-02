@@ -14,25 +14,27 @@ namespace Js
      *      the same type is enumerated, thus speeding up enumeration by eliminating
      *      virtual calls, internal property checks, and property string lookup
      **************************************************************************************/
-    template <typename T, bool enumNonEnumerable, bool enumSymbols>
-    class DynamicObjectSnapshotEnumeratorWPCache : public DynamicObjectSnapshotEnumerator<T, enumNonEnumerable, enumSymbols>
+    template <bool enumNonEnumerable, bool enumSymbols>
+    class DynamicObjectSnapshotEnumeratorWPCache : public DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>
     {
+        typedef DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols> Base;
+
     protected:
-        DEFINE_VTABLE_CTOR(DynamicObjectSnapshotEnumeratorWPCache, DynamicObjectSnapshotEnumerator);
+        DEFINE_VTABLE_CTOR(DynamicObjectSnapshotEnumeratorWPCache, Base);
         DEFINE_MARSHAL_ENUMERATOR_TO_SCRIPT_CONTEXT(DynamicObjectSnapshotEnumeratorWPCache);
 
     private:
         DynamicObjectSnapshotEnumeratorWPCache(ScriptContext* scriptContext)
-            : DynamicObjectSnapshotEnumerator(scriptContext)
+            : DynamicObjectSnapshotEnumerator<enumNonEnumerable, enumSymbols>(scriptContext)
         {
         }
 
-        JavascriptString * GetCurrentAndMoveNextFromObjectWPCache(T& index, PropertyId& propertyId, PropertyAttributes* attributes);
+        JavascriptString * MoveAndGetNextFromObjectWPCache(BigPropertyIndex& index, PropertyId& propertyId, PropertyAttributes* attributes);
 
         struct CachedData
         {
             PropertyString ** strings;
-            T * indexes;
+            BigPropertyIndex * indexes;
             PropertyAttributes * attributes;
             int cachedCount;
             bool completed;
@@ -49,7 +51,7 @@ namespace Js
     public:
         static JavascriptEnumerator* New(ScriptContext* scriptContext, DynamicObject* object);
         virtual void Reset() override;
-        virtual Var GetCurrentAndMoveNext(PropertyId& propertyId, PropertyAttributes* attributes = nullptr) override;
+        virtual Var MoveAndGetNext(PropertyId& propertyId, PropertyAttributes* attributes = nullptr) override;
 
         static uint32 GetOffsetOfInitialType() { return offsetof(DynamicObjectSnapshotEnumeratorWPCache, initialType); }
         static uint32 GetOffsetOfEnumeratedCount() { return offsetof(DynamicObjectSnapshotEnumeratorWPCache, enumeratedCount); }

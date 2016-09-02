@@ -3,7 +3,6 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
-#include <time.h>
 #include "DateImplementationData.h"
 
 #include "CharClassifier.h"
@@ -32,10 +31,10 @@ namespace Js {
 
     struct SZS
     {
-        char16 *psz;           // string
+        const char16 *psz;      // string
         short cch;              // length of string
         short szst;             // type of entry
-        long lwVal;             // value
+        int32 lwVal;             // value
     };
 
     BEGIN_ENUM_BYTE(ParseStringTokenType)
@@ -110,14 +109,7 @@ namespace Js {
 #undef szst
 #undef Szs
     };
-    const long kcszs = sizeof(g_rgszs) / sizeof(SZS);
-
-    // Moved DaylightTimeHelper to common.lib to share with hybrid debugging, but this function depends on runtime.
-    bool DaylightTimeHelper::ForceOldDateAPIFlag()
-    {
-        // The following flag was added to support Date unit test on win7.
-        return CONFIG_ISENABLED(Js::ForceOldDateAPIFlag);
-    }
+    const int32 kcszs = sizeof(g_rgszs) / sizeof(SZS);
 
     ///----------------------------------------------------------------------------
     ///----------------------------------------------------------------------------
@@ -176,6 +168,7 @@ namespace Js {
                 EnsureYmdLcl();
                 return GetDateDefaultString(&m_ymdLcl, &m_tzd, noDateTime, m_scriptContext);
 
+#ifdef ENABLE_GLOBALIZATION
             case DateStringFormat::Locale:
                 EnsureYmdLcl();
 
@@ -198,6 +191,7 @@ namespace Js {
                 {
                     return GetDateDefaultString(&m_ymdLcl, &m_tzd, noDateTime, m_scriptContext);
                 }
+#endif
 
             case DateStringFormat::GMT:
                 EnsureYmdUtc();
@@ -355,7 +349,7 @@ namespace Js {
     DateImplementation::ConvertVariantDateToString(double dbl, ScriptContext* scriptContext)
     {
         Js::DateImplementation::TZD tzd;
-        Js::YMD ymd;
+        DateTime::YMD ymd;
         double tv = Js::DateImplementation::GetTvUtc(Js::DateImplementation::JsLocalTimeFromVarDate(dbl), scriptContext);
 
         tv = Js::DateImplementation::GetTvLcl(tv, scriptContext, &tzd);
@@ -370,7 +364,7 @@ namespace Js {
     }
 
     JavascriptString*
-    DateImplementation::GetDateDefaultString(Js::YMD *pymd, TZD *ptzd,DateTimeFlag noDateTime,ScriptContext* scriptContext)
+    DateImplementation::GetDateDefaultString(DateTime::YMD *pymd, TZD *ptzd,DateTimeFlag noDateTime,ScriptContext* scriptContext)
     {
         return GetDateDefaultString<CompoundString>(pymd, ptzd, noDateTime, scriptContext,
             [=](CharCount capacity) -> CompoundString*
@@ -380,7 +374,7 @@ namespace Js {
     }
 
     JavascriptString*
-    DateImplementation::GetDateGmtString(Js::YMD *pymd,ScriptContext* scriptContext)
+    DateImplementation::GetDateGmtString(DateTime::YMD *pymd,ScriptContext* scriptContext)
     {
         // toUTCString() or toGMTString() will return for example:
         //  "Thu, 02 Feb 2012 09:02:03 GMT" for versions IE11 or above
@@ -392,7 +386,7 @@ namespace Js {
             const charcount_t cchWritten = NumberUtilities::UInt16ToString(value, buffer, charCapacity, 2);
             Assert(cchWritten != 0);
         };
-        const auto ConvertLongToString = [](const long value, char16 *const buffer, const CharCount charCapacity)
+        const auto ConvertLongToString = [](const int32 value, char16 *const buffer, const CharCount charCapacity)
         {
             const errno_t err = _ltow_s(value, buffer, charCapacity, 10);
             Assert(err == 0);
@@ -434,8 +428,9 @@ namespace Js {
         return bs;
     }
 
+#ifdef ENABLE_GLOBALIZATION
     JavascriptString*
-    DateImplementation::GetDateLocaleString(Js::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime,ScriptContext* scriptContext)
+    DateImplementation::GetDateLocaleString(DateTime::YMD *pymd, TZD *ptzd, DateTimeFlag noDateTime,ScriptContext* scriptContext)
     {
         SYSTEMTIME st;
         int cch;
@@ -565,11 +560,12 @@ Error:
 
         return bs;
     }
+#endif // ENABLE_GLOBALIZATION
 
     double
     DateImplementation::GetDateData(DateData dd, bool fUtc, ScriptContext* scriptContext)
     {
-        Js::YMD *pymd;
+        DateTime::YMD *pymd;
         double value = 0;
 
         if (JavascriptNumber::IsNan(m_tvUtc))
@@ -1004,7 +1000,7 @@ Error:
         return true;
     }
 
-    boolean DateImplementation::UtcTimeFromStrCore(
+    bool DateImplementation::UtcTimeFromStrCore(
         __in_ecount_z(ulength) const char16 *psz,
         unsigned int ulength,
         double &retVal,
@@ -1047,18 +1043,18 @@ Error:
         char16 ch;
         char16 *pszSrc = nullptr;
 
-        const long lwNil = 0x80000000;
-        long cch;
-        long depth;
-        long lwT;
-        long lwYear = lwNil;
-        long lwMonth = lwNil;
-        long lwDate = lwNil;
-        long lwTime = lwNil;
-        long lwZone = lwNil;
-        long lwOffset = lwNil;
+        const int32 lwNil = 0x80000000;
+        int32 cch;
+        int32 depth;
+        int32 lwT;
+        int32 lwYear = lwNil;
+        int32 lwMonth = lwNil;
+        int32 lwDate = lwNil;
+        int32 lwTime = lwNil;
+        int32 lwZone = lwNil;
+        int32 lwOffset = lwNil;
 
-        long ss = ssNil;
+        int32 ss = ssNil;
         const SZS *pszs;
 
         bool fUtc;
@@ -1140,7 +1136,7 @@ Error:
                 for ( ; !FBig(*pch) && (isalpha(*pch) || '.' == *pch); pch++)
                     ;
 
-                cch = (long)(pch - pchBase);
+                cch = (int32)(pch - pchBase);
 
                 if ('.' == pchBase[cch - 1])
                 {
@@ -1174,11 +1170,11 @@ Error:
                         {
                             goto LError;
                         }
-                        lwZone = -(long)(ch - 'a' + (ch < 'j')) * 60;
+                        lwZone = -(int32)(ch - 'a' + (ch < 'j')) * 60;
                     }
                     else if (ch <= 'y')
                     {
-                        lwZone = (long)(ch - 'm') * 60;
+                        lwZone = (int32)(ch - 'm') * 60;
                     }
                     else if (ch == 'z')
                     {
@@ -1585,6 +1581,14 @@ LError:
         double dblT;
         uint ivar;
 
+        // See: https://github.com/Microsoft/ChakraCore/issues/1318
+        // Date.UTC should return NaN with < 2 arguments.
+        // args.Info.Count includes an implicit first parameter, so we check for Count <= 2.
+        if (args.Info.Count <= 2)
+        {
+            return JavascriptNumber::NaN;
+        }
+
         for (ivar = 0; (ivar < (args.Info.Count-1)) && ivar < kcvarMax; ++ivar)
         {
             rgdbl[ivar] = JavascriptConversion::ToNumber(args[ivar+1],scriptContext);
@@ -1644,8 +1648,8 @@ LError:
         double rgdbl[5];
 
         double tv = 0;
-        Js::YMD *pymd = NULL;
-        Js::YMD emptyYMD = {0};
+        DateTime::YMD *pymd = NULL;
+        DateTime::YMD emptyYMD = {0};
         uint count = 0;
 
         uint cvarMax;

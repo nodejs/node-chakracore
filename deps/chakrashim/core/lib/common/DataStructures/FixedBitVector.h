@@ -35,10 +35,10 @@ public:
     static  BVFixed *       New(TAllocator* alloc, BVFixed * initBv);
 
     template <typename TAllocator>
-    static  BVFixed *       New(BVIndex length, TAllocator* alloc, bool initialSet = false);
+    static  BVFixed *       New(DECLSPEC_GUARD_OVERFLOW BVIndex length, TAllocator* alloc, bool initialSet = false);
 
     template <typename TAllocator>
-    static  BVFixed *       NewNoThrow(BVIndex length, TAllocator* alloc, bool initialSet = false);
+    static  BVFixed *       NewNoThrow(DECLSPEC_GUARD_OVERFLOW BVIndex length, TAllocator* alloc, bool initialSet = false);
 
     template <typename TAllocator>
     void                    Delete(TAllocator * alloc);
@@ -63,7 +63,7 @@ protected:
 
 
     template<class Fn>
-    __inline void for_each(const BVFixed *bv2, const Fn callback)
+    inline void for_each(const BVFixed *bv2, const Fn callback)
     {
         AssertMsg(this->len == bv2->len, "Fatal: The 2 bitvectors should have had the same length.");
 
@@ -152,14 +152,14 @@ BVFixed * BVFixed::New(TAllocator * alloc, BVFixed * initBv)
 }
 
 template <typename TAllocator>
-BVFixed * BVFixed::New(BVIndex length, TAllocator * alloc, bool initialSet)
+BVFixed * BVFixed::New(DECLSPEC_GUARD_OVERFLOW BVIndex length, TAllocator * alloc, bool initialSet)
 {
     BVFixed *result = AllocatorNewPlus(TAllocator, alloc, sizeof(BVUnit) * BVFixed::WordCount(length), BVFixed, length, initialSet);
     return result;
 }
 
 template <typename TAllocator>
-BVFixed * BVFixed::NewNoThrow(BVIndex length, TAllocator * alloc, bool initialSet)
+BVFixed * BVFixed::NewNoThrow(DECLSPEC_GUARD_OVERFLOW BVIndex length, TAllocator * alloc, bool initialSet)
 {
     BVFixed *result = AllocatorNewNoThrowPlus(TAllocator, alloc, sizeof(BVUnit) * BVFixed::WordCount(length), BVFixed, length, initialSet);
     return result;
@@ -337,7 +337,7 @@ private:
     BVUnit * EndUnit() { return &this->data[wordCount]; }
 
     template<class Fn>
-    __inline void for_each(const BVStatic *bv2, const Fn callback)
+    inline void for_each(const BVStatic *bv2, const Fn callback)
     {
         BVUnit *        i;
         const BVUnit *  j;
@@ -411,19 +411,19 @@ public:
     BOOLEAN TestAndSet(BVIndex i)
     {
         AssertRange(i);
-        return _bittestandset((long *)this->data, (long) i);
+        return PlatformAgnostic::_BitTestAndSet((LONG *)this->data, (LONG) i);
     }
 
     BOOLEAN TestIntrinsic(BVIndex i) const
     {
         AssertRange(i);
-        return _bittest((long *)this->data, (long) i);
+        return PlatformAgnostic::_BitTest((LONG *)this->data, (LONG) i);
     }
 
     BOOLEAN TestAndSetInterlocked(BVIndex i)
     {
         AssertRange(i);
-        return _interlockedbittestandset((long *)this->data, (long) i);
+        return PlatformAgnostic::_InterlockedBitTestAndSet((LONG *)this->data, (LONG) i);
     }
 
     BOOLEAN TestAndClear(BVIndex i)

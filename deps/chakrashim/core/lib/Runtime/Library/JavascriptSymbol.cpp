@@ -203,7 +203,7 @@ namespace Js
         }
         else
         {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_FunctionArgument_Invalid, _u("Symbol[Symbol.toPrimitive]"));
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedSymbol, _u("Symbol[Symbol.toPrimitive]"));
         }
     }
 
@@ -214,7 +214,7 @@ namespace Js
         return requestContext->GetLibrary()->CreateSymbol(this->GetValue());
     }
 
-    Var JavascriptSymbol::TryInvokeRemotelyOrThrow(JavascriptMethod entryPoint, ScriptContext * scriptContext, Arguments & args, long errorCode, PCWSTR varName)
+    Var JavascriptSymbol::TryInvokeRemotelyOrThrow(JavascriptMethod entryPoint, ScriptContext * scriptContext, Arguments & args, int32 errorCode, PCWSTR varName)
     {
         if (JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch)
         {

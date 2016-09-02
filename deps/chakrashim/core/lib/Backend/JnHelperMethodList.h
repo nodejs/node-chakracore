@@ -494,7 +494,6 @@ HELPERCALL(ScopedLdSuperCtor,   Js::JavascriptOperators::OP_ScopedLdSuperCtor,  
 HELPERCALL(SetHomeObj,          Js::JavascriptOperators::OP_SetHomeObj,         0)
 
 HELPERCALL(ResumeYield,   Js::JavascriptOperators::OP_ResumeYield,   AttrCanThrow)
-HELPERCALL(AsyncSpawn,    Js::JavascriptOperators::OP_AsyncSpawn,    AttrCanThrow)
 
 #include "ExternalHelperMethodList.h"
 
@@ -505,6 +504,8 @@ HELPERCALL(BoxStackNumber, Js::JavascriptNumber::BoxStackNumber, 0)
 HELPERCALL(GetNonzeroInt32Value_NoTaggedIntCheck, Js::JavascriptNumber::GetNonzeroInt32Value_NoTaggedIntCheck, 0)
 HELPERCALL(IsNegZero, Js::JavascriptNumber::IsNegZero, 0)
 
+HELPERCALL(DirectMath_PowIntInt, (double(*)(double, int32))Js::JavascriptNumber::DirectPowIntInt, 0)
+HELPERCALL(DirectMath_PowDoubleInt, (double(*)(double, int32))Js::JavascriptNumber::DirectPowDoubleInt, 0)
 HELPERCALL(DirectMath_Pow, (double(*)(double, double))Js::JavascriptNumber::DirectPow, 0)
 HELPERCALL_MATH(DirectMath_Random,  (double(*)(Js::ScriptContext*))Js::JavascriptMath::Random, (double(*)(Js::ScriptContext*))Js::SSE2::JavascriptMath::Random, 0)
 

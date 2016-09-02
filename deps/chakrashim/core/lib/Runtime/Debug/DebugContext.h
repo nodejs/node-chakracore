@@ -13,6 +13,7 @@ public:
     virtual HRESULT SetThreadDescription(__in LPCWSTR url) = 0;
     virtual HRESULT DbgRegisterFunction(Js::ScriptContext * scriptContext, Js::FunctionBody * functionBody, DWORD_PTR dwDebugSourceContext, LPCWSTR title) = 0;
     virtual void ReParentToCaller(Js::Utf8SourceInfo* sourceInfo) = 0;
+    virtual void SortMembersList(JsUtil::List<Js::DebuggerPropertyDisplayInfo *, ArenaAllocator> * pMembersList, Js::ScriptContext* scriptContext) {/*Do nothing*/}
 
     Js::ScriptContext* GetScriptContext() { return scriptContext; }
 
@@ -57,6 +58,19 @@ namespace Js
 
         ProbeContainer* GetProbeContainer() const { return this->diagProbesContainer; }
 
+        HostDebugContext * GetHostDebugContext() const { return hostDebugContext; }
+
+#if ENABLE_TTD_DEBUGGING
+        bool IsJustMyCode() const
+        {
+            //
+            //TODO: This is experimental for running TTD with just tracking for user-code
+            //
+
+            return false;
+        }
+#endif
+
     private:
         ScriptContext * scriptContext;
         HostDebugContext* hostDebugContext;
@@ -68,7 +82,6 @@ namespace Js
         void WalkAndAddUtf8SourceInfo(Js::Utf8SourceInfo* sourceInfo, JsUtil::List<Js::Utf8SourceInfo *, Recycler, false, Js::CopyRemovePolicy, RecyclerPointerComparer> *utf8SourceInfoList);
         bool CanRegisterFunction() const;
         void RegisterFunction(Js::FunctionBody * functionBody, DWORD_PTR dwDebugSourceContext, LPCWSTR title);
-        HostDebugContext * GetHostDebugContext() const { return hostDebugContext; }
 
         template<class TMapFunction>
         void MapUTF8SourceInfoUntil(TMapFunction map);

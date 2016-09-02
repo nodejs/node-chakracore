@@ -45,7 +45,6 @@ namespace Js
             return (this->debugModeSource != nullptr || this->debugModeSourceIsEmpty) && this->m_isInDebugMode;
         }
 
-        // For Hybrid debugging purposes we need to have the source mapped in because chakra may be in a frozen state when the source would be needed.
         void SetInDebugMode(bool inDebugMode)
         {
             AssertMsg(!GetIsLibraryCode(), "Shouldn't call SetInDebugMode for Library code.");
@@ -276,7 +275,6 @@ namespace Js
         static Utf8SourceInfo* New(ScriptContext* scriptContext, LPCUTF8 utf8String, int32 length, size_t numBytes, SRCINFO const* srcInfo, bool isLibraryCode);
         static Utf8SourceInfo* NewWithNoCopy(ScriptContext* scriptContext, LPCUTF8 utf8String, int32 length, size_t numBytes, SRCINFO const* srcInfo, bool isLibraryCode);
         static Utf8SourceInfo* Clone(ScriptContext* scriptContext, const Utf8SourceInfo* sourceinfo);
-        static Utf8SourceInfo* CloneNoCopy(ScriptContext* scriptContext, const Utf8SourceInfo* sourceinfo, SRCINFO const * srcInfo);
 
         ScriptContext * GetScriptContext() const
         {
@@ -398,12 +396,12 @@ namespace Js
 template <>
 struct DefaultComparer<Js::Utf8SourceInfo*>
 {
-    __inline static bool Equals(Js::Utf8SourceInfo* const& x, Js::Utf8SourceInfo* const& y)
+    inline static bool Equals(Js::Utf8SourceInfo* const& x, Js::Utf8SourceInfo* const& y)
     {
         return Js::Utf8SourceInfo::StaticEquals(x, y);
     }
 
-    __inline static hash_t GetHashCode(Js::Utf8SourceInfo* const& s)
+    inline static hash_t GetHashCode(Js::Utf8SourceInfo* const& s)
     {
         return Js::Utf8SourceInfo::StaticGetHashCode(s);
     }

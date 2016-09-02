@@ -4,23 +4,35 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 
-struct StaticSym;
+// StaticSym contains a string literal at the end (flexible array) and is
+// meant to be initialized statically. However, flexible array initialization
+// is not allowed in standard C++. We declare each StaticSym with length
+// instead and cast to common StaticSymLen<0>* (StaticSym*) to access.
+template <uint32 N>
+struct StaticSymLen
+{
+    uint32 luHash;
+    uint32 cch;
+    OLECHAR sz[N];
+};
+
+typedef StaticSymLen<0> StaticSym;
 
 /***************************************************************************
 Hashing functions. Definitions in core\hashfunc.cpp.
 ***************************************************************************/
-ULONG CaseSensitiveComputeHashCch(LPCOLESTR prgch, long cch);
-ULONG CaseSensitiveComputeHashCch(LPCUTF8 prgch, long cch);
+ULONG CaseSensitiveComputeHashCch(LPCOLESTR prgch, int32 cch);
+ULONG CaseSensitiveComputeHashCch(LPCUTF8 prgch, int32 cch);
 ULONG CaseInsensitiveComputeHash(LPCOLESTR posz);
 
 enum
 {
-    fidNil        =     0x0000,
-    fidKwdRsvd    = 0x0001,     // the keyword is a reserved word
-    fidKwdFutRsvd = 0x0002,     // a future reserved word, but only in strict mode
+    fidNil          = 0x0000,
+    fidKwdRsvd      = 0x0001,     // the keyword is a reserved word
+    fidKwdFutRsvd   = 0x0002,     // a future reserved word, but only in strict mode
 
     // Flags to identify tracked aliases of "eval"
-    fidEval       =    0x0008,
+    fidEval         = 0x0008,
     // Flags to identify tracked aliases of "let"
     fidLetOrConst   = 0x0010,     // ID has previously been used in a block-scoped declaration
 
@@ -28,10 +40,11 @@ enum
     // CountDcls sets the bit as it walks through the var decls so that
     // it can skip duplicates. FillDcls clears the bit as it walks through
     // again to skip duplicates.
-    fidGlobalDcl  =    0x2000,
+    fidGlobalDcl    = 0x2000,
 
-    fidUsed       =    0x4000  // name referenced by source code
+    fidUsed         = 0x4000,  // name referenced by source code
 
+    fidModuleExport = 0x8000    // name is module export
 };
 
 struct BlockIdsStack
@@ -62,25 +75,30 @@ public:
 
 struct PidRefStack
 {
-    PidRefStack() : isDynamic(false), id(0), sym(nullptr), prev(nullptr), isModuleExport(false) {}
-    PidRefStack(int id) : isDynamic(false), id(id), sym(nullptr), prev(nullptr), isModuleExport(false) {}
+    PidRefStack() : isAsg(false), isDynamic(false), id(0), funcId(0), sym(nullptr), prev(nullptr), isEscape(false), isModuleExport(false) {}
+    PidRefStack(int id, Js::LocalFunctionId funcId) : isAsg(false), isDynamic(false), id(id), funcId(funcId), sym(nullptr), prev(nullptr), isEscape(false), isModuleExport(false) {}
 
     int GetScopeId() const    { return id; }
+    Js::LocalFunctionId GetFuncScopeId() const { return funcId; }
     Symbol *GetSym() const    { return sym; }
     void SetSym(Symbol *sym)  { this->sym = sym; }
+    bool IsAssignment() const { return isAsg; }
+    bool IsEscape() const { return isEscape; }
+    void SetIsEscape(bool is) { isEscape = is; }
     bool IsDynamicBinding() const { return isDynamic; }
     void SetDynamicBinding()  { isDynamic = true; }
-    bool IsModuleExport() const { return isModuleExport; }
-    void SetModuleExport()    { isModuleExport = true; }
 
     Symbol **GetSymRef()
     {
         return &sym;
     }
 
+    bool           isAsg;
     bool           isDynamic;
     bool           isModuleExport;
+    bool           isEscape;
     int            id;
+    Js::LocalFunctionId funcId;
     Symbol        *sym;
     PidRefStack   *prev;
 };
@@ -100,9 +118,9 @@ private:
     PidRefStack *m_pidRefStack;
     ushort m_tk;         // token# if identifier is a keyword
     ushort m_grfid;      // see fidXXX above
-    ulong m_luHash;      // hash value
+    uint32 m_luHash;      // hash value
 
-    ulong m_cch;                   // length of the identifier spelling
+    uint32 m_cch;                   // length of the identifier spelling
     Js::PropertyId m_propertyId;
 
     AssignmentState assignmentState;
@@ -113,10 +131,10 @@ private:
 public:
     LPCOLESTR Psz(void)
     { return m_sz; }
-    ulong Cch(void)
+    uint32 Cch(void)
     { return m_cch; }
     tokens Tk(bool isStrictMode);
-    ulong Hash(void)
+    uint32 Hash(void)
     { return m_luHash; }
 
     PidRefStack *GetTopRef() const
@@ -164,10 +182,11 @@ public:
         return nullptr;
     }
 
-    void PushPidRef(int blockId, PidRefStack *newRef)
+    void PushPidRef(int blockId, Js::LocalFunctionId funcId, PidRefStack *newRef)
     {
         AssertMsg(blockId >= 0, "Block Id's should be greater than 0");
         newRef->id = blockId;
+        newRef->funcId = funcId;
         newRef->prev = m_pidRefStack;
         m_pidRefStack = newRef;
     }
@@ -190,13 +209,29 @@ public:
         return prevRef;
     }
 
-    PidRefStack * FindOrAddPidRef(ArenaAllocator *alloc, int scopeId)
+    PidRefStack * TopDecl(int maxBlockId) const
+    {
+        for (PidRefStack *pidRef = m_pidRefStack; pidRef; pidRef = pidRef->prev)
+        {
+            if (pidRef->id > maxBlockId)
+            {
+                continue;
+            }
+            if (pidRef->sym != nullptr)
+            {
+                return pidRef;
+            }
+        }
+        return nullptr;
+    }
+
+    PidRefStack * FindOrAddPidRef(ArenaAllocator *alloc, int scopeId, Js::LocalFunctionId funcId)
     {
         // If the stack is empty, or we are pushing to the innermost scope already,
         // we can go ahead and push a new PidRef on the stack.
         if (m_pidRefStack == nullptr)
         {
-            PidRefStack *newRef = Anew(alloc, PidRefStack, scopeId);
+            PidRefStack *newRef = Anew(alloc, PidRefStack, scopeId, funcId);
             if (newRef == nullptr)
             {
                 return nullptr;
@@ -220,7 +255,7 @@ public:
             if (ref->prev == nullptr || ref->id  < scopeId)
             {
                 // No existing PidRef for this scopeId, so create and insert one at this position.
-                PidRefStack *newRef = Anew(alloc, PidRefStack, scopeId);
+                PidRefStack *newRef = Anew(alloc, PidRefStack, scopeId, funcId);
                 if (newRef == nullptr)
                 {
                     return nullptr;
@@ -266,6 +301,9 @@ public:
 
     void SetIsLetOrConst() { m_grfid |= fidLetOrConst; }
     BOOL GetIsLetOrConst() const { return m_grfid & fidLetOrConst; }
+
+    void SetIsModuleExport() { m_grfid |= fidModuleExport; }
+    BOOL GetIsModuleExport() const { return m_grfid & fidModuleExport; }
 };
 
 
@@ -309,39 +347,39 @@ public:
     {
         size_t csz = wcslen(psz);
         Assert(csz <= ULONG_MAX);
-        return PidHashNameLen(psz, static_cast<ulong>(csz));
+        return PidHashNameLen(psz, static_cast<uint32>(csz));
     }
 
     template <typename CharType>
-    IdentPtr PidHashNameLen(CharType const * psz, ulong cch);
+    IdentPtr PidHashNameLen(CharType const * psz, uint32 cch);
     template <typename CharType>
-    IdentPtr PidHashNameLenWithHash(_In_reads_(cch) CharType const * psz, long cch, ulong luHash);
+    IdentPtr PidHashNameLenWithHash(_In_reads_(cch) CharType const * psz, int32 cch, uint32 luHash);
 
 
     template <typename CharType>
-    __inline IdentPtr FindExistingPid(
+    inline IdentPtr FindExistingPid(
         CharType const * prgch,
-        long cch,
-        ulong luHash,
+        int32 cch,
+        uint32 luHash,
         IdentPtr **pppInsert,
-        long *pBucketCount
+        int32 *pBucketCount
 #if PROFILE_DICTIONARY
         , int& depth
 #endif
         );
 
-    tokens TkFromNameLen(_In_reads_(cch) LPCOLESTR prgch, ulong cch, bool isStrictMode);
-    tokens TkFromNameLenColor(_In_reads_(cch) LPCOLESTR prgch, ulong cch);
+    tokens TkFromNameLen(_In_reads_(cch) LPCOLESTR prgch, uint32 cch, bool isStrictMode);
+    tokens TkFromNameLenColor(_In_reads_(cch) LPCOLESTR prgch, uint32 cch);
     NoReleaseAllocator* GetAllocator() {return &m_noReleaseAllocator;}
 
-    bool Contains(_In_reads_(cch) LPCOLESTR prgch, long cch);
+    bool Contains(_In_reads_(cch) LPCOLESTR prgch, int32 cch);
 private:
 
     NoReleaseAllocator m_noReleaseAllocator;            // to allocate identifiers
     Ident ** m_prgpidName;        // hash table for names
 
-    ulong m_luMask;                // hash mask
-    ulong m_luCount;              // count of the number of entires in the hash table
+    uint32 m_luMask;                // hash mask
+    uint32 m_luCount;              // count of the number of entires in the hash table
     ErrHandler * m_perr;        // error handler to use
     IdentPtr m_rpid[tkLimKwd];
 
@@ -366,15 +404,15 @@ private:
     uint CountAndVerifyItems(IdentPtr *buckets, uint bucketCount, uint mask);
 #endif
 
-    static bool CharsAreEqual(__in_z LPCOLESTR psz1, __in_ecount(cch2) LPCOLESTR psz2, long cch2)
+    static bool CharsAreEqual(__in_z LPCOLESTR psz1, __in_ecount(cch2) LPCOLESTR psz2, int32 cch2)
     {
         return memcmp(psz1, psz2, cch2 * sizeof(OLECHAR)) == 0;
     }
-    static bool CharsAreEqual(__in_z LPCOLESTR psz1, LPCUTF8 psz2, long cch2)
+    static bool CharsAreEqual(__in_z LPCOLESTR psz1, LPCUTF8 psz2, int32 cch2)
     {
         return utf8::CharsAreEqual(psz1, psz2, cch2, utf8::doAllowThreeByteSurrogates);
     }
-    static bool CharsAreEqual(__in_z LPCOLESTR psz1, __in_ecount(cch2) char const * psz2, long cch2)
+    static bool CharsAreEqual(__in_z LPCOLESTR psz1, __in_ecount(cch2) char const * psz2, int32 cch2)
     {
         while (cch2-- > 0)
         {
@@ -383,16 +421,16 @@ private:
         }
         return true;
     }
-    static void CopyString(__in_ecount(cch + 1) LPOLESTR psz1, __in_ecount(cch) LPCOLESTR psz2, long cch)
+    static void CopyString(__in_ecount(cch + 1) LPOLESTR psz1, __in_ecount(cch) LPCOLESTR psz2, int32 cch)
     {
         js_memcpy_s(psz1, cch * sizeof(OLECHAR), psz2, cch * sizeof(OLECHAR));
         psz1[cch] = 0;
     }
-    static void CopyString(__in_ecount(cch + 1) LPOLESTR psz1, LPCUTF8 psz2, long cch)
+    static void CopyString(__in_ecount(cch + 1) LPOLESTR psz1, LPCUTF8 psz2, int32 cch)
     {
         utf8::DecodeIntoAndNullTerminate(psz1, psz2, cch);
     }
-    static void CopyString(__in_ecount(cch + 1) LPOLESTR psz1, __in_ecount(cch) char const * psz2, long cch)
+    static void CopyString(__in_ecount(cch + 1) LPOLESTR psz1, __in_ecount(cch) char const * psz2, int32 cch)
     {
         while (cch-- > 0)
             *(psz1++) = *psz2++;

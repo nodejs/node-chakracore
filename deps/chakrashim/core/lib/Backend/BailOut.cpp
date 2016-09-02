@@ -523,8 +523,16 @@ uint32 BailOutRecord::GetArgumentsObjectOffset()
 
 Js::Var BailOutRecord::EnsureArguments(Js::InterpreterStackFrame * newInstance, Js::JavascriptCallStackLayout * layout, Js::ScriptContext* scriptContext, Js::Var* pArgumentsObject) const
 {
-    Js::Var nullObj = scriptContext->GetLibrary()->GetNull();
-    newInstance->OP_LdHeapArguments(nullObj, scriptContext);
+    Assert(globalBailOutRecordTable->hasStackArgOpt);
+    if (PHASE_OFF1(Js::StackArgFormalsOptPhase))
+    {
+        newInstance->OP_LdHeapArguments(scriptContext);
+    }
+    else
+    {
+        newInstance->CreateEmptyHeapArgumentsObject(scriptContext);
+    }
+
     Assert(newInstance->m_arguments);
     *pArgumentsObject = (Js::ArgumentsObject*)newInstance->m_arguments;
     return newInstance->m_arguments;
@@ -1429,7 +1437,7 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
     Js::InterpreterStackFrame* newInstance = nullptr;
     Js::Var* allocation = nullptr;
 
-    if (executeFunction->IsGenerator())
+    if (executeFunction->IsCoroutine())
     {
         // If the FunctionBody is a generator then this call is being made by one of the three
         // generator resuming methods: next(), throw(), or return().  They all pass the generator
@@ -1625,7 +1633,12 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
             newInstance->SetNonVarReg(paramClosureReg, nullptr);
         }
     }
-
+    
+    if (bailOutRecord->globalBailOutRecordTable->hasStackArgOpt)
+    {
+        newInstance->TrySetFrameObjectInHeapArgObj(functionScriptContext, bailOutRecord->globalBailOutRecordTable->hasNonSimpleParams);
+    }
+    
     uint32 innerScopeCount = executeFunction->GetInnerScopeCount();
     for (uint32 i = 0; i < innerScopeCount; i++)
     {
@@ -1741,40 +1754,7 @@ void BailOutRecord::ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::S
 
     callsCount = callsCount <= Js::FunctionEntryPointInfo::GetDecrCallCountPerBailout() ? 0 : callsCount - Js::FunctionEntryPointInfo::GetDecrCallCountPerBailout() ;
 
-    if (bailOutKind == IR::BailOutOnNoProfile && executeFunction->IncrementBailOnMisingProfileCount() > CONFIG_FLAG(BailOnNoProfileLimit))
-    {
-        // A rejit here should improve code quality, so lets avoid too many unnecessary bailouts.
-        executeFunction->ResetBailOnMisingProfileCount();
-        bailOutRecordNotConst->bailOutCount = 0;
-        callsCount = 0;
-    }
-    else if (bailOutRecordNotConst->bailOutCount > CONFIG_FLAG(RejitMaxBailOutCount))
-    {
-        switch(bailOutKind)
-        {
-            case IR::BailOutOnPolymorphicInlineFunction:
-            case IR::BailOutOnFailedPolymorphicInlineTypeCheck:
-            case IR::BailOutFailedInlineTypeCheck:
-            case IR::BailOutOnInlineFunction:
-            case IR::BailOutFailedTypeCheck:
-            case IR::BailOutFailedFixedFieldTypeCheck:
-            case IR::BailOutFailedCtorGuardCheck:
-            case IR::BailOutFailedFixedFieldCheck:
-            case IR::BailOutFailedEquivalentTypeCheck:
-            case IR::BailOutFailedEquivalentFixedFieldTypeCheck:
-                {
-                    // If we consistently see RejitMaxBailOutCount bailouts for these kinds, then likely we have stale profile data and it is beneficial to rejit.
-                    // Note you need to include only bailout kinds which don't disable the entire optimizations.
-                    REJIT_KIND_TESTTRACE(bailOutKind, _u("Force rejit as RejitMaxBailoOutCount reached for a bailout record: function: %s, bailOutKindName: (%S), bailOutCount: %d, callCount: %d RejitMaxBailoutCount: %d\r\n"),
-                        function->GetFunctionBody()->GetDisplayName(), ::GetBailOutKindName(bailOutKind), bailOutRecordNotConst->bailOutCount, callsCount, CONFIG_FLAG(RejitMaxBailOutCount));
-
-                    bailOutRecordNotConst->bailOutCount = 0;
-                    callsCount = 0;
-                    break;
-                }
-            default: break;
-        }
-    }
+    CheckPreemptiveRejit(executeFunction, bailOutKind, bailOutRecordNotConst, callsCount, -1);
 
     entryPointInfo->callsCount = callsCount;
 
@@ -1877,7 +1857,6 @@ void BailOutRecord::ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::S
                 if ((executeFunction->GetSavedImplicitCallsFlags() & savedImplicitCallFlags) == Js::ImplicitCall_None)
                 {
                     profileInfo->RecordImplicitCallFlags(savedImplicitCallFlags);
-                    Assert(!profileInfo->IsLoopImplicitCallInfoDisabled());
                     profileInfo->DisableLoopImplicitCallInfo();
                     rejitReason = RejitReason::ImplicitCallFlagsChanged;
                 }
@@ -2031,6 +2010,17 @@ void BailOutRecord::ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::S
                 rejitReason = RejitReason::FailedPolymorphicInlineeTypeCheck;
                 break;
 
+            case IR::BailOnStackArgsOutOfActualsRange:
+                if (profileInfo->IsStackArgOptDisabled())
+                {
+                    reThunk = true;
+                }
+                else
+                {
+                    profileInfo->DisableStackArgOpt();
+                    rejitReason = RejitReason::DisableStackArgOpt;
+                }
+                break;
             case IR::BailOutOnPolymorphicInlineFunction:
             case IR::BailOutFailedInlineTypeCheck:
             case IR::BailOutOnInlineFunction:
@@ -2115,7 +2105,7 @@ void BailOutRecord::ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::S
                         Output::Flush();
                     }
 #endif
-                    if (state <= executeFunction->GetSavedPolymorphicCacheState() && executeFunction->GetDefaultEntryPointInfo()->address != function->GetEntryPoint())
+                    if (state <= executeFunction->GetSavedPolymorphicCacheState())
                     {
                         reThunk = true;
                     }
@@ -2130,7 +2120,7 @@ void BailOutRecord::ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::S
 
             case IR::BailOutFailedEquivalentTypeCheck:
             case IR::BailOutFailedEquivalentFixedFieldTypeCheck:
-                if (profileInfo->IsEquivalentObjTypeSpecDisabled() && executeFunction->GetDefaultEntryPointInfo()->address != function->GetEntryPoint())
+                if (profileInfo->IsEquivalentObjTypeSpecDisabled())
                 {
                     reThunk = true;
                 }
@@ -2170,6 +2160,18 @@ void BailOutRecord::ScheduleFunctionCodeGen(Js::ScriptFunction * function, Js::S
                     rejitReason = RejitReason::FloorInliningDisabled;
                 }
                 break;
+            }
+            case IR::BailOutOnPowIntIntOverflow:
+            {
+                if (profileInfo->IsPowIntIntTypeSpecDisabled())
+                {
+                    reThunk = true;
+                }
+                else
+                {
+                    profileInfo->DisablePowIntIntTypeSpec();
+                    rejitReason = RejitReason::PowIntIntTypeSpecDisabled;
+                }
             }
         }
 
@@ -2286,15 +2288,28 @@ void BailOutRecord::ScheduleLoopBodyCodeGen(Js::ScriptFunction * function, Js::S
     Assert(loopHeader != nullptr);
 
     BailOutRecord * bailOutRecordNotConst = (BailOutRecord *)(void *)bailOutRecord;
+    bailOutRecordNotConst->bailOutCount++;
+
     RejitReason rejitReason = RejitReason::None;
     Assert(bailOutKind != IR::BailOutInvalid);
 
-    if (bailOutRecordNotConst->bailOutCount < 1)
+    Js::LoopEntryPointInfo* entryPointInfo = loopHeader->GetCurrentEntryPointInfo();
+
+    entryPointInfo->totalJittedLoopIterations += entryPointInfo->jittedLoopIterationsSinceLastBailout;
+    entryPointInfo->jittedLoopIterationsSinceLastBailout = 0;
+    if (entryPointInfo->totalJittedLoopIterations > UINT8_MAX)
     {
-        // Ignore the first bailout
-        bailOutRecordNotConst->bailOutCount++;
+        entryPointInfo->totalJittedLoopIterations = UINT8_MAX;
     }
-    else if (executeFunction->HasDynamicProfileInfo())
+    uint8 totalJittedLoopIterations = (uint8)entryPointInfo->totalJittedLoopIterations;
+    totalJittedLoopIterations = totalJittedLoopIterations <= Js::LoopEntryPointInfo::GetDecrLoopCountPerBailout() ? 0 : totalJittedLoopIterations - Js::LoopEntryPointInfo::GetDecrLoopCountPerBailout();
+
+    CheckPreemptiveRejit(executeFunction, bailOutKind, bailOutRecordNotConst, totalJittedLoopIterations, interpreterFrame->GetCurrentLoopNum());
+    
+    entryPointInfo->totalJittedLoopIterations = totalJittedLoopIterations;
+    
+    if ((executeFunction->HasDynamicProfileInfo() && totalJittedLoopIterations == 0) ||
+        PHASE_FORCE(Js::ReJITPhase, executeFunction))
     {
         Js::DynamicProfileInfo * profileInfo = executeFunction->GetAnyDynamicProfileInfo();
 
@@ -2353,6 +2368,10 @@ void BailOutRecord::ScheduleLoopBodyCodeGen(Js::ScriptFunction * function, Js::S
                 profileInfo->DisableSwitchOpt();
                 executeFunction->SetDontRethunkAfterBailout();
                 rejitReason = RejitReason::DisableSwitchOptExpectingString;
+                break;
+            
+            case IR::BailOnStackArgsOutOfActualsRange:
+                AssertMsg(false, "How did we reach here ? Stack args opt is currently disabled in loop body gen.");
                 break;
 
             case IR::BailOnModByPowerOf2:
@@ -2499,12 +2518,23 @@ void BailOutRecord::ScheduleLoopBodyCodeGen(Js::ScriptFunction * function, Js::S
             case IR::BailOutOnTaggedValue:
                 rejitReason = RejitReason::FailedTagCheck;
                 break;
+
+            case IR::BailOutOnPowIntIntOverflow:
+                profileInfo->DisablePowIntIntTypeSpec();
+                executeFunction->SetDontRethunkAfterBailout();
+                rejitReason = RejitReason::PowIntIntTypeSpecDisabled;
+                break;
         }
 
         if(PHASE_FORCE(Js::ReJITPhase, executeFunction) && rejitReason == RejitReason::None)
         {
             rejitReason = RejitReason::Forced;
         }
+    }
+
+    if (PHASE_FORCE(Js::ReJITPhase, executeFunction) && rejitReason == RejitReason::None)
+    {
+        rejitReason = RejitReason::Forced;
     }
 
     REJIT_KIND_TESTTRACE(bailOutKind, _u("Bailout from loop: function: %s, loopNumber: %d, bailOutKindName: (%S), reJitReason: %S\r\n"),
@@ -2550,6 +2580,51 @@ void BailOutRecord::ScheduleLoopBodyCodeGen(Js::ScriptFunction * function, Js::S
             Output::Flush();
         }
 #endif
+    }
+}
+
+void BailOutRecord::CheckPreemptiveRejit(Js::FunctionBody* executeFunction, IR::BailOutKind bailOutKind, BailOutRecord* bailoutRecord, uint8& callsOrIterationsCount, int loopNumber)
+{
+    if (bailOutKind == IR::BailOutOnNoProfile && executeFunction->IncrementBailOnMisingProfileCount() > CONFIG_FLAG(BailOnNoProfileLimit))
+    {
+        // A rejit here should improve code quality, so lets avoid too many unnecessary bailouts.
+        executeFunction->ResetBailOnMisingProfileCount();
+        bailoutRecord->bailOutCount = 0;
+        callsOrIterationsCount = 0;
+    }
+    else if (bailoutRecord->bailOutCount > CONFIG_FLAG(RejitMaxBailOutCount))
+    {
+        switch (bailOutKind)
+        {
+        case IR::BailOutOnPolymorphicInlineFunction:
+        case IR::BailOutOnFailedPolymorphicInlineTypeCheck:
+        case IR::BailOutFailedInlineTypeCheck:
+        case IR::BailOutOnInlineFunction:
+        case IR::BailOutFailedTypeCheck:
+        case IR::BailOutFailedFixedFieldTypeCheck:
+        case IR::BailOutFailedCtorGuardCheck:
+        case IR::BailOutFailedFixedFieldCheck:
+        case IR::BailOutFailedEquivalentTypeCheck:
+        case IR::BailOutFailedEquivalentFixedFieldTypeCheck:
+        {
+            // If we consistently see RejitMaxBailOutCount bailouts for these kinds, then likely we have stale profile data and it is beneficial to rejit.
+            // Note you need to include only bailout kinds which don't disable the entire optimizations.
+            if (loopNumber == -1)
+            {
+                REJIT_KIND_TESTTRACE(bailOutKind, _u("Force rejit as RejitMaxBailoOutCount reached for a bailout record: function: %s, bailOutKindName: (%S), bailOutCount: %d, callCount: %d RejitMaxBailoutCount: %d\r\n"),
+                    executeFunction->GetDisplayName(), ::GetBailOutKindName(bailOutKind), bailoutRecord->bailOutCount, callsOrIterationsCount, CONFIG_FLAG(RejitMaxBailOutCount));
+            }
+            else
+            {
+                REJIT_KIND_TESTTRACE(bailOutKind, _u("Force rejit as RejitMaxBailoOutCount reached for a bailout record: function: %s, loopNumber: %d, bailOutKindName: (%S), bailOutCount: %d, callCount: %d RejitMaxBailoutCount: %d\r\n"),
+                    executeFunction->GetDisplayName(), loopNumber, ::GetBailOutKindName(bailOutKind), bailoutRecord->bailOutCount, callsOrIterationsCount, CONFIG_FLAG(RejitMaxBailOutCount));
+            }
+            bailoutRecord->bailOutCount = 0;
+            callsOrIterationsCount = 0;
+            break;
+        }
+        default: break;
+        }
     }
 }
 

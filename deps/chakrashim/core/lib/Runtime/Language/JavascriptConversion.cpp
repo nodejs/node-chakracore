@@ -9,9 +9,6 @@
 #include "Library/DateImplementation.h"
 #include "Library/JavascriptDate.h"
 
-extern "C" PVOID _ReturnAddress(VOID);
-#pragma intrinsic(_ReturnAddress)
-
 namespace Js
 {
     static const double k_2to16 = 65536.0;
@@ -279,11 +276,13 @@ CommonNumber:
 
             default:
             {
-                if (IsSimdType(aValue))
+#ifdef ENABLE_SIMDJS
+                if (SIMDUtils::IsSimdType(aValue))
                 {
                     *object = scriptContext->GetLibrary()->CreateSIMDObject(aValue, JavascriptOperators::GetTypeId(aValue));
                 }
                 else
+#endif
                 {
                     *object = RecyclableObject::FromVar(aValue)->ToObject(scriptContext);
                 }
@@ -296,7 +295,7 @@ CommonNumber:
     // ToPropertyKey() takes a value and converts it to a property key
     // Implementation of ES6 7.1.14
     //----------------------------------------------------------------------------
-    BOOL JavascriptConversion::ToPropertyKey(Var argument, ScriptContext* scriptContext, const PropertyRecord** propertyRecord)
+    void JavascriptConversion::ToPropertyKey(Var argument, ScriptContext* scriptContext, const PropertyRecord** propertyRecord)
     {
         Var key = JavascriptConversion::ToPrimitive(argument, JavascriptHint::HintString, scriptContext);
 
@@ -320,8 +319,6 @@ CommonNumber:
                 scriptContext->GetOrAddPropertyRecord(propName->GetString(), propName->GetLength(), propertyRecord);
             }
         }
-
-        return TRUE;
     }
 
     //----------------------------------------------------------------------------
@@ -428,11 +425,13 @@ CommonNumber:
             return JavascriptUInt64Number::FromVar(aValue)->ToJavascriptNumber();
 
         default:
-            if (IsSimdType(aValue))
+#ifdef ENABLE_SIMDJS
+            if (SIMDUtils::IsSimdType(aValue))
             {
                 return aValue;
             }
             else
+#endif
             {
                 // if no Method exists this function falls back to OrdinaryToPrimitive
                 // if IsES6ToPrimitiveEnabled flag is off we also fall back to OrdinaryToPrimitive
@@ -523,10 +522,8 @@ CommonNumber:
                 Assert(!ThreadContext::IsOnStack(recyclableObject));
 
                 // Let result be the result of calling the[[Call]] internal method of exoticToPrim, with input as thisArgument and(hint) as argumentsList.
-                return  exoticToPrim->GetEntryPoint()(exoticToPrim, CallInfo(CallFlags_Value, 2), recyclableObject, hintString);
+                return CALL_FUNCTION(exoticToPrim, CallInfo(CallFlags_Value, 2), recyclableObject, hintString);
             });
-
-            Assert(!CrossSite::NeedMarshalVar(result, requestContext));
 
             if (!result)
             {
@@ -534,9 +531,11 @@ CommonNumber:
                 Assert(threadContext->IsDisableImplicitCall());
                 return requestContext->GetLibrary()->GetNull();
             }
+
+            Assert(!CrossSite::NeedMarshalVar(result, requestContext));
         }
         // If result is an ECMAScript language value and Type(result) is not Object, then return result.
-        if (TaggedInt::Is(result) || JavascriptOperators::IsExposedType(JavascriptOperators::GetTypeId(result)))
+        if (TaggedInt::Is(result) || !JavascriptOperators::IsObjectType(JavascriptOperators::GetTypeId(result)))
         {
             return result;
         }
@@ -557,7 +556,7 @@ CommonNumber:
         {
             ScriptContext *const scriptContext = recyclableObject->GetScriptContext();
 
-            long hCode;
+            int32 hCode;
 
             switch (hint)
             {
@@ -668,6 +667,7 @@ CommonNumber:
             case TypeIds_SymbolObject:
                 return JavascriptSymbol::ToString(JavascriptSymbolObject::FromVar(aValue)->GetValue(), scriptContext);
 
+#ifdef ENABLE_SIMDJS
             case TypeIds_SIMDBool8x16:
             case TypeIds_SIMDBool16x8:
             case TypeIds_SIMDBool32x4:
@@ -688,6 +688,7 @@ CommonNumber:
                 JavascriptSIMDObject* simdObject = static_cast<JavascriptSIMDObject*>(obj);
                 return JavascriptString::FromVar(simdObject->ToString(scriptContext));
             }
+#endif
 
             case TypeIds_GlobalObject:
                 aValue = static_cast<Js::GlobalObject*>(aValue)->ToThis();
@@ -751,7 +752,7 @@ CommonNumber:
                 if (JavascriptConversion::IsCallable(value))
                 {
                     RecyclableObject* toLocaleStringFunction = RecyclableObject::FromVar(value);
-                    Var aResult = toLocaleStringFunction->GetEntryPoint()(toLocaleStringFunction, 1, aValue);
+                    Var aResult = CALL_FUNCTION(toLocaleStringFunction, CallInfo(1), aValue);
                     if (JavascriptString::Is(aResult))
                     {
                         return JavascriptString::FromVar(aResult);
@@ -829,6 +830,7 @@ CommonNumber:
                 return pstValue->GetLength() > 0;
             }
 
+#ifdef ENABLE_SIMDJS
         case TypeIds_SIMDFloat32x4:
         case TypeIds_SIMDFloat64x2:
         case TypeIds_SIMDInt32x4:
@@ -843,6 +845,7 @@ CommonNumber:
         {
             return true;
         }
+#endif
 
         default:
             {
@@ -939,6 +942,7 @@ CommonNumber:
             case TypeIds_VariantDate:
                 return Js::DateImplementation::GetTvUtc(Js::DateImplementation::JsLocalTimeFromVarDate(JavascriptVariantDate::FromVar(aValue)->GetValue()), scriptContext);
 
+#ifdef ENABLE_SIMDJS
             case TypeIds_SIMDFloat32x4:
             case TypeIds_SIMDInt32x4:
             case TypeIds_SIMDInt16x8:
@@ -951,6 +955,7 @@ CommonNumber:
             case TypeIds_SIMDUint16x8:
             case TypeIds_SIMDUint8x16:
                 JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
+#endif
 
             default:
                 {
@@ -1006,6 +1011,7 @@ CommonNumber:
             case TypeIds_VariantDate:
                 return ToInteger(ToNumber_Full(aValue, scriptContext));
 
+#ifdef ENABLE_SIMDJS
             case TypeIds_SIMDFloat32x4:
             case TypeIds_SIMDFloat64x2:
             case TypeIds_SIMDInt32x4:
@@ -1018,6 +1024,7 @@ CommonNumber:
             case TypeIds_SIMDUint16x8:
             case TypeIds_SIMDUint8x16:
                 JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
+#endif
 
             default:
                 {
@@ -1106,6 +1113,7 @@ CommonNumber:
         case TypeIds_VariantDate:
             return ToInt32(ToNumber_Full(aValue, scriptContext));
 
+#ifdef ENABLE_SIMDJS
         case TypeIds_SIMDFloat32x4:
         case TypeIds_SIMDFloat64x2:
         case TypeIds_SIMDInt32x4:
@@ -1118,6 +1126,7 @@ CommonNumber:
         case TypeIds_SIMDUint16x8:
         case TypeIds_SIMDUint8x16:
             JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
+#endif
 
         default:
             AssertMsg(JavascriptOperators::IsObject(aValue), "bad type object in conversion ToInteger32");
@@ -1219,6 +1228,7 @@ CommonNumber:
             case TypeIds_VariantDate:
                 return ToInt32Finite(ToNumber_Full(aValue, scriptContext), result);
 
+#ifdef ENABLE_SIMDJS
             case TypeIds_SIMDFloat32x4:
             case TypeIds_SIMDFloat64x2:
             case TypeIds_SIMDInt32x4:
@@ -1231,6 +1241,7 @@ CommonNumber:
             case TypeIds_SIMDUint16x8:
             case TypeIds_SIMDUint8x16:
                 JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
+#endif
 
             default:
                 {
@@ -1368,6 +1379,7 @@ CommonNumber:
             case TypeIds_VariantDate:
                 return JavascriptMath::ToUInt32(ToNumber_Full(aValue, scriptContext));
 
+#ifdef ENABLE_SIMDJS
             case TypeIds_SIMDFloat32x4:
             case TypeIds_SIMDFloat64x2:
             case TypeIds_SIMDInt32x4:
@@ -1380,6 +1392,7 @@ CommonNumber:
             case TypeIds_SIMDUint16x8:
             case TypeIds_SIMDUint8x16:
                 JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
+#endif
 
             default:
                 {
@@ -1455,6 +1468,7 @@ CommonNumber:
             case TypeIds_VariantDate:
                 return ToUInt16(ToNumber_Full(aValue, scriptContext));
 
+#ifdef ENABLE_SIMDJS
             case TypeIds_SIMDFloat32x4:
             case TypeIds_SIMDFloat64x2:
             case TypeIds_SIMDInt32x4:
@@ -1467,6 +1481,7 @@ CommonNumber:
             case TypeIds_SIMDUint16x8:
             case TypeIds_SIMDUint8x16:
                 JavascriptError::ThrowError(scriptContext, JSERR_NeedNumber);
+#endif
 
             default:
                 {
@@ -1483,7 +1498,7 @@ CommonNumber:
         }
     }
 
-    __inline uint16 JavascriptConversion::ToUInt16(double T1)
+    inline uint16 JavascriptConversion::ToUInt16(double T1)
     {
         //
         // VC does the right thing here, if we first convert to uint32 and then to uint16

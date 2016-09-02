@@ -23,6 +23,10 @@ namespace Js
         {
             Assert(type->GetTypeHandler()->GetInlineSlotCapacity() == type->GetTypeHandler()->GetSlotCapacity());
         }
+
+#if ENABLE_OBJECT_SOURCE_TRACKING
+        TTD::InitializeDiagnosticOriginInformation(this->TTDDiagOriginInfo);
+#endif
     }
 
     DynamicObject::DynamicObject(DynamicType * type, ScriptContext * scriptContext) :
@@ -36,6 +40,10 @@ namespace Js
     {
         Assert(!UsesObjectArrayOrFlagsAsFlags());
         InitSlots(this, scriptContext);
+
+#if ENABLE_OBJECT_SOURCE_TRACKING
+        TTD::InitializeDiagnosticOriginInformation(this->TTDDiagOriginInfo);
+#endif
     }
 
     DynamicObject::DynamicObject(DynamicObject * instance) :
@@ -80,6 +88,10 @@ namespace Js
 #endif
             }
         }
+
+#if ENABLE_OBJECT_SOURCE_TRACKING
+        TTD::InitializeDiagnosticOriginInformation(this->TTDDiagOriginInfo);
+#endif
     }
 
     DynamicObject * DynamicObject::New(Recycler * recycler, DynamicType * type)
@@ -361,97 +373,45 @@ namespace Js
         return this->GetTypeHandler()->GetFlags() & DynamicTypeHandler::IsExtensibleFlag;
     }
 
-    Var
-    DynamicObject::GetNextProperty(PropertyIndex& index, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols)
-    {
-        JavascriptString* propertyString= nullptr;
-        PropertyId propertyId = Constants::NoProperty;
-
-        if (!this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, &propertyString, &propertyId, nullptr, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols))
-        {
-            return nullptr;
-        }
-
-        Assert(propertyString);
-        Assert(propertyId);
-        if (VirtualTableInfo<PropertyString>::HasVirtualTable(propertyString))
-        {
-            PropertyCache const* cache = ((PropertyString*)propertyString)->GetPropertyCache();
-            if (cache && cache->type == this->GetType())
-            {
-                if (cache->isInlineSlot)
-                {
-                    return this->GetInlineSlot(cache->dataSlotIndex);
-                }
-                else
-                {
-                    return this->GetAuxSlot(cache->dataSlotIndex);
-                }
-            }
-        }
-
-        Var value = nullptr;
-        BOOL result;
-        if (propertyId != Constants::NoProperty)
-        {
-            result = this->GetProperty(this, propertyId, &value, NULL, this->GetScriptContext());
-        }
-        else
-        {
-            result = this->GetProperty(this, propertyString, &value, NULL, this->GetScriptContext());
-        }
-        Assert(result);
-
-        return value;
-    }
-
-    Var
-    DynamicObject::GetNextProperty(BigPropertyIndex& index, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols)
-    {
-        JavascriptString* propertyString = nullptr;
-        PropertyId propertyId = Constants::NoProperty;
-
-        if (!this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, &propertyString, &propertyId, nullptr, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols))
-        {
-            return nullptr;
-        }
-
-        Assert(propertyString);
-        Assert(propertyId);
-
-        Var value = nullptr;
-        BOOL result;
-        if (propertyId != Constants::NoProperty)
-        {
-            result = this->GetProperty(this, propertyId, &value, NULL, this->GetScriptContext());
-        }
-        else
-        {
-            result = this->GetProperty(this, propertyString, &value, NULL, this->GetScriptContext());
-        }
-        Assert(result);
-
-        return value;
-    }
-
-    BOOL
-    DynamicObject::FindNextProperty(PropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols) const
-    {
-        if (index == Constants::NoSlot)
-        {
-            return FALSE;
-        }
-        return this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols);
-    }
-
     BOOL
     DynamicObject::FindNextProperty(BigPropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols) const
     {
-        if (index == Constants::NoBigSlot)
+        if(index == Constants::NoBigSlot)
         {
             return FALSE;
         }
+
+#if ENABLE_TTD
+        if(this->GetScriptContext()->ShouldPerformDebugAction())
+        {
+            BOOL res = FALSE;
+            int32 pIndex = -1;
+            PropertyAttributes tmpAttributes = PropertyNone;
+            this->GetScriptContext()->GetThreadContext()->TTDLog->ReplayPropertyEnumEvent(&res, &pIndex, this, propertyId, &tmpAttributes, propertyString);
+            index = (Js::BigPropertyIndex)pIndex;
+
+            if(attributes != nullptr)
+            {
+                *attributes = tmpAttributes;
+            }
+
+            return res;
+        }
+        else if(this->GetScriptContext()->ShouldPerformRecordAction())
+        {
+            BOOL res = this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols);
+
+            PropertyAttributes tmpAttributes = (attributes != nullptr) ? *attributes : PropertyNone;
+            this->GetScriptContext()->GetThreadContext()->TTDLog->RecordPropertyEnumEvent(res, *propertyId, tmpAttributes, *propertyString);
+            return res;
+        }
+        else
+        {
+            return this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols);
+        }
+#else
         return this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols);
+#endif
     }
 
     BOOL
@@ -865,6 +825,43 @@ namespace Js
 
         RecyclableObject::Mark(recycler);
     }
+#endif
+
+#if ENABLE_TTD
+
+    TTD::NSSnapObjects::SnapObjectType DynamicObject::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::SnapDynamicObject;
+    }
+
+    void DynamicObject::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<void*, TTD::NSSnapObjects::SnapObjectType::SnapDynamicObject>(objData, nullptr);
+    }
+
+    Js::Var* DynamicObject::GetInlineSlots_TTD() const
+    {
+        return reinterpret_cast<Var*>(reinterpret_cast<size_t>(this) + this->GetTypeHandler()->GetOffsetOfInlineSlots());
+    }
+
+    Js::Var* DynamicObject::GetAuxSlots_TTD() const
+    {
+        return this->auxSlots;
+    }
+
+#if ENABLE_OBJECT_SOURCE_TRACKING
+    void DynamicObject::SetDiagOriginInfoAsNeeded()
+    {
+        if(!TTD::IsDiagnosticOriginInformationValid(this->TTDDiagOriginInfo))
+        {
+            if(this->GetScriptContext()->ShouldPerformRecordAction() | this->GetScriptContext()->ShouldPerformDebugAction())
+            {
+                this->GetScriptContext()->GetThreadContext()->TTDLog->GetTimeAndPositionForDiagnosticObjectTracking(this->TTDDiagOriginInfo);
+            }
+        }
+    }
+#endif
+
 #endif
 
 } // namespace Js

@@ -44,6 +44,8 @@ namespace Js
         static RecyclableObject * GetThisObject(Arguments& args, PCWSTR varName, ScriptContext* scriptContext);
         static JavascriptString * GetFirstStringArg(Arguments& args, ScriptContext* scriptContext);
 
+        static bool ShouldApplyPrototypeWebWorkaround(Arguments& args, ScriptContext* scriptContext);
+
         bool GetPropertyBuiltIns(PropertyId propertyId, Var* value, BOOL* result);
         bool SetPropertyBuiltIns(PropertyId propertyId, Var value, PropertyOperationFlags flags, BOOL* result);
         bool GetSetterBuiltIns(PropertyId propertyId, PropertyValueInfo* info, DescriptorFlags* result);
@@ -51,8 +53,15 @@ namespace Js
 
         Var GetOptions();
 
-        inline void SetPattern(UnifiedRegex::RegexPattern* pattern);
-        inline void SetSplitPattern(UnifiedRegex::RegexPattern* splitPattern);
+        void SetPattern(UnifiedRegex::RegexPattern* pattern)
+        {
+            this->pattern = pattern;
+        }
+
+        void SetSplitPattern(UnifiedRegex::RegexPattern* splitPattern)
+        {
+            this->splitPattern = splitPattern;
+        }
 
         static CharCount GetLastIndexProperty(RecyclableObject* instance, ScriptContext* scriptContext);
         static void SetLastIndexProperty(Var instance, CharCount lastIndex, ScriptContext* scriptContext);
@@ -192,6 +201,14 @@ namespace Js
         virtual PropertyId const * GetSpecialPropertyIds() const override;
 
         static Js::JavascriptRegExp * BoxStackInstance(Js::JavascriptRegExp * instance);
+
+#if ENABLE_TTD
+    public:
+        virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
+        virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
+
+        void SetLastIndexInfo_TTD(CharCount lastIndex, Js::Var lastVar);
+#endif
     };
 
 } // namespace Js
