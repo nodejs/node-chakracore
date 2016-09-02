@@ -582,9 +582,10 @@ assert.equal(util.inspect(promise), common.engineSpecificMessage({
 // a bonafide native Promise.
 var oldPromise = Promise;
 global.Promise = function() { this.bar = 42; };
+
 assert.equal(util.inspect(new Promise()), common.engineSpecificMessage({
   v8: '{ bar: 42 }',
-  chakracore: 'Promise { \'<unknown>\', bar: 42 }'
+  chakracore: 'Object { \'<unknown>\', bar: 42 }'
 }));
 global.Promise = oldPromise;
 
