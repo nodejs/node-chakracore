@@ -100,7 +100,7 @@ changed and why. Follow these guidelines when writing one:
 
 A good commit log can look something like this:
 
-```
+```txt
 subsystem: explaining the commit in one line
 
 Body of commit message is a few lines of text, explaining things
@@ -122,7 +122,7 @@ what subsystem (or subsystems) your changes touch.
 If your patch fixes an open issue, you can add a reference to it at the end
 of the log. Use the `Fixes:` prefix and the full issue URL. For example:
 
-```
+```txt
 Fixes: https://github.com/nodejs/node/issues/1337
 ```
 
@@ -135,7 +135,6 @@ $ git fetch upstream
 $ git rebase upstream/master
 ```
 
-
 ### Step 5: Test
 
 Bug fixes and features **should come with tests**. Add your tests in the
@@ -143,15 +142,28 @@ Bug fixes and features **should come with tests**. Add your tests in the
 project, see this [guide](./doc/guides/writing_tests.md). Looking at other tests
 to see how they should be structured can also help.
 
+To run the tests on Unix / OS X:
+
 ```text
 $ ./configure && make -j8 test
 ```
 
+Windows:
+
+```text
+> vcbuild test
+```
+
+(See the [BUILDING.md](./BUILDING.md) for more details.)
+
 Make sure the linter is happy and that all tests pass. Please, do not submit
 patches that fail either check.
 
-Running `make test` will run the linter as well unless one or more tests fail.
-If you want to run the linter without running tests, use `make lint`.
+Running `make test`/`vcbuild test` will run the linter as well unless one or
+more tests fail.
+
+If you want to run the linter without running tests, use
+`make lint`/`vcbuild jslint`.
 
 If you are updating tests and just want to run a single test to check it, you
 can use this syntax to run it exactly as the test harness would:

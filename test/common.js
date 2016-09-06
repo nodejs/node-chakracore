@@ -9,10 +9,10 @@ const stream = require('stream');
 const util = require('util');
 const Timer = process.binding('timer_wrap').Timer;
 
-const testRoot = path.resolve(process.env.NODE_TEST_DIR ||
-                              path.dirname(__filename));
+const testRoot = process.env.NODE_TEST_DIR ?
+                   path.resolve(process.env.NODE_TEST_DIR) : __dirname;
 
-exports.testDir = path.dirname(__filename);
+exports.testDir = __dirname;
 exports.fixturesDir = path.join(exports.testDir, 'fixtures');
 exports.libDir = path.join(exports.testDir, '../lib');
 exports.tmpDirName = 'tmp';
@@ -20,7 +20,7 @@ exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
 exports.isWindows = process.platform === 'win32';
 exports.isChakraEngine = process.jsEngine === 'chakracore';
 exports.isWOW64 = exports.isWindows &&
-                  (process.env['PROCESSOR_ARCHITEW6432'] !== undefined);
+                  (process.env.PROCESSOR_ARCHITEW6432 !== undefined);
 exports.isAix = process.platform === 'aix';
 exports.isLinuxPPCBE = (process.platform === 'linux') &&
                        (process.arch === 'ppc64') &&
@@ -345,6 +345,11 @@ if (global.Proxy) {
 if (global.Symbol) {
   knownGlobals.push(Symbol);
 }
+
+function allowGlobals(...whitelist) {
+  knownGlobals = knownGlobals.concat(whitelist);
+}
+exports.allowGlobals = allowGlobals;
 
 function leakedGlobals() {
   var leaked = [];

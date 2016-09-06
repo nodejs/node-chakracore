@@ -1,6 +1,6 @@
 # REPL
 
-    Stability: 2 - Stable
+> Stability: 2 - Stable
 
 The `repl` module provides a Read-Eval-Print-Loop (REPL) implementation that
 is available both as a standalone program or includable in other applications.
@@ -38,6 +38,21 @@ The following special commands are supported by all REPL instances:
   `> .save ./file/to/save.js`
 * `.load` - Load a file into the current REPL session.
   `> .load ./file/to/load.js`
+* `.editor` - Enter editor mode (`<ctrl>-D` to finish, `<ctrl>-C` to cancel)
+
+```js
+> .editor
+// Entering editor mode (^D to finish, ^C to cancel)
+function welcome(name) {
+  return `Hello ${name}!`;
+}
+
+welcome('Node.js User');
+
+// ^D
+'Hello Node.js User!'
+>
+```
 
 The following key combinations in the REPL have these special effects:
 
@@ -392,9 +407,9 @@ added: v0.1.91
       equivalent to prefacing every repl statement with `'use strict'`.
     * `repl.REPL_MODE_MAGIC` - attempt to evaluates expressions in default
       mode.  If expressions fail to parse, re-try in strict mode.
-    * `breakEvalOnSigint` - Stop evaluating the current piece of code when
-      `SIGINT` is received, i.e. `Ctrl+C` is pressed. This cannot be used together
-      with a custom `eval` function. Defaults to `false`.
+  * `breakEvalOnSigint` - Stop evaluating the current piece of code when
+    `SIGINT` is received, i.e. `Ctrl+C` is pressed. This cannot be used together
+    with a custom `eval` function. Defaults to `false`.
 
 The `repl.start()` method creates and starts a `repl.REPLServer` instance.
 
@@ -444,7 +459,7 @@ added: v2.0.0
 deprecated: v3.0.0
 -->
 
-   Stability: 0 - Deprecated: Use `NODE_REPL_HISTORY` instead.
+> Stability: 0 - Deprecated: Use `NODE_REPL_HISTORY` instead.
 
 Previously in Node.js/io.js v2.x, REPL history was controlled by using a
 `NODE_REPL_HISTORY_FILE` environment variable, and the history was saved in JSON

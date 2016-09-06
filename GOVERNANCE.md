@@ -56,6 +56,20 @@ For the current list of Collaborators, see the project
 A guide for Collaborators is maintained in
 [COLLABORATOR_GUIDE.md](./COLLABORATOR_GUIDE.md).
 
+### Collaborator Activities
+
+Typical activities of a Collaborator include:
+
+* helping users and novice contributors
+* contributing code and documentation changes that improve the project
+* reviewing and commenting on issues and pull requests
+* participation in working groups
+* merging pull requests
+
+While the above are typical things done by Collaborators, there are no required
+activities to retain Collaborator status. There is currently no process by which
+inactive Collaborators are removed from the project.
+
 ## CTC Membership
 
 CTC seats are not time-limited. There is no fixed size of the CTC. The CTC
@@ -67,11 +81,15 @@ membership beyond these rules.
 
 The CTC may add additional members to the CTC by a standard CTC motion.
 
-A CTC member may be removed from the CTC by voluntary resignation, or by
-a standard CTC motion.
+When a CTC member's participation in [CTC activities](#ctc-activities) has become
+minimal for a sustained period of time, the CTC will request that the member
+either indicate an intention to increase participation or voluntarily resign.
+
+CTC members may only be removed by voluntary resignation or through a standard
+CTC motion.
 
 Changes to CTC membership should be posted in the agenda, and may be
-suggested as any other agenda item (see "CTC Meetings" below).
+suggested as any other agenda item (see [CTC Meetings](#ctc-meetings) below).
 
 No more than 1/3 of the CTC members may be affiliated with the same
 employer.  If removal or resignation of a CTC member, or a change of
@@ -80,7 +98,21 @@ the CTC membership shares an employer, then the situation must be
 immediately remedied by the resignation or removal of one or more CTC
 members affiliated with the over-represented employer(s).
 
-## CTC Meetings
+### CTC Activities
+
+Typical activities of a CTC member include:
+
+* attending the weekly meeting
+* commenting on the weekly CTC meeting issue and issues labeled `ctc-agenda`
+* participating in CTC email threads
+* volunteering for tasks that arise from CTC meetings and related discussions
+* other activities (beyond those typical of Collaborators) that facilitate the
+  smooth day-to-day operation of the Node.js project
+
+Note that CTC members are also Collaborators and therefore typically perform
+Collaborator activities as well.
+
+### CTC Meetings
 
 The CTC meets weekly in a voice conference call. The meeting is run by a
 designated moderator approved by the CTC. Each meeting is streamed on YouTube.
@@ -119,6 +151,8 @@ When an agenda item has appeared to reach a consensus, the moderator will ask
 "Does anyone object?" as a final call for dissent from the consensus.
 
 If an agenda item cannot reach a consensus, a CTC member can call for either a
-closing vote or a vote to table the issue to the next meeting. The call for a
-vote must be approved by a simple majority of the CTC or else the discussion
-will continue.
+closing vote or a vote to table the issue to the next meeting. All votes
+(including votes to close or table) pass if and only if more than 50% of the CTC
+members (excluding individuals who explicitly abstain) vote in favor. For
+example, if there are 20 CTC members, and 5 of those members indicate that they
+abstain, then 8 votes in favor are required for a resolution to pass.

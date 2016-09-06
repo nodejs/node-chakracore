@@ -5,6 +5,7 @@
 
 #include "v8.h"
 #include "uv.h"
+#include "node_mutex.h"
 #include <vector>
 
 #ifdef __POSIX__
@@ -62,6 +63,7 @@ class SigintWatchdogHelper {
   static SigintWatchdogHelper* GetInstance() { return &instance; }
   void Register(SigintWatchdog* watchdog);
   void Unregister(SigintWatchdog* watchdog);
+  bool HasPendingSignal();
 
   int Start();
   bool Stop();
@@ -75,8 +77,8 @@ class SigintWatchdogHelper {
 
   int start_stop_count_;
 
-  uv_mutex_t mutex_;
-  uv_mutex_t list_mutex_;
+  Mutex mutex_;
+  Mutex list_mutex_;
   std::vector<SigintWatchdog*> watchdogs_;
   bool has_pending_signal_;
 

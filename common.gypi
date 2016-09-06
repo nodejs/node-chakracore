@@ -14,6 +14,7 @@
     'msvs_windows_target_platform_version': 'v10.0', # used for node_engine==chakracore
 
     'node_shared%': 'false',
+    'force_dynamic_crt%': 0,
     'node_use_v8_platform%': 'true',
     'node_use_bundled_v8%': 'true',
     'node_module_version%': '',
@@ -119,11 +120,24 @@
           ['OS == "android"', {
             'cflags': [ '-fPIE' ],
             'ldflags': [ '-fPIE', '-pie' ]
+          }],
+          ['node_shared=="true"', {
+            'msvs_settings': {
+             'VCCLCompilerTool': {
+               'RuntimeLibrary': 3, # MultiThreadedDebugDLL (/MDd)
+             }
+            }
+          }],
+          ['node_shared=="false"', {
+            'msvs_settings': {
+              'VCCLCompilerTool': {
+                'RuntimeLibrary': 1 # MultiThreadedDebug (/MTd)
+              }
+            }
           }]
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
-            'RuntimeLibrary': 1, # static debug
             'Optimization': 0, # /Od, no optimization
             'MinimalRebuild': 'false',
             'OmitFramePointers': 'false',
@@ -159,11 +173,24 @@
           ['OS == "android"', {
             'cflags': [ '-fPIE' ],
             'ldflags': [ '-fPIE', '-pie' ]
+          }],
+          ['node_shared=="true"', {
+            'msvs_settings': {
+             'VCCLCompilerTool': {
+               'RuntimeLibrary': 2 # MultiThreadedDLL (/MD)
+             }
+            }
+          }],
+          ['node_shared=="false"', {
+            'msvs_settings': {
+              'VCCLCompilerTool': {
+                'RuntimeLibrary': 0 # MultiThreaded (/MT)
+              }
+            }
           }]
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
-            'RuntimeLibrary': 0, # static release
             'Optimization': 3, # /Ox, full optimization
             'FavorSizeOrSpeed': 1, # /Ot, favour speed over size
             'InlineFunctionExpansion': 2, # /Ob2, inline anything eligible
@@ -288,8 +315,9 @@
         'cflags_cc': [ '-fno-rtti', '-fno-exceptions', '-std=gnu++0x' ],
         'ldflags': [ '-rdynamic' ],
         'target_conditions': [
-          ['_type=="static_library"', {
-            'standalone_static_library': 1, # disable thin archive which needs binutils >= 2.19
+          # The 1990s toolchain on SmartOS can't handle thin archives.
+          ['_type=="static_library" and OS=="solaris"', {
+            'standalone_static_library': 1,
           }],
         ],
         'conditions': [
@@ -345,9 +373,13 @@
           }],
         ],
       }],
-      [ 'OS=="android"', {
-        'defines': ['_GLIBCXX_USE_C99_MATH'],
-        'libraries': [ '-llog' ],
+      ['OS=="android"', {
+        'target_conditions': [
+          ['_toolset=="target"', {
+            'defines': [ '_GLIBCXX_USE_C99_MATH' ],
+            'libraries': [ '-llog' ],
+          }],
+        ],
       }],
       ['OS=="mac"', {
         'defines': ['_DARWIN_USE_64_BIT_INODE=1'],

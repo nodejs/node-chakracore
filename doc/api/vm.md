@@ -1,6 +1,6 @@
 # Executing JavaScript
 
-    Stability: 2 - Stable
+> Stability: 2 - Stable
 
 <!--name=vm-->
 
@@ -321,7 +321,7 @@ added: v0.3.1
     before terminating execution. If execution is terminated, an [`Error`][]
     will be thrown.
 
-The `vm.runInContext()` first contextifies the given `sandbox` object (or
+The `vm.runInNewContext()` first contextifies the given `sandbox` object (or
 creates a new `sandbox` if passed as `undefined`), compiles the `code`, runs it
 within the context of the created context, then returns the result. Running code
 does not have access to the local scope.
@@ -376,12 +376,12 @@ const vm = require('vm');
 var localVar = 'initial value';
 
 const vmResult = vm.runInThisContext('localVar = "vm";');
-console.log('vmResult: ', vmResult);
-console.log('localVar: ', localVar);
+console.log('vmResult:', vmResult);
+console.log('localVar:', localVar);
 
 const evalResult = eval('localVar = "eval";');
-console.log('evalResult: ', evalResult);
-console.log('localVar: ', localVar);
+console.log('evalResult:', evalResult);
+console.log('localVar:', localVar);
 
 // vmResult: 'vm', localVar: 'initial value'
 // evalResult: 'eval', localVar: 'eval'

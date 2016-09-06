@@ -1,6 +1,6 @@
 # util
 
-    Stability: 2 - Stable
+> Stability: 2 - Stable
 
 The `util` module is primarily designed to support the needs of Node.js' own
 internal APIs. However, many of the utilities are useful for application and
@@ -46,7 +46,7 @@ environment variable. For example: `NODE_DEBUG=fs,net,tls`.
 
 ## util.deprecate(function, string)
 
-The `util.deprecate()` method wraps the given `function` in such a way that
+The `util.deprecate()` method wraps the given `function` or class in such a way that
 it is marked as deprecated.
 
 ```js
@@ -271,6 +271,23 @@ util.inspect(obj);
   // "{ bar: 'baz' }"
 ```
 
+### util.inspect.defaultOptions
+
+The `defaultOptions` value allows customization of the default options used by
+`util.inspect`. This is useful for functions like `console.log` or
+`util.format` which implicitly call into `util.inspect`. It shall be set to an
+object containing one or more valid [`util.inspect()`][] options. Setting
+option properties directly is also supported.
+
+```js
+const util = require('util');
+const arr = Array(101);
+
+console.log(arr); // logs the truncated array
+util.inspect.defaultOptions.maxArrayLength = null;
+console.log(arr); // logs the full array
+```
+
 ## Deprecated APIs
 
 The following APIs have been deprecated and should no longer be used. Existing
@@ -278,7 +295,7 @@ applications and modules should be updated to find alternative approaches.
 
 ### util.debug(string)
 
-    Stability: 0 - Deprecated: Use [`console.error()`][] instead.
+> Stability: 0 - Deprecated: Use [`console.error()`][] instead.
 
 * `string` {string} The message to print to `stderr`
 
@@ -286,7 +303,7 @@ Deprecated predecessor of `console.error`.
 
 ### util.error([...])
 
-    Stability: 0 - Deprecated: Use [`console.error()`][] instead.
+> Stability: 0 - Deprecated: Use [`console.error()`][] instead.
 
 * `string` {string} The message to print to `stderr`
 
@@ -294,7 +311,7 @@ Deprecated predecessor of `console.error`.
 
 ### util.isArray(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -315,7 +332,7 @@ util.isArray({});
 
 ### util.isBoolean(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -334,7 +351,7 @@ util.isBoolean(false);
 
 ### util.isBuffer(object)
 
-    Stability: 0 - Deprecated: Use [`Buffer.isBuffer()`][] instead.
+> Stability: 0 - Deprecated: Use [`Buffer.isBuffer()`][] instead.
 
 * `object` {any}
 
@@ -353,7 +370,7 @@ util.isBuffer(Buffer.from('hello world'));
 
 ### util.isDate(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -372,7 +389,7 @@ util.isDate({});
 
 ### util.isError(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -407,7 +424,7 @@ util.isError(obj);
 
 ### util.isFunction(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -430,7 +447,7 @@ util.isFunction(Bar);
 
 ### util.isNull(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -450,7 +467,7 @@ util.isNull(null);
 
 ### util.isNullOrUndefined(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -470,7 +487,7 @@ util.isNullOrUndefined(null);
 
 ### util.isNumber(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -491,7 +508,7 @@ util.isNumber(NaN);
 
 ### util.isObject(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -513,7 +530,7 @@ util.isObject(function(){});
 
 ### util.isPrimitive(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -545,7 +562,7 @@ util.isPrimitive(new Date());
 
 ### util.isRegExp(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -564,7 +581,7 @@ util.isRegExp({});
 
 ### util.isString(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -585,7 +602,7 @@ util.isString(5);
 
 ### util.isSymbol(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -604,7 +621,7 @@ util.isSymbol(Symbol('foo'));
 
 ### util.isUndefined(object)
 
-    Stability: 0 - Deprecated
+> Stability: 0 - Deprecated
 
 * `object` {any}
 
@@ -624,7 +641,7 @@ util.isUndefined(null);
 
 ### util.log(string)
 
-    Stability: 0 - Deprecated: Use a third party module instead.
+> Stability: 0 - Deprecated: Use a third party module instead.
 
 * `string` {string}
 
@@ -639,19 +656,19 @@ util.log('Timestamped message.');
 
 ### util.print([...])
 
-    Stability: 0 - Deprecated: Use [`console.log()`][] instead.
+> Stability: 0 - Deprecated: Use [`console.log()`][] instead.
 
 Deprecated predecessor of `console.log`.
 
 ### util.puts([...])
 
-    Stability: 0 - Deprecated: Use [`console.log()`][] instead.
+> Stability: 0 - Deprecated: Use [`console.log()`][] instead.
 
 Deprecated predecessor of `console.log`.
 
 ### util._extend(obj)
 
-    Stability: 0 - Deprecated: Use [`Object.assign()`] instead.
+> Stability: 0 - Deprecated: Use [`Object.assign()`] instead.
 
 The `util._extend()` method was never intended to be used outside of internal
 Node.js modules. The community found and used it anyway.
@@ -662,6 +679,7 @@ similar built-in functionality through [`Object.assign()`].
 [`Array.isArray`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
 [constructor]: https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Object/constructor
 [semantically incompatible]: https://github.com/nodejs/node/issues/4179
+[`util.inspect()`]: #util_util_inspect_object_options
 [Customizing `util.inspect` colors]: #util_customizing_util_inspect_colors
 [`Error`]: errors.html#errors_class_error
 [`console.log()`]: console.html#console_console_log_data

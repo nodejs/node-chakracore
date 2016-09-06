@@ -1,6 +1,6 @@
 # Modules
 
-    Stability: 3 - Locked
+> Stability: 3 - Locked
 
 <!--name=module-->
 
@@ -12,7 +12,7 @@ The contents of `foo.js`:
 
 ```js
 const circle = require('./circle.js');
-console.log( `The area of a circle of radius 4 is ${circle.area(4)}`);
+console.log(`The area of a circle of radius 4 is ${circle.area(4)}`);
 ```
 
 The contents of `circle.js`:
