@@ -73,20 +73,53 @@ namespace Js
     {
         friend class PropertyGuardValidator;
     private:
+        enum GuardValue : intptr_t {
+            Invalidated = 0,
+            Uninitialized = 1,
+            Invalidated_DuringSweep = 2
+        };
         intptr_t value;
+#if DBG
+        bool wasReincarnated = false;
+#endif
     public:
         static PropertyGuard* New(Recycler* recycler) { return RecyclerNewLeaf(recycler, Js::PropertyGuard); }
-        PropertyGuard() : value(1) {}
-        PropertyGuard(intptr_t value) : value(value) { Assert(this->value != 0); }
+        PropertyGuard() : value(GuardValue::Uninitialized) {}
+        PropertyGuard(intptr_t value) : value(value) 
+        { 
+            // GuardValue::Invalidated and GuardValue::Invalidated_DuringSweeping can only be set using
+            // Invalidate() and InvalidatedDuringSweep() methods respectively.
+            Assert(this->value != GuardValue::Invalidated && this->value != GuardValue::Invalidated_DuringSweep); 
+        }
 
         inline static size_t const GetSizeOfValue() { return sizeof(((PropertyGuard*)0)->value); }
         inline static size_t const GetOffsetOfValue() { return offsetof(PropertyGuard, value); }
 
         intptr_t GetValue() const { return this->value; }
-        bool IsValid() { return this->value != 0; }
-        void SetValue(intptr_t value) { Assert(value != 0); this->value = value; }
+        bool IsValid()
+        {
+            return this->value != GuardValue::Invalidated && this->value != GuardValue::Invalidated_DuringSweep;
+        }
+        bool IsInvalidatedDuringSweep() { return this->value == GuardValue::Invalidated_DuringSweep; }
+        void SetValue(intptr_t value)
+        { 
+            // GuardValue::Invalidated and GuardValue::Invalidated_DuringSweeping can only be set using
+            // Invalidate() and InvalidatedDuringSweep() methods respectively.
+            Assert(value != GuardValue::Invalidated && value != GuardValue::Invalidated_DuringSweep);
+            this->value = value;
+        }
         intptr_t const* GetAddressOfValue() { return &this->value; }
-        void Invalidate() { this->value = 0; }
+        void Invalidate() { this->value = GuardValue::Invalidated; }
+        void InvalidateDuringSweep()
+        { 
+#if DBG
+            wasReincarnated = true;
+#endif
+            this->value = GuardValue::Invalidated_DuringSweep;
+        }
+#if DBG
+        bool WasReincarnated() { return this->wasReincarnated; }
+#endif
     };
 
     class PropertyGuardValidator
@@ -181,15 +214,34 @@ namespace Js
         // so as to keep the cached types alive.
         EquivalentTypeCache* cache;
         uint32 objTypeSpecFldId;
+#if DBG
+        // Intentionally have as intptr_t so this guard doesn't hold scriptContext
+        intptr_t originalScriptContextValue = 0;
+#endif
 
     public:
         JitEquivalentTypeGuard(Type* type, int index, uint32 objTypeSpecFldId):
-            JitIndexedPropertyGuard(reinterpret_cast<intptr_t>(type), index), cache(nullptr), objTypeSpecFldId(objTypeSpecFldId) {}
+            JitIndexedPropertyGuard(reinterpret_cast<intptr_t>(type), index), cache(nullptr), objTypeSpecFldId(objTypeSpecFldId)
+        {
+#if DBG
+            originalScriptContextValue = reinterpret_cast<intptr_t>(type->GetScriptContext());
+#endif
+        }
 
         Js::Type* GetType() const { return reinterpret_cast<Js::Type*>(this->GetValue()); }
 
         void SetType(const Js::Type* type)
         {
+#if DBG
+            if (originalScriptContextValue == 0)
+            {
+                originalScriptContextValue = reinterpret_cast<intptr_t>(type->GetScriptContext());
+            }
+            else
+            {
+                AssertMsg(originalScriptContextValue == reinterpret_cast<intptr_t>(type->GetScriptContext()), "Trying to set guard type from different script context.");
+            }
+#endif
             this->SetValue(reinterpret_cast<intptr_t>(type));
         }
 
@@ -1294,7 +1346,7 @@ namespace Js
         bool IsJitLoopBodyPhaseEnabled() const
         {
             // Consider: Allow JitLoopBody in generator functions for loops that do not yield.
-            return !PHASE_OFF(JITLoopBodyPhase, this) && DoFullJit() && !this->IsGenerator();
+            return !PHASE_OFF(JITLoopBodyPhase, this) && DoFullJit() && !this->IsCoroutine();
         }
 
         bool IsJitLoopBodyPhaseForced() const
@@ -1490,9 +1542,6 @@ namespace Js
         {
             this->m_boundPropertyRecords = nullptr;
         }
-        virtual ParseableFunctionInfo* Clone(ScriptContext *scriptContext, uint sourceIndex = Js::Constants::InvalidSourceIndex);
-        ParseableFunctionInfo* CopyFunctionInfoInto(ScriptContext *scriptContext, Js::ParseableFunctionInfo* functionInfo, uint sourceIndex = Js::Constants::InvalidSourceIndex);
-        void CloneSourceInfo(ScriptContext* scriptContext, const ParseableFunctionInfo& other, ScriptContext* othersScriptContext, uint sourceIndex);
 
         void SetInitialDefaultEntryPoint();
         void SetDeferredParsingEntryPoint();
@@ -1603,6 +1652,9 @@ namespace Js
 
         void SetCapturesThis() { attributes = (Attributes)(attributes | Attributes::CapturesThis); }
         bool GetCapturesThis() { return (attributes & Attributes::CapturesThis) != 0; }
+
+        void SetEnclosedByGlobalFunc() { attributes = (Attributes)(attributes | Attributes::EnclosedByGlobalFunc ); }
+        bool GetEnclosedByGlobalFunc() { return (attributes & Attributes::EnclosedByGlobalFunc) != 0; }
 
         void BuildDeferredStubs(ParseNode *pnodeFnc);
         DeferredFunctionStub *GetDeferredStubs() const { return static_cast<DeferredFunctionStub *>(this->GetAuxPtr(AuxPointerType::DeferredStubs)); }
@@ -2806,7 +2858,6 @@ namespace Js
         Var GetConstantVar(RegSlot location);
         Js::Var* GetConstTable() const { return this->m_constTable; }
         void SetConstTable(Js::Var* constTable) { this->m_constTable = constTable; }
-        void CloneConstantTable(FunctionBody *newFunc);
 
         void MarkScript(ByteBlock * pblkByteCode, ByteBlock * pblkAuxiliaryData, ByteBlock* auxContextBlock,
             uint byteCodeCount, uint byteCodeInLoopCount, uint byteCodeWithoutLDACount);
@@ -2818,8 +2869,6 @@ namespace Js
         bool InstallProbe(int offset);
         bool UninstallProbe(int offset);
         bool ProbeAtOffset(int offset, OpCode* pOriginalOpcode);
-
-        ParseableFunctionInfo * Clone(ScriptContext *scriptContext, uint sourceIndex = Js::Constants::InvalidSourceIndex) override;
 
         static bool ShouldShareInlineCaches() { return CONFIG_FLAG(ShareInlineCaches); }
 
@@ -3122,7 +3171,7 @@ namespace Js
 
         bool IsGeneratorAndJitIsDisabled()
         {
-            return this->IsGenerator() && !(CONFIG_ISENABLED(Js::JitES6GeneratorsFlag) && !this->GetHasTry());
+            return this->IsCoroutine() && !(CONFIG_ISENABLED(Js::JitES6GeneratorsFlag) && !this->GetHasTry());
         }
 
         FunctionBodyFlags * GetAddressOfFlags() { return &this->flags; }
@@ -3423,8 +3472,6 @@ namespace Js
 
         // Below function will not change any state, so it will not alter accumulated index and value
         BOOL Seek(int index, StatementData & data);
-
-        SmallSpanSequence * Clone();
     };
 #pragma endregion
 
@@ -3555,6 +3602,10 @@ namespace Js
 #if DBG
         void Dump();
         PCWSTR GetDebuggerScopeTypeString(DiagExtraScopesType scopeType);
+#endif
+
+#if ENABLE_TTD
+        Js::PropertyId GetPropertyIdForSlotIndex_TTD(uint32 slotIndex) const;
 #endif
 
     public:

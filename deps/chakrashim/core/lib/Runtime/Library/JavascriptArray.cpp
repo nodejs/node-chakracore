@@ -796,11 +796,16 @@ namespace Js
         if (arrayInfo->IsNativeIntArray())
         {
             JavascriptNativeIntArray *arr;
-            FunctionBody *functionBody = weakFuncRef->Get();
-            JavascriptLibrary *lib = scriptContext->GetLibrary();
 
 #if ENABLE_COPYONACCESS_ARRAY
+            JavascriptLibrary *lib = scriptContext->GetLibrary();
+            FunctionBody *functionBody = weakFuncRef->Get();
+
+#if TTD_DISABLE_COPYONACCESS_ARRAY_WORK_AROUNDS
+            if (JavascriptLibrary::IsCopyOnAccessArrayCallSite(lib, arrayInfo, count) && Js::Configuration::Global.flags.TestTrace.IsEnabled(Js::CopyOnAccessArrayPhase))
+#else
             if (JavascriptLibrary::IsCopyOnAccessArrayCallSite(lib, arrayInfo, count))
+#endif
             {
                 Assert(lib->cacheForCopyOnAccessArraySegments);
                 arr = scriptContext->GetLibrary()->CreateCopyOnAccessNativeIntArrayLiteral(arrayInfo, functionBody, ints);
@@ -3136,7 +3141,7 @@ namespace Js
             }
 
             bool converted;
-            if (JavascriptArray::IsAnyArray(aItem))
+            if (JavascriptArray::IsAnyArray(aItem) || remoteTypeIds[idxArg] == TypeIds_Array)
             {
                 if (JavascriptNativeIntArray::Is(aItem)) // Fast path
                 {
@@ -3156,7 +3161,6 @@ namespace Js
                     ConcatArgs<uint>(pVarDestArray, remoteTypeIds, args, scriptContext, idxArg, idxDest);
                     return pVarDestArray;
                 }
-
                 if (converted)
                 {
                     // Copying the last array forced a conversion, so switch over to the var version
@@ -3167,8 +3171,6 @@ namespace Js
             }
             else
             {
-                Assert(!JavascriptArray::IsAnyArray(aItem) && remoteTypeIds[idxArg] != TypeIds_Array);
-
                 if (TaggedInt::Is(aItem))
                 {
                     pDestArray->DirectSetItemAt(idxDest, (double)TaggedInt::ToInt32(aItem));
@@ -3327,9 +3329,52 @@ namespace Js
         pDestObj = ArraySpeciesCreate(args[0], 0, scriptContext);
         if (pDestObj)
         {
-            isInt = JavascriptNativeIntArray::Is(pDestObj);
-            isFloat = !isInt && JavascriptNativeFloatArray::Is(pDestObj); // if we know it is an int short the condition to avoid a function call
-            isArray = isInt || isFloat || JavascriptArray::Is(pDestObj);
+            // Check the thing that species create made. If it's a native array that can't handle the source
+            // data, convert it. If it's a more conservative kind of array than the source data, indicate that
+            // so that the data will be converted on copy.
+            if (isInt)
+            {
+                if (JavascriptNativeIntArray::Is(pDestObj))
+                {
+                    isArray = true;
+                }
+                else
+                {
+                    isInt = false;
+                    isFloat = JavascriptNativeFloatArray::Is(pDestObj);
+                    isArray = JavascriptArray::Is(pDestObj);
+                }
+            }
+            else if (isFloat)
+            {
+                if (JavascriptNativeIntArray::Is(pDestObj))
+                {
+                    JavascriptNativeIntArray::ToNativeFloatArray(JavascriptNativeIntArray::FromVar(pDestObj));
+                    isArray = true;
+                }
+                else
+                {
+                    isFloat = JavascriptNativeFloatArray::Is(pDestObj);
+                    isArray = JavascriptArray::Is(pDestObj);
+                }
+            }
+            else
+            {
+                if (JavascriptNativeIntArray::Is(pDestObj))
+                {
+                    JavascriptNativeIntArray::ToVarArray(JavascriptNativeIntArray::FromVar(pDestObj));
+                    isArray = true;
+                }
+                else if (JavascriptNativeFloatArray::Is(pDestObj))
+                {
+                    JavascriptNativeFloatArray::ToVarArray(JavascriptNativeFloatArray::FromVar(pDestObj));
+                    isArray = true;
+                }
+                else
+                {
+                    isArray = JavascriptArray::Is(pDestObj);
+                }
+            }
         }
 
         if (pDestObj == nullptr || isArray)
@@ -3565,24 +3610,13 @@ namespace Js
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64)JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-            }
+            length = (uint64)JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
 
         if (pArr)
@@ -3925,6 +3959,62 @@ namespace Js
         // the head segment.
         fromIndex = toIndex > GetHead()->length ? GetHead()->length : -1;
         return -1;
+    }
+
+    template<typename T>
+    bool AreAllBytesEqual(T value)
+    {
+        byte* bValue = (byte*)&value;
+        byte firstByte = *bValue++;
+        for (int i = 1; i < sizeof(T); ++i)
+        {
+            if (*bValue++ != firstByte)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    template<>
+    void JavascriptArray::CopyValueToSegmentBuferNoCheck(double* buffer, uint32 length, double value)
+    {
+        if (JavascriptNumber::IsZero(value) && !JavascriptNumber::IsNegZero(value))
+        {
+            memset(buffer, 0, sizeof(double) * length);
+        }
+        else
+        {
+            for (uint32 i = 0; i < length; i++)
+            {
+                buffer[i] = value;
+            }
+        }
+    }
+
+    template<>
+    void JavascriptArray::CopyValueToSegmentBuferNoCheck(int32* buffer, uint32 length, int32 value)
+    {
+        if (value == 0 || AreAllBytesEqual(value))
+        {
+            memset(buffer, *(byte*)&value, sizeof(int32)* length);
+        }
+        else
+        {
+            for (uint32 i = 0; i < length; i++)
+            {
+                buffer[i] = value;
+            }
+        }
+    }
+
+    template<>
+    void JavascriptArray::CopyValueToSegmentBuferNoCheck(Js::Var* buffer, uint32 length, Js::Var value)
+    {
+        for (uint32 i = 0; i < length; i++)
+        {
+            buffer[i] = value;
+        }
     }
 
     int32 JavascriptNativeIntArray::HeadSegmentIndexOfHelper(Var search, uint32 &fromIndex, uint32 toIndex, bool includesAlgorithm,  ScriptContext * scriptContext)
@@ -5011,25 +5101,16 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
+            length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
 
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-            }
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
+
         if (length.IsSmallIndex())
         {
             return JavascriptArray::ReverseHelper(pArr, nullptr, obj, length.GetSmallIndex(), scriptContext);
@@ -5679,24 +5760,14 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        Var lenValue = JavascriptOperators::OP_GetLength(obj, scriptContext);
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            Var lenValue = JavascriptOperators::OP_GetLength(obj, scriptContext);
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64) JavascriptConversion::ToLength(lenValue, scriptContext);
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(lenValue, scriptContext);
-            }
+            length = (uint64) JavascriptConversion::ToLength(lenValue, scriptContext);
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(lenValue, scriptContext);
         }
 
         if (length.IsSmallIndex())
@@ -8037,24 +8108,15 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-            }
+            length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
+
         if (length.IsSmallIndex())
         {
             return JavascriptArray::EveryHelper(pArr, nullptr, obj, length.GetSmallIndex(), args, scriptContext);
@@ -8168,7 +8230,6 @@ Case0:
                     }
                 }
             }
-
         }
 
         return scriptContext->GetLibrary()->GetTrue();
@@ -8208,26 +8269,17 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
+            length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
 
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-            }
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
-        if (length.IsSmallIndex())
+
+            if (length.IsSmallIndex())
         {
             return JavascriptArray::SomeHelper(pArr, nullptr, obj, length.GetSmallIndex(), args, scriptContext);
         }
@@ -8389,23 +8441,13 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
-            }
+            length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
         }
 
         if (args.Info.Count < 2 || !JavascriptConversion::IsCallable(args[1]))
@@ -8798,17 +8840,8 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
-        {
-            length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-        }
-        else
-        {
-            length = pArr->length;
-        }
+        length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
+
         if (length.IsSmallIndex())
         {
             return JavascriptArray::MapHelper(pArr, nullptr, obj, length.GetSmallIndex(), args, scriptContext);
@@ -9049,23 +9082,13 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
-            }
+            length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(dynamicObject, scriptContext), scriptContext);
         }
 
         if (length.IsSmallIndex())
@@ -9425,24 +9448,15 @@ Case0:
             }
         }
 
-        // In ES6-mode, we always load the length property from the object instead of using the internal slot.
-        // Even for arrays, this is now observable via proxies.
-        // If source object is not an array, we fall back to this behavior anyway.
-        if (scriptContext->GetConfig()->IsES6TypedArrayExtensionsEnabled() || pArr == nullptr)
+        if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
         {
-            if (scriptContext->GetConfig()->IsES6ToLengthEnabled())
-            {
-                length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-            }
-            else
-            {
-                length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
-            }
+            length = (uint64) JavascriptConversion::ToLength(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
         else
         {
-            length = pArr->length;
+            length = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetLength(obj, scriptContext), scriptContext);
         }
+
         if (length.IsSmallIndex())
         {
             return JavascriptArray::ReduceRightHelper(pArr, nullptr, obj, length.GetSmallIndex(), args, scriptContext);
@@ -10091,7 +10105,7 @@ Case0:
                 Assert(ES5Array::Is(arr));
 
                 ES5Array* es5Array = ES5Array::FromVar(arr);
-                ES5ArrayIndexEnumerator<true> e(es5Array);
+                ES5ArrayIndexStaticEnumerator<true> e(es5Array);
 
                 while (e.MoveNext())
                 {
@@ -11767,16 +11781,18 @@ Case0:
         return false;
     }
 
-    BOOL JavascriptArray::GetEnumerator(Var originalInstance, BOOL enumNonEnumerable, Var* enumerator, ScriptContext* requestContext, bool preferSnapshotSemantics, bool enumSymbols)
+    JavascriptEnumerator * JavascriptArray::GetIndexEnumerator(EnumeratorFlags flags, ScriptContext* requestContext)
     {
-        // JavascriptArray does not support accessors, discard originalInstance.
-        return JavascriptArray::GetEnumerator(enumNonEnumerable, enumerator, requestContext, preferSnapshotSemantics, enumSymbols);
+        if (!!(flags & EnumeratorFlags::SnapShotSemantics))
+        {
+            return RecyclerNew(GetRecycler(), JavascriptArrayIndexSnapshotEnumerator, this, flags, requestContext);
+        }
+        return RecyclerNew(GetRecycler(), JavascriptArrayIndexEnumerator, this, flags, requestContext);
     }
 
-    BOOL JavascriptArray::GetNonIndexEnumerator(Var* enumerator, ScriptContext* requestContext)
+    BOOL JavascriptArray::GetNonIndexEnumerator(JavascriptStaticEnumerator * enumerator, ScriptContext* requestContext)
     {
-        *enumerator = RecyclerNew(GetScriptContext()->GetRecycler(), JavascriptArrayNonIndexSnapshotEnumerator, this, requestContext, false);
-        return true;
+        return enumerator->Initialize(nullptr, nullptr, this, EnumeratorFlags::SnapShotSemantics, requestContext);
     }
 
     BOOL JavascriptArray::IsItemEnumerable(uint32 index)
@@ -12172,18 +12188,9 @@ Case0:
         return this->DirectDeleteItemAt<double>(index);
     }
 
-    BOOL JavascriptArray::GetEnumerator(BOOL enumNonEnumerable, Var* enumerator, ScriptContext * requestContext, bool preferSnapshotSemantics, bool enumSymbols)
+    BOOL JavascriptArray::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext)
     {
-        if (preferSnapshotSemantics)
-        {
-            *enumerator = RecyclerNew(GetRecycler(), JavascriptArraySnapshotEnumerator, this, requestContext, enumNonEnumerable, enumSymbols);
-        }
-        else
-        {
-            *enumerator = RecyclerNew(GetRecycler(), JavascriptArrayEnumerator, this, requestContext, enumNonEnumerable, enumSymbols);
-        }
-
-        return true;
+        return enumerator->Initialize(nullptr, this, this, flags, requestContext);
     }
 
     BOOL JavascriptArray::GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)

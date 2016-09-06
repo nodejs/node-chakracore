@@ -1365,7 +1365,7 @@ IRBuilder::BuildImplicitArgIns()
 void
 IRBuilder::BuildGeneratorPreamble()
 {
-    if (!this->m_func->GetJnFunction()->IsGenerator())
+    if (!this->m_func->GetJnFunction()->IsCoroutine())
     {
         return;
     }
@@ -1539,6 +1539,8 @@ IRBuilder::BuildReg1(Js::OpCode newOpcode, uint32 offset, Js::RegSlot R0)
 
     case Js::OpCode::Throw:
         {
+            this->m_func->SetHasThrow();
+
             srcOpnd = this->BuildSrcOpnd(srcRegOpnd);
 
             if (this->catchOffsetStack && !this->catchOffsetStack->Empty())
@@ -1629,8 +1631,8 @@ IRBuilder::BuildReg1(Js::OpCode newOpcode, uint32 offset, Js::RegSlot R0)
         m_func->DisableCanDoInlineArgOpt();
         break;
     case Js::OpCode::LdEnv:
-    case Js::OpCode::LdSuper:
-    case Js::OpCode::LdSuperCtor:
+    case Js::OpCode::LdHomeObj:
+    case Js::OpCode::LdFuncObj:
         isNotInt = TRUE;
         break;
 
@@ -7137,6 +7139,7 @@ IRBuilder::GenerateLoopBodySlotAccesses(uint offset)
     StackSym *symSrc     = StackSym::NewParamSlotSym(argument + 1, m_func);
     symSrc->m_offset     = (argument + LowererMD::GetFormalParamOffset()) * MachPtr;
     symSrc->m_allocated = true;
+    m_func->SetHasImplicitParamLoad();
     IR::SymOpnd *srcOpnd = IR::SymOpnd::New(symSrc, TyVar, m_func);
 
     StackSym *loopParamSym = m_func->EnsureLoopParamSym();
