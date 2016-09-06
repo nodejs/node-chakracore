@@ -23,10 +23,10 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
+    create(context) {
 
-        let ERROR_MESSAGE = "Expected variable declaration to be on a new line.";
-        let always = context.options[0] === "always";
+        const ERROR_MESSAGE = "Expected variable declaration to be on a new line.";
+        const always = context.options[0] === "always";
 
         //--------------------------------------------------------------------------
         // Helpers
@@ -54,14 +54,14 @@ module.exports = {
                 return;
             }
 
-            let declarations = node.declarations;
+            const declarations = node.declarations;
             let prev;
 
             declarations.forEach(function(current) {
                 if (prev && prev.loc.end.line === current.loc.start.line) {
                     if (always || prev.init || current.init) {
                         context.report({
-                            node: node,
+                            node,
                             message: ERROR_MESSAGE,
                             loc: current.loc.start
                         });

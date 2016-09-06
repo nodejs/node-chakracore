@@ -27,14 +27,14 @@ module.exports = {
         }
     },
 
-    create: function(context) {
+    create(context) {
 
 
         //--------------------------------------------------------------------------
         // Helpers
         //--------------------------------------------------------------------------
 
-        let blacklist = context.options;
+        const blacklist = context.options;
 
 
         /**
@@ -74,8 +74,8 @@ module.exports = {
 
         return {
 
-            Identifier: function(node) {
-                let name = node.name,
+            Identifier(node) {
+                const name = node.name,
                     effectiveParent = (node.parent.type === "MemberExpression") ? node.parent.parent : node.parent;
 
                 // MemberExpressions get special rules

@@ -32,8 +32,8 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let config = context.options[0] || {},
+    create(context) {
+        const config = context.options[0] || {},
             allowShortCircuit = config.allowShortCircuit || false,
             allowTernary = config.allowTernary || false;
 
@@ -74,7 +74,7 @@ module.exports = {
          * @returns {boolean} whether the given node is considered a directive in its current position
          */
         function isDirective(node, ancestors) {
-            let parent = ancestors[ancestors.length - 1],
+            const parent = ancestors[ancestors.length - 1],
                 grandparent = ancestors[ancestors.length - 2];
 
             return (parent.type === "Program" || parent.type === "BlockStatement" &&
@@ -106,7 +106,7 @@ module.exports = {
         }
 
         return {
-            ExpressionStatement: function(node) {
+            ExpressionStatement(node) {
                 if (!isValidExpression(node.expression) && !isDirective(node, context.getAncestors())) {
                     context.report(node, "Expected an assignment or function call and instead saw an expression.");
                 }

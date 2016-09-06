@@ -9,14 +9,14 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Helpers
 //------------------------------------------------------------------------------
 
 // Schema objects.
-let OPTION_VALUE = {
+const OPTION_VALUE = {
     oneOf: [
         {
             enum: ["always", "never"]
@@ -61,7 +61,7 @@ function normalizeOptionValue(value) {
         multiline = true;
     }
 
-    return {multiline: multiline, minProperties: minProperties};
+    return {multiline, minProperties};
 }
 
 /**
@@ -78,7 +78,7 @@ function normalizeOptions(options) {
         };
     }
 
-    let value = normalizeOptionValue(options);
+    const value = normalizeOptionValue(options);
 
     return {ObjectExpression: value, ObjectPattern: value};
 }
@@ -113,9 +113,9 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
-        let normalizedOptions = normalizeOptions(context.options[0]);
+    create(context) {
+        const sourceCode = context.getSourceCode();
+        const normalizedOptions = normalizeOptions(context.options[0]);
 
         /**
          * Reports a given node if it violated this rule.
@@ -125,12 +125,12 @@ module.exports = {
          * @returns {void}
          */
         function check(node) {
-            let options = normalizedOptions[node.type];
-            let openBrace = sourceCode.getFirstToken(node);
-            let closeBrace = sourceCode.getLastToken(node);
+            const options = normalizedOptions[node.type];
+            const openBrace = sourceCode.getFirstToken(node);
+            const closeBrace = sourceCode.getLastToken(node);
             let first = sourceCode.getTokenOrCommentAfter(openBrace);
             let last = sourceCode.getTokenOrCommentBefore(closeBrace);
-            let needsLinebreaks = (
+            const needsLinebreaks = (
                 node.properties.length >= options.minProperties ||
                 (
                     options.multiline &&
@@ -154,9 +154,9 @@ module.exports = {
                 if (astUtils.isTokenOnSameLine(openBrace, first)) {
                     context.report({
                         message: "Expected a line break after this opening brace.",
-                        node: node,
+                        node,
                         loc: openBrace.loc.start,
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.insertTextAfter(openBrace, "\n");
                         }
                     });
@@ -164,9 +164,9 @@ module.exports = {
                 if (astUtils.isTokenOnSameLine(last, closeBrace)) {
                     context.report({
                         message: "Expected a line break before this closing brace.",
-                        node: node,
+                        node,
                         loc: closeBrace.loc.start,
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.insertTextBefore(closeBrace, "\n");
                         }
                     });
@@ -175,9 +175,9 @@ module.exports = {
                 if (!astUtils.isTokenOnSameLine(openBrace, first)) {
                     context.report({
                         message: "Unexpected line break after this opening brace.",
-                        node: node,
+                        node,
                         loc: openBrace.loc.start,
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.removeRange([
                                 openBrace.range[1],
                                 first.range[0]
@@ -188,9 +188,9 @@ module.exports = {
                 if (!astUtils.isTokenOnSameLine(last, closeBrace)) {
                     context.report({
                         message: "Unexpected line break before this closing brace.",
-                        node: node,
+                        node,
                         loc: closeBrace.loc.start,
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.removeRange([
                                 last.range[1],
                                 closeBrace.range[0]

@@ -8,7 +8,7 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Helpers
@@ -66,11 +66,11 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         return {
-            BinaryExpression: function(node) {
+            BinaryExpression(node) {
 
                 // check if not concatenation
                 if (node.operator !== "+") {
@@ -78,8 +78,8 @@ module.exports = {
                 }
 
                 // account for the `foo + "a" + "b"` case
-                let left = getLeft(node);
-                let right = getRight(node);
+                const left = getLeft(node);
+                const right = getRight(node);
 
                 if (astUtils.isStringLiteral(left) &&
                     astUtils.isStringLiteral(right) &&

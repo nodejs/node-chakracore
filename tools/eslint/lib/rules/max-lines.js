@@ -8,8 +8,8 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let lodash = require("lodash");
-let astUtils = require("../ast-utils");
+const lodash = require("lodash");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -51,9 +51,9 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let option = context.options[0],
-            max = 300;
+    create(context) {
+        const option = context.options[0];
+        let max = 300;
 
         if (typeof option === "object" && option.hasOwnProperty("max") && typeof option.max === "number") {
             max = option.max;
@@ -63,10 +63,10 @@ module.exports = {
             max = option;
         }
 
-        let skipComments = option && option.skipComments;
-        let skipBlankLines = option && option.skipBlankLines;
+        const skipComments = option && option.skipComments;
+        const skipBlankLines = option && option.skipBlankLines;
 
-        let sourceCode = context.getSourceCode();
+        const sourceCode = context.getSourceCode();
 
         /**
          * Returns whether or not a token is a comment node type
@@ -113,9 +113,9 @@ module.exports = {
         }
 
         return {
-            "Program:exit": function() {
+            "Program:exit"() {
                 let lines = sourceCode.lines.map(function(text, i) {
-                    return { lineNumber: i + 1, text: text };
+                    return { lineNumber: i + 1, text };
                 });
 
                 if (skipBlankLines) {
@@ -125,9 +125,9 @@ module.exports = {
                 }
 
                 if (skipComments) {
-                    let comments = sourceCode.getAllComments();
+                    const comments = sourceCode.getAllComments();
 
-                    let commentLines = lodash.flatten(comments.map(function(comment) {
+                    const commentLines = lodash.flatten(comments.map(function(comment) {
                         return getLinesWithoutCode(comment);
                     }));
 
@@ -139,7 +139,11 @@ module.exports = {
                 if (lines.length > max) {
                     context.report({
                         loc: { line: 1, column: 0 },
-                        message: "File must be at most " + max + " lines long."
+                        message: "File must be at most {{max}} lines long. It's {{actual}} lines long.",
+                        data: {
+                            max,
+                            actual: lines.length,
+                        }
                     });
                 }
             }

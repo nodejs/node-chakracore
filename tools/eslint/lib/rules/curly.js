@@ -8,7 +8,7 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -51,14 +51,14 @@ module.exports = {
         }
     },
 
-    create: function(context) {
+    create(context) {
 
-        let multiOnly = (context.options[0] === "multi");
-        let multiLine = (context.options[0] === "multi-line");
-        let multiOrNest = (context.options[0] === "multi-or-nest");
-        let consistent = (context.options[1] === "consistent");
+        const multiOnly = (context.options[0] === "multi");
+        const multiLine = (context.options[0] === "multi-line");
+        const multiOrNest = (context.options[0] === "multi-or-nest");
+        const consistent = (context.options[1] === "consistent");
 
-        let sourceCode = context.getSourceCode();
+        const sourceCode = context.getSourceCode();
 
         //--------------------------------------------------------------------------
         // Helpers
@@ -71,7 +71,7 @@ module.exports = {
          * @private
          */
         function isCollapsedOneLiner(node) {
-            let before = sourceCode.getTokenBefore(node),
+            const before = sourceCode.getTokenBefore(node),
                 last = sourceCode.getLastToken(node);
 
             return before.loc.start.line === last.loc.end.line;
@@ -84,7 +84,7 @@ module.exports = {
          * @private
          */
         function isOneLiner(node) {
-            let first = sourceCode.getFirstToken(node),
+            const first = sourceCode.getFirstToken(node),
                 last = sourceCode.getLastToken(node);
 
             return first.loc.start.line === last.loc.end.line;
@@ -144,11 +144,11 @@ module.exports = {
          */
         function reportExpectedBraceError(node, name, suffix) {
             context.report({
-                node: node,
+                node,
                 loc: (name !== "else" ? node : getElseKeyword(node)).loc.start,
                 message: "Expected { after '{{name}}'{{suffix}}.",
                 data: {
-                    name: name,
+                    name,
                     suffix: (suffix ? " " + suffix : "")
                 }
             });
@@ -164,11 +164,11 @@ module.exports = {
          */
         function reportUnnecessaryBraceError(node, name, suffix) {
             context.report({
-                node: node,
+                node,
                 loc: (name !== "else" ? node : getElseKeyword(node)).loc.start,
                 message: "Unnecessary { after '{{name}}'{{suffix}}.",
                 data: {
-                    name: name,
+                    name,
                     suffix: (suffix ? " " + suffix : "")
                 }
             });
@@ -189,7 +189,7 @@ module.exports = {
          *   properties.
          */
         function prepareCheck(node, body, name, suffix) {
-            let hasBlock = (body.type === "BlockStatement");
+            const hasBlock = (body.type === "BlockStatement");
             let expected = null;
 
             if (node.type === "IfStatement" && node.consequent === body && requiresBraceOfConsequent(node)) {
@@ -214,8 +214,8 @@ module.exports = {
 
             return {
                 actual: hasBlock,
-                expected: expected,
-                check: function() {
+                expected,
+                check() {
                     if (this.expected !== null && this.expected !== this.actual) {
                         if (this.expected) {
                             reportExpectedBraceError(node, name, suffix);
@@ -234,7 +234,7 @@ module.exports = {
          *   information.
          */
         function prepareIfChecks(node) {
-            let preparedChecks = [];
+            const preparedChecks = [];
 
             do {
                 preparedChecks.push(prepareCheck(node, node.consequent, "if", "condition"));
@@ -252,7 +252,7 @@ module.exports = {
                  * all have braces.
                  * If all nodes shouldn't have braces, make sure they don't.
                  */
-                let expected = preparedChecks.some(function(preparedCheck) {
+                const expected = preparedChecks.some(function(preparedCheck) {
                     if (preparedCheck.expected !== null) {
                         return preparedCheck.expected;
                     }
@@ -272,7 +272,7 @@ module.exports = {
         //--------------------------------------------------------------------------
 
         return {
-            IfStatement: function(node) {
+            IfStatement(node) {
                 if (node.parent.type !== "IfStatement") {
                     prepareIfChecks(node).forEach(function(preparedCheck) {
                         preparedCheck.check();
@@ -280,23 +280,23 @@ module.exports = {
                 }
             },
 
-            WhileStatement: function(node) {
+            WhileStatement(node) {
                 prepareCheck(node, node.body, "while", "condition").check();
             },
 
-            DoWhileStatement: function(node) {
+            DoWhileStatement(node) {
                 prepareCheck(node, node.body, "do").check();
             },
 
-            ForStatement: function(node) {
+            ForStatement(node) {
                 prepareCheck(node, node.body, "for", "condition").check();
             },
 
-            ForInStatement: function(node) {
+            ForInStatement(node) {
                 prepareCheck(node, node.body, "for-in").check();
             },
 
-            ForOfStatement: function(node) {
+            ForOfStatement(node) {
                 prepareCheck(node, node.body, "for-of").check();
             }
         };

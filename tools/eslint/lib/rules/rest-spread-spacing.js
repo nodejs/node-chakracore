@@ -24,8 +24,8 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode(),
+    create(context) {
+        const sourceCode = context.getSourceCode(),
             alwaysSpace = context.options[0] === "always";
 
         //--------------------------------------------------------------------------
@@ -38,10 +38,10 @@ module.exports = {
          * @returns {void}
          */
         function checkWhiteSpace(node) {
-            let operator = sourceCode.getFirstToken(node),
+            const operator = sourceCode.getFirstToken(node),
                 nextToken = sourceCode.getTokenAfter(operator),
-                hasWhitespace = sourceCode.isSpaceBetweenTokens(operator, nextToken),
-                type;
+                hasWhitespace = sourceCode.isSpaceBetweenTokens(operator, nextToken);
+            let type;
 
             switch (node.type) {
                 case "SpreadElement":
@@ -62,31 +62,31 @@ module.exports = {
 
             if (alwaysSpace && !hasWhitespace) {
                 context.report({
-                    node: node,
+                    node,
                     loc: {
                         line: operator.loc.end.line,
                         column: operator.loc.end.column
                     },
                     message: "Expected whitespace after {{type}} operator.",
                     data: {
-                        type: type
+                        type
                     },
-                    fix: function(fixer) {
+                    fix(fixer) {
                         return fixer.replaceTextRange([operator.range[1], nextToken.range[0]], " ");
                     }
                 });
             } else if (!alwaysSpace && hasWhitespace) {
                 context.report({
-                    node: node,
+                    node,
                     loc: {
                         line: operator.loc.end.line,
                         column: operator.loc.end.column
                     },
                     message: "Unexpected whitespace after {{type}} operator.",
                     data: {
-                        type: type
+                        type
                     },
-                    fix: function(fixer) {
+                    fix(fixer) {
                         return fixer.removeRange([operator.range[1], nextToken.range[0]]);
                     }
                 });

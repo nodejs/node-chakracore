@@ -21,7 +21,7 @@ plain-English description of the following regexp:
 4. `[gimuy]*`: optional regexp flags
 5. `$`: fix the match at the end of the string
 */
-let regex = /^\/([^\\[]|\\.|\[([^\\\]]|\\.)+\])*\/[gimuy]*$/;
+const regex = /^\/([^\\[]|\\.|\[([^\\\]]|\\.)+\])*\/[gimuy]*$/;
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -38,13 +38,13 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         return {
 
-            Literal: function(node) {
-                let token = sourceCode.getFirstToken(node);
+            Literal(node) {
+                const token = sourceCode.getFirstToken(node);
 
                 if (token.type === "RegularExpression" && !regex.test(token.value)) {
                     context.report(node, "Empty class.");

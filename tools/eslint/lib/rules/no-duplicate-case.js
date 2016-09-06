@@ -21,15 +21,15 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         return {
-            SwitchStatement: function(node) {
-                let mapping = {};
+            SwitchStatement(node) {
+                const mapping = {};
 
                 node.cases.forEach(function(switchCase) {
-                    let key = sourceCode.getText(switchCase.test);
+                    const key = sourceCode.getText(switchCase.test);
 
                     if (mapping[key]) {
                         context.report(switchCase, "Duplicate case label.");

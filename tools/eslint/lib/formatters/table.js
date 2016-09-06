@@ -8,13 +8,9 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let chalk,
-    table,
-    pluralize;
-
-chalk = require("chalk");
-table = require("table").default;
-pluralize = require("pluralize");
+const chalk = require("chalk"),
+    table = require("table").default,
+    pluralize = require("pluralize");
 
 //------------------------------------------------------------------------------
 // Helpers
@@ -26,9 +22,7 @@ pluralize = require("pluralize");
  * @returns {string} A text table.
  */
 function drawTable(messages) {
-    let rows;
-
-    rows = [];
+    const rows = [];
 
     if (messages.length === 0) {
         return "";
@@ -84,7 +78,7 @@ function drawTable(messages) {
                 wrapWord: true
             }
         },
-        drawHorizontalLine: function(index) {
+        drawHorizontalLine(index) {
             return index === 1;
         }
     });
@@ -149,7 +143,7 @@ module.exports = function(report) {
                 wrapWord: true
             }
         },
-        drawHorizontalLine: function() {
+        drawHorizontalLine() {
             return true;
         }
     });

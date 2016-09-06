@@ -20,8 +20,8 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let stack = [];
+    create(context) {
+        const stack = [];
 
         /**
          * If the node is a generator function, start counting `yield` keywords.
@@ -45,7 +45,7 @@ module.exports = {
                 return;
             }
 
-            let countYield = stack.pop();
+            const countYield = stack.pop();
 
             if (countYield === 0 && node.body.body.length > 0) {
                 context.report(
@@ -61,7 +61,7 @@ module.exports = {
             "FunctionExpression:exit": endChecking,
 
             // Increases the count of `yield` keyword.
-            YieldExpression: function() {
+            YieldExpression() {
 
                 /* istanbul ignore else */
                 if (stack.length > 0) {

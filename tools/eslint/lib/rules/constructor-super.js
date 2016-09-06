@@ -101,7 +101,7 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
 
         /*
          * {{hasExtends: boolean, scope: Scope, codePath: CodePath}[]}
@@ -160,19 +160,19 @@ module.exports = {
              * @param {ASTNode} node - The current node.
              * @returns {void}
              */
-            onCodePathStart: function(codePath, node) {
+            onCodePathStart(codePath, node) {
                 if (isConstructorFunction(node)) {
 
                     // Class > ClassBody > MethodDefinition > FunctionExpression
-                    let classNode = node.parent.parent.parent;
-                    let superClass = classNode.superClass;
+                    const classNode = node.parent.parent.parent;
+                    const superClass = classNode.superClass;
 
                     funcInfo = {
                         upper: funcInfo,
                         isConstructor: true,
                         hasExtends: Boolean(superClass),
                         superIsConstructor: isPossibleConstructor(superClass),
-                        codePath: codePath
+                        codePath
                     };
                 } else {
                     funcInfo = {
@@ -180,7 +180,7 @@ module.exports = {
                         isConstructor: false,
                         hasExtends: false,
                         superIsConstructor: false,
-                        codePath: codePath
+                        codePath
                     };
                 }
             },
@@ -192,8 +192,8 @@ module.exports = {
              * @param {ASTNode} node - The current node.
              * @returns {void}
              */
-            onCodePathEnd: function(codePath, node) {
-                let hasExtends = funcInfo.hasExtends;
+            onCodePathEnd(codePath, node) {
+                const hasExtends = funcInfo.hasExtends;
 
                 // Pop.
                 funcInfo = funcInfo.upper;
@@ -203,9 +203,9 @@ module.exports = {
                 }
 
                 // Reports if `super()` lacked.
-                let segments = codePath.returnedSegments;
-                let calledInEveryPaths = segments.every(isCalledInEveryPath);
-                let calledInSomePaths = segments.some(isCalledInSomePath);
+                const segments = codePath.returnedSegments;
+                const calledInEveryPaths = segments.every(isCalledInEveryPath);
+                const calledInSomePaths = segments.some(isCalledInSomePath);
 
                 if (!calledInEveryPaths) {
                     context.report({
@@ -222,20 +222,20 @@ module.exports = {
              * @param {CodePathSegment} segment - A code path segment to initialize.
              * @returns {void}
              */
-            onCodePathSegmentStart: function(segment) {
+            onCodePathSegmentStart(segment) {
                 if (!(funcInfo && funcInfo.isConstructor && funcInfo.hasExtends)) {
                     return;
                 }
 
                 // Initialize info.
-                let info = segInfoMap[segment.id] = {
+                const info = segInfoMap[segment.id] = {
                     calledInSomePaths: false,
                     calledInEveryPaths: false,
                     validNodes: []
                 };
 
                 // When there are previous segments, aggregates these.
-                let prevSegments = segment.prevSegments;
+                const prevSegments = segment.prevSegments;
 
                 if (prevSegments.length > 0) {
                     info.calledInSomePaths = prevSegments.some(isCalledInSomePath);
@@ -252,19 +252,19 @@ module.exports = {
              *      of a loop.
              * @returns {void}
              */
-            onCodePathSegmentLoop: function(fromSegment, toSegment) {
+            onCodePathSegmentLoop(fromSegment, toSegment) {
                 if (!(funcInfo && funcInfo.isConstructor && funcInfo.hasExtends)) {
                     return;
                 }
 
                 // Update information inside of the loop.
-                let isRealLoop = toSegment.prevSegments.length >= 2;
+                const isRealLoop = toSegment.prevSegments.length >= 2;
 
                 funcInfo.codePath.traverseSegments(
                     {first: toSegment, last: fromSegment},
                     function(segment) {
-                        let info = segInfoMap[segment.id];
-                        let prevSegments = segment.prevSegments;
+                        const info = segInfoMap[segment.id];
+                        const prevSegments = segment.prevSegments;
 
                         // Updates flags.
                         info.calledInSomePaths = prevSegments.some(isCalledInSomePath);
@@ -272,16 +272,16 @@ module.exports = {
 
                         // If flags become true anew, reports the valid nodes.
                         if (info.calledInSomePaths || isRealLoop) {
-                            let nodes = info.validNodes;
+                            const nodes = info.validNodes;
 
                             info.validNodes = [];
 
                             for (let i = 0; i < nodes.length; ++i) {
-                                let node = nodes[i];
+                                const node = nodes[i];
 
                                 context.report({
                                     message: "Unexpected duplicate 'super()'.",
-                                    node: node
+                                    node
                                 });
                             }
                         }
@@ -294,7 +294,7 @@ module.exports = {
              * @param {ASTNode} node - A CallExpression node to check.
              * @returns {void}
              */
-            "CallExpression:exit": function(node) {
+            "CallExpression:exit"(node) {
                 if (!(funcInfo && funcInfo.isConstructor)) {
                     return;
                 }
@@ -306,12 +306,12 @@ module.exports = {
 
                 // Reports if needed.
                 if (funcInfo.hasExtends) {
-                    let segments = funcInfo.codePath.currentSegments;
+                    const segments = funcInfo.codePath.currentSegments;
                     let duplicate = false;
                     let info = null;
 
                     for (let i = 0; i < segments.length; ++i) {
-                        let segment = segments[i];
+                        const segment = segments[i];
 
                         if (segment.reachable) {
                             info = segInfoMap[segment.id];
@@ -325,12 +325,12 @@ module.exports = {
                         if (duplicate) {
                             context.report({
                                 message: "Unexpected duplicate 'super()'.",
-                                node: node
+                                node
                             });
                         } else if (!funcInfo.superIsConstructor) {
                             context.report({
                                 message: "Unexpected 'super()' because 'super' is not a constructor.",
-                                node: node
+                                node
                             });
                         } else {
                             info.validNodes.push(node);
@@ -339,7 +339,7 @@ module.exports = {
                 } else if (funcInfo.codePath.currentSegments.some(isReachable)) {
                     context.report({
                         message: "Unexpected 'super()'.",
-                        node: node
+                        node
                     });
                 }
             },
@@ -349,7 +349,7 @@ module.exports = {
              * @param {ASTNode} node - A ReturnStatement node to check.
              * @returns {void}
              */
-            ReturnStatement: function(node) {
+            ReturnStatement(node) {
                 if (!(funcInfo && funcInfo.isConstructor && funcInfo.hasExtends)) {
                     return;
                 }
@@ -360,13 +360,13 @@ module.exports = {
                 }
 
                 // Returning argument is a substitute of 'super()'.
-                let segments = funcInfo.codePath.currentSegments;
+                const segments = funcInfo.codePath.currentSegments;
 
                 for (let i = 0; i < segments.length; ++i) {
-                    let segment = segments[i];
+                    const segment = segments[i];
 
                     if (segment.reachable) {
-                        let info = segInfoMap[segment.id];
+                        const info = segInfoMap[segment.id];
 
                         info.calledInSomePaths = info.calledInEveryPaths = true;
                     }
@@ -377,7 +377,7 @@ module.exports = {
              * Resets state.
              * @returns {void}
              */
-            "Program:exit": function() {
+            "Program:exit"() {
                 segInfoMap = Object.create(null);
             }
         };

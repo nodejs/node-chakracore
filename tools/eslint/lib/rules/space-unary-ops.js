@@ -40,10 +40,10 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let options = context.options && Array.isArray(context.options) && context.options[0] || { words: true, nonwords: false };
+    create(context) {
+        const options = context.options && Array.isArray(context.options) && context.options[0] || { words: true, nonwords: false };
 
-        let sourceCode = context.getSourceCode();
+        const sourceCode = context.getSourceCode();
 
         //--------------------------------------------------------------------------
         // Helpers
@@ -99,9 +99,9 @@ module.exports = {
         function verifyWordHasSpaces(node, firstToken, secondToken, word) {
             if (secondToken.range[0] === firstToken.range[1]) {
                 context.report({
-                    node: node,
+                    node,
                     message: "Unary word operator '" + word + "' must be followed by whitespace.",
-                    fix: function(fixer) {
+                    fix(fixer) {
                         return fixer.insertTextAfter(firstToken, " ");
                     }
                 });
@@ -120,9 +120,9 @@ module.exports = {
             if (isArgumentObjectExpression(node)) {
                 if (secondToken.range[0] > firstToken.range[1]) {
                     context.report({
-                        node: node,
+                        node,
                         message: "Unexpected space after unary word operator '" + word + "'.",
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.removeRange([firstToken.range[1], secondToken.range[0]]);
                         }
                     });
@@ -160,7 +160,7 @@ module.exports = {
         * @returns {void}
         */
         function checkForSpacesAfterYield(node) {
-            let tokens = sourceCode.getFirstTokens(node, 3),
+            const tokens = sourceCode.getFirstTokens(node, 3),
                 word = "yield";
 
             if (!node.argument || node.delegate) {
@@ -184,9 +184,9 @@ module.exports = {
                 }
                 if (firstToken.range[1] === secondToken.range[0]) {
                     context.report({
-                        node: node,
+                        node,
                         message: "Unary operator '" + firstToken.value + "' must be followed by whitespace.",
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.insertTextAfter(firstToken, " ");
                         }
                     });
@@ -194,9 +194,9 @@ module.exports = {
             } else {
                 if (firstToken.range[1] === secondToken.range[0]) {
                     context.report({
-                        node: node,
+                        node,
                         message: "Space is required before unary expressions '" + secondToken.value + "'.",
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.insertTextBefore(secondToken, " ");
                         }
                     });
@@ -215,9 +215,9 @@ module.exports = {
             if (node.prefix) {
                 if (secondToken.range[0] > firstToken.range[1]) {
                     context.report({
-                        node: node,
+                        node,
                         message: "Unexpected space after unary operator '" + firstToken.value + "'.",
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.removeRange([firstToken.range[1], secondToken.range[0]]);
                         }
                     });
@@ -225,9 +225,9 @@ module.exports = {
             } else {
                 if (secondToken.range[0] > firstToken.range[1]) {
                     context.report({
-                        node: node,
+                        node,
                         message: "Unexpected space before unary operator '" + secondToken.value + "'.",
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.removeRange([firstToken.range[1], secondToken.range[0]]);
                         }
                     });
@@ -241,7 +241,7 @@ module.exports = {
         * @returns {void}
         */
         function checkForSpaces(node) {
-            let tokens = sourceCode.getFirstTokens(node, 2),
+            const tokens = sourceCode.getFirstTokens(node, 2),
                 firstToken = tokens[0],
                 secondToken = tokens[1];
 
@@ -250,7 +250,7 @@ module.exports = {
                 return;
             }
 
-            let operator = node.prefix ? tokens[0].value : tokens[1].value;
+            const operator = node.prefix ? tokens[0].value : tokens[1].value;
 
             if (overrideExistsForOperator(node, operator)) {
                 if (overrideEnforcesSpaces(node, operator)) {

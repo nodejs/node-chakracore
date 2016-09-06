@@ -20,10 +20,10 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
 
         // Node types which have a test which will coerce values to booleans.
-        let BOOLEAN_NODE_TYPES = [
+        const BOOLEAN_NODE_TYPES = [
             "IfStatement",
             "DoWhileStatement",
             "WhileStatement",
@@ -51,8 +51,8 @@ module.exports = {
 
 
         return {
-            UnaryExpression: function(node) {
-                let ancestors = context.getAncestors(),
+            UnaryExpression(node) {
+                const ancestors = context.getAncestors(),
                     parent = ancestors.pop(),
                     grandparent = ancestors.pop();
 
@@ -73,8 +73,8 @@ module.exports = {
                     context.report(node, "Redundant double negation.");
                 }
             },
-            CallExpression: function(node) {
-                let parent = node.parent;
+            CallExpression(node) {
+                const parent = node.parent;
 
                 if (node.callee.type !== "Identifier" || node.callee.name !== "Boolean") {
                     return;

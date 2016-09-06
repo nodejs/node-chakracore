@@ -20,10 +20,10 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
         return {
-            Program: function() {
-                let scope = context.getScope();
+            Program() {
+                const scope = context.getScope();
 
                 scope.variables.forEach(function(variable) {
                     if (variable.writeable) {
@@ -38,7 +38,7 @@ module.exports = {
                 });
 
                 scope.implicit.variables.forEach(function(variable) {
-                    let scopeVariable = scope.set.get(variable.name);
+                    const scopeVariable = scope.set.get(variable.name);
 
                     if (scopeVariable && scopeVariable.writeable) {
                         return;

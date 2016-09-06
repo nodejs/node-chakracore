@@ -20,22 +20,19 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         return {
 
-            Literal: function(node) {
-                let token = sourceCode.getFirstToken(node),
-                    nodeType = token.type,
-                    source,
-                    grandparent,
-                    ancestors;
+            Literal(node) {
+                const token = sourceCode.getFirstToken(node),
+                    nodeType = token.type;
 
                 if (nodeType === "RegularExpression") {
-                    source = sourceCode.getTokenBefore(node);
-                    ancestors = context.getAncestors();
-                    grandparent = ancestors[ancestors.length - 1];
+                    const source = sourceCode.getTokenBefore(node);
+                    const ancestors = context.getAncestors();
+                    const grandparent = ancestors[ancestors.length - 1];
 
                     if (grandparent.type === "MemberExpression" && grandparent.object === node &&
                         (!source || source.value !== "(")) {

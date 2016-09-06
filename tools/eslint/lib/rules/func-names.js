@@ -33,8 +33,8 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let never = context.options[0] === "never";
+    create(context) {
+        const never = context.options[0] === "never";
 
         /**
          * Determines whether the current FunctionExpression node is a get, set, or
@@ -42,7 +42,7 @@ module.exports = {
          * @returns {boolean} True if the node is a get, set, or shorthand method.
          */
         function isObjectOrClassMethod() {
-            let parent = context.getAncestors().pop();
+            const parent = context.getAncestors().pop();
 
             return (parent.type === "MethodDefinition" || (
                 parent.type === "Property" && (
@@ -54,16 +54,16 @@ module.exports = {
         }
 
         return {
-            "FunctionExpression:exit": function(node) {
+            "FunctionExpression:exit"(node) {
 
                 // Skip recursive functions.
-                let nameVar = context.getDeclaredVariables(node)[0];
+                const nameVar = context.getDeclaredVariables(node)[0];
 
                 if (isFunctionName(nameVar) && nameVar.references.length > 0) {
                     return;
                 }
 
-                let name = node.id && node.id.name;
+                const name = node.id && node.id.name;
 
                 if (never) {
                     if (name) {

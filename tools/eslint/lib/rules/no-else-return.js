@@ -20,7 +20,7 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
 
         //--------------------------------------------------------------------------
         // Helpers
@@ -56,7 +56,7 @@ module.exports = {
          */
         function naiveHasReturn(node) {
             if (node.type === "BlockStatement") {
-                let body = node.body,
+                const body = node.body,
                     lastChildNode = body[body.length - 1];
 
                 return lastChildNode && checkForReturn(lastChildNode);
@@ -127,9 +127,9 @@ module.exports = {
 
         return {
 
-            IfStatement: function(node) {
-                let parent = context.getAncestors().pop(),
-                    consequents,
+            IfStatement(node) {
+                const parent = context.getAncestors().pop();
+                let consequents,
                     alternate;
 
                 // Only "top-level" if statements are checked, meaning the first `if`

@@ -20,7 +20,7 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
         let scopeInfo = null;
 
         /**
@@ -68,7 +68,7 @@ module.exports = {
                 return;
             }
 
-            let label = node.label.name;
+            const label = node.label.name;
             let info = scopeInfo;
 
             while (info) {

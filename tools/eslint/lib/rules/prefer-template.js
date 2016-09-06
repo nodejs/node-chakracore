@@ -9,7 +9,7 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Helpers
@@ -65,7 +65,7 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
         let done = Object.create(null);
 
         /**
@@ -79,7 +79,7 @@ module.exports = {
                 return;
             }
 
-            let topBinaryExpr = getTopConcatBinaryExpression(node.parent);
+            const topBinaryExpr = getTopConcatBinaryExpression(node.parent);
 
             // Checks whether or not this node had been checked already.
             if (done[topBinaryExpr.range[0]]) {
@@ -95,7 +95,7 @@ module.exports = {
         }
 
         return {
-            Program: function() {
+            Program() {
                 done = Object.create(null);
             },
 

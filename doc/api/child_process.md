@@ -82,7 +82,8 @@ be launched using [`child_process.execFile()`][]. When running on Windows, `.bat
 and `.cmd` files can be invoked using [`child_process.spawn()`][] with the `shell`
 option set, with [`child_process.exec()`][], or by spawning `cmd.exe` and passing
 the `.bat` or `.cmd` file as an argument (which is what the `shell` option and
-[`child_process.exec()`][] do).
+[`child_process.exec()`][] do). In any case, if the script filename contains
+spaces it needs to be quoted.
 
 ```js
 // On Windows Only ...
@@ -109,6 +110,13 @@ exec('my.bat', (err, stdout, stderr) => {
     return;
   }
   console.log(stdout);
+});
+
+// Script with spaces in the filename:
+const bat = spawn('"my script.cmd"', ['a', 'b'], { shell:true });
+// or:
+exec('"my script.cmd" a b', (err, stdout, stderr) => {
+  // ...
 });
 ```
 
@@ -255,6 +263,8 @@ added: v0.5.0
     [`stdio`][] for more details (Default: `false`)
   * `stdio` {Array} Supports the array version of [`child_process.spawn()`][]'s
     [`stdio`][] option. When this option is provided, it overrides `silent`.
+    The array must contain exactly one item with value `'ipc'` or an error will
+    be thrown. For instance `[0, 1, 2, 'ipc']`.
   * `uid` {Number} Sets the user identity of the process. (See setuid(2).)
   * `gid` {Number} Sets the group identity of the process. (See setgid(2).)
 * Return: {ChildProcess}

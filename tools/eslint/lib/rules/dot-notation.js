@@ -8,8 +8,8 @@
 // Rule Definition
 //------------------------------------------------------------------------------
 
-let validIdentifier = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
-let keywords = require("../util/keywords");
+const validIdentifier = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+const keywords = require("../util/keywords");
 
 module.exports = {
     meta: {
@@ -35,9 +35,9 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let options = context.options[0] || {};
-        let allowKeywords = options.allowKeywords === void 0 || !!options.allowKeywords;
+    create(context) {
+        const options = context.options[0] || {};
+        const allowKeywords = options.allowKeywords === void 0 || !!options.allowKeywords;
 
         let allowPattern;
 
@@ -46,7 +46,7 @@ module.exports = {
         }
 
         return {
-            MemberExpression: function(node) {
+            MemberExpression(node) {
                 if (
                     node.computed &&
                     node.property.type === "Literal" &&

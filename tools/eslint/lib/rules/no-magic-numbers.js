@@ -41,8 +41,8 @@ module.exports = {
         }]
     },
 
-    create: function(context) {
-        let config = context.options[0] || {},
+    create(context) {
+        const config = context.options[0] || {},
             detectObjects = !!config.detectObjects,
             enforceConst = !!config.enforceConst,
             ignore = config.ignore || [],
@@ -99,11 +99,11 @@ module.exports = {
         }
 
         return {
-            Literal: function(node) {
+            Literal(node) {
                 let parent = node.parent,
                     value = node.value,
-                    raw = node.raw,
-                    okTypes = detectObjects ? [] : ["ObjectExpression", "Property", "AssignmentExpression"];
+                    raw = node.raw;
+                const okTypes = detectObjects ? [] : ["ObjectExpression", "Property", "AssignmentExpression"];
 
                 if (!isNumber(node)) {
                     return;
@@ -127,14 +127,14 @@ module.exports = {
                 if (parent.type === "VariableDeclarator") {
                     if (enforceConst && parent.parent.kind !== "const") {
                         context.report({
-                            node: node,
+                            node,
                             message: "Number constants declarations must use 'const'."
                         });
                     }
                 } else if (okTypes.indexOf(parent.type) === -1 ||
                     (parent.type === "AssignmentExpression" && parent.operator !== "=")) {
                     context.report({
-                        node: node,
+                        node,
                         message: "No magic number: " + raw + "."
                     });
                 }

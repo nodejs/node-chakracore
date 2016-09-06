@@ -35,19 +35,19 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
+    create(context) {
 
         return {
 
-            MemberExpression: function(node) {
+            MemberExpression(node) {
 
                 if (node.object.name === "console") {
                     let blockConsole = true;
 
                     if (context.options.length > 0) {
-                        let allowedProperties = context.options[0].allow;
-                        let passedProperty = node.property.name;
-                        let propertyIsAllowed = (allowedProperties.indexOf(passedProperty) > -1);
+                        const allowedProperties = context.options[0].allow;
+                        const passedProperty = node.property.name;
+                        const propertyIsAllowed = (allowedProperties.indexOf(passedProperty) > -1);
 
                         if (propertyIsAllowed) {
                             blockConsole = false;

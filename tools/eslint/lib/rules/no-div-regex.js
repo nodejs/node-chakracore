@@ -20,13 +20,13 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         return {
 
-            Literal: function(node) {
-                let token = sourceCode.getFirstToken(node);
+            Literal(node) {
+                const token = sourceCode.getFirstToken(node);
 
                 if (token.type === "RegularExpression" && token.value[1] === "=") {
                     context.report(node, "A regular expression literal can be confused with '/='.");

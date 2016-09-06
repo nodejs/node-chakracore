@@ -9,14 +9,14 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Helpers
 //------------------------------------------------------------------------------
 
-let TARGET_NODE_TYPE = /^(?:Arrow)?FunctionExpression$/;
-let TARGET_METHODS = /^(?:every|filter|find(?:Index)?|map|reduce(?:Right)?|some|sort)$/;
+const TARGET_NODE_TYPE = /^(?:Arrow)?FunctionExpression$/;
+const TARGET_METHODS = /^(?:every|filter|find(?:Index)?|map|reduce(?:Right)?|some|sort)$/;
 
 /**
  * Checks a given code path segment is reachable.
@@ -46,38 +46,6 @@ function getLocation(node, sourceCode) {
 }
 
 /**
- * Gets the name of a given node if the node is a Identifier node.
- *
- * @param {ASTNode} node - A node to get.
- * @returns {string} The name of the node, or an empty string.
- */
-function getIdentifierName(node) {
-    return node.type === "Identifier" ? node.name : "";
-}
-
-/**
- * Gets the value of a given node if the node is a Literal node or a
- * TemplateLiteral node.
- *
- * @param {ASTNode} node - A node to get.
- * @returns {string} The value of the node, or an empty string.
- */
-function getConstantStringValue(node) {
-    switch (node.type) {
-        case "Literal":
-            return String(node.value);
-
-        case "TemplateLiteral":
-            return node.expressions.length === 0
-                ? node.quasis[0].value.cooked
-                : "";
-
-        default:
-            return "";
-    }
-}
-
-/**
  * Checks a given node is a MemberExpression node which has the specified name's
  * property.
  *
@@ -88,9 +56,7 @@ function getConstantStringValue(node) {
 function isTargetMethod(node) {
     return (
         node.type === "MemberExpression" &&
-        TARGET_METHODS.test(
-            (node.computed ? getConstantStringValue : getIdentifierName)(node.property)
-        )
+        TARGET_METHODS.test(astUtils.getStaticPropertyName(node) || "")
     );
 }
 
@@ -104,7 +70,7 @@ function isTargetMethod(node) {
  */
 function isCallbackOfArrayMethod(node) {
     while (node) {
-        let parent = node.parent;
+        const parent = node.parent;
 
         switch (parent.type) {
 
@@ -176,7 +142,7 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
         let funcInfo = {
             upper: null,
             codePath: null,
@@ -199,7 +165,7 @@ module.exports = {
                 funcInfo.codePath.currentSegments.some(isReachable)
             ) {
                 context.report({
-                    node: node,
+                    node,
                     loc: getLocation(node, context.getSourceCode()).loc.start,
                     message: funcInfo.hasReturn
                         ? "Expected to return a value at the end of this function."
@@ -211,10 +177,10 @@ module.exports = {
         return {
 
             // Stacks this function's information.
-            onCodePathStart: function(codePath, node) {
+            onCodePathStart(codePath, node) {
                 funcInfo = {
                     upper: funcInfo,
-                    codePath: codePath,
+                    codePath,
                     hasReturn: false,
                     shouldCheck:
                         TARGET_NODE_TYPE.test(node.type) &&
@@ -224,18 +190,18 @@ module.exports = {
             },
 
             // Pops this function's information.
-            onCodePathEnd: function() {
+            onCodePathEnd() {
                 funcInfo = funcInfo.upper;
             },
 
             // Checks the return statement is valid.
-            ReturnStatement: function(node) {
+            ReturnStatement(node) {
                 if (funcInfo.shouldCheck) {
                     funcInfo.hasReturn = true;
 
                     if (!node.argument) {
                         context.report({
-                            node: node,
+                            node,
                             message: "Expected a return value."
                         });
                     }

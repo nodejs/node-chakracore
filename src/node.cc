@@ -146,9 +146,9 @@ static const bool use_inspector = false;
 #endif
 static bool use_debug_agent = false;
 static bool debug_wait_connect = false;
-static std::string debug_host;  // NOLINT(runtime/string)
+static std::string* debug_host;  // coverity[leaked_storage]
 static int debug_port = 5858;
-static std::string inspector_host;  // NOLINT(runtime/string)
+static std::string* inspector_host;  // coverity[leaked_storage]
 static int inspector_port = 9229;
 static const int v8_default_thread_pool_size = 4;
 static int v8_thread_pool_size = v8_default_thread_pool_size;
@@ -207,9 +207,10 @@ static struct {
     platform_ = nullptr;
   }
 
-  bool StartInspector(Environment *env, int port, bool wait) {
+  bool StartInspector(Environment *env, const char* script_path,
+                      int port, bool wait) {
 #if HAVE_INSPECTOR
-    return env->inspector_agent()->Start(platform_, port, wait);
+    return env->inspector_agent()->Start(platform_, script_path, port, wait);
 #else
     return true;
 #endif  // HAVE_INSPECTOR
@@ -220,7 +221,8 @@ static struct {
   void Initialize(int thread_pool_size) {}
   void PumpMessageLoop(Isolate* isolate) {}
   void Dispose() {}
-  bool StartInspector(Environment *env, int port, bool wait) {
+  bool StartInspector(Environment *env, const char* script_path,
+                      int port, bool wait) {
     env->ThrowError("Node compiled with NODE_USE_V8_PLATFORM=0");
     return false;  // make compiler happy
   }
@@ -257,7 +259,10 @@ static void PrintErrorString(const char* format, ...) {
 
   std::vector<wchar_t> wbuf(n);
   MultiByteToWideChar(CP_UTF8, 0, out.data(), -1, wbuf.data(), n);
-  WriteConsoleW(stderr_handle, wbuf.data(), n, nullptr, nullptr);
+
+  // Don't include the null character in the output
+  CHECK_GT(n, 0);
+  WriteConsoleW(stderr_handle, wbuf.data(), n - 1, nullptr, nullptr);
 #else
   vfprintf(stderr, format, ap);
 #endif
@@ -974,9 +979,9 @@ Local<Value> WinapiErrnoException(Isolate* isolate,
 
 void* ArrayBufferAllocator::Allocate(size_t size) {
   if (zero_fill_field_ || zero_fill_all_buffers)
-    return calloc(size, 1);
+    return node::Calloc(size, 1);
   else
-    return malloc(size);
+    return node::Malloc(size);
 }
 
 static bool DomainHasErrorHandler(const Environment* env,
@@ -2828,41 +2833,40 @@ static Local<Object> GetFeatures(Environment* env) {
   Local<Value> debug = False(env->isolate());
 #endif  // defined(DEBUG) && DEBUG
 
-  obj->Set(env->debug_string(), debug);
-
-  obj->Set(env->uv_string(), True(env->isolate()));
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "debug"), debug);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "uv"), True(env->isolate()));
   // TODO(bnoordhuis) ping libuv
-  obj->Set(env->ipv6_lc_string(), True(env->isolate()));
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "ipv6"), True(env->isolate()));
 
 #ifdef OPENSSL_NPN_NEGOTIATED
   Local<Boolean> tls_npn = True(env->isolate());
 #else
   Local<Boolean> tls_npn = False(env->isolate());
 #endif
-  obj->Set(env->tls_npn_string(), tls_npn);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_npn"), tls_npn);
 
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
   Local<Boolean> tls_alpn = True(env->isolate());
 #else
   Local<Boolean> tls_alpn = False(env->isolate());
 #endif
-  obj->Set(env->tls_alpn_string(), tls_alpn);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_alpn"), tls_alpn);
 
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   Local<Boolean> tls_sni = True(env->isolate());
 #else
   Local<Boolean> tls_sni = False(env->isolate());
 #endif
-  obj->Set(env->tls_sni_string(), tls_sni);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_sni"), tls_sni);
 
 #if !defined(OPENSSL_NO_TLSEXT) && defined(SSL_CTX_set_tlsext_status_cb)
   Local<Boolean> tls_ocsp = True(env->isolate());
 #else
   Local<Boolean> tls_ocsp = False(env->isolate());
 #endif  // !defined(OPENSSL_NO_TLSEXT) && defined(SSL_CTX_set_tlsext_status_cb)
-  obj->Set(env->tls_ocsp_string(), tls_ocsp);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_ocsp"), tls_ocsp);
 
-  obj->Set(env->tls_string(),
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls"),
            Boolean::New(env->isolate(),
                         get_builtin_module("crypto") != nullptr));
 
@@ -2964,12 +2968,12 @@ void SetupProcessObject(Environment* env,
 
   Local<Object> process = env->process_object();
 
-  auto maybe = process->SetAccessor(env->context(),
-                                    env->title_string(),
-                                    ProcessTitleGetter,
-                                    ProcessTitleSetter,
-                                    env->as_external());
-  CHECK(maybe.FromJust());
+  auto title_string = FIXED_ONE_BYTE_STRING(env->isolate(), "title");
+  CHECK(process->SetAccessor(env->context(),
+                             title_string,
+                             ProcessTitleGetter,
+                             ProcessTitleSetter,
+                             env->as_external()).FromJust());
 
   // process.jsEngine
   READONLY_PROPERTY(process,
@@ -3121,14 +3125,15 @@ void SetupProcessObject(Environment* env,
   for (int i = 0; i < argc; ++i) {
     arguments->Set(i, String::NewFromUtf8(env->isolate(), argv[i]));
   }
-  process->Set(env->argv_string(), arguments);
+  process->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "argv"), arguments);
 
   // process.execArgv
   Local<Array> exec_arguments = Array::New(env->isolate(), exec_argc);
   for (int i = 0; i < exec_argc; ++i) {
     exec_arguments->Set(i, String::NewFromUtf8(env->isolate(), exec_argv[i]));
   }
-  process->Set(env->exec_argv_string(), exec_arguments);
+  process->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "execArgv"),
+               exec_arguments);
 
   // create process.env
   Local<ObjectTemplate> process_env_template =
@@ -3145,12 +3150,13 @@ void SetupProcessObject(Environment* env,
 
   READONLY_PROPERTY(process, "pid", Integer::New(env->isolate(), getpid()));
   READONLY_PROPERTY(process, "features", GetFeatures(env));
-  maybe = process->SetAccessor(env->context(),
-                               env->need_imm_cb_string(),
-                               NeedImmediateCallbackGetter,
-                               NeedImmediateCallbackSetter,
-                               env->as_external());
-  CHECK(maybe.FromJust());
+
+  auto need_immediate_callback_string =
+      FIXED_ONE_BYTE_STRING(env->isolate(), "_needImmediateCallback");
+  CHECK(process->SetAccessor(env->context(), need_immediate_callback_string,
+                             NeedImmediateCallbackGetter,
+                             NeedImmediateCallbackSetter,
+                             env->as_external()).FromJust());
 
   // -e, --eval
   if (eval_string) {
@@ -3250,16 +3256,16 @@ void SetupProcessObject(Environment* env,
   } else {
     exec_path_value = String::NewFromUtf8(env->isolate(), argv[0]);
   }
-  process->Set(env->exec_path_string(), exec_path_value);
+  process->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "execPath"),
+               exec_path_value);
   delete[] exec_path;
 
-  maybe = process->SetAccessor(env->context(),
-                               env->debug_port_string(),
-                               DebugPortGetter,
-                               DebugPortSetter,
-                               env->as_external());
-  CHECK(maybe.FromJust());
-
+  auto debug_port_string = FIXED_ONE_BYTE_STRING(env->isolate(), "debugPort");
+  CHECK(process->SetAccessor(env->context(),
+                             debug_port_string,
+                             DebugPortGetter,
+                             DebugPortSetter,
+                             env->as_external()).FromJust());
 
   // define various internal methods
   env->SetMethod(process,
@@ -3318,8 +3324,8 @@ void SetupProcessObject(Environment* env,
 
   // pre-set _events object for faster emit checks
   Local<Object> events_obj = Object::New(env->isolate());
-  maybe = events_obj->SetPrototype(env->context(), Null(env->isolate()));
-  CHECK(maybe.FromJust());
+  CHECK(events_obj->SetPrototype(env->context(),
+                                 Null(env->isolate())).FromJust());
   process->Set(env->events_string(), events_obj);
 }
 
@@ -3327,7 +3333,7 @@ void SetupProcessObject(Environment* env,
 #undef READONLY_PROPERTY
 
 
-static void AtExit() {
+static void AtProcessExit() {
   uv_tty_reset_mode();
 }
 
@@ -3364,8 +3370,7 @@ void LoadEnvironment(Environment* env) {
   env->isolate()->SetFatalErrorHandler(node::OnFatalError);
   env->isolate()->AddMessageListener(OnMessage);
 
-  // The node.js file returns a function 'f'
-  atexit(AtExit);
+  atexit(AtProcessExit);
 
   TryCatch try_catch(env->isolate());
 
@@ -3384,16 +3389,9 @@ void LoadEnvironment(Environment* env) {
     ReportException(env, try_catch);
     exit(10);
   }
+  // The bootstrap_node.js file returns a function 'f'
   CHECK(f_value->IsFunction());
   Local<Function> f = Local<Function>::Cast(f_value);
-
-  // Now we call 'f' with the 'process' variable that we've built up with
-  // all our bindings. Inside node.js we'll take care of assigning things to
-  // their places.
-
-  // We start the process this way in order to be more modular. Developers
-  // who do not like how 'src/node.js' setups the module system but do like
-  // Node's I/O bindings may want to replace 'f' with their own function.
 
   // Add a reference to the global object
   Local<Object> global = env->context()->Global();
@@ -3424,6 +3422,13 @@ void LoadEnvironment(Environment* env) {
   // (Allows you to set stuff on `global` from anywhere in JavaScript.)
   global->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "global"), global);
 
+  // Now we call 'f' with the 'process' variable that we've built up with
+  // all our bindings. Inside bootstrap_node.js we'll take care of
+  // assigning things to their places.
+
+  // We start the process this way in order to be more modular. Developers
+  // who do not like how bootstrap_node.js setups the module system but do
+  // like Node's I/O bindings may want to replace 'f' with their own function.
   Local<Value> arg = env->process_object();
   f->Call(Null(env->isolate()), 1, &arg);
 }
@@ -3473,7 +3478,7 @@ static bool ParseDebugOpt(const char* arg) {
     return true;
   }
 
-  std::string* const the_host = use_inspector ? &inspector_host : &debug_host;
+  std::string** const the_host = use_inspector ? &inspector_host : &debug_host;
   int* const the_port = use_inspector ? &inspector_port : &debug_port;
 
   // FIXME(bnoordhuis) Move IPv6 address parsing logic to lib/net.js.
@@ -3481,7 +3486,7 @@ static bool ParseDebugOpt(const char* arg) {
   // in net.Server#listen() and net.Socket#connect().
   const size_t port_len = strlen(port);
   if (port[0] == '[' && port[port_len - 1] == ']') {
-    the_host->assign(port + 1, port_len - 2);
+    *the_host = new std::string(port + 1, port_len - 2);
     return true;
   }
 
@@ -3491,13 +3496,13 @@ static bool ParseDebugOpt(const char* arg) {
     // if it's not all decimal digits, it's a host name.
     for (size_t n = 0; port[n] != '\0'; n += 1) {
       if (port[n] < '0' || port[n] > '9') {
-        *the_host = port;
+        *the_host = new std::string(port);
         return true;
       }
     }
   } else {
     const bool skip = (colon > port && port[0] == '[' && colon[-1] == ']');
-    the_host->assign(port + skip, colon - skip);
+    *the_host = new std::string(port + skip, colon - skip);
   }
 
   char* endptr;
@@ -3767,23 +3772,24 @@ static void DispatchMessagesDebugAgentCallback(Environment* env) {
 }
 
 
-static void StartDebug(Environment* env, bool wait) {
+static void StartDebug(Environment* env, const char* path, bool wait) {
   CHECK(!debugger_running);
   if (use_inspector) {
-    debugger_running = v8_platform.StartInspector(env, inspector_port, wait);
+    debugger_running = v8_platform.StartInspector(env, path, inspector_port,
+                                                  wait);
   } else {
     env->debugger_agent()->set_dispatch_handler(
           DispatchMessagesDebugAgentCallback);
+    const char* host = debug_host ? debug_host->c_str() : "127.0.0.1";
 #if defined(NODE_ENGINE_CHAKRACORE)
   // ChakraShim does not support debugger_agent
   debugger_running = v8::Debug::EnableAgent();
 #else
   debugger_running =
-     env->debugger_agent()->Start(debug_host, debug_port, wait);
+        env->debugger_agent()->Start(host, debug_port, wait);
 #endif
     if (debugger_running == false) {
-      fprintf(stderr, "Starting debugger on %s:%d failed\n",
-              debug_host.c_str(), debug_port);
+      fprintf(stderr, "Starting debugger on %s:%d failed\n", host, debug_port);
       fflush(stderr);
       return;
     }
@@ -3837,7 +3843,7 @@ static void DispatchDebugMessagesAsyncCallback(uv_async_t* handle) {
       Environment* env = Environment::GetCurrent(isolate);
       Context::Scope context_scope(env->context());
 
-      StartDebug(env, false);
+      StartDebug(env, nullptr, false);
       EnableDebug(env);
     }
 
@@ -4410,7 +4416,10 @@ static void StartNodeInstance(void* arg) {
 
     // Start debug agent when argv has --debug
     if (instance_data->use_debug_agent()) {
-      StartDebug(&env, debug_wait_connect);
+      const char* path = instance_data->argc() > 1
+                         ? instance_data->argv()[1]
+                         : nullptr;
+      StartDebug(&env, path, debug_wait_connect);
       if (use_inspector && !debugger_running) {
         exit(12);
       }

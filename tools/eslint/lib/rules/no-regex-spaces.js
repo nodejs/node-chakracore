@@ -20,8 +20,8 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         /**
          * Validate regular expressions
@@ -31,7 +31,7 @@ module.exports = {
          * @private
          */
         function checkRegex(node, value) {
-            let multipleSpacesRegex = /( {2,})+?/,
+            const multipleSpacesRegex = /( {2,})+?/,
                 regexResults = multipleSpacesRegex.exec(value);
 
             if (regexResults !== null) {
@@ -46,7 +46,7 @@ module.exports = {
          * @private
          */
         function checkLiteral(node) {
-            let token = sourceCode.getFirstToken(node),
+            const token = sourceCode.getFirstToken(node),
                 nodeType = token.type,
                 nodeValue = token.value;
 
