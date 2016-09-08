@@ -25,10 +25,11 @@ assert.strictEqual(util.inspect([1, [2, 3]]), '[ 1, [ 2, 3 ] ]');
 
 assert.strictEqual(util.inspect({}), '{}');
 assert.strictEqual(util.inspect({a: 1}), '{ a: 1 }');
-assert.strictEqual(util.inspect({a: function() {}}), common.engineSpecificMessage({
-  v8: '{ a: [Function: a] }',
-  chakracore: '{ a: [Function: a] }'
-}));
+assert.strictEqual(util.inspect({a: function() {}}),
+ common.engineSpecificMessage({
+   v8: '{ a: [Function: a] }',
+   chakracore: '{ a: [Function: a] }'
+ }));
 assert.strictEqual(util.inspect({a: 1, b: 2}), '{ a: 1, b: 2 }');
 assert.strictEqual(util.inspect({'a': {}}), '{ a: {} }');
 assert.strictEqual(util.inspect({'a': {'b': 2}}), '{ a: { b: 2 } }');
@@ -692,14 +693,16 @@ assert.strictEqual(
 }
 
 // test Promise
-assert.strictEqual(util.inspect(Promise.resolve(3)), common.engineSpecificMessage({
-  v8: 'Promise { 3 }',
-  chakracore: 'Promise {}'
-}));
-assert.strictEqual(util.inspect(Promise.reject(3)), common.engineSpecificMessage({
-  v8: 'Promise { <rejected> 3 }',
-  chakracore: 'Promise {}'
-}));
+assert.strictEqual(util.inspect(Promise.resolve(3)),
+ common.engineSpecificMessage({
+   v8: 'Promise { 3 }',
+   chakracore: 'Promise {}'
+ }));
+assert.strictEqual(util.inspect(Promise.reject(3)),
+ common.engineSpecificMessage({
+   v8: 'Promise { <rejected> 3 }',
+   chakracore: 'Promise {}'
+ }));
 assert.strictEqual(util.inspect(new Promise(function() {})),
   common.engineSpecificMessage({
     v8: 'Promise { <pending> }',
