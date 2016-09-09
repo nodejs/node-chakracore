@@ -56,7 +56,6 @@ function loadChangelogFile() {
     while (changeLog.length < 2) {
       changeLog.push('');
     }
-
     loadGitReleaseTags();
   });
 }
@@ -79,8 +78,15 @@ function loadGitReleaseTags() {
   );
 }
 
+function filterReleaseTags(releaseTag) {
+  var branches = git_sync(['branch', '--contains', releaseTag.name]);
+  // If tag is present in current branch, then it is a valid tag to consider
+  return branches.split(/\n/).some((x) => {return x.startsWith('* ');});
+}
+
 // Match last release, figure out next release and update ranges
 function matchReleases(releaseTags, lastRelease) {
+  releaseTags = releaseTags.filter(filterReleaseTags);
   var ver;
   command_pipe(process.argv[0], ['--version'],
   line => {
@@ -177,6 +183,15 @@ function pipe(proc, onLine) {
   });
 
   return proc;
+}
+
+function command_sync(command, args) {
+  var x = child_process.spawnSync(command, args);
+  return x.status == 0 ? x.stdout.toString(): x.stderr.toString();
+}
+
+function git_sync(args) {
+  return command_sync('git', args);
 }
 
 function command_pipe(command, args, onLine, done) {
