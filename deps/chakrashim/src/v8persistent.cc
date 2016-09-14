@@ -61,14 +61,14 @@ template <class Callback, class Func>
 void SetObjectWeakReferenceCallbackCommon(
     JsValueRef object,
     Callback callback,
-    std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper,
+    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper,
     const Func& initWrapper) {
   if (callback == nullptr || object == JS_INVALID_REFERENCE) {
     return;
   }
 
   if (!*weakWrapper) {
-    *weakWrapper = std::make_shared<WeakReferenceCallbackWrapper>();
+    (*weakWrapper).reset(new WeakReferenceCallbackWrapper());
   }
 
   WeakReferenceCallbackWrapper *callbackWrapper = (*weakWrapper).get();
@@ -83,7 +83,7 @@ void SetObjectWeakReferenceCallback(
     JsValueRef object,
     WeakCallbackInfo<void>::Callback callback,
     void* parameters,
-    std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper) {
+    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
     [=](WeakReferenceCallbackWrapper *callbackWrapper) {
@@ -97,7 +97,7 @@ void SetObjectWeakReferenceCallback(
     JsValueRef object,
     WeakCallbackData<Value, void>::Callback callback,
     void* parameters,
-    std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper) {
+    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
     [=](WeakReferenceCallbackWrapper *callbackWrapper) {

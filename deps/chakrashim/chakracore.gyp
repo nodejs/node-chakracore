@@ -5,6 +5,12 @@
     'component%': 'static_library', # link crt statically or dynamically
     'chakra_dir%': 'core',
     'msvs_windows_target_platform_version_prop': '',
+    'icu_args%': '',
+    'icu_include_path%': '',
+    'linker_start_group%': '',
+    'linker_end_group%': '',
+    'chakra_libs_absolute%': '',
+    'icu_lib_path%': '',
 
     # xplat (non-win32) only
     'chakra_config': 'Release',     # Debug, Release
@@ -16,6 +22,10 @@
         'Platform': 'arm',
         'msvs_windows_target_platform_version_prop':
           '/p:WindowsTargetPlatformVersion=$(WindowsTargetPlatformVersion)',
+      }],
+      ['OS=="mac"', {
+        'icu_lib_path': '/usr/local/opt/icu4c/lib', # todo: make icu path customizable
+        'icu_include_path': '/usr/local/opt/icu4c/include'
       }],
 
       # xplat (non-win32) only
@@ -45,6 +55,7 @@
         'chakracore_win_bin_dir':
           '<(chakra_dir)/build/vcbuild/bin/<(Platform)_$(ConfigurationName)',
         'xplat_dir': '<(chakra_dir)/BuildLinux/<(chakra_config)/lib',
+        'chakra_libs_absolute': '<(PRODUCT_DIR)/../../deps/chakrashim/<(xplat_dir)',
 
         'conditions': [
           ['OS=="win"', {
@@ -53,15 +64,41 @@
               '<(chakracore_win_bin_dir)/chakracore.dll',
               '<(chakracore_win_bin_dir)/chakracore.pdb',
               '<(chakracore_win_bin_dir)/chakracore.lib',
-            ],
-          }, {
+            ]
+          }],
+          ['OS in "linux android"', {
             'chakracore_input': '<(chakra_dir)/build.sh',
             'chakracore_binaries': [
-              '<(xplat_dir)/Common/Core/libChakra.Common.Core.a',
-              '<(xplat_dir)/Jsrt/libChakra.Jsrt.a',
-              '<(xplat_dir)/../pal/src/libChakra.Pal.a',
+              '<(chakra_libs_absolute)/Common/Core/libChakra.Common.Core.a',
+              '<(chakra_libs_absolute)/Jsrt/libChakra.Jsrt.a',
+              '<(chakra_libs_absolute)/../pal/src/libChakra.Pal.a',
             ],
+            'linker_start_group': '-Wl,--start-group',
+            'linker_end_group': [
+              '-Wl,--end-group',
+              '-lgcc_s',          # This must be before -lunwind!
+              '-lunwind',
+              '-lunwind-generic',
+              '-licuuc',
+            ]
           }],
+          ['OS=="mac"', {
+            'chakracore_input': '<(chakra_dir)/build.sh',
+            'chakracore_binaries': [
+              '<(chakra_libs_absolute)/Common/Core/libChakra.Common.Core.a',
+              '<(chakra_libs_absolute)/Jsrt/libChakra.Jsrt.a',
+              '<(chakra_libs_absolute)/../pal/src/libChakra.Pal.a',
+            ],
+            'icu_args': '--icu=<(icu_include_path)',
+            'linker_start_group': '-Wl,-force_load',
+            'linker_end_group': [
+              '-framework CoreFoundation',
+              '-framework Security',
+              '<(icu_lib_path)/libicuuc.a',
+              '<(icu_lib_path)/libicui18n.a',
+              '<(icu_lib_path)/libicudata.a',
+            ],
+          }]
         ],
       },
 
@@ -94,6 +131,7 @@
                 '--static',
                 '-j',
                 '<@(chakra_build_flags)',
+                '<@(icu_args)'
               ],
             }],
           ],
@@ -117,17 +155,12 @@
           ['OS=="win"', {
           }, {
             'libraries': [
-              '-Wl,--no-undefined',
-              '-Wl,--start-group',
-              '-lChakra.Common.Core',  # link first for correct init order
-              '-lChakra.Jsrt',
-              '-lChakra.Pal',
-              '-Wl,--end-group',
-
-              '-lgcc_s',  # This must be before -lunwind!
-              '-lunwind',
-              '-lunwind-generic',
-              '-licuuc',
+              '-Wl,-undefined,error',
+              '<@(linker_start_group)',
+              '<(chakra_libs_absolute)/../pal/src/libChakra.Pal.a',
+              '<(chakra_libs_absolute)/Common/Core/libChakra.Common.Core.a',  # link first for correct init order
+              '<(chakra_libs_absolute)/Jsrt/libChakra.Jsrt.a',
+              '<@(linker_end_group)',
             ],
           }],
         ],
