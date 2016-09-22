@@ -19,8 +19,20 @@
 // IN THE SOFTWARE.
 
 #include "uv.h"
-#include <unordered_map>
 #include <vector>
+
+#if !defined(OSX_SDK_TR1) && defined(__APPLE__)
+#include <AvailabilityMacros.h>
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < MAC_OS_X_VERSION_10_9
+#define OSX_SDK_TR1
+#endif
+#endif
+
+#ifdef OSX_SDK_TR1
+#include <tr1/unordered_map>
+#else
+#include <unordered_map>
+#endif
 
 namespace v8 {
 

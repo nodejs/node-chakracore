@@ -22,8 +22,6 @@
 
 namespace v8 {
 
-using std::unique_ptr;
-
 String::Utf8Value::Utf8Value(Handle<v8::Value> obj)
     : _str(nullptr), _length(0) {
   Handle<String> str = obj->ToString();

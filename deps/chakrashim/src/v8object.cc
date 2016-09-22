@@ -24,7 +24,6 @@
 
 namespace v8 {
 
-using std::unique_ptr;
 using namespace jsrt;
 
 enum AccessorType {

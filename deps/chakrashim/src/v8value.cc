@@ -22,6 +22,16 @@
 #include <limits.h>
 #include <math.h>
 
+#ifdef __APPLE__
+inline int isnan(double x) { 
+  return std::isnan(x);
+}
+
+int isfinite(double x) { 
+  return std::isfinite(x);
+}
+#endif
+
 namespace v8 {
 
 using jsrt::ContextShim;

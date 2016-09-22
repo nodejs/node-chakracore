@@ -55,7 +55,21 @@
 #define USE_EDGEMODE_JSRT     // Only works with edge JSRT
 #endif
 
+#if !defined(OSX_SDK_TR1) && defined(__APPLE__)
+#include <AvailabilityMacros.h>
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < MAC_OS_X_VERSION_10_9
+#define OSX_SDK_TR1
+#endif
+#endif
+
+#ifdef OSX_SDK_TR1
+#include <tr1/memory>
+#define STD_SHARED_PTR std::tr1::shared_ptr
+#else
 #include <memory>
+#define STD_SHARED_PTR std::shared_ptr
+#endif
+
 #include "ChakraCore.h"
 #include "v8-version.h"
 #include "v8config.h"
@@ -448,7 +462,7 @@ struct WeakReferenceCallbackWrapper {
 };
 #ifdef _WIN32
 // xplat-todo: Is this still needed? Fail to compile xplat.
-template class V8_EXPORT std::shared_ptr<WeakReferenceCallbackWrapper>;
+template class V8_EXPORT STD_SHARED_PTR<WeakReferenceCallbackWrapper>;
 #endif
 
 // A helper method for setting an object with a WeakReferenceCallback. The
@@ -457,12 +471,12 @@ V8_EXPORT void SetObjectWeakReferenceCallback(
   JsValueRef object,
   WeakCallbackInfo<void>::Callback callback,
   void* parameters,
-  std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper);
+  STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper);
 V8_EXPORT void SetObjectWeakReferenceCallback(
   JsValueRef object,
   WeakCallbackData<Value, void>::Callback callback,
   void* parameters,
-  std::shared_ptr<WeakReferenceCallbackWrapper>* weakWrapper);
+  STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper);
 // A helper method for turning off the WeakReferenceCallback that was set using
 // the previous method
 V8_EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
@@ -539,7 +553,7 @@ class PersistentBase {
   void SetWeakCommon(P* parameter, Callback callback);
 
   T* val_;
-  std::shared_ptr<chakrashim::WeakReferenceCallbackWrapper> _weakWrapper;
+  STD_SHARED_PTR<chakrashim::WeakReferenceCallbackWrapper> _weakWrapper;
 };
 
 
