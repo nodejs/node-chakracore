@@ -61,17 +61,17 @@ template <class Callback, class Func>
 void SetObjectWeakReferenceCallbackCommon(
     JsValueRef object,
     Callback callback,
-    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper,
+    WeakReferenceCallbackWrapper** weakWrapper,
     const Func& initWrapper) {
   if (callback == nullptr || object == JS_INVALID_REFERENCE) {
     return;
   }
 
   if (!*weakWrapper) {
-    (*weakWrapper).reset(new WeakReferenceCallbackWrapper());
+    *weakWrapper = new WeakReferenceCallbackWrapper();
   }
 
-  WeakReferenceCallbackWrapper *callbackWrapper = (*weakWrapper).get();
+  WeakReferenceCallbackWrapper *callbackWrapper = (*weakWrapper);
   initWrapper(callbackWrapper);
 
   JsSetObjectBeforeCollectCallback(
@@ -83,7 +83,7 @@ void SetObjectWeakReferenceCallback(
     JsValueRef object,
     WeakCallbackInfo<void>::Callback callback,
     void* parameters,
-    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper) {
+    WeakReferenceCallbackWrapper** weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
     [=](WeakReferenceCallbackWrapper *callbackWrapper) {
@@ -97,7 +97,7 @@ void SetObjectWeakReferenceCallback(
     JsValueRef object,
     WeakCallbackData<Value, void>::Callback callback,
     void* parameters,
-    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper) {
+    WeakReferenceCallbackWrapper** weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
     [=](WeakReferenceCallbackWrapper *callbackWrapper) {
