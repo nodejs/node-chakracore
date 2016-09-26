@@ -52,6 +52,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     else()
         clr_unknown_arch()
     endif()
+    # OSX 10.12 Clang deprecates libstdc++ [See GH #1599]
+    # So, -Werror is linux only for now
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+        -Werror"
+        )
     set(CLR_CMAKE_PLATFORM_LINUX 1)
 elseif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     add_definitions(
@@ -135,15 +140,6 @@ if(CLR_CMAKE_PLATFORM_UNIX)
     # do not set to `fvisibility=hidden` as it is going to
     # prevent the required interface is being exported
     # clang by default sets fvisibility=default
-
-if(NOT CC_XCODE_PROJECT)
-    # todo: enable for XCode too
-    # XCode is a bit more strict
-    # keep this until we fix all the warnings there.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-        -Werror"
-        )
-endif()
 
     # CXX WARNING FLAGS
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
