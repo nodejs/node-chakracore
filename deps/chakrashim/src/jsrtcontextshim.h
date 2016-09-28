@@ -54,6 +54,8 @@ class ContextShim {
   ~ContextShim();
   void EnsureInitialized();
 
+  bool ExecuteChakraDebugShimJS(JsValueRef * chakraDebugObject);
+
   IsolateShim * GetIsolateShim();
   JsContextRef GetContextRef();
 

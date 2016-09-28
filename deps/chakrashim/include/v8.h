@@ -2279,7 +2279,6 @@ class V8_EXPORT StartupData {
 
 class V8_EXPORT V8 {
  public:
-  static void SetArrayBufferAllocator(ArrayBuffer::Allocator* allocator);
   static bool IsDead();
   static void SetFlagsFromString(const char* str, int length);
   static void SetFlagsFromCommandLine(

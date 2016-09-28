@@ -26,11 +26,11 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
+
 #include <v8.h>
 
 namespace v8 {
 
-// NOT IMPLEMENTED
 class V8_EXPORT Debug {
  public:
   class ClientData {
@@ -47,24 +47,18 @@ class V8_EXPORT Debug {
   typedef void (*MessageHandler)(const Message& message);
 
   static void DebugBreak(Isolate *isolate = NULL) {}
-  static void SetDebugMessageDispatchHandler(
-    DebugMessageDispatchHandler handler, bool provide_locker = false) {}
-  static bool EnableAgent(
-    const char *name = NULL, int port = 0, bool wait_for_connection = false);
-  static void Dispose();
-  static void DisableAgent() {}
-  static bool IsAgentEnabled();
-  static void ProcessDebugMessages(Isolate* isolate) {}
-  static Local<Context> GetDebugContext(Isolate* isolate);
-  static void SetMessageHandler(Isolate* isolate, MessageHandler handler) {}
+  static void SetMessageHandler(Isolate* isolate, MessageHandler handler);
   static void SendCommand(Isolate* isolate,
                           const uint16_t* command, int length,
-                          ClientData* client_data = NULL) {
-  }
+                          ClientData* client_data = NULL);
   static MaybeLocal<Value> GetMirror(Local<Context> context,
                                      Handle<Value> obj) {
     return MaybeLocal<Value>();
   }
+  static void ProcessDebugMessages(Isolate* isolate) {}
+  static Local<Context> GetDebugContext(Isolate* isolate);
+
+  static void EnableDebug();
 };
 
 }  // namespace v8
