@@ -62,14 +62,7 @@
 #endif
 #endif
 
-#ifdef OSX_SDK_TR1
-#include <tr1/memory>
-#define STD_SHARED_PTR std::tr1::shared_ptr
-#else
 #include <memory>
-#define STD_SHARED_PTR std::shared_ptr
-#endif
-
 #include "ChakraCore.h"
 #include "v8-version.h"
 #include "v8config.h"
@@ -460,10 +453,6 @@ struct WeakReferenceCallbackWrapper {
   };
   bool isWeakCallbackInfo;
 };
-#ifdef _WIN32
-// xplat-todo: Is this still needed? Fail to compile xplat.
-template class V8_EXPORT STD_SHARED_PTR<WeakReferenceCallbackWrapper>;
-#endif
 
 // A helper method for setting an object with a WeakReferenceCallback. The
 // callback will be called before the object is released.
@@ -471,12 +460,12 @@ V8_EXPORT void SetObjectWeakReferenceCallback(
   JsValueRef object,
   WeakCallbackInfo<void>::Callback callback,
   void* parameters,
-  STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper);
+  WeakReferenceCallbackWrapper** weakWrapper);
 V8_EXPORT void SetObjectWeakReferenceCallback(
   JsValueRef object,
   WeakCallbackData<Value, void>::Callback callback,
   void* parameters,
-  STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper);
+  WeakReferenceCallbackWrapper** weakWrapper);
 // A helper method for turning off the WeakReferenceCallback that was set using
 // the previous method
 V8_EXPORT void ClearObjectWeakReferenceCallback(JsValueRef object, bool revive);
@@ -544,7 +533,7 @@ class PersistentBase {
   template<class F> friend class Local;
   template<class F1, class F2> friend class Persistent;
 
-  explicit V8_INLINE PersistentBase(T* val) : val_(val) {}
+  explicit V8_INLINE PersistentBase(T* val) : val_(val), _weakWrapper(nullptr) {}
   PersistentBase(PersistentBase& other) = delete;  // NOLINT
   void operator=(PersistentBase&) = delete;
   V8_INLINE static T* New(Isolate* isolate, T* that);
@@ -553,7 +542,7 @@ class PersistentBase {
   void SetWeakCommon(P* parameter, Callback callback);
 
   T* val_;
-  STD_SHARED_PTR<chakrashim::WeakReferenceCallbackWrapper> _weakWrapper;
+  chakrashim::WeakReferenceCallbackWrapper* _weakWrapper;
 };
 
 
@@ -688,7 +677,7 @@ class Global : public PersistentBase<T> {
   V8_INLINE Global(Global&& other) : PersistentBase<T>(other.val_) {
     this->_weakWrapper = other._weakWrapper;
     other.val_ = nullptr;
-    other._weakWrapper.reset();
+    other._weakWrapper = nullptr;
   }
 
   V8_INLINE ~Global() { this->Reset(); }
@@ -701,7 +690,7 @@ class Global : public PersistentBase<T> {
       this->val_ = rhs.val_;
       this->_weakWrapper = rhs._weakWrapper;
       rhs.val_ = nullptr;
-      rhs._weakWrapper.reset();
+      rhs._weakWrapper = nullptr;
     }
     return *this;
   }
@@ -2511,10 +2500,11 @@ void PersistentBase<T>::Reset() {
   if (this->IsEmpty() || V8::IsDead()) return;
 
   if (IsWeak()) {
-    if (_weakWrapper.unique()) {
+    if (_weakWrapper) {
       chakrashim::ClearObjectWeakReferenceCallback(val_, /*revive*/false);
+      delete _weakWrapper;
+      _weakWrapper = nullptr;
     }
-    _weakWrapper.reset();
   } else {
     JsRelease(val_, nullptr);
   }
@@ -2578,10 +2568,11 @@ P* PersistentBase<T>::ClearWeak() {
   if (!IsWeak()) return nullptr;
 
   P* parameters = reinterpret_cast<P*>(_weakWrapper->parameters);
-  if (_weakWrapper.unique()) {
+  if (_weakWrapper) {
     chakrashim::ClearObjectWeakReferenceCallback(val_, /*revive*/true);
+    delete _weakWrapper;
+    _weakWrapper = nullptr;
   }
-  _weakWrapper.reset();
 
   JsAddRef(val_, nullptr);
   return parameters;

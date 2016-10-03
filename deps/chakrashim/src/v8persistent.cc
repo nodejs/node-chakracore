@@ -61,17 +61,22 @@ template <class Callback, class Func>
 void SetObjectWeakReferenceCallbackCommon(
     JsValueRef object,
     Callback callback,
-    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper,
+    WeakReferenceCallbackWrapper** weakWrapper,
     const Func& initWrapper) {
   if (callback == nullptr || object == JS_INVALID_REFERENCE) {
     return;
   }
 
-  if (!*weakWrapper) {
-    (*weakWrapper).reset(new WeakReferenceCallbackWrapper());
-  }
+  // This will be called once per instance
+  // We do not share the _weakWrapper.
+  // The memory is allocated per request and released similarly.
+  // previous shared_ptr interface was actually doing the same.
+  // however in case the instance was shared(which is not in motion)
+  // it was keeping the callback until the shared counter reaches to unique state.
+  assert(!*weakWrapper && "This should be nullptr.");
+  *weakWrapper = new WeakReferenceCallbackWrapper();
 
-  WeakReferenceCallbackWrapper *callbackWrapper = (*weakWrapper).get();
+  WeakReferenceCallbackWrapper *callbackWrapper = (*weakWrapper);
   initWrapper(callbackWrapper);
 
   JsSetObjectBeforeCollectCallback(
@@ -83,7 +88,7 @@ void SetObjectWeakReferenceCallback(
     JsValueRef object,
     WeakCallbackInfo<void>::Callback callback,
     void* parameters,
-    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper) {
+    WeakReferenceCallbackWrapper** weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
     [=](WeakReferenceCallbackWrapper *callbackWrapper) {
@@ -97,7 +102,7 @@ void SetObjectWeakReferenceCallback(
     JsValueRef object,
     WeakCallbackData<Value, void>::Callback callback,
     void* parameters,
-    STD_SHARED_PTR<WeakReferenceCallbackWrapper>* weakWrapper) {
+    WeakReferenceCallbackWrapper** weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
     [=](WeakReferenceCallbackWrapper *callbackWrapper) {
