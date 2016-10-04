@@ -10,8 +10,6 @@ if (common.isChakraEngine) {
   return;
 }
 
-
-
 const port = common.PORT;
 const serverPath = path.join(common.fixturesDir, 'clustered-server', 'app.js');
 const args = [`--debug-port=${port}`, serverPath];
