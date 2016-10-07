@@ -768,10 +768,10 @@ class TestRepository(TestSuite):
   def GetBuildRequirements(self, path, context):
     return self.GetConfiguration(context).GetBuildRequirements()
 
-  def AddTestsToList(self, result, current_path, path, context, arch, mode):
+  def AddTestsToList(self, result, current_path, path, context, arch, mode, jsEngine):
     for v in VARIANT_FLAGS:
       tests = self.GetConfiguration(context).ListTests(current_path, path,
-                                                       arch, mode)
+                                                       arch, mode, jsEngine)
       for t in tests: t.variant_flags = v
       result += tests * context.repeat
 
@@ -793,14 +793,14 @@ class LiteralTestSuite(TestSuite):
         result += test.GetBuildRequirements(rest, context)
     return result
 
-  def ListTests(self, current_path, path, context, arch, mode):
+  def ListTests(self, current_path, path, context, arch, mode, jsEngine):
     (name, rest) = CarCdr(path)
     result = [ ]
     for test in self.tests:
       test_name = test.GetName()
       if not name or name.match(test_name):
         full_path = current_path + [test_name]
-        test.AddTestsToList(result, full_path, path, context, arch, mode)
+        test.AddTestsToList(result, full_path, path, context, arch, mode, jsEngine)
     result.sort(cmp=lambda a, b: cmp(a.GetName(), b.GetName()))
     return result
 
@@ -827,7 +827,7 @@ class Context(object):
 
   def __init__(self, workspace, buildspace, verbose, vm, args, expect_fail,
                timeout, processor, suppress_dialogs,
-               store_unexpected_output, engine, repeat):
+               store_unexpected_output, repeat):
     self.workspace = workspace
     self.buildspace = buildspace
     self.verbose = verbose
@@ -838,7 +838,6 @@ class Context(object):
     self.processor = processor
     self.suppress_dialogs = suppress_dialogs
     self.store_unexpected_output = store_unexpected_output
-    self.engine = engine
     self.repeat = repeat
 
   def GetVm(self, arch, mode):
@@ -1359,8 +1358,6 @@ def BuildOptions():
       default="")
   result.add_option('--temp-dir',
       help='Optional path to change directory used for tests', default=False)
-  result.add_option("-e", "--engine", help="The javascript engine used by node.js",
-      default='v8')
   result.add_option('--repeat',
       help='Number of times to repeat given tests',
       default=1, type="int")
@@ -1537,7 +1534,6 @@ def Main():
                     processor,
                     options.suppress_dialogs,
                     options.store_unexpected_output,
-                    options.engine,
                     options.repeat)
 
   # Get status for tests
@@ -1576,7 +1572,7 @@ def Main():
           'arch': vmArch,
           'jsengine': jsEngine, # variable names are lowercased
         }
-        test_list = root.ListTests([], path, context, arch, mode)
+        test_list = root.ListTests([], path, context, arch, mode, jsEngine)
         unclassified_tests += test_list
         (cases, unused_rules, all_outcomes) = (
             config.ClassifyTests(test_list, env))

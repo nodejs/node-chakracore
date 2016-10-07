@@ -76,7 +76,7 @@ class TimersTestConfiguration(test.TestConfiguration):
       return name.startswith('test-') and name.endswith('.js')
     return [f[:-3] for f in os.listdir(path) if SelectTest(f)]
 
-  def ListTests(self, current_path, path, arch, mode):
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
     all_tests = [current_path + [t] for t in self.Ls(join(self.root))]
     result = []
     for test in all_tests:
