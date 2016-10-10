@@ -38,9 +38,6 @@ test-debug-signal-cluster                : PASS, FLAKY
 test-child-process-fork-dgram            : PASS, FLAKY
 
 [$jsEngine==chakracore]
-test-buffer-includes : SKIP
-test-buffer-indexof : SKIP
-test-buffer-slow : SKIP
 test-crypto-dh : SKIP
 test-force-repl : SKIP
 test-force-repl-with-eval : SKIP
@@ -67,3 +64,8 @@ test-vm-preserves-property : SKIP
 test-vm-proxies : SKIP
 test-vm-strict-mode : SKIP
 test-vm-timeout : SKIP
+
+[$jsEngine==chakracore && $arch==x64]
+test-buffer-includes : SKIP
+test-buffer-indexof : SKIP
+test-buffer-slow : SKIP
