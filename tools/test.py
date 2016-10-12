@@ -1556,13 +1556,13 @@ def Main():
           continue
         archEngineContext = Execute([vm, "-p", "process.arch"], context)
         vmArch = archEngineContext.stdout.rstrip()
-        if archEngineContext.exit_code is not 0 or vmArch == "undefined":
+        if archEngineContext.exit_code != 0 or vmArch == "undefined":
           print "Can't determine the arch of: '%s'" % vm
           print archEngineContext.stderr.rstrip()
           continue
         jsEngineContext = Execute([vm, "-p", "process.jsEngine"], context)
         jsEngine = jsEngineContext.stdout.rstrip()
-        if jsEngineContext.exit_code is not 0 or jsEngine == "undefined":
+        if jsEngineContext.exit_code != 0 or jsEngine == "undefined":
           print "Can't determine the jsEngine of: '%s'" % vm
           print jsEngineContext.stderr.rstrip()
           continue
