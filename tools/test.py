@@ -1567,10 +1567,12 @@ def Main():
           print jsEngineContext.stderr.rstrip()
           continue
         env = {
+          # variable names are lowercased when reading the status files
+          # any uppercase character here will prevent the names from matching
           'mode': mode,
           'system': utils.GuessOS(),
           'arch': vmArch,
-          'jsengine': jsEngine, # variable names are lowercased
+          'jsengine': jsEngine,
         }
         test_list = root.ListTests([], path, context, arch, mode, jsEngine)
         unclassified_tests += test_list
