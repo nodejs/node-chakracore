@@ -7,11 +7,10 @@
     'msvs_windows_target_platform_version_prop': '',
     'icu_args%': '',
     'icu_include_path%': '',
+    'icu_lib_path%': '',
     'linker_start_group%': '',
     'linker_end_group%': '',
     'chakra_libs_absolute%': '',
-    'icu_lib_path%': '',
-    'chakra_build_flags': '',
 
     # xplat (non-win32) only
     'chakra_config': 'Release',     # Debug, Release
@@ -29,15 +28,12 @@
         'icu_include_path': '/usr/local/opt/icu4c/include'
       }],
 
-      # xplat-todo: we need to build CC release/debug without breaking the previous cache
-      # node compiles both release and debug on `debug` mode.
-      # ChakraCore ends-up overwriting the previous build cache
       # xplat (non-win32) only
-      # ['chakra_config=="Debug"', {
-      #   'chakra_build_flags': [ '-d' ],
-      # }, {
-      #   'chakra_build_flags': [],
-      # }],
+      ['chakra_config=="Debug"', {
+        'chakra_build_flags': [ '-d' ],
+      }, {
+        'chakra_build_flags': [],
+      }],
     ],
   },
 
