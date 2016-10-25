@@ -272,8 +272,8 @@ RT_ERROR_MSG(JSERR_DeletePropertyWithSuper, 5146, "Unable to delete property '%s
 
 RT_ERROR_MSG(JSERR_DetachedTypedArray, 5147, "%s: The ArrayBuffer is detached.", "The ArrayBuffer is detached.", kjstTypeError, 0)
 RT_ERROR_MSG(JSERR_AsmJsCompileError, 5148, "%s: Compiling asm.js failed.", "Compiling asm.js failed.", kjstError, 0)
-
 RT_ERROR_MSG(JSERR_ImmutablePrototypeSlot, 5149, "%s: Can't set the prototype of this object.", "Can't set the prototype of this object.", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_WasmCompileError, 5150, "Compiling wasm failed: %s", "Compiling wasm failed.", kjstError, 0)
 
 /* Error messages for misbehaved Async Operations for use in Promise.js */
 RT_ERROR_MSG(ASYNCERR_NoErrorInErrorState, 5200, "", "Status is 'error', but getResults did not return an error", kjstError, 0)
@@ -357,3 +357,10 @@ RT_ERROR_MSG(JSERR_InvalidHint, 5658, "%s: invalid hint", "invalid hint", kjstTy
 
 RT_ERROR_MSG(JSERR_This_NeedNamespace, 5659, "%s: 'this' is not a Module Namespace object", "Module Namespace object expected", kjstTypeError, JSERR_This_NeedNamespace) // {Locked="\'this\'"}
 RT_ERROR_MSG(JSERR_This_NeedListIterator, 5660, "%s: 'this' is not a List Iterator object", "List Iterator expected", kjstTypeError, 0) 
+RT_ERROR_MSG(JSERR_NeedSharedArrayBufferObject, 5661, "%s is not a SharedArrayBuffer", "SharedArrayBuffer object expected", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_NeedTypedArrayObject, 5662, "", "Atomics function called with invalid typed array object", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_InvalidTypedArrayIndex, 5663, "", "Access index is out of range", kjstRangeError, 0)
+RT_ERROR_MSG(JSERR_InvalidOperationOnTypedArray, 5664, "", "The operation is not supported on this typed array type", kjstRangeError, 0)
+RT_ERROR_MSG(JSERR_CannotSuspendBuffer, 5665, "", "Current agent cannot be suspended", kjstRangeError, 0)
+RT_ERROR_MSG(JSERR_CantDeleteNonConfigProp, 5666, "Cannot delete non-configurable property '%s'", "Cannot delete non-configurable property", kjstTypeError, 0)
+RT_ERROR_MSG(WASMERR_Unreachable, 5667, "", "Unreachable Code", kjstError, 0)

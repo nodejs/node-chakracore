@@ -54,6 +54,7 @@ namespace Js
         int32 GetInt32AtOffset(int offset) const;
         SIMDValue GetSimdValueAtOffset(int offset) const;
         char * GetValueChangeOffset(int offset) const;
+        ForInObjectEnumerator * GetForInObjectEnumeratorArrayAtOffset(int offset) const;
 
         static JavascriptCallStackLayout *FromFramePointer(void *const framePointer);
         static void* const ToFramePointer(JavascriptCallStackLayout* callstackLayout);
@@ -338,7 +339,7 @@ namespace Js
         bool TryGetByteCodeOffsetOfInlinee(Js::JavascriptFunction* function, uint loopNum, DWORD_PTR pCodeAddr, Js::FunctionBody** inlinee, uint32& offset, bool useInternalFrameInfo) const;
         uint GetLoopNumber(bool& usedInternalFrameInfo) const;
         bool InlinedFramesBeingWalked() const;
-		bool HasInlinedFramesOnStack() const;
+        bool HasInlinedFramesOnStack() const;
         bool PreviousInterpreterFrameIsFromBailout() const;
         InternalFrameInfo lastInternalFrameInfo;
 #endif

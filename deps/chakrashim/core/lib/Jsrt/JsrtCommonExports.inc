@@ -114,9 +114,3 @@
     JsStringToPointerUtf8Copy
     JsPointerToStringUtf8
     JsGetPropertyNameFromIdUtf8Copy
-    JsCreateString
-    JsCreateStringUtf8
-    JsCreateStringUtf16
-    JsWriteString
-    JsWriteStringUtf8
-    JsWriteStringUtf16

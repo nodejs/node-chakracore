@@ -624,7 +624,8 @@ class Recycler
     friend class ActiveScriptProfilerHeapEnum;
 #endif
     friend class ScriptEngineBase;  // This is for disabling GC for certain Host operations.
-    friend class CodeGenNumberThreadAllocator;
+    friend class ::CodeGenNumberThreadAllocator;
+    friend struct ::XProcNumberPageSegmentManager;
 public:
     static const uint ConcurrentThreadStackSize = 300000;
     static const bool FakeZeroLengthArray = true;
@@ -741,7 +742,7 @@ private:
 
     struct GuestArenaAllocator : public ArenaAllocator
     {
-        GuestArenaAllocator(__in char16 const*  name, PageAllocator * pageAllocator, void (*outOfMemoryFunc)())
+        GuestArenaAllocator(__in_z char16 const*  name, PageAllocator * pageAllocator, void (*outOfMemoryFunc)())
             : ArenaAllocator(name, pageAllocator, outOfMemoryFunc), pendingDelete(false)
         {
         }
@@ -1000,9 +1001,6 @@ private:
     RecyclerMemoryData * memoryData;
 #endif
     ThreadContextId mainThreadId;
-#ifdef ENABLE_BASIC_TELEMETRY
-    Js::GCTelemetry gcTel;
-#endif
 
 #if DBG
     uint heapBlockCount;
@@ -1370,7 +1368,8 @@ public:
         return this->autoHeap.GetBucket<attributes>(sizeCat).GetAllocator()->GetFreeObjectListOffset();
     }
 
-    void GetNormalHeapBlockAllocatorInfoForNativeAllocation(size_t sizeCat, void*& allocatorAddress, uint32& endAddressOffset, uint32& freeListOffset);
+    void GetNormalHeapBlockAllocatorInfoForNativeAllocation(size_t sizeCat, void*& allocatorAddress, uint32& endAddressOffset, uint32& freeListOffset, bool allowBumpAllocation, bool isOOPJIT);
+    static void GetNormalHeapBlockAllocatorInfoForNativeAllocation(void* recyclerAddr, size_t sizeCat, void*& allocatorAddress, uint32& endAddressOffset, uint32& freeListOffset, bool allowBumpAllocation, bool isOOPJIT);
     bool AllowNativeCodeBumpAllocation();
     static void TrackNativeAllocatedMemoryBlock(Recycler * recycler, void * memBlock, size_t sizeCat);
 
@@ -1436,6 +1435,7 @@ public:
 #endif
 #ifdef RECYCLER_MEMORY_VERIFY
     BOOL VerifyEnabled() const { return verifyEnabled; }
+    uint GetVerifyPad() const { return verifyPad; }
     void Verify(Js::Phase phase);
 
     static void VerifyCheck(BOOL cond, char16 const * msg, void * address, void * corruptedAddress);
@@ -1445,6 +1445,7 @@ public:
     {
         FillCheckPad(address, size, alignedAllocSize, false);
     }
+    static void FillPadNoCheck(void * address, size_t size, size_t alignedAllocSize, bool objectAlreadyInitialized);
 
     void VerifyCheckPad(void * address, size_t size);
     void VerifyCheckPadExplicitFreeList(void * address, size_t size);
@@ -1472,22 +1473,7 @@ public:
     }
     void CaptureCollectionParam(CollectionFlags flags, bool repeat = false);
 #endif
-#ifdef ENABLE_BASIC_TELEMETRY
-    Js::GCPauseStats GetGCPauseStats()
-    {
-        return gcTel.GetGCPauseStats(); // returns the maxGCpause time in ms
-    }
 
-    void ResetGCPauseStats()
-    {
-        gcTel.Reset();
-    }
-
-    void SetIsScriptSiteCloseGC(bool val)
-    {
-        gcTel.SetIsScriptSiteCloseGC(val);
-    }
-#endif
 private:
     // RecyclerRootPtr has implicit conversion to pointers, prevent it to be
     // passed to RootAddRef/RootRelease directly
@@ -2044,7 +2030,7 @@ public:
     void* GetObjectAddress() const { return m_address; }
 
 #ifdef RECYCLER_PAGE_HEAP
-    bool IsPageHeapAlloc() 
+    bool IsPageHeapAlloc()
     {
         return isUsingLargeHeapBlock && ((LargeHeapBlock*)m_heapBlock)->InPageHeapMode();
     }

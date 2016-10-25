@@ -115,17 +115,7 @@ struct Allocation
         }
         return allocator;
     }
-
-#if defined(_M_ARM32_OR_ARM64)
-    void RegisterPdata(ULONG_PTR functionStart, DWORD length)
-    {
-        Assert(this->xdata.pdataCount > 0);
-        XDataAllocator* xdataAllocator = GetXDataAllocator();
-        xdataAllocator->Register(this->xdata, functionStart, length);
-    }
 #endif
-#endif
-
 };
 
 // Wrapper for the two HeapPageAllocator with and without the prereserved segment.
@@ -139,11 +129,12 @@ public:
         AutoLock(CodePageAllocators * codePageAllocators) : AutoCriticalSection(&codePageAllocators->cs) {};
     };
 
-    CodePageAllocators(AllocationPolicyManager * policyManager, bool allocXdata, PreReservedVirtualAllocWrapper * virtualAllocator) :
-        pageAllocator(policyManager, allocXdata, true /*excludeGuardPages*/, nullptr),
-        preReservedHeapPageAllocator(policyManager, allocXdata, true /*excludeGuardPages*/, virtualAllocator),
+    CodePageAllocators(AllocationPolicyManager * policyManager, bool allocXdata, PreReservedVirtualAllocWrapper * virtualAllocator, HANDLE processHandle) :
+        pageAllocator(policyManager, allocXdata, true /*excludeGuardPages*/, nullptr, processHandle),
+        preReservedHeapPageAllocator(policyManager, allocXdata, true /*excludeGuardPages*/, virtualAllocator, processHandle),
         cs(4000),
-        secondaryAllocStateChangedCount(0)
+        secondaryAllocStateChangedCount(0),
+        processHandle(processHandle)
     {
 #if DBG
         this->preReservedHeapPageAllocator.ClearConcurrentThreadId();
@@ -161,7 +152,7 @@ public:
     {
         // Simple immutable data access, no need for lock
         Assert(segment);
-        return (((Segment*)(segment))->IsInPreReservedHeapPageAllocator());
+        return reinterpret_cast<SegmentBaseCommon*>(segment)->IsInPreReservedHeapPageAllocator();
     }
 
     bool IsInNonPreReservedPageAllocator(__in void *address)
@@ -378,6 +369,7 @@ private:
     HeapPageAllocator<VirtualAllocWrapper>               pageAllocator;
     HeapPageAllocator<PreReservedVirtualAllocWrapper>    preReservedHeapPageAllocator;
     CriticalSection cs;
+    HANDLE processHandle;
 
     // Track the number of time a segment's secondary allocate change from full to available to allocate.
     // So that we know whether CustomHeap to know when to update their "full page"
@@ -399,14 +391,14 @@ private:
 class Heap
 {
 public:
-    Heap(ArenaAllocator * alloc, CodePageAllocators * codePageAllocators);
+    Heap(ArenaAllocator * alloc, CodePageAllocators * codePageAllocators, HANDLE processHandle);
 
     Allocation* Alloc(DECLSPEC_GUARD_OVERFLOW size_t bytes, ushort pdataCount, ushort xdataSize, bool canAllocInPreReservedHeapPageSegment, bool isAnyJittedCode, _Inout_ bool* isAllJITCodeInPreReservedRegion);
     void Free(__in Allocation* allocation);
     void DecommitAll();
     void FreeAll();
     bool IsInHeap(__in void* address);
-   
+
     // A page should be in full list if:
     // 1. It does not have any space
     // 2. Parent segment cannot allocate any more XDATA
@@ -476,8 +468,7 @@ private:
     DWORD EnsurePageReadWrite(Page* page)
     {
         Assert(!page->isDecommitted);
-        BOOL result = this->codePageAllocators->ProtectPages(page->address, 1, page->segment, readWriteFlags, PAGE_EXECUTE);
-        Assert(result && (PAGE_EXECUTE & readWriteFlags) == 0);
+        this->codePageAllocators->ProtectPages(page->address, 1, page->segment, readWriteFlags, PAGE_EXECUTE);
         return PAGE_EXECUTE;
     }
 
@@ -487,8 +478,7 @@ private:
     {
         if (allocation->IsLargeAllocation())
         {
-            BOOL result = this->ProtectAllocation(allocation, readWriteFlags, PAGE_EXECUTE);
-            Assert(result && (PAGE_EXECUTE & readWriteFlags) == 0);
+            this->ProtectAllocation(allocation, readWriteFlags, PAGE_EXECUTE);
             return PAGE_EXECUTE;
         }
         else
@@ -556,6 +546,7 @@ private:
     DListBase<Allocation>  decommittedLargeObjects;
 
     uint                   lastSecondaryAllocStateChangedCount;
+    HANDLE                 processHandle;
 #if DBG
     bool inDtor;
 #endif
@@ -564,6 +555,6 @@ private:
 // Helpers
 unsigned int log2(size_t number);
 BucketId GetBucketForSize(DECLSPEC_GUARD_OVERFLOW size_t bytes);
-void FillDebugBreak(__out_bcount_full(byteCount) BYTE* buffer, __in size_t byteCount);
-};
-}
+void FillDebugBreak(_In_ BYTE* buffer, __in size_t byteCount, HANDLE processHandle);
+} // namespace CustomHeap
+} // namespace Memory

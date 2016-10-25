@@ -31,6 +31,15 @@ PHASE(All)
     PHASE(Delay)
         PHASE(Speculation)
         PHASE(GatherCodeGenData)
+    PHASE(Wasm)
+        PHASE(WasmBytecode)
+            PHASE(WasmParser)
+            PHASE(WasmReader)
+            PHASE(WasmSection)
+            PHASE(WasmLEB128)
+            PHASE(WasmFunctionBody)
+        PHASE(WasmLazyTrap)
+        PHASE(WasmDeferred)
     PHASE(Asmjs)
         PHASE(AsmjsTmpRegisterAllocation)
         PHASE(AsmjsEncoder)
@@ -176,7 +185,6 @@ PHASE(All)
         PHASE(Lowerer)
             PHASE(FastPath)
                 PHASE(LoopFastPath)
-                PHASE(LeafFastPath)
                 PHASE(MathFastPath)
                 PHASE(Atom)
                     PHASE(MulStrengthReduction)
@@ -278,6 +286,7 @@ PHASE(All)
         PHASE(Host)
         PHASE(BailOut)
         PHASE(RegexQc)
+        PHASE(RegexOptBT)
         PHASE(InlineCache)
         PHASE(PolymorphicInlineCache)
         PHASE(MissingPropertyCache)
@@ -345,8 +354,10 @@ PHASE(All)
         PHASE(StackFramesEvent)
 #endif
         PHASE(PerfHint)
+        PHASE(TypeShareForChangePrototype)
         PHASE(DeferSourceLoad)
         PHASE(ObjectMutationBreakpoint)
+        PHASE(NativeCodeData)
 #undef PHASE
 #endif
 
@@ -376,7 +387,6 @@ PHASE(All)
 #define DEFAULT_CONFIG_DeferTopLevelTillFirstCall (true)
 #define DEFAULT_CONFIG_DirectCallTelemetryStats (false)
 #define DEFAULT_CONFIG_errorStackTrace      (true)
-#define DEFAULT_CONFIG_FastPathCap          (-1)        // By default, we do not have any fast path cap
 #define DEFAULT_CONFIG_FastLineColumnCalculation (true)
 #define DEFAULT_CONFIG_PrintLineColumnInfo (false)
 #define DEFAULT_CONFIG_ForceDecommitOnCollect (false)
@@ -564,16 +574,17 @@ PHASE(All)
 #else
     #define DEFAULT_CONFIG_ArrayBufferTransfer     (false)
 #endif
-#ifdef COMPILE_DISABLE_ES7AsyncAwait
-    // If ES7AsyncAwait needs to be disabled by compile flag, DEFAULT_CONFIG_ES7AsyncAwait should be false
-    #define DEFAULT_CONFIG_ES7AsyncAwait           (false)
-#else
-    #define DEFAULT_CONFIG_ES7AsyncAwait           (false)
-#endif
+#define DEFAULT_CONFIG_ES7AsyncAwait           (true)
 #define DEFAULT_CONFIG_ES7ExponentionOperator  (true)
 #define DEFAULT_CONFIG_ES7TrailingComma        (true)
 #define DEFAULT_CONFIG_ES7ValuesEntries        (true)
 #define DEFAULT_CONFIG_ESObjectGetOwnPropertyDescriptors (true)
+
+#ifdef COMPILE_DISABLE_ESSharedArrayBuffer
+#define DEFAULT_CONFIG_ESSharedArrayBuffer     (false)
+#else
+#define DEFAULT_CONFIG_ESSharedArrayBuffer     (false)
+#endif
 #define DEFAULT_CONFIG_ES6Verbose              (false)
 #define DEFAULT_CONFIG_ES6All                  (false)
 // ES6 DEFAULT BEHAVIOR
@@ -648,6 +659,8 @@ PHASE(All)
 #define DEFAULT_CONFIG_DisableDebugObject (false)
 #define DEFAULT_CONFIG_DumpHeap (false)
 #define DEFAULT_CONFIG_PerfHintLevel (1)
+#define DEFAULT_CONFIG_OOPJITMissingOpts (true)
+#define DEFAULT_CONFIG_OOPCFGRegistration (true)
 
 #define DEFAULT_CONFIG_FailFastIfDisconnectedDelegate    (false)
 
@@ -783,6 +796,14 @@ PHASE(All)
 // RELEASE FLAGS
 #define FLAGPR(Type, ParentName, Name, String, Default)     FLAG(Type, Name, String, Default, ParentName, FALSE)
 #define FLAGR(Type, Name, String, Default)                  FLAG(Type, Name, String, Default, NoParent, FALSE)
+
+// Release flags with parent and acronym
+#ifndef FLAGPRA
+#define FLAGPRA(Type, ParentName, Name, Acronym, String, Default) \
+        FLAG_REGOVR_EXP(Type, Name, String, Default, ParentName, FALSE) \
+        FLAGNR(Type, Acronym, String, Default)
+#endif
+
 
 // RELEASE FLAGS WITH REGISTRY OVERRIDE
 #define FLAGPR_REGOVR_ASMJS(Type, ParentName, Name, String, Default) FLAG_REGOVR_ASMJS(Type, Name, String, Default, ParentName, FALSE)
@@ -932,10 +953,7 @@ FLAGNRC(Boolean, ES6Experimental           , "Enable all experimental features",
 
 FLAGPR           (Boolean, ES6, ES6Species             , "Enable ES6 '@@species' properties and built-in behaviors" , DEFAULT_CONFIG_ES6Species)
 
-#ifndef COMPILE_DISABLE_ES7AsyncAwait
-    #define COMPILE_DISABLE_ES7AsyncAwait 0
-#endif
-FLAGPR_REGOVR_EXP(Boolean, ES6, ES7AsyncAwait          , "Enable ES7 'async' and 'await' keywords"                  , DEFAULT_CONFIG_ES7AsyncAwait)
+FLAGPR           (Boolean, ES6, ES7AsyncAwait          , "Enable ES7 'async' and 'await' keywords"                  , DEFAULT_CONFIG_ES7AsyncAwait)
 FLAGPR           (Boolean, ES6, ES6Classes             , "Enable ES6 'class' and 'extends' keywords"                , DEFAULT_CONFIG_ES6Classes)
 FLAGPR           (Boolean, ES6, ES6DateParseFix        , "Enable ES6 Date.parse fixes"                              , DEFAULT_CONFIG_ES6DateParseFix)
 FLAGPR           (Boolean, ES6, ES6DefaultArgs         , "Enable ES6 Default Arguments"                             , DEFAULT_CONFIG_ES6DefaultArgs)
@@ -1013,7 +1031,12 @@ FLAGPR           (Boolean, ES6, ES6Verbose             , "Enable ES6 verbose tra
 #endif
 FLAGPR_REGOVR_EXP(Boolean, ES6, ArrayBufferTransfer    , "Enable ArrayBuffer.transfer"                              , DEFAULT_CONFIG_ArrayBufferTransfer)
 
-FLAGPR           (Boolean, ES6, ESObjectGetOwnPropertyDescriptors, "Enable Object.getOwnPropertyDescriptors"              , DEFAULT_CONFIG_ESObjectGetOwnPropertyDescriptors)
+FLAGPR           (Boolean, ES6, ESObjectGetOwnPropertyDescriptors, "Enable Object.getOwnPropertyDescriptors"        , DEFAULT_CONFIG_ESObjectGetOwnPropertyDescriptors)
+
+#ifndef COMPILE_DISABLE_ESSharedArrayBuffer
+    #define COMPILE_DISABLE_ESSharedArrayBuffer 0
+#endif
+FLAGPRA          (Boolean, ES6, ESSharedArrayBuffer    , sab     , "Enable SharedArrayBuffer"                       , DEFAULT_CONFIG_ESSharedArrayBuffer)
 
 // /ES6 (BLUE+1) features/flags
 
@@ -1025,7 +1048,6 @@ FLAGR(Boolean, WinRTAdaptiveApps        , "Enable the adaptive apps feature, all
 // This flag to be removed once JITing generator functions is stable
 FLAGNR(Boolean, JitES6Generators        , "Enable JITing of ES6 generators", false)
 
-FLAGNR(Number,  FastPathCap           , "Cap in source code size for enabling fast-paths", DEFAULT_CONFIG_FastPathCap)
 FLAGNR(Boolean, FastLineColumnCalculation, "Enable fast calculation of line/column numbers from the source.", DEFAULT_CONFIG_FastLineColumnCalculation)
 FLAGR (String,  Filename              , "Jscript source file", nullptr)
 FLAGNR(Boolean, FreeRejittedCode      , "Free rejitted code", true)
@@ -1188,6 +1210,8 @@ FLAGNR(Number,  MaxLoopsPerFunction   , "Maximum number of loops in any function
 FLAGNR(Number,  FuncObjectInlineCacheThreshold  , "Maximum number of inline caches a function body may have to allow for inline caches to be allocated on the function object", DEFAULT_CONFIG_FuncObjectInlineCacheThreshold)
 FLAGNR(Boolean, NoDeferParse          , "Disable deferred parsing", false)
 FLAGNR(Boolean, NoLogo                , "No logo, which we don't display anyways", false)
+FLAGNR(Boolean, OOPJITMissingOpts     , "Use optimizations that are missing from OOP JIT", DEFAULT_CONFIG_OOPJITMissingOpts)
+FLAGNR(Boolean, OOPCFGRegistration    , "Do CFG registration OOP (under OOP JIT)", DEFAULT_CONFIG_OOPCFGRegistration)
 #ifdef _ARM64_
 FLAGR (Boolean, NoNative              , "Disable native codegen", true)
 #else
@@ -1427,6 +1451,9 @@ FLAGNR(Boolean, ZeroMemoryWithNonTemporalStore, "Zero free memory with non-tempo
 FLAGNR(Number,  MaxMarkStackPageCount , "Restrict recycler mark stack size (in pages)", -1)
 FLAGNR(Number,  MaxTrackedObjectListCount,  "Restrict recycler tracked object count during GC", -1)
 
+// make the recycler page integration path easier to hit
+FLAGNR(Number, NumberAllocPlusSize, "Additional bytes to allocate with JavascriptNumber from number allocator (0~496)", 0)
+
 #if DBG
 FLAGNR(Boolean, InitializeInterpreterSlotsWithInvalidStackVar, "Enable the initialization of the interpreter local slots with invalid stack vars", false)
 #endif
@@ -1445,7 +1472,6 @@ FLAGNR(Boolean, IRViewer, "Enable IRViewer functionality (improved UI for variou
 #endif /* IR_VIEWER */
 
 FLAGNR(Boolean, InvalidateSolutionContextsForGetStructure, "To reduce memory consumption, in the end of GetStructure call, invalidate script contexts used only for GetStructure -- this would invalidate ones associated with solution files (not top-most references such as helpers.js)", DEFAULT_CONFIG_InvalidateSolutionContextsForGetStructure)
-FLAGNR(Boolean, GCPauseTel, "Enable GC Pause telemetry in the product code.", false)
 FLAGNR(Boolean, ES5LangTel, "Print ES5 language telemetry output.", false)
 FLAGNR(Boolean, ES6LangTel, "Print ES6 language telemetry output.", false)
 FLAGNR(Boolean, ESBLangTel, "Print ES built-ins telemetry output.", false)
@@ -1463,6 +1489,8 @@ FLAGNR(Boolean, CFG, "Force enable CFG on jshost. version in the jshost's manife
     FLAGNR(Number, SimulatePolyCacheWithOneTypeForInlineCacheIndex, "Use with SimulatePolyCacheWithOneTypeForFunction to simulate creating a polymorphic inline cache containing only one type due to a collision, for testing ObjTypeSpec", -1)
 #endif
 
+FLAGR(Number, JITServerIdleTimeout, "Idle timeout in seconds to do the cleanup in JIT server", 10)
+FLAGR(Number, JITServerMaxInactivePageAllocatorCount, "Max inactive page allocators to keep before schedule a cleanup", 10)
 #undef FLAG_REGOVR_EXP
 #undef FLAG_REGOVR_ASMJS
 
@@ -1474,5 +1502,6 @@ FLAGNR(Boolean, CFG, "Force enable CFG on jshost. version in the jshost's manife
 #undef FLAGNR
 #undef FLAGNRA
 #undef FLAGPNR
+#undef FLAGPRA
 
 #endif

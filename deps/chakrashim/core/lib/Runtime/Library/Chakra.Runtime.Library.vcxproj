@@ -29,7 +29,10 @@
         $(MSBuildThisFileDirectory)..\..\Backend;
         $(MSBuildThisFileDirectory)..\..\Common;
         $(MSBuildThisFileDirectory)..\..\Parser;
+        $(MSBuildThisFileDirectory)..\..\WasmReader;
         $(MSBuildThisFileDirectory)..\..\Runtime\ByteCode;
+        $(MSBuildThisFileDirectory)..\..\JITClient;
+        $(ChakraJITIDLIntDir);
         $(MSBuildThisFileDirectory)..\Math;
         $(ChakraManifestsIncludeDirectory);
         $(ManifestsInboxIncludeDirectory);
@@ -74,7 +77,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)IteratorObjectEnumerator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptArrayIterator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptBuiltInFunctions.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptEnumeratorIterator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptExternalFunction.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptGenerator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptGeneratorFunction.cpp" />
@@ -150,12 +152,16 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)UriHelper.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ExternalLibraryBase.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)IntlEngineInterfaceExtensionObject.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WasmLibrary.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptListIterator.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)AtomicsObject.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)SharedArrayBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\InternalPropertyList.h" />
     <ClInclude Include="..\RuntimeCommon.h" />
     <ClInclude Include="..\SerializableFunctionFields.h" />
+    <ClInclude Include="AtomicsObject.h" />
     <ClInclude Include="ExternalLibraryBase.h" />
     <ClInclude Include="IntlEngineInterfaceExtensionObject.h" />
     <ClInclude Include="JavascriptListIterator.h" />
@@ -172,6 +178,7 @@
     <ClInclude Include="JavascriptSimdBool32x4.h" />
     <ClInclude Include="JavascriptSimdBool16x8.h" />
     <ClInclude Include="JavascriptSimdBool8x16.h" />
+    <ClInclude Include="SharedArrayBuffer.h" />
     <ClInclude Include="SimdFloat32x4Lib.h" />
     <ClInclude Include="SimdFloat64x2Lib.h" />
     <ClInclude Include="SimdInt32x4Lib.h" />
@@ -202,7 +209,6 @@
     <ClInclude Include="JavascriptArrayIndexSnapshotEnumerator.h" />
     <ClInclude Include="JavascriptBuiltInFunctionList.h" />
     <ClInclude Include="JavascriptBuiltInFunctions.h" />
-    <ClInclude Include="JavascriptEnumeratorIterator.h" />
     <ClInclude Include="JavascriptExternalFunction.h" />
     <ClInclude Include="JavascriptGenerator.h" />
     <ClInclude Include="JavascriptGeneratorFunction.h" />
@@ -277,6 +283,7 @@
     <ClInclude Include="SparseArraySegment.h" />
     <ClInclude Include="SubString.h" />
     <ClInclude Include="UriHelper.h" />
+    <ClInclude Include="WasmLibrary.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="$(MSBuildThisFileDirectory)amd64\JavascriptFunctionA.asm">
@@ -310,6 +317,11 @@
     <None Include="JavascriptLibrary.inl" />
     <None Include="JavascriptNumber.inl" />
     <None Include="JavascriptString.inl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\JITIDL\Chakra.JITIDL.vcxproj">
+      <Project>{0db5ecbc-9385-4a65-be2c-4ef7c65cb719}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.targets" Condition="exists('$(BuildConfigPropsPath)Chakra.Build.targets')" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

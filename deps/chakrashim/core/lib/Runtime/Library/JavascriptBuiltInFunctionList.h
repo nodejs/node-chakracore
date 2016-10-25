@@ -299,6 +299,11 @@ BUILTIN(Math, Cbrt, Cbrt, FunctionInfo::ErrorOnNew)
 BUILTIN(Math, Imul, Imul, FunctionInfo::ErrorOnNew)
 BUILTIN(Math, Clz32, Clz32, FunctionInfo::ErrorOnNew)
 
+// Wasm entry points
+#ifdef ENABLE_WASM
+BUILTIN(WasmLibrary, instantiateModule, instantiateModule, FunctionInfo::ErrorOnNew)
+#endif
+
 // SIMDFloat32x4Lib entry points
 #ifdef ENABLE_SIMDJS
 BUILTIN(SIMDFloat32x4Lib, Float32x4, EntryFloat32x4, FunctionInfo::ErrorOnNew)
@@ -954,12 +959,28 @@ BUILTIN(JavascriptReflect, OwnKeys, EntryOwnKeys, FunctionInfo::ErrorOnNew | Fun
 BUILTIN(JavascriptReflect, PreventExtensions, EntryPreventExtensions, FunctionInfo::ErrorOnNew | FunctionInfo::DoNotProfile)
 BUILTIN(JavascriptReflect, Set, EntrySet, FunctionInfo::ErrorOnNew | FunctionInfo::DoNotProfile)
 BUILTIN(JavascriptReflect, SetPrototypeOf, EntrySetPrototypeOf, FunctionInfo::ErrorOnNew | FunctionInfo::DoNotProfile)
-BUILTIN(JavascriptEnumeratorIterator, Next, EntryNext, FunctionInfo::ErrorOnNew | FunctionInfo::DoNotProfile)
 BUILTIN(JavascriptReflect, Apply, EntryApply, FunctionInfo::ErrorOnNew | FunctionInfo::DoNotProfile)
 BUILTIN(JavascriptReflect, Construct, EntryConstruct, FunctionInfo::ErrorOnNew | FunctionInfo::DoNotProfile)
 BUILTIN(JavascriptGeneratorFunction, NewInstance, NewInstance, FunctionInfo::SkipDefaultNewObject)
 BUILTIN(JavascriptGenerator, Next, EntryNext, FunctionInfo::ErrorOnNew)
 BUILTIN(JavascriptGenerator, Return, EntryReturn, FunctionInfo::ErrorOnNew)
 BUILTIN(JavascriptGenerator, Throw, EntryThrow, FunctionInfo::ErrorOnNew)
+BUILTIN(SharedArrayBuffer, NewInstance, NewInstance, FunctionInfo::SkipDefaultNewObject)
+BUILTIN(SharedArrayBuffer, Slice, EntrySlice, FunctionInfo::ErrorOnNew)
+BUILTIN(SharedArrayBuffer, GetterByteLength, EntryGetterByteLength, FunctionInfo::ErrorOnNew | FunctionInfo::HasNoSideEffect)
+BUILTIN(SharedArrayBuffer, GetterSymbolSpecies, EntryGetterSymbolSpecies, FunctionInfo::ErrorOnNew)
+
+BUILTIN(AtomicsObject, Add, EntryAdd, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, And, EntryAnd, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, CompareExchange, EntryCompareExchange, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Exchange, EntryExchange, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, IsLockFree, EntryIsLockFree, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Load, EntryLoad, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Or, EntryOr, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Store, EntryStore, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Sub, EntrySub, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Wait, EntryWait, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Wake, EntryWake, FunctionInfo::ErrorOnNew)
+BUILTIN(AtomicsObject, Xor, EntryXor, FunctionInfo::ErrorOnNew)
 
 #undef BUILTIN_TEMPLATE

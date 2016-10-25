@@ -69,7 +69,7 @@ namespace Js
         InitializePromise(promise, &resolve, &reject, scriptContext);
 
         JavascriptExceptionObject* exception = nullptr;
-        
+
         // 9. Let completion be Call(executor, undefined, << resolvingFunctions.[[Resolve]], resolvingFunctions.[[Reject]] >>).
         try
         {
@@ -78,9 +78,9 @@ namespace Js
                 resolve,
                 reject);
         }
-        catch (JavascriptExceptionObject* e)
+        catch (const JavascriptException& err)
         {
-            exception = e;
+            exception = err.GetAndClear();
         }
 
         if (exception != nullptr)
@@ -89,8 +89,8 @@ namespace Js
             //    a. Perform ? Call(resolvingFunctions.[[Reject]], undefined, << completion.[[Value]] >>).
             TryRejectWithExceptionObject(exception, reject, scriptContext);
         }
-        
-        // 11. Return promise. 
+
+        // 11. Return promise.
         return promise;
     }
 
@@ -250,9 +250,9 @@ namespace Js
                 index++;
             });
         }
-        catch (JavascriptExceptionObject* e)
+        catch (const JavascriptException& err)
         {
-            exception = e;
+            exception = err.GetAndClear();
         }
 
         if (exception != nullptr)
@@ -406,9 +406,9 @@ namespace Js
 
             });
         }
-        catch (JavascriptExceptionObject* e)
+        catch (const JavascriptException& err)
         {
-            exception = e;
+            exception = err.GetAndClear();
         }
 
         if (exception != nullptr)
@@ -451,13 +451,9 @@ namespace Js
         }
 
         // 3. Let promiseCapability be NewPromiseCapability(C).
-        JavascriptPromiseCapability* promiseCapability = NewPromiseCapability(constructor, scriptContext);
-
         // 4. Perform ? Call(promiseCapability.[[Reject]], undefined, << r >>).
-        TryCallResolveOrRejectHandler(promiseCapability->GetReject(), r, scriptContext);
-
         // 5. Return promiseCapability.[[Promise]].
-        return promiseCapability->GetPromise();
+        return CreateRejectedPromise(r, scriptContext, constructor);
     }
 
     // Promise.resolve as described in ES 2015 Section 25.4.4.5
@@ -505,13 +501,9 @@ namespace Js
         }
 
         // 4. Let promiseCapability be NewPromiseCapability(C).
-        JavascriptPromiseCapability* promiseCapability = NewPromiseCapability(constructor, scriptContext);
-
         // 5. Perform ? Call(promiseCapability.[[Resolve]], undefined, << x >>).
-        TryCallResolveOrRejectHandler(promiseCapability->GetResolve(), x, scriptContext);
-
         // 6. Return promiseCapability.[[Promise]].
-        return promiseCapability->GetPromise();
+        return CreateResolvedPromise(x, scriptContext, constructor);
     }
 
     // Promise.prototype.then as described in ES 2015 Section 25.4.5.3
@@ -525,18 +517,13 @@ namespace Js
 
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("Promise.prototype.then"));
 
-        JavascriptPromise* promise;
-
         if (args.Info.Count < 1 || !JavascriptPromise::Is(args[0]))
         {
             JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedPromise, _u("Promise.prototype.then"));
         }
 
-        promise = JavascriptPromise::FromVar(args[0]);
-
         JavascriptLibrary* library = scriptContext->GetLibrary();
-        Var constructor = JavascriptOperators::SpeciesConstructor(promise, scriptContext->GetLibrary()->GetPromiseConstructor(), scriptContext);
-        JavascriptPromiseCapability* promiseCapability = NewPromiseCapability(constructor, scriptContext);
+        JavascriptPromise* promise = JavascriptPromise::FromVar(args[0]);
         RecyclableObject* rejectionHandler;
         RecyclableObject* fulfillmentHandler;
 
@@ -558,27 +545,7 @@ namespace Js
             rejectionHandler = library->GetThrowerFunction();
         }
 
-        JavascriptPromiseReaction* resolveReaction = JavascriptPromiseReaction::New(promiseCapability, fulfillmentHandler, scriptContext);
-        JavascriptPromiseReaction* rejectReaction = JavascriptPromiseReaction::New(promiseCapability, rejectionHandler, scriptContext);
-
-        switch (promise->status)
-        {
-        case PromiseStatusCode_Unresolved:
-            promise->resolveReactions->Add(resolveReaction);
-            promise->rejectReactions->Add(rejectReaction);
-            break;
-        case PromiseStatusCode_HasResolution:
-            EnqueuePromiseReactionTask(resolveReaction, promise->result, scriptContext);
-            break;
-        case PromiseStatusCode_HasRejection:
-            EnqueuePromiseReactionTask(rejectReaction, promise->result, scriptContext);
-            break;
-        default:
-            AssertMsg(false, "Promise status is in an invalid state");
-            break;
-        }
-
-        return promiseCapability->GetPromise();
+        return CreateThenPromise(promise, fulfillmentHandler, rejectionHandler, scriptContext);
     }
 
     // Promise Reject and Resolve Functions as described in ES 2015 Section 25.4.1.4.1 and 25.4.1.4.2
@@ -615,16 +582,34 @@ namespace Js
 
         JavascriptPromise* promise = resolveOrRejectFunction->GetPromise();
 
+        return promise->ResolveHelper(resolution, rejecting, scriptContext);
+    }
+
+    Var JavascriptPromise::Resolve(Var resolution, ScriptContext* scriptContext)
+    {
+        return this->ResolveHelper(resolution, false, scriptContext);
+    }
+
+    Var JavascriptPromise::Reject(Var resolution, ScriptContext* scriptContext)
+    {
+        return this->ResolveHelper(resolution, true, scriptContext);
+    }
+
+    Var JavascriptPromise::ResolveHelper(Var resolution, bool isRejecting, ScriptContext* scriptContext)
+    {
+        JavascriptLibrary* library = scriptContext->GetLibrary();
+        Var undefinedVar = library->GetUndefined();
+
         // We only need to check SameValue and check for thenable resolution in the Resolve function case (not Reject)
-        if (!rejecting)
+        if (!isRejecting)
         {
-            if (JavascriptConversion::SameValue(resolution, promise))
+            if (JavascriptConversion::SameValue(resolution, this))
             {
                 JavascriptError* selfResolutionError = scriptContext->GetLibrary()->CreateTypeError();
                 JavascriptError::SetErrorMessage(selfResolutionError, JSERR_PromiseSelfResolution, _u(""), scriptContext);
 
                 resolution = selfResolutionError;
-                rejecting = true;
+                isRejecting = true;
             }
             else if (RecyclableObject::Is(resolution))
             {
@@ -635,23 +620,23 @@ namespace Js
 
                     if (JavascriptConversion::IsCallable(then))
                     {
-                        JavascriptPromiseResolveThenableTaskFunction* resolveThenableTaskFunction = library->CreatePromiseResolveThenableTaskFunction(EntryResolveThenableTaskFunction, promise, thenable, RecyclableObject::FromVar(then));
+                        JavascriptPromiseResolveThenableTaskFunction* resolveThenableTaskFunction = library->CreatePromiseResolveThenableTaskFunction(EntryResolveThenableTaskFunction, this, thenable, RecyclableObject::FromVar(then));
 
                         library->EnqueueTask(resolveThenableTaskFunction);
 
                         return undefinedVar;
                     }
                 }
-                catch (JavascriptExceptionObject* e)
+                catch (const JavascriptException& err)
                 {
-                    resolution = e->GetThrownObject(scriptContext);
+                    resolution = err.GetAndClear()->GetThrownObject(scriptContext);
 
                     if (resolution == nullptr)
                     {
                         resolution = undefinedVar;
                     }
 
-                    rejecting = true;
+                    isRejecting = true;
                 }
             }
         }
@@ -660,23 +645,23 @@ namespace Js
         PromiseStatus newStatus;
 
         // Need to check rejecting state again as it might have changed due to failures
-        if (rejecting)
+        if (isRejecting)
         {
-            reactions = promise->GetRejectReactions();
+            reactions = this->GetRejectReactions();
             newStatus = PromiseStatusCode_HasRejection;
         }
         else
         {
-            reactions = promise->GetResolveReactions();
+            reactions = this->GetResolveReactions();
             newStatus = PromiseStatusCode_HasResolution;
         }
 
         Assert(resolution != nullptr);
 
-        promise->result = resolution;
-        promise->resolveReactions = nullptr;
-        promise->rejectReactions = nullptr;
-        promise->status = newStatus;
+        this->result = resolution;
+        this->resolveReactions = nullptr;
+        this->rejectReactions = nullptr;
+        this->status = newStatus;
 
         return TriggerPromiseReactions(reactions, resolution, scriptContext);
     }
@@ -743,12 +728,12 @@ namespace Js
                     undefinedVar,
                     argument);
             }
-            catch (JavascriptExceptionObject* e)
+            catch (const JavascriptException& err)
             {
-                exception = e;
+                exception = err.GetAndClear();
             }
         }
-        
+
         if (exception != nullptr)
         {
             return TryRejectWithExceptionObject(exception, promiseCapability->GetReject(), scriptContext);
@@ -787,6 +772,69 @@ namespace Js
         return TryCallResolveOrRejectHandler(handler, thrownObject, scriptContext);
     }
 
+    Var JavascriptPromise::CreateRejectedPromise(Var resolution, ScriptContext* scriptContext, Var promiseConstructor)
+    {
+        if (promiseConstructor == nullptr)
+        {
+            promiseConstructor = scriptContext->GetLibrary()->GetPromiseConstructor();
+        }
+
+        JavascriptPromiseCapability* promiseCapability = NewPromiseCapability(promiseConstructor, scriptContext);
+
+        TryCallResolveOrRejectHandler(promiseCapability->GetReject(), resolution, scriptContext);
+
+        return promiseCapability->GetPromise();
+    }
+
+    Var JavascriptPromise::CreateResolvedPromise(Var resolution, ScriptContext* scriptContext, Var promiseConstructor)
+    {
+        if (promiseConstructor == nullptr)
+        {
+            promiseConstructor = scriptContext->GetLibrary()->GetPromiseConstructor();
+        }
+
+        JavascriptPromiseCapability* promiseCapability = NewPromiseCapability(promiseConstructor, scriptContext);
+
+        TryCallResolveOrRejectHandler(promiseCapability->GetResolve(), resolution, scriptContext);
+
+        return promiseCapability->GetPromise();
+    }
+
+    Var JavascriptPromise::CreatePassThroughPromise(JavascriptPromise* sourcePromise, ScriptContext* scriptContext)
+    {
+        JavascriptLibrary* library = scriptContext->GetLibrary();
+
+        return CreateThenPromise(sourcePromise, library->GetIdentityFunction(), library->GetThrowerFunction(), scriptContext);
+    }
+
+    Var JavascriptPromise::CreateThenPromise(JavascriptPromise* sourcePromise, RecyclableObject* fulfillmentHandler, RecyclableObject* rejectionHandler, ScriptContext* scriptContext)
+    {
+        Var constructor = JavascriptOperators::SpeciesConstructor(sourcePromise, scriptContext->GetLibrary()->GetPromiseConstructor(), scriptContext);
+        JavascriptPromiseCapability* promiseCapability = NewPromiseCapability(constructor, scriptContext);
+
+        JavascriptPromiseReaction* resolveReaction = JavascriptPromiseReaction::New(promiseCapability, fulfillmentHandler, scriptContext);
+        JavascriptPromiseReaction* rejectReaction = JavascriptPromiseReaction::New(promiseCapability, rejectionHandler, scriptContext);
+
+        switch (sourcePromise->status)
+        {
+        case PromiseStatusCode_Unresolved:
+            sourcePromise->resolveReactions->Add(resolveReaction);
+            sourcePromise->rejectReactions->Add(rejectReaction);
+            break;
+        case PromiseStatusCode_HasResolution:
+            EnqueuePromiseReactionTask(resolveReaction, sourcePromise->result, scriptContext);
+            break;
+        case PromiseStatusCode_HasRejection:
+            EnqueuePromiseReactionTask(rejectReaction, sourcePromise->result, scriptContext);
+            break;
+        default:
+            AssertMsg(false, "Promise status is in an invalid state");
+            break;
+        }
+
+        return promiseCapability->GetPromise();
+    }
+
     // Promise Resolve Thenable Job as described in ES 2015 Section 25.4.2.2
     Var JavascriptPromise::EntryResolveThenableTaskFunction(RecyclableObject* function, CallInfo callInfo, ...)
     {
@@ -818,9 +866,9 @@ namespace Js
                     resolve,
                     reject);
             }
-            catch (JavascriptExceptionObject* e)
+            catch (const JavascriptException& err)
             {
-                exception = e;
+                exception = err.GetAndClear();
             }
         }
 
@@ -910,9 +958,9 @@ namespace Js
         {
             values->DirectSetItemAt(index, x);
         }
-        catch (JavascriptExceptionObject* e)
+        catch (const JavascriptException& err)
         {
-            exception = e;
+            exception = err.GetAndClear();
         }
 
         if (exception != nullptr)
@@ -1029,9 +1077,9 @@ namespace Js
         {
             next = RecyclableObject::FromVar(CALL_FUNCTION(nextFunction, CallInfo(CallFlags_Value, 1), undefinedVar));
         }
-        catch (JavascriptExceptionObject* e)
+        catch (const JavascriptException& err)
         {
-            exception = e;
+            exception = err.GetAndClear();
         }
 
         if (exception != nullptr)

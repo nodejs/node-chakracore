@@ -108,7 +108,12 @@ namespace Js
 #endif
 #endif
 #if DBG || defined(PROFILE_TYPES)
-        RecordAllocation(type->GetScriptContext());
+#if ENABLE_NATIVE_CODEGEN
+        if (!JITManager::GetJITManager()->IsOOPJITEnabled())
+#endif
+        {
+            RecordAllocation(type->GetScriptContext());
+        }
 #endif
     }
 
@@ -382,6 +387,11 @@ namespace Js
         return true;
     }
 
+    BOOL RecyclableObject::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags)
+    {
+        return true;
+    }
+
     BOOL RecyclableObject::IsFixedProperty(PropertyId propertyId)
     {
         return false;
@@ -417,7 +427,7 @@ namespace Js
         return true;
     }
 
-    BOOL RecyclableObject::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext)
+    BOOL RecyclableObject::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache)
     {
         return false;
     }

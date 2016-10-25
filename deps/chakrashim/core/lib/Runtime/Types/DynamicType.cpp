@@ -198,6 +198,11 @@ namespace Js
         return GetTypeHandler()->DeleteProperty(this, propertyId, flags);
     }
 
+    BOOL DynamicObject::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags)
+    {
+        return GetTypeHandler()->DeleteProperty(this, propertyNameString, flags);
+    }
+
     BOOL DynamicObject::IsFixedProperty(PropertyId propertyId)
     {
         Assert(!Js::IsInternalPropertyId(propertyId));
@@ -321,7 +326,7 @@ namespace Js
         return false;
     }
 
-    BOOL DynamicObject::GetEnumeratorWithPrefix(JavascriptEnumerator * prefixEnumerator, JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext)
+    BOOL DynamicObject::GetEnumeratorWithPrefix(JavascriptEnumerator * prefixEnumerator, JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext, ForInCache * forInCache)
     {
         Js::ArrayObject * arrayObject = nullptr;
         if (this->HasObjectArray())
@@ -329,12 +334,12 @@ namespace Js
             arrayObject = this->GetObjectArrayOrFlagsAsArray();
             Assert(arrayObject->GetPropertyCount() == 0);
         }
-        return enumerator->Initialize(prefixEnumerator, arrayObject, this, flags, requestContext);
+        return enumerator->Initialize(prefixEnumerator, arrayObject, this, flags, requestContext, forInCache);
     }
 
-    BOOL DynamicObject::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext)
+    BOOL DynamicObject::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext, ForInCache * forInCache)
     {
-        return GetEnumeratorWithPrefix(nullptr, enumerator, flags, requestContext);
+        return GetEnumeratorWithPrefix(nullptr, enumerator, flags, requestContext, forInCache);
     }
 
     BOOL DynamicObject::SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags)

@@ -28,6 +28,7 @@
 #ifdef ASMJS_PLAT
 #include "Language/AsmJsEncoder.h"
 #include "Language/AsmJsCodeGenerator.h"
+#include "Language/AsmJsUtils.h"
 #endif
 
 #ifdef ENABLE_BASIC_TELEMETRY
@@ -66,6 +67,7 @@ namespace Js
 #endif
 #if ENABLE_NATIVE_CODEGEN
         nativeCodeGen(nullptr),
+        m_domFastPathHelperMap(nullptr),
 #endif
         threadContext(threadContext),
         scriptStartEventHandler(nullptr),
@@ -119,6 +121,7 @@ namespace Js
 #endif
         inlineCacheAllocator(_u("SC-InlineCache"), threadContext->GetPageAllocator(), Throw::OutOfMemory),
         isInstInlineCacheAllocator(_u("SC-IsInstInlineCache"), threadContext->GetPageAllocator(), Throw::OutOfMemory),
+        forInCacheAllocator(_u("SC-ForInCache"), threadContext->GetPageAllocator(), Throw::OutOfMemory),
         hasUsedInlineCache(false),
         hasProtoOrStoreFieldInlineCache(false),
         hasIsInstInlineCache(false),
@@ -126,6 +129,7 @@ namespace Js
         cache(nullptr),
         firstInterpreterFrameReturnAddress(nullptr),
         builtInLibraryFunctions(nullptr),
+        m_remoteScriptContextAddr(0),
         isWeakReferenceDictionaryListCleared(false)
 #if ENABLE_PROFILE_INFO
         , referencesSharedDynamicSourceContextInfo(false)
@@ -171,9 +175,6 @@ namespace Js
         , nextPendingClose(nullptr)
 #ifdef ENABLE_SCRIPT_PROFILING
         , m_fTraceDomCall(FALSE)
-#endif
-#ifdef ENABLE_DOM_FAST_PATH
-        , domFastPathIRHelperMap(nullptr)
 #endif
         , intConstPropsOnGlobalObject(nullptr)
         , intConstPropsOnGlobalUserObject(nullptr)
@@ -250,7 +251,7 @@ namespace Js
         memset(propertyStrings, 0, sizeof(PropertyStringMap*)* 80);
 
 #if DBG || defined(RUNTIME_DATA_COLLECTION)
-        this->allocId = threadContext->GetUnreleasedScriptContextCount();
+        this->allocId = threadContext->GetScriptContextCount();
 #endif
 #if DBG
         this->hadProfiled = false;
@@ -328,6 +329,10 @@ namespace Js
         intConstPropsOnGlobalObject = Anew(GeneralAllocator(), PropIdSetForConstProp, GeneralAllocator());
         intConstPropsOnGlobalUserObject = Anew(GeneralAllocator(), PropIdSetForConstProp, GeneralAllocator());
 
+#if ENABLE_NATIVE_CODEGEN
+        m_domFastPathHelperMap = HeapNew(JITDOMFastPathHelperMap, &HeapAllocator::Instance, 17);
+#endif
+
         this->debugContext = HeapNew(DebugContext, this);
     }
 
@@ -378,6 +383,13 @@ namespace Js
         // Take etw rundown lock on this thread context. We are going to change/destroy this scriptContext.
         AutoCriticalSection autocs(GetThreadContext()->GetEtwRundownCriticalSection());
 
+#if ENABLE_NATIVE_CODEGEN
+        if (m_domFastPathHelperMap != nullptr)
+        {
+            HeapDelete(m_domFastPathHelperMap);
+        }
+#endif
+
         // TODO: Can we move this on Close()?
         ClearHostScriptContext();
 
@@ -411,7 +423,7 @@ namespace Js
             threadContext->RemoveFromPendingClose(this);
         }
 
-        this->isClosed = true;
+        SetIsClosed();
         bool closed = Close(true);
 
         // JIT may access number allocator. Need to close the script context first,
@@ -486,6 +498,15 @@ namespace Js
 
         // In case there is something added to the list between close and dtor, just reset the list again
         this->weakReferenceDictionaryList.Reset();
+
+#if ENABLE_NATIVE_CODEGEN
+        if (m_remoteScriptContextAddr != 0)
+        {
+            Assert(JITManager::GetJITManager()->IsOOPJITEnabled());
+            JITManager::GetJITManager()->CleanupScriptContext(m_remoteScriptContextAddr);
+            m_remoteScriptContextAddr = 0;
+        }
+#endif
 
         PERF_COUNTER_DEC(Basic, ScriptContext);
     }
@@ -653,9 +674,10 @@ namespace Js
             // Guard the closing and deleting of DebugContext as in meantime PDM might
             // call OnBreakFlagChange
             AutoCriticalSection autoDebugContextCloseCS(&debugContextCloseCS);
-            this->debugContext->Close();
-            HeapDelete(this->debugContext);
+            DebugContext* tempDebugContext = this->debugContext;
             this->debugContext = nullptr;
+            tempDebugContext->Close();
+            HeapDelete(tempDebugContext);
         }
 
         // Need to print this out before the native code gen is deleted
@@ -1188,11 +1210,11 @@ if (!sourceList)
         }
 
 #if DYNAMIC_INTERPRETER_THUNK
-        interpreterThunkEmitter = HeapNew(InterpreterThunkEmitter, SourceCodeAllocator(), this->GetThreadContext()->GetThunkPageAllocators());
+        interpreterThunkEmitter = HeapNew(InterpreterThunkEmitter, this, SourceCodeAllocator(), this->GetThreadContext()->GetThunkPageAllocators());
 #endif
 
 #ifdef ASMJS_PLAT
-        asmJsInterpreterThunkEmitter = HeapNew(InterpreterThunkEmitter, SourceCodeAllocator(), this->GetThreadContext()->GetThunkPageAllocators(),
+        asmJsInterpreterThunkEmitter = HeapNew(InterpreterThunkEmitter, this, SourceCodeAllocator(), this->GetThreadContext()->GetThunkPageAllocators(),
             true);
 #endif
 
@@ -1227,7 +1249,7 @@ if (!sourceList)
     void ScriptContext::MarkForClose()
     {
         SaveStartupProfileAndRelease(true);
-        this->isClosed = true;
+        SetIsClosed();
 
 #ifdef LEAK_REPORT
         if (this->isRootTrackerScriptContext)
@@ -1244,6 +1266,17 @@ if (!sourceList)
         {
             threadContext->AddToPendingScriptContextCloseList(this);
         }
+    }
+
+    void ScriptContext::SetIsClosed()
+    {
+        this->isClosed = true;
+#if ENABLE_NATIVE_CODEGEN
+        if (m_remoteScriptContextAddr)
+        {
+            JITManager::GetJITManager()->CloseScriptContext(m_remoteScriptContextAddr);
+        }
+#endif
     }
 
     void ScriptContext::InitializeGlobalObject()
@@ -1646,7 +1679,7 @@ if (!sourceList)
 
             cbNeeded = utf8::EncodeIntoAndNullTerminate(utf8Script, (const char16*)script, static_cast<charcount_t>(length));
 
-#if DBG_DUMP
+#if DBG_DUMP && defined(PROFILE_MEM)
             if(Js::Configuration::Global.flags.TraceMemory.IsEnabled(Js::ParsePhase) && Configuration::Global.flags.Verbose)
             {
                 Output::Print(_u("Loading script.\n")
@@ -4241,6 +4274,12 @@ void ScriptContext::ClearIsInstInlineCaches()
     Assert(GetIsInstInlineCacheAllocator()->IsAllZero());
 }
 
+void ScriptContext::ClearForInCaches()
+{
+    ForInCacheAllocator()->ZeroAll();
+    Assert(ForInCacheAllocator()->IsAllZero());
+}
+
 
 #ifdef PERSISTENT_INLINE_CACHES
 void ScriptContext::ClearInlineCachesWithDeadWeakRefs()
@@ -4408,6 +4447,298 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         }
     }
 
+#if ENABLE_NATIVE_CODEGEN
+    void ScriptContext::InitializeRemoteScriptContext()
+    {
+        Assert(JITManager::GetJITManager()->IsOOPJITEnabled());
+
+        ScriptContextDataIDL contextData;
+        contextData.nullAddr = (intptr_t)GetLibrary()->GetNull();
+        contextData.undefinedAddr = (intptr_t)GetLibrary()->GetUndefined();
+        contextData.trueAddr = (intptr_t)GetLibrary()->GetTrue();
+        contextData.falseAddr = (intptr_t)GetLibrary()->GetFalse();
+        contextData.undeclBlockVarAddr = (intptr_t)GetLibrary()->GetUndeclBlockVar();
+        contextData.scriptContextAddr = (intptr_t)this;
+        contextData.emptyStringAddr = (intptr_t)GetLibrary()->GetEmptyString();
+        contextData.negativeZeroAddr = (intptr_t)GetLibrary()->GetNegativeZero();
+        contextData.numberTypeStaticAddr = (intptr_t)GetLibrary()->GetNumberTypeStatic();
+        contextData.stringTypeStaticAddr = (intptr_t)GetLibrary()->GetStringTypeStatic();
+        contextData.objectTypeAddr = (intptr_t)GetLibrary()->GetObjectType();
+        contextData.objectHeaderInlinedTypeAddr = (intptr_t)GetLibrary()->GetObjectHeaderInlinedType();
+        contextData.regexTypeAddr = (intptr_t)GetLibrary()->GetRegexType();
+        contextData.arrayConstructorAddr = (intptr_t)GetLibrary()->GetArrayConstructor();
+        contextData.arrayTypeAddr = (intptr_t)GetLibrary()->GetArrayType();
+        contextData.nativeIntArrayTypeAddr = (intptr_t)GetLibrary()->GetNativeIntArrayType();
+        contextData.nativeFloatArrayTypeAddr = (intptr_t)GetLibrary()->GetNativeFloatArrayType();
+        contextData.charStringCacheAddr = (intptr_t)&GetLibrary()->GetCharStringCache();
+        contextData.libraryAddr = (intptr_t)GetLibrary();
+        contextData.globalObjectAddr = (intptr_t)GetLibrary()->GetGlobalObject();
+        contextData.builtinFunctionsBaseAddr = (intptr_t)GetLibrary()->GetBuiltinFunctions();
+        contextData.sideEffectsAddr = optimizationOverrides.GetAddressOfSideEffects();
+        contextData.arraySetElementFastPathVtableAddr = (intptr_t)optimizationOverrides.GetAddressOfArraySetElementFastPathVtable();
+        contextData.intArraySetElementFastPathVtableAddr = (intptr_t)optimizationOverrides.GetAddressOfIntArraySetElementFastPathVtable();
+        contextData.floatArraySetElementFastPathVtableAddr = (intptr_t)optimizationOverrides.GetAddressOfFloatArraySetElementFastPathVtable();
+        contextData.recyclerAddr = (intptr_t)GetRecycler();
+        contextData.recyclerAllowNativeCodeBumpAllocation = GetRecycler()->AllowNativeCodeBumpAllocation();
+        contextData.numberAllocatorAddr = (intptr_t)GetNumberAllocator();
+#ifdef RECYCLER_MEMORY_VERIFY
+        contextData.isRecyclerVerifyEnabled = (boolean)recycler->VerifyEnabled();
+        contextData.recyclerVerifyPad = recycler->GetVerifyPad();
+#else
+        // TODO: OOP JIT, figure out how to have this only in debug build
+        contextData.isRecyclerVerifyEnabled = FALSE;
+        contextData.recyclerVerifyPad = 0;
+#endif
+        contextData.debuggingFlagsAddr = GetDebuggingFlagsAddr();
+        contextData.debugStepTypeAddr = GetDebugStepTypeAddr();
+        contextData.debugFrameAddressAddr = GetDebugFrameAddressAddr();
+        contextData.debugScriptIdWhenSetAddr = GetDebugScriptIdWhenSetAddr();
+
+        contextData.numberAllocatorAddr = (intptr_t)GetNumberAllocator();
+        contextData.isSIMDEnabled = GetConfig()->IsSimdjsEnabled();
+        CompileAssert(VTableValue::Count == VTABLE_COUNT); // need to update idl when this changes
+
+        auto vtblAddresses = GetLibrary()->GetVTableAddresses();
+        for (unsigned int i = 0; i < VTableValue::Count; i++)
+        {
+            contextData.vtableAddresses[i] = vtblAddresses[i];
+        }
+
+        bool allowPrereserveAlloc = true;
+#if !_M_X64_OR_ARM64
+        if (this->webWorkerId != Js::Constants::NonWebWorkerContextId)
+        {
+            allowPrereserveAlloc = false;
+        }
+#endif
+#ifndef _CONTROL_FLOW_GUARD
+        allowPrereserveAlloc = false;
+#endif
+        this->GetThreadContext()->EnsureJITThreadContext(allowPrereserveAlloc);
+
+        HRESULT hr = JITManager::GetJITManager()->InitializeScriptContext(&contextData, this->GetThreadContext()->GetRemoteThreadContextAddr(), &m_remoteScriptContextAddr);
+        JITManager::HandleServerCallResult(hr);
+    }
+#endif
+
+    intptr_t ScriptContext::GetNullAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetNull();
+    }
+
+    intptr_t ScriptContext::GetUndefinedAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetUndefined();
+    }
+
+    intptr_t ScriptContext::GetTrueAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetTrue();
+    }
+
+    intptr_t ScriptContext::GetFalseAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetFalse();
+    }
+
+    intptr_t ScriptContext::GetUndeclBlockVarAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetUndeclBlockVar();
+    }
+
+    intptr_t ScriptContext::GetEmptyStringAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetEmptyString();
+    }
+
+    intptr_t ScriptContext::GetNegativeZeroAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetNegativeZero();
+    }
+
+    intptr_t ScriptContext::GetNumberTypeStaticAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetNumberTypeStatic();
+    }
+
+    intptr_t ScriptContext::GetStringTypeStaticAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetStringTypeStatic();
+    }
+
+    intptr_t ScriptContext::GetObjectTypeAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetObjectType();
+    }
+
+    intptr_t ScriptContext::GetObjectHeaderInlinedTypeAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetObjectHeaderInlinedType();
+    }
+
+    intptr_t ScriptContext::GetRegexTypeAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetRegexType();
+    }
+
+    intptr_t ScriptContext::GetArrayTypeAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetArrayType();
+    }
+
+    intptr_t ScriptContext::GetNativeIntArrayTypeAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetNativeIntArrayType();
+    }
+
+    intptr_t ScriptContext::GetNativeFloatArrayTypeAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetNativeFloatArrayType();
+    }
+
+    intptr_t ScriptContext::GetArrayConstructorAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetArrayConstructor();
+    }
+
+    intptr_t ScriptContext::GetCharStringCacheAddr() const
+    {
+        return (intptr_t)&GetLibrary()->GetCharStringCache();
+    }
+
+    intptr_t ScriptContext::GetSideEffectsAddr() const
+    {
+        return optimizationOverrides.GetAddressOfSideEffects();
+    }
+
+    intptr_t ScriptContext::GetArraySetElementFastPathVtableAddr() const
+    {
+        return optimizationOverrides.GetArraySetElementFastPathVtableAddr();
+    }
+
+    intptr_t ScriptContext::GetIntArraySetElementFastPathVtableAddr() const
+    {
+        return optimizationOverrides.GetIntArraySetElementFastPathVtableAddr();
+    }
+
+    intptr_t ScriptContext::GetFloatArraySetElementFastPathVtableAddr() const
+    {
+        return optimizationOverrides.GetFloatArraySetElementFastPathVtableAddr();
+    }
+
+    intptr_t ScriptContext::GetBuiltinFunctionsBaseAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetBuiltinFunctions();
+    }
+
+    intptr_t ScriptContext::GetLibraryAddr() const
+    {
+        return (intptr_t)GetLibrary();
+    }
+
+    intptr_t ScriptContext::GetGlobalObjectAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetGlobalObject();
+    }
+
+    intptr_t ScriptContext::GetGlobalObjectThisAddr() const
+    {
+        return (intptr_t)GetLibrary()->GetGlobalObject()->ToThis();
+    }
+
+    intptr_t ScriptContext::GetNumberAllocatorAddr() const
+    {
+        return (intptr_t)&numberAllocator;
+    }
+
+    intptr_t ScriptContext::GetRecyclerAddr() const
+    {
+        return (intptr_t)GetRecycler();
+    }
+
+    intptr_t ScriptContext::GetDebuggingFlagsAddr() const
+    {
+        return this->threadContext->GetDebugManager()->GetDebuggingFlagsAddr();
+    }
+
+    intptr_t ScriptContext::GetDebugStepTypeAddr() const
+    {
+        return (intptr_t)this->threadContext->GetDebugManager()->stepController.GetAddressOfStepType();
+    }
+
+    intptr_t ScriptContext::GetDebugFrameAddressAddr() const
+    {
+        return (intptr_t)this->threadContext->GetDebugManager()->stepController.GetAddressOfFrameAddress();
+    }
+
+    intptr_t ScriptContext::GetDebugScriptIdWhenSetAddr() const
+    {
+        return (intptr_t)this->threadContext->GetDebugManager()->stepController.GetAddressOfScriptIdWhenSet();
+    }
+
+    bool ScriptContext::GetRecyclerAllowNativeCodeBumpAllocation() const
+    {
+        return GetRecycler()->AllowNativeCodeBumpAllocation();
+    }
+
+    bool ScriptContext::IsSIMDEnabled() const
+    {
+        return GetConfig()->IsSimdjsEnabled();
+    }
+
+    bool ScriptContext::IsPRNGSeeded() const
+    {
+        return GetLibrary()->IsPRNGSeeded();
+    }
+
+    intptr_t ScriptContext::GetAddr() const
+    {
+        return (intptr_t)this;
+    }
+
+#if ENABLE_NATIVE_CODEGEN
+    void ScriptContext::AddToDOMFastPathHelperMap(intptr_t funcInfoAddr, IR::JnHelperMethod helper)
+    {
+        m_domFastPathHelperMap->Add(funcInfoAddr, helper);
+    }
+
+    IR::JnHelperMethod ScriptContext::GetDOMFastPathHelper(intptr_t funcInfoAddr)
+    {
+        IR::JnHelperMethod helper;
+
+        m_domFastPathHelperMap->LockResize();
+        bool found = m_domFastPathHelperMap->TryGetValue(funcInfoAddr, &helper);
+        m_domFastPathHelperMap->UnlockResize();
+
+        Assert(found);
+        return helper;
+    }
+#endif
+
+    intptr_t ScriptContext::GetVTableAddress(VTableValue vtableType) const
+    {
+        Assert(vtableType < VTableValue::Count);
+        return GetLibrary()->GetVTableAddresses()[vtableType];
+    }
+
+    bool ScriptContext::IsRecyclerVerifyEnabled() const
+    {
+#ifdef RECYCLER_MEMORY_VERIFY
+        return recycler->VerifyEnabled() != FALSE;
+#else
+        return false;
+#endif
+    }
+
+    uint ScriptContext::GetRecyclerVerifyPad() const
+    {
+#ifdef RECYCLER_MEMORY_VERIFY
+        return recycler->GetVerifyPad();
+#else
+        return 0;
+#endif
+    }
+
     JavascriptFunction* ScriptContext::GetBuiltInLibraryFunction(JavascriptMethod entryPoint)
     {
         JavascriptFunction * function = NULL;
@@ -4417,20 +4748,6 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         }
         return function;
     }
-
-#ifdef ENABLE_DOM_FAST_PATH
-    DOMFastPathIRHelperMap* ScriptContext::EnsureDOMFastPathIRHelperMap()
-    {
-        if (domFastPathIRHelperMap == nullptr)
-        {
-            // Anew throws if it OOMs, so the caller into this function needs to handle that exception
-            domFastPathIRHelperMap = Anew(GeneralAllocator(), DOMFastPathIRHelperMap,
-                GeneralAllocator(), 17);    // initial capacity set to 17; unlikely to grow much bigger.
-        }
-
-        return domFastPathIRHelperMap;
-    }
-#endif
 
 #if ENABLE_PROFILE_INFO
     void ScriptContext::AddDynamicProfileInfo(FunctionBody * functionBody, WriteBarrierPtr<DynamicProfileInfo>* dynamicProfileInfo)
@@ -4557,10 +4874,12 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         return (JavascriptMethod)this->interpreterThunkEmitter->GetNextThunk(ppDynamicInterpreterThunk);
     }
 
-    BOOL ScriptContext::IsDynamicInterpreterThunk(void* address)
+#if DBG
+    BOOL ScriptContext::IsDynamicInterpreterThunk(JavascriptMethod address)
     {
-        return this->interpreterThunkEmitter->IsInHeap(address);
+        return this->interpreterThunkEmitter->IsInHeap((void*)address);
     }
+#endif
 
     void ScriptContext::ReleaseDynamicInterpreterThunk(BYTE* address, bool addtoFreeList)
     {
@@ -4738,14 +5057,16 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         // We do not care about small script contexts without much activity - unless t
         if (PHASE_STATS1(Js::BGJitPhase) && (this->interpretedCount > 50 || Js::Configuration::Global.flags.IsEnabled(Js::ForceFlag)))
         {
+
+#define MAX_BUCKETS 15
             uint loopJitCodeUsed = 0;
             uint bucketSize1 = 20;
             uint bucketSize2 = 100;
             uint size1CutOffbucketId = 4;
-            uint totalBuckets[15] = { 0 };
-            uint nativeCodeBuckets[15] = { 0 };
-            uint usedNativeCodeBuckets[15] = { 0 };
-            uint rejits[15] = { 0 };
+            uint totalBuckets[MAX_BUCKETS] = { 0 };
+            uint nativeCodeBuckets[MAX_BUCKETS] = { 0 };
+            uint usedNativeCodeBuckets[MAX_BUCKETS] = { 0 };
+            uint rejits[MAX_BUCKETS] = { 0 };
             uint zeroInterpretedFunctions = 0;
             uint oneInterpretedFunctions = 0;
             uint nonZeroBytecodeFunctions = 0;
@@ -4810,15 +5131,12 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
                     }
                     else
                     {
-                        bucket = _countof(totalBuckets) - 1;
+                        bucket = MAX_BUCKETS - 1;
                     }
 
                     // Explicitly assume that the bucket count is less than the following counts (which are all equal)
-                    // This is because min will return _countof(totalBuckets) - 1 if the count exceeds _countof(totalBuckets) - 1.
-                    __analysis_assume(bucket < _countof(totalBuckets));
-                    __analysis_assume(bucket < _countof(nativeCodeBuckets));
-                    __analysis_assume(bucket < _countof(usedNativeCodeBuckets));
-                    __analysis_assume(bucket < _countof(rejits));
+                    // This is because min will return MAX_BUCKETS - 1 if the count exceeds MAX_BUCKETS - 1.
+                    __analysis_assume(bucket < MAX_BUCKETS);
 
                     totalBuckets[bucket]++;
                     if (isNativeCode)
@@ -4892,6 +5210,7 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
             }
             Output::Print(_u("\n\n"));
         }
+#undef MAX_BUCKETS
 #endif
 
 #ifdef REJIT_STATS
@@ -5528,5 +5847,18 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         return nameLen;
     }
 
-} // End namespace Js
+    Js::Var* ScriptContext::GetModuleExportSlotArrayAddress(uint moduleIndex, uint slotIndex)
+    {
+        Js::SourceTextModuleRecord* moduleRecord = this->GetModuleRecord(moduleIndex);
+        Assert(moduleRecord != nullptr);
 
+        // Require caller to also provide the intended access slot so we can do bounds check now.
+        if (moduleRecord->GetLocalExportCount() + 1 <= slotIndex)
+        {
+            Js::Throw::FatalInternalError();
+        }
+
+        return moduleRecord->GetLocalExportSlots();
+    }
+
+} // End namespace Js

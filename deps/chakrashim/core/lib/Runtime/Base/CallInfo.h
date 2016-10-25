@@ -32,7 +32,7 @@ namespace Js
         explicit CallInfo(ushort count)
             : Flags(CallFlags_None)
             , Count(count)
-#ifdef _WIN64
+#ifdef TARGET_64
             , unused(0)
 #endif
         {
@@ -41,7 +41,7 @@ namespace Js
         CallInfo(CallFlags flags, ushort count)
             : Flags(flags)
             , Count(count)
-#ifdef _WIN64
+#ifdef TARGET_64
             , unused(0)
 #endif
         {
@@ -58,7 +58,7 @@ namespace Js
         //
         unsigned  Count : 24;
         CallFlags Flags : 8;
-#ifdef _WIN64
+#ifdef TARGET_64
         unsigned unused : 32;
 #endif
 
@@ -81,7 +81,7 @@ namespace Js
         size_t InlineeStartOffset: sizeof(void*) * CHAR_BIT - 4;
         static size_t const MaxInlineeArgoutCount = 0xF;
 
-        static bool Encode(Js::Var &callInfo, size_t count, size_t offset)
+        static bool Encode(intptr_t &callInfo, size_t count, size_t offset)
         {
             const size_t offsetMask = (~(size_t)0) >> 4;
             const size_t countMask  = 0x0000000F;
@@ -95,7 +95,7 @@ namespace Js
                 return false;
             }
 
-            callInfo = (Js::Var)((offset << 4) | count);
+            callInfo = (offset << 4) | count;
 
             return true;
         }

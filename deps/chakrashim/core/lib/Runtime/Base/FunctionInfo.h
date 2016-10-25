@@ -22,7 +22,7 @@ namespace Js
             ErrorOnNew                     = 0x00001,
             SkipDefaultNewObject           = 0x00002,
             DoNotProfile                   = 0x00004,
-            HasNoSideEffect                = 0x00008, // calling function doesn’t cause an implicit flags to be set,
+            HasNoSideEffect                = 0x00008, // calling function doesn't cause an implicit flags to be set,
                                                       // the callee will detect and set implicit flags on its individual operations
             NeedCrossSiteSecurityCheck     = 0x00010,
             DeferredDeserialize            = 0x00020, // The function represents something that needs to be deserialized on use
@@ -39,7 +39,7 @@ namespace Js
             Module                         = 0x20000, // The function is the function body wrapper for a module
             EnclosedByGlobalFunc           = 0x40000,
         };
-        FunctionInfo(JavascriptMethod entryPoint, Attributes attributes = None, LocalFunctionId functionId = Js::Constants::NoFunctionId, FunctionBody* functionBodyImpl = NULL);
+        FunctionInfo(JavascriptMethod entryPoint, Attributes attributes = None, LocalFunctionId functionId = Js::Constants::NoFunctionId, FunctionProxy* functionBodyImpl = NULL);
 
         static DWORD GetFunctionBodyImplOffset() { return offsetof(FunctionInfo, functionBodyImpl); }
         static DWORD GetAttributesOffset() { return offsetof(FunctionInfo, attributes); }
@@ -51,14 +51,20 @@ namespace Js
 
         bool IsAsync() const { return ((this->attributes & Async) != 0); }
         bool IsDeferred() const { return ((this->attributes & (DeferredDeserialize | DeferredParse)) != 0); }
-        bool IsLambda() const { return ((this->attributes & Lambda) != 0); }
+        static bool IsLambda(Attributes attributes) { return ((attributes & Lambda) != 0); }
+        bool IsLambda() const { return IsLambda(this->attributes); }
         bool IsConstructor() const { return ((this->attributes & ErrorOnNew) == 0); }
-        bool IsGenerator() const { return ((this->attributes & Generator) != 0); }
+
+        static bool IsGenerator(Attributes attributes) { return ((attributes & Generator) != 0); }
+        bool IsGenerator() const { return IsGenerator(this->attributes); }
+
         bool IsClassConstructor() const { return ((this->attributes & ClassConstructor) != 0); }
         bool IsClassMethod() const { return ((this->attributes & ClassMethod) != 0); }
         bool IsModule() const { return ((this->attributes & Module) != 0); }
         bool HasSuperReference() const { return ((this->attributes & SuperReference) != 0); }
-        bool IsCoroutine() const { return ((this->attributes & (Async | Generator)) != 0); }
+        static bool IsCoroutine(Attributes attributes) { return ((attributes & (Async | Generator)) != 0); }
+        bool IsCoroutine() const { return IsCoroutine(this->attributes); }
+
 
         BOOL HasBody() const { return functionBodyImpl != NULL; }
         BOOL HasParseableInfo() const { return this->HasBody() && !this->IsDeferredDeserializeFunction(); }

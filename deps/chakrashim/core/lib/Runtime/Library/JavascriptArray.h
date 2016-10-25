@@ -118,6 +118,19 @@ namespace Js
         static ushort const MergeSegmentsLengthHeuristics = 128; // If the length is less than MergeSegmentsLengthHeuristics then try to merge the segments
         static uint64 const FiftyThirdPowerOfTwoMinusOne = 0x1FFFFFFFFFFFFF;  // 2^53-1
 
+        static const uint8 AllocationBucketsInfoSize = 3;
+        // 0th colum in allocationBuckets
+        static const uint8 AllocationBucketIndex = 0;
+        // 1st column in allocationBuckets that stores no. of missing elements to initialize for given bucket
+        static const uint8 MissingElementsCountIndex = 1;
+        // 2nd column in allocationBuckets that stores allocation size for given bucket 
+        static const uint8 AllocationSizeIndex = 2;
+#if defined(_M_X64_OR_ARM64)
+        static const uint8 AllocationBucketsCount = 3;
+#else
+        static const uint8 AllocationBucketsCount = 2;
+#endif
+        static uint allocationBuckets[AllocationBucketsCount][AllocationBucketsInfoSize];
         static const Var MissingItem;
         template<typename T> static T GetMissingItem();
 
@@ -308,6 +321,7 @@ namespace Js
 
         virtual BOOL HasProperty(PropertyId propertyId) override;
         virtual BOOL DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags) override;
+        virtual BOOL DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags) override;
         virtual BOOL IsEnumerable(PropertyId propertyId) override;
         virtual BOOL IsConfigurable(PropertyId propertyId) override;
         virtual BOOL SetEnumerable(PropertyId propertyId, BOOL value) override;
@@ -333,7 +347,7 @@ namespace Js
         virtual BOOL Seal() override;
         virtual BOOL Freeze() override;
 
-        virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext) override;
+        virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache = nullptr) override;
         virtual BOOL GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
         virtual BOOL GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
         virtual BOOL GetSpecialPropertyName(uint32 index, Var *propertyName, ScriptContext * requestContext) override;
@@ -454,9 +468,9 @@ namespace Js
         template <typename T>
         static Var LastIndexOfHelper(T* pArr, Var search, int64 fromIndex, ScriptContext * scriptContext);
         template <typename T>
-        static BOOL TemplatedGetItem(T *pArr, uint32 index, Var * element, ScriptContext * scriptContext);
+        static BOOL TemplatedGetItem(T *pArr, uint32 index, Var * element, ScriptContext * scriptContext, bool checkHasItem = true);
         template <typename T>
-        static BOOL TemplatedGetItem(T *pArr, uint64 index, Var * element, ScriptContext * scriptContext);
+        static BOOL TemplatedGetItem(T *pArr, uint64 index, Var * element, ScriptContext * scriptContext, bool checkHasItem = true);
         template <typename T = uint32>
         static Var ReverseHelper(JavascriptArray* pArr, Js::TypedArrayBase* typedArrayBase, RecyclableObject* obj, T length, ScriptContext* scriptContext);
         template <typename T = uint32>
@@ -475,6 +489,7 @@ namespace Js
         static Var ReduceRightHelper(JavascriptArray* pArr, Js::TypedArrayBase* typedArrayBase, RecyclableObject* obj, T length, Arguments& args, ScriptContext* scriptContext);
         static Var OfHelper(bool isTypedArrayEntryPoint, Arguments& args, ScriptContext* scriptContext);
 
+        static uint32 GetFromIndex(Var arg, uint32 length, ScriptContext *scriptContext);
     protected:
         template<class T> bool IsMissingHeadSegmentItemImpl(const uint32 index) const;
         SegmentBTreeRoot * GetSegmentMap() const;
@@ -504,7 +519,6 @@ namespace Js
         template<typename T>
         static void GrowArrayHeadHelperForUnshift(JavascriptArray* pArr, uint32 unshiftElements, ScriptContext * scriptContext);
 
-        static uint32 GetFromIndex(Var arg, uint32 length, ScriptContext *scriptContext);
         static uint64 GetFromIndex(Var arg, uint64 length, ScriptContext *scriptContext);
         static int64 GetFromLastIndex(Var arg, int64 length, ScriptContext *scriptContext);
         static JavascriptString* JoinToString(Var value, ScriptContext* scriptContext);
@@ -558,14 +572,18 @@ namespace Js
         static int __cdecl CompareElements(void* context, const void* elem1, const void* elem2);
         void SortElements(Element* elements, uint32 left, uint32 right);
 
-        template <typename Fn>
-        static void ForEachOwnArrayIndexOfObject(RecyclableObject* obj, uint32 startIndex, uint32 limitIndex, Fn fn);
-
         template <typename T, typename Fn>
         static void ForEachOwnMissingArrayIndexOfObject(JavascriptArray *baseArr, JavascriptArray *destArray, RecyclableObject* obj, uint32 startIndex, uint32 limitIndex, T destIndex, Fn fn);
 
         // NativeArrays may change it's content type, but not others
         template <typename T> static bool MayChangeType() { return false; }
+
+        template<typename T, typename P>
+        static BOOL TryTemplatedGetItem(T *arr, P index, Var *element, ScriptContext *scriptContext, bool checkHasItem = true)
+        {
+            return T::Is(arr) ? JavascriptArray::TemplatedGetItem(arr, index, element, scriptContext, checkHasItem) :
+                JavascriptOperators::GetItem(arr, index, element, scriptContext);
+        }
 
         template <bool hasSideEffect, typename T, typename Fn>
         static void TemplatedForEachItemInRange(T * arr, uint32 startIndex, uint32 limitIndex, Var missingItem, ScriptContext * scriptContext, Fn fn)
@@ -573,7 +591,7 @@ namespace Js
             for (uint32 i = startIndex; i < limitIndex; i++)
             {
                 Var element;
-                fn(i, TemplatedGetItem(arr, i, &element, scriptContext) ? element : missingItem);
+                fn(i, TryTemplatedGetItem(arr, i, &element, scriptContext) ? element : missingItem);
 
                 if (hasSideEffect && MayChangeType<T>() && !T::Is(arr))
                 {
@@ -590,7 +608,7 @@ namespace Js
             for (P i = startIndex; i < limitIndex; i++)
             {
                 Var element;
-                if (TemplatedGetItem(arr, i, &element, scriptContext))
+                if (TryTemplatedGetItem(arr, i, &element, scriptContext))
                 {
                     fn(i, element);
 
@@ -803,6 +821,8 @@ namespace Js
 
     public:
         template<class T, uint InlinePropertySlots> static size_t DetermineAllocationSize(const uint inlineElementSlots, size_t *const allocationPlusSizeRef = nullptr, uint *const alignedInlineElementSlotsRef = nullptr);
+        template<class ArrayType, uint InlinePropertySlots> static size_t DetermineAllocationSizeForArrayObjects(const uint inlineElementSlots, size_t *const allocationPlusSizeRef = nullptr, uint *const alignedInlineElementSlotsRef = nullptr);
+        template<class ArrayType> static void EnsureCalculationOfAllocationBuckets();
         template<class T, uint InlinePropertySlots> static uint DetermineAvailableInlineElementSlots(const size_t allocationSize, bool *const isSufficientSpaceForInlinePropertySlotsRef);
         template<class T, uint ConstInlinePropertySlots, bool UseDynamicInlinePropertySlots> static SparseArraySegment<typename T::TElement> *DetermineInlineHeadSegmentPointer(T *const array);
 
@@ -921,6 +941,8 @@ namespace Js
 
         typedef int32 TElement;
 
+        static const uint8 AllocationBucketsCount = 3;
+        static uint allocationBuckets[AllocationBucketsCount][AllocationBucketsInfoSize];
         static const int32 MissingItem;
 
         virtual BOOL HasItem(uint32 index) override;
@@ -1058,6 +1080,8 @@ namespace Js
 
         typedef double TElement;
 
+        static const uint8 AllocationBucketsCount = 3;
+        static uint allocationBuckets[AllocationBucketsCount][AllocationBucketsInfoSize];
         static const double MissingItem;
 
         virtual BOOL HasItem(uint32 index) override;

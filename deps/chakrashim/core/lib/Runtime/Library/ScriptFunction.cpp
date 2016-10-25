@@ -626,11 +626,11 @@ namespace Js
 #endif
 
     AsmJsScriptFunction::AsmJsScriptFunction(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType) :
-        ScriptFunction(proxy, deferredPrototypeType), m_moduleMemory(nullptr)
+        ScriptFunction(proxy, deferredPrototypeType), m_moduleMemory(nullptr), m_lazyError(nullptr)
     {}
 
     AsmJsScriptFunction::AsmJsScriptFunction(DynamicType * type) :
-        ScriptFunction(type), m_moduleMemory(nullptr)
+        ScriptFunction(type), m_moduleMemory(nullptr), m_lazyError(nullptr)
     {}
 
     ScriptFunctionWithInlineCache::ScriptFunctionWithInlineCache(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType) :
@@ -747,14 +747,15 @@ namespace Js
                     }
                     else if (!scriptContext->IsClosed())
                     {
-                        AllocatorDelete(IsInstInlineCacheAllocator, scriptContext->GetIsInstInlineCacheAllocator(), (IsInstInlineCache*)this->m_inlineCaches[i]);
+                        AllocatorDelete(CacheAllocator, scriptContext->GetIsInstInlineCacheAllocator(), (IsInstInlineCache*)this->m_inlineCaches[i]);
                     }
                     this->m_inlineCaches[i] = nullptr;
                 }
             }
 
-            if (!isShutdown && unregisteredInlineCacheCount > 0 && !scriptContext->IsClosed())
+            if (unregisteredInlineCacheCount > 0)
             {
+                AssertMsg(!isShutdown && !scriptContext->IsClosed(), "Unregistration of inlineCache should only be done if this is not shutdown or scriptContext closing.");
                 scriptContext->GetThreadContext()->NotifyInlineCacheBatchUnregistered(unregisteredInlineCacheCount);
             }
         }
@@ -811,7 +812,7 @@ namespace Js
             }
             for (; i < totalCacheCount; i++)
             {
-                inlineCaches[i] = AllocatorNewStructZ(IsInstInlineCacheAllocator,
+                inlineCaches[i] = AllocatorNewStructZ(CacheAllocator,
                     functionBody->GetScriptContext()->GetIsInstInlineCacheAllocator(), IsInstInlineCache);
             }
 #if DBG

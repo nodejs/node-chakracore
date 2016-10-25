@@ -5,7 +5,7 @@
 
 #include "RuntimeLanguagePch.h"
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
 #include "ByteCode/Symbol.h"
 #include "ByteCode/FuncInfo.h"
 #ifdef DBG_DUMP
@@ -20,7 +20,7 @@
 
 namespace Js
 {
-    enum EBinaryMathOpCodes
+    enum EBinaryMathOpCodes: int
     {
         BMO_ADD,
         BMO_SUB,
@@ -31,7 +31,7 @@ namespace Js
         BMO_MAX,
     };
 
-    enum EBinaryMathOpCodesTypes
+    enum EBinaryMathOpCodesTypes: int
     {
         BMOT_Int,
         BMOT_UInt,
@@ -48,7 +48,7 @@ namespace Js
         /*BMO_REM*/{ OpCodeAsmJs::Rem_Int, OpCodeAsmJs::Rem_UInt,OpCodeAsmJs::Nop,     OpCodeAsmJs::Rem_Db }
     };
 
-    enum EBinaryComparatorOpCodes
+    enum EBinaryComparatorOpCodes: int
     {
         /*<, <=, >, >=, ==, !=*/
         BCO_LT,
@@ -72,10 +72,10 @@ namespace Js
 
     const OpCodeAsmJs BinaryComparatorOpCodes[BCO_MAX][BCOT_MAX] = {
                     //  int            unsigned int     double
-        /*BCO_LT*/{ OpCodeAsmJs::CmLt_Int, OpCodeAsmJs::CmLt_UnInt, OpCodeAsmJs::CmLt_Flt, OpCodeAsmJs::CmLt_Db },
-        /*BCO_LE*/{ OpCodeAsmJs::CmLe_Int, OpCodeAsmJs::CmLe_UnInt, OpCodeAsmJs::CmLe_Flt, OpCodeAsmJs::CmLe_Db },
-        /*BCO_GT*/{ OpCodeAsmJs::CmGt_Int, OpCodeAsmJs::CmGt_UnInt, OpCodeAsmJs::CmGt_Flt, OpCodeAsmJs::CmGt_Db },
-        /*BCO_GE*/{ OpCodeAsmJs::CmGe_Int, OpCodeAsmJs::CmGe_UnInt, OpCodeAsmJs::CmGe_Flt, OpCodeAsmJs::CmGe_Db },
+        /*BCO_LT*/{ OpCodeAsmJs::CmLt_Int, OpCodeAsmJs::CmLt_UInt, OpCodeAsmJs::CmLt_Flt, OpCodeAsmJs::CmLt_Db },
+        /*BCO_LE*/{ OpCodeAsmJs::CmLe_Int, OpCodeAsmJs::CmLe_UInt, OpCodeAsmJs::CmLe_Flt, OpCodeAsmJs::CmLe_Db },
+        /*BCO_GT*/{ OpCodeAsmJs::CmGt_Int, OpCodeAsmJs::CmGt_UInt, OpCodeAsmJs::CmGt_Flt, OpCodeAsmJs::CmGt_Db },
+        /*BCO_GE*/{ OpCodeAsmJs::CmGe_Int, OpCodeAsmJs::CmGe_UInt, OpCodeAsmJs::CmGe_Flt, OpCodeAsmJs::CmGe_Db },
         /*BCO_EQ*/{ OpCodeAsmJs::CmEq_Int, OpCodeAsmJs::CmEq_Int, OpCodeAsmJs::CmEq_Flt, OpCodeAsmJs::CmEq_Db },
         /*BCO_NE*/{ OpCodeAsmJs::CmNe_Int, OpCodeAsmJs::CmNe_Int, OpCodeAsmJs::CmNe_Flt, OpCodeAsmJs::CmNe_Db },
     };
@@ -186,14 +186,14 @@ namespace Js
     {
         // this value is the number of Var slots needed to allocate all the const
         int nbConst =
-            ((mFunction->GetRegisterSpace<double>().GetConstCount() + 1) * DOUBLE_SLOTS_SPACE) // space required for all double constants + 1 return register reserved
-            + (int)((mFunction->GetRegisterSpace<float>().GetConstCount() + 1)* FLOAT_SLOTS_SPACE + 0.5 /*ceil*/) // space required for all float constants + 1 return register reserved
-            + (int)((mFunction->GetRegisterSpace<int>().GetConstCount() + 1) * INT_SLOTS_SPACE + 0.5/*ceil*/) // space required for all int constants + 1 return register reserved
+            ((mFunction->GetRegisterSpace<double>().GetConstCount() + 1) * WAsmJs::DOUBLE_SLOTS_SPACE) // space required for all double constants + 1 return register reserved
+            + (int)((mFunction->GetRegisterSpace<float>().GetConstCount() + 1) * WAsmJs::FLOAT_SLOTS_SPACE + 0.5 /*ceil*/) // space required for all float constants + 1 return register reserved
+            + (int)((mFunction->GetRegisterSpace<int>().GetConstCount() + 1) * WAsmJs::INT_SLOTS_SPACE + 0.5/*ceil*/) // space required for all int constants + 1 return register reserved
             + AsmJsFunctionMemory::RequiredVarConstants;
 
         if (IsSimdjsEnabled())
         {
-            nbConst += (int)((mFunction->GetRegisterSpace<AsmJsSIMDValue>().GetConstCount() + 1) * SIMD_SLOTS_SPACE); // Return register is already reserved in the register space.
+            nbConst += (int)((mFunction->GetRegisterSpace<AsmJsSIMDValue>().GetConstCount() + 1) * WAsmJs::SIMD_SLOTS_SPACE); // Return register is already reserved in the register space.
         }
 
         byteCodeFunction->CheckAndSetConstantCount(nbConst);
@@ -249,7 +249,7 @@ namespace Js
             functionBody->AllocateLiteralRegexArray();
 
 
-            mWriter.Begin(byteCodeGen, functionBody, alloc, true /* byteCodeGen->DoJitLoopBodies( funcInfo )*/, mInfo->hasLoop);
+            mWriter.Begin(functionBody, alloc, true /* byteCodeGen->DoJitLoopBodies( funcInfo )*/, mInfo->hasLoop, false /* inDebugMode*/);
 
             // for now, emit all constant loads at top of function (should instead put in
             // closest dominator of uses)
@@ -469,6 +469,12 @@ namespace Js
             varStmts = ParserWrapper::GetBinaryRight(varStmts);
         }
         Assert(!varStmts->CapturesSyms());
+
+        // if last statement isn't return, type must be void
+        if (varStmts->nop != knopReturn)
+        {
+            mFunction->CheckAndSetReturnType(AsmJsRetType::Void);
+        }
         EmitTopLevelStatement(varStmts);
     }
 
@@ -549,7 +555,7 @@ namespace Js
         case knopRsh:
             return EmitBinaryInt( pnode, OpCodeAsmJs::Shr_Int );
         case knopRs2:
-            return EmitBinaryInt( pnode, OpCodeAsmJs::ShrU_Int );
+            return EmitBinaryInt( pnode, OpCodeAsmJs::Shr_UInt );
         case knopMod:
             return EmitBinaryMultiType( pnode, BMO_REM );
         case knopDiv:
@@ -580,7 +586,7 @@ namespace Js
         case knopFlt:
             if (ParserWrapper::IsMinInt(pnode))
             {
-                return EmitExpressionInfo(mFunction->GetConstRegister<int>(MININT32), AsmJsType::Signed);
+                return EmitExpressionInfo(mFunction->GetConstRegister<int>(INT32_MIN), AsmJsType::Signed);
             }
             else if (ParserWrapper::IsUnsigned(pnode))
             {
@@ -766,7 +772,7 @@ namespace Js
         CheckNodeLocation( rhsEmit, int );
         StartStatement(pnode);
         EmitExpressionInfo emitInfo( AsmJsType::Signed );
-        if( op == OpCodeAsmJs::ShrU_Int )
+        if( op == OpCodeAsmJs::Shr_UInt )
         {
             emitInfo.type = AsmJsType::Unsigned;
         }
@@ -1743,7 +1749,7 @@ namespace Js
                                      argsInfo[6].location, argsInfo[7].location);
             break;
         case 9:
-            mWriter.AsmReg10(op, dst, argsInfo[0].location, argsInfo[1].location, argsInfo[2].location, argsInfo[3].location, argsInfo[4].location, argsInfo[5].location, 
+            mWriter.AsmReg10(op, dst, argsInfo[0].location, argsInfo[1].location, argsInfo[2].location, argsInfo[3].location, argsInfo[4].location, argsInfo[5].location,
                                       argsInfo[6].location, argsInfo[7].location, argsInfo[8].location);
             break;
         case 10:
@@ -1752,7 +1758,7 @@ namespace Js
             break;
         case 16:
             mWriter.AsmReg17(op, dst, argsInfo[0].location, argsInfo[1].location, argsInfo[2].location, argsInfo[3].location, argsInfo[4].location, argsInfo[5].location,
-                                      argsInfo[6].location, argsInfo[7].location, argsInfo[8].location, argsInfo[9].location, argsInfo[10].location, argsInfo[11].location, 
+                                      argsInfo[6].location, argsInfo[7].location, argsInfo[8].location, argsInfo[9].location, argsInfo[10].location, argsInfo[11].location,
                                       argsInfo[12].location, argsInfo[13].location, argsInfo[14].location, argsInfo[15].location);
             break;
 
@@ -2389,7 +2395,7 @@ namespace Js
                 else if (ParserWrapper::IsMinInt(indexNode))
                 {
                     // this is going to be an error, but we can do this to allow it to get same error message as invalid int
-                    slot = (uint32)MININT32;
+                    slot = (uint32)INT32_MIN;
                 }
                 else if (ParserWrapper::IsUnsigned(indexNode))
                 {
@@ -3347,7 +3353,7 @@ namespace Js
             }
         } autoCleanup(functionBody, byteCodeGen);
 
-        byteCodeGen->Writer()->Begin(byteCodeGen, functionBody, byteCodeGen->GetAllocator(), false, false);
+        byteCodeGen->Writer()->Begin(functionBody, byteCodeGen->GetAllocator(), false, false, false);
         byteCodeGen->Writer()->StartStatement(functionNode, 0);
         byteCodeGen->Writer()->Empty(OpCode::Nop);
         byteCodeGen->Writer()->EndStatement(functionNode);
@@ -3373,15 +3379,15 @@ namespace Js
    // int tab = 0;
     void AsmJSByteCodeGenerator::LoadModuleInt( RegSlot dst, RegSlot index )
     {
-        mWriter.AsmSlot(OpCodeAsmJs::LdSlot_Int, dst, AsmJsFunctionMemory::ModuleEnvRegister, index + (int32)(mCompiler->GetIntOffset() / INT_SLOTS_SPACE + 0.5));
+        mWriter.AsmSlot(OpCodeAsmJs::LdSlot_Int, dst, AsmJsFunctionMemory::ModuleEnvRegister, index + (int32)(mCompiler->GetIntOffset() / WAsmJs::INT_SLOTS_SPACE + 0.5));
     }
     void AsmJSByteCodeGenerator::LoadModuleFloat(RegSlot dst, RegSlot index)
     {
-        mWriter.AsmSlot(OpCodeAsmJs::LdSlot_Flt, dst, AsmJsFunctionMemory::ModuleEnvRegister, index + (int32)(mCompiler->GetFloatOffset() / FLOAT_SLOTS_SPACE + 0.5));
+        mWriter.AsmSlot(OpCodeAsmJs::LdSlot_Flt, dst, AsmJsFunctionMemory::ModuleEnvRegister, index + (int32)(mCompiler->GetFloatOffset() / WAsmJs::FLOAT_SLOTS_SPACE + 0.5));
     }
     void AsmJSByteCodeGenerator::LoadModuleDouble( RegSlot dst, RegSlot index )
     {
-        mWriter.AsmSlot(OpCodeAsmJs::LdSlot_Db, dst, AsmJsFunctionMemory::ModuleEnvRegister, index + mCompiler->GetDoubleOffset() / DOUBLE_SLOTS_SPACE);
+        mWriter.AsmSlot(OpCodeAsmJs::LdSlot_Db, dst, AsmJsFunctionMemory::ModuleEnvRegister, index + mCompiler->GetDoubleOffset() / WAsmJs::DOUBLE_SLOTS_SPACE);
     }
 
     void AsmJSByteCodeGenerator::LoadModuleFFI( RegSlot dst, RegSlot index )
@@ -3402,17 +3408,17 @@ namespace Js
 
     void AsmJSByteCodeGenerator::SetModuleInt( Js::RegSlot dst, RegSlot src )
     {
-        mWriter.AsmSlot(OpCodeAsmJs::StSlot_Int, src, AsmJsFunctionMemory::ModuleEnvRegister, dst + (int32)(mCompiler->GetIntOffset() / INT_SLOTS_SPACE + 0.5));
+        mWriter.AsmSlot(OpCodeAsmJs::StSlot_Int, src, AsmJsFunctionMemory::ModuleEnvRegister, dst + (int32)(mCompiler->GetIntOffset() / WAsmJs::INT_SLOTS_SPACE + 0.5));
     }
 
     void AsmJSByteCodeGenerator::SetModuleFloat(Js::RegSlot dst, RegSlot src)
     {
-        mWriter.AsmSlot(OpCodeAsmJs::StSlot_Flt, src, AsmJsFunctionMemory::ModuleEnvRegister, dst + (int32)(mCompiler->GetFloatOffset() / FLOAT_SLOTS_SPACE + 0.5));
+        mWriter.AsmSlot(OpCodeAsmJs::StSlot_Flt, src, AsmJsFunctionMemory::ModuleEnvRegister, dst + (int32)(mCompiler->GetFloatOffset() / WAsmJs::FLOAT_SLOTS_SPACE + 0.5));
     }
 
     void AsmJSByteCodeGenerator::SetModuleDouble( Js::RegSlot dst, RegSlot src )
     {
-        mWriter.AsmSlot(OpCodeAsmJs::StSlot_Db, src, AsmJsFunctionMemory::ModuleEnvRegister, dst + mCompiler->GetDoubleOffset() / DOUBLE_SLOTS_SPACE);
+        mWriter.AsmSlot(OpCodeAsmJs::StSlot_Db, src, AsmJsFunctionMemory::ModuleEnvRegister, dst + mCompiler->GetDoubleOffset() / WAsmJs::DOUBLE_SLOTS_SPACE);
     }
 
     void AsmJSByteCodeGenerator::LoadModuleSimd(RegSlot dst, RegSlot index, AsmJsVarType type)

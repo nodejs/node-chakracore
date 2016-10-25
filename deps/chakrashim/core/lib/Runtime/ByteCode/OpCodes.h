@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 // Default all macro to nothing
@@ -43,7 +43,6 @@
 #define MACRO_EXTEND_WMS_AND_PROFILED_OP(opcode, layout, attr) \
     MACRO_EXTEND_WMS(opcode, layout, OpHasProfiled | attr) \
     MACRO_EXTEND_WMS(Profiled##opcode, layout, OpByteCodeOnly | OpProfiled | attr) \
-
 
 #define MACRO_PROFILED(opcode, layout, attr) \
     MACRO(opcode, layout, OpHasProfiled|attr) \
@@ -223,6 +222,8 @@ MACRO_BACKEND_ONLY(     Xor_I4,             Empty,          OpTempNumberSources|
 MACRO_BACKEND_ONLY(     Shl_I4,             Empty,          OpTempNumberSources|OpCanCSE)                                    // int32 Shift '<<' (signed, truncate)
 MACRO_BACKEND_ONLY(     Shr_I4,             Empty,          OpTempNumberSources|OpCanCSE)                                    // int32 Shift '>>' (signed, truncate)
 MACRO_BACKEND_ONLY(     ShrU_I4,            Empty,          OpTempNumberSources|OpCanCSE)                                    // int32 Shift '>>>'(unsigned, truncate)
+MACRO_BACKEND_ONLY(     Rol_I4,             Empty,          OpTempNumberSources|OpCanCSE)                                    // int32 rol (signed)
+MACRO_BACKEND_ONLY(     Ror_I4,             Empty,          OpTempNumberSources|OpCanCSE)                                    // int32 ror (signed)
 
 MACRO_BACKEND_ONLY(     Add_Ptr,            Empty,          OpTempNumberSources|OpCanCSE)                                    // ptr Arithmetic '+'
 
@@ -251,7 +252,6 @@ MACRO_BACKEND_ONLY(     CmUnLe_I4,          Reg3,           OpTempNumberSources|
 MACRO_BACKEND_ONLY(     CmUnGt_I4,          Reg3,           OpTempNumberSources|OpCanCSE)                                   // Unsigned I4 Compare if '>'
 MACRO_BACKEND_ONLY(     CmUnGe_I4,          Reg3,           OpTempNumberSources|OpCanCSE)                                   // Unsigned I4 Compare if '>='
 
-
 // Conversions
 MACRO_WMS(              Conv_Num,           Reg2,           OpSideEffect|OpTempNumberProducing|OpTempNumberTransfer|OpTempObjectSources|OpOpndHasImplicitCall|OpProducesNumber) // Convert to Number. [[ToNumber()]]
 // Operation ToString(str)
@@ -268,7 +268,7 @@ MACRO_BACKEND_ONLY(     ToVar,              Reg2,           OpTempNumberProducin
 MACRO_BACKEND_ONLY(     FromVar,            Reg2,           OpTempNumberSources|OpTempObjectSources|OpCanCSE)
 MACRO_BACKEND_ONLY(     Conv_Prim,          Reg2,           OpTempNumberProducing|OpTempNumberSources|OpCanCSE|OpPostOpDbgBailOut)  // Convert between primitives (int32/float64)
 MACRO_BACKEND_ONLY(     Conv_Bool,          Reg2,           OpTempNumberSources|OpCanCSE)                           // Convert from i4 to bool
-
+MACRO_BACKEND_ONLY(     Reinterpret_Prim,   Reg2,           OpTempNumberProducing|OpTempNumberSources|OpCanCSE)  // Reinterpret bits between primitives (int32/float32)
 
 // Register
 MACRO_EXTEND_WMS(       UnwrapWithObj,      Reg2,           OpSideEffect) // Copy Var register with unwrapped object
@@ -437,6 +437,7 @@ MACRO_BACKEND_ONLY(     LdUInt32ArrViewElem,    ElementI,       OpCanCSE        
 MACRO_BACKEND_ONLY(     Memset,                 ElementI,       OpSideEffect)
 MACRO_BACKEND_ONLY(     Memcopy,                ElementI,       OpSideEffect)
 MACRO_BACKEND_ONLY(     ArrayDetachedCheck,     Reg1,           None)   // ensures that an ArrayBuffer has not been detached
+MACRO_BACKEND_ONLY(     LdNativeCodeData,       Reg1,           OpSideEffect)   // load native code data buffer
 MACRO_WMS(              StArrItemI_CI4,         ElementUnsigned1,      OpSideEffect)
 MACRO_WMS(              StArrItemC_CI4,         ElementUnsigned1,      OpSideEffect)
 MACRO_WMS(              LdArrHead,              Reg2,           OpTempObjectSources)
@@ -522,6 +523,7 @@ MACRO_PROFILED(         NewScFltArray,      Auxiliary,      OpSideEffect|OpTempO
 MACRO_EXTEND_WMS(       InitClass,          Class,          OpSideEffect|OpHasImplicitCall|OpPostOpDbgBailOut)
 
 MACRO_WMS(              NewScFunc,          ElementSlotI1,  OpSideEffect)   // Create new ScriptFunction instance
+MACRO_BACKEND_ONLY(     NewScFuncData,      Reg2,           None)
 MACRO_WMS(              NewScGenFunc,       ElementSlotI1,  OpSideEffect)   // Create new JavascriptGeneratorFunction instance
 MACRO_WMS(              NewStackScFunc,     ElementSlotI1,  OpSideEffect|OpByteCodeOnly)  // Create new ScriptFunction instance
 MACRO_EXTEND_WMS(       NewInnerScFunc,     ElementSlot,    OpSideEffect)   // Create new ScriptFunction instance
@@ -547,10 +549,9 @@ MACRO_WMS(              NewRegEx,           Reg1Unsigned1,  OpTempObjectCanStore
 MACRO_WMS(              IsInst,             Reg3C,          OpSideEffect|OpHasImplicitCall|OpPostOpDbgBailOut)  // instanceof() - SideEffect: can throw...
 
 // Collection operations
-MACRO_WMS(              GetForInEnumerator, Reg2,           OpSideEffect|OpHasImplicitCall)         // Get enumerator from collection
-MACRO_WMS(              BrOnEmpty,          BrReg2,         OpSideEffect|OpHasImplicitCall)         // Move to next item; return value if not NULL, otherwise branch
-MACRO_BACKEND_ONLY (    BrOnNotEmpty,       BrReg2,         OpSideEffect|OpHasImplicitCall)         // Move to next item; return true if done
-MACRO_WMS(              ReleaseForInEnumerator,  Reg1,      OpSideEffect|OpHasImplicitCall)         // Release enumerator
+MACRO_WMS_PROFILED(     InitForInEnumerator,Reg1Unsigned1,  OpSideEffect|OpHasImplicitCall)         // Get enumerator from collection
+MACRO_WMS(              BrOnEmpty,          BrReg1Unsigned1,OpSideEffect|OpHasImplicitCall)         // Move to next item; return value if not NULL, otherwise branch
+MACRO_BACKEND_ONLY (    BrOnNotEmpty,       BrReg1Unsigned1,OpSideEffect|OpHasImplicitCall)         // Move to next item; return true if done
 
 MACRO(                  TryCatch,           Br,             OpSideEffect)
 MACRO(                  TryFinally,         Br,             OpSideEffect|OpPostOpDbgBailOut)
@@ -565,7 +566,6 @@ MACRO_BACKEND_ONLY(     InlineRuntimeTypeError,        W1,             OpSideEff
 MACRO_EXTEND(           RuntimeTypeError,              W1,             OpSideEffect|OpPostOpDbgBailOut)     // Throws TypeError at runtime.
 MACRO_BACKEND_ONLY(     InlineRuntimeReferenceError,   W1,             OpSideEffect|OpPostOpDbgBailOut)     // Throws ReferenceError at runtime.
 MACRO_EXTEND(           RuntimeReferenceError,         W1,             OpSideEffect|OpPostOpDbgBailOut)     // Throws ReferenceError at runtime.
-
 
 // Dynamic profile opcodes
 MACRO_WMS(              LoopBodyStart,          Unsigned1,             OpByteCodeOnly)  // Marks the start of a loop body
@@ -590,7 +590,6 @@ MACRO_WMS(              ProfiledReturnTypeCallIFlags,     ProfiledCallIFlags,   
 MACRO_WMS(              ProfiledReturnTypeCallIExtended,  ProfiledCallIExtended,  OpByteCodeOnly|OpSideEffect|OpUseAllFields|OpCallInstr)
 MACRO_WMS(              ProfiledReturnTypeCallIExtendedFlags, ProfiledCallIExtendedFlags, OpByteCodeOnly|OpSideEffect|OpUseAllFields|OpCallInstr)
 
-
 MACRO_EXTEND_WMS(       EmitTmpRegCount,    Unsigned1,      OpByteCodeOnly)
 MACRO_WMS(              Unused,             Reg1,           None)
 
@@ -603,7 +602,6 @@ MACRO_BACKEND_ONLY(     SetConcatStrMultiItemBE, Reg2B1,    OpCanCSE)   // Altho
 MACRO_WMS(              SetConcatStrMultiItem2,  Reg3B1,         None)  // Although the byte code version include the concat, and has value of/to string, the BE version doesn't
 MACRO_BACKEND_ONLY(     LdStr,              Empty,          OpTempNumberProducing|OpCanCSE)                 // Load string literal
 MACRO_BACKEND_ONLY(     CloneStr,           Empty,          OpTempNumberSources | OpTempNumberProducing)    // Load string literal
-
 
 // Operation ToString(str) if str != null or str != undefined
 MACRO_BACKEND_ONLY(     Coerce_Str, Empty, OpOpndHasImplicitCall|OpTempNumberSources|OpTempObjectSources|OpPostOpDbgBailOut)
@@ -677,6 +675,7 @@ MACRO_BACKEND_ONLY(     InlineMathTan,      Empty,          OpInlinableBuiltIn|O
 // TODO: put these upfront so that all built-ins are sorted.
 MACRO_BACKEND_ONLY(     InlineMathAbs,       Empty,          OpInlinableBuiltIn|OpTempNumberSources|OpCanCSE|OpProducesNumber)
 MACRO_BACKEND_ONLY(     InlineMathClz32,     Empty,          OpInlinableBuiltIn|OpTempNumberSources|OpCanCSE|OpProducesNumber)
+MACRO_BACKEND_ONLY(     Ctz,                 Empty,          OpTempNumberSources|OpCanCSE|OpProducesNumber)
 MACRO_BACKEND_ONLY(     InlineMathCeil,      Empty,          OpInlinableBuiltIn|OpTempNumberSources|OpCanCSE|OpBailOutRec|OpProducesNumber)
 MACRO_BACKEND_ONLY(     InlineMathFloor,     Empty,          OpInlinableBuiltIn|OpTempNumberSources|OpCanCSE|OpBailOutRec|OpProducesNumber)
 MACRO_BACKEND_ONLY(     InlineMathMax,       Empty,          OpInlinableBuiltIn|OpTempNumberSources|OpCanCSE|OpProducesNumber)
@@ -744,6 +743,12 @@ MACRO_BACKEND_ONLY(     RestoreOutParam,    Empty,          None)
 MACRO_BACKEND_ONLY(     SlotArrayCheck,     Empty,          OpCanCSE)
 MACRO_BACKEND_ONLY(     FrameDisplayCheck,  Empty,          OpCanCSE)
 MACRO_EXTEND(           BeginBodyScope,     Empty,          OpSideEffect)
+
+MACRO_BACKEND_ONLY(     PopCnt32,           Empty,          OpTempNumberSources|OpCanCSE|OpProducesNumber)
+MACRO_BACKEND_ONLY(     Copysign_A,         Empty,          OpTempNumberSources|OpCanCSE|OpProducesNumber)
+MACRO_BACKEND_ONLY(     Trunc_A,            Empty,          OpTempNumberSources|OpCanCSE|OpProducesNumber)
+MACRO_BACKEND_ONLY(     Nearest_A,          Empty,          OpTempNumberSources|OpCanCSE|OpProducesNumber)
+MACRO_BACKEND_ONLY(     Unreachable_Void,   Empty,          OpSideEffect|OpNoFallThrough)
 
 // All SIMD ops are backend only for non-asmjs.
 #define MACRO_SIMD(opcode, asmjsLayout, opCodeAttrAsmJs, OpCodeAttr, ...) MACRO_BACKEND_ONLY(opcode, Empty, OpCodeAttr)

@@ -216,14 +216,14 @@ namespace Js
         return GetProperty(originalInstance, propertyId, value, info, requestContext);
     }
 
-    BOOL ModuleNamespace::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext)
+    BOOL ModuleNamespace::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache)
     {
-        ModuleNamespaceEnumerator* moduleEnumerator = ModuleNamespaceEnumerator::New(this, flags, requestContext);
+        ModuleNamespaceEnumerator* moduleEnumerator = ModuleNamespaceEnumerator::New(this, flags, requestContext, forInCache);
         if (moduleEnumerator == nullptr)
         {
             return FALSE;
         }
-        return enumerator->Initialize(moduleEnumerator, nullptr, nullptr, flags, requestContext);
+        return enumerator->Initialize(moduleEnumerator, nullptr, nullptr, flags, requestContext, nullptr);
     }
 
     BOOL ModuleNamespace::DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags)
@@ -231,8 +231,24 @@ namespace Js
         //Assert: IsPropertyKey(P) is true.
         //Let exports be O.[[Exports]].
         //If P is an element of exports, return false.
-        //Return true.        
+        //Return true.
         return !HasProperty(propertyId);
+    }
+
+    BOOL ModuleNamespace::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags)
+    {
+        //Assert: IsPropertyKey(P) is true.
+        //Let exports be O.[[Exports]].
+        //If P is an element of exports, return false.
+        //Return true.
+        PropertyRecord const *propertyRecord = nullptr;
+        if (JavascriptOperators::ShouldTryDeleteProperty(this, propertyNameString, &propertyRecord))
+        {
+            Assert(propertyRecord);
+            return DeleteProperty(propertyRecord->GetPropertyId(), flags);
+        }
+
+        return TRUE;
     }
 
     BOOL ModuleNamespace::GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)

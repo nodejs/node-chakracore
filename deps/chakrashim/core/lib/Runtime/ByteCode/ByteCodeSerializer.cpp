@@ -775,7 +775,7 @@ public:
         uint offset;
     };
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
     HRESULT RewriteAsmJsByteCodesInto(BufferBuilderList & builder, LPCWSTR clue, FunctionBody * function, ByteBlock * byteBlock)
     {
         SListCounted<AuxRecord> auxRecords(alloc);
@@ -826,254 +826,31 @@ public:
             switch (layoutType)
             {
 
-#define DEFAULT_LAYOUT(op) \
-    case OpLayoutTypeAsmJs::##op: { \
+#define LAYOUT_TYPE(layout) \
+    case OpLayoutTypeAsmJs::##layout: { \
         Assert(layoutSize == SmallLayout); \
-        reader.##op(); \
+        reader.##layout(); \
         saveBlock(); \
         break; }
-#define DEFAULT_LAYOUT_WITH_ONEBYTE(op) \
-    case OpLayoutTypeAsmJs::##op: { \
+#define LAYOUT_TYPE_WMS(layout) \
+    case OpLayoutTypeAsmJs::##layout: { \
         switch (layoutSize) \
         { \
         case SmallLayout: \
-            reader.##op##_Small(); \
+            reader.##layout##_Small(); \
             break; \
         case MediumLayout: \
-            reader.##op##_Medium(); \
+            reader.##layout##_Medium(); \
             break; \
         case LargeLayout: \
-            reader.##op##_Large(); \
+            reader.##layout##_Large(); \
             break; \
         default: \
             Assume(UNREACHED); \
         } \
        saveBlock(); \
        break;     }
-
-                DEFAULT_LAYOUT(Empty);
-                DEFAULT_LAYOUT(StartCall);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(ElementSlot);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmTypedArr);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmCall);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg5);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg6);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg7);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmReg2IntConst1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Double1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Float1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Double1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Double1Float1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Double1Reg1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float1Reg1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Reg1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Double1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Float1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Double2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Float2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Const1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Double2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float1Double1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Double3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmUnsigned1);
-                DEFAULT_LAYOUT(AsmBr);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(BrInt1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(BrInt2);
-                //Float32x4
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_1Float32x4_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Bool32x4_1Float32x4_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Float4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2Int4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_3Int4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Float1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2Float1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Int16x8_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Int8x16_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Uint8x16_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Uint32x4_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Uint16x8_1);
-                //DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Float64x2_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_1Int32x4_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Float32x4_1);
-                //Int32x4
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_1Int32x4_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Bool32x4_1Int32x4_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Int4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_2Int4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_3Int4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_2Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_2Int2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Int8x16_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Int16x8_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Uint8x16_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Uint16x8_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Uint32x4_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Int32x4_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float32x4_2Int1Float1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float1Float32x4_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Int32x4_1);
-                //DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Float64x2_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int32x4_1Float32x4_1);
-                // Float64x2
-#if 0
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_1Double2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_1Double1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_2Double1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_2Int2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_3Int2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_1Float32x4_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_1Int32x4_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Float64x2_1Int32x4_1Float64x2_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Float64x2_1);
-#endif // 0
-
-                // Int16x8
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Int8)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Int16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Int16x8_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_2Int8)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_3Int8)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_2Int2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_3)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool16x8_1Int16x8_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Bool16x8_1Int16x8_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_2Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Float32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Int32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Int8x16_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Uint32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Uint16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int16x8_1Uint8x16_1)
-                // In8x16
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_3)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Int16)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_2Int16)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_3Int16)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_2Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Int8x16_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_1Int8x16_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Bool8x16_1Int8x16_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Float32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Int32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Int16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Uint32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Uint16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_1Uint8x16_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Int8x16_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int8x16_2Int2)
-                // Uint32x4
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Int4)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Uint32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Uint32x4_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_2Int4)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_3Int4)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_2Int2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_3)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_1Uint32x4_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Bool32x4_1Uint32x4_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_2Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Float32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Int32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Int16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Int8x16_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Uint16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint32x4_1Uint8x16_1)
-                // Uint16x8
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Int8)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Uint16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Uint16x8_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_2Int8)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_3Int8)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_2Int2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_3)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool16x8_1Uint16x8_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Bool16x8_1Uint16x8_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_2Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Float32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Int32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Int16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Int8x16_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Uint32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint16x8_1Uint8x16_1)
-                // Uint8x16
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Int16)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Uint8x16_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Uint8x16_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_2Int16)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_3Int16)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_2Int2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_3)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_1Uint8x16_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Bool8x16_1Uint8x16_2)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_2Int1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Float32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Int32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Int16x8_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Int8x16_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Uint32x4_1)
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Uint8x16_1Uint16x8_1)
-                // Bool32x4
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_1Int4);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Bool32x4_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Bool32x4_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_2Int2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool32x4_3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Bool32x4_1);
-                // Bool16x8
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool16x8_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool16x8_1Int8);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Bool16x8_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Bool16x8_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool16x8_2Int2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool16x8_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool16x8_3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Bool16x8_1);
-                // Bool8x16
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_1Int16);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Bool8x16_1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Int1Bool8x16_1Int1);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_2Int2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_2);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Bool8x16_3);
-                DEFAULT_LAYOUT_WITH_ONEBYTE(Reg1Bool8x16_1);
-
-                DEFAULT_LAYOUT_WITH_ONEBYTE(AsmSimdTypedArr);
-
-
-#undef DEFAULT_LAYOUT
-#undef DEFAULT_LAYOUT_WITH_ONEBYTE
+#include "LayoutTypesAsmJs.h"
             default:
                 AssertMsg(false, "Unknown OpLayout");
                 cantGenerate = true;
@@ -1191,6 +968,7 @@ public:
 #endif
                 DEFAULT_LAYOUT(BrS);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(BrReg1);
+                DEFAULT_LAYOUT_WITH_ONEBYTE(BrReg1Unsigned1);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(BrReg2);
                 DEFAULT_LAYOUT(StartCall);
                 DEFAULT_LAYOUT_WITH_ONEBYTE(Profiled2CallI);
@@ -1497,8 +1275,8 @@ public:
             return block;
         };
 
-        auto writeAuxPropertyIdArray = [&](uint offset, uint32 extraSlots) -> BufferBuilder* {
-            const PropertyIdArray * propIds = reader.ReadPropertyIdArray(offset, functionBody, extraSlots);
+        auto writeAuxPropertyIdArray = [&](uint offset, byte extraSlots) -> BufferBuilder* {
+            const PropertyIdArray * propIds = reader.ReadPropertyIdArray(offset, functionBody);
 
             typedef serialization_alignment SerializedPropertyIdArray T;
             T header(offset, propIds->count, extraSlots, propIds->hadDuplicates, propIds->has__proto__);
@@ -1512,7 +1290,7 @@ public:
                 PrependConstantInt32(builder, _u("Encoded Property Id"), encoded);
             }
             auto slots = propIds->elements + propIds->count;
-            for(uint32 i=0; i<extraSlots; i++)
+            for(byte i=0; i<extraSlots; i++)
             {
                 PrependConstantInt32(builder, _u("Extra Slot"), slots[i]);
             }
@@ -1683,7 +1461,7 @@ public:
         }
     }
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
     uint32 AddAsmJsConstantTable(BufferBuilderList & builder, FunctionBody * function)
     {
         uint32 size = 0;
@@ -1990,14 +1768,14 @@ public:
         {
             size += PrependBool(builder, _u("ExportsIdArrayLength"), true);
 
-            int32 extraSlotCount = 0;
+            byte extraSlotCount = 0;
             if (function->HasCachedScopePropIds())
             {
                 extraSlotCount = ActivationObjectEx::ExtraSlotCount();
             }
 
             size += PrependInt32(builder, _u("ExportsIdArrayLength"), propIds->count);
-            size += PrependInt32(builder, _u("ExtraSlotsCount"), extraSlotCount);
+            size += PrependByte(builder, _u("ExtraSlotsCount"), extraSlotCount);
             size += PrependByte(builder, _u("ExportsIdArrayDups"), propIds->hadDuplicates);
             size += PrependByte(builder, _u("ExportsIdArray__proto__"), propIds->has__proto__);
             size += PrependByte(builder, _u("ExportsIdArrayHasNonSimpleParams"), propIds->hasNonSimpleParams);
@@ -2009,7 +1787,7 @@ public:
             }
 
             auto slots = propIds->elements + propIds->count;
-            for (int i = 0; i < extraSlotCount; i++)
+            for (byte i = 0; i < extraSlotCount; i++)
             {
                 size += PrependInt32(builder, _u("Extra Slot"), slots[i]);
             }
@@ -2020,7 +1798,7 @@ public:
         return size;
     }
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
     uint32 AddAsmJsFunctionInfo(BufferBuilderList & builder, FunctionBody * function)
     {
         uint32 size = 0;
@@ -2078,6 +1856,7 @@ public:
         if (moduleInfo->GetExportsCount() > 0)
         {
             PropertyIdArray * propArray = moduleInfo->GetExportsIdArray();
+            size += PrependByte(builder, _u("ExtraSlotsCount"), propArray->extraSlots);
             size += PrependByte(builder, _u("ExportsIdArrayDups"), propArray->hadDuplicates);
             size += PrependByte(builder, _u("ExportsIdArray__proto__"), propArray->has__proto__);
             size += PrependInt32(builder, _u("ExportsIdArrayLength"), propArray->count);
@@ -2215,7 +1994,7 @@ public:
             | (function->m_ChildCallsEval ? ffChildCallsEval : 0)
             | (function->m_hasReferenceableBuiltInArguments ? ffHasReferenceableBuiltInArguments : 0)
             | (isAnonymous ? ffIsAnonymous : 0)
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
             | (function->m_isAsmjsMode ? ffIsAsmJsMode : 0)
             | (function->m_isAsmJsFunction ? ffIsAsmJsFunction : 0)
 #endif
@@ -2232,8 +2011,9 @@ public:
                   | FunctionInfo::Attributes::CapturesThis
                   | FunctionInfo::Attributes::Generator
                   | FunctionInfo::Attributes::ClassConstructor
-                  | FunctionInfo::Attributes::ClassMethod)) == 0,
-                "Only the ErrorOnNew|SuperReference|Lambda|CapturesThis|Generator|ClassConstructor|Async|ClassMember attributes should be set on a serialized function");
+                  | FunctionInfo::Attributes::ClassMethod
+                  | FunctionInfo::Attributes::EnclosedByGlobalFunc)) == 0,
+                "Only the ErrorOnNew|SuperReference|Lambda|CapturesThis|Generator|ClassConstructor|Async|ClassMember|EnclosedByGlobalFunc attributes should be set on a serialized function");
 
         PrependInt32(builder, _u("Offset Into Source"), sourceDiff);
         if (function->GetNestedCount() > 0)
@@ -2296,7 +2076,7 @@ public:
                 PrependByte(builder, _u("Loop Header Array Exists"), 0);
             }
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
             if (function->GetAsmJsFunctionInfo())
             {
                 PrependByte(builder, _u("Asm.js Info Exists"), 1);
@@ -2313,7 +2093,7 @@ public:
                 PrependByte(builder, _u("Asm.js Info Exists"), 0);
             }
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
             if (function->GetIsAsmJsFunction())
             {
                 AddAsmJsConstantTable(builder, function);
@@ -3004,7 +2784,7 @@ public:
         return current;
     }
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
     const byte * ReadAsmJsConstantsTable(const byte * current, FunctionBody * function)
     {
 #ifdef BYTE_CODE_MAGIC_CONSTANTS
@@ -3402,45 +3182,42 @@ public:
         bool isPropertyIdArrayAvailable = false;
         current = ReadBool(current, &isPropertyIdArrayAvailable);
 
-        if (!isPropertyIdArrayAvailable)
+        if (isPropertyIdArrayAvailable)
         {
-            return current;
-        }
+            uint32 count = 0;
+            current = ReadUInt32(current, &count);
 
-        uint32 count = 0;
-        current = ReadUInt32(current, &count);
+            byte extraSlotCount = 0;
+            current = ReadByte(current, &extraSlotCount);
 
-        int32 extraSlotCount = 0;
-        current = ReadInt32(current, &extraSlotCount);
+            PropertyIdArray * propIds = function->AllocatePropertyIdArrayForFormals((extraSlotCount + count) * sizeof(PropertyId), count, extraSlotCount);
+            propIds->count = count;
 
-        PropertyIdArray * propIds = function->AllocatePropertyIdArrayForFormals((extraSlotCount + count) * sizeof(PropertyId),count);
-        propIds->count = count;
-        
+            bool hadDuplicates = false;
+            current = ReadBool(current, &hadDuplicates);
+            propIds->hadDuplicates = hadDuplicates;
 
-        bool hadDuplicates = false;
-        current = ReadBool(current, &hadDuplicates);
-        propIds->hadDuplicates = hadDuplicates;
+            bool has__proto__ = false;
+            current = ReadBool(current, &has__proto__);
+            propIds->has__proto__ = has__proto__;
 
-        bool has__proto__ = false;
-        current = ReadBool(current, &has__proto__);
-        propIds->has__proto__ = has__proto__;
+            bool hasNonSimpleParams = false;
+            current = ReadBool(current, &hasNonSimpleParams);
+            propIds->hasNonSimpleParams = hasNonSimpleParams;
 
-        bool hasNonSimpleParams = false;
-        current = ReadBool(current, &hasNonSimpleParams);
-        propIds->hasNonSimpleParams = hasNonSimpleParams;
+            int id = 0;
+            for (uint i = 0; i < propIds->count; ++i)
+            {
+                current = ReadInt32(current, &id);
+                PropertyId propertyId = function->GetByteCodeCache()->LookupPropertyId(id);
+                propIds->elements[i] = propertyId;
+            }
 
-        int id = 0;
-        for (uint i = 0; i < propIds->count; ++i)
-        {
-            current = ReadInt32(current, &id);
-            PropertyId propertyId = function->GetByteCodeCache()->LookupPropertyId(id);
-            propIds->elements[i] = propertyId;
-        }
-
-        for (int i = 0; i < extraSlotCount; ++i)
-        {
-            current = ReadInt32(current, &id);
-            propIds->elements[propIds->count + i] = id;
+            for (int i = 0; i < extraSlotCount; ++i)
+            {
+                current = ReadInt32(current, &id);
+                propIds->elements[propIds->count + i] = id;
+            }
         }
 
 #ifdef BYTE_CODE_MAGIC_CONSTANTS
@@ -3451,7 +3228,7 @@ public:
         return current;
     }
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
     const byte * ReadAsmJsFunctionInfo(const byte * current, FunctionBody * function)
     {
 #ifdef BYTE_CODE_MAGIC_CONSTANTS
@@ -3575,6 +3352,10 @@ public:
         if (exportsCount > 0)
         {
             PropertyIdArray * propArray = moduleInfo->GetExportsIdArray();
+
+            byte extraSlots;
+            current = ReadByte(current, &extraSlots);
+            propArray->extraSlots = extraSlots;
 
             bool boolVal;
             current = ReadBool(current, &boolVal);
@@ -3784,7 +3565,8 @@ public:
                 sourceInfo,
                 functionNumber,
                 sourceInfo->GetSrcInfo()->sourceContextInfo->sourceContextId,
-                firstFunctionId + functionId, nullptr, (FunctionInfo::Attributes)attributes
+                firstFunctionId + functionId, nullptr, (FunctionInfo::Attributes)attributes,
+                Js::FunctionBody::FunctionBodyFlags::Flags_None  // bytecode serializer will initialize
 #ifdef PERF_COUNTERS
                 , (deferDeserializeFunctionInfo != nullptr)
 #endif
@@ -3883,7 +3665,7 @@ public:
             (*functionBody)->m_CallsEval = (bitflags & ffhasSetCallsEval) ? true : false;
             (*functionBody)->m_ChildCallsEval = (bitflags & ffChildCallsEval) ? true : false;
             (*functionBody)->m_hasReferenceableBuiltInArguments = (bitflags & ffHasReferenceableBuiltInArguments) ? true : false;
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
             (*functionBody)->m_isAsmJsFunction = (bitflags & ffIsAsmJsFunction) ? true : false;
             (*functionBody)->m_isAsmjsMode = (bitflags & ffIsAsmJsMode) ? true : false;
 #endif
@@ -3911,7 +3693,7 @@ public:
 
             byte asmJsInfoExists;
             current = ReadByte(current, &asmJsInfoExists);
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
             if (asmJsInfoExists == 1)
             {
                 current = ReadAsmJsFunctionInfo(current, *functionBody);
@@ -3927,7 +3709,7 @@ public:
             }
 
             // Read constants table
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
             if ((*functionBody)->GetIsAsmJsFunction())
             {
                 current = ReadAsmJsConstantsTable(current, *functionBody);
@@ -3958,6 +3740,8 @@ public:
             current = ReadSlotArrayDebuggerScopes(current, *functionBody, debuggerScopeCount);
 
             (*functionBody)->AllocateObjectLiteralTypeArray();
+
+            (*functionBody)->AllocateForInCache();
 
             // Literal regexes
             (*functionBody)->AllocateLiteralRegexArray();
@@ -4103,7 +3887,8 @@ public:
         Assert(serialized->offset + sizeof(PropertyIdArray) < deserializeInto->GetLength());
         auto result = (PropertyIdArray *)(deserializeInto->GetBuffer() + serialized->offset);
         result->count = propertyCount;
-        Assert(serialized->offset + result->GetDataSize(extraSlotCount) <= deserializeInto->GetLength());
+        result->extraSlots = extraSlotCount;
+        Assert(serialized->offset + result->GetDataSize() <= deserializeInto->GetLength());
         result->hadDuplicates = serialized->hadDuplicates;
         result->has__proto__ = serialized->has__proto__;
 
@@ -4467,7 +4252,7 @@ SerializedFloatArray::SerializedFloatArray( uint offset, int floatCount ) :
 
 }
 
-SerializedPropertyIdArray::SerializedPropertyIdArray( uint offset, int propertyCount, int extraSlots, bool hadDuplicates, bool has__proto__) :
+SerializedPropertyIdArray::SerializedPropertyIdArray( uint offset, int propertyCount, byte extraSlots, bool hadDuplicates, bool has__proto__) :
     SerializedAuxiliary(offset, sakPropertyIdArray), propertyCount(propertyCount), extraSlots(extraSlots), hadDuplicates(hadDuplicates), has__proto__(has__proto__)
 #ifdef BYTE_CODE_MAGIC_CONSTANTS
     , magic(magicStartOfAuxPropIdArray)

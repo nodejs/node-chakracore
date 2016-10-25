@@ -8,7 +8,7 @@ template <typename TBlockAttributes>
 SmallNormalHeapBlockT<TBlockAttributes> *
 HeapBlock::AsNormalBlock()
 {
-    Assert(this == nullptr || IsAnyNormalBlock());
+    Assert(IsAnyNormalBlock());
     return static_cast<SmallNormalHeapBlockT<TBlockAttributes> *>(this);
 }
 
@@ -16,7 +16,7 @@ template <typename TBlockAttributes>
 SmallLeafHeapBlockT<TBlockAttributes> *
 HeapBlock::AsLeafBlock()
 {
-    Assert(this == nullptr || IsLeafBlock());
+    Assert(IsLeafBlock());
     return static_cast<SmallLeafHeapBlockT<TBlockAttributes> *>(this);
 }
 
@@ -24,7 +24,7 @@ template <typename TBlockAttributes>
 SmallFinalizableHeapBlockT<TBlockAttributes> *
 HeapBlock::AsFinalizableBlock()
 {
-    Assert(this == nullptr || IsAnyFinalizableBlock());
+    Assert(IsAnyFinalizableBlock());
     return static_cast<SmallFinalizableHeapBlockT<TBlockAttributes> *>(this);
 }
 
@@ -33,7 +33,7 @@ template <typename TBlockAttributes>
 SmallNormalWithBarrierHeapBlockT<TBlockAttributes> *
 HeapBlock::AsNormalWriteBarrierBlock()
 {
-    Assert(this == nullptr || IsNormalWriteBarrierBlock());
+    Assert(IsNormalWriteBarrierBlock());
     return static_cast<SmallNormalWithBarrierHeapBlockT<TBlockAttributes> *>(this);
 }
 
@@ -41,7 +41,7 @@ template <typename TBlockAttributes>
 SmallFinalizableWithBarrierHeapBlockT<TBlockAttributes> *
 HeapBlock::AsFinalizableWriteBarrierBlock()
 {
-    Assert(this == nullptr || IsFinalizableWriteBarrierBlock());
+    Assert(IsFinalizableWriteBarrierBlock());
     return static_cast<SmallFinalizableWithBarrierHeapBlockT<TBlockAttributes> *>(this);
 }
 #endif
@@ -188,7 +188,17 @@ SmallHeapBlockT<MediumAllocationBlockAttributes>::RestoreUnusablePages()
         char* startPage = (char*)this->address + (MediumAllocationBlockAttributes::PageCount - count) * AutoSystemInfo::PageSize;
         DWORD oldProtect;
         BOOL ret = ::VirtualProtect(startPage, count * AutoSystemInfo::PageSize, PAGE_READWRITE, &oldProtect);
-        Assert(ret && oldProtect == PAGE_READONLY);
+
+#if DBG
+        HeapBlock* block = this->heapBucket->heapInfo->recycler->heapBlockMap.GetHeapBlock(this->address);
+        // only need to do this after the unusable page is already successfully protected
+        // currently we don't have a flag to save that, but it should not fail after it successfully added to blockmap (see SetPage() implementation)
+        if (block)
+        {
+            Assert(block == this);
+            Assert(ret && oldProtect == PAGE_READONLY);
+        }
+#endif
     }
 }
 

@@ -328,11 +328,7 @@ HRESULT Parser::ParseSourceInternal(
     AssertMem(parseTree);
     AssertPsz(pszSrc);
     AssertMemN(pse);
-
-#ifdef ENABLE_BASIC_TELEMETRY
-    double startTime = m_scriptContext->GetThreadContext()->ParserTelemetry.Now();
-#endif
-    
+   
     if (this->IsBackgroundParser())
     {
         PROBE_STACK_NO_DISPOSE(m_scriptContext, Js::Constants::MinStackDefault);
@@ -448,11 +444,6 @@ HRESULT Parser::ParseSourceInternal(
     m_scriptContext->ProfileEnd(Js::ParsePhase);
 #endif
     JS_ETW(EventWriteJSCRIPT_PARSE_STOP(m_scriptContext, 0));
-
-#ifdef ENABLE_BASIC_TELEMETRY
-    ThreadContext *threadContext = m_scriptContext->GetThreadContext();
-    threadContext->ParserTelemetry.LogTime(threadContext->ParserTelemetry.Now() - startTime);
-#endif
     
     return hr;
 }
@@ -6341,7 +6332,7 @@ ParseNodePtr Parser::GenerateEmptyConstructor(bool extends)
     pnodeFnc->sxFnc.SetIsClassMember(TRUE);
     pnodeFnc->sxFnc.SetIsClassConstructor(TRUE);
     pnodeFnc->sxFnc.SetIsBaseClassConstructor(!extends);
-    pnodeFnc->sxFnc.SetHasNonThisStmt(extends);
+    pnodeFnc->sxFnc.SetHasNonThisStmt();
     pnodeFnc->sxFnc.SetIsGeneratedDefault(TRUE);
 
     pnodeFnc->ichLim = m_pscan->IchLimTok();
@@ -7166,6 +7157,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, uin
             pnodeConstructor->sxFnc.hintOffset = constructorShortNameHintOffset;
             pnodeConstructor->sxFnc.pid = pnodeName && pnodeName->sxVar.pid ? pnodeName->sxVar.pid : wellKnownPropertyPids.constructor;
             pnodeConstructor->sxFnc.SetIsClassConstructor(TRUE);
+            pnodeConstructor->sxFnc.SetHasNonThisStmt();
             pnodeConstructor->sxFnc.SetIsBaseClassConstructor(pnodeExtends == nullptr);
         }
         else
@@ -11454,11 +11446,18 @@ ParseNode* Parser::CopyPnode(ParseNode *pnode) {
     return pnode;
       //PTNODE(knopFalse      , "false"        ,False   ,None ,fnopLeaf)
   case knopFalse:
-    return CreateNodeT<knopFalse>(pnode->ichMin,pnode->ichLim);
-      break;
+    {
+      ParseNode* ret = CreateNodeT<knopFalse>(pnode->ichMin, pnode->ichLim);
+      ret->location = pnode->location;
+      return ret;
+    }
       //PTNODE(knopTrue       , "true"        ,True    ,None ,fnopLeaf)
   case knopTrue:
-    return CreateNodeT<knopTrue>(pnode->ichMin,pnode->ichLim);
+    {
+        ParseNode* ret = CreateNodeT<knopTrue>(pnode->ichMin, pnode->ichLim);
+        ret->location = pnode->location;
+        return ret;
+    }
       //PTNODE(knopEmpty      , "empty"        ,Empty   ,None ,fnopLeaf)
   case knopEmpty:
     return CreateNodeT<knopEmpty>(pnode->ichMin,pnode->ichLim);
@@ -11588,8 +11587,8 @@ ParseNode* Parser::CopyPnode(ParseNode *pnode) {
       //PTNODE(knopNew        , "new"        ,None    ,Bin  ,fnopBin)
   case knopNew:
   case knopCall:
-    return CreateCallNode(pnode->nop,CopyPnode(pnode->sxBin.pnode1),
-                         CopyPnode(pnode->sxBin.pnode2),pnode->ichMin,pnode->ichLim);
+    return CreateCallNode(pnode->nop,CopyPnode(pnode->sxCall.pnodeTarget),
+                         CopyPnode(pnode->sxCall.pnodeArgs),pnode->ichMin,pnode->ichLim);
       //PTNODE(knopQmark      , "?"            ,None    ,Tri  ,fnopBin)
   case knopQmark:
     return CreateTriNode(pnode->nop,CopyPnode(pnode->sxTri.pnode1),

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#ifdef ASMJS_PLAT
 namespace AsmJsRegSlots
 {
     enum ConstSlots
@@ -29,8 +30,10 @@ public:
         , m_switchAdapter(this)
         , m_switchBuilder(&m_switchAdapter)
     {
-        func->m_workItem->InitializeReader(m_jnReader, m_statementReader);
-        m_asmFuncInfo = m_func->GetJnFunction()->GetAsmJsFunctionInfoWithLock();
+        func->m_workItem->InitializeReader(&m_jnReader, &m_statementReader, func->m_alloc);
+        m_asmFuncInfo = m_func->GetJITFunctionBody()->GetAsmJsInfo();
+#if 0
+        // templatized JIT loop body
         if (func->IsLoopBody())
         {
             Js::LoopEntryPointInfo* loopEntryPointInfo = (Js::LoopEntryPointInfo*)(func->m_workItem->GetEntryPoint());
@@ -40,12 +43,14 @@ public:
                 func->isTJLoopBody = true;
             }
         }
+#endif
     }
 
     void Build();
 
 private:
 
+    void                    LoadNativeCodeData();
     void                    AddInstr(IR::Instr * instr, uint32 offset);
     bool                    IsLoopBody()const;
     uint                    GetLoopBodyExitInstrOffset() const;
@@ -129,6 +134,8 @@ private:
     void                    BuildReg1Float1(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dstReg, Js::RegSlot srcFloatReg);
     void                    BuildReg1Int1(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dstReg, Js::RegSlot srcIntReg);
     void                    BuildInt1Const1(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dstInt, int constInt);
+    void                    BuildFloat1Const1(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dst, float constVal);
+    void                    BuildDouble1Const1(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dst, double constVal);
     void                    BuildInt1Double2(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dst, Js::RegSlot src1, Js::RegSlot src2);
     void                    BuildInt1Float2(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dst, Js::RegSlot src1, Js::RegSlot src2);
     void                    BuildInt2(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dst, Js::RegSlot src);
@@ -141,6 +148,8 @@ private:
     void                    BuildDouble3(Js::OpCodeAsmJs newOpcode, uint32 offset, Js::RegSlot dst, Js::RegSlot src1, Js::RegSlot src2);
     void                    BuildBrInt1(Js::OpCodeAsmJs newOpcode, uint32 offset, int32 relativeOffset, Js::RegSlot src);
     void                    BuildBrInt2(Js::OpCodeAsmJs newOpcode, uint32 offset, int32 relativeOffset, Js::RegSlot src1, Js::RegSlot src2);
+    void                    BuildBrInt1Const1(Js::OpCodeAsmJs newOpcode, uint32 offset, int32 relativeOffset, Js::RegSlot src1, int32 src2);
+    void                    BuildBrCmp(Js::OpCodeAsmJs newOpcode, uint32 offset, int32 relativeOffset, IR::RegOpnd* src1Opnd, IR::Opnd* src2Opnd);
     void                    GenerateLoopBodySlotAccesses(uint offset);
     void                    GenerateLoopBodyStSlots(SymID loopParamSymId, uint offset);
     IR::Instr*              GenerateStSlotForReturn(IR::RegOpnd* srcOpnd, IRType type);
@@ -150,7 +159,7 @@ private:
     IR::Instr *             m_lastInstr;
     IR::Instr **            m_offsetToInstruction;
     Js::ByteCodeReader      m_jnReader;
-    Js::StatementReader     m_statementReader;
+    Js::StatementReader<Js::FunctionBody::ArenaStatementMapList> m_statementReader;
     SList<IR::Instr *> *    m_argStack;
     SList<IR::Instr *> *    m_tempList;
     SList<int32> *          m_argOffsetStack;
@@ -174,7 +183,7 @@ private:
     SymID *                 m_tempMap;
     BVFixed *               m_fbvTempUsed;
     uint32                  m_functionStartOffset;
-    Js::AsmJsFunctionInfo * m_asmFuncInfo;
+    const AsmJsJITInfo *    m_asmFuncInfo;
     StackSym *              m_loopBodyRetIPSym;
     BVFixed *               m_ldSlots;
     BVFixed *               m_stSlots;
@@ -186,3 +195,5 @@ private:
     uint32                  m_offsetToInstructionCount;
 #endif
 };
+
+#endif

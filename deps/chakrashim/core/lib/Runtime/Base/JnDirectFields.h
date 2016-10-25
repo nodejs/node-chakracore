@@ -274,6 +274,12 @@ ENTRY(map)
 ENTRY(Map)
 ENTRY(Math)
 
+// Wasm
+ENTRY(Wasm)
+ENTRY(instantiateModule)
+ENTRY(experimentalVersion)
+// End Wasm
+
 // SIMD_JS
 ENTRY(SIMD)
 
@@ -696,6 +702,14 @@ ENTRY(screen)
 
 ENTRY(padStart)
 ENTRY(padEnd)
+
+ENTRY(SharedArrayBuffer)
+ENTRY(Atomics)
+ENTRY(compareExchange)
+ENTRY(exchange)
+ENTRY(isLockFree)
+ENTRY(wait)
+ENTRY(wake)
 
 // Note: Do not add fields for conditionally-compiled PropertyIds into this file.
 //       The bytecode for internal javascript libraries is built on chk but re-used in fre builds.
