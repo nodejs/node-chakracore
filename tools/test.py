@@ -867,10 +867,6 @@ class Context(object):
   def GetTimeout(self, mode):
     return self.timeout * TIMEOUT_SCALEFACTOR[ARCH_GUESS or 'ia32'][mode]
 
-  def GetEngine(self, arch, mode):
-    vm = self.GetVm(arch, mode)
-    engine = Execute([vm, "-p", "process.jsEngine || 'v8'"], self)
-    return engine.stdout.strip() if engine.exit_code is 0 else 'v8'
 
 def RunTestCases(cases_to_run, progress, tasks, flaky_tests_mode):
   progress = PROGRESS_INDICATORS[progress](cases_to_run, flaky_tests_mode)
