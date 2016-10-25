@@ -56,6 +56,9 @@ assert.throws(makeBlock(a.strictEqual, 2, '2'),
 assert.throws(makeBlock(a.strictEqual, null, undefined),
               a.AssertionError, 'strictEqual(null, undefined)');
 
+assert.throws(makeBlock(a.notStrictEqual, 2, 2),
+              a.AssertionError, 'notStrictEqual(2, 2)');
+
 assert.doesNotThrow(makeBlock(a.notStrictEqual, 2, '2'),
                     'notStrictEqual(2, \'2\')');
 
@@ -68,6 +71,21 @@ assert.doesNotThrow(makeBlock(a.deepEqual, new Date(2000, 3, 14),
 assert.throws(makeBlock(a.deepEqual, new Date(), new Date(2000, 3, 14)),
               a.AssertionError,
               'deepEqual(new Date(), new Date(2000, 3, 14))');
+
+assert.throws(makeBlock(
+  a.notDeepEqual,
+  new Date(2000, 3, 14),
+  new Date(2000, 3, 14)),
+  a.AssertionError,
+  'notDeepEqual(new Date(2000, 3, 14), new Date(2000, 3, 14))'
+);
+
+assert.doesNotThrow(makeBlock(
+  a.notDeepEqual,
+  new Date(),
+  new Date(2000, 3, 14)),
+  'notDeepEqual(new Date(), new Date(2000, 3, 14))'
+);
 
 // 7.3
 assert.doesNotThrow(makeBlock(a.deepEqual, /a/, /a/));
@@ -162,15 +180,31 @@ assert.doesNotThrow(makeBlock(a.deepEqual, new Number(1), {}),
 assert.doesNotThrow(makeBlock(a.deepEqual, new Boolean(true), {}),
                     a.AssertionError);
 
-//deepStrictEqual
-assert.doesNotThrow(makeBlock(a.deepStrictEqual, new Date(2000, 3, 14),
-                    new Date(2000, 3, 14)),
-                    'deepStrictEqual(new Date(2000, 3, 14),\
-                    new Date(2000, 3, 14))');
+// same number of keys but different key names
+assert.throws(makeBlock(a.deepEqual, {a: 1}, {b: 1}), a.AssertionError);
 
-assert.throws(makeBlock(a.deepStrictEqual, new Date(), new Date(2000, 3, 14)),
-              a.AssertionError,
-              'deepStrictEqual(new Date(), new Date(2000, 3, 14))');
+//deepStrictEqual
+assert.doesNotThrow(
+  makeBlock(a.deepStrictEqual, new Date(2000, 3, 14), new Date(2000, 3, 14)),
+  'deepStrictEqual(new Date(2000, 3, 14), new Date(2000, 3, 14))'
+);
+
+assert.throws(
+  makeBlock(a.deepStrictEqual, new Date(), new Date(2000, 3, 14)),
+  a.AssertionError,
+  'deepStrictEqual(new Date(), new Date(2000, 3, 14))'
+);
+
+assert.throws(
+  makeBlock(a.notDeepStrictEqual, new Date(2000, 3, 14), new Date(2000, 3, 14)),
+  a.AssertionError,
+  'notDeepStrictEqual(new Date(2000, 3, 14), new Date(2000, 3, 14))'
+);
+
+assert.doesNotThrow(
+  makeBlock(a.notDeepStrictEqual, new Date(), new Date(2000, 3, 14)),
+  'notDeepStrictEqual(new Date(), new Date(2000, 3, 14))'
+);
 
 // 7.3 - strict
 assert.doesNotThrow(makeBlock(a.deepStrictEqual, /a/, /a/));
@@ -524,5 +558,10 @@ testBlockTypeError(assert.doesNotThrow, undefined);
 // https://github.com/nodejs/node/issues/3275
 assert.throws(() => { throw 'error'; }, (err) => err === 'error');
 assert.throws(() => { throw new Error(); }, (err) => err instanceof Error);
+
+// Long values should be truncated for display.
+assert.throws(() => {
+  assert.strictEqual('A'.repeat(1000), '');
+}, new RegExp(`^AssertionError: '${'A'.repeat(127)} === ''$`));
 
 console.log('All OK');

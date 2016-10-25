@@ -11,6 +11,9 @@ const util = require('util');
 ```
 
 ## util.debuglog(section)
+<!-- YAML
+added: v0.11.3
+-->
 
 * `section` {String} A string identifying the portion of the application for
   which the `debuglog` function is being created.
@@ -45,6 +48,9 @@ Multiple comma-separated `section` names may be specified in the `NODE_DEBUG`
 environment variable. For example: `NODE_DEBUG=fs,net,tls`.
 
 ## util.deprecate(function, string)
+<!-- YAML
+added: v0.8.0
+-->
 
 The `util.deprecate()` method wraps the given `function` or class in such a way that
 it is marked as deprecated.
@@ -83,6 +89,9 @@ property take precedence over `--trace-deprecation` and
 `process.traceDeprecation`.
 
 ## util.format(format[, ...])
+<!-- YAML
+added: v0.5.3
+-->
 
 * `format` {string} A `printf`-like format string.
 
@@ -125,6 +134,9 @@ util.format(1, 2, 3); // '1 2 3'
 ```
 
 ## util.inherits(constructor, superConstructor)
+<!-- YAML
+added: v0.3.0
+-->
 
 _Note: usage of `util.inherits()` is discouraged. Please use the ES6 `class` and
 `extends` keywords to get language level inheritance support. Also note that
@@ -165,7 +177,34 @@ stream.on('data', (data) => {
 stream.write('It works!'); // Received data: "It works!"
 ```
 
+ES6 example using `class` and `extends`
+
+```js
+const util = require('util');
+const EventEmitter = require('events');
+
+class MyStream extends EventEmitter {
+  constructor() {
+    super();
+  }
+  write(data) {
+    this.emit('data', data);
+  }
+}
+
+const stream = new MyStream();
+
+stream.on('data', (data) => {
+  console.log(`Received data: "${data}"`);
+});
+stream.write('With ES6');
+
+```
+
 ## util.inspect(object[, options])
+<!-- YAML
+added: v0.3.0
+-->
 
 * `object` {any} Any JavaScript primitive or Object.
 * `options` {Object}
@@ -236,18 +275,19 @@ The predefined color codes are: `white`, `grey`, `black`, `blue`, `cyan`,
 Color styling uses ANSI control codes that may not be supported on all
 terminals.
 
-### Custom `inspect()` function on Objects
+### Custom inspection functions on Objects
 
 <!-- type=misc -->
 
-Objects may also define their own `inspect(depth, opts)` function that
-`util.inspect()` will invoke and use the result of when inspecting the object:
+Objects may also define their own `[util.inspect.custom](depth, opts)`
+(or, equivalently `inspect(depth, opts)`) function that `util.inspect()` will
+invoke and use the result of when inspecting the object:
 
 ```js
 const util = require('util');
 
 const obj = { name: 'nate' };
-obj.inspect = function(depth) {
+obj[util.inspect.custom] = function(depth) {
   return `{${this.name}}`;
 };
 
@@ -255,9 +295,24 @@ util.inspect(obj);
   // "{nate}"
 ```
 
-Custom `inspect(depth, opts)` functions typically return a string but may
-return a value of any type that will be formatted accordingly by
+Custom `[util.inspect.custom](depth, opts)` functions typically return a string
+but may return a value of any type that will be formatted accordingly by
 `util.inspect()`.
+
+```js
+const util = require('util');
+
+const obj = { foo: 'this will not show up in the inspect() output' };
+obj[util.inspect.custom] = function(depth) {
+  return { bar: 'baz' };
+};
+
+util.inspect(obj);
+  // "{ bar: 'baz' }"
+```
+
+A custom inspection method can alternatively be provided by exposing
+an `inspect(depth, opts)` method on the object:
 
 ```js
 const util = require('util');
@@ -272,6 +327,9 @@ util.inspect(obj);
 ```
 
 ### util.inspect.defaultOptions
+<!-- YAML
+added: v6.4.0
+-->
 
 The `defaultOptions` value allows customization of the default options used by
 `util.inspect`. This is useful for functions like `console.log` or
@@ -288,12 +346,24 @@ util.inspect.defaultOptions.maxArrayLength = null;
 console.log(arr); // logs the full array
 ```
 
+### util.inspect.custom
+<!-- YAML
+added: REPLACEME
+-->
+
+A Symbol that can be used to declare custom inspect functions, see
+[Custom inspection functions on Objects][].
+
 ## Deprecated APIs
 
 The following APIs have been deprecated and should no longer be used. Existing
 applications and modules should be updated to find alternative approaches.
 
 ### util.debug(string)
+<!-- YAML
+added: v0.3.0
+deprecated: v0.11.3
+-->
 
 > Stability: 0 - Deprecated: Use [`console.error()`][] instead.
 
@@ -302,6 +372,10 @@ applications and modules should be updated to find alternative approaches.
 Deprecated predecessor of `console.error`.
 
 ### util.error([...])
+<!-- YAML
+added: v0.3.0
+deprecated: v0.11.3
+-->
 
 > Stability: 0 - Deprecated: Use [`console.error()`][] instead.
 
@@ -310,6 +384,10 @@ Deprecated predecessor of `console.error`.
 Deprecated predecessor of `console.error`.
 
 ### util.isArray(object)
+<!-- YAML
+added: v0.6.0
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -331,6 +409,10 @@ util.isArray({});
 ```
 
 ### util.isBoolean(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -350,6 +432,10 @@ util.isBoolean(false);
 ```
 
 ### util.isBuffer(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated: Use [`Buffer.isBuffer()`][] instead.
 
@@ -369,6 +455,10 @@ util.isBuffer(Buffer.from('hello world'));
 ```
 
 ### util.isDate(object)
+<!-- YAML
+added: v0.6.0
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -388,6 +478,10 @@ util.isDate({});
 ```
 
 ### util.isError(object)
+<!-- YAML
+added: v0.6.0
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -423,6 +517,10 @@ util.isError(obj);
 ```
 
 ### util.isFunction(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -446,6 +544,10 @@ util.isFunction(Bar);
 ```
 
 ### util.isNull(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -466,6 +568,10 @@ util.isNull(null);
 ```
 
 ### util.isNullOrUndefined(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -486,6 +592,10 @@ util.isNullOrUndefined(null);
 ```
 
 ### util.isNumber(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -507,6 +617,10 @@ util.isNumber(NaN);
 ```
 
 ### util.isObject(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -529,6 +643,10 @@ util.isObject(function(){});
 ```
 
 ### util.isPrimitive(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -561,6 +679,10 @@ util.isPrimitive(new Date());
 ```
 
 ### util.isRegExp(object)
+<!-- YAML
+added: v0.6.0
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -580,6 +702,10 @@ util.isRegExp({});
 ```
 
 ### util.isString(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -601,6 +727,10 @@ util.isString(5);
 ```
 
 ### util.isSymbol(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -620,6 +750,10 @@ util.isSymbol(Symbol('foo'));
 ```
 
 ### util.isUndefined(object)
+<!-- YAML
+added: v0.11.5
+deprecated: v4.0.0
+-->
 
 > Stability: 0 - Deprecated
 
@@ -640,6 +774,10 @@ util.isUndefined(null);
 ```
 
 ### util.log(string)
+<!-- YAML
+added: v0.3.0
+deprecated: v6.0.0
+-->
 
 > Stability: 0 - Deprecated: Use a third party module instead.
 
@@ -655,18 +793,30 @@ util.log('Timestamped message.');
 ```
 
 ### util.print([...])
+<!-- YAML
+added: v0.3.0
+deprecated: v0.11.3
+-->
 
 > Stability: 0 - Deprecated: Use [`console.log()`][] instead.
 
 Deprecated predecessor of `console.log`.
 
 ### util.puts([...])
+<!-- YAML
+added: v0.3.0
+deprecated: v0.11.3
+-->
 
 > Stability: 0 - Deprecated: Use [`console.log()`][] instead.
 
 Deprecated predecessor of `console.log`.
 
-### util._extend(obj)
+### util.\_extend(target, source)
+<!-- YAML
+added: v0.7.5
+deprecated: v6.0.0
+-->
 
 > Stability: 0 - Deprecated: Use [`Object.assign()`] instead.
 
@@ -681,6 +831,7 @@ similar built-in functionality through [`Object.assign()`].
 [semantically incompatible]: https://github.com/nodejs/node/issues/4179
 [`util.inspect()`]: #util_util_inspect_object_options
 [Customizing `util.inspect` colors]: #util_customizing_util_inspect_colors
+[Custom inspection functions on Objects]: #util_custom_inspection_functions_on_objects
 [`Error`]: errors.html#errors_class_error
 [`console.log()`]: console.html#console_console_log_data
 [`console.error()`]: console.html#console_console_error_data

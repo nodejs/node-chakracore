@@ -21,8 +21,8 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         /**
          * Reports an unnecessary semicolon error.
@@ -33,7 +33,7 @@ module.exports = {
             context.report({
                 node: nodeOrToken,
                 message: "Unnecessary semicolon.",
-                fix: function(fixer) {
+                fix(fixer) {
                     return fixer.remove(nodeOrToken);
                 }
             });
@@ -64,8 +64,8 @@ module.exports = {
              * @param {Node} node - A EmptyStatement node to be reported.
              * @returns {void}
              */
-            EmptyStatement: function(node) {
-                let parent = node.parent,
+            EmptyStatement(node) {
+                const parent = node.parent,
                     allowedParentTypes = [
                         "ForStatement",
                         "ForInStatement",
@@ -87,7 +87,7 @@ module.exports = {
              * @param {Node} node - A ClassBody node to check.
              * @returns {void}
              */
-            ClassBody: function(node) {
+            ClassBody(node) {
                 checkForPartOfClassBody(sourceCode.getFirstToken(node, 1)); // 0 is `{`.
             },
 
@@ -96,7 +96,7 @@ module.exports = {
              * @param {Node} node - A MethodDefinition node of the start point.
              * @returns {void}
              */
-            MethodDefinition: function(node) {
+            MethodDefinition(node) {
                 checkForPartOfClassBody(sourceCode.getTokenAfter(node));
             }
         };

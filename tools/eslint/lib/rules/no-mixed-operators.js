@@ -9,32 +9,32 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils.js");
+const astUtils = require("../ast-utils.js");
 
 //------------------------------------------------------------------------------
 // Helpers
 //------------------------------------------------------------------------------
 
-let ARITHMETIC_OPERATORS = ["+", "-", "*", "/", "%", "**"];
-let BITWISE_OPERATORS = ["&", "|", "^", "~", "<<", ">>", ">>>"];
-let COMPARISON_OPERATORS = ["==", "!=", "===", "!==", ">", ">=", "<", "<="];
-let LOGICAL_OPERATORS = ["&&", "||"];
-let RELATIONAL_OPERATORS = ["in", "instanceof"];
-let ALL_OPERATORS = [].concat(
+const ARITHMETIC_OPERATORS = ["+", "-", "*", "/", "%", "**"];
+const BITWISE_OPERATORS = ["&", "|", "^", "~", "<<", ">>", ">>>"];
+const COMPARISON_OPERATORS = ["==", "!=", "===", "!==", ">", ">=", "<", "<="];
+const LOGICAL_OPERATORS = ["&&", "||"];
+const RELATIONAL_OPERATORS = ["in", "instanceof"];
+const ALL_OPERATORS = [].concat(
     ARITHMETIC_OPERATORS,
     BITWISE_OPERATORS,
     COMPARISON_OPERATORS,
     LOGICAL_OPERATORS,
     RELATIONAL_OPERATORS
 );
-let DEFAULT_GROUPS = [
+const DEFAULT_GROUPS = [
     ARITHMETIC_OPERATORS,
     BITWISE_OPERATORS,
     COMPARISON_OPERATORS,
     LOGICAL_OPERATORS,
     RELATIONAL_OPERATORS
 ];
-let TARGET_NODE_TYPE = /^(?:Binary|Logical)Expression$/;
+const TARGET_NODE_TYPE = /^(?:Binary|Logical)Expression$/;
 
 /**
  * Normalizes options.
@@ -43,13 +43,13 @@ let TARGET_NODE_TYPE = /^(?:Binary|Logical)Expression$/;
  * @returns {Object} Normalized option object.
  */
 function normalizeOptions(options) {
-    let hasGroups = (options && options.groups && options.groups.length > 0);
-    let groups = hasGroups ? options.groups : DEFAULT_GROUPS;
-    let allowSamePrecedence = (options && options.allowSamePrecedence) !== false;
+    const hasGroups = (options && options.groups && options.groups.length > 0);
+    const groups = hasGroups ? options.groups : DEFAULT_GROUPS;
+    const allowSamePrecedence = (options && options.allowSamePrecedence) !== false;
 
     return {
-        groups: groups,
-        allowSamePrecedence: allowSamePrecedence
+        groups,
+        allowSamePrecedence
     };
 }
 
@@ -101,9 +101,9 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
-        let options = normalizeOptions(context.options[0]);
+    create(context) {
+        const sourceCode = context.getSourceCode();
+        const options = normalizeOptions(context.options[0]);
 
         /**
          * Checks whether a given node should be ignored by options or not.
@@ -114,8 +114,8 @@ module.exports = {
          * @returns {boolean} `true` if the node should be ignored.
          */
         function shouldIgnore(node) {
-            let a = node;
-            let b = node.parent;
+            const a = node;
+            const b = node.parent;
 
             return (
                 !includesBothInAGroup(options.groups, a.operator, b.operator) ||
@@ -169,22 +169,22 @@ module.exports = {
          * @returns {void}
          */
         function reportBothOperators(node) {
-            let parent = node.parent;
-            let left = (parent.left === node) ? node : parent;
-            let right = (parent.left !== node) ? node : parent;
-            let message =
+            const parent = node.parent;
+            const left = (parent.left === node) ? node : parent;
+            const right = (parent.left !== node) ? node : parent;
+            const message =
                 "Unexpected mix of '" + left.operator + "' and '" +
                 right.operator + "'.";
 
             context.report({
                 node: left,
                 loc: getOperatorToken(left).loc.start,
-                message: message
+                message
             });
             context.report({
                 node: right,
                 loc: getOperatorToken(right).loc.start,
-                message: message
+                message
             });
         }
 

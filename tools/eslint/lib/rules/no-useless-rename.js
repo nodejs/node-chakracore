@@ -30,8 +30,8 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let options = context.options[0] || {},
+    create(context) {
+        const options = context.options[0] || {},
             ignoreDestructuring = options.ignoreDestructuring === true,
             ignoreImport = options.ignoreImport === true,
             ignoreExport = options.ignoreExport === true;
@@ -49,16 +49,16 @@ module.exports = {
          * @returns {void}
          */
         function reportError(node, initial, result, type) {
-            let name = initial.type === "Identifier" ? initial.name : initial.value;
+            const name = initial.type === "Identifier" ? initial.name : initial.value;
 
             return context.report({
-                node: node,
+                node,
                 message: "{{type}} {{name}} unnecessarily renamed.",
                 data: {
-                    name: name,
-                    type: type
+                    name,
+                    type
                 },
-                fix: function(fixer) {
+                fix(fixer) {
                     return fixer.replaceTextRange([
                         initial.range[0],
                         result.range[1]
@@ -73,16 +73,13 @@ module.exports = {
          * @returns {void}
          */
         function checkDestructured(node) {
-            let properties,
-                i;
-
             if (ignoreDestructuring) {
                 return;
             }
 
-            properties = node.properties;
+            const properties = node.properties;
 
-            for (i = 0; i < properties.length; i++) {
+            for (let i = 0; i < properties.length; i++) {
                 if (properties[i].shorthand) {
                     continue;
                 }

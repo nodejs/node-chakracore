@@ -21,12 +21,12 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
 
         return {
 
-            BinaryExpression: function(node) {
-                let operators = ["===", "==", "!==", "!=", ">", "<", ">=", "<="];
+            BinaryExpression(node) {
+                const operators = ["===", "==", "!==", "!=", ">", "<", ">=", "<="];
 
                 if (operators.indexOf(node.operator) > -1 &&
                     (node.left.type === "Identifier" && node.right.type === "Identifier" && node.left.name === node.right.name ||

@@ -1,5 +1,36 @@
 # ChakraShim ChangeLog
 
+## 2016-09-09, node-chakracore-7.0.0-pre9
+
+### Commits
+
+* [[`0124235`] (https://github.com/nodejs/node-chakracore/commit/0124235)] - test,tools: test fixes after merge
+* [[`16bae56`] (https://github.com/nodejs/node-chakracore/commit/16bae56)] - Merge remote-tracking branch 'nodejs/master' into chakracore-master
+* [[`76da668`] (https://github.com/nodejs/node-chakracore/commit/76da668)] - test: Updated baseline for chakracore
+* [[`0bddd5d`] (https://github.com/nodejs/node-chakracore/commit/0bddd5d)] - chakrashim: Make chakracore 1.3 build
+* [[`3fa1e12`] (https://github.com/nodejs/node-chakracore/commit/3fa1e12)] - chakracore: Updated to 1.3
+* [[`a606f84`] (https://github.com/nodejs/node-chakracore/commit/a606f84)] - src: fix build break for !NODE_USE_V8_PLATFORM
+* [[`45ff9e9`] (https://github.com/nodejs/node-chakracore/commit/45ff9e9)] - chakrashim: Added missing API in `v8.h`
+* [[`913ea18`] (https://github.com/nodejs/node-chakracore/commit/913ea18)] - Merge 'nodejs/master' into chakracore-master
+* [[`65e0fc2`] (https://github.com/nodejs/node-chakracore/commit/65e0fc2)] - test: fixed unit test
+* [[`2525355`] (https://github.com/nodejs/node-chakracore/commit/2525355)] - Merge 'nodejs/master' into chakracore-master
+* [[`acb4225`] (https://github.com/nodejs/node-chakracore/commit/acb4225)] - chakrashim: Improve AddLocal codepath
+* [[`581e929`] (https://github.com/nodejs/node-chakracore/commit/581e929)] - Merge 'nodejs/master' into chakracore-master
+* [[`784edee`] (https://github.com/nodejs/node-chakracore/commit/784edee)] - chakrashim: fixed openssl native add-ons
+* [[`983c0b8`] (https://github.com/nodejs/node-chakracore/commit/983c0b8)] - chakrashim: Fix bug in repl scenario
+* [[`11db4f2`] (https://github.com/nodejs/node-chakracore/commit/11db4f2)] - Merge 'nodejs/master' into chakracore-master
+* [[`21bd447`] (https://github.com/nodejs/node-chakracore/commit/21bd447)] - chakrashim: fix for nan compatibility
+* [[`5eb8031`] (https://github.com/nodejs/node-chakracore/commit/5eb8031)] - chakrashim: a few refactors for clang
+* [[`6695095`] (https://github.com/nodejs/node-chakracore/commit/6695095)] - chakrashim: pass compile flag to disable simdjs when building chakracore
+* [[`b68580e`] (https://github.com/nodejs/node-chakracore/commit/b68580e)] - deps: disable features using compile flag (simdjs)
+* [[`c78c10f`] (https://github.com/nodejs/node-chakracore/commit/c78c10f)] - Revert "deps: Expose `--harmony-simd` in node+chakracore"
+* [[`d078ffc`] (https://github.com/nodejs/node-chakracore/commit/d078ffc)] - Revert "deps: Modified chakracore to enable/disable SIMD"
+* [[`06fc26d`] (https://github.com/nodejs/node-chakracore/commit/06fc26d)] - test: fixed failing test cases
+* [[`c2ce832`] (https://github.com/nodejs/node-chakracore/commit/c2ce832)] - build: fixes post merge
+* [[`93015ca`] (https://github.com/nodejs/node-chakracore/commit/93015ca)] - Merge 'nodejs/master' into chakracore-master
+* [[`32b85f9`] (https://github.com/nodejs/node-chakracore/commit/32b85f9)] - chakrashim: bug fixes for Error APIs
+* [[`fa65467`] (https://github.com/nodejs/node-chakracore/commit/fa65467)] - win,node-gyp: work around __pfnDliNotifyHook2 type change
+
 ## 2016-06-23, node-chakracore-7.0.0-pre8
 
 ### Commits

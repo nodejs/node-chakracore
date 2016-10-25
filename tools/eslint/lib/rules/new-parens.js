@@ -20,14 +20,14 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         return {
 
-            NewExpression: function(node) {
-                let tokens = sourceCode.getTokens(node);
-                let prenticesTokens = tokens.filter(function(token) {
+            NewExpression(node) {
+                const tokens = sourceCode.getTokens(node);
+                const prenticesTokens = tokens.filter(function(token) {
                     return token.value === "(" || token.value === ")";
                 });
 

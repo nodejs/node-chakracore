@@ -4,7 +4,7 @@
  */
 "use strict";
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -36,12 +36,12 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
+    create(context) {
 
-        let sourceCode = context.getSourceCode();
-        let tokensAndComments = sourceCode.tokensAndComments;
+        const sourceCode = context.getSourceCode();
+        const tokensAndComments = sourceCode.tokensAndComments;
 
-        let options = {
+        const options = {
             before: context.options[0] ? !!context.options[0].before : false,
             after: context.options[0] ? !!context.options[0].after : true
         };
@@ -51,7 +51,7 @@ module.exports = {
         //--------------------------------------------------------------------------
 
         // list of comma tokens to ignore for the check of leading whitespace
-        let commaTokensToIgnore = [];
+        const commaTokensToIgnore = [];
 
         /**
          * Determines if a given token is a comma operator.
@@ -73,8 +73,8 @@ module.exports = {
          */
         function report(node, dir, otherNode) {
             context.report({
-                node: node,
-                fix: function(fixer) {
+                node,
+                fix(fixer) {
                     if (options[dir]) {
                         if (dir === "before") {
                             return fixer.insertTextBefore(node, " ");
@@ -83,7 +83,7 @@ module.exports = {
                         }
                     } else {
                         let start, end;
-                        let newText = "";
+                        const newText = "";
 
                         if (dir === "before") {
                             start = otherNode.range[1];
@@ -160,11 +160,7 @@ module.exports = {
         //--------------------------------------------------------------------------
 
         return {
-            "Program:exit": function() {
-
-                let previousToken,
-                    nextToken;
-
+            "Program:exit"() {
                 tokensAndComments.forEach(function(token, i) {
 
                     if (!isComma(token)) {
@@ -175,8 +171,8 @@ module.exports = {
                         return;
                     }
 
-                    previousToken = tokensAndComments[i - 1];
-                    nextToken = tokensAndComments[i + 1];
+                    const previousToken = tokensAndComments[i - 1];
+                    const nextToken = tokensAndComments[i + 1];
 
                     validateCommaItemSpacing({
                         comma: token,

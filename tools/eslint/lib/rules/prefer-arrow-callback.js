@@ -35,10 +35,10 @@ function checkMetaProperty(node, metaName, propertyName) {
  * @returns {escope.Variable} The found variable object.
  */
 function getVariableOfArguments(scope) {
-    let variables = scope.variables;
+    const variables = scope.variables;
 
     for (let i = 0; i < variables.length; ++i) {
-        let variable = variables[i];
+        const variable = variables[i];
 
         if (variable.name === "arguments") {
 
@@ -63,7 +63,7 @@ function getVariableOfArguments(scope) {
  *   {boolean} retv.isLexicalThis - `true` if the node is with `.bind(this)`.
  */
 function getCallbackInfo(node) {
-    let retv = {isCallback: false, isLexicalThis: false};
+    const retv = {isCallback: false, isLexicalThis: false};
     let parent = node.parent;
 
     while (node) {
@@ -143,11 +143,11 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let options = context.options[0] || {};
+    create(context) {
+        const options = context.options[0] || {};
 
-        let allowUnboundThis = options.allowUnboundThis !== false;  // default to true
-        let allowNamedFunctions = options.allowNamedFunctions;
+        const allowUnboundThis = options.allowUnboundThis !== false;  // default to true
+        const allowNamedFunctions = options.allowNamedFunctions;
 
         /*
          * {Array<{this: boolean, super: boolean, meta: boolean}>}
@@ -176,29 +176,29 @@ module.exports = {
         return {
 
             // Reset internal state.
-            Program: function() {
+            Program() {
                 stack = [];
             },
 
             // If there are below, it cannot replace with arrow functions merely.
-            ThisExpression: function() {
-                let info = stack[stack.length - 1];
+            ThisExpression() {
+                const info = stack[stack.length - 1];
 
                 if (info) {
                     info.this = true;
                 }
             },
 
-            Super: function() {
-                let info = stack[stack.length - 1];
+            Super() {
+                const info = stack[stack.length - 1];
 
                 if (info) {
                     info.super = true;
                 }
             },
 
-            MetaProperty: function(node) {
-                let info = stack[stack.length - 1];
+            MetaProperty(node) {
+                const info = stack[stack.length - 1];
 
                 if (info && checkMetaProperty(node, "new", "target")) {
                     info.meta = true;
@@ -211,8 +211,8 @@ module.exports = {
 
             // Main.
             FunctionExpression: enterScope,
-            "FunctionExpression:exit": function(node) {
-                let scopeInfo = exitScope();
+            "FunctionExpression:exit"(node) {
+                const scopeInfo = exitScope();
 
                 // Skip named function expressions
                 if (allowNamedFunctions && node.id && node.id.name) {
@@ -225,21 +225,21 @@ module.exports = {
                 }
 
                 // Skip recursive functions.
-                let nameVar = context.getDeclaredVariables(node)[0];
+                const nameVar = context.getDeclaredVariables(node)[0];
 
                 if (isFunctionName(nameVar) && nameVar.references.length > 0) {
                     return;
                 }
 
                 // Skip if it's using arguments.
-                let variable = getVariableOfArguments(context.getScope());
+                const variable = getVariableOfArguments(context.getScope());
 
                 if (variable && variable.references.length > 0) {
                     return;
                 }
 
                 // Reports if it's a callback which can replace with arrows.
-                let callbackInfo = getCallbackInfo(node);
+                const callbackInfo = getCallbackInfo(node);
 
                 if (callbackInfo.isCallback &&
                     (!allowUnboundThis || !scopeInfo.this || callbackInfo.isLexicalThis) &&

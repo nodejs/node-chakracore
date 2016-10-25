@@ -768,10 +768,10 @@ class TestRepository(TestSuite):
   def GetBuildRequirements(self, path, context):
     return self.GetConfiguration(context).GetBuildRequirements()
 
-  def AddTestsToList(self, result, current_path, path, context, arch, mode):
+  def AddTestsToList(self, result, current_path, path, context, arch, mode, jsEngine):
     for v in VARIANT_FLAGS:
       tests = self.GetConfiguration(context).ListTests(current_path, path,
-                                                       arch, mode)
+                                                       arch, mode, jsEngine)
       for t in tests: t.variant_flags = v
       result += tests * context.repeat
 
@@ -793,14 +793,14 @@ class LiteralTestSuite(TestSuite):
         result += test.GetBuildRequirements(rest, context)
     return result
 
-  def ListTests(self, current_path, path, context, arch, mode):
+  def ListTests(self, current_path, path, context, arch, mode, jsEngine):
     (name, rest) = CarCdr(path)
     result = [ ]
     for test in self.tests:
       test_name = test.GetName()
       if not name or name.match(test_name):
         full_path = current_path + [test_name]
-        test.AddTestsToList(result, full_path, path, context, arch, mode)
+        test.AddTestsToList(result, full_path, path, context, arch, mode, jsEngine)
     result.sort(cmp=lambda a, b: cmp(a.GetName(), b.GetName()))
     return result
 
@@ -1561,16 +1561,25 @@ def Main():
           continue
         archEngineContext = Execute([vm, "-p", "process.arch"], context)
         vmArch = archEngineContext.stdout.rstrip()
-        if archEngineContext.exit_code is not 0 or vmArch == "undefined":
+        if archEngineContext.exit_code != 0 or vmArch == "undefined":
           print "Can't determine the arch of: '%s'" % vm
           print archEngineContext.stderr.rstrip()
           continue
+        jsEngineContext = Execute([vm, "-p", "process.jsEngine"], context)
+        jsEngine = jsEngineContext.stdout.rstrip()
+        if jsEngineContext.exit_code != 0 or jsEngine == "undefined":
+          print "Can't determine the jsEngine of: '%s'" % vm
+          print jsEngineContext.stderr.rstrip()
+          continue
         env = {
+          # variable names are lowercased when reading the status files
+          # any uppercase character here will prevent the names from matching
           'mode': mode,
           'system': utils.GuessOS(),
           'arch': vmArch,
+          'jsengine': jsEngine,
         }
-        test_list = root.ListTests([], path, context, arch, mode)
+        test_list = root.ListTests([], path, context, arch, mode, jsEngine)
         unclassified_tests += test_list
         (cases, unused_rules, all_outcomes) = (
             config.ClassifyTests(test_list, env))

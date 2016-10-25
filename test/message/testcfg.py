@@ -118,7 +118,7 @@ class MessageTestConfiguration(test.TestConfiguration):
     else:
         return []
 
-  def ListTests(self, current_path, path, arch, mode):
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
     engine = self.context.GetEngine(arch, mode)
     all_tests = [current_path + [t] for t in self.Ls(self.root)]
     result = []
@@ -126,6 +126,7 @@ class MessageTestConfiguration(test.TestConfiguration):
       if self.Contains(path, test):
         file_prefix = join(self.root, reduce(join, test[1:], ""))
         file_path = file_prefix + ".js"
+        engine_output_path = file_prefix + (".%s.out" % jsEngine)
         output_path = file_prefix + ".out"
         engine_output_path = file_prefix + (".%s.out" % engine)
         if exists(engine_output_path):

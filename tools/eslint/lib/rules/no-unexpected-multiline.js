@@ -18,13 +18,13 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
 
-        let FUNCTION_MESSAGE = "Unexpected newline between function and ( of function call.";
-        let PROPERTY_MESSAGE = "Unexpected newline between object and [ of property access.";
-        let TAGGED_TEMPLATE_MESSAGE = "Unexpected newline between template tag and template literal.";
+        const FUNCTION_MESSAGE = "Unexpected newline between function and ( of function call.";
+        const PROPERTY_MESSAGE = "Unexpected newline between object and [ of property access.";
+        const TAGGED_TEMPLATE_MESSAGE = "Unexpected newline between template tag and template literal.";
 
-        let sourceCode = context.getSourceCode();
+        const sourceCode = context.getSourceCode();
 
         /**
          * Check to see if there is a newline between the node and the following open bracket
@@ -55,21 +55,21 @@ module.exports = {
 
         return {
 
-            MemberExpression: function(node) {
+            MemberExpression(node) {
                 if (!node.computed) {
                     return;
                 }
                 checkForBreakAfter(node.object, PROPERTY_MESSAGE);
             },
 
-            TaggedTemplateExpression: function(node) {
+            TaggedTemplateExpression(node) {
                 if (node.tag.loc.end.line === node.quasi.loc.start.line) {
                     return;
                 }
                 context.report(node, node.loc.start, TAGGED_TEMPLATE_MESSAGE);
             },
 
-            CallExpression: function(node) {
+            CallExpression(node) {
                 if (node.arguments.length === 0) {
                     return;
                 }

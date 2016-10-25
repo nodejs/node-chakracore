@@ -8,7 +8,7 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let espree = require("espree");
+const espree = require("espree");
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -36,10 +36,10 @@ module.exports = {
         }]
     },
 
-    create: function(context) {
+    create(context) {
 
-        let options = context.options[0],
-            allowedFlags = "";
+        const options = context.options[0];
+        let allowedFlags = "";
 
         if (options && options.allowConstructorFlags) {
             allowedFlags = options.allowConstructorFlags.join("");

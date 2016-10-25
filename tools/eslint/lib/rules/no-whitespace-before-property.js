@@ -4,7 +4,7 @@
  */
 "use strict";
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -22,8 +22,8 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         //--------------------------------------------------------------------------
         // Helpers
@@ -53,15 +53,15 @@ module.exports = {
          * @private
          */
         function reportError(node, leftToken, rightToken) {
-            let replacementText = node.computed ? "" : ".";
+            const replacementText = node.computed ? "" : ".";
 
             context.report({
-                node: node,
+                node,
                 message: "Unexpected whitespace before property {{propName}}.",
                 data: {
                     propName: sourceCode.getText(node.property)
                 },
-                fix: function(fixer) {
+                fix(fixer) {
                     return fixer.replaceTextRange([leftToken.range[1], rightToken.range[0]], replacementText);
                 }
             });
@@ -72,7 +72,7 @@ module.exports = {
         //--------------------------------------------------------------------------
 
         return {
-            MemberExpression: function(node) {
+            MemberExpression(node) {
                 let rightToken;
                 let leftToken;
 

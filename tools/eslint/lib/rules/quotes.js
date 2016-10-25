@@ -9,13 +9,13 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Constants
 //------------------------------------------------------------------------------
 
-let QUOTE_SETTINGS = {
+const QUOTE_SETTINGS = {
     double: {
         quote: "\"",
         alternateQuote: "'",
@@ -45,8 +45,8 @@ let QUOTE_SETTINGS = {
 QUOTE_SETTINGS.double.convert =
 QUOTE_SETTINGS.single.convert =
 QUOTE_SETTINGS.backtick.convert = function(str) {
-    let newQuote = this.quote;
-    let oldQuote = str[0];
+    const newQuote = this.quote;
+    const oldQuote = str[0];
 
     if (newQuote === oldQuote) {
         return str;
@@ -65,7 +65,7 @@ QUOTE_SETTINGS.backtick.convert = function(str) {
     }) + newQuote;
 };
 
-let AVOID_ESCAPE = "avoid-escape";
+const AVOID_ESCAPE = "avoid-escape";
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -107,14 +107,14 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
+    create(context) {
 
-        let quoteOption = context.options[0],
+        const quoteOption = context.options[0],
             settings = QUOTE_SETTINGS[quoteOption || "double"],
             options = context.options[1],
-            avoidEscape = options && options.avoidEscape === true,
             allowTemplateLiterals = options && options.allowTemplateLiterals === true,
             sourceCode = context.getSourceCode();
+        let avoidEscape = options && options.avoidEscape === true;
 
         // deprecated
         if (options === AVOID_ESCAPE) {
@@ -154,7 +154,7 @@ module.exports = {
          * @private
          */
         function isPartOfDirectivePrologue(node) {
-            let block = node.parent.parent;
+            const block = node.parent.parent;
 
             if (block.type !== "Program" && (block.type !== "BlockStatement" || !astUtils.isFunction(block.parent))) {
                 return false;
@@ -162,7 +162,7 @@ module.exports = {
 
             // Check the node is at a prologue.
             for (let i = 0; i < block.body.length; ++i) {
-                let statement = block.body[i];
+                const statement = block.body[i];
 
                 if (statement === node.parent) {
                     return true;
@@ -182,7 +182,7 @@ module.exports = {
          * @private
          */
         function isAllowedAsNonBacktick(node) {
-            let parent = node.parent;
+            const parent = node.parent;
 
             switch (parent.type) {
 
@@ -208,10 +208,10 @@ module.exports = {
 
         return {
 
-            Literal: function(node) {
-                let val = node.value,
-                    rawVal = node.raw,
-                    isValid;
+            Literal(node) {
+                const val = node.value,
+                    rawVal = node.raw;
+                let isValid;
 
                 if (settings && typeof val === "string") {
                     isValid = (quoteOption === "backtick" && isAllowedAsNonBacktick(node)) ||
@@ -224,9 +224,9 @@ module.exports = {
 
                     if (!isValid) {
                         context.report({
-                            node: node,
+                            node,
                             message: "Strings must use " + settings.description + ".",
-                            fix: function(fixer) {
+                            fix(fixer) {
                                 return fixer.replaceText(node, settings.convert(node.raw));
                             }
                         });
@@ -234,20 +234,20 @@ module.exports = {
                 }
             },
 
-            TemplateLiteral: function(node) {
+            TemplateLiteral(node) {
 
                 // If backticks are expected or it's a tagged template, then this shouldn't throw an errors
                 if (allowTemplateLiterals || quoteOption === "backtick" || node.parent.type === "TaggedTemplateExpression") {
                     return;
                 }
 
-                let shouldWarn = node.quasis.length === 1 && (node.quasis[0].value.cooked.indexOf("\n") === -1);
+                const shouldWarn = node.quasis.length === 1 && (node.quasis[0].value.cooked.indexOf("\n") === -1);
 
                 if (shouldWarn) {
                     context.report({
-                        node: node,
+                        node,
                         message: "Strings must use " + settings.description + ".",
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.replaceText(node, settings.convert(sourceCode.getText(node)));
                         }
                     });

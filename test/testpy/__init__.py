@@ -94,7 +94,7 @@ class SimpleTestConfiguration(test.TestConfiguration):
       return name.startswith('test-') and name.endswith('.js')
     return [f[:-3] for f in os.listdir(path) if SelectTest(f)]
 
-  def ListTests(self, current_path, path, arch, mode):
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
     all_tests = [current_path + [t] for t in self.Ls(join(self.root))]
     result = []
     for test in all_tests:
@@ -117,9 +117,9 @@ class ParallelTestConfiguration(SimpleTestConfiguration):
     super(ParallelTestConfiguration, self).__init__(context, root, section,
                                                     additional)
 
-  def ListTests(self, current_path, path, arch, mode):
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
     result = super(ParallelTestConfiguration, self).ListTests(
-         current_path, path, arch, mode)
+         current_path, path, arch, mode, jsEngine)
     for test in result:
       test.parallel = True
     return result
@@ -140,7 +140,7 @@ class AddonTestConfiguration(SimpleTestConfiguration):
             result.append([subpath, f[:-3]])
     return result
 
-  def ListTests(self, current_path, path, arch, mode):
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
     all_tests = [current_path + t for t in self.Ls(join(self.root))]
     result = []
     for test in all_tests:

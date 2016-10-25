@@ -4,7 +4,7 @@
  */
 "use strict";
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -27,9 +27,9 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
-        let propertyNameMustBeSpaced = context.options[0] === "always"; // default is "never"
+    create(context) {
+        const sourceCode = context.getSourceCode();
+        const propertyNameMustBeSpaced = context.options[0] === "always"; // default is "never"
 
         //--------------------------------------------------------------------------
         // Helpers
@@ -44,10 +44,10 @@ module.exports = {
         */
         function reportNoBeginningSpace(node, token, tokenAfter) {
             context.report({
-                node: node,
+                node,
                 loc: token.loc.start,
                 message: "There should be no space after '" + token.value + "'.",
-                fix: function(fixer) {
+                fix(fixer) {
                     return fixer.removeRange([token.range[1], tokenAfter.range[0]]);
                 }
             });
@@ -62,10 +62,10 @@ module.exports = {
         */
         function reportNoEndingSpace(node, token, tokenBefore) {
             context.report({
-                node: node,
+                node,
                 loc: token.loc.start,
                 message: "There should be no space before '" + token.value + "'.",
-                fix: function(fixer) {
+                fix(fixer) {
                     return fixer.removeRange([tokenBefore.range[1], token.range[0]]);
                 }
             });
@@ -79,10 +79,10 @@ module.exports = {
         */
         function reportRequiredBeginningSpace(node, token) {
             context.report({
-                node: node,
+                node,
                 loc: token.loc.start,
                 message: "A space is required after '" + token.value + "'.",
-                fix: function(fixer) {
+                fix(fixer) {
                     return fixer.insertTextAfter(token, " ");
                 }
             });
@@ -96,10 +96,10 @@ module.exports = {
         */
         function reportRequiredEndingSpace(node, token) {
             context.report({
-                node: node,
+                node,
                 loc: token.loc.start,
                 message: "A space is required before '" + token.value + "'.",
-                fix: function(fixer) {
+                fix(fixer) {
                     return fixer.insertTextBefore(token, " ");
                 }
             });
@@ -117,9 +117,9 @@ module.exports = {
                     return;
                 }
 
-                let property = node[propertyName];
+                const property = node[propertyName];
 
-                let before = sourceCode.getTokenBefore(property),
+                const before = sourceCode.getTokenBefore(property),
                     first = sourceCode.getFirstToken(property),
                     last = sourceCode.getLastToken(property),
                     after = sourceCode.getTokenAfter(property);

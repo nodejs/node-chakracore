@@ -5,7 +5,7 @@
 
 "use strict";
 
-let util = require("../ast-utils");
+const util = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Rule Definition
@@ -26,8 +26,8 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let always = (context.options[0] !== "never"),
+    create(context) {
+        const always = (context.options[0] !== "never"),
             message = always ? "Requires a space" : "Unexpected space(s)",
             sourceCode = context.getSourceCode();
 
@@ -72,10 +72,10 @@ module.exports = {
         function checkSpacingInsideBraces(node) {
 
             // Gets braces and the first/last token of content.
-            let openBrace = getOpenBrace(node);
-            let closeBrace = sourceCode.getLastToken(node);
-            let firstToken = sourceCode.getTokenOrCommentAfter(openBrace);
-            let lastToken = sourceCode.getTokenOrCommentBefore(closeBrace);
+            const openBrace = getOpenBrace(node);
+            const closeBrace = sourceCode.getLastToken(node);
+            const firstToken = sourceCode.getTokenOrCommentAfter(openBrace);
+            const lastToken = sourceCode.getTokenOrCommentBefore(closeBrace);
 
             // Skip if the node is invalid or empty.
             if (openBrace.type !== "Punctuator" ||
@@ -95,10 +95,10 @@ module.exports = {
             // Check.
             if (!isValid(openBrace, firstToken)) {
                 context.report({
-                    node: node,
+                    node,
                     loc: openBrace.loc.start,
                     message: message + " after '{'.",
-                    fix: function(fixer) {
+                    fix(fixer) {
                         if (always) {
                             return fixer.insertTextBefore(firstToken, " ");
                         }
@@ -109,10 +109,10 @@ module.exports = {
             }
             if (!isValid(lastToken, closeBrace)) {
                 context.report({
-                    node: node,
+                    node,
                     loc: closeBrace.loc.start,
                     message: message + " before '}'.",
-                    fix: function(fixer) {
+                    fix(fixer) {
                         if (always) {
                             return fixer.insertTextAfter(lastToken, " ");
                         }

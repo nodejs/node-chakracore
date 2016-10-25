@@ -9,19 +9,19 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let esutils = require("esutils");
+const esutils = require("esutils");
 
 //------------------------------------------------------------------------------
 // Helpers
 //------------------------------------------------------------------------------
 
-let anyFunctionPattern = /^(?:Function(?:Declaration|Expression)|ArrowFunctionExpression)$/;
-let anyLoopPattern = /^(?:DoWhile|For|ForIn|ForOf|While)Statement$/;
-let arrayOrTypedArrayPattern = /Array$/;
-let arrayMethodPattern = /^(?:every|filter|find|findIndex|forEach|map|some)$/;
-let bindOrCallOrApplyPattern = /^(?:bind|call|apply)$/;
-let breakableTypePattern = /^(?:(?:Do)?While|For(?:In|Of)?|Switch)Statement$/;
-let thisTagPattern = /^[\s\*]*@this/m;
+const anyFunctionPattern = /^(?:Function(?:Declaration|Expression)|ArrowFunctionExpression)$/;
+const anyLoopPattern = /^(?:DoWhile|For|ForIn|ForOf|While)Statement$/;
+const arrayOrTypedArrayPattern = /Array$/;
+const arrayMethodPattern = /^(?:every|filter|find|findIndex|forEach|map|some)$/;
+const bindOrCallOrApplyPattern = /^(?:bind|call|apply)$/;
+const breakableTypePattern = /^(?:(?:Do)?While|For(?:In|Of)?|Switch)Statement$/;
+const thisTagPattern = /^[\s\*]*@this/m;
 
 /**
  * Checks reference if is non initializer and writable.
@@ -32,15 +32,14 @@ let thisTagPattern = /^[\s\*]*@this/m;
  * @private
  */
 function isModifyingReference(reference, index, references) {
-    let identifier = reference.identifier,
-        modifyingDifferentIdentifier;
+    const identifier = reference.identifier;
 
     /*
      * Destructuring assignments can have multiple default value, so
      * possibly there are multiple writeable references for the same
      * identifier.
      */
-    modifyingDifferentIdentifier = index === 0 ||
+    const modifyingDifferentIdentifier = index === 0 ||
         references[index - 1].identifier !== identifier;
 
     return (identifier &&
@@ -51,15 +50,22 @@ function isModifyingReference(reference, index, references) {
 }
 
 /**
+ * Checks whether the given string starts with uppercase or not.
+ *
+ * @param {string} s - The string to check.
+ * @returns {boolean} `true` if the string starts with uppercase.
+ */
+function startsWithUpperCase(s) {
+    return s[0] !== s[0].toLocaleLowerCase();
+}
+
+/**
  * Checks whether or not a node is a constructor.
  * @param {ASTNode} node - A function node to check.
  * @returns {boolean} Wehether or not a node is a constructor.
  */
 function isES5Constructor(node) {
-    return (
-        node.id &&
-        node.id.name[0] !== node.id.name[0].toLocaleLowerCase()
-    );
+    return (node.id && startsWithUpperCase(node.id.name));
 }
 
 /**
@@ -160,7 +166,7 @@ function isMethodWhichHasThisArg(node) {
  * @returns {boolean} Whether or not the node has a `@this` tag in its comments.
  */
 function hasJSDocThisTag(node, sourceCode) {
-    let jsdocComment = sourceCode.getJSDocComment(node);
+    const jsdocComment = sourceCode.getJSDocComment(node);
 
     if (jsdocComment && thisTagPattern.test(jsdocComment.value)) {
         return true;
@@ -183,7 +189,7 @@ function hasJSDocThisTag(node, sourceCode) {
  * @private
  */
 function isParenthesised(sourceCode, node) {
-    let previousToken = sourceCode.getTokenBefore(node),
+    const previousToken = sourceCode.getTokenBefore(node),
         nextToken = sourceCode.getTokenAfter(node);
 
     return Boolean(previousToken && nextToken) &&
@@ -204,23 +210,23 @@ module.exports = {
      * @returns {boolean} Whether or not the tokens are on the same line.
      * @public
      */
-    isTokenOnSameLine: function(left, right) {
+    isTokenOnSameLine(left, right) {
         return left.loc.end.line === right.loc.start.line;
     },
 
-    isNullOrUndefined: isNullOrUndefined,
-    isCallee: isCallee,
-    isES5Constructor: isES5Constructor,
-    getUpperFunction: getUpperFunction,
-    isArrayFromMethod: isArrayFromMethod,
-    isParenthesised: isParenthesised,
+    isNullOrUndefined,
+    isCallee,
+    isES5Constructor,
+    getUpperFunction,
+    isArrayFromMethod,
+    isParenthesised,
 
     /**
      * Checks whether or not a given node is a string literal.
      * @param {ASTNode} node - A node to check.
      * @returns {boolean} `true` if the node is a string literal.
      */
-    isStringLiteral: function(node) {
+    isStringLiteral(node) {
         return (
             (node.type === "Literal" && typeof node.value === "string") ||
             node.type === "TemplateLiteral"
@@ -241,7 +247,7 @@ module.exports = {
      * @param {ASTNode} node - A node to check.
      * @returns {boolean} `true` if the node is breakable.
      */
-    isBreakableStatement: function(node) {
+    isBreakableStatement(node) {
         return breakableTypePattern.test(node.type);
     },
 
@@ -251,7 +257,7 @@ module.exports = {
      * @param {ASTNode} node - A node to get.
      * @returns {string|null} The label or `null`.
      */
-    getLabel: function(node) {
+    getLabel(node) {
         if (node.parent.type === "LabeledStatement") {
             return node.parent.label.name;
         }
@@ -264,7 +270,7 @@ module.exports = {
      * @returns {Reference[]} An array of only references which are non initializer and writable.
      * @public
      */
-    getModifyingReferences: function(references) {
+    getModifyingReferences(references) {
         return references.filter(isModifyingReference);
     },
 
@@ -275,7 +281,7 @@ module.exports = {
      * @returns {boolean} True if the text is surrounded by the character, false if not.
      * @private
      */
-    isSurroundedBy: function(val, character) {
+    isSurroundedBy(val, character) {
         return val[0] === character && val[val.length - 1] === character;
     },
 
@@ -284,8 +290,8 @@ module.exports = {
      * @param {LineComment|BlockComment} node The node to be checked
      * @returns {boolean} `true` if the node is an ESLint directive comment
      */
-    isDirectiveComment: function(node) {
-        let comment = node.value.trim();
+    isDirectiveComment(node) {
+        const comment = node.value.trim();
 
         return (
             node.type === "Line" && comment.indexOf("eslint-") === 0 ||
@@ -317,11 +323,11 @@ module.exports = {
      * @param {string} name - A variable name to find.
      * @returns {escope.Variable|null} A found variable or `null`.
      */
-    getVariableByName: function(initScope, name) {
+    getVariableByName(initScope, name) {
         let scope = initScope;
 
         while (scope) {
-            let variable = scope.set.get(name);
+            const variable = scope.set.get(name);
 
             if (variable) {
                 return variable;
@@ -345,22 +351,23 @@ module.exports = {
      * If the location is below, this judges `this` is valid.
      *
      * - The location is not on an object literal.
-     * - The location does not assign to a property.
+     * - The location is not assigned to a variable which starts with an uppercase letter.
      * - The location is not on an ES2015 class.
-     * - The location does not call its `bind`/`call`/`apply` method directly.
+     * - Its `bind`/`call`/`apply` method is not called directly.
      * - The function is not a callback of array methods (such as `.forEach()`) if `thisArg` is given.
      *
      * @param {ASTNode} node - A function node to check.
      * @param {SourceCode} sourceCode - A SourceCode instance to get comments.
      * @returns {boolean} The function node is the default `this` binding.
      */
-    isDefaultThisBinding: function(node, sourceCode) {
+    isDefaultThisBinding(node, sourceCode) {
         if (isES5Constructor(node) || hasJSDocThisTag(node, sourceCode)) {
             return false;
         }
+        const isAnonymous = node.id === null;
 
         while (node) {
-            let parent = node.parent;
+            const parent = node.parent;
 
             switch (parent.type) {
 
@@ -392,25 +399,44 @@ module.exports = {
                 // e.g.
                 //   var obj = { foo() { ... } };
                 //   var obj = { foo: function() { ... } };
-                case "Property":
-                    return false;
-
-                // e.g.
-                //   obj.foo = foo() { ... };
-                case "AssignmentExpression":
-                    return (
-                        parent.right !== node ||
-                        parent.left.type !== "MemberExpression"
-                    );
-
-                // e.g.
                 //   class A { constructor() { ... } }
                 //   class A { foo() { ... } }
                 //   class A { get foo() { ... } }
                 //   class A { set foo() { ... } }
                 //   class A { static foo() { ... } }
+                case "Property":
                 case "MethodDefinition":
-                    return false;
+                    return parent.value !== node;
+
+                // e.g.
+                //   obj.foo = function foo() { ... };
+                //   Foo = function() { ... };
+                //   [obj.foo = function foo() { ... }] = a;
+                //   [Foo = function() { ... }] = a;
+                case "AssignmentExpression":
+                case "AssignmentPattern":
+                    if (parent.right === node) {
+                        if (parent.left.type === "MemberExpression") {
+                            return false;
+                        }
+                        if (isAnonymous &&
+                            parent.left.type === "Identifier" &&
+                            startsWithUpperCase(parent.left.name)
+                        ) {
+                            return false;
+                        }
+                    }
+                    return true;
+
+                // e.g.
+                //   var Foo = function() { ... };
+                case "VariableDeclarator":
+                    return !(
+                        isAnonymous &&
+                        parent.init === node &&
+                        parent.id.type === "Identifier" &&
+                        startsWithUpperCase(parent.id.name)
+                    );
 
                 // e.g.
                 //   var foo = function foo() { ... }.bind(obj);
@@ -470,7 +496,7 @@ module.exports = {
      * @returns {int} precedence level
      * @private
      */
-    getPrecedence: function(node) {
+    getPrecedence(node) {
         switch (node.type) {
             case "SequenceExpression":
                 return 0;
@@ -568,7 +594,7 @@ module.exports = {
      * @param {ASTNode|null} node - A node to check.
      * @returns {boolean} `true` if the node is a loop node.
      */
-    isLoop: function(node) {
+    isLoop(node) {
         return Boolean(node && anyLoopPattern.test(node.type));
     },
 
@@ -583,7 +609,76 @@ module.exports = {
      * @param {ASTNode|null} node - A node to check.
      * @returns {boolean} `true` if the node is a function node.
      */
-    isFunction: function(node) {
+    isFunction(node) {
         return Boolean(node && anyFunctionPattern.test(node.type));
+    },
+
+    /**
+     * Gets the property name of a given node.
+     * The node can be a MemberExpression, a Property, or a MethodDefinition.
+     *
+     * If the name is dynamic, this returns `null`.
+     *
+     * For examples:
+     *
+     *     a.b           // => "b"
+     *     a["b"]        // => "b"
+     *     a['b']        // => "b"
+     *     a[`b`]        // => "b"
+     *     a[100]        // => "100"
+     *     a[b]          // => null
+     *     a["a" + "b"]  // => null
+     *     a[tag`b`]     // => null
+     *     a[`${b}`]     // => null
+     *
+     *     let a = {b: 1}            // => "b"
+     *     let a = {["b"]: 1}        // => "b"
+     *     let a = {['b']: 1}        // => "b"
+     *     let a = {[`b`]: 1}        // => "b"
+     *     let a = {[100]: 1}        // => "100"
+     *     let a = {[b]: 1}          // => null
+     *     let a = {["a" + "b"]: 1}  // => null
+     *     let a = {[tag`b`]: 1}     // => null
+     *     let a = {[`${b}`]: 1}     // => null
+     *
+     * @param {ASTNode} node - The node to get.
+     * @returns {string|null} The property name if static. Otherwise, null.
+     */
+    getStaticPropertyName(node) {
+        let prop;
+
+        switch (node && node.type) {
+            case "Property":
+            case "MethodDefinition":
+                prop = node.key;
+                break;
+
+            case "MemberExpression":
+                prop = node.property;
+                break;
+
+            // no default
+        }
+
+        switch (prop && prop.type) {
+            case "Literal":
+                return String(prop.value);
+
+            case "TemplateLiteral":
+                if (prop.expressions.length === 0 && prop.quasis.length === 1) {
+                    return prop.quasis[0].value.cooked;
+                }
+                break;
+
+            case "Identifier":
+                if (!node.computed) {
+                    return prop.name;
+                }
+                break;
+
+            // no default
+        }
+
+        return null;
     }
 };

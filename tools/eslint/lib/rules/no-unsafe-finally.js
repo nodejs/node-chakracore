@@ -9,9 +9,9 @@
 // Helpers
 //------------------------------------------------------------------------------
 
-let SENTINEL_NODE_TYPE_RETURN_THROW = /^(?:Program|(?:Function|Class)(?:Declaration|Expression)|ArrowFunctionExpression)$/;
-let SENTINEL_NODE_TYPE_BREAK = /^(?:Program|(?:Function|Class)(?:Declaration|Expression)|ArrowFunctionExpression|DoWhileStatement|WhileStatement|ForOfStatement|ForInStatement|ForStatement|SwitchStatement)$/;
-let SENTINEL_NODE_TYPE_CONTINUE = /^(?:Program|(?:Function|Class)(?:Declaration|Expression)|ArrowFunctionExpression|DoWhileStatement|WhileStatement|ForOfStatement|ForInStatement|ForStatement)$/;
+const SENTINEL_NODE_TYPE_RETURN_THROW = /^(?:Program|(?:Function|Class)(?:Declaration|Expression)|ArrowFunctionExpression)$/;
+const SENTINEL_NODE_TYPE_BREAK = /^(?:Program|(?:Function|Class)(?:Declaration|Expression)|ArrowFunctionExpression|DoWhileStatement|WhileStatement|ForOfStatement|ForInStatement|ForStatement|SwitchStatement)$/;
+const SENTINEL_NODE_TYPE_CONTINUE = /^(?:Program|(?:Function|Class)(?:Declaration|Expression)|ArrowFunctionExpression|DoWhileStatement|WhileStatement|ForOfStatement|ForInStatement|ForStatement)$/;
 
 
 //------------------------------------------------------------------------------
@@ -28,7 +28,7 @@ module.exports = {
 
         schema: []
     },
-    create: function(context) {
+    create(context) {
 
         /**
          * Checks if the node is the finalizer of a TryStatement
@@ -84,7 +84,7 @@ module.exports = {
             if (isInFinallyBlock(node, node.label)) {
                 context.report({
                     message: "Unsafe usage of " + node.type + ".",
-                    node: node,
+                    node,
                     line: node.loc.line,
                     column: node.loc.column
                 });

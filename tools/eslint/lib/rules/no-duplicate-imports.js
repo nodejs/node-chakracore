@@ -36,7 +36,7 @@ function getValue(node) {
 function checkAndReport(context, node, value, array, message) {
     if (array.indexOf(value) !== -1) {
         context.report({
-            node: node,
+            node,
             message: "'{{module}}' " + message,
             data: {module: value}
         });
@@ -60,7 +60,7 @@ function checkAndReport(context, node, value, array, message) {
  */
 function handleImports(context, includeExports, importsInFile, exportsInFile) {
     return function(node) {
-        let value = getValue(node);
+        const value = getValue(node);
 
         if (value) {
             checkAndReport(context, node, value, importsInFile, "import is duplicated.");
@@ -85,7 +85,7 @@ function handleImports(context, includeExports, importsInFile, exportsInFile) {
  */
 function handleExports(context, importsInFile, exportsInFile) {
     return function(node) {
-        let value = getValue(node);
+        const value = getValue(node);
 
         if (value) {
             checkAndReport(context, node, value, exportsInFile, "export is duplicated.");
@@ -115,12 +115,12 @@ module.exports = {
         }]
     },
 
-    create: function(context) {
-        let includeExports = (context.options[0] || {}).includeExports,
+    create(context) {
+        const includeExports = (context.options[0] || {}).includeExports,
             importsInFile = [],
             exportsInFile = [];
 
-        let handlers = {
+        const handlers = {
             ImportDeclaration: handleImports(context, includeExports, importsInFile, exportsInFile)
         };
 

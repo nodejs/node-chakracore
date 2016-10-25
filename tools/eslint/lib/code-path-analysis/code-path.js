@@ -9,8 +9,8 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let CodePathState = require("./code-path-state");
-let IdGenerator = require("./id-generator");
+const CodePathState = require("./code-path-state");
+const IdGenerator = require("./id-generator");
 
 //------------------------------------------------------------------------------
 // Public Interface
@@ -123,33 +123,33 @@ CodePath.prototype = {
      * @param {Function} callback - A callback function.
      * @returns {void}
      */
-    traverseSegments: function(options, callback) {
+    traverseSegments(options, callback) {
         if (typeof options === "function") {
             callback = options;
             options = null;
         }
 
         options = options || {};
-        let startSegment = options.first || this.internal.initialSegment;
-        let lastSegment = options.last;
+        const startSegment = options.first || this.internal.initialSegment;
+        const lastSegment = options.last;
 
         let item = null;
         let index = 0;
         let end = 0;
         let segment = null;
-        let visited = Object.create(null);
-        let stack = [[startSegment, 0]];
+        const visited = Object.create(null);
+        const stack = [[startSegment, 0]];
         let skippedSegment = null;
         let broken = false;
-        let controller = {
-            skip: function() {
+        const controller = {
+            skip() {
                 if (stack.length <= 1) {
                     broken = true;
                 } else {
                     skippedSegment = stack[stack.length - 2][0];
                 }
             },
-            break: function() {
+            break() {
                 broken = true;
             }
         };

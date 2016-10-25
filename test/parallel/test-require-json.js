@@ -8,7 +8,8 @@ try {
 } catch (err) {
   var re = common.engineSpecificMessage({
     v8: /test[\/\\]fixtures[\/\\]invalid.json: Unexpected string/,
-    chakracore: /test[\/\\]fixtures[\/\\]invalid.json: JSON.parse Error: Expected '}'/
+    chakracore:
+    /test[\/\\]fixtures[\/\\]invalid.json: JSON.parse Error: Expected '}'/
   });
   var i = err.message.match(re);
   assert(null !== i, 'require() json error should include path');

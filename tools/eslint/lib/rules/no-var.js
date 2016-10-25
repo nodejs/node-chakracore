@@ -9,7 +9,7 @@
 // Helpers
 //------------------------------------------------------------------------------
 
-let SCOPE_NODE_TYPE = /^(?:Program|BlockStatement|SwitchStatement|ForStatement|ForInStatement|ForOfStatement)$/;
+const SCOPE_NODE_TYPE = /^(?:Program|BlockStatement|SwitchStatement|ForStatement|ForInStatement|ForOfStatement)$/;
 
 /**
  * Gets the scope node which directly contains a given node.
@@ -60,8 +60,8 @@ function isUsedFromOutsideOf(scopeNode) {
      *      scope.
      */
     function isOutsideOfScope(reference) {
-        let scope = scopeNode.range;
-        let id = reference.identifier.range;
+        const scope = scopeNode.range;
+        const id = reference.identifier.range;
 
         return id[0] < scope[0] || id[1] > scope[1];
     }
@@ -87,8 +87,8 @@ module.exports = {
         fixable: "code"
     },
 
-    create: function(context) {
-        let sourceCode = context.getSourceCode();
+    create(context) {
+        const sourceCode = context.getSourceCode();
 
         /**
          * Checks whether it can fix a given variable declaration or not.
@@ -119,8 +119,8 @@ module.exports = {
          * @returns {boolean} `true` if it can fix the node.
          */
         function canFix(node) {
-            let variables = context.getDeclaredVariables(node);
-            let scopeNode = getScopeNode(node);
+            const variables = context.getDeclaredVariables(node);
+            const scopeNode = getScopeNode(node);
 
             return !(
                 node.parent.type === "SwitchCase" ||
@@ -136,13 +136,13 @@ module.exports = {
          * @returns {void}
          */
         function report(node) {
-            let varToken = sourceCode.getFirstToken(node);
+            const varToken = sourceCode.getFirstToken(node);
 
             context.report({
-                node: node,
+                node,
                 message: "Unexpected var, use let or const instead.",
 
-                fix: function(fixer) {
+                fix(fixer) {
                     if (canFix(node)) {
                         return fixer.replaceText(varToken, "let");
                     }
@@ -152,7 +152,7 @@ module.exports = {
         }
 
         return {
-            VariableDeclaration: function(node) {
+            VariableDeclaration(node) {
                 if (node.kind === "var") {
                     report(node);
                 }

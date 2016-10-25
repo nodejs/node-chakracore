@@ -46,9 +46,9 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
-        let options = {};
-        let config = context.options[0] || "always";
+    create(context) {
+        const options = {};
+        const config = context.options[0] || "always";
 
         if (typeof config === "string") {
             options.blocks = config === "always";
@@ -64,10 +64,10 @@ module.exports = {
             }
         }
 
-        let ALWAYS_MESSAGE = "Block must be padded by blank lines.",
+        const ALWAYS_MESSAGE = "Block must be padded by blank lines.",
             NEVER_MESSAGE = "Block must not be padded by blank lines.";
 
-        let sourceCode = context.getSourceCode();
+        const sourceCode = context.getSourceCode();
 
         /**
          * Gets the open brace token from a given node.
@@ -96,17 +96,16 @@ module.exports = {
          * @returns {boolean} Whether or not the token is followed by a blank line.
          */
         function isTokenTopPadded(token) {
-            let tokenStartLine = token.loc.start.line,
-                expectedFirstLine = tokenStartLine + 2,
-                first,
-                firstLine;
+            const tokenStartLine = token.loc.start.line,
+                expectedFirstLine = tokenStartLine + 2;
+            let first = token;
 
-            first = token;
             do {
                 first = sourceCode.getTokenOrCommentAfter(first);
             } while (isComment(first) && first.loc.start.line === tokenStartLine);
 
-            firstLine = first.loc.start.line;
+            const firstLine = first.loc.start.line;
+
             return expectedFirstLine <= firstLine;
         }
 
@@ -116,17 +115,16 @@ module.exports = {
          * @returns {boolean} Whether or not the token is preceeded by a blank line
          */
         function isTokenBottomPadded(token) {
-            let blockEnd = token.loc.end.line,
-                expectedLastLine = blockEnd - 2,
-                last,
-                lastLine;
+            const blockEnd = token.loc.end.line,
+                expectedLastLine = blockEnd - 2;
+            let last = token;
 
-            last = token;
             do {
                 last = sourceCode.getTokenOrCommentBefore(last);
             } while (isComment(last) && last.loc.end.line === blockEnd);
 
-            lastLine = last.loc.end.line;
+            const lastLine = last.loc.end.line;
+
             return lastLine <= expectedLastLine;
         }
 
@@ -156,7 +154,7 @@ module.exports = {
          * @returns {void} undefined.
          */
         function checkPadding(node) {
-            let openBrace = getOpenBrace(node),
+            const openBrace = getOpenBrace(node),
                 closeBrace = sourceCode.getLastToken(node),
                 blockHasTopPadding = isTokenTopPadded(openBrace),
                 blockHasBottomPadding = isTokenBottomPadded(closeBrace);
@@ -164,9 +162,9 @@ module.exports = {
             if (requirePaddingFor(node)) {
                 if (!blockHasTopPadding) {
                     context.report({
-                        node: node,
+                        node,
                         loc: { line: openBrace.loc.start.line, column: openBrace.loc.start.column },
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.insertTextAfter(openBrace, "\n");
                         },
                         message: ALWAYS_MESSAGE
@@ -174,9 +172,9 @@ module.exports = {
                 }
                 if (!blockHasBottomPadding) {
                     context.report({
-                        node: node,
+                        node,
                         loc: {line: closeBrace.loc.end.line, column: closeBrace.loc.end.column - 1 },
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.insertTextBefore(closeBrace, "\n");
                         },
                         message: ALWAYS_MESSAGE
@@ -184,12 +182,12 @@ module.exports = {
                 }
             } else {
                 if (blockHasTopPadding) {
-                    let nextToken = sourceCode.getTokenOrCommentAfter(openBrace);
+                    const nextToken = sourceCode.getTokenOrCommentAfter(openBrace);
 
                     context.report({
-                        node: node,
+                        node,
                         loc: { line: openBrace.loc.start.line, column: openBrace.loc.start.column },
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.replaceTextRange([openBrace.end, nextToken.start - nextToken.loc.start.column], "\n");
                         },
                         message: NEVER_MESSAGE
@@ -197,13 +195,13 @@ module.exports = {
                 }
 
                 if (blockHasBottomPadding) {
-                    let previousToken = sourceCode.getTokenOrCommentBefore(closeBrace);
+                    const previousToken = sourceCode.getTokenOrCommentBefore(closeBrace);
 
                     context.report({
-                        node: node,
+                        node,
                         loc: {line: closeBrace.loc.end.line, column: closeBrace.loc.end.column - 1 },
                         message: NEVER_MESSAGE,
-                        fix: function(fixer) {
+                        fix(fixer) {
                             return fixer.replaceTextRange([previousToken.end, closeBrace.start - closeBrace.loc.start.column], "\n");
                         }
                     });
@@ -211,7 +209,7 @@ module.exports = {
             }
         }
 
-        let rule = {};
+        const rule = {};
 
         if (options.hasOwnProperty("switches")) {
             rule.SwitchStatement = function(node) {

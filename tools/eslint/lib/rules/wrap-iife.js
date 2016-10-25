@@ -24,11 +24,11 @@ module.exports = {
         ]
     },
 
-    create: function(context) {
+    create(context) {
 
-        let style = context.options[0] || "outside";
+        const style = context.options[0] || "outside";
 
-        let sourceCode = context.getSourceCode();
+        const sourceCode = context.getSourceCode();
 
         /**
          * Check if the node is wrapped in ()
@@ -37,7 +37,7 @@ module.exports = {
          * @private
          */
         function wrapped(node) {
-            let previousToken = sourceCode.getTokenBefore(node),
+            const previousToken = sourceCode.getTokenBefore(node),
                 nextToken = sourceCode.getTokenAfter(node);
 
             return previousToken && previousToken.value === "(" &&
@@ -46,9 +46,9 @@ module.exports = {
 
         return {
 
-            CallExpression: function(node) {
+            CallExpression(node) {
                 if (node.callee.type === "FunctionExpression") {
-                    let callExpressionWrapped = wrapped(node),
+                    const callExpressionWrapped = wrapped(node),
                         functionExpressionWrapped = wrapped(node.callee);
 
                     if (!callExpressionWrapped && !functionExpressionWrapped) {

@@ -1176,6 +1176,19 @@ var formatTests = {
     pathname: '/fooA100%mBr',
   },
 
+  // multiple `#` in search
+  'http://example.com/?foo=bar%231%232%233&abc=%234%23%235#frag': {
+    href: 'http://example.com/?foo=bar%231%232%233&abc=%234%23%235#frag',
+    protocol: 'http:',
+    slashes: true,
+    host: 'example.com',
+    hostname: 'example.com',
+    hash: '#frag',
+    search: '?foo=bar#1#2#3&abc=#4##5',
+    query: {},
+    pathname: '/'
+  },
+
   // https://github.com/nodejs/node/issues/3361
   'file:///home/user': {
     href: 'file:///home/user',
@@ -1557,6 +1570,11 @@ var relativeTests2 = [
    'http://asdf:qwer@www.example.com',
    'http://diff:auth@www.example.com/'],
 
+  // changing port
+  ['https://example.com:81/',
+   'https://example.com:82/',
+   'https://example.com:81/'],
+
   // https://github.com/nodejs/node/issues/1435
   ['https://another.host.com/',
    'https://user:password@example.org/',
@@ -1570,6 +1588,9 @@ var relativeTests2 = [
   ['mailto:another.host.com',
    'mailto:user@example.org',
    'mailto:another.host.com'],
+  ['https://example.com/foo',
+   'https://user:password@example.com',
+   'https://user:password@example.com/foo'],
 ];
 relativeTests2.forEach(function(relativeTest) {
   const a = url.resolve(relativeTest[1], relativeTest[0]);

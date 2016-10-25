@@ -4,17 +4,17 @@
  */
 "use strict";
 
-let lodash = require("lodash");
-let fs = require("fs");
-let path = require("path");
+const lodash = require("lodash");
+const fs = require("fs");
+const path = require("path");
 
 //------------------------------------------------------------------------------
 // Helpers
 //------------------------------------------------------------------------------
 
-let pageTemplate = lodash.template(fs.readFileSync(path.join(__dirname, "html-template-page.html"), "utf-8"));
-let messageTemplate = lodash.template(fs.readFileSync(path.join(__dirname, "html-template-message.html"), "utf-8"));
-let resultTemplate = lodash.template(fs.readFileSync(path.join(__dirname, "html-template-result.html"), "utf-8"));
+const pageTemplate = lodash.template(fs.readFileSync(path.join(__dirname, "html-template-page.html"), "utf-8"));
+const messageTemplate = lodash.template(fs.readFileSync(path.join(__dirname, "html-template-message.html"), "utf-8"));
+const resultTemplate = lodash.template(fs.readFileSync(path.join(__dirname, "html-template-result.html"), "utf-8"));
 
 /**
  * Given a word and a count, append an s if count is not one.
@@ -33,7 +33,7 @@ function pluralize(word, count) {
  * @returns {string} The formatted string, pluralized where necessary
  */
 function renderSummary(totalErrors, totalWarnings) {
-    let totalProblems = totalErrors + totalWarnings;
+    const totalProblems = totalErrors + totalWarnings;
     let renderedText = totalProblems + " " + pluralize("problem", totalProblems);
 
     if (totalProblems !== 0) {
@@ -71,16 +71,13 @@ function renderMessages(messages, parentIndex) {
      * @returns {string} HTML (table row) describing a message.
      */
     return lodash.map(messages, function(message) {
-        let lineNumber,
-            columnNumber;
-
-        lineNumber = message.line || 0;
-        columnNumber = message.column || 0;
+        const lineNumber = message.line || 0;
+        const columnNumber = message.column || 0;
 
         return messageTemplate({
-            parentIndex: parentIndex,
-            lineNumber: lineNumber,
-            columnNumber: columnNumber,
+            parentIndex,
+            lineNumber,
+            columnNumber,
             severityNumber: message.severity,
             severityName: message.severity === 1 ? "Warning" : "Error",
             message: message.message,
@@ -96,7 +93,7 @@ function renderMessages(messages, parentIndex) {
 function renderResults(results) {
     return lodash.map(results, function(result, index) {
         return resultTemplate({
-            index: index,
+            index,
             color: renderColor(result.errorCount, result.warningCount),
             filePath: result.filePath,
             summary: renderSummary(result.errorCount, result.warningCount)

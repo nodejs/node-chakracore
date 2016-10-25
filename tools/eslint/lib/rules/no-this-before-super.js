@@ -9,7 +9,7 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-let astUtils = require("../ast-utils");
+const astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Helpers
@@ -45,7 +45,7 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
+    create(context) {
 
         /*
          * Information for each constructor.
@@ -101,10 +101,10 @@ module.exports = {
          * @returns {void}
          */
         function setInvalid(node) {
-            let segments = funcInfo.codePath.currentSegments;
+            const segments = funcInfo.codePath.currentSegments;
 
             for (let i = 0; i < segments.length; ++i) {
-                let segment = segments[i];
+                const segment = segments[i];
 
                 if (segment.reachable) {
                     segInfoMap[segment.id].invalidNodes.push(node);
@@ -117,10 +117,10 @@ module.exports = {
          * @returns {void}
          */
         function setSuperCalled() {
-            let segments = funcInfo.codePath.currentSegments;
+            const segments = funcInfo.codePath.currentSegments;
 
             for (let i = 0; i < segments.length; ++i) {
-                let segment = segments[i];
+                const segment = segments[i];
 
                 if (segment.reachable) {
                     segInfoMap[segment.id].superCalled = true;
@@ -136,11 +136,11 @@ module.exports = {
              * @param {ASTNode} node - The current node.
              * @returns {void}
              */
-            onCodePathStart: function(codePath, node) {
+            onCodePathStart(codePath, node) {
                 if (isConstructorFunction(node)) {
 
                     // Class > ClassBody > MethodDefinition > FunctionExpression
-                    let classNode = node.parent.parent.parent;
+                    const classNode = node.parent.parent.parent;
 
                     funcInfo = {
                         upper: funcInfo,
@@ -149,14 +149,14 @@ module.exports = {
                             classNode.superClass &&
                             !astUtils.isNullOrUndefined(classNode.superClass)
                         ),
-                        codePath: codePath
+                        codePath
                     };
                 } else {
                     funcInfo = {
                         upper: funcInfo,
                         isConstructor: false,
                         hasExtends: false,
-                        codePath: codePath
+                        codePath
                     };
                 }
             },
@@ -171,8 +171,8 @@ module.exports = {
              * @param {ASTNode} node - The current node.
              * @returns {void}
              */
-            onCodePathEnd: function(codePath) {
-                let isDerivedClass = funcInfo.hasExtends;
+            onCodePathEnd(codePath) {
+                const isDerivedClass = funcInfo.hasExtends;
 
                 funcInfo = funcInfo.upper;
                 if (!isDerivedClass) {
@@ -180,10 +180,10 @@ module.exports = {
                 }
 
                 codePath.traverseSegments(function(segment, controller) {
-                    let info = segInfoMap[segment.id];
+                    const info = segInfoMap[segment.id];
 
                     for (let i = 0; i < info.invalidNodes.length; ++i) {
-                        let invalidNode = info.invalidNodes[i];
+                        const invalidNode = info.invalidNodes[i];
 
                         context.report({
                             message: "'{{kind}}' is not allowed before 'super()'.",
@@ -205,7 +205,7 @@ module.exports = {
              * @param {CodePathSegment} segment - A code path segment to initialize.
              * @returns {void}
              */
-            onCodePathSegmentStart: function(segment) {
+            onCodePathSegmentStart(segment) {
                 if (!isInConstructorOfDerivedClass(funcInfo)) {
                     return;
                 }
@@ -229,7 +229,7 @@ module.exports = {
              *      of a loop.
              * @returns {void}
              */
-            onCodePathSegmentLoop: function(fromSegment, toSegment) {
+            onCodePathSegmentLoop(fromSegment, toSegment) {
                 if (!isInConstructorOfDerivedClass(funcInfo)) {
                     return;
                 }
@@ -238,7 +238,7 @@ module.exports = {
                 funcInfo.codePath.traverseSegments(
                     {first: toSegment, last: fromSegment},
                     function(segment, controller) {
-                        let info = segInfoMap[segment.id];
+                        const info = segInfoMap[segment.id];
 
                         if (info.superCalled) {
                             info.invalidNodes = [];
@@ -259,7 +259,7 @@ module.exports = {
              * @param {ASTNode} node - A target node.
              * @returns {void}
              */
-            ThisExpression: function(node) {
+            ThisExpression(node) {
                 if (isBeforeCallOfSuper()) {
                     setInvalid(node);
                 }
@@ -270,7 +270,7 @@ module.exports = {
              * @param {ASTNode} node - A target node.
              * @returns {void}
              */
-            Super: function(node) {
+            Super(node) {
                 if (!astUtils.isCallee(node) && isBeforeCallOfSuper()) {
                     setInvalid(node);
                 }
@@ -281,7 +281,7 @@ module.exports = {
              * @param {ASTNode} node - A target node.
              * @returns {void}
              */
-            "CallExpression:exit": function(node) {
+            "CallExpression:exit"(node) {
                 if (node.callee.type === "Super" && isBeforeCallOfSuper()) {
                     setSuperCalled();
                 }
@@ -291,7 +291,7 @@ module.exports = {
              * Resets state.
              * @returns {void}
              */
-            "Program:exit": function() {
+            "Program:exit"() {
                 segInfoMap = Object.create(null);
             }
         };

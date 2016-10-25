@@ -18,3 +18,6 @@ test-stdout-buffer-flush-on-exit: SKIP
 [$system==freebsd]
 
 [$system==aix]
+
+[$jsEngine==chakracore]
+test-vm-function-redefinition : SKIP

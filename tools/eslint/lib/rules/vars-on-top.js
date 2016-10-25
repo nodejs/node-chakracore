@@ -20,8 +20,8 @@ module.exports = {
         schema: []
     },
 
-    create: function(context) {
-        let errorMessage = "All 'var' declarations must be at the top of the function scope.";
+    create(context) {
+        const errorMessage = "All 'var' declarations must be at the top of the function scope.";
 
         //--------------------------------------------------------------------------
         // Helpers
@@ -70,8 +70,8 @@ module.exports = {
          * @returns {boolean} True if var is on top otherwise false
          */
         function isVarOnTop(node, statements) {
-            let i = 0,
-                l = statements.length;
+            const l = statements.length;
+            let i = 0;
 
             // skip over directives
             for (; i < l; ++i) {
@@ -124,8 +124,8 @@ module.exports = {
         //--------------------------------------------------------------------------
 
         return {
-            VariableDeclaration: function(node) {
-                let ancestors = context.getAncestors();
+            VariableDeclaration(node) {
+                const ancestors = context.getAncestors();
                 let parent = ancestors.pop();
                 let grandParent = ancestors.pop();
 
