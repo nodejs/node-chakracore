@@ -51,20 +51,15 @@ assert.strictEqual(SlowBuffer(NaN).length, 0);
 assert.strictEqual(SlowBuffer({}).length, 0);
 assert.strictEqual(SlowBuffer('string').length, 0);
 
+assert.throws(function() {
+  SlowBuffer(Infinity);
+}, 'invalid Buffer length');
 
 if (!common.isChakraEngine) {
-  assert.throws(function() {
-    SlowBuffer(Infinity);
-  }, 'invalid Buffer length');
-
   assert.throws(function() {
     SlowBuffer(buffer.kMaxLength + 1);
   }, 'invalid Buffer length');
 } else {
-  assert.doesNotThrow(function() {
-    SlowBuffer(Infinity);
-  });
-
   assert.doesNotThrow(function() {
     SlowBuffer(buffer.kMaxLength + 1);
   });
