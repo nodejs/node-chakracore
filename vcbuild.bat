@@ -238,12 +238,8 @@ mkdir node-v%FULLVERSION%-win-%target_arch%\node_modules > nul 2>nul
 
 copy /Y node.exe node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy node.exe && goto package_error
-copy /Y node.pdb node-v%FULLVERSION%-win-%target_arch%\ > nul
-if errorlevel 1 echo Cannot copy node.pdb && goto package_error
 copy /Y chakracore.dll node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy chakracore.dll && goto package_error
-copy /Y chakracore.pdb node-v%FULLVERSION%-win-%target_arch%\ > nul
-if errorlevel 1 echo Cannot copy chakracore.pdb && goto package_error
 copy /Y ..\LICENSE node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy LICENSE && goto package_error
 copy /Y ..\README.md node-v%FULLVERSION%-win-%target_arch%\ > nul
@@ -279,11 +275,11 @@ if errorlevel 1 echo Cannot create node-v%FULLVERSION%-win-%target_arch%.zip && 
 
 echo Creating node_pdb.7z
 del node_pdb.7z > nul 2> nul
-7z a -mx9 -t7z node_pdb.7z node.pdb > nul
+7z a -mx9 -t7z node_pdb.7z node.pdb chakracore.pdb > nul
 
 echo Creating node_pdb.zip
 del node_pdb.zip  > nul 2> nul
-7z a -mx9 -tzip node_pdb.zip node.pdb > nul
+7z a -mx9 -tzip node_pdb.zip node.pdb chakracore.pdb > nul
 
 cd ..
 echo Package created!
