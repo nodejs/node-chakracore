@@ -238,8 +238,12 @@ mkdir node-v%FULLVERSION%-win-%target_arch%\node_modules > nul 2>nul
 
 copy /Y node.exe node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy node.exe && goto package_error
+copy /Y node.pdb node-v%FULLVERSION%-win-%target_arch%\ > nul
+if errorlevel 1 echo Cannot copy node.pdb && goto package_error
 copy /Y chakracore.dll node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy chakracore.dll && goto package_error
+copy /Y chakracore.pdb node-v%FULLVERSION%-win-%target_arch%\ > nul
+if errorlevel 1 echo Cannot copy chakracore.pdb && goto package_error
 copy /Y ..\LICENSE node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy LICENSE && goto package_error
 copy /Y ..\README.md node-v%FULLVERSION%-win-%target_arch%\ > nul
