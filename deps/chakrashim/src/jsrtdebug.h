@@ -30,7 +30,7 @@ class MessageImpl : public v8::Debug::Message {
   explicit MessageImpl(v8::Local<v8::String> v8Str);
   virtual v8::Local<v8::String> GetJSON() const;
   virtual v8::Isolate* GetIsolate() const;
-  static v8::Local<v8::String> JsValueRefToV8String(JsValueRef result);
+  static v8::Local<v8::String> ToLocal(JsValueRef result);
 
  private:
   v8::Local<v8::String> v8Str;
@@ -79,7 +79,7 @@ class Debugger {
   static void SetChakraDebugObject(JsValueRef chakraDebugObject);
  private:
   static void InstallHostCallback(JsValueRef chakraDebugObject,
-    const wchar_t *name,
+    const char *name,
     JsNativeFunction nativeFunction);
 };
 }  // namespace jsrt

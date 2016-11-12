@@ -23,7 +23,7 @@
 
 namespace v8 {
 
-  __declspec(thread) bool g_EnableDebug = false;
+  THREAD_LOCAL bool g_EnableDebug = false;
 
   void Debug::EnableDebug() {
     g_EnableDebug = true;

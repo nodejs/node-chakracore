@@ -110,6 +110,9 @@ class IsolateShim {
     }
   }
 
+  JsValueRef GetChakraShimJsArrayBuffer();
+  JsValueRef GetChakraDebugShimJsArrayBuffer();
+
   void SetData(unsigned int slot, void* data);
   void* GetData(unsigned int slot);
 
@@ -175,7 +178,7 @@ class IsolateShim {
   static IsolateShim * s_isolateList;
 
   static THREAD_LOCAL IsolateShim * s_currentIsolate;
-  static __declspec(thread) IsolateShim * s_previousIsolate;
+  static THREAD_LOCAL IsolateShim * s_previousIsolate;
 
   uv_prepare_t idleGc_prepare_handle_;
   uv_timer_t idleGc_timer_handle_;

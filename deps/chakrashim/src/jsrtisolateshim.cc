@@ -20,6 +20,7 @@
 
 #include "v8.h"
 #include "jsrtutils.h"
+#include "chakra_natives.h"
 #include <assert.h>
 #include <vector>
 #include <algorithm>
@@ -32,19 +33,19 @@ extern bool g_disableIdleGc;
 namespace jsrt {
 
 /* static */ THREAD_LOCAL IsolateShim * IsolateShim::s_currentIsolate;
-/* static */ __declspec(thread) IsolateShim * IsolateShim::s_previousIsolate;
+/* static */ THREAD_LOCAL IsolateShim * IsolateShim::s_previousIsolate;
 /* static */ IsolateShim * IsolateShim::s_isolateList = nullptr;
 
 IsolateShim::IsolateShim(JsRuntimeHandle runtime)
-    : runtime(runtime),
+    : arrayBufferAllocator(nullptr),
+      debugContext(nullptr),
+      runtime(runtime),
       symbolPropertyIdRefs(),
       cachedPropertyIdRefs(),
       isDisposing(false),
       contextScopeStack(nullptr),
       tryCatchStackTop(nullptr),
-      embeddedData(),
-      arrayBufferAllocator(nullptr),
-      debugContext(nullptr) {
+      embeddedData() {
   // CHAKRA-TODO: multithread locking for s_isolateList?
   this->prevnext = &s_isolateList;
   this->next = s_isolateList;
@@ -76,10 +77,10 @@ IsolateShim::~IsolateShim() {
     return nullptr;
   }
 
-  if (jsrt::Debugger::IsDebugEnabled()) {
+  if (Debugger::IsDebugEnabled()) {
     // If JavaScript debugging APIs need to be exposed then
     // runtime should be in debugging mode from start
-    jsrt::Debugger::StartDebugging(runtime);
+    Debugger::StartDebugging(runtime);
   }
 
   IsolateShim* newIsolateshim = new IsolateShim(runtime);
@@ -96,7 +97,7 @@ IsolateShim::~IsolateShim() {
 }
 
 /* static */ IsolateShim * IsolateShim::FromIsolate(v8::Isolate * isolate) {
-  return reinterpret_cast<jsrt::IsolateShim *>(isolate);
+  return reinterpret_cast<IsolateShim *>(isolate);
 }
 
 /* static */ v8::Isolate * IsolateShim::ToIsolate(IsolateShim * isolateShim) {
@@ -202,7 +203,7 @@ ContextShim * IsolateShim::GetContextShim(JsContextRef contextRef) {
   if (JsGetContextData(contextRef, &data) != JsNoError) {
     return nullptr;
   }
-  ContextShim* contextShim = static_cast<jsrt::ContextShim *>(data);
+  ContextShim* contextShim = static_cast<ContextShim *>(data);
   return contextShim;
 }
 
@@ -314,8 +315,8 @@ JsPropertyIdRef IsolateShim::GetCachedPropertyIdRef(
     CachedPropertyIdRef cachedPropertyIdRef) {
   return GetCachedPropertyId(cachedPropertyIdRefs, cachedPropertyIdRef,
                     [](CachedPropertyIdRef index, JsPropertyIdRef* propIdRef) {
-    return JsGetPropertyIdFromNameUtf8(s_cachedPropertyIdRefNames[index],
-                                   propIdRef) == JsNoError;
+    return CreatePropertyId(s_cachedPropertyIdRefNames[index],
+      propIdRef) == JsNoError;
   });
 }
 
@@ -375,6 +376,26 @@ void IsolateShim::SetData(uint32_t slot, void* data) {
 
 void* IsolateShim::GetData(uint32_t slot) {
   return slot < _countof(this->embeddedData) ? embeddedData[slot] : nullptr;
+}
+
+JsValueRef IsolateShim::GetChakraShimJsArrayBuffer() {
+  JsValueRef chakraShimArrayBuffer;
+  CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
+                (void*)chakra_shim_native,
+                sizeof(chakra_shim_native),
+                nullptr, nullptr,
+                &chakraShimArrayBuffer) == JsNoError);
+  return chakraShimArrayBuffer;
+}
+
+JsValueRef IsolateShim::GetChakraDebugShimJsArrayBuffer() {
+  JsValueRef chakraDebugShimArrayBuffer;
+  CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
+                (void*)chakra_debug_native,
+                sizeof(chakra_debug_native),
+                nullptr, nullptr,
+                &chakraDebugShimArrayBuffer) == JsNoError);
+  return chakraDebugShimArrayBuffer;
 }
 
 }  // namespace jsrt

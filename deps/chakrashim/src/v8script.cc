@@ -64,18 +64,16 @@ static JsErrorCode CreateScriptObject(JsValueRef sourceRef,
 MaybeLocal<Script> Script::Compile(Local<Context> context,
                                    Handle<String> source,
                                    ScriptOrigin* origin) {
-  JsErrorCode error;
+  JsErrorCode error = JsNoError;
   JsValueRef filenameRef;
   const char* filename = "";
-  jsrt::StringUtf8 filenameStr;
 
   if (origin != nullptr) {
-    error = jsrt::ToString(*origin->ResourceName(), &filenameRef, &filenameStr);
-    if (error == JsNoError) {
-      filename = filenameStr;
-    }
+    filenameRef = *origin->ResourceName();
   } else {
-    error = JsPointerToStringUtf8(filename, 0, &filenameRef);
+    error = JsCreateStringUtf8((uint8_t*)filename,
+                               strlen(filename),
+                               &filenameRef);
   }
 
   if (error == JsNoError) {
@@ -84,7 +82,10 @@ MaybeLocal<Script> Script::Compile(Local<Context> context,
     error = jsrt::ToString(*source, &sourceRef, &script);
     if (error == JsNoError) {
       JsValueRef scriptFunction;
-      error = jsrt::ParseScript(script, currentContext++, filename, g_useStrict,
+      error = jsrt::ParseScript(&script,
+                                currentContext++,
+                                filenameRef,
+                                g_useStrict,
                                 &scriptFunction);
       if (error == JsNoError) {
         JsValueRef scriptObject;
@@ -168,6 +169,7 @@ Local<Script> UnboundScript::BindToCurrentContext() {
   // Create a script object in another context
   jsrt::StringUtf8 source;
   jsrt::StringUtf8 filename;
+  JsValueRef originalFilenameRef;
   {
     jsrt::ContextShim::Scope scope(contextShim);
     JsValueRef scriptRef;
@@ -181,7 +183,6 @@ Local<Script> UnboundScript::BindToCurrentContext() {
                           &originalSourceRef) != JsNoError) {
       return Local<Script>();
     }
-    JsValueRef originalFilenameRef;
     if (jsrt::GetProperty(scriptRef, CachedPropertyIdRef::filename,
                           &originalFilenameRef) != JsNoError) {
       return Local<Script>();
@@ -195,18 +196,20 @@ Local<Script> UnboundScript::BindToCurrentContext() {
   }
 
   JsValueRef scriptFunction;
-  if (jsrt::ParseScript(source, currentContext++, filename,
+  if (jsrt::ParseScript(&source, currentContext++, originalFilenameRef,
                         g_useStrict, &scriptFunction) != JsNoError) {
     return Local<Script>();
   }
 
   JsValueRef sourceRef;
-  if (JsPointerToStringUtf8(source, source.length(), &sourceRef) != JsNoError) {
+
+  if (JsCreateStringUtf8((uint8_t*)(*source), source.length(),
+                         &sourceRef) != JsNoError) {
     return Local<Script>();
   }
 
   JsValueRef filenameRef;
-  if (JsPointerToStringUtf8(filename, filename.length(),
+  if (JsCreateStringUtf8((uint8_t*)(*filename), filename.length(),
                             &filenameRef) != JsNoError) {
     return Local<Script>();
   }

@@ -25,7 +25,7 @@
 
 namespace v8 {
   extern bool g_trace_debug_json;
-  extern __declspec(thread) JsSourceContext currentContext;
+  extern THREAD_LOCAL JsSourceContext currentContext;
 }
 
 namespace jsrt {
@@ -425,17 +425,13 @@ bool ContextShim::ExposeGc() {
 }
 
 bool ContextShim::ExecuteChakraShimJS() {
-  // xplat-todo: Currently chakra_shim_native is not null-terminated, but JSRT
-  // API requires null-terminator. Make a copy and null-terminate it.
-  // Remove this when new API signature available.
-  char buffer[_countof(jsrt::chakra_shim_native) + 1];
-  memmove(buffer, chakra_shim_native, _countof(chakra_shim_native));
-  buffer[_countof(chakra_shim_native)] = '\0';
-
   JsValueRef getInitFunction;
-  if (JsParseScriptUtf8(buffer,
+  JsValueRef url;
+  jsrt::CreateString("chakra_shim.js", &url);
+  if (JsParse(GetIsolateShim()->GetChakraShimJsArrayBuffer(),
                     v8::currentContext++,
-                    "chakra_shim.js",
+                    url,
+                    JsParseScriptAttributeNone,
                     &getInitFunction) != JsNoError) {
     return false;
   }
@@ -450,22 +446,12 @@ bool ContextShim::ExecuteChakraShimJS() {
 }
 
 bool ContextShim::ExecuteChakraDebugShimJS(JsValueRef * chakraDebugObject) {
-  wchar_t buffer[_countof(chakra_debug_native) + 1];
-
-  if (StringConvert::CopyRaw<unsigned char, wchar_t>(chakra_debug_native,
-    _countof(chakra_debug_native),
-    buffer,
-    _countof(chakra_debug_native)) != JsNoError) {
-    return false;
-  }
-
-  // Ensure the buffer is null terminated
-  buffer[_countof(chakra_debug_native)] = L'\0';
-
   JsValueRef getInitFunction;
-  if (JsParseScriptWithAttributes(buffer,
+  JsValueRef url;
+  jsrt::CreateString("chakra_debug.js", &url);
+  if (JsParse(GetIsolateShim()->GetChakraDebugShimJsArrayBuffer(),
     v8::currentContext++,
-    L"chakra_debug.js",
+    url,
     JsParseScriptAttributeNone,
     &getInitFunction) != JsNoError) {
     return false;

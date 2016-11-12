@@ -30,16 +30,23 @@ String::Utf8Value::Utf8Value(Handle<v8::Value> obj)
   }
 
   size_t len = 0;
-  if (JsStringToPointerUtf8Copy(*str, &_str, &len) == JsNoError) {
+  CHAKRA_VERIFY(JsCopyStringUtf8(*str, nullptr, 0, &len) == JsNoError);
+  uint8_t* buffer = (uint8_t*)malloc(len + 1);
+  CHAKRA_VERIFY(buffer != nullptr);
+  size_t written = 0;
+  if (JsCopyStringUtf8(*str, buffer, len, &written) == JsNoError) {
+    CHAKRA_ASSERT(len == written);
+    buffer[len] = '\0';
+    _str = (char*)buffer;
     _length = static_cast<int>(len);
   }
 }
 
 String::Utf8Value::~Utf8Value() {
   if (_str != nullptr) {
-    JsErrorCode err = JsStringFree(_str);
-    CHAKRA_ASSERT(err == JsNoError);
-    UNUSED(err);
+    free(_str);
+    _str = nullptr;
+    _length = 0;
   }
 }
 
@@ -82,7 +89,7 @@ int String::Utf8Length() const {
 
 int String::Write(uint16_t *buffer, int start, int length, int options) const {
   size_t count = 0;
-  if (JsWriteStringUtf16((JsValueRef)this, start, length,
+  if (JsCopyStringUtf16((JsValueRef)this, start, length,
                          buffer, &count) == JsNoError) {
     if (!(options & String::NO_NULL_TERMINATION)) {
       buffer[count] = 0;
@@ -94,7 +101,7 @@ int String::Write(uint16_t *buffer, int start, int length, int options) const {
 int String::WriteOneByte(
     uint8_t* buffer, int start, int length, int options) const {
   size_t count = 0;
-  if (JsWriteString((JsValueRef)this, start, length,
+  if (JsCopyString((JsValueRef)this, start, length,
                     (char*)buffer, &count) == JsNoError) {
     if (!(options & String::NO_NULL_TERMINATION)) {
       buffer[count] = 0;
@@ -111,7 +118,7 @@ int String::WriteUtf8(
   }
 
   size_t count = 0;
-  if (JsWriteStringUtf8((JsValueRef)this,
+  if (JsCopyStringUtf8((JsValueRef)this,
     (uint8_t*)buffer, length, &count) == JsNoError) {
     if (count < (unsigned)length && !(options & String::NO_NULL_TERMINATION)) {
       // Utf8 version count includes null terminator
@@ -141,7 +148,7 @@ MaybeLocal<String> Utils::NewString(const char *data, int length) {
   }
 
   JsValueRef strRef;
-  if (JsPointerToStringUtf8(data, length, &strRef) != JsNoError) {
+  if (JsCreateStringUtf8((uint8_t*)data, length, &strRef) != JsNoError) {
     return Local<String>();
   }
 

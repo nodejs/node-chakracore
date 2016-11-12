@@ -53,7 +53,7 @@ bool Utils::CheckSignature(Local<FunctionTemplate> receiver,
   if (!matched) {
     const char txt[] = "Illegal invocation";
     JsValueRef msg, err;
-    if (JsPointerToStringUtf8(txt, _countof(txt) - 1, &msg) == JsNoError &&
+    if (JsCreateString(txt, sizeof(txt) - 1, &msg) == JsNoError &&
         JsCreateTypeError(msg, &err) == JsNoError) {
       JsSetException(err);
     }
