@@ -59,8 +59,8 @@ typedef  BVUnit64 SparseBVUnit;
 
 struct BVSparseNode
 {
-    BVIndex         startIndex;
     BVSparseNode *  next;
+    BVIndex         startIndex;
     SparseBVUnit    data;
 
     BVSparseNode(BVIndex beginIndex, BVSparseNode * nextNode);
@@ -111,7 +111,9 @@ protected:
 
 
             SparseBVUnit *      BitsFromIndex(BVIndex i, bool create = true);
+            const SparseBVUnit *      BitsFromIndex(BVIndex i) const;
             BVSparseNode*   NodeFromIndex(BVIndex i, BVSparseNode *** prevNextFieldOut, bool create = true);
+            const BVSparseNode*   NodeFromIndex(BVIndex i, BVSparseNode *const** prevNextFieldOut) const;
             BVSparseNode *  DeleteNode(BVSparseNode *node, bool bResetLastUsed = true);
             void            QueueInFreeList(BVSparseNode* node);
             BVSparseNode *  Allocate(const BVIndex searchIndex, BVSparseNode *prevNode);
@@ -126,7 +128,7 @@ protected:
 public:
 
             BOOLEAN         operator[](BVIndex i) const;
-            BOOLEAN         Test(BVIndex i);
+            BOOLEAN         Test(BVIndex i) const;
             BVIndex         GetNextBit(BVIndex i) const;
             BVIndex         GetNextBit(BVSparseNode * node) const;
 
@@ -172,6 +174,7 @@ public:
 
             template <class TSrcAllocator>
             void            Copy(const BVSparse<TSrcAllocator> *bv);
+            void            CopyFromNode(const BVSparseNode * node2);
             BVSparse<TAllocator> *      CopyNew(TAllocator* allocator) const;
             BVSparse<TAllocator> *      CopyNew() const;
             void            ComplimentAll();
@@ -304,6 +307,48 @@ BVSparse<TAllocator>::NodeFromIndex(BVIndex i, BVSparseNode *** prevNextFieldOut
     return newNode;
 }
 
+template <class TAllocator>
+const BVSparseNode *
+BVSparse<TAllocator>::NodeFromIndex(BVIndex i, BVSparseNode *const** prevNextFieldOut) const
+{
+    const BVIndex searchIndex = SparseBVUnit::Floor(i);
+
+    BVSparseNode *const* prevNextField = &this->head;
+    const BVSparseNode * curNode = (*prevNextField);
+    if (curNode != nullptr)
+    {
+        if (curNode->startIndex == searchIndex)
+        {
+            *prevNextFieldOut = prevNextField;
+            return curNode;
+        }
+
+        if (curNode->startIndex > searchIndex)
+        {
+            prevNextField = &this->head;
+            curNode = this->head;
+        }
+    }
+    else
+    {
+        prevNextField = &this->head;
+        curNode = this->head;
+    }
+
+    for (; curNode && searchIndex > curNode->startIndex; curNode = curNode->next)
+    {
+        prevNextField = &curNode->next;
+    }
+
+    if (curNode && searchIndex == curNode->startIndex)
+    {
+        *prevNextFieldOut = prevNextField;
+        return curNode;
+    }
+
+    return nullptr;
+}
+
 
 
 template <class TAllocator>
@@ -322,6 +367,21 @@ BVSparse<TAllocator>::BitsFromIndex(BVIndex i, bool create)
     }
 }
 
+template <class TAllocator>
+const SparseBVUnit *
+BVSparse<TAllocator>::BitsFromIndex(BVIndex i) const
+{
+    BVSparseNode *const* prevNextField;
+    const BVSparseNode * node = NodeFromIndex(i, &prevNextField);
+    if (node)
+    {
+        return &node->data;
+    }
+    else
+    {
+        return (SparseBVUnit *)&BVSparse::s_EmptyUnit;
+    }
+}
 
 template <class TAllocator>
 BVSparseNode *
@@ -446,9 +506,9 @@ BVSparse<TAllocator>::TestEmpty() const
 
 template <class TAllocator>
 BOOLEAN
-BVSparse<TAllocator>::Test(BVIndex i)
+BVSparse<TAllocator>::Test(BVIndex i) const
 {
-    return this->BitsFromIndex(i, false)->Test(SparseBVUnit::Offset(i));
+    return this->BitsFromIndex(i)->Test(SparseBVUnit::Offset(i));
 }
 
 template <class TAllocator>
@@ -734,9 +794,15 @@ BVSparse<TAllocator>::Copy(const BVSparse<TSrcAllocator> * bv2)
 {
     AssertBV(bv2);
 
-          BVSparseNode * node1      = this->head;
-    const BVSparseNode * node2      = bv2->head;
-          BVSparseNode ** prevNextField = &this->head;
+    CopyFromNode(bv2->head);
+}
+
+template <class TAllocator>
+void
+BVSparse<TAllocator>::CopyFromNode(const BVSparseNode * node2)
+{
+    BVSparseNode * node1 = this->head;
+    BVSparseNode ** prevNextField = &this->head;
 
     while (node1 != nullptr && node2 != nullptr)
     {

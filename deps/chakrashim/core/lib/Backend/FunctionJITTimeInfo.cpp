@@ -37,7 +37,7 @@ FunctionJITTimeInfo::BuildJITTimeData(
 
     jitData->inlineesBv = (BVFixedIDL*)codeGenData->inlineesBv;
 
-    if (codeGenData->GetFunctionInfo()->HasBody())
+    if (codeGenData->GetFunctionInfo()->HasBody() && codeGenData->GetFunctionInfo()->GetFunctionProxy()->IsFunctionBody())
     {
         Assert(isInlinee == !!runtimeData);
         const Js::FunctionCodeGenRuntimeData * targetRuntimeData = nullptr;
@@ -63,7 +63,9 @@ FunctionJITTimeInfo::BuildJITTimeData(
                 Assert(defaultEntryPointInfo->IsFunctionEntryPointInfo());
                 Js::FunctionEntryPointInfo *functionEntryPointInfo = static_cast<Js::FunctionEntryPointInfo*>(defaultEntryPointInfo);
                 jitData->callsCountAddress = (intptr_t)&functionEntryPointInfo->callsCount;
-                jitData->sharedPropertyGuards = functionEntryPointInfo->GetSharedPropertyGuardsWithLock(alloc, jitData->sharedPropGuardCount);
+                
+                jitData->sharedPropertyGuards = codeGenData->sharedPropertyGuards;
+                jitData->sharedPropGuardCount = codeGenData->sharedPropertyGuardCount;
             }
         }
         if (jitData->bodyData->profiledCallSiteCount > 0)

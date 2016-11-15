@@ -20,14 +20,7 @@
  * limitations under the License.
  */
 
-/* polyfill from SM/CH to D8 */
-if (typeof arguments == 'undefined') {
-  if (typeof scriptArgs != 'undefined') {
-    arguments = scriptArgs;
-  } else if(typeof WScript != 'undefined') {
-    arguments = WScript.Arguments || [];
-  }
-}
+arguments = WScript.Arguments || [];
 
 if (typeof quit == 'undefined') {
   if (typeof WScript != 'undefined') {
@@ -40,8 +33,12 @@ if (typeof readbuffer == 'undefined') {
 }
 
 if (arguments.length < 1) {
-  print('usage: <exe> spec.js -args <filename.json> [start index] [end index] [-v] -endargs');
+  print('usage: <exe> spec.js -args <filename.json> [start index] [end index] [-v] [-nt] -endargs');
   quit(0);
+}
+
+if (typeof IMPORTS_FROM_OTHER_SCRIPT === "undefined") {
+  IMPORTS_FROM_OTHER_SCRIPT = {};
 }
 
 var passed = 0;
@@ -50,6 +47,12 @@ const iVerbose = arguments.indexOf("-v");
 var verbose = iVerbose !== -1;
 if (verbose) {
   arguments.splice(iVerbose, 1)
+}
+const iNoTrap = arguments.indexOf("-nt");
+var noTrap = iNoTrap !== -1;
+var trap = !noTrap;
+if (noTrap) {
+  arguments.splice(iNoTrap, 1)
 }
 run(arguments[0], arguments[1]|0, arguments[2] === undefined ? undefined : arguments[2]|0);
 
@@ -64,11 +67,16 @@ function run(inPath, iStart, iEnd) {
   var jsonData = JSON.parse(data);
 
   var iTest = 0;
+  var registry = Object.assign({spectest: {
+    print: print,
+    global : 666,
+    table: new WebAssembly.Table({initial: 10, maximum: 20, element: 'anyfunc'}),  memory: new WebAssembly.Memory({initial: 1, maximum: 2})
+  }}, IMPORTS_FROM_OTHER_SCRIPT);
   for (var i = 0; i < jsonData.modules.length; ++i) {
     var module = jsonData.modules[i] || {};
     try {
       var moduleFile = readbuffer(inDir + '/' + module.filename);
-      var m = createModule(moduleFile);
+      var m = createModule(moduleFile, registry);
       for (var j = 0; j < module.commands.length; ++j, ++iTest) {
         var command = module.commands[j];
         if (iTest < iStart || iTest > iEnd) {
@@ -78,6 +86,9 @@ function run(inPath, iStart, iEnd) {
           continue;
         }
         switch (command.type) {
+          case 'register':
+            registry[command.name] = m.exports;
+            break;
           case 'action':
             invoke(m, command);
             break;
@@ -91,10 +102,12 @@ function run(inPath, iStart, iEnd) {
             break;
 
           case 'assert_trap':
-            // NYI implemented
-            // assertTrap(m, command.name, command.file, command.line);
-            failed++;
-            print(`${getCommandStr(command)} failed, runtime trap NYI`);
+            if (trap) {
+              assertTrap(m, command);
+            } else {
+              failed++;
+              print(`${getCommandStr(command)} failed, runtime trap NYI`);
+            }
             break;
         }
       }
@@ -106,11 +119,11 @@ function run(inPath, iStart, iEnd) {
   end();
 }
 
-function createModule(a) {
+function createModule(a, registry) {
   var memory = null;
   var u8a = new Uint8Array(a);
-  var ffi = {spectest: {print: print, global : 666}};
-  var module = Wasm.instantiateModule(u8a, ffi);
+  var mod = new WebAssembly.Module(u8a);
+  var module = new WebAssembly.Instance(mod, registry);
   memory = module.memory;
   return module;
 }
@@ -139,15 +152,19 @@ function assertReturn(m, command) {
 function assertTrap(m, command) {
   const {file, line, name} = command;
   var threw = false;
+  var error;
   try {
     m.exports[name]();
   } catch (e) {
+    error = e;
     threw = true;
   }
 
   if (threw) {
     passed++;
-    print(`${getCommandStr(command)} passed.`);
+    if (verbose) {
+      print(`${getCommandStr(command)} passed. Error thrown: ${error}`);
+    }
   } else {
     print(`${getCommandStr(command)} failed, didn't throw`);
     failed++;

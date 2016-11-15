@@ -1,7 +1,7 @@
 {
   "modules": [{
     "filename": "imports.0.wasm",
-    "commands": []
+    "commands": [{"type": "register", "name": "test", "file": "testsuite/imports.wast", "line": 18}]
   }, {
     "filename": "imports.1.wasm",
     "commands": [{
@@ -9,11 +9,6 @@
       "name": "$assert_return_0",
       "file": "imports.wast",
       "line": 61
-    }, {
-      "type": "assert_return",
-      "name": "$assert_return_1",
-      "file": "imports.wast",
-      "line": 62
     }]
   }, {
     "filename": "imports.2.wasm",

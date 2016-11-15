@@ -560,7 +560,7 @@ namespace Js
         }
         else if (jsArraySource)
         {
-            newArray->SetObject(jsArraySource, newArray->GetLength(), offset);
+            newArray->SetObjectNoDetachCheck(jsArraySource, newArray->GetLength(), offset);
             OUTPUT_TRACE(TypedArrayPhase, _u("Created a TypedArray from a JavaScript array source\n"));
         }
 
@@ -948,7 +948,7 @@ namespace Js
             {
                 for (uint32 i = 0; i < sourceLength; i++)
                 {
-                    DirectSetItem(offset + i, source->DirectGetItem(i));
+                    DirectSetItemNoDetachCheck(offset + i, source->DirectGetItemNoDetachCheck(i));
                 }
             }
             else
@@ -965,6 +965,48 @@ namespace Js
                     DirectSetItem(offset + i, tmpArray->DirectGetItem(i));
                 }
             }
+            if (source->IsDetachedBuffer() || this->IsDetachedBuffer())
+            {
+                Throw::FatalInternalError();
+            }
+        }
+    }
+
+    uint32 TypedArrayBase::GetSourceLength(RecyclableObject* arraySource, uint32 targetLength, uint32 offset)
+    {
+        ScriptContext* scriptContext = GetScriptContext();
+        uint32 sourceLength = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetProperty(arraySource, PropertyIds::length, scriptContext), scriptContext);
+        uint32 totalLength;
+        if (UInt32Math::Add(offset, sourceLength, &totalLength) ||
+            (totalLength > targetLength))
+        {
+            JavascriptError::ThrowRangeError(
+                scriptContext, JSERR_InvalidTypedArrayLength);
+        }
+        return sourceLength;
+    }
+
+    void TypedArrayBase::SetObjectNoDetachCheck(RecyclableObject* source, uint32 targetLength, uint32 offset)
+    {
+        ScriptContext* scriptContext = GetScriptContext();
+        uint32 sourceLength = GetSourceLength(source, targetLength, offset);
+        Assert(!this->IsDetachedBuffer());
+
+        Var itemValue;
+        Var undefinedValue = scriptContext->GetLibrary()->GetUndefined();
+        for (uint32 i = 0; i < sourceLength; i++)
+        {
+            if (!source->GetItem(source, i, &itemValue, scriptContext))
+            {
+                itemValue = undefinedValue;
+            }
+            DirectSetItemNoDetachCheck(offset + i, itemValue);
+        }
+
+        if (this->IsDetachedBuffer())
+        {
+            // We cannot be detached when we are creating the typed array itself. Terminate if that happens.
+            Throw::FatalInternalError();
         }
     }
 
@@ -973,14 +1015,8 @@ namespace Js
     void TypedArrayBase::SetObject(RecyclableObject* source, uint32 targetLength, uint32 offset)
     {
         ScriptContext* scriptContext = GetScriptContext();
-        uint32 sourceLength = JavascriptConversion::ToUInt32(JavascriptOperators::OP_GetProperty(source, PropertyIds::length, scriptContext), scriptContext);
-        uint32 totalLength;
-        if (UInt32Math::Add(offset, sourceLength, &totalLength) ||
-            (totalLength > targetLength))
-        {
-            JavascriptError::ThrowRangeError(
-                GetScriptContext(), JSERR_InvalidTypedArrayLength);
-        }
+        uint32 sourceLength = GetSourceLength(source, targetLength, offset);
+
         Var itemValue;
         Var undefinedValue = scriptContext->GetLibrary()->GetUndefined();
         for (uint32 i = 0; i < sourceLength; i ++)
@@ -1375,7 +1411,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TASubArrayCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_subarray);
 
         if (args.Info.Count == 0 || !TypedArrayBase::Is(args[0]))
         {
@@ -1457,7 +1493,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].from"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAFromCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_from);
 
         if (args.Info.Count < 1 || !JavascriptOperators::IsConstructor(args[0]))
         {
@@ -1654,7 +1690,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAOfCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_of);
 
         if (args.Info.Count < 1)
         {
@@ -1672,7 +1708,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TACopyWithinCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_copyWithin);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.copyWithin"));
         uint32 length = typedArrayBase->GetLength();
@@ -1694,7 +1730,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAEntriesCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_entries);
 
         return GetKeysEntriesValuesHelper(args, scriptContext, _u("[TypedArray].prototype.entries"), JavascriptArrayIteratorKind::KeyAndValue);
     }
@@ -1708,7 +1744,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.every"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAEveryCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_every);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.every"));
         return JavascriptArray::EveryHelper(nullptr, typedArrayBase, typedArrayBase, typedArrayBase->GetLength(), args, scriptContext);
@@ -1722,7 +1758,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAFillCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_fill);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.fill"));
         return JavascriptArray::FillHelper(nullptr, typedArrayBase, typedArrayBase, typedArrayBase->GetLength(), args, scriptContext);
@@ -1738,7 +1774,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.filter"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAFilterCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_filter);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.filter"));
         uint32 length = typedArrayBase->GetLength();
@@ -1834,7 +1870,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.find"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAFindCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_find);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.find"));
 
@@ -1850,7 +1886,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.findIndex"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAFindIndexCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_findIndex);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.findIndex"));
 
@@ -1867,7 +1903,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.forEach"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAForEachCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_forEach);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.forEach"));
         uint32 length = typedArrayBase->GetLength();
@@ -1913,7 +1949,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAIndexOfCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_indexOf);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.indexOf"));
         uint32 length = typedArrayBase->GetLength();
@@ -1936,7 +1972,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAIncludesCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_includes);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.includes"));
         uint32 length = typedArrayBase->GetLength();
@@ -1960,7 +1996,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAJoinCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_join);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.join"));
         uint32 length = typedArrayBase->GetLength();
@@ -2024,7 +2060,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAKeysCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_keys);
 
         return GetKeysEntriesValuesHelper(args, scriptContext, _u("[TypedArray].prototype.keys"), JavascriptArrayIteratorKind::Key);
     }
@@ -2037,7 +2073,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TALastIndexOfCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_lastIndexOf);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.lastIndexOf"));
         uint32 length = typedArrayBase->GetLength();
@@ -2061,7 +2097,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.map"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAMapCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_map);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.map"));
 
@@ -2077,7 +2113,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.reduce"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAReduceCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_reduce);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.reduce"));
         return JavascriptArray::ReduceHelper(nullptr, typedArrayBase, typedArrayBase, typedArrayBase->GetLength(), args, scriptContext);
@@ -2092,7 +2128,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.reduceRight"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAReduceRightCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_reduceRight);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.reduceRight"));
         return JavascriptArray::ReduceRightHelper(nullptr, typedArrayBase, typedArrayBase, typedArrayBase->GetLength(), args, scriptContext);
@@ -2106,7 +2142,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAReverseCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_reverse);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.reverse"));
         return JavascriptArray::ReverseHelper(nullptr, typedArrayBase, typedArrayBase, typedArrayBase->GetLength(), scriptContext);
@@ -2134,7 +2170,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.some"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TASomeCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_some);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.some"));
 
@@ -2237,7 +2273,7 @@ namespace Js
         AUTO_TAG_NATIVE_LIBRARY_ENTRY(function, callInfo, _u("[TypedArray].prototype.sort"));
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TASortCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_sort);
 
         TypedArrayBase* typedArrayBase = ValidateTypedArray(args, scriptContext, _u("[TypedArray].prototype.sort"));
         uint32 length = typedArrayBase->GetLength();
@@ -2285,7 +2321,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         Assert(!(callInfo.Flags & CallFlags_New));
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TAValuesCount);
+        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(TypedArray_Prototype_values);
 
         return GetKeysEntriesValuesHelper(args, scriptContext, _u("[TypedArray].prototype.values"), JavascriptArrayIteratorKind::Value);
     }
@@ -2667,6 +2703,70 @@ namespace Js
     {
         return BaseTypedDirectGetItem(index);
     }
+
+#define DIRECT_SET_NO_DETACH_CHECK(TypedArrayName, convertFn) \
+    template<> \
+    inline BOOL TypedArrayName##::DirectSetItemNoDetachCheck(__in uint32 index, __in Var value) \
+    { \
+        return BaseTypedDirectSetItemNoDetachCheck(index, value, convertFn); \
+    }
+
+    DIRECT_SET_NO_DETACH_CHECK(Int8Array, JavascriptConversion::ToInt8);
+    DIRECT_SET_NO_DETACH_CHECK(Int8VirtualArray, JavascriptConversion::ToInt8);
+    DIRECT_SET_NO_DETACH_CHECK(Uint8Array, JavascriptConversion::ToUInt8);
+    DIRECT_SET_NO_DETACH_CHECK(Uint8VirtualArray, JavascriptConversion::ToUInt8);
+    DIRECT_SET_NO_DETACH_CHECK(Int16Array, JavascriptConversion::ToInt16);
+    DIRECT_SET_NO_DETACH_CHECK(Int16VirtualArray, JavascriptConversion::ToInt16);
+    DIRECT_SET_NO_DETACH_CHECK(Uint16Array, JavascriptConversion::ToUInt16);
+    DIRECT_SET_NO_DETACH_CHECK(Uint16VirtualArray, JavascriptConversion::ToUInt16);
+    DIRECT_SET_NO_DETACH_CHECK(Int32Array, JavascriptConversion::ToInt32);
+    DIRECT_SET_NO_DETACH_CHECK(Int32VirtualArray, JavascriptConversion::ToInt32);
+    DIRECT_SET_NO_DETACH_CHECK(Uint32Array, JavascriptConversion::ToUInt32);
+    DIRECT_SET_NO_DETACH_CHECK(Uint32VirtualArray, JavascriptConversion::ToUInt32);
+    DIRECT_SET_NO_DETACH_CHECK(Float32Array, JavascriptConversion::ToFloat);
+    DIRECT_SET_NO_DETACH_CHECK(Float32VirtualArray, JavascriptConversion::ToFloat);
+    DIRECT_SET_NO_DETACH_CHECK(Float64Array, JavascriptConversion::ToNumber);
+    DIRECT_SET_NO_DETACH_CHECK(Float64VirtualArray, JavascriptConversion::ToNumber);
+    DIRECT_SET_NO_DETACH_CHECK(Int64Array, JavascriptConversion::ToInt64);
+    DIRECT_SET_NO_DETACH_CHECK(Uint64Array, JavascriptConversion::ToUInt64);
+    DIRECT_SET_NO_DETACH_CHECK(Uint8ClampedArray, JavascriptConversion::ToUInt8Clamped);
+    DIRECT_SET_NO_DETACH_CHECK(Uint8ClampedVirtualArray, JavascriptConversion::ToUInt8Clamped);
+    DIRECT_SET_NO_DETACH_CHECK(BoolArray, JavascriptConversion::ToBool);
+
+#define DIRECT_GET_NO_DETACH_CHECK(TypedArrayName) \
+    template<> \
+    inline Var TypedArrayName##::DirectGetItemNoDetachCheck(__in uint32 index) \
+    { \
+        return BaseTypedDirectGetItemNoDetachCheck(index); \
+    }
+
+#define DIRECT_GET_VAR_CHECK_NO_DETACH_CHECK(TypedArrayName) \
+    template<> \
+    inline Var TypedArrayName##::DirectGetItemNoDetachCheck(__in uint32 index) \
+    { \
+        return DirectGetItemVarCheckNoDetachCheck(index); \
+    }
+
+    DIRECT_GET_NO_DETACH_CHECK(Int8Array);
+    DIRECT_GET_NO_DETACH_CHECK(Int8VirtualArray);
+    DIRECT_GET_NO_DETACH_CHECK(Uint8Array);
+    DIRECT_GET_NO_DETACH_CHECK(Uint8VirtualArray);
+    DIRECT_GET_NO_DETACH_CHECK(Int16Array);
+    DIRECT_GET_NO_DETACH_CHECK(Int16VirtualArray);
+    DIRECT_GET_NO_DETACH_CHECK(Uint16Array);
+    DIRECT_GET_NO_DETACH_CHECK(Uint16VirtualArray);
+    DIRECT_GET_NO_DETACH_CHECK(Int32Array);
+    DIRECT_GET_NO_DETACH_CHECK(Int32VirtualArray);
+    DIRECT_GET_NO_DETACH_CHECK(Uint32Array);
+    DIRECT_GET_NO_DETACH_CHECK(Uint32VirtualArray);
+    DIRECT_GET_NO_DETACH_CHECK(Int64Array);
+    DIRECT_GET_NO_DETACH_CHECK(Uint64Array);
+    DIRECT_GET_NO_DETACH_CHECK(Uint8ClampedArray);
+    DIRECT_GET_NO_DETACH_CHECK(Uint8ClampedVirtualArray);
+    DIRECT_GET_VAR_CHECK_NO_DETACH_CHECK(Float32Array);
+    DIRECT_GET_VAR_CHECK_NO_DETACH_CHECK(Float32VirtualArray);
+    DIRECT_GET_VAR_CHECK_NO_DETACH_CHECK(Float64Array);
+    DIRECT_GET_VAR_CHECK_NO_DETACH_CHECK(Float64VirtualArray);
 
 #define TypedArrayBeginStub(type) \
         Assert(GetArrayBuffer() || GetArrayBuffer()->GetBuffer()); \
@@ -3196,6 +3296,14 @@ namespace Js
         return GetLibrary()->GetUndefined();
     }
 
+    template<>
+    inline Var BoolArray::DirectGetItemNoDetachCheck(__in uint32 index)
+    {
+        Assert((index + 1)* sizeof(bool) + GetByteOffset() <= GetArrayBuffer()->GetByteLength());
+        bool* typedBuffer = (bool*)buffer;
+        return typedBuffer[index] ? GetLibrary()->GetTrue() : GetLibrary()->GetFalse();
+    }
+
     Var CharArray::Create(ArrayBufferBase* arrayBuffer, uint32 byteOffSet, uint32 mappedLength, JavascriptLibrary* javascriptLibrary)
     {
         CharArray* arr;
@@ -3283,6 +3391,16 @@ namespace Js
         }
 
         return FALSE;
+    }
+
+    inline BOOL CharArray::DirectSetItemNoDetachCheck(__in uint32 index, __in Js::Var value)
+    {
+        return DirectSetItem(index, value);
+    }
+
+    inline Var CharArray::DirectGetItemNoDetachCheck(__in uint32 index)
+    {
+        return DirectGetItem(index);
     }
 
     Var CharArray::TypedAdd(__in uint32 index, Var second)

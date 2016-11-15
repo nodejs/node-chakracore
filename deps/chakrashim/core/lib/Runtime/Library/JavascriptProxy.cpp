@@ -39,7 +39,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
-        CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(ProxyCount);
+        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_Proxy);
 
         if (!(args.Info.Flags & CallFlags_New))
         {
@@ -1939,7 +1939,7 @@ namespace Js
         Var functionResult;
         if (spreadIndices != nullptr)
         {
-            functionResult = JavascriptFunction::CallSpreadFunction(this, this->GetEntryPoint(), args, spreadIndices);
+            functionResult = JavascriptFunction::CallSpreadFunction(this, args, spreadIndices);
         }
         else
         {

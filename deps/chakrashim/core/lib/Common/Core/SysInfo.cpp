@@ -184,6 +184,12 @@ AutoSystemInfo::IsJscriptModulePointer(void * ptr)
 {
     return ((UINT_PTR)ptr >= Data.dllLoadAddress && (UINT_PTR)ptr < Data.dllHighAddress);
 }
+
+UINT_PTR
+AutoSystemInfo::GetChakraBaseAddr() const
+{
+    return dllLoadAddress;
+}
 #endif
 
 uint
