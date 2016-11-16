@@ -991,6 +991,10 @@ class V8_EXPORT Value : public Data {
   bool IsFloat32Array() const;
   bool IsFloat64Array() const;
   bool IsDataView() const;
+  bool IsSharedArrayBuffer() const {
+    // CHAKRA-TODO Not implemented
+    return false;
+  }
   bool IsMapIterator() const;
   bool IsSetIterator() const;
   bool IsMap() const;
