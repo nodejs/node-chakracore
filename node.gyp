@@ -260,8 +260,8 @@
         }],
         [ 'node_use_bundled_v8=="true"', {
           'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+            'deps/v8/src/v8.gyp:v8',
+            'deps/v8/src/v8.gyp:v8_libplatform'
           ],
         }],
         [ 'node_use_v8_platform=="true"', {
@@ -324,6 +324,7 @@
           'dependencies': [
             'deps/v8_inspector/third_party/v8_inspector/platform/'
                 'v8_inspector/v8_inspector.gyp:v8_inspector_stl',
+            'v8_inspector_compress_protocol_json#host',
           ],
           'include_dirs': [
             'deps/v8_inspector/third_party/v8_inspector',
@@ -464,7 +465,7 @@
           'defines': [ 'NODE_NO_BROWSER_GLOBALS' ],
         } ],
         [ 'node_use_bundled_v8=="true" and v8_postmortem_support=="true"', {
-          'dependencies': [ 'deps/v8/tools/gyp/v8.gyp:postmortem-metadata' ],
+          'dependencies': [ 'deps/v8/src/v8.gyp:postmortem-metadata' ],
           'conditions': [
             # -force_load is not applicable for the static library
             [ 'node_target_type!="static_library"', {
@@ -570,10 +571,10 @@
           'conditions': [
             [ 'node_engine=="v8"', {
               'ldflags': [
-                '-Wl,--whole-archive <(V8_BASE)',
+                       '-Wl,--whole-archive <(V8_BASE)',
                 '-Wl,--no-whole-archive',
               ],
-            }],
+        }],
           ],
         }],
         [ 'OS=="sunos"', {
@@ -674,6 +675,34 @@
           ],
         } ]
       ]
+    },
+    {
+      'target_name': 'v8_inspector_compress_protocol_json',
+      'type': 'none',
+      'toolsets': ['host'],
+      'conditions': [
+        [ 'v8_inspector=="true"', {
+          'actions': [
+            {
+              'action_name': 'v8_inspector_compress_protocol_json',
+              'process_outputs_as_sources': 1,
+              'inputs': [
+                'deps/v8_inspector/third_party/'
+                    'v8_inspector/platform/v8_inspector/js_protocol.json',
+              ],
+              'outputs': [
+                '<(SHARED_INTERMEDIATE_DIR)/v8_inspector_protocol_json.h',
+              ],
+              'action': [
+                'python',
+                'tools/compress_json.py',
+                '<@(_inputs)',
+                '<@(_outputs)',
+              ],
+            },
+          ],
+        }],
+      ],
     },
     {
       'target_name': 'node_js2c',
@@ -856,17 +885,17 @@
       'conditions': [
         [ 'node_engine=="v8"', {
           'include_dirs': [
-            'deps/v8/include'
-          ],
+        'deps/v8/include'
+      ],
           'dependencies': [
             'deps/v8/tools/gyp/v8.gyp:v8',
             'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
-          ],
+      ],
           'conditions' : [
-              ['v8_inspector=="true"', {
-                'sources': [
-                    'src/inspector_socket.cc',
-                    'test/cctest/test_inspector_socket.cc'
+        ['v8_inspector=="true"', {
+          'sources': [
+            'src/inspector_socket.cc',
+            'test/cctest/test_inspector_socket.cc'
           ],
           'conditions': [
             [ 'node_shared_openssl=="false"', {
@@ -884,20 +913,20 @@
                 'deps/uv/uv.gyp:libuv'
               ]
             }]
-                ]
-              }],
-              ['node_use_v8_platform=="true"', {
-                 'dependencies': [
-                    'deps/v8/tools/gyp/v8.gyp:v8_libplatform',
-                ],
-              }],
-              ['node_use_bundled_v8=="true"', {
-                'dependencies': [
-                    'deps/v8/tools/gyp/v8.gyp:v8',
-                    'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
-                ],
-              }],
           ]
+        }],
+              ['node_use_v8_platform=="true"', {
+          'dependencies': [
+            'deps/v8/src/v8.gyp:v8_libplatform',
+          ],
+        }],
+              ['node_use_bundled_v8=="true"', {
+          'dependencies': [
+            'deps/v8/src/v8.gyp:v8',
+            'deps/v8/src/v8.gyp:v8_libplatform'
+          ],
+        }],
+      ]
         }],
         ['node_engine=="chakracore"', {
           'dependencies': [

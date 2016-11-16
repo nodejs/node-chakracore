@@ -12,5 +12,5 @@ try {
     /test[\/\\]fixtures[\/\\]invalid.json: JSON.parse Error: Expected '}'/
   });
   var i = err.message.match(re);
-  assert(null !== i, 'require() json error should include path');
+  assert.notStrictEqual(null, i, 'require() json error should include path');
 }

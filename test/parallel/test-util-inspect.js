@@ -12,8 +12,10 @@ assert.strictEqual(util.inspect(function() {}), '[Function]');
 assert.strictEqual(util.inspect(undefined), 'undefined');
 assert.strictEqual(util.inspect(null), 'null');
 assert.strictEqual(util.inspect(/foo(bar\n)?/gi), '/foo(bar\\n)?/gi');
-assert.strictEqual(util.inspect(new Date('Sun, 14 Feb 2010 11:48:40 GMT')),
-  new Date('2010-02-14T12:48:40+01:00').toISOString());
+assert.strictEqual(
+  util.inspect(new Date('Sun, 14 Feb 2010 11:48:40 GMT')),
+  new Date('2010-02-14T12:48:40+01:00').toISOString()
+);
 assert.strictEqual(util.inspect(new Date('')), (new Date('')).toString());
 
 assert.strictEqual(util.inspect('\n\u0001'), "'\\n\\u0001'");
@@ -46,6 +48,12 @@ assert.strictEqual(util.inspect(Object.create({},
   {visible: {value: 1, enumerable: true}, hidden: {value: 2}})),
   '{ visible: 1 }'
 );
+
+{
+  const regexp = /regexp/;
+  regexp.aprop = 42;
+  assert.strictEqual(util.inspect({a: regexp}, false, 0), '{ a: /regexp/ }');
+}
 
 assert(/Object/.test(
   util.inspect({a: {a: {a: {a: {}}}}}, undefined, undefined, true)
@@ -136,7 +144,8 @@ for (const showHidden of [true, false]) {
     const array = new constructor(new ArrayBuffer(byteLength), 0, length);
     array[0] = 65;
     array[1] = 97;
-    assert.strictEqual(util.inspect(array, true),
+    assert.strictEqual(
+      util.inspect(array, true),
                  `${constructor.name} [\n` +
                  `  65,\n` +
                  `  97,\n` +
@@ -171,7 +180,8 @@ for (const showHidden of [true, false]) {
                                      });
     array[0] = 65;
     array[1] = 97;
-    assert.strictEqual(util.inspect(array, true),
+    assert.strictEqual(
+      util.inspect(array, true),
                  `${constructor.name} [\n` +
                  `  65,\n` +
                  `  97,\n` +
@@ -252,6 +262,11 @@ assert.strictEqual(util.inspect(value), common.engineSpecificMessage({
   chakracore: '{ [Function: value] aprop: 42 }'
 }));
 
+// Anonymous function with properties
+value = (() => function() {})();
+value.aprop = 42;
+assert.strictEqual(util.inspect(value), '{ [Function] aprop: 42 }');
+
 // Regular expressions with properties
 value = /123/ig;
 value.aprop = 42;
@@ -288,20 +303,20 @@ assert.strictEqual(util.inspect(new Array(5)), '[ , , , ,  ]');
 
 // Skip for chakra engine as debugger support not yet present
 if (!common.isChakraEngine) {
-    // test for Array constructor in different context
-  {
-    const Debug = require('vm').runInDebugContext('Debug');
-    const map = new Map();
-    map.set(1, 2);
-    const mirror = Debug.MakeMirror(map.entries(), true);
-    const vals = mirror.preview();
-    const valsOutput = [];
-    for (const o of vals) {
-      valsOutput.push(o);
-    }
-
-    assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
+// test for Array constructor in different context
+{
+  const Debug = require('vm').runInDebugContext('Debug');
+  const map = new Map();
+  map.set(1, 2);
+  const mirror = Debug.MakeMirror(map.entries(), true);
+  const vals = mirror.preview();
+  const valsOutput = [];
+  for (const o of vals) {
+    valsOutput.push(o);
   }
+
+  assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
+}
 }
 
 // test for other constructors in different context
@@ -729,26 +744,26 @@ global.Promise = oldPromise;
 // Skip for chakra engine as debugger support not yet present
 // below code uses `Debug.MakeMirror` to inspect
 if (!common.isChakraEngine) {
-  // Map/Set Iterators
-  var m = new Map([['foo', 'bar']]);
-  assert.strictEqual(util.inspect(m.keys()), 'MapIterator { \'foo\' }');
-  assert.strictEqual(util.inspect(m.values()), 'MapIterator { \'bar\' }');
-  assert.strictEqual(util.inspect(m.entries()),
-                      'MapIterator { [ \'foo\', \'bar\' ] }');
-  // make sure the iterator doesn't get consumed
-  var keys = m.keys();
-  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+// Map/Set Iterators
+var m = new Map([['foo', 'bar']]);
+assert.strictEqual(util.inspect(m.keys()), 'MapIterator { \'foo\' }');
+assert.strictEqual(util.inspect(m.values()), 'MapIterator { \'bar\' }');
+assert.strictEqual(util.inspect(m.entries()),
+                   'MapIterator { [ \'foo\', \'bar\' ] }');
+// make sure the iterator doesn't get consumed
+var keys = m.keys();
+assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
 
-  var s = new Set([1, 3]);
-  assert.strictEqual(util.inspect(s.keys()), 'SetIterator { 1, 3 }');
-  assert.strictEqual(util.inspect(s.values()), 'SetIterator { 1, 3 }');
-  assert.strictEqual(util.inspect(s.entries()),
-                      'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
-  // make sure the iterator doesn't get consumed
-  keys = s.keys();
-  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
-  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+var s = new Set([1, 3]);
+assert.strictEqual(util.inspect(s.keys()), 'SetIterator { 1, 3 }');
+assert.strictEqual(util.inspect(s.values()), 'SetIterator { 1, 3 }');
+assert.strictEqual(util.inspect(s.entries()),
+                   'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
+// make sure the iterator doesn't get consumed
+keys = s.keys();
+assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
 }
 
 // Test alignment of items in container
@@ -827,7 +842,7 @@ checkAlignment(new Map(big_array.map(function(y) { return [y, null]; })));
 }
 
 {
-  const x = new function() {};
+  const x = new function() {}; // eslint-disable-line new-parens
   assert.strictEqual(util.inspect(x), '{}');
 }
 
@@ -936,4 +951,12 @@ checkAlignment(new Map(big_array.map(function(y) { return [y, null]; })));
     JSON.stringify(util.inspect.defaultOptions),
     JSON.stringify(oldOptions)
   );
+
+  assert.throws(() => {
+    util.inspect.defaultOptions = null;
+  }, /"options" must be an object/);
+
+  assert.throws(() => {
+    util.inspect.defaultOptions = 'bad';
+  }, /"options" must be an object/);
 }

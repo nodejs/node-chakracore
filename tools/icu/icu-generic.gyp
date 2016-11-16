@@ -42,7 +42,6 @@
           }],
         ],
         'defines': [
-          'UCONFIG_NO_TRANSLITERATION=1',
           'UCONFIG_NO_SERVICE=1',
           'UCONFIG_NO_REGULAR_EXPRESSIONS=1',
           'U_ENABLE_DYLOAD=0',
@@ -68,6 +67,7 @@
           [ 'os_posix == 1 and OS != "mac" and OS != "ios"', {
             'cflags': [ '-Wno-deprecated-declarations' ],
             'cflags_cc': [ '-frtti' ],
+            'cflags_cc!': [ '-fno-rtti' ],
           }],
           [ 'OS == "mac" or OS == "ios"', {
             'xcode_settings': {'GCC_ENABLE_CPP_RTTI': 'YES' },

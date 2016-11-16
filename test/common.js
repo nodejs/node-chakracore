@@ -16,6 +16,7 @@ exports.testDir = __dirname;
 exports.fixturesDir = path.join(exports.testDir, 'fixtures');
 exports.libDir = path.join(exports.testDir, '../lib');
 exports.tmpDirName = 'tmp';
+// PORT should match the definition in test/testpy/__init__.py.
 exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
 exports.isWindows = process.platform === 'win32';
 exports.isChakraEngine = process.jsEngine === 'chakracore';
@@ -31,6 +32,10 @@ exports.isLinux = process.platform === 'linux';
 exports.isOSX = process.platform === 'darwin';
 
 exports.enoughTestMem = os.totalmem() > 0x40000000; /* 1 Gb */
+
+const cpus = os.cpus();
+exports.enoughTestCpu = cpus.length > 1 || cpus[0].speed > 999;
+
 exports.rootDir = exports.isWindows ? 'c:\\' : '/';
 
 function rimrafSync(p) {
@@ -242,7 +247,7 @@ exports.spawnPwd = function(options) {
   var spawn = require('child_process').spawn;
 
   if (exports.isWindows) {
-    return spawn('cmd.exe', ['/c', 'cd'], options);
+    return spawn('cmd.exe', ['/d', '/c', 'cd'], options);
   } else {
     return spawn('pwd', [], options);
   }
@@ -253,7 +258,7 @@ exports.spawnSyncPwd = function(options) {
   const spawnSync = require('child_process').spawnSync;
 
   if (exports.isWindows) {
-    return spawnSync('cmd.exe', ['/c', 'cd'], options);
+    return spawnSync('cmd.exe', ['/d', '/c', 'cd'], options);
   } else {
     return spawnSync('pwd', [], options);
   }
@@ -512,4 +517,17 @@ exports.isAlive = function isAlive(pid) {
   } catch (e) {
     return false;
   }
+};
+
+exports.expectWarning = function(name, expected) {
+  if (typeof expected === 'string')
+    expected = [expected];
+  process.on('warning', exports.mustCall((warning) => {
+    assert.strictEqual(warning.name, name);
+    assert.ok(expected.includes(warning.message),
+              `unexpected error message: "${warning.message}"`);
+    // Remove a warning message after it is seen so that we guarantee that we
+    // get each message only once.
+    expected.splice(expected.indexOf(warning.message), 1);
+  }, expected.length));
 };

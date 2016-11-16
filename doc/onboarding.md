@@ -3,6 +3,14 @@
 This document is an outline of the things we tell new Collaborators at their
 onboarding session.
 
+## One week before the onboarding session
+
+* Ask the new Collaborator if they are using two-factor authentication on their
+  GitHub account. If they are not, suggest that they enable it as their account
+  will have elevated privileges in many of the Node.js repositories.
+
+## Fifteen minutes before the onboarding session
+
 * Prior to the onboarding session, add the new Collaborators to
 [the Collaborators team](https://github.com/orgs/nodejs/teams/collaborators).
 
@@ -115,6 +123,10 @@ onboarding session.
       * The `CERTIFY_SAFE` box should be checked. By checking it, you are indicating that you have reviewed the code you are about to test and you are confident that it does not contain any malicious code. (We don't want people hijacking our CI hosts to attack other hosts on the internet, for example!)
       * The `PR_ID` box should be filled in with the number identifying the pull request containing the code you wish to test. For example, if the URL for the pull request is `https://github.com/nodejs/node/issues/7006`, then put `7006` in the `PR_ID`.
       * The remaining elements on the form are typically unchanged with the exception of `POST_STATUS_TO_PR`. Check that if you want a CI status indicator to be automatically inserted into the PR.
+    * If you need help with something CI-related:
+      * Use #node-dev (IRC) to talk to other Collaborators.
+      * Use #node-build (IRC) to talk to the Build WG members who maintain the CI infrastructure.
+      * Use the [Build WG repo](https://github.com/nodejs/build) to file issues for the Build WG members who maintain the CI infrastructure.
 
 
 ## Landing PRs: Overview
@@ -161,33 +173,39 @@ Update your `master` branch (or whichever branch you are landing on, almost alwa
 
 Landing a PR
 
-* if it all looks good, `curl -L 'url-of-pr.patch' | git am`
+* If it all looks good, `curl -L 'url-of-pr.patch' | git am`
   * If `git am` fails, see [the relevant section of the Onboarding Extras doc](./onboarding-extras.md#if-git-am-fails).
 * `git rebase -i upstream/master`
-* squash into logical commits if necessary
+* Squash into logical commits if necessary.
 * `./configure && make -j8 test` (`-j8` builds node in parallel with 8 threads. adjust to the number of cores (or processor-level threads) your processor has (or slightly more) for best results.)
-* Amend the commit description
-  * commits should follow `subsystem[,subsystem]: small description\n\nbig description\n\n<metadata>`
-  * first line 50 columns, all others 72
-  * add metadata:
-    * `Fixes: <full-issue-url>`
-    * `Reviewed-By: human <email>`
-      * Easiest to use `git log` then do a search
-      * (`/Name` + `enter` (+ `n` as much as you need to) in vim)
-      * Only include collaborators who have commented `LGTM`
+* Amend the commit description.
+  * The commit message text must conform to the [commit message guidelines](../CONTRIBUTING.md#step-3-commit).
+  * Add required metadata:
     * `PR-URL: <full-pr-url>`
+    * `Reviewed-By: <collaborator name> <collaborator email>`
+      * Easiest to use `git log`, then do a search.
+      * In vim: `/Name` + `enter` (+ `n` as much as you need to)
+      * Only include collaborators who have commented `LGTM`.
+  * Add additional metadata as appropriate:
+    * `Fixes: <full-issue-url>`
+      * Full URL of GitHub issue that the PR fixes.
+      * This will automatically close the PR when the commit lands in master.
+    * `Refs: <full-url>`
+      * Full URL of material that might provide additional useful information or context to someone trying to understand the change set or the thinking behind it.
+* Optional: Force push the amended commit to the branch you used to open the pull request. If your branch is called `bugfix`, then the command would be `git push --force-with-lease origin master:bugfix`. When the pull request is closed, this will cause the pull request to show the purple merged status rather than the red closed status that is usually used for pull requests that weren't merged. Only do this when landing your own contributions.
 * `git push upstream master`
-    * close the original PR with "Landed in `<commit hash>`".
+    * Close the pull request with a "Landed in `<commit hash>`" comment.
 
 
-## exercise: make PRs adding yourselves to the README
+## Exercise: Make a PR adding yourself to the README
 
   * Example: https://github.com/nodejs/node/commit/7b09aade8468e1c930f36b9c81e6ac2ed5bc8732
-    * to see full URL: `git log 7b09aade8468e1c930f36b9c81e6ac2ed5bc8732 -1`
-  * Collaborators in alphabetical order by username
-  * Label your pull request with the `doc` subsystem label
-  * If you would like to run CI on your PR, feel free to
-  * Make sure to added the `PR-URL: <full-pr-url>`!
+    * For raw commit message: `git log 7b09aade8468e1c930f36b9c81e6ac2ed5bc8732 -1`
+  * Collaborators are in alphabetical order by GitHub username.
+  * Label your pull request with the `doc` subsystem label.
+  * Run CI on your PR.
+  * After a `LGTM` or two, land the PR.
+    * Be sure to add the `PR-URL: <full-pr-url>` and appropriate `Reviewed-By:` metadata!
 
 
 ## final notes
