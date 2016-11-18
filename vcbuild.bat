@@ -241,6 +241,21 @@ if not defined noperfctr (
     if errorlevel 1 echo Cannot copy node_perfctr_provider.man && goto package_error
 )
 
+:: ChakraCore SDK for native modules
+robocopy ..\ node-v%FULLVERSION%-win-%target_arch%\sdk\ *.h *.inc common.gypi /XD debug release build icu core test genfiles /S > nul
+if errorlevel 8 echo Cannot copy SDK contents && goto package_error
+mkdir node-v%FULLVERSION%-win-%target_arch%\sdk\%config% > nul 2> nul
+copy /Y node.lib node-v%FULLVERSION%-win-%target_arch%\sdk\%config%\ > nul
+if errorlevel 1 echo Cannot copy node.lib && goto package_error
+copy /Y chakracore.lib node-v%FULLVERSION%-win-%target_arch%\sdk\%config%\ > nul
+if errorlevel 1 echo Cannot copy chakracore.lib && goto package_error
+set "pkgnpmsh=node-v%FULLVERSION%-win-%target_arch%/npm"
+node.exe -e "var data=fs.readFileSync('%pkgnpmsh%', 'utf8').split('\n');data.splice(-2, 0, 'export NPM_CONFIG_NODEDIR=\"$basedir/sdk\"');fs.writeFileSync('%pkgnpmsh%', data.join('\n'))"
+if errorlevel 1 echo Cannot change %pkgnpmsh% && goto package_error
+set "pkgnpmcmd=node-v%FULLVERSION%-win-%target_arch%/npm.cmd"
+node.exe -e "var data=fs.readFileSync('%pkgnpmcmd%', 'utf8').split('\n');data.splice(-2, 0, 'SET \"NPM_CONFIG_NODEDIR=%%~dp0\\sdk\"');fs.writeFileSync('%pkgnpmcmd%', data.join('\n'))"
+if errorlevel 1 echo Cannot change %pkgnpmcmd% && goto package_error
+
 echo Creating node-v%FULLVERSION%-win-%target_arch%.7z
 del node-v%FULLVERSION%-win-%target_arch%.7z > nul 2> nul
 7z a -r -mx9 -t7z node-v%FULLVERSION%-win-%target_arch%.7z node-v%FULLVERSION%-win-%target_arch% > nul
