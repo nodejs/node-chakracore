@@ -23,6 +23,11 @@
 #include <algorithm>
 #include <memory>
 
+namespace v8 {
+  extern bool g_trace_debug_json;
+  extern __declspec(thread) JsSourceContext currentContext;
+}
+
 namespace jsrt {
 
 using jsrt::chakra_shim_native;
@@ -429,7 +434,7 @@ bool ContextShim::ExecuteChakraShimJS() {
 
   JsValueRef getInitFunction;
   if (JsParseScriptUtf8(buffer,
-                    JS_SOURCE_CONTEXT_NONE,
+                    v8::currentContext++,
                     "chakra_shim.js",
                     &getInitFunction) != JsNoError) {
     return false;
@@ -442,6 +447,46 @@ bool ContextShim::ExecuteChakraShimJS() {
   JsValueRef arguments[] = { this->globalObject, this->keepAliveObject };
   return JsCallFunction(initFunction, arguments, _countof(arguments),
                         &result) == JsNoError;
+}
+
+bool ContextShim::ExecuteChakraDebugShimJS(JsValueRef * chakraDebugObject) {
+  wchar_t buffer[_countof(chakra_debug_native) + 1];
+
+  if (StringConvert::CopyRaw<unsigned char, wchar_t>(chakra_debug_native,
+    _countof(chakra_debug_native),
+    buffer,
+    _countof(chakra_debug_native)) != JsNoError) {
+    return false;
+  }
+
+  // Ensure the buffer is null terminated
+  buffer[_countof(chakra_debug_native)] = L'\0';
+
+  JsValueRef getInitFunction;
+  if (JsParseScriptWithAttributes(buffer,
+    v8::currentContext++,
+    L"chakra_debug.js",
+    JsParseScriptAttributeNone,
+    &getInitFunction) != JsNoError) {
+    return false;
+  }
+
+  JsValueRef initFunction;
+  if (CallFunction(getInitFunction, &initFunction) != JsNoError) {
+    return false;
+  }
+
+  JsValueRef traceDebugJsonRef;
+  JsBoolToBoolean(v8::g_trace_debug_json, &traceDebugJsonRef);
+
+  JsValueRef arguments[] = { this->globalObject, this->globalObject,
+      this->keepAliveObject, traceDebugJsonRef };
+  JsErrorCode errorCode = JsCallFunction(initFunction, arguments,
+      _countof(arguments), chakraDebugObject);
+
+  CHAKRA_VERIFY_NOERROR(errorCode);
+
+  return true;
 }
 
 void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {

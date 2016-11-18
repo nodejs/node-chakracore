@@ -34,7 +34,7 @@ bool g_disposed = false;
 bool g_exposeGC = false;
 bool g_useStrict = false;
 bool g_disableIdleGc = false;
-ArrayBuffer::Allocator* g_arrayBufferAllocator = nullptr;
+bool g_trace_debug_json = false;
 
 const char *V8::GetVersion() {
   static char versionStr[32] = {};
@@ -118,11 +118,18 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
       if (remove_flags) {
         argv[i] = nullptr;
       }
+    } else if (equals("--trace-debug-json", arg) ||
+      equals("--trace_debug_json", arg)) {
+      g_trace_debug_json = true;
+      if (remove_flags) {
+        argv[i] = nullptr;
+      }
     } else if (remove_flags &&
                (startsWith(
                  arg, "--debug")  // Ignore some flags to reduce unit test noise
                 || startsWith(arg, "--harmony")
-                || startsWith(arg, "--stack-size="))) {
+                || startsWith(arg, "--stack-size=")
+                || startsWith(arg, "--nolazy"))) {
       argv[i] = nullptr;
     } else if (equals("--help", arg)) {
         printf(
@@ -151,21 +158,12 @@ bool V8::Initialize() {
   if (g_disposed) {
     return false;  // Can no longer Initialize if Disposed
   }
-#ifndef NODE_ENGINE_CHAKRACORE
-  if (g_EnableDebug && JsStartDebugging() != JsNoError) {
-    return false;
-  }
-#endif
+
   return true;
 }
 
 void V8::SetEntropySource(EntropySource entropy_source) {
   // CHAKRA-TODO
-}
-
-void V8::SetArrayBufferAllocator(ArrayBuffer::Allocator* allocator) {
-  CHAKRA_VERIFY(!g_arrayBufferAllocator);
-  g_arrayBufferAllocator = allocator;
 }
 
 bool V8::IsDead() {
@@ -175,7 +173,6 @@ bool V8::IsDead() {
 bool V8::Dispose() {
   g_disposed = true;
   jsrt::IsolateShim::DisposeAll();
-  Debug::Dispose();
   return true;
 }
 

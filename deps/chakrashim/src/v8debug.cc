@@ -18,80 +18,64 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "v8.h"
-#include "v8-debug.h"
 #include "jsrtutils.h"
+#include "jsrtdebug.h"
 
 namespace v8 {
 
-THREAD_LOCAL bool g_EnableDebug = false;
-static JsContextRef g_debugContext = JS_INVALID_REFERENCE;
+  __declspec(thread) bool g_EnableDebug = false;
 
-bool Debug::EnableAgent(const char *name, int port, bool wait_for_connection) {
-#ifdef _WIN32
-  HRESULT hr = S_OK;
-
-#ifndef NODE_ENGINE_CHAKRACORE
-  if (!g_EnableDebug) {
-    // JsStartDebugging needs COM initialization
-    IfComFailError(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
-
+  void Debug::EnableDebug() {
     g_EnableDebug = true;
-
-    Local<Context> currentContext = Context::GetCurrent();
-    if (!currentContext.IsEmpty()) {
-      // Turn on debug mode on current Context (script engine), which was
-      // created before start debugging and not in debug mode.
-      JsStartDebugging();
-    }
   }
 
-error:
-#else
-  hr = E_FAIL;  // ChakraCore does not support JsStartDebugging
-#endif
+  Local<Context> Debug::GetDebugContext(Isolate* isolate) {
+    jsrt::IsolateShim* isoShim = jsrt::IsolateShim::FromIsolate(isolate);
+    JsContextRef debugContextRef = JS_INVALID_REFERENCE;
+    if (isoShim->debugContext == JS_INVALID_REFERENCE) {
+      HandleScope scope(isolate);
+      debugContextRef = *Context::New(isolate);
+      isoShim->debugContext = isoShim->GetContextShim(
+        debugContextRef);
+      JsAddRef(debugContextRef, nullptr);
 
-  return SUCCEEDED(hr);
-#else
-  return false;  // CHAKRA-TODO: xplat debug?
-#endif
-}
+      Local<Object> global = Context::GetCurrent()->Global();
 
-bool Debug::IsAgentEnabled() {
-  return g_EnableDebug;
-}
-
-Local<Context> Debug::GetDebugContext(Isolate* isolate) {
-  if (g_debugContext == JS_INVALID_REFERENCE) {
-    HandleScope scope(isolate);
-    g_debugContext = *Context::New(isolate);
-    JsAddRef(g_debugContext, nullptr);
-
-    Local<Object> global = Context::GetCurrent()->Global();
-
-    // CHAKRA-TODO: Chakra doesn't fully implement the debugger without
-    // --debug flag. Add a dummy 'Debug' on global object if it doesn't
-    // already exist.
-    {
-      Context::Scope context_scope(g_debugContext);
-      jsrt::ContextShim* contextShim = jsrt::ContextShim::GetCurrent();
-      JsValueRef ensureDebug = contextShim->GetensureDebugFunction();
-      JsValueRef unused;
-      if (jsrt::CallFunction(ensureDebug, *global, &unused) != JsNoError) {
-        return Local<Context>();
+      // CHAKRA-TODO: Chakra doesn't fully implement the debugger without
+      // --debug flag. Add a dummy 'Debug' on global object if it doesn't
+      // already exist.
+      {
+        Context::Scope context_scope(debugContextRef);
+        jsrt::ContextShim* contextShim = jsrt::ContextShim::GetCurrent();
+        JsValueRef ensureDebug = contextShim->GetensureDebugFunction();
+        JsValueRef unused;
+        if (jsrt::CallFunction(ensureDebug, *global, &unused) != JsNoError) {
+          return Local<Context>();
+        }
       }
     }
+
+    return static_cast<Context*>(isoShim->debugContext->GetContextRef());
   }
 
-  return static_cast<Context*>(g_debugContext);
-}
+  void Debug::SendCommand(Isolate* isolate,
+    const uint16_t* command, int length,
+    ClientData* client_data) {
+    CHAKRA_ASSERT(client_data == NULL);
 
-void Debug::Dispose() {
-#ifdef _WIN32
-  if (g_EnableDebug) {
-    CoUninitialize();
+    // Save command in a queue and when JsDiagDebugEventHandler
+    // is called we need to process the queue
+    jsrt::Debugger::messageQueue.SaveMessage(command, length);
+
+    // Request async break from engine so that we can process
+    // commands on JsDiagDebugEventAsyncBreak
+    JsErrorCode errorCode = JsDiagRequestAsyncBreak(
+      jsrt::IsolateShim::FromIsolate(isolate)->GetRuntimeHandle());
+    CHAKRA_VERIFY_NOERROR(errorCode);
   }
-#endif
-}
+
+  void Debug::SetMessageHandler(Isolate* isolate, MessageHandler handler) {
+    jsrt::Debugger::handler = handler;
+  }
 
 }  // namespace v8

@@ -27,9 +27,6 @@ namespace v8 {
 using jsrt::ContextShim;
 class ObjectTemplateData;
 
-extern THREAD_LOCAL bool g_EnableDebug;
-extern ArrayBuffer::Allocator* g_arrayBufferAllocator;
-
 // External object data types
 enum class ExternalDataTypes {
   Unknown,
