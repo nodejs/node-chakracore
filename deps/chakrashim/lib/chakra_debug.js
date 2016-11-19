@@ -318,6 +318,10 @@
         });
         return _scripts;
       },
+      ClearMemoizedScriptInfo: function() {
+        _scripts = [];
+        _scriptHandles = [];
+      },
       GetScript: function(scriptId) {
         if (!_scripts[scriptId]) {
           this.GetScripts();
@@ -613,6 +617,9 @@
     return this.v8breakpoint;
   };
 
+  V8Breakpoint.prototype.actual_locations = function() {
+    return this.v8breakpoint.actual_locations;
+  };
 
   function V8CommandProcessor() {}
   // Supported commands
@@ -687,6 +694,7 @@
 
   V8CommandProcessor.prototype.continue = function(request, response) {
     var success = true;
+    var clearMemoizedScriptInfo = false;
     if (request.arguments && request.arguments.stepaction) {
       var jsDiagSetStepType = 0;
       if (request.arguments.stepaction == 'in') {
@@ -698,6 +706,18 @@
       } else if (request.arguments.stepaction == 'next') {
         /* JsDiagStepTypeStepOver */
         jsDiagSetStepType = 2;
+      } else if (request.arguments.stepaction == 'back') {
+        /* JsDiagStepTypeStepBack */
+        jsDiagSetStepType = 3;
+        // We may recreate the script context
+        // Invalidating scriptIds so clear any memoized info
+        clearMemoizedScriptInfo = true;
+      } else if (request.arguments.stepaction == 'reverse') {
+        /* JsDiagStepTypeStepBack */
+        jsDiagSetStepType = 4;
+        // We may recreate the script context
+        // Invalidating scriptIds so clear any memoized info
+        clearMemoizedScriptInfo = true;
       } else {
         throw new Error('Unhandled stepaction: ' +
           request.arguments.stepaction);
@@ -710,6 +730,9 @@
     }
 
     response.success = success;
+    if (clearMemoizedScriptInfo) {
+      DebugManager.ScriptsManager.ClearMemoizedScriptInfo();
+    }
 
     // We are continuing, delete the globalExecutionState
     globalExecutionState = undefined;
@@ -784,7 +807,7 @@
       }
       response.success = success;
       response.body = request.arguments;
-      response.body.actual_locations = [];
+      response.body.actual_locations = v8Breakpoint.actual_locations();
       if (success) {
         response.body.breakpoint = v8Breakpoint.Id();
       }
@@ -1147,6 +1170,7 @@
 
   ChakraDebugEventProcessor.prototype[ChakraDebugEvent.Breakpoint] =
     function() {
+      DebugManager.ScriptsManager.ClearMemoizedScriptInfo();
       globalExecutionState = new ExecutionState(ExecutionStateType.Break,
         this.eventData.scriptId);
 

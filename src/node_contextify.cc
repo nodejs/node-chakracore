@@ -208,7 +208,9 @@ class ContextifyContext {
                                              CreateDataWrapper(env));
     object_template->SetHandler(config);
 
-    Local<Context> ctx = Context::New(env->isolate(), nullptr, object_template);
+    // Don't use TT global state -- inherit TT mode from calling script context
+    Local<Context> ctx = Context::New(env->isolate(),
+                                      false, nullptr, object_template);
 
     if (ctx.IsEmpty()) {
       env->ThrowError("Could not instantiate context");

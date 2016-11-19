@@ -1236,10 +1236,16 @@ static void Read(const FunctionCallbackInfo<Value>& args) {
   req = args[5];
 
   if (req->IsObject()) {
+#if ENABLE_TTD_NODE
+      Buffer::TTDAsyncModRegister(buffer_obj, (byte*)buf);
+#endif
     ASYNC_CALL(read, req, UTF8, fd, &uvbuf, 1, pos);
   } else {
     SYNC_CALL(read, 0, fd, &uvbuf, 1, pos)
     args.GetReturnValue().Set(SYNC_RESULT);
+#if ENABLE_TTD_NODE
+    Buffer::TTDSyncDataModNotify(buffer_obj, off, SYNC_RESULT);
+#endif
   }
 }
 

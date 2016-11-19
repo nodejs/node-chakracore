@@ -1741,6 +1741,15 @@ class V8_EXPORT ArrayBuffer : public Object {
   Contents Externalize();
   Contents GetContents();
 
+// #if ENABLE_TTD_NODE
+  void TTDRawBufferNotifyRegisterForModification(byte* initialModPosition);
+  static void TTDRawBufferAsyncModifyComplete(byte* finalModPosition);
+  void TTDRawBufferModifyNotifySync(UINT32 index, UINT32 count);
+  static void TTDRawBufferCopyNotify(Local<ArrayBuffer> dst, UINT32 dstindex,
+                                     Local<ArrayBuffer> src, UINT32 srcIndex,
+                                     UINT32 count);
+// #endif
+
   static ArrayBuffer* Cast(Value* obj);
 
  private:
@@ -2196,7 +2205,11 @@ class V8_EXPORT Isolate {
     kMinorGarbageCollection
   };
 
-  static Isolate* New(const CreateParams& params);
+  static Isolate* New(const CreateParams& params, const char* uri,
+                      bool doRecord, bool doReplay, bool doDebug,
+                      bool useRelocatedSrc,
+                      uint32_t snapInterval, uint32_t snapHistoryLength);
+
   static Isolate* New();
   static Isolate* GetCurrent();
   typedef bool(*AbortOnUncaughtExceptionCallback)(Isolate*);
@@ -2214,6 +2227,11 @@ class V8_EXPORT Isolate {
   int64_t AdjustAmountOfExternalAllocatedMemory(int64_t change_in_bytes);
   void SetData(uint32_t slot, void* data);
   void* GetData(uint32_t slot);
+
+  static bool RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
+                                             uint64_t* moveMode,
+                                             int64_t* nextEventTime);
+
   static uint32_t GetNumberOfDataSlots();
   Local<Context> GetCurrentContext();
   void SetPromiseRejectCallback(PromiseRejectCallback callback);
@@ -2402,6 +2420,7 @@ class V8_EXPORT Context {
 
   static Local<Context> New(
     Isolate* isolate,
+    bool useGlobalTTState = false,
     ExtensionConfiguration* extensions = NULL,
     Handle<ObjectTemplate> global_template = Handle<ObjectTemplate>(),
     Handle<Value> global_object = Handle<Value>());

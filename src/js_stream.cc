@@ -154,6 +154,7 @@ void JSStream::DoRead(const FunctionCallbackInfo<Value>& args) {
   JSStream* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
+  TTD_NATIVE_BUFFER_ACCESS_NOTIFY("JSStream::DoRead");
   CHECK(Buffer::HasInstance(args[1]));
   uv_buf_t buf = uv_buf_init(Buffer::Data(args[1]), Buffer::Length(args[1]));
   wrap->OnRead(args[0]->Int32Value(), &buf);
@@ -184,6 +185,7 @@ void JSStream::Finish(const FunctionCallbackInfo<Value>& args) {
 void JSStream::ReadBuffer(const FunctionCallbackInfo<Value>& args) {
   JSStream* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
+  TTD_NATIVE_BUFFER_ACCESS_NOTIFY("JSStream::ReadBuffer");
 
   CHECK(Buffer::HasInstance(args[0]));
   char* data = Buffer::Data(args[0]);

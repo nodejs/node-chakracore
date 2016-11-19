@@ -93,6 +93,16 @@ typedef int mode_t;
 #elif !defined(_MSC_VER)
 extern char **environ;
 #endif
+#if ENABLE_TTD_NODE
+bool s_doTTRecord = false;
+bool s_doTTReplay = false;
+bool s_doTTDebug = false;
+bool s_useRelocatedSrc = false;
+const char* s_ttUri = nullptr;
+uint32_t s_ttdSnapInterval = 2000;
+uint32_t s_ttdSnapHistoryLength = 2;
+uint64_t s_ttdStartupMode = 0x1;
+#endif
 
 namespace node {
 
@@ -1655,6 +1665,12 @@ static void ReportException(Environment* env,
   }
 
   fflush(stderr);
+#if ENABLE_TTD_NODE
+  // If TTD recording is enable then we want to emit the log info
+  if (s_doTTRecord) {
+      JsTTDEmitRecording();
+  }
+#endif
 }
 
 
@@ -2206,6 +2222,13 @@ static void WaitForInspectorDisconnect(Environment* env) {
 
 
 void Exit(const FunctionCallbackInfo<Value>& args) {
+#if ENABLE_TTD_NODE
+    // If TTD recording is enable then we want to emit the log info
+    if (s_doTTRecord) {
+        JsTTDHostExit(args[0]->Int32Value());
+        JsTTDEmitRecording();
+    }
+#endif
   WaitForInspectorDisconnect(Environment::GetCurrent(args));
   exit(args[0]->Int32Value());
 }
@@ -2282,6 +2305,10 @@ void Hrtime(const FunctionCallbackInfo<Value>& args) {
   fields[0] = (t / NANOS_PER_SEC) >> 32;
   fields[1] = (t / NANOS_PER_SEC) & 0xffffffff;
   fields[2] = t % NANOS_PER_SEC;
+#if ENABLE_TTD_NODE
+  ab->TTDRawBufferModifyNotifySync(args[0].As<Uint32Array>()->ByteOffset(),
+                                   3 * sizeof(uint32_t));
+#endif
 }
 
 // Microseconds in a second, as a float, used in CPUUsage() below
@@ -2314,6 +2341,10 @@ void CPUUsage(const FunctionCallbackInfo<Value>& args) {
   // Set the Float64Array elements to be user / system values in microseconds.
   fields[0] = MICROS_PER_SEC * rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec;
   fields[1] = MICROS_PER_SEC * rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec;
+#if ENABLE_TTD_NODE
+  ab->TTDRawBufferModifyNotifySync(args[0].As<Float64Array>()->ByteOffset(),
+                                   2 * sizeof(double));
+#endif
 }
 
 extern "C" void node_module_register(void* m) {
@@ -4195,6 +4226,39 @@ void Init(int* argc,
   V8::SetFlagsFromString(NODE_V8_OPTIONS, sizeof(NODE_V8_OPTIONS) - 1);
 #endif
 
+#if ENABLE_TTD_NODE
+  // Parse and extract the TT args before anything else
+  int cpos = 0;
+  for (int i = 0; i < *argc; ++i) {
+      if (strstr(argv[i], "-TTRecord:") == argv[i]) {
+          s_doTTRecord = true;
+          s_ttUri = argv[i] + wcslen(L"-TTRecord:");
+      } else if (strstr(argv[i], "-TTReplay:") == argv[i]) {
+          s_doTTReplay = true;
+          s_ttUri = argv[i] + wcslen(L"-TTReplay:");
+      } else if (strstr(argv[i], "-TTDebug:") == argv[i]) {
+          s_doTTReplay = true;
+          s_doTTDebug = true;
+          s_ttUri = argv[i] + wcslen(L"-TTDebug:");
+      } else if (strstr(argv[i], "-TTBreakFirst") == argv[i]) {
+          s_ttdStartupMode = (0x100 | 0x1);
+          debug_wait_connect = true;
+      } else if (strstr(argv[i], "-TTSnapInterval:") == argv[i]) {
+          const char* intervalStr = argv[i] + strlen("-TTSnapInterval:");
+          s_ttdSnapInterval = (uint32_t)atoi(intervalStr);
+      } else if (strstr(argv[i], "-TTHistoryLength:") == argv[i]) {
+          const char* historyStr = argv[i] + strlen("-TTHistoryLength:");
+          s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
+      } else if (strstr(argv[i], "-TTRelocatedCode") == argv[i]) {
+          s_useRelocatedSrc = true;
+      } else {
+          argv[cpos] = argv[i];
+          cpos++;
+      }
+  }
+  *argc = cpos;
+#endif
+
   // Parse a few arguments which are specific to Node.
   int v8_argc;
   const char** v8_argv;
@@ -4379,7 +4443,16 @@ static void StartNodeInstance(void* arg) {
 #ifdef NODE_ENABLE_VTUNE_PROFILING
   params.code_event_handler = vTune::GetVtuneCodeEventHandler();
 #endif
-  Isolate* isolate = Isolate::New(params);
+
+#if ENABLE_TTD_NODE
+  Isolate* isolate = Isolate::New(params,
+                                  s_ttUri, s_doTTRecord, false, false, false,
+                                  s_ttdSnapInterval, s_ttdSnapHistoryLength);
+#else
+  Isolate* isolate = Isolate::New(params,
+                                  nullptr, false, false,
+                                  UINT32_MAX, UINT32_MAX);
+#endif
 
   {
     Mutex::ScopedLock scoped_lock(node_isolate_mutex);
@@ -4401,7 +4474,15 @@ static void StartNodeInstance(void* arg) {
     IsolateData isolate_data(isolate, instance_data->event_loop(),
                              array_buffer_allocator.zero_fill_field());
 #endif
+
+#if ENABLE_TTD_NODE
+    // Make sure first context takes TT state from global config.
+    // Others created from it in runtime will inherit the TT config.
+    Local<Context> context = Context::New(isolate, s_doTTRecord);
+#else
     Local<Context> context = Context::New(isolate);
+#endif
+
     Context::Scope context_scope(context);
     // CHAKRA-TODO : fix this to create isolate_data before setting context
 #if defined(NODE_ENGINE_CHAKRACORE)
@@ -4435,6 +4516,13 @@ static void StartNodeInstance(void* arg) {
       LoadEnvironment(&env);
     }
 
+#if ENABLE_TTD_NODE
+    // Start time travel after environment is loaded
+    if (s_doTTRecord) {
+        JsTTDStart();
+    }
+#endif
+
     env.set_trace_sync_io(trace_sync_io);
 
     // Enable debugger
@@ -4458,10 +4546,21 @@ static void StartNodeInstance(void* arg) {
           if (uv_run(env.event_loop(), UV_RUN_NOWAIT) != 0)
             more = true;
         }
+
+#if ENABLE_TTD_NODE
+        JsTTDNotifyYield();
+#endif
       } while (more == true);
     }
 
     env.set_trace_sync_io(false);
+
+#if ENABLE_TTD_NODE
+    if (s_doTTRecord) {
+        JsTTDEmitRecording();
+        JsTTDStop();
+    }
+#endif
 
     int exit_code = EmitExit(&env);
     if (instance_data->is_main())
@@ -4484,6 +4583,101 @@ static void StartNodeInstance(void* arg) {
   isolate->Dispose();
   isolate = nullptr;
 }
+
+#if ENABLE_TTD_NODE
+static void StartNodeInstance_TTDReplay(void* arg) {
+    NodeInstanceData* instance_data = static_cast<NodeInstanceData*>(arg);
+    Isolate::CreateParams params;
+    ArrayBufferAllocator array_buffer_allocator;
+    params.array_buffer_allocator = &array_buffer_allocator;
+#ifdef NODE_ENABLE_VTUNE_PROFILING
+    params.code_event_handler = vTune::GetVtuneCodeEventHandler();
+#endif
+
+    Isolate* isolate = Isolate::New(params,
+                                    s_ttUri, false, true, s_doTTDebug,
+                                    s_useRelocatedSrc,
+                                    UINT32_MAX, UINT32_MAX);
+
+    {
+        Mutex::ScopedLock scoped_lock(node_isolate_mutex);
+        if (instance_data->is_main()) {
+            CHECK_EQ(node_isolate, nullptr);
+            node_isolate = isolate;
+        }
+    }
+
+    if (track_heap_objects) {
+        isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
+    }
+
+    Locker locker(isolate);
+    Isolate::Scope isolate_scope(isolate);
+    HandleScope handle_scope(isolate);
+#ifndef NODE_ENGINE_CHAKRACORE
+    IsolateData isolate_data(isolate, instance_data->event_loop(),
+        array_buffer_allocator.zero_fill_field());
+#endif
+
+    Local<Context> context = Context::New(isolate, true);
+
+    Context::Scope context_scope(context);
+    // CHAKRA-TODO : fix this to create isolate_data before setting context
+#if defined(NODE_ENGINE_CHAKRACORE)
+    IsolateData isolate_data(isolate, instance_data->event_loop(),
+        array_buffer_allocator.zero_fill_field());
+
+#endif
+    Environment env(&isolate_data, context);
+    env.Start(instance_data->argc(),
+        instance_data->argv(),
+        instance_data->exec_argc(),
+        instance_data->exec_argv(),
+        v8_is_profiling);
+
+    isolate->SetAbortOnUncaughtExceptionCallback(
+        ShouldAbortOnUncaughtException);
+
+    // Start debug agent when argv has --debug
+    if (instance_data->use_debug_agent())
+        StartDebug(&env, nullptr, debug_wait_connect);
+
+    {
+        Environment::AsyncCallbackScope callback_scope(&env);
+        LoadEnvironment(&env);
+    }
+
+    env.set_trace_sync_io(trace_sync_io);
+
+    // Enable debugger
+    if (instance_data->use_debug_agent())
+        EnableDebug(&env);
+
+    ////
+    JsTTDStart();
+
+    try {
+        int64_t nextEventTime = -2;
+        bool continueReplayActions = TRUE;
+
+        while (continueReplayActions) {
+            continueReplayActions =
+                v8::Isolate::RunSingleStepOfReverseMoveLoop(isolate,
+                                                            &s_ttdStartupMode,
+                                                            &nextEventTime);
+        }
+    }
+    catch (...) {
+        printf("Terminal exception in Replay -- exiting.");
+        exit(1);
+    }
+    ////
+
+    // We are done just dump the process.
+    // In the future we might want to clean up more.
+    exit(0);
+}
+#endif
 
 int Start(int argc, char** argv) {
   PlatformInit();
@@ -4523,7 +4717,15 @@ int Start(int argc, char** argv) {
                                    exec_argc,
                                    exec_argv,
                                    use_debug_agent);
+#if ENABLE_TTD_NODE
+    if (s_doTTReplay) {
+        StartNodeInstance_TTDReplay(&instance_data);
+    } else {
+        StartNodeInstance(&instance_data);
+    }
+#else
     StartNodeInstance(&instance_data);
+#endif
     exit_code = instance_data.exit_code();
   }
   v8_initialized = false;

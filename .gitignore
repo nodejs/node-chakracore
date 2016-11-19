@@ -43,6 +43,7 @@ ipch/
 *.sdf
 *.opensdf
 *.VC.opendb
+*.VC.db
 .vs/
 .vscode/
 

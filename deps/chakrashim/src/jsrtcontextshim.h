@@ -53,6 +53,7 @@ class ContextShim {
   };
 
   static ContextShim * New(IsolateShim * isolateShim, bool exposeGC,
+                           bool useGlobalTTState, 
                            JsValueRef globalObjectTemplateInstance);
   ~ContextShim();
   void EnsureInitialized();

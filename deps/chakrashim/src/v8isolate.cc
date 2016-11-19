@@ -27,8 +27,14 @@ namespace v8 {
 HeapProfiler dummyHeapProfiler;
 CpuProfiler dummyCpuProfiler;
 
-Isolate* Isolate::New(const CreateParams& params) {
-  Isolate* iso = jsrt::IsolateShim::New();
+Isolate* Isolate::New(const CreateParams& params, const char* uri,
+                      bool doRecord, bool doReplay, bool doDebug,
+                      bool useRelocatedSrc,
+                      uint32_t snapInterval, uint32_t snapHistoryLength) {
+  Isolate* iso = jsrt::IsolateShim::New(uri, doRecord, doReplay, doDebug,
+                                        useRelocatedSrc,
+                                        snapInterval, snapHistoryLength);
+
   if (params.array_buffer_allocator) {
     CHAKRA_VERIFY(!jsrt::IsolateShim::FromIsolate(iso)->arrayBufferAllocator);
     jsrt::IsolateShim::FromIsolate(iso)->arrayBufferAllocator =
@@ -38,7 +44,9 @@ Isolate* Isolate::New(const CreateParams& params) {
 }
 
 Isolate* Isolate::New() {
-  return jsrt::IsolateShim::New();
+  return jsrt::IsolateShim::New(nullptr,
+                                false, false, false, false,
+                                UINT32_MAX, UINT32_MAX);
 }
 
 Isolate *Isolate::GetCurrent() {
@@ -76,6 +84,14 @@ void Isolate::SetData(uint32_t slot, void* data) {
 
 void* Isolate::GetData(uint32_t slot) {
   return jsrt::IsolateShim::FromIsolate(this)->GetData(slot);
+}
+
+bool Isolate::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
+                                             uint64_t* moveMode,
+                                             int64_t* nextEventTime) {
+    return jsrt::IsolateShim::RunSingleStepOfReverseMoveLoop(isolate,
+                                                             moveMode,
+                                                             nextEventTime);
 }
 
 uint32_t Isolate::GetNumberOfDataSlots() {

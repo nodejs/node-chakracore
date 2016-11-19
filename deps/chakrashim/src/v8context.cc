@@ -22,6 +22,7 @@
 #include "jsrtutils.h"
 #include "v8-debug.h"
 #include "jsrtdebug.h"
+
 #include <assert.h>
 
 namespace v8 {
@@ -50,6 +51,7 @@ Local<Object> Context::Global() {
 extern bool g_exposeGC;
 
 Local<Context> Context::New(Isolate* external_isolate,
+                            bool useGlobalTTState,
                             ExtensionConfiguration* extensions,
                             Handle<ObjectTemplate> global_template,
                             Handle<Value> global_object) {
@@ -70,7 +72,7 @@ Local<Context> Context::New(Isolate* external_isolate,
 
   JsContextRef context;
   jsrt::IsolateShim* isoShim = jsrt::IsolateShim::FromIsolate(external_isolate);
-  if (!isoShim->NewContext(&context, g_exposeGC, *glob)) {
+  if (!isoShim->NewContext(&context, g_exposeGC, useGlobalTTState, *glob)) {
     return Local<Context>();
   }
 
@@ -82,7 +84,7 @@ Local<Context> Context::New(Isolate* external_isolate,
     // debugContext is available and chakra_debug.js is compiled. Inject
     // v8debug object from chakra_debug.js in this context global object
     JsContextRef debugContextRef;
-    isoShim->NewContext(&debugContextRef, false, *glob);
+    isoShim->NewContext(&debugContextRef, false, false, *glob);
     jsrt::ContextShim* debugContextShim = isoShim->GetContextShim(
         debugContextRef);
 

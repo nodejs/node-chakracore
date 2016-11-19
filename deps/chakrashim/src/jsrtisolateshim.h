@@ -58,13 +58,17 @@ enum CachedSymbolPropertyIdRef {
 class IsolateShim {
  public:
   v8::ArrayBuffer::Allocator* arrayBufferAllocator;
-  bool NewContext(JsContextRef * context, bool exposeGC,
+  bool NewContext(JsContextRef * context, bool exposeGC, bool useGlobalTTState,
                                JsValueRef globalObjectTemplateInstance);
   bool GetMemoryUsage(size_t * memoryUsage);
   bool Dispose();
   bool IsDisposing();
 
-  static v8::Isolate * New();
+  static v8::Isolate * New(const char* uri,
+                           bool doRecord, bool doReplay, bool doDebug,
+                           bool useRelocatedSrc,
+                           uint32_t snapInterval, uint32_t snapHistoryLength);
+
   static v8::Isolate * GetCurrentAsIsolate();
   static IsolateShim * GetCurrent();
   static IsolateShim * FromIsolate(v8::Isolate * isolate);
@@ -80,6 +84,11 @@ class IsolateShim {
   void PushScope(ContextShim::Scope * scope, JsContextRef contextRef);
   void PushScope(ContextShim::Scope * scope, ContextShim * contextShim);
   void PopScope(ContextShim::Scope * scope);
+
+  // TTD_NODE
+  static bool RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
+                                             uint64_t* moveMode,
+                                             int64_t* nextEventTime);
 
   ContextShim * GetCurrentContextShim();
 
