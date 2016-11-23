@@ -41,10 +41,18 @@ ContextShim::Scope::~Scope() {
 }
 
 ContextShim * ContextShim::New(IsolateShim * isolateShim, bool exposeGC,
+                               bool useGlobalTTState,
                                JsValueRef globalObjectTemplateInstance) {
+  JsRuntimeHandle handle = isolateShim->GetRuntimeHandle();
   JsContextRef context;
-  if (JsCreateContext(isolateShim->GetRuntimeHandle(), &context) != JsNoError) {
+  if (useGlobalTTState) {
+    if (JsTTDCreateContext(handle, useGlobalTTState, &context) != JsNoError) {
+      return nullptr;
+    }
+  } else {
+  if (JsCreateContext(handle, &context) != JsNoError) {
     return nullptr;
+    }
   }
 
   // AddRef on globalObjectTemplateInstance if specified. Save and use later.
@@ -166,6 +174,10 @@ bool ContextShim::InitializeBuiltIn(JsValueRef * builtInValue, Fn getBuiltIn) {
     return false;
   }
   *builtInValue = value;
+
+  // TTD_NODE
+  JsAddRef(*builtInValue, nullptr);
+
   return true;
 }
 
@@ -278,6 +290,10 @@ bool ContextShim::InitializeBuiltIns() {
     return false;
   }
   keepAliveObject = newKeepAliveObject;
+
+  // TTD_NODE
+  JsAddRef(keepAliveObject, nullptr);
+
   // true and false is needed by DefineProperty to create the property
   // descriptor
   if (!InitializeBuiltIn(&trueRef, JsGetTrueValue)) {
@@ -467,6 +483,7 @@ bool ContextShim::ExecuteChakraDebugShimJS(JsValueRef * chakraDebugObject) {
 
   JsValueRef arguments[] = { this->globalObject, this->globalObject,
       this->keepAliveObject, traceDebugJsonRef };
+
   JsErrorCode errorCode = JsCallFunction(initFunction, arguments,
       _countof(arguments), chakraDebugObject);
 
@@ -567,6 +584,10 @@ JsValueRef ContextShim::GetCachedShimFunction(CachedPropertyIdRef id,
     JsErrorCode error = JsGetProperty(keepAliveObject,
                   GetIsolateShim()->GetCachedPropertyIdRef(id),
                   func);
+
+    // TTD_NODE
+    JsAddRef(*func, nullptr);
+
     CHAKRA_VERIFY(error == JsNoError);
   }
 

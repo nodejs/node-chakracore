@@ -19,6 +19,19 @@ NODE_EXTERN bool HasInstance(v8::Local<v8::Value> val);
 NODE_EXTERN bool HasInstance(v8::Local<v8::Object> val);
 NODE_EXTERN char* Data(v8::Local<v8::Value> val);
 NODE_EXTERN char* Data(v8::Local<v8::Object> val);
+
+#if ENABLE_TTD_NODE
+NODE_EXTERN void TTDAsyncModRegister(v8::Local<v8::Object> val,
+                                     byte* initialModPosition);
+NODE_EXTERN void TTDAsyncModNotify(byte* finalModPosition);
+NODE_EXTERN void TTDSyncDataModNotify(v8::Local<v8::Object> val,
+                                      UINT32 index, UINT32 count);
+// Notify us that a native buffer access (which we don't currently understand/support) happened.
+#define TTD_NATIVE_BUFFER_ACCESS_NOTIFY(X) JsTTDCheckAndAssertIfTTDRunning("Unsupported raw buffer access -- investigate this!!!\n")
+#else
+#define TTD_NATIVE_BUFFER_ACCESS_NOTIFY(X)
+#endif
+
 NODE_EXTERN size_t Length(v8::Local<v8::Value> val);
 NODE_EXTERN size_t Length(v8::Local<v8::Object> val);
 

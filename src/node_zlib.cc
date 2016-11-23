@@ -181,10 +181,17 @@ class ZCtx : public AsyncWrap {
       // sync version
       ctx->env()->PrintSyncTrace();
       Process(work_req);
+
+      TTD_NATIVE_BUFFER_ACCESS_NOTIFY("ZLib sync");
+
       if (CheckError(ctx))
         AfterSync(ctx, args);
       return;
     }
+
+#if ENABLE_TTD_NODE
+    Buffer::TTDAsyncModRegister(out_buf, out);
+#endif
 
     // async version
     uv_queue_work(ctx->env()->event_loop(),
@@ -375,6 +382,9 @@ class ZCtx : public AsyncWrap {
 
     ctx->write_in_progress_ = false;
 
+#if ENABLE_TTD_NODE
+    Buffer::TTDAsyncModNotify(ctx->strm_.next_out);
+#endif
     // call the write() cb
     Local<Value> args[2] = { avail_in, avail_out };
     ctx->MakeCallback(env->callback_string(), arraysize(args), args);
@@ -393,6 +403,9 @@ class ZCtx : public AsyncWrap {
     if (ctx->strm_.msg != nullptr) {
       message = ctx->strm_.msg;
     }
+#if ENABLE_TTD_NODE
+    Buffer::TTDAsyncModNotify(ctx->strm_.next_out);
+#endif
 
     HandleScope scope(env->isolate());
     Local<Value> args[2] = {

@@ -222,6 +222,9 @@ namespace jsrt {
       return;
     }
 
+    // TTD_NODE
+    JsTTDPauseTimeTravelBeforeRuntimeOperation();
+
     Debugger::messageQueue.debugEventProcessCount++;
     bool isMsgToProcess = !Debugger::messageQueue.IsEmpty();
     bool shouldContinue = true;
@@ -251,6 +254,9 @@ namespace jsrt {
       !Debugger::messageQueue.isProcessingDebuggerMsg && !shouldContinue);
 
     Debugger::messageQueue.debugEventProcessCount--;
+
+    // TTD_NODE
+    JsTTDReStartTimeTravelAfterRuntimeOperation();
   }
 
   static JsValueRef CHAKRA_CALLBACK Log(

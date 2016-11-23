@@ -54,7 +54,6 @@ Local<Integer> Integer::From(uint32_t value) {
 }
 
 Integer* Integer::Cast(v8::Value* obj) {
-  CHAKRA_ASSERT(obj->IsInt32());
   return static_cast<Integer*>(obj);
 }
 
