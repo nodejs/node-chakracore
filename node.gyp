@@ -483,8 +483,8 @@
             'deps/v8' # include/v8_platform.h
           ],
           'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+            'deps/v8/src/v8.gyp:v8',
+            'deps/v8/src/v8.gyp:v8_libplatform'
           ],
         }],
         ['node_engine=="chakracore"', {
@@ -885,48 +885,48 @@
       'conditions': [
         [ 'node_engine=="v8"', {
           'include_dirs': [
-        'deps/v8/include'
-      ],
-          'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
-      ],
-          'conditions' : [
-        ['v8_inspector=="true"', {
-          'sources': [
-            'src/inspector_socket.cc',
-            'test/cctest/test_inspector_socket.cc'
+            'deps/v8/include'
           ],
-          'conditions': [
-            [ 'node_shared_openssl=="false"', {
-              'dependencies': [
-                'deps/openssl/openssl.gyp:openssl'
-              ]
-            }],
-            [ 'node_shared_http_parser=="false"', {
-              'dependencies': [
-                'deps/http_parser/http_parser.gyp:http_parser'
-              ]
-            }],
-            [ 'node_shared_libuv=="false"', {
-              'dependencies': [
-                'deps/uv/uv.gyp:libuv'
-              ]
-            }]
-          ]
-        }],
-              ['node_use_v8_platform=="true"', {
-          'dependencies': [
-            'deps/v8/src/v8.gyp:v8_libplatform',
-          ],
-        }],
-              ['node_use_bundled_v8=="true"', {
           'dependencies': [
             'deps/v8/src/v8.gyp:v8',
             'deps/v8/src/v8.gyp:v8_libplatform'
           ],
-        }],
-      ]
+          'conditions' : [
+            ['v8_inspector=="true"', {
+              'sources': [
+                'src/inspector_socket.cc',
+                'test/cctest/test_inspector_socket.cc'
+              ],
+              'conditions': [
+                [ 'node_shared_openssl=="false"', {
+                  'dependencies': [
+                    'deps/openssl/openssl.gyp:openssl'
+                  ]
+                }],
+                [ 'node_shared_http_parser=="false"', {
+                  'dependencies': [
+                    'deps/http_parser/http_parser.gyp:http_parser'
+                  ]
+                }],
+                [ 'node_shared_libuv=="false"', {
+                  'dependencies': [
+                    'deps/uv/uv.gyp:libuv'
+                  ]
+                }]
+              ]
+            }],
+            ['node_use_v8_platform=="true"', {
+              'dependencies': [
+                'deps/v8/src/v8.gyp:v8_libplatform',
+              ],
+            }],
+            ['node_use_bundled_v8=="true"', {
+              'dependencies': [
+                'deps/v8/src/v8.gyp:v8',
+                'deps/v8/src/v8.gyp:v8_libplatform'
+              ],
+            }],
+          ]
         }],
         ['node_engine=="chakracore"', {
           'dependencies': [
