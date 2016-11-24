@@ -20,6 +20,7 @@
 
 #include <stdarg.h>
 #include "jsrtutils.h"
+#include <string>
 
 namespace jsrt {
 

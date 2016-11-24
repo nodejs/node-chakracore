@@ -395,7 +395,7 @@ bool CALLBACK TTReadBytesFromStreamCallback(JsTTDStreamHandle handle,
         return false;
     }
 
-    bool ok = FALSE;
+    bool ok = false;
     *readCount = TTDHostRead(buff, size, (FILE*)handle);
     ok = (*readCount != 0);
 
@@ -411,7 +411,7 @@ bool CALLBACK TTWriteBytesToStreamCallback(JsTTDStreamHandle handle,
         return false;
     }
 
-    bool ok = FALSE;
+    bool ok = false;
     *writtenCount = TTDHostWrite(buff, size, (FILE*)handle);
     ok = (*writtenCount == size);
 
@@ -905,8 +905,8 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
     *moveMode = (uint64_t)_moveMode;
     if (*nextEventTime == -1) {
         printf("\nReached end of Execution -- Exiting.\n");
-        return FALSE;
+        return false;
     }
-    return TRUE;
+    return true;
 }
 }  // namespace jsrt

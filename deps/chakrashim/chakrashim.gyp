@@ -38,6 +38,14 @@
         [ 'OS in "linux"', {
           'cflags_cc': [ '-fexceptions' ],
         }],
+        [ 'OS in "mac"', {
+          'cflags_cc': [ '-fexceptions' ],
+          'cflags_cc!': [ '-fno-exceptions' ],
+          'xcode_settings': {
+            'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+            'OTHER_CFLAGS': [ '-fexceptions' ],
+          },
+        }],
       ],
       'msvs_use_library_dependency_inputs': 1,
 

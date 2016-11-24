@@ -4656,20 +4656,14 @@ static void StartNodeInstance_TTDReplay(void* arg) {
     ////
     JsTTDStart();
 
-    try {
-        int64_t nextEventTime = -2;
-        bool continueReplayActions = TRUE;
+    int64_t nextEventTime = -2;
+    bool continueReplayActions = true;
 
-        while (continueReplayActions) {
-            continueReplayActions =
-                v8::Isolate::RunSingleStepOfReverseMoveLoop(isolate,
-                                                            &s_ttdStartupMode,
-                                                            &nextEventTime);
-        }
-    }
-    catch (...) {
-        printf("Terminal exception in Replay -- exiting.");
-        exit(1);
+    while (continueReplayActions) {
+        continueReplayActions =
+            v8::Isolate::RunSingleStepOfReverseMoveLoop(isolate,
+                                                        &s_ttdStartupMode,
+                                                        &nextEventTime);
     }
     ////
 

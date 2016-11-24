@@ -21,6 +21,8 @@
 #include "uv.h"
 #include <vector>
 
+// CHAKRA-TODO : now that node is using libc++ for C++11 support can we remove
+// all OSX_SDK_TR1 specialization?
 #if !defined(OSX_SDK_TR1) && defined(__APPLE__)
 #include <AvailabilityMacros.h>
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < MAC_OS_X_VERSION_10_9
@@ -28,11 +30,7 @@
 #endif
 #endif
 
-#ifdef OSX_SDK_TR1
-#include <tr1/unordered_map>
-#else
 #include <unordered_map>
-#endif
 
 namespace v8 {
 

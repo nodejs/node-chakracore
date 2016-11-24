@@ -45,8 +45,6 @@ inline size_t _countof(T (&)[N]) {
 #ifndef _WIN32
 #define strnicmp strncasecmp
 #define __debugbreak __builtin_trap
-using std::min;
-using std::max;
 #endif
 
 #ifndef __APPLE__

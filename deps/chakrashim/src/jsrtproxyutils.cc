@@ -20,6 +20,7 @@
 
 #include "jsrtutils.h"
 #include <string>
+#include <cstdlib>
 #include <assert.h>
 
 namespace jsrt {
