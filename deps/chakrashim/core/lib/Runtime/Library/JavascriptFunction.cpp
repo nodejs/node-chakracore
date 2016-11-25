@@ -2622,6 +2622,11 @@ LABEL1:
                 // Caller of this function expects nullValue from the requestContext.
                 funcCaller = nullValue;
             }
+            if (ScriptFunction::Is(funcCaller))
+            {
+                // Is this is the internal function of a generator function then return the original generator function
+                funcCaller = ScriptFunction::FromVar(funcCaller)->GetRealFunctionObject();
+            }
         }
 
         return StackScriptFunction::EnsureBoxed(BOX_PARAM(funcCaller, nullptr, _u("caller")));
@@ -2630,6 +2635,7 @@ LABEL1:
     BOOL JavascriptFunction::GetCallerProperty(Var originalInstance, Var* value, ScriptContext* requestContext)
     {
         ScriptContext* scriptContext = this->GetScriptContext();
+        *value = nullptr;
 
         if (this->IsStrictMode())
         {
@@ -2672,7 +2678,10 @@ LABEL1:
             {
                 JavascriptFunction* exceptionFunction = unhandledExceptionObject->GetFunction();
                 // This is for getcaller in window.onError. The behavior is different in different browsers
-                if (exceptionFunction && scriptContext == exceptionFunction->GetScriptContext())
+                if (exceptionFunction 
+                    && scriptContext == exceptionFunction->GetScriptContext()
+                    && exceptionFunction->IsScriptFunction()
+                    && !exceptionFunction->GetFunctionBody()->GetIsGlobalFunc())
                 {
                     *value = exceptionFunction;
                 }

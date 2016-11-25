@@ -2469,7 +2469,7 @@ namespace Js
 #endif
 
 #if ENABLE_TTD
-        TTDAssert(!SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext), "We never be fetching an opcode via this path if this is true!!!");
+        AssertMsg(!SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext), "We never be fetching an opcode via this path if this is true!!!");
 #endif
 
         OpCodeType op = (OpCodeType)ReadOpFunc(ip);
@@ -2512,6 +2512,10 @@ namespace Js
         //   which matches the displayed offsets used by ByteCodeDumper.
         //
         this->DEBUG_currentByteOffset = (void *)m_reader.GetCurrentOffset();
+#endif
+
+#if ENABLE_TTD
+        AssertMsg(this->scriptContext->GetThreadContext()->IsRuntimeInTTDMode(), "We never be fetching an opcode via this path if this is not true!!!");
 #endif
 
         if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
@@ -3458,7 +3462,7 @@ namespace Js
         if(interpreterExecutionMode == ExecutionMode::ProfilingInterpreter)
         {
 #if ENABLE_TTD
-            TTDAssert(!SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext), "We should have pinned into Interpreter mode in this case!!!");
+            AssertMsg(!SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext), "We should have pinned into Interpreter mode in this case!!!");
 #endif
 
             isAutoProfiling = false;
@@ -5950,6 +5954,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
 
             RegSlot localClosureReg = this->m_functionBody->GetLocalClosureRegister();
             RegSlot localFrameDisplayReg = this->m_functionBody->GetLocalFrameDisplayRegister();
+            RegSlot paramClosureReg = this->m_functionBody->GetParamClosureRegister();
 
             if (entryPointInfo->HasJittedStackClosure())
             {
@@ -5965,6 +5970,11 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
                 {
                     this->SetNonVarReg(localFrameDisplayReg, &this->localFrameDisplay);
                 }
+
+                if (paramClosureReg != Constants::NoRegister)
+                {
+                    this->SetNonVarReg(paramClosureReg, &this->paramClosure);
+                }
             }
             else
             {
@@ -5978,6 +5988,11 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
                 if (localFrameDisplayReg != Constants::NoRegister)
                 {
                     this->SetNonVarReg(localFrameDisplayReg, this->localFrameDisplay);
+                }
+
+                if (paramClosureReg != Constants::NoRegister)
+                {
+                    this->SetNonVarReg(paramClosureReg, this->paramClosure);
                 }
             }
 
@@ -6014,6 +6029,11 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
             if (localFrameDisplayReg != Constants::NoRegister)
             {
                 SetNonVarReg(localFrameDisplayReg, nullptr);
+            }
+
+            if (paramClosureReg != Constants::NoRegister)
+            {
+                SetNonVarReg(paramClosureReg, nullptr);
             }
 
             for (uint32 i = 0; i < innerScopeCount; i++)
@@ -6807,7 +6827,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
         // Save the current closure. We have to use this while copying the initial value of body symbols
         // from the corresponding symbols in the param.
         this->SetParamClosure(this->GetLocalClosure());
-        this->SetNonVarReg(executeFunction->GetParamClosureRegister(), this->GetLocalClosure());
+        this->SetNonVarReg(executeFunction->GetParamClosureRegister(), nullptr);
 
         this->SetIsParamScopeDone(true);
 
@@ -8367,7 +8387,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
         Var func = table->DirectGetValue(index);
         if (!func)
         {
-            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_TableIndexOutOfRange);
+            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_NeedWebAssemblyFunc);
         }
         m_localSlots[playout->Value] = func;
 #endif
@@ -8383,17 +8403,17 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
         if (func->GetFunctionInfo()->IsDeferredParseFunction())
         {
             // TODO: should be able to assert this once imports are converted to wasm functions
-            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_NeedWebAssemblyFunc, func->GetDisplayName());
+            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_NeedWebAssemblyFunc);
         }
         AsmJsFunctionInfo * asmInfo = func->GetFunctionBody()->GetAsmJsFunctionInfo();
         if (!asmInfo)
         {
             // TODO: should be able to assert this once imports are converted to wasm functions
-            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_NeedWebAssemblyFunc, func->GetDisplayName());
+            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_NeedWebAssemblyFunc);
         }
         if (!expected->IsEquivalent(asmInfo->GetWasmSignature()))
         {
-            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_SignatureMismatch, func->GetDisplayName());
+            JavascriptError::ThrowWebAssemblyRuntimeError(GetScriptContext(), WASMERR_SignatureMismatch);
         }
 #endif
     }

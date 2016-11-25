@@ -15,7 +15,7 @@ namespace Js
     const SparseArraySegmentBase *JavascriptArray::EmptySegment = (SparseArraySegmentBase *)&EmptySegmentData;
 
     // col0 : allocation bucket
-    // col1 : No. of missing items to set during initialization depending on bucket. 
+    // col1 : No. of missing items to set during initialization depending on bucket.
     // col2 : allocation size for elements in given bucket.
     // col1 and col2 is calculated at runtime
     uint JavascriptNativeFloatArray::allocationBuckets[][AllocationBucketsInfoSize] =
@@ -750,6 +750,40 @@ namespace Js
     bool JavascriptNativeFloatArray::IsMissingHeadSegmentItem(const uint32 index) const
     {
         return IsMissingHeadSegmentItemImpl<double>(index);
+    }
+
+    template<typename T>
+    void JavascriptArray::InternalFillFromPrototype(JavascriptArray *dstArray, const T& dstIndex, JavascriptArray *srcArray, uint32 start, uint32 end, uint32 count)
+    {
+        RecyclableObject* prototype = srcArray->GetPrototype();
+        while (start + count != end && JavascriptOperators::GetTypeId(prototype) != TypeIds_Null)
+        {
+            ForEachOwnMissingArrayIndexOfObject(srcArray, dstArray, prototype, start, end, dstIndex, [&](uint32 index, Var value) {
+                T n = dstIndex + (index - start);
+                dstArray->DirectSetItemAt(n, value);
+
+                count++;
+            });
+
+            prototype = prototype->GetPrototype();
+        }
+    }
+
+    template<>
+    void JavascriptArray::InternalFillFromPrototype<uint32>(JavascriptArray *dstArray, const uint32& dstIndex, JavascriptArray *srcArray, uint32 start, uint32 end, uint32 count)
+    {
+        RecyclableObject* prototype = srcArray->GetPrototype();
+        while (start + count != end && JavascriptOperators::GetTypeId(prototype) != TypeIds_Null)
+        {
+            ForEachOwnMissingArrayIndexOfObject(srcArray, dstArray, prototype, start, end, dstIndex, [&](uint32 index, Var value) {
+                uint32 n = dstIndex + (index - start);
+                dstArray->SetItem(n, value, PropertyOperation_None);
+
+                count++;
+            });
+
+            prototype = prototype->GetPrototype();
+        }
     }
 
     /* static */
@@ -3380,6 +3414,9 @@ namespace Js
         pDestObj = ArraySpeciesCreate(args[0], 0, scriptContext);
         if (pDestObj)
         {
+#if ENABLE_COPYONACCESS_ARRAY
+            JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(pDestObj);
+#endif
             // Check the thing that species create made. If it's a native array that can't handle the source
             // data, convert it. If it's a more conservative kind of array than the source data, indicate that
             // so that the data will be converted on copy.
@@ -5958,6 +5995,9 @@ Case0:
             }
 
             newArr = CreateNewArrayHelper(static_cast<uint32>(newLenT), isIntArray, isFloatArray, pArr, scriptContext);
+#if ENABLE_COPYONACCESS_ARRAY
+            JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(newArr);
+#endif
             newObj = newArr;
         }
         else
@@ -5965,6 +6005,9 @@ Case0:
             // If the new object we created is an array, remember that as it will save us time setting properties in the object below
             if (JavascriptArray::Is(newObj))
             {
+#if ENABLE_COPYONACCESS_ARRAY
+                JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(newObj);
+#endif
                 newArr = JavascriptArray::FromVar(newObj);
             }
         }
@@ -6744,6 +6787,9 @@ Case0:
                 // If the new object we created is an array, remember that as it will save us time setting properties in the object below
                 if (JavascriptArray::Is(newObj))
                 {
+#if ENABLE_COPYONACCESS_ARRAY
+                    JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(newObj);
+#endif
                     newArr = JavascriptArray::FromVar(newObj);
                 }
             }
@@ -6752,10 +6798,13 @@ Case0:
             {
                 pArr->GetArrayTypeAndConvert(&isIntArray, &isFloatArray);
                 newArr = CreateNewArrayHelper(deleteLen, isIntArray, isFloatArray, pArr, scriptContext);
+#if ENABLE_COPYONACCESS_ARRAY
+                JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(newArr);
+#endif
             }
 
             // If return object is a JavascriptArray, we can use all the array splice helpers
-            if (newArr && isBuiltinArrayCtor)
+            if (newArr && isBuiltinArrayCtor && len == pArr->length)
             {
 
                 // Array has a single segment (need not start at 0) and splice start lies in the range
@@ -7246,6 +7295,9 @@ Case0:
 
         if (JavascriptArray::Is(pNewObj))
         {
+#if ENABLE_COPYONACCESS_ARRAY
+            JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(pNewObj);
+#endif
             pnewArr = JavascriptArray::FromVar(pNewObj);
         }
 
@@ -8993,6 +9045,9 @@ Case0:
             // If the new object we created is an array, remember that as it will save us time setting properties in the object below
             if (JavascriptArray::Is(newObj))
             {
+#if ENABLE_COPYONACCESS_ARRAY
+                JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(newObj);
+#endif
                 newArr = JavascriptArray::FromVar(newObj);
             }
         }
@@ -9182,7 +9237,8 @@ Case0:
         }
 
         // If the source object is an Array exotic object we should try to load the constructor property and use it to construct the return object.
-        RecyclableObject* newObj = ArraySpeciesCreate(obj, 0, scriptContext);
+        bool isBuiltinArrayCtor = true;
+        RecyclableObject* newObj = ArraySpeciesCreate(obj, 0, scriptContext, nullptr, nullptr, &isBuiltinArrayCtor);
         JavascriptArray* newArr = nullptr;
 
         if (newObj == nullptr)
@@ -9196,6 +9252,9 @@ Case0:
             // If the new object we created is an array, remember that as it will save us time setting properties in the object below
             if (JavascriptArray::Is(newObj))
             {
+#if ENABLE_COPYONACCESS_ARRAY
+                JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(newObj);
+#endif
                 newArr = JavascriptArray::FromVar(newObj);
             }
         }
@@ -9224,7 +9283,7 @@ Case0:
                 if (JavascriptConversion::ToBoolean(selected, scriptContext))
                 {
                     // Try to fast path if the return object is an array
-                    if (newArr)
+                    if (newArr && isBuiltinArrayCtor)
                     {
                         newArr->DirectSetItemAt(i, element);
                     }
@@ -10093,6 +10152,7 @@ Case0:
         {
             if (JavascriptArray::Is(arr))
             {
+                arr = EnsureNonNativeArray(arr);
                 ArrayElementEnumerator e(arr, startIndex, limitIndex);
 
                 while(e.MoveNext<Var>())
@@ -10846,6 +10906,9 @@ Case0:
 
     JavascriptArray *JavascriptArray::EnsureNonNativeArray(JavascriptArray *arr)
     {
+#if ENABLE_COPYONACCESS_ARRAY
+        JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(arr);
+#endif
         if (JavascriptNativeIntArray::Is(arr))
         {
             arr = JavascriptNativeIntArray::ToVarArray((JavascriptNativeIntArray*)arr);
@@ -10925,23 +10988,6 @@ Case0:
         if (start + count != end)
         {
             InternalFillFromPrototype(dstArray, dstIndex, srcArray, start, end, count);
-        }
-    }
-
-    template<typename T>
-    void JavascriptArray::InternalFillFromPrototype(JavascriptArray *dstArray, const T& dstIndex, JavascriptArray *srcArray, uint32 start, uint32 end, uint32 count)
-    {
-        RecyclableObject* prototype = srcArray->GetPrototype();
-        while (start + count != end && JavascriptOperators::GetTypeId(prototype) != TypeIds_Null)
-        {
-            ForEachOwnMissingArrayIndexOfObject(srcArray, dstArray, prototype, start, end, dstIndex, [&](uint32 index, Var value) {
-                T n = dstIndex + (index - start);
-                dstArray->DirectSetItemAt(n, value);
-
-                count++;
-            });
-
-            prototype = prototype->GetPrototype();
         }
     }
 
@@ -11559,6 +11605,11 @@ Case0:
             {
                 if (!JavascriptOperators::GetProperty((RecyclableObject*)constructor, PropertyIds::_symbolSpecies, &constructor, scriptContext))
                 {
+                    if (pIsBuiltinArrayCtor != nullptr)
+                    {
+                        *pIsBuiltinArrayCtor = false;
+                    }
+
                     return nullptr;
                 }
                 if (constructor == scriptContext->GetLibrary()->GetNull())
