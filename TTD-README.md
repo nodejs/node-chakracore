@@ -25,7 +25,7 @@ bug reports, functionality requests, and pull-requests from the community.
 * TTD preview available on macOS and Ubuntu 16.04
   * Added TTD support on experimental Node-ChakraCore cross-platform builds
 
-![VSCode showing TTD with step back and reverse continue](https://cloud.githubusercontent.com/assets/1898161/20216922/a007d232-a81d-11e6-8631-df5f285d623b.gif)
+![VSCode showing TTD with step back and reverse continue](https://aka.ms/nodettd-reversecontinue.gif)
 ### How to get started
 To get started with TTD you will need the following:
 
