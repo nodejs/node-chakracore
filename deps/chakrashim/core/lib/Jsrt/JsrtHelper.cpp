@@ -110,9 +110,8 @@ void JsrtCallbackState::ObjectBeforeCallectCallbackWrapper(JsObjectBeforeCollect
     // setup the cleanup
     // we do not track the main thread. When it exits do the cleanup below
     atexit([]() {
-        ThreadBoundThreadContextManager::DestroyContextAndEntryForCurrentThread();
-
         JsrtRuntime::Uninitialize();
+        ThreadBoundThreadContextManager::DestroyContextAndEntryForCurrentThread();
 
         // thread-bound entrypoint should be able to get cleanup correctly, however tlsentry
         // for current thread might be left behind if this thread was initialized.
