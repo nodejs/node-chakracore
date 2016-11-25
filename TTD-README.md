@@ -1,7 +1,7 @@
 # Time Travel Debugging with Node-ChakraCore
 
 Stepping forward after hitting a breakpoint is a familiar experience but what 
-if you can step back in time?  Frequently developers find themselves hunting 
+if you could step back in time?  Frequently developers find themselves hunting 
 for failure clues (e.g. error text) in the log files and then searching for 
 that in the code.  Once the log statement is found in the source code, the 
 developer is left to re-construct the context for the error.  
