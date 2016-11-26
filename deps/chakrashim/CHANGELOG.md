@@ -1,5 +1,17 @@
 # ChakraShim ChangeLog
 
+## 2016-11-25, node-chakracore-7.0.0-pre10
+
+### Commits
+* [ 83f1478 ]  Fix cleanup issue in ChakraCore xplat
+* [ 228dbe6 ]  Update chakracore to release/2.0-pre (commit 35226c9)
+* [ 59950ad ]  Added instructions on “How to get started with TTD”
+* [ a6333ed ]  node-chakracore: Fix test/message/timeout_throw.js baseline
+* [ 9c745fd ]  chakrashim: Added missing IsSharedArrayBuffer API
+* [ dd5a011 ]  chakrashim: Use new xplat string APIs
+* [ 3ec2f4f ]  chakrashim: Fix JsParse/JsRun APIs
+* [ e9dd0aa ]  chakrashim: add chakracore experimental String APIs
+
 ## 2016-09-09, node-chakracore-7.0.0-pre9
 
 ### Commits
