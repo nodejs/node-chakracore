@@ -118,7 +118,7 @@ Hello from Node.js chakracore
 
 ### Issues
 
-Please report all issues related to Node-ChakraCore on this separate
-[issue page] (https://github.com/nodejs/node-chakracore/issues).
+Please report all issues related to Node-ChakraCore on our
+[issues page] (https://github.com/nodejs/node-chakracore/issues).
 
 
