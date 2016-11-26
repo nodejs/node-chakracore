@@ -24,7 +24,7 @@ Time-Travel debugging is an exciting new addition to Node.js debugging, first in
 Check out this [Time-Travel Debugging](https://github.com/nodejs/node-chakracore/blob/xplat/TTD-README.md) page to learn how to get started with TTD on Node-ChakraCore with VSCode.
 
 ### Node.js API (NAPI)
-ChakraCore is also supporting the advancement of [ABI-Stable-Node](https://github.com/nodejs/abi-stable-node) project also called NAPI. The goal of this project is to ease the lives of native add-ons developers, by providing a stable Node API which also guarantees stable ABI across disparate Node versions. This allows native modules to just work across different versions and flavors of Node.js without recompilations, reducing the maintenance cost for module developers and thus improving compatibility.
+Node-ChakraCore is an active participant in the [ABI-Stable-Node](https://github.com/nodejs/abi-stable-node) project also called NAPI. The goal of this project is to ease the lives of native add-ons developers, by providing a stable Node API which also guarantees stable ABI across disparate Node versions. This allows native modules to just work across different versions and flavors of Node.js without recompilations, reducing the maintenance cost for module developers and thus improving compatibility.
 
 Head over to the [NAPI Project repo](https://github.com/nodejs/abi-stable-node) to learn more about it and ways to get involved. 
 
