@@ -18,19 +18,36 @@ modules written for V8.
 A rebuild of node and native addon modules with ChakraCore is required for this
 to work.
 
-### Issues
+### Time Travel Debugging 
+Time-Travel debugging is an exciting innovation in Node.js debugging being developed in Node-ChakraCore supported by [VSCode](https://github.com/microsoft/vscode/). We are developing in the open and want to share our progress to get feedback, bug reports, functionality requests, and pull-requests from the community. 
 
-Please report all issues related to Node-ChakraCore on this separate
-[issue page] (https://github.com/nodejs/node-chakracore/issues).
+Check out this [Time-Travel Debugging](https://github.com/nodejs/node-chakracore/blob/xplat/TTD-README.md) page to learn how to get started with TTD on Node-ChakraCore with VSCode.
 
-### Prebuilt Node-ChakraCore binaries
+### Node.js API (NAPI)
+ChakraCore is also supporting the advancement of [ABI-Stable-Node](https://github.com/nodejs/abi-stable-node) project also called NAPI. The compatibility of native add-on Node module ecosystem is going to greatly improve across different node versions and also different Node VMs.
 
-You can download and install prebuilt Node-ChakraCore from the releases page.
-Currently available for:
+Head over to the [NAPI Project repo](https://github.com/nodejs/abi-stable-node) to learn more about it and ways to get involved. 
 
-* Windows 7+: [here] (https://aka.ms/node-chakracore-release-windows)
-* Ubuntu 16.04 LTS x64:
-  [preview here] (https://aka.ms/node-chakracore-release-linux)
+### Installing prebuilt Node-ChakraCore binaries
+
+You can download and install stable prebuilt Node-ChakraCore from the [releases page](https://github.com/nodejs/node-chakracore/releases).
+
+_For installing Node-ChakraCore side-by-side your existing Node installation, we recommend [Node Version Switcher (NVS)](https://github.com/jasongin/nvs)._
+
+```
+nvs remote chakracore https://github.com/nodejs/node-chakracore/releases 
+nvs add chakracore/latest
+nvs use chakracore
+```
+
+Nightly builds of Node-ChakraCore are available at [https://nodejs.org/download/chakracore-nightly/](https://nodejs.org/download/chakracore-nightly/) 
+Please use the following instructions to install the nightly builds. 
+
+```
+nvs remote chakracore-nightly https://nodejs.org/download/chakracore-nightly/
+nvs add chakracore-nightly/latest
+nvs use chakracore-nightly
+```
 
 ### Building Node-ChakraCore
 
@@ -62,7 +79,7 @@ C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
 
-#### Linux
+#### Linux / macOS
 
 Prerequisites:
 * Ubuntu 16.04 LTS x64
@@ -84,7 +101,6 @@ Build:
 ```
 ./configure --engine=chakracore
 make
-[sudo] make install
 ```
 
 To run unit tests:
@@ -99,3 +115,10 @@ To test if Node.js was built correctly with ChakraCore:
 $ node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
+
+### Issues
+
+Please report all issues related to Node-ChakraCore on this separate
+[issue page] (https://github.com/nodejs/node-chakracore/issues).
+
+
