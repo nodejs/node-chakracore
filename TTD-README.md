@@ -35,7 +35,7 @@ To get started with TTD you will need the following:
 ### Record TTD trace
 To record a trace for debugging run the TTD enabled build of node with the record flag:   
 ```node.exe -TTRecord:<Location to save Trace>  <app script>```  
-Where the location of the saved trace is a **relative path** from the location of the TTD node.exe file.
+Where the location of the saved trace is a **relative path** from the current working directory.
 
 ### Replay a TTD Trace on the command line:
 ```node.exe -TTReplay:<Location of saved Trace>```
