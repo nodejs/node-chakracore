@@ -106,7 +106,8 @@ if defined build_release (
 )
 
 :: assign path to node_exe
-set "node_exe=%config%\node.exe"
+set "node_exe=%~dp0%config%\node.exe"
+if not defined native_node_exe set "native_node_exe=%node_exe%"
 
 if "%config%"=="Debug" set configure_flags=%configure_flags% --debug
 if defined nosnapshot set configure_flags=%configure_flags% --without-snapshot
@@ -204,7 +205,7 @@ if errorlevel 1 echo Failed to sign exe&goto exit
 @rem Skip license.rtf generation if not requested.
 if not defined licensertf goto package
 
-%config%\node tools\license2rtf.js < LICENSE > %config%\license.rtf
+%native_node_exe% tools\license2rtf.js < LICENSE > %config%\license.rtf
 if errorlevel 1 echo Failed to generate license.rtf&goto exit
 
 :package
@@ -250,10 +251,10 @@ if errorlevel 1 echo Cannot copy node.lib && goto package_error
 copy /Y chakracore.lib node-v%FULLVERSION%-win-%target_arch%\sdk\%config%\ > nul
 if errorlevel 1 echo Cannot copy chakracore.lib && goto package_error
 set "pkgnpmsh=node-v%FULLVERSION%-win-%target_arch%/npm"
-node.exe -e "var data=fs.readFileSync('%pkgnpmsh%', 'utf8').split('\n');data.splice(-2, 0, 'export NPM_CONFIG_NODEDIR=\"$basedir/sdk\"');fs.writeFileSync('%pkgnpmsh%', data.join('\n'))"
+%native_node_exe% -e "var data=fs.readFileSync('%pkgnpmsh%', 'utf8').split('\n');data.splice(-2, 0, 'export NPM_CONFIG_NODEDIR=\"$basedir/sdk\"');fs.writeFileSync('%pkgnpmsh%', data.join('\n'))"
 if errorlevel 1 echo Cannot change %pkgnpmsh% && goto package_error
 set "pkgnpmcmd=node-v%FULLVERSION%-win-%target_arch%/npm.cmd"
-node.exe -e "var data=fs.readFileSync('%pkgnpmcmd%', 'utf8').split('\n');data.splice(-2, 0, 'SET \"NPM_CONFIG_NODEDIR=%%~dp0\\sdk\"');fs.writeFileSync('%pkgnpmcmd%', data.join('\n'))"
+%native_node_exe% -e "var data=fs.readFileSync('%pkgnpmcmd%', 'utf8').split('\n');data.splice(-2, 0, 'SET \"NPM_CONFIG_NODEDIR=%%~dp0\\sdk\"');fs.writeFileSync('%pkgnpmcmd%', data.join('\n'))"
 if errorlevel 1 echo Cannot change %pkgnpmcmd% && goto package_error
 
 echo Creating node-v%FULLVERSION%-win-%target_arch%.7z
