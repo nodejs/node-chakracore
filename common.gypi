@@ -47,9 +47,11 @@
       ['GENERATOR == "ninja" or OS== "mac"', {
         'OBJ_DIR': '<(PRODUCT_DIR)/obj',
         'V8_BASE': '<(PRODUCT_DIR)/libv8_base.a',
+        'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/libchakrashim.a',
       }, {
         'OBJ_DIR': '<(PRODUCT_DIR)/obj.target',
         'V8_BASE': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
+        'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/obj.target/deps/chakrashim/libchakrashim.a',
       }],
       ['openssl_fips != ""', {
         'OPENSSL_PRODUCT': 'libcrypto.a',

@@ -571,10 +571,16 @@
           'conditions': [
             [ 'node_engine=="v8"', {
               'ldflags': [
-                       '-Wl,--whole-archive <(V8_BASE)',
+                '-Wl,--whole-archive <(V8_BASE)',
                 '-Wl,--no-whole-archive',
               ],
-        }],
+            }],
+            ['node_engine=="chakracore"', {
+              'ldflags': [
+                '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
+                '-Wl,--no-whole-archive',
+              ],
+            }],
           ],
         }],
         [ 'OS=="sunos"', {
