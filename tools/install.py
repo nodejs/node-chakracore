@@ -151,7 +151,13 @@ def headers(action):
   if sys.platform.startswith('aix'):
     action(['out/Release/node.exp'], 'include/node/')
 
-  subdir_files('deps/v8/include', 'include/node/', action)
+  if 'v8' == variables.get('node_engine'):
+    subdir_files('deps/v8/include', 'include/node/', action)
+  elif 'chakracore' == variables.get('node_engine'):
+    subdir_files('deps/chakrashim/include', 'include/node/', action)
+    subdir_files('deps/chakrashim/src', 'include/node/', action)
+  else:
+    raise RuntimeError('Unknown engine: %s\n' % variables.get('node_engine'))
 
   if 'false' == variables.get('node_shared_cares'):
     subdir_files('deps/cares/include', 'include/node/', action)
