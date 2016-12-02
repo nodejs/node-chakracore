@@ -2424,6 +2424,13 @@ class V8_EXPORT Context {
     ExtensionConfiguration* extensions = NULL,
     Handle<ObjectTemplate> global_template = Handle<ObjectTemplate>(),
     Handle<Value> global_object = Handle<Value>());
+  static Local<Context> New(
+    Isolate* isolate,
+    ExtensionConfiguration* extensions,
+    Handle<ObjectTemplate> global_template = Handle<ObjectTemplate>(),
+    Handle<Value> global_object = Handle<Value>()) {
+    return New(isolate, false, extensions, global_template, global_object);
+  }
   static Local<Context> GetCurrent();
 
   Isolate* GetIsolate();
