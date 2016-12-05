@@ -157,7 +157,7 @@ def headers(action):
     subdir_files('deps/chakrashim/include', 'include/node/', action)
     subdir_files('deps/chakrashim/src', 'include/node/', action)
   else:
-    assert(0) # unhandled engine
+    raise RuntimeError('Unknown engine: %s\n' % variables.get('node_engine'))
 
   if 'false' == variables.get('node_shared_cares'):
     subdir_files('deps/cares/include', 'include/node/', action)
