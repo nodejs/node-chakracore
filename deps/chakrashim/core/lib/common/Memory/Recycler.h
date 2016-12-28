@@ -252,7 +252,7 @@ enum CollectionFlags
     CollectOverride_FinishConcurrentTimeout = 0x00200000,
     CollectOverride_NoExhaustiveCollect = 0x00400000,
     CollectOverride_SkipStack           = 0x01000000,
-
+    CollectOverride_CheckScriptContextClose = 0x02000000,
     CollectMode_Partial                 = 0x08000000,
     CollectMode_Concurrent              = 0x10000000,
     CollectMode_Exhaustive              = 0x20000000,
@@ -272,8 +272,8 @@ enum CollectionFlags
 
     CollectOnAllocation             = CollectHeuristic_AllocSize | CollectHeuristic_Time | CollectMode_Concurrent | CollectMode_Partial | CollectOverride_FinishConcurrent | CollectOverride_AllowReentrant | CollectOverride_FinishConcurrentTimeout,
     CollectOnTypedArrayAllocation   = CollectHeuristic_AllocSize | CollectHeuristic_Time | CollectMode_Concurrent | CollectMode_Partial | CollectOverride_FinishConcurrent | CollectOverride_AllowReentrant | CollectOverride_FinishConcurrentTimeout | CollectOverride_AllowDispose,
-    CollectOnScriptIdle             = CollectOverride_FinishConcurrent | CollectMode_Concurrent | CollectMode_CacheCleanup | CollectOverride_SkipStack,
-    CollectOnScriptExit             = CollectHeuristic_AllocSize | CollectOverride_FinishConcurrent | CollectMode_Concurrent | CollectMode_CacheCleanup,
+    CollectOnScriptIdle             = CollectOverride_CheckScriptContextClose | CollectOverride_FinishConcurrent | CollectMode_Concurrent | CollectMode_CacheCleanup | CollectOverride_SkipStack,
+    CollectOnScriptExit             = CollectOverride_CheckScriptContextClose | CollectHeuristic_AllocSize | CollectOverride_FinishConcurrent | CollectMode_Concurrent | CollectMode_CacheCleanup,
     CollectExhaustiveCandidate      = CollectHeuristic_Never | CollectOverride_ExhaustiveCandidate,
     CollectOnScriptCloseNonPrimary  = CollectNowConcurrent | CollectOverride_ExhaustiveCandidate | CollectOverride_AllowDispose,
     CollectOnRecoverFromOutOfMemory = CollectOverride_ForceInThread | CollectMode_DecommitNow,
@@ -313,6 +313,10 @@ enum CollectionFlags
 class RecyclerCollectionWrapper
 {
 public:
+    RecyclerCollectionWrapper() :
+        _isScriptContextCloseGCPending(FALSE)
+    { }
+
     typedef BOOL (Recycler::*CollectionFunction)(CollectionFlags flags);
     virtual void PreCollectionCallBack(CollectionFlags flags) = 0;
     virtual void PreSweepCallback() = 0;
@@ -325,6 +329,9 @@ public:
     virtual void PostCollectionCallBack() = 0;
     virtual BOOL ExecuteRecyclerCollectionFunction(Recycler * recycler, CollectionFunction function, CollectionFlags flags) = 0;
     virtual uint GetRandomNumber() = 0;
+    virtual bool DoSpecialMarkOnScanStack() = 0;
+    virtual void PostSweepRedeferralCallBack() = 0;
+
 #ifdef FAULT_INJECTION
     virtual void DisposeScriptContextByFaultInjectionCallBack() = 0;
 #endif
@@ -337,6 +344,24 @@ public:
     virtual bool AsyncHostOperationStart(void *) = 0;
     virtual void AsyncHostOperationEnd(bool wasInAsync, void *) = 0;
 #endif
+
+    BOOL GetIsScriptContextCloseGCPending()
+    {
+        return _isScriptContextCloseGCPending;
+    }
+
+    void ClearIsScriptContextCloseGCPending()
+    {
+        _isScriptContextCloseGCPending = FALSE;
+    }
+
+    void SetIsScriptContextCloseGCPending()
+    {
+        _isScriptContextCloseGCPending = TRUE;
+    }
+
+protected:
+    BOOL _isScriptContextCloseGCPending;
 };
 
 class DefaultRecyclerCollectionWrapper : public RecyclerCollectionWrapper
@@ -353,6 +378,8 @@ public:
     virtual void PostCollectionCallBack() override {}
     virtual BOOL ExecuteRecyclerCollectionFunction(Recycler * recycler, CollectionFunction function, CollectionFlags flags) override;
     virtual uint GetRandomNumber() override { return 0; }
+    virtual bool DoSpecialMarkOnScanStack() override { return false; }
+    virtual void PostSweepRedeferralCallBack() override {}
 #ifdef FAULT_INJECTION
     virtual void DisposeScriptContextByFaultInjectionCallBack() override {};
 #endif
@@ -624,7 +651,8 @@ class Recycler
     friend class ActiveScriptProfilerHeapEnum;
 #endif
     friend class ScriptEngineBase;  // This is for disabling GC for certain Host operations.
-    friend class CodeGenNumberThreadAllocator;
+    friend class ::CodeGenNumberThreadAllocator;
+    friend struct ::XProcNumberPageSegmentManager;
 public:
     static const uint ConcurrentThreadStackSize = 300000;
     static const bool FakeZeroLengthArray = true;
@@ -741,7 +769,7 @@ private:
 
     struct GuestArenaAllocator : public ArenaAllocator
     {
-        GuestArenaAllocator(__in char16 const*  name, PageAllocator * pageAllocator, void (*outOfMemoryFunc)())
+        GuestArenaAllocator(__in_z char16 const*  name, PageAllocator * pageAllocator, void (*outOfMemoryFunc)())
             : ArenaAllocator(name, pageAllocator, outOfMemoryFunc), pendingDelete(false)
         {
         }
@@ -1000,9 +1028,6 @@ private:
     RecyclerMemoryData * memoryData;
 #endif
     ThreadContextId mainThreadId;
-#ifdef ENABLE_BASIC_TELEMETRY
-    Js::GCTelemetry gcTel;
-#endif
 
 #if DBG
     uint heapBlockCount;
@@ -1011,9 +1036,10 @@ private:
 #if DBG || defined(RECYCLER_STATS)
     bool isForceSweeping;
 #endif
+#ifdef NTBUILD
     RecyclerWatsonTelemetryBlock localTelemetryBlock;
     RecyclerWatsonTelemetryBlock * telemetryBlock;
-
+#endif
 #ifdef RECYCLER_STATS
     RecyclerCollectionStats collectionStats;
     void PrintHeapBlockStats(char16 const * name, HeapBlock::HeapBlockType type);
@@ -1074,7 +1100,9 @@ public:
     void LogMemProtectHeapSize(bool fromGC);
 
     char* Realloc(void* buffer, DECLSPEC_GUARD_OVERFLOW size_t existingBytes, DECLSPEC_GUARD_OVERFLOW size_t requestedBytes, bool truncate = true);
+#ifdef NTBUILD
     void SetTelemetryBlock(RecyclerWatsonTelemetryBlock * telemetryBlock) { this->telemetryBlock = telemetryBlock; }
+#endif
 
     void Prime();
 
@@ -1370,7 +1398,8 @@ public:
         return this->autoHeap.GetBucket<attributes>(sizeCat).GetAllocator()->GetFreeObjectListOffset();
     }
 
-    void GetNormalHeapBlockAllocatorInfoForNativeAllocation(size_t sizeCat, void*& allocatorAddress, uint32& endAddressOffset, uint32& freeListOffset);
+    void GetNormalHeapBlockAllocatorInfoForNativeAllocation(size_t sizeCat, void*& allocatorAddress, uint32& endAddressOffset, uint32& freeListOffset, bool allowBumpAllocation, bool isOOPJIT);
+    static void GetNormalHeapBlockAllocatorInfoForNativeAllocation(void* recyclerAddr, size_t sizeCat, void*& allocatorAddress, uint32& endAddressOffset, uint32& freeListOffset, bool allowBumpAllocation, bool isOOPJIT);
     bool AllowNativeCodeBumpAllocation();
     static void TrackNativeAllocatedMemoryBlock(Recycler * recycler, void * memBlock, size_t sizeCat);
 
@@ -1436,6 +1465,7 @@ public:
 #endif
 #ifdef RECYCLER_MEMORY_VERIFY
     BOOL VerifyEnabled() const { return verifyEnabled; }
+    uint GetVerifyPad() const { return verifyPad; }
     void Verify(Js::Phase phase);
 
     static void VerifyCheck(BOOL cond, char16 const * msg, void * address, void * corruptedAddress);
@@ -1445,6 +1475,7 @@ public:
     {
         FillCheckPad(address, size, alignedAllocSize, false);
     }
+    static void FillPadNoCheck(void * address, size_t size, size_t alignedAllocSize, bool objectAlreadyInitialized);
 
     void VerifyCheckPad(void * address, size_t size);
     void VerifyCheckPadExplicitFreeList(void * address, size_t size);
@@ -1472,22 +1503,7 @@ public:
     }
     void CaptureCollectionParam(CollectionFlags flags, bool repeat = false);
 #endif
-#ifdef ENABLE_BASIC_TELEMETRY
-    Js::GCPauseStats GetGCPauseStats()
-    {
-        return gcTel.GetGCPauseStats(); // returns the maxGCpause time in ms
-    }
 
-    void ResetGCPauseStats()
-    {
-        gcTel.Reset();
-    }
-
-    void SetIsScriptSiteCloseGC(bool val)
-    {
-        gcTel.SetIsScriptSiteCloseGC(val);
-    }
-#endif
 private:
     // RecyclerRootPtr has implicit conversion to pointers, prevent it to be
     // passed to RootAddRef/RootRelease directly
@@ -1625,8 +1641,10 @@ private:
 
     inline void ScanObjectInline(void ** obj, size_t byteCount);
     inline void ScanObjectInlineInterior(void ** obj, size_t byteCount);
+    template <bool doSpecialMark>
     inline void ScanMemoryInline(void ** obj, size_t byteCount);
-    void ScanMemory(void ** obj, size_t byteCount) { if (byteCount != 0) { ScanMemoryInline(obj, byteCount); } }
+    template <bool doSpecialMark>
+    void ScanMemory(void ** obj, size_t byteCount) { if (byteCount != 0) { ScanMemoryInline<doSpecialMark>(obj, byteCount); } }
     bool AddMark(void * candidate, size_t byteCount);
 
     // Sweep
@@ -1679,6 +1697,10 @@ private:
     void ProcessTrackedObjects();
 #endif
 
+    BOOL IsAllocatableCallbackState()
+    {
+        return (collectionState & (Collection_PostSweepRedeferralCallback | Collection_PostCollectionCallback));
+    }
 #if ENABLE_CONCURRENT_GC
     // Concurrent GC
     BOOL IsConcurrentEnabled() const { return this->enableConcurrentMark || this->enableParallelMark || this->enableConcurrentSweep; }
@@ -2044,7 +2066,7 @@ public:
     void* GetObjectAddress() const { return m_address; }
 
 #ifdef RECYCLER_PAGE_HEAP
-    bool IsPageHeapAlloc() 
+    bool IsPageHeapAlloc()
     {
         return isUsingLargeHeapBlock && ((LargeHeapBlock*)m_heapBlock)->InPageHeapMode();
     }

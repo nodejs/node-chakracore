@@ -12,7 +12,7 @@ namespace TTD
     {
         void ExtractCompoundObject(NSSnapObjects::SnapObject* sobj, Js::RecyclableObject* obj, bool isWellKnown, const TTDIdentifierDictionary<TTD_PTR_ID, NSSnapType::SnapType*>& idToTypeMap, SlabAllocator& alloc)
         {
-            AssertMsg(!obj->CanHaveInterceptors(), "We are not prepared for custom external objects yet");
+            TTDAssert(!obj->CanHaveInterceptors(), "We are not prepared for custom external objects yet");
 
             sobj->ObjectPtrId = TTD_CONVERT_VAR_TO_PTR_ID(obj);
             sobj->SnapObjectTag = obj->GetSnapTag_TTD();
@@ -41,6 +41,8 @@ namespace TTD
 
         void StdPropertyExtract_StaticType(SnapObject* snpObject, Js::RecyclableObject* obj)
         {
+            snpObject->IsCrossSite = FALSE;
+
             snpObject->VarArrayCount = 0;
             snpObject->VarArray = nullptr;
 
@@ -53,6 +55,8 @@ namespace TTD
         void StdPropertyExtract_DynamicType(SnapObject* snpObject, Js::DynamicObject* dynObj, SlabAllocator& alloc)
         {
             NSSnapType::SnapType* sType = snpObject->SnapType;
+
+            snpObject->IsCrossSite = dynObj->IsCrossSiteObject();
 
 #if ENABLE_OBJECT_SOURCE_TRACKING
             CopyDiagnosticOriginInformation(snpObject->DiagOriginInfo, dynObj->TTDDiagOriginInfo);
@@ -107,7 +111,7 @@ namespace TTD
             {
                 return nullptr;
             }
-            AssertMsg(Js::DynamicType::Is(robj->GetTypeId()), "You should only do this for dynamic objects!!!");
+            TTDAssert(Js::DynamicType::Is(robj->GetTypeId()), "You should only do this for dynamic objects!!!");
 
             Js::DynamicObject* dynObj = Js::DynamicObject::FromVar(robj);
             return ObjectPropertyReset(snpObject, dynObj, inflator, false);
@@ -156,12 +160,12 @@ namespace TTD
                 {
                     BOOL ok = FALSE;
                     Js::PropertyId pid = iter.CurrentValue();
-                    AssertMsg(pid != Js::Constants::NoProperty, "This shouldn't happen!!!");
+                    TTDAssert(pid != Js::Constants::NoProperty, "This shouldn't happen!!!");
 
                     //This is a bit of a kludge
                     if(Js::IsInternalPropertyId(pid))
                     {
-                        AssertMsg(dynObj->GetTypeId() == Js::TypeIds_Object, "If it is anything else then I am not sure we can re-create it appropriately");
+                        TTDAssert(dynObj->GetTypeId() == Js::TypeIds_Object, "If it is anything else then I am not sure we can re-create it appropriately");
 
                         propertyReset.Clear();
                         return dynObj->GetLibrary()->CreateObject();
@@ -176,7 +180,7 @@ namespace TTD
                         ok = dynObj->DeleteProperty(pid, Js::PropertyOperationFlags::PropertyOperation_Force);
                     }
 
-                    AssertMsg(ok, "This property is stuck!!!");
+                    TTDAssert(ok, "This property is stuck!!!");
                 }
             }
 
@@ -194,6 +198,10 @@ namespace TTD
             return dynObj;
         }
 
+        //
+        //TODO: I still don't love this (and the reset above) as I feel it hits too much other execution machinery and can fail in odd cases.
+        //          For the current time it is ok but we may want to look into adding specialized methods for resetting/restoring.
+        //
         void StdPropertyRestore(const SnapObject* snpObject, Js::DynamicObject* obj, InflateMap* inflator)
         {
             //Many protos are set at creation, don't mess with them if they are already correct
@@ -227,32 +235,36 @@ namespace TTD
                     continue;
                 }
 
-                AssertMsg(!Js::JavascriptProxy::Is(obj), "I didn't think proxies could have real properties directly on them.");
+                TTDAssert(!Js::JavascriptProxy::Is(obj), "I didn't think proxies could have real properties directly on them.");
 
                 Js::PropertyId pid = handler->PropertyInfoArray[i].PropertyRecordId;
-                TTDVar ttdVal = snpObject->VarArray[i];
-                Js::Var pVal = inflator->InflateTTDVar(ttdVal);
 
-                if(handler->PropertyInfoArray[i].DataKind == NSSnapType::SnapEntryDataKindTag::Data)
+                if(handler->PropertyInfoArray[i].DataKind == NSSnapType::SnapEntryDataKindTag::Uninitialized)
                 {
-                    BOOL success = FALSE;
-                    if(!obj->HasOwnProperty(pid))
+                    TTDAssert(!obj->HasOwnProperty(pid), "Shouldn't have this defined, or we should have cleared it, and nothing more to do.");
+
+                    BOOL success = obj->EnsureProperty(pid);
+
+                    TTDAssert(success, "Failed to set property during restore!!!");
+                }
+                else
+                {
+                    TTDVar ttdVal = snpObject->VarArray[i];
+                    Js::Var pVal = (ttdVal != nullptr) ? inflator->InflateTTDVar(ttdVal) : nullptr;
+
+                    if(handler->PropertyInfoArray[i].DataKind == NSSnapType::SnapEntryDataKindTag::Data)
                     {
-                        //easy case just set the property
-                        success = obj->SetProperty(pid, pVal, Js::PropertyOperationFlags::PropertyOperation_Force, nullptr);
-                    }
-                    else
-                    {
-                        if(obj->IsWritable(pid))
+                        BOOL success = FALSE;
+                        if(!obj->HasOwnProperty(pid))
                         {
-                            //also easy just write the property
-                            success = obj->SetProperty(pid, pVal, Js::PropertyOperationFlags::PropertyOperation_Force, nullptr);
+                            //easy case just set the property
+                            success = obj->SetPropertyWithAttributes(pid, pVal, PropertyDynamicTypeDefaults, nullptr);
                         }
                         else
                         {
                             //get the value to see if it is alreay ok
                             Js::Var currentValue = nullptr;
-                            Js::JavascriptOperators::GetProperty(obj, pid, obj->GetScriptContext(), nullptr);
+                            Js::JavascriptOperators::GetOwnProperty(obj, pid, &currentValue, obj->GetScriptContext());
 
                             if(currentValue == pVal)
                             {
@@ -265,27 +277,24 @@ namespace TTD
                                 success = obj->SetPropertyWithAttributes(pid, pVal, PropertyDynamicTypeDefaults, nullptr);
                             }
                         }
-                    }
-                    AssertMsg(success, "Failed to set property during restore!!!");
-                }
-                else
-                {
-                    //
-                    //TODO: we could have a problem if we set a getter (and make it not writable say) then what happens with the setter -- or maybe set accessors just ignores this?
-                    //
 
-                    NSSnapType::SnapEntryDataKindTag ttag = handler->PropertyInfoArray[i].DataKind;
-                    if(ttag == NSSnapType::SnapEntryDataKindTag::Getter)
-                    {
-                        obj->SetAccessors(pid, pVal, nullptr);
-                    }
-                    else if(ttag == NSSnapType::SnapEntryDataKindTag::Setter)
-                    {
-                        obj->SetAccessors(pid, nullptr, pVal);
+                        TTDAssert(success, "Failed to set property during restore!!!");
                     }
                     else
                     {
-                        AssertMsg(false, "Don't know how to restore this accesstag!!");
+                        NSSnapType::SnapEntryDataKindTag ttag = handler->PropertyInfoArray[i].DataKind;
+                        if(ttag == NSSnapType::SnapEntryDataKindTag::Getter)
+                        {
+                            obj->SetAccessors(pid, pVal, nullptr);
+                        }
+                        else if(ttag == NSSnapType::SnapEntryDataKindTag::Setter)
+                        {
+                            obj->SetAccessors(pid, nullptr, pVal);
+                        }
+                        else
+                        {
+                            TTDAssert(false, "Don't know how to restore this accesstag!!");
+                        }
                     }
                 }
 
@@ -322,13 +331,18 @@ namespace TTD
             {
                 if(!obj->GetIsExtensible())
                 {
-                    AssertMsg(!obj->GetDynamicType()->GetIsShared() || obj->GetDynamicType()->GetTypeHandler()->GetIsShared(), "We are just changing the flag so if it is shared this might unexpectedly change another type!");
+                    TTDAssert(!(obj->GetDynamicType()->GetIsShared() || obj->GetDynamicType()->GetTypeHandler()->GetIsShared()), "We are just changing the flag so if it is shared this might unexpectedly change another type!");
 
                     obj->GetDynamicType()->GetTypeHandler()->SetExtensible_TTD();
                 }
             }
 
-            obj->GetDynamicType()->SetHasNoEnumerableProperties(snpObject->SnapType->HasNoEnumerableProperties);
+            if(snpObject->SnapType->HasNoEnumerableProperties != obj->GetDynamicType()->GetHasNoEnumerableProperties())
+            {
+                TTDAssert(!obj->GetDynamicType()->GetIsShared(), "This is shared so we are mucking something up.");
+
+                obj->GetDynamicType()->SetHasNoEnumerableProperties(snpObject->SnapType->HasNoEnumerableProperties);
+            }
         }
 
         void EmitObject(const SnapObject* snpObject, FileWriter* writer, NSTokens::Separator separator, const SnapObjectVTable* vtable, ThreadContext* threadContext)
@@ -346,6 +360,8 @@ namespace TTD
             }
 
             writer->WriteAddr(NSTokens::Key::typeId, snpObject->SnapType->TypePtrId, NSTokens::Separator::CommaSeparator);
+
+            writer->WriteBool(NSTokens::Key::isCrossSite, !!snpObject->IsCrossSite, NSTokens::Separator::CommaSeparator);
 
 #if ENABLE_OBJECT_SOURCE_TRACKING
             writer->WriteKey(NSTokens::Key::originInfo, NSTokens::Separator::CommaSeparator);
@@ -435,6 +451,8 @@ namespace TTD
 
             snpObject->SnapType = ptrIdToTypeMap.LookupKnownItem(reader->ReadAddr(NSTokens::Key::typeId, true));
 
+            snpObject->IsCrossSite = reader->ReadBool(NSTokens::Key::isCrossSite, true);
+
 #if ENABLE_OBJECT_SOURCE_TRACKING
             reader->ReadKey(NSTokens::Key::originInfo, true);
             ParseDiagnosticOriginInformation(snpObject->DiagOriginInfo, false, reader);
@@ -523,6 +541,16 @@ namespace TTD
             //But for sanity assert same counts.
             compareMap.DiagnosticAssert((sobj1->OptDependsOnInfo == nullptr && sobj2->OptDependsOnInfo == nullptr) || (sobj1->OptDependsOnInfo->DepOnCount == sobj2->OptDependsOnInfo->DepOnCount));
 
+            //we allow the replay in debug mode to be cross site even if orig was not (that is ok) but if record was x-site then replay must be as well
+            if(compareMap.StrictCrossSite)
+            {
+                compareMap.DiagnosticAssert(sobj1->IsCrossSite == sobj2->IsCrossSite);
+            }
+            else
+            {
+                compareMap.DiagnosticAssert(!sobj1->IsCrossSite || sobj2->IsCrossSite);
+            }
+
 #if ENABLE_OBJECT_SOURCE_TRACKING
             compareMap.DiagnosticAssert(sobj1->DiagOriginInfo.SourceLine == sobj2->DiagOriginInfo.SourceLine);
             compareMap.DiagnosticAssert(sobj1->DiagOriginInfo.EventTime == sobj2->DiagOriginInfo.EventTime);
@@ -550,7 +578,7 @@ namespace TTD
                 for(uint32 i = 0; i < handler2->MaxPropertyIndex; ++i)
                 {
                     const NSSnapType::SnapHandlerPropertyEntry spe = handler2->PropertyInfoArray[i];
-                    if(spe.DataKind != NSSnapType::SnapEntryDataKindTag::Clear)
+                    if(spe.DataKind != NSSnapType::SnapEntryDataKindTag::Clear && spe.DataKind != NSSnapType::SnapEntryDataKindTag::Uninitialized)
                     {
                         int64 locationTag = ComputeLocationTagForAssertCompare(spe);
 
@@ -570,7 +598,7 @@ namespace TTD
                         }
                         else
                         {
-                            AssertMsg(spe.DataKind == NSSnapType::SnapEntryDataKindTag::Setter, "What other tags are there???");
+                            TTDAssert(spe.DataKind == NSSnapType::SnapEntryDataKindTag::Setter, "What other tags are there???");
 
                             NSSnapValues::AssertSnapEquivTTDVar_PropertySetter(var1, var2, compareMap, spe.PropertyRecordId);
                         }
@@ -597,6 +625,23 @@ namespace TTD
             {
                 Js::ScriptContext* ctx = inflator->LookupScriptContext(snpObject->SnapType->ScriptContextLogId);
                 return ctx->GetLibrary()->CreateObject();
+            }
+        }
+
+        Js::RecyclableObject* DoObjectInflation_SnapExternalObject(const SnapObject* snpObject, InflateMap* inflator)
+        {
+            Js::DynamicObject* rcObj = ReuseObjectCheckAndReset(snpObject, inflator);
+            if(rcObj != nullptr)
+            {
+                return rcObj;
+            }
+            else
+            {
+                Js::ScriptContext* ctx = inflator->LookupScriptContext(snpObject->SnapType->ScriptContextLogId);
+                Js::Var res = nullptr;
+                ctx->GetThreadContext()->TTDContext->TTDExternalObjectFunctions.pfCreateExternalObject(ctx, &res);
+
+                return Js::RecyclableObject::FromVar(res);
             }
         }
 
@@ -629,9 +674,7 @@ namespace TTD
                     func = ifunc;
                 }
 
-                func->SetHasInlineCaches(snapFuncInfo->HasInlineCaches);
                 func->SetHasSuperReference(snapFuncInfo->HasSuperReference);
-                func->SetIsActiveScript(snapFuncInfo->IsActiveScript);
 
                 return func;
             }
@@ -641,6 +684,11 @@ namespace TTD
         {
             Js::ScriptFunction* fobj = Js::ScriptFunction::FromVar(obj);
             SnapScriptFunctionInfo* snapFuncInfo = SnapObjectGetAddtlInfoAs<SnapScriptFunctionInfo*, SnapObjectType::SnapScriptFunctionObject>(snpObject);
+
+            if(snapFuncInfo->CachedScopeObjId != TTD_INVALID_PTR_ID)
+            {
+                fobj->SetCachedScope((Js::ActivationObjectEx*)inflator->LookupObject(snapFuncInfo->CachedScopeObjId));
+            }
 
             if(snapFuncInfo->HomeObjId != TTD_INVALID_PTR_ID)
             {
@@ -667,15 +715,14 @@ namespace TTD
             writer->WriteAddr(NSTokens::Key::functionBodyId, snapFuncInfo->BodyRefId, NSTokens::Separator::CommaAndBigSpaceSeparator);
 
             writer->WriteString(NSTokens::Key::name, snapFuncInfo->DebugFunctionName, NSTokens::Separator::CommaSeparator);
+            writer->WriteAddr(NSTokens::Key::cachedScopeObjId, snapFuncInfo->CachedScopeObjId, NSTokens::Separator::CommaSeparator);
             writer->WriteAddr(NSTokens::Key::scopeId, snapFuncInfo->ScopeId, NSTokens::Separator::CommaSeparator);
             writer->WriteAddr(NSTokens::Key::ptrIdVal, snapFuncInfo->HomeObjId, NSTokens::Separator::CommaSeparator);
 
             writer->WriteKey(NSTokens::Key::nameInfo, NSTokens::Separator::CommaSeparator);
             NSSnapValues::EmitTTDVar(snapFuncInfo->ComputedNameInfo, writer, NSTokens::Separator::NoSeparator);
 
-            writer->WriteBool(NSTokens::Key::boolVal, snapFuncInfo->HasInlineCaches, NSTokens::Separator::CommaSeparator);
             writer->WriteBool(NSTokens::Key::boolVal, snapFuncInfo->HasSuperReference, NSTokens::Separator::CommaSeparator);
-            writer->WriteBool(NSTokens::Key::boolVal, snapFuncInfo->IsActiveScript, NSTokens::Separator::CommaSeparator);
         }
 
         void ParseAddtlInfo_SnapScriptFunctionInfo(SnapObject* snpObject, FileReader* reader, SlabAllocator& alloc)
@@ -685,15 +732,14 @@ namespace TTD
             snapFuncInfo->BodyRefId = reader->ReadAddr(NSTokens::Key::functionBodyId, true);
 
             reader->ReadString(NSTokens::Key::name, alloc, snapFuncInfo->DebugFunctionName, true);
+            snapFuncInfo->CachedScopeObjId = reader->ReadAddr(NSTokens::Key::cachedScopeObjId, true);
             snapFuncInfo->ScopeId = reader->ReadAddr(NSTokens::Key::scopeId, true);
             snapFuncInfo->HomeObjId = reader->ReadAddr(NSTokens::Key::ptrIdVal, true);
 
             reader->ReadKey(NSTokens::Key::nameInfo, true);
             snapFuncInfo->ComputedNameInfo = NSSnapValues::ParseTTDVar(false, reader);
 
-            snapFuncInfo->HasInlineCaches = reader->ReadBool(NSTokens::Key::boolVal, true);
             snapFuncInfo->HasSuperReference = reader->ReadBool(NSTokens::Key::boolVal, true);
-            snapFuncInfo->IsActiveScript = reader->ReadBool(NSTokens::Key::boolVal, true);
 
             SnapObjectSetAddtlInfoAs<SnapScriptFunctionInfo*, SnapObjectType::SnapScriptFunctionObject>(snpObject, snapFuncInfo);
         }
@@ -708,13 +754,13 @@ namespace TTD
 
             compareMap.CheckConsistentAndAddPtrIdMapping_FunctionBody(snapFuncInfo1->BodyRefId, snapFuncInfo2->BodyRefId);
             compareMap.CheckConsistentAndAddPtrIdMapping_Special(snapFuncInfo1->ScopeId, snapFuncInfo2->ScopeId, _u("scopes"));
+
+            compareMap.CheckConsistentAndAddPtrIdMapping_Special(snapFuncInfo1->CachedScopeObjId, snapFuncInfo2->CachedScopeObjId, _u("cachedScopeObj"));
             compareMap.CheckConsistentAndAddPtrIdMapping_Special(snapFuncInfo1->HomeObjId, snapFuncInfo2->HomeObjId, _u("homeObject"));
 
             NSSnapValues::AssertSnapEquivTTDVar_Special(snapFuncInfo1->ComputedNameInfo, snapFuncInfo2->ComputedNameInfo, compareMap, _u("computedName"));
 
-            compareMap.DiagnosticAssert(snapFuncInfo1->HasInlineCaches == snapFuncInfo2->HasInlineCaches);
             compareMap.DiagnosticAssert(snapFuncInfo1->HasSuperReference == snapFuncInfo2->HasSuperReference);
-            compareMap.DiagnosticAssert(snapFuncInfo1->IsActiveScript == snapFuncInfo2->IsActiveScript);
         }
 #endif
 
@@ -913,17 +959,6 @@ namespace TTD
             return ctx->GetLibrary()->CreateConsoleScopeActivationObject();
         }
 
-        Js::RecyclableObject* DoObjectInflation_SnapActivationExInfo(const SnapObject* snpObject, InflateMap* inflator)
-        {
-            Js::ScriptContext* ctx = inflator->LookupScriptContext(snpObject->SnapType->ScriptContextLogId);
-
-            //
-            //TODO: I am going to assume the cached info is an optimization only so we just return a regular activation object here
-            //
-
-            return ctx->GetLibrary()->CreateActivationObject();
-        }
-
         //////////////////
 
         Js::RecyclableObject* DoObjectInflation_SnapHeapArgumentsInfo(const SnapObject* snpObject, InflateMap* inflator)
@@ -943,7 +978,7 @@ namespace TTD
             }
             else
             {
-                AssertMsg(argsInfo->FrameObject != TTD_INVALID_PTR_ID, "That won't work!");
+                TTDAssert(argsInfo->FrameObject != TTD_INVALID_PTR_ID, "That won't work!");
 
                 activationObj = inflator->LookupObject(argsInfo->FrameObject);
             }
@@ -968,7 +1003,7 @@ namespace TTD
             }
             else
             {
-                AssertMsg(argsInfo->FrameObject != TTD_INVALID_PTR_ID, "That won't work!");
+                TTDAssert(argsInfo->FrameObject != TTD_INVALID_PTR_ID, "That won't work!");
 
                 activationObj = inflator->LookupObject(argsInfo->FrameObject);
             }
@@ -1285,7 +1320,7 @@ namespace TTD
             const double* dateInfo1 = SnapObjectGetAddtlInfoAs<double*, SnapObjectType::SnapDateObject>(sobj1);
             const double* dateInfo2 = SnapObjectGetAddtlInfoAs<double*, SnapObjectType::SnapDateObject>(sobj2);
 
-            compareMap.DiagnosticAssert(*dateInfo1 == *dateInfo2);
+            compareMap.DiagnosticAssert(NSSnapValues::CheckSnapEquivTTDDouble(*dateInfo1, *dateInfo2));
         }
 #endif
 
@@ -1435,6 +1470,9 @@ namespace TTD
 
                 arrayObj->SetItemAttributes(entry->Index, entry->Attributes);
             }
+
+            //do length writable as needed
+            Js::JavascriptLibrary::SetLengthWritableES5Array_TTD(arrayObj, es5Info->IsLengthWritable);
         }
 
         void EmitAddtlInfo_SnapES5ArrayInfo(const SnapObject* snpObject, FileWriter* writer)
@@ -1442,6 +1480,8 @@ namespace TTD
             SnapES5ArrayInfo* es5Info = SnapObjectGetAddtlInfoAs<SnapES5ArrayInfo*, SnapObjectType::SnapES5ArrayObject>(snpObject);
 
             writer->WriteLengthValue(es5Info->GetterSetterCount, NSTokens::Separator::CommaSeparator);
+            writer->WriteBool(NSTokens::Key::boolVal, es5Info->IsLengthWritable, NSTokens::Separator::CommaSeparator);
+
             writer->WriteSequenceStart_DefaultKey(NSTokens::Separator::CommaSeparator);
             for(uint32 i = 0; i < es5Info->GetterSetterCount; ++i)
             {
@@ -1471,6 +1511,8 @@ namespace TTD
             SnapES5ArrayInfo* es5Info = alloc.SlabAllocateStruct<SnapES5ArrayInfo>();
 
             es5Info->GetterSetterCount = reader->ReadLengthValue(true);
+            es5Info->IsLengthWritable = reader->ReadBool(NSTokens::Key::boolVal, true);
+
             if(es5Info->GetterSetterCount == 0)
             {
                 es5Info->GetterSetterEntries = nullptr;
@@ -1512,6 +1554,8 @@ namespace TTD
             SnapES5ArrayInfo* es5Info2 = SnapObjectGetAddtlInfoAs<SnapES5ArrayInfo*, SnapObjectType::SnapES5ArrayObject>(sobj2);
 
             compareMap.DiagnosticAssert(es5Info1->GetterSetterCount == es5Info2->GetterSetterCount);
+            compareMap.DiagnosticAssert(es5Info1->IsLengthWritable == es5Info2->IsLengthWritable);
+
             for(uint32 i = 0; i < es5Info1->GetterSetterCount; ++i)
             {
                 const SnapES5ArrayGetterSetterEntry* entry1 = es5Info1->GetterSetterEntries + i;
@@ -1524,7 +1568,9 @@ namespace TTD
                 NSSnapValues::AssertSnapEquivTTDVar_SpecialArray(entry1->Setter, entry2->Setter, compareMap, _u("es5Setter"), entry1->Index);
             }
 
-            AssertSnapEquiv_SnapArrayInfoCore<TTDVar>(es5Info1->BasicArrayData, es5Info2->BasicArrayData, compareMap);
+            compareMap.DiagnosticAssert(es5Info1->BasicArrayData->Length == es5Info2->BasicArrayData->Length);
+
+            AssertSnapEquiv_SnapArrayInfoCore<TTDVar>(es5Info1->BasicArrayData->Data, es5Info2->BasicArrayData->Data, compareMap);
         }
 #endif
 
@@ -1539,7 +1585,7 @@ namespace TTD
             SnapArrayBufferInfo* buffInfo = SnapObjectGetAddtlInfoAs<SnapArrayBufferInfo*, SnapObjectType::SnapArrayBufferObject>(snpObject);
 
             Js::ArrayBuffer* abuff = ctx->GetLibrary()->CreateArrayBuffer(buffInfo->Length);
-            AssertMsg(abuff->GetByteLength() == buffInfo->Length, "Something is wrong with our sizes.");
+            TTDAssert(abuff->GetByteLength() == buffInfo->Length, "Something is wrong with our sizes.");
 
             js_memcpy_s(abuff->GetBuffer(), abuff->GetByteLength(), buffInfo->Buff, buffInfo->Length);
 
@@ -1668,7 +1714,7 @@ namespace TTD
                 tab = Js::CharArray::Create(arrayBuffer, typedArrayInfo->ByteOffset, typedArrayInfo->Length, jslib);
                 break;
             default:
-                AssertMsg(false, "Not a typed array!");
+                TTDAssert(false, "Not a typed array!");
                 break;
             }
 

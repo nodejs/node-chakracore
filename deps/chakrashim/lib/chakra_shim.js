@@ -232,7 +232,7 @@
     function ensureStackTrace() {
       if (!currentStackTrace) {
         currentStackTrace = parseStack(
-          Reflect_apply(oldStackDesc.get, e) || '', // Call saved old getter
+          Reflect_apply(oldStackDesc.get, e, []) || '', // Call saved old getter
           skipDepth, startFuncName);
       }
       return currentStackTrace;

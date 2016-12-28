@@ -88,6 +88,7 @@ namespace Js
         uint GetLocalExportSlotIndexByExportName(PropertyId exportNameId);
         uint GetLocalExportSlotIndexByLocalName(PropertyId localNameId);
         Var* GetLocalExportSlots() const { return localExportSlots; }
+        Var* GetLocalExportSlotAddr(uint slotIndex) const { return &localExportSlots[slotIndex]; }
         uint GetLocalExportSlotCount() const { return localSlotCount; }
         uint GetModuleId() const { return moduleId; }
         uint GetLocalExportCount() const { return localExportCount; }
@@ -95,10 +96,8 @@ namespace Js
         ModuleNameRecord* GetNamespaceNameRecord() { return &namespaceRecord; }
 
         SourceTextModuleRecord* GetChildModuleRecord(LPCOLESTR specifier) const;
-#if DBG
-        void AddParent(SourceTextModuleRecord* parentRecord, LPCWSTR specifier, uint32 specifierLength);
-#endif
 
+        void SetParent(SourceTextModuleRecord* parentRecord, LPCOLESTR moduleName);
         Utf8SourceInfo* GetSourceInfo() { return this->pSourceInfo; }
 
     private:
@@ -156,5 +155,11 @@ namespace Js
         LocalExportMap* GetLocalExportMap() const { return localExportMapByExportName; }
         LocalExportIndexList* GetLocalExportIndexList() const { return localExportIndexList; }
         ResolvedExportMap* GetExportedNamesMap() const { return resolvedExportMap; }
+    };
+
+    struct ServerSourceTextModuleRecord
+    {
+        uint moduleId;
+        Var* localExportSlotsAddr;
     };
 }

@@ -12,6 +12,10 @@ namespace Js
         DEFINE_VTABLE_CTOR(BoundFunction, JavascriptFunction);
         virtual void MarshalToScriptContext(Js::ScriptContext * scriptContext) override;
 
+#if ENABLE_TTD
+        virtual void MarshalCrossSite_TTDInflate() override;
+#endif
+
     private:
         bool GetPropertyBuiltIns(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext, BOOL* result);
         bool SetPropertyBuiltIns(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info, BOOL* result);
@@ -39,6 +43,7 @@ namespace Js
 
         virtual BOOL InitProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags = PropertyOperation_None, PropertyValueInfo* info = NULL) override;
         virtual BOOL DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags) override;
+        virtual BOOL DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags) override;
 
         virtual BOOL IsWritable(PropertyId propertyId) override;
         virtual BOOL IsConfigurable(PropertyId propertyId) override;

@@ -81,7 +81,8 @@ enum LoadScriptFlag
     LoadScriptFlag_Module = 0x10,                       // input script is module code.
     LoadScriptFlag_isFunction = 0x20,                   // input script is in a function scope, not global code.
     LoadScriptFlag_Utf8Source = 0x40,                   // input buffer is utf8 encoded.
-    LoadScriptFlag_LibraryCode = 0x80                   // for debugger, indicating 'not my code'
+    LoadScriptFlag_LibraryCode = 0x80,                  // for debugger, indicating 'not my code'
+    LoadScriptFlag_ExternalArrayBuffer = 0x100          // for ExternalArrayBuffer
 };
 
 class HostScriptContext
@@ -135,8 +136,8 @@ private:
 class HostScriptContextCallbackFunctor
 {
 public:
-    void* HostData;
-    void(*pfOnScriptLoadCallback)(void* hostData, Js::JavascriptFunction* scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo, CompileScriptException* compileException);
+    FinalizableObject* HostData;
+    void(*pfOnScriptLoadCallback)(FinalizableObject* hostData, Js::JavascriptFunction* scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo, CompileScriptException* compileException);
 
     HostScriptContextCallbackFunctor()
         : HostData(nullptr), pfOnScriptLoadCallback(nullptr)
@@ -144,7 +145,7 @@ public:
         ;
     }
 
-    HostScriptContextCallbackFunctor(void* callbackData, void(*pfcallbackOnScriptLoad)(void* hostData, Js::JavascriptFunction* scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo, CompileScriptException* compileException))
+    HostScriptContextCallbackFunctor(FinalizableObject* callbackData, void(*pfcallbackOnScriptLoad)(FinalizableObject* hostData, Js::JavascriptFunction* scriptFunction, Js::Utf8SourceInfo* utf8SourceInfo, CompileScriptException* compileException))
         : HostData(callbackData), pfOnScriptLoadCallback(pfcallbackOnScriptLoad)
     {
         ;
@@ -324,7 +325,7 @@ namespace Js
     typedef JsUtil::BaseDictionary<EvalMapString, ScriptFunction*, RecyclerNonLeafAllocator, PrimeSizePolicy> SecondLevelEvalCache;
     typedef TwoLevelHashRecord<FastEvalMapString, ScriptFunction*, SecondLevelEvalCache, EvalMapString> EvalMapRecord;
     typedef JsUtil::Cache<FastEvalMapString, EvalMapRecord*, RecyclerNonLeafAllocator, PrimeSizePolicy, JsUtil::MRURetentionPolicy<FastEvalMapString, EvalMRUSize>, FastEvalMapStringComparer> EvalCacheTopLevelDictionary;
-    typedef JsUtil::Cache<EvalMapString, ParseableFunctionInfo*, RecyclerNonLeafAllocator, PrimeSizePolicy, JsUtil::MRURetentionPolicy<EvalMapString, EvalMRUSize>> NewFunctionCache;
+    typedef JsUtil::Cache<EvalMapString, FunctionInfo*, RecyclerNonLeafAllocator, PrimeSizePolicy, JsUtil::MRURetentionPolicy<EvalMapString, EvalMRUSize>> NewFunctionCache;
     typedef JsUtil::BaseDictionary<ParseableFunctionInfo*, ParseableFunctionInfo*, Recycler, PrimeSizePolicy, RecyclerPointerComparer> ParseableFunctionInfoMap;
     // This is the dictionary used by script context to cache the eval.
     typedef TwoLevelHashDictionary<FastEvalMapString, ScriptFunction*, EvalMapRecord, EvalCacheTopLevelDictionary, EvalMapString> EvalCacheDictionary;
@@ -339,10 +340,6 @@ namespace Js
             return ch - '0';
         }
     };
-
-#ifdef ENABLE_DOM_FAST_PATH
-    typedef JsUtil::BaseDictionary<Js::FunctionInfo*, IR::JnHelperMethod, ArenaAllocator, PowerOf2SizePolicy> DOMFastPathIRHelperMap;
-#endif
 
     // valid if object!= NULL
     struct EnumeratedObjectCache {
@@ -380,7 +377,7 @@ namespace Js
         BuiltInLibraryFunctionMap* builtInLibraryFunctions;
     };
 
-    class ScriptContext : public ScriptContextBase
+    class ScriptContext : public ScriptContextBase, public ScriptContextInfo
     {
         friend class LowererMD;
         friend class RemoteScriptContext;
@@ -392,14 +389,16 @@ namespace Js
         static DWORD GetOptimizationOverridesOffset() { return offsetof(ScriptContext, optimizationOverrides); }
         static DWORD GetRecyclerOffset() { return offsetof(ScriptContext, recycler); }
         static DWORD GetNumberAllocatorOffset() { return offsetof(ScriptContext, numberAllocator); }
-        static DWORD GetAsmIntDbValOffset() { return offsetof(ScriptContext, retAsmIntDbVal); }
 
         ScriptContext *next;
         ScriptContext *prev;
-        double retAsmIntDbVal; // stores the double & float result for Asm interpreter
-
-        AsmJsSIMDValue retAsmSimdVal; // stores raw simd result for Asm interpreter
-        static DWORD GetAsmSimdValOffset() { return offsetof(ScriptContext, retAsmSimdVal); }
+        union
+        {
+            int64 int64Val; // stores the double & float result for Asm interpreter
+            double dbVal; // stores the double & float result for Asm interpreter
+            AsmJsSIMDValue simdVal; // stores raw simd result for Asm interpreter
+        } asmJsReturnValue;
+        static DWORD GetAsmJsReturnValueOffset() { return offsetof(ScriptContext, asmJsReturnValue); }
 
         ScriptContextOptimizationOverrideInfo optimizationOverrides;
 
@@ -425,6 +424,7 @@ namespace Js
 
         const ScriptContextBase* GetScriptContextBase() const { return static_cast<const ScriptContextBase*>(this); }
 
+        void RedeferFunctionBodies(ActiveFunctionSet *pActive, uint inactiveThreshold);
         bool DoUndeferGlobalFunctions() const;
 
         bool IsUndeclBlockVar(Var var) const { return this->javascriptLibrary->IsUndeclBlockVar(var); }
@@ -442,6 +442,10 @@ namespace Js
         {
             return isInvalidatedForHostObjects;
         }
+
+#if ENABLE_NATIVE_CODEGEN
+        void InitializeRemoteScriptContext();
+#endif
 
 #ifdef ENABLE_JS_ETW
         void EmitStackTraceEvent(__in UINT64 operationID, __in USHORT maxFrameCount, bool emitV2AsyncStackEvent);
@@ -514,12 +518,15 @@ namespace Js
 
         ArenaAllocator dynamicProfileInfoAllocator;
         InlineCacheAllocator inlineCacheAllocator;
-        IsInstInlineCacheAllocator isInstInlineCacheAllocator;
+        CacheAllocator isInstInlineCacheAllocator;
+        CacheAllocator forInCacheAllocator;
 
         ArenaAllocator* interpreterArena;
         ArenaAllocator* guestArena;
 
         ArenaAllocator* diagnosticArena;
+
+        PSCRIPTCONTEXT_HANDLE m_remoteScriptContextAddr;
 
         bool startupComplete; // Indicates if the heuristic startup phase for this script context is complete
         bool isInvalidatedForHostObjects;  // Indicates that we've invalidate all objects in the host so stop calling them.
@@ -836,9 +843,6 @@ private:
         RecyclerRootPtr<SListBase<DynamicProfileInfo *>> profileInfoList;
 #endif
 #endif
-#if DEBUG
-        static int scriptContextCount;
-#endif
         // List of weak reference dictionaries. We'll walk through them
         // and clean them up post-collection
         // IWeakReferenceDictionary objects are added to this list by calling
@@ -853,13 +857,6 @@ private:
 
         typedef void(*TransitionToDebugModeIfFirstSourceFn)(ScriptContext *, Utf8SourceInfo *);
         TransitionToDebugModeIfFirstSourceFn transitionToDebugModeIfFirstSourceFn;
-
-#ifdef ENABLE_DOM_FAST_PATH
-        // Theoretically we can put this in ThreadContext; don't want to keep the dictionary forever, and preserve the possibility of
-        // using JavascriptFunction as key.
-        DOMFastPathIRHelperMap* domFastPathIRHelperMap;
-#endif
-
 
         ScriptContext(ThreadContext* threadContext);
         void InitializeAllocations();
@@ -899,7 +896,9 @@ private:
         DateTime::DaylightTimeHelper *GetDaylightTimeHelper() { return &daylightTimeHelper; }
         DateTime::Utility *GetDateUtility() { return &dateTimeUtility; }
 
-        bool IsClosed() const { return isClosed; }
+        virtual bool IsClosed() const override { return isClosed; }
+        void SetIsClosed();
+
         bool IsFinalized() const { return isFinalized; }
         void SetIsFinalized() { isFinalized = true; }
         bool IsActuallyClosed() const { return isScriptContextActuallyClosed; }
@@ -915,9 +914,17 @@ private:
         void SetDirectHostTypeId(TypeId typeId) {directHostTypeId = typeId; }
         TypeId GetDirectHostTypeId() const { return directHostTypeId; }
 
-#ifdef ENABLE_DOM_FAST_PATH
-        DOMFastPathIRHelperMap* EnsureDOMFastPathIRHelperMap();
+        PSCRIPTCONTEXT_HANDLE GetRemoteScriptAddr(bool allowInitialize = true)
+        {
+#if ENABLE_OOP_NATIVE_CODEGEN
+            if (!m_remoteScriptContextAddr && allowInitialize)
+            {
+                InitializeRemoteScriptContext();
+            }
 #endif
+            return m_remoteScriptContextAddr;
+        }
+
         char16 const * GetUrl() const { return url; }
         void SetUrl(BSTR bstr);
 #ifdef RUNTIME_DATA_COLLECTION
@@ -1021,8 +1028,8 @@ private:
         inline bool EnableEvalMapCleanup() { return CONFIG_FLAG(EnableEvalMapCleanup); };
         uint GetNextSourceContextId();
 
-        bool IsInNewFunctionMap(EvalMapString const& key, ParseableFunctionInfo **ppFuncBody);
-        void AddToNewFunctionMap(EvalMapString const& key, ParseableFunctionInfo *pFuncBody);
+        bool IsInNewFunctionMap(EvalMapString const& key, FunctionInfo **ppFuncInfo);
+        void AddToNewFunctionMap(EvalMapString const& key, FunctionInfo *pFuncInfo);
 
         SourceContextInfo * GetSourceContextInfo(DWORD_PTR hostSourceContext, IActiveScriptDataCache* profileDataCache);
         SourceContextInfo * GetSourceContextInfo(uint hash);
@@ -1073,14 +1080,8 @@ private:
         //The host callback functor info
         HostScriptContextCallbackFunctor TTDHostCallbackFunctor;
 
-        //The TTDMode for this script context (the same as the Mode for the thread context but we put it here for fast lookup when identity tagging)
-        TTD::TTDMode TTDMode;
-
         //The LogTag for this script context (the same as the tag for the global object but we put it here for fast lookup)
         TTD_LOG_PTR_ID ScriptContextLogTag;
-
-        //Keep track of the number of re-entrant calls currently pending (i.e., if we make an external call it may call back into Chakra)
-        int32 TTDRootNestingCount;
 
         //Info about the core image for the context
         TTD::RuntimeContextInfo* TTDWellKnownInfo;
@@ -1088,118 +1089,53 @@ private:
         //Additional runtime context that we only care about if TTD is running (or will be running)
         TTD::ScriptContextTTD* TTDContextInfo;
 
-        ////
+        //A flag indicating a TTDSnapshot is in progress
+        bool TTDSnapshotOrInflateInProgress;
+
+        //Check if a snapshot is in progress on this context
+        bool IsTTDSnapshotOrInflateInProgress() const { return this->TTDSnapshotOrInflateInProgress; }
+
+        //Memoized results for frequently used Record/Replay action checks
+        bool TTDRecordOrReplayModeEnabled;
+        bool TTDRecordModeEnabled;
+        bool TTDReplayModeEnabled;
+
+        bool TTDShouldPerformRecordOrReplayAction;
+        bool TTDShouldPerformRecordAction;
+        bool TTDShouldPerformReplayAction;
+
+        bool TTDShouldPerformDebuggerAction;
+        bool TTDShouldSuppressGetterInvocationForDebuggerEvaluation;
+
+        //Check if the TTD system has been activated (and record/replay may or may not be enabled)
+        bool IsTTDRecordOrReplayModeEnabled() const { return this->TTDRecordOrReplayModeEnabled; }
+
+        //Check if the TTD Record system has been activated (and  may or may not be enabled)
+        bool IsTTDRecordModeEnabled() const { return this->TTDRecordModeEnabled; }
+
+        //Check if the TTD Replay system has been activated (and  may or may not be enabled)
+        bool IsTTDReplayModeEnabled() const { return this->TTDReplayModeEnabled; }
+
+        //Check if we are in (record OR replay) AND this code is being run on behalf of the user application
+        bool ShouldPerformRecordOrReplayAction() const { return this->TTDShouldPerformRecordOrReplayAction; }
 
         //Use this to check specifically if we are in record AND this code is being run on behalf of the user application
-        bool ShouldPerformRecordAction() const
-        {
-            //return true if RecordEnabled and ~ExcludedExecution
-            return (this->TTDMode & TTD::TTDMode::TTDShouldRecordActionMask) == TTD::TTDMode::RecordEnabled;
-        }
+        bool ShouldPerformRecordAction() const { return this->TTDShouldPerformRecordAction; }
+
+        //Use this to check specifically if we are in replay mode AND this code is being run on behalf of the user application
+        bool ShouldPerformReplayAction() const { return this->TTDShouldPerformReplayAction; }
 
         //Use this to check specifically if we are in debugging mode AND this code is being run on behalf of the user application
-        bool ShouldPerformDebugAction() const
-        {
-#if ENABLE_TTD_DEBUGGING
-            //return true if DebuggingEnabled and ~ExcludedExecution
-            return (this->TTDMode & TTD::TTDMode::TTDShouldDebugActionMask) == TTD::TTDMode::DebuggingEnabled;
+        bool ShouldPerformDebuggerAction() const { return this->TTDShouldPerformDebuggerAction; }
 
-#else
-            return false;
-#endif
-        }
-
-        //Use this to check if the TTD has been set into record/replay mode (although we still need to check if we should do any record ro replay)
-        bool IsTTDActive() const
-        {
-            return (this->TTDMode & TTD::TTDMode::TTDActive) != TTD::TTDMode::Invalid;
-        }
-
-        //Use this to check if the TTD has been detached (e.g., has traced a context execution and has now been detached)
-        bool IsTTDDetached() const
-        {
-            return (this->TTDMode & TTD::TTDMode::Detached) != TTD::TTDMode::Invalid;
-        }
-
-        //A special record check because we want to record code load even if we aren't actively logging (but are planning to do so in the future)
-        bool ShouldPerformRecordTopLevelFunction() const
-        {
-            bool modeIsPending = (this->TTDMode & TTD::TTDMode::Pending) == TTD::TTDMode::Pending;
-            bool modeIsRecord = (this->TTDMode & TTD::TTDMode::RecordEnabled) == TTD::TTDMode::RecordEnabled;
-            bool inDebugableCode = (this->TTDMode & TTD::TTDMode::ExcludedExecution) == TTD::TTDMode::Invalid;
-
-            return ((modeIsPending | modeIsRecord) & inDebugableCode);
-        }
-
-        //A special record check because we want to record root add/remove ref even if we aren't actively logging (but are planning to do so in the future)
-        bool ShouldPerformRootAddOrRemoveRefAction() const
-        {
-            bool modeIsPending = (this->TTDMode & TTD::TTDMode::Pending) == TTD::TTDMode::Pending;
-            bool modeIsRecord = (this->TTDMode & TTD::TTDMode::RecordEnabled) == TTD::TTDMode::RecordEnabled;
-            bool inDebugableCode = (this->TTDMode & TTD::TTDMode::ExcludedExecution) == TTD::TTDMode::Invalid;
-
-            return ((modeIsPending | modeIsRecord) & inDebugableCode);
-        }
-
-        //A special record check because we want to take action on async buffer registration and completion even if we have not started actively logging (but are planning to do so in the future)
-        bool ShouldPerformAsyncBufferModAction() const
-        {
-            bool modeIsPending = (this->TTDMode & TTD::TTDMode::Pending) == TTD::TTDMode::Pending;
-            bool modeIsRecord = (this->TTDMode & TTD::TTDMode::RecordEnabled) == TTD::TTDMode::RecordEnabled;
-            bool inDebugableCode = (this->TTDMode & TTD::TTDMode::ExcludedExecution) == TTD::TTDMode::Invalid;
-
-            return ((modeIsPending | modeIsRecord) & inDebugableCode);
-        }
-
-        //A special check for to see if we want to push the supression flag for getter exection
-        bool ShouldDoGetterInvocationSupression() const
-        {
-#if !ENABLE_TTD_DEBUGGING
-            return false;
-#else
-            return (this->TTDMode & TTD::TTDMode::DebuggingEnabled) == TTD::TTDMode::DebuggingEnabled;
-#endif
-        }
-
-        //A special check to see if we are debugging and want to suppress the execution of getters when displaying values in the debugger
-        bool ShouldSuppressGetterInvocationForDebuggerEvaluation() const
-        {
-#if !ENABLE_TTD_DEBUGGING
-            return false;
-#else
-            return (this->TTDMode & TTD::TTDMode::TTDShouldSupressGetterActionMask) == TTD::TTDMode::TTDShouldSupressGetterActionMask;
-#endif
-        }
-
-        //A special check to see if we are in the process of a time-travel move and do not want to stop at any breakpoints
-        bool ShouldSuppressBreakpointsForTimeTravelMove() const
-        {
-#if !ENABLE_TTD_DEBUGGING
-            return false;
-#else
-            return (this->TTDMode & TTD::TTDMode::DebuggerSuppressBreakpoints) == TTD::TTDMode::DebuggerSuppressBreakpoints;
-#endif
-        }
-
-        //A special check to see if we are in the process of a time-travel move and do not want to stop at any breakpoints
-        bool ShouldRecordBreakpointsDuringTimeTravelScan() const
-        {
-#if !ENABLE_TTD_DEBUGGING
-            return false;
-#else
-            return (this->TTDMode & TTD::TTDMode::DebuggerLogBreakpoints) == TTD::TTDMode::DebuggerLogBreakpoints;
-#endif
-        }
+        //A special check to see if we are debugging and want to suppress the execution of getters (which may be triggered by displaying values in the debugger)
+        bool ShouldSuppressGetterInvocationForDebuggerEvaluation() const { return this->TTDShouldSuppressGetterInvocationForDebuggerEvaluation; }
 
         //
         //TODO: this is currently called explicitly -- we need to fix up the core image computation and this will be eliminated then
         //
         //Initialize the core object image for TTD
         void InitializeCoreImage_TTD();
-
-        //Initialize debug script generation and no-native as needed for replay/debug at script context initialization
-        void InitializeRecordingActionsAsNeeded_TTD();
-        void InitializeDebuggingActionsAsNeeded_TTD();
 #endif
 
         void SetFirstInterpreterFrameReturnAddress(void * returnAddress) { firstInterpreterFrameReturnAddress = returnAddress;}
@@ -1218,8 +1154,6 @@ private:
         void SetCanOptimizeGlobalLookupFlag(BOOL f){ config.SetCanOptimizeGlobalLookupFlag(f);}
         BOOL CanOptimizeGlobalLookup(){ return config.CanOptimizeGlobalLookup();}
 
-
-        bool IsClosed() { return isClosed; }
         bool IsFastDOMEnabled() { return fastDOMenabled; }
         void SetFastDOMenabled();
         BOOL VerifyAlive(BOOL isJSFunction = FALSE, ScriptContext* requestScriptContext = nullptr);
@@ -1262,10 +1196,17 @@ private:
         WellKnownHostType GetWellKnownHostType(Js::TypeId typeId) { return threadContext->GetWellKnownHostType(typeId); }
         void SetWellKnownHostTypeId(WellKnownHostType wellKnownType, Js::TypeId typeId) { threadContext->SetWellKnownHostTypeId(wellKnownType, typeId); }
 
-        ParseNodePtr ParseScript(Parser* parser, const byte* script, size_t cb, SRCINFO const * pSrcInfo,
-            CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo, const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag, uint* sourceIndex);
-        JavascriptFunction* LoadScript(const byte* script, size_t cb, SRCINFO const * pSrcInfo,
-            CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo, const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag);
+        ParseNodePtr ParseScript(Parser* parser, const byte* script,
+            size_t cb, SRCINFO const * pSrcInfo,
+            CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo,
+            const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag,
+            uint* sourceIndex, Js::Var scriptSource = nullptr);
+
+        JavascriptFunction* LoadScript(const byte* script, size_t cb,
+            SRCINFO const * pSrcInfo,
+            CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo,
+            const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag,
+            Js::Var scriptSource = nullptr);
 
         ArenaAllocator* GeneralAllocator() { return &generalAllocator; }
 
@@ -1284,7 +1225,8 @@ private:
         ArenaAllocator* MiscAllocator() { return &miscAllocator; }
 #endif
         InlineCacheAllocator* GetInlineCacheAllocator() { return &inlineCacheAllocator; }
-        IsInstInlineCacheAllocator* GetIsInstInlineCacheAllocator() { return &isInstInlineCacheAllocator; }
+        CacheAllocator* GetIsInstInlineCacheAllocator() { return &isInstInlineCacheAllocator; }
+        CacheAllocator * ForInCacheAllocator() { return &forInCacheAllocator; }
         ArenaAllocator* DynamicProfileInfoAllocator() { return &dynamicProfileInfoAllocator; }
 
         ArenaAllocator* AllocatorForDiagnostics();
@@ -1461,6 +1403,7 @@ private:
 #endif
         void ClearInlineCaches();
         void ClearIsInstInlineCaches();
+        void ClearForInCaches();
 #ifdef PERSISTENT_INLINE_CACHES
         void ClearInlineCachesWithDeadWeakRefs();
 #endif
@@ -1563,7 +1506,7 @@ private:
         static void SetEntryPointToProfileThunk(JavascriptFunction* function);
         static void RestoreEntryPointFromProfileThunk(JavascriptFunction* function);
 #endif
-        
+
         static void RecyclerEnumClassEnumeratorCallback(void *address, size_t size);
         static void RecyclerFunctionCallbackForDebugger(void *address, size_t size);
 
@@ -1639,7 +1582,9 @@ private:
 #if DYNAMIC_INTERPRETER_THUNK
         JavascriptMethod GetNextDynamicAsmJsInterpreterThunk(PVOID* ppDynamicInterpreterThunk);
         JavascriptMethod GetNextDynamicInterpreterThunk(PVOID* ppDynamicInterpreterThunk);
-        BOOL IsDynamicInterpreterThunk(void* address);
+#if DBG
+        BOOL IsDynamicInterpreterThunk(JavascriptMethod address);
+#endif
         void ReleaseDynamicInterpreterThunk(BYTE* address, bool addtoFreeList);
         void ReleaseDynamicAsmJsInterpreterThunk(BYTE* address, bool addtoFreeList);
 #endif
@@ -1710,11 +1655,70 @@ private:
 #endif
 
     public:
+        virtual intptr_t GetNullAddr() const override;
+        virtual intptr_t GetUndefinedAddr() const override;
+        virtual intptr_t GetTrueAddr() const override;
+        virtual intptr_t GetFalseAddr() const override;
+        virtual intptr_t GetUndeclBlockVarAddr() const override;
+        virtual intptr_t GetEmptyStringAddr() const override;
+        virtual intptr_t GetNegativeZeroAddr() const override;
+        virtual intptr_t GetNumberTypeStaticAddr() const override;
+        virtual intptr_t GetStringTypeStaticAddr() const override;
+        virtual intptr_t GetObjectTypeAddr() const override;
+        virtual intptr_t GetObjectHeaderInlinedTypeAddr() const override;
+        virtual intptr_t GetRegexTypeAddr() const override;
+        virtual intptr_t GetArrayTypeAddr() const override;
+        virtual intptr_t GetNativeIntArrayTypeAddr() const override;
+        virtual intptr_t GetNativeFloatArrayTypeAddr() const override;
+        virtual intptr_t GetArrayConstructorAddr() const override;
+        virtual intptr_t GetCharStringCacheAddr() const override;
+        virtual intptr_t GetSideEffectsAddr() const override;
+        virtual intptr_t GetArraySetElementFastPathVtableAddr() const override;
+        virtual intptr_t GetIntArraySetElementFastPathVtableAddr() const override;
+        virtual intptr_t GetFloatArraySetElementFastPathVtableAddr() const override;
+        virtual intptr_t GetLibraryAddr() const override;
+        virtual intptr_t GetGlobalObjectAddr() const override;
+        virtual intptr_t GetGlobalObjectThisAddr() const override;
+        virtual intptr_t GetNumberAllocatorAddr() const override;
+        virtual intptr_t GetRecyclerAddr() const override;
+        virtual bool GetRecyclerAllowNativeCodeBumpAllocation() const override;
+        virtual bool IsSIMDEnabled() const override;
+        virtual bool IsPRNGSeeded() const override;
+        virtual intptr_t GetBuiltinFunctionsBaseAddr() const override;
+
+        virtual intptr_t GetDebuggingFlagsAddr() const override;
+        virtual intptr_t GetDebugStepTypeAddr() const override;
+        virtual intptr_t GetDebugFrameAddressAddr() const override;
+        virtual intptr_t GetDebugScriptIdWhenSetAddr() const override;
+
+#if ENABLE_NATIVE_CODEGEN
+        virtual void AddToDOMFastPathHelperMap(intptr_t funcInfoAddr, IR::JnHelperMethod helper) override;
+        virtual IR::JnHelperMethod GetDOMFastPathHelper(intptr_t funcInfoAddr) override;
+#endif
+
+        virtual intptr_t GetAddr() const override;
+
+        virtual intptr_t GetVTableAddress(VTableValue vtableType) const override;
+
+        virtual bool IsRecyclerVerifyEnabled() const override;
+        virtual uint GetRecyclerVerifyPad() const override;
+
+        virtual Js::Var* GetModuleExportSlotArrayAddress(uint moduleIndex, uint slotIndex) override;
+
+        Js::SourceTextModuleRecord* GetModuleRecord(uint moduleId) const
+        {
+            return javascriptLibrary->GetModuleRecord(moduleId);
+        }
+
         void SetBuiltInLibraryFunction(JavascriptMethod entryPoint, JavascriptFunction* function);
         JavascriptFunction* GetBuiltInLibraryFunction(JavascriptMethod entryPoint);
 
     private:
         BuiltInLibraryFunctionMap* builtInLibraryFunctions;
+
+#if ENABLE_NATIVE_CODEGEN
+        JITDOMFastPathHelperMap * m_domFastPathHelperMap;
+#endif
 
 #ifdef RECYCLER_PERF_COUNTERS
         size_t bindReferenceCount;
@@ -1804,7 +1808,39 @@ private:
 
         return functionBody;
     }
+
+    class AutoProfilingPhase
+    {
+    public:
+        AutoProfilingPhase(ScriptContext* scriptcontext, Js::Phase phase) : scriptcontext(scriptcontext), phase(phase), isPhaseComplete(false)
+        {
+    #ifdef PROFILE_EXEC
+            scriptcontext->ProfileBegin(phase);
+    #endif
+        }
+
+        ~AutoProfilingPhase()
+        {
+            if(!this->isPhaseComplete)
+            {
+                EndProfile();
+            }
+        }
+
+        void EndProfile()
+        {
+            this->isPhaseComplete = true;
+#ifdef PROFILE_EXEC
+            scriptcontext->ProfileEnd(phase);
+#endif
+        }
+    private:
+        ScriptContext* scriptcontext;
+        Js::Phase phase;
+        bool isPhaseComplete;
+    };
 }
+
 
 #define BEGIN_TEMP_ALLOCATOR(allocator, scriptContext, name) \
     Js::TempArenaAllocatorObject *temp##allocator = scriptContext->GetTemporaryAllocator(name); \

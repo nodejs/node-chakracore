@@ -69,6 +69,11 @@ namespace Js
         return (char *)varPtr;
     }
 
+    ForInObjectEnumerator * JavascriptCallStackLayout::GetForInObjectEnumeratorArrayAtOffset(int offset) const
+    {
+        return (ForInObjectEnumerator *)(((char *)this) + offset);
+    }
+
     JavascriptCallStackLayout *JavascriptCallStackLayout::FromFramePointer(void *const framePointer)
     {
         return
@@ -269,7 +274,7 @@ namespace Js
         }
         else 
 #endif
-            if (this->GetCurrentFunction()->GetFunctionInfo()->IsGenerator())
+            if (this->GetCurrentFunction()->GetFunctionInfo()->IsCoroutine())
         {
             JavascriptGenerator* gen = JavascriptGenerator::FromVar(this->GetCurrentArgv()[JavascriptFunctionArgIndex_This]);
             return gen->GetArguments().Values;
@@ -1016,7 +1021,7 @@ namespace Js
             // hidden frame display here?
             return (CallInfo const *)&inlinedFrameCallInfo;
         }
-        else if (this->GetCurrentFunction()->GetFunctionInfo()->IsGenerator())
+        else if (this->GetCurrentFunction()->GetFunctionInfo()->IsCoroutine())
         {
             JavascriptGenerator* gen = JavascriptGenerator::FromVar(this->GetCurrentArgv()[JavascriptFunctionArgIndex_This]);
             return &gen->GetArguments().Info;
@@ -1042,7 +1047,7 @@ namespace Js
         Assert(!inlinedFramesBeingWalked);
         Assert(this->IsJavascriptFrame());
 
-        if (this->GetCurrentFunction()->GetFunctionInfo()->IsGenerator())
+        if (this->GetCurrentFunction()->GetFunctionInfo()->IsCoroutine())
         {
             JavascriptGenerator* gen = JavascriptGenerator::FromVar(this->GetCurrentArgv()[JavascriptFunctionArgIndex_This]);
             return gen->GetArguments()[0];
@@ -1078,8 +1083,30 @@ namespace Js
         return !!(this->GetCallInfoFromPhysicalFrame()->Flags & CallFlags_InternalFrame);
     }
 
+    bool JavascriptStackWalker::IsWalkable(ScriptContext *scriptContext)
+    {
+        if (scriptContext == NULL)
+        {
+            return false;
+        }
+
+        ThreadContext *threadContext = scriptContext->GetThreadContext();
+        if (threadContext == NULL)
+        {
+            return false;
+        }
+
+        return (threadContext->GetScriptEntryExit() != NULL);
+    }
+
     BOOL JavascriptStackWalker::GetCaller(JavascriptFunction** ppFunc, ScriptContext* scriptContext)
     {
+        if (!IsWalkable(scriptContext))
+        {
+            *ppFunc = nullptr;
+            return FALSE;
+        }
+
         JavascriptStackWalker walker(scriptContext);
         return walker.GetCaller(ppFunc);
     }

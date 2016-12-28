@@ -120,9 +120,9 @@ namespace Js
         virtual bool IsObjTypeSpecEquivalent(const Type* type, const EquivalentPropertyEntry* entry) override;
 
         virtual BOOL FindNextProperty(ScriptContext* scriptContext, PropertyIndex& index, JavascriptString** propertyString,
-            PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols = false) override;
+            PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags) override;
         virtual BOOL FindNextProperty(ScriptContext* scriptContext, BigPropertyIndex& index, JavascriptString** propertyString,
-            PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols = false) override;
+            PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flagse) override;
 
         virtual BOOL HasProperty(DynamicObject* instance, PropertyId propertyId, bool *noRedecl = nullptr) override;
         virtual BOOL HasProperty(DynamicObject* instance, JavascriptString* propertyNameString) override;
@@ -133,6 +133,7 @@ namespace Js
         virtual DescriptorFlags GetSetter(DynamicObject* instance, PropertyId propertyId, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual DescriptorFlags GetSetter(DynamicObject* instance, JavascriptString* propertyNameString, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual BOOL DeleteProperty(DynamicObject* instance, PropertyId propertyId, PropertyOperationFlags flags) override sealed;
+        virtual BOOL DeleteProperty(DynamicObject* instance, JavascriptString* propertyNameString, PropertyOperationFlags flags) override sealed;
 
         virtual PropertyIndex GetRootPropertyIndex(const PropertyRecord* propertyRecord) override;
 
@@ -294,7 +295,7 @@ namespace Js
 
         // This was added to work around not being able to specify partial template specialization of member function.
         BOOL FindNextProperty_BigPropertyIndex(ScriptContext* scriptContext, TPropertyIndex& index, JavascriptString** propertyString,
-            PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols = false);
+            PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags);
 
         template <bool check__proto__>
         static DynamicType* InternalCreateTypeForNewScObject(ScriptContext* scriptContext, DynamicType* type, const Js::PropertyIdArray *propIds, bool shareType);
@@ -305,7 +306,7 @@ namespace Js
 
         virtual uint32 ExtractSlotInfo_TTD(TTD::NSSnapType::SnapHandlerPropertyEntry* entryInfo, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const override;
 
-        virtual Js::PropertyIndex GetPropertyIndex_EnumerateTTD(const Js::PropertyRecord* pRecord) override;
+        virtual Js::BigPropertyIndex GetPropertyIndex_EnumerateTTD(const Js::PropertyRecord* pRecord) override;
 #endif
     };
 

@@ -34,7 +34,7 @@
 #define EXDEF4_WMS(process, op, func, y, t)
 #endif
 
-#if defined(INTERPRETER_ASMJS) && !defined(TEMP_DISABLE_ASMJS)
+#if defined(INTERPRETER_ASMJS)
 #include "InterpreterHandlerAsmJs.inl"
 #else
 
@@ -288,10 +288,12 @@ EXDEF3_WMS(CALL,                    ProfiledNewScObjectSpread,  PROFILEDOP(OP_Pr
   DEF2_WMS(XXtoA1Mem,               LdTrue,                     JavascriptBoolean::OP_LdTrue)
   DEF2_WMS(XXtoA1Mem,               LdFalse,                    JavascriptBoolean::OP_LdFalse)
   DEF2_WMS(A1I1toA1Mem,             LdThis,                     JavascriptOperators::OP_GetThisNoFastPath)
-EXDEF2_WMS(XXtoA1Mem,               LdSuper,                    OP_LdSuper)
-EXDEF2_WMS(XXtoA1Mem,               LdSuperCtor,                OP_LdSuperCtor)
-EXDEF2_WMS(XXtoA1Mem,               ScopedLdSuper,              OP_ScopedLdSuper)
-EXDEF2_WMS(XXtoA1Mem,               ScopedLdSuperCtor,          OP_ScopedLdSuperCtor)
+EXDEF2_WMS(XXtoA1Mem,               LdHomeObj,                  OP_LdHomeObj)
+EXDEF2_WMS(XXtoA1Mem,               LdFuncObj,                  OP_LdFuncObj)
+EXDEF2_WMS(XXtoA1Mem,               ScopedLdHomeObj,            OP_ScopedLdHomeObj)
+EXDEF2_WMS(XXtoA1Mem,               ScopedLdFuncObj,            OP_ScopedLdFuncObj)
+EXDEF2_WMS(A1toA1Mem,               LdHomeObjProto,             JavascriptOperators::OP_LdHomeObjProto)
+EXDEF2_WMS(A1toA1Mem,               LdFuncObjProto,             JavascriptOperators::OP_LdFuncObjProto)
 EXDEF2_WMS(A2toXX,                  SetHomeObj,                 JavascriptOperators::OP_SetHomeObj)
   DEF2_WMS(A1toA1Mem,               StrictLdThis,               JavascriptOperators::OP_StrictGetThis)
   DEF2_WMS(A1I1toA1Mem,             ProfiledLdThis,             PROFILEDOP(OP_ProfiledLdThis, JavascriptOperators::OP_GetThisNoFastPath))
@@ -320,8 +322,8 @@ EXDEF2    (EMPTY,                   ChkNewCallFlag,             OP_ChkNewCallFla
 EXDEF3_WMS(CUSTOM_L_Value,          NewInnerStackScFunc,        OP_NewInnerStackScFunc, ElementSlot)
 EXDEF2_WMS(GET_ELEM_SLOT_FB,        NewInnerScFunc,             ScriptFunction::OP_NewScFunc)
 EXDEF2_WMS(GET_ELEM_SLOT_FB,        NewInnerScGenFunc,          JavascriptGeneratorFunction::OP_NewScGenFunc)
-  DEF2_WMS(A1toA1MemNonVar,         GetForInEnumerator,         JavascriptOperators::OP_GetForInEnumerator)
-  DEF3_WMS(A1toXXMemNonVar,         ReleaseForInEnumerator,     JavascriptOperators::OP_ReleaseForInEnumerator, ForInObjectEnumerator *)
+  DEF2_WMS(A1U1toXX,                InitForInEnumerator,        OP_InitForInEnumerator)
+  DEF2_WMS(A1U1toXXWithCache,       ProfiledInitForInEnumerator,OP_InitForInEnumeratorWithCache)
   DEF2_WMS(A1toXXMem,               Throw,                      JavascriptExceptionOperators::OP_Throw)
   DEF2_WMS(XXtoA1NonVar,            LdArgumentsFromFrame,       OP_LdArgumentsFromFrame)
   DEF2_WMS(XXtoA1Mem,               LdHeapArguments,            OP_LdHeapArguments)
@@ -366,7 +368,7 @@ EXDEF3_WMS(CUSTOM,                  LdLocalElemUndef,           OP_LdLocalElemen
   DEF3    (CUSTOM_L_R0,             ProfiledNewScFltArray,      PROFILEDOP(OP_ProfiledNewScFltArray, OP_NewScFltArray), ProfiledAuxiliary)
   DEF2_WMS(RegextoA1,               NewRegEx,                   JavascriptRegExp::OP_NewRegEx)
 EXDEF3_WMS(CUSTOM,                  InitClass,                  OP_InitClass, Class)
-  DEF3_WMS(BRBReturnP1toA1,         BrOnEmpty,                  JavascriptOperators::OP_BrOnEmpty, ForInObjectEnumerator *)
+  DEF2_WMS(BRBReturnP1toA1,         BrOnEmpty,                  JavascriptOperators::OP_BrOnEmpty)
   DEF2    (TRY,                     TryCatch,                   OP_TryCatch)
   DEF2    (TRY,                     TryFinally,                 OP_TryFinally)
 EXDEF2_WMS(TRYBR2,                  TryFinallyWithYield,        OP_TryFinallyWithYield)

@@ -371,7 +371,7 @@ namespace Js
         // Reject if we need to grow non-writable length
         if (!CanSetItemAt(arr, index))
         {
-            return false;
+            return CantExtend(flags, scriptContext);
         }
 
         IndexPropertyDescriptor* descriptor;
@@ -640,7 +640,7 @@ namespace Js
             }
             else if (!(descriptor->Attributes & PropertyConfigurable))
             {
-                JavascriptError::ThrowCantDeleteIfStrictMode(propertyOperationFlags, instance->GetScriptContext(), TaggedInt::ToString(index, instance->GetScriptContext())->GetString());
+                JavascriptError::ThrowCantDelete(propertyOperationFlags, instance->GetScriptContext(), TaggedInt::ToString(index, instance->GetScriptContext())->GetString());
 
                 return false;
             }

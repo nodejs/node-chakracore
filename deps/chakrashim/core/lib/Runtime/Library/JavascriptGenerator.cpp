@@ -57,11 +57,12 @@ namespace Js
                 result = JavascriptFunction::CallFunction<1>(this->scriptFunction, this->scriptFunction->GetEntryPoint(), arguments);
                 helper.DidNotThrow();
             }
-            catch (Js::JavascriptExceptionObject* exceptionObj)
+            catch (const JavascriptException& err)
             {
+                Js::JavascriptExceptionObject* exceptionObj = err.GetAndClear();
                 if (!exceptionObj->IsGeneratorReturnException())
                 {
-                    throw exceptionObj;
+                    JavascriptExceptionOperators::DoThrow(exceptionObj, scriptContext);
                 }
                 result = exceptionObj->GetThrownObject(nullptr);
             }
@@ -175,4 +176,16 @@ namespace Js
         ResumeYieldData yieldData(input, RecyclerNew(scriptContext->GetRecycler(), JavascriptExceptionObject, input, scriptContext, nullptr));
         return generator->CallGenerator(&yieldData, _u("Generator.prototype.throw"));
     }
+
+#if ENABLE_TTD
+    TTD::NSSnapObjects::SnapObjectType JavascriptGenerator::GetSnapTag_TTD() const
+    {
+        return TTD::NSSnapObjects::SnapObjectType::Invalid;
+    }
+
+    void JavascriptGenerator::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTDAssert(false, "Invalid -- JavascriptGenerator");
+    }
+#endif
 }

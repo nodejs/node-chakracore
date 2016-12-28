@@ -80,7 +80,8 @@ private:
     Scope *currentChildScope;
     SymbolTable *capturedSyms;
     CapturedSymMap *capturedSymMap;
-
+    uint        nextForInLoopLevel;
+    uint        maxForInLoopLevel;
 public:
     ArenaAllocator *alloc;
     // set in Bind/Assign pass
@@ -138,6 +139,10 @@ public:
     uint hasEscapedUseNestedFunc : 1;
     uint needEnvRegister : 1;
     uint hasCapturedThis : 1;
+#if DBG
+    // FunctionBody was reused on recompile of a redeferred enclosing function.
+    uint isReused:1;
+#endif
 
     typedef JsUtil::BaseDictionary<uint, Js::RegSlot, ArenaAllocator, PrimeSizePolicy> ConstantRegisterMap;
     ConstantRegisterMap constantToRegister; // maps uint constant to register
@@ -429,7 +434,7 @@ public:
     Js::FunctionBody* GetParsedFunctionBody() const
     {
         AssertMsg(this->byteCodeFunction->IsFunctionParsed(), "Function must be parsed in order to call this method");
-        Assert(!IsDeferred());
+        Assert(!IsDeferred() || this->byteCodeFunction->GetFunctionBody()->GetByteCode() != nullptr);
 
         return this->byteCodeFunction->GetFunctionBody();
     }
@@ -619,6 +624,20 @@ public:
         outArgsCurrentExpr -= (argCount + 1);
 
         Assert(outArgsDepth != 0 || outArgsCurrentExpr == 0);
+    }
+
+    uint GetMaxForInLoopLevel() const { return this->maxForInLoopLevel;  }
+    uint AcquireForInLoopLevel()
+    {
+        uint forInLoopLevel = this->nextForInLoopLevel++;
+        this->maxForInLoopLevel = max(this->maxForInLoopLevel, this->nextForInLoopLevel);
+        return forInLoopLevel;
+    }
+
+    void ReleaseForInLoopLevel(uint forInLoopLevel)
+    {
+        Assert(this->nextForInLoopLevel == forInLoopLevel + 1);
+        this->nextForInLoopLevel = forInLoopLevel;
     }
 
     Js::RegSlot AcquireLoc(ParseNode *pnode);

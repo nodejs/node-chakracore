@@ -20,7 +20,6 @@ target_include_directories (
 #  pthread: For threading
 #  stdc++/gcc_s: C++ runtime code
 #  dl: For shared library loading related functions
-#  icuuc: For the ICU (xplat-todo: Make this optional)
 #
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
   set(LINKER_START_GROUP
@@ -32,6 +31,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     -Wl,--no-whole-archive
     -Wl,--end-group
     )
+elseif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  set(LINKER_START_GROUP -Wl,-force_load,)
 endif()
 
 # common link deps
@@ -52,6 +53,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL Linux)
   set(lib_target "${lib_target}"
     -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/libChakraCoreLib.version
     )
+endif()
+
+if(CC_TARGETS_X86)
+  set(lib_target "${lib_target} -m32")
 endif()
 
 target_link_libraries (ChakraCore ${lib_target})

@@ -229,19 +229,19 @@ namespace Js
     }
 
     DynamicTypeHandler *
-        DynamicTypeHandler::GetCurrentTypeHandler(DynamicObject * instance)
+    DynamicTypeHandler::GetCurrentTypeHandler(DynamicObject * instance)
     {
         return instance->GetTypeHandler();
     }
 
     void
-        DynamicTypeHandler::ReplaceInstanceType(DynamicObject * instance, DynamicType * type)
+    DynamicTypeHandler::ReplaceInstanceType(DynamicObject * instance, DynamicType * type)
     {
         instance->ReplaceType(type);
     }
 
     void
-        DynamicTypeHandler::ResetTypeHandler(DynamicObject * instance)
+    DynamicTypeHandler::ResetTypeHandler(DynamicObject * instance)
     {
         // just reuse the current type handler.
         this->SetInstanceTypeHandler(instance);
@@ -249,14 +249,14 @@ namespace Js
 
     BOOL
     DynamicTypeHandler::FindNextProperty(ScriptContext* scriptContext, BigPropertyIndex& index, JavascriptString** propertyString,
-        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols)
+        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
     {
         // Type handlers that support big property indexes override this function, so if we're here then this type handler does
         // not support big property indexes. Forward the call to the small property index version.
         Assert(GetSlotCapacity() <= PropertyIndexRanges<PropertyIndex>::MaxValue);
         PropertyIndex smallIndex = static_cast<PropertyIndex>(index);
         Assert(static_cast<BigPropertyIndex>(smallIndex) == index);
-        const BOOL found = FindNextProperty(scriptContext, smallIndex, propertyString, propertyId, attributes, type, typeToEnumerate, requireEnumerable, enumSymbols);
+        const BOOL found = FindNextProperty(scriptContext, smallIndex, propertyString, propertyId, attributes, type, typeToEnumerate, flags);
         index = smallIndex;
         return found;
     }
@@ -547,13 +547,6 @@ namespace Js
             {
                 scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_ToString & possibleSideEffects));
             }
-            else if (IsMathLibraryId(propertyId))
-            {
-                if (instance == scriptContext->GetLibrary()->GetMathObject())
-                {
-                    scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_MathFunc & possibleSideEffects));
-                }
-            }
             else if (propertyId == PropertyIds::Math)
             {
                 if (instance == scriptContext->GetLibrary()->GetGlobalObject())
@@ -561,6 +554,47 @@ namespace Js
                     scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_MathFunc & possibleSideEffects));
                 }
             }
+            else if (IsMathLibraryId(propertyId))
+            {
+                if (instance == scriptContext->GetLibrary()->GetMathObject())
+                {
+                    scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_MathFunc & possibleSideEffects));
+                }
+            }
+        }
+    }
+
+    void DynamicTypeHandler::SetPropertyUpdateSideEffect(DynamicObject* instance, JsUtil::CharacterBuffer<WCHAR> const& propertyName, Var value, SideEffects possibleSideEffects)
+    {
+        if (possibleSideEffects)
+        {
+            ScriptContext* scriptContext = instance->GetScriptContext();
+            if (BuiltInPropertyRecords::valueOf.Equals(propertyName))
+            {
+                scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_ValueOf & possibleSideEffects));
+            }
+            else if (BuiltInPropertyRecords::toString.Equals(propertyName))
+            {
+                scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_ToString & possibleSideEffects));
+            }
+            else if (BuiltInPropertyRecords::Math.Equals(propertyName))
+            {
+                if (instance == scriptContext->GetLibrary()->GetGlobalObject())
+                {
+                    scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_MathFunc & possibleSideEffects));
+                }
+            }
+            else if (instance == scriptContext->GetLibrary()->GetMathObject())
+            {
+                PropertyRecord const* propertyRecord;
+                scriptContext->FindPropertyRecord(propertyName.GetBuffer(), propertyName.GetLength(), &propertyRecord);
+
+                if (propertyRecord && IsMathLibraryId(propertyRecord->GetPropertyId()))
+                {
+                    scriptContext->optimizationOverrides.SetSideEffects((SideEffects)(SideEffects_MathFunc & possibleSideEffects));
+                }
+            }
+
         }
     }
 
@@ -699,10 +733,47 @@ namespace Js
         return !ThreadContext::IsOnStack(instance);
     }
 
-#if ENABLE_TTD
-    Js::PropertyIndex DynamicTypeHandler::GetPropertyIndex_EnumerateTTD(const Js::PropertyRecord* pRecord)
+    BOOL DynamicTypeHandler::DeleteProperty(DynamicObject* instance, JavascriptString* propertyNameString, PropertyOperationFlags flags)
     {
-        return Constants::NoSlot;
+        PropertyRecord const *propertyRecord = nullptr;
+        if (!JavascriptOperators::CanShortcutOnUnknownPropertyName(instance))
+        {
+            instance->GetScriptContext()->GetOrAddPropertyRecord(propertyNameString->GetString(), propertyNameString->GetLength(), &propertyRecord);
+        }
+        else
+        {
+            instance->GetScriptContext()->FindPropertyRecord(propertyNameString, &propertyRecord);
+        }
+
+        if (propertyRecord == nullptr)
+        {
+            return TRUE;
+        }
+        
+        return DeleteProperty(instance, propertyRecord->GetPropertyId(), flags);
+    }
+
+    PropertyId DynamicTypeHandler::TMapKey_GetPropertyId(ScriptContext* scriptContext, const PropertyId key)
+    {
+        return key;
+    }
+
+    PropertyId DynamicTypeHandler::TMapKey_GetPropertyId(ScriptContext* scriptContext, const PropertyRecord* key)
+    {
+        return key->GetPropertyId();
+    }
+
+    PropertyId DynamicTypeHandler::TMapKey_GetPropertyId(ScriptContext* scriptContext, JavascriptString* key)
+    {
+        return scriptContext->GetOrAddPropertyIdTracked(key->GetSz(), key->GetLength());
+    }
+
+#if ENABLE_TTD
+    Js::BigPropertyIndex DynamicTypeHandler::GetPropertyIndex_EnumerateTTD(const Js::PropertyRecord* pRecord)
+    {
+        TTDAssert(false, "Should never be called.");
+
+        return Js::Constants::NoBigSlot;
     }
 
     void DynamicTypeHandler::ExtractSnapHandler(TTD::NSSnapType::SnapHandler* handler, ThreadContext* threadContext, TTD::SlabAllocator& alloc) const
@@ -721,7 +792,7 @@ namespace Js
             memset(handler->PropertyInfoArray, 0, handler->TotalSlotCapacity * sizeof(TTD::NSSnapType::SnapHandlerPropertyEntry));
 
             handler->MaxPropertyIndex = this->ExtractSlotInfo_TTD(handler->PropertyInfoArray, threadContext, alloc);
-            AssertMsg(handler->MaxPropertyIndex <= handler->TotalSlotCapacity, "Huh we have more property entries than slots to put them in.");
+            TTDAssert(handler->MaxPropertyIndex <= handler->TotalSlotCapacity, "Huh we have more property entries than slots to put them in.");
 
             if(handler->MaxPropertyIndex != 0)
             {

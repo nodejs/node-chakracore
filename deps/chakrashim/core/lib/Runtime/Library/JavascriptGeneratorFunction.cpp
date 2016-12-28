@@ -82,9 +82,9 @@ namespace Js
         return static_cast<JavascriptAsyncFunction*>(var);
     }
 
-    JavascriptGeneratorFunction* JavascriptGeneratorFunction::OP_NewScGenFunc(FrameDisplay *environment, FunctionProxy** proxyRef)
+    JavascriptGeneratorFunction* JavascriptGeneratorFunction::OP_NewScGenFunc(FrameDisplay *environment, FunctionInfoPtrPtr infoRef)
     {
-        FunctionProxy* functionProxy = *proxyRef;
+        FunctionProxy* functionProxy = (*infoRef)->GetFunctionProxy();
         ScriptContext* scriptContext = functionProxy->GetScriptContext();
 
         bool hasSuperReference = functionProxy->HasSuperReference();
@@ -160,9 +160,9 @@ namespace Js
         {
             CALL_FUNCTION(executor, CallInfo(CallFlags_Value, 3), library->GetUndefined(), resolve, reject);
         }
-        catch (JavascriptExceptionObject* ex)
+        catch (const JavascriptException& err)
         {
-            e = ex;
+            e = err.GetAndClear();
         }
 
         if (e != nullptr)
@@ -428,6 +428,23 @@ namespace Js
         return JavascriptFunction::DeleteProperty(propertyId, flags);
     }
 
+    BOOL JavascriptGeneratorFunction::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags)
+    {
+        JsUtil::CharacterBuffer<WCHAR> propertyName(propertyNameString->GetString(), propertyNameString->GetLength());
+        if (BuiltInPropertyRecords::length.Equals(propertyName))
+        {
+            return false;
+        }
+
+        if (BuiltInPropertyRecords::caller.Equals(propertyName) || BuiltInPropertyRecords::arguments.Equals(propertyName))
+        {
+            // JavascriptFunction has special case for caller and arguments; call DynamicObject:: virtual directly to skip that.
+            return DynamicObject::DeleteProperty(propertyNameString, flags);
+        }
+
+        return JavascriptFunction::DeleteProperty(propertyNameString, flags);
+    }
+
     BOOL JavascriptGeneratorFunction::IsWritable(PropertyId propertyId)
     {
         if (propertyId == PropertyIds::length)
@@ -469,7 +486,18 @@ namespace Js
 
     void JavascriptGeneratorFunction::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
     {
-        AssertMsg(false, "Invalid -- JavascriptGeneratorFunction");
+        TTDAssert(false, "Invalid -- JavascriptGeneratorFunction");
+    }
+
+    TTD::NSSnapObjects::SnapObjectType JavascriptAsyncFunction::GetSnapTag_TTD() const
+    {
+        //we override this with invalid to make sure it isn't unexpectedly handled by the parent class
+        return TTD::NSSnapObjects::SnapObjectType::Invalid;
+    }
+
+    void JavascriptAsyncFunction::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
+    {
+        TTDAssert(false, "Invalid -- JavascriptGeneratorFunction");
     }
 
     TTD::NSSnapObjects::SnapObjectType GeneratorVirtualScriptFunction::GetSnapTag_TTD() const
@@ -480,7 +508,7 @@ namespace Js
 
     void GeneratorVirtualScriptFunction::ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc)
     {
-        AssertMsg(false, "Invalid -- GeneratorVirtualScriptFunction");
+        TTDAssert(false, "Invalid -- GeneratorVirtualScriptFunction");
     }
 #endif
 }

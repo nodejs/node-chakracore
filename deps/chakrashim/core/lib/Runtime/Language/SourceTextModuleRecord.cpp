@@ -56,9 +56,10 @@ namespace Js
         // There is no real reference to lifetime management in ecmascript
         // The life time of a module record should be controlled by the module registry as defined in WHATWG module loader spec
         // in practice the modulerecord lifetime should be the same as the scriptcontext so it could be retrieved for the same
-        // site. Host might hold a reference to the module as well after initializing the module. 
+        // site. Host might hold a reference to the module as well after initializing the module.
         // In our implementation, we'll use the moduleId in bytecode to identify the module.
         childModuleRecord->moduleId = scriptContext->GetLibrary()->EnsureModuleRecordList()->Add(childModuleRecord);
+
         return childModuleRecord;
     }
 
@@ -114,7 +115,9 @@ namespace Js
 
                 LoadScriptFlag loadScriptFlag = (LoadScriptFlag)(LoadScriptFlag_Expression | LoadScriptFlag_Module |
                     (isUtf8 ? LoadScriptFlag_Utf8Source : LoadScriptFlag_None));
-                this->parseTree = scriptContext->ParseScript(parser, sourceText, sourceLength, srcInfo, &se, &pSourceInfo, _u("module"), loadScriptFlag, &sourceIndex);
+                this->parseTree = scriptContext->ParseScript(parser, sourceText,
+                    sourceLength, srcInfo, &se, &pSourceInfo, _u("module"),
+                    loadScriptFlag, &sourceIndex, nullptr);
                 if (parseTree == nullptr)
                 {
                     hr = E_FAIL;
@@ -133,6 +136,15 @@ namespace Js
             if (SUCCEEDED(hr))
             {
                 hr = PostParseProcess();
+                if (hr == S_OK && this->errorObject != nullptr && this->hadNotifyHostReady)
+                {
+                    // This would be the case where the child module got error and current module has notified error already.
+                    if (*exceptionVar == nullptr)
+                    {
+                        *exceptionVar = this->errorObject;
+                    }
+                    return E_FAIL;
+                }
             }
         }
         if (FAILED(hr))
@@ -200,14 +212,13 @@ namespace Js
         if (numUnInitializedChildrenModule == 0)
         {
             NotifyParentsAsNeeded();
-        
+
             if (!WasDeclarationInitialized() && isRootModule)
             {
                 // TODO: move this as a promise call? if parser is called from a different thread
                 // We'll need to call the bytecode gen in the main thread as we are accessing GC.
                 ScriptContext* scriptContext = GetScriptContext();
                 Assert(!scriptContext->GetThreadContext()->IsScriptActive());
-                Assert(this->errorObject == nullptr);
 
                 ModuleDeclarationInstantiation();
                 if (!hadNotifyHostReady)
@@ -365,7 +376,7 @@ namespace Js
         return *importRecord != nullptr;
     }
 
-    // return false when "ambiguous". 
+    // return false when "ambiguous".
     // otherwise nullptr means "null" where we have circular reference/cannot resolve.
     bool SourceTextModuleRecord::ResolveExport(PropertyId exportName, ResolveSet* resolveSet, ExportModuleRecordList* exportStarSet, ModuleNameRecord** exportRecord)
     {
@@ -425,7 +436,7 @@ namespace Js
                 ModuleRecordBase* sourceModule = this;
                 ModuleNameRecord* importRecord = nullptr;
                 if (this->importRecordList != nullptr
-                    && this->ResolveImport(localNameId, &importRecord) 
+                    && this->ResolveImport(localNameId, &importRecord)
                     && importRecord != nullptr)
                 {
                     sourceModule = importRecord->module;
@@ -546,10 +557,36 @@ namespace Js
         return !ambiguousResolution;
     }
 
+    void SourceTextModuleRecord::SetParent(SourceTextModuleRecord* parentRecord, LPCOLESTR moduleName)
+    {
+        Assert(parentRecord != nullptr);
+        Assert(parentRecord->childrenModuleSet != nullptr);
+        if (!parentRecord->childrenModuleSet->ContainsKey(moduleName))
+        {
+            parentRecord->childrenModuleSet->AddNew(moduleName, this);
+
+            if (this->parentModuleList == nullptr)
+            {
+                Recycler* recycler = GetScriptContext()->GetRecycler();
+                this->parentModuleList = RecyclerNew(recycler, ModuleRecordList, recycler);
+            }
+            bool contains = this->parentModuleList->Contains(parentRecord);
+            Assert(!contains);
+            if (!contains)
+            {
+                this->parentModuleList->Add(parentRecord);
+                if (!this->WasDeclarationInitialized())
+                {
+                    parentRecord->numUnInitializedChildrenModule++;
+                }
+            }
+        }
+    }
+
     HRESULT SourceTextModuleRecord::ResolveExternalModuleDependencies()
     {
         ScriptContext* scriptContext = GetScriptContext();
-        Recycler* recycler = scriptContext->GetRecycler();
+
         HRESULT hr = NOERROR;
         if (requestedModuleList != nullptr)
         {
@@ -571,16 +608,7 @@ namespace Js
                         return true;
                     }
                     moduleRecord = SourceTextModuleRecord::FromHost(moduleRecordBase);
-                    childrenModuleSet->AddNew(moduleName, moduleRecord);
-                    if (moduleRecord->parentModuleList == nullptr)
-                    {
-                        moduleRecord->parentModuleList = RecyclerNew(recycler, ModuleRecordList, recycler);
-                    }
-                    moduleRecord->parentModuleList->Add(this);
-                    if (!moduleRecord->WasDeclarationInitialized())
-                    {
-                        numUnInitializedChildrenModule++;
-                    }
+                    moduleRecord->SetParent(this, moduleName);
                 }
                 return false;
             });
@@ -601,7 +629,7 @@ namespace Js
         Assert(wasParsed);
         Assert(wasEvaluated);
         Assert(wasDeclarationInitialized);
-        // Debugger can reparse the source and generate the byte code again. Don't cleanup the 
+        // Debugger can reparse the source and generate the byte code again. Don't cleanup the
         // helper information for now.
     }
 
@@ -623,9 +651,9 @@ namespace Js
 
             InitializeIndirectExports();
         }
-        catch (Js::JavascriptExceptionObject * exceptionObject)
+        catch (const JavascriptException& err)
         {
-            this->errorObject = exceptionObject->GetThrownObject(scriptContext);
+            this->errorObject = err.GetAndClear()->GetThrownObject(scriptContext);
         }
 
         if (this->errorObject != nullptr)
@@ -683,7 +711,7 @@ namespace Js
         }
         Assert(!WasEvaluated());
         SetWasEvaluated();
-        // we shouldn't evaluate if there are existing failure. This is defense in depth as the host shouldn't 
+        // we shouldn't evaluate if there are existing failure. This is defense in depth as the host shouldn't
         // call into evaluation if there was previous fialure on the module.
         if (this->errorObject)
         {
@@ -787,7 +815,7 @@ namespace Js
                     // import {foo} from "module1.js"; export {foo};
                     ModuleNameRecord* importRecord = nullptr;
                     if (this->GetImportEntryList() != nullptr
-                        && this->ResolveImport(localNameId, &importRecord) 
+                        && this->ResolveImport(localNameId, &importRecord)
                         && importRecord != nullptr)
                     {
                         return;
@@ -824,7 +852,7 @@ namespace Js
                     }
 
                     localExportMapByExportName->Add(exportNameId, exportSlot);
-                    
+
                 });
             }
             // Namespace object will be added to the end of the array though invisible through namespace object itself.
@@ -836,6 +864,17 @@ namespace Js
             localExportSlots[currentSlotCount] = nullptr;
 
             localSlotCount = currentSlotCount;
+
+#if ENABLE_NATIVE_CODEGEN
+            if (JITManager::GetJITManager()->IsOOPJITEnabled() && JITManager::GetJITManager()->IsConnected())
+            {
+                HRESULT hr = JITManager::GetJITManager()->AddModuleRecordInfo(
+                    scriptContext->GetRemoteScriptAddr(),
+                    this->GetModuleId(),
+                    (intptr_t)this->GetLocalExportSlots());
+                JITManager::HandleServerCallResult(hr, RemoteCallType::StateUpdate);
+            }
+#endif
         }
     }
 
@@ -909,11 +948,4 @@ namespace Js
         }
         return slotIndex;
     }
-
-#if DBG
-    void SourceTextModuleRecord::AddParent(SourceTextModuleRecord* parentRecord, LPCWSTR specifier, uint32 specifierLength)
-    {
-
-    }
-#endif
 }

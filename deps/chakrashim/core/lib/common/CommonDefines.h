@@ -67,6 +67,13 @@
 #define TARGET_64 1
 #endif
 
+// Memory Protections
+#ifdef _CONTROL_FLOW_GUARD
+#define PAGE_EXECUTE_RO_TARGETS_INVALID   (PAGE_EXECUTE | PAGE_TARGETS_INVALID)
+#else
+#define PAGE_EXECUTE_RO_TARGETS_INVALID   (PAGE_EXECUTE)
+#endif
+
 //----------------------------------------------------------------------------------------------------
 // Enabled features
 //----------------------------------------------------------------------------------------------------
@@ -88,7 +95,9 @@
 // ByteCode
 #define VARIABLE_INT_ENCODING 1                     // Byte code serialization variable size int field encoding
 #define BYTECODE_BRANCH_ISLAND                      // Byte code short branch and branch island
+#if defined(_WIN32) || defined(HAS_REAL_ICU)
 #define ENABLE_UNICODE_API 1                        // Enable use of Unicode-related APIs
+#endif
 // Language features
 // xplat-todo: revisit these features
 #ifdef _WIN32
@@ -129,6 +138,7 @@
 #define ENABLE_BACKGROUND_PAGE_ZEROING 1
 #define ENABLE_BACKGROUND_PAGE_FREEING 1
 #define ENABLE_RECYCLER_TYPE_TRACKING 1
+#define ENABLE_JS_ETW                               // ETW support
 #else
 #define SYSINFO_IMAGE_BASE_AVAILABLE 0
 #define ENABLE_CONCURRENT_GC 0
@@ -161,9 +171,6 @@
 #define DYNAMIC_INTERPRETER_THUNK 0
 #define DISABLE_DYNAMIC_PROFILE_DEFER_PARSE
 #define ENABLE_COPYONACCESS_ARRAY 0
-
-// Used to temporarily disable ASMjs related code to get nonative compiling
-#define TEMP_DISABLE_ASMJS
 #else
 // By default, enable the JIT
 #define ENABLE_NATIVE_CODEGEN 1
@@ -181,11 +188,32 @@
 #endif
 #endif
 
+#if ENABLE_NATIVE_CODEGEN
+#ifdef _WIN32
+#define ENABLE_OOP_NATIVE_CODEGEN 1     // Out of process JIT
+#endif
+#endif
+
 // Other features
 // #define CHAKRA_CORE_DOWN_COMPAT 1
 
+// VS2015 RTM has bugs with constexpr, so require min of VS2015 Update 3 (known good version)
+#if !defined(_MSC_VER) || _MSC_FULL_VER >= 190024210
+#define HAS_CONSTEXPR 1
+#endif
+
+#ifdef HAS_CONSTEXPR
+#define OPT_CONSTEXPR constexpr
+#else
+#define OPT_CONSTEXPR
+#endif
+
 #if defined(ENABLE_DEBUG_CONFIG_OPTIONS) || defined(CHAKRA_CORE_DOWN_COMPAT)
 #define DELAYLOAD_SET_CFG_TARGET 1
+#endif
+
+#ifndef NTBUILD
+#define DELAYLOAD_SECTIONAPI 1
 #endif
 
 #ifdef NTBUILD
@@ -195,7 +223,6 @@
 #define ENABLE_WININET_PROFILE_DATA_CACHE
 #define ENABLE_BASIC_TELEMETRY
 #define ENABLE_DOM_FAST_PATH
-#define ENABLE_JS_ETW                               // ETW support
 #define EDIT_AND_CONTINUE
 #define ENABLE_JIT_CLAMP
 #endif
@@ -237,7 +264,6 @@
         #undef TELEMETRY_OPCODE_GET_PROPERTY_VALUES
         #define TELEMETRY_OPCODE_GET_PROPERTY_VALUES false
 
-        //#define TELEMETRY_ESB_STRINGS    // Telemetry that uses strings (slow), used for constructor detection for ECMAScript Built-Ins polyfills and Constructor-properties of Chakra-built-ins.
         //#define TELEMETRY_ESB_GetConstructorPropertyPolyfillDetection // Whether telemetry will inspect the `.constructor` property of every Object instance to determine if it's a polyfill of a known ES built-in.
     #endif
 
@@ -281,7 +307,7 @@
 #define ARENA_ALLOCATOR_FREE_LIST_SIZE
 
 // TODO (t-doilij) combine IR_VIEWER and ENABLE_IR_VIEWER
-#ifdef _M_IX86
+#if 0
 #if ENABLE_NATIVE_CODEGEN
 #define IR_VIEWER
 #define ENABLE_IR_VIEWER
@@ -311,35 +337,37 @@
 #ifndef ENABLE_TEST_HOOKS
 #define ENABLE_TEST_HOOKS
 #endif
+#endif // ENABLE_DEBUG_CONFIG_OPTIONS
 
 ////////
 //Time Travel flags
-#ifdef __APPLE__
-#define ENABLE_TTD 0
-#else
+//Include TTD code in the build when building for Chakra (except NT/Edge) or for debug/test builds
+#if !defined(NTBUILD) || defined(ENABLE_DEBUG_CONFIG_OPTIONS)
 #define ENABLE_TTD 1
+#else
+#define ENABLE_TTD 0
 #endif
 
 #if ENABLE_TTD
-//Enable debugging specific aspects of TTD
-#define ENABLE_TTD_DEBUGGING 1
-
-//Temp code needed to run VSCode but slows down execution (later will fix + implement high perf. version)
-//The ifndef check allows us to override this in build from Node in TTD version (where we want to have this on by default)
-#ifndef TTD_ENABLE_FULL_FUNCTIONALITY_IN_NODE
-#define TTD_DEBUGGING_PERFORMANCE_WORK_AROUNDS 0
-#define TTD_DISABLE_COPYONACCESS_ARRAY_WORK_AROUNDS 0
+#define TTDAssert(C, M) { if(!(C)) TTDAbort_fatal_error(M); }
 #else
-#define TTD_DEBUGGING_PERFORMANCE_WORK_AROUNDS 1
-#define TTD_DISABLE_COPYONACCESS_ARRAY_WORK_AROUNDS 1
+#define TTDAssert(C, M) 
 #endif
 
-//A workaround for some unimplemented code parse features (force debug mode)
-//Enable to turn these features off for good performance measurements.
-#define TTD_DYNAMIC_DECOMPILATION_WORK_AROUNDS 1
+#if ENABLE_TTD
+//A workaround for profile based creation of Native Arrays -- we may or may not want to allow since it differs in record/replay and (currently) asserts in our snap compare
+#define TTD_NATIVE_PROFILE_ARRAY_WORK_AROUND 1
+
+//Force debug or notjit mode
+#define TTD_FORCE_DEBUG_MODE 0
+#define TTD_FORCE_NOJIT_MODE 0
 
 //Enable various sanity checking features and asserts
+#if ENABLE_DEBUG_CONFIG_OPTIONS
 #define ENABLE_TTD_INTERNAL_DIAGNOSTICS 1
+#else
+#define ENABLE_TTD_INTERNAL_DIAGNOSTICS 0
+#endif
 
 #define TTD_COMPRESSED_OUTPUT 0
 #define TTD_LOG_READER TextFormatReader
@@ -354,26 +382,25 @@
 #endif
 
 #if ENABLE_TTD_INTERNAL_DIAGNOSTICS
-#define ENABLE_SNAPSHOT_COMPARE 0
+#define ENABLE_SNAPSHOT_COMPARE 1
 #define ENABLE_OBJECT_SOURCE_TRACKING 0
 #define ENABLE_VALUE_TRACE 0
 #define ENABLE_BASIC_TRACE 0
 #define ENABLE_FULL_BC_TRACE 0
+#define ENABLE_CROSSSITE_TRACE 0
 #else
 #define ENABLE_SNAPSHOT_COMPARE 0
 #define ENABLE_OBJECT_SOURCE_TRACKING 0
 #define ENABLE_BASIC_TRACE 0
 #define ENABLE_FULL_BC_TRACE 0
+#define ENABLE_CROSSSITE_TRACE 0
 #endif
 
-#define ENABLE_TTD_STACK_STMTS (ENABLE_TTD_DEBUGGING || ENABLE_OBJECT_SOURCE_TRACKING || ENABLE_BASIC_TRACE || ENABLE_FULL_BC_TRACE)
+#define ENABLE_TTD_DIAGNOSTICS_TRACING (ENABLE_OBJECT_SOURCE_TRACKING || ENABLE_BASIC_TRACE || ENABLE_FULL_BC_TRACE)
 
-#endif
 //End Time Travel flags
 ////////
-
-#endif // ENABLE_DEBUG_CONFIG_OPTIONS
-
+#endif
 
 //----------------------------------------------------------------------------------------------------
 // Debug only features
@@ -417,7 +444,10 @@
 #ifdef _WIN32
 #define PROFILE_EXEC
 #endif
+#if !(defined(__clang__) && defined(_M_IX86))
+// todo: implement this for clang x86
 #define PROFILE_MEM
+#endif
 #define PROFILE_TYPES
 #define PROFILE_EVALMAP
 #define PROFILE_OBJECT_LITERALS
@@ -555,13 +585,14 @@
 #endif
 #endif
 
-#if defined(_M_IX86) || defined(_M_X64)
-#ifndef TEMP_DISABLE_ASMJS
+#if (defined(_M_IX86) || defined(_M_X64)) && !defined(DISABLE_JIT)
 #define ASMJS_PLAT
 #endif
+
+#if defined(ASMJS_PLAT) && defined(_WIN32)
+#define ENABLE_WASM
 #endif
 
-#if _WIN32 || _WIN64
 #if _M_IX86
 #define I386_ASM 1
 #endif //_M_IX86
@@ -569,11 +600,12 @@
 #ifndef PDATA_ENABLED
 #if defined(_M_ARM32_OR_ARM64) || defined(_M_X64)
 #define PDATA_ENABLED 1
+#define ALLOC_XDATA (true)
 #else
 #define PDATA_ENABLED 0
+#define ALLOC_XDATA (false)
 #endif
 #endif
-#endif // _WIN32 || _WIN64
 
 #ifndef _WIN32
 #define DISABLE_SEH 1
@@ -693,3 +725,19 @@
 #ifndef PROFILE_DICTIONARY
 #define PROFILE_DICTIONARY 0
 #endif
+
+#ifndef THREAD_LOCAL
+#ifndef __APPLE__
+    #if defined(_MSC_VER) && _MSC_VER <= 1800 // VS2013?
+        #define THREAD_LOCAL __declspec(thread)
+    #else // VS2015+, linux Clang etc.
+        #define THREAD_LOCAL thread_local
+    #endif // VS2013?
+#else // __APPLE__
+    #ifndef __IOS__
+        #define THREAD_LOCAL _Thread_local
+    #else
+        #define THREAD_LOCAL
+    #endif
+#endif // __APPLE__
+#endif // THREAD_LOCAL

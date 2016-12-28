@@ -185,7 +185,10 @@ namespace Js {
         // No need to check for undeclared let/const in case of console scope (as this operation is initializing the let/const)
         PropertyOperation_AllowUndeclInConsoleScope     = 0x100,
 
-        PropertyOperation_ThrowIfNonWritable   = 0x300
+        PropertyOperation_ThrowIfNonWritable            = 0x200,
+
+        // This will be passed during delete operation. This will make the delete operation throw when the property not configurable.
+        PropertyOperation_ThrowOnDeleteIfNotConfig      = 0x400,
     };
 
     class RecyclableObject : public FinalizableObject
@@ -207,8 +210,6 @@ namespace Js {
         DEFINE_VTABLE_CTOR_NOBASE(RecyclableObject);
 
         virtual RecyclableObject* GetPrototypeSpecial();
-
-        RecyclableObject() { /* Do nothing, needed by the vtable ctor for ForInObjectEnumeratorWrapper */ }
 
     public:
         static bool Is(Var aValue);
@@ -267,6 +268,7 @@ namespace Js {
         virtual BOOL InitPropertyScoped(PropertyId propertyId, Var value);
         virtual BOOL InitFuncScoped(PropertyId propertyId, Var value);
         virtual BOOL DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags);
+        virtual BOOL DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags);
         virtual BOOL IsFixedProperty(PropertyId propertyId);
         virtual BOOL HasItem(uint32 index);
         virtual BOOL HasOwnItem(uint32 index);
@@ -275,7 +277,7 @@ namespace Js {
         virtual DescriptorFlags GetItemSetter(uint32 index, Var* setterValue, ScriptContext* requestContext) { return None; }
         virtual BOOL SetItem(uint32 index, Var value, PropertyOperationFlags flags);
         virtual BOOL DeleteItem(uint32 index, PropertyOperationFlags flags);
-        virtual BOOL GetEnumerator(BOOL enumNonEnumerable, Var* enumerator, ScriptContext * requestContext, bool preferSnapshotSemantics = true, bool enumSymbols = false);
+        virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache = nullptr);
         virtual BOOL ToPrimitive(JavascriptHint hint, Var* value, ScriptContext * requestContext);
         virtual BOOL SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None);
         virtual BOOL Equals(__in Var other, __out BOOL* value, ScriptContext* requestContext);

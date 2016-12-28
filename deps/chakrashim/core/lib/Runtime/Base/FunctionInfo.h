@@ -22,7 +22,7 @@ namespace Js
             ErrorOnNew                     = 0x00001,
             SkipDefaultNewObject           = 0x00002,
             DoNotProfile                   = 0x00004,
-            HasNoSideEffect                = 0x00008, // calling function doesn’t cause an implicit flags to be set,
+            HasNoSideEffect                = 0x00008, // calling function doesn't cause an implicit flags to be set,
                                                       // the callee will detect and set implicit flags on its individual operations
             NeedCrossSiteSecurityCheck     = 0x00010,
             DeferredDeserialize            = 0x00020, // The function represents something that needs to be deserialized on use
@@ -38,10 +38,18 @@ namespace Js
             Async                          = 0x10000,
             Module                         = 0x20000, // The function is the function body wrapper for a module
             EnclosedByGlobalFunc           = 0x40000,
+            CanDefer                       = 0x80000,
+            AllowDirectSuper               = 0x100000
         };
-        FunctionInfo(JavascriptMethod entryPoint, Attributes attributes = None, LocalFunctionId functionId = Js::Constants::NoFunctionId, FunctionBody* functionBodyImpl = NULL);
+        FunctionInfo(JavascriptMethod entryPoint, Attributes attributes = None, LocalFunctionId functionId = Js::Constants::NoFunctionId, FunctionProxy* functionBodyImpl = nullptr);
 
+        static bool Is(void *ptr);
         static DWORD GetFunctionBodyImplOffset() { return offsetof(FunctionInfo, functionBodyImpl); }
+        static BYTE GetOffsetOfFunctionProxy()
+        {
+            CompileAssert(offsetof(FunctionInfo, functionBodyImpl) <= UCHAR_MAX);
+            return offsetof(FunctionInfo, functionBodyImpl);
+        }
         static DWORD GetAttributesOffset() { return offsetof(FunctionInfo, attributes); }
 
         void VerifyOriginalEntryPoint() const;
@@ -51,14 +59,21 @@ namespace Js
 
         bool IsAsync() const { return ((this->attributes & Async) != 0); }
         bool IsDeferred() const { return ((this->attributes & (DeferredDeserialize | DeferredParse)) != 0); }
-        bool IsLambda() const { return ((this->attributes & Lambda) != 0); }
+        static bool IsLambda(Attributes attributes) { return ((attributes & Lambda) != 0); }
+        bool IsLambda() const { return IsLambda(this->attributes); }
         bool IsConstructor() const { return ((this->attributes & ErrorOnNew) == 0); }
-        bool IsGenerator() const { return ((this->attributes & Generator) != 0); }
+
+        static bool IsGenerator(Attributes attributes) { return ((attributes & Generator) != 0); }
+        bool IsGenerator() const { return IsGenerator(this->attributes); }
+
         bool IsClassConstructor() const { return ((this->attributes & ClassConstructor) != 0); }
         bool IsClassMethod() const { return ((this->attributes & ClassMethod) != 0); }
         bool IsModule() const { return ((this->attributes & Module) != 0); }
         bool HasSuperReference() const { return ((this->attributes & SuperReference) != 0); }
-        bool IsCoroutine() const { return ((this->attributes & (Async | Generator)) != 0); }
+        bool CanBeDeferred() const { return ((this->attributes & CanDefer) != 0); }
+        static bool IsCoroutine(Attributes attributes) { return ((attributes & (Async | Generator)) != 0); }
+        bool IsCoroutine() const { return IsCoroutine(this->attributes); }
+
 
         BOOL HasBody() const { return functionBodyImpl != NULL; }
         BOOL HasParseableInfo() const { return this->HasBody() && !this->IsDeferredDeserializeFunction(); }
@@ -67,10 +82,15 @@ namespace Js
         {
             return functionBodyImpl;
         }
+        void SetFunctionProxy(FunctionProxy * proxy)
+        {
+            functionBodyImpl = proxy;
+        }
         ParseableFunctionInfo* GetParseableFunctionInfo() const
         {
-            Assert(functionBodyImpl == NULL || !IsDeferredDeserializeFunction());
-            return (ParseableFunctionInfo*) functionBodyImpl;
+            Assert(functionBodyImpl == nullptr || !IsDeferredDeserializeFunction());
+            FunctionProxy * proxy = this->functionBodyImpl;
+            return (ParseableFunctionInfo*)proxy;
         }
         ParseableFunctionInfo** GetParseableFunctionInfoRef() const
         {
@@ -79,19 +99,27 @@ namespace Js
         }
         DeferDeserializeFunctionInfo* GetDeferDeserializeFunctionInfo() const
         {
-            Assert(functionBodyImpl == NULL || IsDeferredDeserializeFunction());
-            return (DeferDeserializeFunctionInfo*)functionBodyImpl;
+            Assert(functionBodyImpl == nullptr || IsDeferredDeserializeFunction());
+            FunctionProxy * proxy = this->functionBodyImpl;
+            return (DeferDeserializeFunctionInfo*)proxy;
         }
         FunctionBody * GetFunctionBody() const;
 
         Attributes GetAttributes() const { return attributes; }
         static Attributes GetAttributes(Js::RecyclableObject * function);
-        Js::LocalFunctionId GetLocalFunctionId() const { return functionId; }
-        virtual void Finalize(bool isShutdown)
+        void SetAttributes(Attributes attr) { attributes = attr; }
+
+        LocalFunctionId GetLocalFunctionId() const { return functionId; }
+        void SetLocalFunctionId(LocalFunctionId functionId) { this->functionId = functionId; }
+
+        uint GetCompileCount() const { return compileCount; }
+        void SetCompileCount(uint count) { compileCount = count; }
+
+        virtual void Finalize(bool isShutdown) override
         {
         }
 
-        virtual void Dispose(bool isShutdown)
+        virtual void Dispose(bool isShutdown) override
         {
         }
 
@@ -99,13 +127,18 @@ namespace Js
 
         BOOL IsDeferredDeserializeFunction() const { return ((this->attributes & DeferredDeserialize) == DeferredDeserialize); }
         BOOL IsDeferredParseFunction() const { return ((this->attributes & DeferredParse) == DeferredParse); }
+        void SetCapturesThis() { attributes = (Attributes)(attributes | Attributes::CapturesThis); }
+        bool GetCapturesThis() const { return (attributes & Attributes::CapturesThis) != 0; }
+        void SetEnclosedByGlobalFunc() { attributes = (Attributes)(attributes | Attributes::EnclosedByGlobalFunc ); }
+        bool GetEnclosedByGlobalFunc() const { return (attributes & Attributes::EnclosedByGlobalFunc) != 0; }
+        void SetAllowDirectSuper() { attributes = (Attributes)(attributes | Attributes::AllowDirectSuper); }
+        bool GetAllowDirectSuper() const { return (attributes & Attributes::AllowDirectSuper) != 0; }
 
     protected:
         JavascriptMethod originalEntryPoint;
-        // WriteBarrier-TODO: Fix this? This is used only by proxies to keep the deserialized version around
-        // However, proxies are not allocated as write barrier memory currently so its fine to not set the write barrier for this field
-        FunctionProxy * functionBodyImpl;     // Implementation of the function- null if the function doesn't have a body
+        WriteBarrierPtr<FunctionProxy> functionBodyImpl;     // Implementation of the function- null if the function doesn't have a body
         LocalFunctionId functionId;        // Per host source context (source file) function Id
+        uint compileCount;
         Attributes attributes;
     };
 
@@ -116,5 +149,26 @@ namespace Js
         NoProfileFunctionInfo(JavascriptMethod entryPoint)
             : FunctionInfo(entryPoint, Attributes::DoNotProfile)
         {}
+    };
+
+    class AutoDisableRedeferral
+    {
+    public:
+        bool canBeDeferred;
+        FunctionInfo * functionInfo;
+        AutoDisableRedeferral(FunctionInfo* functionInfo)
+        {
+            this->functionInfo = functionInfo;
+            this->canBeDeferred = functionInfo->CanBeDeferred();
+            this->functionInfo->SetAttributes((FunctionInfo::Attributes)(this->functionInfo->GetAttributes() & ~FunctionInfo::Attributes::CanDefer));
+        }
+
+        ~AutoDisableRedeferral()
+        {
+            if (this->canBeDeferred)
+            {
+                this->functionInfo->SetAttributes((FunctionInfo::Attributes)(this->functionInfo->GetAttributes() | FunctionInfo::Attributes::CanDefer));
+            }
+        }
     };
 };

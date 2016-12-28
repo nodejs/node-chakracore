@@ -4,183 +4,174 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
 
-#include "Types/DynamicObjectEnumerator.h"
-#include "Types/DynamicObjectSnapshotEnumerator.h"
-#include "Types/DynamicObjectSnapshotEnumeratorWPCache.h"
 #include "Library/ForInObjectEnumerator.h"
-#include "Library/NullEnumerator.h"
 
 namespace Js
 {
-
-    ForInObjectEnumerator::ForInObjectEnumerator(RecyclableObject* object, ScriptContext * scriptContext, bool enumSymbols) :
-        embeddedEnumerator(scriptContext),
-        scriptContext(scriptContext),
-        currentEnumerator(nullptr),
-        propertyIds(nullptr),
-        enumSymbols(enumSymbols)
+    ForInObjectEnumerator::ShadowData::ShadowData(
+        RecyclableObject * initObject,
+        RecyclableObject * firstPrototype,
+        RecyclableObject * firstPrototypeWithEnumerableProperties,
+        Recycler * recycler)
+        : currentObject(initObject),
+          firstPrototype(firstPrototype),
+          firstPrototypeWithEnumerableProperties(firstPrototypeWithEnumerableProperties),
+          propertyIds(recycler)
     {
-        Initialize(object, scriptContext);
+
+    }
+
+    ForInObjectEnumerator::ForInObjectEnumerator(RecyclableObject* object, ScriptContext * scriptContext, bool enumSymbols)
+    {
+        Initialize(object, scriptContext, enumSymbols);
     }
 
     void ForInObjectEnumerator::Clear()
     {
         // Only clear stuff that are not useful for the next enumerator
-        propertyIds = nullptr;
-        newPropertyStrings.Reset();
+        shadowData = nullptr;
     }
 
-    void ForInObjectEnumerator::Initialize(RecyclableObject* currentObject, ScriptContext * scriptContext)
+    void ForInObjectEnumerator::Initialize(RecyclableObject* initObject, ScriptContext * requestContext, bool enumSymbols, ForInCache * forInCache)
     {
-        Assert(propertyIds == nullptr);
-        Assert(newPropertyStrings.Empty());
-        Assert(this->GetScriptContext() == scriptContext);
+        this->enumeratingPrototype = false;
 
-        this->currentIndex = nullptr;
-
-        if (currentObject == nullptr)
+        if (initObject == nullptr)
         {
-            currentEnumerator = scriptContext->GetLibrary()->GetNullEnumerator();
-            this->object = nullptr;
-            this->baseObject = nullptr;
-            this->baseObjectType = nullptr;
-            this->firstPrototype = nullptr;
+            enumerator.Clear(EnumeratorFlags::None, requestContext);
+            this->shadowData = nullptr;
+            this->canUseJitFastPath = false;
             return;
         }
 
-        Assert(JavascriptOperators::GetTypeId(currentObject) != TypeIds_Null
-            && JavascriptOperators::GetTypeId(currentObject) != TypeIds_Undefined);
+        Assert(JavascriptOperators::GetTypeId(initObject) != TypeIds_Null
+            && JavascriptOperators::GetTypeId(initObject) != TypeIds_Undefined);
 
-        if (this->currentEnumerator != NULL &&
-            !VirtualTableInfo<Js::NullEnumerator>::HasVirtualTable(this->currentEnumerator) &&
-            this->object == currentObject &&
-            this->baseObjectType == currentObject->GetType())
+        EnumeratorFlags flags;
+        RecyclableObject * firstPrototype = nullptr;
+        RecyclableObject * firstPrototypeWithEnumerableProperties = GetFirstPrototypeWithEnumerableProperties(initObject, &firstPrototype);
+        if (firstPrototypeWithEnumerableProperties != nullptr)
         {
-            // We can re-use the enumerator, only if the 'object' and type from the previous enumeration
-            // remains the same. If the previous enumeration involved prototype enumeration
-            // 'object' and 'currentEnumerator' would represent the prototype. Hence,
-            // we cannot re-use it. Null objects are always equal, therefore, the enumerator cannot
-            // be re-used.
-            currentEnumerator->Reset();
+            Recycler *recycler = requestContext->GetRecycler();
+            this->shadowData = RecyclerNew(recycler, ShadowData, initObject, firstPrototype, firstPrototypeWithEnumerableProperties, recycler);
+            flags = EnumeratorFlags::UseCache | EnumeratorFlags::SnapShotSemantics | EnumeratorFlags::EnumNonEnumerable | (enumSymbols ? EnumeratorFlags::EnumSymbols : EnumeratorFlags::None);
         }
         else
         {
-            this->baseObjectType = currentObject->GetType();
-            this->object = currentObject;
-
-            GetCurrentEnumerator();
+            this->shadowData = nullptr;
+            flags = EnumeratorFlags::UseCache | EnumeratorFlags::SnapShotSemantics | (enumSymbols ? EnumeratorFlags::EnumSymbols : EnumeratorFlags::None);
         }
 
-        this->baseObject = currentObject;
-        firstPrototype = GetFirstPrototypeWithEnumerableProperties(object);
-
-        if (firstPrototype != nullptr)
+        if (InitializeCurrentEnumerator(initObject, flags, requestContext, forInCache))
         {
-            Recycler *recycler = scriptContext->GetRecycler();
-            propertyIds = RecyclerNew(recycler, BVSparse<Recycler>, recycler);
+            canUseJitFastPath = this->enumerator.CanUseJITFastPath();
+        }
+        else
+        {
+            // Nothing to enumerate.
+            // We keep the shadowData so that it may walk up the prototype chain (e.g. primitive type)
+            enumerator.Clear(flags, requestContext);
+            canUseJitFastPath = false;
         }
     }
 
-    RecyclableObject* ForInObjectEnumerator::GetFirstPrototypeWithEnumerableProperties(RecyclableObject* object)
+    RecyclableObject* ForInObjectEnumerator::GetFirstPrototypeWithEnumerableProperties(RecyclableObject* object, RecyclableObject** pFirstPrototype)
     {
         RecyclableObject* firstPrototype = nullptr;
+        RecyclableObject* firstPrototypeWithEnumerableProperties = nullptr;
+
         if (JavascriptOperators::GetTypeId(object) != TypeIds_HostDispatch)
         {
-            firstPrototype = object;
+            firstPrototypeWithEnumerableProperties = object;
             while (true)
             {
-                firstPrototype = firstPrototype->GetPrototype();
+                firstPrototypeWithEnumerableProperties = firstPrototypeWithEnumerableProperties->GetPrototype();
 
-                if (JavascriptOperators::GetTypeId(firstPrototype) == TypeIds_Null)
+                if (firstPrototypeWithEnumerableProperties == nullptr)
                 {
-                    firstPrototype = nullptr;
                     break;
                 }
 
-                if (!DynamicType::Is(firstPrototype->GetTypeId())
-                    || !DynamicObject::FromVar(firstPrototype)->GetHasNoEnumerableProperties())
+                if (JavascriptOperators::GetTypeId(firstPrototypeWithEnumerableProperties) == TypeIds_Null)
+                {
+                    firstPrototypeWithEnumerableProperties = nullptr;
+                    break;
+                }
+
+                if (firstPrototype == nullptr)
+                {
+                    firstPrototype = firstPrototypeWithEnumerableProperties;
+                }
+
+                if (!DynamicType::Is(firstPrototypeWithEnumerableProperties->GetTypeId())
+                    || !DynamicObject::FromVar(firstPrototypeWithEnumerableProperties)->GetHasNoEnumerableProperties())
                 {
                     break;
                 }
             }
         }
 
-        return firstPrototype;
+        if (pFirstPrototype != nullptr)
+        {
+            *pFirstPrototype = firstPrototype;
+        }
+
+        return firstPrototypeWithEnumerableProperties;
     }
 
-    BOOL ForInObjectEnumerator::GetCurrentEnumerator()
+    BOOL ForInObjectEnumerator::InitializeCurrentEnumerator(RecyclableObject * object, ForInCache * forInCache)
+    {
+        EnumeratorFlags flags = enumerator.GetFlags();
+        RecyclableObject * prototype = object->GetPrototype();
+        if (prototype == nullptr || prototype->GetTypeId() == TypeIds_Null)
+        {
+            // If this is the last object on the prototype chain, we don't need to get the non-enumerable properties any more to track shadowing
+            flags &= ~EnumeratorFlags::EnumNonEnumerable;
+        }
+        return InitializeCurrentEnumerator(object, flags, GetScriptContext(), forInCache);
+    }
+
+    BOOL ForInObjectEnumerator::InitializeCurrentEnumerator(RecyclableObject * object, EnumeratorFlags flags,  ScriptContext * scriptContext, ForInCache * forInCache)
     {
         Assert(object);
-        ScriptContext* scriptContext = GetScriptContext();
+        Assert(scriptContext);
 
         if (VirtualTableInfo<DynamicObject>::HasVirtualTable(object))
         {
             DynamicObject* dynamicObject = (DynamicObject*)object;
-            if (!dynamicObject->GetTypeHandler()->EnsureObjectReady(dynamicObject))
-            {
-                return false;
-            }
-            dynamicObject->GetDynamicType()->PrepareForTypeSnapshotEnumeration();
-            embeddedEnumerator.Initialize(dynamicObject, true);
-            currentEnumerator = &embeddedEnumerator;
-            return true;
+            return dynamicObject->DynamicObject::GetEnumerator(&enumerator, flags, scriptContext, forInCache);
         }
 
-        if (!object->GetEnumerator(TRUE /*enumNonEnumerable*/, (Var *)&currentEnumerator, scriptContext, true /*preferSnapshotSemantics */, enumSymbols))
-        {
-            currentEnumerator = scriptContext->GetLibrary()->GetNullEnumerator();
-            return false;
-        }
-        return true;
-    }
-
-    Var ForInObjectEnumerator::GetCurrentIndex()
-    {
-        return currentIndex;
+        return object->GetEnumerator(&enumerator, flags, scriptContext, forInCache);
     }
 
     BOOL ForInObjectEnumerator::TestAndSetEnumerated(PropertyId propertyId)
     {
-        Assert(propertyIds != nullptr);
+        Assert(this->shadowData != nullptr);
         Assert(!Js::IsInternalPropertyId(propertyId));
 
-        return !(propertyIds->TestAndSet(propertyId));
-    }
-
-    BOOL ForInObjectEnumerator::MoveNext()
-    {
-        PropertyId propertyId;
-        currentIndex = MoveAndGetNext(propertyId);
-        return currentIndex != NULL;
+        return !(this->shadowData->propertyIds.TestAndSet(propertyId));
     }
 
     Var ForInObjectEnumerator::MoveAndGetNext(PropertyId& propertyId)
-    {
-        JavascriptEnumerator *pEnumerator = currentEnumerator;
+    {        
         PropertyRecord const * propRecord;
         PropertyAttributes attributes = PropertyNone;
 
         while (true)
         {
             propertyId = Constants::NoProperty;
-            currentIndex = pEnumerator->MoveAndGetNext(propertyId, &attributes);
-#if ENABLE_COPYONACCESS_ARRAY
-            JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(currentIndex);
-#endif
+            Var currentIndex = enumerator.MoveAndGetNext(propertyId, &attributes);
             if (currentIndex)
             {
-                if (firstPrototype == nullptr)
+                if (this->shadowData == nullptr)
                 {
-                    // We are calculating correct shadowing for non-enumerable properties of the child object, we will receive
-                    // both enumerable and non-enumerable properties from MoveAndGetNext so we need to check before we simply
-                    // return here. If this property is non-enumerable we're going to skip it.
-                    if (!(attributes & PropertyEnumerable))
-                    {
-                        continue;
-                    }
-
                     // There are no prototype that has enumerable properties,
                     // don't need to keep track of the propertyIds we visited.
+
+                    // We have asked for enumerable properties only, so don't need to check the attribute returned.
+                    Assert(attributes & PropertyEnumerable);
+
                     return currentIndex;
                 }
 
@@ -208,7 +199,7 @@ namespace Js
                         // We keep the track of what is enumerated using a bit vector of propertyID.
                         // so the propertyId can't be collected until the end of the for in enumerator
                         // Keep a list of the property string.
-                        newPropertyStrings.Prepend(GetScriptContext()->GetRecycler(), propRecord);
+                        this->shadowData->newPropertyStrings.Prepend(GetScriptContext()->GetRecycler(), propRecord);
                     }
                 }
 
@@ -216,69 +207,82 @@ namespace Js
                 if (TestAndSetEnumerated(propertyId) //checks if the property is already enumerated or not
                     && (attributes & PropertyEnumerable))
                 {
-                    return currentIndex;
+                    bool propertyShadowed = false;
+
+                    if (this->enumeratingPrototype)
+                    {
+                        // prototype checking begins from the first prototype object with enumerable properties,
+                        // but the property could be shadowed by a desendant prototype which has the same property but not enumerable.
+                        // Need to check that because that is ignored from the begining.
+                        RecyclableObject * prototypeObject = this->shadowData->firstPrototype;
+
+                        while (prototypeObject != nullptr && prototypeObject != this->shadowData->currentObject)
+                        {
+                            if (prototypeObject->HasProperty(propertyId))
+                            {
+                                propertyShadowed = true;
+                                break;
+                            }
+                            prototypeObject = prototypeObject->GetPrototype();
+
+                            Assert(prototypeObject != nullptr);
+                        }
+                    }
+
+                    if (!propertyShadowed)
+                    {
+                        return currentIndex;
+                    }
                 }
             }
             else
             {
-                if (object == baseObject)
+                if (this->shadowData == nullptr)
                 {
-                    if (firstPrototype == nullptr)
-                    {
-                        return NULL;
-                    }
-                    object = firstPrototype;
+                    Assert(!this->enumeratingPrototype);
+                    return nullptr;
+                }
+
+                RecyclableObject * object;
+                if (!enumeratingPrototype)
+                {  
+                    this->enumeratingPrototype = true;
+                    object = this->shadowData->firstPrototypeWithEnumerableProperties;
+                    this->shadowData->currentObject = object;
                 }
                 else
                 {
                     //walk the prototype chain
-                    object = object->GetPrototype();
-                    if ((object == NULL) || (JavascriptOperators::GetTypeId(object) == TypeIds_Null))
+                    object = this->shadowData->currentObject->GetPrototype();
+                    this->shadowData->currentObject = object;
+                    if ((object == nullptr) || (JavascriptOperators::GetTypeId(object) == TypeIds_Null))
                     {
-                        return NULL;
+                        return nullptr;
                     }
                 }
 
                 do
                 {
-                    if (!GetCurrentEnumerator())
+                    if (!InitializeCurrentEnumerator(object))
                     {
                         return nullptr;
                     }
 
-                    pEnumerator = currentEnumerator;
-                    if (!VirtualTableInfo<Js::NullEnumerator>::HasVirtualTable(pEnumerator))
+                    if (!enumerator.IsNullEnumerator())
                     {
                         break;
                     }
 
                      //walk the prototype chain
                     object = object->GetPrototype();
-                    if ((object == NULL) || (JavascriptOperators::GetTypeId(object) == TypeIds_Null))
+                    this->shadowData->currentObject = object;
+                    if ((object == nullptr) || (JavascriptOperators::GetTypeId(object) == TypeIds_Null))
                     {
-                        return NULL;
+                        return nullptr;
                     }
                 }
                 while (true);
             }
         }
-    }
-
-    void ForInObjectEnumerator::Reset()
-    {
-        object = baseObject;
-        if (propertyIds)
-        {
-            propertyIds->ClearAll();
-        }
-
-        currentIndex = nullptr;
-        currentEnumerator = nullptr;
-        GetCurrentEnumerator();
-    }
-
-    BOOL ForInObjectEnumerator::CanBeReused()
-    {
-        return object == nullptr || (object->GetScriptContext() == GetScriptContext() && !JavascriptProxy::Is(object));
     }
 }

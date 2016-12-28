@@ -65,6 +65,13 @@ test-vm-proxies : SKIP
 test-vm-strict-mode : SKIP
 test-vm-timeout : SKIP
 
+# The test allocating SlowBuffer(bufer.kMaxLength) occasionally 
+# fails on ChakraCore because ChakraCore allocates a 
+# zero-length ArrayBuffer if the underlying buffer allocation fails
+# Marking it flaky for now
+[$jsEngine==chakracore && $arch==x86]
+test-buffer-slow : PASS,FLAKY
+
 [$jsEngine==chakracore && $arch==x64]
 test-buffer-includes : SKIP
 test-buffer-indexof : SKIP

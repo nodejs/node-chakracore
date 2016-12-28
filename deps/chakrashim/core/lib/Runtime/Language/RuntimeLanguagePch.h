@@ -5,6 +5,7 @@
 #pragma once
 
 #include "Parser.h"
+#include "WasmReader.h"
 
 #include "Runtime.h"
 
@@ -18,6 +19,7 @@
 #include "Language/AsmJsEncoder.h"
 #include "Language/AsmJsCodeGenerator.h"
 #endif
+#include "Language/ObjTypeSpecFldInfo.h"
 #include "Language/FunctionCodeGenJitTimeData.h"
 
 #include "Language/ProfilingHelpers.h"

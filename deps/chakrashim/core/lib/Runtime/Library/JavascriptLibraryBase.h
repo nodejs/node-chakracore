@@ -117,7 +117,6 @@ namespace Js
         DynamicObject* GetSetIteratorPrototype() const { return setIteratorPrototype; }
         DynamicObject* GetStringIteratorPrototype() const { return stringIteratorPrototype; }
         DynamicObject* GetPromisePrototype() const { return promisePrototype; }
-        DynamicObject* GetJavascriptEnumeratorIteratorPrototype() const { return javascriptEnumeratorIteratorPrototype; }
         DynamicObject* GetGeneratorFunctionPrototype() const { return generatorFunctionPrototype; }
         DynamicObject* GetGeneratorPrototype() const { return generatorPrototype; }
         DynamicObject* GetAsyncFunctionPrototype() const { return asyncFunctionPrototype; }
@@ -173,10 +172,7 @@ namespace Js
 
         JavascriptFunction* defaultAccessorFunction;
         JavascriptFunction* stackTraceAccessorFunction;
-        JavascriptFunction* throwTypeErrorAccessorFunction;
-        JavascriptFunction* throwTypeErrorCallerAccessorFunction;
-        JavascriptFunction* throwTypeErrorCalleeAccessorFunction;
-        JavascriptFunction* throwTypeErrorArgumentsAccessorFunction;
+        JavascriptFunction* throwTypeErrorRestrictedPropertyAccessorFunction;
         JavascriptFunction* debugObjectNonUserGetterFunction;
         JavascriptFunction* debugObjectNonUserSetterFunction;
         JavascriptFunction* debugObjectDebugModeGetterFunction;
@@ -234,7 +230,6 @@ namespace Js
         DynamicObject* setIteratorPrototype;
         DynamicObject* stringIteratorPrototype;
         DynamicObject* promisePrototype;
-        DynamicObject* javascriptEnumeratorIteratorPrototype;
         DynamicObject* generatorFunctionPrototype;  // aka %Generator%
         DynamicObject* generatorPrototype;          // aka %GeneratorPrototype%
         DynamicObject* asyncFunctionPrototype;      // aka %AsyncFunctionPrototype%

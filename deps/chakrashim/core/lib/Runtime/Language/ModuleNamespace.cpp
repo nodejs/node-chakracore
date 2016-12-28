@@ -216,15 +216,14 @@ namespace Js
         return GetProperty(originalInstance, propertyId, value, info, requestContext);
     }
 
-    BOOL ModuleNamespace::GetEnumerator(BOOL enumNonEnumerable, Var* enumerator, ScriptContext* scriptContext, bool preferSnapshotSemantics, bool enumSymbols)
+    BOOL ModuleNamespace::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache)
     {
-        ModuleNamespaceEnumerator* moduleEnumerator = ModuleNamespaceEnumerator::New(this, scriptContext, !!enumNonEnumerable, enumSymbols);
+        ModuleNamespaceEnumerator* moduleEnumerator = ModuleNamespaceEnumerator::New(this, flags, requestContext, forInCache);
         if (moduleEnumerator == nullptr)
         {
             return FALSE;
         }
-        *enumerator = moduleEnumerator;
-        return TRUE;
+        return enumerator->Initialize(moduleEnumerator, nullptr, nullptr, flags, requestContext, nullptr);
     }
 
     BOOL ModuleNamespace::DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags)
@@ -232,8 +231,24 @@ namespace Js
         //Assert: IsPropertyKey(P) is true.
         //Let exports be O.[[Exports]].
         //If P is an element of exports, return false.
-        //Return true.        
+        //Return true.
         return !HasProperty(propertyId);
+    }
+
+    BOOL ModuleNamespace::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags)
+    {
+        //Assert: IsPropertyKey(P) is true.
+        //Let exports be O.[[Exports]].
+        //If P is an element of exports, return false.
+        //Return true.
+        PropertyRecord const *propertyRecord = nullptr;
+        if (JavascriptOperators::ShouldTryDeleteProperty(this, propertyNameString, &propertyRecord))
+        {
+            Assert(propertyRecord);
+            return DeleteProperty(propertyRecord->GetPropertyId(), flags);
+        }
+
+        return TRUE;
     }
 
     BOOL ModuleNamespace::GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext)
@@ -265,7 +280,7 @@ namespace Js
         return Constants::NoProperty;
     }
 
-    BOOL ModuleNamespace::FindNextProperty(BigPropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes) const
+    BOOL ModuleNamespace::FindNextProperty(BigPropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes, ScriptContext * requestContext) const
     {
         if (index < propertyMap->Count())
         {
@@ -275,7 +290,7 @@ namespace Js
             *propertyId = propertyRecord->GetPropertyId();
             if (propertyString != nullptr)
             {
-                *propertyString = GetScriptContext()->GetPropertyString(*propertyId);
+                *propertyString = requestContext->GetPropertyString(*propertyId);
             }
             if (attributes != nullptr)
             {

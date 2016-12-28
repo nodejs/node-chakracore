@@ -200,6 +200,7 @@ namespace JsUtil
     {
     public:
         typedef ReadOnlyList<T, TAllocator, TComparer> ParentType;
+        typedef typename ParentType::TComparerType TComparerType;
         typedef T TElementType;         // For TRemovePolicy
         static const int DefaultIncrement = 4;
 
@@ -479,13 +480,9 @@ namespace JsUtil
 
         void Sort()
         {
-            // We can call QSort only if the remove policy for this list is CopyRemovePolicy
-            CompileAssert((IsSame<TRemovePolicyType, Js::CopyRemovePolicy<TListType, false> >::IsTrue) ||
-                (IsSame<TRemovePolicyType, Js::CopyRemovePolicy<TListType, true> >::IsTrue));
-            if(this->count)
-            {
-                JsUtil::QuickSort<T, TComparerType>::Sort(this->buffer, this->buffer + (this->count - 1));
-            }
+            Sort([](void *, const void * a, const void * b) {
+                return TComparerType::Compare(*(T*)a, *(T*)b);
+            }, nullptr);
         }
 
         void Sort(int(__cdecl * _PtFuncCompare)(void *, const void *, const void *), void *_Context)
@@ -536,7 +533,7 @@ namespace JsUtil
         template<class TMapFunction>
         void MapAddress(TMapFunction map) const
         {
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < this->count; i++)
             {
                 if (TRemovePolicyType::IsItemValid(this->buffer[i]))
                 {
@@ -560,7 +557,7 @@ namespace JsUtil
         template<class TMapFunction>
         void ReverseMap(TMapFunction map)
         {
-            for (int i = count - 1; i >= 0; i--)
+            for (int i = this->count - 1; i >= 0; i--)
             {
                 if (TRemovePolicyType::IsItemValid(this->buffer[i]))
                 {
@@ -681,6 +678,13 @@ namespace Js
         {
             typename LockPolicy::ReadLock autoLock(syncObj);
             __super::Map(map);
+        }
+
+        template<class TMapFunction>
+        bool MapUntil(TMapFunction map) const
+        {
+            typename LockPolicy::ReadLock autoLock(syncObj);
+            return __super::MapUntil(map);
         }
 
         template<class DebugSite, class TMapFunction>

@@ -9,17 +9,45 @@
 namespace Js
 {
     class ArrayBufferParent;
-    class ArrayBuffer : public DynamicObject
+    class ArrayBuffer;
+    class SharedArrayBuffer;
+    class ArrayBufferBase : public DynamicObject
+    {
+    public:
+        DEFINE_VTABLE_CTOR_ABSTRACT(ArrayBufferBase, DynamicObject);
+
+        virtual void MarshalToScriptContext(Js::ScriptContext * scriptContext) = 0;
+
+#if ENABLE_TTD
+        virtual void MarshalCrossSite_TTDInflate() = 0;
+#endif
+
+        ArrayBufferBase(DynamicType *type) : DynamicObject(type) { }
+
+        virtual bool IsArrayBuffer() = 0;
+        virtual bool IsSharedArrayBuffer() = 0;
+        virtual ArrayBuffer * GetAsArrayBuffer() = 0;
+        virtual SharedArrayBuffer * GetAsSharedArrayBuffer() { return nullptr; }
+        virtual void AddParent(ArrayBufferParent* parent) { }
+        virtual void RemoveParent(ArrayBufferParent* parent) { }
+        virtual bool IsDetached() { return false; }
+        virtual uint32 GetByteLength() const = 0;
+        virtual BYTE* GetBuffer() const = 0;
+        virtual bool IsValidVirtualBufferLength(uint length) { return false; }
+
+        static bool Is(Var value);
+        static ArrayBufferBase* FromVar(Var value);
+    };
+
+    class ArrayBuffer : public ArrayBufferBase
     {
     public:
         // we need to install cross-site thunk on the nested array buffer when marshaling
         // typed array.
-        DEFINE_VTABLE_CTOR_ABSTRACT(ArrayBuffer, DynamicObject);
-        virtual void MarshalToScriptContext(Js::ScriptContext * scriptContext) = 0;
+        DEFINE_VTABLE_CTOR_ABSTRACT(ArrayBuffer, ArrayBufferBase);
 #define MAX_ASMJS_ARRAYBUFFER_LENGTH 0x100000000 //4GB
     private:
         void ClearParentsLength(ArrayBufferParent* parent);
-        static uint32 GetByteLengthFromVar(ScriptContext* scriptContext, Var length);
     public:
         template <typename FreeFN>
         class ArrayBufferDetachedState : public ArrayBufferDetachedStateBase
@@ -84,17 +112,17 @@ namespace Js
         virtual BOOL GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
 
         virtual ArrayBufferDetachedStateBase* DetachAndGetState();
-        bool IsDetached() { return this->isDetached; }
+        virtual bool IsDetached() override { return this->isDetached; }
         void SetIsAsmJsBuffer(){ mIsAsmJsBuffer = true; }
-        uint32 GetByteLength() const { return bufferLength; }
-        BYTE* GetBuffer() const { return buffer; }
+        virtual uint32 GetByteLength() const override { return bufferLength; }
+        virtual BYTE* GetBuffer() const override { return buffer; }
 
         static int GetByteLengthOffset() { return offsetof(ArrayBuffer, bufferLength); }
         static int GetIsDetachedOffset() { return offsetof(ArrayBuffer, isDetached); }
         static int GetBufferOffset() { return offsetof(ArrayBuffer, buffer); }
 
-        void AddParent(ArrayBufferParent* parent);
-        void RemoveParent(ArrayBufferParent* parent);
+        virtual void AddParent(ArrayBufferParent* parent) override;
+        virtual void RemoveParent(ArrayBufferParent* parent) override;
 #if _WIN64
         //maximum 2G -1  for amd64
         static const uint32 MaxArrayBufferLength = 0x7FFFFFFF;
@@ -103,11 +131,17 @@ namespace Js
         static const uint32 MaxArrayBufferLength = 1 << 30;
 #endif
         virtual bool IsValidAsmJsBufferLength(uint length, bool forceCheck = false) { return false; }
-        virtual bool IsValidVirtualBufferLength(uint length) { return false; }
+        virtual bool IsArrayBuffer() override { return true; }
+        virtual bool IsSharedArrayBuffer() override { return false; }
+        virtual ArrayBuffer * GetAsArrayBuffer() override { return ArrayBuffer::FromVar(this); }
+
+        static uint32 ToIndex(Var value, int32 errorCode, ScriptContext *scriptContext, uint32 MaxAllowedLength, bool checkSameValueZero = true);
+
+        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) = 0;
     protected:
+
         typedef void __cdecl FreeFn(void* ptr);
         virtual ArrayBufferDetachedStateBase* CreateDetachedState(BYTE* buffer, DECLSPEC_GUARD_OVERFLOW uint32 bufferLength) = 0;
-        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) = 0;
 
         static uint32 GetIndexFromVar(Js::Var arg, uint32 length, ScriptContext* scriptContext);
 
@@ -130,14 +164,15 @@ namespace Js
     class ArrayBufferParent : public ArrayObject
     {
         friend ArrayBuffer;
+        friend ArrayBufferBase;
 
     private:
-        ArrayBuffer* arrayBuffer;
+        ArrayBufferBase* arrayBuffer;
 
     protected:
         DEFINE_VTABLE_CTOR_ABSTRACT(ArrayBufferParent, ArrayObject);
 
-        ArrayBufferParent(DynamicType * type, uint32 length, ArrayBuffer* arrayBuffer)
+        ArrayBufferParent(DynamicType * type, uint32 length, ArrayBufferBase* arrayBuffer)
             : ArrayObject(type, /*initSlots*/true, length),
             arrayBuffer(arrayBuffer)
         {
@@ -153,19 +188,8 @@ namespace Js
             }
         }
 
-        void SetArrayBuffer(ArrayBuffer* arrayBuffer)
-        {
-            this->ClearArrayBuffer();
-
-            if (arrayBuffer != nullptr)
-            {
-                this->arrayBuffer->AddParent(this);
-                this->arrayBuffer = arrayBuffer;
-            }
-        }
-
     public:
-        ArrayBuffer* GetArrayBuffer() const
+        ArrayBufferBase* GetArrayBuffer() const
         {
             return this->arrayBuffer;
         }
@@ -222,10 +246,10 @@ namespace Js
 
         virtual bool IsValidVirtualBufferLength(uint length) override;
 
+        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override;
     protected:
         JavascriptArrayBuffer(DynamicType * type);
         virtual ArrayBufferDetachedStateBase* CreateDetachedState(BYTE* buffer, DECLSPEC_GUARD_OVERFLOW uint32 bufferLength) override;
-        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override;
     private:
         JavascriptArrayBuffer(uint32 length, DynamicType * type);
         JavascriptArrayBuffer(byte* buffer, uint32 length, DynamicType * type);
@@ -243,12 +267,12 @@ namespace Js
     protected:
         DEFINE_VTABLE_CTOR(ProjectionArrayBuffer, ArrayBuffer);
         DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(ProjectionArrayBuffer);
+
         typedef void __stdcall FreeFn(LPVOID ptr);
         virtual ArrayBufferDetachedStateBase* CreateDetachedState(BYTE* buffer, DECLSPEC_GUARD_OVERFLOW uint32 bufferLength) override
         {
             return HeapNew(ArrayBufferDetachedState<FreeFn>, buffer, bufferLength, CoTaskMemFree, ArrayBufferAllocationType::CoTask);
         }
-        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override;
 
     public:
         // Create constructor. script engine creates a buffer allocated via CoTaskMemAlloc.
@@ -257,6 +281,7 @@ namespace Js
         static ProjectionArrayBuffer* Create(byte* buffer, DECLSPEC_GUARD_OVERFLOW uint32 length, DynamicType * type);
         virtual void Dispose(bool isShutdown) override;
         virtual void Finalize(bool isShutdown) override {};
+        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override;
     private:
         ProjectionArrayBuffer(uint32 length, DynamicType * type);
         ProjectionArrayBuffer(byte* buffer, uint32 length, DynamicType * type);
@@ -270,9 +295,9 @@ namespace Js
         DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(ExternalArrayBuffer);
     public:
         ExternalArrayBuffer(byte *buffer, DECLSPEC_GUARD_OVERFLOW uint32 length, DynamicType *type);
+        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override { Assert(UNREACHED); Throw::InternalError(); };
     protected:
         virtual ArrayBufferDetachedStateBase* CreateDetachedState(BYTE* buffer, DECLSPEC_GUARD_OVERFLOW uint32 bufferLength) override { Assert(UNREACHED); Throw::InternalError(); };
-        virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override { Assert(UNREACHED); Throw::InternalError(); };
 
 #if ENABLE_TTD
     public:
@@ -281,4 +306,3 @@ namespace Js
 #endif
     };
 }
-

@@ -5,7 +5,7 @@
 
 #pragma once
 
-#ifndef TEMP_DISABLE_ASMJS
+#ifdef ASMJS_PLAT
 #define ASMMATH_BUILTIN_SIZE (32)
 #define ASMARRAY_BUILTIN_SIZE (16)
 #define ASMSIMD_BUILTIN_SIZE (512)
@@ -72,7 +72,7 @@ namespace Js {
     typedef Js::Tick AsmJsCompileTime;
     namespace AsmJsLookupSource
     {
-        enum Source
+        enum Source: int
         {
             AsmJsModule, AsmJsFunction
         };
@@ -97,18 +97,22 @@ namespace Js {
 
     struct AsmJsFunctionMemory
     {
-        // Register where module slots are loaded
-        static const RegSlot ModuleSlotRegister = 0;
-        static const RegSlot ReturnRegister = 0;
+        enum
+        {
+            // Register where module slots are loaded
+            ModuleSlotRegister = 0,
+            ReturnRegister = 0,
 
-        static const RegSlot FunctionRegister = 0;
-        static const RegSlot CallReturnRegister = 0;
-        static const RegSlot ModuleEnvRegister = 1;
-        static const RegSlot ArrayBufferRegister = 2;
-        static const RegSlot ArraySizeRegister = 3;
-        static const RegSlot ScriptContextBufferRegister = 4;
-        //Var Return register and Module Environment and Array Buffer
-        static const int32 RequiredVarConstants = 5;
+            FunctionRegister = 0,
+            CallReturnRegister = 0,
+            // These are created from the const table which starts after the FirstRegSlot
+            ModuleEnvRegister = FunctionBody::FirstRegSlot,
+            ArrayBufferRegister,
+            ArraySizeRegister,
+            ScriptContextBufferRegister,
+            //Var Return register and Module Environment and Array Buffer
+            RequiredVarConstants
+        };
     };
     namespace AsmJsCompilation
     {
@@ -137,12 +141,12 @@ namespace Js {
         typedef JsUtil::List<AsmJsFunctionTable*, ArenaAllocator> ModuleFunctionTableArray;
         typedef JsUtil::List<AsmJsModuleExport, ArenaAllocator> ModuleExportArray;
         typedef JsUtil::Queue<AsmJsArrayView *, ArenaAllocator> ModuleArrayViewList;
-        typedef AsmJsRegisterSpaceGeneric<int, 0> ModuleIntVars;
-        typedef AsmJsRegisterSpaceGeneric<double, 0> ModuleDoubleVars;
-        typedef AsmJsRegisterSpaceGeneric<float, 0> ModuleFloatVars;
-        typedef AsmJsRegisterSpaceGeneric<AsmJsImportFunction, 0> ModuleImportFunctions;
+        typedef WAsmJs::RegisterSpace ModuleIntVars;
+        typedef WAsmJs::RegisterSpace ModuleDoubleVars;
+        typedef WAsmJs::RegisterSpace ModuleFloatVars;
+        typedef WAsmJs::RegisterSpace ModuleImportFunctions;
 
-        typedef AsmJsRegisterSpaceGeneric<AsmJsSIMDValue, 0> ModuleSIMDVars;
+        typedef WAsmJs::RegisterSpace ModuleSIMDVars;
         typedef JsUtil::BaseDictionary<PropertyId, AsmJsSIMDFunction*, ArenaAllocator> SIMDNameMap;
 
         inline bool LookupStdLibSIMDNameInMap   (PropertyName name, AsmJsSIMDFunction **simdFunc, SIMDNameMap* map) const;

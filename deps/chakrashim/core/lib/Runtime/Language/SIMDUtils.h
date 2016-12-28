@@ -145,8 +145,10 @@ const _x86_SIMDValue X86_4LANES_MASKS[]     = {{ 0xffffffff, 0x00000000, 0x00000
 
 #pragma warning(pop)
 
+#if ENABLE_NATIVE_CODEGEN && defined(ENABLE_SIMDJS)
 // auxiliary SIMD values in memory to help JIT'ed code. E.g. used for Int8x16 shuffle. 
 extern _x86_SIMDValue X86_TEMP_SIMD[];
+#endif
 
 typedef _x86_SIMDValue X86SIMDValue;
 CompileAssert(sizeof(X86SIMDValue) == 16);
@@ -286,6 +288,7 @@ namespace Js {
         ///////////////////////////////////////////
         static SIMDValue SIMDLdData(const SIMDValue *data, uint8 dataWidth);
         static void SIMDStData(SIMDValue *data, const SIMDValue simdValue, uint8 dataWidth);
+        template<bool acceptNegZero = false>
         static uint32 SIMDCheckUint32Number(ScriptContext* scriptContext, const Var value);
         static bool SIMDIsSupportedTypedArray(Var value);
         static SIMDValue*  SIMDCheckTypedArrayAccess(Var arg1, Var arg2, TypedArrayBase **tarray, int32 *index, uint32 dataWidth, ScriptContext *scriptContext);

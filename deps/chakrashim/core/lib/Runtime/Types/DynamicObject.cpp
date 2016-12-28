@@ -295,6 +295,24 @@ namespace Js
         this->type = type;
     }
 
+    void DynamicObject::ReplaceTypeWithPredecessorType(DynamicType * predecessorType)
+    {
+        Assert(this->GetTypeHandler()->IsPathTypeHandler());
+        Assert(((PathTypeHandlerBase*)this->GetTypeHandler())->GetPredecessorType()->GetTypeHandler()->IsPathTypeHandler());
+
+        Assert(((PathTypeHandlerBase*)this->GetTypeHandler())->GetPredecessorType() == predecessorType);
+
+        Assert(!predecessorType->GetIsLocked() || predecessorType->GetTypeHandler()->GetIsLocked());
+        Assert(!predecessorType->GetIsShared() || predecessorType->GetTypeHandler()->GetIsShared());
+
+        PathTypeHandlerBase* currentPathTypeHandler = (PathTypeHandlerBase*)this->GetTypeHandler();
+        PathTypeHandlerBase* predecessorPathTypeHandler = (PathTypeHandlerBase*)predecessorType->GetTypeHandler();
+
+        Assert(predecessorPathTypeHandler->GetInlineSlotCapacity() >= currentPathTypeHandler->GetInlineSlotCapacity());
+
+        this->type = predecessorType;
+    }
+
     DWORD DynamicObject::GetOffsetOfAuxSlots()
     {
         return offsetof(DynamicObject, auxSlots);
@@ -374,7 +392,8 @@ namespace Js
     }
 
     BOOL
-    DynamicObject::FindNextProperty(BigPropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes, DynamicType *typeToEnumerate, bool requireEnumerable, bool enumSymbols) const
+    DynamicObject::FindNextProperty(BigPropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes, 
+        DynamicType *typeToEnumerate, EnumeratorFlags flags, ScriptContext * requestContext) const
     {
         if(index == Constants::NoBigSlot)
         {
@@ -382,13 +401,11 @@ namespace Js
         }
 
 #if ENABLE_TTD
-        if(this->GetScriptContext()->ShouldPerformDebugAction())
+        if(this->GetScriptContext()->ShouldPerformReplayAction())
         {
             BOOL res = FALSE;
-            int32 pIndex = -1;
             PropertyAttributes tmpAttributes = PropertyNone;
-            this->GetScriptContext()->GetThreadContext()->TTDLog->ReplayPropertyEnumEvent(&res, &pIndex, this, propertyId, &tmpAttributes, propertyString);
-            index = (Js::BigPropertyIndex)pIndex;
+            this->GetScriptContext()->GetThreadContext()->TTDLog->ReplayPropertyEnumEvent(requestContext, &res, &index, this, propertyId, &tmpAttributes, propertyString);
 
             if(attributes != nullptr)
             {
@@ -399,7 +416,7 @@ namespace Js
         }
         else if(this->GetScriptContext()->ShouldPerformRecordAction())
         {
-            BOOL res = this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols);
+            BOOL res = this->GetTypeHandler()->FindNextProperty(requestContext, index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, flags);
 
             PropertyAttributes tmpAttributes = (attributes != nullptr) ? *attributes : PropertyNone;
             this->GetScriptContext()->GetThreadContext()->TTDLog->RecordPropertyEnumEvent(res, *propertyId, tmpAttributes, *propertyString);
@@ -407,10 +424,10 @@ namespace Js
         }
         else
         {
-            return this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols);
+            return this->GetTypeHandler()->FindNextProperty(requestContext, index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, flags);
         }
 #else
-        return this->GetTypeHandler()->FindNextProperty(this->GetScriptContext(), index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, requireEnumerable, enumSymbols);
+        return this->GetTypeHandler()->FindNextProperty(requestContext, index, propertyString, propertyId, attributes, this->GetType(), typeToEnumerate, flags);
 #endif
     }
 
@@ -854,7 +871,7 @@ namespace Js
     {
         if(!TTD::IsDiagnosticOriginInformationValid(this->TTDDiagOriginInfo))
         {
-            if(this->GetScriptContext()->ShouldPerformRecordAction() | this->GetScriptContext()->ShouldPerformDebugAction())
+            if(this->GetScriptContext()->ShouldPerformRecordOrReplayAction())
             {
                 this->GetScriptContext()->GetThreadContext()->TTDLog->GetTimeAndPositionForDiagnosticObjectTracking(this->TTDDiagOriginInfo);
             }

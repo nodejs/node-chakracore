@@ -33,7 +33,7 @@ namespace Js
         static JavascriptGeneratorFunction* FromVar(Var var);
         static bool Is(Var var);
 
-        static JavascriptGeneratorFunction* OP_NewScGenFunc(FrameDisplay* environment, FunctionProxy** proxyRef);
+        static JavascriptGeneratorFunction* OP_NewScGenFunc(FrameDisplay* environment, FunctionInfoPtrPtr infoRef);
         static Var EntryGeneratorFunctionImplementation(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryAsyncFunctionImplementation(RecyclableObject* function, CallInfo callInfo, ...);
         static DWORD GetOffsetOfScriptFunction() { return offsetof(JavascriptGeneratorFunction, scriptFunction); }
@@ -60,6 +60,7 @@ namespace Js
 
         virtual BOOL InitProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags = PropertyOperation_None, PropertyValueInfo* info = NULL) override;
         virtual BOOL DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags) override;
+        virtual BOOL DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags) override;
 
         virtual BOOL IsWritable(PropertyId propertyId) override;
         virtual BOOL IsEnumerable(PropertyId propertyId) override;
@@ -99,6 +100,11 @@ namespace Js
 
         static JavascriptAsyncFunction* FromVar(Var var);
         static bool Is(Var var);
+
+#if ENABLE_TTD
+        virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
+        virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
+#endif
     };
 
     class GeneratorVirtualScriptFunction : public ScriptFunction

@@ -52,6 +52,9 @@ namespace TTD
             //The optional well known token for this object (or INVALID)
             TTD_WELLKNOWN_TOKEN OptWellKnownToken;
 
+            //Return true if the object has the cross site vtable
+            BOOL IsCrossSite;
+
 #if ENABLE_OBJECT_SOURCE_TRACKING
             DiagnosticOrigin DiagOriginInfo;
 #endif
@@ -74,7 +77,7 @@ namespace TTD
         template <typename T, SnapObjectType tag>
         T SnapObjectGetAddtlInfoAs(const SnapObject* snpObject)
         {
-            AssertMsg(snpObject->SnapObjectTag == tag, "Tag does not match.");
+            TTDAssert(snpObject->SnapObjectTag == tag, "Tag does not match.");
 
             return reinterpret_cast<T>(snpObject->AddtlSnapObjectInfo);
         }
@@ -82,8 +85,8 @@ namespace TTD
         template <typename T, SnapObjectType tag>
         void SnapObjectSetAddtlInfoAs(SnapObject* snpObject, T addtlInfo)
         {
-            AssertMsg(sizeof(T) <= sizeof(void*), "Make sure your info fits into the space we have for it.");
-            AssertMsg(snpObject->SnapObjectTag == tag, "Tag does not match.");
+            TTDAssert(sizeof(T) <= sizeof(void*), "Make sure your info fits into the space we have for it.");
+            TTDAssert(snpObject->SnapObjectTag == tag, "Tag does not match.");
 
             snpObject->AddtlSnapObjectInfo = (void*)addtlInfo;
         }
@@ -108,7 +111,7 @@ namespace TTD
         {
             SnapObjectSetAddtlInfoAs<T, tag>(snpObject, addtlInfo);
 
-            AssertMsg(dependsOnArrayCount != 0 && dependsOnArray != nullptr, "Why are you calling this then?");
+            TTDAssert(dependsOnArrayCount != 0 && dependsOnArray != nullptr, "Why are you calling this then?");
 
             snpObject->OptDependsOnInfo = alloc.SlabAllocateStruct<DependsOnInfo>();
             snpObject->OptDependsOnInfo->DepOnCount = dependsOnArrayCount;
@@ -141,6 +144,12 @@ namespace TTD
         //ParseAddtlInfo is a nop
         //AssertSnapEquiv is a nop
 
+        Js::RecyclableObject* DoObjectInflation_SnapExternalObject(const SnapObject* snpObject, InflateMap* inflator);
+        //DoAddtlValueInstantiation is a nop
+        //EmitAddtlInfo is a nop
+        //ParseAddtlInfo is a nop
+        //AssertSnapEquiv is a nop
+
         //////////////////
 
         //A struct that represents a script function object
@@ -155,6 +164,9 @@ namespace TTD
             //The scope info for this function
             TTD_PTR_ID ScopeId;
 
+            //The cached scope object for the function (if it has one)
+            TTD_PTR_ID CachedScopeObjId;
+
             //The home object for the function (if it has one)
             TTD_PTR_ID HomeObjId;
 
@@ -162,9 +174,7 @@ namespace TTD
             TTDVar ComputedNameInfo;
 
             //Flags matching the runtime definitions
-            bool HasInlineCaches;
             bool HasSuperReference;
-            bool IsActiveScript;
         };
 
         ////
@@ -249,7 +259,6 @@ namespace TTD
         Js::RecyclableObject* DoObjectInflation_SnapBlockActivationObject(const SnapObject* snpObject, InflateMap* inflator);
         Js::RecyclableObject* DoObjectInflation_SnapPseudoActivationObject(const SnapObject* snpObject, InflateMap* inflator);
         Js::RecyclableObject* DoObjectInflation_SnapConsoleScopeActivationObject(const SnapObject* snpObject, InflateMap* inflator);
-        Js::RecyclableObject* DoObjectInflation_SnapActivationExInfo(const SnapObject* snpObject, InflateMap* inflator);
         //DoAddtlValueInstantiation is a nop
         //EmitAddtlInfo is a nop
         //ParseAddtlInfo is a nop
@@ -490,7 +499,7 @@ namespace TTD
 
         //A struct that represents Javascript arrays and Native arrays (T can be Var, int32, or double)
         template<typename T>
-        struct SnapArrayInfo
+        struct SnapArrayInfoBlock
         {
             //The index ranges that this info holds
             uint32 FirstIndex;
@@ -501,13 +510,24 @@ namespace TTD
             byte* ArrayValidTags; //0 is invalid 1 is valid
 
                                   //The next slice of array elements
-            SnapArrayInfo<T>* Next;
+            SnapArrayInfoBlock<T>* Next;
+        };
+
+        //A struct that represents Javascript arrays and Native arrays (T can be Var, int32, or double)
+        template<typename T>
+        struct SnapArrayInfo
+        {
+            //The index ranges that this info holds
+            uint32 Length;
+
+            //The array elements or null if this is empty
+            SnapArrayInfoBlock<T>* Data;
         };
 
         template<typename T, bool zeroFillValid>
-        SnapArrayInfo<T>* AllocateArrayInfoBlock(SlabAllocator& alloc, uint32 firstIndex, uint32 lastIndex)
+        SnapArrayInfoBlock<T>* AllocateArrayInfoBlock(SlabAllocator& alloc, uint32 firstIndex, uint32 lastIndex)
         {
-            SnapArrayInfo<T>* sai = alloc.SlabAllocateStruct< SnapArrayInfo<T> >();
+            SnapArrayInfoBlock<T>* sai = alloc.SlabAllocateStruct< SnapArrayInfoBlock<T> >();
             sai->FirstIndex = firstIndex;
             sai->LastIndex = lastIndex;
 
@@ -528,7 +548,7 @@ namespace TTD
         template<typename T>
         SnapArrayInfo<T>* ExtractArrayValues(Js::JavascriptArray* arrayObject, SlabAllocator& alloc)
         {
-            SnapArrayInfo<T>* sai = nullptr;
+            SnapArrayInfoBlock<T>* sai = nullptr;
 
             uint32 length = arrayObject->GetLength();
             if(length == 0)
@@ -545,18 +565,21 @@ namespace TTD
             }
             else
             {
-                SnapArrayInfo<T>* curr = nullptr;
+                SnapArrayInfoBlock<T>* curr = nullptr;
                 for(uint32 idx = arrayObject->GetNextIndex(Js::JavascriptArray::InvalidIndex); idx != Js::JavascriptArray::InvalidIndex; idx = arrayObject->GetNextIndex(idx))
                 {
                     if(sai == nullptr)
                     {
-                        sai = AllocateArrayInfoBlock<T, true>(alloc, idx, idx + TTD_ARRAY_BLOCK_SIZE);
+                        uint32 endIdx = (idx <= (Js::JavascriptArray::MaxArrayLength - TTD_ARRAY_BLOCK_SIZE)) ? (idx + TTD_ARRAY_BLOCK_SIZE) : Js::JavascriptArray::MaxArrayLength;
+                        sai = AllocateArrayInfoBlock<T, true>(alloc, idx, endIdx);
                         curr = sai;
                     }
 
+                    TTDAssert(curr != nullptr, "Should get set with variable sai above when needed!");
                     if(idx >= curr->LastIndex)
                     {
-                        curr->Next = AllocateArrayInfoBlock<T, true>(alloc, idx, idx + TTD_ARRAY_BLOCK_SIZE);
+                        uint32 endIdx = (idx <= (Js::JavascriptArray::MaxArrayLength - TTD_ARRAY_BLOCK_SIZE)) ? (idx + TTD_ARRAY_BLOCK_SIZE) : Js::JavascriptArray::MaxArrayLength;
+                        curr->Next = AllocateArrayInfoBlock<T, true>(alloc, idx, endIdx);
                         curr = curr->Next;
                     }
 
@@ -565,7 +588,11 @@ namespace TTD
                 }
             }
 
-            return sai;
+            SnapArrayInfo<T>* res = alloc.SlabAllocateStruct< SnapArrayInfo<T> >();
+            res->Length = arrayObject->GetLength();
+            res->Data = sai;
+
+            return res;
         }
 
         int32 SnapArrayInfo_InflateValue(int32 value, InflateMap* inflator);
@@ -596,13 +623,14 @@ namespace TTD
             //We can re-evaluate this choice later if needed and add checks for same type-ness.
 
             const SnapArrayInfo<T>* arrayInfo = SnapObjectGetAddtlInfoAs<SnapArrayInfo<T>*, snapArrayKind>(snpObject);
+            const SnapArrayInfoBlock<T>* dataBlock = arrayInfo->Data;
             Js::ScriptContext* ctx = inflator->LookupScriptContext(snpObject->SnapType->ScriptContextLogId);
 
             Js::JavascriptLibrary* jslib = ctx->GetLibrary();
             uint32 preAllocSpace = 0;
-            if(arrayInfo != nullptr && arrayInfo->Next == nullptr && arrayInfo->FirstIndex == 0 && arrayInfo->LastIndex <= TTD_ARRAY_SMALL_ARRAY)
+            if(dataBlock != nullptr && dataBlock->Next == nullptr && dataBlock->FirstIndex == 0 && dataBlock->LastIndex <= TTD_ARRAY_SMALL_ARRAY)
             {
-                preAllocSpace = arrayInfo->LastIndex; //first index is 0
+                preAllocSpace = dataBlock->LastIndex; //first index is 0
             }
 
             if(snpObject->SnapType->JsTypeId == Js::TypeIds_Array)
@@ -619,7 +647,7 @@ namespace TTD
             }
             else
             {
-                AssertMsg(false, "Unknown array type!");
+                TTDAssert(false, "Unknown array type!");
                 return nullptr;
             }
         }
@@ -627,20 +655,25 @@ namespace TTD
         template<typename T, typename U>
         void DoAddtlValueInstantiation_SnapArrayInfoCore(SnapArrayInfo<T>* arrayInfo, Js::JavascriptArray* arrayObj, InflateMap* inflator)
         {
-            while(arrayInfo != nullptr)
+            const SnapArrayInfoBlock<T>* dataBlock = arrayInfo->Data;
+
+            while(dataBlock != nullptr)
             {
-                for(uint32 i = 0; i < (arrayInfo->LastIndex - arrayInfo->FirstIndex); ++i)
+                for(uint32 i = 0; i < (dataBlock->LastIndex - dataBlock->FirstIndex); ++i)
                 {
-                    if(arrayInfo->ArrayValidTags[i])
+                    if(dataBlock->ArrayValidTags[i])
                     {
-                        T ttdVal = arrayInfo->ArrayRangeContents[i];
+                        T ttdVal = dataBlock->ArrayRangeContents[i];
                         U jsVal = SnapArrayInfo_InflateValue(ttdVal, inflator);
 
-                        arrayObj->DirectSetItemAt<U>(i + arrayInfo->FirstIndex, jsVal);
+                        arrayObj->DirectSetItemAt<U>(i + dataBlock->FirstIndex, jsVal);
                     }
                 }
-                arrayInfo = arrayInfo->Next;
+                dataBlock = dataBlock->Next;
             }
+
+            //Ensure this value is set correctly in case of sparse arrays
+            arrayObj->SetLength(arrayInfo->Length);
         }
 
         template<typename T, typename U, SnapObjectType snapArrayKind>
@@ -655,8 +688,10 @@ namespace TTD
         template<typename T>
         void EmitAddtlInfo_SnapArrayInfoCore(SnapArrayInfo<T>* arrayInfo, FileWriter* writer)
         {
+            writer->WriteLengthValue(arrayInfo->Length, NSTokens::Separator::CommaSeparator);
+
             uint32 blockCount = 0;
-            for(SnapArrayInfo<T>* currInfo = arrayInfo; currInfo != nullptr; currInfo = currInfo->Next)
+            for(SnapArrayInfoBlock<T>* currInfo = arrayInfo->Data; currInfo != nullptr; currInfo = currInfo->Next)
             {
                 blockCount++;
             }
@@ -664,9 +699,9 @@ namespace TTD
             writer->WriteLengthValue(blockCount, NSTokens::Separator::CommaAndBigSpaceSeparator);
             writer->WriteSequenceStart_DefaultKey(NSTokens::Separator::CommaSeparator);
             writer->AdjustIndent(1);
-            for(SnapArrayInfo<T>* currInfo = arrayInfo; currInfo != nullptr; currInfo = currInfo->Next)
+            for(SnapArrayInfoBlock<T>* currInfo = arrayInfo->Data; currInfo != nullptr; currInfo = currInfo->Next)
             {
-                writer->WriteRecordStart(currInfo == arrayInfo ? NSTokens::Separator::BigSpaceSeparator : NSTokens::Separator::CommaAndBigSpaceSeparator);
+                writer->WriteRecordStart(currInfo == arrayInfo->Data ? NSTokens::Separator::BigSpaceSeparator : NSTokens::Separator::CommaAndBigSpaceSeparator);
                 writer->WriteUInt32(NSTokens::Key::index, currInfo->FirstIndex);
                 writer->WriteUInt32(NSTokens::Key::offset, currInfo->LastIndex, NSTokens::Separator::CommaSeparator);
 
@@ -701,8 +736,10 @@ namespace TTD
         template<typename T>
         SnapArrayInfo<T>* ParseAddtlInfo_SnapArrayInfoCore(FileReader* reader, SlabAllocator& alloc)
         {
-            SnapArrayInfo<T>* arrayInfo = nullptr;
-            SnapArrayInfo<T>* curr = nullptr;
+            uint32 alength = reader->ReadLengthValue(true);
+
+            SnapArrayInfoBlock<T>* arrayInfo = nullptr;
+            SnapArrayInfoBlock<T>* curr = nullptr;
 
             uint32 blockCount = reader->ReadLengthValue(true);
             reader->ReadSequenceStart_WDefaultKey(true);
@@ -710,7 +747,7 @@ namespace TTD
             {
                 reader->ReadRecordStart(k != 0);
 
-                SnapArrayInfo<T>* tmp = alloc.SlabAllocateStruct<SnapArrayInfo<T>>();
+                SnapArrayInfoBlock<T>* tmp = alloc.SlabAllocateStruct< SnapArrayInfoBlock<T> >();
                 tmp->FirstIndex = reader->ReadUInt32(NSTokens::Key::index);
                 tmp->LastIndex = reader->ReadUInt32(NSTokens::Key::offset, true);
 
@@ -723,6 +760,7 @@ namespace TTD
                     curr->Next = tmp;
                 }
                 curr = tmp;
+                TTDAssert(curr != nullptr, "Sanity assert failed.");
 
                 if(arrayInfo == nullptr)
                 {
@@ -747,7 +785,11 @@ namespace TTD
             }
             reader->ReadSequenceEnd();
 
-            return arrayInfo;
+            SnapArrayInfo<T>* res = alloc.SlabAllocateStruct< SnapArrayInfo<T> >();
+            res->Length = alength;
+            res->Data = arrayInfo;
+
+            return res;
         }
 
         template<typename T, SnapObjectType snapArrayKind>
@@ -760,7 +802,7 @@ namespace TTD
 
 #if ENABLE_SNAPSHOT_COMPARE
         template<typename T>
-        void AdvanceArrayIndex_SnapArrayInfoCompare(uint32* index, uint32* pos, const SnapArrayInfo<T>** segment)
+        void AdvanceArrayIndex_SnapArrayInfoCompare(uint32* index, uint32* pos, const SnapArrayInfoBlock<T>** segment)
         {
             *index = *index + 1;
             if(*index >= (*segment)->LastIndex)
@@ -775,14 +817,14 @@ namespace TTD
             }
             else
             {
-                AssertMsg(*index >= (*segment)->FirstIndex, "Something went wrong.");
+                TTDAssert(*index >= (*segment)->FirstIndex, "Something went wrong.");
 
                 *pos = *index - (*segment)->FirstIndex;
             }
         }
 
         template<typename T>
-        void AssertSnapEquiv_SnapArrayInfoCore(const SnapArrayInfo<T>* arrayInfo1, const SnapArrayInfo<T>* arrayInfo2, TTDCompareMap& compareMap)
+        void AssertSnapEquiv_SnapArrayInfoCore(const SnapArrayInfoBlock<T>* arrayInfo1, const SnapArrayInfoBlock<T>* arrayInfo2, TTDCompareMap& compareMap)
         {
             uint32 index1 = (arrayInfo1 != nullptr) ? arrayInfo1->FirstIndex : 0;
             uint32 pos1 = 0;
@@ -835,7 +877,9 @@ namespace TTD
             const SnapArrayInfo<T>* arrayInfo1 = SnapObjectGetAddtlInfoAs<SnapArrayInfo<T>*, snapArrayKind>(sobj1);
             const SnapArrayInfo<T>* arrayInfo2 = SnapObjectGetAddtlInfoAs<SnapArrayInfo<T>*, snapArrayKind>(sobj2);
 
-            AssertSnapEquiv_SnapArrayInfoCore<T>(arrayInfo1, arrayInfo2, compareMap);
+            compareMap.DiagnosticAssert(arrayInfo1->Length == arrayInfo2->Length);
+
+            AssertSnapEquiv_SnapArrayInfoCore<T>(arrayInfo1->Data, arrayInfo2->Data, compareMap);
         }
 #endif
 
@@ -854,16 +898,15 @@ namespace TTD
         //A struct that represents Javascript ES5 arrays
         struct SnapES5ArrayInfo
         {
-            //
-            //TODO: lengthWritable and dataItemAttributes should get reset based on the overall object sealed/frozen settings but we should check this carefully
-            //
-
             //Values copied from the ES5ArrayTypeHandler indexed data map
             uint32 GetterSetterCount;
             SnapES5ArrayGetterSetterEntry* GetterSetterEntries;
 
             //Values that are copied from the underlying data array
             SnapArrayInfo<TTDVar>* BasicArrayData;
+
+            //True if the length is writable
+            bool IsLengthWritable;
         };
 
         Js::RecyclableObject* DoObjectInflation_SnapES5ArrayInfo(const SnapObject* snpObject, InflateMap* inflator);

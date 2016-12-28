@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 const common = require('../common');
 const assert = require('assert');
 
@@ -768,14 +768,8 @@ Buffer.from(Buffer.allocUnsafe(0), 0, 0);
 }
 
 // issue GH-4331
-assert.throws(() => Buffer.allocUnsafe(0xFFFFFFFF),
- common.engineSpecificMessage({
-   v8: RangeError,
-   chakracore: TypeError}));
-assert.throws(() => Buffer.allocUnsafe(0xFFFFFFFFF),
- common.engineSpecificMessage({
-   v8: RangeError,
-   chakracore: TypeError}));
+assert.throws(() => Buffer.allocUnsafe(0xFFFFFFFF), RangeError);
+assert.throws(() => Buffer.allocUnsafe(0xFFFFFFFFF), RangeError);
 
 // issue GH-5587
 assert.throws(() => Buffer.alloc(8).writeFloatLE(0, 5), RangeError);
@@ -984,16 +978,9 @@ assert.throws(() => Buffer.from('', 'buffer'), TypeError);
   }
 }
 
-if (!common.isChakraEngine) {
-  assert.throws(() => Buffer.allocUnsafe((-1 >>> 0) + 1), RangeError);
-  assert.throws(() => Buffer.allocUnsafeSlow((-1 >>> 0) + 1), RangeError);
-  assert.throws(() => SlowBuffer((-1 >>> 0) + 1), RangeError);
-} else {
-  assert.doesNotThrow(() => Buffer.allocUnsafe((-1 >>> 0) + 1));
-  assert.doesNotThrow(() => Buffer.allocUnsafeSlow((-1 >>> 0) + 1));
-  assert.doesNotThrow(() => SlowBuffer((-1 >>> 0) + 1));
-}
-
+assert.throws(() => Buffer.allocUnsafe((-1 >>> 0) + 1), RangeError);
+assert.throws(() => Buffer.allocUnsafeSlow((-1 >>> 0) + 1), RangeError);
+assert.throws(() => SlowBuffer((-1 >>> 0) + 1), RangeError);
 
 if (common.hasCrypto) {
   // Test truncation after decode
