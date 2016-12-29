@@ -122,6 +122,17 @@ Various tests that are run sequentially.
 
 Test configuration utility used by various test suites.
 
+### tick-processor
+
+Tests for the V8 tick processor integration. The tests are for the logic in
+`lib/internal/v8_prof_processor.js` and `lib/internal/v8_prof_polyfill.js`. The
+tests confirm that the profile processor packages the correct set of scripts
+from V8 and introduces the correct platform specific logic.
+
+| Runs on CI |
+|:----------:|
+| No         |
+
 ### timers
 
 Tests for [timing utilities](https://nodejs.org/api/timers.html) (`setTimeout`
@@ -135,7 +146,7 @@ and `setInterval`).
 ## Common module API
 
 The common.js module is used by tests for consistency across repeated
-tasks. It has a number of helpful functions and properties to help with 
+tasks. It has a number of helpful functions and properties to help with
 writing tests.
 
 ### allowGlobals(...whitelist)
@@ -166,7 +177,7 @@ Check if there is more than 1gb of total memory.
 * `name` [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
 * `expected` [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type) | [&lt;Array>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
 
-Tests whether `name` and `expected` are part of a raised warning. 
+Tests whether `name` and `expected` are part of a raised warning.
 
 ### hasCrypto
 * return [&lt;Boolean>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
@@ -193,11 +204,6 @@ Checks if there are multiple localhosts available.
 * return [&lt;Boolean>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
 
 Throws an `AssertionError` with `msg`
-
-### faketimeCli
-* return [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
-
-Return the path to the fake.
 
 ### fileExists(pathname)
 * pathname [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
@@ -271,11 +277,6 @@ Platform check for Windows 32-bit on Windows 64-bit.
 
 Checks whether any globals are not on the `knownGlobals` list.
 
-### libDir
-* return [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
-
-Path to the 'lib' directory.
-
 ### localhostIPv4
 * return [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
 
@@ -289,8 +290,11 @@ Array of IPV6 hosts.
 ### mustCall(fn[, expected])
 * fn [&lt;Function>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
 * expected [&lt;Number>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Number_type) default = 1
+* return [&lt;Function>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
 
-Number of times `fn` should be called.
+Returns a function that calls `fn`. If the returned function has not been called
+exactly `expected` number of times when the test is complete, then the test will
+fail.
 
 ### nodeProcessAborted(exitCode, signal)
 * `exitCode` [&lt;Number>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Number_type)
@@ -358,12 +362,6 @@ Synchronous version of `spawnCat`.
 * return [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 
 Synchronous version of `spawnPwd`.
-
-### testDir
-
-* return [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
-
-Path to the 'test' directory.
 
 ### tmpDir
 * return [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)

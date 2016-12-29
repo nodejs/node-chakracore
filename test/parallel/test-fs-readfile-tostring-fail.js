@@ -37,6 +37,7 @@ stream.on('finish', common.mustCall(function() {
     }
     assert.ok(err instanceof Error);
     assert.strictEqual('"toString()" failed', err.message);
+    assert.strictEqual(buf, undefined);
   }));
 }));
 

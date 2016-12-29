@@ -18,7 +18,7 @@ if (common.isChakraEngine) {
 
 if (process.env.FORK) {
   assert(process.send);
-  assert.equal(process.argv[0], nodeCopyPath);
+  assert.equal(process.argv[0], copyPath);
   process.send(msg);
   process.exit();
 } else {
@@ -50,6 +50,6 @@ if (process.env.FORK) {
     exePaths.forEach(function(value) {
       fs.unlinkSync(value.destPath);
     });
-    assert.equal(code, 0);
+    assert.strictEqual(code, 0);
   }));
 }

@@ -125,15 +125,13 @@ class ContextifyContext {
     int length = names->Length();
     for (int i = 0; i < length; i++) {
       Local<String> key = names->Get(i)->ToString(env()->isolate());
-      auto maybe_has = sandbox_obj->HasOwnProperty(context, key);
+      Maybe<bool> has = sandbox_obj->HasOwnProperty(context, key);
 
       // Check for pending exceptions
-      if (!maybe_has.IsJust())
-        break;
+      if (has.IsNothing())
+        return;
 
-      bool has = maybe_has.FromJust();
-
-      if (!has) {
+      if (!has.FromJust()) {
         // Could also do this like so:
         //
         // PropertyAttribute att = global->GetPropertyAttributes(key_v);
@@ -318,7 +316,7 @@ class ContextifyContext {
     }
     Local<Object> sandbox = args[0].As<Object>();
 
-    auto result =
+    Maybe<bool> result =
         sandbox->HasPrivate(env->context(),
                             env->contextify_context_private_symbol());
     args.GetReturnValue().Set(result.FromJust());
@@ -334,7 +332,7 @@ class ContextifyContext {
   static ContextifyContext* ContextFromContextifiedSandbox(
       Environment* env,
       const Local<Object>& sandbox) {
-    auto maybe_value =
+    MaybeLocal<Value> maybe_value =
         sandbox->GetPrivate(env->context(),
                             env->contextify_context_private_symbol());
     Local<Value> context_external_v;
@@ -387,19 +385,22 @@ class ContextifyContext {
     if (ctx->context_.IsEmpty())
       return;
 
+    auto attributes = PropertyAttribute::None;
     bool is_declared =
-        ctx->global_proxy()->HasRealNamedProperty(ctx->context(),
-                                                  property).FromJust();
-    bool is_contextual_store = ctx->global_proxy() != args.This();
+        ctx->global_proxy()->GetRealNamedPropertyAttributes(ctx->context(),
+                                                            property)
+        .To(&attributes);
+    bool read_only =
+        static_cast<int>(attributes) &
+        static_cast<int>(PropertyAttribute::ReadOnly);
 
-    bool set_property_will_throw =
-        args.ShouldThrowOnError() &&
-        !is_declared &&
-        is_contextual_store;
+    if (is_declared && read_only)
+      return;
 
-    if (!set_property_will_throw) {
-      ctx->sandbox()->Set(property, value);
-    }
+    if (!is_declared && args.ShouldThrowOnError())
+      return;
+
+    ctx->sandbox()->Set(property, value);
   }
 
 
@@ -508,8 +509,8 @@ class ContextifyScript : public BaseObject {
     }
 
     ScriptCompiler::CachedData* cached_data = nullptr;
-    if (!cached_data_buf.IsEmpty()) {
-      Local<Uint8Array> ui8 = cached_data_buf.ToLocalChecked();
+    Local<Uint8Array> ui8;
+    if (cached_data_buf.ToLocal(&ui8)) {
       ArrayBuffer::Contents contents = ui8->Buffer()->GetContents();
       cached_data = new ScriptCompiler::CachedData(
           static_cast<uint8_t*>(contents.Data()) + ui8->ByteOffset(),
@@ -657,7 +658,7 @@ class ContextifyScript : public BaseObject {
 
     AppendExceptionLine(env, exception, try_catch.Message(), CONTEXTIFY_ERROR);
     Local<Value> stack = err_obj->Get(env->stack_string());
-    auto maybe_value =
+    MaybeLocal<Value> maybe_value =
         err_obj->GetPrivate(
             env->context(),
             env->arrow_message_private_symbol());

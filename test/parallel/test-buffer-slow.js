@@ -35,10 +35,11 @@ try {
   assert.strictEqual(
     SlowBuffer(buffer.kMaxLength).length, buffer.kMaxLength);
 } catch (e) {
-  assert.equal(e.message, common.engineSpecificMessage({
+  assert.strictEqual(e.message, common.engineSpecificMessage({
     v8: 'Array buffer allocation failed',
     chakracore: 'Invalid offset/length when creating typed array'
   }));
+
 }
 
 // should work with number-coercible values
@@ -53,23 +54,12 @@ assert.strictEqual(SlowBuffer('string').length, 0);
 
 assert.throws(function() {
   SlowBuffer(Infinity);
-}, 'invalid Buffer length');
+}, common.bufferMaxSizeMsg);
 
-if (!common.isChakraEngine) {
-  assert.throws(function() {
-    SlowBuffer(buffer.kMaxLength + 1);
-  }, 'invalid Buffer length');
-} else {
-  assert.doesNotThrow(function() {
-    SlowBuffer(buffer.kMaxLength + 1);
-  });
-}
-
-    // should throw with invalid length
 assert.throws(function() {
   SlowBuffer(-1);
-}, common.engineSpecificMessage({
-  v8: 'invalid Buffer length',
-  chakracore: 'Invalid offset/length when creating typed array'
-}));
+}, /^RangeError: "size" argument must not be negative$/);
+assert.throws(function() {
+  SlowBuffer(buffer.kMaxLength + 1);
+}, common.bufferMaxSizeMsg);
 
