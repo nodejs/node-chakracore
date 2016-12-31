@@ -21,3 +21,4 @@ test-stdout-buffer-flush-on-exit: SKIP
 
 [$jsEngine==chakracore]
 test-vm-function-redefinition : SKIP
+test-vm-inherited_properties : SKIP

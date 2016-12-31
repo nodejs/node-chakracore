@@ -17,7 +17,8 @@ function test(arrayBuffer, offset, length) {
 
 const acceptableOOMErrors = [
   'Array buffer allocation failed',
-  'Invalid array buffer length'
+  'Invalid array buffer length',
+  'Array length must be a finite positive integer'
 ];
 
 const size = 8589934592; /* 1 << 33 */

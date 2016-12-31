@@ -74,6 +74,10 @@ bool Value::IsString() const {
   return IsOfType(this, JsValueType::JsString);
 }
 
+bool Value::IsSymbol() const {
+  return IsOfType(this, JsValueType::JsSymbol);
+}
+
 bool Value::IsFunction() const {
   return IsOfType(this, JsValueType::JsFunction);
 }

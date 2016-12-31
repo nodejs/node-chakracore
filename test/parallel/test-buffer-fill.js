@@ -393,7 +393,7 @@ assert.throws(() => {
     enumerable: true
   });
   buf.fill('');
-}, /^RangeError: out of range index$/);
+}, RangeError);
 
 assert.deepStrictEqual(
     Buffer.allocUnsafeSlow(16).fill('ab', 'utf16le'),

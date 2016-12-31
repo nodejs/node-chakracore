@@ -1,5 +1,5 @@
 'use strict';
-require('../common');
+const common = require('../common');
 var assert = require('assert');
 var path = require('path');
 var fs = require('fs');
@@ -73,7 +73,12 @@ assert.throws(
   function() {
     require('../fixtures/packages/invalid');
   },
-  /^SyntaxError: Error parsing \S+: Unexpected token , in JSON at position 1$/
+  common.engineSpecificMessage(
+    {
+      v8: /^SyntaxError: Error parsing \S+: Unexpected token , in JSON at position 1$/,
+      chakraCore: /^SyntaxError: Error parsing \S+: JSON.parse Error: Invalid character at position:2$/
+    }
+  )
 );
 
 assert.strictEqual(require('../fixtures/packages/index').ok, 'ok',

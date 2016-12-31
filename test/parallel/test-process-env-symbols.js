@@ -1,9 +1,12 @@
 'use strict';
-require('../common');
+const common = require('../common');
 
 const assert = require('assert');
 const symbol = Symbol('sym');
-const errRegExp = /^TypeError: Cannot convert a Symbol value to a string$/;
+const errRegExp = common.engineSpecificMessage({
+  v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+  chakra: /^TypeError: Object doesn't support property or method 'ToString'$/
+});
 
 // Verify that getting via a symbol key returns undefined.
 assert.strictEqual(process.env[symbol], undefined);

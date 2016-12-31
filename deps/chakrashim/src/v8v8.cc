@@ -23,6 +23,7 @@
 #include "v8chakra.h"
 #include "jsrtutils.h"
 #include "v8-debug.h"
+#include "libplatform/v8-tracing.h"
 
 #ifndef _WIN32
 #include "ChakraCoreVersion.h"
@@ -35,6 +36,17 @@ bool g_exposeGC = false;
 bool g_useStrict = false;
 bool g_disableIdleGc = false;
 bool g_trace_debug_json = false;
+
+HeapStatistics::HeapStatistics()
+    : total_heap_size_(0),
+      total_heap_size_executable_(0),
+      total_physical_size_(0),
+      total_available_size_(0),
+      used_heap_size_(0),
+      heap_size_limit_(0),
+      malloced_memory_(0),
+      peak_malloced_memory_(0),
+      does_zap_garbage_(0) {}
 
 const char *V8::GetVersion() {
   static char versionStr[32] = {};
@@ -196,4 +208,61 @@ void V8::ToLocalEmpty() {
   jsrt::Fatal("v8::ToLocalChecked: %s", "Empty MaybeLocal.");
 }
 
+namespace platform {
+  void SetTracingController(
+    v8::Platform* platform,
+    v8::platform::tracing::TracingController* tracing_controller)
+  {
+    jsrt::Unimplemented("TracingController");
+  }
+
+  namespace tracing {
+    void TracingController::StopTracing()
+    {
+      jsrt::Unimplemented("TracingController");
+    }
+
+    void TracingController::StartTracing(TraceConfig*)
+    {
+      jsrt::Unimplemented("TracingController");
+    }
+
+    void TracingController::Initialize(TraceBuffer*)
+    {
+      jsrt::Unimplemented("TracingController");
+    }
+
+    void TraceConfig::AddIncludedCategory(char const*)
+    {
+      jsrt::Unimplemented("TracingController");
+    }
+
+    TraceObject* TraceBufferChunk::AddTraceEvent(size_t*)
+    {
+      jsrt::Unimplemented("TracingController");
+      return 0;
+    }
+
+    void TraceBufferChunk::Reset(uint32_t)
+    {
+      jsrt::Unimplemented("TracingController");
+    }
+
+    TraceBufferChunk::TraceBufferChunk(uint32_t)
+    {
+      jsrt::Unimplemented("TracingController");
+    }
+
+    TraceObject::~TraceObject()
+    {
+      jsrt::Unimplemented("TracingController");
+    }
+
+    TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&)
+    {
+      jsrt::Unimplemented("TracingController");
+      return 0;
+    }
+  }
+}
 }  // namespace v8

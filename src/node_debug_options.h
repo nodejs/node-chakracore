@@ -34,6 +34,9 @@ class DebugOptions {
   std::string host_name() const { return host_name_; }
   int port() const;
   void set_port(int port) { port_ = port; }
+#if ENABLE_TTD_NODE
+  void do_wait_for_connect() { wait_connect_ = true; }
+#endif
 
  private:
   bool debugger_enabled_;

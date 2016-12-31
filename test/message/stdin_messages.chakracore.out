@@ -4,8 +4,9 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
-   at _tickCallback (internal/process/next_tick.js:*:*)
+   at runCallback (timers.js:*:*)
+   at tryOnImmediate (timers.js:*:*)
+   at processImmediate (timers.js:*:*)
 42
 42
 Error: hello
@@ -15,8 +16,9 @@ Error: hello
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
-   at _tickCallback (internal/process/next_tick.js:*:*)
+   at runCallback (timers.js:*:*)
+   at tryOnImmediate (timers.js:*:*)
+   at processImmediate (timers.js:*:*)
 Error: hello
    at Global code ([stdin]:*)
    at Script.prototype.runInThisContext (vm.js:*:*)         
@@ -24,8 +26,9 @@ Error: hello
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
-   at _tickCallback (internal/process/next_tick.js:*:*)
+   at runCallback (timers.js:*:*)
+   at tryOnImmediate (timers.js:*:*)
+   at processImmediate (timers.js:*:*)
 100
 ReferenceError: Variable undefined in strict mode
    at Global code ([stdin]:*)
@@ -34,8 +37,9 @@ ReferenceError: Variable undefined in strict mode
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
-   at _tickCallback (internal/process/next_tick.js:*:*)
+   at runCallback (timers.js:*:*)
+   at tryOnImmediate (timers.js:*:*)
+   at processImmediate (timers.js:*:*)
 10
 10
 done

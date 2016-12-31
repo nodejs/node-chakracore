@@ -385,6 +385,11 @@ class ContextifyContext {
     if (ctx->context_.IsEmpty())
       return;
 
+    // Node-ChakraCore TODO: ChakraShim does not implement ShouldThrowOnError
+    // correctly. This causes contextify to break in node-chakracore 
+    // with upstream PR 10227. For maintaining compat, using the old
+    // incorrect code with Node-ChakraCore- we can fix this issue after the merge.
+#ifndef NODE_ENGINE_CHAKRACORE
     auto attributes = PropertyAttribute::None;
     bool is_declared =
         ctx->global_proxy()->GetRealNamedPropertyAttributes(ctx->context(),
@@ -401,6 +406,21 @@ class ContextifyContext {
       return;
 
     ctx->sandbox()->Set(property, value);
+#else
+    bool is_declared =
+      ctx->global_proxy()->HasRealNamedProperty(ctx->context(),
+        property).FromJust();
+    bool is_contextual_store = ctx->global_proxy() != args.This();
+
+    bool set_property_will_throw =
+      args.ShouldThrowOnError() &&
+      !is_declared &&
+      is_contextual_store;
+
+    if (!set_property_will_throw) {
+      ctx->sandbox()->Set(property, value);
+    }
+#endif
   }
 
 

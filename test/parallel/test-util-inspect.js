@@ -713,7 +713,7 @@ assert.strictEqual(util.inspect(Promise.resolve(3)),
    v8: 'Promise { 3 }',
    chakracore: 'Promise {}'
  }));
- {
+{
   const rejected = Promise.reject(3);
   assert.strictEqual(util.inspect(rejected), 
     common.engineSpecificMessage({
@@ -723,7 +723,6 @@ assert.strictEqual(util.inspect(Promise.resolve(3)),
   // squelch UnhandledPromiseRejection
   rejected.catch(() => {});
 }
-assert.strictEqual(util.inspect(Promise.reject(3)),
 
 assert.strictEqual(util.inspect(new Promise(function() {})),
   common.engineSpecificMessage({

@@ -4223,7 +4223,7 @@ void Init(int* argc,
           s_ttUri = argv[i] + wcslen(L"-TTDebug:");
       } else if (strstr(argv[i], "-TTBreakFirst") == argv[i]) {
           s_ttdStartupMode = (0x100 | 0x1);
-          debug_wait_connect = true;
+          debug_options.do_wait_for_connect();
       } else if (strstr(argv[i], "-TTSnapInterval:") == argv[i]) {
           const char* intervalStr = argv[i] + strlen("-TTSnapInterval:");
           s_ttdSnapInterval = (uint32_t)atoi(intervalStr);
@@ -4295,7 +4295,7 @@ void Init(int* argc,
 
   // CHAKRA-TODO : fix this to not do it here
 #ifdef NODE_ENGINE_CHAKRACORE
-  if (use_debug_agent) {
+  if (debug_options.debugger_enabled()) {
       v8::Debug::EnableDebug();
   }
 #endif
@@ -4413,13 +4413,38 @@ void FreeEnvironment(Environment* env) {
   delete env;
 }
 
+#ifdef NODE_ENGINE_CHAKRACORE
+struct ChakraShimIsolateContext
+{
+  ChakraShimIsolateContext(uv_loop_t* event_loop,
+    uint32_t* zero_fill_field) :
+    event_loop(event_loop),
+    zero_fill_field(zero_fill_field)
+  {}
 
-inline int Start(Isolate* isolate, IsolateData* isolate_data,
+  uv_loop_t* event_loop;
+  uint32_t*  zero_fill_field;
+};
+#endif
+
+inline int Start(Isolate* isolate, void* isolate_context,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv) {
   HandleScope handle_scope(isolate);
   Local<Context> context = Context::New(isolate);
   Context::Scope context_scope(context);
+
+#ifdef NODE_ENGINE_CHAKRACORE
+  ChakraShimIsolateContext* chakra_isolate_context =
+    (ChakraShimIsolateContext*)isolate_context;
+
+  IsolateData data(isolate, chakra_isolate_context->event_loop, 
+    chakra_isolate_context->zero_fill_field);
+  IsolateData* isolate_data = &data;
+#else
+  IsolateData* isolate_data = (IsolateData*)isolate_context;
+#endif
+
   Environment env(isolate_data, context);
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
@@ -4438,6 +4463,13 @@ inline int Start(Isolate* isolate, IsolateData* isolate_data,
     Environment::AsyncCallbackScope callback_scope(&env);
     LoadEnvironment(&env);
   }
+
+#if ENABLE_TTD_NODE
+  // Start time travel after environment is loaded
+  if (s_doTTRecord) {
+    JsTTDStart();
+  }
+#endif
 
   env.set_trace_sync_io(trace_sync_io);
 
@@ -4462,11 +4494,21 @@ inline int Start(Isolate* isolate, IsolateData* isolate_data,
         if (uv_run(env.event_loop(), UV_RUN_NOWAIT) != 0)
           more = true;
       }
+
+#if ENABLE_TTD_NODE
+      JsTTDNotifyYield();
+#endif
     } while (more == true);
   }
 
   env.set_trace_sync_io(false);
 
+#if ENABLE_TTD_NODE
+  if (s_doTTRecord) {
+    JsTTDEmitRecording();
+    JsTTDStop();
+  }
+#endif
   const int exit_code = EmitExit(&env);
   RunAtExit(&env);
 
@@ -4478,6 +4520,7 @@ inline int Start(Isolate* isolate, IsolateData* isolate_data,
   return exit_code;
 }
 
+
 inline int Start(uv_loop_t* event_loop,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv) {
@@ -4488,7 +4531,14 @@ inline int Start(uv_loop_t* event_loop,
   params.code_event_handler = vTune::GetVtuneCodeEventHandler();
 #endif
 
-  Isolate* const isolate = Isolate::New(params);
+#if ENABLE_TTD_NODE
+  Isolate* const isolate = Isolate::NewWithTTDSupport(params,
+    s_ttUri, s_doTTRecord, false, false, false,
+    s_ttdSnapInterval, s_ttdSnapHistoryLength);
+#else
+  Isolate* const isolate = Isolate::New(params); 
+#endif
+
   if (isolate == nullptr)
     return 12;  // Signal internal error.
 
@@ -4512,8 +4562,26 @@ inline int Start(uv_loop_t* event_loop,
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);
     HandleScope handle_scope(isolate);
+
+    // Node-ChakraCore requires the context to be created before the 
+    // IsolateData is created
+    // So for the Node-ChakraCore case, we just populate a context
+    // that we use later, to create the IsolateData after the v8 Context
+    // has been created.
+    // Node-ChakraCore-TODO: Fix this. Also, why does the isolate data
+    // need to be populated before the context is created?
+    void* isolate_data_ptr = nullptr;
+
+#ifndef NODE_ENGINE_CHAKRACORE
     IsolateData isolate_data(isolate, event_loop, allocator.zero_fill_field());
-    exit_code = Start(isolate, &isolate_data, argc, argv, exec_argc, exec_argv);
+    isolate_data_ptr = &isolate_data;
+#else
+    ChakraShimIsolateContext chakra_isolate_ctx(event_loop,
+      allocator.zero_fill_field());
+    isolate_data_ptr = &chakra_isolate_ctx;
+#endif
+
+    exit_code = Start(isolate, isolate_data_ptr, argc, argv, exec_argc, exec_argv);
   }
 
   {
@@ -4528,8 +4596,9 @@ inline int Start(uv_loop_t* event_loop,
 }
 
 #if ENABLE_TTD_NODE
-static void StartNodeInstance_TTDReplay(void* arg) {
-    NodeInstanceData* instance_data = static_cast<NodeInstanceData*>(arg);
+inline int Start_TTDReplay(uv_loop_t* event_loop,
+  int argc, const char* const* argv,
+  int exec_argc, const char* const* exec_argv) {  
     Isolate::CreateParams params;
     ArrayBufferAllocator array_buffer_allocator;
     params.array_buffer_allocator = &array_buffer_allocator;
@@ -4537,14 +4606,14 @@ static void StartNodeInstance_TTDReplay(void* arg) {
     params.code_event_handler = vTune::GetVtuneCodeEventHandler();
 #endif
 
-    Isolate* isolate = Isolate::New(params,
+    Isolate* isolate = Isolate::NewWithTTDSupport(params,
                                     s_ttUri, false, true, s_doTTDebug,
                                     s_useRelocatedSrc,
                                     UINT32_MAX, UINT32_MAX);
 
     {
         Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-        if (instance_data->is_main()) {
+        {
             CHECK_EQ(node_isolate, nullptr);
             node_isolate = isolate;
         }
@@ -4558,7 +4627,7 @@ static void StartNodeInstance_TTDReplay(void* arg) {
     Isolate::Scope isolate_scope(isolate);
     HandleScope handle_scope(isolate);
 #ifndef NODE_ENGINE_CHAKRACORE
-    IsolateData isolate_data(isolate, instance_data->event_loop(),
+    IsolateData isolate_data(isolate, event_loop,
         array_buffer_allocator.zero_fill_field());
 #endif
 
@@ -4567,23 +4636,19 @@ static void StartNodeInstance_TTDReplay(void* arg) {
     Context::Scope context_scope(context);
     // CHAKRA-TODO : fix this to create isolate_data before setting context
 #if defined(NODE_ENGINE_CHAKRACORE)
-    IsolateData isolate_data(isolate, instance_data->event_loop(),
+    IsolateData isolate_data(isolate, event_loop,
         array_buffer_allocator.zero_fill_field());
 
 #endif
     Environment env(&isolate_data, context);
-    env.Start(instance_data->argc(),
-        instance_data->argv(),
-        instance_data->exec_argc(),
-        instance_data->exec_argv(),
-        v8_is_profiling);
+    env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
     isolate->SetAbortOnUncaughtExceptionCallback(
         ShouldAbortOnUncaughtException);
 
     // Start debug agent when argv has --debug
-    if (instance_data->use_debug_agent())
-        StartDebug(&env, nullptr, debug_wait_connect);
+    if (debug_options.debugger_enabled())
+        StartDebug(&env, nullptr, debug_options);
 
     {
         Environment::AsyncCallbackScope callback_scope(&env);
@@ -4593,7 +4658,7 @@ static void StartNodeInstance_TTDReplay(void* arg) {
     env.set_trace_sync_io(trace_sync_io);
 
     // Enable debugger
-    if (instance_data->use_debug_agent())
+    if (debug_options.debugger_enabled())
         EnableDebug(&env);
 
     ////
@@ -4645,6 +4710,8 @@ int Start(int argc, char** argv) {
 #endif
 
   v8_platform.Initialize(v8_thread_pool_size);
+
+#ifndef NODE_ENGINE_CHAKRACORE
   // Enable tracing when argv has --trace-events-enabled.
   if (trace_enabled) {
     fprintf(stderr, "Warning: Trace event is an experimental feature "
@@ -4652,20 +4719,33 @@ int Start(int argc, char** argv) {
     tracing_agent = new tracing::Agent();
     tracing_agent->Start(v8_platform.platform_, trace_enabled_categories);
   }
+#else
+  if (trace_enabled)
+  {
+    fprintf(stderr, "Warning: Tracing is not supported in node-chakracore");
+    trace_enabled = false;
+  }
+#endif
+
   V8::Initialize();
   v8_initialized = true;
+
+#if ENABLE_TTD_NODE
+  int exit_code;
+  if (s_doTTReplay) {
+    exit_code = 
+      Start_TTDReplay(uv_default_loop(), argc, argv, exec_argc, exec_argv);
+  } else {
+    exit_code =
+      Start(uv_default_loop(), argc, argv, exec_argc, exec_argv);
+  }
+#else
   const int exit_code =
       Start(uv_default_loop(), argc, argv, exec_argc, exec_argv);
-  if (trace_enabled) {
-#if ENABLE_TTD_NODE
-    if (s_doTTReplay) {
-        StartNodeInstance_TTDReplay(&instance_data);
-    } else {
-        StartNodeInstance(&instance_data);
-    }
-#else
-    tracing_agent->Stop();
 #endif
+
+  if (trace_enabled) {
+    tracing_agent->Stop();
   }
   v8_initialized = false;
   V8::Dispose();

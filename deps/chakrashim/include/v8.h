@@ -964,6 +964,7 @@ class V8_EXPORT Value : public Data {
   bool IsTrue() const;
   bool IsFalse() const;
   bool IsString() const;
+  bool IsSymbol() const;
   bool IsFunction() const;
   bool IsArray() const;
   bool IsObject() const;
@@ -1131,6 +1132,7 @@ class V8_EXPORT String : public Name {
     virtual ~ExternalOneByteStringResource() {}
     virtual const char *data() const = 0;
     virtual size_t length() const = 0;
+    virtual void Dispose() { delete this; }
   };
 
   class V8_EXPORT ExternalStringResource {
@@ -2124,21 +2126,43 @@ class PromiseRejectMessage {
 
 typedef void (*PromiseRejectCallback)(PromiseRejectMessage message);
 
+/**
+* Collection of V8 heap information.
+*
+* Instances of this class can be passed to v8::V8::HeapStatistics to
+* get heap statistics from V8.
+*/
 class V8_EXPORT HeapStatistics {
- private:
-  size_t heapSize;
+public:
+  HeapStatistics();
 
- public:
-  void set_heap_size(size_t heapSize) {
-    this->heapSize = heapSize;
+  void set_heap_size(size_t heap_size) {
+    total_heap_size_ = heap_size;
   }
 
-  size_t total_heap_size() { return this->heapSize; }
-  size_t total_heap_size_executable() { return 0; }
-  size_t total_physical_size() { return 0; }
-  size_t total_available_size() { return 0; }
-  size_t used_heap_size() { return this->heapSize; }
-  size_t heap_size_limit() { return 0; }
+  size_t total_heap_size() { return total_heap_size_; }
+  size_t total_heap_size_executable() { return total_heap_size_executable_; }
+  size_t total_physical_size() { return total_physical_size_; }
+  size_t total_available_size() { return total_available_size_; }
+  size_t used_heap_size() { return used_heap_size_; }
+  size_t heap_size_limit() { return heap_size_limit_; }
+  size_t malloced_memory() { return malloced_memory_; }
+  size_t peak_malloced_memory() { return peak_malloced_memory_; }
+  size_t does_zap_garbage() { return does_zap_garbage_; }
+
+private:
+  size_t total_heap_size_;
+  size_t total_heap_size_executable_;
+  size_t total_physical_size_;
+  size_t total_available_size_;
+  size_t used_heap_size_;
+  size_t heap_size_limit_;
+  size_t malloced_memory_;
+  size_t peak_malloced_memory_;
+  bool does_zap_garbage_;
+
+  friend class V8;
+  friend class Isolate;
 };
 
 class V8_EXPORT HeapSpaceStatistics {
@@ -2205,10 +2229,11 @@ class V8_EXPORT Isolate {
     kMinorGarbageCollection
   };
 
-  static Isolate* New(const CreateParams& params, const char* uri,
-                      bool doRecord, bool doReplay, bool doDebug,
-                      bool useRelocatedSrc,
-                      uint32_t snapInterval, uint32_t snapHistoryLength);
+  static Isolate* NewWithTTDSupport(const CreateParams& params, const char* uri,
+                                    bool doRecord, bool doReplay, bool doDebug,
+                                    bool useRelocatedSrc,
+                                    uint32_t snapInterval, uint32_t snapHistoryLength);
+  static Isolate* New(const CreateParams& params);
 
   static Isolate* New();
   static Isolate* GetCurrent();
@@ -2322,6 +2347,11 @@ class Maybe {
  public:
   bool IsNothing() const { return !has_value; }
   bool IsJust() const { return has_value; }
+
+  bool To(T* out) const {
+    if (V8_LIKELY(IsJust())) *out = value;
+    return IsJust();
+  }
 
   // Will crash if the Maybe<> is nothing.
   T FromJust() const {
