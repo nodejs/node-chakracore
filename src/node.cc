@@ -4431,14 +4431,20 @@ inline int Start(Isolate* isolate, void* isolate_context,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv) {
   HandleScope handle_scope(isolate);
+
+#if ENABLE_TTD_NODE
+  Local<Context> context = Context::New(isolate, s_doTTRecord);
+#else
   Local<Context> context = Context::New(isolate);
+#endif
+
   Context::Scope context_scope(context);
 
 #ifdef NODE_ENGINE_CHAKRACORE
   ChakraShimIsolateContext* chakra_isolate_context =
     (ChakraShimIsolateContext*)isolate_context;
 
-  IsolateData data(isolate, chakra_isolate_context->event_loop, 
+  IsolateData data(isolate, chakra_isolate_context->event_loop,
     chakra_isolate_context->zero_fill_field);
   IsolateData* isolate_data = &data;
 #else
@@ -4536,7 +4542,7 @@ inline int Start(uv_loop_t* event_loop,
     s_ttUri, s_doTTRecord, false, false, false,
     s_ttdSnapInterval, s_ttdSnapHistoryLength);
 #else
-  Isolate* const isolate = Isolate::New(params); 
+  Isolate* const isolate = Isolate::New(params);
 #endif
 
   if (isolate == nullptr)
@@ -4563,7 +4569,7 @@ inline int Start(uv_loop_t* event_loop,
     Isolate::Scope isolate_scope(isolate);
     HandleScope handle_scope(isolate);
 
-    // Node-ChakraCore requires the context to be created before the 
+    // Node-ChakraCore requires the context to be created before the
     // IsolateData is created
     // So for the Node-ChakraCore case, we just populate a context
     // that we use later, to create the IsolateData after the v8 Context
@@ -4596,88 +4602,134 @@ inline int Start(uv_loop_t* event_loop,
 }
 
 #if ENABLE_TTD_NODE
-inline int Start_TTDReplay(uv_loop_t* event_loop,
+inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
   int argc, const char* const* argv,
-  int exec_argc, const char* const* exec_argv) {  
-    Isolate::CreateParams params;
-    ArrayBufferAllocator array_buffer_allocator;
-    params.array_buffer_allocator = &array_buffer_allocator;
-#ifdef NODE_ENABLE_VTUNE_PROFILING
-    params.code_event_handler = vTune::GetVtuneCodeEventHandler();
+  int exec_argc, const char* const* exec_argv) {
+  HandleScope handle_scope(isolate);
+
+  Local<Context> context = Context::New(isolate, true);
+
+  Context::Scope context_scope(context);
+
+#ifdef NODE_ENGINE_CHAKRACORE
+  ChakraShimIsolateContext* chakra_isolate_context =
+    (ChakraShimIsolateContext*)isolate_context;
+
+  IsolateData data(isolate, chakra_isolate_context->event_loop,
+    chakra_isolate_context->zero_fill_field);
+  IsolateData* isolate_data = &data;
+#else
+  IsolateData* isolate_data = (IsolateData*)isolate_context;
 #endif
 
-    Isolate* isolate = Isolate::NewWithTTDSupport(params,
-                                    s_ttUri, false, true, s_doTTDebug,
-                                    s_useRelocatedSrc,
-                                    UINT32_MAX, UINT32_MAX);
+  Environment env(isolate_data, context);
+  env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
-    {
-        Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-        {
-            CHECK_EQ(node_isolate, nullptr);
-            node_isolate = isolate;
-        }
-    }
+  bool debug_enabled =
+    debug_options.debugger_enabled() || debug_options.inspector_enabled();
 
-    if (track_heap_objects) {
-        isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
-    }
+  // Start debug agent when argv has --debug
+  if (debug_enabled)
+    StartDebug(&env, nullptr, debug_options);
 
+  {
+    Environment::AsyncCallbackScope callback_scope(&env);
+    LoadEnvironment(&env);
+  }
+
+  env.set_trace_sync_io(trace_sync_io);
+
+  // Enable debugger
+  if (debug_enabled)
+    EnableDebug(&env);
+
+  //// TTD Specific code
+  JsTTDStart();
+
+  int64_t nextEventTime = -2;
+  bool continueReplayActions = true;
+
+  while (continueReplayActions) {
+    continueReplayActions = v8::Isolate::RunSingleStepOfReverseMoveLoop(
+        isolate,
+        &s_ttdStartupMode,
+        &nextEventTime
+    );
+  }
+  // We are done just dump the process.
+  // In the future we might want to clean up more.
+  exit(0);
+}
+
+inline int Start_TTDReplay(uv_loop_t* event_loop,
+  int argc, const char* const* argv,
+  int exec_argc, const char* const* exec_argv) {
+  Isolate::CreateParams params;
+  ArrayBufferAllocator allocator;
+  params.array_buffer_allocator = &allocator;
+#ifdef NODE_ENABLE_VTUNE_PROFILING
+  params.code_event_handler = vTune::GetVtuneCodeEventHandler();
+#endif
+
+  Isolate* const isolate = Isolate::NewWithTTDSupport(params,
+    s_ttUri, false, true, s_doTTDebug,
+    s_useRelocatedSrc,
+    UINT32_MAX, UINT32_MAX);
+
+  if (isolate == nullptr)
+    return 12;  // Signal internal error.
+
+  isolate->AddMessageListener(OnMessage);
+  isolate->SetAbortOnUncaughtExceptionCallback(ShouldAbortOnUncaughtException);
+  isolate->SetAutorunMicrotasks(false);
+  isolate->SetFatalErrorHandler(OnFatalError);
+
+  if (track_heap_objects) {
+    isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
+  }
+
+  {
+    Mutex::ScopedLock scoped_lock(node_isolate_mutex);
+    CHECK_EQ(node_isolate, nullptr);
+    node_isolate = isolate;
+  }
+
+  int exit_code;
+  {
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);
     HandleScope handle_scope(isolate);
+
+    // Node-ChakraCore requires the context to be created before the
+    // IsolateData is created
+    // So for the Node-ChakraCore case, we just populate a context
+    // that we use later, to create the IsolateData after the v8 Context
+    // has been created.
+    // Node-ChakraCore-TODO: Fix this. Also, why does the isolate data
+    // need to be populated before the context is created?
+    void* isolate_data_ptr = nullptr;
+
 #ifndef NODE_ENGINE_CHAKRACORE
-    IsolateData isolate_data(isolate, event_loop,
-        array_buffer_allocator.zero_fill_field());
+    IsolateData isolate_data(isolate, event_loop, allocator.zero_fill_field());
+    isolate_data_ptr = &isolate_data;
+#else
+    ChakraShimIsolateContext chakra_isolate_ctx(event_loop,
+      allocator.zero_fill_field());
+    isolate_data_ptr = &chakra_isolate_ctx;
 #endif
 
-    Local<Context> context = Context::New(isolate, true);
+    exit_code = Start_TTDReplay(isolate, isolate_data_ptr, argc, argv, exec_argc, exec_argv);
+  }
 
-    Context::Scope context_scope(context);
-    // CHAKRA-TODO : fix this to create isolate_data before setting context
-#if defined(NODE_ENGINE_CHAKRACORE)
-    IsolateData isolate_data(isolate, event_loop,
-        array_buffer_allocator.zero_fill_field());
+  {
+    Mutex::ScopedLock scoped_lock(node_isolate_mutex);
+    CHECK_EQ(node_isolate, isolate);
+    node_isolate = nullptr;
+  }
 
-#endif
-    Environment env(&isolate_data, context);
-    env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
+  isolate->Dispose();
 
-    isolate->SetAbortOnUncaughtExceptionCallback(
-        ShouldAbortOnUncaughtException);
-
-    // Start debug agent when argv has --debug
-    if (debug_options.debugger_enabled())
-        StartDebug(&env, nullptr, debug_options);
-
-    {
-        Environment::AsyncCallbackScope callback_scope(&env);
-        LoadEnvironment(&env);
-    }
-
-    env.set_trace_sync_io(trace_sync_io);
-
-    // Enable debugger
-    if (debug_options.debugger_enabled())
-        EnableDebug(&env);
-
-    ////
-    JsTTDStart();
-
-    int64_t nextEventTime = -2;
-    bool continueReplayActions = true;
-
-    while (continueReplayActions) {
-        continueReplayActions =
-            v8::Isolate::RunSingleStepOfReverseMoveLoop(isolate,
-                                                        &s_ttdStartupMode,
-                                                        &nextEventTime);
-    }
-    ////
-
-    // We are done just dump the process.
-    // In the future we might want to clean up more.
-    exit(0);
+  return exit_code;
 }
 #endif
 
@@ -4733,7 +4785,7 @@ int Start(int argc, char** argv) {
 #if ENABLE_TTD_NODE
   int exit_code;
   if (s_doTTReplay) {
-    exit_code = 
+    exit_code =
       Start_TTDReplay(uv_default_loop(), argc, argv, exec_argc, exec_argv);
   } else {
     exit_code =
