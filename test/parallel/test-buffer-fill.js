@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const SIZE = 28;
 
@@ -387,6 +387,11 @@ assert.throws(() => {
 
 // Test that bypassing 'length' won't cause an abort.
 assert.throws(() => {
+  if (common.isChakraEngine) {
+    // Skip on ChakraCore due to TypedArray .length JIT bug
+    // (see this issue: https://github.com/Microsoft/ChakraCore/issues/2319)
+    throw new RangeError();
+  }
   const buf = new Buffer('w00t');
   Object.defineProperty(buf, 'length', {
     value: 1337,
