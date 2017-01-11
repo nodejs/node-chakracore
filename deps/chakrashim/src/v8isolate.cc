@@ -43,8 +43,7 @@ Isolate* Isolate::NewWithTTDSupport(const CreateParams& params, const char* uri,
   return iso;
 }
 
-Isolate* Isolate::New(const CreateParams& params)
-{
+Isolate* Isolate::New(const CreateParams& params) {
   return NewWithTTDSupport(params, nullptr, false, false,
     false, false, UINT32_MAX, UINT32_MAX);
 }

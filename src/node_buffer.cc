@@ -613,8 +613,8 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
 
 #if ENABLE_TTD_NODE
     //
-    // TODO: We could improve performance since this is a constant value.
-    // Fill by just logging constant (instead of copying modified range).
+    // TODO(mrkmarron): We could improve performance since this is a constant
+    // value. Fill by just logging constant (instead of copying modified range).
     //
     ts_obj->Buffer()->TTDRawBufferModifyNotifySync(start, fill_length);
 #endif
@@ -738,7 +738,8 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(written);
 
 #if ENABLE_TTD_NODE
-  args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset + offset, written);
+  args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+          ts_obj_offset + offset, written);
 #endif
 }
 
@@ -1219,7 +1220,8 @@ void Swap16(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset, ts_obj_length);
+  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+          ts_obj_offset, ts_obj_length);
 #endif
 }
 
@@ -1232,7 +1234,8 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset, ts_obj_length);
+  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+          ts_obj_offset, ts_obj_length);
 #endif
 }
 
@@ -1245,7 +1248,8 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset, ts_obj_length);
+  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+          ts_obj_offset, ts_obj_length);
 #endif
 }
 

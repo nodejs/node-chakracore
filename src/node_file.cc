@@ -1231,7 +1231,7 @@ static void Read(const FunctionCallbackInfo<Value>& args) {
 
   if (req->IsObject()) {
 #if ENABLE_TTD_NODE
-      Buffer::TTDAsyncModRegister(buffer_obj, (byte*)buf);
+      Buffer::TTDAsyncModRegister(buffer_obj, reinterpret_cast<byte*>(buf));
 #endif
     ASYNC_CALL(read, req, UTF8, fd, &uvbuf, 1, pos);
   } else {

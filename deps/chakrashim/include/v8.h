@@ -533,7 +533,8 @@ class PersistentBase {
   template<class F> friend class Local;
   template<class F1, class F2> friend class Persistent;
 
-  explicit V8_INLINE PersistentBase(T* val) : val_(val), _weakWrapper(nullptr) {}
+  explicit V8_INLINE PersistentBase(T* val)
+      : val_(val), _weakWrapper(nullptr) {}
   PersistentBase(PersistentBase& other) = delete;  // NOLINT
   void operator=(PersistentBase&) = delete;
   V8_INLINE static T* New(Isolate* isolate, T* that);
@@ -1623,6 +1624,7 @@ class PropertyCallbackInfo {
          _holder(holder),
          _returnValue(static_cast<Value*>(JS_INVALID_REFERENCE)) {
   }
+
  private:
   Local<Value> _data;
   Local<Object> _thisObject;
@@ -2133,7 +2135,7 @@ typedef void (*PromiseRejectCallback)(PromiseRejectMessage message);
 * get heap statistics from V8.
 */
 class V8_EXPORT HeapStatistics {
-public:
+ public:
   HeapStatistics();
 
   void set_heap_size(size_t heap_size) {
@@ -2150,7 +2152,7 @@ public:
   size_t peak_malloced_memory() { return peak_malloced_memory_; }
   size_t does_zap_garbage() { return does_zap_garbage_; }
 
-private:
+ private:
   size_t total_heap_size_;
   size_t total_heap_size_executable_;
   size_t total_physical_size_;
@@ -2232,7 +2234,8 @@ class V8_EXPORT Isolate {
   static Isolate* NewWithTTDSupport(const CreateParams& params, const char* uri,
                                     bool doRecord, bool doReplay, bool doDebug,
                                     bool useRelocatedSrc,
-                                    uint32_t snapInterval, uint32_t snapHistoryLength);
+                                    uint32_t snapInterval,
+                                    uint32_t snapHistoryLength);
   static Isolate* New(const CreateParams& params);
 
   static Isolate* New();

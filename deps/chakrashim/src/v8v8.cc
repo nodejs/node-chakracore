@@ -210,59 +210,51 @@ void V8::ToLocalEmpty() {
 
 namespace platform {
   void SetTracingController(
-    v8::Platform* platform,
-    v8::platform::tracing::TracingController* tracing_controller)
-  {
+      v8::Platform* platform,
+      v8::platform::tracing::TracingController* tracing_controller) {
+    jsrt::Unimplemented("TracingController");
+  }
+}  // namespace platform
+
+namespace platform {
+namespace tracing {
+  void TracingController::StopTracing() {
     jsrt::Unimplemented("TracingController");
   }
 
-  namespace tracing {
-    void TracingController::StopTracing()
-    {
-      jsrt::Unimplemented("TracingController");
-    }
-
-    void TracingController::StartTracing(TraceConfig*)
-    {
-      jsrt::Unimplemented("TracingController");
-    }
-
-    void TracingController::Initialize(TraceBuffer*)
-    {
-      jsrt::Unimplemented("TracingController");
-    }
-
-    void TraceConfig::AddIncludedCategory(char const*)
-    {
-      jsrt::Unimplemented("TracingController");
-    }
-
-    TraceObject* TraceBufferChunk::AddTraceEvent(size_t*)
-    {
-      jsrt::Unimplemented("TracingController");
-      return 0;
-    }
-
-    void TraceBufferChunk::Reset(uint32_t)
-    {
-      jsrt::Unimplemented("TracingController");
-    }
-
-    TraceBufferChunk::TraceBufferChunk(uint32_t)
-    {
-      jsrt::Unimplemented("TracingController");
-    }
-
-    TraceObject::~TraceObject()
-    {
-      jsrt::Unimplemented("TracingController");
-    }
-
-    TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&)
-    {
-      jsrt::Unimplemented("TracingController");
-      return 0;
-    }
+  void TracingController::StartTracing(TraceConfig*) {
+    jsrt::Unimplemented("TracingController");
   }
-}
+
+  void TracingController::Initialize(TraceBuffer*) {
+    jsrt::Unimplemented("TracingController");
+  }
+
+  void TraceConfig::AddIncludedCategory(char const*) {
+    jsrt::Unimplemented("TracingController");
+  }
+
+  TraceObject* TraceBufferChunk::AddTraceEvent(size_t*) {
+    jsrt::Unimplemented("TracingController");
+    return 0;
+  }
+
+  void TraceBufferChunk::Reset(uint32_t) {
+    jsrt::Unimplemented("TracingController");
+  }
+
+  TraceBufferChunk::TraceBufferChunk(uint32_t) {
+    jsrt::Unimplemented("TracingController");
+  }
+
+  TraceObject::~TraceObject() {
+    jsrt::Unimplemented("TracingController");
+  }
+
+  TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&) {
+    jsrt::Unimplemented("TracingController");
+    return 0;
+  }
+}  // namespace tracing
+}  // namespace platform
 }  // namespace v8

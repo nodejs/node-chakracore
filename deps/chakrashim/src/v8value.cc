@@ -23,11 +23,11 @@
 #include <math.h>
 
 #ifdef __APPLE__
-inline int isnan(double x) { 
+inline int isnan(double x) {
   return std::isnan(x);
 }
 
-int isfinite(double x) { 
+int isfinite(double x) {
   return std::isfinite(x);
 }
 #endif

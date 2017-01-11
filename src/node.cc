@@ -4414,12 +4414,10 @@ void FreeEnvironment(Environment* env) {
 }
 
 #ifdef NODE_ENGINE_CHAKRACORE
-struct ChakraShimIsolateContext
-{
-  ChakraShimIsolateContext(uv_loop_t* event_loop,
-    uint32_t* zero_fill_field) :
-    event_loop(event_loop),
-    zero_fill_field(zero_fill_field)
+struct ChakraShimIsolateContext {
+  ChakraShimIsolateContext(uv_loop_t* event_loop, uint32_t* zero_fill_field)
+      : event_loop(event_loop),
+        zero_fill_field(zero_fill_field)
   {}
 
   uv_loop_t* event_loop;
@@ -4442,13 +4440,13 @@ inline int Start(Isolate* isolate, void* isolate_context,
 
 #ifdef NODE_ENGINE_CHAKRACORE
   ChakraShimIsolateContext* chakra_isolate_context =
-    (ChakraShimIsolateContext*)isolate_context;
+    reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
 
   IsolateData data(isolate, chakra_isolate_context->event_loop,
     chakra_isolate_context->zero_fill_field);
   IsolateData* isolate_data = &data;
 #else
-  IsolateData* isolate_data = (IsolateData*)isolate_context;
+  IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
 #endif
 
   Environment env(isolate_data, context);
@@ -4587,7 +4585,8 @@ inline int Start(uv_loop_t* event_loop,
     isolate_data_ptr = &chakra_isolate_ctx;
 #endif
 
-    exit_code = Start(isolate, isolate_data_ptr, argc, argv, exec_argc, exec_argv);
+    exit_code = Start(isolate, isolate_data_ptr, argc, argv,
+                      exec_argc, exec_argv);
   }
 
   {
@@ -4613,13 +4612,13 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
 
 #ifdef NODE_ENGINE_CHAKRACORE
   ChakraShimIsolateContext* chakra_isolate_context =
-    (ChakraShimIsolateContext*)isolate_context;
+    reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
 
   IsolateData data(isolate, chakra_isolate_context->event_loop,
     chakra_isolate_context->zero_fill_field);
   IsolateData* isolate_data = &data;
 #else
-  IsolateData* isolate_data = (IsolateData*)isolate_context;
+  IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
 #endif
 
   Environment env(isolate_data, context);
@@ -4653,8 +4652,7 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
     continueReplayActions = v8::Isolate::RunSingleStepOfReverseMoveLoop(
         isolate,
         &s_ttdStartupMode,
-        &nextEventTime
-    );
+        &nextEventTime);
   }
   // We are done just dump the process.
   // In the future we might want to clean up more.
@@ -4718,7 +4716,8 @@ inline int Start_TTDReplay(uv_loop_t* event_loop,
     isolate_data_ptr = &chakra_isolate_ctx;
 #endif
 
-    exit_code = Start_TTDReplay(isolate, isolate_data_ptr, argc, argv, exec_argc, exec_argv);
+    exit_code = Start_TTDReplay(isolate, isolate_data_ptr, argc, argv,
+                                exec_argc, exec_argv);
   }
 
   {
@@ -4772,8 +4771,7 @@ int Start(int argc, char** argv) {
     tracing_agent->Start(v8_platform.platform_, trace_enabled_categories);
   }
 #else
-  if (trace_enabled)
-  {
+  if (trace_enabled) {
     fprintf(stderr, "Warning: Tracing is not supported in node-chakracore");
     trace_enabled = false;
   }

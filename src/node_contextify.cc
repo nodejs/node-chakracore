@@ -390,9 +390,9 @@ class ContextifyContext {
       return;
 
     // Node-ChakraCore TODO: ChakraShim does not implement ShouldThrowOnError
-    // correctly. This causes contextify to break in node-chakracore 
-    // with upstream PR 10227. For maintaining compat, using the old
-    // incorrect code with Node-ChakraCore- we can fix this issue after the merge.
+    // correctly. This causes contextify to break in node-chakracore with
+    // upstream PR 10227. For maintaining compat, using the old incorrect code
+    // with Node-ChakraCore- we can fix this issue after the merge.
 #ifndef NODE_ENGINE_CHAKRACORE
     auto attributes = PropertyAttribute::None;
     bool is_declared =
