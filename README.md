@@ -79,7 +79,7 @@ C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
 
-#### Linux / macOS
+#### Linux
 
 Prerequisites:
 * Ubuntu 16.04 LTS x64
@@ -113,6 +113,39 @@ To test if Node.js was built correctly with ChakraCore:
 
 ```
 $ node -e "console.log('Hello from Node.js ' + process.jsEngine)"
+Hello from Node.js chakracore
+```
+
+#### Mac OS
+
+Prerequisites:
+* XCode v7 or higher
+* Homebrew
+
+Install the building tools:
+
+```
+xcode-select --install
+brew install cmake icu4c
+```
+
+Clone this repo and check out **`xplat`** branch:
+
+```
+git checkout xplat
+```
+
+Build:
+
+```
+./configure --engine=chakracore --with-icu-path=/usr/local/opt/icu4c/include --without-intl
+make
+```
+
+To test if Node.js was built correctly with ChakraCore:
+
+```
+$ ./node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
 
