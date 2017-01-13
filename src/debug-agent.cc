@@ -50,7 +50,6 @@ using v8::Value;
 
 
 Agent::Agent(Environment* env) : state_(kNone),
-                                 port_(5858),
                                  wait_(false),
                                  parent_env_(env),
                                  child_env_(nullptr),
@@ -69,7 +68,7 @@ Agent::~Agent() {
 }
 
 
-bool Agent::Start(const char* host, int port, bool wait) {
+bool Agent::Start(const DebugOptions& options) {
   int err;
 
   if (state_ == kRunning)
@@ -85,9 +84,8 @@ bool Agent::Start(const char* host, int port, bool wait) {
     goto async_init_failed;
   uv_unref(reinterpret_cast<uv_handle_t*>(&child_signal_));
 
-  host_ = host;
-  port_ = port;
-  wait_ = wait;
+  options_ = options;
+  wait_ = options_.wait_for_connect();
 
   err = uv_thread_create(&thread_,
                          reinterpret_cast<uv_thread_cb>(ThreadCb),
@@ -157,9 +155,7 @@ void Agent::WorkerRun() {
   Isolate::CreateParams params;
   ArrayBufferAllocator array_buffer_allocator;
   params.array_buffer_allocator = &array_buffer_allocator;
-  Isolate* isolate = Isolate::New(params, nullptr,
-                                  false, false, false, false,
-                                  UINT32_MAX, UINT32_MAX);
+  Isolate* isolate = Isolate::New(params);
   {
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);
@@ -219,9 +215,11 @@ void Agent::InitAdaptor(Environment* env) {
 
   api->Set(String::NewFromUtf8(isolate, "host",
                                NewStringType::kNormal).ToLocalChecked(),
-           String::NewFromUtf8(isolate, host_.data(), NewStringType::kNormal,
-                               host_.size()).ToLocalChecked());
-  api->Set(String::NewFromUtf8(isolate, "port"), Integer::New(isolate, port_));
+           String::NewFromUtf8(isolate, options_.host_name().data(),
+                               NewStringType::kNormal,
+                               options_.host_name().size()).ToLocalChecked());
+  api->Set(String::NewFromUtf8(isolate, "port"),
+           Integer::New(isolate, options_.port()));
 
   env->process_object()->Set(String::NewFromUtf8(isolate, "_debugAPI"), api);
   api_.Reset(env->isolate(), api);

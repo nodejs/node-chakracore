@@ -26,27 +26,43 @@ prefix parallel
 test-fs-watch-enoent                 : FAIL, PASS
 test-fs-watch-encoding               : FAIL, PASS
 
-#covered by https://github.com/nodejs/node/issues/8271
-test-child-process-fork-dgram            : PASS, FLAKY
-
 [$jsEngine==chakracore]
+test-async-wrap-check-providers : PASS,FLAKY
+test-async-wrap-check-providers : PASS,FLAKY
+test-buffer-fill  : PASS,FLAKY
 test-crypto-dh : SKIP
+test-cluster-inspector-debug-port : SKIP
+test-domain-no-error-handler-abort-on-uncaught-0 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-1 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-2 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-3 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-4 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-5 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-6 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-7 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-8 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-9 : SKIP
 test-force-repl : SKIP
 test-force-repl-with-eval : SKIP
 test-fs-stat : SKIP
 test-http-same-map : SKIP
 test-intl : SKIP
+test-icu-transcode : SKIP
+test-memory-usage : SKIP
 test-promises-unhandled-rejections : SKIP
 test-promises-warning-on-unhandled-rejection : SKIP
 test-repl : SKIP
 test-repl-mode : SKIP
 test-repl-tab-complete : SKIP
 test-repl-timeout-throw : SKIP
+test-stream-base-no-abort : SKIP
 test-string-decoder : SKIP
 test-timers-blocking-callback : SKIP
 test-timers-same-timeout-wrong-list-deleted : SKIP
+test-trace-event : SKIP
 test-util-inspect-proxy : SKIP
 test-util-inspect-simd : SKIP
+test-url-domain-ascii-unicode : SKIP
 test-vm-cached-data : SKIP
 test-vm-context : SKIP
 test-vm-create-and-run-in-context : SKIP
@@ -56,6 +72,7 @@ test-vm-preserves-property : SKIP
 test-vm-proxies : SKIP
 test-vm-strict-mode : SKIP
 test-vm-timeout : SKIP
+test-whatwg-url-origin-for : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 test-buffer-includes : SKIP

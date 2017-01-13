@@ -834,6 +834,20 @@ var parseTests = {
     query: '@c'
   },
 
+  'http://a.b/\tbc\ndr\ref g"hq\'j<kl>?mn\\op^q=r`99{st|uv}wz': {
+    protocol: 'http:',
+    slashes: true,
+    host: 'a.b',
+    port: null,
+    hostname: 'a.b',
+    hash: null,
+    pathname: '/%09bc%0Adr%0Def%20g%22hq%27j%3Ckl%3E',
+    path: '/%09bc%0Adr%0Def%20g%22hq%27j%3Ckl%3E?mn%5Cop%5Eq=r%6099%7Bst%7Cuv%7Dwz',
+    search: '?mn%5Cop%5Eq=r%6099%7Bst%7Cuv%7Dwz',
+    query: 'mn%5Cop%5Eq=r%6099%7Bst%7Cuv%7Dwz',
+    href: 'http://a.b/%09bc%0Adr%0Def%20g%22hq%27j%3Ckl%3E?mn%5Cop%5Eq=r%6099%7Bst%7Cuv%7Dwz'
+  },
+
   'http://a\r" \t\n<\'b:b@c\r\nd/e?f': {
     protocol: 'http:',
     slashes: true,
@@ -1198,6 +1212,28 @@ var formatTests = {
     search: '?foo=bar#1#2#3&abc=#4##5',
     query: {},
     pathname: '/'
+  },
+
+  // more than 255 characters in hostname which exceeds the limit
+  [`http://${'a'.repeat(255)}.com/node`]: {
+    href: 'http:///node',
+    protocol: 'http:',
+    slashes: true,
+    host: '',
+    hostname: '',
+    pathname: '/node',
+    path: '/node'
+  },
+
+   // greater than or equal to 63 characters after `.` in hostname
+  [`http://www.${'z'.repeat(63)}example.com/node`]: {
+    href: `http://www.${'z'.repeat(63)}example.com/node`,
+    protocol: 'http:',
+    slashes: true,
+    host: `www.${'z'.repeat(63)}example.com`,
+    hostname: `www.${'z'.repeat(63)}example.com`,
+    pathname: '/node',
+    path: '/node'
   },
 
   // https://github.com/nodejs/node/issues/3361

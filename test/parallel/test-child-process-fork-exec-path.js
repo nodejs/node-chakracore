@@ -50,6 +50,6 @@ if (process.env.FORK) {
     exePaths.forEach(function(value) {
       fs.unlinkSync(value.destPath);
     });
-    assert.equal(code, 0);
+    assert.strictEqual(code, 0);
   }));
 }

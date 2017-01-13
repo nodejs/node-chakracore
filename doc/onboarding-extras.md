@@ -24,11 +24,13 @@
 | `src/node_crypto.*` | @nodejs/crypto |
 | `test/*` | @nodejs/testing |
 | `tools/eslint`, `.eslintrc` | @silverwind, @trott |
+| async_hooks | @nodejs/diagnostics |
 | upgrading V8 | @nodejs/v8, @nodejs/post-mortem |
 | upgrading npm | @fishrock123, @thealphanerd |
 | upgrading c-ares | @jbergstroem |
 | upgrading http-parser | @jbergstroem, @nodejs/http |
 | upgrading libuv | @saghul |
+| platform specific | @nodejs/platform-{aix,arm,freebsd,macos,ppc,smartos,s390,windows} |
 
 
 When things need extra attention, are controversial, or `semver-major`: @nodejs/ctc
@@ -69,17 +71,17 @@ Please use these when possible / appropriate
   * major vs. everything else: run last versions tests against this version, if they pass, **probably** minor or patch
   * A breaking change helper ([full source](https://gist.github.com/chrisdickinson/ba532fa0e4e243fb7b44)):
   ```sh
-  git checkout $(git show -s --pretty='%T' $(git show-ref -d $(git describe --abbrev=0) | tail -n1 | awk '{print $1}')) -- test; make -j8 test
+  git checkout $(git show -s --pretty='%T' $(git show-ref -d $(git describe --abbrev=0) | tail -n1 | awk '{print $1}')) -- test; make -j4 test
   ```
 
 
 ### Other Labels
 
 * Operating system labels
-  * `os x`, `windows`, `solaris`
+  * `macos`, `windows`, `smartos`, `aix`
   * No linux, linux is the implied default
 * Architecture labels
-  * `arm`, `mips`
+  * `arm`, `mips`, `s390`, `ppc`
   * No x86{_64}, since that is the implied default
 * `lts-agenda`, `lts-watch-v*`
   * tag things that should be discussed to go into LTS or should go into a specific LTS branch

@@ -2,7 +2,7 @@
 // Flags: --expose-gc
 
 const common = require('../../common');
-var binding = require('./build/Release/binding');
+const binding = require(`./build/${common.buildType}/binding`);
 
 if (common.isChakraEngine) {
   console.log(`1..0 # Skipped: This test is disabled for chakra engine

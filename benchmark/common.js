@@ -185,7 +185,9 @@ function formatResult(data) {
     conf += ' ' + key + '=' + JSON.stringify(data.conf[key]);
   }
 
-  return `${data.name}${conf}: ${data.rate}`;
+  const rate = Math.floor(data.rate)
+                   .toString().replace(/(\d)(?=(\d\d\d)+(?!\d))/g, '$1,');
+  return `${data.name}${conf}: ${rate}`;
 }
 
 function sendResult(data) {
@@ -208,11 +210,14 @@ Benchmark.prototype.report = function(rate, elapsed) {
   });
 };
 
-exports.v8ForceOptimization = function(method, ...args) {
+exports.v8ForceOptimization = function(method) {
   if (typeof method !== 'function')
     return;
+
   const v8 = require('v8');
   v8.setFlagsFromString('--allow_natives_syntax');
+
+  const args = Array.prototype.slice.call(arguments, 1);
   method.apply(null, args);
   eval('%OptimizeFunctionOnNextCall(method)');
   method.apply(null, args);

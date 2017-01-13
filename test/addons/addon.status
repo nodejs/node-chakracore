@@ -35,6 +35,7 @@ hello-world/test : SKIP
 load-long-path/test : SKIP
 make-callback-recurse/test : SKIP
 make-callback/test : SKIP
+new-target/test : SKIP
 null-buffer-neuter/test : SKIP
 openssl-binding/test : SKIP
 parse-encoding/test : SKIP

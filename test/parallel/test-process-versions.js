@@ -12,6 +12,9 @@ if (common.hasCrypto) {
 
 if (!common.isChakraEngine && typeof Intl !== 'undefined') {
   expected_keys.push('icu');
+  expected_keys.push('cldr');
+  expected_keys.push('tz');
+  expected_keys.push('unicode');
 }
 
 expected_keys.sort();

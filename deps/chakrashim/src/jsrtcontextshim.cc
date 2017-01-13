@@ -30,8 +30,6 @@ namespace v8 {
 
 namespace jsrt {
 
-using jsrt::chakra_shim_native;
-
 ContextShim::Scope::Scope(ContextShim * contextShim) {
   contextShim->GetIsolateShim()->PushScope(this, contextShim);
 }

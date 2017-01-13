@@ -17,3 +17,5 @@ prefix message
 [$system==freebsd]
 
 [$jsEngine==chakracore]
+console_low_stack_space : SKIP
+unhandled_promise_trace_warnings : SKIP

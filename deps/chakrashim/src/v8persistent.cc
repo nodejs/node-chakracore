@@ -24,6 +24,10 @@ namespace v8 {
 
 void CHAKRA_CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
                                                                  void *data) {
+  if (jsrt::IsolateShim::GetCurrent()->IsDisposing()) {
+    return;
+  }
+
   const chakrashim::WeakReferenceCallbackWrapper *callbackWrapper =
     reinterpret_cast<const chakrashim::WeakReferenceCallbackWrapper*>(data);
   if (callbackWrapper->isWeakCallbackInfo) {
