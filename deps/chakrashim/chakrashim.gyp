@@ -36,7 +36,6 @@
           ],
         }],
       ],
-      'msvs_use_library_dependency_inputs': 1,
 
       'direct_dependent_settings': {
         'include_dirs': [
