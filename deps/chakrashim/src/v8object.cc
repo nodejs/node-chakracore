@@ -405,13 +405,17 @@ Local<Array> Object::GetPropertyNames() {
 }
 
 MaybeLocal<Array> Object::GetOwnPropertyNames(Local<Context> context) {
-  JsValueRef arrayRef;
+  ContextShim* contextShim = ContextShim::GetCurrent();
+  JsValueRef getOwnPropertyNamesFunction =
+    contextShim->GetgetOwnPropertyNamesFunction();
 
-  if (JsGetOwnPropertyNames((JsValueRef)this, &arrayRef) != JsNoError) {
+  JsValueRef result;
+
+  if (jsrt::CallFunction(getOwnPropertyNamesFunction, (JsValueRef)this,
+                         &result) != JsNoError) {
     return Local<Array>();
   }
-
-  return Local<Array>::New(arrayRef);
+  return Local<Array>::New(result);
 }
 
 Local<Array> Object::GetOwnPropertyNames() {

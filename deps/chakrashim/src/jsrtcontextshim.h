@@ -53,7 +53,7 @@ class ContextShim {
   };
 
   static ContextShim * New(IsolateShim * isolateShim, bool exposeGC,
-                           bool useGlobalTTState, 
+                           bool useGlobalTTState,
                            JsValueRef globalObjectTemplateInstance);
   ~ContextShim();
   void EnsureInitialized();
@@ -156,6 +156,7 @@ private: \
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
 };
 
 }  // namespace jsrt

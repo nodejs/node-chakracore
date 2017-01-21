@@ -99,7 +99,8 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       ensureDebugFunction(JS_INVALID_REFERENCE),
       enqueueMicrotaskFunction(JS_INVALID_REFERENCE),
       dequeueMicrotaskFunction(JS_INVALID_REFERENCE),
-      getPropertyAttributesFunction(JS_INVALID_REFERENCE) {
+      getPropertyAttributesFunction(JS_INVALID_REFERENCE),
+      getOwnPropertyNamesFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -613,6 +614,7 @@ CHAKRASHIM_FUNCTION_GETTER(ensureDebug)
 CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
 CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
 CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
+CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
 
 #define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"

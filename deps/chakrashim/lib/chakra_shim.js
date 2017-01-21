@@ -37,7 +37,8 @@
     Set_entries = Set.prototype.entries,
     Set_values = Set.prototype.values,
     Symbol_keyFor = Symbol.keyFor,
-    Symbol_for = Symbol.for;
+    Symbol_for = Symbol.for,
+    Global_ParseInt = parseInt;
   var BuiltInError = Error;
   var global = this;
 
@@ -276,7 +277,7 @@
       Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
       URIError
     ].forEach(function(type) {
-      var newType = function __newType() {
+      var newType = function newType() {
         var e = withStackTraceLimitOffset(
           3, () => Reflect_construct(type, arguments, new.target || newType));
         // skip 3 frames: lambda, withStackTraceLimitOffset, this frame
@@ -428,7 +429,7 @@
   var microTasks = [];
 
   function patchUtils(utils) {
-    var isUintRegex = /^(0|[1-9]\\d*)$/;
+    var isUintRegex = /^(0|[1-9]\d*)$/;
 
     var isUint = function(value) {
       var result = isUintRegex.test(value);
@@ -449,7 +450,11 @@
     utils.getPropertyNames = function(a) {
       var names = [];
       for (var propertyName in a) {
-        names.push(propertyName);
+        if (isUint(propertyName)) {
+          names.push(Global_ParseInt(propertyName));
+        } else {
+          names.push(propertyName);
+        }
       }
       return names;
     };
@@ -587,6 +592,22 @@
         attributes |= DontDelete;
       }
       return attributes;
+    };
+    utils.getOwnPropertyNames = function(obj) {
+      var ownPropertyNames = Object_getOwnPropertyNames(obj);
+      var i = 0;
+      while (i < ownPropertyNames.length) {
+        var item = ownPropertyNames[i];
+        if (isUint(item)) {
+          ownPropertyNames[i] = Global_ParseInt(item);
+          i++;
+          continue;
+        }
+        // As per spec, getOwnPropertyNames() first include
+        // numeric properties followed by non-numeric
+        break;
+      }
+      return ownPropertyNames;
     };
   }
 
