@@ -452,8 +452,8 @@ parser.add_option('--without-inspector',
 parser.add_option('--engine',
     action='store',
     dest='engine',
-    default='v8',
-    help='Use specified JS engine (default is V8)')
+    default='chakracore',
+    help='Use specified JS engine (default is ChakraCore)')
 
 parser.add_option('--shared',
     action='store_true',

@@ -39,7 +39,7 @@ set enable_vtune_arg=
 set configure_flags=
 set build_addons=
 set dll=
-set engine=v8
+set engine=chakracore
 
 :next-arg
 if "%1"=="" goto args-done
