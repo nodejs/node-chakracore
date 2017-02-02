@@ -614,7 +614,7 @@
                 '-Wl,--no-whole-archive',
               ],
             }],
-          ]		       
+          ]
         }],
 
         [ 'OS=="sunos"', {
