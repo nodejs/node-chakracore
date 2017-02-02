@@ -502,7 +502,17 @@ BOOL PAL_VirtualUnwindOutOfProc(CONTEXT *context,
 
     LibunwindCallbacksInfo.Context = context;
     LibunwindCallbacksInfo.readMemCallback = readMemCallback;
+
+#if UNWIND_CONTEXT_IS_UCONTEXT_T
     WinContextToUnwindContext(context, &unwContext);
+#else
+    st = unw_getcontext(&unwContext);
+    if (st < 0)
+    {
+        return FALSE;
+    }
+#endif
+
     addrSpace = unw_create_addr_space(&unwind_accessors, 0);
 #ifdef HAVE_LIBUNWIND_PTRACE
     libunwindUptPtr = _UPT_create(pid);
