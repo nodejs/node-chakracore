@@ -13,10 +13,18 @@ class B extends A {
         super();
         ((B) => { super.increment() })();
         (A=> { super.increment() })();
+        let C = async (B) => { B };
+        let D = async A => { A };
     }
 }
 let b = new B();
 if (count !== 3) {
     WScript.Echo('fail');
 }
+
+{
+    ([((iydvhw)), gpvpgk]) => {/*jjj*/};
+}
+var iydvhw=function(){return this};
+
 WScript.Echo('pass');

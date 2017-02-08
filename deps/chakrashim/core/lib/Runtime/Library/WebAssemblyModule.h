@@ -17,6 +17,7 @@ namespace Wasm
     class WasmGlobal;
     struct WasmImport;
     struct WasmExport;
+    struct CustomSection;
 }
 
 namespace Js
@@ -31,11 +32,13 @@ public:
         static FunctionInfo NewInstance;
         static FunctionInfo Exports;
         static FunctionInfo Imports;
+        static FunctionInfo CustomSections;
     };
 
     static Var NewInstance(RecyclableObject* function, CallInfo callInfo, ...);
     static Var EntryExports(RecyclableObject* function, CallInfo callInfo, ...);
     static Var EntryImports(RecyclableObject* function, CallInfo callInfo, ...);
+    static Var EntryCustomSections(RecyclableObject* function, CallInfo callInfo, ...);
 
     static bool Is(Var aValue);
     static WebAssemblyModule * FromVar(Var aValue);
@@ -55,7 +58,6 @@ public:
 
     // The index used by those methods is the function index as describe by the WebAssembly design, ie: imports first then wasm functions
     uint32 GetMaxFunctionIndex() const;
-    Wasm::WasmSignature* GetFunctionSignature(uint32 funcIndex) const;
     Wasm::FunctionIndexTypes::Type GetFunctionIndexType(uint32 funcIndex) const;
 
     void InitializeMemory(uint32 minSize, uint32 maxSize);
@@ -96,7 +98,8 @@ public:
     Wasm::WasmImport * GetTableImport() const { return m_tableImport; }
     uint32 GetImportedFunctionCount() const { return m_importedFunctionCount; }
 
-    uint GetOffsetFromInit(const Wasm::WasmNode& initexpr, const class WebAssemblyEnvironment* env) const;
+    uint GetOffsetFromInit(const Wasm::WasmNode& initExpr, const class WebAssemblyEnvironment* env) const;
+    void ValidateInitExportForOffset(const Wasm::WasmNode& initExpr) const;
 
     void AddGlobal(Wasm::GlobalReferenceTypes::Type refType, Wasm::WasmTypes::WasmType type, bool isMutable, Wasm::WasmNode init);
     uint32 GetGlobalCount() const;
@@ -129,6 +132,10 @@ public:
     uint AddGlobalByteSizeToOffset(Wasm::WasmTypes::WasmType type, uint32 offset) const;
     uint GetGlobalsByteSize() const;
 
+    void AddCustomSection(Wasm::CustomSection customSection);
+    uint32 GetCustomSectionCount() const;
+    Wasm::CustomSection GetCustomSection(uint32 index) const;
+
     Wasm::WasmBinaryReader* GetReader() const { return m_reader; }
 
     virtual void Finalize(bool isShutdown) override;
@@ -160,6 +167,8 @@ private:
     Wasm::WasmDataSegment** m_datasegs;
     Wasm::WasmBinaryReader* m_reader;
     uint32* m_equivalentSignatureMap;
+    typedef JsUtil::List<Wasm::CustomSection, ArenaAllocator> CustomSectionsList;
+    CustomSectionsList* m_customSections;
 
     uint m_globalCounts[Wasm::WasmTypes::Limit];
     typedef JsUtil::List<Wasm::WasmGlobal*, ArenaAllocator> WasmGlobalsList;

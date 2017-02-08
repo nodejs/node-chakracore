@@ -670,9 +670,14 @@ namespace Js
         // SEH and ResumeForOutOfBoundsArrayRefs are not needed.
         ret = CallRootFunctionInternal(args, scriptContext, inScript);
 #else
+        if (scriptContext->GetThreadContext()->GetAbnormalExceptionCode() != 0)
+        {
+            // ensure that hosts are not doing SEH across Chakra frames, as that can lead to bad state (e.g. destructors not being called)
+            UnexpectedExceptionHandling_fatal_error();
+        }
+
         // mark volatile, because otherwise VC will incorrectly optimize away load in the finally block
         volatile uint32 exceptionCode = 0;
-        volatile int exceptionAction = EXCEPTION_CONTINUE_SEARCH;
         EXCEPTION_POINTERS exceptionInfo = {0};
         __try
         {
@@ -683,7 +688,7 @@ namespace Js
             __except (
                 exceptionInfo = *GetExceptionInformation(),
                 exceptionCode = GetExceptionCode(),
-                exceptionAction = CallRootEventFilter(exceptionCode, GetExceptionInformation()))
+                CallRootEventFilter(exceptionCode, GetExceptionInformation()))
             {
                 Assert(UNREACHED);
             }
@@ -691,10 +696,10 @@ namespace Js
         __finally
         {
             // 0xE06D7363 is C++ exception code
-            if (exceptionCode != 0 && !IsDebuggerPresent() && exceptionCode != 0xE06D7363 && exceptionAction != EXCEPTION_CONTINUE_EXECUTION)
+            if (exceptionCode != 0 && exceptionCode != 0xE06D7363 && AbnormalTermination() && !IsDebuggerPresent() )
             {
-                // ensure that hosts are not doing SEH across Chakra frames, as that can lead to bad state (e.g. destructors not being called)
-                UnexpectedExceptionHandling_fatal_error(&exceptionInfo);
+                scriptContext->GetThreadContext()->SetAbnormalExceptionCode(exceptionCode);
+                scriptContext->GetThreadContext()->SetAbnormalExceptionRecord(&exceptionInfo);
             }
         }
 #endif
@@ -709,7 +714,7 @@ namespace Js
         {
             // Just don't execute anything if we are in an assert
             // throw the exception directly to avoid additional assert in Js::Throw::InternalError
-            throw Js::InternalErrorException();
+            AssertOrFailFast(false);
         }
 #endif
 
@@ -1027,15 +1032,16 @@ namespace Js
 
                     if (arr != nullptr && !arr->IsCrossSiteObject())
                     {
+                        uint32 length = arr->GetLength();
                         // CONSIDER: Optimize by creating a JavascriptArray routine which allows
                         // memcpy-like semantics in optimal situations (no gaps, etc.)
-                        if (argsIndex + arr->GetLength() > destArgs.Info.Count)
+                        if (argsIndex + length > destArgs.Info.Count)
                         {
                             AssertMsg(false, "The array length has changed since we allocated the destArgs buffer?");
                             Throw::FatalInternalError();
                         }
 
-                        for (uint32 j = 0; j < arr->GetLength(); j++)
+                        for (uint32 j = 0; j < length; j++)
                         {
                             Var element;
                             if (!arr->DirectGetItemAtFull(j, &element))
@@ -1121,23 +1127,23 @@ namespace Js
 
 #if _M_IX86
 #ifdef ASMJS_PLAT
-    template <> int JavascriptFunction::CallAsmJsFunction<int>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv) 
+    template <> int JavascriptFunction::CallAsmJsFunction<int>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
     {
         return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retIntVal;
     }
-    template <> int64 JavascriptFunction::CallAsmJsFunction<int64>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv) 
+    template <> int64 JavascriptFunction::CallAsmJsFunction<int64>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
     {
         return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retInt64Val;
     }
-    template <> float JavascriptFunction::CallAsmJsFunction<float>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv) 
+    template <> float JavascriptFunction::CallAsmJsFunction<float>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
     {
         return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retFloatVal;
     }
-    template <> double JavascriptFunction::CallAsmJsFunction<double>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv) 
+    template <> double JavascriptFunction::CallAsmJsFunction<double>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
     {
         return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retDoubleVal;
     }
-    template <> AsmJsSIMDValue JavascriptFunction::CallAsmJsFunction<AsmJsSIMDValue>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv) 
+    template <> AsmJsSIMDValue JavascriptFunction::CallAsmJsFunction<AsmJsSIMDValue>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
     {
         return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retSimdVal;
     }
@@ -1148,7 +1154,7 @@ namespace Js
             IsFloat = 1 << AsmJsRetType::Float,
             IsDouble = 1 << AsmJsRetType::Double,
             IsInt64 = 1 << AsmJsRetType::Int64,
-            IsSimd = 
+            IsSimd =
             1 << AsmJsRetType::Int32x4 |
             1 << AsmJsRetType::Bool32x4 |
             1 << AsmJsRetType::Bool16x8 |
@@ -1647,10 +1653,6 @@ LABEL1:
 
         Assert(functionInfo);
 
-        // Prevent redeferring during parsing
-        bool canBeDeferred = functionInfo->CanBeDeferred();
-        functionInfo->SetAttributes((FunctionInfo::Attributes)(functionInfo->GetAttributes() & ~FunctionInfo::Attributes::CanDefer));
-
         if (functionInfo->IsDeferredParseFunction())
         {
             if (ScriptFunctionWithInlineCache::Is(*functionRef))
@@ -1676,20 +1678,25 @@ LABEL1:
         }
 
         DebugOnly(JavascriptMethod directEntryPoint = funcBody->GetDirectEntryPoint(funcBody->GetDefaultEntryPointInfo()));
-#ifdef ENABLE_SCRIPT_PROFILING
+#if defined(ENABLE_SCRIPT_PROFILING) || defined(ENABLE_SCRIPT_DEBUGGING)
         Assert(directEntryPoint != DefaultDeferredParsingThunk
             && directEntryPoint != ProfileDeferredParsingThunk);
-#else // !ENABLE_SCRIPT_PROFILING
+#else // !ENABLE_SCRIPT_PROFILING && !ENABLE_SCRIPT_DEBUGGING
         Assert(directEntryPoint != DefaultDeferredParsingThunk);
 #endif
 
-        // Restore the can-be-deferred attribute.
-        if (canBeDeferred)
+        JavascriptMethod thunkEntryPoint = (*functionRef)->UpdateUndeferredBody(funcBody);
+
+        if (ScriptFunctionWithInlineCache::Is(*functionRef))
         {
-            funcBody->SetAttributes((FunctionInfo::Attributes)(funcBody->GetAttributes() | FunctionInfo::Attributes::CanDefer));
+            ScriptFunctionWithInlineCache * funcObjectWithInlineCache = ScriptFunctionWithInlineCache::FromVar(*functionRef);
+            if (!funcObjectWithInlineCache->GetHasOwnInlineCaches())
+            {
+                funcObjectWithInlineCache->SetInlineCachesFromFunctionBody();
+            }
         }
 
-        return (*functionRef)->UpdateUndeferredBody(funcBody);
+        return thunkEntryPoint;
     }
 
     void JavascriptFunction::ReparseAsmJsModule(ScriptFunction** functionRef)
@@ -2239,8 +2246,7 @@ LABEL1:
         {
             Assert(!funcBody->IsWasmFunction());
             // some extra checks for asm.js because we have slightly more information that we can validate
-            Js::EntryPointInfo* entryPointInfo = (Js::EntryPointInfo*)funcBody->GetDefaultEntryPointInfo();
-            uintptr_t moduleMemory = entryPointInfo->GetModuleAddress();
+            uintptr_t moduleMemory = (uintptr_t)((AsmJsScriptFunction*)func)->GetModuleMemory();
             if (!moduleMemory)
             {
                 return false;
@@ -2996,7 +3002,7 @@ LABEL1:
 
             char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 
-            Output::Print(_u("CtorCache: before invalidating cache (0x%p) for ctor %s (%s): "), this->constructorCache, ctorName,
+            Output::Print(_u("CtorCache: before invalidating cache (0x%p) for ctor %s (%s): "), PointerValue(this->constructorCache), ctorName,
                 body ? body->GetDebugNumberSet(debugStringBuffer) : _u("(null)"));
             this->constructorCache->Dump();
             Output::Print(_u("\n"));
@@ -3014,7 +3020,7 @@ LABEL1:
             const char16* ctorName = body != nullptr ? body->GetDisplayName() : _u("<unknown>");
             char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 
-            Output::Print(_u("CtorCache: after invalidating cache (0x%p) for ctor %s (%s): "), this->constructorCache, ctorName,
+            Output::Print(_u("CtorCache: after invalidating cache (0x%p) for ctor %s (%s): "), PointerValue(this->constructorCache), ctorName,
                 body ? body->GetDebugNumberSet(debugStringBuffer) : _u("(null)"));
             this->constructorCache->Dump();
             Output::Print(_u("\n"));
@@ -3046,7 +3052,10 @@ LABEL1:
                 {
                     charcount_t count = min(DIAG_MAX_FUNCTION_STRING, func->LengthInChars());
                     utf8::DecodeOptions options = sourceInfo->IsCesu8() ? utf8::doAllowThreeByteSurrogates : utf8::doDefault;
-                    utf8::DecodeInto(stringBuilder->AllocBufferSpace(count), func->GetSource(_u("JavascriptFunction::GetDiagValueString")), count, options);
+                    LPCUTF8 source = func->GetSource(_u("JavascriptFunction::GetDiagValueString"));
+                    size_t cbLength = sourceInfo->GetCbLength(_u("JavascriptFunction::GetDiagValueString"));
+                    size_t cbIndex = utf8::CharacterIndexToByteIndex(source, cbLength, count, options);
+                    utf8::DecodeUnitsInto(stringBuilder->AllocBufferSpace(count), source, source + cbIndex, options);
                     stringBuilder->IncreaseCount(count);
                     return TRUE;
                 }

@@ -86,12 +86,12 @@ WasmModuleGenerator::GenerateModule()
 
     BVStatic<bSectLimit + 1> visitedSections;
 
-    for (SectionCode sectionCode = (SectionCode)(bSectInvalid + 1); sectionCode < bSectLimit ; sectionCode = (SectionCode)(sectionCode + 1))
+    for (uint8 sectionCode = bSectCustom + 1; sectionCode < bSectLimit ; ++sectionCode)
     {
         SectionCode precedent = SectionInfo::All[sectionCode].precedent;
         if (GetReader()->ReadNextSection((SectionCode)sectionCode))
         {
-            if (precedent != bSectInvalid && !visitedSections.Test(precedent))
+            if (precedent != bSectLimit && !visitedSections.Test(precedent))
             {
                 throw WasmCompilationException(_u("%s section missing before %s"),
                                                SectionInfo::All[precedent].name,
@@ -805,7 +805,7 @@ WasmBytecodeGenerator::EmitCall()
     {
     case wbCall:
         funcNum = GetReader()->m_currentNode.call.num;
-        calleeSignature = m_module->GetFunctionSignature(funcNum);
+        calleeSignature = m_module->GetWasmFunctionInfo(funcNum)->GetSignature();
         break;
     case wbCallIndirect:
         indirectIndexInfo = PopEvalStack();
@@ -1484,7 +1484,7 @@ WasmBytecodeGenerator::PopEvalStack()
     EmitInfo info = m_evalStack.Pop();
     if (info.type == WasmTypes::Limit)
     {
-        throw WasmCompilationException(_u("Missing operand"));
+        throw WasmCompilationException(_u("Reached end of stack"));
     }
     return info;
 }

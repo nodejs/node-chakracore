@@ -1322,6 +1322,7 @@ private:
     void                    MergeCapturedValues(GlobOptBlockData * toData, SListBase<CapturedList> * toList, SListBase<CapturedList> * fromList, CapturedItemsAreEqual itemsAreEqual);
     void                    MergeBlockData(GlobOptBlockData *toData, BasicBlock *toBlock, BasicBlock *fromBlock, BVSparse<JitArenaAllocator> *const symsRequiringCompensation, BVSparse<JitArenaAllocator> *const symsCreatedForMerge, bool forceTypeSpecOnLoopHeader);
     void                    DeleteBlockData(GlobOptBlockData *data);
+    void                    TryReplaceLdLen(IR::Instr *& instr);
     IR::Instr *             OptInstr(IR::Instr *&instr, bool* isInstrCleared);
     Value*                  OptDst(IR::Instr **pInstr, Value *dstVal, Value *src1Val, Value *src2Val, Value *dstIndirIndexVal, Value *src1IndirIndexVal);
     void                    CopyPropDstUses(IR::Opnd *opnd, IR::Instr *instr, Value *src1Val);
@@ -1658,11 +1659,11 @@ private:
     static void             TrackByteCodeSymUsed(IR::RegOpnd * opnd, BVSparse<JitArenaAllocator> * instrByteCodeStackSymUsed);
     static void             TrackByteCodeSymUsed(StackSym * sym, BVSparse<JitArenaAllocator> * instrByteCodeStackSymUsed);
     void                    CaptureValues(BasicBlock *block, BailOutInfo * bailOutInfo);
-    void                    GlobOpt::CaptureValuesFromScratch(
+    void                    CaptureValuesFromScratch(
                                 BasicBlock * block,
                                 SListBase<ConstantStackSymValue>::EditingIterator & bailOutConstValuesIter,
                                 SListBase<CopyPropSyms>::EditingIterator & bailOutCopyPropIter);
-    void                    GlobOpt::CaptureValuesIncremental(
+    void                    CaptureValuesIncremental(
                                 BasicBlock * block,
                                 SListBase<ConstantStackSymValue>::EditingIterator & bailOutConstValuesIter,
                                 SListBase<CopyPropSyms>::EditingIterator & bailOutCopyPropIter);

@@ -198,32 +198,32 @@ namespace Js
     {
     }
 
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_RaiseAssert(IntlEngineInterfaceExtensionObject::EntryIntl_RaiseAssert);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_IsWellFormedLanguageTag(IntlEngineInterfaceExtensionObject::EntryIntl_IsWellFormedLanguageTag);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_NormalizeLanguageTag(IntlEngineInterfaceExtensionObject::EntryIntl_NormalizeLanguageTag);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_ResolveLocaleLookup(IntlEngineInterfaceExtensionObject::EntryIntl_ResolveLocaleLookup);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_ResolveLocaleBestFit(IntlEngineInterfaceExtensionObject::EntryIntl_ResolveLocaleBestFit);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetDefaultLocale(IntlEngineInterfaceExtensionObject::EntryIntl_GetDefaultLocale);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetExtensions(IntlEngineInterfaceExtensionObject::EntryIntl_GetExtensions);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CompareString(IntlEngineInterfaceExtensionObject::EntryIntl_CompareString);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CurrencyDigits(IntlEngineInterfaceExtensionObject::EntryIntl_CurrencyDigits);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_FormatNumber(IntlEngineInterfaceExtensionObject::EntryIntl_FormatNumber);
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_RaiseAssert(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_RaiseAssert));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_IsWellFormedLanguageTag(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_IsWellFormedLanguageTag));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_NormalizeLanguageTag(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_NormalizeLanguageTag));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_ResolveLocaleLookup(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_ResolveLocaleLookup));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_ResolveLocaleBestFit(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_ResolveLocaleBestFit));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetDefaultLocale(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_GetDefaultLocale));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetExtensions(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_GetExtensions));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CompareString(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_CompareString));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CurrencyDigits(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_CurrencyDigits));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_FormatNumber(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_FormatNumber));
 
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CacheNumberFormat(IntlEngineInterfaceExtensionObject::EntryIntl_CacheNumberFormat);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CreateDateTimeFormat(IntlEngineInterfaceExtensionObject::EntryIntl_CreateDateTimeFormat);
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CacheNumberFormat(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_CacheNumberFormat));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_CreateDateTimeFormat(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_CreateDateTimeFormat));
 
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_FormatDateTime(IntlEngineInterfaceExtensionObject::EntryIntl_FormatDateTime);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_ValidateAndCanonicalizeTimeZone(IntlEngineInterfaceExtensionObject::EntryIntl_ValidateAndCanonicalizeTimeZone);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetDefaultTimeZone(IntlEngineInterfaceExtensionObject::EntryIntl_GetDefaultTimeZone);
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_FormatDateTime(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_FormatDateTime));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_ValidateAndCanonicalizeTimeZone(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_ValidateAndCanonicalizeTimeZone));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetDefaultTimeZone(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_GetDefaultTimeZone));
 
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_RegisterBuiltInFunction(IntlEngineInterfaceExtensionObject::EntryIntl_RegisterBuiltInFunction);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetHiddenObject(IntlEngineInterfaceExtensionObject::EntryIntl_GetHiddenObject);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_SetHiddenObject(IntlEngineInterfaceExtensionObject::EntryIntl_SetHiddenObject);
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_RegisterBuiltInFunction(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_RegisterBuiltInFunction));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_GetHiddenObject(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_GetHiddenObject));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_SetHiddenObject(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_SetHiddenObject));
 
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_GetArrayLength(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_GetArrayLength);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_SetPrototype(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_SetPrototype);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_RegexMatch(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_RegexMatch);
-    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_CallInstanceFunction(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_CallInstanceFunction);
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_GetArrayLength(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_GetArrayLength));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_SetPrototype(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_SetPrototype));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_RegexMatch(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_RegexMatch));
+    NoProfileFunctionInfo IntlEngineInterfaceExtensionObject::EntryInfo::Intl_BuiltIn_CallInstanceFunction(FORCE_NO_WRITE_BARRIER_TAG(IntlEngineInterfaceExtensionObject::EntryIntl_BuiltIn_CallInstanceFunction));
 
     WindowsGlobalizationAdapter* IntlEngineInterfaceExtensionObject::GetWindowsGlobalizationAdapter(_In_ ScriptContext * scriptContext)
     {
@@ -297,35 +297,46 @@ namespace Js
 
     void IntlEngineInterfaceExtensionObject::deletePrototypePropertyHelper(ScriptContext* scriptContext, DynamicObject* intlObject, Js::PropertyId objectPropertyId, Js::PropertyId getterFunctionId)
     {
-        DynamicObject *prototypeVal = nullptr;
+        DynamicObject *prototypeObject = nullptr;
         DynamicObject *functionObj = nullptr;
-        Var propertyValue;
-        Var getter;
-        Var setter;
+        Var propertyValue = nullptr;
+        Var prototypeValue = nullptr;
+        Var resolvedOptionsValue = nullptr;
+        Var getter = nullptr;
+        Var setter = nullptr;
 
-        if (!Js::JavascriptOperators::GetProperty(intlObject, objectPropertyId, &propertyValue, scriptContext))
+        if (!JavascriptOperators::GetProperty(intlObject, objectPropertyId, &propertyValue, scriptContext) ||
+            !JavascriptOperators::IsObject(propertyValue))
         {
-            AssertMsg(false, "Error.");
             return;
         }
 
-        if (!Js::JavascriptOperators::GetProperty(DynamicObject::FromVar(propertyValue), Js::PropertyIds::prototype, &propertyValue, scriptContext))
+        if (!JavascriptOperators::GetProperty(DynamicObject::FromVar(propertyValue), Js::PropertyIds::prototype, &prototypeValue, scriptContext) ||
+            !JavascriptOperators::IsObject(prototypeValue))
         {
-            AssertMsg(false, "Can't be null, otherwise Intl library wasn't initialized correctly");
             return;
         }
 
-        if (!Js::JavascriptOperators::GetProperty(prototypeVal = DynamicObject::FromVar(propertyValue), Js::PropertyIds::resolvedOptions, &propertyValue, scriptContext))
+        prototypeObject = DynamicObject::FromVar(prototypeValue);
+
+        if (!JavascriptOperators::GetProperty(prototypeObject, Js::PropertyIds::resolvedOptions, &resolvedOptionsValue, scriptContext) ||
+            !JavascriptOperators::IsObject(resolvedOptionsValue))
         {
-            AssertMsg(false, "If these operations result in false, Intl tests will detect them");
             return;
         }
 
-        (functionObj = DynamicObject::FromVar(propertyValue))->SetConfigurable(Js::PropertyIds::prototype, true);
+        functionObj = DynamicObject::FromVar(resolvedOptionsValue);
+        functionObj->SetConfigurable(Js::PropertyIds::prototype, true);
         functionObj->DeleteProperty(Js::PropertyIds::prototype, Js::PropertyOperationFlags::PropertyOperation_None);
 
-        JavascriptOperators::GetOwnAccessors(prototypeVal, getterFunctionId, &getter, &setter, scriptContext);
-        (functionObj = DynamicObject::FromVar(getter))->SetConfigurable(Js::PropertyIds::prototype, true);
+        if (!JavascriptOperators::GetOwnAccessors(prototypeObject, getterFunctionId, &getter, &setter, scriptContext) ||
+            !JavascriptOperators::IsObject(getter))
+        {
+            return;
+        }
+
+        functionObj = DynamicObject::FromVar(getter);
+        functionObj->SetConfigurable(Js::PropertyIds::prototype, true);
         functionObj->DeleteProperty(Js::PropertyIds::prototype, Js::PropertyOperationFlags::PropertyOperation_None);
     }
 

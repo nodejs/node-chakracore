@@ -629,7 +629,7 @@ LowererMDArch::LowerCallIDynamic(IR::Instr * callInstr, IR::Instr*saveThisArgOut
     {
         Assert(argsLength->IsRegOpnd());
         /*callInfo*/
-        callInstr->InsertBefore(IR::Instr::New(Js::OpCode::ADD, argsLength, argsLength, IR::IntConstOpnd::New(1, TyInt8, this->m_func), this->m_func));
+        callInstr->InsertBefore(IR::Instr::New(Js::OpCode::ADD, argsLength, argsLength, IR::IntConstOpnd::New(1, TyUint32, this->m_func), this->m_func));
     }
 
     IR::Instr* argout = IR::Instr::New(Js::OpCode::ArgOut_A_Dynamic, this->m_func);
@@ -656,7 +656,7 @@ LowererMDArch::LowerCallIDynamic(IR::Instr * callInstr, IR::Instr*saveThisArgOut
     {
         IR::RegOpnd *argsLengthRegOpnd = argsLength->AsRegOpnd();
         //Account for callInfo & function object in argsLength
-        IR::Instr * addInstr = IR::Instr::New(Js::OpCode::ADD, argsLengthRegOpnd, argsLengthRegOpnd, IR::IntConstOpnd::New(2, TyInt8, this->m_func), this->m_func);
+        IR::Instr * addInstr = IR::Instr::New(Js::OpCode::ADD, argsLengthRegOpnd, argsLengthRegOpnd, IR::IntConstOpnd::New(2, TyUint32, this->m_func), this->m_func);
         callInstr->InsertBefore(addInstr);
 
         IR::Instr *insertInstr = callInstr->m_next;
@@ -988,8 +988,7 @@ LowererMDArch::LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd)
         lowererMD->m_lowerer->InsertCompareBranch(cmpOpnd, arrayLenOpnd, Js::OpCode::BrGe_A, true, helperLabel, helperLabel);
     }
 
-    // MGTODO : call RuntimeError once implemented
-    lowererMD->m_lowerer->GenerateRuntimeError(loadLabel, JSERR_InvalidTypedArrayIndex, IR::HelperOp_RuntimeRangeError);
+    lowererMD->m_lowerer->GenerateRuntimeError(loadLabel, WASMERR_ArrayIndexOutOfRange, IR::HelperOp_WebAssemblyRuntimeError);
     Lowerer::InsertBranch(Js::OpCode::Br, loadLabel, helperLabel);
 
     Assert(indexPair.low->IsRegOpnd());
@@ -1028,7 +1027,7 @@ LowererMDArch::LowerAsmJsLdElemHelper(IR::Instr * instr, bool isSimdLoad /*= fal
         // MOV tmp, cmpOnd
         Lowerer::InsertMove(tmp, cmpOpnd, helperLabel);
         // ADD tmp, dataWidth
-        Lowerer::InsertAdd(false, tmp, tmp, IR::IntConstOpnd::New((uint32)dataWidth, TyInt8, m_func, true), helperLabel);
+        Lowerer::InsertAdd(false, tmp, tmp, IR::IntConstOpnd::New((uint32)dataWidth, tmp->GetType(), m_func, true), helperLabel);
         // CMP tmp, size
         // JG  $helper
         lowererMD->m_lowerer->InsertCompareBranch(tmp, instr->UnlinkSrc2(), Js::OpCode::BrGt_A, true, helperLabel, helperLabel);
@@ -1088,7 +1087,7 @@ LowererMDArch::LowerAsmJsStElemHelper(IR::Instr * instr, bool isSimdStore /*= fa
         // MOV tmp, cmpOnd
         Lowerer::InsertMove(tmp, cmpOpnd, helperLabel);
         // ADD tmp, dataWidth
-        Lowerer::InsertAdd(false, tmp, tmp, IR::IntConstOpnd::New((uint32)dataWidth, TyInt8, m_func, true), helperLabel);
+        Lowerer::InsertAdd(false, tmp, tmp, IR::IntConstOpnd::New((uint32)dataWidth, tmp->GetType(), m_func, true), helperLabel);
         // CMP tmp, size
         // JG  $helper
         lowererMD->m_lowerer->InsertCompareBranch(tmp, instr->UnlinkSrc2(), Js::OpCode::BrGt_A, true, helperLabel, helperLabel);
@@ -1972,8 +1971,8 @@ LowererMDArch::LowerInt64Assign(IR::Instr * instr)
         Int64RegPair src1Pair = lowererMD->m_lowerer->FindOrCreateInt64Pair(src1);
         IR::Instr* lowLoadInstr = IR::Instr::New(Js::OpCode::Ld_I4, dstPair.low, src1Pair.low, m_func);
 
-        lowererMD->ChangeToAssign(lowLoadInstr);
         instr->InsertBefore(lowLoadInstr);
+        lowererMD->ChangeToAssign(lowLoadInstr);
 
         // Do not store to memory if we wanted less than 8 bytes
         const bool canAssignHigh = !dst->IsIndirOpnd() || dstSize == 8;
@@ -1984,8 +1983,8 @@ LowererMDArch::LowerInt64Assign(IR::Instr * instr)
             {
                 // Normal case, assign source's high bits to dst's high bits
                 IR::Instr* highLoadInstr = IR::Instr::New(Js::OpCode::Ld_I4, dstPair.high, src1Pair.high, m_func);
-                lowererMD->ChangeToAssign(highLoadInstr);
                 instr->InsertBefore(highLoadInstr);
+                lowererMD->ChangeToAssign(highLoadInstr);
             }
             else
             {
@@ -2002,8 +2001,8 @@ LowererMDArch::LowerInt64Assign(IR::Instr * instr)
                 {
                     // If this is a signed assign from memory, we need to extend the sign
                     IR::Instr* highExtendInstr = IR::Instr::New(Js::OpCode::Ld_I4, dstPair.high, dstPair.low, m_func);
-                    lowererMD->ChangeToAssign(highExtendInstr);
                     instr->InsertBefore(highExtendInstr);
+                    lowererMD->ChangeToAssign(highExtendInstr);
 
                     highExtendInstr = IR::Instr::New(Js::OpCode::SAR, dstPair.high, dstPair.high, IR::IntConstOpnd::New(31, TyInt32, m_func), m_func);
                     instr->InsertBefore(highExtendInstr);
@@ -4133,7 +4132,7 @@ LowererMDArch::GenerateArgOutForStackArgs(IR::Instr* callInstr, IR::Instr* stack
     this->LoadDynamicArgument(argout);
 
 
-    IR::Instr *subInstr = IR::Instr::New(Js::OpCode::Sub_I4, ldLenDstOpnd, ldLenDstOpnd, IR::IntConstOpnd::New(1, TyInt8, func),func);
+    IR::Instr *subInstr = IR::Instr::New(Js::OpCode::Sub_I4, ldLenDstOpnd, ldLenDstOpnd, IR::IntConstOpnd::New(1, TyUint32, func),func);
     callInstr->InsertBefore(subInstr);
     this->lowererMD->EmitInt4Instr(subInstr);
 

@@ -58,10 +58,12 @@
 namespace Memory
 {
     class ArenaAllocator;
+    class Recycler;
 }
 using namespace Memory;
 #include "Memory/Allocator.h"
 #include "Memory/HeapAllocator.h"
+#include "Memory/RecyclerPointers.h"
 
 // === Data structures Header Files ===
 #include "DataStructures/DefaultContainerLockPolicy.h"
@@ -78,6 +80,7 @@ using namespace Memory;
 #include "Core/ConfigFlagsTable.h"
 
 // === Page/Arena Memory Header Files ===
+#include "Memory/SectionAllocWrapper.h"
 #include "Memory/VirtualAllocWrapper.h"
 #include "Memory/MemoryTracking.h"
 #include "Memory/AllocationPolicyManager.h"

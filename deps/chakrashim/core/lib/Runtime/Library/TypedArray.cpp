@@ -508,13 +508,7 @@ namespace Js
 
             if (args.Info.Count > 3 && !JavascriptOperators::IsUndefinedObject(args[3]))
             {
-                mappedLength = ArrayBuffer::ToIndex(args[3], JSERR_InvalidTypedArrayLength, scriptContext, ArrayBuffer::MaxArrayBufferLength / elementSize, false);
-
-                if ((uint32)mappedLength > (byteLength - offset)/ elementSize)
-                {
-                    JavascriptError::ThrowRangeError(
-                        scriptContext, JSERR_InvalidTypedArrayLength);
-                }
+                mappedLength = ArrayBuffer::ToIndex(args[3], JSERR_InvalidTypedArrayLength, scriptContext, (byteLength - offset) / elementSize, false);
             }
             else
             {
@@ -1055,71 +1049,6 @@ namespace Js
             hr = E_INVALIDARG;
         }
         return hr;
-
-    }
-
-    template <typename TypeName, bool clamped, bool virtualAllocated>
-    TypedArray<TypeName, clamped, virtualAllocated>::TypedArray(ArrayBufferBase* arrayBuffer, uint32 byteOffset, uint32 mappedLength, DynamicType* type) :
-        TypedArrayBase(arrayBuffer, byteOffset, mappedLength, sizeof(TypeName), type)
-    {
-        AssertMsg(arrayBuffer->GetByteLength() >= byteOffset, "invalid offset");
-        AssertMsg(mappedLength*sizeof(TypeName)+byteOffset <= arrayBuffer->GetByteLength(), "invalid length");
-        buffer = arrayBuffer->GetBuffer() + byteOffset;
-        if (arrayBuffer->IsValidVirtualBufferLength(arrayBuffer->GetByteLength()) &&
-             (byteOffset == 0) &&
-             (mappedLength == (arrayBuffer->GetByteLength() / sizeof(TypeName)))
-           )
-        {
-            // update the vtable
-            switch (type->GetTypeId())
-            {
-            case TypeIds_Int8Array:
-                VirtualTableInfo<Int8VirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Uint8Array:
-                VirtualTableInfo<Uint8VirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Uint8ClampedArray:
-                VirtualTableInfo<Uint8ClampedVirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Int16Array:
-                VirtualTableInfo<Int16VirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Uint16Array:
-                VirtualTableInfo<Uint16VirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Int32Array:
-                VirtualTableInfo<Int32VirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Uint32Array:
-                VirtualTableInfo<Uint32VirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Float32Array:
-                VirtualTableInfo<Float32VirtualArray>::SetVirtualTable(this);
-                break;
-            case TypeIds_Float64Array:
-                VirtualTableInfo<Float64VirtualArray>::SetVirtualTable(this);
-                break;
-            default:
-                break;
-            }
-        }
-    }
-
-    template <typename TypeName, bool clamped, bool virtualAllocated>
-    inline Var TypedArray<TypeName, clamped, virtualAllocated>::Create(ArrayBufferBase* arrayBuffer, uint32 byteOffSet, uint32 mappedLength, JavascriptLibrary* javascriptLibrary)
-    {
-        uint32 totalLength, mappedByteLength;
-
-        if (UInt32Math::Mul(mappedLength, sizeof(TypeName), &mappedByteLength) ||
-            UInt32Math::Add(byteOffSet, mappedByteLength, &totalLength) ||
-            (totalLength > arrayBuffer->GetByteLength()))
-        {
-            JavascriptError::ThrowRangeError(arrayBuffer->GetScriptContext(), JSERR_InvalidTypedArrayLength);
-        }
-
-        DynamicType *type = javascriptLibrary->GetTypedArrayType<TypeName, clamped>(0);
-        return RecyclerNew(javascriptLibrary->GetRecycler(), TypedArray, arrayBuffer, byteOffSet, mappedLength, type);
 
     }
 
@@ -2235,6 +2164,12 @@ namespace Js
                 dblResult = JavascriptConversion::ToNumber_Full(retVal, scriptContext);
             }
 
+            // ToNumber may execute user-code which can cause the array to become detached
+            if (TypedArrayBase::IsDetachedTypedArray(contextArray[0]))
+            {
+                JavascriptError::ThrowTypeError(scriptContext, JSERR_DetachedTypedArray, _u("[TypedArray].prototype.sort"));
+            }
+
             if (dblResult < 0)
             {
                 return -1;
@@ -2606,7 +2541,7 @@ namespace Js
         return Js::JavascriptNumber::ToVarNoCheck(currentRes, scriptContext);
     }
 
-    // static 
+    // static
     TypedArrayBase * TypedArrayBase::ValidateTypedArray(Arguments &args, ScriptContext *scriptContext, LPCWSTR apiName)
     {
         if (args.Info.Count == 0)
@@ -3480,18 +3415,4 @@ namespace Js
 #endif
         return object;
     }
-
-    // Instantiate the constructor function directly
-    template TypedArray<int8>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<uint8,false>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<uint8,true>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<int16>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<uint16>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<int32>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<uint32>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<float>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<double>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<int64>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<uint64>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
-    template TypedArray<bool>::TypedArray(ArrayBufferBase*, uint32, uint32, DynamicType*);
 }

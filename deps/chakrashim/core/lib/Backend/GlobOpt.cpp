@@ -2528,14 +2528,37 @@ GlobOpt::CleanUpValueMaps()
     BVSparse<JitArenaAllocator> *upwardExposedFields = this->currentBlock->upwardExposedFields;
     bool isInLoop = !!this->currentBlock->loop;
 
+    BVSparse<JitArenaAllocator> symsInCallSequence(this->tempAlloc);
+    SListBase<IR::Opnd *> * callSequence = this->currentBlock->globOptData.callSequence;
+    if (callSequence && !callSequence->Empty())
+    {
+        FOREACH_SLISTBASE_ENTRY(IR::Opnd *, opnd, callSequence)
+        {
+            StackSym * sym = opnd->GetStackSym();
+            symsInCallSequence.Set(sym->m_id);
+        }
+    }
+    NEXT_SLISTBASE_ENTRY;
+
     for (uint i = 0; i < thisTable->tableSize; i++)
     {
         FOREACH_SLISTBASE_ENTRY_EDITING(GlobHashBucket, bucket, &thisTable->table[i], iter)
         {
+            bool isSymUpwardExposed = upwardExposedUses->Test(bucket.value->m_id) || upwardExposedFields->Test(bucket.value->m_id);
+            if (!isSymUpwardExposed && symsInCallSequence.Test(bucket.value->m_id))
+            {
+                // Don't remove/shrink sym-value pair if the sym is referenced in callSequence even if the sym is dead according to backward data flow.
+                // This is possible in some edge cases that an infinite loop is involved when evaluating parameter for a function (between StartCall and Call),
+                // there is no backward data flow into the infinite loop block, but non empty callSequence still populates to it in this (forward) pass
+                // which causes error when looking up value for the syms in callSequence (cannot find the value).
+                // It would cause error to fill out the bailout information for the loop blocks.
+                // Remove dead syms from callSequence has some risk because there are varies associated counters which need to be consistent.
+                continue;
+            }
             // Make sure symbol was created before backward pass.
             // If symbols isn't upward exposed, mark it as dead.
             // If a symbol was copy-prop'd in a loop prepass, the upwardExposedUses info could be wrong.  So wait until we are out of the loop before clearing it.
-            if ((SymID)bucket.value->m_id <= this->maxInitialSymID && !upwardExposedUses->Test(bucket.value->m_id) && !upwardExposedFields->Test(bucket.value->m_id)
+            if ((SymID)bucket.value->m_id <= this->maxInitialSymID && !isSymUpwardExposed
                 && (!isInLoop || !this->prePassCopyPropSym->Test(bucket.value->m_id)))
             {
                 Value *val = bucket.element;
@@ -2900,8 +2923,6 @@ BOOL GlobOpt::PreloadPRECandidate(Loop *loop, GlobHashBucket* candidate)
     IR::Instr * ldInstr = this->prePassInstrMap->Lookup(propertySym->m_id, nullptr);
     Assert(ldInstr);
 
-    JITTypeHolder propertyType(nullptr);
-
     // Create instr to put in landing pad for compensation
     Assert(IsPREInstrCandidateLoad(ldInstr->m_opcode));
     IR::SymOpnd *ldSrc = ldInstr->GetSrc1()->AsSymOpnd();
@@ -2927,11 +2948,6 @@ BOOL GlobOpt::PreloadPRECandidate(Loop *loop, GlobHashBucket* candidate)
     {
         IR::PropertySymOpnd *propSymOpnd = ldSrc->AsPropertySymOpnd();
         IR::PropertySymOpnd *newPropSymOpnd;
-
-        if (propSymOpnd->IsMonoObjTypeSpecCandidate())
-        {
-            propertyType = propSymOpnd->GetType();
-        }
 
         newPropSymOpnd = propSymOpnd->AsPropertySymOpnd()->CopyWithoutFlowSensitiveInfo(this->func);
         ldInstr->ReplaceSrc1(newPropSymOpnd);
@@ -4191,7 +4207,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
         {
             instr->usesStackArgumentsObject = true;
         }
-        
+
         break;
     }
 
@@ -4868,6 +4884,52 @@ GlobOpt::IsInstrInvalidForMemOp(IR::Instr *instr, Loop *loop, Value *src1Val, Va
     return false;
 }
 
+void
+GlobOpt::TryReplaceLdLen(IR::Instr *& instr)
+{
+    // Change LdFld on arrays, strings, and 'arguments' to LdLen when we're accessing the .length field
+    if ((instr->GetSrc1() && instr->GetSrc1()->IsSymOpnd() && instr->m_opcode == Js::OpCode::ProfiledLdFld) || instr->m_opcode == Js::OpCode::LdFld || instr->m_opcode == Js::OpCode::ScopedLdFld)
+    {
+        IR::SymOpnd * opnd = instr->GetSrc1()->AsSymOpnd();
+        Sym *sym = opnd->m_sym;
+        if (sym->IsPropertySym())
+        {
+            PropertySym *originalPropertySym = sym->AsPropertySym();
+            // only on .length
+            if (this->lengthEquivBv != nullptr && this->lengthEquivBv->Test(originalPropertySym->m_id))
+            {
+                IR::RegOpnd* newopnd = IR::RegOpnd::New(originalPropertySym->m_stackSym, IRType::TyVar, instr->m_func);
+                ValueInfo *const objectValueInfo = FindValue(originalPropertySym->m_stackSym)->GetValueInfo();
+                // Only for things we'd emit a fast path for
+                if (
+                    objectValueInfo->IsLikelyAnyArray() ||
+                    objectValueInfo->HasHadStringTag() ||
+                    objectValueInfo->IsLikelyString() ||
+                    newopnd->IsArgumentsObject() ||
+                    (this->blockData.argObjSyms && IsArgumentsOpnd(newopnd))
+                   )
+                {
+                    // We need to properly transfer over the information from the old operand, which is
+                    // a SymOpnd, to the new one, which is a RegOpnd. Unfortunately, the types mean the
+                    // normal copy methods won't work here, so we're going to directly copy data.
+                    newopnd->SetIsJITOptimizedReg(opnd->GetIsJITOptimizedReg());
+                    newopnd->SetValueType(objectValueInfo->Type());
+                    newopnd->SetIsDead(opnd->GetIsDead());
+
+                    // Now that we have the operand we need, we can go ahead and make the new instr.
+                    IR::Instr *newinstr = IR::Instr::New(Js::OpCode::LdLen_A, instr->m_func);
+                    instr->TransferTo(newinstr);
+                    newinstr->UnlinkSrc1();
+                    newinstr->SetSrc1(newopnd);
+                    instr->InsertAfter(newinstr);
+                    instr->Remove();
+                    instr = newinstr;
+                }
+            }
+        }
+    }
+}
+
 IR::Instr *
 GlobOpt::OptInstr(IR::Instr *&instr, bool* isInstrRemoved)
 {
@@ -4907,39 +4969,7 @@ GlobOpt::OptInstr(IR::Instr *&instr, bool* isInstrRemoved)
     }
 
     // Change LdFld on arrays, strings, and 'arguments' to LdLen when we're accessing the .length field
-    if ((instr->GetSrc1() && instr->GetSrc1()->IsSymOpnd() && instr->m_opcode == Js::OpCode::ProfiledLdFld) || instr->m_opcode == Js::OpCode::LdFld || instr->m_opcode == Js::OpCode::ScopedLdFld)
-    {
-        IR::Opnd * opnd = instr->GetSrc1();
-        Sym *sym = opnd->AsSymOpnd()->m_sym;
-        if (sym->IsPropertySym())
-        {
-            PropertySym *originalPropertySym = sym->AsPropertySym();
-            IR::RegOpnd* newopnd = IR::RegOpnd::New(originalPropertySym->m_stackSym, IRType::TyVar, instr->m_func);
-            // only on .length
-            if (this->lengthEquivBv != nullptr && this->lengthEquivBv->Test(originalPropertySym->m_id))
-            {
-                Value *const objectValue = FindValue(originalPropertySym->m_stackSym);
-                // Only for things we'd emit a fast path for
-                if (
-                    objectValue->GetValueInfo()->IsLikelyAnyArray() ||
-                    objectValue->GetValueInfo()->HasHadStringTag() ||
-                    objectValue->GetValueInfo()->IsLikelyString() ||
-                    newopnd->IsArgumentsObject() ||
-                    (this->blockData.argObjSyms && IsArgumentsOpnd(newopnd))
-                   )
-                {
-                    IR::Instr *newinstr = IR::Instr::New(Js::OpCode::LdLen_A, instr->m_func);
-                    instr->TransferTo(newinstr);
-                    newinstr->UnlinkSrc1();
-                    newinstr->SetSrc1(newopnd);
-                    newinstr->GetSrc1()->SetValueType(objectValue->GetValueInfo()->Type());
-                    instr->InsertAfter(newinstr);
-                    instr->Remove();
-                    instr = newinstr;
-                }
-            }
-        }
-    }
+    this->TryReplaceLdLen(instr);
 
     // Consider: Do we ever get post-op bailout here, and if so is the FillBailOutInfo call in the right place?
     if (instr->HasBailOutInfo() && !this->IsLoopPrePass())
@@ -8122,6 +8152,24 @@ GlobOpt::ValueNumberLdElemDst(IR::Instr **pInstr, Value *srcVal)
 
     IntArrayCommon:
         Assert(dst->IsRegOpnd());
+
+        // If int type spec is disabled, it is ok to load int values as they can help float type spec, and merging int32 with float64 => float64.
+        // But if float type spec is also disabled, we'll have problems because float64 merged with var => float64...
+        if (!this->DoAggressiveIntTypeSpec() && !this->DoFloatTypeSpec())
+        {
+            if (!dstVal)
+            {
+                if (srcVal)
+                {
+                    dstVal = this->ValueNumberTransferDst(instr, srcVal);
+                }
+                else
+                {
+                    dstVal = NewGenericValue(profiledElementType, dst);
+                }
+            }
+            return dstVal;
+        }
         TypeSpecializeIntDst(instr, instr->m_opcode, nullptr, nullptr, nullptr, bailOutKind, newMin, newMax, &dstVal);
         toType = TyInt32;
         break;
@@ -8134,6 +8182,23 @@ GlobOpt::ValueNumberLdElemDst(IR::Instr **pInstr, Value *srcVal)
     case ObjectType::Float64MixedArray:
     Float64Array:
         Assert(dst->IsRegOpnd());
+        
+        // If float type spec is disabled, don't load float64 values
+        if (!this->DoFloatTypeSpec())
+        {
+            if (!dstVal)
+            {
+                if (srcVal)
+                {
+                    dstVal = this->ValueNumberTransferDst(instr, srcVal);
+                }
+                else
+                {
+                    dstVal = NewGenericValue(profiledElementType, dst);
+                }
+            }
+            return dstVal;
+        }
         TypeSpecializeFloatDst(instr, nullptr, nullptr, nullptr, &dstVal);
         toType = TyFloat64;
         break;

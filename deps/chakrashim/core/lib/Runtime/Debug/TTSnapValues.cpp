@@ -588,9 +588,9 @@ namespace TTD
         Js::Var* InflateSlotArrayInfo(const SlotArrayInfo* slotInfo, InflateMap* inflator)
         {
             Js::ScriptContext* ctx = inflator->LookupScriptContext(slotInfo->ScriptContextLogId);
-            Js::Var* slotArray = RecyclerNewArray(ctx->GetRecycler(), Js::Var, slotInfo->SlotCount + Js::ScopeSlots::FirstSlotIndex);
+            Field(Js::Var)* slotArray = RecyclerNewArray(ctx->GetRecycler(), Field(Js::Var), slotInfo->SlotCount + Js::ScopeSlots::FirstSlotIndex);
 
-            Js::ScopeSlots scopeSlots(slotArray);
+            Js::ScopeSlots scopeSlots((Js::Var*)slotArray);
             scopeSlots.SetCount(slotInfo->SlotCount);
 
             Js::Var undef = ctx->GetLibrary()->GetUndefined();
@@ -602,7 +602,7 @@ namespace TTD
             if(slotInfo->isFunctionBodyMetaData)
             {
                 Js::FunctionBody* fbody = inflator->LookupFunctionBody(slotInfo->OptFunctionBodyId);
-                scopeSlots.SetScopeMetadata(fbody);
+                scopeSlots.SetScopeMetadata(fbody->GetFunctionInfo());
 
                 //This is a doubly nested lookup so if the scope slot array is large this could be expensive
                 Js::PropertyId* propertyIds = fbody->GetPropertyIdsForScopeSlotArray();
@@ -654,7 +654,7 @@ namespace TTD
                 }
             }
 
-            return slotArray;
+            return (Js::Var*)slotArray;
         }
 
         void EmitSlotArrayInfo(const SlotArrayInfo* slotInfo, FileWriter* writer, NSTokens::Separator separator)

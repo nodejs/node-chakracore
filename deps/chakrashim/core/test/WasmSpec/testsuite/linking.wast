@@ -157,15 +157,37 @@
 (assert_trap (invoke $Ot "call" (i32.const 20)) "undefined")
 
 (assert_unlinkable
-  (module $Qt
-    (func $host (import "spectest" "print"))
+  (module
     (table (import "Mt" "tab") 10 anyfunc)
     (memory (import "Mt" "mem") 1)  ;; does not exist
-    (elem (i32.const 7) $own)
-    (elem (i32.const 9) $host)
-    (func $own (result i32) (i32.const 666))
+    (func $f (result i32) (i32.const 0))
+    (elem (i32.const 7) $f)
+    (elem (i32.const 9) $f)
   )
   "unknown import"
+)
+(assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
+
+(assert_unlinkable
+  (module
+    (table (import "Mt" "tab") 10 anyfunc)
+    (func $f (result i32) (i32.const 0))
+    (elem (i32.const 7) $f)
+    (elem (i32.const 12) $f)  ;; out of bounds
+  )
+  "elements segment does not fit"
+)
+(assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
+
+(assert_unlinkable
+  (module
+    (table (import "Mt" "tab") 10 anyfunc)
+    (func $f (result i32) (i32.const 0))
+    (elem (i32.const 7) $f)
+    (memory 1)
+    (data (i32.const 0x10000) "d") ;; out of bounds
+  )
+  "data segment does not fit"
 )
 (assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
 
@@ -230,12 +252,34 @@
 (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 5))
 
 (assert_unlinkable
-  (module $Qm
+  (module
     (func $host (import "spectest" "print"))
     (memory (import "Mm" "mem") 1)
     (table (import "Mm" "tab") 0 anyfunc)  ;; does not exist
     (data (i32.const 0) "abc")
   )
   "unknown import"
+)
+(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+
+(assert_unlinkable
+  (module
+    (memory (import "Mm" "mem") 1)
+    (data (i32.const 0) "abc")
+    (data (i32.const 0x50000) "d") ;; out of bounds
+  )
+  "data segment does not fit"
+)
+(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+
+(assert_unlinkable
+  (module
+    (memory (import "Mm" "mem") 1)
+    (data (i32.const 0) "abc")
+    (table 0 anyfunc)
+    (func)
+    (elem (i32.const 0) 0) ;; out of bounds
+  )
+  "elements segment does not fit"
 )
 (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
