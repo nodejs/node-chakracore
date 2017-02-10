@@ -88,13 +88,13 @@ if (!common.hasIntl) {
   const coll = new Intl.Collator(['en'], collOpts);
 
   assert.strictEqual(coll.compare('blackbird', 'black-bird'), 0,
-               'ignore punctuation failed');
+                     'ignore punctuation failed');
   assert.strictEqual(coll.compare('blackbird', 'red-bird'), -1,
-               'compare less failed');
+                     'compare less failed');
   assert.strictEqual(coll.compare('bluebird', 'blackbird'), 1,
-               'compare greater failed');
+                     'compare greater failed');
   assert.strictEqual(coll.compare('Bluebird', 'bluebird'), 0,
-               'ignore case failed');
+                     'ignore case failed');
   assert.strictEqual(coll.compare('\ufb03', 'ffi'), 0,
-               'ffi ligature (contraction) failed');
+                     'ffi ligature (contraction) failed');
 }

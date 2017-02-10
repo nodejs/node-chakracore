@@ -28,7 +28,7 @@ assert.throws(function() {
 },
 common.engineSpecificMessage({
   v8: /RangeError/,
-  chakracore: /Error\: Out of stack space/
+  chakracore: /Error: Out of stack space/
 }));
 
 assert.strictEqual(typeof vm.runInDebugContext('this'), 'object');

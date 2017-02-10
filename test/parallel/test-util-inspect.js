@@ -28,22 +28,22 @@ assert.strictEqual(util.inspect([1, [2, 3]]), '[ 1, [ 2, 3 ] ]');
 assert.strictEqual(util.inspect({}), '{}');
 assert.strictEqual(util.inspect({a: 1}), '{ a: 1 }');
 assert.strictEqual(util.inspect({a: function() {}}),
- common.engineSpecificMessage({
-   v8: '{ a: [Function: a] }',
-   chakracore: '{ a: [Function: a] }'
- }));
+                   common.engineSpecificMessage({
+                     v8: '{ a: [Function: a] }',
+                     chakracore: '{ a: [Function: a] }'
+                   }));
 assert.strictEqual(util.inspect({a: 1, b: 2}), '{ a: 1, b: 2 }');
 assert.strictEqual(util.inspect({'a': {}}), '{ a: {} }');
 assert.strictEqual(util.inspect({'a': {'b': 2}}), '{ a: { b: 2 } }');
 assert.strictEqual(util.inspect({'a': {'b': { 'c': { 'd': 2 }}}}),
-  '{ a: { b: { c: [Object] } } }');
+                   '{ a: { b: { c: [Object] } } }');
 assert.strictEqual(util.inspect({'a': {'b': { 'c': { 'd': 2 }}}}, false, null),
-  '{ a: { b: { c: { d: 2 } } } }');
+                   '{ a: { b: { c: { d: 2 } } } }');
 assert.strictEqual(util.inspect([1, 2, 3], true), '[ 1, 2, 3, [length]: 3 ]');
 assert.strictEqual(util.inspect({'a': {'b': { 'c': 2}}}, false, 0),
-  '{ a: [Object] }');
+                   '{ a: [Object] }');
 assert.strictEqual(util.inspect({'a': {'b': { 'c': 2}}}, false, 1),
-  '{ a: { b: [Object] } }');
+                   '{ a: { b: [Object] } }');
 assert.strictEqual(util.inspect(Object.create({},
   {visible: {value: 1, enumerable: true}, hidden: {value: 2}})),
   '{ visible: 1 }'
@@ -70,29 +70,29 @@ for (const showHidden of [true, false]) {
     'ArrayBuffer { byteLength: 4 }'
   );
   assert.strictEqual(util.inspect(new DataView(ab, 1, 2), showHidden),
-               'DataView {\n' +
-               '  byteLength: 2,\n' +
-               '  byteOffset: 1,\n' +
-               '  buffer: ArrayBuffer { byteLength: 4 } }');
+                     'DataView {\n' +
+                     '  byteLength: 2,\n' +
+                     '  byteOffset: 1,\n' +
+                     '  buffer: ArrayBuffer { byteLength: 4 } }');
   assert.strictEqual(
     util.inspect(ab, showHidden),
     'ArrayBuffer { byteLength: 4 }'
   );
   assert.strictEqual(util.inspect(dv, showHidden),
-               'DataView {\n' +
-               '  byteLength: 2,\n' +
-               '  byteOffset: 1,\n' +
-               '  buffer: ArrayBuffer { byteLength: 4 } }');
+                     'DataView {\n' +
+                     '  byteLength: 2,\n' +
+                     '  byteOffset: 1,\n' +
+                     '  buffer: ArrayBuffer { byteLength: 4 } }');
   ab.x = 42;
   dv.y = 1337;
   assert.strictEqual(util.inspect(ab, showHidden),
-               'ArrayBuffer { byteLength: 4, x: 42 }');
+                     'ArrayBuffer { byteLength: 4, x: 42 }');
   assert.strictEqual(util.inspect(dv, showHidden),
-               'DataView {\n' +
-               '  byteLength: 2,\n' +
-               '  byteOffset: 1,\n' +
-               '  buffer: ArrayBuffer { byteLength: 4, x: 42 },\n' +
-               '  y: 1337 }');
+                     'DataView {\n' +
+                     '  byteLength: 2,\n' +
+                     '  byteOffset: 1,\n' +
+                     '  buffer: ArrayBuffer { byteLength: 4, x: 42 },\n' +
+                     '  y: 1337 }');
 }
 
 // Now do the same checks but from a different context
@@ -104,29 +104,29 @@ for (const showHidden of [true, false]) {
     'ArrayBuffer { byteLength: 4 }'
   );
   assert.strictEqual(util.inspect(new DataView(ab, 1, 2), showHidden),
-               'DataView {\n' +
-               '  byteLength: 2,\n' +
-               '  byteOffset: 1,\n' +
-               '  buffer: ArrayBuffer { byteLength: 4 } }');
+                     'DataView {\n' +
+                     '  byteLength: 2,\n' +
+                     '  byteOffset: 1,\n' +
+                     '  buffer: ArrayBuffer { byteLength: 4 } }');
   assert.strictEqual(
     util.inspect(ab, showHidden),
     'ArrayBuffer { byteLength: 4 }'
   );
   assert.strictEqual(util.inspect(dv, showHidden),
-               'DataView {\n' +
-               '  byteLength: 2,\n' +
-               '  byteOffset: 1,\n' +
-               '  buffer: ArrayBuffer { byteLength: 4 } }');
+                     'DataView {\n' +
+                     '  byteLength: 2,\n' +
+                     '  byteOffset: 1,\n' +
+                     '  buffer: ArrayBuffer { byteLength: 4 } }');
   ab.x = 42;
   dv.y = 1337;
   assert.strictEqual(util.inspect(ab, showHidden),
-               'ArrayBuffer { byteLength: 4, x: 42 }');
+                     'ArrayBuffer { byteLength: 4, x: 42 }');
   assert.strictEqual(util.inspect(dv, showHidden),
-               'DataView {\n' +
-               '  byteLength: 2,\n' +
-               '  byteOffset: 1,\n' +
-               '  buffer: ArrayBuffer { byteLength: 4, x: 42 },\n' +
-               '  y: 1337 }');
+                     'DataView {\n' +
+                     '  byteLength: 2,\n' +
+                     '  byteOffset: 1,\n' +
+                     '  buffer: ArrayBuffer { byteLength: 4, x: 42 },\n' +
+                     '  y: 1337 }');
 }
 
 
@@ -230,13 +230,13 @@ assert.strictEqual(
 
 // Dynamic properties
 assert.strictEqual(util.inspect({get readonly() {}}),
-  '{ readonly: [Getter] }');
+                   '{ readonly: [Getter] }');
 
 assert.strictEqual(util.inspect({get readwrite() {}, set readwrite(val) {}}),
-  '{ readwrite: [Getter/Setter] }');
+                   '{ readwrite: [Getter/Setter] }');
 
 assert.strictEqual(util.inspect({set writeonly(val) {}}),
-  '{ writeonly: [Setter] }');
+                   '{ writeonly: [Setter] }');
 
 var value = {};
 value['a'] = value;
@@ -303,20 +303,20 @@ assert.strictEqual(util.inspect(new Array(5)), '[ , , , ,  ]');
 
 // Skip for chakra engine as debugger support not yet present
 if (!common.isChakraEngine) {
-// test for Array constructor in different context
-{
-  const Debug = require('vm').runInDebugContext('Debug');
-  const map = new Map();
-  map.set(1, 2);
-  const mirror = Debug.MakeMirror(map.entries(), true);
-  const vals = mirror.preview();
-  const valsOutput = [];
-  for (const o of vals) {
-    valsOutput.push(o);
-  }
+  // test for Array constructor in different context
+  {
+    const Debug = require('vm').runInDebugContext('Debug');
+    const map = new Map();
+    map.set(1, 2);
+    const mirror = Debug.MakeMirror(map.entries(), true);
+    const vals = mirror.preview();
+    const valsOutput = [];
+    for (const o of vals) {
+      valsOutput.push(o);
+    }
 
-  assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
-}
+    assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
+  }
 }
 
 // test for other constructors in different context
@@ -683,7 +683,7 @@ if (typeof Symbol !== 'undefined') {
 
   assert.strictEqual(util.inspect(subject), '[ 1, 2, 3 ]');
   assert.strictEqual(util.inspect(subject, options),
-      '[ 1, 2, 3, [length]: 3, [Symbol(symbol)]: 42 ]');
+                     '[ 1, 2, 3, [length]: 3, [Symbol(symbol)]: 42 ]');
 }
 
 // test Set
@@ -700,77 +700,79 @@ assert.strictEqual(
 {
   assert.strictEqual(util.inspect(new Map()), 'Map {}');
   assert.strictEqual(util.inspect(new Map([[1, 'a'], [2, 'b'], [3, 'c']])),
-               'Map { 1 => \'a\', 2 => \'b\', 3 => \'c\' }');
+                     'Map { 1 => \'a\', 2 => \'b\', 3 => \'c\' }');
   const map = new Map([['foo', null]]);
   map.bar = 42;
   assert.strictEqual(util.inspect(map, true),
-               'Map { \'foo\' => null, [size]: 1, bar: 42 }');
+                     'Map { \'foo\' => null, [size]: 1, bar: 42 }');
 }
 
 // test Promise
 assert.strictEqual(util.inspect(Promise.resolve(3)),
- common.engineSpecificMessage({
-   v8: 'Promise { 3 }',
-   chakracore: 'Promise {}'
- }));
+                   common.engineSpecificMessage({
+                     v8: 'Promise { 3 }',
+                     chakracore: 'Promise {}'
+                   }));
 {
   const rejected = Promise.reject(3);
-  assert.strictEqual(util.inspect(rejected), 
-    common.engineSpecificMessage({
-      v8: 'Promise { <rejected> 3 }',
-      chakracore: 'Promise {}'
-  }));  
+  assert.strictEqual(util.inspect(rejected),
+                     common.engineSpecificMessage({
+                       v8: 'Promise { <rejected> 3 }',
+                       chakracore: 'Promise {}'
+                     }));
   // squelch UnhandledPromiseRejection
   rejected.catch(() => {});
 }
 
 assert.strictEqual(util.inspect(new Promise(function() {})),
-  common.engineSpecificMessage({
-    v8: 'Promise { <pending> }',
-    chakracore: 'Promise {}'
-  }));
+                   common.engineSpecificMessage({
+                     v8: 'Promise { <pending> }',
+                     chakracore: 'Promise {}'
+                   }));
 
 var promise = Promise.resolve('foo');
 promise.bar = 42;
-assert.strictEqual(util.inspect(promise), common.engineSpecificMessage({
-  v8: 'Promise { \'foo\', bar: 42 }',
-  chakracore: 'Promise { bar: 42 }'
-}));
+assert.strictEqual(util.inspect(promise),
+                   common.engineSpecificMessage({
+                     v8: 'Promise { \'foo\', bar: 42 }',
+                     chakracore: 'Promise { bar: 42 }'
+                   }));
 
 // Make sure it doesn't choke on polyfills. Unlike Set/Map, there is no standard
 // interface to synchronously inspect a Promise, so our techniques only work on
 // a bonafide native Promise.
 var oldPromise = Promise;
 global.Promise = function() { this.bar = 42; };
-assert.strictEqual(util.inspect(new Promise()), common.engineSpecificMessage({
-  v8: '{ bar: 42 }',
-  chakracore: 'Object { \'<unknown>\', bar: 42 }'
-}));
+assert.strictEqual(util.inspect(new Promise()),
+                   common.engineSpecificMessage({
+                     v8: '{ bar: 42 }',
+                     chakracore: 'Object { \'<unknown>\', bar: 42 }'
+                   }));
 global.Promise = oldPromise;
 
 // Skip for chakra engine as debugger support not yet present
 // below code uses `Debug.MakeMirror` to inspect
 if (!common.isChakraEngine) {
-// Map/Set Iterators
-var m = new Map([['foo', 'bar']]);
-assert.strictEqual(util.inspect(m.keys()), 'MapIterator { \'foo\' }');
-assert.strictEqual(util.inspect(m.values()), 'MapIterator { \'bar\' }');
-assert.strictEqual(util.inspect(m.entries()),
-                   'MapIterator { [ \'foo\', \'bar\' ] }');
-// make sure the iterator doesn't get consumed
-var keys = m.keys();
-assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+  // Map/Set Iterators
+  var m = new Map([['foo', 'bar']]);
+  assert.strictEqual(util.inspect(m.keys()), 'MapIterator { \'foo\' }');
+  assert.strictEqual(util.inspect(m.values()), 'MapIterator { \'bar\' }');
+  assert.strictEqual(util.inspect(m.entries()),
+                     'MapIterator { [ \'foo\', \'bar\' ] }');
+  // make sure the iterator doesn't get consumed
+  var keys = m.keys();
+  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
 
-var s = new Set([1, 3]);
-assert.strictEqual(util.inspect(s.keys()), 'SetIterator { 1, 3 }');
-assert.strictEqual(util.inspect(s.values()), 'SetIterator { 1, 3 }');
-assert.strictEqual(util.inspect(s.entries()),
-                   'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
-// make sure the iterator doesn't get consumed
-keys = s.keys();
-assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
-assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+  var s = new Set([1, 3]);
+  assert.strictEqual(util.inspect(s.keys()), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(s.values()), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(s.entries()),
+                     'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
+  // make sure the iterator doesn't get consumed
+  keys = s.keys();
+  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
 }
 
 // Test alignment of items in container
@@ -817,18 +819,18 @@ checkAlignment(new Map(big_array.map(function(y) { return [y, null]; })));
   const x = new ObjectSubclass();
   x.foo = 42;
   assert.strictEqual(util.inspect(x),
-               'ObjectSubclass { foo: 42 }');
+                     'ObjectSubclass { foo: 42 }');
   assert.strictEqual(util.inspect(new ArraySubclass(1, 2, 3)),
-               'ArraySubclass [ 1, 2, 3 ]');
+                     'ArraySubclass [ 1, 2, 3 ]');
   assert.strictEqual(util.inspect(new SetSubclass([1, 2, 3])),
-               'SetSubclass { 1, 2, 3 }');
+                     'SetSubclass { 1, 2, 3 }');
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
-              'MapSubclass { \'foo\' => 42 }');
+                     'MapSubclass { \'foo\' => 42 }');
   assert.strictEqual(util.inspect(new PromiseSubclass(function() {})),
-    common.engineSpecificMessage({
-      v8: 'PromiseSubclass { <pending> }',
-      chakracore: 'PromiseSubclass {}'
-    }));
+                     common.engineSpecificMessage({
+                       v8: 'PromiseSubclass { <pending> }',
+                       chakracore: 'PromiseSubclass {}'
+                     }));
 }
 
 // Corner cases.
