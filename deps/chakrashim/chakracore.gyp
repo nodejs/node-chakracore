@@ -54,7 +54,7 @@
 
         'chakracore_win_bin_dir':
           '<(chakra_dir)/build/vcbuild/bin/<(Platform)_$(ConfigurationName)',
-        'xplat_dir': '<(chakra_dir)/BuildLinux/<(chakra_config)/lib',
+        'xplat_dir': '<(chakra_dir)/out/<(chakra_config)',
         'chakra_libs_absolute': '<(PRODUCT_DIR)/../../deps/chakrashim/<(xplat_dir)',
 
         'conditions': [
@@ -69,31 +69,23 @@
           ['OS in "linux android"', {
             'chakracore_input': '<(chakra_dir)/build.sh',
             'chakracore_binaries': [
-              '<(chakra_libs_absolute)/Common/Core/libChakra.Common.Core.a',
-              '<(chakra_libs_absolute)/Jsrt/libChakra.Jsrt.a',
-              '<(chakra_libs_absolute)/../pal/src/libChakra.Pal.a',
+              '<(chakra_libs_absolute)/bin/ChakraCore/libChakraCoreStatic.a',
             ],
             'linker_start_group': '-Wl,--start-group',
             'linker_end_group': [
               '-Wl,--end-group',
-              '-lgcc_s',          # This must be before -lunwind!
-              '-lunwind',
-              '-lunwind-generic',
+              '-lgcc_s',
               '-licuuc',
             ]
           }],
           ['OS=="mac"', {
             'chakracore_input': '<(chakra_dir)/build.sh',
             'chakracore_binaries': [
-              '<(chakra_libs_absolute)/Common/Core/libChakra.Common.Core.a',
-              '<(chakra_libs_absolute)/Jsrt/libChakra.Jsrt.a',
-              '<(chakra_libs_absolute)/../pal/src/libChakra.Pal.a',
+              '<(chakra_libs_absolute)/bin/ChakraCore/libChakraCoreStatic.a',
             ],
             'icu_args': '--icu=<(icu_include_path)',
             'linker_start_group': '-Wl,-force_load',
             'linker_end_group': [
-              '-framework CoreFoundation',
-              '-framework Security',
               '<(icu_lib_path)/libicuuc.a',
               '<(icu_lib_path)/libicui18n.a',
               '<(icu_lib_path)/libicudata.a',
@@ -153,13 +145,19 @@
         'conditions': [
           ['OS=="win"', {
           }, {
+            'conditions': [
+              ['OS=="mac"', {
+                'libraries': [
+                  '-framework CoreFoundation',
+                  '-framework Security',
+                ]
+              }]
+            ],
             'libraries': [
               '-Wl,-undefined,error',
               '<@(linker_start_group)',
-              '<(chakra_libs_absolute)/../pal/src/libChakra.Pal.a',
-              '<(chakra_libs_absolute)/Common/Core/libChakra.Common.Core.a',  # link first for correct init order
-              '<(chakra_libs_absolute)/Jsrt/libChakra.Jsrt.a',
-              '<@(linker_end_group)',
+              '<(chakra_libs_absolute)/bin/ChakraCore/libChakraCoreStatic.a ' # keep this single space.
+              '<@(linker_end_group)',                                         # gpy fails to patch with list
             ],
           }],
         ],
