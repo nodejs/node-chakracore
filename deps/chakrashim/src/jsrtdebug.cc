@@ -492,14 +492,16 @@ namespace jsrt {
     void *callbackState) {
     int frameIndex;
     JsValueRef scriptRef;
-    jsrt::StringUtf8 script;
     JsValueRef resultArray = JS_INVALID_REFERENCE;
     JsValueRef result = JS_INVALID_REFERENCE;
 
     if (argumentCount > 2 &&
       jsrt::ValueToInt(arguments[2], &frameIndex) == JsNoError &&
-      jsrt::ToString(arguments[1], &scriptRef, &script) == JsNoError) {
-      JsErrorCode errorCode = JsDiagEvaluateUtf8(script, frameIndex, &result);
+      JsConvertValueToString(arguments[1], &scriptRef) == JsNoError) {
+      JsErrorCode errorCode = JsDiagEvaluate(scriptRef,
+                                             frameIndex,
+                                             JsParseScriptAttributeNone,
+                                             &result);
       if (errorCode != JsNoError && errorCode != JsErrorScriptException) {
         jsrt::Fatal("internal error %s(%d): %d", __FILE__, __LINE__,
           errorCode);

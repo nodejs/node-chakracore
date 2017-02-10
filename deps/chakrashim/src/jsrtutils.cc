@@ -449,9 +449,9 @@ JsErrorCode CreateString(const char *string,
 
 JsErrorCode CreatePropertyId(const char *name,
                              JsValueRef *propertyIdRef) {
-  JsErrorCode errorCode = JsCreatePropertyIdUtf8(name,
-                                                 strlen(name),
-                                                 propertyIdRef);
+  JsErrorCode errorCode = JsCreatePropertyId(name,
+                                             strlen(name),
+                                             propertyIdRef);
   CHAKRA_VERIFY_NOERROR(errorCode);
   return errorCode;
 }
@@ -621,7 +621,7 @@ JsErrorCode GetPropertyIdFromName(JsValueRef nameRef,
       }
     }
   } else {
-    error = JsCreatePropertyIdUtf8(str, str.length(), idRef);
+    error = JsCreatePropertyId(str, str.length(), idRef);
   }
 
   return error;
@@ -734,16 +734,16 @@ JsErrorCode ParseScript(StringUtf8 *script,
     std::string useStrictTag("'use strict'; ");
     useStrictTag.append(*script);
     JsValueRef scriptToParse;
-    CHAKRA_VERIFY(JsCreateStringUtf8((uint8_t*)useStrictTag.c_str(),
-                                     useStrictTag.length(),
-                                     &scriptToParse) == JsNoError);
+    CHAKRA_VERIFY(JsCreateString(useStrictTag.c_str(),
+                                 useStrictTag.length(),
+                                 &scriptToParse) == JsNoError);
     return JsParse(scriptToParse, sourceContext, sourceUrl,
                    JsParseScriptAttributeNone, result);
   } else {
     JsValueRef scriptToParse;
-    CHAKRA_VERIFY(JsCreateStringUtf8((uint8_t*)(script->operator*()),
-                                     script->length(),
-                                     &scriptToParse) == JsNoError);
+    CHAKRA_VERIFY(JsCreateString(script->operator*(),
+                                 script->length(),
+                                 &scriptToParse) == JsNoError);
     return JsParse(scriptToParse, sourceContext, sourceUrl,
                    JsParseScriptAttributeNone, result);
   }
@@ -1013,15 +1013,15 @@ StringUtf8::~StringUtf8() {
 JsErrorCode StringUtf8::From(JsValueRef strRef) {
   CHAKRA_ASSERT(!_str);
   size_t len = 0;
-  IfJsErrorRet(JsCopyStringUtf8(strRef, nullptr, 0, &len));
-  uint8_t* buffer = (uint8_t*)malloc(len+1);
+  IfJsErrorRet(JsCopyString(strRef, nullptr, 0, &len));
+  char* buffer = reinterpret_cast<char*>(malloc(len+1));
   CHAKRA_VERIFY(buffer != nullptr);
   size_t written = 0;
-  JsErrorCode errorCode = JsCopyStringUtf8(strRef, buffer, len, &written);
+  JsErrorCode errorCode = JsCopyString(strRef, buffer, len, &written);
   if (errorCode == JsNoError) {
     CHAKRA_ASSERT(len == written);
     buffer[len] = '\0';
-    _str = (char*)buffer;
+    _str = buffer;
     _length = static_cast<int>(len);
   }
   return errorCode;

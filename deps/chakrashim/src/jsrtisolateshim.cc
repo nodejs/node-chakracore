@@ -844,6 +844,8 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
     int64_t snapEventTime = -1;
     int64_t snapEventEndTime = -1;
     int64_t origNETime = *nextEventTime;
+    // TODO(mrkmarron) JsTTDMoveMode is no longer 64 bit wide, fix use of
+    // moveMode parameter, convert to 32 bit?
     JsTTDMoveMode _moveMode = (JsTTDMoveMode)(*moveMode);
     JsRuntimeHandle rHandle = jsrt::IsolateShim::FromIsolate(isolate)->GetRuntimeHandle();
 
@@ -884,6 +886,7 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
     }
 
     JsErrorCode error = JsTTDGetSnapTimeTopLevelEventMove(rHandle, _moveMode,
+                                                          0,
                                                           nextEventTime,
                                                           &snapEventTime,
                                                           &snapEventEndTime);
