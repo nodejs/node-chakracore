@@ -1,7 +1,9 @@
 'use strict';
-var common = require('../common');
-var assert = require('assert');
-var spawn = require('child_process').spawn;
+const common = require('../common');
+const assert = require('assert');
+const spawn = require('child_process').spawn;
+const os = require('os');
+
 
 if (common.isChakraEngine) {
   console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
@@ -9,15 +11,21 @@ if (common.isChakraEngine) {
   return;
 }
 
-var debugPort = common.PORT;
-var args = ['--interactive', '--debug-port=' + debugPort];
-var childOptions = { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] };
-var child = spawn(process.execPath, args, childOptions);
+const debugPort = common.PORT;
+const args = ['--interactive', '--debug-port=' + debugPort];
+const childOptions = { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] };
+const child = spawn(process.execPath, args, childOptions);
+
+const reDeprecationWarning = new RegExp(
+  /^\(node:\d+\) \[DEP0062\] DeprecationWarning: /.source +
+  /node --debug is deprecated. /.source +
+  /Please use node --inspect instead.$/.source
+);
 
 child.stdin.write("process.send({ msg: 'childready' });\n");
 
 child.stderr.on('data', function(data) {
-  var lines = data.toString().replace(/\r/g, '').trim().split('\n');
+  const lines = data.toString().replace(/\r/g, '').trim().split('\n');
   lines.forEach(processStderrLine);
 });
 
@@ -32,7 +40,7 @@ process.on('exit', function() {
   assertOutputLines();
 });
 
-var outputLines = [];
+const outputLines = [];
 function processStderrLine(line) {
   console.log('> ' + line);
   outputLines.push(line);
@@ -43,12 +51,20 @@ function processStderrLine(line) {
 }
 
 function assertOutputLines() {
+  // need a var so can swap the first two lines in following
+  // eslint-disable-next-line no-var
   var expectedLines = [
-    'Starting debugger agent.',
-    'Debugger listening on 127.0.0.1:' + debugPort,
+    /^Starting debugger agent.$/,
+    reDeprecationWarning,
+    new RegExp(`^Debugger listening on 127.0.0.1:${debugPort}$`)
   ];
 
+  if (os.platform() === 'win32') {
+    expectedLines[1] = expectedLines[0];
+    expectedLines[0] = reDeprecationWarning;
+  }
+
   assert.strictEqual(outputLines.length, expectedLines.length);
-  for (var i = 0; i < expectedLines.length; i++)
-    assert(expectedLines[i].includes(outputLines[i]));
+  for (let i = 0; i < expectedLines.length; i++)
+    assert(expectedLines[i].test(outputLines[i]));
 }

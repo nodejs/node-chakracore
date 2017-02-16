@@ -188,6 +188,15 @@ test/addons/.buildstamp: config.gypi \
 # TODO(bnoordhuis) Force rebuild after gyp update.
 build-addons: $(NODE_EXE) test/addons/.buildstamp
 
+ifeq ($(OSTYPE),$(filter $(OSTYPE),darwin aix))
+  XARGS = xargs
+else
+  XARGS = xargs -r
+endif
+clear-stalled:
+	ps awwx | grep Release/node | grep -v grep | cat
+	ps awwx | grep Release/node | grep -v grep | awk '{print $$1}' | $(XARGS) kill
+
 test-gc: all test/gc/node_modules/weak/build/Release/weakref.node
 	$(PYTHON) tools/test.py --mode=release gc
 
@@ -210,13 +219,13 @@ test-ci-native: | test/addons/.buildstamp
 		$(TEST_CI_ARGS) $(CI_NATIVE_SUITES)
 
 # This target should not use a native compiler at all
-test-ci-js:
+test-ci-js: | clear-stalled
 	$(PYTHON) tools/test.py $(PARALLEL_ARGS) -p tap --logfile test.tap \
 		--mode=release --flaky-tests=$(FLAKY_TESTS) \
 		$(TEST_CI_ARGS) $(CI_JS_SUITES)
 
 test-ci: LOGLEVEL := info
-test-ci: | build-addons
+test-ci: | clear-stalled build-addons
 	out/Release/cctest --gtest_output=tap:cctest.tap
 	$(PYTHON) tools/test.py $(PARALLEL_ARGS) -p tap --logfile test.tap \
 		--mode=release --flaky-tests=$(FLAKY_TESTS) \
@@ -300,6 +309,11 @@ test-v8 test-v8-intl test-v8-benchmarks test-v8-all:
 		"$ git clone https://github.com/nodejs/node.git"
 endif
 
+# Google Analytics ID used for tracking API docs page views, empty
+# DOCS_ANALYTICS means no tracking scripts will be included in the
+# generated .html files
+DOCS_ANALYTICS ?=
+
 apidoc_sources = $(wildcard doc/api/*.md)
 apidocs_html = $(apidoc_dirs) $(apiassets) $(addprefix out/,$(apidoc_sources:.md=.html))
 apidocs_json = $(apidoc_dirs) $(apiassets) $(addprefix out/,$(apidoc_sources:.md=.json))
@@ -333,7 +347,8 @@ out/doc/api/%.json: doc/api/%.md
 	[ -x $(NODE) ] && $(NODE) $(gen-json) || node $(gen-json)
 
 # check if ./node is actually set, else use user pre-installed binary
-gen-html = tools/doc/generate.js --node-version=$(FULLVERSION) --format=html --template=doc/template.html $< > $@
+gen-html = tools/doc/generate.js --node-version=$(FULLVERSION) --format=html \
+			--template=doc/template.html --analytics=$(DOCS_ANALYTICS) $< > $@
 out/doc/api/%.html: doc/api/%.md
 	@[ -e tools/doc/node_modules/js-yaml/package.json ] || \
 		[ -e tools/eslint/node_modules/js-yaml/package.json ] || \
@@ -498,7 +513,7 @@ PKGDIR=out/dist-osx
 release-only:
 	@if [ "$(DISTTYPE)" != "nightly" ] && [ "$(DISTTYPE)" != "next-nightly" ] && \
 		`grep -q REPLACEME doc/api/*.md`; then \
-		echo 'Please update Added: tags in the documentation first.' ; \
+		echo 'Please update REPLACEME in Added: tags in doc/api/*.md (See doc/releases.md)' ; \
 		exit 1 ; \
 	fi
 	@if [ "$(shell git status --porcelain | egrep -v '^\?\? ')" = "" ]; then \
@@ -587,7 +602,7 @@ ifeq ($(XZ), 0)
 	ssh $(STAGINGSERVER) "touch nodejs/$(DISTTYPEDIR)/$(FULLVERSION)/node-$(FULLVERSION).tar.xz.done"
 endif
 
-doc-upload: tar
+doc-upload: doc
 	ssh $(STAGINGSERVER) "mkdir -p nodejs/$(DISTTYPEDIR)/$(FULLVERSION)"
 	chmod -R ug=rw-x+X,o=r+X out/doc/
 	scp -pr out/doc/ $(STAGINGSERVER):nodejs/$(DISTTYPEDIR)/$(FULLVERSION)/docs/
@@ -758,4 +773,4 @@ endif
 	bench-all bench bench-misc bench-array bench-buffer bench-net \
 	bench-http bench-fs bench-tls cctest run-ci test-v8 test-v8-intl \
 	test-v8-benchmarks test-v8-all v8 lint-ci bench-ci jslint-ci doc-only \
-	$(TARBALL)-headers test-ci test-ci-native test-ci-js build-ci
+	$(TARBALL)-headers test-ci test-ci-native test-ci-js build-ci clear-stalled

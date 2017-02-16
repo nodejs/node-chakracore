@@ -1,13 +1,14 @@
 'use strict';
 const common = require('../common');
-var assert = require('assert');
-var fs = require('fs');
-var path = require('path');
-var msg = {test: 'this'};
-var nodeCopyPath = path.join(common.tmpDir, 'node-copy.exe');
-var chakracoreCopyPath = path.join(common.tmpDir, 'chakracore.dll');
-var exePaths = [
-    {srcPath: process.execPath,
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const msg = {test: 'this'};
+const nodePath = process.execPath;
+const nodeCopyPath = path.join(common.tmpDir, 'node-copy.exe');
+const chakracoreCopyPath = path.join(common.tmpDir, 'chakracore.dll');
+const exePaths = [
+    {srcPath: nodePath,
      destPath: nodeCopyPath}];
 if (common.isChakraEngine) {
   // chakra needs chakracore.dll as well
@@ -18,7 +19,7 @@ if (common.isChakraEngine) {
 
 if (process.env.FORK) {
   assert(process.send);
-  assert.equal(process.argv[0], nodeCopyPath);
+  assert.strictEqual(process.argv[0], nodeCopyPath);
   process.send(msg);
   process.exit();
 } else {
@@ -37,9 +38,9 @@ if (process.env.FORK) {
   });
 
   // slow but simple
-  var envCopy = JSON.parse(JSON.stringify(process.env));
+  const envCopy = JSON.parse(JSON.stringify(process.env));
   envCopy.FORK = 'true';
-  var child = require('child_process').fork(__filename, {
+  const child = require('child_process').fork(__filename, {
     execPath: nodeCopyPath,
     env: envCopy
   });

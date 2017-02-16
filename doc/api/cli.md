@@ -10,7 +10,7 @@ To view this documentation as a manual page in your terminal, run `man node`.
 
 ## Synopsis
 
-`node [options] [v8 options] [script.js | -e "script"] [arguments]`
+`node [options] [v8 options] [script.js | -e "script"] [--] [arguments]`
 
 `node debug [script.js | -e "script" | <host>:<port>] …`
 
@@ -121,6 +121,16 @@ added: v6.0.0
 
 Print stack traces for process warnings (including deprecations).
 
+### `--redirect-warnings=file`
+<!-- YAML
+added: REPLACEME
+-->
+
+Write process warnings to the given file instead of printing to stderr. The
+file will be created if it does not exist, and will be appended to if it does.
+If an error occurs while attempting to write the warning to the file, the
+warning will be written to stderr instead.
+
 ### `--trace-sync-io`
 <!-- YAML
 added: v2.1.0
@@ -203,7 +213,7 @@ Track heap object allocations for heap snapshots.
 
 ### `--prof-process`
 <!-- YAML
-added: v6.0.0
+added: v5.2.0
 -->
 
 Process v8 profiler output generated using the v8 option `--prof`.
@@ -257,6 +267,24 @@ Load an OpenSSL configuration file on startup. Among other uses, this can be
 used to enable FIPS-compliant crypto if Node.js is built with
 `./configure --openssl-fips`.
 
+### `--use-openssl-ca`, `--use-bundled-ca`
+<!-- YAML
+added: v7.5.0
+-->
+
+Use OpenSSL's default CA store or use bundled Mozilla CA store as supplied by
+current NodeJS version. The default store is selectable at build-time.
+
+Using OpenSSL store allows for external modifications of the store. For most
+Linux and BSD distributions, this store is maintained by the distribution
+maintainers and system administrators. OpenSSL CA store location is dependent on
+configuration of the OpenSSL library but this can be altered at runtime using
+environmental variables.
+
+The bundled CA store, as supplied by NodeJS, is a snapshot of Mozilla CA store
+that is fixed at release time. It is identical on all supported platforms.
+
+See `SSL_CERT_DIR` and `SSL_CERT_FILE`.
 
 ### `--icu-data-dir=file`
 <!-- YAML
@@ -264,6 +292,15 @@ added: v0.11.15
 -->
 
 Specify ICU data load path. (overrides `NODE_ICU_DATA`)
+
+### `--`
+<!-- YAML
+added: v7.5.0
+-->
+
+Indicate the end of node options. Pass the rest of the arguments to the script.
+If no script filename or eval/print script is supplied prior to this, then
+the next argument will be used as a script filename.
 
 ## Environment Variables
 
@@ -301,6 +338,13 @@ added: v0.11.15
 Data path for ICU (Intl object) data. Will extend linked-in data when compiled
 with small-icu support.
 
+### `NODE_NO_WARNINGS=1`
+<!-- YAML
+added: v7.5.0
+-->
+
+When set to `1`, process warnings are silenced.
+
 ### `NODE_PRESERVE_SYMLINKS=1`
 <!-- YAML
 added: v7.1.0
@@ -321,7 +365,7 @@ to an empty string (`""` or `" "`) disables persistent REPL history.
 
 ### `NODE_TTY_UNSAFE_ASYNC=1`
 <!-- YAML
-added: 6.4.0
+added: v6.4.0
 -->
 
 When set to `1`, writes to `stdout` and `stderr` will be non-blocking and
@@ -330,6 +374,9 @@ Setting this will void any guarantee that stdio will not be interleaved or
 dropped at program exit. **Use of this mode is not recommended.**
 
 ### `NODE_EXTRA_CA_CERTS=file`
+<!-- YAML
+added: v7.3.0
+-->
 
 When set, the well known "root" CAs (like VeriSign) will be extended with the
 extra certificates in `file`. The file should consist of one or more trusted
@@ -340,8 +387,50 @@ misformatted, but any errors are otherwise ignored.
 Note that neither the well known nor extra certificates are used when the `ca`
 options property is explicitly specified for a TLS or HTTPS client or server.
 
+### `OPENSSL_CONF=file`
+<!-- YAML
+added: REPLACEME
+-->
+
+Load an OpenSSL configuration file on startup. Among other uses, this can be
+used to enable FIPS-compliant crypto if Node.js is built with `./configure
+\-\-openssl\-fips`.
+
+If the [`--openssl-config`][] command line option is used, the environment
+variable is ignored.
+
+### `SSL_CERT_DIR=dir`
+
+If `--use-openssl-ca` is enabled, this overrides and sets OpenSSL's directory
+containing trusted certificates.
+
+Note: Be aware that unless the child environment is explicitly set, this
+evironment variable will be inherited by any child processes, and if they use
+OpenSSL, it may cause them to trust the same CAs as node.
+
+### `SSL_CERT_FILE=file`
+
+If `--use-openssl-ca` is enabled, this overrides and sets OpenSSL's file
+containing trusted certificates.
+
+Note: Be aware that unless the child environment is explicitly set, this
+evironment variable will be inherited by any child processes, and if they use
+OpenSSL, it may cause them to trust the same CAs as node.
+
+### `NODE_REDIRECT_WARNINGS=file`
+<!-- YAML
+added: REPLACEME
+-->
+
+When set, process warnings will be emitted to the given file instead of
+printing to stderr. The file will be created if it does not exist, and will be
+appended to if it does. If an error occurs while attempting to write the
+warning to the file, the warning will be written to stderr instead. This is
+equivalent to using the `--redirect-warnings=file` command-line flag.
+
 [emit_warning]: process.html#process_process_emitwarning_warning_name_ctor
 [Buffer]: buffer.html#buffer_buffer
 [debugger]: debugger.html
 [REPL]: repl.html
 [SlowBuffer]: buffer.html#buffer_class_slowbuffer
+[`--openssl-config`]: #cli_openssl_config_file

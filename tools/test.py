@@ -565,11 +565,11 @@ class TestOutput(object):
       return execution_failed
 
 
-def KillProcessWithID(pid):
+def KillProcessWithID(pid, signal_to_send=signal.SIGTERM):
   if utils.IsWindows():
     os.popen('taskkill /T /F /PID %d' % pid)
   else:
-    os.kill(pid, signal.SIGTERM)
+    os.kill(pid, signal_to_send)
 
 
 MAX_SLEEP_TIME = 0.1
@@ -587,6 +587,17 @@ def Win32SetErrorMode(mode):
   except ImportError:
     pass
   return prev_error_mode
+
+
+def KillTimedOutProcess(context, pid):
+  signal_to_send = signal.SIGTERM
+  if context.abort_on_timeout:
+    # Using SIGABRT here allows the OS to generate a core dump that can be
+    # looked at post-mortem, which helps for investigating failures that are
+    # difficult to reproduce.
+    signal_to_send = signal.SIGABRT
+  KillProcessWithID(pid, signal_to_send)
+
 
 def RunProcess(context, timeout, args, **rest):
   if context.verbose: print "#", " ".join(args)
@@ -627,7 +638,7 @@ def RunProcess(context, timeout, args, **rest):
     while True:
       if time.time() >= end_time:
         # Kill the process and wait for it to exit.
-        KillProcessWithID(process.pid)
+        KillTimedOutProcess(context, process.pid)
         exit_code = process.wait()
         timed_out = True
         break
@@ -648,7 +659,7 @@ def RunProcess(context, timeout, args, **rest):
   while exit_code is None:
     if (not end_time is None) and (time.time() >= end_time):
       # Kill the process and wait for it to exit.
-      KillProcessWithID(process.pid)
+      KillTimedOutProcess(context, process.pid)
       exit_code = process.wait()
       timed_out = True
     else:
@@ -851,7 +862,7 @@ class Context(object):
 
   def __init__(self, workspace, buildspace, verbose, vm, args, expect_fail,
                timeout, processor, suppress_dialogs,
-               store_unexpected_output, repeat):
+               store_unexpected_output, repeat, abort_on_timeout):
     self.workspace = workspace
     self.buildspace = buildspace
     self.verbose = verbose
@@ -863,6 +874,7 @@ class Context(object):
     self.suppress_dialogs = suppress_dialogs
     self.store_unexpected_output = store_unexpected_output
     self.repeat = repeat
+    self.abort_on_timeout = abort_on_timeout
 
   def GetVm(self, arch, mode):
     if arch == 'none':
@@ -1386,6 +1398,9 @@ def BuildOptions():
   result.add_option('--repeat',
       help='Number of times to repeat given tests',
       default=1, type="int")
+  result.add_option('--abort-on-timeout',
+      help='Send SIGABRT instead of SIGTERM to kill processes that time out',
+      default=False, action="store_true", dest="abort_on_timeout")
   return result
 
 
@@ -1567,7 +1582,8 @@ def Main():
                     processor,
                     options.suppress_dialogs,
                     options.store_unexpected_output,
-                    options.repeat)
+                    options.repeat,
+                    options.abort_on_timeout)
 
   # Get status for tests
   sections = [ ]
@@ -1638,9 +1654,9 @@ def Main():
 
   tempdir = os.environ.get('NODE_TEST_DIR') or options.temp_dir
   if tempdir:
+    os.environ['NODE_TEST_DIR'] = tempdir
     try:
       os.makedirs(tempdir)
-      os.environ['NODE_TEST_DIR'] = tempdir
     except OSError as exception:
       if exception.errno != errno.EEXIST:
         print "Could not create the temporary directory", options.temp_dir

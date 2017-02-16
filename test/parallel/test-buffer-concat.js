@@ -5,7 +5,7 @@ const assert = require('assert');
 const zero = [];
 const one = [ Buffer.from('asdf') ];
 const long = [];
-for (var i = 0; i < 10; i++) long.push(Buffer.from('asdf'));
+for (let i = 0; i < 10; i++) long.push(Buffer.from('asdf'));
 
 const flatZero = Buffer.concat(zero);
 const flatOne = Buffer.concat(one);
@@ -15,7 +15,7 @@ const flatLongLen = Buffer.concat(long, 40);
 assert.strictEqual(flatZero.length, 0);
 assert.strictEqual(flatOne.toString(), 'asdf');
 
-const check = new Array(10 + 1).join('asdf');
+const check = 'asdf'.repeat(10);
 
 // A special case where concat used to return the first item,
 // if the length is one. This check is to make sure that we don't do that.

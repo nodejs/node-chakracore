@@ -1,13 +1,13 @@
 'use strict';
-var common = require('../common');
-var assert = require('assert');
+const common = require('../common');
+const assert = require('assert');
 
-var spawn = require('child_process').spawn;
-var args = ['-i'];
-var child = spawn(process.execPath, args);
+const spawn = require('child_process').spawn;
+const args = ['-i'];
+const child = spawn(process.execPath, args);
 
-var input = '(function(){"use strict"; const y=1;y=2})()\n';
-var expectedOutput = common.engineSpecificMessage({
+const input = '(function(){"use strict"; const y=1;y=2})()\n';
+const expectOut = common.engineSpecificMessage({
   v8: /^> TypeError: Assignment to constant variable.\n/,
   chakracore: /^> TypeError: Assignment to const\n/
 });
@@ -18,12 +18,12 @@ child.stderr.on('data', function(c) {
 });
 
 child.stdout.setEncoding('utf8');
-var out = '';
+let out = '';
 child.stdout.on('data', function(c) {
   out += c;
 });
 child.stdout.on('end', function() {
-  assert(expectedOutput.test(out));
+  assert(expectOut.test(out));
   console.log('ok');
 });
 

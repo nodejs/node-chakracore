@@ -18,15 +18,15 @@ if (common.opensslCli === false) {
 
 const cert = fs.readFileSync(common.fixturesDir + '/test_cert.pem');
 const key = fs.readFileSync(common.fixturesDir + '/test_key.pem');
-const server = tls.createServer({ cert: cert, key: key }, common.fail);
+const server = tls.createServer({ cert: cert, key: key }, common.mustNotCall());
 const errors = [];
 let stderr = '';
 
 server.listen(0, '127.0.0.1', function() {
   const address = this.address().address + ':' + this.address().port;
   const args = ['s_client',
-              '-ssl3',
-              '-connect', address];
+                '-ssl3',
+                '-connect', address];
 
   // for the performance and stability issue in s_client on Windows
   if (common.isWindows)

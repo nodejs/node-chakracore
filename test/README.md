@@ -163,6 +163,13 @@ A stream to push an array into a REPL
 
 Blocks for `time` amount of time.
 
+### canCreateSymLink
+API to indicate whether the current running process can create
+symlinks. On Windows, this returns false if the process running
+doesn't have privileges to create symlinks (specifically
+[SeCreateSymbolicLinkPrivilege](https://msdn.microsoft.com/en-us/library/windows/desktop/bb530716(v=vs.85).aspx)).
+On non-Windows platforms, this currently returns true.
+
 ### ddCommand(filename, kilobytes)
 * return [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 
@@ -366,9 +373,18 @@ Synchronous version of `spawnPwd`.
 ### tmpDir
 * return [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
 
-Path to the 'tmp' directory.
+The realpath of the 'tmp' directory.
 
 ### tmpDirName
 * return [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
 
 Name of the temp directory used by tests.
+
+### WPT
+
+A port of parts of
+[W3C testharness.js](https://github.com/w3c/testharness.js) for testing the
+Node.js
+[WHATWG URL API](https://nodejs.org/api/url.html#url_the_whatwg_url_api)
+implementation with tests from
+[W3C Web Platform Tests](https://github.com/w3c/web-platform-tests).

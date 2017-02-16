@@ -3,11 +3,11 @@ const common = require('../common');
 const assert = require('assert');
 const cluster = require('cluster');
 
-setTimeout(common.fail.bind(assert, 'setup not emitted'), 1000).unref();
+setTimeout(common.mustNotCall('setup not emitted'), 1000).unref();
 
 cluster.on('setup', common.mustCall(function() {
-  var clusterArgs = cluster.settings.args;
-  var realArgs = process.argv;
+  const clusterArgs = cluster.settings.args;
+  const realArgs = process.argv;
   assert.strictEqual(clusterArgs[clusterArgs.length - 1],
                      realArgs[realArgs.length - 1]);
 }));

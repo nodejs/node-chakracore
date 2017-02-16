@@ -8,9 +8,12 @@
 #include "util-inl.h"
 #include "uv.h"
 #include "v8.h"
+#include "tracing/trace_event.h"
 
 #include <stdint.h>
 #include <stdlib.h>
+
+#include <string>
 
 struct sockaddr;
 
@@ -34,12 +37,17 @@ namespace node {
 
 // Set in node.cc by ParseArgs with the value of --openssl-config.
 // Used in node_crypto.cc when initializing OpenSSL.
-extern const char* openssl_config;
+extern std::string openssl_config;
 
 // Set in node.cc by ParseArgs when --preserve-symlinks is used.
 // Used in node_config.cc to set a constant on process.binding('config')
 // that is used by lib/module.js
 extern bool config_preserve_symlinks;
+
+// Set in node.cc by ParseArgs when --redirect-warnings= is used.
+// Used to redirect warning output to a file rather than sending
+// it to stderr.
+extern std::string config_warning_file;  // NOLINT(runtime/string)
 
 // Tells whether it is safe to call v8::Isolate::GetCurrent().
 extern bool v8_initialized;
@@ -105,6 +113,8 @@ void RegisterSignalHandler(int signal,
                            void (*handler)(int signal),
                            bool reset_handler = false);
 #endif
+
+bool SafeGetenv(const char* key, std::string* text);
 
 template <typename T, size_t N>
 constexpr size_t arraysize(const T(&)[N]) { return N; }

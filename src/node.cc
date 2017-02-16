@@ -166,19 +166,27 @@ static const char* trace_enabled_categories = nullptr;
 
 #if defined(NODE_HAVE_I18N_SUPPORT)
 // Path to ICU data (for i18n / Intl)
-static const char* icu_data_dir = nullptr;
+static std::string icu_data_dir;  // NOLINT(runtime/string)
 #endif
 
 // used by C++ modules as well
 bool no_deprecation = false;
 
 #if HAVE_OPENSSL
+// use OpenSSL's cert store instead of bundled certs
+bool ssl_openssl_cert_store =
+#if defined(NODE_OPENSSL_CERT_STORE)
+        true;
+#else
+        false;
+#endif
+
 # if NODE_FIPS_MODE
 // used by crypto module
 bool enable_fips_crypto = false;
 bool force_fips_crypto = false;
 # endif  // NODE_FIPS_MODE
-const char* openssl_config = nullptr;
+std::string openssl_config;  // NOLINT(runtime/string)
 #endif  // HAVE_OPENSSL
 
 // true if process warnings should be suppressed
@@ -190,6 +198,9 @@ bool trace_warnings = false;
 // that is used by lib/module.js
 bool config_preserve_symlinks = false;
 
+// Set in node.cc by ParseArgs when --redirect-warnings= is used.
+std::string config_warning_file;  // NOLINT(runtime/string)
+
 bool v8_initialized = false;
 
 // process-relative uptime base, initialized at start-up
@@ -199,7 +210,6 @@ static uv_async_t dispatch_debug_messages_async;
 
 static Mutex node_isolate_mutex;
 static v8::Isolate* node_isolate;
-static tracing::Agent* tracing_agent;
 
 static node::DebugOptions debug_options;
 
@@ -227,16 +237,33 @@ static struct {
   }
 #endif  // HAVE_INSPECTOR
 
+  void StartTracingAgent() {
+    CHECK(tracing_agent_ == nullptr);
+    tracing_agent_ = new tracing::Agent();
+    tracing_agent_->Start(platform_, trace_enabled_categories);
+  }
+
+  void StopTracingAgent() {
+    tracing_agent_->Stop();
+  }
+
   v8::Platform* platform_;
+  tracing::Agent* tracing_agent_;
 #else  // !NODE_USE_V8_PLATFORM
   void Initialize(int thread_pool_size) {}
   void PumpMessageLoop(Isolate* isolate) {}
   void Dispose() {}
   bool StartInspector(Environment *env, const char* script_path,
-                      int port, bool wait) {
+                      const node::DebugOptions& options) {
     env->ThrowError("Node compiled with NODE_USE_V8_PLATFORM=0");
     return false;  // make compiler happy
   }
+
+  void StartTracingAgent() {
+    fprintf(stderr, "Node compiled with NODE_USE_V8_PLATFORM=0, "
+                    "so event tracing is not available.\n");
+  }
+  void StopTracingAgent() {}
 #endif  // !NODE_USE_V8_PLATFORM
 } v8_platform;
 
@@ -907,12 +934,21 @@ Local<Value> UVException(Isolate* isolate,
 
 
 // Look up environment variable unless running as setuid root.
-inline const char* secure_getenv(const char* key) {
+bool SafeGetenv(const char* key, std::string* text) {
 #ifndef _WIN32
-  if (getuid() != geteuid() || getgid() != getegid())
-    return nullptr;
+  // TODO(bnoordhuis) Should perhaps also check whether getauxval(AT_SECURE)
+  // is non-zero on Linux.
+  if (getuid() != geteuid() || getgid() != getegid()) {
+    text->clear();
+    return false;
+  }
 #endif
-  return getenv(key);
+  if (const char* value = getenv(key)) {
+    *text = value;
+    return true;
+  }
+  text->clear();
+  return false;
 }
 
 
@@ -2208,7 +2244,7 @@ static void WaitForInspectorDisconnect(Environment* env) {
   if (env->inspector_agent()->IsConnected()) {
     // Restore signal dispositions, the app is done and is no longer
     // capable of handling signals.
-#ifdef __POSIX__
+#if defined(__POSIX__) && !defined(NODE_SHARED_MODE)
     struct sigaction act;
     memset(&act, 0, sizeof(act));
     for (unsigned nr = 1; nr < kMaxSignal; nr += 1) {
@@ -2297,18 +2333,18 @@ void Kill(const FunctionCallbackInfo<Value>& args) {
 
 // Hrtime exposes libuv's uv_hrtime() high-resolution timer.
 // The value returned by uv_hrtime() is a 64-bit int representing nanoseconds,
-// so this function instead returns an Array with 2 entries representing seconds
-// and nanoseconds, to avoid any integer overflow possibility.
-// Pass in an Array from a previous hrtime() call to instead get a time diff.
+// so this function instead fills in an Uint32Array with 3 entries,
+// to avoid any integer overflow possibility.
+// The first two entries contain the second part of the value
+// broken into the upper/lower 32 bits to be converted back in JS,
+// because there is no Uint64Array in JS.
+// The third entry contains the remaining nanosecond part of the value.
 void Hrtime(const FunctionCallbackInfo<Value>& args) {
   uint64_t t = uv_hrtime();
 
   Local<ArrayBuffer> ab = args[0].As<Uint32Array>()->Buffer();
   uint32_t* fields = static_cast<uint32_t*>(ab->GetContents().Data());
 
-  // These three indices will contain the values for the hrtime tuple. The
-  // seconds value is broken into the upper/lower 32 bits and stored in two
-  // uint32 fields to be converted back in JS.
   fields[0] = (t / NANOS_PER_SEC) >> 32;
   fields[1] = (t / NANOS_PER_SEC) & 0xffffffff;
   fields[2] = t % NANOS_PER_SEC;
@@ -2448,7 +2484,7 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
              "\nwas compiled against a different Node.js version using"
              "\nNODE_MODULE_VERSION %d. This version of Node.js requires"
              "\nNODE_MODULE_VERSION %d. Please try re-compiling or "
-             "re-installing\nthe module (for instance, using `npm rebuild` or"
+             "re-installing\nthe module (for instance, using `npm rebuild` or "
              "`npm install`).",
              *filename, mp->nm_version, NODE_MODULE_VERSION);
 
@@ -3098,11 +3134,11 @@ void SetupProcessObject(Environment* env,
 #if defined(NODE_HAVE_I18N_SUPPORT) && defined(U_ICU_VERSION)
   // ICU-related versions are now handled on the js side, see bootstrap_node.js
 
-  if (icu_data_dir != nullptr) {
+  if (!icu_data_dir.empty()) {
     // Did the user attempt (via env var or parameter) to set an ICU path?
     READONLY_PROPERTY(process,
                       "icu_data_dir",
-                      OneByteString(env->isolate(), icu_data_dir));
+                      OneByteString(env->isolate(), icu_data_dir.c_str()));
   }
 #endif
 
@@ -3411,7 +3447,7 @@ void SetupProcessObject(Environment* env,
 void SignalExit(int signo) {
   uv_tty_reset_mode();
   if (trace_enabled) {
-    tracing_agent->Stop();
+    v8_platform.StopTracingAgent();
   }
 #ifdef __FreeBSD__
   // FreeBSD has a nasty bug, see RegisterSignalHandler for details
@@ -3504,75 +3540,101 @@ void LoadEnvironment(Environment* env) {
 static void PrintHelp() {
   // XXX: If you add an option here, please also add it to doc/node.1 and
   // doc/api/cli.md
-  printf("Usage: node [options] [ -e script | script.js ] [arguments] \n"
-         "       node debug script.js [arguments] \n"
+  printf("Usage: node [options] [ -e script | script.js ] [arguments]\n"
+         "       node debug script.js [arguments]\n"
          "\n"
          "Options:\n"
-         "  -v, --version            print Node.js version\n"
-         "  -e, --eval script        evaluate script\n"
-         "  -p, --print              evaluate script and print result\n"
-         "  -c, --check              syntax check script without executing\n"
-         "  -i, --interactive        always enter the REPL even if stdin\n"
-         "                           does not appear to be a terminal\n"
-         "  -r, --require            module to preload (option can be "
+         "  -v, --version              print Node.js version\n"
+         "  -e, --eval script          evaluate script\n"
+         "  -p, --print                evaluate script and print result\n"
+         "  -c, --check                syntax check script without executing\n"
+         "  -i, --interactive          always enter the REPL even if stdin\n"
+         "                             does not appear to be a terminal\n"
+         "  -r, --require              module to preload (option can be "
          "repeated)\n"
-         "  --no-deprecation         silence deprecation warnings\n"
-         "  --trace-deprecation      show stack traces on deprecations\n"
-         "  --throw-deprecation      throw an exception on deprecations\n"
-         "  --no-warnings            silence all process warnings\n"
-         "  --trace-warnings         show stack traces on process warnings\n"
-         "  --trace-sync-io          show stack trace when use of sync IO\n"
-         "                           is detected after the first tick\n"
-         "  --trace-events-enabled   track trace events\n"
-         "  --trace-event-categories comma separated list of trace event\n"
-         "                           categories to record\n"
-         "  --track-heap-objects     track heap object allocations for heap "
+#if HAVE_INSPECTOR
+         "  --inspect[=host:port]      activate inspector on host:port\n"
+         "                             (default: 127.0.0.1:9229)\n"
+         "  --inspect-brk[=host:port]  activate inspector on host:port\n"
+         "                             and break at start of user script\n"
+#endif
+         "  --no-deprecation           silence deprecation warnings\n"
+         "  --trace-deprecation        show stack traces on deprecations\n"
+         "  --throw-deprecation        throw an exception on deprecations\n"
+         "  --no-warnings              silence all process warnings\n"
+         "  --trace-warnings           show stack traces on process warnings\n"
+         "  --redirect-warnings=path\n"
+         "                             write warnings to path instead of\n"
+         "                             stderr\n"
+         "  --trace-sync-io            show stack trace when use of sync IO\n"
+         "                             is detected after the first tick\n"
+         "  --trace-events-enabled     track trace events\n"
+         "  --trace-event-categories   comma separated list of trace event\n"
+         "                             categories to record\n"
+         "  --track-heap-objects       track heap object allocations for heap "
          "snapshots\n"
-         "  --prof-process           process v8 profiler output generated\n"
-         "                           using --prof\n"
-         "  --zero-fill-buffers      automatically zero-fill all newly "
+         "  --prof-process             process v8 profiler output generated\n"
+         "                             using --prof\n"
+         "  --zero-fill-buffers        automatically zero-fill all newly "
          "allocated\n"
-         "                           Buffer and SlowBuffer instances\n"
-         "  --v8-options             print v8 command line options\n"
-         "  --v8-pool-size=num       set v8's thread pool size\n"
+         "                             Buffer and SlowBuffer instances\n"
+         "  --v8-options               print v8 command line options\n"
+         "  --v8-pool-size=num         set v8's thread pool size\n"
 #if HAVE_OPENSSL
-         "  --tls-cipher-list=val    use an alternative default TLS cipher "
+         "  --tls-cipher-list=val      use an alternative default TLS cipher "
          "list\n"
+         "  --use-bundled-ca           use bundled CA store"
+#if !defined(NODE_OPENSSL_CERT_STORE)
+         " (default)"
+#endif
+         "\n"
+         "  --use-openssl-ca           use OpenSSL's default CA store"
+#if defined(NODE_OPENSSL_CERT_STORE)
+         " (default)"
+#endif
+         "\n"
 #if NODE_FIPS_MODE
-         "  --enable-fips            enable FIPS crypto at startup\n"
-         "  --force-fips             force FIPS crypto (cannot be disabled)\n"
+         "  --enable-fips              enable FIPS crypto at startup\n"
+         "  --force-fips               force FIPS crypto (cannot be disabled)\n"
 #endif  /* NODE_FIPS_MODE */
-         "  --openssl-config=path    load OpenSSL configuration file from the\n"
-         "                           specified path\n"
+         "  --openssl-config=file      load OpenSSL configuration from the\n"
+         "                             specified file (overrides\n"
+         "                             OPENSSL_CONF)\n"
 #endif /* HAVE_OPENSSL */
 #if defined(NODE_HAVE_I18N_SUPPORT)
-         "  --icu-data-dir=dir       set ICU data load path to dir\n"
-         "                           (overrides NODE_ICU_DATA)\n"
+         "  --icu-data-dir=dir         set ICU data load path to dir\n"
+         "                             (overrides NODE_ICU_DATA)\n"
 #if !defined(NODE_HAVE_SMALL_ICU)
-         "                           note: linked-in ICU data is present\n"
+         "                             note: linked-in ICU data is present\n"
 #endif
-         "  --preserve-symlinks      preserve symbolic links when resolving\n"
-         "                           and caching modules\n"
+         "  --preserve-symlinks        preserve symbolic links when resolving\n"
+         "                             and caching modules\n"
 #endif
          "\n"
          "Environment variables:\n"
-         "NODE_DEBUG                 ','-separated list of core modules that\n"
-         "                           should print debug information\n"
-         "NODE_DISABLE_COLORS        set to 1 to disable colors in the REPL\n"
-         "NODE_EXTRA_CA_CERTS        path to additional CA certificates file\n"
+         "NODE_DEBUG                   ','-separated list of core modules\n"
+         "                             that should print debug information\n"
+         "NODE_DISABLE_COLORS          set to 1 to disable colors in the REPL\n"
+         "NODE_EXTRA_CA_CERTS          path to additional CA certificates\n"
+         "                             file\n"
 #if defined(NODE_HAVE_I18N_SUPPORT)
-         "NODE_ICU_DATA              data path for ICU (Intl object) data\n"
+         "NODE_ICU_DATA                data path for ICU (Intl object) data\n"
 #if !defined(NODE_HAVE_SMALL_ICU)
-         "                           (will extend linked-in data)\n"
+         "                             (will extend linked-in data)\n"
 #endif
 #endif
+         "NODE_NO_WARNINGS             set to 1 to silence process warnings\n"
 #ifdef _WIN32
-         "NODE_PATH                  ';'-separated list of directories\n"
+         "NODE_PATH                    ';'-separated list of directories\n"
 #else
-         "NODE_PATH                  ':'-separated list of directories\n"
+         "NODE_PATH                    ':'-separated list of directories\n"
 #endif
-         "                           prefixed to the module search path\n"
-         "NODE_REPL_HISTORY          path to the persistent REPL history file\n"
+         "                             prefixed to the module search path\n"
+         "NODE_REPL_HISTORY            path to the persistent REPL history\n"
+         "                             file\n"
+         "NODE_REDIRECT_WARNINGS       write warnings to path instead of\n"
+         "                             stderr\n"
+         "OPENSSL_CONF                 load OpenSSL configuration from file\n"
          "\n"
          "Documentation can be found at https://nodejs.org/\n");
 }
@@ -3674,6 +3736,8 @@ static void ParseArgs(int* argc,
       no_process_warnings = true;
     } else if (strcmp(arg, "--trace-warnings") == 0) {
       trace_warnings = true;
+    } else if (strncmp(arg, "--redirect-warnings=", 20) == 0) {
+      config_warning_file = arg + 20;
     } else if (strcmp(arg, "--trace-deprecation") == 0) {
       trace_deprecation = true;
     } else if (strcmp(arg, "--trace-sync-io") == 0) {
@@ -3710,6 +3774,10 @@ static void ParseArgs(int* argc,
 #if HAVE_OPENSSL
     } else if (strncmp(arg, "--tls-cipher-list=", 18) == 0) {
       default_cipher_list = arg + 18;
+    } else if (strncmp(arg, "--use-openssl-ca", 16) == 0) {
+      ssl_openssl_cert_store = true;
+    } else if (strncmp(arg, "--use-bundled-ca", 16) == 0) {
+      ssl_openssl_cert_store = false;
 #if NODE_FIPS_MODE
     } else if (strcmp(arg, "--enable-fips") == 0) {
       enable_fips_crypto = true;
@@ -3717,15 +3785,18 @@ static void ParseArgs(int* argc,
       force_fips_crypto = true;
 #endif /* NODE_FIPS_MODE */
     } else if (strncmp(arg, "--openssl-config=", 17) == 0) {
-      openssl_config = arg + 17;
+      openssl_config.assign(arg + 17);
 #endif /* HAVE_OPENSSL */
 #if defined(NODE_HAVE_I18N_SUPPORT)
     } else if (strncmp(arg, "--icu-data-dir=", 15) == 0) {
-      icu_data_dir = arg + 15;
+      icu_data_dir.assign(arg, 15);
 #endif
     } else if (strcmp(arg, "--expose-internals") == 0 ||
                strcmp(arg, "--expose_internals") == 0) {
       // consumed in js
+    } else if (strcmp(arg, "--") == 0) {
+      index += 1;
+      break;
     } else {
       // V8 option.  Pass through as-is.
       new_v8_argv[new_v8_argc] = arg;
@@ -4129,6 +4200,7 @@ inline void PlatformInit() {
 
   CHECK_EQ(err, 0);
 
+#ifndef NODE_SHARED_MODE
   // Restore signal dispositions, the parent process may have changed them.
   struct sigaction act;
   memset(&act, 0, sizeof(act));
@@ -4142,6 +4214,7 @@ inline void PlatformInit() {
     act.sa_handler = (nr == SIGPIPE) ? SIG_IGN : SIG_DFL;
     CHECK_EQ(0, sigaction(nr, &act, nullptr));
   }
+#endif  // !NODE_SHARED_MODE
 
   RegisterSignalHandler(SIGINT, SignalExit, true);
   RegisterSignalHandler(SIGTERM, SignalExit, true);
@@ -4203,9 +4276,17 @@ void Init(int* argc,
 #endif
 
   // Allow for environment set preserving symlinks.
-  if (auto preserve_symlinks = secure_getenv("NODE_PRESERVE_SYMLINKS")) {
-    config_preserve_symlinks = (*preserve_symlinks == '1');
+  {
+    std::string text;
+    config_preserve_symlinks =
+        SafeGetenv("NODE_PRESERVE_SYMLINKS", &text) && text[0] == '1';
   }
+
+  if (config_warning_file.empty())
+    SafeGetenv("NODE_REDIRECT_WARNINGS", &config_warning_file);
+
+  if (openssl_config.empty())
+    SafeGetenv("OPENSSL_CONF", &openssl_config);
 
 #if ENABLE_TTD_NODE
   // Parse and extract the TT args before anything else
@@ -4266,12 +4347,11 @@ void Init(int* argc,
 #endif
 
 #if defined(NODE_HAVE_I18N_SUPPORT)
-  if (icu_data_dir == nullptr) {
-    // if the parameter isn't given, use the env variable.
-    icu_data_dir = secure_getenv("NODE_ICU_DATA");
-  }
+  // If the parameter isn't given, use the env variable.
+  if (icu_data_dir.empty())
+    SafeGetenv("NODE_ICU_DATA", &icu_data_dir);
   // Initialize ICU.
-  // If icu_data_dir is nullptr here, it will load the 'minimal' data.
+  // If icu_data_dir is empty here, it will load the 'minimal' data.
   if (!i18n::InitializeICUDirectory(icu_data_dir)) {
     FatalError(nullptr, "Could not initialize ICU "
                      "(check NODE_ICU_DATA or --icu-data-dir parameters)");
@@ -4459,7 +4539,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   if (debug_enabled) {
     const char* path = argc > 1 ? argv[1] : nullptr;
     StartDebug(&env, path, debug_options);
-    if (debug_options.debugger_enabled() && !debugger_running)
+    if (!debugger_running)
       return 12;  // Signal internal error.
   }
 
@@ -4748,8 +4828,11 @@ int Start(int argc, char** argv) {
   Init(&argc, const_cast<const char**>(argv), &exec_argc, &exec_argv);
 
 #if HAVE_OPENSSL
-  if (const char* extra = secure_getenv("NODE_EXTRA_CA_CERTS"))
-    crypto::UseExtraCaCerts(extra);
+  {
+    std::string extra_ca_certs;
+    if (SafeGetenv("NODE_EXTRA_CA_CERTS", &extra_ca_certs))
+      crypto::UseExtraCaCerts(extra_ca_certs);
+  }
 #ifdef NODE_FIPS_MODE
   // In the case of FIPS builds we should make sure
   // the random source is properly initialized first.
@@ -4758,7 +4841,7 @@ int Start(int argc, char** argv) {
   // V8 on Windows doesn't have a good source of entropy. Seed it from
   // OpenSSL's pool.
   V8::SetEntropySource(crypto::EntropySource);
-#endif
+#endif  // HAVE_OPENSSL
 
   v8_platform.Initialize(v8_thread_pool_size);
 
@@ -4767,8 +4850,7 @@ int Start(int argc, char** argv) {
   if (trace_enabled) {
     fprintf(stderr, "Warning: Trace event is an experimental feature "
             "and could change at any time.\n");
-    tracing_agent = new tracing::Agent();
-    tracing_agent->Start(v8_platform.platform_, trace_enabled_categories);
+    v8_platform.StartTracingAgent();
   }
 #else
   if (trace_enabled) {
@@ -4795,7 +4877,7 @@ int Start(int argc, char** argv) {
 #endif
 
   if (trace_enabled) {
-    tracing_agent->Stop();
+    v8_platform.StopTracingAgent();
   }
   v8_initialized = false;
   V8::Dispose();

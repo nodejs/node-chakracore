@@ -110,13 +110,14 @@ function makeBufferingDataCallback(dataCallback) {
       buffer = Buffer.alloc(0);
     else
       buffer = Buffer.from(lines.pop(), 'utf8');
-    for (var line of lines)
+    for (const line of lines)
       dataCallback(line);
   };
 }
 
 function timeout(message, multiplicator) {
-  return setTimeout(() => common.fail(message), TIMEOUT * (multiplicator || 1));
+  return setTimeout(common.mustNotCall(message),
+                    TIMEOUT * (multiplicator || 1));
 }
 
 const TestSession = function(socket, harness) {
@@ -222,7 +223,7 @@ TestSession.prototype.sendInspectorCommands = function(commands) {
 };
 
 TestSession.prototype.createCallbackWithTimeout_ = function(message) {
-  var promise = new Promise((resolve) => {
+  const promise = new Promise((resolve) => {
     this.enqueue((callback) => {
       const timeoutId = timeout(message);
       resolve(() => {
@@ -398,7 +399,7 @@ Harness.prototype.wsHandshake = function(devtoolsUrl, tests, readyCallback) {
       });
     }
     enqueue(tests);
-  }).on('response', () => common.fail('Upgrade was not received'));
+  }).on('response', common.mustNotCall('Upgrade was not received'));
 };
 
 Harness.prototype.runFrontendSession = function(tests) {
@@ -428,7 +429,7 @@ Harness.prototype.expectShutDown = function(errorCode) {
 
 exports.startNodeForInspectorTest = function(callback) {
   const child = spawn(process.execPath,
-      [ '--inspect', '--debug-brk', mainScript ]);
+      [ '--inspect-brk', mainScript ]);
 
   const timeoutId = timeout('Child process did not start properly', 4);
 

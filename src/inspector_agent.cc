@@ -31,10 +31,6 @@ namespace {
 using v8_inspector::StringBuffer;
 using v8_inspector::StringView;
 
-static const uint8_t PROTOCOL_JSON[] = {
-#include "v8_inspector_protocol_json.h"  // NOLINT(build/include_order)
-};
-
 std::string GetProcessTitle() {
   // uv_get_process_title will trim the title if it is too long.
   char title[2048];
@@ -560,9 +556,10 @@ void AgentImpl::WorkerRunIO() {
   }
   InspectorAgentDelegate delegate(this, script_path, script_name_, wait_);
   delegate_ = &delegate;
-  InspectorSocketServer server(&delegate, options_.port());
+  InspectorSocketServer server(&delegate,
+                               options_.host_name(),
+                               options_.port());
   if (!server.Start(&child_loop_)) {
-    fprintf(stderr, "Unable to open devtools socket: %s\n", uv_strerror(err));
     state_ = State::kError;  // Safe, main thread is waiting on semaphore
     uv_close(reinterpret_cast<uv_handle_t*>(&io_thread_req_), nullptr);
     uv_loop_close(&child_loop_);

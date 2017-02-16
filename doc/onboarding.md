@@ -5,14 +5,19 @@ onboarding session.
 
 ## One week before the onboarding session
 
-* Ask the new Collaborator if they are using two-factor authentication on their
-  GitHub account. If they are not, suggest that they enable it as their account
-  will have elevated privileges in many of the Node.js repositories.
+* Confirm that the new Collaborator is using two-factor authentication on their
+  GitHub account. Unless two-factor authentication is enabled, do not give an
+  account elevated privileges such as the ability to land code in the main
+  repository or to start continuous integration (CI) jobs.
 
 ## Fifteen minutes before the onboarding session
 
-* Prior to the onboarding session, add the new Collaborators to
-[the Collaborators team](https://github.com/orgs/nodejs/teams/collaborators).
+* Prior to the onboarding session, add the new Collaborator to
+  [the Collaborators team](https://github.com/orgs/nodejs/teams/collaborators).
+  Note that this is the step that gives the account elevated privileges, so
+  do not perform this step (or any subsequent steps) unless two-factor
+  authentication is enabled on the new Collaborator's GitHub account.
+
 
 ## Onboarding session
 
@@ -65,6 +70,10 @@ onboarding session.
 
   * [**See "Who to CC in issues"**](./onboarding-extras.md#who-to-cc-in-issues)
     * will also come more naturally over time
+
+  * When a discussion gets heated, you can request that other collaborators keep an eye on it by opening an issue at the private [nodejs/moderation](https://github.com/nodejs/moderation) repository.
+    * This is a repository to which all members of the `nodejs` GitHub organization (not just Collaborators on Node.js core) have access. Its contents should not be shared externally.
+    * You can find the full moderation policy [here](https://github.com/nodejs/TSC/blob/master/Moderation-Policy.md).
 
 ## Reviewing PRs
   * The primary goal is for the codebase to improve.
@@ -130,6 +139,7 @@ onboarding session.
   * Example: [https://github.com/nodejs/node/commit/7b09aade8468e1c930f36b9c81e6ac2ed5bc8732](https://github.com/nodejs/node/commit/7b09aade8468e1c930f36b9c81e6ac2ed5bc8732)
     * For raw commit message: `git log 7b09aade8468e1c930f36b9c81e6ac2ed5bc8732 -1`
   * Collaborators are in alphabetical order by GitHub username.
+  * Optionally, include your personal pronouns.
   * Label your pull request with the `doc` subsystem label.
   * Run CI on your PR.
   * After a `LGTM` or two, land the PR.

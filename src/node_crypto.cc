@@ -17,6 +17,10 @@
 // https://hg.mozilla.org/mozilla-central/raw-file/98820360ab66/security/
 // certverifier/CNNICHashWhitelist.inc
 #include "CNNICHashWhitelist.inc"
+// StartCom and WoSign root CA list is taken from
+// https://hg.mozilla.org/mozilla-central/file/tip/security/certverifier/
+// StartComAndWoSignData.inc
+#include "StartComAndWoSignData.inc"
 
 #include <errno.h>
 #include <limits.h>  // INT_MAX
@@ -123,7 +127,7 @@ const char* const root_certs[] = {
 std::string extra_root_certs_file;  // NOLINT(runtime/string)
 
 X509_STORE* root_cert_store;
-std::vector<X509*>* root_certs_vector;
+std::vector<X509*> root_certs_vector;
 
 // Just to generate static methods
 template class SSLWrap<TLSWrap>;
@@ -693,28 +697,27 @@ static int X509_up_ref(X509* cert) {
 
 
 static X509_STORE* NewRootCertStore() {
-  if (!root_certs_vector) {
-    root_certs_vector = new std::vector<X509*>;
-
+  if (root_certs_vector.empty()) {
     for (size_t i = 0; i < arraysize(root_certs); i++) {
       BIO* bp = NodeBIO::NewFixed(root_certs[i], strlen(root_certs[i]));
       X509 *x509 = PEM_read_bio_X509(bp, nullptr, CryptoPemCallback, nullptr);
       BIO_free(bp);
 
-      if (x509 == nullptr) {
-        // Parse errors from the built-in roots are fatal.
-        ABORT();
-        return nullptr;
-      }
+      // Parse errors from the built-in roots are fatal.
+      CHECK_NE(x509, nullptr);
 
-      root_certs_vector->push_back(x509);
+      root_certs_vector.push_back(x509);
     }
   }
 
   X509_STORE* store = X509_STORE_new();
-  for (auto& cert : *root_certs_vector) {
-    X509_up_ref(cert);
-    X509_STORE_add_cert(store, cert);
+  if (ssl_openssl_cert_store) {
+    X509_STORE_set_default_paths(store);
+  } else {
+    for (X509 *cert : root_certs_vector) {
+      X509_up_ref(cert);
+      X509_STORE_add_cert(store, cert);
+    }
   }
 
   return store;
@@ -1150,10 +1153,14 @@ void SecureContext::SetTicketKeys(const FunctionCallbackInfo<Value>& args) {
 
 
 void SecureContext::SetFreeListLength(const FunctionCallbackInfo<Value>& args) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(OPENSSL_IS_BORINGSSL)
+  // |freelist_max_len| was removed in OpenSSL 1.1.0. In that version OpenSSL
+  // mallocs and frees buffers directly, without the use of a freelist.
   SecureContext* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
 
   wrap->ctx_->freelist_max_len = args[0]->Int32Value();
+#endif
 }
 
 
@@ -2758,9 +2765,40 @@ inline X509* FindRoot(STACK_OF(X509)* sk) {
 }
 
 
-// Whitelist check for certs issued by CNNIC. See
+inline bool CertIsStartComOrWoSign(X509_NAME* name) {
+  const unsigned char* startcom_wosign_data;
+  X509_NAME* startcom_wosign_name;
+
+  for (const auto& dn : StartComAndWoSignDNs) {
+    startcom_wosign_data = dn.data;
+    startcom_wosign_name = d2i_X509_NAME(nullptr, &startcom_wosign_data,
+                                         dn.len);
+    if (X509_NAME_cmp(name, startcom_wosign_name) == 0)
+      return true;
+  }
+
+  return false;
+}
+
+// Revoke the certificates issued by StartCom or WoSign that has
+// notBefore after 00:00:00 on October 21, 2016 (1477008000 in epoch).
+inline bool CheckStartComOrWoSign(X509_NAME* root_name, X509* cert) {
+  if (!CertIsStartComOrWoSign(root_name))
+    return true;
+
+  time_t october_21_2016 = static_cast<time_t>(1477008000);
+  if (X509_cmp_time(X509_get_notBefore(cert), &october_21_2016) < 0)
+    return true;
+
+  return false;
+}
+
+
+// Whitelist check for certs issued by CNNIC, StartCom and WoSign. See
 // https://blog.mozilla.org/security/2015/04/02
-// /distrusting-new-cnnic-certificates/
+// /distrusting-new-cnnic-certificates/ and
+// https://blog.mozilla.org/security/2016/10/24/
+// distrusting-new-wosign-and-startcom-certificates
 inline CheckResult CheckWhitelistedServerCert(X509_STORE_CTX* ctx) {
   unsigned char hash[CNNIC_WHITELIST_HASH_LEN];
   unsigned int hashlen = CNNIC_WHITELIST_HASH_LEN;
@@ -2779,11 +2817,14 @@ inline CheckResult CheckWhitelistedServerCert(X509_STORE_CTX* ctx) {
     root_name = X509_get_subject_name(root_cert);
   }
 
+  X509* leaf_cert = sk_X509_value(chain, 0);
+  if (!CheckStartComOrWoSign(root_name, leaf_cert))
+    return CHECK_CERT_REVOKED;
+
   // When the cert is issued from either CNNNIC ROOT CA or CNNNIC EV
   // ROOT CA, check a hash of its leaf cert if it is in the whitelist.
   if (X509_NAME_cmp(root_name, cnnic_name) == 0 ||
       X509_NAME_cmp(root_name, cnnic_ev_name) == 0) {
-    X509* leaf_cert = sk_X509_value(chain, 0);
     int ret = X509_digest(leaf_cert, EVP_sha256(), hash,
                           &hashlen);
     CHECK(ret);
@@ -3443,15 +3484,12 @@ bool CipherBase::SetAuthTag(const char* data, unsigned int len) {
 void CipherBase::SetAuthTag(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  Local<Object> buf = args[0].As<Object>();
-
-  if (!buf->IsObject() || !Buffer::HasInstance(buf))
-    return env->ThrowTypeError("Auth tag must be a Buffer");
+  THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Auth tag");
 
   CipherBase* cipher;
   ASSIGN_OR_RETURN_UNWRAP(&cipher, args.Holder());
 
-  if (!cipher->SetAuthTag(Buffer::Data(buf), Buffer::Length(buf)))
+  if (!cipher->SetAuthTag(Buffer::Data(args[0]), Buffer::Length(args[0])))
     env->ThrowError("Attempting to set auth tag in unsupported state");
 }
 
@@ -3560,9 +3598,13 @@ bool CipherBase::SetAutoPadding(bool auto_padding) {
 
 
 void CipherBase::SetAutoPadding(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+
   CipherBase* cipher;
   ASSIGN_OR_RETURN_UNWRAP(&cipher, args.Holder());
-  cipher->SetAutoPadding(args.Length() < 1 || args[0]->BooleanValue());
+
+  if (!cipher->SetAutoPadding(args.Length() < 1 || args[0]->BooleanValue()))
+    env->ThrowError("Attempting to set auto padding in unsupported state");
 }
 
 
@@ -3690,8 +3732,8 @@ void Hmac::HmacInit(const FunctionCallbackInfo<Value>& args) {
 bool Hmac::HmacUpdate(const char* data, int len) {
   if (!initialised_)
     return false;
-  HMAC_Update(&ctx_, reinterpret_cast<const unsigned char*>(data), len);
-  return true;
+  int r = HMAC_Update(&ctx_, reinterpret_cast<const unsigned char*>(data), len);
+  return r == 1;
 }
 
 
@@ -5851,14 +5893,14 @@ void InitCryptoOnce() {
   OPENSSL_no_config();
 
   // --openssl-config=...
-  if (openssl_config != nullptr) {
+  if (!openssl_config.empty()) {
     OPENSSL_load_builtin_modules();
 #ifndef OPENSSL_NO_ENGINE
     ENGINE_load_builtin_engines();
 #endif
     ERR_clear_error();
     CONF_modules_load_file(
-        openssl_config,
+        openssl_config.c_str(),
         nullptr,
         CONF_MFLAGS_DEFAULT_SECTION);
     int err = ERR_get_error();

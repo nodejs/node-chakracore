@@ -62,4 +62,3 @@ assert.throws(function() {
 assert.throws(function() {
   SlowBuffer(buffer.kMaxLength + 1);
 }, common.bufferMaxSizeMsg);
-

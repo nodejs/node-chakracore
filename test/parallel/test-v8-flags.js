@@ -1,8 +1,8 @@
 'use strict';
-var common = require('../common');
-var assert = require('assert');
-var v8 = require('v8');
-var vm = require('vm');
+const common = require('../common');
+const assert = require('assert');
+const v8 = require('v8');
+const vm = require('vm');
 
 if (common.isChakraEngine) {
   console.log('1..0 # Skipped: This test is disabled for chakra engine.');

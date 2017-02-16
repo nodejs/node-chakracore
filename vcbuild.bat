@@ -53,7 +53,7 @@ if /i "%1"=="arm"           set target_arch=arm&goto arg-ok
 if /i "%1"=="vc2015"        set target_env=vc2015&goto arg-ok
 if /i "%1"=="noprojgen"     set noprojgen=1&goto arg-ok
 if /i "%1"=="nobuild"       set nobuild=1&goto arg-ok
-if /i "%1"=="nosign"        set "sign="&goto arg-ok
+if /i "%1"=="nosign"        set "sign="&echo Note: vcbuild no longer signs by default. "nosign" is redundant.&goto arg-ok
 if /i "%1"=="sign"          set sign=1&goto arg-ok
 if /i "%1"=="nosnapshot"    set nosnapshot=1&goto arg-ok
 if /i "%1"=="noetw"         set noetw=1&goto arg-ok

@@ -10,6 +10,8 @@ if (common.isChakraEngine) {
   return;
 }
 
+const DELAY = common.platformTimeout(200);
+
 const fixture = path.join(
   common.fixturesDir,
   'debugger-util-regression-fixture.js'
@@ -27,12 +29,16 @@ proc.stderr.setEncoding('utf8');
 
 let stdout = '';
 let stderr = '';
+proc.stdout.on('data', (data) => stdout += data);
+proc.stderr.on('data', (data) => stderr += data);
 
 let nextCount = 0;
 let exit = false;
 
-proc.stdout.on('data', (data) => {
-  stdout += data;
+// We look at output periodically. We don't do this in the on('data') as we
+// may end up processing partial output. Processing periodically ensures that
+// the debugger is in a stable state before we take the next step.
+const timer = setInterval(() => {
   if (stdout.includes('> 1') && nextCount < 1 ||
       stdout.includes('> 2') && nextCount < 2 ||
       stdout.includes('> 3') && nextCount < 3 ||
@@ -42,14 +48,14 @@ proc.stdout.on('data', (data) => {
   } else if (!exit && (stdout.includes('< { a: \'b\' }'))) {
     exit = true;
     proc.stdin.write('.exit\n');
+    // We can cancel the timer and terminate normally.
+    clearInterval(timer);
   } else if (stdout.includes('program terminated')) {
     // Catch edge case present in v4.x
     // process will terminate after call to util.inspect
     common.fail('the program should not terminate');
   }
-});
-
-proc.stderr.on('data', (data) => stderr += data);
+}, DELAY);
 
 process.on('exit', (code) => {
   assert.strictEqual(code, 0, 'the program should exit cleanly');
