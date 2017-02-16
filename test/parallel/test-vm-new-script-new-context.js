@@ -22,13 +22,14 @@ assert.throws(function() {
 
 console.error('undefined reference');
 script = new Script('foo.bar = 5;');
-assert.throws(function() {
-  script.runInNewContext();
-},
-common.engineSpecificMessage({
-  v8: /not defined/,
-  chakracore: /undefined or null/
-}));
+assert.throws(
+  function() {
+    script.runInNewContext();
+  },
+  common.engineSpecificMessage({
+    v8: /not defined/,
+    chakracore: /undefined or null/
+  }));
 
 global.hello = 5;
 script = new Script('hello = 2');
@@ -62,13 +63,14 @@ const f = { a: 1 };
 script.runInNewContext({ f: f });
 assert.strictEqual(f.a, 2);
 
-assert.throws(function() {
-  script.runInNewContext();
-},
-common.engineSpecificMessage({
-  v8: /f is not defined/,
-  chakracore: /'a' of undefined or null/
-}));
+assert.throws(
+  function() {
+    script.runInNewContext();
+  },
+  common.engineSpecificMessage({
+    v8: /f is not defined/,
+    chakracore: /'a' of undefined or null/
+  }));
 
 console.error('invalid this');
 assert.throws(function() {

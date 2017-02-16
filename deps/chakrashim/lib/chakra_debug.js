@@ -97,7 +97,7 @@
   Debug.setBreakPoint = function(func, line, column) {
     Logger.LogAPI(`Debug.setBreakPoint(${func},${line},${column})`);
     var funcInfo = CallHostFunction(chakraDebug.JsDiagGetFunctionPosition,
-                                     func);
+                                    func);
     var bpId = -1;
 
     if (funcInfo.scriptId >= 0) {
@@ -150,7 +150,7 @@
       var objectHandle = obj['handle'];
 
       var childProperties = CallHostFunction(chakraDebug.JsDiagGetProperties,
-        objectHandle, 0, 1000);
+                                             objectHandle, 0, 1000);
 
       var propertiesArray = [];
       ['properties', 'debuggerOnlyProperties'].forEach(
@@ -288,8 +288,8 @@
             }
           } catch (ex) {
             Logger.LogError('ProcessPendingBreakpoints exception: ' +
-                           ex.message,
-                           ex.stack);
+                            ex.message,
+                            ex.stack);
           }
         }
         Array.prototype.push.apply(_pendingBreakpoints, unResolvedBreakpoints);
@@ -417,7 +417,7 @@
   ExecutionState.prototype.GetObjectProtoEvalHandle = function() {
     if (!this.objectProtoEval) {
       var objEval = CallHostFunction(chakraDebug.JsDiagEvaluate,
-        'Object.__proto__', 0);
+                                     'Object.__proto__', 0);
       if (!objEval[0]) {
         Logger.LogError('Evaluating Object.__proto__ failed');
       }
@@ -429,7 +429,7 @@
   ExecutionState.prototype.GetObjectPrototypeEvalHandle = function() {
     if (!this.objectPrototypeEval) {
       var objEval = CallHostFunction(chakraDebug.JsDiagEvaluate,
-        'Object.prototype', 0);
+                                     'Object.prototype', 0);
       if (!objEval[0]) {
         Logger.LogError('Evaluating Object.prototype failed');
       }
@@ -539,7 +539,7 @@
 
   V8Frame.prototype.Evaluate = function(expression) {
     return CallHostFunction(chakraDebug.JsDiagEvaluate, expression,
-      this.frame.index);
+                            this.frame.index);
   };
 
 
@@ -564,7 +564,8 @@
   V8Breakpoint.prototype.Set = function() {
     // {"breakpointId":1,"line":2,"column":4,"scriptId":1,"parentScriptId":2}
     var bpObject = CallHostFunction(chakraDebug.JsDiagSetBreakpoint,
-      this.scriptObject.GetId(), this.line, this.column);
+                                    this.scriptObject.GetId(),
+                                    this.line, this.column);
     if (!bpObject) {
       return false;
     }
@@ -680,7 +681,8 @@
   };
 
   V8CommandProcessor.prototype.source = function(request, response) {
-    var chakraSourceObj = CallHostFunctionNoLog(chakraDebug.JsDiagGetSource,
+    var chakraSourceObj = CallHostFunctionNoLog(
+      chakraDebug.JsDiagGetSource,
       globalExecutionState.GetBreakScriptId());
     response.success = true;
     response.body = {};
@@ -724,7 +726,7 @@
       }
 
       if (!CallHostFunction(chakraDebug.JsDiagSetStepType,
-        jsDiagSetStepType)) {
+                            jsDiagSetStepType)) {
         success = false;
       }
     }
@@ -858,7 +860,7 @@
         }
       } else {
         handleObject = CallHostFunction(chakraDebug.JsDiagGetObjectFromHandle,
-          handle);
+                                        handle);
         if (handleObject) {
           AddChildrens(handleObject);
         }
@@ -952,7 +954,7 @@
       }
 
       var success = CallHostFunction(chakraDebug.JsDiagSetBreakOnException,
-        breakOnExceptionAttribute);
+                                     breakOnExceptionAttribute);
       response.success = success ? true : false;
 
       response.body = {};
@@ -996,8 +998,10 @@
 
       //var scopesMap = { 'locals': 1, 'globals': 0, 'scopes': 3 };
       if (locals.length > 0) {
-        var scopeAndRef = DebugManager.Utility.CreateScopeAndRef(1, locals,
-          frameIndex, request.arguments.frame_index);
+        var scopeAndRef =
+          DebugManager.Utility.CreateScopeAndRef(
+            1, locals,
+            frameIndex, request.arguments.frame_index);
         scopes.push(scopeAndRef.scope);
         refs.push(scopeAndRef.ref);
       }
@@ -1019,8 +1023,9 @@
         });
 
         if (allScopeProperties.length > 0) {
-          var allScopeAndRef = DebugManager.Utility.CreateScopeAndRef(3,
-            allScopeProperties, frameIndex, request.arguments.frame_index);
+          var allScopeAndRef =
+            DebugManager.Utility.CreateScopeAndRef(
+              3, allScopeProperties, frameIndex, request.arguments.frame_index);
           scopes.push(allScopeAndRef.scope);
           refs.push(allScopeAndRef.ref);
         }
@@ -1028,7 +1033,7 @@
 
       if (props['globals'] && props['globals'].handle) {
         var globalsProps = CallHostFunction(chakraDebug.JsDiagGetProperties,
-          props['globals'].handle, 0, 5000);
+                                            props['globals'].handle, 0, 5000);
 
         var globalProperties = [];
         globalsProps['properties'].map(function(glbProperty) {
@@ -1038,8 +1043,9 @@
           globalProperties.push(glbDbgProp);
         });
         if (globalProperties.length > 0) {
-          var glbScopeAndRef = DebugManager.Utility.CreateScopeAndRef(0,
-            globalProperties, frameIndex, request.arguments.frame_index);
+          var glbScopeAndRef =
+            DebugManager.Utility.CreateScopeAndRef(
+              0, globalProperties, frameIndex, request.arguments.frame_index);
           scopes.push(glbScopeAndRef.scope);
           refs.push(glbScopeAndRef.ref);
         }

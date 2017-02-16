@@ -86,8 +86,8 @@ if (!common.hasIntl) {
     const localeString = date0.toLocaleString(['en'], optsGMT);
     assert.strictEqual(localeString, common.engineSpecificMessage({
       v8: '1/1/1970, 12:00:00 AM',
-      chakracore: '\u200E1\u200E/\u200E1\u200E/\u200E1970\u200E '
-        + '\u200E12\u200E:\u200E00\u200E:\u200E00\u200E \u200EAM'
+      chakracore: '\u200E1\u200E/\u200E1\u200E/\u200E1970\u200E ' +
+        '\u200E12\u200E:\u200E00\u200E:\u200E00\u200E \u200EAM'
     }));
   }
   // number format

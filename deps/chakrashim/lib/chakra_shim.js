@@ -211,7 +211,8 @@
 
   function captureStackTrace(err, func) {
     // skip 3 frames: lambda, withStackTraceLimitOffset, this frame
-    return privateCaptureStackTrace(err, func,
+    return privateCaptureStackTrace(
+      err, func,
       withStackTraceLimitOffset(3, () => new BuiltInError()),
       3);
   }
@@ -308,7 +309,7 @@
 
     Function.prototype.toString = function toString() {
       return Reflect_apply(Function_prototype_toString,
-        typeToNative.get(this) || this, arguments);
+                           typeToNative.get(this) || this, arguments);
     };
     typeToNative.set(Function.prototype.toString, Function_prototype_toString);
   }

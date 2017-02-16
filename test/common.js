@@ -560,7 +560,7 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
 };
 
 exports.engineSpecificMessage = function(messageObject) {
-  var jsEngine = process.jsEngine || 'v8'; //default is 'v8'
+  const jsEngine = process.jsEngine || 'v8'; //default is 'v8'
   return messageObject[jsEngine];
 };
 
