@@ -104,14 +104,14 @@ Maybe<bool> Object::Set(Handle<Value> key, Handle<Value> value,
     }
 
 
-    if (DefineProperty((JsValueRef)this,
-                       idRef,
-                       writable,
-                       enumerable,
-                       configurable,
-                       (JsValueRef)*value,
-                       JS_INVALID_REFERENCE,
-                       JS_INVALID_REFERENCE) != JsNoError) {
+    if (jsrt::DefineProperty((JsValueRef)this,
+                             idRef,
+                             writable,
+                             enumerable,
+                             configurable,
+                             (JsValueRef)*value,
+                             JS_INVALID_REFERENCE,
+                             JS_INVALID_REFERENCE) != JsNoError) {
       return Nothing<bool>();
     }
   }
@@ -133,6 +133,69 @@ Maybe<bool> Object::DefineOwnProperty(
     Local<Context> context, Local<Name> key, Local<Value> value,
     PropertyAttribute attributes) {
   return Set(key, value, attributes, /*force*/true);
+}
+
+Maybe<bool> Object::DefineProperty(Local<v8::Context> context,
+                                   Local<Name> key,
+                                   PropertyDescriptor& descriptor) {
+  JsPropertyIdRef idRef;
+
+  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  Local<Value> value = descriptor.value();
+  Local<Value> get = descriptor.get();
+  Local<Value> set = descriptor.set();
+
+  // Do it faster if there are no property attributes nor accessors
+  if (get.IsEmpty() && set.IsEmpty() &&
+      !descriptor.has_enumerable() &&
+      !descriptor.has_configurable() &&
+      !descriptor.has_writable()) {
+    if (JsSetProperty((JsValueRef)this,
+                      idRef, (JsValueRef)*value, false) != JsNoError) {
+      return Nothing<bool>();
+    }
+  } else {  // we have attributes just use it
+    PropertyDescriptorOptionValues enumerable =
+      PropertyDescriptorOptionValues::None;
+    PropertyDescriptorOptionValues configurable =
+      PropertyDescriptorOptionValues::None;
+    PropertyDescriptorOptionValues writable =
+      PropertyDescriptorOptionValues::None;
+
+    if (descriptor.has_enumerable()) {
+      enumerable = descriptor.enumerable() ?
+        PropertyDescriptorOptionValues::True :
+        PropertyDescriptorOptionValues::False;
+    }
+
+    if (descriptor.has_configurable()) {
+      configurable = descriptor.configurable() ?
+        PropertyDescriptorOptionValues::True :
+        PropertyDescriptorOptionValues::False;
+    }
+
+    if (descriptor.has_writable()) {
+      writable = descriptor.writable() ?
+        PropertyDescriptorOptionValues::True :
+        PropertyDescriptorOptionValues::False;
+    }
+
+    if (jsrt::DefineProperty((JsValueRef)this,
+                             idRef,
+                             writable,
+                             enumerable,
+                             configurable,
+                             (JsValueRef)*value,
+                             (JsValueRef)*get,
+                             (JsValueRef)*set) != JsNoError) {
+      return Nothing<bool>();
+    }
+  }
+
+  return Just(true);
 }
 
 bool Object::Set(uint32_t index, Handle<Value> value) {
@@ -342,14 +405,14 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
 
   // CHAKRA-TODO: we ignore  AccessControl for now..
 
-  if (DefineProperty((JsValueRef)this,
-                     idRef,
-                     PropertyDescriptorOptionValues::None,
-                     enumerable,
-                     configurable,
-                     JS_INVALID_REFERENCE,
-                     getterRef,
-                     setterRef) != JsNoError) {
+  if (jsrt::DefineProperty((JsValueRef)this,
+                           idRef,
+                           PropertyDescriptorOptionValues::None,
+                           enumerable,
+                           configurable,
+                           JS_INVALID_REFERENCE,
+                           getterRef,
+                           setterRef) != JsNoError) {
     return Nothing<bool>();
   }
 

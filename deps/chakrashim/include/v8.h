@@ -113,6 +113,7 @@ class Platform;
 class ResourceConstraints;
 class RegExp;
 class Promise;
+class PropertyDescriptor;
 class Proxy;
 class Script;
 class Signature;
@@ -305,6 +306,7 @@ class Local {
   friend class Object;
   friend class ObjectTemplate;
   friend class Private;
+  friend class PropertyDescriptor;
   friend class Proxy;
   friend class Signature;
   friend class Script;
@@ -1285,6 +1287,9 @@ class V8_EXPORT Object : public Value {
       Local<Context> context, Local<Name> key, Local<Value> value,
       PropertyAttribute attributes = None);
 
+  V8_WARN_UNUSED_RESULT Maybe<bool> DefineProperty(
+      Local<Context> context, Local<Name>, PropertyDescriptor& decriptor);
+
   V8_DEPRECATE_SOON("Use maybe version",
                     bool ForceSet(Handle<Value> key, Handle<Value> value,
                                   PropertyAttribute attribs = None));
@@ -1688,6 +1693,43 @@ class V8_EXPORT Promise : public Object {
   static Promise* Cast(Value* obj);
  private:
   Promise();
+};
+
+class V8_EXPORT PropertyDescriptor {
+ public:
+  PropertyDescriptor();
+  PropertyDescriptor(Local<Value> value);
+  PropertyDescriptor(Local<Value> value, bool writable);
+  PropertyDescriptor(Local<Value> get, Local<Value> set);
+  ~PropertyDescriptor();
+
+  Local<Value> value() const;
+  bool has_value() const;
+
+  Local<Value> get() const;
+  bool has_get() const;
+  Local<Value> set() const;
+  bool has_set() const;
+
+  void set_enumerable(bool enumerable);
+  bool enumerable() const;
+  bool has_enumerable() const;
+
+  void set_configurable(bool configurable);
+  bool configurable() const;
+  bool has_configurable() const;
+
+  bool writable() const;
+  bool has_writable() const;
+
+  struct PrivateData;
+  PrivateData* get_private() const { return private_; }
+
+  PropertyDescriptor(const PropertyDescriptor&) = delete;
+  void operator=(const PropertyDescriptor&) = delete;
+
+ private:
+  PrivateData* private_;
 };
 
 class V8_EXPORT Proxy : public Object {

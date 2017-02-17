@@ -87,7 +87,7 @@ Local<Value> Function::Call(Handle<Value> recv,
 }
 
 void Function::SetName(Handle<String> name) {
-  JsErrorCode error = DefineProperty((JsValueRef)this,
+  JsErrorCode error = jsrt::DefineProperty((JsValueRef)this,
                  IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
                    jsrt::CachedPropertyIdRef::name),
                  PropertyDescriptorOptionValues::False,
