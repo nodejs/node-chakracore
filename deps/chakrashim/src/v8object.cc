@@ -510,8 +510,7 @@ bool Object::SetPrototype(Handle<Value> prototype) {
 
 MaybeLocal<String> Object::ObjectProtoToString(Local<Context> context) {
   ContextShim* contextShim = ContextShim::GetCurrent();
-  JsValueRef toString = contextShim->GetGlobalPrototypeFunction(
-    ContextShim::GlobalPrototypeFunction::Object_toString);
+  JsValueRef toString = contextShim->GetToStringFunction();
 
   JsValueRef result;
   JsValueRef args[] = { this };

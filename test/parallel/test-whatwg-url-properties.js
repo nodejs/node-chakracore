@@ -1,7 +1,7 @@
 // Flags: --expose-internals
 'use strict';
 
-require('../common');
+const common = require('../common');
 const URL = require('url').URL;
 const assert = require('assert');
 const urlToOptions = require('internal/url').urlToOptions;
@@ -44,8 +44,14 @@ assert.strictEqual(url.searchParams, oldParams);  // [SameObject]
 // non-writable property should throw.
 // Note: this error message is subject to change in V8 updates
 assert.throws(() => url.origin = 'http://foo.bar.com:22',
-              new RegExp('TypeError: Cannot set property origin of' +
-                         ' \\[object URL\\] which has only a getter'));
+              new RegExp(
+                common.engineSpecificMessage({
+                  v8: 'TypeError: Cannot set property origin of' +
+                         ' \\[object URL\\] which has only a getter',
+                  chakracore: 'TypeError: Assignment to read-only' +
+                          ' properties is not allowed in strict mode'
+                })
+              ));
 assert.strictEqual(url.origin, 'http://foo.bar.com:21');
 assert.strictEqual(url.toString(),
                    'http://user:pass@foo.bar.com:21/aaa/zzz?l=25#test');
@@ -120,8 +126,14 @@ assert.strictEqual(url.hash, '#abcd');
 // non-writable property should throw.
 // Note: this error message is subject to change in V8 updates
 assert.throws(() => url.searchParams = '?k=88',
-              new RegExp('TypeError: Cannot set property searchParams of' +
-                         ' \\[object URL\\] which has only a getter'));
+              new RegExp(
+                common.engineSpecificMessage({
+                  v8: 'TypeError: Cannot set property searchParams of' +
+                         ' \\[object URL\\] which has only a getter',
+                  chakracore: 'TypeError: Assignment to read-only properties' +
+                         ' is not allowed in strict mode'
+                })
+              ));
 assert.strictEqual(url.searchParams, oldParams);
 assert.strictEqual(url.toString(),
                    'https://user2:pass2@foo.bar.org:23/aaa/bbb?k=99#abcd');

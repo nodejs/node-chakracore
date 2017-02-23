@@ -273,8 +273,7 @@ JsErrorCode HasOwnProperty(JsValueRef object,
                            JsValueRef prop,
                            JsValueRef *result) {
   JsValueRef hasOwnPropertyFunction =
-    ContextShim::GetCurrent()->GetGlobalPrototypeFunction(
-      ContextShim::GlobalPrototypeFunction::Object_hasOwnProperty);
+    ContextShim::GetCurrent()->GetHasOwnPropertyFunction();
 
   JsValueRef args[] = { object, prop };
   return JsCallFunction(hasOwnPropertyFunction, args, _countof(args), result);
@@ -283,9 +282,16 @@ JsErrorCode HasOwnProperty(JsValueRef object,
 JsErrorCode GetOwnPropertyDescriptor(JsValueRef ref,
                                      JsValueRef prop,
                                      JsValueRef* result) {
-  return CallFunction(
-    ContextShim::GetCurrent()->GetGetOwnPropertyDescriptorFunction(),
-    ref, prop, result);
+
+  JsPropertyIdRef idRef;
+  JsErrorCode error;
+
+  error = GetPropertyIdFromName(prop, &idRef);
+  if (error != JsNoError) {
+    return error;
+  }
+
+  return JsGetOwnPropertyDescriptor(ref, idRef, result);
 }
 
 JsErrorCode IsZero(JsValueRef value,

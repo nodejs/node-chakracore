@@ -24,7 +24,10 @@ assert.strictEqual(obj.stack, undefined);
 
 // Verify that the stack is decorated when possible
 function checkStack(stack) {
-  const matches = stack.match(/var foo bar;/g);
+  const matches = stack.match(common.engineSpecificMessage({
+    v8: /var foo bar;/g,
+    chakracore: /Expected ';'/g  // chakra does not show source
+  }));
   assert.strictEqual(Array.isArray(matches), true);
   assert.strictEqual(matches.length, 1);
 }

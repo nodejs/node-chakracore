@@ -76,7 +76,9 @@ class ContextShim {
   JsValueRef GetRegExpConstructor();
   JsValueRef GetProxyConstructor();
   JsValueRef GetGlobalType(GlobalType index);
-  JsValueRef GetGetOwnPropertyDescriptorFunction();
+
+  JsValueRef GetHasOwnPropertyFunction();
+  JsValueRef GetToStringFunction();
   JsValueRef GetStringConcatFunction();
   JsValueRef GetArrayPushFunction();
   JsValueRef GetGlobalPrototypeFunction(GlobalPrototypeFunction index);

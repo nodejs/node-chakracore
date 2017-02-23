@@ -106,12 +106,10 @@ Local<Value> PropertyDescriptor::value() const {
 }
 
 Local<Value> PropertyDescriptor::get() const {
-  CHAKRA_ASSERT(private_->has_get());
   return Local<Value>::New(private_->get);
 }
 
 Local<Value> PropertyDescriptor::set() const {
-  CHAKRA_ASSERT(private_->has_set());
   return Local<Value>::New(private_->set);
 }
 

@@ -549,9 +549,12 @@ DECLARE_GETOBJECT(DateConstructor,
                   globalConstructor[GlobalType::Date])
 DECLARE_GETOBJECT(ProxyConstructor,
                   globalConstructor[GlobalType::Proxy])
-DECLARE_GETOBJECT(GetOwnPropertyDescriptorFunction,
+DECLARE_GETOBJECT(HasOwnPropertyFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
-                      ::Object_getOwnPropertyDescriptor])
+                    ::Object_hasOwnProperty])
+DECLARE_GETOBJECT(ToStringFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Object_toString])
 DECLARE_GETOBJECT(StringConcatFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::String_concat])

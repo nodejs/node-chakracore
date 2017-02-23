@@ -1,5 +1,5 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 
 const http = require('http');
@@ -62,7 +62,10 @@ assert.throws(() => {
 assert.throws(() => {
   const outgoingMessage = new OutgoingMessage();
   outgoingMessage.addTrailers();
-}, /^TypeError: Cannot convert undefined or null to object$/);
+}, common.engineSpecificMessage({
+        v8: /^TypeError: Cannot convert undefined or null to object$/,
+        chakracore: /^TypeError: Object expected/
+}));
 
 assert.throws(() => {
   const outgoingMessage = new OutgoingMessage();
