@@ -163,6 +163,19 @@ def ReadMacros(lines):
           raise Exception("Illegal line: " + line)
   return (constants, macros)
 
+TEMPLATE_FOR_NAMESPACE = """
+namespace {namespace} {{
+{definitions}
+}} // namespace {namespace}
+"""
+
+ONE_BYTE_STRING_FOR_NAMESPACE = """
+static const uint8_t raw_{var}[] = {{ {data} }};
+"""
+
+TWO_BYTE_STRING_FOR_NAMESPACE = """
+static const uint16_t raw_{var}[] = {{ {data} }};
+"""
 
 TEMPLATE = """
 #include "node.h"
@@ -171,7 +184,7 @@ TEMPLATE = """
 #include "env.h"
 #include "env-inl.h"
 
-namespace {namespace} {{
+namespace node {{
 
 {definitions}
 
@@ -222,12 +235,12 @@ CHECK(target->Set(env->context(),
 def Render(var, data):
   # Treat non-ASCII as UTF-8 and convert it to UTF-16.
   if any(ord(c) > 127 for c in data):
-    template = TWO_BYTE_STRING
+    template = TWO_BYTE_TEMPLATE
     data = map(ord, data.decode('utf-8').encode('utf-16be'))
     data = [data[i] * 256 + data[i+1] for i in xrange(0, len(data), 2)]
     data = ToCArray(data)
   else:
-    template = ONE_BYTE_STRING
+    template = ONE_BYTE_TEMPLATE
     data = ToCString(data)
   return template.format(var=var, data=data)
 
@@ -286,19 +299,29 @@ def JS2C(source, target, namespace):
 
   # Emit result
   output = open(str(target[0]), "w")
-  output.write(TEMPLATE.format(definitions=''.join(definitions),
-                               initializers=''.join(initializers)))
+  output.write(HEADER_TEMPLATE.format(definitions=''.join(definitions),
+                               initializers=''.join(initializers),
+                               namespace=namespace))
   output.close()
 
 
 NAMESPACE_SWITCH = "--namespace="
 
 def main():
+  global HEADER_TEMPLATE
+  global ONE_BYTE_TEMPLATE
+  global TWO_BYTE_TEMPLATE
   i = 1
   if sys.argv[i].startswith(NAMESPACE_SWITCH):
+    HEADER_TEMPLATE = TEMPLATE_FOR_NAMESPACE
+    ONE_BYTE_TEMPLATE = ONE_BYTE_STRING_FOR_NAMESPACE
+    TWO_BYTE_TEMPLATE = ONE_BYTE_STRING_FOR_NAMESPACE
     namespace = sys.argv[i][len(NAMESPACE_SWITCH):]
     i += 1
   else:
+    HEADER_TEMPLATE = TEMPLATE
+    ONE_BYTE_TEMPLATE = ONE_BYTE_STRING
+    TWO_BYTE_TEMPLATE = TWO_BYTE_STRING
     namespace = 'node'
 
   natives = sys.argv[i]

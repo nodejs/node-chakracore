@@ -820,8 +820,8 @@ void* IsolateShim::GetData(uint32_t slot) {
 JsValueRef IsolateShim::GetChakraShimJsArrayBuffer() {
   JsValueRef chakraShimArrayBuffer;
   CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
-                (void*)chakra_shim_data,
-                sizeof(chakra_shim_data),
+                (void*)raw_chakra_shim_value,
+                sizeof(raw_chakra_shim_value),
                 nullptr, nullptr,
                 &chakraShimArrayBuffer) == JsNoError);
   return chakraShimArrayBuffer;
@@ -830,8 +830,8 @@ JsValueRef IsolateShim::GetChakraShimJsArrayBuffer() {
 JsValueRef IsolateShim::GetChakraDebugShimJsArrayBuffer() {
   JsValueRef chakraDebugShimArrayBuffer;
   CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
-                (void*)chakra_debug_data,
-                sizeof(chakra_debug_data),
+                (void*)raw_chakra_debug_value,
+                sizeof(raw_chakra_debug_value),
                 nullptr, nullptr,
                 &chakraDebugShimArrayBuffer) == JsNoError);
   return chakraDebugShimArrayBuffer;

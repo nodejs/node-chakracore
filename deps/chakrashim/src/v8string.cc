@@ -287,12 +287,12 @@ MaybeLocal<String> String::NewExternalTwoByte(
     auto newStr = NewFromTwoByte(nullptr, resource->data(),
                                  v8::NewStringType::kNormal,
                                  static_cast<int>(resource->length()));
-    delete resource;
+    resource->Dispose();
     return newStr;
   }
 
   // otherwise the resource is empty just delete it and return an empty string
-  delete resource;
+  resource->Dispose();
   return Empty(nullptr);
 }
 

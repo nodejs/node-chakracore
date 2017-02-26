@@ -1143,6 +1143,7 @@ class V8_EXPORT String : public Name {
     virtual ~ExternalStringResource() {}
     virtual const uint16_t* data() const = 0;
     virtual size_t length() const = 0;
+    virtual void Dispose() { delete this; }
   };
 
   ExternalStringResource* GetExternalStringResource() const { return nullptr; }

@@ -31,6 +31,16 @@
 
 namespace v8 {
 
+enum DebugEvent {
+  Break = 1,
+  Exception = 2,
+  NewFunction = 3,
+  BeforeCompile = 4,
+  AfterCompile = 5,
+  CompileError = 6,
+  AsyncTaskEvent = 7,
+};
+
 class V8_EXPORT Debug {
  public:
   class ClientData {
@@ -43,9 +53,31 @@ class V8_EXPORT Debug {
     virtual Isolate* GetIsolate() const = 0;
   };
 
+  class EventDetails {
+  public:
+    /**
+    * Event type.
+    */
+    virtual DebugEvent GetEvent() const = 0;
+
+    /**
+    * Access to execution state and event data of the debug event. Don't store
+    * these cross callbacks as their content becomes invalid.
+    */
+    virtual Local<Object> GetExecutionState() const = 0;
+    virtual Local<Object> GetEventData() const = 0;
+    virtual Local<Context> GetEventContext() const = 0;
+    virtual Isolate* GetIsolate() const = 0;
+    virtual ~EventDetails() {}
+  };
+
+
   typedef void (*DebugMessageDispatchHandler)();
+  typedef void(*EventCallback)(const EventDetails& event_details);
   typedef void (*MessageHandler)(const Message& message);
 
+  static bool SetDebugEventListener(Isolate* isolate, EventCallback that,
+    Local<Value> data = Local<Value>());
   static void DebugBreak(Isolate *isolate = NULL) {}
   static void SetMessageHandler(Isolate* isolate, MessageHandler handler);
   static void SendCommand(Isolate* isolate,

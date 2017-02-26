@@ -78,4 +78,8 @@ namespace v8 {
     jsrt::Debugger::handler = handler;
   }
 
+  bool Debug::SetDebugEventListener(Isolate* isolate, EventCallback that,
+    Local<Value> data) {
+    return false;
+  }
 }  // namespace v8
