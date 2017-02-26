@@ -11,7 +11,7 @@ if (!common.hasIntl) {
 }
 
 const request = {
-  response: require(path.join(common.fixturesDir, 'url-tests.json'))
+  response: require(path.join(common.fixturesDir, 'url-tests'))
 };
 
 /* eslint-disable */
@@ -63,7 +63,7 @@ function runURLTests(urltests) {
       assert_equals(url.search, expected.search, "search")
       if ("searchParams" in expected) {
         assert_true("searchParams" in url)
-      //   assert_equals(url.searchParams.toString(), expected.searchParams, "searchParams")
+        assert_equals(url.searchParams.toString(), expected.searchParams, "searchParams")
       }
       assert_equals(url.hash, expected.hash, "hash")
     }, "Parsing: <" + expected.input + "> against <" + expected.base + ">")
@@ -119,22 +119,22 @@ function runURLSearchParamTests() {
 
     // And in the other direction, altering searchParams propagates
     // back to 'search'.
-    // searchParams.append('i', ' j ')
+    searchParams.append('i', ' j ')
     // assert_equals(url.search, '?e=f&g=h&i=+j+')
     // assert_equals(url.searchParams.toString(), 'e=f&g=h&i=+j+')
-    // assert_equals(searchParams.get('i'), ' j ')
+    assert_equals(searchParams.get('i'), ' j ')
 
-    // searchParams.set('e', 'updated')
+    searchParams.set('e', 'updated')
     // assert_equals(url.search, '?e=updated&g=h&i=+j+')
-    // assert_equals(searchParams.get('e'), 'updated')
+    assert_equals(searchParams.get('e'), 'updated')
 
-    // var url2 = bURL('http://example.org/file??a=b&c=d')
-    // assert_equals(url2.search, '??a=b&c=d')
-    // assert_equals(url2.searchParams.toString(), '%3Fa=b&c=d')
+    var url2 = bURL('http://example.org/file??a=b&c=d')
+    assert_equals(url2.search, '??a=b&c=d')
+    assert_equals(url2.searchParams.toString(), '%3Fa=b&c=d')
 
-    // url2.href = 'http://example.org/file??a=b'
-    // assert_equals(url2.search, '??a=b')
-    // assert_equals(url2.searchParams.toString(), '%3Fa=b')
+    url2.href = 'http://example.org/file??a=b'
+    assert_equals(url2.search, '??a=b')
+    assert_equals(url2.searchParams.toString(), '%3Fa=b')
   }, 'URL.searchParams and URL.search setters, update propagation')
 }
 runURLSearchParamTests()

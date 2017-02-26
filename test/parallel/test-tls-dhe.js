@@ -1,3 +1,4 @@
+// Flags: --no-warnings
 'use strict';
 const common = require('../common');
 const assert = require('assert');
@@ -6,6 +7,12 @@ if (!common.hasCrypto) {
   common.skip('missing crypto');
   return;
 }
+
+if (!common.opensslCli) {
+  common.skip('missing openssl-cli');
+  return;
+}
+
 const tls = require('tls');
 
 const spawn = require('child_process').spawn;
@@ -16,6 +23,9 @@ let nsuccess = 0;
 let ntests = 0;
 const ciphers = 'DHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256';
 
+// Test will emit a warning because the DH parameter size is < 2048 bits
+common.expectWarning('SecurityWarning',
+                     'DH parameter is less than 2048 bits');
 
 function loadDHParam(n) {
   let path = common.fixturesDir;

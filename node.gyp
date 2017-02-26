@@ -94,6 +94,8 @@
       'lib/internal/process/stdio.js',
       'lib/internal/process/warning.js',
       'lib/internal/process.js',
+      'lib/internal/querystring.js',
+      'lib/internal/process/write-coverage.js',
       'lib/internal/readline.js',
       'lib/internal/repl.js',
       'lib/internal/socket_list.js',
@@ -114,6 +116,9 @@
       'deps/v8/tools/tickprocessor.js',
       'deps/v8/tools/SourceMap.js',
       'deps/v8/tools/tickprocessor-driver.js',
+      'deps/node-inspect/lib/_inspect.js',
+      'deps/node-inspect/lib/internal/inspect_client.js',
+      'deps/node-inspect/lib/internal/inspect_repl.js',
     ],
     'conditions': [
       [ 'node_shared=="true"', {
@@ -144,7 +149,7 @@
         'src',
         'tools/msvs/genfiles',
         'deps/uv/src/ares',
-        '<(SHARED_INTERMEDIATE_DIR)', # for node_natives.h
+        '<(SHARED_INTERMEDIATE_DIR)',
       ],
 
       'sources': [
@@ -165,7 +170,6 @@
         'src/node_debug_options.cc',
         'src/node_file.cc',
         'src/node_http_parser.cc',
-        'src/node_javascript.cc',
         'src/node_main.cc',
         'src/node_os.cc',
         'src/node_revert.cc',
@@ -241,11 +245,11 @@
         'deps/http_parser/http_parser.h',
         'deps/v8/include/v8.h',
         'deps/v8/include/v8-debug.h',
-        '<(SHARED_INTERMEDIATE_DIR)/node_natives.h',
         # javascript files to make for an even more pleasant IDE experience
         '<@(library_files)',
         # node.gyp is added to the project by default.
         'common.gypi',
+        '<(SHARED_INTERMEDIATE_DIR)/node_javascript.cc',
       ],
 
       'defines': [
@@ -329,7 +333,7 @@
             'deps/v8/src/third_party/vtune/v8vtune.gyp:v8_vtune'
           ],
         }],
-        [ 'v8_inspector=="true" and node_engine=="v8"', {
+        [ 'v8_enable_inspector==1 and node_engine=="v8"', {
           'defines': [
             'HAVE_INSPECTOR=1',
           ],
@@ -342,11 +346,9 @@
             'src/inspector_socket_server.h',
           ],
           'dependencies': [
-            'deps/v8_inspector/src/inspector/inspector.gyp:standalone_inspector',
             'v8_inspector_compress_protocol_json#host',
           ],
           'include_dirs': [
-            'deps/v8_inspector/include',
             '<(SHARED_INTERMEDIATE_DIR)/include', # for inspector
             '<(SHARED_INTERMEDIATE_DIR)',
           ],
@@ -390,7 +392,7 @@
                     ['OS in "linux freebsd" and node_shared=="false"', {
                       'ldflags': [
                         '-Wl,--whole-archive,'
-                            '<(PRODUCT_DIR)/obj.target/deps/openssl/'
+                            '<(OBJ_DIR)/deps/openssl/'
                             '<(OPENSSL_PRODUCT)',
                         '-Wl,--no-whole-archive',
                       ],
@@ -731,13 +733,13 @@
       'type': 'none',
       'toolsets': ['host'],
       'conditions': [
-        [ 'v8_inspector=="true"', {
+        [ 'v8_enable_inspector==1', {
           'actions': [
             {
               'action_name': 'v8_inspector_compress_protocol_json',
               'process_outputs_as_sources': 1,
               'inputs': [
-                'deps/v8_inspector/src/inspector/js_protocol.json',
+                'deps/v8/src/inspector/js_protocol.json',
               ],
               'outputs': [
                 '<(SHARED_INTERMEDIATE_DIR)/v8_inspector_protocol_json.h',
@@ -760,12 +762,13 @@
       'actions': [
         {
           'action_name': 'node_js2c',
+          'process_outputs_as_sources': 1,
           'inputs': [
             '<@(library_files)',
             './config.gypi',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/node_natives.h',
+            '<(SHARED_INTERMEDIATE_DIR)/node_javascript.cc',
           ],
           'conditions': [
             [ 'node_use_dtrace=="false" and node_use_etw=="false"', {
@@ -942,7 +945,7 @@
             'deps/v8/src/v8.gyp:v8_libplatform'
           ],
           'conditions' : [
-            ['v8_inspector=="true"', {
+            ['v8_enable_inspector==1', {
               'defines': [
                 'HAVE_INSPECTOR=1',
               ],

@@ -225,16 +225,44 @@ never have reason to call this.
 If `multicastInterface` is not specified, the operating system will attempt to
 drop membership on all valid interfaces.
 
-### socket.send(msg, [offset, length,] port, address[, callback])
+### socket.ref()
+<!-- YAML
+added: v0.9.1
+-->
+
+By default, binding a socket will cause it to block the Node.js process from
+exiting as long as the socket is open. The `socket.unref()` method can be used
+to exclude the socket from the reference counting that keeps the Node.js
+process active. The `socket.ref()` method adds the socket back to the reference
+counting and restores the default behavior.
+
+Calling `socket.ref()` multiples times will have no additional effect.
+
+The `socket.ref()` method returns a reference to the socket so calls can be
+chained.
+
+### socket.send(msg, [offset, length,] port [, address] [, callback])
 <!-- YAML
 added: v0.1.99
+changes:
+  - version: v6.0.0
+    pr-url: https://github.com/nodejs/node/pull/5929
+    description: On success, `callback` will now be called with an `error`
+                 argument of `null` rather than `0`.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/10473
+    description: The `address` parameter is always optional now.
+  - version: v5.7.0
+    pr-url: https://github.com/nodejs/node/pull/4374
+    description: The `msg` parameter can be an array now. Also, the `offset`
+                 and `length` parameters are optional now.
 -->
 
 * `msg` {Buffer|String|Array} Message to be sent
 * `offset` {Number} Integer. Optional. Offset in the buffer where the message starts.
 * `length` {Number} Integer. Optional. Number of bytes in the message.
 * `port` {Number} Integer. Destination port.
-* `address` {String} Destination hostname or IP address.
+* `address` {String} Destination hostname or IP address. Optional.
 * `callback` {Function} Called when the message has been sent. Optional.
 
 Broadcasts a datagram on the socket. The destination `port` and `address` must
@@ -251,8 +279,9 @@ respect to [byte length][] and not the character position.
 If `msg` is an array, `offset` and `length` must not be specified.
 
 The `address` argument is a string. If the value of `address` is a host name,
-DNS will be used to resolve the address of the host. If the `address` is not
-specified or is an empty string, `'127.0.0.1'` or `'::1'` will be used instead.
+DNS will be used to resolve the address of the host.  If `address` is not
+provided or otherwise falsy, `'127.0.0.1'` (for `udp4` sockets) or `'::1'`
+(for `udp6` sockets) will be used by default.
 
 If the socket has not been previously bound with a call to `bind`, the socket
 is assigned a random port number and is bound to the "all interfaces" address
@@ -283,14 +312,15 @@ client.send(message, 41234, 'localhost', (err) => {
 });
 ```
 
-Example of sending a UDP packet composed of multiple buffers to a random port on `localhost`;
+Example of sending a UDP packet composed of multiple buffers to a random port
+on `127.0.0.1`;
 
 ```js
 const dgram = require('dgram');
 const buf1 = Buffer.from('Some ');
 const buf2 = Buffer.from('bytes');
 const client = dgram.createSocket('udp4');
-client.send([buf1, buf2], 41234, 'localhost', (err) => {
+client.send([buf1, buf2], 41234, (err) => {
   client.close();
 });
 ```
@@ -376,22 +406,6 @@ Changing TTL values is typically done for network probes or when multicasting.
 
 The argument to `socket.setTTL()` is a number of hops between 1 and 255.
 The default on most systems is 64 but can vary.
-
-### socket.ref()
-<!-- YAML
-added: v0.9.1
--->
-
-By default, binding a socket will cause it to block the Node.js process from
-exiting as long as the socket is open. The `socket.unref()` method can be used
-to exclude the socket from the reference counting that keeps the Node.js
-process active. The `socket.ref()` method adds the socket back to the reference
-counting and restores the default behavior.
-
-Calling `socket.ref()` multiples times will have no additional effect.
-
-The `socket.ref()` method returns a reference to the socket so calls can be
-chained.
 
 ### socket.unref()
 <!-- YAML

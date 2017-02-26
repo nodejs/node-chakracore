@@ -288,6 +288,9 @@ exports.platformTimeout = function(ms) {
   if (process.config.target_defaults.default_configuration === 'Debug')
     ms = 2 * ms;
 
+  if (global.__coverage__)
+    ms = 4 * ms;
+
   if (exports.isAix)
     return 2 * ms; // default localhost speed is slower on AIX
 
@@ -385,7 +388,11 @@ function leakedGlobals() {
     if (!knownGlobals.includes(global[val]))
       leaked.push(val);
 
-  return leaked;
+  if (global.__coverage__) {
+    return leaked.filter((varname) => !/^(cov_|__cov)/.test(varname));
+  } else {
+    return leaked;
+  }
 }
 exports.leakedGlobals = leakedGlobals;
 
@@ -628,11 +635,13 @@ exports.expectsError = function expectsError(code, type, message) {
   return function(error) {
     assert.strictEqual(error.code, code);
     if (type !== undefined)
-      assert(error instanceof type, 'error is not the expected type');
-    if (message !== undefined) {
-      if (!util.isRegExp(message))
-        message = new RegExp(String(message));
-      assert(message.test(error.message), 'error.message does not match');
+      assert(error instanceof type,
+             `${error} is not the expected type ${type}`);
+    if (message instanceof RegExp) {
+      assert(message.test(error.message),
+             `${error.message} does not match ${message}`);
+    } else if (typeof message === 'string') {
+      assert.strictEqual(error.message, message);
     }
     return true;
   };

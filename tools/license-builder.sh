@@ -79,17 +79,6 @@ addlicense "cpplint.py" "tools/cpplint.py" \
            "$(sed -e '/^$/,$d' -e 's/^#$//' -e 's/^# //' ${rootdir}/tools/cpplint.py | tail -n +3)"
 addlicense "ESLint" "tools/eslint" "$(cat ${rootdir}/tools/eslint/LICENSE)"
 addlicense "gtest" "deps/gtest" "$(cat ${rootdir}/deps/gtest/LICENSE)"
-addlicense "node-weak" "test/gc/node_modules/weak" \
-           "$(cat ${rootdir}/test/gc/node_modules/weak/LICENSE)"
-
-# v8_inspector
-addlicense "v8_inspector" "deps/v8_inspector/third_party/v8_inspector" \
-           "$(cat ${rootdir}/deps/v8_inspector/third_party/v8_inspector/LICENSE)"
-# Build tooling for v8_inspector
-addlicense "jinja2" "deps/v8_inspector/third_party/jinja2" \
-           "$(cat ${rootdir}/deps/v8_inspector/third_party/jinja2/LICENSE)"
-addlicense "markupsafe" "deps/v8_inspector/third_party/markupsafe" \
-           "$(cat ${rootdir}/deps/v8_inspector/third_party/markupsafe/LICENSE)"
 
 
 

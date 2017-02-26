@@ -166,7 +166,7 @@ static const char* trace_enabled_categories = nullptr;
 
 #if defined(NODE_HAVE_I18N_SUPPORT)
 // Path to ICU data (for i18n / Intl)
-static std::string icu_data_dir;  // NOLINT(runtime/string)
+std::string icu_data_dir;  // NOLINT(runtime/string)
 #endif
 
 // used by C++ modules as well
@@ -2293,25 +2293,22 @@ void MemoryUsage(const FunctionCallbackInfo<Value>& args) {
     return env->ThrowUVException(err, "uv_resident_set_memory");
   }
 
+  Isolate* isolate = env->isolate();
   // V8 memory usage
   HeapStatistics v8_heap_stats;
-  env->isolate()->GetHeapStatistics(&v8_heap_stats);
+  isolate->GetHeapStatistics(&v8_heap_stats);
 
-  Local<Number> heap_total =
-      Number::New(env->isolate(), v8_heap_stats.total_heap_size());
-  Local<Number> heap_used =
-      Number::New(env->isolate(), v8_heap_stats.used_heap_size());
-  Local<Number> external_mem =
-      Number::New(env->isolate(),
-                  env->isolate()->AdjustAmountOfExternalAllocatedMemory(0));
+  // Get the double array pointer from the Float64Array argument.
+  CHECK(args[0]->IsFloat64Array());
+  Local<Float64Array> array = args[0].As<Float64Array>();
+  CHECK_EQ(array->Length(), 4);
+  Local<ArrayBuffer> ab = array->Buffer();
+  double* fields = static_cast<double*>(ab->GetContents().Data());
 
-  Local<Object> info = Object::New(env->isolate());
-  info->Set(env->rss_string(), Number::New(env->isolate(), rss));
-  info->Set(env->heap_total_string(), heap_total);
-  info->Set(env->heap_used_string(), heap_used);
-  info->Set(env->external_string(), external_mem);
-
-  args.GetReturnValue().Set(info);
+  fields[0] = rss;
+  fields[1] = v8_heap_stats.total_heap_size();
+  fields[2] = v8_heap_stats.used_heap_size();
+  fields[3] = isolate->AdjustAmountOfExternalAllocatedMemory(0);
 }
 
 
@@ -2430,8 +2427,6 @@ struct node_module* get_linked_module(const char* name) {
   CHECK(mp == nullptr || (mp->nm_flags & NM_F_LINKED) != 0);
   return mp;
 }
-
-typedef void (UV_DYNAMIC* extInit)(Local<Object> exports);
 
 // DLOpen is process.dlopen(module, filename).
 // Used to load 'module.node' dynamically shared objects.
@@ -3131,17 +3126,6 @@ void SetupProcessObject(Environment* env,
                     "ares",
                     FIXED_ONE_BYTE_STRING(env->isolate(), ARES_VERSION_STR));
 
-#if defined(NODE_HAVE_I18N_SUPPORT) && defined(U_ICU_VERSION)
-  // ICU-related versions are now handled on the js side, see bootstrap_node.js
-
-  if (!icu_data_dir.empty()) {
-    // Did the user attempt (via env var or parameter) to set an ICU path?
-    READONLY_PROPERTY(process,
-                      "icu_data_dir",
-                      OneByteString(env->isolate(), icu_data_dir.c_str()));
-  }
-#endif
-
   const char node_modules_version[] = NODE_STRINGIFY(NODE_MODULE_VERSION);
   READONLY_PROPERTY(
       versions,
@@ -3789,7 +3773,7 @@ static void ParseArgs(int* argc,
 #endif /* HAVE_OPENSSL */
 #if defined(NODE_HAVE_I18N_SUPPORT)
     } else if (strncmp(arg, "--icu-data-dir=", 15) == 0) {
-      icu_data_dir.assign(arg, 15);
+      icu_data_dir.assign(arg + 15);
 #endif
     } else if (strcmp(arg, "--expose-internals") == 0 ||
                strcmp(arg, "--expose_internals") == 0) {

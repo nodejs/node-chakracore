@@ -25,6 +25,11 @@ executed in specific sandboxes (or "contexts").
 ### new vm.Script(code, options)
 <!-- YAML
 added: v0.3.1
+changes:
+  - version: v5.7.0
+    pr-url: https://github.com/nodejs/node/pull/4777
+    description: The `cachedData` and `produceCachedData` options are
+                 supported now.
 -->
 
 * `code` {string} The JavaScript code to compile.
@@ -60,6 +65,10 @@ each run, just for that run.
 ### script.runInContext(contextifiedSandbox[, options])
 <!-- YAML
 added: v0.3.1
+changes:
+  - version: v6.3.0
+    pr-url: https://github.com/nodejs/node/pull/6635
+    description: The `breakOnSigint` option is supported now.
 -->
 
 * `contextifiedSandbox` {Object} A [contextified][] object as returned by the
@@ -469,6 +478,6 @@ associating it with the `sandbox` object is what this document refers to as
 [`vm.runInContext()`]: #vm_vm_runincontext_code_contextifiedsandbox_options
 [`vm.runInThisContext()`]: #vm_vm_runinthiscontext_code_options
 [`eval()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval
-[V8 Embedder's Guide]: https://developers.google.com/v8/embed#contexts
+[V8 Embedder's Guide]: https://github.com/v8/v8/wiki/Embedder's%20Guide#contexts
 [contextified]: #vm_what_does_it_mean_to_contextify_an_object
 [command line option]: cli.html

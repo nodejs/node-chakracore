@@ -44,14 +44,21 @@
         'os_posix': 1,
         'v8_postmortem_support%': 'true',
       }],
-      ['GENERATOR == "ninja" or OS== "mac"', {
+      ['OS== "mac"', {
         'OBJ_DIR': '<(PRODUCT_DIR)/obj',
         'V8_BASE': '<(PRODUCT_DIR)/libv8_base.a',
         'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/libchakrashim.a',
       }, {
-        'OBJ_DIR': '<(PRODUCT_DIR)/obj.target',
-        'V8_BASE': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
-        'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/obj.target/deps/chakrashim/libchakrashim.a',
+        'conditions': [
+          ['GENERATOR=="ninja"', {
+            'OBJ_DIR': '<(PRODUCT_DIR)/obj',
+            'V8_BASE': '<(PRODUCT_DIR)/obj/deps/v8/src/libv8_base.a',
+          }, {
+            'OBJ_DIR': '<(PRODUCT_DIR)/obj.target',
+            'V8_BASE': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
+            'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/obj.target/deps/chakrashim/libchakrashim.a',
+          }],
+        ],
       }],
       ['openssl_fips != ""', {
         'OPENSSL_PRODUCT': 'libcrypto.a',

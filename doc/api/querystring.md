@@ -30,6 +30,16 @@ necessary by assigning `querystring.escape` to an alternative function.
 ## querystring.parse(str[, sep[, eq[, options]]])
 <!-- YAML
 added: v0.1.25
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/10967
+    description: Multiple empty entries are now parsed correctly (e.g. `&=&=`).
+  - version: v6.0.0
+    pr-url: https://github.com/nodejs/node/pull/6055
+    description: The returned object no longer inherits from `Object.prototype`.
+  - version: v6.0.0, v4.2.4
+    pr-url: https://github.com/nodejs/node/pull/3807
+    description: The `eq` parameter may now have a length of more than `1`.
 -->
 
 * `str` {String} The URL query string to parse
