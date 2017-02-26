@@ -1,6 +1,7 @@
 [eval]
 SyntaxError: 'with' statements are not allowed in strict mode
-   at exports.runInThisContext (vm.js:*)
+   at createScript (vm.js:*)
+   at runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
@@ -12,7 +13,7 @@ SyntaxError: 'with' statements are not allowed in strict mode
 Error: hello
    at Global code ([eval]:1:1)
    at Script.prototype.runInThisContext (vm.js:*:*)      
-   at exports.runInThisContext (vm.js:*)
+   at runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
@@ -22,7 +23,7 @@ Error: hello
 Error: hello
    at Global code ([eval]:1:15)
    at Script.prototype.runInThisContext (vm.js:*:*)   
-   at exports.runInThisContext (vm.js:*)
+   at runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
@@ -33,7 +34,7 @@ Error: hello
 ReferenceError: Variable undefined in strict mode
    at Global code ([eval]:1:28)
    at Script.prototype.runInThisContext (vm.js:*:*)      
-   at exports.runInThisContext (vm.js:*)
+   at runInThisContext (vm.js:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)

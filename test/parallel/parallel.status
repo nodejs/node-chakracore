@@ -47,6 +47,7 @@ test-force-repl-with-eval : SKIP
 test-fs-stat : SKIP
 test-http-same-map : SKIP
 test-intl : SKIP
+test-intl-no-icu-data : SKIP
 test-icu-transcode : SKIP
 test-memory-usage : SKIP
 test-promises-unhandled-rejections : SKIP
@@ -69,6 +70,7 @@ test-vm-create-and-run-in-context : SKIP
 test-vm-global-identity : SKIP
 test-vm-low-stack-space : SKIP
 test-vm-preserves-property : SKIP
+test-vm-property-not-on-sandbox : SKIP
 test-vm-proxies : SKIP
 test-vm-strict-mode : SKIP
 test-vm-timeout : SKIP

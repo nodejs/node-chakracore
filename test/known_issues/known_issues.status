@@ -23,3 +23,4 @@ test-stdout-buffer-flush-on-exit: SKIP
 test-vm-function-redefinition : SKIP
 test-vm-inherited_properties : SKIP
 test-vm-data-property-writable : SKIP
+test-vm-attributes-property-not-on-sandbox : SKIP
