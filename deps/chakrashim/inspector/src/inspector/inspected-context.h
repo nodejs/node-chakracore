@@ -34,10 +34,6 @@ class InspectedContext {
   v8::Isolate* isolate() const;
   V8InspectorImpl* inspector() const { return m_inspector; }
 
-  InjectedScript* getInjectedScript() { return m_injectedScript.get(); }
-  void createInjectedScript();
-  void discardInjectedScript();
-
  private:
   friend class V8InspectorImpl;
   InspectedContext(V8InspectorImpl*, const V8ContextInfo&, int contextId);
@@ -53,7 +49,6 @@ class InspectedContext {
   const String16 m_humanReadableName;
   const String16 m_auxData;
   bool m_reported;
-  std::unique_ptr<InjectedScript> m_injectedScript;
   v8::Global<v8::Object> m_console;
 
   DISALLOW_COPY_AND_ASSIGN(InspectedContext);

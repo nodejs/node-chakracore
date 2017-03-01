@@ -39,7 +39,8 @@ namespace v8_inspector {
 
 class V8DebuggerScript {
  public:
-  V8DebuggerScript(v8::Local<v8::Context>, v8::Local<v8::Object>,
+  V8DebuggerScript(v8::Isolate* isolate,
+                   JsValueRef scriptData,
                    bool isLiveEdit);
   ~V8DebuggerScript();
 
@@ -60,8 +61,6 @@ class V8DebuggerScript {
   }
   bool isLiveEdit() const { return m_isLiveEdit; }
 
-  void setSourceURL(const String16&);
-  void setSourceMappingURL(const String16&);
   void setSource(v8::Isolate*, v8::Local<v8::String>);
 
  private:

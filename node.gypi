@@ -71,7 +71,7 @@
         'deps/v8/src/third_party/vtune/v8vtune.gyp:v8_vtune'
       ],
     }],
-    [ 'v8_enable_inspector==1 and node_engine=="v8"', {
+    [ 'v8_enable_inspector==1', {
       'defines': [
         'HAVE_INSPECTOR=1',
       ],
@@ -92,6 +92,23 @@
         '<(SHARED_INTERMEDIATE_DIR)/include', # for inspector
         '<(SHARED_INTERMEDIATE_DIR)',
       ],
+      'conditions': [
+        [ 'node_engine=="chakracore"', {
+          'dependencies': [
+            'deps/chakrashim/inspector/src/inspector/inspector.gyp:standalone_inspector',
+          ],
+          'include_dirs': [
+            'deps/chakrashim/inspector/include',
+          ],
+        },{
+          'dependencies': [
+            'deps/v8_inspector/src/inspector/inspector.gyp:standalone_inspector',
+          ],
+          'include_dirs': [
+            'deps/v8_inspector/include',
+          ],
+        }]
+      ]
     }, {
       'defines': [ 'HAVE_INSPECTOR=0' ]
     }],

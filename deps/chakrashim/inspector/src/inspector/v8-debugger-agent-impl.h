@@ -15,14 +15,11 @@
 namespace v8_inspector {
 
 struct ScriptBreakpoint;
-class JavaScriptCallFrame;
-class PromiseTracker;
 class V8Debugger;
 class V8DebuggerScript;
 class V8InspectorImpl;
 class V8InspectorSessionImpl;
 class V8Regex;
-class V8StackTraceImpl;
 
 using protocol::ErrorString;
 using protocol::Maybe;
@@ -135,7 +132,7 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
   SkipPauseRequest didPause(v8::Local<v8::Context>,
                             v8::Local<v8::Value> exception,
                             const std::vector<String16>& hitBreakpoints,
-                            bool isPromiseRejection);
+                            bool isPromiseRejection, bool isUncaught);
   void didContinue();
   void didParseSource(std::unique_ptr<V8DebuggerScript>, bool success);
   void willExecuteScript(int scriptId);
@@ -150,15 +147,9 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
   SkipPauseRequest shouldSkipExceptionPause(JavaScriptCallFrame* topCallFrame);
   SkipPauseRequest shouldSkipStepPause(JavaScriptCallFrame* topCallFrame);
 
-  void schedulePauseOnNextStatementIfSteppingInto();
-
   std::unique_ptr<protocol::Array<protocol::Debugger::CallFrame>>
   currentCallFrames(ErrorString*);
   std::unique_ptr<protocol::Runtime::StackTrace> currentAsyncStackTrace();
-
-  void changeJavaScriptRecursionLevel(int step);
-
-  void setPauseOnExceptionsImpl(ErrorString*, int);
 
   std::unique_ptr<protocol::Debugger::Location> resolveBreakpoint(
       const String16& breakpointId, const String16& scriptId,
@@ -171,9 +162,6 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
   bool isTopPausedCallFrameBlackboxed();
   bool isCallFrameWithUnknownScriptOrBlackboxed(JavaScriptCallFrame*);
 
-  void internalSetAsyncCallStackDepth(int);
-  void increaseCachedSkipStackGeneration();
-
   bool setBlackboxPattern(ErrorString*, const String16& pattern);
 
   using ScriptsMap =
@@ -182,7 +170,6 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
       protocol::HashMap<String16, std::vector<String16>>;
   using DebugServerBreakpointToBreakpointIdAndSourceMap =
       protocol::HashMap<String16, std::pair<String16, BreakpointSource>>;
-  using MuteBreakpoins = protocol::HashMap<String16, std::pair<String16, int>>;
 
   enum DebuggerStep { NoStep = 0, StepInto, StepOver, StepOut };
 
@@ -214,7 +201,7 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
 
   std::unique_ptr<V8Regex> m_blackboxPattern;
   protocol::HashMap<String16, std::vector<std::pair<int, int>>>
-      m_blackboxedPositions;
+    m_blackboxedPositions;
 
   DISALLOW_COPY_AND_ASSIGN(V8DebuggerAgentImpl);
 };

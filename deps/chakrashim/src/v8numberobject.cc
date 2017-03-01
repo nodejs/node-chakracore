@@ -44,6 +44,15 @@ Local<Value> NumberObject::New(Isolate * isolate, double value) {
   return Local<NumberObject>::New(newNumberObjectRef);
 }
 
+double NumberObject::ValueOf() const {
+  double value;
+  if (jsrt::ValueToDoubleLikely((JsValueRef)this, &value) != JsNoError) {
+    return 0;
+  }
+
+  return value;
+}
+
 NumberObject* NumberObject::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsNumberObject());
   return static_cast<NumberObject*>(obj);

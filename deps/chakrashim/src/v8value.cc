@@ -195,6 +195,12 @@ IS_TYPE_FUNCTION(IsStringObject, isStringObject)
 IS_TYPE_FUNCTION(IsNumberObject, isNumberObject)
 IS_TYPE_FUNCTION(IsMapIterator, isMapIterator)
 IS_TYPE_FUNCTION(IsSetIterator, isSetIterator)
+IS_TYPE_FUNCTION(IsArgumentsObject, isArgumentsObject)
+IS_TYPE_FUNCTION(IsGeneratorObject, isGeneratorObject)
+IS_TYPE_FUNCTION(IsWeakMap, isWeakMap)
+IS_TYPE_FUNCTION(IsWeakSet, isWeakSet)
+IS_TYPE_FUNCTION(IsSymbolObject, isSymbolObject)
+IS_TYPE_FUNCTION(IsName, isName)
 
 MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;

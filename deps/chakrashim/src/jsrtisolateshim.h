@@ -100,6 +100,7 @@ class IsolateShim {
   JsPropertyIdRef GetCachedPropertyIdRef(
     CachedPropertyIdRef cachedPropertyIdRef);
 
+  void RequestInterrupt(v8::InterruptCallback callback, void* data);
   void DisableExecution();
   bool IsExeuctionDisabled();
   void EnableExecution();
@@ -118,6 +119,7 @@ class IsolateShim {
 
   JsValueRef GetChakraShimJsArrayBuffer();
   JsValueRef GetChakraDebugShimJsArrayBuffer();
+  JsValueRef GetChakraInspectorShimJsArrayBuffer();
 
   void SetData(unsigned int slot, void* data);
   void* GetData(unsigned int slot);

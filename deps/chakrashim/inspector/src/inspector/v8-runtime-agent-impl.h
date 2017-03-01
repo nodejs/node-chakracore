@@ -120,8 +120,6 @@ class V8RuntimeAgentImpl : public protocol::Runtime::Backend {
   protocol::Runtime::Frontend m_frontend;
   V8InspectorImpl* m_inspector;
   bool m_enabled;
-  protocol::HashMap<String16, std::unique_ptr<v8::Global<v8::Script>>>
-      m_compiledScripts;
 
   DISALLOW_COPY_AND_ASSIGN(V8RuntimeAgentImpl);
 };

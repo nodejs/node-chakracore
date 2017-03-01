@@ -43,7 +43,7 @@ namespace v8_inspector {
 class JavaScriptCallFrame {
  public:
   static std::unique_ptr<JavaScriptCallFrame> create(
-      v8::Local<v8::Context> debuggerContext, v8::Local<v8::Object> callFrame) {
+      v8::Local<v8::Context> debuggerContext, JsValueRef callFrame) {
     return wrapUnique(new JavaScriptCallFrame(debuggerContext, callFrame));
   }
   ~JavaScriptCallFrame();
@@ -56,7 +56,8 @@ class JavaScriptCallFrame {
   bool isAtReturn() const;
   v8::Local<v8::Object> details() const;
 
-  v8::MaybeLocal<v8::Value> evaluate(v8::Local<v8::Value> expression);
+  v8::MaybeLocal<v8::Value> evaluate(v8::Local<v8::Value> expression,
+                                     bool* isError);
   v8::MaybeLocal<v8::Value> restart();
   v8::MaybeLocal<v8::Value> setVariableValue(int scopeNumber,
                                              v8::Local<v8::Value> variableName,
@@ -64,13 +65,11 @@ class JavaScriptCallFrame {
 
  private:
   JavaScriptCallFrame(v8::Local<v8::Context> debuggerContext,
-                      v8::Local<v8::Object> callFrame);
-
-  int callV8FunctionReturnInt(const char* name) const;
+                      JsValueRef callFrame);
 
   v8::Isolate* m_isolate;
   v8::Global<v8::Context> m_debuggerContext;
-  v8::Global<v8::Object> m_callFrame;
+  JsValueRef const m_callFrame;
 
   DISALLOW_COPY_AND_ASSIGN(JavaScriptCallFrame);
 };

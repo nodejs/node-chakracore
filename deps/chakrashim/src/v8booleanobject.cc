@@ -44,6 +44,18 @@ Local<Value> BooleanObject::New(bool value) {
   return New(IsolateShim::GetCurrentAsIsolate(), value);
 }
 
+bool BooleanObject::ValueOf() const {
+  bool value;
+  if (jsrt::ValueToNative</*LIKELY*/true>(JsConvertValueToBoolean,
+                                          JsBooleanToBool,
+                                          (JsValueRef)this,
+                                          &value) != JsNoError) {
+    return false;
+  }
+
+  return value;
+}
+
 BooleanObject *BooleanObject::Cast(v8::Value *obj) {
   CHAKRA_ASSERT(obj->IsBooleanObject());
   return static_cast<BooleanObject*>(obj);

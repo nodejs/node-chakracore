@@ -33,6 +33,18 @@ Promise::PromiseState Promise::State() {
   return PromiseState::kFulfilled;
 }
 
+MaybeLocal<Promise> Promise::Then(Local<Context> context,
+                                  Local<Function> handler) {
+  CHAKRA_ASSERT(false);
+  return Local<Promise>();
+}
+
+MaybeLocal<Promise> Promise::Catch(Local<Context> context,
+                                   Local<Function> handler) {
+  CHAKRA_ASSERT(false);
+  return Local<Promise>();
+}
+
 Promise* Promise::Cast(Value* obj) {
   CHAKRA_ASSERT(obj->IsPromise());
   return static_cast<Promise*>(obj);

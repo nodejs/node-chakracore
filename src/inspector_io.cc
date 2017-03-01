@@ -11,7 +11,9 @@
 #include "zlib.h"
 
 #include <sstream>
+#if defined(NODE_HAVE_I18N_SUPPORT)
 #include <unicode/unistr.h>
+#endif
 
 #include <string.h>
 #include <vector>
@@ -63,6 +65,7 @@ std::string StringViewToUtf8(const StringView& view) {
                        view.length());
   }
   const uint16_t* source = view.characters16();
+#if defined(NODE_HAVE_I18N_SUPPORT)
   const UChar* unicodeSource = reinterpret_cast<const UChar*>(source);
   static_assert(sizeof(*source) == sizeof(*unicodeSource),
                 "sizeof(*source) == sizeof(*unicodeSource)");
@@ -79,6 +82,19 @@ std::string StringViewToUtf8(const StringView& view) {
     result.resize(result_length);
     done = !sink.Overflowed();
   }
+#else
+  const size_t length = view.length();
+  std::string result;
+
+  // CHAKRA-TODO: HACK, assume characters are ASCII and assert when they are
+  // not.
+  for (size_t i = 0; i < length; i++) {
+    uint16_t wCh = source[i];
+    assert((wCh & 0xFF80) == 0);
+
+    result.append(1, static_cast<char>(wCh));
+  }
+#endif
   return result;
 }
 
@@ -99,10 +115,25 @@ int CloseAsyncAndLoop(uv_async_t* async) {
 }  // namespace
 
 std::unique_ptr<StringBuffer> Utf8ToStringView(const std::string& message) {
+#if defined(NODE_HAVE_I18N_SUPPORT)
   UnicodeString utf16 =
       UnicodeString::fromUTF8(StringPiece(message.data(), message.length()));
   StringView view(reinterpret_cast<const uint16_t*>(utf16.getBuffer()),
                   utf16.length());
+#else
+  // CHAKRA-TODO: HACK, assume characters are ASCII and assert when they are
+  // not.
+  std::vector<uint16_t> wChars;
+  for (const char &ch : message) {
+    assert((ch & 0x80) == 0);
+
+    wChars.push_back(static_cast<const uint16_t>(ch));
+  }
+
+  wChars.push_back('\0');
+
+  StringView view(wChars.data(), wChars.size() - 1);
+#endif
   return StringBuffer::create(view);
 }
 

@@ -101,55 +101,34 @@ class V8Debugger {
   V8InspectorImpl* inspector() { return m_inspector; }
 
  private:
-  void compileDebuggerScript();
-  v8::MaybeLocal<v8::Value> callDebuggerMethod(const char* functionName,
-                                               int argc,
-                                               v8::Local<v8::Value> argv[]);
+  static void CHAKRA_CALLBACK JsDiagDebugEventHandler(
+    JsDiagDebugEvent debugEvent,
+    JsValueRef eventData,
+    void* callbackState);
+
   v8::Local<v8::Context> debuggerContext() const;
-  void clearBreakpoints();
 
-  static void breakProgramCallback(const v8::FunctionCallbackInfo<v8::Value>&);
-  void handleProgramBreak(v8::Local<v8::Context> pausedContext,
-                          v8::Local<v8::Object> executionState,
-                          v8::Local<v8::Value> exception,
-                          v8::Local<v8::Array> hitBreakpoints,
-                          bool isPromiseRejection = false);
-  static void v8DebugEventCallback(const v8::Debug::EventDetails&);
-  v8::Local<v8::Value> callInternalGetterFunction(v8::Local<v8::Object>,
-                                                  const char* functionName);
-  void handleV8DebugEvent(const v8::Debug::EventDetails&);
-  void handleV8AsyncTaskEvent(v8::Local<v8::Context>,
-                              v8::Local<v8::Object> executionState,
-                              v8::Local<v8::Object> eventData);
+  void DebugEventHandler(
+    JsDiagDebugEvent debugEvent,
+    JsValueRef eventData);
 
-  v8::Local<v8::Value> collectionEntries(v8::Local<v8::Context>,
-                                         v8::Local<v8::Object>);
-  v8::Local<v8::Value> generatorObjectLocation(v8::Local<v8::Context>,
-                                               v8::Local<v8::Object>);
-  v8::Local<v8::Value> functionLocation(v8::Local<v8::Context>,
-                                        v8::Local<v8::Function>);
-  v8::MaybeLocal<v8::Value> functionScopes(v8::Local<v8::Context>,
-                                           v8::Local<v8::Function>);
+  void HandleSourceEvents(JsValueRef eventData, bool success);
+  void HandleBreak(JsValueRef eventData);
+
+  void ClearBreakpoints();
 
   v8::Isolate* m_isolate;
   V8InspectorImpl* m_inspector;
   int m_lastContextId;
   int m_enableCount;
   bool m_breakpointsActivated;
-  v8::Global<v8::Object> m_debuggerScript;
   v8::Global<v8::Context> m_debuggerContext;
-  v8::Local<v8::Object> m_executionState;
   v8::Local<v8::Context> m_pausedContext;
   bool m_runningNestedMessageLoop;
   int m_ignoreScriptParsedEventsCounter;
 
-  using AsyncTaskToStackTrace =
-      protocol::HashMap<void*, std::unique_ptr<V8StackTraceImpl>>;
-  AsyncTaskToStackTrace m_asyncTaskStacks;
-  protocol::HashSet<void*> m_recurringTasks;
   int m_maxAsyncCallStackDepth;
-  std::vector<void*> m_currentTasks;
-  std::vector<std::unique_ptr<V8StackTraceImpl>> m_currentStacks;
+  bool m_pauseOnNextStatement;
   protocol::HashMap<V8DebuggerAgentImpl*, int> m_maxAsyncCallStackDepthMap;
 
   DISALLOW_COPY_AND_ASSIGN(V8Debugger);

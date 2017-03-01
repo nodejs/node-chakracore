@@ -37,7 +37,6 @@
 #include "src/inspector/v8-debugger-agent-impl.h"
 #include "src/inspector/v8-debugger.h"
 #include "src/inspector/v8-inspector-session-impl.h"
-#include "src/inspector/v8-profiler-agent-impl.h"
 #include "src/inspector/v8-runtime-agent-impl.h"
 #include "src/inspector/v8-stack-trace-impl.h"
 
@@ -69,13 +68,6 @@ V8RuntimeAgentImpl* V8InspectorImpl::enabledRuntimeAgentForGroup(
     int contextGroupId) {
   V8InspectorSessionImpl* session = sessionForContextGroup(contextGroupId);
   V8RuntimeAgentImpl* agent = session ? session->runtimeAgent() : nullptr;
-  return agent && agent->enabled() ? agent : nullptr;
-}
-
-V8ProfilerAgentImpl* V8InspectorImpl::enabledProfilerAgentForGroup(
-    int contextGroupId) {
-  V8InspectorSessionImpl* session = sessionForContextGroup(contextGroupId);
-  V8ProfilerAgentImpl* agent = session ? session->profilerAgent() : nullptr;
   return agent && agent->enabled() ? agent : nullptr;
 }
 
@@ -273,18 +265,6 @@ void V8InspectorImpl::didExecuteScript(v8::Local<v8::Context> context) {
   if (V8DebuggerAgentImpl* agent =
           enabledDebuggerAgentForGroup(V8Debugger::getGroupId(context)))
     agent->didExecuteScript();
-}
-
-void V8InspectorImpl::idleStarted() {
-  for (auto it = m_sessions.begin(); it != m_sessions.end(); ++it) {
-    if (it->second->profilerAgent()->idleStarted()) return;
-  }
-}
-
-void V8InspectorImpl::idleFinished() {
-  for (auto it = m_sessions.begin(); it != m_sessions.end(); ++it) {
-    if (it->second->profilerAgent()->idleFinished()) return;
-  }
 }
 
 unsigned V8InspectorImpl::exceptionThrown(

@@ -4,6 +4,8 @@
 
 #include "src/inspector/v8-console-message.h"
 
+#include <assert.h>
+
 #include "src/inspector/inspected-context.h"
 #include "src/inspector/protocol/Protocol.h"
 #include "src/inspector/string-util.h"
@@ -231,7 +233,7 @@ V8ConsoleMessage::wrapArguments(V8InspectorSessionImpl* session,
                                 bool generatePreview) const {
   if (!m_arguments.size() || !m_contextId) return nullptr;
   InspectedContext* inspectedContext =
-      session->inspector()->getContext(session->contextGroupId(), m_contextId);
+    session->inspector()->getContext(session->contextGroupId(), m_contextId);
   if (!inspectedContext) return nullptr;
 
   v8::Isolate* isolate = inspectedContext->isolate();
@@ -239,30 +241,26 @@ V8ConsoleMessage::wrapArguments(V8InspectorSessionImpl* session,
   v8::Local<v8::Context> context = inspectedContext->context();
 
   std::unique_ptr<protocol::Array<protocol::Runtime::RemoteObject>> args =
-      protocol::Array<protocol::Runtime::RemoteObject>::create();
+    protocol::Array<protocol::Runtime::RemoteObject>::create();
+
   if (m_type == ConsoleAPIType::kTable && generatePreview) {
-    v8::Local<v8::Value> table = m_arguments[0]->Get(isolate);
-    v8::Local<v8::Value> columns = m_arguments.size() > 1
-                                       ? m_arguments[1]->Get(isolate)
-                                       : v8::Local<v8::Value>();
-    std::unique_ptr<protocol::Runtime::RemoteObject> wrapped =
-        session->wrapTable(context, table, columns);
-    if (wrapped)
-      args->addItem(std::move(wrapped));
-    else
-      args = nullptr;
-  } else {
+    // CHAKRA-TODO - Figure out what to do here.
+    assert(false);
+  }
+  else {
     for (size_t i = 0; i < m_arguments.size(); ++i) {
-      std::unique_ptr<protocol::Runtime::RemoteObject> wrapped =
-          session->wrapObject(context, m_arguments[i]->Get(isolate), "console",
-                              generatePreview);
+      // CHAKRA-TODO - Figure out what to do here.
+      v8::Local<v8::Value> arg = m_arguments[i]->Get(isolate);
+      std::unique_ptr<protocol::Runtime::RemoteObject> wrapped = nullptr;
       if (!wrapped) {
         args = nullptr;
         break;
       }
+
       args->addItem(std::move(wrapped));
     }
   }
+
   return args;
 }
 
@@ -319,18 +317,8 @@ void V8ConsoleMessage::reportToFrontend(protocol::Runtime::Frontend* frontend,
 std::unique_ptr<protocol::Runtime::RemoteObject>
 V8ConsoleMessage::wrapException(V8InspectorSessionImpl* session,
                                 bool generatePreview) const {
-  if (!m_arguments.size() || !m_contextId) return nullptr;
-  DCHECK_EQ(1u, m_arguments.size());
-  InspectedContext* inspectedContext =
-      session->inspector()->getContext(session->contextGroupId(), m_contextId);
-  if (!inspectedContext) return nullptr;
-
-  v8::Isolate* isolate = inspectedContext->isolate();
-  v8::HandleScope handles(isolate);
-  // TODO(dgozman): should we use different object group?
-  return session->wrapObject(inspectedContext->context(),
-                             m_arguments[0]->Get(isolate), "console",
-                             generatePreview);
+  // CHAKRA-TODO - Figure out what to do here.
+  return std::unique_ptr<protocol::Runtime::RemoteObject>();
 }
 
 V8MessageOrigin V8ConsoleMessage::origin() const { return m_origin; }
@@ -460,9 +448,6 @@ void V8ConsoleMessageStorage::addMessage(
 void V8ConsoleMessageStorage::clear() {
   m_messages.clear();
   m_expiredCount = 0;
-  if (V8InspectorSessionImpl* session =
-          m_inspector->sessionForContextGroup(m_contextGroupId))
-    session->releaseObjectGroup("console");
 }
 
 void V8ConsoleMessageStorage::contextDestroyed(int contextId) {

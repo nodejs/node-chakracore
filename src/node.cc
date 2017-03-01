@@ -4357,8 +4357,10 @@ void Init(int* argc,
 
   // CHAKRA-TODO : fix this to not do it here
 #ifdef NODE_ENGINE_CHAKRACORE
-  if (debug_options.debugger_enabled()) {
-      v8::Debug::EnableDebug();
+  if (debug_options.inspector_enabled()) {
+    v8::Debug::EnableInspector();
+  } else if (debug_options.debugger_enabled()) {
+    v8::Debug::EnableDebug();
   }
 #endif
 

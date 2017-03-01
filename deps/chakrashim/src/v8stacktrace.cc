@@ -101,6 +101,12 @@ Local<String> StackFrame::GetScriptName() const {
   return static_cast<String*>(result);
 }
 
+Local<String> StackFrame::GetScriptNameOrSourceURL() const {
+  // CHAKRA-TODO: Figure out what to do here
+  CHAKRA_ASSERT(false);
+  return Local<String>();
+}
+
 Local<String> StackFrame::GetFunctionName() const {
   JsValueRef frame = const_cast<StackFrame*>(this);
   JsValueRef result;

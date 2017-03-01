@@ -557,6 +557,24 @@
     utils.isNumberObject = function(obj) {
       return compareType(obj, 'Number');
     };
+    utils.isArgumentsObject = function(obj) {
+      return compareType(obj, 'Arguments');
+    };
+    utils.isGeneratorObject = function(obj) {
+      return compareType(obj, 'Generator');
+    };
+    utils.isWeakMap = function(obj) {
+      return compareType(obj, 'WeakMap');
+    };
+    utils.isWeakSet = function(obj) {
+      return compareType(obj, 'WeakSet');
+    };
+    utils.isSymbolObject = function(obj) {
+      return compareType(obj, 'Symbol');
+    };
+    utils.isName = function(obj) {
+      return compareType(obj, 'String') || compareType(obj, 'Symbol');
+    };
     utils.getSymbolKeyFor = function(symbol) {
       return Symbol_keyFor(symbol);
     };

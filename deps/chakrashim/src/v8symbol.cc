@@ -18,6 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#include "v8.h"
 #include "v8chakra.h"
 #include "jsrtutils.h"
 
@@ -46,7 +47,19 @@ Symbol* Symbol::Cast(Value* obj) {
 }
 
 Local<Value> Symbol::Name() const {
+  jsrt::IsolateShim* iso = jsrt::IsolateShim::GetCurrent();
+  jsrt::ContextShim* contextShim = iso->GetCurrentContextShim();
+
+  JsValueRef getSymbolKeyForFunction =
+    contextShim->GetgetSymbolKeyForFunction();
+  JsValueRef symbolDescription;
+
+  if (jsrt::CallFunction(getSymbolKeyForFunction, (JsValueRef)this,
+                         &symbolDescription) != JsNoError) {
     return Local<Value>();
+  }
+
+  return Local<Value>(symbolDescription);
 }
 
 }  // namespace v8

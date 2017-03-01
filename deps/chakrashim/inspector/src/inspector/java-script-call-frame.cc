@@ -29,134 +29,122 @@
  */
 
 #include "src/inspector/java-script-call-frame.h"
+#include <assert.h>
 
 #include "src/inspector/string-util.h"
 
 #include "include/v8-debug.h"
+#include "src/jsrtinspectorhelpers.h"
 
 namespace v8_inspector {
 
+using jsrt::InspectorHelpers;
+
 JavaScriptCallFrame::JavaScriptCallFrame(v8::Local<v8::Context> debuggerContext,
-                                         v8::Local<v8::Object> callFrame)
+                                         JsValueRef callFrame)
     : m_isolate(debuggerContext->GetIsolate()),
       m_debuggerContext(m_isolate, debuggerContext),
-      m_callFrame(m_isolate, callFrame) {}
+      m_callFrame(callFrame) {
+  JsAddRef(m_callFrame, nullptr);
+}
 
-JavaScriptCallFrame::~JavaScriptCallFrame() {}
-
-int JavaScriptCallFrame::callV8FunctionReturnInt(const char* name) const {
-  v8::HandleScope handleScope(m_isolate);
-  v8::MicrotasksScope microtasks(m_isolate,
-                                 v8::MicrotasksScope::kDoNotRunMicrotasks);
-  v8::Local<v8::Context> context =
-      v8::Local<v8::Context>::New(m_isolate, m_debuggerContext);
-  v8::Local<v8::Object> callFrame =
-      v8::Local<v8::Object>::New(m_isolate, m_callFrame);
-  v8::Local<v8::Function> func = v8::Local<v8::Function>::Cast(
-      callFrame->Get(context, toV8StringInternalized(m_isolate, name))
-          .ToLocalChecked());
-  v8::Local<v8::Value> result;
-  if (!func->Call(context, callFrame, 0, nullptr).ToLocal(&result) ||
-      !result->IsInt32())
-    return 0;
-  return result.As<v8::Int32>()->Value();
+JavaScriptCallFrame::~JavaScriptCallFrame() {
+  JsRelease(m_callFrame, nullptr);
 }
 
 int JavaScriptCallFrame::sourceID() const {
-  return callV8FunctionReturnInt("sourceID");
+  int scriptId;
+  if (InspectorHelpers::GetIntProperty(m_callFrame, "scriptId", &scriptId) != JsNoError) {
+    assert(false);
+    return 0;
+  }
+
+  return scriptId;
 }
 
 int JavaScriptCallFrame::line() const {
-  return callV8FunctionReturnInt("line");
+  int line;
+  if (InspectorHelpers::GetIntProperty(m_callFrame, "line", &line) != JsNoError) {
+    assert(false);
+    return 0;
+  }
+
+  return line;
 }
 
 int JavaScriptCallFrame::column() const {
-  return callV8FunctionReturnInt("column");
+  int column;
+  if (InspectorHelpers::GetIntProperty(m_callFrame, "column", &column) != JsNoError) {
+    assert(false);
+    return 0;
+  }
+
+  return column;
 }
 
 int JavaScriptCallFrame::contextId() const {
-  return callV8FunctionReturnInt("contextId");
+  return 1;
 }
 
 bool JavaScriptCallFrame::isAtReturn() const {
-  v8::HandleScope handleScope(m_isolate);
-  v8::Local<v8::Context> context =
-      v8::Local<v8::Context>::New(m_isolate, m_debuggerContext);
-  v8::Local<v8::Object> callFrame =
-      v8::Local<v8::Object>::New(m_isolate, m_callFrame);
-  v8::Local<v8::Value> result;
-  if (!callFrame->Get(context, toV8StringInternalized(m_isolate, "isAtReturn"))
-           .ToLocal(&result) ||
-      !result->IsBoolean())
+  int index;
+  if (InspectorHelpers::GetIntProperty(m_callFrame, "index", &index) != JsNoError) {
+    assert(false);
     return false;
-  return result.As<v8::Boolean>()->BooleanValue(context).FromMaybe(false);
+  }
+
+  JsValueRef properties;
+  if (JsDiagGetStackProperties(index, &properties) != JsNoError) {
+    assert(false);
+    return false;
+  }
+
+  bool hasProp;
+  if (InspectorHelpers::HasProperty(m_callFrame, "returnValue", &hasProp) != JsNoError) {
+    assert(false);
+    return false;
+  }
+
+  if (!hasProp) {
+    return false;
+  }
+
+  JsValueRef propVal;
+  if (InspectorHelpers::GetProperty(m_callFrame, "returnValue", &propVal) != JsNoError) {
+    assert(false);
+    return false;
+  }
+
+  if (InspectorHelpers::HasProperty(propVal, "handle", &hasProp) != JsNoError) {
+    assert(false);
+    return false;
+  }
+
+  return hasProp;
 }
 
 v8::Local<v8::Object> JavaScriptCallFrame::details() const {
-  v8::MicrotasksScope microtasks(m_isolate,
-                                 v8::MicrotasksScope::kDoNotRunMicrotasks);
-  v8::Local<v8::Context> context =
-      v8::Local<v8::Context>::New(m_isolate, m_debuggerContext);
-  v8::Local<v8::Object> callFrame =
-      v8::Local<v8::Object>::New(m_isolate, m_callFrame);
-  v8::Local<v8::Function> func = v8::Local<v8::Function>::Cast(
-      callFrame->Get(context, toV8StringInternalized(m_isolate, "details"))
-          .ToLocalChecked());
-  return v8::Local<v8::Object>::Cast(
-      func->Call(context, callFrame, 0, nullptr).ToLocalChecked());
+  return jsrt::InspectorHelpers::WrapCallFrameDetails(m_callFrame);
 }
 
 v8::MaybeLocal<v8::Value> JavaScriptCallFrame::evaluate(
-    v8::Local<v8::Value> expression) {
-  v8::MicrotasksScope microtasks(m_isolate,
-                                 v8::MicrotasksScope::kRunMicrotasks);
-  v8::Local<v8::Context> context =
-      v8::Local<v8::Context>::New(m_isolate, m_debuggerContext);
-  v8::Local<v8::Object> callFrame =
-      v8::Local<v8::Object>::New(m_isolate, m_callFrame);
-  v8::Local<v8::Function> evalFunction = v8::Local<v8::Function>::Cast(
-      callFrame->Get(context, toV8StringInternalized(m_isolate, "evaluate"))
-          .ToLocalChecked());
-  return evalFunction->Call(context, callFrame, 1, &expression);
+    v8::Local<v8::Value> expression, bool* isError) {
+  return jsrt::InspectorHelpers::EvaluateOnCallFrame(
+      m_callFrame, reinterpret_cast<JsValueRef>(*expression), false, isError);
 }
 
 v8::MaybeLocal<v8::Value> JavaScriptCallFrame::restart() {
-  v8::MicrotasksScope microtasks(m_isolate,
-                                 v8::MicrotasksScope::kDoNotRunMicrotasks);
-  v8::Local<v8::Context> context =
-      v8::Local<v8::Context>::New(m_isolate, m_debuggerContext);
-  v8::Local<v8::Object> callFrame =
-      v8::Local<v8::Object>::New(m_isolate, m_callFrame);
-  v8::Local<v8::Function> restartFunction = v8::Local<v8::Function>::Cast(
-      callFrame->Get(context, toV8StringInternalized(m_isolate, "restart"))
-          .ToLocalChecked());
-  v8::Debug::SetLiveEditEnabled(m_isolate, true);
-  v8::MaybeLocal<v8::Value> result = restartFunction->Call(
-      m_debuggerContext.Get(m_isolate), callFrame, 0, nullptr);
-  v8::Debug::SetLiveEditEnabled(m_isolate, false);
-  return result;
+  // CHAKRA-TODO - Figure out what to do here.
+  assert(false);
+  return v8::MaybeLocal<v8::Value>();
 }
 
 v8::MaybeLocal<v8::Value> JavaScriptCallFrame::setVariableValue(
     int scopeNumber, v8::Local<v8::Value> variableName,
     v8::Local<v8::Value> newValue) {
-  v8::MicrotasksScope microtasks(m_isolate,
-                                 v8::MicrotasksScope::kDoNotRunMicrotasks);
-  v8::Local<v8::Context> context =
-      v8::Local<v8::Context>::New(m_isolate, m_debuggerContext);
-  v8::Local<v8::Object> callFrame =
-      v8::Local<v8::Object>::New(m_isolate, m_callFrame);
-  v8::Local<v8::Function> setVariableValueFunction =
-      v8::Local<v8::Function>::Cast(
-          callFrame
-              ->Get(context,
-                    toV8StringInternalized(m_isolate, "setVariableValue"))
-              .ToLocalChecked());
-  v8::Local<v8::Value> argv[] = {
-      v8::Local<v8::Value>(v8::Integer::New(m_isolate, scopeNumber)),
-      variableName, newValue};
-  return setVariableValueFunction->Call(context, callFrame, arraysize(argv),
-                                        argv);
+  // CHAKRA-TODO - Figure out what to do here.
+  assert(false);
+  return v8::MaybeLocal<v8::Value>();
 }
 
 }  // namespace v8_inspector

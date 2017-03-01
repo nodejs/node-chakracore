@@ -1298,7 +1298,6 @@ def configure_intl(o):
 
 def configure_inspector(o):
   disable_inspector = (options.without_inspector or
-                       options.with_intl in (None, 'none') or
                        options.without_ssl)
   o['variables']['v8_enable_inspector'] = 0 if disable_inspector else 1
 
@@ -1306,9 +1305,7 @@ def configure_engine(o):
   engine = options.engine.lower()
   o['variables']['node_engine'] = engine
   if engine != 'v8':
-    o['variables']['node_use_v8_platform'] = b(False)
     o['variables']['node_use_bundled_v8'] = b(False)
-    o['variables']['v8_inspector'] = b(False)
     o['variables']['v8_enable_i18n_support'] = 0
 
 output = {

@@ -22,6 +22,11 @@
 
 namespace v8 {
 
+Local<String> Message::Get() const {
+  // CHAKRA-TODO: Figure out what to do here
+  return Local<String>();
+}
+
 MaybeLocal<String> Message::GetSourceLine(Local<Context> context) const {
   // CHAKRA-TODO: Figure out how to transmit this info...?
   return Local<String>();
@@ -31,9 +36,19 @@ Local<String> Message::GetSourceLine() const {
   return FromMaybe(GetSourceLine(Local<Context>()));
 }
 
+ScriptOrigin Message::GetScriptOrigin() const {
+  // CHAKRA-TODO: Figure out what to do here
+  return ScriptOrigin(Local<String>());
+}
+
 Handle<Value> Message::GetScriptResourceName() const {
   // CHAKRA-TODO: Figure out how to transmit this info...?
   return Handle<Value>();
+}
+
+Local<StackTrace> Message::GetStackTrace() const {
+  // CHAKRA-TODO: Figure out what to do here
+  return Local<StackTrace>();
 }
 
 Maybe<int> Message::GetLineNumber(Local<Context> context) const {

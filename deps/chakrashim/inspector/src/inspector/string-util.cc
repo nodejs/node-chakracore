@@ -77,6 +77,10 @@ StringView toStringView(const String16& string) {
                     string.length());
 }
 
+std::unique_ptr<StringBuffer> toStringBuffer(const String16& string) {
+  return StringBuffer::create(toStringView(string));
+}
+
 bool stringViewStartsWith(const StringView& string, const char* prefix) {
   if (!string.length()) return !(*prefix);
   if (string.is8Bit()) {

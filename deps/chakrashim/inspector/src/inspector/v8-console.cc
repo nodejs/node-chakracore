@@ -4,15 +4,16 @@
 
 #include "src/inspector/v8-console.h"
 
+#include <assert.h>
+
 #include "src/base/macros.h"
-#include "src/inspector/injected-script.h"
 #include "src/inspector/inspected-context.h"
 #include "src/inspector/string-util.h"
 #include "src/inspector/v8-console-message.h"
+#include "src/inspector/v8-debugger.h"
 #include "src/inspector/v8-debugger-agent-impl.h"
 #include "src/inspector/v8-inspector-impl.h"
 #include "src/inspector/v8-inspector-session-impl.h"
-#include "src/inspector/v8-profiler-agent-impl.h"
 #include "src/inspector/v8-runtime-agent-impl.h"
 #include "src/inspector/v8-stack-trace-impl.h"
 #include "src/inspector/v8-value-copier.h"
@@ -190,14 +191,6 @@ class ConsoleHelper {
     if (!map->Set(m_context, v8Key, v8::Number::New(m_isolate, value))
              .ToLocal(&map))
       return;
-  }
-
-  V8ProfilerAgentImpl* profilerAgent() {
-    if (V8InspectorSessionImpl* session = currentSession()) {
-      if (session && session->profilerAgent()->enabled())
-        return session->profilerAgent();
-    }
-    return nullptr;
   }
 
   V8DebuggerAgentImpl* debuggerAgent() {
@@ -385,20 +378,6 @@ void V8Console::markTimelineCallback(
                                            "deprecated. Please use "
                                            "'console.timeStamp' instead.");
   timeStampCallback(info);
-}
-
-void V8Console::profileCallback(
-    const v8::FunctionCallbackInfo<v8::Value>& info) {
-  ConsoleHelper helper(info);
-  if (V8ProfilerAgentImpl* profilerAgent = helper.profilerAgent())
-    profilerAgent->consoleProfile(helper.firstArgToString(String16()));
-}
-
-void V8Console::profileEndCallback(
-    const v8::FunctionCallbackInfo<v8::Value>& info) {
-  ConsoleHelper helper(info);
-  if (V8ProfilerAgentImpl* profilerAgent = helper.profilerAgent())
-    profilerAgent->consoleProfileEnd(helper.firstArgToString(String16()));
 }
 
 static void timeFunction(const v8::FunctionCallbackInfo<v8::Value>& info,
@@ -598,59 +577,25 @@ void V8Console::unmonitorFunctionCallback(
 
 void V8Console::lastEvaluationResultCallback(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
-  ConsoleHelper helper(info);
-  InspectedContext* context = helper.ensureInspectedContext();
-  if (!context) return;
-  if (InjectedScript* injectedScript = context->getInjectedScript())
-    info.GetReturnValue().Set(injectedScript->lastEvaluationResult());
-}
-
-static void inspectImpl(const v8::FunctionCallbackInfo<v8::Value>& info,
-                        bool copyToClipboard) {
-  if (info.Length() < 1) return;
-  if (!copyToClipboard) info.GetReturnValue().Set(info[0]);
-
-  ConsoleHelper helper(info);
-  InspectedContext* context = helper.ensureInspectedContext();
-  if (!context) return;
-  InjectedScript* injectedScript = context->getInjectedScript();
-  if (!injectedScript) return;
-  ErrorString errorString;
-  std::unique_ptr<protocol::Runtime::RemoteObject> wrappedObject =
-      injectedScript->wrapObject(&errorString, info[0], "",
-                                 false /** forceValueType */,
-                                 false /** generatePreview */);
-  if (!wrappedObject || !errorString.isEmpty()) return;
-
-  std::unique_ptr<protocol::DictionaryValue> hints =
-      protocol::DictionaryValue::create();
-  if (copyToClipboard) hints->setBoolean("copyToClipboard", true);
-  if (V8InspectorSessionImpl* session = helper.currentSession())
-    session->runtimeAgent()->inspect(std::move(wrappedObject),
-                                     std::move(hints));
+  // CHAKRA-TODO - Figure out what to do here.
+  assert(false);
 }
 
 void V8Console::inspectCallback(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
-  inspectImpl(info, false);
+  // CHAKRA-TODO - Figure out what to do here.
+  assert(false);
 }
 
 void V8Console::copyCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
-  inspectImpl(info, true);
+  // CHAKRA-TODO - Figure out what to do here.
+  assert(false);
 }
 
 void V8Console::inspectedObject(const v8::FunctionCallbackInfo<v8::Value>& info,
                                 unsigned num) {
-  DCHECK(num < V8InspectorSessionImpl::kInspectedObjectBufferSize);
-  ConsoleHelper helper(info);
-  if (V8InspectorSessionImpl* session = helper.currentSession()) {
-    V8InspectorSession::Inspectable* object = session->inspectedObject(num);
-    v8::Isolate* isolate = info.GetIsolate();
-    if (object)
-      info.GetReturnValue().Set(object->get(isolate->GetCurrentContext()));
-    else
-      info.GetReturnValue().Set(v8::Undefined(isolate));
-  }
+  // CHAKRA-TODO - Figure out what to do here.
+  assert(false);
 }
 
 v8::Local<v8::Object> V8Console::createConsole(
@@ -697,10 +642,6 @@ v8::Local<v8::Object> V8Console::createConsole(
                               V8Console::assertCallback);
   createBoundFunctionProperty(context, console, "markTimeline",
                               V8Console::markTimelineCallback);
-  createBoundFunctionProperty(context, console, "profile",
-                              V8Console::profileCallback);
-  createBoundFunctionProperty(context, console, "profileEnd",
-                              V8Console::profileEndCallback);
   createBoundFunctionProperty(context, console, "timeline",
                               V8Console::timelineCallback);
   createBoundFunctionProperty(context, console, "timelineEnd",
@@ -755,12 +696,6 @@ v8::Local<v8::Object> V8Console::createCommandLineAPI(
   createBoundFunctionProperty(context, commandLineAPI, "dirxml",
                               V8Console::dirxmlCallback,
                               "function dirxml(value) { [Command Line API] }");
-  createBoundFunctionProperty(context, commandLineAPI, "profile",
-                              V8Console::profileCallback,
-                              "function profile(title) { [Command Line API] }");
-  createBoundFunctionProperty(
-      context, commandLineAPI, "profileEnd", V8Console::profileEndCallback,
-      "function profileEnd(title) { [Command Line API] }");
   createBoundFunctionProperty(context, commandLineAPI, "clear",
                               V8Console::clearCallback,
                               "function clear() { [Command Line API] }");

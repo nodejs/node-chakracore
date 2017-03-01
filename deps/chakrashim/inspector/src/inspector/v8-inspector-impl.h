@@ -46,7 +46,6 @@ class V8ConsoleMessageStorage;
 class V8Debugger;
 class V8DebuggerAgentImpl;
 class V8InspectorSessionImpl;
-class V8ProfilerAgentImpl;
 class V8RuntimeAgentImpl;
 class V8StackTraceImpl;
 
@@ -82,8 +81,6 @@ class V8InspectorImpl : public V8Inspector {
   void resetContextGroup(int contextGroupId) override;
   void willExecuteScript(v8::Local<v8::Context>, int scriptId) override;
   void didExecuteScript(v8::Local<v8::Context>) override;
-  void idleStarted() override;
-  void idleFinished() override;
   unsigned exceptionThrown(v8::Local<v8::Context>, const StringView& message,
                            v8::Local<v8::Value> exception,
                            const StringView& detailedMessage,
@@ -118,7 +115,6 @@ class V8InspectorImpl : public V8Inspector {
   InspectedContext* getContext(int groupId, int contextId) const;
   V8DebuggerAgentImpl* enabledDebuggerAgentForGroup(int contextGroupId);
   V8RuntimeAgentImpl* enabledRuntimeAgentForGroup(int contextGroupId);
-  V8ProfilerAgentImpl* enabledProfilerAgentForGroup(int contextGroupId);
 
  private:
   v8::Isolate* m_isolate;

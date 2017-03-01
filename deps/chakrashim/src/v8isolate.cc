@@ -104,6 +104,10 @@ uint32_t Isolate::GetNumberOfDataSlots() {
   return 0;
 }
 
+bool Isolate::InContext() {
+  return !GetCurrentContext().IsEmpty();
+}
+
 Local<Context> Isolate::GetCurrentContext() {
   return Context::GetCurrent();
 }
@@ -121,6 +125,15 @@ bool Isolate::AddMessageListener(MessageCallback that, Handle<Value> data) {
 void Isolate::RemoveMessageListeners(MessageCallback that) {
   jsrt::IsolateShim::FromIsolate(this)->RemoveMessageListeners(
     reinterpret_cast<void*>(that));
+}
+
+void Isolate::SetCaptureStackTraceForUncaughtExceptions(
+  bool capture, int frame_limit,
+  StackTrace::StackTraceOptions options) {
+  // CHAKRA-TODO: Figure out what to do here
+  //
+  // kpathak: you might want to look into mechanism of captureStackTrace in
+  // chakra_shim.js.
 }
 
 void Isolate::SetJitCodeEventHandler(JitCodeEventOptions options,
@@ -165,6 +178,10 @@ void Isolate::RemoveGCEpilogueCallback(GCCallback callback) {
 
 void Isolate::CancelTerminateExecution() {
   jsrt::IsolateShim::FromIsolate(this)->EnableExecution();
+}
+
+void Isolate::RequestInterrupt(InterruptCallback callback, void* data) {
+  jsrt::IsolateShim::FromIsolate(this)->RequestInterrupt(callback, data);
 }
 
 void Isolate::TerminateExecution() {
@@ -224,6 +241,16 @@ bool Isolate::GetHeapSpaceStatistics(HeapSpaceStatistics* space_statistics,
                                      size_t index) {
   // Chakra doesn't expose HEAP space stats
   return true;
+}
+
+Isolate::DisallowJavascriptExecutionScope::DisallowJavascriptExecutionScope(
+  Isolate* isolate,
+  OnFailure on_failure) {
+  // CHAKRA-TODO: Figure out what to do here
+}
+
+Isolate::DisallowJavascriptExecutionScope::~DisallowJavascriptExecutionScope() {
+  // CHAKRA-TODO: Figure out what to do here
 }
 
 }  // namespace v8

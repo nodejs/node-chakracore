@@ -54,6 +54,7 @@ String16 toProtocolString(v8::Local<v8::String>);
 String16 toProtocolStringWithTypeCheck(v8::Local<v8::Value>);
 String16 toString16(const StringView&);
 StringView toStringView(const String16&);
+std::unique_ptr<StringBuffer> toStringBuffer(const String16&);
 bool stringViewStartsWith(const StringView&, const char*);
 
 class StringBufferImpl : public StringBuffer {

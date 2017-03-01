@@ -24,19 +24,7 @@
 namespace v8 {
 
 Local<Value> Private::Name() const {
-  jsrt::IsolateShim* iso = jsrt::IsolateShim::GetCurrent();
-  jsrt::ContextShim* contextShim = iso->GetCurrentContextShim();
-
-  JsValueRef getSymbolKeyForFunction =
-    contextShim->GetgetSymbolKeyForFunction();
-  JsValueRef symbolDescription;
-
-  if (jsrt::CallFunction(getSymbolKeyForFunction, (JsValueRef)this,
-                         &symbolDescription) != JsNoError) {
-    return Local<Value>();
-  }
-
-  return Local<Value>(symbolDescription);
+  return reinterpret_cast<const Symbol*>(this)->Name();
 }
 
 Local<Private> Private::New(Isolate* isolate,
