@@ -27,12 +27,12 @@ namespace v8 {
 HeapProfiler dummyHeapProfiler;
 CpuProfiler dummyCpuProfiler;
 
-Isolate* Isolate::NewWithTTDSupport(const CreateParams& params, const char* uri,
+Isolate* Isolate::NewWithTTDSupport(const CreateParams& params, 
+                      size_t optReplayUriLength, const char* optReplayUri,
                       bool doRecord, bool doReplay, bool doDebug,
-                      bool useRelocatedSrc,
                       uint32_t snapInterval, uint32_t snapHistoryLength) {
-  Isolate* iso = jsrt::IsolateShim::New(uri, doRecord, doReplay, doDebug,
-                                        useRelocatedSrc,
+  Isolate* iso = jsrt::IsolateShim::New(optReplayUriLength, optReplayUri,
+                                        doRecord, doReplay, doDebug,
                                         snapInterval, snapHistoryLength);
 
   if (params.array_buffer_allocator) {
@@ -44,13 +44,14 @@ Isolate* Isolate::NewWithTTDSupport(const CreateParams& params, const char* uri,
 }
 
 Isolate* Isolate::New(const CreateParams& params) {
-  return NewWithTTDSupport(params, nullptr, false, false,
-    false, false, UINT32_MAX, UINT32_MAX);
+  return NewWithTTDSupport(params, 0, nullptr, 
+                           false, false,false, 
+                           UINT32_MAX, UINT32_MAX);
 }
 
 Isolate* Isolate::New() {
-  return jsrt::IsolateShim::New(nullptr,
-                                false, false, false, false,
+  return jsrt::IsolateShim::New(0, nullptr,
+                                false, false, false,
                                 UINT32_MAX, UINT32_MAX);
 }
 

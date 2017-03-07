@@ -166,9 +166,13 @@ void SyncProcessStdioPipe::Close() {
 
 Local<Object> SyncProcessStdioPipe::GetOutputAsBuffer(Environment* env) const {
   size_t length = OutputLength();
-  TTD_NATIVE_BUFFER_ACCESS_NOTIFY("SyncProcessStdioPipe::GetOutputAsBuffer");
   Local<Object> js_buffer = Buffer::New(env, length).ToLocalChecked();
   CopyOutput(Buffer::Data(js_buffer));
+
+#if ENABLE_TTD_NODE
+  Buffer::TTDSyncDataModNotify(js_buffer, 0, length);
+#endif
+
   return js_buffer;
 }
 

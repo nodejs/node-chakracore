@@ -111,6 +111,7 @@ int String::WriteOneByte(
     for (size_t i = 0; i < count; i++) {
       buffer[i] = (uint8_t)tmpBuffer[i];
     }
+    
     if (!(options & String::NO_NULL_TERMINATION)) {
       buffer[count] = 0;
     }

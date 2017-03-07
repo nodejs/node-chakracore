@@ -205,18 +205,18 @@ size_t Length(Local<Value> val) {
 }
 
 #if ENABLE_TTD_NODE
-void TTDAsyncModRegister(v8::Local<v8::Object> val, byte* initialModPosition) {
+void TTDAsyncModRegister(v8::Local<v8::Object> val, unsigned char* initialModPosition) {
   CHECK(val->IsUint8Array());
   Local<Uint8Array> ui = val.As<Uint8Array>();
   ui->Buffer()->TTDRawBufferNotifyRegisterForModification(initialModPosition);
 }
 
-void TTDAsyncModNotify(byte* finalModPosition) {
+void TTDAsyncModNotify(unsigned char* finalModPosition) {
   v8::ArrayBuffer::TTDRawBufferAsyncModifyComplete(finalModPosition);
 }
 
 void TTDSyncDataModNotify(v8::Local<v8::Object> val,
-                          UINT32 index, UINT32 count) {
+                          unsigned int index, unsigned int count) {
   CHECK(val->IsUint8Array());
   Local<Uint8Array> ui = val.As<Uint8Array>();
   ui->Buffer()->TTDRawBufferModifyNotifySync(ui->ByteOffset() + index, count);
