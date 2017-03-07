@@ -788,12 +788,14 @@ SmallHeapBlockT<TBlockAttributes>::ClearExplicitFreeBitForObject(void* objectAdd
 #if DBG
 void HeapBlock::PrintVerifyMarkFailure(Recycler* recycler, char* objectAddress, char* target)
 {
-    HeapBlock* block = recycler->FindHeapBlock(objectAddress);
+    // Due to possible GC mark optimization, the pointers may point to object
+    // internal and "unaligned". Align them then FindHeapBlock.
+    HeapBlock* block = recycler->FindHeapBlock(HeapInfo::GetAlignedAddress(objectAddress));
     if (block == nullptr)
     {
         return;
     }
-    HeapBlock* targetBlock = recycler->FindHeapBlock(target);
+    HeapBlock* targetBlock = recycler->FindHeapBlock(HeapInfo::GetAlignedAddress(target));
     if (targetBlock == nullptr)
     {
         return;
@@ -808,8 +810,21 @@ void HeapBlock::PrintVerifyMarkFailure(Recycler* recycler, char* objectAddress, 
     uint targetOffset = 0;
     char* objectStartAddress = nullptr;
     char* targetStartAddress = nullptr;
-    byte barrier = RecyclerWriteBarrierManager::GetWriteBarrier(objectAddress);
-    Unused(barrier);
+
+    if (targetBlock->IsLargeHeapBlock())
+    {
+        targetOffset = (uint)(target - (char*)((LargeHeapBlock*)targetBlock)->GetRealAddressFromInterior(target));
+    }
+    else
+    {
+        targetOffset = (uint)(target - targetBlock->GetAddress()) % targetBlock->GetObjectSize(nullptr);
+    }
+
+    if (targetOffset != 0)
+    {
+        // "target" points to internal of an object. This is not a GC pointer.
+        return;
+    }
 
     if (Recycler::DoProfileAllocTracker())
     {
@@ -902,13 +917,23 @@ void HeapBlock::PrintVerifyMarkFailure(Recycler* recycler, char* objectAddress, 
                     return;
                 }
 
-                if ((offset == 0x20 // scope field in scopeInfo
-                    || (offset >= 0x30 && (offset &0xf)==0) // symbol array at the end of scopeInfo, can point to arena allocated propertyRecord
-                    )
+                if (offset >= 0x30 && (offset & 0xf) == 0 // symbol array at the end of scopeInfo, can point to arena allocated propertyRecord
                     && strstr(typeName, "Js::ScopeInfo") != nullptr)
                 {
-                    // Js::ScopeInfo scope field is arena allocated and can be reused in recycler
-                    // TODO: (leish)(swb) find a good location to clear/tag this field
+                    dumpFalsePositive();
+                    return;
+                }
+
+                // Js::Type::entryPoint may contain outdated data uncleared, and reused by recycler
+                // Most often occurs with script function Type
+                if (offset ==
+#if TARGET_64
+                    0x18
+#else
+                    0x10
+#endif
+                    && strstr(typeName, "Js::ScriptFunctionType"))
+                {
                     dumpFalsePositive();
                     return;
                 }
@@ -918,21 +943,10 @@ void HeapBlock::PrintVerifyMarkFailure(Recycler* recycler, char* objectAddress, 
             }
         }        
 
-        if (targetBlock->IsLargeHeapBlock())
-        {
-            targetOffset = (uint)(target - (char*)((LargeHeapBlock*)targetBlock)->GetRealAddressFromInterior(target));
-        }
-        else
-        {
-            targetOffset = (uint)(target - targetBlock->GetAddress()) % targetBlock->GetObjectSize(nullptr);
-        }
+
         targetStartAddress = target - targetOffset;
         targetTrackerData = (Recycler::TrackerData*)targetBlock->GetTrackerData(targetStartAddress);
 
-        if (targetOffset != 0)
-        {
-            Output::Print(_u("Target is not aligned with it's bucket, this indicate it's likely a false positive\n"));
-        }
 
         if (targetTrackerData)
         {

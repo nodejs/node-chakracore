@@ -337,7 +337,6 @@ namespace TTD
 }
 
 #include "PlatformAgnostic/ChakraPlatform.h"
-#include "DataStructures/EvalMapString.h"
 
 bool IsMathLibraryId(Js::PropertyId propertyId);
 #include "ByteCode/PropertyIdArray.h"
@@ -444,13 +443,16 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Types/JavascriptStaticEnumerator.h"
 #include "Library/ExternalLibraryBase.h"
 #include "Library/JavascriptLibraryBase.h"
+#include "Library/MathLibrary.h"
 #include "Base/ThreadContextInfo.h"
+#include "DataStructures/EvalMapString.h"
+#include "Language/EvalMapRecord.h"
+#include "Base/RegexPatternMruMap.h"
 #include "Library/JavascriptLibrary.h"
 
 #include "Language/JavascriptExceptionOperators.h"
 #include "Language/JavascriptOperators.h"
 
-#include "Library/MathLibrary.h"
 #include "Library/WasmLibrary.h"
 // xplat-todo: We should get rid of this altogether and move the functionality it
 // encapsulates to the Platform Agnostic Interface
@@ -480,8 +482,6 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Base/StackProber.h"
 #include "Base/ScriptContextProfiler.h"
 
-#include "Language/EvalMapRecord.h"
-#include "Base/RegexPatternMruMap.h"
 #include "Language/JavascriptConversion.h"
 
 #include "Base/ScriptContextOptimizationOverrideInfo.h"

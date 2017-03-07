@@ -6059,8 +6059,6 @@ CoCreateGuid(OUT GUID * pguid);
 #define fgetws        PAL_fgetws
 #define fputc         PAL_fputc
 #define putchar       PAL_putchar
-#define qsort         PAL_qsort
-#define qsort_s       PAL_qsort_s
 #define bsearch       PAL_bsearch
 #define ferror        PAL_ferror
 #define fread         PAL_fread
@@ -6401,8 +6399,6 @@ PALIMPORT char * __cdecl _strdup(const char *);
 PALIMPORT PAL_NORETURN void __cdecl exit(int);
 int __cdecl atexit(void (__cdecl *function)(void));
 
-PALIMPORT void __cdecl qsort(void *, size_t, size_t, int (__cdecl *)(const void *, const void *));
-PALIMPORT void __cdecl qsort_s(void *, size_t, size_t, int (__cdecl *)(void*, const void *, const void *), void*);
 PALIMPORT void * __cdecl bsearch(const void *, const void *, size_t, size_t,
 int (__cdecl *)(const void *, const void *));
 
@@ -6635,17 +6631,6 @@ PALIMPORT
 VOID
 PALAPI
 PAL_Reenter(PAL_Boundary boundary);
-
-// This function needs to be called on a thread when it enters
-// a region of code that depends on this instance of the PAL
-// in the process, and it is unknown whether the current thread
-// is already running in the PAL.  Returns TRUE if and only if
-// the thread was not running in the PAL previously.  Does not
-// modify LastError.
-PALIMPORT
-BOOL
-PALAPI
-PAL_ReenterForEH(VOID);
 
 // This function needs to be called on a thread when it leaves
 // a region of code that depends on this instance of the PAL

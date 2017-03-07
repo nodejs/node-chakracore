@@ -10,7 +10,8 @@
 namespace Js
 {
 
-WebAssemblyEnvironment::WebAssemblyEnvironment(WebAssemblyModule* module)
+WebAssemblyEnvironment::WebAssemblyEnvironment(WebAssemblyModule* module):
+    m_alloc(_u("WebAssemblyEnvironment"), module->GetScriptContext()->GetThreadContext()->GetPageAllocator(), Js::Throw::OutOfMemory)
 {
     this->module = module;
     ScriptContext* scriptContext = module->GetScriptContext();
@@ -34,8 +35,10 @@ WebAssemblyEnvironment::WebAssemblyEnvironment(WebAssemblyModule* module)
         JavascriptError::ThrowOutOfMemoryError(scriptContext);
     }
     AssertMsg(globals + globalsSize + 0x10 > end, "We don't expect to allocate much more memory than what's needed");
-}
 
+    elementSegmentOffsets = AnewArrayZ(&m_alloc, uint, module->GetElementSegCount());
+    dataSegmentOffsets = AnewArrayZ(&m_alloc, uint, module->GetDataSegCount());
+}
 
 template<typename T>
 void Js::WebAssemblyEnvironment::CheckPtrIsValid(intptr_t ptr) const
@@ -47,14 +50,14 @@ void Js::WebAssemblyEnvironment::CheckPtrIsValid(intptr_t ptr) const
 }
 
 template<typename T>
-T* Js::WebAssemblyEnvironment::GetVarElement(Var* ptr, uint32 index, uint32 maxCount) const
+T* Js::WebAssemblyEnvironment::GetVarElement(Field(Var)* ptr, uint32 index, uint32 maxCount) const
 {
     if (index >= maxCount)
     {
         Js::Throw::InternalError();
     }
 
-    Var* functionPtr = ptr + index;
+    Field(Var)* functionPtr = ptr + index;
     CheckPtrIsValid<T*>((intptr_t)functionPtr);
     Var varFunc = *functionPtr;
     if (varFunc)
@@ -69,7 +72,7 @@ T* Js::WebAssemblyEnvironment::GetVarElement(Var* ptr, uint32 index, uint32 maxC
 }
 
 template<typename T>
-void Js::WebAssemblyEnvironment::SetVarElement(Var* ptr, T* val, uint32 index, uint32 maxCount)
+void Js::WebAssemblyEnvironment::SetVarElement(Field(Var)* ptr, T* val, uint32 index, uint32 maxCount)
 {
     if (index >= maxCount ||
         !T::Is(val))
@@ -77,7 +80,7 @@ void Js::WebAssemblyEnvironment::SetVarElement(Var* ptr, T* val, uint32 index, u
         Js::Throw::InternalError();
     }
 
-    Var* dst = ptr + index;
+    Field(Var)* dst = ptr + index;
     CheckPtrIsValid<Var>((intptr_t)dst);
     AssertMsg(*(T**)dst == nullptr, "We shouln't overwrite anything on the environment once it is set");
     *dst = val;
@@ -90,7 +93,7 @@ AsmJsScriptFunction* WebAssemblyEnvironment::GetWasmFunction(uint32 index) const
     {
         Js::Throw::InternalError();
     }
-    return GetVarElement<AsmJsScriptFunction>((Var*)PointerValue(functions), index, module->GetWasmFunctionCount());
+    return GetVarElement<AsmJsScriptFunction>(functions, index, module->GetWasmFunctionCount());
 }
 
 void WebAssemblyEnvironment::SetWasmFunction(uint32 index, AsmJsScriptFunction* func)
@@ -101,38 +104,38 @@ void WebAssemblyEnvironment::SetWasmFunction(uint32 index, AsmJsScriptFunction* 
     {
         Js::Throw::InternalError();
     }
-    SetVarElement<AsmJsScriptFunction>((Var*)PointerValue(functions), func, index, module->GetWasmFunctionCount());
+    SetVarElement<AsmJsScriptFunction>(functions, func, index, module->GetWasmFunctionCount());
 }
 
 void WebAssemblyEnvironment::SetImportedFunction(uint32 index, Var importedFunc)
 {
-    SetVarElement<JavascriptFunction>((Var*)PointerValue(imports), (JavascriptFunction*)importedFunc, index, module->GetWasmFunctionCount());
+    SetVarElement<JavascriptFunction>(imports, (JavascriptFunction*)importedFunc, index, module->GetWasmFunctionCount());
 }
 
 Js::WebAssemblyTable* WebAssemblyEnvironment::GetTable(uint32 index) const
 {
-    return GetVarElement<WebAssemblyTable>((Var*)PointerValue(table), index, 1);
+    return GetVarElement<WebAssemblyTable>(table, index, 1);
 }
 
 void WebAssemblyEnvironment::SetTable(uint32 index, WebAssemblyTable* table)
 {
-    SetVarElement<WebAssemblyTable>((Var*)PointerValue(this->table), table, index, 1);
+    SetVarElement<WebAssemblyTable>(this->table, table, index, 1);
 }
 
 WebAssemblyMemory* WebAssemblyEnvironment::GetMemory(uint32 index) const
 {
-    return GetVarElement<WebAssemblyMemory>((Var*)PointerValue(memory), index, 1);
+    return GetVarElement<WebAssemblyMemory>(memory, index, 1);
 }
 
 void WebAssemblyEnvironment::SetMemory(uint32 index, WebAssemblyMemory* mem)
 {
-    SetVarElement<WebAssemblyMemory>((Var*)PointerValue(this->memory), mem, index, 1);
+    SetVarElement<WebAssemblyMemory>(this->memory, mem, index, 1);
 }
 
 template<typename T>
 T WebAssemblyEnvironment::GetGlobalInternal(uint32 offset) const
 {
-    T* ptr = (T*)PointerValue(start) + offset;
+    Field(T)* ptr = (Field(T)*)PointerValue(start) + offset;
     CheckPtrIsValid<T>((intptr_t)ptr);
     return *ptr;
 }
@@ -140,7 +143,7 @@ T WebAssemblyEnvironment::GetGlobalInternal(uint32 offset) const
 template<typename T>
 void WebAssemblyEnvironment::SetGlobalInternal(uint32 offset, T val)
 {
-    Field(T*) ptr = (T*)PointerValue(start) + offset;
+    Field(T)* ptr = (Field(T)*)PointerValue(start) + offset;
     CheckPtrIsValid<T>((intptr_t)PointerValue(ptr));
     AssertMsg(*ptr == 0, "We shouln't overwrite anything on the environment once it is set");
     *ptr = val;
@@ -184,6 +187,69 @@ void WebAssemblyEnvironment::SetGlobalValue(Wasm::WasmGlobal* global, Wasm::Wasm
     default:
         Js::Throw::InternalError();
     }
+}
+
+void WebAssemblyEnvironment::CalculateOffsets(WebAssemblyTable* table, WebAssemblyMemory* memory)
+{
+    DebugOnly(offsetInitialized = true);
+    ScriptContext* scriptContext = module->GetScriptContext();
+    if (!table || !memory)
+    {
+        JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedObject);
+    }
+
+    int32 hCode = WASMERR_ElementSegOutOfRange;
+    auto outOfRangeError = [scriptContext, &hCode] { JavascriptError::ThrowWebAssemblyLinkError(scriptContext, hCode); };
+
+    for (uint elementsIndex = 0; elementsIndex < module->GetElementSegCount(); ++elementsIndex)
+    {
+        Wasm::WasmElementSegment* eSeg = module->GetElementSeg(elementsIndex);
+        uint offset = module->GetOffsetFromInit(eSeg->GetOffsetExpr(), this);
+        if (UInt32Math::Add(offset, eSeg->GetNumElements(), outOfRangeError) > table->GetCurrentLength())
+        {
+            outOfRangeError();
+        }
+        this->elementSegmentOffsets[elementsIndex] = offset;
+    }
+
+    ArrayBuffer * buffer = memory->GetBuffer();
+    Assert(!buffer->IsDetached());
+    hCode = WASMERR_DataSegOutOfRange;
+    for (uint32 iSeg = 0; iSeg < module->GetDataSegCount(); ++iSeg)
+    {
+        Wasm::WasmDataSegment* segment = module->GetDataSeg(iSeg);
+        Assert(segment != nullptr);
+        const uint32 offset = module->GetOffsetFromInit(segment->GetOffsetExpr(), this);
+        const uint32 size = segment->GetSourceSize();
+
+        if (UInt32Math::Add(offset, size, outOfRangeError) > buffer->GetByteLength())
+        {
+            outOfRangeError();
+        }
+        this->dataSegmentOffsets[iSeg] = offset;
+    }
+}
+
+uint32 WebAssemblyEnvironment::GetElementSegmentOffset(uint32 index) const
+{
+    Assert(offsetInitialized);
+    if (index >= module->GetElementSegCount())
+    {
+        AssertMsg(UNREACHED, "We should only be using valid indexes");
+        JavascriptError::ThrowRangeError(module->GetScriptContext(), JSERR_ArgumentOutOfRange);
+    }
+    return elementSegmentOffsets[index];
+}
+
+uint32 WebAssemblyEnvironment::GetDataSegmentOffset(uint32 index) const
+{
+    Assert(offsetInitialized);
+    if (index >= module->GetDataSegCount())
+    {
+        AssertMsg(UNREACHED, "We should only be using valid indexes");
+        JavascriptError::ThrowRangeError(module->GetScriptContext(), JSERR_ArgumentOutOfRange);
+    }
+    return dataSegmentOffsets[index];
 }
 
 } // namespace Js
