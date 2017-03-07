@@ -396,6 +396,20 @@ Opnd::GetStackSym() const
     }
 }
 
+Sym*
+Opnd::GetSym() const
+{
+    switch (this->GetKind())
+    {
+        case OpndKindSym:
+            return static_cast<SymOpnd const *>(this)->m_sym;
+        case OpndKindReg:
+            return static_cast<RegOpnd const *>(this)->m_sym;
+        default:
+            return nullptr;
+    }
+}
+
 int64
 Opnd::GetImmediateValue(Func* func)
 {
@@ -3513,7 +3527,15 @@ Opnd::GetAddrDescription(__out_ecount(count) char16 *const description, const si
 
         case IR::AddrOpndKindDynamicFunctionBody:
             DumpAddress(address, printToConsole, skipMaskedAddress);
-            DumpFunctionInfo(&buffer, &n, ((Js::FunctionBody *)address)->GetFunctionInfo(), printToConsole);
+            if (func->IsOOPJIT())
+            {
+                // TODO: OOP JIT, dump more info
+                WriteToBuffer(&buffer, &n, _u(" (FunctionBody)"));
+            }
+            else
+            {
+                DumpFunctionInfo(&buffer, &n, ((Js::FunctionBody *)address)->GetFunctionInfo(), printToConsole);
+            }
             break;
 
         case IR::AddrOpndKindDynamicFunctionBodyWeakRef:

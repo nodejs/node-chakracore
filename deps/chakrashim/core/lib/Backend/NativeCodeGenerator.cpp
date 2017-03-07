@@ -96,6 +96,11 @@ NativeCodeGenerator::~NativeCodeGenerator()
     }
 #endif
 
+    if (scriptContext->GetJitFuncRangeCache() != nullptr)
+    {
+        scriptContext->GetJitFuncRangeCache()->ClearCache();
+    }
+
     if(this->foregroundAllocators != nullptr)
     {
         HeapDelete(this->foregroundAllocators);
@@ -909,6 +914,11 @@ NativeCodeGenerator::CodeGen(PageAllocator * pageAllocator, CodeGenWorkItem* wor
             hr = E_ABORT;
         }
         JITManager::HandleServerCallResult(hr, RemoteCallType::CodeGen);
+
+        if (!PreReservedVirtualAllocWrapper::IsInRange((void*)this->scriptContext->GetThreadContext()->GetPreReservedRegionAddr(), (void*)jitWriteData.codeAddress))
+        {
+            this->scriptContext->GetJitFuncRangeCache()->AddFuncRange((void*)jitWriteData.codeAddress, jitWriteData.codeSize);
+        }
     }
     else
     {
@@ -943,7 +953,13 @@ NativeCodeGenerator::CodeGen(PageAllocator * pageAllocator, CodeGenWorkItem* wor
             pNumberAllocator,
 #endif
             codeGenProfiler, !foreground);
+        
+        if (!this->scriptContext->GetThreadContext()->GetPreReservedVirtualAllocator()->IsInRange((void*)jitWriteData.codeAddress))
+        {
+            this->scriptContext->GetJitFuncRangeCache()->AddFuncRange((void*)jitWriteData.codeAddress, jitWriteData.codeSize);
+        }
     }
+    
     if (JITManager::GetJITManager()->IsOOPJITEnabled() && PHASE_VERBOSE_TRACE(Js::BackEndPhase, workItem->GetFunctionBody()))
     {
         LARGE_INTEGER freq;
@@ -3178,6 +3194,12 @@ NativeCodeGenerator::QueueFreeNativeCodeGenAllocation(void* address)
         //DeRegister Entry Point for CFG
         ThreadContext::GetContextForCurrentThread()->SetValidCallTargetForCFG(address, false);
     }
+    
+    if ((!JITManager::GetJITManager()->IsOOPJITEnabled() && !this->scriptContext->GetThreadContext()->GetPreReservedVirtualAllocator()->IsInRange((void*)address)) ||
+        (JITManager::GetJITManager()->IsOOPJITEnabled() && !PreReservedVirtualAllocWrapper::IsInRange((void*)this->scriptContext->GetThreadContext()->GetPreReservedRegionAddr(), (void*)address)))
+    {
+        this->scriptContext->GetJitFuncRangeCache()->RemoveFuncRange((void*)address);
+    }
 
     // The foreground allocators may have been used
     ThreadContext * context = this->scriptContext->GetThreadContext();
@@ -3652,7 +3674,7 @@ JITManager::HandleServerCallResult(HRESULT hr, RemoteCallType callType)
 
     // we should not have RPC failure if JIT process is still around
     // since this is going to be a failfast, lets wait a bit in case server is in process of terminating
-    if (WaitForSingleObject(GetJITManager()->GetServerHandle(), 250) != WAIT_OBJECT_0)
+    if (WaitForSingleObject(GetJITManager()->GetServerHandle(), CONFIG_FLAG(RPCFailFastWait)) != WAIT_OBJECT_0)
     {
         RpcFailure_fatal_error(hr);
     }

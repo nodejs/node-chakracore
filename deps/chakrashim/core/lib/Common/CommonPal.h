@@ -103,7 +103,6 @@ __forceinline void  __int2c()
 #include "inc/rt/no_sal2.h"
 #include "inc/rt/oaidl.h"
 
-typedef char16_t char16;
 #define _u(s) u##s
 
 typedef GUID UUID;
@@ -609,22 +608,26 @@ __inline
 HRESULT ULongMult(ULONG ulMultiplicand, ULONG ulMultiplier, ULONG* pulResult);
 #endif
 
+/* **** WARNING : finallyFunc is not allowed to raise exception *****
+ * **** DO NOT ADD stack probe or memory allocations within the finallyFunc ****
+ */
 template <class TryFunc, class FinallyFunc>
 void TryFinally(const TryFunc& tryFunc, const FinallyFunc& finallyFunc)
 {
-    bool hasException = true;
-    try
+    class FinallyObject
     {
-        tryFunc();
-        hasException = false;
-    }
-    catch(...)
-    {
-        finallyFunc(hasException);
-        throw;
-    }
+    public:
+        FinallyObject(const FinallyFunc& finallyFunc) : finallyFunc(finallyFunc), abnormalTermination(true) {}
+        ~FinallyObject() { finallyFunc(abnormalTermination); }
 
-    finallyFunc(hasException);
+        void SetHasNoAbnormalTermination() { abnormalTermination = false; }
+    private:
+        const FinallyFunc& finallyFunc;
+        bool abnormalTermination;
+    } finallyObject(finallyFunc);
+
+    tryFunc();
+    finallyObject.SetHasNoAbnormalTermination();
 }
 
 #ifdef DISABLE_SEH

@@ -1957,6 +1957,9 @@ namespace Js
             {
                 PROBE_STACK_PARTIAL_INITIALIZED_INTERPRETER_FRAME(functionScriptContext, Js::Constants::MinStackInterpreter + varSizeInBytes);
                 allocation = (Var*)_alloca(varSizeInBytes);
+#if DBG
+                memset(allocation, 0xFE, varSizeInBytes);
+#endif
                 stackAddr = reinterpret_cast<DWORD_PTR>(allocation);
             }
 
@@ -2466,10 +2469,6 @@ namespace Js
         this->DEBUG_currentByteOffset = (void *) m_reader.GetCurrentOffset();
 #endif
 
-#if ENABLE_TTD
-        AssertMsg(!SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext), "We never be fetching an opcode via this path if this is true!!!");
-#endif
-
         OpCodeType op = (OpCodeType)ReadOpFunc(ip);
 
 #if DBG_DUMP
@@ -2753,10 +2752,7 @@ namespace Js
             }
             localFunctionImports[import.location] = importFunc;
         }
-        if (*arrayBufferPtr)
-        {
-            (*(ArrayBuffer**)arrayBufferPtr)->SetIsAsmJsBuffer();
-        }
+
         threadContext->SetDisableImplicitFlags(prevDisableImplicitFlags);
         threadContext->SetImplicitCallFlags(saveImplicitcallFlags);
         // scope

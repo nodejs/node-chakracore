@@ -216,6 +216,10 @@
 #ifdef _WIN32
 #define ENABLE_OOP_NATIVE_CODEGEN 1     // Out of process JIT
 #endif
+
+#if _WIN64
+#define ENABLE_FAST_ARRAYBUFFER 1
+#endif
 #endif
 
 // Other features
@@ -382,6 +386,9 @@
 //A workaround for profile based creation of Native Arrays -- we may or may not want to allow since it differs in record/replay and (currently) asserts in our snap compare
 #define TTD_NATIVE_PROFILE_ARRAY_WORK_AROUND 1
 
+//See also -- Disabled fast path on property enumeration, random number generation, disabled new/eval code cache, and others.
+//            Disabled ActivationObjectEx and others.
+
 //Force debug or notjit mode
 #define TTD_FORCE_DEBUG_MODE 0
 #define TTD_FORCE_NOJIT_MODE 0
@@ -393,7 +400,6 @@
 #define ENABLE_TTD_INTERNAL_DIAGNOSTICS 0
 #endif
 
-#define TTD_COMPRESSED_OUTPUT 0
 #define TTD_LOG_READER TextFormatReader
 #define TTD_LOG_WRITER TextFormatWriter
 
@@ -482,14 +488,10 @@
 #define PROFILE_BAILOUT_RECORD_MEMORY
 #define MEMSPECT_TRACKING
 
-// xplat-todo: Depends on C++ type-info
-// enable later on non-VC++ compilers
-#ifndef __APPLE__
 #define PROFILE_RECYCLER_ALLOC
 // Needs to compile in debug mode
 // Just needs strings converted
 #define PROFILE_DICTIONARY 1
-#endif
 
 #define PROFILE_STRINGS
 
@@ -523,12 +525,9 @@
 #endif
 #endif
 
-// xplat: on apple looks typeid(char16_t) does not work, hit error: Undefined symbols for architecture x86_64: "typeinfo for char16_t"
-#ifndef __APPLE__
 #define HEAP_TRACK_ALLOC
 #define CHECK_MEMORY_LEAK
 #define LEAK_REPORT
-#endif
 
 #define PROJECTION_METADATA_TRACE
 #define ERROR_TRACE

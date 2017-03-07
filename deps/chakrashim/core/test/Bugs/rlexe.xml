@@ -363,8 +363,20 @@
   </test>
   <test>
     <default>
+      <files>json_bugs.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>InlineFunctionParameterWithInfiniteLoop.js</files>
       <compile-flags>-maxinterpretcount:1 -off:simplejit</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>Math.abs_TypeSpecOnIntMin.js</files>
+      <compile-flags>-loopinterpretcount:1 -bgjit- -maxsimplejitruncount:1 -maxinterpretcount:1 -oopjit-</compile-flags>
     </default>
   </test>
   <test>
@@ -372,6 +384,12 @@
       <files>bug10026875.js</files>
       <baseline>bug10026875.baseline</baseline>
       <compile-flags>-maxinterpretcount:1 -off:simplejit</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>MissToGenerateStStSlotForJITLoopBody.js</files>
+      <compile-flags>-mic:1 -off:simplejit -oopjit- -bgjit-</compile-flags>
     </default>
   </test>
 </regress-exe>
