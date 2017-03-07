@@ -69,7 +69,7 @@
           ['OS in "linux android"', {
             'chakracore_input': '<(chakra_dir)/build.sh',
             'chakracore_binaries': [
-              '<(chakra_libs_absolute)/bin/ChakraCore/libChakraCoreStatic.a',
+              '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a',
             ],
             'linker_start_group': '-Wl,--start-group',
             'linker_end_group': [
@@ -81,7 +81,7 @@
           ['OS=="mac"', {
             'chakracore_input': '<(chakra_dir)/build.sh',
             'chakracore_binaries': [
-              '<(chakra_libs_absolute)/bin/ChakraCore/libChakraCoreStatic.a',
+              '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a',
             ],
             'icu_args': '--icu=<(icu_include_path)',
             'linker_start_group': '-Wl,-force_load',
@@ -156,7 +156,7 @@
             'libraries': [
               '-Wl,-undefined,error',
               '<@(linker_start_group)',
-              '<(chakra_libs_absolute)/bin/ChakraCore/libChakraCoreStatic.a ' # keep this single space.
+              '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a ' # keep this single space.
               '<@(linker_end_group)',                                         # gpy fails to patch with list
             ],
           }],

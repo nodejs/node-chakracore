@@ -53,6 +53,18 @@ TLSWrap::TLSWrap(Environment* env,
   node::Wrap(object(), this);
   MakeWeak(this);
 
+  //
+  //TODO: This is a temp workaround for the stashed persistent pointer in (object()) that is made weak.
+  //      The resulting hidden lifetime means we lose the reference for it in the event replay code. 
+  //      We will need to:
+  //        (1) Add a method to notify the engine that these pointers are being stashed (likely in the persistent code).
+  //        (2) Add GC support to defer collecting objects with callback (and weak sets/maps) to the main event loop when 
+  //            we can force a GC at a known time to handle all of this (and the weak persistent can notify that the stashed pointer is gone).
+  if(s_doTTRecord) {
+    unsigned int refct = 0;
+    JsAddRef(*(this->object()), &refct);
+  }
+
   // sc comes from an Unwrap. Make sure it was assigned.
   CHECK_NE(sc, nullptr);
 
@@ -793,6 +805,15 @@ void TLSWrap::DestroySSL(const FunctionCallbackInfo<Value>& args) {
 
   // Destroy the SSL structure and friends
   wrap->SSLWrap<TLSWrap>::DestroySSL();
+
+  //See comment with AddRef earlier in this file.
+  if(s_doTTRecord) {
+      unsigned int refct = 0;
+      //As this is null we may have lost the reference earlier in the run... which coule be bad
+      if(*(wrap->object()) != nullptr) {
+          JsRelease(*(wrap->object()), &refct);
+      }
+  }
 
   delete wrap->clear_in_;
   wrap->clear_in_ = nullptr;

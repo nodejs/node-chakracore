@@ -65,8 +65,6 @@ class MessageQueue {
   JsValueRef processDebugEventFn;
   JsValueRef processShouldContinueFn;
   uv_sem_t newMsgSem;
-  uv_cond_t cond;
-  uv_mutex_t mutex;
   uv_mutex_t msgMutex;
 };
 

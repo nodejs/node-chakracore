@@ -2274,9 +2274,9 @@ class V8_EXPORT Isolate {
     kMinorGarbageCollection
   };
 
-  static Isolate* NewWithTTDSupport(const CreateParams& params, const char* uri,
+  static Isolate* NewWithTTDSupport(const CreateParams& params,
+                                    size_t optReplayUriLength, const char* optReplayUri,
                                     bool doRecord, bool doReplay, bool doDebug,
-                                    bool useRelocatedSrc,
                                     uint32_t snapInterval,
                                     uint32_t snapHistoryLength);
   static Isolate* New(const CreateParams& params);

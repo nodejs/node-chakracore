@@ -81,6 +81,12 @@ struct uv_loop_s;
 #define ENABLE_TTD_NODE 0
 #endif
 
+#if ENABLE_TTD_NODE
+extern bool s_doTTRecord;
+extern bool s_doTTReplay;
+extern bool s_doTTDebug;
+#endif
+
 // Forward-declare these functions now to stop MSVS from becoming
 // terminally confused when it's done in node_internals.h
 namespace node {

@@ -62,9 +62,8 @@ class IsolateShim {
   bool Dispose();
   bool IsDisposing();
 
-  static v8::Isolate * New(const char* uri,
+  static v8::Isolate * New(size_t optReplayUriLength, const char* optReplayUri,
                            bool doRecord, bool doReplay, bool doDebug,
-                           bool useRelocatedSrc,
                            uint32_t snapInterval, uint32_t snapHistoryLength);
 
   static v8::Isolate * GetCurrentAsIsolate();
