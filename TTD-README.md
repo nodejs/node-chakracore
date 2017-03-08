@@ -81,6 +81,7 @@ To get started with diagnostic tracing and TTD you will need the following:
 
 - Install [Node-ChakraCore](https://github.com/nodejs/node-chakracore/releases)
     - (Recommended) install [NVS](https://github.com/jasongin/nvs/blob/master/doc/SETUP.md) which is a cross-platform tool for switching between different versions and forks of Node.js and will allow you to easily switch between Node-ChakraCore and other Node.js versions. Once NVS is installed simply enter the following commands in the console:
+        
         ```
         nvs remote chakracore https://github.com/nodejs/node-chakracore/releases 
         nvs add chakracore/latest
