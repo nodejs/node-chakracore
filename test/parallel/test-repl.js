@@ -1,4 +1,5 @@
-/* eslint-disable max-len, strict */
+'use strict';
+
 const common = require('../common');
 const assert = require('assert');
 
@@ -110,6 +111,20 @@ function error_test() {
     }
   });
 
+  const cc_re1 =
+    /^SyntaxError: Duplicate formal parameter names not allowed in strict mode/;
+  const cc_re2 =
+    /^SyntaxError: 'with' statements are not allowed in strict mode/;
+  const cc_re3 =
+    /^SyntaxError: Calling delete on expression not allowed in strict mode/;
+  const cc_re4 = new RegExp('^SyntaxError: Octal numeric literals and escape' +
+                           'characters not allowed in strict mode');
+  const v8_re1 = new RegExp('\bSyntaxError: Duplicate parameter name not ' +
+                            'allowed in this context');
+  const v8_re2 = new RegExp('\bSyntaxError: In strict mode code, functions ' +
+                            'can only be declared at top level or inside a ' +
+                            'block.');
+    //;
   send_expect([
     // Uncaught error throws and prints out
     { client: client_unix, send: 'throw new Error(\'test error\');',
@@ -186,34 +201,40 @@ function error_test() {
         chakracore: /^SyntaxError: Syntax error in regular expression/})
     },
     // strict mode syntax errors should be caught (GH-5178)
-    { client: client_unix, send: '(function() { "use strict"; return 0755; })()',
+    { client: client_unix,
+      send: '(function() { "use strict"; return 0755; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Octal literals are not allowed in strict mode/,
-        chakracore: /^SyntaxError: Octal numeric literals and escape characters not allowed in strict mode/})
+        chakracore: cc_re4})
     },
-    { client: client_unix, send: '(function(a, a, b) { "use strict"; return a + b + c; })()',
+    { client: client_unix,
+      send: '(function(a, a, b) { "use strict"; return a + b + c; })()',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Duplicate parameter name not allowed in this context/,
-        chakracore: /^SyntaxError: Duplicate formal parameter names not allowed in strict mode/})
+        v8: v8_re1,
+        chakracore: cc_re1})
     },
-    { client: client_unix, send: '(function() { "use strict"; with (this) {} })()',
+    { client: client_unix,
+      send: '(function() { "use strict"; with (this) {} })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Strict mode code may not include a with statement/,
-        chakracore: /^SyntaxError: 'with' statements are not allowed in strict mode/})
+        chakracore: cc_re2})
     },
-    { client: client_unix, send: '(function() { "use strict"; var x; delete x; })()',
+    { client: client_unix,
+      send: '(function() { "use strict"; var x; delete x; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Delete of an unqualified identifier in strict mode/,
-        chakracore: /^SyntaxError: Calling delete on expression not allowed in strict mode/})
+        chakracore: cc_re3})
     },
-    { client: client_unix, send: '(function() { "use strict"; eval = 17; })()',
+    { client: client_unix,
+      send: '(function() { "use strict"; eval = 17; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Unexpected eval or arguments in strict mode/,
         chakracore: /^SyntaxError: Invalid usage of 'eval' in strict mode/})
     },
-    { client: client_unix, send: '(function() { "use strict"; if (true) function f() { } })()',
+    { client: client_unix,
+      send: '(function() { "use strict"; if (true) function f() { } })()',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: In strict mode code, functions can only be declared at top level or inside a block./,
+        v8: v8_re2,
         chakracore: /^SyntaxError: Syntax error/})
     },
     // Named functions can be used:
@@ -354,16 +375,20 @@ function error_test() {
     { client: client_unix, send: 'require("internal/repl")',
       expect: /^Error: Cannot find module 'internal\/repl'/ },
     // REPL should handle quotes within regexp literal in multiline mode
-    { client: client_unix, send: "function x(s) {\nreturn s.replace(/'/,'');\n}",
+    { client: client_unix,
+      send: "function x(s) {\nreturn s.replace(/'/,'');\n}",
       expect: prompt_multiline + prompt_multiline +
             'undefined\n' + prompt_unix },
-    { client: client_unix, send: "function x(s) {\nreturn s.replace(/'/,'');\n}",
+    { client: client_unix,
+      send: "function x(s) {\nreturn s.replace(/'/,'');\n}",
       expect: prompt_multiline + prompt_multiline +
             'undefined\n' + prompt_unix },
-    { client: client_unix, send: 'function x(s) {\nreturn s.replace(/"/,"");\n}',
+    { client: client_unix,
+      send: 'function x(s) {\nreturn s.replace(/"/,"");\n}',
       expect: prompt_multiline + prompt_multiline +
             'undefined\n' + prompt_unix },
-    { client: client_unix, send: 'function x(s) {\nreturn s.replace(/.*/,"");\n}',
+    { client: client_unix,
+      send: 'function x(s) {\nreturn s.replace(/.*/,"");\n}',
       expect: prompt_multiline + prompt_multiline +
             'undefined\n' + prompt_unix },
     { client: client_unix, send: '{ var x = 4; }',
@@ -399,14 +424,18 @@ function error_test() {
       expect: '{ value: undefined, done: true }' },
 
     // https://github.com/nodejs/node/issues/9300
-    { client: client_unix, send: 'function foo() {\nvar bar = 1 / 1; // "/"\n}',
-      expect: prompt_multiline + prompt_multiline + 'undefined\n' + prompt_unix },
-
-    { client: client_unix, send: '(function() {\nreturn /foo/ / /bar/;\n}())',
-      expect: prompt_multiline + prompt_multiline + 'NaN\n' + prompt_unix },
-
-    { client: client_unix, send: '(function() {\nif (false) {} /bar"/;\n}())',
-      expect: prompt_multiline + prompt_multiline + 'undefined\n' + prompt_unix }
+    {
+      client: client_unix, send: 'function foo() {\nvar bar = 1 / 1; // "/"\n}',
+      expect: `${prompt_multiline}${prompt_multiline}undefined\n${prompt_unix}`
+    },
+    {
+      client: client_unix, send: '(function() {\nreturn /foo/ / /bar/;\n}())',
+      expect: prompt_multiline + prompt_multiline + 'NaN\n' + prompt_unix
+    },
+    {
+      client: client_unix, send: '(function() {\nif (false) {} /bar"/;\n}())',
+      expect: prompt_multiline + prompt_multiline + 'undefined\n' + prompt_unix
+    }
   ].filter((v) => !common.engineSpecificMessage(v)));
 }
 

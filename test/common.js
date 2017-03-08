@@ -403,8 +403,7 @@ process.on('exit', function() {
   if (!exports.globalCheck) return;
   const leaked = leakedGlobals();
   if (leaked.length > 0) {
-    console.error('Unknown globals: %s', leaked);
-    fail('Unknown global found');
+    fail(`Unexpected global(s) found: ${leaked.join(', ')}`);
   }
 });
 
@@ -611,8 +610,7 @@ exports.WPT = {
     try {
       fn();
     } catch (err) {
-      if (err instanceof Error)
-        err.message = `In ${desc}:\n  ${err.message}`;
+      console.error(`In ${desc}:`);
       throw err;
     }
   },
@@ -631,7 +629,7 @@ exports.WPT = {
 };
 
 // Useful for testing expected internal/error objects
-exports.expectsError = function expectsError(code, type, message) {
+exports.expectsError = function expectsError({code, type, message}) {
   return function(error) {
     assert.strictEqual(error.code, code);
     if (type !== undefined)
@@ -645,4 +643,11 @@ exports.expectsError = function expectsError(code, type, message) {
     }
     return true;
   };
+};
+
+exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {
+  if (!exports.hasCrypto) {
+    exports.skip('missing ssl support so inspector is disabled');
+    process.exit(0);
+  }
 };

@@ -151,14 +151,14 @@ of the event loop.
 
 ### `--trace-events-enabled`
 <!-- YAML
-added: REPLACEME
+added: v7.7.0
 -->
 
 Enables the collection of trace event tracing information.
 
 ### `--trace-event-categories`
 <!-- YAML
-added: REPLACEME
+added: v7.7.0
 -->
 
 A comma separated list of categories that should be traced when trace event
@@ -392,14 +392,14 @@ When set, the well known "root" CAs (like VeriSign) will be extended with the
 extra certificates in `file`. The file should consist of one or more trusted
 certificates in PEM format. A message will be emitted (once) with
 [`process.emitWarning()`][emit_warning] if the file is missing or
-misformatted, but any errors are otherwise ignored.
+malformed, but any errors are otherwise ignored.
 
 Note that neither the well known nor extra certificates are used when the `ca`
 options property is explicitly specified for a TLS or HTTPS client or server.
 
 ### `OPENSSL_CONF=file`
 <!-- YAML
-added: REPLACEME
+added: v7.7.0
 -->
 
 Load an OpenSSL configuration file on startup. Among other uses, this can be
@@ -411,7 +411,7 @@ variable is ignored.
 
 ### `SSL_CERT_DIR=dir`
 <!-- YAML
-added: REPLACEME
+added: v7.7.0
 -->
 
 If `--use-openssl-ca` is enabled, this overrides and sets OpenSSL's directory
@@ -423,7 +423,7 @@ OpenSSL, it may cause them to trust the same CAs as node.
 
 ### `SSL_CERT_FILE=file`
 <!-- YAML
-added: REPLACEME
+added: v7.7.0
 -->
 
 If `--use-openssl-ca` is enabled, this overrides and sets OpenSSL's file
