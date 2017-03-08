@@ -33,7 +33,7 @@ Default trace emit events:
 When we run with our remote-file server [demo](https://github.com/mrkmarron/RFSDemoJS) with the record flag and 
 hit a bug in the file I/O code (followed by crtl-c on the command line) we get the output shown below.
 
-![Running node with --record flag and two trace output events.](doc\ttd_assets\TraceSnap.png)
+![Running node with --record flag and two trace output events.](doc/ttd_assets/TraceSnap.png)
 
 Once written to disk these trace directories can be used locally or copied to another machine 
 for later analysis and debugging. To reproduce the execution trace in `dir` with a debugger
@@ -45,7 +45,7 @@ allowing us to inspect local variables, the call stack and, set a breakpoint whe
 the I/O error was registered. Then we reverse-execute back-in-time to this callback registration and can 
 inspect local variables as well as the full call stack as they existed then. 
 
-![Replay debugging with the --replay-debug flag and TTD.](doc\ttd_assets\TTDTrace.gif)
+![Replay debugging with the --replay-debug flag and TTD.](doc/ttd_assets/TTDTrace.gif)
 
 If desired we can single step-back through other statements as well or execute forward again, seeing the 
 exact set of statements and variable values that existed during the original execution, until we have 
