@@ -48,7 +48,12 @@ test(function() {
 
   const obj = { toString() { throw new Error('toString'); } };
   const sym = Symbol();
+  const chakracoreSymbolErrorRegex =
+         /^TypeError: Object doesn't support property or method 'ToString'/;
   assert.throws(() => params.has(obj), /^Error: toString$/);
   assert.throws(() => params.has(sym),
-                /^TypeError: Cannot convert a Symbol value to a string$/);
+                common.engineSpecificMessage({
+                  v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+                  chakracore: chakracoreSymbolErrorRegex
+                }));
 }

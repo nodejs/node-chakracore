@@ -10,3 +10,5 @@ prefix inspector
 
 [$jsEngine==chakracore]
 test-inspector : SKIP
+test-inspector-stops-no-file : SKIP
+test-not-blocked-on-idle : SKIP
