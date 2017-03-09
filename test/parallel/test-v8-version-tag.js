@@ -1,7 +1,12 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const v8 = require('v8');
+
+if (common.isChakraEngine) {
+  console.log('1..0 # Skipped: This test is disabled for chakra engine.');
+  return;
+}
 
 const versionTag1 = v8.cachedDataVersionTag();
 assert.strictEqual(typeof versionTag1, 'number');
