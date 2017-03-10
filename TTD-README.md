@@ -36,11 +36,11 @@ hit a bug in the file I/O code (followed by crtl-c on the command line) we get t
 ![Running node with --record flag and two trace output events.](doc/ttd_assets/TraceSnap.png)
 
 Once written to disk these trace directories can be used locally or copied to another machine 
-for later analysis and debugging. To reproduce the execution trace in `dir` with a debugger
-simply invoke node using `--no-lazy --debug-brk=port --replay-debug=dir` and attach the debugger. 
+for later analysis and debugging. 
 
-The animation below shows us launching the trace execution on the command line and attaching the debugger. 
-When the trace hits the point where it emitted the `emitOnLogWarn` trace it will break into the debugger 
+The animation below shows us launching the `TraceDebug` configuration in the VSCode  debugger with the trace 
+directory argument set to the `emitOnSigInt` trace (written after seeing the file not found error).
+When the trace hits the point where it raised and triggered for the error message write it will break into the debugger 
 allowing us to inspect local variables, the call stack and, set a breakpoint where the callback that received 
 the I/O error was registered. Then we reverse-execute back-in-time to this callback registration and can 
 inspect local variables as well as the full call stack as they existed then. 
@@ -54,25 +54,28 @@ all the information we need to understand the problem.
 ## Time-Travel Debugging 
 
 TTD functionality is available in Node-ChakraCore and is supported by 
-[VSCode](https://code.visualstudio.com/). As shown previously you can use 
-node to re-execute from the trace with debugging support, using the `--replay-debug` 
-flag, and then attaching the (VSCode) debugger. However, it is also possible to 
-initiate time-travel debugging directly from VSCode. This is done by:
+[VSCode](https://code.visualstudio.com/). You can use VSCode to debug diagnostic 
+traces even if you don't have the project sources available. This is done by:
 - Creating an empty `dummy.js` file in the trace directory.
-- Ensure Node-ChakraCore is on your path.
 - Adding the following configuration into your `.vscode\launch.json` configuration file.
 ```
 {
-    "name": "TTDebug",
+    "name": "Trace Debug",
     "type": "node",
     "request": "launch",
-    "program": "${workspaceRoot}/dummy.js",
     "stopOnEntry": true,
-    "cwd": "${workspaceRoot}",
+    "program": "${workspaceRoot}/dummy.js",
+    "windows": { "runtimeExecutable": "nvs.cmd" },
+    "osx": { "runtimeExecutable": "nvs" },
+    "linux": { "runtimeExecutable": "nvs" },
     "runtimeArgs": [
+        "run",
+        "chakracore-nightly",
         "--nolazy", 
+        "--break-first",
         "--replay-debug=./"
-    ]
+    ],
+    "console": "internalConsole"
 }
 ```
 
@@ -83,9 +86,9 @@ To get started with diagnostic tracing and TTD you will need the following:
     - (Recommended) install [NVS](https://github.com/jasongin/nvs/blob/master/doc/SETUP.md) which is a cross-platform tool for switching between different versions and forks of Node.js and will allow you to easily switch between Node-ChakraCore and other Node.js versions. Once NVS is installed simply enter the following commands in the console:
         
         ```
-        nvs remote chakracore https://github.com/nodejs/node-chakracore/releases 
-        nvs add chakracore/latest
-        nvs use chakracore
+        nvs remote chakracore-nightly https://nodejs.org/download/chakracore-nightly/
+        nvs add chakracore-nightly/latest
+        nvs use chakracore-nightly
         ```
     - (Manual) Download the build for your platform/architecture and manually add the location of the binaries to your path.
 - Install [VSCode](https://code.visualstudio.com/) using the latest installer.
@@ -101,10 +104,8 @@ in the background. So, as shown in the screenshot above, a warn trace can be tri
 with the application and clicking on this file at various times. You can always trigger a sigint 
 trace via crtl-c at the command line.
 
-Once this trace is written it can be replay debugged in VSCode using `--replay-debug=dir` as described 
-above and shown in the gif. 
+Once this SIGINT trace is written it can be replay debugged in VSCode using the `TraceDebug` launch configuration and you can change the path if you want to debug other trace files that are written. 
 
 ## Feedback
 Please let us know on our [issues page](https://github.com/nodejs/node-chakracore/issues) if 
 you have any question or comment. 
-
