@@ -146,7 +146,7 @@ Install the building tools:
 
 ```
 xcode-select --install
-brew install cmake icu4c
+brew install cmake
 ```
 
 Clone this repo and check out **`xplat`** branch:
@@ -158,8 +158,8 @@ git checkout xplat
 Build:
 
 ```
-./configure --with-icu-path=/usr/local/opt/icu4c/include --without-intl
-make
+./configure
+make 
 ```
 
 To test if Node.js was built correctly with ChakraCore:
