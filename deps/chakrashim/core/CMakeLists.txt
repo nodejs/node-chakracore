@@ -4,6 +4,8 @@ project (CHAKRACORE)
 # Keep CMake from caching static/shared library
 # option. Otherwise, CMake fails to update cached
 # references
+
+# todo: create a sub cmake file to take care of _SH uncaching...
 if(SHARED_LIBRARY_SH)
     unset(SHARED_LIBRARY_SH CACHE)
     unset(STATIC_LIBRARY_SH CACHE)
@@ -16,6 +18,11 @@ if(STATIC_LIBRARY_SH)
     unset(STATIC_LIBRARY_SH CACHE)
     unset(SHARED_LIBRARY CACHE)
     set(STATIC_LIBRARY 1)
+endif()
+
+if(LIBS_ONLY_BUILD_SH)
+    unset(LIBS_ONLY_BUILD_SH CACHE)
+    set(CC_LIBS_ONLY_BUILD 1)
 endif()
 
 if(CC_USES_SYSTEM_ARCH_SH)
@@ -305,15 +312,14 @@ endif(CLR_CMAKE_PLATFORM_XPLAT)
 
 if (ENABLE_FULL_LTO_SH OR ENABLE_THIN_LTO_SH)
     if (CC_TARGET_OS_LINUX)
-        set(CC_LTO_ENABLED
-            -fuse-ld=gold
-            -Xlinker -plugin=${CHAKRACORE_BINARY_DIR}/../../cc-toolchain/build/lib/LLVMgold.so
-            )
+        set(CC_LTO_ENABLED -use-gold-plugin)
+        set(CC_LTO_ENABLED_C -c)
     endif()
 
     if (ENABLE_FULL_LTO_SH)
         unset(DENABLE_FULL_LTO_SH CACHE)
-        add_compile_options(-flto)
+        add_compile_options(-flto ${CC_LTO_ENABLED_C})
+
         if (CC_LTO_ENABLED)
             set(CC_LTO_ENABLED "${CC_LTO_ENABLED} -flto")
         endif()

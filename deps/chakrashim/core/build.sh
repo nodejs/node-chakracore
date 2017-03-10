@@ -40,6 +40,7 @@ PRINT_USAGE() {
     echo " -n, --ninja           Build with ninja instead of make."
     echo "     --no-icu          Compile without unicode/icu support."
     echo "     --no-jit          Disable JIT"
+    echo "     --libs-only       Do not build CH and GCStress"
     echo "     --lto             Enables LLVM Full LTO"
     echo "     --lto-thin        Enables LLVM Thin LTO - xcode 8+ or clang 3.9+"
     echo "     --static          Build as static library. Default: shared library"
@@ -93,6 +94,9 @@ WB_CHECK=
 WB_ANALYZE=
 WB_ARGS=
 TARGET_PATH=0
+# -DCMAKE_EXPORT_COMPILE_COMMANDS=ON useful for clang-query tool
+CMAKE_EXPORT_COMPILE_COMMANDS="-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+LIBS_ONLY_BUILD=
 
 if [ -f "/proc/version" ]; then
     OS_LINUX=1
@@ -207,6 +211,10 @@ while [[ $# -gt 0 ]]; do
         ICU_PATH="-DICU_INCLUDE_PATH_SH=${ICU_PATH:6}"
         ;;
 
+    --libs-only)
+        LIBS_ONLY_BUILD="-DLIBS_ONLY_BUILD_SH=1"
+        ;;
+
     --lto)
         LTO="-DENABLE_FULL_LTO_SH=1"
         HAS_LTO=1
@@ -232,6 +240,7 @@ while [[ $# -gt 0 ]]; do
 
     --xcode)
         CMAKE_GEN="-G Xcode -DCC_XCODE_PROJECT=1"
+        CMAKE_EXPORT_COMPILE_COMMANDS=""
         MAKE=0
         ;;
 
@@ -484,9 +493,8 @@ fi
 echo Generating $BUILD_TYPE makefiles
 cmake $CMAKE_GEN $CC_PREFIX $ICU_PATH $LTO $STATIC_LIBRARY $ARCH $TARGET_OS \
     $ENABLE_CC_XPLAT_TRACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE $SANITIZE $NO_JIT \
-    $WITHOUT_FEATURES $WB_FLAG $WB_ARGS -DCMAKE_EXPORT_COMPILE_COMMANDS=ON  \
+    $WITHOUT_FEATURES $WB_FLAG $WB_ARGS $CMAKE_EXPORT_COMPILE_COMMANDS $LIBS_ONLY_BUILD\
     ../..
-# -DCMAKE_EXPORT_COMPILE_COMMANDS=ON useful for clang-query tool
 
 _RET=$?
 if [[ $? == 0 ]]; then
