@@ -1,3 +1,24 @@
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 'use strict';
 const common = require('../common');
 const assert = require('assert');
@@ -305,12 +326,18 @@ assert.strictEqual(util.inspect(-0), '-0');
 const a = ['foo', 'bar', 'baz'];
 assert.strictEqual(util.inspect(a), '[ \'foo\', \'bar\', \'baz\' ]');
 delete a[1];
-assert.strictEqual(util.inspect(a), '[ \'foo\', , \'baz\' ]');
+assert.strictEqual(util.inspect(a), '[ \'foo\', <1 empty item>, \'baz\' ]');
 assert.strictEqual(
   util.inspect(a, true),
-  '[ \'foo\', , \'baz\', [length]: 3 ]'
+  '[ \'foo\', <1 empty item>, \'baz\', [length]: 3 ]'
 );
-assert.strictEqual(util.inspect(new Array(5)), '[ , , , ,  ]');
+assert.strictEqual(util.inspect(new Array(5)), '[ <5 empty items> ]');
+a[3] = 'bar';
+a[100] = 'qux';
+assert.strictEqual(
+  util.inspect(a, { breakLength: Infinity }),
+  '[ \'foo\', <1 empty item>, \'baz\', \'bar\', <96 empty items>, \'qux\' ]'
+);
 
 // Skip for chakra engine as debugger support not yet present
 if (!common.isChakraEngine) {
@@ -874,13 +901,19 @@ checkAlignment(new Map(big_array.map(function(y) { return [y, null]; })));
 // Do not backport to v5/v4 unless all of
 // https://github.com/nodejs/node/pull/6334 is backported.
 {
-  const x = Array(101);
+  const x = new Array(101).fill();
   assert(/1 more item/.test(util.inspect(x)));
 }
 
 {
-  const x = Array(101);
+  const x = new Array(101).fill();
   assert(!/1 more item/.test(util.inspect(x, {maxArrayLength: 101})));
+}
+
+{
+  const x = new Array(101).fill();
+  assert(/^\[ ... 101 more items ]$/.test(
+      util.inspect(x, {maxArrayLength: 0})));
 }
 
 {
@@ -940,7 +973,7 @@ checkAlignment(new Map(big_array.map(function(y) { return [y, null]; })));
 
 // util.inspect.defaultOptions tests
 {
-  const arr = Array(101);
+  const arr = new Array(101).fill();
   const obj = {a: {a: {a: {a: 1}}}};
 
   const oldOptions = Object.assign({}, util.inspect.defaultOptions);
