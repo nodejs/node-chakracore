@@ -46,7 +46,10 @@ test(function() {
     params.has();
   }, /^TypeError: "name" argument must be specified$/);
 
-  const obj = { toString() { throw new Error('toString'); } };
+  const obj = {
+    toString() { throw new Error('toString'); },
+    valueOf() { throw new Error('valueOf'); }
+  };
   const sym = Symbol();
   const chakracoreSymbolErrorRegex =
          /^TypeError: Object doesn't support property or method 'ToString'/;
