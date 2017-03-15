@@ -30,7 +30,9 @@ assert.strictEqual(util.inspect(false), 'false');
 assert.strictEqual(util.inspect(''), "''");
 assert.strictEqual(util.inspect('hello'), "'hello'");
 assert.strictEqual(util.inspect(function() {}), '[Function]');
+assert.strictEqual(util.inspect(() => {}), '[Function]');
 assert.strictEqual(util.inspect(async function() {}), '[AsyncFunction]');
+assert.strictEqual(util.inspect(async () => {}), '[AsyncFunction]');
 assert.strictEqual(util.inspect(function*() {}), '[GeneratorFunction]');
 assert.strictEqual(util.inspect(undefined), 'undefined');
 assert.strictEqual(util.inspect(null), 'null');
@@ -55,7 +57,10 @@ assert.strictEqual(util.inspect({a: function() {}}),
                      v8: '{ a: [Function: a] }',
                      chakracore: '{ a: [Function: a] }'
                    }));
+assert.strictEqual(util.inspect({a: () => {}}), '{ a: [Function: a] }');
 assert.strictEqual(util.inspect({a: async function() {}}),
+                   '{ a: [AsyncFunction: a] }');
+assert.strictEqual(util.inspect({a: async () => {}}),
                    '{ a: [AsyncFunction: a] }');
 assert.strictEqual(util.inspect({a: function*() {}}),
                    '{ a: [GeneratorFunction: a] }');
