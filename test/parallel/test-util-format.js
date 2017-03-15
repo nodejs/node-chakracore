@@ -20,7 +20,7 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const util = require('util');
 const symbol = Symbol('foo');
@@ -83,7 +83,18 @@ assert.strictEqual(util.format('o: %j, a: %j'), 'o: %j, a: %j');
 {
   const o = {};
   o.o = o;
-  assert.strictEqual(util.format('%j', o), '[Circular]');
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.format('%j', o), '[Circular]');
+  } else {
+    assert.throws(() => { util.format('%j', o); }, function(err) {
+      if (err instanceof TypeError &&
+          err.message === 'Circular reference in value argument not ' +
+                          'supported') {
+        return true;
+      }
+      return false;
+    });
+  }
 }
 
 {
