@@ -77,7 +77,7 @@ test-vm-timeout : SKIP
 test-whatwg-url-origin-for : SKIP
 test-assert-checktag : SKIP
 test-process-env-symbols : SKIP
-test-util-format : SKIP
+test-module-loading-globalpaths : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 test-buffer-includes : SKIP
