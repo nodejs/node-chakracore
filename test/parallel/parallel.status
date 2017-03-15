@@ -75,6 +75,9 @@ test-vm-proxies : SKIP
 test-vm-strict-mode : SKIP
 test-vm-timeout : SKIP
 test-whatwg-url-origin-for : SKIP
+test-assert-checktag : SKIP
+test-process-env-symbols : SKIP
+test-util-format : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 test-buffer-includes : SKIP
