@@ -95,6 +95,8 @@ $ git add my/changed/files
 $ git commit
 ```
 
+### Commit guidelines
+
 Writing good commit logs is important. A commit log should describe what
 changed and why. Follow these guidelines when writing one:
 
@@ -176,8 +178,7 @@ Running `make test`/`vcbuild test` will run the linter as well unless one or
 more tests fail.
 
 If you want to run the linter without running tests, use
-`make lint`/`vcbuild jslint`. At this time, only JavaScript linting is
-available on Windows. `make lint` on POSIX will run both JavaScript linting and
+`make lint`/`vcbuild lint`. It will run both JavaScript linting and
 C++ linting.
 
 If you are updating tests and just want to run a single test to check it, you
