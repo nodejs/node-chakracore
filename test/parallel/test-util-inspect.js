@@ -64,7 +64,6 @@ assert.strictEqual(util.inspect({a: async () => {}}),
                    '{ a: [AsyncFunction: a] }');
 assert.strictEqual(util.inspect({a: function*() {}}),
                    '{ a: [GeneratorFunction: a] }');
-
 assert.strictEqual(util.inspect({a: 1, b: 2}), '{ a: 1, b: 2 }');
 assert.strictEqual(util.inspect({'a': {}}), '{ a: {} }');
 assert.strictEqual(util.inspect({'a': {'b': 2}}), '{ a: { b: 2 } }');
@@ -298,12 +297,13 @@ assert.strictEqual(
 
 // Function with properties
 {
-  const value = function() {};
+  const value = function() { };
   value.aprop = 42;
   assert.strictEqual(util.inspect(value), common.engineSpecificMessage({
-  v8: '{ [Function: value] aprop: 42 }',
-  chakracore: '{ [Function: value] aprop: 42 }'
-}));
+    v8: '{ [Function: value] aprop: 42 }',
+    chakracore: '{ [Function: value] aprop: 42 }'
+  }));
+}
 
 // Anonymous function with properties
 {
@@ -389,7 +389,8 @@ if (!common.isChakraEngine) {
   assert.strictEqual(util.inspect(obj), common.engineSpecificMessage({
     v8: 'Promise { <pending> }',
     chakracore: 'Promise {}'
-}));
+  }));
+}
 
 // test for property descriptors
 {
@@ -793,7 +794,7 @@ if (typeof Symbol !== 'undefined') {
                      common.engineSpecificMessage({
                        v8: 'Promise { 3 }',
                        chakracore: 'Promise {}'
-                   }));
+                     }));
 
   const rejected = Promise.reject(3);
   assert.strictEqual(util.inspect(rejected),
@@ -809,14 +810,14 @@ if (typeof Symbol !== 'undefined') {
     v8: 'Promise { <pending> }',
     chakracore: 'Promise {}'
   }));
- 
+
   const promiseWithProperty = Promise.resolve('foo');
   promiseWithProperty.bar = 42;
   assert.strictEqual(util.inspect(promiseWithProperty),
-                   common.engineSpecificMessage({
-                     v8: 'Promise { \'foo\', bar: 42 }',
-                     chakracore: 'Promise { bar: 42 }'
-                   }));
+                     common.engineSpecificMessage({
+                       v8: 'Promise { \'foo\', bar: 42 }',
+                       chakracore: 'Promise { bar: 42 }'
+                     }));
 }
 
 
@@ -827,40 +828,41 @@ if (typeof Symbol !== 'undefined') {
   const oldPromise = Promise;
   global.Promise = function() { this.bar = 42; };
   assert.strictEqual(util.inspect(new Promise()),
-                   common.engineSpecificMessage({
-                     v8: '{ bar: 42 }',
-                     chakracore: 'Object { \'<unknown>\', bar: 42 }'
-                   }));
+                     common.engineSpecificMessage({
+                       v8: '{ bar: 42 }',
+                       chakracore: 'Object { \'<unknown>\', bar: 42 }'
+                     }));
   global.Promise = oldPromise;
 }
 
 // Skip for chakra engine as debugger support not yet present
 // below code uses `Debug.MakeMirror` to inspect
 if (!common.isChakraEngine) {
-// Test Map iterators
-{
-  const map = new Map([['foo', 'bar']]);
-  assert.strictEqual(util.inspect(map.keys()), 'MapIterator { \'foo\' }');
-  assert.strictEqual(util.inspect(map.values()), 'MapIterator { \'bar\' }');
-  assert.strictEqual(util.inspect(map.entries()),
-                     'MapIterator { [ \'foo\', \'bar\' ] }');
-  // make sure the iterator doesn't get consumed
-  const keys = map.keys();
-  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-}
+  // Test Map iterators
+  {
+    const map = new Map([['foo', 'bar']]);
+    assert.strictEqual(util.inspect(map.keys()), 'MapIterator { \'foo\' }');
+    assert.strictEqual(util.inspect(map.values()), 'MapIterator { \'bar\' }');
+    assert.strictEqual(util.inspect(map.entries()),
+                       'MapIterator { [ \'foo\', \'bar\' ] }');
+    // make sure the iterator doesn't get consumed
+    const keys = map.keys();
+    assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+    assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+  }
 
-// Test Set iterators
-{
-  const aSet = new Set([1, 3]);
-  assert.strictEqual(util.inspect(aSet.keys()), 'SetIterator { 1, 3 }');
-  assert.strictEqual(util.inspect(aSet.values()), 'SetIterator { 1, 3 }');
-  assert.strictEqual(util.inspect(aSet.entries()),
-                     'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
-  // make sure the iterator doesn't get consumed
-  const keys = aSet.keys();
-  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
-  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+  // Test Set iterators
+  {
+    const aSet = new Set([1, 3]);
+    assert.strictEqual(util.inspect(aSet.keys()), 'SetIterator { 1, 3 }');
+    assert.strictEqual(util.inspect(aSet.values()), 'SetIterator { 1, 3 }');
+    assert.strictEqual(util.inspect(aSet.entries()),
+                       'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
+    // make sure the iterator doesn't get consumed
+    const keys = aSet.keys();
+    assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+    assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+  }
 }
 
 // Test alignment of items in container

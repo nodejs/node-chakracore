@@ -564,11 +564,6 @@ static void Stat(const FunctionCallbackInfo<Value>& args) {
   ASSERT_PATH(path)
 
   if (args[1]->IsObject()) {
-
-#if ENABLE_TTD_NODE
-    ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 
-                                     array->Length() * sizeof(double));
-#endif
     ASYNC_CALL(stat, args[1], UTF8, *path)
   } else {
     SYNC_CALL(stat, *path, *path)
@@ -587,11 +582,6 @@ static void LStat(const FunctionCallbackInfo<Value>& args) {
   ASSERT_PATH(path)
 
   if (args[1]->IsObject()) {
-
-#if ENABLE_TTD_NODE
-    ab->TTDRawBufferModifyNotifySync(array->ByteOffset(),
-                                     array->Length() * sizeof(double));
-#endif
     ASYNC_CALL(lstat, args[1], UTF8, *path)
   } else {
     SYNC_CALL(lstat, *path, *path)
@@ -611,11 +601,6 @@ static void FStat(const FunctionCallbackInfo<Value>& args) {
   int fd = args[0]->Int32Value();
 
   if (args[1]->IsObject()) {
-
-#if ENABLE_TTD_NODE
-    ab->TTDRawBufferModifyNotifySync(array->ByteOffset(),
-                                     array->Length() * sizeof(double));
-#endif
     ASYNC_CALL(fstat, args[1], UTF8, fd)
   } else {
     SYNC_CALL(fstat, nullptr, fd)
