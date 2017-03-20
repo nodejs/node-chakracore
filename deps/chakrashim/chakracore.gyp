@@ -9,6 +9,7 @@
     'linker_start_group%': '',
     'linker_end_group%': '',
     'chakra_libs_absolute%': '',
+    'chakra_disable_jit%':'false',
 
     # xplat (non-win32) only
     'chakra_config': '<(chakracore_build_config)',     # Debug, Release, Test
@@ -30,6 +31,9 @@
         'chakra_build_flags': [ '-t' ],
       }, {
         'chakra_build_flags': [],
+      }],
+      ['chakra_disable_jit=="true"', {
+        'chakra_build_flags+': [ '--no-jit' ],
       }],
     ],
   },

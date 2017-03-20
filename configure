@@ -531,6 +531,12 @@ parser.add_option('--without-bundled-v8',
     help='do not use V8 includes from the bundled deps folder. ' +
          '(This mode is not officially supported for regular applications)')
 
+parser.add_option('--without-chakra-jit',
+    action='store_true',
+    dest='without_chakra_jit',
+    default=False,
+    help='build chakracore without JIT (--no-jit).')
+
 # Create compile_commands.json in out/Debug and out/Release.
 parser.add_option('-C',
     action='store_true',
@@ -1379,6 +1385,7 @@ def configure_engine(o):
     o['variables']['node_use_bundled_v8'] = b(False)
   if engine == 'chakracore':
     o['variables']['chakracore_build_config'] = o['default_configuration']
+    o['variables']['chakra_disable_jit']=b(options.without_chakra_jit)
     if options.chakracore_test_build:
       o['variables']['chakracore_build_config'] = 'Test'
     if options.chakracore_ninja_build:
