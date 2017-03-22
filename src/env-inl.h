@@ -199,7 +199,7 @@ inline Environment::Environment(IsolateData* isolate_data,
 #endif
       handle_cleanup_waiting_(0),
       http_parser_buffer_(nullptr),
-      fs_stats_field_array_(nullptr),
+      fs_stats_field_array_(),
       context_(context->GetIsolate(), context) {
   // We'll be creating new objects so make sure we've entered the context.
   v8::HandleScope handle_scope(isolate());
@@ -244,6 +244,8 @@ inline Environment::~Environment() {
 
   while (handle_cleanup_waiting_ != 0)
     uv_run(event_loop(), UV_RUN_ONCE);
+
+  fs_stats_field_array_.Empty();
 
   context()->SetAlignedPointerInEmbedderData(kContextEmbedderDataIndex,
                                              nullptr);
@@ -381,13 +383,13 @@ inline void Environment::set_http_parser_buffer(char* buffer) {
   http_parser_buffer_ = buffer;
 }
 
-inline double* Environment::fs_stats_field_array() const {
-  return fs_stats_field_array_;
+inline v8::Local<v8::Float64Array> Environment::fs_stats_field_array() const {
+  return v8::Local<v8::Float64Array>::New(isolate_, fs_stats_field_array_);
 }
 
-inline void Environment::set_fs_stats_field_array(double* fields) {
-  CHECK_EQ(fs_stats_field_array_, nullptr);  // Should be set only once.
-  fs_stats_field_array_ = fields;
+inline void Environment::set_fs_stats_field_array(v8::Local<v8::Float64Array> fields) {
+  CHECK_EQ(fs_stats_field_array_.IsEmpty(), true);  // Should be set only once.
+  fs_stats_field_array_ = v8::Global<v8::Float64Array>::Global(isolate_, fields);
 }
 
 inline Environment* Environment::from_cares_timer_handle(uv_timer_t* handle) {

@@ -533,6 +533,7 @@ class PersistentBase {
 
  private:
   template<class F> friend class Local;
+  template<class F> friend class Global;
   template<class F1, class F2> friend class Persistent;
 
   explicit V8_INLINE PersistentBase(T* val)

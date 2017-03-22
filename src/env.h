@@ -491,8 +491,8 @@ class Environment {
   inline char* http_parser_buffer() const;
   inline void set_http_parser_buffer(char* buffer);
 
-  inline double* fs_stats_field_array() const;
-  inline void set_fs_stats_field_array(double* fields);
+  inline v8::Local<v8::Float64Array> fs_stats_field_array() const;
+  inline void set_fs_stats_field_array(v8::Local<v8::Float64Array> fields);
 
   inline void ThrowError(const char* errmsg);
   inline void ThrowTypeError(const char* errmsg);
@@ -602,7 +602,8 @@ class Environment {
 
   char* http_parser_buffer_;
 
-  double* fs_stats_field_array_;
+  //We depend on the property in fs.js to manage the lifetime appropriately
+  v8::Global<v8::Float64Array> fs_stats_field_array_;
 
 #define V(PropertyName, TypeName)                                             \
   v8::Persistent<TypeName> PropertyName ## _;
