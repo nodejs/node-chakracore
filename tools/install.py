@@ -159,9 +159,6 @@ def headers(action):
   else:
     raise RuntimeError('Unknown engine: %s\n' % variables.get('node_engine'))
 
-  if 'false' == variables.get('node_shared_cares'):
-    subdir_files('deps/cares/include', 'include/node/', action)
-
   if 'false' == variables.get('node_shared_libuv'):
     subdir_files('deps/uv/include', 'include/node/', action)
 
