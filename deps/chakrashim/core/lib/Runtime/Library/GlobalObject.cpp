@@ -882,7 +882,7 @@ namespace Js
             // So we need to pin it here (TODO: Change GenerateByteCode to take in the sourceInfo itself)
             ENTER_PINNED_SCOPE(Utf8SourceInfo, sourceInfo);
             sourceInfo = Utf8SourceInfo::New(scriptContext, utf8Source, cchSource,
-              cbSource, pSrcInfo, ((grfscr & fscrIsLibraryCode) != 0), nullptr);
+              cbSource, pSrcInfo, ((grfscr & fscrIsLibraryCode) != 0));
 
             Parser parser(scriptContext, strictMode);
             bool forceNoNative = false;
@@ -952,17 +952,16 @@ namespace Js
             {
                 JavascriptError::ThrowStackOverflowError(scriptContext);
             }
+            else if (hrCodeGen == JSERR_AsmJsCompileError)
+            {
+                // if asm.js compilation succeeded, retry with asm.js disabled
+                grfscr |= fscrNoAsmJs;
+                return DefaultEvalHelper(scriptContext, source, sourceLength, moduleID, grfscr, pszTitle, registerDocument, isIndirect, strictMode);
+            }
             JavascriptError::MapAndThrowError(scriptContext, hrCodeGen);
         }
         else
         {
-            if (se.ei.scode == JSERR_AsmJsCompileError)
-            {
-                // if asm.js compilation succeeded, retry with asm.js disabled
-                grfscr |= fscrNoAsmJs;
-                se.Clear();
-                return DefaultEvalHelper(scriptContext, source, sourceLength, moduleID, grfscr, pszTitle, registerDocument, isIndirect, strictMode);
-            }
 
             Assert(funcBody != nullptr);
             funcBody->SetDisplayName(pszTitle);
