@@ -463,7 +463,7 @@ extern "C" NODE_EXTERN void node_module_register(void* mod);
 # define NODE_MODULE_EXPORT __attribute__((visibility("default")))
 #endif
 
-#ifdef NODE_SHARED_MODE
+#if defined (NODE_SHARED_MODE) || defined (NODE_STATIC_LIBRARY)
 # define NODE_CTOR_PREFIX
 #else
 # define NODE_CTOR_PREFIX static
