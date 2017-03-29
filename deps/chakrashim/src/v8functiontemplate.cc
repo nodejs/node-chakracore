@@ -264,12 +264,16 @@ class FunctionTemplateData : public TemplateData {
             return nullptr;
           }
         }
-
-        if (JsSetProperty(*prototype,
-                          iso->GetCachedPropertyIdRef(
-                            jsrt::CachedPropertyIdRef::constructor),
-                          function, false) != JsNoError ||
-            JsSetProperty(function,
+        if (jsrt::DefineProperty(*prototype,
+            iso->GetCachedPropertyIdRef(
+                jsrt::CachedPropertyIdRef::constructor),
+            jsrt::PropertyDescriptorOptionValues::True, /* writable */
+            jsrt::PropertyDescriptorOptionValues::False, /* enumerable */
+            jsrt::PropertyDescriptorOptionValues::True, /* configurable */
+            function, /* value */
+            JS_INVALID_REFERENCE, /* getter */
+            JS_INVALID_REFERENCE /* setter */)
+            != JsNoError || JsSetProperty(function,
                           iso->GetCachedPropertyIdRef(
                             jsrt::CachedPropertyIdRef::prototype),
                           *prototype, false) != JsNoError) {

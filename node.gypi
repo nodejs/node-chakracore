@@ -71,7 +71,7 @@
         'deps/v8/src/third_party/vtune/v8vtune.gyp:v8_vtune'
       ],
     }],
-    [ 'v8_enable_inspector==1', {
+    [ 'v8_enable_inspector==1 and node_engine=="v8"', {
       'defines': [
         'HAVE_INSPECTOR=1',
       ],
@@ -237,6 +237,21 @@
         }],
       ],
     }],
+    [ 'node_engine=="v8"', {
+      'include_dirs': [
+        'deps/v8' # include/v8_platform.h
+      ],
+      'dependencies': [
+        'deps/v8/src/v8.gyp:v8',
+        'deps/v8/src/v8.gyp:v8_libplatform'
+      ],
+    }],
+    ['node_engine=="chakracore"', {
+      'include_dirs': [
+        'deps/chakrashim' # include/v8_platform.h
+      ],
+      'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
+    }],
     [ 'node_shared_zlib=="false"', {
       'dependencies': [ 'deps/zlib/zlib.gyp:zlib' ],
     }],
@@ -310,20 +325,44 @@
       ],
     }],
     [ '(OS=="freebsd" or OS=="linux") and node_shared=="false" and coverage=="false"', {
-      'ldflags': [ '-Wl,-z,noexecstack',
-                   '-Wl,--whole-archive <(V8_BASE)',
-                   '-Wl,--no-whole-archive' ]
+      'ldflags': [ '-Wl,-z,noexecstack' ],
+      'conditions': [
+      [ 'node_engine=="v8"', {
+          'ldflags': [
+            '-Wl,--whole-archive <(V8_BASE)',
+            '-Wl,--no-whole-archive',
+        ],
+      }],
+      ['node_engine=="chakracore"', {
+          'ldflags': [
+            '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
+            '-Wl,--no-whole-archive',
+        ],
+      }],
+      ]
     }],
     [ '(OS=="freebsd" or OS=="linux") and node_shared=="false" and coverage=="true"', {
       'ldflags': [ '-Wl,-z,noexecstack',
-                   '-Wl,--whole-archive <(V8_BASE)',
-                   '-Wl,--no-whole-archive',
                    '--coverage',
                    '-g',
                    '-O0' ],
        'cflags': [ '--coverage',
                    '-g',
-                   '-O0' ]
+                   '-O0' ],
+     'conditions': [
+      [ 'node_engine=="v8"', {
+        'ldflags': [
+            '-Wl,--whole-archive <(V8_BASE)',
+            '-Wl,--no-whole-archive',
+        ],
+      }],
+      ['node_engine=="chakracore"', {
+        'ldflags': [
+            '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
+            '-Wl,--no-whole-archive',
+        ],
+      }],
+    ]
     }],
     [ 'OS=="sunos"', {
       'ldflags': [ '-Wl,-M,/usr/lib/ld/map.noexstk' ],

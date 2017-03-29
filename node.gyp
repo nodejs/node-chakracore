@@ -144,7 +144,7 @@
       'type': '<(node_target_type)',
 
       'dependencies': [
-        'node_js2c#host'
+        'node_js2c#host',
       ],
 
       'includes': [
@@ -265,50 +265,6 @@
         # Warn when using deprecated V8 APIs.
         'V8_DEPRECATION_WARNINGS=1',
       ],
-
-        [ 'node_engine=="v8"', {
-          'include_dirs': [
-            'deps/v8' # include/v8_platform.h
-          ],
-          'dependencies': [
-            'deps/v8/src/v8.gyp:v8',
-            'deps/v8/src/v8.gyp:v8_libplatform'
-          ],
-        }],
-        ['node_engine=="chakracore"', {
-          'include_dirs': [
-            'deps/chakrashim' # include/v8_platform.h
-          ],
-          'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
-        }],
-
-          'conditions': [
-            [ 'node_engine=="v8"', {
-              'ldflags': [
-              ],
-            }],
-            ['node_engine=="chakracore"', {
-              'ldflags': [
-                '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
-                '-Wl,--no-whole-archive',
-              ],
-            }],
-          ]
-          'conditions': [
-            [ 'node_engine=="v8"', {
-              'ldflags': [
-                '-Wl,--whole-archive <(V8_BASE)',
-                '-Wl,--no-whole-archive',
-              ],
-            }],
-            ['node_engine=="chakracore"', {
-              'ldflags': [
-                '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
-                '-Wl,--no-whole-archive',
-              ],
-          ]
-        }],
-
     },
     {
       'target_name': 'mkssldef',
@@ -656,7 +612,6 @@
         '<(OBJ_PATH)/node.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/node_buffer.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/node_i18n.<(OBJ_SUFFIX)',
-        '<(OBJ_PATH)/node_url.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/debug-agent.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/util.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/string_bytes.<(OBJ_SUFFIX)',
@@ -670,18 +625,29 @@
         '<(OBJ_TRACING_PATH)/trace_event.<(OBJ_SUFFIX)',
       ],
 
-        [ 'node_engine=="v8"', {
-          'include_dirs': [
-            'deps/v8/include'
-          ],
-
-            'deps/v8/src/v8.gyp:v8',
+      'defines': [
+        # gtest's ASSERT macros conflict with our own.
+        'GTEST_DONT_DEFINE_ASSERT_EQ=1',
+        'GTEST_DONT_DEFINE_ASSERT_GE=1',
+        'GTEST_DONT_DEFINE_ASSERT_GT=1',
+        'GTEST_DONT_DEFINE_ASSERT_LE=1',
+        'GTEST_DONT_DEFINE_ASSERT_LT=1',
+        'GTEST_DONT_DEFINE_ASSERT_NE=1',
+        'NODE_WANT_INTERNALS=1',
+      ],
+      
+      'sources': [
         'test/cctest/test_util.cc',
-        'test/cctest/test_url.cc'
       ],
 
       'sources!': [
         'src/node_main.cc'
+      ],
+
+      'conditions': [
+        [ 'node_engine=="v8"', {
+          'include_dirs': [
+            'deps/v8/include'
           ],
           'conditions' : [
             ['v8_enable_inspector==1', {
@@ -717,6 +683,13 @@
                 'deps/v8/src/v8.gyp:v8_libplatform',
               ],
             }],
+          ]
+        }],
+        ['node_engine=="chakracore"', {
+          'include_dirs': [
+            'deps/chakrashim' # include/v8_platform.h
+          ],
+        }],
         [ 'node_use_dtrace=="true" and OS!="mac" and OS!="linux"', {
           'copies': [{
             'destination': '<(OBJ_DIR)/cctest/src',
@@ -725,18 +698,10 @@
               '<(OBJ_PATH)/node_dtrace_provider.<(OBJ_SUFFIX)',
               '<(OBJ_PATH)/node_dtrace.<(OBJ_SUFFIX)',
             ]},
-              ],
+          ],
         }],
         ['OS=="solaris"', {
           'ldflags': [ '-I<(SHARED_INTERMEDIATE_DIR)' ]
-            }],
-          ]
-        }],
-        ['node_engine=="chakracore"', {
-          'dependencies': [
-             'deps/chakrashim/chakrashim.gyp:chakrashim',
-             'deps/uv/uv.gyp:libuv'
-          ],
         }],
       ],
       'msvs_settings': {
@@ -744,19 +709,8 @@
           'SubSystem': 1, # /subsystem:console
         },
       },
-      'defines': [
-        # gtest's ASSERT macros conflict with our own.
-        'GTEST_DONT_DEFINE_ASSERT_EQ=1',
-        'GTEST_DONT_DEFINE_ASSERT_GE=1',
-        'GTEST_DONT_DEFINE_ASSERT_GT=1',
-        'GTEST_DONT_DEFINE_ASSERT_LE=1',
-        'GTEST_DONT_DEFINE_ASSERT_LT=1',
-        'GTEST_DONT_DEFINE_ASSERT_NE=1',
-        'NODE_WANT_INTERNALS=1',
-      ],
-      'sources': [
-        'test/cctest/util.cc',
-      ],
+
+
     }
   ], # end targets
 
