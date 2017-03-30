@@ -142,9 +142,6 @@ function error_test() {
                            'characters not allowed in strict mode');
   const v8_re1 = new RegExp('\bSyntaxError: Duplicate parameter name not ' +
                             'allowed in this context');
-  const v8_re2 = new RegExp('\bSyntaxError: In strict mode code, functions ' +
-                            'can only be declared at top level or inside a ' +
-                            'block.');
     //;
   send_expect([
     // Uncaught error throws and prints out
@@ -255,7 +252,7 @@ function error_test() {
     { client: client_unix,
       send: '(function() { "use strict"; if (true) function f() { } })()',
       expect: common.engineSpecificMessage({
-        v8: v8_re2,
+        v8: /\bSyntaxError: In strict mode code, functions can only be declared at top level or inside a block\./, // eslint-disable-line max-len
         chakracore: /^SyntaxError: Syntax error/})
     },
     // Named functions can be used:

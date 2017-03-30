@@ -28,7 +28,7 @@ try {
   require(path.join(common.fixturesDir, 'invalid.json'));
 } catch (err) {
   const re = common.engineSpecificMessage({
-    v8: /test[/\\]fixtures[/\\]invalid.json: Unexpected string/,
+    v8: /test[/\\]fixtures[/\\]invalid\.json: Unexpected string/,
     chakracore:
     /test[/\\]fixtures[/\\]invalid.json: JSON.parse Error: Expected '}'/
   });
