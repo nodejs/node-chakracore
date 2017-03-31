@@ -1913,6 +1913,80 @@ class V8_EXPORT Float64Array : public TypedArray {
   Float64Array();
 };
 
+class V8_EXPORT SharedArrayBuffer : public Object {
+public:
+  V8_INLINE static SharedArrayBuffer* Cast(Value* obj);
+
+private:
+  SharedArrayBuffer();
+};
+
+class V8_EXPORT ValueSerializer {
+public:
+  class V8_EXPORT Delegate {
+  public:
+    virtual ~Delegate() {}
+
+    virtual void ThrowDataCloneError(Local<String> message) = 0;
+    virtual Maybe<bool> WriteHostObject(Isolate* isolate, Local<Object> object);
+    virtual Maybe<uint32_t> GetSharedArrayBufferId(
+      Isolate* isolate, Local<SharedArrayBuffer> shared_array_buffer);
+    virtual void* ReallocateBufferMemory(void* old_buffer, size_t size,
+      size_t* actual_size);
+    virtual void FreeBufferMemory(void* buffer);
+  };
+
+  explicit ValueSerializer(Isolate* isolate);
+  ValueSerializer(Isolate* isolate, Delegate* delegate);
+  ~ValueSerializer();
+
+  void WriteHeader();
+  V8_WARN_UNUSED_RESULT Maybe<bool> WriteValue(Local<Context> context,
+    Local<Value> value);
+  V8_WARN_UNUSED_RESULT std::pair<uint8_t*, size_t> Release();
+  void TransferArrayBuffer(uint32_t transfer_id,
+    Local<ArrayBuffer> array_buffer);
+  void SetTreatArrayBufferViewsAsHostObjects(bool mode);
+  void WriteUint32(uint32_t value);
+  void WriteUint64(uint64_t value);
+  void WriteDouble(double value);
+  void WriteRawBytes(const void* source, size_t length);
+
+private:
+  ValueSerializer(const ValueSerializer&) = delete;
+  void operator=(const ValueSerializer&) = delete;
+};
+
+class V8_EXPORT ValueDeserializer {
+public:
+  class V8_EXPORT Delegate {
+  public:
+    virtual ~Delegate() {}
+
+    virtual MaybeLocal<Object> ReadHostObject(Isolate* isolate);
+  };
+
+  ValueDeserializer(Isolate* isolate, const uint8_t* data, size_t size,
+    Delegate* delegate);
+  ~ValueDeserializer();
+
+  V8_WARN_UNUSED_RESULT Maybe<bool> ReadHeader(Local<Context> context);
+  V8_WARN_UNUSED_RESULT MaybeLocal<Value> ReadValue(Local<Context> context);
+  void TransferArrayBuffer(uint32_t transfer_id,
+    Local<ArrayBuffer> array_buffer);
+  void TransferSharedArrayBuffer(uint32_t id,
+    Local<SharedArrayBuffer> shared_array_buffer);
+  uint32_t GetWireFormatVersion() const;
+  V8_WARN_UNUSED_RESULT bool ReadUint32(uint32_t* value);
+  V8_WARN_UNUSED_RESULT bool ReadUint64(uint64_t* value);
+  V8_WARN_UNUSED_RESULT bool ReadDouble(double* value);
+  V8_WARN_UNUSED_RESULT bool ReadRawBytes(size_t length, const void** data);
+
+private:
+  ValueDeserializer(const ValueDeserializer&) = delete;
+  void operator=(const ValueDeserializer&) = delete;
+};
+
 enum AccessType {
   ACCESS_GET,
   ACCESS_SET,

@@ -121,6 +121,7 @@
         'src/v8propertydescriptor.cc',
         'src/v8proxy.cc',
         'src/v8script.cc',
+        'src/v8sharedarraybuffer.cc',
         'src/v8signature.cc',
         'src/v8stacktrace.cc',
         'src/v8string.cc',
@@ -131,6 +132,8 @@
         'src/v8uint32.cc',
         'src/v8v8.cc',
         'src/v8value.cc',
+        'src/v8valueserializer.cc',
+        'src/v8valuedeserializer.cc',
       ],
     },  # end chakrashim
 

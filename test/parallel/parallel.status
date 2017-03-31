@@ -67,6 +67,8 @@ test-trace-event : SKIP
 test-util-inspect-proxy : SKIP
 test-util-inspect-simd : SKIP
 test-url-domain-ascii-unicode : SKIP
+test-v8-serdes : SKIP
+test-v8-serdes-sharedarraybuffer : SKIP
 test-vm-cached-data : SKIP
 test-vm-context : SKIP
 test-vm-create-and-run-in-context : SKIP
