@@ -2325,7 +2325,9 @@ void MemoryUsage(const FunctionCallbackInfo<Value>& args) {
   fields[3] = isolate->AdjustAmountOfExternalAllocatedMemory(0);
 
 #if ENABLE_TTD_NODE
-  ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 4 * sizeof(double));
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 4 * sizeof(double));
+  }
 #endif
 }
 
@@ -2364,8 +2366,10 @@ void Hrtime(const FunctionCallbackInfo<Value>& args) {
   fields[1] = (t / NANOS_PER_SEC) & 0xffffffff;
   fields[2] = t % NANOS_PER_SEC;
 #if ENABLE_TTD_NODE
-  ab->TTDRawBufferModifyNotifySync(args[0].As<Uint32Array>()->ByteOffset(),
-                                   3 * sizeof(uint32_t));
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(args[0].As<Uint32Array>()->ByteOffset(),
+                                     3 * sizeof(uint32_t));
+  }
 #endif
 }
 
@@ -2400,7 +2404,9 @@ void CPUUsage(const FunctionCallbackInfo<Value>& args) {
   fields[0] = MICROS_PER_SEC * rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec;
   fields[1] = MICROS_PER_SEC * rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec;
 #if ENABLE_TTD_NODE
-  ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 2 * sizeof(double));
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 2 * sizeof(double));
+  }
 #endif
 }
 
@@ -3654,28 +3660,29 @@ static void PrintHelp() {
          "                             stderr\n"
          "OPENSSL_CONF                 load OpenSSL configuration from file\n"
          "\n"
-         "Documentation can be found at https://nodejs.org/\n"
 #if ENABLE_TTD_NODE
-         "Record/Replay production diagnostics info at http://aka.ms/nodettd\n"
+         "Documentation can be found at https://nodejs.org/\n"
+         "Record/Replay diagnostics info at http://aka.ms/nodettd\n");
+#else
+         "Documentation can be found at https://nodejs.org/\n");
 #endif
-  );
 }
 
 #if ENABLE_TTD_NODE
-void TTDFlagWarning(const char* msg, const char* arg) {
-    fprintf(stderr, "%s", msg);
-    if(arg != nullptr) {
-        fprintf(stderr, "> %s\n", arg);
-    }
+void TTDFlagWarning(const char* arg, const char* newflag) {
+    fprintf(stderr, "Flag %s is deprecated use %s\n", arg, newflag);
     fprintf(stderr, "Run with \"-h\" for help with flags.\n");
 
     exit(1);
 }
 
 void TTDFlagWarning_Cond(bool cond, const char* msg) {
-    if(!cond) {
-        TTDFlagWarning(msg, nullptr);
-    }
+  if (!cond) {
+    fprintf(stderr, "%s\n", msg);
+    fprintf(stderr, "Run with \"-h\" for help with flags.\n");
+
+    exit(1);
+  }
 }
 #endif
 
@@ -3793,38 +3800,38 @@ static void ParseArgs(int* argc,
       trace_enabled_categories = categories;
 #if ENABLE_TTD_NODE
       // Parse and extract the TT args
-      } else if(strcmp(arg, "--record") == 0) {
+      } else if (strcmp(arg, "--record") == 0) {
           s_doTTRecord = true;
-      } else if(strstr(arg, "--replay=") == arg) {
+      } else if (strstr(arg, "--replay=") == arg) {
           s_doTTReplay = true;
           s_ttoptReplayUri = arg + strlen("--replay=");
           s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-      } else if(strstr(arg, "--replay-debug=") == arg) {
+      } else if (strstr(arg, "--replay-debug=") == arg) {
           s_doTTReplay = true;
           s_doTTDebug = true;
           s_ttoptReplayUri = arg + strlen("--replay-debug=");
           s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-      } else if(strcmp(arg, "--break-first") == 0) {
+      } else if (strcmp(arg, "--break-first") == 0) {
           s_ttdStartupMode = (0x100 | 0x1);
           debug_options.do_wait_for_connect();
-      } else if(strstr(arg, "--record-interval=") == arg) {
+      } else if (strstr(arg, "--record-interval=") == arg) {
           const char* intervalStr = arg + strlen("--record-interval=");
           s_ttdSnapInterval = (uint32_t)atoi(intervalStr);
-      } else if(strstr(arg, "--record-history=") == arg) {
+      } else if (strstr(arg, "--record-history=") == arg) {
           const char* historyStr = arg + strlen("--record-history=");
           s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
-      } else if(strstr(arg, "-TTRecord:") == arg) {
-          TTDFlagWarning("-TTRecord:[dir] is deprecated use --record\n", arg);
-      } else if(strstr(arg, "-TTReplay:") == arg) {
-          TTDFlagWarning("-TTReplay:[dir] is deprecated use --replay=dir\n", arg);
-      } else if(strstr(arg, "-TTDebug:") == arg) {
-          TTDFlagWarning("-TTDebug:[dir] is deprecated use --replay-debug=dir\n", arg);
-      } else if(strstr(arg, "-TTBreakFirst") == arg) {
-          TTDFlagWarning("-TTBreakFirst is deprecated use --break-first\n", arg);
-      } else if(strstr(arg, "-TTSnapInterval:") == arg) {
-          TTDFlagWarning("-TTSnapInterval is deprecated use --record-interval=num\n", arg);
-      } else if(strstr(arg, "-TTHistoryLength:") == arg) {
-          TTDFlagWarning("-TTHistoryLength is deprecated use --record-history=num\n", arg);
+      } else if (strstr(arg, "-TTRecord:") == arg) {
+          TTDFlagWarning(arg, "--record");
+      } else if (strstr(arg, "-TTReplay:") == arg) {
+          TTDFlagWarning(arg, "--replay=dir");
+      } else if (strstr(arg, "-TTDebug:") == arg) {
+          TTDFlagWarning(arg, "--replay-debug=dir");
+      } else if (strstr(arg, "-TTBreakFirst") == arg) {
+          TTDFlagWarning(arg, "--break-first");
+      } else if (strstr(arg, "-TTSnapInterval:") == arg) {
+          TTDFlagWarning(arg, "--record-interval=num");
+      } else if (strstr(arg, "-TTHistoryLength:") == arg) {
+          TTDFlagWarning(arg, "--record-history=num");
 #endif
     } else if (strcmp(arg, "--track-heap-objects") == 0) {
       track_heap_objects = true;
@@ -4607,7 +4614,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
 #if ENABLE_TTD_NODE
   // Start time travel after environment is loaded
   if (s_doTTRecord) {
-    fprintf(stderr, "Recording has been started (after main module loading)...\n");
+    fprintf(stderr, "Recording started (after main module loaded)...\n");
     JsTTDStart();
   }
 #endif
@@ -4667,7 +4674,7 @@ inline int Start(uv_loop_t* event_loop,
 #endif
 
 #if ENABLE_TTD_NODE
-  if(s_doTTRecord) {
+  if (s_doTTRecord) {
       fprintf(stderr, "Recording is enabled (but not yet started)...\n");
   }
 
@@ -4792,7 +4799,7 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
         &s_ttdStartupMode,
         &nextEventTime);
 
-    //don't continue replay actions if we are not in debug mode
+    // don't continue replay actions if we are not in debug mode
     continueReplayActions &= s_doTTDebug;
   }
 
@@ -4813,7 +4820,7 @@ inline int Start_TTDReplay(uv_loop_t* event_loop,
   params.code_event_handler = vTune::GetVtuneCodeEventHandler();
 #endif
 
-  fprintf(stderr, "Starting TT replay/debug using log in %s\n", s_ttoptReplayUri);
+  fprintf(stderr, "Starting replay/debug using log in %s\n", s_ttoptReplayUri);
   Isolate* const isolate = Isolate::NewWithTTDSupport(params,
                                                       s_ttoptReplayUriLength,
                                                       s_ttoptReplayUri,
@@ -4929,12 +4936,13 @@ int Start(int argc, char** argv) {
   v8_initialized = true;
 
 #if ENABLE_TTD_NODE
-  bool chk_debug_enabled = debug_options.debugger_enabled() || debug_options.inspector_enabled();
+  bool chk_debug_enabled = debug_options.debugger_enabled()
+                           || debug_options.inspector_enabled();
 
   TTDFlagWarning_Cond(!s_doTTRecord || !s_doTTReplay,
       "Cannot enable record & replay at same time.\n");
 
-  if(s_doTTRecord || s_doTTReplay) {
+  if (s_doTTRecord || s_doTTReplay) {
       TTDFlagWarning_Cond(eval_string == nullptr,
           "Eval mode not supported in record/replay.\n");
 
@@ -4942,7 +4950,7 @@ int Start(int argc, char** argv) {
           "Repl mode not supported in record/replay.\n");
   }
 
-  if(s_doTTRecord) {
+  if (s_doTTRecord) {
       TTDFlagWarning_Cond(!chk_debug_enabled,
           "Cannot enable debugger with record mode.\n");
 
@@ -4950,7 +4958,7 @@ int Start(int argc, char** argv) {
           "Cannot set break flags in record mode.\n");
   }
 
-  if(s_doTTReplay) {
+  if (s_doTTReplay) {
       TTDFlagWarning_Cond(!chk_debug_enabled || s_doTTDebug,
           "Must enable --replay-debug if attaching debugger.\n");
 

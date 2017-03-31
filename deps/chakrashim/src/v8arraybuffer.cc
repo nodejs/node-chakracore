@@ -107,20 +107,21 @@ ArrayBuffer::Contents ArrayBuffer::GetContents() {
 }
 
 // ENABLE_TTD
-void ArrayBuffer::TTDRawBufferNotifyRegisterForModification(byte* initialModPosition) {
-    JsTTDRawBufferAsyncModificationRegister(this, initialModPosition);
+void ArrayBuffer::TTDRawBufferNotifyRegisterForModification(
+  byte* initialModPosition) {
+  JsTTDRawBufferAsyncModificationRegister(this, initialModPosition);
 }
 
 void ArrayBuffer::TTDRawBufferAsyncModifyComplete(byte* finalModPosition) {
-    JsTTDRawBufferAsyncModifyComplete(finalModPosition);
+  JsTTDRawBufferAsyncModifyComplete(finalModPosition);
 }
 void ArrayBuffer::TTDRawBufferModifyNotifySync(UINT32 index, UINT32 count) {
-    JsTTDRawBufferModifySyncIndirect(this, index, count);
+  JsTTDRawBufferModifySyncIndirect(this, index, count);
 }
 void ArrayBuffer::TTDRawBufferCopyNotify(Local<ArrayBuffer> dst,
-                                         UINT32 dstindex, Local<ArrayBuffer> src, 
+                                         UINT32 dstindex, Local<ArrayBuffer> src,
                                          UINT32 srcIndex, UINT32 count) {
-    JsTTDRawBufferCopySyncIndirect(*dst, dstindex, *src, srcIndex, count);
+  JsTTDRawBufferCopySyncIndirect(*dst, dstindex, *src, srcIndex, count);
 }
 
 ArrayBuffer* ArrayBuffer::Cast(Value* obj) {

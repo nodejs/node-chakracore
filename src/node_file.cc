@@ -282,11 +282,15 @@ static void After(uv_fs_t *req) {
       case UV_FS_READ:
         // Buffer interface
 #if ENABLE_TTD_NODE
+        if (s_doTTRecord || s_doTTReplay) {
 #ifdef WIN32
-        Buffer::TTDAsyncModNotify((byte*)(req->fs.info.bufsml[0].base + req->result));
+          byte* bufbase = reinterpret_cast<byte*>(req->fs.info.bufsml[0].base);
 #else
-        Buffer::TTDAsyncModNotify((byte*)(req->bufsml[0].base + req->result));
+          byte* bufbase = reinterpret_cast<byte*>(req->bufsml[0].base);
 #endif
+
+          Buffer::TTDAsyncModNotify(bufbase + req->result);
+        }
 #endif
         argv[1] = Integer::New(env->isolate(), req->result);
         break;
@@ -448,7 +452,9 @@ static void Close(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-void FillStatsArray(v8::Local<v8::Float64Array> fields_array, const uv_stat_t* s, int offset) {
+void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
+                    const uv_stat_t* s,
+                    int offset) {
   Local<ArrayBuffer> ab = fields_array->Buffer();
   double* fields = static_cast<double*>(ab->GetContents().Data()) + offset;
 
@@ -482,8 +488,10 @@ void FillStatsArray(v8::Local<v8::Float64Array> fields_array, const uv_stat_t* s
 #undef X
 
 #if ENABLE_TTD_NODE
-  if(s_doTTRecord || s_doTTReplay) {
-    ab->TTDRawBufferModifyNotifySync(offset * sizeof(double), 14 * sizeof(double));
+  if (s_doTTRecord || s_doTTReplay) {
+    int modspos = offset * sizeof(double);
+    int modlength = 14 * sizeof(double);
+    ab->TTDRawBufferModifyNotifySync(modspos, modlength);
   }
 #endif
 }
@@ -1191,14 +1199,18 @@ static void Read(const FunctionCallbackInfo<Value>& args) {
 
   if (req->IsObject()) {
 #if ENABLE_TTD_NODE
+    if (s_doTTRecord || s_doTTReplay) {
       Buffer::TTDAsyncModRegister(buffer_obj, reinterpret_cast<byte*>(buf));
+    }
 #endif
     ASYNC_CALL(read, req, UTF8, fd, &uvbuf, 1, pos);
   } else {
     SYNC_CALL(read, 0, fd, &uvbuf, 1, pos)
     args.GetReturnValue().Set(SYNC_RESULT);
 #if ENABLE_TTD_NODE
-    Buffer::TTDSyncDataModNotify(buffer_obj, off, SYNC_RESULT);
+    if (s_doTTRecord || s_doTTReplay) {
+      Buffer::TTDSyncDataModNotify(buffer_obj, off, SYNC_RESULT);
+    }
 #endif
   }
 }

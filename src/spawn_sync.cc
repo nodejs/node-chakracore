@@ -191,7 +191,9 @@ Local<Object> SyncProcessStdioPipe::GetOutputAsBuffer(Environment* env) const {
   CopyOutput(Buffer::Data(js_buffer));
 
 #if ENABLE_TTD_NODE
-  Buffer::TTDSyncDataModNotify(js_buffer, 0, length);
+  if (s_doTTRecord || s_doTTReplay) {
+    Buffer::TTDSyncDataModNotify(js_buffer, 0, length);
+  }
 #endif
 
   return js_buffer;
