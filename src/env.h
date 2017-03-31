@@ -607,7 +607,7 @@ class Environment {
 
   char* http_parser_buffer_;
 
-  //We depend on the property in fs.js to manage the lifetime appropriately
+  // We depend on the property in fs.js to manage the lifetime appropriately
   v8::Global<v8::Float64Array> fs_stats_field_array_;
 
 #define V(PropertyName, TypeName)                                             \

@@ -227,7 +227,8 @@ size_t Length(Local<Value> val) {
 }
 
 #if ENABLE_TTD_NODE
-void TTDAsyncModRegister(v8::Local<v8::Object> val, unsigned char* initialModPosition) {
+void TTDAsyncModRegister(v8::Local<v8::Object> val,
+                         unsigned char* initialModPosition) {
   CHECK(val->IsUint8Array());
   Local<Uint8Array> ui = val.As<Uint8Array>();
   ui->Buffer()->TTDRawBufferNotifyRegisterForModification(initialModPosition);
@@ -596,11 +597,13 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(to_copy);
 
 #if ENABLE_TTD_NODE
-  ArrayBuffer::TTDRawBufferCopyNotify(target->Buffer(),
-                                      target_offset + target_start,
-                                      ts_obj->Buffer(),
-                                      ts_obj_offset + source_start,
-                                      to_copy);
+  if (s_doTTRecord || s_doTTReplay) {
+    ArrayBuffer::TTDRawBufferCopyNotify(target->Buffer(),
+                                        target_offset + target_start,
+                                        ts_obj->Buffer(),
+                                        ts_obj_offset + source_start,
+                                        to_copy);
+  }
 #endif
 }
 
@@ -638,7 +641,9 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
     // TODO(mrkmarron): We could improve performance since this is a constant
     // value. Fill by just logging constant (instead of copying modified range).
     //
-    ts_obj->Buffer()->TTDRawBufferModifyNotifySync(start, fill_length);
+    if (s_doTTRecord || s_doTTReplay) {
+      ts_obj->Buffer()->TTDRawBufferModifyNotifySync(start, fill_length);
+    }
 #endif
 
     return;
@@ -754,8 +759,10 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(written);
 
 #if ENABLE_TTD_NODE
-  args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset + offset, written);
+  if (s_doTTRecord || s_doTTReplay) {
+    args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset + offset, written);
+  }
 #endif
 }
 
@@ -897,8 +904,10 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
     Swizzle(na.bytes, sizeof(na.bytes));
   memcpy(ptr, na.bytes, memcpy_num);
 #if ENABLE_TTD_NODE
-  ts_obj->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset + offset,
-                                                 memcpy_num);
+  if (s_doTTRecord || s_doTTReplay) {
+    ts_obj->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset + offset,
+                                                   memcpy_num);
+  }
 #endif
 }
 
@@ -1247,8 +1256,10 @@ void Swap16(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset, ts_obj_length);
+  if (s_doTTRecord || s_doTTReplay) {
+    args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset, ts_obj_length);
+  }
 #endif
 }
 
@@ -1261,8 +1272,10 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset, ts_obj_length);
+  if (s_doTTRecord || s_doTTReplay) {
+    args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset, ts_obj_length);
+  }
 #endif
 }
 
@@ -1275,8 +1288,10 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset, ts_obj_length);
+  if (s_doTTRecord || s_doTTReplay) {
+    args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset, ts_obj_length);
+  }
 #endif
 }
 

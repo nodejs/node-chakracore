@@ -387,7 +387,8 @@ inline v8::Local<v8::Float64Array> Environment::fs_stats_field_array() const {
   return v8::Local<v8::Float64Array>::New(isolate_, fs_stats_field_array_);
 }
 
-inline void Environment::set_fs_stats_field_array(v8::Local<v8::Float64Array> fields) {
+inline void Environment::set_fs_stats_field_array(
+    v8::Local<v8::Float64Array> fields) {
   CHECK_EQ(fs_stats_field_array_.IsEmpty(), true);  // Should be set only once.
   fs_stats_field_array_ = v8::Global<v8::Float64Array>::New(isolate_, fields);
 }

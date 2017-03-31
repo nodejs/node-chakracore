@@ -50,8 +50,10 @@ NODE_EXTERN void TTDSyncDataModNotify(v8::Local<v8::Object> val,
 // Notify us that a native buffer access (which we don't currently
 // understand/support) happened.
 #define TTD_NATIVE_BUFFER_ACCESS_NOTIFY(X) \
-    JsTTDCheckAndAssertIfTTDRunning( \
-            "Unsupported raw buffer access -- investigate this!!!\n")
+    if (s_doTTRecord || s_doTTReplay) { \
+      JsTTDCheckAndAssertIfTTDRunning( \
+            "Unsupported raw buffer access -- investigate this!!!\n"); \
+    }
 #else
 #define TTD_NATIVE_BUFFER_ACCESS_NOTIFY(X)
 #endif
