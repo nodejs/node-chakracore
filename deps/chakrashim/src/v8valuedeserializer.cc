@@ -34,7 +34,7 @@ ValueDeserializer::ValueDeserializer(Isolate* isolate, const uint8_t* data,
 }
 
 ValueDeserializer::~ValueDeserializer() {
-  CHAKRA_UNIMPLEMENTED();
+  // Intentionally left empty to suppress warning C4722.
 }
 
 Maybe<bool> ValueDeserializer::ReadHeader(Local<Context> context) {

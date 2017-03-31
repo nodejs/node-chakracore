@@ -30,7 +30,7 @@ try {
   const re = common.engineSpecificMessage({
     v8: /test[/\\]fixtures[/\\]invalid\.json: Unexpected string/,
     chakracore:
-    /test[/\\]fixtures[/\\]invalid.json: JSON.parse Error: Expected '}'/
+    /test[/\\]fixtures[/\\]invalid\.json: JSON\.parse Error: Expected '}'/
   });
 
   const i = err.message.match(re);

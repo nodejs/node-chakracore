@@ -582,7 +582,10 @@
 
       var attributes = 0;
       // taken from v8.h. Update if this changes in future
-      const ReadOnly = 1, DontEnum = 2, DontDelete = 4;
+      const ReadOnly = 1,
+        DontEnum = 2,
+        DontDelete = 4;
+
       if (!descriptor.writable) {
         attributes |= ReadOnly;
       }

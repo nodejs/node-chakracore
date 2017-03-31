@@ -54,7 +54,7 @@ ValueSerializer::ValueSerializer(Isolate* isolate, Delegate* delegate) {
 }
 
 ValueSerializer::~ValueSerializer() {
-  CHAKRA_UNIMPLEMENTED();
+  // Intentionally left empty to suppress warning C4722.
 }
 
 void ValueSerializer::WriteHeader() {

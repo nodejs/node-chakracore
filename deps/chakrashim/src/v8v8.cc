@@ -162,7 +162,7 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
 
   if (remove_flags) {
     char** end = std::remove(argv + 1, argv + *argc, nullptr);
-    *argc = end - argv;
+    *argc = static_cast<int>(end - argv);
   }
 }
 
@@ -248,7 +248,7 @@ namespace tracing {
   }
 
   TraceObject::~TraceObject() {
-    jsrt::Unimplemented("TracingController");
+    // Intentionally left empty to suppress warning C4722.
   }
 
   TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&) {
