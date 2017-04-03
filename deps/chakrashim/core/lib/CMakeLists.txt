@@ -40,7 +40,7 @@ add_library (ChakraCoreStatic STATIC
   ${wabt_objects}
 )
 
-if(CC_TARGET_OS_OSX)
+if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
   target_link_libraries(ChakraCoreStatic
     "-framework CoreFoundation"
     "-framework Security"

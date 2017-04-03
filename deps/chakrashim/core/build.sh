@@ -285,6 +285,9 @@ while [[ $# -gt 0 ]]; do
             _CXX="${TOOLCHAIN}/bin/${CXX}"
             _CC="${TOOLCHAIN}/bin/${CC}"
         fi
+        if [[ $_TARGET_OS =~ "ios" ]]; then
+          TARGET_OS="-DCC_TARGET_OS_IOS_SH=1"
+        fi
         ;;
 
     --trace)

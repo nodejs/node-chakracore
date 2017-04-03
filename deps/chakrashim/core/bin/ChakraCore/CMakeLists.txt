@@ -37,7 +37,7 @@ if(CC_TARGET_OS_ANDROID OR CC_TARGET_OS_LINUX)
     -Wl,--end-group
     -static-libstdc++
     )
-elseif(CC_TARGET_OS_OSX)
+elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
   set(LINKER_START_GROUP -Wl,-force_load,)
 endif()
 
@@ -57,7 +57,7 @@ if(CC_TARGET_OS_ANDROID OR CC_TARGET_OS_LINUX)
     -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/libChakraCoreLib.version
     ${LINKER_REDUCED_MEMORY}
     )
-elseif(CC_TARGET_OS_OSX)
+elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
   if(CC_TARGETS_X86)
     set(lib_target "${lib_target} -arch i386")
   elseif(CC_TARGETS_ARM)

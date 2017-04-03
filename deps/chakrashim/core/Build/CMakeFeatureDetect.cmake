@@ -6,7 +6,7 @@
 include(CheckCXXSourceCompiles)
 include(CheckCXXSourceRuns)
 
-if(CC_TARGET_OS_OSX)
+if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
     # by default this is disabled for osx
     # enable temporarily
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
@@ -33,7 +33,7 @@ else()
   set(CXX_DO_NOT_OPTIMIZE_SIBLING_CALLS "-fno-optimize-sibling-calls")
 endif()
 
-if(CC_TARGET_OS_OSX)
+if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
     # by default this is disabled for osx
     # disable back
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \

@@ -52,7 +52,7 @@ endif()
 add_compile_options(-fno-builtin)
 add_compile_options(-fPIC)
 
-if(CC_TARGET_OS_OSX)
+if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
   set(PLATFORM_SOURCES
     exception/machexception.cpp
     exception/machmessage.cpp
@@ -60,7 +60,7 @@ if(CC_TARGET_OS_OSX)
 endif()
 
 if(CC_TARGETS_AMD64 OR CC_TARGETS_X86)
-  if(CC_TARGET_OS_OSX)
+  if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
     set(PLATFORM_SOURCES ${PLATFORM_SOURCES}
       arch/i386/activationhandlerwrapper.S
       arch/i386/dispatchexceptionwrapper.S
@@ -184,7 +184,7 @@ if (NOT STATIC_LIBRARY)
     ${ARCH_SOURCES}
   )
 
-  if(CC_TARGET_OS_OSX)
+  if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
     target_link_libraries(Chakra.Pal.Singular
       "-framework CoreFoundation"
       "-framework Security"

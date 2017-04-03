@@ -17,7 +17,7 @@ if(CC_TARGET_OS_ANDROID OR CC_TARGET_OS_LINUX)
 set(PL_SOURCE_FILES ${PL_SOURCE_FILES}
   Linux/SystemInfo.cpp
   )
-elseif(CC_TARGET_OS_OSX)
+elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
 set(PL_SOURCE_FILES ${PL_SOURCE_FILES}
   Unix/AssemblyCommon.cpp
   Unix/SystemInfo.cpp

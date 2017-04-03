@@ -47,7 +47,7 @@ if(STATIC_LIBRARY)
     else()
       set(LINKER_END_GROUP "${LINKER_END_GROUP} -llog")
     endif()
-  elseif(CC_TARGET_OS_OSX)
+  elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
     set(LINKER_START_GROUP -Wl,-force_load,)
   endif()
 
@@ -68,7 +68,7 @@ if(STATIC_LIBRARY)
     ${ICULIB}
     )
 
-  if(CC_TARGET_OS_OSX)
+  if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
     set(lib_target "${lib_target}"
       "-framework CoreFoundation"
       "-framework Security"
@@ -98,7 +98,7 @@ if(CC_TARGET_OS_ANDROID OR CC_TARGET_OS_LINUX)
     -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/ch.version
     ${LINKER_REDUCED_MEMORY}
     )
-elseif(CC_TARGET_OS_OSX)
+elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
   if(CC_TARGETS_X86)
     set(lib_target "${lib_target} -arch i386")
   elseif(CC_TARGETS_ARM)
