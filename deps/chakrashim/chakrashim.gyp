@@ -43,7 +43,7 @@
         [ 'OS in "linux"', {
           'cflags_cc': [ '-fexceptions' ],
         }],
-        [ 'OS in "mac"', {
+        [ 'OS in "mac ios"', {
           'cflags_cc': [ '-fexceptions' ],
           'cflags_cc!': [ '-fno-exceptions' ],
           'xcode_settings': {

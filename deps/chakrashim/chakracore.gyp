@@ -20,10 +20,13 @@
       ['target_arch=="arm"', {
         'Platform': 'arm',
       }],
-      ['OS!="win"', {
+      ['OS!="win" and v8_enable_i18n_support', {
         'icu_include_path': '../<(icu_path)/source/common'
       }],
 
+      ['OS=="ios"', {
+        'chakra_build_flags+': [ '--target=ios' ],
+      }],
       # xplat (non-win32) only
       ['chakracore_build_config=="Debug"', {
         'chakra_build_flags': [ '-d' ],
@@ -45,7 +48,7 @@
       'type': 'none',
 
       'conditions': [
-        ['OS!="win"', {
+        ['OS!="win" and v8_enable_i18n_support', {
           'dependencies': [
             '<(icu_gyp_path):icui18n',
             '<(icu_gyp_path):icuuc',
@@ -88,12 +91,18 @@
               '-lgcc_s',
             ]
           }],
-          ['OS=="mac"', {
+          ['OS=="mac" or OS=="ios"', {
             'chakracore_input': '<(chakra_dir)/build.sh',
             'chakracore_binaries': [
               '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a',
             ],
-            'icu_args': '--icu=<(icu_include_path)',
+            'conditions': [
+              ['v8_enable_i18n_support', {
+                'icu_args': '--icu=<(icu_include_path)',
+              },{
+                'icu_args': '--no-icu',
+              }],
+            ],
             'linker_start_group': '-Wl,-force_load',
           }]
         ],
@@ -153,7 +162,7 @@
           ['OS=="win"', {
           }, {
             'conditions': [
-              ['OS=="mac"', {
+              ['OS=="mac" or OS=="ios"', {
                 'libraries': [
                   '-framework CoreFoundation',
                   '-framework Security',

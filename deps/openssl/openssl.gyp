@@ -90,7 +90,7 @@
                 '<@(openssl_defines_ia32_elf)',
               ],
               'sources': ['<@(openssl_sources_ia32_elf_gas)'],
-            }, 'target_arch=="x64" and OS=="mac"', {
+            }, 'target_arch=="x64" and (OS=="mac" or OS=="ios")', {
               'defines': [
                 '<@(openssl_defines_asm)',
                 '<@(openssl_defines_x64_mac)',
@@ -159,7 +159,7 @@
         'defines': ['<@(openssl_default_defines_not_win)'],
         'cflags': ['-Wno-missing-field-initializers'],
         'conditions': [
-          ['OS=="mac"', {
+          ['OS=="mac" or OS=="ios"', {
             'defines': ['<@(openssl_default_defines_mac)'],
           }, {
             'defines': ['<@(openssl_default_defines_linux_others)'],
