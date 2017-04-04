@@ -1915,7 +1915,7 @@ class V8_EXPORT Float64Array : public TypedArray {
 
 class V8_EXPORT SharedArrayBuffer : public Object {
 public:
-  V8_INLINE static SharedArrayBuffer* Cast(Value* obj);
+  static SharedArrayBuffer* Cast(Value* obj);
 
 private:
   SharedArrayBuffer();

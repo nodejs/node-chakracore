@@ -211,7 +211,7 @@ class ZCtx : public AsyncWrap {
     }
 
 #if ENABLE_TTD_NODE
-    if(s_doTTRecord || s_doTTReplay) {
+    if (s_doTTRecord || s_doTTReplay) {
       Buffer::TTDAsyncModRegister(out_buf, out);
     }
 #endif
