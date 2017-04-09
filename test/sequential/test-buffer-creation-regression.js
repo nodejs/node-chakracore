@@ -21,9 +21,9 @@ const acceptableOOMErrors = [
   'Array length must be a finite positive integer'
 ];
 
-const size = 8589934592; /* 1 << 33 */
-const offset = 4294967296; /* 1 << 32 */
 const length = 1000;
+const offset = 4294967296; /* 1 << 32 */
+const size = offset + length;
 let arrayBuffer;
 
 try {

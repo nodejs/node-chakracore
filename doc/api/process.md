@@ -1631,12 +1631,12 @@ the current value of `ps`.
 
 *Note*: When a new value is assigned, different platforms will impose different
 maximum length restrictions on the title. Usually such restrictions are quite
-limited. For instance, on Linux and OS X, `process.title` is limited to the size
-of the binary name plus the length of the command line arguments because setting
-the `process.title` overwrites the `argv` memory of the process. Node.js v0.8
-allowed for longer process title strings by also overwriting the `environ`
-memory but that was potentially insecure and confusing in some (rather obscure)
-cases.
+limited. For instance, on Linux and macOS, `process.title` is limited to the
+size of the binary name plus the length of the command line arguments because
+setting the `process.title` overwrites the `argv` memory of the process.
+Node.js v0.8 allowed for longer process title strings by also overwriting the
+`environ` memory but that was potentially insecure and confusing in some
+(rather obscure) cases.
 
 ## process.umask([mask])
 <!-- YAML
@@ -1757,9 +1757,8 @@ cases:
   source code internal in Node.js's bootstrapping process threw an error
   when the bootstrapping function was called.  This is extremely rare,
   and generally can only happen during development of Node.js itself.
-* `12` **Invalid Debug Argument** - The `--debug`, `--inspect` and/or
-  `--debug-brk` options were set, but the port number chosen was invalid
-  or unavailable.
+* `12` **Invalid Debug Argument** - The `--inspect` and/or `--inspect-brk`
+  options were set, but the port number chosen was invalid or unavailable.
 * `>128` **Signal Exits** - If Node.js receives a fatal signal such as
   `SIGKILL` or `SIGHUP`, then its exit code will be `128` plus the
   value of the signal code.  This is a standard Unix practice, since
