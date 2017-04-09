@@ -45,7 +45,6 @@
       'lib/_http_outgoing.js',
       'lib/_http_server.js',
       'lib/https.js',
-      'lib/_linklist.js',
       'lib/module.js',
       'lib/net.js',
       'lib/os.js',
@@ -101,6 +100,7 @@
       'lib/internal/readline.js',
       'lib/internal/repl.js',
       'lib/internal/socket_list.js',
+      'lib/internal/test/unicode.js',
       'lib/internal/url.js',
       'lib/internal/util.js',
       'lib/internal/v8_prof_polyfill.js',
@@ -169,6 +169,9 @@
         'src/handle_wrap.cc',
         'src/js_stream.cc',
         'src/node.cc',
+        'src/node_api.cc',
+        'src/node_api.h',
+        'src/node_api_types.h',
         'src/node_buffer.cc',
         'src/node_config.cc',
         'src/node_constants.cc',
@@ -638,6 +641,7 @@
       ],
       
       'sources': [
+        'test/cctest/test_base64.cc',
         'test/cctest/test_util.cc',
       ],
 

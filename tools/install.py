@@ -127,6 +127,8 @@ def files(action):
   action(['src/node.stp'], 'share/systemtap/tapset/')
 
   action(['deps/v8/tools/gdbinit'], 'share/doc/node/')
+  action(['deps/v8/tools/lldbinit'], 'share/doc/node/')
+  action(['deps/v8/tools/lldb_commands.py'], 'share/doc/node/')
 
   if 'freebsd' in sys.platform or 'openbsd' in sys.platform:
     action(['doc/node.1'], 'man/man1/')
@@ -142,6 +144,8 @@ def headers(action):
     'common.gypi',
     'config.gypi',
     'src/node.h',
+    'src/node_api.h',
+    'src/node_api_types.h',
     'src/node_buffer.h',
     'src/node_object_wrap.h',
     'src/node_version.h',

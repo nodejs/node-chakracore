@@ -26,11 +26,10 @@ Support is divided into three tiers:
   the broader community.
 * **Tier 2**: Full test coverage but more limited maintenance,
   often provided by the vendor of the platform.
-* **Experimental**: Known to compile but not necessarily reliably or with
-  a full passing test suite. These are often working to be promoted to Tier
-  2 but are not quite ready. There is at least one individual actively
-  providing maintenance and the team is striving to broaden quality and
-  reliability of support.
+* **Experimental**: May not compile reliably or test suite may not pass.
+  These are often working to be promoted to Tier 2 but are not quite ready.
+  There is at least one individual actively providing maintenance and the team
+  is striving to broaden quality and reliability of support.
 
 ### Supported platforms
 
@@ -43,7 +42,7 @@ Support is divided into three tiers:
 | FreeBSD      | Tier 2       | >= 10                            | x64                  |                  |
 | GNU/Linux    | Tier 2       | kernel >= 4.2.0, glibc >= 2.19   | ppc64be              |                  |
 | GNU/Linux    | Tier 2       | kernel >= 3.13.0, glibc >= 2.19  | ppc64le              |                  |
-| AIX          | Tier 2       | >= 6.1 TL09                      | ppc64be              |                  |
+| AIX          | Tier 2       | >= 7.1 TL04                      | ppc64be              |                  |
 | GNU/Linux    | Tier 2       | kernel >= 3.10, glibc >= 2.17    | s390x                |                  |
 | macOS        | Experimental | >= 10.8 < 10.10                  | x64                  | no test coverage |
 | Linux (musl) | Experimental | musl >= 1.0                      | x64                  |                  |
@@ -74,7 +73,7 @@ Depending on host platform, the selection of toolchains may vary.
 
 ## Building Node.js on supported platforms
 
-### Unix / OS X
+### Unix / macOS
 
 Prerequisites:
 
@@ -83,7 +82,7 @@ Prerequisites:
 * Python 2.6 or 2.7
 * GNU Make 3.81 or newer
 
-On OS X, you will also need:
+On macOS, you will also need:
 * [Xcode](https://developer.apple.com/xcode/download/)
   - You also need to install the `Command Line Tools` via Xcode. You can find
     this under the menu `Xcode -> Preferences -> Downloads`
@@ -96,7 +95,7 @@ to avoid popups asking to accept incoming network connections when running tests
 $ sudo ./tools/macosx-firewall.sh
 ```
 Running this script will add rules for the executable `node` in the out
-directory and the symbolic `node` link in the projects root directory.
+directory and the symbolic `node` link in the project's root directory.
 
 On FreeBSD and OpenBSD, you may also need:
 * libexecinfo
@@ -121,7 +120,7 @@ and not a newer version.
 
 To run the tests:
 
-```console
+```
 $ make test
 ```
 
@@ -206,9 +205,9 @@ in the current continuous integration environment. The participation of people
 dedicated and determined to improve Android building, testing, and support is
 encouraged.
 
-Be sure you have downloaded and extracted [Android NDK]
-(https://developer.android.com/tools/sdk/ndk/index.html)
-before in a folder. Then run:
+Be sure you have downloaded and extracted
+[Android NDK](https://developer.android.com/tools/sdk/ndk/index.html) before in
+a folder. Then run:
 
 ```console
 $ ./android-configure /path/to/your/android-ndk
@@ -237,7 +236,7 @@ With the `--download=all`, this may download ICU if you don't have an
 ICU in `deps/icu`. (The embedded `small-icu` included in the default
 Node.js source does not include all locales.)
 
-##### Unix / OS X:
+##### Unix / macOS:
 
 ```console
 $ ./configure --with-intl=full-icu --download=all
@@ -254,7 +253,7 @@ $ ./configure --with-intl=full-icu --download=all
 The `Intl` object will not be available, nor some other APIs such as
 `String.normalize`.
 
-##### Unix / OS X:
+##### Unix / macOS:
 
 ```console
 $ ./configure --without-intl
@@ -266,7 +265,7 @@ $ ./configure --without-intl
 > .\vcbuild without-intl
 ```
 
-#### Use existing installed ICU (Unix / OS X only):
+#### Use existing installed ICU (Unix / macOS only):
 
 ```console
 $ pkg-config --modversion icu-i18n && ./configure --with-intl=system-icu
@@ -282,7 +281,7 @@ You can find other ICU releases at
 Download the file named something like `icu4c-**##.#**-src.tgz` (or
 `.zip`).
 
-##### Unix / OS X
+##### Unix / macOS
 
 From an already-unpacked ICU:
 ```console
@@ -350,6 +349,6 @@ and [user guide](https://openssl.org/docs/fips/UserGuide-2.0.pdf).
 6. Get into Node.js checkout folder
 7. `./configure --openssl-fips=/path/to/openssl-fips/installdir`
    For example on ubuntu 12 the installation directory was
-   /usr/local/ssl/fips-2.0
+   `/usr/local/ssl/fips-2.0`
 8. Build Node.js with `make -j`
-9. Verify with `node -p "process.versions.openssl"` (`1.0.2a-fips`)
+9. Verify with `node -p "process.versions.openssl"` (for example `1.0.2a-fips`)
