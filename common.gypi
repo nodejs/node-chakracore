@@ -90,7 +90,7 @@
           'NODE_ENGINE_CHAKRACORE',
         ],
         'conditions': [
-          ['target_arch=="arm"', {
+          ['target_arch=="arm" or target_arch=="arm64"', {
             'msvs_windows_target_platform_version': '<(msvs_windows_target_platform_version)',
           }],
         ],
@@ -124,6 +124,9 @@
           }],
           ['target_arch=="arm"', {
             'msvs_configuration_platform': 'ARM',
+          }],
+          ['target_arch=="arm64"', {
+            'msvs_configuration_platform': 'ARM64',
           }],
           ['OS=="aix"', {
             'cflags': [ '-gxcoff' ],
@@ -174,6 +177,9 @@
           }],
           ['target_arch=="arm"', {
             'msvs_configuration_platform': 'ARM',
+          }],
+          ['target_arch=="arm64"', {
+            'msvs_configuration_platform': 'ARM64',
           }],
           ['OS=="solaris"', {
             # pull in V8's postmortem metadata
@@ -445,6 +451,25 @@
           }],
           ['target_arch=="x64"', {
             'xcode_settings': {'ARCHS': ['x86_64']},
+          }],
+          [ 'target_arch in "arm64 arm armv7s"', {
+            'xcode_settings': {
+              'OTHER_CFLAGS': [
+                '-fembed-bitcode'
+              ],
+              'OTHER_CPLUSPLUSFLAGS': [
+                '-fembed-bitcode'
+              ],
+            }
+          }],
+          [ 'target_arch=="arm64"', {
+            'xcode_settings': {'ARCHS': ['arm64']},
+          }],
+          [ 'target_arch=="arm"', {
+            'xcode_settings': {'ARCHS': ['armv7']},
+          }],
+          [ 'target_arch=="armv7s"', {
+            'xcode_settings': {'ARCHS': ['armv7s']},
           }],
           ['clang==1', {
             'xcode_settings': {
