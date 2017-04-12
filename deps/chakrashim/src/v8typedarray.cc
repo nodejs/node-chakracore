@@ -80,6 +80,11 @@ size_t TypedArray::Length() {
   return result;
 }
 
+TypedArray* TypedArray::Cast(v8::Value* obj) {
+    CHAKRA_ASSERT(obj->IsTypedArray());
+    return static_cast<TypedArray*>(obj);
+}
+
 JsErrorCode Utils::NewTypedArray(ContextShim::GlobalType constructorIndex,
                                  Handle<ArrayBuffer> array_buffer,
                                  size_t byte_offset, size_t length,
