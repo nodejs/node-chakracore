@@ -898,7 +898,10 @@ set(ERROR_FUNC_FOR_GLOB_HAS_FIXED_PARAMS 1)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
   set(HAVE_COREFOUNDATION 1)
-  set(HAVE__NSGETENVIRON 1)
+  if(NOT CC_TARGET_OS_IOS)
+    # _NSGetEnviron is for macOS only
+    set(HAVE__NSGETENVIRON 1)
+  endif()
   set(DEADLOCK_WHEN_THREAD_IS_SUSPENDED_WHILE_BLOCKED_ON_MUTEX 1)
   set(PAL_PTRACE "ptrace((cmd), (pid), (caddr_t)(addr), (data))")
   set(PAL_PT_ATTACH PT_ATTACH)
