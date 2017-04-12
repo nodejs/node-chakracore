@@ -35,7 +35,7 @@ PRINT_USAGE() {
     echo "build.sh [options]"
     echo ""
     echo "options:"
-    echo "     --arch[=S]        Set target arch (arm, x86, amd64)"
+    echo "     --arch[=S]        Set target arch (arm, x86, amd64, arm64)"
     echo "     --cc=PATH         Path to Clang   (see example below)"
     echo "     --cxx=PATH        Path to Clang++ (see example below)"
     echo "     --create-deb[=V]  Create .deb package with given V version."
@@ -116,6 +116,7 @@ CMAKE_EXPORT_COMPILE_COMMANDS="-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 LIBS_ONLY_BUILD=
 SHOULD_EMBED_ICU=0
 ALWAYS_YES=0
+CMAKE_SKIP_CHECK_COMPILER=""
 
 if [ -f "/proc/version" ]; then
     OS_LINUX=1
@@ -287,6 +288,8 @@ while [[ $# -gt 0 ]]; do
         fi
         if [[ $_TARGET_OS =~ "ios" ]]; then
           TARGET_OS="-DCC_TARGET_OS_IOS_SH=1"
+          #In order to make cmake cross compile correctly, a toolchain file is referenced.
+          CMAKE_SKIP_CHECK_COMPILER="-DCMAKE_TOOLCHAIN_FILE=ios.cmake"
         fi
         ;;
 
@@ -587,6 +590,9 @@ pushd $BUILD_DIRECTORY > /dev/null
 if [[ $ARCH =~ "x86" ]]; then
     ARCH="-DCC_TARGETS_X86_SH=1"
     echo "Compile Target : x86"
+elif [[ $ARCH =~ "arm64" ]]; then
+    ARCH="-DCC_TARGETS_ARM64_SH=1"
+    echo "Compile Target : arm64"
 elif [[ $ARCH =~ "arm" ]]; then
     ARCH="-DCC_TARGETS_ARM_SH=1"
     echo "Compile Target : arm"
@@ -602,7 +608,7 @@ echo $EXTRA_DEFINES
 cmake $CMAKE_GEN $CC_PREFIX $ICU_PATH $LTO $STATIC_LIBRARY $ARCH $TARGET_OS \
     $ENABLE_CC_XPLAT_TRACE $EXTRA_DEFINES -DCMAKE_BUILD_TYPE=$BUILD_TYPE $SANITIZE $NO_JIT $INTL_ICU \
     $WITHOUT_FEATURES $WB_FLAG $WB_ARGS $CMAKE_EXPORT_COMPILE_COMMANDS $LIBS_ONLY_BUILD\
-    $VALGRIND $BUILD_RELATIVE_DIRECTORY
+    $CMAKE_SKIP_CHECK_COMPILER $VALGRIND $BUILD_RELATIVE_DIRECTORY
 
 _RET=$?
 if [[ $? == 0 ]]; then

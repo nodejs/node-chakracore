@@ -43,11 +43,16 @@ elseif(CC_TARGETS_ARM_SH)
 elseif(CC_TARGETS_X86_SH)
     set(CC_TARGETS_X86 1)
     set(CMAKE_SYSTEM_PROCESSOR "i386")
+elseif(CC_TARGETS_ARM64_SH)
+    set(CC_TARGETS_ARM64 1)
+    add_definitions(-D_ARM64_=1)
+    set(CMAKE_SYSTEM_PROCESSOR "aarch64")
 else()
     message(FATAL_ERROR "Couldn't detect target processor, try `--arch` argument with build.sh")
 endif()
 
 unset(CC_TARGETS_ARM_SH CACHE)
+unset(CC_TARGETS_ARM64_SH CACHE)
 unset(CC_TARGETS_X86_SH CACHE)
 unset(CC_TARGETS_AMD64_SH CACHE)
 
@@ -126,7 +131,7 @@ if(NO_ICU_PATH_GIVEN_SH)
 endif()
 
 function(clr_unknown_arch)
-    message(FATAL_ERROR "Only AMD64, ARM and I386 are supported")
+    message(FATAL_ERROR "Only AMD64, ARM64, ARM and I386 are supported")
 endfunction()
 
 if(ICU_INCLUDE_PATH)
@@ -177,6 +182,13 @@ elseif(CC_TARGETS_ARM)
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         # reduce link time memory usage
         set(LINKER_REDUCED_MEMORY "-Xlinker --no-keep-memory")
+    endif()
+elseif(CC_TARGETS_ARM64)
+    add_definitions(-D__arm64__)
+    add_definitions(-D_M_X64_OR_ARM64)
+    add_definitions(-D_M_ARM32_OR_ARM64)
+    if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
+        add_compile_options(-arch arm64)
     endif()
 else()
     clr_unknown_arch()
@@ -236,12 +248,25 @@ elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
         set(IOS_DEPLOYMENT_TARGET "$ENV{IPHONEOS_DEPLOYMENT_TARGET} CC")
         if (${IOS_DEPLOYMENT_TARGET} STREQUAL " CC")
           set(IOS_DEPLOYMENT_TARGET "10.0")
-          add_compile_options(-mios-simulator-version-min=10.0)
-          add_compile_options(-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk)
-          set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
-            -mios-simulator-version-min=10.0 -std=gnu99 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk")
-          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-            -mios-simulator-version-min=10.0 -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk")
+          if(CC_TARGETS_ARM64)
+            #iOS Physical device.
+            add_compile_options(-miphoneos-version-min=10.0)
+            # isysroot is the result from running -> xcodebuild -version -sdk iphoneos Path
+            add_compile_options(-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.3.sdk)
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
+              -miphoneos-version-min=10.0 -fembed-bitcode -std=gnu99 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.3.sdk")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+              -miphoneos-version-min=10.0 -fembed-bitcode -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.3.sdk")
+          else()
+            #iOS Simulator.
+            add_compile_options(-mios-simulator-version-min=10.0)
+            # isysroot is the result from running -> xcodebuild -version -sdk iphonesimulator Path
+            add_compile_options(-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk)
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
+              -mios-simulator-version-min=10.0 -std=gnu99 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+              -mios-simulator-version-min=10.0 -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk")
+          endif()
         else()
           set(IOS_DEPLOYMENT_TARGET "$ENV{IPHONEOS_DEPLOYMENT_TARGET}")
           message(WARNING "-- !! iOS Deployment Target was set to $ENV{IPHONEOS_DEPLOYMENT_TARGET}. Using it as is.")
@@ -279,6 +304,11 @@ if(CLR_CMAKE_PLATFORM_XPLAT)
         set(IS_64BIT_BUILD 1)
         add_definitions(-D_M_X64 -D_M_AMD64 -D_AMD64_)
     endif(CC_TARGETS_AMD64)
+
+    if(CC_TARGETS_ARM64)
+        set(IS_64BIT_BUILD 1)
+        add_definitions(-D_M_ARM64 -D_ARM64_)
+    endif(CC_TARGETS_ARM64)
 
     add_definitions(
         -DUNICODE
