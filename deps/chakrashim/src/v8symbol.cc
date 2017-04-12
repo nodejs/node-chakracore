@@ -19,24 +19,34 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
+#include "jsrtutils.h"
 
 namespace v8 {
 
-bool Boolean::Value() const {
-  return BooleanValue();
+Symbol::Symbol() { }
+
+Local<Symbol> Symbol::New(Isolate* isolate, Local<String> name) {
+  return Local<Symbol>::New(isolate, From(name));
 }
 
-Local<Boolean> Boolean::From(bool value) {
-  return value ? jsrt::GetTrue() : jsrt::GetFalse();
+Local<Symbol> Symbol::From(Local<String> name) {
+  JsValueRef sym;
+  JsValueRef description = (JsValueRef)*name;
+  
+  if (JsCreateSymbol(description, &sym) != JsNoError) {
+    return Local<Symbol>();
+  }
+
+  return Local<Symbol>::New(static_cast<Symbol*>(sym));
 }
 
-Handle<Boolean> Boolean::New(Isolate* isolate, bool value) {
-  return From(value);
+Symbol* Symbol::Cast(Value* obj) {
+  CHAKRA_ASSERT(obj->IsSymbol());
+  return static_cast<Symbol*>(obj);
 }
 
-Boolean* Boolean::Cast(v8::Value* obj) {
-    CHAKRA_ASSERT(obj->IsBoolean());
-    return static_cast<Boolean*>(obj);
+Local<Value> Symbol::Name() const {
+    return Local<Value>();
 }
 
 }  // namespace v8

@@ -19,24 +19,23 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
+#include "jsrtutils.h"
 
 namespace v8 {
 
-bool Boolean::Value() const {
-  return BooleanValue();
+Promise::Promise() { }
+
+Local<Value> Promise::Result() {
+  return Local<Value>();
 }
 
-Local<Boolean> Boolean::From(bool value) {
-  return value ? jsrt::GetTrue() : jsrt::GetFalse();
+Promise::PromiseState Promise::State() {
+  return PromiseState::kFulfilled;
 }
 
-Handle<Boolean> Boolean::New(Isolate* isolate, bool value) {
-  return From(value);
-}
-
-Boolean* Boolean::Cast(v8::Value* obj) {
-    CHAKRA_ASSERT(obj->IsBoolean());
-    return static_cast<Boolean*>(obj);
+Promise* Promise::Cast(Value* obj) {
+  CHAKRA_ASSERT(obj->IsPromise());
+  return static_cast<Promise*>(obj);
 }
 
 }  // namespace v8

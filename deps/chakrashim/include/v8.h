@@ -314,6 +314,7 @@ class Local {
   friend class StackTrace;
   friend class String;
   friend class StringObject;
+  friend class Symbol;
   friend class Utils;
   friend class TryCatch;
   friend class UnboundScript;
@@ -1087,6 +1088,7 @@ class V8_EXPORT Boolean : public Primitive {
  public:
   bool Value() const;
   static Handle<Boolean> New(Isolate* isolate, bool value);
+  static Boolean* Cast(v8::Value* obj);
 
  private:
   friend class BooleanObject;
@@ -1239,6 +1241,18 @@ class V8_EXPORT String : public Name {
     uint16_t* _str;
     int _length;
   };
+};
+
+class V8_EXPORT Symbol : public Name {
+ public:
+  Local<Value> Name() const;
+  static Local<Symbol> New(Isolate* isolate, 
+      Local<String> name = Local<String>());
+  static Symbol* Cast(Value* obj);
+
+ private:
+  static Local<Symbol> From(Local<String> name);
+  Symbol();
 };
 
 class V8_EXPORT Number : public Primitive {
@@ -1682,6 +1696,11 @@ class V8_EXPORT Function : public Object {
 
 class V8_EXPORT Promise : public Object {
  public:
+  enum PromiseState { kPending, kFulfilled, kRejected };
+
+  Local<Value> Result();
+  PromiseState State();
+
   class V8_EXPORT Resolver : public Object {
    public:
     static Local<Resolver> New(Isolate* isolate);
@@ -2475,6 +2494,8 @@ class Maybe {
  public:
   bool IsNothing() const { return !has_value; }
   bool IsJust() const { return has_value; }
+
+  T ToChecked() const { return FromJust(); }
 
   bool To(T* out) const {
     if (V8_LIKELY(IsJust())) *out = value;
