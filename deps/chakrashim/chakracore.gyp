@@ -13,12 +13,17 @@
 
     # xplat (non-win32) only
     'chakra_config': '<(chakracore_build_config)',     # Debug, Release, Test
+    'chakra_build_flags': ['-v'],
 
     'conditions': [
       ['target_arch=="ia32"', { 'Platform': 'x86' }],
       ['target_arch=="x64"', { 'Platform': 'x64' }],
       ['target_arch=="arm"', {
         'Platform': 'arm',
+      }],
+      ['target_arch=="arm64"', {
+        'Platform': 'arm64',
+        'chakra_build_flags+': [ '--arch=arm64' ],
       }],
       ['OS!="win" and v8_enable_i18n_support', {
         'icu_include_path': '../<(icu_path)/source/common'
