@@ -169,6 +169,11 @@ set(SOURCES
   thread/threadsusp.cpp
 )
 
+if (CC_TARGET_OS_IOS AND CC_TARGETS_ARM64)
+  #Removes the debug/debug.cpp from the build on IOS devices.
+  list(REMOVE_ITEM SOURCES debug/debug.cpp)
+endif()
+
 add_library(Chakra.Pal
   OBJECT
   ${SOURCES}
