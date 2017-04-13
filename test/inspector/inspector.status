@@ -7,6 +7,3 @@ prefix inspector
 [true] # This section applies to all platforms
 
 [$system==win32]
-
-[$jsEngine==chakracore]
-* : PASS,FLAKY

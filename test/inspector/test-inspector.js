@@ -27,9 +27,15 @@ function checkVersion(err, response) {
 }
 
 function checkBadPath(err, response) {
-  assert(err instanceof SyntaxError);
-  assert(/Unexpected token/.test(err.message));
-  assert(/WebSockets request was expected/.test(err.response));
+  assert(err instanceof SyntaxError, 'Expected SyntaxError');
+  assert(
+      common.engineSpecificMessage({
+          v8: /Unexpected token/,
+          chakracore: /JSON\.parse Error: Invalid character at position:1/})
+        .test(err.message),
+      'Unexpected message: ' + err.message);
+  assert(/WebSockets request was expected/.test(err.response),
+         'Unexpected response: ' + err.response);
 }
 
 function expectMainScriptSource(result) {
@@ -56,6 +62,12 @@ function setupExpectBreakOnLine(line, url, session, scopeIdCallback) {
 function setupExpectConsoleOutput(type, values) {
   if (!(values instanceof Array))
     values = [ values ];
+
+  if (process.jsEngine === 'chakracore') {
+    // Only the first parameter is returned by ChakraCore
+    values = values.slice(0, 1);
+  }
+
   return function(message) {
     if ('Runtime.consoleAPICalled' === message['method']) {
       const params = message['params'];
@@ -103,14 +115,20 @@ function testBreakpointOnStart(session) {
     { 'method': 'Debugger.setPauseOnExceptions',
       'params': {'state': 'none'} },
     { 'method': 'Debugger.setAsyncCallStackDepth',
-      'params': {'maxDepth': 0} },
-    { 'method': 'Profiler.enable' },
-    { 'method': 'Profiler.setSamplingInterval',
-      'params': {'interval': 100} },
+      'params': {'maxDepth': 0} }
+  ];
+
+  if (process.jsEngine !== 'chakracore') {
+    commands.push(
+      { 'method': 'Profiler.enable' },
+      { 'method': 'Profiler.setSamplingInterval',
+        'params': {'interval': 100} });
+  }
+
+  commands.push(
     { 'method': 'Debugger.setBlackboxPatterns',
       'params': {'patterns': []} },
-    { 'method': 'Runtime.runIfWaitingForDebugger' }
-  ];
+    { 'method': 'Runtime.runIfWaitingForDebugger' });
 
   session
     .sendInspectorCommands(commands)
