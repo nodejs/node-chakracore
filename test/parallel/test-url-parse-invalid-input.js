@@ -1,5 +1,5 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const url = require('url');
 
@@ -17,4 +17,10 @@ const url = require('url');
   assert.throws(function() { url.parse(val); }, TypeError);
 });
 
-assert.throws(function() { url.parse('http://%E0%A4%A@fail'); }, /^URIError: URI malformed$/);
+const engineSpecificMalformedUrlError =
+    common.engineSpecificMessage({
+      v8: /^URIError: URI malformed$/,
+      chakracore: /^URIError: The URI to be decoded is not a valid encoding$/
+    });
+
+assert.throws(function() { url.parse('http://%E0%A4%A@fail'); }, engineSpecificMalformedUrlError);

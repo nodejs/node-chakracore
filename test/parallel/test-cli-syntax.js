@@ -53,7 +53,12 @@ const syntaxArgs = [
     assert.strictEqual(c.stdout, '', 'stdout produced');
 
     // stderr should include the filename
-    assert(c.stderr.startsWith(file), "stderr doesn't start with the filename");
+    // TODO(digitalinfinity): Remove this check
+    // Node-ChakraCore currently doesn't populate TryCatch.Message 
+    if (process.jsEngine === 'v8') {
+      assert(c.stderr.startsWith(file),
+             "stderr doesn't start with the filename");
+    }
 
     // stderr should have a syntax error message
     const match = c.stderr.match(common.engineSpecificMessage({
@@ -109,13 +114,18 @@ syntaxArgs.forEach(function(args) {
   const c = spawnSync(node, args, {encoding: 'utf8', input: stdin});
 
   // stderr should include '[stdin]' as the filename
-  assert(c.stderr.startsWith('[stdin]'), "stderr doesn't start with [stdin]");
+  if (process.jsEngine === 'v8') {
+    assert(c.stderr.startsWith('[stdin]'), "stderr doesn't start with [stdin]");
+  }
 
   // no stdout or stderr should be produced
   assert.strictEqual(c.stdout, '', 'stdout produced');
 
   // stderr should have a syntax error message
-  const match = c.stderr.match(/^SyntaxError: Unexpected identifier$/m);
+  const match = c.stderr.match(common.engineSpecificMessage({
+    v8: /^SyntaxError: Unexpected identifier$/m,
+    chakracore: /^SyntaxError: Expected ';'$/m})
+  );
   assert(match, 'stderr incorrect');
 
   assert.strictEqual(c.status, 1, 'code === ' + c.status);

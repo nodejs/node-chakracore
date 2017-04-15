@@ -1,5 +1,5 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 
 const qs = require('querystring');
@@ -23,10 +23,19 @@ assert.strictEqual(
 
 // toString is not callable, must throw an error
 assert.throws(() => qs.escape({toString: 5}),
-              /^TypeError: Cannot convert object to primitive value$/);
+              common.engineSpecificMessage({
+                v8: /^TypeError: Cannot convert object to primitive value$/,
+                chakracore: /^TypeError: String expected$/
+              }));
 
 // should use valueOf instead of non-callable toString
 assert.strictEqual(qs.escape({toString: 5, valueOf: () => 'test'}), 'test');
 
+const chakraSymbolTypeError =
+    /^TypeError: Object doesn't support property or method 'ToString'$/;
+
 assert.throws(() => qs.escape(Symbol('test')),
-              /^TypeError: Cannot convert a Symbol value to a string$/);
+              common.engineSpecificMessage({
+                v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+                chakracore: chakraSymbolTypeError
+              }));

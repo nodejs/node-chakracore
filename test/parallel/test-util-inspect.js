@@ -835,7 +835,7 @@ if (typeof Symbol !== 'undefined') {
   assert.strictEqual(util.inspect(new Promise()),
                      common.engineSpecificMessage({
                        v8: '{ bar: 42 }',
-                       chakracore: 'Object { \'<unknown>\', bar: 42 }'
+                       chakracore: 'Object { undefined, bar: 42 }'
                      }));
   global.Promise = oldPromise;
 }
