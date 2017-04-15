@@ -32,6 +32,7 @@ test-async-wrap-check-providers : PASS,FLAKY
 test-buffer-fill  : PASS,FLAKY
 test-crypto-dh : SKIP
 test-cluster-inspector-debug-port : SKIP
+test-debugger-repeat-last: SKIP
 test-domain-no-error-handler-abort-on-uncaught-0 : SKIP
 test-domain-no-error-handler-abort-on-uncaught-1 : SKIP
 test-domain-no-error-handler-abort-on-uncaught-2 : SKIP
@@ -56,6 +57,7 @@ test-repl : SKIP
 test-repl-mode : SKIP
 test-repl-tab-complete : SKIP
 test-repl-timeout-throw : SKIP
+test-repl-sigint-nested-eval : SKIP
 test-stream-base-no-abort : SKIP
 test-string-decoder : SKIP
 test-timers-blocking-callback : SKIP
