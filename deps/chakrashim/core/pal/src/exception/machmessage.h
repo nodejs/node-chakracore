@@ -22,6 +22,8 @@ Abstract:
 using namespace CorUnix;
 
 #if HAVE_MACH_EXCEPTIONS
+#if !(defined(__IOS__) && defined(_M_ARM64))
+//FIXME: Removed to build for iOS ARM64.
 
 #if defined(_AMD64_)
 #define MACH_EH_TYPE(x) mach_##x
@@ -432,5 +434,6 @@ private:
     // this message. It is true for messages we receive, and false for messages we send.
     bool m_fPortsOwned;
 };
+#endif //!(defined(__IOS__) && defined(_M_ARM64))
 
 #endif // HAVE_MACH_EXCEPTIONS

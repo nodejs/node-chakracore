@@ -21,6 +21,8 @@ SET_DEFAULT_DEBUG_CHANNEL(EXCEPT); // some headers have code with asserts, so do
 #include "pal/thread.hpp"
 #include "pal/palinternal.h"
 #if HAVE_MACH_EXCEPTIONS
+#if !(defined(__IOS__) && defined(_M_ARM64))
+//FIXME: Removed to build for iOS ARM64.
 #include "machexception.h"
 #include "pal/critsect.h"
 #include "pal/debug.h"
@@ -1573,5 +1575,5 @@ InjectActivationInternal(CPalThread* pThread)
 
     return palError;
 }
-
+#endif //!(defined(__IOS__) && defined(_M_ARM64))
 #endif // HAVE_MACH_EXCEPTIONS

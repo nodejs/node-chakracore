@@ -11,7 +11,10 @@ SET_DEFAULT_DEBUG_CHANNEL(THREAD); // some headers have code with asserts, so do
 #include "pal/debug.h"
 #include "pal/thread.hpp"
 
+#if !(defined(__IOS__) && defined(_M_ARM64))
+//FIXME: Removed to build for iOS ARM64.
 #include <sys/ptrace.h>
+#endif
 #include <errno.h>
 #include <unistd.h>
 
@@ -754,7 +757,8 @@ DWORD CONTEXTGetExceptionCodeForSignal(const siginfo_t *siginfo,
 #endif  // ILL_ILLOPC
 
 #else // !HAVE_MACH_EXCEPTIONS
-
+#if !(defined(__IOS__) && defined(_M_ARM64))
+//FIXME: Removed to build for iOS ARM64.
 #include <mach/message.h>
 #include <mach/thread_act.h>
 #include "../exception/machexception.h"
@@ -1263,6 +1267,7 @@ CONTEXT_SetThreadContext(
 EXIT:
     return ret;
 }
+#endif// !(defined(__IOS__) && defined(_M_ARM64))
 
 #endif // !HAVE_MACH_EXCEPTIONS
 

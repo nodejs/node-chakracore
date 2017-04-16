@@ -22,6 +22,8 @@ Abstract:
 #include "machmessage.h"
 
 #if HAVE_MACH_EXCEPTIONS
+#if !(defined(__IOS__) && defined(_M_ARM64))
+//FIXME: Removed to build for iOS ARM64.
 
 // Construct an empty message. Use Receive() to form a message that can be inspected or SendSetThread(),
 // ForwardNotification(), ReplyToNotification() or ForwardReply() to construct a message and sent it.
@@ -1379,5 +1381,6 @@ void MachMessage::SetThreadState(thread_state_flavor_t eFlavor, thread_state_t p
         NONPAL_RETAIL_ASSERT("Unsupported message type: %u", m_pMessage->header.msgh_id);
     }
 }
+#endif //!(defined(__IOS__) && defined(_M_ARM64))
 
 #endif // HAVE_MACH_EXCEPTIONS

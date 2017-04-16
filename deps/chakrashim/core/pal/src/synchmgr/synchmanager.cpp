@@ -2255,7 +2255,10 @@ namespace CorUnix
 #if HAVE_KQUEUE
 #if HAVE_BROKEN_FIFO_KEVENT
 #if HAVE_BROKEN_FIFO_SELECT
+#if !(defined(__IOS__) && defined(_M_ARM64))
+//FIXME: Removed to build for iOS ARM64.
 #error Found no way to wait on a FIFO.
+#endif
 #endif
 
                 timeval *ptv;
