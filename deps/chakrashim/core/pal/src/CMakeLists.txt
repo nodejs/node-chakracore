@@ -79,6 +79,13 @@ elseif(CC_TARGETS_ARM)
     arch/arm/processor.cpp
     arch/arm/asmhelpers.S
     )
+elseif(CC_TARGETS_ARM64)
+  set(ARCH_SOURCES
+    arch/arm64/context2.S
+    arch/arm64/debugbreak.S
+    arch/arm64/processor.cpp
+    arch/arm64/asmhelpers.S
+    )
 endif()
 
 set(SOURCES
