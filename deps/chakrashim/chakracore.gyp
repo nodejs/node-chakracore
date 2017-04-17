@@ -22,7 +22,7 @@
         'msvs_windows_target_platform_version_prop':
           '/p:WindowsTargetPlatformVersion=$(WindowsTargetPlatformVersion)',
       }],
-      ['OS=="mac"', {
+      ['OS!="win"', {
         'icu_include_path': '../<(icu_path)/source/common'
       }],
 
@@ -42,7 +42,7 @@
       'type': 'none',
 
       'conditions': [
-        ['OS=="mac"', {
+        ['OS!="win"', {
           'dependencies': [
             '<(icu_gyp_path):icui18n',
             '<(icu_gyp_path):icuuc',
@@ -78,11 +78,11 @@
             'chakracore_binaries': [
               '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a',
             ],
+            'icu_args': '--icu=<(icu_include_path)',
             'linker_start_group': '-Wl,--start-group',
             'linker_end_group': [
               '-Wl,--end-group',
               '-lgcc_s',
-              '-licuuc',
             ]
           }],
           ['OS=="mac"', {
