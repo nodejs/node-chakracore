@@ -73,7 +73,8 @@ inline int _count_args(const T1&, const T2&, const T3&, const T4&, Js::CallInfo 
 #define CALL_ENTRYPOINT_NOASSERT(entryPoint, function, callInfo, ...) \
     entryPoint(function, callInfo, nullptr, nullptr, nullptr, nullptr, \
                function, callInfo, ##__VA_ARGS__)
-#elif defined(_ARM_)
+#elif defined(_ARM_)||defined(_ARM64_)
+//FIXME: Added the ARM64 to build for iOS ARM64.
 // xplat-todo: fix me ARM
 #define CALL_ENTRYPOINT_NOASSERT(entryPoint, function, callInfo, ...) \
     entryPoint(function, callInfo, ##__VA_ARGS__)
