@@ -49,7 +49,7 @@ endif (CMAKE_UNAME)
 #include (CMakeForceCompiler)
 #CMAKE_FORCE_C_COMPILER (/usr/bin/gcc Apple)
 #CMAKE_FORCE_CXX_COMPILER (/usr/bin/g++ Apple)
-#set(CMAKE_AR ar CACHE FILEPATH "" FORCE)
+set(CMAKE_AR ar CACHE FILEPATH "" FORCE)
 
 # Skip the platform compiler checks for cross compiling
 set (CMAKE_CXX_COMPILER_WORKS TRUE)
