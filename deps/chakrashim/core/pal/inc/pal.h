@@ -6879,6 +6879,11 @@ ULONG_PTR __stdcall GetCurrentSP();
 #if defined(_ARM_)
 #define _ARM_BARRIER_SY 0xF
 #define _InstructionSynchronizationBarrier() __isb(_ARM_BARRIER_SY)
+#elif defined(__IOS__)&&defined(_ARM64_)
+//FIXME: Added the intrinsic to build for iOS ARM64.
+//In case this is called, actually find how to call the isb intrinsic.
+#define _ARM_BARRIER_SY 0xF
+#define _InstructionSynchronizationBarrier() assert(false)
 #endif
 
 #ifndef MAXUINT16
