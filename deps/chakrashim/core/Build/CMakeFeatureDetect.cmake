@@ -13,8 +13,11 @@ if(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
         -Werror"
         )
 endif()
-
-check_cxx_source_runs("
+if (CC_TARGET_OS_IOS AND CC_TARGETS_ARM64)
+  # Can't run the test when cross_compiling, so the flag is set manually.
+  set(CLANG_HAS_DISABLE_TAIL_CALLS_CFG 1)
+else()
+  check_cxx_source_runs("
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -25,6 +28,7 @@ int main(int argc, char **argv) {
   printf(\"%d\", inc(argc + 1));
   exit(0);
 }" CLANG_HAS_DISABLE_TAIL_CALLS_CFG)
+endif()
 
 if(CLANG_HAS_DISABLE_TAIL_CALLS_CFG STREQUAL 1)
   add_definitions(-DCLANG_HAS_DISABLE_TAIL_CALLS=1)
