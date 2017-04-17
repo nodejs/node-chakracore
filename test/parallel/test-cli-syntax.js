@@ -53,8 +53,8 @@ const syntaxArgs = [
     assert.strictEqual(c.stdout, '', 'stdout produced');
 
     // stderr should include the filename
-    // (v8 prints the filename to the error stream- chakracore does not)
-    console.log(c.stderr);
+    // TODO(digitalinfinity): Remove this check
+    // Node-ChakraCore currently doesn't populate TryCatch.Message 
     if (process.jsEngine === 'v8') {
       assert(c.stderr.startsWith(file),
              "stderr doesn't start with the filename");
