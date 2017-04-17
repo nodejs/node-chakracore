@@ -121,6 +121,7 @@
               'action': [
                 'bash',
                 '<(chakra_dir)/build.sh',
+                '-j',
                 '--without=Simdjs',
                 '--static',
                 '<@(chakra_build_flags)',
