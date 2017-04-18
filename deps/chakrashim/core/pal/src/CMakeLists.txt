@@ -36,7 +36,7 @@ add_definitions(-DLP64COMPATIBLE=1)
 add_definitions(-DFEATURE_PAL=1)
 add_definitions(-DPIC=1)
 add_definitions(-D_FILE_OFFSET_BITS=64)
-if(CC_TARGETS_AMD64)
+if(CC_TARGETS_AMD64 OR CC_TARGETS_ARM64)
   add_definitions(-DBIT64=1)
   add_definitions(-D_WIN64=1)
 elseif(CC_TARGETS_ARM OR CC_TARGETS_X86)
@@ -175,11 +175,6 @@ set(SOURCES
   thread/pal_thread.cpp
   thread/threadsusp.cpp
 )
-
-if (CC_TARGET_OS_IOS AND CC_TARGETS_ARM64)
-  #Removes the debug/debug.cpp from the build on IOS devices.
-  list(REMOVE_ITEM SOURCES debug/debug.cpp)
-endif()
 
 add_library(Chakra.Pal
   OBJECT
