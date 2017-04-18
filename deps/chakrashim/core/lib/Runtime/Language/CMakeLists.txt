@@ -80,6 +80,11 @@ elseif(CC_TARGETS_ARM)
         arm/StackFrame.cpp
         arm/arm_Thunks.S
     )
+elseif(CC_TARGETS_ARM64)
+    set (CRL_SOURCE_FILES ${CRL_SOURCE_FILES}
+        arm64/StackFrame.cpp
+        arm64/arm64_Thunks.S
+    )
 endif()
 
 add_library (Chakra.Runtime.Language OBJECT ${CRL_SOURCE_FILES})
