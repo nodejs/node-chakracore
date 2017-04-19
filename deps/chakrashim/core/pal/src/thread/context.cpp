@@ -1303,8 +1303,12 @@ DBG_FlushInstructionCache(
                           IN LPCVOID lpBaseAddress,
                           IN SIZE_T dwSize)
 {
+#if !(defined(__IOS__) && defined(_M_ARM64))
+//FIXME: Removed to build for iOS ARM64. This instrinsic seems to not be defined for iOS.
+
     // Intrinsic should do the right thing across all platforms
     __builtin___clear_cache((char *)lpBaseAddress, (char *)((INT_PTR)lpBaseAddress + dwSize));
+#endif // !(defined(__IOS__) && defined(_M_ARM64))
 
     return TRUE;
 }
