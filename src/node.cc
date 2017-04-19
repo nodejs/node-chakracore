@@ -119,7 +119,7 @@ typedef int mode_t;
 #include <grp.h>  // getgrnam()
 #endif
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
 #elif !defined(_MSC_VER)
