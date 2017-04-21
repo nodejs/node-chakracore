@@ -56,7 +56,13 @@ public:
 #if SYSINFO_IMAGE_BASE_AVAILABLE
     static bool IsJscriptModulePointer(void * ptr);
 #endif
+#if defined(__IOS__)&&defined(_M_ARM64)
+//Apple documentation reveals that virtual page size is 16KB on
+// newer versions of iOS.
+    static DWORD const PageSize = 16384;
+#else
     static DWORD const PageSize = 4096;
+#endif
 
 #ifdef STACK_ALIGN
     static DWORD const StackAlign = STACK_ALIGN;
@@ -76,7 +82,7 @@ public:
     UINT_PTR dllLoadAddress;
     UINT_PTR dllHighAddress;
 #endif
-    
+
 private:
     AutoSystemInfo() : majorVersion(0), minorVersion(0), buildDateHash(0), buildTimeHash(0) { Initialize(); }
     void Initialize();
@@ -124,9 +130,15 @@ public:
     static bool IsLowMemoryDevice();
 };
 
-
+#if defined(__IOS__)&&defined(_M_ARM64)
+//Apple documentation reveals that virtual page size is 16KB on
+// newer versions of iOS.
+CompileAssert(AutoSystemInfo::PageSize == 16384);
+#define __in_ecount_pagesize __in_ecount(16384)
+#define __in_ecount_twopagesize __in_ecount(32768)
+#else
 // For Prefast where it doesn't like symbolic constants
 CompileAssert(AutoSystemInfo::PageSize == 4096);
 #define __in_ecount_pagesize __in_ecount(4096)
 #define __in_ecount_twopagesize __in_ecount(8192)
-
+#endif

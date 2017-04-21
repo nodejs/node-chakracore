@@ -65,6 +65,10 @@ enum VIRTUAL_CONSTANTS
     /* Page manipulation constants. */
 #ifdef __sparc__
     VIRTUAL_PAGE_SIZE       = 0x2000,
+#elif defined(__IOS__)&&defined(_M_ARM64)
+//Apple documentation reveals that virtual page size is 16KB on
+// newer versions of iOS.
+    VIRTUAL_PAGE_SIZE       = 0x4000,
 #else   // __sparc__
     VIRTUAL_PAGE_SIZE       = 0x1000,
 #endif  // __sparc__
