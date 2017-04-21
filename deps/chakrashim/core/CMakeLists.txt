@@ -245,6 +245,9 @@ elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
           message(WARNING "-- !! macOS Deployment Target was set to $ENV{MACOSX_DEPLOYMENT_TARGET}. Using it as is.")
         endif()
       elseif(CC_TARGET_OS_IOS)
+        add_definitions(
+            -D__IOS__
+        )
         set(IOS_DEPLOYMENT_TARGET "$ENV{IPHONEOS_DEPLOYMENT_TARGET} CC")
         if (${IOS_DEPLOYMENT_TARGET} STREQUAL " CC")
           set(IOS_DEPLOYMENT_TARGET "10.0")
