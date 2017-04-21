@@ -13,7 +13,7 @@ SmallNormalHeapBlockT<TBlockAttributes>::New(HeapBucketT<SmallNormalHeapBlockT<T
     Assert((TBlockAttributes::PageCount * AutoSystemInfo::PageSize) / bucket->sizeCat <= USHRT_MAX);
 
     ushort objectSize = (ushort)bucket->sizeCat;
-    ushort objectCount = (ushort)(TBlockAttributes::PageCount * AutoSystemInfo::PageSize) / objectSize;
+    ushort objectCount = (ushort)(TBlockAttributes::PageCount * AutoSystemInfo::PageSize / objectSize);
 
     HeapBlockType blockType = (TBlockAttributes::IsSmallBlock ? HeapBlock::SmallNormalBlockType : HeapBlock::MediumNormalBlockType);
     return NoMemProtectHeapNewNoThrowPlusPrefixZ(Base::GetAllocPlusSize(objectCount), SmallNormalHeapBlockT<TBlockAttributes>, bucket, objectSize, objectCount, blockType);
@@ -29,7 +29,7 @@ SmallNormalWithBarrierHeapBlockT<TBlockAttributes>::New(HeapBucketT<SmallNormalW
     Assert((TBlockAttributes::PageCount * AutoSystemInfo::PageSize) / bucket->sizeCat <= USHRT_MAX);
 
     ushort objectSize = (ushort)bucket->sizeCat;
-    ushort objectCount = (ushort)(TBlockAttributes::PageCount * AutoSystemInfo::PageSize) / objectSize;
+    ushort objectCount = (ushort)(TBlockAttributes::PageCount * AutoSystemInfo::PageSize / objectSize);
 
     HeapBlockType blockType = (TBlockAttributes::IsSmallBlock ? HeapBlock::SmallNormalBlockWithBarrierType : HeapBlock::MediumNormalBlockWithBarrierType);
     return NoMemProtectHeapNewNoThrowPlusPrefixZ(Base::GetAllocPlusSize(objectCount), SmallNormalWithBarrierHeapBlockT<TBlockAttributes>, bucket, objectSize, objectCount, blockType);

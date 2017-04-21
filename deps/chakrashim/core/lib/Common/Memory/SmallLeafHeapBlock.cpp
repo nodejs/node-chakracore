@@ -13,7 +13,7 @@ SmallLeafHeapBlockT<TBlockAttributes>::New(HeapBucketT<SmallLeafHeapBlockT<TBloc
     Assert((TBlockAttributes::PageCount * AutoSystemInfo::PageSize) / bucket->sizeCat <= USHRT_MAX);
 
     ushort objectSize = (ushort)bucket->sizeCat;
-    ushort objectCount = (ushort)(TBlockAttributes::PageCount * AutoSystemInfo::PageSize) / objectSize;
+    ushort objectCount = (ushort)(TBlockAttributes::PageCount * AutoSystemInfo::PageSize / objectSize);
     return NoMemProtectHeapNewNoThrowPlusPrefixZ(Base::GetAllocPlusSize(objectCount), SmallLeafHeapBlockT<TBlockAttributes>, bucket, objectSize, objectCount);
 }
 
