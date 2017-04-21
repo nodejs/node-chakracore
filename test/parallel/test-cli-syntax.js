@@ -54,7 +54,7 @@ const syntaxArgs = [
 
     // stderr should include the filename
     // TODO(digitalinfinity): Remove this check
-    // Node-ChakraCore currently doesn't populate TryCatch.Message 
+    // Node-ChakraCore currently doesn't populate TryCatch.Message
     if (process.jsEngine === 'v8') {
       assert(c.stderr.startsWith(file),
              "stderr doesn't start with the filename");
