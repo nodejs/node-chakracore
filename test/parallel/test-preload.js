@@ -6,8 +6,8 @@ const path = require('path');
 const childProcess = require('child_process');
 
 if (common.isChakraEngine) {
-  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
-  'because debugger support is not implemented yet.');
+  common.skip('This test is disabled for chakra engine because debugger ' +
+              'support is not implemented yet.');
   return;
 }
 

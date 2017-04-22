@@ -11,8 +11,8 @@ const child_process = require('child_process');
 const domain = require('domain');
 
 if (common.isChakraEngine) {
-  console.log(`1..0 # Skipped: This test is disabled for chakra engine
-    because it depends on v8-option --abort-on-uncaught-exception`);
+  common.skip('This test is disabled for chakra engine because it depends ' +
+              'on v8-option --abort-on-uncaught-exception');
   return;
 }
 

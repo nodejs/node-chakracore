@@ -6,8 +6,8 @@ const spawn = require('child_process').spawn;
 const node = process.execPath;
 
 if (common.isChakraEngine) {
-  console.log(`1..0 # Skipped: This test is disabled for chakra engine
-    because it depends on v8-option --abort-on-uncaught-exception`);
+  common.skip('This test is disabled for chakra engine because it depends ' +
+              'on v8-option --abort-on-uncaught-exception');
   return;
 }
 

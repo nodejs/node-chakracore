@@ -9,7 +9,4 @@ prefix inspector
 [$system==win32]
 
 [$jsEngine==chakracore]
-test-inspector : SKIP
-test-inspector-stops-no-file : SKIP
-test-not-blocked-on-idle : SKIP
-test-inspector-ip-detection : SKIP
+* : PASS,FLAKY

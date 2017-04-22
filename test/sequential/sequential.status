@@ -20,6 +20,6 @@ test-benchmark-child-process  : PASS,FLAKY
 [$system==aix]
 
 [$jsEngine==chakracore]
-test-http-regr-gh-2928 : SKIP
-test-net-GH-5504 : SKIP
-test-vm-timeout-rethrow : SKIP
+
+[$jsEngine==chakracore && $system==linux]
+test-child-process-pass-fd : PASS,FLAKY
