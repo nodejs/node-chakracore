@@ -1315,7 +1315,6 @@ def configure_engine(o):
   o['variables']['node_engine'] = engine
   if engine != 'v8':
     o['variables']['node_use_bundled_v8'] = b(False)
-    o['variables']['v8_enable_i18n_support'] = 0
 
 output = {
   'variables': {},

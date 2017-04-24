@@ -1,7 +1,8 @@
 'use strict';
 const common = require('../common');
 
-if (!common.hasIntl || Intl.v8BreakIterator === undefined) {
+if (!common.hasIntl || typeof Intl === 'undefined' ||
+    Intl.v8BreakIterator === undefined) {
   return common.skip('missing Intl');
 }
 

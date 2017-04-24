@@ -119,7 +119,10 @@ startURLSettersTests()
                     /^Error: toString$/,
                     `url.${name} = { toString() { throw ... } }`);
       assert.throws(() => url[name] = sym,
-                    /^TypeError: Cannot convert a Symbol value to a string$/,
+                    common.engineSpecificMessage({
+                      v8: /^TypeError: Cannot convert a Symbol value to a string$/, // eslint-disable-line max-len
+                      chakracore: /^TypeError: Object doesn't support property or method 'ToString'$/, // eslint-disable-line max-len
+                    }),
                     `url.${name} = ${String(sym)}`);
     }
   }

@@ -141,7 +141,7 @@ if "%i18n_arg%"=="full-icu" set configure_flags=%configure_flags% --with-intl=fu
 if "%i18n_arg%"=="small-icu" set configure_flags=%configure_flags% --with-intl=small-icu
 if "%i18n_arg%"=="intl-none" set configure_flags=%configure_flags% --with-intl=none
 if "%i18n_arg%"=="without-intl" set configure_flags=%configure_flags% --without-intl
-if "%engine%"=="chakracore" set configure_flags=%configure_flags% --without-intl --without-bundled-v8
+if "%engine%"=="chakracore" set configure_flags=%configure_flags% --without-bundled-v8
 
 if defined config_flags set configure_flags=%configure_flags% %config_flags%
 
