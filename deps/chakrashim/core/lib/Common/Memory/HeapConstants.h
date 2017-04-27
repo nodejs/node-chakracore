@@ -50,6 +50,9 @@ public:
 
 #if defined(_M_IX86_OR_ARM32)
     static const size_t PageCount = 2;
+#elif defined(__IOS__)&&defined(_M_ARM64)
+// iOS has 16K pageSize instead of the regular 4K expected on most systems.
+    static const size_t PageCount = 1;
 #else
     static const size_t PageCount = 4;
 #endif
@@ -74,7 +77,12 @@ public:
 class MediumAllocationBlockAttributes
 {
 public:
+#if defined(__IOS__)&&defined(_M_ARM64)
+// iOS has 16K pageSize instead of the regular 4K expected on most systems.
+    static const size_t PageCount = 2;
+#else // defined(__IOS__)&&defined(_M_ARM64)
     static const size_t PageCount = 8;
+#endif // defined(__IOS__)&&defined(_M_ARM64)
     static const size_t MinObjectSize = HeapConstants::MaxSmallObjectSize;
     static const ushort BitVectorCount = ((PageCount * AutoSystemInfo::PageSize) / HeapConstants::ObjectGranularity);
     static const size_t MaxAddressBit = (BitVectorCount - 1);
