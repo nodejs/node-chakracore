@@ -27,7 +27,7 @@ const util = require('util');
 const spawn = require('child_process').spawn;
 
 // We're trying to reproduce:
-// $ echo "hello\nnode\nand\nworld" | grep o | sed s/o/O/
+// $ echo "hello\nnode\nand\nworld" | grep o | sed s/o/a/
 
 let grep, sed, echo;
 

@@ -39,6 +39,7 @@ const prompt_npm = 'npm should be run outside of the ' +
 const expect_npm = prompt_npm + prompt_unix;
 let server_tcp, server_unix, client_tcp, client_unix, replServer;
 
+
 // absolute path to test/fixtures/a.js
 const moduleFilename = require('path').join(common.fixturesDir, 'a');
 
@@ -225,19 +226,22 @@ function error_test() {
         v8: /\bSyntaxError: Octal literals are not allowed in strict mode/,
         chakracore: cc_re4})
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function(a, a, b) { "use strict"; return a + b + c; })()',
       expect: common.engineSpecificMessage({
         v8: v8_re1,
         chakracore: cc_re1})
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function() { "use strict"; with (this) {} })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Strict mode code may not include a with statement/,
         chakracore: cc_re2})
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function() { "use strict"; var x; delete x; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Delete of an unqualified identifier in strict mode/,
@@ -249,7 +253,8 @@ function error_test() {
         v8: /\bSyntaxError: Unexpected eval or arguments in strict mode/,
         chakracore: /^SyntaxError: Invalid usage of 'eval' in strict mode/})
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function() { "use strict"; if (true) function f() { } })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: In strict mode code, functions can only be declared at top level or inside a block\./, // eslint-disable-line max-len
@@ -413,8 +418,7 @@ function error_test() {
       expect: 'undefined\n' + prompt_unix },
     // Illegal token is not recoverable outside string literal, RegExp literal,
     // or block comment. https://github.com/nodejs/node/issues/3611
-    {
-      client: client_unix, send: 'a = 3.5e',
+    { client: client_unix, send: 'a = 3.5e',
       expect: /\bSyntaxError: Invalid or unexpected token/ },
     // Mitigate https://github.com/nodejs/node/issues/548
     { client: client_unix, send: 'function name(){ return "node"; };name()',
@@ -446,14 +450,17 @@ function error_test() {
       client: client_unix, send: 'function foo() {\nvar bar = 1 / 1; // "/"\n}',
       expect: `${prompt_multiline}${prompt_multiline}undefined\n${prompt_unix}`
     },
+
     {
       client: client_unix, send: '(function() {\nreturn /foo/ / /bar/;\n}())',
       expect: prompt_multiline + prompt_multiline + 'NaN\n' + prompt_unix
     },
+
     {
       client: client_unix, send: '(function() {\nif (false) {} /bar"/;\n}())',
       expect: prompt_multiline + prompt_multiline + 'undefined\n' + prompt_unix
     },
+
     // Newline within template string maintains whitespace.
     { client: client_unix, send: '`foo \n`',
       expect: prompt_multiline + '\'foo \\n\'\n' + prompt_unix },
