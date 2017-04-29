@@ -4468,12 +4468,14 @@ void Init(int* argc,
   }
 #endif
 
-  // CHAKRA-TODO : fix this to not do it here
 #ifdef NODE_ENGINE_CHAKRACORE
+  // CHAKRA-TODO : fix this to not do it here
   if (debug_options.inspector_enabled()) {
+#if ENABLE_TTD_NODE
+    v8::Debug::EnableInspector(s_doTTReplay && s_doTTDebug);
+#else
     v8::Debug::EnableInspector();
-  } else if (debug_options.debugger_enabled()) {
-    v8::Debug::EnableDebug();
+#endif
   }
 #endif
 
@@ -4618,9 +4620,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   const char* path = argc > 1 ? argv[1] : nullptr;
   StartDebug(&env, path, debug_options);
 
-  bool debugger_enabled =
-      debug_options.debugger_enabled() || debug_options.inspector_enabled();
-  if (debugger_enabled && !debugger_running)
+  if (debug_options.inspector_enabled() && !debugger_running)
     return 12;  // Signal internal error.
 
   {
@@ -4637,10 +4637,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
 #endif
 
   env.set_trace_sync_io(trace_sync_io);
-
-  // Enable debugger
-  if (debug_options.debugger_enabled())
-    EnableDebug(&env);
 
   if (load_napi_modules) {
     ProcessEmitWarning(&env, "N-API is an experimental feature "
@@ -4792,12 +4788,11 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
   Environment env(isolate_data, context);
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
-  bool debug_enabled =
-    debug_options.debugger_enabled() || debug_options.inspector_enabled();
-
   // Start debug agent when argv has --debug
-  if (debug_enabled)
-    StartDebug(&env, nullptr, debug_options);
+  StartDebug(&env, nullptr, debug_options);
+
+  if (debug_options.inspector_enabled() && !debugger_running)
+    return 12;  // Signal internal error.
 
   {
     Environment::AsyncCallbackScope callback_scope(&env);
@@ -4805,10 +4800,6 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
   }
 
   env.set_trace_sync_io(trace_sync_io);
-
-  // Enable debugger
-  if (debug_enabled)
-    EnableDebug(&env);
 
   //// TTD Specific code
   JsTTDStart();

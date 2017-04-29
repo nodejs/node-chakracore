@@ -16,6 +16,9 @@
 #include "src/inspector/v8-inspector-impl.h"
 #include "src/inspector/v8-runtime-agent-impl.h"
 #include "src/inspector/v8-schema-agent-impl.h"
+#include "src/inspector/v8-timetravel-agent-impl.h"
+
+#include "src/jsrtinspector.h"
 
 namespace v8_inspector {
 
@@ -28,7 +31,9 @@ bool V8InspectorSession::canDispatchMethod(const StringView& method) {
          stringViewStartsWith(method,
                               protocol::Console::Metainfo::commandPrefix) ||
          stringViewStartsWith(method,
-                              protocol::Schema::Metainfo::commandPrefix);
+                              protocol::Schema::Metainfo::commandPrefix) ||
+         stringViewStartsWith(method,
+                              protocol::TimeTravel::Metainfo::commandPrefix);
 }
 
 std::unique_ptr<V8InspectorSessionImpl> V8InspectorSessionImpl::create(
@@ -76,6 +81,11 @@ V8InspectorSessionImpl::V8InspectorSessionImpl(V8InspectorImpl* inspector,
   m_schemaAgent = wrapUnique(new V8SchemaAgentImpl(
       this, this, agentState(protocol::Schema::Metainfo::domainName)));
   protocol::Schema::Dispatcher::wire(&m_dispatcher, m_schemaAgent.get());
+
+  m_timeTravelAgent = wrapUnique(new V8TimeTravelAgentImpl(
+      this, this, agentState(protocol::TimeTravel::Metainfo::domainName)));
+  protocol::TimeTravel::Dispatcher::wire(&m_dispatcher,
+                                         m_timeTravelAgent.get());
 
   if (savedState.length()) {
     m_runtimeAgent->restore();
@@ -173,6 +183,14 @@ V8InspectorSessionImpl::supportedDomainsImpl() {
                        .setName(protocol::Schema::Metainfo::domainName)
                        .setVersion(protocol::Schema::Metainfo::version)
                        .build());
+
+  if (m_timeTravelAgent->enabled()) {
+    result.push_back(protocol::Schema::Domain::create()
+                        .setName(protocol::TimeTravel::Metainfo::domainName)
+                        .setVersion(protocol::TimeTravel::Metainfo::version)
+                        .build());
+  }
+
   return result;
 }
 

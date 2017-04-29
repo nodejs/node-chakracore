@@ -16,9 +16,12 @@
       '<(SHARED_INTERMEDIATE_DIR)/src/inspector/protocol/Runtime.h',
       '<(SHARED_INTERMEDIATE_DIR)/src/inspector/protocol/Schema.cpp',
       '<(SHARED_INTERMEDIATE_DIR)/src/inspector/protocol/Schema.h',
+      '<(SHARED_INTERMEDIATE_DIR)/src/inspector/protocol/TimeTravel.cpp',
+      '<(SHARED_INTERMEDIATE_DIR)/src/inspector/protocol/TimeTravel.h',
       '<(SHARED_INTERMEDIATE_DIR)/include/inspector/Debugger.h',
       '<(SHARED_INTERMEDIATE_DIR)/include/inspector/Runtime.h',
       '<(SHARED_INTERMEDIATE_DIR)/include/inspector/Schema.h',
+      '<(SHARED_INTERMEDIATE_DIR)/include/inspector/TimeTravel.h',
     ],
 
     'inspector_all_sources': [
@@ -65,6 +68,8 @@
       'src/inspector/v8-schema-agent-impl.h',
       'src/inspector/v8-stack-trace-impl.cc',
       'src/inspector/v8-stack-trace-impl.h',
+      'src/inspector/v8-timetravel-agent-impl.cc',
+      'src/inspector/v8-timetravel-agent-impl.h',
       'src/inspector/v8-value-copier.cc',
       'src/inspector/v8-value-copier.h',
     ]

@@ -110,6 +110,10 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
       std::unique_ptr<protocol::Array<protocol::Debugger::ScriptPosition>>
           positions) override;
 
+  // Time travel implementations
+  void reverse(ErrorString*);
+  void stepBack(ErrorString*);
+
   bool enabled();
 
   void setBreakpointAt(const String16& scriptId, int lineNumber,
@@ -171,7 +175,14 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
   using DebugServerBreakpointToBreakpointIdAndSourceMap =
       protocol::HashMap<String16, std::pair<String16, BreakpointSource>>;
 
-  enum DebuggerStep { NoStep = 0, StepInto, StepOver, StepOut };
+  enum DebuggerStep {
+    StepInto = 0,
+    StepOver,
+    StepOut,
+    StepBack,
+    ReverseContinue,
+    NoStep
+  };
 
   V8InspectorImpl* m_inspector;
   V8Debugger* m_debugger;

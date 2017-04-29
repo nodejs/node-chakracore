@@ -777,5 +777,19 @@
                 "description": "Issued when new console message is added."
             }
         ]
+    },
+    {
+        "domain": "TimeTravel",
+        "description": "TimeTravel domain exposes JavaScript time travel capabilities. It allows stepping backwards through execution.",
+        "commands": [
+            {
+                "name": "stepBack",
+                "description": "Steps backwards to the previous statement."
+            },
+            {
+                "name": "reverse",
+                "description": "Resumes JavaScript execution in reverse."
+            }
+        ]
     }]
 }

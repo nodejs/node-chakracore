@@ -22,6 +22,7 @@ class V8DebuggerAgentImpl;
 class V8InspectorImpl;
 class V8RuntimeAgentImpl;
 class V8SchemaAgentImpl;
+class V8TimeTravelAgentImpl;
 
 using protocol::ErrorString;
 
@@ -38,6 +39,7 @@ class V8InspectorSessionImpl : public V8InspectorSession,
   V8DebuggerAgentImpl* debuggerAgent() { return m_debuggerAgent.get(); }
   V8SchemaAgentImpl* schemaAgent() { return m_schemaAgent.get(); }
   V8RuntimeAgentImpl* runtimeAgent() { return m_runtimeAgent.get(); }
+  V8TimeTravelAgentImpl* timeTravelAgent() { return m_timeTravelAgent.get(); }
   int contextGroupId() const { return m_contextGroupId; }
 
   void reset();
@@ -85,6 +87,7 @@ class V8InspectorSessionImpl : public V8InspectorSession,
   std::unique_ptr<V8DebuggerAgentImpl> m_debuggerAgent;
   std::unique_ptr<V8ConsoleAgentImpl> m_consoleAgent;
   std::unique_ptr<V8SchemaAgentImpl> m_schemaAgent;
+  std::unique_ptr<V8TimeTravelAgentImpl> m_timeTravelAgent;
 
   DISALLOW_COPY_AND_ASSIGN(V8InspectorSessionImpl);
 };

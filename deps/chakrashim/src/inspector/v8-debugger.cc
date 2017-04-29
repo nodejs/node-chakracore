@@ -256,6 +256,18 @@ void V8Debugger::clearStepping() {
   JsDiagSetStepType(JsDiagStepTypeContinue);
 }
 
+void V8Debugger::reverse() {
+  DCHECK(isPaused());
+  JsDiagSetStepType(JsDiagStepTypeReverseContinue);
+  continueProgram();
+}
+
+void V8Debugger::stepBack() {
+  DCHECK(isPaused());
+  JsDiagSetStepType(JsDiagStepTypeStepBack);
+  continueProgram();
+}
+
 bool V8Debugger::setScriptSource(
     const String16& sourceID, v8::Local<v8::String> newSource, bool dryRun,
     ErrorString* error,

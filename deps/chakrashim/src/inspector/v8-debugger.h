@@ -58,6 +58,10 @@ class V8Debugger {
   void stepOutOfFunction();
   void clearStepping();
 
+  // Time travel
+  void reverse();
+  void stepBack();
+
   bool setScriptSource(const String16& sourceID,
                        v8::Local<v8::String> newSource, bool dryRun,
                        ErrorString*,

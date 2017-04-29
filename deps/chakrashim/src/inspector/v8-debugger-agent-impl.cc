@@ -654,6 +654,20 @@ void V8DebuggerAgentImpl::stepOut(ErrorString* errorString) {
   m_debugger->stepOutOfFunction();
 }
 
+void V8DebuggerAgentImpl::reverse(ErrorString* errorString) {
+  if (!assertPaused(errorString)) return;
+  m_scheduledDebuggerStep = ReverseContinue;
+  m_steppingFromFramework = false;
+  m_debugger->reverse();
+}
+
+void V8DebuggerAgentImpl::stepBack(ErrorString* errorString) {
+  if (!assertPaused(errorString)) return;
+  m_scheduledDebuggerStep = StepBack;
+  m_steppingFromFramework = isTopPausedCallFrameBlackboxed();
+  m_debugger->stepBack();
+}
+
 void V8DebuggerAgentImpl::setPauseOnExceptions(
     ErrorString* errorString, const String16& stringPauseState) {
   if (!checkEnabled(errorString)) return;
