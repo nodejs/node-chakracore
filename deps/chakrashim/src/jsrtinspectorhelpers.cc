@@ -480,26 +480,31 @@ namespace jsrt {
                                                         "thisObject",
                                                         &hasProperty));
 
-    if (hasProperty)
-    {
+    JsValueRef thisObj = nullptr;
+
+    if (hasProperty) {
       JsValueRef thisObject = nullptr;
       CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
                                                           "thisObject",
                                                           &thisObject));
-
-      JsValueRef thisObj = nullptr;
       WrapObject(thisObject, &thisObj);
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(wrappedObj,
-                                                          "this",
-                                                          thisObj));
+    } else {
+      // The protocol requires a "this" member, so create an undefined object
+      // to return.
+      CHAKRA_VERIFY_NOERROR(JsCreateObject(&thisObj));
+      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
+          thisObj, "type", "undefined"));
     }
+    
+    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(wrappedObj,
+                                                        "this",
+                                                        thisObj));
 
     CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
                                                         "returnValue",
                                                         &hasProperty));
 
-    if (hasProperty)
-    {
+    if (hasProperty) {
       JsValueRef returnObj = nullptr;
       CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
                                                           "returnValue",
