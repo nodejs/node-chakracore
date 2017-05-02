@@ -177,6 +177,13 @@ static void GetCPUInfo(const FunctionCallbackInfo<Value>& args) {
     fields[field_idx++] = ci->cpu_times.irq;
     model_argv[model_idx++] = OneByteString(env->isolate(), ci->model);
 
+#if ENABLE_TTD_NODE
+    if (s_doTTRecord || s_doTTReplay) {
+      int modlength = field_idx * sizeof(double);
+      ab->TTDRawBufferModifyNotifySync(0, modlength);
+    }
+#endif
+
     if (model_idx >= NODE_PUSH_VAL_TO_ARRAY_MAX) {
       addfn->Call(env->context(), cpus, model_idx, model_argv).ToLocalChecked();
       model_idx = 0;
@@ -224,6 +231,12 @@ static void GetLoadAvg(const FunctionCallbackInfo<Value>& args) {
   Local<ArrayBuffer> ab = array->Buffer();
   double* loadavg = static_cast<double*>(ab->GetContents().Data());
   uv_loadavg(loadavg);
+
+#if ENABLE_TTD_NODE
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(0, 3 * sizeof(double));
+  }
+#endif
 }
 
 

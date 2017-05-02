@@ -648,7 +648,7 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
 
         *nextEventTime = -1;
         JsTTDPreExecuteSnapShotInterval(rHandle, ciStart, ciEnd,
-                                        ((JsTTDMoveMode)(*moveMode)),
+                                        (JsTTDMoveMode)(*moveMode | JsTTDMoveMode::JsTTDMoveScanIntervalForContinueInActiveBreakpointSegment),
                                         nextEventTime);
 
         while (*nextEventTime == -1) {
@@ -656,9 +656,6 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
             JsTTDGetPreviousSnapshotInterval(rHandle, ciStart, &newCiStart);
 
             if (newCiStart == -1) {
-                // no previous so break on first
-                _moveMode = (JsTTDMoveMode)(_moveMode |
-                    JsTTDMoveMode::JsTTDMoveFirstEvent);
                 break;
             }
 
@@ -672,6 +669,10 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
         // did scan so no longer needed
         _moveMode = (JsTTDMoveMode)(_moveMode &
                      ~JsTTDMoveMode::JsTTDMoveScanIntervalForContinue);
+    }
+
+    if(*nextEventTime == -1) {
+        _moveMode = (JsTTDMoveMode)(JsTTDMoveMode::JsTTDMoveFirstEvent | JsTTDMoveMode::JsTTDMoveBreakOnEntry);
     }
 
     JsErrorCode timeError = JsTTDGetSnapTimeTopLevelEventMove(rHandle,
@@ -701,7 +702,7 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
     }
 
     JsErrorCode replayError = JsTTDReplayExecution(&_moveMode, nextEventTime);
-    if(replayError != JsNoError)
+    if(replayError != JsNoError && replayError != JsErrorCategoryScript)
     {
         fprintf(stderr, "Fatal Error in Replay Action!!!");
         exit(1);
