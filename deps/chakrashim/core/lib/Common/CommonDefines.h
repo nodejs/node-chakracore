@@ -140,7 +140,11 @@
 #define ENABLE_JS_ETW                               // ETW support
 #else
 #define SYSINFO_IMAGE_BASE_AVAILABLE 0
+#ifndef ENABLE_VALGRIND
 #define ENABLE_CONCURRENT_GC 1
+#else
+#define ENABLE_CONCURRENT_GC 0
+#endif
 #define SUPPORT_WIN32_SLIST 0
 #endif
 
@@ -750,6 +754,13 @@
 //----------------------------------------------------------------------------------------------------
 #ifndef JS_PROFILE_DATA_INTERFACE
 #define JS_PROFILE_DATA_INTERFACE 0
+#endif
+
+#define JS_REENTRANCY_FAILFAST 1
+#if DBG || JS_REENTRANCY_FAILFAST
+#define ENABLE_JS_REENTRANCY_CHECK 1
+#else
+#define ENABLE_JS_REENTRANCY_CHECK 0
 #endif
 
 #ifndef PROFILE_DICTIONARY
