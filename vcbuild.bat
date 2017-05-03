@@ -62,8 +62,8 @@ if /i "%1"=="nosnapshot"    set nosnapshot=1&goto arg-ok
 if /i "%1"=="noetw"         set noetw=1&goto arg-ok
 if /i "%1"=="noperfctr"     set noperfctr=1&goto arg-ok
 if /i "%1"=="licensertf"    set licensertf=1&goto arg-ok
-if /i "%1"=="test"          set test_args=%test_args% addons addons-napi doctool known_issues message parallel sequential -J&set cpplint=1&set jslint=1&set build_addons=1&set build_addons_napi=1&goto arg-ok
-if /i "%1"=="test-ci"       set test_args=%test_args% %test_ci_args% -p tap --logfile test.tap addons addons-napi doctool inspector known_issues message sequential parallel&set cctest_args=%cctest_args% --gtest_output=tap:cctest.tap&set build_addons=1&set build_addons_napi=1&goto arg-ok
+if /i "%1"=="test"          set test_args=%test_args% doctool known_issues message parallel sequential addons addons-napi -J&set cpplint=1&set jslint=1&set build_addons=1&set build_addons_napi=1&goto arg-ok
+if /i "%1"=="test-ci"       set test_args=%test_args% %test_ci_args% -p tap --logfile test.tap doctool inspector known_issues message sequential parallel addons addons-napi&set cctest_args=%cctest_args% --gtest_output=tap:cctest.tap&set build_addons=1&set build_addons_napi=1&goto arg-ok
 if /i "%1"=="test-addons"   set test_args=%test_args% addons&set build_addons=1&goto arg-ok
 if /i "%1"=="test-addons-napi"   set test_args=%test_args% addons-napi&set build_addons_napi=1&goto arg-ok
 if /i "%1"=="test-simple"   set test_args=%test_args% sequential parallel -J&goto arg-ok
@@ -94,6 +94,7 @@ if /i "%1"=="enable-vtune"  set enable_vtune_arg=1&goto arg-ok
 if /i "%1"=="dll"           set dll=1&goto arg-ok
 if /i "%1"=="v8"            set engine=v8&goto arg-ok
 if /i "%1"=="chakracore"    set engine=chakracore&set chakra_jslint=deps\chakrashim\lib&goto arg-ok
+if /i "%1"=="no-NODE-OPTIONS"	set no_NODE_OPTIONS=1&goto arg-
 
 echo Error: invalid command line option `%1`.
 exit /b 1
@@ -126,6 +127,7 @@ if defined release_urlbase set configure_flags=%configure_flags% --release-urlba
 if defined download_arg set configure_flags=%configure_flags% %download_arg%
 if defined enable_vtune_arg set configure_flags=%configure_flags% --enable-vtune-profiling
 if defined dll set configure_flags=%configure_flags% --shared
+if defined no_NODE_OPTIONS set configure_flags=%configure_flags% --without-node-options
 
 if "%i18n_arg%"=="full-icu" set configure_flags=%configure_flags% --with-intl=full-icu
 if "%i18n_arg%"=="small-icu" set configure_flags=%configure_flags% --with-intl=small-icu
@@ -196,10 +198,12 @@ echo Project files generated.
 if defined nobuild goto sign
 
 @rem Build the sln with msbuild.
+set "msbcpu=/m:2"
+if "%NUMBER_OF_PROCESSORS%"=="1" set "msbcpu=/m:1"
 set "msbplatform=Win32"
 if "%target_arch%"=="x64" set "msbplatform=x64"
 if "%target_arch%"=="arm" set "msbplatform=ARM"
-msbuild node.sln /m /t:%target% /p:Configuration=%config% /p:Platform=%msbplatform% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
+msbuild node.sln %msbcpu% /t:%target% /p:Configuration=%config% /p:Platform=%msbplatform% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
 if "%target%" == "Clean" goto exit
 
@@ -442,12 +446,12 @@ if defined jslint_ci goto jslint-ci
 if not defined jslint goto exit
 if not exist tools\eslint\lib\eslint.js goto no-lint
 echo running jslint
-%config%\node tools\eslint\bin\eslint.js --cache --rule "linebreak-style: 0" --rulesdir=tools\eslint-rules benchmark lib test %chakra_jslint% tools
+%config%\node tools\eslint\bin\eslint.js --cache --rule "linebreak-style: 0" --rulesdir=tools\eslint-rules --ext=.js,.md benchmark doc lib test %chakra_jslint% tools
 goto exit
 
 :jslint-ci
 echo running jslint-ci
-%config%\node tools\jslint.js -J -f tap -o test-eslint.tap benchmark lib test %chakra_jslint% tools
+%config%\node tools\jslint.js -J -f tap -o test-eslint.tap benchmark doc lib test %chakra_jslint% tools
 goto exit
 
 :no-lint
@@ -460,7 +464,7 @@ echo Failed to create vc project files.
 goto exit
 
 :help
-echo vcbuild.bat [debug/release] [msi] [test-all/test-uv/test-inspector/test-internet/test-pummel/test-simple/test-message] [clean] [noprojgen] [small-icu/full-icu/without-intl] [nobuild] [sign] [x86/x64] [vc2015] [download-all] [enable-vtune] [lint/lint-ci]
+echo vcbuild.bat [debug/release] [msi] [test-all/test-uv/test-inspector/test-internet/test-pummel/test-simple/test-message] [clean] [noprojgen] [small-icu/full-icu/without-intl] [nobuild] [sign] [x86/x64] [vc2015] [download-all] [enable-vtune] [lint/lint-ci]  [no-NODE-OPTIONS]
 echo Examples:
 echo   vcbuild.bat                : builds release build
 echo   vcbuild.bat debug          : builds debug build

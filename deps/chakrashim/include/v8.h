@@ -2640,6 +2640,7 @@ class V8_EXPORT V8 {
   static void InitializePlatform(Platform* platform) {}
   static void FromJustIsNothing();
   static void ToLocalEmpty();
+  static void ShutdownPlatform() {}
 };
 
 template <class T>

@@ -36,6 +36,7 @@
 #include "uv.h"
 #include "v8.h"
 
+#include <list>
 #include <stdint.h>
 #include <vector>
 
@@ -439,6 +440,7 @@ class Environment {
              const char* const* exec_argv,
              bool start_profiler_idle_notifier);
   void AssignToContext(v8::Local<v8::Context> context);
+  void CleanupHandles();
 
   void StartProfilerIdleNotifier();
   void StopProfilerIdleNotifier();
@@ -530,6 +532,9 @@ class Environment {
 
   inline v8::Local<v8::Object> NewInternalFieldObject();
 
+  void AtExit(void (*cb)(void* arg), void* arg);
+  void RunAtExitCallbacks();
+
   // Strings and private symbols are shared across shared contexts
   // The getters simply proxy to the per-isolate primitive.
 #define VP(PropertyName, StringValue) V(v8::Private, PropertyName)
@@ -609,6 +614,12 @@ class Environment {
 
   // We depend on the property in fs.js to manage the lifetime appropriately
   v8::Global<v8::Float64Array> fs_stats_field_array_;
+
+  struct AtExitCallback {
+    void (*cb_)(void* arg);
+    void* arg_;
+  };
+  std::list<AtExitCallback> at_exit_functions_;
 
 #define V(PropertyName, TypeName)                                             \
   v8::Persistent<TypeName> PropertyName ## _;

@@ -368,20 +368,7 @@
        'cflags': [ '--coverage',
                    '-g',
                    '-O0' ],
-     'conditions': [
-      [ 'node_engine=="v8"', {
-        'ldflags': [
-            '-Wl,--whole-archive <(V8_BASE)',
-            '-Wl,--no-whole-archive',
-        ],
-      }],
-      ['node_engine=="chakracore"', {
-        'ldflags': [
-            '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
-            '-Wl,--no-whole-archive',
-        ],
-      }],
-    ]
+       'cflags!': [ '-O3' ]
     }],
     [ 'OS=="sunos"', {
       'ldflags': [ '-Wl,-M,/usr/lib/ld/map.noexstk' ],

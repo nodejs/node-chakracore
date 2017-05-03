@@ -405,7 +405,7 @@ process.on('exit', function() {
   if (!exports.globalCheck) return;
   const leaked = leakedGlobals();
   if (leaked.length > 0) {
-    fail(`Unexpected global(s) found: ${leaked.join(', ')}`);
+    assert.fail(`Unexpected global(s) found: ${leaked.join(', ')}`);
   }
 });
 
@@ -508,14 +508,9 @@ exports.canCreateSymLink = function() {
   return true;
 };
 
-function fail(msg) {
-  assert.fail(null, null, msg);
-}
-exports.fail = fail;
-
 exports.mustNotCall = function(msg) {
   return function mustNotCall() {
-    fail(msg || 'function should not have been called');
+    assert.fail(msg || 'function should not have been called');
   };
 };
 
@@ -628,12 +623,14 @@ exports.WPT = {
   assert_false: (value, message) => assert.strictEqual(value, false, message),
   assert_throws: (code, func, desc) => {
     assert.throws(func, (err) => {
-      return typeof err === 'object' && 'name' in err && err.name === code.name;
+      return typeof err === 'object' &&
+             'name' in err &&
+             err.name.startsWith(code.name);
     }, desc);
   },
   assert_array_equals: assert.deepStrictEqual,
   assert_unreached(desc) {
-    assert.fail(undefined, undefined, `Reached unreachable code: ${desc}`);
+    assert.fail(`Reached unreachable code: ${desc}`);
   }
 };
 
@@ -655,8 +652,34 @@ exports.expectsError = function expectsError({code, type, message}) {
 };
 
 exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {
-  if (!exports.hasCrypto) {
-    exports.skip('missing ssl support so inspector is disabled');
+  if (process.config.variables.v8_enable_inspector === 0) {
+    exports.skip('V8 inspector is disabled');
     process.exit(0);
   }
+};
+
+const arrayBufferViews = [
+  Int8Array,
+  Uint8Array,
+  Uint8ClampedArray,
+  Int16Array,
+  Uint16Array,
+  Int32Array,
+  Uint32Array,
+  Float32Array,
+  Float64Array,
+  DataView
+];
+
+exports.getArrayBufferViews = function getArrayBufferViews(buf) {
+  const { buffer, byteOffset, byteLength } = buf;
+
+  const out = [];
+  for (const type of arrayBufferViews) {
+    const { BYTES_PER_ELEMENT = 1 } = type;
+    if (byteLength % BYTES_PER_ELEMENT === 0) {
+      out.push(new type(buffer, byteOffset, byteLength / BYTES_PER_ELEMENT));
+    }
+  }
+  return out;
 };

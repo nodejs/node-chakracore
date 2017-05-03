@@ -70,6 +70,7 @@ namespace Buffer {
 
 using v8::ArrayBuffer;
 using v8::ArrayBufferCreationMode;
+using v8::ArrayBufferView;
 using v8::Context;
 using v8::EscapableHandleScope;
 using v8::FunctionCallbackInfo;
@@ -85,6 +86,8 @@ using v8::Uint32Array;
 using v8::Uint8Array;
 using v8::Value;
 using v8::WeakCallbackInfo;
+
+namespace {
 
 class CallbackInfo {
  public:
@@ -191,38 +194,39 @@ inline MUST_USE_RESULT bool ParseArrayIndex(Local<Value> arg,
   return true;
 }
 
+}  // anonymous namespace
 
 // Buffer methods
 
 bool HasInstance(Local<Value> val) {
-  return val->IsUint8Array();
+  return val->IsArrayBufferView();
 }
 
 
 bool HasInstance(Local<Object> obj) {
-  return obj->IsUint8Array();
+  return obj->IsArrayBufferView();
 }
 
 
 char* Data(Local<Value> val) {
-  CHECK(val->IsUint8Array());
-  Local<Uint8Array> ui = val.As<Uint8Array>();
+  CHECK(val->IsArrayBufferView());
+  Local<ArrayBufferView> ui = val.As<ArrayBufferView>();
   ArrayBuffer::Contents ab_c = ui->Buffer()->GetContents();
   return static_cast<char*>(ab_c.Data()) + ui->ByteOffset();
 }
 
 
 char* Data(Local<Object> obj) {
-  CHECK(obj->IsUint8Array());
-  Local<Uint8Array> ui = obj.As<Uint8Array>();
+  CHECK(obj->IsArrayBufferView());
+  Local<ArrayBufferView> ui = obj.As<ArrayBufferView>();
   ArrayBuffer::Contents ab_c = ui->Buffer()->GetContents();
   return static_cast<char*>(ab_c.Data()) + ui->ByteOffset();
 }
 
 
 size_t Length(Local<Value> val) {
-  CHECK(val->IsUint8Array());
-  Local<Uint8Array> ui = val.As<Uint8Array>();
+  CHECK(val->IsArrayBufferView());
+  Local<ArrayBufferView> ui = val.As<ArrayBufferView>();
   return ui->ByteLength();
 }
 
@@ -247,8 +251,8 @@ void TTDSyncDataModNotify(v8::Local<v8::Object> val,
 #endif
 
 size_t Length(Local<Object> obj) {
-  CHECK(obj->IsUint8Array());
-  Local<Uint8Array> ui = obj.As<Uint8Array>();
+  CHECK(obj->IsArrayBufferView());
+  Local<ArrayBufferView> ui = obj.As<ArrayBufferView>();
   return ui->ByteLength();
 }
 
@@ -452,6 +456,7 @@ MaybeLocal<Object> New(Environment* env, char* data, size_t length) {
   return Local<Object>();
 }
 
+namespace {
 
 void CreateFromString(const FunctionCallbackInfo<Value>& args) {
   CHECK(args[0]->IsString());
@@ -860,7 +865,7 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
     THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   }
 
-  Local<Uint8Array> ts_obj = args[0].As<Uint8Array>();
+  Local<ArrayBufferView> ts_obj = args[0].As<ArrayBufferView>();
   ArrayBuffer::Contents ts_obj_c = ts_obj->Buffer()->GetContents();
   const size_t ts_obj_offset = ts_obj->ByteOffset();
   const size_t ts_obj_length = ts_obj->ByteLength();
@@ -1370,7 +1375,7 @@ void Initialize(Local<Object> target,
               Integer::New(env->isolate(), String::kMaxLength)).FromJust();
 }
 
-
+}  // anonymous namespace
 }  // namespace Buffer
 }  // namespace node
 

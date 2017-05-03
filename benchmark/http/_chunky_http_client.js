@@ -20,7 +20,7 @@ function main(conf) {
   // Chose 7 because 9 showed "Connection error" / "Connection closed"
   // An odd number could result in a better length dispersion.
   for (var i = 7; i <= 7 * 7 * 7; i *= 7)
-    headers.push(Array(i + 1).join('o'));
+    headers.push('o'.repeat(i));
 
   function WriteHTTPHeaders(channel, has_keep_alive, extra_header_count) {
     todo = [];
@@ -37,7 +37,7 @@ function main(conf) {
     for (var i = 0; i < extra_header_count; i++) {
       // Utilize first three powers of a small integer for an odd cycle and
       // because the fourth power of some integers overloads the server.
-      todo.push('X-Header-' + i + ': ' + headers[i % 3]);
+      todo.push(`X-Header-${i}: ${headers[i % 3]}`);
     }
     todo.push('');
     todo.push('');

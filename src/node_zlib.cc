@@ -50,6 +50,8 @@ using v8::Number;
 using v8::Object;
 using v8::Value;
 
+namespace {
+
 enum node_zlib_mode {
   NONE,
   DEFLATE,
@@ -63,9 +65,6 @@ enum node_zlib_mode {
 
 #define GZIP_HEADER_ID1 0x1f
 #define GZIP_HEADER_ID2 0x8b
-
-void InitZlib(v8::Local<v8::Object> target);
-
 
 /**
  * Deflate/Inflate
@@ -712,6 +711,7 @@ void InitZlib(Local<Object> target,
               FIXED_ONE_BYTE_STRING(env->isolate(), ZLIB_VERSION));
 }
 
+}  // anonymous namespace
 }  // namespace node
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(zlib, node::InitZlib)

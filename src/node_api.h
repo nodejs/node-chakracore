@@ -121,6 +121,10 @@ NAPI_EXTERN napi_status napi_create_array_with_length(napi_env env,
 NAPI_EXTERN napi_status napi_create_number(napi_env env,
                                            double value,
                                            napi_value* result);
+NAPI_EXTERN napi_status napi_create_string_latin1(napi_env env,
+                                                  const char* str,
+                                                  size_t length,
+                                                  napi_value* result);
 NAPI_EXTERN napi_status napi_create_string_utf8(napi_env env,
                                                 const char* str,
                                                 size_t length,
@@ -167,9 +171,11 @@ NAPI_EXTERN napi_status napi_get_value_bool(napi_env env,
                                             napi_value value,
                                             bool* result);
 
-// Gets the number of CHARACTERS in the string.
-NAPI_EXTERN napi_status napi_get_value_string_length(napi_env env,
+// Copies LATIN-1 encoded bytes from a string into a buffer.
+NAPI_EXTERN napi_status napi_get_value_string_latin1(napi_env env,
                                                      napi_value value,
+                                                     char* buf,
+                                                     size_t bufsize,
                                                      size_t* result);
 
 // Copies UTF-8 encoded bytes from a string into a buffer.
@@ -298,29 +304,12 @@ NAPI_EXTERN napi_status napi_get_cb_info(
     size_t* argc,      // [in-out] Specifies the size of the provided argv array
                        // and receives the actual count of args.
     napi_value* argv,  // [out] Array of values
-    napi_value* thisArg,  // [out] Receives the JS 'this' arg for the call
-    void** data);         // [out] Receives the data pointer for the callback.
+    napi_value* this_arg,  // [out] Receives the JS 'this' arg for the call
+    void** data);          // [out] Receives the data pointer for the callback.
 
-NAPI_EXTERN napi_status napi_get_cb_args_length(napi_env env,
-                                                napi_callback_info cbinfo,
-                                                size_t* result);
-NAPI_EXTERN napi_status napi_get_cb_args(napi_env env,
-                                         napi_callback_info cbinfo,
-                                         napi_value* buf,
-                                         size_t bufsize);
-NAPI_EXTERN napi_status napi_get_cb_this(napi_env env,
-                                         napi_callback_info cbinfo,
-                                         napi_value* result);
-
-NAPI_EXTERN napi_status napi_get_cb_data(napi_env env,
-                                         napi_callback_info cbinfo,
-                                         void** result);
 NAPI_EXTERN napi_status napi_is_construct_call(napi_env env,
                                                napi_callback_info cbinfo,
                                                bool* result);
-NAPI_EXTERN napi_status napi_set_return_value(napi_env env,
-                                              napi_callback_info cbinfo,
-                                              napi_value value);
 NAPI_EXTERN napi_status
 napi_define_class(napi_env env,
                   const char* utf8name,
@@ -474,6 +463,21 @@ NAPI_EXTERN napi_status napi_get_typedarray_info(napi_env env,
                                                  void** data,
                                                  napi_value* arraybuffer,
                                                  size_t* byte_offset);
+
+// Methods to manage simple async operations
+NAPI_EXTERN
+napi_status napi_create_async_work(napi_env env,
+                                   napi_async_execute_callback execute,
+                                   napi_async_complete_callback complete,
+                                   void* data,
+                                   napi_async_work* result);
+NAPI_EXTERN napi_status napi_delete_async_work(napi_env env,
+                                               napi_async_work work);
+NAPI_EXTERN napi_status napi_queue_async_work(napi_env env,
+                                              napi_async_work work);
+NAPI_EXTERN napi_status napi_cancel_async_work(napi_env env,
+                                               napi_async_work work);
+
 EXTERN_C_END
 
 #endif  // SRC_NODE_API_H__

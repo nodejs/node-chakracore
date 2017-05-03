@@ -59,7 +59,7 @@ it is marked as deprecated.
 const util = require('util');
 
 exports.puts = util.deprecate(function() {
-  for (var i = 0, len = arguments.length; i < len; ++i) {
+  for (let i = 0, len = arguments.length; i < len; ++i) {
     process.stdout.write(arguments[i] + '\n');
   }
 }, 'util.puts: Use console.log instead');
@@ -133,6 +133,13 @@ Each argument is converted to a string using `util.inspect()`.
 
 ```js
 util.format(1, 2, 3); // '1 2 3'
+```
+
+If only one argument is passed to `util.format()`, it is returned as it is
+without any formatting.
+
+```js
+util.format('%% %s'); // '%% %s'
 ```
 
 ## util.inherits(constructor, superConstructor)
@@ -321,7 +328,8 @@ class Box {
 
     // Five space padding because that's the size of "Box< ".
     const padding = ' '.repeat(5);
-    const inner = util.inspect(this.value, newOptions).replace(/\n/g, '\n' + padding);
+    const inner = util.inspect(this.value, newOptions)
+                      .replace(/\n/g, '\n' + padding);
     return options.stylize('Box', 'special') + '< ' + inner + ' >';
   }
 }
@@ -453,7 +461,7 @@ const util = require('util');
 
 util.isArray([]);
 // Returns: true
-util.isArray(new Array);
+util.isArray(new Array());
 // Returns: true
 util.isArray({});
 // Returns: false
@@ -689,7 +697,7 @@ util.isObject(null);
 // Returns: false
 util.isObject({});
 // Returns: true
-util.isObject(function(){});
+util.isObject(function() {});
 // Returns: false
 ```
 

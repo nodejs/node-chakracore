@@ -1,3 +1,8 @@
+root: true
+
+plugins:
+  - markdown
+
 env:
   node: true
   es6: true
@@ -34,6 +39,7 @@ rules:
   # Best Practices
   # http://eslint.org/docs/rules/#best-practices
   dot-location: [2, property]
+  eqeqeq: [2, smart]
   no-fallthrough: 2
   no-global-assign: 2
   no-multi-spaces: 2
@@ -43,7 +49,9 @@ rules:
   no-throw-literal: 2
   no-unused-labels: 2
   no-useless-call: 2
+  no-useless-concat: 2
   no-useless-escape: 2
+  no-useless-return: 2
   no-void: 2
   no-with: 2
 
@@ -142,8 +150,7 @@ rules:
 
   # Custom rules in tools/eslint-rules
   align-multiline-assignment: 2
-  assert-fail-single-argument: 2
-  assert-throws-arguments: [2, { requireTwo: false }]
+  assert-throws-arguments: [2, { requireTwo: true }]
   no-unescaped-regexp-dot: 2
 
 # Global scoped method and vars

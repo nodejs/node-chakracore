@@ -40,7 +40,6 @@ Support is divided into three tiers:
 | Windows      | Tier 1       | >= Windows 7 or >= Windows2008R2 | x86, x64             |                  |
 | SmartOS      | Tier 2       | >= 15 < 16.4                     | x86, x64             | see note1        |
 | FreeBSD      | Tier 2       | >= 10                            | x64                  |                  |
-| GNU/Linux    | Tier 2       | kernel >= 4.2.0, glibc >= 2.19   | ppc64be              |                  |
 | GNU/Linux    | Tier 2       | kernel >= 3.13.0, glibc >= 2.19  | ppc64le              |                  |
 | AIX          | Tier 2       | >= 7.1 TL04                      | ppc64be              |                  |
 | GNU/Linux    | Tier 2       | kernel >= 3.10, glibc >= 2.17    | s390x                |                  |
@@ -63,7 +62,7 @@ Depending on host platform, the selection of toolchains may vary.
 #### Unix
 
 * GCC 4.8.5 or newer
-* Clang 3.4.1 or newer
+* Clang 3.4.2 or newer
 
 #### Windows
 
@@ -78,7 +77,7 @@ Depending on host platform, the selection of toolchains may vary.
 Prerequisites:
 
 * `gcc` and `g++` 4.8.5 or newer, or
-* `clang` and `clang++` 3.4.1 or newer
+* `clang` and `clang++` 3.4.2 or newer
 * Python 2.6 or 2.7
 * GNU Make 3.81 or newer
 

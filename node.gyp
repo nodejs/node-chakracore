@@ -23,8 +23,6 @@
     'node_core_target_name%': 'node',
     'library_files': [
       'lib/internal/bootstrap_node.js',
-      'lib/_debug_agent.js',
-      'lib/_debugger.js',
       'lib/assert.js',
       'lib/buffer.js',
       'lib/child_process.js',
@@ -224,8 +222,6 @@
         'src/node_buffer.h',
         'src/node_constants.h',
         'src/node_debug_options.h',
-        'src/node_file.h',
-        'src/node_http_parser.h',
         'src/node_internals.h',
         'src/node_javascript.h',
         'src/node_mutex.h',
@@ -624,6 +620,7 @@
         '<(OBJ_PATH)/node.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/node_buffer.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/node_i18n.<(OBJ_SUFFIX)',
+        '<(OBJ_PATH)/node_url.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/debug-agent.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/util.<(OBJ_SUFFIX)',
         '<(OBJ_PATH)/string_bytes.<(OBJ_SUFFIX)',
@@ -650,7 +647,9 @@
       
       'sources': [
         'test/cctest/test_base64.cc',
+        'test/cctest/test_environment.cc',
         'test/cctest/test_util.cc',
+        'test/cctest/test_url.cc'
       ],
 
       'sources!': [

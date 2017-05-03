@@ -35,7 +35,7 @@ const runs = cli.optional.runs ? parseInt(cli.optional.runs, 10) : 30;
 const benchmarks = cli.benchmarks();
 
 if (benchmarks.length === 0) {
-  console.error('no benchmarks found');
+  console.error('No benchmarks found');
   process.exitCode = 1;
   return;
 }
@@ -79,14 +79,14 @@ if (showProgress) {
       // Construct configuration string, " A=a, B=b, ..."
       let conf = '';
       for (const key of Object.keys(data.conf)) {
-        conf += ' ' + key + '=' + JSON.stringify(data.conf[key]);
+        conf += ` ${key}=${JSON.stringify(data.conf[key])}`;
       }
       conf = conf.slice(1);
       // Escape quotes (") for correct csv formatting
       conf = conf.replace(/"/g, '""');
 
-      console.log(`"${job.binary}", "${job.filename}", "${conf}", ` +
-                  `${data.rate}, ${data.time}`);
+      console.log(`"${job.binary}", "${job.filename}", "${conf}", ${
+                   data.rate}, ${data.time}`);
       if (showProgress) {
         // One item in the subqueue has been completed.
         progress.completeConfig(data);
