@@ -147,12 +147,11 @@ void V8Debugger::removeBreakpoint(const String16& breakpointId) {
     return;
   }
 
-  JsErrorCode err = JsDiagRemoveBreakpoint(bpId);
-  assert(err == JsNoError || err == JsErrorInvalidArgument);
+  jsrt::Inspector::RemoveBreakpoint(bpId);
 }
 
 void V8Debugger::setBreakpointsActivated(bool activated) {
-  
+  // CHAKRA-TODO - Figure out what to do here
 }
 
 V8Debugger::PauseOnExceptionsState V8Debugger::getPauseOnExceptionsState() {

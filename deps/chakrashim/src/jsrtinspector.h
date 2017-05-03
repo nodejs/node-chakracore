@@ -37,6 +37,7 @@ class Inspector {
   static void SetChakraDebugObject(JsValueRef chakraDebugObject);
   static void SetDebugEventHandler(JsDiagDebugEventCallback callback,
                                    void* callbackState);
+  static void RemoveBreakpoint(unsigned int breakpointId);
   static void ClearBreakpoints();
 
  private:
