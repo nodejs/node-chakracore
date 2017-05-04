@@ -53,10 +53,13 @@ expect('--v8-pool-size=10', 'B\n');
 expect('--use-openssl-ca', 'B\n');
 expect('--use-bundled-ca', 'B\n');
 expect('--openssl-config=_ossl_cfg', 'B\n');
-expect('--icu-data-dir=_d', 'B\n');
 
-    // V8 options
-expect('--max_old_space_size=0', 'B\n');
+if (!common.isChakraEngine) {
+  expect('--icu-data-dir=_d', 'B\n');
+
+  // V8 options
+  expect('--max_old_space_size=0', 'B\n');
+}
 
 function expect(opt, want) {
   const printB = require.resolve('../fixtures/printB.js');

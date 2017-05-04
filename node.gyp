@@ -701,6 +701,9 @@
           'include_dirs': [
             'deps/chakrashim' # include/v8_platform.h
           ],
+          'sources!': [
+            'test/cctest/test_environment.cc', # TODO: Enable these test for node-chakracore
+          ]
         }],
         [ 'node_use_dtrace=="true" and OS!="mac" and OS!="linux"', {
           'copies': [{

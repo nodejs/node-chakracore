@@ -82,6 +82,10 @@ test-whatwg-url-origin-for : SKIP
 test-assert-checktag : SKIP
 test-process-env-symbols : SKIP
 test-module-loading-globalpaths : SKIP
+test-buffer-bindingobj-no-zerofill : PASS,FLAKY
+test-regress-GH-12371 : PASS,FLAKY
+test-util : PASS,FLAKY
+test-zlib-convenience-methods : PASS,FLAKY
 
 [$jsEngine==chakracore && $arch==x64]
 test-buffer-includes : SKIP
