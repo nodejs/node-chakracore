@@ -119,6 +119,8 @@ DEF(subtype)
 DEF(thisObject)
 DEF(type)
 DEF(uncaught)
+DEF(url)
+
 
 DEFSYMBOL(self)
 DEFSYMBOL(__external__)

@@ -10,6 +10,10 @@ SyntaxError: Expected identifier
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
    at startup (bootstrap_node.js:*)
+test.vm:*
+var 5;
+    ^^
+
 SyntaxError: Expected identifier
    at createScript (vm.js:*)
    at runInThisContext (vm.js:*)
