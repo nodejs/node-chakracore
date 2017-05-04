@@ -23,13 +23,8 @@ p.stderr.on('data', function(data) {
 });
 
 process.on('exit', function() {
-  // chakra engine don't point line in script file
-  if (common.isChakraEngine) {
-    assert(/^SyntaxError: Expected ';'/.test(output));
-  } else {
-    assert(/BEGIN CERT/.test(output));
-    assert(/^\s+\^/m.test(output));
-    assert(/Invalid left-hand side expression in prefix operation/
-      .test(output));
-  }
+  assert(/BEGIN CERT/.test(output));
+  assert(/^\s+\^/m.test(output));
+  assert(/Error:/
+    .test(output));
 });

@@ -24,7 +24,7 @@
 namespace v8 {
 
 TryCatch::TryCatch(Isolate* isolate)
-    : error(JS_INVALID_REFERENCE),
+    : metadata(JS_INVALID_REFERENCE),
       rethrow(false),
       user(true),
       verbose(false) {
@@ -42,11 +42,11 @@ TryCatch::~TryCatch() {
 }
 
 bool TryCatch::HasCaught() const {
-  if (error == JS_INVALID_REFERENCE) {
+  if (metadata == JS_INVALID_REFERENCE) {
     const_cast<TryCatch*>(this)->GetAndClearException();
   }
 
-  if (error != JS_INVALID_REFERENCE) {
+  if (metadata != JS_INVALID_REFERENCE) {
     return true;
   }
   bool hasException;
@@ -78,23 +78,34 @@ void TryCatch::GetAndClearException() {
   }
 
   if (hasException) {
-    JsValueRef exceptionRef;
-    errorCode = JsGetAndClearException(&exceptionRef);
+    JsValueRef metadataRef;
+    errorCode = JsGetAndClearExceptionWithMetadata(&metadataRef);
     // We came here through JsHasException, so script shouldn't be in disabled
     // state.
     CHAKRA_ASSERT(errorCode != JsErrorInDisabledState);
     if (errorCode == JsNoError) {
-      error = exceptionRef;
+      metadata = metadataRef;
     }
   }
 }
 
 Handle<Value> TryCatch::ReThrow() {
-  if (error == JS_INVALID_REFERENCE) {
+  if (metadata == JS_INVALID_REFERENCE) {
     GetAndClearException();
   }
 
-  if (error == JS_INVALID_REFERENCE) {
+  if (metadata == JS_INVALID_REFERENCE) {
+    return Local<Value>();
+  }
+
+  JsPropertyIdRef err = jsrt::IsolateShim::GetCurrent()
+    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::exception);
+  if (err == JS_INVALID_REFERENCE) {
+    return Local<Value>();
+  }
+
+  JsValueRef error;
+  if (JsGetProperty(metadata, err, &error) != JsNoError) {
     return Local<Value>();
   }
 
@@ -107,11 +118,22 @@ Handle<Value> TryCatch::ReThrow() {
 }
 
 Local<Value> TryCatch::Exception() const {
-  if (error == JS_INVALID_REFERENCE) {
+  if (metadata == JS_INVALID_REFERENCE) {
     const_cast<TryCatch*>(this)->GetAndClearException();
   }
 
-  if (error == JS_INVALID_REFERENCE) {
+  if (metadata == JS_INVALID_REFERENCE) {
+    return Local<Value>();
+  }
+
+  JsPropertyIdRef err = jsrt::IsolateShim::GetCurrent()
+    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::exception);
+  if (err == JS_INVALID_REFERENCE) {
+    return Local<Value>();
+  }
+
+  JsValueRef error;
+  if (JsGetProperty(metadata, err, &error) != JsNoError) {
     return Local<Value>();
   }
 
@@ -119,11 +141,22 @@ Local<Value> TryCatch::Exception() const {
 }
 
 MaybeLocal<Value> TryCatch::StackTrace(Local<Context> context) const {
-  if (error == JS_INVALID_REFERENCE) {
+  if (metadata == JS_INVALID_REFERENCE) {
     const_cast<TryCatch*>(this)->GetAndClearException();
   }
 
-  if (error == JS_INVALID_REFERENCE) {
+  if (metadata == JS_INVALID_REFERENCE) {
+    return Local<Value>();
+  }
+
+  JsPropertyIdRef err = jsrt::IsolateShim::GetCurrent()
+    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::exception);
+  if (err == JS_INVALID_REFERENCE) {
+    return Local<Value>();
+  }
+
+  JsValueRef error;
+  if (JsGetProperty(metadata, err, &error) != JsNoError) {
     return Local<Value>();
   }
 
@@ -146,10 +179,14 @@ Local<Value> TryCatch::StackTrace() const {
 }
 
 Local<v8::Message> TryCatch::Message() const {
-  // return an empty ref for now, so no nulls/empty messages will be printed
-  // should be changed once we understand how to retreive the info for each
-  // errror message
-  return Local<v8::Message>();
+  if (metadata == JS_INVALID_REFERENCE) {
+    const_cast<TryCatch*>(this)->GetAndClearException();
+  }
+
+  if (metadata == JS_INVALID_REFERENCE) {
+    return Local<v8::Message>();
+  }
+  return Local<v8::Message>::New(metadata);
 }
 
 void TryCatch::SetVerbose(bool value) {

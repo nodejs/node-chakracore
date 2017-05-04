@@ -1,5 +1,9 @@
 beginning
 middle
+vm.js:74
+  return new Script(code, options);
+  ^
+
 SyntaxError: Expected identifier
    at createScript (vm.js:*)
    at runInThisContext (vm.js:*)

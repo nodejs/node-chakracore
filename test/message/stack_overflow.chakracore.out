@@ -1,2 +1,6 @@
 before
+*test*message*stack_overflow.js:*
+  stackOverflow();
+  ^
+
 Error: Out of stack space

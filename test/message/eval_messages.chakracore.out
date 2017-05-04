@@ -1,4 +1,8 @@
 [eval]
+[eval]:1
+'use strict'; with(this){__filename}
+              ^^^^^
+
 SyntaxError: 'with' statements are not allowed in strict mode
    at createScript (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
@@ -9,18 +13,26 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Anonymous function (bootstrap_node.js:*:*)
 42
 42
+vm.js:44
+    return realRunInThisContext.call(this, options);
+    ^
+
 Error: hello
-   at Global code ([eval]:1:1)
-   at Script.prototype.runInThisContext (vm.js:*:*)      
+   at Global code ([eval]:*:*)
+   at Script.prototype.runInThisContext (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
+vm.js:44
+    return realRunInThisContext.call(this, options);
+    ^
+
 Error: hello
-   at Global code ([eval]:1:15)
-   at Script.prototype.runInThisContext (vm.js:*:*)   
+   at Global code ([eval]:*:*)
+   at Script.prototype.runInThisContext (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
@@ -28,15 +40,27 @@ Error: hello
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
 100
+vm.js:44
+    return realRunInThisContext.call(this, options);
+    ^
+
 ReferenceError: Variable undefined in strict mode
-   at Global code ([eval]:1:28)
-   at Script.prototype.runInThisContext (vm.js:*:*)      
+   at Global code ([eval]:*:*)
+   at Script.prototype.runInThisContext (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
+
+vm.js:44
+    return realRunInThisContext.call(this, options);
+    ^
 10
+
+vm.js:44
+    return realRunInThisContext.call(this, options);
+    ^
 10
 done

@@ -303,6 +303,7 @@ class Local {
   friend class HandleScope;
   friend class Integer;
   friend class Map;
+  friend class Message;
   friend class Number;
   friend class NumberObject;
   friend class Object;
@@ -2737,7 +2738,7 @@ class V8_EXPORT TryCatch {
   void GetAndClearException();
   void CheckReportExternalException();
 
-  JsValueRef error;
+  JsValueRef metadata;
   TryCatch* prev;
   bool rethrow;
   bool user;

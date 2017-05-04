@@ -1,5 +1,9 @@
 beginning
 middle
+vm.js:44
+    return realRunInThisContext.call(this, options);
+    ^
+
 Error: boo!
    at Global code (test.vm:*)
    at Script.prototype.runInThisContext (vm.js:*:*)      

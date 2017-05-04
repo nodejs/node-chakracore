@@ -1,4 +1,8 @@
 before
+vm.js:53
+    return realRunInContext.call(this, contextifiedSandbox, options);
+    ^
+
 TypeError: Unable to set property 'bar' of undefined or null reference
    at Global code (evalmachine.<anonymous>:1:1)
    at Script.prototype.runInContext (vm.js:*)
