@@ -53,12 +53,8 @@ const syntaxArgs = [
     assert.strictEqual(c.stdout, '', 'stdout produced');
 
     // stderr should include the filename
-    // TODO(digitalinfinity): Remove this check
-    // Node-ChakraCore currently doesn't populate TryCatch.Message
-    if (process.jsEngine === 'v8') {
-      assert(c.stderr.startsWith(file),
-             "stderr doesn't start with the filename");
-    }
+    assert(c.stderr.startsWith(file),
+           "stderr doesn't start with the filename");
 
     // stderr should have a syntax error message
     const match = c.stderr.match(common.engineSpecificMessage({
