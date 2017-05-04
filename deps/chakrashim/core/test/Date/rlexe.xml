@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -107,5 +107,20 @@
         <baseline>formatting.win8.baseline</baseline>
       </override>
     </condition>
+  </test>
+  <test>
+    <default>
+      <files>marshalbug.js</files>
+      <!-- only to catch debug build assertions -->
+      <compile-flags>-nonative -intl-</compile-flags>
+      <baseline/>
+      <tags>exclude_fre,exclude_dynapogo</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>xplatInterval.js</files>
+      <tags>exclude_jenkins,Slow</tags>
+    </default>
   </test>
 </regress-exe>

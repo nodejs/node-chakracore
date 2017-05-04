@@ -75,7 +75,7 @@ when the child process terminates.
 
 The importance of the distinction between [`child_process.exec()`][] and
 [`child_process.execFile()`][] can vary based on platform. On Unix-type operating
-systems (Unix, Linux, OSX) [`child_process.execFile()`][] can be more efficient
+systems (Unix, Linux, macOS) [`child_process.execFile()`][] can be more efficient
 because it does not spawn a shell. On Windows, however, `.bat` and `.cmd`
 files are not executable on their own without a terminal, and therefore cannot
 be launched using [`child_process.execFile()`][]. When running on Windows, `.bat`
@@ -433,7 +433,7 @@ child.on('error', (err) => {
 });
 ```
 
-*Note: Certain platforms (OS X, Linux) will use the value of `argv[0]` for the
+*Note: Certain platforms (macOS, Linux) will use the value of `argv[0]` for the
 process title while others (Windows, SunOS) will use `command`.*
 
 *Note: Node.js currently overwrites `argv[0]` with `process.execPath` on
@@ -1132,7 +1132,7 @@ added: v0.1.90
 A `Readable Stream` that represents the child process's `stderr`.
 
 If the child was spawned with `stdio[2]` set to anything other than `'pipe'`,
-then this will be `undefined`.
+then this will be `null`.
 
 `child.stderr` is an alias for `child.stdio[2]`. Both properties will refer to
 the same value.
@@ -1150,7 +1150,7 @@ A `Writable Stream` that represents the child process's `stdin`.
 continue until this stream has been closed via `end()`.*
 
 If the child was spawned with `stdio[0]` set to anything other than `'pipe'`,
-then this will be `undefined`.
+then this will be `null`.
 
 `child.stdin` is an alias for `child.stdio[0]`. Both properties will refer to
 the same value.
@@ -1205,7 +1205,7 @@ added: v0.1.90
 A `Readable Stream` that represents the child process's `stdout`.
 
 If the child was spawned with `stdio[1]` set to anything other than `'pipe'`,
-then this will be `undefined`.
+then this will be `null`.
 
 `child.stdout` is an alias for `child.stdio[1]`. Both properties will refer
 to the same value.

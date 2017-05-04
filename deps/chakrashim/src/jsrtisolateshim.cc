@@ -26,6 +26,7 @@
 #include <algorithm>
 #include "v8-debug.h"
 #include "jsrtdebug.h"
+#include "jsrtinspector.h"
 
 /////////////////////////////////////////////////
 
@@ -280,7 +281,12 @@ IsolateShim::~IsolateShim() {
     return nullptr;
   }
 
-  if (Debugger::IsDebugEnabled()) {
+  if (Inspector::IsInspectorEnabled()) {
+    // If JavaScript debugging APIs need to be exposed then
+    // runtime should be in debugging mode from start
+    Inspector::StartDebugging(runtime);
+  }
+  else if (Debugger::IsDebugEnabled()) {
     // If JavaScript debugging APIs need to be exposed then
     // runtime should be in debugging mode from start
     Debugger::StartDebugging(runtime);
@@ -542,6 +548,10 @@ ContextShim * IsolateShim::GetContextShimOfObject(JsValueRef valueRef) {
   return GetContextShim(contextRef);
 }
 
+void IsolateShim::RequestInterrupt(v8::InterruptCallback callback, void* data) {
+  Inspector::RequestAsyncBreak(this->GetRuntimeHandle(), callback, data);
+}
+
 void IsolateShim::DisableExecution() {
   // CHAKRA: Error handling?
   JsDisableRuntimeExecution(this->GetRuntimeHandle());
@@ -604,6 +614,16 @@ JsValueRef IsolateShim::GetChakraDebugShimJsArrayBuffer() {
                 nullptr, nullptr,
                 &chakraDebugShimArrayBuffer) == JsNoError);
   return chakraDebugShimArrayBuffer;
+}
+
+JsValueRef IsolateShim::GetChakraInspectorShimJsArrayBuffer() {
+  JsValueRef chakraInspectorShimArrayBuffer;
+  CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
+                (void*)raw_chakra_inspector_value,
+                sizeof(raw_chakra_inspector_value),
+                nullptr, nullptr,
+                &chakraInspectorShimArrayBuffer) == JsNoError);
+  return chakraInspectorShimArrayBuffer;
 }
 
 /*static*/

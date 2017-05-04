@@ -2,6 +2,7 @@
 
 const common = require('../common');
 const spawn = require('child_process').spawn;
+let run = common.noop;
 
 if (common.isChakraEngine) {
   console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
@@ -9,7 +10,6 @@ if (common.isChakraEngine) {
   return;
 }
 
-let run = () => {};
 function test(extraArgs, stdoutPattern) {
   const next = run;
   run = () => {

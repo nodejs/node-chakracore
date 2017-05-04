@@ -4,11 +4,18 @@
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #include "node.h"
+#include "env.h"
+#include "env-inl.h"
+
 #include <string>
 #include <vector>
 
 namespace node {
 namespace url {
+
+using v8::Local;
+using v8::Value;
+
 
 #define BIT_AT(a, i)                                                          \
   (!!((unsigned int) (a)[(unsigned int) (i) >> 3] &                           \
@@ -377,11 +384,11 @@ static inline unsigned hex2bin(const char ch) {
   return static_cast<unsigned>(-1);
 }
 
-static inline int PercentDecode(const char* input,
-                                size_t len,
-                                std::string* dest) {
+static inline void PercentDecode(const char* input,
+                                 size_t len,
+                                 std::string* dest) {
   if (len == 0)
-    return 0;
+    return;
   dest->reserve(len);
   const char* pointer = input;
   const char* end = input + len;
@@ -400,11 +407,10 @@ static inline int PercentDecode(const char* input,
       unsigned a = hex2bin(pointer[1]);
       unsigned b = hex2bin(pointer[2]);
       char c = static_cast<char>(a * 16 + b);
-      *dest += static_cast<char>(c);
+      *dest += c;
       pointer += 3;
     }
   }
-  return 0;
 }
 
 #define SPECIALS(XX)                                                          \
@@ -446,13 +452,12 @@ static inline int PercentDecode(const char* input,
   XX(URL_FLAGS_INVALID_PARSE_STATE, 0x04)                                     \
   XX(URL_FLAGS_TERMINATED, 0x08)                                              \
   XX(URL_FLAGS_SPECIAL, 0x10)                                                 \
-  XX(URL_FLAGS_HAS_SCHEME, 0x20)                                              \
-  XX(URL_FLAGS_HAS_USERNAME, 0x40)                                            \
-  XX(URL_FLAGS_HAS_PASSWORD, 0x80)                                            \
-  XX(URL_FLAGS_HAS_HOST, 0x100)                                               \
-  XX(URL_FLAGS_HAS_PATH, 0x200)                                               \
-  XX(URL_FLAGS_HAS_QUERY, 0x400)                                              \
-  XX(URL_FLAGS_HAS_FRAGMENT, 0x800)
+  XX(URL_FLAGS_HAS_USERNAME, 0x20)                                            \
+  XX(URL_FLAGS_HAS_PASSWORD, 0x40)                                            \
+  XX(URL_FLAGS_HAS_HOST, 0x80)                                                \
+  XX(URL_FLAGS_HAS_PATH, 0x100)                                               \
+  XX(URL_FLAGS_HAS_QUERY, 0x200)                                              \
+  XX(URL_FLAGS_HAS_FRAGMENT, 0x400)
 
 #define ARGS(XX)                                                              \
   XX(ARG_FLAGS)                                                               \
@@ -465,6 +470,10 @@ static inline int PercentDecode(const char* input,
   XX(ARG_QUERY)                                                               \
   XX(ARG_FRAGMENT)
 
+#define ERR_ARGS(XX)                                                          \
+  XX(ERR_ARG_FLAGS)                                                           \
+  XX(ERR_ARG_INPUT)                                                           \
+
 static const char kEOL = -1;
 
 enum url_parse_state {
@@ -472,19 +481,25 @@ enum url_parse_state {
 #define XX(name) name,
   PARSESTATES(XX)
 #undef XX
-} url_parse_state;
+};
 
 enum url_flags {
 #define XX(name, val) name = val,
   FLAGS(XX)
 #undef XX
-} url_flags;
+};
 
 enum url_cb_args {
 #define XX(name) name,
   ARGS(XX)
 #undef XX
-} url_cb_args;
+};
+
+enum url_error_cb_args {
+#define XX(name) name,
+  ERR_ARGS(XX)
+#undef XX
+};
 
 static inline bool IsSpecial(std::string scheme) {
 #define XX(name, _) if (scheme == name) return true;
@@ -530,6 +545,93 @@ struct url_host {
   url_host_value value;
   enum url_host_type type;
 };
+
+class URL {
+ public:
+  static void Parse(const char* input,
+                    const size_t len,
+                    enum url_parse_state state_override,
+                    struct url_data* url,
+                    const struct url_data* base,
+                    bool has_base);
+
+  URL(const char* input, const size_t len) {
+    Parse(input, len, kUnknownState, &context_, nullptr, false);
+  }
+
+  URL(const char* input, const size_t len, const URL* base) {
+    if (base != nullptr)
+      Parse(input, len, kUnknownState, &context_, &(base->context_), true);
+    else
+      Parse(input, len, kUnknownState, &context_, nullptr, false);
+  }
+
+  URL(const char* input, const size_t len,
+      const char* base, const size_t baselen) {
+    if (base != nullptr && baselen > 0) {
+      URL _base(base, baselen);
+      Parse(input, len, kUnknownState, &context_, &(_base.context_), true);
+    } else {
+      Parse(input, len, kUnknownState, &context_, nullptr, false);
+    }
+  }
+
+  explicit URL(std::string input) :
+      URL(input.c_str(), input.length()) {}
+
+  URL(std::string input, const URL* base) :
+      URL(input.c_str(), input.length(), base) {}
+
+  URL(std::string input, std::string base) :
+      URL(input.c_str(), input.length(), base.c_str(), base.length()) {}
+
+  int32_t flags() {
+    return context_.flags;
+  }
+
+  int port() {
+    return context_.port;
+  }
+
+  const std::string& protocol() const {
+    return context_.scheme;
+  }
+
+  const std::string& username() const {
+    return context_.username;
+  }
+
+  const std::string& password() const {
+    return context_.password;
+  }
+
+  const std::string& host() const {
+    return context_.host;
+  }
+
+  const std::string& query() const {
+    return context_.query;
+  }
+
+  const std::string& fragment() const {
+    return context_.fragment;
+  }
+
+  std::string path() {
+    std::string ret;
+    for (auto i = context_.path.begin(); i != context_.path.end(); i++) {
+      ret += '/';
+      ret += *i;
+    }
+    return ret;
+  }
+
+  const Local<Value> ToObject(Environment* env) const;
+
+ private:
+  struct url_data context_;
+};
+
 }  // namespace url
 
 }  // namespace node

@@ -34,4 +34,9 @@ Handle<Boolean> Boolean::New(Isolate* isolate, bool value) {
   return From(value);
 }
 
+Boolean* Boolean::Cast(v8::Value* obj) {
+    CHAKRA_ASSERT(obj->IsBoolean());
+    return static_cast<Boolean*>(obj);
+}
+
 }  // namespace v8

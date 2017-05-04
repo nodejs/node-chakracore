@@ -24,9 +24,14 @@
 namespace v8 {
 
   THREAD_LOCAL bool g_EnableDebug = false;
+  THREAD_LOCAL bool g_EnableInspector = false;
 
   void Debug::EnableDebug() {
     g_EnableDebug = true;
+  }
+
+  void Debug::EnableInspector() {
+    g_EnableInspector = true;
   }
 
   Local<Context> Debug::GetDebugContext(Isolate* isolate) {
@@ -82,4 +87,16 @@ namespace v8 {
     Local<Value> data) {
     return false;
   }
+
+  void Debug::SetLiveEditEnabled(Isolate* isolate, bool enable) {
+    // CHAKRA-TODO: Figure out what to do here
+    //
+    // hiteshk: This is edit and continue, right? I don't recall if there are
+    // JSRT APIs enabled for this today but if there aren't, it would be an
+    // interesting exercise to see what would be needed here (and how Chakra's
+    // Edit and Continue differs from v8's). @jianxu would be the expert here
+    // in Sandeep's absence
+    CHAKRA_ASSERT(false);
+  }
+
 }  // namespace v8

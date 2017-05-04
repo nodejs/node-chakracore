@@ -40,12 +40,14 @@
       ['OS == "win"', {
         'os_posix': 0,
         'v8_postmortem_support%': 'false',
+        'OBJ_DIR': '<(PRODUCT_DIR)/obj',
+        'V8_BASE': '<(PRODUCT_DIR)/lib/v8_libbase.lib',
       }, {
         'os_posix': 1,
         'v8_postmortem_support%': 'true',
       }],
       ['OS== "mac"', {
-        'OBJ_DIR': '<(PRODUCT_DIR)/obj',
+        'OBJ_DIR': '<(PRODUCT_DIR)/obj.target',
         'V8_BASE': '<(PRODUCT_DIR)/libv8_base.a',
         'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/libchakrashim.a',
       }, {
@@ -54,8 +56,8 @@
             'OBJ_DIR': '<(PRODUCT_DIR)/obj',
             'V8_BASE': '<(PRODUCT_DIR)/obj/deps/v8/src/libv8_base.a',
           }, {
-            'OBJ_DIR': '<(PRODUCT_DIR)/obj.target',
-            'V8_BASE': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
+            'OBJ_DIR%': '<(PRODUCT_DIR)/obj.target',
+            'V8_BASE%': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
             'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/obj.target/deps/chakrashim/libchakrashim.a',
           }],
         ],
@@ -116,7 +118,7 @@
         'variables': {
           'v8_enable_handle_zapping': 1,
         },
-        'defines': [ 'DEBUG', '_DEBUG' ],
+        'defines': [ 'DEBUG', '_DEBUG', 'V8_ENABLE_CHECKS' ],
         'cflags': [ '-g', '-O0' ],
         'conditions': [
           ['target_arch=="x64"', {

@@ -2,6 +2,12 @@
 <regress-exe>
   <test>
     <default>
+      <files>argTest.js</files>
+      <compile-flags>-maic:0 -maxInterpretCount:0</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>ArrayView.js</files>
       <baseline>ArrayView.baseline</baseline>
       <compile-flags>-testtrace:asmjs -simdjs</compile-flags>
@@ -538,6 +544,11 @@
   </test>
   <test>
     <default>
+      <files>evalbug.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>constTest.js</files>
       <baseline>constTest.baseline</baseline>
       <compile-flags>-testtrace:asmjs -simdjs</compile-flags>
@@ -817,6 +828,13 @@
   <test>
     <default>
       <files>bugGH2270.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>nested.js</files>
+      <baseline>nested.baseline</baseline>
+      <compile-flags>-forcedeferparse -testtrace:asmjs -simdjs</compile-flags>
     </default>
   </test>
 </regress-exe>

@@ -997,6 +997,18 @@ void DefineOpenSSLConstants(Local<Object> target) {
     NODE_DEFINE_CONSTANT(target, RSA_PKCS1_PSS_PADDING);
 #endif
 
+#ifdef RSA_PSS_SALTLEN_DIGEST
+    NODE_DEFINE_CONSTANT(target, RSA_PSS_SALTLEN_DIGEST);
+#endif
+
+#ifdef RSA_PSS_SALTLEN_MAX_SIGN
+    NODE_DEFINE_CONSTANT(target, RSA_PSS_SALTLEN_MAX_SIGN);
+#endif
+
+#ifdef RSA_PSS_SALTLEN_AUTO
+    NODE_DEFINE_CONSTANT(target, RSA_PSS_SALTLEN_AUTO);
+#endif
+
 #if HAVE_OPENSSL
   // NOTE: These are not defines
   NODE_DEFINE_CONSTANT(target, POINT_CONVERSION_COMPRESSED);
@@ -1245,12 +1257,31 @@ void DefineZlibConstants(Local<Object> target) {
 }
 
 void DefineConstants(v8::Isolate* isolate, Local<Object> target) {
+  Environment* env = Environment::GetCurrent(isolate);
+
   Local<Object> os_constants = Object::New(isolate);
+  CHECK(os_constants->SetPrototype(env->context(),
+                                   Null(env->isolate())).FromJust());
+
   Local<Object> err_constants = Object::New(isolate);
+  CHECK(err_constants->SetPrototype(env->context(),
+                                    Null(env->isolate())).FromJust());
+
   Local<Object> sig_constants = Object::New(isolate);
+  CHECK(sig_constants->SetPrototype(env->context(),
+                                    Null(env->isolate())).FromJust());
+
   Local<Object> fs_constants = Object::New(isolate);
+  CHECK(fs_constants->SetPrototype(env->context(),
+                                   Null(env->isolate())).FromJust());
+
   Local<Object> crypto_constants = Object::New(isolate);
+  CHECK(crypto_constants->SetPrototype(env->context(),
+                                       Null(env->isolate())).FromJust());
+
   Local<Object> zlib_constants = Object::New(isolate);
+  CHECK(zlib_constants->SetPrototype(env->context(),
+                                     Null(env->isolate())).FromJust());
 
   DefineErrnoConstants(err_constants);
   DefineWindowsErrorConstants(err_constants);

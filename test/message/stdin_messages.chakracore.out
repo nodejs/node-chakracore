@@ -4,10 +4,13 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at runInThisContext (vm.js:*)
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
+   at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at runCallback (timers.js:*:*)
-   at tryOnImmediate (timers.js:*:*)
-   at processImmediate (timers.js:*:*)
+   at emitNone (events.js:*:*)
+   at emit (events.js:*:*)
+   at endReadableNT (_stream_readable.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+
 42
 42
 Error: hello
@@ -16,20 +19,25 @@ Error: hello
    at runInThisContext (vm.js:*)
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
+   at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at runCallback (timers.js:*:*)
-   at tryOnImmediate (timers.js:*:*)
-   at processImmediate (timers.js:*:*)
+   at emitNone (events.js:*:*)
+   at emit (events.js:*:*)
+   at endReadableNT (_stream_readable.js:*:*)
+
 Error: hello
    at Global code ([stdin]:*)
    at Script.prototype.runInThisContext (vm.js:*:*)         
    at runInThisContext (vm.js:*)
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
+   at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at runCallback (timers.js:*:*)
-   at tryOnImmediate (timers.js:*:*)
-   at processImmediate (timers.js:*:*)
+   at emitNone (events.js:*:*)
+   at emit (events.js:*:*)
+   at endReadableNT (_stream_readable.js:*:*)
+
+
 100
 ReferenceError: Variable undefined in strict mode
    at Global code ([stdin]:*)
@@ -37,10 +45,12 @@ ReferenceError: Variable undefined in strict mode
    at runInThisContext (vm.js:*)
    at Anonymous function ([stdin]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
+   at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at runCallback (timers.js:*:*)
-   at tryOnImmediate (timers.js:*:*)
-   at processImmediate (timers.js:*:*)
+   at emitNone (events.js:*:*)
+   at emit (events.js:*:*)
+   at endReadableNT (_stream_readable.js:*:*)
+
 10
 10
 done

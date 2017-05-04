@@ -24,6 +24,7 @@
 #include "jsrtutils.h"
 #include "v8-debug.h"
 #include "libplatform/v8-tracing.h"
+#include "jsrtplatform.h"
 
 #ifndef _WIN32
 #include "ChakraCoreVersion.h"
@@ -162,7 +163,7 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
 
   if (remove_flags) {
     char** end = std::remove(argv + 1, argv + *argc, nullptr);
-    *argc = end - argv;
+    *argc = static_cast<int>(end - argv);
   }
 }
 
@@ -209,6 +210,15 @@ void V8::ToLocalEmpty() {
 }
 
 namespace platform {
+  v8::Platform* CreateDefaultPlatform(int thread_pool_size) {
+    jsrt::DefaultPlatform* platform = new jsrt::DefaultPlatform();
+    return platform;
+  }
+
+  bool PumpMessageLoop(v8::Platform* platform, v8::Isolate* isolate) {
+    return static_cast<jsrt::DefaultPlatform*>(platform)->PumpMessageLoop(isolate);
+  }
+
   void SetTracingController(
       v8::Platform* platform,
       v8::platform::tracing::TracingController* tracing_controller) {
@@ -248,7 +258,7 @@ namespace tracing {
   }
 
   TraceObject::~TraceObject() {
-    jsrt::Unimplemented("TracingController");
+    // Intentionally left empty to suppress warning C4722.
   }
 
   TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&) {

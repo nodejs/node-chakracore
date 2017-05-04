@@ -37,6 +37,19 @@ Local<Value> StringObject::New(Handle<String> value) {
   return Local<StringObject>::New(newStringObjectRef);
 }
 
+Local<String> StringObject::ValueOf() const {
+  JsValueRef valueOfFunction =
+    ContextShim::GetCurrent()->GetValueOfFunction();
+
+  JsValueRef stringObjectValue;
+  if (jsrt::CallFunction(valueOfFunction, (JsValueRef)this,
+                         &stringObjectValue) != JsNoError) {
+    return Local<String>();
+  }
+
+  return Local<String>::New(stringObjectValue);
+}
+
 StringObject *StringObject::Cast(v8::Value *obj) {
   CHAKRA_ASSERT(obj->IsStringObject());
   return static_cast<StringObject*>(obj);

@@ -90,8 +90,12 @@ On how to run tests in this direcotry, see
     </tr>
     <tr>
       <td>known_issues</td>
-      <td>No</td>
-      <td>Tests reproducing known issues within the system.</td>
+      <td>Yes</td>
+      <td>
+        Tests reproducing known issues within the system. All tests inside of
+        this directory are expected to fail consistently. If a test doesn't fail
+        on certain platforms, those should be skipped via `known_issues.status`.
+      </td>
     </tr>
     <tr>
       <td>message</td>
@@ -292,7 +296,7 @@ Platform check for Linux on PowerPC.
 ### isOSX
 * return [&lt;Boolean>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
 
-Platform check for OS X.
+Platform check for macOS.
 
 ### isSunOS
 * return [&lt;Boolean>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
@@ -324,7 +328,7 @@ Gets IP of localhost
 
 Array of IPV6 hosts.
 
-### mustCall(fn[, expected])
+### mustCall([fn][, expected])
 * fn [&lt;Function>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
 * expected [&lt;Number>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Number_type) default = 1
 * return [&lt;Function>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)
@@ -333,12 +337,26 @@ Returns a function that calls `fn`. If the returned function has not been called
 exactly `expected` number of times when the test is complete, then the test will
 fail.
 
+If `fn` is not provided, `common.noop` will be used.
+
 ### nodeProcessAborted(exitCode, signal)
 * `exitCode` [&lt;Number>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Number_type)
 * `signal` [&lt;String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
 * return [&lt;Boolean>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
 
 Returns `true` if the exit code `exitCode` and/or signal name `signal` represent the exit code and/or signal name of a node process that aborted, `false` otherwise.
+
+### noop
+
+A non-op `Function` that can be used for a variety of scenarios.
+
+For instance,
+
+```js
+const common = require('../common');
+
+someAsyncAPI('foo', common.mustCall(common.noop));
+```
 
 ### opensslCli
 * return [&lt;Boolean>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
@@ -376,23 +394,11 @@ Path to the 'root' directory. either `/` or `c:\\` (windows)
 
 Logs '1..0 # Skipped: ' + `msg`
 
-### spawnCat(options)
-* `options` [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-* return [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-
-Platform normalizes the `cat` command.
-
 ### spawnPwd(options)
 * `options` [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 * return [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 
 Platform normalizes the `pwd` command.
-
-### spawnSyncCat(options)
-* `options` [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-* return [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
-
-Synchronous version of `spawnCat`.
 
 ### spawnSyncPwd(options)
 * `options` [&lt;Object>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)

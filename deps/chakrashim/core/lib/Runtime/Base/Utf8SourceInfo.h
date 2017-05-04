@@ -154,6 +154,13 @@ namespace Js
             return m_sourceInfoId;
         }
 
+#if ENABLE_TTD
+        void SetSourceInfoForDebugReplay_TTD(uint32 newSourceInfoId)
+        {
+            this->m_sourceInfoId = newSourceInfoId;
+        }
+#endif
+
         void ClearFunctions()
         {
             if (this->functionBodyDictionary)
@@ -299,7 +306,7 @@ namespace Js
             bool isLibraryCode, Js::Var scriptSource = nullptr);
         static Utf8SourceInfo* New(ScriptContext* scriptContext, LPCUTF8 utf8String,
             int32 length, size_t numBytes, SRCINFO const* srcInfo,
-            bool isLibraryCode, Js::Var scriptSource = nullptr);
+            bool isLibraryCode);
         static Utf8SourceInfo* NewWithNoCopy(ScriptContext* scriptContext,
             LPCUTF8 utf8String, int32 length, size_t numBytes,
             SRCINFO const* srcInfo, bool isLibraryCode, Js::Var scriptSource = nullptr);

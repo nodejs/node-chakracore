@@ -501,6 +501,7 @@ namespace jsrt {
       JsErrorCode errorCode = JsDiagEvaluate(scriptRef,
                                              frameIndex,
                                              JsParseScriptAttributeNone,
+                                             /* forceSetValueProp */ false,
                                              &result);
       if (errorCode != JsNoError && errorCode != JsErrorScriptException) {
         jsrt::Fatal("internal error %s(%d): %d", __FILE__, __LINE__,

@@ -225,6 +225,12 @@ Local<Script> UnboundScript::BindToCurrentContext() {
   return Local<Script>::New(scriptObject);
 }
 
+int UnboundScript::GetId() {
+  // CHAKRA-TODO: Figure out what to do here
+  CHAKRA_ASSERT(false);
+  return 0;
+}
+
 MaybeLocal<UnboundScript> ScriptCompiler::CompileUnboundScript(
     Isolate* isolate, Source* source, CompileOptions options) {
   MaybeLocal<Script> maybe = Compile(Local<Context>(), source, options);

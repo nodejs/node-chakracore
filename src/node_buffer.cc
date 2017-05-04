@@ -169,7 +169,8 @@ void CallbackInfo::WeakCallback(Isolate* isolate) {
 // Parse index for external array data.
 inline MUST_USE_RESULT bool ParseArrayIndex(Local<Value> arg,
                                             size_t def,
-                                            size_t* ret) {
+                                            size_t* ret,
+                                            size_t needed = 0) {
   if (arg->IsUndefined()) {
     *ret = def;
     return true;
@@ -183,7 +184,7 @@ inline MUST_USE_RESULT bool ParseArrayIndex(Local<Value> arg,
   // Check that the result fits in a size_t.
   const uint64_t kSizeMax = static_cast<uint64_t>(static_cast<size_t>(-1));
   // coverity[pointless_expression]
-  if (static_cast<uint64_t>(tmp_i) > kSizeMax)
+  if (static_cast<uint64_t>(tmp_i) > kSizeMax - needed)
     return false;
 
   *ret = static_cast<size_t>(tmp_i);
@@ -226,7 +227,8 @@ size_t Length(Local<Value> val) {
 }
 
 #if ENABLE_TTD_NODE
-void TTDAsyncModRegister(v8::Local<v8::Object> val, unsigned char* initialModPosition) {
+void TTDAsyncModRegister(v8::Local<v8::Object> val,
+                         unsigned char* initialModPosition) {
   CHECK(val->IsUint8Array());
   Local<Uint8Array> ui = val.As<Uint8Array>();
   ui->Buffer()->TTDRawBufferNotifyRegisterForModification(initialModPosition);
@@ -595,11 +597,13 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(to_copy);
 
 #if ENABLE_TTD_NODE
-  ArrayBuffer::TTDRawBufferCopyNotify(target->Buffer(),
-                                      target_offset + target_start,
-                                      ts_obj->Buffer(),
-                                      ts_obj_offset + source_start,
-                                      to_copy);
+  if (s_doTTRecord || s_doTTReplay) {
+    ArrayBuffer::TTDRawBufferCopyNotify(target->Buffer(),
+                                        target_offset + target_start,
+                                        ts_obj->Buffer(),
+                                        ts_obj_offset + source_start,
+                                        to_copy);
+  }
 #endif
 }
 
@@ -637,7 +641,9 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
     // TODO(mrkmarron): We could improve performance since this is a constant
     // value. Fill by just logging constant (instead of copying modified range).
     //
-    ts_obj->Buffer()->TTDRawBufferModifyNotifySync(start, fill_length);
+    if (s_doTTRecord || s_doTTReplay) {
+      ts_obj->Buffer()->TTDRawBufferModifyNotifySync(start, fill_length);
+    }
 #endif
 
     return;
@@ -648,9 +654,6 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   str_length =
       enc == UTF8 ? str_obj->Utf8Length() :
       enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
-
-  if (enc == HEX && str_length  % 2 != 0)
-    return env->ThrowTypeError("Invalid hex string");
 
   if (str_length == 0)
     return;
@@ -732,9 +735,6 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
 
   Local<String> str = args[0]->ToString(env->isolate());
 
-  if (encoding == HEX && str->Length() % 2 != 0)
-    return env->ThrowTypeError("Invalid hex string");
-
   size_t offset;
   size_t max_length;
 
@@ -759,8 +759,10 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(written);
 
 #if ENABLE_TTD_NODE
-  args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset + offset, written);
+  if (s_doTTRecord || s_doTTReplay) {
+    args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset + offset, written);
+  }
 #endif
 }
 
@@ -868,17 +870,28 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
     CHECK_NE(ts_obj_data, nullptr);
 
   T val = args[1]->NumberValue(env->context()).FromMaybe(0);
-  size_t offset = args[2]->IntegerValue(env->context()).FromMaybe(0);
 
   size_t memcpy_num = sizeof(T);
+  size_t offset;
 
-  if (should_assert) {
-    THROW_AND_RETURN_IF_OOB(offset + memcpy_num >= memcpy_num);
-    THROW_AND_RETURN_IF_OOB(offset + memcpy_num <= ts_obj_length);
+  // If the offset is negative or larger than the size of the ArrayBuffer,
+  // throw an error (if needed) and return directly.
+  if (!ParseArrayIndex(args[2], 0, &offset, memcpy_num) ||
+      offset >= ts_obj_length) {
+    if (should_assert)
+      THROW_AND_RETURN_IF_OOB(false);
+    return;
   }
 
-  if (offset + memcpy_num > ts_obj_length)
-    memcpy_num = ts_obj_length - offset;
+  // If the offset is too large for the entire value, but small enough to fit
+  // part of the value, throw an error and return only if should_assert is
+  // true. Otherwise, write the part of the value that fits.
+  if (offset + memcpy_num > ts_obj_length) {
+    if (should_assert)
+      THROW_AND_RETURN_IF_OOB(false);
+    else
+      memcpy_num = ts_obj_length - offset;
+  }
 
   union NoAlias {
     T val;
@@ -891,8 +904,10 @@ void WriteFloatGeneric(const FunctionCallbackInfo<Value>& args) {
     Swizzle(na.bytes, sizeof(na.bytes));
   memcpy(ptr, na.bytes, memcpy_num);
 #if ENABLE_TTD_NODE
-  ts_obj->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset + offset,
-                                                 memcpy_num);
+  if (s_doTTRecord || s_doTTReplay) {
+    ts_obj->Buffer()->TTDRawBufferModifyNotifySync(ts_obj_offset + offset,
+                                                   memcpy_num);
+  }
 #endif
 }
 
@@ -1241,8 +1256,10 @@ void Swap16(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset, ts_obj_length);
+  if (s_doTTRecord || s_doTTReplay) {
+    args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset, ts_obj_length);
+  }
 #endif
 }
 
@@ -1255,8 +1272,10 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset, ts_obj_length);
+  if (s_doTTRecord || s_doTTReplay) {
+    args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset, ts_obj_length);
+  }
 #endif
 }
 
@@ -1269,8 +1288,10 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(args[0]);
 
 #if ENABLE_TTD_NODE
-  args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-          ts_obj_offset, ts_obj_length);
+  if (s_doTTRecord || s_doTTReplay) {
+    args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
+      ts_obj_offset, ts_obj_length);
+  }
 #endif
 }
 

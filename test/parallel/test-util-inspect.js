@@ -76,6 +76,8 @@ assert.strictEqual(util.inspect({'a': {'b': { 'c': 2}}}, false, 0),
                    '{ a: [Object] }');
 assert.strictEqual(util.inspect({'a': {'b': { 'c': 2}}}, false, 1),
                    '{ a: { b: [Object] } }');
+assert.strictEqual(util.inspect({'a': {'b': ['c']}}, false, 1),
+                   '{ a: { b: [Array] } }');
 assert.strictEqual(util.inspect(Object.create({},
   {visible: {value: 1, enumerable: true}, hidden: {value: 2}})),
                    '{ visible: 1 }'
@@ -83,6 +85,9 @@ assert.strictEqual(util.inspect(Object.create({},
 assert.strictEqual(util.inspect(Object.assign(new String('hello'),
                    { [Symbol('foo')]: 123 }), { showHidden: true }),
                    '{ [String: \'hello\'] [length]: 5, [Symbol(foo)]: 123 }');
+
+assert.strictEqual(util.inspect(process.stdin._handle._externalStream),
+                   '[External]');
 
 {
   const regexp = /regexp/;
@@ -803,9 +808,9 @@ if (typeof Symbol !== 'undefined') {
                        chakracore: 'Promise {}'
                      }));
   // squelch UnhandledPromiseRejection
-  rejected.catch(() => {});
+  rejected.catch(common.noop);
 
-  const pending = new Promise(() => {});
+  const pending = new Promise(common.noop);
   assert.strictEqual(util.inspect(pending), common.engineSpecificMessage({
     v8: 'Promise { <pending> }',
     chakracore: 'Promise {}'
@@ -830,7 +835,7 @@ if (typeof Symbol !== 'undefined') {
   assert.strictEqual(util.inspect(new Promise()),
                      common.engineSpecificMessage({
                        v8: '{ bar: 42 }',
-                       chakracore: 'Object { \'<unknown>\', bar: 42 }'
+                       chakracore: 'Object { undefined, bar: 42 }'
                      }));
   global.Promise = oldPromise;
 }
@@ -917,7 +922,7 @@ if (!common.isChakraEngine) {
                      'SetSubclass { 1, 2, 3 }');
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
                      'MapSubclass { \'foo\' => 42 }');
-  assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
+  assert.strictEqual(util.inspect(new PromiseSubclass(common.noop)),
                      common.engineSpecificMessage({
                        v8: 'PromiseSubclass { <pending> }',
                        chakracore: 'PromiseSubclass {}'

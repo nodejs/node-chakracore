@@ -183,12 +183,15 @@ static node_module* modlist_builtin;
 static node_module* modlist_linked;
 static node_module* modlist_addon;
 static bool trace_enabled = false;
-static const char* trace_enabled_categories = nullptr;
+static std::string trace_enabled_categories;  // NOLINT(runtime/string)
 
 #if defined(NODE_HAVE_I18N_SUPPORT)
 // Path to ICU data (for i18n / Intl)
 std::string icu_data_dir;  // NOLINT(runtime/string)
 #endif
+
+// N-API is in experimental state, disabled by default.
+bool load_napi_modules = false;
 
 // used by C++ modules as well
 bool no_deprecation = false;
@@ -277,7 +280,7 @@ static struct {
   bool StartInspector(Environment *env, const char* script_path,
                       const node::DebugOptions& options) {
     env->ThrowError("Node compiled with NODE_USE_V8_PLATFORM=0");
-    return false;  // make compiler happy
+    return true;
   }
 
   void StartTracingAgent() {
@@ -289,7 +292,6 @@ static struct {
 } v8_platform;
 
 #ifdef __POSIX__
-static uv_sem_t debug_semaphore;
 static const unsigned kMaxSignal = 32;
 #endif
 
@@ -2325,7 +2327,9 @@ void MemoryUsage(const FunctionCallbackInfo<Value>& args) {
   fields[3] = isolate->AdjustAmountOfExternalAllocatedMemory(0);
 
 #if ENABLE_TTD_NODE
-  ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 4 * sizeof(double));
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 4 * sizeof(double));
+  }
 #endif
 }
 
@@ -2364,8 +2368,10 @@ void Hrtime(const FunctionCallbackInfo<Value>& args) {
   fields[1] = (t / NANOS_PER_SEC) & 0xffffffff;
   fields[2] = t % NANOS_PER_SEC;
 #if ENABLE_TTD_NODE
-  ab->TTDRawBufferModifyNotifySync(args[0].As<Uint32Array>()->ByteOffset(),
-                                   3 * sizeof(uint32_t));
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(args[0].As<Uint32Array>()->ByteOffset(),
+                                     3 * sizeof(uint32_t));
+  }
 #endif
 }
 
@@ -2400,7 +2406,9 @@ void CPUUsage(const FunctionCallbackInfo<Value>& args) {
   fields[0] = MICROS_PER_SEC * rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec;
   fields[1] = MICROS_PER_SEC * rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec;
 #if ENABLE_TTD_NODE
-  ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 2 * sizeof(double));
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 2 * sizeof(double));
+  }
 #endif
 }
 
@@ -2490,15 +2498,25 @@ void DLOpen(const FunctionCallbackInfo<Value>& args) {
   }
   if (mp->nm_version != NODE_MODULE_VERSION) {
     char errmsg[1024];
-    snprintf(errmsg,
-             sizeof(errmsg),
-             "The module '%s'"
-             "\nwas compiled against a different Node.js version using"
-             "\nNODE_MODULE_VERSION %d. This version of Node.js requires"
-             "\nNODE_MODULE_VERSION %d. Please try re-compiling or "
-             "re-installing\nthe module (for instance, using `npm rebuild` or "
-             "`npm install`).",
-             *filename, mp->nm_version, NODE_MODULE_VERSION);
+    if (mp->nm_version == -1) {
+      snprintf(errmsg,
+               sizeof(errmsg),
+               "The module '%s'"
+               "\nwas compiled against the ABI-stable Node.js API (N-API)."
+               "\nThis feature is experimental and must be enabled on the "
+               "\ncommand-line by adding --napi-modules.",
+               *filename);
+    } else {
+      snprintf(errmsg,
+               sizeof(errmsg),
+               "The module '%s'"
+               "\nwas compiled against a different Node.js version using"
+               "\nNODE_MODULE_VERSION %d. This version of Node.js requires"
+               "\nNODE_MODULE_VERSION %d. Please try re-compiling or "
+               "re-installing\nthe module (for instance, using `npm rebuild` "
+               "or `npm install`).",
+               *filename, mp->nm_version, NODE_MODULE_VERSION);
+    }
 
     // NOTE: `mp` is allocated inside of the shared library's memory, calling
     // `uv_dlclose` will deallocate it
@@ -2595,9 +2613,7 @@ void FatalException(Isolate* isolate,
 
   if (exit_code) {
 #if HAVE_INSPECTOR
-    if (debug_options.inspector_enabled()) {
-      env->inspector_agent()->FatalException(error, message);
-    }
+    env->inspector_agent()->FatalException(error, message);
 #endif
     exit(exit_code);
   }
@@ -2700,6 +2716,8 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
     cache->Set(module, exports);
   } else if (!strcmp(*module_v, "constants")) {
     exports = Object::New(env->isolate());
+    CHECK(exports->SetPrototype(env->context(),
+                                Null(env->isolate())).FromJust());
     DefineConstants(env->isolate(), exports);
     cache->Set(module, exports);
   } else if (!strcmp(*module_v, "natives")) {
@@ -3558,15 +3576,17 @@ static void PrintHelp() {
          "  -r, --require              module to preload (option can be "
          "repeated)\n"
 #if HAVE_INSPECTOR
-         "  --inspect[=host:port]      activate inspector on host:port\n"
+         "  --inspect[=[host:]port]    activate inspector on host:port\n"
          "                             (default: 127.0.0.1:9229)\n"
-         "  --inspect-brk[=host:port]  activate inspector on host:port\n"
+         "  --inspect-brk[=[host:]port]\n"
+         "                             activate inspector on host:port\n"
          "                             and break at start of user script\n"
 #endif
          "  --no-deprecation           silence deprecation warnings\n"
          "  --trace-deprecation        show stack traces on deprecations\n"
          "  --throw-deprecation        throw an exception on deprecations\n"
          "  --no-warnings              silence all process warnings\n"
+         "  --napi-modules             load N-API modules\n"
          "  --trace-warnings           show stack traces on process warnings\n"
          "  --redirect-warnings=path\n"
          "                             write warnings to path instead of\n"
@@ -3652,28 +3672,29 @@ static void PrintHelp() {
          "                             stderr\n"
          "OPENSSL_CONF                 load OpenSSL configuration from file\n"
          "\n"
-         "Documentation can be found at https://nodejs.org/\n"
 #if ENABLE_TTD_NODE
-         "Record/Replay production diagnostics info at http://aka.ms/nodettd\n"
+         "Documentation can be found at https://nodejs.org/\n"
+         "Record/Replay diagnostics info at http://aka.ms/nodettd\n");
+#else
+         "Documentation can be found at https://nodejs.org/\n");
 #endif
-  );
 }
 
 #if ENABLE_TTD_NODE
-void TTDFlagWarning(const char* msg, const char* arg) {
-    fprintf(stderr, "%s", msg);
-    if(arg != nullptr) {
-        fprintf(stderr, "> %s\n", arg);
-    }
+void TTDFlagWarning(const char* arg, const char* newflag) {
+    fprintf(stderr, "Flag %s is deprecated use %s\n", arg, newflag);
     fprintf(stderr, "Run with \"-h\" for help with flags.\n");
 
     exit(1);
 }
 
 void TTDFlagWarning_Cond(bool cond, const char* msg) {
-    if(!cond) {
-        TTDFlagWarning(msg, nullptr);
-    }
+  if (!cond) {
+    fprintf(stderr, "%s\n", msg);
+    fprintf(stderr, "Run with \"-h\" for help with flags.\n");
+
+    exit(1);
+  }
 }
 #endif
 
@@ -3699,6 +3720,8 @@ static void ParseArgs(int* argc,
   const char** new_v8_argv = new const char*[nargs];
   const char** new_argv = new const char*[nargs];
   const char** local_preload_modules = new const char*[nargs];
+  bool use_bundled_ca = false;
+  bool use_openssl_ca = false;
 
   for (unsigned int i = 0; i < nargs; ++i) {
     new_exec_argv[i] = nullptr;
@@ -3769,6 +3792,8 @@ static void ParseArgs(int* argc,
       force_repl = true;
     } else if (strcmp(arg, "--no-deprecation") == 0) {
       no_deprecation = true;
+    } else if (strcmp(arg, "--napi-modules") == 0) {
+      load_napi_modules = true;
     } else if (strcmp(arg, "--no-warnings") == 0) {
       no_process_warnings = true;
     } else if (strcmp(arg, "--trace-warnings") == 0) {
@@ -3791,38 +3816,38 @@ static void ParseArgs(int* argc,
       trace_enabled_categories = categories;
 #if ENABLE_TTD_NODE
       // Parse and extract the TT args
-      } else if(strcmp(arg, "--record") == 0) {
+      } else if (strcmp(arg, "--record") == 0) {
           s_doTTRecord = true;
-      } else if(strstr(arg, "--replay=") == arg) {
+      } else if (strstr(arg, "--replay=") == arg) {
           s_doTTReplay = true;
           s_ttoptReplayUri = arg + strlen("--replay=");
           s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-      } else if(strstr(arg, "--replay-debug=") == arg) {
+      } else if (strstr(arg, "--replay-debug=") == arg) {
           s_doTTReplay = true;
           s_doTTDebug = true;
           s_ttoptReplayUri = arg + strlen("--replay-debug=");
           s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-      } else if(strcmp(arg, "--break-first") == 0) {
+      } else if (strcmp(arg, "--break-first") == 0) {
           s_ttdStartupMode = (0x100 | 0x1);
           debug_options.do_wait_for_connect();
-      } else if(strstr(arg, "--record-interval=") == arg) {
+      } else if (strstr(arg, "--record-interval=") == arg) {
           const char* intervalStr = arg + strlen("--record-interval=");
           s_ttdSnapInterval = (uint32_t)atoi(intervalStr);
-      } else if(strstr(arg, "--record-history=") == arg) {
+      } else if (strstr(arg, "--record-history=") == arg) {
           const char* historyStr = arg + strlen("--record-history=");
           s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
-      } else if(strstr(arg, "-TTRecord:") == arg) {
-          TTDFlagWarning("-TTRecord:[dir] is deprecated use --record\n", arg);
-      } else if(strstr(arg, "-TTReplay:") == arg) {
-          TTDFlagWarning("-TTReplay:[dir] is deprecated use --replay=dir\n", arg);
-      } else if(strstr(arg, "-TTDebug:") == arg) {
-          TTDFlagWarning("-TTDebug:[dir] is deprecated use --replay-debug=dir\n", arg);
-      } else if(strstr(arg, "-TTBreakFirst") == arg) {
-          TTDFlagWarning("-TTBreakFirst is deprecated use --break-first\n", arg);
-      } else if(strstr(arg, "-TTSnapInterval:") == arg) {
-          TTDFlagWarning("-TTSnapInterval is deprecated use --record-interval=num\n", arg);
-      } else if(strstr(arg, "-TTHistoryLength:") == arg) {
-          TTDFlagWarning("-TTHistoryLength is deprecated use --record-history=num\n", arg);
+      } else if (strstr(arg, "-TTRecord:") == arg) {
+          TTDFlagWarning(arg, "--record");
+      } else if (strstr(arg, "-TTReplay:") == arg) {
+          TTDFlagWarning(arg, "--replay=dir");
+      } else if (strstr(arg, "-TTDebug:") == arg) {
+          TTDFlagWarning(arg, "--replay-debug=dir");
+      } else if (strstr(arg, "-TTBreakFirst") == arg) {
+          TTDFlagWarning(arg, "--break-first");
+      } else if (strstr(arg, "-TTSnapInterval:") == arg) {
+          TTDFlagWarning(arg, "--record-interval=num");
+      } else if (strstr(arg, "-TTHistoryLength:") == arg) {
+          TTDFlagWarning(arg, "--record-history=num");
 #endif
     } else if (strcmp(arg, "--track-heap-objects") == 0) {
       track_heap_objects = true;
@@ -3848,7 +3873,9 @@ static void ParseArgs(int* argc,
       default_cipher_list = arg + 18;
     } else if (strncmp(arg, "--use-openssl-ca", 16) == 0) {
       ssl_openssl_cert_store = true;
+      use_openssl_ca = true;
     } else if (strncmp(arg, "--use-bundled-ca", 16) == 0) {
+      use_bundled_ca = true;
       ssl_openssl_cert_store = false;
 #if NODE_FIPS_MODE
     } else if (strcmp(arg, "--enable-fips") == 0) {
@@ -3881,6 +3908,22 @@ static void ParseArgs(int* argc,
 
     new_exec_argc += args_consumed;
     index += args_consumed;
+  }
+
+#if HAVE_OPENSSL
+  if (use_openssl_ca && use_bundled_ca) {
+    fprintf(stderr,
+            "%s: either --use-openssl-ca or --use-bundled-ca can be used, "
+            "not both\n",
+            argv[0]);
+    exit(9);
+  }
+#endif
+
+  if (eval_string != nullptr && syntax_check_only) {
+    fprintf(stderr,
+            "%s: either --check or --eval can be used, not both\n", argv[0]);
+    exit(9);
   }
 
   // Copy remaining arguments.
@@ -3920,10 +3963,6 @@ static void DispatchMessagesDebugAgentCallback(Environment* env) {
 static void StartDebug(Environment* env, const char* path,
                        DebugOptions debug_options) {
   CHECK(!debugger_running);
-#if HAVE_INSPECTOR
-  if (debug_options.inspector_enabled())
-    debugger_running = v8_platform.StartInspector(env, path, debug_options);
-#endif  // HAVE_INSPECTOR
   if (debug_options.debugger_enabled()) {
     env->debugger_agent()->set_dispatch_handler(
           DispatchMessagesDebugAgentCallback);
@@ -3933,6 +3972,10 @@ static void StartDebug(Environment* env, const char* path,
               debug_options.host_name().c_str(), debug_options.port());
       fflush(stderr);
     }
+#if HAVE_INSPECTOR
+  } else {
+    debugger_running = v8_platform.StartInspector(env, path, debug_options);
+#endif  // HAVE_INSPECTOR
   }
 }
 
@@ -3940,10 +3983,6 @@ static void StartDebug(Environment* env, const char* path,
 // Called from the main thread.
 static void EnableDebug(Environment* env) {
   CHECK(debugger_running);
-
-  if (!debug_options.debugger_enabled()) {
-    return;
-  }
 
   // Send message to enable debug in workers
   HandleScope handle_scope(env->isolate());
@@ -3959,16 +3998,6 @@ static void EnableDebug(Environment* env) {
 
   // Enabled debugger, possibly making it wait on a semaphore
   env->debugger_agent()->Enable();
-}
-
-
-// Called from an arbitrary thread.
-static void TryStartDebugger() {
-  Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-  if (auto isolate = node_isolate) {
-    v8::Debug::DebugBreak(isolate);
-    uv_async_send(&dispatch_debug_messages_async);
-  }
 }
 
 
@@ -3994,11 +4023,6 @@ static void DispatchDebugMessagesAsyncCallback(uv_async_t* handle) {
 
 
 #ifdef __POSIX__
-static void EnableDebugSignalHandler(int signo) {
-  uv_sem_post(&debug_semaphore);
-}
-
-
 void RegisterSignalHandler(int signal,
                            void (*handler)(int signal),
                            bool reset_handler) {
@@ -4032,109 +4056,13 @@ void DebugProcess(const FunctionCallbackInfo<Value>& args) {
     return env->ThrowErrnoException(errno, "kill");
   }
 }
-
-
-inline void* DebugSignalThreadMain(void* unused) {
-  for (;;) {
-    uv_sem_wait(&debug_semaphore);
-    TryStartDebugger();
-  }
-  return nullptr;
-}
-
-
-static int RegisterDebugSignalHandler() {
-  // Start a watchdog thread for calling v8::Debug::DebugBreak() because
-  // it's not safe to call directly from the signal handler, it can
-  // deadlock with the thread it interrupts.
-  CHECK_EQ(0, uv_sem_init(&debug_semaphore, 0));
-  pthread_attr_t attr;
-  CHECK_EQ(0, pthread_attr_init(&attr));
-  // Don't shrink the thread's stack on FreeBSD.  Said platform decided to
-  // follow the pthreads specification to the letter rather than in spirit:
-  // https://lists.freebsd.org/pipermail/freebsd-current/2014-March/048885.html
-#ifndef __FreeBSD__
-  CHECK_EQ(0, pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN));
-#endif  // __FreeBSD__
-  CHECK_EQ(0, pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED));
-  sigset_t sigmask;
-  sigfillset(&sigmask);
-  CHECK_EQ(0, pthread_sigmask(SIG_SETMASK, &sigmask, &sigmask));
-  pthread_t thread;
-  const int err =
-      pthread_create(&thread, &attr, DebugSignalThreadMain, nullptr);
-  CHECK_EQ(0, pthread_sigmask(SIG_SETMASK, &sigmask, nullptr));
-  CHECK_EQ(0, pthread_attr_destroy(&attr));
-  if (err != 0) {
-    fprintf(stderr, "node[%d]: pthread_create: %s\n", getpid(), strerror(err));
-    fflush(stderr);
-    // Leave SIGUSR1 blocked.  We don't install a signal handler,
-    // receiving the signal would terminate the process.
-    return -err;
-  }
-  RegisterSignalHandler(SIGUSR1, EnableDebugSignalHandler);
-  // Unblock SIGUSR1.  A pending SIGUSR1 signal will now be delivered.
-  sigemptyset(&sigmask);
-  sigaddset(&sigmask, SIGUSR1);
-  CHECK_EQ(0, pthread_sigmask(SIG_UNBLOCK, &sigmask, nullptr));
-  return 0;
-}
 #endif  // __POSIX__
 
 
 #ifdef _WIN32
-DWORD WINAPI EnableDebugThreadProc(void* arg) {
-  TryStartDebugger();
-  return 0;
-}
-
-
 static int GetDebugSignalHandlerMappingName(DWORD pid, wchar_t* buf,
     size_t buf_len) {
   return _snwprintf(buf, buf_len, L"node-debug-handler-%u", pid);
-}
-
-
-static int RegisterDebugSignalHandler() {
-  wchar_t mapping_name[32];
-  HANDLE mapping_handle;
-  DWORD pid;
-  LPTHREAD_START_ROUTINE* handler;
-
-  pid = GetCurrentProcessId();
-
-  if (GetDebugSignalHandlerMappingName(pid,
-                                       mapping_name,
-                                       arraysize(mapping_name)) < 0) {
-    return -1;
-  }
-
-  mapping_handle = CreateFileMappingW(INVALID_HANDLE_VALUE,
-                                      nullptr,
-                                      PAGE_READWRITE,
-                                      0,
-                                      sizeof *handler,
-                                      mapping_name);
-  if (mapping_handle == nullptr) {
-    return -1;
-  }
-
-  handler = reinterpret_cast<LPTHREAD_START_ROUTINE*>(
-      MapViewOfFile(mapping_handle,
-                    FILE_MAP_ALL_ACCESS,
-                    0,
-                    0,
-                    sizeof *handler));
-  if (handler == nullptr) {
-    CloseHandle(mapping_handle);
-    return -1;
-  }
-
-  *handler = EnableDebugThreadProc;
-
-  UnmapViewOfFile(static_cast<void*>(handler));
-
-  return 0;
 }
 
 
@@ -4237,7 +4165,7 @@ static void DebugEnd(const FunctionCallbackInfo<Value>& args) {
   if (debugger_running) {
     Environment* env = Environment::GetCurrent(args);
 #if HAVE_INSPECTOR
-    if (debug_options.inspector_enabled()) {
+    if (!debug_options.debugger_enabled()) {
       env->inspector_agent()->Stop();
     } else {
 #endif
@@ -4312,6 +4240,19 @@ inline void PlatformInit() {
     } while (min + 1 < max);
   }
 #endif  // __POSIX__
+#ifdef _WIN32
+  for (int fd = 0; fd <= 2; ++fd) {
+    auto handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+    if (handle == INVALID_HANDLE_VALUE ||
+        GetFileType(handle) == FILE_TYPE_UNKNOWN) {
+      // Ignore _close result. If it fails or not depends on used Windows
+      // version. We will just check _open result.
+      _close(fd);
+      if (fd != _open("nul", _O_RDWR))
+        ABORT();
+    }
+  }
+#endif  // _WIN32
 }
 
 
@@ -4416,8 +4357,10 @@ void Init(int* argc,
 
   // CHAKRA-TODO : fix this to not do it here
 #ifdef NODE_ENGINE_CHAKRACORE
-  if (debug_options.debugger_enabled()) {
-      v8::Debug::EnableDebug();
+  if (debug_options.inspector_enabled()) {
+    v8::Debug::EnableInspector();
+  } else if (debug_options.debugger_enabled()) {
+    v8::Debug::EnableDebug();
   }
 #endif
 
@@ -4426,10 +4369,6 @@ void Init(int* argc,
   // Buffer::Data().
   const char no_typed_array_heap[] = "--typed_array_max_size_in_heap=0";
   V8::SetFlagsFromString(no_typed_array_heap, sizeof(no_typed_array_heap) - 1);
-
-  if (!debug_options.debugger_enabled() && !debug_options.inspector_enabled()) {
-    RegisterDebugSignalHandler();
-  }
 
   // We should set node_is_initialized here instead of in node::Start,
   // otherwise embedders using node::Init to initialize everything will not be
@@ -4573,16 +4512,13 @@ inline int Start(Isolate* isolate, void* isolate_context,
   Environment env(isolate_data, context);
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
-  bool debug_enabled =
-      debug_options.debugger_enabled() || debug_options.inspector_enabled();
+  const char* path = argc > 1 ? argv[1] : nullptr;
+  StartDebug(&env, path, debug_options);
 
-  // Start debug agent when argv has --debug
-  if (debug_enabled) {
-    const char* path = argc > 1 ? argv[1] : nullptr;
-    StartDebug(&env, path, debug_options);
-    if (!debugger_running)
-      return 12;  // Signal internal error.
-  }
+  bool debugger_enabled =
+      debug_options.debugger_enabled() || debug_options.inspector_enabled();
+  if (debugger_enabled && !debugger_running)
+    return 12;  // Signal internal error.
 
   {
     Environment::AsyncCallbackScope callback_scope(&env);
@@ -4592,7 +4528,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
 #if ENABLE_TTD_NODE
   // Start time travel after environment is loaded
   if (s_doTTRecord) {
-    fprintf(stderr, "Recording has been started (after main module loading)...\n");
+    fprintf(stderr, "Recording started (after main module loaded)...\n");
     JsTTDStart();
   }
 #endif
@@ -4600,8 +4536,13 @@ inline int Start(Isolate* isolate, void* isolate_context,
   env.set_trace_sync_io(trace_sync_io);
 
   // Enable debugger
-  if (debug_enabled)
+  if (debug_options.debugger_enabled())
     EnableDebug(&env);
+
+  if (load_napi_modules) {
+    ProcessEmitWarning(&env, "N-API is an experimental feature "
+        "and could change at any time.");
+  }
 
   {
     SealHandleScope seal(isolate);
@@ -4652,7 +4593,7 @@ inline int Start(uv_loop_t* event_loop,
 #endif
 
 #if ENABLE_TTD_NODE
-  if(s_doTTRecord) {
+  if (s_doTTRecord) {
       fprintf(stderr, "Recording is enabled (but not yet started)...\n");
   }
 
@@ -4777,7 +4718,7 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
         &s_ttdStartupMode,
         &nextEventTime);
 
-    //don't continue replay actions if we are not in debug mode
+    // don't continue replay actions if we are not in debug mode
     continueReplayActions &= s_doTTDebug;
   }
 
@@ -4798,7 +4739,7 @@ inline int Start_TTDReplay(uv_loop_t* event_loop,
   params.code_event_handler = vTune::GetVtuneCodeEventHandler();
 #endif
 
-  fprintf(stderr, "Starting TT replay/debug using log in %s\n", s_ttoptReplayUri);
+  fprintf(stderr, "Starting replay/debug using log in %s\n", s_ttoptReplayUri);
   Isolate* const isolate = Isolate::NewWithTTDSupport(params,
                                                       s_ttoptReplayUriLength,
                                                       s_ttoptReplayUri,
@@ -4914,12 +4855,13 @@ int Start(int argc, char** argv) {
   v8_initialized = true;
 
 #if ENABLE_TTD_NODE
-  bool chk_debug_enabled = debug_options.debugger_enabled() || debug_options.inspector_enabled();
+  bool chk_debug_enabled = debug_options.debugger_enabled()
+                           || debug_options.inspector_enabled();
 
   TTDFlagWarning_Cond(!s_doTTRecord || !s_doTTReplay,
       "Cannot enable record & replay at same time.\n");
 
-  if(s_doTTRecord || s_doTTReplay) {
+  if (s_doTTRecord || s_doTTReplay) {
       TTDFlagWarning_Cond(eval_string == nullptr,
           "Eval mode not supported in record/replay.\n");
 
@@ -4927,7 +4869,7 @@ int Start(int argc, char** argv) {
           "Repl mode not supported in record/replay.\n");
   }
 
-  if(s_doTTRecord) {
+  if (s_doTTRecord) {
       TTDFlagWarning_Cond(!chk_debug_enabled,
           "Cannot enable debugger with record mode.\n");
 
@@ -4935,7 +4877,7 @@ int Start(int argc, char** argv) {
           "Cannot set break flags in record mode.\n");
   }
 
-  if(s_doTTReplay) {
+  if (s_doTTReplay) {
       TTDFlagWarning_Cond(!chk_debug_enabled || s_doTTDebug,
           "Must enable --replay-debug if attaching debugger.\n");
 

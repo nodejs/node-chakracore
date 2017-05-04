@@ -828,6 +828,16 @@
 
 #define PROCESS_SET_ELEM_LOCALSLOTNonVar(name, func) PROCESS_SET_ELEM_LOCALSLOTNonVar_COMMON(name, func,)
 
+#define PROCESS_SET_ELEM_PARAMSLOTNonVar_COMMON(name, func, suffix) \
+    case OpCode::name: \
+    { \
+        PROCESS_READ_LAYOUT(name, ElementSlotI1, suffix); \
+        func((Var*)GetParamClosure(), playout->SlotIndex, GetRegAllowStackVarEnableOnly(playout->Value)); \
+        break; \
+    }
+
+#define PROCESS_SET_ELEM_PARAMSLOTNonVar(name, func) PROCESS_SET_ELEM_PARAMSLOTNonVar_COMMON(name, func,); \
+
 #define PROCESS_SET_ELEM_INNERSLOTNonVar_COMMON(name, func, suffix) \
     case OpCode::name: \
     { \
@@ -2005,8 +2015,8 @@ namespace Js
         {
             bool isInFinally = ((newInstance->m_flags & Js::InterpreterStackFrameFlags_WithinFinallyBlock) == Js::InterpreterStackFrameFlags_WithinFinallyBlock);
 
-            threadContext->TTDLog->PushCallEvent(function, args.Info.Count, args.Values, isInFinally);
-            exceptionFramePopper.PushInfo(threadContext->TTDLog, function);
+            threadContext->TTDExecutionInfo->PushCallEvent(function, args.Info.Count, args.Values, isInFinally);
+            exceptionFramePopper.PushInfo(threadContext->TTDExecutionInfo, function);
         }
 #endif
 
@@ -2039,7 +2049,7 @@ namespace Js
         if(SHOULD_DO_TTD_STACK_STMT_OP(functionScriptContext))
         {
             exceptionFramePopper.PopInfo();
-            threadContext->TTDLog->PopCallEvent(function, aReturn);
+            threadContext->TTDExecutionInfo->PopCallEvent(function, aReturn);
         }
 #endif
 
@@ -2517,7 +2527,7 @@ namespace Js
 
         if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
-            this->scriptContext->GetThreadContext()->TTDLog->UpdateCurrentStatementInfo(m_reader.GetCurrentOffset());
+            this->scriptContext->GetThreadContext()->TTDExecutionInfo->UpdateCurrentStatementInfo(m_reader.GetCurrentOffset());
         }
 
         OpCodeType op = (OpCodeType)ReadOpFunc(ip);
@@ -2768,16 +2778,18 @@ namespace Js
 
                 AsmJsScriptFunction* scriptFuncObj = (AsmJsScriptFunction*)ScriptFunction::OP_NewScFunc(pDisplay, functionInfo);
                 localModuleFunctions[modFunc.location] = scriptFuncObj;
+
+                if (scriptFuncObj->GetDynamicType()->GetEntryPoint() == DefaultDeferredDeserializeThunk)
+                {
+                    JavascriptFunction::DeferredDeserialize(scriptFuncObj);
+                }
+
                 if (i == 0 && info->GetUsesChangeHeap())
                 {
                     scriptFuncObj->GetDynamicType()->SetEntryPoint(AsmJsChangeHeapBuffer);
                 }
                 else
                 {
-                    if (scriptFuncObj->GetDynamicType()->GetEntryPoint() == DefaultDeferredDeserializeThunk)
-                    {
-                        JavascriptFunction::DeferredDeserialize(scriptFuncObj);
-                    }
                     scriptFuncObj->GetDynamicType()->SetEntryPoint(AsmJsExternalEntryPoint);
                     scriptFuncObj->GetFunctionBody()->GetAsmJsFunctionInfo()->SetModuleFunctionBody(asmJsModuleFunctionBody);
                 }
@@ -5760,7 +5772,7 @@ namespace Js
 #if ENABLE_TTD
         if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
-            this->scriptContext->GetThreadContext()->TTDLog->UpdateLoopCountInfo();
+            this->scriptContext->GetThreadContext()->TTDExecutionInfo->UpdateLoopCountInfo();
         }
 #endif
 
@@ -5829,7 +5841,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
 #if ENABLE_TTD
         if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
-            this->scriptContext->GetThreadContext()->TTDLog->UpdateLoopCountInfo();
+            this->scriptContext->GetThreadContext()->TTDExecutionInfo->UpdateLoopCountInfo();
         }
 #endif
 
@@ -6200,7 +6212,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
         _InstructionSynchronizationBarrier();
 #endif
         uint newOffset = ::Math::PointerCastToIntegral<uint>(
-            CALL_ENTRYPOINT(address, function, CallInfo(CallFlags_InternalFrame, 1), this));
+            CALL_ENTRYPOINT_NOASSERT(address, function, CallInfo(CallFlags_InternalFrame, 1), this));
 
 #ifdef _M_IX86
         _asm
@@ -6234,7 +6246,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
             _InstructionSynchronizationBarrier();
 #endif
             uint newOffset = ::Math::PointerCastToIntegral<uint>(
-                CALL_ENTRYPOINT(address, function, CallInfo(CallFlags_InternalFrame, 1), this));
+                CALL_ENTRYPOINT_NOASSERT(address, function, CallInfo(CallFlags_InternalFrame, 1), this));
 
 #ifdef _M_IX86
             _asm
@@ -6342,6 +6354,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
                 PROBE_STACK(scriptContext, outArgs.Info.Count * sizeof(Var) + Js::Constants::MinStackDefault); // args + function call
                 outArgsSize = outArgs.Info.Count * sizeof(Var);
                 outArgs.Values = (Var*)_alloca(outArgsSize);
+                ZeroMemory(outArgs.Values, outArgsSize);
             }
             else
             {
@@ -6632,7 +6645,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
         //Clear any previous Exception Info
         if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
-            this->scriptContext->GetThreadContext()->TTDLog->ClearExceptionFrames();
+            this->scriptContext->GetThreadContext()->TTDExecutionInfo->ClearExceptionFrames();
         }
 #endif
 
@@ -6825,7 +6838,9 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
 
         this->SetIsParamScopeDone(true);
 
-        if (executeFunction->scopeSlotArraySize > 0)
+        // Create a new local closure for the body when either body scope has scope slots allocated or
+        // eval is present which can leak declarations.
+        if (executeFunction->scopeSlotArraySize > 0 || executeFunction->HasScopeObject())
         {
             this->InitializeClosures();
         }
@@ -7602,7 +7617,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
 #if ENABLE_VALUE_TRACE
         if(this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
         {
-            this->function->GetScriptContext()->GetThreadContext()->TTDLog->GetTraceLogger()->WriteTraceValue(value);
+            this->function->GetScriptContext()->GetThreadContext()->TTDExecutionInfo->GetTraceLogger()->WriteTraceValue(value);
         }
 #endif
     }
@@ -7728,7 +7743,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
 #if ENABLE_VALUE_TRACE
         if(this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
         {
-            this->function->GetScriptContext()->GetThreadContext()->TTDLog->GetTraceLogger()->WriteTraceValue(value);
+            this->function->GetScriptContext()->GetThreadContext()->TTDExecutionInfo->GetTraceLogger()->WriteTraceValue(value);
         }
 #endif
     }
@@ -7758,7 +7773,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
 #if ENABLE_VALUE_TRACE
         if(this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
         {
-            this->function->GetScriptContext()->GetThreadContext()->TTDLog->GetTraceLogger()->WriteTraceValue(value);
+            this->function->GetScriptContext()->GetThreadContext()->TTDExecutionInfo->GetTraceLogger()->WriteTraceValue(value);
         }
 #endif
     }
@@ -8330,6 +8345,16 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(const byte * ip)
             Js::Throw::FatalInternalError();
         }
         return this->localClosure;
+    }
+
+    Var InterpreterStackFrame::OP_LdParamObj()
+    {
+        if (!VirtualTableInfo<ActivationObject>::HasVirtualTable(this->paramClosure) &&
+            !VirtualTableInfo<ActivationObjectEx>::HasVirtualTable(this->paramClosure))
+        {
+            Js::Throw::FatalInternalError();
+        }
+        return this->paramClosure;
     }
 
 #ifdef ASMJS_PLAT

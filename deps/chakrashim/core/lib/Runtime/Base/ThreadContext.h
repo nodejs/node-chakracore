@@ -618,6 +618,9 @@ private:
     bool isThreadBound;
     bool hasThrownPendingException;
     bool callDispose;
+#if ENABLE_JS_REENTRANCY_CHECK
+    bool noJsReentrancy;
+#endif
 
     AllocationPolicyManager * allocationPolicyManager;
 
@@ -962,6 +965,9 @@ public:
 #if ENABLE_TTD
     //The class that holds info on the TTD state for the thread context
     TTD::ThreadContextTTD* TTDContext;
+
+    //The class that holds information on TTD <-> debugger interaction state
+    TTD::ExecutionInfoManager* TTDExecutionInfo;
 
     //The event log for time-travel (or null if TTD is not turned on)
     TTD::EventLog* TTDLog;
@@ -1668,6 +1674,19 @@ private:
 private:
     JsUtil::BaseDictionary<Js::JavascriptMethod, uint, ArenaAllocator, PowerOf2SizePolicy> entryPointToBuiltInOperationIdCache;
 
+#if ENABLE_JS_REENTRANCY_CHECK
+public:
+    void SetNoJsReentrancy(bool val) { noJsReentrancy = val; }
+    bool GetNoJsReentrancy() { return noJsReentrancy; }
+    void AssertJsReentrancy()
+    {
+        if (GetNoJsReentrancy())
+        {
+            Js::Throw::FatalJsReentrancyError();
+        }
+    }
+#endif
+
 public:
     bool IsEntryPointToBuiltInOperationIdCacheInitialized()
     {
@@ -1751,3 +1770,27 @@ public:
         threadContext->SetIsProfilingUserCode(oldIsProfilingUserCode);
     }
 };
+
+#if ENABLE_JS_REENTRANCY_CHECK
+class JsReentLock
+{
+    ThreadContext *m_threadContext;
+    bool m_savedNoJsReentrancy;
+
+public:
+    JsReentLock(ThreadContext *threadContext)
+    {
+        m_savedNoJsReentrancy = threadContext->GetNoJsReentrancy();
+        threadContext->SetNoJsReentrancy(true);
+        m_threadContext = threadContext;
+    }
+
+    void unlock() { m_threadContext->SetNoJsReentrancy(m_savedNoJsReentrancy); }
+    void relock() { m_threadContext->SetNoJsReentrancy(true); }
+
+    ~JsReentLock()
+    {
+        m_threadContext->SetNoJsReentrancy(m_savedNoJsReentrancy);
+    }
+};
+#endif

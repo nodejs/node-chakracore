@@ -21,6 +21,7 @@
 
 #include "node.h"
 #include "node_buffer.h"
+#include "node_constants.h"
 #include "node_crypto.h"
 #include "node_crypto_bio.h"
 #include "node_crypto_groups.h"
@@ -101,6 +102,7 @@ using v8::HandleScope;
 using v8::Integer;
 using v8::Isolate;
 using v8::Local;
+using v8::Maybe;
 using v8::Null;
 using v8::Object;
 using v8::Persistent;
@@ -141,9 +143,11 @@ static X509_NAME *cnnic_ev_name =
 
 static Mutex* mutexes;
 
+#if !defined(NODE_OPENSSL_CERT_STORE)
 const char* const root_certs[] = {
 #include "node_root_certs.h"  // NOLINT(build/include_order)
 };
+#endif
 
 std::string extra_root_certs_file;  // NOLINT(runtime/string)
 
@@ -718,6 +722,7 @@ static int X509_up_ref(X509* cert) {
 
 
 static X509_STORE* NewRootCertStore() {
+#if !defined(NODE_OPENSSL_CERT_STORE)
   if (root_certs_vector.empty()) {
     for (size_t i = 0; i < arraysize(root_certs); i++) {
       BIO* bp = NodeBIO::NewFixed(root_certs[i], strlen(root_certs[i]));
@@ -730,6 +735,7 @@ static X509_STORE* NewRootCertStore() {
       root_certs_vector.push_back(x509);
     }
   }
+#endif
 
   X509_STORE* store = X509_STORE_new();
   if (ssl_openssl_cert_store) {
@@ -2076,8 +2082,7 @@ void SSLWrap<Base>::VerifyError(const FunctionCallbackInfo<Value>& args) {
   Local<String> reason_string = OneByteString(isolate, reason);
   Local<Value> exception_value = Exception::Error(reason_string);
   Local<Object> exception_object = exception_value->ToObject(isolate);
-  exception_object->Set(FIXED_ONE_BYTE_STRING(isolate, "code"),
-                        OneByteString(isolate, code));
+  exception_object->Set(w->env()->code_string(), OneByteString(isolate, code));
   args.GetReturnValue().Set(exception_object);
 }
 
@@ -2782,7 +2787,9 @@ inline bool CertIsStartComOrWoSign(X509_NAME* name) {
     startcom_wosign_data = dn.data;
     startcom_wosign_name = d2i_X509_NAME(nullptr, &startcom_wosign_data,
                                          dn.len);
-    if (X509_NAME_cmp(name, startcom_wosign_name) == 0)
+    int cmp = X509_NAME_cmp(name, startcom_wosign_name);
+    X509_NAME_free(startcom_wosign_name);
+    if (cmp == 0)
       return true;
   }
 
@@ -2827,8 +2834,10 @@ inline CheckResult CheckWhitelistedServerCert(X509_STORE_CTX* ctx) {
   }
 
   X509* leaf_cert = sk_X509_value(chain, 0);
-  if (!CheckStartComOrWoSign(root_name, leaf_cert))
+  if (!CheckStartComOrWoSign(root_name, leaf_cert)) {
+    sk_X509_pop_free(chain, X509_free);
     return CHECK_CERT_REVOKED;
+  }
 
   // When the cert is issued from either CNNNIC ROOT CA or CNNNIC EV
   // ROOT CA, check a hash of its leaf cert if it is in the whitelist.
@@ -3245,11 +3254,7 @@ void Connection::Start(const FunctionCallbackInfo<Value>& args) {
 void Connection::Close(const FunctionCallbackInfo<Value>& args) {
   Connection* conn;
   ASSIGN_OR_RETURN_UNWRAP(&conn, args.Holder());
-
-  if (conn->ssl_ != nullptr) {
-    SSL_free(conn->ssl_);
-    conn->ssl_ = nullptr;
-  }
+  conn->DestroySSL();
 }
 
 
@@ -3276,7 +3281,7 @@ void Connection::SetSNICallback(const FunctionCallbackInfo<Value>& args) {
   }
 
   Local<Object> obj = Object::New(env->isolate());
-  obj->Set(FIXED_ONE_BYTE_STRING(args.GetIsolate(), "onselect"), args[0]);
+  obj->Set(env->onselect_string(), args[0]);
   conn->sniObject_.Reset(args.GetIsolate(), obj);
 }
 #endif
@@ -3973,6 +3978,19 @@ void SignBase::CheckThrow(SignBase::Error error) {
   }
 }
 
+static bool ApplyRSAOptions(EVP_PKEY* pkey, EVP_PKEY_CTX* pkctx, int padding,
+                            int salt_len) {
+  if (pkey->type == EVP_PKEY_RSA || pkey->type == EVP_PKEY_RSA2) {
+    if (EVP_PKEY_CTX_set_rsa_padding(pkctx, padding) <= 0)
+      return false;
+    if (padding == RSA_PKCS1_PSS_PADDING) {
+      if (EVP_PKEY_CTX_set_rsa_pss_saltlen(pkctx, salt_len) <= 0)
+        return false;
+    }
+  }
+
+  return true;
+}
 
 
 
@@ -4002,7 +4020,7 @@ SignBase::Error Sign::SignInit(const char* sign_type) {
     return kSignUnknownDigest;
 
   EVP_MD_CTX_init(&mdctx_);
-  if (!EVP_SignInit_ex(&mdctx_, md, nullptr))
+  if (!EVP_DigestInit_ex(&mdctx_, md, nullptr))
     return kSignInit;
   initialised_ = true;
 
@@ -4029,7 +4047,7 @@ void Sign::SignInit(const FunctionCallbackInfo<Value>& args) {
 SignBase::Error Sign::SignUpdate(const char* data, int len) {
   if (!initialised_)
     return kSignNotInitialised;
-  if (!EVP_SignUpdate(&mdctx_, data, len))
+  if (!EVP_DigestUpdate(&mdctx_, data, len))
     return kSignUpdate;
   return kSignOk;
 }
@@ -4059,12 +4077,54 @@ void Sign::SignUpdate(const FunctionCallbackInfo<Value>& args) {
   sign->CheckThrow(err);
 }
 
+static int Node_SignFinal(EVP_MD_CTX* mdctx, unsigned char* md,
+                          unsigned int* sig_len, EVP_PKEY* pkey, int padding,
+                          int pss_salt_len) {
+  unsigned char m[EVP_MAX_MD_SIZE];
+  unsigned int m_len;
+  int rv = 0;
+  EVP_PKEY_CTX* pkctx = nullptr;
+
+  *sig_len = 0;
+  if (!EVP_DigestFinal_ex(mdctx, m, &m_len))
+    return rv;
+
+  if (mdctx->digest->flags & EVP_MD_FLAG_PKEY_METHOD_SIGNATURE) {
+    size_t sltmp = static_cast<size_t>(EVP_PKEY_size(pkey));
+    pkctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    if (pkctx == nullptr)
+      goto err;
+    if (EVP_PKEY_sign_init(pkctx) <= 0)
+      goto err;
+    if (!ApplyRSAOptions(pkey, pkctx, padding, pss_salt_len))
+      goto err;
+    if (EVP_PKEY_CTX_set_signature_md(pkctx, mdctx->digest) <= 0)
+      goto err;
+    if (EVP_PKEY_sign(pkctx, md, &sltmp, m, m_len) <= 0)
+      goto err;
+    *sig_len = sltmp;
+    rv = 1;
+   err:
+    EVP_PKEY_CTX_free(pkctx);
+    return rv;
+  }
+
+  if (mdctx->digest->sign == nullptr) {
+    EVPerr(EVP_F_EVP_SIGNFINAL, EVP_R_NO_SIGN_FUNCTION_CONFIGURED);
+    return 0;
+  }
+
+  return mdctx->digest->sign(mdctx->digest->type, m, m_len, md, sig_len,
+                             pkey->pkey.ptr);
+}
 
 SignBase::Error Sign::SignFinal(const char* key_pem,
                                 int key_pem_len,
                                 const char* passphrase,
                                 unsigned char** sig,
-                                unsigned int *sig_len) {
+                                unsigned int* sig_len,
+                                int padding,
+                                int salt_len) {
   if (!initialised_)
     return kSignNotInitialised;
 
@@ -4110,7 +4170,7 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
   }
 #endif  // NODE_FIPS_MODE
 
-  if (EVP_SignFinal(&mdctx_, *sig, sig_len, pkey))
+  if (Node_SignFinal(&mdctx_, *sig, sig_len, pkey, padding, salt_len))
     fatal = false;
 
   initialised_ = false;
@@ -4153,6 +4213,16 @@ void Sign::SignFinal(const FunctionCallbackInfo<Value>& args) {
   size_t buf_len = Buffer::Length(args[0]);
   char* buf = Buffer::Data(args[0]);
 
+  CHECK(args[3]->IsInt32());
+  Maybe<int32_t> maybe_padding = args[3]->Int32Value(env->context());
+  CHECK(maybe_padding.IsJust());
+  int padding = maybe_padding.ToChecked();
+
+  CHECK(args[4]->IsInt32());
+  Maybe<int32_t> maybe_salt_len = args[4]->Int32Value(env->context());
+  CHECK(maybe_salt_len.IsJust());
+  int salt_len = maybe_salt_len.ToChecked();
+
   md_len = 8192;  // Maximum key size is 8192 bits
   md_value = new unsigned char[md_len];
 
@@ -4164,7 +4234,9 @@ void Sign::SignFinal(const FunctionCallbackInfo<Value>& args) {
       buf_len,
       len >= 3 && !args[2]->IsNull() ? *passphrase : nullptr,
       &md_value,
-      &md_len);
+      &md_len,
+      padding,
+      salt_len);
   if (err != kSignOk) {
     delete[] md_value;
     md_value = nullptr;
@@ -4208,7 +4280,7 @@ SignBase::Error Verify::VerifyInit(const char* verify_type) {
     return kSignUnknownDigest;
 
   EVP_MD_CTX_init(&mdctx_);
-  if (!EVP_VerifyInit_ex(&mdctx_, md, nullptr))
+  if (!EVP_DigestInit_ex(&mdctx_, md, nullptr))
     return kSignInit;
   initialised_ = true;
 
@@ -4236,7 +4308,7 @@ SignBase::Error Verify::VerifyUpdate(const char* data, int len) {
   if (!initialised_)
     return kSignNotInitialised;
 
-  if (!EVP_VerifyUpdate(&mdctx_, data, len))
+  if (!EVP_DigestUpdate(&mdctx_, data, len))
     return kSignUpdate;
 
   return kSignOk;
@@ -4272,6 +4344,8 @@ SignBase::Error Verify::VerifyFinal(const char* key_pem,
                                     int key_pem_len,
                                     const char* sig,
                                     int siglen,
+                                    int padding,
+                                    int saltlen,
                                     bool* verify_result) {
   if (!initialised_)
     return kSignNotInitialised;
@@ -4283,7 +4357,10 @@ SignBase::Error Verify::VerifyFinal(const char* key_pem,
   BIO* bp = nullptr;
   X509* x509 = nullptr;
   bool fatal = true;
+  unsigned char m[EVP_MAX_MD_SIZE];
+  unsigned int m_len;
   int r = 0;
+  EVP_PKEY_CTX* pkctx = nullptr;
 
   bp = BIO_new_mem_buf(const_cast<char*>(key_pem), key_pem_len);
   if (bp == nullptr)
@@ -4318,11 +4395,29 @@ SignBase::Error Verify::VerifyFinal(const char* key_pem,
       goto exit;
   }
 
+  if (!EVP_DigestFinal_ex(&mdctx_, m, &m_len)) {
+    goto exit;
+  }
+
   fatal = false;
-  r = EVP_VerifyFinal(&mdctx_,
+
+  pkctx = EVP_PKEY_CTX_new(pkey, nullptr);
+  if (pkctx == nullptr)
+    goto err;
+  if (EVP_PKEY_verify_init(pkctx) <= 0)
+    goto err;
+  if (!ApplyRSAOptions(pkey, pkctx, padding, saltlen))
+    goto err;
+  if (EVP_PKEY_CTX_set_signature_md(pkctx, mdctx_.digest) <= 0)
+    goto err;
+  r = EVP_PKEY_verify(pkctx,
                       reinterpret_cast<const unsigned char*>(sig),
                       siglen,
-                      pkey);
+                      m,
+                      m_len);
+
+ err:
+  EVP_PKEY_CTX_free(pkctx);
 
  exit:
   if (pkey != nullptr)
@@ -4378,8 +4473,19 @@ void Verify::VerifyFinal(const FunctionCallbackInfo<Value>& args) {
     hbuf = Buffer::Data(args[1]);
   }
 
+  CHECK(args[3]->IsInt32());
+  Maybe<int32_t> maybe_padding = args[3]->Int32Value(env->context());
+  CHECK(maybe_padding.IsJust());
+  int padding = maybe_padding.ToChecked();
+
+  CHECK(args[4]->IsInt32());
+  Maybe<int32_t> maybe_salt_len = args[4]->Int32Value(env->context());
+  CHECK(maybe_salt_len.IsJust());
+  int salt_len = maybe_salt_len.ToChecked();
+
   bool verify_result;
-  Error err = verify->VerifyFinal(kbuf, klen, hbuf, hlen, &verify_result);
+  Error err = verify->VerifyFinal(kbuf, klen, hbuf, hlen, padding, salt_len,
+                                  &verify_result);
   if (args[1]->IsString())
     delete[] hbuf;
   if (err != kSignOk)
@@ -5605,7 +5711,7 @@ void RandomBytes(const FunctionCallbackInfo<Value>& args) {
   RandomBytesRequest* req = new RandomBytesRequest(env, obj, size);
 
   if (args[1]->IsFunction()) {
-    obj->Set(FIXED_ONE_BYTE_STRING(args.GetIsolate(), "ondone"), args[1]);
+    obj->Set(env->ondone_string(), args[1]);
 
     if (env->in_domain())
       obj->Set(env->domain_string(), env->domain_array()->Get(0));

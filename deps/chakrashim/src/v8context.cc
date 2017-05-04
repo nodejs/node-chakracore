@@ -22,6 +22,7 @@
 #include "jsrtutils.h"
 #include "v8-debug.h"
 #include "jsrtdebug.h"
+#include "jsrtinspector.h"
 
 #include <assert.h>
 
@@ -79,10 +80,15 @@ Local<Context> Context::New(Isolate* external_isolate,
   Local<Context> thisContext = Local<Context>::New(
       external_isolate, static_cast<Context *>(context));
 
-  if (jsrt::Debugger::IsDebugEnabled() && isoShim->debugContext == nullptr) {
+  bool debugEnabled = jsrt::Debugger::IsDebugEnabled();
+  bool inspectorEnabled = jsrt::Inspector::IsInspectorEnabled();
+
+  if ((debugEnabled || inspectorEnabled) &&
+      isoShim->debugContext == nullptr) {
     // If JavaScript debugging APIs need to be exposed then make sure
-    // debugContext is available and chakra_debug.js is compiled. Inject
-    // v8debug object from chakra_debug.js in this context global object
+    // debugContext is available and chakra_debug.js or chakra_inspector.js
+    // are compiled. Inject v8debug object from chakra_debug.js or
+    // chakra_inspector.js into this context's global object.
     JsContextRef debugContextRef;
     isoShim->NewContext(&debugContextRef, false, false, *glob);
     jsrt::ContextShim* debugContextShim = isoShim->GetContextShim(
@@ -97,8 +103,22 @@ Local<Context> Context::New(Isolate* external_isolate,
       Context::Scope context_scope(debugContextLocal);
 
       JsValueRef chakraDebugObject;
-      if (debugContextShim->ExecuteChakraDebugShimJS(&chakraDebugObject)) {
-        jsrt::Debugger::SetChakraDebugObject(chakraDebugObject);
+      if (inspectorEnabled)
+      {
+        if (debugContextShim->ExecuteChakraInspectorShimJS(
+              &chakraDebugObject)) {
+          jsrt::Inspector::SetChakraDebugObject(chakraDebugObject);
+        }
+      }
+      else if (debugEnabled) {
+        if (debugContextShim->ExecuteChakraDebugShimJS(
+              &chakraDebugObject)) {
+          jsrt::Debugger::SetChakraDebugObject(chakraDebugObject);
+        }
+      }
+      else {
+        // This should never be reachable.
+        CHAKRA_ASSERT(false);
       }
     }
   }

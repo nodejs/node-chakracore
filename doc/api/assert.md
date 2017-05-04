@@ -12,27 +12,15 @@ added: v0.5.9
 * `value` {any}
 * `message` {any}
 
-An alias of [`assert.ok()`][] .
-
-```js
-const assert = require('assert');
-
-assert(true);
-// OK
-assert(1);
-// OK
-assert(false);
-// throws "AssertionError: false == true"
-assert(0);
-// throws "AssertionError: 0 == true"
-assert(false, 'it\'s false');
-// throws "AssertionError: it's false"
-```
+An alias of [`assert.ok()`][].
 
 ## assert.deepEqual(actual, expected[, message])
 <!-- YAML
 added: v0.1.21
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/12142
+    description: Set and Map content is also compared
   - version: v6.4.0, v4.7.1
     pr-url: https://github.com/nodejs/node/pull/8002
     description: Typed array slices are handled correctly now.
@@ -55,7 +43,7 @@ Only [enumerable "own" properties][] are considered. The
 [`assert.deepEqual()`][] implementation does not test the
 [`[[Prototype]]`][prototype-spec] of objects, attached symbols, or
 non-enumerable properties — for such checks, consider using
-[assert.deepStrictEqual()][] instead. This can lead to some
+[`assert.deepStrictEqual()`][] instead. This can lead to some
 potentially surprising results. For example, the following example does not
 throw an `AssertionError` because the properties on the [`Error`][] object are
 not enumerable:
@@ -64,6 +52,9 @@ not enumerable:
 // WARNING: This does not throw an AssertionError!
 assert.deepEqual(Error('a'), Error('b'));
 ```
+
+An exception is made for [`Map`][] and [`Set`][]. Maps and Sets have their
+contained items compared too, as expected.
 
 "Deep" equality means that the enumerable "own" properties of child objects
 are evaluated also:
@@ -111,6 +102,9 @@ parameter is undefined, a default error message is assigned.
 <!-- YAML
 added: v1.2.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/12142
+    description: Set and Map content is also compared
   - version: v6.4.0, v4.7.1
     pr-url: https://github.com/nodejs/node/pull/8002
     description: Typed array slices are handled correctly now.
@@ -128,7 +122,8 @@ changes:
 Generally identical to `assert.deepEqual()` with three exceptions:
 
 1. Primitive values are compared using the [Strict Equality Comparison][]
-  ( `===` ).
+  ( `===` ). Set values and Map keys are compared using the [SameValueZero][]
+  comparison. (Which means they are free of the [caveats][]).
 2. [`[[Prototype]]`][prototype-spec] of objects are compared using
   the [Strict Equality Comparison][] too.
 3. [Type tags][Object.prototype.toString()] of objects should be the same.
@@ -591,10 +586,13 @@ For more information, see
 [`assert.ok()`]: #assert_assert_ok_value_message
 [`assert.throws()`]: #assert_assert_throws_block_error_message
 [`Error`]: errors.html#errors_class_error
+[caveats]: #assert_caveats
 [`RegExp`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
 [`TypeError`]: errors.html#errors_class_typeerror
 [Abstract Equality Comparison]: https://tc39.github.io/ecma262/#sec-abstract-equality-comparison
 [Strict Equality Comparison]: https://tc39.github.io/ecma262/#sec-strict-equality-comparison
+[`Map`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Map
+[`Set`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Set
 [`Object.is()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is
 [SameValueZero]: https://tc39.github.io/ecma262/#sec-samevaluezero
 [prototype-spec]: https://tc39.github.io/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots

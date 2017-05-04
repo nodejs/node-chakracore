@@ -94,6 +94,26 @@ Follows `require()`'s module resolution
 rules. `module` may be either a path to a file, or a node module name.
 
 
+### `--inspect[=[host:]port]`
+<!-- YAML
+added: v6.3.0
+-->
+
+Activate inspector on host:port. Default is 127.0.0.1:9229.
+
+V8 inspector integration allows tools such as Chrome DevTools and IDEs to debug
+and profile Node.js instances. The tools attach to Node.js instances via a
+tcp port and communicate using the [Chrome Debugging Protocol][].
+
+
+### `--inspect-brk[=[host:]port]`
+<!-- YAML
+added: v7.6.0
+-->
+
+Activate inspector on host:port and break at start of user script.
+
+
 ### `--no-deprecation`
 <!-- YAML
 added: v0.8.0
@@ -123,6 +143,14 @@ added: v6.0.0
 -->
 
 Silence all process warnings (including deprecations).
+
+### `--napi-modules`
+<!-- YAML
+added: REPLACEME
+-->
+
+Enable loading native modules compiled with the ABI-stable Node.js API (N-API)
+(experimental).
 
 ### `--trace-warnings`
 <!-- YAML
@@ -373,16 +401,6 @@ Path to the file used to store the persistent REPL history. The default path is
 to an empty string (`""` or `" "`) disables persistent REPL history.
 
 
-### `NODE_TTY_UNSAFE_ASYNC=1`
-<!-- YAML
-added: v6.4.0
--->
-
-When set to `1`, writes to `stdout` and `stderr` will be non-blocking and
-asynchronous when outputting to a TTY on platforms which support async stdio.
-Setting this will void any guarantee that stdio will not be interleaved or
-dropped at program exit. **Use of this mode is not recommended.**
-
 ### `NODE_EXTRA_CA_CERTS=file`
 <!-- YAML
 added: v7.3.0
@@ -446,6 +464,7 @@ equivalent to using the `--redirect-warnings=file` command-line flag.
 
 [emit_warning]: process.html#process_process_emitwarning_warning_name_ctor
 [Buffer]: buffer.html#buffer_buffer
+[Chrome Debugging Protocol]: https://chromedevtools.github.io/debugger-protocol-viewer
 [debugger]: debugger.html
 [REPL]: repl.html
 [SlowBuffer]: buffer.html#buffer_class_slowbuffer

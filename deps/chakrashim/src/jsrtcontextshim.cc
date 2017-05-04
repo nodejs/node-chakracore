@@ -490,6 +490,38 @@ bool ContextShim::ExecuteChakraDebugShimJS(JsValueRef * chakraDebugObject) {
   return true;
 }
 
+bool ContextShim::ExecuteChakraInspectorShimJS(
+  JsValueRef * chakraDebugObject) {
+  JsValueRef getInitFunction;
+  JsValueRef url;
+  jsrt::CreateString("chakra_inspector.js", &url);
+  if (JsParse(GetIsolateShim()->GetChakraInspectorShimJsArrayBuffer(),
+    v8::currentContext++,
+    url,
+    JsParseScriptAttributeNone,
+    &getInitFunction) != JsNoError) {
+    return false;
+  }
+
+  JsValueRef initFunction;
+  if (CallFunction(getInitFunction, &initFunction) != JsNoError) {
+    return false;
+  }
+
+  JsValueRef traceDebugJsonRef;
+  JsBoolToBoolean(v8::g_trace_debug_json, &traceDebugJsonRef);
+
+  JsValueRef arguments[] = { this->globalObject, this->globalObject,
+      this->keepAliveObject, traceDebugJsonRef };
+
+  JsErrorCode errorCode = JsCallFunction(initFunction, arguments,
+      _countof(arguments), chakraDebugObject);
+
+  CHAKRA_VERIFY_NOERROR(errorCode);
+
+  return true;
+}
+
 void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
   if (index < 0) {
     return;
@@ -546,20 +578,36 @@ DECLARE_GETOBJECT(StringObjectConstructor,
                   globalConstructor[GlobalType::String])
 DECLARE_GETOBJECT(DateConstructor,
                   globalConstructor[GlobalType::Date])
+DECLARE_GETOBJECT(RegExpConstructor,
+                  globalConstructor[GlobalType::RegExp])
 DECLARE_GETOBJECT(ProxyConstructor,
                   globalConstructor[GlobalType::Proxy])
+DECLARE_GETOBJECT(MapConstructor,
+                  globalConstructor[GlobalType::Map])
 DECLARE_GETOBJECT(HasOwnPropertyFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::Object_hasOwnProperty])
 DECLARE_GETOBJECT(ToStringFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::Object_toString])
+DECLARE_GETOBJECT(ValueOfFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Object_valueOf])
 DECLARE_GETOBJECT(StringConcatFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::String_concat])
 DECLARE_GETOBJECT(ArrayPushFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::Array_push])
+DECLARE_GETOBJECT(MapGetFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Map_get])
+DECLARE_GETOBJECT(MapSetFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Map_set])
+DECLARE_GETOBJECT(MapHasFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Map_has])
 
 
 JsValueRef ContextShim::GetProxyOfGlobal() {

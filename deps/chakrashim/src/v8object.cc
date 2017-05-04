@@ -818,4 +818,42 @@ Object *Object::Cast(Value *obj) {
   return static_cast<Object*>(obj);
 }
 
+Maybe<bool> Object::CreateDataProperty(Local<Context> context, Local<Name> key,
+                                       Local<Value> value) {
+  return Set(context, key, value);
+}
+
+Maybe<bool> Object::CreateDataProperty(Local<Context> context, uint32_t index,
+                                       Local<Value> value) {
+  return Set(context, index, value);
+}
+
+void Object::SetAccessorProperty(Local<Name> name, Local<Function> getter,
+                                 Local<Function> setter,
+                                 PropertyAttribute attribute,
+                                 AccessControl settings) {
+  JsPropertyIdRef idRef;
+  if (GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
+    return;
+  }
+
+  PropertyDescriptorOptionValues enumerable =
+      GetPropertyDescriptorOptionValue(!(attribute & DontEnum));
+  PropertyDescriptorOptionValues configurable =
+      GetPropertyDescriptorOptionValue(!(attribute & DontDelete));
+
+  // CHAKRA-TODO: we ignore  AccessControl for now..
+
+  if (jsrt::DefineProperty((JsValueRef)this,
+                           idRef,
+                           PropertyDescriptorOptionValues::None,
+                           enumerable,
+                           configurable,
+                           JS_INVALID_REFERENCE,
+                           (JsValueRef)*getter,
+                           (JsValueRef)*setter) != JsNoError) {
+    return;
+  }
+}
+
 }  // namespace v8

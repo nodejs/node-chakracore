@@ -29,7 +29,30 @@ private:
     int                 helperCallArgsCount;
     IR::Opnd *          helperCallArgs[MaxArgumentsToHelper];
 
+#ifndef _WIN32
+    class XPlatRegArgList
+    {
+    public:
+        XPlatRegArgList() { Reset(); }
+        inline void Reset()
+        {
+            for (int i = 0; i <= XmmArgRegsCount; i++) args[i] = TyMachPtr;
+        }
 
+        inline bool IsFloat(uint16 position) { return args[position] == TyFloat64; }
+
+        void SetFloat(uint16 regPosition)
+        {
+            Assert(regPosition != 0 && regPosition <= XmmArgRegsCount);
+            args[regPosition] = TyFloat64;
+        }
+
+        static_assert(static_cast<int>(XmmArgRegsCount) >= static_cast<int>(IntArgRegsCount),
+                      "Unexpected register count");
+        IRType args [XmmArgRegsCount + 1];
+    };
+    XPlatRegArgList     xplatCallArgs;
+#endif
 public:
 
     LowererMDArch(Func* function):
@@ -97,7 +120,7 @@ public:
     void                EmitIntToLong(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);
     void                EmitUIntToLong(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);
     void                EmitLongToInt(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);
-    bool                EmitLoadInt32(IR::Instr *instrLoad, bool conversionFromObjectAllowed);
+    bool                EmitLoadInt32(IR::Instr *instrLoad, bool conversionFromObjectAllowed, bool bailOnHelperCall, IR::LabelInstr * labelBailOut);
 
     IR::Instr *         LoadCheckedFloat(IR::RegOpnd *opndOrig, IR::RegOpnd *opndFloat, IR::LabelInstr *labelInline, IR::LabelInstr *labelHelper, IR::Instr *instrInsert, const bool checkForNullInLoopBody = false);
 

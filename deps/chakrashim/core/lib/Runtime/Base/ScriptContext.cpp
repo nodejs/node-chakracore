@@ -53,6 +53,8 @@ namespace Js
 
     ScriptContext::ScriptContext(ThreadContext* threadContext) :
         ScriptContextBase(),
+        prev(nullptr),
+        next(nullptr),
         interpreterArena(nullptr),
         moduleSrcInfoCount(0),
         // Regex globals
@@ -132,7 +134,8 @@ namespace Js
         firstInterpreterFrameReturnAddress(nullptr),
         builtInLibraryFunctions(nullptr),
         m_remoteScriptContextAddr(nullptr),
-        isWeakReferenceDictionaryListCleared(false)
+        isWeakReferenceDictionaryListCleared(false),
+        isDebugContextInitialized(false)
 #if ENABLE_PROFILE_INFO
         , referencesSharedDynamicSourceContextInfo(false)
 #endif
@@ -293,8 +296,7 @@ namespace Js
         CleanupDocumentContext = nullptr;
 #endif
 
-        // Do this after all operations that may cause potential exceptions
-        threadContext->RegisterScriptContext(this);
+        // Do this after all operations that may cause potential exceptions. Note: InitialAllocations may still throw!
         numberAllocator.Initialize(this->GetRecycler());
 
 #if DEBUG
@@ -466,6 +468,13 @@ namespace Js
                     this->recycler->RootRelease(globalObject);
                 }
             }
+        }
+
+        // Normally the JavascriptLibraryBase will unregister the scriptContext from the threadContext.
+        // In cases where we don't finish initialization e.g. OOM, manually unregister the scriptContext.
+        if (this->IsRegistered())
+        {
+            threadContext->UnregisterScriptContext(this);
         }
 
 #if ENABLE_BACKGROUND_PARSING
@@ -750,6 +759,8 @@ namespace Js
         {
             javascriptLibrary->CleanupForClose();
             javascriptLibrary->Uninitialize();
+
+            this->ClearScriptContextCaches();
         }
     }
 
@@ -1261,6 +1272,13 @@ namespace Js
 
         this->GetDebugContext()->GetProbeContainer()->Initialize(this);
 
+        isDebugContextInitialized = true;
+
+#if defined(_M_ARM32_OR_ARM64)
+        // We need to ensure that the above write to the isDebugContextInitialized is visible to the debugger thread.
+        MemoryBarrier();
+#endif
+
         AssertMsg(this->CurrentThunk == DefaultEntryThunk, "Creating non default thunk while initializing");
         AssertMsg(this->DeferredParsingThunk == DefaultDeferredParsingThunk, "Creating non default thunk while initializing");
         AssertMsg(this->DeferredDeserializationThunk == DefaultDeferredDeserializeThunk, "Creating non default thunk while initializing");
@@ -1315,7 +1333,7 @@ namespace Js
 #endif
     void ScriptContext::MarkForClose()
     {
-        if (IsClosed()) 
+        if (IsClosed())
         {
             return;
         }
@@ -1404,6 +1422,8 @@ namespace Js
         // Assigned the global Object after we have successfully AddRef (in case of OOM)
         globalObject = localGlobalObject;
         globalObject->Initialize(this);
+
+        this->GetThreadContext()->RegisterScriptContext(this);
     }
 
     ArenaAllocator* ScriptContext::AllocatorForDiagnostics()
@@ -1810,7 +1830,7 @@ namespace Js
             // Free unused bytes
             Assert(cbNeeded + 1 <= cbUtf8Buffer);
             *ppSourceInfo = Utf8SourceInfo::New(this, utf8Script, (int)length,
-                cbNeeded, pSrcInfo, isLibraryCode, scriptSource);
+                cbNeeded, pSrcInfo, isLibraryCode);
         }
         else
         {
@@ -1830,7 +1850,7 @@ namespace Js
                     // the 'length' here is not correct - we will get the length from the parser - however parser hasn't done yet.
                     // Once the parser is done we will update the utf8sourceinfo's lenght correctly with parser's
                     *ppSourceInfo = Utf8SourceInfo::New(this, script,
-                        (int)length, cb, pSrcInfo, isLibraryCode, scriptSource);
+                        (int)length, cb, pSrcInfo, isLibraryCode);
                 }
             }
         }
@@ -3813,6 +3833,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
         bool functionEnterEventSent = false;
         char16 *pwszExtractedFunctionName = NULL;
+        size_t functionNameLen = 0;
         const char16 *pwszFunctionName = NULL;
         HRESULT hrOfEnterEvent = S_OK;
 
@@ -3872,16 +3893,16 @@ namespace Js
                         const char16 *pwszNameEnd = wcsstr(pwszToString, _u("("));
                         if (pwszNameStart == nullptr || pwszNameEnd == nullptr || ((int)(pwszNameEnd - pwszNameStart) <= 0))
                         {
-                            int len = ((JavascriptString *)sourceString)->GetLength() + 1;
-                            pwszExtractedFunctionName = new char16[len];
-                            wcsncpy_s(pwszExtractedFunctionName, len, pwszToString, _TRUNCATE);
+                            functionNameLen = ((JavascriptString *)sourceString)->GetLength() + 1;
+                            pwszExtractedFunctionName = HeapNewArray(char16, functionNameLen);
+                            wcsncpy_s(pwszExtractedFunctionName, functionNameLen, pwszToString, _TRUNCATE);
                         }
                         else
                         {
-                            int len = (int)(pwszNameEnd - pwszNameStart);
-                            AssertMsg(len > 0, "Allocating array with zero or negative length?");
-                            pwszExtractedFunctionName = new char16[len];
-                            wcsncpy_s(pwszExtractedFunctionName, len, pwszNameStart + 1, _TRUNCATE);
+                            functionNameLen = pwszNameEnd - pwszNameStart;
+                            AssertMsg(functionNameLen < INT_MAX, "Allocating array with zero or negative length?");
+                            pwszExtractedFunctionName = HeapNewArray(char16, functionNameLen);
+                            wcsncpy_s(pwszExtractedFunctionName, functionNameLen, pwszNameStart + 1, _TRUNCATE);
                         }
                         pwszFunctionName = pwszExtractedFunctionName;
                     }
@@ -3922,6 +3943,7 @@ namespace Js
                 origEntryPoint = Js::JavascriptFunction::NewAsyncFunctionInstanceRestrictedMode;
             }
         }
+
 
         __TRY_FINALLY_BEGIN // SEH is not guaranteed, see the implementation
         {
@@ -3998,7 +4020,7 @@ namespace Js
                             scriptContext->OnDispatchFunctionExit(pwszFunctionName);
                             if (pwszExtractedFunctionName != NULL)
                             {
-                                delete[]pwszExtractedFunctionName;
+                                HeapDeleteArray(functionNameLen, pwszExtractedFunctionName);
                             }
                         }
                     }
@@ -4468,7 +4490,7 @@ void ScriptContext::RegisterConstructorCache(Js::PropertyId propertyId, Js::Cons
 }
 #endif
 
-JITPageAddrToFuncRangeCache * 
+JITPageAddrToFuncRangeCache *
 ScriptContext::GetJitFuncRangeCache()
 {
     return jitFuncRangeCache;
@@ -6149,7 +6171,7 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
     {
         return jitPageAddrToFuncRangeMap;
     }
-    
+
     JITPageAddrToFuncRangeCache::LargeJITFuncAddrToSizeMap * JITPageAddrToFuncRangeCache::GetLargeJITFuncAddrToSizeMap()
     {
         return largeJitFuncToSizeMap;

@@ -4,13 +4,14 @@ const common = require('../common');
 const assert = require('assert');
 const spawn = require('child_process').spawn;
 
+let run = common.noop;
+
 if (common.isChakraEngine) {
   console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
   'because debugger support is not implemented yet.');
   return;
 }
 
-let run = () => {};
 function test(args, needle) {
   const next = run;
   run = () => {

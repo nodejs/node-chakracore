@@ -110,7 +110,9 @@ const qsColonTestCases = [
 const extendedFunction = function() {};
 extendedFunction.prototype = {a: 'b'};
 const qsWeirdObjects = [
+  // eslint-disable-next-line no-unescaped-regexp-dot
   [{regexp: /./g}, 'regexp=', {'regexp': ''}],
+  // eslint-disable-next-line no-unescaped-regexp-dot
   [{regexp: new RegExp('.', 'g')}, 'regexp=', {'regexp': ''}],
   [{fn: function() {}}, 'fn=', {'fn': ''}],
   [{fn: new Function('')}, 'fn=', {'fn': ''}],
@@ -371,6 +373,8 @@ function demoDecode(str) {
 }
 check(qs.parse('a=a&b=b&c=c', null, null, { decodeURIComponent: demoDecode }),
       { aa: 'aa', bb: 'bb', cc: 'cc' });
+check(qs.parse('a=a&b=b&c=c', null, '==', { decodeURIComponent: (str) => str }),
+      { 'a=a': '', 'b=b': '', 'c=c': '' });
 
 // Test QueryString.unescape
 function errDecode(str) {

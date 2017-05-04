@@ -1,16 +1,16 @@
 Node.js on ChakraCore
 =====================
 
-This project enables Node.js to optionally use the [ChakraCore] (https://github.com/Microsoft/ChakraCore)
+This project enables Node.js to optionally use the [ChakraCore](https://github.com/Microsoft/ChakraCore)
 JavaScript engine. This project is still **work in progress** and not an officially
 supported Node.js branch. For more context into this project, please refer to the
-[original PR] (https://github.com/nodejs/node/pull/4765).
+[original PR](https://github.com/nodejs/node/pull/4765).
 
 ### How it works
 
 To enable building and running Node.js with the ChakraCore JavaScript engine, a
 V8 API shim (ChakraShim) is created on top of the ChakraCore runtime hosting API
-([JSRT] (https://github.com/Microsoft/ChakraCore/wiki/JavaScript-Runtime-(JSRT)-Overview).
+([JSRT](https://github.com/Microsoft/ChakraCore/wiki/JavaScript-Runtime-(JSRT)-Overview).
 ChakraShim implements the most essential V8 APIs so that the underlying
 JavaScript engine change is transparent to Node.js and other native addon
 modules written for V8.
@@ -70,7 +70,7 @@ If you are looking to build this yourself, here's what you will need.
 
 Prerequisites:
 * Windows 7 SP1 or higher (Windows 8.1 or higher for ARM builds)
-* [Python 2.6 or 2.7] (https://www.python.org)
+* [Python 2.6 or 2.7](https://www.python.org)
 * [Visual Studio]
   (https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
 
@@ -172,4 +172,4 @@ Hello from Node.js chakracore
 ### Issues
 
 Please report all issues related to Node-ChakraCore on our
-[issues page] (https://github.com/nodejs/node-chakracore/issues).
+[issues page](https://github.com/nodejs/node-chakracore/issues).

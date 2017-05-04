@@ -25,7 +25,7 @@ const assert = require('assert');
 
 const spawn = require('child_process').spawn;
 
-const cat = spawn(common.isWindows ? 'more' : 'cat');
+const cat = spawn('cat');
 cat.stdin.write('hello');
 cat.stdin.write(' ');
 cat.stdin.write('world');
@@ -43,20 +43,16 @@ cat.stdout.on('data', function(chunk) {
   response += chunk;
 });
 
-cat.stdout.on('end', common.mustCall(function() {}));
+cat.stdout.on('end', common.mustCall());
 
 cat.stderr.on('data', common.mustNotCall());
 
-cat.stderr.on('end', common.mustCall(function() {}));
+cat.stderr.on('end', common.mustCall());
 
 cat.on('exit', common.mustCall(function(status) {
   assert.strictEqual(0, status);
 }));
 
 cat.on('close', common.mustCall(function() {
-  if (common.isWindows) {
-    assert.strictEqual('hello world\r\n', response);
-  } else {
-    assert.strictEqual('hello world', response);
-  }
+  assert.strictEqual('hello world', response);
 }));

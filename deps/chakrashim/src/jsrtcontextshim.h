@@ -59,6 +59,7 @@ class ContextShim {
   void EnsureInitialized();
 
   bool ExecuteChakraDebugShimJS(JsValueRef * chakraDebugObject);
+  bool ExecuteChakraInspectorShimJS(JsValueRef * chakraDebugObject);
 
   IsolateShim * GetIsolateShim();
   JsContextRef GetContextRef();
@@ -75,14 +76,19 @@ class ContextShim {
   JsValueRef GetDateConstructor();
   JsValueRef GetRegExpConstructor();
   JsValueRef GetProxyConstructor();
+  JsValueRef GetMapConstructor();
   JsValueRef GetGlobalType(GlobalType index);
 
   JsValueRef GetHasOwnPropertyFunction();
   JsValueRef GetToStringFunction();
+  JsValueRef GetValueOfFunction();
   JsValueRef GetStringConcatFunction();
   JsValueRef GetArrayPushFunction();
   JsValueRef GetGlobalPrototypeFunction(GlobalPrototypeFunction index);
   JsValueRef GetProxyOfGlobal();
+  JsValueRef GetMapGetFunction();
+  JsValueRef GetMapSetFunction();
+  JsValueRef GetMapHasFunction();
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);

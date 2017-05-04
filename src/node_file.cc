@@ -282,11 +282,15 @@ static void After(uv_fs_t *req) {
       case UV_FS_READ:
         // Buffer interface
 #if ENABLE_TTD_NODE
+        if (s_doTTRecord || s_doTTReplay) {
 #ifdef WIN32
-        Buffer::TTDAsyncModNotify((byte*)(req->fs.info.bufsml[0].base + req->result));
+          byte* bufbase = reinterpret_cast<byte*>(req->fs.info.bufsml[0].base);
 #else
-        Buffer::TTDAsyncModNotify((byte*)(req->bufsml[0].base + req->result));
+          byte* bufbase = reinterpret_cast<byte*>(req->bufsml[0].base);
 #endif
+
+          Buffer::TTDAsyncModNotify(bufbase + req->result);
+        }
 #endif
         argv[1] = Integer::New(env->isolate(), req->result);
         break;
@@ -448,7 +452,12 @@ static void Close(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-void FillStatsArray(double* fields, const uv_stat_t* s) {
+void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
+                    const uv_stat_t* s,
+                    int offset) {
+  Local<ArrayBuffer> ab = fields_array->Buffer();
+  double* fields = static_cast<double*>(ab->GetContents().Data()) + offset;
+
   fields[0] = s->st_dev;
   fields[1] = s->st_mode;
   fields[2] = s->st_nlink;
@@ -477,6 +486,14 @@ void FillStatsArray(double* fields, const uv_stat_t* s) {
   X(12, ctim)
   X(13, birthtim)
 #undef X
+
+#if ENABLE_TTD_NODE
+  if (s_doTTRecord || s_doTTReplay) {
+    int modspos = offset * sizeof(double);
+    int modlength = 14 * sizeof(double);
+    ab->TTDRawBufferModifyNotifySync(modspos, modlength);
+  }
+#endif
 }
 
 // Used to speed up module loading.  Returns the contents of the file as
@@ -1182,14 +1199,18 @@ static void Read(const FunctionCallbackInfo<Value>& args) {
 
   if (req->IsObject()) {
 #if ENABLE_TTD_NODE
+    if (s_doTTRecord || s_doTTReplay) {
       Buffer::TTDAsyncModRegister(buffer_obj, reinterpret_cast<byte*>(buf));
+    }
 #endif
     ASYNC_CALL(read, req, UTF8, fd, &uvbuf, 1, pos);
   } else {
     SYNC_CALL(read, 0, fd, &uvbuf, 1, pos)
     args.GetReturnValue().Set(SYNC_RESULT);
 #if ENABLE_TTD_NODE
-    Buffer::TTDSyncDataModNotify(buffer_obj, off, SYNC_RESULT);
+    if (s_doTTRecord || s_doTTReplay) {
+      Buffer::TTDSyncDataModNotify(buffer_obj, off, SYNC_RESULT);
+    }
 #endif
   }
 }
@@ -1392,18 +1413,20 @@ static void Mkdtemp(const FunctionCallbackInfo<Value>& args) {
 
 void GetStatValues(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
-  double* fields = env->fs_stats_field_array();
-  if (fields == nullptr) {
+  Local<Float64Array> fields = env->fs_stats_field_array();
+
+  if (fields.IsEmpty()) {
     // stat fields contains twice the number of entries because `fs.StatWatcher`
     // needs room to store data for *two* `fs.Stats` instances.
-    fields = new double[2 * 14];
+    Local<ArrayBuffer> ab = ArrayBuffer::New(env->isolate(),
+        new double[2 * 14],
+        sizeof(double) * 2 * 14);
+    fields = Float64Array::New(ab, 0, 2 * 14);
+
     env->set_fs_stats_field_array(fields);
   }
-  Local<ArrayBuffer> ab = ArrayBuffer::New(env->isolate(),
-                                           fields,
-                                           sizeof(double) * 2 * 14);
-  Local<Float64Array> fields_array = Float64Array::New(ab, 0, 2 * 14);
-  args.GetReturnValue().Set(fields_array);
+
+  args.GetReturnValue().Set(fields);
 }
 
 void InitFs(Local<Object> target,

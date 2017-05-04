@@ -211,7 +211,9 @@ class ZCtx : public AsyncWrap {
     }
 
 #if ENABLE_TTD_NODE
-    Buffer::TTDAsyncModRegister(out_buf, out);
+    if (s_doTTRecord || s_doTTReplay) {
+      Buffer::TTDAsyncModRegister(out_buf, out);
+    }
 #endif
 
     // async version
@@ -404,7 +406,9 @@ class ZCtx : public AsyncWrap {
     ctx->write_in_progress_ = false;
 
 #if ENABLE_TTD_NODE
-    Buffer::TTDAsyncModNotify(ctx->strm_.next_out);
+    if (s_doTTRecord || s_doTTReplay) {
+      Buffer::TTDAsyncModNotify(ctx->strm_.next_out);
+    }
 #endif
     // call the write() cb
     Local<Value> args[2] = { avail_in, avail_out };
@@ -425,7 +429,9 @@ class ZCtx : public AsyncWrap {
       message = ctx->strm_.msg;
     }
 #if ENABLE_TTD_NODE
-    Buffer::TTDAsyncModNotify(ctx->strm_.next_out);
+    if (s_doTTRecord || s_doTTReplay) {
+      Buffer::TTDAsyncModNotify(ctx->strm_.next_out);
+    }
 #endif
 
     HandleScope scope(env->isolate());

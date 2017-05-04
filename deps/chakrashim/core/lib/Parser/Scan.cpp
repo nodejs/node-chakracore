@@ -951,14 +951,7 @@ tokens Scanner<EncodingPolicy>::RescanRegExpTokenizer()
 template <typename EncodingPolicy>
 tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
 {
-    if (m_parser && m_parser->IsBackgroundParser())
-    {
-        PROBE_STACK_NO_DISPOSE(m_scriptContext, Js::Constants::MinStackRegex);
-    }
-    else
-    {
-        PROBE_STACK(m_scriptContext, Js::Constants::MinStackRegex);
-    }
+    PROBE_STACK_NO_DISPOSE(m_scriptContext, Js::Constants::MinStackRegex);
 
     // SEE ALSO: RegexHelper::PrimCompileDynamic()
 
@@ -1023,14 +1016,7 @@ tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
 template<typename EncodingPolicy>
 tokens Scanner<EncodingPolicy>::ScanRegExpConstantNoAST(ArenaAllocator* alloc)
 {
-    if (m_parser && m_parser->IsBackgroundParser())
-    {
-        PROBE_STACK_NO_DISPOSE(m_scriptContext, Js::Constants::MinStackRegex);
-    }
-    else
-    {
-        PROBE_STACK(m_scriptContext, Js::Constants::MinStackRegex);
-    }
+    PROBE_STACK_NO_DISPOSE(m_scriptContext, Js::Constants::MinStackRegex);
 
     ThreadContext *threadContext = m_fSyntaxColor ? ThreadContext::GetContextForCurrentThread() : m_scriptContext->GetThreadContext();
     UnifiedRegex::StandardChars<EncodedChar>* standardEncodedChars = threadContext->GetStandardChars((EncodedChar*)0);
@@ -1713,7 +1699,7 @@ tokens Scanner<EncodingPolicy>::ScanForcingPid()
             {
                 this->m_DeferredParseFlags = deferredParseFlagsSave;
             });
-        
+
         return result;
     }
     return Scan();
@@ -1748,7 +1734,7 @@ tokens Scanner<EncodingPolicy>::ScanCore(bool identifyKwds)
     EncodedCharPtr p = m_currentCharacter;
     EncodedCharPtr last = m_pchLast;
     bool seenDelimitedCommentEnd = false;
-    
+
     // store the last token
     m_tkPrevious = m_ptoken->tk;
     m_iecpLimTokPrevious = IecpLimTok();    // Introduced for use by lambda parsing to find correct span of expression lambdas

@@ -162,7 +162,9 @@ NO_RETURN void FatalError(const char* location, const char* message);
 
 void ProcessEmitWarning(Environment* env, const char* fmt, ...);
 
-void FillStatsArray(double* fields, const uv_stat_t* s);
+void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
+                    const uv_stat_t* s,
+                    int offset = 0);
 
 void SetupProcessObject(Environment* env,
                         int argc,

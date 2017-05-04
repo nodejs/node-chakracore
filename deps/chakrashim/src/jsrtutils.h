@@ -423,6 +423,14 @@ JsErrorCode CallFunction(const T& api,
   return api(func, args, _countof(args), result);
 }
 
+template <class T>
+JsErrorCode CallFunction(const T& api,
+                         JsValueRef func, JsValueRef arg1, JsValueRef arg2,
+                         JsValueRef arg3, JsValueRef* result) {
+  JsValueRef args[] = { GetUndefined(), arg1, arg2, arg3 };
+  return api(func, args, _countof(args), result);
+}
+
 inline JsErrorCode CallFunction(JsValueRef func,
                                 JsValueRef* result) {
   return CallFunction(JsCallFunction, func, result);
@@ -437,6 +445,12 @@ inline JsErrorCode CallFunction(JsValueRef func,
                                 JsValueRef arg1, JsValueRef arg2,
                                 JsValueRef* result) {
   return CallFunction(JsCallFunction, func, arg1, arg2, result);
+}
+
+inline JsErrorCode CallFunction(JsValueRef func,
+                                JsValueRef arg1, JsValueRef arg2,
+                                JsValueRef arg3, JsValueRef* result) {
+  return CallFunction(JsCallFunction, func, arg1, arg2, arg3, result);
 }
 
 inline JsErrorCode ConstructObject(JsValueRef func,

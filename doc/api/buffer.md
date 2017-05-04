@@ -52,13 +52,16 @@ In versions of Node.js prior to v6, `Buffer` instances were created using the
 differently based on what arguments are provided:
 
 * Passing a number as the first argument to `Buffer()` (e.g. `new Buffer(10)`),
-  allocates a new `Buffer` object of the specified size. The memory allocated
-  for such `Buffer` instances is *not* initialized and *can contain sensitive
-  data*. Such `Buffer` instances *must* be initialized *manually* by using either
-  [`buf.fill(0)`][`buf.fill()`] or by writing to the `Buffer` completely. While
-  this behavior is *intentional* to improve performance, development experience
-  has demonstrated that a more explicit distinction is required between creating
-  a fast-but-uninitialized `Buffer` versus creating a slower-but-safer `Buffer`.
+  allocates a new `Buffer` object of the specified size. Prior to Node.js 8.0.0,
+  the memory allocated for such `Buffer` instances is *not* initialized and
+  *can contain sensitive data*. Such `Buffer` instances *must* be subsequently
+  initialized by using either [`buf.fill(0)`][`buf.fill()`] or by writing to the
+  `Buffer` completely. While this behavior is *intentional* to improve
+  performance, development experience has demonstrated that a more explicit
+  distinction is required between creating a fast-but-uninitialized `Buffer`
+  versus creating a slower-but-safer `Buffer`. Starting in Node.js 8.0.0,
+  `Buffer(num)` and `new Buffer(num)` will return a `Buffer` with initialized
+  memory.
 * Passing a string, array, or `Buffer` as the first argument copies the
   passed object's data into the `Buffer`.
 * Passing an [`ArrayBuffer`] returns a `Buffer` that shares allocated memory with
@@ -427,6 +430,9 @@ console.log(buf2.toString());
 <!-- YAML
 deprecated: v6.0.0
 changes:
+  - version: v8.0.0
+    pr-url: https://github.com/nodejs/node/pull/12141
+    description: new Buffer(size) will return zero-filled memory by default.
   - version: v7.2.1
     pr-url: https://github.com/nodejs/node/pull/9529
     description: Calling this constructor no longer emits a deprecation warning.
@@ -444,20 +450,16 @@ Allocates a new `Buffer` of `size` bytes.  If the `size` is larger than
 [`buffer.kMaxLength`] or smaller than 0, a [`RangeError`] will be thrown.
 A zero-length `Buffer` will be created if `size` is 0.
 
-Unlike [`ArrayBuffers`][`ArrayBuffer`], the underlying memory for `Buffer` instances
-created in this way is *not initialized*. The contents of a newly created `Buffer`
-are unknown and *could contain sensitive data*. Use
-[`Buffer.alloc(size)`][`Buffer.alloc()`] instead to initialize a `Buffer` to zeroes.
+Prior to Node.js 8.0.0, the underlying memory for `Buffer` instances
+created in this way is *not initialized*. The contents of a newly created
+`Buffer` are unknown and *may contain sensitive data*. Use
+[`Buffer.alloc(size)`][`Buffer.alloc()`] instead to initialize a `Buffer`
+to zeroes.
 
 Example:
 
 ```js
 const buf = new Buffer(10);
-
-// Prints: (contents may vary): <Buffer 48 21 4b 00 00 00 00 00 30 dd>
-console.log(buf);
-
-buf.fill(0);
 
 // Prints: <Buffer 00 00 00 00 00 00 00 00 00 00>
 console.log(buf);
@@ -755,6 +757,10 @@ in `list`. This however causes an additional loop to be executed in order to
 calculate the `totalLength`, so it is faster to provide the length explicitly if
 it is already known.
 
+If `totalLength` is provided, it is coerced to an unsigned integer. If the
+combined length of the `Buffer`s in `list` exceeds `totalLength`, the result is
+truncated to `totalLength`.
+
 Example: Create a single `Buffer` from a list of three `Buffer` instances
 
 ```js
@@ -942,6 +948,10 @@ name: [index]
 The index operator `[index]` can be used to get and set the octet at position
 `index` in `buf`. The values refer to individual bytes, so the legal value
 range is between `0x00` and `0xFF` (hex) or `0` and `255` (decimal).
+
+This operator is inherited from `Uint8Array`, so its behavior on out-of-bounds
+access is the same as `UInt8Array` - that is, getting returns `undefined` and
+setting does nothing.
 
 Example: Copy an ASCII string into a `Buffer`, one byte at a time
 
@@ -2587,7 +2597,7 @@ Allocates a new `Buffer` of `size` bytes.  If the `size` is larger than
 A zero-length `Buffer` will be created if `size` is 0.
 
 The underlying memory for `SlowBuffer` instances is *not initialized*. The
-contents of a newly created `SlowBuffer` are unknown and could contain
+contents of a newly created `SlowBuffer` are unknown and may contain
 sensitive data. Use [`buf.fill(0)`][`buf.fill()`] to initialize a `SlowBuffer` to zeroes.
 
 Example:

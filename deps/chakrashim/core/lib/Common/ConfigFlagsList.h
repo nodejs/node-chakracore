@@ -511,12 +511,6 @@ PHASE(All)
 #define DEFAULT_CONFIG_ES6Classes              (true)
 #define DEFAULT_CONFIG_ES6DateParseFix         (true)
 #define DEFAULT_CONFIG_ES6DefaultArgs          (true)
-#ifdef COMPILE_DISABLE_ES6DefaultArgsSplitScope
-    // If ES6DefaultArgsSplitScope needs to be disabled by compile flag, COMPILE_DISABLE_ES6DefaultArgsSplitScope should be false
-    #define DEFAULT_CONFIG_ES6DefaultArgsSplitScope (false)
-#else
-    #define DEFAULT_CONFIG_ES6DefaultArgsSplitScope (false)
-#endif
 #define DEFAULT_CONFIG_ES6Destructuring        (true)
 #define DEFAULT_CONFIG_ES6ForLoopSemantics     (true)
 #define DEFAULT_CONFIG_ES6FunctionName         (true)
@@ -551,7 +545,7 @@ PHASE(All)
     #define DEFAULT_CONFIG_ES6PrototypeChain       (false)
 #endif
 #define DEFAULT_CONFIG_ES6ToPrimitive          (true)
-#define DEFAULT_CONFIG_ES6ToLength             (false)
+#define DEFAULT_CONFIG_ES6ToLength             (true)
 #define DEFAULT_CONFIG_ES6ToStringTag          (true)
 #define DEFAULT_CONFIG_ES6Unicode              (true)
 #define DEFAULT_CONFIG_ES6UnicodeVerbose       (true)
@@ -980,11 +974,6 @@ FLAGPR           (Boolean, ES6, ES7AsyncAwait          , "Enable ES7 'async' and
 FLAGPR           (Boolean, ES6, ES6Classes             , "Enable ES6 'class' and 'extends' keywords"                , DEFAULT_CONFIG_ES6Classes)
 FLAGPR           (Boolean, ES6, ES6DateParseFix        , "Enable ES6 Date.parse fixes"                              , DEFAULT_CONFIG_ES6DateParseFix)
 FLAGPR           (Boolean, ES6, ES6DefaultArgs         , "Enable ES6 Default Arguments"                             , DEFAULT_CONFIG_ES6DefaultArgs)
-
-#ifndef COMPILE_DISABLE_ES6DefaultArgsSplitScope
-    #define COMPILE_DISABLE_ES6DefaultArgsSplitScope 0
-#endif
-FLAGPR_REGOVR_EXP(Boolean, ES6, ES6DefaultArgsSplitScope, "Enable ES6 Default Arguments to have its own scope"      , DEFAULT_CONFIG_ES6DefaultArgsSplitScope)
 FLAGPR           (Boolean, ES6, ES6Destructuring       , "Enable ES6 Destructuring"                                 , DEFAULT_CONFIG_ES6Destructuring)
 FLAGPR           (Boolean, ES6, ES6ForLoopSemantics    , "Enable ES6 for loop per iteration bindings"               , DEFAULT_CONFIG_ES6ForLoopSemantics)
 FLAGPR           (Boolean, ES6, ES6FunctionName        , "Enable ES6 function.name"                                 , DEFAULT_CONFIG_ES6FunctionName)
@@ -1392,7 +1381,7 @@ FLAGR (Number,  Version               , "Version in which to run the jscript eng
 #ifdef ENABLE_PROJECTION
 FLAGR (Number,  HostType              , "Host type in which to run the jscript engine. [one of 1,2]. Default is 1 = Browser.", 1)
 #endif
-FLAGR (Boolean, WERExceptionSupport   , "WER feature for extended exception support. Enabled when WinRT is enabled", false )
+FLAGR(Boolean, WERExceptionSupport    , "WER feature for extended exception support. Enabled when WinRT is enabled", false)
 #ifdef ENABLE_PROJECTION
 FLAGR (Boolean, WinRTConstructorAllowed, "Whether WinRT constructors is allowed in WebView host type. Constructor is always allowed in other host type ", false)
 #endif
@@ -1510,7 +1499,7 @@ FLAGNR(Boolean, CFG, "Force enable CFG on jshost. version in the jshost's manife
     FLAGNR(Number, SimulatePolyCacheWithOneTypeForInlineCacheIndex, "Use with SimulatePolyCacheWithOneTypeForFunction to simulate creating a polymorphic inline cache containing only one type due to a collision, for testing ObjTypeSpec", -1)
 #endif
 
-FLAGR(Number, JITServerIdleTimeout, "Idle timeout in seconds to do the cleanup in JIT server", 10)
+FLAGR(Number, JITServerIdleTimeout, "Idle timeout in milliseconds to do the cleanup in JIT server", 500)
 FLAGR(Number, JITServerMaxInactivePageAllocatorCount, "Max inactive page allocators to keep before schedule a cleanup", 10)
 
 FLAGNR(Boolean, StrictWriteBarrierCheck, "Check write barrier setting on none write barrier pages", DEFAULT_CONFIG_StrictWriteBarrierCheck)

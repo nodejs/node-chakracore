@@ -34,10 +34,10 @@ function FakeInput() {
   EventEmitter.call(this);
 }
 inherits(FakeInput, EventEmitter);
-FakeInput.prototype.resume = function() {};
-FakeInput.prototype.pause = function() {};
-FakeInput.prototype.write = function() {};
-FakeInput.prototype.end = function() {};
+FakeInput.prototype.resume = common.noop;
+FakeInput.prototype.pause = common.noop;
+FakeInput.prototype.write = common.noop;
+FakeInput.prototype.end = common.noop;
 
 function isWarned(emitter) {
   for (const name in emitter) {
@@ -326,6 +326,67 @@ function isWarned(emitter) {
     return false;
   });
 
+  // duplicate lines are removed from history when
+  // `options.removeHistoryDuplicates` is `true`
+  fi = new FakeInput();
+  rli = new readline.Interface({
+    input: fi,
+    output: fi,
+    terminal: true,
+    removeHistoryDuplicates: true
+  });
+  expectedLines = ['foo', 'bar', 'baz', 'bar', 'bat', 'bat'];
+  callCount = 0;
+  rli.on('line', function(line) {
+    assert.strictEqual(line, expectedLines[callCount]);
+    callCount++;
+  });
+  fi.emit('data', expectedLines.join('\n') + '\n');
+  assert.strictEqual(callCount, expectedLines.length);
+  fi.emit('keypress', '.', { name: 'up' }); // 'bat'
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  fi.emit('keypress', '.', { name: 'up' }); // 'bar'
+  assert.notStrictEqual(rli.line, expectedLines[--callCount]);
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  fi.emit('keypress', '.', { name: 'up' }); // 'baz'
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  fi.emit('keypress', '.', { name: 'up' }); // 'foo'
+  assert.notStrictEqual(rli.line, expectedLines[--callCount]);
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  assert.strictEqual(callCount, 0);
+  rli.close();
+
+  // duplicate lines are not removed from history when
+  // `options.removeHistoryDuplicates` is `false`
+  fi = new FakeInput();
+  rli = new readline.Interface({
+    input: fi,
+    output: fi,
+    terminal: true,
+    removeHistoryDuplicates: false
+  });
+  expectedLines = ['foo', 'bar', 'baz', 'bar', 'bat', 'bat'];
+  callCount = 0;
+  rli.on('line', function(line) {
+    assert.strictEqual(line, expectedLines[callCount]);
+    callCount++;
+  });
+  fi.emit('data', expectedLines.join('\n') + '\n');
+  assert.strictEqual(callCount, expectedLines.length);
+  fi.emit('keypress', '.', { name: 'up' }); // 'bat'
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  fi.emit('keypress', '.', { name: 'up' }); // 'bar'
+  assert.notStrictEqual(rli.line, expectedLines[--callCount]);
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  fi.emit('keypress', '.', { name: 'up' }); // 'baz'
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  fi.emit('keypress', '.', { name: 'up' }); // 'bar'
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  fi.emit('keypress', '.', { name: 'up' }); // 'foo'
+  assert.strictEqual(rli.line, expectedLines[--callCount]);
+  assert.strictEqual(callCount, 0);
+  rli.close();
+
   // sending a multi-byte utf8 char over multiple writes
   const buf = Buffer.from('☮', 'utf8');
   fi = new FakeInput();
@@ -505,7 +566,7 @@ function isWarned(emitter) {
     });
 
     const rl = readline.createInterface({
-      input: new Readable({ read: () => {} }),
+      input: new Readable({ read: common.noop }),
       output: output,
       prompt: '$ ',
       terminal: terminal

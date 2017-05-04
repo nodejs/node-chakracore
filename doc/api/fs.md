@@ -218,7 +218,7 @@ For a regular file [`util.inspect(stats)`][] would return a string very
 similar to this:
 
 ```js
-{
+Stats {
   dev: 2114,
   ino: 48064969,
   mode: 33188,
@@ -232,8 +232,7 @@ similar to this:
   atime: Mon, 10 Oct 2011 23:24:11 GMT,
   mtime: Mon, 10 Oct 2011 23:24:11 GMT,
   ctime: Mon, 10 Oct 2011 23:24:11 GMT,
-  birthtime: Mon, 10 Oct 2011 23:24:11 GMT
-}
+  birthtime: Mon, 10 Oct 2011 23:24:11 GMT }
 ```
 
 Please note that `atime`, `mtime`, `birthtime`, and `ctime` are
@@ -377,12 +376,12 @@ fs.access('myfile', (err) => {
 ```js
 fs.open('myfile', 'wx', (err, fd) => {
   if (err) {
-    if (err.code === "EEXIST") {
+    if (err.code === 'EEXIST') {
       console.error('myfile already exists');
       return;
-    } else {
-      throw err;
     }
+
+    throw err;
   }
 
   writeMyData(fd);
@@ -394,12 +393,12 @@ fs.open('myfile', 'wx', (err, fd) => {
 ```js
 fs.access('myfile', (err) => {
   if (err) {
-    if (err.code === "ENOENT") {
+    if (err.code === 'ENOENT') {
       console.error('myfile does not exist');
       return;
-    } else {
-      throw err;
     }
+
+    throw err;
   }
 
   fs.open('myfile', 'r', (err, fd) => {
@@ -414,12 +413,12 @@ fs.access('myfile', (err) => {
 ```js
 fs.open('myfile', 'r', (err, fd) => {
   if (err) {
-    if (err.code === "ENOENT") {
+    if (err.code === 'ENOENT') {
       console.error('myfile does not exist');
       return;
-    } else {
-      throw err;
     }
+
+    throw err;
   }
 
   readMyData(fd);
@@ -779,13 +778,14 @@ fs.exists('myfile', (exists) => {
 ```js
 fs.open('myfile', 'wx', (err, fd) => {
   if (err) {
-    if (err.code === "EEXIST") {
+    if (err.code === 'EEXIST') {
       console.error('myfile already exists');
       return;
-    } else {
-      throw err;
     }
+
+    throw err;
   }
+
   writeMyData(fd);
 });
 ```
@@ -809,15 +809,15 @@ fs.exists('myfile', (exists) => {
 ```js
 fs.open('myfile', 'r', (err, fd) => {
   if (err) {
-    if (err.code === "ENOENT") {
+    if (err.code === 'ENOENT') {
       console.error('myfile does not exist');
       return;
-    } else {
-      throw err;
     }
-  } else {
-    readMyData(fd);
+
+    throw err;
   }
+
+  readMyData(fd);
 });
 ```
 
@@ -1025,7 +1025,7 @@ const fd = fs.openSync('temp.txt', 'r+');
 
 // truncate the file to 10 bytes, whereas the actual size is 7 bytes
 fs.ftruncate(fd, 10, (err) => {
-  assert.ifError(!err);
+  assert.ifError(err);
   console.log(fs.readFileSync('temp.txt'));
 });
 // Prints: <Buffer 4e 6f 64 65 2e 6a 73 00 00 00>
@@ -1099,7 +1099,7 @@ changes:
 Asynchronous lchmod(2). No arguments other than a possible exception
 are given to the completion callback.
 
-Only available on Mac OS X.
+Only available on macOS.
 
 ## fs.lchmodSync(path, mode)
 <!-- YAML
@@ -1281,8 +1281,8 @@ fs.mkdtemp(tmpDir, (err, folder) => {
 });
 
 // This method is *CORRECT*:
-const path = require('path');
-fs.mkdtemp(tmpDir + path.sep, (err, folder) => {
+const { sep } = require('path');
+fs.mkdtemp(`${tmpDir}${sep}`, (err, folder) => {
   if (err) throw err;
   console.log(folder);
   // Will print something similar to `/tmp/abc123`.
@@ -1374,12 +1374,12 @@ The kernel ignores the position argument and always appends the data to
 the end of the file.
 
 _Note: The behavior of `fs.open()` is platform specific for some flags. As such,
-opening a directory on OS X and Linux with the `'a+'` flag - see example below -
-will return an error. In contrast, on Windows and FreeBSD, a file descriptor
-will be returned._
+opening a directory on macOS and Linux with the `'a+'` flag - see example
+below - will return an error. In contrast, on Windows and FreeBSD, a file
+descriptor will be returned._
 
 ```js
-// OS X and Linux
+// macOS and Linux
 fs.open('<directory>', 'a+', (err, fd) => {
   // => [Error: EISDIR: illegal operation on a directory, open <directory>]
 });
@@ -1415,7 +1415,7 @@ changes:
 -->
 
 * `fd` {integer}
-* `buffer` {string|Buffer|Uint8Array}
+* `buffer` {Buffer|Uint8Array}
 * `offset` {integer}
 * `length` {integer}
 * `position` {integer}
@@ -1763,7 +1763,7 @@ argument will automatically be normalized to absolute path.
 Here is an example below:
 
 ```js
-fs.symlink('./foo', './new-port');
+fs.symlink('./foo', './new-port', callback);
 ```
 
 It creates a symbolic link named "new-port" that points to "foo".
@@ -1880,8 +1880,7 @@ follow these rules:
   returns milliseconds, so it should be divided by 1000 before passing it in.
 - If the value is a numeric string like `'123456789'`, the value will get
   converted to the corresponding number.
-- If the value is `NaN` or `Infinity`, the value will get converted to
-  `Date.now() / 1000`.
+- If the value is `NaN`, `Infinity` or `-Infinity`, an Error will be thrown.
 
 ## fs.utimesSync(path, atime, mtime)
 <!-- YAML
@@ -1944,7 +1943,7 @@ Also note the listener callback is attached to the `'change'` event fired by
 The `fs.watch` API is not 100% consistent across platforms, and is
 unavailable in some situations.
 
-The recursive option is only supported on OS X and Windows.
+The recursive option is only supported on macOS and Windows.
 
 #### Availability
 
@@ -1955,7 +1954,7 @@ to be notified of filesystem changes.
 
 * On Linux systems, this uses [`inotify`]
 * On BSD systems, this uses [`kqueue`]
-* On OS X, this uses [`kqueue`] for files and [`FSEvents`] for directories.
+* On macOS, this uses [`kqueue`] for files and [`FSEvents`] for directories.
 * On SunOS systems (including Solaris and SmartOS), this uses [`event ports`].
 * On Windows systems, this feature depends on [`ReadDirectoryChangesW`].
 * On Aix systems, this feature depends on [`AHAFS`], which must be enabled.
@@ -1973,7 +1972,7 @@ less reliable.
 
 <!--type=misc-->
 
-On Linux and OS X systems, `fs.watch()` resolves the path to an [inode][] and
+On Linux and macOS systems, `fs.watch()` resolves the path to an [inode][] and
 watches the inode. If the watched path is deleted and recreated, it is assigned
 a new inode. The watch will emit an event for the delete but will continue
 watching the *original* inode. Events for the new inode will not be emitted.
@@ -1983,7 +1982,7 @@ In AIX, save and close of a file being watched causes two notifications -
 one for adding new content, and one for truncation. Moreover, save and
 close operations on some platforms cause inode changes that force watch
 operations to become invalid and ineffective. AIX retains inode for the
-lifetime of a file, that way though this is different from Linux / OS X,
+lifetime of a file, that way though this is different from Linux / macOS,
 this improves the usability of file watching. This is expected behavior.
 
 #### Filename Argument
@@ -2174,7 +2173,7 @@ Example:
 ```js
 fs.writeFile('message.txt', 'Hello Node.js', (err) => {
   if (err) throw err;
-  console.log('It\'s saved!');
+  console.log('The file has been saved!');
 });
 ```
 

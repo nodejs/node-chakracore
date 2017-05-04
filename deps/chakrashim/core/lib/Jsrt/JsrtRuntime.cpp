@@ -53,16 +53,20 @@ void JsrtRuntime::Uninitialize()
     while (currentThreadContext)
     {
         Assert(!currentThreadContext->IsScriptActive());
-#ifdef CHAKRA_STATIC_LIBRARY
-        if (currentThreadContext->IsInScript()) break;
-#endif
         JsrtRuntime* currentRuntime = static_cast<JsrtRuntime*>(currentThreadContext->GetJSRTRuntime());
         tmpThreadContext = currentThreadContext;
         currentThreadContext = currentThreadContext->Next();
 
+#ifdef CHAKRA_STATIC_LIBRARY
+        // xplat-todo: Cleanup staticlib shutdown. This only shuts down threads.
+        // Other closing contexts / finalizers having trouble with current
+        // runtime/context.
+        RentalThreadContextManager::DestroyThreadContext(tmpThreadContext);
+#else
         currentRuntime->CloseContexts();
         RentalThreadContextManager::DestroyThreadContext(tmpThreadContext);
         HeapDelete(currentRuntime);
+#endif
     }
 }
 
@@ -144,3 +148,27 @@ JsrtDebugManager * JsrtRuntime::GetJsrtDebugManager()
 {
     return this->jsrtDebugManager;
 }
+
+#if ENABLE_TTD
+uint32 JsrtRuntime::BPRegister_TTD(int64 bpID, Js::ScriptContext* scriptContext, Js::Utf8SourceInfo* utf8SourceInfo, uint32 line, uint32 column, BOOL* isNewBP)
+{
+    TTDAssert(this->jsrtDebugManager != nullptr, "This needs to be setup before registering any breakpoints.");
+
+    Js::BreakpointProbe* probe = this->jsrtDebugManager->SetBreakpointHelper_TTD(bpID, scriptContext, utf8SourceInfo, line, column, isNewBP);
+    return probe->GetId();
+}
+
+void JsrtRuntime::BPDelete_TTD(uint32 bpID)
+{
+    TTDAssert(this->jsrtDebugManager != nullptr, "This needs to be setup before deleting any breakpoints.");
+
+    this->jsrtDebugManager->GetDebugDocumentManager()->RemoveBreakpoint(bpID);
+}
+
+void JsrtRuntime::BPClearDocument_TTD()
+{
+    TTDAssert(this->jsrtDebugManager != nullptr, "This needs to be setup before deleting any breakpoints.");
+
+    this->jsrtDebugManager->ClearBreakpointDebugDocumentDictionary();
+}
+#endif

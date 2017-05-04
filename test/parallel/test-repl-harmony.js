@@ -29,7 +29,7 @@ const child = spawn(process.execPath, args);
 
 const input = '(function(){"use strict"; const y=1;y=2})()\n';
 const expectOut = common.engineSpecificMessage({
-  v8: /^> TypeError: Assignment to constant variable.\n/,
+  v8: /^> TypeError: Assignment to constant variable\.\n/,
   chakracore: /^> TypeError: Assignment to const\n/
 });
 

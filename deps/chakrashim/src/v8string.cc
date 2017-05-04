@@ -91,8 +91,9 @@ int String::Write(uint16_t *buffer, int start, int length, int options) const {
   size_t count = 0;
   if (JsCopyStringUtf16((JsValueRef)this, start, length,
                          buffer, &count) == JsNoError) {
-    if (!(options & String::NO_NULL_TERMINATION)) {
-      buffer[count] = 0;
+    if (!(options & String::NO_NULL_TERMINATION) &&
+        (length == -1 || count < length)) {
+      buffer[count] = '\0';
     }
   }
   return count;

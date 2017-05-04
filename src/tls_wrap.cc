@@ -74,14 +74,8 @@ TLSWrap::TLSWrap(Environment* env,
   node::Wrap(object(), this);
   MakeWeak(this);
 
-  //
-  //TODO: This is a temp workaround for the stashed persistent pointer in (object()) that is made weak.
-  //      The resulting hidden lifetime means we lose the reference for it in the event replay code. 
-  //      We will need to:
-  //        (1) Add a method to notify the engine that these pointers are being stashed (likely in the persistent code).
-  //        (2) Add GC support to defer collecting objects with callback (and weak sets/maps) to the main event loop when 
-  //            we can force a GC at a known time to handle all of this (and the weak persistent can notify that the stashed pointer is gone).
-  if(s_doTTRecord) {
+  // TODO(marron): This is a temp workaround for the stashed persistent pointer
+  if (s_doTTRecord) {
     unsigned int refct = 0;
     JsAddRef(*(this->object()), &refct);
   }
@@ -97,6 +91,7 @@ TLSWrap::TLSWrap(Environment* env,
   stream_->set_after_write_cb({ OnAfterWriteImpl, this });
   stream_->set_alloc_cb({ OnAllocImpl, this });
   stream_->set_read_cb({ OnReadImpl, this });
+  stream_->set_destruct_cb({ OnDestructImpl, this });
 
   set_alloc_cb({ OnAllocSelf, this });
   set_read_cb({ OnReadSelf, this });
@@ -458,6 +453,12 @@ void TLSWrap::ClearOut() {
       memcpy(buf.base, current, avail);
       OnRead(avail, &buf);
 
+      // Caveat emptor: OnRead() calls into JS land which can result in
+      // the SSL context object being destroyed.  We have to carefully
+      // check that ssl_ != nullptr afterwards.
+      if (ssl_ == nullptr)
+        return;
+
       read -= avail;
       current += avail;
     }
@@ -555,7 +556,7 @@ int TLSWrap::GetFD() {
 
 
 bool TLSWrap::IsAlive() {
-  return ssl_ != nullptr && stream_->IsAlive();
+  return ssl_ != nullptr && stream_ != nullptr && stream_->IsAlive();
 }
 
 
@@ -693,6 +694,12 @@ void TLSWrap::OnReadImpl(ssize_t nread,
 }
 
 
+void TLSWrap::OnDestructImpl(void* ctx) {
+  TLSWrap* wrap = static_cast<TLSWrap*>(ctx);
+  wrap->clear_stream();
+}
+
+
 void TLSWrap::OnAllocSelf(size_t suggested_size, uv_buf_t* buf, void* ctx) {
   buf->base = node::Malloc(suggested_size);
   buf->len = suggested_size;
@@ -827,11 +834,11 @@ void TLSWrap::DestroySSL(const FunctionCallbackInfo<Value>& args) {
   // Destroy the SSL structure and friends
   wrap->SSLWrap<TLSWrap>::DestroySSL();
 
-  //See comment with AddRef earlier in this file.
-  if(s_doTTRecord) {
+  // See comment with AddRef earlier in this file.
+  if (s_doTTRecord) {
       unsigned int refct = 0;
-      //As this is null we may have lost the reference earlier in the run... which coule be bad
-      if(*(wrap->object()) != nullptr) {
+      // As this is null we may have lost the reference earlier in the run...
+      if (*(wrap->object()) != nullptr) {
           JsRelease(*(wrap->object()), &refct);
       }
   }
