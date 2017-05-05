@@ -167,9 +167,8 @@
         'src/handle_wrap.cc',
         'src/js_stream.cc',
         'src/node.cc',
-        'src/node_api.cc',
-        'src/node_api.h',
-        'src/node_api_types.h',
+#        'src/node_api.cc',
+        'src/node_api_jsrt.cc',
         'src/node_buffer.cc',
         'src/node_config.cc',
         'src/node_constants.cc',
@@ -219,6 +218,8 @@
         'src/handle_wrap.h',
         'src/js_stream.h',
         'src/node.h',
+        'src/node_api.h',
+        'src/node_api_types.h',
         'src/node_buffer.h',
         'src/node_constants.h',
         'src/node_debug_options.h',
@@ -644,7 +645,7 @@
         'GTEST_DONT_DEFINE_ASSERT_NE=1',
         'NODE_WANT_INTERNALS=1',
       ],
-      
+
       'sources': [
         'test/cctest/test_base64.cc',
         'test/cctest/test_environment.cc',
