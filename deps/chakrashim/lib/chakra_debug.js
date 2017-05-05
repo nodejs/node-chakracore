@@ -40,8 +40,8 @@
         var printStr = '';
         for (var index in argsArray) {
           var obj = argsArray[index];
-          if (obj != undefined) {
-            printStr += (typeof obj != 'string') ? JSON.stringify(obj) : obj;
+          if (obj !== undefined) {
+            printStr += (typeof obj !== 'string') ? JSON.stringify(obj) : obj;
             printStr += ': ';
           }
         }
@@ -118,7 +118,7 @@
   function AddChildrens(obj) {
     if ('display' in obj) {
       if (!('value' in obj) || !isFinite(obj['value']) ||
-        obj['value'] == null || obj['value'] == undefined) {
+        obj['value'] === null || obj['value'] === undefined) {
         obj['value'] = obj['display'];
       }
       if (!('text' in obj)) {
@@ -129,7 +129,7 @@
       }
     }
 
-    if ('className' in obj && obj['className'] == 'Object') {
+    if ('className' in obj && obj['className'] === 'Object') {
       obj.constructorFunction = {
         'ref': globalExecutionState.GetObjectEvalHandle()
       };
@@ -145,7 +145,7 @@
     //var PROPERTY_ATTRIBUTE_READ_ONLY_VALUE = 0x2;
 
     if (('propertyAttributes' in obj) &&
-      ((obj['propertyAttributes'] & PROPERTY_ATTRIBUTE_HAVE_CHILDRENS) ==
+      ((obj['propertyAttributes'] & PROPERTY_ATTRIBUTE_HAVE_CHILDRENS) ===
       PROPERTY_ATTRIBUTE_HAVE_CHILDRENS)) {
       var objectHandle = obj['handle'];
 
@@ -333,7 +333,7 @@
       },
       GetScriptFromHandle: function(handle) {
         for (var i = 0; i < _scripts.length; ++i) {
-          if (_scripts[i] && _scripts[i].GetHandle() == handle) {
+          if (_scripts[i] && _scripts[i].GetHandle() === handle) {
             return _scripts[i];
           }
         }
@@ -383,7 +383,7 @@
   };
 
   ExecutionState.prototype.IsAsyncBreak = function() {
-    return this.type == ExecutionStateType.Async;
+    return this.type === ExecutionStateType.Async;
   };
 
   ExecutionState.prototype.GetBreakScriptId = function() {
@@ -391,7 +391,7 @@
   };
 
   ExecutionState.prototype.GetFrames = function() {
-    if (!this.frames || this.frames.length == 0) {
+    if (!this.frames || this.frames.length === 0) {
       var _frames = [];
       var stackTrace = CallHostFunction(chakraDebug.JsDiagGetStackTrace);
       stackTrace.forEach(function(element, index, array) {
@@ -479,7 +479,7 @@
 
   V8Script.prototype.IsSameFileName = function(fileName) {
     if (fileName && this.GetFileName() &&
-      (this.GetFileName().toLowerCase() == fileName.toLowerCase())) {
+      (this.GetFileName().toLowerCase() === fileName.toLowerCase())) {
       return true;
     }
     return false;
@@ -552,11 +552,11 @@
   }
 
   V8Breakpoint.prototype.GetTypeString = function() {
-    if (this.type == Debug.ScriptBreakPointType.ScriptId) {
+    if (this.type === Debug.ScriptBreakPointType.ScriptId) {
       return 'scriptId';
-    } else if (this.type == Debug.ScriptBreakPointType.ScriptName) {
+    } else if (this.type === Debug.ScriptBreakPointType.ScriptName) {
       return 'scriptName';
-    } else if (this.type == Debug.ScriptBreakPointType.ScriptRegExp) {
+    } else if (this.type === Debug.ScriptBreakPointType.ScriptRegExp) {
       return 'scriptRegExp';
     }
   };
@@ -587,7 +587,7 @@
     this.v8breakpoint.script_id = bpObject.scriptId;
     this.v8breakpoint.script_name = this.scriptObject.GetScriptName();
 
-    if (this.type == Debug.ScriptBreakPointType.ScriptRegExp) {
+    if (this.type === Debug.ScriptBreakPointType.ScriptRegExp) {
       this.v8breakpoint.script_regexp = this.target;
     }
 
@@ -648,18 +648,18 @@
       v8Scripts.forEach(function(element, index, array) {
         var found = true;
 
-        if (ids != null) {
+        if (ids !== null) {
           found = false;
           for (var i = 0; i < ids.length; ++i) {
-            if (ids[i] == element.GetId()) {
+            if (ids[i] === element.GetId()) {
               found = true;
               break;
             }
           }
         }
 
-        if (filter != null) {
-          found = filter == element.GetFileName();
+        if (filter !== null) {
+          found = filter === element.GetFileName();
         }
 
         if (found) {
@@ -699,22 +699,22 @@
     var clearMemoizedScriptInfo = false;
     if (request.arguments && request.arguments.stepaction) {
       var jsDiagSetStepType = 0;
-      if (request.arguments.stepaction == 'in') {
+      if (request.arguments.stepaction === 'in') {
         /* JsDiagStepTypeStepIn */
         jsDiagSetStepType = 0;
-      } else if (request.arguments.stepaction == 'out') {
+      } else if (request.arguments.stepaction === 'out') {
         /* JsDiagStepTypeStepOut */
         jsDiagSetStepType = 1;
-      } else if (request.arguments.stepaction == 'next') {
+      } else if (request.arguments.stepaction === 'next') {
         /* JsDiagStepTypeStepOver */
         jsDiagSetStepType = 2;
-      } else if (request.arguments.stepaction == 'back') {
+      } else if (request.arguments.stepaction === 'back') {
         /* JsDiagStepTypeStepBack */
         jsDiagSetStepType = 3;
         // We may recreate the script context
         // Invalidating scriptIds so clear any memoized info
         clearMemoizedScriptInfo = true;
-      } else if (request.arguments.stepaction == 'reverse') {
+      } else if (request.arguments.stepaction === 'reverse') {
         /* JsDiagStepTypeStepBack */
         jsDiagSetStepType = 4;
         // We may recreate the script context
@@ -750,7 +750,7 @@
 
     if (request.arguments) {
       var scriptObject;
-      if (request.arguments.type == 'scriptRegExp') {
+      if (request.arguments.type === 'scriptRegExp') {
         var targetRegex = new RegExp(request.arguments.target);
         scriptObject =
           DebugManager.ScriptsManager.GetScriptFromMatchingFileName(
@@ -760,9 +760,9 @@
           breakpointType = Debug.ScriptBreakPointType.ScriptRegExp;
           breakpointTarget = request.arguments.target;
         }
-      } else if (request.arguments.type == 'script' &&
-        (request.arguments.target == null ||
-        request.arguments.target == undefined)) {
+      } else if (request.arguments.type === 'script' &&
+        (request.arguments.target === null ||
+        request.arguments.target === undefined)) {
         var breakScriptId = globalExecutionState.GetBreakScriptId();
         scriptObject = DebugManager.ScriptsManager.GetScript(breakScriptId);
         if (scriptObject) {
@@ -770,7 +770,7 @@
           breakpointType = Debug.ScriptBreakPointType.ScriptId;
           breakpointTarget = request.arguments.target;
         }
-      } else if (request.arguments.type == 'script' &&
+      } else if (request.arguments.type === 'script' &&
         request.arguments.target) {
         scriptObject = DebugManager.ScriptsManager.GetScriptFromFileName(
           request.arguments.target);
@@ -779,7 +779,7 @@
           breakpointType = Debug.ScriptBreakPointType.ScriptName;
           breakpointTarget = request.arguments.target;
         }
-      } else if (request.arguments.type == 'scriptId' &&
+      } else if (request.arguments.type === 'scriptId' &&
         request.arguments.target) {
         var scriptId = parseInt(request.arguments.target);
         scriptObject = DebugManager.ScriptsManager.GetScript(scriptId);
@@ -790,11 +790,11 @@
         }
       }
 
-      if (typeof request.arguments.line == 'number') {
+      if (typeof request.arguments.line === 'number') {
         line = request.arguments.line;
       }
 
-      if (typeof request.arguments.column == 'number') {
+      if (typeof request.arguments.column === 'number') {
         column = request.arguments.column;
       }
     }
@@ -814,7 +814,7 @@
         response.body.breakpoint = v8Breakpoint.Id();
       }
     } else {
-      if (optAddToPending != false) {
+      if (optAddToPending !== false) {
         DebugManager.BreakpointManager.AddPendingBreakpoint(request);
       }
     }
@@ -826,10 +826,10 @@
     var toFrame = frames.length;
 
     if (request.arguments) {
-      if (request.arguments.fromFrame != undefined) {
+      if (request.arguments.fromFrame !== undefined) {
         fromFrame = request.arguments.fromFrame;
       }
-      if (request.arguments.toFrame != undefined &&
+      if (request.arguments.toFrame !== undefined &&
         request.arguments.toFrame < toFrame) {
         toFrame = request.arguments.toFrame;
       }
@@ -893,14 +893,14 @@
       var frames = globalExecutionState.GetFrames();
       var frame = frames[0];
       if (request.arguments) {
-        if (typeof request.arguments.frame == 'number') {
+        if (typeof request.arguments.frame === 'number') {
           for (var i = 0; i < frames.length; ++i) {
-            if (request.arguments.frame == frames[i].GetIndex()) {
+            if (request.arguments.frame === frames[i].GetIndex()) {
               frame = frames[i];
               break;
             }
           }
-        } else if (request.arguments.global == true) {
+        } else if (request.arguments.global === true) {
           frame = frames[frames.length - 1];
         }
 
@@ -942,11 +942,11 @@
         }
 
         if (enabled && request.arguments.type) {
-          if (request.arguments.type == 'all') {
+          if (request.arguments.type === 'all') {
             // JsDiagBreakOnExceptionAttributeUncaught |
             // JsDiagBreakOnExceptionAttributeFirstChance
             breakOnExceptionAttribute = 0x1 | 0x2;
-          } else if (request.arguments.type == 'uncaught') {
+          } else if (request.arguments.type === 'uncaught') {
             // JsDiagBreakOnExceptionAttributeUncaught
             breakOnExceptionAttribute = 0x1;
           }
@@ -968,14 +968,14 @@
     var frameIndex = -1;
     var frame;
     for (var i = 0; i < frames.length; ++i) {
-      if (frames[i].GetIndex() == request.arguments.frameNumber) {
+      if (frames[i].GetIndex() === request.arguments.frameNumber) {
         frameIndex = frames[i].GetIndex();
         frame = frames[i];
         break;
       }
     }
 
-    if (frameIndex != -1) {
+    if (frameIndex !== -1) {
       var props = frame.GetStackProperties();
       var scopes = [];
       var refs = [];
@@ -1072,9 +1072,9 @@
     response.success = true;
     response.body = {};
     response.body.breakpoints = [];
-    response.body.breakOnExceptions = breakOnExceptionAttribute != 0;
+    response.body.breakOnExceptions = breakOnExceptionAttribute !== 0;
     response.body.breakOnUncaughtExceptions =
-      (breakOnExceptionAttribute & 0x1) == 0x1;
+      (breakOnExceptionAttribute & 0x1) === 0x1;
 
     var breakpoints = DebugManager.BreakpointManager.GetBreakpoints();
 
@@ -1282,7 +1282,7 @@
     try {
       var chakraDebugEventProcessor = new ChakraDebugEventProcessor(eventData);
       var event = chakraDebugEventProcessor[debugEvent]();
-      if (typeof event != 'undefined') {
+      if (typeof event !== 'undefined') {
         event = JSON.stringify(event);
       }
       Logger.LogDebugJson('ProcessDebugEvent debugEvent: ' +
@@ -1298,9 +1298,9 @@
 
     if (!globalExecutionState) {
       shouldContinue = true;
-    } else if (typeof debugEvent == 'number' &&
-      ((debugEvent == 0 /*JsDiagDebugEventSourceCompile*/) ||
-      (debugEvent == 1 /*JsDiagDebugEventCompileError*/))) {
+    } else if (typeof debugEvent === 'number' &&
+      ((debugEvent === 0 /*JsDiagDebugEventSourceCompile*/) ||
+      (debugEvent === 1 /*JsDiagDebugEventCompileError*/))) {
       shouldContinue = true;
     } else if (globalExecutionState.IsAsyncBreak()) {
       globalExecutionState = undefined;

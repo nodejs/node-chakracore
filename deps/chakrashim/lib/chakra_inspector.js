@@ -37,8 +37,8 @@
         var printStr = '';
         for (var index in argsArray) {
           var obj = argsArray[index];
-          if (obj != undefined) {
-            printStr += (typeof obj != 'string') ? JSON.stringify(obj) : obj;
+          if (obj !== undefined) {
+            printStr += (typeof obj !== 'string') ? JSON.stringify(obj) : obj;
             printStr += ': ';
           }
         }
@@ -181,7 +181,7 @@
 
   V8Script.prototype.IsSameFileName = function(fileName) {
     if (fileName && this.GetFileName() &&
-      (this.GetFileName().toLowerCase() == fileName.toLowerCase())) {
+      (this.GetFileName().toLowerCase() === fileName.toLowerCase())) {
       return true;
     }
     return false;
@@ -197,11 +197,11 @@
   }
 
   V8Breakpoint.prototype.GetTypeString = function() {
-    if (this.type == Debug.ScriptBreakPointType.ScriptId) {
+    if (this.type === Debug.ScriptBreakPointType.ScriptId) {
       return 'scriptId';
-    } else if (this.type == Debug.ScriptBreakPointType.ScriptName) {
+    } else if (this.type === Debug.ScriptBreakPointType.ScriptName) {
       return 'scriptName';
-    } else if (this.type == Debug.ScriptBreakPointType.ScriptRegExp) {
+    } else if (this.type === Debug.ScriptBreakPointType.ScriptRegExp) {
       return 'scriptRegExp';
     }
   };
@@ -232,7 +232,7 @@
     this.v8breakpoint.script_id = bpObject.scriptId;
     this.v8breakpoint.script_name = this.scriptObject.GetScriptName();
 
-    if (this.type == Debug.ScriptBreakPointType.ScriptRegExp) {
+    if (this.type === Debug.ScriptBreakPointType.ScriptRegExp) {
       this.v8breakpoint.script_regexp = this.target;
     }
 
