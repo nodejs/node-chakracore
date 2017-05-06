@@ -1,19 +1,10 @@
-/*******************************************************************************
+/******************************************************************************
 * Experimental prototype for demonstrating VM agnostic and ABI stable API
 * for native modules to use instead of using Nan and V8 APIs directly.
 *
-* This is an rough proof of concept not intended for real world usage.
-* It is currently far from a sufficiently completed work.
-*
-*  - The API is not complete nor agreed upon.
-*  - The API is not yet analyzed for performance.
-*  - Performance is expected to suffer with the usage of opaque types currently
-*    requiring all operations to go across the DLL boundary, i.e. no inlining
-*    even for operations such as asking for the type of a value or retrieving a
-*    function callback's arguments.
-*  - The jsrt implementation of the API is roughly hacked together with no
-*    attention paid to error handling or fault tolerance.
-*  - Error handling in general is not included in the API at this time.
+* The current status is "Experimental" and should not be used for
+* production applications.  The API is still subject to change
+* and as an experimental feature is NOT subject to semver.
 *
 ******************************************************************************/
 
@@ -37,7 +28,7 @@
     if (!(condition)) {                                                 \
       return napi_set_last_error((status));                             \
     }                                                                   \
-  } while(0)
+  } while (0)
 
 #define CHECK_ARG(arg)                                                  \
   RETURN_STATUS_IF_FALSE((arg), napi_invalid_arg)
@@ -46,7 +37,7 @@
   do {                                                                  \
     JsErrorCode err = (expr);                                           \
     if (err != JsNoError) return napi_set_last_error(err);              \
-  } while(0)
+  } while (0)
 
 #define CHECK_JSRT_EXPECTED(expr, expected)                             \
   do {                                                                  \
@@ -54,7 +45,7 @@
     if (err == JsErrorInvalidArgument)                                  \
       return napi_set_last_error(expected);                             \
     if (err != JsNoError) return napi_set_last_error(err);              \
-  } while(0)
+  } while (0)
 
 // This does not call napi_set_last_error because the expression
 // is assumed to be a NAPI function call that already did.
@@ -62,7 +53,7 @@
   do {                                                                  \
     napi_status status = (expr);                                        \
     if (status != napi_ok) return status;                               \
-  } while(0)
+  } while (0)
 
 static napi_status napi_set_last_error(napi_status error_code,
                                        uint32_t engine_error_code = 0,
@@ -71,11 +62,11 @@ static napi_status napi_set_last_error(JsErrorCode jsError,
                                        void* engine_reserved = nullptr);
 static void napi_clear_last_error();
 
-//Callback Info struct as per JSRT native function.
+// Callback Info struct as per JSRT native function.
 struct CallbackInfo {
   bool isConstructCall;
   napi_value thisArg;
-  unsigned short argc;
+  uint16_t argc;
   napi_value* argv;
   void* data;
   napi_value returnValue;
@@ -90,234 +81,235 @@ struct napi_env__ {
 namespace {
 namespace v8impl {
 
-  //=== Conversion between V8 Isolate and napi_env ==========================
+//=== Conversion between V8 Isolate and napi_env ==========================
 
-  napi_env JsEnvFromV8Isolate(v8::Isolate* isolate) {
-    return reinterpret_cast<napi_env>(isolate);
+napi_env JsEnvFromV8Isolate(v8::Isolate* isolate) {
+  return reinterpret_cast<napi_env>(isolate);
+}
+
+v8::Isolate* V8IsolateFromJsEnv(napi_env e) {
+  return reinterpret_cast<v8::Isolate*>(e);
+}
+
+class HandleScopeWrapper {
+ public:
+  explicit HandleScopeWrapper(
+    v8::Isolate* isolate) : scope(isolate) { }
+ private:
+  v8::HandleScope scope;
+};
+
+class EscapableHandleScopeWrapper {
+ public:
+  explicit EscapableHandleScopeWrapper(
+    v8::Isolate* isolate) : scope(isolate) { }
+  template <typename T>
+  v8::Local<T> Escape(v8::Local<T> handle) {
+    return scope.Escape(handle);
   }
+ private:
+  v8::EscapableHandleScope scope;
+};
 
-  v8::Isolate* V8IsolateFromJsEnv(napi_env e) {
-    return reinterpret_cast<v8::Isolate*>(e);
-  }
+napi_handle_scope JsHandleScopeFromV8HandleScope(HandleScopeWrapper* s) {
+  return reinterpret_cast<napi_handle_scope>(s);
+}
 
-  class HandleScopeWrapper {
-  public:
-    explicit HandleScopeWrapper(
-      v8::Isolate* isolate) : scope(isolate) { }
-  private:
-    v8::HandleScope scope;
-  };
+HandleScopeWrapper* V8HandleScopeFromJsHandleScope(napi_handle_scope s) {
+  return reinterpret_cast<HandleScopeWrapper*>(s);
+}
 
-  class EscapableHandleScopeWrapper {
-  public:
-    explicit EscapableHandleScopeWrapper(
-      v8::Isolate* isolate) : scope(isolate) { }
-    template <typename T>
-    v8::Local<T> Escape(v8::Local<T> handle) {
-      return scope.Escape(handle);
-    }
-  private:
-    v8::EscapableHandleScope scope;
-  };
+napi_escapable_handle_scope
+  JsEscapableHandleScopeFromV8EscapableHandleScope(
+    EscapableHandleScopeWrapper* s) {
+  return reinterpret_cast<napi_escapable_handle_scope>(s);
+}
 
-  napi_handle_scope JsHandleScopeFromV8HandleScope(HandleScopeWrapper* s) {
-    return reinterpret_cast<napi_handle_scope>(s);
-  }
+EscapableHandleScopeWrapper*
+  V8EscapableHandleScopeFromJsEscapableHandleScope(
+    napi_escapable_handle_scope s) {
+  return reinterpret_cast<EscapableHandleScopeWrapper*>(s);
+}
 
-  HandleScopeWrapper* V8HandleScopeFromJsHandleScope(napi_handle_scope s) {
-    return reinterpret_cast<HandleScopeWrapper*>(s);
-  }
+//=== Conversion between V8 Handles and napi_value ========================
 
-  napi_escapable_handle_scope
-    JsEscapableHandleScopeFromV8EscapableHandleScope(
-      EscapableHandleScopeWrapper* s) {
-    return reinterpret_cast<napi_escapable_handle_scope>(s);
-  }
+// This is assuming v8::Local<> will always be implemented with a single
+// pointer field so that we can pass it around as a void* (maybe we should
+// use intptr_t instead of void*)
 
-  EscapableHandleScopeWrapper*
-    V8EscapableHandleScopeFromJsEscapableHandleScope(
-      napi_escapable_handle_scope s) {
-    return reinterpret_cast<EscapableHandleScopeWrapper*>(s);
-  }
+napi_value JsValueFromV8LocalValue(v8::Local<v8::Value> local) {
+  return reinterpret_cast<napi_value>(*local);
+}
 
-  //=== Conversion between V8 Handles and napi_value ========================
-
-  // This is assuming v8::Local<> will always be implemented with a single
-  // pointer field so that we can pass it around as a void* (maybe we should
-  // use intptr_t instead of void*)
-
-  napi_value JsValueFromV8LocalValue(v8::Local<v8::Value> local) {
-    return reinterpret_cast<napi_value>(*local);
-  };
-
-  v8::Local<v8::Value> V8LocalValueFromJsValue(napi_value v) {
-    v8::Local<v8::Value> local;
-    memcpy(&local, &v, sizeof(v));
-    return local;
-  }
+v8::Local<v8::Value> V8LocalValueFromJsValue(napi_value v) {
+  v8::Local<v8::Value> local;
+  memcpy(&local, &v, sizeof(v));
+  return local;
+}
 }  // end of namespace v8impl
 
 namespace jsrtimpl {
 
-  // Adapter for JSRT external data + finalize callback.
-  class ExternalData {
-  public:
-    ExternalData(napi_env env,
-                 void* data,
-                 napi_finalize finalize_cb,
-                 void* hint)
-      : _env(env),
-        _data(data),
-        _cb(finalize_cb),
-        _hint(hint) {
-    }
+// Adapter for JSRT external data + finalize callback.
+class ExternalData {
+ public:
+  ExternalData(napi_env env,
+                void* data,
+                napi_finalize finalize_cb,
+                void* hint)
+    : _env(env),
+      _data(data),
+      _cb(finalize_cb),
+      _hint(hint) {
+  }
 
-    void* Data() {
-      return _data;
-    }
+  void* Data() {
+    return _data;
+  }
 
-    // JsFinalizeCallback
-    static void CALLBACK Finalize(void* callbackState) {
-      ExternalData* externalData = reinterpret_cast<ExternalData*>(callbackState);
-      if (externalData != nullptr) {
-        if (externalData->_cb != nullptr) {
-          externalData->_cb(
-            externalData->_env, externalData->_data, externalData->_hint);
-        }
-
-        delete externalData;
+  // JsFinalizeCallback
+  static void CALLBACK Finalize(void* callbackState) {
+    ExternalData* externalData =
+      reinterpret_cast<ExternalData*>(callbackState);
+    if (externalData != nullptr) {
+      if (externalData->_cb != nullptr) {
+        externalData->_cb(
+          externalData->_env, externalData->_data, externalData->_hint);
       }
+
+      delete externalData;
     }
+  }
 
-    // node::Buffer::FreeCallback
-    static void FinalizeBuffer(char* data, void* callbackState) {
-      Finalize(callbackState);
-    }
+  // node::Buffer::FreeCallback
+  static void FinalizeBuffer(char* data, void* callbackState) {
+    Finalize(callbackState);
+  }
 
-  private:
-    napi_env _env;
-    void* _data;
-    napi_finalize _cb;
-    void* _hint;
-  };
+ private:
+  napi_env _env;
+  void* _data;
+  napi_finalize _cb;
+  void* _hint;
+};
 
-  // Adapter for JSRT external callback + callback data.
-  class ExternalCallback {
-  public:
-    ExternalCallback(napi_env env, napi_callback cb, void* data)
-      : _env(env), _cb(cb), _data(data) {
-    }
+// Adapter for JSRT external callback + callback data.
+class ExternalCallback {
+ public:
+  ExternalCallback(napi_env env, napi_callback cb, void* data)
+    : _env(env), _cb(cb), _data(data) {
+  }
 
-    // JsNativeFunction
-    static JsValueRef CALLBACK Callback(JsValueRef callee,
-                                        bool isConstructCall,
-                                        JsValueRef *arguments,
-                                        unsigned short argumentCount,
-                                        void *callbackState) {
-      jsrtimpl::ExternalCallback* externalCallback =
-        reinterpret_cast<jsrtimpl::ExternalCallback*>(callbackState);
+  // JsNativeFunction
+  static JsValueRef CALLBACK Callback(JsValueRef callee,
+                                      bool isConstructCall,
+                                      JsValueRef *arguments,
+                                      uint16_t argumentCount,
+                                      void *callbackState) {
+    jsrtimpl::ExternalCallback* externalCallback =
+      reinterpret_cast<jsrtimpl::ExternalCallback*>(callbackState);
 
-      // Make sure any errors encountered last time we were in N-API are gone.
-      napi_clear_last_error();
+    // Make sure any errors encountered last time we were in N-API are gone.
+    napi_clear_last_error();
 
-      JsErrorCode error = JsNoError;
-      JsValueRef undefinedValue;
-      error = JsGetUndefinedValue(&undefinedValue);
+    JsErrorCode error = JsNoError;
+    JsValueRef undefinedValue;
+    error = JsGetUndefinedValue(&undefinedValue);
 
-      CallbackInfo cbInfo;
-      cbInfo.thisArg = reinterpret_cast<napi_value>(arguments[0]);
-      cbInfo.isConstructCall = isConstructCall;
+    CallbackInfo cbInfo;
+    cbInfo.thisArg = reinterpret_cast<napi_value>(arguments[0]);
+    cbInfo.isConstructCall = isConstructCall;
 
-      if (isConstructCall) {
-        // For constructor callbacks, replace the 'this' arg with a new external object,
-        // to support wrapping a native object in the external object.
-        JsValueRef externalThis;
-        if (JsNoError == JsCreateExternalObject(
-          nullptr, jsrtimpl::ExternalData::Finalize, &externalThis)) {
-
-          // Copy the prototype from the default 'this' arg to the new 'external' this arg.
-          if (arguments[0] != nullptr) {
-            JsValueRef thisPrototype;
-            if (JsNoError == JsGetPrototype(arguments[0], &thisPrototype)) {
-              JsSetPrototype(externalThis, thisPrototype);
-            }
+    if (isConstructCall) {
+      // For constructor callbacks, replace the 'this' arg with a new external
+      // object, to support wrapping a native object in the external object.
+      JsValueRef externalThis;
+      if (JsNoError == JsCreateExternalObject(
+        nullptr, jsrtimpl::ExternalData::Finalize, &externalThis)) {
+        // Copy the prototype from the default 'this' arg to the new
+        // 'external' this arg.
+        if (arguments[0] != nullptr) {
+          JsValueRef thisPrototype;
+          if (JsNoError == JsGetPrototype(arguments[0], &thisPrototype)) {
+            JsSetPrototype(externalThis, thisPrototype);
           }
-
-          cbInfo.thisArg = reinterpret_cast<napi_value>(externalThis);
         }
+
+        cbInfo.thisArg = reinterpret_cast<napi_value>(externalThis);
       }
-
-      cbInfo.argc = argumentCount - 1;
-      cbInfo.argv = reinterpret_cast<napi_value*>(arguments + 1);
-      cbInfo.data = externalCallback->_data;
-      cbInfo.returnValue = reinterpret_cast<napi_value>(undefinedValue);
-
-      napi_value result = externalCallback->_cb(
-        externalCallback->_env, reinterpret_cast<napi_callback_info>(&cbInfo));
-      return reinterpret_cast<JsValueRef>(result);
     }
 
-    // JsObjectBeforeCollectCallback
-    static void CALLBACK Finalize(JsRef ref, void* callbackState) {
-      jsrtimpl::ExternalCallback* externalCallback =
-        reinterpret_cast<jsrtimpl::ExternalCallback*>(callbackState);
-      delete externalCallback;
-    }
+    cbInfo.argc = argumentCount - 1;
+    cbInfo.argv = reinterpret_cast<napi_value*>(arguments + 1);
+    cbInfo.data = externalCallback->_data;
+    cbInfo.returnValue = reinterpret_cast<napi_value>(undefinedValue);
 
-  private:
-    napi_env _env;
-    napi_callback _cb;
-    void* _data;
-  };
+    napi_value result = externalCallback->_cb(
+      externalCallback->_env, reinterpret_cast<napi_callback_info>(&cbInfo));
+    return reinterpret_cast<JsValueRef>(result);
+  }
 
-  inline napi_status JsPropertyIdFromKey(JsValueRef key,
-                                         JsPropertyIdRef* propertyId) {
-    JsValueType keyType;
-    CHECK_JSRT(JsGetValueType(key, &keyType));
+  // JsObjectBeforeCollectCallback
+  static void CALLBACK Finalize(JsRef ref, void* callbackState) {
+    jsrtimpl::ExternalCallback* externalCallback =
+      reinterpret_cast<jsrtimpl::ExternalCallback*>(callbackState);
+    delete externalCallback;
+  }
 
-    if (keyType == JsString) {
-      size_t length;
-      CHECK_JSRT_EXPECTED(
-        JsCopyString(key, nullptr, 0, &length), napi_string_expected);
+ private:
+  napi_env _env;
+  napi_callback _cb;
+  void* _data;
+};
 
-      std::vector<uint8_t> name;
-      name.reserve(length + 1);
-      CHECK_JSRT(JsCopyString(
-        key, reinterpret_cast<char*>(name.data()), length + 1, &length));
+inline napi_status JsPropertyIdFromKey(JsValueRef key,
+                                        JsPropertyIdRef* propertyId) {
+  JsValueType keyType;
+  CHECK_JSRT(JsGetValueType(key, &keyType));
 
-      CHECK_JSRT(JsCreatePropertyId(
-        reinterpret_cast<char*>(name.data()), length, propertyId));
-    } else {
-      CHECK_JSRT(JsGetPropertyIdFromSymbol(key, propertyId));
-    }
+  if (keyType == JsString) {
+    size_t length;
+    CHECK_JSRT_EXPECTED(
+      JsCopyString(key, nullptr, 0, &length), napi_string_expected);
+
+    std::vector<uint8_t> name;
+    name.reserve(length + 1);
+    CHECK_JSRT(JsCopyString(
+      key, reinterpret_cast<char*>(name.data()), length + 1, &length));
+
+    CHECK_JSRT(JsCreatePropertyId(
+      reinterpret_cast<char*>(name.data()), length, propertyId));
+  } else {
+    CHECK_JSRT(JsGetPropertyIdFromSymbol(key, propertyId));
+  }
+  return napi_ok;
+}
+
+inline napi_status
+JsPropertyIdFromPropertyDescriptor(const napi_property_descriptor* p,
+                                    JsPropertyIdRef* propertyId) {
+  if (p->utf8name != nullptr) {
+    CHECK_JSRT(JsCreatePropertyId(
+      p->utf8name, strlen(p->utf8name), propertyId));
     return napi_ok;
+  } else {
+    return JsPropertyIdFromKey(p->name, propertyId);
   }
+}
 
-  inline napi_status
-  JsPropertyIdFromPropertyDescriptor(const napi_property_descriptor* p,
-                                     JsPropertyIdRef* propertyId) {
-    if (p->utf8name != nullptr) {
-      CHECK_JSRT(JsCreatePropertyId(
-        p->utf8name, strlen(p->utf8name), propertyId));
-      return napi_ok;
-    } else {
-      return JsPropertyIdFromKey(p->name, propertyId);
-    }
+inline napi_status
+JsNameValueFromPropertyDescriptor(const napi_property_descriptor* p,
+                                  napi_value* name) {
+  if (p->utf8name != nullptr) {
+    CHECK_JSRT(JsCreateString(
+      p->utf8name,
+      strlen(p->utf8name),
+      reinterpret_cast<JsValueRef*>(name)));
+  } else {
+    *name = p->name;
   }
-
-  inline napi_status
-  JsNameValueFromPropertyDescriptor(const napi_property_descriptor* p,
-                                    napi_value* name) {
-    if (p->utf8name != nullptr) {
-      CHECK_JSRT(JsCreateString(
-        p->utf8name,
-        strlen(p->utf8name),
-        reinterpret_cast<JsValueRef*>(name)));
-    } else {
-      *name = p->name;
-    }
-    return napi_ok;
-  }
+  return napi_ok;
+}
 }  // end of namespace jsrtimpl
 
 // Intercepts the Node-V8 module registration callback. Converts parameters
@@ -384,12 +376,15 @@ napi_status napi_get_last_error_info(napi_env env,
                                      const napi_extended_error_info** result) {
   CHECK_ARG(result);
 
-  static_assert(sizeof(error_messages) / sizeof(*error_messages) == napi_status_last,
+  static_assert(
+    sizeof(error_messages) / sizeof(*error_messages) == napi_status_last,
     "Count of error messages must match count of error values");
   assert(static_last_error.error_code < napi_status_last);
 
-  // Wait until someone requests the last error information to fetch the error message string
-  static_last_error.error_message = error_messages[static_last_error.error_code];
+  // Wait until someone requests the last error information to fetch the error
+  // message string
+  static_last_error.error_message =
+    error_messages[static_last_error.error_code];
 
   *result = &static_last_error;
   return napi_ok;
@@ -430,7 +425,7 @@ napi_status napi_set_last_error(JsErrorCode jsError, void* engine_reserved) {
   return status;
 }
 
-//Stub for now
+// Stub for now
 napi_status napi_get_current_env(napi_env* e) {
   *e = nullptr;
   return napi_ok;
@@ -445,7 +440,9 @@ napi_status napi_create_function(napi_env env,
 
   jsrtimpl::ExternalCallback* externalCallback =
     new jsrtimpl::ExternalCallback(env, cb, callback_data);
-  if (externalCallback == nullptr) return napi_set_last_error(napi_generic_failure);
+  if (externalCallback == nullptr) {
+    return napi_set_last_error(napi_generic_failure);
+  }
 
   JsValueRef function;
   if (utf8name != nullptr) {
@@ -459,8 +456,7 @@ napi_status napi_create_function(napi_env env,
       jsrtimpl::ExternalCallback::Callback,
       externalCallback,
       &function));
-  }
-  else {
+  } else {
     CHECK_JSRT(JsCreateFunction(
       jsrtimpl::ExternalCallback::Callback,
       externalCallback,
@@ -483,7 +479,9 @@ static napi_status napi_create_property_function(napi_env env,
 
   jsrtimpl::ExternalCallback* externalCallback =
     new jsrtimpl::ExternalCallback(env, cb, callback_data);
-  if (externalCallback == nullptr) return napi_set_last_error(napi_generic_failure);
+  if (externalCallback == nullptr) {
+    return napi_set_last_error(napi_generic_failure);
+  }
 
   napi_valuetype nameType;
   CHECK_NAPI(napi_typeof(env, property_name, &nameType));
@@ -495,8 +493,7 @@ static napi_status napi_create_property_function(napi_env env,
       jsrtimpl::ExternalCallback::Callback,
       externalCallback,
       &function));
-  }
-  else {
+  } else {
     CHECK_JSRT(JsCreateFunction(
       jsrtimpl::ExternalCallback::Callback,
       externalCallback,
@@ -524,11 +521,15 @@ napi_status napi_define_class(napi_env env,
 
   jsrtimpl::ExternalCallback* externalCallback =
     new jsrtimpl::ExternalCallback(env, cb, data);
-  if (externalCallback == nullptr) return napi_set_last_error(napi_generic_failure);
+  if (externalCallback == nullptr) {
+    return napi_set_last_error(napi_generic_failure);
+  }
 
   JsValueRef constructor;
-  CHECK_JSRT(JsCreateNamedFunction(
-    namestring, jsrtimpl::ExternalCallback::Callback, externalCallback, &constructor));
+  CHECK_JSRT(JsCreateNamedFunction(namestring,
+                                   jsrtimpl::ExternalCallback::Callback,
+                                   externalCallback,
+                                   &constructor));
 
   CHECK_JSRT(JsSetObjectBeforeCollectCallback(
     constructor, externalCallback, jsrtimpl::ExternalCallback::Finalize));
@@ -546,8 +547,7 @@ napi_status napi_define_class(napi_env env,
   for (size_t i = 0; i < property_count; i++) {
     if ((properties[i].attributes & napi_static) != 0) {
       staticPropertyCount++;
-    }
-    else {
+    } else {
       instancePropertyCount++;
     }
   }
@@ -562,8 +562,10 @@ napi_status napi_define_class(napi_env env,
       }
     }
 
-    CHECK_NAPI(napi_define_properties(
-      env, reinterpret_cast<napi_value>(prototype), descriptors.size(), descriptors.data()));
+    CHECK_NAPI(napi_define_properties(env,
+                                      reinterpret_cast<napi_value>(prototype),
+                                      descriptors.size(),
+                                      descriptors.data()));
   }
 
   if (staticPropertyCount > 0) {
@@ -574,15 +576,19 @@ napi_status napi_define_class(napi_env env,
       }
     }
 
-    CHECK_NAPI(napi_define_properties(
-      env, reinterpret_cast<napi_value>(constructor), descriptors.size(), descriptors.data()));
+    CHECK_NAPI(napi_define_properties(env,
+                                      reinterpret_cast<napi_value>(constructor),
+                                      descriptors.size(),
+                                      descriptors.data()));
   }
 
   *result = reinterpret_cast<napi_value>(constructor);
   return napi_ok;
 }
 
-napi_status napi_get_property_names(napi_env env, napi_value object, napi_value* result) {
+napi_status napi_get_property_names(napi_env env,
+                                    napi_value object,
+                                    napi_value* result) {
   CHECK_ARG(result);
   JsValueRef obj = reinterpret_cast<JsValueRef>(object);
   JsValueRef propertyNames;
@@ -632,8 +638,10 @@ napi_status napi_define_properties(napi_env env,
     CHECK_JSRT(JsCreateObject(&descriptor));
 
     JsValueRef configurable;
-    CHECK_JSRT(JsBoolToBoolean((p->attributes & napi_configurable), &configurable));
-    CHECK_JSRT(JsSetProperty(descriptor, configurableProperty, configurable, true));
+    CHECK_JSRT(
+      JsBoolToBoolean((p->attributes & napi_configurable), &configurable));
+    CHECK_JSRT(
+      JsSetProperty(descriptor, configurableProperty, configurable, true));
 
     JsValueRef enumerable;
     CHECK_JSRT(JsBoolToBoolean((p->attributes & napi_enumerable), &enumerable));
@@ -641,7 +649,8 @@ napi_status napi_define_properties(napi_env env,
 
     if (p->getter != nullptr || p->setter != nullptr) {
       napi_value property_name;
-      CHECK_NAPI(jsrtimpl::JsNameValueFromPropertyDescriptor(p, &property_name));
+      CHECK_NAPI(
+        jsrtimpl::JsNameValueFromPropertyDescriptor(p, &property_name));
 
       if (p->getter != nullptr) {
         JsPropertyIdRef getProperty;
@@ -662,7 +671,8 @@ napi_status napi_define_properties(napi_env env,
       }
     } else if (p->method != nullptr) {
       napi_value property_name;
-      CHECK_NAPI(jsrtimpl::JsNameValueFromPropertyDescriptor(p, &property_name));
+      CHECK_NAPI(
+        jsrtimpl::JsNameValueFromPropertyDescriptor(p, &property_name));
 
       JsPropertyIdRef valueProperty;
       CHECK_JSRT(JsCreatePropertyId("value", 5, &valueProperty));
@@ -698,7 +708,10 @@ napi_status napi_define_properties(napi_env env,
   return napi_ok;
 }
 
-napi_status napi_instanceof(napi_env env, napi_value object, napi_value c, bool* result) {
+napi_status napi_instanceof(napi_env env,
+                            napi_value object,
+                            napi_value c,
+                            bool* result) {
   CHECK_ARG(result);
   JsValueRef obj = reinterpret_cast<JsValueRef>(object);
   JsValueRef constructor = reinterpret_cast<JsValueRef>(c);
@@ -730,7 +743,10 @@ napi_status napi_has_named_property(napi_env env,
   return napi_ok;
 }
 
-napi_status napi_has_property(napi_env env, napi_value object, napi_value key, bool* result) {
+napi_status napi_has_property(napi_env env,
+                              napi_value object,
+                              napi_value key,
+                              bool* result) {
   CHECK_ARG(result);
   JsPropertyIdRef propertyId;
   CHECK_NAPI(jsrtimpl::JsPropertyIdFromKey(key, &propertyId));
@@ -747,20 +763,28 @@ napi_status napi_get_named_property(napi_env env,
   JsValueRef obj = reinterpret_cast<JsValueRef>(object);
   JsPropertyIdRef propertyId;
   CHECK_JSRT(JsCreatePropertyId(utf8name, strlen(utf8name), &propertyId));
-  CHECK_JSRT(JsGetProperty(obj, propertyId, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsGetProperty(obj, propertyId, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_get_property(napi_env env, napi_value object, napi_value key, napi_value* result) {
+napi_status napi_get_property(napi_env env,
+                              napi_value object,
+                              napi_value key,
+                              napi_value* result) {
   CHECK_ARG(result);
   JsValueRef obj = reinterpret_cast<JsValueRef>(object);
   JsPropertyIdRef propertyId;
   CHECK_NAPI(jsrtimpl::JsPropertyIdFromKey(key, &propertyId));
-  CHECK_JSRT(JsGetProperty(obj, propertyId, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsGetProperty(obj, propertyId, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_set_element(napi_env env, napi_value object, uint32_t i, napi_value v) {
+napi_status napi_set_element(napi_env env,
+                             napi_value object,
+                             uint32_t i,
+                             napi_value v) {
   JsValueRef index = nullptr;
   JsValueRef obj = reinterpret_cast<JsValueRef>(object);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
@@ -769,7 +793,10 @@ napi_status napi_set_element(napi_env env, napi_value object, uint32_t i, napi_v
   return napi_ok;
 }
 
-napi_status napi_has_element(napi_env env, napi_value object, uint32_t i, bool* result) {
+napi_status napi_has_element(napi_env env,
+                             napi_value object,
+                             uint32_t i,
+                             bool* result) {
   CHECK_ARG(result);
   JsValueRef index = nullptr;
   CHECK_JSRT(JsIntToNumber(i, &index));
@@ -778,12 +805,16 @@ napi_status napi_has_element(napi_env env, napi_value object, uint32_t i, bool* 
   return napi_ok;
 }
 
-napi_status napi_get_element(napi_env env, napi_value object, uint32_t i, napi_value* result) {
+napi_status napi_get_element(napi_env env,
+                             napi_value object,
+                             uint32_t i,
+                             napi_value* result) {
   CHECK_ARG(result);
   JsValueRef index = nullptr;
   JsValueRef obj = reinterpret_cast<JsValueRef>(object);
   CHECK_JSRT(JsIntToNumber(i, &index));
-  CHECK_JSRT(JsGetIndexedProperty(obj, index, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsGetIndexedProperty(obj, index, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
@@ -796,7 +827,9 @@ napi_status napi_is_array(napi_env env, napi_value v, bool* result) {
   return napi_ok;
 }
 
-napi_status napi_get_array_length(napi_env env, napi_value v, uint32_t* result) {
+napi_status napi_get_array_length(napi_env env,
+                                  napi_value v,
+                                  uint32_t* result) {
   CHECK_ARG(result);
   JsPropertyIdRef propertyIdRef;
   CHECK_JSRT(JsCreatePropertyId("length", 7, &propertyIdRef));
@@ -809,7 +842,10 @@ napi_status napi_get_array_length(napi_env env, napi_value v, uint32_t* result) 
   return napi_ok;
 }
 
-napi_status napi_strict_equals(napi_env env, napi_value lhs, napi_value rhs, bool* result) {
+napi_status napi_strict_equals(napi_env env,
+                               napi_value lhs,
+                               napi_value rhs,
+                               bool* result) {
   CHECK_ARG(result);
   JsValueRef object1 = reinterpret_cast<JsValueRef>(lhs);
   JsValueRef object2 = reinterpret_cast<JsValueRef>(rhs);
@@ -817,7 +853,9 @@ napi_status napi_strict_equals(napi_env env, napi_value lhs, napi_value rhs, boo
   return napi_ok;
 }
 
-napi_status napi_get_prototype(napi_env env, napi_value object, napi_value* result) {
+napi_status napi_get_prototype(napi_env env,
+                               napi_value object,
+                               napi_value* result) {
   CHECK_ARG(result);
   JsValueRef obj = reinterpret_cast<JsValueRef>(object);
   CHECK_JSRT(JsGetPrototype(obj, reinterpret_cast<JsValueRef*>(result)));
@@ -837,7 +875,9 @@ napi_status napi_create_array(napi_env env, napi_value* result) {
   return napi_ok;
 }
 
-napi_status napi_create_array_with_length(napi_env env, int length, napi_value* result) {
+napi_status napi_create_array_with_length(napi_env env,
+                                          int length,
+                                          napi_value* result) {
   CHECK_ARG(result);
   CHECK_JSRT(JsCreateArray(length, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
@@ -847,7 +887,7 @@ napi_status napi_create_string_latin1(napi_env env,
                                       const char* str,
                                       size_t length,
                                       napi_value* result) {
-  // TODO: Convert from Latin1 to UTF-8 encoding.
+  // TODO(boingoing): Convert from Latin1 to UTF-8 encoding.
   CHECK_ARG(result);
   CHECK_JSRT(JsCreateString(
     str,
@@ -880,7 +920,9 @@ napi_status napi_create_string_utf16(napi_env env,
   return napi_ok;
 }
 
-napi_status napi_create_number(napi_env env, double value, napi_value* result) {
+napi_status napi_create_number(napi_env env,
+                               double value,
+                               napi_value* result) {
   CHECK_ARG(result);
   CHECK_JSRT(JsDoubleToNumber(value, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
@@ -897,28 +939,36 @@ napi_status napi_create_symbol(napi_env env,
                                napi_value* result) {
   CHECK_ARG(result);
   JsValueRef js_description = reinterpret_cast<JsValueRef>(description);
-  CHECK_JSRT(JsCreateSymbol(js_description, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsCreateSymbol(js_description, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_create_error(napi_env, napi_value msg, napi_value* result) {
+napi_status napi_create_error(napi_env env,
+                              napi_value msg,
+                              napi_value* result) {
   CHECK_ARG(result);
   JsValueRef message = reinterpret_cast<JsValueRef>(msg);
   CHECK_JSRT(JsCreateError(message, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_create_type_error(napi_env, napi_value msg, napi_value* result) {
+napi_status napi_create_type_error(napi_env env,
+                                   napi_value msg,
+                                   napi_value* result) {
   CHECK_ARG(result);
   JsValueRef message = reinterpret_cast<JsValueRef>(msg);
   CHECK_JSRT(JsCreateTypeError(message, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_create_range_error(napi_env, napi_value msg, napi_value* result) {
+napi_status napi_create_range_error(napi_env env,
+                                    napi_value msg,
+                                    napi_value* result) {
   CHECK_ARG(result);
   JsValueRef message = reinterpret_cast<JsValueRef>(msg);
-  CHECK_JSRT(JsCreateRangeError(message, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsCreateRangeError(message, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
@@ -939,8 +989,9 @@ napi_status napi_typeof(napi_env env, napi_value vv, napi_valuetype* result) {
     case JsError: *result = napi_object; break;
 
     default:
-      // An "external" value is represented in JSRT as an Object that has external data and
-      // DOES NOT allow extensions. (A wrapped object has external data and DOES allow extensions.)
+      // An "external" value is represented in JSRT as an Object that has
+      // external data and DOES NOT allow extensions. (A wrapped object has
+      // external data and DOES allow extensions.)
       bool hasExternalData;
       if (JsHasExternalData(value, &hasExternalData) != JsNoError) {
         hasExternalData = false;
@@ -951,7 +1002,8 @@ napi_status napi_typeof(napi_env env, napi_value vv, napi_valuetype* result) {
         isExtensionAllowed = false;
       }
 
-      *result = ((hasExternalData && !isExtensionAllowed) ? napi_external : napi_object);
+      *result =
+        (hasExternalData && !isExtensionAllowed) ? napi_external : napi_object;
       break;
   }
   return napi_ok;
@@ -992,7 +1044,8 @@ napi_status napi_get_cb_info(
 
     if (i < *argc) {
       napi_value undefined;
-      CHECK_JSRT(JsGetUndefinedValue(reinterpret_cast<JsValueRef*>(&undefined)));
+      CHECK_JSRT(
+        JsGetUndefinedValue(reinterpret_cast<JsValueRef*>(&undefined)));
       for (; i < *argc; i++) {
         argv[i] = undefined;
       }
@@ -1014,7 +1067,9 @@ napi_status napi_get_cb_info(
   return napi_ok;
 }
 
-napi_status napi_is_construct_call(napi_env env, napi_callback_info cbinfo, bool* result) {
+napi_status napi_is_construct_call(napi_env env,
+                                   napi_callback_info cbinfo,
+                                   bool* result) {
   CHECK_ARG(cbinfo);
   CHECK_ARG(result);
   const CallbackInfo *info = reinterpret_cast<CallbackInfo*>(cbinfo);
@@ -1039,7 +1094,7 @@ napi_status napi_call_function(napi_env env,
   CHECK_JSRT(JsCallFunction(
     function,
     args.data(),
-    static_cast<unsigned short>(argc + 1),
+    static_cast<uint16_t>(argc + 1),
     &returnValue));
   if (result != nullptr) {
     *result = reinterpret_cast<napi_value>(returnValue);
@@ -1116,7 +1171,9 @@ napi_status napi_get_value_int32(napi_env env, napi_value v, int32_t* result) {
   return napi_ok;
 }
 
-napi_status napi_get_value_uint32(napi_env env, napi_value v, uint32_t* result) {
+napi_status napi_get_value_uint32(napi_env env,
+                                  napi_value v,
+                                  uint32_t* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
   int valueInt;
@@ -1160,7 +1217,7 @@ napi_status napi_get_value_string_latin1(napi_env env,
   CHECK_ARG(value);
   JsValueRef js_value = reinterpret_cast<JsValueRef>(value);
 
-  // TODO: Convert from UTF-8 to Latin1 encoding.
+  // TODO(boingoing): Convert from UTF-8 to Latin1 encoding.
   if (!buf) {
     CHECK_ARG(result);
 
@@ -1168,8 +1225,7 @@ napi_status napi_get_value_string_latin1(napi_env env,
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
-  }
-  else {
+  } else {
     size_t copied = 0;
     CHECK_JSRT_EXPECTED(
       JsCopyString(js_value, buf, bufsize - 1, &copied),
@@ -1177,8 +1233,7 @@ napi_status napi_get_value_string_latin1(napi_env env,
 
     if (copied < bufsize - 1) {
       buf[copied] = 0;
-    }
-    else {
+    } else {
       buf[bufsize - 1] = 0;
     }
 
@@ -1221,8 +1276,7 @@ napi_status napi_get_value_string_utf8(napi_env env,
 
     if (copied < bufsize - 1) {
       buf[copied] = 0;
-    }
-    else {
+    } else {
       buf[bufsize - 1] = 0;
     }
 
@@ -1257,8 +1311,7 @@ napi_status napi_get_value_string_utf16(napi_env env,
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
-  }
-  else {
+  } else {
     size_t copied = 0;
     CHECK_JSRT_EXPECTED(
       JsCopyStringUtf16(
@@ -1271,8 +1324,7 @@ napi_status napi_get_value_string_utf16(napi_env env,
 
     if (copied < bufsize - 1) {
       buf[copied] = 0;
-    }
-    else {
+    } else {
       buf[bufsize - 1] = 0;
     }
 
@@ -1284,31 +1336,43 @@ napi_status napi_get_value_string_utf16(napi_env env,
   return napi_ok;
 }
 
-napi_status napi_coerce_to_number(napi_env env, napi_value v, napi_value* result) {
+napi_status napi_coerce_to_number(napi_env env,
+                                  napi_value v,
+                                  napi_value* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
-  CHECK_JSRT(JsConvertValueToNumber(value, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsConvertValueToNumber(value, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_coerce_to_bool(napi_env env, napi_value v, napi_value* result) {
+napi_status napi_coerce_to_bool(napi_env env,
+                                napi_value v,
+                                napi_value* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
-  CHECK_JSRT(JsConvertValueToBoolean(value, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsConvertValueToBoolean(value, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_coerce_to_object(napi_env env, napi_value v, napi_value* result) {
+napi_status napi_coerce_to_object(napi_env env,
+                                  napi_value v,
+                                  napi_value* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
-  CHECK_JSRT(JsConvertValueToObject(value, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsConvertValueToObject(value, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
-napi_status napi_coerce_to_string(napi_env env, napi_value v, napi_value* result) {
+napi_status napi_coerce_to_string(napi_env env,
+                                  napi_value v,
+                                  napi_value* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
-  CHECK_JSRT(JsConvertValueToString(value, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsConvertValueToString(value, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
@@ -1381,7 +1445,8 @@ napi_status napi_create_reference(napi_env env,
   JsWeakRef weakRef = nullptr;
   CHECK_JSRT(JsCreateWeakReference(strongRef, &weakRef));
 
-  // Prevent the reference itself from being collected until it is explicitly deleted.
+  // Prevent the reference itself from being collected until it is explicitly
+  // deleted.
   CHECK_JSRT(JsAddRef(weakRef, nullptr));
 
   // Apply the initial refcount to the target value.
@@ -1397,8 +1462,8 @@ napi_status napi_create_reference(napi_env env,
   return napi_ok;
 }
 
-// Deletes a reference. The referenced value is released, and may be GC'd unless there
-// are other references to it.
+// Deletes a reference. The referenced value is released, and may be GC'd
+// unless there are other references to it.
 napi_status napi_delete_reference(napi_env env, napi_ref ref) {
   JsRef weakRef = reinterpret_cast<JsRef>(ref);
 
@@ -1419,10 +1484,10 @@ napi_status napi_delete_reference(napi_env env, napi_ref ref) {
   return napi_ok;
 }
 
-// Increments the reference count, optionally returning the resulting count. After this call the
-// reference will be a strong reference because its refcount is >0, and the referenced object is
-// effectively "pinned". Calling this when the refcount is 0 and the target is unavailable
-// results in an error.
+// Increments the reference count, optionally returning the resulting count.
+// After this call the reference will be a strong reference because its refcount
+// is >0, and the referenced object is effectively "pinned". Calling this when
+// the refcount is 0 and the target is unavailable results in an error.
 napi_status napi_reference_addref(napi_env env, napi_ref ref, int* result) {
   JsRef weakRef = reinterpret_cast<JsRef>(ref);
 
@@ -1446,9 +1511,10 @@ napi_status napi_reference_addref(napi_env env, napi_ref ref, int* result) {
   return napi_ok;
 }
 
-// Decrements the reference count, optionally returning the resulting count. If the result is
-// 0 the reference is now weak and the object may be GC'd at any time if there are no other
-// references. Calling this when the refcount is already 0 results in an error.
+// Decrements the reference count, optionally returning the resulting count.
+// If the result is 0 the reference is now weak and the object may be GC'd at
+// any time if there are no other references. Calling this when the refcount
+// is already 0 results in an error.
 napi_status napi_reference_release(napi_env env, napi_ref ref, int* result) {
   JsRef weakRef = reinterpret_cast<JsRef>(ref);
 
@@ -1475,39 +1541,47 @@ napi_status napi_reference_release(napi_env env, napi_ref ref, int* result) {
   return napi_ok;
 }
 
-// Attempts to get a referenced value. If the reference is weak, the value might no longer be
-// available, in that case the call is still successful but the result is NULL.
-napi_status napi_get_reference_value(napi_env env, napi_ref ref, napi_value* result) {
+// Attempts to get a referenced value. If the reference is weak, the value
+// might no longer be available, in that case the call is still successful but
+// the result is NULL.
+napi_status napi_get_reference_value(napi_env env,
+                                     napi_ref ref,
+                                     napi_value* result) {
   CHECK_ARG(result);
   JsWeakRef weakRef = reinterpret_cast<JsWeakRef>(ref);
-  CHECK_JSRT(JsGetWeakReferenceValue(weakRef, reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(
+    JsGetWeakReferenceValue(weakRef, reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
 /*********Stub implementation of handle scope apis' for JSRT***********/
-napi_status napi_open_handle_scope(napi_env, napi_handle_scope* result) {
+napi_status napi_open_handle_scope(napi_env env, napi_handle_scope* result) {
   CHECK_ARG(result);
   *result = nullptr;
   return napi_ok;
 }
 
-napi_status napi_close_handle_scope(napi_env, napi_handle_scope) {
+napi_status napi_close_handle_scope(napi_env env, napi_handle_scope) {
   return napi_ok;
 }
 
-napi_status napi_open_escapable_handle_scope(napi_env, napi_escapable_handle_scope* result) {
+napi_status napi_open_escapable_handle_scope(napi_env env,
+  napi_escapable_handle_scope* result) {
   CHECK_ARG(result);
   *result = nullptr;
   return napi_ok;
 }
 
-napi_status napi_close_escapable_handle_scope(napi_env, napi_escapable_handle_scope) {
+napi_status napi_close_escapable_handle_scope(napi_env env,
+  napi_escapable_handle_scope scope) {
   return napi_ok;
 }
 
-//This one will return escapee value as this is called from leveldown db.
-napi_status napi_escape_handle(napi_env env, napi_escapable_handle_scope scope,
-  napi_value escapee, napi_value* result) {
+// This one will return escapee value as this is called from leveldown db.
+napi_status napi_escape_handle(napi_env env,
+                               napi_escapable_handle_scope scope,
+                               napi_value escapee,
+                               napi_value* result) {
   CHECK_ARG(result);
   *result = escapee;
   return napi_ok;
@@ -1529,7 +1603,7 @@ napi_status napi_new_instance(napi_env env,
   CHECK_JSRT(JsConstructObject(
     function,
     args.data(),
-    static_cast<unsigned short>(argc + 1),
+    static_cast<uint16_t>(argc + 1),
     reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
@@ -1553,15 +1627,14 @@ napi_status napi_make_callback(napi_env env,
   JsValueRef function = reinterpret_cast<JsValueRef>(func);
   std::vector<JsValueRef> args(argc + 1);
   args[0] = object;
-  for (size_t i = 0; i < argc; i++)
-  {
-	  args[i + 1] = reinterpret_cast<JsValueRef>(argv[i]);
+  for (size_t i = 0; i < argc; i++) {
+    args[i + 1] = reinterpret_cast<JsValueRef>(argv[i]);
   }
   JsValueRef returnValue;
   CHECK_JSRT(JsCallFunction(
     function,
     args.data(),
-    static_cast<unsigned short>(argc + 1),
+    static_cast<uint16_t>(argc + 1),
     &returnValue));
   if (result != nullptr) {
     *result = reinterpret_cast<napi_value>(returnValue);
@@ -1574,13 +1647,12 @@ struct ArrayBufferFinalizeInfo {
 
   void Free() {
     free(data);
-	 delete this;
+    delete this;
   }
 };
 
-void CALLBACK ExternalArrayBufferFinalizeCallback(void *data)
-{
-	static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
+void CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
+  static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
 
 napi_status napi_create_buffer(napi_env env,
@@ -1590,7 +1662,8 @@ napi_status napi_create_buffer(napi_env env,
   CHECK_ARG(result);
   // TODO(tawoll): Replace v8impl with jsrt-based version.
 
-  v8::MaybeLocal<v8::Object> maybe = node::Buffer::New(v8impl::V8IsolateFromJsEnv(env), length);
+  v8::MaybeLocal<v8::Object> maybe =
+    node::Buffer::New(v8impl::V8IsolateFromJsEnv(env), length);
   if (maybe.IsEmpty()) {
     return napi_generic_failure;
   }
@@ -1636,7 +1709,8 @@ napi_status napi_create_buffer_copy(napi_env env,
                                     void** result_data,
                                     napi_value* result) {
   CHECK_ARG(result);
-  // TODO(tawoll): Implement node::Buffer in terms of napi to avoid using chakra shim here.
+  // TODO(tawoll): Implement node::Buffer in terms of napi to avoid using
+  // chakra shim here.
 
   v8::MaybeLocal<v8::Object> maybe = node::Buffer::Copy(
     v8impl::V8IsolateFromJsEnv(env), static_cast<const char*>(data), length);
@@ -1664,7 +1738,8 @@ napi_status napi_is_buffer(napi_env env, napi_value v, bool* result) {
     return napi_ok;
   }
   JsTypedArrayType arrayType;
-  CHECK_JSRT(JsGetTypedArrayInfo(typedArray, &arrayType, nullptr, nullptr, nullptr));
+  CHECK_JSRT(
+    JsGetTypedArrayInfo(typedArray, &arrayType, nullptr, nullptr, nullptr));
   *result = (arrayType == JsArrayTypeUint8);
   return napi_ok;
 }
@@ -1678,7 +1753,8 @@ napi_status napi_get_buffer_info(napi_env env,
   unsigned int byteOffset;
   ChakraBytePtr buffer;
   unsigned int bufferLength;
-  CHECK_JSRT(JsGetTypedArrayInfo(typedArray, nullptr, &arrayBuffer, &byteOffset, nullptr));
+  CHECK_JSRT(JsGetTypedArrayInfo(
+    typedArray, nullptr, &arrayBuffer, &byteOffset, nullptr));
   CHECK_JSRT(JsGetArrayBufferStorage(arrayBuffer, &buffer, &bufferLength));
 
   if (data != nullptr) {
@@ -1692,13 +1768,14 @@ napi_status napi_get_buffer_info(napi_env env,
   return napi_ok;
 }
 
-napi_status napi_is_exception_pending(napi_env, bool* result) {
+napi_status napi_is_exception_pending(napi_env env, bool* result) {
   CHECK_ARG(result);
   CHECK_JSRT(JsHasException(result));
   return napi_ok;
 }
 
-napi_status napi_get_and_clear_last_exception(napi_env env, napi_value* result) {
+napi_status napi_get_and_clear_last_exception(napi_env env,
+                                              napi_value* result) {
   CHECK_ARG(result);
   CHECK_JSRT(JsGetAndClearException(reinterpret_cast<JsValueRef*>(result)));
   if (*result == nullptr) {
@@ -1726,7 +1803,8 @@ napi_status napi_create_arraybuffer(napi_env env,
   CHECK_ARG(result);
 
   JsValueRef arrayBuffer;
-  CHECK_JSRT(JsCreateArrayBuffer(static_cast<unsigned int>(byte_length), &arrayBuffer));
+  CHECK_JSRT(
+    JsCreateArrayBuffer(static_cast<unsigned int>(byte_length), &arrayBuffer));
 
   if (data != nullptr) {
     CHECK_JSRT(JsGetArrayBufferStorage(
@@ -1933,72 +2011,72 @@ napi_status napi_get_typedarray_info(napi_env env,
 
 namespace uvimpl {
 
-  napi_status ConvertUVErrorCode(int code) {
-    switch (code) {
-    case 0:
-      return napi_ok;
-    case UV_EINVAL:
-      return napi_invalid_arg;
-    case UV_ECANCELED:
-      return napi_cancelled;
-    }
-
-    return napi_generic_failure;
+napi_status ConvertUVErrorCode(int code) {
+  switch (code) {
+  case 0:
+    return napi_ok;
+  case UV_EINVAL:
+    return napi_invalid_arg;
+  case UV_ECANCELED:
+    return napi_cancelled;
   }
 
-  // Wrapper around uv_work_t which calls user-provided callbacks.
-  class Work {
-  private:
-    explicit Work(napi_env env,
-      napi_async_execute_callback execute = nullptr,
-      napi_async_complete_callback complete = nullptr,
-      void* data = nullptr)
-      : _env(env),
-      _data(data),
-      _execute(execute),
-      _complete(complete) {
-      memset(&_request, 0, sizeof(_request));
-      _request.data = this;
+  return napi_generic_failure;
+}
+
+// Wrapper around uv_work_t which calls user-provided callbacks.
+class Work {
+ private:
+  explicit Work(napi_env env,
+    napi_async_execute_callback execute = nullptr,
+    napi_async_complete_callback complete = nullptr,
+    void* data = nullptr)
+    : _env(env),
+    _data(data),
+    _execute(execute),
+    _complete(complete) {
+    memset(&_request, 0, sizeof(_request));
+    _request.data = this;
+  }
+
+  ~Work() { }
+
+ public:
+  static Work* New(napi_env env,
+    napi_async_execute_callback execute,
+    napi_async_complete_callback complete,
+    void* data) {
+    return new Work(env, execute, complete, data);
+  }
+
+  static void Delete(Work* work) {
+    delete work;
+  }
+
+  static void ExecuteCallback(uv_work_t* req) {
+    Work* work = static_cast<Work*>(req->data);
+    work->_execute(work->_env, work->_data);
+  }
+
+  static void CompleteCallback(uv_work_t* req, int status) {
+    Work* work = static_cast<Work*>(req->data);
+
+    if (work->_complete != nullptr) {
+      work->_complete(work->_env, ConvertUVErrorCode(status), work->_data);
     }
+  }
 
-    ~Work() { }
+  uv_work_t* Request() {
+    return &_request;
+  }
 
-  public:
-    static Work* New(napi_env env,
-      napi_async_execute_callback execute,
-      napi_async_complete_callback complete,
-      void* data) {
-      return new Work(env, execute, complete, data);
-    }
-
-    static void Delete(Work* work) {
-      delete work;
-    }
-
-    static void ExecuteCallback(uv_work_t* req) {
-      Work* work = static_cast<Work*>(req->data);
-      work->_execute(work->_env, work->_data);
-    }
-
-    static void CompleteCallback(uv_work_t* req, int status) {
-      Work* work = static_cast<Work*>(req->data);
-
-      if (work->_complete != nullptr) {
-        work->_complete(work->_env, ConvertUVErrorCode(status), work->_data);
-      }
-    }
-
-    uv_work_t* Request() {
-      return &_request;
-    }
-
-  private:
-    napi_env _env;
-    void* _data;
-    uv_work_t _request;
-    napi_async_execute_callback _execute;
-    napi_async_complete_callback _complete;
-  };
+ private:
+  napi_env _env;
+  void* _data;
+  uv_work_t _request;
+  napi_async_execute_callback _execute;
+  napi_async_complete_callback _complete;
+};
 
 }  // end of namespace uvimpl
 
