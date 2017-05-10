@@ -195,7 +195,7 @@ test: all
 	$(MAKE) build-addons
 	$(MAKE) build-addons-napi
 	$(MAKE) cctest
-	$(PYTHON) tools/test.py --mode=release -J \
+	$(PYTHON) tools/test.py --mode=release --flaky-tests=$(FLAKY_TESTS) -J \
 		doctool inspector known_issues message pseudo-tty parallel sequential $(CI_NATIVE_SUITES)
 	$(MAKE) lint
 

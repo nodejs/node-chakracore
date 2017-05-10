@@ -133,17 +133,6 @@ function error_test() {
     }
   });
 
-  const cc_re1 =
-    /^SyntaxError: Duplicate formal parameter names not allowed in strict mode/;
-  const cc_re2 =
-    /^SyntaxError: 'with' statements are not allowed in strict mode/;
-  const cc_re3 =
-    /^SyntaxError: Calling delete on expression not allowed in strict mode/;
-  const cc_re4 = new RegExp('^SyntaxError: Octal numeric literals and escape' +
-                           'characters not allowed in strict mode');
-  const v8_re1 = new RegExp('\bSyntaxError: Duplicate parameter name not ' +
-                            'allowed in this context');
-    //;
   send_expect([
     // Uncaught error throws and prints out
     { client: client_unix, send: 'throw new Error(\'test error\');',
@@ -190,20 +179,20 @@ function error_test() {
     { client: client_unix, send: 'JSON.parse(\'{invalid: \\\'json\\\'}\');',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Unexpected token i/,
-        chakracore: /^SyntaxError: Invalid character/})
+        chakracore: /^SyntaxError: JSON\.parse Error: Invalid character/})
     },
     // end of input to JSON.parse error is special case of syntax error,
     // should throw
     { client: client_unix, send: 'JSON.parse(\'066\');',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Unexpected number/,
-        chakracore:  /^SyntaxError: Invalid number/})
+        chakracore:  /^SyntaxError: JSON\.parse Error: Invalid number/})
     },
     // should throw
     { client: client_unix, send: 'JSON.parse(\'{\');',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Unexpected end of JSON input/,
-        chakracore: /^SyntaxError: Syntax error/})
+        chakracore: /^SyntaxError: JSON\.parse Error: Invalid character/})
     },
     // invalid RegExps are a special case of syntax error,
     // should throw
@@ -224,28 +213,28 @@ function error_test() {
       send: '(function() { "use strict"; return 0755; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Octal literals are not allowed in strict mode/,
-        chakracore: cc_re4})
+        chakracore: /^SyntaxError: Octal numeric literals and escape characters not allowed in strict mode/}) // eslint-disable-line max-len
     },
     {
       client: client_unix,
       send: '(function(a, a, b) { "use strict"; return a + b + c; })()',
       expect: common.engineSpecificMessage({
-        v8: v8_re1,
-        chakracore: cc_re1})
+        v8: /\bSyntaxError: Duplicate parameter name not allowed in this context/, // eslint-disable-line max-len
+        chakracore: /^SyntaxError: Duplicate formal parameter names not allowed in strict mode/}) // eslint-disable-line max-len
     },
     {
       client: client_unix,
       send: '(function() { "use strict"; with (this) {} })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Strict mode code may not include a with statement/,
-        chakracore: cc_re2})
+        chakracore: /^SyntaxError: 'with' statements are not allowed in strict mode/}) // eslint-disable-line max-len
     },
     {
       client: client_unix,
       send: '(function() { "use strict"; var x; delete x; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Delete of an unqualified identifier in strict mode/,
-        chakracore: cc_re3})
+        chakracore: /^SyntaxError: Calling delete on expression not allowed in strict mode/}) // eslint-disable-line max-len
     },
     { client: client_unix,
       send: '(function() { "use strict"; eval = 17; })()',

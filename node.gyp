@@ -382,7 +382,7 @@
               'conditions': [
                 [ 'node_engine=="chakracore"', {
                   'inputs': [
-                    'deps/chakrashim/inspector/src/inspector/js_protocol.json',
+                    'deps/chakrashim/src/inspector/js_protocol.json',
                   ],
                 }, {
                   'inputs': [
@@ -662,34 +662,6 @@
             'deps/v8/include'
           ],
           'conditions' : [
-            ['v8_enable_inspector==1', {
-              'sources': [
-                'test/cctest/test_inspector_socket.cc',
-                'test/cctest/test_inspector_socket_server.cc'
-              ],
-              'conditions': [
-                [ 'node_shared_zlib=="false"', {
-                  'dependencies': [
-                    'deps/zlib/zlib.gyp:zlib',
-                  ]
-                }],
-                [ 'node_shared_openssl=="false"', {
-                  'dependencies': [
-                    'deps/openssl/openssl.gyp:openssl'
-                  ]
-                }],
-                [ 'node_shared_http_parser=="false"', {
-                  'dependencies': [
-                    'deps/http_parser/http_parser.gyp:http_parser'
-                  ]
-                }],
-                [ 'node_shared_libuv=="false"', {
-                  'dependencies': [
-                    'deps/uv/uv.gyp:libuv'
-                  ]
-                }]
-              ]
-            }],
             ['node_use_v8_platform=="true"', {
               'dependencies': [
                 'deps/v8/src/v8.gyp:v8_libplatform',
@@ -699,10 +671,38 @@
         }],
         ['node_engine=="chakracore"', {
           'include_dirs': [
-            'deps/chakrashim' # include/v8_platform.h
+            'deps/chakrashim/include'
           ],
           'sources!': [
             'test/cctest/test_environment.cc', # TODO: Enable these test for node-chakracore
+          ]
+        }],
+        ['v8_enable_inspector==1', {
+          'sources': [
+            'test/cctest/test_inspector_socket.cc',
+            'test/cctest/test_inspector_socket_server.cc'
+          ],
+          'conditions': [
+            [ 'node_shared_zlib=="false"', {
+              'dependencies': [
+                'deps/zlib/zlib.gyp:zlib',
+              ]
+            }],
+            [ 'node_shared_openssl=="false"', {
+              'dependencies': [
+                'deps/openssl/openssl.gyp:openssl'
+              ]
+            }],
+            [ 'node_shared_http_parser=="false"', {
+              'dependencies': [
+                'deps/http_parser/http_parser.gyp:http_parser'
+              ]
+            }],
+            [ 'node_shared_libuv=="false"', {
+              'dependencies': [
+                'deps/uv/uv.gyp:libuv'
+              ]
+            }]
           ]
         }],
         [ 'node_use_dtrace=="true" and OS!="mac" and OS!="linux"', {

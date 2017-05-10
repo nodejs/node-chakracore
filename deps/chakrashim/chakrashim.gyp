@@ -5,8 +5,11 @@
       'lib/chakra_debug.js',
       'lib/chakra_inspector.js'
     ],
+    'v8_enable_inspector%': 0,
   },
-
+  'includes': [
+    'src/inspector/inspector.gypi'
+  ],
   'targets': [
     {
       'target_name': 'chakrashim',
@@ -47,6 +50,14 @@
             'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
             'OTHER_CFLAGS': [ '-fexceptions' ],
           },
+        }],
+        ['v8_enable_inspector==1', {
+          'sources': [
+            '<@(inspector_all_sources)'
+          ],
+          'dependencies': [
+            'src/inspector/inspector.gyp:protocol_generated_sources',
+          ],
         }],
       ],
       'msvs_use_library_dependency_inputs': 1,

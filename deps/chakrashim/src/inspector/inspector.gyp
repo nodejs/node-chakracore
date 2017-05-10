@@ -4,15 +4,22 @@
 
 {
   'variables': {
-    'protocol_path': '../../third_party/WebKit/Source/platform/inspector_protocol',
+    'protocol_path': '../../third_party/inspector_protocol',
   },
   'includes': [
     'inspector.gypi',
-    '../../third_party/WebKit/Source/platform/inspector_protocol/inspector_protocol.gypi',
+    '<(PRODUCT_DIR)/../../../third_party/inspector_protocol/inspector_protocol.gypi',
   ],
   'targets': [
     { 'target_name': 'protocol_compatibility',
       'type': 'none',
+      'conditions': [
+        ['want_separate_host_toolset==1', {
+          'toolsets': ['host', 'target'],
+        }, {
+          'toolsets': ['target'],
+        }]
+      ],
       'actions': [
         {
           'action_name': 'protocol_compatibility',
@@ -35,6 +42,13 @@
     { 'target_name': 'protocol_generated_sources',
       'type': 'none',
       'dependencies': [ 'protocol_compatibility' ],
+      'conditions': [
+        ['want_separate_host_toolset==1', {
+          'toolsets': ['host', 'target'],
+        }, {
+          'toolsets': ['target'],
+        }]
+      ],
       'actions': [
         {
           'action_name': 'protocol_generated_sources',
@@ -56,25 +70,6 @@
           'message': 'Generating inspector protocol sources from protocol json',
         },
       ]
-    },
-    {
-      'target_name': 'standalone_inspector',
-      'type': 'static_library',
-      'include_dirs': [
-        '<(SHARED_INTERMEDIATE_DIR)',
-        '<(SHARED_INTERMEDIATE_DIR)/include',
-        '../../include',
-        '../..',
-        '../../../'
-      ],
-      'sources': [
-        '<@(inspector_all_sources)'
-      ],
-      'dependencies': [
-        'protocol_generated_sources',
-        '../../../chakracore.gyp:chakracore#host',
-        '../../../chakrashim.gyp:chakrashim',
-      ],
     },
   ],
 }
