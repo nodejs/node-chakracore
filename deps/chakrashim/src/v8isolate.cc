@@ -116,6 +116,10 @@ void Isolate::SetPromiseRejectCallback(PromiseRejectCallback callback) {
   // CHAKRA does not support this explicit callback
 }
 
+void Isolate::SetPromiseHook(PromiseHook hook) {
+  // CHAKRA-TODO: Unimplemented
+}
+
 bool Isolate::AddMessageListener(MessageCallback that, Handle<Value> data) {
   // Ignore data parameter.  Node doesn't use it.
   return jsrt::IsolateShim::FromIsolate(this)->AddMessageListener(

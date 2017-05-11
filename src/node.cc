@@ -4933,8 +4933,7 @@ int Start(int argc, char** argv) {
   v8_initialized = true;
 
 #if ENABLE_TTD_NODE
-  bool chk_debug_enabled = debug_options.debugger_enabled()
-                           || debug_options.inspector_enabled();
+  bool chk_debug_enabled = debug_options.inspector_enabled();
 
   TTDFlagWarning_Cond(!s_doTTRecord || !s_doTTReplay,
       "Cannot enable record & replay at same time.\n");
