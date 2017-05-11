@@ -548,6 +548,10 @@
     utils.isRegExp = function(obj) {
       return compareType(obj, 'RegExp');
     };
+    utils.isAsyncFunction = function(obj) {
+      // CHAKRA-TODO
+      return false;
+    };
     utils.isSet = function(obj) {
       return compareType(obj, 'Set');
     };
