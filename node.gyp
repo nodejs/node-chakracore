@@ -167,8 +167,6 @@
         'src/handle_wrap.cc',
         'src/js_stream.cc',
         'src/node.cc',
-#        'src/node_api.cc',
-        'src/node_api_jsrt.cc',
         'src/node_buffer.cc',
         'src/node_config.cc',
         'src/node_constants.cc',
@@ -265,6 +263,18 @@
         'NODE_WANT_INTERNALS=1',
         # Warn when using deprecated V8 APIs.
         'V8_DEPRECATION_WARNINGS=1',
+      ],
+
+      'conditions': [
+        [ 'node_engine=="chakracore"', {
+          'sources': [
+            'src/node_api_jsrt.cc',
+          ],
+        }, {
+          'sources': [
+            'src/node_api.cc',
+          ],
+        }],
       ],
     },
     {
