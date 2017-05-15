@@ -1494,7 +1494,7 @@ napi_status napi_reference_addref(napi_env env, napi_ref ref, int* result) {
   JsValueRef target;
   CHECK_JSRT(JsGetWeakReferenceValue(weakRef, &target));
 
-  if (target == nullptr) {
+  if (target == JS_INVALID_REFERENCE) {
     // Called napi_reference_addref when the target is unavailable!
     return napi_set_last_error(napi_generic_failure);
   }
@@ -1521,7 +1521,7 @@ napi_status napi_reference_release(napi_env env, napi_ref ref, int* result) {
   JsValueRef target;
   CHECK_JSRT(JsGetWeakReferenceValue(weakRef, &target));
 
-  if (target == nullptr) {
+  if (target == JS_INVALID_REFERENCE) {
     return napi_set_last_error(napi_generic_failure);
   }
 
