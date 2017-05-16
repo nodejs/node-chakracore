@@ -994,8 +994,7 @@ class V8_EXPORT StackFrame {
 
 enum class PromiseHookType { kInit, kResolve, kBefore, kAfter };
 
-typedef void(*PromiseHook)(PromiseHookType type, Local<Promise> promise,
-  Local<Value> parent);
+typedef void(*PromiseHook)(PromiseHookType type, Local<Promise> promise, Local<Value> parent);
 
 
 class V8_EXPORT Value : public Data {

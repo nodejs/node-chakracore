@@ -5,12 +5,15 @@
  * Test checks if we get exception instead of runtime error
  */
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 
 const TlsSocket = require('tls').TLSSocket;
 const EventEmitter = require('events').EventEmitter;
 assert.throws(
   () => { new TlsSocket(new EventEmitter()); },
-  /^TypeError: this\.stream\.pause is not a function/
+  common.engineSpecificMessage({
+     v8: /^TypeError: this\.stream\.pause is not a function/,
+     chakracore: /^TypeError: Object doesn't support property or method 'pause'/
+  })
 );

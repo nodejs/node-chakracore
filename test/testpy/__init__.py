@@ -174,9 +174,9 @@ class AsyncHooksTestConfiguration(SimpleTestConfiguration):
     super(AsyncHooksTestConfiguration, self).__init__(context, root, section,
                                                     additional)
 
-  def ListTests(self, current_path, path, arch, mode):
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
     result = super(AsyncHooksTestConfiguration, self).ListTests(
-         current_path, path, arch, mode)
+         current_path, path, arch, mode, jsEngine)
     for test in result:
       test.parallel = True
     return result
