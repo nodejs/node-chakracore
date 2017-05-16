@@ -12,9 +12,12 @@ const url = require('url');
   0.0,
   0,
   [],
-  {}
-].forEach(function(val) {
-  assert.throws(function() { url.parse(val); }, TypeError);
+  {},
+  () => {},
+  Symbol('foo')
+].forEach((val) => {
+  assert.throws(() => { url.parse(val); },
+                /^TypeError: Parameter "url" must be a string, not (undefined|boolean|number|object|function|symbol)$/);
 });
 
 const engineSpecificMalformedUrlError =
@@ -23,4 +26,4 @@ const engineSpecificMalformedUrlError =
       chakracore: /^URIError: The URI to be decoded is not a valid encoding$/
     });
 
-assert.throws(function() { url.parse('http://%E0%A4%A@fail'); }, engineSpecificMalformedUrlError);
+assert.throws(() => { url.parse('http://%E0%A4%A@fail'); }, engineSpecificMalformedUrlError);
