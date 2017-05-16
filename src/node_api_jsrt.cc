@@ -876,7 +876,7 @@ napi_status napi_create_array(napi_env env, napi_value* result) {
 }
 
 napi_status napi_create_array_with_length(napi_env env,
-                                          int length,
+                                          size_t length,
                                           napi_value* result) {
   CHECK_ARG(result);
   CHECK_JSRT(JsCreateArray(length, reinterpret_cast<JsValueRef*>(result)));
@@ -1416,7 +1416,7 @@ napi_status napi_create_external(napi_env env,
     externalData,
     jsrtimpl::ExternalData::Finalize,
     reinterpret_cast<JsValueRef*>(result)));
-  CHECK_JSRT(JsPreventExtension(reinterpret_cast<JsValueRef*>(result)));
+  CHECK_JSRT(JsPreventExtension(*reinterpret_cast<JsValueRef*>(result)));
 
   return napi_ok;
 }
@@ -1488,7 +1488,7 @@ napi_status napi_delete_reference(napi_env env, napi_ref ref) {
 // After this call the reference will be a strong reference because its refcount
 // is >0, and the referenced object is effectively "pinned". Calling this when
 // the refcount is 0 and the target is unavailable results in an error.
-napi_status napi_reference_addref(napi_env env, napi_ref ref, int* result) {
+napi_status napi_reference_ref(napi_env env, napi_ref ref, uint32_t* result) {
   JsRef weakRef = reinterpret_cast<JsRef>(ref);
 
   JsValueRef target;
@@ -1501,11 +1501,11 @@ napi_status napi_reference_addref(napi_env env, napi_ref ref, int* result) {
 
   CHECK_JSRT(JsAddRef(target, nullptr));
 
-  unsigned int count;
+  uint32_t count;
   CHECK_JSRT(JsAddRef(weakRef, &count));
 
   if (result != nullptr) {
-    *result = static_cast<int>(count - 1);
+    *result = count - 1;
   }
 
   return napi_ok;
@@ -1515,7 +1515,7 @@ napi_status napi_reference_addref(napi_env env, napi_ref ref, int* result) {
 // If the result is 0 the reference is now weak and the object may be GC'd at
 // any time if there are no other references. Calling this when the refcount
 // is already 0 results in an error.
-napi_status napi_reference_release(napi_env env, napi_ref ref, int* result) {
+napi_status napi_reference_unref(napi_env env, napi_ref ref, uint32_t* result) {
   JsRef weakRef = reinterpret_cast<JsRef>(ref);
 
   JsValueRef target;
@@ -1525,7 +1525,7 @@ napi_status napi_reference_release(napi_env env, napi_ref ref, int* result) {
     return napi_set_last_error(napi_generic_failure);
   }
 
-  unsigned int count;
+  uint32_t count;
   CHECK_JSRT(JsRelease(weakRef, &count));
   if (count == 0) {
     // Called napi_release_reference too many times on a reference!
@@ -1535,7 +1535,7 @@ napi_status napi_reference_release(napi_env env, napi_ref ref, int* result) {
   CHECK_JSRT(JsRelease(target, nullptr));
 
   if (result != nullptr) {
-    *result = static_cast<int>(count - 1);
+    *result = count - 1;
   }
 
   return napi_ok;
