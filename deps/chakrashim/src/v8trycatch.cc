@@ -156,6 +156,10 @@ void TryCatch::SetVerbose(bool value) {
   this->verbose = value;
 }
 
+bool TryCatch::IsVerbose() const {
+  return this->verbose;
+}
+
 void TryCatch::CheckReportExternalException() {
   // Let caller TryCatch record the exception
   TryCatch* tryCatch = (prev != nullptr && prev->user) ? prev : this;

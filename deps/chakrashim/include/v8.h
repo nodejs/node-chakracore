@@ -2728,6 +2728,7 @@ class V8_EXPORT TryCatch {
   Local<v8::Message> Message() const;
   void Reset();
   void SetVerbose(bool value);
+  bool IsVerbose() const;
   void SetCaptureMessage(bool value);
 
  private:
