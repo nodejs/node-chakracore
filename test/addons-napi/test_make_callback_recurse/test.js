@@ -6,11 +6,6 @@ const domain = require('domain');
 const binding = require(`./build/${common.buildType}/binding`);
 const makeCallback = binding.makeCallback;
 
-if (common.isChakraEngine) {
-  common.skip('Skipped for node-chakracore till #246 is fixed.');
-  return;
-}
-
 // Make sure this is run in the future.
 const mustCallCheckDomains = common.mustCall(checkDomains);
 
