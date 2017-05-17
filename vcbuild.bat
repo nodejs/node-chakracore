@@ -15,7 +15,7 @@ if /i "%1"=="/?" goto help
 set config=Release
 set target=Build
 set target_arch=x64
-set target_env=
+set target_env=vs2015
 set noprojgen=
 set nobuild=
 set sign=
@@ -40,8 +40,10 @@ set enable_vtune_arg=
 set configure_flags=
 set build_addons=
 set dll=
+set enable_static=
 set build_addons_napi=
 set test_node_inspect=
+set test_check_deopts=
 set engine=chakracore
 
 :next-arg
@@ -53,7 +55,10 @@ if /i "%1"=="ia32"          set target_arch=x86&goto arg-ok
 if /i "%1"=="x86"           set target_arch=x86&goto arg-ok
 if /i "%1"=="x64"           set target_arch=x64&goto arg-ok
 if /i "%1"=="arm"           set target_arch=arm&goto arg-ok
-if /i "%1"=="vc2015"        set target_env=vc2015&goto arg-ok
+@rem args should be vs2017 and vs2015. keeping vc2015 for backward combatibility (undocumented)
+if /i "%1"=="vc2015"        set target_env=vs2015&goto arg-ok
+if /i "%1"=="vs2015"        set target_env=vs2015&goto arg-ok
+if /i "%1"=="vs2017"        set target_env=vs2017&goto arg-ok
 if /i "%1"=="noprojgen"     set noprojgen=1&goto arg-ok
 if /i "%1"=="nobuild"       set nobuild=1&goto arg-ok
 if /i "%1"=="nosign"        set "sign="&echo Note: vcbuild no longer signs by default. "nosign" is redundant.&goto arg-ok
@@ -76,6 +81,7 @@ if /i "%1"=="test-pummel"   set test_args=%test_args% pummel&goto arg-ok
 if /i "%1"=="test-all"      set test_args=%test_args% sequential parallel message gc inspector internet pummel&set build_testgc_addon=1&set cpplint=1&set jslint=1&goto arg-ok
 if /i "%1"=="test-known-issues" set test_args=%test_args% known_issues&goto arg-ok
 if /i "%1"=="test-node-inspect" set test_node_inspect=1&goto arg-ok
+if /i "%1"=="test-check-deopts" set test_check_deopts=1&goto arg-ok
 if /i "%1"=="jslint"        set jslint=1&goto arg-ok
 if /i "%1"=="jslint-ci"     set jslint_ci=1&goto arg-ok
 if /i "%1"=="lint"          set cpplint=1&set jslint=1&goto arg-ok
@@ -87,14 +93,15 @@ if /i "%1"=="upload"        set upload=1&goto arg-ok
 if /i "%1"=="small-icu"     set i18n_arg=%1&goto arg-ok
 if /i "%1"=="full-icu"      set i18n_arg=%1&goto arg-ok
 if /i "%1"=="intl-none"     set i18n_arg=%1&goto arg-ok
-if /i "%1"=="without-intl"     set i18n_arg=%1&goto arg-ok
+if /i "%1"=="without-intl"  set i18n_arg=%1&goto arg-ok
 if /i "%1"=="download-all"  set download_arg="--download=all"&goto arg-ok
 if /i "%1"=="ignore-flaky"  set test_args=%test_args% --flaky-tests=dontcare&goto arg-ok
 if /i "%1"=="enable-vtune"  set enable_vtune_arg=1&goto arg-ok
 if /i "%1"=="dll"           set dll=1&goto arg-ok
+if /i "%1"=="static"           set enable_static=1&goto arg-ok
 if /i "%1"=="v8"            set engine=v8&goto arg-ok
 if /i "%1"=="chakracore"    set engine=chakracore&set chakra_jslint=deps\chakrashim\lib&goto arg-ok
-if /i "%1"=="no-NODE-OPTIONS"	set no_NODE_OPTIONS=1&goto arg-
+if /i "%1"=="no-NODE-OPTIONS"	set no_NODE_OPTIONS=1&goto arg-ok
 
 echo Error: invalid command line option `%1`.
 exit /b 1
@@ -127,6 +134,7 @@ if defined release_urlbase set configure_flags=%configure_flags% --release-urlba
 if defined download_arg set configure_flags=%configure_flags% %download_arg%
 if defined enable_vtune_arg set configure_flags=%configure_flags% --enable-vtune-profiling
 if defined dll set configure_flags=%configure_flags% --shared
+if defined enable_static set configure_flags=%configure_flags% --enable-static
 if defined no_NODE_OPTIONS set configure_flags=%configure_flags% --without-node-options
 
 if "%i18n_arg%"=="full-icu" set configure_flags=%configure_flags% --with-intl=full-icu
@@ -150,7 +158,33 @@ if defined noprojgen if defined nobuild if not defined sign if not defined msi g
 
 @rem Set environment for msbuild
 
+set msvs_host_arch=x86
+if _%PROCESSOR_ARCHITECTURE%_==_AMD64_ set msvs_host_arch=amd64
+if _%PROCESSOR_ARCHITEW6432%_==_AMD64_ set msvs_host_arch=amd64
+@rem usualy vcvarsall takes an argument: host + '_' + target
+set vcvarsall_arg=%msvs_host_arch%_%target_arch%
+@rem unless both host and taget are x64
+if %target_arch%==x64 if %msvs_host_arch%==amd64 set vcvarsall_arg=amd64
+
+@rem Look for Visual Studio 2017
+:vs-set-2017
+if "%target_env%" NEQ "vs2017" goto vs-set-2015
+echo Looking for Visual Studio 2017
+if "_%VSCMD_ARG_TGT_ARCH%_"=="_%target_arch%_" goto found_vs2017
+call tools\msvs\vswhere_usability_wrapper.cmd
+if "_%VCINSTALLDIR%_" == "__" goto vs-set-2015
+set vcvars_call="%VCINSTALLDIR%\Auxiliary\Build\vcvarsall.bat" %vcvarsall_arg%
+echo calling: %vcvars_call%
+call %vcvars_call%
+:found_vs2017
+echo Found MSVS version %VisualStudioVersion%
+set GYP_MSVS_VERSION=2017
+set PLATFORM_TOOLSET=v141
+goto msbuild-found
+
 @rem Look for Visual Studio 2015
+:vs-set-2015
+if "%target_env%" NEQ "vs2015" goto msbuild-not-found
 echo Looking for Visual Studio 2015
 if not defined VS140COMNTOOLS goto msbuild-not-found
 if not exist "%VS140COMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
@@ -173,7 +207,9 @@ set PLATFORM_TOOLSET=v140
 goto msbuild-found
 
 :msbuild-not-found
-echo Failed to find Visual Studio installation.
+echo Failed to find a suitable Visual Studio installation.
+echo Try to run in a "Developer Command Prompt" or consult
+echo https://github.com/nodejs/node/blob/master/BUILDING.md#windows-1
 goto exit
 
 :wix-not-found
@@ -317,6 +353,7 @@ if not defined SSHCONFIG (
   echo SSHCONFIG is not set for upload
   exit /b 1
 )
+
 if not defined STAGINGSERVER set STAGINGSERVER=node-www
 ssh -F %SSHCONFIG% %STAGINGSERVER% "mkdir -p nodejs/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%"
 scp -F %SSHCONFIG% Release\node.exe %STAGINGSERVER%:nodejs/%DISTTYPEDIR%/v%FULLVERSION%/win-%target_arch%/node.exe
@@ -384,7 +421,16 @@ endlocal
 goto run-tests
 
 :run-tests
-if not defined test_node_inspect goto node-tests
+if defined test_check_deopts goto node-check-deopts
+if defined test_node_inspect goto node-test-inspect
+goto node-tests
+
+:node-check-deopts
+python tools\test.py --mode=release --check-deopts parallel sequential -J
+if defined test_node_inspect goto node-test-inspect
+goto node-tests
+
+:node-test-inspect
 set USE_EMBEDDED_NODE_INSPECT=1
 %config%\node tools\test-npm-package.js --install deps\node-inspect test
 goto node-tests
@@ -464,7 +510,7 @@ echo Failed to create vc project files.
 goto exit
 
 :help
-echo vcbuild.bat [debug/release] [msi] [test-all/test-uv/test-inspector/test-internet/test-pummel/test-simple/test-message] [clean] [noprojgen] [small-icu/full-icu/without-intl] [nobuild] [sign] [x86/x64] [vc2015] [download-all] [enable-vtune] [lint/lint-ci]  [no-NODE-OPTIONS]
+echo vcbuild.bat [debug/release] [msi] [test-all/test-uv/test-inspector/test-internet/test-pummel/test-simple/test-message] [clean] [noprojgen] [small-icu/full-icu/without-intl] [nobuild] [sign] [x86/x64] [vs2015/vs2017] [download-all] [enable-vtune] [lint/lint-ci] [no-NODE-OPTIONS]
 echo Examples:
 echo   vcbuild.bat                : builds release build
 echo   vcbuild.bat debug          : builds debug build

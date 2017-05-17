@@ -196,7 +196,8 @@ test: all
 	$(MAKE) build-addons-napi
 	$(MAKE) cctest
 	$(PYTHON) tools/test.py --mode=release --flaky-tests=$(FLAKY_TESTS) -J \
-		doctool inspector known_issues message pseudo-tty parallel sequential $(CI_NATIVE_SUITES)
+		doctool inspector known_issues message pseudo-tty parallel sequential \
+		async-hooks $(CI_NATIVE_SUITES)
 	$(MAKE) lint
 
 test-parallel: all
@@ -204,6 +205,9 @@ test-parallel: all
 
 test-valgrind: all
 	$(PYTHON) tools/test.py --mode=release --valgrind sequential parallel message
+
+test-check-deopts: all
+	$(PYTHON) tools/test.py --mode=release --check-deopts parallel sequential -J
 
 # Implicitly depends on $(NODE_EXE).  We don't depend on it explicitly because
 # it always triggers a rebuild due to it being a .PHONY rule.  See the comment
@@ -323,7 +327,7 @@ test-all-valgrind: test-build
 	$(PYTHON) tools/test.py --mode=debug,release --valgrind
 
 CI_NATIVE_SUITES := addons addons-napi
-CI_JS_SUITES := doctool inspector known_issues message parallel pseudo-tty sequential
+CI_JS_SUITES := doctool inspector known_issues message parallel pseudo-tty sequential async-hooks
 
 # Build and test addons without building anything else
 test-ci-native: LOGLEVEL := info
@@ -414,6 +418,9 @@ test-timers:
 
 test-timers-clean:
 	$(MAKE) --directory=tools clean
+
+test-async-hooks:
+	$(PYTHON) tools/test.py --mode=release async-hooks
 
 
 ifneq ("","$(wildcard deps/v8/tools/run-tests.py)")

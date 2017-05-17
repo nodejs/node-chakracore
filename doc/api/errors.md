@@ -599,6 +599,27 @@ Node.js API that consumes `file:` URLs (such as certain functions in the
 [`fs`][] module) encounters a file URL with an incompatible path. The exact
 semantics for determining whether a path can be used is platform-dependent.
 
+<a id="ERR_INVALID_HANDLE_TYPE"></a>
+### ERR_INVALID_HANDLE_TYPE
+
+The '`ERR_INVALID_HANDLE_TYPE`' error code is used when an attempt is made to
+send an unsupported "handle" over an IPC communication channel to a child
+process. See [`child.send()`] and [`process.send()`] for more information.
+
+<a id="ERR_INVALID_OPT_VALUE"></a>
+### ERR_INVALID_OPT_VALUE
+
+The `'ERR_INVALID_OPT_VALUE'` error code is used generically to identify when
+an invalid or unexpected value has been passed in an options object.
+
+<a id="ERR_INVALID_SYNC_FORK_INPUT"></a>
+### ERR_INVALID_SYNC_FORK_INPUT
+
+The `'ERR_INVALID_SYNC_FORK_INPUT'` error code is used when a `Buffer`,
+`Uint8Array` or `string` is provided as stdio input to a synchronous
+fork. See the documentation for the [`child_process`](child_process.html)
+module for more information.
+
 <a id="ERR_INVALID_THIS"></a>
 ### ERR_INVALID_THIS
 
@@ -642,6 +663,36 @@ It is currently only used in the [WHATWG URL API][] support in the [`fs`][]
 module (which only accepts URLs with `'file'` scheme), but may be used in other
 Node.js APIs as well in the future.
 
+<a id="ERR_IPC_CHANNEL_CLOSED"></a>
+### ERR_IPC_CHANNEL_CLOSED
+
+The `'ERR_IPC_CHANNEL_CLOSED'` error code is used when an attempt is made to use
+an IPC communication channel that has already been closed.
+
+<a id="ERR_IPC_DISCONNECTED"></a>
+### ERR_IPC_DISCONNECTED
+
+The `'ERR_IPC_DISCONNECTED'` error code is used when an attempt is made to
+disconnect an already disconnected IPC communication channel between two
+Node.js processes. See the documentation for the
+[`child_process`](child_process.html) module for more information.
+
+<a id="ERR_IPC_ONE_PIPE"></a>
+### ERR_IPC_ONE_PIPE
+
+The `'ERR_IPC_ONE_PIPE'` error code is used when an attempt is made to create
+a child Node.js process using more than one IPC communication channel.
+See the documentation for the [`child_process`](child_process.html)
+module for more information.
+
+<a id="ERR_IPC_SYNC_FORK"></a>
+### ERR_IPC_SYNC_FORK
+
+The `'ERR_IPC_SYNC_FORK'` error code is used when an attempt is made to open
+an IPC communication channel with a synchronous forked Node.js process.
+See the documentation for the [`child_process`](child_process.html)
+module for more information.
+
 <a id="ERR_MISSING_ARGS"></a>
 ### ERR_MISSING_ARGS
 
@@ -674,6 +725,13 @@ kind of internal Node.js error that should not typically be triggered by user
 code. Instances of this error point to an internal bug within the Node.js
 binary itself.
 
+<a id="ERR_UNKNOWN_SIGNAL"></a>
+### ERR_UNKNOWN_SIGNAL
+
+The `'ERR_UNKNOWN_SIGNAL`' error code is used when an invalid or unknown
+process signal is passed to an API expecting a valid signal (such as
+[`child.kill()`][]).
+
 <a id="ERR_UNKNOWN_STDIN_TYPE"></a>
 ### ERR_UNKNOWN_STDIN_TYPE
 
@@ -693,26 +751,29 @@ in user code, although it is not impossible. Occurrences of this error are most
 likely an indication of a bug within Node.js itself.
 
 
-[`fs.readdir`]: fs.html#fs_fs_readdir_path_options_callback
+[`ERR_INVALID_ARG_TYPE`]: #ERR_INVALID_ARG_TYPE
+[`child.kill()`]: child_process.html#child_process_child_kill_signal
+[`child.send()`]: child_process.html#child_process_child_send_message_sendhandle_options_callback
 [`fs.readFileSync`]: fs.html#fs_fs_readfilesync_file_options
+[`fs.readdir`]: fs.html#fs_fs_readdir_path_options_callback
 [`fs.unlink`]: fs.html#fs_fs_unlink_path_callback
 [`fs`]: fs.html
 [`http`]: http.html
 [`https`]: https.html
 [`libuv Error handling`]: http://docs.libuv.org/en/v1.x/errors.html
 [`net`]: net.html
+[`new URL(input)`]: url.html#url_constructor_new_url_input_base
+[`new URLSearchParams(iterable)`]: url.html#url_constructor_new_urlsearchparams_iterable
 [`process.on('uncaughtException')`]: process.html#process_event_uncaughtexception
+[`process.send()`]: process.html#process_process_send_message_sendhandle_options_callback
+[Node.js Error Codes]: #nodejs-error-codes
+[V8's stack trace API]: https://github.com/v8/v8/wiki/Stack-Trace-API
+[WHATWG URL API]: url.html#url_the_whatwg_url_api
 [domains]: domain.html
 [event emitter-based]: events.html#events_class_eventemitter
-[`ERR_INVALID_ARG_TYPE`]: #ERR_INVALID_ARG_TYPE
 [file descriptors]: https://en.wikipedia.org/wiki/File_descriptor
-[Node.js Error Codes]: #nodejs-error-codes
 [online]: http://man7.org/linux/man-pages/man3/errno.3.html
 [stream-based]: stream.html
 [syscall]: http://man7.org/linux/man-pages/man2/syscall.2.html
 [try-catch]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch
-[`new URL(input)`]: url.html#url_constructor_new_url_input_base
-[`new URLSearchParams(iterable)`]: url.html#url_constructor_new_urlsearchparams_iterable
-[V8's stack trace API]: https://github.com/v8/v8/wiki/Stack-Trace-API
 [vm]: vm.html
-[WHATWG URL API]: url.html#url_the_whatwg_url_api

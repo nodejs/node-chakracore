@@ -37,6 +37,15 @@
     'icu_use_data_file_flag%': 0,
 
     'conditions': [
+      ['GENERATOR=="ninja"', {
+        'OBJ_DIR': '<(PRODUCT_DIR)/obj',
+        'V8_BASE': '<(PRODUCT_DIR)/obj/deps/v8/src/libv8_base.a',
+        'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/obj/deps/chakrashim/libchakrashim.a',
+       }, {
+         'OBJ_DIR%': '<(PRODUCT_DIR)/obj.target',
+         'V8_BASE%': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
+         'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/obj.target/deps/chakrashim/libchakrashim.a',
+      }],
       ['OS == "win"', {
         'os_posix': 0,
         'v8_postmortem_support%': 'false',
@@ -47,20 +56,9 @@
         'v8_postmortem_support%': 'true',
       }],
       ['OS== "mac"', {
-        'OBJ_DIR': '<(PRODUCT_DIR)/obj.target',
-        'V8_BASE': '<(PRODUCT_DIR)/libv8_base.a',
         'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/libchakrashim.a',
-      }, {
-        'conditions': [
-          ['GENERATOR=="ninja"', {
-            'OBJ_DIR': '<(PRODUCT_DIR)/obj',
-            'V8_BASE': '<(PRODUCT_DIR)/obj/deps/v8/src/libv8_base.a',
-          }, {
-            'OBJ_DIR%': '<(PRODUCT_DIR)/obj.target',
-            'V8_BASE%': '<(PRODUCT_DIR)/obj.target/deps/v8/src/libv8_base.a',
-            'CHAKRASHIM_BASE': '<(PRODUCT_DIR)/obj.target/deps/chakrashim/libchakrashim.a',
-          }],
-        ],
+        'OBJ_DIR%': '<(PRODUCT_DIR)/obj.target',
+        'V8_BASE': '<(PRODUCT_DIR)/libv8_base.a',
       }],
       ['openssl_fips != ""', {
         'OPENSSL_PRODUCT': 'libcrypto.a',
@@ -456,6 +454,9 @@
         'libraries': [ '-lelf' ],
       }],
       ['OS=="freebsd"', {
+        # Use this flag because on FreeBSD std::pairs copy constructor is non-trivial
+        # https://lists.freebsd.org/pipermail/freebsd-toolchain/2016-March/002094.html
+        'cflags': [ '-D_LIBCPP_TRIVIAL_PAIR_COPY_CTOR=1' ],
         'ldflags': [
           '-Wl,--export-dynamic',
         ],
