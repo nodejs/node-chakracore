@@ -1623,22 +1623,22 @@ napi_status napi_make_callback(napi_env env,
                                size_t argc,
                                const napi_value* argv,
                                napi_value* result) {
-  JsValueRef object = reinterpret_cast<JsValueRef>(recv);
-  JsValueRef function = reinterpret_cast<JsValueRef>(func);
-  std::vector<JsValueRef> args(argc + 1);
-  args[0] = object;
-  for (size_t i = 0; i < argc; i++) {
-    args[i + 1] = reinterpret_cast<JsValueRef>(argv[i]);
-  }
-  JsValueRef returnValue;
-  CHECK_JSRT(JsCallFunction(
-    function,
-    args.data(),
-    static_cast<uint16_t>(argc + 1),
-    &returnValue));
+  v8::Isolate* isolate = v8impl::V8IsolateFromJsEnv(env);
+  v8::Local<v8::Object> v8recv =
+    v8impl::V8LocalValueFromJsValue(recv).As<v8::Object>();
+  v8::Local<v8::Function> v8func =
+    v8impl::V8LocalValueFromJsValue(func).As<v8::Function>();
+  v8::Local<v8::Value>* v8argv =
+    reinterpret_cast<v8::Local<v8::Value>*>(const_cast<napi_value*>(argv));
+
+  // TODO(jasongin): Expose JSRT or N-API version of node::MakeCallback?
+  v8::Local<v8::Value> v8result =
+    node::MakeCallback(isolate, v8recv, v8func, argc, v8argv);
+
   if (result != nullptr) {
-    *result = reinterpret_cast<napi_value>(returnValue);
+    *result = v8impl::JsValueFromV8LocalValue(v8result);
   }
+
   return napi_ok;
 }
 
