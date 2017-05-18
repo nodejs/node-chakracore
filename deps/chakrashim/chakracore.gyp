@@ -49,10 +49,11 @@
             ],
         }]
       ],
-        
+
       'variables': {
         'chakracore_header': [
           '<(chakra_dir)/lib/Common/ChakraCoreVersion.h',
+          '<(chakra_dir)/pal/inc/pal_external.h',
           '<(chakra_dir)/lib/Jsrt/ChakraCore.h',
           '<(chakra_dir)/lib/Jsrt/ChakraCommon.h',
           '<(chakra_dir)/lib/Jsrt/ChakraCommonWindows.h',

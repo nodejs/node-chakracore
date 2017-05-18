@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include "jsrtutils.h"
 #include <string>
+#include "pal_external.h"
 
 namespace jsrt {
 
@@ -957,7 +958,6 @@ JsValueRef CHAKRA_CALLBACK CollectGarbage(
 }
 
 void IdleGC(uv_timer_t *timerHandler) {
-#ifdef _WIN32
   unsigned int nextIdleTicks;
   CHAKRA_VERIFY(JsIdle(&nextIdleTicks) == JsNoError);
   DWORD currentTicks = GetTickCount();
@@ -978,11 +978,6 @@ void IdleGC(uv_timer_t *timerHandler) {
   } else {
     IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
   }
-#else
-  // CHAKRA-TODO: implement. No GetTickCount()
-  IsolateShim::GetCurrent()->ResetScriptExecuted();
-  IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
-#endif
 }
 
 void PrepareIdleGC(uv_prepare_t* prepareHandler) {
