@@ -79,10 +79,6 @@ class V8_EXPORT Debug {
   static bool SetDebugEventListener(Isolate* isolate, EventCallback that,
     Local<Value> data = Local<Value>());
   static void DebugBreak(Isolate *isolate = NULL) {}
-  static void SetMessageHandler(Isolate* isolate, MessageHandler handler);
-  static void SendCommand(Isolate* isolate,
-                          const uint16_t* command, int length,
-                          ClientData* client_data = NULL);
   static MaybeLocal<Value> GetMirror(Local<Context> context,
                                      Handle<Value> obj) {
     return MaybeLocal<Value>();
@@ -90,7 +86,6 @@ class V8_EXPORT Debug {
   static void ProcessDebugMessages(Isolate* isolate) {}
   static Local<Context> GetDebugContext(Isolate* isolate);
 
-  static void EnableDebug();
   static void EnableInspector(bool enableReplayDebug = false);
 
   static void SetLiveEditEnabled(Isolate* isolate, bool enable);

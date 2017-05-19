@@ -25,7 +25,6 @@
 #include <vector>
 #include <algorithm>
 #include "v8-debug.h"
-#include "jsrtdebug.h"
 #include "jsrtinspector.h"
 
 /////////////////////////////////////////////////
@@ -285,11 +284,6 @@ IsolateShim::~IsolateShim() {
     // If JavaScript debugging APIs need to be exposed then
     // runtime should be in debugging mode from start
     Inspector::StartDebugging(runtime);
-  }
-  else if (Debugger::IsDebugEnabled()) {
-    // If JavaScript debugging APIs need to be exposed then
-    // runtime should be in debugging mode from start
-    Debugger::StartDebugging(runtime);
   }
 
   IsolateShim* newIsolateshim = new IsolateShim(runtime);
@@ -604,16 +598,6 @@ JsValueRef IsolateShim::GetChakraShimJsArrayBuffer() {
                 nullptr, nullptr,
                 &chakraShimArrayBuffer) == JsNoError);
   return chakraShimArrayBuffer;
-}
-
-JsValueRef IsolateShim::GetChakraDebugShimJsArrayBuffer() {
-  JsValueRef chakraDebugShimArrayBuffer;
-  CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
-                (void*)raw_chakra_debug_value,
-                sizeof(raw_chakra_debug_value),
-                nullptr, nullptr,
-                &chakraDebugShimArrayBuffer) == JsNoError);
-  return chakraDebugShimArrayBuffer;
 }
 
 JsValueRef IsolateShim::GetChakraInspectorShimJsArrayBuffer() {

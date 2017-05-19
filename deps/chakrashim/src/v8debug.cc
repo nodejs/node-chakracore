@@ -19,17 +19,12 @@
 // IN THE SOFTWARE.
 
 #include "jsrtutils.h"
-#include "jsrtdebug.h"
+#include "v8-debug.h"
 
 namespace v8 {
 
-  THREAD_LOCAL bool g_EnableDebug = false;
   THREAD_LOCAL bool g_EnableInspector = false;
   THREAD_LOCAL bool g_EnableReplayDebug = false;
-
-  void Debug::EnableDebug() {
-    g_EnableDebug = true;
-  }
 
   void Debug::EnableInspector(bool enableReplayDebug) {
     g_EnableInspector = true;
@@ -65,26 +60,6 @@ namespace v8 {
     return static_cast<Context*>(isoShim->debugContext->GetContextRef());
   }
 
-  void Debug::SendCommand(Isolate* isolate,
-    const uint16_t* command, int length,
-    ClientData* client_data) {
-    CHAKRA_ASSERT(client_data == NULL);
-
-    // Save command in a queue and when JsDiagDebugEventHandler
-    // is called we need to process the queue
-    jsrt::Debugger::messageQueue.SaveMessage(command, length);
-
-    // Request async break from engine so that we can process
-    // commands on JsDiagDebugEventAsyncBreak
-    JsErrorCode errorCode = JsDiagRequestAsyncBreak(
-      jsrt::IsolateShim::FromIsolate(isolate)->GetRuntimeHandle());
-    CHAKRA_VERIFY_NOERROR(errorCode);
-  }
-
-  void Debug::SetMessageHandler(Isolate* isolate, MessageHandler handler) {
-    jsrt::Debugger::handler = handler;
-  }
-
   bool Debug::SetDebugEventListener(Isolate* isolate, EventCallback that,
     Local<Value> data) {
     return false;
@@ -93,11 +68,11 @@ namespace v8 {
   void Debug::SetLiveEditEnabled(Isolate* isolate, bool enable) {
     // CHAKRA-TODO: Figure out what to do here
     //
-    // hiteshk: This is edit and continue, right? I don't recall if there are
-    // JSRT APIs enabled for this today but if there aren't, it would be an
-    // interesting exercise to see what would be needed here (and how Chakra's
-    // Edit and Continue differs from v8's). @jianxu would be the expert here
-    // in Sandeep's absence
+    // @digitalinfinity: This is edit and continue, right? I don't recall if
+    // there are JSRT APIs enabled for this today but if there aren't, it would
+    // be an interesting exercise to see what would be needed here (and how
+    // Chakra's Edit and Continue differs from v8's). @jianxu would be the
+    // expert here in Sandeep's absence
     CHAKRA_ASSERT(false);
   }
 

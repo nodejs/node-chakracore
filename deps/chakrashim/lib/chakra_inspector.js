@@ -18,10 +18,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-// This file is a copy of chakra_debug.js which has been stripped down to
-// unblock further progress.  It may also be used for shimming functionality
-// which is easier to implement in JavaScript rather than C++.
-
 /* eslint-disable strict */
 (function(globalObject, keepAliveObject, traceDebugJson) {
   var Logger = (function() {

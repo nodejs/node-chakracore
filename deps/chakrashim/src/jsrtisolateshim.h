@@ -118,7 +118,6 @@ class IsolateShim {
   }
 
   JsValueRef GetChakraShimJsArrayBuffer();
-  JsValueRef GetChakraDebugShimJsArrayBuffer();
   JsValueRef GetChakraInspectorShimJsArrayBuffer();
 
   void SetData(unsigned int slot, void* data);
