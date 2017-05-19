@@ -509,7 +509,8 @@ void V8Debugger::HandleBreak(JsValueRef eventData) {
   if (hasUncaught) {
     if (jsrt::InspectorHelpers::GetBoolProperty(eventData, "uncaught",
                                                 &isUncaught) != JsNoError) {
-
+      assert(false);
+      return;
     }
   }
 
