@@ -278,13 +278,13 @@
       Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError,
       URIError
     ].forEach(function(type) {
-      var newType = function newType() {
+      function newType() {
         var e = withStackTraceLimitOffset(
           3, () => Reflect_construct(type, arguments, new.target || newType));
         // skip 3 frames: lambda, withStackTraceLimitOffset, this frame
         privateCaptureStackTrace(e, undefined, e, 3);
         return e;
-      };
+      }
 
       Object_defineProperty(newType, 'name', {
         value: type.name,
@@ -432,11 +432,11 @@
   function patchUtils(utils) {
     var isUintRegex = /^(0|[1-9]\d*)$/;
 
-    var isUint = function(value) {
+    function isUint(value) {
       var result = isUintRegex.test(value);
       isUintRegex.lastIndex = 0;
       return result;
-    };
+    }
     utils.cloneObject = function(source, target) {
       Object_getOwnPropertyNames(source).forEach(function(key) {
         try {
