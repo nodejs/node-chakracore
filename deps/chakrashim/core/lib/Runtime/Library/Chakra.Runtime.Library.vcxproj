@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Condition="'$(ChakraBuildPathImported)'!='true'" Project="$(SolutionDir)Chakra.Build.Paths.props" />
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.ProjectConfiguration.props" />
@@ -30,6 +30,7 @@
         $(MSBuildThisFileDirectory)..\..\Common;
         $(MSBuildThisFileDirectory)..\..\Parser;
         $(MSBuildThisFileDirectory)..\..\WasmReader;
+        $(MSBuildThisFileDirectory)..\..\wabt\chakra;
         $(MSBuildThisFileDirectory)..\..\Runtime\ByteCode;
         $(MSBuildThisFileDirectory)..\..\JITClient;
         $(ChakraJITIDLIntDir);
@@ -76,7 +77,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)CompoundString.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)DataView.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)EngineInterfaceObject.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)IteratorObjectEnumerator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptArrayIterator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptBuiltInFunctions.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptExternalFunction.cpp" />
@@ -164,14 +164,19 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)WebAssemblyModule.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WebAssemblyTable.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WebAssemblyEnvironment.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WabtInterface.cpp" />
+    <ClCompile Include="CustomExternalIterator.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptExceptionMetadata.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\InternalPropertyList.h" />
     <ClInclude Include="..\RuntimeCommon.h" />
     <ClInclude Include="..\SerializableFunctionFields.h" />
     <ClInclude Include="AtomicsObject.h" />
+    <ClInclude Include="CustomExternalIterator.h" />
     <ClInclude Include="ExternalLibraryBase.h" />
     <ClInclude Include="IntlEngineInterfaceExtensionObject.h" />
+    <ClInclude Include="JavascriptExceptionMetadata.h" />
     <ClInclude Include="JavascriptListIterator.h" />
     <ClInclude Include="JavascriptSimdObject.h" />
     <ClInclude Include="JavascriptSimdType.h" />
@@ -210,7 +215,6 @@
     <ClInclude Include="HostObjectBase.h" />
     <ClInclude Include="InJavascript\Intl.js.bc.32b.h" />
     <ClInclude Include="InJavascript\Intl.js.bc.64b.h" />
-    <ClInclude Include="IteratorObjectEnumerator.h" />
     <ClInclude Include="JavascriptArrayIndexEnumeratorBase.h" />
     <ClInclude Include="JavascriptArrayIndexStaticEnumerator.h" />
     <ClInclude Include="JavascriptArrayIterator.h" />
@@ -291,6 +295,7 @@
     <ClInclude Include="SparseArraySegment.h" />
     <ClInclude Include="SubString.h" />
     <ClInclude Include="UriHelper.h" />
+    <ClInclude Include="WabtInterface.h" />
     <ClInclude Include="WasmLibrary.h" />
     <ClInclude Include="WebAssembly.h" />
     <ClInclude Include="WebAssemblyEnvironment.h" />
@@ -338,6 +343,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\JITIDL\Chakra.JITIDL.vcxproj">
       <Project>{0db5ecbc-9385-4a65-be2c-4ef7c65cb719}</Project>
+    </ProjectReference>
+    <ProjectReference Condition="'$(BuildWabt)'=='true'" Include="..\..\wabt\wabt.vcxproj">
+      <Project>{f48b3491-81df-4f49-b35f-3308cbe6a379}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.targets" Condition="exists('$(BuildConfigPropsPath)Chakra.Build.targets')" />

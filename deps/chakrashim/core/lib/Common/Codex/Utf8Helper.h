@@ -13,8 +13,8 @@ namespace utf8
     /// using Allocator.
     /// The returned string is null terminated.
     ///
-    template <class Allocator>
-    HRESULT WideStringToNarrow(_In_ LPCWSTR sourceString, size_t sourceCount, _Out_ LPSTR* destStringPtr, _Out_ size_t* destCount, size_t* allocateCount = nullptr)
+    template <typename AllocatorFunction>
+    HRESULT WideStringToNarrow(_In_ AllocatorFunction allocator, _In_ LPCWSTR sourceString, size_t sourceCount, _Out_ LPSTR* destStringPtr, _Out_ size_t* destCount, size_t* allocateCount = nullptr)
     {
         size_t cchSourceString = sourceCount;
 
@@ -31,7 +31,7 @@ namespace utf8
             return E_OUTOFMEMORY;
         }
 
-        utf8char_t* destString = (utf8char_t*)Allocator::allocate(cbDestString);
+        utf8char_t* destString = (utf8char_t*)allocator(cbDestString);
         if (destString == nullptr)
         {
             return E_OUTOFMEMORY;
@@ -46,14 +46,20 @@ namespace utf8
         return S_OK;
     }
 
+    template <class Allocator>
+    HRESULT WideStringToNarrow(_In_ LPCWSTR sourceString, size_t sourceCount, _Out_ LPSTR* destStringPtr, _Out_ size_t* destCount, size_t* allocateCount = nullptr)
+    {
+        return WideStringToNarrow(Allocator::allocate, sourceString, sourceCount, destStringPtr, destCount, allocateCount);
+    }
+
     ///
     /// Use the codex library to encode a UTF8 string to UTF16.
     /// The caller is responsible for freeing the memory, which is allocated
     /// using Allocator.
     /// The returned string is null terminated.
     ///
-    template <class Allocator>
-    HRESULT NarrowStringToWide(_In_ LPCSTR sourceString, size_t sourceCount, _Out_ LPWSTR* destStringPtr, _Out_ size_t* destCount, size_t* allocateCount = nullptr)
+    template <typename AllocatorFunction>
+    HRESULT NarrowStringToWide(_In_ AllocatorFunction allocator,_In_ LPCSTR sourceString, size_t sourceCount, _Out_ LPWSTR* destStringPtr, _Out_ size_t* destCount, size_t* allocateCount = nullptr)
     {
         size_t cbSourceString = sourceCount;
         size_t sourceStart = 0;
@@ -63,7 +69,7 @@ namespace utf8
             return E_OUTOFMEMORY;
         }
 
-        WCHAR* destString = (WCHAR*)Allocator::allocate(cbDestString);
+        WCHAR* destString = (WCHAR*)allocator(cbDestString);
         if (destString == nullptr)
         {
             return E_OUTOFMEMORY;
@@ -108,6 +114,12 @@ namespace utf8
             *destCount = cchDestString;
         }
         return S_OK;
+    }
+
+    template <class Allocator>
+    HRESULT NarrowStringToWide(_In_ LPCSTR sourceString, size_t sourceCount, _Out_ LPWSTR* destStringPtr, _Out_ size_t* destCount, size_t* allocateCount = nullptr)
+    {
+        return NarrowStringToWide(Allocator::allocate, sourceString, sourceCount, destStringPtr, destCount, allocateCount);
     }
 
     class malloc_allocator

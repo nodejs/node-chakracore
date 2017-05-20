@@ -215,7 +215,7 @@ namespace Js
         if (nullptr == gOPDMethod || GetScriptContext()->IsHeapEnumInProgress())
         {
             resultDescriptor->SetFromProxy(false);
-            return fn();
+            return fn(targetObj);
         }
         // Reject implicit call
         if (threadContext->IsDisableImplicitCall())
@@ -467,7 +467,7 @@ namespace Js
         return hasProperty;
     }
 
-    BOOL JavascriptProxy::HasProperty(PropertyId propertyId)
+    PropertyQueryFlags JavascriptProxy::HasPropertyQuery(PropertyId propertyId)
     {
         auto fn = [&](RecyclableObject* object)->BOOL {
             return JavascriptOperators::HasProperty(object, propertyId);
@@ -475,7 +475,7 @@ namespace Js
         auto getPropertyId = [&]() ->PropertyId {
             return propertyId;
         };
-        return HasPropertyTrap(fn, getPropertyId);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(HasPropertyTrap(fn, getPropertyId));
     }
 
     BOOL JavascriptProxy::HasOwnProperty(PropertyId propertyId)
@@ -527,7 +527,7 @@ namespace Js
         return DescriptorFlags::Proxy;
     }
 
-    BOOL JavascriptProxy::GetProperty(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptProxy::GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
         // We can't cache the property at this time. both target and handler can be changed outside of the proxy, so the inline cache needs to be
         // invalidate when target, handler, or handler prototype has changed. We don't have a way to achieve this yet.
@@ -547,17 +547,17 @@ namespace Js
         {
             *value = GetValueFromDescriptor(RecyclableObject::FromVar(originalInstance), result, requestContext);
         }
-        return foundProperty;
+        return JavascriptConversion::BooleanToPropertyQueryFlags(foundProperty);
     }
 
-    BOOL JavascriptProxy::GetProperty(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptProxy::GetPropertyQuery(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
         // We can't cache the property at this time. both target and handler can be changed outside of the proxy, so the inline cache needs to be
         // invalidate when target, handler, or handler prototype has changed. We don't have a way to achieve this yet.
         PropertyValueInfo::SetNoCache(info, this);
         PropertyValueInfo::DisablePrototypeCache(info, this); // We can't cache prototype property either
         auto fn = [&](RecyclableObject* object)-> BOOL {
-            return JavascriptOperators::GetPropertyWPCache(originalInstance, object, propertyNameString, value, requestContext, nullptr);
+            return JavascriptOperators::GetPropertyWPCache(originalInstance, object, propertyNameString, value, requestContext, info);
         };
         auto getPropertyId = [&]()->PropertyId{
             const PropertyRecord* propertyRecord;
@@ -574,7 +574,7 @@ namespace Js
         {
             *value = GetValueFromDescriptor(RecyclableObject::FromVar(originalInstance), result, requestContext);
         }
-        return foundProperty;
+        return JavascriptConversion::BooleanToPropertyQueryFlags(foundProperty);
     }
 
     BOOL JavascriptProxy::GetInternalProperty(Var instance, PropertyId internalPropertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
@@ -605,7 +605,7 @@ namespace Js
         return foundProperty;
     }
 
-    BOOL JavascriptProxy::GetPropertyReference(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptProxy::GetPropertyReferenceQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
         // We can't cache the property at this time. both target and handler can be changed outside of the proxy, so the inline cache needs to be
         // invalidate when target, handler, or handler prototype has changed. We don't have a way to achieve this yet.
@@ -625,7 +625,7 @@ namespace Js
         {
             *value = GetValueFromDescriptor(RecyclableObject::FromVar(originalInstance), result, requestContext);
         }
-        return foundProperty;
+        return JavascriptConversion::BooleanToPropertyQueryFlags(foundProperty);
     }
 
     BOOL JavascriptProxy::SetProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info)
@@ -842,7 +842,7 @@ namespace Js
         return false;
     }
 
-    BOOL JavascriptProxy::HasItem(uint32 index)
+    PropertyQueryFlags JavascriptProxy::HasItemQuery(uint32 index)
     {
         const PropertyRecord* propertyRecord;
         auto fn = [&](RecyclableObject* object)-> BOOL {
@@ -852,7 +852,7 @@ namespace Js
             PropertyIdFromInt(index, &propertyRecord);
             return propertyRecord->GetPropertyId();
         };
-        return HasPropertyTrap(fn, getPropertyId);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(HasPropertyTrap(fn, getPropertyId));
     }
 
     BOOL JavascriptProxy::HasOwnItem(uint32 index)
@@ -868,7 +868,7 @@ namespace Js
         return HasPropertyTrap(fn, getPropertyId);
     }
 
-    BOOL JavascriptProxy::GetItem(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext)
+    PropertyQueryFlags JavascriptProxy::GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext)
     {
         const PropertyRecord* propertyRecord;
         auto fn = [&](RecyclableObject* object)-> BOOL {
@@ -888,14 +888,14 @@ namespace Js
         {
             *value = GetValueFromDescriptor(RecyclableObject::FromVar(originalInstance), result, requestContext);
         }
-        return foundProperty;
+        return JavascriptConversion::BooleanToPropertyQueryFlags(foundProperty);
     }
 
-    BOOL JavascriptProxy::GetItemReference(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext)
+    PropertyQueryFlags JavascriptProxy::GetItemReferenceQuery(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext)
     {
         const PropertyRecord* propertyRecord;
         auto fn = [&](RecyclableObject* object)-> BOOL {
-            return JavascriptOperators::GetItemReference(originalInstance, object, index, value, requestContext);
+            return JavascriptOperators::GetItem(originalInstance, object, index, value, requestContext);
         };
         auto getPropertyId = [&]() ->PropertyId {
             PropertyIdFromInt(index, &propertyRecord);
@@ -911,7 +911,7 @@ namespace Js
         {
             *value = GetValueFromDescriptor(RecyclableObject::FromVar(originalInstance), result, requestContext);
         }
-        return foundProperty;
+        return JavascriptConversion::BooleanToPropertyQueryFlags(foundProperty);
     }
 
     DescriptorFlags JavascriptProxy::GetItemSetter(uint32 index, Var* setterValueOrProxy, ScriptContext* requestContext)
@@ -956,55 +956,71 @@ namespace Js
             JavascriptError::ThrowTypeError(GetScriptContext(), JSERR_ErrorOnRevokedProxy, _u("ownKeys"));
         }
 
-        Var propertyName = nullptr;
-        PropertyId propertyId;
-        int index = 0;
-        JsUtil::BaseDictionary<const char16*, Var, Recycler> dict(requestContext->GetRecycler());
-        JavascriptArray* arrResult = requestContext->GetLibrary()->CreateArray();
-
-        // 13.7.5.15 EnumerateObjectProperties(O) (https://tc39.github.io/ecma262/#sec-enumerate-object-properties)
-        // for (let key of Reflect.ownKeys(obj)) {
-        Var trapResult = JavascriptOperators::GetOwnPropertyNames(this, requestContext);
-        if (JavascriptArray::Is(trapResult))
+        struct ProxyOwnkeysEnumerator : public JavascriptEnumerator
         {
-            JavascriptStaticEnumerator trapEnumerator;
-            if (!((JavascriptArray*)trapResult)->GetEnumerator(&trapEnumerator, EnumeratorFlags::SnapShotSemantics, requestContext))
+            typedef JsUtil::BaseHashSet<const char16*, Recycler> VisitedNamesHashSet;
+            Field(VisitedNamesHashSet*) visited;
+            Field(JavascriptArray*) trapResult;
+            Field(JavascriptProxy*) proxy;
+            FieldNoBarrier(ScriptContext*) scriptContext;
+            Field(uint32) index;
+
+            DEFINE_VTABLE_CTOR_ABSTRACT(ProxyOwnkeysEnumerator, JavascriptEnumerator)
+
+            ProxyOwnkeysEnumerator(ScriptContext* scriptContext, JavascriptProxy* proxy, JavascriptArray* trapResult)
+                :JavascriptEnumerator(scriptContext), scriptContext(scriptContext), proxy(proxy), trapResult(trapResult)
             {
-                return FALSE;
+                visited = RecyclerNew(scriptContext->GetRecycler(), VisitedNamesHashSet, scriptContext->GetRecycler());
             }
-            while ((propertyName = trapEnumerator.MoveAndGetNext(propertyId)) != NULL)
+            virtual void Reset() override
             {
-                PropertyId  propId = JavascriptOperators::GetPropertyId(propertyName, requestContext);
-                Var prop = JavascriptOperators::GetProperty(RecyclableObject::FromVar(trapResult), propId, requestContext);
-                // if (typeof key === "string") {
-                if (JavascriptString::Is(prop))
+                index = 0;
+                visited->Reset();
+            }
+
+            virtual JavascriptString * MoveAndGetNext(PropertyId& propertyId, PropertyAttributes* attributes = nullptr) override
+            {
+                propertyId = Constants::NoProperty;
+                if (attributes != nullptr)
                 {
-                    Js::PropertyDescriptor desc;
-                    JavascriptString* str = JavascriptString::FromVar(prop);
-                    // let desc = Reflect.getOwnPropertyDescriptor(obj, key);
-                    BOOL ret = JavascriptOperators::GetOwnPropertyDescriptor(this, str, requestContext, &desc);
-                    // if (desc && !visited.has(key)) {
-                    if (ret && !dict.ContainsKey(str->GetSz()))
+                    *attributes = PropertyEnumerable;
+                }
+                // 13.7.5.15 EnumerateObjectProperties(O) (https://tc39.github.io/ecma262/#sec-enumerate-object-properties)
+                // for (let key of Reflect.ownKeys(obj)) {
+                uint32 len = trapResult->GetLength();
+                while (index < len)
+                {
+                    Var var = trapResult->DirectGetItem(index++) ;
+                    if (var)
                     {
-                        dict.Add(str->GetSz(), prop);
-                        // if (desc.enumerable) yield key;
-                        if (desc.IsEnumerable())
+                        // if (typeof key === "string") {
+                        if (JavascriptString::Is(var))
                         {
-                            ret = arrResult->SetItem(index++, CrossSite::MarshalVar(requestContext, prop), PropertyOperation_None);
-                            Assert(ret);
+                            JavascriptString* propertyName = JavascriptString::FromVar(var);
+                            // let desc = Reflect.getOwnPropertyDescriptor(obj, key);
+                            Js::PropertyDescriptor desc;
+                            BOOL ret = JavascriptOperators::GetOwnPropertyDescriptor(proxy, propertyName, scriptContext, &desc);
+                            // if (desc && !visited.has(key)) {
+                            if (ret && !visited->Contains(propertyName->GetSz()))
+                            {
+                                visited->Add(propertyName->GetSz());
+                                // if (desc.enumerable) yield key;
+                                if (desc.IsEnumerable())
+                                {
+                                    return JavascriptString::FromVar(CrossSite::MarshalVar(scriptContext, propertyName));
+                                }
+                            }
                         }
                     }
                 }
+                return nullptr;
             }
-        }
-        else
-        {
-            AssertMsg(false, "Expect GetOwnPropertyNames result to be array");
-        }
+        };
 
-        return enumerator->Initialize(IteratorObjectEnumerator::Create(requestContext,
-            JavascriptOperators::GetIterator(RecyclableObject::FromVar(arrResult), requestContext)), nullptr, nullptr, flags, requestContext, nullptr);
+        JavascriptArray* trapResult = JavascriptOperators::GetOwnPropertyNames(this, requestContext);
+        ProxyOwnkeysEnumerator* ownKeysEnum = RecyclerNew(requestContext->GetRecycler(), ProxyOwnkeysEnumerator, requestContext, this, trapResult);
 
+        return enumerator->Initialize(ownKeysEnum, nullptr, nullptr, flags, requestContext, forInCache);
     }
 
     BOOL JavascriptProxy::SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags)
@@ -1636,8 +1652,8 @@ namespace Js
     BOOL JavascriptProxy::GetOwnPropertyDescriptor(RecyclableObject* obj, PropertyId propertyId, ScriptContext* scriptContext, PropertyDescriptor* propertyDescriptor)
     {
         JavascriptProxy* proxy = JavascriptProxy::FromVar(obj);
-        auto fn = [&]()-> BOOL {
-            return JavascriptOperators::GetOwnPropertyDescriptor(proxy->target, propertyId, scriptContext, propertyDescriptor);
+        auto fn = [&](RecyclableObject *targetObj)-> BOOL {
+            return JavascriptOperators::GetOwnPropertyDescriptor(targetObj, propertyId, scriptContext, propertyDescriptor);
         };
         auto getPropertyId = [&]() -> PropertyId {return propertyId; };
         BOOL foundProperty = proxy->GetPropertyDescriptorTrap(obj, fn, getPropertyId, propertyDescriptor, scriptContext);
@@ -1822,13 +1838,8 @@ namespace Js
             }
             case SetPropertyTrapKind::SetPropertyWPCacheKind:
             {
-                Var name = GetName(requestContext, propertyId);
-                if (!JavascriptString::Is(name) || !VirtualTableInfo<Js::PropertyString>::HasVirtualTable(JavascriptString::FromVar(name)))
-                {
-                    name = nullptr;
-                }
-                return JavascriptOperators::SetPropertyWPCache(receiver, targetObj, propertyId, newValue, requestContext,
-                    static_cast<Js::PropertyString*>(name), PropertyOperationFlags::PropertyOperation_None);
+                PropertyValueInfo propertyValueInfo;
+                return JavascriptOperators::SetPropertyWPCache(receiver, targetObj, propertyId, newValue, requestContext, PropertyOperationFlags::PropertyOperation_None, &propertyValueInfo);
             }
             default:
                 Assert(FALSE);

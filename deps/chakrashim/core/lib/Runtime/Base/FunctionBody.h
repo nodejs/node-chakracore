@@ -33,7 +33,7 @@ namespace Js
     struct PropertyIdOnRegSlotsContainer;
 
     struct InlineCache;
-    struct PolymorphicInlineCache;
+    class PolymorphicInlineCache;
     struct IsInstInlineCache;
     class ScopeObjectChain;
     class EntryPointInfo;
@@ -857,12 +857,7 @@ namespace Js
 #endif
         }
 
-        void SetCodeGenDone()
-        {
-            Assert(this->GetState() == CodeGenRecorded);
-            this->state = CodeGenDone;
-            this->workItem = nullptr;
-        }
+        void SetCodeGenDone();
 
         void SetJITCapReached()
         {
@@ -1315,9 +1310,7 @@ namespace Js
     //
     class FunctionProxy : public FinalizableObject
     {
-        static CriticalSection GlobalLock;
     public:
-        static CriticalSection* GetLock() { return &GlobalLock; }
         typedef RecyclerWeakReference<DynamicType> FunctionTypeWeakRef;
         typedef JsUtil::List<FunctionTypeWeakRef*, Recycler, false, WeakRefFreeListedRemovePolicy> FunctionTypeWeakRefList;
 
@@ -1951,6 +1944,20 @@ namespace Js
         void SetScopeInfo(ScopeInfo* scopeInfo) {  this->SetAuxPtr(AuxPointerType::ScopeInfo, scopeInfo); }
         PropertyId GetOrAddPropertyIdTracked(JsUtil::CharacterBuffer<WCHAR> const& propName);
         bool IsTrackedPropertyId(PropertyId pid);
+
+        void SetScopeSlotArraySizes(uint scopeSlotCount, uint scopeSlotCountForParamScope)
+        {
+            this->scopeSlotArraySize = scopeSlotCount;
+            this->paramScopeSlotArraySize = scopeSlotCountForParamScope;
+        }
+
+        PropertyId * GetPropertyIdsForScopeSlotArray() const { return static_cast<Js::PropertyId *>(this->GetAuxPtr(AuxPointerType::PropertyIdsForScopeSlotArray)); }
+        void SetPropertyIdsForScopeSlotArray(Js::PropertyId * propertyIdsForScopeSlotArray, uint scopeSlotCount, uint scopeSlotCountForParamScope = 0)
+        {
+            SetScopeSlotArraySizes(scopeSlotCount, scopeSlotCountForParamScope);
+            this->SetAuxPtr(AuxPointerType::PropertyIdsForScopeSlotArray, propertyIdsForScopeSlotArray);
+        }
+
         Js::PropertyRecordList* GetBoundPropertyRecords() { return this->m_boundPropertyRecords; }
         void SetBoundPropertyRecords(Js::PropertyRecordList* boundPropertyRecords)
         {
@@ -1994,6 +2001,9 @@ namespace Js
         bool IsReparsed() const { return m_reparsed; }
         void SetReparsed(bool set) { m_reparsed = set; }
         bool GetExternalDisplaySourceName(BSTR* sourceName);
+
+        void CleanupToReparse();
+        void CleanupToReparseHelper();
 
         bool EndsAfter(size_t offset) const;
 
@@ -2084,6 +2094,7 @@ namespace Js
         DeferredFunctionStub *GetDeferredStubs() const { return static_cast<DeferredFunctionStub *>(this->GetAuxPtr(AuxPointerType::DeferredStubs)); }
         void SetDeferredStubs(DeferredFunctionStub *stub) { this->SetAuxPtr(AuxPointerType::DeferredStubs, stub); }
         void RegisterFuncToDiag(ScriptContext * scriptContext, char16 const * pszTitle);
+        bool IsES6ModuleCode() const;
 
     protected:
         static HRESULT MapDeferredReparseError(HRESULT& hrParse, const CompileScriptException& se);
@@ -2247,21 +2258,19 @@ namespace Js
                 Max
             };
 
+    private:
             typedef CompactCounters<FunctionBody> CounterT;
             FieldWithBarrier(CounterT) counters;
+            friend CounterT;
 
-            uint32 GetCountField(FunctionBody::CounterFields fieldEnum) const
-            {
-                return counters.Get(fieldEnum);
-            }
-            uint32 SetCountField(FunctionBody::CounterFields fieldEnum, uint32 val)
-            {
-                return counters.Set(fieldEnum, val, this);
-            }
-            uint32 IncreaseCountField(FunctionBody::CounterFields fieldEnum)
-            {
-                return counters.Increase(fieldEnum, this);
-            }
+    public:
+            uint32 GetCountField(FunctionBody::CounterFields fieldEnum) const;
+            uint32 SetCountField(FunctionBody::CounterFields fieldEnum, uint32 val);
+            uint32 IncreaseCountField(FunctionBody::CounterFields fieldEnum);
+#if DBG
+            void LockDownCounters() { counters.isLockedDown = true; };
+            void UnlockCounters() { counters.isLockedDown = false; };
+#endif
 
             struct StatementMap
             {
@@ -3068,6 +3077,8 @@ namespace Js
 
         bool GetNativeEntryPointUsed() const { return m_nativeEntryPointUsed; }
         void SetNativeEntryPointUsed(bool nativeEntryPointUsed) { this->m_nativeEntryPointUsed = nativeEntryPointUsed; }
+        bool GetHasDoneLoopBodyCodeGen() const { return hasDoneLoopBodyCodeGen; }
+        void SetHasDoneLoopBodyCodeGen(bool hasDoneLoopBodyCodeGen) { this->hasDoneLoopBodyCodeGen = hasDoneLoopBodyCodeGen; }
 #endif
 
         bool GetIsFuncRegistered() { return m_isFuncRegistered; }
@@ -3140,8 +3151,8 @@ namespace Js
         PolymorphicCallSiteInfo * GetPolymorphicCallSiteInfoHead() { return static_cast<PolymorphicCallSiteInfo *>(this->GetAuxPtr(AuxPointerType::PolymorphicCallSiteInfoHead)); }
 #endif
 
-        PolymorphicInlineCache * GetPolymorphicInlineCachesHead() { return static_cast<PolymorphicInlineCache *>(this->GetAuxPtr(AuxPointerType::PolymorphicInlineCachesHead)); }
-        void SetPolymorphicInlineCachesHead(PolymorphicInlineCache * cache) { this->SetAuxPtr(AuxPointerType::PolymorphicInlineCachesHead, cache); }
+        FunctionBodyPolymorphicInlineCache * GetPolymorphicInlineCachesHead() { return static_cast<FunctionBodyPolymorphicInlineCache *>(this->GetAuxPtr(AuxPointerType::PolymorphicInlineCachesHead)); }
+        void SetPolymorphicInlineCachesHead(FunctionBodyPolymorphicInlineCache * cache) { this->SetAuxPtr(AuxPointerType::PolymorphicInlineCachesHead, cache); }
 
         bool PolyInliningUsingFixedMethodsAllowedByConfigFlags(FunctionBody* topFunctionBody)
         {
@@ -3149,19 +3160,6 @@ namespace Js
                 !PHASE_OFF(Js::PolymorphicInlinePhase, this) && !PHASE_OFF(Js::PolymorphicInlinePhase, topFunctionBody) &&
                 !PHASE_OFF(Js::FixedMethodsPhase, this) && !PHASE_OFF(Js::FixedMethodsPhase, topFunctionBody) &&
                 !PHASE_OFF(Js::PolymorphicInlineFixedMethodsPhase, this) && !PHASE_OFF(Js::PolymorphicInlineFixedMethodsPhase, topFunctionBody);
-        }
-
-        void SetScopeSlotArraySizes(uint scopeSlotCount, uint scopeSlotCountForParamScope)
-        {
-            this->scopeSlotArraySize = scopeSlotCount;
-            this->paramScopeSlotArraySize = scopeSlotCountForParamScope;
-        }
-
-        Js::PropertyId * GetPropertyIdsForScopeSlotArray() const { return static_cast<Js::PropertyId *>(this->GetAuxPtr(AuxPointerType::PropertyIdsForScopeSlotArray)); }
-        void SetPropertyIdsForScopeSlotArray(Js::PropertyId * propertyIdsForScopeSlotArray, uint scopeSlotCount, uint scopeSlotCountForParamScope = 0)
-        {
-            SetScopeSlotArraySizes(scopeSlotCount, scopeSlotCountForParamScope);
-            this->SetAuxPtr(AuxPointerType::PropertyIdsForScopeSlotArray, propertyIdsForScopeSlotArray);
         }
 
         Js::PropertyIdOnRegSlotsContainer * GetPropertyIdOnRegSlotsContainer() const
@@ -3317,7 +3315,7 @@ namespace Js
         void RecordTrueObject(RegSlot location);
         void RecordFalseObject(RegSlot location);
         void RecordIntConstant(RegSlot location, unsigned int val);
-        void RecordStrConstant(RegSlot location, LPCOLESTR psz, uint32 cch);
+        void RecordStrConstant(RegSlot location, LPCOLESTR psz, uint32 cch, bool forcePropertyString);
         void RecordFloatConstant(RegSlot location, double d);
         void RecordNullDisplayConstant(RegSlot location);
         void RecordStrictNullDisplayConstant(RegSlot location);
@@ -3571,7 +3569,7 @@ namespace Js
         void SetEntryToDeferParseForDebugger();
         void ClearEntryPoints();
         void ResetEntryPoint();
-        void CleanupToReparse();
+        void CleanupToReparseHelper();
         void AddDeferParseAttribute();
         void RemoveDeferParseAttribute();
 #if DBG

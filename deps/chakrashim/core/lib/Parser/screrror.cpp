@@ -227,11 +227,6 @@ CompileScriptException::~CompileScriptException()
     SysFreeString(bstrLine);
 }
 
-void CompileScriptException::Clear()
-{
-    memset(this, 0, sizeof(*this));
-}
-
 void CompileScriptException::Free()
 {
     ScriptException::Free();
@@ -245,11 +240,8 @@ void CompileScriptException::Free()
 
 HRESULT  CompileScriptException::ProcessError(IScanner * pScan, HRESULT hr, ParseNode * pnodeBase)
 {
-    if (nullptr == this)
-        return hr;
-
     // fill in the ScriptException structure
-    Clear();
+    Free();
     ei.scode = GetScode(MapHr(hr));
 
     // get the error string

@@ -26,11 +26,11 @@ const HashTbl::ReservedWordInfo HashTbl::s_reservedWordInfo[tkID] =
 #include "keywords.h"
 };
 
-HashTbl * HashTbl::Create(uint cidHash, ErrHandler * perr)
+HashTbl * HashTbl::Create(uint cidHash)
 {
     HashTbl * phtbl;
 
-    if (nullptr == (phtbl = HeapNewNoThrow(HashTbl,perr)))
+    if (nullptr == (phtbl = HeapNewNoThrow(HashTbl)))
         return nullptr;
     if (!phtbl->Init(cidHash))
     {
@@ -129,6 +129,18 @@ void HashTbl::Grow()
         stats->Resize(n_cidHash, emptyBuckets);
     }
 #endif
+}
+
+void HashTbl::ClearPidRefStacks()
+{
+    // Clear pidrefstack pointers from all existing pid's.
+    for (uint i = 0; i < m_luMask; i++)
+    {
+        for (IdentPtr pid = m_prgpidName[i]; pid; pid = pid->m_pidNext)
+        {
+            pid->m_pidRefStack = nullptr;
+        }
+    }
 }
 
 #if DEBUG
@@ -301,12 +313,12 @@ IdentPtr HashTbl::PidHashNameLenWithHash(_In_reads_(cch) CharType const * prgch,
         FAILED(ULongToLong(Len, &cb)))
     {
         cb = 0;
-        m_perr->Throw(ERRnoMemory);
+        OutOfMemory();
     }
 
 
     if (nullptr == (pid = (IdentPtr)m_noReleaseAllocator.Alloc(cb)))
-        m_perr->Throw(ERRnoMemory);
+        OutOfMemory();
 
     /* Insert the identifier into the hash list */
     *ppid = pid;
@@ -323,6 +335,7 @@ IdentPtr HashTbl::PidHashNameLenWithHash(_In_reads_(cch) CharType const * prgch,
     pid->m_pidRefStack = nullptr;
     pid->m_propertyId = Js::Constants::NoProperty;
     pid->assignmentState = NotAssigned;
+    pid->isUsedInLdElem = false;
 
     HashTbl::CopyString(pid->m_sz, prgch, end);
 
@@ -410,35 +423,6 @@ bool HashTbl::Contains(_In_reads_(cch) LPCOLESTR prgch, int32 cch)
 
 #include "HashFunc.cpp"
 
-
-
-
-#pragma warning(push)
-#pragma warning(disable:4740)  // flow in or out of inline asm code suppresses global optimization
-// Decide if token is keyword by string matching -
-// This method is used during colorizing when scanner isn't interested in storing the actual id and does not care about conversion of escape sequences
-tokens HashTbl::TkFromNameLenColor(_In_reads_(cch) LPCOLESTR prgch, uint32 cch)
-{
-    uint32 luHash = CaseSensitiveComputeHash(prgch, prgch + cch);
-
-    // look for a keyword
-#include "kwds_sw.h"
-
-    #define KEYWORD(tk,f,prec2,nop2,prec1,nop1,name) \
-        LEqual_##name: \
-            if (cch == g_ssym_##name.cch && \
-                    0 == memcmp(g_ssym_##name.sz, prgch, cch * sizeof(OLECHAR))) \
-            { \
-                return tk; \
-            } \
-            goto LDefault;
-#include "keywords.h"
-
-LDefault:
-    return tkID;
-}
-#pragma warning(pop)
-
 #pragma warning(push)
 #pragma warning(disable:4740)  // flow in or out of inline asm code suppresses global optimization
 
@@ -466,3 +450,8 @@ LDefault:
 }
 
 #pragma warning(pop)
+
+__declspec(noreturn) void HashTbl::OutOfMemory()
+{
+    throw ParseExceptionObject(ERRnoMemory);
+}

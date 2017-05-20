@@ -38,7 +38,8 @@ typedef enum JsModuleHostInfoKind
     JsModuleHostInfo_Exception = 0x01,
     JsModuleHostInfo_HostDefined = 0x02,
     JsModuleHostInfo_NotifyModuleReadyCallback = 0x3,
-    JsModuleHostInfo_FetchImportedModuleCallback = 0x4
+    JsModuleHostInfo_FetchImportedModuleCallback = 0x4,
+    JsModuleHostInfo_FetchImportedModuleFromScriptCallback = 0x5
 } JsModuleHostInfoKind;
 
 /// <summary>
@@ -65,6 +66,21 @@ typedef JsErrorCode(CHAKRA_CALLBACK * FetchImportedModuleCallBack)(_In_ JsModule
 /// holds the exception. Otherwise the referencingModule is ready and the host should schedule execution afterwards.
 /// </remarks>
 /// <param name="referencingModule">The referencing module that have finished running ModuleDeclarationInstantiation step.</param>
+/// <param name="exceptionVar">If nullptr, the module is successfully initialized and host should queue the execution job
+///                           otherwise it's the exception object.</param>
+/// <returns>
+///     true if the operation succeeded, false otherwise.
+/// </returns>
+typedef JsErrorCode(CHAKRA_CALLBACK * FetchImportedModuleFromScriptCallBack)(_In_ JsSourceContext dwReferencingSourceContext, _In_ JsValueRef specifier, _Outptr_result_maybenull_ JsModuleRecord* dependentModuleRecord);
+
+/// <summary>
+///     User implemented callback to get notification when the module is ready.
+/// </summary>
+/// <remarks>
+/// Notify the host after ModuleDeclarationInstantiation step (15.2.1.1.6.4) is finished. If there was error in the process, exceptionVar
+/// holds the exception. Otherwise the referencingModule is ready and the host should schedule execution afterwards.
+/// </remarks>
+/// <param name="dwReferencingSourceContext">The referencing script that calls import()</param>
 /// <param name="exceptionVar">If nullptr, the module is successfully initialized and host should queue the execution job
 ///                           otherwise it's the exception object.</param>
 /// <returns>
@@ -164,6 +180,39 @@ JsGetModuleHostInfo(
     _Outptr_result_maybenull_ void** hostInfo);
 
 #ifdef CHAKRACOREBUILD_
+/// <summary>
+///     Returns metadata relating to the exception that caused the runtime of the current context
+///     to be in the exception state and resets the exception state for that runtime. The metadata
+///     includes a reference to the exception itself.
+/// </summary>
+/// <remarks>
+///     <para>
+///     If the runtime of the current context is not in an exception state, this API will return
+///     <c>JsErrorInvalidArgument</c>. If the runtime is disabled, this will return an exception
+///     indicating that the script was terminated, but it will not clear the exception (the
+///     exception will be cleared if the runtime is re-enabled using
+///     <c>JsEnableRuntimeExecution</c>).
+///     </para>
+///     <para>
+///     The metadata value is a javascript object with the following properties: <c>exception</c>, the
+///     thrown exception object; <c>line</c>, the 0 indexed line number where the exception was thrown;
+///     <c>column</c>, the 0 indexed column number where the exception was thrown; <c>length</c>, the
+///     source-length of the cause of the exception; <c>source</c>, a string containing the line of
+///     source code where the exception was thrown; and <c>url</c>, a string containing the name of
+///     the script file containing the code that threw the exception.
+///     </para>
+///     <para>
+///     Requires an active script context.
+///     </para>
+/// </remarks>
+/// <param name="metadata">The exception metadata for the runtime of the current context.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+JsGetAndClearExceptionWithMetadata(
+    _Out_ JsValueRef *metadata);
+
 /// <summary>
 ///     Called by the runtime to load the source code of the serialized script.
 /// </summary>

@@ -556,9 +556,10 @@ MACRO(                  TryCatch,           Br,             OpSideEffect)
 MACRO(                  TryFinally,         Br,             OpSideEffect|OpPostOpDbgBailOut)
 MACRO_EXTEND_WMS(       TryFinallyWithYield, BrReg2,         OpSideEffect|OpPostOpDbgBailOut)
 MACRO_WMS(              Catch,              Reg1,           OpSideEffect)
+MACRO_EXTEND(           Finally,            Empty,          OpSideEffect)
 MACRO_EXTEND(           ResumeCatch,        Empty,          OpSideEffect)
 MACRO_EXTEND_WMS(       ResumeFinally,      BrReg2,         OpSideEffect)
-MACRO(                  LeaveNull,          Empty,          OpSideEffect|OpNoFallThrough)
+MACRO(                  LeaveNull,          Empty,          OpSideEffect)
 MACRO(                  Leave,              Empty,          OpSideEffect|OpNoFallThrough)
 
 MACRO_BACKEND_ONLY(     InlineRuntimeTypeError,        W1,             OpSideEffect|OpPostOpDbgBailOut)     // Throws TypeError at runtime.
@@ -641,6 +642,7 @@ MACRO_BACKEND_ONLY(     BailOnNotArray,              Empty,          OpBailOutRe
 MACRO_BACKEND_ONLY(     BailForDebugger,             Empty,          OpBailOutRec|OpTempNumberSources|OpTempObjectSources|OpSideEffect)    // Bail out so that we can continue the function under debugger. Disable optimizations for this instr so that it's not moved.
 MACRO_BACKEND_ONLY(     BailOnNotBuiltIn,            Empty,          OpBailOutRec|OpTempNumberSources|OpTempObjectSources|OpCanCSE)
 MACRO_BACKEND_ONLY(     BailOnException,             Empty,          OpBailOutRec|OpTempNumberSources|OpTempObjectSources|OpDeadFallThrough)
+MACRO_BACKEND_ONLY(     BailOnEarlyExit,             Empty,          OpBailOutRec|OpTempNumberSources|OpTempObjectSources|OpDeadFallThrough)
 MACRO_BACKEND_ONLY(     BailOnTaggedValue,           Empty,          OpBailOutRec|OpTempNumberSources|OpTempObjectSources|OpCanCSE)
 MACRO_BACKEND_ONLY(     BytecodeArgOutCapture,       Empty,          OpTempNumberTransfer|OpTempObjectTransfer|OpNonIntTransfer) // Represents snapshotting of bytecode ArgOut_A in backend for purpose of bailout
 MACRO_BACKEND_ONLY(     BytecodeArgOutUse,           Empty,          OpTempNumberSources | OpTempObjectSources) // Represents bytecode ArgOut_A use in the backend to keep args alive for the globopt
@@ -734,6 +736,8 @@ MACRO_EXTEND_WMS(       LdHomeObjProto,     Reg2,           OpSideEffect)
 MACRO_EXTEND_WMS(       LdFuncObjProto,     Reg2,           OpSideEffect)
 MACRO_EXTEND_WMS(       SetHomeObj,         Reg2,           OpSideEffect)
 
+MACRO_EXTEND_WMS(       ImportCall,         Reg2,           OpSideEffect)
+
 MACRO_BACKEND_ONLY(     BrFncCachedScopeEq, Reg2,           None)
 MACRO_BACKEND_ONLY(     BrFncCachedScopeNeq,Reg2,           None)
 
@@ -751,8 +755,6 @@ MACRO_BACKEND_ONLY(     Nearest_A,          Empty,          OpTempNumberSources|
 MACRO_BACKEND_ONLY(     Unreachable_Void,   Empty,          OpSideEffect)
 MACRO_BACKEND_ONLY(     TrapIfMinIntOverNegOne, Reg3,       OpSideEffect)
 MACRO_BACKEND_ONLY(     TrapIfZero,         Reg3,           OpSideEffect)
-
-MACRO_BACKEND_ONLY(     AsmJsEntryTracing, Empty, None)
 
 // All SIMD ops are backend only for non-asmjs.
 #define MACRO_SIMD(opcode, asmjsLayout, opCodeAttrAsmJs, OpCodeAttr, ...) MACRO_BACKEND_ONLY(opcode, Empty, OpCodeAttr)

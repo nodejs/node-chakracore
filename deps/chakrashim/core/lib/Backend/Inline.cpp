@@ -566,7 +566,7 @@ void Inline::FillInlineesDataArrayUsingFixedMethods(
     const FunctionJITTimeInfo* inlineeJitTimeData,
         __inout_ecount(inlineesDataArrayLength) const FunctionJITTimeInfo ** inlineesDataArray,
         uint inlineesDataArrayLength,
-        __inout_ecount(cachedFixedInlineeCount) JITTimeFixedField* fixedFieldInfoArray,
+        __inout_ecount(cachedFixedInlineeCount) FixedFieldInfo* fixedFieldInfoArray,
         uint16 cachedFixedInlineeCount
         )
 {
@@ -730,7 +730,7 @@ Inline::InlinePolymorphicFunctionUsingFixedMethods(IR::Instr *callInstr, const F
         return InlinePolymorphicFunction(callInstr, inlinerData, symCallerThis, profileId, pIsInlined, recursiveInlineDepth, true);
     }
 
-    JITTimeFixedField* fixedFunctionInfoArray = methodPropertyOpnd->GetFixedFieldInfoArray();
+    FixedFieldInfo* fixedFunctionInfoArray = methodPropertyOpnd->GetFixedFieldInfoArray();
 
     // It might so be the case that two objects of different types call the same function (body), for e.g., if they share the prototype on which the function is defined.
     uint uniqueFixedFunctionCount = HandleDifferentTypesSameFunction(fixedFunctionInfoArray, cachedFixedInlineeCount);
@@ -1033,7 +1033,7 @@ Inline::InlinePolymorphicFunction(IR::Instr *callInstr, const FunctionJITTimeInf
         IR::RegOpnd* functionObject = callInstr->GetSrc1()->AsRegOpnd();
         dispatchStartLabel->InsertBefore(IR::BranchInstr::New(Js::OpCode::BrAddr_A, inlineeStartLabel,
             IR::IndirOpnd::New(functionObject, Js::JavascriptFunction::GetOffsetOfFunctionInfo(), TyMachPtr, dispatchStartLabel->m_func),
-            IR::AddrOpnd::New(inlineesDataArray[i]->GetFunctionInfoAddr(), IR::AddrOpndKindDynamicFunctionBody, dispatchStartLabel->m_func), dispatchStartLabel->m_func));
+            IR::AddrOpnd::New(inlineesDataArray[i]->GetFunctionInfoAddr(), IR::AddrOpndKindDynamicFunctionInfo, dispatchStartLabel->m_func), dispatchStartLabel->m_func));
     }
 
     CompletePolymorphicInlining(callInstr, returnValueOpnd, doneLabel, dispatchStartLabel, /*ldMethodFldInstr*/nullptr, IR::BailOutOnPolymorphicInlineFunction);
@@ -1162,7 +1162,7 @@ void Inline::InsertOneInlinee(IR::Instr* callInstr, IR::RegOpnd* returnValueOpnd
 }
 
 uint
-Inline::HandleDifferentTypesSameFunction(__inout_ecount(cachedFixedInlineeCount) JITTimeFixedField* fixedFunctionInfoArray, uint16 cachedFixedInlineeCount)
+Inline::HandleDifferentTypesSameFunction(__inout_ecount(cachedFixedInlineeCount) FixedFieldInfo* fixedFunctionInfoArray, uint16 cachedFixedInlineeCount)
 {
     uint16 uniqueCount = cachedFixedInlineeCount;
     uint16 swapIndex;
@@ -1173,7 +1173,7 @@ Inline::HandleDifferentTypesSameFunction(__inout_ecount(cachedFixedInlineeCount)
         {
             if (fixedFunctionInfoArray[i].GetFieldValue() == fixedFunctionInfoArray[j].GetFieldValue())
             {
-                JITTimeFixedField tmpInfo = fixedFunctionInfoArray[j];
+                FixedFieldInfo tmpInfo = fixedFunctionInfoArray[j];
                 fixedFunctionInfoArray[j] = fixedFunctionInfoArray[swapIndex];
                 fixedFunctionInfoArray[swapIndex] = tmpInfo;
                 fixedFunctionInfoArray[swapIndex - 1].SetNextHasSameFixedField();
@@ -1479,7 +1479,7 @@ Inline::TryOptimizeCallInstrWithFixedMethod(IR::Instr *callInstr, const Function
         return false;
     }
 
-    JITTimeFixedField * fixedField = nullptr;
+    FixedFieldInfo * fixedField = nullptr;
     if (!isPolymorphic)
     {
         fixedField = methodPropertyOpnd->HasFixedValue() ? methodPropertyOpnd->GetFixedFunction() : nullptr;
@@ -3327,6 +3327,13 @@ Inline::SetupInlineInstrForCallDirect(Js::BuiltinFunction builtInId, IR::Instr* 
         callInstr->SetSrc1(IR::HelperCallOpnd::New(IR::JnHelperMethod::HelperRegExp_SymbolSearch, callInstr->m_func));
         break;
 
+    case Js::BuiltinFunction::JavascriptObject_HasOwnProperty:
+        callInstr->SetSrc1(IR::HelperCallOpnd::New(IR::JnHelperMethod::HelperObject_HasOwnProperty, callInstr->m_func));
+        break;
+
+    case Js::BuiltinFunction::JavascriptArray_IsArray:
+        callInstr->SetSrc1(IR::HelperCallOpnd::New(IR::JnHelperMethod::HelperArray_IsArray, callInstr->m_func));
+        break;
     };
     callInstr->SetSrc2(argoutInstr->GetDst());
     return;
@@ -3992,7 +3999,7 @@ Inline::SplitConstructorCallCommon(
     // into a call to one of these helpers.
     if (skipNewScObj)
     {
-        JITTimeFixedField* ctor = newObjInstr->GetFixedFunction();
+        FixedFieldInfo* ctor = newObjInstr->GetFixedFunction();
         intptr_t ctorInfo = ctor->GetFuncInfoAddr();
         if ((ctorInfo == topFunc->GetThreadContextInfo()->GetJavascriptObjectNewInstanceAddr() ||
             ctorInfo == topFunc->GetThreadContextInfo()->GetJavascriptArrayNewInstanceAddr()) &&
@@ -4513,7 +4520,7 @@ Inline::MapActuals(IR::Instr *callInstr, __out_ecount(maxParamCount) IR::Instr *
             {
                 if(inlinee)
                 {
-                    if (!inlinee->GetHasUnoptimizedArgumentsAcccess())
+                    if (!inlinee->GetHasUnoptimizedArgumentsAccess())
                     {
                         // This allows us to markTemp the argOut source.
                         argInstr->m_opcode = Js::OpCode::ArgOut_A_Inline;
@@ -4674,16 +4681,22 @@ Inline::MapFormals(Func *inlinee,
             {
                 break;
             }
+
+            int excess;
+            Js::ArgSlot restFuncFormalCount = 0;
             if (instr->m_func != inlinee)
             {
-                // this can happen only when we are inlining a function which has inlined an apply call with the arguments object
-                formalCount = instr->m_func->GetJITFunctionBody()->GetInParamsCount();
+                restFuncFormalCount = instr->m_func->GetJITFunctionBody()->GetInParamsCount();
+                Assert(restFuncFormalCount < 1 << 24); // 24 bits for arg count (see CallInfo.h)
+                excess = actualCount - restFuncFormalCount;
             }
-
+            else
+            {
+                excess = actualCount - formalCount;
+            }
             IR::Opnd *restDst = instr->GetDst();
 
             Assert(actualCount < 1 << 24 && formalCount < 1 << 24); // 24 bits for arg count (see CallInfo.h)
-            int excess = actualCount - formalCount;
 
             if (excess < 0)
             {
@@ -4701,9 +4714,18 @@ Inline::MapFormals(Func *inlinee,
             IR::Instr *newArrInstr = IR::Instr::New(Js::OpCode::NewScArray, restDst, IR::IntConstOpnd::New(excess, TyUint32, inlinee), inlinee);
             instr->InsertBefore(newArrInstr);
 
+            if (instr->m_func != inlinee)
+            {
+                for (uint i = restFuncFormalCount; i < formalCount; ++i)
+                {
+                    IR::IndirOpnd *arrayLocOpnd = IR::IndirOpnd::New(restDst->AsRegOpnd(), i - restFuncFormalCount, TyVar, inlinee);
+                    IR::Instr *stElemInstr = IR::Instr::New(Js::OpCode::StElemC, arrayLocOpnd, argOuts[i]->GetBytecodeArgOutCapture()->GetDst(), inlinee);
+                    instr->InsertBefore(stElemInstr);
+                }
+            }
             for (uint i = formalCount; i < actualCount; ++i)
             {
-                IR::IndirOpnd *arrayLocOpnd = IR::IndirOpnd::New(restDst->AsRegOpnd(), i - formalCount, TyVar, inlinee);
+                IR::IndirOpnd *arrayLocOpnd = IR::IndirOpnd::New(restDst->AsRegOpnd(), (i + restFuncFormalCount) - formalCount, TyVar, inlinee);
                 IR::Instr *stElemInstr = IR::Instr::New(Js::OpCode::StElemC, arrayLocOpnd, argOutsExtra[i]->GetBytecodeArgOutCapture()->GetDst(), inlinee);
                 instr->InsertBefore(stElemInstr);
             }
@@ -4883,7 +4905,7 @@ Inline::MapFormals(Func *inlinee,
                 if (funcObjOpnd->IsAddrOpnd())
                 {
                     instr->m_opcode = Js::OpCode::Ld_A;
-                    instr->SetSrc1(IR::AddrOpnd::New(((JITTimeFixedField*)funcObjOpnd->AsAddrOpnd()->m_metadata)->GetEnvironmentAddr(),
+                    instr->SetSrc1(IR::AddrOpnd::New(((FixedFieldInfo*)funcObjOpnd->AsAddrOpnd()->m_metadata)->GetEnvironmentAddr(),
                         IR::AddrOpndKindDynamicFrameDisplay, instr->m_func));
                 }
                 else
@@ -5343,7 +5365,7 @@ Inline::GetInlineeHasArgumentObject(Func * inlinee)
                         {
                             Assert(builtInOpnd->AsAddrOpnd()->m_isFunction);
 
-                            Js::BuiltinFunction builtinFunction = Js::JavascriptLibrary::GetBuiltInForFuncInfo(((JITTimeFixedField*)builtInOpnd->AsAddrOpnd()->m_metadata)->GetFuncInfoAddr(), this->topFunc->GetThreadContextInfo());
+                            Js::BuiltinFunction builtinFunction = Js::JavascriptLibrary::GetBuiltInForFuncInfo(((FixedFieldInfo*)builtInOpnd->AsAddrOpnd()->m_metadata)->GetFuncInfoAddr(), this->topFunc->GetThreadContextInfo());
                             if (builtinFunction == Js::BuiltinFunction::JavascriptFunction_Apply)
                             {
                                 this->SetIsInInlinedApplyCall(true);

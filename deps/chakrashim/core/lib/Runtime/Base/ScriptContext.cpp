@@ -44,11 +44,6 @@ namespace Js
         return scriptContext.Detach();
     }
 
-    void ScriptContext::Delete(ScriptContext* scriptContext)
-    {
-        HeapDelete(scriptContext);
-    }
-
     CriticalSection JITPageAddrToFuncRangeCache::cs;
 
     ScriptContext::ScriptContext(ThreadContext* threadContext) :
@@ -261,8 +256,6 @@ namespace Js
         memset(byteCodeHistogram, 0, sizeof(byteCodeHistogram));
 #endif
 
-        memset(propertyStrings, 0, sizeof(PropertyStringMap*)* 80);
-
 #if DBG || defined(RUNTIME_DATA_COLLECTION)
         this->allocId = threadContext->GetScriptContextCount();
 #endif
@@ -393,7 +386,7 @@ namespace Js
     ScriptContext::~ScriptContext()
     {
         // Take etw rundown lock on this thread context. We are going to change/destroy this scriptContext.
-        AutoCriticalSection autocs(GetThreadContext()->GetEtwRundownCriticalSection());
+        AutoCriticalSection autocs(GetThreadContext()->GetFunctionBodyLock());
 
 #if ENABLE_NATIVE_CODEGEN
         if (m_domFastPathHelperMap != nullptr)
@@ -616,30 +609,33 @@ namespace Js
             CloseNativeCodeGenerator(this->nativeCodeGen);
         }
 #endif
-
-        if (this->sourceList)
         {
-            bool hasFunctions = false;
-            this->sourceList->MapUntil([&hasFunctions](int, RecyclerWeakReference<Utf8SourceInfo>* sourceInfoWeakRef) -> bool
+            // Take lock on the function bodies to sync with the etw source rundown if any.
+            AutoCriticalSection autocs(GetThreadContext()->GetFunctionBodyLock());
+            if (this->sourceList)
             {
-                Utf8SourceInfo* sourceInfo = sourceInfoWeakRef->Get();
-                if (sourceInfo)
+                bool hasFunctions = false;
+                this->sourceList->MapUntil([&hasFunctions](int, RecyclerWeakReference<Utf8SourceInfo>* sourceInfoWeakRef) -> bool
                 {
-                    hasFunctions = sourceInfo->HasFunctions();
-                }
+                    Utf8SourceInfo* sourceInfo = sourceInfoWeakRef->Get();
+                    if (sourceInfo)
+                    {
+                        hasFunctions = sourceInfo->HasFunctions();
+                    }
 
-                return hasFunctions;
-            });
-
-            if (hasFunctions)
-            {
-                // We still need to walk through all the function bodies and call cleanup
-                // because otherwise ETW events might not get fired if a GC doesn't happen
-                // and the thread context isn't shut down cleanly (process detach case)
-                this->MapFunction([this](Js::FunctionBody* functionBody) {
-                    Assert(functionBody->GetScriptContext() == nullptr || functionBody->GetScriptContext() == this);
-                    functionBody->Cleanup(/* isScriptContextClosing */ true);
+                    return hasFunctions;
                 });
+
+                if (hasFunctions)
+                {
+                    // We still need to walk through all the function bodies and call cleanup
+                    // because otherwise ETW events might not get fired if a GC doesn't happen
+                    // and the thread context isn't shut down cleanly (process detach case)
+                    this->MapFunction([this](Js::FunctionBody* functionBody) {
+                        Assert(functionBody->GetScriptContext() == nullptr || functionBody->GetScriptContext() == this);
+                        functionBody->Cleanup(/* isScriptContextClosing */ true);
+                    });
+                }
             }
         }
 
@@ -769,12 +765,7 @@ namespace Js
         if (isScriptContextActuallyClosed)
             return false;
 
-        // Limit the lock scope. We require the same lock in ~ScriptContext(), which may be called next.
-        {
-            // Take etw rundown lock on this thread context. We are going to change this scriptContext.
-            AutoCriticalSection autocs(GetThreadContext()->GetEtwRundownCriticalSection());
-            InternalClose();
-        }
+        InternalClose();
 
         if (!inDestructor && globalObject != nullptr)
         {
@@ -804,12 +795,12 @@ namespace Js
             return NULL;
         }
         const uint i = PropertyStringMap::PStrMapIndex(ch1);
-        if (propertyStrings[i] == NULL)
+        if (this->Cache()->propertyStrings[i] == NULL)
         {
             return NULL;
         }
         const uint j = PropertyStringMap::PStrMapIndex(ch2);
-        return propertyStrings[i]->strLen2[j];
+        return this->Cache()->propertyStrings[i]->strLen2[j];
     }
 
     void ScriptContext::FindPropertyRecord(JavascriptString *pstName, PropertyRecord const ** propertyRecord)
@@ -1212,6 +1203,7 @@ namespace Js
 #endif
 #endif
 
+        ClearArray(this->Cache()->propertyStrings, 80);
         this->Cache()->dynamicRegexMap =
             RegexPatternMruMap::New(
                 recycler,
@@ -1290,7 +1282,7 @@ namespace Js
 
         if (!sourceList)
         {
-            AutoCriticalSection critSec(threadContext->GetEtwRundownCriticalSection());
+            AutoCriticalSection critSec(threadContext->GetFunctionBodyLock());
             sourceList.Root(RecyclerNew(this->GetRecycler(), SourceList, this->GetRecycler()), this->GetRecycler());
         }
 
@@ -1553,8 +1545,8 @@ namespace Js
 
     void ScriptContext::InitPropertyStringMap(int i)
     {
-        propertyStrings[i] = AnewStruct(GeneralAllocator(), PropertyStringMap);
-        memset(propertyStrings[i]->strLen2, 0, sizeof(PropertyString*)* 80);
+        this->Cache()->propertyStrings[i] = RecyclerNewStruct(GetRecycler(), PropertyStringMap);
+        ClearArray(this->Cache()->propertyStrings[i]->strLen2, 80);
     }
 
     void ScriptContext::TrackPid(const PropertyRecord* propertyRecord)
@@ -1600,17 +1592,17 @@ namespace Js
     {
         const char16* buf = propString->GetBuffer();
         const uint i = PropertyStringMap::PStrMapIndex(buf[0]);
-        if (propertyStrings[i] == NULL)
+        if (this->Cache()->propertyStrings[i] == NULL)
         {
             InitPropertyStringMap(i);
         }
         const uint j = PropertyStringMap::PStrMapIndex(buf[1]);
-        if (propertyStrings[i]->strLen2[j] == NULL && !isClosed)
+        if (this->Cache()->propertyStrings[i]->strLen2[j] == NULL && !isClosed)
         {
-            propertyStrings[i]->strLen2[j] = GetLibrary()->CreatePropertyString(propString, this->GeneralAllocator());
+            this->Cache()->propertyStrings[i]->strLen2[j] = GetLibrary()->CreatePropertyString(propString);
             this->TrackPid(propString);
         }
-        return propertyStrings[i]->strLen2[j];
+        return this->Cache()->propertyStrings[i]->strLen2[j];
     }
 
     PropertyString* ScriptContext::CachePropertyString2(const PropertyRecord* propString)
@@ -1672,10 +1664,28 @@ namespace Js
             }
             if (string)
             {
-                PropertyCache const* cache = string->GetPropertyCache();
-                if (cache->type == type)
+                PolymorphicInlineCache * cache = string->GetLdElemInlineCache();
+                PropertyCacheOperationInfo info;
+                if (cache->PretendTryGetProperty(type, &info))
                 {
-                    string->ClearPropertyCache();
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+                    if (PHASE_TRACE1(PropertyStringCachePhase))
+                    {
+                        Output::Print(_u("PropertyString '%s' : Invalidating LdElem cache for type %p\n"), string->GetString(), type);
+                    }
+#endif
+                    cache->GetInlineCaches()[cache->GetInlineCacheIndexForType(type)].Clear();
+                }
+                cache = string->GetStElemInlineCache();
+                if (cache->PretendTrySetProperty(type, type, &info))
+                {
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+                    if (PHASE_TRACE1(PropertyStringCachePhase))
+                    {
+                        Output::Print(_u("PropertyString '%s' : Invalidating StElem cache for type %p\n"), string->GetString(), type);
+                    }
+#endif
+                    cache->GetInlineCaches()[cache->GetInlineCacheIndexForType(type)].Clear();
                 }
             }
         }
@@ -1938,6 +1948,7 @@ namespace Js
     {
         Assert(!this->threadContext->IsScriptActive());
         Assert(pse != nullptr);
+        HRESULT hr = NOERROR;
         try
         {
             AUTO_NESTED_HANDLED_EXCEPTION_TYPE((ExceptionType)(ExceptionType_OutOfMemory | ExceptionType_StackOverflow));
@@ -1959,7 +1970,7 @@ namespace Js
             {
                 Assert((loadScriptFlag & LoadScriptFlag_disableAsmJs) != LoadScriptFlag_disableAsmJs);
 
-                pse->Clear();
+                pse->Free();
 
                 loadScriptFlag = (LoadScriptFlag)(loadScriptFlag | LoadScriptFlag_disableAsmJs);
                 return LoadScript(script, cb, pSrcInfo, pse, ppSourceInfo,
@@ -1978,14 +1989,14 @@ namespace Js
         }
         catch (Js::OutOfMemoryException)
         {
-            pse->ProcessError(nullptr, E_OUTOFMEMORY, nullptr);
-            return nullptr;
+            hr = E_OUTOFMEMORY;
         }
         catch (Js::StackOverflowException)
         {
-            pse->ProcessError(nullptr, VBSERR_OutOfStack, nullptr);
-            return nullptr;
+            hr = VBSERR_OutOfStack;
         }
+        pse->ProcessError(nullptr, hr, nullptr);
+        return nullptr;
     }
 
     JavascriptFunction* ScriptContext::GenerateRootFunction(ParseNodePtr parseTree, uint sourceIndex, Parser* parser, uint32 grfscr, CompileScriptException * pse, const char16 *rootDisplayName)
@@ -2193,7 +2204,7 @@ namespace Js
         {
             // We can be compiling new source code while rundown thread is reading from the list, causing AV on the reader thread
             // lock the list during write as well.
-            AutoCriticalSection autocs(GetThreadContext()->GetEtwRundownCriticalSection());
+            AutoCriticalSection autocs(GetThreadContext()->GetFunctionBodyLock());
             return sourceList->SetAtFirstFreeSpot(sourceWeakRef);
         }
     }
@@ -2299,7 +2310,30 @@ namespace Js
         return success;
     }
 
-    void ScriptContext::AddToEvalMap(FastEvalMapString const& key, BOOL isIndirect, ScriptFunction *pFuncScript)
+    void ScriptContext::AddToEvalMap(FastEvalMapString const& key, BOOL isIndirect, ScriptFunction *pfuncScript)
+    {
+        Assert(!pfuncScript->GetFunctionInfo()->IsGenerator());
+
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+        Js::Utf8SourceInfo* utf8SourceInfo = pfuncScript->GetFunctionBody()->GetUtf8SourceInfo();
+        if (this->IsScriptContextInDebugMode() && !utf8SourceInfo->GetIsLibraryCode() && !utf8SourceInfo->IsInDebugMode())
+        {
+            // Identifying if any non library function escaped for not being in debug mode.
+            Throw::FatalInternalError();
+        }
+#endif
+
+#if ENABLE_TTD
+        if(!this->IsTTDRecordOrReplayModeEnabled())
+        {
+            this->AddToEvalMapHelper(key, isIndirect, pfuncScript);
+        }
+#else
+        this->AddToEvalMapHelper(key, isIndirect, pfuncScript);
+#endif
+    }
+
+    void ScriptContext::AddToEvalMapHelper(FastEvalMapString const& key, BOOL isIndirect, ScriptFunction *pFuncScript)
     {
         EvalCacheDictionary *dict = isIndirect ? this->Cache()->indirectEvalCacheDictionary : this->Cache()->evalCacheDictionary;
         if (dict == nullptr)
@@ -2416,7 +2450,7 @@ namespace Js
         IActiveScriptDataCache* profileDataCache, char16 const * sourceMapUrl /*= NULL*/, size_t sourceMapUrlLen /*= 0*/)
     {
         // Take etw rundown lock on this thread context. We are going to init/add to sourceContextInfoMap.
-        AutoCriticalSection autocs(GetThreadContext()->GetEtwRundownCriticalSection());
+        AutoCriticalSection autocs(GetThreadContext()->GetFunctionBodyLock());
 
         EnsureSourceContextInfoMap();
         Assert(this->GetSourceContextInfo(sourceContext, profileDataCache) == nullptr);
@@ -4279,6 +4313,9 @@ namespace Js
     void ScriptContext::RegisterProtoInlineCache(InlineCache *pCache, PropertyId propId)
     {
         hasProtoOrStoreFieldInlineCache = true;
+#if DBG
+        this->inlineCacheAllocator.Unlock();
+#endif
         threadContext->RegisterProtoInlineCache(pCache, propId);
     }
 
@@ -4309,6 +4346,9 @@ namespace Js
     void ScriptContext::RegisterStoreFieldInlineCache(InlineCache *pCache, PropertyId propId)
     {
         hasProtoOrStoreFieldInlineCache = true;
+#if DBG
+        this->inlineCacheAllocator.Unlock();
+#endif
         threadContext->RegisterStoreFieldInlineCache(pCache, propId);
     }
 
@@ -4329,6 +4369,9 @@ namespace Js
     {
         Assert(JavascriptFunction::FromVar(function)->GetScriptContext() == this);
         hasIsInstInlineCache = true;
+#if DBG
+        this->isInstInlineCacheAllocator.Unlock();
+#endif
         threadContext->RegisterIsInstInlineCache(cache, function);
     }
 
@@ -4446,29 +4489,29 @@ void ScriptContext::ClearInlineCaches()
 {
     if (this->hasUsedInlineCache)
     {
-        GetInlineCacheAllocator()->ZeroAll();
+        this->inlineCacheAllocator.ZeroAll();
         this->hasUsedInlineCache = false;
         this->hasProtoOrStoreFieldInlineCache = false;
     }
 
-    Assert(GetInlineCacheAllocator()->IsAllZero());
+    DebugOnly(this->inlineCacheAllocator.CheckIsAllZero(true));
 }
 
 void ScriptContext::ClearIsInstInlineCaches()
 {
     if (this->hasIsInstInlineCache)
     {
-        GetIsInstInlineCacheAllocator()->ZeroAll();
+        isInstInlineCacheAllocator.ZeroAll();
         this->hasIsInstInlineCache = false;
     }
 
-    Assert(GetIsInstInlineCacheAllocator()->IsAllZero());
+    DebugOnly(isInstInlineCacheAllocator.CheckIsAllZero(true));
 }
 
 void ScriptContext::ClearForInCaches()
 {
-    ForInCacheAllocator()->ZeroAll();
-    Assert(ForInCacheAllocator()->IsAllZero());
+    forInCacheAllocator.ZeroAll();
+    DebugOnly(forInCacheAllocator.CheckIsAllZero(false));
 }
 
 
@@ -4477,8 +4520,8 @@ void ScriptContext::ClearInlineCachesWithDeadWeakRefs()
 {
     if (this->hasUsedInlineCache)
     {
-        GetInlineCacheAllocator()->ClearCachesWithDeadWeakRefs(this->recycler);
-        Assert(GetInlineCacheAllocator()->HasNoDeadWeakRefs(this->recycler));
+        this->inlineCacheAllocator.ClearCachesWithDeadWeakRefs(this->recycler);
+        Assert(this->inlineCacheAllocator.HasNoDeadWeakRefs(this->recycler));
     }
 }
 #endif
@@ -5563,26 +5606,8 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         if (PHASE_STATS1(Js::PolymorphicInlineCachePhase))
         {
             Output::Print(_u("%s,%s,%s,%s,%s,%s,%s,%s,%s\n"), _u("Function"), _u("Property"), _u("Kind"), _u("Accesses"), _u("Misses"), _u("Miss Rate"), _u("Collisions"), _u("Collision Rate"), _u("Slot Count"));
-            cacheDataMap->Map([this](Js::PolymorphicInlineCache const *cache, CacheData *data) {
-                char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
-                uint total = data->hits + data->misses;
-                char16 const *propName = this->threadContext->GetPropertyName(data->propertyId)->GetBuffer();
-
-                wchar funcName[1024];
-
-                swprintf_s(funcName, _u("%s (%s)"), cache->functionBody->GetExternalDisplayName(), cache->functionBody->GetDebugNumberSet(debugStringBuffer));
-
-                Output::Print(_u("%s,%s,%s,%d,%d,%f,%d,%f,%d\n"),
-                    funcName,
-                    propName,
-                    data->isGetCache ? _u("get") : _u("set"),
-                    total,
-                    data->misses,
-                    static_cast<float>(data->misses) / total,
-                    data->collisions,
-                    static_cast<float>(data->collisions) / total,
-                    cache->GetSize()
-                    );
+            cacheDataMap->Map([this](Js::PolymorphicInlineCache const *cache, InlineCacheData *data) {
+                cache->PrintStats(data);
             });
         }
 #endif
@@ -5753,10 +5778,10 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
             BindReference(cacheDataMap);
         }
 
-        CacheData *data = NULL;
+        InlineCacheData *data = NULL;
         if (!cacheDataMap->TryGetValue(cache, &data))
         {
-            data = Anew(GeneralAllocator(), CacheData);
+            data = Anew(GeneralAllocator(), InlineCacheData);
             cacheDataMap->Item(cache, data);
             data->isGetCache = isGetter;
             data->propertyId = propertyId;

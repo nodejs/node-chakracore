@@ -353,6 +353,7 @@ HELPERCALL(AllocUninitializedSimdI4, Js::JavascriptSIMDInt32x4::AllocUninitializ
 
 HELPERCALL(Op_TryCatch, nullptr, 0)
 HELPERCALL(Op_TryFinally, nullptr, AttrCanThrow)
+HELPERCALL(Op_TryFinallySimpleJit, nullptr, AttrCanThrow)
 #if _M_X64
 HELPERCALL(Op_ReturnFromCallWithFakeFrame, amd64_ReturnFromCallWithFakeFrame, 0)
 #endif
@@ -449,6 +450,7 @@ HELPERCALL(Array_Shift, Js::JavascriptArray::EntryShift, 0)
 HELPERCALL(Array_Slice, Js::JavascriptArray::EntrySlice, 0)
 HELPERCALL(Array_Splice, Js::JavascriptArray::EntrySplice, 0)
 HELPERCALL(Array_Unshift, Js::JavascriptArray::EntryUnshift, 0)
+HELPERCALL(Array_IsArray, Js::JavascriptArray::EntryIsArray, 0)
 
 HELPERCALL(String_Concat, Js::JavascriptString::EntryConcat, 0)
 HELPERCALL(String_CharCodeAt, Js::JavascriptString::EntryCharCodeAt, 0)
@@ -477,6 +479,7 @@ HELPERCALL(String_GetSz, Js::JavascriptString::GetSzHelper, 0)
 HELPERCALL(GlobalObject_ParseInt, Js::GlobalObject::EntryParseInt, 0)
 HELPERCALL(String_PadStart, Js::JavascriptString::EntryPadStart, 0)
 HELPERCALL(String_PadEnd, Js::JavascriptString::EntryPadEnd, 0)
+HELPERCALL(Object_HasOwnProperty, Js::JavascriptObject::EntryHasOwnProperty, 0)
 
 HELPERCALL(RegExp_SplitResultUsed, Js::RegexHelper::RegexSplitResultUsed, 0)
 HELPERCALL(RegExp_SplitResultUsedAndMayBeTemp, Js::RegexHelper::RegexSplitResultUsedAndMayBeTemp, 0)
@@ -506,6 +509,8 @@ HELPERCALL(SetHomeObj,          Js::JavascriptOperators::OP_SetHomeObj,         
 HELPERCALL(LdHomeObjProto,      Js::JavascriptOperators::OP_LdHomeObjProto,     0)
 HELPERCALL(LdFuncObjProto,      Js::JavascriptOperators::OP_LdFuncObjProto,     0)
 
+HELPERCALL(ImportCall,          Js::JavascriptOperators::OP_ImportCall,         0)
+
 HELPERCALL(ResumeYield,   Js::JavascriptOperators::OP_ResumeYield,   AttrCanThrow)
 
 #include "ExternalHelperMethodList.h"
@@ -527,7 +532,7 @@ HELPERCALL_MATH(DirectMath_Random,  (double(*)(Js::ScriptContext*))Js::Javascrip
 // as dynamic initialization is require to load these addresses.  Use nullptr instead and handle these function in GetNonTableMethodAddress().
 //
 
-HELPERCALL(MemCmp, nullptr, 0)
+HELPERCALL(WMemCmp, nullptr, 0)
 HELPERCALL(MemCpy, nullptr, 0)
 
 HELPERCALL(DirectMath_FloorDb, nullptr, 0)
@@ -554,10 +559,6 @@ HELPERCALL(I64TOF64,        Js::JavascriptConversion::LongToDouble,        0)
 HELPERCALL(UI64TOF64,       Js::JavascriptConversion::ULongToDouble,       0)
 HELPERCALL(I64TOF32,        Js::JavascriptConversion::LongToFloat,         0)
 HELPERCALL(UI64TOF32,       Js::JavascriptConversion::ULongToFloat,        0)
-
-#if (defined(ASMJS_PLAT) || defined(ENABLE_WASM)) && defined(ENABLE_DEBUG_CONFIG_OPTIONS)
-HELPERCALL(TraceAsmJsArgIn, WAsmJs::TraceAsmJsArgsIn, 0)
-#endif
 
 #ifdef _M_IX86
 HELPERCALL(DirectMath_Acos, nullptr, 0)

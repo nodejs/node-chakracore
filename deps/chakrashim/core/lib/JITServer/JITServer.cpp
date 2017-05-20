@@ -802,6 +802,8 @@ ServerRemoteCodeGen(
             jitData->startTime = out_time.QuadPart;
         }
 
+        Assert(jitData->codeAddress);
+        Assert(jitData->codeSize);
         return S_OK;
     });
 }
@@ -913,14 +915,10 @@ HRESULT ServerCallWrapper(ServerThreadContext* threadContextInfo, Fn fn)
         AssertOrFailFastMsg(false, "Unknown exception caught in JIT server call.");
     }
 
-    if (hr == E_OUTOFMEMORY)
+    if (hr == S_OK)
     {
-        if (HRESULT_FROM_WIN32(MemoryOperationLastError::GetLastError()) != S_OK)
-        {
-            hr = HRESULT_FROM_WIN32(MemoryOperationLastError::GetLastError());
-        }
+        return MemoryOperationLastError::GetLastError();
     }
-
     return hr;
 }
 

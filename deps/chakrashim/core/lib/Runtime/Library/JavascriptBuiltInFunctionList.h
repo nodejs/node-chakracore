@@ -310,6 +310,8 @@ BUILTIN(Math, Clz32, Clz32, FunctionInfo::ErrorOnNew)
 BUILTIN(WebAssembly, Compile, EntryCompile, FunctionInfo::ErrorOnNew)
 BUILTIN(WebAssembly, Validate, EntryValidate, FunctionInfo::ErrorOnNew)
 BUILTIN(WebAssembly, Instantiate, EntryInstantiate, FunctionInfo::ErrorOnNew)
+BUILTIN(WebAssembly, InstantiateBound, EntryInstantiateBound, FunctionInfo::ErrorOnNew)
+BUILTIN(WebAssembly, QueryResponse, EntryQueryResponse, FunctionInfo::ErrorOnNew)
 BUILTIN(WebAssemblyModule, NewInstance, NewInstance, FunctionInfo::SkipDefaultNewObject)
 BUILTIN(WebAssemblyModule, Exports, EntryExports, FunctionInfo::ErrorOnNew)
 BUILTIN(WebAssemblyModule, Imports, EntryImports, FunctionInfo::ErrorOnNew)
@@ -323,6 +325,10 @@ BUILTIN(WebAssemblyTable, GetterLength, EntryGetterLength, FunctionInfo::ErrorOn
 BUILTIN(WebAssemblyTable, Grow, EntryGrow, FunctionInfo::ErrorOnNew)
 BUILTIN(WebAssemblyTable, Get, EntryGet, FunctionInfo::ErrorOnNew)
 BUILTIN(WebAssemblyTable, Set, EntrySet, FunctionInfo::ErrorOnNew)
+#ifdef ENABLE_WABT
+// wabt entry points
+BUILTIN(WabtInterface, ConvertWast2Wasm, EntryConvertWast2Wasm, FunctionInfo::ErrorOnNew)
+#endif
 #endif
 
 // SIMDFloat32x4Lib entry points

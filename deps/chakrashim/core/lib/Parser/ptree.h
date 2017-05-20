@@ -289,7 +289,6 @@ public:
     {
         fncFlags = kFunctionNone;
         canBeDeferred = false;
-        fibPreventsDeferral = false;
     }
 
     void SetAsmjsMode(bool set = true) { SetFlags(kFunctionAsmjsMode, set); }

@@ -122,6 +122,22 @@ enum LoadScriptFlag
     LoadScriptFlag_ExternalArrayBuffer = 0x100          // for ExternalArrayBuffer
 };
 
+#ifdef INLINE_CACHE_STATS
+// Used to store inline cache stats
+
+struct InlineCacheData
+{
+    uint hits;
+    uint misses;
+    uint collisions;
+    bool isGetCache;
+    Js::PropertyId propertyId;
+
+    InlineCacheData() : hits(0), misses(0), collisions(0), isGetCache(false), propertyId(Js::PropertyIds::_none) { }
+};
+
+#endif
+
 class HostScriptContext
 {
 public:
@@ -153,6 +169,7 @@ public:
     virtual HRESULT EnqueuePromiseTask(Js::Var varTask) = 0;
 
     virtual HRESULT FetchImportedModule(Js::ModuleRecordBase* referencingModule, LPCOLESTR specifier, Js::ModuleRecordBase** dependentModuleRecord) = 0;
+    virtual HRESULT FetchImportedModuleFromScript(DWORD_PTR dwReferencingSourceContext, LPCOLESTR specifier, Js::ModuleRecordBase** dependentModuleRecord) = 0;
     virtual HRESULT NotifyHostAboutModuleReady(Js::ModuleRecordBase* referencingModule, Js::Var exceptionVar) = 0;
 
     Js::ScriptContext* GetScriptContext() { return scriptContext; }
@@ -366,18 +383,6 @@ namespace Js
 #endif
     };
 
-    struct PropertyStringMap
-    {
-        PropertyString* strLen2[80];
-
-        inline static uint PStrMapIndex(char16 ch)
-        {
-            Assert(ch >= '0' && ch <= 'z');
-            return ch - '0';
-        }
-    };
-
-
     /*
     * This class caches jitted func address ranges.
     * This is to facilitate WER scenarios to use this cache for checking native addresses.
@@ -541,7 +546,6 @@ namespace Js
         InlineCache * GetToStringInlineCache() const { return toStringInlineCache; }
 
     private:
-        PropertyStringMap* propertyStrings[80];
 
         JavascriptFunction* GenerateRootFunction(ParseNodePtr parseTree, uint sourceIndex, Parser* parser, uint32 grfscr, CompileScriptException * pse, const char16 *rootDisplayName);
 
@@ -716,23 +720,9 @@ public:
 
 #endif
 #ifdef INLINE_CACHE_STATS
-        // Used to store inline cache stats
-
-        struct CacheData
-        {
-            uint hits;
-            uint misses;
-            uint collisions;
-            bool isGetCache;
-            Js::PropertyId propertyId;
-
-            CacheData() : hits(0), misses(0), collisions(0), isGetCache(false), propertyId(Js::PropertyIds::_none) { }
-        };
-
         // This is a strongly referenced dictionary, since we want to know hit rates for dead caches.
-        typedef JsUtil::BaseDictionary<const Js::PolymorphicInlineCache*, CacheData*, Recycler> CacheDataMap;
+        typedef JsUtil::BaseDictionary<const Js::PolymorphicInlineCache*, InlineCacheData*, Recycler> CacheDataMap;
         CacheDataMap *cacheDataMap;
-
         void LogCacheUsage(Js::PolymorphicInlineCache *cache, bool isGet, Js::PropertyId propertyId, bool hit, bool collision);
 #endif
 
@@ -902,6 +892,8 @@ private:
         void EnsureSourceContextInfoMap();
         void EnsureDynamicSourceContextInfoMap();
 
+        void AddToEvalMapHelper(FastEvalMapString const& key, BOOL isIndirect, ScriptFunction *pFuncScript);
+
         uint moduleSrcInfoCount;
 #ifdef RUNTIME_DATA_COLLECTION
         time_t createTime;
@@ -945,7 +937,16 @@ private:
         }
 #endif
 
-        void SetHasUsedInlineCache(bool value) { hasUsedInlineCache = value; }
+        void SetHasUsedInlineCache(bool value) 
+        {
+            hasUsedInlineCache = value;
+#if DBG
+            if(hasUsedInlineCache)
+            {
+                inlineCacheAllocator.Unlock();
+            }
+#endif
+        }
 
         void SetDirectHostTypeId(TypeId typeId) {directHostTypeId = typeId; }
         TypeId GetDirectHostTypeId() const { return directHostTypeId; }
@@ -993,7 +994,6 @@ private:
         DWORD webWorkerId;
 
         static ScriptContext * New(ThreadContext * threadContext);
-        static void Delete(ScriptContext* scriptContext);
 
         ~ScriptContext();
 
@@ -1223,7 +1223,8 @@ private:
         TypeId ReserveTypeIds(int count);
         TypeId CreateTypeId();
 
-        WellKnownHostType GetWellKnownHostType(Js::TypeId typeId) { return threadContext->GetWellKnownHostType(typeId); }
+        template<WellKnownHostType wellKnownType>
+        bool IsWellKnownHostType(Js::TypeId typeId) { return threadContext->IsWellKnownHostType<wellKnownType>(typeId); }
         void SetWellKnownHostTypeId(WellKnownHostType wellKnownType, Js::TypeId typeId) { threadContext->SetWellKnownHostTypeId(wellKnownType, typeId); }
 
         ParseNodePtr ParseScript(Parser* parser, const byte* script,

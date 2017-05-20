@@ -1084,13 +1084,34 @@ CommonNumber:
                 PropertyString *propString = requestContext->TryGetPropertyString(propertyId);
                 if (propString != nullptr)
                 {
-                    const PropertyCache *propCache = propString->GetPropertyCache();
-                    if (object->GetType() == propCache->type)
+                    PropertyCacheOperationInfo info;
+                    if (propString->GetLdElemInlineCache()->PretendTryGetProperty(object->GetType(), &info))
                     {
-                        // The type cached for the property was the same as the type of this object
-                        // (i.e. obj in obj.hasOwnProperty), so we know the answer is "true".
-                        Assert(TRUE == (object && object->HasOwnProperty(propertyId))); // sanity check on the fastpath result
-                        return TRUE;
+                        switch (info.cacheType)
+                        {
+                            case CacheType_Local:
+                                Assert(object->HasOwnProperty(propertyId));
+                                return TRUE;
+                            case CacheType_Proto:
+                                Assert(!object->HasOwnProperty(propertyId));
+                                return FALSE;
+                            default:
+                                break;
+                        }
+                    }
+                    if (propString->GetStElemInlineCache()->PretendTrySetProperty(object->GetType(), object->GetType(), &info))
+                    {
+                        switch (info.cacheType)
+                        {
+                        case CacheType_Local:
+                            Assert(object->HasOwnProperty(propertyId));
+                            return TRUE;
+                        case CacheType_LocalWithoutProperty:
+                            Assert(!object->HasOwnProperty(propertyId));
+                            return FALSE;
+                        default:
+                            break;
+                        }
                     }
                 }
 
@@ -1465,10 +1486,12 @@ CommonNumber:
     {
         while (JavascriptOperators::GetTypeId(instance) != TypeIds_Null)
         {
-            if (instance->HasProperty(propertyId))
+            PropertyQueryFlags result = instance->HasPropertyQuery(propertyId);
+            if (result != Property_NotFound)
             {
-                return true;
+                return JavascriptConversion::PropertyQueryFlagsToBoolean(result); // return false if instance is typed array and HasPropertyQuery() returns Property_Found_Undefined
             }
+
             instance = JavascriptOperators::GetPrototypeNoTrap(instance);
         }
         return false;
@@ -1568,7 +1591,7 @@ CommonNumber:
             if (!dynamicObject->DynamicObject::GetAccessors(propertyId, &getter, &setter, requestContext))
             {
                 Var value;
-                if (!dynamicObject->DynamicObject::GetProperty(instance, propertyId, &value, NULL, requestContext) ||
+                if (!JavascriptConversion::PropertyQueryFlagsToBoolean(dynamicObject->DynamicObject::GetPropertyQuery(instance, propertyId, &value, NULL, requestContext)) ||
                     (requestContext->IsUndeclBlockVar(value) && (ActivationObject::Is(instance) || RootObjectBase::Is(instance))))
                 {
                     return FALSE;
@@ -1606,7 +1629,7 @@ CommonNumber:
         {
             if (! dynamicObject->DynamicObject::GetAccessors(propertyId, &getter, &setter, requestContext))
             {
-                result = dynamicObject->DynamicObject::GetProperty(instance, propertyId, &returnVar, NULL, requestContext);
+                result = JavascriptConversion::PropertyQueryFlagsToBoolean((dynamicObject->DynamicObject::GetPropertyQuery(instance, propertyId, &returnVar, NULL, requestContext)));
             }
         }
         else
@@ -1678,9 +1701,10 @@ CommonNumber:
             }
             else
             {
-                if (object->GetProperty(instance, propertyId, value, info, requestContext))
+                PropertyQueryFlags result = object->GetPropertyQuery(instance, propertyId, value, info, requestContext);
+                if (result != Property_NotFound)
                 {
-                    foundProperty = true;
+                    foundProperty = JavascriptConversion::PropertyQueryFlagsToBoolean(result);
                     break;
                 }
             }
@@ -1769,34 +1793,20 @@ CommonNumber:
     }
 
     template<typename PropertyKeyType>
-    BOOL JavascriptOperators::GetPropertyWPCache(Var instance, RecyclableObject* propertyObject, PropertyKeyType propertyKey, Var* value, ScriptContext* requestContext, PropertyString * propertyString)
+    BOOL JavascriptOperators::GetPropertyWPCache(Var instance, RecyclableObject* propertyObject, PropertyKeyType propertyKey, Var* value, ScriptContext* requestContext, _Inout_ PropertyValueInfo * info)
     {
-        if (TaggedNumber::Is(instance))
-        {
-            propertyString = NULL;
-        }
-        PropertyValueInfo info;
         RecyclableObject* object = propertyObject;
         while (JavascriptOperators::GetTypeId(object) != TypeIds_Null)
         {
-            if (object->GetProperty(instance, propertyKey, value, &info, requestContext))
+            PropertyQueryFlags result = object->GetPropertyQuery(instance, propertyKey, value, info, requestContext);
+            if (result != Property_NotFound)
             {
-                if (propertyString != NULL)
+                if (value && !WithScopeObject::Is(object) && info->GetPropertyString())
                 {
-                    uint16 slotIndex = info.GetPropertyIndex();
-                    if (slotIndex != Constants::NoSlot &&
-                        info.GetInstance() == object &&
-                        info.IsWritable() && !object->CanHaveInterceptors() &&
-                        requestContext == object->GetScriptContext() &&
-                        ((info.GetFlags() & (InlineCacheGetterFlag | InlineCacheSetterFlag)) == 0))
-                    {
-                        uint16 inlineOrAuxSlotIndex;
-                        bool isInlineSlot;
-                        DynamicObject::FromVar(info.GetInstance())->GetTypeHandler()->PropertyIndexToInlineOrAuxSlotIndex(slotIndex, &inlineOrAuxSlotIndex, &isInlineSlot);
-                        propertyString->UpdateCache(info.GetInstance()->GetType(), inlineOrAuxSlotIndex, isInlineSlot, info.IsStoreFieldCacheEnabled());
-                    }
+                    PropertyId propertyId = info->GetPropertyString()->GetPropertyRecord()->GetPropertyId();
+                    CacheOperators::CachePropertyRead(instance, object, false, propertyId, false, info, requestContext);
                 }
-                return TRUE;
+                return JavascriptConversion::PropertyQueryFlagsToBoolean(result);
             }
             if (object->SkipsPrototype())
             {
@@ -1804,6 +1814,12 @@ CommonNumber:
             }
             object = JavascriptOperators::GetPrototypeNoTrap(object);
         }
+        if (!PHASE_OFF1(MissingPropertyCachePhase) && info->GetPropertyString() && DynamicObject::Is(instance) && ((DynamicObject*)instance)->GetDynamicType()->GetTypeHandler()->IsPathTypeHandler())
+        {
+            PropertyValueInfo::Set(info, requestContext->GetLibrary()->GetMissingPropertyHolder(), 0);
+            CacheOperators::CachePropertyRead(instance, requestContext->GetLibrary()->GetMissingPropertyHolder(), false, info->GetPropertyString()->GetPropertyRecord()->GetPropertyId(), true, info, requestContext);
+        }
+
         *value = requestContext->GetMissingPropertyResult();
         return FALSE;
     }
@@ -1991,9 +2007,10 @@ CommonNumber:
             }
             else
             {
-                if (object->GetPropertyReference(instance, propertyId, value, info, requestContext))
+                PropertyQueryFlags result = object->GetPropertyReferenceQuery(instance, propertyId, value, info, requestContext);
+                if (result != Property_NotFound)
                 {
-                    foundProperty = true;
+                    foundProperty = JavascriptConversion::PropertyQueryFlagsToBoolean(result);
                     break;
                 }
             }
@@ -2156,7 +2173,7 @@ CommonNumber:
     }
 
     template<typename PropertyKeyType>
-    BOOL JavascriptOperators::SetPropertyWPCache(Var receiver, RecyclableObject* object, PropertyKeyType propertyKey, Var newValue, ScriptContext* requestContext, PropertyString * propertyString, PropertyOperationFlags propertyOperationFlags)
+    BOOL JavascriptOperators::SetPropertyWPCache(Var receiver, RecyclableObject* object, PropertyKeyType propertyKey, Var newValue, ScriptContext* requestContext, PropertyOperationFlags propertyOperationFlags, _Inout_ PropertyValueInfo * info)
     {
         if (receiver)
         {
@@ -2164,7 +2181,7 @@ CommonNumber:
             Assert(!TaggedNumber::Is(receiver));
             Var setterValueOrProxy = nullptr;
             DescriptorFlags flags = None;
-            if (JavascriptOperators::CheckPrototypesForAccessorOrNonWritableProperty(object, propertyKey, &setterValueOrProxy, &flags, NULL, requestContext))
+            if (JavascriptOperators::CheckPrototypesForAccessorOrNonWritableProperty(object, propertyKey, &setterValueOrProxy, &flags, info, requestContext))
             {
                 if ((flags & Accessor) == Accessor)
                 {
@@ -2174,8 +2191,13 @@ CommonNumber:
                     }
                     if (setterValueOrProxy)
                     {
+                        if (!WithScopeObject::Is(receiver) && info->GetPropertyString())
+                        {
+                            CacheOperators::CachePropertyWrite(RecyclableObject::FromVar(receiver), false, object->GetType(), info->GetPropertyString()->GetPropertyRecord()->GetPropertyId(), info, requestContext);
+                        }
                         receiver = (RecyclableObject::FromVar(receiver))->GetThisObjectOrUnWrap();
                         RecyclableObject* func = RecyclableObject::FromVar(setterValueOrProxy);
+
                         JavascriptOperators::CallSetter(func, receiver, newValue, requestContext);
                     }
                     return TRUE;
@@ -2185,8 +2207,13 @@ CommonNumber:
                     Assert(JavascriptProxy::Is(setterValueOrProxy));
                     JavascriptProxy* proxy = JavascriptProxy::FromVar(setterValueOrProxy);
                     auto fn = [&](RecyclableObject* target) -> BOOL {
-                        return JavascriptOperators::SetPropertyWPCache(receiver, target, propertyKey, newValue, requestContext, propertyString, propertyOperationFlags);
+                        return JavascriptOperators::SetPropertyWPCache(receiver, target, propertyKey, newValue, requestContext, propertyOperationFlags, info);
                     };
+                    if (info->GetPropertyString())
+                    {
+                        PropertyValueInfo::SetNoCache(info, proxy);
+                        PropertyValueInfo::DisablePrototypeCache(info, proxy);
+                    }
                     return proxy->SetPropertyTrap(receiver, JavascriptProxy::SetPropertyTrapKind::SetPropertyWPCacheKind, propertyKey, newValue, requestContext);
                 }
                 else
@@ -2216,23 +2243,18 @@ CommonNumber:
                 }
             }
 
+            Type *typeWithoutProperty = object->GetType();
             // in 9.1.9, step 5, we should return false if receiver is not object, and that will happen in default RecyclableObject operation anyhow.
-            PropertyValueInfo info;
-            if (receiverObject->SetProperty(propertyKey, newValue, propertyOperationFlags, &info))
+            if (receiverObject->SetProperty(propertyKey, newValue, propertyOperationFlags, info))
             {
-                if (propertyString != NULL)
+                if (!JavascriptProxy::Is(receiver) && info->GetPropertyString() && info->GetFlags() != InlineCacheSetterFlag && !object->CanHaveInterceptors())
                 {
-                    uint16 slotIndex = info.GetPropertyIndex();
-                    if (slotIndex != Constants::NoSlot &&
-                        info.GetInstance() == receiverObject &&
-                        !object->CanHaveInterceptors() &&
-                        requestContext == receiverObject->GetScriptContext() &&
-                        (info.GetFlags() != InlineCacheSetterFlag))
+                    CacheOperators::CachePropertyWrite(RecyclableObject::FromVar(receiver), false, typeWithoutProperty, info->GetPropertyString()->GetPropertyRecord()->GetPropertyId(), info, requestContext);
+
+                    if (info->GetInstance() == receiverObject)
                     {
-                        uint16 inlineOrAuxSlotIndex;
-                        bool isInlineSlot;
-                        DynamicObject::FromVar(info.GetInstance())->GetTypeHandler()->PropertyIndexToInlineOrAuxSlotIndex(info.GetPropertyIndex(), &inlineOrAuxSlotIndex, &isInlineSlot);
-                        propertyString->UpdateCache(info.GetInstance()->GetType(), inlineOrAuxSlotIndex, isInlineSlot, info.IsStoreFieldCacheEnabled());
+                        PropertyValueInfo::SetCacheInfo(info, info->GetPropertyString(), info->GetPropertyString()->GetLdElemInlineCache(), info->AllowResizingPolymorphicInlineCache());
+                        CacheOperators::CachePropertyRead(object, receiverObject, false, info->GetPropertyString()->GetPropertyRecord()->GetPropertyId(), false, info, requestContext);
                     }
                 }
                 return TRUE;
@@ -3062,9 +3084,10 @@ CommonNumber:
 #endif
         while (JavascriptOperators::GetTypeId(object) != TypeIds_Null)
         {
-            if (object->HasItem(index))
+            PropertyQueryFlags result;
+            if ((result = object->HasItemQuery(index)) != Property_NotFound)
             {
-                return true;
+                return JavascriptConversion::PropertyQueryFlagsToBoolean(result);
             }
             // CONSIDER: Numeric property values shouldn't be on the prototype for now but if this changes
             // we should add SkipsPrototype support here as well
@@ -3083,9 +3106,10 @@ CommonNumber:
         RecyclableObject* object = propertyObject;
         while (JavascriptOperators::GetTypeId(object) != TypeIds_Null)
         {
-            if (object->GetItem(instance, index, value, requestContext))
+            PropertyQueryFlags result;
+            if ((result = object->GetItemQuery(instance, index, value, requestContext)) != Property_NotFound)
             {
-                return true;
+                return JavascriptConversion::PropertyQueryFlagsToBoolean(result);
             }
             if (object->SkipsPrototype())
             {
@@ -3102,9 +3126,10 @@ CommonNumber:
         RecyclableObject* object = propertyObject;
         while (JavascriptOperators::GetTypeId(object) != TypeIds_Null)
         {
-            if (object->GetItemReference(instance, index, value, requestContext))
+            PropertyQueryFlags result;
+            if ((result = object->GetItemReferenceQuery(instance, index, value, requestContext)) != Property_NotFound)
             {
-                return true;
+                return JavascriptConversion::PropertyQueryFlagsToBoolean(result);
             }
             if (object->SkipsPrototype())
             {
@@ -3472,7 +3497,7 @@ CommonNumber:
                 charcount_t indexInt = TaggedInt::ToUInt32(index);
                 JavascriptString* string = JavascriptString::FromVar(instance);
                 Var result;
-                if (string->JavascriptString::GetItem(instance, indexInt, &result, scriptContext))
+                if (JavascriptConversion::PropertyQueryFlagsToBoolean(string->JavascriptString::GetItemQuery(instance, indexInt, &result, scriptContext)))
                 {
                     return result;
                 }
@@ -3700,46 +3725,34 @@ CommonNumber:
                 goto TaggedIntIndex;
             }
         }
-        else if (JavascriptString::Is(index)) // fastpath for PropertyStrings
+        else if (JavascriptString::Is(index) && RecyclableObject::Is(instance)) // fastpath for PropertyStrings
         {
             temp = JavascriptString::FromVar(index);
             Assert(temp->GetScriptContext() == scriptContext);
 
+            PropertyString * propertyString = nullptr;
             if (VirtualTableInfo<Js::PropertyString>::HasVirtualTable(temp))
             {
-                PropertyString * propertyString = (PropertyString*)temp;
-                PropertyCache const *cache = propertyString->GetPropertyCache();
+                propertyString = (PropertyString*)temp;
+            }
+            else if (VirtualTableInfo<Js::LiteralStringWithPropertyStringPtr>::HasVirtualTable(temp))
+            {
+                LiteralStringWithPropertyStringPtr * str = (LiteralStringWithPropertyStringPtr *)temp;
+                propertyString = str->GetPropertyString();
+            }
+            if(propertyString != nullptr)
+            {
                 RecyclableObject* object = nullptr;
                 if (FALSE == JavascriptOperators::GetPropertyObject(instance, scriptContext, &object))
                 {
                     JavascriptError::ThrowTypeError(scriptContext, JSERR_Property_CannotGet_NullOrUndefined,
                         JavascriptString::FromVar(index)->GetSz());
                 }
-                if (object->GetType() == cache->type)
-                {
-#if DBG_DUMP
-                    scriptContext->forinCache++;
-#endif
-                    Assert(object->GetScriptContext() == scriptContext);
-                    Var value;
-                    if (cache->isInlineSlot)
-                    {
-                        value = DynamicObject::FromVar(object)->GetInlineSlot(cache->dataSlotIndex);
-                    }
-                    else
-                    {
-                        value = DynamicObject::FromVar(object)->GetAuxSlot(cache->dataSlotIndex);
-                    }
-                    Assert(!CrossSite::NeedMarshalVar(value, scriptContext));
-                    Assert(value == JavascriptOperators::GetProperty(object, propertyString->GetPropertyRecord()->GetPropertyId(), scriptContext)
-                        || value == JavascriptOperators::GetRootProperty(object, propertyString->GetPropertyRecord()->GetPropertyId(), scriptContext));
-                    return value;
-                }
-#if DBG_DUMP
-                scriptContext->forinNoCache++;
-#endif
+
                 PropertyRecord const * propertyRecord = propertyString->GetPropertyRecord();
+                const PropertyId propId = propertyRecord->GetPropertyId();
                 Var value;
+
                 if (propertyRecord->IsNumeric())
                 {
                     if (JavascriptOperators::GetItem(instance, object, propertyRecord->GetNumericValue(), &value, scriptContext))
@@ -3749,13 +3762,47 @@ CommonNumber:
                 }
                 else
                 {
-                    if (JavascriptOperators::GetPropertyWPCache(instance, object, propertyRecord->GetPropertyId(), &value, scriptContext, propertyString))
+                    PropertyValueInfo info;
+                    if (propertyString->ShouldUseCache())
+                    {
+                        PropertyValueInfo::SetCacheInfo(&info, propertyString, propertyString->GetLdElemInlineCache(), true);
+                        if (CacheOperators::TryGetProperty<true, true, true, true, true, true, false, true, false>(
+                            instance, false, object, propId, &value, scriptContext, nullptr, &info))
+                        {
+                            propertyString->LogCacheHit();
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+                            if (PHASE_TRACE1(PropertyStringCachePhase))
+                            {
+                                Output::Print(_u("PropertyCache: GetElem cache hit for '%s': type %p\n"), propertyString->GetString(), object->GetType());
+                            }
+#endif
+                            return value;
+                        }
+                    }
+                    propertyString->LogCacheMiss();
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+                    if (PHASE_TRACE1(PropertyStringCachePhase))
+                    {
+                        Output::Print(_u("PropertyCache: GetElem cache miss for '%s': type %p, index %d\n"),
+                            propertyString->GetString(),
+                            object->GetType(),
+                            propertyString->GetLdElemInlineCache()->GetInlineCacheIndexForType(object->GetType()));
+                        propertyString->DumpCache(true);
+                    }
+#endif
+                    if (JavascriptOperators::GetPropertyWPCache(instance, object, propertyRecord->GetPropertyId(), &value, scriptContext, &info))
                     {
                         return value;
                     }
                 }
                 return scriptContext->GetLibrary()->GetUndefined();
             }
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+            if (PHASE_TRACE1(PropertyStringCachePhase))
+            {
+                Output::Print(_u("PropertyCache: GetElem No property string for '%s'\n"), temp->GetString());
+            }
+#endif
 #if DBG_DUMP
             scriptContext->forinNoCache++;
 #endif
@@ -3795,7 +3842,8 @@ CommonNumber:
         }
         else if (indexType == IndexType_JavascriptString)
         {
-            if (JavascriptOperators::GetPropertyWPCache(receiver, object, propertyNameString, &value, scriptContext, nullptr))
+            PropertyValueInfo info;
+            if (JavascriptOperators::GetPropertyWPCache(receiver, object, propertyNameString, &value, scriptContext, &info))
             {
                 return value;
             }
@@ -3812,7 +3860,8 @@ CommonNumber:
 
             if (propertyRecord != nullptr)
             {
-                if (JavascriptOperators::GetPropertyWPCache(receiver, object, propertyRecord->GetPropertyId(), &value, scriptContext, nullptr))
+                PropertyValueInfo info;
+                if (JavascriptOperators::GetPropertyWPCache(receiver, object, propertyRecord->GetPropertyId(), &value, scriptContext, &info))
                 {
                     return value;
                 }
@@ -4386,6 +4435,7 @@ CommonNumber:
         uint32 indexVal = 0;
         PropertyRecord const * propertyRecord = nullptr;
         JavascriptString * propertyNameString = nullptr;
+        PropertyValueInfo propertyValueInfo;
 
         if (TaggedNumber::Is(receiver))
         {
@@ -4402,35 +4452,31 @@ CommonNumber:
 
         // fastpath for PropertyStrings only if receiver == object
         if (!TaggedInt::Is(index) && JavascriptString::Is(index) &&
-            VirtualTableInfo<Js::PropertyString>::HasVirtualTable(JavascriptString::FromVar(index)))
+            (VirtualTableInfo<Js::PropertyString>::HasVirtualTable(index) || VirtualTableInfo<Js::LiteralStringWithPropertyStringPtr>::HasVirtualTable(index)))
         {
-            propertyString = (PropertyString *)JavascriptString::FromVar(index);
-
-            Assert(propertyString->GetScriptContext() == scriptContext);
-
-            PropertyCache const * cache = propertyString->GetPropertyCache();
-            if (receiver == object && object->GetType() == cache->type && cache->isStoreFieldEnabled)
+            if (VirtualTableInfo<Js::LiteralStringWithPropertyStringPtr>::HasVirtualTable(index))
             {
-#if DBG
-                propertyRecord = propertyString->GetPropertyRecord();
-#endif
-#if DBG_DUMP
-                scriptContext->forinCache++;
-#endif
-                Assert(object->GetScriptContext() == scriptContext);
-                Assert(!CrossSite::NeedMarshalVar(value, scriptContext));
-                if (cache->isInlineSlot)
+                LiteralStringWithPropertyStringPtr * str = (LiteralStringWithPropertyStringPtr *)index;
+                propertyString = str->GetPropertyString();
+                if (propertyString == nullptr)
                 {
-                    DynamicObject::FromVar(object)->SetInlineSlot(SetSlotArguments(propertyRecord->GetPropertyId(), cache->dataSlotIndex, value));
+                    scriptContext->GetOrAddPropertyRecord(str->GetString(), str->GetLength(), &propertyRecord);
+                    propertyString = scriptContext->GetPropertyString(propertyRecord->GetPropertyId());
+                    str->SetPropertyString(propertyString);
                 }
                 else
                 {
-                    DynamicObject::FromVar(object)->SetAuxSlot(SetSlotArguments(propertyRecord->GetPropertyId(), cache->dataSlotIndex, value));
+                    propertyRecord = propertyString->GetPropertyRecord();
                 }
-                return true;
-            }
 
-            propertyRecord = propertyString->GetPropertyRecord();
+            }
+            else
+            {
+                propertyString = (PropertyString*)index;
+                propertyRecord = propertyString->GetPropertyRecord();
+            }
+            Assert(propertyString->GetScriptContext() == scriptContext);
+
             if (propertyRecord->IsNumeric())
             {
                 indexType = IndexType_Number;
@@ -4438,6 +4484,43 @@ CommonNumber:
             }
             else
             {
+                if (receiver == object)
+                {
+                    if (propertyString->ShouldUseCache())
+                    {
+                        PropertyValueInfo::SetCacheInfo(&propertyValueInfo, propertyString, propertyString->GetStElemInlineCache(), true);
+                        if (CacheOperators::TrySetProperty<true, true, true, true, true, false, true, false>(
+                            object,
+                            false,
+                            propertyRecord->GetPropertyId(),
+                            value,
+                            scriptContext,
+                            flags,
+                            nullptr,
+                            &propertyValueInfo))
+                        {
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+                            if (PHASE_TRACE1(PropertyStringCachePhase))
+                            {
+                                Output::Print(_u("PropertyCache: SetElem cache hit for '%s': type %p\n"), propertyString->GetString(), object->GetType());
+                            }
+#endif
+                            propertyString->LogCacheHit();
+                            return true;
+                        }
+                    }
+                    propertyString->LogCacheMiss();
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+                    if (PHASE_TRACE1(PropertyStringCachePhase))
+                    {
+                        Output::Print(_u("PropertyCache: SetElem cache miss for '%s': type %p, index %d\n"),
+                            propertyString->GetString(),
+                            object->GetType(),
+                            propertyString->GetStElemInlineCache()->GetInlineCacheIndexForType(object->GetType()));
+                        propertyString->DumpCache(false);
+                    }
+#endif
+                }
                 indexType = IndexType_PropertyId;
             }
 
@@ -4479,11 +4562,17 @@ CommonNumber:
                 // Follow SetProperty convention for Infinity
                 return JavascriptOperators::SetProperty(receiver, object, PropertyIds::Infinity, value, scriptContext, flags);
             }
-
-            return JavascriptOperators::SetPropertyWPCache(receiver, object, propertyNameString, value, scriptContext, nullptr, flags);
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+            if (PHASE_TRACE1(PropertyStringCachePhase))
+            {
+                Output::Print(_u("PropertyCache: SetElem No property string for '%s'\n"), propertyNameString->GetString());
+            }
+#endif
+            return SetPropertyWPCache(receiver, object, propertyNameString, value, scriptContext, flags, &propertyValueInfo);
         }
-        else if (indexType == IndexType_PropertyId)
+        else
         {
+            Assert(indexType == IndexType_PropertyId);
             Assert(propertyRecord);
             PropertyId propId = propertyRecord->GetPropertyId();
             if (propId == PropertyIds::NaN || propId == PropertyIds::Infinity)
@@ -4493,9 +4582,8 @@ CommonNumber:
                 // Note that "-Infinity" does not qualify as property name, so we don't have to take care of it.
                 return JavascriptOperators::SetProperty(receiver, object, propId, value, scriptContext, flags);
             }
+            return SetPropertyWPCache(receiver, object, propId, value, scriptContext, flags, &propertyValueInfo);
         }
-
-        return JavascriptOperators::SetPropertyWPCache(receiver, object, propertyRecord->GetPropertyId(), value, scriptContext, propertyString, flags);
     }
 
     BOOL JavascriptOperators::OP_SetNativeIntElementI(
@@ -5343,16 +5431,8 @@ CommonNumber:
 
     Var JavascriptOperators::NewVarFromDetachedState(DetachedStateBase* state, JavascriptLibrary *library)
     {
-        switch (state->GetTypeId())
-        {
-        case TypeIds_SharedArrayBuffer:
-            return Js::SharedArrayBuffer::NewFromSharedState(state, library);
-        case TypeIds_ArrayBuffer:
-            return Js::ArrayBuffer::NewFromDetachedState(state, library);
-        default:
-            AssertMsg(false, "We should explicitly have a case statement for each object which has detached state.");
-            return nullptr;
-        }
+        AssertOrFailFastMsg(state->GetTypeId() == TypeIds_ArrayBuffer, "We should only re-activate detached ArrayBuffer");
+        return Js::ArrayBuffer::NewFromDetachedState(state, library);
     }
 
     DynamicType *
@@ -5605,6 +5685,7 @@ CommonNumber:
         if(count > segment->length)
         {
             segment->length = count;
+            segment->CheckLengthvsSize();
         }
         CopyArray(segment->elements, segment->length, vars->elements, count);
 
@@ -5621,6 +5702,7 @@ CommonNumber:
         if(count > segment->length)
         {
             segment->length = count;
+            segment->CheckLengthvsSize();
         }
         js_memcpy_s(segment->elements, sizeof(int32) * segment->length, ints->elements, sizeof(int32) * count);
     }
@@ -5635,6 +5717,7 @@ CommonNumber:
         if(count > segment->length)
         {
             segment->length = count;
+            segment->CheckLengthvsSize();
         }
         js_memcpy_s(segment->elements, sizeof(double) * segment->length, doubles->elements, sizeof(double) * count);
     }
@@ -6889,7 +6972,7 @@ CommonNumber:
         argsObj->SetNumberOfArguments(actualsCount);
 
         JavascriptOperators::SetProperty(argsObj, argsObj, PropertyIds::length, JavascriptNumber::ToVar(actualsCount, scriptContext), scriptContext);
-        JavascriptOperators::SetProperty(argsObj, argsObj, PropertyIds::_symbolIterator, library->GetArrayPrototypeValuesFunction(), scriptContext);
+        JavascriptOperators::SetProperty(argsObj, argsObj, PropertyIds::_symbolIterator, library->EnsureArrayPrototypeValuesFunction(), scriptContext);
         if (funcCallee->IsStrictMode())
         {
             JavascriptFunction* restrictedPropertyAccessor = library->GetThrowTypeErrorRestrictedPropertyAccessorFunction();
@@ -8544,7 +8627,11 @@ CommonNumber:
                         PropertyDescriptor filledDescriptor = FillMissingPropertyDescriptorFields<false>(descriptor, scriptContext);
 
                         BOOL tempResult = obj->SetPropertyWithAttributes(propId, filledDescriptor.GetValue(), filledDescriptor.GetAttributes(), nullptr);
-                        Assert(tempResult || obj->IsExternal());
+                        if (!obj->IsExternal() && !tempResult)
+                        {
+                            Assert(TypedArrayBase::Is(obj)); // typed array returns false when canonical numeric index is not integer or out of range
+                            return FALSE;
+                        }
                     }
                     else
                     {
@@ -9437,78 +9524,6 @@ CommonNumber:
         throw ScriptAbortException();
     }
 
-    void PolymorphicInlineCache::Finalize(bool isShutdown)
-    {
-        if (size == 0)
-        {
-            // Already finalized
-            Assert(!inlineCaches && !prev && !next);
-            return;
-        }
-
-        uint unregisteredInlineCacheCount = 0;
-
-        Assert(inlineCaches && size > 0);
-
-        // If we're not shutting down (as in closing the script context), we need to remove our inline caches from
-        // thread context's invalidation lists, and release memory back to the arena.  During script context shutdown,
-        // we leave everything in place, because the inline cache arena will stay alive until script context is destroyed
-        // (as in destructor has been called) and thus the invalidation lists are safe to keep references to caches from this
-        // script context.  We will, however, zero all inline caches so that we don't have to process them on subsequent
-        // collections, which may still happen from other script contexts.
-        if (isShutdown)
-        {
-            memset(inlineCaches, 0, size * sizeof(InlineCache));
-        }
-        else
-        {
-            for (int i = 0; i < size; i++)
-            {
-                if (inlineCaches[i].RemoveFromInvalidationList())
-                {
-                    unregisteredInlineCacheCount++;
-                }
-            }
-
-            AllocatorDeleteArray(InlineCacheAllocator, functionBody->GetScriptContext()->GetInlineCacheAllocator(), size, inlineCaches);
-#ifdef POLY_INLINE_CACHE_SIZE_STATS
-            functionBody->GetScriptContext()->GetInlineCacheAllocator()->LogPolyCacheFree(size * sizeof(InlineCache));
-#endif
-        }
-
-        // Remove this PolymorphicInlineCache from the list
-        if (this == functionBody->GetPolymorphicInlineCachesHead())
-        {
-            Assert(!prev);
-            if (next)
-            {
-                Assert(next->prev == this);
-                next->prev = nullptr;
-            }
-            functionBody->SetPolymorphicInlineCachesHead(next);
-        }
-        else
-        {
-            if (prev)
-            {
-                Assert(prev->next == this);
-                prev->next = next;
-            }
-            if (next)
-            {
-                Assert(next->prev == this);
-                next->prev = prev;
-            }
-        }
-        prev = next = nullptr;
-        inlineCaches = nullptr;
-        size = 0;
-        if (unregisteredInlineCacheCount > 0)
-        {
-            functionBody->GetScriptContext()->GetThreadContext()->NotifyInlineCacheBatchUnregistered(unregisteredInlineCacheCount);
-        }
-    }
-
     JavascriptString * JavascriptOperators::Concat3(Var aLeft, Var aCenter, Var aRight, ScriptContext * scriptContext)
     {
         // Make sure we do the conversion in order from left to right
@@ -9618,6 +9633,112 @@ CommonNumber:
         }
 
         return superCtor;
+    }
+
+    Var JavascriptOperators::OP_ImportCall(__in JavascriptFunction *function, __in Var specifier, __in ScriptContext* scriptContext)
+    {
+        ModuleRecordBase *moduleRecordBase = nullptr;
+        SourceTextModuleRecord *moduleRecord = nullptr;
+
+        FunctionBody* parentFuncBody = function->GetFunctionBody();
+        JavascriptString *specifierString = nullptr;
+
+        try
+        {
+            specifierString = JavascriptConversion::ToString(specifier, scriptContext);
+        }
+        catch (const JavascriptException &err)
+        {
+            Var errorObject = err.GetAndClear()->GetThrownObject(scriptContext);
+            AssertMsg(errorObject != nullptr, "OP_ImportCall: null error object thrown by ToString(specifier)");
+            if (errorObject != nullptr)
+            {
+                return SourceTextModuleRecord::ResolveOrRejectDynamicImportPromise(false, errorObject, scriptContext);
+            }
+
+            Throw::InternalError();
+        }
+
+        DWORD_PTR dwReferencingSourceContext = parentFuncBody->GetHostSourceContext();
+        if (!parentFuncBody->IsES6ModuleCode() && dwReferencingSourceContext == Js::Constants::NoHostSourceContext)
+        {
+            // import() called from eval
+            if (parentFuncBody->GetUtf8SourceInfo()->GetCallerUtf8SourceInfo() == nullptr)
+            {
+                JavascriptError *error = scriptContext->GetLibrary()->CreateError();
+                JavascriptError::SetErrorMessageProperties(error, E_FAIL, _u("Unable to locate active script or module that calls import()"), scriptContext);
+                return SourceTextModuleRecord::ResolveOrRejectDynamicImportPromise(false, error, scriptContext);
+            }
+
+            dwReferencingSourceContext = parentFuncBody->GetUtf8SourceInfo()->GetCallerUtf8SourceInfo()->GetSourceContextInfo()->dwHostSourceContext;
+
+            if (dwReferencingSourceContext == Js::Constants::NoHostSourceContext)
+            {
+                // Walk the call stack if caller function is neither module code nor having host source context
+
+                JavascriptFunction* caller = nullptr;
+                Js::JavascriptStackWalker walker(scriptContext);
+                walker.GetCaller(&caller);
+
+                do
+                {
+                    if (walker.GetCaller(&caller) && caller != nullptr && caller->IsScriptFunction())
+                    {
+                        parentFuncBody = caller->GetFunctionBody();
+                        dwReferencingSourceContext = parentFuncBody->GetHostSourceContext();
+                    }
+                    else
+                    {
+                        JavascriptError *error = scriptContext->GetLibrary()->CreateError();
+                        JavascriptError::SetErrorMessageProperties(error, E_FAIL, _u("Unable to locate active script or module that calls import()"), scriptContext);
+                        return SourceTextModuleRecord::ResolveOrRejectDynamicImportPromise(false, error, scriptContext);
+                    }
+
+                } while (!parentFuncBody->IsES6ModuleCode() && dwReferencingSourceContext == Js::Constants::NoHostSourceContext);
+            }
+        }
+
+        LPCOLESTR moduleName = specifierString->GetSz();
+        HRESULT hr = 0;
+
+        if (parentFuncBody->IsES6ModuleCode())
+        {
+            SourceTextModuleRecord *referenceModuleRecord = parentFuncBody->GetScriptContext()->GetLibrary()->GetModuleRecord(parentFuncBody->GetModuleID());
+            BEGIN_LEAVE_SCRIPT(scriptContext);
+            BEGIN_TRANSLATE_TO_HRESULT(static_cast<ExceptionType>(ExceptionType_OutOfMemory | ExceptionType_StackOverflow));
+            hr = scriptContext->GetHostScriptContext()->FetchImportedModule(referenceModuleRecord, moduleName, &moduleRecordBase);
+            END_TRANSLATE_EXCEPTION_TO_HRESULT(hr);
+            END_LEAVE_SCRIPT(scriptContext);
+        }
+        else
+        {
+            Assert(dwReferencingSourceContext != Js::Constants::NoHostSourceContext);
+            BEGIN_LEAVE_SCRIPT(scriptContext);
+            BEGIN_TRANSLATE_TO_HRESULT(static_cast<ExceptionType>(ExceptionType_OutOfMemory | ExceptionType_StackOverflow));
+            hr = scriptContext->GetHostScriptContext()->FetchImportedModuleFromScript(dwReferencingSourceContext, moduleName, &moduleRecordBase);
+            END_TRANSLATE_EXCEPTION_TO_HRESULT(hr);
+            END_LEAVE_SCRIPT(scriptContext);
+        }
+
+        if (FAILED(hr))
+        {
+            Js::JavascriptError *error = scriptContext->GetLibrary()->CreateURIError();
+            JavascriptError::SetErrorMessageProperties(error, hr, moduleName, scriptContext);
+            return SourceTextModuleRecord::ResolveOrRejectDynamicImportPromise(false, error, scriptContext);
+        }
+
+        moduleRecord = SourceTextModuleRecord::FromHost(moduleRecordBase);
+
+        if (moduleRecord->GetErrorObject() != nullptr)
+        {
+            return SourceTextModuleRecord::ResolveOrRejectDynamicImportPromise(false, moduleRecord->GetErrorObject(), scriptContext, moduleRecord);
+        }
+        else if (moduleRecord->WasEvaluated())
+        {
+            return SourceTextModuleRecord::ResolveOrRejectDynamicImportPromise(true, moduleRecord->GetNamespace(), scriptContext, moduleRecord);
+        }
+
+        return moduleRecord->PostProcessDynamicModuleImport();
     }
 
     Var JavascriptOperators::ScopedLdHomeObjFuncObjHelper(Var scriptFunction, Js::PropertyId propertyId, ScriptContext * scriptContext)

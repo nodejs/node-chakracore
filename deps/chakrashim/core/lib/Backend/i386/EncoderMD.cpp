@@ -337,26 +337,36 @@ EncoderMD::EmitModRM(IR::Instr * instr, IR::Opnd *opnd, BYTE reg1)
 
     case IR::OpndKindIndir:
         indirOpnd = opnd->AsIndirOpnd();
-        AssertMsg(indirOpnd->GetBaseOpnd() != nullptr, "Expected base to be set in indirOpnd");
 
         baseOpnd = indirOpnd->GetBaseOpnd();
         indexOpnd = indirOpnd->GetIndexOpnd();
-        AssertMsg(!indexOpnd || indexOpnd->GetReg() != RegESP, "ESP cannot be the index of an indir.");
 
-        regBase = this->GetRegEncode(baseOpnd);
-        if (indexOpnd != nullptr)
+        AssertMsg(!indexOpnd || indexOpnd->GetReg() != RegESP, "ESP cannot be the index of an indir.");
+        if (baseOpnd == nullptr)
         {
+            Assert(indexOpnd != nullptr);
             regIndex = this->GetRegEncode(indexOpnd);
-            *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | 0x4);
-            *(m_pc++) = (((indirOpnd->GetScale() & 3) << 6) | ((regIndex & 7) << 3) | (regBase & 7));
+            dispSize = 4;
+            *(m_pc++) = (0x00 | reg1 | 0x4);
+            *(m_pc++) = (((indirOpnd->GetScale() & 3) << 6) | ((regIndex & 7) << 3) | 0x5);
         }
         else
         {
-            *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | regBase);
-            if (baseOpnd->GetReg() == RegESP)
+            regBase = this->GetRegEncode(baseOpnd);
+            if (indexOpnd != nullptr)
             {
-                // needs SIB byte
-                *(m_pc++) = ((regBase & 7) << 3) | (regBase & 7);
+                regIndex = this->GetRegEncode(indexOpnd);
+                *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | 0x4);
+                *(m_pc++) = (((indirOpnd->GetScale() & 3) << 6) | ((regIndex & 7) << 3) | (regBase & 7));
+            }
+            else
+            {
+                *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | regBase);
+                if (baseOpnd->GetReg() == RegESP)
+                {
+                    // needs SIB byte
+                    *(m_pc++) = ((regBase & 7) << 3) | (regBase & 7);
+                }
             }
         }
         break;
@@ -600,7 +610,10 @@ EncoderMD::Encode(IR::Instr *instr, BYTE *pc, BYTE* beginCodeAddress)
             }
         }
 #if DBG_DUMP
-        if( instr->IsEntryInstr() && Js::Configuration::Global.flags.DebugBreak.Contains( m_func->GetFunctionNumber() ) )
+        if (instr->IsEntryInstr() && (
+            Js::Configuration::Global.flags.DebugBreak.Contains(m_func->GetFunctionNumber()) ||
+            PHASE_ON(Js::DebugBreakPhase, m_func)
+        ))
         {
             IR::Instr *int3 = IR::Instr::New(Js::OpCode::INT, m_func);
             int3->SetSrc1(IR::IntConstOpnd::New(3, TyMachReg, m_func));

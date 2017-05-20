@@ -10,7 +10,7 @@
 // Page heap mode is supported currently only in the Recycler
 // Defining here so that other allocators can take advantage of this
 // in the future
-enum PageHeapMode
+enum PageHeapMode : byte
 {
     PageHeapModeOff = 0,   // No Page heap
     PageHeapModeBlockStart = 1,   // Allocate the object at the beginning of the page
@@ -23,6 +23,10 @@ enum PageHeapMode
 
 #if DBG || defined(RECYCLER_FREE_MEM_FILL)
 #define DbgMemFill 0XFE
+#endif
+
+#ifdef RECYCLER_PAGE_HEAP
+#define PageHeapMemFill 0XF0
 #endif
 
 namespace Memory
@@ -227,6 +231,7 @@ struct AllocatorInfo
 template <typename TAllocator>
 struct ForceNonLeafAllocator
 {
+    static const bool FakeZeroLengthArray = true;
     typedef TAllocator AllocatorType;
 };
 
@@ -235,6 +240,7 @@ template <typename TAllocator>
 struct ForceLeafAllocator
 {
     typedef TAllocator AllocatorType;
+    static const bool FakeZeroLengthArray = true;
 };
 
 // Optional AllocatorDelete flags
@@ -382,16 +388,19 @@ void DestructArray(size_t count, T* obj)
 template <typename TAllocator, typename T>
 void DeleteArray(typename AllocatorInfo<TAllocator, T>::AllocatorType * allocator, size_t count, T * obj)
 {
-    if (count == 0)
+    if (count == 0 && AllocatorInfo<TAllocator, T>::AllocatorType::FakeZeroLengthArray)
     {
         return;
     }
 
-    DestructArray(count, obj);
+    if (count != 0)
+    {
+        DestructArray(count, obj);
 
-    // DeleteArray can only be called when an array is allocated successfully.
-    // So the add should never overflow
-    Assert(count * sizeof(T) / count == sizeof(T));
+        // DeleteArray can only be called when an array is allocated successfully.
+        // So the add should never overflow
+        Assert(count * sizeof(T) / count == sizeof(T));
+    }
 
     auto freeFunc = AllocatorInfo<TAllocator, T>::AllocatorFunc::GetFreeFunc();
     (allocator->*freeFunc)((void *)obj, sizeof(T) * count);

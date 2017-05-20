@@ -364,6 +364,7 @@ RT_ERROR_MSG(JSERR_CannotSuspendBuffer, 5665, "", "Current agent cannot be suspe
 RT_ERROR_MSG(JSERR_CantDeleteNonConfigProp, 5666, "Cannot delete non-configurable property '%s'", "Cannot delete non-configurable property", kjstTypeError, 0)
 RT_ERROR_MSG(JSERR_CantRedefineProp, 5667, "Cannot redefine property '%s'", "Cannot redefine property", kjstTypeError, 0)
 RT_ERROR_MSG(JSERR_FunctionArgument_NeedArrayLike, 5668, "%s: argument is not an array or array-like object", "Array or array-like object expected", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_FatalMemoryExhaustion, 5669, "", "Encountered a non-recoverable OOM", kjstError, 0)
 
 // WebAssembly Errors
 RT_ERROR_MSG(WASMERR_WasmCompileError, 7000, "%s", "Compilation failed.", kjstWebAssemblyCompileError, 0)
@@ -387,3 +388,9 @@ RT_ERROR_MSG(WASMERR_ArrayIndexOutOfRange, 7017, "", "Memory index is out of ran
 RT_ERROR_MSG(WASMERR_InvalidInstantiateArgument, 7018, "", "Invalid arguments to instantiate", kjstTypeError, 0)
 RT_ERROR_MSG(WASMERR_WasmLinkError, 7019, "%s", "Linking failed.", kjstWebAssemblyLinkError, 0)
 RT_ERROR_MSG(JSERR_OutOfBoundString, 7020, "", "String length is out of bound", kjstRangeError, 0)
+RT_ERROR_MSG(JSERR_InvalidIterableObject, 7021, "%s : Invalid iterable object", "Invalid iterable object", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_InvalidIteratorObject, 7022, "%s : Invalid iterator object", "Invalid iterator object", kjstTypeError, 0)
+RT_ERROR_MSG(WASMERR_NeedResponse, 7023, "%s is not a Reponse", "Response expected", kjstTypeError, 0)
+
+// Wabt Errors
+RT_ERROR_MSG(WABTERR_WabtError, 7200, "%s", "Wabt Error.", kjstTypeError, 0)

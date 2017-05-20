@@ -64,7 +64,6 @@
 #include "Library/TypedArrayIndexEnumerator.h"
 #include "Library/JavascriptStringEnumerator.h"
 #include "Library/JavascriptRegExpEnumerator.h"
-#include "Library/IteratorObjectEnumerator.h"
 
 #include "Library/JavascriptIterator.h"
 #include "Library/JavascriptArrayIterator.h"
@@ -88,7 +87,7 @@
 #include "Library/WebAssemblyInstance.h"
 
 #include "Language/JavascriptStackWalker.h"
-
+#include "Language/CacheOperators.h"
 // .inl files
 #include "Library/JavascriptString.inl"
 #include "Library/ConcatString.inl"

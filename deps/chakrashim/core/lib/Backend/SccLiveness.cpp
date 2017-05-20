@@ -309,7 +309,7 @@ SCCLiveness::Build()
 
         // Check for lifetimes that have been extended such that they now span multiple regions.
         this->curRegion->SetEnd(this->func->m_exitInstr);
-        if (this->func->HasTry() && !this->func->DoOptimizeTryCatch())
+        if (this->func->HasTry() && !this->func->DoOptimizeTry())
         {
             FOREACH_SLIST_ENTRY(Lifetime *, lifetime, &this->lifetimeList)
             {
@@ -368,11 +368,12 @@ SCCLiveness::ProcessSrc(IR::Opnd *src, IR::Instr *instr)
     {
         IR::IndirOpnd *indirOpnd = src->AsIndirOpnd();
 
-        AssertMsg(indirOpnd->GetBaseOpnd(), "Indir should have a base...");
-
         if (!this->FoldIndir(instr, indirOpnd))
         {
-            this->ProcessRegUse(indirOpnd->GetBaseOpnd(), instr);
+            if (indirOpnd->GetBaseOpnd())
+            {
+                this->ProcessRegUse(indirOpnd->GetBaseOpnd(), instr);
+            }
 
             if (indirOpnd->GetIndexOpnd())
             {
@@ -425,12 +426,12 @@ SCCLiveness::ProcessDst(IR::Opnd *dst, IR::Instr *instr)
 
         IR::IndirOpnd *indirOpnd = dst->AsIndirOpnd();
 
-        AssertMsg(indirOpnd->GetBaseOpnd(), "Indir should have a base...");
-
         if (!this->FoldIndir(instr, indirOpnd))
         {
-            this->ProcessRegUse(indirOpnd->GetBaseOpnd(), instr);
-
+            if (indirOpnd->GetBaseOpnd())
+            {
+                this->ProcessRegUse(indirOpnd->GetBaseOpnd(), instr);
+            }
             if (indirOpnd->GetIndexOpnd())
             {
                 this->ProcessRegUse(indirOpnd->GetIndexOpnd(), instr);
@@ -526,7 +527,7 @@ SCCLiveness::ProcessStackSymUse(StackSym * stackSym, IR::Instr * instr, int usag
     }
     else
     {
-        if (lifetime->region != this->curRegion && !this->func->DoOptimizeTryCatch())
+        if (lifetime->region != this->curRegion && !this->func->DoOptimizeTry())
         {
             lifetime->dontAllocate = true;
         }
@@ -627,7 +628,7 @@ SCCLiveness::ProcessRegDef(IR::RegOpnd *regDef, IR::Instr *instr)
 
         ExtendLifetime(lifetime, instr);
 
-        if (lifetime->region != this->curRegion && !this->func->DoOptimizeTryCatch())
+        if (lifetime->region != this->curRegion && !this->func->DoOptimizeTry())
         {
             lifetime->dontAllocate = true;
         }
@@ -785,7 +786,7 @@ SCCLiveness::FoldIndir(IR::Instr *instr, IR::Opnd *opnd)
     }
 
     IR::RegOpnd *base = indir->GetBaseOpnd();
-    if (!base->m_sym || !base->m_sym->IsConst() || base->m_sym->IsIntConst() || base->m_sym->IsFloatConst())
+    if (!base || !base->m_sym || !base->m_sym->IsConst() || base->m_sym->IsIntConst() || base->m_sym->IsFloatConst())
     {
         return false;
     }

@@ -265,7 +265,13 @@
     <default>
       <files>With.js</files>
       <baseline>With.baseline</baseline>
-      <tags>fail_mutators</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>With.js</files>
+      <baseline>With.baseline</baseline>
+      <compile-flags>-force:deferparse</compile-flags>
     </default>
   </test>
   <test>
@@ -342,14 +348,12 @@
     <default>
       <files>inlinecache.js</files>
       <baseline>inlinecache.baseline</baseline>
-      <tags>fail_mutators</tags>
     </default>
   </test>
   <test>
     <default>
       <files>scan.js</files>
       <baseline>scan.baseline</baseline>
-      <tags>fail_mutators</tags>
     </default>
   </test>
   <test>
@@ -362,7 +366,6 @@
     <default>
       <files>with3.js</files>
       <baseline>with3.baseline</baseline>
-      <tags>fail_mutators</tags>
     </default>
   </test>
   <!--

@@ -75,8 +75,8 @@ public:
 
 struct PidRefStack
 {
-    PidRefStack() : isAsg(false), isDynamic(false), id(0), funcId(0), sym(nullptr), prev(nullptr), isEscape(false), isModuleExport(false), isFuncAssignment(false) {}
-    PidRefStack(int id, Js::LocalFunctionId funcId) : isAsg(false), isDynamic(false), id(id), funcId(funcId), sym(nullptr), prev(nullptr), isEscape(false), isModuleExport(false), isFuncAssignment(false) {}
+    PidRefStack() : isAsg(false), isDynamic(false), id(0), funcId(0), sym(nullptr), prev(nullptr), isEscape(false), isModuleExport(false), isFuncAssignment(false), isUsedInLdElem(false) {}
+    PidRefStack(int id, Js::LocalFunctionId funcId) : isAsg(false), isDynamic(false), id(id), funcId(funcId), sym(nullptr), prev(nullptr), isEscape(false), isModuleExport(false), isFuncAssignment(false), isUsedInLdElem(false) {}
 
     int GetScopeId() const    { return id; }
     Js::LocalFunctionId GetFuncScopeId() const { return funcId; }
@@ -88,6 +88,8 @@ struct PidRefStack
     void SetIsEscape(bool is) { isEscape = is; }
     bool IsDynamicBinding() const { return isDynamic; }
     void SetDynamicBinding()  { isDynamic = true; }
+    bool IsUsedInLdElem() const { return isUsedInLdElem; }
+    void SetIsUsedInLdElem(bool is) { isUsedInLdElem = is; }
 
     Symbol **GetSymRef()
     {
@@ -99,6 +101,7 @@ struct PidRefStack
     bool           isModuleExport;
     bool           isEscape;
     bool           isFuncAssignment;
+    bool           isUsedInLdElem;
     int            id;
     Js::LocalFunctionId funcId;
     Symbol        *sym;
@@ -126,6 +129,7 @@ private:
     Js::PropertyId m_propertyId;
 
     AssignmentState assignmentState;
+    bool isUsedInLdElem;
 
     OLECHAR m_sz[]; // the spelling follows (null terminated)
 
@@ -144,6 +148,16 @@ public:
         return m_pidRefStack;
     }
 
+    PidRefStack *GetTopRef(uint maxBlockId) const
+    {
+        PidRefStack *ref;
+        for (ref = m_pidRefStack; ref && (uint)ref->id > maxBlockId; ref = ref->prev)
+        {
+            ; // nothing
+        }
+        return ref;
+    }
+
     void SetTopRef(PidRefStack *ref)
     {
         m_pidRefStack = ref;
@@ -158,6 +172,24 @@ public:
         else if (assignmentState == AssignedOnce)
         {
             assignmentState = AssignedMultipleTimes;
+        }
+    }
+
+    bool IsUsedInLdElem() const
+    {
+        return this->isUsedInLdElem;
+    }
+
+    void SetIsUsedInLdElem(bool is)
+    {
+        this->isUsedInLdElem = is;
+    }
+
+    static void TrySetIsUsedInLdElem(ParseNode * pnode)
+    {
+        if (pnode && pnode->nop == knopStr)
+        {
+            pnode->sxPid.pid->SetIsUsedInLdElem(true);
         }
     }
 
@@ -209,22 +241,6 @@ public:
             ref->prev = prevRef->prev;
         }
         return prevRef;
-    }
-
-    PidRefStack * TopDecl(int maxBlockId) const
-    {
-        for (PidRefStack *pidRef = m_pidRefStack; pidRef; pidRef = pidRef->prev)
-        {
-            if (pidRef->id > maxBlockId)
-            {
-                continue;
-            }
-            if (pidRef->sym != nullptr)
-            {
-                return pidRef;
-            }
-        }
-        return nullptr;
     }
 
     PidRefStack * FindOrAddPidRef(ArenaAllocator *alloc, int scopeId, Js::LocalFunctionId funcId)
@@ -314,7 +330,7 @@ public:
 class HashTbl
 {
 public:
-    static HashTbl * Create(uint cidHash, ErrHandler * perr);
+    static HashTbl * Create(uint cidHash);
 
     void Release(void)
     {
@@ -374,24 +390,22 @@ public:
         );
 
     tokens TkFromNameLen(_In_reads_(cch) LPCOLESTR prgch, uint32 cch, bool isStrictMode);
-    tokens TkFromNameLenColor(_In_reads_(cch) LPCOLESTR prgch, uint32 cch);
     NoReleaseAllocator* GetAllocator() {return &m_noReleaseAllocator;}
 
     bool Contains(_In_reads_(cch) LPCOLESTR prgch, int32 cch);
+    void ClearPidRefStacks();
 
 private:
     NoReleaseAllocator m_noReleaseAllocator;            // to allocate identifiers
     Ident ** m_prgpidName;        // hash table for names
 
     uint32 m_luMask;                // hash mask
-    uint32 m_luCount;              // count of the number of entires in the hash table
-    ErrHandler * m_perr;        // error handler to use
+    uint32 m_luCount;              // count of the number of entires in the hash table    
     IdentPtr m_rpid[tkLimKwd];
 
-    HashTbl(ErrHandler * perr)
+    HashTbl()
     {
         m_prgpidName = nullptr;
-        m_perr = perr;
         memset(&m_rpid, 0, sizeof(m_rpid));
     }
     ~HashTbl(void) {}
@@ -476,6 +490,7 @@ private:
     static const KWD * KwdOfTok(tokens tk)
     { return (unsigned int)tk < tkLimKwd ? g_mptkkwd + tk : nullptr; }
 
+    static __declspec(noreturn) void OutOfMemory();
 #if PROFILE_DICTIONARY
     DictionaryStats *stats;
 #endif

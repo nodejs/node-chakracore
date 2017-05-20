@@ -322,6 +322,7 @@ StackSym::SetIsIntConst(IntConstType value)
     Assert(this->m_instrDef);
     this->m_isConst = true;
     this->m_isIntConst = true;
+    this->m_isInt64Const = false;
     this->m_isTaggableIntConst = !Js::TaggedInt::IsOverflow(value);
     this->m_isFltConst = false;
 }
@@ -852,21 +853,25 @@ StackSym::GetVarEquivSym(Func *func)
 }
 
 StackSym *
+StackSym::GetVarEquivSym_NoCreate()
+{
+    return this->GetTypeEquivSym_NoCreate(TyVar);
+}
+
+StackSym const *
+StackSym::GetVarEquivSym_NoCreate() const
+{
+    return this->GetTypeEquivSym_NoCreate(TyVar);
+}
+
+StackSym *
 StackSym::GetTypeEquivSym(IRType type, Func *func)
 {
-    Assert(this->m_type != type);
+    StackSym *sym = this->GetTypeEquivSym_NoCreate(type);
 
-    StackSym *sym = this->m_equivNext;
-    int i = 1;
-    while (sym != this)
+    if (sym != nullptr)
     {
-        Assert(i <= 5); // circular of at most 6 syms : var, f64, i32, simd128I4, simd128F4, simd128D2
-        if (sym->m_type == type)
-        {
-            return sym;
-        }
-        sym = sym->m_equivNext;
-        i++;
+        return sym;
     }
 
     // Don't allocate if func wasn't passed in.
@@ -894,7 +899,38 @@ StackSym::GetTypeEquivSym(IRType type, Func *func)
     return sym;
 }
 
+StackSym *
+StackSym::GetTypeEquivSym_NoCreate(IRType type)
+{
+    return const_cast<StackSym*>(static_cast<const StackSym*>(this)->GetTypeEquivSym_NoCreate(type));
+}
+
+StackSym const *
+StackSym::GetTypeEquivSym_NoCreate(IRType type) const
+{
+    Assert(this->m_type != type);
+
+    StackSym *sym = this->m_equivNext;
+    int i = 1;
+    while (sym != this)
+    {
+        Assert(i <= 5); // circular of at most 6 syms : var, f64, i32, simd128I4, simd128F4, simd128D2
+        if (sym->m_type == type)
+        {
+            return sym;
+        }
+        sym = sym->m_equivNext;
+        i++;
+    }
+    return nullptr;
+}
+
 StackSym *StackSym::GetVarEquivStackSym_NoCreate(Sym *const sym)
+{
+    return const_cast<StackSym*>(GetVarEquivStackSym_NoCreate((Sym const * const)sym));
+}
+
+StackSym const *StackSym::GetVarEquivStackSym_NoCreate(Sym const * const sym)
 {
     Assert(sym);
 
@@ -903,10 +939,10 @@ StackSym *StackSym::GetVarEquivStackSym_NoCreate(Sym *const sym)
         return nullptr;
     }
 
-    StackSym *stackSym = sym->AsStackSym();
+    StackSym const *stackSym = sym->AsStackSym();
     if(stackSym->IsTypeSpec())
     {
-        stackSym = stackSym->GetVarEquivSym(nullptr);
+        stackSym = stackSym->GetVarEquivSym_NoCreate();
     }
     return stackSym;
 }
@@ -1015,7 +1051,7 @@ PropertySym::FindOrCreate(SymID stackSymID, int32 propertyId, uint32 propertyIdI
 ///----------------------------------------------------------------------------
 
 void
-Sym::Dump(IRDumpFlags flags, const ValueType valueType)
+Sym::Dump(IRDumpFlags flags, const ValueType valueType) const
 {
     bool const AsmDumpMode = flags & IRDumpFlags_AsmDumpMode;
     bool const SimpleForm = !!(flags & IRDumpFlags_SimpleForm);
@@ -1033,7 +1069,7 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
     }
     else if (this->IsStackSym())
     {
-        StackSym *stackSym = this->AsStackSym();
+        StackSym const *stackSym = this->AsStackSym();
 
         if (stackSym->IsArgSlotSym())
         {
@@ -1103,7 +1139,7 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
             }
             else
             {
-                StackSym *varSym = stackSym->GetVarEquivSym(nullptr);
+                StackSym const *varSym = stackSym->GetVarEquivSym_NoCreate();
                 if (varSym)
                 {
                     Output::Print(_u("(s%d)"), varSym->m_id);
@@ -1121,7 +1157,7 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
     }
     else if (this->IsPropertySym())
     {
-        PropertySym *propertySym = this->AsPropertySym();
+        PropertySym const *propertySym = this->AsPropertySym();
 
         if (!SimpleForm)
         {
@@ -1165,13 +1201,13 @@ Sym::Dump(IRDumpFlags flags, const ValueType valueType)
 
 
 void
-Sym::Dump(const ValueType valueType)
+Sym::Dump(const ValueType valueType) const
 {
     this->Dump(IRDumpFlags_None, valueType);
 }
 
 void
-Sym::DumpSimple()
+Sym::DumpSimple() const
 {
     this->Dump(IRDumpFlags_SimpleForm);
 }

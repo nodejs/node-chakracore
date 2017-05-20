@@ -484,7 +484,14 @@ namespace Js
             LPCUTF8 pbStart = pFuncBody->GetSource(_u("ScriptFunction::EnsureSourceString"));
             BufferStringBuilder builder(cch, scriptContext);
             utf8::DecodeOptions options = pFuncBody->GetUtf8SourceInfo()->IsCesu8() ? utf8::doAllowThreeByteSurrogates : utf8::doDefault;
-            utf8::DecodeUnitsInto(builder.DangerousGetWritableBuffer(), pbStart, pbStart + cbLength, options);
+            size_t decodedCount = utf8::DecodeUnitsInto(builder.DangerousGetWritableBuffer(), pbStart, pbStart + cbLength, options);
+            
+            if (decodedCount != cch)
+            {
+                AssertMsg(false, "Decoded incorrect number of characters for function body");
+                Js::Throw::FatalInternalError();
+            }
+
             if (pFuncBody->IsLambda() || isActiveScript || this->GetFunctionInfo()->IsClassConstructor()
 #ifdef ENABLE_PROJECTION
                 || scriptContext->GetConfig()->IsWinRTEnabled()
@@ -709,7 +716,7 @@ namespace Js
     {
         SetHasInlineCaches(true);
         Js::FunctionBody* functionBody = this->GetFunctionBody();
-        this->m_inlineCaches = (Field(void*)*)functionBody->GetInlineCaches();
+        this->m_inlineCaches = functionBody->GetInlineCaches();
 #if DBG
         this->m_inlineCacheTypes = functionBody->GetInlineCacheTypes();
 #endif
@@ -763,7 +770,7 @@ namespace Js
                     InlineCache* inlineCache = (InlineCache*)(void*)this->m_inlineCaches[i];
                     if (isShutdown)
                     {
-                        memset(this->m_inlineCaches[i], 0, sizeof(InlineCache));
+                        inlineCache->Clear();
                     }
                     else if(!scriptContext->IsClosed())
                     {
@@ -784,7 +791,7 @@ namespace Js
                 {
                     if (isShutdown)
                     {
-                        memset(this->m_inlineCaches[i], 0, sizeof(IsInstInlineCache));
+                        ((IsInstInlineCache*)this->m_inlineCaches[i])->Clear();
                     }
                     else if (!scriptContext->IsClosed())
                     {
@@ -860,7 +867,7 @@ namespace Js
             this->m_inlineCacheTypes = RecyclerNewArrayLeafZ(functionBody->GetScriptContext()->GetRecycler(),
                 byte, totalCacheCount);
 #endif
-            this->m_inlineCaches = (Field(void*)*)inlineCaches;
+            this->m_inlineCaches = inlineCaches;
         }
     }
 

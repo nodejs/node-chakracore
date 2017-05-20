@@ -369,11 +369,12 @@ JsErrorCode SetContextAPIWrapper(JsrtContext* newContext, Fn fn)
         return JsErrorOutOfMemory;
     }
     CATCH_OTHER_EXCEPTIONS(errorCode)
+    AUTO_NESTED_HANDLED_EXCEPTION_TYPE((ExceptionType)(ExceptionType_OutOfMemory | ExceptionType_StackOverflow));
     JsrtContext::TrySetCurrent(oldContext);
     return errorCode;
 }
 
-void HandleScriptCompileError(Js::ScriptContext * scriptContext, CompileScriptException * se);
+void HandleScriptCompileError(Js::ScriptContext * scriptContext, CompileScriptException * se, const WCHAR * sourceUrl = nullptr);
 
 #if DBG
 #define _PREPARE_RETURN_NO_EXCEPTION __debugCheckNoException.hasException = false;

@@ -305,6 +305,20 @@ CommonNumber:
                 PropertyString * propertyString = (PropertyString *)propName;
                 *propertyRecord = propertyString->GetPropertyRecord();
             }
+            else if (VirtualTableInfo<Js::LiteralStringWithPropertyStringPtr>::HasVirtualTable(propName))
+            {
+                LiteralStringWithPropertyStringPtr * str = (LiteralStringWithPropertyStringPtr *)propName;
+                if (str->GetPropertyString())
+                {
+                    *propertyRecord = str->GetPropertyString()->GetPropertyRecord();
+                }
+                else
+                {
+                    scriptContext->GetOrAddPropertyRecord(propName->GetString(), propName->GetLength(), propertyRecord);
+                    PropertyString * propStr = scriptContext->GetPropertyString((*propertyRecord)->GetPropertyId());
+                    str->SetPropertyString(propStr);
+                }
+            }
             else
             {
                 scriptContext->GetOrAddPropertyRecord(propName->GetString(), propName->GetLength(), propertyRecord);
@@ -442,27 +456,28 @@ CommonNumber:
     }
 
     //----------------------------------------------------------------------------
-    //7.1.16 CanonicalNumericIndexString(argument)
+    //https://tc39.github.io/ecma262/#sec-canonicalnumericindexstring
     //1. Assert : Type(argument) is String.
     //2. If argument is "-0", then return -0.
     //3. Let n be ToNumber(argument).
     //4. If SameValue(ToString(n), argument) is false, then return undefined.
     //5. Return n.
     //----------------------------------------------------------------------------
-    BOOL JavascriptConversion::CanonicalNumericIndexString(Var aValue, double *indexValue, ScriptContext * scriptContext)
+    BOOL JavascriptConversion::CanonicalNumericIndexString(JavascriptString *aValue, double *indexValue, ScriptContext * scriptContext)
     {
-        AssertMsg(JavascriptString::Is(aValue), "CanonicalNumericIndexString expects only string");
-        if (JavascriptString::IsNegZero(JavascriptString::FromVar(aValue)))
+        if (JavascriptString::IsNegZero(aValue))
         {
             *indexValue = -0;
             return TRUE;
         }
-        Var indexNumberValue = JavascriptOperators::ToNumber(aValue, scriptContext);
-        if (JavascriptString::Equals(JavascriptConversion::ToString(indexNumberValue, scriptContext), aValue))
+
+        double indexDoubleValue = aValue->ToDouble();
+        if (JavascriptString::Equals(JavascriptNumber::ToStringRadix10(indexDoubleValue, scriptContext), aValue))
         {
-            *indexValue = JavascriptNumber::GetValue(indexNumberValue);
+            *indexValue = indexDoubleValue;
             return TRUE;
         }
+
         return FALSE;
     }
 

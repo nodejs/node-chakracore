@@ -75,6 +75,10 @@ public:
     void LowerGeneratorResumeJumpTable();
 
     void DoInterruptProbes();
+
+    static IR::Instr * TryShiftAdd(IR::Instr *instrAdd, IR::Opnd * opndFold, IR::Opnd * opndAdd);
+    static IR::Instr *PeepShiftAdd(IR::Instr *instr);
+
     IR::Instr *PreLowerPeepInstr(IR::Instr *instr, IR::Instr **pInstrPrev);
     IR::Instr *PeepShl(IR::Instr *instr);
     IR::Instr *PeepBrBool(IR::Instr *instr);
@@ -157,7 +161,7 @@ private:
     bool            GenerateAdjustBaseSlots(IR::Instr * instrStFld, IR::RegOpnd *baseOpnd, JITTypeHolder initialType, JITTypeHolder finalType);
     void            GeneratePrototypeCacheInvalidateCheck(IR::PropertySymOpnd *propertySymOpnd, IR::Instr *instrStFld);
     void            PinTypeRef(JITTypeHolder type, void* typeRef, IR::Instr* instr, Js::PropertyId propertyId);
-    IR::RegOpnd *   GenerateIsBuiltinRecyclableObject(IR::RegOpnd *regOpnd, IR::Instr *insertInstr, IR::LabelInstr *labelHelper, bool checkObjectAndDynamicObject = true, IR::LabelInstr *labelFastExternal = nullptr);
+    IR::RegOpnd *   GenerateIsBuiltinRecyclableObject(IR::RegOpnd *regOpnd, IR::Instr *insertInstr, IR::LabelInstr *labelHelper, bool checkObjectAndDynamicObject = true, IR::LabelInstr *labelFastExternal = nullptr, bool isInHelper = false);
 
 
 
@@ -183,6 +187,7 @@ private:
     IR::Instr *     LowerMemset(IR::Instr * instr, IR::RegOpnd * helperRet);
     IR::Instr *     LowerMemcopy(IR::Instr * instr, IR::RegOpnd * helperRet);
 
+    IR::Instr *     LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd);
     IR::Instr *     LowerLdArrViewElem(IR::Instr * instr);
     IR::Instr *     LowerStArrViewElem(IR::Instr * instr);
     IR::Instr *     LowerLdArrViewElemWasm(IR::Instr * instr);
@@ -250,6 +255,8 @@ private:
     IR::Instr *     LowerNewScIntArray(IR::Instr *arrInstr);
     IR::Instr *     LowerNewScFltArray(IR::Instr *arrInstr);
     IR::Instr *     LowerArraySegmentVars(IR::Instr *instr);
+    IR::Instr *     LowerEqualityBranch(IR::Instr* instr, IR::JnHelperMethod helper);
+    IR::Instr *     LowerEqualityCompare(IR::Instr* instr, IR::JnHelperMethod helper);
     template <typename ArrayType>
     BOOL            IsSmallObject(uint32 length);
 #ifdef ENABLE_DOM_FAST_PATH
@@ -275,11 +282,14 @@ private:
     IR::BranchInstr* GenerateFastBrConst(IR::BranchInstr *branchInstr, IR::Opnd * constOpnd, bool isEqual);
     bool            GenerateFastCondBranch(IR::BranchInstr * instrBranch, bool *pIsHelper);
     void            GenerateBooleanNegate(IR::Instr * instr, IR::Opnd * srcBool, IR::Opnd * dst);
-    bool            GenerateFastEqBoolInt(IR::Instr * instr, bool *pIsHelper);
-    bool            GenerateFastBrEqLikely(IR::BranchInstr * instrBranch, bool *pNeedHelper);
-    bool            GenerateFastBooleanAndObjectEqLikely(IR::Instr * instr, IR::Opnd *src1, IR::Opnd *src2, IR::LabelInstr * labelHelper, IR::LabelInstr * labelEqualLikely, bool *pNeedHelper);
-    bool            GenerateFastCmEqLikely(IR::Instr * instr, bool *pNeedHelper);
+    bool            GenerateFastEqBoolInt(IR::Instr * instr, bool *pIsHelper, bool isInHelper);
+    bool            GenerateFastBrEqLikely(IR::BranchInstr * instrBranch, bool *pNeedHelper, bool isInHelper);
+    bool            GenerateFastBooleanAndObjectEqLikely(IR::Instr * instr, IR::Opnd *src1, IR::Opnd *src2, IR::LabelInstr * labelHelper, IR::LabelInstr * labelEqualLikely, bool *pNeedHelper, bool isInHelper);
+    bool            GenerateFastCmEqLikely(IR::Instr * instr, bool *pNeedHelper, bool isInHelper);
     bool            GenerateFastBrBool(IR::BranchInstr *const instr);
+    bool            GenerateFastStringCheck(IR::Instr *instr, IR::RegOpnd *srcReg1, IR::RegOpnd *srcReg2, bool isEqual, bool isStrict, IR::LabelInstr *labelHelper, IR::LabelInstr *labelBranchSuccess, IR::LabelInstr *labelBranchFail);
+    bool            GenerateFastBrOrCmString(IR::Instr* instr);
+    void            GenerateDynamicLoadPolymorphicInlineCacheSlot(IR::Instr * instrInsert, IR::RegOpnd * inlineCacheOpnd, IR::Opnd * objectTypeOpnd);
     static IR::Instr *LoadFloatFromNonReg(IR::Opnd * opndOrig, IR::Opnd * regOpnd, IR::Instr * instrInsert);
     void            LoadInt32FromUntaggedVar(IR::Instr *const instrLoad);
     bool            GetValueFromIndirOpnd(IR::IndirOpnd *indirOpnd, IR::Opnd **pValueOpnd, IntConstType *pValue);
@@ -415,6 +425,7 @@ private:
         IR::LabelInstr *bailOutLabelInstr = nullptr,
         bool * indirOpndOverflowed = nullptr);
 
+    IR::IndirOpnd * GenerateFastElemIStringIndexCommon(IR::Instr * ldElem, bool isStore, IR::IndirOpnd * indirOpnd, IR::LabelInstr * labelHelper);
     bool            GenerateFastLdElemI(IR::Instr *& ldElem, bool *instrIsInHelperBlockRef);
     bool            GenerateFastStElemI(IR::Instr *& StElem, bool *instrIsInHelperBlockRef);
     bool            GenerateFastLdLen(IR::Instr *ldLen, bool *instrIsInHelperBlockRef);
@@ -424,6 +435,8 @@ private:
     void            GenerateFastInlineStringCodePointAt(IR::Instr* doneLabel, Func* func, IR::Opnd *strLength, IR::Opnd *srcIndex, IR::RegOpnd *lowerChar, IR::RegOpnd *strPtr);
     bool            GenerateFastInlineStringCharCodeAt(IR::Instr* instr, Js::BuiltinFunction index);
     bool            GenerateFastInlineStringReplace(IR::Instr* instr);
+    void            GenerateFastInlineIsArray(IR::Instr * instr);
+    void            GenerateFastInlineHasOwnProperty(IR::Instr * instr);
     void            GenerateFastInlineArrayPush(IR::Instr * instr);
     void            GenerateFastInlineArrayPop(IR::Instr * instr);
     void            GenerateFastInlineStringSplitMatch(IR::Instr * instr);
@@ -460,7 +473,8 @@ private:
     void            LowerBailOnNotString(IR::Instr *instr);
     IR::Instr *     LowerBailForDebugger(IR::Instr* instr, bool isInsideHelper = false);
     IR::Instr *     LowerBailOnException(IR::Instr* instr);
-    IR::Instr *     LowerReinterpretPrimitive(IR::Instr* instr);
+    void            LowerReinterpretPrimitive(IR::Instr* instr);
+    IR::Instr *     LowerBailOnEarlyExit(IR::Instr* instr);
 
     void            LowerOneBailOutKind(IR::Instr *const instr, const IR::BailOutKind bailOutKindToLower, const bool isInHelperBlock, const bool preserveBailOutKindInInstr = false);
 
@@ -471,6 +485,8 @@ private:
     void            LowerBailOnInvalidatedArrayLength(IR::Instr *const instr, const bool isInHelperBlock);
     void            LowerBailOnCreatedMissingValue(IR::Instr *const instr, const bool isInHelperBlock);
     void            LowerBoundCheck(IR::Instr *const instr);
+    IR::Opnd*       GetFuncObjectOpnd(IR::Instr* insertBeforeInstr);
+    IR::Instr*      LoadFuncExpression(IR::Instr *instrFuncExpr);
 
     IR::Instr *     LowerBailTarget(IR::Instr * instr);
     IR::Instr *     SplitBailOnImplicitCall(IR::Instr *& instr);

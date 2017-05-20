@@ -31,7 +31,7 @@ param (
 
     [string]$bvtcmdpath = "",
     [string]$testparams = "",
-    
+
     [string]$repo = "core",
     [string]$logFile = "",
 

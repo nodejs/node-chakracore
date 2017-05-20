@@ -17,7 +17,8 @@ namespace Wasm
             I64 = 2,
             F32 = 3,
             F64 = 4,
-            Limit
+            Limit,
+            Any
         };
         bool IsLocalType(WasmTypes::WasmType type);
         uint32 GetTypeByteSize(WasmType type);
@@ -65,7 +66,6 @@ namespace Wasm
     {
 #define WASM_OPCODE(opname, opcode, sig, nyi) wb##opname = opcode,
 #include "WasmBinaryOpCodes.h"
-        wbLimit
     };
 
     struct WasmConstLitNode

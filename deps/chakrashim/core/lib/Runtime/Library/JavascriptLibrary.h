@@ -52,8 +52,20 @@ namespace Js
         Field(int) validPropStrings;
     };
 
+    struct PropertyStringMap
+    {
+        Field(PropertyString*) strLen2[80];
+
+        inline static uint PStrMapIndex(char16 ch)
+        {
+            Assert(ch >= '0' && ch <= 'z');
+            return ch - '0';
+        }
+    };
+
     struct Cache
     {
+        Field(PropertyStringMap*) propertyStrings[80];
         Field(JavascriptString *) lastNumberToStringRadix10String;
         Field(EnumeratedObjectCache) enumObjCache;
         Field(JavascriptString *) lastUtcTimeFromStrString;
@@ -363,9 +375,17 @@ namespace Js
         Field(JavascriptString*) emptyString;
         Field(JavascriptString*) quotesString;
         Field(JavascriptString*) whackString;
+        Field(JavascriptString*) objectArgumentsDisplayString;
+        Field(JavascriptString*) objectArrayDisplayString;
+        Field(JavascriptString*) objectBooleanDisplayString;
+        Field(JavascriptString*) objectDateDisplayString;
+        Field(JavascriptString*) objectErrorDisplayString;
+        Field(JavascriptString*) objectFunctionDisplayString;
         Field(JavascriptString*) objectDisplayString;
+        Field(JavascriptString*) objectNumberDisplayString;
+        Field(JavascriptString*) objectRegExpDisplayString;
+        Field(JavascriptString*) objectStringDisplayString;
         Field(JavascriptString*) stringTypeDisplayString;
-        Field(JavascriptString*) errorDisplayString;
         Field(JavascriptString*) functionPrefixString;
         Field(JavascriptString*) generatorFunctionPrefixString;
         Field(JavascriptString*) asyncFunctionPrefixString;
@@ -379,7 +399,6 @@ namespace Js
         Field(JavascriptString*) commaSpaceDisplayString;
         Field(JavascriptString*) trueDisplayString;
         Field(JavascriptString*) falseDisplayString;
-        Field(JavascriptString*) lengthDisplayString;
         Field(JavascriptString*) invalidDateString;
         Field(JavascriptString*) objectTypeDisplayString;
         Field(JavascriptString*) functionTypeDisplayString;
@@ -420,7 +439,6 @@ namespace Js
 #endif
 
         Field(JavascriptFunction*) evalFunctionObject;
-        Field(JavascriptFunction*) arrayPrototypeValuesFunction;
         Field(JavascriptFunction*) parseIntFunctionObject;
         Field(JavascriptFunction*) parseFloatFunctionObject;
         Field(JavascriptFunction*) arrayPrototypeToStringFunction;
@@ -435,6 +453,9 @@ namespace Js
 
 #ifdef ENABLE_WASM
         Field(DynamicObject*) webAssemblyObject;
+        Field(JavascriptFunction*) webAssemblyQueryResponseFunction;
+        Field(JavascriptFunction*) webAssemblyCompileFunction;
+        Field(JavascriptFunction*) webAssemblyInstantiateBoundFunction;
 #endif
 
         // SIMD_JS
@@ -633,10 +654,17 @@ namespace Js
         JavascriptString* GetCommaSpaceDisplayString() { return commaSpaceDisplayString; }
         JavascriptString* GetTrueDisplayString() { return trueDisplayString; }
         JavascriptString* GetFalseDisplayString() { return falseDisplayString; }
-        JavascriptString* GetLengthDisplayString() { return lengthDisplayString; }
         JavascriptString* GetObjectDisplayString() { return objectDisplayString; }
+        JavascriptString* GetObjectArgumentsDisplayString() { return objectArgumentsDisplayString; }
+        JavascriptString* GetObjectArrayDisplayString() { return objectArrayDisplayString; }
+        JavascriptString* GetObjectBooleanDisplayString() { return objectBooleanDisplayString; }
+        JavascriptString* GetObjectDateDisplayString() { return objectDateDisplayString; }
+        JavascriptString* GetObjectErrorDisplayString() { return objectErrorDisplayString; }
+        JavascriptString* GetObjectFunctionDisplayString() { return objectFunctionDisplayString; }
+        JavascriptString* GetObjectNumberDisplayString() { return objectNumberDisplayString; }
+        JavascriptString* GetObjectRegExpDisplayString() { return objectRegExpDisplayString; }
+        JavascriptString* GetObjectStringDisplayString() { return objectStringDisplayString; }
         JavascriptString* GetStringTypeDisplayString() { return stringTypeDisplayString; }
-        JavascriptString* GetErrorDisplayString() const { return errorDisplayString; }
         JavascriptString* GetFunctionPrefixString() { return functionPrefixString; }
         JavascriptString* GetGeneratorFunctionPrefixString() { return generatorFunctionPrefixString; }
         JavascriptString* GetAsyncFunctionPrefixString() { return asyncFunctionPrefixString; }
@@ -669,7 +697,6 @@ namespace Js
         JavascriptString* GetDebuggerDeadZoneBlockVariableString() { Assert(debuggerDeadZoneBlockVariableString); return debuggerDeadZoneBlockVariableString; }
         JavascriptRegExp* CreateEmptyRegExp();
         JavascriptFunction* GetEvalFunctionObject() { return evalFunctionObject; }
-        JavascriptFunction* GetArrayPrototypeValuesFunction() { return EnsureArrayPrototypeValuesFunction(); }
         JavascriptFunction* GetArrayIteratorPrototypeBuiltinNextFunction() { return arrayIteratorPrototypeBuiltinNextFunction; }
         DynamicObject* GetReflectObject() const { return reflectObject; }
         const PropertyDescriptor* GetDefaultPropertyDescriptor() const { return &defaultPropertyDescriptor; }
@@ -775,6 +802,11 @@ namespace Js
         DynamicType * GetWebAssemblyInstanceType()  const { return webAssemblyInstanceType; }
         DynamicType * GetWebAssemblyMemoryType() const { return webAssemblyMemoryType; }
         DynamicType * GetWebAssemblyTableType() const { return webAssemblyTableType; }
+#ifdef ENABLE_WASM
+        JavascriptFunction* GetWebAssemblyQueryResponseFunction() const { return webAssemblyQueryResponseFunction; }
+        JavascriptFunction* GetWebAssemblyCompileFunction() const { return webAssemblyCompileFunction; }
+        JavascriptFunction* GetWebAssemblyInstantiateBoundFunction() const { return webAssemblyInstantiateBoundFunction; }
+#endif
 
         // SIMD_JS
         DynamicType * GetSIMDBool8x16TypeDynamic()  const { return simdBool8x16TypeDynamic;  }
@@ -1036,7 +1068,7 @@ namespace Js
         JavascriptExternalFunction* CreateStdCallExternalFunction(StdCallJavascriptMethod entryPointer, PropertyId nameId, void *callbackState);
         JavascriptExternalFunction* CreateStdCallExternalFunction(StdCallJavascriptMethod entryPointer, Var nameId, void *callbackState);
         JavascriptPromiseAsyncSpawnExecutorFunction* CreatePromiseAsyncSpawnExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var target);
-        JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction* CreatePromiseAsyncSpawnStepArgumentExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var argument, JavascriptFunction* resolve = NULL, JavascriptFunction* reject = NULL, bool isReject = false);
+        JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction* CreatePromiseAsyncSpawnStepArgumentExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var argument, Var resolve = nullptr, Var reject = nullptr, bool isReject = false);
         JavascriptPromiseCapabilitiesExecutorFunction* CreatePromiseCapabilitiesExecutorFunction(JavascriptMethod entryPoint, JavascriptPromiseCapability* capability);
         JavascriptPromiseResolveOrRejectFunction* CreatePromiseResolveOrRejectFunction(JavascriptMethod entryPoint, JavascriptPromise* promise, bool isReject, JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper* alreadyResolvedRecord);
         JavascriptPromiseReactionTaskFunction* CreatePromiseReactionTaskFunction(JavascriptMethod entryPoint, JavascriptPromiseReaction* reaction, Var argument);
@@ -1068,7 +1100,6 @@ namespace Js
         template<> JavascriptString* CreateStringFromCppLiteral(const char16 (&value)[1]) const; // Specialization for empty string
         template<> JavascriptString* CreateStringFromCppLiteral(const char16 (&value)[2]) const; // Specialization for single-char strings
         PropertyString* CreatePropertyString(const Js::PropertyRecord* propertyRecord);
-        PropertyString* CreatePropertyString(const Js::PropertyRecord* propertyRecord, ArenaAllocator *arena);
 
         JavascriptVariantDate* CreateVariantDate(const double value);
 
@@ -1098,6 +1129,10 @@ namespace Js
         JavascriptFunction* EnsurePromiseThenFunction();
         JavascriptFunction* EnsureGeneratorNextFunction();
         JavascriptFunction* EnsureGeneratorThrowFunction();
+        JavascriptFunction* EnsureArrayPrototypeForEachFunction();
+        JavascriptFunction* EnsureArrayPrototypeKeysFunction();
+        JavascriptFunction* EnsureArrayPrototypeEntriesFunction();
+        JavascriptFunction* EnsureArrayPrototypeValuesFunction();
         JavascriptFunction* EnsureJSONStringifyFunction();
         JavascriptFunction* EnsureObjectFreezeFunction();
 
@@ -1326,9 +1361,6 @@ namespace Js
 #if ENABLE_DEBUG_CONFIG_OPTIONS
         static char16 const * const LibraryFunctionName[BuiltinFunction::Count + 1];
 #endif
-
-        JavascriptFunction* EnsureArrayPrototypeValuesFunction();
-
 
     public:
         virtual void Finalize(bool isShutdown) override;

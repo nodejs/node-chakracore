@@ -53,8 +53,8 @@ EXDEF2    (NOPASMJS          , InvalidOpCode, Empty                             
   DEF4_WMS( TEMPLATE_ASMJS   , StSlot_Long  , OP_StSlotPrimitive           , ElementSlot, int64  )
   DEF4_WMS( TEMPLATE_ASMJS   , StSlot_Flt   , OP_StSlotPrimitive           , ElementSlot, float  )
   DEF3_WMS( CUSTOM_ASMJS     , LdArr        , OP_LdArrGeneric              , AsmTypedArr         )
-  DEF3_WMS( CUSTOM_ASMJS     , LdArrWasm    , OP_LdArrWasm                 , AsmTypedArr         )
-  DEF3_WMS( CUSTOM_ASMJS     , StArrWasm    , OP_StArrWasm                 , AsmTypedArr         )
+  DEF3_WMS( CUSTOM_ASMJS     , LdArrWasm    , OP_LdArrWasm                 , WasmMemAccess       )
+  DEF3_WMS( CUSTOM_ASMJS     , StArrWasm    , OP_StArrWasm                 , WasmMemAccess       )
   DEF3_WMS( CUSTOM_ASMJS     , LdArrConst   , OP_LdArrConstIndex           , AsmTypedArr         )
   DEF3_WMS( CUSTOM_ASMJS     , StArr        , OP_StArrGeneric              , AsmTypedArr         )
   DEF3_WMS( CUSTOM_ASMJS     , StArrConst   , OP_StArrConstIndex           , AsmTypedArr         )
@@ -252,6 +252,17 @@ EXDEF2_WMS( D1toL1Ctx        , Conv_Check_DTUL  , JavascriptConversion::F64TOU64
 
   DEF2_WMS( IP_TARG_ASM      , AsmJsLoopBodyStart, OP_ProfiledLoopBodyStart                      )
 
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+EXDEF3_WMS( CUSTOM_ASMJS, PrintFuncName  , OP_WasmPrintFunc , Int2)
+EXDEF2    ( EMPTYASMJS, PrintArgSeparator, WAsmJs::Tracing::PrintArgSeparator)
+EXDEF2    ( EMPTYASMJS, PrintBeginCall, WAsmJs::Tracing::PrintBeginCall)
+EXDEF2    ( EMPTYASMJS, PrintNewLine, WAsmJs::Tracing::PrintNewLine)
+EXDEF3_WMS( CUSTOM_ASMJS, PrintEndCall, WAsmJs::Tracing::PrintEndCall, Int2)
+EXDEF2_WMS( I1toI1Mem, PrintI32, WAsmJs::Tracing::PrintI32 )
+EXDEF2_WMS( L1toL1Mem, PrintI64, WAsmJs::Tracing::PrintI64 )
+EXDEF2_WMS( F1toF1Mem, PrintF32, WAsmJs::Tracing::PrintF32 )
+EXDEF2_WMS( D1toD1Mem, PrintF64, WAsmJs::Tracing::PrintF64 )
+#endif
   //unary ops
 
 EXDEF2_WMS( SIMD_F4_1toF4_1  , Simd128_Ld_F4        , (AsmJsSIMDValue)                                   )

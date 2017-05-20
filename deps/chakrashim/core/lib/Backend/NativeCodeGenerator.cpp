@@ -806,7 +806,7 @@ NativeCodeGenerator::CodeGen(PageAllocator * pageAllocator, CodeGenWorkItem* wor
     if(foreground)
     {
         // Func::Codegen has a lot of things on the stack, so probe the stack here instead
-        PROBE_STACK(scriptContext, Js::Constants::MinStackJITCompile);
+        PROBE_STACK_NO_DISPOSE(scriptContext, Js::Constants::MinStackJITCompile);
     }
 
 #if ENABLE_DEBUG_CONFIG_OPTIONS
@@ -919,6 +919,8 @@ NativeCodeGenerator::CodeGen(PageAllocator * pageAllocator, CodeGenWorkItem* wor
         {
             this->scriptContext->GetJitFuncRangeCache()->AddFuncRange((void*)jitWriteData.codeAddress, jitWriteData.codeSize);
         }
+        Assert(jitWriteData.codeAddress);
+        Assert(jitWriteData.codeSize);
     }
     else
     {
@@ -1135,6 +1137,10 @@ NativeCodeGenerator::CodeGen(PageAllocator * pageAllocator, CodeGenWorkItem* wor
 
     if (body->HasDynamicProfileInfo())
     {
+        if (jitWriteData.disableArrayCheckHoist)
+        {
+            body->GetAnyDynamicProfileInfo()->DisableArrayCheckHoist(workItem->Type() == JsLoopBodyWorkItemType);
+        }
         if (jitWriteData.disableAggressiveIntTypeSpec)
         {
             body->GetAnyDynamicProfileInfo()->DisableAggressiveIntTypeSpec(workItem->Type() == JsLoopBodyWorkItemType);
@@ -1162,6 +1168,8 @@ NativeCodeGenerator::CodeGen(PageAllocator * pageAllocator, CodeGenWorkItem* wor
         body->SetDisableInlineSpread(true);
     }
     
+    NativeCodeGenerator::LogCodeGenDone(workItem, &start_time);
+
 #ifdef PROFILE_BAILOUT_RECORD_MEMORY
     if (Js::Configuration::Global.flags.ProfileBailOutRecordMemory)
     {
@@ -2200,7 +2208,7 @@ NativeCodeGenerator::GatherCodeGenData(
     if(IsInlinee)
     {
         // This function is recursive
-        PROBE_STACK(scriptContext, Js::Constants::MinStackDefault);
+        PROBE_STACK_NO_DISPOSE(scriptContext, Js::Constants::MinStackDefault);
     }
     else
     {
@@ -2329,7 +2337,7 @@ NativeCodeGenerator::GatherCodeGenData(
                     inlineCache = functionBody->GetInlineCache(i);
                 }
 
-                Js::ObjTypeSpecFldInfo* objTypeSpecFldInfo = nullptr;
+                ObjTypeSpecFldInfo* objTypeSpecFldInfo = nullptr;
 
 #if ENABLE_DEBUG_CONFIG_OPTIONS
                 if (PHASE_VERBOSE_TRACE(Js::ObjTypeSpecPhase, topFunctionBody) || PHASE_VERBOSE_TRACE(Js::EquivObjTypeSpecPhase, topFunctionBody))
@@ -2361,7 +2369,7 @@ NativeCodeGenerator::GatherCodeGenData(
                         if (!(functionBody->IsInDebugMode() && inlineCache->GetType() &&
                               inlineCache->GetType()->GetTypeId() == Js::TypeIds_ActivationObject))
                         {
-                            objTypeSpecFldInfo = Js::ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
+                            objTypeSpecFldInfo = ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
                             if (objTypeSpecFldInfo)
                             {
                                 IncInlineCacheCount(clonedMonoInlineCacheCount);
@@ -2391,7 +2399,7 @@ NativeCodeGenerator::GatherCodeGenData(
                 {
                     if (!objTypeSpecFldInfo && (cacheType & Js::FldInfo_FromAccessor) && (cacheType & Js::FldInfo_InlineCandidate))
                     {
-                        objTypeSpecFldInfo = Js::ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
+                        objTypeSpecFldInfo = ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
                         if (objTypeSpecFldInfo)
                         {
                             inlineGetterSetter = true;
@@ -2432,7 +2440,7 @@ NativeCodeGenerator::GatherCodeGenData(
                                 // non configurable
                                 if (objTypeSpecFldInfo == nullptr)
                                 {
-                                    objTypeSpecFldInfo = Js::ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
+                                    objTypeSpecFldInfo = ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
                                     if (objTypeSpecFldInfo)
                                     {
                                         IncInlineCacheCount(clonedMonoInlineCacheCount);
@@ -2453,7 +2461,7 @@ NativeCodeGenerator::GatherCodeGenData(
             else if(function && Js::ScriptFunctionWithInlineCache::Is(function) && (cacheType & Js::FldInfo_InlineCandidate || !polymorphicCacheOnFunctionBody))
             {
                 Js::InlineCache *inlineCache = Js::ScriptFunctionWithInlineCache::FromVar(function)->GetInlineCache(i);
-                Js::ObjTypeSpecFldInfo* objTypeSpecFldInfo = nullptr;
+                ObjTypeSpecFldInfo* objTypeSpecFldInfo = nullptr;
 
                 if(!PHASE_OFF(Js::ObjTypeSpecPhase, functionBody) || !PHASE_OFF(Js::FixedMethodsPhase, functionBody))
                 {
@@ -2466,7 +2474,7 @@ NativeCodeGenerator::GatherCodeGenData(
                         if (!(functionBody->IsInDebugMode() && inlineCache->GetType() &&
                               inlineCache->GetType()->GetTypeId() == Js::TypeIds_ActivationObject))
                         {
-                            objTypeSpecFldInfo = Js::ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
+                            objTypeSpecFldInfo = ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), inlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
                             if (objTypeSpecFldInfo)
                             {
                                 IncInlineCacheCount(clonedMonoInlineCacheCount);
@@ -2518,7 +2526,7 @@ NativeCodeGenerator::GatherCodeGenData(
                                 Output::Flush();
                             }
 #endif
-                            Js::ObjTypeSpecFldInfo* objTypeSpecFldInfo = Js::ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), polymorphicInlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
+                            ObjTypeSpecFldInfo* objTypeSpecFldInfo = ObjTypeSpecFldInfo::CreateFrom(objTypeSpecFldInfoList->Count(), polymorphicInlineCache, i, entryPoint, topFunctionBody, functionBody, InlineCacheStatsArg(jitTimeData));
                             if (objTypeSpecFldInfo != nullptr)
                             {
                                 if (!isJitTimeDataComputed)
@@ -2824,7 +2832,7 @@ NativeCodeGenerator::GatherCodeGenData(
             //    then even if the field info flags say that the field access may be polymorphic, carry that optimism forward and try to inline apply target.
             if (getSetInlineCandidate ^ callApplyInlineCandidate)
             {
-                Js::ObjTypeSpecFldInfo* info = jitTimeData->GetObjTypeSpecFldInfoArray()->GetInfo(functionBody, inlineCacheIndex);
+                ObjTypeSpecFldInfo* info = jitTimeData->GetObjTypeSpecFldInfoArray()->GetInfo(functionBody, inlineCacheIndex);
                 if (info == nullptr)
                 {
                     continue;
@@ -3003,9 +3011,9 @@ NativeCodeGenerator::GatherCodeGenData(Js::FunctionBody *const topFunctionBody, 
 #endif
 
         uint objTypeSpecFldInfoCount = objTypeSpecFldInfoList->Count();
-        jitTimeData->SetGlobalObjTypeSpecFldInfoArray(RecyclerNewArray(recycler, Field(Js::ObjTypeSpecFldInfo*), objTypeSpecFldInfoCount), objTypeSpecFldInfoCount);
+        jitTimeData->SetGlobalObjTypeSpecFldInfoArray(RecyclerNewArray(recycler, Field(ObjTypeSpecFldInfo*), objTypeSpecFldInfoCount), objTypeSpecFldInfoCount);
         uint propertyInfoId = objTypeSpecFldInfoCount - 1;
-        FOREACH_SLISTCOUNTED_ENTRY(Js::ObjTypeSpecFldInfo*, info, objTypeSpecFldInfoList)
+        FOREACH_SLISTCOUNTED_ENTRY(ObjTypeSpecFldInfo*, info, objTypeSpecFldInfoList)
         {
             // Clear field values we don't need so we don't unnecessarily pin them while JIT-ing.
             if (!info->GetKeepFieldValue() && !(info->IsPoly() && info->DoesntHaveEquivalence()))
@@ -3164,18 +3172,15 @@ bool NativeCodeGenerator::TryReleaseNonHiPriWorkItem(CodeGenWorkItem* workItem)
 void
 NativeCodeGenerator::FreeNativeCodeGenAllocation(void* address)
 {
-    if(this->backgroundAllocators)
+    if (JITManager::GetJITManager()->IsOOPJITEnabled())
     {
         ThreadContext * context = this->scriptContext->GetThreadContext();
-        if (JITManager::GetJITManager()->IsOOPJITEnabled())
-        {
-            // OOP JIT TODO: need error handling?
-            JITManager::GetJITManager()->FreeAllocation(context->GetRemoteThreadContextAddr(), (intptr_t)address);
-        }
-        else
-        {
-            this->backgroundAllocators->emitBufferManager.FreeAllocation(address);
-        }
+        HRESULT hr = JITManager::GetJITManager()->FreeAllocation(context->GetRemoteThreadContextAddr(), (intptr_t)address);
+        JITManager::HandleServerCallResult(hr, RemoteCallType::MemFree);
+    }
+    else if(this->backgroundAllocators)
+    {
+        this->backgroundAllocators->emitBufferManager.FreeAllocation(address);
     }
 }
 
@@ -3200,25 +3205,12 @@ NativeCodeGenerator::QueueFreeNativeCodeGenAllocation(void* address)
     {
         this->scriptContext->GetJitFuncRangeCache()->RemoveFuncRange((void*)address);
     }
+    // OOP JIT will always queue a job
 
     // The foreground allocators may have been used
-    ThreadContext * context = this->scriptContext->GetThreadContext();
-    if(this->foregroundAllocators)
+    if(this->foregroundAllocators && this->foregroundAllocators->emitBufferManager.FreeAllocation(address))
     {
-        if (JITManager::GetJITManager()->IsOOPJITEnabled())
-        {
-            // TODO: OOP JIT, should we always just queue this in background?
-            // OOP JIT TODO: need error handling?
-            JITManager::GetJITManager()->FreeAllocation(context->GetRemoteThreadContextAddr(), (intptr_t)address);
-            return;
-        }
-        else
-        {
-            if (this->foregroundAllocators->emitBufferManager.FreeAllocation(address))
-            {
-                return;
-            }
-        }
+        return;
     }
 
     // The background allocators were used. Queue a job to free the allocation from the background thread.
@@ -3454,7 +3446,7 @@ if (Js::Configuration::Global.flags.IsEnabled(Js::ProfileFlag))
 
 bool NativeCodeGenerator::TryAggressiveInlining(Js::FunctionBody *const topFunctionBody, Js::FunctionBody *const inlineeFunctionBody, InliningDecider &inliningDecider, uint& inlineeCount, uint recursiveInlineDepth)
 {
-    PROBE_STACK(scriptContext, Js::Constants::MinStackDefault);
+    PROBE_STACK_NO_DISPOSE(scriptContext, Js::Constants::MinStackDefault);
 
     if (!inlineeFunctionBody->GetProfiledCallSiteCount())
     {
@@ -3664,7 +3656,15 @@ JITManager::HandleServerCallResult(HRESULT hr, RemoteCallType callType)
     case E_ABORT:
         throw Js::OperationAbortedException();
     case E_OUTOFMEMORY:
-        Js::Throw::OutOfMemory();
+        if (callType == RemoteCallType::MemFree)
+        {
+            // if freeing memory fails due to OOM, it means we failed to fill with debug breaks -- so failfast
+            RpcFailure_fatal_error(hr);
+        }
+        else
+        {
+            Js::Throw::OutOfMemory();
+        }
     case VBSERR_OutOfStack:
         throw Js::StackOverflowException();
     default:
@@ -3695,6 +3695,7 @@ JITManager::HandleServerCallResult(HRESULT hr, RemoteCallType callType)
     case RemoteCallType::ThunkCreation:
         Js::Throw::OutOfMemory();
     case RemoteCallType::StateUpdate:
+    case RemoteCallType::MemFree:
         // if server process is gone, we can ignore failures updating its state
         return;
     default:

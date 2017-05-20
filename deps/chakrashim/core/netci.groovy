@@ -18,8 +18,8 @@ def msbuildTypeMap = [
 
 // convert `machine` parameter to OS component of PR task name
 def machineTypeToOSTagMap = [
-    'Windows 7': 'Windows 7',
-    'Windows_NT': 'Windows',
+    'Windows 7': 'Windows 7',       // Windows Server 2008 R2, equivalent to Windows 7
+    'Windows_NT': 'Windows',        // Windows Server 2012 R2, equivalent to Windows 8.1 (aka Blue)
     'Ubuntu16.04': 'Ubuntu',
     'OSX': 'OSX'
 ]
@@ -113,10 +113,11 @@ def CreateXPlatBuildTask = { isPR, buildType, staticBuild, machine, platform, co
     def numConcurrentCommand = (platform == "osx" ? "sysctl -n hw.logicalcpu" : "nproc")
 
     config = (configTag == null) ? config : "${configTag}_${config}"
-    config = staticBuild ? "${config}_static" : config
+    config = staticBuild ? "static_${config}" : "shared_${config}"
+    config = customOption ? customOption.replaceAll(/[-]+/, "_") + "_" + config : config
 
     // params: Project, BaseTaskName, IsPullRequest (appends '_prtest')
-    def jobName = Utilities.getFullJobName(project, config, isPR) + customOption.replaceAll(/[-]+/, "_")
+    def jobName = Utilities.getFullJobName(project, config, isPR)
 
     def infoScript = "bash jenkins/get_system_info.sh --${platform}"
     def buildFlag = buildType == "release" ? "" : (buildType == "debug" ? "--debug" : "--test-build")
@@ -221,15 +222,15 @@ def CreateStyleCheckTasks = { taskString, taskName, checkName ->
 // INNER LOOP TASKS
 // ----------------
 
-CreateBuildTasks('Windows_NT', null, null, null, true, null, null)
+CreateBuildTasks('Windows_NT', null, null, "-winBlue", true, null, null)
 
 // Add some additional daily configs to trigger per-PR as a quality gate:
 // x64_debug Slow Tests
 CreateBuildTask(true, 'x64', 'debug',
-    'Windows_NT', 'ci_slow', null, '-includeSlow', false, null, null)
+    'Windows_NT', 'ci_slow', null, '-winBlue -includeSlow', false, null, null)
 // x64_debug DisableJIT
 CreateBuildTask(true, 'x64', 'debug',
-    'Windows_NT', 'ci_disablejit', '"/p:BuildJIT=false"', '-disablejit', false, null, null)
+    'Windows_NT', 'ci_disablejit', '"/p:BuildJIT=false"', '-winBlue -disablejit', false, null, null)
 // x64_debug Legacy
 CreateBuildTask(true, 'x64', 'debug',
     'Windows 7', 'ci_dev12', 'msbuild12', '-win7 -includeSlow', false, null, null)
@@ -248,7 +249,7 @@ if (!branch.endsWith('-ci')) {
                 '(dev12|legacy)\\s+tests')})
 
     // build and test on the usual configuration (VS 2015) with -includeSlow
-    CreateBuildTasks('Windows_NT', 'daily_slow', null, '-includeSlow', false,
+    CreateBuildTasks('Windows_NT', 'daily_slow', null, '-winBlue -includeSlow', false,
         /* excludeConfigIf */ null,
         /* nonDefaultTaskSetup */ { newJob, isPR, config ->
             DailyBuildTaskSetup(newJob, isPR,
@@ -256,7 +257,7 @@ if (!branch.endsWith('-ci')) {
                 'slow\\s+tests')})
 
     // build and test on the usual configuration (VS 2015) with JIT disabled
-    CreateBuildTasks('Windows_NT', 'daily_disablejit', '"/p:BuildJIT=false"', '-disablejit', true,
+    CreateBuildTasks('Windows_NT', 'daily_disablejit', '"/p:BuildJIT=false"', '-winBlue -disablejit', true,
         /* excludeConfigIf */ null,
         /* nonDefaultTaskSetup */ { newJob, isPR, config ->
             DailyBuildTaskSetup(newJob, isPR,

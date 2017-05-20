@@ -408,50 +408,6 @@ LowererMDArch::LoadHeapArguments(IR::Instr *instrArgs)
     return instrPrev;
 }
 
-///----------------------------------------------------------------------------
-///
-/// LowererMDArch::LoadFuncExpression
-///
-///     Load the function expression to src1 from [ebp + 8]
-///
-///----------------------------------------------------------------------------
-
-IR::Instr *
-LowererMDArch::LoadFuncExpression(IR::Instr *instrFuncExpr)
-{
-    ASSERT_INLINEE_FUNC(instrFuncExpr);
-    Func *func = instrFuncExpr->m_func;
-
-    IR::Opnd *paramOpnd = nullptr;
-    if (func->IsInlinee())
-    {
-        paramOpnd = func->GetInlineeFunctionObjectSlotOpnd();
-    }
-    else
-    {
-        StackSym *paramSym = StackSym::New(TyMachReg, this->m_func);
-        this->m_func->SetArgOffset(paramSym, 2 * MachPtr);
-        paramOpnd = IR::SymOpnd::New(paramSym, TyMachReg, this->m_func);
-    }
-
-    if (instrFuncExpr->m_func->GetJITFunctionBody()->IsCoroutine())
-    {
-        // the function object for generator calls is a GeneratorVirtualScriptFunction object
-        // and we need to return the real JavascriptGeneratorFunction object so grab it before
-        // assigning to the dst
-        IR::RegOpnd *tmpOpnd = IR::RegOpnd::New(TyMachReg, func);
-        LowererMD::CreateAssign(tmpOpnd, paramOpnd, instrFuncExpr);
-
-        paramOpnd = IR::IndirOpnd::New(tmpOpnd, Js::GeneratorVirtualScriptFunction::GetRealFunctionOffset(), TyMachPtr, func);
-    }
-
-    // mov dst, param
-    instrFuncExpr->SetSrc1(paramOpnd);
-    LowererMD::ChangeToAssign(instrFuncExpr);
-
-    return instrFuncExpr;
-}
-
 //
 // Load the parameter in the first argument slot
 //
@@ -587,7 +543,7 @@ LowererMDArch::LowerCallArgs(IR::Instr *callInstr, ushort callFlags, Js::ArgSlot
     // Machine dependent lowering
     //
 
-    if (callInstr->m_opcode != Js::OpCode::AsmJsCallI && callInstr->m_opcode != Js::OpCode::AsmJsEntryTracing)
+    if (callInstr->m_opcode != Js::OpCode::AsmJsCallI)
     {
         // Push argCount
         IR::IntConstOpnd *argCountOpnd = Lowerer::MakeCallInfoConst(callFlags, argCount, m_func);
@@ -605,17 +561,8 @@ LowererMDArch::LowerCallArgs(IR::Instr *callInstr, ushort callFlags, Js::ArgSlot
 
     if (m_func->GetJITFunctionBody()->IsAsmJsMode())
     {
-#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-        if (callInstr->m_opcode == Js::OpCode::AsmJsEntryTracing)
-        {
-            callInstr = this->lowererMD->ChangeToHelperCall(callInstr, IR::HelperTraceAsmJsArgIn);
-        }
-        else
-#endif
-        {
-            IR::Opnd * functionObjOpnd = callInstr->UnlinkSrc1();
-            GeneratePreCall(callInstr, functionObjOpnd, cfgInsertLoc->GetNextRealInstr());
-        }
+        IR::Opnd * functionObjOpnd = callInstr->UnlinkSrc1();
+        GeneratePreCall(callInstr, functionObjOpnd, cfgInsertLoc->GetNextRealInstr());
     }
 
     return argSlots;
@@ -1152,14 +1099,23 @@ LowererMDArch::LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd)
     IR::LabelInstr * doneLabel = Lowerer::InsertLabel(false, instr);
 
     // Find array buffer length
-    IR::RegOpnd * indexOpnd = addrOpnd->AsIndirOpnd()->GetIndexOpnd();
+    IR::IndirOpnd * indirOpnd = addrOpnd->AsIndirOpnd();
+    IR::RegOpnd * indexOpnd = indirOpnd->GetIndexOpnd();
+    uint32 offset = indirOpnd->GetOffset();
     IR::Opnd *arrayLenOpnd = instr->GetSrc2();
-
-    // Compare index + memop access length and array buffer length, and generate RuntimeError if greater
-    IR::Opnd *cmpOpnd = IR::RegOpnd::New(TyUint64, m_func);
-    Lowerer::InsertAdd(true, cmpOpnd, indexOpnd, IR::IntConstOpnd::New(addrOpnd->GetSize(), TyUint64, m_func), helperLabel);
+    IR::Int64ConstOpnd * constOffsetOpnd = IR::Int64ConstOpnd::New((int64)addrOpnd->GetSize() + (int64)offset, TyInt64, m_func);
+    IR::Opnd *cmpOpnd;
+    if (indexOpnd != nullptr)
+    {
+        // Compare index + memop access length and array buffer length, and generate RuntimeError if greater
+        cmpOpnd = IR::RegOpnd::New(TyInt64, m_func);
+        Lowerer::InsertAdd(true, cmpOpnd, indexOpnd, constOffsetOpnd, helperLabel);
+    }
+    else
+    {
+        cmpOpnd = constOffsetOpnd;
+    }
     lowererMD->m_lowerer->InsertCompareBranch(cmpOpnd, arrayLenOpnd, Js::OpCode::BrGt_A, true, helperLabel, helperLabel);
-
     lowererMD->m_lowerer->GenerateThrow(IR::IntConstOpnd::New(WASMERR_ArrayIndexOutOfRange, TyInt32, m_func), loadLabel);
     Lowerer::InsertBranch(Js::OpCode::Br, loadLabel, helperLabel);
     return doneLabel;
@@ -2308,6 +2264,7 @@ LowererMDArch::EmitInt4Instr(IR::Instr *instr, bool signExtend /* = false */)
 
     case Js::OpCode::Mul_I4:
         instr->m_opcode = Js::OpCode::IMUL2;
+        legalize = true;
         break;
 
     case Js::OpCode::Div_I4:
@@ -2775,19 +2732,19 @@ LowererMDArch::EmitLoadInt32(IR::Instr *instrLoad, bool conversionFromObjectAllo
         // Known to be non-integer. If we are required to bail out on helper call, just re-jit.
         if (!doFloatToIntFastPath && bailOutOnHelper)
         {
-            if(!GlobOpt::DoAggressiveIntTypeSpec(this->m_func))
+            if(!GlobOpt::DoEliminateArrayAccessHelperCall(this->m_func))
             {
-                // Aggressive int type specialization is already off for some reason. Prevent trying to rejit again
+                // Array access helper call removal is already off for some reason. Prevent trying to rejit again
                 // because it won't help and the same thing will happen again. Just abort jitting this function.
                 if(PHASE_TRACE(Js::BailOutPhase, this->m_func))
                 {
-                    Output::Print(_u("    Aborting JIT because AggressiveIntTypeSpec is already off\n"));
+                    Output::Print(_u("    Aborting JIT because EliminateArrayAccessHelperCall is already off\n"));
                     Output::Flush();
                 }
                 throw Js::OperationAbortedException();
             }
 
-            throw Js::RejitException(RejitReason::AggressiveIntTypeSpecDisabled);
+            throw Js::RejitException(RejitReason::ArrayAccessHelperCallEliminationDisabled);
         }
     }
     else
@@ -2908,8 +2865,7 @@ LowererMDArch::LoadCheckedFloat(IR::RegOpnd *opndOrig, IR::RegOpnd *opndFloat, I
 {
     //
     //   if (TaggedInt::Is(opndOrig))
-    //       s1        = MOVSXD opndOrig_32
-    //       opndFloat = CVTSI2SD s1
+    //       opndFloat = CVTSI2SD opndOrig_32
     //                   JMP $labelInline
     //   else
     //                   JMP $labelOpndIsNotInt
@@ -2936,13 +2892,9 @@ LowererMDArch::LoadCheckedFloat(IR::RegOpnd *opndOrig, IR::RegOpnd *opndFloat, I
         instrInsert->InsertBefore(IR::LabelInstr::New(Js::OpCode::Label, this->m_func, true));
     }
 
-    IR::RegOpnd *s1          = IR::RegOpnd::New(TyMachReg, this->m_func);
     IR::Opnd    *opndOrig_32 = opndOrig->UseWithNewType(TyInt32, this->m_func);
 
-    IR::Instr   *movsxd      = IR::Instr::New(Js::OpCode::MOVSXD, s1, opndOrig_32, this->m_func);
-    instrInsert->InsertBefore(movsxd);
-
-    IR::Instr   *cvtsi2sd    = IR::Instr::New(Js::OpCode::CVTSI2SD, opndFloat, s1, this->m_func);
+    IR::Instr   *cvtsi2sd    = IR::Instr::New(Js::OpCode::CVTSI2SD, opndFloat, opndOrig_32, this->m_func);
     instrInsert->InsertBefore(cvtsi2sd);
 
     IR::Instr   *jmpInline   = IR::BranchInstr::New(Js::OpCode::JMP, labelInline, this->m_func);
@@ -3196,7 +3148,7 @@ LowererMDArch::FinalLower()
             break;
 
         case Js::OpCode::Leave:
-            Assert(this->m_func->DoOptimizeTryCatch() && !this->m_func->IsLoopBodyInTry());
+            Assert(this->m_func->DoOptimizeTry() && !this->m_func->IsLoopBodyInTry());
             instrPrev = this->lowererMD->LowerLeave(instr, instr->AsBranchInstr()->GetTarget(), true /*fromFinalLower*/);
             break;
 

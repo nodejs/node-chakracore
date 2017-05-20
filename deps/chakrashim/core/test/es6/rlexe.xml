@@ -591,6 +591,16 @@
   </test>
   <test>
     <default>
+      <files>CrossContextPromiseFile1.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>CrossContextPromise.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>spread.js</files>
       <compile-flags>-ES6Spread -args summary -endargs</compile-flags>
     </default>
@@ -827,21 +837,21 @@
   <test>
     <default>
       <files>generators-syntax.js</files>
-      <compile-flags>-ES6Generators -JitES6Generators -ES6Classes -ES6DefaultArgs -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Generators -ES6Classes -ES6DefaultArgs -args summary -endargs</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
   <test>
     <default>
       <files>generators-deferparse.js</files>
-      <compile-flags>-force:deferparse -ES6Generators -JitES6Generators -ES6Classes -ES6DefaultArgs</compile-flags>
+      <compile-flags>-force:deferparse -ES6Generators -ES6Classes -ES6DefaultArgs</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
   <test>
     <default>
       <files>generators-apis.js</files>
-      <compile-flags>-ES6Generators -JitES6Generators -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Generators -args summary -endargs</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
@@ -856,14 +866,14 @@
   <test>
     <default>
       <files>generators-deferred.js</files>
-      <compile-flags>-ES6Generators -JitES6Generators -ES6Classes -force:deferparse</compile-flags>
+      <compile-flags>-ES6Generators -ES6Classes -force:deferparse</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
   <test>
     <default>
       <files>generators-deferred.js</files>
-      <compile-flags>-ES6Generators -JitES6Generators -ES6Classes -serialized</compile-flags>
+      <compile-flags>-ES6Generators -ES6Classes -serialized</compile-flags>
       <tags>exclude_arm,exclude_forceserialized</tags>
     </default>
   </test>
@@ -877,7 +887,7 @@
   <test>
     <default>
       <files>generators-cachedscope.js</files>
-      <compile-flags>-ES6Generators -JitES6Generators</compile-flags>
+      <compile-flags>-ES6Generators</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
@@ -885,14 +895,14 @@
     <default>
       <files>generators-applyargs.js</files>
       <!-- -off:inlineapply triggers the use of the ApplyArgs bytecode -->
-      <compile-flags>-ES6Generators -JitES6Generators -off:inlineapply</compile-flags>
+      <compile-flags>-ES6Generators -off:inlineapply</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
   <test>
     <default>
       <files>generators-applyargs.js</files>
-      <compile-flags>-ES6Generators -JitES6Generators</compile-flags>
+      <compile-flags>-ES6Generators</compile-flags>
       <tags>exclude_arm</tags>
     </default>
   </test>
@@ -1320,46 +1330,77 @@
     <default>
         <files>moduletest1.js</files>
         <compile-flags>-ES6Module</compile-flags>
-        <tags>exclude_dynapogo</tags>
+        <tags>exclude_dynapogo,exclude_sanitize_address</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>moduletest2.js</files>
+        <compile-flags>-ES6Module</compile-flags>
+        <tags>exclude_dynapogo,exclude_sanitize_address</tags>
     </default>
 </test>
 <test>
     <default>
         <files>module-syntax.js</files>
         <compile-flags>-ES6Module -args summary -endargs</compile-flags>
-        <tags>exclude_dynapogo</tags>
+        <tags>exclude_dynapogo,exclude_sanitize_address</tags>
     </default>
 </test>
 <test>
     <default>
         <files>module-syntax1.js</files>
         <compile-flags>-ES6Module -args summary -endargs</compile-flags>
+        <tags>exclude_sanitize_address</tags>
     </default>
 </test>
 <test>
     <default>
         <files>module-functionality.js</files>
         <compile-flags>-ES6Module -args summary -endargs</compile-flags>
-        <tags>exclude_dynapogo</tags>
+        <tags>exclude_dynapogo,exclude_sanitize_address</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>dynamic-module-functionality.js</files>
+        <compile-flags>-ES6Module -args summary -endargs</compile-flags>
+        <tags>exclude_sanitize_address</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>dynamic-module-import-specifier.js</files>
+        <compile-flags>-AsyncModuleLoad -ES6Module -args summary -endargs</compile-flags>
+        <tags>exclude_sanitize_address</tags>
     </default>
 </test>
 <test>
     <default>
         <files>module-syntax.js</files>
         <compile-flags>-ES6Module -force:deferparse -args summary -endargs</compile-flags>
+        <tags>exclude_sanitize_address</tags>
     </default>
 </test>
 <test>
     <default>
         <files>module-syntax1.js</files>
         <compile-flags>-ES6Module -force:deferparse -args summary -endargs</compile-flags>
+        <tags>exclude_sanitize_address</tags>
     </default>
 </test>
 <test>
     <default>
         <files>module-namespace.js</files>
-        <compile-flags>-ES6Module -Es6ToStringTag</compile-flags>
-        <baseline>module-namespace.baseline</baseline>
+        <compile-flags>-ES6Module -Es6ToStringTag -args summary -endargs</compile-flags>
+        <tags>exclude_sanitize_address</tags>
+    </default>
+</test>
+<test>
+    <default>
+        <files>test_bug_2645.js</files>
+        <compile-flags>-ES6Module</compile-flags>
+        <tags>exclude_sanitize_address</tags>
     </default>
 </test>
 <test>

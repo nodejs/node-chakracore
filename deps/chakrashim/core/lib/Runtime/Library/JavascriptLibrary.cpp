@@ -307,7 +307,7 @@ namespace Js
         INIT_ERROR_PROTO(uriErrorPrototype, InitializeURIErrorPrototype);
 
 #ifdef ENABLE_WASM
-        if (scriptContext->GetConfig()->IsWasmEnabled())
+        if (CONFIG_FLAG(Wasm))
         {
             INIT_ERROR_PROTO(webAssemblyCompileErrorPrototype, InitializeWebAssemblyCompileErrorPrototype);
             INIT_ERROR_PROTO(webAssemblyRuntimeErrorPrototype, InitializeWebAssemblyRuntimeErrorPrototype);
@@ -364,7 +364,7 @@ namespace Js
             DeferredTypeHandler<InitializeStringIteratorPrototype, DefaultDeferredTypeFilter, true>::GetDefaultInstance()));
 
 #ifdef ENABLE_WASM
-        if (scriptContext->GetConfig()->IsWasmEnabled())
+        if (CONFIG_FLAG(Wasm))
         {
             webAssemblyMemoryPrototype = DynamicObject::New(recycler,
                 DynamicType::New(scriptContext, TypeIds_Object, objectPrototype, nullptr,
@@ -468,7 +468,7 @@ namespace Js
         INIT_SIMPLE_TYPE(uriErrorType, TypeIds_Error, uriErrorPrototype);
 
 #ifdef ENABLE_WASM
-        if (scriptContext->GetConfig()->IsWasmEnabled())
+        if (CONFIG_FLAG(Wasm))
         {
             INIT_SIMPLE_TYPE(webAssemblyCompileErrorType, TypeIds_Error, webAssemblyCompileErrorPrototype);
             INIT_SIMPLE_TYPE(webAssemblyRuntimeErrorType, TypeIds_Error, webAssemblyRuntimeErrorPrototype);
@@ -517,6 +517,7 @@ namespace Js
         if (config->IsES6ModuleEnabled())
         {
             moduleNamespaceType = DynamicType::New(scriptContext, TypeIds_ModuleNamespace, nullValue, nullptr, &SharedNamespaceSymbolTypeHandler);
+            moduleNamespaceType->ShareType();
         }
 
         // Initialize Date types
@@ -614,7 +615,7 @@ namespace Js
 #endif
 
 #ifdef ENABLE_WASM
-        if (scriptContext->GetConfig()->IsWasmEnabled())
+        if (CONFIG_FLAG(Wasm))
         {
             webAssemblyModuleType = DynamicType::New(scriptContext, TypeIds_WebAssemblyModule, webAssemblyModulePrototype, nullptr, NullTypeHandler<false>::GetDefaultInstance(), true, true);
             webAssemblyInstanceType = DynamicType::New(scriptContext, TypeIds_WebAssemblyInstance, webAssemblyInstancePrototype, nullptr, NullTypeHandler<false>::GetDefaultInstance(), true, true);
@@ -1105,30 +1106,39 @@ namespace Js
         nullString = CreateEmptyString(); // Must be distinct from emptyString (for the DOM)
         quotesString = CreateStringFromCppLiteral(_u("\"\""));
         whackString = CreateStringFromCppLiteral(_u("/"));
-        undefinedDisplayString = CreateStringFromCppLiteral(_u("undefined"));
-        nanDisplayString = CreateStringFromCppLiteral(_u("NaN"));
-        nullDisplayString = CreateStringFromCppLiteral(_u("null"));
-        unknownDisplayString = CreateStringFromCppLiteral(_u("unknown"));
         commaDisplayString = CreateStringFromCppLiteral(_u(","));
         commaSpaceDisplayString = CreateStringFromCppLiteral(_u(", "));
-        trueDisplayString = CreateStringFromCppLiteral(_u("true"));
-        falseDisplayString = CreateStringFromCppLiteral(_u("false"));
-        lengthDisplayString = CreateStringFromCppLiteral(_u("length"));
-        objectDisplayString = CreateStringFromCppLiteral(_u("[object Object]"));
-        errorDisplayString = CreateStringFromCppLiteral(_u("[object Error]"));
-        stringTypeDisplayString = CreateStringFromCppLiteral(_u("string"));
+
+        objectDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Object);
+        objectArgumentsDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Arguments);
+        objectArrayDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Array);
+        objectBooleanDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Boolean);
+        objectDateDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Date);
+        objectErrorDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Error);
+        objectFunctionDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Function);
+        objectNumberDisplayString = scriptContext->GetPropertyString(PropertyIds::object_Number);
+        objectRegExpDisplayString = scriptContext->GetPropertyString(PropertyIds::object_RegExp);
+        objectStringDisplayString = scriptContext->GetPropertyString(PropertyIds::object_String);
         functionPrefixString = CreateStringFromCppLiteral(_u("function "));
         generatorFunctionPrefixString = CreateStringFromCppLiteral(_u("function* "));
         asyncFunctionPrefixString = CreateStringFromCppLiteral(_u("async function "));
         functionDisplayString = CreateStringFromCppLiteral(JS_DISPLAY_STRING_FUNCTION_ANONYMOUS);
         xDomainFunctionDisplayString = CreateStringFromCppLiteral(_u("function anonymous() {\n    [x-domain code]\n}"));
         invalidDateString = CreateStringFromCppLiteral(_u("Invalid Date"));
-        objectTypeDisplayString = CreateStringFromCppLiteral(_u("object"));
-        functionTypeDisplayString = CreateStringFromCppLiteral(_u("function"));
-        booleanTypeDisplayString = CreateStringFromCppLiteral(_u("boolean"));
-        numberTypeDisplayString = CreateStringFromCppLiteral(_u("number"));
-        moduleTypeDisplayString = CreateStringFromCppLiteral(_u("Module"));
-        variantDateTypeDisplayString = CreateStringFromCppLiteral(_u("date"));
+        undefinedDisplayString = scriptContext->GetPropertyString(PropertyIds::undefined);
+        nanDisplayString = scriptContext->GetPropertyString(PropertyIds::NaN);
+        nullDisplayString = scriptContext->GetPropertyString(PropertyIds::null);
+        unknownDisplayString = scriptContext->GetPropertyString(PropertyIds::unknown);
+        trueDisplayString = scriptContext->GetPropertyString(PropertyIds::true_);
+        falseDisplayString = scriptContext->GetPropertyString(PropertyIds::false_);
+        stringTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::string);
+        objectTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::object);
+        functionTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::function);
+        booleanTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::boolean_);
+        numberTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::number);
+        moduleTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::Module);
+        variantDateTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::date);
+        symbolTypeDisplayString = scriptContext->GetPropertyString(PropertyIds::symbol);
         promiseResolveFunction = nullptr;
         promiseThenFunction = nullptr;
         generatorNextFunction = nullptr;
@@ -1155,7 +1165,6 @@ namespace Js
         }
 #endif
 
-        symbolTypeDisplayString = CreateStringFromCppLiteral(_u("symbol"));
 
         symbolHasInstance = CreateSymbol(BuiltInPropertyRecords::_symbolHasInstance);
         symbolIsConcatSpreadable = CreateSymbol(BuiltInPropertyRecords::_symbolIsConcatSpreadable);
@@ -1287,6 +1296,11 @@ namespace Js
         proxyConstructor = nullptr;
         promiseConstructor = nullptr;
         reflectObject = nullptr;
+        debugEval = nullptr;
+        getStackTrace = nullptr;
+#ifdef EDIT_AND_CONTINUE
+        editSource = nullptr;
+#endif
 
         symbolConstructor = CreateBuiltinConstructor(&JavascriptSymbol::EntryInfo::NewInstance,
             DeferredTypeHandler<InitializeSymbolConstructor>::GetDefaultInstance());
@@ -1526,8 +1540,9 @@ namespace Js
         AddFunction(globalObject, PropertyIds::URIError, uriErrorConstructor);
 
 #ifdef ENABLE_WASM
-        if (scriptContext->GetConfig()->IsWasmEnabled())
+        if (CONFIG_FLAG(Wasm))
         {
+            webAssemblyCompileFunction = nullptr;
             // new WebAssembly object
             webAssemblyObject = DynamicObject::New(recycler,
                 DynamicType::New(scriptContext, TypeIds_Object, objectPrototype, nullptr,
@@ -1636,6 +1651,26 @@ namespace Js
         arrayConstructor->SetHasNoEnumerableProperties(true);
     }
 
+    JavascriptFunction* JavascriptLibrary::EnsureArrayPrototypeForEachFunction()
+    {
+        if (arrayPrototypeForEachFunction == nullptr)
+        {
+            arrayPrototypeForEachFunction = DefaultCreateFunction(&JavascriptArray::EntryInfo::ForEach, 1, nullptr, nullptr, PropertyIds::forEach);
+        }
+
+        return arrayPrototypeForEachFunction;
+    }
+
+    JavascriptFunction* JavascriptLibrary::EnsureArrayPrototypeKeysFunction()
+    {
+        if (arrayPrototypeKeysFunction == nullptr)
+        {
+            arrayPrototypeKeysFunction = DefaultCreateFunction(&JavascriptArray::EntryInfo::Keys, 0, nullptr, nullptr, PropertyIds::keys);
+        }
+
+        return arrayPrototypeKeysFunction;
+    }
+
     JavascriptFunction* JavascriptLibrary::EnsureArrayPrototypeValuesFunction()
     {
         if (arrayPrototypeValuesFunction == nullptr)
@@ -1644,6 +1679,16 @@ namespace Js
         }
 
         return arrayPrototypeValuesFunction;
+    }
+
+    JavascriptFunction* JavascriptLibrary::EnsureArrayPrototypeEntriesFunction()
+    {
+        if (arrayPrototypeEntriesFunction == nullptr)
+        {
+            arrayPrototypeEntriesFunction = DefaultCreateFunction(&JavascriptArray::EntryInfo::Entries, 0, nullptr, nullptr, PropertyIds::entries);
+        }
+
+        return arrayPrototypeEntriesFunction;
     }
 
     void JavascriptLibrary::InitializeArrayPrototype(DynamicObject* arrayPrototype, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode)
@@ -1691,7 +1736,10 @@ namespace Js
         builtinFuncs[BuiltinFunction::JavascriptArray_IndexOf]        = library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::indexOf,         &JavascriptArray::EntryInfo::IndexOf,           1);
         /* No inlining                Array_Every          */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::every,           &JavascriptArray::EntryInfo::Every,             1);
         /* No inlining                Array_Filter         */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::filter,          &JavascriptArray::EntryInfo::Filter,            1);
-        /* No inlining                Array_ForEach        */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::forEach,         &JavascriptArray::EntryInfo::ForEach,           1);
+
+        /* No inlining                Array_ForEach        */
+        library->AddMember(arrayPrototype, PropertyIds::forEach, library->EnsureArrayPrototypeForEachFunction());
+
         builtinFuncs[BuiltinFunction::JavascriptArray_LastIndexOf]    = library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::lastIndexOf,     &JavascriptArray::EntryInfo::LastIndexOf,       1);
         /* No inlining                Array_Map            */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::map,             &JavascriptArray::EntryInfo::Map,               1);
         /* No inlining                Array_Reduce         */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::reduce,          &JavascriptArray::EntryInfo::Reduce,            1);
@@ -1704,8 +1752,11 @@ namespace Js
             /* No inlining            Array_FindIndex      */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::findIndex,       &JavascriptArray::EntryInfo::FindIndex,         1);
         }
 
-        /* No inlining                Array_Entries        */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::entries,         &JavascriptArray::EntryInfo::Entries,           0);
-        /* No inlining                Array_Keys           */ library->AddFunctionToLibraryObject(arrayPrototype, PropertyIds::keys,            &JavascriptArray::EntryInfo::Keys,              0);
+        /* No inlining                Array_Entries        */
+        library->AddMember(arrayPrototype, PropertyIds::entries, library->EnsureArrayPrototypeEntriesFunction());
+
+        /* No inlining                Array_Keys           */
+        library->AddMember(arrayPrototype, PropertyIds::keys, library->EnsureArrayPrototypeKeysFunction());
 
         JavascriptFunction *values = library->EnsureArrayPrototypeValuesFunction();
         /* No inlining                Array_Values         */ library->AddMember(arrayPrototype, PropertyIds::values, values);
@@ -2863,11 +2914,26 @@ namespace Js
 
     void JavascriptLibrary::InitializeWebAssemblyObject(DynamicObject* webAssemblyObject, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode)
     {
-        typeHandler->Convert(webAssemblyObject, mode, 8);
         JavascriptLibrary* library = webAssemblyObject->GetLibrary();
-        library->AddFunctionToLibraryObject(webAssemblyObject, PropertyIds::compile, &WebAssembly::EntryInfo::Compile, 2);
-        library->AddFunctionToLibraryObject(webAssemblyObject, PropertyIds::validate, &WebAssembly::EntryInfo::Validate, 2);
-        library->AddFunctionToLibraryObject(webAssemblyObject, PropertyIds::instantiate, &WebAssembly::EntryInfo::Instantiate, 2);
+        int slots = 8;
+#ifdef ENABLE_WABT
+        // Attaching wabt for testing
+        ++slots;
+#endif
+        typeHandler->Convert(webAssemblyObject, mode, slots);
+
+#ifdef ENABLE_WABT
+        // Build wabt object
+        Js::DynamicObject* wabtObject = library->CreateObject(true);
+        library->AddFunctionToLibraryObject(wabtObject, PropertyIds::convertWast2Wasm, &WabtInterface::EntryInfo::ConvertWast2Wasm, 1);
+        library->AddMember(webAssemblyObject, PropertyIds::wabt, wabtObject, PropertyNone);
+#endif
+        library->webAssemblyCompileFunction =
+            library->AddFunctionToLibraryObject(webAssemblyObject, PropertyIds::compile, &WebAssembly::EntryInfo::Compile, 1);
+        library->AddFunctionToLibraryObject(webAssemblyObject, PropertyIds::validate, &WebAssembly::EntryInfo::Validate, 1);
+        library->AddFunctionToLibraryObject(webAssemblyObject, PropertyIds::instantiate, &WebAssembly::EntryInfo::Instantiate, 1);
+        library->webAssemblyQueryResponseFunction = library->DefaultCreateFunction(&WebAssembly::EntryInfo::QueryResponse, 1, nullptr, nullptr, PropertyIds::undefined);
+        library->webAssemblyInstantiateBoundFunction = library->DefaultCreateFunction(&WebAssembly::EntryInfo::InstantiateBound, 1, nullptr, nullptr, PropertyIds::undefined);
 
         library->AddFunction(webAssemblyObject, PropertyIds::Module, library->webAssemblyModuleConstructor);
 
@@ -3742,6 +3808,9 @@ namespace Js
         case PropertyIds::exec:
             return BuiltinFunction::JavascriptRegExp_Exec;
 
+        case PropertyIds::hasOwnProperty:
+            return BuiltinFunction::JavascriptObject_HasOwnProperty;
+
         default:
             return BuiltinFunction::None;
         }
@@ -4184,12 +4253,13 @@ namespace Js
     {
         JavascriptLibrary* library = objectPrototype->GetLibrary();
         ScriptContext* scriptContext = objectPrototype->GetScriptContext();
+        Field(JavascriptFunction*)* builtinFuncs = library->GetBuiltinFunctions();
 
         typeHandler->Convert(objectPrototype, mode, 11, true);
         // Note: Any new function addition/deletion/modification should also be updated in JavascriptLibrary::ProfilerRegisterObject
         // so that the update is in sync with profiler
         library->AddMember(objectPrototype, PropertyIds::constructor, library->objectConstructor);
-        library->AddFunctionToLibraryObject(objectPrototype, PropertyIds::hasOwnProperty, &JavascriptObject::EntryInfo::HasOwnProperty, 1);
+        builtinFuncs[BuiltinFunction::JavascriptObject_HasOwnProperty] = library->AddFunctionToLibraryObject(objectPrototype, PropertyIds::hasOwnProperty, &JavascriptObject::EntryInfo::HasOwnProperty, 1);
         library->AddFunctionToLibraryObject(objectPrototype, PropertyIds::propertyIsEnumerable, &JavascriptObject::EntryInfo::PropertyIsEnumerable, 1);
         library->AddFunctionToLibraryObject(objectPrototype, PropertyIds::isPrototypeOf, &JavascriptObject::EntryInfo::IsPrototypeOf, 1);
         library->AddFunctionToLibraryObject(objectPrototype, PropertyIds::toLocaleString, &JavascriptObject::EntryInfo::ToLocaleString, 0);
@@ -6221,7 +6291,7 @@ namespace Js
         return function;
     }
 
-    JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction* JavascriptLibrary::CreatePromiseAsyncSpawnStepArgumentExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var argument, JavascriptFunction* resolve, JavascriptFunction* reject, bool isReject)
+    JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction* JavascriptLibrary::CreatePromiseAsyncSpawnStepArgumentExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var argument, Var resolve, Var reject, bool isReject)
     {
         FunctionInfo* functionInfo = RecyclerNew(this->GetRecycler(), FunctionInfo, entryPoint);
         DynamicType* type = CreateDeferredPrototypeFunctionType(this->inDispatchProfileMode ? ProfileEntryThunk : entryPoint);
@@ -6738,12 +6808,6 @@ namespace Js
         return PropertyString::New(stringTypeStatic, propertyRecord, this->GetRecycler());
     }
 
-    PropertyString* JavascriptLibrary::CreatePropertyString(const Js::PropertyRecord* propertyRecord, ArenaAllocator *arena)
-    {
-        AssertMsg(stringTypeStatic, "Where's stringTypeStatic?");
-        return PropertyString::New(stringTypeStatic, propertyRecord, arena);
-    }
-
     JavascriptVariantDate* JavascriptLibrary::CreateVariantDate(const double value)
     {
         AssertMsg(variantDateType, "Where's variantDateType?");
@@ -7056,7 +7120,6 @@ namespace Js
 
         case OpCode::InlineRegExpExec:
             return BuiltinFunction::JavascriptRegExp_Exec;
-
         }
 
         return BuiltinFunction::None;

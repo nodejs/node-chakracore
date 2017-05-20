@@ -41,12 +41,14 @@ namespace Js
         void Mark(Recycler * recycler) override { return; }
 
         HRESULT ResolveExternalModuleDependencies();
+        void EnsureChildModuleSet(ScriptContext *scriptContext);
 
         void* GetHostDefined() const { return hostDefined; }
         void SetHostDefined(void* hostObj) { hostDefined = hostObj; }
 
         void SetSpecifier(Var specifier) { this->normalizedSpecifier = specifier; }
         Var GetSpecifier() const { return normalizedSpecifier; }
+        const char16 *GetSpecifierSz() const { return JavascriptString::FromVar(this->normalizedSpecifier)->GetSz(); }
 
         Var GetErrorObject() const { return errorObject; }
 
@@ -55,6 +57,8 @@ namespace Js
         bool WasDeclarationInitialized() const { return wasDeclarationInitialized; }
         void SetWasDeclarationInitialized() { wasDeclarationInitialized = true; }
         void SetIsRootModule() { isRootModule = true; }
+        JavascriptPromise *GetPromise() { return this->promise; }
+        void SetPromise(JavascriptPromise *value) { this->promise = value; }
 
         void SetImportRecordList(ModuleImportOrExportEntryList* importList) { importRecordList = importList; }
         void SetLocalExportRecordList(ModuleImportOrExportEntryList* localExports) { localExportRecordList = localExports; }
@@ -98,6 +102,8 @@ namespace Js
 
         void SetParent(SourceTextModuleRecord* parentRecord, LPCOLESTR moduleName);
         Utf8SourceInfo* GetSourceInfo() { return this->pSourceInfo; }
+        static Var ResolveOrRejectDynamicImportPromise(bool isResolve, Var value, ScriptContext *scriptContext, SourceTextModuleRecord *mr = nullptr);
+        Var PostProcessDynamicModuleImport();
 
     private:
         const static uint InvalidModuleIndex = 0xffffffff;
@@ -107,6 +113,7 @@ namespace Js
         // This is the parsed tree resulted from compilation. 
         Field(bool) wasParsed;
         Field(bool) wasDeclarationInitialized;
+        Field(bool) parentsNotified;
         Field(bool) isRootModule;
         Field(bool) hadNotifyHostReady;
         Field(ParseNodePtr) parseTree;
@@ -124,7 +131,7 @@ namespace Js
         Field(LocalExportMap*) localExportMapByExportName;  // from propertyId to index map: for bytecode gen.
         Field(LocalExportMap*) localExportMapByLocalName;  // from propertyId to index map: for bytecode gen.
         Field(LocalExportIndexList*) localExportIndexList; // from index to propertyId: for typehandler.
-        Field(uint) numUnInitializedChildrenModule;
+        Field(uint) numPendingChildrenModule;
         Field(ExportedNames*) exportedNames;
         Field(ResolvedExportMap*) resolvedExportMap;
 
@@ -140,6 +147,7 @@ namespace Js
         Field(uint) moduleId;
 
         Field(ModuleNameRecord) namespaceRecord;
+        Field(JavascriptPromise*) promise;
 
         HRESULT PostParseProcess();
         HRESULT PrepareForModuleDeclarationInitialization();
@@ -150,6 +158,8 @@ namespace Js
         void InitializeLocalImports();
         void InitializeLocalExports();
         void InitializeIndirectExports();
+        bool ParentsNotified() const { return parentsNotified; }
+        void SetParentsNotified() { parentsNotified = true; }
         PropertyId EnsurePropertyIdForIdentifier(IdentPtr pid);
         LocalExportMap* GetLocalExportMap() const { return localExportMapByExportName; }
         LocalExportIndexList* GetLocalExportIndexList() const { return localExportIndexList; }

@@ -6,6 +6,11 @@
 
 #include "ParseFlags.h"
 
+namespace Js
+{
+    class ScopeInfo;
+};
+
 // Operator precedence levels
 enum
 {
@@ -204,7 +209,6 @@ private:
 protected:
     Js::ScriptContext* m_scriptContext;
     HashTbl *   m_phtbl;
-    ErrHandler  m_err;
 
     static const uint HASH_TABLE_SIZE = 256;
 
@@ -305,12 +309,14 @@ public:
     void PrepareScanner(bool fromExternal);
     void PrepareForBackgroundParse();
     void AddFastScannedRegExpNode(ParseNodePtr const pnode);
+#if ENABLE_BACKGROUND_PARSING
     void AddBackgroundRegExpNode(ParseNodePtr const pnode);
     void AddBackgroundParseItem(BackgroundParseItem *const item);
     void FinishBackgroundRegExpNodes();
     void FinishBackgroundPidRefs(BackgroundParseItem *const item, bool isOtherParser);
     void WaitForBackgroundJobs(BackgroundParser *bgp, CompileScriptException *pse);
     HRESULT ParseFunctionInBackground(ParseNodePtr pnodeFunc, ParseContext *parseContext, bool topLevelDeferred, CompileScriptException *pse);
+#endif
 
     void CheckPidIsValid(IdentPtr pid, bool autoArgumentsObject = false);
     void AddVarDeclToBlock(ParseNode *pnode);
@@ -369,7 +375,6 @@ private:
     bool m_inDeferredNestedFunc; // true if parsing a function in deferred mode, nested within the current node
     bool m_isInBackground;
     bool m_reparsingLambdaParams;
-    bool m_inFIB;
 
     // This bool is used for deferring the shorthand initializer error ( {x = 1}) - as it is allowed in the destructuring grammar.
     bool m_hasDeferredShorthandInitError;
@@ -856,8 +861,9 @@ private:
 
     bool IsImportOrExportStatementValidHere();
 
-    template<bool buildAST> ParseNodePtr ParseImportDeclaration();
+    template<bool buildAST> ParseNodePtr ParseImport();
     template<bool buildAST> void ParseImportClause(ModuleImportOrExportEntryList* importEntryList, bool parsingAfterComma = false);
+    template<bool buildAST> ParseNodePtr ParseImportCall();
 
     template<bool buildAST> ParseNodePtr ParseExportDeclaration();
     template<bool buildAST> ParseNodePtr ParseDefaultExportClause();
@@ -976,8 +982,8 @@ private:
     void RemovePrevPidRef(IdentPtr pid, PidRefStack *lastRef);
     void SetPidRefsInScopeDynamic(IdentPtr pid, int blockId);
 
-    void RestoreScopeInfo(Js::ParseableFunctionInfo* functionBody);
-    void FinishScopeInfo(Js::ParseableFunctionInfo* functionBody);
+    void RestoreScopeInfo(Js::ScopeInfo * scopeInfo);
+    void FinishScopeInfo(Js::ScopeInfo * scopeInfo);
 
     BOOL PnodeLabelNoAST(IdentToken* pToken, LabelId* pLabelIdList);
     LabelId* CreateLabelId(IdentToken* pToken);
@@ -1011,7 +1017,7 @@ private:
     }
 
     template <class Fn>
-    void VisitFunctionsInScope(ParseNodePtr pnodeScopeList, Fn fn);
+    void FinishFunctionsInScope(ParseNodePtr pnodeScopeList, Fn fn);
     void FinishDeferredFunction(ParseNodePtr pnodeScopeList);
 
     /***********************************************************************

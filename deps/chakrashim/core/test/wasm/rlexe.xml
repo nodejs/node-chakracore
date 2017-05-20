@@ -38,8 +38,15 @@
 <test>
   <default>
     <files>f32.js</files>
-    <baseline>f32.baseline</baseline>
     <compile-flags>-wasm</compile-flags>
+    <tags>exclude_jshost,exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>f64.js</files>
+    <compile-flags>-wasm</compile-flags>
+    <tags>exclude_jshost,exclude_win7</tags>
   </default>
 </test>
 <test>
@@ -67,13 +74,6 @@
   <default>
     <files>f32address.js</files>
     <compile-flags>-wasm  </compile-flags>
-  </default>
-</test>
-<test>
-  <default>
-    <files>unreachable.js</files>
-    <tags>exclude_xplat</tags>
-    <compile-flags>-wasm</compile-flags>
   </default>
 </test>
 <test>
@@ -147,6 +147,7 @@
   <default>
     <files>bugs.js</files>
     <compile-flags>-wasm</compile-flags>
+    <tags>exclude_jshost,exclude_win7</tags>
   </default>
 </test>
 <test>
@@ -196,6 +197,39 @@
     <files>oom.js</files>
     <compile-flags>-wasm -args 3 16381 -endargs</compile-flags>
     <tags>exclude_amd64</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>response.js</files>
+    <baseline>baselines/response.baseline</baseline>
+    <compile-flags>-wasm</compile-flags>
+    <tags>exclude_jshost,exclude_win7,exclude_xplat</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>i64cf.js</files>
+    <compile-flags>-wasm -maic:0</compile-flags>
+    <tags>exclude_amd64</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>cse.js</files>
+    <baseline>baselines/cse.baseline</baseline>
+    <compile-flags>-wasm -maic:0 -testtrace:cse:2.0-99.999</compile-flags>
+    <tags>exclude_jshost,exclude_win7,exclude_interpreted</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>unsigned.js</files>
+    <baseline>baselines/unsigned.baseline</baseline>
+    <!-- Todo:: Remove -off:cse once bugs have been worked out
+    Issue: https://github.com/Microsoft/ChakraCore/issues/2975 -->
+    <compile-flags>-wasm -off:cse</compile-flags>
+    <tags>exclude_jshost,exclude_win7,exclude_xplat</tags>
   </default>
 </test>
 </regress-exe>

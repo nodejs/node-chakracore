@@ -1951,3 +1951,13 @@ For material from zlib and https://github.com/kripken/emscripten/blob/master/tes
 */
 =========================================
 END OF zlib-data.js NOTICES, INFORMATION, AND LICENSE
+
+---------------------------------------------------------------------------
+Wabt
+
+URL of the license https://github.com/WebAssembly/wabt/blob/master/LICENSE
+
+The files in lib/wabt are licensed as specified in lib/wabt/LICENSE
+unless otherwise stated in the file
+
+---------------------------------------------

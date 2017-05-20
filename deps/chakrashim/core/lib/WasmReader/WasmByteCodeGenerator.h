@@ -4,6 +4,12 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 
+namespace Js
+{
+    class WebAssemblySource;
+    struct IWasmByteCodeWriter;
+}
+
 namespace Wasm
 {
     struct EmitInfo : WAsmJs::EmitInfoBase
@@ -43,18 +49,74 @@ namespace Wasm
     class WasmCompilationException
     {
         void FormatError(const char16* _msg, va_list arglist);
-        char16* errorMsg;
+        BSTR errorMsg;
+        // We need to explicitly delete these; simply not including them makes compilers do
+        // generation of simple copy-construct and copy-assign functions, which incorrectly
+        // copy around the errorMsg pointer, making it harder to work with the lifetime. If
+        // we just use the PREVENT_COPY macro (which defines the functions as private) then
+        // we get linker errors, since MSVC doesn't check the accessibility of the function
+        // references when templating, and tries to link to the undefined functions. Explit
+        // deletion of the functions is therefore required here.
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+    private:
+        WasmCompilationException(const WasmCompilationException&) = delete;
+        WasmCompilationException& operator=(const WasmCompilationException& other) = delete;
+#else //if defined(_MSC_VER) && _MSC_VER < 1900
+        // For older versions of VS, we need to provide copy construct/assign operators due
+        // to the lack of the ability to throw-by-move.
+    public:
+        WasmCompilationException(const WasmCompilationException& other)
+        {
+            errorMsg = SysAllocString(other.errorMsg);
+        }
+        WasmCompilationException& operator=(const WasmCompilationException& other)
+        {
+            if(this != &other)
+            {
+                SysFreeString(errorMsg);
+                errorMsg = SysAllocString(other.errorMsg);
+            }
+            return *this;
+        }
+#endif
     public:
         WasmCompilationException(const char16* _msg, ...);
         WasmCompilationException(const char16* _msg, va_list arglist);
+        WasmCompilationException(WasmCompilationException&& other)
+        {
+            errorMsg = other.errorMsg;
+            other.errorMsg = nullptr;
+        }
 
-        char16* ReleaseErrorMessage()
+        ~WasmCompilationException()
+        {
+            SysFreeString(errorMsg);
+        }
+
+        BSTR ReleaseErrorMessage()
         {
             Assert(errorMsg);
-            char16* msg = errorMsg;
+            BSTR msg = errorMsg;
             errorMsg = nullptr;
             return msg;
-        };
+        }
+
+        WasmCompilationException& operator=(WasmCompilationException&& other)
+        {
+            if (this != &other)
+            {
+                SysFreeString(errorMsg);
+                errorMsg = other.errorMsg;
+                other.errorMsg = nullptr;
+            }
+            return *this;
+        }
+
+        BSTR GetTempErrorMessageRef()
+        {
+            // This is basically a work-around for some odd lifetime scoping with throw
+            return errorMsg;
+        }
     };
 
     struct BlockInfo
@@ -81,7 +143,7 @@ namespace Wasm
     class WasmModuleGenerator
     {
     public:
-        WasmModuleGenerator(Js::ScriptContext* scriptContext, Js::Utf8SourceInfo* sourceInfo, const byte* binaryBuffer, uint binaryBufferLength);
+        WasmModuleGenerator(Js::ScriptContext* scriptContext, Js::WebAssemblySource* src);
         Js::WebAssemblyModule* GenerateModule();
         void GenerateFunctionHeader(uint32 index);
     private:
@@ -107,8 +169,9 @@ namespace Wasm
         static const Js::RegSlot ScriptContextBufferRegister = 4;
         static const Js::RegSlot ReservedRegisterCount = 5;
 
-        WasmBytecodeGenerator(Js::ScriptContext* scriptContext, WasmReaderInfo* readerinfo);
-        static void GenerateFunctionBytecode(Js::ScriptContext* scriptContext, WasmReaderInfo* readerinfo);
+        WasmBytecodeGenerator(Js::ScriptContext* scriptContext, WasmReaderInfo* readerinfo, bool validateOnly);
+        static void GenerateFunctionBytecode(Js::ScriptContext* scriptContext, WasmReaderInfo* readerinfo, bool validateOnly = false);
+        static void ValidateFunction(Js::ScriptContext* scriptContext, WasmReaderInfo* readerinfo);
 
     private:
         void GenerateFunction();
@@ -131,7 +194,8 @@ namespace Wasm
         void EmitReturnExpr(EmitInfo* explicitRetInfo = nullptr);
         EmitInfo EmitSelect();
 #if DBG_DUMP
-        void PrintOpName(WasmOp op) const;
+        void PrintOpBegin(WasmOp op) const;
+        void PrintOpEnd() const;
 #endif
         void EmitBr();
         EmitInfo EmitBrIf();
@@ -140,9 +204,9 @@ namespace Wasm
         EmitInfo EmitBinExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature);
         EmitInfo EmitUnaryExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature);
 
-        template<WasmTypes::WasmType type>
-        EmitInfo EmitConst();
+        EmitInfo EmitConst(WasmTypes::WasmType type, WasmConstLitNode cnst);
         void EmitLoadConst(EmitInfo dst, WasmConstLitNode cnst);
+        WasmConstLitNode GetZeroCnst();
 
         void EnregisterLocals();
         void ReleaseLocation(EmitInfo* info);
@@ -155,12 +219,11 @@ namespace Wasm
         BlockInfo GetBlockInfo(uint relativeDepth) const;
         Js::ByteCodeLabel GetLabel(uint relativeDepth);
 
-        static bool IsBlockOpCode(WasmOp op);
-        static Js::OpCodeAsmJs GetLoadOp(WasmTypes::WasmType type);
-        static Js::OpCodeAsmJs GetReturnOp(WasmTypes::WasmType type);
+        Js::OpCodeAsmJs GetLoadOp(WasmTypes::WasmType type);
+        Js::OpCodeAsmJs GetReturnOp(WasmTypes::WasmType type);
         WasmRegisterSpace* GetRegisterSpace(WasmTypes::WasmType type);
 
-        EmitInfo PopEvalStack();
+        EmitInfo PopEvalStack(WasmTypes::WasmType expectedType = WasmTypes::Any, const char16* mismatchMessage = nullptr);
         void PushEvalStack(EmitInfo);
         EmitInfo EnsureYield(BlockInfo);
         void EnterEvalStackScope();
@@ -168,9 +231,12 @@ namespace Wasm
         void ExitEvalStackScope();
         void SetUnreachableState(bool isUnreachable);
         bool IsUnreachable() const { return this->isUnreachable; }
+        void SetUsesMemory(uint memoryIndex);
 
         Js::FunctionBody* GetFunctionBody() const { return m_funcInfo->GetBody(); }
         WasmReaderBase* GetReader() const;
+
+        bool IsValidating() const { return m_originalWriter == m_emptyWriter; }
 
         ArenaAllocator m_alloc;
 
@@ -182,7 +248,9 @@ namespace Wasm
 
         uint m_maxArgOutDepth;
 
-        Js::AsmJsByteCodeWriter m_writer;
+        Js::IWasmByteCodeWriter* m_writer;
+        Js::IWasmByteCodeWriter* m_emptyWriter;
+        Js::IWasmByteCodeWriter* m_originalWriter;
         Js::ScriptContext* m_scriptContext;
 
         WAsmJs::TypedRegisterAllocator mTypedRegisterAllocator;

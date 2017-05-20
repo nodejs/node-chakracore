@@ -11,6 +11,13 @@ if(CC_TARGETS_AMD64)
     WebAssemblyMemory.cpp
     WebAssemblyModule.cpp
     WebAssemblyTable.cpp
+    WabtInterface.cpp
+    )
+endif()
+
+if(CAN_BUILD_WABT)
+    include_directories(
+    ../../wabt/chakra
     )
 endif()
 
@@ -33,7 +40,6 @@ set(CRLIB_SOURCE_CODES
     ForInObjectEnumerator.cpp
     GlobalObject.cpp
     IntlEngineInterfaceExtensionObject.cpp
-    IteratorObjectEnumerator.cpp
     JSON.cpp
     JSONParser.cpp
     JSONScanner.cpp
@@ -50,6 +56,7 @@ set(CRLIB_SOURCE_CODES
     JavascriptDate.cpp
     JavascriptError.cpp
     # JavascriptErrorDebug.cpp
+    JavascriptExceptionMetadata.cpp
     JavascriptExternalFunction.cpp
     JavascriptFunction.cpp
     JavascriptGenerator.cpp

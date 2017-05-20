@@ -277,7 +277,7 @@ Recycler::Recycler(AllocationPolicyManager * policyManager, IdleDecommitPageAllo
 #endif
 
 #ifdef RECYCLER_NO_PAGE_REUSE
-    if (GetRecyclerFlagsTable().IsEnabled(Js::RecyclerNoPageReuseFlag))
+    if (GetRecyclerFlagsTable().RecyclerNoPageReuse)
     {
         ForEachPageAllocator([](IdleDecommitPageAllocator* pageAlloc)
         {
@@ -1672,6 +1672,8 @@ Recycler::ExpectStackSkip() const
 
 #pragma warning(push)
 #pragma warning(disable:4731) // 'pointer' : frame pointer register 'register' modified by inline assembly code
+// disable address sanitizer, since it doesn't handle custom stack walks well
+NO_SANITIZE_ADDRESS
 size_t
 Recycler::ScanStack()
 {
@@ -3275,6 +3277,7 @@ Recycler::DisposeObjects()
 #ifdef FAULT_INJECTION
     this->collectionWrapper->DisposeScriptContextByFaultInjectionCallBack();
 #endif
+    this->collectionWrapper->PreDisposeObjectsCallBack();
 
     // Scope timestamp to just dispose
     {
@@ -7209,6 +7212,30 @@ Recycler::PrintCollectStats()
 }
 #endif
 
+#ifdef RECYCLER_PAGE_HEAP
+void Recycler::VerifyPageHeapFillAfterAlloc(char* memBlock, size_t size, ObjectInfoBits attributes)
+{
+    Assert(memBlock != nullptr);
+    if (IsPageHeapEnabled())
+    {
+        HeapBlock* heapBlock = this->FindHeapBlock(memBlock);
+        Assert(heapBlock);
+        if (heapBlock->IsLargeHeapBlock())
+        {
+            LargeHeapBlock* largeHeapBlock = (LargeHeapBlock*)heapBlock;
+            if (largeHeapBlock->InPageHeapMode() 
+#ifdef RECYCLER_NO_PAGE_REUSE
+                && !largeHeapBlock->GetPageAllocator(this)->IsPageReuseDisabled()
+#endif
+                )
+            {
+                largeHeapBlock->VerifyPageHeapPattern();
+            }
+        }
+    }
+}
+#endif
+
 #ifdef RECYCLER_ZERO_MEM_CHECK
 void
 Recycler::VerifyZeroFill(void * address, size_t size)
@@ -7220,10 +7247,8 @@ Recycler::VerifyZeroFill(void * address, size_t size)
         expectedFill = Recycler::VerifyMemFill;
     }
 #endif
-    for (uint i = 0; i < size; i++)
-    {
-        Assert(((byte *)address)[i] == expectedFill);
-    }
+
+    Assert(IsAll((byte *)address, size, expectedFill));
 }
 #endif
 
@@ -7284,10 +7309,7 @@ void Recycler::VerifyCheck(BOOL cond, char16 const * msg, void * address, void *
 
 void Recycler::VerifyCheckFill(void * address, size_t size)
 {
-    for (byte * i = (byte *)address; i < (byte *)address + size; i++)
-    {
-        Recycler::VerifyCheck(*i == Recycler::VerifyMemFill, _u("memory written after freed"), address, i);
-    }
+    Assert(IsAll((byte*)address, size, Recycler::VerifyMemFill));
 }
 
 void Recycler::VerifyCheckPadExplicitFreeList(void * address, size_t size)

@@ -110,6 +110,7 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
+      <tags>exclude_xplat</tags>
       <compile-flags>-testtrace:asmjs -simdjs</compile-flags>
     </default>
   </test>
@@ -117,6 +118,7 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
+      <tags>exclude_xplat</tags>
       <compile-flags>-testtrace:asmjs -simdjs -maic:1 -sse:3</compile-flags>
     </default>
   </test>
@@ -300,7 +302,7 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
-      <tags>exclude_amd64</tags>
+      <tags>exclude_amd64,exclude_xplat</tags>
       <compile-flags>-testtrace:asmjs -simdjs -oopjit- -on:asmjsjittemplate -off:fulljit</compile-flags>
     </default>
   </test>
@@ -452,6 +454,7 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
+      <tags>exclude_xplat</tags>
       <compile-flags>-testtrace:asmjs -simdjs -nonative</compile-flags>
     </default>
   </test>
@@ -539,7 +542,7 @@
     <default>
       <files>cseBug.js</files>
       <baseline>cseBug.baseline</baseline>
-      <compile-flags>-testtrace:asmjs -simdjs</compile-flags>
+      <compile-flags>-testtrace:asmjs -forcedeferparse -simdjs</compile-flags>
     </default>
   </test>
   <test>
@@ -683,29 +686,29 @@
   </test>
   <test>
     <default>
-      <files>returnfloat.js</files>
-      <baseline>returnfloat.baseline</baseline>
+      <files>returnFloat.js</files>
+      <baseline>returnFloat.baseline</baseline>
       <compile-flags>-testtrace:asmjs -simdjs -bgjit- -lic:1 </compile-flags>
     </default>
   </test>
   <test>
     <default>
-      <files>unityBug.js</files>
-      <baseline>unityBug.baseline</baseline>
+      <files>unitybug.js</files>
+      <baseline>unitybug.baseline</baseline>
       <compile-flags>-testtrace:asmjs -simdjs</compile-flags>
     </default>
   </test>
   <test>
     <default>
-      <files>unityBug.js</files>
-      <baseline>unityBug.baseline</baseline>
+      <files>unitybug.js</files>
+      <baseline>unitybug.baseline</baseline>
       <compile-flags>-testtrace:asmjs -simdjs -nonative</compile-flags>
     </default>
   </test>
   <test>
     <default>
-      <files>unityBug.js</files>
-      <baseline>unityBug.baseline</baseline>
+      <files>unitybug.js</files>
+      <baseline>unitybug.baseline</baseline>
       <tags>exclude_amd64</tags>
       <compile-flags>-testtrace:asmjs -simdjs -oopjit- -on:asmjsjittemplate -off:fulljit</compile-flags>
     </default>
@@ -714,7 +717,6 @@
     <default>
       <files>argoutcapturebug.js</files>
       <baseline>argoutcapturebug.baseline</baseline>
-      <tags></tags>
       <compile-flags>-testtrace:asmjs -simdjs</compile-flags>
     </default>
   </test>
@@ -749,9 +751,8 @@
   </test>
   <test>
     <default>
-      <files>negzero.js</files>
-      <baseline>negzero.baseline</baseline>
-      <tags></tags>
+      <files>negZero.js</files>
+      <baseline>negZero.baseline</baseline>
       <compile-flags>-testtrace:asmjs -simdjs</compile-flags>
     </default>
   </test>
@@ -832,9 +833,22 @@
   </test>
   <test>
     <default>
+      <files>constFoldTests.js</files>
+      <compile-flags>-asmjs -maic:0</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>nested.js</files>
       <baseline>nested.baseline</baseline>
       <compile-flags>-forcedeferparse -testtrace:asmjs -simdjs</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>constbrbug.js</files>
+      <baseline>constbrbug.baseline</baseline>
+      <compile-flags>-testtrace:asmjs -maic:0</compile-flags>
     </default>
   </test>
 </regress-exe>
