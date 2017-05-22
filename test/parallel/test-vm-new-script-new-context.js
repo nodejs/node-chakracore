@@ -50,7 +50,7 @@ assert.throws(
   common.engineSpecificMessage({
     v8: /not defined/,
     chakracore: /undefined or null/
-}));
+  }));
 
 global.hello = 5;
 script = new Script('hello = 2');
@@ -91,7 +91,7 @@ assert.throws(
   common.engineSpecificMessage({
     v8: /f is not defined/,
     chakracore: /'a' of undefined or null/
-}));
+  }));
 
 console.error('invalid this');
 assert.throws(function() {
