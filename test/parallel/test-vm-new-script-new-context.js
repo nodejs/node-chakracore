@@ -50,7 +50,7 @@ assert.throws(
   common.engineSpecificMessage({
     v8: /not defined/,
     chakracore: /undefined or null/
-  }));
+}));
 
 global.hello = 5;
 script = new Script('hello = 2');
@@ -91,9 +91,12 @@ assert.throws(
   common.engineSpecificMessage({
     v8: /f is not defined/,
     chakracore: /'a' of undefined or null/
-  }));
+}));
 
 console.error('invalid this');
 assert.throws(function() {
   script.runInNewContext.call('\'hello\';');
-}, /^TypeError: this\.runInContext is not a function$/);
+}, common.engineSpecificMessage({
+    v8: /^TypeError: this\.runInContext is not a function$/,
+    chakracore: /TypeError: Object doesn't support property or method 'runInContext'/
+}));
