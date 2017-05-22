@@ -499,6 +499,15 @@ write('hello', () => {
 
 A Writable stream in object mode will always ignore the `encoding` argument.
 
+##### writable.destroy([error])
+<!-- YAML
+added: REPLACEME
+-->
+
+Destroy the stream, and emit the passed error. After this call, the
+writible stream has ended. Implementors should not override this method,
+but instead implement [`writable._destroy`][writable-_destroy].
+
 ### Readable Streams
 
 Readable streams are an abstraction for a *source* from which data is
@@ -920,23 +929,20 @@ added: v0.9.4
 * `encoding` {string} The encoding to use.
 * Returns: `this`
 
-The `readable.setEncoding()` method sets the default character encoding for
+The `readable.setEncoding()` method sets the character encoding for
 data read from the Readable stream.
 
-Setting an encoding causes the stream data
-to be returned as string of the specified encoding rather than as `Buffer`
+By default, no encoding is assigned and stream data will be returned as
+`Buffer` objects. Setting an encoding causes the stream data
+to be returned as strings of the specified encoding rather than as `Buffer`
 objects. For instance, calling `readable.setEncoding('utf8')` will cause the
-output data will be interpreted as UTF-8 data, and passed as strings. Calling
+output data to be interpreted as UTF-8 data, and passed as strings. Calling
 `readable.setEncoding('hex')` will cause the data to be encoded in hexadecimal
 string format.
 
 The Readable stream will properly handle multi-byte characters delivered through
 the stream that would otherwise become improperly decoded if simply pulled from
 the stream as `Buffer` objects.
-
-Encoding can be disabled by calling `readable.setEncoding(null)`. This approach
-is useful when working with binary data or with large multi-byte strings spread
-out over multiple chunks.
 
 ```js
 const readable = getReadableStreamSomehow();
@@ -1073,6 +1079,16 @@ myReader.on('readable', () => {
 });
 ```
 
+##### readable.destroy([error])
+<!-- YAML
+added: REPLACEME
+-->
+
+Destroy the stream, and emit `'error'`. After this call, the
+readable stream will release any internal resources.
+Implementors should not override this method, but instead implement
+[`readable._destroy`][readable-_destroy].
+
 ### Duplex and Transform Streams
 
 #### Class: stream.Duplex
@@ -1112,6 +1128,16 @@ Examples of Transform streams include:
 * [zlib streams][zlib]
 * [crypto streams][crypto]
 
+##### transform.destroy([error])
+<!-- YAML
+added: REPLACEME
+-->
+
+Destroy the stream, and emit `'error'`. After this call, the
+transform stream would release any internal resources.
+implementors should not override this method, but instead implement
+[`readable._destroy`][readable-_destroy].
+The default implementation of `_destroy` for `Transform` also emit `'close'`.
 
 ## API for Stream Implementers
 
@@ -1250,6 +1276,8 @@ constructor and implement the `writable._write()` method. The
     [`stream._write()`][stream-_write] method.
   * `writev` {Function} Implementation for the
     [`stream._writev()`][stream-_writev] method.
+  * `destroy` {Function} Implementation for the
+    [`stream._destroy()`][writable-_destroy] method.
 
 For example:
 
@@ -1359,6 +1387,15 @@ The `writable._writev()` method is prefixed with an underscore because it is
 internal to the class that defines it, and should never be called directly by
 user programs.
 
+#### writable.\_destroy(err, callback)
+<!-- YAML
+added: REPLACEME
+-->
+
+* `err` {Error} An error.
+* `callback` {Function} A callback function that takes an optional error argument
+  which is invoked when the writable is destroyed.
+
 #### Errors While Writing
 
 It is recommended that errors occurring during the processing of the
@@ -1427,6 +1464,8 @@ constructor and implement the `readable._read()` method.
     as a stream of objects. Meaning that [`stream.read(n)`][stream-read] returns
     a single value instead of a Buffer of size n. Defaults to `false`
   * `read` {Function} Implementation for the [`stream._read()`][stream-_read]
+    method.
+  * `destroy` {Function} Implementation for the [`stream._destroy()`][readable-_destroy]
     method.
 
 For example:
@@ -2076,4 +2115,8 @@ readable buffer so there is nothing for a user to consume.
 [stream-read]: #stream_readable_read_size
 [stream-resume]: #stream_readable_resume
 [stream-write]: #stream_writable_write_chunk_encoding_callback
-[zlib]: zlib.html
+[readable-_destroy]: #stream_readable_destroy_err_callback
+[writable-_destroy]: #stream_writable_destroy_err_callback
+[TCP sockets]: net.html#net_class_net_socket
+[Transform]: #stream_class_stream_transform
+[Writable]: #stream_class_stream_writable
