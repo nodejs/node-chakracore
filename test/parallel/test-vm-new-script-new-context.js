@@ -38,7 +38,7 @@ console.error('thrown error');
 script = new Script('throw new Error(\'test\');');
 assert.throws(function() {
   script.runInNewContext();
-}, /test/);
+}, /^Error: test$/);
 
 
 console.error('undefined reference');
@@ -96,4 +96,4 @@ assert.throws(
 console.error('invalid this');
 assert.throws(function() {
   script.runInNewContext.call('\'hello\';');
-}, TypeError);
+}, /^TypeError: this\.runInContext is not a function$/);
