@@ -303,10 +303,13 @@ static struct {
                     "so event tracing is not available.\n");
   }
   void StopTracingAgent() {}
+#endif  // !NODE_USE_V8_PLATFORM
+
+#if NODE_USE_V8_PLATFORM == 0 || HAVE_INSPECTOR == 0
   bool InspectorStarted(Environment *env) {
     return false;
   }
-#endif  // !NODE_USE_V8_PLATFORM
+#endif  //  !NODE_USE_V8_PLATFORM || !HAVE_INSPECTOR
 } v8_platform;
 
 #ifdef __POSIX__
