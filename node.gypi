@@ -92,23 +92,6 @@
         '<(SHARED_INTERMEDIATE_DIR)/include', # for inspector
         '<(SHARED_INTERMEDIATE_DIR)',
       ],
-      'conditions': [
-        [ 'node_engine=="chakracore"', {
-          'dependencies': [
-            'deps/chakrashim/inspector/src/inspector/inspector.gyp:standalone_inspector',
-          ],
-          'include_dirs': [
-            'deps/chakrashim/inspector/include',
-          ],
-        },{
-          'dependencies': [
-            'deps/v8_inspector/src/inspector/inspector.gyp:standalone_inspector',
-          ],
-          'include_dirs': [
-            'deps/v8_inspector/include',
-          ],
-        }]
-      ]
     }, {
       'defines': [ 'HAVE_INSPECTOR=0' ]
     }],
@@ -256,20 +239,13 @@
         }],
       ],
     }],
-    [ 'node_engine=="v8"', {
-      'include_dirs': [
-        'deps/v8' # include/v8_platform.h
-      ],
-      'dependencies': [
-        'deps/v8/src/v8.gyp:v8',
-        'deps/v8/src/v8.gyp:v8_libplatform'
-      ],
-    }],
     ['node_engine=="chakracore"', {
       'include_dirs': [
-        'deps/chakrashim' # include/v8_platform.h
+        'deps/chakrashim', # include/v8_platform.h
       ],
-      'dependencies': [ 'deps/chakrashim/chakrashim.gyp:chakrashim' ],
+      'dependencies': [
+        'deps/chakrashim/chakrashim.gyp:chakrashim'
+      ],
     }],
     [ 'node_shared_zlib=="false"', {
       'dependencies': [ 'deps/zlib/zlib.gyp:zlib' ],
@@ -347,16 +323,12 @@
       'ldflags': [ '-Wl,-z,noexecstack' ],
       'conditions': [
       [ 'node_engine=="v8"', {
-          'ldflags': [
-            '-Wl,--whole-archive <(V8_BASE)',
-            '-Wl,--no-whole-archive',
-        ],
+        'ldflags': [ '-Wl,--whole-archive <(V8_BASE)',
+                     '-Wl,--no-whole-archive' ],
       }],
       ['node_engine=="chakracore"', {
-          'ldflags': [
-            '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
-            '-Wl,--no-whole-archive',
-        ],
+        'ldflags': [ '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
+                     '-Wl,--no-whole-archive' ],
       }],
       ]
     }],
@@ -368,20 +340,7 @@
        'cflags': [ '--coverage',
                    '-g',
                    '-O0' ],
-     'conditions': [
-      [ 'node_engine=="v8"', {
-        'ldflags': [
-            '-Wl,--whole-archive <(V8_BASE)',
-            '-Wl,--no-whole-archive',
-        ],
-      }],
-      ['node_engine=="chakracore"', {
-        'ldflags': [
-            '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
-            '-Wl,--no-whole-archive',
-        ],
-      }],
-    ]
+       'cflags!': [ '-O3' ]
     }],
     [ 'OS=="sunos"', {
       'ldflags': [ '-Wl,-M,/usr/lib/ld/map.noexstk' ],

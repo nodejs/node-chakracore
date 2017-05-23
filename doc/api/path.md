@@ -68,15 +68,16 @@ changes:
 * Returns: {string}
 
 The `path.basename()` methods returns the last portion of a `path`, similar to
-the Unix `basename` command.
+the Unix `basename` command. Trailing directory separators are ignored, see
+[`path.sep`][].
 
 For example:
 
 ```js
-path.basename('/foo/bar/baz/asdf/quux.html')
+path.basename('/foo/bar/baz/asdf/quux.html');
 // Returns: 'quux.html'
 
-path.basename('/foo/bar/baz/asdf/quux.html', '.html')
+path.basename('/foo/bar/baz/asdf/quux.html', '.html');
 // Returns: 'quux'
 ```
 
@@ -98,21 +99,21 @@ Provides the platform-specific path delimiter:
 For example, on POSIX:
 
 ```js
-console.log(process.env.PATH)
+console.log(process.env.PATH);
 // Prints: '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin'
 
-process.env.PATH.split(path.delimiter)
+process.env.PATH.split(path.delimiter);
 // Returns: ['/usr/bin', '/bin', '/usr/sbin', '/sbin', '/usr/local/bin']
 ```
 
 On Windows:
 
 ```js
-console.log(process.env.PATH)
+console.log(process.env.PATH);
 // Prints: 'C:\Windows\system32;C:\Windows;C:\Program Files\node\'
 
-process.env.PATH.split(path.delimiter)
-// Returns: ['C:\\Windows\\system32', 'C:\\Windows', 'C:\\Program Files\\node\\']
+process.env.PATH.split(path.delimiter);
+// Returns ['C:\\Windows\\system32', 'C:\\Windows', 'C:\\Program Files\\node\\']
 ```
 
 ## path.dirname(path)
@@ -128,12 +129,13 @@ changes:
 * Returns: {string}
 
 The `path.dirname()` method returns the directory name of a `path`, similar to
-the Unix `dirname` command.
+the Unix `dirname` command. Trailing directory separators are ignored, see
+[`path.sep`][].
 
 For example:
 
 ```js
-path.dirname('/foo/bar/baz/asdf/quux')
+path.dirname('/foo/bar/baz/asdf/quux');
 // Returns: '/foo/bar/baz/asdf'
 ```
 
@@ -160,19 +162,19 @@ an empty string is returned.
 For example:
 
 ```js
-path.extname('index.html')
+path.extname('index.html');
 // Returns: '.html'
 
-path.extname('index.coffee.md')
+path.extname('index.coffee.md');
 // Returns: '.md'
 
-path.extname('index.')
+path.extname('index.');
 // Returns: '.'
 
-path.extname('index')
+path.extname('index');
 // Returns: ''
 
-path.extname('.index')
+path.extname('.index');
 // Returns: ''
 ```
 
@@ -236,8 +238,8 @@ On Windows:
 
 ```js
 path.format({
-  dir : "C:\\path\\dir",
-  base : "file.txt"
+  dir: 'C:\\path\\dir',
+  base: 'file.txt'
 });
 // Returns: 'C:\\path\\dir\\file.txt'
 ```
@@ -257,22 +259,22 @@ If the given `path` is a zero-length string, `false` will be returned.
 For example on POSIX:
 
 ```js
-path.isAbsolute('/foo/bar') // true
-path.isAbsolute('/baz/..')  // true
-path.isAbsolute('qux/')     // false
-path.isAbsolute('.')        // false
+path.isAbsolute('/foo/bar'); // true
+path.isAbsolute('/baz/..');  // true
+path.isAbsolute('qux/');     // false
+path.isAbsolute('.');        // false
 ```
 
 On Windows:
 
 ```js
-path.isAbsolute('//server')    // true
-path.isAbsolute('\\\\server')  // true
-path.isAbsolute('C:/foo/..')   // true
-path.isAbsolute('C:\\foo\\..') // true
-path.isAbsolute('bar\\baz')    // false
-path.isAbsolute('bar/baz')     // false
-path.isAbsolute('.')           // false
+path.isAbsolute('//server');    // true
+path.isAbsolute('\\\\server');  // true
+path.isAbsolute('C:/foo/..');   // true
+path.isAbsolute('C:\\foo\\..'); // true
+path.isAbsolute('bar\\baz');    // false
+path.isAbsolute('bar/baz');     // false
+path.isAbsolute('.');           // false
 ```
 
 A [`TypeError`][] is thrown if `path` is not a string.
@@ -295,11 +297,11 @@ working directory.
 For example:
 
 ```js
-path.join('/foo', 'bar', 'baz/asdf', 'quux', '..')
+path.join('/foo', 'bar', 'baz/asdf', 'quux', '..');
 // Returns: '/foo/bar/baz/asdf'
 
-path.join('foo', {}, 'bar')
-// throws TypeError: Arguments to path.join must be strings
+path.join('foo', {}, 'bar');
+// throws 'TypeError: Path must be a string. Received {}'
 ```
 
 A [`TypeError`][] is thrown if any of the path segments is not a string.
@@ -325,7 +327,7 @@ current working directory.
 For example on POSIX:
 
 ```js
-path.normalize('/foo/bar//baz/asdf/quux/..')
+path.normalize('/foo/bar//baz/asdf/quux/..');
 // Returns: '/foo/bar/baz/asdf'
 ```
 
@@ -347,7 +349,8 @@ added: v0.11.15
 * Returns: {Object}
 
 The `path.parse()` method returns an object whose properties represent
-significant elements of the `path`.
+significant elements of the `path`. Trailing directory separators are ignored,
+see [`path.sep`][].
 
 The returned object will have the following properties:
 
@@ -360,15 +363,13 @@ The returned object will have the following properties:
 For example on POSIX:
 
 ```js
-path.parse('/home/user/dir/file.txt')
+path.parse('/home/user/dir/file.txt');
 // Returns:
-// {
-//    root : "/",
-//    dir : "/home/user/dir",
-//    base : "file.txt",
-//    ext : ".txt",
-//    name : "file"
-// }
+// { root: '/',
+//   dir: '/home/user/dir',
+//   base: 'file.txt',
+//   ext: '.txt',
+//   name: 'file' }
 ```
 
 ```text
@@ -384,15 +385,13 @@ path.parse('/home/user/dir/file.txt')
 On Windows:
 
 ```js
-path.parse('C:\\path\\dir\\file.txt')
+path.parse('C:\\path\\dir\\file.txt');
 // Returns:
-// {
-//    root : "C:\\",
-//    dir : "C:\\path\\dir",
-//    base : "file.txt",
-//    ext : ".txt",
-//    name : "file"
-// }
+// { root: 'C:\\',
+//   dir: 'C:\\path\\dir',
+//   base: 'file.txt',
+//   ext: '.txt',
+//   name: 'file' }
 ```
 
 ```text
@@ -441,14 +440,14 @@ directory will be used instead of the zero-length strings.
 For example on POSIX:
 
 ```js
-path.relative('/data/orandea/test/aaa', '/data/orandea/impl/bbb')
+path.relative('/data/orandea/test/aaa', '/data/orandea/impl/bbb');
 // Returns: '../../impl/bbb'
 ```
 
 On Windows:
 
 ```js
-path.relative('C:\\orandea\\test\\aaa', 'C:\\orandea\\impl\\bbb')
+path.relative('C:\\orandea\\test\\aaa', 'C:\\orandea\\impl\\bbb');
 // Returns: '..\\..\\impl\\bbb'
 ```
 
@@ -484,13 +483,13 @@ of the current working directory.
 For example:
 
 ```js
-path.resolve('/foo/bar', './baz')
+path.resolve('/foo/bar', './baz');
 // Returns: '/foo/bar/baz'
 
-path.resolve('/foo/bar', '/tmp/file/')
+path.resolve('/foo/bar', '/tmp/file/');
 // Returns: '/tmp/file'
 
-path.resolve('wwwroot', 'static_files/png/', '../gif/image.gif')
+path.resolve('wwwroot', 'static_files/png/', '../gif/image.gif');
 // if the current working directory is /home/myself/node,
 // this returns '/home/myself/node/wwwroot/static_files/gif/image.gif'
 ```
@@ -512,16 +511,20 @@ Provides the platform-specific path segment separator:
 For example on POSIX:
 
 ```js
-'foo/bar/baz'.split(path.sep)
+'foo/bar/baz'.split(path.sep);
 // Returns: ['foo', 'bar', 'baz']
 ```
 
 On Windows:
 
 ```js
-'foo\\bar\\baz'.split(path.sep)
+'foo\\bar\\baz'.split(path.sep);
 // Returns: ['foo', 'bar', 'baz']
 ```
+
+*Note*: On Windows, both the forward slash (`/`) and backward slash (`\`) are
+accepted as path segment separators; however, the `path` methods only add
+backward slashes (`\`).
 
 ## path.win32
 <!-- YAML
@@ -533,11 +536,8 @@ added: v0.11.15
 The `path.win32` property provides access to Windows-specific implementations
 of the `path` methods.
 
-*Note*: On Windows, both the forward slash (`/`) and backward slash (`\`)
-characters are accepted as path delimiters; however, only the backward slash
-(`\`) will be used in return values.
-
 [`path.posix`]: #path_path_posix
+[`path.sep`]: #path_path_sep
 [`path.win32`]: #path_path_win32
 [`path.parse()`]: #path_path_parse_path
 [`TypeError`]: errors.html#errors_class_typeerror

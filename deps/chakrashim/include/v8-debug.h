@@ -91,7 +91,7 @@ class V8_EXPORT Debug {
   static Local<Context> GetDebugContext(Isolate* isolate);
 
   static void EnableDebug();
-  static void EnableInspector();
+  static void EnableInspector(bool enableReplayDebug = false);
 
   static void SetLiveEditEnabled(Isolate* isolate, bool enable);
 };

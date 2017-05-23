@@ -86,7 +86,7 @@ function client() {
       chunk = 'x'.repeat(len);
       break;
     default:
-      throw new Error('invalid type: ' + type);
+      throw new Error(`invalid type: ${type}`);
   }
 
   var clientHandle = new TCP();
@@ -96,8 +96,6 @@ function client() {
 
   if (err)
     fail(err, 'connect');
-
-  clientHandle.readStart();
 
   clientHandle.onread = function(nread, buffer) {
     if (nread < 0)
@@ -111,6 +109,8 @@ function client() {
       fail(err, 'connect');
 
     bench.start();
+
+    clientHandle.readStart();
 
     setTimeout(function() {
       // multiply by 2 since we're sending it first one way

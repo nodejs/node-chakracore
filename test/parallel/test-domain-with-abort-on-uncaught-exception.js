@@ -27,8 +27,8 @@ const fs = require('fs');
  */
 
 if (common.isChakraEngine) {
-  console.log(`1..0 # Skipped: This test is disabled for chakra engine
-    because it depends on v8-option --abort-on-uncaught-exception`);
+  common.skip('This test is disabled for chakra engine because it depends ' +
+              'on v8-option --abort-on-uncaught-exception');
   return;
 }
 

@@ -69,6 +69,9 @@ or `console.Console`:
 
 ```js
 const Console = require('console').Console;
+```
+
+```js
 const Console = console.Console;
 ```
 
@@ -132,6 +135,7 @@ by extending Node.js' `console` and overriding the `console.assert()` method.
 In the following example, a simple module is created that extends and overrides
 the default behavior of `console` in Node.js.
 
+<!-- eslint-disable func-name-matching -->
 ```js
 'use strict';
 
@@ -273,9 +277,7 @@ prints the result to `stdout`:
 
 ```js
 console.time('100-elements');
-for (let i = 0; i < 100; i++) {
-  ;
-}
+for (let i = 0; i < 100; i++) {}
 console.timeEnd('100-elements');
 // prints 100-elements: 225.438ms
 ```

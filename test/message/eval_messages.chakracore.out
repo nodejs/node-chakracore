@@ -5,8 +5,6 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
-   at run (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
 42
@@ -18,8 +16,6 @@ Error: hello
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
-   at run (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
 Error: hello
@@ -29,8 +25,6 @@ Error: hello
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
-   at run (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
 100
@@ -41,8 +35,6 @@ ReferenceError: Variable undefined in strict mode
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
-   at run (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
 10

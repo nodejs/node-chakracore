@@ -10,8 +10,8 @@ const domain = require('domain');
 const child_process = require('child_process');
 
 if (common.isChakraEngine) {
-  console.log(`1..0 # Skipped: This test is disabled for chakra engine
-    because it depends on v8-option --abort-on-uncaught-exception`);
+  common.skip('This test is disabled for chakra engine because it depends ' +
+              'on v8-option --abort-on-uncaught-exception');
   return;
 }
 
@@ -245,11 +245,8 @@ if (process.argv[2] === 'child') {
       testCmd += 'ulimit -c 0 && ';
     }
 
-    testCmd += process.argv[0];
-    testCmd += ' ' + '--abort-on-uncaught-exception';
-    testCmd += ' ' + process.argv[1];
-    testCmd += ' ' + 'child';
-    testCmd += ' ' + testIndex;
+    testCmd += `${process.argv[0]} --abort-on-uncaught-exception ` +
+               `${process.argv[1]} child ${testIndex}`;
 
     const child = child_process.exec(testCmd);
 

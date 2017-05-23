@@ -223,28 +223,6 @@ inline Environment::Environment(IsolateData* isolate_data,
 inline Environment::~Environment() {
   v8::HandleScope handle_scope(isolate());
 
-  while (HandleCleanup* hc = handle_cleanup_queue_.PopFront()) {
-    handle_cleanup_waiting_++;
-    hc->cb_(this, hc->handle_, hc->arg_);
-    delete hc;
-  }
-
-  while (handle_cleanup_waiting_ != 0)
-    uv_run(event_loop(), UV_RUN_ONCE);
-
-  // Closing the destroy_ids_idle_handle_ within the handle cleanup queue
-  // prevents the async wrap destroy hook from being called.
-  uv_handle_t* handle =
-    reinterpret_cast<uv_handle_t*>(&destroy_ids_idle_handle_);
-  handle->data = this;
-  handle_cleanup_waiting_ = 1;
-  uv_close(handle, [](uv_handle_t* handle) {
-    static_cast<Environment*>(handle->data)->FinishHandleCleanup(handle);
-  });
-
-  while (handle_cleanup_waiting_ != 0)
-    uv_run(event_loop(), UV_RUN_ONCE);
-
   fs_stats_field_array_.Empty();
 
   context()->SetAlignedPointerInEmbedderData(kContextEmbedderDataIndex,
@@ -390,7 +368,7 @@ inline v8::Local<v8::Float64Array> Environment::fs_stats_field_array() const {
 inline void Environment::set_fs_stats_field_array(
     v8::Local<v8::Float64Array> fields) {
   CHECK_EQ(fs_stats_field_array_.IsEmpty(), true);  // Should be set only once.
-  fs_stats_field_array_ = v8::Global<v8::Float64Array>::New(isolate_, fields);
+  fs_stats_field_array_ = v8::Global<v8::Float64Array>(isolate_, fields);
 }
 
 inline Environment* Environment::from_cares_timer_handle(uv_timer_t* handle) {

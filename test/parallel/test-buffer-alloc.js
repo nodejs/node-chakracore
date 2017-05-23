@@ -780,32 +780,6 @@ assert.strictEqual(Buffer.from('13.37').length, 5);
 // issue GH-3416
 Buffer.from(Buffer.allocUnsafe(0), 0, 0);
 
-// GH-5110
-{
-  const buffer = Buffer.from('test');
-  const string = JSON.stringify(buffer);
-
-  assert.strictEqual(string, '{"type":"Buffer","data":[116,101,115,116]}');
-
-  assert.deepStrictEqual(buffer, JSON.parse(string, (key, value) => {
-    return value && value.type === 'Buffer' ?
-      Buffer.from(value.data) :
-      value;
-  }));
-}
-
-// issue GH-7849
-{
-  const buf = Buffer.from('test');
-  const json = JSON.stringify(buf);
-  const obj = JSON.parse(json);
-  const copy = Buffer.from(obj);
-
-  assert(buf.equals(copy));
-}
-assert.throws(() => Buffer.allocUnsafe(0xFFFFFFFF), RangeError);
-assert.throws(() => Buffer.allocUnsafe(0xFFFFFFFFF), RangeError);
-
 // issue GH-5587
 assert.throws(() => Buffer.alloc(8).writeFloatLE(0, 5), RangeError);
 assert.throws(() => Buffer.alloc(16).writeDoubleLE(0, 9), RangeError);
@@ -916,7 +890,8 @@ assert.throws(() => Buffer.allocUnsafe(8).writeFloatLE(0.0, -1), RangeError);
 }
 
 // Regression test for #5482: should throw but not assert in C++ land.
-assert.throws(() => Buffer.from('', 'buffer'), TypeError);
+assert.throws(() => Buffer.from('', 'buffer'),
+              /^TypeError: "encoding" must be a valid string encoding$/);
 
 // Regression test for #6111. Constructing a buffer from another buffer
 // should a) work, and b) not corrupt the source buffer.
@@ -932,7 +907,6 @@ assert.throws(() => Buffer.from('', 'buffer'), TypeError);
     assert.strictEqual(c[i], i);
   }
 }
-
 
 if (common.hasCrypto) {
   // Test truncation after decode

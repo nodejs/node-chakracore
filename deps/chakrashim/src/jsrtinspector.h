@@ -29,6 +29,7 @@ class InspectorBreakQueue;
 class Inspector {
  public:
   static bool IsInspectorEnabled();
+  static bool IsReplayDebugEnabled();
   static void StartDebugging(JsRuntimeHandle runtime);
   static void RequestAsyncBreak(JsRuntimeHandle runtime,
                                 v8::InterruptCallback callback,
@@ -37,6 +38,7 @@ class Inspector {
   static void SetChakraDebugObject(JsValueRef chakraDebugObject);
   static void SetDebugEventHandler(JsDiagDebugEventCallback callback,
                                    void* callbackState);
+  static void RemoveBreakpoint(unsigned int breakpointId);
   static void ClearBreakpoints();
 
  private:

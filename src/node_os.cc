@@ -57,6 +57,7 @@ using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::Integer;
 using v8::Local;
+using v8::MaybeLocal;
 using v8::Null;
 using v8::Number;
 using v8::Object;
@@ -176,6 +177,13 @@ static void GetCPUInfo(const FunctionCallbackInfo<Value>& args) {
     fields[field_idx++] = ci->cpu_times.irq;
     model_argv[model_idx++] = OneByteString(env->isolate(), ci->model);
 
+#if ENABLE_TTD_NODE
+    if (s_doTTRecord || s_doTTReplay) {
+      int modlength = field_idx * sizeof(double);
+      ab->TTDRawBufferModifyNotifySync(0, modlength);
+    }
+#endif
+
     if (model_idx >= NODE_PUSH_VAL_TO_ARRAY_MAX) {
       addfn->Call(env->context(), cpus, model_idx, model_argv).ToLocalChecked();
       model_idx = 0;
@@ -223,6 +231,12 @@ static void GetLoadAvg(const FunctionCallbackInfo<Value>& args) {
   Local<ArrayBuffer> ab = array->Buffer();
   double* loadavg = static_cast<double*>(ab->GetContents().Data());
   uv_loadavg(loadavg);
+
+#if ENABLE_TTD_NODE
+  if (s_doTTRecord || s_doTTReplay) {
+    ab->TTDRawBufferModifyNotifySync(0, 3 * sizeof(double));
+  }
+#endif
 }
 
 
@@ -339,7 +353,12 @@ static void GetUserInfo(const FunctionCallbackInfo<Value>& args) {
 
   if (args[0]->IsObject()) {
     Local<Object> options = args[0].As<Object>();
-    Local<Value> encoding_opt = options->Get(env->encoding_string());
+    MaybeLocal<Value> maybe_encoding = options->Get(env->context(),
+                                                    env->encoding_string());
+    if (maybe_encoding.IsEmpty())
+      return;
+
+    Local<Value> encoding_opt = maybe_encoding.ToLocalChecked();
     encoding = ParseEncoding(env->isolate(), encoding_opt, UTF8);
   } else {
     encoding = UTF8;

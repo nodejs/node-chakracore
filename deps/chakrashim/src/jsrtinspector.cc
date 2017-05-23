@@ -26,6 +26,7 @@
 
 namespace v8 {
   extern THREAD_LOCAL bool g_EnableInspector;
+  extern THREAD_LOCAL bool g_EnableReplayDebug;
 }
 
 namespace jsrt {
@@ -159,6 +160,10 @@ namespace jsrt {
     return v8::g_EnableInspector;
   }
 
+  bool Inspector::IsReplayDebugEnabled() {
+    return v8::g_EnableReplayDebug;
+  }
+
   void Inspector::StartDebugging(JsRuntimeHandle runtime) {
     JsErrorCode errorCode = JsDiagStartDebugging(
       runtime, JsDiagDebugEventHandler, nullptr);
@@ -205,6 +210,16 @@ namespace jsrt {
     }
   }
 
+  void Inspector::RemoveBreakpoint(unsigned int breakpointId) {
+    JsErrorCode err = JsDiagRemoveBreakpoint(breakpointId);
+
+    // Ignore invalid argument as the breakpoint may have overlapped with an
+    // existing one.
+    if (err != JsErrorInvalidArgument) {
+      CHAKRA_VERIFY_NOERROR(err);
+    }
+  }
+
   void Inspector::ClearBreakpoints() {
     JsValueRef breakpoints;
     CHAKRA_VERIFY_NOERROR(JsDiagGetBreakpoints(&breakpoints));
@@ -226,7 +241,7 @@ namespace jsrt {
       CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIntProperty(
           breakpoint, "breakpointId", &breakpointId));
 
-      CHAKRA_VERIFY_NOERROR(JsDiagRemoveBreakpoint(breakpointId));
+      RemoveBreakpoint(breakpointId);
     }
   }
 

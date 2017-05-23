@@ -2,14 +2,7 @@
 'use strict';
 // Flags: --harmony-sharedarraybuffer
 
-const common = require('../common');
-
-if (common.isChakraEngine) {
-  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
-          'because SharedArrayBuffer is not yet supported');
-  return;
-}
-
+require('../common');
 const assert = require('assert');
 const Buffer = require('buffer').Buffer;
 

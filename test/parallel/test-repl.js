@@ -39,6 +39,7 @@ const prompt_npm = 'npm should be run outside of the ' +
 const expect_npm = prompt_npm + prompt_unix;
 let server_tcp, server_unix, client_tcp, client_unix, replServer;
 
+
 // absolute path to test/fixtures/a.js
 const moduleFilename = require('path').join(common.fixturesDir, 'a');
 
@@ -132,17 +133,6 @@ function error_test() {
     }
   });
 
-  const cc_re1 =
-    /^SyntaxError: Duplicate formal parameter names not allowed in strict mode/;
-  const cc_re2 =
-    /^SyntaxError: 'with' statements are not allowed in strict mode/;
-  const cc_re3 =
-    /^SyntaxError: Calling delete on expression not allowed in strict mode/;
-  const cc_re4 = new RegExp('^SyntaxError: Octal numeric literals and escape' +
-                           'characters not allowed in strict mode');
-  const v8_re1 = new RegExp('\bSyntaxError: Duplicate parameter name not ' +
-                            'allowed in this context');
-    //;
   send_expect([
     // Uncaught error throws and prints out
     { client: client_unix, send: 'throw new Error(\'test error\');',
@@ -189,20 +179,20 @@ function error_test() {
     { client: client_unix, send: 'JSON.parse(\'{invalid: \\\'json\\\'}\');',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Unexpected token i/,
-        chakracore: /^SyntaxError: Invalid character/})
+        chakracore: /^SyntaxError: JSON\.parse Error: Invalid character/})
     },
     // end of input to JSON.parse error is special case of syntax error,
     // should throw
     { client: client_unix, send: 'JSON.parse(\'066\');',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Unexpected number/,
-        chakracore:  /^SyntaxError: Invalid number/})
+        chakracore:  /^SyntaxError: JSON\.parse Error: Invalid number/})
     },
     // should throw
     { client: client_unix, send: 'JSON.parse(\'{\');',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Unexpected end of JSON input/,
-        chakracore: /^SyntaxError: Syntax error/})
+        chakracore: /^SyntaxError: JSON\.parse Error: Invalid character/})
     },
     // invalid RegExps are a special case of syntax error,
     // should throw
@@ -223,25 +213,28 @@ function error_test() {
       send: '(function() { "use strict"; return 0755; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Octal literals are not allowed in strict mode/,
-        chakracore: cc_re4})
+        chakracore: /^SyntaxError: Octal numeric literals and escape characters not allowed in strict mode/}) // eslint-disable-line max-len
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function(a, a, b) { "use strict"; return a + b + c; })()',
       expect: common.engineSpecificMessage({
-        v8: v8_re1,
-        chakracore: cc_re1})
+        v8: /\bSyntaxError: Duplicate parameter name not allowed in this context/, // eslint-disable-line max-len
+        chakracore: /^SyntaxError: Duplicate formal parameter names not allowed in strict mode/}) // eslint-disable-line max-len
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function() { "use strict"; with (this) {} })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Strict mode code may not include a with statement/,
-        chakracore: cc_re2})
+        chakracore: /^SyntaxError: 'with' statements are not allowed in strict mode/}) // eslint-disable-line max-len
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function() { "use strict"; var x; delete x; })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: Delete of an unqualified identifier in strict mode/,
-        chakracore: cc_re3})
+        chakracore: /^SyntaxError: Calling delete on expression not allowed in strict mode/}) // eslint-disable-line max-len
     },
     { client: client_unix,
       send: '(function() { "use strict"; eval = 17; })()',
@@ -249,7 +242,8 @@ function error_test() {
         v8: /\bSyntaxError: Unexpected eval or arguments in strict mode/,
         chakracore: /^SyntaxError: Invalid usage of 'eval' in strict mode/})
     },
-    { client: client_unix,
+    {
+      client: client_unix,
       send: '(function() { "use strict"; if (true) function f() { } })()',
       expect: common.engineSpecificMessage({
         v8: /\bSyntaxError: In strict mode code, functions can only be declared at top level or inside a block\./, // eslint-disable-line max-len
@@ -413,8 +407,7 @@ function error_test() {
       expect: 'undefined\n' + prompt_unix },
     // Illegal token is not recoverable outside string literal, RegExp literal,
     // or block comment. https://github.com/nodejs/node/issues/3611
-    {
-      client: client_unix, send: 'a = 3.5e',
+    { client: client_unix, send: 'a = 3.5e',
       expect: /\bSyntaxError: Invalid or unexpected token/ },
     // Mitigate https://github.com/nodejs/node/issues/548
     { client: client_unix, send: 'function name(){ return "node"; };name()',
@@ -446,14 +439,17 @@ function error_test() {
       client: client_unix, send: 'function foo() {\nvar bar = 1 / 1; // "/"\n}',
       expect: `${prompt_multiline}${prompt_multiline}undefined\n${prompt_unix}`
     },
+
     {
       client: client_unix, send: '(function() {\nreturn /foo/ / /bar/;\n}())',
       expect: prompt_multiline + prompt_multiline + 'NaN\n' + prompt_unix
     },
+
     {
       client: client_unix, send: '(function() {\nif (false) {} /bar"/;\n}())',
       expect: prompt_multiline + prompt_multiline + 'undefined\n' + prompt_unix
     },
+
     // Newline within template string maintains whitespace.
     { client: client_unix, send: '`foo \n`',
       expect: prompt_multiline + '\'foo \\n\'\n' + prompt_unix },
@@ -487,12 +483,12 @@ function tcp_test() {
         { client: client_tcp, send: '',
           expect: prompt_tcp },
         { client: client_tcp, send: 'invoke_me(333)',
-          expect: ('\'' + 'invoked 333' + '\'\n' + prompt_tcp) },
+          expect: (`'invoked 333'\n${prompt_tcp}`) },
         { client: client_tcp, send: 'a += 1',
-          expect: ('12346' + '\n' + prompt_tcp) },
+          expect: (`12346\n${prompt_tcp}`) },
         { client: client_tcp,
           send: 'require(' + JSON.stringify(moduleFilename) + ').number',
-          expect: ('42' + '\n' + prompt_tcp) }
+          expect: (`42\n${prompt_tcp}`) }
       ]);
     });
 
@@ -556,13 +552,13 @@ function unix_test() {
         { client: client_unix, send: '',
           expect: prompt_unix },
         { client: client_unix, send: 'message',
-          expect: ('\'' + message + '\'\n' + prompt_unix) },
+          expect: (`'${message}'\n${prompt_unix}`) },
         { client: client_unix, send: 'invoke_me(987)',
-          expect: ('\'' + 'invoked 987' + '\'\n' + prompt_unix) },
+          expect: (`'invoked 987'\n${prompt_unix}`) },
         { client: client_unix, send: 'a = 12345',
-          expect: ('12345' + '\n' + prompt_unix) },
+          expect: (`12345\n${prompt_unix}`) },
         { client: client_unix, send: '{a:1}',
-          expect: ('{ a: 1 }' + '\n' + prompt_unix) }
+          expect: (`{ a: 1 }\n${prompt_unix}`) }
       ]);
     });
 

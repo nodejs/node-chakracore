@@ -403,8 +403,8 @@ a `'resize'` event on the `output` if or when the columns ever change
 
 ### Use of the `completer` Function
 
-When called, the `completer` function is provided the current line entered by
-the user, and is expected to return an Array with 2 entries:
+The `completer` function takes the current line entered by the user
+as an argument, and returns an Array with 2 entries:
 
 * An Array with matching entries for the completion.
 * The substring that was used for the matching.
@@ -414,7 +414,7 @@ For instance: `[[substr1, substr2, ...], originalsubstring]`.
 ```js
 function completer(line) {
   const completions = '.help .error .exit .quit .q'.split(' ');
-  const hits = completions.filter((c) => { return c.indexOf(line) === 0 });
+  const hits = completions.filter((c) => c.indexOf(line) === 0);
   // show all completions if none found
   return [hits.length ? hits : completions, line];
 }
@@ -492,7 +492,7 @@ const rl = readline.createInterface({
 rl.prompt();
 
 rl.on('line', (line) => {
-  switch(line.trim()) {
+  switch (line.trim()) {
     case 'hello':
       console.log('world!');
       break;

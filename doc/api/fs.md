@@ -217,7 +217,7 @@ synchronous counterparts are of this type.
 For a regular file [`util.inspect(stats)`][] would return a string very
 similar to this:
 
-```js
+```
 Stats {
   dev: 2114,
   ino: 48064969,
@@ -630,13 +630,13 @@ default value of 64 kb for the same parameter.
 `options` is an object or string with the following defaults:
 
 ```js
-{
+const defaults = {
   flags: 'r',
   encoding: null,
   fd: null,
   mode: 0o666,
   autoClose: true
-}
+};
 ```
 
 `options` can include `start` and `end` values to read a range of bytes from
@@ -696,13 +696,13 @@ Returns a new [`WriteStream`][] object. (See [Writable Stream][]).
 `options` is an object or string with the following defaults:
 
 ```js
-{
+const defaults = {
   flags: 'w',
   defaultEncoding: 'utf8',
   fd: null,
   mode: 0o666,
   autoClose: true
-}
+};
 ```
 
 `options` may also include a `start` option to allow writing data at
@@ -1442,6 +1442,9 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/7897
     description: The `callback` parameter is no longer optional. Not passing
                  it will emit a deprecation warning.
+  - version: v6.0.0
+    pr-url: https://github.com/nodejs/node/pull/5616
+    description: The `options` parameter was added.
 -->
 
 * `path` {string|Buffer}
@@ -1912,7 +1915,7 @@ changes:
   * `persistent` {boolean} Indicates whether the process should continue to run
     as long as files are being watched. default = `true`
   * `recursive` {boolean} Indicates whether all subdirectories should be
-    watched, or only the current directory. The applies when a directory is
+    watched, or only the current directory. This applies when a directory is
     specified, and only on supported platforms (See [Caveats][]). default =
     `false`
   * `encoding` {string} Specifies the character encoding to be used for the

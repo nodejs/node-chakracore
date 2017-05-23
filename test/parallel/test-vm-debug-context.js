@@ -26,18 +26,12 @@ const assert = require('assert');
 const vm = require('vm');
 const spawn = require('child_process').spawn;
 
-if (common.isChakraEngine) {
-  console.log('1..0 # Skipped: This test is disabled for chakra engine ' +
-  'because debugger support is not implemented yet.');
-  return;
-}
-
 assert.throws(function() {
   vm.runInDebugContext('*');
 }, /SyntaxError/);
 
 assert.throws(function() {
-  vm.runInDebugContext({ toString: common.fail });
+  vm.runInDebugContext({ toString: assert.fail });
 }, /AssertionError/);
 
 assert.throws(function() {

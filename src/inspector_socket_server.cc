@@ -82,10 +82,8 @@ void PrintDebuggerReadyMessage(const std::string& host,
     return;
   }
   fprintf(out,
-          "Debugger listening on port %d.\n"
-          "Warning: This is an experimental feature "
-          "and could change at any time.\n",
-          port);
+          "Debugger listening on %s:%d.\n",
+          host.c_str(), port);
   if (ids.size() == 1)
     fprintf(out, "To start debugging, open the following URL in Chrome:\n");
   if (ids.size() > 1)

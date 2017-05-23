@@ -52,10 +52,10 @@ assert.strictEqual(SlowBuffer(NaN).length, 0);
 assert.strictEqual(SlowBuffer({}).length, 0);
 assert.strictEqual(SlowBuffer('string').length, 0);
 
+// should throw with invalid length
 assert.throws(function() {
   SlowBuffer(Infinity);
 }, common.bufferMaxSizeMsg);
-
 assert.throws(function() {
   SlowBuffer(-1);
 }, /^RangeError: "size" argument must not be negative$/);

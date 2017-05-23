@@ -4,7 +4,7 @@ const assert = require('assert');
 const v8 = require('v8');
 
 if (common.isChakraEngine) {
-  console.log('1..0 # Skipped: This test is disabled for chakra engine.');
+  common.skip('This test is disabled for chakra engine.');
   return;
 }
 

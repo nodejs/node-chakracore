@@ -74,12 +74,6 @@ TLSWrap::TLSWrap(Environment* env,
   node::Wrap(object(), this);
   MakeWeak(this);
 
-  // TODO(marron): This is a temp workaround for the stashed persistent pointer
-  if (s_doTTRecord) {
-    unsigned int refct = 0;
-    JsAddRef(*(this->object()), &refct);
-  }
-
   // sc comes from an Unwrap. Make sure it was assigned.
   CHECK_NE(sc, nullptr);
 
@@ -833,15 +827,6 @@ void TLSWrap::DestroySSL(const FunctionCallbackInfo<Value>& args) {
 
   // Destroy the SSL structure and friends
   wrap->SSLWrap<TLSWrap>::DestroySSL();
-
-  // See comment with AddRef earlier in this file.
-  if (s_doTTRecord) {
-      unsigned int refct = 0;
-      // As this is null we may have lost the reference earlier in the run...
-      if (*(wrap->object()) != nullptr) {
-          JsRelease(*(wrap->object()), &refct);
-      }
-  }
 
   delete wrap->clear_in_;
   wrap->clear_in_ = nullptr;

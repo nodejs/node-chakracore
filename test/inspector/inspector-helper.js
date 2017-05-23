@@ -217,7 +217,7 @@ TestSession.prototype.sendInspectorCommands = function(commands) {
         for (const id in this.messages_) {
           s += id + ', ';
         }
-        common.fail('Messages without response: ' +
+        assert.fail('Messages without response: ' +
                     s.substring(0, s.length - 2));
       }, TIMEOUT);
     });
@@ -461,7 +461,7 @@ exports.startNodeForInspectorTest = function(callback,
     clearTimeout(timeoutId);
     console.log('[err]', text);
     if (found) return;
-    const match = text.match(/Debugger listening on port (\d+)/);
+    const match = text.match(/Debugger listening on .*:(\d+)/);
     found = true;
     child.stderr.removeListener('data', dataCallback);
     assert.ok(match, text);

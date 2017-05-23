@@ -693,11 +693,6 @@ class Global : public PersistentBase<T> {
     other._weakWrapper = nullptr;
   }
 
-  template <class S>
-  static Global<S> New(Isolate* isolate, Local<S> that) {
-    return Global<S>(isolate, that);
-  }
-
   V8_INLINE ~Global() { this->Reset(); }
 
   template <class S>
@@ -2640,6 +2635,7 @@ class V8_EXPORT V8 {
   static void InitializePlatform(Platform* platform) {}
   static void FromJustIsNothing();
   static void ToLocalEmpty();
+  static void ShutdownPlatform() {}
 };
 
 template <class T>

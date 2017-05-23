@@ -5,7 +5,7 @@ const v8 = require('v8');
 const vm = require('vm');
 
 if (common.isChakraEngine) {
-  console.log('1..0 # Skipped: This test is disabled for chakra engine.');
+  common.skip('This test is disabled for chakra engine.');
   return;
 }
 
@@ -17,5 +17,7 @@ assert(eval('%_IsSmi(42)'));
 assert(vm.runInThisContext('%_IsSmi(43)'));
 
 v8.setFlagsFromString('--noallow_natives_syntax');
-assert.throws(function() { eval('%_IsSmi(44)'); }, SyntaxError);
-assert.throws(function() { vm.runInThisContext('%_IsSmi(45)'); }, SyntaxError);
+assert.throws(function() { eval('%_IsSmi(44)'); },
+              /^SyntaxError: Unexpected token %$/);
+assert.throws(function() { vm.runInThisContext('%_IsSmi(45)'); },
+              /^SyntaxError: Unexpected token %$/);

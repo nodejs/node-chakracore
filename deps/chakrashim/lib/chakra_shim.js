@@ -132,7 +132,7 @@
     for (var i = 0; i < splittedStack.length; i++) {
       // parseStack has 1 frame lesser than skipDepth. So skip calling .caller
       // once. After that, continue calling .caller
-      if (skipDepth != 1 && curr) {
+      if (skipDepth !== 1 && curr) {
         try {
           curr = curr.caller;
         } catch (e) {
@@ -514,10 +514,10 @@
       return captureStackTrace({}, undefined)();
     };
     utils.isMapIterator = function(value) {
-      return value[mapIteratorProperty] == true;
+      return value[mapIteratorProperty] === true;
     };
     utils.isSetIterator = function(value) {
-      return value[setIteratorProperty] == true;
+      return value[setIteratorProperty] === true;
     };
     function compareType(o, expectedType) {
       return Object_prototype_toString.call(o) === '[object ' +
@@ -594,7 +594,7 @@
     };
     utils.getPropertyAttributes = function(object, value) {
       var descriptor = Object_getOwnPropertyDescriptor(object, value);
-      if (descriptor == undefined) {
+      if (descriptor === undefined) {
         return -1;
       }
 

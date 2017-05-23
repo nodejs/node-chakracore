@@ -63,18 +63,18 @@ are evaluated also:
 const assert = require('assert');
 
 const obj1 = {
-  a : {
-    b : 1
+  a: {
+    b: 1
   }
 };
 const obj2 = {
-  a : {
-    b : 2
+  a: {
+    b: 2
   }
 };
 const obj3 = {
-  a : {
-    b : 1
+  a: {
+    b: 1
   }
 };
 const obj4 = Object.create(obj1);
@@ -256,6 +256,7 @@ If the values are not equal, an `AssertionError` is thrown with a `message`
 property set equal to the value of the `message` parameter. If the `message`
 parameter is undefined, a default error message is assigned.
 
+## assert.fail(message)
 ## assert.fail(actual, expected, message, operator)
 <!-- YAML
 added: v0.1.21
@@ -263,7 +264,7 @@ added: v0.1.21
 * `actual` {any}
 * `expected` {any}
 * `message` {any}
-* `operator` {string}
+* `operator` {string} (default: '!=')
 
 Throws an `AssertionError`. If `message` is falsy, the error message is set as
 the values of `actual` and `expected` separated by the provided `operator`.
@@ -277,6 +278,12 @@ assert.fail(1, 2, undefined, '>');
 
 assert.fail(1, 2, 'whoops', '>');
 // AssertionError: whoops
+
+assert.fail('boom');
+// AssertionError: boom
+
+assert.fail('a', 'b');
+// AssertionError: 'a' != 'b'
 ```
 
 ## assert.ifError(value)
@@ -315,18 +322,18 @@ Tests for any deep inequality. Opposite of [`assert.deepEqual()`][].
 const assert = require('assert');
 
 const obj1 = {
-  a : {
-    b : 1
+  a: {
+    b: 1
   }
 };
 const obj2 = {
-  a : {
-    b : 2
+  a: {
+    b: 2
   }
 };
 const obj3 = {
-  a : {
-    b : 1
+  a: {
+    b: 1
   }
 };
 const obj4 = Object.create(obj1);
@@ -361,10 +368,10 @@ Tests for deep strict inequality. Opposite of [`assert.deepStrictEqual()`][].
 ```js
 const assert = require('assert');
 
-assert.notDeepEqual({a:1}, {a:'1'});
+assert.notDeepEqual({a: 1}, {a: '1'});
 // AssertionError: { a: 1 } notDeepEqual { a: '1' }
 
-assert.notDeepStrictEqual({a:1}, {a:'1'});
+assert.notDeepStrictEqual({a: 1}, {a: '1'});
 // OK
 ```
 
@@ -535,7 +542,7 @@ assert.throws(
     throw new Error('Wrong value');
   },
   function(err) {
-    if ( (err instanceof Error) && /value/.test(err) ) {
+    if ((err instanceof Error) && /value/.test(err)) {
       return true;
     }
   },
@@ -547,6 +554,7 @@ Note that `error` can not be a string. If a string is provided as the second
 argument, then `error` is assumed to be omitted and the string will be used for
 `message` instead. This can lead to easy-to-miss mistakes:
 
+<!-- eslint-disable assert-throws-arguments -->
 ```js
 // THIS IS A MISTAKE! DO NOT DO THIS!
 assert.throws(myFunction, 'missing foo', 'did not throw with expected message');
@@ -569,8 +577,8 @@ assert.notStrictEqual(a, b);
 assert(!Object.is(a, b));
 // but Object.is() does!
 
-const str1 = "foo";
-const str2 = "foo";
+const str1 = 'foo';
+const str2 = 'foo';
 assert.strictEqual(str1 / 1, str2 / 1);
 // AssertionError: NaN === NaN
 // Strict Equality Comparison can't be used to check NaN...

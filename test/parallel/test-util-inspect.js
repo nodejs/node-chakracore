@@ -194,7 +194,6 @@ for (const showHidden of [true, false]) {
       `  [byteLength]: ${byteLength},\n` +
       '  [byteOffset]: 0,\n' +
       `  [buffer]: ArrayBuffer { byteLength: ${byteLength} } ]`);
-
     assert.strictEqual(
       util.inspect(array, false),
       `${constructor.name} [ 65, 97 ]`
@@ -229,7 +228,6 @@ for (const showHidden of [true, false]) {
       `  [byteLength]: ${byteLength},\n` +
       '  [byteOffset]: 0,\n' +
       `  [buffer]: ArrayBuffer { byteLength: ${byteLength} } ]`);
-
     assert.strictEqual(
       util.inspect(array, false),
       `${constructor.name} [ 65, 97 ]`
@@ -245,7 +243,7 @@ for (const showHidden of [true, false]) {
       {visible: {value: 1, enumerable: true}, hidden: {value: 2}}), true);
   if (out !== '{ [hidden]: 2, visible: 1 }' &&
       out !== '{ visible: 1, [hidden]: 2 }') {
-    common.fail(`unexpected value for out ${out}`);
+    assert.fail(`unexpected value for out ${out}`);
   }
 }
 
@@ -257,7 +255,7 @@ for (const showHidden of [true, false]) {
                                            hidden: {value: 'secret'}}), true);
   if (out !== "{ [hidden]: 'secret', name: 'Tim' }" &&
       out !== "{ name: 'Tim', [hidden]: 'secret' }") {
-    common.fail(`unexpected value for out ${out}`);
+    assert.fail(`unexpected value for out ${out}`);
   }
 }
 
@@ -302,7 +300,7 @@ assert.strictEqual(
 
 // Function with properties
 {
-  const value = function() { };
+  const value = function() {};
   value.aprop = 42;
   assert.strictEqual(util.inspect(value), common.engineSpecificMessage({
     v8: '{ [Function: value] aprop: 42 }',
@@ -367,6 +365,7 @@ assert.strictEqual(util.inspect(-0), '-0');
 
 // Skip for chakra engine as debugger support not yet present
 if (!common.isChakraEngine) {
+  // test for Array constructor in different context
   {
     const Debug = vm.runInDebugContext('Debug');
     const map = new Map();
