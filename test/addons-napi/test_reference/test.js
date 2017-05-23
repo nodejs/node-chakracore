@@ -4,6 +4,11 @@
 const common = require('../../common');
 const assert = require('assert');
 
+if (common.isChakraEngine) {
+  common.skip('Skipped for node-chakracore till #246 is fixed.');
+  return;
+}
+
 const test_reference = require(`./build/${common.buildType}/test_reference`);
 
 // This test script uses external values with finalizer callbacks
