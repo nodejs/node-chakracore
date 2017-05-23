@@ -153,6 +153,7 @@ using v8::Number;
 using v8::Object;
 using v8::ObjectTemplate;
 using v8::Promise;
+using v8::PromiseHookType;
 using v8::PromiseRejectMessage;
 using v8::PropertyCallbackInfo;
 using v8::ScriptOrigin;
@@ -239,7 +240,6 @@ bool v8_initialized = false;
 // process-relative uptime base, initialized at start-up
 static double prog_start_time;
 static bool debugger_running;
-static uv_async_t dispatch_debug_messages_async;
 
 static Mutex node_isolate_mutex;
 static v8::Isolate* node_isolate;
@@ -1124,6 +1124,58 @@ bool ShouldAbortOnUncaughtException(Isolate* isolate) {
 }
 
 
+void DomainPromiseHook(PromiseHookType type,
+                       Local<Promise> promise,
+                       Local<Value> parent,
+                       void* arg) {
+  Environment* env = static_cast<Environment*>(arg);
+  Local<Context> context = env->context();
+
+  if (type == PromiseHookType::kResolve) return;
+  if (type == PromiseHookType::kInit && env->in_domain()) {
+    promise->Set(context,
+                 env->domain_string(),
+                 env->domain_array()->Get(context,
+                                          0).ToLocalChecked()).FromJust();
+    return;
+  }
+
+  // Loosely based on node::MakeCallback().
+  Local<Value> domain_v =
+      promise->Get(context, env->domain_string()).ToLocalChecked();
+  if (!domain_v->IsObject())
+    return;
+
+  Local<Object> domain = domain_v.As<Object>();
+  if (domain->Get(context, env->disposed_string())
+          .ToLocalChecked()->IsTrue()) {
+    return;
+  }
+
+  if (type == PromiseHookType::kBefore) {
+    Local<Value> enter_v =
+        domain->Get(context, env->enter_string()).ToLocalChecked();
+    if (enter_v->IsFunction()) {
+      if (enter_v.As<Function>()->Call(context, domain, 0, nullptr).IsEmpty()) {
+        FatalError("node::PromiseHook",
+                   "domain enter callback threw, please report this "
+                   "as a bug in Node.js");
+      }
+    }
+  } else {
+    Local<Value> exit_v =
+        domain->Get(context, env->exit_string()).ToLocalChecked();
+    if (exit_v->IsFunction()) {
+      if (exit_v.As<Function>()->Call(context, domain, 0, nullptr).IsEmpty()) {
+        FatalError("node::MakeCallback",
+                   "domain exit callback threw, please report this "
+                   "as a bug in Node.js");
+      }
+    }
+  }
+}
+
+
 void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -1163,8 +1215,11 @@ void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
   Local<ArrayBuffer> array_buffer =
       ArrayBuffer::New(env->isolate(), fields, sizeof(*fields) * fields_count);
 
+  env->AddPromiseHook(DomainPromiseHook, static_cast<void*>(env));
+
   args.GetReturnValue().Set(Uint32Array::New(array_buffer, 0, fields_count));
 }
+
 
 void RunMicrotasks(const FunctionCallbackInfo<Value>& args) {
   args.GetIsolate()->RunMicrotasks();
@@ -1241,6 +1296,12 @@ void SetupPromises(const FunctionCallbackInfo<Value>& args) {
 }
 
 }  // anonymous namespace
+
+
+void AddPromiseHook(v8::Isolate* isolate, promise_hook_func fn, void* arg) {
+  Environment* env = Environment::GetCurrent(isolate);
+  env->AddPromiseHook(fn, arg);
+}
 
 
 Local<Value> MakeCallback(Environment* env,
@@ -1519,11 +1580,15 @@ Local<Value> Encode(Isolate* isolate,
                     size_t len,
                     enum encoding encoding) {
   CHECK_NE(encoding, UCS2);
-  return StringBytes::Encode(isolate, buf, len, encoding);
+  Local<Value> error;
+  return StringBytes::Encode(isolate, buf, len, encoding, &error)
+      .ToLocalChecked();
 }
 
 Local<Value> Encode(Isolate* isolate, const uint16_t* buf, size_t len) {
-  return StringBytes::Encode(isolate, buf, len);
+  Local<Value> error;
+  return StringBytes::Encode(isolate, buf, len, &error)
+      .ToLocalChecked();
 }
 
 // Returns -1 if the handle was not valid for decoding
@@ -3600,6 +3665,7 @@ static void PrintHelp() {
          "  --no-deprecation           silence deprecation warnings\n"
          "  --trace-deprecation        show stack traces on deprecations\n"
          "  --throw-deprecation        throw an exception on deprecations\n"
+         "  --pending-deprecation      emit pending deprecation warnings\n"
          "  --no-warnings              silence all process warnings\n"
          "  --napi-modules             load N-API modules\n"
          "  --trace-warnings           show stack traces on process warnings\n"
@@ -3745,6 +3811,7 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--force-fips",
     "--openssl-config",
     "--icu-data-dir",
+    "--napi-modules",
 
     // V8 options
     "--max_old_space_size",
@@ -3786,7 +3853,7 @@ static void ParseArgs(int* argc,
 #if HAVE_OPENSSL
   bool use_bundled_ca = false;
   bool use_openssl_ca = false;
-#endif  // HAVE_INSPECTOR
+#endif  // HAVE_OPENSSL
 
   for (unsigned int i = 0; i < nargs; ++i) {
     new_exec_argv[i] = nullptr;
@@ -4018,72 +4085,12 @@ static void ParseArgs(int* argc,
 }
 
 
-// Called from V8 Debug Agent TCP thread.
-static void DispatchMessagesDebugAgentCallback(Environment* env) {
-  // TODO(indutny): move async handle to environment
-  uv_async_send(&dispatch_debug_messages_async);
-}
-
-
 static void StartDebug(Environment* env, const char* path,
                        DebugOptions debug_options) {
   CHECK(!debugger_running);
-  if (debug_options.debugger_enabled()) {
-    env->debugger_agent()->set_dispatch_handler(
-          DispatchMessagesDebugAgentCallback);
-    debugger_running = env->debugger_agent()->Start(debug_options);
-    if (debugger_running == false) {
-      fprintf(stderr, "Starting debugger on %s:%d failed\n",
-              debug_options.host_name().c_str(), debug_options.port());
-      fflush(stderr);
-    }
 #if HAVE_INSPECTOR
-  } else {
-    debugger_running = v8_platform.StartInspector(env, path, debug_options);
+  debugger_running = v8_platform.StartInspector(env, path, debug_options);
 #endif  // HAVE_INSPECTOR
-  }
-}
-
-
-// Called from the main thread.
-static void EnableDebug(Environment* env) {
-  CHECK(debugger_running);
-
-  // Send message to enable debug in workers
-  HandleScope handle_scope(env->isolate());
-
-  Local<Object> message = Object::New(env->isolate());
-  message->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "cmd"),
-               FIXED_ONE_BYTE_STRING(env->isolate(), "NODE_DEBUG_ENABLED"));
-  Local<Value> argv[] = {
-    FIXED_ONE_BYTE_STRING(env->isolate(), "internalMessage"),
-    message
-  };
-  MakeCallback(env, env->process_object(), "emit", arraysize(argv), argv);
-
-  // Enabled debugger, possibly making it wait on a semaphore
-  env->debugger_agent()->Enable();
-}
-
-
-// Called from the main thread.
-static void DispatchDebugMessagesAsyncCallback(uv_async_t* handle) {
-  Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-  if (auto isolate = node_isolate) {
-    if (debugger_running == false) {
-      fprintf(stderr, "Starting debugger agent.\n");
-
-      HandleScope scope(isolate);
-      Environment* env = Environment::GetCurrent(isolate);
-      Context::Scope context_scope(env->context());
-      debug_options.EnableDebugAgent(DebugAgentType::kDebugger);
-      StartDebug(env, nullptr, debug_options);
-      EnableDebug(env);
-    }
-
-    Isolate::Scope isolate_scope(isolate);
-    v8::Debug::ProcessDebugMessages(isolate);
-  }
 }
 
 
@@ -4228,15 +4235,9 @@ static void DebugPause(const FunctionCallbackInfo<Value>& args) {
 
 static void DebugEnd(const FunctionCallbackInfo<Value>& args) {
   if (debugger_running) {
+#if HAVE_INSPECTOR
     Environment* env = Environment::GetCurrent(args);
-#if HAVE_INSPECTOR
-    if (!debug_options.debugger_enabled()) {
-      env->inspector_agent()->Stop();
-    } else {
-#endif
-      env->debugger_agent()->Stop();
-#if HAVE_INSPECTOR
-    }
+    env->inspector_agent()->Stop();
 #endif
     debugger_running = false;
   }
@@ -4382,13 +4383,6 @@ void Init(int* argc,
 
   // Make inherited handles noninheritable.
   uv_disable_stdio_inheritance();
-
-  // init async debug messages dispatching
-  // Main thread uses uv_default_loop
-  CHECK_EQ(0, uv_async_init(uv_default_loop(),
-                            &dispatch_debug_messages_async,
-                            DispatchDebugMessagesAsyncCallback));
-  uv_unref(reinterpret_cast<uv_handle_t*>(&dispatch_debug_messages_async));
 
 #if defined(NODE_HAVE_I18N_SUPPORT)
   // Set the ICU casing flag early
@@ -5015,3 +5009,9 @@ int Start(int argc, char** argv) {
 
 
 }  // namespace node
+
+#if !HAVE_INSPECTOR
+static void InitEmptyBindings() {}
+
+NODE_MODULE_CONTEXT_AWARE_BUILTIN(inspector, InitEmptyBindings);
+#endif  // !HAVE_INSPECTOR

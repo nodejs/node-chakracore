@@ -5,7 +5,7 @@
 Node.js comes with a variety of CLI options. These options expose built-in
 debugging, multiple ways to execute scripts, and other helpful runtime options.
 
-To view this documentation as a manual page in your terminal, run `man node`.
+To view this documentation as a manual page in a terminal, run `man node`.
 
 
 ## Synopsis
@@ -524,10 +524,10 @@ appended to if it does. If an error occurs while attempting to write the
 warning to the file, the warning will be written to stderr instead. This is
 equivalent to using the `--redirect-warnings=file` command-line flag.
 
-[emit_warning]: process.html#process_process_emitwarning_warning_name_ctor
+[`--openssl-config`]: #cli_openssl_config_file
 [Buffer]: buffer.html#buffer_buffer
 [Chrome Debugging Protocol]: https://chromedevtools.github.io/debugger-protocol-viewer
-[debugger]: debugger.html
 [REPL]: repl.html
 [SlowBuffer]: buffer.html#buffer_class_slowbuffer
-[`--openssl-config`]: #cli_openssl_config_file
+[debugger]: debugger.html
+[emit_warning]: process.html#process_process_emitwarning_warning_name_ctor

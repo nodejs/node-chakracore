@@ -1,7 +1,7 @@
 'use strict';
 
 /* WPT Refs:
-   https://github.com/w3c/web-platform-tests/blob/3eff1bd/url/urltestdata.json
+   https://github.com/w3c/web-platform-tests/blob/28541bb/url/urltestdata.json
    License: http://www.w3.org/Consortium/Legal/2008/04-testsuite-copyright.html
 */
 module.exports =
@@ -3789,6 +3789,52 @@ module.exports =
     "search": "",
     "hash": ""
   },
+  "Domains with empty labels",
+  {
+    "input": "http://./",
+    "base": "about:blank",
+    "href": "http://./",
+    "origin": "http://.",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": ".",
+    "hostname": ".",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "http://../",
+    "base": "about:blank",
+    "href": "http://../",
+    "origin": "http://..",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "..",
+    "hostname": "..",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "http://0..0x300/",
+    "base": "about:blank",
+    "href": "http://0..0x300/",
+    "origin": "http://0..0x300",
+    "protocol": "http:",
+    "username": "",
+    "password": "",
+    "host": "0..0x300",
+    "hostname": "0..0x300",
+    "port": "",
+    "pathname": "/",
+    "search": "",
+    "hash": ""
+  },
   "Broken IPv6",
   {
     "input": "http://[www.google.com]/",
@@ -5382,6 +5428,105 @@ module.exports =
     "port": "",
     "pathname": "/",
     "search": "?chai",
+    "hash": ""
+  },
+  "# Windows drive letter handling with the 'file:' base URL",
+  {
+    "input": "C|",
+    "base": "file://host/dir/file",
+    "href": "file:///C:",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "",
+    "hostname": "",
+    "port": "",
+    "pathname": "/C:",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "C|#",
+    "base": "file://host/dir/file",
+    "href": "file:///C:#",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "",
+    "hostname": "",
+    "port": "",
+    "pathname": "/C:",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "C|?",
+    "base": "file://host/dir/file",
+    "href": "file:///C:?",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "",
+    "hostname": "",
+    "port": "",
+    "pathname": "/C:",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "C|/",
+    "base": "file://host/dir/file",
+    "href": "file:///C:/",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "",
+    "hostname": "",
+    "port": "",
+    "pathname": "/C:/",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "C|\\",
+    "base": "file://host/dir/file",
+    "href": "file:///C:/",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "",
+    "hostname": "",
+    "port": "",
+    "pathname": "/C:/",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "C",
+    "base": "file://host/dir/file",
+    "href": "file://host/dir/C",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "host",
+    "hostname": "host",
+    "port": "",
+    "pathname": "/dir/C",
+    "search": "",
+    "hash": ""
+  },
+  {
+    "input": "C|a",
+    "base": "file://host/dir/file",
+    "href": "file://host/dir/C|a",
+    "protocol": "file:",
+    "username": "",
+    "password": "",
+    "host": "host",
+    "hostname": "host",
+    "port": "",
+    "pathname": "/dir/C|a",
+    "search": "",
     "hash": ""
   },
   "# Windows drive letter quirk with not empty host",

@@ -8,6 +8,9 @@ if (process.config.variables.node_without_node_options)
 const assert = require('assert');
 const exec = require('child_process').execFile;
 
+common.refreshTmpDir();
+process.chdir(common.tmpDir);
+
 disallow('--version');
 disallow('-v');
 disallow('--help');
@@ -28,8 +31,7 @@ function disallow(opt) {
   const options = {env: {NODE_OPTIONS: opt}};
   exec(process.execPath, options, common.mustCall(function(err) {
     const message = err.message.split(/\r?\n/)[1];
-    const expect = process.execPath + ': ' + opt +
-                   ' is not allowed in NODE_OPTIONS';
+    const expect = `${process.execPath}: ${opt} is not allowed in NODE_OPTIONS`;
 
     assert.strictEqual(err.code, 9);
     assert.strictEqual(message, expect);
@@ -38,7 +40,7 @@ function disallow(opt) {
 
 const printA = require.resolve('../fixtures/printA.js');
 
-expect('-r ' + printA, 'A\nB\n');
+expect(`-r ${printA}`, 'A\nB\n');
 expect('--no-deprecation', 'B\n');
 expect('--no-warnings', 'B\n');
 expect('--trace-warnings', 'B\n');
@@ -50,9 +52,11 @@ expect('--track-heap-objects', 'B\n');
 expect('--throw-deprecation', 'B\n');
 expect('--zero-fill-buffers', 'B\n');
 expect('--v8-pool-size=10', 'B\n');
-expect('--use-openssl-ca', 'B\n');
-expect('--use-bundled-ca', 'B\n');
-expect('--openssl-config=_ossl_cfg', 'B\n');
+if (common.hasCrypto) {
+  expect('--use-openssl-ca', 'B\n');
+  expect('--use-bundled-ca', 'B\n');
+  expect('--openssl-config=_ossl_cfg', 'B\n');
+}
 
 if (!common.isChakraEngine) {
   expect('--icu-data-dir=_d', 'B\n');
@@ -73,7 +77,7 @@ function expect(opt, want) {
     if (!RegExp(want).test(stdout)) {
       console.error('For %j, failed to find %j in: <\n%s\n>',
                     opt, expect, stdout);
-      assert(false, 'Expected ' + expect);
+      assert(false, `Expected ${expect}`);
     }
   }));
 }

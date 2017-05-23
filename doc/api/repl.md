@@ -335,13 +335,12 @@ const replServer = repl.start({prompt: '> '});
 replServer.defineCommand('sayhello', {
   help: 'Say hello',
   action(name) {
-    this.lineParser.reset();
     this.bufferedCommand = '';
     console.log(`Hello, ${name}!`);
     this.displayPrompt();
   }
 });
-replServer.defineCommand('saybye', () => {
+replServer.defineCommand('saybye', function saybye() {
   console.log('Goodbye!');
   this.close();
 });
@@ -448,6 +447,8 @@ without passing any arguments (or by passing the `-i` argument):
 ```js
 $ node
 > const a = [1, 2, 3];
+undefined
+> a
 [ 1, 2, 3 ]
 > a.forEach((v) => {
 ...   console.log(v);
@@ -499,9 +500,9 @@ by the `NODE_REPL_HISTORY` variable, as documented in the
 
 For advanced line-editors, start Node.js with the environmental variable
 `NODE_NO_READLINE=1`. This will start the main and debugger REPL in canonical
-terminal settings which will allow you to use with `rlwrap`.
+terminal settings, which will allow use with `rlwrap`.
 
-For example, you could add this to your bashrc file:
+For example, the following can be added to a `.bashrc` file:
 
 ```text
 alias node="env NODE_NO_READLINE=1 rlwrap node"
@@ -564,8 +565,8 @@ a `net.Server` and `net.Socket` instance, see: https://gist.github.com/2209310
 For an example of running a REPL instance over [curl(1)][],
 see: https://gist.github.com/2053342
 
-[stream]: stream.html
-[`util.inspect()`]: util.html#util_util_inspect_object_options
-[`readline.Interface`]: readline.html#readline_class_interface
 [`readline.InterfaceCompleter`]: readline.html#readline_use_of_the_completer_function
+[`readline.Interface`]: readline.html#readline_class_interface
+[`util.inspect()`]: util.html#util_util_inspect_object_options
 [curl(1)]: https://curl.haxx.se/docs/manpage.html
+[stream]: stream.html

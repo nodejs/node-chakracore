@@ -82,7 +82,7 @@
     'v8_toolset_for_shell%': 'target',
 
     'host_os%': '<(OS)',
-    'werror%': '-Werror',
+    'werror%': '',
     # For a shared library build, results in "libv8-<(soname_version).so".
     'soname_version%': '',
 
@@ -315,6 +315,8 @@
             'defines': [
               'V8_TARGET_ARCH_S390_LE_SIM',
             ],
+          }, {
+            'cflags': [ '-march=z196' ],
           }],
           ],
       }],  # s390
