@@ -4,7 +4,6 @@
     'library%': 'static_library',   # build chakracore as static library or dll
     'component%': 'static_library', # link crt statically or dynamically
     'chakra_dir%': 'core',
-    'msvs_windows_target_platform_version_prop': '',
     'icu_args%': '',
     'icu_include_path%': '',
     'linker_start_group%': '',
@@ -19,8 +18,6 @@
       ['target_arch=="x64"', { 'Platform': 'x64' }],
       ['target_arch=="arm"', {
         'Platform': 'arm',
-        'msvs_windows_target_platform_version_prop':
-          '/p:WindowsTargetPlatformVersion=$(WindowsTargetPlatformVersion)',
       }],
       ['OS!="win"', {
         'icu_include_path': '../<(icu_path)/source/common'
@@ -113,7 +110,6 @@
                 '/p:Configuration=$(ConfigurationName)',
                 '/p:RuntimeLib=<(component)',
                 '/p:AdditionalPreprocessorDefinitions=COMPILE_DISABLE_Simdjs=1',
-                '<(msvs_windows_target_platform_version_prop)',
                 '/m',
                 '<@(_inputs)',
               ],

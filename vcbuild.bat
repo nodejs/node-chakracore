@@ -143,6 +143,13 @@ if "%i18n_arg%"=="intl-none" set configure_flags=%configure_flags% --with-intl=n
 if "%i18n_arg%"=="without-intl" set configure_flags=%configure_flags% --without-intl
 if "%engine%"=="chakracore" set configure_flags=%configure_flags% --without-bundled-v8&set chakra_jslint=deps\chakrashim\lib
 
+if "%target_arch%"=="arm" (
+  if "%PROCESSOR_ARCHITECTURE%" NEQ "ARM" (
+    echo Skipping building ARM with Intl on a non-ARM device
+    set configure_flags=%configure_flags% --without-intl
+  )
+)
+
 if defined config_flags set configure_flags=%configure_flags% %config_flags%
 
 if not exist "%~dp0deps\icu" goto no-depsicu
