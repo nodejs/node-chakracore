@@ -13,7 +13,7 @@
 
 #include "src/jsrtinspector.h"
 #include "src/jsrtinspectorhelpers.h"
-#include <assert.h>
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -33,7 +33,11 @@ V8Debugger::~V8Debugger() {}
 void V8Debugger::enable() {
   if (m_enableCount++) return;
 
-  jsrt::Inspector::SetDebugEventHandler(V8Debugger::JsDiagDebugEventHandler, this);
+  // We don't expect this to be called except during inspector launches.
+  CHAKRA_VERIFY(jsrt::Inspector::IsInspectorEnabled());
+
+  jsrt::Inspector::SetDebugEventHandler(V8Debugger::JsDiagDebugEventHandler,
+                                        this);
   m_debuggerContext.Reset(m_isolate, v8::Debug::GetDebugContext(m_isolate));
 }
 
@@ -76,29 +80,21 @@ int V8Debugger::getGroupId(v8::Local<v8::Context> context) {
 void V8Debugger::getCompiledScripts(
     int contextGroupId,
     std::vector<std::unique_ptr<V8DebuggerScript>>& result) {
-  JsValueRef scripts;
-  JsDiagGetScripts(&scripts);
+  JsValueRef scripts = JS_INVALID_REFERENCE;
+  CHAKRA_VERIFY_NOERROR(JsDiagGetScripts(&scripts));
 
-  int length;
-  if (jsrt::InspectorHelpers::GetIntProperty(scripts, "length", &length) != JsNoError) {
-    assert(false);
-    return;
-  }
+  int length = 0;
+  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIntProperty(scripts,
+                                                               "length",
+                                                               &length));
 
   for (int i = 0; i < length; i++) {
-    JsValueRef index;
-    if (JsIntToNumber(i, &index) != JsNoError) {
-      assert(false);
-      return;
-    }
+    JsValueRef script = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIndexedProperty(
+        scripts, i, &script));
 
-    JsValueRef script;
-    if (JsGetIndexedProperty(scripts, index, &script) != JsNoError) {
-      assert(false);
-      return;
-    }
-
-    result.push_back(wrapUnique(new V8DebuggerScript(m_isolate, script, false)));
+    result.push_back(wrapUnique(
+        new V8DebuggerScript(m_isolate, script, false)));
   }
 }
 
@@ -115,12 +111,14 @@ String16 V8Debugger::setBreakpoint(const String16& sourceID,
     return String16();
   }
 
-  JsValueRef breakpoint;
-  if (JsDiagSetBreakpoint(srcId, scriptBreakpoint.lineNumber, scriptBreakpoint.columnNumber, &breakpoint) != JsNoError) {
+  JsValueRef breakpoint = JS_INVALID_REFERENCE;
+  if (JsDiagSetBreakpoint(srcId, scriptBreakpoint.lineNumber,
+                          scriptBreakpoint.columnNumber,
+                          &breakpoint) != JsNoError) {
     return String16();
   }
 
-  int breakpointId;
+  int breakpointId = 0;
   if (jsrt::InspectorHelpers::GetIntProperty(breakpoint, "breakpointId",
                                              &breakpointId) != JsNoError) {
     return String16();
@@ -142,10 +140,7 @@ String16 V8Debugger::setBreakpoint(const String16& sourceID,
 void V8Debugger::removeBreakpoint(const String16& breakpointId) {
   bool ok = false;
   int bpId = breakpointId.toInteger(&ok);
-  if (!ok) {
-    assert(false);
-    return;
-  }
+  CHAKRA_VERIFY(ok);
 
   jsrt::Inspector::RemoveBreakpoint(bpId);
 }
@@ -156,11 +151,11 @@ void V8Debugger::setBreakpointsActivated(bool activated) {
 
 V8Debugger::PauseOnExceptionsState V8Debugger::getPauseOnExceptionsState() {
   PauseOnExceptionsState state = PauseOnExceptionsState::DontPauseOnExceptions;
-  JsDiagBreakOnExceptionAttributes breakAttr;
-  if (JsDiagGetBreakOnException(jsrt::InspectorHelpers::GetRuntimeFromIsolate(m_isolate), &breakAttr) != JsNoError) {
-    assert(false);
-    return state;
-  }
+  JsDiagBreakOnExceptionAttributes breakAttr =
+      JsDiagBreakOnExceptionAttributeNone;
+  CHAKRA_VERIFY_NOERROR(JsDiagGetBreakOnException(
+      jsrt::InspectorHelpers::GetRuntimeFromIsolate(m_isolate),
+      &breakAttr));
 
   switch (breakAttr) {
   case JsDiagBreakOnExceptionAttributeFirstChance:
@@ -177,7 +172,7 @@ V8Debugger::PauseOnExceptionsState V8Debugger::getPauseOnExceptionsState() {
 
   default:
     // This should never happen unless new values are added.
-    assert(false);
+    CHAKRA_UNIMPLEMENTED();
   }
 
   return state;
@@ -185,7 +180,8 @@ V8Debugger::PauseOnExceptionsState V8Debugger::getPauseOnExceptionsState() {
 
 void V8Debugger::setPauseOnExceptionsState(
     PauseOnExceptionsState pauseOnExceptionsState) {
-  JsDiagBreakOnExceptionAttributes breakAttr = JsDiagBreakOnExceptionAttributeNone;
+  JsDiagBreakOnExceptionAttributes breakAttr =
+      JsDiagBreakOnExceptionAttributeNone;
 
   switch (pauseOnExceptionsState) {
   case PauseOnExceptionsState::PauseOnAllExceptions:
@@ -202,12 +198,12 @@ void V8Debugger::setPauseOnExceptionsState(
 
   default:
     // This should never happen unless new values are added.
-    assert(false);
+    CHAKRA_UNIMPLEMENTED();
   }
 
-  if (JsDiagSetBreakOnException(jsrt::InspectorHelpers::GetRuntimeFromIsolate(m_isolate), breakAttr) != JsNoError) {
-    assert(false);
-  }
+  CHAKRA_VERIFY_NOERROR(JsDiagSetBreakOnException(
+      jsrt::InspectorHelpers::GetRuntimeFromIsolate(m_isolate),
+      breakAttr));
 }
 
 void V8Debugger::setPauseOnNextStatement(bool pause) {
@@ -274,7 +270,7 @@ bool V8Debugger::setScriptSource(
     Maybe<protocol::Runtime::ExceptionDetails>* exceptionDetails,
     JavaScriptCallFrames* newCallFrames, Maybe<bool>* stackChanged) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 
   return false;
 }
@@ -282,15 +278,13 @@ bool V8Debugger::setScriptSource(
 JavaScriptCallFrames V8Debugger::currentCallFrames(int limit) {
   if (!m_isolate->InContext()) return JavaScriptCallFrames();
   
-  JsValueRef stackTrace;
+  JsValueRef stackTrace = JS_INVALID_REFERENCE;
   JsDiagGetStackTrace(&stackTrace);
 
-  int length;
-  if (jsrt::InspectorHelpers::GetIntProperty(stackTrace, "length", &length)
-      != JsNoError) {
-    assert(false);
-    return JavaScriptCallFrames();
-  }
+  int length = 0;
+  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIntProperty(stackTrace,
+                                                               "length",
+                                                               &length));
 
   if (limit > 0 && limit < length) {
     length = limit;
@@ -298,15 +292,14 @@ JavaScriptCallFrames V8Debugger::currentCallFrames(int limit) {
   
   JavaScriptCallFrames callFrames;
   for (int i = 0; i < length; ++i) {
-    JsValueRef callFrameValue;
-    if (jsrt::InspectorHelpers::GetIndexedProperty(stackTrace, i, &callFrameValue) != JsNoError) {
-      assert(false);
-      return JavaScriptCallFrames();
-    }
+    JsValueRef callFrameValue = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIndexedProperty(
+        stackTrace, i, &callFrameValue));
 
     callFrames.push_back(JavaScriptCallFrame::create(
         debuggerContext(), callFrameValue));
   }
+
   return callFrames;
 }
 
@@ -318,7 +311,7 @@ V8StackTraceImpl* V8Debugger::currentAsyncCallChain() {
 v8::MaybeLocal<v8::Array> V8Debugger::internalProperties(
     v8::Local<v8::Context> context, v8::Local<v8::Value> value) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 
   return v8::MaybeLocal<v8::Array>();
 }
@@ -365,50 +358,47 @@ void V8Debugger::setAsyncCallStackDepth(V8DebuggerAgentImpl* agent, int depth) {
 void V8Debugger::asyncTaskScheduled(const StringView& taskName, void* task,
                                     bool recurring) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskScheduled(const String16& taskName, void* task,
                                     bool recurring) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskCanceled(void* task) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskStarted(void* task) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskFinished(void* task) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::allAsyncTasksCanceled() {
   // CHAKRA-TODO - Figure out what to do here
-  ////assert(false);
 }
 
 void V8Debugger::muteScriptParsedEvents() {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::unmuteScriptParsedEvents() {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 std::unique_ptr<V8StackTraceImpl> V8Debugger::captureStackTrace(
     bool fullStack) {
   // CHAKRA-TODO - Figure out what to do here
-  ////assert(false);
-
   return std::unique_ptr<V8StackTraceImpl>(nullptr);
 }
 
@@ -417,7 +407,8 @@ void V8Debugger::JsDiagDebugEventHandler(
     JsValueRef eventData,
     void* callbackState) {
   if (callbackState != nullptr) {
-    static_cast<V8Debugger*>(callbackState)->DebugEventHandler(debugEvent, eventData);
+    static_cast<V8Debugger*>(callbackState)->DebugEventHandler(debugEvent,
+                                                               eventData);
   }
 }
 
@@ -458,8 +449,9 @@ void V8Debugger::HandleSourceEvents(JsValueRef eventData, bool success) {
 
   if (agent != nullptr)
   {
-    agent->didParseSource(wrapUnique(new V8DebuggerScript(m_isolate, eventData, false)),
-                          success);
+    agent->didParseSource(
+        wrapUnique(new V8DebuggerScript(m_isolate, eventData, false)),
+        success);
   }
 }
 
@@ -479,39 +471,30 @@ void V8Debugger::HandleBreak(JsValueRef eventData) {
   std::vector<String16> breakpointIds;
 
   bool hasBreakpointId = false;
-  if (jsrt::InspectorHelpers::HasProperty(eventData, "breakpointId",
-                                          &hasBreakpointId) != JsNoError) {
-    assert(false);
-    return;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::HasProperty(eventData,
+                                                            "breakpointId",
+                                                            &hasBreakpointId));
 
   if (hasBreakpointId) {
     breakpointIds.reserve(1);
 
-    int breakpointId;
-    if (jsrt::InspectorHelpers::GetIntProperty(eventData, "breakpointId",
-                                               &breakpointId) == JsNoError) {
-      breakpointIds.push_back(String16::fromInteger(breakpointId));
-    }
-    else {
-      assert(false);
-    }
+    int breakpointId = 0;
+    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIntProperty(
+        eventData, "breakpointId", &breakpointId));
+
+    breakpointIds.push_back(String16::fromInteger(breakpointId));
   }
 
   bool hasUncaught = false;
-  if (jsrt::InspectorHelpers::HasProperty(eventData, "uncaught", &hasUncaught)
-      != JsNoError) {
-    assert(false);
-    return;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::HasProperty(eventData,
+                                                            "uncaught",
+                                                            &hasUncaught));
 
   bool isUncaught = false;
   if (hasUncaught) {
-    if (jsrt::InspectorHelpers::GetBoolProperty(eventData, "uncaught",
-                                                &isUncaught) != JsNoError) {
-      assert(false);
-      return;
-    }
+    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetBoolProperty(eventData,
+                                                                  "uncaught",
+                                                                  &isUncaught));
   }
 
   m_pausedContext = pausedContext;
