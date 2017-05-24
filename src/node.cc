@@ -4786,7 +4786,7 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
   // Start debug agent when argv has --debug
   StartDebug(&env, nullptr, debug_options);
 
-  if (debug_options.inspector_enabled() && !debugger_running)
+  if (debug_options.inspector_enabled())
     return 12;  // Signal internal error.
 
   {
