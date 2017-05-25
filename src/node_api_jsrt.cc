@@ -1995,7 +1995,7 @@ napi_status napi_get_typedarray_info(napi_env env,
   }
 
   if (data != nullptr) {
-    *data = static_cast<uint8_t*>(bufferData) + byteOffset;
+    *data = static_cast<uint8_t*>(bufferData);
   }
 
   if (arraybuffer != nullptr) {
