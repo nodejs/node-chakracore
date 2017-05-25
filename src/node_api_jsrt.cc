@@ -552,34 +552,31 @@ napi_status napi_define_class(napi_env env,
     }
   }
 
-  std::vector<napi_property_descriptor> descriptors;
-  descriptors.reserve(std::max(instancePropertyCount, staticPropertyCount));
+  std::vector<napi_property_descriptor> staticDescriptors;
+  std::vector<napi_property_descriptor> instanceDescriptors;
+  staticDescriptors.reserve(staticPropertyCount);
+  instanceDescriptors.reserve(instancePropertyCount);
 
-  if (instancePropertyCount > 0) {
-    for (size_t i = 0; i < property_count; i++) {
-      if ((properties[i].attributes & napi_static) == 0) {
-        descriptors.push_back(properties[i]);
-      }
+  for (size_t i = 0; i < property_count; i++) {
+    if ((properties[i].attributes & napi_static) != 0) {
+      staticDescriptors.push_back(properties[i]);
+    } else {
+      instanceDescriptors.push_back(properties[i]);
     }
-
-    CHECK_NAPI(napi_define_properties(env,
-                                      reinterpret_cast<napi_value>(prototype),
-                                      descriptors.size(),
-                                      descriptors.data()));
   }
 
   if (staticPropertyCount > 0) {
-    descriptors.clear();
-    for (size_t i = 0; i < property_count; i++) {
-      if (!(properties[i].attributes & napi_static) != 0) {
-        descriptors.push_back(properties[i]);
-      }
-    }
-
     CHECK_NAPI(napi_define_properties(env,
                                       reinterpret_cast<napi_value>(constructor),
-                                      descriptors.size(),
-                                      descriptors.data()));
+                                      staticDescriptors.size(),
+                                      staticDescriptors.data()));
+  }
+
+  if (instancePropertyCount > 0) {
+    CHECK_NAPI(napi_define_properties(env,
+                                      reinterpret_cast<napi_value>(prototype),
+                                      instanceDescriptors.size(),
+                                      instanceDescriptors.data()));
   }
 
   *result = reinterpret_cast<napi_value>(constructor);
