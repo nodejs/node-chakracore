@@ -26,7 +26,7 @@ process.on('exit', function() {
   assert(/BEGIN CERT/.test(output));
   assert(/^\s+\^/m.test(output));
   common.engineSpecificMessage({
-      v8: /Invalid left-hand side expression in prefix operation/,
-      chakracore: /SyntaxError: Expected ';'/})
-      .test(output);
+    v8: /Invalid left-hand side expression in prefix operation/,
+    chakracore: /SyntaxError: Expected ';'/
+  }).test(output);
 });
