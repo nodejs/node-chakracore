@@ -1,6 +1,6 @@
 beginning
 middle
-vm.js:44
+vm.js:*
     return realRunInThisContext.call(this, options);
     ^
 

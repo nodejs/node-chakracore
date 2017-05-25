@@ -29,10 +29,7 @@ Local<String> Message::Get() const {
 
 MaybeLocal<String> Message::GetSourceLine(Local<Context> context) const {
   JsPropertyIdRef source = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::source);
-  if (source == JS_INVALID_REFERENCE) {
-    return Local<String>();
-  }
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::source);
 
   JsValueRef result;
   if (JsGetProperty((JsValueRef)this, source, &result) != JsNoError) {
@@ -58,10 +55,7 @@ Local<StackTrace> Message::GetStackTrace() const {
 
 Handle<Value> Message::GetScriptResourceName() const {
   JsPropertyIdRef url = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::url);
-  if (url == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::url);
 
   JsValueRef result;
   if (JsGetProperty((JsValueRef)this, url, &result) != JsNoError) {
@@ -72,18 +66,15 @@ Handle<Value> Message::GetScriptResourceName() const {
 
 Maybe<int> Message::GetLineNumber(Local<Context> context) const {
   JsPropertyIdRef lineProp = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::line);
-  if (lineProp == JS_INVALID_REFERENCE) {
-    return Nothing<int>();
-  }
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::line);
 
   JsValueRef result;
   if (JsGetProperty((JsValueRef)this, lineProp, &result) != JsNoError) {
     return Nothing<int>();
   }
   int line;
-  if (JsNumberToInt(result, &line) != JsNoError) {
-      return Nothing<int>();
+  if (jsrt::ValueToIntLikely(result, &line) != JsNoError) {
+    return Nothing<int>();
   }
   return Just<int>(line + 1);
 }
@@ -94,18 +85,15 @@ int Message::GetLineNumber() const {
 
 Maybe<int> Message::GetStartColumn(Local<Context> context) const {
   JsPropertyIdRef columnProp = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::column);
-  if (columnProp == JS_INVALID_REFERENCE) {
-    return Nothing<int>();
-  }
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::column);
 
   JsValueRef result;
   if (JsGetProperty((JsValueRef)this, columnProp, &result) != JsNoError) {
     return Nothing<int>();
   }
   int column;
-  if (JsNumberToInt(result, &column) != JsNoError) {
-      return Nothing<int>();
+  if (jsrt::ValueToIntLikely(result, &column) != JsNoError) {
+    return Nothing<int>();
   }
   return Just<int>(column);
 }
@@ -117,18 +105,16 @@ int Message::GetStartColumn() const {
 Maybe<int> Message::GetEndColumn(Local<Context> context) const {
   int column = GetStartColumn();
   JsPropertyIdRef lengthProp = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::length);
-  if (lengthProp == JS_INVALID_REFERENCE) {
-    return Nothing<int>();
-  }
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::length);
+
 
   JsValueRef result;
   if (JsGetProperty((JsValueRef)this, lengthProp, &result) != JsNoError) {
     return Nothing<int>();
   }
   int length;
-  if (JsNumberToInt(result, &length) != JsNoError) {
-      return Nothing<int>();
+  if (jsrt::ValueToIntLikely(result, &length) != JsNoError) {
+    return Nothing<int>();
   }
 
   return Just<int>(column + length + 1);

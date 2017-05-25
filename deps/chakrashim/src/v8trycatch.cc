@@ -90,22 +90,8 @@ void TryCatch::GetAndClearException() {
 }
 
 Handle<Value> TryCatch::ReThrow() {
-  if (metadata == JS_INVALID_REFERENCE) {
-    GetAndClearException();
-  }
-
-  if (metadata == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
-
-  JsPropertyIdRef err = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::exception);
-  if (err == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
-
-  JsValueRef error;
-  if (JsGetProperty(metadata, err, &error) != JsNoError) {
+  JsValueRef error = this->EnsureException();
+  if (error == JS_INVALID_REFERENCE) {
     return Local<Value>();
   }
 
@@ -118,22 +104,8 @@ Handle<Value> TryCatch::ReThrow() {
 }
 
 Local<Value> TryCatch::Exception() const {
-  if (metadata == JS_INVALID_REFERENCE) {
-    const_cast<TryCatch*>(this)->GetAndClearException();
-  }
-
-  if (metadata == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
-
-  JsPropertyIdRef err = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::exception);
-  if (err == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
-
-  JsValueRef error;
-  if (JsGetProperty(metadata, err, &error) != JsNoError) {
+  JsValueRef error = this->EnsureException();
+  if (error == JS_INVALID_REFERENCE) {
     return Local<Value>();
   }
 
@@ -141,30 +113,13 @@ Local<Value> TryCatch::Exception() const {
 }
 
 MaybeLocal<Value> TryCatch::StackTrace(Local<Context> context) const {
-  if (metadata == JS_INVALID_REFERENCE) {
-    const_cast<TryCatch*>(this)->GetAndClearException();
-  }
-
-  if (metadata == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
-
-  JsPropertyIdRef err = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::exception);
-  if (err == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
-
-  JsValueRef error;
-  if (JsGetProperty(metadata, err, &error) != JsNoError) {
+  JsValueRef error = this->EnsureException();
+  if (error == JS_INVALID_REFERENCE) {
     return Local<Value>();
   }
 
   JsPropertyIdRef stack = jsrt::IsolateShim::GetCurrent()
-    ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::stack);
-  if (stack == JS_INVALID_REFERENCE) {
-    return Local<Value>();
-  }
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::stack);
 
   JsValueRef trace;
   if (JsGetProperty(error, stack, &trace) != JsNoError) {
@@ -216,6 +171,26 @@ void TryCatch::CheckReportExternalException() {
   } else {
     rethrow = true;  // Otherwise leave the exception as is
   }
+}
+
+JsValueRef TryCatch::EnsureException() const {
+  if (metadata == JS_INVALID_REFERENCE) {
+    const_cast<TryCatch*>(this)->GetAndClearException();
+  }
+
+  if (metadata == JS_INVALID_REFERENCE) {
+    return JS_INVALID_REFERENCE;
+  }
+
+  JsPropertyIdRef err = jsrt::IsolateShim::GetCurrent()
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::exception);
+
+  JsValueRef exception;
+  if (JsGetProperty(metadata, err, &exception) != JsNoError) {
+    return JS_INVALID_REFERENCE;
+  }
+
+  return exception;
 }
 
 }  // namespace v8

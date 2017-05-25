@@ -10,7 +10,7 @@ SyntaxError: Expected identifier
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
    at startup (bootstrap_node.js:*)
-test.vm:1
+test.vm:*
 var 5;
     ^^
 

@@ -1,6 +1,6 @@
 beginning
 middle
-vm.js:74
+vm.js:*
   return new Script(code, options);
   ^
 

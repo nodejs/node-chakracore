@@ -13,7 +13,7 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Anonymous function (bootstrap_node.js:*:*)
 42
 42
-vm.js:44
+vm.js:*
     return realRunInThisContext.call(this, options);
     ^
 
@@ -26,7 +26,7 @@ Error: hello
    at evalScript (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-vm.js:44
+vm.js:*
     return realRunInThisContext.call(this, options);
     ^
 
@@ -40,7 +40,7 @@ Error: hello
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
 100
-vm.js:44
+vm.js:*
     return realRunInThisContext.call(this, options);
     ^
 
@@ -54,12 +54,12 @@ ReferenceError: Variable undefined in strict mode
    at startup (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
 
-vm.js:44
+vm.js:*
     return realRunInThisContext.call(this, options);
     ^
 10
 
-vm.js:44
+vm.js:*
     return realRunInThisContext.call(this, options);
     ^
 10

@@ -2737,6 +2737,8 @@ class V8_EXPORT TryCatch {
   void SetNonUser() { user = false; }
   void GetAndClearException();
   void CheckReportExternalException();
+  JsValueRef EnsureException() const;
+
 
   JsValueRef metadata;
   TryCatch* prev;

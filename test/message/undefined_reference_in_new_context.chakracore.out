@@ -1,5 +1,5 @@
 before
-vm.js:53
+vm.js:*
     return realRunInContext.call(this, contextifiedSandbox, options);
     ^
 
