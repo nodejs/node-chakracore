@@ -61,6 +61,7 @@ test-promises-warning-on-unhandled-rejection : PASS,FLAKY
 test-regress-GH-12371 : PASS,FLAKY
 test-repl : PASS,FLAKY
 test-repl-mode : PASS,FLAKY
+test-repl-sigint : PASS,FLAKY
 test-repl-tab-complete : PASS,FLAKY
 test-string-decoder : PASS,FLAKY
 test-timers-promisified : PASS,FLAKY
@@ -80,6 +81,8 @@ test-vm-global-identity : PASS,FLAKY
 test-vm-low-stack-space : PASS,FLAKY
 test-vm-preserves-property : PASS,FLAKY
 test-vm-property-not-on-sandbox : PASS,FLAKY
+test-vm-sigint : PASS,FLAKY
+test-vm-sigint-existing-handler : PASS,FLAKY
 test-vm-strict-mode : PASS,FLAKY
 test-vm-timeout : PASS,FLAKY
 test-zlib-convenience-methods : PASS,FLAKY
