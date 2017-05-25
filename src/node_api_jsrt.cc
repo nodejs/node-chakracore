@@ -69,7 +69,6 @@ struct CallbackInfo {
   uint16_t argc;
   napi_value* argv;
   void* data;
-  napi_value returnValue;
 };
 
 struct napi_env__ {
@@ -219,30 +218,9 @@ class ExternalCallback {
     CallbackInfo cbInfo;
     cbInfo.thisArg = reinterpret_cast<napi_value>(arguments[0]);
     cbInfo.isConstructCall = isConstructCall;
-
-    if (isConstructCall) {
-      // For constructor callbacks, replace the 'this' arg with a new external
-      // object, to support wrapping a native object in the external object.
-      JsValueRef externalThis;
-      if (JsNoError == JsCreateExternalObject(
-        nullptr, jsrtimpl::ExternalData::Finalize, &externalThis)) {
-        // Copy the prototype from the default 'this' arg to the new
-        // 'external' this arg.
-        if (arguments[0] != nullptr) {
-          JsValueRef thisPrototype;
-          if (JsNoError == JsGetPrototype(arguments[0], &thisPrototype)) {
-            JsSetPrototype(externalThis, thisPrototype);
-          }
-        }
-
-        cbInfo.thisArg = reinterpret_cast<napi_value>(externalThis);
-      }
-    }
-
     cbInfo.argc = argumentCount - 1;
     cbInfo.argv = reinterpret_cast<napi_value*>(arguments + 1);
     cbInfo.data = externalCallback->_data;
-    cbInfo.returnValue = reinterpret_cast<napi_value>(undefinedValue);
 
     napi_value result = externalCallback->_cb(
       externalCallback->_env, reinterpret_cast<napi_callback_info>(&cbInfo));
@@ -986,21 +964,12 @@ napi_status napi_typeof(napi_env env, napi_value vv, napi_valuetype* result) {
     case JsError: *result = napi_object; break;
 
     default:
-      // An "external" value is represented in JSRT as an Object that has
-      // external data and DOES NOT allow extensions. (A wrapped object has
-      // external data and DOES allow extensions.)
       bool hasExternalData;
       if (JsHasExternalData(value, &hasExternalData) != JsNoError) {
         hasExternalData = false;
       }
 
-      bool isExtensionAllowed;
-      if (JsGetExtensionAllowed(value, &isExtensionAllowed) != JsNoError) {
-        isExtensionAllowed = false;
-      }
-
-      *result =
-        (hasExternalData && !isExtensionAllowed) ? napi_external : napi_object;
+      *result = hasExternalData ? napi_external : napi_object;
       break;
   }
   return napi_ok;
@@ -1385,17 +1354,40 @@ napi_status napi_wrap(napi_env env,
     env, native_object, finalize_cb, finalize_hint);
   if (externalData == nullptr) return napi_set_last_error(napi_generic_failure);
 
-  CHECK_JSRT(JsSetExternalData(value, externalData));
+  // Create an external object that will hold the external data pointer.
+  JsValueRef external;
+  CHECK_JSRT(JsCreateExternalObject(
+    externalData, jsrtimpl::ExternalData::Finalize, &external));
+
+  // Insert the external object into the value's prototype chain.
+  JsValueRef valuePrototype;
+  CHECK_JSRT(JsGetPrototype(value, &valuePrototype));
+  CHECK_JSRT(JsSetPrototype(external, valuePrototype));
+  CHECK_JSRT(JsSetPrototype(value, external));
 
   if (result != nullptr) {
-    napi_create_reference(env, js_object, 0, result);
+    CHECK_NAPI(napi_create_reference(env, js_object, 0, result));
   }
 
   return napi_ok;
 }
 
-napi_status napi_unwrap(napi_env env, napi_value jsObject, void** result) {
-  return napi_get_value_external(env, jsObject, result);
+napi_status napi_unwrap(napi_env env, napi_value js_object, void** result) {
+  JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
+
+  // A wrapper value's prototype should be an external value.
+  JsValueRef external;
+  CHECK_JSRT(JsGetPrototype(value, &external));
+
+  jsrtimpl::ExternalData* externalData;
+  if (external == nullptr || JsNoError !=
+      JsGetExternalData(external, reinterpret_cast<void**>(&externalData))) {
+    externalData = nullptr;
+  }
+
+  *result = (externalData != nullptr ? externalData->Data() : nullptr);
+
+  return napi_ok;
 }
 
 napi_status napi_create_external(napi_env env,
@@ -1413,7 +1405,6 @@ napi_status napi_create_external(napi_env env,
     externalData,
     jsrtimpl::ExternalData::Finalize,
     reinterpret_cast<JsValueRef*>(result)));
-  CHECK_JSRT(JsPreventExtension(*reinterpret_cast<JsValueRef*>(result)));
 
   return napi_ok;
 }
