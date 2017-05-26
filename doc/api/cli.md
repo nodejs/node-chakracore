@@ -10,7 +10,7 @@ To view this documentation as a manual page in a terminal, run `man node`.
 
 ## Synopsis
 
-`node [options] [v8 options] [script.js | -e "script"] [--] [arguments]`
+`node [options] [v8 options] [script.js | -e "script" | -] [--] [arguments]`
 
 `node debug [script.js | -e "script" | <host>:<port>] …`
 
@@ -112,6 +112,18 @@ added: v7.6.0
 -->
 
 Activate inspector on host:port and break at start of user script.
+Default host:port is 127.0.0.1:9229.
+
+
+### `--inspect-port=[host:]port`
+<!-- YAML
+added: v7.6.0
+-->
+
+Set the host:port to be used when the inspector is activated.
+Useful when activating the inspector by sending the `SIGUSR1` signal.
+
+Default host is 127.0.0.1.
 
 
 ### `--no-deprecation`
@@ -345,6 +357,17 @@ added: v0.11.15
 
 Specify ICU data load path. (overrides `NODE_ICU_DATA`)
 
+
+### `-`
+<!-- YAML
+added: REPLACEME
+-->
+
+Alias for stdin, analogous to the use of - in other command line utilities,
+meaning that the script will be read from stdin, and the rest of the options
+are passed to that script.
+
+
 ### `--`
 <!-- YAML
 added: v7.5.0
@@ -421,6 +444,7 @@ Node options that are allowed are:
 - `--redirect-warnings`
 - `--require`, `-r`
 - `--throw-deprecation`
+- `--tls-cipher-list`
 - `--trace-deprecation`
 - `--trace-events-categories`
 - `--trace-events-enabled`
