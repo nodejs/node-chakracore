@@ -21,6 +21,7 @@
 #include "src/inspector/v8-stack-trace-impl.h"
 
 #include "include/v8-inspector.h"
+#include "src/jsrtinspector.h"
 #include "src/jsrtinspectorhelpers.h"
 
 namespace v8_inspector {
@@ -205,6 +206,11 @@ bool V8DebuggerAgentImpl::enabled() {
 
 void V8DebuggerAgentImpl::enable(ErrorString* errorString) {
   if (enabled()) return;
+
+  if (!jsrt::Inspector::IsInspectorEnabled()) {
+    *errorString = "Inspector must be enabled at startup";
+    return;
+  }
 
   if (!m_inspector->client()->canExecuteScripts(m_session->contextGroupId())) {
     *errorString = "Script execution is prohibited";
