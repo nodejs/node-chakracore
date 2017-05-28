@@ -110,6 +110,7 @@
                 '/p:Configuration=$(ConfigurationName)',
                 '/p:RuntimeLib=<(component)',
                 '/p:AdditionalPreprocessorDefinitions=COMPILE_DISABLE_Simdjs=1',
+                '/p:WindowsTargetPlatformVersion=$(WindowsTargetPlatformVersion)',
                 '/m',
                 '<@(_inputs)',
               ],
