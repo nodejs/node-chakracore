@@ -82,7 +82,6 @@ using ::v8::String;
 using ::v8::Symbol;
 using ::v8::TryCatch;
 using ::v8::Undefined;
-using ::v8::UniqueId;
 using ::v8::V8;
 using ::v8::Value;
 
@@ -24376,12 +24375,13 @@ TEST(GetOwnPropertyDescriptor) {
   v8::Isolate* isolate = env->GetIsolate();
   v8::HandleScope scope(isolate);
   CompileRun(
-    "var x = { value : 13};"
-    "Object.defineProperty(x, 'p0', {value : 12});"
-    "Object.defineProperty(x, 'p1', {"
-    "  set : function(value) { this.value = value; },"
-    "  get : function() { return this.value; },"
-    "});");
+      "var x = { value : 13};"
+      "Object.defineProperty(x, 'p0', {value : 12});"
+      "Object.defineProperty(x, Symbol.toStringTag, {value: 'foo'});"
+      "Object.defineProperty(x, 'p1', {"
+      "  set : function(value) { this.value = value; },"
+      "  get : function() { return this.value; },"
+      "});");
   Local<Object> x = Local<Object>::Cast(
       env->Global()->Get(env.local(), v8_str("x")).ToLocalChecked());
   Local<Value> desc =
@@ -24414,6 +24414,14 @@ TEST(GetOwnPropertyDescriptor) {
   CHECK(v8_num(14)
             ->Equals(env.local(),
                      get->Call(env.local(), x, 0, NULL).ToLocalChecked())
+            .FromJust());
+  desc =
+      x->GetOwnPropertyDescriptor(env.local(), Symbol::GetToStringTag(isolate))
+          .ToLocalChecked();
+  CHECK(v8_str("foo")
+            ->Equals(env.local(), Local<Object>::Cast(desc)
+                                      ->Get(env.local(), v8_str("value"))
+                                      .ToLocalChecked())
             .FromJust());
 }
 

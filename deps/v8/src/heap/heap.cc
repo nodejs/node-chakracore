@@ -1432,10 +1432,6 @@ void Heap::CallGCPrologueCallbacks(GCType gc_type, GCCallbackFlags flags) {
       }
     }
   }
-  if (FLAG_trace_object_groups && (gc_type == kGCTypeIncrementalMarking ||
-                                   gc_type == kGCTypeMarkSweepCompact)) {
-    isolate_->global_handles()->PrintObjectGroups();
-  }
 }
 
 
@@ -5080,9 +5076,6 @@ bool Heap::ConfigureHeap(size_t max_semi_space_size, size_t max_old_space_size,
   if (FLAG_max_old_space_size > 0) {
     max_old_generation_size_ =
         static_cast<size_t>(FLAG_max_old_space_size) * MB;
-  }
-  if (FLAG_max_executable_size > 0) {
-    max_executable_size_ = static_cast<size_t>(FLAG_max_executable_size) * MB;
   }
 
   if (Page::kPageSize > MB) {

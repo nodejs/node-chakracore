@@ -8,9 +8,7 @@
 namespace node {
 
 namespace {
-#if HAVE_INSPECTOR
 const int default_inspector_port = 9229;
-#endif  // HAVE_INSPECTOR
 
 inline std::string remove_brackets(const std::string& host) {
   if (!host.empty() && host.front() == '[' && host.back() == ']')
@@ -56,14 +54,12 @@ std::pair<std::string, int> split_host_port(const std::string& arg) {
 }  // namespace
 
 DebugOptions::DebugOptions() :
-#if HAVE_INSPECTOR
                                inspector_enabled_(false),
-#endif  // HAVE_INSPECTOR
-                               wait_connect_(false), http_enabled_(false),
+                               deprecated_debug_(false),
+                               break_first_line_(false),
                                host_name_("127.0.0.1"), port_(-1) { }
 
-bool DebugOptions::ParseOption(const std::string& option) {
-  bool enable_inspector = false;
+bool DebugOptions::ParseOption(const char* argv0, const std::string& option) {
   bool has_argument = false;
   std::string option_name;
   std::string argument;
@@ -72,33 +68,49 @@ bool DebugOptions::ParseOption(const std::string& option) {
   if (pos == std::string::npos) {
     option_name = option;
   } else {
-    has_argument = true;
     option_name = option.substr(0, pos);
     argument = option.substr(pos + 1);
+
+    if (argument.length() > 0)
+      has_argument = true;
+    else
+      argument.clear();
   }
 
+  // Note that --debug-port and --debug-brk in conjuction with --inspect
+  // work but are undocumented.
+  // --debug is no longer valid.
+  // Ref: https://github.com/nodejs/node/issues/12630
+  // Ref: https://github.com/nodejs/node/pull/12949
   if (option_name == "--inspect") {
-    enable_inspector = true;
+    inspector_enabled_ = true;
+  } else if (option_name == "--debug") {
+    deprecated_debug_ = true;
   } else if (option_name == "--inspect-brk") {
-    enable_inspector = true;
-    wait_connect_ = true;
-  } else if ((option_name != "--debug-port" &&
-              option_name != "--inspect-port") ||
-              !has_argument) {
-    // only other valid possibility is --inspect-port,
-    // which requires an argument
+    inspector_enabled_ = true;
+    break_first_line_ = true;
+  } else if (option_name == "--debug-brk") {
+    break_first_line_ = true;
+    deprecated_debug_ = true;
+  } else if (option_name == "--debug-port" ||
+             option_name == "--inspect-port") {
+    if (!has_argument) {
+      fprintf(stderr, "%s: %s requires an argument\n",
+              argv0, option.c_str());
+      exit(9);
+    }
+  } else {
     return false;
   }
 
-  if (enable_inspector) {
-#if HAVE_INSPECTOR
-    inspector_enabled_ = true;
-#else
+#if !HAVE_INSPECTOR
+  if (inspector_enabled_) {
     fprintf(stderr,
             "Inspector support is not available with this Node.js build\n");
-    return false;
-#endif
   }
+  inspector_enabled_ = false;
+  return false;
+#endif
 
   // argument can be specified for *any* option to specify host:port
   if (has_argument) {
@@ -117,9 +129,7 @@ bool DebugOptions::ParseOption(const std::string& option) {
 int DebugOptions::port() const {
   int port = port_;
   if (port < 0) {
-#if HAVE_INSPECTOR
     port = default_inspector_port;
-#endif  // HAVE_INSPECTOR
   }
   return port;
 }
