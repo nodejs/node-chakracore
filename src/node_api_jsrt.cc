@@ -1375,15 +1375,22 @@ napi_status napi_wrap(napi_env env,
 napi_status napi_unwrap(napi_env env, napi_value js_object, void** result) {
   JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
 
-  // A wrapper value's prototype should be an external value.
-  JsValueRef external;
-  CHECK_JSRT(JsGetPrototype(value, &external));
+  // Search the object's prototype chain for the wrapper with external data.
+  // Usually the wrapper would be the first in the chain, but it is OK for
+  // other objects to be inserted in the prototype chain.
+  JsValueRef wrapper = value;
+  bool hasExternalData = false;
+  do {
+    CHECK_JSRT(JsGetPrototype(wrapper, &wrapper));
+    if (wrapper == nullptr) {
+      return  napi_invalid_arg;
+    }
+    CHECK_JSRT(JsHasExternalData(wrapper, &hasExternalData));
+  } while (!hasExternalData);
 
   jsrtimpl::ExternalData* externalData;
-  if (external == nullptr || JsNoError !=
-      JsGetExternalData(external, reinterpret_cast<void**>(&externalData))) {
-    externalData = nullptr;
-  }
+  CHECK_JSRT(JsGetExternalData(
+    wrapper, reinterpret_cast<void**>(&externalData)));
 
   *result = (externalData != nullptr ? externalData->Data() : nullptr);
 
