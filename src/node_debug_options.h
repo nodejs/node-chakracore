@@ -24,7 +24,7 @@ class DebugOptions {
   int port() const;
   void set_port(int port) { port_ = port; }
 #if ENABLE_TTD_NODE
-  void do_wait_for_connect() { wait_connect_ = true; }
+  void do_wait_for_connect() { break_first_line_ = true; }
 #endif
 
  private:
