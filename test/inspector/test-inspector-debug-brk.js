@@ -25,14 +25,20 @@ function testBreakpointOnStart(session) {
     { 'method': 'Debugger.setPauseOnExceptions',
       'params': {'state': 'none'} },
     { 'method': 'Debugger.setAsyncCallStackDepth',
-      'params': {'maxDepth': 0} },
-    { 'method': 'Profiler.enable' },
-    { 'method': 'Profiler.setSamplingInterval',
-      'params': {'interval': 100} },
+      'params': {'maxDepth': 0} }
+  ];
+
+  if (process.jsEngine !== 'chakracore') {
+    commands.push(
+      { 'method': 'Profiler.enable' },
+      { 'method': 'Profiler.setSamplingInterval',
+        'params': {'interval': 100} });
+  }
+
+  commands.push(
     { 'method': 'Debugger.setBlackboxPatterns',
       'params': {'patterns': []} },
-    { 'method': 'Runtime.runIfWaitingForDebugger' }
-  ];
+    { 'method': 'Runtime.runIfWaitingForDebugger' });
 
   session
     .sendInspectorCommands(commands)
