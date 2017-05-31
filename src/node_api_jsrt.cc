@@ -2006,6 +2006,12 @@ napi_status napi_get_typedarray_info(napi_env env,
   return napi_ok;
 }
 
+napi_status napi_get_version(napi_env env, uint32_t* result) {
+  CHECK_ARG(result);
+  *result = NAPI_VERSION;
+  return napi_ok;
+}
+
 namespace uvimpl {
 
 napi_status ConvertUVErrorCode(int code) {

@@ -14,6 +14,8 @@
 #include <stdbool.h>
 #include "node_api_types.h"
 
+#define NAPI_VERSION  1
+
 #ifdef _WIN32
   #ifdef BUILDING_NODE_EXTENSION
     #ifdef EXTERNAL_NAPI
