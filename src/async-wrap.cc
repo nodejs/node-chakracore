@@ -283,8 +283,8 @@ bool AsyncWrap::EmitAfter(Environment* env, double async_id) {
 
 class PromiseWrap : public AsyncWrap {
  public:
-  PromiseWrap(Environment* env, Local<Object> object)
-    : AsyncWrap(env, object, PROVIDER_PROMISE) {}
+  PromiseWrap(Environment* env, Local<Object> object, bool silent)
+    : AsyncWrap(env, object, PROVIDER_PROMISE, silent) {}
   size_t self_size() const override { return sizeof(*this); }
 };
 
@@ -293,33 +293,14 @@ static void PromiseHook(PromiseHookType type, Local<Promise> promise,
                         Local<Value> parent, void* arg) {
   Local<Context> context = promise->CreationContext();
   Environment* env = Environment::GetCurrent(context);
-  if (type == PromiseHookType::kInit) {
-    // Unfortunately, promises don't have internal fields. Need a surrogate that
-    // async wrap can wrap.
-    Local<Object> obj =
-      env->async_hooks_promise_object()->NewInstance(context).ToLocalChecked();
-    PromiseWrap* wrap = new PromiseWrap(env, obj);
-    v8::PropertyAttribute hidden =
-      static_cast<v8::PropertyAttribute>(v8::ReadOnly
-                                         | v8::DontDelete
-                                         | v8::DontEnum);
-    promise->DefineOwnProperty(context,
-              env->promise_wrap(),
-              v8::External::New(env->isolate(), wrap),
-              hidden).FromJust();
-    // The async tag will be destroyed at the same time as the promise as the
-    // only reference to it is held by the promise. This allows the promise
-    // wrap instance to be notified when the promise is destroyed.
-    promise->DefineOwnProperty(context,
-              env->promise_async_tag(),
-              obj, hidden).FromJust();
+  PromiseWrap* wrap = Unwrap<PromiseWrap>(promise);
+  if (type == PromiseHookType::kInit || wrap == nullptr) {
+    bool silent = type != PromiseHookType::kInit;
+    wrap = new PromiseWrap(env, promise, silent);
+    wrap->MakeWeak(wrap);
   } else if (type == PromiseHookType::kResolve) {
     // TODO(matthewloring): need to expose this through the async hooks api.
   }
-  Local<v8::Value> external_wrap =
-      promise->Get(context, env->promise_wrap()).ToLocalChecked();
-  PromiseWrap* wrap =
-    static_cast<PromiseWrap*>(external_wrap.As<v8::External>()->Value());
   CHECK_NE(wrap, nullptr);
   if (type == PromiseHookType::kBefore) {
     PreCallbackExecution(wrap, false);
@@ -414,11 +395,6 @@ void AsyncWrap::Initialize(Local<Object> target,
   env->SetMethod(target, "popAsyncIds", PopAsyncIds);
   env->SetMethod(target, "clearIdStack", ClearIdStack);
   env->SetMethod(target, "addIdToDestroyList", QueueDestroyId);
-
-  Local<v8::ObjectTemplate> promise_object_template =
-    v8::ObjectTemplate::New(env->isolate());
-  promise_object_template->SetInternalFieldCount(1);
-  env->set_async_hooks_promise_object(promise_object_template);
 
   v8::PropertyAttribute ReadOnlyDontDelete =
       static_cast<v8::PropertyAttribute>(v8::ReadOnly | v8::DontDelete);
@@ -516,7 +492,8 @@ void LoadAsyncWrapperInfo(Environment* env) {
 
 AsyncWrap::AsyncWrap(Environment* env,
                      Local<Object> object,
-                     ProviderType provider)
+                     ProviderType provider,
+                     bool silent)
     : BaseObject(env, object),
       provider_type_(provider) {
   CHECK_NE(provider, PROVIDER_NONE);
@@ -526,7 +503,7 @@ AsyncWrap::AsyncWrap(Environment* env,
   persistent().SetWrapperClassId(NODE_ASYNC_ID_OFFSET + provider);
 
   // Use AsyncReset() call to execute the init() callbacks.
-  AsyncReset();
+  AsyncReset(silent);
 }
 
 
@@ -538,9 +515,11 @@ AsyncWrap::~AsyncWrap() {
 // Generalized call for both the constructor and for handles that are pooled
 // and reused over their lifetime. This way a new uid can be assigned when
 // the resource is pulled out of the pool and put back into use.
-void AsyncWrap::AsyncReset() {
+void AsyncWrap::AsyncReset(bool silent) {
   async_id_ = env()->new_async_id();
   trigger_id_ = env()->get_init_trigger_id();
+
+  if (silent) return;
 
   EmitAsyncInit(env(), object(),
                 env()->async_hooks()->provider_string(provider_type()),
