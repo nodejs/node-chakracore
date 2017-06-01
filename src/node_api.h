@@ -14,6 +14,8 @@
 #include <stdbool.h>
 #include "node_api_types.h"
 
+#define NAPI_VERSION  1
+
 #ifdef _WIN32
   #ifdef BUILDING_NODE_EXTENSION
     #ifdef EXTERNAL_NAPI
@@ -477,6 +479,10 @@ NAPI_EXTERN napi_status napi_queue_async_work(napi_env env,
                                               napi_async_work work);
 NAPI_EXTERN napi_status napi_cancel_async_work(napi_env env,
                                                napi_async_work work);
+
+
+// version management
+NAPI_EXTERN napi_status napi_get_version(napi_env env, uint32_t* result);
 
 EXTERN_C_END
 

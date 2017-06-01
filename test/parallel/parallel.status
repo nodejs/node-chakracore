@@ -29,6 +29,7 @@ test-fs-watch-encoding               : FAIL, PASS
 [$jsEngine==chakracore]
 test-assert-checktag : PASS,FLAKY
 test-async-wrap-getasyncid : PASS,FLAKY
+test-async-wrap-promise-after-enabled : PASS,FLAKY
 test-buffer-bindingobj-no-zerofill : PASS,FLAKY
 test-buffer-sharedarraybuffer : PASS,FLAKY
 test-child-process-promisified : PASS,FLAKY

@@ -558,6 +558,14 @@ found [here][online].
   the connected party did not properly respond after a period of time. Usually
   encountered by [`http`][] or [`net`][] -- often a sign that a `socket.end()`
   was not properly called.
+  
+  <a id="ERROR_CODES"></a>
+  ### ERROR CODES
+
+  <a id="ERR_INDEX_OUT_OF_RANGE"></a>
+  ### ERR_INDEX_OUT_OF_RANGE
+
+The `'ERR_INDEX_OUT_OF_RANGE'` error code is used when a given index is out of the accepted range.
 
 
 <a id="nodejs-error-codes"></a>
@@ -569,6 +577,13 @@ found [here][online].
 The `'ERR_ARG_NOT_ITERABLE'` error code is used generically to identify that an
 iterable argument (i.e. a value that works with `for...of` loops) is required,
 but not provided to a Node.js API.
+
+<a id="ERR_CONSOLE_WRITABLE_STREAM"></a>
+### ERR_CONSOLE_WRITABLE_STREAM
+
+The `ERR_CONSOLE_WRITABLE_STREAM` error code is thrown when `Console` is
+instantiated without `stdout` stream or when `stdout` or `stderr` streams
+are not writable.
 
 <a id="ERR_INVALID_ARG_TYPE"></a>
 ### ERR_INVALID_ARG_TYPE
