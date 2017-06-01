@@ -4981,6 +4981,15 @@ int Start(int argc, char** argv) {
 #if ENABLE_TTD_NODE
   bool chk_debug_enabled = debug_options.inspector_enabled();
 
+  std::string envDoRecordVar;
+  bool envDoRecord = SafeGetenv("DO_TTD_RECORD", &envDoRecordVar) &&
+      envDoRecordVar[0] == '1';
+
+  if (!s_doTTRecord && !s_doTTReplay) {
+    // Apply the value from the environment variable
+    s_doTTRecord = envDoRecord;
+  }
+
   TTDFlagWarning_Cond(!s_doTTRecord || !s_doTTReplay,
       "Cannot enable record & replay at same time.\n");
 
@@ -5009,6 +5018,11 @@ int Start(int argc, char** argv) {
 
       TTDFlagWarning_Cond(s_ttoptReplayUri != nullptr,
           "Must set replay source info when replaying.\n");
+  }
+
+  if (s_doTTRecord) {
+    // Apply the environment variable to be inherited by child processes.
+    putenv("DO_TTD_RECORD=1");
   }
 #endif
 
