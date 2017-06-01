@@ -22,6 +22,7 @@
 
 #include "v8chakra.h"
 #include "jsrtinspectorhelpers.h"
+#include "jsrtutils.h"
 
 namespace jsrt {
   static const int JsrtDebugPropertyAttributeReadOnly = 4;
@@ -58,6 +59,13 @@ namespace jsrt {
 
     JsValueRef sourceVal = nullptr;
     IfJsErrorRet(JsGetProperty(sourceObj, propId, &sourceVal));
+
+    bool isUndefined;
+    IfJsErrorRet(jsrt::IsUndefined(sourceVal, &isUndefined));
+
+    if (isUndefined) {
+      return JsNoError;
+    }
 
     JsValueRef destVal = nullptr;
     if (convertFunc != nullptr) {
