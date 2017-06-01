@@ -410,7 +410,7 @@ assert.throws(() => {
   if (common.isChakraEngine) {
     // Skip on ChakraCore due to TypedArray .length JIT bug
     // (see this issue: https://github.com/Microsoft/ChakraCore/issues/2319)
-    throw new RangeError();
+    throw new RangeError('Index out of range');
   }
   const buf = new Buffer('w00t');
   Object.defineProperty(buf, 'length', {
