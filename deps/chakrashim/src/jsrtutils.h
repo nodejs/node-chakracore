@@ -132,6 +132,18 @@ JsErrorCode GetProperty(JsValueRef ref,
 
 JsErrorCode GetProperty(JsValueRef ref,
                         JsPropertyIdRef propId,
+                        bool *boolValue);
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        bool *boolValue);
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        int *intValue);
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
                         int *intValue);
 
 JsErrorCode SetProperty(JsValueRef ref,
@@ -141,6 +153,26 @@ JsErrorCode SetProperty(JsValueRef ref,
 JsErrorCode SetProperty(JsValueRef ref,
                         CachedPropertyIdRef cachedIdRef,
                         JsValueRef propValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        const char *propertyName,
+                        JsValueRef propValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        bool boolValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        bool boolValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        const char *stringValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        const char *stringValue);
 
 JsErrorCode DeleteIndexedProperty(JsValueRef object,
                                   unsigned int index);
@@ -165,6 +197,10 @@ JsErrorCode HasOwnProperty(JsValueRef object,
 
 JsErrorCode HasProperty(JsValueRef object,
                         JsValueRef prop,
+                        bool *result);
+
+JsErrorCode HasProperty(JsValueRef object,
+                        CachedPropertyIdRef cachedIdRef,
                         bool *result);
 
 JsErrorCode HasIndexedProperty(JsValueRef object,
@@ -192,6 +228,10 @@ JsErrorCode CreatePropertyDescriptorsEnumerationIterator(JsValueRef enumeration,
 JsErrorCode ConcatArray(JsValueRef first,
                         JsValueRef second,
                         JsValueRef *result);
+
+JsErrorCode PushArray(JsValueRef array,
+                      JsValueRef item,
+                      JsValueRef *result);
 
 JsErrorCode CallProperty(JsValueRef ref,
                          CachedPropertyIdRef cachedIdRef,
@@ -230,10 +270,6 @@ bool InstanceOf(JsValueRef first,
 JsErrorCode CloneObject(JsValueRef source,
                         JsValueRef target,
                         bool cloneProtoype = false);
-
-JsErrorCode ConcatArray(JsValueRef first,
-                        JsValueRef second,
-                        JsValueRef *result);
 
 JsErrorCode GetPropertyNames(JsValueRef object,
                              JsValueRef *namesArray);
@@ -493,6 +529,16 @@ JsErrorCode ValueToNative(const JsConvertToValueFunc& JsConvertToValue,
     return error;
   }
   return JsValueToNative(value, nativeValue);
+}
+
+inline JsErrorCode ValueToBool(JsValueRef value, bool* boolValue) {
+  return ValueToNative</*LIKELY*/false>(
+    JsConvertValueToBoolean, JsBooleanToBool, value, boolValue);
+}
+
+inline JsErrorCode ValueToBoolLikely(JsValueRef value, bool* boolValue) {
+  return ValueToNative</*LIKELY*/true>(
+    JsConvertValueToBoolean, JsBooleanToBool, value, boolValue);
 }
 
 inline JsErrorCode ValueToInt(JsValueRef value, int* intValue) {

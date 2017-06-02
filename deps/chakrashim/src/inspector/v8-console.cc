@@ -4,8 +4,6 @@
 
 #include "src/inspector/v8-console.h"
 
-#include <assert.h>
-
 #include "src/base/macros.h"
 #include "src/inspector/inspected-context.h"
 #include "src/inspector/string-util.h"
@@ -17,8 +15,8 @@
 #include "src/inspector/v8-runtime-agent-impl.h"
 #include "src/inspector/v8-stack-trace-impl.h"
 #include "src/inspector/v8-value-copier.h"
-
 #include "include/v8-inspector.h"
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -578,24 +576,24 @@ void V8Console::unmonitorFunctionCallback(
 void V8Console::lastEvaluationResultCallback(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
   // CHAKRA-TODO - Figure out what to do here.
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Console::inspectCallback(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
   // CHAKRA-TODO - Figure out what to do here.
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Console::copyCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   // CHAKRA-TODO - Figure out what to do here.
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Console::inspectedObject(const v8::FunctionCallbackInfo<v8::Value>& info,
                                 unsigned num) {
   // CHAKRA-TODO - Figure out what to do here.
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 v8::Local<v8::Object> V8Console::createConsole(

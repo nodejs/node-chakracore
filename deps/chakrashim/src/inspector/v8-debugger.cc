@@ -83,15 +83,12 @@ void V8Debugger::getCompiledScripts(
   JsValueRef scripts = JS_INVALID_REFERENCE;
   CHAKRA_VERIFY_NOERROR(JsDiagGetScripts(&scripts));
 
-  int length = 0;
-  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIntProperty(scripts,
-                                                               "length",
-                                                               &length));
+  unsigned int length = 0;
+  CHAKRA_VERIFY_NOERROR(jsrt::GetArrayLength(scripts, &length));
 
-  for (int i = 0; i < length; i++) {
+  for (unsigned int i = 0; i < length; i++) {
     JsValueRef script = JS_INVALID_REFERENCE;
-    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIndexedProperty(
-        scripts, i, &script));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetIndexedProperty(scripts, i, &script));
 
     result.push_back(wrapUnique(
         new V8DebuggerScript(m_isolate, script, false)));
@@ -119,18 +116,18 @@ String16 V8Debugger::setBreakpoint(const String16& sourceID,
   }
 
   int breakpointId = 0;
-  if (jsrt::InspectorHelpers::GetIntProperty(breakpoint, "breakpointId",
-                                             &breakpointId) != JsNoError) {
+  if (jsrt::GetProperty(breakpoint, jsrt::CachedPropertyIdRef::breakpointId,
+                        &breakpointId) != JsNoError) {
     return String16();
   }
 
-  if (jsrt::InspectorHelpers::GetIntProperty(breakpoint, "line",
-                                             actualLineNumber) != JsNoError) {
+  if (jsrt::GetProperty(breakpoint, jsrt::CachedPropertyIdRef::line,
+                        actualLineNumber) != JsNoError) {
     return String16();
   }
 
-  if (jsrt::InspectorHelpers::GetIntProperty(breakpoint, "column",
-                                             actualColumnNumber) != JsNoError) {
+  if (jsrt::GetProperty(breakpoint, jsrt::CachedPropertyIdRef::column,
+                        actualColumnNumber) != JsNoError) {
     return String16();
   }
 
@@ -281,20 +278,18 @@ JavaScriptCallFrames V8Debugger::currentCallFrames(int limit) {
   JsValueRef stackTrace = JS_INVALID_REFERENCE;
   JsDiagGetStackTrace(&stackTrace);
 
-  int length = 0;
-  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIntProperty(stackTrace,
-                                                               "length",
-                                                               &length));
+  unsigned int length = 0;
+  CHAKRA_VERIFY_NOERROR(jsrt::GetArrayLength(stackTrace, &length));
 
-  if (limit > 0 && limit < length) {
+  if (limit > 0 && static_cast<unsigned int>(limit) < length) {
     length = limit;
   }
   
   JavaScriptCallFrames callFrames;
-  for (int i = 0; i < length; ++i) {
+  for (unsigned int i = 0; i < length; ++i) {
     JsValueRef callFrameValue = JS_INVALID_REFERENCE;
-    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIndexedProperty(
-        stackTrace, i, &callFrameValue));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetIndexedProperty(stackTrace, i,
+                                                   &callFrameValue));
 
     callFrames.push_back(JavaScriptCallFrame::create(
         debuggerContext(), callFrameValue));
@@ -471,30 +466,29 @@ void V8Debugger::HandleBreak(JsValueRef eventData) {
   std::vector<String16> breakpointIds;
 
   bool hasBreakpointId = false;
-  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::HasProperty(eventData,
-                                                            "breakpointId",
-                                                            &hasBreakpointId));
+  CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(
+      eventData, jsrt::CachedPropertyIdRef::breakpointId, &hasBreakpointId));
 
   if (hasBreakpointId) {
     breakpointIds.reserve(1);
 
     int breakpointId = 0;
-    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetIntProperty(
-        eventData, "breakpointId", &breakpointId));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(
+        eventData, jsrt::CachedPropertyIdRef::breakpointId, &breakpointId));
 
     breakpointIds.push_back(String16::fromInteger(breakpointId));
   }
 
   bool hasUncaught = false;
-  CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::HasProperty(eventData,
-                                                            "uncaught",
-                                                            &hasUncaught));
+  CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(eventData,
+                                          jsrt::CachedPropertyIdRef::uncaught,
+                                          &hasUncaught));
 
   bool isUncaught = false;
   if (hasUncaught) {
-    CHAKRA_VERIFY_NOERROR(jsrt::InspectorHelpers::GetBoolProperty(eventData,
-                                                                  "uncaught",
-                                                                  &isUncaught));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(eventData,
+                                            jsrt::CachedPropertyIdRef::uncaught,
+                                            &isUncaught));
   }
 
   m_pausedContext = pausedContext;
