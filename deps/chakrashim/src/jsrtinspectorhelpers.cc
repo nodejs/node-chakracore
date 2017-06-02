@@ -33,79 +33,116 @@ namespace jsrt {
   template<class ValueConvertFunc>
   static JsErrorCode CopyPropertyImpl(
       JsValueRef sourceObj,
-      const char *sourceName,
+      JsPropertyIdRef sourceIdRef,
       JsValueRef destObj,
-      const char *destName,
+      JsPropertyIdRef destIdRef,
       ValueConvertFunc convertFunc,
       bool *wasCopied) {
-    if (sourceObj == nullptr || sourceName == nullptr || destObj == nullptr) {
+    if (sourceObj == JS_INVALID_REFERENCE ||
+        sourceIdRef == JS_INVALID_REFERENCE ||
+        destObj == JS_INVALID_REFERENCE) {
       return JsErrorInvalidArgument;
     }
 
-    if (wasCopied != nullptr)
-    {
+    if (wasCopied != nullptr) {
       *wasCopied = false;
     }
 
-    JsPropertyIdRef propId = nullptr;
-    IfJsErrorRet(JsCreatePropertyId(sourceName, strlen(sourceName), &propId));
-
-    bool hasProp;
-    IfJsErrorRet(JsHasProperty(sourceObj, propId, &hasProp));
+    bool hasProp = false;
+    IfJsErrorRet(JsHasProperty(sourceObj, sourceIdRef, &hasProp));
 
     if (!hasProp) {
       return JsNoError;
     }
 
-    JsValueRef sourceVal = nullptr;
-    IfJsErrorRet(JsGetProperty(sourceObj, propId, &sourceVal));
+    JsValueRef sourceVal = JS_INVALID_REFERENCE;
+    IfJsErrorRet(JsGetProperty(sourceObj, sourceIdRef, &sourceVal));
 
-    bool isUndefined;
+    bool isUndefined = false;
     IfJsErrorRet(jsrt::IsUndefined(sourceVal, &isUndefined));
 
     if (isUndefined) {
       return JsNoError;
     }
 
-    JsValueRef destVal = nullptr;
+    JsValueRef destVal = JS_INVALID_REFERENCE;
     if (convertFunc != nullptr) {
       IfJsErrorRet(convertFunc(sourceVal, &destVal));
-    }
-    else {
+    } else {
       destVal = sourceVal;
     }
 
-    if (destName != nullptr) {
-      IfJsErrorRet(JsCreatePropertyId(destName, strlen(destName), &propId));
+    if (destIdRef == JS_INVALID_REFERENCE) {
+      destIdRef = sourceIdRef;
     }
 
-    IfJsErrorRet(JsSetProperty(destObj, propId, destVal, true));
+    IfJsErrorRet(JsSetProperty(destObj, destIdRef, destVal, true));
 
-    if (wasCopied != nullptr)
-    {
+    if (wasCopied != nullptr) {
       *wasCopied = true;
     }
 
     return JsNoError;
   }
 
-  static bool CopyPropertyIfPresent(JsValueRef sourceObj,
-                                    const char *sourceName,JsValueRef destObj,
-                                    const char *destName = nullptr) {
-    bool wasCopied;
+  static bool CopyPropertyIfPresent(
+      JsValueRef sourceObj,
+      CachedPropertyIdRef cachedSourceIdRef,
+      JsValueRef destObj) {
+    JsPropertyIdRef sourceIdRef =
+        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedSourceIdRef);
+
+    bool wasCopied = false;
     CHAKRA_VERIFY_NOERROR(InspectorHelpers::TryCopyProperty(
-        sourceObj, sourceName, destObj, destName, &wasCopied));
+        sourceObj, sourceIdRef, destObj, JS_INVALID_REFERENCE, &wasCopied));
 
     return wasCopied;
   }
 
-  static bool CopyPropertyStringIfPresent(JsValueRef sourceObj,
-                                          const char *sourceName,
-                                          JsValueRef destObj,
-                                          const char *destName = nullptr) {
-    bool wasCopied;
+  static bool CopyPropertyIfPresent(
+      JsValueRef sourceObj,
+      CachedPropertyIdRef cachedSourceIdRef,
+      JsValueRef destObj,
+      CachedPropertyIdRef cachedDestIdRef) {
+    JsPropertyIdRef sourceIdRef =
+        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedSourceIdRef);
+    JsPropertyIdRef destIdRef =
+        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedDestIdRef);
+
+    bool wasCopied = false;
+    CHAKRA_VERIFY_NOERROR(InspectorHelpers::TryCopyProperty(
+        sourceObj, sourceIdRef, destObj, destIdRef, &wasCopied));
+
+    return wasCopied;
+  }
+
+  static bool CopyPropertyStringIfPresent(
+      JsValueRef sourceObj,
+      CachedPropertyIdRef cachedSourceIdRef,
+      JsValueRef destObj) {
+    JsPropertyIdRef sourceIdRef =
+        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedSourceIdRef);
+
+    bool wasCopied = false;
     CHAKRA_VERIFY_NOERROR(InspectorHelpers::TryCopyPropertyString(
-        sourceObj, sourceName, destObj, destName, &wasCopied));
+        sourceObj, sourceIdRef, destObj, JS_INVALID_REFERENCE, &wasCopied));
+
+    return wasCopied;
+  }
+
+  static bool CopyPropertyStringIfPresent(
+      JsValueRef sourceObj,
+      CachedPropertyIdRef cachedSourceIdRef,
+      JsValueRef destObj,
+      CachedPropertyIdRef cachedDestIdRef) {
+    JsPropertyIdRef sourceIdRef =
+        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedSourceIdRef);
+    JsPropertyIdRef destIdRef =
+        IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedDestIdRef);
+
+    bool wasCopied = false;
+    CHAKRA_VERIFY_NOERROR(InspectorHelpers::TryCopyPropertyString(
+        sourceObj, sourceIdRef, destObj, destIdRef, &wasCopied));
 
     return wasCopied;
   }
@@ -132,178 +169,192 @@ namespace jsrt {
   static void AddFunctionInfo(JsValueRef wrappedCallFrame,
                               JsValueRef callFrame) {
     int functionHandle = 0;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(callFrame,
-                                                             "functionHandle",
-                                                             &functionHandle));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(
+        callFrame, CachedPropertyIdRef::functionHandle, &functionHandle));
 
-      JsValueRef funcObj = nullptr;
-      CHAKRA_VERIFY_NOERROR(JsDiagGetObjectFromHandle(functionHandle,
-                                                      &funcObj));
+    JsValueRef funcObj = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(JsDiagGetObjectFromHandle(functionHandle,
+                                                    &funcObj));
 
-      CHAKRA_VERIFY(CopyPropertyIfPresent(funcObj, "name", wrappedCallFrame,
-                                          "functionName"));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(funcObj, CachedPropertyIdRef::name,
+                                        wrappedCallFrame,
+                                        CachedPropertyIdRef::functionName));
 
-      JsValueRef functionLocation = nullptr;
-      CHAKRA_VERIFY_NOERROR(JsCreateObject(&functionLocation));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(
-          wrappedCallFrame,
-          "functionLocation",
-          functionLocation));
+    JsValueRef functionLocation = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(JsCreateObject(&functionLocation));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(
+        wrappedCallFrame, CachedPropertyIdRef::functionLocation,
+        functionLocation));
 
-      CHAKRA_VERIFY(CopyPropertyStringIfPresent(funcObj, "scriptId",
-                                                functionLocation));
-      CHAKRA_VERIFY(CopyPropertyIfPresent(funcObj, "line", functionLocation,
-                                          "lineNumber"));
-      CHAKRA_VERIFY(CopyPropertyIfPresent(funcObj, "column", functionLocation,
-                                          "columnNumber"));
+    CHAKRA_VERIFY(CopyPropertyStringIfPresent(funcObj,
+                                              CachedPropertyIdRef::scriptId,
+                                              functionLocation));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(funcObj, CachedPropertyIdRef::line,
+                                        functionLocation,
+                                        CachedPropertyIdRef::lineNumber));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(funcObj, CachedPropertyIdRef::column,
+                                        functionLocation,
+                                        CachedPropertyIdRef::columnNumber));
   }
 
   static void AddLocationInfo(JsValueRef wrappedCallFrame,
                               JsValueRef callFrame) {
-    JsValueRef location = nullptr;
+    JsValueRef location = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateObject(&location));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(wrappedCallFrame,
-                                                        "location",
-                                                        location));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(wrappedCallFrame,
+                                            CachedPropertyIdRef::location,
+                                            location));
 
-    CHAKRA_VERIFY(CopyPropertyStringIfPresent(callFrame, "scriptId",
+    CHAKRA_VERIFY(CopyPropertyStringIfPresent(callFrame,
+                                              CachedPropertyIdRef::scriptId,
                                               location));
-    CHAKRA_VERIFY(CopyPropertyIfPresent(callFrame, "line", location,
-                                        "lineNumber"));
-    CHAKRA_VERIFY(CopyPropertyIfPresent(callFrame, "column", location,
-                                        "columnNumber"));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(callFrame, CachedPropertyIdRef::line,
+                                        location,
+                                        CachedPropertyIdRef::lineNumber));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(callFrame, CachedPropertyIdRef::column,
+                                        location,
+                                        CachedPropertyIdRef::columnNumber));
   }
 
   static void AddLocalScopeInfo(JsValueRef scopesArray,
                                 int callFrameIndex,
                                 JsValueRef stackProperties) {
     bool hasProperty = false;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "locals",
-                                                        &hasProperty));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::locals,
+                                            &hasProperty));
 
     if (hasProperty) {
-      JsValueRef localObj = nullptr;
+      JsValueRef localObj = JS_INVALID_REFERENCE;
       CHAKRA_VERIFY_NOERROR(JsCreateObject(&localObj));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayPush(scopesArray,
-                                                          localObj));
 
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          localObj, "type", "local"));
+      JsValueRef newLength = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::PushArray(scopesArray, localObj, &newLength));
 
-      JsValueRef object = nullptr;
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(localObj,
+                                              CachedPropertyIdRef::type,
+                                              "local"));
+
+      JsValueRef object = JS_INVALID_REFERENCE;
       CHAKRA_VERIFY_NOERROR(JsCreateObject(&object));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(localObj,
-                                                          "object",
-                                                          object));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(localObj,
+                                              CachedPropertyIdRef::object,
+                                              object));
 
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "type", "object"));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "className", "Object"));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "description", "Object"));            
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "objectId",
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object,
+                                              CachedPropertyIdRef::type,
+                                              "object"));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object,
+                                              CachedPropertyIdRef::className,
+                                              "Object"));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object,
+                                              CachedPropertyIdRef::description,
+                                              "Object"));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(
+          object, CachedPropertyIdRef::objectId,
           GetObjectIdForFrameProp(callFrameIndex, "locals").c_str()));
     }
   }
 
   static void AddClosureScopeInfo(JsValueRef scopesArray, JsValueRef scope) {
-    JsValueRef scopeObj = nullptr;
+    JsValueRef scopeObj = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateObject(&scopeObj));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayPush(scopesArray,
-                                                      scopeObj));
 
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-      scopeObj, "type", "closure"));
+    JsValueRef newLength = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(jsrt::PushArray(scopesArray, scopeObj, &newLength));
 
-    JsValueRef object = nullptr;
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(scopeObj, CachedPropertyIdRef::type,
+                                            "closure"));
+
+    JsValueRef object = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateObject(&object));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(scopeObj,
-                                                        "object",
-                                                        object));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(scopeObj,
+                                            CachedPropertyIdRef::object,
+                                            object));
 
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-      object, "type", "object"));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-      object, "className", "Object"));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-      object, "description", "Object"));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object, CachedPropertyIdRef::type,
+                                            "object"));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object,
+                                            CachedPropertyIdRef::className,
+                                            "Object"));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object,
+                                            CachedPropertyIdRef::description,
+                                            "Object"));
 
     int handle = 0;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(scope,
-                                                           "handle",
-                                                           &handle));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-        object, "objectId", GetObjectIdForHandle(handle).c_str()));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(scope, CachedPropertyIdRef::handle,
+                                            &handle));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(
+        object, CachedPropertyIdRef::objectId,
+        GetObjectIdForHandle(handle).c_str()));
   }
 
   static void AddGlobalScopeInfo(JsValueRef scopesArray,
                                  int callFrameIndex,
                                  JsValueRef stackProperties) {
     bool hasProperty = false;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "globals",
-                                                        &hasProperty));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::globals,
+                                            &hasProperty));
 
     if (hasProperty) {
-      JsValueRef globalObj = nullptr;
+      JsValueRef globalObj = JS_INVALID_REFERENCE;
       CHAKRA_VERIFY_NOERROR(JsCreateObject(&globalObj));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayPush(scopesArray,
-                                                        globalObj));
 
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          globalObj, "type", "global"));
+      JsValueRef newLength = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::PushArray(scopesArray, globalObj,
+                            &newLength));
 
-      JsValueRef object = nullptr;
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(globalObj,
+                            CachedPropertyIdRef::type, "global"));
+
+      JsValueRef object = JS_INVALID_REFERENCE;
       CHAKRA_VERIFY_NOERROR(JsCreateObject(&object));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(globalObj,
-                                                          "object",
-                                                          object));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(globalObj,
+                                              CachedPropertyIdRef::object,
+                                              object));
 
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "type", "object"));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "className", "global"));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "description", "global"));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          object, "objectId",
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object, CachedPropertyIdRef::type,
+                                              "object"));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object,
+                                              CachedPropertyIdRef::className,
+                                              "global"));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(object,
+                                              CachedPropertyIdRef::description,
+                                              "global"));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(
+          object, CachedPropertyIdRef::objectId,
           GetObjectIdForFrameProp(callFrameIndex, "globals").c_str()));
     }
   }
 
   static void AddScopeInfo(JsValueRef wrappedCallFrame, int callFrameIndex,
                            JsValueRef stackProperties) {
-    JsValueRef scopeChain = nullptr;
+    JsValueRef scopeChain = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateArray(0, &scopeChain));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(wrappedCallFrame,
-                                                        "scopeChain",
-                                                        scopeChain));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(wrappedCallFrame,
+                                            CachedPropertyIdRef::scopeChain,
+                                            scopeChain));
 
     AddLocalScopeInfo(scopeChain, callFrameIndex, stackProperties);
 
     bool hasProperty = false;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "scopes",
-                                                        &hasProperty));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::scopes,
+                                            &hasProperty));
 
     if (hasProperty) {
-      JsValueRef scopes = nullptr;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
-                                                          "scopes",
-                                                          &scopes));
+      JsValueRef scopes = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(stackProperties,
+                                              CachedPropertyIdRef::scopes,
+                                              &scopes));
 
-      int length = 0;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(scopes,
-                                                             "length",
-                                                             &length));
+      unsigned int length = 0;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetArrayLength(scopes, &length));
 
-      for (int i = 0; i < length; i++) {
-        JsValueRef scope = nullptr;
-        CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIndexedProperty(scopes, i,
-                                                                   &scope));
+      for (unsigned int i = 0; i < length; i++) {
+        JsValueRef scope = JS_INVALID_REFERENCE;
+        CHAKRA_VERIFY_NOERROR(jsrt::GetIndexedProperty(scopes, i, &scope));
 
         AddClosureScopeInfo(scopeChain, scope);
       }
@@ -312,154 +363,29 @@ namespace jsrt {
     AddGlobalScopeInfo(scopeChain, callFrameIndex, stackProperties);
   }
 
-  JsErrorCode InspectorHelpers::HasProperty(JsValueRef obj, const char *name,
-                                            bool *hasProperty) {
-    JsPropertyIdRef propId = nullptr;
-    IfJsErrorRet(JsCreatePropertyId(name, strlen(name), &propId));
-    IfJsErrorRet(JsHasProperty(obj, propId, hasProperty));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::GetProperty(JsValueRef obj, const char *name,
-                                            JsValueRef *value) {
-    JsPropertyIdRef propId = nullptr;
-    IfJsErrorRet(JsCreatePropertyId(name, strlen(name), &propId));
-    IfJsErrorRet(JsGetProperty(obj, propId, value));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::GetBoolProperty(JsValueRef obj,
-                                                const char *name,
-                                                bool *value) {
-    JsValueRef propVal = nullptr;
-    IfJsErrorRet(GetProperty(obj, name, &propVal));
-    IfJsErrorRet(ValueToNative</*LIKELY*/true>(JsConvertValueToBoolean,
-                                               JsBooleanToBool, propVal,
-                                               value));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::GetIntProperty(JsValueRef obj,
-                                               const char *name,
-                                               int *value) {
-    JsValueRef propVal = nullptr;
-    IfJsErrorRet(GetProperty(obj, name, &propVal));
-    IfJsErrorRet(ValueToIntLikely(propVal, value));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::GetIndexedProperty(JsValueRef obj, int index,
-                                                   JsValueRef *value) {
-    JsValueRef indexVal = nullptr;
-    IfJsErrorRet(JsIntToNumber(index, &indexVal));
-    IfJsErrorRet(JsGetIndexedProperty(obj, indexVal, value));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::SetProperty(JsValueRef obj, const char *name,
-                                            JsValueRef value) {
-    JsPropertyIdRef propId = nullptr;
-    IfJsErrorRet(JsCreatePropertyId(name, strlen(name), &propId));
-    IfJsErrorRet(JsSetProperty(obj, propId, value, true));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::SetBoolProperty(JsValueRef obj,
-                                                const char *name,
-                                                bool value) {
-    JsValueRef boolVal = nullptr;
-    IfJsErrorRet(JsBoolToBoolean(value, &boolVal));
-
-    JsPropertyIdRef propId = nullptr;
-    IfJsErrorRet(JsCreatePropertyId(name, strlen(name), &propId));
-    IfJsErrorRet(JsSetProperty(obj, propId, boolVal, true));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::SetStringProperty(JsValueRef obj,
-                                                  const char *name,
-                                                  const char *value) {
-    JsValueRef stringVal = nullptr;
-    IfJsErrorRet(JsCreateString(value, strlen(value), &stringVal));
-
-    JsPropertyIdRef propId = nullptr;
-    IfJsErrorRet(JsCreatePropertyId(name, strlen(name), &propId));
-    IfJsErrorRet(JsSetProperty(obj, propId, stringVal, true));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::SetIndexedProperty(JsValueRef obj, int index,
-                                                   JsValueRef value) {
-    JsValueRef indexVal = nullptr;
-    IfJsErrorRet(JsIntToNumber(index, &indexVal));
-    IfJsErrorRet(JsSetIndexedProperty(obj, indexVal, value));
-
-    return JsNoError;
-  }
-
   JsErrorCode InspectorHelpers::TryCopyProperty(
       JsValueRef sourceObj,
-      const char *sourceName,
+      JsPropertyIdRef sourceIdRef,
       JsValueRef destObj,
-      const char *destName,
+      JsPropertyIdRef destIdRef,
       bool *wasCopied) {
-    return CopyPropertyImpl(sourceObj, sourceName, destObj, destName,
+    return CopyPropertyImpl(sourceObj, sourceIdRef, destObj, destIdRef,
                             static_cast<ConvertFunc>(nullptr), wasCopied);
   }
 
   JsErrorCode InspectorHelpers::TryCopyPropertyString(
       JsValueRef sourceObj,
-      const char *sourceName,
+      JsPropertyIdRef sourceIdRef,
       JsValueRef destObj,
-      const char *destName,
+      JsPropertyIdRef destIdRef,
       bool *wasCopied) {
-    return CopyPropertyImpl(sourceObj, sourceName, destObj, destName,
+    return CopyPropertyImpl(sourceObj, sourceIdRef, destObj, destIdRef,
                             &JsConvertValueToString, wasCopied);
-  }
-
-  JsErrorCode InspectorHelpers::ArrayConcat(JsValueRef array,
-                                            JsValueRef value,
-                                            JsValueRef* result) {
-    if (array == nullptr || value == nullptr || result == nullptr) {
-      return JsErrorInvalidArgument;
-    }
-
-    JsValueRef concatFunc = nullptr;
-    IfJsErrorRet(InspectorHelpers::GetProperty(array, "concat", &concatFunc),
-                 JsErrorInvalidArgument);
-
-    JsValueRef args[] = { array, value };
-    IfJsErrorRet(JsCallFunction(concatFunc, args, _countof(args), result));
-
-    return JsNoError;
-  }
-
-  JsErrorCode InspectorHelpers::ArrayPush(JsValueRef array, JsValueRef value) {
-    if (array == nullptr || value == nullptr) {
-      return JsErrorInvalidArgument;
-    }
-
-    JsValueRef pushFunc = nullptr;
-    IfJsErrorRet(InspectorHelpers::GetProperty(array, "push", &pushFunc),
-                 JsErrorInvalidArgument);
-
-    JsValueRef args[] = { array, value };
-    IfJsErrorRet(JsCallFunction(pushFunc, args, _countof(args), nullptr));
-
-    return JsNoError;
   }
 
   v8::Local<v8::Value> InspectorHelpers::WrapEvaluateObject(
       JsValueRef sourceObject) {
-    JsValueRef resultObj = nullptr;
+    JsValueRef resultObj = JS_INVALID_REFERENCE;
     WrapObject(sourceObject, &resultObj);
 
     return v8::Utils::ToLocal(static_cast<v8::Value*>(resultObj));
@@ -467,62 +393,62 @@ namespace jsrt {
 
   v8::Local<v8::Object> InspectorHelpers::WrapCallFrameDetails(
       JsValueRef callFrame) {
-    JsValueRef wrappedObj = nullptr;
+    JsValueRef wrappedObj = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateObject(&wrappedObj));
 
     AddFunctionInfo(wrappedObj, callFrame);
     AddLocationInfo(wrappedObj, callFrame);
 
     int callFrameIndex = 0;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(callFrame, "index",
-                                                           &callFrameIndex));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(callFrame,
+                                            CachedPropertyIdRef::index,
+                                            &callFrameIndex));
 
-    JsValueRef stackProperties = nullptr;
+    JsValueRef stackProperties = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsDiagGetStackProperties(callFrameIndex,
                                                    &stackProperties));
 
     AddScopeInfo(wrappedObj, callFrameIndex, stackProperties);
 
     bool hasProperty = false;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "thisObject",
-                                                        &hasProperty));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::thisObject,
+                                            &hasProperty));
 
-    JsValueRef thisObj = nullptr;
+    JsValueRef thisObj = JS_INVALID_REFERENCE;
 
     if (hasProperty) {
-      JsValueRef thisObject = nullptr;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
-                                                          "thisObject",
-                                                          &thisObject));
+      JsValueRef thisObject = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(stackProperties,
+                                              CachedPropertyIdRef::thisObject,
+                                              &thisObject));
       WrapObject(thisObject, &thisObj);
     } else {
       // The protocol requires a "this" member, so create an undefined object
       // to return.
       CHAKRA_VERIFY_NOERROR(JsCreateObject(&thisObj));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-          thisObj, "type", "undefined"));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(thisObj,
+                                              CachedPropertyIdRef::type,
+                                              "undefined"));
     }
-    
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(wrappedObj,
-                                                        "this",
-                                                        thisObj));
 
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "returnValue",
-                                                        &hasProperty));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(wrappedObj, "this", thisObj));
+
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::returnValue,
+                                            &hasProperty));
 
     if (hasProperty) {
-      JsValueRef returnObj = nullptr;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
-                                                          "returnValue",
-                                                          &returnObj));
+      JsValueRef returnObj = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(stackProperties,
+                                              CachedPropertyIdRef::returnValue,
+                                              &returnObj));
 
-      JsValueRef returnValue = nullptr;
+      JsValueRef returnValue = JS_INVALID_REFERENCE;
       WrapObject(returnObj, &returnValue);
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(wrappedObj,
-                                                          "returnValue",
-                                                          returnValue));
+      CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(wrappedObj,
+                                              CachedPropertyIdRef::returnValue,
+                                              returnValue));
     }
 
     return v8::Utils::ToLocal(static_cast<v8::Object*>(wrappedObj));
@@ -531,52 +457,48 @@ namespace jsrt {
   v8::Local<v8::Value> InspectorHelpers::WrapRuntimeException(
       JsValueRef eventData) {
     bool hasProperty = false;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(eventData,
-                                                        "exception",
-                                                        &hasProperty));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(eventData,
+                                            CachedPropertyIdRef::exception,
+                                            &hasProperty));
 
     if (!hasProperty) {
       return v8::Local<v8::Value>();
     }
 
-    JsValueRef exceptionProperty = nullptr;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(eventData, "exception",
-      &exceptionProperty));
+    JsValueRef exceptionProperty = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(eventData,
+                                            CachedPropertyIdRef::exception,
+                                            &exceptionProperty));
 
     return WrapException(exceptionProperty);
   }
 
   v8::Local<v8::Value> InspectorHelpers::WrapPropertiesArray(
       JsValueRef properties) {
-    JsValueRef propsArray = nullptr;
+    JsValueRef propsArray = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateArray(0, &propsArray));
     int nextIndex = 0;
 
     CHAKRA_VERIFY(properties != nullptr);
 
-    int length = 0;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(properties,
-                                                           "length", &length));
+    unsigned int length = 0;
+    CHAKRA_VERIFY_NOERROR(jsrt::GetArrayLength(properties, &length));
 
-    for (int i = 0; i < length; i++) {
-      JsValueRef index = nullptr;
-      CHAKRA_VERIFY_NOERROR(JsIntToNumber(i, &index));
+    for (unsigned int i = 0; i < length; i++) {
+      JsValueRef propValue = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetIndexedProperty(properties, i,
+                                                     &propValue));
 
-      JsValueRef propValue = nullptr;
-      CHAKRA_VERIFY_NOERROR(JsGetIndexedProperty(properties, index,
-                                                 &propValue));
-
-      JsValueRef wrappedProp = nullptr;
+      JsValueRef wrappedProp = JS_INVALID_REFERENCE;
       InspectorHelpers::WrapProperty(propValue, &wrappedProp);
-      InspectorHelpers::SetIndexedProperty(propsArray, nextIndex++,
-                                           wrappedProp);
+      jsrt::SetIndexedProperty(propsArray, nextIndex++, wrappedProp);
     }
 
     return v8::Utils::ToLocal(static_cast<v8::Value*>(propsArray));
   }
 
   v8::Local<v8::Value> InspectorHelpers::GetWrappedProperties(int handle) {
-    JsValueRef diagProperties = nullptr;
+    JsValueRef diagProperties = JS_INVALID_REFERENCE;
     JsErrorCode err = JsDiagGetProperties(handle, 0, MaxPropertyCount,
                                           &diagProperties);
     if (err == JsErrorDiagInvalidHandle) {
@@ -586,82 +508,83 @@ namespace jsrt {
     }
     CHAKRA_VERIFY_NOERROR(err);
 
-    JsValueRef allPropsArray = nullptr;
+    JsValueRef allPropsArray = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateArray(0, &allPropsArray));
 
-    JsValueRef propertiesArray = nullptr;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(
-        diagProperties, "properties", &propertiesArray));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayConcat(allPropsArray,
-                                                        propertiesArray,
-                                                        &allPropsArray));
+    JsValueRef propertiesArray = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(diagProperties,
+                                            CachedPropertyIdRef::properties,
+                                            &propertiesArray));
+    CHAKRA_VERIFY_NOERROR(jsrt::ConcatArray(allPropsArray, propertiesArray,
+                                            &allPropsArray));
 
-    JsValueRef debuggerOnlyPropertiesArray = nullptr;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(
-        diagProperties, "debuggerOnlyProperties",
+    JsValueRef debuggerOnlyPropertiesArray = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(
+        diagProperties, CachedPropertyIdRef::debuggerOnlyProperties,
         &debuggerOnlyPropertiesArray));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayConcat(
-        allPropsArray, debuggerOnlyPropertiesArray, &allPropsArray));
+    CHAKRA_VERIFY_NOERROR(jsrt::ConcatArray(allPropsArray,
+                                            debuggerOnlyPropertiesArray,
+                                            &allPropsArray));
 
     return InspectorHelpers::WrapPropertiesArray(allPropsArray);
   }
 
   v8::Local<v8::Value> InspectorHelpers::GetWrappedStackLocals(
       JsValueRef stackProperties) {
-    JsValueRef localsArray = nullptr;
+    JsValueRef localsArray = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateArray(0, &localsArray));
 
     bool hasProp = false;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "exception",
-                                                        &hasProp));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::exception,
+                                            &hasProp));
 
     if (hasProp) {
-      JsValueRef exception = nullptr;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
-                                                          "exception",
-                                                          &exception));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayConcat(localsArray,
+      JsValueRef exception = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(stackProperties,
+                                              CachedPropertyIdRef::exception,
+                                              &exception));
+      CHAKRA_VERIFY_NOERROR(jsrt::ConcatArray(localsArray,
                                                           exception,
                                                           &localsArray));
     }
 
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "arguments",
-                                                        &hasProp));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::arguments,
+                                            &hasProp));
 
     if (hasProp) {
-      JsValueRef arguments = nullptr;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
-                                                          "arguments",
-                                                          &arguments));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayConcat(localsArray,
-                                                          arguments,
-                                                          &localsArray));
+      JsValueRef arguments = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(stackProperties,
+                                              CachedPropertyIdRef::arguments,
+                                              &arguments));
+      CHAKRA_VERIFY_NOERROR(jsrt::ConcatArray(localsArray, arguments,
+                                              &localsArray));
     }
 
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "functionCallsReturn",
-                                                        &hasProp));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(
+        stackProperties, CachedPropertyIdRef::functionCallsReturn, &hasProp));
 
     if (hasProp) {
-      JsValueRef functionCallsReturn = nullptr;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(
-          stackProperties, "functionCallsReturn", &functionCallsReturn));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayConcat(localsArray,
-                                                          functionCallsReturn,
-                                                          &localsArray));
+      JsValueRef functionCallsReturn = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(
+          stackProperties, CachedPropertyIdRef::functionCallsReturn,
+          &functionCallsReturn));
+      CHAKRA_VERIFY_NOERROR(jsrt::ConcatArray(localsArray, functionCallsReturn,
+                                              &localsArray));
     }
 
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::HasProperty(stackProperties,
-                                                        "locals", &hasProp));
+    CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(stackProperties,
+                                            CachedPropertyIdRef::locals,
+                                            &hasProp));
 
     if (hasProp) {
-      JsValueRef locals = nullptr;
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(stackProperties,
-                                                          "locals", &locals));
-      CHAKRA_VERIFY_NOERROR(InspectorHelpers::ArrayConcat(localsArray, locals,
-                                                          &localsArray));
+      JsValueRef locals = JS_INVALID_REFERENCE;
+      CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(stackProperties,
+                                              CachedPropertyIdRef::locals,
+                                              &locals));
+      CHAKRA_VERIFY_NOERROR(jsrt::ConcatArray(localsArray, locals,
+                                              &localsArray));
     }
 
     return InspectorHelpers::WrapPropertiesArray(localsArray);
@@ -675,7 +598,7 @@ namespace jsrt {
       *isError = false;
     }
 
-    JsValueRef evalResult = nullptr;
+    JsValueRef evalResult = JS_INVALID_REFERENCE;
     JsErrorCode err = JsDiagEvaluate(expression, ordinal,
                                      JsParseScriptAttributeNone,
                                      returnByValue, &evalResult);
@@ -686,8 +609,7 @@ namespace jsrt {
       }
 
       return WrapException(evalResult);
-    }
-    else if (err == JsErrorDiagNotAtBreak) {
+    } else if (err == JsErrorDiagNotAtBreak) {
       return v8::Local<v8::Value>();
     }
 
@@ -701,20 +623,22 @@ namespace jsrt {
     CHAKRA_VERIFY(callFrame != nullptr);
 
     int ordinal = 0;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(callFrame, "index",
-                                                           &ordinal));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(callFrame,
+                                            CachedPropertyIdRef::index,
+                                            &ordinal));
 
     return EvaluateOnCallFrame(ordinal, expression, returnByValue, isError);
   }
 
   v8::Local<v8::Value> InspectorHelpers::GetScriptSource(
       unsigned int scriptId) {
-    JsValueRef scriptSource = nullptr;
+    JsValueRef scriptSource = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsDiagGetSource(scriptId, &scriptSource));
 
-    JsValueRef sourceStr = nullptr;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetProperty(scriptSource, "source",
-                                                        &sourceStr));
+    JsValueRef sourceStr = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(scriptSource,
+                                            CachedPropertyIdRef::source,
+                                            &sourceStr));
 
     return v8::Utils::ToLocal(static_cast<v8::Value*>(sourceStr));
   }
@@ -725,81 +649,91 @@ namespace jsrt {
   }
 
   void InspectorHelpers::WrapObject(JsValueRef obj, JsValueRef* wrappedObj) {
-    JsValueRef value = nullptr;
+    JsValueRef value = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateObject(&value));
 
-    CHAKRA_VERIFY(CopyPropertyIfPresent(obj, "type", value));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(obj, CachedPropertyIdRef::type, value));
 
-    CopyPropertyIfPresent(obj, "className", value);
+    CopyPropertyIfPresent(obj, CachedPropertyIdRef::className, value);
 
-    bool hasValue = CopyPropertyIfPresent(obj, "value", value);
-    bool hasDisplay = CopyPropertyIfPresent(obj, "display", value,
-                                            "description");
+    bool hasValue = CopyPropertyIfPresent(obj, CachedPropertyIdRef::value,
+                                          value);
+    bool hasDisplay = CopyPropertyIfPresent(obj, CachedPropertyIdRef::display,
+                                            value,
+                                            CachedPropertyIdRef::description);
 
     // A description is required for values to be shown in the debugger.
     if (hasValue && !hasDisplay) {
-      hasDisplay = CopyPropertyStringIfPresent(obj, "value", value,
-                                               "description");
+      hasDisplay = CopyPropertyStringIfPresent(
+          obj, CachedPropertyIdRef::value, value,
+          CachedPropertyIdRef::description);
     }
 
     CHAKRA_VERIFY(hasDisplay);
 
     int handle = 0;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(obj, "handle",
-                                                           &handle));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-        value, "objectId", GetObjectIdForHandle(handle).c_str()));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(obj, CachedPropertyIdRef::handle,
+                                            &handle));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(
+        value, CachedPropertyIdRef::objectId,
+        GetObjectIdForHandle(handle).c_str()));
 
     *wrappedObj = value;
   }
 
   void InspectorHelpers::WrapProperty(JsValueRef propValue,
                                       JsValueRef* wrappedProperty) {
-    JsValueRef wrappedObj = nullptr;
+    JsValueRef wrappedObj = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateObject(&wrappedObj));
 
-    CHAKRA_VERIFY(CopyPropertyIfPresent(propValue, "name", wrappedObj));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(propValue, CachedPropertyIdRef::name,
+                                        wrappedObj));
 
-    JsValueRef value = nullptr;
+    JsValueRef value = JS_INVALID_REFERENCE;
     WrapObject(propValue, &value);
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetProperty(wrappedObj, "value",
-                                                        value));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(wrappedObj,
+                                            CachedPropertyIdRef::value, value));
 
     int propertyAttributes = 0;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(
-        propValue,"propertyAttributes", &propertyAttributes));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetBoolProperty(
-        wrappedObj, "writable",
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(
+        propValue, CachedPropertyIdRef::propertyAttributes,
+        &propertyAttributes));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(
+        wrappedObj, CachedPropertyIdRef::writable,
         (propertyAttributes & JsrtDebugPropertyAttributeReadOnly) == 0));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetBoolProperty(wrappedObj,
-                                                            "configurable",
-                                                            false));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetBoolProperty(wrappedObj,
-                                                            "enumerable",
-                                                            false));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(wrappedObj,
+                                            CachedPropertyIdRef::configurable,
+                                            false));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(wrappedObj,
+                                            CachedPropertyIdRef::enumerable,
+                                            false));
 
     *wrappedProperty = wrappedObj;
   }
 
   v8::Local<v8::Value> InspectorHelpers::WrapException(JsValueRef exception) {
-    JsValueRef exceptionVal = nullptr;
+    JsValueRef exceptionVal = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY_NOERROR(JsCreateObject(&exceptionVal));
 
-    CHAKRA_VERIFY(CopyPropertyIfPresent(exception, "type", exceptionVal));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(exceptionVal,
-                                                              "subtype",
-                                                              "error"));
-    CHAKRA_VERIFY(CopyPropertyIfPresent(exception, "className",
+    CHAKRA_VERIFY(CopyPropertyIfPresent(exception, CachedPropertyIdRef::type,
                                         exceptionVal));
-    CHAKRA_VERIFY(CopyPropertyIfPresent(exception, "display",
-                                        exceptionVal, "description"));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(exceptionVal,
+                                            CachedPropertyIdRef::subtype,
+                                            "error"));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(exception,
+                                        CachedPropertyIdRef::className,
+                                        exceptionVal));
+    CHAKRA_VERIFY(CopyPropertyIfPresent(exception, CachedPropertyIdRef::display,
+                                        exceptionVal,
+                                        CachedPropertyIdRef::description));
 
     int handle = 0;
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::GetIntProperty(exception,
-                                                           "handle",
-                                                           &handle));
-    CHAKRA_VERIFY_NOERROR(InspectorHelpers::SetStringProperty(
-        exceptionVal, "objectId", GetObjectIdForHandle(handle).c_str()));
+    CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(exception,
+                                            CachedPropertyIdRef::handle,
+                                            &handle));
+    CHAKRA_VERIFY_NOERROR(jsrt::SetProperty(
+        exceptionVal, CachedPropertyIdRef::objectId,
+        GetObjectIdForHandle(handle).c_str()));
 
     return v8::Utils::ToLocal(static_cast<v8::Value*>(exceptionVal));
   }

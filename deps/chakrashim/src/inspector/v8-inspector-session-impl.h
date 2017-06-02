@@ -78,7 +78,6 @@ class V8InspectorSessionImpl : public V8InspectorSession,
   int m_contextGroupId;
   V8InspectorImpl* m_inspector;
   V8Inspector::Channel* m_channel;
-  bool m_customObjectFormatterEnabled;
 
   protocol::UberDispatcher m_dispatcher;
   std::unique_ptr<protocol::DictionaryValue> m_state;

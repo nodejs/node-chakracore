@@ -30,8 +30,6 @@
 
 #include "src/inspector/v8-runtime-agent-impl.h"
 
-#include <assert.h>
-
 #include "src/inspector/inspected-context.h"
 #include "src/inspector/protocol/Protocol.h"
 #include "src/inspector/string-util.h"
@@ -40,9 +38,9 @@
 #include "src/inspector/v8-debugger.h"
 #include "src/inspector/v8-inspector-impl.h"
 #include "src/inspector/v8-inspector-session-impl.h"
-
 #include "include/v8-inspector.h"
 #include "src/jsrtinspectorhelpers.h"
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -182,7 +180,8 @@ void V8RuntimeAgentImpl::getProperties(
   if (parsedId->getInteger("handle", &handle)) {
     resultValue = jsrt::InspectorHelpers::GetWrappedProperties(handle);
   }
-  else if (parsedId->getInteger("ordinal", &ordinal) && parsedId->getString("name", &name)) {
+  else if (parsedId->getInteger("ordinal", &ordinal) &&
+           parsedId->getString("name", &name)) {
     JsValueRef stackProperties;
     if (JsDiagGetStackProperties(ordinal, &stackProperties) != JsNoError) {
       *errorString = "Invalid ordinal value";
@@ -190,17 +189,20 @@ void V8RuntimeAgentImpl::getProperties(
     }
 
     if (name == "locals") {
-      resultValue = jsrt::InspectorHelpers::GetWrappedStackLocals(stackProperties);
+      resultValue = jsrt::InspectorHelpers::GetWrappedStackLocals(
+          stackProperties);
     }
     else if (name == "globals") {
       JsValueRef globals;
-      if (jsrt::InspectorHelpers::GetProperty(stackProperties, "globals", &globals) != JsNoError) {
+      if (jsrt::GetProperty(stackProperties, jsrt::CachedPropertyIdRef::globals,
+                            &globals) != JsNoError) {
         *errorString = "Invalid stack property name";
         return;
       }
 
       int handle;
-      if (jsrt::InspectorHelpers::GetIntProperty(globals, "handle", &handle) != JsNoError) {
+      if (jsrt::GetProperty(globals, jsrt::CachedPropertyIdRef::handle,
+                            &handle) != JsNoError) {
         *errorString = "Unable to find object";
         return;
       }
@@ -272,7 +274,7 @@ void V8RuntimeAgentImpl::compileScript(
     const Maybe<int>& executionContextId, Maybe<String16>* scriptId,
     Maybe<protocol::Runtime::ExceptionDetails>* exceptionDetails) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8RuntimeAgentImpl::runScript(
