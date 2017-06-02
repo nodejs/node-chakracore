@@ -40,6 +40,10 @@
 #include "node_i18n.h"
 #endif
 
+#if HAVE_INSPECTOR
+#include "inspector_io.h"
+#endif
+
 #if defined HAVE_DTRACE || defined HAVE_ETW
 #include "node_dtrace.h"
 #endif
@@ -985,19 +989,16 @@ Local<Value> UVException(Isolate* isolate,
 // Look up environment variable unless running as setuid root.
 bool SafeGetenv(const char* key, std::string* text) {
 #ifndef _WIN32
-  if (getuid() != geteuid() || getgid() != getegid()) {
-    text->clear();
-    return false;
-  }
+  if (linux_at_secure || getuid() != geteuid() || getgid() != getegid())
+    goto fail;
 #endif
-  if (linux_at_secure) {
-    text->clear();
-    return false;
-  }
+
   if (const char* value = getenv(key)) {
     *text = value;
     return true;
   }
+
+fail:
   text->clear();
   return false;
 }
@@ -3084,7 +3085,15 @@ static Local<Object> GetFeatures(Environment* env) {
 
 static void DebugPortGetter(Local<Name> property,
                             const PropertyCallbackInfo<Value>& info) {
-  info.GetReturnValue().Set(debug_options.port());
+  int port = debug_options.port();
+#if HAVE_INSPECTOR
+  if (port == 0) {
+    Environment* env = Environment::GetCurrent(info);
+    if (env->inspector_agent()->IsStarted())
+      port = env->inspector_agent()->io()->port();
+  }
+#endif  // HAVE_INSPECTOR
+  info.GetReturnValue().Set(port);
 }
 
 
@@ -3429,9 +3438,29 @@ void SetupProcessObject(Environment* env,
     READONLY_PROPERTY(process, "traceDeprecation", True(env->isolate()));
   }
 
+  // TODO(refack): move the following 4 to `node_config`
+  // --inspect
+  if (debug_options.inspector_enabled()) {
+    READONLY_DONT_ENUM_PROPERTY(process,
+                                "_inspectorEnbale", True(env->isolate()));
+  }
+
   // --inspect-brk
   if (debug_options.wait_for_connect()) {
-    READONLY_PROPERTY(process, "_debugWaitConnect", True(env->isolate()));
+    READONLY_DONT_ENUM_PROPERTY(process,
+                                "_breakFirstLine", True(env->isolate()));
+  }
+
+  // --inspect --debug-brk
+  if (debug_options.deprecated_invocation()) {
+    READONLY_DONT_ENUM_PROPERTY(process,
+                                "_deprecatedDebugBrk", True(env->isolate()));
+  }
+
+  // --debug or, --debug-brk without --inspect
+  if (debug_options.invalid_invocation()) {
+    READONLY_DONT_ENUM_PROPERTY(process,
+                                "_invalidDebug", True(env->isolate()));
   }
 
   // --security-revert flags

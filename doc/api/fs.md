@@ -311,7 +311,7 @@ synchronous counterparts are of this type.
 For a regular file [`util.inspect(stats)`][] would return a string very
 similar to this:
 
-```
+```console
 Stats {
   dev: 2114,
   ino: 48064969,
@@ -1840,7 +1840,7 @@ Synchronous version of [`fs.read()`][]. Returns the number of `bytesRead`.
 <!-- YAML
 added: v0.1.31
 changes:
-  - version: REPLACEME
+  - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/13028
     description: Pipe/Socket resolve support was added.
   - version: v7.6.0
@@ -1882,7 +1882,7 @@ system dependent name for that object.
 <!-- YAML
 added: v0.1.31
 changes:
-  - version: REPLACEME
+  - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/13028
     description: Pipe/Socket resolve support was added.
   - version: v7.6.0

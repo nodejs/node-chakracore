@@ -2881,14 +2881,14 @@ inline int VerifyCallback(int preverify_ok, X509_STORE_CTX* ctx) {
   // Failure on verification of the cert is handled in
   // Connection::VerifyError.
   if (preverify_ok == 0 || X509_STORE_CTX_get_error(ctx) != X509_V_OK)
-    return 1;
+    return CHECK_OK;
 
   // Server does not need to check the whitelist.
   SSL* ssl = static_cast<SSL*>(
       X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx()));
 
   if (SSL_is_server(ssl))
-    return 1;
+    return CHECK_OK;
 
   // Client needs to check if the server cert is listed in the
   // whitelist when it is issued by the specific rootCAs.
@@ -5136,6 +5136,8 @@ void ECDH::ComputeSecret(const FunctionCallbackInfo<Value>& args) {
   ECDH* ecdh;
   ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder());
 
+  MarkPopErrorOnReturn mark_pop_error_on_return;
+
   if (!ecdh->IsKeyPairValid())
     return env->ThrowError("Invalid key pair");
 
@@ -5281,6 +5283,8 @@ void ECDH::SetPublicKey(const FunctionCallbackInfo<Value>& args) {
   ASSIGN_OR_RETURN_UNWRAP(&ecdh, args.Holder());
 
   THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "Public key");
+
+  MarkPopErrorOnReturn mark_pop_error_on_return;
 
   EC_POINT* pub = ecdh->BufferToPoint(Buffer::Data(args[0].As<Object>()),
                                       Buffer::Length(args[0].As<Object>()));
