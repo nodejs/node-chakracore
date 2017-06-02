@@ -1382,7 +1382,7 @@ napi_status napi_unwrap(napi_env env, napi_value js_object, void** result) {
   bool hasExternalData = false;
   do {
     CHECK_JSRT(JsGetPrototype(wrapper, &wrapper));
-    if (wrapper == nullptr) {
+    if (wrapper == JS_INVALID_REFERENCE) {
       return  napi_invalid_arg;
     }
     CHECK_JSRT(JsHasExternalData(wrapper, &hasExternalData));
