@@ -274,8 +274,7 @@ static size_t hex_decode(char* buf,
 }
 
 
-bool StringBytes::GetExternalParts(Isolate* isolate,
-                                   Local<Value> val,
+bool StringBytes::GetExternalParts(Local<Value> val,
                                    const char** data,
                                    size_t* len) {
   if (Buffer::HasInstance(val)) {
@@ -310,8 +309,6 @@ bool StringBytes::GetExternalParts(Isolate* isolate,
 
 size_t StringBytes::WriteUCS2(char* buf,
                               size_t buflen,
-                              size_t nbytes,
-                              const char* data,
                               Local<String> str,
                               int flags,
                               size_t* chars_written) {
@@ -357,7 +354,7 @@ size_t StringBytes::Write(Isolate* isolate,
   HandleScope scope(isolate);
   const char* data = nullptr;
   size_t nbytes = 0;
-  const bool is_extern = GetExternalParts(isolate, val, &data, &nbytes);
+  const bool is_extern = GetExternalParts(val, &data, &nbytes);
   const size_t external_nbytes = nbytes;
 
   CHECK(val->IsString() == true);
@@ -395,7 +392,7 @@ size_t StringBytes::Write(Isolate* isolate,
         memcpy(buf, data, nbytes);
         nchars = nbytes / sizeof(uint16_t);
       } else {
-        nbytes = WriteUCS2(buf, buflen, nbytes, data, str, flags, &nchars);
+        nbytes = WriteUCS2(buf, buflen, str, flags, &nchars);
       }
       if (chars_written != nullptr)
         *chars_written = nchars;
@@ -443,8 +440,7 @@ size_t StringBytes::Write(Isolate* isolate,
 }
 
 
-bool StringBytes::IsValidString(Isolate* isolate,
-                                Local<String> string,
+bool StringBytes::IsValidString(Local<String> string,
                                 enum encoding enc) {
   if (enc == HEX && string->Length() % 2 != 0)
     return false;
@@ -516,7 +512,7 @@ size_t StringBytes::Size(Isolate* isolate,
     return Buffer::Length(val);
 
   const char* data;
-  if (GetExternalParts(isolate, val, &data, &data_size))
+  if (GetExternalParts(val, &data, &data_size))
     return data_size;
 
   Local<String> str = val->ToString(isolate);
