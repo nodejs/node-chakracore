@@ -33,7 +33,7 @@ Local<Symbol> Symbol::New(Isolate* isolate, Local<String> name) {
 Local<Symbol> Symbol::From(Local<String> name) {
   JsValueRef sym;
   JsValueRef description = (JsValueRef)*name;
-  
+
   if (JsCreateSymbol(description, &sym) != JsNoError) {
     return Local<Symbol>();
   }

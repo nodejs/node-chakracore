@@ -84,6 +84,7 @@ if /i "%1"=="test-node-inspect" set test_node_inspect=1&goto arg-ok
 if /i "%1"=="test-check-deopts" set test_check_deopts=1&goto arg-ok
 if /i "%1"=="jslint"        set jslint=1&goto arg-ok
 if /i "%1"=="jslint-ci"     set jslint_ci=1&goto arg-ok
+if /i "%1"=="cpplint"       set cpplint=1&goto arg-ok
 if /i "%1"=="lint"          set cpplint=1&set jslint=1&goto arg-ok
 if /i "%1"=="lint-ci"       set cpplint=1&set jslint_ci=1&goto arg-ok
 if /i "%1"=="package"       set package=1&goto arg-ok
@@ -141,7 +142,12 @@ if "%i18n_arg%"=="full-icu" set configure_flags=%configure_flags% --with-intl=fu
 if "%i18n_arg%"=="small-icu" set configure_flags=%configure_flags% --with-intl=small-icu
 if "%i18n_arg%"=="intl-none" set configure_flags=%configure_flags% --with-intl=none
 if "%i18n_arg%"=="without-intl" set configure_flags=%configure_flags% --without-intl
-if "%engine%"=="chakracore" set configure_flags=%configure_flags% --without-bundled-v8&set chakra_jslint=deps\chakrashim\lib
+
+if "%engine%"=="chakracore" (
+  set configure_flags=%configure_flags% --without-bundled-v8
+  set chakra_jslint=deps\chakrashim\lib
+  set chakra_cpplint=deps\chakrashim\src\*.cc deps\chakrashim\src\*.h
+)
 
 if "%target_arch%"=="arm" (
   if "%PROCESSOR_ARCHITECTURE%" NEQ "ARM" (
@@ -459,7 +465,7 @@ set cppfilelist=
 setlocal enabledelayedexpansion
 for /f "tokens=*" %%G in ('dir /b /s /a src\*.c src\*.cc src\*.h ^
 test\addons\*.cc test\addons\*.h test\cctest\*.cc test\cctest\*.h ^
-test\gc\binding.cc tools\icu\*.cc tools\icu\*.h') do (
+test\gc\binding.cc tools\icu\*.cc tools\icu\*.h %chakra_cpplint%') do (
   set relpath=%%G
   set relpath=!relpath:*%~dp0=!
   call :add-to-list !relpath!
@@ -472,23 +478,23 @@ python tools/check-imports.py
 goto jslint
 
 :add-to-list
-echo %1 | findstr /c:"src\node_root_certs.h"
+echo %1 | findstr /b /c:"src\node_root_certs.h" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /c:"src\queue.h"
+echo %1 | findstr /b /c:"src\queue.h" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /c:"src\tree.h"
+echo %1 | findstr /b /c:"src\tree.h" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
 @rem skip subfolders under /src
-echo %1 | findstr /r /c:"src\\.*\\.*"
+echo %1 | findstr /b /r /c:"src\\.*\\.*" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.h"
+echo %1 | findstr /b /r /c:"test\\addons\\[0-9].*_.*\.h" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.cc"
+echo %1 | findstr /b /r /c:"test\\addons\\[0-9].*_.*\.cc" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
 set "localcppfilelist=%localcppfilelist% %1"

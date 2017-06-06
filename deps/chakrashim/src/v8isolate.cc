@@ -27,7 +27,7 @@ namespace v8 {
 HeapProfiler dummyHeapProfiler;
 CpuProfiler dummyCpuProfiler;
 
-Isolate* Isolate::NewWithTTDSupport(const CreateParams& params, 
+Isolate* Isolate::NewWithTTDSupport(const CreateParams& params,
                       size_t optReplayUriLength, const char* optReplayUri,
                       bool doRecord, bool doReplay, bool doDebug,
                       uint32_t snapInterval, uint32_t snapHistoryLength) {
@@ -44,9 +44,8 @@ Isolate* Isolate::NewWithTTDSupport(const CreateParams& params,
 }
 
 Isolate* Isolate::New(const CreateParams& params) {
-  return NewWithTTDSupport(params, 0, nullptr, 
-                           false, false,false, 
-                           UINT32_MAX, UINT32_MAX);
+  return NewWithTTDSupport(params, 0, nullptr, false, false, false, UINT32_MAX,
+                           UINT32_MAX);
 }
 
 Isolate* Isolate::New() {

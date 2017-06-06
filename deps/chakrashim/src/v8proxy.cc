@@ -37,4 +37,4 @@ Proxy *Proxy::Cast(v8::Value *obj) {
   CHAKRA_ASSERT(obj->IsProxy());
   return static_cast<Proxy*>(obj);
 }
-}
+}  // namespace v8

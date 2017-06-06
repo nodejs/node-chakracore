@@ -18,7 +18,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTPROXYUTILS_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTPROXYUTILS_H_
 
 #include "jsrtutils.h"
 
@@ -57,3 +58,5 @@ JsErrorCode TryParseUInt32(JsValueRef strRef,
                            unsigned int *uint32Value);
 
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTPROXYUTILS_H_

@@ -177,7 +177,7 @@ JsErrorCode DeleteProperty(JsValueRef ref,
 JsErrorCode CallProperty(JsValueRef ref,
                          CachedPropertyIdRef cachedIdRef,
                          JsValueRef *arguments,
-                         unsigned short argumentCount,
+                         unsigned short argumentCount,  // NOLINT(runtime/int)
                          JsValueRef *result) {
   JsValueRef propertyRef = JS_INVALID_REFERENCE;
   IfJsErrorRet(JsGetProperty(
@@ -888,11 +888,11 @@ void Fatal(const char * format, ...) {
 
 
 JsValueRef CHAKRA_CALLBACK CollectGarbage(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
   JsCollectGarbage(IsolateShim::GetCurrent()->GetRuntimeHandle());
   return GetUndefined();
 }

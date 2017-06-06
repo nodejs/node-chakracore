@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_INSPECTOR_SEARCHUTIL_H_
-#define V8_INSPECTOR_SEARCHUTIL_H_
+#ifndef DEPS_CHAKRASHIM_SRC_INSPECTOR_SEARCH_UTIL_H_
+#define DEPS_CHAKRASHIM_SRC_INSPECTOR_SEARCH_UTIL_H_
 
 #include "src/inspector/protocol/Debugger.h"
 #include "src/inspector/string-util.h"
@@ -21,4 +21,4 @@ searchInTextByLinesImpl(V8InspectorSession*, const String16& text,
 
 }  //  namespace v8_inspector
 
-#endif  // V8_INSPECTOR_SEARCHUTIL_H_
+#endif  // DEPS_CHAKRASHIM_SRC_INSPECTOR_SEARCH_UTIL_H_

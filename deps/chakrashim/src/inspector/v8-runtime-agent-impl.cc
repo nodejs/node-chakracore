@@ -59,7 +59,8 @@ static bool hasInternalError(ErrorString* errorString, bool hasError) {
 
 namespace {
 
-std::unique_ptr<protocol::DictionaryValue> ParseObjectId(const String16& objectId) {
+std::unique_ptr<protocol::DictionaryValue> ParseObjectId(
+    const String16& objectId) {
   std::unique_ptr<protocol::Value> parsedValue = protocol::parseJSON(objectId);
   if (!parsedValue || parsedValue->type() != protocol::Value::TypeObject) {
     return nullptr;
@@ -101,7 +102,7 @@ void V8RuntimeAgentImpl::evaluate(
   v8::Local<v8::Value> evalResult =
       jsrt::InspectorHelpers::EvaluateOnCallFrame(/* ordinal */ 0, expStr,
                                                   /* returnByValue */ true);
-  
+
   if (evalResult.IsEmpty()) {
     errorString = "Failed to evaluate expression";
     callback->sendFailure(errorString);
@@ -165,7 +166,7 @@ void V8RuntimeAgentImpl::getProperties(
     *result = protocol::Array<protocol::Runtime::PropertyDescriptor>::create();
     return;
   }
-  
+
   std::unique_ptr<protocol::DictionaryValue> parsedId = ParseObjectId(objectId);
   if (parsedId == nullptr) {
     return;
@@ -179,8 +180,7 @@ void V8RuntimeAgentImpl::getProperties(
 
   if (parsedId->getInteger("handle", &handle)) {
     resultValue = jsrt::InspectorHelpers::GetWrappedProperties(handle);
-  }
-  else if (parsedId->getInteger("ordinal", &ordinal) &&
+  } else if (parsedId->getInteger("ordinal", &ordinal) &&
            parsedId->getString("name", &name)) {
     JsValueRef stackProperties;
     if (JsDiagGetStackProperties(ordinal, &stackProperties) != JsNoError) {
@@ -191,8 +191,7 @@ void V8RuntimeAgentImpl::getProperties(
     if (name == "locals") {
       resultValue = jsrt::InspectorHelpers::GetWrappedStackLocals(
           stackProperties);
-    }
-    else if (name == "globals") {
+    } else if (name == "globals") {
       JsValueRef globals;
       if (jsrt::GetProperty(stackProperties, jsrt::CachedPropertyIdRef::globals,
                             &globals) != JsNoError) {
@@ -208,13 +207,11 @@ void V8RuntimeAgentImpl::getProperties(
       }
 
       resultValue = jsrt::InspectorHelpers::GetWrappedProperties(handle);
-    }
-    else {
+    } else {
       *errorString = "Invalid stack property name";
       return;
     }
-  }
-  else {
+  } else {
     *errorString = "Unable to parse object ID";
     return;
   }
@@ -228,7 +225,7 @@ void V8RuntimeAgentImpl::getProperties(
   if (!protocolValue) {
     return;
   }
-  
+
   protocol::ErrorSupport errors(errorString);
   std::unique_ptr<protocol::Array<protocol::Runtime::PropertyDescriptor>>
       parsedResult =

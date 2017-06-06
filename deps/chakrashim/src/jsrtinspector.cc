@@ -32,16 +32,16 @@ namespace v8 {
 namespace jsrt {
 
 static JsValueRef CHAKRA_CALLBACK Log(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
   JsValueRef scriptRef;
   jsrt::StringUtf8 script;
 
-  if (argumentCount > 1 &&
-    jsrt::ToString(arguments[1], &scriptRef, &script) == JsNoError) {
+  if (argumentCount >= 2 &&
+      jsrt::ToString(arguments[1], &scriptRef, &script) == JsNoError) {
     fprintf(stdout, "%s\n", *script);
 #ifdef DEBUG
     fflush(stdout);
@@ -52,11 +52,11 @@ static JsValueRef CHAKRA_CALLBACK Log(
 }
 
 static JsValueRef CHAKRA_CALLBACK JsGetScripts(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
   JsValueRef sourcesList;
   JsErrorCode errorCode = JsDiagGetScripts(&sourcesList);
   CHAKRA_VERIFY_NOERROR(errorCode);
@@ -65,20 +65,20 @@ static JsValueRef CHAKRA_CALLBACK JsGetScripts(
 }
 
 static JsValueRef CHAKRA_CALLBACK JsSetBreakpoint(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
   int scriptId;
   int line;
   int column;
   JsValueRef bpObject = JS_INVALID_REFERENCE;
 
-  if (argumentCount > 3 &&
-    jsrt::ValueToInt(arguments[1], &scriptId) == JsNoError &&
-    jsrt::ValueToInt(arguments[2], &line) == JsNoError &&
-    jsrt::ValueToInt(arguments[3], &column) == JsNoError) {
+  if (argumentCount >= 4 &&
+      jsrt::ValueToInt(arguments[1], &scriptId) == JsNoError &&
+      jsrt::ValueToInt(arguments[2], &line) == JsNoError &&
+      jsrt::ValueToInt(arguments[3], &column) == JsNoError) {
     JsDiagSetBreakpoint(scriptId, line, column, &bpObject);
   }
 
@@ -86,32 +86,32 @@ static JsValueRef CHAKRA_CALLBACK JsSetBreakpoint(
 }
 
 static JsValueRef CHAKRA_CALLBACK JsGetFunctionPosition(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
+  CHAKRA_VERIFY(argumentCount >= 2);
+
   JsValueRef valueRef = JS_INVALID_REFERENCE;
-  JsErrorCode errorCode = JsConvertValueToObject(arguments[1], &valueRef);
-  CHAKRA_VERIFY_NOERROR(errorCode);
+  CHAKRA_VERIFY_NOERROR(JsConvertValueToObject(arguments[1], &valueRef));
+
   JsValueRef funcInfo = JS_INVALID_REFERENCE;
-  errorCode = JsDiagGetFunctionPosition(valueRef, &funcInfo);
-  CHAKRA_VERIFY_NOERROR(errorCode);
+  CHAKRA_VERIFY_NOERROR(JsDiagGetFunctionPosition(valueRef, &funcInfo));
 
   return funcInfo;
 }
 
 static JsValueRef CHAKRA_CALLBACK JsRemoveBreakpoint(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
-  int bpId;
-  if (argumentCount > 1 &&
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
+  int bpId = 0;
+  if (argumentCount >= 2 &&
     jsrt::ValueToInt(arguments[1], &bpId) == JsNoError) {
-    JsErrorCode errorCode = JsDiagRemoveBreakpoint(bpId);
-    CHAKRA_VERIFY_NOERROR(errorCode);
+    CHAKRA_VERIFY_NOERROR(JsDiagRemoveBreakpoint(bpId));
   }
 
   return JS_INVALID_REFERENCE;

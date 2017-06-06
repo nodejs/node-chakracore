@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_INSPECTOR_V8STACKTRACEIMPL_H_
-#define V8_INSPECTOR_V8STACKTRACEIMPL_H_
+#ifndef DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_STACK_TRACE_IMPL_H_
+#define DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_STACK_TRACE_IMPL_H_
 
 #include <vector>
 
@@ -83,7 +83,7 @@ class V8StackTraceImpl final : public V8StackTrace {
 
  private:
   V8StackTraceImpl(int contextGroupId, const String16& description,
-                   std::vector<Frame>& frames,
+                   std::vector<Frame>& frames,  // NOLINT(runtime/references)
                    std::unique_ptr<V8StackTraceImpl> parent);
 
   int m_contextGroupId;
@@ -96,4 +96,4 @@ class V8StackTraceImpl final : public V8StackTrace {
 
 }  // namespace v8_inspector
 
-#endif  // V8_INSPECTOR_V8STACKTRACEIMPL_H_
+#endif  // DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_STACK_TRACE_IMPL_H_

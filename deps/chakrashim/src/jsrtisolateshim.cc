@@ -31,15 +31,14 @@
 
 void TTReportLastIOError() {
 #ifdef _WIN32
-        DWORD lastError = GetLastError();
-        LPTSTR pTemp = NULL;
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-            FORMAT_MESSAGE_FROM_SYSTEM |
-            FORMAT_MESSAGE_ARGUMENT_ARRAY,
-            NULL, lastError, 0, (LPTSTR)&pTemp, 0, NULL);
-        fprintf(stderr, "Error is: %i %s\n", lastError, pTemp);
+  DWORD lastError = GetLastError();
+  LPTSTR pTemp = NULL;
+  FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                NULL, lastError, 0, (LPTSTR)&pTemp, 0, NULL);
+  fprintf(stderr, "Error is: %i %s\n", lastError, pTemp);
 #else
-        fprintf(stderr, "Error is: %i %s\n", errno, strerror(errno));
+  fprintf(stderr, "Error is: %i %s\n", errno, strerror(errno));
 #endif
 }
 
@@ -48,162 +47,165 @@ void TTReportLastIOError() {
 
 #define TTHostPathSep '\\'
 
-bool TTDHostPathEndsWithSepChar(size_t pathLength, const char* path)
-{
-    char ec = path[pathLength - 1];
+bool TTDHostPathEndsWithSepChar(size_t pathLength, const char* path) {
+  char ec = path[pathLength - 1];
 
-    if((ec & 0x80) != 0)
-    {
-        return false; //a multibyte char so definitely not path separator
-    }
-    else
-    {
-        return (ec == '\\' || ec == '/'); //both ok for windows
-    }
+  if ((ec & 0x80) != 0) {
+    // a multibyte char so definitely not path separator
+    return false;
+  } else {
+    // both ok for windows
+    return (ec == '\\' || ec == '/');
+  }
 }
 
-JsTTDStreamHandle TTDHostOpen(size_t pathLength, const char* path, bool isWrite)
-{
-    errno_t err = 0;
-    FILE* res = nullptr;
-    wchar_t wpath[MAX_PATH];
+JsTTDStreamHandle TTDHostOpen(size_t pathLength, const char* path,
+                              bool isWrite) {
+  errno_t err = 0;
+  FILE* res = nullptr;
+  wchar_t wpath[MAX_PATH];
 
-    int length = MultiByteToWideChar(CP_UTF8, 0, path, (int)pathLength, wpath, MAX_PATH);
-    if(length == 0 || length >= MAX_PATH) {
-        fprintf(stderr, "Failed to open file %s\n", path);
-        fprintf(stderr, "Path overflowed MAX_PATH or conversion failed\n.");
-    }
+  int length = MultiByteToWideChar(CP_UTF8, 0, path,
+                                   static_cast<int>(pathLength), wpath,
+                                   MAX_PATH);
+  if (length == 0 || length >= MAX_PATH) {
+    fprintf(stderr, "Failed to open file %s\n", path);
+    fprintf(stderr, "Path overflowed MAX_PATH or conversion failed\n.");
+  }
 
-    wpath[length] = L'\0';
-    err = _wfopen_s(&res, wpath, isWrite ? L"w+b" : L"r+b");
+  wpath[length] = L'\0';
+  err = _wfopen_s(&res, wpath, isWrite ? L"w+b" : L"r+b");
 
-    if(err != 0) {
-        fprintf(stderr, "Failed to open file %s\n", path);
-        fprintf(stderr, "Expanded to %ls on Windows\n", wpath);
-        TTReportLastIOError();
+  if (err != 0) {
+    fprintf(stderr, "Failed to open file %s\n", path);
+    fprintf(stderr, "Expanded to %ls on Windows\n", wpath);
+    TTReportLastIOError();
 
-        exit(1);
-    }
+    exit(1);
+  }
 
-    return (JsTTDStreamHandle)res;
+  return static_cast<JsTTDStreamHandle>(res);
 }
 
-#define TTDHostRead(buff, size, handle) fread_s(buff, size, 1, size, (FILE*)handle);
-#define TTDHostWrite(buff, size, handle) fwrite(buff, 1, size, (FILE*)handle)
+#define TTDHostRead(buff, size, handle) \
+        fread_s(buff, size, 1, size, static_cast<FILE*>(handle))
+
+#define TTDHostWrite(buff, size, handle) \
+        fwrite(buff, 1, size,  static_cast<FILE*>(handle))
 #else
 #include <unistd.h>
 #include <cstring>
 
 #define memcpy_s(DST, DSTLENGTH, SRC, COUNT) memcpy(DST, SRC, COUNT)
-#define CALLBACK 
+#define CALLBACK
 
 #define TTHostPathSep '/'
 
-bool TTDHostPathEndsWithSepChar(size_t pathLength, const char* path)
-{
-    char ec = path[pathLength - 1];
+bool TTDHostPathEndsWithSepChar(size_t pathLength, const char* path) {
+  char ec = path[pathLength - 1];
 
-    if((ec & 0x80) != 0)
-    {
-        return false; //a multibyte char so definitely not path separator
-    }
-    else
-    {
-        return ec == '/'; //only forward allowed
-    }
+  if ((ec & 0x80) != 0) {
+    // a multibyte char so definitely not path separator
+    return false;
+  } else {
+    // only forward allowed
+    return ec == '/';
+  }
 }
 
-JsTTDStreamHandle TTDHostOpen(size_t pathLength, const char* path, bool isWrite) {
-    FILE* res = fopen(path, isWrite ? "w+b" : "r+b");
-    if(res == nullptr) {
-        fprintf(stderr, "Failed to open file %s\n", path);
-        TTReportLastIOError();
+JsTTDStreamHandle TTDHostOpen(size_t pathLength, const char* path,
+                              bool isWrite) {
+  FILE* res = fopen(path, isWrite ? "w+b" : "r+b");
+  if (res == nullptr) {
+    fprintf(stderr, "Failed to open file %s\n", path);
+    TTReportLastIOError();
 
-        exit(1);
-    }
+    exit(1);
+  }
 
-    return (JsTTDStreamHandle)res;
+  return static_cast<JsTTDStreamHandle>(res);
 }
 
-#define TTDHostRead(buff, size, handle) fread(buff, 1, size, (FILE*)handle)
-#define TTDHostWrite(buff, size, handle) fwrite(buff, 1, size, (FILE*)handle)
+#define TTDHostRead(buff, size, handle) \
+        fread(buff, 1, size, static_cast<FILE*>(handle))
+
+#define TTDHostWrite(buff, size, handle) \
+        fwrite(buff, 1, size, static_cast<FILE*>(handle))
 #endif
 
 #define MAX_URI_LENGTH 512
 
-JsTTDStreamHandle CALLBACK TTCreateStreamCallback(size_t uriLength, const char* uri,
-    size_t asciiNameLength, const char* asciiName, 
-    bool read, bool write) {
+JsTTDStreamHandle CALLBACK TTCreateStreamCallback(size_t uriLength,
+                                                  const char* uri,
+                                                  size_t asciiNameLength,
+                                                  const char* asciiName,
+                                                  bool read, bool write) {
+  if (uriLength == 0) {
+    fprintf(stderr, "Empty path not allowed.\n");
+    exit(1);
+  }
 
-    if(uriLength == 0)
-    {
-        fprintf(stderr, "Empty path not allowed.\n");
-        exit(1);
-    }
+  if (uriLength + asciiNameLength + 2 > MAX_URI_LENGTH) {
+    fprintf(stderr, "Max allowed path length is %u, given path %s%s\n",
+            MAX_URI_LENGTH, uri, asciiName);
+    exit(1);
+  }
 
-    if(uriLength + asciiNameLength + 2 > MAX_URI_LENGTH)
-    {
-        fprintf(stderr, "Max allowed path length is %u, given path %s%s\n", MAX_URI_LENGTH, uri, asciiName);
-        exit(1);
-    }
+  char path[MAX_URI_LENGTH];
+  memset(path, 0, MAX_URI_LENGTH);
+  memcpy_s(path, MAX_URI_LENGTH, uri, uriLength);
 
-    char path[MAX_URI_LENGTH];
-    memset(path, 0, MAX_URI_LENGTH);
-    memcpy_s(path, MAX_URI_LENGTH, uri, uriLength);
+  size_t pathLength = uriLength;
+  if (!TTDHostPathEndsWithSepChar(pathLength, path)) {
+    path[pathLength] = TTHostPathSep;
+    pathLength++;
+  }
 
-    size_t pathLength = uriLength;
-    if(!TTDHostPathEndsWithSepChar(pathLength, path))
-    {
-        path[pathLength] = TTHostPathSep;
-        pathLength++;
-    }
+  memcpy_s(path + pathLength, MAX_URI_LENGTH - pathLength, asciiName,
+           asciiNameLength);
 
-    memcpy_s(path + pathLength, MAX_URI_LENGTH - pathLength, asciiName, asciiNameLength);
-
-    //error is reported and abort in host open
-    return TTDHostOpen(pathLength + asciiNameLength, path, write);
+  // error is reported and abort in host open
+  return TTDHostOpen(pathLength + asciiNameLength, path, write);
 }
 
 bool CALLBACK TTReadBytesFromStreamCallback(JsTTDStreamHandle handle,
-    byte* buff, size_t size, size_t* readCount) {
+                                            byte* buff, size_t size,
+                                            size_t* readCount) {
+  bool ok = false;
+  *readCount = TTDHostRead(buff, size, handle);
+  ok = (*readCount != 0);
 
-    bool ok = false;
-    *readCount = TTDHostRead(buff, size, (FILE*)handle);
-    ok = (*readCount != 0);
+  if (!ok) {
+    fprintf(stderr, "Failed read from stream!!!");
+    TTReportLastIOError();
 
-    if(!ok)
-    {
-        fprintf(stderr, "Failed read from stream!!!");
-        TTReportLastIOError();
+    exit(1);
+  }
 
-        exit(1);
-    }
-
-    return ok ? true : false;
+  return ok;
 }
 
 bool CALLBACK TTWriteBytesToStreamCallback(JsTTDStreamHandle handle,
-    const byte* buff, size_t size, size_t* writtenCount) {
+                                           const byte* buff, size_t size,
+                                           size_t* writtenCount) {
+  bool ok = false;
+  *writtenCount = TTDHostWrite(buff, size, handle);
+  ok = (*writtenCount == size);
 
-    bool ok = false;
-    *writtenCount = TTDHostWrite(buff, size, (FILE*)handle);
-    ok = (*writtenCount == size);
+  if (!ok) {
+    fprintf(stderr, "Failed read from stream!!!");
+    TTReportLastIOError();
 
-    if(!ok)
-    {
-        fprintf(stderr, "Failed read from stream!!!");
-        TTReportLastIOError();
+    exit(1);
+  }
 
-        exit(1);
-    }
-
-    return ok ? true : false;
+  return ok;
 }
 
 void CALLBACK TTFlushAndCloseStreamCallback(JsTTDStreamHandle handle,
-    bool read, bool write) {
-    fflush((FILE*)handle);
-    fclose((FILE*)handle);
+                                            bool read, bool write) {
+  fflush(static_cast<FILE*>(handle));
+  fclose(static_cast<FILE*>(handle));
 }
 
 /////////////////////////////////////////////////
@@ -246,14 +248,17 @@ IsolateShim::~IsolateShim() {
   }
 }
 
-/* static */ v8::Isolate * IsolateShim::New(size_t optReplayUriLength, const char* optReplayUri,
-    bool doRecord, bool doReplay, bool doDebug,
-    uint32_t snapInterval, uint32_t snapHistoryLength) {
+/* static */ v8::Isolate * IsolateShim::New(size_t optReplayUriLength,
+                                            const char* optReplayUri,
+                                            bool doRecord, bool doReplay,
+                                            bool doDebug, uint32_t snapInterval,
+                                            uint32_t snapHistoryLength) {
   bool disableIdleGc = v8::g_disableIdleGc;
-    JsRuntimeAttributes attributes = static_cast<JsRuntimeAttributes>(
+  JsRuntimeAttributes attributes = static_cast<JsRuntimeAttributes>(
       JsRuntimeAttributeAllowScriptInterrupt |
       JsRuntimeAttributeEnableExperimentalFeatures |
-        (disableIdleGc ? JsRuntimeAttributeNone : JsRuntimeAttributeEnableIdleProcessing));
+      (disableIdleGc ? JsRuntimeAttributeNone :
+                        JsRuntimeAttributeEnableIdleProcessing));
 
   JsRuntimeHandle runtime;
   JsErrorCode error;
@@ -261,14 +266,15 @@ IsolateShim::~IsolateShim() {
       error = JsCreateRuntime(attributes, nullptr, &runtime);
   } else {
     if (doRecord) {
-      error = JsTTDCreateRecordRuntime(attributes, snapInterval, snapHistoryLength,
+      error = JsTTDCreateRecordRuntime(attributes, snapInterval,
+                                       snapHistoryLength,
                                        &TTCreateStreamCallback,
                                        &TTWriteBytesToStreamCallback,
                                        &TTFlushAndCloseStreamCallback,
                                        nullptr, &runtime);
     } else {
-      error = JsTTDCreateReplayRuntime(attributes, optReplayUri, optReplayUriLength,
-                                       doDebug, 
+      error = JsTTDCreateReplayRuntime(attributes, optReplayUri,
+                                       optReplayUriLength, doDebug,
                                        &TTCreateStreamCallback,
                                        &TTReadBytesFromStreamCallback,
                                        &TTFlushAndCloseStreamCallback,
@@ -385,7 +391,7 @@ bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
                              bool useGlobalTTState,
                              JsValueRef globalObjectTemplateInstance) {
   ContextShim * contextShim = ContextShim::New(this, exposeGC,
-                                               useGlobalTTState, 
+                                               useGlobalTTState,
                                                globalObjectTemplateInstance);
   if (contextShim == nullptr) {
     return false;
@@ -591,22 +597,21 @@ void* IsolateShim::GetData(uint32_t slot) {
 }
 
 JsValueRef IsolateShim::GetChakraShimJsArrayBuffer() {
-  JsValueRef chakraShimArrayBuffer;
-  CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
-                (void*)raw_chakra_shim_value,
-                sizeof(raw_chakra_shim_value),
-                nullptr, nullptr,
-                &chakraShimArrayBuffer) == JsNoError);
+  JsValueRef chakraShimArrayBuffer = JS_INVALID_REFERENCE;
+  CHAKRA_VERIFY_NOERROR(JsCreateExternalArrayBuffer(
+      static_cast<void*>(const_cast<uint8_t*>(raw_chakra_shim_value)),
+      sizeof(raw_chakra_shim_value), nullptr, nullptr, &chakraShimArrayBuffer));
+
   return chakraShimArrayBuffer;
 }
 
 JsValueRef IsolateShim::GetChakraInspectorShimJsArrayBuffer() {
-  JsValueRef chakraInspectorShimArrayBuffer;
-  CHAKRA_VERIFY(JsCreateExternalArrayBuffer(
-                (void*)raw_chakra_inspector_value,
-                sizeof(raw_chakra_inspector_value),
-                nullptr, nullptr,
-                &chakraInspectorShimArrayBuffer) == JsNoError);
+  JsValueRef chakraInspectorShimArrayBuffer = JS_INVALID_REFERENCE;
+  CHAKRA_VERIFY_NOERROR(JsCreateExternalArrayBuffer(
+      static_cast<void*>(const_cast<uint8_t*>(raw_chakra_inspector_value)),
+      sizeof(raw_chakra_inspector_value), nullptr, nullptr,
+      &chakraInspectorShimArrayBuffer));
+
   return chakraInspectorShimArrayBuffer;
 }
 
@@ -620,7 +625,8 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
     // TODO(mrkmarron) JsTTDMoveMode is no longer 64 bit wide, fix use of
     // moveMode parameter, convert to 32 bit?
     JsTTDMoveMode _moveMode = (JsTTDMoveMode)(*moveMode);
-    JsRuntimeHandle rHandle = jsrt::IsolateShim::FromIsolate(isolate)->GetRuntimeHandle();
+    JsRuntimeHandle rHandle =
+        jsrt::IsolateShim::FromIsolate(isolate)->GetRuntimeHandle();
 
     // if mode is reverse continue then we need to scan
     if ((_moveMode & JsTTDMoveMode::JsTTDMoveScanIntervalForContinue)
@@ -631,9 +637,10 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
                                       &ciStart, &ciEnd);
 
         *nextEventTime = -1;
-        JsTTDPreExecuteSnapShotInterval(rHandle, ciStart, ciEnd,
-                                        (JsTTDMoveMode)(*moveMode | JsTTDMoveMode::JsTTDMoveScanIntervalForContinueInActiveBreakpointSegment),
-                                        nextEventTime);
+        JsTTDPreExecuteSnapShotInterval(
+            rHandle, ciStart, ciEnd,
+            (JsTTDMoveMode)(*moveMode | JsTTDMoveMode::JsTTDMoveScanIntervalForContinueInActiveBreakpointSegment),  // NOLINT(whitespace/line_length)
+            nextEventTime);
 
         while (*nextEventTime == -1) {
             int64_t newCiStart = -1;
@@ -655,16 +662,14 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
                      ~JsTTDMoveMode::JsTTDMoveScanIntervalForContinue);
     }
 
-    if(*nextEventTime == -1) {
-        _moveMode = (JsTTDMoveMode)(JsTTDMoveMode::JsTTDMoveFirstEvent | JsTTDMoveMode::JsTTDMoveBreakOnEntry);
+    if (*nextEventTime == -1) {
+        _moveMode = (JsTTDMoveMode)(JsTTDMoveMode::JsTTDMoveFirstEvent |
+                                    JsTTDMoveMode::JsTTDMoveBreakOnEntry);
     }
 
-    JsErrorCode timeError = JsTTDGetSnapTimeTopLevelEventMove(rHandle,
-                                                              _moveMode,
-                                                              0,
-                                                              nextEventTime,
-                                                              &snapEventTime,
-                                                              &snapEventEndTime);
+    JsErrorCode timeError = JsTTDGetSnapTimeTopLevelEventMove(
+        rHandle, _moveMode, 0, nextEventTime, &snapEventTime,
+        &snapEventEndTime);
 
     if (timeError != JsNoError) {
         if (timeError == JsErrorCategoryUsage) {
@@ -679,15 +684,13 @@ bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
     JsErrorCode moveError = JsTTDMoveToTopLevelEvent(rHandle, _moveMode,
                                                      snapEventTime,
                                                      *nextEventTime);
-    if(moveError != JsNoError)
-    {
+    if (moveError != JsNoError) {
         fprintf(stderr, "Fatal Error in Move Action!!!");
         exit(1);
     }
 
     JsErrorCode replayError = JsTTDReplayExecution(&_moveMode, nextEventTime);
-    if(replayError != JsNoError && replayError != JsErrorCategoryScript)
-    {
+    if (replayError != JsNoError && replayError != JsErrorCategoryScript) {
         fprintf(stderr, "Fatal Error in Replay Action!!!");
         exit(1);
     }

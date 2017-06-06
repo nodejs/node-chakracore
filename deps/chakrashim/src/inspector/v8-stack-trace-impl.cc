@@ -39,9 +39,10 @@ V8StackTraceImpl::Frame toFrame(v8::Local<v8::StackFrame> frame) {
                                  sourceLineNumber, sourceColumn);
 }
 
-void toFramesVector(v8::Local<v8::StackTrace> stackTrace,
-                    std::vector<V8StackTraceImpl::Frame>& frames,
-                    size_t maxStackSize, v8::Isolate* isolate) {
+void toFramesVector(
+    v8::Local<v8::StackTrace> stackTrace,
+    std::vector<V8StackTraceImpl::Frame>& frames,  // NOLINT(runtime/references)
+    size_t maxStackSize, v8::Isolate* isolate) {
   DCHECK(isolate->InContext());
   int frameCount = stackTrace->GetFrameCount();
   if (frameCount > static_cast<int>(maxStackSize))

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_INSPECTOR_V8CONSOLEAGENTIMPL_H_
-#define V8_INSPECTOR_V8CONSOLEAGENTIMPL_H_
+#ifndef DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_CONSOLE_AGENT_IMPL_H_
+#define DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_CONSOLE_AGENT_IMPL_H_
 
 #include "src/base/macros.h"
 #include "src/inspector/protocol/Console.h"
@@ -45,4 +45,4 @@ class V8ConsoleAgentImpl : public protocol::Console::Backend {
 
 }  // namespace v8_inspector
 
-#endif  // V8_INSPECTOR_V8CONSOLEAGENTIMPL_H_
+#endif  // DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_CONSOLE_AGENT_IMPL_H_

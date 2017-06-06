@@ -78,7 +78,7 @@ class FunctionCallbackData : public ExternalData {
 
   bool CheckSignature(Local<Object> thisPointer,
                       JsValueRef *arguments,
-                      unsigned short argumentCount,
+                      unsigned short argumentCount,  // NOLINT(runtime/int)
                       Local<Object>* holder) {
     if (signature.IsEmpty()) {
       *holder = thisPointer;
@@ -89,11 +89,14 @@ class FunctionCallbackData : public ExternalData {
                                  thisPointer, holder);
   }
 
-  static JsValueRef CHAKRA_CALLBACK FunctionInvoked(JsValueRef callee,
-                                             bool isConstructCall,
-                                             JsValueRef *arguments,
-                                             unsigned short argumentCount,
-                                             void *callbackState) {
+  static JsValueRef CHAKRA_CALLBACK FunctionInvoked(
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState) {
+    CHAKRA_VERIFY(argumentCount >= 1);
+
     // Script engine could have switched context. Make sure to invoke the
     // CHAKRA_CALLBACK in the current callee context.
     ContextShim* contextShim = IsolateShim::GetContextShimOfObject(callee);
