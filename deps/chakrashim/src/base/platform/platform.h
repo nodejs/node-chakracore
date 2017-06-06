@@ -18,8 +18,8 @@
 // implementation and the overhead of virtual methods for performance
 // sensitive like mutex locking/unlocking.
 
-#ifndef V8_BASE_PLATFORM_PLATFORM_H_
-#define V8_BASE_PLATFORM_PLATFORM_H_
+#ifndef DEPS_CHAKRASHIM_SRC_BASE_PLATFORM_PLATFORM_H_
+#define DEPS_CHAKRASHIM_SRC_BASE_PLATFORM_PLATFORM_H_
 
 #include <cstdarg>
 #include "src/base/macros.h"
@@ -48,4 +48,4 @@ class OS {
 }  // namespace base
 }  // namespace v8
 
-#endif  // V8_BASE_PLATFORM_PLATFORM_H_
+#endif  // DEPS_CHAKRASHIM_SRC_BASE_PLATFORM_PLATFORM_H_

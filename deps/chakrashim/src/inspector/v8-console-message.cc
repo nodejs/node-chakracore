@@ -244,8 +244,7 @@ V8ConsoleMessage::wrapArguments(V8InspectorSessionImpl* session,
   if (m_type == ConsoleAPIType::kTable && generatePreview) {
     // CHAKRA-TODO - Figure out what to do here.
     CHAKRA_UNIMPLEMENTED();
-  }
-  else {
+  } else {
     for (size_t i = 0; i < m_arguments.size(); ++i) {
       // CHAKRA-TODO - Figure out what to do here.
       v8::Local<v8::Value> arg = m_arguments[i]->Get(isolate);

@@ -687,7 +687,7 @@ void V8DebuggerAgentImpl::setPauseOnExceptions(
     *errorString = "Unknown pause on exceptions mode: " + stringPauseState;
     return;
   }
-  
+
   m_debugger->setPauseOnExceptionsState(
       static_cast<V8Debugger::PauseOnExceptionsState>(pauseState));
   if (m_debugger->getPauseOnExceptionsState() != pauseState) {
@@ -707,8 +707,8 @@ void V8DebuggerAgentImpl::evaluateOnCallFrame(
   if (!assertPaused(errorString)) return;
 
   int ordinal;
-  if (!parseCallFrameId(callFrameId, &ordinal) ||
-      ordinal < 0 || static_cast<size_t>(ordinal) >= m_pausedCallFrames.size()) {
+  if (!parseCallFrameId(callFrameId, &ordinal) || ordinal < 0 ||
+      static_cast<size_t>(ordinal) >= m_pausedCallFrames.size()) {
     *errorString = "Could not find call frame with given id";
     return;
   }
@@ -1026,7 +1026,7 @@ V8DebuggerAgentImpl::SkipPauseRequest V8DebuggerAgentImpl::didPause(
         isPromiseRejection
             ? protocol::Debugger::Paused::ReasonEnum::PromiseRejection
             : protocol::Debugger::Paused::ReasonEnum::Exception;
-    
+
     ErrorString errorString;
     std::unique_ptr<protocol::Runtime::RemoteObject> remoteObject;
 
@@ -1046,8 +1046,7 @@ V8DebuggerAgentImpl::SkipPauseRequest V8DebuggerAgentImpl::didPause(
     if (remoteObject != nullptr) {
       m_breakAuxData = remoteObject->serialize();
       m_breakAuxData->setBoolean("uncaught", isUncaught);
-    }
-    else {
+    } else {
       m_breakAuxData = nullptr;
     }
     // m_breakAuxData might be null after this.

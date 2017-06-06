@@ -22,8 +22,6 @@
 
 namespace v8 {
 
-using namespace jsrt;
-
 struct PropertyDescriptor::PrivateData {
   PrivateData()
       : enumerable(false),

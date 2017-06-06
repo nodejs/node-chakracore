@@ -18,7 +18,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTUTILS_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTUTILS_H_
 
 #include <assert.h>
 #include <functional>
@@ -63,10 +64,9 @@ inline size_t _countof(T (&)[N]) {
 
 #define IfComFailError(v) \
   { \
-  hr = (v) ; \
-  if (FAILED(hr)) \
-    { \
-    goto error; \
+    hr = (v) ; \
+    if (FAILED(hr)) { \
+      goto error; \
     } \
   }
 
@@ -236,7 +236,7 @@ JsErrorCode PushArray(JsValueRef array,
 JsErrorCode CallProperty(JsValueRef ref,
                          CachedPropertyIdRef cachedIdRef,
                          JsValueRef *arguments,
-                         unsigned short argumentCount,
+                         unsigned short argumentCount,  // NOLINT(runtime/int)
                          JsValueRef *result);
 
 JsErrorCode CallGetter(JsValueRef ref,
@@ -311,11 +311,12 @@ JsValueRef *resultRef); \
 #include "jsrtcachedpropertyidref.inc"
 #undef DEF_IS_TYPE
 
-JsValueRef CHAKRA_CALLBACK CollectGarbage(JsValueRef callee,
-                                          bool isConstructCall,
-                                          JsValueRef *arguments,
-                                          unsigned short argumentCount,
-                                          void *callbackState);
+JsValueRef CHAKRA_CALLBACK CollectGarbage(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState);
 
 // the possible values for the property descriptor options
 enum PropertyDescriptorOptionValues {
@@ -562,3 +563,5 @@ inline JsErrorCode ValueToDoubleLikely(JsValueRef value, double* dblValue) {
 }
 
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTUTILS_H_

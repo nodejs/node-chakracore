@@ -157,7 +157,9 @@ JsErrorCode TryParseUInt32(
   // http://tinodidriksen.com/2010/02/16/cpp-convert-string-to-int-speed/
 
   char* strEnd;
-  unsigned long longVal = std::strtoul(strPtr, &strEnd, 10);
+  unsigned long longVal = std::strtoul(strPtr,  // NOLINT(runtime/int)
+                                       &strEnd,
+                                       10);
   if (strEnd != strPtr + strPtr.length()) {
     return JsNoError;
   }

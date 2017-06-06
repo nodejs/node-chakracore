@@ -76,7 +76,8 @@ void SetObjectWeakReferenceCallbackCommon(
   // The memory is allocated per request and released similarly.
   // previous shared_ptr interface was actually doing the same.
   // however in case the instance was shared(which is not in motion)
-  // it was keeping the callback until the shared counter reaches to unique state.
+  // it was keeping the callback until the shared counter reaches to unique
+  // state.
   assert(!*weakWrapper && "This should be nullptr.");
   *weakWrapper = new WeakReferenceCallbackWrapper();
 

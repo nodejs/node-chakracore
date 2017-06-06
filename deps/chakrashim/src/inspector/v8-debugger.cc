@@ -273,8 +273,10 @@ bool V8Debugger::setScriptSource(
 }
 
 JavaScriptCallFrames V8Debugger::currentCallFrames(int limit) {
-  if (!m_isolate->InContext()) return JavaScriptCallFrames();
-  
+  if (!m_isolate->InContext()) {
+    return JavaScriptCallFrames();
+  }
+
   JsValueRef stackTrace = JS_INVALID_REFERENCE;
   JsDiagGetStackTrace(&stackTrace);
 
@@ -284,7 +286,7 @@ JavaScriptCallFrames V8Debugger::currentCallFrames(int limit) {
   if (limit > 0 && static_cast<unsigned int>(limit) < length) {
     length = limit;
   }
-  
+
   JavaScriptCallFrames callFrames;
   for (unsigned int i = 0; i < length; ++i) {
     JsValueRef callFrameValue = JS_INVALID_REFERENCE;
@@ -442,8 +444,7 @@ void V8Debugger::HandleSourceEvents(JsValueRef eventData, bool success) {
   V8DebuggerAgentImpl *agent = m_inspector->enabledDebuggerAgentForGroup(
       getGroupId(m_isolate->GetCurrentContext()));
 
-  if (agent != nullptr)
-  {
+  if (agent != nullptr) {
     agent->didParseSource(
         wrapUnique(new V8DebuggerScript(m_isolate, eventData, false)),
         success);

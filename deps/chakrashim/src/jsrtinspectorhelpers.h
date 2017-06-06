@@ -18,14 +18,15 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTINSPECTORHELPERS_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTINSPECTORHELPERS_H_
 
 #include <v8.h>
 
 namespace jsrt {
 
 class InspectorHelpers {
-public:
+ public:
   static JsErrorCode TryCopyProperty(JsValueRef sourceObj,
                                      JsPropertyIdRef sourceIdRef,
                                      JsValueRef destObj,
@@ -64,3 +65,5 @@ public:
 };
 
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTINSPECTORHELPERS_H_

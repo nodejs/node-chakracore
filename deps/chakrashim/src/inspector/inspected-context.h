@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_INSPECTOR_INSPECTEDCONTEXT_H_
-#define V8_INSPECTOR_INSPECTEDCONTEXT_H_
+#ifndef DEPS_CHAKRASHIM_SRC_INSPECTOR_INSPECTED_CONTEXT_H_
+#define DEPS_CHAKRASHIM_SRC_INSPECTOR_INSPECTED_CONTEXT_H_
 
 #include "src/base/macros.h"
 #include "src/inspector/string-16.h"
@@ -56,4 +56,4 @@ class InspectedContext {
 
 }  // namespace v8_inspector
 
-#endif  // V8_INSPECTOR_INSPECTEDCONTEXT_H_
+#endif  // DEPS_CHAKRASHIM_SRC_INSPECTOR_INSPECTED_CONTEXT_H_

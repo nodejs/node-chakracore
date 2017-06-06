@@ -110,7 +110,6 @@ V8DebuggerScript::V8DebuggerScript(v8::Isolate* isolate,
     m_endColumn(0),
     m_executionContextId(1),
     m_isLiveEdit(false) {
-  
   int scriptId = 0;
   if (jsrt::GetProperty(scriptData, jsrt::CachedPropertyIdRef::scriptId,
                         &scriptId) == JsNoError) {
@@ -127,8 +126,7 @@ V8DebuggerScript::V8DebuggerScript(v8::Isolate* isolate,
   if (GetNamedStringValue(scriptData, jsrt::CachedPropertyIdRef::fileName,
                           &urlValue) == JsNoError) {
     m_url = urlValue;
-  }
-  else if (GetNamedStringValue(scriptData,
+  } else if (GetNamedStringValue(scriptData,
                                jsrt::CachedPropertyIdRef::scriptType,
                                &urlValue) == JsNoError) {
     m_url = urlValue;

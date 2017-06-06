@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_INSPECTOR_PROTOCOLPLATFORM_H_
-#define V8_INSPECTOR_PROTOCOLPLATFORM_H_
+#ifndef DEPS_CHAKRASHIM_SRC_INSPECTOR_PROTOCOL_PLATFORM_H_
+#define DEPS_CHAKRASHIM_SRC_INSPECTOR_PROTOCOL_PLATFORM_H_
 
 #include <memory>
 
@@ -18,4 +18,4 @@ std::unique_ptr<T> wrapUnique(T* ptr) {
 
 }  // namespace v8_inspector
 
-#endif  // V8_INSPECTOR_PROTOCOLPLATFORM_H_
+#endif  // DEPS_CHAKRASHIM_SRC_INSPECTOR_PROTOCOL_PLATFORM_H_

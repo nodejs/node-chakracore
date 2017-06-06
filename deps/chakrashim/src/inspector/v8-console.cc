@@ -500,10 +500,11 @@ void V8Console::valuesCallback(
   info.GetReturnValue().Set(values);
 }
 
-static void setFunctionBreakpoint(ConsoleHelper& helper,
-                                  v8::Local<v8::Function> function,
-                                  V8DebuggerAgentImpl::BreakpointSource source,
-                                  const String16& condition, bool enable) {
+static void setFunctionBreakpoint(
+    ConsoleHelper& helper,  // NOLINT(runtime/references)
+    v8::Local<v8::Function> function,
+    V8DebuggerAgentImpl::BreakpointSource source,
+    const String16& condition, bool enable) {
   V8DebuggerAgentImpl* debuggerAgent = helper.debuggerAgent();
   if (!debuggerAgent) return;
   String16 scriptId = String16::fromInteger(function->ScriptId());

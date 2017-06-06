@@ -19,12 +19,9 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
-#include <cassert>
 #include <memory>
 
 namespace v8 {
-
-using namespace jsrt;
 
 enum AccessorType {
   Setter = 0,
@@ -71,7 +68,7 @@ Maybe<bool> Object::Set(Handle<Value> key, Handle<Value> value,
                         PropertyAttribute attribs, bool force) {
   JsPropertyIdRef idRef;
 
-  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -82,27 +79,26 @@ Maybe<bool> Object::Set(Handle<Value> key, Handle<Value> value,
       return Nothing<bool>();
     }
   } else {  // we have attributes just use it
-    PropertyDescriptorOptionValues writable =
-      PropertyDescriptorOptionValues::False;
+    jsrt::PropertyDescriptorOptionValues writable =
+      jsrt::PropertyDescriptorOptionValues::False;
 
     if ((attribs & ReadOnly) == 0) {
-      writable = PropertyDescriptorOptionValues::True;
+      writable = jsrt::PropertyDescriptorOptionValues::True;
     }
 
-    PropertyDescriptorOptionValues enumerable =
-      PropertyDescriptorOptionValues::False;
+    jsrt::PropertyDescriptorOptionValues enumerable =
+      jsrt::PropertyDescriptorOptionValues::False;
 
     if ((attribs & DontEnum) == 0) {
-      enumerable = PropertyDescriptorOptionValues::True;
+      enumerable = jsrt::PropertyDescriptorOptionValues::True;
     }
 
-    PropertyDescriptorOptionValues configurable =
-      PropertyDescriptorOptionValues::False;
+    jsrt::PropertyDescriptorOptionValues configurable =
+      jsrt::PropertyDescriptorOptionValues::False;
 
     if ((attribs & DontDelete) == 0) {
-      configurable = PropertyDescriptorOptionValues::True;
+      configurable = jsrt::PropertyDescriptorOptionValues::True;
     }
-
 
     if (jsrt::DefineProperty((JsValueRef)this,
                              idRef,
@@ -121,8 +117,8 @@ Maybe<bool> Object::Set(Handle<Value> key, Handle<Value> value,
 
 Maybe<bool> Object::Set(Local<Context> context,
                         uint32_t index, Local<Value> value) {
-  if (SetIndexedProperty((JsValueRef)this,
-                         index, (JsValueRef)(*value)) != JsNoError) {
+  if (jsrt::SetIndexedProperty((JsValueRef)this, index,
+                               (JsValueRef)(*value)) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -140,7 +136,7 @@ Maybe<bool> Object::DefineProperty(Local<v8::Context> context,
                                    PropertyDescriptor& descriptor) {
   JsPropertyIdRef idRef;
 
-  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -158,29 +154,29 @@ Maybe<bool> Object::DefineProperty(Local<v8::Context> context,
       return Nothing<bool>();
     }
   } else {  // we have attributes just use it
-    PropertyDescriptorOptionValues enumerable =
-      PropertyDescriptorOptionValues::None;
-    PropertyDescriptorOptionValues configurable =
-      PropertyDescriptorOptionValues::None;
-    PropertyDescriptorOptionValues writable =
-      PropertyDescriptorOptionValues::None;
+    jsrt::PropertyDescriptorOptionValues enumerable =
+        jsrt::PropertyDescriptorOptionValues::None;
+    jsrt::PropertyDescriptorOptionValues configurable =
+        jsrt::PropertyDescriptorOptionValues::None;
+    jsrt::PropertyDescriptorOptionValues writable =
+        jsrt::PropertyDescriptorOptionValues::None;
 
     if (descriptor.has_enumerable()) {
       enumerable = descriptor.enumerable() ?
-        PropertyDescriptorOptionValues::True :
-        PropertyDescriptorOptionValues::False;
+          jsrt::PropertyDescriptorOptionValues::True :
+          jsrt::PropertyDescriptorOptionValues::False;
     }
 
     if (descriptor.has_configurable()) {
       configurable = descriptor.configurable() ?
-        PropertyDescriptorOptionValues::True :
-        PropertyDescriptorOptionValues::False;
+          jsrt::PropertyDescriptorOptionValues::True :
+          jsrt::PropertyDescriptorOptionValues::False;
     }
 
     if (descriptor.has_writable()) {
       writable = descriptor.writable() ?
-        PropertyDescriptorOptionValues::True :
-        PropertyDescriptorOptionValues::False;
+          jsrt::PropertyDescriptorOptionValues::True :
+          jsrt::PropertyDescriptorOptionValues::False;
     }
 
     if (jsrt::DefineProperty((JsValueRef)this,
@@ -215,7 +211,7 @@ bool Object::ForceSet(Handle<Value> key, Handle<Value> value,
 
 MaybeLocal<Value> Object::Get(Local<Context> context, Local<Value> key) {
   JsPropertyIdRef idRef;
-  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
     return Local<Value>();
   }
 
@@ -234,7 +230,8 @@ Local<Value> Object::Get(Handle<Value> key) {
 MaybeLocal<Value> Object::Get(Local<Context> context, uint32_t index) {
   JsValueRef valueRef;
 
-  if (GetIndexedProperty((JsValueRef)this, index, &valueRef) != JsNoError) {
+  if (jsrt::GetIndexedProperty((JsValueRef)this, index,
+                               &valueRef) != JsNoError) {
     return Local<Value>();
   }
 
@@ -284,7 +281,7 @@ Local<Value> Object::GetOwnPropertyDescriptor(Local<String> key) {
 
 Maybe<bool> Object::Has(Local<Context> context, Local<Value> key) {
   JsPropertyIdRef idRef;
-  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -302,7 +299,7 @@ bool Object::Has(Handle<Value> key) {
 
 Maybe<bool> Object::Delete(Local<Context> context, Local<Value> key) {
   JsPropertyIdRef idRef;
-  if (GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
+  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -331,7 +328,7 @@ bool Object::Has(uint32_t index) {
 }
 
 Maybe<bool> Object::Delete(Local<Context> context, uint32_t index) {
-  if (DeleteIndexedProperty((JsValueRef)this, index) != JsNoError) {
+  if (jsrt::DeleteIndexedProperty((JsValueRef)this, index) != JsNoError) {
     return Nothing<bool>();
   }
   return Just(true);
@@ -360,7 +357,7 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
   JsValueRef setterRef = JS_INVALID_REFERENCE;
 
   JsPropertyIdRef idRef;
-  if (GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
+  if (jsrt::GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -372,10 +369,9 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
     externalData->data = data;
     externalData->signature = signature;
 
-    if (CreateFunctionWithExternalData(Utils::AccessorHandler,
-                                       externalData,
-                                       AcessorExternalObjectFinalizeCallback,
-                                       &getterRef) != JsNoError) {
+    if (jsrt::CreateFunctionWithExternalData(
+            Utils::AccessorHandler, externalData,
+            AcessorExternalObjectFinalizeCallback, &getterRef) != JsNoError) {
       delete externalData;
       return Nothing<bool>();
     }
@@ -389,25 +385,24 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
     externalData->data = data;
     externalData->signature = signature;
 
-    if (CreateFunctionWithExternalData(Utils::AccessorHandler,
-                                       externalData,
-                                       AcessorExternalObjectFinalizeCallback,
-                                       &setterRef) != JsNoError) {
+    if (jsrt::CreateFunctionWithExternalData(
+            Utils::AccessorHandler, externalData,
+            AcessorExternalObjectFinalizeCallback, &setterRef) != JsNoError) {
       delete externalData;
       return Nothing<bool>();
     }
   }
 
-  PropertyDescriptorOptionValues enumerable =
-    GetPropertyDescriptorOptionValue(!(attributes & DontEnum));
-  PropertyDescriptorOptionValues configurable =
-    GetPropertyDescriptorOptionValue(!(attributes & DontDelete));
+  jsrt::PropertyDescriptorOptionValues enumerable =
+      jsrt::GetPropertyDescriptorOptionValue(!(attributes & DontEnum));
+  jsrt::PropertyDescriptorOptionValues configurable =
+      jsrt::GetPropertyDescriptorOptionValue(!(attributes & DontDelete));
 
   // CHAKRA-TODO: we ignore  AccessControl for now..
 
   if (jsrt::DefineProperty((JsValueRef)this,
                            idRef,
-                           PropertyDescriptorOptionValues::None,
+                           jsrt::PropertyDescriptorOptionValues::None,
                            enumerable,
                            configurable,
                            JS_INVALID_REFERENCE,
@@ -531,9 +526,9 @@ Local<String> v8::Object::GetConstructorName() {
     return Local<String>();
   }
 
-  IsolateShim* iso = IsolateShim::FromIsolate(this->GetIsolate());
+  jsrt::IsolateShim* iso = jsrt::IsolateShim::FromIsolate(this->GetIsolate());
   JsPropertyIdRef idRef = iso->GetCachedPropertyIdRef(
-    CachedPropertyIdRef::name);
+      jsrt::CachedPropertyIdRef::name);
 
   JsValueRef name;
   if (JsGetProperty(constructor, idRef, &name) != JsNoError) {
@@ -591,11 +586,12 @@ Maybe<PropertyAttribute> Object::GetRealNamedPropertyAttributes(
   return GetPropertyAttributes(context, key);
 }
 
-JsValueRef CHAKRA_CALLBACK Utils::AccessorHandler(JsValueRef callee,
-                                                  bool isConstructCall,
-                                                  JsValueRef *arguments,
-                                                  unsigned short argumentCount,
-                                                  void *callbackState) {
+JsValueRef CHAKRA_CALLBACK Utils::AccessorHandler(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
   void *externalData;
   JsValueRef result = JS_INVALID_REFERENCE;
 
@@ -603,7 +599,7 @@ JsValueRef CHAKRA_CALLBACK Utils::AccessorHandler(JsValueRef callee,
     return JS_INVALID_REFERENCE;
   }
 
-  if (GetExternalData(callee, &externalData) != JsNoError) {
+  if (jsrt::GetExternalData(callee, &externalData) != JsNoError) {
     return result;
   }
 
@@ -632,10 +628,10 @@ JsValueRef CHAKRA_CALLBACK Utils::AccessorHandler(JsValueRef callee,
   switch (accessorData->type) {
     case Setter:
     {
-      assert(argumentCount == 2);
+      CHAKRA_VERIFY(argumentCount == 2);
       PropertyCallbackInfo<void> info(dataLocal, thisLocal, holder);
       accessorData->setter(
-        propertyNameLocal, static_cast<Value*>(arguments[1]), info);
+          propertyNameLocal, static_cast<Value*>(arguments[1]), info);
       break;
     }
     case Getter:
@@ -665,7 +661,7 @@ Local<Value> Object::GetHiddenValue(Handle<String> key) {
   JsValueRef result;
   if (jsrt::GetPrivate((JsValueRef)this, (JsValueRef)*key, &result)
       != JsNoError) {
-    result = GetUndefined();
+    result = jsrt::GetUndefined();
   }
 
   return Local<Value>::New(static_cast<Value*>(result));
@@ -676,7 +672,7 @@ MaybeLocal<Value> Object::GetPrivate(Local<Context> context,
   JsValueRef result;
   if (jsrt::GetPrivate((JsValueRef)this, (JsValueRef)*key, &result)
       != JsNoError) {
-    result = GetUndefined();
+    result = jsrt::GetUndefined();
   }
 
   return Local<Value>::New(static_cast<Value*>(result));
@@ -800,8 +796,8 @@ Local<Context> Object::CreationContext() {
 }
 
 Isolate* Object::GetIsolate() {
-  return IsolateShim::GetContextShimOfObject(this)->
-    GetIsolateShim()->GetCurrentAsIsolate();
+  return jsrt::IsolateShim::GetContextShimOfObject(this)->
+      GetIsolateShim()->GetCurrentAsIsolate();
 }
 
 Local<Object> Object::New(Isolate* isolate) {
@@ -833,20 +829,20 @@ void Object::SetAccessorProperty(Local<Name> name, Local<Function> getter,
                                  PropertyAttribute attribute,
                                  AccessControl settings) {
   JsPropertyIdRef idRef;
-  if (GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
+  if (jsrt::GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
     return;
   }
 
-  PropertyDescriptorOptionValues enumerable =
-      GetPropertyDescriptorOptionValue(!(attribute & DontEnum));
-  PropertyDescriptorOptionValues configurable =
-      GetPropertyDescriptorOptionValue(!(attribute & DontDelete));
+  jsrt::PropertyDescriptorOptionValues enumerable =
+      jsrt::GetPropertyDescriptorOptionValue(!(attribute & DontEnum));
+  jsrt::PropertyDescriptorOptionValues configurable =
+      jsrt::GetPropertyDescriptorOptionValue(!(attribute & DontDelete));
 
   // CHAKRA-TODO: we ignore  AccessControl for now..
 
   if (jsrt::DefineProperty((JsValueRef)this,
                            idRef,
-                           PropertyDescriptorOptionValues::None,
+                           jsrt::PropertyDescriptorOptionValues::None,
                            enumerable,
                            configurable,
                            JS_INVALID_REFERENCE,

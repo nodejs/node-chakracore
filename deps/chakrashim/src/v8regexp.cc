@@ -25,14 +25,15 @@ namespace v8 {
 using jsrt::IsolateShim;
 using jsrt::ContextShim;
 
-static const size_t c_maxFlagCount = 3;
+static const size_t kMaxFlagCount = 3;
 
 MaybeLocal<RegExp> RegExp::New(Local<Context> context, Handle<String> pattern,
                                Flags flags) {
-  ContextShim *contextShim = IsolateShim::GetContextShim((JsContextRef)*context);
+  ContextShim *contextShim = IsolateShim::GetContextShim(
+      (JsContextRef)*context);
   JsValueRef regExpConstructor = contextShim->GetRegExpConstructor();
 
-  char flagsStr[c_maxFlagCount];
+  char flagsStr[kMaxFlagCount];
   size_t flagsCount = 0;
 
   if (flags & Flags::kGlobal) {
@@ -55,7 +56,8 @@ MaybeLocal<RegExp> RegExp::New(Local<Context> context, Handle<String> pattern,
   }
 
   JsValueRef newObj;
-  if (jsrt::ConstructObject(regExpConstructor, (JsValueRef)*pattern, flagsValue, &newObj) != JsNoError) {
+  if (jsrt::ConstructObject(regExpConstructor, (JsValueRef)*pattern, flagsValue,
+                            &newObj) != JsNoError) {
     return MaybeLocal<RegExp>();
   }
 
