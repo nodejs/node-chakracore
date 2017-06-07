@@ -6,7 +6,7 @@ const assert = require('assert');
 
 // addon is referenced through the eval expression in testFile
 // eslint-disable-next-line no-unused-vars
-const addon = require(`./build/${common.buildType}/test_instanceof`);
+const addon = require(`./build/${common.buildType}/test_general`);
 const path = require('path');
 
 // The following assert functions are referenced by v8's unit tests
@@ -74,8 +74,7 @@ if (typeof Symbol !== 'undefined' && 'hasInstance' in Symbol &&
   compareToNative(x, MySubClass);
   compareToNative(y, MySubClass);
   compareToNative(x, MyClass);
-  // TODO: https://github.com/nodejs/abi-stable-node/issues/236
-  // compareToNative(y, MyClass);
+  compareToNative(y, MyClass);
 
   x = new MyClass();
   y = new MyClass();
@@ -84,6 +83,5 @@ if (typeof Symbol !== 'undefined' && 'hasInstance' in Symbol &&
   compareToNative(x, MySubClass);
   compareToNative(y, MySubClass);
   compareToNative(x, MyClass);
-  // TODO: https://github.com/nodejs/abi-stable-node/issues/236
-  // compareToNative(y, MyClass);
+  compareToNative(y, MyClass);
 }

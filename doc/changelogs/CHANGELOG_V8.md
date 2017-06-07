@@ -22,7 +22,7 @@
   * [Archive](CHANGELOG_ARCHIVE.md)
 
 <a id="8.0.0"></a>
-## 2017-04-25, Version 8.0.0 (Current), @jasnell
+## 2017-05-30, Version 8.0.0 (Current), @jasnell
 
 Node.js 8.0.0 is a major new release that includes a significant number of
 `semver-major` and `semver-minor` changes. Notable changes are listed below.
@@ -136,7 +136,7 @@ LTS codename `'Carbon'`. Note that the
 
 * **Src**
   * `NODE_MODULE_VERSION` has been updated to 57
-    (https://github.com/nodejs/node/commit/ec7cbaf266)]
+    [[`ec7cbaf266`](https://github.com/nodejs/node/commit/ec7cbaf266)]
     [#12995](https://github.com/nodejs/node/pull/12995).
   * Add `--pending-deprecation` command-line argument and
     `NODE_PENDING_DEPRECATION` environment variable

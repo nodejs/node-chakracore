@@ -3670,7 +3670,7 @@ static void PrintHelp() {
          "  -r, --require              module to preload (option can be "
          "repeated)\n"
          "  -                          script read from stdin (default; "
-         "interactive mode if a tty)"
+         "interactive mode if a tty)\n"
 #if HAVE_INSPECTOR
          "  --inspect[=[host:]port]    activate inspector on host:port\n"
          "                             (default: 127.0.0.1:9229)\n"
@@ -4116,8 +4116,8 @@ static void ParseArgs(int* argc,
 }
 
 
-static void StartDebug(Environment* env, const char* path,
-                       DebugOptions debug_options) {
+static void StartInspector(Environment* env, const char* path,
+                           DebugOptions debug_options) {
 #if HAVE_INSPECTOR
   CHECK(!env->inspector_agent()->IsStarted());
   v8_platform.StartInspector(env, path, debug_options);
@@ -4649,7 +4649,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
   const char* path = argc > 1 ? argv[1] : nullptr;
-  StartDebug(&env, path, debug_options);
+  StartInspector(&env, path, debug_options);
 
   if (debug_options.inspector_enabled() && !v8_platform.InspectorStarted(&env))
     return 12;  // Signal internal error.
@@ -4820,9 +4820,6 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
 
   Environment env(isolate_data, context);
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
-
-  // Start debug agent when argv has --debug
-  StartDebug(&env, nullptr, debug_options);
 
   if (debug_options.inspector_enabled() && !v8_platform.InspectorStarted(&env))
     return 12;  // Signal internal error.
