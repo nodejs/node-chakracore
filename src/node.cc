@@ -4821,6 +4821,8 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
   Environment env(isolate_data, context);
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
+  StartInspector(&env, nullptr, debug_options);
+
   if (debug_options.inspector_enabled() && !v8_platform.InspectorStarted(&env))
     return 12;  // Signal internal error.
 
