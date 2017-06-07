@@ -312,12 +312,6 @@ copy /Y node.lib node-v%FULLVERSION%-win-%target_arch%\sdk\%config%\ > nul
 if errorlevel 1 echo Cannot copy node.lib && goto package_error
 copy /Y chakracore.lib node-v%FULLVERSION%-win-%target_arch%\sdk\%config%\ > nul
 if errorlevel 1 echo Cannot copy chakracore.lib && goto package_error
-set "pkgnpmsh=node-v%FULLVERSION%-win-%target_arch%/npm"
-%native_node_exe% -e "var data=fs.readFileSync('%pkgnpmsh%', 'utf8').split('\n');data.splice(-2, 0, 'export NPM_CONFIG_NODEDIR=\"$basedir/sdk\"');fs.writeFileSync('%pkgnpmsh%', data.join('\n'))"
-if errorlevel 1 echo Cannot change %pkgnpmsh% && goto package_error
-set "pkgnpmcmd=node-v%FULLVERSION%-win-%target_arch%/npm.cmd"
-%native_node_exe% -e "var data=fs.readFileSync('%pkgnpmcmd%', 'utf8').split('\n');data.splice(-2, 0, 'SET \"NPM_CONFIG_NODEDIR=%%~dp0\\sdk\"');fs.writeFileSync('%pkgnpmcmd%', data.join('\n'))"
-if errorlevel 1 echo Cannot change %pkgnpmcmd% && goto package_error
 
 echo Creating node-v%FULLVERSION%-win-%target_arch%.7z
 del node-v%FULLVERSION%-win-%target_arch%.7z > nul 2> nul
