@@ -28,8 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef V8_INSPECTOR_V8FUNCTIONCALL_H_
-#define V8_INSPECTOR_V8FUNCTIONCALL_H_
+#ifndef DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_FUNCTION_CALL_H_
+#define DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_FUNCTION_CALL_H_
 
 #include "src/inspector/string-16.h"
 
@@ -49,7 +49,8 @@ class V8FunctionCall {
   void appendArgument(int);
   void appendArgument(bool);
 
-  v8::Local<v8::Value> call(bool& hadException, bool reportExceptions = true);
+  v8::Local<v8::Value> call(bool& hadException,  // NOLINT(runtime/references)
+                            bool reportExceptions = true);
   v8::Local<v8::Value> callWithoutExceptionHandling();
 
  protected:
@@ -62,4 +63,4 @@ class V8FunctionCall {
 
 }  // namespace v8_inspector
 
-#endif  // V8_INSPECTOR_V8FUNCTIONCALL_H_
+#endif  // DEPS_CHAKRASHIM_SRC_INSPECTOR_V8_FUNCTION_CALL_H_

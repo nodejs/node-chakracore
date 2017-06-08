@@ -5,7 +5,6 @@
 #include "src/inspector/v8-debugger-agent-impl.h"
 
 #include <algorithm>
-#include <assert.h>
 
 #include "src/inspector/java-script-call-frame.h"
 #include "src/inspector/protocol/Protocol.h"
@@ -19,10 +18,10 @@
 #include "src/inspector/v8-regex.h"
 #include "src/inspector/v8-runtime-agent-impl.h"
 #include "src/inspector/v8-stack-trace-impl.h"
-
 #include "include/v8-inspector.h"
 #include "src/jsrtinspector.h"
 #include "src/jsrtinspectorhelpers.h"
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -256,7 +255,7 @@ void V8DebuggerAgentImpl::disable(ErrorString*) {
 
 void V8DebuggerAgentImpl::restore() {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8DebuggerAgentImpl::setBreakpointsActive(ErrorString* errorString,
@@ -575,7 +574,7 @@ void V8DebuggerAgentImpl::restartFrame(
     std::unique_ptr<Array<CallFrame>>* newCallFrames,
     Maybe<StackTrace>* asyncStackTrace) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8DebuggerAgentImpl::getScriptSource(ErrorString* error,
@@ -688,7 +687,7 @@ void V8DebuggerAgentImpl::setPauseOnExceptions(
     *errorString = "Unknown pause on exceptions mode: " + stringPauseState;
     return;
   }
-  
+
   m_debugger->setPauseOnExceptionsState(
       static_cast<V8Debugger::PauseOnExceptionsState>(pauseState));
   if (m_debugger->getPauseOnExceptionsState() != pauseState) {
@@ -708,8 +707,8 @@ void V8DebuggerAgentImpl::evaluateOnCallFrame(
   if (!assertPaused(errorString)) return;
 
   int ordinal;
-  if (!parseCallFrameId(callFrameId, &ordinal) ||
-      ordinal < 0 || static_cast<size_t>(ordinal) >= m_pausedCallFrames.size()) {
+  if (!parseCallFrameId(callFrameId, &ordinal) || ordinal < 0 ||
+      static_cast<size_t>(ordinal) >= m_pausedCallFrames.size()) {
     *errorString = "Could not find call frame with given id";
     return;
   }
@@ -729,9 +728,10 @@ void V8DebuggerAgentImpl::evaluateOnCallFrame(
       toProtocolValue(errorString, v8::Context::GetCurrent(),
                       maybeResultValue.ToLocalChecked());
   if (!protocolValue) {
-    assert(false);
+    CHAKRA_ASSERT(false);
     return;
   }
+
   std::unique_ptr<protocol::Runtime::RemoteObject> remoteObject =
       protocol::Runtime::RemoteObject::parse(protocolValue.get(), &errors);
   if (!remoteObject) {
@@ -769,7 +769,7 @@ void V8DebuggerAgentImpl::setVariableValue(
     std::unique_ptr<protocol::Runtime::CallArgument> newValueArgument,
     const String16& callFrameId) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8DebuggerAgentImpl::setAsyncCallStackDepth(ErrorString* errorString,
@@ -861,12 +861,12 @@ void V8DebuggerAgentImpl::setBlackboxedRanges(
 
 void V8DebuggerAgentImpl::willExecuteScript(int scriptId) {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8DebuggerAgentImpl::didExecuteScript() {
   // CHAKRA-TODO - Figure out what to do here
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 std::unique_ptr<Array<CallFrame>> V8DebuggerAgentImpl::currentCallFrames(
@@ -1026,7 +1026,7 @@ V8DebuggerAgentImpl::SkipPauseRequest V8DebuggerAgentImpl::didPause(
         isPromiseRejection
             ? protocol::Debugger::Paused::ReasonEnum::PromiseRejection
             : protocol::Debugger::Paused::ReasonEnum::Exception;
-    
+
     ErrorString errorString;
     std::unique_ptr<protocol::Runtime::RemoteObject> remoteObject;
 
@@ -1039,15 +1039,14 @@ V8DebuggerAgentImpl::SkipPauseRequest V8DebuggerAgentImpl::didPause(
           protocolValue.get(), &errors);
       if (remoteObject == nullptr) {
         errorString = errors.errors();
-        assert(false);
+        CHAKRA_ASSERT(false);
       }
     }
 
     if (remoteObject != nullptr) {
       m_breakAuxData = remoteObject->serialize();
       m_breakAuxData->setBoolean("uncaught", isUncaught);
-    }
-    else {
+    } else {
       m_breakAuxData = nullptr;
     }
     // m_breakAuxData might be null after this.

@@ -4,8 +4,6 @@
 
 #include "src/inspector/v8-console-message.h"
 
-#include <assert.h>
-
 #include "src/inspector/inspected-context.h"
 #include "src/inspector/protocol/Protocol.h"
 #include "src/inspector/string-util.h"
@@ -14,8 +12,8 @@
 #include "src/inspector/v8-inspector-session-impl.h"
 #include "src/inspector/v8-runtime-agent-impl.h"
 #include "src/inspector/v8-stack-trace-impl.h"
-
 #include "include/v8-inspector.h"
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -245,9 +243,8 @@ V8ConsoleMessage::wrapArguments(V8InspectorSessionImpl* session,
 
   if (m_type == ConsoleAPIType::kTable && generatePreview) {
     // CHAKRA-TODO - Figure out what to do here.
-    assert(false);
-  }
-  else {
+    CHAKRA_UNIMPLEMENTED();
+  } else {
     for (size_t i = 0; i < m_arguments.size(); ++i) {
       // CHAKRA-TODO - Figure out what to do here.
       v8::Local<v8::Value> arg = m_arguments[i]->Get(isolate);

@@ -119,7 +119,8 @@ void ArrayBuffer::TTDRawBufferModifyNotifySync(UINT32 index, UINT32 count) {
   JsTTDRawBufferModifySyncIndirect(this, index, count);
 }
 void ArrayBuffer::TTDRawBufferCopyNotify(Local<ArrayBuffer> dst,
-                                         UINT32 dstindex, Local<ArrayBuffer> src,
+                                         UINT32 dstindex,
+                                         Local<ArrayBuffer> src,
                                          UINT32 srcIndex, UINT32 count) {
   JsTTDRawBufferCopySyncIndirect(*dst, dstindex, *src, srcIndex, count);
 }

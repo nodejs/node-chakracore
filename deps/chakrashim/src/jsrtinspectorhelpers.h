@@ -18,46 +18,25 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTINSPECTORHELPERS_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTINSPECTORHELPERS_H_
 
 #include <v8.h>
 
 namespace jsrt {
 
 class InspectorHelpers {
-public:
-  static JsErrorCode HasProperty(JsValueRef obj, const char* name,
-                                 bool* hasProperty);
-  static JsErrorCode GetProperty(JsValueRef obj, const char* name,
-                                 JsValueRef* value);
-  static JsErrorCode GetBoolProperty(JsValueRef obj, const char* name,
-                                     bool* value);
-  static JsErrorCode GetIntProperty(JsValueRef obj, const char* name,
-                                    int* value);
-  static JsErrorCode GetIndexedProperty(JsValueRef obj, int index,
-                                        JsValueRef* value);
-  static JsErrorCode SetProperty(JsValueRef obj, const char* name,
-                                 JsValueRef value);
-  static JsErrorCode SetBoolProperty(JsValueRef obj, const char* name,
-                                     bool value);
-  static JsErrorCode SetStringProperty(JsValueRef obj, const char* name,
-                                       const char* value);
-  static JsErrorCode SetIndexedProperty(JsValueRef obj, int index,
-                                        JsValueRef value);
-  static JsErrorCode TryCopyProperty(JsValueRef sourceObj, 
-                                     const char* sourceName,
+ public:
+  static JsErrorCode TryCopyProperty(JsValueRef sourceObj,
+                                     JsPropertyIdRef sourceIdRef,
                                      JsValueRef destObj,
-                                     const char* destName = nullptr,
+                                     JsPropertyIdRef destIdRef,
                                      bool* wasCopied = nullptr);
   static JsErrorCode TryCopyPropertyString(JsValueRef sourceObj,
-                                           const char* sourceName,
+                                           JsPropertyIdRef sourceIdRef,
                                            JsValueRef destObj,
-                                           const char* destName = nullptr,
+                                           JsPropertyIdRef destIdRef,
                                            bool* wasCopied = nullptr);
-
-  static JsErrorCode ArrayConcat(JsValueRef array, JsValueRef value,
-                                 JsValueRef* result);
-  static JsErrorCode ArrayPush(JsValueRef array, JsValueRef value);
 
   static v8::Local<v8::Value> WrapEvaluateObject(JsValueRef sourceObject);
   static v8::Local<v8::Object> WrapCallFrameDetails(JsValueRef callFrame);
@@ -86,3 +65,5 @@ public:
 };
 
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTINSPECTORHELPERS_H_

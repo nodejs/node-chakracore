@@ -18,7 +18,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_V8CHAKRA_H_
+#define DEPS_CHAKRASHIM_SRC_V8CHAKRA_H_
+
 #include "v8.h"
 #include "jsrtutils.h"
 
@@ -143,77 +145,77 @@ class TemplateData : public ExternalData {
 class Utils {
  public:
   static JsValueRef CHAKRA_CALLBACK AccessorHandler(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
 
   static JsValueRef CHAKRA_CALLBACK GetCallback(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
   static JsValueRef CHAKRA_CALLBACK SetCallback(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
   static JsValueRef CHAKRA_CALLBACK DeletePropertyCallback(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
 
   static JsValueRef HasPropertyHandler(
-    JsValueRef *arguments,
-    unsigned short argumentCount);
+      JsValueRef *arguments,
+      unsigned short argumentCount);  // NOLINT(runtime/int)
   static JsValueRef CHAKRA_CALLBACK HasCallback(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
 
   static JsValueRef GetPropertiesEnumeratorHandler(
-    JsValueRef* arguments,
-    unsigned int argumentsCount);
+      JsValueRef* arguments,
+      unsigned int argumentsCount);
   static JsValueRef CHAKRA_CALLBACK EnumerateCallback(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
 
   static JsValueRef GetPropertiesHandler(
-    JsValueRef* arguments,
-    unsigned int argumentsCount,
-    bool getFromPrototype);
+      JsValueRef* arguments,
+      unsigned int argumentsCount,
+      bool getFromPrototype);
   static JsValueRef CHAKRA_CALLBACK OwnKeysCallback(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
   static JsValueRef CHAKRA_CALLBACK GetOwnPropertyDescriptorCallback(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
 
   static void CHAKRA_CALLBACK WeakReferenceCallbackWrapperCallback(
-    JsRef ref, void *data);
+      JsRef ref, void *data);
 
   static JsValueRef CHAKRA_CALLBACK ObjectPrototypeToStringShim(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,
-    void *callbackState);
+      JsValueRef callee,
+      bool isConstructCall,
+      JsValueRef *arguments,
+      unsigned short argumentCount,  // NOLINT(runtime/int)
+      void *callbackState);
 
   // Create a Local<T> internally (use private constructor)
   template <class T>
@@ -266,5 +268,6 @@ Local<T> FromMaybe(MaybeLocal<T> maybe, const Local<T>& def = Local<T>()) {
   return maybe.FromMaybe(def);
 }
 
-
 }  // namespace v8
+
+#endif  // DEPS_CHAKRASHIM_SRC_V8CHAKRA_H_

@@ -18,7 +18,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTUTILS_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTUTILS_H_
 
 #include <assert.h>
 #include <functional>
@@ -63,10 +64,9 @@ inline size_t _countof(T (&)[N]) {
 
 #define IfComFailError(v) \
   { \
-  hr = (v) ; \
-  if (FAILED(hr)) \
-    { \
-    goto error; \
+    hr = (v) ; \
+    if (FAILED(hr)) { \
+      goto error; \
     } \
   }
 
@@ -132,6 +132,18 @@ JsErrorCode GetProperty(JsValueRef ref,
 
 JsErrorCode GetProperty(JsValueRef ref,
                         JsPropertyIdRef propId,
+                        bool *boolValue);
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        bool *boolValue);
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        int *intValue);
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
                         int *intValue);
 
 JsErrorCode SetProperty(JsValueRef ref,
@@ -141,6 +153,26 @@ JsErrorCode SetProperty(JsValueRef ref,
 JsErrorCode SetProperty(JsValueRef ref,
                         CachedPropertyIdRef cachedIdRef,
                         JsValueRef propValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        const char *propertyName,
+                        JsValueRef propValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        bool boolValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        bool boolValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        const char *stringValue);
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        const char *stringValue);
 
 JsErrorCode DeleteIndexedProperty(JsValueRef object,
                                   unsigned int index);
@@ -165,6 +197,10 @@ JsErrorCode HasOwnProperty(JsValueRef object,
 
 JsErrorCode HasProperty(JsValueRef object,
                         JsValueRef prop,
+                        bool *result);
+
+JsErrorCode HasProperty(JsValueRef object,
+                        CachedPropertyIdRef cachedIdRef,
                         bool *result);
 
 JsErrorCode HasIndexedProperty(JsValueRef object,
@@ -193,10 +229,14 @@ JsErrorCode ConcatArray(JsValueRef first,
                         JsValueRef second,
                         JsValueRef *result);
 
+JsErrorCode PushArray(JsValueRef array,
+                      JsValueRef item,
+                      JsValueRef *result);
+
 JsErrorCode CallProperty(JsValueRef ref,
                          CachedPropertyIdRef cachedIdRef,
                          JsValueRef *arguments,
-                         unsigned short argumentCount,
+                         unsigned short argumentCount,  // NOLINT(runtime/int)
                          JsValueRef *result);
 
 JsErrorCode CallGetter(JsValueRef ref,
@@ -230,10 +270,6 @@ bool InstanceOf(JsValueRef first,
 JsErrorCode CloneObject(JsValueRef source,
                         JsValueRef target,
                         bool cloneProtoype = false);
-
-JsErrorCode ConcatArray(JsValueRef first,
-                        JsValueRef second,
-                        JsValueRef *result);
 
 JsErrorCode GetPropertyNames(JsValueRef object,
                              JsValueRef *namesArray);
@@ -275,11 +311,12 @@ JsValueRef *resultRef); \
 #include "jsrtcachedpropertyidref.inc"
 #undef DEF_IS_TYPE
 
-JsValueRef CHAKRA_CALLBACK CollectGarbage(JsValueRef callee,
-                                          bool isConstructCall,
-                                          JsValueRef *arguments,
-                                          unsigned short argumentCount,
-                                          void *callbackState);
+JsValueRef CHAKRA_CALLBACK CollectGarbage(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState);
 
 // the possible values for the property descriptor options
 enum PropertyDescriptorOptionValues {
@@ -495,6 +532,16 @@ JsErrorCode ValueToNative(const JsConvertToValueFunc& JsConvertToValue,
   return JsValueToNative(value, nativeValue);
 }
 
+inline JsErrorCode ValueToBool(JsValueRef value, bool* boolValue) {
+  return ValueToNative</*LIKELY*/false>(
+    JsConvertValueToBoolean, JsBooleanToBool, value, boolValue);
+}
+
+inline JsErrorCode ValueToBoolLikely(JsValueRef value, bool* boolValue) {
+  return ValueToNative</*LIKELY*/true>(
+    JsConvertValueToBoolean, JsBooleanToBool, value, boolValue);
+}
+
 inline JsErrorCode ValueToInt(JsValueRef value, int* intValue) {
   return ValueToNative</*LIKELY*/false>(
     JsConvertValueToNumber, JsNumberToInt, value, intValue);
@@ -516,3 +563,5 @@ inline JsErrorCode ValueToDoubleLikely(JsValueRef value, double* dblValue) {
 }
 
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTUTILS_H_

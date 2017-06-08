@@ -9,6 +9,7 @@
 #include "src/inspector/search-util.h"
 
 #include "src/jsrtinspectorhelpers.h"
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -73,12 +74,12 @@ static String16 calculateHash(const String16& str) {
 }
 
 static JsErrorCode GetNamedStringValue(JsValueRef object,
-                                       const char *propName,
+                                       jsrt::CachedPropertyIdRef cachedIdRef,
                                        String16 *value) {
   JsErrorCode err = JsNoError;
 
   JsValueRef propValue;
-  err = InspectorHelpers::GetProperty(object, propName, &propValue);
+  err = jsrt::GetProperty(object, cachedIdRef, &propValue);
   if (err != JsNoError) {
     return err;
   }
@@ -109,26 +110,25 @@ V8DebuggerScript::V8DebuggerScript(v8::Isolate* isolate,
     m_endColumn(0),
     m_executionContextId(1),
     m_isLiveEdit(false) {
-  
   int scriptId = 0;
-  if (InspectorHelpers::GetIntProperty(
-      scriptData, "scriptId", &scriptId) == JsNoError) {
+  if (jsrt::GetProperty(scriptData, jsrt::CachedPropertyIdRef::scriptId,
+                        &scriptId) == JsNoError) {
     m_id = String16::fromInteger(scriptId);
   }
 
   int lineCount = 0;
-  if (InspectorHelpers::GetIntProperty(
-      scriptData, "lineCount", &lineCount) == JsNoError) {
+  if (jsrt::GetProperty(scriptData, jsrt::CachedPropertyIdRef::lineCount,
+                        &lineCount) == JsNoError) {
     m_endLine = lineCount;
   }
 
   String16 urlValue;
-  if (GetNamedStringValue(
-      scriptData, "fileName", &urlValue) == JsNoError) {
+  if (GetNamedStringValue(scriptData, jsrt::CachedPropertyIdRef::fileName,
+                          &urlValue) == JsNoError) {
     m_url = urlValue;
-  }
-  else if (GetNamedStringValue(
-      scriptData, "scriptType", &urlValue) == JsNoError) {
+  } else if (GetNamedStringValue(scriptData,
+                               jsrt::CachedPropertyIdRef::scriptType,
+                               &urlValue) == JsNoError) {
     m_url = urlValue;
   }
 

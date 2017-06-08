@@ -32,6 +32,8 @@
 
 namespace v8 {
 
+static const size_t kMaxVersionLength = 32;
+
 bool g_disposed = false;
 bool g_exposeGC = false;
 bool g_useStrict = false;
@@ -50,14 +52,14 @@ HeapStatistics::HeapStatistics()
       does_zap_garbage_(0) {}
 
 const char *V8::GetVersion() {
-  static char versionStr[32] = {};
+  static char versionStr[kMaxVersionLength] = {};
 
   if (versionStr[0] == '\0') {
 #ifdef _WIN32
     HMODULE hModule;
     if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                           TEXT(NODE_ENGINE), &hModule)) {
-      WCHAR filename[_MAX_PATH];
+      WCHAR filename[_MAX_PATH];  // NOLINT(runtime/arrays)
       DWORD len = GetModuleFileNameW(hModule, filename, _countof(filename));
       if (len > 0) {
         DWORD dwHandle = 0;
@@ -80,11 +82,9 @@ const char *V8::GetVersion() {
       }
     }
 #else
-  sprintf(versionStr, "%d.%d.%d.%d",
-          CHAKRA_CORE_MAJOR_VERSION,
-          CHAKRA_CORE_MINOR_VERSION,
-          CHAKRA_CORE_VERSION_RELEASE,
-          CHAKRA_CORE_VERSION_RELEASE_QFE);
+  snprintf(versionStr, kMaxVersionLength, "%d.%d.%d.%d",
+           CHAKRA_CORE_MAJOR_VERSION, CHAKRA_CORE_MINOR_VERSION,
+           CHAKRA_CORE_VERSION_RELEASE, CHAKRA_CORE_VERSION_RELEASE_QFE);
 #endif
   }
 
@@ -216,7 +216,8 @@ namespace platform {
   }
 
   bool PumpMessageLoop(v8::Platform* platform, v8::Isolate* isolate) {
-    return static_cast<jsrt::DefaultPlatform*>(platform)->PumpMessageLoop(isolate);
+    return static_cast<jsrt::DefaultPlatform*>(platform)->PumpMessageLoop(
+        isolate);
   }
 
   void SetTracingController(

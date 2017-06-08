@@ -4,8 +4,6 @@
 
 #include "src/inspector/v8-inspector-session-impl.h"
 
-#include <assert.h>
-
 #include "src/inspector/inspected-context.h"
 #include "src/inspector/protocol/Protocol.h"
 #include "src/inspector/search-util.h"
@@ -17,8 +15,8 @@
 #include "src/inspector/v8-runtime-agent-impl.h"
 #include "src/inspector/v8-schema-agent-impl.h"
 #include "src/inspector/v8-timetravel-agent-impl.h"
-
 #include "src/jsrtinspector.h"
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -50,7 +48,6 @@ V8InspectorSessionImpl::V8InspectorSessionImpl(V8InspectorImpl* inspector,
     : m_contextGroupId(contextGroupId),
       m_inspector(inspector),
       m_channel(channel),
-      m_customObjectFormatterEnabled(false),
       m_dispatcher(this),
       m_state(nullptr),
       m_runtimeAgent(nullptr),
@@ -134,10 +131,8 @@ void V8InspectorSessionImpl::reset() {
 }
 
 void V8InspectorSessionImpl::setCustomObjectFormatterEnabled(bool enabled) {
-  m_customObjectFormatterEnabled = enabled;
-  
   // CHAKRA-TODO - Figure out what to do here.
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8InspectorSessionImpl::reportAllContexts(V8RuntimeAgentImpl* agent) {

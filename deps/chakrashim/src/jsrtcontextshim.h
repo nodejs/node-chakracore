@@ -18,6 +18,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTCONTEXTSHIM_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTCONTEXTSHIM_H_
+
 #include <vector>
 
 namespace jsrt {
@@ -138,9 +141,9 @@ class ContextShim {
   std::vector<void*> embedderData;
 
 #define DECLARE_CHAKRASHIM_FUNCTION_GETTER(F) \
-public: \
+ public: \
   JsValueRef Get##F##Function(); \
-private: \
+ private: \
   JsValueRef F##Function; \
 
 #define DEF_IS_TYPE(F) DECLARE_CHAKRASHIM_FUNCTION_GETTER(F)
@@ -167,3 +170,5 @@ private: \
 };
 
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTCONTEXTSHIM_H_

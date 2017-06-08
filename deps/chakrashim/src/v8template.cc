@@ -31,7 +31,8 @@ void Template::Set(
     Local<Name> name, Local<Data> value, PropertyAttribute attributes) {
   ExternalData* externalData = nullptr;
   if (!ExternalData::TryGet(this, &externalData)) {
-    CHAKRA_ASSERT(false); // This should never happen
+    // This should never happen
+    CHAKRA_ASSERT(false);
     return;
   }
 

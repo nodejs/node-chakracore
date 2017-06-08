@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_BASE_MACROS_H_
-#define V8_BASE_MACROS_H_
+#ifndef DEPS_CHAKRASHIM_SRC_BASE_MACROS_H_
+#define DEPS_CHAKRASHIM_SRC_BASE_MACROS_H_
 
 #include "logging.h"
 
@@ -17,14 +17,14 @@
 // Note that the function doesn't need an implementation, as we only
 // use its type.
 template <typename T, size_t N>
-char(&ArraySizeHelper(T(&array)[N]))[N];
+char (&ArraySizeHelper(T (&array)[N]))[N];
 
 #if !V8_CC_MSVC
 // That gcc wants both of these prototypes seems mysterious. VC, for
 // its part, can't decide which to use (another mystery). Matching of
 // template overloads: the final frontier.
 template <typename T, size_t N>
-char(&ArraySizeHelper(const T(&array)[N]))[N];
+char (&ArraySizeHelper(const T (&array)[N]))[N];
 #endif
 
 // A macro to disallow the evil copy constructor and operator= functions
@@ -48,4 +48,4 @@ char(&ArraySizeHelper(const T(&array)[N]))[N];
 template <typename T>
 inline void USE(T) { }
 
-#endif   // V8_BASE_MACROS_H_
+#endif   // DEPS_CHAKRASHIM_SRC_BASE_MACROS_H_

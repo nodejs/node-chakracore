@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_INSPECTOR_STRINGUTIL_H_
-#define V8_INSPECTOR_STRINGUTIL_H_
+#ifndef DEPS_CHAKRASHIM_SRC_INSPECTOR_STRING_UTIL_H_
+#define DEPS_CHAKRASHIM_SRC_INSPECTOR_STRING_UTIL_H_
 
 #include "src/base/macros.h"
 #include "src/inspector/string-16.h"
@@ -30,7 +30,8 @@ class StringUtil {
   }
   static String fromDouble(double number) { return String::fromDouble(number); }
   static const size_t kNotFound = String::kNotFound;
-  static void builderReserve(StringBuilder& builder, size_t capacity) {
+  static void builderReserve(
+      StringBuilder& builder, size_t capacity) {  // NOLINT(runtime/references)
     builder.reserveCapacity(capacity);
   }
 };
@@ -73,4 +74,4 @@ class StringBufferImpl : public StringBuffer {
 
 }  //  namespace v8_inspector
 
-#endif  // V8_INSPECTOR_STRINGUTIL_H_
+#endif  // DEPS_CHAKRASHIM_SRC_INSPECTOR_STRING_UTIL_H_

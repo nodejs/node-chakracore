@@ -18,7 +18,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTINSPECTOR_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTINSPECTOR_H_
 
 #include <v8.h>
 
@@ -55,3 +56,5 @@ class Inspector {
   static std::unique_ptr<InspectorBreakQueue> s_breakQueue;
 };
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTINSPECTOR_H_

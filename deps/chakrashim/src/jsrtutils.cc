@@ -36,32 +36,21 @@ JsErrorCode UintToValue(uint32_t value, JsValueRef* result) {
 JsErrorCode GetProperty(JsValueRef ref,
                         JsValueRef propName,
                         JsValueRef *result) {
-  JsPropertyIdRef idRef;
-  JsErrorCode error;
+  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
+  IfJsErrorRet(JsGetProperty(ref, idRef, result));
 
-  error = GetPropertyIdFromName(propName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetProperty(ref, idRef, result);
-
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode GetProperty(JsValueRef ref,
                         const char *propertyName,
                         JsValueRef *result) {
-  JsPropertyIdRef idRef;
-  JsErrorCode error = CreatePropertyId(propertyName, &idRef);
+  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(CreatePropertyId(propertyName, &idRef));
+  IfJsErrorRet(JsGetProperty(ref, idRef, result));
 
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetProperty(ref, idRef, result);
-
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode GetProperty(JsValueRef ref,
@@ -75,14 +64,38 @@ JsErrorCode GetProperty(JsValueRef ref,
 
 JsErrorCode GetProperty(JsValueRef ref,
                         JsPropertyIdRef propId,
+                        bool *boolValue) {
+  JsValueRef value = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsGetProperty(ref, propId, &value));
+
+  return ValueToBoolLikely(value, boolValue);
+}
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        bool *boolValue) {
+  JsPropertyIdRef idRef =
+      IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef);
+
+  return GetProperty(ref, idRef, boolValue);
+}
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
                         int *intValue) {
-  JsValueRef value;
-  JsErrorCode error = JsGetProperty(ref, propId, &value);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef value = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsGetProperty(ref, propId, &value));
 
   return ValueToIntLikely(value, intValue);
+}
+
+JsErrorCode GetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        int *intValue) {
+  JsPropertyIdRef idRef =
+      IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef);
+
+  return GetProperty(ref, idRef, intValue);
 }
 
 JsErrorCode SetProperty(JsValueRef ref,
@@ -96,52 +109,85 @@ JsErrorCode SetProperty(JsValueRef ref,
 JsErrorCode SetProperty(JsValueRef ref,
                         JsValueRef propName,
                         JsValueRef propValue) {
-  JsPropertyIdRef idRef;
-  JsErrorCode error;
+  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
+  IfJsErrorRet(JsSetProperty(ref, idRef, propValue, false));
 
-  error = GetPropertyIdFromName(propName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  return JsNoError;
+}
 
-  error = JsSetProperty(ref, idRef, propValue, false);
+JsErrorCode SetProperty(JsValueRef ref,
+                        const char *propertyName,
+                        JsValueRef propValue) {
+  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(CreatePropertyId(propertyName, &idRef));
+  IfJsErrorRet(JsSetProperty(ref, idRef, propValue, false));
 
-  return error;
+  return JsNoError;
+}
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        bool boolValue) {
+  JsValueRef boolVal = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsBoolToBoolean(boolValue, &boolVal));
+  IfJsErrorRet(JsSetProperty(ref, propId, boolVal, false));
+
+  return JsNoError;
+}
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        bool boolValue) {
+  JsPropertyIdRef idRef =
+    IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef);
+
+  return SetProperty(ref, idRef, boolValue);
+}
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        JsPropertyIdRef propId,
+                        const char *stringValue) {
+  JsValueRef stringVal = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsCreateString(stringValue, strlen(stringValue), &stringVal));
+  IfJsErrorRet(JsSetProperty(ref, propId, stringVal, false));
+
+  return JsNoError;
+}
+
+JsErrorCode SetProperty(JsValueRef ref,
+                        CachedPropertyIdRef cachedIdRef,
+                        const char *stringValue) {
+  JsPropertyIdRef idRef =
+    IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef);
+
+  return SetProperty(ref, idRef, stringValue);
 }
 
 JsErrorCode DeleteProperty(JsValueRef ref,
                            JsValueRef propName,
                            JsValueRef* result) {
-  JsPropertyIdRef idRef;
-  JsErrorCode error;
+  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
+  IfJsErrorRet(JsDeleteProperty(ref, idRef, false, result));
 
-  error = GetPropertyIdFromName(propName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsDeleteProperty(ref, idRef, false, result);
-
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode CallProperty(JsValueRef ref,
                          CachedPropertyIdRef cachedIdRef,
                          JsValueRef *arguments,
-                         unsigned short argumentCount,
+                         unsigned short argumentCount,  // NOLINT(runtime/int)
                          JsValueRef *result) {
-  JsValueRef propertyRef;
-  JsErrorCode error;
+  JsValueRef propertyRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsGetProperty(
+      ref,
+      IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef),
+      &propertyRef));
 
-  error = JsGetProperty(ref,
-    IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef),
-    &propertyRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  IfJsErrorRet(JsCallFunction(propertyRef, arguments, argumentCount, result));
 
-  error = JsCallFunction(propertyRef, arguments, argumentCount, result);
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode CallGetter(JsValueRef ref,
@@ -154,11 +200,8 @@ JsErrorCode CallGetter(JsValueRef ref,
 JsErrorCode CallGetter(JsValueRef ref,
                        CachedPropertyIdRef cachedIdRef,
                        int* result) {
-  JsValueRef value;
-  JsErrorCode error = CallGetter(ref, cachedIdRef, &value);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef value = JS_INVALID_REFERENCE;
+  IfJsErrorRet(CallGetter(ref, cachedIdRef, &value));
 
   return ValueToIntLikely(value, result);
 }
@@ -166,18 +209,8 @@ JsErrorCode CallGetter(JsValueRef ref,
 JsErrorCode GetPropertyOfGlobal(const char *propertyName,
                                 JsValueRef *ref) {
   JsPropertyIdRef propertyIdRef, globalRef;
-
-  JsErrorCode error = CreatePropertyId(propertyName, &propertyIdRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetGlobalObject(&globalRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
+  IfJsErrorRet(CreatePropertyId(propertyName, &propertyIdRef));
+  IfJsErrorRet(JsGetGlobalObject(&globalRef));
 
   return JsGetProperty(globalRef, propertyIdRef, ref);
 }
@@ -185,18 +218,8 @@ JsErrorCode GetPropertyOfGlobal(const char *propertyName,
 JsErrorCode SetPropertyOfGlobal(const char *propertyName,
                                 JsValueRef ref) {
   JsPropertyIdRef propertyIdRef, globalRef;
-
-  JsErrorCode error = CreatePropertyId(propertyName, &propertyIdRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetGlobalObject(&globalRef);
-
-  if (error != JsNoError) {
-    return error;
-  }
+  IfJsErrorRet(CreatePropertyId(propertyName, &propertyIdRef));
+  IfJsErrorRet(JsGetGlobalObject(&globalRef));
 
   return JsSetProperty(globalRef, propertyIdRef, ref, false);
 }
@@ -219,28 +242,22 @@ JsValueRef GetNull() {
 
 JsErrorCode GetArrayLength(JsValueRef arrayRef,
                            unsigned int *arraySize) {
-  JsErrorCode error;
-
   JsPropertyIdRef arrayLengthPropertyIdRef =
     IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
       CachedPropertyIdRef::length);
-  JsValueRef lengthRef;
+  JsValueRef lengthRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsGetProperty(arrayRef, arrayLengthPropertyIdRef, &lengthRef));
 
-  error = JsGetProperty(arrayRef, arrayLengthPropertyIdRef, &lengthRef);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  double sizeInDouble;
-  error = JsNumberToDouble(lengthRef, &sizeInDouble);
+  double sizeInDouble = 0;
+  IfJsErrorRet(JsNumberToDouble(lengthRef, &sizeInDouble));
   *arraySize = static_cast<unsigned int>(sizeInDouble);
 
-  return error;
+  return JsNoError;
 }
 
 bool InstanceOf(JsValueRef first,
                 JsValueRef second) {
-  bool result;
+  bool result = false;
   return JsInstanceOf(first, second, &result) == JsNoError && result;
 }
 
@@ -250,23 +267,16 @@ JsErrorCode CloneObject(JsValueRef source,
   JsValueRef cloneObjectFunction =
     ContextShim::GetCurrent()->GetcloneObjectFunction();
 
-  JsValueRef resultRef;
-  JsErrorCode error = CallFunction(cloneObjectFunction,
-                                   source, target, &resultRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef resultRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(CallFunction(cloneObjectFunction, source, target, &resultRef));
 
   if (clonePrototype) {
-    JsValueRef prototypeRef;
-    JsErrorCode error = JsGetPrototype(source, &prototypeRef);
-    if (error != JsNoError) {
-      return error;
-    }
-    error = JsSetPrototype(target, prototypeRef);
+    JsValueRef prototypeRef = JS_INVALID_REFERENCE;
+    IfJsErrorRet(JsGetPrototype(source, &prototypeRef));
+    IfJsErrorRet(JsSetPrototype(target, prototypeRef));
   }
 
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode HasOwnProperty(JsValueRef object,
@@ -282,14 +292,8 @@ JsErrorCode HasOwnProperty(JsValueRef object,
 JsErrorCode GetOwnPropertyDescriptor(JsValueRef ref,
                                      JsValueRef prop,
                                      JsValueRef* result) {
-
-  JsPropertyIdRef idRef;
-  JsErrorCode error;
-
-  error = GetPropertyIdFromName(prop, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(GetPropertyIdFromName(prop, &idRef));
 
   return JsGetOwnPropertyDescriptor(ref, idRef, result);
 }
@@ -342,6 +346,16 @@ JsErrorCode ConcatArray(JsValueRef first,
                       args, _countof(args), result);
 }
 
+JsErrorCode PushArray(JsValueRef array,
+                      JsValueRef item,
+                      JsValueRef *result) {
+  JsValueRef args[] = { array, item };
+
+  return CallProperty(array,
+                      CachedPropertyIdRef::push,
+                      args, _countof(args), result);
+}
+
 JsErrorCode CreateEnumerationIterator(JsValueRef enumeration,
                                       JsValueRef *result) {
   return CallFunction(
@@ -368,22 +382,19 @@ JsErrorCode AddExternalData(JsValueRef ref,
                             JsPropertyIdRef externalDataPropertyId,
                             void *data,
                             JsFinalizeCallback onObjectFinalize) {
-  JsErrorCode error;
+  JsValueRef externalObjectRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsCreateExternalObject(data, onObjectFinalize,
+                                      &externalObjectRef));
 
-  JsValueRef externalObjectRef;
-  error = JsCreateExternalObject(data, onObjectFinalize, &externalObjectRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  IfJsErrorRet(DefineProperty(ref,
+                              externalDataPropertyId,
+                              PropertyDescriptorOptionValues::False,
+                              PropertyDescriptorOptionValues::False,
+                              PropertyDescriptorOptionValues::False,
+                              externalObjectRef,
+                              JS_INVALID_REFERENCE, JS_INVALID_REFERENCE));
 
-  error = DefineProperty(ref,
-                         externalDataPropertyId,
-                         PropertyDescriptorOptionValues::False,
-                         PropertyDescriptorOptionValues::False,
-                         PropertyDescriptorOptionValues::False,
-                         externalObjectRef,
-                         JS_INVALID_REFERENCE, JS_INVALID_REFERENCE);
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode AddExternalData(JsValueRef ref,
@@ -399,15 +410,10 @@ JsErrorCode AddExternalData(JsValueRef ref,
 JsErrorCode GetExternalData(JsValueRef ref,
                             JsPropertyIdRef idRef,
                             void **data) {
-  JsErrorCode error;
+  JsValueRef externalObject = JS_INVALID_REFERENCE;
+  IfJsErrorRet(JsGetProperty(ref, idRef, &externalObject));
 
-  JsValueRef externalObject;
-  error = JsGetProperty(ref, idRef, &externalObject);
-  if (error != JsNoError) {
-    return error;
-  }
-
-  error = JsGetExternalData(externalObject, data);
+  JsErrorCode error = JsGetExternalData(externalObject, data);
   if (error == JsErrorInvalidArgument) {
     *data = nullptr;
     error = JsNoError;
@@ -430,14 +436,10 @@ JsErrorCode CreateFunctionWithExternalData(
     void* data,
     JsFinalizeCallback onObjectFinalize,
     JsValueRef *function) {
-  JsErrorCode error;
-  error = JsCreateFunction(nativeFunction, nullptr, function);
-  if (error != JsNoError) {
-    return error;
-  }
+  IfJsErrorRet(JsCreateFunction(nativeFunction, nullptr, function));
+  IfJsErrorRet(AddExternalData(*function, data, onObjectFinalize));
 
-  error = AddExternalData(*function, data, onObjectFinalize);
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode ToString(JsValueRef ref,
@@ -448,18 +450,16 @@ JsErrorCode ToString(JsValueRef ref,
 
 JsErrorCode CreateString(const char *string,
                          JsValueRef *ref) {
-  JsErrorCode errorCode = JsCreateString(string, strlen(string), ref);
-  CHAKRA_VERIFY_NOERROR(errorCode);
-  return errorCode;
+  CHAKRA_VERIFY_NOERROR(JsCreateString(string, strlen(string), ref));
+
+  return JsNoError;
 }
 
 JsErrorCode CreatePropertyId(const char *name,
                              JsValueRef *propertyIdRef) {
-  JsErrorCode errorCode = JsCreatePropertyId(name,
-                                             strlen(name),
-                                             propertyIdRef);
-  CHAKRA_VERIFY_NOERROR(errorCode);
-  return errorCode;
+  CHAKRA_VERIFY_NOERROR(JsCreatePropertyId(name, strlen(name), propertyIdRef));
+
+  return JsNoError;
 }
 
 
@@ -488,11 +488,7 @@ JsErrorCode CreatePropertyDescriptor(
     JsValueRef getter,
     JsValueRef setter,
     JsValueRef *descriptor) {
-  JsErrorCode error;
-  error = JsCreateObject(descriptor);
-  if (error != JsNoError) {
-    return error;
-  }
+  IfJsErrorRet(JsCreateObject(descriptor));
 
   IsolateShim * isolateShim = IsolateShim::GetCurrent();
   ContextShim * contextShim = isolateShim->GetCurrentContextShim();
@@ -505,11 +501,8 @@ JsErrorCode CreatePropertyDescriptor(
       isolateShim->GetCachedPropertyIdRef(CachedPropertyIdRef::writable);
     JsValueRef writableRef =
       (writable == PropertyDescriptorOptionValues::True) ? trueRef : falseRef;
-    error = JsSetProperty(*descriptor,
-                          writablePropertyIdRef, writableRef, false);
-    if (error != JsNoError) {
-      return error;
-    }
+    IfJsErrorRet(JsSetProperty(*descriptor, writablePropertyIdRef, writableRef,
+                               false));
   }
 
   // set enumerable
@@ -518,11 +511,8 @@ JsErrorCode CreatePropertyDescriptor(
       isolateShim->GetCachedPropertyIdRef(CachedPropertyIdRef::enumerable);
     JsValueRef enumerableRef =
       (enumerable == PropertyDescriptorOptionValues::True) ? trueRef : falseRef;
-    error = JsSetProperty(*descriptor,
-                          enumerablePropertyIdRef, enumerableRef, false);
-    if (error != JsNoError) {
-      return error;
-    }
+    IfJsErrorRet(JsSetProperty(*descriptor, enumerablePropertyIdRef,
+                               enumerableRef, false));
   }
 
   // set configurable
@@ -532,41 +522,31 @@ JsErrorCode CreatePropertyDescriptor(
     JsValueRef configurableRef =
       (configurable == PropertyDescriptorOptionValues::True) ?
         trueRef : falseRef;
-    error = JsSetProperty(*descriptor,
-                          configurablePropertyIdRef, configurableRef, false);
-    if (error != JsNoError) {
-      return error;
-    }
+    IfJsErrorRet(JsSetProperty(*descriptor, configurablePropertyIdRef,
+                               configurableRef, false));
   }
 
   // set value
   if (value != JS_INVALID_REFERENCE) {
     JsPropertyIdRef valuePropertyIdRef =
       isolateShim->GetCachedPropertyIdRef(CachedPropertyIdRef::value);
-    error = JsSetProperty(*descriptor, valuePropertyIdRef, value, false);
-    if (error != JsNoError) {
-      return error;
-    }
+    IfJsErrorRet(JsSetProperty(*descriptor, valuePropertyIdRef, value, false));
   }
 
   // set getter if needed
   if (getter != JS_INVALID_REFERENCE) {
     JsPropertyIdRef getterPropertyIdRef =
       isolateShim->GetCachedPropertyIdRef(CachedPropertyIdRef::get);
-    error = JsSetProperty(*descriptor, getterPropertyIdRef, getter, false);
-    if (error != JsNoError) {
-      return error;
-    }
+    IfJsErrorRet(JsSetProperty(*descriptor, getterPropertyIdRef, getter,
+                               false));
   }
 
   // set setter if needed
   if (setter != JS_INVALID_REFERENCE) {
     JsPropertyIdRef setterPropertyIdRef =
       isolateShim->GetCachedPropertyIdRef(CachedPropertyIdRef::set);
-    error = JsSetProperty(*descriptor, setterPropertyIdRef, setter, false);
-    if (error != JsNoError) {
-      return error;
-    }
+    IfJsErrorRet(JsSetProperty(*descriptor, setterPropertyIdRef, setter,
+                               false));
   }
 
   return JsNoError;
@@ -595,30 +575,26 @@ JsErrorCode DefineProperty(JsValueRef object,
                            JsValueRef value,
                            JsValueRef getter,
                            JsValueRef setter) {
-  JsValueRef descriptor;
-  JsErrorCode error;
-  error = CreatePropertyDescriptor(
-    writable, enumerable, configurable, value, getter, setter, &descriptor);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef descriptor = JS_INVALID_REFERENCE;
+  IfJsErrorRet(CreatePropertyDescriptor(writable, enumerable, configurable,
+                                        value, getter, setter, &descriptor));
 
-  bool result;
-  error = JsDefineProperty(object, propertyIdRef, descriptor, &result);
+  bool result = false;
+  IfJsErrorRet(JsDefineProperty(object, propertyIdRef, descriptor, &result));
 
-  if (error == JsNoError && !result) {
+  if (!result) {
     return JsErrorInvalidArgument;
   }
-  return error;
+
+  return JsNoError;
 }
 
 JsErrorCode GetPropertyIdFromName(JsValueRef nameRef,
                                   JsPropertyIdRef *idRef) {
-  JsErrorCode error;
   StringUtf8 str;
 
   // Expect the name be either a String or a Symbol.
-  error = str.From(nameRef);
+  JsErrorCode error = str.From(nameRef);
   if (error != JsNoError) {
     if (error == JsErrorInvalidArgument) {
       error = JsGetPropertyIdFromSymbol(nameRef, idRef);
@@ -635,16 +611,12 @@ JsErrorCode GetPropertyIdFromName(JsValueRef nameRef,
 
 JsErrorCode GetPropertyIdFromValue(JsValueRef valueRef,
                                    JsPropertyIdRef *idRef) {
-  JsErrorCode error;
-
-  error = GetPropertyIdFromName(valueRef, idRef);
+  JsErrorCode error = GetPropertyIdFromName(valueRef, idRef);
   if (error == JsErrorInvalidArgument) {
-    error = JsConvertValueToString(valueRef, &valueRef);
-    if (error != JsNoError) {
-      return error;
-    }
+    IfJsErrorRet(JsConvertValueToString(valueRef, &valueRef));
+    IfJsErrorRet(GetPropertyIdFromName(valueRef, idRef));
 
-    error = GetPropertyIdFromName(valueRef, idRef);
+    return JsNoError;
   }
 
   return error;
@@ -662,72 +634,60 @@ JsErrorCode GetObjectConstructor(JsValueRef objectRef,
 JsErrorCode SetIndexedProperty(JsValueRef object,
                                unsigned int index,
                                JsValueRef value) {
-  JsErrorCode error;
-  JsValueRef indexRef;
-  error = UintToValue(index, &indexRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef indexRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(UintToValue(index, &indexRef));
+  IfJsErrorRet(JsSetIndexedProperty(object, indexRef, value));
 
-  error = JsSetIndexedProperty(object, indexRef, value);
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode GetIndexedProperty(JsValueRef object,
                                unsigned int index,
                                JsValueRef *value) {
-  JsErrorCode error;
-  JsValueRef indexRef;
-  error = UintToValue(index, &indexRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef indexRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(UintToValue(index, &indexRef));
+  IfJsErrorRet(JsGetIndexedProperty(object, indexRef, value));
 
-  error = JsGetIndexedProperty(object, indexRef, value);
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode DeleteIndexedProperty(JsValueRef object,
                                   unsigned int index) {
-  JsErrorCode error;
-  JsValueRef indexRef;
-  error = UintToValue(index, &indexRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef indexRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(UintToValue(index, &indexRef));
+  IfJsErrorRet(JsDeleteIndexedProperty(object, indexRef));
 
-  error = JsDeleteIndexedProperty(object, indexRef);
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode HasProperty(JsValueRef object,
                         JsValueRef propName,
                         bool *result) {
-  JsPropertyIdRef idRef;
-  JsErrorCode error;
+  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
+  IfJsErrorRet(JsHasProperty(object, idRef, result));
 
-  error = GetPropertyIdFromName(propName, &idRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  return JsNoError;
+}
 
-  error = JsHasProperty(object, idRef, result);
+JsErrorCode HasProperty(JsValueRef object,
+                        CachedPropertyIdRef cachedIdRef,
+                        bool *result) {
+  JsPropertyIdRef idRef =
+    IsolateShim::GetCurrent()->GetCachedPropertyIdRef(cachedIdRef);
+  IfJsErrorRet(JsHasProperty(object, idRef, result));
 
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode HasIndexedProperty(JsValueRef object,
                                unsigned int index,
                                bool *result) {
-  JsErrorCode error;
-  JsValueRef indexRef;
-  error = UintToValue(index, &indexRef);
-  if (error != JsNoError) {
-    return error;
-  }
+  JsValueRef indexRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(UintToValue(index, &indexRef));
+  IfJsErrorRet(JsHasIndexedProperty(object, indexRef, result));
 
-  error = JsHasIndexedProperty(object, indexRef, result);
-  return error;
+  return JsNoError;
 }
 
 JsErrorCode ParseScript(StringUtf8 *script,
@@ -739,25 +699,20 @@ JsErrorCode ParseScript(StringUtf8 *script,
     // do not append new line so the line numbers on error stack are correct
     std::string useStrictTag("'use strict'; ");
     useStrictTag.append(*script);
-    JsValueRef scriptToParse;
+    JsValueRef scriptToParse = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY(JsCreateString(useStrictTag.c_str(),
                                  useStrictTag.length(),
                                  &scriptToParse) == JsNoError);
     return JsParse(scriptToParse, sourceContext, sourceUrl,
                    JsParseScriptAttributeNone, result);
   } else {
-    JsValueRef scriptToParse;
+    JsValueRef scriptToParse = JS_INVALID_REFERENCE;
     CHAKRA_VERIFY(JsCreateString(script->operator*(),
                                  script->length(),
                                  &scriptToParse) == JsNoError);
     return JsParse(scriptToParse, sourceContext, sourceUrl,
                    JsParseScriptAttributeNone, result);
   }
-}
-
-#define RETURN_IF_JSERROR(err, returnValue) \
-if (err != JsNoError) { \
-  return returnValue; \
 }
 
 JsErrorCode GetHiddenValuesTable(JsValueRef object,
@@ -767,64 +722,60 @@ JsErrorCode GetHiddenValuesTable(JsValueRef object,
   *isUndefined = true;
   IsolateShim* iso = IsolateShim::GetCurrent();
   *hiddenValueIdRef = iso->GetCachedSymbolPropertyIdRef(
-    CachedSymbolPropertyIdRef::__hiddenvalues__);
-  JsErrorCode errorCode;
+      CachedSymbolPropertyIdRef::__hiddenvalues__);
 
-  errorCode = JsGetProperty(object, *hiddenValueIdRef, hiddenValuesTable);
-  RETURN_IF_JSERROR(errorCode, errorCode);
-
-  errorCode = IsUndefined(*hiddenValuesTable, isUndefined);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  IfJsErrorRet(JsGetProperty(object, *hiddenValueIdRef, hiddenValuesTable));
+  IfJsErrorRet(IsUndefined(*hiddenValuesTable, isUndefined));
 
   return JsNoError;
 }
 
 bool HasPrivate(JsValueRef object, JsValueRef key) {
-  JsPropertyIdRef hiddenValuesIdRef;
-  JsValueRef hiddenValuesTable;
-  JsErrorCode errorCode;
-  bool isUndefined;
+  JsPropertyIdRef hiddenValuesIdRef = JS_INVALID_REFERENCE;
+  JsValueRef hiddenValuesTable = JS_INVALID_REFERENCE;
+  JsErrorCode errorCode = JsNoError;
+  bool isUndefined = false;
 
   errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
-                                  &hiddenValuesTable, &isUndefined);
-  RETURN_IF_JSERROR(errorCode, false);
+                                   &hiddenValuesTable, &isUndefined);
+  IfJsErrorRet(errorCode, false);
 
   if (isUndefined) {
     return false;
   }
 
-  JsValueRef hasPropertyRef;
+  JsValueRef hasPropertyRef = JS_INVALID_REFERENCE;
   errorCode = HasOwnProperty(hiddenValuesTable, key, &hasPropertyRef);
-  RETURN_IF_JSERROR(errorCode, false);
+  IfJsErrorRet(errorCode, false);
 
-  bool hasKey;
+  bool hasKey = false;
   errorCode = JsBooleanToBool(hasPropertyRef, &hasKey);
-  RETURN_IF_JSERROR(errorCode, false);
+  IfJsErrorRet(errorCode, false);
 
   return hasKey;
 }
 
 bool DeletePrivate(JsValueRef object, JsValueRef key) {
-  JsPropertyIdRef hiddenValuesIdRef;
-  JsValueRef hiddenValuesTable;
-  JsErrorCode errorCode;
-  bool isUndefined;
+  JsPropertyIdRef hiddenValuesIdRef = JS_INVALID_REFERENCE;
+  JsValueRef hiddenValuesTable = JS_INVALID_REFERENCE;
+  JsErrorCode errorCode = JsNoError;
+  bool isUndefined = false;
 
   errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
-                                  &hiddenValuesTable, &isUndefined);
-  RETURN_IF_JSERROR(errorCode, false);
+                                   &hiddenValuesTable, &isUndefined);
+  IfJsErrorRet(errorCode, false);
 
   if (isUndefined) {
     return false;
   }
 
-  JsValueRef deleteResultRef;
+  JsValueRef deleteResultRef = JS_INVALID_REFERENCE;
   errorCode = DeleteProperty(hiddenValuesTable, key, &deleteResultRef);
-  RETURN_IF_JSERROR(errorCode, false);
+  IfJsErrorRet(errorCode, false);
 
-  bool hasDeleted;
+  bool hasDeleted = false;
   errorCode = JsBooleanToBool(deleteResultRef, &hasDeleted);
-  RETURN_IF_JSERROR(errorCode, false);
+  IfJsErrorRet(errorCode, false);
 
   return hasDeleted;
 }
@@ -832,73 +783,62 @@ bool DeletePrivate(JsValueRef object, JsValueRef key) {
 // CHAKRA-TODO: Convert this function to javascript
 JsErrorCode GetPrivate(JsValueRef object, JsValueRef key,
                        JsValueRef *result) {
-  JsPropertyIdRef hiddenValuesIdRef;
-  JsValueRef hiddenValuesTable;
-  JsErrorCode errorCode;
+  JsPropertyIdRef hiddenValuesIdRef = JS_INVALID_REFERENCE;
+  JsValueRef hiddenValuesTable = JS_INVALID_REFERENCE;
   JsValueRef undefinedValueRef = GetUndefined();
-  bool isUndefined;
+  bool isUndefined = false;
 
-  errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
-                                  &hiddenValuesTable, &isUndefined);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  IfJsErrorRet(GetHiddenValuesTable(object, &hiddenValuesIdRef,
+                                    &hiddenValuesTable, &isUndefined));
 
   if (isUndefined) {
       *result = undefinedValueRef;
       return JsNoError;
   }
 
-  JsPropertyIdRef keyIdRef;
-  errorCode = GetPropertyIdFromName(key, &keyIdRef);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  JsPropertyIdRef keyIdRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(GetPropertyIdFromName(key, &keyIdRef));
 
   // Is 'key' present in hiddenValuesTable? If not, return undefined
-  JsValueRef hasPropertyRef;
-  errorCode = HasOwnProperty(hiddenValuesTable, key, &hasPropertyRef);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  JsValueRef hasPropertyRef = JS_INVALID_REFERENCE;
+  IfJsErrorRet(HasOwnProperty(hiddenValuesTable, key, &hasPropertyRef));
 
-  bool hasKey;
-  errorCode = JsBooleanToBool(hasPropertyRef, &hasKey);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  bool hasKey = false;
+  IfJsErrorRet(JsBooleanToBool(hasPropertyRef, &hasKey));
 
   if (!hasKey) {
     *result = undefinedValueRef;
     return JsNoError;
   }
 
-  errorCode = JsGetProperty(hiddenValuesTable, keyIdRef, result);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  IfJsErrorRet(JsGetProperty(hiddenValuesTable, keyIdRef, result));
 
   return JsNoError;
 }
 
 JsErrorCode SetPrivate(JsValueRef object, JsValueRef key,
                            JsValueRef value) {
-  JsPropertyIdRef hiddenValuesIdRef;
-  JsValueRef hiddenValuesTable;
-  JsErrorCode errorCode;
-  bool isUndefined;
+  JsPropertyIdRef hiddenValuesIdRef = JS_INVALID_REFERENCE;
+  JsValueRef hiddenValuesTable = JS_INVALID_REFERENCE;
+  bool isUndefined = false;
 
-  errorCode = GetHiddenValuesTable(object, &hiddenValuesIdRef,
-                                  &hiddenValuesTable, &isUndefined);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  IfJsErrorRet(GetHiddenValuesTable(object, &hiddenValuesIdRef,
+                                    &hiddenValuesTable, &isUndefined));
 
   // if '__hiddenvalues__' is not defined on object, define it
   if (isUndefined) {
-    errorCode = JsCreateObject(&hiddenValuesTable);
-    RETURN_IF_JSERROR(errorCode, errorCode);
+    IfJsErrorRet(JsCreateObject(&hiddenValuesTable));
 
-    errorCode = DefineProperty(object, hiddenValuesIdRef,
-                               PropertyDescriptorOptionValues::False,
-                               PropertyDescriptorOptionValues::False,
-                               PropertyDescriptorOptionValues::False,
-                               hiddenValuesTable,
-                               JS_INVALID_REFERENCE,
-                               JS_INVALID_REFERENCE);
-    RETURN_IF_JSERROR(errorCode, errorCode);
+    IfJsErrorRet(DefineProperty(object, hiddenValuesIdRef,
+                                PropertyDescriptorOptionValues::False,
+                                PropertyDescriptorOptionValues::False,
+                                PropertyDescriptorOptionValues::False,
+                                hiddenValuesTable,
+                                JS_INVALID_REFERENCE,
+                                JS_INVALID_REFERENCE));
   }
 
-  errorCode = SetProperty(hiddenValuesTable, key, value);
-  RETURN_IF_JSERROR(errorCode, errorCode);
+  IfJsErrorRet(SetProperty(hiddenValuesTable, key, value));
 
   return JsNoError;
 }
@@ -910,11 +850,11 @@ void Unimplemented(const char * message) {
 }
 
 void Fatal(const char * format, ...) {
-  bool hasException;
-  JsErrorCode errorCode;
-  JsValueRef exceptionRef;
-  JsValueRef stackRef;
-  JsValueRef strErrorRef;
+  bool hasException = false;
+  JsErrorCode errorCode = JsNoError;
+  JsValueRef exceptionRef = JS_INVALID_REFERENCE;
+  JsValueRef stackRef = JS_INVALID_REFERENCE;
+  JsValueRef strErrorRef = JS_INVALID_REFERENCE;
   StringUtf8 strError;
 
   va_list args;
@@ -925,16 +865,17 @@ void Fatal(const char * format, ...) {
 
   errorCode = JsHasException(&hasException);
   if (!hasException || errorCode != JsNoError) {
-    if (errorCode != JsNoError)
+    if (errorCode != JsNoError) {
       fprintf(stderr, "\nImportant: While trying to check Javascript "
-        "exception, JsHasException has also failed.\n");
-    else
+         "exception, JsHasException has also failed.\n");
+    } else {
       fprintf(stderr, "\nImportant: This didn't happen because of an "
-        "uncaught Javascript exception.\n");
+         "uncaught Javascript exception.\n");
+    }
   } else if (JsGetAndClearException(&exceptionRef) == JsNoError &&
-           GetProperty(exceptionRef, "stack", &stackRef) == JsNoError &&
-           JsConvertValueToString(stackRef, &strErrorRef) == JsNoError  &&
-           strError.From(strErrorRef) == JsNoError) {
+             GetProperty(exceptionRef, "stack", &stackRef) == JsNoError &&
+             JsConvertValueToString(stackRef, &strErrorRef) == JsNoError  &&
+             strError.From(strErrorRef) == JsNoError) {
     fprintf(stderr, "\n%s\n", (const char*)strError);
   }
 
@@ -947,18 +888,18 @@ void Fatal(const char * format, ...) {
 
 
 JsValueRef CHAKRA_CALLBACK CollectGarbage(
-  JsValueRef callee,
-  bool isConstructCall,
-  JsValueRef *arguments,
-  unsigned short argumentCount,
-  void *callbackState) {
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState) {
   JsCollectGarbage(IsolateShim::GetCurrent()->GetRuntimeHandle());
   return GetUndefined();
 }
 
 void IdleGC(uv_timer_t *timerHandler) {
 #ifdef _WIN32
-  unsigned int nextIdleTicks;
+  unsigned int nextIdleTicks = 0;
   CHAKRA_VERIFY(JsIdle(&nextIdleTicks) == JsNoError);
   DWORD currentTicks = GetTickCount();
 
@@ -1018,18 +959,23 @@ StringUtf8::~StringUtf8() {
 
 JsErrorCode StringUtf8::From(JsValueRef strRef) {
   CHAKRA_ASSERT(!_str);
+
   size_t len = 0;
   IfJsErrorRet(JsCopyString(strRef, nullptr, 0, &len));
+
   char* buffer = reinterpret_cast<char*>(malloc(len+1));
   CHAKRA_VERIFY(buffer != nullptr);
+
   size_t written = 0;
   JsErrorCode errorCode = JsCopyString(strRef, buffer, len, &written);
+
   if (errorCode == JsNoError) {
     CHAKRA_ASSERT(len == written);
     buffer[len] = '\0';
     _str = buffer;
     _length = static_cast<int>(len);
   }
+
   return errorCode;
 }
 

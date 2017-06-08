@@ -18,7 +18,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#pragma once
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTPLATFORM_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTPLATFORM_H_
 
 #include <map>
 #include <queue>
@@ -35,10 +36,10 @@ class DefaultPlatform : public v8::Platform {
 
   bool PumpMessageLoop(v8::Isolate* isolate);
 
-  virtual void CallOnBackgroundThread(v8::Task* task,
-                                      ExpectedRuntime expected_runtime) override;
-  virtual void CallOnForegroundThread(v8::Isolate* isolate, v8::Task* task) override;
-  virtual double MonotonicallyIncreasingTime() override;
+  void CallOnBackgroundThread(v8::Task* task,
+                              ExpectedRuntime expected_runtime) override;
+  void CallOnForegroundThread(v8::Isolate* isolate, v8::Task* task) override;
+  double MonotonicallyIncreasingTime() override;
 
  private:
   v8::Task* PopTaskInMainThreadQueue(v8::Isolate* isolate);
@@ -47,3 +48,5 @@ class DefaultPlatform : public v8::Platform {
 };
 
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTPLATFORM_H_

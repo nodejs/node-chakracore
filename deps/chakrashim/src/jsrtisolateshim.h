@@ -18,6 +18,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#ifndef DEPS_CHAKRASHIM_SRC_JSRTISOLATESHIM_H_
+#define DEPS_CHAKRASHIM_SRC_JSRTISOLATESHIM_H_
+
 #include "uv.h"
 #include <vector>
 
@@ -193,3 +196,5 @@ class IsolateShim {
   bool isIdleGcScheduled = false;
 };
 }  // namespace jsrt
+
+#endif  // DEPS_CHAKRASHIM_SRC_JSRTISOLATESHIM_H_

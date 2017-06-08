@@ -29,12 +29,11 @@
  */
 
 #include "src/inspector/java-script-call-frame.h"
-#include <assert.h>
 
 #include "src/inspector/string-util.h"
-
 #include "include/v8-debug.h"
 #include "src/jsrtinspectorhelpers.h"
+#include "src/jsrtutils.h"
 
 namespace v8_inspector {
 
@@ -54,30 +53,27 @@ JavaScriptCallFrame::~JavaScriptCallFrame() {
 
 int JavaScriptCallFrame::sourceID() const {
   int scriptId;
-  if (InspectorHelpers::GetIntProperty(m_callFrame, "scriptId", &scriptId) != JsNoError) {
-    assert(false);
-    return 0;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(m_callFrame,
+                                          jsrt::CachedPropertyIdRef::scriptId,
+                                          &scriptId));
 
   return scriptId;
 }
 
 int JavaScriptCallFrame::line() const {
   int line;
-  if (InspectorHelpers::GetIntProperty(m_callFrame, "line", &line) != JsNoError) {
-    assert(false);
-    return 0;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(m_callFrame,
+                                          jsrt::CachedPropertyIdRef::line,
+                                          &line));
 
   return line;
 }
 
 int JavaScriptCallFrame::column() const {
   int column;
-  if (InspectorHelpers::GetIntProperty(m_callFrame, "column", &column) != JsNoError) {
-    assert(false);
-    return 0;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(m_callFrame,
+                                          jsrt::CachedPropertyIdRef::column,
+                                          &column));
 
   return column;
 }
@@ -88,37 +84,28 @@ int JavaScriptCallFrame::contextId() const {
 
 bool JavaScriptCallFrame::isAtReturn() const {
   int index;
-  if (InspectorHelpers::GetIntProperty(m_callFrame, "index", &index) != JsNoError) {
-    assert(false);
-    return false;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(m_callFrame,
+                                          jsrt::CachedPropertyIdRef::index,
+                                          &index));
 
   JsValueRef properties;
-  if (JsDiagGetStackProperties(index, &properties) != JsNoError) {
-    assert(false);
-    return false;
-  }
+  CHAKRA_VERIFY_NOERROR(JsDiagGetStackProperties(index, &properties));
 
   bool hasProp;
-  if (InspectorHelpers::HasProperty(m_callFrame, "returnValue", &hasProp) != JsNoError) {
-    assert(false);
-    return false;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(
+      m_callFrame, jsrt::CachedPropertyIdRef::returnValue, &hasProp));
 
   if (!hasProp) {
     return false;
   }
 
   JsValueRef propVal;
-  if (InspectorHelpers::GetProperty(m_callFrame, "returnValue", &propVal) != JsNoError) {
-    assert(false);
-    return false;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::GetProperty(
+      m_callFrame, jsrt::CachedPropertyIdRef::returnValue, &propVal));
 
-  if (InspectorHelpers::HasProperty(propVal, "handle", &hasProp) != JsNoError) {
-    assert(false);
-    return false;
-  }
+  CHAKRA_VERIFY_NOERROR(jsrt::HasProperty(propVal,
+                                          jsrt::CachedPropertyIdRef::handle,
+                                          &hasProp));
 
   return hasProp;
 }
@@ -135,7 +122,7 @@ v8::MaybeLocal<v8::Value> JavaScriptCallFrame::evaluate(
 
 v8::MaybeLocal<v8::Value> JavaScriptCallFrame::restart() {
   // CHAKRA-TODO - Figure out what to do here.
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
   return v8::MaybeLocal<v8::Value>();
 }
 
@@ -143,7 +130,7 @@ v8::MaybeLocal<v8::Value> JavaScriptCallFrame::setVariableValue(
     int scopeNumber, v8::Local<v8::Value> variableName,
     v8::Local<v8::Value> newValue) {
   // CHAKRA-TODO - Figure out what to do here.
-  assert(false);
+  CHAKRA_UNIMPLEMENTED();
   return v8::MaybeLocal<v8::Value>();
 }
 

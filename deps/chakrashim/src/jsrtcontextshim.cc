@@ -344,9 +344,10 @@ static JsValueRef CHAKRA_CALLBACK ProxyOfGlobalGetPrototypeOfCallback(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
-    unsigned short argumentCount,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
     void *callbackState) {
   // Return the target (which is the global object)
+  CHAKRA_VERIFY(argumentCount >= 2);
   return arguments[1];
 }
 
@@ -649,7 +650,7 @@ JsValueRef CHAKRA_CALLBACK Utils::ObjectPrototypeToStringShim(
     JsValueRef callee,
     bool isConstructCall,
     JsValueRef *arguments,
-    unsigned short argumentCount,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
     void *callbackState) {
   if (argumentCount >= 1) {
     Isolate* iso = Isolate::GetCurrent();
