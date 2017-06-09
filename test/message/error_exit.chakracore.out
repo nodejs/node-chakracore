@@ -1,4 +1,8 @@
 Exiting with code=1
+assert.js:*
+  throw new errors.AssertionError({
+  ^
+
 AssertionError [ERR_ASSERTION]: 1 === 2
    at Anonymous function (*test*message*error_exit.js:*:*)
    at Module.prototype._compile (module.js:*:*)

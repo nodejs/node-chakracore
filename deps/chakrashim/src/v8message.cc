@@ -28,8 +28,15 @@ Local<String> Message::Get() const {
 }
 
 MaybeLocal<String> Message::GetSourceLine(Local<Context> context) const {
-  // CHAKRA-TODO: Figure out how to transmit this info...?
-  return Local<String>();
+  JsPropertyIdRef source = jsrt::IsolateShim::GetCurrent()
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::source);
+
+  JsValueRef result;
+  if (JsGetProperty((JsValueRef)this, source, &result) != JsNoError) {
+    return Local<String>();
+  }
+
+  return Local<String>::New(result);
 }
 
 Local<String> Message::GetSourceLine() const {
@@ -41,19 +48,35 @@ ScriptOrigin Message::GetScriptOrigin() const {
   return ScriptOrigin(Local<String>());
 }
 
-Handle<Value> Message::GetScriptResourceName() const {
-  // CHAKRA-TODO: Figure out how to transmit this info...?
-  return Handle<Value>();
-}
-
 Local<StackTrace> Message::GetStackTrace() const {
   // CHAKRA-TODO: Figure out what to do here
   return Local<StackTrace>();
 }
 
+Handle<Value> Message::GetScriptResourceName() const {
+  JsPropertyIdRef url = jsrt::IsolateShim::GetCurrent()
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::url);
+
+  JsValueRef result;
+  if (JsGetProperty((JsValueRef)this, url, &result) != JsNoError) {
+    return Local<Value>();
+  }
+  return Handle<Value>::New(result);
+}
+
 Maybe<int> Message::GetLineNumber(Local<Context> context) const {
-  // CHAKRA-TODO: Figure out how to transmit this info...?
-  return Nothing<int>();
+  JsPropertyIdRef lineProp = jsrt::IsolateShim::GetCurrent()
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::line);
+
+  JsValueRef result;
+  if (JsGetProperty((JsValueRef)this, lineProp, &result) != JsNoError) {
+    return Nothing<int>();
+  }
+  int line;
+  if (jsrt::ValueToIntLikely(result, &line) != JsNoError) {
+    return Nothing<int>();
+  }
+  return Just<int>(line + 1);
 }
 
 int Message::GetLineNumber() const {
@@ -61,8 +84,18 @@ int Message::GetLineNumber() const {
 }
 
 Maybe<int> Message::GetStartColumn(Local<Context> context) const {
-  // CHAKRA-TODO: Figure out how to transmit this info...?
-  return Nothing<int>();
+  JsPropertyIdRef columnProp = jsrt::IsolateShim::GetCurrent()
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::column);
+
+  JsValueRef result;
+  if (JsGetProperty((JsValueRef)this, columnProp, &result) != JsNoError) {
+    return Nothing<int>();
+  }
+  int column;
+  if (jsrt::ValueToIntLikely(result, &column) != JsNoError) {
+    return Nothing<int>();
+  }
+  return Just<int>(column);
 }
 
 int Message::GetStartColumn() const {
@@ -70,8 +103,21 @@ int Message::GetStartColumn() const {
 }
 
 Maybe<int> Message::GetEndColumn(Local<Context> context) const {
-  // CHAKRA-TODO: Figure out how to transmit this info...?
-  return Nothing<int>();
+  int column = GetStartColumn();
+  JsPropertyIdRef lengthProp = jsrt::IsolateShim::GetCurrent()
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::length);
+
+
+  JsValueRef result;
+  if (JsGetProperty((JsValueRef)this, lengthProp, &result) != JsNoError) {
+    return Nothing<int>();
+  }
+  int length;
+  if (jsrt::ValueToIntLikely(result, &length) != JsNoError) {
+    return Nothing<int>();
+  }
+
+  return Just<int>(column + length + 1);
 }
 
 int Message::GetEndColumn() const {

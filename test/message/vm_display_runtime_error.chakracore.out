@@ -1,4 +1,8 @@
 beginning
+test.vm:1
+throw new Error("boo!")
+^
+
 Error: boo!
    at Global code (test.vm:*)
    at Script.prototype.runInThisContext (vm.js:*:*)      
@@ -10,6 +14,9 @@ Error: boo!
    at tryModuleLoad (module.js:*)
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
+test.vm:1
+throw new Error("spooky!")
+^
 Error: spooky!
    at Global code (test.vm:*)
    at Script.prototype.runInThisContext (vm.js:*:*)      
