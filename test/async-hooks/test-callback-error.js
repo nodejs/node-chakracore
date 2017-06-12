@@ -6,6 +6,12 @@ const spawnSync = require('child_process').spawnSync;
 const async_hooks = require('async_hooks');
 const initHooks = require('./init-hooks');
 
+if (common.isChakraEngine) {
+  common.skip('This test is disabled for chakra engine because it depends ' +
+              'on v8-option --abort-on-uncaught-exception');
+  return;
+}
+
 switch (process.argv[2]) {
   case 'test_init_callback':
     initHooks({
