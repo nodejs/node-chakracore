@@ -8,3 +8,5 @@ prefix async-hooks
 
 [$jsEngine==chakracore]
 test-promise : PASS,FLAKY
+test-promise.chain-promise-before-init-hooks : PASS,FLAKY
+test-promise.promise-before-init-hooks : PASS,FLAKY
