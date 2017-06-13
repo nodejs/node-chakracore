@@ -60,6 +60,14 @@ For example:
 #include <node_api.h>
 ```
 
+As the feature is experimental it must be enabled with the
+following command line
+[option](https://nodejs.org/dist/latest-v8.x/docs/api/cli.html#cli_napi_modules):
+
+```bash
+--napi-modules
+```
+
 ## Basic N-API Data Types
 
 N-API exposes the following fundamental datatypes as abstractions that are
@@ -695,7 +703,7 @@ added: v8.0.0
 NODE_EXTERN napi_status napi_create_reference(napi_env env,
                                               napi_value value,
                                               int initial_refcount,
-                                              ndapi_ref* result);
+                                              napi_ref* result);
 ```
 
 - `[in] env`: The environment that the API is invoked under.
@@ -2991,7 +2999,7 @@ support it:
 * If the function is not available, provide an alternate implementation
   that does not use the function.
 
-[Aynchronous Operations]: #n_api_asynchronous_operations
+[Asynchronous Operations]: #n_api_asynchronous_operations
 [Basic N-API Data Types]: #n_api_basic_n_api_data_types
 [ECMAScript Language Specification]: https://tc39.github.io/ecma262/
 [Error Handling]: #n_api_error_handling
