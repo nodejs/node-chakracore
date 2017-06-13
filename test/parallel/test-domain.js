@@ -22,7 +22,7 @@
 'use strict';
 // Simple tests of most basic domain functionality.
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const domain = require('domain');
 const events = require('events');
