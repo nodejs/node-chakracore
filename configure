@@ -475,6 +475,18 @@ parser.add_option('--engine',
     default='chakracore',
     help='Use specified JS engine (default is ChakraCore)')
 
+parser.add_option('--chakracore-test-build',
+    action='store_true',
+    dest='chakracore_test_build',
+    default=False,
+    help='Build "test" build of ChakraCore (requires engine to be ChakraCore)')
+
+parser.add_option('--chakracore-ninja-build',
+    action='store_true',
+    dest='chakracore_ninja_build',
+    default=False,
+    help='Enable build of ChakraCore using ninja (requires engine to be ChakraCore)')
+
 parser.add_option('--shared',
     action='store_true',
     dest='shared',
@@ -1320,6 +1332,15 @@ def configure_engine(o):
   o['variables']['node_engine'] = engine
   if engine != 'v8':
     o['variables']['node_use_bundled_v8'] = b(False)
+  if engine == 'chakracore':
+    o['variables']['chakracore_build_config'] = o['default_configuration']
+    if options.chakracore_test_build:
+      o['variables']['chakracore_build_config'] = 'Test'
+    if options.chakracore_ninja_build:
+      o['variables']['chakracore_parallel_build_flags'] = [ "--ninja" ]
+    else:
+      o['variables']['chakracore_parallel_build_flags'] = []
+
 
 output = {
   'variables': {},
