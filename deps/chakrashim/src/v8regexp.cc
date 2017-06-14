@@ -48,7 +48,7 @@ MaybeLocal<RegExp> RegExp::New(Local<Context> context, Handle<String> pattern,
     flagsStr[flagsCount++] = 'm';
   }
 
-  CHAKRA_ASSERT(flagsCount <= c_maxFlagCount);
+  CHAKRA_ASSERT(flagsCount <= kMaxFlagCount);
 
   JsValueRef flagsValue;
   if (JsCreateString(flagsStr, flagsCount, &flagsValue) != JsNoError) {

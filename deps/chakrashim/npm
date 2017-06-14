@@ -1,4 +1,0 @@
-#!/bin/bash
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
-export NPM_CONFIG_NODEDIR="$DIR"
-$DIR/lib/node_modules/npm/bin/npm-cli.js "$@"

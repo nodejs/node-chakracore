@@ -14,6 +14,14 @@
     return
   }
 
+  if (!process.env.NPM_CONFIG_NODEDIR) {
+    if (process.platform === 'win32') {
+      process.env.NPM_CONFIG_NODEDIR = require('path').join(process.execPath, '..', 'sdk')
+    } else {
+      process.env.NPM_CONFIG_NODEDIR = require('path').join(process.execPath, '..', '..')
+    }
+  }
+
   process.title = 'npm'
 
   var unsupported = require('../lib/utils/unsupported.js')
