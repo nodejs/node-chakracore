@@ -29,18 +29,28 @@ function testBreakpointOnStart(session) {
     { 'method': 'Debugger.setPauseOnExceptions',
       'params': {'state': 'none'} },
     { 'method': 'Debugger.setAsyncCallStackDepth',
-      'params': {'maxDepth': 0} },
-    { 'method': 'Profiler.enable' },
-    { 'method': 'Profiler.setSamplingInterval',
-      'params': {'interval': 100} },
+      'params': {'maxDepth': 0} }
+  ];
+
+  if (process.jsEngine !== 'chakracore') {
+    commands.push(
+      { 'method': 'Profiler.enable' },
+      { 'method': 'Profiler.setSamplingInterval',
+        'params': {'interval': 100} });
+  }
+
+  commands.push(
     { 'method': 'Debugger.setBlackboxPatterns',
       'params': {'patterns': []} },
-    { 'method': 'Runtime.runIfWaitingForDebugger' }
-  ];
+    { 'method': 'Runtime.runIfWaitingForDebugger' });
+
+  // ChakraCore breaks on the first executable line rather than on the first
+  // line of the file.
+  const breakLine = common.isChakraEngine ? 21 : 0;
 
   session
     .sendInspectorCommands(commands)
-    .expectMessages(setupExpectBreakOnLine(0, script, session));
+    .expectMessages(setupExpectBreakOnLine(breakLine, script, session));
 }
 
 function testWaitsForFrontendDisconnect(session, harness) {
