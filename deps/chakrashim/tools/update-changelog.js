@@ -56,6 +56,7 @@ function loadChangelogFile() {
     while (changeLog.length < 2) {
       changeLog.push('');
     }
+
     loadGitReleaseTags();
   });
 }
@@ -84,8 +85,19 @@ function filterReleaseTags(releaseTag) {
   return branches.split(/\n/).some((x) => {return x.startsWith('* ');});
 }
 
+function compareReleasesByDate(a, b) {
+  if (a.date < b.date) {
+    return -1;
+  } else if (a.date > b.date) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 // Match last release, figure out next release and update ranges
 function matchReleases(releaseTags, lastRelease) {
+  releaseTags.sort(compareReleasesByDate);
   releaseTags = releaseTags.filter(filterReleaseTags);
   var ver;
   command_pipe(process.argv[0], ['--version'],
@@ -119,6 +131,9 @@ function matchReleases(releaseTags, lastRelease) {
           'Please fetch release tags (git fetch --tags ...)');
       }
       releaseTags.splice(0, lastIndex);
+    } else {
+      // Don't look at commits older than `47000c74f4~1`
+      releaseTags.splice(0, 0, { commit: "47000c74f4~1" });
     }
 
     // Last range to be updated
@@ -147,14 +162,17 @@ function updateChangelogs(releaseTags) {
       }
     },
     () => {
-      var output = '## ' + next.date + ", " + next.name +
-        '\n\n### Commits\n\n';
-      commits.forEach(c => {
-        const sha = c.commit;
-        output += `* [[\`${sha}\`] (${commitUrl + sha})] - ${c.subject}\n`;
-      });
+      if (commits.length > 0) {
+        var output = '## ' + next.date + ", " + next.name +
+          '\n\n### Commits\n\n';
+        commits.forEach(c => {
+          const sha = c.commit;
+          output += `* [[\`${sha}\`](${commitUrl + sha})] - ${c.subject}\n`;
+        });
 
-      changeLog.splice(2, 0, output);
+        changeLog.splice(2, 0, output);
+      }
+
       updateChangelogs(releaseTags);
     });
   } else {
