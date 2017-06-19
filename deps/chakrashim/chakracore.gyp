@@ -11,7 +11,7 @@
     'chakra_libs_absolute%': '',
 
     # xplat (non-win32) only
-    'chakra_config': 'Release',     # Debug, Release
+    'chakra_config': '<(chakracore_build_config)',     # Debug, Release, Test
 
     'conditions': [
       ['target_arch=="ia32"', { 'Platform': 'x86' }],
@@ -24,8 +24,10 @@
       }],
 
       # xplat (non-win32) only
-      ['chakra_config=="Debug"', {
+      ['chakracore_build_config=="Debug"', {
         'chakra_build_flags': [ '-d' ],
+      }, 'chakracore_build_config=="Test"', {
+        'chakra_build_flags': [ '-t' ],
       }, {
         'chakra_build_flags': [],
       }],
@@ -57,7 +59,7 @@
         ],
 
         'chakracore_win_bin_dir':
-          '<(chakra_dir)/build/vcbuild/bin/<(Platform)_$(ConfigurationName)',
+          '<(chakra_dir)/build/vcbuild/bin/<(Platform)_<(chakracore_build_config)',
         'xplat_dir': '<(chakra_dir)/out/<(chakra_config)',
         'chakra_libs_absolute': '<(PRODUCT_DIR)/../../deps/chakrashim/<(xplat_dir)',
 
@@ -107,7 +109,7 @@
               'action': [
                 'msbuild',
                 '/p:Platform=<(Platform)',
-                '/p:Configuration=$(ConfigurationName)',
+                '/p:Configuration=<(chakracore_build_config)',
                 '/p:RuntimeLib=<(component)',
                 '/p:AdditionalPreprocessorDefinitions=COMPILE_DISABLE_Simdjs=1',
                 '/m',
@@ -119,6 +121,7 @@
                 '<(chakra_dir)/build.sh',
                 '--without=Simdjs',
                 '--static',
+                '<@(chakracore_parallel_build_flags)',
                 '<@(chakra_build_flags)',
                 '<@(icu_args)',
                 '--libs-only'

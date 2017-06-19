@@ -45,6 +45,7 @@ set build_addons_napi=
 set test_node_inspect=
 set test_check_deopts=
 set engine=chakracore
+set chakracore_test_build=
 set js_test_suites=inspector known_issues message parallel sequential
 set "common_test_suites=%js_test_suites% doctool addons addons-napi&set build_addons=1&set build_addons_napi=1"
 
@@ -52,6 +53,7 @@ set "common_test_suites=%js_test_suites% doctool addons addons-napi&set build_ad
 if "%1"=="" goto args-done
 if /i "%1"=="debug"         set config=Debug&goto arg-ok
 if /i "%1"=="release"       set config=Release&goto arg-ok
+if /i "%1"=="chakracoretest" set config=Release&set chakracore_test_build=1&goto arg-ok
 if /i "%1"=="clean"         set target=Clean&goto arg-ok
 if /i "%1"=="ia32"          set target_arch=x86&goto arg-ok
 if /i "%1"=="x86"           set target_arch=x86&goto arg-ok
@@ -130,6 +132,7 @@ set "node_exe=%~dp0%config%\node.exe"
 if not defined native_node_exe set "native_node_exe=%node_exe%"
 
 if "%config%"=="Debug" set configure_flags=%configure_flags% --debug
+if "%chakracore_test_build%"=="1" set configure_flags=%configure_flags% --chakracore-test-build
 if defined nosnapshot set configure_flags=%configure_flags% --without-snapshot
 if defined noetw set configure_flags=%configure_flags% --without-etw& set noetw_msi_arg=/p:NoETW=1
 if defined noperfctr set configure_flags=%configure_flags% --without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
