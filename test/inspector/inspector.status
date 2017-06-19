@@ -12,3 +12,4 @@ test-inspector-port-zero-cluster     : PASS,FLAKY
 [$jsEngine==chakracore]
 test-bindings : PASS,FLAKY
 test-inspector-break-when-eval : PASS,FLAKY
+test-off-with-session-then-on : PASS,FLAKY
