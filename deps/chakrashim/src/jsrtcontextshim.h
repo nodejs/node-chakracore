@@ -167,6 +167,8 @@ class ContextShim {
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(jsonParse);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(jsonStringify);
 };
 
 }  // namespace jsrt
