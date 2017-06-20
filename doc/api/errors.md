@@ -632,6 +632,12 @@ communication channel to a child process. See [`child.send()`] and
 Used generically to identify when an invalid or unexpected value has been
 passed in an options object.
 
+<a id="ERR_INVALID_REPL_EVAL_CONFIG"></a>
+### ERR_INVALID_REPL_EVAL_CONFIG
+
+Used when both `breakEvalOnSigint` and `eval` options are set
+in the REPL config, which is not supported.
+
 <a id="ERR_INVALID_SYNC_FORK_INPUT"></a>
 ### ERR_INVALID_SYNC_FORK_INPUT
 
@@ -741,6 +747,12 @@ Used when data cannot be sent on a socket.
 ### ERR_SOCKET_DGRAM_NOT_RUNNING
 
 Used when a call is made and the UDP subsystem is not running.
+
+<a id="ERR_NO_CRYPTO"></a>
+### ERR_NO_CRYPTO
+
+Used when an attempt is made to use crypto features while Node.js is not
+compiled with OpenSSL crypto support.
 
 <a id="ERR_STDERR_CLOSE"></a>
 ### ERR_STDERR_CLOSE
