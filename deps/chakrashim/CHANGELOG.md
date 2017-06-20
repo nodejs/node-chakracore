@@ -188,245 +188,261 @@
 
 ### Commits
 
-* [[`0124235`](https://github.com/nodejs/node-chakracore/commit/0124235)] - test,tools: test fixes after merge
-* [[`16bae56`](https://github.com/nodejs/node-chakracore/commit/16bae56)] - Merge remote-tracking branch 'nodejs/master' into chakracore-master
-* [[`76da668`](https://github.com/nodejs/node-chakracore/commit/76da668)] - test: Updated baseline for chakracore
-* [[`0bddd5d`](https://github.com/nodejs/node-chakracore/commit/0bddd5d)] - chakrashim: Make chakracore 1.3 build
-* [[`3fa1e12`](https://github.com/nodejs/node-chakracore/commit/3fa1e12)] - chakracore: Updated to 1.3
-* [[`a606f84`](https://github.com/nodejs/node-chakracore/commit/a606f84)] - src: fix build break for !NODE_USE_V8_PLATFORM
-* [[`45ff9e9`](https://github.com/nodejs/node-chakracore/commit/45ff9e9)] - chakrashim: Added missing API in `v8.h`
-* [[`913ea18`](https://github.com/nodejs/node-chakracore/commit/913ea18)] - Merge 'nodejs/master' into chakracore-master
-* [[`65e0fc2`](https://github.com/nodejs/node-chakracore/commit/65e0fc2)] - test: fixed unit test
-* [[`2525355`](https://github.com/nodejs/node-chakracore/commit/2525355)] - Merge 'nodejs/master' into chakracore-master
-* [[`acb4225`](https://github.com/nodejs/node-chakracore/commit/acb4225)] - chakrashim: Improve AddLocal codepath
-* [[`581e929`](https://github.com/nodejs/node-chakracore/commit/581e929)] - Merge 'nodejs/master' into chakracore-master
-* [[`784edee`](https://github.com/nodejs/node-chakracore/commit/784edee)] - chakrashim: fixed openssl native add-ons
-* [[`983c0b8`](https://github.com/nodejs/node-chakracore/commit/983c0b8)] - chakrashim: Fix bug in repl scenario
-* [[`11db4f2`](https://github.com/nodejs/node-chakracore/commit/11db4f2)] - Merge 'nodejs/master' into chakracore-master
-* [[`21bd447`](https://github.com/nodejs/node-chakracore/commit/21bd447)] - chakrashim: fix for nan compatibility
-* [[`5eb8031`](https://github.com/nodejs/node-chakracore/commit/5eb8031)] - chakrashim: a few refactors for clang
-* [[`6695095`](https://github.com/nodejs/node-chakracore/commit/6695095)] - chakrashim: pass compile flag to disable simdjs when building chakracore
-* [[`b68580e`](https://github.com/nodejs/node-chakracore/commit/b68580e)] - deps: disable features using compile flag (simdjs)
-* [[`c78c10f`](https://github.com/nodejs/node-chakracore/commit/c78c10f)] - Revert "deps: Expose `--harmony-simd` in node+chakracore"
-* [[`d078ffc`](https://github.com/nodejs/node-chakracore/commit/d078ffc)] - Revert "deps: Modified chakracore to enable/disable SIMD"
-* [[`06fc26d`](https://github.com/nodejs/node-chakracore/commit/06fc26d)] - test: fixed failing test cases
-* [[`c2ce832`](https://github.com/nodejs/node-chakracore/commit/c2ce832)] - build: fixes post merge
-* [[`93015ca`](https://github.com/nodejs/node-chakracore/commit/93015ca)] - Merge 'nodejs/master' into chakracore-master
-* [[`32b85f9`](https://github.com/nodejs/node-chakracore/commit/32b85f9)] - chakrashim: bug fixes for Error APIs
-* [[`fa65467`](https://github.com/nodejs/node-chakracore/commit/fa65467)] - win,node-gyp: work around __pfnDliNotifyHook2 type change
+* [[`3bce961699`](https://github.com/nodejs/node-chakracore/commit/3bce961699)] - 2016-09-09, node-chakracore-7.0.0-pre9
+* [[`0124235ee0`](https://github.com/nodejs/node-chakracore/commit/0124235ee0)] - test,tools: test fixes after merge
+* [[`16bae56807`](https://github.com/nodejs/node-chakracore/commit/16bae56807)] - Merge remote-tracking branch 'nodejs/master' into chakracore-master
+* [[`76da668665`](https://github.com/nodejs/node-chakracore/commit/76da668665)] - test: Updated baseline for chakracore
+* [[`0bddd5da66`](https://github.com/nodejs/node-chakracore/commit/0bddd5da66)] - chakrashim: Make chakracore 1.3 build
+* [[`3fa1e12b73`](https://github.com/nodejs/node-chakracore/commit/3fa1e12b73)] - chakracore: Updated to 1.3
+* [[`a606f84dea`](https://github.com/nodejs/node-chakracore/commit/a606f84dea)] - src: fix build break for !NODE_USE_V8_PLATFORM
+* [[`45ff9e9021`](https://github.com/nodejs/node-chakracore/commit/45ff9e9021)] - chakrashim: Added missing API in `v8.h`
+* [[`913ea18f9d`](https://github.com/nodejs/node-chakracore/commit/913ea18f9d)] - Merge 'nodejs/master' into chakracore-master
+* [[`65e0fc283e`](https://github.com/nodejs/node-chakracore/commit/65e0fc283e)] - test: fixed unit test
+* [[`2525355b1e`](https://github.com/nodejs/node-chakracore/commit/2525355b1e)] - Merge 'nodejs/master' into chakracore-master
+* [[`acb42253a8`](https://github.com/nodejs/node-chakracore/commit/acb42253a8)] - chakrashim: Improve AddLocal codepath
+
+## 2016-07-22, node-chakracore-xplat-7.0.0-pre8
+
+### Commits
+
+* [[`471b930d20`](https://github.com/nodejs/node-chakracore/commit/471b930d20)] - README: update to include Linux instructions
+* [[`9c7c47d220`](https://github.com/nodejs/node-chakracore/commit/9c7c47d220)] - chakrashim: use updated chakracore
+* [[`e1b7745bed`](https://github.com/nodejs/node-chakracore/commit/e1b7745bed)] - chakrashim: add chakracore experimental String APIs
+* [[`9040442591`](https://github.com/nodejs/node-chakracore/commit/9040442591)] - Merge remote-tracking branch 'chakracore-master' into xplat
+* [[`ab8fd541c9`](https://github.com/nodejs/node-chakracore/commit/ab8fd541c9)] - chakrashim: update chakracore (2016-07-22)
+* [[`5021d49441`](https://github.com/nodejs/node-chakracore/commit/5021d49441)] - Merge remote-tracking branch 'chakracore-master' into xplat
+* [[`f21cdaf984`](https://github.com/nodejs/node-chakracore/commit/f21cdaf984)] - chakrashim: update chakracore (2016-07-15)
+* [[`ae1b9d4927`](https://github.com/nodejs/node-chakracore/commit/ae1b9d4927)] - chakrashim: build on Linux
+* [[`b9c21932d8`](https://github.com/nodejs/node-chakracore/commit/b9c21932d8)] - chakrashim: remove --engine test arg
+* [[`03633a70bb`](https://github.com/nodejs/node-chakracore/commit/03633a70bb)] - chakrashim: patch to build with linux chakracore
+* [[`1ddc979544`](https://github.com/nodejs/node-chakracore/commit/1ddc979544)] - chakrashim: switch to chakracore/linux
+* [[`5eb80319a4`](https://github.com/nodejs/node-chakracore/commit/5eb80319a4)] - chakrashim: a few refactors for clang
+* [[`6695095912`](https://github.com/nodejs/node-chakracore/commit/6695095912)] - chakrashim: pass compile flag to disable simdjs when building chakracore
+* [[`b68580e947`](https://github.com/nodejs/node-chakracore/commit/b68580e947)] - deps: disable features using compile flag (simdjs)
+* [[`c78c10f828`](https://github.com/nodejs/node-chakracore/commit/c78c10f828)] - Revert "deps: Expose `--harmony-simd` in node+chakracore"
+* [[`d078ffc5b8`](https://github.com/nodejs/node-chakracore/commit/d078ffc5b8)] - Revert "deps: Modified chakracore to enable/disable SIMD"
+* [[`06fc26df5d`](https://github.com/nodejs/node-chakracore/commit/06fc26df5d)] - test: fixed failing test cases
+* [[`c2ce8329fb`](https://github.com/nodejs/node-chakracore/commit/c2ce8329fb)] - build: fixes post merge
+* [[`93015ca33f`](https://github.com/nodejs/node-chakracore/commit/93015ca33f)] - Merge 'nodejs/master' into chakracore-master
+* [[`32b85f9f0f`](https://github.com/nodejs/node-chakracore/commit/32b85f9f0f)] - chakrashim: bug fixes for Error APIs
+* [[`fa65467af6`](https://github.com/nodejs/node-chakracore/commit/fa65467af6)] - win,node-gyp: work around __pfnDliNotifyHook2 type change
 
 ## 2016-06-23, node-chakracore-7.0.0-pre8
 
 ### Commits
 
-* [[`89dbaf8`](https://github.com/nodejs/node-chakracore/commit/89dbaf8)] - build: merged conditions for v8_inspector
-* [[`f2ad532`](https://github.com/nodejs/node-chakracore/commit/f2ad532)] - lib,test: fixed jslint errors
-* [[`b3610fe`](https://github.com/nodejs/node-chakracore/commit/b3610fe)] - test: fixed unit test for error message
-* [[`8b48ffd`](https://github.com/nodejs/node-chakracore/commit/8b48ffd)] - src,build: added todo for isolate_data
-* [[`0402b9e`](https://github.com/nodejs/node-chakracore/commit/0402b9e)] - Merge 'nodejs/master' into chakracore-master
-* [[`1ec0729`](https://github.com/nodejs/node-chakracore/commit/1ec0729)] - chakrashim: implement triggering GC when idle
-* [[`8641dc0`](https://github.com/nodejs/node-chakracore/commit/8641dc0)] - doc,deps,test:  fixed deps\test after upgrade to 1.2
-* [[`4dd7c22`](https://github.com/nodejs/node-chakracore/commit/4dd7c22)] - build: do not build icu for chakracore-master
-* [[`8f00534`](https://github.com/nodejs/node-chakracore/commit/8f00534)] - deps: Modified chakracore to enable/disable SIMD
-* [[`7cd4c61`](https://github.com/nodejs/node-chakracore/commit/7cd4c61)] - chakrashim: updated chakracore to 1.2
-* [[`407e16c`](https://github.com/nodejs/node-chakracore/commit/407e16c)] - test: Suppress debugger test and fixed jslint
-* [[`5556a39`](https://github.com/nodejs/node-chakracore/commit/5556a39)] - deps: Expose `--harmony-simd` in node+chakracore
-* [[`2684f39`](https://github.com/nodejs/node-chakracore/commit/2684f39)] - deps: Modified chakracore to enable/disable SIMD
-* [[`3b6a55e`](https://github.com/nodejs/node-chakracore/commit/3b6a55e)] - Merge 'nodejs/master into chakracore-master
-* [[`8d11795`](https://github.com/nodejs/node-chakracore/commit/8d11795)] - tool: modified eslint rule for line-breaks
-* [[`2048b2c`](https://github.com/nodejs/node-chakracore/commit/2048b2c)] - test: Disabled a debugger unit test
-* [[`6fd464c`](https://github.com/nodejs/node-chakracore/commit/6fd464c)] - Merge 'nodejs/master' into chakracore-master
-* [[`b1e66d7`](https://github.com/nodejs/node-chakracore/commit/b1e66d7)] - tools: fixed jslint errors after merge
-* [[`60e2711`](https://github.com/nodejs/node-chakracore/commit/60e2711)] - Merge nodejs/master into chakracore-master
-* [[`574b01e`](https://github.com/nodejs/node-chakracore/commit/574b01e)] - test: fixed test case after merge
-* [[`7c88be6`](https://github.com/nodejs/node-chakracore/commit/7c88be6)] - deps: added chakrashim apis for Proxy
-* [[`ca75446`](https://github.com/nodejs/node-chakracore/commit/ca75446)] - Merge branch 'nodejs/master' into chakracore-master
-* [[`c7129ab`](https://github.com/nodejs/node-chakracore/commit/c7129ab)] - test: update message/...chakracore.out
-* [[`007b8f6`](https://github.com/nodejs/node-chakracore/commit/007b8f6)] - Merge branch 'nodejs/master' into chakracore-master
-* [[`2a8b3b0`](https://github.com/nodejs/node-chakracore/commit/2a8b3b0)] - chakrashim: correct Template properties support
+* [[`bc6327fdd3`](https://github.com/nodejs/node-chakracore/commit/bc6327fdd3)] - 2016-06-21, node-chakracore-7.0.0-pre8
+* [[`89dbaf8851`](https://github.com/nodejs/node-chakracore/commit/89dbaf8851)] - build: merged conditions for v8_inspector
+* [[`f2ad5323e0`](https://github.com/nodejs/node-chakracore/commit/f2ad5323e0)] - lib,test: fixed jslint errors
+* [[`b3610fe8f4`](https://github.com/nodejs/node-chakracore/commit/b3610fe8f4)] - test: fixed unit test for error message
+* [[`8b48ffde44`](https://github.com/nodejs/node-chakracore/commit/8b48ffde44)] - src,build: added todo for isolate_data
+* [[`0402b9e177`](https://github.com/nodejs/node-chakracore/commit/0402b9e177)] - Merge 'nodejs/master' into chakracore-master
+* [[`1ec0729ac8`](https://github.com/nodejs/node-chakracore/commit/1ec0729ac8)] - chakrashim: implement triggering GC when idle
+* [[`8641dc0a9d`](https://github.com/nodejs/node-chakracore/commit/8641dc0a9d)] - doc,deps,test:  fixed deps\test after upgrade to 1.2
+* [[`4dd7c223d0`](https://github.com/nodejs/node-chakracore/commit/4dd7c223d0)] - build: do not build icu for chakracore-master
+* [[`8f00534443`](https://github.com/nodejs/node-chakracore/commit/8f00534443)] - deps: Modified chakracore to enable/disable SIMD
+* [[`7cd4c61fa4`](https://github.com/nodejs/node-chakracore/commit/7cd4c61fa4)] - chakrashim: updated chakracore to 1.2
+* [[`407e16c0e7`](https://github.com/nodejs/node-chakracore/commit/407e16c0e7)] - test: Suppress debugger test and fixed jslint
+* [[`5556a39abe`](https://github.com/nodejs/node-chakracore/commit/5556a39abe)] - deps: Expose `--harmony-simd` in node+chakracore
+* [[`2684f39f4f`](https://github.com/nodejs/node-chakracore/commit/2684f39f4f)] - deps: Modified chakracore to enable/disable SIMD
+* [[`3b6a55e5c4`](https://github.com/nodejs/node-chakracore/commit/3b6a55e5c4)] - Merge 'nodejs/master into chakracore-master
+* [[`8d11795cf8`](https://github.com/nodejs/node-chakracore/commit/8d11795cf8)] - tool: modified eslint rule for line-breaks
+* [[`2048b2c890`](https://github.com/nodejs/node-chakracore/commit/2048b2c890)] - test: Disabled a debugger unit test
+* [[`6fd464cbd3`](https://github.com/nodejs/node-chakracore/commit/6fd464cbd3)] - Merge 'nodejs/master' into chakracore-master
+* [[`b1e66d751b`](https://github.com/nodejs/node-chakracore/commit/b1e66d751b)] - tools: fixed jslint errors after merge
+* [[`60e2711353`](https://github.com/nodejs/node-chakracore/commit/60e2711353)] - Merge nodejs/master into chakracore-master
+* [[`574b01ed1c`](https://github.com/nodejs/node-chakracore/commit/574b01ed1c)] - test: fixed test case after merge
+* [[`7c88be6551`](https://github.com/nodejs/node-chakracore/commit/7c88be6551)] - deps: added chakrashim apis for Proxy
+* [[`ca75446655`](https://github.com/nodejs/node-chakracore/commit/ca75446655)] - Merge branch 'nodejs/master' into chakracore-master
+* [[`c7129ab9f5`](https://github.com/nodejs/node-chakracore/commit/c7129ab9f5)] - test: update message/...chakracore.out
+* [[`007b8f6099`](https://github.com/nodejs/node-chakracore/commit/007b8f6099)] - Merge branch 'nodejs/master' into chakracore-master
+* [[`2a8b3b003c`](https://github.com/nodejs/node-chakracore/commit/2a8b3b003c)] - chakrashim: correct Template properties support
 
 ## 2016-04-20, node-chakracore-6.0.0-pre7
 
 ### Commits
 
-* [[`589206a`](https://github.com/nodejs/node-chakracore/commit/589206a)] - chakrashim: remove a jslint comment
-* [[`5dafb03`](https://github.com/nodejs/node-chakracore/commit/5dafb03)] - Merge branch 'nodejs/master' into chakracore-master
-* [[`8fb96bc`](https://github.com/nodejs/node-chakracore/commit/8fb96bc)] - test: update 5 node-chakracore message test baselines
-* [[`40b5f7c`](https://github.com/nodejs/node-chakracore/commit/40b5f7c)] - test: fix wrong python script indentation
-* [[`bb0707b`](https://github.com/nodejs/node-chakracore/commit/bb0707b)] - test: patch tests for chakra
-* [[`df8d10e`](https://github.com/nodejs/node-chakracore/commit/df8d10e)] - chakrashim: correct function callback context
-* [[`41d9652`](https://github.com/nodejs/node-chakracore/commit/41d9652)] - chakrashim: let caller TryCatch record exception
-* [[`53c2d8e`](https://github.com/nodejs/node-chakracore/commit/53c2d8e)] - test: skip null-buffer-neuter on node-chakracore
-* [[`313cec1`](https://github.com/nodejs/node-chakracore/commit/313cec1)] - chakrashim: add test/addons dependency stubs
-* [[`0cd4cb8`](https://github.com/nodejs/node-chakracore/commit/0cd4cb8)] - gyp: revert incorrect quote_cmd fix
-* [[`c864edf`](https://github.com/nodejs/node-chakracore/commit/c864edf)] - Merge branch 'nodejs/master' into chakracore-master
+* [[`acca384ba1`](https://github.com/nodejs/node-chakracore/commit/acca384ba1)] - 2016-04-20, node-chakracore-6.0.0-pre7
+* [[`589206a43f`](https://github.com/nodejs/node-chakracore/commit/589206a43f)] - chakrashim: remove a jslint comment
+* [[`5dafb03f7d`](https://github.com/nodejs/node-chakracore/commit/5dafb03f7d)] - Merge branch 'nodejs/master' into chakracore-master
+* [[`8fb96bc713`](https://github.com/nodejs/node-chakracore/commit/8fb96bc713)] - test: update 5 node-chakracore message test baselines
+* [[`40b5f7cb5e`](https://github.com/nodejs/node-chakracore/commit/40b5f7cb5e)] - test: fix wrong python script indentation
+* [[`bb0707b8f2`](https://github.com/nodejs/node-chakracore/commit/bb0707b8f2)] - test: patch tests for chakra
+* [[`df8d10e0a8`](https://github.com/nodejs/node-chakracore/commit/df8d10e0a8)] - chakrashim: correct function callback context
+* [[`41d9652d09`](https://github.com/nodejs/node-chakracore/commit/41d9652d09)] - chakrashim: let caller TryCatch record exception
+* [[`53c2d8e8e1`](https://github.com/nodejs/node-chakracore/commit/53c2d8e8e1)] - test: skip null-buffer-neuter on node-chakracore
+* [[`313cec1c10`](https://github.com/nodejs/node-chakracore/commit/313cec1c10)] - chakrashim: add test/addons dependency stubs
+* [[`0cd4cb887c`](https://github.com/nodejs/node-chakracore/commit/0cd4cb887c)] - gyp: revert incorrect quote_cmd fix
+* [[`c864edf09b`](https://github.com/nodejs/node-chakracore/commit/c864edf09b)] - Merge branch 'nodejs/master' into chakracore-master
 
 ## 2016-04-01, node-chakracore-6.0.0-pre6
 
 ### Commits
 
-* [[`d9469f1`](https://github.com/nodejs/node-chakracore/commit/d9469f1)] - chakrashim: update chakracore to 1.1.0.5
-* [[`b838007`](https://github.com/nodejs/node-chakracore/commit/b838007)] - chakrashim: use microtask queue to run Promise
-* [[`2723d94`](https://github.com/nodejs/node-chakracore/commit/2723d94)] - test: address 2 new failures on node-chakracore
-* [[`88dc654`](https://github.com/nodejs/node-chakracore/commit/88dc654)] - Merge remote-tracking branch 'nodejs/master'
-* [[`803af69`](https://github.com/nodejs/node-chakracore/commit/803af69)] - chakrashim: add dummy Debug.MakeMirror
-* [[`e7b09ef`](https://github.com/nodejs/node-chakracore/commit/e7b09ef)] - chakrashim: better StackTrace API compat
-* [[`c6d6e6b`](https://github.com/nodejs/node-chakracore/commit/c6d6e6b)] - chakrashim: implement new APIs added in v8
-* [[`58ff8db`](https://github.com/nodejs/node-chakracore/commit/58ff8db)] - Merge remote-tracking branch 'nodejs/master'
-* [[`878b8fd`](https://github.com/nodejs/node-chakracore/commit/878b8fd)] - chakrashim: fix ObjectTemplate callbacks compat
-* [[`75ace7d`](https://github.com/nodejs/node-chakracore/commit/75ace7d)] - chakrashim: ensure chakra_shim_native buffer is null terminated
-* [[`adfadcc`](https://github.com/nodejs/node-chakracore/commit/adfadcc)] - test: fix unittest for Chakra engine
-* [[`d875ac9`](https://github.com/nodejs/node-chakracore/commit/d875ac9)] - Merge remote-tracking branch 'nodejs/master'
-* [[`9e23f00`](https://github.com/nodejs/node-chakracore/commit/9e23f00)] - chakrashim: allow Persistent::Reset after V8::Dispose
+* [[`7f2f649895`](https://github.com/nodejs/node-chakracore/commit/7f2f649895)] - 2016-04-01, node-chakracore-6.0.0-pre6
+* [[`730cd890ab`](https://github.com/nodejs/node-chakracore/commit/730cd890ab)] - win,build: fix arm build
+* [[`d9469f1006`](https://github.com/nodejs/node-chakracore/commit/d9469f1006)] - chakrashim: update chakracore to 1.1.0.5
+* [[`b838007b79`](https://github.com/nodejs/node-chakracore/commit/b838007b79)] - chakrashim: use microtask queue to run Promise
+* [[`2723d94d82`](https://github.com/nodejs/node-chakracore/commit/2723d94d82)] - test: address 2 new failures on node-chakracore
+* [[`88dc6548c1`](https://github.com/nodejs/node-chakracore/commit/88dc6548c1)] - Merge remote-tracking branch 'nodejs/master'
+* [[`803af694c5`](https://github.com/nodejs/node-chakracore/commit/803af694c5)] - chakrashim: add dummy Debug.MakeMirror
+* [[`e7b09ef9e2`](https://github.com/nodejs/node-chakracore/commit/e7b09ef9e2)] - chakrashim: better StackTrace API compat
+* [[`c6d6e6b2f7`](https://github.com/nodejs/node-chakracore/commit/c6d6e6b2f7)] - chakrashim: implement new APIs added in v8
+* [[`58ff8db189`](https://github.com/nodejs/node-chakracore/commit/58ff8db189)] - Merge remote-tracking branch 'nodejs/master'
+* [[`878b8fd412`](https://github.com/nodejs/node-chakracore/commit/878b8fd412)] - chakrashim: fix ObjectTemplate callbacks compat
+* [[`75ace7dcc5`](https://github.com/nodejs/node-chakracore/commit/75ace7dcc5)] - chakrashim: ensure chakra_shim_native buffer is null terminated
+* [[`adfadccf20`](https://github.com/nodejs/node-chakracore/commit/adfadccf20)] - test: fix unittest for Chakra engine
+* [[`d875ac9d9c`](https://github.com/nodejs/node-chakracore/commit/d875ac9d9c)] - Merge remote-tracking branch 'nodejs/master'
+* [[`9e23f005e5`](https://github.com/nodejs/node-chakracore/commit/9e23f005e5)] - chakrashim: allow Persistent::Reset after V8::Dispose
 
 ## 2016-02-29, node-chakracore-6.0.0-pre5
 
 ### Commits
 
-* [[`fc3cf3e`](https://github.com/nodejs/node-chakracore/commit/fc3cf3e)] - deps: Updated chakracore to 1.1.0.4
-* [[`e2fc338`](https://github.com/nodejs/node-chakracore/commit/e2fc338)] - test: Skip running test-tick-processor
-* [[`50d1014`](https://github.com/nodejs/node-chakracore/commit/50d1014)] - chakrashim: Make --v8-options work
-* [[`8932128`](https://github.com/nodejs/node-chakracore/commit/8932128)] - Merge remote-tracking branch 'nodejs/master'
+* [[`fc3cf3e602`](https://github.com/nodejs/node-chakracore/commit/fc3cf3e602)] - deps: Updated chakracore to 1.1.0.4
+* [[`e2fc3385f5`](https://github.com/nodejs/node-chakracore/commit/e2fc3385f5)] - test: Skip running test-tick-processor
+* [[`50d1014b03`](https://github.com/nodejs/node-chakracore/commit/50d1014b03)] - chakrashim: Make --v8-options work
+* [[`8932128466`](https://github.com/nodejs/node-chakracore/commit/8932128466)] - Merge remote-tracking branch 'nodejs/master'
 
 ## 2016-02-10, node-chakracore-6.0.0-pre4
 
 ### Commits
 
-* [[`a34dd03`](https://github.com/nodejs/node-chakracore/commit/a34dd03)] - deps: Update chakracore to 1.1.0.3
-* [[`ee02cb6`](https://github.com/nodejs/node-chakracore/commit/ee02cb6)] - chakrashim: Fixed breaking v8 APIs after merge
-* [[`53bfef3`](https://github.com/nodejs/node-chakracore/commit/53bfef3)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`a34dd031b6`](https://github.com/nodejs/node-chakracore/commit/a34dd031b6)] - deps: Update chakracore to 1.1.0.3
+* [[`ee02cb6486`](https://github.com/nodejs/node-chakracore/commit/ee02cb6486)] - chakrashim: Fixed breaking v8 APIs after merge
+* [[`53bfef30c0`](https://github.com/nodejs/node-chakracore/commit/53bfef30c0)] - Merge remote-tracking branch 'nodejs/master' into chnext
 
 ## 2016-01-29, node-chakracore-6.0.0-pre3
 
 ### Commits
 
-* [[`668b620`](https://github.com/nodejs/node-chakracore/commit/668b620)] - deps: Updated chakracore to 1.1.0.2
-* [[`88ce3d5`](https://github.com/nodejs/node-chakracore/commit/88ce3d5)] - chakrashim: Update v8 version
-* [[`e335592`](https://github.com/nodejs/node-chakracore/commit/e335592)] - chakrashim: Fixed v8 APIs
-* [[`d720b2f`](https://github.com/nodejs/node-chakracore/commit/d720b2f)] - Merge remote-tracking branch 'nodejs/master' into chnext
-* [[`87d88dd`](https://github.com/nodejs/node-chakracore/commit/87d88dd)] - doc: Fix broken link in README.md
-* [[`fb09510`](https://github.com/nodejs/node-chakracore/commit/fb09510)] - test: Disabled more unit test for chakracore
-* [[`c2c6337`](https://github.com/nodejs/node-chakracore/commit/c2c6337)] - chakrashim: Bump-up the v8-version.
-* [[`c4f1afc`](https://github.com/nodejs/node-chakracore/commit/c4f1afc)] - chakrashim: Fixed v8 APIs after merge
-* [[`c4dee62`](https://github.com/nodejs/node-chakracore/commit/c4dee62)] - Merge remote-tracking branch 'nodejs/master' into chnext
-* [[`d69e2c8`](https://github.com/nodejs/node-chakracore/commit/d69e2c8)] - chakrashim: Add 'Debug' object only when needed
+* [[`668b620a02`](https://github.com/nodejs/node-chakracore/commit/668b620a02)] - deps: Updated chakracore to 1.1.0.2
+* [[`88ce3d56e0`](https://github.com/nodejs/node-chakracore/commit/88ce3d56e0)] - chakrashim: Update v8 version
+* [[`e33559243e`](https://github.com/nodejs/node-chakracore/commit/e33559243e)] - chakrashim: Fixed v8 APIs
+* [[`d720b2f26f`](https://github.com/nodejs/node-chakracore/commit/d720b2f26f)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`87d88dd97f`](https://github.com/nodejs/node-chakracore/commit/87d88dd97f)] - doc: Fix broken link in README.md
+* [[`fb09510343`](https://github.com/nodejs/node-chakracore/commit/fb09510343)] - test: Disabled more unit test for chakracore
+* [[`c2c63373fb`](https://github.com/nodejs/node-chakracore/commit/c2c63373fb)] - chakrashim: Bump-up the v8-version.
+* [[`c4f1afc8f2`](https://github.com/nodejs/node-chakracore/commit/c4f1afc8f2)] - chakrashim: Fixed v8 APIs after merge
+* [[`c4dee625b3`](https://github.com/nodejs/node-chakracore/commit/c4dee625b3)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`d69e2c82a3`](https://github.com/nodejs/node-chakracore/commit/d69e2c82a3)] - chakrashim: Add 'Debug' object only when needed
 
 ## 2016-01-15, node-chakracore-6.0.0-pre2
 
 ### Commits
 
-* [[`e300485`](https://github.com/nodejs/node-chakracore/commit/e300485)] - chakrashim: tweak chakra_shim.js for eslint
-* [[`5fe1c8f`](https://github.com/nodejs/node-chakracore/commit/5fe1c8f)] - docs: revert README.md bad merge
-* [[`a3007fa`](https://github.com/nodejs/node-chakracore/commit/a3007fa)] - chakrashim: sync to chakracore 1.1.0.1
-* [[`a5804dd`](https://github.com/nodejs/node-chakracore/commit/a5804dd)] - tool: Removed unnecessary arg from vcbuild.bat
-* [[`3518aee`](https://github.com/nodejs/node-chakracore/commit/3518aee)] - deps: Update chakrashim's v8 header file version
-* [[`1e3e8b8`](https://github.com/nodejs/node-chakracore/commit/1e3e8b8)] - Merge remote-tracking branch 'nodejs/master' into chnext
-* [[`65b49fc`](https://github.com/nodejs/node-chakracore/commit/65b49fc)] - doc: Added IoT-Readme.md
+* [[`e300485dbd`](https://github.com/nodejs/node-chakracore/commit/e300485dbd)] - chakrashim: tweak chakra_shim.js for eslint
+* [[`5fe1c8f564`](https://github.com/nodejs/node-chakracore/commit/5fe1c8f564)] - docs: revert README.md bad merge
+* [[`a3007fa58b`](https://github.com/nodejs/node-chakracore/commit/a3007fa58b)] - chakrashim: sync to chakracore 1.1.0.1
+* [[`a5804ddb7d`](https://github.com/nodejs/node-chakracore/commit/a5804ddb7d)] - tool: Removed unnecessary arg from vcbuild.bat
+* [[`3518aeee29`](https://github.com/nodejs/node-chakracore/commit/3518aeee29)] - deps: Update chakrashim's v8 header file version
+* [[`1e3e8b81dd`](https://github.com/nodejs/node-chakracore/commit/1e3e8b81dd)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`65b49fc532`](https://github.com/nodejs/node-chakracore/commit/65b49fc532)] - doc: Added IoT-Readme.md
 
 ## 2016-01-13, node-chakracore-6.0.0-pre1
 
 ### Commits
 
-* [[`5d860fd`](https://github.com/nodejs/node-chakracore/commit/5d860fd)] - chakrashim: sync to chakracore release/1.1
-* [[`6c70170`](https://github.com/nodejs/node-chakracore/commit/6c70170)] - chakrashim: Fixed multiple unittest bugs
-* [[`ee68330`](https://github.com/nodejs/node-chakracore/commit/ee68330)] - chakrashim: Fix for nan v2.2 APIs
-* [[`6bc3ef3`](https://github.com/nodejs/node-chakracore/commit/6bc3ef3)] - doc: Updated README.md for chakracore
-* [[`49bb95d`](https://github.com/nodejs/node-chakracore/commit/49bb95d)] - test: Fixed unit test for chakra engine
-* [[`889af37`](https://github.com/nodejs/node-chakracore/commit/889af37)] - chakrashim: add chakracore source
-* [[`cb4788a`](https://github.com/nodejs/node-chakracore/commit/cb4788a)] - Merge remote-tracking branch 'nodejs/master' into chnext-chakracore
-* [[`8d722fa`](https://github.com/nodejs/node-chakracore/commit/8d722fa)] - chakrashim: Implement IsMap/IsSet after merge
-* [[`b259f11`](https://github.com/nodejs/node-chakracore/commit/b259f11)] - chakrashim: update AUTHORS
-* [[`377347e`](https://github.com/nodejs/node-chakracore/commit/377347e)] - chakrashim: handle index properties in Object::Get/Set
-* [[`a1a43a2`](https://github.com/nodejs/node-chakracore/commit/a1a43a2)] - chakrashim: lint errors cleanup
-* [[`d1e310e`](https://github.com/nodejs/node-chakracore/commit/d1e310e)] - Show JS exception details for FATAL ERROR message
-* [[`f44ff42`](https://github.com/nodejs/node-chakracore/commit/f44ff42)] - chakrashim: misc chakrashim related cleanup
-* [[`f14d337`](https://github.com/nodejs/node-chakracore/commit/f14d337)] - chakrashim: handle Value::ToInteger overflow case
-* [[`b6e38eb`](https://github.com/nodejs/node-chakracore/commit/b6e38eb)] - chakrashim: Added dummy 'Debug' in global object
-* [[`04446e4`](https://github.com/nodejs/node-chakracore/commit/04446e4)] - chakrashim: Implemented ScriptOrigin signature
-* [[`7953699`](https://github.com/nodejs/node-chakracore/commit/7953699)] - Merge remote-tracking branch 'nodejs/master' into chnext
-* [[`26c1f6d`](https://github.com/nodejs/node-chakracore/commit/26c1f6d)] - chakrashim: JsCollectGarbage and cleanup
-* [[`98d84cd`](https://github.com/nodejs/node-chakracore/commit/98d84cd)] - Merge remote-tracking branch 'nodejs/master' into chnext
-* [[`1f2ab92`](https://github.com/nodejs/node-chakracore/commit/1f2ab92)] - chakrashim: Remove option to build with 'chakra'
-* [[`c115f42`](https://github.com/nodejs/node-chakracore/commit/c115f42)] - chakrashim: Removed --no-duplicate-basename option
-* [[`c9cf4ff`](https://github.com/nodejs/node-chakracore/commit/c9cf4ff)] - chakrashim: isMapIterator/isSetIterator bug fix
-* [[`82ad0b3`](https://github.com/nodejs/node-chakracore/commit/82ad0b3)] - Added back jslint prefer-const rule
-* [[`0e514a5`](https://github.com/nodejs/node-chakracore/commit/0e514a5)] - Merge remote-tracking branch 'nodejs/master' into chnext
-* [[`5a3fca2`](https://github.com/nodejs/node-chakracore/commit/5a3fca2)] - chakrashim: Update chakracore to new header
-* [[`490ef58`](https://github.com/nodejs/node-chakracore/commit/490ef58)] - chakrashim: Implemeted v8 APIs after merge
-* [[`52780c7`](https://github.com/nodejs/node-chakracore/commit/52780c7)] - Merge remote-tracking branch 'nodejs/master' into chnext
-* [[`5f6bc43`](https://github.com/nodejs/node-chakracore/commit/5f6bc43)] - chakrashim: Fixed discrepencies in ToInteger
-* [[`0c45b5c`](https://github.com/nodejs/node-chakracore/commit/0c45b5c)] - chakrashim,msi: build with chakracore
-* [[`e4eec51`](https://github.com/nodejs/node-chakracore/commit/e4eec51)] - chakrashim: Implemented 2 new nan.h APIs
-* [[`777a042`](https://github.com/nodejs/node-chakracore/commit/777a042)] - Revert "lib,buffer: temp workaround chakra bug"
-* [[`1a9ddec`](https://github.com/nodejs/node-chakracore/commit/1a9ddec)] - Merge remote-tracking branch 'node/master' into chnext
-* [[`e4207e2`](https://github.com/nodejs/node-chakracore/commit/e4207e2)] - lib,buffer: temp workaround chakra bug
-* [[`3a55f98`](https://github.com/nodejs/node-chakracore/commit/3a55f98)] - lib: mark Buffer/SlowBuffer not supporting @@species
-* [[`91b675a`](https://github.com/nodejs/node-chakracore/commit/91b675a)] - Merge remote-tracking branch 'node/master' into chnext
-* [[`2d1b2b4`](https://github.com/nodejs/node-chakracore/commit/2d1b2b4)] - chakrashim: update AUTHORS, cpplint
-* [[`e4b077c`](https://github.com/nodejs/node-chakracore/commit/e4b077c)] - chakrashim: add implement v8::FunctionTemplate::Inherit I was implement v8::FunctionTemplate::Inherit and use in my game engine.
-* [[`189df5f`](https://github.com/nodejs/node-chakracore/commit/189df5f)] - chakrashim: fix Object::SetInternalField … When use SetInternalField with Interger will assert:
-* [[`f017c07`](https://github.com/nodejs/node-chakracore/commit/f017c07)] - chakrashim: update AUTHORS
-* [[`17b1ed8`](https://github.com/nodejs/node-chakracore/commit/17b1ed8)] - chakrashim: remove unused code
-* [[`7f4cf1f`](https://github.com/nodejs/node-chakracore/commit/7f4cf1f)] - chakrashim: remove supportsOverrideToString
-* [[`47477f6`](https://github.com/nodejs/node-chakracore/commit/47477f6)] - chakrashim: fix index/toInteger int overflow
-* [[`56dc0bb`](https://github.com/nodejs/node-chakracore/commit/56dc0bb)] - chakrashim: fix Object::SetInternalField
-* [[`7a1fb01`](https://github.com/nodejs/node-chakracore/commit/7a1fb01)] - win,cctest: link as console subsystem
-* [[`c10332c`](https://github.com/nodejs/node-chakracore/commit/c10332c)] - chakrashim: fix x64 build
-* [[`776499c`](https://github.com/nodejs/node-chakracore/commit/776499c)] - chakrashim: Removed word 'TH2' from chnext codebase
-* [[`efc1c4b`](https://github.com/nodejs/node-chakracore/commit/efc1c4b)] - chakrashim: fix TryCatch exception reporting
-* [[`ace0109`](https://github.com/nodejs/node-chakracore/commit/ace0109)] - chakrashim: remove unused code
-* [[`436704c`](https://github.com/nodejs/node-chakracore/commit/436704c)] - Merge remote-tracking branch 'node/master' into chnext
-* [[`fea88a4`](https://github.com/nodejs/node-chakracore/commit/fea88a4)] - chakrashim: revert StackFrame method renaming
-* [[`566cff6`](https://github.com/nodejs/node-chakracore/commit/566cff6)] - chakrashim: minor cleanup
-* [[`8d73cfe`](https://github.com/nodejs/node-chakracore/commit/8d73cfe)] - chakrashim: Code refactoring for cached propertyIds
-* [[`c932f01`](https://github.com/nodejs/node-chakracore/commit/c932f01)] - Merge remote-tracking branch 'node/master' into chnext
-* [[`33d79fa`](https://github.com/nodejs/node-chakracore/commit/33d79fa)] - chakrashim: some minor shim cleanups
-* [[`72f0702`](https://github.com/nodejs/node-chakracore/commit/72f0702)] - chakrashim: more v8.h shim alignment for nan.h
-* [[`8519d37`](https://github.com/nodejs/node-chakracore/commit/8519d37)] - chakrashim: Add support for --use-strict flag
-* [[`c21ef4b`](https://github.com/nodejs/node-chakracore/commit/c21ef4b)] - chakrashim: remove SAL annotations
-* [[`56a5330`](https://github.com/nodejs/node-chakracore/commit/56a5330)] - chakrashim: do not pass nullptr to JsCallFunction
-* [[`b461501`](https://github.com/nodejs/node-chakracore/commit/b461501)] - chakrashim: align Local/Persistent with official v8.h
-* [[`39685df`](https://github.com/nodejs/node-chakracore/commit/39685df)] - chakrashim: Refactored LoadProc changes added earlier
-* [[`2c45af2`](https://github.com/nodejs/node-chakracore/commit/2c45af2)] - chakrashim: Load chakra.dll dynamically for TH2
-* [[`e282ea0`](https://github.com/nodejs/node-chakracore/commit/e282ea0)] - chakrashim: add missing Exception methods
-* [[`a58a3cb`](https://github.com/nodejs/node-chakracore/commit/a58a3cb)] - chakrashim : Minor code cleanup
-* [[`42923c5`](https://github.com/nodejs/node-chakracore/commit/42923c5)] - Merge remote-tracking branch 'node/master'
-* [[`8cbbfbc`](https://github.com/nodejs/node-chakracore/commit/8cbbfbc)] - chakrashim: some v8.h shim cleanup
-* [[`5a54c00`](https://github.com/nodejs/node-chakracore/commit/5a54c00)] - Merge pull request #64 from Microsoft/CodeCleanup
-* [[`da8a753`](https://github.com/nodejs/node-chakracore/commit/da8a753)] - Merge remote-tracking branch 'iojs/master' into chnext
-* [[`c50ad9d`](https://github.com/nodejs/node-chakracore/commit/c50ad9d)] - Merge remote-tracking branch 'iojs/next' into chnext
-* [[`9a88a51`](https://github.com/nodejs/node-chakracore/commit/9a88a51)] - chakrashim: handle Symbol as property name
-* [[`e17502f`](https://github.com/nodejs/node-chakracore/commit/e17502f)] - chakrashim: improve typed array and instanceof perf
-* [[`a3d55af`](https://github.com/nodejs/node-chakracore/commit/a3d55af)] - chakrashim: some performance improvements
-* [[`f33e43f`](https://github.com/nodejs/node-chakracore/commit/f33e43f)] - chakrashim: Use new Jsrt APIs JsGetContextOfObject, JsGetContextData and JsSetContextData
-* [[`8851bb6`](https://github.com/nodejs/node-chakracore/commit/8851bb6)] - chakrashim: Removed cross context shim code
-* [[`87862dc`](https://github.com/nodejs/node-chakracore/commit/87862dc)] - chakrashim: enable chakra experimental features
-* [[`d24d422`](https://github.com/nodejs/node-chakracore/commit/d24d422)] - chakrashim: implement ArrayBuffer::New on external memory
-* [[`39db229`](https://github.com/nodejs/node-chakracore/commit/39db229)] - Merge remote-tracking branch 'iojs/next' into chnext
-* [[`45411a7`](https://github.com/nodejs/node-chakracore/commit/45411a7)] - chakrashim: changes to build with iojs next
-* [[`f218364`](https://github.com/nodejs/node-chakracore/commit/f218364)] - chakrashim: add gyp flag msvs_use_library_dependency_inputs
-* [[`d57d102`](https://github.com/nodejs/node-chakracore/commit/d57d102)] - gyp: add msvs_use_library_dependency_inputs support
-* [[`0a2b36a`](https://github.com/nodejs/node-chakracore/commit/0a2b36a)] - chakrashim: fix Script::Compile AV
-* [[`549e280`](https://github.com/nodejs/node-chakracore/commit/549e280)] - chakrashim: specify msvs_windows_target_platform_version
-* [[`914f1b4`](https://github.com/nodejs/node-chakracore/commit/914f1b4)] - gyp: add msvs_windows_target_platform_version support
-* [[`9a1945b`](https://github.com/nodejs/node-chakracore/commit/9a1945b)] - chakrashim: revert error types proxy change
-* [[`9d2faef`](https://github.com/nodejs/node-chakracore/commit/9d2faef)] - win,gyp: quote action command
-* [[`f345fb0`](https://github.com/nodejs/node-chakracore/commit/f345fb0)] - chakrashim: skip setweak/clearweak work when disposing runtime
-* [[`79d4877`](https://github.com/nodejs/node-chakracore/commit/79d4877)] - repl,chakra: make 'Unterminated ...' errors recoverable
-* [[`70f8352`](https://github.com/nodejs/node-chakracore/commit/70f8352)] - chakrashim: use proxy to patch error types
-* [[`26ff29c`](https://github.com/nodejs/node-chakracore/commit/26ff29c)] - chakrashim: fix some cross-context bugs
-* [[`93adbaa`](https://github.com/nodejs/node-chakracore/commit/93adbaa)] - chakrashim: display out of memory error message
-* [[`0c41b45`](https://github.com/nodejs/node-chakracore/commit/0c41b45)] - chakrashim: fix cross context strictmode/bound function
-* [[`94628e0`](https://github.com/nodejs/node-chakracore/commit/94628e0)] - chakrashim: revive object during ClearWeak
-* [[`8a10839`](https://github.com/nodejs/node-chakracore/commit/8a10839)] - chakrashim: vm proxy and other fixes
-* [[`13de41a`](https://github.com/nodejs/node-chakracore/commit/13de41a)] - build: refactor engine switch and process.jsEngine
-* [[`4fb398a`](https://github.com/nodejs/node-chakracore/commit/4fb398a)] - chakrashim: reformat to pass cpplint
-* [[`07547c2`](https://github.com/nodejs/node-chakracore/commit/07547c2)] - chakrashim: per isolate message listeners and embedded data
-* [[`2bb7fc3`](https://github.com/nodejs/node-chakracore/commit/2bb7fc3)] - chakrashim: clean up warning on std::map use
-* [[`ffe5db1`](https://github.com/nodejs/node-chakracore/commit/ffe5db1)] - chakrashim: fix toString on cross context objects
-* [[`f60c528`](https://github.com/nodejs/node-chakracore/commit/f60c528)] - chakrashim: callbackinfo holder and accessor signature
-* [[`aa96260`](https://github.com/nodejs/node-chakracore/commit/aa96260)] - node-gyp: revert arm specific libs change
-* [[`c2b8d43`](https://github.com/nodejs/node-chakracore/commit/c2b8d43)] - chakrashim: disable warning c4091 and remove arm specific lib
-* [[`8403d34`](https://github.com/nodejs/node-chakracore/commit/8403d34)] - npm: change node-gyp module to support chakrashim and ARM
-* [[`6c445c6`](https://github.com/nodejs/node-chakracore/commit/6c445c6)] - openssl: enable building on ARM with chakrashim
-* [[`47000c7`](https://github.com/nodejs/node-chakracore/commit/47000c7)] - add chakrashim and enable node.js on chakra
+* [[`5d860fd86b`](https://github.com/nodejs/node-chakracore/commit/5d860fd86b)] - chakrashim: sync to chakracore release/1.1
+* [[`6c70170eaf`](https://github.com/nodejs/node-chakracore/commit/6c70170eaf)] - chakrashim: Fixed multiple unittest bugs
+* [[`ee68330fc7`](https://github.com/nodejs/node-chakracore/commit/ee68330fc7)] - chakrashim: Fix for nan v2.2 APIs
+* [[`6bc3ef3fa1`](https://github.com/nodejs/node-chakracore/commit/6bc3ef3fa1)] - doc: Updated README.md for chakracore
+* [[`49bb95d014`](https://github.com/nodejs/node-chakracore/commit/49bb95d014)] - test: Fixed unit test for chakra engine
+* [[`889af372c3`](https://github.com/nodejs/node-chakracore/commit/889af372c3)] - chakrashim: add chakracore source
+* [[`cb4788a1c2`](https://github.com/nodejs/node-chakracore/commit/cb4788a1c2)] - Merge remote-tracking branch 'nodejs/master' into chnext-chakracore
+* [[`8d722fa371`](https://github.com/nodejs/node-chakracore/commit/8d722fa371)] - chakrashim: Implement IsMap/IsSet after merge
+* [[`b259f11a90`](https://github.com/nodejs/node-chakracore/commit/b259f11a90)] - chakrashim: update AUTHORS
+* [[`377347e915`](https://github.com/nodejs/node-chakracore/commit/377347e915)] - chakrashim: handle index properties in Object::Get/Set
+* [[`a1a43a2aaa`](https://github.com/nodejs/node-chakracore/commit/a1a43a2aaa)] - chakrashim: lint errors cleanup
+* [[`d1e310e633`](https://github.com/nodejs/node-chakracore/commit/d1e310e633)] - Show JS exception details for FATAL ERROR message
+* [[`f44ff42988`](https://github.com/nodejs/node-chakracore/commit/f44ff42988)] - chakrashim: misc chakrashim related cleanup
+* [[`f14d33795b`](https://github.com/nodejs/node-chakracore/commit/f14d33795b)] - chakrashim: handle Value::ToInteger overflow case
+* [[`b6e38eb441`](https://github.com/nodejs/node-chakracore/commit/b6e38eb441)] - chakrashim: Added dummy 'Debug' in global object
+* [[`04446e4648`](https://github.com/nodejs/node-chakracore/commit/04446e4648)] - chakrashim: Implemented ScriptOrigin signature
+* [[`7953699687`](https://github.com/nodejs/node-chakracore/commit/7953699687)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`26c1f6df22`](https://github.com/nodejs/node-chakracore/commit/26c1f6df22)] - chakrashim: JsCollectGarbage and cleanup
+* [[`98d84cd8d4`](https://github.com/nodejs/node-chakracore/commit/98d84cd8d4)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`1f2ab92a3a`](https://github.com/nodejs/node-chakracore/commit/1f2ab92a3a)] - chakrashim: Remove option to build with 'chakra'
+* [[`c115f422f0`](https://github.com/nodejs/node-chakracore/commit/c115f422f0)] - chakrashim: Removed --no-duplicate-basename option
+* [[`c9cf4ff042`](https://github.com/nodejs/node-chakracore/commit/c9cf4ff042)] - chakrashim: isMapIterator/isSetIterator bug fix
+* [[`82ad0b3fe6`](https://github.com/nodejs/node-chakracore/commit/82ad0b3fe6)] - Added back jslint prefer-const rule
+* [[`0e514a58ea`](https://github.com/nodejs/node-chakracore/commit/0e514a58ea)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`5a3fca2936`](https://github.com/nodejs/node-chakracore/commit/5a3fca2936)] - chakrashim: Update chakracore to new header
+* [[`490ef5860c`](https://github.com/nodejs/node-chakracore/commit/490ef5860c)] - chakrashim: Implemeted v8 APIs after merge
+* [[`52780c70e4`](https://github.com/nodejs/node-chakracore/commit/52780c70e4)] - Merge remote-tracking branch 'nodejs/master' into chnext
+* [[`5f6bc43b80`](https://github.com/nodejs/node-chakracore/commit/5f6bc43b80)] - chakrashim: Fixed discrepencies in ToInteger
+* [[`0c45b5c7ff`](https://github.com/nodejs/node-chakracore/commit/0c45b5c7ff)] - chakrashim,msi: build with chakracore
+* [[`e4eec51852`](https://github.com/nodejs/node-chakracore/commit/e4eec51852)] - chakrashim: Implemented 2 new nan.h APIs
+* [[`777a04256c`](https://github.com/nodejs/node-chakracore/commit/777a04256c)] - Revert "lib,buffer: temp workaround chakra bug"
+* [[`1a9ddec782`](https://github.com/nodejs/node-chakracore/commit/1a9ddec782)] - Merge remote-tracking branch 'node/master' into chnext
+* [[`e4207e2a2f`](https://github.com/nodejs/node-chakracore/commit/e4207e2a2f)] - lib,buffer: temp workaround chakra bug
+* [[`3a55f98d9a`](https://github.com/nodejs/node-chakracore/commit/3a55f98d9a)] - lib: mark Buffer/SlowBuffer not supporting @@species
+* [[`91b675a8b3`](https://github.com/nodejs/node-chakracore/commit/91b675a8b3)] - Merge remote-tracking branch 'node/master' into chnext
+* [[`2d1b2b4440`](https://github.com/nodejs/node-chakracore/commit/2d1b2b4440)] - chakrashim: update AUTHORS, cpplint
+* [[`e4b077ca51`](https://github.com/nodejs/node-chakracore/commit/e4b077ca51)] - chakrashim: add implement v8::FunctionTemplate::Inherit I was implement v8::FunctionTemplate::Inherit and use in my game engine.
+* [[`189df5f0aa`](https://github.com/nodejs/node-chakracore/commit/189df5f0aa)] - chakrashim: fix Object::SetInternalField … When use SetInternalField with Interger will assert:
+* [[`f017c07056`](https://github.com/nodejs/node-chakracore/commit/f017c07056)] - chakrashim: update AUTHORS
+* [[`17b1ed81b1`](https://github.com/nodejs/node-chakracore/commit/17b1ed81b1)] - chakrashim: remove unused code
+* [[`7f4cf1fb58`](https://github.com/nodejs/node-chakracore/commit/7f4cf1fb58)] - chakrashim: remove supportsOverrideToString
+* [[`47477f613b`](https://github.com/nodejs/node-chakracore/commit/47477f613b)] - chakrashim: fix index/toInteger int overflow
+* [[`56dc0bb132`](https://github.com/nodejs/node-chakracore/commit/56dc0bb132)] - chakrashim: fix Object::SetInternalField
+* [[`7a1fb01a7c`](https://github.com/nodejs/node-chakracore/commit/7a1fb01a7c)] - win,cctest: link as console subsystem
+* [[`c10332c4d3`](https://github.com/nodejs/node-chakracore/commit/c10332c4d3)] - chakrashim: fix x64 build
+* [[`776499c1d6`](https://github.com/nodejs/node-chakracore/commit/776499c1d6)] - chakrashim: Removed word 'TH2' from chnext codebase
+* [[`efc1c4b690`](https://github.com/nodejs/node-chakracore/commit/efc1c4b690)] - chakrashim: fix TryCatch exception reporting
+* [[`ace0109cdc`](https://github.com/nodejs/node-chakracore/commit/ace0109cdc)] - chakrashim: remove unused code
+* [[`436704c4d7`](https://github.com/nodejs/node-chakracore/commit/436704c4d7)] - Merge remote-tracking branch 'node/master' into chnext
+* [[`fea88a456b`](https://github.com/nodejs/node-chakracore/commit/fea88a456b)] - chakrashim: revert StackFrame method renaming
+* [[`566cff6eb3`](https://github.com/nodejs/node-chakracore/commit/566cff6eb3)] - chakrashim: minor cleanup
+* [[`8d73cfe0c0`](https://github.com/nodejs/node-chakracore/commit/8d73cfe0c0)] - chakrashim: Code refactoring for cached propertyIds
+* [[`c932f01c22`](https://github.com/nodejs/node-chakracore/commit/c932f01c22)] - Merge remote-tracking branch 'node/master' into chnext
+* [[`33d79fa095`](https://github.com/nodejs/node-chakracore/commit/33d79fa095)] - chakrashim: some minor shim cleanups
+* [[`72f07025d2`](https://github.com/nodejs/node-chakracore/commit/72f07025d2)] - chakrashim: more v8.h shim alignment for nan.h
+* [[`8519d3703b`](https://github.com/nodejs/node-chakracore/commit/8519d3703b)] - chakrashim: Add support for --use-strict flag
+* [[`c21ef4b482`](https://github.com/nodejs/node-chakracore/commit/c21ef4b482)] - chakrashim: remove SAL annotations
+* [[`56a5330950`](https://github.com/nodejs/node-chakracore/commit/56a5330950)] - chakrashim: do not pass nullptr to JsCallFunction
+* [[`b461501a67`](https://github.com/nodejs/node-chakracore/commit/b461501a67)] - chakrashim: align Local/Persistent with official v8.h
+* [[`39685df138`](https://github.com/nodejs/node-chakracore/commit/39685df138)] - chakrashim: Refactored LoadProc changes added earlier
+* [[`2c45af262e`](https://github.com/nodejs/node-chakracore/commit/2c45af262e)] - chakrashim: Load chakra.dll dynamically for TH2
+* [[`e282ea040c`](https://github.com/nodejs/node-chakracore/commit/e282ea040c)] - chakrashim: add missing Exception methods
+* [[`a58a3cb062`](https://github.com/nodejs/node-chakracore/commit/a58a3cb062)] - chakrashim : Minor code cleanup
+* [[`42923c5d7d`](https://github.com/nodejs/node-chakracore/commit/42923c5d7d)] - Merge remote-tracking branch 'node/master'
+* [[`8cbbfbc730`](https://github.com/nodejs/node-chakracore/commit/8cbbfbc730)] - chakrashim: some v8.h shim cleanup
+* [[`5a54c00ecd`](https://github.com/nodejs/node-chakracore/commit/5a54c00ecd)] - Merge pull request #64 from Microsoft/CodeCleanup
+* [[`da8a753f48`](https://github.com/nodejs/node-chakracore/commit/da8a753f48)] - Merge remote-tracking branch 'iojs/master' into chnext
+* [[`c50ad9de08`](https://github.com/nodejs/node-chakracore/commit/c50ad9de08)] - Merge remote-tracking branch 'iojs/next' into chnext
+* [[`9a88a51d96`](https://github.com/nodejs/node-chakracore/commit/9a88a51d96)] - chakrashim: handle Symbol as property name
+* [[`e17502f00d`](https://github.com/nodejs/node-chakracore/commit/e17502f00d)] - chakrashim: improve typed array and instanceof perf
+* [[`a3d55afcca`](https://github.com/nodejs/node-chakracore/commit/a3d55afcca)] - chakrashim: some performance improvements
+* [[`f33e43f1e9`](https://github.com/nodejs/node-chakracore/commit/f33e43f1e9)] - chakrashim: Use new Jsrt APIs JsGetContextOfObject, JsGetContextData and JsSetContextData
+* [[`8851bb6bfe`](https://github.com/nodejs/node-chakracore/commit/8851bb6bfe)] - chakrashim: Removed cross context shim code
+* [[`87862dc259`](https://github.com/nodejs/node-chakracore/commit/87862dc259)] - chakrashim: enable chakra experimental features
+* [[`d24d422cc7`](https://github.com/nodejs/node-chakracore/commit/d24d422cc7)] - chakrashim: implement ArrayBuffer::New on external memory
+* [[`39db229cc9`](https://github.com/nodejs/node-chakracore/commit/39db229cc9)] - Merge remote-tracking branch 'iojs/next' into chnext
+* [[`45411a78ea`](https://github.com/nodejs/node-chakracore/commit/45411a78ea)] - chakrashim: changes to build with iojs next
+* [[`f2183642d0`](https://github.com/nodejs/node-chakracore/commit/f2183642d0)] - chakrashim: add gyp flag msvs_use_library_dependency_inputs
+* [[`d57d102759`](https://github.com/nodejs/node-chakracore/commit/d57d102759)] - gyp: add msvs_use_library_dependency_inputs support
+* [[`0a2b36a256`](https://github.com/nodejs/node-chakracore/commit/0a2b36a256)] - chakrashim: fix Script::Compile AV
+* [[`549e280811`](https://github.com/nodejs/node-chakracore/commit/549e280811)] - chakrashim: specify msvs_windows_target_platform_version
+* [[`914f1b4dc2`](https://github.com/nodejs/node-chakracore/commit/914f1b4dc2)] - gyp: add msvs_windows_target_platform_version support
+* [[`9a1945b9a4`](https://github.com/nodejs/node-chakracore/commit/9a1945b9a4)] - chakrashim: revert error types proxy change
+* [[`9d2faefb88`](https://github.com/nodejs/node-chakracore/commit/9d2faefb88)] - win,gyp: quote action command
+* [[`f345fb0b9a`](https://github.com/nodejs/node-chakracore/commit/f345fb0b9a)] - chakrashim: skip setweak/clearweak work when disposing runtime
+* [[`79d4877184`](https://github.com/nodejs/node-chakracore/commit/79d4877184)] - repl,chakra: make 'Unterminated ...' errors recoverable
+* [[`70f8352e27`](https://github.com/nodejs/node-chakracore/commit/70f8352e27)] - chakrashim: use proxy to patch error types
+* [[`26ff29c344`](https://github.com/nodejs/node-chakracore/commit/26ff29c344)] - chakrashim: fix some cross-context bugs
+* [[`93adbaad74`](https://github.com/nodejs/node-chakracore/commit/93adbaad74)] - chakrashim: display out of memory error message
+* [[`0c41b4522f`](https://github.com/nodejs/node-chakracore/commit/0c41b4522f)] - chakrashim: fix cross context strictmode/bound function
+* [[`94628e09bc`](https://github.com/nodejs/node-chakracore/commit/94628e09bc)] - chakrashim: revive object during ClearWeak
+* [[`8a10839e58`](https://github.com/nodejs/node-chakracore/commit/8a10839e58)] - chakrashim: vm proxy and other fixes
+* [[`13de41ae3d`](https://github.com/nodejs/node-chakracore/commit/13de41ae3d)] - build: refactor engine switch and process.jsEngine
+* [[`4fb398a05a`](https://github.com/nodejs/node-chakracore/commit/4fb398a05a)] - chakrashim: reformat to pass cpplint
+* [[`07547c2424`](https://github.com/nodejs/node-chakracore/commit/07547c2424)] - chakrashim: per isolate message listeners and embedded data
+* [[`2bb7fc3b32`](https://github.com/nodejs/node-chakracore/commit/2bb7fc3b32)] - chakrashim: clean up warning on std::map use
+* [[`ffe5db1925`](https://github.com/nodejs/node-chakracore/commit/ffe5db1925)] - chakrashim: fix toString on cross context objects
+* [[`f60c528758`](https://github.com/nodejs/node-chakracore/commit/f60c528758)] - chakrashim: callbackinfo holder and accessor signature
+* [[`aa96260f0d`](https://github.com/nodejs/node-chakracore/commit/aa96260f0d)] - node-gyp: revert arm specific libs change
+* [[`c2b8d43fa8`](https://github.com/nodejs/node-chakracore/commit/c2b8d43fa8)] - chakrashim: disable warning c4091 and remove arm specific lib
+* [[`8403d34afa`](https://github.com/nodejs/node-chakracore/commit/8403d34afa)] - npm: change node-gyp module to support chakrashim and ARM
+* [[`6c445c6281`](https://github.com/nodejs/node-chakracore/commit/6c445c6281)] - openssl: enable building on ARM with chakrashim
+* [[`47000c74f4`](https://github.com/nodejs/node-chakracore/commit/47000c74f4)] - add chakrashim and enable node.js on chakra
