@@ -146,10 +146,10 @@ void Isolate::SetJitCodeEventHandler(JitCodeEventOptions options,
 }
 
 void Isolate::EnqueueMicrotask(MicrotaskCallback microtask, void* data) {
-	// CHAKRA-TODO: Current microTask implementation only support queueing
-	// javascript functions. Need to add support to queue native functions
-	// And update dequeue code to check and call appropriate function
-	// (native vs. javascript)
+  // CHAKRA-TODO: Current microTask implementation only support queueing
+  // javascript functions. Need to add support to queue native functions
+  // And update dequeue code to check and call appropriate function
+  // (native vs. javascript)
 }
 
 void Isolate::RunMicrotasks() {
