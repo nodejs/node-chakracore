@@ -2412,6 +2412,7 @@ class PromiseRejectMessage {
 };
 
 typedef void (*PromiseRejectCallback)(PromiseRejectMessage message);
+typedef void(*MicrotaskCallback)(void* data);
 
 /**
 * Collection of V8 heap information.
@@ -2566,6 +2567,7 @@ class V8_EXPORT Isolate {
   void SetPromiseHook(PromiseHook hook);
   void SetPromiseRejectCallback(PromiseRejectCallback callback);
   void RunMicrotasks();
+  void EnqueueMicrotask(MicrotaskCallback microtask, void* data = NULL);
   void SetAutorunMicrotasks(bool autorun);
   void SetFatalErrorHandler(FatalErrorCallback that);
   void SetJitCodeEventHandler(
