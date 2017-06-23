@@ -246,6 +246,16 @@
       'dependencies': [
         'deps/chakrashim/chakrashim.gyp:chakrashim'
       ],
+      'conditions': [
+        # -force_load is not applicable for the static library
+        [ 'node_target_type!="static_library"', {
+          'xcode_settings': {
+            'OTHER_LDFLAGS': [
+              '-Wl,-force_load,<(CHAKRASHIM_BASE)',
+            ],
+          },
+        }],
+      ],
     }],
     [ 'node_shared_zlib=="false"', {
       'dependencies': [ 'deps/zlib/zlib.gyp:zlib' ],

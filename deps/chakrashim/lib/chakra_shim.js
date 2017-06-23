@@ -38,7 +38,9 @@
     Set_values = Set.prototype.values,
     Symbol_keyFor = Symbol.keyFor,
     Symbol_for = Symbol.for,
-    Global_ParseInt = parseInt;
+    Global_ParseInt = parseInt,
+    JSON_parse = JSON.parse,
+    JSON_stringify = JSON.stringify;
   var BuiltInError = Error;
   var global = this;
 
@@ -584,6 +586,12 @@
     };
     utils.getSymbolFor = function(key) {
       return Symbol_for(key);
+    };
+    utils.jsonParse = function(text, reviver) {
+      return JSON_parse(text, reviver);
+    };
+    utils.jsonStringify = function(value, replacer, space) {
+      return JSON_stringify(value, replacer, space);
     };
     utils.ensureDebug = ensureDebug;
     utils.enqueueMicrotask = function(task) {

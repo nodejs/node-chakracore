@@ -151,7 +151,7 @@ if "%i18n_arg%"=="without-intl" set configure_flags=%configure_flags% --without-
 if "%engine%"=="chakracore" (
   set configure_flags=%configure_flags% --without-bundled-v8
   set chakra_jslint=deps\chakrashim\lib
-  set chakra_cpplint=deps\chakrashim\src\*.cc deps\chakrashim\src\*.h
+  set chakra_cpplint=deps\chakrashim\src\*.cc deps\chakrashim\src\*.h deps\chakrashim\include\v8.h
 )
 
 if "%target_arch%"=="arm" (

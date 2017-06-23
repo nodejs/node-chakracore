@@ -132,6 +132,7 @@
         'src/v8int32.cc',
         'src/v8integer.cc',
         'src/v8isolate.cc',
+        'src/v8json.cc',
         'src/v8map.cc',
         'src/v8message.cc',
         'src/v8microtasksscope.cc',

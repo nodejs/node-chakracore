@@ -83,6 +83,8 @@ DEF(getLineNumber)
 DEF(prototype)
 DEF(toString)
 DEF(valueOf)
+DEF(jsonParse)
+DEF(jsonStringify)
 
 DEF(arguments)
 DEF(breakpointId)
