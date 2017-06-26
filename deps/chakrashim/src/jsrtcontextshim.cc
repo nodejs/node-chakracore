@@ -99,7 +99,9 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       enqueueMicrotaskFunction(JS_INVALID_REFERENCE),
       dequeueMicrotaskFunction(JS_INVALID_REFERENCE),
       getPropertyAttributesFunction(JS_INVALID_REFERENCE),
-      getOwnPropertyNamesFunction(JS_INVALID_REFERENCE) {
+      getOwnPropertyNamesFunction(JS_INVALID_REFERENCE),
+      jsonParseFunction(JS_INVALID_REFERENCE),
+      jsonStringifyFunction(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -635,6 +637,8 @@ CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
 CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
 CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
 CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
+CHAKRASHIM_FUNCTION_GETTER(jsonParse);
+CHAKRASHIM_FUNCTION_GETTER(jsonStringify);
 
 #define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"
