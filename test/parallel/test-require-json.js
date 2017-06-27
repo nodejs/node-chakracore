@@ -32,7 +32,5 @@ try {
     chakracore:
     /test[/\\]fixtures[/\\]invalid\.json: JSON\.parse Error: Expected '}'/
   });
-
-  const i = err.message.match(re);
-  assert.notStrictEqual(null, i, 'require() json error should include path');
+  assert.ok(re, 'require() json error should include path');
 }
