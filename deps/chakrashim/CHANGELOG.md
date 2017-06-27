@@ -1,5 +1,14 @@
 # ChakraShim ChangeLog
 
+## 2017-06-27, node-chakracore-8.1.2-pre2
+
+### Commits
+
+* [[`4be96a0e53`](https://github.com/nodejs/node-chakracore/commit/4be96a0e53)] - chakrashim: add shim for JSON methods
+* [[`360e93eaca`](https://github.com/nodejs/node-chakracore/commit/360e93eaca)] - chakrashim: more update-changelog fixes
+* [[`1c364f5e9d`](https://github.com/nodejs/node-chakracore/commit/1c364f5e9d)] - build: chakracore build improvements
+* [[`13230d45fb`](https://github.com/nodejs/node-chakracore/commit/13230d45fb)] - tools: Fixed update-changelog
+
 ## 2017-06-19, node-chakracore-8.1.2-pre
 
 ### Commits
