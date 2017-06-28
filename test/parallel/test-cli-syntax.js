@@ -13,6 +13,9 @@ const syntaxArgs = [
   ['--check']
 ];
 
+const syntaxErrorRE = /^SyntaxError: Unexpected identifier$/m;
+const notFoundRE = /^Error: Cannot find module/m;
+
 // test good syntax with and without shebang
 [
   'syntax/good_syntax.js',
@@ -57,11 +60,10 @@ const syntaxArgs = [
            "stderr doesn't start with the filename");
 
     // stderr should have a syntax error message
-    const match = c.stderr.match(common.engineSpecificMessage({
-      v8: /^SyntaxError: Unexpected identifier$/m,
-      chakracore: /^SyntaxError: Expected ';'$/m})
-    );
-    assert(match, 'stderr incorrect');
+    const re = common.engineSpecificMessage({
+      v8: syntaxErrorRE,
+      chakracore: /^SyntaxError: Expected ';'$/m});
+    assert(re.test(c.stderr), 'stderr incorrect');
 
     assert.strictEqual(c.status, 1, `code === ${c.status}`);
   });
@@ -83,8 +85,7 @@ const syntaxArgs = [
     assert.strictEqual(c.stdout, '', 'stdout produced');
 
     // stderr should have a module not found error message
-    const match = c.stderr.match(/^Error: Cannot find module/m);
-    assert(match, 'stderr incorrect');
+    assert(notFoundRE.test(c.stderr), 'stderr incorrect');
 
     assert.strictEqual(c.status, 1, `code === ${c.status}`);
   });
@@ -118,11 +119,10 @@ syntaxArgs.forEach(function(args) {
   assert.strictEqual(c.stdout, '', 'stdout produced');
 
   // stderr should have a syntax error message
-  const match = c.stderr.match(common.engineSpecificMessage({
-    v8: /^SyntaxError: Unexpected identifier$/m,
-    chakracore: /^SyntaxError: Expected ';'$/m})
-  );
-  assert(match, 'stderr incorrect');
+  const re = common.engineSpecificMessage({
+    v8: syntaxErrorRE,
+    chakracore: /^SyntaxError: Expected ';'$/m});
+  assert(re.test(c.stderr), 'stderr incorrect');
 
   assert.strictEqual(c.status, 1, `code === ${c.status}`);
 });
