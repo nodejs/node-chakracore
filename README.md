@@ -24,7 +24,7 @@ introduced in Node-ChakraCore, and now supported by [VSCode](https://github.com/
 We are developing in the open and want to share our progress to get feedback,
 bug reports, functionality requests, and pull-requests from the community.
 
-Check out this [Time-Travel Debugging](https://github.com/nodejs/node-chakracore/blob/xplat/TTD-README.md)
+Check out this [Time-Travel Debugging](TTD-README.md)
 page to learn how to get started with TTD on Node-ChakraCore with VSCode.
 
 ### Node.js API (NAPI)
@@ -110,10 +110,10 @@ dnf install -y git cmake clang gcc gcc-c++ kernel-devel python llvm
 dnf install -y lttng-ust-devel.x86_64 libicu-devel.x86_64 libstdc++-static.x86_64
 ```
 
-Clone this repo and check out **`xplat`** branch:
+Clone this repo and check out **`master`** branch:
 
 ```
-git checkout xplat
+git checkout master
 ```
 
 Build:
@@ -149,10 +149,10 @@ xcode-select --install
 brew install cmake
 ```
 
-Clone this repo and check out **`xplat`** branch:
+Clone this repo and check out **`master`** branch:
 
 ```
-git checkout xplat
+git checkout master
 ```
 
 Build:
