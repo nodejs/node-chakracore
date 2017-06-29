@@ -27,12 +27,10 @@ const assert = require('assert');
 try {
   require(path.join(common.fixturesDir, 'invalid.json'));
 } catch (err) {
-  const re = common.engineSpecificMessage({
-    v8: /test[/\\]fixtures[/\\]invalid\.json: Unexpected string/,
-    chakracore:
-    /test[/\\]fixtures[/\\]invalid\.json: JSON\.parse Error: Expected '}'/
-  });
-
-  const i = err.message.match(re);
-  assert.notStrictEqual(null, i, 'require() json error should include path');
+  assert.ok(
+    common.engineSpecificMessage({
+      v8: /test[/\\]fixtures[/\\]invalid\.json: Unexpected string/,
+      chakracore: /test[/\\]fixtures[/\\]invalid\.json: JSON\.parse Error: Expected '}'/
+    }).test(err.message),
+    'require() json error should include path');
 }

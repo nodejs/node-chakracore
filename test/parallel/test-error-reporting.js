@@ -46,6 +46,8 @@ function errExec(script, callback) {
   });
 }
 
+const syntaxErrorMessage = /SyntaxError/;
+
 
 // Simple throw error
 errExec('throws_error.js', common.mustCall(function(err, stdout, stderr) {
@@ -55,13 +57,13 @@ errExec('throws_error.js', common.mustCall(function(err, stdout, stderr) {
 
 // Trying to JSON.parse(undefined)
 errExec('throws_error2.js', common.mustCall(function(err, stdout, stderr) {
-  assert.ok(/SyntaxError/.test(stderr));
+  assert.ok(syntaxErrorMessage.test(stderr));
 }));
 
 
 // Trying to JSON.parse(undefined) in nextTick
 errExec('throws_error3.js', common.mustCall(function(err, stdout, stderr) {
-  assert.ok(/SyntaxError/.test(stderr));
+  assert.ok(syntaxErrorMessage.test(stderr));
 }));
 
 
@@ -70,17 +72,17 @@ errExec('throws_error4.js', common.mustCall(function(err, stdout, stderr) {
   if (!common.isChakraEngine) { // chakra does not output source line
     assert.ok(/\/\*\*/.test(stderr));
   }
-  assert.ok(/SyntaxError/.test(stderr));
+  assert.ok(syntaxErrorMessage.test(stderr));
 }));
 
 // Specific long exception line doesn't result in stack overflow
 errExec('throws_error5.js', common.mustCall(function(err, stdout, stderr) {
-  assert.ok(/SyntaxError/.test(stderr));
+  assert.ok(syntaxErrorMessage.test(stderr));
 }));
 
 // Long exception line with length > errorBuffer doesn't result in assertion
 errExec('throws_error6.js', common.mustCall(function(err, stdout, stderr) {
-  assert.ok(/SyntaxError/.test(stderr));
+  assert.ok(syntaxErrorMessage.test(stderr));
 }));
 
 // Object that throws in toString() doesn't print garbage
