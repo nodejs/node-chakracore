@@ -24,7 +24,7 @@ introduced in Node-ChakraCore, and now supported by [VSCode](https://github.com/
 We are developing in the open and want to share our progress to get feedback,
 bug reports, functionality requests, and pull-requests from the community.
 
-Check out this [Time-Travel Debugging](https://github.com/nodejs/node-chakracore/blob/xplat/TTD-README.md)
+Check out this [Time-Travel Debugging](TTD-README.md)
 page to learn how to get started with TTD on Node-ChakraCore with VSCode.
 
 ### Node.js API (NAPI)
@@ -71,24 +71,23 @@ If you are looking to build this yourself, here's what you will need.
 Prerequisites:
 * Windows 7 SP1 or higher (Windows 8.1 or higher for ARM builds)
 * [Python 2.6 or 2.7](https://www.python.org)
-* [Visual Studio]
-  (https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
+* [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
 
 Build Command:
 ```batch
-vcbuild chakracore nosign [x86|x64|arm]
+> vcbuild [x86|x64|arm]
 ```
 
 To run unit tests
 
 ```batch
-vcbuild chakracore nobuild test [x86|x64|arm]
+> vcbuild nobuild test ignore-flaky [x86|x64|arm]
 ```
 
 To test if Node.js was built correctly with ChakraCore:
 
 ```batch
-C:\>node -e "console.log('Hello from Node.js ' + process.jsEngine)"
+> node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
 
@@ -99,34 +98,34 @@ Clang 3.7+ / CMake 3.2 are required
 
 Debian/Ubuntu:
 ```
-sudo apt-get install -y build-essential cmake clang libicu-dev
+$ sudo apt-get install -y build-essential cmake clang libicu-dev
 ```
 
 Fedora:
 ```
-su
-dnf group install -y "Development Tools" "C Development Tools and Libraries"
-dnf install -y git cmake clang gcc gcc-c++ kernel-devel python llvm
-dnf install -y lttng-ust-devel.x86_64 libicu-devel.x86_64 libstdc++-static.x86_64
+$ su
+$ dnf group install -y "Development Tools" "C Development Tools and Libraries"
+$ dnf install -y git cmake clang gcc gcc-c++ kernel-devel python llvm
+$ dnf install -y lttng-ust-devel.x86_64 libicu-devel.x86_64 libstdc++-static.x86_64
 ```
 
-Clone this repo and check out **`xplat`** branch:
+Clone this repo and check out **`master`** branch:
 
 ```
-git checkout xplat
+$ git checkout master
 ```
 
 Build:
 
 ```
-./configure
-make
+$ ./configure
+$ make
 ```
 
 To run unit tests:
 
 ```
-$ make test
+$ FLAKY_TESTS=dontcare make test
 ```
 
 To test if Node.js was built correctly with ChakraCore:
@@ -140,7 +139,7 @@ Hello from Node.js chakracore
 
 Prerequisites:
 * XCode v7 or higher
-* Homebrew
+* [Homebrew](https://brew.sh/)
 
 Install the building tools:
 
@@ -149,10 +148,10 @@ xcode-select --install
 brew install cmake
 ```
 
-Clone this repo and check out **`xplat`** branch:
+Clone this repo and check out **`master`** branch:
 
 ```
-git checkout xplat
+git checkout master
 ```
 
 Build:
