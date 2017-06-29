@@ -10,11 +10,13 @@ testHandleScope.NewScope();
 
 assert.ok(testHandleScope.NewScopeEscape() instanceof Object);
 
-assert.throws(
-  () => {
-    testHandleScope.NewScopeEscapeTwice();
-  },
-  Error);
+if (!common.isChakraEngine) {
+  assert.throws(
+    () => {
+      testHandleScope.NewScopeEscapeTwice();
+    },
+    Error);
+}
 
 assert.throws(
   () => {
