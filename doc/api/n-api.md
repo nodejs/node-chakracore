@@ -41,7 +41,7 @@ The documentation for N-API is structured as follows:
 * [Working with JavaScript Properties][]
 * [Working with JavaScript Functions][]
 * [Object Wrap][]
-* [Aynchronous Operations][]
+* [Asynchronous Operations][]
 
 The N-API is a C API that ensures ABI stability across Node.js versions
 and different compiler levels. However, we also understand that a C++
@@ -268,6 +268,9 @@ Returns `napi_ok` if the API succeeded.
 
 This API retrieves a `napi_extended_error_info` structure with information
 about the last error that occurred.
+
+*Note*: The content of the `napi_extended_error_info` returned is only
+valid up until an n-api function is called on the same `env`.
 
 *Note*: Do not rely on the content or format of any of the extended
 information as it is not subject to SemVer and may change at any time.
