@@ -348,6 +348,7 @@ const char* error_messages[] = {
   "Unknown failure",
   "An exception is pending",
   "The async work item was cancelled",
+  "napi_escape_handle already called on scope"
 };
 
 napi_status napi_get_last_error_info(napi_env env,
@@ -355,9 +356,9 @@ napi_status napi_get_last_error_info(napi_env env,
   CHECK_ARG(result);
 
   static_assert(
-    sizeof(error_messages) / sizeof(*error_messages) == napi_status_last,
+    node::arraysize(error_messages) == napi_escape_called_twice + 1,
     "Count of error messages must match count of error values");
-  assert(static_last_error.error_code < napi_status_last);
+  assert(static_last_error.error_code <= napi_escape_called_twice);
 
   // Wait until someone requests the last error information to fetch the error
   // message string
