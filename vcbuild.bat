@@ -15,7 +15,7 @@ if /i "%1"=="/?" goto help
 set config=Release
 set target=Build
 set target_arch=x64
-set target_env=vs2015
+set target_env=
 set noprojgen=
 set nobuild=
 set sign=
@@ -130,6 +130,9 @@ if defined build_release (
 :: assign path to node_exe
 set "node_exe=%~dp0%config%\node.exe"
 if not defined native_node_exe set "native_node_exe=%node_exe%"
+set "node_gyp_exe="%node_exe%" deps\npm\node_modules\node-gyp\bin\node-gyp"
+if "%target_env%"=="vs2015" set "node_gyp_exe=%node_gyp_exe% --msvs_version=2015"
+if "%target_env%"=="vs2017" set "node_gyp_exe=%node_gyp_exe% --msvs_version=2017"
 
 if "%config%"=="Debug" set configure_flags=%configure_flags% --debug
 if "%chakracore_test_build%"=="1" set configure_flags=%configure_flags% --chakracore-test-build
@@ -186,18 +189,18 @@ if %target_arch%==x64 if %msvs_host_arch%==amd64 set vcvarsall_arg=amd64
 
 @rem Look for Visual Studio 2017
 :vs-set-2017
-if "%target_env%" NEQ "vs2017" goto vs-set-2015
+if defined target_env if "%target_env%" NEQ "vs2017" goto vs-set-2015
 echo Looking for Visual Studio 2017
 @rem check if VS2017 is already setup, and for the requested arch
 if "_%VisualStudioVersion%_" == "_15.0_" if "_%VSCMD_ARG_TGT_ARCH%_"=="_%target_arch%_" goto found_vs2017
+@rem need to clear VSINSTALLDIR for vcvarsall to work as expected
 set "VSINSTALLDIR="
 call tools\msvs\vswhere_usability_wrapper.cmd
 if "_%VCINSTALLDIR%_" == "__" goto vs-set-2015
-@rem need to clear VSINSTALLDIR for vcvarsall to work as expected
 set vcvars_call="%VCINSTALLDIR%\Auxiliary\Build\vcvarsall.bat" %vcvarsall_arg%
 echo calling: %vcvars_call%
 call %vcvars_call%
-
+if errorlevel 1 goto vs-set-2015
 :found_vs2017
 echo Found MSVS version %VisualStudioVersion%
 set GYP_MSVS_VERSION=2017
@@ -206,11 +209,10 @@ goto msbuild-found
 
 @rem Look for Visual Studio 2015
 :vs-set-2015
-if "%target_env%" NEQ "vs2015" goto msbuild-not-found
+if defined target_env if "%target_env%" NEQ "vs2015" goto msbuild-not-found
 echo Looking for Visual Studio 2015
 if not defined VS140COMNTOOLS goto msbuild-not-found
 if not exist "%VS140COMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
-echo Found Visual Studio 2015
 if defined msi (
   echo Looking for WiX installation for Visual Studio 2015...
   if not exist "%WIX%\SDK\VS2015" (
@@ -223,6 +225,8 @@ if defined msi (
 call "%VS140COMNTOOLS%\..\..\vc\vcvarsall.bat"
 SET VCVARS_VER=140
 if not defined VCINSTALLDIR goto msbuild-not-found
+@rem Visual C++ Build Tools 2015 does not define VisualStudioVersion
+echo Found MSVS version 14.0
 set GYP_MSVS_VERSION=2015
 set PLATFORM_TOOLSET=v140
 goto msbuild-found
@@ -383,7 +387,7 @@ ssh -F %SSHCONFIG% %STAGINGSERVER% "touch nodejs/%DISTTYPEDIR%/v%FULLVERSION%/no
 
 @rem Build test/gc add-on if required.
 if "%build_testgc_addon%"=="" goto build-addons
-"%config%\node" deps\npm\node_modules\node-gyp\bin\node-gyp rebuild --directory="%~dp0test\gc" --nodedir="%~dp0."
+%node_gyp_exe% rebuild --directory="%~dp0test\gc" --nodedir="%~dp0."
 if errorlevel 1 goto build-testgc-addon-failed
 goto build-addons
 
@@ -408,7 +412,7 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 :: building addons
 setlocal EnableDelayedExpansion
 for /d %%F in (test\addons\*) do (
-  "%node_exe%" deps\npm\node_modules\node-gyp\bin\node-gyp rebuild ^
+  %node_gyp_exe% rebuild ^
     --directory="%%F" ^
     --nodedir="%cd%"
   if !errorlevel! neq 0 exit /b !errorlevel!
@@ -427,7 +431,7 @@ for /d %%F in (test\addons-napi\??_*) do (
 )
 :: building addons-napi
 for /d %%F in (test\addons-napi\*) do (
-  "%node_exe%" deps\npm\node_modules\node-gyp\bin\node-gyp rebuild ^
+  %node_gyp_exe% rebuild ^
     --directory="%%F" ^
     --nodedir="%cd%"
 )
@@ -564,7 +568,7 @@ if not defined NODE_VERSION (
 if not defined DISTTYPE set DISTTYPE=release
 if "%DISTTYPE%"=="release" (
   set FULLVERSION=%NODE_VERSION%
-  exit /b 0
+  goto distexit
 )
 if "%DISTTYPE%"=="custom" (
   if not defined CUSTOMTAG (
@@ -591,4 +595,7 @@ if not "%DISTTYPE%"=="custom" (
   set TAG=%DISTTYPE%%DATESTRING%%COMMIT%
 )
 set FULLVERSION=%NODE_VERSION%-%TAG%
-exit /b 0
+
+:distexit
+if not defined DISTTYPEDIR set DISTTYPEDIR=%DISTTYPE%
+goto :EOF

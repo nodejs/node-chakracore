@@ -228,6 +228,10 @@ NAPI_EXTERN napi_status napi_get_property(napi_env env,
                                           napi_value object,
                                           napi_value key,
                                           napi_value* result);
+NAPI_EXTERN napi_status napi_delete_property(napi_env env,
+                                             napi_value object,
+                                             napi_value key,
+                                             bool* result);
 NAPI_EXTERN napi_status napi_set_named_property(napi_env env,
                                           napi_value object,
                                           const char* utf8name,
@@ -252,6 +256,10 @@ NAPI_EXTERN napi_status napi_get_element(napi_env env,
                                          napi_value object,
                                          uint32_t index,
                                          napi_value* result);
+NAPI_EXTERN napi_status napi_delete_element(napi_env env,
+                                            napi_value object,
+                                            uint32_t index,
+                                            bool* result);
 NAPI_EXTERN napi_status
 napi_define_properties(napi_env env,
                        napi_value object,
