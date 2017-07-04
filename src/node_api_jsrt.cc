@@ -598,6 +598,23 @@ napi_status napi_get_property_names(napi_env env,
   return napi_ok;
 }
 
+napi_status napi_delete_property(napi_env env,
+                                 napi_value object,
+                                 napi_value key,
+                                 bool* result) {
+  CHECK_ARG(result);
+  *result = false;
+
+  JsValueRef obj = reinterpret_cast<JsValueRef>(object);
+  JsPropertyIdRef propertyId;
+  JsValueRef deletePropertyResult;
+  CHECK_NAPI(jsrtimpl::JsPropertyIdFromKey(key, &propertyId));
+  CHECK_JSRT(JsDeleteProperty(obj, propertyId, false /* isStrictMode */, &deletePropertyResult));
+  CHECK_JSRT(JsBooleanToBool(deletePropertyResult, result));
+
+  return napi_ok;
+}
+
 napi_status napi_set_named_property(napi_env env,
                                     napi_value object,
                                     const char* utf8name,
@@ -619,6 +636,19 @@ napi_status napi_set_property(napi_env env,
   CHECK_NAPI(jsrtimpl::JsPropertyIdFromKey(key, &propertyId));
   JsValueRef js_value = reinterpret_cast<JsValueRef>(value);
   CHECK_JSRT(JsSetProperty(obj, propertyId, value, true));
+  return napi_ok;
+}
+
+napi_status napi_delete_element(napi_env env,
+                                napi_value object,
+                                uint32_t index,
+                                bool* result) {
+  CHECK_ARG(result);
+  JsValueRef indexValue = nullptr;
+  JsValueRef obj = reinterpret_cast<JsValueRef>(object);
+  CHECK_JSRT(JsIntToNumber(index, &indexValue));
+  CHECK_JSRT(JsDeleteIndexedProperty(obj, indexValue));
+  *result = true;
   return napi_ok;
 }
 
