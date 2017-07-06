@@ -157,7 +157,7 @@ trailingTests.forEach(function(test) {
     if (!failed) {
       for (let i = 0; i < actualKeys.length; ++i) {
         const key = actualKeys[i];
-        if (expectedKeys.indexOf(key) === -1 || actual[key] !== expected[key]) {
+        if (!expectedKeys.includes(key) || actual[key] !== expected[key]) {
           failed = true;
           break;
         }
@@ -206,5 +206,20 @@ function checkSpecialCaseParseFormat(path, testCases) {
 function checkFormat(path, testCases) {
   testCases.forEach(function(testCase) {
     assert.strictEqual(path.format(testCase[0]), testCase[1]);
+  });
+
+  function typeName(value) {
+    return value === null ? 'null' : typeof value;
+  }
+
+  [null, undefined, 1, true, false, 'string'].forEach((pathObject) => {
+    assert.throws(() => {
+      path.format(pathObject);
+    }, common.expectsError({
+      code: 'ERR_INVALID_ARG_TYPE',
+      type: TypeError,
+      message: 'The "pathObject" argument must be of type Object. Received ' +
+               'type ' + typeName(pathObject)
+    }));
   });
 }
