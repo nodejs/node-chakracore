@@ -610,7 +610,8 @@ napi_status napi_delete_property(napi_env env,
   JsPropertyIdRef propertyId;
   JsValueRef deletePropertyResult;
   CHECK_NAPI(jsrtimpl::JsPropertyIdFromKey(key, &propertyId));
-  CHECK_JSRT(JsDeleteProperty(obj, propertyId, false /* isStrictMode */, &deletePropertyResult));
+  CHECK_JSRT(JsDeleteProperty(obj, propertyId, false /* isStrictMode */,
+                              &deletePropertyResult));
   CHECK_JSRT(JsBooleanToBool(deletePropertyResult, result));
 
   return napi_ok;
