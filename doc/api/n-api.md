@@ -2276,6 +2276,28 @@ Returns `napi_ok` if the API succeeded.
 This API checks if the Object passed in has the named property.
 
 
+#### *napi_delete_property*
+<!-- YAML
+added: REPLACEME
+-->
+```C
+napi_status napi_delete_property(napi_env env,
+                                 napi_value object,
+                                 napi_value key,
+                                 bool* result);
+```
+
+- `[in] env`: The environment that the N-API call is invoked under.
+- `[in] object`: The object to query.
+- `[in] key`: The name of the property to delete.
+- `[out] result`: Whether the property deletion succeeded or not. `result` can
+optionally be ignored by passing `NULL`.
+
+Returns `napi_ok` if the API succeeded.
+
+This API attempts to delete the `key` own property from `object`.
+
+
 #### *napi_set_named_property*
 <!-- YAML
 added: v8.0.0
@@ -2399,6 +2421,27 @@ Returns `napi_ok` if the API succeeded.
 
 This API returns if the Object passed in has an element at the
 requested index.
+
+#### *napi_delete_element*
+<!-- YAML
+added: REPLACEME
+-->
+```C
+napi_status napi_delete_element(napi_env env,
+                                napi_value object,
+                                uint32_t index,
+                                bool* result);
+```
+
+- `[in] env`: The environment that the N-API call is invoked under.
+- `[in] object`: The object to query.
+- `[in] index`: The index of the property to delete.
+- `[out] result`: Whether the element deletion succeeded or not. `result` can
+optionally be ignored by passing `NULL`.
+
+Returns `napi_ok` if the API succeeded.
+
+This API attempts to delete the specified `index` from `object`.
 
 #### *napi_define_properties*
 <!-- YAML
@@ -3051,6 +3094,8 @@ support it:
 [`napi_create_type_error`]: #n_api_napi_create_type_error
 [`napi_delete_async_work`]: #n_api_napi_delete_async_work
 [`napi_define_class`]: #n_api_napi_define_class
+[`napi_delete_element`]: #n_api_napi_delete_element
+[`napi_delete_property`]: #n_api_napi_delete_property
 [`napi_delete_reference`]: #n_api_napi_delete_reference
 [`napi_escape_handle`]: #n_api_napi_escape_handle
 [`napi_get_array_length`]: #n_api_napi_get_array_length
