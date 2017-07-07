@@ -2015,8 +2015,8 @@ napi_status napi_wrap(napi_env env,
 
   // Insert the wrapper into the object's prototype chain.
   v8::Local<v8::Value> proto = obj->GetPrototype();
-  wrapper->SetPrototype(proto);
-  obj->SetPrototype(wrapper);
+  CHECK(wrapper->SetPrototype(context, proto).FromJust());
+  CHECK(obj->SetPrototype(context, wrapper).FromJust());
 
   if (result != nullptr) {
     // The returned reference should be deleted via napi_delete_reference()
@@ -2321,7 +2321,7 @@ napi_status napi_instanceof(napi_env env,
   }
 
   if (env->has_instance_available) {
-    napi_value value, js_result, has_instance = nullptr;
+    napi_value value, js_result = nullptr, has_instance = nullptr;
     napi_status status = napi_generic_failure;
     napi_valuetype value_type;
 
