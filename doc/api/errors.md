@@ -876,7 +876,7 @@ installed.
 [`ERR_INVALID_ARG_TYPE`]: #ERR_INVALID_ARG_TYPE
 [`child.kill()`]: child_process.html#child_process_child_kill_signal
 [`child.send()`]: child_process.html#child_process_child_send_message_sendhandle_options_callback
-[`fs.readFileSync`]: fs.html#fs_fs_readfilesync_file_options
+[`fs.readFileSync`]: fs.html#fs_fs_readfilesync_path_options
 [`fs.readdir`]: fs.html#fs_fs_readdir_path_options_callback
 [`fs.unlink`]: fs.html#fs_fs_unlink_path_callback
 [`fs`]: fs.html
@@ -894,7 +894,6 @@ installed.
 [domains]: domain.html
 [event emitter-based]: events.html#events_class_eventemitter
 [file descriptors]: https://en.wikipedia.org/wiki/File_descriptor
-[intl wiki]: https://github.com/nodejs/node/wiki/Intl
 [online]: http://man7.org/linux/man-pages/man3/errno.3.html
 [stream-based]: stream.html
 [syscall]: http://man7.org/linux/man-pages/man2/syscall.2.html

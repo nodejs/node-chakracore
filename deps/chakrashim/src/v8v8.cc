@@ -23,6 +23,7 @@
 #include "v8chakra.h"
 #include "jsrtutils.h"
 #include "v8-debug.h"
+#include "libplatform/libplatform.h"
 #include "libplatform/v8-tracing.h"
 #include "jsrtplatform.h"
 
@@ -210,7 +211,9 @@ void V8::ToLocalEmpty() {
 }
 
 namespace platform {
-  v8::Platform* CreateDefaultPlatform(int thread_pool_size) {
+  v8::Platform* CreateDefaultPlatform(
+      int thread_pool_size, IdleTaskSupport idle_task_support,
+      InProcessStackDumping in_process_stack_dumping) {
     jsrt::DefaultPlatform* platform = new jsrt::DefaultPlatform();
     return platform;
   }
