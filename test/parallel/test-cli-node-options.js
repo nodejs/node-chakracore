@@ -1,7 +1,7 @@
 'use strict';
 const common = require('../common');
 if (process.config.variables.node_without_node_options)
-  return common.skip('missing NODE_OPTIONS support');
+  common.skip('missing NODE_OPTIONS support');
 
 // Test options specified by env variable.
 
@@ -40,6 +40,10 @@ function disallow(opt) {
 
 const printA = require.resolve('../fixtures/printA.js');
 
+if (!common.isChakraEngine) {
+  // V8 options
+  expect('--abort-on-uncaught-exception', 'B\n');
+}
 expect(`-r ${printA}`, 'A\nB\n');
 expect('--no-deprecation', 'B\n');
 expect('--no-warnings', 'B\n');
@@ -58,7 +62,6 @@ if (common.hasCrypto) {
   expect('--openssl-config=_ossl_cfg', 'B\n');
 }
 if (!common.isChakraEngine) {
-
   // V8 options
   expect('--max_old_space_size=0', 'B\n');
 }
