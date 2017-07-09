@@ -2,6 +2,11 @@
 const common = require('../../common');
 const assert = require('assert');
 
+if (common.isChakraEngine) {
+  common.skip('This test is disabled for chakra engine.');
+  return;
+}
+
 // Testing api calls for objects
 const test_object = require(`./build/${common.buildType}/test_object`);
 
@@ -48,6 +53,40 @@ assert.strictEqual(newObject.test_string, 'test string');
   assert.strictEqual(test_object.Get(obj, 'baz'), 45);
   assert.strictEqual(test_object.Get(obj, 'toString'),
                      Object.prototype.toString);
+}
+
+{
+  // Verify that napi_has_own_property() fails if property is not a name.
+  [true, false, null, undefined, {}, [], 0, 1, () => {}].forEach((value) => {
+    assert.throws(() => {
+      test_object.HasOwn({}, value);
+    }, /^Error: A string or symbol was expected$/);
+  });
+}
+
+{
+  // Verify that napi_has_own_property() does not walk the prototype chain.
+  const symbol1 = Symbol();
+  const symbol2 = Symbol();
+
+  function MyObject() {
+    this.foo = 42;
+    this.bar = 43;
+    this[symbol1] = 44;
+  }
+
+  MyObject.prototype.bar = 45;
+  MyObject.prototype.baz = 46;
+  MyObject.prototype[symbol2] = 47;
+
+  const obj = new MyObject();
+
+  assert.strictEqual(test_object.HasOwn(obj, 'foo'), true);
+  assert.strictEqual(test_object.HasOwn(obj, 'bar'), true);
+  assert.strictEqual(test_object.HasOwn(obj, symbol1), true);
+  assert.strictEqual(test_object.HasOwn(obj, 'baz'), false);
+  assert.strictEqual(test_object.HasOwn(obj, 'toString'), false);
+  assert.strictEqual(test_object.HasOwn(obj, symbol2), false);
 }
 
 {

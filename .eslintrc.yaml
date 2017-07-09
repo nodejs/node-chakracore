@@ -101,7 +101,7 @@ rules:
   func-call-spacing: error
   func-name-matching: error
   func-style: [error, declaration, {allowArrowFunctions: true}]
-  # indent: [error, error, {ArrayExpression: first,
+  # indent: [error, 2, {ArrayExpression: first,
   #                 CallExpression: {arguments: first},
   #                 FunctionDeclaration: {parameters: first},
   #                 FunctionExpression: {parameters: first},
@@ -167,7 +167,6 @@ rules:
   template-curly-spacing: error
 
   # Custom rules in tools/eslint-rules
-  align-multiline-assignment: error
   assert-throws-arguments: [error, { requireTwo: true }]
   no-unescaped-regexp-dot: error
 
