@@ -90,7 +90,8 @@ class ZCtx : public AsyncWrap {
         pending_close_(false),
         refs_(0),
         gzip_id_bytes_read_(0),
-        write_result_(nullptr) {
+        write_result_(nullptr),
+        write_result_ttdBuff(nullptr) {
     MakeWeak<ZCtx>(this);
     Wrap(wrap, this);
   }
@@ -213,6 +214,15 @@ class ZCtx : public AsyncWrap {
         ctx->write_result_[0] = ctx->strm_.avail_out;
         ctx->write_result_[1] = ctx->strm_.avail_in;
         ctx->write_in_progress_ = false;
+
+#if ENABLE_TTD_NODE
+        if (s_doTTRecord || s_doTTReplay) {
+          const size_t modSize = 2 * sizeof(uint32_t);
+          auto ttdbuf = ctx->write_result_ttdBuff->Buffer();
+          ttdbuf->TTDRawBufferModifyNotifySync(0, modSize);
+        }
+#endif
+
         ctx->Unref();
       }
       return;
@@ -221,6 +231,10 @@ class ZCtx : public AsyncWrap {
 #if ENABLE_TTD_NODE
     if (s_doTTRecord || s_doTTReplay) {
       Buffer::TTDAsyncModRegister(out_buf, out);
+
+      v8::Local<v8::ArrayBuffer> ttdbuf = ctx->write_result_ttdBuff->Buffer();
+      byte* ttdraw = static_cast<byte*>(ttdbuf->GetContents().Data());
+      ttdbuf->TTDRawBufferNotifyRegisterForModification(ttdraw);
     }
 #endif
 
@@ -390,6 +404,11 @@ class ZCtx : public AsyncWrap {
 #if ENABLE_TTD_NODE
     if (s_doTTRecord || s_doTTReplay) {
       Buffer::TTDAsyncModNotify(ctx->strm_.next_out);
+
+      v8::Local<v8::ArrayBuffer> ttdbuf = ctx->write_result_ttdBuff->Buffer();
+      byte* ttdraw = static_cast<byte*>(ttdbuf->GetContents().Data());
+      const size_t modSize = 2 * sizeof(uint32_t);
+      ttdbuf->TTDRawBufferAsyncModifyComplete(ttdraw + modSize);
     }
 #endif
 
@@ -493,7 +512,7 @@ class ZCtx : public AsyncWrap {
       memcpy(dictionary, dictionary_, dictionary_len);
     }
 
-    Init(ctx, level, windowBits, memLevel, strategy, write_result,
+    Init(ctx, level, windowBits, memLevel, strategy, write_result, *array,
          write_js_callback, dictionary, dictionary_len);
     SetDictionary(ctx);
   }
@@ -514,6 +533,7 @@ class ZCtx : public AsyncWrap {
 
   static void Init(ZCtx *ctx, int level, int windowBits, int memLevel,
                    int strategy, uint32_t* write_result,
+                   Uint32Array* write_resultTTDBuffer,
                    Local<Function> write_js_callback, char* dictionary,
                    size_t dictionary_len) {
     ctx->level_ = level;
@@ -581,6 +601,10 @@ class ZCtx : public AsyncWrap {
     }
 
     ctx->write_result_ = write_result;
+#if ENABLE_TTD_NODE
+    JsTTDNotifyLongLivedReferenceAdd(write_resultTTDBuffer);
+    ctx->write_result_ttdBuff = write_resultTTDBuffer;
+#endif
     ctx->write_js_callback_.Reset(ctx->env()->isolate(), write_js_callback);
   }
 
@@ -689,6 +713,7 @@ class ZCtx : public AsyncWrap {
   unsigned int refs_;
   unsigned int gzip_id_bytes_read_;
   uint32_t* write_result_;
+  v8::Uint32Array* write_result_ttdBuff;  // must be kept alive by host
   Persistent<Function> write_js_callback_;
 };
 
