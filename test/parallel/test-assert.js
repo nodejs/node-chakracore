@@ -36,6 +36,19 @@ assert.ok(a.AssertionError.prototype instanceof Error,
 
 assert.throws(makeBlock(a, false), a.AssertionError, 'ok(false)');
 
+// Using a object as second arg results in a failure
+assert.throws(
+  () => { assert.throws(() => { throw new Error(); }, { foo: 'bar' }); },
+  common.expectsError({
+    type: TypeError,
+    message: common.engineSpecificMessage({
+        v8: 'expected.test is not a function',
+        chakracore: 'Object doesn\'t support property or method \'test\''
+    })
+  })
+);
+
+
 assert.doesNotThrow(makeBlock(a, true), a.AssertionError, 'ok(true)');
 
 assert.doesNotThrow(makeBlock(a, 'test', 'ok(\'test\')'));
@@ -143,11 +156,7 @@ assert.throws(makeBlock(a.deepEqual, /a/igm, /a/im),
 {
   const re1 = /a/g;
   re1.lastIndex = 3;
-  assert.doesNotThrow(makeBlock(a.deepEqual, re1, /a/g),
-                      common.expectsError({
-                        code: 'ERR_ASSERTION',
-                        message: /^\/a\/g deepEqual \/a\/g$/
-                      }));
+  assert.doesNotThrow(makeBlock(a.deepEqual, re1, /a/g));
 }
 
 assert.doesNotThrow(makeBlock(a.deepEqual, 4, '4'), 'deepEqual(4, \'4\')');
@@ -423,8 +432,7 @@ assert.throws(makeBlock(thrower, TypeError));
     assert.ok(e instanceof TypeError, 'type');
   }
   assert.strictEqual(true, threw,
-                     'a.throws with an explicit error is eating extra errors',
-                     a.AssertionError);
+                     'a.throws with an explicit error is eating extra errors');
 }
 
 // doesNotThrow should pass through all errors
