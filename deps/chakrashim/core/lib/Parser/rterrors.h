@@ -256,6 +256,7 @@ RT_ERROR_MSG(JSERR_InvalidCurrencyCode, 5122, "Currency code '%s' is invalid", "
 RT_ERROR_MSG(JSERR_MissingCurrencyCode, 5123, "", "Currency code was not specified", kjstTypeError, 0)
 RT_ERROR_MSG(JSERR_InvalidDate, 5124, "", "Invalid Date", kjstRangeError, 0)
 RT_ERROR_MSG(JSERR_IntlNotAvailable, 5125, "", "Intl is not available.", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_IntlNotImplemented, 5126, "", "Intl operation '%s' is not implemented.", kjstTypeError, 0)
 
 RT_ERROR_MSG(JSERR_ArgumentOutOfRange, 5130, "%s: argument out of range", "argument out of range", kjstRangeError, 0)
 RT_ERROR_MSG(JSERR_ErrorOnNew, 5131, "", "Function is not a constructor", kjstTypeError, 0)
@@ -364,6 +365,13 @@ RT_ERROR_MSG(JSERR_CannotSuspendBuffer, 5665, "", "Current agent cannot be suspe
 RT_ERROR_MSG(JSERR_CantDeleteNonConfigProp, 5666, "Cannot delete non-configurable property '%s'", "Cannot delete non-configurable property", kjstTypeError, 0)
 RT_ERROR_MSG(JSERR_CantRedefineProp, 5667, "Cannot redefine property '%s'", "Cannot redefine property", kjstTypeError, 0)
 RT_ERROR_MSG(JSERR_FunctionArgument_NeedArrayLike, 5668, "%s: argument is not an array or array-like object", "Array or array-like object expected", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_FatalMemoryExhaustion, 5669, "", "Encountered a non-recoverable OOM", kjstError, 0)
+RT_ERROR_MSG(JSERR_OutOfBoundString, 5670, "", "String length is out of bound", kjstRangeError, 0)
+RT_ERROR_MSG(JSERR_InvalidIterableObject, 5671, "%s : Invalid iterable object", "Invalid iterable object", kjstTypeError, 0)
+RT_ERROR_MSG(JSERR_InvalidIteratorObject, 5672, "%s : Invalid iterator object", "Invalid iterator object", kjstTypeError, 0)
+
+//Host errors
+RT_ERROR_MSG(JSERR_HostMaybeMissingPromiseContinuationCallback, 5700, "", "Host may not have set any promise continuation callback. Promises may not be executed.", kjstTypeError, 0)
 
 // WebAssembly Errors
 RT_ERROR_MSG(WASMERR_WasmCompileError, 7000, "%s", "Compilation failed.", kjstWebAssemblyCompileError, 0)
@@ -386,4 +394,12 @@ RT_ERROR_MSG(WASMERR_TableIndexOutOfRange, 7016, "", "Table index is out of rang
 RT_ERROR_MSG(WASMERR_ArrayIndexOutOfRange, 7017, "", "Memory index is out of range", kjstWebAssemblyRuntimeError, 0)
 RT_ERROR_MSG(WASMERR_InvalidInstantiateArgument, 7018, "", "Invalid arguments to instantiate", kjstTypeError, 0)
 RT_ERROR_MSG(WASMERR_WasmLinkError, 7019, "%s", "Linking failed.", kjstWebAssemblyLinkError, 0)
-RT_ERROR_MSG(JSERR_OutOfBoundString, 7020, "", "String length is out of bound", kjstRangeError, 0)
+RT_ERROR_MSG(WASMERR_NeedResponse, 7020, "%s is not a Reponse", "Response expected", kjstTypeError, 0)
+RT_ERROR_MSG(WASMERR_CantDetach, 7021, "", "Not allowed to detach WebAssembly.Memory buffer", kjstTypeError, 0)
+RT_ERROR_MSG(WASMERR_BufferGrowOnly, 7022, "", "WebAssembly.Memory can only grow", kjstTypeError, 0)
+RT_ERROR_MSG(WASMERR_LinkSignatureMismatch, 7023, "Cannot link import %s in link table due to a signature mismatch", "Function called with invalid signature", kjstWebAssemblyRuntimeError, 0)
+RT_ERROR_MSG(WASMERR_MemoryCreateFailed, 7024, "", "Failed to create WebAssembly.Memory", kjstTypeError, 0)
+RT_ERROR_MSG(WASMERR_NeedInstanceObject, 7025, "%s is not a WebAssembly.Instance", "WebAssembly.Instance object expected", kjstWebAssemblyRuntimeError, 0)
+
+// Wabt Errors
+RT_ERROR_MSG(WABTERR_WabtError, 7200, "%s", "Wabt Error.", kjstTypeError, 0)

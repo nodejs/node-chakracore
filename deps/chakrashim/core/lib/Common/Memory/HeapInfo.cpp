@@ -1037,6 +1037,8 @@ HeapInfo::Rescan(RescanFlags flags)
     return scannedPageCount;
 }
 
+#ifdef DUMP_FRAGMENTATION_STATS
+
 template <ObjectInfoBits TBucketType, class TBlockAttributes>
 void DumpBucket(uint bucketIndex, typename SmallHeapBlockType<TBucketType, TBlockAttributes>::BucketType& bucket)
 {
@@ -1048,7 +1050,6 @@ void DumpBucket(uint bucketIndex, typename SmallHeapBlockType<TBucketType, TBloc
     Output::Print(_u("%d,%d,%d,%d,%d,%d,%d\n"), stats.totalBlockCount, stats.finalizeBlockCount, stats.emptyBlockCount, stats.objectCount, stats.finalizeCount, stats.objectByteCount, stats.totalByteCount);
 }
 
-#ifdef DUMP_FRAGMENTATION_STATS
 void
 HeapInfo::DumpFragmentationStats()
 {
@@ -1167,6 +1168,39 @@ HeapInfo::SweepPendingObjects(RecyclerSweep& recyclerSweep)
 #endif
 
     largeObjectBucket.SweepPendingObjects(recyclerSweep);
+}
+#endif
+
+#if ENABLE_CONCURRENT_GC && ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+void HeapInfo::StartAllocationsDuringConcurrentSweep()
+{
+    for (uint i = 0; i < HeapConstants::BucketCount; i++)
+    {
+        heapBuckets[i].StartAllocationDuringConcurrentSweep();
+    }
+
+#if defined(BUCKETIZE_MEDIUM_ALLOCATIONS) && SMALLBLOCK_MEDIUM_ALLOC
+    for (uint i = 0; i < HeapConstants::MediumBucketCount; i++)
+    {
+        mediumHeapBuckets[i].StartAllocationDuringConcurrentSweep();
+    }
+#endif
+}
+
+void
+HeapInfo::FinishConcurrentSweep()
+{
+    for (uint i = 0; i < HeapConstants::BucketCount; i++)
+    {
+        heapBuckets[i].FinishConcurrentSweep();
+    }
+
+#if defined(BUCKETIZE_MEDIUM_ALLOCATIONS) && SMALLBLOCK_MEDIUM_ALLOC
+    for (uint i = 0; i < HeapConstants::MediumBucketCount; i++)
+    {
+        mediumHeapBuckets[i].FinishConcurrentSweep();
+    }
+#endif
 }
 #endif
 

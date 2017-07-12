@@ -194,7 +194,8 @@ ServerInitializeThreadContext(
     /* [in] */ handle_t binding,
     /* [in] */ __RPC__in ThreadContextDataIDL * threadContextData,
     /* [out] */ __RPC__deref_out_opt PPTHREADCONTEXT_HANDLE threadContextInfoAddress,
-    /* [out] */ __RPC__out intptr_t *prereservedRegionAddr)
+    /* [out] */ __RPC__out intptr_t *prereservedRegionAddr,
+    /* [out] */ __RPC__out intptr_t *jitThunkAddr)
 {
     if (threadContextInfoAddress == nullptr || prereservedRegionAddr == nullptr)
     {
@@ -204,6 +205,7 @@ ServerInitializeThreadContext(
 
     *threadContextInfoAddress = nullptr;
     *prereservedRegionAddr = 0;
+    *jitThunkAddr = 0;
 
     ServerThreadContext * contextInfo = nullptr;
     try
@@ -220,7 +222,7 @@ ServerInitializeThreadContext(
 
     return ServerCallWrapper(contextInfo, [&]()->HRESULT
     {
-        RPC_CALL_ATTRIBUTES CallAttributes = {0};
+        RPC_CALL_ATTRIBUTES CallAttributes = { 0 };
 
         CallAttributes.Version = RPC_CALL_ATTRIBUTES_VERSION;
         CallAttributes.Flags = RPC_QUERY_CLIENT_PID;
@@ -248,7 +250,16 @@ ServerInitializeThreadContext(
         }
 
         *threadContextInfoAddress = (PTHREADCONTEXT_HANDLE)EncodePointer(contextInfo);
-        *prereservedRegionAddr = (intptr_t)contextInfo->GetPreReservedSectionAllocator()->EnsurePreReservedRegion();
+
+#if defined(_CONTROL_FLOW_GUARD)
+        if (!PHASE_OFF1(Js::PreReservedHeapAllocPhase))
+        {
+            *prereservedRegionAddr = (intptr_t)contextInfo->GetPreReservedSectionAllocator()->EnsurePreReservedRegion();
+        }
+#if _M_IX86 || _M_X64
+        *jitThunkAddr = (intptr_t)contextInfo->GetJITThunkEmitter()->EnsureInitialized();
+#endif
+#endif
 
         return hr;
     });
@@ -606,7 +617,8 @@ HRESULT
 ServerFreeAllocation(
     /* [in] */ handle_t binding,
     /* [in] */ __RPC__in PTHREADCONTEXT_HANDLE threadContextInfo,
-    /* [in] */ intptr_t address)
+    /* [in] */ intptr_t codeAddress,
+    /* [in] */ intptr_t thunkAddress)
 {
     ServerThreadContext * context = (ServerThreadContext*)DecodePointer(threadContextInfo);
 
@@ -618,11 +630,17 @@ ServerFreeAllocation(
 
     return ServerCallWrapper(context, [&]()->HRESULT
     {
-        if (CONFIG_FLAG(OOPCFGRegistration))
+        if (CONFIG_FLAG(OOPCFGRegistration) && !thunkAddress)
         {
-            context->SetValidCallTargetForCFG((PVOID)address, false);
+            context->SetValidCallTargetForCFG((PVOID)codeAddress, false);
         }
-        context->GetCodeGenAllocators()->emitBufferManager.FreeAllocation((void*)address);
+        context->GetCodeGenAllocators()->emitBufferManager.FreeAllocation((void*)codeAddress);
+#if defined(_CONTROL_FLOW_GUARD) && (_M_IX86 || _M_X64)
+        if (thunkAddress)
+        {
+            context->GetJITThunkEmitter()->FreeThunk(thunkAddress);
+        }
+#endif
         return S_OK;
     });
 }
@@ -777,7 +795,6 @@ ServerRemoteCodeGen(
             profiler,
             true);
 
-
 #ifdef PROFILE_EXEC
         if (profiler && profiler->IsInitialized())
         {
@@ -806,6 +823,8 @@ ServerRemoteCodeGen(
             jitData->startTime = out_time.QuadPart;
         }
 
+        Assert(jitData->codeAddress);
+        Assert(jitData->codeSize);
         return S_OK;
     });
 }
@@ -917,14 +936,10 @@ HRESULT ServerCallWrapper(ServerThreadContext* threadContextInfo, Fn fn)
         AssertOrFailFastMsg(false, "Unknown exception caught in JIT server call.");
     }
 
-    if (hr == E_OUTOFMEMORY)
+    if (hr == S_OK)
     {
-        if (HRESULT_FROM_WIN32(MemoryOperationLastError::GetLastError()) != S_OK)
-        {
-            hr = HRESULT_FROM_WIN32(MemoryOperationLastError::GetLastError());
-        }
+        return MemoryOperationLastError::GetLastError();
     }
-
     return hr;
 }
 

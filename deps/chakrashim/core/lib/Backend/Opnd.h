@@ -161,30 +161,42 @@ public:
     bool                IsMemoryOpnd() const;
     bool                IsIntConstOpnd() const;
     IntConstOpnd *      AsIntConstOpnd();
+    const IntConstOpnd* AsIntConstOpnd() const;
     bool                IsInt64ConstOpnd() const;
     Int64ConstOpnd *    AsInt64ConstOpnd();
+    const Int64ConstOpnd * AsInt64ConstOpnd() const;
     bool                IsFloatConstOpnd() const;
     FloatConstOpnd *    AsFloatConstOpnd();
+    const FloatConstOpnd * AsFloatConstOpnd() const;
     bool                IsSimd128ConstOpnd() const;
     Simd128ConstOpnd *  AsSimd128ConstOpnd();
+    const Simd128ConstOpnd * AsSimd128ConstOpnd() const;
     bool                IsHelperCallOpnd() const;
     HelperCallOpnd *    AsHelperCallOpnd();
+    const HelperCallOpnd * AsHelperCallOpnd() const;
     bool                IsSymOpnd() const;
     SymOpnd *           AsSymOpnd();
+    const SymOpnd *     AsSymOpnd() const;
     PropertySymOpnd *   AsPropertySymOpnd();
+    const PropertySymOpnd * AsPropertySymOpnd() const;
     bool                IsRegOpnd() const;
-    const RegOpnd *     AsRegOpnd() const;
     RegOpnd *           AsRegOpnd();
+    const RegOpnd *     AsRegOpnd() const;
     bool                IsAddrOpnd() const;
     AddrOpnd *          AsAddrOpnd();
+    const AddrOpnd *    AsAddrOpnd() const;
     bool                IsIndirOpnd() const;
     IndirOpnd *         AsIndirOpnd();
+    const IndirOpnd *   AsIndirOpnd() const;
     bool                IsLabelOpnd() const;
     LabelOpnd *         AsLabelOpnd();
+    const LabelOpnd *   AsLabelOpnd() const;
     bool                IsMemRefOpnd() const;
     MemRefOpnd *        AsMemRefOpnd();
+    const MemRefOpnd *  AsMemRefOpnd() const;
     bool                IsRegBVOpnd() const;
     RegBVOpnd *         AsRegBVOpnd();
+    const RegBVOpnd *   AsRegBVOpnd() const;
 
     OpndKind            GetKind() const;
     Opnd *              Copy(Func *func);
@@ -312,19 +324,42 @@ public:
 #endif
 };
 
+template<typename ConstType>
+class EncodableOpnd
+{
+protected:
+    ConstType m_value;
+
+public:
+    ConstType GetValue() const { return m_value; }
+    void SetEncodedValue(ConstType encodedValue)
+    {
+#if DBG_DUMP
+        decodedValue = m_value;
+#endif
+        m_value = encodedValue;
+    }
+
+#if DBG_DUMP
+    void SetName(const char16* name) { this->name = name; }
+    void DumpEncodable() const;
+private:
+    ConstType decodedValue = 0;
+    const char16* name = nullptr;
+    static const char16* fmt;
+#endif
+};
+
 ///---------------------------------------------------------------------------
 ///
 /// class IntConstOpnd
 ///
 ///---------------------------------------------------------------------------
 
-class IntConstOpnd sealed : public Opnd
+class IntConstOpnd sealed : public Opnd, public EncodableOpnd<IntConstType>
 {
 public:
     static IntConstOpnd *   New(IntConstType value, IRType type, Func *func, bool dontEncode = false);
-#if DBG_DUMP || defined(ENABLE_IR_VIEWER)
-    static IntConstOpnd *   New(IntConstType value, IRType type, const char16 * name, Func *func, bool dontEncode = false);
-#endif
     static IR::Opnd*        NewFromType(int64 value, IRType type, Func* func);
 
 public:
@@ -335,11 +370,6 @@ public:
 public:
     bool                    m_dontEncode;       // Setting this to true turns off XOR encoding for this constant.  Only set this on
                                                 // constants not controllable by the user.
-
-    IntConstType GetValue()
-    {
-        return m_value;
-    }
 
     void IncrValue(IntConstType by)
     {
@@ -354,14 +384,6 @@ public:
     void SetValue(IntConstType value);
     int32 AsInt32();
     uint32 AsUint32();
-
-#if DBG_DUMP || defined(ENABLE_IR_VIEWER)
-    IntConstType            decodedValue;  // FIXME (t-doilij) set ENABLE_IR_VIEWER blocks where this is set
-    char16 const *         name;  // FIXME (t-doilij) set ENABLE_IR_VIEWER blocks where this is set
-#endif
-
-private:
-    IntConstType            m_value;
 };
 
 ///---------------------------------------------------------------------------
@@ -369,21 +391,15 @@ private:
 /// class Int64ConstOpnd
 ///
 ///---------------------------------------------------------------------------
-class Int64ConstOpnd sealed : public Opnd
+class Int64ConstOpnd sealed : public Opnd, public EncodableOpnd<int64>
 {
 public:
     static Int64ConstOpnd* New(int64 value, IRType type, Func *func);
 
 public:
-    //Note: type OpndKindIntConst
     Int64ConstOpnd* CopyInternal(Func *func);
     bool IsEqualInternal(Opnd *opnd);
     void FreeInternal(Func * func) ;
-public:
-    int64 GetValue();
-
-private:
-    int64            m_value;
 };
 
 ///---------------------------------------------------------------------------
@@ -557,7 +573,7 @@ public:
 
 private:
     static PropertySymOpnd * New(PropertySym *propertySym, IRType type, Func *func);
-    void Init(uint inlineCacheIndex, intptr_t runtimeInlineCache, JITTimePolymorphicInlineCache * runtimePolymorphicInlineCache, JITObjTypeSpecFldInfo* objTypeSpecFldInfo, byte polyCacheUtil);
+    void Init(uint inlineCacheIndex, intptr_t runtimeInlineCache, JITTimePolymorphicInlineCache * runtimePolymorphicInlineCache, ObjTypeSpecFldInfo* objTypeSpecFldInfo, byte polyCacheUtil);
 #if DBG
     virtual bool      DbgIsPropertySymOpnd() const override { return true; }
 #endif
@@ -566,7 +582,7 @@ public:
     intptr_t m_runtimeInlineCache;
     JITTimePolymorphicInlineCache* m_runtimePolymorphicInlineCache;
 private:
-    JITObjTypeSpecFldInfo* objTypeSpecFldInfo;
+    ObjTypeSpecFldInfo* objTypeSpecFldInfo;
 public:
     JITTypeHolder finalType;
     JITTypeHolder monoGuardType;
@@ -626,7 +642,7 @@ public:
         return this->objTypeSpecFldInfo != nullptr;
     }
 
-    void SetObjTypeSpecFldInfo(JITObjTypeSpecFldInfo *const objTypeSpecFldInfo)
+    void SetObjTypeSpecFldInfo(ObjTypeSpecFldInfo *const objTypeSpecFldInfo)
     {
         this->objTypeSpecFldInfo = objTypeSpecFldInfo;
 
@@ -661,7 +677,7 @@ public:
         return false;
     }
 
-    JITObjTypeSpecFldInfo* GetObjTypeSpecInfo() const
+    ObjTypeSpecFldInfo* GetObjTypeSpecInfo() const
     {
         return this->objTypeSpecFldInfo;
     }
@@ -811,13 +827,13 @@ public:
         return this->objTypeSpecFldInfo->GetProtoObject();
     }
 
-    JITTimeFixedField * GetFixedFunction() const
+    FixedFieldInfo * GetFixedFunction() const
     {
         Assert(HasObjTypeSpecFldInfo());
         return this->objTypeSpecFldInfo->GetFixedFieldIfAvailableAsFixedFunction();
     }
 
-    JITTimeFixedField * GetFixedFunction(uint i) const
+    FixedFieldInfo * GetFixedFunction(uint i) const
     {
         Assert(HasObjTypeSpecFldInfo());
         return this->objTypeSpecFldInfo->GetFixedFieldIfAvailableAsFixedFunction(i);
@@ -835,7 +851,7 @@ public:
         return this->objTypeSpecFldInfo->GetFieldValue(i);
     }
 
-    JITTimeFixedField * GetFixedFieldInfoArray()
+    FixedFieldInfo * GetFixedFieldInfoArray()
     {
         Assert(HasObjTypeSpecFldInfo());
         return this->objTypeSpecFldInfo->GetFixedFieldInfoArray();
@@ -1438,6 +1454,7 @@ class IndirOpnd: public Opnd
 public:
     static IndirOpnd *      New(RegOpnd * baseOpnd, RegOpnd * indexOpnd, IRType type, Func *func);
     static IndirOpnd *      New(RegOpnd * baseOpnd, RegOpnd * indexOpnd, byte scale, IRType type, Func *func);
+    static IndirOpnd *      New(RegOpnd * indexOpnd, int32 offset, byte scale, IRType type, Func *func);
     static IndirOpnd *      New(RegOpnd * baseOpnd, int32 offset, IRType type, Func *func, bool dontEncode = false);
 #if DBG_DUMP || defined(ENABLE_IR_VIEWER)
     static IndirOpnd *      New(RegOpnd * baseOpnd, int32 offset, IRType type, const char16 *desc, Func *func, bool dontEncode = false);
@@ -1462,13 +1479,14 @@ public:
     bool                    IsEqualInternal(Opnd *opnd);
     void                    FreeInternal(Func * func);
 
-    RegOpnd *               GetBaseOpnd() const;
+    RegOpnd *               GetBaseOpnd();
+    const RegOpnd *         GetBaseOpnd() const;
     void                    SetBaseOpnd(RegOpnd *baseOpnd);
     RegOpnd *               UnlinkBaseOpnd();
     void                    ReplaceBaseOpnd(RegOpnd *newBase);
     RegOpnd *               GetIndexOpnd();
+    const RegOpnd *         GetIndexOpnd() const;
     void                    SetIndexOpnd(RegOpnd *indexOpnd);
-    RegOpnd *               GetIndexOpnd() const;
     RegOpnd *               UnlinkIndexOpnd();
     void                    ReplaceIndexOpnd(RegOpnd *newIndex);
     int32                   GetOffset() const;

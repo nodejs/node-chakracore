@@ -76,7 +76,6 @@ public:
               IR::Instr *     LoadHeapArgsCached(IR::Instr * instr) { __debugbreak(); return 0; }
               IR::Instr *     LoadInputParamCount(IR::Instr * instr, int adjust = 0, bool needFlags = false) { __debugbreak(); return 0; }
               IR::Instr *     LoadArgumentsFromFrame(IR::Instr * instr) { __debugbreak(); return 0; }
-              IR::Instr *     LoadFuncExpression(IR::Instr * instr) { __debugbreak(); return 0; }
               IR::Instr *     LowerRet(IR::Instr * instr) { __debugbreak(); return 0; }
       static  IR::Instr *     LowerUncondBranch(IR::Instr * instr) { __debugbreak(); return 0; }
       static  IR::Instr *     LowerMultiBranch(IR::Instr * instr) { __debugbreak(); return 0; }
@@ -84,15 +83,16 @@ public:
               IR::Instr *     LoadFunctionObjectOpnd(IR::Instr *instr, IR::Opnd *&functionObjOpnd) { __debugbreak(); return 0; }
               IR::Instr *     LowerLdSuper(IR::Instr * instr, IR::JnHelperMethod helperOpCode) { __debugbreak(); return 0; }
               IR::Instr *     GenerateSmIntPairTest(IR::Instr * instrInsert, IR::Opnd * opndSrc1, IR::Opnd * opndSrc2, IR::LabelInstr * labelFail) { __debugbreak(); return 0; }
+#if DBG
+      static  void            GenerateDebugBreak(IR::Instr * insertInstr) { __debugbreak(); return 0; };
+#endif
               void            GenerateTaggedZeroTest( IR::Opnd * opndSrc, IR::Instr * instrInsert, IR::LabelInstr * labelHelper = NULL) { __debugbreak(); }
               void            GenerateObjectPairTest(IR::Opnd * opndSrc1, IR::Opnd * opndSrc2, IR::Instr * insertInstr, IR::LabelInstr * labelTarget) { __debugbreak(); }
               bool            GenerateObjectTest(IR::Opnd * opndSrc, IR::Instr * insertInstr, IR::LabelInstr * labelTarget, bool fContinueLabel = false) { __debugbreak(); return false; }
-              bool            GenerateFastBrOrCmString(IR::Instr* instr) { __debugbreak(); return 0; }
-              bool            GenerateFastStringCheck(IR::Instr* instr, IR::RegOpnd *srcReg1, IR::RegOpnd *srcReg2, bool isEqual, bool isStrict, IR::LabelInstr *labelHelper, IR::LabelInstr *labelBranchSuccess, IR::LabelInstr *labelBranchFail) { __debugbreak(); return 0; }
               bool            GenerateFastCmSrEqConst(IR::Instr *instr) { __debugbreak(); return 0; }
               bool            GenerateFastCmXxI4(IR::Instr *instr) { __debugbreak(); return 0; }
               bool            GenerateFastCmXxR8(IR::Instr *instr) { Assert(UNREACHED); return NULL; }
-              bool            GenerateFastCmXxTaggedInt(IR::Instr *instr) { __debugbreak(); return 0; }
+              bool            GenerateFastCmXxTaggedInt(IR::Instr *instr, bool isInHelper = false) { __debugbreak(); return 0; }
               IR::Instr *     GenerateConvBool(IR::Instr *instr) { __debugbreak(); return 0; }
 
               void            GenerateClz(IR::Instr * instr) { __debugbreak(); }
@@ -110,7 +110,6 @@ public:
               bool            GenerateFastShiftLeft(IR::Instr * instrShift) { __debugbreak(); return 0; }
               bool            GenerateFastShiftRight(IR::Instr * instrShift) { __debugbreak(); return 0; }
               void            GenerateFastBrS(IR::BranchInstr *brInstr) { __debugbreak(); }
-              IR::IndirOpnd * GenerateFastElemIStringIndexCommon(IR::Instr * instr, bool isStore, IR::IndirOpnd *indirOpnd, IR::LabelInstr * labelHelper) { __debugbreak(); return 0; }
               void            GenerateFastInlineBuiltInCall(IR::Instr* instr, IR::JnHelperMethod helperMethod) { __debugbreak(); }
               void            HelperCallForAsmMathBuiltin(IR::Instr* instr, IR::JnHelperMethod helperMethodFloat, IR::JnHelperMethod helperMethodDouble) { __debugbreak(); }
               IR::Opnd *      CreateStackArgumentsSlotOpnd() { __debugbreak(); return 0; }
@@ -138,7 +137,6 @@ public:
               void            GenerateFunctionObjectTest(IR::Instr * callInstr, IR::RegOpnd  *functionObjOpnd, bool isHelper, IR::LabelInstr* afterCallLabel = nullptr) { __debugbreak(); }
 
        static void            EmitInt4Instr(IR::Instr *instr) { __debugbreak(); }
-       static void            EmitPtrInstr(IR::Instr *instr) { __debugbreak(); }
               void            EmitLoadVar(IR::Instr *instr, bool isFromUint32 = false, bool isHelper = false) { __debugbreak(); }
               bool            EmitLoadInt32(IR::Instr *instr, bool conversionFromObjectAllowed, bool bailOutOnHelper = false, IR::LabelInstr * labelBailOut = nullptr) { __debugbreak(); return 0; }
               IR::Instr *     LowerInt64Assign(IR::Instr * instr) { __debugbreak(); return nullptr; }
@@ -183,6 +181,7 @@ public:
               IR::Instr *         LowerStartCall(IR::Instr * instr) { __debugbreak(); return 0; }
               IR::Instr *         LowerAsmJsCallI(IR::Instr * callInstr) { Assert(UNREACHED); return NULL; }
               IR::Instr *         LowerAsmJsCallE(IR::Instr * callInstr) { Assert(UNREACHED); return NULL; }
+              IR::Instr *         LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd) { Assert(UNREACHED); return nullptr; }
               IR::Instr *         LowerAsmJsLdElemHelper(IR::Instr * callInstr) { Assert(UNREACHED); return NULL; }
               IR::Instr *         LowerAsmJsStElemHelper(IR::Instr * callInstr) { Assert(UNREACHED); return NULL; }
               IR::Instr *         LowerCallIDynamic(IR::Instr *callInstr, IR::Instr*saveThisArgOutInstr, IR::Opnd *argsLength, ushort callFlags, IR::Instr * insertBeforeInstrForCFG = nullptr) { __debugbreak(); return 0; }
@@ -192,7 +191,6 @@ public:
               IR::Instr *         LoadDoubleHelperArgument(IR::Instr * instr, IR::Opnd * opndArg) { __debugbreak(); return 0; }
               IR::Instr *         LoadFloatHelperArgument(IR::Instr * instr, IR::Opnd * opndArg) { __debugbreak(); return 0; }
               IR::Instr *         LowerToFloat(IR::Instr *instr) { __debugbreak(); return 0; }
-              IR::Instr *         LowerReinterpretPrimitive(IR::Instr* instr) { __debugbreak(); return 0; }
        static IR::BranchInstr *   LowerFloatCondBranch(IR::BranchInstr *instrBranch, bool ignoreNaN = false) { __debugbreak(); return 0; }
               void                ConvertFloatToInt32(IR::Opnd* intOpnd, IR::Opnd* floatOpnd, IR::LabelInstr * labelHelper, IR::LabelInstr * labelDone, IR::Instr * instInsert) { __debugbreak(); }
               void                CheckOverflowOnFloatToInt32(IR::Instr* instr, IR::Opnd* intOpnd, IR::LabelInstr * labelHelper, IR::LabelInstr * labelDone) { __debugbreak(); }
@@ -205,6 +203,7 @@ public:
               void                EmitIntToLong(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert) { __debugbreak(); }
               void                EmitUIntToLong(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert) { __debugbreak(); }
               void                EmitLongToInt(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert) { __debugbreak(); }
+              void                EmitReinterpretPrimitive(IR::Opnd* dst, IR::Opnd* src, IR::Instr* insertBeforeInstr) { __debugbreak(); }
               void                GenerateTruncWithCheck(IR::Instr * instr) { __debugbreak(); }
               static IR::Instr *  InsertConvertFloat64ToInt32(const RoundMode roundMode, IR::Opnd *const dst, IR::Opnd *const src, IR::Instr *const insertBeforeInstr) { __debugbreak(); return 0; }
               void                EmitLoadFloatFromNumber(IR::Opnd *dst, IR::Opnd *src, IR::Instr *insertInstr) { __debugbreak(); }
@@ -232,7 +231,6 @@ public:
               template <bool verify = false>
               static void         Legalize(IR::Instr *const instr, bool fPostRegAlloc = false) { __debugbreak(); }
 
-              IR::Opnd*           IsOpndNegZero(IR::Opnd* opnd, IR::Instr* instr) { __debugbreak(); return 0; }
               void                GenerateFastInlineBuiltInMathAbs(IR::Instr *callInstr) { __debugbreak(); }
               void                GenerateFastInlineBuiltInMathFloor(IR::Instr *callInstr) { __debugbreak(); }
               void                GenerateFastInlineBuiltInMathCeil(IR::Instr *callInstr) { __debugbreak(); }

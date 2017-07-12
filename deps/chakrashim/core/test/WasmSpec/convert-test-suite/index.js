@@ -2,15 +2,13 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
-
+/* eslint-env node */
 const path = require("path");
-const jsBeautify = require("js-beautify");
 const fs = require("fs-extra");
-const stringArgv = require("string-argv");
-const {execFile, spawn} = require("child_process");
-const which = require("which");
+const {spawn} = require("child_process");
 const slash = require("slash");
 
+const config = require("./config.json");
 const rlRoot = path.join(__dirname, "..");
 const baselineDir = path.join(rlRoot, "baselines");
 
@@ -18,66 +16,12 @@ const argv = require("yargs")
   .help()
   .alias("help", "h")
   .options({
-    bin: {
-      string: true,
-      alias: "b",
-      description: "Path to wast2wasm exe",
-      default: (() => {
-        try {
-          return which.sync("wast2wasm");
-        } catch (e) {
-          return undefined;
-        }
-      })(),
-      demand: true,
-    },
     suite: {
       string: true,
       alias: "s",
       description: "Path to the test suite",
       default: path.join(rlRoot, "testsuite"),
       demand: true,
-    },
-    output: {
-      string: true,
-      alias: "o",
-      description: "Output path of the converted suite",
-      default: path.join(rlRoot, "testsuite-bin"),
-      demand: true,
-    },
-    excludes: {
-      array: true,
-      alias: "e",
-      description: "Spec tests to exclude from the conversion (use for known failures)",
-      default: []
-    },
-    "xplat-excludes": {
-      array: true,
-      description: "Spec tests to exclude when running on xplat (use for known failures)",
-      default: [
-        "address",
-        "binary",
-        "call",
-        "call_indirect",
-        "chakra_i64",
-        "conversions",
-        "fac",
-        "func_ptrs",
-        "i32",
-        "i64",
-        "imports",
-        "int_exprs",
-        "linking",
-        "memory_trap",
-        "page",
-        "resizing",
-        "select",
-        "skip-stack-guard-page",
-        "start",
-        "traps",
-        "unreachable",
-        "unwind"
-      ]
     },
     rebase: {
       string: true,
@@ -87,42 +31,14 @@ const argv = require("yargs")
   .argv;
 
 // Make sure all arguments are valid
-argv.output = path.resolve(argv.output);
-if(typeof argv.bin == 'undefined') {
-  throw new Error("Unable to automatically find wast2wasm; please specify it with --bin");
-}
-fs.statSync(argv.bin).isFile();
 fs.statSync(argv.suite).isDirectory();
 
-function changeExtension(filename, from, to) {
-  return `${path.basename(filename, from)}${to}`;
-}
-
-function convertTest(filename) {
-  const testDir = path.dirname(filename);
-  const outputPath = path.join(argv.output, changeExtension(filename, ".wast", ".json"));
-  const args = [
-    path.basename(filename),
-    "--spec",
-    "--no-check",
-    "-o", outputPath
-  ];
-  console.log(`${testDir}: ${argv.bin} ${args.join(" ")}`);
-  return new Promise((resolve, reject) => {
-    execFile(argv.bin, args, {
-      cwd: testDir
-    }, err => err ? reject(err) : resolve());
-  });
-}
-
-function hostFlags(specFile, {useFullpath} = {}) {
-  return `-wasm -args ${
-    useFullpath ? specFile : slash(path.relative(rlRoot, specFile))
-  } -endargs`;
+function hostFlags(specFile) {
+  return `-wasm -args ${slash(path.relative(rlRoot, specFile))} -endargs`;
 }
 
 function getBaselinePath(specFile) {
-  return `${slash(path.relative(rlRoot, path.join(baselineDir, path.basename(specFile, ".json"))))}.baseline`;
+  return `${slash(path.relative(rlRoot, path.join(baselineDir, path.basename(specFile, path.extname(specFile)))))}.baseline`;
 }
 
 function removePossiblyEmptyFolder(folder) {
@@ -142,7 +58,6 @@ function main() {
   const chakraTests = require("./generateTests");
 
   return Promise.all([
-    removePossiblyEmptyFolder(argv.output),
     removePossiblyEmptyFolder(chakraTestsDestination),
   ]).then(() => {
     fs.ensureDirSync(chakraTestsDestination);
@@ -162,67 +77,66 @@ function main() {
           if (err) {
             return reject(err);
           }
-          return resolve();
+          console.log(`Generated ${testPath}`);
+          return resolve(testPath);
         });
       }))));
-  }).then(() => new Promise((resolve, reject) => {
-    fs.ensureDirSync(argv.output);
-    const conversions = [];
-    fs.walk(argv.suite)
+  }).then(chakraTests => new Promise((resolve) => {
+    const specFiles = [...chakraTests];
+    fs.walk(path.join(argv.suite, "core"))
       .on("data", item => {
         if (
           path.extname(item.path) === ".wast" &&
           item.path.indexOf(".fail") === -1 &&
-          !argv.excludes.includes(path.basename(item.path, ".wast"))
+          !config.excludes.includes(path.basename(item.path, ".wast"))
         ) {
-          conversions.push(convertTest(item.path));
+          specFiles.push(item.path);
         }
       })
       .on("end", () => {
-        Promise.all(conversions).then(resolve, reject);
+        resolve(specFiles);
       });
-  })).then(() => new Promise((resolve, reject) =>
-    fs.readdir(argv.output, (err, files) => {
-      if (err) {
-        return reject(err);
-      }
-      resolve(files
-        .filter(file => path.extname(file) === ".json")
-        .map(file => path.join(argv.output, file))
-      );
-    })
-  ))/*.then(specFiles => {
-    const cleanFullPaths = specFiles.map(specFile => new Promise((resolve, reject) => {
-      const specDescription = require(specFile);
-      specDescription.source_filename = slash(path.basename(specDescription.source_filename));
-      fs.writeFile(
-        specFile,
-        jsBeautify(
-          JSON.stringify(specDescription),
-          {indent_size: 2, end_with_newline: true, wrap_line_length: 200}
-        ), err => {
-          if (err) {
-            return reject(err);
-          }
-          resolve();
+  })).then(specFiles => new Promise((resolve) => {
+    fs.walk(path.join(argv.suite, "js-api"))
+      .on("data", item => {
+        if (path.extname(item.path) === ".js") {
+          specFiles.push(item.path);
         }
-      );
-    }));
-    return Promise.all(cleanFullPaths).then(() => Promise.resolve(specFiles));
-  })*/.then(specFiles => {
+      })
+      .on("end", () => {
+        resolve(specFiles);
+      });
+  })).then(specFiles => {
+    const runners = {
+      ".wast": "spec.js",
+      ".js": "jsapi.js",
+    };
     const runs = specFiles.map(specFile => {
-      const isXplatExcluded = argv.xplatExcludes.indexOf(path.basename(specFile, ".json")) !== -1;
+      const ext = path.extname(specFile);
+      const basename = path.basename(specFile, ext);
+      const isXplatExcluded = config["xplat-excludes"].indexOf(path.basename(specFile, ext)) !== -1;
       const baseline = getBaselinePath(specFile);
       const flags = hostFlags(specFile);
+      const runner = runners[ext];
       const tests = [{
+        runner,
         tags: [],
-        baseline: baseline,
+        baseline,
         flags: [flags]
       }, {
+        runner,
         tags: ["exclude_dynapogo"],
-        baseline: baseline,
+        baseline,
         flags: [flags, "-nonative"]
-      }]
+      }].concat(config.features
+        .filter(feature => feature.files.includes(basename))
+        .map(feature => ({
+          runner,
+          baseline,
+          tags: [].concat(feature.rltags || []),
+          flags: [flags].concat(feature.flags || [])
+        }))
+      );
       if (isXplatExcluded) {
         for (const test of tests) test.tags.push("exclude_xplat");
       }
@@ -235,7 +149,7 @@ function main() {
   runs.map(run => run.map(test => `
   <test>
     <default>
-      <files>spec.js</files>
+      <files>${test.runner}</files>
       <baseline>${test.baseline}</baseline>
       <compile-flags>${test.flags.join(" ")}</compile-flags>${test.tags.length > 0 ? `
       <tags>${test.tags.join(",")}</tags>` : ""}
@@ -245,27 +159,33 @@ function main() {
 </regress-exe>
 `);
     return new Promise((resolve, reject) => {
-      fs.writeFile(path.join(__dirname, "..", "rlexe.xml"), rlexe, err => err ? reject(err) : resolve(specFiles));
+      fs.writeFile(path.join(__dirname, "..", "rlexe.xml"), rlexe, err => err ? reject(err) : resolve(runs));
     });
-  }).then(specFiles => {
+  }).then(runs => {
     if (!argv.rebase) {
       return;
     }
     fs.removeSync(baselineDir);
     fs.ensureDirSync(baselineDir);
-    return Promise.all(specFiles.map(specFile => new Promise((resolve, reject) => {
-      const baseline = fs.createWriteStream(getBaselinePath(specFile));
-      const args = [path.resolve(rlRoot, "spec.js"), "-nonative"].concat(stringArgv(hostFlags(specFile, {useFullpath: true})));
-      console.log(argv.rebase, args.join(" "));
-      const engine = spawn(
-        argv.rebase,
-        args,
-        {cwd: rlRoot}
-      );
-      engine.stdout.pipe(baseline);
-      engine.stderr.pipe(baseline);
-      engine.on("error", reject);
-      engine.on("close", resolve);
+    return Promise.all(runs.map(run => new Promise((resolve, reject) => {
+      const test = run[0];
+      const baseline = fs.createWriteStream(test.baseline);
+      baseline.on("open", () => {
+        const args = [path.resolve(rlRoot, test.runner)].concat(test.flags);
+        console.log(argv.rebase, args.join(" "));
+        const engine = spawn(
+          argv.rebase,
+          args,
+          {
+            cwd: rlRoot,
+            stdio: [baseline, baseline, baseline],
+            shell: true
+          }
+        );
+        engine.on("error", reject);
+        engine.on("close", resolve);
+      });
+      baseline.on("error", reject);
     })));
   });
 }

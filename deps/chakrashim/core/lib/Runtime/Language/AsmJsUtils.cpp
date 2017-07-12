@@ -70,7 +70,7 @@ namespace Js
         PnFnc func = node->sxFnc;
         ParseNode* first = func.pnodeParams;
         // throws OOM on uint16 overflow
-        for( ParseNode* pnode = first; pnode; pnode = pnode->sxVar.pnodeNext, UInt16Math::Inc(numformals));
+        for( ParseNode* pnode = first; pnode; pnode = pnode->sxVar.pnodeNext, ArgSlotMath::Inc(numformals));
         return first;
     }
 
@@ -148,32 +148,6 @@ namespace Js
         vswprintf_s( msg_, _msg, arglist );
     }
 
-    Var AsmJsChangeHeapBuffer(RecyclableObject * function, CallInfo callInfo, ...)
-    {
-        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
-
-        ARGUMENTS(args, callInfo);
-        ScriptContext* scriptContext = function->GetScriptContext();
-
-        Assert(!(callInfo.Flags & CallFlags_New));
-
-        if (args.Info.Count < 1 || !ArrayBuffer::Is(args[1]))
-        {
-            JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedArrayBufferObject);
-        }
-
-
-        ArrayBuffer* newArrayBuffer = ArrayBuffer::FromVar(args[1]);
-        if (newArrayBuffer->IsDetached() || newArrayBuffer->GetByteLength() & 0xffffff || newArrayBuffer->GetByteLength() <= 0xffffff || newArrayBuffer->GetByteLength() > 0x80000000)
-        {
-            return JavascriptBoolean::ToVar(FALSE, scriptContext);
-        }
-        FrameDisplay* frame = ((ScriptFunction*)function)->GetEnvironment();
-        Field(Var)* moduleArrayBuffer = (Field(Var)*)frame->GetItem(0) + AsmJsModuleMemory::MemoryTableBeginOffset;
-        *moduleArrayBuffer = newArrayBuffer;
-        return JavascriptBoolean::ToVar(TRUE, scriptContext);
-    }
-
 #if ENABLE_DEBUG_CONFIG_OPTIONS
     int64 ConvertStringToInt64(Var string, ScriptContext* scriptContext)
     {
@@ -194,12 +168,8 @@ namespace Js
         Var low = JavascriptNumber::ToVar((uint)val, scriptContext);
         Var high = JavascriptNumber::ToVar(val >> 32, scriptContext);
 
-        PropertyRecord const * lowPropRecord = nullptr;
-        PropertyRecord const * highPropRecord = nullptr;
-        scriptContext->GetOrAddPropertyRecord(_u("low"), (int)wcslen(_u("low")), &lowPropRecord);
-        scriptContext->GetOrAddPropertyRecord(_u("high"), (int)wcslen(_u("high")), &highPropRecord);
-        JavascriptOperators::OP_SetProperty(i64Object, lowPropRecord->GetPropertyId(), low, scriptContext);
-        JavascriptOperators::OP_SetProperty(i64Object, highPropRecord->GetPropertyId(), high, scriptContext);
+        JavascriptOperators::OP_SetProperty(i64Object, PropertyIds::low, low, scriptContext);
+        JavascriptOperators::OP_SetProperty(i64Object, PropertyIds::high, high, scriptContext);
         return i64Object;
     }
 #endif
@@ -342,6 +312,7 @@ namespace Js
                 *(double*)argDst = doubleVal;
                 argDst = argDst + sizeof(double);
             }
+#ifdef ENABLE_SIMDJS
             else if (info->GetArgType(i).isSIMD())
             {
                 AsmJsVarType argType = info->GetArgType(i);
@@ -433,6 +404,7 @@ namespace Js
                 *(AsmJsSIMDValue*)argDst = simdVal;
                 argDst = argDst + sizeof(AsmJsSIMDValue);
             }
+#endif // #ifdef ENABLE_SIMDJS
             else
             {
                 Assert(UNREACHED);
@@ -505,6 +477,7 @@ namespace Js
             returnValue = JavascriptNumber::NewWithCheck(floatRetVal, scriptContext);
             break;
         }
+#ifdef ENABLE_SIMDJS
         case AsmJsRetType::Float32x4:
         {
             X86SIMDValue simdVal;
@@ -582,6 +555,7 @@ namespace Js
             returnValue = JavascriptSIMDUint8x16::New(&X86SIMDValue::ToSIMDValue(simdVal), scriptContext);
             break;
         }
+#endif // #ifdef ENABLE_SIMDJS
         default:
             Assume(UNREACHED);
         }
@@ -693,6 +667,7 @@ namespace Js
             returnValue = JavascriptNumber::NewWithCheck((double)fval, func->GetScriptContext());
             break;
         }
+#ifdef ENABLE_SIMDJS
         case AsmJsRetType::Int32x4:
             AsmJsSIMDValue simdVal;
             simdVal.Zero();
@@ -854,6 +829,7 @@ namespace Js
             }
             returnValue = JavascriptSIMDUint8x16::New(&simdVal, func->GetScriptContext());
             break;
+#endif // #ifdef ENABLE_SIMDJS
         default:
             Assume(UNREACHED);
         }

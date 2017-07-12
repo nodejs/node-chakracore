@@ -529,6 +529,38 @@ namespace Js
                 VirtualTableInfo<JavascriptNativeFloatArray>::HasVirtualTable(aValue));
     }
 
+    bool JavascriptArray::IsInlineSegment(SparseArraySegmentBase *seg, JavascriptArray *pArr)
+    {
+        if (seg == nullptr)
+        {
+            return false;
+        }
+
+        SparseArraySegmentBase* inlineHeadSegment = nullptr;
+        if (JavascriptNativeArray::Is(pArr))
+        {
+            if (JavascriptNativeFloatArray::Is(pArr))
+            {
+                inlineHeadSegment = DetermineInlineHeadSegmentPointer<JavascriptNativeFloatArray, 0, true>((JavascriptNativeFloatArray*)pArr);
+            }
+            else
+            {
+                AssertOrFailFast(JavascriptNativeIntArray::Is(pArr));
+                inlineHeadSegment = DetermineInlineHeadSegmentPointer<JavascriptNativeIntArray, 0, true>((JavascriptNativeIntArray*)pArr);
+            }
+
+            Assert(inlineHeadSegment);
+            return (seg == inlineHeadSegment);
+        }
+
+        // This will result in false positives. It is used because DetermineInlineHeadSegmentPointer
+        // does not handle Arrays that change type e.g. from JavascriptNativeIntArray to JavascriptArray
+        // This conversion in particular is problematic because JavascriptNativeIntArray is larger than JavascriptArray
+        // so the returned head segment ptr never equals pArr->head. So we will default to using this and deal with
+        // false positives. It is better than always doing a hard copy.
+        return pArr->head != nullptr && HasInlineHeadSegment(pArr->head->length);
+    }
+
     DynamicObjectFlags JavascriptArray::GetFlags() const
     {
         return GetArrayFlags();
@@ -790,25 +822,7 @@ namespace Js
         return IsMissingHeadSegmentItemImpl<double>(index);
     }
 
-    template<typename T>
-    void JavascriptArray::InternalFillFromPrototype(JavascriptArray *dstArray, const T& dstIndex, JavascriptArray *srcArray, uint32 start, uint32 end, uint32 count)
-    {
-        RecyclableObject* prototype = srcArray->GetPrototype();
-        while (start + count != end && JavascriptOperators::GetTypeId(prototype) != TypeIds_Null)
-        {
-            ForEachOwnMissingArrayIndexOfObject(srcArray, dstArray, prototype, start, end, dstIndex, [&](uint32 index, Var value) {
-                T n = dstIndex + (index - start);
-                dstArray->DirectSetItemAt(n, value);
-
-                count++;
-            });
-
-            prototype = prototype->GetPrototype();
-        }
-    }
-
-    template<>
-    void JavascriptArray::InternalFillFromPrototype(JavascriptArray *dstArray, const uint32& dstIndex, JavascriptArray *srcArray, uint32 start, uint32 end, uint32 count)
+    void JavascriptArray::InternalFillFromPrototype(JavascriptArray *dstArray, uint32 dstIndex, JavascriptArray *srcArray, uint32 start, uint32 end, uint32 count)
     {
         RecyclableObject* prototype = srcArray->GetPrototype();
         while (start + count != end && JavascriptOperators::GetTypeId(prototype) != TypeIds_Null)
@@ -1546,11 +1560,11 @@ namespace Js
         {
 #if DBG
             Js::JavascriptStackWalker walker(intArray->GetScriptContext());
-            Js::JavascriptFunction* caller = NULL;
+            Js::JavascriptFunction* caller = nullptr;
             bool foundScriptCaller = false;
             while(walker.GetCaller(&caller))
             {
-                if(caller != NULL && Js::ScriptFunction::Is(caller))
+                if(caller != nullptr && Js::ScriptFunction::Test(caller))
                 {
                     foundScriptCaller = true;
                     break;
@@ -1993,11 +2007,11 @@ namespace Js
         {
 #if DBG
             Js::JavascriptStackWalker walker(intArray->GetScriptContext());
-            Js::JavascriptFunction* caller = NULL;
+            Js::JavascriptFunction* caller = nullptr;
             bool foundScriptCaller = false;
             while(walker.GetCaller(&caller))
             {
-                if(caller != NULL && Js::ScriptFunction::Is(caller))
+                if(caller != nullptr && Js::ScriptFunction::Test(caller))
                 {
                     foundScriptCaller = true;
                     break;
@@ -2109,6 +2123,7 @@ namespace Js
                         limit = JavascriptArray::MaxArrayLength;
                     }
                     seg->size = min(newSize, limit - seg->left);
+                    seg->CheckLengthvsSize();
                 }
             }
             uint32 i;
@@ -2196,11 +2211,11 @@ namespace Js
         {
 #if DBG
             Js::JavascriptStackWalker walker(fArray->GetScriptContext());
-            Js::JavascriptFunction* caller = NULL;
+            Js::JavascriptFunction* caller = nullptr;
             bool foundScriptCaller = false;
             while(walker.GetCaller(&caller))
             {
-                if(caller != NULL && Js::ScriptFunction::Is(caller))
+                if(caller != nullptr && Js::ScriptFunction::Test(caller))
                 {
                     foundScriptCaller = true;
                     break;
@@ -3107,19 +3122,19 @@ namespace Js
                 if (JavascriptNativeIntArray::Is(aItem))
                 {
                     JavascriptNativeIntArray *pItemArray = JavascriptNativeIntArray::FromVar(aItem);
-                    JS_REENTRANT(jsReentLock, CopyNativeIntArrayElementsToVar(pDestArray, idxDest, pItemArray));
+                    JS_REENTRANT(jsReentLock, CopyNativeIntArrayElementsToVar(pDestArray, BigIndex(idxDest).GetSmallIndex(), pItemArray));
                     idxDest = idxDest + pItemArray->length;
                 }
                 else if (JavascriptNativeFloatArray::Is(aItem))
                 {
                     JavascriptNativeFloatArray *pItemArray = JavascriptNativeFloatArray::FromVar(aItem);
-                    JS_REENTRANT(jsReentLock, CopyNativeFloatArrayElementsToVar(pDestArray, idxDest, pItemArray));
+                    JS_REENTRANT(jsReentLock, CopyNativeFloatArrayElementsToVar(pDestArray, BigIndex(idxDest).GetSmallIndex(), pItemArray));
                     idxDest = idxDest + pItemArray->length;
                 }
                 else
                 {
                     JavascriptArray* pItemArray = JavascriptArray::FromVar(aItem);
-                    JS_REENTRANT(jsReentLock, CopyArrayElements(pDestArray, idxDest, pItemArray));
+                    JS_REENTRANT(jsReentLock, CopyArrayElements(pDestArray, BigIndex(idxDest).GetSmallIndex(), pItemArray));
                     idxDest = idxDest + pItemArray->length;
                 }
             }
@@ -3167,7 +3182,7 @@ namespace Js
 
                             if (pDestArray)
                             {
-                                pDestArray->DirectSetItemAt(idxDest, subItem);
+                                pDestArray->GenericDirectSetItemAt(idxDest, subItem);
                             }
                             else
                             {
@@ -3187,7 +3202,7 @@ namespace Js
                             JS_REENTRANT(jsReentLock, subItem = JavascriptOperators::GetProperty(itemObject, propertyRecord->GetPropertyId(), scriptContext));
                             if (pDestArray)
                             {
-                                pDestArray->DirectSetItemAt(idxDest, subItem);
+                                pDestArray->GenericDirectSetItemAt(idxDest, subItem);
                             }
                             else
                             {
@@ -3669,7 +3684,7 @@ namespace Js
             }
             if (pDestArray)
             {
-                pDestArray->DirectSetItemAt(idxDest, pObj);
+                pDestArray->GenericDirectSetItemAt(idxDest, pObj);
             }
             else
             {
@@ -3680,7 +3695,7 @@ namespace Js
         {
             if (pDestArray)
             {
-                pDestArray->DirectSetItemAt(idxDest, aItem);
+                pDestArray->GenericDirectSetItemAt(idxDest, aItem);
             }
             else
             {
@@ -3795,7 +3810,7 @@ namespace Js
             if (length.IsSmallIndex() || length.IsUint32Max())
             {
                 uint32 len = length.IsUint32Max() ? MaxArrayLength : length.GetSmallIndex();
-                int32 index = pArr->HeadSegmentIndexOfHelper(search, fromIndex, len, includesAlgorithm, scriptContext);
+                JS_REENTRANT(jsReentLock, int32 index = pArr->HeadSegmentIndexOfHelper(search, fromIndex, len, includesAlgorithm, scriptContext));
 
                 // If we found the search value in the head segment, or if we determined there is no need to search other segments,
                 // we stop right here.
@@ -4838,7 +4853,7 @@ Case0:
     {
         if (JavascriptArray::Is(object))
         {
-            return EntryPopJavascriptArray(scriptContext, object);
+            return EntryPopJavascriptArray(scriptContext, JavascriptArray::FromVar(object));
         }
         else
         {
@@ -4846,10 +4861,9 @@ Case0:
         }
     }
 
-    Var JavascriptArray::EntryPopJavascriptArray(ScriptContext * scriptContext, Var object)
+    Var JavascriptArray::EntryPopJavascriptArray(ScriptContext * scriptContext, JavascriptArray* arr)
     {
         JS_REENTRANCY_LOCK(jsReentLock, scriptContext->GetThreadContext());
-        JavascriptArray * arr = JavascriptArray::FromVar(object);
         uint32 length = arr->length;
 
         if (length == 0)
@@ -4942,7 +4956,7 @@ Case0:
 
         if (JavascriptArray::Is(args[0]))
         {
-            JS_REENTRANT_UNLOCK(jsReentLock, return EntryPopJavascriptArray(scriptContext, args.Values[0]));
+            JS_REENTRANT_UNLOCK(jsReentLock, return EntryPopJavascriptArray(scriptContext, JavascriptArray::FromVar(args.Values[0])));
         }
         else
         {
@@ -5245,28 +5259,7 @@ Case0:
     template <typename T>
     void JavascriptArray::CopyHeadIfInlinedHeadSegment(JavascriptArray *array, Recycler *recycler)
     {
-        SparseArraySegmentBase* inlineHeadSegment = nullptr;
-        bool hasInlineSegment = false;
-
-        if (JavascriptNativeArray::Is(array))
-        {
-            if (JavascriptNativeFloatArray::Is(array))
-            {
-                inlineHeadSegment = DetermineInlineHeadSegmentPointer<JavascriptNativeFloatArray, 0, true>((JavascriptNativeFloatArray*)array);
-            }
-            else if (JavascriptNativeIntArray::Is(array))
-            {
-                inlineHeadSegment = DetermineInlineHeadSegmentPointer<JavascriptNativeIntArray, 0, true>((JavascriptNativeIntArray*)array);
-            }
-            Assert(inlineHeadSegment);
-            hasInlineSegment = (array->head == (SparseArraySegment<T>*)inlineHeadSegment);
-        }
-        else
-        {
-            hasInlineSegment = HasInlineHeadSegment(array->head->length);
-        }
-
-        if (hasInlineSegment)
+        if (JavascriptArray::IsInlineSegment(array->head, array))
         {
             AnalysisAssert(array->head);
             SparseArraySegment<T>* newHeadSeg = array->ReallocNonLeafSegment((SparseArraySegment<T>*)PointerValue(array->head), array->head->next);
@@ -5410,8 +5403,8 @@ Case0:
             }
 
             // During the loop below we are going to reverse the segments list. The head segment will become the last segment.
-            // We have to verify that the current head segment is not the inilined segement, otherwise due to shuffling below, the inlined segment will no longer
-            // be the head and that can create issue down the line. Create new segment if it is an inilined segment.
+            // We have to verify that the current head segment is not the inlined segement, otherwise due to shuffling below, the inlined segment will no longer
+            // be the head and that can create issue down the line. Create new segment if it is an inlined segment.
             if (pArr->head && pArr->head->next)
             {
                 if (isIntArray)
@@ -5470,7 +5463,6 @@ Case0:
             }
 
             pArr->head = prevSeg;
-            pArr->InvalidateLastUsedSegment(); // lastUsedSegment might be 0-length and discarded above
 
             if (isIntArray)
             {
@@ -5485,6 +5477,7 @@ Case0:
                 pArr->EnsureHeadStartsFromZero<Var>(recycler);
             }
 
+            pArr->InvalidateLastUsedSegment(); // lastUsedSegment might be 0-length and discarded above
 #ifdef VALIDATE_ARRAY
             pArr->ValidateArray();
 #endif
@@ -5613,6 +5606,9 @@ Case0:
             AssertMsg(pArr->head->size == next->left + 1, "Shift next->left overlaps current segment by more than 1 element");
 
             SparseArraySegment<T> *head = SparseArraySegment<T>::From(pArr->head);
+            SparseArraySegment<T> *oldHead = head;
+            bool isInlineSegment = JavascriptArray::IsInlineSegment(head, pArr);
+            bool nextIsInlineSegment = JavascriptArray::IsInlineSegment(next, pArr);
             // Merge the two adjacent segments
             if (next->length != 0)
             {
@@ -5647,8 +5643,18 @@ Case0:
                 head->length = offset + next->length;
                 head->CheckLengthvsSize();
                 pArr->head = head;
+
+                if (isInlineSegment && oldHead != head)
+                {
+                    pArr->ClearElements(oldHead, 0);
+                }
             }
             head->next = next->next;
+            if (nextIsInlineSegment)
+            {
+                pArr->ClearElements(next, 0);
+            }
+
             pArr->InvalidateLastUsedSegment();
         }
 
@@ -6532,7 +6538,13 @@ Case0:
             uint32 newLength = head->length + countUndefined;
             if (newLength > head->size)
             {
+                SparseArraySegmentBase *oldHead = head;
+                bool isInlineSegment = JavascriptArray::IsInlineSegment(head, this);
                 head = SparseArraySegment<Var>::From(head)->GrowByMin(recycler, newLength - head->size);
+                if (isInlineSegment)
+                {
+                    this->ClearElements(oldHead, 0);
+                }
             }
 
             Var undefined = scriptContext->GetLibrary()->GetUndefined();
@@ -6645,7 +6657,7 @@ Case0:
                 bool useDefaultComparer = typeId == TypeIds_Undefined;
                 if (!useDefaultComparer)
                 {
-                    JavascriptError::ThrowTypeError(scriptContext, JSERR_FunctionArgument_NeedInternalObject, _u("Array.prototype.sort"));
+                    JavascriptError::ThrowTypeError(scriptContext, JSERR_FunctionArgument_NeedFunction, _u("Array.prototype.sort"));
                 }
             }
         }
@@ -6732,7 +6744,7 @@ Case0:
                 {
                     if (sortArray->length > 1)
                     {
-                        sortArray->FillFromPrototypes(0, sortArray->length); // We need find all missing value from [[proto]] object
+                        JS_REENTRANT(jsReentLock, sortArray->FillFromPrototypes(0, sortArray->length)); // We need find all missing value from [[proto]] object
                     }
                     JS_REENTRANT(jsReentLock, sortArray->Sort(compFn));
 
@@ -6848,8 +6860,14 @@ Case0:
         // Save the deleted elements
         if (headDeleteLen != 0)
         {
+            SparseArraySegmentBase *oldHead = pnewArr->head;
+            bool isInlineSegment = JavascriptArray::IsInlineSegment(oldHead, pnewArr);
             pnewArr->InvalidateLastUsedSegment();
             pnewArr->head = SparseArraySegment<T>::CopySegment(recycler, SparseArraySegment<T>::From(pnewArr->head), 0, seg, start, headDeleteLen);
+            if (isInlineSegment && oldHead != pnewArr->head)
+            {
+                pnewArr->ClearElements(oldHead, 0);
+            }
         }
 
         if (newHeadLen != 0)
@@ -6940,33 +6958,7 @@ Case0:
             }
         }
 
-        // handle inlined segment
-        SparseArraySegmentBase* inlineHeadSegment = nullptr;
-        bool hasInlineSegment = false;
-        // The following if else set is used to determine whether a shallow or hard copy is needed
-        if (JavascriptNativeArray::Is(pArr))
-        {
-            if (JavascriptNativeFloatArray::Is(pArr))
-            {
-                inlineHeadSegment = DetermineInlineHeadSegmentPointer<JavascriptNativeFloatArray, 0, true>((JavascriptNativeFloatArray*)pArr);
-            }
-            else if (JavascriptNativeIntArray::Is(pArr))
-            {
-                inlineHeadSegment = DetermineInlineHeadSegmentPointer<JavascriptNativeIntArray, 0, true>((JavascriptNativeIntArray*)pArr);
-            }
-            Assert(inlineHeadSegment);
-            hasInlineSegment = (startSeg == (SparseArraySegment<T>*)inlineHeadSegment);
-        }
-        else
-        {
-            // This will result in false positives. It is used because DetermineInlineHeadSegmentPointer
-            // does not handle Arrays that change type e.g. from JavascriptNativeIntArray to JavascriptArray
-            // This conversion in particular is problematic because JavascriptNativeIntArray is larger than JavascriptArray
-            // so the returned head segment ptr never equals pArr->head. So we will default to using this and deal with
-            // false positives. It is better than always doing a hard copy.
-            hasInlineSegment = HasInlineHeadSegment(pArr->head->length);
-        }
-
+        bool hasInlineSegment = JavascriptArray::IsInlineSegment(startSeg, pArr);
         if (startSeg)
         {
             // Delete Phase
@@ -7053,6 +7045,7 @@ Case0:
 
                         // Remove the entire segment from the original array
                         *prevSeg = startSeg->next;
+                        pArr->ClearElements(startSeg, 0);
                         startSeg = SparseArraySegment<T>::From(startSeg->next);
                     }
                     // if we have an inline head segment with 0 elements, remove it
@@ -7161,6 +7154,8 @@ Case0:
                 uint32 spaceLeft = segInsert->size - (start - segInsert->left);
                 if(spaceLeft < insertLen)
                 {
+                    SparseArraySegment<T> *oldSegInsert = segInsert;
+                    bool isInlineSegment = JavascriptArray::IsInlineSegment(segInsert, pArr);
                     if (!segInsert->next)
                     {
                         segInsert = segInsert->GrowByMin(recycler, insertLen - spaceLeft);
@@ -7168,6 +7163,11 @@ Case0:
                     else
                     {
                         segInsert = segInsert->GrowByMinMax(recycler, insertLen - spaceLeft, segInsert->next->left - segInsert->left - segInsert->size);
+                    }
+
+                    if (isInlineSegment)
+                    {
+                        pArr->ClearElements(oldSegInsert, 0);
                     }
                 }
                 *prevPrevSeg = segInsert;
@@ -7228,7 +7228,7 @@ Case0:
                 // Copy overflowing insertArgs to properties
                 for (uint32 i = maxInsertLen; i < insertLen; i++)
                 {
-                    pArr->DirectSetItemAt(dstIndex, insertArgs[i]);
+                    pArr->GenericDirectSetItemAt(dstIndex, insertArgs[i]);
                     ++dstIndex;
                 }
 
@@ -7299,6 +7299,8 @@ Case0:
             // of that segment we optimize splice - Fast path.
             if (pArr->IsSingleSegmentArray() && pArr->head->HasIndex(start))
             {
+                SparseArraySegmentBase *oldHead = pArr->head;
+                bool isInlineSegment = JavascriptArray::IsInlineSegment(oldHead, pArr);
                 if (isIntArray)
                 {
                     ArraySegmentSpliceHelper<int32>(newArr, SparseArraySegment<int32>::From(pArr->head), (SparseArraySegment<int32>**)&pArr->head, start, deleteLen, insertArgs, insertLen, recycler);
@@ -7310,6 +7312,11 @@ Case0:
                 else
                 {
                     ArraySegmentSpliceHelper<Var>(newArr, SparseArraySegment<Var>::From(pArr->head), (SparseArraySegment<Var>**)&pArr->head, start, deleteLen, insertArgs, insertLen, recycler);
+                }
+
+                if (isInlineSegment && oldHead != pArr->head)
+                {
+                    pArr->ClearElements(oldHead, 0);
                 }
 
                 // Since the start index is within the bounds of the original array's head segment, it will not acquire any new
@@ -7605,6 +7612,8 @@ Case0:
         SparseArraySegmentBase* nextToHeadSeg = pArr->head->next;
         Recycler* recycler = scriptContext->GetRecycler();
 
+        SparseArraySegmentBase *oldHead = pArr->head;
+        bool isInlineSegment = JavascriptArray::IsInlineSegment(oldHead, pArr);
         if (nextToHeadSeg == nullptr)
         {
             pArr->EnsureHead<T>();
@@ -7615,6 +7624,10 @@ Case0:
             pArr->head = SparseArraySegment<T>::From(pArr->head)->GrowByMinMax(recycler, unshiftElements, ((nextToHeadSeg->left + unshiftElements) - pArr->head->left - pArr->head->size));
         }
 
+        if (isInlineSegment)
+        {
+            pArr->ClearElements(oldHead, 0);
+        }
     }
 
     template<typename T>
@@ -7695,6 +7708,7 @@ Case0:
                 pArr->ClearSegmentMap(); // Dump segmentMap on unshift (before any possible allocation and throw)
 
                 Assert(pArr->length <= MaxArrayLength - unshiftElements);
+
                 bool isIntArray = false;
                 bool isFloatArray = false;
 
@@ -9028,7 +9042,7 @@ Case0:
             {
                 if (pArr)
                 {
-                    pArr->DirectSetItemAt(dstIndex, fillValue);
+                    pArr->GenericDirectSetItemAt(dstIndex, fillValue);
                     ++dstIndex;
                 }
                 else
@@ -9046,7 +9060,7 @@ Case0:
             {
                 if (pArr)
                 {
-                    pArr->DirectSetItemAt(dstIndex, fillValue);
+                    pArr->GenericDirectSetItemAt(dstIndex, fillValue);
                     ++dstIndex;
                 }
                 else
@@ -9509,7 +9523,7 @@ Case0:
                 {
                     if (newArr)
                     {
-                        newArr->DirectSetItemAt(i, element);
+                        newArr->GenericDirectSetItemAt(i, element);
                     }
                     else
                     {
@@ -10380,8 +10394,8 @@ Case0:
     }
 #endif
 
-    template <typename T, typename Fn>
-    void JavascriptArray::ForEachOwnMissingArrayIndexOfObject(JavascriptArray *baseArray, JavascriptArray *destArray, RecyclableObject* obj, uint32 startIndex, uint32 limitIndex, T destIndex, Fn fn)
+    template <typename Fn>
+    void JavascriptArray::ForEachOwnMissingArrayIndexOfObject(JavascriptArray *baseArray, JavascriptArray *destArray, RecyclableObject* obj, uint32 startIndex, uint32 limitIndex, uint32 destIndex, Fn fn)
     {
         JS_REENTRANCY_LOCK(jsReentLock, baseArray->GetScriptContext()->GetThreadContext());
         Assert(DynamicObject::IsAnyArray(obj) || JavascriptOperators::IsObject(obj));
@@ -10411,7 +10425,7 @@ Case0:
                     uint32 index = e.GetIndex();
                     if (!baseArray->DirectGetVarItemAt(index, &oldValue, baseArray->GetScriptContext()))
                     {
-                        T n = destIndex + (index - startIndex);
+                        uint32 n = destIndex + (index - startIndex);
                         if (destArray == nullptr || !destArray->DirectGetItemAt(n, &oldValue))
                         {
                             JS_REENTRANT(jsReentLock, fn(index, e.GetItem<Var>()));
@@ -10436,7 +10450,7 @@ Case0:
 
                     if (!baseArray->DirectGetVarItemAt(index, &oldValue, baseArray->GetScriptContext()))
                     {
-                        T n = destIndex + (index - startIndex);
+                        uint32 n = destIndex + (index - startIndex);
                         if (destArray == nullptr || !destArray->DirectGetItemAt(n, &oldValue))
                         {
                             Var value = nullptr;
@@ -10914,8 +10928,7 @@ Case0:
     //
     // Copy a srcArray elements (including elements from prototypes) to a dstArray starting from an index.
     //
-    template<typename T>
-    void JavascriptArray::InternalCopyArrayElements(JavascriptArray* dstArray, const T& dstIndex, JavascriptArray* srcArray, uint32 start, uint32 end)
+    void JavascriptArray::InternalCopyArrayElements(JavascriptArray* dstArray, const uint32 dstIndex, JavascriptArray* srcArray, uint32 start, uint32 end)
     {
         Assert(start < end && end <= srcArray->length);
 
@@ -10925,7 +10938,7 @@ Case0:
         ArrayElementEnumerator e(srcArray, start, end);
         while(e.MoveNext<Var>())
         {
-            T n = dstIndex + (e.GetIndex() - start);
+            uint32 n = dstIndex + (e.GetIndex() - start);
             dstArray->DirectSetItemAt(n, e.GetItem<Var>());
             count++;
         }
@@ -10934,28 +10947,6 @@ Case0:
         if (start + count != end)
         {
             InternalFillFromPrototype(dstArray, dstIndex, srcArray, start, end, count);
-        }
-    }
-
-    //
-    // Copy a srcArray elements (including elements from prototypes) to a dstArray starting from an index. If the index grows larger than
-    // "array index", it will automatically turn to SetProperty using the index as property name.
-    //
-    void JavascriptArray::CopyArrayElements(JavascriptArray* dstArray, const BigIndex& dstIndex, JavascriptArray* srcArray, uint32 start, uint32 end)
-    {
-        end = min(end, srcArray->length);
-        if (start < end)
-        {
-            uint32 len = end - start;
-            if (dstIndex.IsSmallIndex() && (len < MaxArrayLength - dstIndex.GetSmallIndex()))
-            {
-                // Won't overflow, use faster small_index version
-                InternalCopyArrayElements(dstArray, dstIndex.GetSmallIndex(), srcArray, start, end);
-            }
-            else
-            {
-                InternalCopyArrayElements(dstArray, dstIndex, srcArray, start, end);
-            }
         }
     }
 
@@ -10992,24 +10983,6 @@ Case0:
         else
         {
             CopyArrayElements(dstArray, dstIndex, srcArray, start, end);
-        }
-    }
-
-    void JavascriptArray::CopyNativeIntArrayElementsToVar(JavascriptArray* dstArray, const BigIndex& dstIndex, JavascriptNativeIntArray* srcArray, uint32 start, uint32 end)
-    {
-        end = min(end, srcArray->length);
-        if (start < end)
-        {
-            uint32 len = end - start;
-            if (dstIndex.IsSmallIndex() && (len < MaxArrayLength - dstIndex.GetSmallIndex()))
-            {
-                // Won't overflow, use faster small_index version
-                InternalCopyNativeIntArrayElements(dstArray, dstIndex.GetSmallIndex(), srcArray, start, end);
-            }
-            else
-            {
-                InternalCopyNativeIntArrayElements(dstArray, dstIndex, srcArray, start, end);
-            }
         }
     }
 
@@ -11092,24 +11065,6 @@ Case0:
         return false;
     }
 
-    void JavascriptArray::CopyNativeFloatArrayElementsToVar(JavascriptArray* dstArray, const BigIndex& dstIndex, JavascriptNativeFloatArray* srcArray, uint32 start, uint32 end)
-    {
-        end = min(end, srcArray->length);
-        if (start < end)
-        {
-            uint32 len = end - start;
-            if (dstIndex.IsSmallIndex() && (len < MaxArrayLength - dstIndex.GetSmallIndex()))
-            {
-                // Won't overflow, use faster small_index version
-                InternalCopyNativeFloatArrayElements(dstArray, dstIndex.GetSmallIndex(), srcArray, start, end);
-            }
-            else
-            {
-                InternalCopyNativeFloatArrayElements(dstArray, dstIndex, srcArray, start, end);
-            }
-        }
-    }
-
     //
     // Faster small_index overload of CopyArrayElements, asserting the uint32 dstIndex won't overflow.
     //
@@ -11176,7 +11131,7 @@ Case0:
     BOOL JavascriptNativeIntArray::DirectGetItemAtFull(uint32 index, Var* outVal)
     {
         ScriptContext* requestContext = type->GetScriptContext();
-        if (JavascriptNativeIntArray::GetItem(this, index, outVal, requestContext))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(JavascriptNativeIntArray::GetItemQuery(this, index, outVal, requestContext)))
         {
             return TRUE;
         }
@@ -11187,7 +11142,7 @@ Case0:
     BOOL JavascriptNativeFloatArray::DirectGetItemAtFull(uint32 index, Var* outVal)
     {
         ScriptContext* requestContext = type->GetScriptContext();
-        if (JavascriptNativeFloatArray::GetItem(this, index, outVal, requestContext))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(JavascriptNativeFloatArray::GetItemQuery(this, index, outVal, requestContext)))
         {
             return TRUE;
         }
@@ -11195,8 +11150,7 @@ Case0:
         return JavascriptOperators::GetItem(this, this->GetPrototype(), index, outVal, requestContext);
     }
 
-    template<typename T>
-    void JavascriptArray::InternalCopyNativeIntArrayElements(JavascriptArray* dstArray, const T& dstIndex, JavascriptNativeIntArray* srcArray, uint32 start, uint32 end)
+    void JavascriptArray::InternalCopyNativeIntArrayElements(JavascriptArray* dstArray, uint32 dstIndex, JavascriptNativeIntArray* srcArray, uint32 start, uint32 end)
     {
         Assert(start < end && end <= srcArray->length);
 
@@ -11208,7 +11162,7 @@ Case0:
         ArrayElementEnumerator e(srcArray, start, end);
         while(e.MoveNext<int32>())
         {
-            T n = dstIndex + (e.GetIndex() - start);
+            uint32 n = dstIndex + (e.GetIndex() - start);
             dstArray->DirectSetItemAt(n, JavascriptNumber::ToVar(e.GetItem<int32>(), scriptContext));
             count++;
         }
@@ -11220,8 +11174,7 @@ Case0:
         }
     }
 
-    template<typename T>
-    void JavascriptArray::InternalCopyNativeFloatArrayElements(JavascriptArray* dstArray, const T& dstIndex, JavascriptNativeFloatArray* srcArray, uint32 start, uint32 end)
+    void JavascriptArray::InternalCopyNativeFloatArrayElements(JavascriptArray* dstArray, uint32 dstIndex, JavascriptNativeFloatArray* srcArray, uint32 start, uint32 end)
     {
         Assert(start < end && end <= srcArray->length);
 
@@ -11232,7 +11185,7 @@ Case0:
         ArrayElementEnumerator e(srcArray, start, end);
         while(e.MoveNext<double>())
         {
-            T n = dstIndex + (e.GetIndex() - start);
+            uint32 n = dstIndex + (e.GetIndex() - start);
             dstArray->DirectSetItemAt(n, JavascriptNumber::ToVarWithCheck(e.GetItem<double>(), scriptContext));
             count++;
         }
@@ -11911,21 +11864,21 @@ Case0:
         return DynamicObject::DeleteProperty(propertyNameString, flags);
     }
 
-    BOOL JavascriptArray::HasProperty(PropertyId propertyId)
+    PropertyQueryFlags JavascriptArray::HasPropertyQuery(PropertyId propertyId)
     {
         if (propertyId == PropertyIds::length)
         {
-            return true;
+            return PropertyQueryFlags::Property_Found;
         }
 
         ScriptContext* scriptContext = GetScriptContext();
         uint32 index;
         if (scriptContext->IsNumericPropertyId(propertyId, &index))
         {
-            return this->HasItem(index);
+            return JavascriptConversion::BooleanToPropertyQueryFlags(this->HasItem(index));
         }
 
-        return DynamicObject::HasProperty(propertyId);
+        return DynamicObject::HasPropertyQuery(propertyId);
     }
 
     BOOL JavascriptArray::IsEnumerable(PropertyId propertyId)
@@ -12136,7 +12089,7 @@ Case0:
         return GetTypeHandler()->ConvertToTypeWithItemAttributes(this)->Freeze(this);
     }
 
-    BOOL JavascriptArray::GetSpecialPropertyName(uint32 index, Var *propertyName, ScriptContext * requestContext)
+    BOOL JavascriptArray::GetSpecialPropertyName(uint32 index, JavascriptString ** propertyName, ScriptContext * requestContext)
     {
         if (index == 0)
         {
@@ -12158,29 +12111,29 @@ Case0:
         return specialPropertyIds;
     }
 
-    BOOL JavascriptArray::GetPropertyReference(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptArray::GetPropertyReferenceQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
-        return JavascriptArray::GetProperty(originalInstance, propertyId, value, info, requestContext);
+        return JavascriptArray::GetPropertyQuery(originalInstance, propertyId, value, info, requestContext);
     }
 
-    BOOL JavascriptArray::GetProperty(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptArray::GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
         if (GetPropertyBuiltIns(propertyId, value))
         {
-            return true;
+            return PropertyQueryFlags::Property_Found;
         }
 
         ScriptContext* scriptContext = GetScriptContext();
         uint32 index;
         if (scriptContext->IsNumericPropertyId(propertyId, &index))
         {
-            return this->GetItem(this, index, value, scriptContext);
+            return JavascriptConversion::BooleanToPropertyQueryFlags(this->GetItem(this, index, value, scriptContext));
         }
 
-        return DynamicObject::GetProperty(originalInstance, propertyId, value, info, requestContext);
+        return DynamicObject::GetPropertyQuery(originalInstance, propertyId, value, info, requestContext);
     }
 
-    BOOL JavascriptArray::GetProperty(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptArray::GetPropertyQuery(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
         AssertMsg(!PropertyRecord::IsPropertyNameNumeric(propertyNameString->GetString(), propertyNameString->GetLength()),
             "Numeric property names should have been converted to uint or PropertyRecord*");
@@ -12190,10 +12143,10 @@ Case0:
 
         if (propertyRecord != nullptr && GetPropertyBuiltIns(propertyRecord->GetPropertyId(), value))
         {
-            return true;
+            return PropertyQueryFlags::Property_Found;
         }
 
-        return DynamicObject::GetProperty(originalInstance, propertyNameString, value, info, requestContext);
+        return DynamicObject::GetPropertyQuery(originalInstance, propertyNameString, value, info, requestContext);
     }
 
     BOOL JavascriptArray::GetPropertyBuiltIns(PropertyId propertyId, Var* value)
@@ -12210,20 +12163,20 @@ Case0:
         return false;
     }
 
-    BOOL JavascriptArray::HasItem(uint32 index)
+    PropertyQueryFlags JavascriptArray::HasItemQuery(uint32 index)
     {
         Var value;
-        return this->DirectGetItemAt<Var>(index, &value);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(this->DirectGetItemAt<Var>(index, &value));
     }
 
-    BOOL JavascriptArray::GetItem(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptArray::GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
-        return this->DirectGetItemAt<Var>(index, value);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(this->DirectGetItemAt<Var>(index, value));
     }
 
-    BOOL JavascriptArray::GetItemReference(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptArray::GetItemReferenceQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
-        return this->DirectGetItemAt<Var>(index, value);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(this->DirectGetItemAt<Var>(index, value));
     }
 
     BOOL JavascriptArray::DirectGetVarItemAt(uint32 index, Var *value, ScriptContext *requestContext)
@@ -12231,27 +12184,27 @@ Case0:
         return this->DirectGetItemAt<Var>(index, value);
     }
 
-    BOOL JavascriptNativeIntArray::HasItem(uint32 index)
+    PropertyQueryFlags JavascriptNativeIntArray::HasItemQuery(uint32 index)
     {
 #if ENABLE_COPYONACCESS_ARRAY
         JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(this);
 #endif
         int32 value;
-        return this->DirectGetItemAt<int32>(index, &value);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(this->DirectGetItemAt<int32>(index, &value));
     }
 
-    BOOL JavascriptNativeFloatArray::HasItem(uint32 index)
+    PropertyQueryFlags JavascriptNativeFloatArray::HasItemQuery(uint32 index)
     {
         double dvalue;
-        return this->DirectGetItemAt<double>(index, &dvalue);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(this->DirectGetItemAt<double>(index, &dvalue));
     }
 
-    BOOL JavascriptNativeIntArray::GetItem(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptNativeIntArray::GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
 #if ENABLE_COPYONACCESS_ARRAY
         JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(this);
 #endif
-        return JavascriptNativeIntArray::DirectGetVarItemAt(index, value, requestContext);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(JavascriptNativeIntArray::DirectGetVarItemAt(index, value, requestContext));
     }
 
     BOOL JavascriptNativeIntArray::DirectGetVarItemAt(uint32 index, Var *value, ScriptContext *requestContext)
@@ -12265,14 +12218,14 @@ Case0:
         return TRUE;
     }
 
-    BOOL JavascriptNativeIntArray::GetItemReference(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptNativeIntArray::GetItemReferenceQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
-        return JavascriptNativeIntArray::GetItem(originalInstance, index, value, requestContext);
+        return JavascriptNativeIntArray::GetItemQuery(originalInstance, index, value, requestContext);
     }
 
-    BOOL JavascriptNativeFloatArray::GetItem(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptNativeFloatArray::GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
-        return JavascriptNativeFloatArray::DirectGetVarItemAt(index, value, requestContext);
+        return JavascriptConversion::BooleanToPropertyQueryFlags(JavascriptNativeFloatArray::DirectGetVarItemAt(index, value, requestContext));
     }
 
     BOOL JavascriptNativeFloatArray::DirectGetVarItemAt(uint32 index, Var *value, ScriptContext *requestContext)
@@ -12298,9 +12251,9 @@ Case0:
         return TRUE;
     }
 
-    BOOL JavascriptNativeFloatArray::GetItemReference(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags JavascriptNativeFloatArray::GetItemReferenceQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
-        return JavascriptNativeFloatArray::GetItem(originalInstance, index, value, requestContext);
+        return JavascriptNativeFloatArray::GetItemQuery(originalInstance, index, value, requestContext);
     }
 
     BOOL JavascriptArray::SetProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info)

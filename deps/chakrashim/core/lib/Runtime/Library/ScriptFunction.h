@@ -45,6 +45,7 @@ namespace Js
     public:
         ScriptFunction(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType);
         static bool Is(Var func);
+        inline static BOOL Test(JavascriptFunction *func) { return func->GetFunctionInfo()->HasBody(); }
         static ScriptFunction * FromVar(Var func);
         static ScriptFunction * OP_NewScFunc(FrameDisplay *environment, FunctionInfoPtrPtr infoRef);
 
@@ -125,6 +126,7 @@ namespace Js
         static bool Is(Var func);
         static bool IsWasmScriptFunction(Var func);
         static AsmJsScriptFunction* FromVar(Var func);
+        static AsmJsScriptFunction * OP_NewAsmJsFunc(FrameDisplay *environment, FunctionInfoPtrPtr infoRef);
 
         void SetModuleMemory(Field(Var)* mem) { m_moduleMemory = mem; }
         Field(Var)* GetModuleMemory() const { return m_moduleMemory; }
@@ -148,7 +150,7 @@ namespace Js
     class ScriptFunctionWithInlineCache : public ScriptFunction
     {
     private:
-        Field(Field(void*)*) m_inlineCaches;
+        Field(void**) m_inlineCaches;
         Field(bool) hasOwnInlineCaches;
 
 #if DBG
@@ -179,7 +181,7 @@ namespace Js
         void ClearBorrowedInlineCacheOnFunctionObject();
         InlineCache * GetInlineCache(uint index);
         uint GetInlineCacheCount() { return inlineCacheCount; }
-        Field(void*)* GetInlineCaches() { return m_inlineCaches; }
+        Field(void**) GetInlineCaches() { return m_inlineCaches; }
         bool GetHasOwnInlineCaches() { return hasOwnInlineCaches; }
         void SetInlineCachesFromFunctionBody();
         static uint32 GetOffsetOfInlineCaches() { return offsetof(ScriptFunctionWithInlineCache, m_inlineCaches); };

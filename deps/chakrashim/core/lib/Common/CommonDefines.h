@@ -82,13 +82,13 @@
 // Even if it builds, it may not work properly. Disable at your own risk
 
 // Config options
+#define CONFIG_PARSE_CONFIG_FILE 1
+
 #ifdef _WIN32
 #define CONFIG_CONSOLE_AVAILABLE 1
-#define CONFIG_PARSE_CONFIG_FILE 1
 #define CONFIG_RICH_TRACE_FORMAT 1
 #else
 #define CONFIG_CONSOLE_AVAILABLE 0
-#define CONFIG_PARSE_CONFIG_FILE 0
 #define CONFIG_RICH_TRACE_FORMAT 0
 #endif
 
@@ -98,11 +98,21 @@
 #if defined(_WIN32) || defined(HAS_REAL_ICU)
 #define ENABLE_UNICODE_API 1                        // Enable use of Unicode-related APIs
 #endif
+
 // Language features
-// xplat-todo: revisit these features
-#ifdef _WIN32
+#if defined(_WIN32) || defined(INTL_ICU)
 #define ENABLE_INTL_OBJECT                          // Intl support
 #endif
+#ifdef INTL_ICU
+#ifdef DBG
+//#define INTL_ICU_DEBUG 1              // NOTE: uncomment this to display INTL_ICU-specific debug output
+#endif
+//#define INTL_ICU_ALLOW_HYBRID 1       // NOTE: uncomment this line to test INTL_ICU SxS with INTL_WINGLOB while INTL_ICU is in-development
+#endif
+#if defined(_WIN32) && (!defined(INTL_ICU) || (defined(INTL_ICU) && defined(INTL_ICU_ALLOW_HYBRID)))
+#define INTL_WINGLOB 1
+#endif
+
 #define ENABLE_ES6_CHAR_CLASSIFIER                  // ES6 Unicode character classifier support
 
 // Type system features
@@ -115,10 +125,10 @@
 #define ENABLE_GLOBALIZATION
 // dep: IActiveScriptProfilerCallback, IActiveScriptProfilerHeapEnum
 #define ENABLE_SCRIPT_PROFILING
-#ifndef __clang__
+// #ifndef __clang__
 // xplat-todo: change DISABLE_SEH to ENABLE_SEH and move here
-#define ENABLE_SIMDJS
-#endif
+// #define ENABLE_SIMDJS
+// #endif
 
 #define ENABLE_CUSTOM_ENTROPY
 #endif
@@ -136,18 +146,25 @@
 #ifdef _WIN32
 #define SYSINFO_IMAGE_BASE_AVAILABLE 1
 #define ENABLE_CONCURRENT_GC 1
+#define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 1 // Only takes effect when ENABLE_CONCURRENT_GC is enabled.
+#define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP_USE_SLIST 1 // Use Interlocked SLIST for allocableHeapBlockList
 #define SUPPORT_WIN32_SLIST 1
 #define ENABLE_JS_ETW                               // ETW support
 #else
 #define SYSINFO_IMAGE_BASE_AVAILABLE 0
 #ifndef ENABLE_VALGRIND
 #define ENABLE_CONCURRENT_GC 1
+#define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 1 // Only takes effect when ENABLE_CONCURRENT_GC is enabled.
 #else
 #define ENABLE_CONCURRENT_GC 0
+#define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 0 // Only takes effect when ENABLE_CONCURRENT_GC is enabled.
 #endif
 #define SUPPORT_WIN32_SLIST 0
+#define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP_USE_SLIST 0 // Use Interlocked SLIST for allocableHeapBlockList
 #endif
 
+
+#define MAKE_HR(errnum) (MAKE_HRESULT(SEVERITY_ERROR, FACILITY_CONTROL, errnum))
 
 #if ENABLE_CONCURRENT_GC
 // Write-barrier refers to a software write barrier implementation using a card table.
@@ -205,7 +222,6 @@
 #define ENABLE_PROFILE_INFO 1
 
 #define ENABLE_BACKGROUND_JOB_PROCESSOR 1
-#define ENABLE_BACKGROUND_PARSING 1
 #define ENABLE_COPYONACCESS_ARRAY 1
 #ifndef DYNAMIC_INTERPRETER_THUNK
 #if defined(_M_IX86_OR_ARM32) || defined(_M_X64_OR_ARM64)
@@ -214,6 +230,12 @@
 #define DYNAMIC_INTERPRETER_THUNK 0
 #endif
 #endif
+
+// Only enable background parser in debug build.
+#ifdef DBG
+#define ENABLE_BACKGROUND_PARSING 1
+#endif
+
 #endif
 
 #if ENABLE_NATIVE_CODEGEN
@@ -242,6 +264,15 @@
 
 #if defined(ENABLE_DEBUG_CONFIG_OPTIONS) || defined(CHAKRA_CORE_DOWN_COMPAT)
 #define DELAYLOAD_SET_CFG_TARGET 1
+#endif
+
+// Configure whether we configure a signal handler
+// to produce perf-<pid>.map files
+#ifndef PERFMAP_TRACE_ENABLED
+#define PERFMAP_TRACE_ENABLED 0
+#endif
+#ifndef PERFMAP_SIGNAL
+#define PERFMAP_SIGNAL SIGUSR2
 #endif
 
 #ifndef NTBUILD
@@ -597,6 +628,15 @@
 // #define RECYCLER_MARK_TRACK
 // #define INTERNAL_MEM_PROTECT_HEAP_ALLOC
 
+#define NO_SANITIZE_ADDRESS
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#undef NO_SANITIZE_ADDRESS
+#define NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
+#define NO_SANITIZE_ADDRESS_FIXVC
+#endif
+#endif
+
 //----------------------------------------------------------------------------------------------------
 // Disabled features
 //----------------------------------------------------------------------------------------------------
@@ -622,6 +662,13 @@
 #endif
 #endif
 
+
+#ifdef _M_IX86
+#define LOWER_SPLIT_INT64 1
+#else
+#define LOWER_SPLIT_INT64 0
+#endif
+
 #if (defined(_M_IX86) || defined(_M_X64)) && !defined(DISABLE_JIT)
 #define ASMJS_PLAT
 #endif
@@ -630,6 +677,11 @@
 // xplat-todo: once all the wasm tests are passing on xplat, enable it for release builds
 #if defined(_WIN32) || (defined(__clang__) && defined(ENABLE_DEBUG_CONFIG_OPTIONS))
 #define ENABLE_WASM
+
+#ifdef CAN_BUILD_WABT
+#define ENABLE_WABT
+#endif
+
 #endif
 #endif
 
@@ -669,8 +721,10 @@
 #define ENABLE_TRACE
 #endif
 
+#if !(defined(__clang__) && defined(_M_ARM32_OR_ARM64)) // xplat-todo: ARM
 #if DBG || defined(CHECK_MEMORY_LEAK) || defined(LEAK_REPORT) || defined(TRACK_DISPATCH) || defined(ENABLE_TRACE) || defined(RECYCLER_PAGE_HEAP)
 #define STACK_BACK_TRACE
+#endif
 #endif
 
 // ENABLE_DEBUG_STACK_BACK_TRACE is for capturing stack back trace for debug only.

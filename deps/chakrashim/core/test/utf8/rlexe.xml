@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <regress-exe>
   <test>
     <default>
@@ -11,6 +11,12 @@
     <default>
       <files>unicode_digit_as_identifier_should_work.js</files>
       <tags>exclude_serialized,bugfix</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>OS_2977448.js</files>
+      <tags>exclude_winglob,BugFix</tags>
     </default>
   </test>
   <test>

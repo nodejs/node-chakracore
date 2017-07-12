@@ -608,7 +608,7 @@ namespace Js
 
     template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
     BOOL SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::FindNextProperty(ScriptContext* scriptContext, PropertyIndex& index, JavascriptString** propertyStringName,
-        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
+        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info)
     {
         Assert(propertyStringName);
         Assert(propertyId);
@@ -640,23 +640,22 @@ namespace Js
                     *propertyStringName = propertyString;
                     if (descriptor.Attributes & PropertyWritable)
                     {
-                        uint16 inlineOrAuxSlotIndex;
-                        bool isInlineSlot;
-                        PropertyIndexToInlineOrAuxSlotIndex(descriptor.propertyIndex, &inlineOrAuxSlotIndex, &isInlineSlot);
+                        PropertyValueInfo::SetCacheInfo(info, propertyString, propertyString->GetLdElemInlineCache(), false);
+                        SetPropertyValueInfo(info, instance, descriptor.propertyIndex, descriptor.Attributes);
 
-                        propertyString->UpdateCache(type, inlineOrAuxSlotIndex, isInlineSlot, descriptor.isInitialized && !descriptor.isFixed);
+                        if (!descriptor.isInitialized || descriptor.isFixed)
+                        {
+                            PropertyValueInfo::DisableStoreFieldCache(info);
+                        }
                     }
                     else
                     {
-#ifdef DEBUG
-                        PropertyCache const* cache = propertyString->GetPropertyCache();
-                        Assert(!cache || cache->type != type);
-#endif
+                        PropertyValueInfo::SetNoCache(info, instance);
                     }
-
                     return TRUE;
                 }
             }
+            PropertyValueInfo::SetNoCache(info, instance);
 
             return FALSE;
         }
@@ -674,7 +673,9 @@ namespace Js
                 attributes,
                 typeToEnumerate,
                 typeToEnumerate,
-                flags);
+                flags,
+                instance,
+                info);
             ++index)
         {
             SimpleDictionaryPropertyDescriptor<TPropertyIndex> descriptor;
@@ -701,33 +702,11 @@ namespace Js
                 {
                     *attributes = descriptor.Attributes;
                 }
-
-                if(descriptor.Attributes & PropertyWritable)
-                {
-                    uint16 inlineOrAuxSlotIndex;
-                    bool isInlineSlot;
-                    PropertyIndexToInlineOrAuxSlotIndex(descriptor.propertyIndex, &inlineOrAuxSlotIndex, &isInlineSlot);
-                    if (VirtualTableInfo<PropertyString>::HasVirtualTable(*propertyStringName))
-                    {
-                        PropertyString* propertyString = (PropertyString*)(*propertyStringName);
-                        propertyString->UpdateCache(type, inlineOrAuxSlotIndex, isInlineSlot, descriptor.isInitialized && !descriptor.isFixed);
-                    }
-                }
-                else
-                {
-#ifdef DEBUG
-                    if (VirtualTableInfo<PropertyString>::HasVirtualTable(*propertyStringName))
-                    {
-                        PropertyString* propertyString = (PropertyString*)(*propertyStringName);
-                        PropertyCache const* cache = propertyString->GetPropertyCache();
-                        Assert(!cache || cache->type != type);
-                    }
-#endif
-                }
-
+                PropertyValueInfo::SetNoCache(info, instance);
                 return TRUE;
             }
         }
+        PropertyValueInfo::SetNoCache(info, instance);
 
         return FALSE;
     }
@@ -739,7 +718,7 @@ namespace Js
 
 
 #define DefineUnusedSpecialization_FindNextProperty_BigPropertyIndex(T, S) \
-    template <> BOOL SimpleDictionaryTypeHandlerBase<BigPropertyIndex, T, S>::FindNextProperty(ScriptContext* scriptContext, PropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags) { Throw::InternalError(); }
+    template <> BOOL SimpleDictionaryTypeHandlerBase<BigPropertyIndex, T, S>::FindNextProperty(ScriptContext* scriptContext, PropertyIndex& index, JavascriptString** propertyString, PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info) { Throw::InternalError(); }
 
     DefineUnusedSpecialization_FindNextProperty_BigPropertyIndex(const PropertyRecord*, false)
     DefineUnusedSpecialization_FindNextProperty_BigPropertyIndex(const PropertyRecord*, true)
@@ -750,18 +729,18 @@ namespace Js
 
     template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
     BOOL SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::FindNextProperty(ScriptContext* scriptContext, BigPropertyIndex& index, JavascriptString** propertyString,
-        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
+        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info)
     {
         PropertyIndex local = (PropertyIndex)index;
         Assert(index <= Constants::UShortMaxValue || index == Constants::NoBigSlot);
-        BOOL result = this->FindNextProperty(scriptContext, local, propertyString, propertyId, attributes, type, typeToEnumerate, flags);
+        BOOL result = this->FindNextProperty(scriptContext, local, propertyString, propertyId, attributes, type, typeToEnumerate, flags, instance, info);
         index = local;
         return result;
     }
 
     template <typename TPropertyIndex, typename TMapKey, bool IsNotExtensibleSupported>
     inline BOOL SimpleDictionaryTypeHandlerBase<TPropertyIndex, TMapKey, IsNotExtensibleSupported>::FindNextProperty_BigPropertyIndex(ScriptContext* scriptContext, TPropertyIndex& index,
-        JavascriptString** propertyStringName, PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
+        JavascriptString** propertyStringName, PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info)
     {
         Assert(propertyStringName);
         Assert(propertyId);
@@ -811,7 +790,9 @@ namespace Js
                 attributes,
                 typeToEnumerate,
                 typeToEnumerate,
-                flags);
+                flags,
+                instance,
+                info);
             ++index)
         {
             SimpleDictionaryPropertyDescriptor<TPropertyIndex> descriptor;
@@ -838,14 +819,6 @@ namespace Js
                     *attributes = descriptor.Attributes;
                 }
 
-#ifdef DEBUG
-                if (VirtualTableInfo<PropertyString>::HasVirtualTable(*propertyStringName))
-                {
-                    PropertyCache const* cache = ((PropertyString*)(*propertyStringName))->GetPropertyCache();
-                    Assert(!cache || cache->type != type);
-                }
-#endif
-
                 return TRUE;
             }
         }
@@ -855,30 +828,30 @@ namespace Js
 
     template <>
     BOOL SimpleDictionaryTypeHandlerBase<BigPropertyIndex, const PropertyRecord*, false>::FindNextProperty(ScriptContext* scriptContext, BigPropertyIndex& index, JavascriptString** propertyString,
-        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
+        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info)
     {
-        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags);
+        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags, instance, info);
     }
 
     template <>
     BOOL SimpleDictionaryTypeHandlerBase<BigPropertyIndex, const PropertyRecord*, true>::FindNextProperty(ScriptContext* scriptContext, BigPropertyIndex& index, JavascriptString** propertyString,
-        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
+        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info)
     {
-        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags);
+        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags, instance, info);
     }
 
     template <>
     BOOL SimpleDictionaryTypeHandlerBase<BigPropertyIndex, JavascriptString*, false>::FindNextProperty(ScriptContext* scriptContext, BigPropertyIndex& index, JavascriptString** propertyString,
-        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
+        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info)
     {
-        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags);
+        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags, instance, info);
     }
 
     template <>
     BOOL SimpleDictionaryTypeHandlerBase<BigPropertyIndex, JavascriptString*, true>::FindNextProperty(ScriptContext* scriptContext, BigPropertyIndex& index, JavascriptString** propertyString,
-        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags)
+        PropertyId* propertyId, PropertyAttributes* attributes, Type* type, DynamicType *typeToEnumerate, EnumeratorFlags flags, DynamicObject* instance, PropertyValueInfo* info)
     {
-        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags);
+        return this->FindNextProperty_BigPropertyIndex(scriptContext, index, propertyString, propertyId, attributes, type, typeToEnumerate, flags, instance, info);
     }
 
     template <typename TPropertyIndex>
@@ -1368,6 +1341,13 @@ namespace Js
                 return
                     ConvertToNonSharedSimpleDictionaryType(instance)->SetProperty(instance, propertyKey, value, flags, info);
             }
+            else if (instance->GetDynamicType()->GetIsLocked())
+            {
+                Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                instance->ChangeType();
+            }
 
             if(isUnordered)
             {
@@ -1577,6 +1557,14 @@ namespace Js
             }
 #endif
 
+            if (instance->GetDynamicType()->GetIsLocked())
+            {
+                Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                instance->ChangeType();
+            }
+
             ScriptContext* scriptContext = instance->GetScriptContext();
 
             JsUtil::CharacterBuffer<WCHAR> propertyName(propertyNameString->GetString(), propertyNameString->GetLength());
@@ -1698,6 +1686,14 @@ namespace Js
                     ->DeleteProperty(instance, propertyId, propertyOperationFlags);
             }
 #endif
+
+            if (instance->GetDynamicType()->GetIsLocked())
+            {
+                Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                instance->ChangeType();
+            }
 
             ScriptContext* scriptContext = instance->GetScriptContext();
             SimpleDictionaryPropertyDescriptor<TPropertyIndex>* descriptor;
@@ -1903,6 +1899,14 @@ namespace Js
         }
         else
         {
+            if (instance->GetDynamicType()->GetIsLocked())
+            {
+                Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                instance->ChangeType();
+            }
+
             descriptor->Attributes = attributes;
         }
         return true;
@@ -1936,6 +1940,14 @@ namespace Js
         }
         else
         {
+            if (instance->GetDynamicType()->GetIsLocked())
+            {
+                Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                instance->ChangeType();
+            }
+
             descriptor->Attributes = attributes;
         }
         return true;
@@ -2378,6 +2390,13 @@ namespace Js
                                 flags,
                                 possibleSideEffects);
                 }
+                else if (instance->GetDynamicType()->GetIsLocked())
+                {
+                    Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                    // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                    instance->ChangeType();
+                }
 
                 if(isUnordered)
                 {
@@ -2426,6 +2445,14 @@ namespace Js
                 }
                 else
                 {
+                    if (instance->GetDynamicType()->GetIsLocked())
+                    {
+                        Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                        // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                        instance->ChangeType();
+                    }
+
                     descriptor->Attributes = attributes;
                 }
             }
@@ -2555,6 +2582,14 @@ namespace Js
     {
         if (!GetIsLocked())
         {
+            if (instance->GetDynamicType()->GetIsLocked())
+            {
+                Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+                // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+                instance->ChangeType();
+            }
+
             SimpleDictionaryPropertyDescriptor<TPropertyIndex>* descriptor;
             Assert(propertyId != Constants::NoProperty);
             PropertyRecord const* propertyRecord = instance->GetScriptContext()->GetPropertyName(propertyId);
@@ -2674,6 +2709,13 @@ namespace Js
         if (GetIsLocked())
         {
             typeHandler = ConvertToNonSharedSimpleDictionaryType(instance);
+        }
+        else if(instance->GetDynamicType()->GetIsLocked())
+        {
+            Assert(!GetIsShared() && !instance->GetDynamicType()->GetIsShared());
+
+            // We have changed the type of the only instance using this type handler, so we don't need to say the type handler is shared here.
+            instance->ChangeType();
         }
 
         if (TMapKey_IsJavascriptString<TMapKey>() &&

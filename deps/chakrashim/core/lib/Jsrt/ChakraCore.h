@@ -27,6 +27,15 @@
 
 typedef void* JsModuleRecord;
 
+/// <summary>
+///     A reference to an object owned by the SharedArrayBuffer.
+/// </summary>
+/// <remarks>
+///     This represents SharedContents which is heap allocated object, it can be passed through 
+///     different runtimes to share the underlying buffer.
+/// </remarks>
+typedef void *JsSharedArrayBufferContentHandle;
+
 typedef enum JsParseModuleSourceFlags
 {
     JsParseModuleSourceFlags_DataIsUTF16LE = 0x00000000,
@@ -38,7 +47,8 @@ typedef enum JsModuleHostInfoKind
     JsModuleHostInfo_Exception = 0x01,
     JsModuleHostInfo_HostDefined = 0x02,
     JsModuleHostInfo_NotifyModuleReadyCallback = 0x3,
-    JsModuleHostInfo_FetchImportedModuleCallback = 0x4
+    JsModuleHostInfo_FetchImportedModuleCallback = 0x4,
+    JsModuleHostInfo_FetchImportedModuleFromScriptCallback = 0x5
 } JsModuleHostInfoKind;
 
 /// <summary>
@@ -65,6 +75,21 @@ typedef JsErrorCode(CHAKRA_CALLBACK * FetchImportedModuleCallBack)(_In_ JsModule
 /// holds the exception. Otherwise the referencingModule is ready and the host should schedule execution afterwards.
 /// </remarks>
 /// <param name="referencingModule">The referencing module that have finished running ModuleDeclarationInstantiation step.</param>
+/// <param name="exceptionVar">If nullptr, the module is successfully initialized and host should queue the execution job
+///                           otherwise it's the exception object.</param>
+/// <returns>
+///     true if the operation succeeded, false otherwise.
+/// </returns>
+typedef JsErrorCode(CHAKRA_CALLBACK * FetchImportedModuleFromScriptCallBack)(_In_ JsSourceContext dwReferencingSourceContext, _In_ JsValueRef specifier, _Outptr_result_maybenull_ JsModuleRecord* dependentModuleRecord);
+
+/// <summary>
+///     User implemented callback to get notification when the module is ready.
+/// </summary>
+/// <remarks>
+/// Notify the host after ModuleDeclarationInstantiation step (15.2.1.1.6.4) is finished. If there was error in the process, exceptionVar
+/// holds the exception. Otherwise the referencingModule is ready and the host should schedule execution afterwards.
+/// </remarks>
+/// <param name="dwReferencingSourceContext">The referencing script that calls import()</param>
 /// <param name="exceptionVar">If nullptr, the module is successfully initialized and host should queue the execution job
 ///                           otherwise it's the exception object.</param>
 /// <returns>
@@ -582,6 +607,77 @@ CHAKRA_API
     JsGetWeakReferenceValue(
         _In_ JsWeakRef weakRef,
         _Out_ JsValueRef* value);
+
+/// <summary>
+///     Creates a Javascript SharedArrayBuffer object with shared content get from JsGetSharedArrayBufferContent.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="sharedContents">
+///     The storage object of a SharedArrayBuffer which can be shared between multiple thread.
+/// </param>
+/// <param name="result">The new SharedArrayBuffer object.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+JsCreateSharedArrayBufferWithSharedContent(
+    _In_ JsSharedArrayBufferContentHandle sharedContents,
+    _Out_ JsValueRef *result);
+
+/// <summary>
+///     Get the storage object from a SharedArrayBuffer.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="sharedArrayBuffer">The SharedArrayBuffer object.</param>
+/// <param name="sharedContents">
+///     The storage object of a SharedArrayBuffer which can be shared between multiple thread.
+///     User should call JsReleaseSharedArrayBufferContentHandle after finished using it.
+/// </param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+JsGetSharedArrayBufferContent(
+    _In_ JsValueRef sharedArrayBuffer,
+    _Out_ JsSharedArrayBufferContentHandle *sharedContents);
+
+/// <summary>
+///     Decrease the reference count on a SharedArrayBuffer storage object.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="sharedContents">
+///     The storage object of a SharedArrayBuffer which can be shared between multiple thread.
+/// </param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+JsReleaseSharedArrayBufferContentHandle(
+    _In_ JsSharedArrayBufferContentHandle sharedContents);
+
+/// <summary>
+///     Determines whether an object has a non-inherited property.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that may contain the property.</param>
+/// <param name="propertyId">The ID of the property.</param>
+/// <param name="hasOwnProperty">Whether the object has the non-inherited property.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsHasOwnProperty(
+        _In_ JsValueRef object,
+        _In_ JsPropertyIdRef propertyId,
+        _Out_ bool *hasOwnProperty);
 
 #endif // CHAKRACOREBUILD_
 #endif // _CHAKRACORE_H_

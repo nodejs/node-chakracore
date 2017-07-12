@@ -117,7 +117,7 @@ namespace Js
 
     BOOL GlobalObject::ReserveGlobalProperty(PropertyId propertyId)
     {
-        if (DynamicObject::HasProperty(propertyId))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId)))
         {
             return false;
         }
@@ -596,7 +596,8 @@ namespace Js
         char16 const * sourceString = argString->GetSz();
         charcount_t sourceLen = argString->GetLength();
         FastEvalMapString key(sourceString, sourceLen, moduleID, strictMode, isLibraryCode);
-        if (!scriptContext->IsInEvalMap(key, isIndirect, &pfuncScript))
+        bool found = scriptContext->IsInEvalMap(key, isIndirect, &pfuncScript);
+        if (!found || (!isIndirect && pfuncScript->GetEnvironment() != &NullFrameDisplay))
         {
             uint32 grfscr = additionalGrfscr | fscrReturnExpression | fscrEval | fscrEvalCode | fscrGlobalCode;
 
@@ -607,25 +608,11 @@ namespace Js
 
             pfuncScript = library->GetGlobalObject()->EvalHelper(scriptContext, argString->GetSz(), argString->GetLength(), moduleID,
                 grfscr, Constants::EvalCode, doRegisterDocument, isIndirect, strictMode);
-            Assert(!pfuncScript->GetFunctionInfo()->IsGenerator());
 
-#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-            Js::Utf8SourceInfo* utf8SourceInfo = pfuncScript->GetFunctionBody()->GetUtf8SourceInfo();
-            if (scriptContext->IsScriptContextInDebugMode() && !utf8SourceInfo->GetIsLibraryCode() && !utf8SourceInfo->IsInDebugMode())
-            {
-                // Identifying if any non library function escaped for not being in debug mode.
-                Throw::FatalInternalError();
-            }
-#endif
-
-#if ENABLE_TTD
-            if(!scriptContext->IsTTDRecordOrReplayModeEnabled())
+            if (!found)
             {
                 scriptContext->AddToEvalMap(key, isIndirect, pfuncScript);
             }
-#else
-            scriptContext->AddToEvalMap(key, isIndirect, pfuncScript);
-#endif
         }
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
@@ -760,7 +747,7 @@ namespace Js
             pfuncScript->InvalidateCachedScopeChain();
         }
         Var varResult = CALL_FUNCTION(scriptContext->GetThreadContext(), pfuncScript, CallInfo(CallFlags_Eval, 1), varThis);
-        pfuncScript->SetEnvironment(nullptr);
+        pfuncScript->SetEnvironment((FrameDisplay*)&NullFrameDisplay);
         return varResult;
     }
 
@@ -1611,6 +1598,23 @@ LHexError:
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
+#ifdef ENABLE_DEBUG_CONFIG_OPTIONS
+    Var GlobalObject::EntryChWriteTraceEvent(RecyclableObject *function, CallInfo callInfo, ...)
+    {
+        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
+        ARGUMENTS(args, callInfo);
+
+        if (args.Info.Count < 2)
+        {
+            return function->GetScriptContext()->GetLibrary()->GetUndefined();
+        }
+
+        Js::JavascriptString* jsString = Js::JavascriptConversion::ToString(args[1], function->GetScriptContext());
+        PlatformAgnostic::EventTrace::FireGenericEventTrace(jsString->GetSz());
+        return function->GetScriptContext()->GetLibrary()->GetUndefined();
+    }
+#endif
+
 #if ENABLE_TTD
     //Log a string in the telemetry system (and print to the console)
     Var GlobalObject::EntryTelemetryLog(RecyclableObject* function, CallInfo callInfo, ...)
@@ -1757,11 +1761,11 @@ LHexError:
         return FALSE;
     }
 
-    BOOL GlobalObject::HasProperty(PropertyId propertyId)
+    PropertyQueryFlags GlobalObject::HasPropertyQuery(PropertyId propertyId)
     {
-        return DynamicObject::HasProperty(propertyId) ||
+        return JavascriptConversion::BooleanToPropertyQueryFlags(JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId)) ||
             (this->directHostObject && JavascriptOperators::HasProperty(this->directHostObject, propertyId)) ||
-            (this->hostObject && JavascriptOperators::HasProperty(this->hostObject, propertyId));
+            (this->hostObject && JavascriptOperators::HasProperty(this->hostObject, propertyId)));
     }
 
     BOOL GlobalObject::HasRootProperty(PropertyId propertyId)
@@ -1773,30 +1777,30 @@ LHexError:
 
     BOOL GlobalObject::HasOwnProperty(PropertyId propertyId)
     {
-        return DynamicObject::HasProperty(propertyId) ||
+        return JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId)) ||
             (this->directHostObject && this->directHostObject->HasProperty(propertyId));
     }
 
     BOOL GlobalObject::HasOwnPropertyNoHostObject(PropertyId propertyId)
     {
-        return DynamicObject::HasProperty(propertyId);
+        return JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId));
     }
 
-    BOOL GlobalObject::GetProperty(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags GlobalObject::GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
-        if (DynamicObject::GetProperty(originalInstance, propertyId, value, info, requestContext))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::GetPropertyQuery(originalInstance, propertyId, value, info, requestContext)))
         {
-            return TRUE;
+            return PropertyQueryFlags::Property_Found;
         }
-        return (this->directHostObject && JavascriptOperators::GetProperty(this->directHostObject, propertyId, value, requestContext, info)) ||
-            (this->hostObject && JavascriptOperators::GetProperty(this->hostObject, propertyId, value, requestContext, info));
+        return JavascriptConversion::BooleanToPropertyQueryFlags((this->directHostObject && JavascriptOperators::GetProperty(this->directHostObject, propertyId, value, requestContext, info)) ||
+            (this->hostObject && JavascriptOperators::GetProperty(this->hostObject, propertyId, value, requestContext, info)));
     }
 
-    BOOL GlobalObject::GetProperty(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
+    PropertyQueryFlags GlobalObject::GetPropertyQuery(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
     {
         PropertyRecord const* propertyRecord;
         this->GetScriptContext()->GetOrAddPropertyRecord(propertyNameString->GetString(), propertyNameString->GetLength(), &propertyRecord);
-        return GlobalObject::GetProperty(originalInstance, propertyRecord->GetPropertyId(), value, info, requestContext);
+        return GlobalObject::GetPropertyQuery(originalInstance, propertyRecord->GetPropertyId(), value, info, requestContext);
     }
 
     BOOL GlobalObject::GetRootProperty(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
@@ -1826,15 +1830,15 @@ LHexError:
         return FALSE;
     }
 
-    BOOL GlobalObject::GetPropertyReference(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info,
+    PropertyQueryFlags GlobalObject::GetPropertyReferenceQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info,
         ScriptContext* requestContext)
     {
-        if (DynamicObject::GetPropertyReference(originalInstance, propertyId, value, info, requestContext))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::GetPropertyReferenceQuery(originalInstance, propertyId, value, info, requestContext)))
         {
-            return true;
+            return PropertyQueryFlags::Property_Found;
         }
-        return (this->directHostObject && JavascriptOperators::GetPropertyReference(this->directHostObject, propertyId, value, requestContext, info)) ||
-            (this->hostObject && JavascriptOperators::GetPropertyReference(this->hostObject, propertyId, value, requestContext, info));
+        return JavascriptConversion::BooleanToPropertyQueryFlags((this->directHostObject && JavascriptOperators::GetPropertyReference(this->directHostObject, propertyId, value, requestContext, info)) ||
+            (this->hostObject && JavascriptOperators::GetPropertyReference(this->hostObject, propertyId, value, requestContext, info)));
     }
 
     BOOL GlobalObject::GetRootPropertyReference(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info,
@@ -1891,7 +1895,7 @@ LHexError:
 
     BOOL GlobalObject::SetExistingProperty(PropertyId propertyId, Var value, PropertyValueInfo* info, BOOL *setAttempted)
     {
-        BOOL hasOwnProperty = DynamicObject::HasProperty(propertyId);
+        BOOL hasOwnProperty = JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId));
         BOOL hasProperty = JavascriptOperators::HasProperty(this->GetPrototype(), propertyId);
         *setAttempted = TRUE;
 
@@ -2136,7 +2140,7 @@ LHexError:
 
     BOOL GlobalObject::DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags)
     {
-        if (__super::HasProperty(propertyId))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(__super::HasPropertyQuery(propertyId)))
         {
             return __super::DeleteProperty(propertyId, flags);
         }
@@ -2184,27 +2188,28 @@ LHexError:
         return TRUE;
     }
 
-    BOOL GlobalObject::HasItem(uint32 index)
+    PropertyQueryFlags GlobalObject::HasItemQuery(uint32 index)
     {
-        return DynamicObject::HasItem(index)
+        return JavascriptConversion::BooleanToPropertyQueryFlags(JavascriptConversion::PropertyQueryFlagsToBoolean((DynamicObject::HasItemQuery(index)))
             || (this->directHostObject && JavascriptOperators::HasItem(this->directHostObject, index))
-            || (this->hostObject && JavascriptOperators::HasItem(this->hostObject, index));
+            || (this->hostObject && JavascriptOperators::HasItem(this->hostObject, index)));
     }
 
     BOOL GlobalObject::HasOwnItem(uint32 index)
     {
-        return DynamicObject::HasItem(index)
+        return JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasItemQuery(index))
             || (this->directHostObject && this->directHostObject->HasItem(index));
     }
 
-    BOOL GlobalObject::GetItemReference(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags GlobalObject::GetItemReferenceQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
-        if (DynamicObject::GetItemReference(originalInstance, index, value, requestContext))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::GetItemReferenceQuery(originalInstance, index, value, requestContext)))
         {
-            return TRUE;
+            return PropertyQueryFlags::Property_Found;
         }
-        return (this->directHostObject && this->directHostObject->GetItemReference(originalInstance, index, value, requestContext)) ||
-            (this->hostObject && this->hostObject->GetItemReference(originalInstance, index, value, requestContext));
+        return JavascriptConversion::BooleanToPropertyQueryFlags(
+            (this->directHostObject && JavascriptConversion::PropertyQueryFlagsToBoolean(this->directHostObject->GetItemReferenceQuery(originalInstance, index, value, requestContext))) ||
+            (this->hostObject && JavascriptConversion::PropertyQueryFlagsToBoolean(this->hostObject->GetItemReferenceQuery(originalInstance, index, value, requestContext))));
     }
 
     BOOL GlobalObject::SetItem(uint32 index, Var value, PropertyOperationFlags flags)
@@ -2213,15 +2218,15 @@ LHexError:
         return result;
     }
 
-    BOOL GlobalObject::GetItem(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
+    PropertyQueryFlags GlobalObject::GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext* requestContext)
     {
-        if (DynamicObject::GetItem(originalInstance, index, value, requestContext))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::GetItemQuery(originalInstance, index, value, requestContext)))
         {
-            return TRUE;
+            return PropertyQueryFlags::Property_Found;
         }
 
-        return (this->directHostObject && this->directHostObject->GetItem(originalInstance, index, value, requestContext)) ||
-            (this->hostObject && this->hostObject->GetItem(originalInstance, index, value, requestContext));
+        return JavascriptConversion::BooleanToPropertyQueryFlags((this->directHostObject && this->directHostObject->GetItem(originalInstance, index, value, requestContext)) ||
+            (this->hostObject && this->hostObject->GetItem(originalInstance, index, value, requestContext)));
     }
 
     BOOL GlobalObject::DeleteItem(uint32 index, PropertyOperationFlags flags)

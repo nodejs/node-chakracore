@@ -116,7 +116,8 @@ namespace Js
 
         static bool Is(void* instance)
         {
-            return VirtualTableInfo<Js::ConsoleScopeActivationObject>::HasVirtualTable(instance);
+            return VirtualTableInfo<ConsoleScopeActivationObject>::HasVirtualTable(instance)
+                || VirtualTableInfo<CrossSiteObject<ConsoleScopeActivationObject>>::HasVirtualTable(instance);
         }
 
 #if ENABLE_TTD
@@ -149,9 +150,9 @@ namespace Js
             }
         }
 
-        virtual BOOL GetProperty(Var originalInstance, PropertyId propertyId, Var *value, PropertyValueInfo *info, ScriptContext *requestContext) override;
-        virtual BOOL GetProperty(Var originalInstance, JavascriptString* propertyNameString, Var *value, PropertyValueInfo *info, ScriptContext *requestContext) override;
-        virtual BOOL GetPropertyReference(Var originalInstance, PropertyId propertyId, Var *value, PropertyValueInfo *info, ScriptContext *requestContext) override;
+        virtual PropertyQueryFlags GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var *value, PropertyValueInfo *info, ScriptContext *requestContext) override;
+        virtual PropertyQueryFlags GetPropertyQuery(Var originalInstance, JavascriptString* propertyNameString, Var *value, PropertyValueInfo *info, ScriptContext *requestContext) override;
+        virtual PropertyQueryFlags GetPropertyReferenceQuery(Var originalInstance, PropertyId propertyId, Var *value, PropertyValueInfo *info, ScriptContext *requestContext) override;
         virtual void InvalidateCachedScope() override sealed;
 
         bool IsCommitted() const { return committed; }

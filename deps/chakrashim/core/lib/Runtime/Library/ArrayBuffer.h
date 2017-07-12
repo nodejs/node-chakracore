@@ -72,12 +72,13 @@ namespace Js
 
         virtual bool IsArrayBuffer() = 0;
         virtual bool IsSharedArrayBuffer() = 0;
+        virtual bool IsWebAssemblyArrayBuffer() { return false; }
         virtual ArrayBuffer * GetAsArrayBuffer() = 0;
         virtual SharedArrayBuffer * GetAsSharedArrayBuffer() { return nullptr; }
         virtual void AddParent(ArrayBufferParent* parent) { }
         virtual uint32 GetByteLength() const = 0;
         virtual BYTE* GetBuffer() const = 0;
-        virtual bool IsValidVirtualBufferLength(uint length) { return false; }
+        virtual bool IsValidVirtualBufferLength(uint length) const { return false; };
 
         static bool Is(Var value);
         static ArrayBufferBase* FromVar(Var value);
@@ -255,10 +256,12 @@ namespace Js
 
         static bool IsValidAsmJsBufferLengthAlgo(uint length, bool forceCheck);
         virtual bool IsValidAsmJsBufferLength(uint length, bool forceCheck = false) override;
-        virtual bool IsValidVirtualBufferLength(uint length) override;
+        virtual bool IsValidVirtualBufferLength(uint length) const override;
 
         virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override;
 
+        template<typename Func>
+        void ReportDifferentialAllocation(uint32 newBufferLength, Func reportFailureFn);
         void ReportDifferentialAllocation(uint32 newBufferLength);
 
     protected:
@@ -279,6 +282,8 @@ namespace Js
 
     class WebAssemblyArrayBuffer : public JavascriptArrayBuffer
     {
+        template<typename Allocator>
+        WebAssemblyArrayBuffer(uint32 length, DynamicType * type, Allocator allocator);
         WebAssemblyArrayBuffer(uint32 length, DynamicType * type);
         WebAssemblyArrayBuffer(byte* buffer, uint32 length, DynamicType * type);
     protected:
@@ -286,8 +291,11 @@ namespace Js
         DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(WebAssemblyArrayBuffer);
     public:
         static WebAssemblyArrayBuffer* Create(byte* buffer, DECLSPEC_GUARD_OVERFLOW uint32 length, DynamicType * type);
-        virtual bool IsValidVirtualBufferLength(uint length) override;
+        WebAssemblyArrayBuffer* GrowMemory(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength);
+
+        virtual bool IsValidVirtualBufferLength(uint length) const override;
         virtual ArrayBuffer * TransferInternal(DECLSPEC_GUARD_OVERFLOW uint32 newBufferLength) override;
+        virtual bool IsWebAssemblyArrayBuffer() override { return true; }
     };
 
     // the memory must be allocated via CoTaskMemAlloc.
