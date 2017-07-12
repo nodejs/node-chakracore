@@ -835,7 +835,7 @@ PropertySymOpnd::New(PropertySym *propertySym, IRType type, Func *func)
 }
 
 void
-PropertySymOpnd::Init(uint inlineCacheIndex, intptr_t runtimeInlineCache, JITTimePolymorphicInlineCache * runtimePolymorphicInlineCache, JITObjTypeSpecFldInfo* objTypeSpecFldInfo, byte polyCacheUtil)
+PropertySymOpnd::Init(uint inlineCacheIndex, intptr_t runtimeInlineCache, JITTimePolymorphicInlineCache * runtimePolymorphicInlineCache, ObjTypeSpecFldInfo* objTypeSpecFldInfo, byte polyCacheUtil)
 {
     this->m_inlineCacheIndex = inlineCacheIndex;
     this->m_runtimeInlineCache = runtimeInlineCache;
@@ -1402,23 +1402,8 @@ IntConstOpnd::New(IntConstType value, IRType type, Func *func, bool dontEncode)
     intConstOpnd->m_dontEncode = dontEncode;
     intConstOpnd->SetValue(value);
 
-#if DBG_DUMP || defined(ENABLE_IR_VIEWER)
-    intConstOpnd->decodedValue = 0;
-    intConstOpnd->name = nullptr;
-#endif
-
     return intConstOpnd;
 }
-
-#if DBG_DUMP || defined(ENABLE_IR_VIEWER)
-IntConstOpnd *
-IntConstOpnd::New(IntConstType value, IRType type, const char16 * name, Func *func, bool dontEncode)
-{
-    IntConstOpnd * intConstOpnd = IntConstOpnd::New(value, type, func, dontEncode);
-    intConstOpnd->name = name;
-    return intConstOpnd;
-}
-#endif
 
 ///----------------------------------------------------------------------------
 ///
@@ -1611,12 +1596,6 @@ void Int64ConstOpnd::FreeInternal(Func * func)
 {
     Assert(m_kind == OpndKindInt64Const);
     JitAdelete(func->m_alloc, this);
-}
-
-int64 Int64ConstOpnd::GetValue()
-{
-    Assert(m_type == TyInt64);
-    return m_value;
 }
 
 ///----------------------------------------------------------------------------
@@ -2246,9 +2225,7 @@ IndirOpnd::New(RegOpnd *baseOpnd, RegOpnd *indexOpnd, IRType type, Func *func)
     IndirOpnd * indirOpnd;
 
     AssertMsg(baseOpnd, "An IndirOpnd needs a valid baseOpnd.");
-    Assert(baseOpnd->GetSize() == TySize[TyMachReg]);
-
-    indirOpnd = JitAnew(func->m_alloc, IR::IndirOpnd);
+    indirOpnd = JitAnew(func->m_alloc, IndirOpnd);
 
     indirOpnd->m_func = func;
     indirOpnd->SetBaseOpnd(baseOpnd);
@@ -2289,11 +2266,40 @@ IndirOpnd::New(RegOpnd *baseOpnd, RegOpnd *indexOpnd, byte scale, IRType type, F
 ///----------------------------------------------------------------------------
 
 IndirOpnd *
+IndirOpnd::New(RegOpnd *indexOpnd, int32 offset, byte scale, IRType type, Func *func)
+{
+    IndirOpnd * indirOpnd;
+
+    indirOpnd = JitAnew(func->m_alloc, IndirOpnd);
+
+    indirOpnd->m_func = func;
+    indirOpnd->SetBaseOpnd(nullptr);
+    indirOpnd->SetOffset(offset, true);
+    indirOpnd->SetIndexOpnd(indexOpnd);
+    indirOpnd->m_type = type;
+    indirOpnd->SetIsJITOptimizedReg(false);
+
+    indirOpnd->m_kind = OpndKindIndir;
+
+    indirOpnd->m_scale = scale;
+
+    return indirOpnd;
+}
+
+///----------------------------------------------------------------------------
+///
+/// IndirOpnd::New
+///
+///     Creates a new IndirOpnd.
+///
+///----------------------------------------------------------------------------
+
+IndirOpnd *
 IndirOpnd::New(RegOpnd *baseOpnd, int32 offset, IRType type, Func *func, bool dontEncode /* = false */)
 {
     IndirOpnd * indirOpnd;
 
-    indirOpnd = JitAnew(func->m_alloc, IR::IndirOpnd);
+    indirOpnd = JitAnew(func->m_alloc, IndirOpnd);
 
     indirOpnd->m_func = func;
     indirOpnd->SetBaseOpnd(baseOpnd);
@@ -2459,7 +2465,8 @@ IndirOpnd::IsEqualInternal(Opnd *opnd)
     }
     IndirOpnd *indirOpnd = opnd->AsIndirOpnd();
 
-    return m_offset == indirOpnd->m_offset && m_baseOpnd->IsEqual(indirOpnd->m_baseOpnd)
+    return m_offset == indirOpnd->m_offset
+        && ((m_baseOpnd == nullptr && indirOpnd->m_baseOpnd == nullptr) || (m_baseOpnd && indirOpnd->m_baseOpnd && m_baseOpnd->IsEqual(indirOpnd->m_baseOpnd)))
         && ((m_indexOpnd == nullptr && indirOpnd->m_indexOpnd == nullptr) || (m_indexOpnd && indirOpnd->m_indexOpnd && m_indexOpnd->IsEqual(indirOpnd->m_indexOpnd)));
 }
 
@@ -2853,6 +2860,41 @@ Opnd::DumpFunctionInfo(_Outptr_result_buffer_(*count) char16 ** buffer, size_t *
     }
 }
 
+template<>
+void EncodableOpnd<int32>::DumpEncodable() const
+{
+    if (name != nullptr)
+    {
+        Output::Print(_u("<%s> (value: 0x%X)"), name, m_value);
+    }
+    else if (decodedValue != 0)
+    {
+        Output::Print(_u("%d (0x%X) [encoded: 0x%X]"), decodedValue, decodedValue, m_value);
+    }
+    else
+    {
+        Output::Print(_u("%d (0x%X)"), m_value, m_value);
+    }
+}
+
+template<>
+void EncodableOpnd<int64>::DumpEncodable() const
+{
+    if (name != nullptr)
+    {
+        Output::Print(_u("<%s> (value: 0x%llX)"), name, m_value);
+    }
+    else if (decodedValue != 0)
+    {
+        Output::Print(_u("%lld (0x%llX) [encoded: 0x%llX]"), decodedValue, decodedValue, m_value);
+    }
+    else
+    {
+        Output::Print(_u("%lld (0x%llX)"), m_value, m_value);
+    }
+}
+
+
 ///----------------------------------------------------------------------------
 ///
 /// Opnd::Dump
@@ -2970,7 +3012,7 @@ Opnd::Dump(IRDumpFlags flags, Func *func)
                         {
                             Output::Print(_u(","));
                         }
-                        const JITObjTypeSpecFldInfo* propertyOpInfo = func->GetTopFunc()->GetGlobalObjTypeSpecFldInfo(propertyOpId);
+                        const ObjTypeSpecFldInfo* propertyOpInfo = func->GetTopFunc()->GetGlobalObjTypeSpecFldInfo(propertyOpId);
                         if (!JITManager::GetJITManager()->IsOOPJITEnabled())
                         {
                             Output::Print(_u("%s"), func->GetInProcThreadContext()->GetPropertyRecord(propertyOpInfo->GetPropertyId())->GetBuffer(), propertyOpId);
@@ -3110,47 +3152,13 @@ Opnd::Dump(IRDumpFlags flags, Func *func)
     case OpndKindInt64Const:
     {
         Int64ConstOpnd * intConstOpnd = this->AsInt64ConstOpnd();
-        int64 intValue = intConstOpnd->GetValue();
-        Output::Print(_u("%lld (0x%llX)"), intValue, intValue);
+        intConstOpnd->DumpEncodable();
         break;
     }
     case OpndKindIntConst:
     {
         IntConstOpnd * intConstOpnd = this->AsIntConstOpnd();
-        if (intConstOpnd->name != nullptr)
-        {
-            if (!Js::Configuration::Global.flags.DumpIRAddresses)
-            {
-                Output::Print(_u("<%s>"), intConstOpnd->name);
-            }
-            else
-            {
-                Output::Print(_u("<%s> (value: 0x%X)"), intConstOpnd->name, intConstOpnd->GetValue());
-            }
-        }
-        else
-        {
-            IntConstType intValue;
-            if (intConstOpnd->decodedValue != 0)
-            {
-                intValue = intConstOpnd->decodedValue;
-                Output::Print(_u("%d (0x%X)"), intValue, intValue);
-                if (!Js::Configuration::Global.flags.DumpIRAddresses)
-                {
-                    Output::Print(_u(" [encoded]"));
-                }
-                else
-                {
-                    Output::Print(_u(" [encoded: 0x%X]"), intConstOpnd->GetValue());
-                }
-            }
-            else
-            {
-                intValue = intConstOpnd->GetValue();
-                Output::Print(_u("%d (0x%X)"), intValue, intValue);
-            }
-        }
-
+        intConstOpnd->DumpEncodable();
         break;
     }
 
@@ -3177,21 +3185,31 @@ Opnd::Dump(IRDumpFlags flags, Func *func)
 
     case OpndKindIndir:
     {
-        IndirOpnd *indirOpnd = this->AsIndirOpnd();
+        IndirOpnd * indirOpnd = this->AsIndirOpnd();
+        RegOpnd * baseOpnd = indirOpnd->GetBaseOpnd();
+        RegOpnd * indexOpnd = indirOpnd->GetIndexOpnd();
+        const int32 offset = indirOpnd->GetOffset();
 
         Output::Print(_u("["));
-        indirOpnd->GetBaseOpnd()->Dump(flags, func);
+        if (baseOpnd != nullptr)
+        {
+            baseOpnd->Dump(flags, func);
+        }
+        else
+        {
+            Output::Print(_u("<null>"));
+        }
 
-        if (indirOpnd->GetIndexOpnd())
+        if (indexOpnd != nullptr)
         {
             Output::Print(_u("+"));
-            indirOpnd->GetIndexOpnd()->Dump(flags, func);
+            indexOpnd->Dump(flags, func);
             if (indirOpnd->GetScale() > 0)
             {
                 Output::Print(_u("*%d"), 1 << indirOpnd->GetScale());
             }
         }
-        if (indirOpnd->GetOffset())
+        if (offset != 0)
         {
             if (!Js::Configuration::Global.flags.DumpIRAddresses && indirOpnd->HasAddrKind())
             {
@@ -3199,14 +3217,14 @@ Opnd::Dump(IRDumpFlags flags, Func *func)
             }
             else
             {
-                const auto sign = indirOpnd->GetOffset() >= 0 ? _u("+") : _u("");
+                const auto sign = offset >= 0 ? _u("+") : _u("");
                 if (AsmDumpMode)
                 {
-                    Output::Print(_u("%sXXXX%04d"), sign, indirOpnd->GetOffset() & 0xffff);
+                    Output::Print(_u("%sXXXX%04d"), sign, offset & 0xffff);
                 }
                 else
                 {
-                    Output::Print(_u("%s%d"), sign, indirOpnd->GetOffset());
+                    Output::Print(_u("%s%d"), sign, offset);
                 }
             }
         }
@@ -3628,10 +3646,16 @@ Opnd::GetAddrDescription(__out_ecount(count) char16 *const description, const si
             break;
 
         case AddrOpndKindDynamicFrameDisplay:
+            DumpAddress(address, printToConsole, skipMaskedAddress);
+            if (!func->IsOOPJIT())
             {
                 Js::FrameDisplay * frameDisplay = (Js::FrameDisplay *)address;
                 WriteToBuffer(&buffer, &n, (frameDisplay->GetStrictMode() ? _u(" (StrictFrameDisplay len %d)") : _u(" (FrameDisplay len %d)")),
                     frameDisplay->GetLength());
+            }
+            else
+            {
+                WriteToBuffer(&buffer, &n, _u(" (FrameDisplay)"));
             }
             break;
         case AddrOpndKindSz:
@@ -3660,6 +3684,10 @@ Opnd::GetAddrDescription(__out_ecount(count) char16 *const description, const si
         case AddrOpndKindDynamicNativeCodeDataRef:
             DumpAddress(address, printToConsole, skipMaskedAddress);
             WriteToBuffer(&buffer, &n, _u(" (&NativeCodeData)"));
+            break;
+        case AddrOpndKindWriteBarrierCardTable:
+            DumpAddress(address, printToConsole, skipMaskedAddress);
+            WriteToBuffer(&buffer, &n, _u(" (&WriteBarrierCardTable)"));
             break;
         default:
             DumpAddress(address, printToConsole, skipMaskedAddress);

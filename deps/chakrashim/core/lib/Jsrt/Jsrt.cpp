@@ -1347,7 +1347,7 @@ CHAKRA_API JsGetExtensionAllowed(_In_ JsValueRef object, _Out_ bool *value)
 
         VALIDATE_INCOMING_OBJECT(object, scriptContext);
         PARAM_NOT_NULL(value);
-        *value = nullptr;
+        *value = false;
 
         *value = Js::RecyclableObject::FromVar(object)->IsExtensible() != 0;
 
@@ -1473,7 +1473,7 @@ CHAKRA_API JsHasProperty(_In_ JsValueRef object, _In_ JsPropertyIdRef propertyId
         VALIDATE_INCOMING_OBJECT(object, scriptContext);
         VALIDATE_INCOMING_PROPERTYID(propertyId);
         PARAM_NOT_NULL(hasProperty);
-        *hasProperty = nullptr;
+        *hasProperty = false;
 
         *hasProperty = Js::JavascriptOperators::OP_HasProperty(object, ((Js::PropertyRecord *)propertyId)->GetPropertyId(), scriptContext) != 0;
 
@@ -1510,7 +1510,7 @@ CHAKRA_API JsDefineProperty(_In_ JsValueRef object, _In_ JsPropertyIdRef propert
         VALIDATE_INCOMING_PROPERTYID(propertyId);
         VALIDATE_INCOMING_OBJECT(propertyDescriptor, scriptContext);
         PARAM_NOT_NULL(result);
-        *result = nullptr;
+        *result = false;
 
         Js::PropertyDescriptor propertyDescriptorValue;
         if (!Js::JavascriptOperators::ToPropertyDescriptor(propertyDescriptor, &propertyDescriptorValue, scriptContext))
@@ -1555,6 +1555,55 @@ CHAKRA_API JsCreateArrayBuffer(_In_ unsigned int byteLength, _Out_ JsValueRef *r
         PERFORM_JSRT_TTD_RECORD_ACTION_RESULT(scriptContext, result);
 
         JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_OBJECT(*result));
+        return JsNoError;
+    });
+}
+
+CHAKRA_API JsCreateSharedArrayBufferWithSharedContent(_In_ JsSharedArrayBufferContentHandle sharedContents, _Out_ JsValueRef *result)
+{
+    return ContextAPIWrapper<true>([&](Js::ScriptContext *scriptContext, TTDRecorder& _actionEntryPopper) -> JsErrorCode {
+
+        PARAM_NOT_NULL(result);
+
+        Js::JavascriptLibrary* library = scriptContext->GetLibrary();
+        *result = library->CreateSharedArrayBuffer((Js::SharedContents*)sharedContents);
+
+        PERFORM_JSRT_TTD_RECORD_ACTION_RESULT(scriptContext, result);
+
+        JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_OBJECT(*result));
+        return JsNoError;
+    });
+}
+
+CHAKRA_API JsGetSharedArrayBufferContent(_In_ JsValueRef sharedArrayBuffer, _Out_ JsSharedArrayBufferContentHandle *sharedContents)
+{
+    return ContextAPIWrapper<true>([&](Js::ScriptContext *scriptContext, TTDRecorder& _actionEntryPopper) -> JsErrorCode {
+
+        PARAM_NOT_NULL(sharedContents);
+
+        if (!Js::SharedArrayBuffer::Is(sharedArrayBuffer))
+        {
+            return JsErrorInvalidArgument;
+        }
+        
+        Js::SharedContents**& content = (Js::SharedContents**&)sharedContents;
+        *content = Js::SharedArrayBuffer::FromVar(sharedArrayBuffer)->GetSharedContents();
+
+        if (*content == nullptr)
+        {
+            return JsErrorFatal;
+        }
+
+        (*content)->AddRef();
+
+        return JsNoError;
+    });
+}
+
+CHAKRA_API JsReleaseSharedArrayBufferContentHandle(_In_ JsSharedArrayBufferContentHandle sharedContents)
+{
+    return ContextAPIWrapper<true>([&](Js::ScriptContext *scriptContext, TTDRecorder& _actionEntryPopper) -> JsErrorCode {
+        ((Js::SharedContents*)sharedContents)->Release();
         return JsNoError;
     });
 }
@@ -4682,4 +4731,21 @@ CHAKRA_API JsGetAndClearExceptionWithMetadata(_Out_ JsValueRef *metadata)
         return JsNoError;
     });
 }
+
+CHAKRA_API JsHasOwnProperty(_In_ JsValueRef object, _In_ JsPropertyIdRef propertyId, _Out_ bool *hasOwnProperty)
+{
+    return ContextAPIWrapper<true>([&] (Js::ScriptContext *scriptContext, TTDRecorder& _actionEntryPopper) -> JsErrorCode {
+        PERFORM_JSRT_TTD_RECORD_ACTION(scriptContext, RecordJsRTHasOwnProperty, (Js::PropertyRecord *)propertyId, object);
+
+        VALIDATE_INCOMING_OBJECT(object, scriptContext);
+        VALIDATE_INCOMING_PROPERTYID(propertyId);
+        PARAM_NOT_NULL(hasOwnProperty);
+        *hasOwnProperty = false;
+
+        *hasOwnProperty = Js::JavascriptOperators::OP_HasOwnProperty(object, ((Js::PropertyRecord *)propertyId)->GetPropertyId(), scriptContext) != 0;
+
+        return JsNoError;
+    });
+}
+
 #endif // CHAKRACOREBUILD_

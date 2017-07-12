@@ -130,18 +130,15 @@ public:
     uint isTopLevelEventHandler : 1;
     uint hasLocalInClosure : 1;
     uint hasClosureReference : 1;
-    uint hasGlobalReference : 1;
     uint hasCachedScope : 1;
     uint funcExprNameReference : 1;
     uint applyEnclosesArgs : 1;
     uint escapes : 1;
     uint hasDeferredChild : 1; // switch for DeferNested to persist outer scopes
     uint hasRedeferrableChild : 1;
-    uint childHasWith : 1; // deferNested needs to know if child has with
     uint hasLoop : 1;
     uint hasEscapedUseNestedFunc : 1;
     uint needEnvRegister : 1;
-    uint hasCapturedThis : 1;
     uint isBodyAndParamScopeMerged : 1;
 #if DBG
     // FunctionBody was reused on recompile of a redeferred enclosing function.
@@ -260,24 +257,39 @@ public:
     //    1) new Function code's global code
     //    2) global code generated from the reparsing deferred parse function
 
-    bool IsFakeGlobalFunction(uint32 flags) const {
+    bool IsFakeGlobalFunction(uint32 flags) const 
+    {
         return IsGlobalFunction() && !(flags & fscrGlobalCode);
     }
 
-    Scope *GetBodyScope() const {
+    Scope *GetBodyScope() const 
+    {
         return bodyScope;
     }
 
-    Scope *GetParamScope() const {
+    void SetBodyScope(Scope * scope)
+    {
+        bodyScope = scope;
+    }
+
+    Scope *GetParamScope() const 
+    {
         return paramScope;
     }
 
-    Scope *GetTopLevelScope() const {
+    void SetParamScope(Scope * scope)
+    {
+        paramScope = scope;
+    }
+
+    Scope *GetTopLevelScope() const 
+    {
         // Top level scope will be the same for knopProg and knopFncDecl.
         return paramScope;
     }
 
-    Scope* GetFuncExprScope() const {
+    Scope* GetFuncExprScope() const 
+    {
         return funcExprScope;
     }
 
@@ -371,14 +383,6 @@ public:
         hasClosureReference = has;
     }
 
-    bool GetHasGlobalRef() const {
-        return hasGlobalReference;
-    }
-
-    void SetHasGlobalRef(bool has) {
-        hasGlobalReference = has;
-    }
-
     bool GetIsStrictMode() const {
         return this->byteCodeFunction->GetIsStrictMode();
     }
@@ -429,22 +433,6 @@ public:
         Assert(!IsDeferred() || this->byteCodeFunction->GetFunctionBody()->GetByteCode() != nullptr);
 
         return this->byteCodeFunction->GetFunctionBody();
-    }
-
-    bool ChildHasWith() const {
-        return childHasWith;
-    }
-
-    void SetChildHasWith() {
-        childHasWith = true;
-    }
-
-    bool HasCapturedThis() const {
-        return hasCapturedThis;
-    }
-
-    void SetHasCapturedThis() {
-        hasCapturedThis = true;
     }
 
     bool IsBodyAndParamScopeMerged() const {

@@ -326,7 +326,7 @@ EncoderMD::EmitModRM(IR::Instr * instr, IR::Opnd *opnd, BYTE reg1)
         reg = this->GetRegEncode(regOpnd);
         this->EmitConst((Mod11 | reg1 | reg), 1);
 
-        if(this->IsExtendedRegister(regOpnd->GetReg()))
+        if (this->IsExtendedRegister(regOpnd->GetReg()))
         {
             return REXB;
         }
@@ -359,37 +359,49 @@ EncoderMD::EmitModRM(IR::Instr * instr, IR::Opnd *opnd, BYTE reg1)
     case IR::OpndKindIndir:
 
         indirOpnd = opnd->AsIndirOpnd();
-        AssertMsg(indirOpnd->GetBaseOpnd() != nullptr, "Expected base to be set in indirOpnd");
 
         baseOpnd = indirOpnd->GetBaseOpnd();
         indexOpnd = indirOpnd->GetIndexOpnd();
+
         AssertMsg(!indexOpnd || indexOpnd->GetReg() != RegRSP, "ESP cannot be the index of an indir.");
-
-        regBase = this->GetRegEncode(baseOpnd);
-
-        if (indexOpnd != nullptr)
+        if (baseOpnd == nullptr)
         {
+            Assert(indexOpnd != nullptr);
             regIndex = this->GetRegEncode(indexOpnd);
-            *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | 0x4);
-            *(m_pc++) = (((indirOpnd->GetScale() & 3) << 6) | ((regIndex & 7) << 3) | (regBase & 7));
+            dispSize = 4;
+            *(m_pc++) = ( Mod00 | reg1 | 0x4);
+            *(m_pc++) = (((indirOpnd->GetScale() & 3) << 6) | ((regIndex & 7) << 3) | 0x5);
 
             rexEncoding |= this->GetRexByte(this->REXX, indexOpnd);
-            rexEncoding |= this->GetRexByte(this->REXB, baseOpnd);
-        }
-        else if (baseOpnd->GetReg() == RegR12 || baseOpnd->GetReg() == RegRSP)
-        {
-            //
-            // Using RSP/R12 as base requires the SIB byte even where there is no index.
-            //
-            *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | regBase);
-            *(m_pc++) = (BYTE)(((regBase & 7) << 3) | (regBase & 7));
-
-            rexEncoding |= this->GetRexByte(this->REXB, baseOpnd);
         }
         else
         {
-            *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | regBase);
-            rexEncoding |= this->GetRexByte(this->REXB, baseOpnd);
+            regBase = this->GetRegEncode(baseOpnd);
+
+            if (indexOpnd != nullptr)
+            {
+                regIndex = this->GetRegEncode(indexOpnd);
+                *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | 0x4);
+                *(m_pc++) = (((indirOpnd->GetScale() & 3) << 6) | ((regIndex & 7) << 3) | (regBase & 7));
+
+                rexEncoding |= this->GetRexByte(this->REXX, indexOpnd);
+                rexEncoding |= this->GetRexByte(this->REXB, baseOpnd);
+            }
+            else if (baseOpnd->GetReg() == RegR12 || baseOpnd->GetReg() == RegRSP)
+            {
+                //
+                // Using RSP/R12 as base requires the SIB byte even where there is no index.
+                //
+                *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | regBase);
+                *(m_pc++) = (BYTE)(((regBase & 7) << 3) | (regBase & 7));
+
+                rexEncoding |= this->GetRexByte(this->REXB, baseOpnd);
+            }
+            else
+            {
+                *(m_pc++) = (this->GetMod(indirOpnd, &dispSize) | reg1 | regBase);
+                rexEncoding |= this->GetRexByte(this->REXB, baseOpnd);
+            }
         }
         break;
 
@@ -581,7 +593,10 @@ EncoderMD::Encode(IR::Instr *instr, BYTE *pc, BYTE* beginCodeAddress)
             }
         }
 #if DBG_DUMP
-        if (instr->IsEntryInstr() && Js::Configuration::Global.flags.DebugBreak.Contains(m_func->GetFunctionNumber()))
+        if (instr->IsEntryInstr() && (
+            Js::Configuration::Global.flags.DebugBreak.Contains(m_func->GetFunctionNumber()) ||
+            PHASE_ON(Js::DebugBreakPhase, m_func)
+        ))
         {
             IR::Instr *int3 = IR::Instr::New(Js::OpCode::INT, m_func);
             int3->SetSrc1(IR::IntConstOpnd::New(3, TyInt32, m_func));
@@ -670,12 +685,6 @@ EncoderMD::Encode(IR::Instr *instr, BYTE *pc, BYTE* beginCodeAddress)
 
     instrRestart = instrStart = m_pc;
 
-#if _CONTROL_FLOW_GUARD_SHADOW_STACK
-    if (instr->isFsBased)
-    {
-        *instrRestart++ = 0x64;
-    }
-#endif
 
     // put out 16bit override if any
     if (instrSize == 2 && (opdope & (DNO16 | DFLT)) == 0)

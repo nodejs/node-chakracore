@@ -133,6 +133,30 @@ extern "C" void* MarkerForExternalDebugStep();
                 }\
         }
 
+#define LEAVE_SCRIPT_IF(scriptContext, condition, block) \
+        if (condition) \
+        { \
+            BEGIN_LEAVE_SCRIPT(scriptContext); \
+            block \
+            END_LEAVE_SCRIPT(scriptContext); \
+        } \
+        else \
+        { \
+            block \
+        }
+
+#define ENTER_SCRIPT_IF(scriptContext, doCleanup, isCallRoot, hasCaller, condition, block) \
+        if (condition) \
+        { \
+            BEGIN_ENTER_SCRIPT(scriptContext, doCleanup, isCallRoot, hasCaller); \
+            block \
+            END_ENTER_SCRIPT(scriptContext, doCleanup, isCallRoot, hasCaller); \
+        } \
+        else \
+        { \
+            block \
+        }
+
 #define BEGIN_LEAVE_SCRIPT(scriptContext) \
         LEAVE_SCRIPT_START_EX(scriptContext, /* stackProbe */ true, /* leaveForHost */ true, /* isFPUControlRestoreNeeded */ false)
 
@@ -179,15 +203,6 @@ enum RecyclerCollectCallBackFlags
     Collect_Wait                     = 0x04     // callback can be from another thread
 };
 typedef void (__cdecl *RecyclerCollectCallBackFunction)(void * context, RecyclerCollectCallBackFlags flags);
-
-// Keep in sync with WellKnownType in scriptdirect.idl
-
-typedef enum WellKnownHostType
-{
-    WellKnownHostType_HTMLAllCollection     = 0,
-    WellKnownHostType_Last                  = WellKnownHostType_HTMLAllCollection,
-    WellKnownHostType_Invalid               = WellKnownHostType_Last+1
-} WellKnownHostType;
 
 #ifdef ENABLE_PROJECTION
 class ExternalWeakReferenceCache
@@ -433,6 +448,7 @@ public:
 #endif
 
 private:
+    Js::JavascriptExceptionObject * pendingFinallyException;
     bool noScriptScope;
 
     Js::DebugManager * debugManager;
@@ -484,6 +500,7 @@ public:
 private:
     PTHREADCONTEXT_HANDLE m_remoteThreadContextInfo;
     intptr_t m_prereservedRegionAddr;
+    intptr_t m_jitThunkStartAddr;
 
 #if ENABLE_NATIVE_CODEGEN
     BVSparse<HeapAllocator> * m_jitNumericProperties;
@@ -492,6 +509,10 @@ public:
     intptr_t GetPreReservedRegionAddr()
     {
         return m_prereservedRegionAddr;
+    }
+    intptr_t GetJITThunkStartAddr()
+    {
+        return m_jitThunkStartAddr;
     }
     BVSparse<HeapAllocator> * GetJITNumericProperties() const
     {
@@ -518,8 +539,7 @@ public:
 
 private:
     typedef JsUtil::BaseDictionary<uint, Js::SourceDynamicProfileManager*, Recycler, PowerOf2SizePolicy> SourceDynamicProfileManagerMap;
-    typedef JsUtil::BaseDictionary<const char16*, const Js::PropertyRecord*, Recycler, PowerOf2SizePolicy> SymbolRegistrationMap;
-
+    typedef JsUtil::BaseDictionary<Js::HashedCharacterBuffer<char16>*, const Js::PropertyRecord*, Recycler, PowerOf2SizePolicy, Js::PropertyRecordStringHashComparer> SymbolRegistrationMap;
 
     class SourceDynamicProfileManagerCache
     {
@@ -698,6 +718,9 @@ private:
     CustomHeap::InProcCodePageAllocators thunkPageAllocators;
 #endif
     CustomHeap::InProcCodePageAllocators codePageAllocators;
+#if defined(_CONTROL_FLOW_GUARD) && (_M_IX86 || _M_X64)
+    InProcJITThunkEmitter jitThunkEmitter;
+#endif
 #endif
 
     RecyclerRootPtr<RecyclableData> recyclableData;
@@ -773,8 +796,10 @@ private:
     Js::DelayLoadWinRtRoParameterizedIID delayLoadWinRtRoParameterizedIID;
 #endif
 #if defined(ENABLE_INTL_OBJECT) || defined(ENABLE_ES6_CHAR_CLASSIFIER)
+#ifdef INTL_WINGLOB
     Js::DelayLoadWindowsGlobalization delayLoadWindowsGlobalizationLibrary;
     Js::WindowsGlobalizationAdapter windowsGlobalizationAdapter;
+#endif
 #endif
 #ifdef ENABLE_FOUNDATION_OBJECT
     Js::DelayLoadWinRtFoundation delayLoadWinRtFoundationLibrary;
@@ -802,8 +827,10 @@ private:
     THREAD_LOCAL static uint activeScriptSiteCount;
     bool isScriptActive;
 
-    // To synchronize with ETW rundown, which needs to walk scriptContext/functionBody/entryPoint lists.
-    CriticalSection csEtwRundown;
+    // When ETW rundown in background thread which needs to walk scriptContext/functionBody/entryPoint lists,
+    // or when JIT thread is getting auxPtrs from function body, we should not be modifying the list of 
+    // functionBody/entrypoints, or expanding the auxPtrs
+    CriticalSection csFunctionBody;
 
 #ifdef _M_X64
     friend class Js::Amd64StackFrame;
@@ -850,9 +877,13 @@ public:
     CustomHeap::InProcCodePageAllocators * GetThunkPageAllocators() { return &thunkPageAllocators; }
 #endif
     CustomHeap::InProcCodePageAllocators * GetCodePageAllocators() { return &codePageAllocators; }
+
+#if defined(_CONTROL_FLOW_GUARD) && (_M_IX86 || _M_X64)
+    InProcJITThunkEmitter * GetJITThunkEmitter() { return &jitThunkEmitter; }
+#endif
 #endif // ENABLE_NATIVE_CODEGEN
 
-    CriticalSection* GetEtwRundownCriticalSection() { return &csEtwRundown; }
+    CriticalSection* GetFunctionBodyLock() { return &csFunctionBody; }
 
     Js::IsConcatSpreadableCache* GetIsConcatSpreadableCache() { return &isConcatSpreadableCache; }
 
@@ -864,8 +895,10 @@ public:
     Js::DelayLoadWinRtRoParameterizedIID* GetWinRTRoParameterizedIIDLibrary();
 #endif
 #if defined(ENABLE_INTL_OBJECT) || defined(ENABLE_ES6_CHAR_CLASSIFIER)
+#ifdef INTL_WINGLOB
     Js::DelayLoadWindowsGlobalization *GetWindowsGlobalizationLibrary();
     Js::WindowsGlobalizationAdapter *GetWindowsGlobalizationAdapter();
+#endif
 #endif
 #ifdef ENABLE_FOUNDATION_OBJECT
     Js::DelayLoadWinRtFoundation *GetWinRtFoundationLibrary();
@@ -996,9 +1029,15 @@ public:
     Js::TypeId GetNextTypeId() { return nextTypeId; }
 
     // Lookup the well known type registered with a Js::TypeId.
+    //  wellKnownType:  The well known type which we should register
     //  typeId:   The type id to match
-    //  returns:  The well known type which was previously registered via a call to SetWellKnownHostTypeId
-    WellKnownHostType GetWellKnownHostType(Js::TypeId typeId);
+    //  returns:  true if the typeid is the wellKnownType
+    template<WellKnownHostType wellKnownType>
+    bool IsWellKnownHostType(Js::TypeId typeId)
+    {
+        CompileAssert(wellKnownType <= WellKnownHostType_Last);
+        return wellKnownHostTypeIds[wellKnownType] == typeId;
+    }
 
     // Register a well known type to a Js::TypeId.
     //  wellKnownType:  The well known type which we should register
@@ -1026,7 +1065,7 @@ public:
             jobProcessor->Close();
         }
 
-        if (JITManager::GetJITManager()->IsOOPJITEnabled() && m_remoteThreadContextInfo)
+        if (JITManager::GetJITManager()->IsOOPJITEnabled() && JITManager::GetJITManager()->IsConnected() && m_remoteThreadContextInfo)
         {
             if (JITManager::GetJITManager()->CleanupThreadContext(&m_remoteThreadContextInfo) == S_OK)
             {
@@ -1238,6 +1277,16 @@ public:
     void SetNoScriptScope(bool noScriptScope) { this->noScriptScope = noScriptScope; }
     bool IsNoScriptScope() { return this->noScriptScope; }
 
+    void SetPendingFinallyException(Js::JavascriptExceptionObject * exceptionObj)
+    {
+        pendingFinallyException = exceptionObj;
+    }
+
+    Js::JavascriptExceptionObject * GetPendingFinallyException()
+    {
+        return pendingFinallyException;
+    }
+
     Js::EntryPointInfo ** RegisterEquivalentTypeCacheEntryPoint(Js::EntryPointInfo * entryPoint);
     void UnregisterEquivalentTypeCacheEntryPoint(Js::EntryPointInfo ** entryPoint);
     void RegisterProtoInlineCache(Js::InlineCache * inlineCache, Js::PropertyId propertyId);
@@ -1367,15 +1416,16 @@ public:
     Js::JavascriptExceptionObject* GetUnhandledExceptionObject() const  { return recyclableData->unhandledExceptionObject; };
 
     // To temporarily keep throwing exception object alive (thrown but not yet caught)
-    Field(Js::JavascriptExceptionObject*)* SaveTempUncaughtException(Js::JavascriptExceptionObject* exceptionObject)
+    void SaveTempUncaughtException(Js::JavascriptExceptionObject* exceptionObject)
     {
-        // Previous save should have been caught and cleared
-        Assert(recyclableData->tempUncaughtException == nullptr);
-
-        recyclableData->tempUncaughtException = exceptionObject;
-        return &recyclableData->tempUncaughtException;
+        Js::JavascriptExceptionObject::Insert(&recyclableData->tempUncaughtException, exceptionObject);
+    }
+    void ClearTempUncaughtException(Js::JavascriptExceptionObject* exceptionObject)
+    {
+        Js::JavascriptExceptionObject::Remove(&recyclableData->tempUncaughtException, exceptionObject);
     }
 
+public:
     bool HasCatchHandler() const { return hasCatchHandler; }
     void SetHasCatchHandler(bool hasCatchHandler) { this->hasCatchHandler = hasCatchHandler; }
 
@@ -1417,11 +1467,11 @@ public:
 #endif
 
     void EnsureSymbolRegistrationMap();
-    const Js::PropertyRecord* GetSymbolFromRegistrationMap(const char16* stringKey);
+    const Js::PropertyRecord* GetSymbolFromRegistrationMap(const char16* stringKey, charcount_t stringLength);
     const Js::PropertyRecord* AddSymbolToRegistrationMap(const char16* stringKey, charcount_t stringLength);
 
 #if ENABLE_TTD
-    JsUtil::BaseDictionary<const char16*, const Js::PropertyRecord*, Recycler, PowerOf2SizePolicy>* GetSymbolRegistrationMap_TTD();
+    JsUtil::BaseDictionary<Js::HashedCharacterBuffer<char16>*, const Js::PropertyRecord*, Recycler, PowerOf2SizePolicy, Js::PropertyRecordStringHashComparer>* GetSymbolRegistrationMap_TTD();
 #endif
 
     inline void ClearPendingSOError()
@@ -1578,6 +1628,7 @@ public:
     virtual void DisposeScriptContextByFaultInjectionCallBack() override;
 #endif
     virtual void DisposeObjects(Recycler * recycler) override;
+    virtual void PreDisposeObjectsCallBack() override;
 
     typedef DList<ExpirableObject*, ArenaAllocator> ExpirableObjectList;
     ExpirableObjectList* expirableObjectList;
@@ -1591,7 +1642,6 @@ public:
     void TryExitExpirableCollectMode();
     void RegisterExpirableObject(ExpirableObject* object);
     void UnregisterExpirableObject(ExpirableObject* object);
-    void DisposeExpirableObject(ExpirableObject* object);
 
     void * GetDynamicObjectEnumeratorCache(Js::DynamicType const * dynamicType);
     void AddDynamicObjectEnumeratorCache(Js::DynamicType const * dynamicType, void * cache);

@@ -56,18 +56,15 @@ FuncInfo::FuncInfo(
     isTopLevelEventHandler(false),
     hasLocalInClosure(false),
     hasClosureReference(false),
-    hasGlobalReference(false),
     hasCachedScope(false),
     funcExprNameReference(false),
     applyEnclosesArgs(false),
     escapes(false),
     hasDeferredChild(false),
     hasRedeferrableChild(false),
-    childHasWith(false),
     hasLoop(false),
     hasEscapedUseNestedFunc(false),
     needEnvRegister(false),
-    hasCapturedThis(false),
     isBodyAndParamScopeMerged(true),
 #if DBG
     isReused(false),
@@ -101,7 +98,10 @@ FuncInfo::FuncInfo(
     maxForInLoopLevel(0)
 {
     this->byteCodeFunction = byteCodeFunction;
-    bodyScope->SetFunc(this);
+    if (bodyScope != nullptr)
+    {
+        bodyScope->SetFunc(this);
+    }
     if (paramScope != nullptr)
     {
         paramScope->SetFunc(this);

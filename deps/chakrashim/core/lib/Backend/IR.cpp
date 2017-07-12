@@ -2477,6 +2477,7 @@ Instr::HoistIndirOffset(IR::IndirOpnd *indirOpnd, RegNum regNum)
     int32 offset = indirOpnd->GetOffset();
     if (indirOpnd->GetIndexOpnd())
     {
+        Assert(indirOpnd->GetBaseOpnd());
         return HoistIndirOffsetAsAdd(indirOpnd, indirOpnd->GetBaseOpnd(), offset, regNum);
     }
     IntConstOpnd *offsetOpnd = IntConstOpnd::New(offset, TyInt32, this->m_func);
@@ -2858,10 +2859,11 @@ Instr::FindRegUse(StackSym *sym)
         }
         else if (src1->IsIndirOpnd())
         {
-            IR::IndirOpnd *indirOpnd = src1->AsIndirOpnd();
-            if (indirOpnd->GetBaseOpnd()->m_sym == sym)
+            IndirOpnd * indirOpnd = src1->AsIndirOpnd();
+            RegOpnd * baseOpnd = indirOpnd->GetBaseOpnd();
+            if (baseOpnd != nullptr && baseOpnd->m_sym == sym)
             {
-                return indirOpnd->GetBaseOpnd();
+                return baseOpnd;
             }
             else if (indirOpnd->GetIndexOpnd() && indirOpnd->GetIndexOpnd()->m_sym == sym)
             {
@@ -2885,9 +2887,10 @@ Instr::FindRegUse(StackSym *sym)
             else if (src2->IsIndirOpnd())
             {
                 IR::IndirOpnd *indirOpnd = src2->AsIndirOpnd();
-                if (indirOpnd->GetBaseOpnd()->m_sym == sym)
+                RegOpnd * baseOpnd = indirOpnd->GetBaseOpnd();
+                if (baseOpnd != nullptr && baseOpnd->m_sym == sym)
                 {
-                    return indirOpnd->GetBaseOpnd();
+                    return baseOpnd;
                 }
                 else if (indirOpnd->GetIndexOpnd() && indirOpnd->GetIndexOpnd()->m_sym == sym)
                 {
@@ -2903,9 +2906,10 @@ Instr::FindRegUse(StackSym *sym)
     if (dst != nullptr && dst->IsIndirOpnd())
     {
         IR::IndirOpnd *indirOpnd = dst->AsIndirOpnd();
-        if (indirOpnd->GetBaseOpnd()->m_sym == sym)
+        RegOpnd * baseOpnd = indirOpnd->GetBaseOpnd();
+        if (baseOpnd != nullptr && baseOpnd->m_sym == sym)
         {
-            return indirOpnd->GetBaseOpnd();
+            return baseOpnd;
         }
         else if (indirOpnd->GetIndexOpnd() && indirOpnd->GetIndexOpnd()->m_sym == sym)
         {
@@ -3233,6 +3237,21 @@ bool Instr::HasFixedFunctionAddressTarget() const
         this->GetSrc1()->AsAddrOpnd()->m_isFunction;
 }
 
+bool Instr::TransfersSrcValue()
+{
+    // Return whether the instruction transfers a value to the destination.
+    // This is used to determine whether we should generate a value for the src so that it will
+    // match with the dst for copy prop.
+
+    // No point creating an unknown value for the src of a binary instr, as the dst will just be a different
+    // Don't create value for instruction without dst as well. The value doesn't go anywhere.
+
+    // if (src2 == nullptr) Disable copy prop for ScopedLdFld/ScopeStFld, etc., consider enabling that in the future
+    // Consider: Add opcode attribute to indicate whether the opcode would use the value or not
+
+    return this->GetDst() != nullptr && this->GetSrc2() == nullptr && !OpCodeAttr::DoNotTransfer(this->m_opcode) && !this->CallsAccessor();
+}
+
 
 void Instr::MoveArgs(bool generateByteCodeCapture)
 {
@@ -3379,10 +3398,10 @@ bool Instr::AreAllOpndInt64() const
     return isDstInt64 && isSrc1Int64 && isSrc2Int64;
 }
 
-JITTimeFixedField* Instr::GetFixedFunction() const
+FixedFieldInfo* Instr::GetFixedFunction() const
 {
     Assert(HasFixedFunctionAddressTarget());
-    JITTimeFixedField* function = (JITTimeFixedField*)this->m_src1->AsAddrOpnd()->m_metadata;
+    FixedFieldInfo* function = (FixedFieldInfo*)this->m_src1->AsAddrOpnd()->m_metadata;
     return function;
 }
 
@@ -3458,7 +3477,7 @@ PropertySymOpnd *Instr::GetPropertySymOpnd() const
     return nullptr;
 }
 
-bool Instr::CallsAccessor(IR::PropertySymOpnd* methodOpnd)
+bool Instr::CallsAccessor(IR::PropertySymOpnd * methodOpnd)
 {
     if (methodOpnd)
     {
@@ -3469,7 +3488,7 @@ bool Instr::CallsAccessor(IR::PropertySymOpnd* methodOpnd)
     return CallsGetter() || CallsSetter();
 }
 
-bool Instr::CallsSetter(IR::PropertySymOpnd* methodOpnd)
+bool Instr::CallsSetter()
 {
     return
         this->IsProfiledInstr() &&
@@ -3477,7 +3496,7 @@ bool Instr::CallsSetter(IR::PropertySymOpnd* methodOpnd)
         ((this->AsProfiledInstr()->u.FldInfo().flags & Js::FldInfo_FromAccessor) != 0);
 }
 
-bool Instr::CallsGetter(IR::PropertySymOpnd* methodOpnd)
+bool Instr::CallsGetter()
 {
     return
         this->IsProfiledInstr() &&
@@ -3705,6 +3724,79 @@ bool Instr::IsCmCC_I4()
 {
     return (this->m_opcode >= Js::OpCode::CmEq_I4 && this->m_opcode <= Js::OpCode::CmUnGe_I4);
 }
+
+bool Instr::IsNeq()
+{
+    switch (m_opcode)
+    {
+    case Js::OpCode::BrNeq_A:
+    case Js::OpCode::BrNeq_I4:
+    case Js::OpCode::BrNotEq_A:
+    case Js::OpCode::BrSrNeq_A:
+    case Js::OpCode::BrSrNotEq_A:
+    case Js::OpCode::CmNeq_A:
+    case Js::OpCode::CmNeq_I4:
+    case Js::OpCode::CmSrNeq_A:
+        return true;
+    default:
+        return false;
+    }
+}
+
+template <typename T>
+bool Instr::BinaryCalculatorT(T src1Const, T src2Const, int64 *pResult, bool checkWouldTrap)
+{
+    T value = 0;
+    switch (this->m_opcode)
+    {
+#define DO_HANDLER(HANDLER, type) HANDLER(type##src1Const, type##src2Const)
+#define BINARY_CASE_CHECK(OPCODE,HANDLER,CHECK_HANDLER,type) \
+    case Js::OpCode::##OPCODE: \
+        if (checkWouldTrap && DO_HANDLER(CHECK_HANDLER,type)) { return false; } \
+        value = DO_HANDLER(HANDLER,type); \
+        break;
+#define BINARY_CASE(OPCODE,HANDLER,type) \
+    case Js::OpCode::##OPCODE: \
+        value = DO_HANDLER(HANDLER,type); \
+        break;
+#define BINARY_U(OPCODE,HANDLER) BINARY_CASE(OPCODE,HANDLER,(typename SignedTypeTraits<T>::UnsignedType))
+#define BINARY(OPCODE,HANDLER)  BINARY_CASE(OPCODE,HANDLER,)
+
+        BINARY(CmEq_I4, Js::AsmJsMath::CmpEq)
+        BINARY(CmNeq_I4, Js::AsmJsMath::CmpNe)
+        BINARY(CmLt_I4, Js::AsmJsMath::CmpLt)
+        BINARY(CmGt_I4, Js::AsmJsMath::CmpGt)
+        BINARY(CmLe_I4, Js::AsmJsMath::CmpLe)
+        BINARY(CmGe_I4, Js::AsmJsMath::CmpGe)
+        BINARY_U(CmUnLt_I4, Js::AsmJsMath::CmpLt)
+        BINARY_U(CmUnGt_I4, Js::AsmJsMath::CmpGt)
+        BINARY_U(CmUnLe_I4, Js::AsmJsMath::CmpLe)
+        BINARY_U(CmUnGe_I4, Js::AsmJsMath::CmpGe)
+        BINARY(Add_I4, Js::AsmJsMath::Add)
+        BINARY(Sub_I4, Js::AsmJsMath::Sub)
+        BINARY(Mul_I4, Js::AsmJsMath::Mul)
+        BINARY(And_I4, Js::AsmJsMath::And)
+        BINARY(Or_I4, Js::AsmJsMath::Or)
+        BINARY(Xor_I4, Js::AsmJsMath::Xor)
+        BINARY(Shl_I4, Wasm::WasmMath::Shl)
+        BINARY(Shr_I4, Wasm::WasmMath::Shr)
+        BINARY_U(ShrU_I4, Wasm::WasmMath::ShrU)
+        BINARY_CASE_CHECK(DivU_I4, Js::AsmJsMath::DivChecked, Js::AsmJsMath::DivWouldTrap, (typename SignedTypeTraits<T>::UnsignedType))
+        BINARY_CASE_CHECK(Div_I4, Js::AsmJsMath::DivChecked, Js::AsmJsMath::DivWouldTrap, )
+        BINARY_CASE_CHECK(RemU_I4, Js::AsmJsMath::RemChecked, Js::AsmJsMath::RemWouldTrap, (typename SignedTypeTraits<T>::UnsignedType))
+        BINARY_CASE_CHECK(Rem_I4, Js::AsmJsMath::RemChecked, Js::AsmJsMath::RemWouldTrap, )
+        default:
+            return false;
+#undef BINARY
+#undef BINARY_U
+    }
+
+    *pResult = value;
+    return true;
+}
+
+template bool Instr::BinaryCalculatorT<int>(int src1Const64, int src2Const64, int64 *pResult, bool checkWouldTrap);
+template bool Instr::BinaryCalculatorT<int64>(int64 src1Const64, int64 src2Const64, int64 *pResult, bool checkWouldTrap);
 
 bool Instr::BinaryCalculator(IntConstType src1Const, IntConstType src2Const, IntConstType *pResult)
 {
@@ -4538,3 +4630,4 @@ Instr::DumpRange(Instr *instrEnd)
 #endif
 
 } // namespace IR
+

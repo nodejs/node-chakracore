@@ -18,8 +18,8 @@ def msbuildTypeMap = [
 
 // convert `machine` parameter to OS component of PR task name
 def machineTypeToOSTagMap = [
-    'Windows 7': 'Windows 7',
-    'Windows_NT': 'Windows',
+    'Windows 7': 'Windows 7',       // Windows Server 2008 R2, equivalent to Windows 7
+    'Windows_NT': 'Windows',        // Windows Server 2012 R2, equivalent to Windows 8.1 (aka Blue)
     'Ubuntu16.04': 'Ubuntu',
     'OSX': 'OSX'
 ]
@@ -107,16 +107,17 @@ def CreateBuildTasks = { machine, configTag, buildExtra, testExtra, runCodeAnaly
 }
 
 def CreateXPlatBuildTask = { isPR, buildType, staticBuild, machine, platform, configTag,
-    xplatBranch, nonDefaultTaskSetup, customOption, testVariant ->
+    xplatBranch, nonDefaultTaskSetup, customOption, testVariant, extraBuildParams ->
 
     def config = (platform == "osx" ? "osx_${buildType}" : "linux_${buildType}")
     def numConcurrentCommand = (platform == "osx" ? "sysctl -n hw.logicalcpu" : "nproc")
 
     config = (configTag == null) ? config : "${configTag}_${config}"
-    config = staticBuild ? "${config}_static" : config
+    config = staticBuild ? "static_${config}" : "shared_${config}"
+    config = customOption ? customOption.replaceAll(/[-]+/, "_") + "_" + config : config
 
     // params: Project, BaseTaskName, IsPullRequest (appends '_prtest')
-    def jobName = Utilities.getFullJobName(project, config, isPR) + customOption.replaceAll(/[-]+/, "_")
+    def jobName = Utilities.getFullJobName(project, config, isPR)
 
     def infoScript = "bash jenkins/get_system_info.sh --${platform}"
     def buildFlag = buildType == "release" ? "" : (buildType == "debug" ? "--debug" : "--test-build")
@@ -125,7 +126,7 @@ def CreateXPlatBuildTask = { isPR, buildType, staticBuild, machine, platform, co
     def icuFlag = (platform == "osx" ? "--icu=/usr/local/opt/icu4c/include" : "")
     def compilerPaths = (platform == "osx") ? "" : "--cxx=/usr/bin/clang++-3.8 --cc=/usr/bin/clang-3.8"
     def buildScript = "bash ./build.sh ${staticFlag} -j=`${numConcurrentCommand}` ${buildFlag} " +
-                      "${swbCheckFlag} ${compilerPaths} ${icuFlag} ${customOption}"
+                      "${swbCheckFlag} ${compilerPaths} ${icuFlag} ${customOption} ${extraBuildParams}"
     def testScript = "bash test/runtests.sh \"${testVariant}\""
 
     def newJob = job(jobName) {
@@ -163,10 +164,10 @@ def CreateXPlatBuildTask = { isPR, buildType, staticBuild, machine, platform, co
 }
 
 // Generic task to trigger clang-based cross-plat build tasks
-def CreateXPlatBuildTasks = { machine, platform, configTag, xplatBranch, nonDefaultTaskSetup ->
+def CreateXPlatBuildTasks = { machine, platform, configTag, xplatBranch, nonDefaultTaskSetup, extraBuildParams ->
     [true, false].each { isPR ->
         CreateXPlatBuildTask(isPR, "test", "", machine, platform,
-            configTag, xplatBranch, nonDefaultTaskSetup, "--no-jit", "--variants disable_jit")
+            configTag, xplatBranch, nonDefaultTaskSetup, "--no-jit", "--variants disable_jit", extraBuildParams)
 
         ['debug', 'test', 'release'].each { buildType ->
             def staticBuildConfigs = [true, false]
@@ -176,7 +177,7 @@ def CreateXPlatBuildTasks = { machine, platform, configTag, xplatBranch, nonDefa
 
             staticBuildConfigs.each { staticBuild ->
                 CreateXPlatBuildTask(isPR, buildType, staticBuild, machine, platform,
-                    configTag, xplatBranch, nonDefaultTaskSetup, "", "")
+                    configTag, xplatBranch, nonDefaultTaskSetup, "", "", extraBuildParams)
             }
         }
     }
@@ -221,15 +222,15 @@ def CreateStyleCheckTasks = { taskString, taskName, checkName ->
 // INNER LOOP TASKS
 // ----------------
 
-CreateBuildTasks('Windows_NT', null, null, null, true, null, null)
+CreateBuildTasks('Windows_NT', null, null, "-winBlue", true, null, null)
 
 // Add some additional daily configs to trigger per-PR as a quality gate:
 // x64_debug Slow Tests
 CreateBuildTask(true, 'x64', 'debug',
-    'Windows_NT', 'ci_slow', null, '-includeSlow', false, null, null)
+    'Windows_NT', 'ci_slow', null, '-winBlue -includeSlow', false, null, null)
 // x64_debug DisableJIT
 CreateBuildTask(true, 'x64', 'debug',
-    'Windows_NT', 'ci_disablejit', '"/p:BuildJIT=false"', '-disablejit', false, null, null)
+    'Windows_NT', 'ci_disablejit', '"/p:BuildJIT=false"', '-winBlue -disablejit', false, null, null)
 // x64_debug Legacy
 CreateBuildTask(true, 'x64', 'debug',
     'Windows 7', 'ci_dev12', 'msbuild12', '-win7 -includeSlow', false, null, null)
@@ -248,7 +249,7 @@ if (!branch.endsWith('-ci')) {
                 '(dev12|legacy)\\s+tests')})
 
     // build and test on the usual configuration (VS 2015) with -includeSlow
-    CreateBuildTasks('Windows_NT', 'daily_slow', null, '-includeSlow', false,
+    CreateBuildTasks('Windows_NT', 'daily_slow', null, '-winBlue -includeSlow', false,
         /* excludeConfigIf */ null,
         /* nonDefaultTaskSetup */ { newJob, isPR, config ->
             DailyBuildTaskSetup(newJob, isPR,
@@ -256,7 +257,7 @@ if (!branch.endsWith('-ci')) {
                 'slow\\s+tests')})
 
     // build and test on the usual configuration (VS 2015) with JIT disabled
-    CreateBuildTasks('Windows_NT', 'daily_disablejit', '"/p:BuildJIT=false"', '-disablejit', true,
+    CreateBuildTasks('Windows_NT', 'daily_disablejit', '"/p:BuildJIT=false"', '-winBlue -disablejit', true,
         /* excludeConfigIf */ null,
         /* nonDefaultTaskSetup */ { newJob, isPR, config ->
             DailyBuildTaskSetup(newJob, isPR,
@@ -297,7 +298,7 @@ if (isXPlatCompatibleBranch) {
     def osString = 'Ubuntu16.04'
 
     // PR and CI checks
-    CreateXPlatBuildTasks(osString, "linux", "ubuntu", branch, null)
+    CreateXPlatBuildTasks(osString, "linux", "ubuntu", branch, null, "")
 
     // daily builds
     if (isXPlatDailyBranch) {
@@ -305,7 +306,8 @@ if (isXPlatCompatibleBranch) {
             /* nonDefaultTaskSetup */ { newJob, isPR, config ->
                 DailyBuildTaskSetup(newJob, isPR,
                     "Ubuntu ${config}",
-                    'linux\\s+tests')})
+                    'linux\\s+tests')},
+            /* extraBuildParams */ "--extra-defines=PERFMAP_TRACE_ENABLED=1")
     }
 }
 
@@ -317,7 +319,7 @@ if (isXPlatCompatibleBranch) {
     def osString = 'OSX'
 
     // PR and CI checks
-    CreateXPlatBuildTasks(osString, "osx", "osx", branch, null)
+    CreateXPlatBuildTasks(osString, "osx", "osx", branch, null, "")
 
     // daily builds
     if (isXPlatDailyBranch) {
@@ -325,7 +327,8 @@ if (isXPlatCompatibleBranch) {
             /* nonDefaultTaskSetup */ { newJob, isPR, config ->
                 DailyBuildTaskSetup(newJob, isPR,
                     "OSX ${config}",
-                    'linux\\s+tests')})
+                    'linux\\s+tests')},
+            /* extraBuildParams */ "")
     }
 }
 

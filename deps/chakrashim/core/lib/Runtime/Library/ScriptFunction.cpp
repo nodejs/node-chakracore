@@ -16,7 +16,14 @@ namespace Js
 
     bool ScriptFunctionBase::Is(Var func)
     {
-        return ScriptFunction::Is(func) || JavascriptGeneratorFunction::Is(func) || JavascriptAsyncFunction::Is(func);
+        if (JavascriptFunction::Is(func))
+        {
+            JavascriptFunction *function = JavascriptFunction::FromVar(func);
+            return ScriptFunction::Test(function) || JavascriptGeneratorFunction::Test(function)
+                || JavascriptAsyncFunction::Test(function);
+        }
+
+        return false;
     }
 
     ScriptFunctionBase * ScriptFunctionBase::FromVar(Var func)
@@ -102,18 +109,6 @@ namespace Js
                 Output::Flush();
             }
             return pfuncScriptWithInlineCache;
-        }
-        else if(functionProxy->IsFunctionBody() && functionProxy->GetFunctionBody()->GetIsAsmJsFunction())
-        {
-            AsmJsScriptFunction* asmJsFunc = scriptContext->GetLibrary()->CreateAsmJsScriptFunction(functionProxy);
-            asmJsFunc->SetEnvironment(environment);
-
-            Assert(!hasSuperReference);
-            asmJsFunc->SetHasSuperReference(hasSuperReference);
-
-            JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_FUNCTION(asmJsFunc, EtwTrace::GetFunctionId(functionProxy)));
-
-            return asmJsFunc;
         }
         else
         {
@@ -208,8 +203,6 @@ namespace Js
         Assert(this->GetTypeId() == TypeIds_Function);
 #if ENABLE_NATIVE_CODEGEN
         Assert(!IsCrossSiteObject() || entryPoint != (Js::JavascriptMethod)checkCodeGenThunk);
-#else
-        Assert(!IsCrossSiteObject());
 #endif
 
         Assert((entryPointInfo != nullptr && this->GetFunctionProxy() != nullptr));
@@ -239,8 +232,6 @@ namespace Js
             entryPointInfo->jsMethod = entryPoint;
         }
 
-        if (!isAsmJS)
-        {
             ProxyEntryPointInfo* oldEntryPointInfo = this->GetScriptFunctionType()->GetEntryPointInfo();
             if (oldEntryPointInfo
                 && oldEntryPointInfo != entryPointInfo
@@ -252,7 +243,6 @@ namespace Js
 
                 threadContext->QueueFreeOldEntryPointInfoIfInScript((FunctionEntryPointInfo*)oldEntryPointInfo);
             }
-        }
 
         this->GetScriptFunctionType()->SetEntryPointInfo(entryPointInfo);
     }
@@ -681,6 +671,27 @@ namespace Js
         return reinterpret_cast<AsmJsScriptFunction *>(func);
     }
 
+    AsmJsScriptFunction * AsmJsScriptFunction::OP_NewAsmJsFunc(FrameDisplay *environment, FunctionInfoPtrPtr infoRef)
+    {
+        AssertMsg(infoRef != nullptr, "BYTE-CODE VERIFY: Must specify a valid function to create");
+        FunctionProxy* functionProxy = (*infoRef)->GetFunctionProxy();
+        AssertMsg(functionProxy != nullptr, "BYTE-CODE VERIFY: Must specify a valid function to create");
+
+        ScriptContext* scriptContext = functionProxy->GetScriptContext();
+
+        bool hasSuperReference = functionProxy->HasSuperReference();
+
+        AsmJsScriptFunction* asmJsFunc = scriptContext->GetLibrary()->CreateAsmJsScriptFunction(functionProxy);
+        asmJsFunc->SetEnvironment(environment);
+
+        Assert(!hasSuperReference);
+        asmJsFunc->SetHasSuperReference(hasSuperReference);
+
+        JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_FUNCTION(asmJsFunc, EtwTrace::GetFunctionId(functionProxy)));
+
+        return asmJsFunc;
+    }
+
     ScriptFunctionWithInlineCache::ScriptFunctionWithInlineCache(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType) :
         ScriptFunction(proxy, deferredPrototypeType), hasOwnInlineCaches(false)
     {}
@@ -716,7 +727,7 @@ namespace Js
     {
         SetHasInlineCaches(true);
         Js::FunctionBody* functionBody = this->GetFunctionBody();
-        this->m_inlineCaches = (Field(void*)*)functionBody->GetInlineCaches();
+        this->m_inlineCaches = functionBody->GetInlineCaches();
 #if DBG
         this->m_inlineCacheTypes = functionBody->GetInlineCacheTypes();
 #endif
@@ -770,7 +781,7 @@ namespace Js
                     InlineCache* inlineCache = (InlineCache*)(void*)this->m_inlineCaches[i];
                     if (isShutdown)
                     {
-                        memset(this->m_inlineCaches[i], 0, sizeof(InlineCache));
+                        inlineCache->Clear();
                     }
                     else if(!scriptContext->IsClosed())
                     {
@@ -791,7 +802,7 @@ namespace Js
                 {
                     if (isShutdown)
                     {
-                        memset(this->m_inlineCaches[i], 0, sizeof(IsInstInlineCache));
+                        ((IsInstInlineCache*)this->m_inlineCaches[i])->Clear();
                     }
                     else if (!scriptContext->IsClosed())
                     {
@@ -867,7 +878,7 @@ namespace Js
             this->m_inlineCacheTypes = RecyclerNewArrayLeafZ(functionBody->GetScriptContext()->GetRecycler(),
                 byte, totalCacheCount);
 #endif
-            this->m_inlineCaches = (Field(void*)*)inlineCaches;
+            this->m_inlineCaches = inlineCaches;
         }
     }
 

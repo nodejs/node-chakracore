@@ -105,7 +105,6 @@ public:
     IR::Instr *         LoadStackArgPtr(IR::Instr * instr);
     IR::Instr *         LoadHeapArguments(IR::Instr * instr);
     IR::Instr *         LoadHeapArgsCached(IR::Instr * instr);
-    IR::Instr *         LoadFuncExpression(IR::Instr * instr);
     IR::Instr *         LowerEntryInstr(IR::EntryInstr * entryInstr);
     void                GeneratePrologueStackProbe(IR::Instr *entryInstr, IntConstType frameSize);
     IR::Instr *         LowerExitInstr(IR::ExitInstr * exitInstr);
@@ -113,7 +112,6 @@ public:
     IR::Instr *         LowerExitInstrAsmJs(IR::ExitInstr * exitInstr);
     IR::Instr *         LowerInt64Assign(IR::Instr * instr);
     static void         EmitInt4Instr(IR::Instr *instr, bool signExtend = false);
-    static void         EmitPtrInstr(IR::Instr *instr);
     void                EmitLoadVar(IR::Instr *instrLoad, bool isFromUint32 = false, bool isHelper = false);
     void                EmitIntToFloat(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);
     void                EmitUIntToFloat(IR::Opnd *dst, IR::Opnd *src, IR::Instr *instrInsert);

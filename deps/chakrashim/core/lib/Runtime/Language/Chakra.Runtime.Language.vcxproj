@@ -35,6 +35,7 @@
         $(MSBuildThisFileDirectory)..\..\Runtime\Math;
         $(MSBuildThisFileDirectory)..\..\JITClient;
         $(ChakraJITIDLIntDir);
+        $(IcuIncludeDir)\common;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -88,7 +89,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)DynamicProfileMutator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)DynamicProfileStorage.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ExecutionMode.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)FunctionCodeGenJitTimeData.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)FunctionCodeGenRuntimeData.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)InlineCache.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptExceptionObject.cpp" />
@@ -174,11 +174,11 @@
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptNativeOperators.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)ObjTypeSpecFldInfo.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ModuleNamespace.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)SourceTextModuleRecord.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WAsmjsUtils.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ModuleNamespaceEnumerator.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)WebAssemblySource.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="amd64\StackFrame.h">
@@ -213,7 +213,6 @@
     <ClInclude Include="EvalMapRecord.h" />
     <ClInclude Include="ExecutionMode.h" />
     <ClInclude Include="ExecutionModes.h" />
-    <ClInclude Include="FunctionCodeGenJitTimeData.h" />
     <ClInclude Include="FunctionCodeGenRuntimeData.h" />
     <ClInclude Include="i386\StackFrame.h">
       <ExcludedFromBuild Condition="'$(Platform)'!='Win32'">true</ExcludedFromBuild>
@@ -223,7 +222,6 @@
     <ClInclude Include="JavascriptExceptionOperators.h" />
     <ClInclude Include="JavascriptMathOperators.h" />
     <ClInclude Include="JavascriptNativeOperators.h" />
-    <ClInclude Include="ObjTypeSpecFldInfo.h" />
     <ClInclude Include="ModuleNamespace.h" />
     <ClInclude Include="ModuleNamespaceEnumerator.h" />
     <ClInclude Include="ProfilingHelpers.h" />
@@ -256,6 +254,7 @@
     <ClInclude Include="TaggedInt.h" />
     <ClInclude Include="RuntimeLanguagePch.h" />
     <ClInclude Include="WAsmjsUtils.h" />
+    <ClInclude Include="WebAssemblySource.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="$(MSBuildThisFileDirectory)amd64\JavascriptOperatorsA.asm">

@@ -24,8 +24,8 @@ const cliArgs = WScript.Arguments || [];
 WScript.Flag("-wasmI64");
 
 if (cliArgs.length < 1) {
-  print("usage: <exe> spec.js -args <filename.json> [start index] [end index] [-v] [-nt] -endargs");
-  WScript.quit(0);
+  print("usage: <exe> spec.js -args <filename.json> [start index] [end index] [-verbose] [-nt] -endargs");
+  WScript.Quit(0);
 }
 
 if (typeof IMPORTS_FROM_OTHER_SCRIPT === "undefined") {
@@ -36,7 +36,7 @@ let passed = 0;
 let failed = 0;
 
 // Parse arguments
-const iVerbose = cliArgs.indexOf("-v");
+const iVerbose = cliArgs.indexOf("-verbose");
 const verbose = iVerbose !== -1;
 if (verbose) {
   cliArgs.splice(iVerbose, 1);
@@ -77,12 +77,12 @@ function getActionStr(action) {
 function getCommandStr(command) {
   const base = `(${iTest}) ${file}:${command.line}`;
   switch (command.type) {
-    case "module": return `${base}: generate module ${command.filename}${command.name ? ` as ${command.name}` : ""}`;
+    case "module": return `${base}: generate module ${command.name ? ` as ${command.name}` : ""}`;
     case "register": return `${base}: register module ${command.name || "$$"} as ${command.as}`;
     case "assert_malformed":
     case "assert_unlinkable":
     case "assert_uninstantiable":
-    case "assert_invalid": return `${base}: ${command.type} module ${command.filename}`;
+    case "assert_invalid": return `${base}: ${command.type} module`;
     case "assert_return": return `${base}: assert_return(${getActionStr(command.action)} == ${getArgsStr(command.expected)})`;
     case "action":
     case "assert_trap":
@@ -96,9 +96,9 @@ function getCommandStr(command) {
 function run(inPath, iStart, iEnd) {
   const lastSlash = Math.max(inPath.lastIndexOf("/"), inPath.lastIndexOf("\\"));
   const inDir = lastSlash === -1 ? "." : inPath.slice(0, lastSlash);
+  file = inPath;
   const data = read(inPath);
-  const jsonData = JSON.parse(data);
-  file = jsonData.source_filename;
+  const {commands} = WebAssembly.wabt.convertWast2Wasm(data, {spec: true});
 
   const registry = Object.assign({spectest: {
     print,
@@ -110,7 +110,7 @@ function run(inPath, iStart, iEnd) {
   const moduleRegistry = {};
   moduleRegistry.currentModule = null;
 
-  for (const command of jsonData.commands) {
+  for (const command of commands) {
     ++iTest;
     if (iTest < iStart) {
       // always run module/register commands that happens before iStart
@@ -160,8 +160,12 @@ function run(inPath, iStart, iEnd) {
         assertReturn(moduleRegistry, command);
         break;
 
-      case "assert_return_nan":
-        assertReturn(moduleRegistry, command, true);
+      case "assert_return_canonical_nan":
+        assertReturn(moduleRegistry, command, {canonicalNan: true});
+        break;
+
+      case "assert_return_arithmetic_nan":
+        assertReturn(moduleRegistry, command, {arithmeticNan: true});
         break;
 
       case "assert_exhaustion":
@@ -182,19 +186,21 @@ function run(inPath, iStart, iEnd) {
   end();
 }
 
-function createModule(baseDir, filename, registry, output) {
-  const moduleFile = readbuffer(baseDir + "/" + filename);
-  const u8a = new Uint8Array(moduleFile);
-  output.module = new WebAssembly.Module(u8a);
+function createModule(baseDir, buffer, registry, output) {
+  if (verbose) {
+    const u8a = new Uint8Array(buffer);
+    console.log(u8a);
+  }
+  output.module = new WebAssembly.Module(buffer);
   // We'll know if an error occurs at instanciation because output.module will be set
   output.instance = new WebAssembly.Instance(output.module, registry);
 }
 
 function moduleCommand(baseDir, command, registry, moduleRegistry) {
-  const {filename, name} = command;
+  const {buffer, name} = command;
   try {
     const output = {};
-    createModule(baseDir, filename, registry, output);
+    createModule(baseDir, buffer, registry, output);
     if (name) {
       moduleRegistry[name] = output.instance;
     }
@@ -208,12 +214,12 @@ function moduleCommand(baseDir, command, registry, moduleRegistry) {
 }
 
 function assertMalformed(baseDir, command) {
-  const {filename, text} = command;
+  const {buffer, text} = command;
   // Test hook to prevent deferred parsing
   WScript.Flag("-off:wasmdeferred");
   const output = {};
   try {
-    createModule(baseDir, filename, null, output);
+    createModule(baseDir, buffer, null, output);
     ++failed;
     print(`${getCommandStr(command)} failed. Should have had an error`);
   } catch (e) {
@@ -237,12 +243,12 @@ function assertMalformed(baseDir, command) {
 }
 
 function assertUnlinkable(baseDir, command, registry) {
-  const {filename, text} = command;
+  const {buffer, text} = command;
   // Test hook to prevent deferred parsing
   WScript.Flag("-off:wasmdeferred");
   const output = {};
   try {
-    createModule(baseDir, filename, registry, output);
+    createModule(baseDir, buffer, registry, output);
     ++failed;
     print(`${getCommandStr(command)} failed. Should have had an error`);
   } catch (e) {
@@ -263,12 +269,12 @@ function assertUnlinkable(baseDir, command, registry) {
 }
 
 function assertUninstantiable(baseDir, command, registry) {
-  const {filename, text} = command;
+  const {buffer, text} = command;
   // Test hook to prevent deferred parsing
   WScript.Flag("-off:wasmdeferred");
   const output = {};
   try {
-    createModule(baseDir, filename, registry, output);
+    createModule(baseDir, buffer, registry, output);
     ++failed;
     print(`${getCommandStr(command)} failed. Should have had an error`);
   } catch (e) {
@@ -289,19 +295,12 @@ function assertUninstantiable(baseDir, command, registry) {
 }
 
 function genConverters() {
-  /*
-  (module $converterBuffer
-    (func (export "convertI64") (param i64) (result i64) (get_local 0))
-    (func (export "toF32") (param i32) (result f32) (f32.reinterpret/i32 (get_local 0)))
-    (func (export "toF64") (param i64) (result f64) (f64.reinterpret/i64 (get_local 0)))
-  )
-  */
-  const converterBuffer = "\x00\x61\x73\x6d\x0d\x00\x00\x00\x01\x90\x80\x80\x80\x00\x03\x60\x01\x7e\x01\x7e\x60\x01\x7f\x01\x7d\x60\x01\x7e\x01\x7c\x03\x84\x80\x80\x80\x00\x03\x00\x01\x02\x07\x9e\x80\x80\x80\x00\x03\x0a\x63\x6f\x6e\x76\x65\x72\x74\x49\x36\x34\x00\x00\x05\x74\x6f\x46\x33\x32\x00\x01\x05\x74\x6f\x46\x36\x34\x00\x02\x0a\x9e\x80\x80\x80\x00\x03\x84\x80\x80\x80\x00\x00\x20\x00\x0b\x85\x80\x80\x80\x00\x00\x20\x00\xbe\x0b\x85\x80\x80\x80\x00\x00\x20\x00\xbf\x0b";
-  const buffer = new ArrayBuffer(converterBuffer.length);
-  const view = new Uint8Array(buffer);
-  for (let i = 0; i < converterBuffer.length; ++i) {
-    view[i] = converterBuffer.charCodeAt(i);
-  }
+  const buffer = WebAssembly.wabt.convertWast2Wasm(`
+(module
+  (func (export "convertI64") (param i64) (result i64) (get_local 0))
+  (func (export "toF32") (param i32) (result f32) (f32.reinterpret/i32 (get_local 0)))
+  (func (export "toF64") (param i64) (result f64) (f64.reinterpret/i64 (get_local 0)))
+)`);
   const module = new WebAssembly.Module(buffer);
   const instance = new WebAssembly.Instance(module);
   return instance.exports;
@@ -319,10 +318,51 @@ function mapWasmArg({type, value}) {
   throw new Error("Unknown argument type");
 }
 
-function assertReturn(moduleRegistry, command, checkNaN) {
+const wrappers = {};
+
+function getArthimeticNanWrapper(action, expected) {
+  if (action.type === "invoke") {
+    const args = action.args.map(({type}) => type);
+    const resultType = expected[0].type;
+    const signature = resultType + args.join("");
+
+    let wasmModule = wrappers[signature];
+    if (!wasmModule) {
+      const resultSize = resultType === "f32" ? 32 : 64;
+      const matchingIntType = resultSize === 32 ? "i32" : "i64";
+      const expectedResult = resultSize === 32 ? "0x7f800000" : "0x7ff0000000000000";
+
+      const params = args.length > 0 ? `(param ${args.join(" ")})` : "";
+      const newMod = `
+(module
+  (import "test" "fn" (func $fn ${params} (result ${resultType})))
+  (func (export "compare") ${params} (result i32)
+    ${args.map((arg, i) => `(get_local ${i|0})`).join(" ")}
+    (call $fn)
+    (${matchingIntType}.reinterpret/${resultType})
+    (${matchingIntType}.and (${matchingIntType}.const ${expectedResult}))
+    (${matchingIntType}.eq (${matchingIntType}.const ${expectedResult}))
+  )
+)`;
+      if (verbose) {
+        console.log(newMod);
+      }
+      const buf = WebAssembly.wabt.convertWast2Wasm(newMod);
+      wrappers[signature] = wasmModule = new WebAssembly.Module(buf);
+    }
+
+    return (fn, ...args) => {
+      const {exports: {compare}} = new WebAssembly.Instance(wasmModule, {test: {fn}});
+      return compare(...args);
+    }
+  }
+}
+
+function assertReturn(moduleRegistry, command, {canonicalNan, arithmeticNan} = {}) {
   const {action, expected} = command;
   try {
-    const res = runAction(moduleRegistry, action);
+    const wrapper = null; // arithmeticNan ? getArthimeticNanWrapper(action, expected) : null;
+    const res = runAction(moduleRegistry, action, wrapper);
     let success = true;
     if (expected.length === 0) {
       success = typeof res === "undefined";
@@ -332,7 +372,8 @@ function assertReturn(moduleRegistry, command, checkNaN) {
       const expectedResult = mapWasmArg(ex1);
       if (ex1.type === "i64") {
         success = expectedResult.low === res.low && expectedResult.high === res.high;
-      } else if (checkNaN || isNaN(expectedResult)) {
+      } else if (arithmeticNan || canonicalNan || isNaN(expectedResult)) {
+        // todo:: do exact compare for nan once bug resolved
         success = isNaN(res);
       } else {
         success = res === expectedResult;
@@ -414,7 +455,7 @@ function runSimpleAction(moduleRegistry, command) {
   }
 }
 
-function runAction(moduleRegistry, action) {
+function runAction(moduleRegistry, action, wrapper) {
   const m = action.module ? moduleRegistry[action.module] : moduleRegistry.currentModule;
   if (!m) {
     print("Module unavailable to run action");
@@ -424,12 +465,18 @@ function runAction(moduleRegistry, action) {
     case "invoke": {
       const {field, args} = action;
       const mappedArgs = args.map(({value}) => value);
-      const wasmFn = m.exports[field];
+      let wasmFn = m.exports[field];
+      if (wrapper) {
+        wasmFn = wrapper.bind(null, wasmFn);
+      }
       const res = wasmFn(...mappedArgs);
       return res;
     }
     case "get": {
       const {field} = action;
+      if (wrapper) {
+        return wrapper(m, field);
+      }
       return m.exports[field];
     }
     default:

@@ -5,6 +5,7 @@
 #ifdef PHASE
 PHASE(All)
     PHASE(BGJit)
+    PHASE(Module)
     PHASE(LibInit)
         PHASE(JsLibInit)
     PHASE(Parse)
@@ -33,14 +34,17 @@ PHASE(All)
     PHASE(Delay)
         PHASE(Speculation)
         PHASE(GatherCodeGenData)
-    PHASE(WasmBytecode)
-        PHASE(WasmParser)
+    PHASE(Wasm)
+        // Wasm frontend
+        PHASE(WasmBytecode)
         PHASE(WasmReader)
-        PHASE(WasmSection)
-        PHASE(WasmLEB128)
-        PHASE(WasmFunctionBody)
+            PHASE(WasmSection)
+            PHASE(WasmLEB128)
+        // Wasm features per functions
         PHASE(WasmDeferred)
         PHASE(WasmValidatePrejit)
+        PHASE(WasmInOut) // Trace input and output of wasm calls
+        PHASE(WasmMemWrites) // Trace memory writes
     PHASE(Asmjs)
         PHASE(AsmjsTmpRegisterAllocation)
         PHASE(AsmjsEncoder)
@@ -86,6 +90,7 @@ PHASE(All)
             PHASE(InlinerConstFold)
     PHASE(ExecBOIFastPath)
         PHASE(FGBuild)
+            PHASE(OptimizeTryFinally)
             PHASE(RemoveBreakBlock)
             PHASE(TailDup)
         PHASE(FGPeeps)
@@ -107,6 +112,7 @@ PHASE(All)
                 PHASE(CopyProp)
                     PHASE(ObjPtrCopyProp)
                 PHASE(ConstProp)
+                PHASE(Int64ConstProp)
                 PHASE(ConstFold)
                 PHASE(CSE)
                 PHASE(HoistConstInt)
@@ -231,6 +237,7 @@ PHASE(All)
         PHASE(InsertNOPs)
         PHASE(Encoder)
             PHASE(Emitter)
+            PHASE(DebugBreak)
 #if defined(_M_IX86) || defined(_M_X64)
             PHASE(BrShorten)
                 PHASE(LoopAlign)
@@ -294,6 +301,7 @@ PHASE(All)
         PHASE(InlineCache)
         PHASE(PolymorphicInlineCache)
         PHASE(MissingPropertyCache)
+        PHASE(PropertyStringCache)
         PHASE(CloneCacheInCollision)
         PHASE(ConstructorCache)
         PHASE(InlineCandidate)
@@ -374,22 +382,31 @@ PHASE(All)
 #define DEFAULT_CONFIG_ASMJS                (true)
 #define DEFAULT_CONFIG_AsmJsEdge            (false)
 #define DEFAULT_CONFIG_AsmJsStopOnError     (false)
+
+#ifdef ENABLE_SIMDJS
 #ifdef COMPILE_DISABLE_Simdjs
     // If Simdjs needs to be disabled by compile flag, DEFAULT_CONFIG_SIMDJS should be false
     #define DEFAULT_CONFIG_SIMDJS               (false)
 #else
     #define DEFAULT_CONFIG_SIMDJS               (false)
 #endif
-#define DEFAULT_CONFIG_WASM               (false)
+#endif // #ifdef ENABLE_SIMDJS
+
+#define DEFAULT_CONFIG_Wasm               (true)
 #define DEFAULT_CONFIG_WasmI64            (false)
 #if ENABLE_FAST_ARRAYBUFFER
     #define DEFAULT_CONFIG_WasmFastArray    (true)
 #else
     #define DEFAULT_CONFIG_WasmFastArray    (false)
 #endif
+#define DEFAULT_CONFIG_WasmCheckVersion     (true)
+#define DEFAULT_CONFIG_WasmFold             (true)
+#define DEFAULT_CONFIG_WasmMathExFilter     (false)
+#define DEFAULT_CONFIG_WasmIgnoreResponse   (false)
+#define DEFAULT_CONFIG_WasmMaxTableSize     (10000000)
 #define DEFAULT_CONFIG_BgJitDelayFgBuffer   (0)
 #define DEFAULT_CONFIG_BgJitPendingFuncCap  (31)
-#define DEFAULT_CONFIG_CurrentSourceInfo     (true)
+#define DEFAULT_CONFIG_CurrentSourceInfo    (true)
 #define DEFAULT_CONFIG_CreateFunctionProxy  (true)
 #define DEFAULT_CONFIG_HybridFgJit          (false)
 #define DEFAULT_CONFIG_HybridFgJitBgQueueLengthThreshold (32)
@@ -407,6 +424,7 @@ PHASE(All)
 #define DEFAULT_CONFIG_ForceExpireOnNonCacheCollect (false)
 #define DEFAULT_CONFIG_ForceFastPath        (false)
 #define DEFAULT_CONFIG_ForceJITLoopBody     (false)
+#define DEFAULT_CONFIG_ForceStaticInterpreterThunk (false)
 #define DEFAULT_CONFIG_ForceCleanPropertyOnCollect (false)
 #define DEFAULT_CONFIG_ForceCleanCacheOnCollect (false)
 #define DEFAULT_CONFIG_ForceGCAfterJSONParse (false)
@@ -417,7 +435,7 @@ PHASE(All)
 #define DEFAULT_CONFIG_ExtendedErrorStackForTestHost (false)
 #define DEFAULT_CONFIG_ForceSplitScope      (false)
 #define DEFAULT_CONFIG_DelayFullJITSmallFunc (0)
-
+#define DEFAULT_CONFIG_RedeferralCap         (3)
 
 //Following determines inline thresholds
 #define DEFAULT_CONFIG_InlineThreshold      (35)            //Default start
@@ -441,6 +459,9 @@ PHASE(All)
 #define DEFAULT_CONFIG_RecursiveInlineDepthMax      (8)      // Maximum inline depth for recursive calls
 #define DEFAULT_CONFIG_RecursiveInlineDepthMin      (2)      // Minimum inline depth for recursive call
 #define DEFAULT_CONFIG_InlineInLoopBodyScaleDownFactor    (4)
+#define DEFAULT_CONFIG_StringCacheMissPenalty (10)
+#define DEFAULT_CONFIG_StringCacheMissThreshold (-100)
+#define DEFAULT_CONFIG_StringCacheMissReset (-5000)
 
 #define DEFAULT_CONFIG_CloneInlinedPolymorphicCaches (true)
 #define DEFAULT_CONFIG_HighPrecisionDate    (false)
@@ -527,7 +548,7 @@ PHASE(All)
     // If ES6Module needs to be disabled by compile flag, DEFAULT_CONFIG_ES6Module should be false
     #define DEFAULT_CONFIG_ES6Module               (false)
 #else
-    #define DEFAULT_CONFIG_ES6Module               (false)
+    #define DEFAULT_CONFIG_ES6Module               (true)
 #endif
 #define DEFAULT_CONFIG_ES6Object               (true)
 #define DEFAULT_CONFIG_ES6Number               (true)
@@ -576,11 +597,8 @@ PHASE(All)
 #define DEFAULT_CONFIG_ES7ValuesEntries        (true)
 #define DEFAULT_CONFIG_ESObjectGetOwnPropertyDescriptors (true)
 
-#ifdef COMPILE_DISABLE_ESSharedArrayBuffer
-#define DEFAULT_CONFIG_ESSharedArrayBuffer     (false)
-#else
-#define DEFAULT_CONFIG_ESSharedArrayBuffer     (false)
-#endif
+#define DEFAULT_CONFIG_ESSharedArrayBuffer     (true)
+
 #define DEFAULT_CONFIG_ES6Verbose              (false)
 #define DEFAULT_CONFIG_ES6All                  (false)
 // ES6 DEFAULT BEHAVIOR
@@ -662,7 +680,8 @@ PHASE(All)
 #define DEFAULT_CONFIG_PerfHintLevel (1)
 #define DEFAULT_CONFIG_OOPJITMissingOpts (true)
 #define DEFAULT_CONFIG_OOPCFGRegistration (true)
-#define DEFAULT_CONFIG_RPCFailFastWait (3000)
+#define DEFAULT_CONFIG_ForceJITCFGCheck (false)
+#define DEFAULT_CONFIG_UseJITTrampoline (true)
 
 #define DEFAULT_CONFIG_FailFastIfDisconnectedDelegate    (false)
 
@@ -835,6 +854,7 @@ PHASE(All)
 #if DBG
 FLAGNR(Boolean, ArrayValidate         , "Validate each array for valid elements (default: false)", false)
 FLAGNR(Boolean, MemOpMissingValueValidate, "Validate Missing Value Tracking on memset/memcopy", false)
+FLAGNR(Boolean, OOPJITFixupValidate, "Validate that all entries in fixup list are allocated as NativeCodeData and that all NativeCodeData gets fixed up", false)
 #endif
 #ifdef ARENA_MEMORY_VERIFY
 FLAGNR(Boolean, ArenaNoFreeList       , "Do not free list in arena", false)
@@ -847,15 +867,22 @@ FLAGNR(String,  AsmDumpMode           , "Dump the final assembly to a file witho
 FLAGR (Boolean, Asmjs                 , "Enable Asmjs", DEFAULT_CONFIG_ASMJS)
 FLAGNR(Boolean, AsmJsStopOnError      , "Stop execution on any AsmJs validation errors", DEFAULT_CONFIG_AsmJsStopOnError)
 FLAGNR(Boolean, AsmJsEdge             , "Enable asm.js features which may have backward incompatible changes or not validate on old demos", DEFAULT_CONFIG_AsmJsEdge)
+FLAGNR(Boolean, Wasm                  , "Enable WebAssembly", DEFAULT_CONFIG_Wasm)
 FLAGNR(Boolean, WasmI64               , "Enable Int64 testing for WebAssembly. ArgIns can be [number,string,{low:number,high:number}]. Return values will be {low:number,high:number}", DEFAULT_CONFIG_WasmI64)
 FLAGNR(Boolean, WasmFastArray         , "Enable fast array implementation for WebAssembly", DEFAULT_CONFIG_WasmFastArray)
+FLAGNR(Boolean, WasmMathExFilter      , "Enable Math exception filter for WebAssembly", DEFAULT_CONFIG_WasmMathExFilter)
+FLAGNR(Boolean, WasmCheckVersion      , "Check the binary version for WebAssembly", DEFAULT_CONFIG_WasmCheckVersion)
+FLAGNR(Boolean, WasmFold              , "Enable i32/i64 const folding", DEFAULT_CONFIG_WasmFold)
+FLAGNR(Boolean, WasmIgnoreResponse    , "Ignore the type of the Response object", DEFAULT_CONFIG_WasmIgnoreResponse)
+FLAGNR(Number,  WasmMaxTableSize      , "Maximum size allowed to the WebAssembly.Table", DEFAULT_CONFIG_WasmMaxTableSize)
 
+#ifdef ENABLE_SIMDJS
 #ifndef COMPILE_DISABLE_Simdjs
     #define COMPILE_DISABLE_Simdjs 0
 #endif
 FLAGPR_REGOVR_EXP(Boolean, ES6, Simdjs, "Enable Simdjs", DEFAULT_CONFIG_SIMDJS)
-
 FLAGR(Boolean, Simd128TypeSpec, "Enable type-specialization of Simd128 symbols", false)
+#endif // #ifdef ENABLE_SIMDJS
 
 FLAGNR(Boolean, AssertBreak           , "Debug break on assert", false)
 FLAGNR(Boolean, AssertPopUp           , "Pop up asserts (default: false)", false)
@@ -900,11 +927,17 @@ FLAGNR(Boolean, ConsoleExitPause      , "Pause on exit when a console window is 
 #endif
 FLAGNR(Number,  ConstructorInlineThreshold      , "Maximum size in bytecodes of a constructor inline candidate with monomorphic field access", DEFAULT_CONFIG_ConstructorInlineThreshold)
 FLAGNR(Number,  ConstructorCallsRequiredToFinalizeCachedType, "Number of calls to a constructor required before the type cached in the constructor cache is finalized", DEFAULT_CONFIG_ConstructorCallsRequiredToFinalizeCachedType)
+FLAGNR(Number,  StringCacheMissPenalty, "Number of string cache hits per miss needed to be worth using cache", DEFAULT_CONFIG_StringCacheMissPenalty)
+FLAGNR(Number,  StringCacheMissThreshold, "Point at which we disable string property cache", DEFAULT_CONFIG_StringCacheMissThreshold)
+FLAGNR(Number,  StringCacheMissReset, "Point at which we try to start using string cache after giving up", DEFAULT_CONFIG_StringCacheMissReset)
 #ifdef SECURITY_TESTING
 FLAGNR(Boolean, CrashOnException      , "Removes the top-level exception handler, allowing jc.exe to crash on an unhandled exception.  No effect on IE. (default: false)", false)
 #endif
 FLAGNR(Boolean, Debug                 , "Disable phases (layout, security code, etc) which makes JIT output harder to debug", false)
 FLAGNR(NumberSet,  DebugBreak         , "Index of the function where you want to break", )
+FLAGNR(NumberTrioSet,  StatementDebugBreak, "Index of the statement where you want to break", )
+FLAGNR(Phases,  DebugBreakOnPhaseBegin, "Break into debugger at the beginning of given phase for listed function", )
+
 FLAGNR(Boolean, DebugWindow           , "Send console output to debugger window", false)
 FLAGNR(Boolean, DeferNested           , "Enable deferred parsing of nested function", DEFAULT_CONFIG_DeferNested)
 FLAGNR(Boolean, DeferTopLevelTillFirstCall      , "Enable tracking of deferred top level functions in a script file, until the first function of the script context is parsed.", DEFAULT_CONFIG_DeferTopLevelTillFirstCall)
@@ -990,10 +1023,7 @@ FLAGPR           (Boolean, ES6, ES7TrailingComma       , "Enable ES7 trailing co
 FLAGPR           (Boolean, ES6, ES6IsConcatSpreadable  , "Enable ES6 isConcatSpreadable Symbol"                     , DEFAULT_CONFIG_ES6IsConcatSpreadable)
 FLAGPR           (Boolean, ES6, ES6Math                , "Enable ES6 Math extensions"                               , DEFAULT_CONFIG_ES6Math)
 
-#ifndef COMPILE_DISABLE_ES6Module
-    #define COMPILE_DISABLE_ES6Module 0
-#endif
-FLAGPR_REGOVR_EXP(Boolean, ES6, ES6Module              , "Enable ES6 Modules"                                       , DEFAULT_CONFIG_ES6Module)
+FLAGPR           (Boolean, ES6, ES6Module              , "Enable ES6 Modules"                                       , DEFAULT_CONFIG_ES6Module)
 FLAGPR           (Boolean, ES6, ES6Object              , "Enable ES6 Object extensions"                             , DEFAULT_CONFIG_ES6Object)
 FLAGPR           (Boolean, ES6, ES6Number              , "Enable ES6 Number extensions"                             , DEFAULT_CONFIG_ES6Number)
 FLAGPR           (Boolean, ES6, ES6ObjectLiterals      , "Enable ES6 Object literal extensions"                     , DEFAULT_CONFIG_ES6ObjectLiterals)
@@ -1043,10 +1073,7 @@ FLAGPRA          (Boolean, ES6, ESSharedArrayBuffer    , sab     , "Enable Share
 
 // /ES6 (BLUE+1) features/flags
 
-#ifndef COMPILE_DISABLE_Wasm
-#define COMPILE_DISABLE_Wasm 0
-#endif
-FLAGPR_REGOVR_EXP(Boolean, ES6, Wasm, "Enable WebAssembly", DEFAULT_CONFIG_WASM)
+
 
 #ifdef ENABLE_PROJECTION
 FLAGNR(Boolean, WinRTDelegateInterfaces , "Treat WinRT Delegates as Interfaces when determining their resolvability.", DEFAULT_CONFIG_WinRTDelegateInterfaces)
@@ -1088,8 +1115,9 @@ FLAGNR(Boolean, ForceExpireOnNonCacheCollect, "Allow expiration collect outside 
 FLAGNR(Boolean, ForceFastPath         , "Force fast-paths in native codegen", DEFAULT_CONFIG_ForceFastPath)
 FLAGNR(Boolean, ForceFloatPref        , "Force float preferencing (JIT only)", false)
 FLAGNR(Boolean, ForceJITLoopBody      , "Force jit loop body only", DEFAULT_CONFIG_ForceJITLoopBody)
+FLAGNR(Boolean, ForceStaticInterpreterThunk, "Force using static interpreter thunk", DEFAULT_CONFIG_ForceStaticInterpreterThunk)
 FLAGNR(Boolean, DumpCommentsFromReferencedFiles, "Allow printing comments of comment-table of the referenced file as well (use with -trace:CommentTable)", DEFAULT_CONFIG_DumpCommentsFromReferencedFiles)
-FLAGNR(Number,  DelayFullJITSmallFunc , "Scale Full JIT threshold for small functions which are going to be inlined soon. To provide fraction scale, the final scale is scale following this option devided by 10", DEFAULT_CONFIG_DelayFullJITSmallFunc)
+FLAGNR(Number,  DelayFullJITSmallFunc , "Scale Full JIT threshold for small functions which are going to be inlined soon. To provide fraction scale, the final scale is scale following this option divided by 10", DEFAULT_CONFIG_DelayFullJITSmallFunc)
 
 #ifdef _M_ARM
 FLAGNR(Boolean, ForceLocalsPtr        , "Force use of alternative locals pointer (JIT only)", false)
@@ -1148,6 +1176,7 @@ FLAGNR(Number,  ConstantArgumentInlineThreshold, "Maximum size in bytecodes of a
 FLAGNR(Number,  RecursiveInlineThreshold, "Maximum size in bytecodes of an inline candidate to inline recursively", DEFAULT_CONFIG_RecursiveInlineThreshold)
 FLAGNR(Number,  RecursiveInlineDepthMax, "Maximum depth of a recursive inline call", DEFAULT_CONFIG_RecursiveInlineDepthMax)
 FLAGNR(Number,  RecursiveInlineDepthMin, "Maximum depth of a recursive inline call", DEFAULT_CONFIG_RecursiveInlineDepthMin)
+FLAGNR(Number,  RedeferralCap,           "Number of compilations beyond which we stop redeferring a function", DEFAULT_CONFIG_RedeferralCap)
 FLAGNR(Number,  Loop                  , "Number of times to execute the script (useful for profiling short benchmarks and finding leaks)", DEFAULT_CONFIG_Loop)
 FLAGRA(Number,  LoopInterpretCount    , lic, "Number of times loop has to be interpreted before JIT Loop body", DEFAULT_CONFIG_LoopInterpretCount)
 FLAGNR(Number,  LoopProfileIterations , "Number of iterations of a loop that must be profiled before jitting the loop body", DEFAULT_CONFIG_LoopProfileIterations)
@@ -1221,7 +1250,8 @@ FLAGNR(Boolean, NoDeferParse          , "Disable deferred parsing", false)
 FLAGNR(Boolean, NoLogo                , "No logo, which we don't display anyways", false)
 FLAGNR(Boolean, OOPJITMissingOpts     , "Use optimizations that are missing from OOP JIT", DEFAULT_CONFIG_OOPJITMissingOpts)
 FLAGNR(Boolean, OOPCFGRegistration    , "Do CFG registration OOP (under OOP JIT)", DEFAULT_CONFIG_OOPCFGRegistration)
-FLAGNR(Number,  RPCFailFastWait       , "Wait time for JIT process termination before triggering failfast on RPC failure", DEFAULT_CONFIG_RPCFailFastWait)
+FLAGNR(Boolean, ForceJITCFGCheck      , "Have JIT code always do CFG check even if range check succeeded", DEFAULT_CONFIG_ForceJITCFGCheck)
+FLAGNR(Boolean, UseJITTrampoline      , "Use trampoline for JIT entry points and emit range checks for it", DEFAULT_CONFIG_UseJITTrampoline)
 #ifdef _ARM64_
 FLAGR (Boolean, NoNative              , "Disable native codegen", true)
 #else
@@ -1305,6 +1335,7 @@ FLAGNR(Boolean, RecyclerForceMarkInterior, "Force all the mark as interior", DEF
 #if ENABLE_CONCURRENT_GC
 FLAGNR(Number,  RecyclerPriorityBoostTimeout, "Adjust priority boost timeout", 5000)
 FLAGNR(Number,  RecyclerThreadCollectTimeout, "Adjust thread collect timeout", 1000)
+FLAGRA(Boolean, EnableConcurrentSweepAlloc, ecsa, "Turns off the feature to allow allocations during concurrent sweep.", true)
 #endif
 #ifdef RECYCLER_PAGE_HEAP
 FLAGNR(Number,      PageHeap,             "Use full page for heap allocations", DEFAULT_CONFIG_PageHeap)
@@ -1312,6 +1343,7 @@ FLAGNR(Boolean,     PageHeapAllocStack,   "Capture alloc stack under page heap m
 FLAGNR(Boolean,     PageHeapFreeStack,    "Capture free stack under page heap mode", DEFAULT_CONFIG_PageHeapFreeStack)
 FLAGNR(NumberRange, PageHeapBucketNumber, "Bucket numbers to be used for page heap allocations", )
 FLAGNR(Number,      PageHeapBlockType,    "Type of blocks to use page heap for", DEFAULT_CONFIG_PageHeapBlockType)
+FLAGNR(Boolean,     PageHeapDecommitGuardPage, "Decommit page heap guard page", true)
 #endif
 #ifdef RECYCLER_NO_PAGE_REUSE
 FLAGNR(Boolean, RecyclerNoPageReuse,     "Do not reuse page in recycler", false)

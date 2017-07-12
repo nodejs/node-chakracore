@@ -82,7 +82,32 @@
 )
 
 (assert_invalid
+  (module (global f32 (f32.neg (f32.const 1))))
+  "constant expression required"
+)
+
+(assert_invalid
+  (module (global i32 (i32.const 0) (nop)))
+  "constant expression required"
+)
+
+(assert_invalid
+  (module (global i32 (nop)))
+  "constant expression required"
+)
+
+(assert_invalid
   (module (global i32 (f32.const 0)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (global i32 (i32.const 0) (i32.const 0)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (global i32 (;empty instruction sequence;)))
   "type mismatch"
 )
 
@@ -100,8 +125,8 @@
   (import "spectest" "global" (global i32))
 )
 (assert_malformed
-  (module
-    "\00asm" "\0d\00\00\00"
+  (module binary
+    "\00asm" "\01\00\00\00"
     "\02\94\80\80\80\00"             ;; import section
       "\01"                          ;; length 1
       "\08\73\70\65\63\74\65\73\74"  ;; "spectest"
@@ -113,8 +138,8 @@
   "invalid mutability"
 )
 (assert_malformed
-  (module
-    "\00asm" "\0d\00\00\00"
+  (module binary
+    "\00asm" "\01\00\00\00"
     "\02\94\80\80\80\00"             ;; import section
       "\01"                          ;; length 1
       "\08\73\70\65\63\74\65\73\74"  ;; "spectest"
@@ -130,8 +155,8 @@
   (global i32 (i32.const 0))
 )
 (assert_malformed
-  (module
-    "\00asm" "\0d\00\00\00"
+  (module binary
+    "\00asm" "\01\00\00\00"
     "\06\86\80\80\80\00"  ;; global section
       "\01"               ;; length 1
       "\7f"               ;; i32
@@ -142,8 +167,8 @@
   "invalid mutability"
 )
 (assert_malformed
-  (module
-    "\00asm" "\0d\00\00\00"
+  (module binary
+    "\00asm" "\01\00\00\00"
     "\06\86\80\80\80\00"  ;; global section
       "\01"               ;; length 1
       "\7f"               ;; i32
