@@ -13,6 +13,7 @@
     {
       'target_name': 'chakrashim',
       'type': '<(library)',
+      'hard_dependency': 1,
 
       'dependencies': [
         'chakra_js2c#host',
