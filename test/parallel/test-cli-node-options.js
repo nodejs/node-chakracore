@@ -26,6 +26,7 @@ disallow('--interactive');
 disallow('-i');
 disallow('--v8-options');
 disallow('--');
+disallow('--no_warnings'); // Node options don't allow '_' instead of '-'.
 
 function disallow(opt) {
   const options = {env: {NODE_OPTIONS: opt}};
@@ -40,10 +41,7 @@ function disallow(opt) {
 
 const printA = require.resolve('../fixtures/printA.js');
 
-if (!common.isChakraEngine) {
-  // V8 options
-  expect('--abort-on-uncaught-exception', 'B\n');
-}
+
 expect(`-r ${printA}`, 'A\nB\n');
 expect('--no-deprecation', 'B\n');
 expect('--no-warnings', 'B\n');
@@ -63,7 +61,12 @@ if (common.hasCrypto) {
 }
 if (!common.isChakraEngine) {
   // V8 options
+  expect('--abort-on-uncaught-exception', 'B\n');
+  expect('--abort_on_uncaught_exception', 'B\n');
+  expect('--abort_on-uncaught_exception', 'B\n');
   expect('--max_old_space_size=0', 'B\n');
+  expect('--max-old_space-size=0', 'B\n');
+  expect('--max-old-space-size=0', 'B\n');
 }
 
 function expect(opt, want) {
