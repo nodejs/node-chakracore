@@ -288,6 +288,31 @@ JsNameValueFromPropertyDescriptor(const napi_property_descriptor* p,
   }
   return napi_ok;
 }
+
+inline napi_status FindWrapper(JsValueRef obj, JsValueRef* result) {
+  // Search the object's prototype chain for the wrapper with external data.
+  // Usually the wrapper would be the first in the chain, but it is OK for
+  // other objects to be inserted in the prototype chain.
+  JsValueRef wrapper = obj;
+  bool hasExternalData = false;
+
+  JsValueRef nullValue = JS_INVALID_REFERENCE;
+  CHECK_JSRT(JsGetNullValue(&nullValue));
+
+  do {
+    CHECK_JSRT(JsGetPrototype(wrapper, &wrapper));
+    if (wrapper == JS_INVALID_REFERENCE || wrapper == nullValue) {
+      *result = JS_INVALID_REFERENCE;
+      return napi_ok;
+    }
+
+    CHECK_JSRT(JsHasExternalData(wrapper, &hasExternalData));
+  } while (!hasExternalData);
+
+  *result = wrapper;
+  return napi_ok;
+}
+
 }  // end of namespace jsrtimpl
 
 // Intercepts the Node-V8 module registration callback. Converts parameters
@@ -1351,6 +1376,10 @@ napi_status napi_wrap(napi_env env,
                       napi_ref* result) {
   JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
 
+  JsValueRef wrapper = JS_INVALID_REFERENCE;
+  CHECK_NAPI(jsrtimpl::FindWrapper(value, &wrapper));
+  RETURN_STATUS_IF_FALSE(wrapper == JS_INVALID_REFERENCE, napi_invalid_arg);
+
   jsrtimpl::ExternalData* externalData = new jsrtimpl::ExternalData(
     env, native_object, finalize_cb, finalize_hint);
   if (externalData == nullptr) return napi_set_last_error(napi_generic_failure);
@@ -1376,18 +1405,9 @@ napi_status napi_wrap(napi_env env,
 napi_status napi_unwrap(napi_env env, napi_value js_object, void** result) {
   JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
 
-  // Search the object's prototype chain for the wrapper with external data.
-  // Usually the wrapper would be the first in the chain, but it is OK for
-  // other objects to be inserted in the prototype chain.
-  JsValueRef wrapper = value;
-  bool hasExternalData = false;
-  do {
-    CHECK_JSRT(JsGetPrototype(wrapper, &wrapper));
-    if (wrapper == JS_INVALID_REFERENCE) {
-      return  napi_invalid_arg;
-    }
-    CHECK_JSRT(JsHasExternalData(wrapper, &hasExternalData));
-  } while (!hasExternalData);
+  JsValueRef wrapper = JS_INVALID_REFERENCE;
+  CHECK_NAPI(jsrtimpl::FindWrapper(value, &wrapper));
+  RETURN_STATUS_IF_FALSE(wrapper != JS_INVALID_REFERENCE, napi_invalid_arg);
 
   jsrtimpl::ExternalData* externalData;
   CHECK_JSRT(JsGetExternalData(
