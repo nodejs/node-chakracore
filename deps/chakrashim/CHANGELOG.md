@@ -1,5 +1,22 @@
 # ChakraShim ChangeLog
 
+## 2017-07-14, node-chakracore-v8.1.4
+
+### Commits
+
+* [[`b135790c6d`](https://github.com/nodejs/node-chakracore/commit/b135790c6d)] - [Merge Microsoft/Chakracore@359cca5ec4] [MERGE #3349 @MSLaguana] Update version number to 1.5.3
+* [[`bb53c85c12`](https://github.com/nodejs/node-chakracore/commit/bb53c85c12)] - [Merge Microsoft/Chakracore@bd1dba2da8] [MERGE #3341 @akroshg] 17-07 ChakraCore servicing release
+* [[`0fbfbf91f7`](https://github.com/nodejs/node-chakracore/commit/0fbfbf91f7)] - [Merge Microsoft/Chakracore@5d9535ac77] [MERGE #3190 @obastemur] xplat: fix ICU lib tilde path problem
+* [[`65e3ec19c9`](https://github.com/nodejs/node-chakracore/commit/65e3ec19c9)] - [Merge Microsoft/Chakracore@f91c91297d] [MERGE #3051 @MSLaguana] Updating release notes link
+* [[`06599312a2`](https://github.com/nodejs/node-chakracore/commit/06599312a2)] - src: TTD fixes with async-wrap
+* [[`a5714cc671`](https://github.com/nodejs/node-chakracore/commit/a5714cc671)] - Merge tag 'v8.1.4' into v8.x
+* [[`fa7db0b9eb`](https://github.com/nodejs/node-chakracore/commit/fa7db0b9eb)] - build: split up cpplint to avoid long cmd lines
+* [[`fbc9efaa6f`](https://github.com/nodejs/node-chakracore/commit/fbc9efaa6f)] - doc: fix broken markdown link
+* [[`e7b475fbb3`](https://github.com/nodejs/node-chakracore/commit/e7b475fbb3)] - doc: update readme to use the master branch
+* [[`74c0740ae6`](https://github.com/nodejs/node-chakracore/commit/74c0740ae6)] - test: skip a check in test_handle_scope
+* [[`89800a5324`](https://github.com/nodejs/node-chakracore/commit/89800a5324)] - n-api: removed `napi_status_last` usage
+* [[`306b517339`](https://github.com/nodejs/node-chakracore/commit/306b517339)] - Merge tag 'v8.1.3' into v8.x
+
 ## 2017-06-27, node-chakracore-8.1.2-pre2
 
 ### Commits
