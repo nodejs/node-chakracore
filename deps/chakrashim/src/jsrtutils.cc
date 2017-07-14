@@ -21,6 +21,10 @@
 #include <stdarg.h>
 #include "jsrtutils.h"
 #include <string>
+#if !defined(_WIN32) && !defined(__APPLE__)
+#include <limits.h> // UINT_MAX
+#endif
+#include "pal/pal.h"
 
 namespace jsrt {
 
@@ -898,32 +902,38 @@ JsValueRef CHAKRA_CALLBACK CollectGarbage(
 }
 
 void IdleGC(uv_timer_t *timerHandler) {
-#ifdef _WIN32
-  unsigned int nextIdleTicks = 0;
-  CHAKRA_VERIFY(JsIdle(&nextIdleTicks) == JsNoError);
+  static unsigned int prevIdleTicks = 0;
+  static DWORD prevTicks = 0;
+
+  unsigned int currentIdleTicks = 0;
+  unsigned int diffIdleTicks = 0, diffTicks = 0;
+
+  CHAKRA_VERIFY(JsIdle(&currentIdleTicks) == JsNoError);
   DWORD currentTicks = GetTickCount();
+
+  diffIdleTicks = currentIdleTicks - prevIdleTicks;
+  prevIdleTicks = currentIdleTicks;
+
+  diffTicks = currentTicks - prevTicks;
+  prevTicks = currentTicks;
 
   // If idleGc completed, we don't need to schedule anything.
   // simply reset the script execution flag so that idleGC
   // is retriggered only when scripts are executed.
-  if (nextIdleTicks == UINT_MAX) {
+  if (currentIdleTicks == UINT_MAX) {
     IsolateShim::GetCurrent()->ResetScriptExecuted();
     IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
     return;
   }
 
   // If IdleGC didn't complete, retry doing it after diff.
-  if (nextIdleTicks > currentTicks) {
-    unsigned int diff = nextIdleTicks - currentTicks;
+  if (diffIdleTicks > diffTicks) {
+    unsigned int diff = diffIdleTicks - diffTicks;
+    if (diff > 2000) diff = 2000; // limit the difference to 2s
     ScheduleIdleGcTask(diff);
   } else {
     IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
   }
-#else
-  // CHAKRA-TODO: implement. No GetTickCount()
-  IsolateShim::GetCurrent()->ResetScriptExecuted();
-  IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
-#endif
 }
 
 void PrepareIdleGC(uv_prepare_t* prepareHandler) {

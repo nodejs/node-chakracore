@@ -97,6 +97,7 @@
         'src/base/macros.h',
         'src/base/platform/platform.cc',
         'src/base/platform/platform.h',
+        'src/pal/pal.cc',
         'src/jsrtcachedpropertyidref.inc',
         'src/jsrtcontextcachedobj.inc',
         'src/jsrtcontextshim.cc',
