@@ -25,6 +25,6 @@
 
 uint64_t GetTickCount();
 
-#endif // !_WIN32
+#endif  // !_WIN32
 
-#endif // DEPS_CHAKRASHIM_SRC_PAL_PAL_H_
+#endif  // DEPS_CHAKRASHIM_SRC_PAL_PAL_H_
