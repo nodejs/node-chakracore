@@ -487,6 +487,13 @@ parser.add_option('--chakracore-ninja-build',
     default=False,
     help='Enable build of ChakraCore using ninja (requires engine to be ChakraCore)')
 
+parser.add_option('--chakracore-lto-build',
+    action='store_true',
+    dest='chakracore_lto_build',
+    default=False,
+    help='Enable build of ChakraCore using LTO (requires engine to be ChakraCore)')
+
+
 parser.add_option('--shared',
     action='store_true',
     dest='shared',
@@ -1340,6 +1347,13 @@ def configure_engine(o):
       o['variables']['chakracore_parallel_build_flags'] = [ "--ninja" ]
     else:
       o['variables']['chakracore_parallel_build_flags'] = []
+    if options.chakracore_lto_build:
+      o['variables']['chakracore_use_lto'] = "true"
+      o['variables']['chakracore_lto_build_flags'] = [ "--lto" ]
+    else:
+      o['variables']['chakracore_use_lto'] = "false"
+      o['variables']['chakracore_lto_build_flags'] = [ ]
+
 
 
 output = {
