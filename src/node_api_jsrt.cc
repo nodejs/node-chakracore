@@ -13,6 +13,7 @@
 #include <node_buffer.h>
 #include <node_object_wrap.h>
 #include <env.h>
+#include <array>
 #include <vector>
 #include <algorithm>
 #include "ChakraCore.h"
@@ -366,6 +367,105 @@ inline napi_status FindWrapper(JsValueRef obj, JsValueRef* result) {
   } while (!hasExternalData);
 
   *result = wrapper;
+  return napi_ok;
+}
+
+static napi_status SetErrorCode(JsValueRef error,
+                                napi_value code,
+                                const char* codeString) {
+  if ((code != nullptr) || (codeString != nullptr)) {
+    JsValueRef codeValue = reinterpret_cast<JsValueRef>(code);
+    if (codeValue != JS_INVALID_REFERENCE) {
+      JsValueType valueType = JsUndefined;
+      CHECK_JSRT(JsGetValueType(codeValue, &valueType));
+      RETURN_STATUS_IF_FALSE(valueType == JsString, napi_string_expected);
+    } else {
+      CHECK_JSRT(JsCreateString(codeString, strlen(codeString), &codeValue));
+    }
+
+    const char* codePropIdName = "code";
+    JsPropertyIdRef codePropId = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreatePropertyId(codePropIdName,
+                                  strlen(codePropIdName),
+                                  &codePropId));
+
+    CHECK_JSRT(JsSetProperty(error, codePropId, codeValue, true));
+
+    JsValueRef nameArray = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreateArray(0, &nameArray));
+
+    const char* pushPropIdName = "push";
+    JsPropertyIdRef pushPropId = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreatePropertyId(pushPropIdName,
+                                  strlen(pushPropIdName),
+                                  &pushPropId));
+
+    JsValueRef pushFunction = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsGetProperty(nameArray, pushPropId, &pushFunction));
+
+    const char* namePropIdName = "name";
+    JsPropertyIdRef namePropId = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreatePropertyId(namePropIdName,
+                                  strlen(namePropIdName),
+                                  &namePropId));
+
+    bool hasProp = false;
+    CHECK_JSRT(JsHasProperty(error, namePropId, &hasProp));
+
+    JsValueRef nameValue = JS_INVALID_REFERENCE;
+    std::array<JsValueRef, 2> args = { nameArray, JS_INVALID_REFERENCE };
+
+    if (hasProp) {
+      CHECK_JSRT(JsGetProperty(error, namePropId, &nameValue));
+
+      args[1] = nameValue;
+      CHECK_JSRT(JsCallFunction(pushFunction,
+                                args.data(),
+                                args.size(),
+                                nullptr));
+    }
+
+    const char* openBracket = " [";
+    JsValueRef openBracketValue = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreateString(openBracket,
+                              strlen(openBracket),
+                              &openBracketValue));
+
+    args[1] = openBracketValue;
+    CHECK_JSRT(JsCallFunction(pushFunction, args.data(), args.size(), nullptr));
+
+    args[1] = codeValue;
+    CHECK_JSRT(JsCallFunction(pushFunction, args.data(), args.size(), nullptr));
+
+    const char* closeBracket = "]";
+    JsValueRef closeBracketValue = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreateString(closeBracket,
+                              strlen(closeBracket),
+                              &closeBracketValue));
+
+    args[1] = closeBracketValue;
+    CHECK_JSRT(JsCallFunction(pushFunction, args.data(), args.size(), nullptr));
+
+    JsValueRef emptyValue = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreateString("", 0, &emptyValue));
+
+    const char* joinPropIdName = "join";
+    JsPropertyIdRef joinPropId = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsCreatePropertyId(joinPropIdName,
+                                  strlen(joinPropIdName),
+                                  &joinPropId));
+
+    JsValueRef joinFunction = JS_INVALID_REFERENCE;
+    CHECK_JSRT(JsGetProperty(nameArray, joinPropId, &joinFunction));
+
+    args[1] = emptyValue;
+    CHECK_JSRT(JsCallFunction(joinFunction,
+                              args.data(),
+                              args.size(),
+                              &nameValue));
+
+    CHECK_JSRT(JsSetProperty(error, namePropId, nameValue, true));
+  }
   return napi_ok;
 }
 
@@ -822,7 +922,10 @@ napi_status napi_instanceof(napi_env env,
   napi_valuetype valuetype;
   CHECK_NAPI(napi_typeof(env, c, &valuetype));
   if (valuetype != napi_function) {
-    napi_throw_type_error(env, "constructor must be a function");
+    napi_throw_type_error(env,
+                          "ERR_NAPI_CONS_FUNCTION",
+                          "constructor must be a function");
+
     return napi_set_last_error(napi_invalid_arg);
   }
 
@@ -1044,30 +1147,48 @@ napi_status napi_create_symbol(napi_env env,
 }
 
 napi_status napi_create_error(napi_env env,
+                              napi_value code,
                               napi_value msg,
                               napi_value* result) {
   CHECK_ARG(result);
   JsValueRef message = reinterpret_cast<JsValueRef>(msg);
-  CHECK_JSRT(JsCreateError(message, reinterpret_cast<JsValueRef*>(result)));
+
+  JsValueRef error = JS_INVALID_REFERENCE;
+  CHECK_JSRT(JsCreateError(message, &error));
+  CHECK_NAPI(jsrtimpl::SetErrorCode(error, code, nullptr));
+
+  *result = reinterpret_cast<napi_value>(error);
   return napi_ok;
 }
 
 napi_status napi_create_type_error(napi_env env,
+                                   napi_value code,
                                    napi_value msg,
                                    napi_value* result) {
   CHECK_ARG(result);
   JsValueRef message = reinterpret_cast<JsValueRef>(msg);
-  CHECK_JSRT(JsCreateTypeError(message, reinterpret_cast<JsValueRef*>(result)));
+
+  JsValueRef error = JS_INVALID_REFERENCE;
+  CHECK_JSRT(JsCreateTypeError(message,  &error));
+  CHECK_NAPI(jsrtimpl::SetErrorCode(error, code, nullptr));
+
+  *result = reinterpret_cast<napi_value>(error);
   return napi_ok;
 }
 
 napi_status napi_create_range_error(napi_env env,
+                                    napi_value code,
                                     napi_value msg,
                                     napi_value* result) {
   CHECK_ARG(result);
   JsValueRef message = reinterpret_cast<JsValueRef>(msg);
+
+  JsValueRef error = JS_INVALID_REFERENCE;
   CHECK_JSRT(
-    JsCreateRangeError(message, reinterpret_cast<JsValueRef*>(result)));
+    JsCreateRangeError(message,  &error));
+  CHECK_NAPI(jsrtimpl::SetErrorCode(error, code, nullptr));
+
+  *result = reinterpret_cast<napi_value>(error);
   return napi_ok;
 }
 
@@ -1204,32 +1325,41 @@ napi_status napi_throw(napi_env env, napi_value error) {
   return napi_ok;
 }
 
-napi_status napi_throw_error(napi_env env, const char* msg) {
+napi_status napi_throw_error(napi_env env,
+                             const char* code,
+                             const char* msg) {
   JsValueRef strRef;
   JsValueRef exception;
   size_t length = strlen(msg);
   CHECK_JSRT(JsCreateString(msg, length, &strRef));
   CHECK_JSRT(JsCreateError(strRef, &exception));
+  CHECK_NAPI(jsrtimpl::SetErrorCode(exception, nullptr, code));
   CHECK_JSRT(JsSetException(exception));
   return napi_ok;
 }
 
-napi_status napi_throw_type_error(napi_env env, const char* msg) {
+napi_status napi_throw_type_error(napi_env env,
+                                  const char* code,
+                                  const char* msg) {
   JsValueRef strRef;
   JsValueRef exception;
   size_t length = strlen(msg);
   CHECK_JSRT(JsCreateString(msg, length, &strRef));
   CHECK_JSRT(JsCreateTypeError(strRef, &exception));
+  CHECK_NAPI(jsrtimpl::SetErrorCode(exception, nullptr, code));
   CHECK_JSRT(JsSetException(exception));
   return napi_ok;
 }
 
-napi_status napi_throw_range_error(napi_env env, const char* msg) {
+napi_status napi_throw_range_error(napi_env env,
+                                   const char* code,
+                                   const char* msg) {
   JsValueRef strRef;
   JsValueRef exception;
   size_t length = strlen(msg);
   CHECK_JSRT(JsCreateString(msg, length, &strRef));
   CHECK_JSRT(JsCreateRangeError(strRef, &exception));
+  CHECK_NAPI(jsrtimpl::SetErrorCode(exception, nullptr, code));
   CHECK_JSRT(JsSetException(exception));
   return napi_ok;
 }
