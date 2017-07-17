@@ -22,7 +22,7 @@
 #include "jsrtutils.h"
 #include <string>
 #if !defined(_WIN32) && !defined(__APPLE__)
-#include <limits.h> // UINT_MAX
+#include <limits.h>  // UINT_MAX
 #endif
 #include "pal/pal.h"
 
@@ -929,7 +929,7 @@ void IdleGC(uv_timer_t *timerHandler) {
   // If IdleGC didn't complete, retry doing it after diff.
   if (diffIdleTicks > diffTicks) {
     unsigned int diff = diffIdleTicks - diffTicks;
-    if (diff > 2000) diff = 2000; // limit the difference to 2s
+    if (diff > 2000) diff = 2000;  // limit the difference to 2s
     ScheduleIdleGcTask(diff);
   } else {
     IsolateShim::GetCurrent()->ResetIsIdleGcScheduled();
