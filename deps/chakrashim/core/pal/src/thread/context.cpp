@@ -757,8 +757,6 @@ DWORD CONTEXTGetExceptionCodeForSignal(const siginfo_t *siginfo,
 #endif  // ILL_ILLOPC
 
 #else // !HAVE_MACH_EXCEPTIONS
-#if !(defined(__IOS__) && defined(_M_ARM64))
-//FIXME: Removed to build for iOS ARM64.
 #include <mach/message.h>
 #include <mach/thread_act.h>
 #include "../exception/machexception.h"
@@ -777,6 +775,10 @@ CONTEXT_GetThreadContextFromPort(
     // Extract the CONTEXT from the Mach thread.
 
     kern_return_t MachRet = KERN_SUCCESS;
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     mach_msg_type_number_t StateCount;
     thread_state_flavor_t StateFlavor;
 
@@ -822,7 +824,7 @@ CONTEXT_GetThreadContextFromPort(
 
         CONTEXT_GetThreadContextFromThreadState(StateFlavor, (thread_state_t)&State, lpContext);
     }
-
+#endif // defined(__IOS__) && defined(_M_ARM64)
 exit:
     return MachRet;
 }
@@ -845,6 +847,10 @@ CONTEXT_GetThreadContextFromThreadState(
     thread_state_t threadState,
     LPCONTEXT lpContext)
 {
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     switch (threadStateFlavor)
     {
 #ifdef _X86_
@@ -987,6 +993,7 @@ CONTEXT_GetThreadContextFromThreadState(
             ASSERT("Invalid thread state flavor %d\n", threadStateFlavor);
             break;
     }
+#endif // defined(__IOS__) && defined(_M_ARM64)
 }
 
 /*++
@@ -1002,6 +1009,10 @@ CONTEXT_GetThreadContext(
          LPCONTEXT lpContext)
 {
     BOOL ret = FALSE;
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
 
     if (lpContext == NULL)
     {
@@ -1032,6 +1043,7 @@ CONTEXT_GetThreadContext(
         ASSERT("Cross-process GetThreadContext() is not supported on this platform\n");
         SetLastError(ERROR_NOACCESS);
     }
+#endif // defined(__IOS__) && defined(_M_ARM64)
 
 EXIT:
     return ret;
@@ -1049,6 +1061,10 @@ CONTEXT_SetThreadContextOnPort(
            IN CONST CONTEXT *lpContext)
 {
     kern_return_t MachRet = KERN_SUCCESS;
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     mach_msg_type_number_t StateCount;
     thread_state_flavor_t StateFlavor;
 
@@ -1213,6 +1229,7 @@ CONTEXT_SetThreadContextOnPort(
             goto EXIT;
         }
     }
+#endif // defined(__IOS__) && defined(_M_ARM64)
 
 EXIT:
     return MachRet;
@@ -1231,7 +1248,10 @@ CONTEXT_SetThreadContext(
            CONST CONTEXT *lpContext)
 {
     BOOL ret = FALSE;
-
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     if (lpContext == NULL)
     {
         ERROR("Invalid lpContext parameter value\n");
@@ -1263,11 +1283,11 @@ CONTEXT_SetThreadContext(
         MachSetThreadContext(const_cast<CONTEXT *>(lpContext));
         ASSERT("MachSetThreadContext should never return\n");
     }
+#endif // defined(__IOS__) && defined(_M_ARM64)
 
 EXIT:
     return ret;
 }
-#endif// !(defined(__IOS__) && defined(_M_ARM64))
 
 #endif // !HAVE_MACH_EXCEPTIONS
 

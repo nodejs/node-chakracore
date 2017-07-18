@@ -21,8 +21,6 @@ SET_DEFAULT_DEBUG_CHANNEL(EXCEPT); // some headers have code with asserts, so do
 #include "pal/thread.hpp"
 #include "pal/palinternal.h"
 #if HAVE_MACH_EXCEPTIONS
-#if !(defined(__IOS__) && defined(_M_ARM64))
-//FIXME: Removed to build for iOS ARM64.
 #include "machexception.h"
 #include "pal/critsect.h"
 #include "pal/debug.h"
@@ -218,6 +216,10 @@ Return value :
 
 PAL_ERROR CorUnix::CPalThread::EnableMachExceptions()
 {
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
 #if !DISABLE_EXCEPTIONS
     TRACE("%08X: Enter()\n", (unsigned int)(size_t)this);
 
@@ -373,6 +375,7 @@ PAL_ERROR CorUnix::CPalThread::EnableMachExceptions()
         memcpy(pSavedHandlers->m_flavors, rgFlavors, sizeof(rgFlavors));
     }
 #endif // !DISABLE_EXCEPTIONS
+#endif // defined(__IOS__) && defined(_M_ARM64)
     return ERROR_SUCCESS;
 }
 
@@ -395,6 +398,10 @@ PAL_ERROR CorUnix::CPalThread::DisableMachExceptions()
     TRACE("%08X: Leave()\n", (unsigned int)(size_t)this);
 
     PAL_ERROR palError = NO_ERROR;
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
 
     // We only store exceptions when we're installing exceptions.
     if (0 == GetExceptionMask())
@@ -438,6 +445,7 @@ PAL_ERROR CorUnix::CPalThread::DisableMachExceptions()
         ASSERT("thread_set_exception_ports failed: %d\n", MachRet);
         palError = UTIL_MachErrorToPalError(MachRet);
     }
+#endif //defined(__IOS__) && defined(_M_ARM64)
 
     return palError;
 #endif // !DISABLE_EXCEPTIONS
@@ -564,6 +572,10 @@ BuildExceptionRecord(
     MachExceptionInfo& exceptionInfo,               // [in] exception info
     EXCEPTION_RECORD *pExceptionRecord)             // [out] Used to return exception parameters
 {
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     memset(pExceptionRecord, 0, sizeof(EXCEPTION_RECORD));
 
     DWORD exceptionCode = EXCEPTION_ILLEGAL_INSTRUCTION;
@@ -675,6 +687,7 @@ BuildExceptionRecord(
     }
 
     pExceptionRecord->ExceptionCode = exceptionCode;
+#endif //defined(__IOS__) && defined(_M_ARM64)
 }
 
 #ifdef _DEBUG
@@ -736,6 +749,10 @@ HijackFaultingThread(
     mach_port_t task,               // [in] task the exception happened on
     MachMessage& message)           // [in] exception message
 {
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     MachExceptionInfo exceptionInfo(thread, message);
     EXCEPTION_RECORD exceptionRecord;
     CONTEXT threadContext;
@@ -1042,6 +1059,7 @@ HijackFaultingThread(
 #else
 #error HijackFaultingThread not defined for this architecture
 #endif
+#endif //defined(__IOS__) && defined(_M_ARM64)
 }
 
 /*++
@@ -1274,6 +1292,20 @@ MachExceptionInfo::MachExceptionInfo(mach_port_t thread, MachMessage& message)
     for (int i = 0; i < SubcodeCount; i++)
         Subcodes[i] = message.GetExceptionCode(i);
 
+#if defined(__IOS__) && defined(_M_ARM64)
+//TODO: test iOS ARM64's thread state structures.
+    mach_msg_type_number_t count = ARM_THREAD_STATE_COUNT;
+    machret = thread_get_state(thread, ARM_THREAD_STATE, (thread_state_t)&ThreadState, &count);
+    CHECK_MACH("thread_get_state", machret);
+
+    count = ARM_VFP_STATE_COUNT;
+    machret = thread_get_state(thread, ARM_VFP_STATE, (thread_state_t)&FloatState, &count);
+    CHECK_MACH("thread_get_state(float)", machret);
+
+    count = ARM_DEBUG_STATE_COUNT;
+    machret = thread_get_state(thread, ARM_DEBUG_STATE, (thread_state_t)&DebugState, &count);
+    CHECK_MACH("thread_get_state(debug)", machret);
+#else
     mach_msg_type_number_t count = x86_THREAD_STATE_COUNT;
     machret = thread_get_state(thread, x86_THREAD_STATE, (thread_state_t)&ThreadState, &count);
     CHECK_MACH("thread_get_state", machret);
@@ -1285,6 +1317,7 @@ MachExceptionInfo::MachExceptionInfo(mach_port_t thread, MachMessage& message)
     count = x86_DEBUG_STATE_COUNT;
     machret = thread_get_state(thread, x86_DEBUG_STATE, (thread_state_t)&DebugState, &count);
     CHECK_MACH("thread_get_state(debug)", machret);
+#endif // defined(__IOS__) && defined(_M_ARM64)
 }
 
 /*++
@@ -1301,6 +1334,10 @@ Return value :
 --*/
 void MachExceptionInfo::RestoreState(mach_port_t thread)
 {
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     // If we are restarting a breakpoint, we need to bump the IP back one to
     // point at the actual int 3 instructions.
     if (ExceptionType == EXC_BREAKPOINT)
@@ -1324,6 +1361,7 @@ void MachExceptionInfo::RestoreState(mach_port_t thread)
 
     machret = thread_set_state(thread, x86_DEBUG_STATE, (thread_state_t)&DebugState, x86_DEBUG_STATE_COUNT);
     CHECK_MACH("thread_set_state(debug)", machret);
+#endif //defined(__IOS__) && defined(_M_ARM64)
 }
 
 /*++
@@ -1507,6 +1545,10 @@ InjectActivationInternal(CPalThread* pThread)
     kern_return_t MachRet = thread_suspend(threadPort);
     palError = (MachRet == KERN_SUCCESS) ? NO_ERROR : ERROR_GEN_FAILURE;
 
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     if (palError == NO_ERROR)
     {
         mach_msg_type_number_t count;
@@ -1573,7 +1615,7 @@ InjectActivationInternal(CPalThread* pThread)
         printf("Suspension failed with error 0x%x\n", palError);
     }
 
+#endif //defined(__IOS__) && defined(_M_ARM64)
     return palError;
 }
-#endif //!(defined(__IOS__) && defined(_M_ARM64))
 #endif // HAVE_MACH_EXCEPTIONS

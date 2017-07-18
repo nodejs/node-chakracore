@@ -17,13 +17,15 @@ Abstract:
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#if defined(__IOS__) && defined(_M_ARM64)
+//iOS ARM64's thread state structure header file.
+#include <mach/arm/thread_status.h>
+#else
 #include <mach/thread_status.h>
-
+#endif // defined(__IOS__) && defined(_M_ARM64)
 using namespace CorUnix;
 
 #if HAVE_MACH_EXCEPTIONS
-#if !(defined(__IOS__) && defined(_M_ARM64))
-//FIXME: Removed to build for iOS ARM64.
 
 #if defined(_AMD64_)
 #define MACH_EH_TYPE(x) mach_##x
@@ -85,9 +87,16 @@ struct MachExceptionInfo
     exception_type_t ExceptionType;
     mach_msg_type_number_t SubcodeCount;
     MACH_EH_TYPE(exception_data_type_t) Subcodes[2];
+#if defined(__IOS__) && defined(_M_ARM64)
+//TODO: Test iOS ARM64's thread state structure.
+    arm_thread_state_t ThreadState;
+    arm_vfp_state_t FloatState;
+    arm_debug_state_t DebugState;
+#else
     x86_thread_state_t ThreadState;
     x86_float_state_t FloatState;
     x86_debug_state_t DebugState;
+#endif
 
     MachExceptionInfo(mach_port_t thread, MachMessage& message);
     void RestoreState(mach_port_t thread);
@@ -434,6 +443,5 @@ private:
     // this message. It is true for messages we receive, and false for messages we send.
     bool m_fPortsOwned;
 };
-#endif //!(defined(__IOS__) && defined(_M_ARM64))
 
 #endif // HAVE_MACH_EXCEPTIONS

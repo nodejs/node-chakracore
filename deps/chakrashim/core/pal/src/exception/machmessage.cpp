@@ -22,8 +22,6 @@ Abstract:
 #include "machmessage.h"
 
 #if HAVE_MACH_EXCEPTIONS
-#if !(defined(__IOS__) && defined(_M_ARM64))
-//FIXME: Removed to build for iOS ARM64.
 
 // Construct an empty message. Use Receive() to form a message that can be inspected or SendSetThread(),
 // ForwardNotification(), ReplyToNotification() or ForwardReply() to construct a message and sent it.
@@ -991,6 +989,10 @@ void MachMessage::InitMessageSize()
 // x86_THREAD_STATE and x86_THREAD_STATE32 state flavors are supported for 32-bit.
 thread_act_t MachMessage::GetThreadFromState(thread_state_flavor_t eFlavor, thread_state_t pState)
 {
+#if defined(__IOS__) && defined(_M_ARM64)
+//FIXME: Removed to build for iOS ARM64.
+    _ASSERT(false);
+#else
     SIZE_T targetSP;
 
     // Determine SP from the state provided based on its flavor (this algorithm only works with SP, so
@@ -1067,6 +1069,7 @@ thread_act_t MachMessage::GetThreadFromState(thread_state_flavor_t eFlavor, thre
         }
     }
 
+#endif //defined(__IOS__) && defined(_M_ARM64)
     // If we got here no thread matched. That shouldn't be possible.
     NONPAL_RETAIL_ASSERT("Failed to locate thread from state.");
 }
@@ -1381,6 +1384,5 @@ void MachMessage::SetThreadState(thread_state_flavor_t eFlavor, thread_state_t p
         NONPAL_RETAIL_ASSERT("Unsupported message type: %u", m_pMessage->header.msgh_id);
     }
 }
-#endif //!(defined(__IOS__) && defined(_M_ARM64))
 
 #endif // HAVE_MACH_EXCEPTIONS

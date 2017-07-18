@@ -19,7 +19,12 @@ Abstract:
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#if defined(__IOS__) && defined(_M_ARM64)
+//iOS ARM64's thread state structure header file.
+#include <mach/arm/thread_status.h>
+#else
 #include <mach/thread_status.h>
+#endif // defined(__IOS__) && defined(_M_ARM64)
 
 #ifdef __cplusplus
 extern "C"
