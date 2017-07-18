@@ -73,11 +73,20 @@ inline int _count_args(const T1&, const T2&, const T3&, const T4&, Js::CallInfo 
 #define CALL_ENTRYPOINT_NOASSERT(entryPoint, function, callInfo, ...) \
     entryPoint(function, callInfo, nullptr, nullptr, nullptr, nullptr, \
                function, callInfo, ##__VA_ARGS__)
-#elif defined(_ARM_)||defined(_ARM64_)
-//FIXME: Added the ARM64 to build for iOS ARM64.
+#elif defined(_ARM_)
 // xplat-todo: fix me ARM
 #define CALL_ENTRYPOINT_NOASSERT(entryPoint, function, callInfo, ...) \
     entryPoint(function, callInfo, ##__VA_ARGS__)
+#elif defined(__IOS__) && defined(_M_ARM64)
+// Call the custom ABI. entrypoint is JavaScriptMethod,
+//  which has the signature following signature:
+//  Var(__cdecl *JavascriptMethod)(RecyclableObject*, CallInfo, ...);
+// On iOS arm64, every variadic argument goes to the stack, so we
+//  keep the first 2 arguments (which occupy 2 registers) and pass everything
+//  else according to the custom ABI in the variadics arguments.
+#define CALL_ENTRYPOINT_NOASSERT(entryPoint, function, callInfo, ...) \
+    entryPoint(function, callInfo, \
+       function, callInfo, ##__VA_ARGS__)
 #else
 #error CALL_ENTRYPOINT_NOASSERT not yet implemented
 #endif
