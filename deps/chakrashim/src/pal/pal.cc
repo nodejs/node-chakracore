@@ -21,8 +21,7 @@
 #include "uv.h"
 
 #ifndef _WIN32
-uint64_t GetTickCount()
-{
+uint64_t GetTickCount() {
   uv_loop_t* default_loop = uv_default_loop();
   uv_update_time(default_loop);
   uint64_t now = uv_now(default_loop);

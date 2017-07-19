@@ -20,7 +20,7 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const util = require('util');
 const symbol = Symbol('foo');
@@ -46,7 +46,10 @@ assert.strictEqual(util.format('%s', symbol), 'Symbol(foo)');
 assert.strictEqual(util.format('%j', symbol), 'undefined');
 assert.throws(function() {
   util.format('%d', symbol);
-}, TypeError);
+}, common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a number$/,
+    chakracore: /Error: Number expected/}));
+
 
 // Number format specifier
 assert.strictEqual(util.format('%d'), '%d');
