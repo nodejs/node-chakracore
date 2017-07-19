@@ -49,7 +49,6 @@ DEFTYPE(Map)
 
 
 // These prototype functions will be cached/shimmed
-DEFMETHOD(Object,         hasOwnProperty)
 DEFMETHOD(Object,         toString)
 DEFMETHOD(Object,         valueOf)
 DEFMETHOD(String,         concat)

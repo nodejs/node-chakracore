@@ -81,7 +81,6 @@ class ContextShim {
   JsValueRef GetMapConstructor();
   JsValueRef GetGlobalType(GlobalType index);
 
-  JsValueRef GetHasOwnPropertyFunction();
   JsValueRef GetToStringFunction();
   JsValueRef GetValueOfFunction();
   JsValueRef GetStringConcatFunction();

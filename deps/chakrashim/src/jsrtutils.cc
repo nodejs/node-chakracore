@@ -286,11 +286,20 @@ JsErrorCode CloneObject(JsValueRef source,
 JsErrorCode HasOwnProperty(JsValueRef object,
                            JsValueRef prop,
                            JsValueRef *result) {
-  JsValueRef hasOwnPropertyFunction =
-    ContextShim::GetCurrent()->GetHasOwnPropertyFunction();
+  if (result == nullptr) {
+    return JsErrorInvalidArgument;
+  }
 
-  JsValueRef args[] = { object, prop };
-  return JsCallFunction(hasOwnPropertyFunction, args, _countof(args), result);
+  *result = JS_INVALID_REFERENCE;
+
+  JsPropertyIdRef propId = JS_INVALID_REFERENCE;
+  IfJsErrorRet(GetPropertyIdFromValue(prop, &propId));
+
+  bool hasOwnProperty = false;
+  IfJsErrorRet(JsHasOwnProperty(object, propId, &hasOwnProperty));
+  IfJsErrorRet(JsBoolToBoolean(hasOwnProperty, result));
+
+  return JsNoError;
 }
 
 JsErrorCode GetOwnPropertyDescriptor(JsValueRef ref,

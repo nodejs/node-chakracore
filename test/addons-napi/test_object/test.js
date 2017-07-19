@@ -2,11 +2,6 @@
 const common = require('../../common');
 const assert = require('assert');
 
-if (common.isChakraEngine) {
-  common.skip('This test is disabled for chakra engine.');
-  return;
-}
-
 // Testing api calls for objects
 const test_object = require(`./build/${common.buildType}/test_object`);
 

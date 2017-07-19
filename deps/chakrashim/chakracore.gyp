@@ -122,6 +122,7 @@
                 '--without=Simdjs',
                 '--static',
                 '<@(chakracore_parallel_build_flags)',
+                '<@(chakracore_lto_build_flags)',
                 '<@(chakra_build_flags)',
                 '<@(icu_args)',
                 '--libs-only'

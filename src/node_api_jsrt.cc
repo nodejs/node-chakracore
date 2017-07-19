@@ -242,7 +242,7 @@ class ExternalCallback {
 };
 
 inline napi_status JsPropertyIdFromKey(JsValueRef key,
-                                        JsPropertyIdRef* propertyId) {
+                                       JsPropertyIdRef* propertyId) {
   JsValueType keyType;
   CHECK_JSRT(JsGetValueType(key, &keyType));
 
@@ -258,15 +258,17 @@ inline napi_status JsPropertyIdFromKey(JsValueRef key,
 
     CHECK_JSRT(JsCreatePropertyId(
       reinterpret_cast<char*>(name.data()), length, propertyId));
-  } else {
+  } else if (keyType == JsSymbol) {
     CHECK_JSRT(JsGetPropertyIdFromSymbol(key, propertyId));
+  } else {
+    return napi_set_last_error(napi_name_expected);
   }
   return napi_ok;
 }
 
 inline napi_status
 JsPropertyIdFromPropertyDescriptor(const napi_property_descriptor* p,
-                                    JsPropertyIdRef* propertyId) {
+                                   JsPropertyIdRef* propertyId) {
   if (p->utf8name != nullptr) {
     CHECK_JSRT(JsCreatePropertyId(
       p->utf8name, strlen(p->utf8name), propertyId));
@@ -712,6 +714,18 @@ napi_status napi_delete_property(napi_env env,
                               &deletePropertyResult));
   CHECK_JSRT(JsBooleanToBool(deletePropertyResult, result));
 
+  return napi_ok;
+}
+
+NAPI_EXTERN napi_status napi_has_own_property(napi_env env,
+                                              napi_value object,
+                                              napi_value key,
+                                              bool* result) {
+  CHECK_ARG(result);
+  JsPropertyIdRef propertyId;
+  CHECK_NAPI(jsrtimpl::JsPropertyIdFromKey(key, &propertyId));
+  JsValueRef obj = reinterpret_cast<JsValueRef>(object);
+  CHECK_JSRT(JsHasOwnProperty(obj, propertyId, result));
   return napi_ok;
 }
 

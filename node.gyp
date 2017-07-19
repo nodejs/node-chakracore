@@ -272,6 +272,13 @@
           'sources': [
             'src/node_api_jsrt.cc',
           ],
+          'conditions': [
+            [ 'OS!="win" and chakracore_use_lto=="true"', {
+              'ldflags': [
+                '-flto',
+              ],
+            }],
+          ],
         }, {
           'sources': [
             'src/node_api.cc',
@@ -699,7 +706,14 @@
           ],
           'sources!': [
             'test/cctest/test_environment.cc', # TODO: Enable these test for node-chakracore
-          ]
+          ],
+          'conditions': [
+            [ 'OS!="win" and chakracore_use_lto=="true"', {
+              'ldflags': [
+                '-flto',
+              ],
+            }],
+          ],
         }],
         ['v8_enable_inspector==1', {
           'sources': [
