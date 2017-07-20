@@ -37,7 +37,6 @@ const testRoot = process.env.NODE_TEST_DIR ?
 
 const noop = () => {};
 
-exports.noop = noop;
 exports.fixturesDir = path.join(__dirname, '..', 'fixtures');
 exports.tmpDirName = 'tmp';
 // PORT should match the definition in test/testpy/__init__.py.
@@ -248,7 +247,7 @@ Object.defineProperty(exports, 'opensslCli', {get: function() {
 
 Object.defineProperty(exports, 'hasCrypto', {
   get: function() {
-    return process.versions.openssl ? true : false;
+    return Boolean(process.versions.openssl);
   }
 });
 
@@ -258,22 +257,21 @@ Object.defineProperty(exports, 'hasFipsCrypto', {
   }
 });
 
-if (exports.isWindows) {
-  exports.PIPE = '\\\\.\\pipe\\libuv-test';
-  if (process.env.TEST_THREAD_ID) {
-    exports.PIPE += `.${process.env.TEST_THREAD_ID}`;
-  }
-} else {
-  exports.PIPE = `${exports.tmpDir}/test.sock`;
+{
+  const pipePrefix = exports.isWindows ? '\\\\.\\pipe\\' : `${exports.tmpDir}/`;
+  const pipeName = `node-test.${process.pid}.sock`;
+  exports.PIPE = pipePrefix + pipeName;
 }
 
-const ifaces = os.networkInterfaces();
-const re = /lo/;
-exports.hasIPv6 = Object.keys(ifaces).some(function(name) {
-  return re.test(name) && ifaces[name].some(function(info) {
-    return info.family === 'IPv6';
+{
+  const iFaces = os.networkInterfaces();
+  const re = /lo/;
+  exports.hasIPv6 = Object.keys(iFaces).some(function(name) {
+    return re.test(name) && iFaces[name].some(function(info) {
+      return info.family === 'IPv6';
+    });
   });
-});
+}
 
 /*
  * Check that when running a test with
@@ -429,10 +427,11 @@ exports.allowGlobals = allowGlobals;
 function leakedGlobals() {
   const leaked = [];
 
-  // eslint-disable-next-line no-var
-  for (var val in global)
-    if (!knownGlobals.includes(global[val]))
+  for (const val in global) {
+    if (!knownGlobals.includes(global[val])) {
       leaked.push(val);
+    }
+  }
 
   if (global.__coverage__) {
     return leaked.filter((varname) => !/^(?:cov_|__cov)/.test(varname));
@@ -571,8 +570,13 @@ exports.mustNotCall = function(msg) {
   };
 };
 
-exports.skip = function(msg) {
+exports.printSkipMessage = function(msg) {
   console.log(`1..0 # Skipped: ${msg}`);
+};
+
+exports.skip = function(msg) {
+  exports.printSkipMessage(msg);
+  process.exit(0);
 };
 
 // A stream to push an array into a REPL
@@ -706,9 +710,10 @@ Object.defineProperty(exports, 'hasSmallICU', {
 exports.expectsError = function expectsError({code, type, message}) {
   return function(error) {
     assert.strictEqual(error.code, code);
-    if (type !== undefined)
+    if (type !== undefined) {
       assert(error instanceof type,
              `${error} is not the expected type ${type}`);
+    }
     if (message instanceof RegExp) {
       assert(message.test(error.message),
              `${error.message} does not match ${message}`);
@@ -722,7 +727,6 @@ exports.expectsError = function expectsError({code, type, message}) {
 exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {
   if (process.config.variables.v8_enable_inspector === 0) {
     exports.skip('V8 inspector is disabled');
-    process.exit(0);
   }
 };
 
@@ -764,11 +768,13 @@ exports.getTTYfd = function getTTYfd() {
   if (!tty.isatty(tty_fd)) tty_fd++;
   else if (!tty.isatty(tty_fd)) tty_fd++;
   else if (!tty.isatty(tty_fd)) tty_fd++;
-  else try {
-    tty_fd = require('fs').openSync('/dev/tty');
-  } catch (e) {
-    // There aren't any tty fd's available to use.
-    return -1;
+  else {
+    try {
+      tty_fd = require('fs').openSync('/dev/tty');
+    } catch (e) {
+      // There aren't any tty fd's available to use.
+      return -1;
+    }
   }
   return tty_fd;
 };

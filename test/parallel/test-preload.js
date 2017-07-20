@@ -1,21 +1,18 @@
 'use strict';
 
 const common = require('../common');
+// Refs: https://github.com/nodejs/node/pull/2253
+if (common.isSunOS)
+  common.skip('unreliable on SunOS');
+
+if (common.isChakraEngine)
+  common.skip('This test is disabled for chakra engine because debugger ' +
+              'support is not implemented yet.');
+
 const assert = require('assert');
 const path = require('path');
 const childProcess = require('child_process');
 
-if (common.isChakraEngine) {
-  common.skip('This test is disabled for chakra engine because debugger ' +
-              'support is not implemented yet.');
-  return;
-}
-
-// Refs: https://github.com/nodejs/node/pull/2253
-if (common.isSunOS) {
-  common.skip('unreliable on SunOS');
-  return;
-}
 
 const nodeBinary = process.argv[0];
 

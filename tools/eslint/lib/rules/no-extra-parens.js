@@ -44,7 +44,8 @@ module.exports = {
                                 conditionalAssign: { type: "boolean" },
                                 nestedBinaryExpressions: { type: "boolean" },
                                 returnAssign: { type: "boolean" },
-                                ignoreJSX: { enum: ["none", "all", "single-line", "multi-line"] }
+                                ignoreJSX: { enum: ["none", "all", "single-line", "multi-line"] },
+                                enforceForArrowConditionals: { type: "boolean" }
                             },
                             additionalProperties: false
                         }
@@ -67,6 +68,9 @@ module.exports = {
         const NESTED_BINARY = ALL_NODES && context.options[1] && context.options[1].nestedBinaryExpressions === false;
         const EXCEPT_RETURN_ASSIGN = ALL_NODES && context.options[1] && context.options[1].returnAssign === false;
         const IGNORE_JSX = ALL_NODES && context.options[1] && context.options[1].ignoreJSX;
+        const IGNORE_ARROW_CONDITIONALS = ALL_NODES && context.options[1] &&
+            context.options[1].enforceForArrowConditionals === false;
+
         const PRECEDENCE_OF_ASSIGNMENT_EXPR = precedence({ type: "AssignmentExpression" });
         const PRECEDENCE_OF_UPDATE_EXPR = precedence({ type: "UpdateExpression" });
 
@@ -422,7 +426,7 @@ module.exports = {
                     secondToken.type === "Keyword" && (
                         secondToken.value === "function" ||
                         secondToken.value === "class" ||
-                        secondToken.value === "let" && astUtils.isOpeningBracketToken(sourceCode.getTokenAfter(secondToken))
+                        secondToken.value === "let" && astUtils.isOpeningBracketToken(sourceCode.getTokenAfter(secondToken, astUtils.isNotClosingParenToken))
                     )
                 )
             ) {
@@ -445,6 +449,13 @@ module.exports = {
 
             ArrowFunctionExpression(node) {
                 if (isReturnAssignException(node)) {
+                    return;
+                }
+
+                if (node.body.type === "ConditionalExpression" &&
+                    IGNORE_ARROW_CONDITIONALS &&
+                    !isParenthesisedTwice(node.body)
+                ) {
                     return;
                 }
 
@@ -501,16 +512,27 @@ module.exports = {
             ExportDefaultDeclaration: node => checkExpressionOrExportStatement(node.declaration),
             ExpressionStatement: node => checkExpressionOrExportStatement(node.expression),
 
-            ForInStatement(node) {
-                if (hasExcessParens(node.right)) {
-                    report(node.right);
-                }
-                if (hasExcessParens(node.left)) {
-                    report(node.left);
-                }
-            },
+            "ForInStatement, ForOfStatement"(node) {
+                if (node.left.type !== "VariableDeclarator") {
+                    const firstLeftToken = sourceCode.getFirstToken(node.left, astUtils.isNotOpeningParenToken);
 
-            ForOfStatement(node) {
+                    if (
+                        firstLeftToken.value === "let" && (
+
+                            // If `let` is the only thing on the left side of the loop, it's the loop variable: `for ((let) of foo);`
+                            // Removing it will cause a syntax error, because it will be parsed as the start of a VariableDeclarator.
+                            firstLeftToken.range[1] === node.left.range[1] ||
+
+                            // If `let` is followed by a `[` token, it's a property access on the `let` value: `for ((let[foo]) of bar);`
+                            // Removing it will cause the property access to be parsed as a destructuring declaration of `foo` instead.
+                            astUtils.isOpeningBracketToken(
+                                sourceCode.getTokenAfter(firstLeftToken, astUtils.isNotClosingParenToken)
+                            )
+                        )
+                    ) {
+                        tokensToIgnore.add(firstLeftToken);
+                    }
+                }
                 if (hasExcessParens(node.right)) {
                     report(node.right);
                 }

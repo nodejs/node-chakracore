@@ -6,7 +6,22 @@ prefix async-hooks
 
 [true] # This section applies to all platforms
 
+[$system==win32]
+
+[$system==linux]
+test-callback-error                  : PASS,FLAKY
+
+[$system==macos]
+test-callback-error                  : PASS,FLAKY
+
+[$arch==arm || $arch==arm64]
+
+[$system==solaris] # Also applies to SmartOS
+
+[$system==freebsd]
+
 [$jsEngine==chakracore]
 test-promise : PASS,FLAKY
 test-promise.chain-promise-before-init-hooks : PASS,FLAKY
 test-promise.promise-before-init-hooks : PASS,FLAKY
+

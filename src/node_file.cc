@@ -494,10 +494,13 @@ void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
 #else
   fields[9] = -1;
 #endif
-  // Dates.
-#define X(idx, name)                          \
-  fields[idx] = (s->st_##name.tv_sec * 1e3) + \
-                (s->st_##name.tv_nsec / 1e6); \
+// Dates.
+// NO-LINT because the fields are 'long' and we just want to cast to `unsigned`
+#define X(idx, name)                                           \
+  /* NOLINTNEXTLINE(runtime/int) */                            \
+  fields[idx] = ((unsigned long)(s->st_##name.tv_sec) * 1e3) + \
+  /* NOLINTNEXTLINE(runtime/int) */                            \
+                ((unsigned long)(s->st_##name.tv_nsec) / 1e6); \
 
   X(10, atim)
   X(11, mtim)

@@ -806,9 +806,9 @@ if (typeof Symbol !== 'undefined') {
                        chakracore: 'Promise {}'
                      }));
   // squelch UnhandledPromiseRejection
-  rejected.catch(common.noop);
+  rejected.catch(() => {});
 
-  const pending = new Promise(common.noop);
+  const pending = new Promise(() => {});
   assert.strictEqual(util.inspect(pending), common.engineSpecificMessage({
     v8: 'Promise { <pending> }',
     chakracore: 'Promise {}'
@@ -921,7 +921,7 @@ if (!common.isChakraEngine) {
                      'SetSubclass { 1, 2, 3 }');
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
                      'MapSubclass { \'foo\' => 42 }');
-  assert.strictEqual(util.inspect(new PromiseSubclass(common.noop)),
+  assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
                      common.engineSpecificMessage({
                        v8: 'PromiseSubclass { <pending> }',
                        chakracore: 'PromiseSubclass {}'
