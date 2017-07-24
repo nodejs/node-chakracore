@@ -976,26 +976,34 @@ StringUtf8::~StringUtf8() {
   }
 }
 
+JsErrorCode StringUtf8::LengthFrom(JsValueRef strRef) {
+    CHAKRA_ASSERT(_length == 0);
+
+    size_t len = 0;
+    IfJsErrorRet(JsCopyString(strRef, nullptr, 0, &len));
+
+    _length = len;
+    return JsNoError;
+}
+
 JsErrorCode StringUtf8::From(JsValueRef strRef) {
   CHAKRA_ASSERT(!_str);
 
-  size_t len = 0;
-  IfJsErrorRet(JsCopyString(strRef, nullptr, 0, &len));
+  IfJsErrorRet(LengthFrom(strRef));
+  size_t len = length();
 
   char* buffer = reinterpret_cast<char*>(malloc(len+1));
   CHAKRA_VERIFY(buffer != nullptr);
 
   size_t written = 0;
-  JsErrorCode errorCode = JsCopyString(strRef, buffer, len, &written);
+  IfJsErrorRet(JsCopyString(strRef, buffer, len, &written));
 
-  if (errorCode == JsNoError) {
-    CHAKRA_ASSERT(len == written);
-    buffer[len] = '\0';
-    _str = buffer;
-    _length = static_cast<int>(len);
-  }
+  CHAKRA_ASSERT(len == written);
+  buffer[len] = '\0';
+  _str = buffer;
+  _length = static_cast<int>(len);
 
-  return errorCode;
+  return JsNoError;
 }
 
 }  // namespace jsrt
