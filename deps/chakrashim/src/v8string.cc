@@ -79,11 +79,10 @@ int String::Length() const {
 
 int String::Utf8Length() const {
   jsrt::StringUtf8 str;
-  if (str.From((JsValueRef)this) != JsNoError) {
+  if (str.LengthFrom((JsValueRef)this) != JsNoError) {
     // error
     return 0;
   }
-
   return str.length();
 }
 
