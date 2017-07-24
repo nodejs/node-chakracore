@@ -2,7 +2,7 @@
 
 const common = require('../common');
 const assert = require('assert');
-const {exec, spawnSync} = require('child_process');
+const { exec, spawnSync } = require('child_process');
 const path = require('path');
 
 const node = process.execPath;
@@ -98,7 +98,7 @@ const notFoundRE = /^Error: Cannot find module/m;
 // loop each possible option, `-c` or `--check`
 syntaxArgs.forEach(function(args) {
   const stdin = 'throw new Error("should not get run");';
-  const c = spawnSync(node, args, {encoding: 'utf8', input: stdin});
+  const c = spawnSync(node, args, { encoding: 'utf8', input: stdin });
 
   // no stdout or stderr should be produced
   assert.strictEqual(c.stdout, '', 'stdout produced');
@@ -111,7 +111,7 @@ syntaxArgs.forEach(function(args) {
 // loop each possible option, `-c` or `--check`
 syntaxArgs.forEach(function(args) {
   const stdin = 'var foo bar;';
-  const c = spawnSync(node, args, {encoding: 'utf8', input: stdin});
+  const c = spawnSync(node, args, { encoding: 'utf8', input: stdin });
 
   // stderr should include '[stdin]' as the filename
   if (process.jsEngine === 'v8') {
@@ -124,7 +124,7 @@ syntaxArgs.forEach(function(args) {
   // stderr should have a syntax error message
   const re = common.engineSpecificMessage({
     v8: syntaxErrorRE,
-    chakracore: /^SyntaxError: Expected ';'$/m});
+    chakracore: /^SyntaxError: Expected ';'$/m });
   assert(re.test(c.stderr), 'stderr incorrect');
 
   assert.strictEqual(c.status, 1, `code === ${c.status}`);
