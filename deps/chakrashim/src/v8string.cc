@@ -101,23 +101,14 @@ int String::Write(uint16_t *buffer, int start, int length, int options) const {
 
 int String::WriteOneByte(
     uint8_t* buffer, int start, int length, int options) const {
-  // The JSRT API only supports utf8 and utf16 encoded strings. In order to get
-  // 8 bit bytes from the string (i.e. Latin1) we can get the utf16 string and
-  // cast each character down to a uint8_t. This will only work for characters
-  // between U+0000 and U+00FF in the source string.
-  uint16_t* tmpBuffer = new uint16_t[length];
   size_t count = 0;
-  if (JsCopyStringUtf16((JsValueRef)this, start, length,
-                        tmpBuffer, &count) == JsNoError) {
-    for (size_t i = 0; i < count; i++) {
-      buffer[i] = (uint8_t)tmpBuffer[i];
-    }
-
-    if (!(options & String::NO_NULL_TERMINATION)) {
-      buffer[count] = 0;
+  if (JsCopyStringOneByte((JsValueRef)this, start, length,
+                          (char *)buffer, &count) == JsNoError) {
+    if (!(options & String::NO_NULL_TERMINATION) &&
+        (length == -1 || count < length)) {
+      buffer[count] = '\0';
     }
   }
-  delete[] tmpBuffer;
   return count;
 }
 
