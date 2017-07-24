@@ -52,11 +52,7 @@ assert.strictEqual(util.inspect([1, [2, 3]]), '[ 1, [ 2, 3 ] ]');
 
 assert.strictEqual(util.inspect({}), '{}');
 assert.strictEqual(util.inspect({a: 1}), '{ a: 1 }');
-assert.strictEqual(util.inspect({a: function() {}}),
-                   common.engineSpecificMessage({
-                     v8: '{ a: [Function: a] }',
-                     chakracore: '{ a: [Function: a] }'
-                   }));
+assert.strictEqual(util.inspect({a: function() {}}), '{ a: [Function: a] }');
 assert.strictEqual(util.inspect({a: () => {}}), '{ a: [Function: a] }');
 assert.strictEqual(util.inspect({a: async function() {}}),
                    '{ a: [AsyncFunction: a] }');
@@ -302,10 +298,7 @@ assert.strictEqual(
 {
   const value = () => {};
   value.aprop = 42;
-  assert.strictEqual(util.inspect(value), common.engineSpecificMessage({
-    v8: '{ [Function: value] aprop: 42 }',
-    chakracore: '{ [Function: value] aprop: 42 }'
-  }));
+  assert.strictEqual(util.inspect(value), '{ [Function: value] aprop: 42 }');
 }
 
 // Anonymous function with properties
