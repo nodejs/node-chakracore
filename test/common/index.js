@@ -623,7 +623,23 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
   }
 };
 
+function areAllValuesEqual(obj) {
+  let exemplar;
+  for (const key of Object.keys(obj)) {
+    if (exemplar === undefined) {
+      exemplar = obj[key];
+    } else if (exemplar !== obj[key]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 exports.engineSpecificMessage = function(messageObject) {
+  assert.ok(!areAllValuesEqual(messageObject),
+            'Unnecessary usage of \'engineSpecificMessage\'');
+
   const jsEngine = process.jsEngine || 'v8'; //default is 'v8'
   return messageObject[jsEngine];
 };
