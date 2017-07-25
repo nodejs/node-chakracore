@@ -1,5 +1,53 @@
 # ChakraShim ChangeLog
 
+## 2017-07-25, node-chakracore-v8.2.1
+
+### Commits
+
+* [[`b61651512e`](https://github.com/nodejs/node-chakracore/commit/b61651512e)] - 2017-07-25, Node-ChakraCore Version 8.2.1
+* [[`0c1534fb74`](https://github.com/nodejs/node-chakracore/commit/0c1534fb74)] - chakrashim: fixing lint issue
+* [[`93d295e397`](https://github.com/nodejs/node-chakracore/commit/93d295e397)] - chakrashim: Avoid calling JsCopyString twice to find length
+* [[`5c6f12a888`](https://github.com/nodejs/node-chakracore/commit/5c6f12a888)] - chakrashim: using new jsrt interface
+* [[`72b7dc2b39`](https://github.com/nodejs/node-chakracore/commit/72b7dc2b39)] - test: add assert to `engineSpecificMessage`
+* [[`e04401e636`](https://github.com/nodejs/node-chakracore/commit/e04401e636)] - [Merge Microsoft/Chakracore@e63dc6fe31] [MERGE #3402 @dilijev] Change release/1.7 to RELEASE mode and update bytecode GUID.
+* [[`58217deefc`](https://github.com/nodejs/node-chakracore/commit/58217deefc)] - [Merge Microsoft/Chakracore@a95b99fb36] [MERGE #3308 @obastemur] Library: Create less new string object for known texts
+* [[`15c2b8e964`](https://github.com/nodejs/node-chakracore/commit/15c2b8e964)] - [Merge Microsoft/Chakracore@9626882ac9] [MERGE #3222 @obastemur] NumberToString: Improve performance and reduce cache memory
+* [[`234730468e`](https://github.com/nodejs/node-chakracore/commit/234730468e)] - [Merge Microsoft/Chakracore@e76b30e5ca] [1.6>1.7] [MERGE #3389 @sigatrev] OS#12528802 fix crash accessing FuncObjectOpnd when function object is inlined
+* [[`207314d500`](https://github.com/nodejs/node-chakracore/commit/207314d500)] - [Merge Microsoft/Chakracore@8cfe47de52] [1.6>1.7] [MERGE #3400 @jianchun] jsrt: cleanup CHAKRACOREBUILD_ symbol in headers
+* [[`37f904636b`](https://github.com/nodejs/node-chakracore/commit/37f904636b)] - [Merge Microsoft/Chakracore@66bc22eceb] [1.6>1.7] [MERGE #3382 @rajatd] On .caller, only invalidate cached scopes for nested parents
+* [[`f8dbdd5c03`](https://github.com/nodejs/node-chakracore/commit/f8dbdd5c03)] - [Merge Microsoft/Chakracore@ad54488def] [1.6>1.7] [MERGE #3411 @agarwal-sandeep] Fix -stats:rejit for chakra full
+* [[`ec4d0042f8`](https://github.com/nodejs/node-chakracore/commit/ec4d0042f8)] - [Merge Microsoft/Chakracore@36fc51b58f] [1.6>1.7] [MERGE #3412 @curtisman] Fix Issue #3368:  Symbol.species.toString() shouldn't have bracket around the name
+* [[`af938b6bf7`](https://github.com/nodejs/node-chakracore/commit/af938b6bf7)] - [Merge Microsoft/Chakracore@cb5557fe2d] [1.6>1.7] [MERGE #3409 @curtisman] Fix Issue #3376:  Escaped yield cannot be an identifier in strict mode
+* [[`3d768de09f`](https://github.com/nodejs/node-chakracore/commit/3d768de09f)] - [Merge Microsoft/Chakracore@36316625f2] [1.6>1.7] [MERGE #3377 @suwc] Fix module namespace property attributes
+* [[`3e73ac236c`](https://github.com/nodejs/node-chakracore/commit/3e73ac236c)] - [Merge Microsoft/Chakracore@07ef27bd6f] [MERGE #3408 @MSLaguana] Adding Jsrt function JsCopyStringOneByte
+* [[`47e05bb9ac`](https://github.com/nodejs/node-chakracore/commit/47e05bb9ac)] - [Merge Microsoft/Chakracore@7d7010683e] [1.6>1.7] [MERGE #3397 @jackhorton] Fix crash when a Map is constructed with custom Map.prototype.set
+* [[`6494fd07a4`](https://github.com/nodejs/node-chakracore/commit/6494fd07a4)] - [Merge Microsoft/Chakracore@7829651f00] [1.6>1.7] [MERGE #3328 @suwc] Fix Issue#3217: Reflect.construct permanently corrupts the invoked constructor
+* [[`7b06d0f243`](https://github.com/nodejs/node-chakracore/commit/7b06d0f243)] - [Merge Microsoft/Chakracore@083ab297e1] [1.6>1.7] [MERGE #3398 @suwc] OS12503560: assignment to super[prop] not accessing base class property
+* [[`b168aa70f4`](https://github.com/nodejs/node-chakracore/commit/b168aa70f4)] - [Merge Microsoft/Chakracore@6489b97aae] [1.6>1.7] [MERGE #3392 @atulkatti] Fixes #3009 The Enumerator built-in has been removed, so removing the tests.
+* [[`8dbdd50cb9`](https://github.com/nodejs/node-chakracore/commit/8dbdd50cb9)] - [Merge Microsoft/Chakracore@8bbe7b2e82] [1.6>1.7] [MERGE #3323 @dilijev] Fix #3203, Fix #3204: Intl.getCanonicalLocales: name, toString, cannot call with new
+* [[`334671628a`](https://github.com/nodejs/node-chakracore/commit/334671628a)] - [Merge Microsoft/Chakracore@1e7793cfdf] [1.6>1.7] [MERGE #3378 @meg-gupta] TryFinally Fixes
+* [[`605163c8ce`](https://github.com/nodejs/node-chakracore/commit/605163c8ce)] - [Merge Microsoft/Chakracore@7df7f780dd] [MERGE #3360 @jackhorton] Fixes #3192, allows promise callback to be set to null
+* [[`b393ea5abf`](https://github.com/nodejs/node-chakracore/commit/b393ea5abf)] - [Merge Microsoft/Chakracore@ea9514eac7] [1.6>1.7] [MERGE #3385 @thomasmo] OS#11221802 Address a reliability issue processes are running down during JIT server call
+* [[`43606f017e`](https://github.com/nodejs/node-chakracore/commit/43606f017e)] - Merge tag 'v8.2.1' into v8.x
+* [[`91485fc44d`](https://github.com/nodejs/node-chakracore/commit/91485fc44d)] - src: fix cpplint error
+* [[`ea53d992dc`](https://github.com/nodejs/node-chakracore/commit/ea53d992dc)] - test: mark new flaky test
+* [[`51451f6bc1`](https://github.com/nodejs/node-chakracore/commit/51451f6bc1)] - n-api: support napi_fatal_error
+* [[`02bb58e7af`](https://github.com/nodejs/node-chakracore/commit/02bb58e7af)] - chakrashim: removed shim for `hasOwnProperty`
+* [[`46d1389a41`](https://github.com/nodejs/node-chakracore/commit/46d1389a41)] - n-api: support napi_has_own_property
+* [[`54f12fd9ad`](https://github.com/nodejs/node-chakracore/commit/54f12fd9ad)] - n-api: implement delete_property,
+* [[`9507a2b418`](https://github.com/nodejs/node-chakracore/commit/9507a2b418)] - chakrashim: fixing cpplint errors
+* [[`b47e608789`](https://github.com/nodejs/node-chakracore/commit/b47e608789)] - Merge pull request #328 from obastemur/idle_idle
+* [[`0aa2fba05b`](https://github.com/nodejs/node-chakracore/commit/0aa2fba05b)] - test: fixed test-util-format
+* [[`9ab193b28f`](https://github.com/nodejs/node-chakracore/commit/9ab193b28f)] - n-api: update napi_wrap error behavior
+* [[`cbfb52010b`](https://github.com/nodejs/node-chakracore/commit/cbfb52010b)] - test: fixed a unit test
+* [[`f287ae2721`](https://github.com/nodejs/node-chakracore/commit/f287ae2721)] - chakrashim: Added shim for EnqueueMicrotask
+* [[`980cf6f78e`](https://github.com/nodejs/node-chakracore/commit/980cf6f78e)] - Merge tag 'v8.2.0' into v8.x
+* [[`6c4e3057df`](https://github.com/nodejs/node-chakracore/commit/6c4e3057df)] - build: adding LTO support to configure script
+* [[`eb638ccc91`](https://github.com/nodejs/node-chakracore/commit/eb638ccc91)] - [Merge Microsoft/Chakracore@3747582647] [1.6>1.7] [MERGE #3384 @agarwal-sandeep] OS#12654029: ArrayBuffer throw OOM if unable to allocate memory after GC
+* [[`64022f15a1`](https://github.com/nodejs/node-chakracore/commit/64022f15a1)] - [Merge Microsoft/Chakracore@e4f3c46cb3] [1.6>1.7] [MERGE #3390 @agarwal-sandeep] Fixes #3387: Fix build break with simd unused variable
+* [[`6ee9608170`](https://github.com/nodejs/node-chakracore/commit/6ee9608170)] - Update chakracore to 1.7
+* [[`540dc290fc`](https://github.com/nodejs/node-chakracore/commit/540dc290fc)] - chakrashim: update changelog for v8.1.4 release
+
 ## 2017-07-14, node-chakracore-v8.1.4
 
 ### Commits
