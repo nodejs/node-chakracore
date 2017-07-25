@@ -220,7 +220,7 @@ Object.defineProperty(exports, 'localhostIPv4', {
 });
 
 // opensslCli defined lazily to reduce overhead of spawnSync
-Object.defineProperty(exports, 'opensslCli', {get: function() {
+Object.defineProperty(exports, 'opensslCli', { get: function() {
   if (opensslCli !== null) return opensslCli;
 
   if (process.config.variables.node_shared_openssl) {
@@ -239,7 +239,7 @@ Object.defineProperty(exports, 'opensslCli', {get: function() {
     opensslCli = false;
   }
   return opensslCli;
-}, enumerable: true});
+}, enumerable: true });
 
 Object.defineProperty(exports, 'hasCrypto', {
   get: function() {
@@ -623,7 +623,23 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
   }
 };
 
+function areAllValuesEqual(obj) {
+  let exemplar;
+  for (const key of Object.keys(obj)) {
+    if (exemplar === undefined) {
+      exemplar = obj[key];
+    } else if (exemplar !== obj[key]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 exports.engineSpecificMessage = function(messageObject) {
+  assert.ok(!areAllValuesEqual(messageObject),
+            'Unnecessary usage of \'engineSpecificMessage\'');
+
   const jsEngine = process.jsEngine || 'v8'; //default is 'v8'
   return messageObject[jsEngine];
 };

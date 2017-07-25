@@ -30,7 +30,7 @@ assert.strictEqual(util.format(''), '');
 assert.strictEqual(util.format([]), '[]');
 assert.strictEqual(util.format([0]), '[ 0 ]');
 assert.strictEqual(util.format({}), '{}');
-assert.strictEqual(util.format({foo: 42}), '{ foo: 42 }');
+assert.strictEqual(util.format({ foo: 42 }), '{ foo: 42 }');
 assert.strictEqual(util.format(null), 'null');
 assert.strictEqual(util.format(true), 'true');
 assert.strictEqual(util.format(false), 'false');
@@ -48,7 +48,7 @@ assert.throws(function() {
   util.format('%d', symbol);
 }, common.engineSpecificMessage({
     v8: /^TypeError: Cannot convert a Symbol value to a number$/,
-    chakracore: /Error: Number expected/}));
+    chakracore: /Error: Number expected/ }));
 
 
 // Number format specifier

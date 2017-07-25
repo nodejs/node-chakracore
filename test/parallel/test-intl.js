@@ -70,9 +70,11 @@ if (!common.hasIntl) {
   const GMT = 'Etc/GMT';
 
   // Construct an English formatter. Should format to "Jan 70"
-  const dtf =
-      new Intl.DateTimeFormat(['en'],
-                              {timeZone: GMT, month: 'short', year: '2-digit'});
+  const dtf = new Intl.DateTimeFormat(['en'], {
+    timeZone: GMT,
+    month: 'short',
+    year: '2-digit'
+  });
 
   // If list is specified and doesn't contain 'en' then return.
   if (process.config.variables.icu_locales && !haveLocale('en')) {
@@ -97,7 +99,7 @@ if (!common.hasIntl) {
     }));
   }
   // Options to request GMT
-  const optsGMT = {timeZone: GMT};
+  const optsGMT = { timeZone: GMT };
 
   // Test format
   {
