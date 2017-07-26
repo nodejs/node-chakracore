@@ -102,7 +102,8 @@ int String::WriteOneByte(
     uint8_t* buffer, int start, int length, int options) const {
   size_t count = 0;
   if (JsCopyStringOneByte((JsValueRef)this, start, length,
-                          (char *)buffer, &count) == JsNoError) {
+                          reinterpret_cast<char *>(buffer),
+                          &count) == JsNoError) {
     if (!(options & String::NO_NULL_TERMINATION) &&
         (length == -1 || count < length)) {
       buffer[count] = '\0';
