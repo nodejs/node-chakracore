@@ -976,33 +976,53 @@ StringUtf8::~StringUtf8() {
   }
 }
 
+char* StringUtf8::Detach() {
+  char* str = _str;
+  _str = nullptr;
+  _length = 0;
+  return str;
+}
+
 JsErrorCode StringUtf8::LengthFrom(JsValueRef strRef) {
-    CHAKRA_ASSERT(_length == 0);
+  CHAKRA_ASSERT(_length == 0);
 
-    size_t len = 0;
-    IfJsErrorRet(JsCopyString(strRef, nullptr, 0, nullptr, &len));
+  size_t len = 0;
+  IfJsErrorRet(JsCopyString(strRef, nullptr, 0, nullptr, &len));
 
-    _length = len;
-    return JsNoError;
+  _length = len;
+  return JsNoError;
 }
 
 JsErrorCode StringUtf8::From(JsValueRef strRef) {
   CHAKRA_ASSERT(!_str);
 
-  IfJsErrorRet(LengthFrom(strRef));
-  size_t len = length();
+  int strLength = 0;
+  IfJsErrorRet(JsGetStringLength(strRef, &strLength));
 
-  char* buffer = reinterpret_cast<char*>(malloc(len+1));
-  CHAKRA_VERIFY(buffer != nullptr);
+  // assume string contains ascii characters only
+  _str = reinterpret_cast<char*>(malloc(strLength + 1));
+  CHAKRA_VERIFY(_str != nullptr);
 
   size_t written = 0;
-  IfJsErrorRet(JsCopyString(strRef, buffer, len, &written, nullptr));
+  size_t actualLength = 0;
+  IfJsErrorRet(JsCopyString(strRef, _str, strLength, &written, &actualLength));
 
-  CHAKRA_ASSERT(len == written);
-  buffer[len] = '\0';
-  _str = buffer;
-  _length = static_cast<int>(len);
+  // if string contains unicode characters, take slow path
+  if (actualLength != written) {
+    // free previously allocated buffer
+    free(_str);
 
+    _str = reinterpret_cast<char*>(malloc(actualLength + 1));
+    CHAKRA_VERIFY(_str != nullptr);
+
+    IfJsErrorRet(JsCopyString(strRef, _str, actualLength, &written, nullptr));
+    CHAKRA_ASSERT(actualLength == written);
+  } else {
+    CHAKRA_ASSERT(strLength == written);
+  }
+
+  _str[written] = '\0';
+  _length = written;
   return JsNoError;
 }
 

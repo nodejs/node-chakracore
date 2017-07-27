@@ -29,16 +29,12 @@ String::Utf8Value::Utf8Value(Handle<v8::Value> obj)
     return;
   }
 
-  size_t len = 0;
-  CHAKRA_VERIFY(JsCopyString(*str, nullptr, 0, nullptr, &len) == JsNoError);
-  char* buffer = reinterpret_cast<char*>(malloc(len + 1));
-  CHAKRA_VERIFY(buffer != nullptr);
-  size_t written = 0;
-  if (JsCopyString(*str, buffer, len, &written, nullptr) == JsNoError) {
-    CHAKRA_ASSERT(len == written);
-    buffer[len] = '\0';
-    _str = buffer;
-    _length = static_cast<int>(len);
+  jsrt::StringUtf8 strUtf8;
+
+  if (strUtf8.From(*str) == JsNoError) {
+    _length = strUtf8.length();
+    _str = strUtf8.Detach();
+    _str[_length] = '\0';
   }
 }
 
