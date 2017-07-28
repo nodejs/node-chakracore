@@ -248,12 +248,12 @@ inline napi_status JsPropertyIdFromKey(JsValueRef key,
   if (keyType == JsString) {
     size_t length;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(key, nullptr, 0, &length), napi_string_expected);
+      JsCopyString(key, nullptr, 0, nullptr, &length), napi_string_expected);
 
     std::vector<uint8_t> name;
     name.reserve(length + 1);
     CHECK_JSRT(JsCopyString(
-      key, reinterpret_cast<char*>(name.data()), length + 1, &length));
+      key, reinterpret_cast<char*>(name.data()), length + 1, &length, nullptr));
 
     CHECK_JSRT(JsCreatePropertyId(
       reinterpret_cast<char*>(name.data()), length, propertyId));
@@ -1257,14 +1257,14 @@ napi_status napi_get_value_string_latin1(napi_env env,
   if (!buf) {
     CHECK_ARG(result);
 
-    JsErrorCode err = JsCopyString(js_value, nullptr, 0, result);
+    JsErrorCode err = JsCopyString(js_value, nullptr, 0, nullptr, result);
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
   } else {
     size_t copied = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(js_value, buf, bufsize - 1, &copied),
+      JsCopyString(js_value, buf, bufsize - 1, &copied, nullptr),
       napi_string_expected);
 
     if (copied < bufsize - 1) {
@@ -1300,14 +1300,14 @@ napi_status napi_get_value_string_utf8(napi_env env,
   if (!buf) {
     CHECK_ARG(result);
 
-    JsErrorCode err = JsCopyString(js_value, nullptr, 0, result);
+    JsErrorCode err = JsCopyString(js_value, nullptr, 0, nullptr, result);
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
   } else {
     size_t copied = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(js_value, buf, bufsize - 1, &copied),
+      JsCopyString(js_value, buf, bufsize - 1, &copied, nullptr),
       napi_string_expected);
 
     if (copied < bufsize - 1) {

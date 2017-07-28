@@ -980,7 +980,7 @@ JsErrorCode StringUtf8::LengthFrom(JsValueRef strRef) {
     CHAKRA_ASSERT(_length == 0);
 
     size_t len = 0;
-    IfJsErrorRet(JsCopyString(strRef, nullptr, 0, &len));
+    IfJsErrorRet(JsCopyString(strRef, nullptr, 0, nullptr, &len));
 
     _length = len;
     return JsNoError;
@@ -996,7 +996,7 @@ JsErrorCode StringUtf8::From(JsValueRef strRef) {
   CHAKRA_VERIFY(buffer != nullptr);
 
   size_t written = 0;
-  IfJsErrorRet(JsCopyString(strRef, buffer, len, &written));
+  IfJsErrorRet(JsCopyString(strRef, buffer, len, &written, nullptr));
 
   CHAKRA_ASSERT(len == written);
   buffer[len] = '\0';
