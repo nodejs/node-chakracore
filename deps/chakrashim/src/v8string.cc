@@ -30,11 +30,11 @@ String::Utf8Value::Utf8Value(Handle<v8::Value> obj)
   }
 
   size_t len = 0;
-  CHAKRA_VERIFY(JsCopyString(*str, nullptr, 0, &len) == JsNoError);
+  CHAKRA_VERIFY(JsCopyString(*str, nullptr, 0, nullptr, &len) == JsNoError);
   char* buffer = reinterpret_cast<char*>(malloc(len + 1));
   CHAKRA_VERIFY(buffer != nullptr);
   size_t written = 0;
-  if (JsCopyString(*str, buffer, len, &written) == JsNoError) {
+  if (JsCopyString(*str, buffer, len, &written, nullptr) == JsNoError) {
     CHAKRA_ASSERT(len == written);
     buffer[len] = '\0';
     _str = buffer;
@@ -121,7 +121,7 @@ int String::WriteUtf8(
 
   size_t count = 0;
   if (JsCopyString((JsValueRef)this,
-                   buffer, length, &count) == JsNoError) {
+                   buffer, length, &count, nullptr) == JsNoError) {
     if (count < (unsigned)length && !(options & String::NO_NULL_TERMINATION)) {
       // Utf8 version count includes null terminator
       buffer[count++] = 0;
