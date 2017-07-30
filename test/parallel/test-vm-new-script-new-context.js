@@ -97,6 +97,6 @@ console.error('invalid this');
 assert.throws(function() {
   script.runInNewContext.call('\'hello\';');
 }, common.engineSpecificMessage({
-    v8: /^TypeError: this\.runInContext is not a function$/,
-    chakracore: /TypeError: Object doesn't support property or method 'runInContext'/
+  v8: /^TypeError: this\.runInContext is not a function$/,
+  chakracore: /TypeError: Object doesn't support property or method 'runInContext'/
 }));

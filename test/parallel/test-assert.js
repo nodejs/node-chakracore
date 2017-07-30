@@ -42,8 +42,8 @@ assert.throws(
   common.expectsError({
     type: TypeError,
     message: common.engineSpecificMessage({
-        v8: 'expected.test is not a function',
-        chakracore: 'Object doesn\'t support property or method \'test\''
+      v8: 'expected.test is not a function',
+      chakracore: 'Object doesn\'t support property or method \'test\''
     })
   })
 );
@@ -504,10 +504,10 @@ assert.throws(() => {
   let threw = false;
   try {
     assert.throws(
-        function() {
-          throw ({}); // eslint-disable-line no-throw-literal
-        },
-        Array
+      function() {
+        throw ({}); // eslint-disable-line no-throw-literal
+      },
+      Array
     );
   } catch (e) {
     threw = true;
