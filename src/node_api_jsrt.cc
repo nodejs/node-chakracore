@@ -2253,6 +2253,79 @@ napi_status napi_get_typedarray_info(napi_env env,
   return napi_ok;
 }
 
+napi_status napi_create_dataview(napi_env env,
+                                 size_t byte_length,
+                                 napi_value arraybuffer,
+                                 size_t byte_offset,
+                                 napi_value* result) {
+  CHECK_ARG(result);
+
+  JsValueRef jsArrayBuffer = reinterpret_cast<JsValueRef>(arraybuffer);
+
+  CHECK_JSRT(JsCreateDataView(
+    jsArrayBuffer,
+    static_cast<unsigned int>(byte_offset),
+    static_cast<unsigned int>(byte_length),
+    reinterpret_cast<JsValueRef*>(result)));
+
+  return napi_ok;
+}
+
+napi_status napi_is_dataview(napi_env env, napi_value value, bool* result) {
+  CHECK_ARG(result);
+
+  JsValueRef jsValue = reinterpret_cast<JsValueRef>(value);
+  JsValueType valueType;
+  CHECK_JSRT(JsGetValueType(jsValue, &valueType));
+
+  *result = (valueType == JsDataView);
+  return napi_ok;
+}
+
+napi_status napi_get_dataview_info(napi_env env,
+                                   napi_value dataview,
+                                   size_t* byte_length,
+                                   void** data,
+                                   napi_value* arraybuffer,
+                                   size_t* byte_offset) {
+  JsValueRef jsArrayBuffer = JS_INVALID_REFERENCE;
+  unsigned int byteOffset = 0;
+  unsigned int byteLength = 0;
+  ChakraBytePtr bufferData = nullptr;
+  unsigned int bufferLength = 0;
+
+  JsValueRef jsDataView = reinterpret_cast<JsValueRef>(dataview);
+
+  CHECK_JSRT(JsGetDataViewInfo(
+    jsDataView,
+    &jsArrayBuffer,
+    &byteOffset,
+    &byteLength));
+
+  CHECK_JSRT(JsGetDataViewStorage(
+    jsDataView,
+    &bufferData,
+    &bufferLength));
+
+  if (byte_length != nullptr) {
+    *byte_length = static_cast<size_t>(byteLength);
+  }
+
+  if (data != nullptr) {
+    *data = static_cast<uint8_t*>(bufferData);
+  }
+
+  if (arraybuffer != nullptr) {
+    *arraybuffer = reinterpret_cast<napi_value>(jsArrayBuffer);
+  }
+
+  if (byte_offset != nullptr) {
+    *byte_offset = static_cast<size_t>(byteOffset);
+  }
+
+  return napi_ok;
+}
+
 napi_status napi_get_version(napi_env env, uint32_t* result) {
   CHECK_ARG(result);
   *result = NAPI_VERSION;
