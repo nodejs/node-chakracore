@@ -47,8 +47,9 @@ assert.strictEqual(util.format('%j', symbol), 'undefined');
 assert.throws(function() {
   util.format('%d', symbol);
 }, common.engineSpecificMessage({
-    v8: /^TypeError: Cannot convert a Symbol value to a number$/,
-    chakracore: /Error: Number expected/ }));
+  v8: /^TypeError: Cannot convert a Symbol value to a number$/,
+  chakracore: /Error: Number expected/
+}));
 
 
 // Number format specifier

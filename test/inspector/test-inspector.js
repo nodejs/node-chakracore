@@ -31,11 +31,11 @@ function checkVersion(err, response) {
 function checkBadPath(err, response) {
   assert(err instanceof SyntaxError, 'Expected SyntaxError');
   assert(
-      common.engineSpecificMessage({
-          v8: /Unexpected token/,
-          chakracore: /JSON\.parse Error: Invalid character at position:1/ })
-        .test(err.message),
-      'Unexpected message: ' + err.message);
+    common.engineSpecificMessage({
+      v8: /Unexpected token/,
+      chakracore: /JSON\.parse Error: Invalid character at position:1/
+    }).test(err.message),
+    'Unexpected message: ' + err.message);
   assert(/WebSockets request was expected/.test(err.response),
          'Unexpected response: ' + err.response);
 }
@@ -140,17 +140,17 @@ function testBreakpointOnStart(session) {
 function testSetBreakpointAndResume(session) {
   console.log('[test]', 'Setting a breakpoint and verifying it is hit');
   const commands = [
-      { 'method': 'Debugger.setBreakpointByUrl',
-        'params': { 'lineNumber': 5,
-                    'url': session.mainScriptPath,
-                    'columnNumber': 0,
-                    'condition': ''
-        }
-      },
-      { 'method': 'Debugger.resume' },
-      [ { 'method': 'Debugger.getScriptSource',
-          'params': { 'scriptId': session.mainScriptId } },
-        expectMainScriptSource ],
+    { 'method': 'Debugger.setBreakpointByUrl',
+      'params': { 'lineNumber': 5,
+                  'url': session.mainScriptPath,
+                  'columnNumber': 0,
+                  'condition': ''
+      }
+    },
+    { 'method': 'Debugger.resume' },
+    [ { 'method': 'Debugger.getScriptSource',
+        'params': { 'scriptId': session.mainScriptId } },
+      expectMainScriptSource ],
   ];
   session
     .sendInspectorCommands(commands)

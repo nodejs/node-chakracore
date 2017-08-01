@@ -241,23 +241,77 @@ class ExternalCallback {
   void* _data;
 };
 
+class StringUtf8 {
+ public:
+  StringUtf8() : _str(nullptr), _length(0) {}
+  ~StringUtf8() {
+    if (_str != nullptr) {
+      free(_str);
+      _str = nullptr;
+      _length = 0;
+    }
+  }
+  char *operator*() { return _str; }
+  operator const char *() const { return _str; }
+  int length() const { return static_cast<int>(_length); }
+
+  napi_status From(JsValueRef strRef) {
+    CHAKRA_ASSERT(!_str);
+
+    int strLength = 0;
+    CHECK_JSRT_EXPECTED(JsGetStringLength(strRef, &strLength),
+                        napi_string_expected);
+
+    // assume string contains ascii characters only
+    _str = reinterpret_cast<char*>(malloc(strLength + 1));
+
+    size_t written = 0;
+    size_t actualLength = 0;
+    CHECK_JSRT_EXPECTED(
+      JsCopyString(strRef, _str, strLength, &written, &actualLength),
+                   napi_string_expected);
+
+    // if string contains unicode characters, take slow path
+    if (actualLength != written) {
+      // free previously allocated buffer
+      free(_str);
+
+      _str = reinterpret_cast<char*>(malloc(actualLength + 1));
+      if (_str == nullptr) {
+        return napi_set_last_error(napi_generic_failure);
+      }
+      CHECK_JSRT_EXPECTED(
+        JsCopyString(strRef, _str, actualLength, &written, nullptr),
+                     napi_string_expected);
+      assert(actualLength == written);
+    } else if (strLength != written) {
+      return napi_set_last_error(napi_generic_failure);
+    }
+
+    _str[written] = '\0';
+    _length = written;
+    return napi_ok;
+  }
+
+ private:
+  // Disallow copying and assigning
+  StringUtf8(const StringUtf8&);
+  void operator=(const StringUtf8&);
+
+  char* _str;
+  int _length;
+};
+
 inline napi_status JsPropertyIdFromKey(JsValueRef key,
                                        JsPropertyIdRef* propertyId) {
   JsValueType keyType;
   CHECK_JSRT(JsGetValueType(key, &keyType));
 
   if (keyType == JsString) {
-    size_t length;
-    CHECK_JSRT_EXPECTED(
-      JsCopyString(key, nullptr, 0, nullptr, &length), napi_string_expected);
+    StringUtf8 str;
+    CHECK_NAPI(str.From(key));
 
-    std::vector<uint8_t> name;
-    name.reserve(length + 1);
-    CHECK_JSRT(JsCopyString(
-      key, reinterpret_cast<char*>(name.data()), length + 1, &length, nullptr));
-
-    CHECK_JSRT(JsCreatePropertyId(
-      reinterpret_cast<char*>(name.data()), length, propertyId));
+    CHECK_JSRT(JsCreatePropertyId(*str, str.length(), propertyId));
   } else if (keyType == JsSymbol) {
     CHECK_JSRT(JsGetPropertyIdFromSymbol(key, propertyId));
   } else {

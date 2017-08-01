@@ -54,7 +54,8 @@ struct napi_env__ {
       (destination)->SetInternalFieldCount((field_count));         \
       (env)->prefix ## _template.Reset(isolate, (destination));    \
     } else {                                                       \
-      (destination) = env->prefix ## _template.Get(isolate);       \
+      (destination) = v8::Local<v8::ObjectTemplate>::New(          \
+          isolate, env->prefix ## _template);                      \
     }                                                              \
   } while (0)
 
@@ -704,6 +705,45 @@ bool FindWrapper(v8::Local<v8::Object> obj,
   return true;
 }
 
+static void DeleteEnv(napi_env env, void* data, void* hint) {
+  delete env;
+}
+
+napi_env GetEnv(v8::Local<v8::Context> context) {
+  napi_env result;
+
+  auto isolate = context->GetIsolate();
+  auto global = context->Global();
+
+  // In the case of the string for which we grab the private and the value of
+  // the private on the global object we can call .ToLocalChecked() directly
+  // because we need to stop hard if either of them is empty.
+  //
+  // Re https://github.com/nodejs/node/pull/14217#discussion_r128775149
+  auto key = v8::Private::ForApi(isolate,
+      v8::String::NewFromOneByte(isolate,
+          reinterpret_cast<const uint8_t*>("N-API Environment"),
+          v8::NewStringType::kInternalized).ToLocalChecked());
+  auto value = global->GetPrivate(context, key).ToLocalChecked();
+
+  if (value->IsExternal()) {
+    result = static_cast<napi_env>(value.As<v8::External>()->Value());
+  } else {
+    result = new napi_env__(isolate);
+    auto external = v8::External::New(isolate, result);
+
+    // We must also stop hard if the result of assigning the env to the global
+    // is either nothing or false.
+    CHECK(global->SetPrivate(context, key, external).FromJust());
+
+    // Create a self-destructing reference to external that will get rid of the
+    // napi_env when external goes out of scope.
+    Reference::New(result, external, 0, true, DeleteEnv, nullptr, nullptr);
+  }
+
+  return result;
+}
+
 }  // end of namespace v8impl
 
 // Intercepts the Node-V8 module registration callback. Converts parameters
@@ -715,9 +755,9 @@ void napi_module_register_cb(v8::Local<v8::Object> exports,
                              void* priv) {
   napi_module* mod = static_cast<napi_module*>(priv);
 
-  // Create a new napi_env for this module. Once module unloading is supported
-  // we shall have to call delete on this object from there.
-  napi_env env = new napi_env__(context->GetIsolate());
+  // Create a new napi_env for this module or reference one if a pre-existing
+  // one is found.
+  napi_env env = v8impl::GetEnv(context);
 
   mod->nm_register_func(
     env,
@@ -2955,6 +2995,72 @@ napi_status napi_get_typedarray_info(napi_env env,
 
   if (length != nullptr) {
     *length = array->Length();
+  }
+
+  v8::Local<v8::ArrayBuffer> buffer = array->Buffer();
+  if (data != nullptr) {
+    *data = static_cast<uint8_t*>(buffer->GetContents().Data()) +
+            array->ByteOffset();
+  }
+
+  if (arraybuffer != nullptr) {
+    *arraybuffer = v8impl::JsValueFromV8LocalValue(buffer);
+  }
+
+  if (byte_offset != nullptr) {
+    *byte_offset = array->ByteOffset();
+  }
+
+  return napi_clear_last_error(env);
+}
+
+napi_status napi_create_dataview(napi_env env,
+                                 size_t byte_length,
+                                 napi_value arraybuffer,
+                                 size_t byte_offset,
+                                 napi_value* result) {
+  NAPI_PREAMBLE(env);
+  CHECK_ARG(env, arraybuffer);
+  CHECK_ARG(env, result);
+
+  v8::Local<v8::Value> value = v8impl::V8LocalValueFromJsValue(arraybuffer);
+  RETURN_STATUS_IF_FALSE(env, value->IsArrayBuffer(), napi_invalid_arg);
+
+  v8::Local<v8::ArrayBuffer> buffer = value.As<v8::ArrayBuffer>();
+  v8::Local<v8::DataView> DataView = v8::DataView::New(buffer, byte_offset,
+                                                       byte_length);
+
+  *result = v8impl::JsValueFromV8LocalValue(DataView);
+  return GET_RETURN_STATUS(env);
+}
+
+napi_status napi_is_dataview(napi_env env, napi_value value, bool* result) {
+  CHECK_ENV(env);
+  CHECK_ARG(env, value);
+  CHECK_ARG(env, result);
+
+  v8::Local<v8::Value> val = v8impl::V8LocalValueFromJsValue(value);
+  *result = val->IsDataView();
+
+  return napi_clear_last_error(env);
+}
+
+napi_status napi_get_dataview_info(napi_env env,
+                                   napi_value dataview,
+                                   size_t* byte_length,
+                                   void** data,
+                                   napi_value* arraybuffer,
+                                   size_t* byte_offset) {
+  CHECK_ENV(env);
+  CHECK_ARG(env, dataview);
+
+  v8::Local<v8::Value> value = v8impl::V8LocalValueFromJsValue(dataview);
+  RETURN_STATUS_IF_FALSE(env, value->IsDataView(), napi_invalid_arg);
+
+  v8::Local<v8::DataView> array = value.As<v8::DataView>();
+
+  if (byte_length != nullptr) {
+    *byte_length = array->ByteLength();
   }
 
   v8::Local<v8::ArrayBuffer> buffer = array->Buffer();
