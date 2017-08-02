@@ -92,7 +92,8 @@
       var bpLine = funcInfo.firstStatementLine + line;
       var bpColumn = funcInfo.firstStatementColumn + column;
       var v8Breakpoint = new V8Breakpoint(Debug.ScriptBreakPointType.ScriptId,
-                              funcInfo.scriptId, scriptObj, bpLine, bpColumn);
+                                          funcInfo.scriptId, scriptObj, bpLine,
+                                          bpColumn);
       if (v8Breakpoint.Set()) {
         bpId = v8Breakpoint.Id();
       }
