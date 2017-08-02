@@ -20,4 +20,3 @@ prefix addons-napi
 
 [$jsEngine==chakracore]
 test_env_sharing/test : PASS,FLAKY
-test_dataview/test : PASS,FLAKY
