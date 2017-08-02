@@ -49,7 +49,7 @@ const Script = require('vm').Script;
     },
     common.engineSpecificMessage({
       v8: /^ReferenceError: foo is not defined$/,
-      chakracore: /undefined or null/
+      chakracore: /^TypeError: Unable to set property 'bar' of undefined or null reference$/
     })
   );
 }
@@ -106,7 +106,7 @@ const Script = require('vm').Script;
     },
     common.engineSpecificMessage({
       v8: /^ReferenceError: f is not defined$/,
-      chakracore: /'a' of undefined or null/
+      chakracore: /^TypeError: Unable to set property 'a' of undefined or null reference$/
     })
   );
 }
@@ -117,6 +117,6 @@ const Script = require('vm').Script;
     script.runInNewContext.call('\'hello\';');
   }, common.engineSpecificMessage({
     v8: /^TypeError: this\.runInContext is not a function$/,
-    chakracore: /TypeError: Object doesn't support property or method 'runInContext'/
+    chakracore: /^TypeError: Object doesn't support property or method 'runInContext'$/
   }));
 }
