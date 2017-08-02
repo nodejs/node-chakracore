@@ -100,8 +100,8 @@ void V8RuntimeAgentImpl::evaluate(
   }
 
   v8::Local<v8::Value> evalResult =
-      jsrt::InspectorHelpers::EvaluateOnCallFrame(/* ordinal */ 0, expStr,
-                                                  /* returnByValue */ true);
+      jsrt::InspectorHelpers::EvaluateOnCallFrame(
+          /* ordinal */ 0, expStr, returnByValue.fromMaybe(false));
 
   if (evalResult.IsEmpty()) {
     errorString = "Failed to evaluate expression";

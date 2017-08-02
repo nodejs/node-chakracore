@@ -166,8 +166,8 @@
       var lineNumber = fileDetails[1] ? fileDetails[1] : 0;
       var columnNumber = fileDetails[3] ? fileDetails[3] : 0;
 
-      errstack.push(
-          new StackFrame(func, funcName, fileName, lineNumber, columnNumber));
+      errstack.push(new StackFrame(func, funcName, fileName, lineNumber,
+                                   columnNumber));
     }
     return errstack;
   }
@@ -330,7 +330,8 @@
     originalMapMethods.forEach(function(pair) {
       Map.prototype[pair[0]] = function() {
         var result = pair[1].apply(this);
-        Object_defineProperty(result, mapIteratorProperty,
+        Object_defineProperty(
+          result, mapIteratorProperty,
           { value: true, enumerable: false, writable: false });
         return result;
       };
@@ -346,7 +347,8 @@
     originalSetMethods.forEach(function(pair) {
       Set.prototype[pair[0]] = function() {
         var result = pair[1].apply(this);
-        Object_defineProperty(result, setIteratorProperty,
+        Object_defineProperty(
+          result, setIteratorProperty,
           { value: true, enumerable: false, writable: false });
         return result;
       };
