@@ -20,7 +20,7 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 'use strict';
-require('../common');
+const common = require('../common');
 
 const assert = require('assert');
 
@@ -42,15 +42,14 @@ const Script = require('vm').Script;
 }
 
 {
-  const script = new Script('foo.bar = 5;');
-assert.throws(
-  function() {
-    script.runInNewContext();
-  },
-  common.engineSpecificMessage({
-    v8: /^ReferenceError: foo is not defined$/,
-    chakracore: /undefined or null/
-  }));
+  assert.throws(
+    function() {
+      script.runInNewContext();
+    },
+    common.engineSpecificMessage({
+      v8: /^ReferenceError: foo is not defined$/,
+      chakracore: /ReferenceError: Use before declaration/
+    }));
   global.hello = 5;
   const script = new Script('hello = 2');
   script.runInNewContext();
@@ -96,20 +95,22 @@ assert.throws(
   script.runInNewContext({ f: f });
   assert.strictEqual(f.a, 2);
 
-assert.throws(
-  function() {
-    script.runInNewContext();
-  },
-  common.engineSpecificMessage({
-    v8: /^ReferenceError: f is not defined$/,
-    chakracore: /'a' of undefined or null/
-  }));
+  assert.throws(
+    function() {
+      script.runInNewContext();
+    },
+    common.engineSpecificMessage({
+      v8: /^ReferenceError: f is not defined$/,
+      chakracore: /'a' of undefined or null/
+    }));
+}
 
 {
   const script = new Script('');
   assert.throws(function() {
     script.runInNewContext.call('\'hello\';');
-}, common.engineSpecificMessage({
-  v8: /^TypeError: this\.runInContext is not a function$/,
-  chakracore: /TypeError: Object doesn't support property or method 'runInContext'/
-}));
+  }, common.engineSpecificMessage({
+    v8: /^TypeError: this\.runInContext is not a function$/,
+    chakracore: /TypeError: Object doesn't support property or method 'runInContext'/
+  }));
+}
