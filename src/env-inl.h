@@ -83,8 +83,11 @@ inline uint32_t* IsolateData::zero_fill_field() const {
 inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
     : isolate_(isolate),
       fields_(),
-      uid_fields_(),
-      uid_fields_ttdRef(nullptr) {
+      uid_fields_()
+#if ENABLE_TTD_NODE
+    , uid_fields_ttdRef(nullptr)
+#endif
+{
   v8::HandleScope handle_scope(isolate_);
 
   // kAsyncUidCntr should start at 1 because that'll be the id the execution
