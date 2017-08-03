@@ -85,7 +85,7 @@ inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
       fields_(),
       uid_fields_()
 #if ENABLE_TTD_NODE
-      ,uid_fields_ttdRef(nullptr)
+    , uid_fields_ttdRef(nullptr)
 #endif
 {
   v8::HandleScope handle_scope(isolate_);
