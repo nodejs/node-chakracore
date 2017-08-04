@@ -748,7 +748,6 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
     }
   }
 
-
   // In case the object should support index or named properties interceptors,
   // we will use Proxies We will also support in case there is an overrdien
   // toString method on the intercepted object (like Buffer), by returning an

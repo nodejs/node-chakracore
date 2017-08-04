@@ -104,7 +104,6 @@ class ContextShim {
   bool InitializeBuiltIns();
   bool InitializeProxyOfGlobal();
   bool InitializeGlobalPrototypeFunctions();
-  bool InitializeObjectPrototypeToStringShim();
 
   template <typename Fn>
   bool InitializeBuiltIn(JsValueRef * builtInValue, Fn getBuiltIn);
