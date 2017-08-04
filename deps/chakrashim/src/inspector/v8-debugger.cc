@@ -293,8 +293,7 @@ JavaScriptCallFrames V8Debugger::currentCallFrames(int limit) {
     CHAKRA_VERIFY_NOERROR(jsrt::GetIndexedProperty(stackTrace, i,
                                                    &callFrameValue));
 
-    callFrames.push_back(JavaScriptCallFrame::create(
-        debuggerContext(), callFrameValue));
+    callFrames.push_back(JavaScriptCallFrame::create(callFrameValue));
   }
 
   return callFrames;

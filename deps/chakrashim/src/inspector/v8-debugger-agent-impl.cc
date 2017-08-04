@@ -716,7 +716,8 @@ void V8DebuggerAgentImpl::evaluateOnCallFrame(
   bool isError = false;
   v8::MaybeLocal<v8::Value> maybeResultValue =
       m_pausedCallFrames[ordinal]->evaluate(
-          toV8String(m_isolate, expression), &isError);
+          toV8String(m_isolate, expression), returnByValue.fromMaybe(false),
+          &isError);
 
   if (maybeResultValue.IsEmpty()) {
     *errorString = "Failed to evaluate expression";

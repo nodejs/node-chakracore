@@ -29,9 +29,6 @@
  */
 
 #include "src/inspector/java-script-call-frame.h"
-
-#include "src/inspector/string-util.h"
-#include "include/v8-debug.h"
 #include "src/jsrtinspectorhelpers.h"
 #include "src/jsrtutils.h"
 
@@ -39,11 +36,8 @@ namespace v8_inspector {
 
 using jsrt::InspectorHelpers;
 
-JavaScriptCallFrame::JavaScriptCallFrame(v8::Local<v8::Context> debuggerContext,
-                                         JsValueRef callFrame)
-    : m_isolate(debuggerContext->GetIsolate()),
-      m_debuggerContext(m_isolate, debuggerContext),
-      m_callFrame(callFrame) {
+JavaScriptCallFrame::JavaScriptCallFrame(JsValueRef callFrame)
+    : m_callFrame(callFrame) {
   JsAddRef(m_callFrame, nullptr);
 }
 
@@ -115,9 +109,10 @@ v8::Local<v8::Object> JavaScriptCallFrame::details() const {
 }
 
 v8::MaybeLocal<v8::Value> JavaScriptCallFrame::evaluate(
-    v8::Local<v8::Value> expression, bool* isError) {
+    v8::Local<v8::Value> expression, bool returnByValue, bool* isError) {
   return jsrt::InspectorHelpers::EvaluateOnCallFrame(
-      m_callFrame, reinterpret_cast<JsValueRef>(*expression), false, isError);
+      m_callFrame, reinterpret_cast<JsValueRef>(*expression), returnByValue,
+      isError);
 }
 
 v8::MaybeLocal<v8::Value> JavaScriptCallFrame::restart() {
