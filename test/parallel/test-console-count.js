@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 
 const stdoutWrite = process.stdout.write;
@@ -57,7 +57,13 @@ process.stdout.write = stdoutWrite;
 // Symbol labels do not work
 assert.throws(
   () => console.count(Symbol('test')),
-  /^TypeError: Cannot convert a Symbol value to a string$/);
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /TypeError: Object doesn't support property or method 'ToString'/
+  }));
 assert.throws(
   () => console.countReset(Symbol('test')),
-  /^TypeError: Cannot convert a Symbol value to a string$/);
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /TypeError: Object doesn't support property or method 'ToString'/
+  }));

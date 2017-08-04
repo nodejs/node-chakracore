@@ -43,6 +43,7 @@ test-cluster-inspector-debug-port : PASS,FLAKY
 test-crypto-dh : PASS,FLAKY
 test-crypto-dh-leak : PASS,FLAKY
 test-debugger-repeat-last : PASS,FLAKY
+test-domain-abort-on-uncaught : PASS,FLAKY
 test-domain-no-error-handler-abort-on-uncaught-0 : PASS,FLAKY
 test-domain-no-error-handler-abort-on-uncaught-1 : PASS,FLAKY
 test-domain-no-error-handler-abort-on-uncaught-2 : PASS,FLAKY
