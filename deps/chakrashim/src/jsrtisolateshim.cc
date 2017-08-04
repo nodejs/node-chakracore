@@ -534,6 +534,24 @@ JsPropertyIdRef IsolateShim::GetCachedPropertyIdRef(
   });
 }
 
+JsPropertyIdRef IsolateShim::GetToStringTagSymbolPropertyIdRef() {
+  return GetCachedPropertyId(cachedPropertyIdRefs, CachedPropertyIdRef::Symbol_toStringTag,
+                             [this](CachedPropertyIdRef index, JsPropertyIdRef* propIdRef) {
+    JsValueRef toStringTagSymbol;
+    if (JsGetProperty(this->GetCurrentContextShim()->GetGlobalType(ContextShim::GlobalType::Symbol),
+                      this->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::toStringTag),
+                      &toStringTagSymbol) != JsNoError) {
+      return false;
+    }
+    
+    if (JsGetPropertyIdFromSymbol(toStringTagSymbol, propIdRef) != JsNoError) {
+      return false;
+    }
+    return true;
+  });
+}
+
+
 JsPropertyIdRef IsolateShim::GetProxyTrapPropertyIdRef(ProxyTraps trap) {
   return GetCachedPropertyIdRef(GetProxyTrapCachedPropertyIdRef(trap));
 }
