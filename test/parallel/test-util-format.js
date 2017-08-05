@@ -123,48 +123,100 @@ assert.strictEqual(util.format('%o', 42), '42');
 assert.strictEqual(util.format('%o', 'foo'), '\'foo\'');
 assert.strictEqual(
   util.format('%o', obj),
-  '{ foo: \'bar\',\n' +
-  '  foobar: 1,\n' +
-  '  func: \n' +
-  '   { [Function: func]\n' +
-  '     [length]: 0,\n' +
-  '     [name]: \'func\',\n' +
-  '     [prototype]: func { [constructor]: [Circular] } } }');
+  common.engineSpecificMessage({
+    v8:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [length]: 0,\n' +
+    '     [name]: \'func\',\n' +
+    '     [prototype]: func { [constructor]: [Circular] } } }',
+    chakracore:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [prototype]: func { [constructor]: [Circular] },\n' +
+    '     [name]: \'func\',\n' +
+    '     [length]: 0 } }'
+  }));
 assert.strictEqual(
   util.format('%o', nestedObj),
-  '{ foo: \'bar\',\n' +
-  '  foobar: \n' +
-  '   { foo: \'bar\',\n' +
-  '     func: \n' +
-  '      { [Function: func]\n' +
-  '        [length]: 0,\n' +
-  '        [name]: \'func\',\n' +
-  '        [prototype]: func { [constructor]: [Circular] } } } }');
+  common.engineSpecificMessage({
+    v8:
+    '{ foo: \'bar\',\n' +
+    '  foobar: \n' +
+    '   { foo: \'bar\',\n' +
+    '     func: \n' +
+    '      { [Function: func]\n' +
+    '        [length]: 0,\n' +
+    '        [name]: \'func\',\n' +
+    '        [prototype]: func { [constructor]: [Circular] } } } }',
+    chakracore:
+    '{ foo: \'bar\',\n' +
+    '  foobar: \n' +
+    '   { foo: \'bar\',\n' +
+    '     func: \n' +
+    '      { [Function: func]\n' +
+    '        [prototype]: func { [constructor]: [Circular] },\n' +
+    '        [name]: \'func\',\n' +
+    '        [length]: 0 } } }'
+  }));
 assert.strictEqual(
   util.format('%o %o', obj, obj),
-  '{ foo: \'bar\',\n' +
-  '  foobar: 1,\n' +
-  '  func: \n' +
-  '   { [Function: func]\n' +
-  '     [length]: 0,\n' +
-  '     [name]: \'func\',\n' +
-  '     [prototype]: func { [constructor]: [Circular] } } }' +
-  ' { foo: \'bar\',\n' +
-  '  foobar: 1,\n' +
-  '  func: \n' +
-  '   { [Function: func]\n' +
-  '     [length]: 0,\n' +
-  '     [name]: \'func\',\n' +
-  '     [prototype]: func { [constructor]: [Circular] } } }');
+  common.engineSpecificMessage({
+    v8:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [length]: 0,\n' +
+    '     [name]: \'func\',\n' +
+    '     [prototype]: func { [constructor]: [Circular] } } }' +
+    ' { foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [length]: 0,\n' +
+    '     [name]: \'func\',\n' +
+    '     [prototype]: func { [constructor]: [Circular] } } }',
+    chakracore:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [prototype]: func { [constructor]: [Circular] },\n' +
+    '     [name]: \'func\',\n' +
+    '     [length]: 0 } }' +
+    ' { foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [prototype]: func { [constructor]: [Circular] },\n' +
+    '     [name]: \'func\',\n' +
+    '     [length]: 0 } }'
+  }));
 assert.strictEqual(
   util.format('%o %o', obj),
-  '{ foo: \'bar\',\n' +
-  '  foobar: 1,\n' +
-  '  func: \n' +
-  '   { [Function: func]\n' +
-  '     [length]: 0,\n' +
-  '     [name]: \'func\',\n' +
-  '     [prototype]: func { [constructor]: [Circular] } } } %o');
+  common.engineSpecificMessage({
+    v8:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [length]: 0,\n' +
+    '     [name]: \'func\',\n' +
+    '     [prototype]: func { [constructor]: [Circular] } } } %o',
+    chakracore:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   { [Function: func]\n' +
+    '     [prototype]: func { [constructor]: [Circular] },\n' +
+    '     [name]: \'func\',\n' +
+    '     [length]: 0 } } %o'
+  }));
 
 assert.strictEqual(util.format('%O'), '%O');
 assert.strictEqual(util.format('%O', 42), '42');

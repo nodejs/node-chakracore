@@ -26,4 +26,4 @@ p.stderr.on('end', common.mustCall(() => {
     v8: /Invalid left-hand side expression in prefix operation/,
     chakracore: /SyntaxError: Expected ';'/
   }).test(output);
-});
+}));
