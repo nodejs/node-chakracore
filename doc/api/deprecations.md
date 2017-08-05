@@ -634,8 +634,8 @@ Type: End-of-Life
 
 *Note*: change was made while `async_hooks` was an experimental API.
 
-<a id="DEP00XX"></a>
-### DEP00XX: Several internal properties of net.Server
+<a id="DEP0073"></a>
+### DEP0073: Several internal properties of net.Server
 
 Type: Runtime
 
@@ -644,6 +644,22 @@ with inappropriate names has been deprecated.
 
 *Note*: As the original API was undocumented and not generally useful for
 non-internal code, no replacement API is provided.
+
+<a id="DEP0074"></a>
+### DEP0074: REPLServer.bufferedCommand
+
+Type: Runtime
+
+The `REPLServer.bufferedCommand` property was deprecated in favor of
+[`REPLServer.clearBufferedCommand()`][].
+
+<a id="DEP0075"></a>
+### DEP0075: REPLServer.parseREPLKeyword()
+
+Type: Runtime
+
+`REPLServer.parseREPLKeyword()` was removed from userland visibility.
+
 
 [`Buffer.allocUnsafeSlow(size)`]: buffer.html#buffer_class_method_buffer_allocunsafeslow_size
 [`Buffer.from(array)`]: buffer.html#buffer_class_method_buffer_from_array
@@ -708,3 +724,4 @@ non-internal code, no replacement API is provided.
 [alloc_unsafe_size]: buffer.html#buffer_class_method_buffer_allocunsafe_size
 [from_arraybuffer]: buffer.html#buffer_class_method_buffer_from_arraybuffer_byteoffset_length
 [from_string_encoding]: buffer.html#buffer_class_method_buffer_from_string_encoding
+[`REPLServer.clearBufferedCommand()`]: repl.html#repl_replserver_clearbufferedcommand

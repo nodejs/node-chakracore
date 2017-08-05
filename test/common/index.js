@@ -623,12 +623,12 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
   }
 };
 
-function areAllValuesEqual(obj) {
+function areAllValuesStringEqual(obj) {
   let exemplar;
   for (const key of Object.keys(obj)) {
     if (exemplar === undefined) {
-      exemplar = obj[key];
-    } else if (exemplar !== obj[key]) {
+      exemplar = obj[key].toString();
+    } else if (exemplar !== obj[key].toString()) {
       return false;
     }
   }
@@ -637,7 +637,11 @@ function areAllValuesEqual(obj) {
 }
 
 exports.engineSpecificMessage = function(messageObject) {
-  assert.ok(!areAllValuesEqual(messageObject),
+  // This will compare the fields of the messageObject as strings which should
+  // cover both literal strings and regexps. Nothing else is currently expected
+  // to be passed to this method and at worst case it will generate a false
+  // positive that can be addressed as necessary.
+  assert.ok(!areAllValuesStringEqual(messageObject),
             'Unnecessary usage of \'engineSpecificMessage\'');
 
   const jsEngine = process.jsEngine || 'v8'; //default is 'v8'
