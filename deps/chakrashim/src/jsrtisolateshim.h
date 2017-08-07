@@ -94,6 +94,7 @@ class IsolateShim {
 
   // Symbols propertyIdRef
   JsPropertyIdRef GetSelfSymbolPropertyIdRef();
+  JsPropertyIdRef GetToStringTagSymbolPropertyIdRef();
   JsPropertyIdRef GetKeepAliveObjectSymbolPropertyIdRef();
   JsPropertyIdRef GetCachedSymbolPropertyIdRef(
     CachedSymbolPropertyIdRef cachedSymbolPropertyIdRef);

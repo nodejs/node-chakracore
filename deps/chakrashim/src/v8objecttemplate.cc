@@ -748,6 +748,21 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
     }
   }
 
+  if (!objectTemplateData->className.IsEmpty()) {
+    jsrt::IsolateShim* iso = jsrt::IsolateShim::GetCurrent();
+    if (jsrt::DefineProperty(
+        newInstanceRef,
+        iso->GetToStringTagSymbolPropertyIdRef(),
+        jsrt::PropertyDescriptorOptionValues::True, /* writable */
+        jsrt::PropertyDescriptorOptionValues::False, /* enumerable */
+        jsrt::PropertyDescriptorOptionValues::True, /* configurable */
+        *objectTemplateData->className,
+        JS_INVALID_REFERENCE,
+        JS_INVALID_REFERENCE) != JsNoError) {
+      return Local<Object>();
+    }
+  }
+ 
 
   // In case the object should support index or named properties interceptors,
   // we will use Proxies We will also support in case there is an overrdien
