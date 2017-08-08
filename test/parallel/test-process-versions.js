@@ -3,8 +3,9 @@ const common = require('../common');
 const assert = require('assert');
 
 const expected_keys = ['ares', 'http_parser', 'modules', 'node',
-                       'uv', 'zlib'];
-expected_keys.push(process.jsEngine);
+                       'uv', 'zlib', 'nghttp2'];
+const jsEngine = process.jsEngine || 'v8';
+expected_keys.push(jsEngine);
 
 if (common.hasCrypto) {
   expected_keys.push('openssl');
@@ -30,5 +31,5 @@ assert(commonTemplate.test(process.versions.node));
 assert(commonTemplate.test(process.versions.uv));
 assert(commonTemplate.test(process.versions.zlib));
 
-assert(/^\d+\.\d+\.\d+(?:\.\d+)?(?: \(candidate\))?$/.test(process.versions[process.jsEngine || 'v8']));
+assert(/^\d+\.\d+\.\d+(?:\.\d+)?(?: \(candidate\))?$/.test(process.versions[jsEngine]));
 assert(/^\d+$/.test(process.versions.modules));
