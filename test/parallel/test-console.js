@@ -42,6 +42,20 @@ assert.doesNotThrow(function() {
   console.timeEnd('label');
 });
 
+assert.throws(
+  () => console.time(Symbol('test')),
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /^TypeError: Object doesn't support property or method 'ToString'$/
+  }));
+assert.throws(
+  () => console.timeEnd(Symbol('test')),
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /^TypeError: Object doesn't support property or method 'ToString'$/
+  }));
+
+
 // an Object with a custom .inspect() function
 const custom_inspect = { foo: 'bar', inspect: () => 'inspect' };
 
@@ -102,6 +116,20 @@ console.time('constructor');
 console.timeEnd('constructor');
 console.time('hasOwnProperty');
 console.timeEnd('hasOwnProperty');
+
+// verify that values are coerced to strings
+console.time([]);
+console.timeEnd([]);
+console.time({});
+console.timeEnd({});
+console.time(null);
+console.timeEnd(null);
+console.time(undefined);
+console.timeEnd('default');
+console.time('default');
+console.timeEnd();
+console.time(NaN);
+console.timeEnd(NaN);
 
 assert.strictEqual(strings.length, process.stdout.writeTimes);
 assert.strictEqual(errStrings.length, process.stderr.writeTimes);
