@@ -5,6 +5,10 @@ const common = require('../common');
 
 if (!common.isWindows) return common.skip('Windows-only');
 
+if (common.isChakraEngine)
+  common.skip('This test is disabled for chakra engine because it depends ' +
+              'on v8-option --max-old-space-size');
+
 const assert = require('assert');
 const { exec } = require('child_process');
 

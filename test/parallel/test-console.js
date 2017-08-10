@@ -42,10 +42,18 @@ assert.doesNotThrow(function() {
   console.timeEnd('label');
 });
 
-assert.throws(() => console.time(Symbol('test')),
-              /^TypeError: Cannot convert a Symbol value to a string$/);
-assert.throws(() => console.timeEnd(Symbol('test')),
-              /^TypeError: Cannot convert a Symbol value to a string$/);
+assert.throws(
+  () => console.time(Symbol('test')),
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /^TypeError: Object doesn't support property or method 'ToString'$/
+  }));
+assert.throws(
+  () => console.timeEnd(Symbol('test')),
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /^TypeError: Object doesn't support property or method 'ToString'$/
+  }));
 
 
 // an Object with a custom .inspect() function
