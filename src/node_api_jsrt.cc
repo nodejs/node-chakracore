@@ -1122,11 +1122,37 @@ napi_status napi_create_string_utf16(napi_env env,
   return napi_ok;
 }
 
-napi_status napi_create_number(napi_env env,
+napi_status napi_create_double(napi_env env,
                                double value,
                                napi_value* result) {
   CHECK_ARG(result);
   CHECK_JSRT(JsDoubleToNumber(value, reinterpret_cast<JsValueRef*>(result)));
+  return napi_ok;
+}
+
+napi_status napi_create_int32(napi_env env,
+                              int32_t value,
+                              napi_value* result) {
+  CHECK_ARG(result);
+  CHECK_JSRT(JsIntToNumber(value, reinterpret_cast<JsValueRef*>(result)));
+  return napi_ok;
+}
+
+napi_status napi_create_uint32(napi_env env,
+                               uint32_t value,
+                               napi_value* result) {
+  CHECK_ARG(result);
+  CHECK_JSRT(JsDoubleToNumber(static_cast<double>(value),
+                              reinterpret_cast<JsValueRef*>(result)));
+  return napi_ok;
+}
+
+napi_status napi_create_int64(napi_env env,
+                              int64_t value,
+                              napi_value* result) {
+  CHECK_ARG(result);
+  CHECK_JSRT(JsDoubleToNumber(static_cast<double>(value),
+                              reinterpret_cast<JsValueRef*>(result)));
   return napi_ok;
 }
 
