@@ -147,7 +147,7 @@ function error_test() {
     // But passing the same string to eval() should throw
     { client: client_unix, send: 'eval("function test_func() {")',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Unexpected end of input/,
+        v8: /^SyntaxError: Unexpected end of input/,
         chakracore: /^SyntaxError: Expected '}'/ })
     },
     // Can handle multiline template literals
@@ -179,48 +179,48 @@ function error_test() {
     // should throw
     { client: client_unix, send: 'JSON.parse(\'{invalid: \\\'json\\\'}\');',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Unexpected token i/,
+        v8: /^SyntaxError: Unexpected token i/,
         chakracore: /^SyntaxError: JSON\.parse Error: Invalid character/ })
     },
     // end of input to JSON.parse error is special case of syntax error,
     // should throw
     { client: client_unix, send: 'JSON.parse(\'066\');',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Unexpected number/,
+        v8: /^SyntaxError: Unexpected number/,
         chakracore:  /^SyntaxError: JSON\.parse Error: Invalid number/ })
     },
     // should throw
     { client: client_unix, send: 'JSON.parse(\'{\');',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Unexpected end of JSON input/,
+        v8: /^SyntaxError: Unexpected end of JSON input/,
         chakracore: /^SyntaxError: JSON\.parse Error: Invalid character/ })
     },
     // invalid RegExps are a special case of syntax error,
     // should throw
     { client: client_unix, send: '/(/;',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Invalid regular expression:/,
+        v8: /^SyntaxError: Invalid regular expression:/,
         chakracore: /^SyntaxError: Expected '\)' in regular expression/ })
     },
     // invalid RegExp modifiers are a special case of syntax error,
     // should throw (GH-4012)
     { client: client_unix, send: 'new RegExp("foo", "wrong modifier");',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Invalid flags supplied to RegExp constructor/,
+        v8: /^SyntaxError: Invalid flags supplied to RegExp constructor/,
         chakracore: /^SyntaxError: Syntax error in regular expression/ })
     },
     // strict mode syntax errors should be caught (GH-5178)
     { client: client_unix,
       send: '(function() { "use strict"; return 0755; })()',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Octal literals are not allowed in strict mode/,
+        v8: /^SyntaxError: Octal literals are not allowed in strict mode/,
         chakracore: /^SyntaxError: Octal numeric literals and escape characters not allowed in strict mode/ }) // eslint-disable-line max-len
     },
     {
       client: client_unix,
       send: '(function(a, a, b) { "use strict"; return a + b + c; })()',
       expect: common.engineSpecificMessage({
-        v8: /\bSyntaxError: Duplicate parameter name not allowed in this context/, // eslint-disable-line max-len
+        v8: /^SyntaxError: Duplicate parameter name not allowed in this context/, // eslint-disable-line max-len
         chakracore: /^SyntaxError: Duplicate formal parameter names not allowed in strict mode/ }) // eslint-disable-line max-len
     },
     {

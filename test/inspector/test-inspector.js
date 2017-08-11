@@ -345,7 +345,10 @@ function testCommandLineAPI(session) {
         checkException(message);
         assert.deepStrictEqual(JSON.parse(message['result']['value']), {
           parentsEqual: true,
-          parentId: common.engineSpecificMessage({chakracore: '.', v8: '<inspector console>'})
+          parentId: common.engineSpecificMessage({
+            v8: '<inspector console>',
+            chakracore: '.'
+          })
         });
       }
     ],

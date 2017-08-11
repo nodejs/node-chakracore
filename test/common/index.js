@@ -29,13 +29,15 @@ const { exec, execSync, spawn, spawnSync } = require('child_process');
 const stream = require('stream');
 const util = require('util');
 const Timer = process.binding('timer_wrap').Timer;
+const { fixturesDir } = require('./fixtures');
 
 const testRoot = process.env.NODE_TEST_DIR ?
   fs.realpathSync(process.env.NODE_TEST_DIR) : path.resolve(__dirname, '..');
 
 const noop = () => {};
 
-exports.fixturesDir = path.join(__dirname, '..', 'fixtures');
+exports.fixturesDir = fixturesDir;
+
 exports.tmpDirName = 'tmp';
 // PORT should match the definition in test/testpy/__init__.py.
 exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
@@ -604,10 +606,10 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
   // On Windows, 'aborts' are of 2 types, depending on the context:
   // (i) Forced access violation, if --abort-on-uncaught-exception is on
   // which corresponds to exit code 3221225477 (0xC0000005)
-  // (ii) raise(SIGABRT) or abort(), which lands up in CRT library calls
-  // which corresponds to exit code 3.
+  // (ii) Otherwise, _exit(134) which is called in place of abort() due to
+  // raising SIGABRT exiting with ambiguous exit code '3' by default
   if (exports.isWindows)
-    expectedExitCodes = [3221225477, 3];
+    expectedExitCodes = [0xC0000005, 134];
 
   // When using --abort-on-uncaught-exception, V8 will use
   // base::OS::Abort to terminate the process.
