@@ -44,11 +44,15 @@ assert.strictEqual(util.format(symbol), 'Symbol(foo)');
 assert.strictEqual(util.format('foo', symbol), 'foo Symbol(foo)');
 assert.strictEqual(util.format('%s', symbol), 'Symbol(foo)');
 assert.strictEqual(util.format('%j', symbol), 'undefined');
-assert.throws(function() {
-  util.format('%d', symbol);
-}, common.engineSpecificMessage({
+assert.throws(
+  function() {
+    util.format('%d', symbol);
+  },
+  common.engineSpecificMessage({
     v8: /^TypeError: Cannot convert a Symbol value to a number$/,
-    chakracore: /Error: Number expected/}));
+    chakracore: /Error: Number expected/
+  })
+);
 
 
 // Number format specifier

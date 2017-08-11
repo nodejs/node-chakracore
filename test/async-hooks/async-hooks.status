@@ -9,10 +9,8 @@ prefix async-hooks
 [$system==win32]
 
 [$system==linux]
-test-callback-error                  : PASS,FLAKY
 
 [$system==macos]
-test-callback-error                  : PASS,FLAKY
 
 [$arch==arm || $arch==arm64]
 

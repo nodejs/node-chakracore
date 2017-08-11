@@ -28,14 +28,16 @@ const msg = {test: 'this'};
 const nodePath = process.execPath;
 const nodeCopyPath = path.join(common.tmpDir, 'node-copy.exe');
 const chakracoreCopyPath = path.join(common.tmpDir, 'chakracore.dll');
-const exePaths = [
-    {srcPath: nodePath,
-     destPath: nodeCopyPath}];
+const exePaths = [{
+  srcPath: nodePath,
+  destPath: nodeCopyPath
+}];
 if (common.isChakraEngine) {
   // chakra needs chakracore.dll as well
-  exePaths.push(
-      {srcPath: process.execPath.replace('node.exe', 'chakracore.dll'),
-       destPath: chakracoreCopyPath});
+  exePaths.push({
+    srcPath: process.execPath.replace('node.exe', 'chakracore.dll'),
+    destPath: chakracoreCopyPath
+  });
 }
 
 if (process.env.FORK) {
