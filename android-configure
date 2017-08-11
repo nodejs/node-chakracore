@@ -67,7 +67,11 @@ export LINK=$TOOLCHAIN/bin/$SUFFIX-g++
 GYP_DEFINES="target_arch=$ARCH"
 GYP_DEFINES+=" v8_target_arch=$ARCH"
 GYP_DEFINES+=" android_target_arch=$ARCH"
-GYP_DEFINES+=" host_os=linux OS=android"
+if [ "$(uname -s)" == "Darwin" ]; then
+    GYP_DEFINES+=" host_os=mac OS=android"
+else
+    GYP_DEFINES+=" host_os=linux OS=android"
+fi
 export GYP_DEFINES
 
 if [ -f "configure" ]; then
