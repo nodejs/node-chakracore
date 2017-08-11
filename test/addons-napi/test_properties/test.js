@@ -1,7 +1,10 @@
 'use strict';
 const common = require('../../common');
 const assert = require('assert');
-const readonlyErrorRE = /^TypeError: Cannot assign to read only property '.*' of object '#<Object>'$/;
+const readonlyErrorRE = common.engineSpecificMessage({
+  v8: /^TypeError: Cannot assign to read only property '.*' of object '#<Object>'$/,
+  chakracore: /^TypeError: Assignment to read-only properties is not allowed in strict mode$/
+});
 
 // Testing api calls for defining properties
 const test_object = require(`./build/${common.buildType}/test_properties`);

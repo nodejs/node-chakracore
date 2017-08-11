@@ -41,7 +41,10 @@ assert.throws(
   () => { assert.throws(() => { throw new Error(); }, { foo: 'bar' }); },
   common.expectsError({
     type: TypeError,
-    message: 'expected.test is not a function'
+    message: common.engineSpecificMessage({
+      v8: 'expected.test is not a function',
+      chakracore: 'Object doesn\'t support property or method \'test\''
+    })
   })
 );
 
