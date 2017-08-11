@@ -79,5 +79,8 @@ if [ -f "configure" ]; then
         --dest-cpu=$DEST_CPU \
         --dest-os=android \
         --without-snapshot \
-        --openssl-no-asm
+        --openssl-no-asm \
+        --with-intl=none \
+        --engine=V8 \
+        --shared
 fi
