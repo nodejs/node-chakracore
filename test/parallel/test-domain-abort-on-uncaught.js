@@ -15,6 +15,7 @@ if (common.isChakraEngine) {
               'on v8-option --abort-on-uncaught-exception');
   return;
 }
+
 const tests = [
   function nextTick() {
     const d = domain.create();

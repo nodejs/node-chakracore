@@ -113,10 +113,13 @@ const Script = require('vm').Script;
 
 {
   const script = new Script('');
-  assert.throws(function() {
-    script.runInNewContext.call('\'hello\';');
-  }, common.engineSpecificMessage({
-    v8: /^TypeError: this\.runInContext is not a function$/,
-    chakracore: /^TypeError: Object doesn't support property or method 'runInContext'$/
-  }));
+  assert.throws(
+    function() {
+      script.runInNewContext.call('\'hello\';');
+    },
+    common.engineSpecificMessage({
+      v8: /^TypeError: this\.runInContext is not a function$/,
+      chakracore: /^TypeError: Object doesn't support property or method 'runInContext'$/
+    })
+  );
 }

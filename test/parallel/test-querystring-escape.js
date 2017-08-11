@@ -22,20 +22,21 @@ assert.strictEqual(
 );
 
 // toString is not callable, must throw an error
-assert.throws(() => qs.escape({toString: 5}),
-              common.engineSpecificMessage({
-                v8: /^TypeError: Cannot convert object to primitive value$/,
-                chakracore: /^TypeError: String expected$/
-              }));
+assert.throws(
+  () => qs.escape({toString: 5}),
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert object to primitive value$/,
+    chakracore: /^TypeError: String expected$/
+  })
+);
 
 // should use valueOf instead of non-callable toString
 assert.strictEqual(qs.escape({toString: 5, valueOf: () => 'test'}), 'test');
 
-const chakraSymbolTypeError =
-    /^TypeError: Object doesn't support property or method 'ToString'$/;
-
-assert.throws(() => qs.escape(Symbol('test')),
-              common.engineSpecificMessage({
-                v8: /^TypeError: Cannot convert a Symbol value to a string$/,
-                chakracore: chakraSymbolTypeError
-              }));
+assert.throws(
+  () => qs.escape(Symbol('test')),
+  common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /^TypeError: Object doesn't support property or method 'ToString'$/
+  })
+);

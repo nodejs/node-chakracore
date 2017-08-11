@@ -25,8 +25,8 @@ p.stderr.on('data', function(data) {
 process.on('exit', function() {
   assert(/BEGIN CERT/.test(output));
   assert(/^\s+\^/m.test(output));
-  common.engineSpecificMessage({
+  assert(common.engineSpecificMessage({
     v8: /Invalid left-hand side expression in prefix operation/,
     chakracore: /SyntaxError: Expected ';'/
-  }).test(output);
+  }).test(output));
 });

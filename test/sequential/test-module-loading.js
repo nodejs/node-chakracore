@@ -105,11 +105,10 @@ assert.throws(
   function() {
     require('../fixtures/packages/invalid');
   },
-  new RegExp('^SyntaxError: Error parsing .+: ') +
-    common.engineSpecificMessage({
-      v8: 'Unexpected token , in JSON at position 1$',
-      chakracore: 'JSON.parse Error: Invalid character at position:2$'
-    })
+  common.engineSpecificMessage({
+    v8: /^SyntaxError: Error parsing .+: Unexpected token , in JSON at position 1$/,
+    chakracore: /^SyntaxError: Error parsing .+: JSON\.parse Error: Invalid character at position:2$/
+  })
 );
 
 assert.strictEqual(require('../fixtures/packages/index').ok, 'ok',

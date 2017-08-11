@@ -29,15 +29,14 @@ function checkVersion(err, response) {
 }
 
 function checkBadPath(err, response) {
-  assert(err instanceof SyntaxError, 'Expected SyntaxError');
+  assert(err instanceof SyntaxError);
   assert(
     common.engineSpecificMessage({
       v8: /Unexpected token/,
       chakracore: /JSON\.parse Error: Invalid character at position:1/
-    }).test(err.message),
-    'Unexpected message: ' + err.message);
-  assert(/WebSockets request was expected/.test(err.response),
-         'Unexpected response: ' + err.response);
+    }).test(err.message)
+  );
+  assert(/WebSockets request was expected/.test(err.response));
 }
 
 function expectMainScriptSource(result) {

@@ -3,10 +3,8 @@ const common = require('../common');
 const assert = require('assert');
 const v8 = require('v8');
 
-if (common.isChakraEngine) {
+if (common.isChakraEngine)
   common.skip('This test is disabled for chakra engine.');
-  return;
-}
 
 const versionTag1 = v8.cachedDataVersionTag();
 assert.strictEqual(typeof versionTag1, 'number');

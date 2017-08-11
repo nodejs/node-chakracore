@@ -20,10 +20,10 @@ const errMessage = /^TypeError: Parameter "url" must be a string, not (?:undefin
   assert.throws(() => { url.parse(val); }, errMessage);
 });
 
-const engineSpecificMalformedUrlError =
-    common.engineSpecificMessage({
-      v8: /^URIError: URI malformed$/,
-      chakracore: /^URIError: The URI to be decoded is not a valid encoding$/
-    });
-
-assert.throws(() => { url.parse('http://%E0%A4%A@fail'); }, engineSpecificMalformedUrlError);
+assert.throws(
+  () => { url.parse('http://%E0%A4%A@fail'); },
+  common.engineSpecificMessage({
+    v8: /^URIError: URI malformed$/,
+    chakracore: /^URIError: The URI to be decoded is not a valid encoding$/
+  })
+);

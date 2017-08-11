@@ -13,7 +13,6 @@ const assert = require('assert');
 const path = require('path');
 const childProcess = require('child_process');
 
-
 const nodeBinary = process.argv[0];
 
 const preloadOption = (preloads) => {

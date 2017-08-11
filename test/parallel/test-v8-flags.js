@@ -4,10 +4,8 @@ const assert = require('assert');
 const v8 = require('v8');
 const vm = require('vm');
 
-if (common.isChakraEngine) {
+if (common.isChakraEngine)
   common.skip('This test is disabled for chakra engine.');
-  return;
-}
 
 // Note: changing V8 flags after an isolate started is not guaranteed to work.
 // Specifically here, V8 may cache compiled scripts between the flip of the

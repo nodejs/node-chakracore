@@ -245,33 +245,43 @@ function makeIterableFunc(array) {
   const toStringError = /^Error: toString$/;
   const symbolError = /^TypeError: Cannot convert a Symbol value to a string$/;
   const chakracoreSymbolErrorRegex =
-         /^TypeError: Object doesn't support property or method 'ToString'/;
+    /^TypeError: Object doesn't support property or method 'ToString'/;
 
   assert.throws(() => new URLSearchParams({ a: obj }), toStringError);
   assert.throws(() => new URLSearchParams([['a', obj]]), toStringError);
-  assert.throws(() => new URLSearchParams(sym),
-                common.engineSpecificMessage({
-                  v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
-                }));
-  assert.throws(() => new URLSearchParams({ [sym]: 'a' }),
-                common.engineSpecificMessage({
-                  v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
-                }));
-  assert.throws(() => new URLSearchParams({ a: sym }),
-                common.engineSpecificMessage({
-                  v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
-                }));
-  assert.throws(() => new URLSearchParams([[sym, 'a']]),
-                common.engineSpecificMessage({
-                  v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
-                }));
-  assert.throws(() => new URLSearchParams([['a', sym]]),
-                common.engineSpecificMessage({
-                  v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
-                }));
+  assert.throws(
+    () => new URLSearchParams(sym),
+    common.engineSpecificMessage({
+      v8: symbolError,
+      chakracore: chakracoreSymbolErrorRegex
+    })
+  );
+  assert.throws(
+    () => new URLSearchParams({ [sym]: 'a' }),
+    common.engineSpecificMessage({
+      v8: symbolError,
+      chakracore: chakracoreSymbolErrorRegex
+    })
+  );
+  assert.throws(
+    () => new URLSearchParams({ a: sym }),
+    common.engineSpecificMessage({
+      v8: symbolError,
+      chakracore: chakracoreSymbolErrorRegex
+    })
+  );
+  assert.throws(
+    () => new URLSearchParams([[sym, 'a']]),
+    common.engineSpecificMessage({
+      v8: symbolError,
+      chakracore: chakracoreSymbolErrorRegex
+    })
+  );
+  assert.throws(
+    () => new URLSearchParams([['a', sym]]),
+    common.engineSpecificMessage({
+      v8: symbolError,
+      chakracore: chakracoreSymbolErrorRegex
+    })
+  );
 }

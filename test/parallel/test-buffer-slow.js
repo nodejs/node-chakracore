@@ -38,7 +38,6 @@ try {
     v8: 'Array buffer allocation failed',
     chakracore: 'Invalid offset/length when creating typed array'
   }));
-
 }
 
 // should work with number-coercible values

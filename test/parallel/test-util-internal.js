@@ -60,6 +60,4 @@ try {
       binding.getHiddenValue(err, kArrowMessagePrivateSymbolIndex);
 }
 
-if (!common.isChakraEngine) {  // chakra does not show script/source
-  assert(/bad_syntax\.js:1/.test(arrowMessage));
-}
+assert(/bad_syntax\.js:1/.test(arrowMessage));
