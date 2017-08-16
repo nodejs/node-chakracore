@@ -10,6 +10,6 @@ prefix inspector
 
 [$jsEngine==chakracore]
 test-bindings : PASS,FLAKY
-test-inspector-break-when-eval : PASS,FLAKY
-test-inspector-stop-profile-after-done : PASS,FLAKY
+test-break-when-eval : PASS,FLAKY # https://github.com/nodejs/node-chakracore/issues/367
+test-stop-profile-after-done : PASS,FLAKY
 test-off-with-session-then-on : PASS,FLAKY
