@@ -300,10 +300,8 @@ template <typename T>
 inline Environment* Environment::GetCurrent(
     const v8::PropertyCallbackInfo<T>& info) {
   CHECK(info.Data()->IsExternal());
-  // XXX(bnoordhuis) Work around a g++ 4.9.2 template type inferrer bug
-  // when the expression is written as info.Data().As<v8::External>().
-  v8::Local<v8::Value> data = info.Data();
-  return static_cast<Environment*>(data.As<v8::External>()->Value());
+  return static_cast<Environment*>(
+      info.Data().template As<v8::External>()->Value());
 }
 
 inline Environment::Environment(IsolateData* isolate_data,
@@ -350,6 +348,7 @@ inline Environment::~Environment() {
   delete[] heap_statistics_buffer_;
   delete[] heap_space_statistics_buffer_;
   delete[] http_parser_buffer_;
+  free(http2_state_buffer_);
 }
 
 inline v8::Isolate* Environment::isolate() const {
@@ -514,8 +513,18 @@ inline void Environment::set_http_parser_buffer(char* buffer) {
   http_parser_buffer_ = buffer;
 }
 
+inline http2::http2_state* Environment::http2_state_buffer() const {
+  return http2_state_buffer_;
+}
+
+inline void Environment::set_http2_state_buffer(http2::http2_state* buffer) {
+  CHECK_EQ(http2_state_buffer_, nullptr);  // Should be set only once.
+  http2_state_buffer_ = buffer;
+}
+
 inline v8::Local<v8::Float64Array> Environment::fs_stats_field_array() const {
   return v8::Local<v8::Float64Array>::New(isolate_, fs_stats_field_array_);
+
 }
 
 inline void Environment::set_fs_stats_field_array(

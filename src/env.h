@@ -43,6 +43,10 @@
 
 namespace node {
 
+namespace http2 {
+struct http2_state;
+}
+
 // Pick an index that's hopefully out of the way when we're embedded inside
 // another application. Performance-wise or memory-wise it doesn't matter:
 // Context::SetAlignedPointerInEmbedderData() is backed by a FixedArray,
@@ -611,6 +615,9 @@ class Environment {
   inline char* http_parser_buffer() const;
   inline void set_http_parser_buffer(char* buffer);
 
+  inline http2::http2_state* http2_state_buffer() const;
+  inline void set_http2_state_buffer(http2::http2_state* buffer);
+
   inline v8::Local<v8::Float64Array> fs_stats_field_array() const;
   inline void set_fs_stats_field_array(v8::Local<v8::Float64Array> fields);
 
@@ -717,6 +724,7 @@ class Environment {
   double* heap_space_statistics_buffer_ = nullptr;
 
   char* http_parser_buffer_;
+  http2::http2_state* http2_state_buffer_ = nullptr;
 
   // We depend on the property in fs.js to manage the lifetime appropriately
   v8::Global<v8::Float64Array> fs_stats_field_array_;
