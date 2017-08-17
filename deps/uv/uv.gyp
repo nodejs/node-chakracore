@@ -4,9 +4,14 @@
       ['OS != "win"', {
         'defines': [
           '_LARGEFILE_SOURCE',
-          '_FILE_OFFSET_BITS=64',
         ],
         'conditions': [
+          ['OS != "android"', {
+            #FIXME: This is bugged on NDK r15c and was a no-op before
+            #Ref: https://github.com/android-ndk/ndk/issues/480
+            #TODO: Should be rechecked when NDK r16 releases.
+            'defines': [ '_FILE_OFFSET_BITS=64' ],
+          }],
           ['OS=="solaris"', {
             'cflags': [ '-pthreads' ],
           }],
@@ -55,7 +60,14 @@
           ['OS != "win"', {
             'defines': [
               '_LARGEFILE_SOURCE',
-              '_FILE_OFFSET_BITS=64',
+            ],
+            'conditions': [
+              ['OS != "android"', {
+                #FIXME: This is bugged on NDK r15c and was a no-op before
+                #Ref: https://github.com/android-ndk/ndk/issues/480
+                #TODO: Should be rechecked when NDK r16 releases.
+                'defines': [ '_FILE_OFFSET_BITS=64' ],
+              }],
             ],
           }],
           ['OS in "mac ios"', {
