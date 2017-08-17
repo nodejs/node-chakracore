@@ -46,8 +46,8 @@ assert.strictEqual(url.searchParams, oldParams);  // [SameObject]
 assert.throws(
   () => url.origin = 'http://foo.bar.com:22',
   common.engineSpecificMessage({
-    v8: /TypeError: Cannot set property origin of \[object URL\] which has only a getter$/,
-    chakracore: /TypeError: Assignment to read-only properties is not allowed in strict mode$/
+    v8: /^TypeError: Cannot set property origin of \[object URL\] which has only a getter$/,
+    chakracore: /^TypeError: Assignment to read-only properties is not allowed in strict mode$/
   })
 );
 assert.strictEqual(url.origin, 'http://foo.bar.com:21');
