@@ -2358,6 +2358,19 @@ napi_status napi_get_version(napi_env env, uint32_t* result) {
   return napi_ok;
 }
 
+napi_status napi_get_node_version(napi_env env,
+                                  const napi_node_version** result) {
+  CHECK_ARG(result);
+  static const napi_node_version version = {
+    NODE_MAJOR_VERSION,
+    NODE_MINOR_VERSION,
+    NODE_PATCH_VERSION,
+    NODE_RELEASE
+  };
+  *result = &version;
+  return napi_ok;
+}
+
 namespace uvimpl {
 
 napi_status ConvertUVErrorCode(int code) {
