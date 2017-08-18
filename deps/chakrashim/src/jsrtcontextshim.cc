@@ -471,6 +471,15 @@ void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
     if (embedderData.size() < minSize) {
       embedderData.resize(minSize);
     }
+
+    // ensure reference counting, otherwise objects can be GC'd.  JsAddRef/
+    // JsRelease will handle cases if the pointer is not valid for ref counts.
+    void * oldValue = embedderData[index];
+    if (oldValue != nullptr) {
+      JsRelease(oldValue, nullptr);
+    }
+    JsAddRef(value, nullptr);
+
     embedderData[index] = value;
   } catch(const std::exception&) {
   }
