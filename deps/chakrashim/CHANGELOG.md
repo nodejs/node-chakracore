@@ -1,5 +1,18 @@
 # ChakraShim ChangeLog
 
+## 2017-08-18, node-chakracore-v8.4.0
+
+### Commits
+
+* [[`aff0749bd8`](https://github.com/nodejs/node-chakracore/commit/aff0749bd8)] - 2017-08-18, Node-ChakraCore Version 8.4.0
+* [[`d81f653c86`](https://github.com/nodejs/node-chakracore/commit/d81f653c86)] - test: fix n-api test_constructor
+* [[`cde57892b4`](https://github.com/nodejs/node-chakracore/commit/cde57892b4)] - Fixing up improperly ignored test
+* [[`d169b37570`](https://github.com/nodejs/node-chakracore/commit/d169b37570)] - test: fixed unit test
+* [[`8f3304ff79`](https://github.com/nodejs/node-chakracore/commit/8f3304ff79)] - napi_jsrt: adding napi_get_node_version
+* [[`bc4b141c48`](https://github.com/nodejs/node-chakracore/commit/bc4b141c48)] - n-api,test: fixing test breaks for chakracore
+* [[`b06061439f`](https://github.com/nodejs/node-chakracore/commit/b06061439f)] - Merge tag 'v8.4.0' into v8.4.0-proposal
+* [[`61c16d0239`](https://github.com/nodejs/node-chakracore/commit/61c16d0239)] - chakrashim: update changelog
+
 ## 2017-08-16, node-chakracore-v8.3.0
 
 ### Commits
