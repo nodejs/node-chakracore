@@ -14,7 +14,9 @@ test_object.readwriteValue = 2;
 assert.strictEqual(test_object.readwriteValue, 2);
 
 assert.throws(() => { test_object.readonlyValue = 3; },
-              /^TypeError: Cannot assign to read only property 'readonlyValue' of object '#<MyObject>'$/);
+              common.engineSpecificMessage({
+                v8: /^TypeError: Cannot assign to read only property 'readonlyValue' of object '#<MyObject>'$/,
+              chakracore: /^TypeError: Assignment to read-only properties is not allowed in strict mode$/}));
 
 assert.ok(test_object.hiddenValue);
 
@@ -37,12 +39,16 @@ test_object.readwriteAccessor1 = 1;
 assert.strictEqual(test_object.readwriteAccessor1, 1);
 assert.strictEqual(test_object.readonlyAccessor1, 1);
 assert.throws(() => { test_object.readonlyAccessor1 = 3; },
-              /^TypeError: Cannot assign to read only property 'readonlyAccessor1' of object '#<MyObject>'$/);
+              common.engineSpecificMessage({
+                v8: /^TypeError: Cannot assign to read only property 'readonlyAccessor1' of object '#<MyObject>'$/,
+              chakracore: /^TypeError: Assignment to read-only properties is not allowed in strict mode$/}));
 test_object.readwriteAccessor2 = 2;
 assert.strictEqual(test_object.readwriteAccessor2, 2);
 assert.strictEqual(test_object.readonlyAccessor2, 2);
 assert.throws(() => { test_object.readonlyAccessor2 = 3; },
-              /^TypeError: Cannot assign to read only property 'readonlyAccessor2' of object '#<MyObject>'$/);
+              common.engineSpecificMessage({
+                v8: /^TypeError: Cannot assign to read only property 'readonlyAccessor2' of object '#<MyObject>'$/,
+              chakracore: /^TypeError: Assignment to read-only properties is not allowed in strict mode$/}));
 
 // validate that static properties are on the class as opposed
 // to the instance
