@@ -524,7 +524,6 @@ inline void Environment::set_http2_state_buffer(http2::http2_state* buffer) {
 
 inline v8::Local<v8::Float64Array> Environment::fs_stats_field_array() const {
   return v8::Local<v8::Float64Array>::New(isolate_, fs_stats_field_array_);
-
 }
 
 inline void Environment::set_fs_stats_field_array(
