@@ -18,17 +18,25 @@ async function testBreakpointOnStart(session) {
     { 'method': 'Debugger.setPauseOnExceptions',
       'params': { 'state': 'none' } },
     { 'method': 'Debugger.setAsyncCallStackDepth',
-      'params': { 'maxDepth': 0 } },
-    { 'method': 'Profiler.enable' },
-    { 'method': 'Profiler.setSamplingInterval',
-      'params': { 'interval': 100 } },
-    { 'method': 'Debugger.setBlackboxPatterns',
-      'params': { 'patterns': [] } },
-    { 'method': 'Runtime.runIfWaitingForDebugger' }
+      'params': { 'maxDepth': 0 } }
   ];
 
+  if (process.jsEngine !== 'chakracore') {
+    commands.push(
+      { 'method': 'Profiler.enable' },
+      { 'method': 'Profiler.setSamplingInterval',
+        'params': { 'interval': 100 } });
+  }
+
+  commands.push(
+    { 'method': 'Debugger.setBlackboxPatterns',
+      'params': { 'patterns': [] } },
+    { 'method': 'Runtime.runIfWaitingForDebugger' });
+
   await session.send(commands);
-  await session.waitForBreakOnLine(0, script);
+  // ChakraCore stops at the first line of source, not
+  // the first line in a file
+  await session.waitForBreakOnLine(common.isChakraEngine ? 21 : 0, script);
 }
 
 

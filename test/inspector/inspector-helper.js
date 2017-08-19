@@ -261,6 +261,12 @@ class InspectorSession {
   _matchesConsoleOutputNotification(notification, type, values) {
     if (!Array.isArray(values))
       values = [ values ];
+
+    if (process.jsEngine === 'chakracore') {
+      // Only the first parameter is returned by ChakraCore
+      values = values.slice(0, 1);
+    }
+
     if ('Runtime.consoleAPICalled' === notification['method']) {
       const params = notification['params'];
       if (params['type'] === type) {
