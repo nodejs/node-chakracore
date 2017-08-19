@@ -9,6 +9,7 @@
     'linker_start_group%': '',
     'linker_end_group%': '',
     'chakra_libs_absolute%': '',
+    'chakracore_dir_absolute%': '',
 
     # xplat (non-win32) only
     'chakra_config': '<(chakracore_build_config)',     # Debug, Release, Test
@@ -61,7 +62,8 @@
         'chakracore_win_bin_dir':
           '<(chakra_dir)/build/vcbuild/bin/<(Platform)_<(chakracore_build_config)',
         'xplat_dir': '<(chakra_dir)/out/<(chakra_config)',
-        'chakra_libs_absolute': '<(PRODUCT_DIR)/../../deps/chakrashim/<(xplat_dir)',
+        'chakra_libs_absolute': '<(chakracore_dir_absolute)/out/<(chakra_config)', 
+          #'<(PRODUCT_DIR)/../../deps/chakrashim/<(xplat_dir)',
 
         'conditions': [
           ['OS=="win"', {
@@ -147,20 +149,28 @@
         'library_dirs': [ '<(PRODUCT_DIR)' ],
         'conditions': [
           ['OS=="win"', {
-          }, {
-            'conditions': [
-              ['OS=="mac"', {
-                'libraries': [
-                  '-framework CoreFoundation',
-                  '-framework Security',
-                ]
-              }]
+          }, 
+          'OS=="mac"', {
+            'libraries': [
+              # '-Wl,-undefined,error',
+              '$(SDKROOT)/System/Library/Frameworks/CoreFoundation.framework',
+              '$(SDKROOT)/System/Library/Frameworks/Security.framework',
+              # '<@(linker_start_group)',
+              '<(PRODUCT_DIR)/libChakraCoreStatic.a'
+              # '<@(linker_end_group)', # gpy fails to patch with list
             ],
+            'xcode_settings': {
+              'OTHER_LDFLAGS': [
+                '-framework CoreFoundation',
+                '-framework Security',
+              ],
+            },
+          }, {
             'libraries': [
               '-Wl,-undefined,error',
               '<@(linker_start_group)',
-              '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a ' # keep this single space.
-              '<@(linker_end_group)',                                         # gpy fails to patch with list
+              '<(PRODUCT_DIR)/libChakraCoreStatic.a ' # keep this single space.
+              '<@(linker_end_group)', # gpy fails to patch with list
             ],
           }],
         ],

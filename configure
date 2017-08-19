@@ -1472,8 +1472,11 @@ write('config.mk', do_not_edit + config)
 
 gyp_args = ['--no-parallel']
 
+chakracore_dir_absolute = os.path.realpath(os.path.dirname(__file__) + '/deps/chakrashim/core')
+
 if options.use_xcode:
   gyp_args += ['-f', 'xcode']
+  chakracore_dir_absolute = '$(PROJECT_DIR)/core'
 elif options.use_ninja:
   gyp_args += ['-f', 'ninja']
 elif flavor == 'win' and sys.platform != 'msys':
@@ -1485,6 +1488,7 @@ if options.compile_commands_json:
   gyp_args += ['-f', 'compile_commands_json']
 
 gyp_args += args
+gyp_args += ['-Dchakracore_dir_absolute=' + chakracore_dir_absolute]
 
 if warn.warned:
   warn('warnings were emitted in the configure phase')
