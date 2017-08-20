@@ -41,10 +41,11 @@ esac
 NDK_PATH=$1
 function make_toolchain {
     $NDK_PATH/build/tools/make-standalone-toolchain.sh \
-         --toolchain=$TOOLCHAIN_NAME-$CC_VER \
+        --toolchain=$TOOLCHAIN_NAME-$CC_VER \
         --arch=$ARCH \
         --install-dir=$TOOLCHAIN \
         --stl=libc++ \
+        --force \
         --platform=android-21
 }
 
