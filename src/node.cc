@@ -52,6 +52,10 @@
 #include "node_lttng.h"
 #endif
 
+#ifdef NODE_MOBILE
+#include "node_mobile_version.h"
+#endif
+
 #include "ares.h"
 #include "async-wrap.h"
 #include "async-wrap-inl.h"
@@ -3228,6 +3232,12 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(versions,
                     "http_parser",
                     FIXED_ONE_BYTE_STRING(env->isolate(), http_parser_version));
+
+#ifdef NODE_MOBILE
+  READONLY_PROPERTY(versions,
+                    "mobile",
+                    OneByteString(env->isolate(), NODE_MOBILE_VERSION));
+#endif
 
   // +1 to get rid of the leading 'v'
   READONLY_PROPERTY(versions,

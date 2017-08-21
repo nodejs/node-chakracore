@@ -240,6 +240,7 @@
         'src/node_mutex.h',
         'src/node_root_certs.h',
         'src/node_version.h',
+        'src/node_mobile_version.h',
         'src/node_watchdog.h',
         'src/node_wrap.h',
         'src/node_revert.h',

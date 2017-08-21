@@ -359,5 +359,10 @@
     [ 'OS=="sunos"', {
       'ldflags': [ '-Wl,-M,/usr/lib/ld/map.noexstk' ],
     }],
+    [ 'OS=="android" or OS=="ios"', {
+      'defines': [
+        'NODE_MOBILE',
+      ],
+    }],
   ],
 }
