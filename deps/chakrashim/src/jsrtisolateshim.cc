@@ -535,15 +535,21 @@ JsPropertyIdRef IsolateShim::GetCachedPropertyIdRef(
 }
 
 JsPropertyIdRef IsolateShim::GetToStringTagSymbolPropertyIdRef() {
-  return GetCachedPropertyId(cachedPropertyIdRefs, CachedPropertyIdRef::Symbol_toStringTag,
-                             [this](CachedPropertyIdRef index, JsPropertyIdRef* propIdRef) {
+  return GetCachedPropertyId(cachedPropertyIdRefs,
+                CachedPropertyIdRef::Symbol_toStringTag,
+                [this](CachedPropertyIdRef index, JsPropertyIdRef* propIdRef) {
     JsValueRef toStringTagSymbol;
-    if (JsGetProperty(this->GetCurrentContextShim()->GetGlobalType(ContextShim::GlobalType::Symbol),
-                      this->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::toStringTag),
+    JsValueRef symbolObject =
+      this->GetCurrentContextShim()
+      ->GetGlobalType(ContextShim::GlobalType::Symbol);
+    JsPropertyIdRef toStringTag = this
+      ->GetCachedPropertyIdRef(jsrt::CachedPropertyIdRef::toStringTag);
+    if (JsGetProperty(symbolObject,
+                      toStringTag,
                       &toStringTagSymbol) != JsNoError) {
       return false;
     }
-    
+
     if (JsGetPropertyIdFromSymbol(toStringTagSymbol, propIdRef) != JsNoError) {
       return false;
     }
