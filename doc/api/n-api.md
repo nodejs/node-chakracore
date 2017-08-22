@@ -1374,7 +1374,7 @@ JavaScript DataView Objects are described in
 ### Functions to convert from C types to N-API
 #### *napi_create_int32*
 <!-- YAML
-added: REPLACEME
+added: v8.4.0
 -->
 ```C
 napi_status napi_create_int32(napi_env env, int32_t value, napi_value* result)
@@ -1395,7 +1395,7 @@ of the ECMAScript Language Specification.
 
 #### *napi_create_uint32*
 <!-- YAML
-added: REPLACEME
+added: v8.4.0
 -->
 ```C
 napi_status napi_create_uint32(napi_env env, uint32_t value, napi_value* result)
@@ -1416,7 +1416,7 @@ of the ECMAScript Language Specification.
 
 #### *napi_create_int64*
 <!-- YAML
-added: REPLACEME
+added: v8.4.0
 -->
 ```C
 napi_status napi_create_int64(napi_env env, int64_t value, napi_value* result)
@@ -1443,7 +1443,7 @@ outside the range of
 
 #### *napi_create_double*
 <!-- YAML
-added: REPLACEME
+added: v8.4.0
 -->
 ```C
 napi_status napi_create_double(napi_env env, double value, napi_value* result)
@@ -1460,6 +1460,31 @@ Number type.
 
 The JavaScript Number type is described in
 [Section 6.1.6](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-number-type)
+of the ECMAScript Language Specification.
+
+#### *napi_create_string_latin1*
+<!-- YAML
+added: v8.0.0
+-->
+```C
+NAPI_EXTERN napi_status napi_create_string_latin1(napi_env env,
+                                                  const char* str,
+                                                  size_t length,
+                                                  napi_value* result);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] str`: Character buffer representing a ISO-8859-1-encoded string.
+- `[in] length`: The length of the string in bytes, or -1 if it is
+null-terminated.
+- `[out] result`: A `napi_value` representing a JavaScript String.
+
+Returns `napi_ok` if the API succeeded.
+
+This API creates a JavaScript String object from a ISO-8859-1-encoded C string.
+
+The JavaScript String type is described in
+[Section 6.1.4](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-string-type)
 of the ECMAScript Language Specification.
 
 #### *napi_create_string_utf16*
@@ -1482,31 +1507,6 @@ it is null-terminated.
 Returns `napi_ok` if the API succeeded.
 
 This API creates a JavaScript String object from a UTF16-LE-encoded C string
-
-The JavaScript String type is described in
-[Section 6.1.4](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-string-type)
-of the ECMAScript Language Specification.
-
-#### *napi_create_string_latin1*
-<!-- YAML
-added: v8.0.0
--->
-```C
-NAPI_EXTERN napi_status napi_create_string_latin1(napi_env env,
-                                                  const char* str,
-                                                  size_t length,
-                                                  napi_value* result);
-```
-
-- `[in] env`: The environment that the API is invoked under.
-- `[in] str`: Character buffer representing a latin1-encoded string.
-- `[in] length`: The length of the string in bytes, or -1 if it is
-null-terminated.
-- `[out] result`: A `napi_value` representing a JavaScript String.
-
-Returns `napi_ok` if the API succeeded.
-
-This API creates a JavaScript String object from a latin1-encoded C string.
 
 The JavaScript String type is described in
 [Section 6.1.4](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-string-type)
@@ -1795,6 +1795,33 @@ is passed in it returns `napi_number_expected`.
 This API returns the C int64 primitive equivalent of the given
 JavaScript Number
 
+#### *napi_get_value_string_latin1*
+<!-- YAML
+added: v8.0.0
+-->
+```C
+NAPI_EXTERN napi_status napi_get_value_string_latin1(napi_env env,
+                                                     napi_value value,
+                                                     char* buf,
+                                                     size_t bufsize,
+                                                     size_t* result)
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] value`: `napi_value` representing JavaScript string.
+- `[in] buf`: Buffer to write the ISO-8859-1-encoded string into. If NULL is
+passed in, the length of the string (in bytes) is returned.
+- `[in] bufsize`: Size of the destination buffer.
+- `[out] result`: Number of bytes copied into the buffer including the null
+terminator. If the buffer size is insufficient, the string will be truncated
+including a null terminator.
+
+Returns `napi_ok` if the API succeeded. If a non-String `napi_value`
+is passed in it returns `napi_string_expected`.
+
+This API returns the ISO-8859-1-encoded string corresponding the value passed
+in.
+
 #### *napi_get_value_string_utf8*
 <!-- YAML
 added: v8.0.0
@@ -1810,14 +1837,14 @@ napi_status napi_get_value_string_utf8(napi_env env,
 - `[in] env`: The environment that the API is invoked under.
 - `[in] value`: `napi_value` representing JavaScript string.
 - `[in] buf`: Buffer to write the UTF8-encoded string into. If NULL is passed
- in, the length of the string (in bytes) is returned.
+in, the length of the string (in bytes) is returned.
 - `[in] bufsize`: Size of the destination buffer.
-- `[out] result`: Number of bytes copied into the buffer including the null.
+- `[out] result`: Number of bytes copied into the buffer including the null
 terminator. If the buffer size is insufficient, the string will be truncated
 including a null terminator.
 
-Returns `napi_ok` if the API succeeded. Ifa non-String `napi_value`
-x is passed in it returns `napi_string_expected`.
+Returns `napi_ok` if the API succeeded. If a non-String `napi_value`
+is passed in it returns `napi_string_expected`.
 
 This API returns the UTF8-encoded string corresponding the value passed in.
 
@@ -1839,7 +1866,7 @@ napi_status napi_get_value_string_utf16(napi_env env,
 passed in, the length of the string (in 2-byte code units) is returned.
 - `[in] bufsize`: Size of the destination buffer.
 - `[out] result`: Number of 2-byte code units copied into the buffer including
-the null terminateor. If the buffer size is insufficient, the string will be
+the null terminator. If the buffer size is insufficient, the string will be
 truncated including a null terminator.
 
 Returns `napi_ok` if the API succeeded. If a non-String `napi_value`
@@ -3287,7 +3314,7 @@ callback invocation, even if it has been successfully cancelled.
 
 ### napi_get_node_version
 <!-- YAML
-added: REPLACEME
+added: v8.4.0
 -->
 
 ```C

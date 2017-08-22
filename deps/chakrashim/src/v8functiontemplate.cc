@@ -237,10 +237,11 @@ class FunctionTemplateData : public TemplateData {
         return nullptr;
       }
 
-      JsValueRef function;
+      Local<String> className = !instanceTemplate.IsEmpty() ?
+        instanceTemplate->GetClassName() : Local<String>();
+
+      JsValueRef function = nullptr;
       {
-        Local<String> className = !instanceTemplate.IsEmpty() ?
-            instanceTemplate->GetClassName() : Local<String>();
         if (!className.IsEmpty()) {
           error = JsCreateNamedFunction(*className,
                                         FunctionCallbackData::FunctionInvoked,
@@ -271,6 +272,19 @@ class FunctionTemplateData : public TemplateData {
                               &parentPrototype) != JsNoError ||
                 JsSetPrototype(*prototype,
                                parentPrototype) != JsNoError) {
+              return nullptr;
+            }
+          }
+
+          if (!className.IsEmpty()) {
+            if (jsrt::DefineProperty(*prototype,
+                iso->GetToStringTagSymbolPropertyIdRef(),
+                jsrt::PropertyDescriptorOptionValues::True, /* writable */
+                jsrt::PropertyDescriptorOptionValues::False, /* enumerable */
+                jsrt::PropertyDescriptorOptionValues::True, /* configurable */
+                *className,
+                JS_INVALID_REFERENCE,
+                JS_INVALID_REFERENCE) != JsNoError) {
               return nullptr;
             }
           }
