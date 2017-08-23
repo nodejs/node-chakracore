@@ -354,28 +354,23 @@ void V8Debugger::setAsyncCallStackDepth(V8DebuggerAgentImpl* agent, int depth) {
 void V8Debugger::asyncTaskScheduled(const StringView& taskName, void* task,
                                     bool recurring) {
   // CHAKRA-TODO - Figure out what to do here
-  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskScheduled(const String16& taskName, void* task,
                                     bool recurring) {
   // CHAKRA-TODO - Figure out what to do here
-  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskCanceled(void* task) {
   // CHAKRA-TODO - Figure out what to do here
-  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskStarted(void* task) {
   // CHAKRA-TODO - Figure out what to do here
-  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::asyncTaskFinished(void* task) {
   // CHAKRA-TODO - Figure out what to do here
-  CHAKRA_UNIMPLEMENTED();
 }
 
 void V8Debugger::allAsyncTasksCanceled() {
