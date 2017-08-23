@@ -1,174 +1,101 @@
-Node.js on ChakraCore
+Node.js on Mobile
 =====================
 
-This project enables Node.js to optionally use the [ChakraCore](https://github.com/Microsoft/ChakraCore)
-JavaScript engine. This project is still **work in progress** and not an officially
-supported Node.js branch. For more context into this project, please refer to the
-[original PR](https://github.com/nodejs/node/pull/4765).
+This project is an experimental fork of [nodejs/node-chakracore](https://github.com/nodejs/node-chakracore) bringing Node.js to mobile operating systems, as a library that can be embedded in mobile applications and frameworks.
 
-### How it works
+It currently only builds for Android (with V8), as a shared library for the `armeabi-v7a` architecture. Support for iOS and additional Android architectures are in the works and will be published soon.
 
-To enable building and running Node.js with the ChakraCore JavaScript engine, a
-V8 API shim (ChakraShim) is created on top of the ChakraCore runtime hosting API
-([JSRT](https://github.com/Microsoft/ChakraCore/wiki/JavaScript-Runtime-(JSRT)-Overview).
-ChakraShim implements the most essential V8 APIs so that the underlying
-JavaScript engine change is transparent to Node.js and other native addon
-modules written for V8.
+##### Project Goals
+The goals of this project are:
 
-A rebuild of node and native addon modules with ChakraCore is required for this
-to work.
+1. To provide the fixes necessary to run Node.js on mobile operating systems.
+1. To investigate which features need to be added to Node.js in order to make it a useful tool for mobile app development.
+1. To diverge as little as possible from nodejs/node and nodejs/node-chakracore, while fulfilling goals (1) and (2).
 
-### Time Travel Debugging
-Time-Travel debugging is an exciting new addition to Node.js debugging, first
-introduced in Node-ChakraCore, and now supported by [VSCode](https://github.com/microsoft/vscode/).
-We are developing in the open and want to share our progress to get feedback,
-bug reports, functionality requests, and pull-requests from the community.
+## Download
+Binaries are available at https://github.com/janeasystems/nodejs-mobile/releases.
 
-Check out this [Time-Travel Debugging](TTD-README.md)
-page to learn how to get started with TTD on Node-ChakraCore with VSCode.
+## Documentation
 
-### Node.js API (NAPI)
-Node-ChakraCore is an active participant in the [ABI-Stable-Node](https://github.com/nodejs/abi-stable-node)
-project also called NAPI. The goal of this project is to ease the lives of native
-add-ons developers, by providing a stable Node API which also guarantees stable
-ABI across disparate Node versions. This allows native modules to just work across
-different versions and flavors of Node.js without recompilations, reducing the
-maintenance cost for module developers and thus improving compatibility.
+Samples and instructions on how to embed the binaries into mobile applications can be found on the [samples repo](https://github.com/janeasystems/nodejs-mobile-samples/).
 
-Head over to the [NAPI Project repo](https://github.com/nodejs/abi-stable-node)
-to learn more about it and ways to get involved.
+***Disclaimer:***  documentation found in this repository is currently unchanged from the parent repository and may only be applicable to node-chakracore.
 
-### Installing prebuilt Node-ChakraCore binaries
+## Build Instructions
 
-You can download and install stable prebuilt Node-ChakraCore from the
-[releases page](https://github.com/nodejs/node-chakracore/releases).
+### Prerequisites to build the Android library on Linux Ubuntu/Debian:
 
-_For installing Node-ChakraCore side-by-side your existing Node installation, we
-recommend [Node Version Switcher (NVS)](https://github.com/jasongin/nvs)._
-
-```
-nvs remote chakracore https://github.com/nodejs/node-chakracore/releases
-nvs add chakracore/latest
-nvs use chakracore
+#### Basic build tools:
+```sh
+sudo apt-get install -y build-essential git python
 ```
 
-Nightly builds of Node-ChakraCore are available at
-[https://nodejs.org/download/chakracore-nightly/](https://nodejs.org/download/chakracore-nightly/)
-Please use the following instructions to install the nightly builds.
-
-```
-nvs remote chakracore-nightly https://nodejs.org/download/chakracore-nightly/
-nvs add chakracore-nightly/latest
-nvs use chakracore-nightly
+#### Install curl and unzip (needed to download the Android NDK):
+```sh
+sudo apt-get install -y curl unzip
 ```
 
-### Building Node-ChakraCore
-
-If you are looking to build this yourself, here's what you will need.
-
-#### Windows
-
-Prerequisites:
-* Windows 7 SP1 or higher (Windows 8.1 or higher for ARM builds)
-* [Python 2.6 or 2.7](https://www.python.org)
-* [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
-
-Build Command:
-```batch
-> vcbuild [x86|x64|arm]
+#### Install Android NDK r15c for Linux:
+Choose a location where you want to install the Android NDK and run:
+```sh
+curl https://dl.google.com/android/repository/android-ndk-r15c-linux-x86_64.zip -o ndk.zip
+unzip ndk.zip
 ```
+It will create a `android-ndk-r15c` folder. Save that path for later.
 
-To run unit tests
+### Prerequisites to build the Android library on Mac OS:
 
-```batch
-> vcbuild nobuild test ignore-flaky [x86|x64|arm]
-```
+#### Git:
 
-To test if Node.js was built correctly with ChakraCore:
-
-```batch
-> node -e "console.log('Hello from Node.js ' + process.jsEngine)"
-Hello from Node.js chakracore
-```
-
-#### Linux
-
-Install building tools and ChakraCore dependencies:
-Clang 3.7+ / CMake 3.2 are required
-
-Debian/Ubuntu:
-```
-$ sudo apt-get install -y build-essential cmake clang libicu-dev
-```
-
-Fedora:
-```
-$ su
-$ dnf group install -y "Development Tools" "C Development Tools and Libraries"
-$ dnf install -y git cmake clang gcc gcc-c++ kernel-devel python llvm
-$ dnf install -y lttng-ust-devel.x86_64 libicu-devel.x86_64 libstdc++-static.x86_64
-```
-
-Clone this repo and check out **`master`** branch:
-
-```
-$ git checkout master
-```
-
-Build:
-
-```
-$ ./configure
-$ make
-```
-
-To run unit tests:
-
-```
-$ FLAKY_TESTS=dontcare make test
-```
-
-To test if Node.js was built correctly with ChakraCore:
-
-```
-$ node -e "console.log('Hello from Node.js ' + process.jsEngine)"
-Hello from Node.js chakracore
-```
-
-#### Mac OS
-
-Prerequisites:
-* XCode v7 or higher
+Run `git` in a terminal window, it will show a prompt to install it if not already present.
+As an alternative, installing one of these will install `git`:
+* XCode, with the Command Line Tools.
 * [Homebrew](https://brew.sh/)
+* [Git-SCM](https://git-scm.com/download/mac)
 
-Install the building tools:
-
+#### Install Android NDK r15c for Mac OS:
+Choose a location where you want to install the Android NDK and run:
+```sh
+curl https://dl.google.com/android/repository/android-ndk-r15c-darwin-x86_64.zip -o ndk.zip
+unzip ndk.zip
 ```
-xcode-select --install
-brew install cmake
-```
+It will create a `android-ndk-r15c` folder. Save that path for later.
 
-Clone this repo and check out **`master`** branch:
+### Building the Android library on Linux or Mac OS:
 
-```
-git checkout master
-```
+#### 1) Clone this repo and check out the `mobile-master` branch:
 
-Build:
-
-```
-./configure
-make 
-```
-
-To test if Node.js was built correctly with ChakraCore:
-
-```
-$ ./node -e "console.log('Hello from Node.js ' + process.jsEngine)"
-Hello from Node.js chakracore
+```sh
+git clone https://github.com/janeasystems/nodejs-mobile
+cd nodejs-mobile
+git checkout mobile-master
 ```
 
-### Issues
+#### 2a) Using the Android helper script:
 
-Please report all issues related to Node-ChakraCore on our
-[issues page](https://github.com/nodejs/node-chakracore/issues).
+The `tools/android_build.sh` script takes as first argument the Android NDK path (in our case is `~/android-ndk-r15c`). The second argument is optional and is the target architecture, by default is `arm`.
+Run:
+
+```sh
+./tools/android_build.sh ~/android-ndk-r15c
+```
+
+When done, the built shared library will be placed in `out_android/arm/libnode.so`.
+
+#### 2b) Configure and build manually:
+Run the `android-configure` script to configure the build with the path to the downloaded NDK and the desired target architecture.
+
+```sh
+source ./android-configure ../android-ndk-r15c arm
+```
+
+Start the build phase:
+```sh
+make
+```
+
+This will create the Android `armeabi-v7a` shared library in `out/Release/lib.target/libnode.so`.
+
+## Contributing
+Please see the [CONTRIBUTING](https://github.com/janeasystems/nodejs-mobile/blob/mobile-master/doc_mobile/CONTRIBUTING.md) file in the `doc_mobile` folder in this source distribution.
+
