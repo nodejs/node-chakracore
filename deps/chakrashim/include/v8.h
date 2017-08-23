@@ -733,6 +733,10 @@ class Eternal : private Persistent<T> {
     return Local<T>::New(isolate, *this);
   }
 
+  bool IsEmpty() const {
+    return Persistent<T>::IsEmpty();
+  }
+
   template<class S> void Set(Isolate* isolate, Local<S> handle) {
     this->Reset(isolate, handle);
   }

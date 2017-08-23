@@ -28,32 +28,16 @@
 #ifndef V8_LIBPLATFORM_LIBPLATFORM_H_
 #define V8_LIBPLATFORM_LIBPLATFORM_H_
 
-#include "libplatform/libplatform-export.h"
 #include "libplatform/v8-tracing.h"
 #include "include/v8-platform.h"
 
 namespace v8 {
 namespace platform {
 
-enum class IdleTaskSupport { kDisabled, kEnabled };
-enum class InProcessStackDumping { kDisabled, kEnabled };
-
-V8_PLATFORM_EXPORT v8::Platform* CreateDefaultPlatform(
-    int thread_pool_size = 0,
-    IdleTaskSupport idle_task_support = IdleTaskSupport::kDisabled,
-    InProcessStackDumping in_process_stack_dumping =
-        InProcessStackDumping::kEnabled);
-
-bool PumpMessageLoop(v8::Platform* platform, v8::Isolate* isolate);
-
-/**
-* Attempts to set the tracing controller for the given platform.
-*
-* The |platform| has to be created using |CreateDefaultPlatform|.
-*/
 void SetTracingController(
   v8::Platform* platform,
   v8::platform::tracing::TracingController* tracing_controller);
+
 }  // namespace platform
 }  // namespace v8
 

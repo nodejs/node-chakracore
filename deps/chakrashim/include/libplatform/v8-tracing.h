@@ -8,6 +8,7 @@
 #include <fstream>
 #include <memory>
 #include <vector>
+#include "v8-platform.h"
 
 namespace v8 {
 namespace platform {
@@ -200,7 +201,8 @@ class TraceConfig {
   void operator=(const TraceConfig&) = delete;
 };
 
-class TracingController {
+class TracingController
+    : public v8::TracingController {
  public:
   enum Mode { DISABLED = 0, RECORDING_MODE };
 
