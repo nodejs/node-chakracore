@@ -49,7 +49,10 @@ expect('--trace-warnings', 'B\n');
 expect('--redirect-warnings=_', 'B\n');
 expect('--trace-deprecation', 'B\n');
 expect('--trace-sync-io', 'B\n');
-expect('--trace-events-enabled', 'B\n');
+if (!common.isChakraEngine) {
+  // ChakraCore does not yet support trace events
+  expect('--trace-events-enabled', 'B\n');
+}
 expect('--track-heap-objects', 'B\n');
 expect('--throw-deprecation', 'B\n');
 expect('--zero-fill-buffers', 'B\n');
