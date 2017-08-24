@@ -6,7 +6,11 @@ prefix inspector
 
 [true] # This section applies to all platforms
 
+[$system==aix]
+test-stop-profile-after-done: PASS, FLAKY
+
 [$system==win32]
+test-stop-profile-after-done: PASS, FLAKY
 
 [$jsEngine==chakracore]
 test-bindings : PASS,FLAKY
@@ -14,3 +18,4 @@ test-contexts : PASS,FLAKY # https://github.com/nodejs/node-chakracore/issues/36
 test-break-when-eval : PASS,FLAKY
 test-stop-profile-after-done : PASS,FLAKY
 test-off-with-session-then-on : PASS,FLAKY
+

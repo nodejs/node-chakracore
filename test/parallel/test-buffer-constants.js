@@ -2,6 +2,7 @@
 const common = require('../common');
 const assert = require('assert');
 
+const { kMaxLength, kStringMaxLength } = require('buffer');
 const { MAX_LENGTH, MAX_STRING_LENGTH } = require('buffer').constants;
 
 assert.strictEqual(typeof MAX_LENGTH, 'number');
@@ -15,3 +16,7 @@ if (!common.isChakraEngine) {
 }
 
 assert.doesNotThrow(() => ' '.repeat(MAX_STRING_LENGTH));
+
+// Legacy values match:
+assert.strictEqual(kMaxLength, MAX_LENGTH);
+assert.strictEqual(kStringMaxLength, MAX_STRING_LENGTH);
