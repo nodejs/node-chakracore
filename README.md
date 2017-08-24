@@ -17,7 +17,7 @@ Binaries are available at https://github.com/janeasystems/nodejs-mobile/releases
 
 ## Documentation
 
-Samples and instructions on how to embed the binaries into mobile applications can be found on the [samples repo](https://github.com/janeasystems/nodejs-mobile-samples/).
+Samples and instructions on how to embed the binaries into mobile applications can be found in the [samples repo](https://github.com/janeasystems/nodejs-mobile-samples/).
 
 ***Disclaimer:***  documentation found in this repository is currently unchanged from the parent repository and may only be applicable to node-chakracore.
 
