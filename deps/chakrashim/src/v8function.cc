@@ -133,6 +133,12 @@ Local<Value> Function::GetInferredName() const {
   return Local<Value>();
 }
 
+Local<Value> Function::GetDebugName() const {
+  // CHAKRA-TODO: Figure out what to do here
+  CHAKRA_ASSERT(false);
+  return Local<Value>();
+}
+
 const int Function::kLineOffsetNotFound = -1;
 
 int Function::GetScriptLineNumber() const {
@@ -151,6 +157,11 @@ int Function::ScriptId() const {
   // CHAKRA-TODO: Figure out what to do here
   CHAKRA_ASSERT(false);
   return 0;
+}
+
+Local<Value> Function::GetBoundFunction() const {
+  CHAKRA_ASSERT(false);
+  return Local<Value>();
 }
 
 Function *Function::Cast(Value *obj) {

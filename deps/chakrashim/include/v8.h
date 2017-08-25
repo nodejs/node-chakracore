@@ -1810,11 +1810,13 @@ class V8_EXPORT Function : public Object {
   Local<Value> GetName() const;
 
   Local<Value> GetInferredName() const;
+  Local<Value> GetDebugName() const;
 
   int GetScriptLineNumber() const;
   int GetScriptColumnNumber() const;
 
   int ScriptId() const;
+  Local<Value> GetBoundFunction() const;
 
   static Function *Cast(Value *obj);
   static const int kLineOffsetNotFound;
@@ -2396,7 +2398,10 @@ class V8_EXPORT MicrotasksScope {
 enum GCType {
   kGCTypeScavenge = 1 << 0,
   kGCTypeMarkSweepCompact = 1 << 1,
-  kGCTypeAll = kGCTypeScavenge | kGCTypeMarkSweepCompact
+  kGCTypeIncrementalMarking = 1 << 2,
+  kGCTypeProcessWeakCallbacks = 1 << 3,
+  kGCTypeAll = kGCTypeScavenge | kGCTypeMarkSweepCompact |
+               kGCTypeIncrementalMarking | kGCTypeProcessWeakCallbacks
 };
 
 enum GCCallbackFlags {
