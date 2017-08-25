@@ -25,7 +25,6 @@
 #include "v8-debug.h"
 #include "libplatform/libplatform.h"
 #include "libplatform/v8-tracing.h"
-#include "jsrtplatform.h"
 
 #ifndef _WIN32
 #include "ChakraCoreVersion.h"
@@ -211,18 +210,6 @@ void V8::ToLocalEmpty() {
 }
 
 namespace platform {
-  v8::Platform* CreateDefaultPlatform(
-      int thread_pool_size, IdleTaskSupport idle_task_support,
-      InProcessStackDumping in_process_stack_dumping) {
-    jsrt::DefaultPlatform* platform = new jsrt::DefaultPlatform();
-    return platform;
-  }
-
-  bool PumpMessageLoop(v8::Platform* platform, v8::Isolate* isolate) {
-    return static_cast<jsrt::DefaultPlatform*>(platform)->PumpMessageLoop(
-        isolate);
-  }
-
   void SetTracingController(
       v8::Platform* platform,
       v8::platform::tracing::TracingController* tracing_controller) {
@@ -244,21 +231,32 @@ namespace tracing {
     jsrt::Unimplemented("TracingController");
   }
 
-  void TraceConfig::AddIncludedCategory(char const*) {
+  const uint8_t* TracingController::GetCategoryGroupEnabled(
+      const char* category_group) {
+    jsrt::Unimplemented("TracingController");
+    return nullptr;
+  }
+
+  void TracingController::UpdateTraceEventDuration(
+      const uint8_t* category_enabled_flag, const char* name, uint64_t handle) {
     jsrt::Unimplemented("TracingController");
   }
 
+  void TraceConfig::AddIncludedCategory(char const*) {
+    jsrt::Unimplemented("TraceConfig");
+  }
+
   TraceObject* TraceBufferChunk::AddTraceEvent(size_t*) {
-    jsrt::Unimplemented("TracingController");
+    jsrt::Unimplemented("TraceBufferChunk");
     return 0;
   }
 
   void TraceBufferChunk::Reset(uint32_t) {
-    jsrt::Unimplemented("TracingController");
+    jsrt::Unimplemented("TraceBufferChunk");
   }
 
   TraceBufferChunk::TraceBufferChunk(uint32_t) {
-    jsrt::Unimplemented("TracingController");
+    jsrt::Unimplemented("TraceBufferChunk");
   }
 
   TraceObject::~TraceObject() {
@@ -266,7 +264,7 @@ namespace tracing {
   }
 
   TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&) {
-    jsrt::Unimplemented("TracingController");
+    jsrt::Unimplemented("TraceWriter");
     return 0;
   }
 }  // namespace tracing

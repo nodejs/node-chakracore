@@ -108,8 +108,6 @@
         'src/jsrtinspectorhelpers.h',
         'src/jsrtisolateshim.cc',
         'src/jsrtisolateshim.h',
-        'src/jsrtplatform.cc',
-        'src/jsrtplatform.h',
         'src/jsrtpromise.cc',
         'src/jsrtproxyutils.cc',
         'src/jsrtproxyutils.h',
