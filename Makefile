@@ -192,6 +192,10 @@ v8:
 	tools/make-v8.sh
 	$(MAKE) -C deps/v8 $(V8_ARCH).$(BUILDTYPE_LOWER) $(V8_BUILD_OPTIONS)
 
+ifeq ($(NODE_TARGET_TYPE),static_library)
+test: all
+	$(MAKE) cctest
+else
 test: all
 	$(MAKE) build-addons
 	$(MAKE) build-addons-napi
@@ -200,6 +204,7 @@ test: all
 		$(CI_JS_SUITES) \
 		$(CI_NATIVE_SUITES)
 	$(MAKE) lint
+endif
 
 test-parallel: all
 	$(PYTHON) tools/test.py --mode=release parallel -J
@@ -503,14 +508,14 @@ gen-doc =	\
 		else \
 			cd tools/doc && node ../../$(NPM) install; \
 		fi;\
-	[ -x $(NODE) ] && $(NODE) $(gen-json) || node
+	[ -x $(NODE) ] && $(NODE) $(1) || node $(1)
 
 out/doc/api/%.json: doc/api/%.md
-	$(gen-doc) $(gen-json)
+	$(call gen-doc, $(gen-json))
 
 # check if ./node is actually set, else use user pre-installed binary
 out/doc/api/%.html: doc/api/%.md
-	$(gen-doc) $(gen-html)
+	$(call gen-doc, $(gen-html))
 
 docopen: $(apidocs_html)
 	@$(PYTHON) -mwebbrowser file://$(PWD)/out/doc/api/all.html
