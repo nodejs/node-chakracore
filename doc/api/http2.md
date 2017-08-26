@@ -192,7 +192,7 @@ added: v8.4.0
 -->
 
 The `'remoteSettings'` event is emitted when a new SETTINGS frame is received
-from the connected peer. When invoked, the handle function will receive a copy
+from the connected peer. When invoked, the handler function will receive a copy
 of the remote settings.
 
 ```js
@@ -893,7 +893,7 @@ invoked with two arguments: an Object containing the received
 For example:
 
 ```js
-const http2 = require('http');
+const http2 = require('http2');
 const client = http2.connect('https://localhost');
 const req = client.request({ ':path': '/' });
 req.on('response', (headers, flags) => {
@@ -1725,7 +1725,7 @@ those to lower-case (e.g. `content-type`) upon transmission.
 
 Header field-names *must only* contain one or more of the following ASCII
 characters: `a`-`z`, `A`-`Z`, `0`-`9`, `!`, `#`, `$`, `%`, `&`, `'`, `*`, `+`,
-`-`, `.`, `^`, `_`, `` (backtick), `|`, and `~`.
+`-`, `.`, `^`, `_`, `` ` `` (backtick), `|`, and `~`.
 
 Using invalid characters within an HTTP header field name will cause the
 stream to be closed with a protocol error being reported.
@@ -1883,12 +1883,12 @@ const server = createSecureServer(
 
 function onRequest(req, res) {
   // detects if it is a HTTPS request or HTTP/2
-  const { socket: { alpnProtocol } } = request.httpVersion === '2.0' ?
-    request.stream.session : request;
-  response.writeHead(200, { 'content-type': 'application/json' });
-  response.end(JSON.stringify({
+  const { socket: { alpnProtocol } } = req.httpVersion === '2.0' ?
+    req.stream.session : req;
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({
     alpnProtocol,
-    httpVersion: request.httpVersion
+    httpVersion: req.httpVersion
   }));
 }
 ```
@@ -2576,25 +2576,37 @@ given newly created [`Http2Stream`] on `Http2ServerRespose`.
 The callback will be called with an error with code `ERR_HTTP2_STREAM_CLOSED`
 if the stream is closed.
 
-[HTTP/2]: https://tools.ietf.org/html/rfc7540
-[HTTP/1]: http.html
-[HTTPS]: https.html
-[`net.Socket`]: net.html
-[`tls.TLSSocket`]: tls.html
-[`tls.createServer()`]: tls.html#tls_tls_createserver_options_secureconnectionlistener
-[`ClientHttp2Stream`]: #http2_class_clienthttp2stream
-[Compatibility API]: #http2_compatibility_api
 [ALPN negotiation]: #http2_alpn_negotiation
-[`Duplex`]: stream.html#stream_class_stream_duplex
+[Compatibility API]: #http2_compatibility_api
+[HTTP/1]: http.html
+[HTTP/2]: https://tools.ietf.org/html/rfc7540
+[HTTPS]: https.html
 [Headers Object]: #http2_headers_object
-[`Http2Stream`]: #http2_class_http2stream
 [Http2Session and Sockets]: #http2_http2sesion_and_sockets
-[`ServerHttp2Stream`]: #http2_class_serverhttp2stream
+[Readable Stream]: stream.html#stream_class_stream_readable
 [Settings Object]: #http2_settings_object
 [Using options.selectPadding]: #http2_using_options_selectpadding
-[error code]: #error_codes
-[`'unknownProtocol'`]: #http2_event_unknownprotocol
+[Writable Stream]: stream.html#stream_writable_streams
 [`'request'`]: #http2_event_request
-[Readable Stream]: stream.html#stream_class_stream_readable
+[`'unknownProtocol'`]: #http2_event_unknownprotocol
+[`ClientHttp2Stream`]: #http2_class_clienthttp2stream
+[`Duplex`]: stream.html#stream_class_stream_duplex
+[`EventEmitter`]: events.html#events_class_eventemitter
+[`Http2Stream`]: #http2_class_http2stream
+[`ServerHttp2Stream`]: #http2_class_serverhttp2stream
 [`ServerRequest`]: #http2_class_server_request
+[`TypeError`]: errors.html#errors_class_typeerror
+[`http2.SecureServer`]: #http2_class_http2secureserver
+[`http2.Server`]: #http2_class_http2server
+[`net.Socket`]: net.html#net_class_net_socket
+[`request.socket.getPeerCertificate()`]: tls.html#tls_tlssocket_getpeercertificate_detailed
+[`response.end()`]: #http2_response_end_data_encoding_callback
+[`response.setHeader()`]: #http2_response_setheader_name_value
+[`response.socket`]: #http2_response_socket
+[`response.write()`]: #http2_response_write_chunk_encoding_callback
+[`response.write(data, encoding)`]: http.html#http_response_write_chunk_encoding_callback
+[`response.writeHead()`]: #http2_response_writehead_statuscode_statusmessage_headers
 [`stream.pushStream()`]: #http2_stream-pushstream
+[`tls.TLSSocket`]: tls.html#tls_class_tls_tlssocket
+[`tls.createServer()`]: tls.html#tls_tls_createserver_options_secureconnectionlistener
+[error code]: #error_codes

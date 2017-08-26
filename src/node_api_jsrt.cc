@@ -346,27 +346,62 @@ JsNameValueFromPropertyDescriptor(const napi_property_descriptor* p,
   return napi_ok;
 }
 
-inline napi_status FindWrapper(JsValueRef obj, JsValueRef* result) {
+inline napi_status FindWrapper(JsValueRef obj, JsValueRef* wrapper,
+                               JsValueRef* parent = nullptr) {
   // Search the object's prototype chain for the wrapper with external data.
   // Usually the wrapper would be the first in the chain, but it is OK for
   // other objects to be inserted in the prototype chain.
-  JsValueRef wrapper = obj;
+  JsValueRef candidate = obj;
+  JsValueRef current = JS_INVALID_REFERENCE;
   bool hasExternalData = false;
 
   JsValueRef nullValue = JS_INVALID_REFERENCE;
   CHECK_JSRT(JsGetNullValue(&nullValue));
 
   do {
-    CHECK_JSRT(JsGetPrototype(wrapper, &wrapper));
-    if (wrapper == JS_INVALID_REFERENCE || wrapper == nullValue) {
-      *result = JS_INVALID_REFERENCE;
+    current = candidate;
+
+    CHECK_JSRT(JsGetPrototype(current, &candidate));
+    if (candidate == JS_INVALID_REFERENCE || candidate == nullValue) {
+      if (parent != nullptr) {
+        *parent = JS_INVALID_REFERENCE;
+      }
+
+      *wrapper = JS_INVALID_REFERENCE;
       return napi_ok;
     }
 
-    CHECK_JSRT(JsHasExternalData(wrapper, &hasExternalData));
+    CHECK_JSRT(JsHasExternalData(candidate, &hasExternalData));
   } while (!hasExternalData);
 
-  *result = wrapper;
+  if (parent != nullptr) {
+    *parent = current;
+  }
+
+  *wrapper = candidate;
+
+  return napi_ok;
+}
+
+inline napi_status Unwrap(JsValueRef obj, jsrtimpl::ExternalData** externalData,
+                          JsValueRef* wrapper = nullptr,
+                          JsValueRef* parent = nullptr) {
+  JsValueRef candidate = JS_INVALID_REFERENCE;
+  JsValueRef candidateParent = JS_INVALID_REFERENCE;
+  CHECK_NAPI(jsrtimpl::FindWrapper(obj, &candidate, &candidateParent));
+  RETURN_STATUS_IF_FALSE(candidate != JS_INVALID_REFERENCE, napi_invalid_arg);
+
+  CHECK_JSRT(JsGetExternalData(candidate,
+                               reinterpret_cast<void**>(externalData)));
+
+  if (wrapper != nullptr) {
+    *wrapper = candidate;
+  }
+
+  if (parent != nullptr) {
+    *parent = candidateParent;
+  }
+
   return napi_ok;
 }
 
@@ -1639,12 +1674,12 @@ napi_status napi_wrap(napi_env env,
   if (externalData == nullptr) return napi_set_last_error(napi_generic_failure);
 
   // Create an external object that will hold the external data pointer.
-  JsValueRef external;
+  JsValueRef external = JS_INVALID_REFERENCE;
   CHECK_JSRT(JsCreateExternalObject(
     externalData, jsrtimpl::ExternalData::Finalize, &external));
 
   // Insert the external object into the value's prototype chain.
-  JsValueRef valuePrototype;
+  JsValueRef valuePrototype = JS_INVALID_REFERENCE;
   CHECK_JSRT(JsGetPrototype(value, &valuePrototype));
   CHECK_JSRT(JsSetPrototype(external, valuePrototype));
   CHECK_JSRT(JsSetPrototype(value, external));
@@ -1659,15 +1694,39 @@ napi_status napi_wrap(napi_env env,
 napi_status napi_unwrap(napi_env env, napi_value js_object, void** result) {
   JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
 
-  JsValueRef wrapper = JS_INVALID_REFERENCE;
-  CHECK_NAPI(jsrtimpl::FindWrapper(value, &wrapper));
-  RETURN_STATUS_IF_FALSE(wrapper != JS_INVALID_REFERENCE, napi_invalid_arg);
-
-  jsrtimpl::ExternalData* externalData;
-  CHECK_JSRT(JsGetExternalData(
-    wrapper, reinterpret_cast<void**>(&externalData)));
+  jsrtimpl::ExternalData* externalData = nullptr;
+  CHECK_NAPI(jsrtimpl::Unwrap(value, &externalData));
 
   *result = (externalData != nullptr ? externalData->Data() : nullptr);
+
+  return napi_ok;
+}
+
+napi_status napi_remove_wrap(napi_env env, napi_value js_object,
+                             void** result) {
+  JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
+
+  jsrtimpl::ExternalData* externalData = nullptr;
+  JsValueRef parent = JS_INVALID_REFERENCE;
+  JsValueRef wrapper = JS_INVALID_REFERENCE;
+  CHECK_NAPI(jsrtimpl::Unwrap(value, &externalData, &wrapper, &parent));
+  RETURN_STATUS_IF_FALSE(parent != JS_INVALID_REFERENCE, napi_invalid_arg);
+  RETURN_STATUS_IF_FALSE(wrapper != JS_INVALID_REFERENCE, napi_invalid_arg);
+
+  // Remove the external from the prototype chain
+  JsValueRef wrapperProto = JS_INVALID_REFERENCE;
+  CHECK_JSRT(JsGetPrototype(wrapper, &wrapperProto));
+  CHECK_JSRT(JsSetPrototype(parent, wrapperProto));
+
+  // Clear the external data from the object
+  CHECK_JSRT(JsSetExternalData(wrapper, nullptr));
+
+  if (externalData != nullptr) {
+    *result = externalData->Data();
+    delete externalData;
+  } else {
+    *result = nullptr;
+  }
 
   return napi_ok;
 }
