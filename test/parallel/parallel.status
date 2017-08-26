@@ -62,6 +62,8 @@ test-http-same-map : PASS,FLAKY
 test-intl : PASS,FLAKY
 test-intl-no-icu-data : PASS,FLAKY
 test-memory-usage : PASS,FLAKY
+test-performance-function : PASS,FLAKY
+test-performance-gc : PASS,FLAKY
 test-process-env-symbols : PASS,FLAKY
 test-promise-internal-creation : PASS,FLAKY
 test-promises-unhandled-rejections : PASS,FLAKY

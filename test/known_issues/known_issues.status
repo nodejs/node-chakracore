@@ -24,3 +24,4 @@ test-cluster-disconnect-handles: SKIP
 test-vm-attributes-property-not-on-sandbox : PASS,FLAKY
 test-vm-data-property-writable : PASS,FLAKY
 test-vm-inherited_properties : PASS,FLAKY
+test-vm-strict-mode : PASS,FLAKY

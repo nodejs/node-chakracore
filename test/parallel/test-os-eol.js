@@ -12,7 +12,10 @@ common.expectsError(function() {
   os.EOL = 123;
 }, {
   type: TypeError,
-  message: /^Cannot assign to read only property 'EOL' of object '#<Object>'$/
+  message: common.engineSpecificMessage({
+    v8: /^Cannot assign to read only property 'EOL' of object '#<Object>'$/,
+    chakracore: /^Assignment to read-only properties is not allowed in strict mode$/
+  })
 });
 
 const foo = 'foo';
