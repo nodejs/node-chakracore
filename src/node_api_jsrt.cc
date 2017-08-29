@@ -504,6 +504,26 @@ static napi_status SetErrorCode(JsValueRef error,
   return napi_ok;
 }
 
+napi_status ConcludeDeferred(napi_env env,
+                             napi_deferred deferred,
+                             const char* property,
+                             napi_value result) {
+  // We do not check if property is OK, because that's not coming from outside.
+  CHECK_ARG(deferred);
+  CHECK_ARG(result);
+
+  napi_value container, resolver, js_null;
+  napi_ref ref = reinterpret_cast<napi_ref>(deferred);
+
+  CHECK_NAPI(napi_get_reference_value(env, ref, &container));
+  CHECK_NAPI(napi_get_named_property(env, container, property, &resolver));
+  CHECK_NAPI(napi_get_null(env, &js_null));
+  CHECK_NAPI(napi_call_function(env, js_null, resolver, 1, &result, nullptr));
+  CHECK_NAPI(napi_delete_reference(env, ref));
+
+  return napi_ok;
+}
+
 }  // end of namespace jsrtimpl
 
 // Intercepts the Node-V8 module registration callback. Converts parameters
@@ -2558,6 +2578,61 @@ napi_status napi_cancel_async_work(napi_env env, napi_async_work work) {
   uvimpl::Work* w = reinterpret_cast<uvimpl::Work*>(work);
 
   CALL_UV(uv_cancel(reinterpret_cast<uv_req_t*>(w->Request())));
+
+  return napi_ok;
+}
+
+NAPI_EXTERN napi_status napi_create_promise(napi_env env,
+                                            napi_deferred* deferred,
+                                            napi_value* promise) {
+  CHECK_ARG(deferred);
+  CHECK_ARG(promise);
+
+  JsValueRef js_promise, resolve, reject, container;
+  napi_ref ref;
+  napi_value js_deferred;
+
+  CHECK_JSRT(JsCreatePromise(&js_promise, &resolve, &reject));
+
+  CHECK_JSRT(JsCreateObject(&container));
+  js_deferred = reinterpret_cast<napi_value>(container);
+
+  CHECK_NAPI(napi_set_named_property(env, js_deferred, "resolve",
+    reinterpret_cast<napi_value>(resolve)));
+  CHECK_NAPI(napi_set_named_property(env, js_deferred, "reject",
+    reinterpret_cast<napi_value>(reject)));
+
+  CHECK_NAPI(napi_create_reference(env, js_deferred, 1, &ref));
+
+  *deferred = reinterpret_cast<napi_deferred>(ref);
+  *promise = reinterpret_cast<napi_value>(js_promise);
+
+  return napi_ok;
+}
+
+NAPI_EXTERN napi_status napi_resolve_deferred(napi_env env,
+                                              napi_deferred deferred,
+                                              napi_value resolution) {
+  return jsrtimpl::ConcludeDeferred(env, deferred, "resolve", resolution);
+}
+
+NAPI_EXTERN napi_status napi_reject_deferred(napi_env env,
+                                             napi_deferred deferred,
+                                             napi_value rejection) {
+  return jsrtimpl::ConcludeDeferred(env, deferred, "reject", rejection);
+}
+
+NAPI_EXTERN napi_status napi_is_promise(napi_env env,
+                                        napi_value promise,
+                                        bool* is_promise) {
+  CHECK_ARG(promise);
+  CHECK_ARG(is_promise);
+
+  napi_value global, promise_ctor;
+
+  CHECK_NAPI(napi_get_global(env, &global));
+  CHECK_NAPI(napi_get_named_property(env, global, "Promise", &promise_ctor));
+  CHECK_NAPI(napi_instanceof(env, promise, promise_ctor, is_promise));
 
   return napi_ok;
 }
