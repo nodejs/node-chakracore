@@ -56,6 +56,10 @@
     if (status != napi_ok) return status;                               \
   } while (0)
 
+
+// utf8 multibyte codepoint start check
+#define UTF8_MULTIBYTE_START(c) (((c) & 0xC0) == 0xC0)
+
 static napi_status napi_set_last_error(napi_status error_code,
                                        uint32_t engine_error_code = 0,
                                        void* engine_reserved = nullptr);
@@ -258,38 +262,19 @@ class StringUtf8 {
   napi_status From(JsValueRef strRef) {
     CHAKRA_ASSERT(!_str);
 
-    int strLength = 0;
-    CHECK_JSRT_EXPECTED(JsGetStringLength(strRef, &strLength),
+    size_t length = 0;
+    CHECK_JSRT_EXPECTED(JsCopyString(strRef, nullptr, 0, &length),
                         napi_string_expected);
 
-    // assume string contains ascii characters only
-    _str = reinterpret_cast<char*>(malloc(strLength + 1));
+    _str = reinterpret_cast<char*>(malloc(length + 1));
+    CHAKRA_VERIFY(_str != nullptr);
 
-    size_t written = 0;
-    size_t actualLength = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(strRef, _str, strLength, &written, &actualLength),
+      JsCopyString(strRef, _str, length, nullptr),
                    napi_string_expected);
 
-    // if string contains unicode characters, take slow path
-    if (actualLength != written) {
-      // free previously allocated buffer
-      free(_str);
-
-      _str = reinterpret_cast<char*>(malloc(actualLength + 1));
-      if (_str == nullptr) {
-        return napi_set_last_error(napi_generic_failure);
-      }
-      CHECK_JSRT_EXPECTED(
-        JsCopyString(strRef, _str, actualLength, &written, nullptr),
-                     napi_string_expected);
-      assert(actualLength == written);
-    } else if (strLength != written) {
-      return napi_set_last_error(napi_generic_failure);
-    }
-
-    _str[written] = '\0';
-    _length = written;
+    _str[length] = '\0';
+    _length = length;
     return napi_ok;
   }
 
@@ -1467,24 +1452,65 @@ napi_status napi_get_value_string_latin1(napi_env env,
   if (!buf) {
     CHECK_ARG(result);
 
-    JsErrorCode err = JsCopyString(js_value, nullptr, 0, nullptr, result);
+    JsErrorCode err = JsCopyString(js_value, nullptr, 0, result);
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
   } else {
-    size_t copied = 0;
+    size_t count = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(js_value, buf, bufsize - 1, &copied, nullptr),
+      JsCopyString(js_value, nullptr, 0, &count),
       napi_string_expected);
 
-    if (copied < bufsize - 1) {
-      buf[copied] = 0;
-    } else {
-      buf[bufsize - 1] = 0;
+    if (bufsize <= count) {
+      // if bufsize == count there is no space for null terminator
+      // Slow path: must implement truncation here.
+      char* fullBuffer = static_cast<char *>(malloc(count));
+      CHAKRA_VERIFY(fullBuffer != nullptr);
+
+      CHECK_JSRT_EXPECTED(
+        JsCopyString(js_value, fullBuffer, count, nullptr),
+        napi_string_expected);
+      memmove(buf, fullBuffer, sizeof(char) * bufsize);
+      free(fullBuffer);
+
+      // Truncate string to the start of the last codepoint
+      if (bufsize > 0 &&
+          (((buf[bufsize-1] & 0x80) == 0)
+            || UTF8_MULTIBYTE_START(buf[bufsize-1]))
+        ) {
+        // Last byte is a single byte codepoint or
+        // starts a multibyte codepoint
+        bufsize -= 1;
+      } else if (bufsize > 1 && UTF8_MULTIBYTE_START(buf[bufsize-2])) {
+        // Second last byte starts a multibyte codepoint,
+        bufsize -= 2;
+      } else if (bufsize > 2 && UTF8_MULTIBYTE_START(buf[bufsize-3])) {
+        // Third last byte starts a multibyte codepoint
+        bufsize -= 3;
+      } else if (bufsize > 3 && UTF8_MULTIBYTE_START(buf[bufsize-4])) {
+        // Fourth last byte starts a multibyte codepoint
+        bufsize -= 4;
+      }
+
+      buf[bufsize] = '\0';
+
+      if (result) {
+        *result = bufsize;
+      }
+
+      return napi_ok;
     }
 
+    // Fastpath, result fits in the buffer
+    CHECK_JSRT_EXPECTED(
+      JsCopyString(js_value, buf, bufsize-1, &count),
+      napi_string_expected);
+
+    buf[count] = 0;
+
     if (result != nullptr) {
-      *result = copied;
+      *result = count;
     }
   }
 
@@ -1510,24 +1536,65 @@ napi_status napi_get_value_string_utf8(napi_env env,
   if (!buf) {
     CHECK_ARG(result);
 
-    JsErrorCode err = JsCopyString(js_value, nullptr, 0, nullptr, result);
+    JsErrorCode err = JsCopyString(js_value, nullptr, 0, result);
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
   } else {
-    size_t copied = 0;
+    size_t count = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(js_value, buf, bufsize - 1, &copied, nullptr),
+      JsCopyString(js_value, nullptr, 0, &count),
       napi_string_expected);
 
-    if (copied < bufsize - 1) {
-      buf[copied] = 0;
-    } else {
-      buf[bufsize - 1] = 0;
+    if (bufsize <= count) {
+      // if bufsize == count there is no space for null terminator
+      // Slow path: must implement truncation here.
+      char* fullBuffer = static_cast<char *>(malloc(count));
+      CHAKRA_VERIFY(fullBuffer != nullptr);
+
+      CHECK_JSRT_EXPECTED(
+        JsCopyString(js_value, fullBuffer, count, nullptr),
+        napi_string_expected);
+      memmove(buf, fullBuffer, sizeof(char) * bufsize);
+      free(fullBuffer);
+
+      // Truncate string to the start of the last codepoint
+      if (bufsize > 0 &&
+          (((buf[bufsize-1] & 0x80) == 0)
+           || UTF8_MULTIBYTE_START(buf[bufsize-1]))
+        ) {
+        // Last byte is a single byte codepoint or
+        // starts a multibyte codepoint
+        bufsize -= 1;
+      } else if (bufsize > 1 && UTF8_MULTIBYTE_START(buf[bufsize-2])) {
+        // Second last byte starts a multibyte codepoint,
+        bufsize -= 2;
+      } else if (bufsize > 2 && UTF8_MULTIBYTE_START(buf[bufsize-3])) {
+        // Third last byte starts a multibyte codepoint
+        bufsize -= 3;
+      } else if (bufsize > 3 && UTF8_MULTIBYTE_START(buf[bufsize-4])) {
+        // Fourth last byte starts a multibyte codepoint
+        bufsize -= 4;
+      }
+
+      buf[bufsize] = '\0';
+
+      if (result) {
+        *result = bufsize;
+      }
+
+      return napi_ok;
     }
 
+    // Fastpath, result fits in the buffer
+    CHECK_JSRT_EXPECTED(
+      JsCopyString(js_value, buf, bufsize-1, &count),
+      napi_string_expected);
+
+    buf[count] = 0;
+
     if (result != nullptr) {
-      *result = copied;
+      *result = count;
     }
   }
 
