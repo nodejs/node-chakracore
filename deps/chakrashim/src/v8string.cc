@@ -20,6 +20,9 @@
 
 #include "v8chakra.h"
 
+// utf8 multibyte codepoint start check
+#define UTF8_MULTIBYTE_START(c) (((c) & 0xC0) == 0xC0)
+
 namespace v8 {
 
 String::Utf8Value::Utf8Value(Handle<v8::Value> obj)
@@ -110,15 +113,72 @@ int String::WriteOneByte(
 
 int String::WriteUtf8(
     char *buffer, int length, int *nchars_ref, int options) const {
+  size_t count = 0;
   if (length < 0) {
     // in case length was not provided we want to copy the whole string
     length = String::kMaxLength;
+  } else if (buffer != nullptr) {
+    JsCopyString((JsValueRef)this, nullptr, 0, &count);
+
+    if (length < count ||
+        (length == count && !(options & String::NO_NULL_TERMINATION))
+      ) {
+      // if length == count there is no space for null terminator
+      // Slow path: must implement truncation here.
+      char* fullBuffer = static_cast<char *>(malloc(count));
+      CHAKRA_VERIFY(fullBuffer != nullptr);
+
+      JsCopyString((JsValueRef)this, fullBuffer, count, nullptr);
+      memmove(buffer, fullBuffer, sizeof(char) * length);
+      free(fullBuffer);
+
+      // Find the start of the last codepoint
+      int lastIndex = length - 1;
+      bool overflow = false;
+      if (length > 0 && ((buffer[length-1] & 0x80) == 0)) {
+        lastIndex = length-1;
+      } else if (length > 0 && UTF8_MULTIBYTE_START(buffer[length-1])) {
+        // Last byte starts a multibyte codepoint
+        lastIndex = length-1;
+        overflow = true;
+      } else if (length > 1 && UTF8_MULTIBYTE_START(buffer[length-2])) {
+        // Second last byte starts a multibyte codepoint
+        lastIndex = length-2;
+        // 0xE0 = 0b1110 0000
+        // 3 leading 1s indicates a 3+ byte character
+        overflow = (buffer[length-2] & 0xE0) == 0xE0;
+      } else if (length > 2 && UTF8_MULTIBYTE_START(buffer[length-3])) {
+        // Third last byte starts a multibyte codepoint
+        lastIndex = length-3;
+        // 0xF0 = 0b1111 0000
+        // 4 leading 1s indicates a 4 byte character
+        overflow = (buffer[length-2] & 0xF0) == 0xF0;
+      } else if (length > 3 && UTF8_MULTIBYTE_START(buffer[length-4])) {
+        // Fourth last byte starts a multibyte codepoint
+        lastIndex = length-4;
+        // No overflow; utf8 is at most 4 bytes per codepoint
+      }
+
+      if (lastIndex >= 0 && !(options & String::NO_NULL_TERMINATION)) {
+        buffer[lastIndex] = '\0';
+        length = lastIndex;
+      } else if (overflow) {
+        length = lastIndex;
+      }
+
+      if (nchars_ref) {
+        *nchars_ref = count;
+      }
+
+      return length;
+    }
   }
 
-  size_t count = 0;
+
   if (JsCopyString((JsValueRef)this,
-                   buffer, length, &count, nullptr) == JsNoError) {
-    if (count < (unsigned)length && !(options & String::NO_NULL_TERMINATION)) {
+                   buffer, length, &count) == JsNoError) {
+    if (buffer != nullptr && count < (unsigned)length &&
+        !(options & String::NO_NULL_TERMINATION)) {
       // Utf8 version count includes null terminator
       buffer[count++] = 0;
     }
