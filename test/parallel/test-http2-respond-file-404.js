@@ -21,7 +21,12 @@ server.on('stream', (stream) => {
       common.expectsError({
         code: 'ENOENT',
         type: Error,
-        message: `ENOENT: no such file or directory, open '${file}'`
+        message: common.engineSpecificMessage({
+          v8: `ENOENT: no such file or directory, open '${file}'`,
+          chakracore: new RegExp(
+            `ENOENT: no such file or directory, open '.*${file.substring(2)}'`
+          )
+        })
       })(err);
 
       stream.respond({ ':status': 404 });
