@@ -757,7 +757,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x00` (No Error).
 
-#### http2stream.rstWithProtocolError() {
+#### http2stream.rstWithProtocolError()
 <!-- YAML
 added: v8.4.0
 -->
@@ -766,7 +766,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x01` (Protocol Error).
 
-#### http2stream.rstWithCancel() {
+#### http2stream.rstWithCancel()
 <!-- YAML
 added: v8.4.0
 -->
@@ -775,7 +775,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x08` (Cancel).
 
-#### http2stream.rstWithRefuse() {
+#### http2stream.rstWithRefuse()
 <!-- YAML
 added: v8.4.0
 -->
@@ -784,7 +784,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x07` (Refused Stream).
 
-#### http2stream.rstWithInternalError() {
+#### http2stream.rstWithInternalError()
 <!-- YAML
 added: v8.4.0
 -->
@@ -1118,6 +1118,8 @@ added: v8.4.0
 * `headers` {[Headers Object][]}
 * `options` {Object}
   * `statCheck` {Function}
+  * `onError` {Function} Callback function invoked in the case of an
+    Error before send
   * `getTrailers` {Function} Callback function invoked to collect trailer
     headers.
   * `offset` {number} The offset position at which to begin reading
@@ -1146,6 +1148,16 @@ server.on('stream', (stream) => {
   function statCheck(stat, headers) {
     headers['last-modified'] = stat.mtime.toUTCString();
   }
+
+  function onError(err) {
+    if (err.code === 'ENOENT') {
+      stream.respond({ ':status': 404 });
+    } else {
+      stream.respond({ ':status': 500 });
+    }
+    stream.end();
+  }
+
   stream.respondWithFile('/some/file',
                          { 'content-type': 'text/plain' },
                          { statCheck });
@@ -1178,6 +1190,10 @@ The `offset` and `length` options may be used to limit the response to a
 specific range subset. This can be used, for instance, to support HTTP Range
 requests.
 
+The `options.onError` function may also be used to handle all the errors
+that could happen before the delivery of the file is initiated. The
+default behavior is to destroy the stream.
+
 When set, the `options.getTrailers()` function is called immediately after
 queuing the last chunk of payload data to be sent. The callback is passed a
 single object (with a `null` prototype) that the listener may used to specify
@@ -1208,6 +1224,19 @@ added: v8.4.0
 
 * Extends: {net.Server}
 
+In `Http2Server`, there is no `'clientError'` event as there is in
+HTTP1. However, there are `'socketError'`, `'sessionError'`,  and
+`'streamError'`, for error happened on the socket, session or stream
+respectively.
+
+#### Event: 'socketError'
+<!-- YAML
+added: v8.4.0
+-->
+
+The `'socketError'` event is emitted when a `'socketError'` event is emitted by
+an `Http2Session` associated with the server.
+
 #### Event: 'sessionError'
 <!-- YAML
 added: v8.4.0
@@ -1217,13 +1246,15 @@ The `'sessionError'` event is emitted when an `'error'` event is emitted by
 an `Http2Session` object. If no listener is registered for this event, an
 `'error'` event is emitted.
 
-#### Event: 'socketError'
+#### Event: 'streamError'
 <!-- YAML
-added: v8.4.0
+added: REPLACEME
 -->
 
-The `'socketError'` event is emitted when a `'socketError'` event is emitted by
-an `Http2Session` associated with the server.
+* `socket` {http2.ServerHttp2Stream}
+
+If an `ServerHttp2Stream` emits an `'error'` event, it will be forwarded here.
+The stream will already be destroyed when this event is triggered.
 
 #### Event: 'stream'
 <!-- YAML
