@@ -2528,32 +2528,6 @@ napi_status napi_adjust_external_memory(napi_env env,
   return napi_ok;
 }
 
-JsValueRef runScriptSourceUrl = JS_INVALID_REFERENCE;
-
-napi_status napi_run_script(napi_env env,
-                            napi_value script,
-                            napi_value* result) {
-  CHECK_ARG(script);
-  CHECK_ARG(result);
-  JsValueRef scriptVar = reinterpret_cast<JsValueRef>(script);
-
-  if (runScriptSourceUrl == JS_INVALID_REFERENCE) {
-    const char * napiScriptString = "NAPI run script";
-    CHECK_JSRT(JsCreateString(napiScriptString,
-                   strlen(napiScriptString),
-                   &runScriptSourceUrl));
-  }
-
-  CHECK_JSRT_EXPECTED(JsRun(scriptVar,
-                            JS_SOURCE_CONTEXT_NONE,
-                            runScriptSourceUrl,
-                            JsParseScriptAttributeNone,
-                            reinterpret_cast<JsValueRef*>(result)),
-                      napi_string_expected);
-
-  return napi_ok;
-}
-
 namespace uvimpl {
 
 napi_status ConvertUVErrorCode(int code) {
