@@ -186,9 +186,9 @@ class AbortTestConfiguration(SimpleTestConfiguration):
     super(AbortTestConfiguration, self).__init__(context, root, section,
                                                  additional)
 
-  def ListTests(self, current_path, path, arch, mode):
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
     result = super(AbortTestConfiguration, self).ListTests(
-         current_path, path, arch, mode)
+         current_path, path, arch, mode, jsEngine)
     for test in result:
       test.disable_core_files = True
     return result

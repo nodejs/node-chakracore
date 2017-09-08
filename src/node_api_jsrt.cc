@@ -2517,6 +2517,17 @@ napi_status napi_get_node_version(napi_env env,
   return napi_ok;
 }
 
+napi_status napi_adjust_external_memory(napi_env env,
+                                        int64_t change_in_bytes,
+                                        int64_t* adjusted_value) {
+  CHECK_ARG(&change_in_bytes);
+  CHECK_ARG(adjusted_value);
+
+  // TODO(jackhorton): Determine if Chakra needs or is able to do anything here
+
+  return napi_ok;
+}
+
 namespace uvimpl {
 
 napi_status ConvertUVErrorCode(int code) {
