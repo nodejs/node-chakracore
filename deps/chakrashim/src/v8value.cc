@@ -52,6 +52,10 @@ bool Value::IsNull() const {
   return IsOfType(this, JsValueType::JsNull);
 }
 
+bool Value::IsNullOrUndefined() const {
+  return IsNull() || IsUndefined();
+}
+
 bool Value::IsTrue() const {
   bool isTrue;
   if (JsEquals(jsrt::GetTrue(), (JsValueRef)this, &isTrue) != JsNoError) {

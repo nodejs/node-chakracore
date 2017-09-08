@@ -1012,6 +1012,7 @@ class V8_EXPORT Value : public Data {
  public:
   bool IsUndefined() const;
   bool IsNull() const;
+  bool IsNullOrUndefined() const;
   bool IsTrue() const;
   bool IsFalse() const;
   bool IsName() const;
