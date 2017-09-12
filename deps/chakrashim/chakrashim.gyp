@@ -135,6 +135,7 @@
         'src/v8map.cc',
         'src/v8message.cc',
         'src/v8microtasksscope.cc',
+        'src/v8module.cc',
         'src/v8name.cc',
         'src/v8number.cc',
         'src/v8numberobject.cc',

@@ -261,4 +261,11 @@ Local<Script> ScriptCompiler::Compile(Isolate* isolate,
 uint32_t ScriptCompiler::CachedDataVersionTag() {
   return 0;
 }
+
+MaybeLocal<Module> ScriptCompiler::CompileModule(
+    Isolate* isolate, Source* source) {
+  // CHAKRA-TODO: how do we compile a module without running it?
+  return Local<Module>();
+  }
+
 }  // namespace v8
