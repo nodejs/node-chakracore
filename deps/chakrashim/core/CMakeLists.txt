@@ -250,25 +250,25 @@ elseif(CC_TARGET_OS_OSX OR CC_TARGET_OS_IOS)
         )
         set(IOS_DEPLOYMENT_TARGET "$ENV{IPHONEOS_DEPLOYMENT_TARGET} CC")
         if (${IOS_DEPLOYMENT_TARGET} STREQUAL " CC")
-          set(IOS_DEPLOYMENT_TARGET "10.0")
+          set(IOS_DEPLOYMENT_TARGET "11.0")
           if(CC_TARGETS_ARM64)
             #iOS Physical device.
-            add_compile_options(-miphoneos-version-min=10.0)
+            add_compile_options(-miphoneos-version-min=11.0)
             # isysroot is the result from running -> xcodebuild -version -sdk iphoneos Path
-            add_compile_options(-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.3.sdk)
+            add_compile_options(-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.sdk)
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
-              -miphoneos-version-min=10.0 -fembed-bitcode -std=gnu99 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.3.sdk")
+              -miphoneos-version-min=11.0 -fembed-bitcode -std=gnu99 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.sdk")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-              -miphoneos-version-min=10.0 -fembed-bitcode -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.3.sdk")
+              -miphoneos-version-min=11.0 -fembed-bitcode -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.sdk")
           else()
             #iOS Simulator.
-            add_compile_options(-mios-simulator-version-min=10.0)
+            add_compile_options(-mios-simulator-version-min=11.0)
             # isysroot is the result from running -> xcodebuild -version -sdk iphonesimulator Path
-            add_compile_options(-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk)
+            add_compile_options(-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator11.0.sdk)
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
-              -mios-simulator-version-min=10.0 -std=gnu99 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk")
+              -mios-simulator-version-min=11.0 -std=gnu99 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator11.0.sdk")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-              -mios-simulator-version-min=10.0 -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator10.3.sdk")
+              -mios-simulator-version-min=11.0 -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator11.0.sdk")
           endif()
         else()
           set(IOS_DEPLOYMENT_TARGET "$ENV{IPHONEOS_DEPLOYMENT_TARGET}")

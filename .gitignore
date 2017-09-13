@@ -111,6 +111,7 @@ icu_config.gypi
 # Xcode workspaces and project folders
 *.xcodeproj
 *.xcworkspace
+xcode-framework/nodeLib/bin/
 
 # libuv book and GitHub template
 deps/uv/.github/
