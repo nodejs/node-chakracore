@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		331917C31EC4702A00F93D52 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 331917C21EC4702A00F93D52 /* CoreFoundation.framework */; };
 		331917CE1EC48CA500F93D52 /* nodeLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 331917CD1EC48CA500F93D52 /* nodeLib.h */; };
+		334822151F6AFBD200CF403E /* libnghttp2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 334822141F6AFBD200CF403E /* libnghttp2.a */; };
 		3376C9121EC391130007AD59 /* node.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 3376C9101EC391130007AD59 /* node.hpp */; settings = {ATTRIBUTES = (Public, ); }; };
 		3376C9211EC3922F0007AD59 /* libcares.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3376C9191EC3922F0007AD59 /* libcares.a */; };
 		3376C9221EC3922F0007AD59 /* libChakraCoreStatic.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3376C91A1EC3922F0007AD59 /* libChakraCoreStatic.a */; };
@@ -23,6 +24,7 @@
 /* Begin PBXFileReference section */
 		331917C21EC4702A00F93D52 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		331917CD1EC48CA500F93D52 /* nodeLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nodeLib.h; sourceTree = "<group>"; };
+		334822141F6AFBD200CF403E /* libnghttp2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libnghttp2.a; path = bin/libnghttp2.a; sourceTree = "<group>"; };
 		3376C90D1EC391130007AD59 /* nodeLib.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = nodeLib.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3376C9101EC391130007AD59 /* node.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = node.hpp; sourceTree = "<group>"; };
 		3376C9111EC391130007AD59 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -46,6 +48,7 @@
 				3376C9221EC3922F0007AD59 /* libChakraCoreStatic.a in Frameworks */,
 				3376C9231EC3922F0007AD59 /* libchakrashim.a in Frameworks */,
 				3376C9241EC3922F0007AD59 /* libhttp_parser.a in Frameworks */,
+				334822151F6AFBD200CF403E /* libnghttp2.a in Frameworks */,
 				3376C9251EC3922F0007AD59 /* libnode.a in Frameworks */,
 				3376C9261EC3922F0007AD59 /* libopenssl.a in Frameworks */,
 				3376C9271EC3922F0007AD59 /* libuv.a in Frameworks */,
@@ -86,6 +89,7 @@
 		3376C9181EC3922E0007AD59 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				334822141F6AFBD200CF403E /* libnghttp2.a */,
 				331917C21EC4702A00F93D52 /* CoreFoundation.framework */,
 				3376C9191EC3922F0007AD59 /* libcares.a */,
 				3376C91A1EC3922F0007AD59 /* libChakraCoreStatic.a */,
