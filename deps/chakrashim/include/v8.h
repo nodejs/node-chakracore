@@ -105,6 +105,7 @@ class HeapProfiler;
 class Int32;
 class Integer;
 class Isolate;
+class Module;
 class Name;
 class Number;
 class NumberObject;
@@ -177,6 +178,8 @@ enum JitCodeEventOptions {
   kJitCodeEventDefault = 0,
   kJitCodeEventEnumExisting = 1,
 };
+
+enum class IntegrityLevel { kFrozen, kSealed };
 
 typedef void (*AccessorGetterCallback)(
   Local<String> property,
@@ -808,9 +811,10 @@ class ScriptOrigin {
     Local<Integer> resource_column_offset = Local<Integer>(),
     Local<Boolean> resource_is_shared_cross_origin = Local<Boolean>(),
     Local<Integer> script_id = Local<Integer>(),
-    Local<Boolean> resource_is_embedder_debug_script = Local<Boolean>(),
     Local<Value> source_map_url = Local<Value>(),
-    Local<Boolean> resource_is_opaque = Local<Boolean>())
+    Local<Boolean> resource_is_opaque = Local<Boolean>(),
+    Local<Boolean> is_wasm = Local<Boolean>(),
+    Local<Boolean> is_module = Local<Boolean>())
     : resource_name_(resource_name),
       resource_line_offset_(resource_line_offset),
       resource_column_offset_(resource_column_offset),
@@ -931,6 +935,9 @@ class V8_EXPORT ScriptCompiler {
     CompileOptions options = kNoCompileOptions);
 
   static uint32_t CachedDataVersionTag();
+
+  static V8_WARN_UNUSED_RESULT MaybeLocal<Module> CompileModule(
+    Isolate* isolate, Source* source);
 };
 
 class V8_EXPORT Message {
@@ -1529,6 +1536,8 @@ class V8_EXPORT Object : public Value {
   Isolate* GetIsolate();
   static Local<Object> New(Isolate* isolate = nullptr);
   static Object *Cast(Value *obj);
+
+  Maybe<bool> SetIntegrityLevel(Local<Context> context, IntegrityLevel level);
 
  private:
   friend class ObjectTemplate;
@@ -2833,6 +2842,46 @@ class V8_EXPORT Locker {
  public:
   explicit Locker(Isolate* isolate) {}
 };
+
+class V8_EXPORT Module {
+ public:
+  /**
+   * Returns the number of modules requested by this module.
+   */
+  int GetModuleRequestsLength() const;
+
+  /**
+   * Returns the ith module specifier in this module.
+   * i must be < GetModuleRequestsLength() and >= 0.
+   */
+  Local<String> GetModuleRequest(int i) const;
+
+  /**
+   * Returns the identity hash for this object.
+   */
+  int GetIdentityHash() const;
+
+  typedef MaybeLocal<Module> (*ResolveCallback)(Local<Context> context,
+                                                Local<String> specifier,
+                                                Local<Module> referrer);
+
+  /**
+   * ModuleDeclarationInstantiation
+   *
+   * Returns false if an exception occurred during instantiation. (In the case
+   * where the callback throws an exception, that exception is propagated.)
+   */
+  V8_WARN_UNUSED_RESULT bool Instantiate(Local<Context> context,
+                                         ResolveCallback callback);
+
+  /**
+   * ModuleEvaluation
+   *
+   * Returns the completion value.
+   */
+  V8_WARN_UNUSED_RESULT MaybeLocal<Value> Evaluate(Local<Context> context);
+};
+
 
 
 //
