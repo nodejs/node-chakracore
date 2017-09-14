@@ -20,6 +20,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSPrincipalClass</key>
 	<string></string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright Node.js contributors.
 Modifications copyright (c) Janea Systems, Inc. 

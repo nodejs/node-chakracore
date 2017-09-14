@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		331917C31EC4702A00F93D52 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 331917C21EC4702A00F93D52 /* CoreFoundation.framework */; };
-		331917CE1EC48CA500F93D52 /* nodeLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 331917CD1EC48CA500F93D52 /* nodeLib.h */; };
+		331917CE1EC48CA500F93D52 /* nodeLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 331917CD1EC48CA500F93D52 /* nodeLib.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		334822151F6AFBD200CF403E /* libnghttp2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 334822141F6AFBD200CF403E /* libnghttp2.a */; };
 		3376C9121EC391130007AD59 /* node.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 3376C9101EC391130007AD59 /* node.hpp */; settings = {ATTRIBUTES = (Public, ); }; };
 		3376C9211EC3922F0007AD59 /* libcares.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3376C9191EC3922F0007AD59 /* libcares.a */; };
@@ -292,8 +292,11 @@
 			buildSettings = {
 				ARCHS = arm64;
 				CODE_SIGN_IDENTITY = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -314,6 +317,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.janeasystems.nodeLib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SEPARATE_STRIP = YES;
 				SKIP_INSTALL = YES;
 				STRIP_STYLE = "non-global";
@@ -326,8 +330,11 @@
 			buildSettings = {
 				ARCHS = arm64;
 				CODE_SIGN_IDENTITY = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -348,6 +355,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.janeasystems.nodeLib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SEPARATE_STRIP = YES;
 				SKIP_INSTALL = YES;
 				STRIP_STYLE = "non-global";

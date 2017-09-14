@@ -14,8 +14,4 @@ FOUNDATION_EXPORT double nodeLibVersionNumber;
 //! Project version string for nodeLib.
 FOUNDATION_EXPORT const unsigned char nodeLibVersionString[];
 
-#ifndef nodeLib_h
-#define nodeLib_h
-#include "node.hpp"
-
-#endif /* nodeLib_h */
+#import "node.hpp"
