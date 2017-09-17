@@ -242,10 +242,10 @@ class ContextifyContext {
 
 #if ENABLE_TTD_NODE
     // Don't use TT global state -- inherit TT mode from calling script context
-    Local<Context> ctx = Context::New(env->isolate(),
-                                      false, nullptr, object_template);
+    Local<Context> ctx = NewContext(env->isolate(),
+                                      false, object_template);
 #else
-    Local<Context> ctx = Context::New(env->isolate(), nullptr, object_template);
+    Local<Context> ctx = NewContext(env->isolate(), object_template);
 #endif
 
     if (ctx.IsEmpty()) {
