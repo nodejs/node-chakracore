@@ -185,9 +185,10 @@ and should no longer be used.
 <a id="DEP0017"></a>
 ### DEP0017: Intl.v8BreakIterator
 
-Type: Runtime
+Type: End-of-Life
 
-The `Intl.v8BreakIterator` is deprecated and will be removed or replaced soon.
+`Intl.v8BreakIterator` was a non-standard extension and has been removed.
+See [`Intl.Segmenter`](https://github.com/tc39/proposal-intl-segmenter).
 
 <a id="DEP0018"></a>
 ### DEP0018: Unhandled promise rejections
@@ -713,7 +714,7 @@ difference is that `querystring.parse()` does url encoding:
 [`os.networkInterfaces`]: os.html#os_os_networkinterfaces
 [`os.tmpdir()`]: os.html#os_os_tmpdir
 [`punycode`]: punycode.html
-[`require.extensions`]: globals.html#globals_require_extensions
+[`require.extensions`]: modules.html#modules_require_extensions
 [`tls.CryptoStream`]: tls.html#tls_class_cryptostream
 [`tls.SecureContext`]: tls.html#tls_tls_createsecurecontext_options
 [`tls.SecurePair`]: tls.html#tls_class_securepair

@@ -4714,15 +4714,41 @@ struct ChakraShimIsolateContext {
 };
 #endif
 
+#ifdef NODE_ENGINE_CHAKRACORE
+Local<Context> NewContext(Isolate* isolate,
+    bool recordTTD,
+    Local<ObjectTemplate> object_template) {
+  auto context = Context::New(isolate, recordTTD, nullptr, object_template);
+
+  return context;
+}
+#else
+Local<Context> NewContext(Isolate* isolate,
+    Local<ObjectTemplate> object_template) {
+  auto context = Context::New(isolate, nullptr, object_template);
+  if (context.IsEmpty()) return context;
+  HandleScope handle_scope(isolate);
+  auto intl_key = FIXED_ONE_BYTE_STRING(isolate, "Intl");
+  auto break_iter_key = FIXED_ONE_BYTE_STRING(isolate, "v8BreakIterator");
+  Local<Value> intl_v;
+  Local<Object> intl;
+  if (context->Global()->Get(context, intl_key).ToLocal(&intl_v) &&
+      intl_v->ToObject(context).ToLocal(&intl)) {
+    intl->Delete(context, break_iter_key).FromJust();
+  }
+  return context;
+}
+#endif
+
 inline int Start(Isolate* isolate, void* isolate_context,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv) {
   HandleScope handle_scope(isolate);
 
 #if ENABLE_TTD_NODE
-  Local<Context> context = Context::New(isolate, s_doTTRecord);
+  Local<Context> context = NewContext(isolate, s_doTTRecord);
 #else
-  Local<Context> context = Context::New(isolate);
+  Local<Context> context = NewContext(isolate);
 #endif
 
   Context::Scope context_scope(context);

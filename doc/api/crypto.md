@@ -918,24 +918,45 @@ of two ways:
 - Using the [`sign.update()`][] and [`sign.sign()`][] methods to produce the
   signature.
 
-The [`crypto.createSign()`][] method is used to create `Sign` instances. `Sign`
-objects are not to be created directly using the `new` keyword.
+The [`crypto.createSign()`][] method is used to create `Sign` instances. The
+argument is the string name of the hash function to use. `Sign` objects are not
+to be created directly using the `new` keyword.
 
 Example: Using `Sign` objects as streams:
 
 ```js
 const crypto = require('crypto');
-const sign = crypto.createSign('RSA-SHA256');
+const sign = crypto.createSign('SHA256');
 
 sign.write('some data to sign');
 sign.end();
 
 const privateKey = getPrivateKeySomehow();
 console.log(sign.sign(privateKey, 'hex'));
-// Prints: the calculated signature
+// Prints: the calculated signature using the specified private key and
+// SHA-256. For RSA keys, the algorithm is RSASSA-PKCS1-v1_5 (see padding
+// parameter below for RSASSA-PSS). For EC keys, the algorithm is ECDSA.
 ```
 
 Example: Using the [`sign.update()`][] and [`sign.sign()`][] methods:
+
+```js
+const crypto = require('crypto');
+const sign = crypto.createSign('SHA256');
+
+sign.update('some data to sign');
+
+const privateKey = getPrivateKeySomehow();
+console.log(sign.sign(privateKey, 'hex'));
+// Prints: the calculated signature
+```
+
+In some cases, a `Sign` instance can also be created by passing in a signature
+algorithm name, such as 'RSA-SHA256'. This will use the corresponding digest
+algorithm. This does not work for all signature algorithms, such as
+'ecdsa-with-SHA256'. Use digest names instead.
+
+Example: signing using legacy signature algorithm name
 
 ```js
 const crypto = require('crypto');
@@ -946,29 +967,6 @@ sign.update('some data to sign');
 const privateKey = getPrivateKeySomehow();
 console.log(sign.sign(privateKey, 'hex'));
 // Prints: the calculated signature
-```
-
-A `Sign` instance can also be created by just passing in the digest
-algorithm name, in which case OpenSSL will infer the full signature algorithm
-from the type of the PEM-formatted private key, including algorithms that
-do not have directly exposed name constants, e.g. 'ecdsa-with-SHA256'.
-
-Example: signing using ECDSA with SHA256
-
-```js
-const crypto = require('crypto');
-const sign = crypto.createSign('sha256');
-
-sign.update('some data to sign');
-
-const privateKey =
-`-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIF+jnWY1D5kbVYDNvxxo/Y+ku2uJPDwS0r/VuPZQrjjVoAoGCCqGSM49
-AwEHoUQDQgAEurOxfSxmqIRYzJVagdZfMMSjRNNhB8i3mXyIMq704m2m52FdfKZ2
-pQhByd5eyj3lgZ7m7jbchtdgyOF8Io/1ng==
------END EC PRIVATE KEY-----`;
-
-console.log(sign.sign(privateKey).toString('hex'));
 ```
 
 ### sign.sign(privateKey[, outputFormat])
@@ -1051,7 +1049,7 @@ Example: Using `Verify` objects as streams:
 
 ```js
 const crypto = require('crypto');
-const verify = crypto.createVerify('RSA-SHA256');
+const verify = crypto.createVerify('SHA256');
 
 verify.write('some data to sign');
 verify.end();
@@ -1066,7 +1064,7 @@ Example: Using the [`verify.update()`][] and [`verify.verify()`][] methods:
 
 ```js
 const crypto = require('crypto');
-const verify = crypto.createVerify('RSA-SHA256');
+const verify = crypto.createVerify('SHA256');
 
 verify.update('some data to sign');
 
@@ -2268,8 +2266,8 @@ the `crypto`, `tls`, and `https` modules and are generally specific to OpenSSL.
 [`stream.transform` options]: stream.html#stream_new_stream_transform_options
 [`stream.Writable` options]: stream.html#stream_constructor_new_stream_writable_options
 [`tls.createSecureContext()`]: tls.html#tls_tls_createsecurecontext_options
-[`verify.update()`]: #crypto_verifier_update_data_inputencoding
-[`verify.verify()`]: #crypto_verifier_verify_object_signature_signatureformat
+[`verify.update()`]: #crypto_verify_update_data_inputencoding
+[`verify.verify()`]: #crypto_verify_verify_object_signature_signatureformat
 [Caveats]: #crypto_support_for_weak_or_compromised_algorithms
 [Crypto Constants]: #crypto_crypto_constants_1
 [HTML5's `keygen` element]: http://www.w3.org/TR/html5/forms.html#the-keygen-element
