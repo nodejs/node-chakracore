@@ -21,6 +21,7 @@ prefix sequential
 [$jsEngine==chakracore]
 test-vm-timeout-rethrow : PASS,FLAKY
 test-benchmark-child-process : PASS,FLAKY
+test-async-wrap-getasyncid : PASS,FLAKY
 
 [$jsEngine==chakracore && $system==linux]
 test-child-process-pass-fd : PASS,FLAKY
