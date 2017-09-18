@@ -77,7 +77,10 @@
             'chakracore_binaries': [
               '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a',
             ],
-            'icu_args': '--icu=<(icu_include_path)',
+            'icu_args': [
+              '--icu=<(icu_include_path)',
+              '--with-intl'
+            ],
             'linker_start_group': '-Wl,--start-group',
             'linker_end_group': [
               '-Wl,--end-group',
@@ -89,7 +92,10 @@
             'chakracore_binaries': [
               '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a',
             ],
-            'icu_args': '--icu=<(icu_include_path)',
+            'icu_args': [
+              '--icu=<(icu_include_path)',
+              '--with-intl'
+            ],
             'linker_start_group': '-Wl,-force_load',
           }]
         ],
