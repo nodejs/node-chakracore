@@ -535,18 +535,10 @@ void AsyncWrap::Initialize(Local<Object> target,
       isolate,
       uid_fields_ptr,
       uid_fields_count * sizeof(*uid_fields_ptr));
-  Local<Float64Array> farray = Float64Array::New(uid_fields_ab, 0,
-                                                 uid_fields_count);
   FORCE_SET_TARGET_FIELD(target,
                          "async_uid_fields",
-                         farray);
-
-#if ENABLE_TTD_NODE
-  if (s_doTTRecord || s_doTTReplay) {
-    JsTTDNotifyLongLivedReferenceAdd(*farray);
-    env->async_hooks()->uid_fields_ttdRef = *farray;
-  }
-#endif
+                         Float64Array::New(uid_fields_ab, 0,
+                         uid_fields_count));
 
   Local<Object> constants = Object::New(isolate);
 #define SET_HOOKS_CONSTANT(name)                                              \

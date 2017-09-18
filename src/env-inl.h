@@ -84,9 +84,6 @@ inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
     : isolate_(isolate),
       fields_(),
       uid_fields_()
-#if ENABLE_TTD_NODE
-    , uid_fields_ttdRef(nullptr)
-#endif
 {
   v8::HandleScope handle_scope(isolate_);
 
@@ -138,10 +135,6 @@ inline void Environment::AsyncHooks::push_ids(double async_id,
                     uid_fields_[kCurrentTriggerId] });
   uid_fields_[kCurrentAsyncId] = async_id;
   uid_fields_[kCurrentTriggerId] = trigger_id;
-
-#if ENABLE_TTD_NODE
-  this->AsyncWrapId_TTDRecord();
-#endif
 }
 
 inline bool Environment::AsyncHooks::pop_ids(double async_id) {
@@ -171,11 +164,6 @@ inline bool Environment::AsyncHooks::pop_ids(double async_id) {
   ids_stack_.pop();
   uid_fields_[kCurrentAsyncId] = ids.async_id;
   uid_fields_[kCurrentTriggerId] = ids.trigger_id;
-
-#if ENABLE_TTD_NODE
-  this->AsyncWrapId_TTDRecord();
-#endif
-
   return !ids_stack_.empty();
 }
 
@@ -188,10 +176,6 @@ inline void Environment::AsyncHooks::clear_id_stack() {
     ids_stack_.pop();
   uid_fields_[kCurrentAsyncId] = 0;
   uid_fields_[kCurrentTriggerId] = 0;
-
-#if ENABLE_TTD_NODE
-  this->AsyncWrapId_TTDRecord();
-#endif
 }
 
 inline Environment::AsyncHooks::InitScope::InitScope(
@@ -464,13 +448,7 @@ inline std::vector<double>* Environment::destroy_ids_list() {
 }
 
 inline double Environment::new_async_id() {
-  double res = ++async_hooks()->uid_fields()[AsyncHooks::kAsyncUidCntr];
-
-#if ENABLE_TTD_NODE
-  this->async_hooks()->AsyncWrapId_TTDRecord();
-#endif
-
-  return res;
+  return ++async_hooks()->uid_fields()[AsyncHooks::kAsyncUidCntr];
 }
 
 inline double Environment::current_async_id() {
@@ -486,20 +464,12 @@ inline double Environment::get_init_trigger_id() {
   double tid = uid_fields[AsyncHooks::kInitTriggerId];
   uid_fields[AsyncHooks::kInitTriggerId] = 0;
 
-#if ENABLE_TTD_NODE
-  this->async_hooks()->AsyncWrapId_TTDRecord();
-#endif
-
   if (tid <= 0) tid = current_async_id();
   return tid;
 }
 
 inline void Environment::set_init_trigger_id(const double id) {
   async_hooks()->uid_fields()[AsyncHooks::kInitTriggerId] = id;
-
-#if ENABLE_TTD_NODE
-  this->async_hooks()->AsyncWrapId_TTDRecord();
-#endif
 }
 
 inline double* Environment::heap_statistics_buffer() const {
