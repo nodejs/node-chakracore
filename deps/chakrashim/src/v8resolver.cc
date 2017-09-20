@@ -24,9 +24,17 @@
 namespace v8 {
   using Resolver = Promise::Resolver;
   // CHAKRA-TODO: Unimplemented completely
-  MaybeLocal<Resolver> Resolver::New(
-    Local<Context> context) {
+  MaybeLocal<Resolver> Resolver::New(Local<Context> context) {
     return Local<Resolver>();
+  }
+
+  Local<Resolver> Resolver::New(Isolate* isolate) {
+    return New(isolate->GetCurrentContext()).ToLocalChecked();
+  }
+
+  Local<Promise> Resolver::GetPromise() {
+    CHAKRA_ASSERT(false);
+    return Local<Promise>();
   }
 
   Resolver* Resolver::Cast(Value* obj) {
@@ -35,6 +43,11 @@ namespace v8 {
 
   Maybe<bool> Resolver::Resolve(Local<Context> context, Local<Value> value) {
     return Just(false);
+  }
+
+  void Resolver::Resolve(Local<Value> value) {
+    Local<Context> context;
+    Resolve(context, value);
   }
 
   Maybe<bool> Resolver::Reject(Local<Context> context, Local<Value> value) {
