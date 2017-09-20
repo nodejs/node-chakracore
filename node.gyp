@@ -234,6 +234,7 @@
         'src/base-object-inl.h',
         'src/connection_wrap.h',
         'src/connect_wrap.h',
+        'src/chakra_ttd.h',
         'src/env.h',
         'src/env-inl.h',
         'src/handle_wrap.h',
