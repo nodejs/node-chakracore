@@ -24,6 +24,7 @@
 
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
+#include "aliased_buffer.h"
 #include "env.h"
 #include "node.h"
 #include "util.h"
@@ -82,12 +83,8 @@ inline uint32_t* IsolateData::zero_fill_field() const {
 
 inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
     : isolate_(isolate),
-      fields_(),
-      uid_fields_()
-#if ENABLE_TTD_NODE
-    , uid_fields_ttdRef(nullptr)
-#endif
-{
+      fields_(isolate, kFieldsCount),
+      uid_fields_(isolate, kUidFieldsCount) {
   v8::HandleScope handle_scope(isolate_);
 
   // kAsyncUidCntr should start at 1 because that'll be the id the execution
@@ -109,7 +106,8 @@ inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
 #undef V
 }
 
-inline uint32_t* Environment::AsyncHooks::fields() {
+inline AliasedBuffer<uint32_t, v8::Uint32Array>&
+Environment::AsyncHooks::fields() {
   return fields_;
 }
 
@@ -117,7 +115,8 @@ inline int Environment::AsyncHooks::fields_count() const {
   return kFieldsCount;
 }
 
-inline double* Environment::AsyncHooks::uid_fields() {
+inline AliasedBuffer<double, v8::Float64Array>&
+Environment::AsyncHooks::uid_fields() {
   return uid_fields_;
 }
 
@@ -138,10 +137,6 @@ inline void Environment::AsyncHooks::push_ids(double async_id,
                     uid_fields_[kCurrentTriggerId] });
   uid_fields_[kCurrentAsyncId] = async_id;
   uid_fields_[kCurrentTriggerId] = trigger_id;
-
-#if ENABLE_TTD_NODE
-  this->AsyncWrapId_TTDRecord();
-#endif
 }
 
 inline bool Environment::AsyncHooks::pop_ids(double async_id) {
@@ -155,7 +150,7 @@ inline bool Environment::AsyncHooks::pop_ids(double async_id) {
     fprintf(stderr,
             "Error: async hook stack has become corrupted ("
             "actual: %.f, expected: %.f)\n",
-            uid_fields_[kCurrentAsyncId],
+            uid_fields_.GetValue(kCurrentAsyncId),
             async_id);
     Environment* env = Environment::GetCurrent(isolate_);
     DumpBacktrace(stderr);
@@ -171,11 +166,6 @@ inline bool Environment::AsyncHooks::pop_ids(double async_id) {
   ids_stack_.pop();
   uid_fields_[kCurrentAsyncId] = ids.async_id;
   uid_fields_[kCurrentTriggerId] = ids.trigger_id;
-
-#if ENABLE_TTD_NODE
-  this->AsyncWrapId_TTDRecord();
-#endif
-
   return !ids_stack_.empty();
 }
 
@@ -188,10 +178,6 @@ inline void Environment::AsyncHooks::clear_id_stack() {
     ids_stack_.pop();
   uid_fields_[kCurrentAsyncId] = 0;
   uid_fields_[kCurrentTriggerId] = 0;
-
-#if ENABLE_TTD_NODE
-  this->AsyncWrapId_TTDRecord();
-#endif
 }
 
 inline Environment::AsyncHooks::InitScope::InitScope(
@@ -365,7 +351,7 @@ inline Environment::~Environment() {
   delete[] heap_statistics_buffer_;
   delete[] heap_space_statistics_buffer_;
   delete[] http_parser_buffer_;
-  free(http2_state_buffer_);
+  delete http2_state_;
   free(performance_state_);
 }
 
@@ -464,13 +450,9 @@ inline std::vector<double>* Environment::destroy_ids_list() {
 }
 
 inline double Environment::new_async_id() {
-  double res = ++async_hooks()->uid_fields()[AsyncHooks::kAsyncUidCntr];
-
-#if ENABLE_TTD_NODE
-  this->async_hooks()->AsyncWrapId_TTDRecord();
-#endif
-
-  return res;
+  async_hooks()->uid_fields()[AsyncHooks::kAsyncUidCntr] =
+    async_hooks()->uid_fields()[AsyncHooks::kAsyncUidCntr] + 1;
+  return async_hooks()->uid_fields()[AsyncHooks::kAsyncUidCntr];
 }
 
 inline double Environment::current_async_id() {
@@ -482,13 +464,10 @@ inline double Environment::trigger_id() {
 }
 
 inline double Environment::get_init_trigger_id() {
-  double* uid_fields = async_hooks()->uid_fields();
+  AliasedBuffer<double, v8::Float64Array>& uid_fields =
+    async_hooks()->uid_fields();
   double tid = uid_fields[AsyncHooks::kInitTriggerId];
   uid_fields[AsyncHooks::kInitTriggerId] = 0;
-
-#if ENABLE_TTD_NODE
-  this->async_hooks()->AsyncWrapId_TTDRecord();
-#endif
 
   if (tid <= 0) tid = current_async_id();
   return tid;
@@ -496,10 +475,6 @@ inline double Environment::get_init_trigger_id() {
 
 inline void Environment::set_init_trigger_id(const double id) {
   async_hooks()->uid_fields()[AsyncHooks::kInitTriggerId] = id;
-
-#if ENABLE_TTD_NODE
-  this->async_hooks()->AsyncWrapId_TTDRecord();
-#endif
 }
 
 inline double* Environment::heap_statistics_buffer() const {
@@ -531,13 +506,13 @@ inline void Environment::set_http_parser_buffer(char* buffer) {
   http_parser_buffer_ = buffer;
 }
 
-inline http2::http2_state* Environment::http2_state_buffer() const {
-  return http2_state_buffer_;
+inline http2::http2_state* Environment::http2_state() const {
+  return http2_state_;
 }
 
-inline void Environment::set_http2_state_buffer(http2::http2_state* buffer) {
-  CHECK_EQ(http2_state_buffer_, nullptr);  // Should be set only once.
-  http2_state_buffer_ = buffer;
+inline void Environment::set_http2_state(http2::http2_state* buffer) {
+  CHECK_EQ(http2_state_, nullptr);  // Should be set only once.
+  http2_state_ = buffer;
 }
 
 inline v8::Local<v8::Float64Array> Environment::fs_stats_field_array() const {
@@ -556,33 +531,6 @@ inline performance::performance_state* Environment::performance_state() {
 
 inline std::map<std::string, uint64_t>* Environment::performance_marks() {
   return &performance_marks_;
-}
-
-inline Environment* Environment::from_performance_check_handle(
-    uv_check_t* handle) {
-  return ContainerOf(&Environment::performance_check_handle_, handle);
-}
-
-inline Environment* Environment::from_performance_idle_handle(
-    uv_idle_t* handle) {
-  return ContainerOf(&Environment::performance_idle_handle_, handle);
-}
-
-inline Environment* Environment::from_performance_prepare_handle(
-    uv_prepare_t* handle) {
-  return ContainerOf(&Environment::performance_prepare_handle_, handle);
-}
-
-inline uv_check_t* Environment::performance_check_handle() {
-  return &performance_check_handle_;
-}
-
-inline uv_idle_t* Environment::performance_idle_handle() {
-  return &performance_idle_handle_;
-}
-
-inline uv_prepare_t* Environment::performance_prepare_handle() {
-  return &performance_prepare_handle_;
 }
 
 inline IsolateData* Environment::isolate_data() const {
