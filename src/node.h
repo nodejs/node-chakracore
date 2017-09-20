@@ -96,17 +96,7 @@
 // Forward-declare libuv loop
 struct uv_loop_s;
 
-#if defined(NODE_ENGINE_CHAKRACORE)
-#define ENABLE_TTD_NODE 1
-#else
-#define ENABLE_TTD_NODE 0
-#endif
-
-#if ENABLE_TTD_NODE
-extern bool s_doTTRecord;
-extern bool s_doTTReplay;
-extern bool s_doTTDebug;
-#endif
+#include "chakra_ttd.h"
 
 // Forward-declare these functions now to stop MSVS from becoming
 // terminally confused when it's done in node_internals.h
