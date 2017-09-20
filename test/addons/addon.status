@@ -21,3 +21,5 @@ prefix addons
 [$jsEngine==chakracore]
 async-hooks-promise/test : PASS,FLAKY
 new-target/test : PASS,FLAKY
+callback-scope/test : PASS,FLAKY
+callback-scope/test-resolve-async : PASS,FLAKY
