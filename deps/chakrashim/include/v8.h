@@ -91,7 +91,7 @@
 // This is a temporary workaround and should go away once
 // node-core has less of a dependency on the shim
 namespace uvimpl {
-    class Work;
+class Work;
 };
 
 namespace v8 {

@@ -2718,7 +2718,8 @@ napi_status napi_create_async_work(napi_env env,
   napi_value resource_name;
   CHECK_NAPI(napi_coerce_to_string(env, async_resource_name, &resource_name));
 
-  uvimpl::Work* work = uvimpl::Work::New(env, resource, resource_name, execute, complete, data);
+  uvimpl::Work* work =
+    uvimpl::Work::New(env, resource, resource_name, execute, complete, data);
 
   *result = reinterpret_cast<napi_async_work>(work);
 
