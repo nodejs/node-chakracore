@@ -20,6 +20,16 @@
 
 #include "src/jsrtutils.h"
 
+// Forward declare a dependency on an internal node helper
+// This is so that we don't take an additional dependency on
+// the chakrashim (v8::trycatch) and so that node doesn't
+// have to expose another public API
+namespace node {
+  extern void FatalException(v8::Isolate* isolate,
+    v8::Local<v8::Value> error,
+    v8::Local<v8::Message> message);
+}
+
 #ifndef CALLBACK
 #define CALLBACK
 #endif
@@ -2570,13 +2580,16 @@ napi_status ConvertUVErrorCode(int code) {
 }
 
 // Wrapper around uv_work_t which calls user-provided callbacks.
-class Work {
+class Work: public node::AsyncResource {
  private:
   explicit Work(napi_env env,
+    v8::Local<v8::Object> async_resource,
+    v8::Local<v8::String> async_resource_name,
     napi_async_execute_callback execute = nullptr,
     napi_async_complete_callback complete = nullptr,
     void* data = nullptr)
-    : _env(env),
+    : AsyncResource(env->isolate,  async_resource, async_resource_name),
+    _env(env),
     _data(data),
     _execute(execute),
     _complete(complete) {
@@ -2588,10 +2601,18 @@ class Work {
 
  public:
   static Work* New(napi_env env,
+    napi_value async_resource,
+    napi_value async_resource_name,
     napi_async_execute_callback execute,
     napi_async_complete_callback complete,
     void* data) {
-    return new Work(env, execute, complete, data);
+    v8::Local<v8::Object> async_resource_local =
+      v8impl::V8LocalValueFromJsValue(async_resource).As<v8::Object>();
+    v8::Local<v8::String> async_resource_name_local =
+      v8impl::V8LocalValueFromJsValue(async_resource_name).As<v8::String>();
+
+    return new Work(env, async_resource_local, async_resource_name_local,
+      execute, complete, data);
   }
 
   static void Delete(Work* work) {
@@ -2603,11 +2624,54 @@ class Work {
     work->_execute(work->_env, work->_data);
   }
 
+  static void Fatal() {
+    napi_fatal_error(nullptr, "[napi] CompleteCallback failed "
+      "but exception could not be propagated");
+  }
+
   static void CompleteCallback(uv_work_t* req, int status) {
     Work* work = static_cast<Work*>(req->data);
 
     if (work->_complete != nullptr) {
+      CallbackScope callback_scope(work);
+
       work->_complete(work->_env, ConvertUVErrorCode(status), work->_data);
+
+      bool hasException;
+      JsErrorCode errorCode = JsHasException(&hasException);
+      if (errorCode != JsNoError || !hasException) {
+        return;
+      }
+
+      JsValueRef metadata;
+      if (JsGetAndClearExceptionWithMetadata(&metadata) != JsNoError) {
+        Fatal();
+        return;
+      }
+
+      JsValueRef exception;
+      JsPropertyIdRef exProp;
+
+      if (JsCreatePropertyId("exception", -1, &exProp) != JsNoError) {
+        Fatal();
+        return;
+      }
+
+      if (JsGetProperty(metadata, exProp, &exception) != JsNoError) {
+        Fatal();
+        return;
+      }
+
+      // TODO(digitalinfinity):
+      // Taking a dependency on v8::Local::New for expediency here
+      // Remove this once node::FatalException is clean
+      v8::Local<v8::Message> message =
+        v8::Local<v8::Message>::New(metadata);
+      v8::Local<v8::Object> exceptionObject =
+        v8impl::V8LocalValueFromJsValue(
+          reinterpret_cast<napi_value>(exception)).As<v8::Object>();
+
+      node::FatalException(work->_env->isolate, exceptionObject, message);
     }
   }
 
@@ -2635,6 +2699,8 @@ class Work {
   } while (0)
 
 napi_status napi_create_async_work(napi_env env,
+  napi_value async_resource,
+  napi_value async_resource_name,
   napi_async_execute_callback execute,
   napi_async_complete_callback complete,
   void* data,
@@ -2642,7 +2708,18 @@ napi_status napi_create_async_work(napi_env env,
   CHECK_ARG(execute);
   CHECK_ARG(result);
 
-  uvimpl::Work* work = uvimpl::Work::New(env, execute, complete, data);
+  napi_value resource;
+  if (async_resource != nullptr) {
+    CHECK_NAPI(napi_coerce_to_object(env, async_resource, &resource));
+  } else {
+    CHECK_NAPI(napi_create_object(env, &resource));
+  }
+
+  napi_value resource_name;
+  CHECK_NAPI(napi_coerce_to_string(env, async_resource_name, &resource_name));
+
+  uvimpl::Work* work =
+    uvimpl::Work::New(env, resource, resource_name, execute, complete, data);
 
   *result = reinterpret_cast<napi_async_work>(work);
 

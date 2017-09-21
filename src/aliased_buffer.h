@@ -2,6 +2,7 @@
 #ifndef SRC_ALIASED_BUFFER_H_
 #define SRC_ALIASED_BUFFER_H_
 
+#include "chakra_ttd.h"
 #include "v8.h"
 #include "util.h"
 #include "util-inl.h"
@@ -164,6 +165,14 @@ class AliasedBuffer {
     CHECK_LT(index, count_);
 #endif
     buffer_[index] = value;
+
+#if defined(ENABLE_TTD_NODE) && ENABLE_TTD_NODE
+    if (s_doTTRecord || s_doTTReplay) {
+      const int modlength = count_ * sizeof(NativeT);
+      GetArrayBuffer()->TTDRawBufferModifyNotifySync(byte_offset_, modlength);
+    }
+#endif
+
   }
 
   /**

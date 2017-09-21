@@ -87,6 +87,13 @@
     *(static_cast<T* volatile*>(0)) = static_cast<S*>(0);      \
   }
 
+// Used to allow n-api constructs access to shim internals
+// This is a temporary workaround and should go away once
+// node-core has less of a dependency on the shim
+namespace uvimpl {
+class Work;
+};
+
 namespace v8 {
 
 class AccessorSignature;
@@ -329,6 +336,7 @@ class Local {
   friend class UnboundScript;
   friend class Value;
   friend class JSON;
+  friend class uvimpl::Work;
   template <class F> friend class FunctionCallbackInfo;
   template <class F> friend class MaybeLocal;
   template <class F> friend class PersistentBase;
