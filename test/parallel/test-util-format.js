@@ -118,6 +118,11 @@ const nestedObj = {
     func: function() {}
   }
 };
+const nestedObj2 = {
+  foo: 'bar',
+  foobar: 1,
+  func: [{ a: function() {} }]
+};
 assert.strictEqual(util.format('%o'), '%o');
 assert.strictEqual(util.format('%o', 42), '42');
 assert.strictEqual(util.format('%o', 'foo'), '\'foo\'');
@@ -141,6 +146,17 @@ assert.strictEqual(
     '     [name]: \'func\',\n' +
     '     [length]: 0 } }'
   }));
+assert.strictEqual(
+  util.format('%o', nestedObj2),
+  '{ foo: \'bar\',\n' +
+  '  foobar: 1,\n' +
+  '  func: \n' +
+  '   [ { a: \n' +
+  '        { [Function: a]\n' +
+  '          [length]: 0,\n' +
+  '          [name]: \'a\',\n' +
+  '          [prototype]: a { [constructor]: [Circular] } } },\n' +
+  '     [length]: 1 ] }');
 assert.strictEqual(
   util.format('%o', nestedObj),
   common.engineSpecificMessage({
