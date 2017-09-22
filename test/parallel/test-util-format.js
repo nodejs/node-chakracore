@@ -148,15 +148,28 @@ assert.strictEqual(
   }));
 assert.strictEqual(
   util.format('%o', nestedObj2),
-  '{ foo: \'bar\',\n' +
-  '  foobar: 1,\n' +
-  '  func: \n' +
-  '   [ { a: \n' +
-  '        { [Function: a]\n' +
-  '          [length]: 0,\n' +
-  '          [name]: \'a\',\n' +
-  '          [prototype]: a { [constructor]: [Circular] } } },\n' +
-  '     [length]: 1 ] }');
+  common.engineSpecificMessage({
+    v8:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   [ { a: \n' +
+    '        { [Function: a]\n' +
+    '          [length]: 0,\n' +
+    '          [name]: \'a\',\n' +
+    '          [prototype]: a { [constructor]: [Circular] } } },\n' +
+    '     [length]: 1 ] }',
+    chakracore:
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   [ { a: \n' +
+    '        { [Function: a]\n' +
+    '          [prototype]: a { [constructor]: [Circular] },\n' +
+    '          [name]: \'a\',\n' +
+    '          [length]: 0 } },\n' +
+    '     [length]: 1 ] }'
+  }));
 assert.strictEqual(
   util.format('%o', nestedObj),
   common.engineSpecificMessage({

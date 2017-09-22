@@ -96,7 +96,10 @@ assert.strictEqual(
 );
 
 assert.strictEqual(util.inspect((new JSStream())._externalStream),
-                   '[External]');
+                   common.engineSpecificMessage({
+                     v8: '[External]',
+                     chakracore: '{}'
+                   }));
 
 {
   const regexp = /regexp/;
