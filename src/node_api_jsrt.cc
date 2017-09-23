@@ -2076,8 +2076,7 @@ napi_status napi_async_init(napi_env env,
   if (async_resource != nullptr) {
     resource =
       v8impl::V8LocalValueFromJsValue(async_resource).As<v8::Object>();
-  }
-  else {
+  } else {
     resource = v8::Object::New(isolate);
   }
 
@@ -2135,7 +2134,8 @@ napi_status napi_make_callback(napi_env env,
 
   // TODO(jasongin): Expose JSRT or N-API version of node::MakeCallback?
   v8::MaybeLocal<v8::Value> v8result =
-    node::MakeCallback(isolate, v8recv, v8func, argc, v8argv, *node_async_context);
+    node::MakeCallback(isolate, v8recv, v8func, argc, v8argv,
+                       *node_async_context);
 
   if (v8result.IsEmpty()) {
       return napi_set_last_error(napi_generic_failure);
