@@ -172,7 +172,6 @@ class AliasedBuffer {
       GetArrayBuffer()->TTDRawBufferModifyNotifySync(byte_offset_, modlength);
     }
 #endif
-
   }
 
   /**

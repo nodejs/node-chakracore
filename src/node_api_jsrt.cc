@@ -41,6 +41,11 @@ namespace node {
     }                                                                   \
   } while (0)
 
+#define CHECK_ENV(env)        \
+  if ((env) == nullptr) {     \
+    return napi_invalid_arg;  \
+  }
+
 #define CHECK_ARG(arg)                                                  \
   RETURN_STATUS_IF_FALSE((arg), napi_invalid_arg)
 
@@ -79,7 +84,7 @@ static void napi_clear_last_error();
 
 // Callback Info struct as per JSRT native function.
 struct CallbackInfo {
-  bool isConstructCall;
+  napi_value newTarget;
   napi_value thisArg;
   uint16_t argc;
   napi_value* argv;
@@ -232,7 +237,14 @@ class ExternalCallback {
 
     CallbackInfo cbInfo;
     cbInfo.thisArg = reinterpret_cast<napi_value>(arguments[0]);
-    cbInfo.isConstructCall = isConstructCall;
+
+    // TODO(digitalinfinity): This is incorrect as per spec, but
+    // implementing this behavior for now to at least handle the case
+    // where folks check newTarget != null to determine they're in a
+    // constructor.
+    // JSRT will need to implement an API to get new.target for this
+    // to work correctly
+    cbInfo.newTarget = (isConstructCall ? cbInfo.thisArg : nullptr);
     cbInfo.argc = argumentCount - 1;
     cbInfo.argv = reinterpret_cast<napi_value*>(arguments + 1);
     cbInfo.data = externalCallback->_data;
@@ -534,11 +546,17 @@ void napi_module_register_cb(v8::Local<v8::Object> exports,
   // we shall have to call delete on this object from there.
   napi_env env = new napi_env__(context->GetIsolate());
 
-  mod->nm_register_func(
-    env,
-    v8impl::JsValueFromV8LocalValue(exports),
-    v8impl::JsValueFromV8LocalValue(module),
-    mod->nm_priv);
+  napi_value _exports =
+    mod->nm_register_func(env, v8impl::JsValueFromV8LocalValue(exports));
+
+  // If register function returned a non-null exports object different from
+  // the exports object we passed it, set that as the "exports" property of
+  // the module.
+  if (_exports != nullptr &&
+    _exports != v8impl::JsValueFromV8LocalValue(exports)) {
+    napi_value _module = v8impl::JsValueFromV8LocalValue(module);
+    napi_set_named_property(env, _module, "exports", _exports);
+  }
 }
 
 }  // end of anonymous namespace
@@ -1354,13 +1372,13 @@ napi_status napi_get_cb_info(
   return napi_ok;
 }
 
-napi_status napi_is_construct_call(napi_env env,
-                                   napi_callback_info cbinfo,
-                                   bool* result) {
+napi_status napi_get_new_target(napi_env env,
+                                napi_callback_info cbinfo,
+                                napi_value* result) {
   CHECK_ARG(cbinfo);
   CHECK_ARG(result);
   const CallbackInfo *info = reinterpret_cast<CallbackInfo*>(cbinfo);
-  *result = info->isConstructCall;
+  *result = info->newTarget;
   return napi_ok;
 }
 
@@ -2043,7 +2061,57 @@ napi_status napi_make_external(napi_env env, napi_value v, napi_value* result) {
   return napi_ok;
 }
 
+napi_status napi_async_init(napi_env env,
+  napi_value async_resource,
+  napi_value async_resource_name,
+  napi_async_context* result) {
+  CHECK_ENV(env);
+  CHECK_ARG(env, async_resource_name);
+  CHECK_ARG(env, result);
+
+  v8::Isolate* isolate = env->isolate;
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+
+  v8::Local<v8::Object> resource;
+  if (async_resource != nullptr) {
+    resource =
+      v8impl::V8LocalValueFromJsValue(async_resource).As<v8::Object>();
+  } else {
+    resource = v8::Object::New(isolate);
+  }
+
+  v8::Local<v8::String> resource_name =
+    v8impl::V8LocalValueFromJsValue(async_resource_name).As<v8::String>();
+
+  // TODO(jasongin): Consider avoiding allocation here by using
+  // a tagged pointer with 2^31 bit fields instead.
+  node::async_context* async_context = new node::async_context();
+
+  // TODO(digitalinfinty): EmitAsyncInit might be better served if it
+  // tool in napi_values instead of v8 locals?
+  *async_context = node::EmitAsyncInit(isolate, resource, resource_name);
+  *result = reinterpret_cast<napi_async_context>(async_context);
+
+  napi_clear_last_error();
+  return napi_ok;
+}
+
+napi_status napi_async_destroy(napi_env env,
+  napi_async_context async_context) {
+  CHECK_ENV(env);
+  CHECK_ARG(env, async_context);
+
+  v8::Isolate* isolate = env->isolate;
+  node::async_context* node_async_context =
+    reinterpret_cast<node::async_context*>(async_context);
+  node::EmitAsyncDestroy(isolate, *node_async_context);
+
+  napi_clear_last_error();
+  return napi_ok;
+}
+
 napi_status napi_make_callback(napi_env env,
+                               napi_async_context async_context,
                                napi_value recv,
                                napi_value func,
                                size_t argc,
@@ -2057,12 +2125,24 @@ napi_status napi_make_callback(napi_env env,
   v8::Local<v8::Value>* v8argv =
     reinterpret_cast<v8::Local<v8::Value>*>(const_cast<napi_value*>(argv));
 
+  node::async_context* node_async_context =
+    reinterpret_cast<node::async_context*>(async_context);
+  if (node_async_context == nullptr) {
+    static node::async_context empty_context = { 0, 0 };
+    node_async_context = &empty_context;
+  }
+
   // TODO(jasongin): Expose JSRT or N-API version of node::MakeCallback?
-  v8::Local<v8::Value> v8result =
-    node::MakeCallback(isolate, v8recv, v8func, argc, v8argv);
+  v8::MaybeLocal<v8::Value> v8result =
+    node::MakeCallback(isolate, v8recv, v8func, argc, v8argv,
+                       *node_async_context);
+
+  if (v8result.IsEmpty()) {
+      return napi_set_last_error(napi_generic_failure);
+  }
 
   if (result != nullptr) {
-    *result = v8impl::JsValueFromV8LocalValue(v8result);
+    *result = v8impl::JsValueFromV8LocalValue(v8result.ToLocalChecked());
   }
 
   return napi_ok;
