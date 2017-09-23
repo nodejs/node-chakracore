@@ -1000,7 +1000,9 @@ JsErrorCode StringUtf8::From(JsValueRef strRef) {
   IfJsErrorRet(JsCopyString(strRef, nullptr, 0, &length));
 
   _str = reinterpret_cast<char*>(malloc(length + 1));
-  CHAKRA_VERIFY(_str != nullptr);
+  if (_str == nullptr) {
+    return JsErrorOutOfMemory;
+  }
 
   JsErrorCode err = JsCopyString(strRef, _str, length, nullptr);
   if (err != JsNoError) {
