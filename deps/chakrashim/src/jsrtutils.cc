@@ -1001,7 +1001,7 @@ JsErrorCode StringUtf8::From(JsValueRef strRef) {
 
   _str = reinterpret_cast<char*>(malloc(length + 1));
   if (_str == nullptr) {
-    return JsErrorOutOfMemory;
+      return JsErrorOutOfMemory;
   }
 
   JsErrorCode err = JsCopyString(strRef, _str, length, nullptr);
