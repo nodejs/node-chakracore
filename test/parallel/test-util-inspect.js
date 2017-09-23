@@ -321,7 +321,9 @@ assert.strictEqual(
 }
 
 // Array with extra properties
-{
+// Skip on ChakraCore due to issue in util.inspect
+// See https://github.com/nodejs/node-chakracore/issues/402
+if (!common.isChakraEngine) {
   const arr = [1, 2, 3, , ];
   arr.foo = 'bar';
   assert.strictEqual(util.inspect(arr),
@@ -933,11 +935,7 @@ if (typeof Symbol !== 'undefined') {
 {
   const oldPromise = Promise;
   global.Promise = function() { this.bar = 42; };
-  assert.strictEqual(util.inspect(new Promise()),
-                     common.engineSpecificMessage({
-                       v8: '{ bar: 42 }',
-                       chakracore: 'Object { undefined, bar: 42 }'
-                     }));
+  assert.strictEqual(util.inspect(new Promise()), '{ bar: 42 }');
   global.Promise = oldPromise;
 }
 
