@@ -173,14 +173,30 @@ CpuProfiler* Isolate::GetCpuProfiler() {
 }
 
 void Isolate::AddGCPrologueCallback(
+  GCCallbackWithData callback, void* data, GCType gc_type_filter) {
+}
+
+void Isolate::AddGCPrologueCallback(
   GCCallback callback, GCType gc_type_filter) {
+}
+
+void Isolate::RemoveGCPrologueCallback(
+  GCCallbackWithData callback, void* data) {
 }
 
 void Isolate::RemoveGCPrologueCallback(GCCallback callback) {
 }
 
 void Isolate::AddGCEpilogueCallback(
+  GCCallbackWithData callback, void* data, GCType gc_type_filter) {
+}
+
+void Isolate::AddGCEpilogueCallback(
   GCCallback callback, GCType gc_type_filter) {
+}
+
+void Isolate::RemoveGCEpilogueCallback(
+  GCCallbackWithData callback, void* data) {
 }
 
 void Isolate::RemoveGCEpilogueCallback(GCCallback callback) {
