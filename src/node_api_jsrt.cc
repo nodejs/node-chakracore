@@ -231,10 +231,6 @@ class ExternalCallback {
     // Make sure any errors encountered last time we were in N-API are gone.
     napi_clear_last_error();
 
-    JsErrorCode error = JsNoError;
-    JsValueRef undefinedValue;
-    error = JsGetUndefinedValue(&undefinedValue);
-
     CallbackInfo cbInfo;
     cbInfo.thisArg = reinterpret_cast<napi_value>(arguments[0]);
 
@@ -624,6 +620,8 @@ void napi_clear_last_error() {
   static_last_error.engine_reserved = nullptr;
 }
 
+// TODO(digitalinfinity): Does this need to be on the
+// environment instead of a static error?
 napi_status napi_set_last_error(napi_status error_code,
                                 uint32_t engine_error_code,
                                 void* engine_reserved) {
@@ -871,7 +869,7 @@ napi_status napi_set_property(napi_env env,
   JsPropertyIdRef propertyId;
   CHECK_NAPI(jsrtimpl::JsPropertyIdFromKey(key, &propertyId));
   JsValueRef js_value = reinterpret_cast<JsValueRef>(value);
-  CHECK_JSRT(JsSetProperty(obj, propertyId, value, true));
+  CHECK_JSRT(JsSetProperty(obj, propertyId, js_value, true));
   return napi_ok;
 }
 
@@ -1469,8 +1467,6 @@ napi_status napi_is_error(napi_env env, napi_value value, bool* result) {
 napi_status napi_get_value_double(napi_env env, napi_value v, double* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
-  JsValueRef numberValue = nullptr;
-  double doubleValue = 0.0;
   CHECK_JSRT_EXPECTED(JsNumberToDouble(value, result), napi_number_expected);
   return napi_ok;
 }
@@ -1479,7 +1475,6 @@ napi_status napi_get_value_int32(napi_env env, napi_value v, int32_t* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
   int valueInt;
-  JsValueRef numberValue = nullptr;
   CHECK_JSRT_EXPECTED(JsNumberToInt(value, &valueInt), napi_number_expected);
   *result = static_cast<int32_t>(valueInt);
   return napi_ok;
@@ -1491,7 +1486,6 @@ napi_status napi_get_value_uint32(napi_env env,
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
   int valueInt;
-  JsValueRef numberValue = nullptr;
   CHECK_JSRT_EXPECTED(JsNumberToInt(value, &valueInt), napi_number_expected);
   *result = static_cast<uint32_t>(valueInt);
   return napi_ok;
@@ -1501,7 +1495,6 @@ napi_status napi_get_value_int64(napi_env env, napi_value v, int64_t* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
   int valueInt;
-  JsValueRef numberValue = nullptr;
   CHECK_JSRT_EXPECTED(JsNumberToInt(value, &valueInt), napi_number_expected);
   *result = static_cast<int64_t>(valueInt);
   return napi_ok;
@@ -1510,7 +1503,6 @@ napi_status napi_get_value_int64(napi_env env, napi_value v, int64_t* result) {
 napi_status napi_get_value_bool(napi_env env, napi_value v, bool* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
-  JsValueRef booleanValue = nullptr;
   CHECK_JSRT_EXPECTED(JsBooleanToBool(value, result), napi_boolean_expected);
   return napi_ok;
 }
@@ -2066,11 +2058,10 @@ napi_status napi_async_init(napi_env env,
   napi_value async_resource_name,
   napi_async_context* result) {
   CHECK_ENV(env);
-  CHECK_ARG(env, async_resource_name);
-  CHECK_ARG(env, result);
+  CHECK_ARG(async_resource_name);
+  CHECK_ARG(result);
 
   v8::Isolate* isolate = env->isolate;
-  v8::Local<v8::Context> context = isolate->GetCurrentContext();
 
   v8::Local<v8::Object> resource;
   if (async_resource != nullptr) {
@@ -2099,7 +2090,7 @@ napi_status napi_async_init(napi_env env,
 napi_status napi_async_destroy(napi_env env,
   napi_async_context async_context) {
   CHECK_ENV(env);
-  CHECK_ARG(env, async_context);
+  CHECK_ARG(async_context);
 
   v8::Isolate* isolate = env->isolate;
   node::async_context* node_async_context =
@@ -2610,7 +2601,7 @@ napi_status napi_get_node_version(napi_env env,
 napi_status napi_adjust_external_memory(napi_env env,
                                         int64_t change_in_bytes,
                                         int64_t* adjusted_value) {
-  CHECK_ARG(&change_in_bytes);
+  CHECK_ARG(change_in_bytes);
   CHECK_ARG(adjusted_value);
 
   // TODO(jackhorton): Determine if Chakra needs or is able to do anything here
