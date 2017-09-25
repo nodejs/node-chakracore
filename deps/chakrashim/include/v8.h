@@ -2895,6 +2895,8 @@ class V8_EXPORT Module {
   V8_WARN_UNUSED_RESULT bool Instantiate(Local<Context> context,
                                          ResolveCallback callback);
 
+  Maybe<bool> InstantiateModule(Local<Context> context,
+                                ResolveCallback callback);
   /**
    * ModuleEvaluation
    *
