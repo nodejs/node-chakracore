@@ -247,36 +247,6 @@ bool ContextShim::InitializeGlobalPrototypeFunctions() {
   return true;
 }
 
-// Replace (cached) Object.prototype.toString with a shim to support
-// ObjectTemplate class name. Called after InitializeGlobalPrototypeFunctions().
-bool ContextShim::InitializeObjectPrototypeToStringShim() {
-  IsolateShim* iso = GetIsolateShim();
-
-  JsValueRef objectPrototype;
-  if (JsGetProperty(GetObjectConstructor(),
-                    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::prototype),
-                    &objectPrototype) != JsNoError) {
-    return false;
-  }
-
-  JsValueRef function;
-  if (JsCreateFunction(v8::Utils::ObjectPrototypeToStringShim,
-                       GetGlobalPrototypeFunction(
-                         GlobalPrototypeFunction::Object_toString),
-                       &function) != JsNoError) {
-    return false;
-  }
-
-  if (JsSetProperty(objectPrototype,
-                    iso->GetCachedPropertyIdRef(CachedPropertyIdRef::toString),
-                    function, false) != JsNoError) {
-    return false;
-  }
-
-  globalPrototypeFunction[GlobalPrototypeFunction::Object_toString] = function;
-  return true;
-}
-
 bool ContextShim::InitializeBuiltIns() {
   // No need to keep the global object alive, the context will implicitly
   if (JsGetGlobalObject(&globalObject) != JsNoError) {
@@ -319,9 +289,6 @@ bool ContextShim::InitializeBuiltIns() {
     return false;
   }
   if (!InitializeGlobalPrototypeFunctions()) {
-    return false;
-  }
-  if (!InitializeObjectPrototypeToStringShim()) {
     return false;
   }
 
@@ -504,6 +471,15 @@ void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
     if (embedderData.size() < minSize) {
       embedderData.resize(minSize);
     }
+
+    // ensure reference counting, otherwise objects can be GC'd.  JsAddRef/
+    // JsRelease will handle cases if the pointer is not valid for ref counts.
+    void * oldValue = embedderData[index];
+    if (oldValue != nullptr) {
+      JsRelease(oldValue, nullptr);
+    }
+    JsAddRef(value, nullptr);
+
     embedderData[index] = value;
   } catch(const std::exception&) {
   }
@@ -642,40 +618,3 @@ CHAKRASHIM_FUNCTION_GETTER(jsonStringify);
 #undef DEF_IS_TYPE
 
 }  // namespace jsrt
-
-namespace v8 {
-
-// This shim wraps Object.prototype.toString to supports ObjectTemplate class
-// name.
-JsValueRef CHAKRA_CALLBACK Utils::ObjectPrototypeToStringShim(
-    JsValueRef callee,
-    bool isConstructCall,
-    JsValueRef *arguments,
-    unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
-  if (argumentCount >= 1) {
-    Isolate* iso = Isolate::GetCurrent();
-    HandleScope scope(iso);
-
-    Object* obj = static_cast<Object*>(arguments[0]);
-    ObjectTemplate* objTemplate = obj->GetObjectTemplate();
-    if (objTemplate) {
-      Local<String> str = objTemplate->GetClassName();
-      if (!str.IsEmpty()) {
-        str = String::Concat(String::NewFromUtf8(iso, "[object "), str);
-        str = String::Concat(str, String::NewFromUtf8(iso, "]"));
-        return *str;
-      }
-    }
-  }
-
-  JsValueRef function = callbackState;
-  JsValueRef result;
-  if (JsCallFunction(function, arguments, argumentCount,
-                     &result) != JsNoError) {
-    return JS_INVALID_REFERENCE;
-  }
-  return result;
-}
-
-}  // namespace v8

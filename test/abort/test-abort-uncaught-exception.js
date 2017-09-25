@@ -15,7 +15,7 @@ if (process.argv[2] === 'child') {
   throw new Error('child error');
 } else {
   run('', null);
-  run('--abort-on-uncaught-exception', ['SIGABRT', 'SIGILL']);
+  run('--abort-on-uncaught-exception', ['SIGABRT', 'SIGTRAP', 'SIGILL']);
 }
 
 function run(flags, signals) {
@@ -32,7 +32,7 @@ function run(flags, signals) {
         assert.strictEqual(code, 1);
     } else {
       if (signals)
-        assert.strictEqual(signals.includes(sig), true);
+        assert(signals.includes(sig), `Unexpected signal ${sig}`);
       else
         assert.strictEqual(sig, null);
     }

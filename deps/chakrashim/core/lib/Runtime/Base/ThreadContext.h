@@ -1299,8 +1299,8 @@ public:
     virtual intptr_t GetDisableImplicitFlagsAddr() const override;
     virtual intptr_t GetImplicitCallFlagsAddr() const override;
 
-    ptrdiff_t GetChakraBaseAddressDifference() const;
-    ptrdiff_t GetCRTBaseAddressDifference() const;
+    virtual ptrdiff_t GetChakraBaseAddressDifference() const override;
+    virtual ptrdiff_t GetCRTBaseAddressDifference() const override;
 
 private:
     void RegisterInlineCache(InlineCacheListMapByPropertyId& inlineCacheMap, Js::InlineCache* inlineCache, Js::PropertyId propertyId);
@@ -1785,7 +1785,7 @@ extern void(*InitializeAdditionalProperties)(ThreadContext *threadContext);
 class AutoDisableInterrupt
 {
 public:
-    AutoDisableInterrupt::AutoDisableInterrupt(ThreadContext *threadContext, bool explicitCompletion = true)
+    AutoDisableInterrupt(ThreadContext *threadContext, bool explicitCompletion = true)
         : m_operationCompleted(false), m_interruptDisableState(false), m_threadContext(threadContext), m_explicitCompletion(explicitCompletion)
     {
         if (m_threadContext->HasInterruptPoller())
@@ -1794,7 +1794,7 @@ public:
             m_threadContext->GetInterruptPoller()->SetDisabled(true);
         }
     }
-    AutoDisableInterrupt::~AutoDisableInterrupt()
+    ~AutoDisableInterrupt()
     {
         if (m_threadContext->HasInterruptPoller())
         {

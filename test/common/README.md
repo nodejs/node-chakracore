@@ -99,6 +99,15 @@ Tests whether `name` and `expected` are part of a raised warning.
 
 Checks if `pathname` exists
 
+### fires(promise, [error], [timeoutMs])
+* promise [&lt;Promise]
+* error [&lt;String] default = 'timeout'
+* timeoutMs [&lt;Number] default = 100
+
+Returns a new promise that will propagate `promise` resolution or rejection if
+that happens within the `timeoutMs` timespan, or rejects with `error` as
+a reason otherwise.
+
 ### fixturesDir
 * return [&lt;String>]
 
@@ -316,6 +325,16 @@ Path to the 'root' directory. either `/` or `c:\\` (windows)
 
 Logs '1..0 # Skipped: ' + `msg` and exits with exit code `0`.
 
+### skipIfInspectorDisabled()
+
+Skip the rest of the tests in the current file when the Inspector
+was disabled at compile time.
+
+### skipIf32Bits()
+
+Skip the rest of the tests in the current file when the Node.js executable
+was compiled with a pointer size smaller than 64 bits.
+
 ### spawnPwd(options)
 * `options` [&lt;Object>]
 * return [&lt;Object>]
@@ -373,6 +392,37 @@ Decrements the `Countdown` counter.
 
 Specifies the remaining number of times `Countdown.prototype.dec()` must be
 called before the callback is invoked.
+
+## Fixtures Module
+
+The `common/fixtures` module provides convenience methods for working with
+files in the `test/fixtures` directory.
+
+### fixtures.fixturesDir
+
+* [&lt;String>]
+
+The absolute path to the `test/fixtures/` directory.
+
+### fixtures.path(...args)
+
+* `...args` [&lt;String>]
+
+Returns the result of `path.join(fixtures.fixturesDir, ...args)`.
+
+### fixtures.readSync(args[, enc])
+
+* `args` [&lt;String>] | [&lt;Array>]
+
+Returns the result of
+`fs.readFileSync(path.join(fixtures.fixturesDir, ...args), 'enc')`.
+
+### fixtures.readKey(arg[, enc])
+
+* `arg` [&lt;String>]
+
+Returns the result of
+`fs.readFileSync(path.join(fixtures.fixturesDir, 'keys', arg), 'enc')`.
 
 ## WPT Module
 

@@ -360,6 +360,7 @@ GlobOpt::ForwardPass()
     this->byteCodeConstantValueNumbersBv = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
     this->tempBv = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
     this->prePassCopyPropSym = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
+    this->slotSyms = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
     this->byteCodeUses = nullptr;
     this->propertySymUse = nullptr;
 
@@ -1274,6 +1275,21 @@ void GlobOpt::InsertValueCompensation(
 
     GlobOptBlockData &predecessorBlockData = predecessor->globOptData;
     GlobOptBlockData &successorBlockData = *CurrentBlockData();
+    struct DelayChangeValueInfo
+    {
+        Value* predecessorValue;
+        ArrayValueInfo* valueInfo;
+        void ChangeValueInfo(BasicBlock* predecessor, GlobOpt* g)
+        {
+            g->ChangeValueInfo(
+                predecessor,
+                predecessorValue,
+                valueInfo,
+                false /*allowIncompatibleType*/,
+                true /*compensated*/);
+        }
+    };
+    JsUtil::List<DelayChangeValueInfo, ArenaAllocator> delayChangeValueInfo(alloc);
     for(auto it = symsRequiringCompensationToMergedValueInfoMap.GetIterator(); it.IsValid(); it.MoveNext())
     {
         const auto &entry = it.Current();
@@ -1399,8 +1415,9 @@ void GlobOpt::InsertValueCompensation(
 
         if(compensated)
         {
-            ChangeValueInfo(
-                predecessor,
+            // Save the new ValueInfo for later.
+            // We don't want other symbols needing compensation to see this new one
+            delayChangeValueInfo.Add({
                 predecessorValue,
                 ArrayValueInfo::New(
                     alloc,
@@ -1408,11 +1425,13 @@ void GlobOpt::InsertValueCompensation(
                     mergedHeadSegmentSym ? mergedHeadSegmentSym : predecessorHeadSegmentSym,
                     mergedHeadSegmentLengthSym ? mergedHeadSegmentLengthSym : predecessorHeadSegmentLengthSym,
                     mergedLengthSym ? mergedLengthSym : predecessorLengthSym,
-                    predecessorValueInfo->GetSymStore()),
-                false /*allowIncompatibleType*/,
-                compensated);
+                    predecessorValueInfo->GetSymStore())
+            });
         }
     }
+
+    // Once we've compensated all the symbols, update the new ValueInfo.
+    delayChangeValueInfo.Map([predecessor, this](int, DelayChangeValueInfo d) { d.ChangeValueInfo(predecessor, this); });
 
     if(setLastInstrInPredecessor)
     {
@@ -2815,12 +2834,19 @@ GlobOpt::OptTagChecks(IR::Instr *instr)
         Value *value = CurrentBlockData()->FindValue(stackSym);
         if (value)
         {
+            ValueInfo *valInfo = value->GetValueInfo();
+            if (valInfo->GetSymStore() && valInfo->GetSymStore()->IsStackSym() && valInfo->GetSymStore()->AsStackSym()->IsFromByteCodeConstantTable())
+            {
+                return false;
+            }
             ValueType valueType = value->GetValueInfo()->Type();
             if (instr->m_opcode == Js::OpCode::BailOnNotObject)
             {
                 if (valueType.CanBeTaggedValue())
                 {
-                    ChangeValueType(nullptr, value, valueType.SetCanBeTaggedValue(false), false);
+                    // We're not adding new information to the value other than changing the value type. Preserve any existing
+                    // information and just change the value type.
+                    ChangeValueType(nullptr, value, valueType.SetCanBeTaggedValue(false), true /*preserveSubClassInfo*/);
                     return false;
                 }
                 if (this->byteCodeUses)
@@ -5183,6 +5209,18 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
 
     case Js::OpCode::Typeof:
         return this->NewGenericValue(ValueType::String, dst);
+    case Js::OpCode::InitLocalClosure:
+        Assert(instr->GetDst());
+        Assert(instr->GetDst()->IsRegOpnd());
+        IR::RegOpnd *regOpnd = instr->GetDst()->AsRegOpnd();
+        StackSym *opndStackSym = regOpnd->m_sym;
+        Assert(opndStackSym != nullptr);
+        ObjectSymInfo *objectSymInfo = opndStackSym->m_objectInfo;
+        Assert(objectSymInfo != nullptr);
+        for (PropertySym *localVarSlotList = objectSymInfo->m_propertySymList; localVarSlotList; localVarSlotList = localVarSlotList->m_nextInStackSymList)
+        {
+            this->slotSyms->Set(localVarSlotList->m_id);
+        }
         break;
     }
 
@@ -11984,8 +12022,7 @@ GlobOpt::ToTypeSpecUse(IR::Instr *instr, IR::Opnd *opnd, BasicBlock *block, Valu
             else
             {
                 varSym = block->globOptData.GetCopyPropSym(nullptr, val);
-                // If there is no float 64 type specialized sym for this - create a new sym.
-                if(!varSym || !block->globOptData.IsFloat64TypeSpecialized(varSym))
+                if(!varSym)
                 {
                     // Clear the symstore to ensure it's set below to this new symbol
                     this->SetSymStoreDirect(val->GetValueInfo(), nullptr);
@@ -12440,6 +12477,8 @@ GlobOpt::ChangeValueType(
         !preserveSubclassInfo ||
         !valueInfo->IsArrayValueInfo() ||
         newValueType.IsObject() && newValueType.GetObjectType() == valueInfo->GetObjectType());
+
+    Assert(!valueInfo->GetSymStore() || !valueInfo->GetSymStore()->IsStackSym() || !valueInfo->GetSymStore()->AsStackSym()->IsFromByteCodeConstantTable());
 
     ValueInfo *const newValueInfo =
         preserveSubclassInfo

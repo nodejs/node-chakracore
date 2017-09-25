@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const net = require('net');
 const providers = Object.assign({}, process.binding('async_wrap').Providers);
+const fixtures = require('../common/fixtures');
 
 // Make sure that all Providers are tested.
 {
@@ -80,14 +81,14 @@ function testInitialized(req, ctor_name) {
 }
 
 
-if (common.hasCrypto) {
+if (common.hasCrypto) { // eslint-disable-line crypto-check
   const tls = require('tls');
   // SecurePair
   testInitialized(tls.createSecurePair().ssl, 'Connection');
 }
 
 
-if (common.hasCrypto) {
+if (common.hasCrypto) { // eslint-disable-line crypto-check
   const crypto = require('crypto');
 
   // The handle for PBKDF2 and RandomBytes isn't returned by the function call,
@@ -214,13 +215,14 @@ if (common.hasCrypto) {
 }
 
 
-if (common.hasCrypto) {
+if (common.hasCrypto) { // eslint-disable-line crypto-check
   const TCP = process.binding('tcp_wrap').TCP;
   const tcp = new TCP();
 
-  const ca = fs.readFileSync(common.fixturesDir + '/test_ca.pem', 'ascii');
-  const cert = fs.readFileSync(common.fixturesDir + '/test_cert.pem', 'ascii');
-  const key = fs.readFileSync(common.fixturesDir + '/test_key.pem', 'ascii');
+  const ca = fixtures.readSync('test_ca.pem', 'ascii');
+  const cert = fixtures.readSync('test_cert.pem', 'ascii');
+  const key = fixtures.readSync('test_key.pem', 'ascii');
+
   const credentials = require('tls').createSecureContext({ ca, cert, key });
 
   // TLSWrap is exposed, but needs to be instantiated via tls_wrap.wrap().

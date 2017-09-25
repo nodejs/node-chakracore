@@ -1,5 +1,7 @@
 # TLS (SSL)
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 The `tls` module provides an implementation of the Transport Layer Security
@@ -932,10 +934,14 @@ changes:
 -->
 
 * `options` {Object}
-  * `pfx` {string|Buffer} Optional PFX or PKCS12 encoded private key and
-    certificate chain. `pfx` is an alternative to providing `key` and `cert`
-    individually. PFX is usually encrypted, if it is, `passphrase` will be used
-    to decrypt it.
+  * `pfx` {string|string[]|Buffer|Buffer[]|Object[]} Optional PFX or PKCS12
+    encoded private key and certificate chain. `pfx` is an alternative to
+    providing `key` and `cert` individually. PFX is usually encrypted, if it is,
+    `passphrase` will be used to decrypt it. Multiple PFX can be provided either
+    as an array of unencrypted PFX buffers, or an array of objects in the form
+    `{buf: <string|buffer>[, passphrase: <string>]}`. The object form can only
+    occur in an array. `object.passphrase` is optional. Encrypted PFX will be
+    decrypted with `object.passphrase` if provided, or `options.passphrase` if it is not.
   * `key` {string|string[]|Buffer|Buffer[]|Object[]} Optional private keys in
     PEM format. PEM allows the option of private keys being encrypted. Encrypted
     keys will be decrypted with `options.passphrase`.  Multiple keys using

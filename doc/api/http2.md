@@ -192,7 +192,7 @@ added: v8.4.0
 -->
 
 The `'remoteSettings'` event is emitted when a new SETTINGS frame is received
-from the connected peer. When invoked, the handle function will receive a copy
+from the connected peer. When invoked, the handler function will receive a copy
 of the remote settings.
 
 ```js
@@ -757,7 +757,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x00` (No Error).
 
-#### http2stream.rstWithProtocolError() {
+#### http2stream.rstWithProtocolError()
 <!-- YAML
 added: v8.4.0
 -->
@@ -766,7 +766,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x01` (Protocol Error).
 
-#### http2stream.rstWithCancel() {
+#### http2stream.rstWithCancel()
 <!-- YAML
 added: v8.4.0
 -->
@@ -775,7 +775,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x08` (Cancel).
 
-#### http2stream.rstWithRefuse() {
+#### http2stream.rstWithRefuse()
 <!-- YAML
 added: v8.4.0
 -->
@@ -784,7 +784,7 @@ added: v8.4.0
 
 Shortcut for `http2stream.rstStream()` using error code `0x07` (Refused Stream).
 
-#### http2stream.rstWithInternalError() {
+#### http2stream.rstWithInternalError()
 <!-- YAML
 added: v8.4.0
 -->
@@ -849,6 +849,15 @@ used exclusively on HTTP/2 Clients. `Http2Stream` instances on the client
 provide events such as `'response'` and `'push'` that are only relevant on
 the client.
 
+#### Event: 'continue'
+<!-- YAML
+added: v8.5.0
+-->
+
+Emitted when the server sends a `100 Continue` status, usually because
+the request contained `Expect: 100-continue`. This is an instruction that
+the client should send the request body.
+
 #### Event: 'headers'
 <!-- YAML
 added: v8.4.0
@@ -893,7 +902,7 @@ invoked with two arguments: an Object containing the received
 For example:
 
 ```js
-const http2 = require('http');
+const http2 = require('http2');
 const client = http2.connect('https://localhost');
 const req = client.request({ ':path': '/' });
 req.on('response', (headers, flags) => {
@@ -1118,6 +1127,8 @@ added: v8.4.0
 * `headers` {[Headers Object][]}
 * `options` {Object}
   * `statCheck` {Function}
+  * `onError` {Function} Callback function invoked in the case of an
+    Error before send
   * `getTrailers` {Function} Callback function invoked to collect trailer
     headers.
   * `offset` {number} The offset position at which to begin reading
@@ -1146,6 +1157,16 @@ server.on('stream', (stream) => {
   function statCheck(stat, headers) {
     headers['last-modified'] = stat.mtime.toUTCString();
   }
+
+  function onError(err) {
+    if (err.code === 'ENOENT') {
+      stream.respond({ ':status': 404 });
+    } else {
+      stream.respond({ ':status': 500 });
+    }
+    stream.end();
+  }
+
   stream.respondWithFile('/some/file',
                          { 'content-type': 'text/plain' },
                          { statCheck });
@@ -1178,6 +1199,10 @@ The `offset` and `length` options may be used to limit the response to a
 specific range subset. This can be used, for instance, to support HTTP Range
 requests.
 
+The `options.onError` function may also be used to handle all the errors
+that could happen before the delivery of the file is initiated. The
+default behavior is to destroy the stream.
+
 When set, the `options.getTrailers()` function is called immediately after
 queuing the last chunk of payload data to be sent. The callback is passed a
 single object (with a `null` prototype) that the listener may used to specify
@@ -1208,6 +1233,19 @@ added: v8.4.0
 
 * Extends: {net.Server}
 
+In `Http2Server`, there is no `'clientError'` event as there is in
+HTTP1. However, there are `'socketError'`, `'sessionError'`,  and
+`'streamError'`, for error happened on the socket, session or stream
+respectively.
+
+#### Event: 'socketError'
+<!-- YAML
+added: v8.4.0
+-->
+
+The `'socketError'` event is emitted when a `'socketError'` event is emitted by
+an `Http2Session` associated with the server.
+
 #### Event: 'sessionError'
 <!-- YAML
 added: v8.4.0
@@ -1217,13 +1255,15 @@ The `'sessionError'` event is emitted when an `'error'` event is emitted by
 an `Http2Session` object. If no listener is registered for this event, an
 `'error'` event is emitted.
 
-#### Event: 'socketError'
+#### Event: 'streamError'
 <!-- YAML
-added: v8.4.0
+added: v8.5.0
 -->
 
-The `'socketError'` event is emitted when a `'socketError'` event is emitted by
-an `Http2Session` associated with the server.
+* `socket` {http2.ServerHttp2Stream}
+
+If an `ServerHttp2Stream` emits an `'error'` event, it will be forwarded here.
+The stream will already be destroyed when this event is triggered.
 
 #### Event: 'stream'
 <!-- YAML
@@ -1274,6 +1314,28 @@ added: v8.4.0
 
 The `'timeout'` event is emitted when there is no activity on the Server for
 a given number of milliseconds set using `http2server.setTimeout()`.
+
+#### Event: 'checkContinue'
+<!-- YAML
+added: v8.5.0
+-->
+
+* `request` {http2.Http2ServerRequest}
+* `response` {http2.Http2ServerResponse}
+
+If a [`'request'`][] listener is registered or [`'http2.createServer()'`][] is
+supplied a callback function, the `'checkContinue'` event is emitted each time
+a request with an HTTP `Expect: 100-continue` is received. If this event is
+not listened for, the server will automatically respond with a status
+`100 Continue` as appropriate.
+
+Handling this event involves calling [`response.writeContinue()`][] if the client
+should continue to send the request body, or generating an appropriate HTTP
+response (e.g. 400 Bad Request) if the client should not continue to send the
+request body.
+
+Note that when this event is emitted and handled, the [`'request'`][] event will
+not be emitted.
 
 ### Class: Http2SecureServer
 <!-- YAML
@@ -1357,6 +1419,28 @@ per session. See the [Compatibility API](compatiblity-api).
 <!-- YAML
 added: v8.4.0
 -->
+
+#### Event: 'checkContinue'
+<!-- YAML
+added: v8.5.0
+-->
+
+* `request` {http2.Http2ServerRequest}
+* `response` {http2.Http2ServerResponse}
+
+If a [`'request'`][] listener is registered or [`'http2.createSecureServer()'`][]
+is supplied a callback function, the `'checkContinue'` event is emitted each
+time a request with an HTTP `Expect: 100-continue` is received. If this event
+is not listened for, the server will automatically respond with a status
+`100 Continue` as appropriate.
+
+Handling this event involves calling [`response.writeContinue()`][] if the client
+should continue to send the request body, or generating an appropriate HTTP
+response (e.g. 400 Bad Request) if the client should not continue to send the
+request body.
+
+Note that when this event is emitted and handled, the [`'request'`][] event will
+not be emitted.
 
 ### http2.createServer(options[, onRequestHandler])
 <!-- YAML
@@ -1465,7 +1549,7 @@ const options = {
   cert: fs.readFileSync('server-cert.pem')
 };
 
-// Create a plain-text HTTP/2 server
+// Create a secure HTTP/2 server
 const server = http2.createSecureServer(options);
 
 server.on('stream', (stream, headers) => {
@@ -1725,7 +1809,7 @@ those to lower-case (e.g. `content-type`) upon transmission.
 
 Header field-names *must only* contain one or more of the following ASCII
 characters: `a`-`z`, `A`-`Z`, `0`-`9`, `!`, `#`, `$`, `%`, `&`, `'`, `*`, `+`,
-`-`, `.`, `^`, `_`, `` (backtick), `|`, and `~`.
+`-`, `.`, `^`, `_`, `` ` `` (backtick), `|`, and `~`.
 
 Using invalid characters within an HTTP header field name will cause the
 stream to be closed with a protocol error being reported.
@@ -1873,8 +1957,8 @@ The following example creates a server that supports both protocols:
 const { createSecureServer } = require('http2');
 const { readFileSync } = require('fs');
 
-const cert = fs.readFileSync('./cert.pem');
-const key = fs.readFileSync('./key.pem');
+const cert = readFileSync('./cert.pem');
+const key = readFileSync('./key.pem');
 
 const server = createSecureServer(
   { cert, key, allowHTTP1: true },
@@ -1883,12 +1967,12 @@ const server = createSecureServer(
 
 function onRequest(req, res) {
   // detects if it is a HTTPS request or HTTP/2
-  const { socket: { alpnProtocol } } = request.httpVersion === '2.0' ?
-    request.stream.session : request;
-  response.writeHead(200, { 'content-type': 'application/json' });
-  response.end(JSON.stringify({
+  const { socket: { alpnProtocol } } = req.httpVersion === '2.0' ?
+    req.stream.session : req;
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({
     alpnProtocol,
-    httpVersion: request.httpVersion
+    httpVersion: req.httpVersion
   }));
 }
 ```
@@ -2506,8 +2590,9 @@ buffer. Returns `false` if all or part of the data was queued in user memory.
 added: v8.4.0
 -->
 
-Throws an error as the `'continue'` flow is not current implemented. Added for
-parity with [HTTP/1]().
+Sends a status `100 Continue` to the client, indicating that the request body
+should be sent. See the [`'checkContinue'`][] event on `Http2Server` and
+`Http2SecureServer`.
 
 ### response.writeHead(statusCode[, statusMessage][, headers])
 <!-- YAML
@@ -2576,25 +2661,41 @@ given newly created [`Http2Stream`] on `Http2ServerRespose`.
 The callback will be called with an error with code `ERR_HTTP2_STREAM_CLOSED`
 if the stream is closed.
 
-[HTTP/2]: https://tools.ietf.org/html/rfc7540
-[HTTP/1]: http.html
-[HTTPS]: https.html
-[`net.Socket`]: net.html
-[`tls.TLSSocket`]: tls.html
-[`tls.createServer()`]: tls.html#tls_tls_createserver_options_secureconnectionlistener
-[`ClientHttp2Stream`]: #http2_class_clienthttp2stream
-[Compatibility API]: #http2_compatibility_api
 [ALPN negotiation]: #http2_alpn_negotiation
-[`Duplex`]: stream.html#stream_class_stream_duplex
+[Compatibility API]: #http2_compatibility_api
+[HTTP/1]: http.html
+[HTTP/2]: https://tools.ietf.org/html/rfc7540
+[HTTPS]: https.html
 [Headers Object]: #http2_headers_object
-[`Http2Stream`]: #http2_class_http2stream
 [Http2Session and Sockets]: #http2_http2sesion_and_sockets
-[`ServerHttp2Stream`]: #http2_class_serverhttp2stream
+[Readable Stream]: stream.html#stream_class_stream_readable
 [Settings Object]: #http2_settings_object
 [Using options.selectPadding]: #http2_using_options_selectpadding
-[error code]: #error_codes
-[`'unknownProtocol'`]: #http2_event_unknownprotocol
+[Writable Stream]: stream.html#stream_writable_streams
+[`'checkContinue'`]: #http2_event_checkcontinue
 [`'request'`]: #http2_event_request
-[Readable Stream]: stream.html#stream_class_stream_readable
+[`'unknownProtocol'`]: #http2_event_unknownprotocol
+[`ClientHttp2Stream`]: #http2_class_clienthttp2stream
+[`Duplex`]: stream.html#stream_class_stream_duplex
+[`EventEmitter`]: events.html#events_class_eventemitter
+[`Http2Stream`]: #http2_class_http2stream
+[`ServerHttp2Stream`]: #http2_class_serverhttp2stream
 [`ServerRequest`]: #http2_class_server_request
+[`TypeError`]: errors.html#errors_class_typeerror
+[`http2.SecureServer`]: #http2_class_http2secureserver
+[`http2.createSecureServer()`]: #http2_createsecureserver_options_onrequesthandler
+[`http2.Server`]: #http2_class_http2server
+[`http2.createServer()`]: #http2_createserver_options_onrequesthandler
+[`net.Socket`]: net.html#net_class_net_socket
+[`request.socket.getPeerCertificate()`]: tls.html#tls_tlssocket_getpeercertificate_detailed
+[`response.end()`]: #http2_response_end_data_encoding_callback
+[`response.setHeader()`]: #http2_response_setheader_name_value
+[`response.socket`]: #http2_response_socket
+[`response.write()`]: #http2_response_write_chunk_encoding_callback
+[`response.write(data, encoding)`]: http.html#http_response_write_chunk_encoding_callback
+[`response.writeContinue()`]: #http2_response_writecontinue
+[`response.writeHead()`]: #http2_response_writehead_statuscode_statusmessage_headers
 [`stream.pushStream()`]: #http2_stream-pushstream
+[`tls.TLSSocket`]: tls.html#tls_class_tls_tlssocket
+[`tls.createServer()`]: tls.html#tls_tls_createserver_options_secureconnectionlistener
+[error code]: #error_codes

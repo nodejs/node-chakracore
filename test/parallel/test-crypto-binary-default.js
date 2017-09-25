@@ -32,19 +32,18 @@ if (!common.hasCrypto)
 const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
-const path = require('path');
 const tls = require('tls');
+const fixtures = require('../common/fixtures');
 const DH_NOT_SUITABLE_GENERATOR = crypto.constants.DH_NOT_SUITABLE_GENERATOR;
-const fixtDir = common.fixturesDir;
 
 crypto.DEFAULT_ENCODING = 'latin1';
 
 // Test Certificates
-const certPem = fs.readFileSync(`${fixtDir}/test_cert.pem`, 'ascii');
-const certPfx = fs.readFileSync(`${fixtDir}/test_cert.pfx`);
-const keyPem = fs.readFileSync(`${fixtDir}/test_key.pem`, 'ascii');
-const rsaPubPem = fs.readFileSync(`${fixtDir}/test_rsa_pubkey.pem`, 'ascii');
-const rsaKeyPem = fs.readFileSync(`${fixtDir}/test_rsa_privkey.pem`, 'ascii');
+const certPem = fixtures.readSync('test_cert.pem', 'ascii');
+const certPfx = fixtures.readSync('test_cert.pfx');
+const keyPem = fixtures.readSync('test_key.pem', 'ascii');
+const rsaPubPem = fixtures.readSync('test_rsa_pubkey.pem', 'ascii');
+const rsaKeyPem = fixtures.readSync('test_rsa_privkey.pem', 'ascii');
 
 // PFX tests
 assert.doesNotThrow(function() {
@@ -405,7 +404,7 @@ const h2 = crypto.createHash('sha1').update('Test').update('123').digest('hex');
 assert.strictEqual(h1, h2, 'multipled updates');
 
 // Test hashing for binary files
-const fn = path.join(fixtDir, 'sample.png');
+const fn = fixtures.path('sample.png');
 const sha1Hash = crypto.createHash('sha1');
 const fileStream = fs.createReadStream(fn);
 fileStream.on('data', function(data) {
@@ -531,12 +530,33 @@ function testCipher4(key, iv) {
                      'encryption and decryption with key and iv');
 }
 
+
+function testCipher5(key, iv) {
+  // Test encryption and decryption with explicit key with aes128-wrap
+  const plaintext =
+      '32|RmVZZkFUVmpRRkp0TmJaUm56ZU9qcnJkaXNNWVNpTTU*|iXmckfRWZBGWWELw' +
+      'eCBsThSsfUHLeRe0KCsK8ooHgxie0zOINpXxfZi/oNG7uq9JWFVCk70gfzQH8ZUJ' +
+      'jAfaFg**';
+  const cipher = crypto.createCipher('id-aes128-wrap', key);
+  let ciph = cipher.update(plaintext, 'utf8', 'buffer');
+  ciph = Buffer.concat([ciph, cipher.final('buffer')]);
+
+  const decipher = crypto.createDecipher('id-aes128-wrap', key);
+  let txt = decipher.update(ciph, 'buffer', 'utf8');
+  txt += decipher.final('utf8');
+
+  assert.strictEqual(txt, plaintext,
+                     'encryption and decryption with key');
+}
+
 if (!common.hasFipsCrypto) {
   testCipher1('MySecretKey123');
   testCipher1(Buffer.from('MySecretKey123'));
 
   testCipher2('0123456789abcdef');
   testCipher2(Buffer.from('0123456789abcdef'));
+
+  testCipher5(Buffer.from('0123456789abcd0123456789'));
 }
 
 testCipher3('0123456789abcd0123456789', '12345678');
@@ -614,9 +634,8 @@ assert.strictEqual(rsaVerify.verify(rsaPubPem, rsaSignature, 'hex'), true);
 // Test RSA signing and verification
 //
 {
-  const privateKey = fs.readFileSync(`${fixtDir}/test_rsa_privkey_2.pem`);
-
-  const publicKey = fs.readFileSync(`${fixtDir}/test_rsa_pubkey_2.pem`);
+  const privateKey = fixtures.readSync('test_rsa_privkey_2.pem');
+  const publicKey = fixtures.readSync('test_rsa_pubkey_2.pem');
 
   const input = 'I AM THE WALRUS';
 
@@ -644,9 +663,8 @@ assert.strictEqual(rsaVerify.verify(rsaPubPem, rsaSignature, 'hex'), true);
 // Test DSA signing and verification
 //
 {
-  const privateKey = fs.readFileSync(`${fixtDir}/test_dsa_privkey.pem`);
-
-  const publicKey = fs.readFileSync(`${fixtDir}/test_dsa_pubkey.pem`);
+  const privateKey = fixtures.readSync('test_dsa_privkey.pem');
+  const publicKey = fixtures.readSync('test_dsa_pubkey.pem');
 
   const input = 'I AM THE WALRUS';
 

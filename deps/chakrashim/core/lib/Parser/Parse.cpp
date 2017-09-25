@@ -32,7 +32,7 @@ bool Parser::IsES6DestructuringEnabled() const
 struct DeferredFunctionStub
 {
     Field(RestorePoint) restorePoint;
-    Field(uint) fncFlags;
+    Field(FncFlags) fncFlags;
     Field(uint) nestedCount;
     Field(DeferredFunctionStub *) deferredStubs;
     Field(charcount_t) ichMin;
@@ -1726,6 +1726,10 @@ void Parser::BindPidRefsInScope(IdentPtr pid, Symbol *sym, int blockId, uint max
         {
             Assert(ref->GetFuncScopeId() > funcId);
             sym->SetHasNonLocalReference();
+            if (ref->IsDynamicBinding())
+            {
+                sym->SetNeedsScopeObject();
+            }
         }
 
         if (ref->IsFuncAssignment())
@@ -1855,15 +1859,13 @@ void Parser::PopDynamicBlock()
         return;
     }
     Assert(m_currentDynamicBlock);
-    for (BlockInfoStack *blockInfo = m_currentBlockInfo; blockInfo; blockInfo = blockInfo->pBlockInfoOuter)
-    {
-        for (ParseNodePtr pnodeDecl = blockInfo->pnodeBlock->sxBlock.pnodeLexVars;
-             pnodeDecl;
-             pnodeDecl = pnodeDecl->sxVar.pnodeNext)
+
+    m_phtbl->VisitPids([&](IdentPtr pid) {
+        for (PidRefStack *ref = pid->GetTopRef(); ref && ref->GetScopeId() >= blockId; ref = ref->prev)
         {
-            this->SetPidRefsInScopeDynamic(pnodeDecl->sxVar.pid, blockId);
+            ref->SetDynamicBinding();
         }
-    }
+    });
 
     m_currentDynamicBlock = m_currentDynamicBlock->prev;
 }
@@ -2709,7 +2711,7 @@ LDefault:
 }
 
 template<bool buildAST>
-ParseNodePtr Parser::ParseExportDeclaration()
+ParseNodePtr Parser::ParseExportDeclaration(bool *needTerminator)
 {
     Assert(m_scriptContext->GetConfig()->IsES6ModuleEnabled());
     Assert(m_token.tk == tkEXPORT);
@@ -2722,6 +2724,11 @@ ParseNodePtr Parser::ParseExportDeclaration()
     ParseNodePtr pnode = nullptr;
     IdentPtr moduleIdentifier = nullptr;
     tokens declarationType;
+
+    if (needTerminator != nullptr)
+    {
+        *needTerminator = false;
+    }
 
     // We just parsed an export token. Next valid tokens are *, {, var, let, const, async, function, class, default.
     m_pscan->Scan();
@@ -2742,6 +2749,11 @@ ParseNodePtr Parser::ParseExportDeclaration()
             IdentPtr importName = wellKnownPropertyPids._star;
 
             AddModuleImportOrExportEntry(EnsureModuleStarExportEntryList(), importName, nullptr, nullptr, moduleIdentifier);
+        }
+
+        if (needTerminator != nullptr)
+        {
+            *needTerminator = true;
         }
 
         break;
@@ -2784,6 +2796,12 @@ ParseNodePtr Parser::ParseExportDeclaration()
                 exportEntryList.Clear();
             }
         }
+
+        if (needTerminator != nullptr)
+        {
+            *needTerminator = true;
+        }
+
         break;
 
     case tkID:
@@ -4482,6 +4500,9 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
 
                 bool couldBeObjectPattern = !isObjectPattern && m_token.tk == tkAsg;
 
+                // Saving the current state as we may change the isObjectPattern down below.
+                bool oldState = isObjectPattern;
+
                 if (couldBeObjectPattern)
                 {
                     declarationType = tkLCurly;
@@ -4522,6 +4543,8 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
                 {
                     pnodeArg = CreateBinNode(isObjectPattern && !couldBeObjectPattern ? knopObjectPatternMember : knopMemberShort, pnodeName, pnodeIdent);
                 }
+
+                isObjectPattern = oldState;
             }
             else
             {
@@ -6296,6 +6319,7 @@ void Parser::ParseFncFormals(ParseNodePtr pnodeFnc, ParseNodePtr pnodeParentFnc,
                 {
                     // Mark that the function has a non simple parameter list before parsing the pattern since the pattern can have function definitions.
                     this->GetCurrentFunctionNode()->sxFnc.SetHasNonSimpleParameterList();
+                    this->GetCurrentFunctionNode()->sxFnc.SetHasDestructuredParams();
 
                     ParseNodePtr *const ppnodeVarSave = m_ppnodeVar;
                     m_ppnodeVar = &pnodeFnc->sxFnc.pnodeVars;
@@ -9234,6 +9258,11 @@ ParseNodePtr Parser::ParseCatch()
             FinishParseBlock(pnodeCatchScope);
         }
 
+        if (pnodeCatchScope->sxBlock.GetCallsEval() || pnodeCatchScope->sxBlock.GetChildCallsEval())
+        {
+            GetCurrentBlock()->sxBlock.SetChildCallsEval(true);
+        }
+
         if (buildAST)
         {
             PopStmt(&stmt);
@@ -9915,10 +9944,6 @@ LEndSwitch:
         {
             GetCurrentFunctionNode()->sxFnc.SetHasWithStmt(); // Used by DeferNested
         }
-        for (Scope *scope = this->m_currentScope; scope; scope = scope->GetEnclosingScope())
-        {
-            scope->SetContainsWith();
-        }
 
         ichMin = m_pscan->IchMinTok();
         ChkNxtTok(tkLParen, ERRnoLparen);
@@ -10222,14 +10247,24 @@ LGetJumpStatement:
         goto LNeedTerminator;
 
     case tkEXPORT:
+    {
         if (!(m_grfscr & fscrIsModuleCode))
         {
             goto LDefaultToken;
         }
 
-        pnode = ParseExportDeclaration<buildAST>();
+        bool needTerminator = false;
+        pnode = ParseExportDeclaration<buildAST>(&needTerminator);
 
-        goto LNeedTerminator;
+        if (needTerminator)
+        {
+            goto LNeedTerminator;
+        }
+        else
+        {
+            break;
+        }
+    }
 
 LDefaultToken:
     default:
@@ -10746,7 +10781,7 @@ void Parser::FinishDeferredFunction(ParseNodePtr pnodeScopeList)
             auto addArgsToScope = [&](ParseNodePtr pnodeArg) {
                 if (pnodeArg->IsVarLetOrConst())
                 {
-                    PidRefStack *ref = this->FindOrAddPidRef(pnodeArg->sxVar.pid, blockId, funcId);//this->PushPidRef(pnodeArg->sxVar.pid);
+                    PidRefStack *ref = this->FindOrAddPidRef(pnodeArg->sxVar.pid, blockId, funcId);
                     pnodeArg->sxVar.symRef = ref->GetSymRef();
                     if (ref->GetSym() != nullptr)
                     {
@@ -11167,7 +11202,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
         FinishParseBlock(pnodeGlobalBlock);
 
         // Clear out references to undeclared identifiers.
-        m_phtbl->ClearPidRefStacks();
+        m_phtbl->VisitPids([&](IdentPtr pid) { pid->SetTopRef(nullptr); });
 
         // Restore global scope and blockinfo stacks preparatory to reparsing deferred functions.
         PushScope(pnodeGlobalBlock->sxBlock.scope);
@@ -13549,14 +13584,13 @@ void ParseNode::Dump()
         }
 
         Output::Print(_u("%s (%d) [%d, %d]:\n"), name, this->sxFnc.functionId, this->sxFnc.lineNumber, this->sxFnc.columnNumber);
-        Output::Print(_u("hasArguments: %s callsEval:%s childCallsEval:%s HasReferenceableBuiltInArguments:%s ArgumentsObjectEscapes:%s HasWith:%s HasThis:%s HasOnlyThis:%s \n"),
+        Output::Print(_u("hasArguments: %s callsEval:%s childCallsEval:%s HasReferenceableBuiltInArguments:%s ArgumentsObjectEscapes:%s HasWith:%s HasOnlyThis:%s \n"),
             IsTrueOrFalse(this->sxFnc.HasHeapArguments()),
             IsTrueOrFalse(this->sxFnc.CallsEval()),
             IsTrueOrFalse(this->sxFnc.ChildCallsEval()),
             IsTrueOrFalse(this->sxFnc.HasReferenceableBuiltInArguments()),
             IsTrueOrFalse(this->sxFnc.GetArgumentsObjectEscapes()),
             IsTrueOrFalse(this->sxFnc.HasWithStmt()),
-            IsTrueOrFalse(this->sxFnc.HasThisStmt()),
             IsTrueOrFalse(this->sxFnc.HasOnlyThisStmts()));
         if(this->sxFnc.funcInfo)
         {

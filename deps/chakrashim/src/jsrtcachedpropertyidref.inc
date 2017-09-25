@@ -122,6 +122,8 @@ DEF(type)
 DEF(uncaught)
 DEF(url)
 
+DEF(toStringTag)
+DEF(Symbol_toStringTag)
 
 DEFSYMBOL(self)
 DEFSYMBOL(__external__)

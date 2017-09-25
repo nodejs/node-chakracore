@@ -5,20 +5,22 @@ const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 const { exec, spawn } = require('child_process');
-const util = require('util');
+const fixtures = require('../common/fixtures');
 
 common.refreshTmpDir();
 
-const linkTarget = path.join(common.fixturesDir,
-                             '/module-require-symlink/node_modules/dep2/');
+const linkTarget = fixtures.path('module-require-symlink',
+                                 'node_modules',
+                                 'dep2');
 
-const linkDir = path.join(
-  common.fixturesDir,
-  '/module-require-symlink/node_modules/dep1/node_modules/dep2'
-);
+const linkDir = fixtures.path('module-require-symlink',
+                              'node_modules',
+                              'dep1',
+                              'node_modules',
+                              'dep2');
 
-const linkScriptTarget = path.join(common.fixturesDir,
-                                   '/module-require-symlink/symlinked.js');
+const linkScriptTarget = fixtures.path('module-require-symlink',
+                                       'symlinked.js');
 
 const linkScript = path.join(common.tmpDir, 'module-require-symlink.js');
 
@@ -44,8 +46,7 @@ function test() {
   fs.symlinkSync(linkScriptTarget, linkScript);
 
   // load symlinked-module
-  const fooModule =
-    require(path.join(common.fixturesDir, '/module-require-symlink/foo.js'));
+  const fooModule = require(fixtures.path('/module-require-symlink/foo.js'));
   assert.strictEqual(fooModule.dep1.bar.version, 'CORRECT_VERSION');
   assert.strictEqual(fooModule.dep2.bar.version, 'CORRECT_VERSION');
 
@@ -59,7 +60,7 @@ function test() {
 
   // Also verify that symlinks works for setting preserve via env variables
   const childEnv = spawn(node, [linkScript], {
-    env: util._extend(process.env, {NODE_PRESERVE_SYMLINKS: '1'})
+    env: Object.assign({}, process.env, { NODE_PRESERVE_SYMLINKS: '1' })
   });
   childEnv.on('close', function(code, signal) {
     assert.strictEqual(code, 0);

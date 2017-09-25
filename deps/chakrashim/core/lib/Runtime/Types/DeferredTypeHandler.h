@@ -97,6 +97,7 @@ namespace Js
         virtual BOOL GetProperty(DynamicObject* instance, Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual BOOL SetProperty(DynamicObject* instance, PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info) override;
         virtual BOOL SetProperty(DynamicObject* instance, JavascriptString* propertyNameString, Var value, PropertyOperationFlags flags, PropertyValueInfo* info) override;
+        virtual BOOL SetInternalProperty(DynamicObject* instance, PropertyId propertyId, Var value, PropertyOperationFlags flags) override;
         virtual DescriptorFlags GetSetter(DynamicObject* instance, PropertyId propertyId, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual DescriptorFlags GetSetter(DynamicObject* instance, JavascriptString* propertyNameString, Var* setterValue, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual BOOL DeleteProperty(DynamicObject* instance, PropertyId propertyId, PropertyOperationFlags flags) override;
@@ -119,7 +120,7 @@ namespace Js
         virtual BOOL SetWritable(DynamicObject* instance, PropertyId propertyId, BOOL value) override;
         virtual BOOL SetConfigurable(DynamicObject* instance, PropertyId propertyId, BOOL value) override;
         virtual BOOL SetAccessors(DynamicObject* instance, PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None) override;
-        virtual BOOL GetAccessors(DynamicObject* instance, PropertyId propertyId, Var *getter, Var *setter) override;
+        virtual BOOL GetAccessors(DynamicObject* instance, PropertyId propertyId, __out Var *getter, __out Var *setter) override;
         virtual BOOL PreventExtensions(DynamicObject *instance) override;
         virtual BOOL Seal(DynamicObject *instance) override;
         virtual BOOL SetPropertyWithAttributes(DynamicObject* instance, PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags = PropertyOperation_None, SideEffects possibleSideEffects = SideEffects_Any) override;
@@ -318,6 +319,17 @@ namespace Js
         }
 
         return GetCurrentTypeHandler(instance)->SetProperty(instance, propertyNameString, value, flags, info);
+    }
+
+    template <DeferredTypeInitializer initializer, typename DeferredTypeFilter, bool isPrototypeTemplate, uint16 _inlineSlotCapacity, uint16 _offsetOfInlineSlots>
+    BOOL DeferredTypeHandler<initializer, DeferredTypeFilter, isPrototypeTemplate, _inlineSlotCapacity, _offsetOfInlineSlots>::SetInternalProperty(DynamicObject* instance, PropertyId propertyId, Var value, PropertyOperationFlags flags)
+    {
+        if (!EnsureObjectReady(instance, DeferredInitializeMode_Set))
+        {
+            return TRUE;
+        }
+
+        return GetCurrentTypeHandler(instance)->SetInternalProperty(instance, propertyId, value, flags);
     }
 
     template <DeferredTypeInitializer initializer, typename DeferredTypeFilter, bool isPrototypeTemplate, uint16 _inlineSlotCapacity, uint16 _offsetOfInlineSlots>
@@ -533,8 +545,18 @@ namespace Js
     }
 
     template <DeferredTypeInitializer initializer, typename DeferredTypeFilter, bool isPrototypeTemplate, uint16 _inlineSlotCapacity, uint16 _offsetOfInlineSlots>
-    BOOL DeferredTypeHandler<initializer, DeferredTypeFilter, isPrototypeTemplate, _inlineSlotCapacity, _offsetOfInlineSlots>::GetAccessors(DynamicObject* instance, PropertyId propertyId, Var *getter, Var *setter)
+    BOOL DeferredTypeHandler<initializer, DeferredTypeFilter, isPrototypeTemplate, _inlineSlotCapacity, _offsetOfInlineSlots>::GetAccessors(DynamicObject* instance, PropertyId propertyId, __out Var *getter, __out Var *setter)
     {
+        if (getter != nullptr)
+        {
+            *getter = nullptr;
+        }
+
+        if (setter != nullptr)
+        {
+            *setter = nullptr;
+        }
+
         if (!EnsureObjectReady(instance, DeferredInitializeMode_Default))
         {
             return TRUE;

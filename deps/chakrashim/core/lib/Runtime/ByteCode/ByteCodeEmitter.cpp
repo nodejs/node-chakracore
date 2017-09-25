@@ -4011,6 +4011,8 @@ void ByteCodeGenerator::StartEmitFunction(ParseNode *pnodeFnc)
                 funcInfo->frameObjRegister != Js::Constants::NoRegister &&
                 !ApplyEnclosesArgs(pnodeFnc, this) &&
                 funcInfo->IsBodyAndParamScopeMerged() && // There is eval in the param scope
+                !pnodeFnc->sxFnc.HasDefaultArguments() &&
+                !pnodeFnc->sxFnc.HasDestructuredParams() &&
                 (PHASE_FORCE(Js::CachedScopePhase, funcInfo->byteCodeFunction) || !IsInDebugMode())
 #if ENABLE_TTD
                 && !funcInfo->GetParsedFunctionBody()->GetScriptContext()->GetThreadContext()->IsRuntimeInTTDMode()
@@ -4219,7 +4221,20 @@ void ByteCodeGenerator::StartEmitFunction(ParseNode *pnodeFnc)
         {
             bodyScope->SetMustInstantiate(funcInfo->frameSlotsRegister != Js::Constants::NoRegister);
         }
-        paramScope->SetMustInstantiate(!pnodeFnc->sxFnc.IsBodyAndParamScopeMerged());
+
+        if (!pnodeFnc->sxFnc.IsBodyAndParamScopeMerged())
+        {
+            if (funcInfo->frameObjRegister != Js::Constants::NoRegister)
+            {
+                paramScope->SetMustInstantiate(true);
+            }
+            else
+            {
+                // In the case of function expression being captured in the param scope the hasownlocalinclosure will be false for param scope,
+                // as function expression symbol stays in the function expression scope. We don't have to set mustinstantiate for param scope in that case.
+                paramScope->SetMustInstantiate(paramScope->GetHasOwnLocalInClosure());
+            }
+        }
     }
     else
     {
@@ -7121,15 +7136,16 @@ void EmitAssignment(
         // PutValue(x, "y", rhs)
         Js::PropertyId propertyId = lhs->sxBin.pnode2->sxPid.PropertyIdFromNameNode();
 
-        uint cacheId = funcInfo->FindOrAddInlineCacheId(lhs->sxBin.pnode1->location, propertyId, false, true);
         EmitSuperMethodBegin(lhs, byteCodeGenerator, funcInfo);
         if (lhs->sxBin.pnode1->nop == knopSuper)
         {
             Js::RegSlot tmpReg = byteCodeGenerator->EmitLdObjProto(Js::OpCode::LdHomeObjProto, funcInfo->superRegister, funcInfo);
+            uint cacheId = funcInfo->FindOrAddInlineCacheId(tmpReg, propertyId, false, true);
             byteCodeGenerator->Writer()->PatchablePropertyWithThisPtr(Js::OpCode::StSuperFld, rhsLocation, tmpReg, funcInfo->thisPointerRegister, cacheId);
         }
         else
         {
+            uint cacheId = funcInfo->FindOrAddInlineCacheId(lhs->sxBin.pnode1->location, propertyId, false, true);
             byteCodeGenerator->Writer()->PatchableProperty(
                 ByteCodeGenerator::GetStFldOpCode(funcInfo, false, false, false, false), rhsLocation, lhs->sxBin.pnode1->location, cacheId);
         }
@@ -8531,7 +8547,7 @@ void EmitMemberNode(ParseNode *memberNode, Js::RegSlot objectLocation, ByteCodeG
 
     if (nameNode->nop == knopComputedName)
     {
-        Assert(memberNode->nop == knopGetMember || memberNode->nop == knopSetMember || memberNode->nop == knopMember);
+        AssertOrFailFast(memberNode->nop == knopGetMember || memberNode->nop == knopSetMember || memberNode->nop == knopMember);
 
         Js::OpCode setOp = memberNode->nop == knopGetMember ?
             (isClassMember ? Js::OpCode::InitClassMemberGetComputedName : Js::OpCode::InitGetElemI) :
@@ -8603,7 +8619,7 @@ void EmitMemberNode(ParseNode *memberNode, Js::RegSlot objectLocation, ByteCodeG
     }
     else
     {
-        Assert(memberNode->nop == knopGetMember || memberNode->nop == knopSetMember);
+        AssertOrFailFast(memberNode->nop == knopGetMember || memberNode->nop == knopSetMember);
 
         Js::OpCode setOp = memberNode->nop == knopGetMember ?
             (isClassMember ? Js::OpCode::InitClassMemberGet : Js::OpCode::InitGetFld) :
@@ -10911,16 +10927,17 @@ void Emit(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator, FuncInfo *func
         Js::RegSlot protoLocation = callObjLocation;
         EmitSuperMethodBegin(pnode, byteCodeGenerator, funcInfo);
 
-        uint cacheId = funcInfo->FindOrAddInlineCacheId(callObjLocation, propertyId, false, false);
         if (pnode->IsCallApplyTargetLoad())
         {
             if (pnode->sxBin.pnode1->nop == knopSuper)
             {
                 Js::RegSlot tmpReg = byteCodeGenerator->EmitLdObjProto(Js::OpCode::LdHomeObjProto, funcInfo->superRegister, funcInfo);
+                uint cacheId = funcInfo->FindOrAddInlineCacheId(tmpReg, propertyId, false, false);
                 byteCodeGenerator->Writer()->PatchableProperty(Js::OpCode::LdFldForCallApplyTarget, pnode->location, tmpReg, cacheId);
             }
             else
             {
+                uint cacheId = funcInfo->FindOrAddInlineCacheId(callObjLocation, propertyId, false, false);
                 byteCodeGenerator->Writer()->PatchableProperty(Js::OpCode::LdFldForCallApplyTarget, pnode->location, protoLocation, cacheId);
             }
         }
@@ -10929,10 +10946,12 @@ void Emit(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator, FuncInfo *func
             if (pnode->sxBin.pnode1->nop == knopSuper)
             {
                 Js::RegSlot tmpReg = byteCodeGenerator->EmitLdObjProto(Js::OpCode::LdHomeObjProto, funcInfo->superRegister, funcInfo);
+                uint cacheId = funcInfo->FindOrAddInlineCacheId(tmpReg, propertyId, false, false);
                 byteCodeGenerator->Writer()->PatchablePropertyWithThisPtr(Js::OpCode::LdSuperFld, pnode->location, tmpReg, funcInfo->thisPointerRegister, cacheId, isConstructorCall);
             }
             else
             {
+                uint cacheId = funcInfo->FindOrAddInlineCacheId(callObjLocation, propertyId, false, false);
                 byteCodeGenerator->Writer()->PatchableProperty(Js::OpCode::LdFld, pnode->location, callObjLocation, cacheId, isConstructorCall);
             }
         }

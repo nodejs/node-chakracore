@@ -1821,7 +1821,7 @@ namespace Js
         JavascriptLibrary* library = arrayBufferConstructor->GetLibrary();
         library->AddMember(arrayBufferConstructor, PropertyIds::length, TaggedInt::ToVarUnchecked(1), PropertyNone);
         library->AddMember(arrayBufferConstructor, PropertyIds::prototype, scriptContext->GetLibrary()->arrayBufferPrototype, PropertyNone);
-        library->AddSpeciesAccessorsToLibraryObject(arrayBufferConstructor, &ArrayBuffer::EntryInfo::GetterSymbolSpecies);       
+        library->AddSpeciesAccessorsToLibraryObject(arrayBufferConstructor, &ArrayBuffer::EntryInfo::GetterSymbolSpecies);
 
         if (scriptContext->GetConfig()->IsES6FunctionNameEnabled())
         {
@@ -2595,7 +2595,7 @@ namespace Js
         scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ToISOString.GetOriginalEntryPoint(),
             library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toISOString, &JavascriptDate::EntryInfo::ToISOString, 0));
         scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ToJSON.GetOriginalEntryPoint(),
-             library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toJSON, &JavascriptDate::EntryInfo::ToJSON, 1));
+            library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toJSON, &JavascriptDate::EntryInfo::ToJSON, 1));
         scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ToLocaleDateString.GetOriginalEntryPoint(),
             library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toLocaleDateString, &JavascriptDate::EntryInfo::ToLocaleDateString, 0));
         scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ToLocaleString.GetOriginalEntryPoint(),
@@ -2606,9 +2606,12 @@ namespace Js
             library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toString, &JavascriptDate::EntryInfo::ToString, 0));
         scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ToTimeString.GetOriginalEntryPoint(),
             library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toTimeString, &JavascriptDate::EntryInfo::ToTimeString, 0));
-        scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ToUTCString.GetOriginalEntryPoint(),
-            library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toUTCString, &JavascriptDate::EntryInfo::ToUTCString, 0));
-        library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toGMTString, &JavascriptDate::EntryInfo::ToGMTString, 0);
+
+        // Spec stipulates toGMTString must be the same function object as toUTCString
+        JavascriptFunction *toUTCStringFunc = library->AddFunctionToLibraryObject(datePrototype, PropertyIds::toUTCString, &JavascriptDate::EntryInfo::ToUTCString, 0);
+        scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ToUTCString.GetOriginalEntryPoint(), toUTCStringFunc);
+        library->AddMember(datePrototype, PropertyIds::toGMTString, toUTCStringFunc, PropertyBuiltInMethodDefaults);
+
         scriptContext->SetBuiltInLibraryFunction(JavascriptDate::EntryInfo::ValueOf.GetOriginalEntryPoint(),
             library->AddFunctionToLibraryObject(datePrototype, PropertyIds::valueOf, &JavascriptDate::EntryInfo::ValueOf, 0));
 
@@ -3879,7 +3882,7 @@ namespace Js
     BuiltinFunction JavascriptLibrary::GetBuiltInForFuncInfo(intptr_t funcInfoAddr, ThreadContextInfo * context)
     {
 #define LIBRARY_FUNCTION(target, name, argc, flags, EntryInfo) \
-        if(funcInfoAddr == SHIFT_ADDR(context, (intptr_t)&EntryInfo)) \
+        if(funcInfoAddr == (intptr_t)ShiftAddr(context, &EntryInfo)) \
         { \
             return BuiltinFunction::##target##_##name; \
         }
@@ -5000,10 +5003,9 @@ namespace Js
 
     JavascriptFunction* JavascriptLibrary::AddFunction(DynamicObject* object, PropertyId propertyId, RuntimeFunction* function)
     {
-
-       AddMember(object, propertyId, function);
-       function->SetFunctionNameId(TaggedInt::ToVarUnchecked((int)propertyId));
-       return function;
+        AddMember(object, propertyId, function);
+        function->SetFunctionNameId(TaggedInt::ToVarUnchecked((int)propertyId));
+        return function;
     }
 
     JavascriptFunction * JavascriptLibrary::AddFunctionToLibraryObject(DynamicObject* object, PropertyId propertyId, FunctionInfo * functionInfo, int length, PropertyAttributes attributes)
@@ -5521,7 +5523,19 @@ namespace Js
 
     Js::RecyclableObject* JavascriptLibrary::CreateExternalFunction_TTD(Js::Var fname)
     {
-        return this->CreateStdCallExternalFunction(&JavascriptExternalFunction::TTDReplayDummyExternalMethod, fname, nullptr);
+        if(TaggedInt::Is(fname))
+        {
+            PropertyId pid = TaggedInt::ToInt32(fname);
+            if(!scriptContext->IsTrackedPropertyId(pid))
+            {
+                scriptContext->TrackPid(pid);
+            }
+        }
+
+        JavascriptExternalFunction* function = this->CreateIdMappedExternalFunction(&JavascriptExternalFunction::TTDReplayDummyExternalMethod, stdCallFunctionWithDeferredPrototypeType);
+        function->SetFunctionNameId(fname);
+        function->SetCallbackState(nullptr);
+        return function;
     }
 
     Js::RecyclableObject* JavascriptLibrary::CreateBoundFunction_TTD(RecyclableObject* function, Var bThis, uint32 ct, Var* args)
@@ -6609,16 +6623,7 @@ namespace Js
             PropertyId functionNamePropertyId = scriptContext->GetOrAddPropertyIdTracked(functionNameBuffer, functionNameBufferLength);
             functionNameOrId = TaggedInt::ToVarUnchecked(functionNamePropertyId);
         }
-#if ENABLE_TTD
-        else if (scriptContext->GetThreadContext()->IsRuntimeInTTDMode() && TaggedInt::Is(name))
-        {
-            PropertyId pid = TaggedInt::ToInt32(name);
-            if (!scriptContext->IsTrackedPropertyId(pid))
-            {
-                scriptContext->TrackPid(pid);
-            }
-        }
-#endif
+
         AssertOrFailFast(TaggedInt::Is(functionNameOrId));
         JavascriptExternalFunction* function = this->CreateIdMappedExternalFunction(entryPoint, stdCallFunctionWithDeferredPrototypeType);
         function->SetFunctionNameId(functionNameOrId);
@@ -6895,7 +6900,7 @@ namespace Js
     {
         if (this->propertyStringMap == nullptr)
         {
-            this->propertyStringMap = RecyclerNew(this->recycler, PropertyStringCacheMap, this->GetRecycler());
+            this->propertyStringMap = RecyclerNew(this->recycler, PropertyStringCacheMap, this->GetRecycler(), 71);
             this->scriptContext->RegisterWeakReferenceDictionary((JsUtil::IWeakReferenceDictionary*) this->propertyStringMap);
         }
         return this->propertyStringMap;
@@ -7664,7 +7669,6 @@ namespace Js
         REG_OBJECTS_LIB_FUNC(toString, JavascriptDate::EntryToString);
         REG_OBJECTS_LIB_FUNC(toTimeString, JavascriptDate::EntryToTimeString);
         REG_OBJECTS_LIB_FUNC(toUTCString, JavascriptDate::EntryToUTCString);
-        REG_OBJECTS_LIB_FUNC(toGMTString, JavascriptDate::EntryToGMTString);
         REG_OBJECTS_LIB_FUNC(valueOf, JavascriptDate::EntryValueOf);
 
         return hr;

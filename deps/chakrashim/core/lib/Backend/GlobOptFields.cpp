@@ -332,19 +332,19 @@ GlobOpt::KillLiveFields(PropertySym * propertySym, BVSparse<JitArenaAllocator> *
     KillLiveFields(propertySym->m_propertyEquivSet, bv);
 }
 
-void GlobOpt::KillLiveFields(BVSparse<JitArenaAllocator> *const propertyEquivSet, BVSparse<JitArenaAllocator> *const bv) const
+void GlobOpt::KillLiveFields(BVSparse<JitArenaAllocator> *const fieldsToKill, BVSparse<JitArenaAllocator> *const bv) const
 {
     Assert(bv);
 
-    if (propertyEquivSet)
+    if (fieldsToKill)
     {
-        bv->Minus(propertyEquivSet);
+        bv->Minus(fieldsToKill);
 
         if (this->IsLoopPrePass())
         {
             for (Loop * loop = this->rootLoopPrePass; loop != nullptr; loop = loop->parent)
             {
-                loop->fieldKilled->Or(propertyEquivSet);
+                loop->fieldKilled->Or(fieldsToKill);
             }
         }
     }
@@ -561,6 +561,15 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
         {
             // Consider: We may not need to kill all fields here.
             this->KillAllFields(bv);
+        }
+        break;
+
+    case Js::OpCode::LdHeapArguments:
+    case Js::OpCode::LdLetHeapArguments:
+    case Js::OpCode::LdHeapArgsCached:
+    case Js::OpCode::LdLetHeapArgsCached:
+        if (inGlobOpt) {
+            this->KillLiveFields(this->slotSyms, bv);
         }
         break;
 
@@ -3207,6 +3216,14 @@ GlobOpt::UpdateObjPtrValueType(IR::Opnd * opnd, IR::Instr * instr)
 
     ValueType objValueType = objVal->GetValueInfo()->Type();
     if (objValueType.IsDefinite())
+    {
+        return;
+    }
+
+    ValueInfo *objValueInfo = objVal->GetValueInfo();
+
+    // It is possible for a valueInfo to be not definite and still have a byteCodeConstant as symStore, this is because we conservatively copy valueInfo in prePass
+    if (objValueInfo->GetSymStore() && objValueInfo->GetSymStore()->IsStackSym() && objValueInfo->GetSymStore()->AsStackSym()->IsFromByteCodeConstantTable())
     {
         return;
     }

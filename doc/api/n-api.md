@@ -42,6 +42,8 @@ The documentation for N-API is structured as follows:
 * [Working with JavaScript Functions][]
 * [Object Wrap][]
 * [Asynchronous Operations][]
+* [Promises][]
+* [Script Execution][]
 
 The N-API is a C API that ensures ABI stability across Node.js versions
 and different compiler levels. However, we also understand that a C++
@@ -876,7 +878,7 @@ except that instead of using the `NODE_MODULE` macro the following
 is used:
 
 ```C
-NAPI_MODULE(addon, Init)
+NAPI_MODULE(NODE_GYP_MODULE_NAME, Init)
 ```
 
 The next difference is the signature for the `Init` method. For a N-API
@@ -1462,6 +1464,31 @@ The JavaScript Number type is described in
 [Section 6.1.6](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-number-type)
 of the ECMAScript Language Specification.
 
+#### *napi_create_string_latin1*
+<!-- YAML
+added: v8.0.0
+-->
+```C
+NAPI_EXTERN napi_status napi_create_string_latin1(napi_env env,
+                                                  const char* str,
+                                                  size_t length,
+                                                  napi_value* result);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] str`: Character buffer representing a ISO-8859-1-encoded string.
+- `[in] length`: The length of the string in bytes, or -1 if it is
+null-terminated.
+- `[out] result`: A `napi_value` representing a JavaScript String.
+
+Returns `napi_ok` if the API succeeded.
+
+This API creates a JavaScript String object from a ISO-8859-1-encoded C string.
+
+The JavaScript String type is described in
+[Section 6.1.4](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-string-type)
+of the ECMAScript Language Specification.
+
 #### *napi_create_string_utf16*
 <!-- YAML
 added: v8.0.0
@@ -1482,31 +1509,6 @@ it is null-terminated.
 Returns `napi_ok` if the API succeeded.
 
 This API creates a JavaScript String object from a UTF16-LE-encoded C string
-
-The JavaScript String type is described in
-[Section 6.1.4](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-string-type)
-of the ECMAScript Language Specification.
-
-#### *napi_create_string_latin1*
-<!-- YAML
-added: v8.0.0
--->
-```C
-NAPI_EXTERN napi_status napi_create_string_latin1(napi_env env,
-                                                  const char* str,
-                                                  size_t length,
-                                                  napi_value* result);
-```
-
-- `[in] env`: The environment that the API is invoked under.
-- `[in] str`: Character buffer representing a latin1-encoded string.
-- `[in] length`: The length of the string in bytes, or -1 if it is
-null-terminated.
-- `[out] result`: A `napi_value` representing a JavaScript String.
-
-Returns `napi_ok` if the API succeeded.
-
-This API creates a JavaScript String object from a latin1-encoded C string.
 
 The JavaScript String type is described in
 [Section 6.1.4](https://tc39.github.io/ecma262/#sec-ecmascript-language-types-string-type)
@@ -1795,6 +1797,33 @@ is passed in it returns `napi_number_expected`.
 This API returns the C int64 primitive equivalent of the given
 JavaScript Number
 
+#### *napi_get_value_string_latin1*
+<!-- YAML
+added: v8.0.0
+-->
+```C
+NAPI_EXTERN napi_status napi_get_value_string_latin1(napi_env env,
+                                                     napi_value value,
+                                                     char* buf,
+                                                     size_t bufsize,
+                                                     size_t* result)
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] value`: `napi_value` representing JavaScript string.
+- `[in] buf`: Buffer to write the ISO-8859-1-encoded string into. If NULL is
+passed in, the length of the string (in bytes) is returned.
+- `[in] bufsize`: Size of the destination buffer. When this value is
+insufficient, the returned string will be truncated.
+- `[out] result`: Number of bytes copied into the buffer, excluding the null
+terminator.
+
+Returns `napi_ok` if the API succeeded. If a non-String `napi_value`
+is passed in it returns `napi_string_expected`.
+
+This API returns the ISO-8859-1-encoded string corresponding the value passed
+in.
+
 #### *napi_get_value_string_utf8*
 <!-- YAML
 added: v8.0.0
@@ -1811,13 +1840,13 @@ napi_status napi_get_value_string_utf8(napi_env env,
 - `[in] value`: `napi_value` representing JavaScript string.
 - `[in] buf`: Buffer to write the UTF8-encoded string into. If NULL is passed
  in, the length of the string (in bytes) is returned.
-- `[in] bufsize`: Size of the destination buffer.
-- `[out] result`: Number of bytes copied into the buffer including the null.
-terminator. If the buffer size is insufficient, the string will be truncated
-including a null terminator.
+- `[in] bufsize`: Size of the destination buffer. When this value is
+insufficient, the returned string will be truncated.
+- `[out] result`: Number of bytes copied into the buffer, excluding the null
+terminator.
 
-Returns `napi_ok` if the API succeeded. Ifa non-String `napi_value`
-x is passed in it returns `napi_string_expected`.
+Returns `napi_ok` if the API succeeded. If a non-String `napi_value`
+is passed in it returns `napi_string_expected`.
 
 This API returns the UTF8-encoded string corresponding the value passed in.
 
@@ -1837,10 +1866,10 @@ napi_status napi_get_value_string_utf16(napi_env env,
 - `[in] value`: `napi_value` representing JavaScript string.
 - `[in] buf`: Buffer to write the UTF16-LE-encoded string into. If NULL is
 passed in, the length of the string (in 2-byte code units) is returned.
-- `[in] bufsize`: Size of the destination buffer.
-- `[out] result`: Number of 2-byte code units copied into the buffer including
-the null terminateor. If the buffer size is insufficient, the string will be
-truncated including a null terminator.
+- `[in] bufsize`: Size of the destination buffer. When this value is
+insufficient, the returned string will be truncated.
+- `[out] result`: Number of 2-byte code units copied into the buffer, excluding the null
+terminator.
 
 Returns `napi_ok` if the API succeeded. If a non-String `napi_value`
 is passed in it returns `napi_string_expected`.
@@ -2846,7 +2875,7 @@ void Init(napi_env env, napi_value exports, napi_value module, void* priv) {
   if (status != napi_ok) return;
 }
 
-NAPI_MODULE(addon, Init)
+NAPI_MODULE(NODE_GYP_MODULE_NAME, Init)
 ```
 
 Given the above code, the add-on can be used from JavaScript as follows:
@@ -3125,7 +3154,9 @@ Afterward, additional manipulation of the wrapper's prototype chain may cause
 
 *Note*: Calling `napi_wrap()` a second time on an object that already has a
 native instance associated with it by virtue of a previous call to
-`napi_wrap()` will cause an error to be returned.
+`napi_wrap()` will cause an error to be returned. If you wish to associate
+another native instance with the given object, call `napi_remove_wrap()` on it
+first.
 
 ### *napi_unwrap*
 <!-- YAML
@@ -3138,8 +3169,8 @@ napi_status napi_unwrap(napi_env env,
 ```
 
  - `[in] env`: The environment that the API is invoked under.
- - `[in] js_object`: The object associated with the C++ class instance.
- - `[out] result`: Pointer to the wrapped C++ class instance.
+ - `[in] js_object`: The object associated with the native instance.
+ - `[out] result`: Pointer to the wrapped native instance.
 
 Returns `napi_ok` if the API succeeded.
 
@@ -3151,6 +3182,28 @@ corresponding `napi_callback` is invoked. If the callback is for an instance
 method or accessor, then the `this` argument to the callback is the wrapper
 object; the wrapped C++ instance that is the target of the call can be obtained
 then by calling `napi_unwrap()` on the wrapper object.
+
+### *napi_remove_wrap*
+<!-- YAML
+added: v8.5.0
+-->
+```C
+napi_status napi_remove_wrap(napi_env env,
+                             napi_value js_object,
+                             void** result);
+```
+
+ - `[in] env`: The environment that the API is invoked under.
+ - `[in] js_object`: The object associated with the native instance.
+ - `[out] result`: Pointer to the wrapped native instance.
+
+Returns `napi_ok` if the API succeeded.
+
+Retrieves a native instance that was previously wrapped in the JavaScript
+object `js_object` using `napi_wrap()` and removes the wrapping, thereby
+restoring the JavaScript object's prototype chain. If a finalize callback was
+associated with the wrapping, it will no longer be called when the JavaScript
+object becomes garbage-collected.
 
 ## Asynchronous Operations
 
@@ -3342,8 +3395,188 @@ support it:
 * If the function is not available, provide an alternate implementation
   that does not use the function.
 
+## Memory Management
+
+### napi_adjust_external_memory
+<!-- YAML
+added: v8.5.0
+-->
+```C
+NAPI_EXTERN napi_status napi_adjust_external_memory(napi_env env,
+                                                    int64_t change_in_bytes,
+                                                    int64_t* result);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] change_in_bytes`: The change in externally allocated memory that is
+kept alive by JavaScript objects.
+- `[out] result`: The adjusted value
+
+Returns `napi_ok` if the API succeeded.
+
+This function gives V8 an indication of the amount of externally allocated
+memory that is kept alive by JavaScript objects (i.e. a JavaScript object
+that points to its own memory allocated by a native module). Registering
+externally allocated memory will trigger global garbage collections more
+often than it would otherwise.
+
 <!-- it's very convenient to have all the anchors indexed -->
 <!--lint disable no-unused-definitions remark-lint-->
+## Promises
+
+N-API provides facilities for creating `Promise` objects as described in
+[Section 25.4][] of the ECMA specification. It implements promises as a pair of
+objects. When a promise is created by `napi_create_promise()`, a "deferred"
+object is created and returned alongside the `Promise`. The deferred object is
+bound to the created `Promise` and is the only means to resolve or reject the
+`Promise` using `napi_resolve_deferred()` or `napi_reject_deferred()`. The
+deferred object that is created by `napi_create_promise()` is freed by
+`napi_resolve_deferred()` or `napi_reject_deferred()`. The `Promise` object may
+be returned to JavaScript where it can be used in the usual fashion.
+
+For example, to create a promise and pass it to an asynchronous worker:
+```c
+napi_deferred deferred;
+napi_value promise;
+napi_status status;
+
+// Create the promise.
+status = napi_create_promise(env, &deferred, &promise);
+if (status != napi_ok) return NULL;
+
+// Pass the deferred to a function that performs an asynchronous action.
+do_something_asynchronous(deferred);
+
+// Return the promise to JS
+return promise;
+```
+
+The above function `do_something_asynchronous()` would perform its asynchronous
+action and then it would resolve or reject the deferred, thereby concluding the
+promise and freeing the deferred:
+```c
+napi_deferred deferred;
+napi_value undefined;
+napi_status status;
+
+// Create a value with which to conclude the deferred.
+status = napi_get_undefined(env, &undefined);
+if (status != napi_ok) return NULL;
+
+// Resolve or reject the promise associated with the deferred depending on
+// whether the asynchronous action succeeded.
+if (asynchronous_action_succeeded) {
+  status = napi_resolve_deferred(env, deferred, undefined);
+} else {
+  status = napi_reject_deferred(env, deferred, undefined);
+}
+if (status != napi_ok) return NULL;
+
+// At this point the deferred has been freed, so we should assign NULL to it.
+deferred = NULL;
+```
+
+### napi_create_promise
+<!-- YAML
+added: v8.5.0
+-->
+```C
+NAPI_EXTERN napi_status napi_create_promise(napi_env env,
+                                            napi_deferred* deferred,
+                                            napi_value* promise);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[out] deferred`: A newly created deferred object which can later be passed to
+`napi_resolve_deferred()` or `napi_reject_deferred()` to resolve resp. reject
+the associated promise.
+- `[out] promise`: The JavaScript promise associated with the deferred object.
+
+Returns `napi_ok` if the API succeeded.
+
+This API creates a deferred object and a JavaScript promise.
+
+### napi_resolve_deferred
+<!-- YAML
+added: v8.5.0
+-->
+```C
+NAPI_EXTERN napi_status napi_resolve_deferred(napi_env env,
+                                              napi_deferred deferred,
+                                              napi_value resolution);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] deferred`: The deferred object whose associated promise to resolve.
+- `[in] resolution`: The value with which to resolve the promise.
+
+This API resolves a JavaScript promise by way of the deferred object
+with which it is associated. Thus, it can only be used to resolve JavaScript
+promises for which the corresponding deferred object is available. This
+effectively means that the promise must have been created using
+`napi_create_promise()` and the deferred object returned from that call must
+have been retained in order to be passed to this API.
+
+The deferred object is freed upon successful completion.
+
+### napi_reject_deferred
+<!-- YAML
+added: v8.5.0
+-->
+```C
+NAPI_EXTERN napi_status napi_reject_deferred(napi_env env,
+                                             napi_deferred deferred,
+                                             napi_value rejection);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] deferred`: The deferred object whose associated promise to resolve.
+- `[in] rejection`: The value with which to reject the promise.
+
+This API rejects a JavaScript promise by way of the deferred object
+with which it is associated. Thus, it can only be used to reject JavaScript
+promises for which the corresponding deferred object is available. This
+effectively means that the promise must have been created using
+`napi_create_promise()` and the deferred object returned from that call must
+have been retained in order to be passed to this API.
+
+The deferred object is freed upon successful completion.
+
+### napi_is_promise
+<!-- YAML
+added: v8.5.0
+-->
+```C
+NAPI_EXTERN napi_status napi_is_promise(napi_env env,
+                                        napi_value promise,
+                                        bool* is_promise);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] promise`: The promise to examine
+- `[out] is_promise`: Flag indicating whether `promise` is a native promise
+object - that is, a promise object created by the underlying engine.
+
+## Script execution
+
+N-API provides an API for executing a string containing JavaScript using the
+underlying JavaScript engine.
+
+### napi_run_script
+<!-- YAML
+added: v8.5.0
+-->
+```C
+NAPI_EXTERN napi_status napi_run_script(napi_env env,
+                                        napi_value script,
+                                        napi_value* result);
+```
+
+- `[in] env`: The environment that the API is invoked under.
+- `[in] script`: A JavaScript string containing the script to execute.
+- `[out] result`: The value resulting from having executed the script.
+
+[Promises]: #n_api_promises
 [Asynchronous Operations]: #n_api_asynchronous_operations
 [Basic N-API Data Types]: #n_api_basic_n_api_data_types
 [ECMAScript Language Specification]: https://tc39.github.io/ecma262/
@@ -3352,9 +3585,11 @@ support it:
 [Native Abstractions for Node.js]: https://github.com/nodejs/nan
 [Object Lifetime Management]: #n_api_object_lifetime_management
 [Object Wrap]: #n_api_object_wrap
+[Script Execution]: #n_api_script_execution
 [Section 9.1.6]: https://tc39.github.io/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots-defineownproperty-p-desc
 [Section 12.5.5]: https://tc39.github.io/ecma262/#sec-typeof-operator
 [Section 24.3]: https://tc39.github.io/ecma262/#sec-dataview-objects
+[Section 25.4]: https://tc39.github.io/ecma262/#sec-promise-objects
 [Working with JavaScript Functions]: #n_api_working_with_javascript_functions
 [Working with JavaScript Properties]: #n_api_working_with_javascript_properties
 [Working with JavaScript Values]: #n_api_working_with_javascript_values

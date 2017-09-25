@@ -404,7 +404,7 @@ case_2:
             break;
 
         default:
-            js_memcpy_s(dst, sizeof(char16) * countNeeded, str, sizeof(char16) * countNeeded);
+            js_wmemcpy_s(dst, countNeeded, str, countNeeded);
         }
     }
 
@@ -3357,7 +3357,7 @@ case_2:
         BufferStringBuilder builder(count, scriptContext);
         char16* stringBuffer = builder.DangerousGetWritableBuffer();
 
-        int count1 = PlatformAgnostic::UnicodeText::ChangeStringLinguisticCase(caseFlags, str, count, stringBuffer, count, &err);
+        int count1 = PlatformAgnostic::UnicodeText::ChangeStringLinguisticCase(caseFlags, str, strLength, stringBuffer, count, &err);
 
         if (count1 <= 0)
         {
@@ -3551,7 +3551,7 @@ case_2:
                 // Quick check for first character.
                 if (stringSz[i] == substringSz[0])
                 {
-                    if (substringLen == 1 || memcmp(stringSz+i+1, substringSz+1, (substringLen-1)*sizeof(char16)) == 0)
+                    if (substringLen == 1 || wmemcmp(stringSz + i + 1, substringSz + 1, substringLen - 1) == 0)
                     {
                         return i + start;
                     }

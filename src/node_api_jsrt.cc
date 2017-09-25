@@ -56,6 +56,10 @@
     if (status != napi_ok) return status;                               \
   } while (0)
 
+
+// utf8 multibyte codepoint start check
+#define UTF8_MULTIBYTE_START(c) (((c) & 0xC0) == 0xC0)
+
 static napi_status napi_set_last_error(napi_status error_code,
                                        uint32_t engine_error_code = 0,
                                        void* engine_reserved = nullptr);
@@ -258,38 +262,19 @@ class StringUtf8 {
   napi_status From(JsValueRef strRef) {
     CHAKRA_ASSERT(!_str);
 
-    int strLength = 0;
-    CHECK_JSRT_EXPECTED(JsGetStringLength(strRef, &strLength),
+    size_t length = 0;
+    CHECK_JSRT_EXPECTED(JsCopyString(strRef, nullptr, 0, &length),
                         napi_string_expected);
 
-    // assume string contains ascii characters only
-    _str = reinterpret_cast<char*>(malloc(strLength + 1));
+    _str = reinterpret_cast<char*>(malloc(length + 1));
+    CHAKRA_VERIFY(_str != nullptr);
 
-    size_t written = 0;
-    size_t actualLength = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(strRef, _str, strLength, &written, &actualLength),
+      JsCopyString(strRef, _str, length, nullptr),
                    napi_string_expected);
 
-    // if string contains unicode characters, take slow path
-    if (actualLength != written) {
-      // free previously allocated buffer
-      free(_str);
-
-      _str = reinterpret_cast<char*>(malloc(actualLength + 1));
-      if (_str == nullptr) {
-        return napi_set_last_error(napi_generic_failure);
-      }
-      CHECK_JSRT_EXPECTED(
-        JsCopyString(strRef, _str, actualLength, &written, nullptr),
-                     napi_string_expected);
-      assert(actualLength == written);
-    } else if (strLength != written) {
-      return napi_set_last_error(napi_generic_failure);
-    }
-
-    _str[written] = '\0';
-    _length = written;
+    _str[length] = '\0';
+    _length = length;
     return napi_ok;
   }
 
@@ -346,27 +331,62 @@ JsNameValueFromPropertyDescriptor(const napi_property_descriptor* p,
   return napi_ok;
 }
 
-inline napi_status FindWrapper(JsValueRef obj, JsValueRef* result) {
+inline napi_status FindWrapper(JsValueRef obj, JsValueRef* wrapper,
+                               JsValueRef* parent = nullptr) {
   // Search the object's prototype chain for the wrapper with external data.
   // Usually the wrapper would be the first in the chain, but it is OK for
   // other objects to be inserted in the prototype chain.
-  JsValueRef wrapper = obj;
+  JsValueRef candidate = obj;
+  JsValueRef current = JS_INVALID_REFERENCE;
   bool hasExternalData = false;
 
   JsValueRef nullValue = JS_INVALID_REFERENCE;
   CHECK_JSRT(JsGetNullValue(&nullValue));
 
   do {
-    CHECK_JSRT(JsGetPrototype(wrapper, &wrapper));
-    if (wrapper == JS_INVALID_REFERENCE || wrapper == nullValue) {
-      *result = JS_INVALID_REFERENCE;
+    current = candidate;
+
+    CHECK_JSRT(JsGetPrototype(current, &candidate));
+    if (candidate == JS_INVALID_REFERENCE || candidate == nullValue) {
+      if (parent != nullptr) {
+        *parent = JS_INVALID_REFERENCE;
+      }
+
+      *wrapper = JS_INVALID_REFERENCE;
       return napi_ok;
     }
 
-    CHECK_JSRT(JsHasExternalData(wrapper, &hasExternalData));
+    CHECK_JSRT(JsHasExternalData(candidate, &hasExternalData));
   } while (!hasExternalData);
 
-  *result = wrapper;
+  if (parent != nullptr) {
+    *parent = current;
+  }
+
+  *wrapper = candidate;
+
+  return napi_ok;
+}
+
+inline napi_status Unwrap(JsValueRef obj, jsrtimpl::ExternalData** externalData,
+                          JsValueRef* wrapper = nullptr,
+                          JsValueRef* parent = nullptr) {
+  JsValueRef candidate = JS_INVALID_REFERENCE;
+  JsValueRef candidateParent = JS_INVALID_REFERENCE;
+  CHECK_NAPI(jsrtimpl::FindWrapper(obj, &candidate, &candidateParent));
+  RETURN_STATUS_IF_FALSE(candidate != JS_INVALID_REFERENCE, napi_invalid_arg);
+
+  CHECK_JSRT(JsGetExternalData(candidate,
+                               reinterpret_cast<void**>(externalData)));
+
+  if (wrapper != nullptr) {
+    *wrapper = candidate;
+  }
+
+  if (parent != nullptr) {
+    *parent = candidateParent;
+  }
+
   return napi_ok;
 }
 
@@ -466,6 +486,26 @@ static napi_status SetErrorCode(JsValueRef error,
 
     CHECK_JSRT(JsSetProperty(error, namePropId, nameValue, true));
   }
+  return napi_ok;
+}
+
+napi_status ConcludeDeferred(napi_env env,
+                             napi_deferred deferred,
+                             const char* property,
+                             napi_value result) {
+  // We do not check if property is OK, because that's not coming from outside.
+  CHECK_ARG(deferred);
+  CHECK_ARG(result);
+
+  napi_value container, resolver, js_null;
+  napi_ref ref = reinterpret_cast<napi_ref>(deferred);
+
+  CHECK_NAPI(napi_get_reference_value(env, ref, &container));
+  CHECK_NAPI(napi_get_named_property(env, container, property, &resolver));
+  CHECK_NAPI(napi_get_null(env, &js_null));
+  CHECK_NAPI(napi_call_function(env, js_null, resolver, 1, &result, nullptr));
+  CHECK_NAPI(napi_delete_reference(env, ref));
+
   return napi_ok;
 }
 
@@ -1467,24 +1507,65 @@ napi_status napi_get_value_string_latin1(napi_env env,
   if (!buf) {
     CHECK_ARG(result);
 
-    JsErrorCode err = JsCopyString(js_value, nullptr, 0, nullptr, result);
+    JsErrorCode err = JsCopyString(js_value, nullptr, 0, result);
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
   } else {
-    size_t copied = 0;
+    size_t count = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(js_value, buf, bufsize - 1, &copied, nullptr),
+      JsCopyString(js_value, nullptr, 0, &count),
       napi_string_expected);
 
-    if (copied < bufsize - 1) {
-      buf[copied] = 0;
-    } else {
-      buf[bufsize - 1] = 0;
+    if (bufsize <= count) {
+      // if bufsize == count there is no space for null terminator
+      // Slow path: must implement truncation here.
+      char* fullBuffer = static_cast<char *>(malloc(count));
+      CHAKRA_VERIFY(fullBuffer != nullptr);
+
+      CHECK_JSRT_EXPECTED(
+        JsCopyString(js_value, fullBuffer, count, nullptr),
+        napi_string_expected);
+      memmove(buf, fullBuffer, sizeof(char) * bufsize);
+      free(fullBuffer);
+
+      // Truncate string to the start of the last codepoint
+      if (bufsize > 0 &&
+          (((buf[bufsize-1] & 0x80) == 0)
+            || UTF8_MULTIBYTE_START(buf[bufsize-1]))
+        ) {
+        // Last byte is a single byte codepoint or
+        // starts a multibyte codepoint
+        bufsize -= 1;
+      } else if (bufsize > 1 && UTF8_MULTIBYTE_START(buf[bufsize-2])) {
+        // Second last byte starts a multibyte codepoint,
+        bufsize -= 2;
+      } else if (bufsize > 2 && UTF8_MULTIBYTE_START(buf[bufsize-3])) {
+        // Third last byte starts a multibyte codepoint
+        bufsize -= 3;
+      } else if (bufsize > 3 && UTF8_MULTIBYTE_START(buf[bufsize-4])) {
+        // Fourth last byte starts a multibyte codepoint
+        bufsize -= 4;
+      }
+
+      buf[bufsize] = '\0';
+
+      if (result) {
+        *result = bufsize;
+      }
+
+      return napi_ok;
     }
 
+    // Fastpath, result fits in the buffer
+    CHECK_JSRT_EXPECTED(
+      JsCopyString(js_value, buf, bufsize-1, &count),
+      napi_string_expected);
+
+    buf[count] = 0;
+
     if (result != nullptr) {
-      *result = copied;
+      *result = count;
     }
   }
 
@@ -1510,24 +1591,65 @@ napi_status napi_get_value_string_utf8(napi_env env,
   if (!buf) {
     CHECK_ARG(result);
 
-    JsErrorCode err = JsCopyString(js_value, nullptr, 0, nullptr, result);
+    JsErrorCode err = JsCopyString(js_value, nullptr, 0, result);
     if (err != JsErrorInvalidArgument) {
       return napi_set_last_error(err);
     }
   } else {
-    size_t copied = 0;
+    size_t count = 0;
     CHECK_JSRT_EXPECTED(
-      JsCopyString(js_value, buf, bufsize - 1, &copied, nullptr),
+      JsCopyString(js_value, nullptr, 0, &count),
       napi_string_expected);
 
-    if (copied < bufsize - 1) {
-      buf[copied] = 0;
-    } else {
-      buf[bufsize - 1] = 0;
+    if (bufsize <= count) {
+      // if bufsize == count there is no space for null terminator
+      // Slow path: must implement truncation here.
+      char* fullBuffer = static_cast<char *>(malloc(count));
+      CHAKRA_VERIFY(fullBuffer != nullptr);
+
+      CHECK_JSRT_EXPECTED(
+        JsCopyString(js_value, fullBuffer, count, nullptr),
+        napi_string_expected);
+      memmove(buf, fullBuffer, sizeof(char) * bufsize);
+      free(fullBuffer);
+
+      // Truncate string to the start of the last codepoint
+      if (bufsize > 0 &&
+          (((buf[bufsize-1] & 0x80) == 0)
+           || UTF8_MULTIBYTE_START(buf[bufsize-1]))
+        ) {
+        // Last byte is a single byte codepoint or
+        // starts a multibyte codepoint
+        bufsize -= 1;
+      } else if (bufsize > 1 && UTF8_MULTIBYTE_START(buf[bufsize-2])) {
+        // Second last byte starts a multibyte codepoint,
+        bufsize -= 2;
+      } else if (bufsize > 2 && UTF8_MULTIBYTE_START(buf[bufsize-3])) {
+        // Third last byte starts a multibyte codepoint
+        bufsize -= 3;
+      } else if (bufsize > 3 && UTF8_MULTIBYTE_START(buf[bufsize-4])) {
+        // Fourth last byte starts a multibyte codepoint
+        bufsize -= 4;
+      }
+
+      buf[bufsize] = '\0';
+
+      if (result) {
+        *result = bufsize;
+      }
+
+      return napi_ok;
     }
 
+    // Fastpath, result fits in the buffer
+    CHECK_JSRT_EXPECTED(
+      JsCopyString(js_value, buf, bufsize-1, &count),
+      napi_string_expected);
+
+    buf[count] = 0;
+
     if (result != nullptr) {
-      *result = copied;
+      *result = count;
     }
   }
 
@@ -1639,12 +1761,12 @@ napi_status napi_wrap(napi_env env,
   if (externalData == nullptr) return napi_set_last_error(napi_generic_failure);
 
   // Create an external object that will hold the external data pointer.
-  JsValueRef external;
+  JsValueRef external = JS_INVALID_REFERENCE;
   CHECK_JSRT(JsCreateExternalObject(
     externalData, jsrtimpl::ExternalData::Finalize, &external));
 
   // Insert the external object into the value's prototype chain.
-  JsValueRef valuePrototype;
+  JsValueRef valuePrototype = JS_INVALID_REFERENCE;
   CHECK_JSRT(JsGetPrototype(value, &valuePrototype));
   CHECK_JSRT(JsSetPrototype(external, valuePrototype));
   CHECK_JSRT(JsSetPrototype(value, external));
@@ -1659,15 +1781,39 @@ napi_status napi_wrap(napi_env env,
 napi_status napi_unwrap(napi_env env, napi_value js_object, void** result) {
   JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
 
-  JsValueRef wrapper = JS_INVALID_REFERENCE;
-  CHECK_NAPI(jsrtimpl::FindWrapper(value, &wrapper));
-  RETURN_STATUS_IF_FALSE(wrapper != JS_INVALID_REFERENCE, napi_invalid_arg);
-
-  jsrtimpl::ExternalData* externalData;
-  CHECK_JSRT(JsGetExternalData(
-    wrapper, reinterpret_cast<void**>(&externalData)));
+  jsrtimpl::ExternalData* externalData = nullptr;
+  CHECK_NAPI(jsrtimpl::Unwrap(value, &externalData));
 
   *result = (externalData != nullptr ? externalData->Data() : nullptr);
+
+  return napi_ok;
+}
+
+napi_status napi_remove_wrap(napi_env env, napi_value js_object,
+                             void** result) {
+  JsValueRef value = reinterpret_cast<JsValueRef>(js_object);
+
+  jsrtimpl::ExternalData* externalData = nullptr;
+  JsValueRef parent = JS_INVALID_REFERENCE;
+  JsValueRef wrapper = JS_INVALID_REFERENCE;
+  CHECK_NAPI(jsrtimpl::Unwrap(value, &externalData, &wrapper, &parent));
+  RETURN_STATUS_IF_FALSE(parent != JS_INVALID_REFERENCE, napi_invalid_arg);
+  RETURN_STATUS_IF_FALSE(wrapper != JS_INVALID_REFERENCE, napi_invalid_arg);
+
+  // Remove the external from the prototype chain
+  JsValueRef wrapperProto = JS_INVALID_REFERENCE;
+  CHECK_JSRT(JsGetPrototype(wrapper, &wrapperProto));
+  CHECK_JSRT(JsSetPrototype(parent, wrapperProto));
+
+  // Clear the external data from the object
+  CHECK_JSRT(JsSetExternalData(wrapper, nullptr));
+
+  if (externalData != nullptr) {
+    *result = externalData->Data();
+    delete externalData;
+  } else {
+    *result = nullptr;
+  }
 
   return napi_ok;
 }
@@ -2371,6 +2517,43 @@ napi_status napi_get_node_version(napi_env env,
   return napi_ok;
 }
 
+napi_status napi_adjust_external_memory(napi_env env,
+                                        int64_t change_in_bytes,
+                                        int64_t* adjusted_value) {
+  CHECK_ARG(&change_in_bytes);
+  CHECK_ARG(adjusted_value);
+
+  // TODO(jackhorton): Determine if Chakra needs or is able to do anything here
+
+  return napi_ok;
+}
+
+JsValueRef runScriptSourceUrl = JS_INVALID_REFERENCE;
+
+napi_status napi_run_script(napi_env env,
+                            napi_value script,
+                            napi_value* result) {
+  CHECK_ARG(script);
+  CHECK_ARG(result);
+  JsValueRef scriptVar = reinterpret_cast<JsValueRef>(script);
+
+  if (runScriptSourceUrl == JS_INVALID_REFERENCE) {
+    const char * napiScriptString = "NAPI run script";
+    CHECK_JSRT(JsCreateString(napiScriptString,
+                   strlen(napiScriptString),
+                   &runScriptSourceUrl));
+  }
+
+  CHECK_JSRT_EXPECTED(JsRun(scriptVar,
+                            JS_SOURCE_CONTEXT_NONE,
+                            runScriptSourceUrl,
+                            JsParseScriptAttributeNone,
+                            reinterpret_cast<JsValueRef*>(result)),
+                      napi_string_expected);
+
+  return napi_ok;
+}
+
 namespace uvimpl {
 
 napi_status ConvertUVErrorCode(int code) {
@@ -2499,6 +2682,61 @@ napi_status napi_cancel_async_work(napi_env env, napi_async_work work) {
   uvimpl::Work* w = reinterpret_cast<uvimpl::Work*>(work);
 
   CALL_UV(uv_cancel(reinterpret_cast<uv_req_t*>(w->Request())));
+
+  return napi_ok;
+}
+
+NAPI_EXTERN napi_status napi_create_promise(napi_env env,
+                                            napi_deferred* deferred,
+                                            napi_value* promise) {
+  CHECK_ARG(deferred);
+  CHECK_ARG(promise);
+
+  JsValueRef js_promise, resolve, reject, container;
+  napi_ref ref;
+  napi_value js_deferred;
+
+  CHECK_JSRT(JsCreatePromise(&js_promise, &resolve, &reject));
+
+  CHECK_JSRT(JsCreateObject(&container));
+  js_deferred = reinterpret_cast<napi_value>(container);
+
+  CHECK_NAPI(napi_set_named_property(env, js_deferred, "resolve",
+    reinterpret_cast<napi_value>(resolve)));
+  CHECK_NAPI(napi_set_named_property(env, js_deferred, "reject",
+    reinterpret_cast<napi_value>(reject)));
+
+  CHECK_NAPI(napi_create_reference(env, js_deferred, 1, &ref));
+
+  *deferred = reinterpret_cast<napi_deferred>(ref);
+  *promise = reinterpret_cast<napi_value>(js_promise);
+
+  return napi_ok;
+}
+
+NAPI_EXTERN napi_status napi_resolve_deferred(napi_env env,
+                                              napi_deferred deferred,
+                                              napi_value resolution) {
+  return jsrtimpl::ConcludeDeferred(env, deferred, "resolve", resolution);
+}
+
+NAPI_EXTERN napi_status napi_reject_deferred(napi_env env,
+                                             napi_deferred deferred,
+                                             napi_value rejection) {
+  return jsrtimpl::ConcludeDeferred(env, deferred, "reject", rejection);
+}
+
+NAPI_EXTERN napi_status napi_is_promise(napi_env env,
+                                        napi_value promise,
+                                        bool* is_promise) {
+  CHECK_ARG(promise);
+  CHECK_ARG(is_promise);
+
+  napi_value global, promise_ctor;
+
+  CHECK_NAPI(napi_get_global(env, &global));
+  CHECK_NAPI(napi_get_named_property(env, global, "Promise", &promise_ctor));
+  CHECK_NAPI(napi_instanceof(env, promise, promise_ctor, is_promise));
 
   return napi_ok;
 }

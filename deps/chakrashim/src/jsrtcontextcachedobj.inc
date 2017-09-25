@@ -45,7 +45,7 @@ DEFTYPE(Float32Array)
 DEFTYPE(Float64Array)
 DEFTYPE(RegExp)
 DEFTYPE(Map)
-
+DEFTYPE(Symbol)
 
 
 // These prototype functions will be cached/shimmed

@@ -1,5 +1,7 @@
 # Net
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 The `net` module provides an asynchronous network API for creating stream-based
@@ -50,7 +52,7 @@ added: v0.1.90
 
 This class is used to create a TCP or [IPC][] server.
 
-## new net.Server([options][, connectionListener])
+### new net.Server([options][, connectionListener])
 
 * Returns: {net.Server}
 

@@ -210,13 +210,6 @@ class Utils {
   static void CHAKRA_CALLBACK WeakReferenceCallbackWrapperCallback(
       JsRef ref, void *data);
 
-  static JsValueRef CHAKRA_CALLBACK ObjectPrototypeToStringShim(
-      JsValueRef callee,
-      bool isConstructCall,
-      JsValueRef *arguments,
-      unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
-
   // Create a Local<T> internally (use private constructor)
   template <class T>
   static Local<T> ToLocal(T* that) {
