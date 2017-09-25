@@ -1,5 +1,7 @@
 # File System
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 <!--name=fs-->
@@ -99,6 +101,13 @@ This behavior can be observed when using a drive path without a backslash. For
 example `fs.readdirSync('c:\\')` can potentially return a different result than
 `fs.readdirSync('c:')`. For more information, see
 [this MSDN page][MSDN-Rel-Path].
+
+## Threadpool Usage
+
+Note that all file system APIs except `fs.FSWatcher()` and those that are
+explicitly synchronous use libuv's threadpool, which can have surprising and
+negative performance implications for some applications, see the
+[`UV_THREADPOOL_SIZE`][] documentation for more information.
 
 ## WHATWG URL object support
 <!-- YAML
@@ -741,6 +750,88 @@ Returns an object containing commonly used constants for file system
 operations. The specific constants currently defined are described in
 [FS Constants][].
 
+## fs.copyFile(src, dest[, flags], callback)
+<!-- YAML
+added: v8.5.0
+-->
+
+* `src` {string|Buffer|URL} source filename to copy
+* `dest` {string|Buffer|URL} destination filename of the copy operation
+* `flags` {number} modifiers for copy operation. **Default:** `0`
+* `callback` {Function}
+
+Asynchronously copies `src` to `dest`. By default, `dest` is overwritten if it
+already exists. No arguments other than a possible exception are given to the
+callback function. Node.js makes no guarantees about the atomicity of the copy
+operation. If an error occurs after the destination file has been opened for
+writing, Node.js will attempt to remove the destination.
+
+`flags` is an optional integer that specifies the behavior
+of the copy operation. The only supported flag is `fs.constants.COPYFILE_EXCL`,
+which causes the copy operation to fail if `dest` already exists.
+
+Example:
+
+```js
+const fs = require('fs');
+
+// destination.txt will be created or overwritten by default.
+fs.copyFile('source.txt', 'destination.txt', (err) => {
+  if (err) throw err;
+  console.log('source.txt was copied to destination.txt');
+});
+```
+
+If the third argument is a number, then it specifies `flags`, as shown in the
+following example.
+
+```js
+const fs = require('fs');
+const { COPYFILE_EXCL } = fs.constants;
+
+// By using COPYFILE_EXCL, the operation will fail if destination.txt exists.
+fs.copyFile('source.txt', 'destination.txt', COPYFILE_EXCL, callback);
+```
+
+## fs.copyFileSync(src, dest[, flags])
+<!-- YAML
+added: v8.5.0
+-->
+
+* `src` {string|Buffer|URL} source filename to copy
+* `dest` {string|Buffer|URL} destination filename of the copy operation
+* `flags` {number} modifiers for copy operation. **Default:** `0`
+
+Synchronously copies `src` to `dest`. By default, `dest` is overwritten if it
+already exists. Returns `undefined`. Node.js makes no guarantees about the
+atomicity of the copy operation. If an error occurs after the destination file
+has been opened for writing, Node.js will attempt to remove the destination.
+
+`flags` is an optional integer that specifies the behavior
+of the copy operation. The only supported flag is `fs.constants.COPYFILE_EXCL`,
+which causes the copy operation to fail if `dest` already exists.
+
+Example:
+
+```js
+const fs = require('fs');
+
+// destination.txt will be created or overwritten by default.
+fs.copyFileSync('source.txt', 'destination.txt');
+console.log('source.txt was copied to destination.txt');
+```
+
+If the third argument is a number, then it specifies `flags`, as shown in the
+following example.
+
+```js
+const fs = require('fs');
+const { COPYFILE_EXCL } = fs.constants;
+
+// By using COPYFILE_EXCL, the operation will fail if destination.txt exists.
+fs.copyFileSync('source.txt', 'destination.txt', COPYFILE_EXCL);
+```
+
 ## fs.createReadStream(path[, options])
 <!-- YAML
 added: v0.1.31
@@ -835,7 +926,7 @@ changes:
 * `path` {string|Buffer|URL}
 * `options` {string|Object}
   * `flags` {string}
-  * `defaultEncoding` {string}
+  * `encoding` {string}
   * `fd` {integer}
   * `mode` {integer}
   * `autoClose` {boolean}
@@ -848,7 +939,7 @@ Returns a new [`WriteStream`][] object. (See [Writable Stream][]).
 ```js
 const defaults = {
   flags: 'w',
-  defaultEncoding: 'utf8',
+  encoding: 'utf8',
   fd: null,
   mode: 0o666,
   autoClose: true
@@ -858,7 +949,7 @@ const defaults = {
 `options` may also include a `start` option to allow writing data at
 some position past the beginning of the file.  Modifying a file rather
 than replacing it may require a `flags` mode of `r+` rather than the
-default mode `w`. The `defaultEncoding` can be any one of those accepted by
+default mode `w`. The `encoding` can be any one of those accepted by
 [`Buffer`][].
 
 If `autoClose` is set to true (default behavior) on `error` or `end`
@@ -2845,6 +2936,7 @@ The following constants are meant for use with the [`fs.Stats`][] object's
 [`ReadDirectoryChangesW`]: https://msdn.microsoft.com/en-us/library/windows/desktop/aa365465%28v=vs.85%29.aspx
 [`ReadStream`]: #fs_class_fs_readstream
 [`URL`]: url.html#url_the_whatwg_url_api
+[`UV_THREADPOOL_SIZE`]: cli.html#cli_uv_threadpool_size_size
 [`WriteStream`]: #fs_class_fs_writestream
 [`event ports`]: http://illumos.org/man/port_create
 [`fs.FSWatcher`]: #fs_class_fs_fswatcher

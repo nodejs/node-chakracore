@@ -36,22 +36,19 @@ const Script = require('vm').Script;
 
 {
   const script = new Script('throw new Error(\'test\');');
-  assert.throws(function() {
+  assert.throws(() => {
     script.runInNewContext();
   }, /^Error: test$/);
 }
 
 {
   const script = new Script('foo.bar = 5;');
-  assert.throws(
-    function() {
-      script.runInNewContext();
-    },
-    common.engineSpecificMessage({
-      v8: /^ReferenceError: foo is not defined$/,
-      chakracore: /^TypeError: Unable to set property 'bar' of undefined or null reference$/
-    })
-  );
+  assert.throws(() => {
+    script.runInNewContext();
+  }, common.engineSpecificMessage({
+    v8: /^ReferenceError: foo is not defined$/,
+    chakracore: /^TypeError: Unable to set property 'bar' of undefined or null reference$/
+  }));
 }
 
 {
@@ -101,9 +98,7 @@ const Script = require('vm').Script;
   assert.strictEqual(f.a, 2);
 
   assert.throws(
-    function() {
-      script.runInNewContext();
-    },
+    () => { script.runInNewContext(); },
     common.engineSpecificMessage({
       v8: /^ReferenceError: f is not defined$/,
       chakracore: /^TypeError: Unable to set property 'a' of undefined or null reference$/
@@ -114,9 +109,7 @@ const Script = require('vm').Script;
 {
   const script = new Script('');
   assert.throws(
-    function() {
-      script.runInNewContext.call('\'hello\';');
-    },
+    () => { script.runInNewContext.call('\'hello\';'); },
     common.engineSpecificMessage({
       v8: /^TypeError: this\.runInContext is not a function$/,
       chakracore: /^TypeError: Object doesn't support property or method 'runInContext'$/

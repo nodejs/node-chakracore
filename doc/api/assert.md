@@ -1,5 +1,7 @@
 # Assert
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 The `assert` module provides a simple set of assertion tests that can be used to
@@ -45,12 +47,12 @@ Only [enumerable "own" properties][] are considered. The
 non-enumerable properties — for such checks, consider using
 [`assert.deepStrictEqual()`][] instead. This can lead to some
 potentially surprising results. For example, the following example does not
-throw an `AssertionError` because the properties on the [`Error`][] object are
+throw an `AssertionError` because the properties on the [`RegExp`][] object are
 not enumerable:
 
 ```js
 // WARNING: This does not throw an AssertionError!
-assert.deepEqual(Error('a'), Error('b'));
+assert.deepEqual(/a/gi, new Date());
 ```
 
 An exception is made for [`Map`][] and [`Set`][]. Maps and Sets have their
@@ -102,6 +104,9 @@ parameter is undefined, a default error message is assigned.
 <!-- YAML
 added: v1.2.0
 changes:
+  - version: v8.5.0
+    pr-url: https://github.com/nodejs/node/pull/12142
+    description: Error names and messages are now properly compared
   - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/12142
     description: Set and Map content is also compared

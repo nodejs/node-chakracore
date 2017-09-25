@@ -1,5 +1,7 @@
 # Buffer
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 Prior to the introduction of [`TypedArray`] in ECMAScript 2015 (ES6), the
@@ -907,7 +909,7 @@ const buf2 = Buffer.from('7468697320697320612074c3a97374', 'hex');
 console.log(buf2.toString());
 ```
 
-A `TypeError` will be thrown if `str` is not a string.
+A `TypeError` will be thrown if `string` is not a string.
 
 ### Class Method: Buffer.from(object[, offsetOrEncoding[, length]])
 <!-- YAML

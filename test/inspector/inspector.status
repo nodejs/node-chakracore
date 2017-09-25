@@ -6,11 +6,19 @@ prefix inspector
 
 [true] # This section applies to all platforms
 
+[$system==aix]
+test-stop-profile-after-done: PASS, FLAKY
+
 [$system==win32]
+test-stop-profile-after-done: PASS, FLAKY
 
 [$jsEngine==chakracore]
+test-async-hook-setup-at-inspect : PASS,FLAKY
+test-async-hook-setup-at-inspect-brk : PASS,FLAKY
+test-async-stack-traces-promise-then : PASS,FLAKY
+test-async-stack-traces-set-interval : PASS,FLAKY
 test-bindings : PASS,FLAKY
+test-break-when-eval : PASS,FLAKY
 test-contexts : PASS,FLAKY # https://github.com/nodejs/node-chakracore/issues/369
-test-inspector-break-when-eval : PASS,FLAKY
-test-inspector-stop-profile-after-done : PASS,FLAKY
 test-off-with-session-then-on : PASS,FLAKY
+test-stop-profile-after-done : PASS,FLAKY

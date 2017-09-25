@@ -67,12 +67,27 @@ enum Http2PaddingBufferFields {
 };
 
 struct http2_state {
+  // doubles first so that they are always sizeof(double)-aligned
+  double session_state_buffer[IDX_SESSION_STATE_COUNT];
+  double stream_state_buffer[IDX_STREAM_STATE_COUNT];
   uint32_t padding_buffer[PADDING_BUF_FIELD_COUNT];
   uint32_t options_buffer[IDX_OPTIONS_FLAGS + 1];
   uint32_t settings_buffer[IDX_SETTINGS_COUNT + 1];
-  double session_state_buffer[IDX_SESSION_STATE_COUNT];
-  double stream_state_buffer[IDX_STREAM_STATE_COUNT];
 };
+
+Freelist<nghttp2_data_chunk_t, FREELIST_MAX>
+    data_chunk_free_list;
+
+Freelist<Nghttp2Stream, FREELIST_MAX> stream_free_list;
+
+Freelist<nghttp2_header_list, FREELIST_MAX> header_free_list;
+
+Freelist<nghttp2_data_chunks_t, FREELIST_MAX>
+    data_chunks_free_list;
+
+Nghttp2Session::Callbacks Nghttp2Session::callback_struct_saved[2] = {
+    Callbacks(false),
+    Callbacks(true)};
 
 Http2Options::Http2Options(Environment* env) {
   nghttp2_option_new(&options_);
@@ -81,28 +96,36 @@ Http2Options::Http2Options(Environment* env) {
   uint32_t flags = buffer[IDX_OPTIONS_FLAGS];
 
   if (flags & (1 << IDX_OPTIONS_MAX_DEFLATE_DYNAMIC_TABLE_SIZE)) {
-    SetMaxDeflateDynamicTableSize(
+    nghttp2_option_set_max_deflate_dynamic_table_size(
+        options_,
         buffer[IDX_OPTIONS_MAX_DEFLATE_DYNAMIC_TABLE_SIZE]);
   }
 
   if (flags & (1 << IDX_OPTIONS_MAX_RESERVED_REMOTE_STREAMS)) {
-    SetMaxReservedRemoteStreams(
+    nghttp2_option_set_max_reserved_remote_streams(
+        options_,
         buffer[IDX_OPTIONS_MAX_RESERVED_REMOTE_STREAMS]);
   }
 
   if (flags & (1 << IDX_OPTIONS_MAX_SEND_HEADER_BLOCK_LENGTH)) {
-    SetMaxSendHeaderBlockLength(
+    nghttp2_option_set_max_send_header_block_length(
+        options_,
         buffer[IDX_OPTIONS_MAX_SEND_HEADER_BLOCK_LENGTH]);
   }
 
-  SetPeerMaxConcurrentStreams(100);  // Recommended default
+  // Recommended default
+  nghttp2_option_set_peer_max_concurrent_streams(options_, 100);
   if (flags & (1 << IDX_OPTIONS_PEER_MAX_CONCURRENT_STREAMS)) {
-    SetPeerMaxConcurrentStreams(
+    nghttp2_option_set_peer_max_concurrent_streams(
+        options_,
         buffer[IDX_OPTIONS_PEER_MAX_CONCURRENT_STREAMS]);
   }
 
   if (flags & (1 << IDX_OPTIONS_PADDING_STRATEGY)) {
-    SetPaddingStrategy(buffer[IDX_OPTIONS_PADDING_STRATEGY]);
+    padding_strategy_type strategy =
+        static_cast<padding_strategy_type>(
+            buffer[IDX_OPTIONS_PADDING_STRATEGY]);
+    SetPaddingStrategy(strategy);
   }
 }
 
@@ -879,8 +902,10 @@ void Http2Session::OnHeaders(Nghttp2Stream* stream,
     while (headers != nullptr && j < arraysize(argv) / 2) {
       nghttp2_header_list* item = headers;
       // The header name and value are passed as external one-byte strings
-      name_str = ExternalHeader::New(isolate, item->name);
-      value_str = ExternalHeader::New(isolate, item->value);
+      name_str =
+          ExternalHeader::New<true>(env(), item->name).ToLocalChecked();
+      value_str =
+          ExternalHeader::New<false>(env(), item->value).ToLocalChecked();
       argv[j * 2] = name_str;
       argv[j * 2 + 1] = value_str;
       headers = item->next;
@@ -1182,14 +1207,13 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "nghttp2ErrorString", HttpErrorString);
 
   Local<String> http2SessionClassName =
-    String::NewFromUtf8(isolate, "Http2Session",
-                        v8::NewStringType::kInternalized).ToLocalChecked();
+    FIXED_ONE_BYTE_STRING(isolate, "Http2Session");
 
   Local<FunctionTemplate> session =
       env->NewFunctionTemplate(Http2Session::New);
   session->SetClassName(http2SessionClassName);
   session->InstanceTemplate()->SetInternalFieldCount(1);
-  env->SetProtoMethod(session, "getAsyncId", AsyncWrap::GetAsyncId);
+  AsyncWrap::AddWrapMethods(env, session);
   env->SetProtoMethod(session, "consume",
                       Http2Session::Consume);
   env->SetProtoMethod(session, "destroy",

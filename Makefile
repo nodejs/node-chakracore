@@ -139,8 +139,9 @@ coverage: coverage-test
 coverage-build: all
 	mkdir -p node_modules
 	if [ ! -d node_modules/istanbul-merge ]; then \
-		$(NODE) ./deps/npm install istanbul-merge; fi
-	if [ ! -d node_modules/nyc ]; then $(NODE) ./deps/npm install nyc; fi
+		$(NODE) ./deps/npm install istanbul-merge --no-save --no-package-lock; fi
+	if [ ! -d node_modules/nyc ]; then \
+		$(NODE) ./deps/npm install nyc --no-save --no-package-lock; fi
 	if [ ! -d gcovr ]; then git clone --depth=1 \
 		--single-branch git://github.com/gcovr/gcovr.git; fi
 	if [ ! -d testing ]; then git clone --depth=1 \
@@ -150,7 +151,7 @@ coverage-build: all
 		"$(CURDIR)/testing/coverage/gcovr-patches.diff"); fi
 	if [ -d lib_ ]; then $(RM) -r lib; mv lib_ lib; fi
 	mv lib lib_
-	$(NODE) ./node_modules/.bin/nyc instrument lib_/ lib/
+	$(NODE) ./node_modules/.bin/nyc instrument --extension .js --extension .mjs lib_/ lib/
 	$(MAKE)
 
 coverage-test: coverage-build
@@ -165,7 +166,7 @@ coverage-test: coverage-build
 	$(NODE) ./node_modules/.bin/istanbul-merge --out \
 		.cov_tmp/libcov.json 'out/Release/.coverage/coverage-*.json'
 	(cd lib && .$(NODE) ../node_modules/.bin/nyc report \
-		--temp-directory "$(CURDIR)/.cov_tmp" -r html \
+		--temp-directory "$(CURDIR)/.cov_tmp" \
 		--report-dir "../coverage")
 	-(cd out && "../gcovr/scripts/gcovr" --gcov-exclude='.*deps' \
 		--gcov-exclude='.*usr' -v -r Release/obj.target/node \
@@ -192,6 +193,10 @@ v8:
 	tools/make-v8.sh
 	$(MAKE) -C deps/v8 $(V8_ARCH).$(BUILDTYPE_LOWER) $(V8_BUILD_OPTIONS)
 
+ifeq ($(NODE_TARGET_TYPE),static_library)
+test: all
+	$(MAKE) cctest
+else
 test: all
 	$(MAKE) build-addons
 	$(MAKE) build-addons-napi
@@ -200,6 +205,7 @@ test: all
 		$(CI_JS_SUITES) \
 		$(CI_NATIVE_SUITES)
 	$(MAKE) lint
+endif
 
 test-parallel: all
 	$(PYTHON) tools/test.py --mode=release parallel -J
@@ -328,7 +334,7 @@ test-all-valgrind: test-build
 	$(PYTHON) tools/test.py --mode=debug,release --valgrind
 
 CI_NATIVE_SUITES := addons addons-napi
-CI_JS_SUITES := async-hooks doctool inspector known_issues message parallel pseudo-tty sequential
+CI_JS_SUITES := abort async-hooks doctool inspector known_issues message parallel pseudo-tty sequential
 
 # Build and test addons without building anything else
 test-ci-native: LOGLEVEL := info
@@ -492,28 +498,25 @@ out/doc/%: doc/%
 
 # check if ./node is actually set, else use user pre-installed binary
 gen-json = tools/doc/generate.js --format=json $< > $@
-out/doc/api/%.json: doc/api/%.md
-	@[ -e tools/doc/node_modules/js-yaml/package.json ] || \
-		[ -e tools/eslint/node_modules/js-yaml/package.json ] || \
-		if [ -x $(NODE) ]; then \
-			cd tools/doc && ../../$(NODE) ../../$(NPM) install; \
-		else \
-			cd tools/doc && node ../../$(NPM) install; \
-		fi
-	[ -x $(NODE) ] && $(NODE) $(gen-json) || node $(gen-json)
-
-# check if ./node is actually set, else use user pre-installed binary
 gen-html = tools/doc/generate.js --node-version=$(FULLVERSION) --format=html \
 			--template=doc/template.html --analytics=$(DOCS_ANALYTICS) $< > $@
-out/doc/api/%.html: doc/api/%.md
-	@[ -e tools/doc/node_modules/js-yaml/package.json ] || \
+
+gen-doc =	\
+	[ -e tools/doc/node_modules/js-yaml/package.json ] || \
 		[ -e tools/eslint/node_modules/js-yaml/package.json ] || \
 		if [ -x $(NODE) ]; then \
 			cd tools/doc && ../../$(NODE) ../../$(NPM) install; \
 		else \
 			cd tools/doc && node ../../$(NPM) install; \
-		fi
-	[ -x $(NODE) ] && $(NODE) $(gen-html) || node $(gen-html)
+		fi;\
+	[ -x $(NODE) ] && $(NODE) $(1) || node $(1)
+
+out/doc/api/%.json: doc/api/%.md
+	$(call gen-doc, $(gen-json))
+
+# check if ./node is actually set, else use user pre-installed binary
+out/doc/api/%.html: doc/api/%.md
+	$(call gen-doc, $(gen-html))
 
 docopen: $(apidocs_html)
 	@$(PYTHON) -mwebbrowser file://$(PWD)/out/doc/api/all.html
@@ -670,6 +673,11 @@ release-only:
 	@if [ "$(DISTTYPE)" != "nightly" ] && [ "$(DISTTYPE)" != "next-nightly" ] && \
 		`grep -q REPLACEME doc/api/*.md`; then \
 		echo 'Please update REPLACEME in Added: tags in doc/api/*.md (See doc/releases.md)' ; \
+		exit 1 ; \
+	fi
+	@if [ "$(DISTTYPE)" != "nightly" ] && [ "$(DISTTYPE)" != "next-nightly" ] && \
+		`grep -q DEP00XX doc/api/deprecations.md`; then \
+		echo 'Please update DEP00XX in doc/api/deprecations.md (See doc/releases.md)' ; \
 		exit 1 ; \
 	fi
 	@if [ "$(shell git status --porcelain | egrep -v '^\?\? ')" = "" ]; then \
@@ -875,20 +883,20 @@ bench: bench-net bench-http bench-fs bench-tls
 
 bench-ci: bench
 
+JSLINT_TARGETS = benchmark doc lib test tools
+
 jslint:
 	@echo "Running JS linter..."
-	$(NODE) tools/eslint/bin/eslint.js --cache --rulesdir=tools/eslint-rules --ext=.js,.md \
-	  benchmark doc lib test tools
+	$(NODE) tools/eslint/bin/eslint.js --cache --rulesdir=tools/eslint-rules --ext=.js,.mjs,.md \
+	  $(JSLINT_TARGETS)
 
 jslint-ci:
 	@echo "Running JS linter..."
 	$(NODE) tools/jslint.js $(PARALLEL_ARGS) -f tap -o test-eslint.tap \
-		benchmark doc lib test tools
+		$(JSLINT_TARGETS)
 
 CPPLINT_EXCLUDE ?=
 CPPLINT_EXCLUDE += src/node_root_certs.h
-CPPLINT_EXCLUDE += src/queue.h
-CPPLINT_EXCLUDE += src/tree.h
 CPPLINT_EXCLUDE += $(wildcard test/addons/??_*/*.cc test/addons/??_*/*.h)
 CPPLINT_EXCLUDE += $(wildcard test/addons-napi/??_*/*.cc test/addons-napi/??_*/*.h)
 # These files were copied more or less verbatim from V8.

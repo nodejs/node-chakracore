@@ -1,5 +1,7 @@
 # HTTP
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 To use the HTTP server and client one must `require('http')`.
@@ -74,9 +76,9 @@ to keep the Node.js process running when there are no outstanding requests.
 It is good practice, to [`destroy()`][] an `Agent` instance when it is no
 longer in use, because unused sockets consume OS resources.
 
-Sockets are removed from an agent's pool when the socket emits either
+Sockets are removed from an agent when the socket emits either
 a `'close'` event or an `'agentRemove'` event. When intending to keep one
-HTTP request open for a long time without keeping it in the pool, something
+HTTP request open for a long time without keeping it in the agent, something
 like the following may be done:
 
 ```js
@@ -168,8 +170,9 @@ Called when `socket` is detached from a request and could be persisted by the
 Agent. Default behavior is to:
 
 ```js
+socket.setKeepAlive(true, this.keepAliveMsecs);
 socket.unref();
-socket.setKeepAlive(agent.keepAliveMsecs);
+return true;
 ```
 
 This method can be overridden by a particular `Agent` subclass. If this
@@ -226,13 +229,14 @@ added: v0.11.4
   * `port` {number} Port of remote server
   * `localAddress` {string} Local interface to bind for network connections
     when issuing the request
+  * `family` {integer} Must be 4 or 6 if this doesn't equal `undefined`.
 * Returns: {string}
 
 Get a unique name for a set of request options, to determine whether a
-connection can be reused.  For an HTTP agent, this returns
-`host:port:localAddress`.  For an HTTPS agent, the name includes the
-CA, cert, ciphers, and other HTTPS/TLS-specific options that determine
-socket reusability.
+connection can be reused. For an HTTP agent, this returns
+`host:port:localAddress` or `host:port:localAddress:family`. For an HTTPS agent,
+the name includes the CA, cert, ciphers, and other HTTPS/TLS-specific options
+that determine socket reusability.
 
 ### agent.maxFreeSockets
 <!-- YAML
@@ -253,8 +257,7 @@ added: v0.3.6
 * {number}
 
 By default set to Infinity. Determines how many concurrent sockets the agent
-can have open per origin. Origin is either a 'host:port' or
-'host:port:localAddress' combination.
+can have open per origin. Origin is the returned value of [`agent.getName()`][].
 
 ### agent.requests
 <!-- YAML
@@ -285,7 +288,7 @@ This object is created internally and returned from [`http.request()`][].  It
 represents an _in-progress_ request whose header has already been queued.  The
 header is still mutable using the `setHeader(name, value)`, `getHeader(name)`,
 `removeHeader(name)` API.  The actual header will be sent along with the first
-data chunk or when closing the connection.
+data chunk or when calling [`request.end()`][].
 
 To get the response, add a listener for [`'response'`][] to the request object.
 [`'response'`][] will be emitted from the request object when the response
@@ -590,11 +593,17 @@ Example:
 
 ```js
 const http = require('http');
-const server = http.createServer((req, res) => {
-  const ip = req.socket.remoteAddress;
-  const port = req.socket.remotePort;
-  res.end(`Your IP address is ${ip} and your source port is ${port}.`);
-}).listen(3000);
+const options = {
+  host: 'www.google.com',
+};
+const req = http.get(options);
+req.end();
+req.once('response', (res) => {
+  const ip = req.socket.localAddress;
+  const port = req.socket.localPort;
+  console.log(`Your IP address is ${ip} and your source port is ${port}.`);
+  // consume response object
+});
 ```
 
 ### request.write(chunk[, encoding][, callback])
@@ -652,7 +661,7 @@ not be emitted.
 added: v5.5.0
 -->
 
-* `request` {http.ClientRequest}
+* `request` {http.IncomingMessage}
 * `response` {http.ServerResponse}
 
 Emitted each time a request with an HTTP `Expect` header is received, where the
@@ -1224,8 +1233,8 @@ Example:
 ```js
 const http = require('http');
 const server = http.createServer((req, res) => {
-  const ip = req.socket.remoteAddress;
-  const port = req.socket.remotePort;
+  const ip = res.socket.remoteAddress;
+  const port = res.socket.remotePort;
   res.end(`Your IP address is ${ip} and your source port is ${port}.`);
 }).listen(3000);
 ```
@@ -1686,8 +1695,8 @@ changes:
 Since most requests are GET requests without bodies, Node.js provides this
 convenience method. The only difference between this method and
 [`http.request()`][] is that it sets the method to GET and calls `req.end()`
-automatically. Note that response data must be consumed in the callback
-for reasons stated in [`http.ClientRequest`][] section.
+automatically. Note that the callback must take care to consume the response
+data for reasons stated in [`http.ClientRequest`][] section.
 
 The `callback` is invoked with a single argument that is an instance of
 [`http.IncomingMessage`][]
@@ -1883,6 +1892,7 @@ const req = http.request(options, (res) => {
 [`TypeError`]: errors.html#errors_class_typeerror
 [`URL`]: url.html#url_the_whatwg_url_api
 [`agent.createConnection()`]: #http_agent_createconnection_options_callback
+[`agent.getName()`]: #http_agent_getname_options
 [`destroy()`]: #http_agent_destroy
 [`http.Agent`]: #http_class_http_agent
 [`http.ClientRequest`]: #http_class_http_clientrequest
@@ -1898,6 +1908,7 @@ const req = http.request(options, (res) => {
 [`net.Server`]: net.html#net_class_net_server
 [`net.Socket`]: net.html#net_class_net_socket
 [`net.createConnection()`]: net.html#net_net_createconnection_options_connectlistener
+[`request.end()`]: #http_request_end_data_encoding_callback
 [`request.socket`]: #http_request_socket
 [`request.socket.getPeerCertificate()`]: tls.html#tls_tlssocket_getpeercertificate_detailed
 [`request.write(data, encoding)`]: #http_request_write_chunk_encoding_callback

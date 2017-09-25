@@ -1,5 +1,7 @@
 # OS
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 The `os` module provides a number of operating system-related utility methods.
@@ -46,7 +48,7 @@ added: v6.3.0
 
 Returns an object containing commonly used operating system specific constants
 for error codes, process signals, and so on. The specific constants currently
-defined are described in [OS Constants][].
+defined are described in [OS Constants](#os_os_constants_1).
 
 ## os.cpus()
 <!-- YAML
@@ -253,6 +255,9 @@ The properties available on the assigned network address object include:
   similar interface that is not remotely accessible; otherwise `false`
 * `scopeid` {number} The numeric IPv6 scope ID (only specified when `family`
   is `IPv6`)
+* `cidr` {string} The assigned IPv4 or IPv6 address with the routing prefix
+  in CIDR notation. If the `netmask` is invalid, this property is set
+  to `null`
 
 <!-- eslint-skip -->
 ```js
@@ -263,14 +268,16 @@ The properties available on the assigned network address object include:
       netmask: '255.0.0.0',
       family: 'IPv4',
       mac: '00:00:00:00:00:00',
-      internal: true
+      internal: true,
+      cidr: '127.0.0.1/8'
     },
     {
       address: '::1',
       netmask: 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
       family: 'IPv6',
       mac: '00:00:00:00:00:00',
-      internal: true
+      internal: true,
+      cidr: '::1/128'
     }
   ],
   eth0: [
@@ -279,14 +286,16 @@ The properties available on the assigned network address object include:
       netmask: '255.255.255.0',
       family: 'IPv4',
       mac: '01:02:03:0a:0b:0c',
-      internal: false
+      internal: false,
+      cidr: '192.168.1.108/24'
     },
     {
       address: 'fe80::a00:27ff:fe4e:66a1',
       netmask: 'ffff:ffff:ffff:ffff::',
       family: 'IPv6',
       mac: '01:02:03:0a:0b:0c',
-      internal: false
+      internal: false,
+      cidr: 'fe80::a00:27ff:fe4e:66a1/64'
     }
   ]
 }
