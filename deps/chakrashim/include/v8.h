@@ -2639,11 +2639,24 @@ class V8_EXPORT Isolate {
     Isolate* isolate, GCType type, GCCallbackFlags flags);
   typedef void(*GCCallback)(Isolate* isolate, GCType type,
                             GCCallbackFlags flags);
+  typedef void (*GCCallbackWithData)(Isolate* isolate, GCType type,
+                            GCCallbackFlags flags, void* data);
+
+  void AddGCPrologueCallback(
+    GCCallbackWithData callback, void* data = nullptr,
+    GCType gc_type_filter = kGCTypeAll);
   void AddGCPrologueCallback(
     GCCallback callback, GCType gc_type_filter = kGCTypeAll);
+  void RemoveGCPrologueCallback(
+    GCCallbackWithData callback, void* data = nullptr);
   void RemoveGCPrologueCallback(GCCallback callback);
   void AddGCEpilogueCallback(
+    GCCallbackWithData callback, void* data = nullptr,
+    GCType gc_type_filter = kGCTypeAll);
+  void AddGCEpilogueCallback(
     GCCallback callback, GCType gc_type_filter = kGCTypeAll);
+  void RemoveGCEpilogueCallback(
+    GCCallbackWithData callback, void* data = nullptr);
   void RemoveGCEpilogueCallback(GCCallback callback);
 
   void CancelTerminateExecution();
