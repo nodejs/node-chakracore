@@ -41,7 +41,7 @@ const keyPem = fixtures.readSync('test_key.pem', 'ascii');
 // 'this' safety
 // https://github.com/joyent/node/issues/6690
 assert.throws(function() {
-  const options = {key: keyPem, cert: certPem, ca: caPem};
+  const options = { key: keyPem, cert: certPem, ca: caPem };
   const credentials = tls.createSecureContext(options);
   const context = credentials.context;
   const notcontext = { setOptions: context.setOptions, setKey: context.setKey };
@@ -50,25 +50,25 @@ assert.throws(function() {
 
 // PFX tests
 assert.doesNotThrow(function() {
-  tls.createSecureContext({pfx: certPfx, passphrase: 'sample'});
+  tls.createSecureContext({ pfx: certPfx, passphrase: 'sample' });
 });
 
 assert.throws(function() {
-  tls.createSecureContext({pfx: certPfx});
+  tls.createSecureContext({ pfx: certPfx });
 }, /^Error: mac verify failure$/);
 
 assert.throws(function() {
-  tls.createSecureContext({pfx: certPfx, passphrase: 'test'});
+  tls.createSecureContext({ pfx: certPfx, passphrase: 'test' });
 }, /^Error: mac verify failure$/);
 
 assert.throws(function() {
-  tls.createSecureContext({pfx: 'sample', passphrase: 'test'});
+  tls.createSecureContext({ pfx: 'sample', passphrase: 'test' });
 }, /^Error: not enough data$/);
 
 
 // update() should only take buffers / strings
 assert.throws(function() {
-  crypto.createHash('sha1').update({foo: 'bar'});
+  crypto.createHash('sha1').update({ foo: 'bar' });
 }, /^TypeError: Data must be a string or a buffer$/);
 
 
@@ -146,11 +146,11 @@ assert.throws(function() {
 }, /^TypeError: Bad input string$/);
 
 assert.throws(function() {
-  crypto.createSign('RSA-SHA1').update('0', 'hex');
+  crypto.createSign('SHA1').update('0', 'hex');
 }, /^TypeError: Bad input string$/);
 
 assert.throws(function() {
-  crypto.createVerify('RSA-SHA1').update('0', 'hex');
+  crypto.createVerify('SHA1').update('0', 'hex');
 }, /^TypeError: Bad input string$/);
 
 assert.throws(function() {
@@ -163,7 +163,7 @@ assert.throws(function() {
     '-----END RSA PRIVATE KEY-----',
     ''
   ].join('\n');
-  crypto.createSign('RSA-SHA256').update('test').sign(priv);
+  crypto.createSign('SHA256').update('test').sign(priv);
 }, /digest too big for rsa key$/);
 
 assert.throws(function() {

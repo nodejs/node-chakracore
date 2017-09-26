@@ -46,10 +46,8 @@
 #endif
 
 
-typedef void (*napi_addon_register_func)(napi_env env,
-                                         napi_value exports,
-                                         napi_value module,
-                                         void* priv);
+typedef napi_value (*napi_addon_register_func)(napi_env env,
+                                               napi_value exports);
 
 typedef struct {
   int nm_version;
@@ -104,6 +102,8 @@ typedef struct {
 #define NAPI_MODULE(modname, regfunc) \
   NAPI_MODULE_X(modname, regfunc, NULL, 0)
 
+#define NAPI_AUTO_LENGTH SIZE_MAX
+
 EXTERN_C_START
 
 NAPI_EXTERN void napi_module_register(napi_module* mod);
@@ -113,7 +113,9 @@ napi_get_last_error_info(napi_env env,
                          const napi_extended_error_info** result);
 
 NAPI_EXTERN NAPI_NO_RETURN void napi_fatal_error(const char* location,
-                                                 const char* message);
+                                                 size_t location_len,
+                                                 const char* message,
+                                                 size_t message_len);
 
 // Getters for defined singletons
 NAPI_EXTERN napi_status napi_get_undefined(napi_env env, napi_value* result);
@@ -158,6 +160,7 @@ NAPI_EXTERN napi_status napi_create_symbol(napi_env env,
                                            napi_value* result);
 NAPI_EXTERN napi_status napi_create_function(napi_env env,
                                              const char* utf8name,
+                                             size_t length,
                                              napi_callback cb,
                                              void* data,
                                              napi_value* result);
@@ -322,14 +325,6 @@ NAPI_EXTERN napi_status napi_instanceof(napi_env env,
                                         napi_value constructor,
                                         bool* result);
 
-// Napi version of node::MakeCallback(...)
-NAPI_EXTERN napi_status napi_make_callback(napi_env env,
-                                           napi_value recv,
-                                           napi_value func,
-                                           size_t argc,
-                                           const napi_value* argv,
-                                           napi_value* result);
-
 // Methods to work with napi_callbacks
 
 // Gets all callback info in a single call. (Ugly, but faster.)
@@ -342,12 +337,13 @@ NAPI_EXTERN napi_status napi_get_cb_info(
     napi_value* this_arg,  // [out] Receives the JS 'this' arg for the call
     void** data);          // [out] Receives the data pointer for the callback.
 
-NAPI_EXTERN napi_status napi_is_construct_call(napi_env env,
-                                               napi_callback_info cbinfo,
-                                               bool* result);
+NAPI_EXTERN napi_status napi_get_new_target(napi_env env,
+                                            napi_callback_info cbinfo,
+                                            napi_value* result);
 NAPI_EXTERN napi_status
 napi_define_class(napi_env env,
                   const char* utf8name,
+                  size_t length,
                   napi_callback constructor,
                   void* data,
                   size_t property_count,
@@ -526,6 +522,8 @@ NAPI_EXTERN napi_status napi_get_dataview_info(napi_env env,
 // Methods to manage simple async operations
 NAPI_EXTERN
 napi_status napi_create_async_work(napi_env env,
+                                   napi_value async_resource,
+                                   napi_value async_resource_name,
                                    napi_async_execute_callback execute,
                                    napi_async_complete_callback complete,
                                    void* data,
@@ -537,6 +535,22 @@ NAPI_EXTERN napi_status napi_queue_async_work(napi_env env,
 NAPI_EXTERN napi_status napi_cancel_async_work(napi_env env,
                                                napi_async_work work);
 
+// Methods for custom handling of async operations
+NAPI_EXTERN napi_status napi_async_init(napi_env env,
+                                        napi_value async_resource,
+                                        napi_value async_resource_name,
+                                        napi_async_context* result);
+
+NAPI_EXTERN napi_status napi_async_destroy(napi_env env,
+                                           napi_async_context async_context);
+
+NAPI_EXTERN napi_status napi_make_callback(napi_env env,
+                                           napi_async_context async_context,
+                                           napi_value recv,
+                                           napi_value func,
+                                           size_t argc,
+                                           const napi_value* argv,
+                                           napi_value* result);
 
 // version management
 NAPI_EXTERN napi_status napi_get_version(napi_env env, uint32_t* result);
