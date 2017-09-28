@@ -4811,6 +4811,8 @@ inline int Start(Isolate* isolate, void* isolate_context,
   }
 #endif
 
+  env.set_trace_sync_io(trace_sync_io);
+
   {
     SealHandleScope seal(isolate);
     bool more;
