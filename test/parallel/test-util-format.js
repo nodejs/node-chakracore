@@ -149,17 +149,19 @@ assert.strictEqual(
     '     [name]: \'func\',\n' +
     '     [length]: 0 } }'
   }));
-assert.strictEqual(
-  util.format('%o', nestedObj2),
-  '{ foo: \'bar\',\n' +
-  '  foobar: 1,\n' +
-  '  func: \n' +
-  '   [ { a: \n' +
-  '        { [Function: a]\n' +
-  '          [length]: 0,\n' +
-  '          [name]: \'a\',\n' +
-  '          [prototype]: a { [constructor]: [Circular] } } },\n' +
-  '     [length]: 1 ] }');
+if (!common.isChakraEngine) {
+  assert.strictEqual(
+    util.format('%o', nestedObj2),
+    '{ foo: \'bar\',\n' +
+    '  foobar: 1,\n' +
+    '  func: \n' +
+    '   [ { a: \n' +
+    '        { [Function: a]\n' +
+    '          [length]: 0,\n' +
+    '          [name]: \'a\',\n' +
+    '          [prototype]: a { [constructor]: [Circular] } } },\n' +
+    '     [length]: 1 ] }');
+}
 assert.strictEqual(
   util.format('%o', nestedObj),
   common.engineSpecificMessage({
