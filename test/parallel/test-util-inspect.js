@@ -317,21 +317,29 @@ assert.strictEqual(
   assert.strictEqual(util.inspect([], { showHidden: true }), '[ [length]: 0 ]');
   arr2['00'] = 1;
   assert.strictEqual(util.inspect(arr2), "[ '00': 1 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ [length]: 0, '00': 1 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ [length]: 0, '00': 1 ]");
+  }
   arr2[1] = 0;
   assert.strictEqual(util.inspect(arr2), "[ <1 empty item>, 0, '00': 1 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <1 empty item>, 0, [length]: 2, '00': 1 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ <1 empty item>, 0, [length]: 2, '00': 1 ]");
+  }
   delete arr2[1];
   assert.strictEqual(util.inspect(arr2), "[ <2 empty items>, '00': 1 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <2 empty items>, [length]: 2, '00': 1 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ <2 empty items>, [length]: 2, '00': 1 ]");
+  }
   arr2['01'] = 2;
   assert.strictEqual(util.inspect(arr2),
                      "[ <2 empty items>, '00': 1, '01': 2 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <2 empty items>, [length]: 2, '00': 1, '01': 2 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ <2 empty items>, [length]: 2, '00': 1, '01': 2 ]");
+  }
 
   const arr3 = [];
   arr3[-1] = -1;
@@ -919,11 +927,7 @@ if (typeof Symbol !== 'undefined') {
 {
   const oldPromise = Promise;
   global.Promise = function() { this.bar = 42; };
-  assert.strictEqual(util.inspect(new Promise()),
-                     common.engineSpecificMessage({
-                       v8: '{ bar: 42 }',
-                       chakracore: 'Object { undefined, bar: 42 }'
-                     }));
+  assert.strictEqual(util.inspect(new Promise()), '{ bar: 42 }');
   global.Promise = oldPromise;
 }
 

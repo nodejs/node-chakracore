@@ -43,6 +43,8 @@ Local<External> External::New(Isolate* isolate, void* value) {
     return Local<External>();
   }
 
+  JsSetPrototype(externalRef, jsrt::GetNull());
+
   IsolateShim* iso = IsolateShim::FromIsolate(isolate);
   JsValueRef trueRef = iso->GetCurrentContextShim()->GetTrue();
   if (jsrt::DefineProperty(externalRef,
