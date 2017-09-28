@@ -22,3 +22,4 @@ test-break-when-eval : PASS,FLAKY
 test-contexts : PASS,FLAKY # https://github.com/nodejs/node-chakracore/issues/369
 test-off-with-session-then-on : PASS,FLAKY
 test-stop-profile-after-done : PASS,FLAKY
+test-scriptparsed-context : PASS,FLAKY

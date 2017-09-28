@@ -14,9 +14,10 @@ async function runTests() {
     { 'method': 'Debugger.enable' },
     { 'method': 'Runtime.runIfWaitingForDebugger' }
   ]);
-  await session.waitForBreakOnLine(0, '[eval]');
+
+  await session.waitForBreakOnLine(common.isChakraEngine ? 2 : 0, '[eval]');
   await session.runToCompletion();
   assert.strictEqual(0, (await instance.expectShutdown()).exitCode);
 }
 
-runTests();
+runTests().catch((err) => { console.log(err); process.exit(-1);});
