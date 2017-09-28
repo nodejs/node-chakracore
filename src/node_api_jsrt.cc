@@ -564,7 +564,7 @@ void napi_module_register(napi_module* mod) {
   int module_version = NODE_MODULE_VERSION;
 
   node::node_module* nm = new node::node_module {
-    module_version,
+    -1,
     mod->nm_flags,
     nullptr,
     mod->nm_filename,
