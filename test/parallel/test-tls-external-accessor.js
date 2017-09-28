@@ -13,7 +13,7 @@ const tls = require('tls');
   const cctx = Object.create(pctx);
   assert.throws(() => cctx._external, common.engineSpecificMessage({
     v8: /incompatible receiver/,
-    chakracore: /Illegal invocation/}));
+    chakracore: /Illegal invocation/ }));
   pctx._external;
 }
 {
@@ -21,6 +21,6 @@ const tls = require('tls');
   const cctx = Object.create(pctx);
   assert.throws(() => cctx._external, common.engineSpecificMessage({
     v8: /incompatible receiver/,
-    chakracore: /Illegal invocation/}));
+    chakracore: /Illegal invocation/ }));
   pctx._external;
 }
