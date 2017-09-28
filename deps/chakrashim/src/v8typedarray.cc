@@ -56,8 +56,10 @@ size_t ArrayBufferView::ByteLength() {
 
 bool ArrayBufferView::HasBuffer() const {
   JsValueRef result;
-  if (JsGetTypedArrayInfo((JsValueRef)this, nullptr, &result, nullptr, nullptr) != JsNoError
-      && JsGetDataViewInfo((JsValueRef)this, &result, nullptr, nullptr) != JsNoError) {
+  if (JsGetTypedArrayInfo((JsValueRef)this, nullptr, &result,
+                          nullptr, nullptr) != JsNoError
+      && JsGetDataViewInfo((JsValueRef)this, &result,
+                           nullptr, nullptr) != JsNoError) {
     return false;
   }
   return result != nullptr;
