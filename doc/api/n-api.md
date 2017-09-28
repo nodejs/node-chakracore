@@ -63,14 +63,6 @@ For example:
 #include <node_api.h>
 ```
 
-As the feature is experimental it must be enabled with the
-following command line
-[option](https://nodejs.org/dist/latest-v8.x/docs/api/cli.html#cli_napi_modules):
-
-```bash
---napi-modules
-```
-
 ## Basic N-API Data Types
 
 N-API exposes the following fundamental datatypes as abstractions that are
@@ -3669,7 +3661,7 @@ NAPI_EXTERN napi_status napi_run_script(napi_env env,
 - `[out] result`: The value resulting from having executed the script.
 
 [Promises]: #n_api_promises
-[Simple Asynchronous Operations]: #n_api_asynchronous_operations
+[Simple Asynchronous Operations]: #n_api_simple_asynchronous_operations
 [Custom Asynchronous Operations]: #n_api_custom_asynchronous_operations
 [Basic N-API Data Types]: #n_api_basic_n_api_data_types
 [ECMAScript Language Specification]: https://tc39.github.io/ecma262/

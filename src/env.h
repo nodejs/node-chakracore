@@ -116,7 +116,6 @@ struct performance_state;
   V(dest_string, "dest")                                                      \
   V(destroy_string, "destroy")                                                \
   V(detached_string, "detached")                                              \
-  V(disposed_string, "_disposed")                                             \
   V(dns_a_string, "A")                                                        \
   V(dns_aaaa_string, "AAAA")                                                  \
   V(dns_cname_string, "CNAME")                                                \
@@ -670,6 +669,7 @@ class Environment {
 
   void AddPromiseHook(promise_hook_func fn, void* arg);
   bool RemovePromiseHook(promise_hook_func fn, void* arg);
+  bool EmitNapiWarning();
 
  private:
   inline void ThrowError(v8::Local<v8::Value> (*fun)(v8::Local<v8::String>),
@@ -691,6 +691,7 @@ class Environment {
   bool printed_error_;
   bool trace_sync_io_;
   bool abort_on_uncaught_exception_;
+  bool emit_napi_warning_;
   size_t makecallback_cntr_;
   std::vector<double> destroy_ids_list_;
 

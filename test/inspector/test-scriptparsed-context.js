@@ -15,8 +15,6 @@ const script = `
   const assert = require('assert');
   const vm = require('vm');
   const { kParsingContext } = process.binding('contextify');
-  debugger;
-
   global.outer = true;
   global.inner = false;
   const context = vm.createContext({
@@ -66,7 +64,7 @@ async function runTests() {
     { 'method': 'Debugger.enable' },
     { 'method': 'Runtime.runIfWaitingForDebugger' }
   ]);
-  await session.waitForBreakOnLine(5, '[eval]');
+  await session.waitForBreakOnLine(0, '[eval]');
 
   await session.send({ 'method': 'Runtime.enable' });
   const topContext = await getContext(session);
