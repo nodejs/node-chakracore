@@ -86,6 +86,14 @@
       'lib/internal/cluster/shared_handle.js',
       'lib/internal/cluster/utils.js',
       'lib/internal/cluster/worker.js',
+      'lib/internal/crypto/certificate.js',
+      'lib/internal/crypto/cipher.js',
+      'lib/internal/crypto/diffiehellman.js',
+      'lib/internal/crypto/hash.js',
+      'lib/internal/crypto/pbkdf2.js',
+      'lib/internal/crypto/random.js',
+      'lib/internal/crypto/sig.js',
+      'lib/internal/crypto/util.js',
       'lib/internal/encoding.js',
       'lib/internal/errors.js',
       'lib/internal/freelist.js',
@@ -295,8 +303,6 @@
         'NODE_WANT_INTERNALS=1',
         # Warn when using deprecated V8 APIs.
         'V8_DEPRECATION_WARNINGS=1',
-        # We're using the nghttp2 static lib
-        'NGHTTP2_STATICLIB'
       ],
 
       'conditions': [
@@ -833,7 +839,7 @@
             'common.gypi',
           ],
 
-          'ldflags': ['-Wl,-bE:<(PRODUCT_DIR)/node.exp'],
+          'ldflags': ['-Wl,-bE:<(PRODUCT_DIR)/node.exp', '-Wl,-brtl'],
         },
         {
           'target_name': 'node_exp',

@@ -52,6 +52,10 @@ namespace performance {
 struct performance_state;
 }
 
+namespace loader {
+class ModuleWrap;
+}
+
 // Pick an index that's hopefully out of the way when we're embedded inside
 // another application. Performance-wise or memory-wise it doesn't matter:
 // Context::SetAlignedPointerInEmbedderData() is backed by a FixedArray,
@@ -116,7 +120,6 @@ struct performance_state;
   V(dest_string, "dest")                                                      \
   V(destroy_string, "destroy")                                                \
   V(detached_string, "detached")                                              \
-  V(disposed_string, "_disposed")                                             \
   V(dns_a_string, "A")                                                        \
   V(dns_aaaa_string, "AAAA")                                                  \
   V(dns_cname_string, "CNAME")                                                \
@@ -296,6 +299,7 @@ struct performance_state;
   V(async_hooks_init_function, v8::Function)                                  \
   V(async_hooks_before_function, v8::Function)                                \
   V(async_hooks_after_function, v8::Function)                                 \
+  V(async_hooks_promise_resolve_function, v8::Function)                       \
   V(binding_cache_object, v8::Object)                                         \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
@@ -378,6 +382,7 @@ class Environment {
       kBefore,
       kAfter,
       kDestroy,
+      kPromiseResolve,
       kTotals,
       kFieldsCount,
     };
@@ -585,6 +590,8 @@ class Environment {
   // List of id's that have been destroyed and need the destroy() cb called.
   inline std::vector<double>* destroy_ids_list();
 
+  std::unordered_multimap<int, loader::ModuleWrap*> module_map;
+
   inline double* heap_statistics_buffer() const;
   inline void set_heap_statistics_buffer(double* pointer);
 
@@ -670,6 +677,7 @@ class Environment {
 
   void AddPromiseHook(promise_hook_func fn, void* arg);
   bool RemovePromiseHook(promise_hook_func fn, void* arg);
+  bool EmitNapiWarning();
 
  private:
   inline void ThrowError(v8::Local<v8::Value> (*fun)(v8::Local<v8::String>),
@@ -691,6 +699,7 @@ class Environment {
   bool printed_error_;
   bool trace_sync_io_;
   bool abort_on_uncaught_exception_;
+  bool emit_napi_warning_;
   size_t makecallback_cntr_;
   std::vector<double> destroy_ids_list_;
 

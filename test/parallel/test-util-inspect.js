@@ -95,11 +95,8 @@ assert.strictEqual(
   '{ [String: \'hello\'] [length]: 5, [Symbol(foo)]: 123 }'
 );
 
-assert.strictEqual(util.inspect((new JSStream())._externalStream),
-                   common.engineSpecificMessage({
-                     v8: '[External]',
-                     chakracore: '{}'
-                   }));
+assert.strictEqual(util.inspect((new JSStream())._externalStream), 
+                   '[External]')
 
 {
   const regexp = /regexp/;
@@ -321,38 +318,44 @@ assert.strictEqual(
 }
 
 // Array with extra properties
-// Skip on ChakraCore due to issue in util.inspect
+// Skip showHidden on ChakraCore due to issue in util.inspect
 // See https://github.com/nodejs/node-chakracore/issues/402
+const arr = [1, 2, 3, , ];
+arr.foo = 'bar';
+assert.strictEqual(util.inspect(arr),
+                    "[ 1, 2, 3, <1 empty item>, foo: 'bar' ]");
+
+const arr2 = [];
+assert.strictEqual(util.inspect([], { showHidden: true }), '[ [length]: 0 ]');
+arr2['00'] = 1;
+assert.strictEqual(util.inspect(arr2), "[ '00': 1 ]");
 if (!common.isChakraEngine) {
-  const arr = [1, 2, 3, , ];
-  arr.foo = 'bar';
-  assert.strictEqual(util.inspect(arr),
-                     "[ 1, 2, 3, <1 empty item>, foo: 'bar' ]");
-
-  const arr2 = [];
-  assert.strictEqual(util.inspect([], { showHidden: true }), '[ [length]: 0 ]');
-  arr2['00'] = 1;
-  assert.strictEqual(util.inspect(arr2), "[ '00': 1 ]");
   assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ [length]: 0, '00': 1 ]");
-  arr2[1] = 0;
-  assert.strictEqual(util.inspect(arr2), "[ <1 empty item>, 0, '00': 1 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <1 empty item>, 0, [length]: 2, '00': 1 ]");
-  delete arr2[1];
-  assert.strictEqual(util.inspect(arr2), "[ <2 empty items>, '00': 1 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <2 empty items>, [length]: 2, '00': 1 ]");
-  arr2['01'] = 2;
-  assert.strictEqual(util.inspect(arr2),
-                     "[ <2 empty items>, '00': 1, '01': 2 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <2 empty items>, [length]: 2, '00': 1, '01': 2 ]");
-
-  const arr3 = [];
-  arr3[-1] = -1;
-  assert.strictEqual(util.inspect(arr3), "[ '-1': -1 ]");
+                      "[ [length]: 0, '00': 1 ]");
 }
+arr2[1] = 0;
+assert.strictEqual(util.inspect(arr2), "[ <1 empty item>, 0, '00': 1 ]");
+if (!common.isChakraEngine) {
+  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                      "[ <1 empty item>, 0, [length]: 2, '00': 1 ]");
+}
+delete arr2[1];
+assert.strictEqual(util.inspect(arr2), "[ <2 empty items>, '00': 1 ]");
+if (!common.isChakraEngine) {
+  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                      "[ <2 empty items>, [length]: 2, '00': 1 ]");
+}
+arr2['01'] = 2;
+assert.strictEqual(util.inspect(arr2),
+                    "[ <2 empty items>, '00': 1, '01': 2 ]");
+if (!common.isChakraEngine) {
+  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                      "[ <2 empty items>, [length]: 2, '00': 1, '01': 2 ]");
+}
+
+const arr3 = [];
+arr3[-1] = -1;
+assert.strictEqual(util.inspect(arr3), "[ '-1': -1 ]");
 
 // Indices out of bounds
 {
@@ -1023,10 +1026,14 @@ if (!common.isChakraEngine) {
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
                      'MapSubclass { \'foo\' => 42 }');
   assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
-                     common.engineSpecificMessage({
-                       v8: 'PromiseSubclass { <pending> }',
-                       chakracore: 'PromiseSubclass {}'
-                     }));
+                      common.engineSpecificMessage({
+                        v8: 'PromiseSubclass { <pending> }',
+                        chakracore: 'PromiseSubclass {}'
+                      }));
+  assert.strictEqual(
+    util.inspect({ a: { b: new ArraySubclass([1, [2], 3]) } }, { depth: 1 }),
+    '{ a: { b: [ArraySubclass] } }'
+  )
 }
 
 // Empty and circular before depth

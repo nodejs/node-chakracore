@@ -63,14 +63,6 @@ For example:
 #include <node_api.h>
 ```
 
-As the feature is experimental it must be enabled with the
-following command line
-[option](https://nodejs.org/dist/latest-v8.x/docs/api/cli.html#cli_napi_modules):
-
-```bash
---napi-modules
-```
-
 ## Basic N-API Data Types
 
 N-API exposes the following fundamental datatypes as abstractions that are
@@ -552,11 +544,18 @@ thrown to immediately terminate the process.
 added: v8.2.0
 -->
 ```C
-NAPI_NO_RETURN void napi_fatal_error(const char* location, const char* message);
+NAPI_NO_RETURN void napi_fatal_error(const char* location,
+                                                 size_t location_len,
+                                                 const char* message,
+                                                 size_t message_len);
 ```
 
 - `[in] location`: Optional location at which the error occurred.
+- `[in] location_len`: The length of the location in bytes, or -1 if it is
+null-terminated.
 - `[in] message`: The message associated with the error.
+- `[in] message_len`: The length of the message in bytes, or -1 if it is
+null-terminated.
 
 The function call does not return, the process will be terminated.
 
@@ -1248,6 +1247,7 @@ added: v8.0.0
 ```C
 napi_status napi_create_function(napi_env env,
                                  const char* utf8name,
+                                 size_t length,
                                  napi_callback cb,
                                  void* data,
                                  napi_value* result)
@@ -1256,6 +1256,8 @@ napi_status napi_create_function(napi_env env,
 - `[in] env`: The environment that the API is invoked under.
 - `[in] utf8name`: A string representing the name of the function encoded as
 UTF8.
+- `[in] length`: The length of the utf8name in bytes, or -1 if it is
+null-terminated.
 - `[in] cb`: A function pointer to the native function to be invoked when the
 created function is invoked from JavaScript.
 - `[in] data`: Optional arbitrary context data to be passed into the native
@@ -3026,6 +3028,7 @@ added: v8.0.0
 ```C
 napi_status napi_define_class(napi_env env,
                               const char* utf8name,
+                              size_t length,
                               napi_callback constructor,
                               void* data,
                               size_t property_count,
@@ -3037,6 +3040,8 @@ napi_status napi_define_class(napi_env env,
  - `[in] utf8name`: Name of the JavaScript constructor function; this is
    not required to be the same as the C++ class name, though it is recommended
    for clarity.
+ - `[in] length`: The length of the utf8name in bytes, or -1 if it is
+null-terminated.
  - `[in] constructor`: Callback function that handles constructing instances
    of the class. (This should be a static method on the class, not an actual
    C++ constructor function.)
@@ -3656,7 +3661,7 @@ NAPI_EXTERN napi_status napi_run_script(napi_env env,
 - `[out] result`: The value resulting from having executed the script.
 
 [Promises]: #n_api_promises
-[Simple Asynchronous Operations]: #n_api_asynchronous_operations
+[Simple Asynchronous Operations]: #n_api_simple_asynchronous_operations
 [Custom Asynchronous Operations]: #n_api_custom_asynchronous_operations
 [Basic N-API Data Types]: #n_api_basic_n_api_data_types
 [ECMAScript Language Specification]: https://tc39.github.io/ecma262/

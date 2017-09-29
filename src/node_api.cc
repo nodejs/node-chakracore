@@ -115,16 +115,23 @@ struct napi_env__ {
   CHECK_TO_TYPE((env), Boolean, (context), (result), (src), \
     napi_boolean_expected)
 
+// n-api defines NAPI_AUTO_LENGHTH as the indicator that a string
+// is null terminated. For V8 the equivalent is -1. The assert
+// validates that our cast of NAPI_AUTO_LENGTH results in -1 as
+// needed by V8.
 #define CHECK_NEW_FROM_UTF8_LEN(env, result, str, len)                   \
   do {                                                                   \
+    static_assert(static_cast<int>(NAPI_AUTO_LENGTH) == -1,              \
+                  "Casting NAPI_AUTO_LENGTH to int must result in -1");  \
     auto str_maybe = v8::String::NewFromUtf8(                            \
-        (env)->isolate, (str), v8::NewStringType::kInternalized, (len)); \
+        (env)->isolate, (str), v8::NewStringType::kInternalized,         \
+        static_cast<int>(len));                                          \
     CHECK_MAYBE_EMPTY((env), str_maybe, napi_generic_failure);           \
     (result) = str_maybe.ToLocalChecked();                               \
   } while (0)
 
 #define CHECK_NEW_FROM_UTF8(env, result, str) \
-  CHECK_NEW_FROM_UTF8_LEN((env), (result), (str), -1)
+  CHECK_NEW_FROM_UTF8_LEN((env), (result), (str), NAPI_AUTO_LENGTH)
 
 #define GET_RETURN_STATUS(env)      \
   (!try_catch.HasCaught() ? napi_ok \
@@ -839,28 +846,10 @@ void napi_module_register_cb(v8::Local<v8::Object> exports,
 
 }  // end of anonymous namespace
 
-#ifndef EXTERNAL_NAPI
-namespace node {
-  // Indicates whether NAPI was enabled/disabled via the node command-line.
-  extern bool load_napi_modules;
-}
-#endif  // EXTERNAL_NAPI
-
 // Registers a NAPI module.
 void napi_module_register(napi_module* mod) {
-  // NAPI modules always work with the current node version.
-  int module_version = NODE_MODULE_VERSION;
-
-#ifndef EXTERNAL_NAPI
-  if (!node::load_napi_modules) {
-    // NAPI is disabled, so set the module version to -1 to cause the module
-    // to be unloaded.
-    module_version = -1;
-  }
-#endif  // EXTERNAL_NAPI
-
   node::node_module* nm = new node::node_module {
-    module_version,
+    -1,
     mod->nm_flags,
     nullptr,
     mod->nm_filename,
@@ -931,12 +920,34 @@ napi_status napi_get_last_error_info(napi_env env,
 }
 
 NAPI_NO_RETURN void napi_fatal_error(const char* location,
-                                     const char* message) {
-  node::FatalError(location, message);
+                                     size_t location_len,
+                                     const char* message,
+                                     size_t message_len) {
+  std::string location_string;
+  std::string message_string;
+
+  if (location_len != NAPI_AUTO_LENGTH) {
+    location_string.assign(
+        const_cast<char*>(location), location_len);
+  } else {
+    location_string.assign(
+        const_cast<char*>(location), strlen(location));
+  }
+
+  if (message_len != NAPI_AUTO_LENGTH) {
+    message_string.assign(
+        const_cast<char*>(message), message_len);
+  } else {
+    message_string.assign(
+        const_cast<char*>(message), strlen(message));
+  }
+
+  node::FatalError(location_string.c_str(), message_string.c_str());
 }
 
 napi_status napi_create_function(napi_env env,
                                  const char* utf8name,
+                                 size_t length,
                                  napi_callback cb,
                                  void* callback_data,
                                  napi_value* result) {
@@ -963,7 +974,7 @@ napi_status napi_create_function(napi_env env,
 
   if (utf8name != nullptr) {
     v8::Local<v8::String> name_string;
-    CHECK_NEW_FROM_UTF8(env, name_string, utf8name);
+    CHECK_NEW_FROM_UTF8_LEN(env, name_string, utf8name, length);
     return_value->SetName(name_string);
   }
 
@@ -974,6 +985,7 @@ napi_status napi_create_function(napi_env env,
 
 napi_status napi_define_class(napi_env env,
                               const char* utf8name,
+                              size_t length,
                               napi_callback constructor,
                               void* callback_data,
                               size_t property_count,
@@ -995,7 +1007,7 @@ napi_status napi_define_class(napi_env env,
       isolate, v8impl::FunctionCallbackWrapper::Invoke, cbdata);
 
   v8::Local<v8::String> name_string;
-  CHECK_NEW_FROM_UTF8(env, name_string, utf8name);
+  CHECK_NEW_FROM_UTF8_LEN(env, name_string, utf8name, length);
   tpl->SetClassName(name_string);
 
   size_t static_property_count = 0;
@@ -3283,7 +3295,6 @@ napi_status napi_adjust_external_memory(napi_env env,
                                         int64_t change_in_bytes,
                                         int64_t* adjusted_value) {
   CHECK_ENV(env);
-  CHECK_ARG(env, &change_in_bytes);
   CHECK_ARG(env, adjusted_value);
 
   *adjusted_value = env->isolate->AdjustAmountOfExternalAllocatedMemory(

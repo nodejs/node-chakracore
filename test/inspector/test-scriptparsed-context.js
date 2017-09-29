@@ -15,8 +15,6 @@ const script = `
   const assert = require('assert');
   const vm = require('vm');
   const { kParsingContext } = process.binding('contextify');
-  debugger;
-
   global.outer = true;
   global.inner = false;
   const context = vm.createContext({
@@ -66,7 +64,7 @@ async function runTests() {
     { 'method': 'Debugger.enable' },
     { 'method': 'Runtime.runIfWaitingForDebugger' }
   ]);
-  await session.waitForBreakOnLine(5, '[eval]');
+  await session.waitForBreakOnLine(common.isChakraEngine ? 4 : 0, '[eval]');
 
   await session.send({ 'method': 'Runtime.enable' });
   const topContext = await getContext(session);
@@ -103,4 +101,4 @@ async function runTests() {
   assert.strictEqual(0, (await instance.expectShutdown()).exitCode);
 }
 
-runTests();
+runTests().catch((err) => { console.log(err); process.exit(-1); });

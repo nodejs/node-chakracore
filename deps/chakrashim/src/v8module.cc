@@ -46,6 +46,11 @@ namespace v8 {
       return false;
   }
 
+  Maybe<bool> Module::InstantiateModule(Local<Context> context,
+    ResolveCallback callback) {
+      return Just(false);
+  }
+
   MaybeLocal<Value> Module::Evaluate(Local<Context> context) {
       // CHAKRA-TODO: Find a way to support es6 modules under
       // the constraints of the node implementation

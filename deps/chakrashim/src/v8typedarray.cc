@@ -28,9 +28,9 @@ using jsrt::ContextShim;
 using jsrt::CachedPropertyIdRef;
 
 Local<ArrayBuffer> ArrayBufferView::Buffer() {
-  JsValueRef result;
-  if (JsGetTypedArrayInfo(this,
-                          nullptr, &result, nullptr, nullptr) != JsNoError) {
+  JsValueRef result = JS_INVALID_REFERENCE;
+  if (JsGetTypedArrayInfo(this, nullptr, &result, nullptr, nullptr) != JsNoError
+      && JsGetDataViewInfo(this, &result, nullptr, nullptr) != JsNoError) {
     return Local<ArrayBuffer>();
   }
   return static_cast<ArrayBuffer*>(result);
@@ -38,8 +38,8 @@ Local<ArrayBuffer> ArrayBufferView::Buffer() {
 
 size_t ArrayBufferView::ByteOffset() {
   unsigned int result;
-  if (JsGetTypedArrayInfo(this,
-                          nullptr, nullptr, &result, nullptr) != JsNoError) {
+  if (JsGetTypedArrayInfo(this, nullptr, nullptr, &result, nullptr) != JsNoError
+      && JsGetDataViewInfo(this, nullptr, &result, nullptr) != JsNoError) {
     return 0;
   }
   return result;
@@ -47,8 +47,8 @@ size_t ArrayBufferView::ByteOffset() {
 
 size_t ArrayBufferView::ByteLength() {
   unsigned int result;
-  if (JsGetTypedArrayInfo(this,
-                          nullptr, nullptr, nullptr, &result) != JsNoError) {
+  if (JsGetTypedArrayInfo(this, nullptr, nullptr, nullptr, &result) != JsNoError
+      && JsGetDataViewInfo(this, nullptr, nullptr, &result) != JsNoError) {
     return 0;
   }
   return result;
@@ -56,8 +56,10 @@ size_t ArrayBufferView::ByteLength() {
 
 bool ArrayBufferView::HasBuffer() const {
   JsValueRef result;
-  if (JsGetTypedArrayInfo((JsValueRef)this,
-                          nullptr, &result, nullptr, nullptr) != JsNoError) {
+  if (JsGetTypedArrayInfo((JsValueRef)this, nullptr, &result,
+                          nullptr, nullptr) != JsNoError
+      && JsGetDataViewInfo((JsValueRef)this, &result,
+                           nullptr, nullptr) != JsNoError) {
     return false;
   }
   return result != nullptr;
