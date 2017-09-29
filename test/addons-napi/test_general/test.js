@@ -59,9 +59,12 @@ assert.strictEqual(test_general.testNapiTypeof(null), 'null');
 
 // Ensure that garbage collecting an object with a wrapped native item results
 // in the finalize callback being called.
-let w = {};
-test_general.wrap(w);
-w = null;
+function createAndForgetWrap() {
+  let w = {};
+  test_general.wrap(w);
+  w = null;
+}
+createAndForgetWrap();
 global.gc();
 assert.strictEqual(test_general.derefItemWasCalled(), true,
                    'deref_item() was called upon garbage collecting a ' +
