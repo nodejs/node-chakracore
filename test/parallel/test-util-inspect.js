@@ -95,11 +95,8 @@ assert.strictEqual(
   '{ [String: \'hello\'] [length]: 5, [Symbol(foo)]: 123 }'
 );
 
-assert.strictEqual(util.inspect((new JSStream())._externalStream),
-                   common.engineSpecificMessage({
-                     v8: '[External]',
-                     chakracore: '{}'
-                   }));
+assert.strictEqual(util.inspect((new JSStream())._externalStream), 
+                   '[External]')
 
 {
   const regexp = /regexp/;
@@ -1029,11 +1026,14 @@ if (!common.isChakraEngine) {
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
                      'MapSubclass { \'foo\' => 42 }');
   assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
-                     common.engineSpecificMessage({
-                       v8: 'PromiseSubclass { <pending> }',
+                      common.engineSpecificMessage({
+                        v8: 'PromiseSubclass { <pending> }',
+                        chakracore: 'PromiseSubclass {}'
+                      }));
   assert.strictEqual(
     util.inspect({ a: { b: new ArraySubclass([1, [2], 3]) } }, { depth: 1 }),
     '{ a: { b: [ArraySubclass] } }'
+  )
 }
 
 // Empty and circular before depth
