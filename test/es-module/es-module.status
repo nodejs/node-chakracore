@@ -1,7 +1,20 @@
-prefix parallel
+prefix es-module
 
 # To mark a test as flaky, list the test name in the appropriate section
 # below, without ".js", followed by ": PASS,FLAKY". Example:
 # sample-test                        : PASS,FLAKY
 
 [true] # This section applies to all platforms
+
+[$jsEngine==chakracore]
+test-esm-basic-imports : PASS,FLAKY
+test-esm-encoded-path : PASS,FLAKY
+test-esm-encoded-path-native : PASS,FLAKY
+test-esm-forbidden-globals : PASS,FLAKY
+test-esm-namespace : PASS,FLAKY
+test-esm-ok : PASS,FLAKY
+test-esm-preserve-symlinks : PASS,FLAKY
+test-esm-require-cache : PASS,FLAKY
+test-esm-shebang : PASS,FLAKY
+test-esm-snapshot : PASS,FLAKY
+test-esm-symlink : PASS,FLAKY
