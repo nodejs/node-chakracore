@@ -1,13 +1,21 @@
 #!/bin/bash
 
+set -e
+
 ROOT=${PWD}
-LIBRARY_PATH='../out/Release'
-TARGET_LIBRARY_PATH='nodeLib/bin'
+
+SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
+cd "$SCRIPT_DIR"
+SCRIPT_DIR=${PWD}
+
+#should be the node's source root
 cd ../
+
+LIBRARY_PATH='out/Release'
+TARGET_LIBRARY_PATH='tools/ios-framework/bin'
+
 ./configure --dest-os=ios --dest-cpu=arm64 --without-chakra-jit --enable-static --with-intl=none --openssl-no-asm
 make
-
-cd "$ROOT"
 
 mkdir -p $TARGET_LIBRARY_PATH
 
@@ -20,3 +28,5 @@ cp $LIBRARY_PATH/libnode.a $TARGET_LIBRARY_PATH/
 cp $LIBRARY_PATH/libopenssl.a $TARGET_LIBRARY_PATH/
 cp $LIBRARY_PATH/libuv.a $TARGET_LIBRARY_PATH/
 cp $LIBRARY_PATH/libzlib.a $TARGET_LIBRARY_PATH/
+
+cd "$ROOT"

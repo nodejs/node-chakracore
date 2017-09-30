@@ -109,8 +109,11 @@ icu_config.gypi
 *.tap
 
 # Xcode workspaces and project folders
+.DS_Store
 xcuserdata/
-xcode-framework/nodeLib/bin/
+*.xcuserstate
+project.xcworkspace
+tools/ios-framework/bin/
 
 # libuv book and GitHub template
 deps/uv/.github/
