@@ -2620,6 +2620,8 @@ napi_status napi_adjust_external_memory(napi_env env,
   CHECK_ARG(adjusted_value);
 
   // TODO(jackhorton): Determine if Chakra needs or is able to do anything here
+  // For now, we can lie and say that we always adjusted more memory
+  *adjusted_value = change_in_bytes;
 
   return napi_ok;
 }
