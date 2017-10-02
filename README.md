@@ -1,9 +1,7 @@
-Node.js on Mobile
-=====================
+Node.js for Mobile Apps core library
+====================================
 
 This project is an experimental fork of [nodejs/node-chakracore](https://github.com/nodejs/node-chakracore) bringing Node.js to mobile operating systems, as a library that can be embedded in mobile applications and frameworks.
-
-It currently only builds for Android (with V8), as a shared library for the `armeabi-v7a`, `x86`, `arm64-v8a` and `x86_64` architectures. Support for iOS is in the works and will be published soon.
 
 ##### Project Goals
 The goals of this project are:
@@ -13,7 +11,7 @@ The goals of this project are:
 1. To diverge as little as possible from nodejs/node and nodejs/node-chakracore, while fulfilling goals (1) and (2).
 
 ## Download
-Binaries are available at https://github.com/janeasystems/nodejs-mobile/releases.
+Binaries for Android and iOS are available at https://github.com/janeasystems/nodejs-mobile/releases.
 
 ## Documentation
 
