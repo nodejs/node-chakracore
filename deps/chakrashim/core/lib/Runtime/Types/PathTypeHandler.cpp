@@ -223,7 +223,8 @@ namespace Js
 
         // Check numeric propertyId only if objectArray available
         uint32 indexVal;
-        if (instance->HasObjectArray() && requestContext->IsNumericPropertyId(propertyId, &indexVal))
+        ScriptContext* scriptContext = instance->GetScriptContext();
+        if (instance->HasObjectArray() && scriptContext->IsNumericPropertyId(propertyId, &indexVal))
         {
             return PathTypeHandlerBase::GetItem(instance, originalInstance, indexVal, value, requestContext);
         }

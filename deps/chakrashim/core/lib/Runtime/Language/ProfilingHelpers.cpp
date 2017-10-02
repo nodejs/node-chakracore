@@ -278,7 +278,7 @@ namespace Js
             {
                 length = headSegmentLength;
                 bool isVirtual = (VirtualTableInfoBase::GetVirtualTable(base) == ValueType::GetVirtualTypedArrayVtable(arrayTypeId));
-                stElemInfo.arrayType = ValueType::FromTypeId(arrayTypeId, isVirtual).ToLikely();
+                stElemInfo.arrayType = ValueType::FromTypeId(arrayTypeId, isVirtual).ToLikely();        
                 if (!TaggedNumber::Is(value) && !JavascriptNumber::Is_NoTaggedIntCheck(value))
                 {
                     // Non-number stored to a typed array. A helper call will be needed to convert the value.
@@ -576,10 +576,9 @@ namespace Js
 
         args.Values[0] = nullptr;
         Var array;
-        Js::RecyclableObject* calleeObject = RecyclableObject::FromVar(callee);
         if (arrayInfo->IsNativeIntArray())
         {
-            array = JavascriptNativeIntArray::NewInstance(calleeObject, args);
+            array = JavascriptNativeIntArray::NewInstance(RecyclableObject::FromVar(callee), args);
             if (VirtualTableInfo<JavascriptNativeIntArray>::HasVirtualTable(array))
             {
                 JavascriptNativeIntArray *const intArray = static_cast<JavascriptNativeIntArray *>(array);
@@ -601,7 +600,7 @@ namespace Js
         }
         else if (arrayInfo->IsNativeFloatArray())
         {
-            array = JavascriptNativeFloatArray::NewInstance(calleeObject, args);
+            array = JavascriptNativeFloatArray::NewInstance(RecyclableObject::FromVar(callee), args);
             if (VirtualTableInfo<JavascriptNativeFloatArray>::HasVirtualTable(array))
             {
                 JavascriptNativeFloatArray *const floatArray = static_cast<JavascriptNativeFloatArray *>(array);
@@ -614,10 +613,10 @@ namespace Js
         }
         else
         {
-            array = JavascriptArray::NewInstance(calleeObject, args);
+            array = JavascriptArray::NewInstance(RecyclableObject::FromVar(callee), args);
         }
 
-        return CrossSite::MarshalVar(scriptContext, array, calleeObject->GetScriptContext());
+        return CrossSite::MarshalVar(scriptContext, array);
     }
 
     Var ProfilingHelpers::ProfiledNewScObject(

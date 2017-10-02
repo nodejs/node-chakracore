@@ -159,8 +159,8 @@ namespace Js
         static JavascriptArray*  GetOwnPropertyKeys(Var instance, ScriptContext *scriptContext);
 
 
-        static JavascriptArray*  GetOwnEnumerablePropertyNames(RecyclableObject* instance, ScriptContext *scriptContext);
-        static JavascriptArray*  GetOwnEnumerablePropertyNamesSymbols(RecyclableObject* instance, ScriptContext *scriptContext);
+        static JavascriptArray*  GetOwnEnumerablePropertyNames(Var instance, ScriptContext *scriptContext);
+        static JavascriptArray*  GetOwnEnumerablePropertyNamesSymbols(Var instance, ScriptContext *scriptContext);
 
         static BOOL GetOwnPropertyDescriptor(RecyclableObject* obj, PropertyId propertyId, ScriptContext* scriptContext, PropertyDescriptor* propertyDescriptor);
         static BOOL GetOwnPropertyDescriptor(RecyclableObject* obj, JavascriptString* propertyKey, ScriptContext* scriptContext, PropertyDescriptor* propertyDescriptor);
@@ -179,12 +179,6 @@ namespace Js
         static Var  GetProperty(RecyclableObject* instance, PropertyId propertyId, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
         static BOOL GetProperty(RecyclableObject* instance, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
         static Var  GetProperty(Var instance, RecyclableObject* propertyObject, PropertyId propertyId, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
-
-        static Var  GetPropertyNoCache(Var instance, RecyclableObject* propertyObject, PropertyId propertyId, ScriptContext* requestContext);
-        static Var  GetPropertyNoCache(RecyclableObject* instance, PropertyId propertyId, ScriptContext* requestContext);
-        static BOOL GetPropertyNoCache(RecyclableObject* instance, PropertyId propertyId, Var* value, ScriptContext* requestContext);
-        static BOOL GetPropertyNoCache(Var instance, RecyclableObject* propertyObject, PropertyId propertyId, Var* value, ScriptContext* requestContext);
-
         static BOOL GetProperty(Var instance, RecyclableObject* propertyObject, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
         static BOOL GetPropertyObject(Var instance, ScriptContext * scriptContext, RecyclableObject** propertyObject);
         static BOOL GetRootProperty(Var instance, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
@@ -215,27 +209,18 @@ namespace Js
         static BOOL IsObjectType(TypeId typeId);
         static BOOL IsObjectOrNull(Var instance);
         static BOOL IsUndefined(Var instance);
-        static BOOL IsUndefinedObject(RecyclableObject* instance);
         static BOOL IsUndefinedOrNullType(TypeId);
         static BOOL IsUndefinedOrNull(Var instance);
-        static BOOL IsUndefinedOrNull(RecyclableObject* instance);
         static BOOL IsNull(Var instance);
-        static BOOL IsNull(RecyclableObject* instance);
         static BOOL IsSpecialObjectType(TypeId typeId);
         static BOOL IsJsNativeObject(Var instance);
         static BOOL IsUndefinedObject(Var instance);
+        static BOOL IsUndefinedObject(Var instance, ScriptContext *scriptContext);
+        static BOOL IsUndefinedObject(Var instance, RecyclableObject *libraryUndefined);
+        static BOOL IsUndefinedObject(Var instance, JavascriptLibrary* library);
         static BOOL IsAnyNumberValue(Var instance);
         static BOOL IsClassConstructor(Var instance);
         static BOOL IsBaseConstructorKind(Var instance);
-
-        // careful using the versions below. (instance's scriptContext better be === scriptContext)
-        static BOOL IsUndefinedOrNull(Var instance, JavascriptLibrary* library);
-        static BOOL IsUndefinedOrNull(Var instance, ScriptContext* scriptContext);
-        static BOOL IsNull(Var instance, ScriptContext* scriptContext);
-        static BOOL IsNull(Var instance, JavascriptLibrary* library);
-        static BOOL IsUndefinedObject(Var instance, ScriptContext* scriptContext);
-        static BOOL IsUndefinedObject(Var instance, RecyclableObject* libraryUndefined);
-        static BOOL IsUndefinedObject(Var instance, JavascriptLibrary* library);
 
         static bool CanShortcutOnUnknownPropertyName(RecyclableObject * instance);
         static bool CanShortcutInstanceOnUnknownPropertyName(RecyclableObject *instance);
@@ -657,8 +642,6 @@ namespace Js
 
         static void BuildHandlerScope(Var argThis, RecyclableObject * hostObject, FrameDisplay * pScopes, ScriptContext * scriptContext);
         static void TryLoadRoot(Var& thisVar, TypeId typeId, int moduleID, ScriptContextInfo* scriptContext);
-
-        static BOOL GetProperty_InternalSimple(Var instance, RecyclableObject* object, PropertyId propertyId, _Outptr_result_maybenull_ Var* value, ScriptContext* requestContext);
 
         template <bool unscopables>
         static BOOL GetProperty_Internal(Var instance, RecyclableObject* propertyObject, const bool isRoot, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info);

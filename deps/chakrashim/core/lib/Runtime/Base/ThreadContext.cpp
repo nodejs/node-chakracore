@@ -152,9 +152,9 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     isInstInlineCacheThreadInfoAllocator(_u("TC-IsInstInlineCacheInfo"), GetPageAllocator(), Js::Throw::OutOfMemory),
     equivalentTypeCacheInfoAllocator(_u("TC-EquivalentTypeCacheInfo"), GetPageAllocator(), Js::Throw::OutOfMemory),
     preReservedVirtualAllocator(),
-    protoInlineCacheByPropId(&inlineCacheThreadInfoAllocator, 521),
-    storeFieldInlineCacheByPropId(&inlineCacheThreadInfoAllocator, 293),
-    isInstInlineCacheByFunction(&isInstInlineCacheThreadInfoAllocator, 131),
+    protoInlineCacheByPropId(&inlineCacheThreadInfoAllocator, 512),
+    storeFieldInlineCacheByPropId(&inlineCacheThreadInfoAllocator, 256),
+    isInstInlineCacheByFunction(&isInstInlineCacheThreadInfoAllocator, 128),
     registeredInlineCacheCount(0),
     unregisteredInlineCacheCount(0),
     prototypeChainEnsuredToHaveOnlyWritableDataPropertiesAllocator(_u("TC-ProtoWritableProp"), GetPageAllocator(), Js::Throw::OutOfMemory),
@@ -211,7 +211,6 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
 #if ENABLE_JS_REENTRANCY_CHECK
     , noJsReentrancy(false)
 #endif
-    , emptyStringPropertyRecord(nullptr)
 {
     pendingProjectionContextCloseList = JsUtil::List<IProjectionContext*, ArenaAllocator>::New(GetThreadAlloc());
     hostScriptContextStack = Anew(GetThreadAlloc(), JsUtil::Stack<HostScriptContext*>, GetThreadAlloc());
@@ -911,23 +910,19 @@ ThreadContext::IsNumericProperty(Js::PropertyId propertyId)
 const Js::PropertyRecord *
 ThreadContext::FindPropertyRecord(const char16 * propertyName, int propertyNameLength)
 {
-    // IsDirectPropertyName == 1 char properties && GetEmptyStringPropertyRecord == 0 length
-    if (propertyNameLength < 2)
-    {
-        if (propertyNameLength == 0)
-        {
-            return this->GetEmptyStringPropertyRecord();
-        }
+    Js::PropertyRecord const * propertyRecord = nullptr;
 
-        if (IsDirectPropertyName(propertyName, propertyNameLength))
-        {
-            Js::PropertyRecord const * propertyRecord = propertyNamesDirect[propertyName[0]];
-            Assert(propertyRecord == propertyMap->LookupWithKey(Js::HashedCharacterBuffer<char16>(propertyName, propertyNameLength)));
-            return propertyRecord;
-        }
+    if (IsDirectPropertyName(propertyName, propertyNameLength))
+    {
+        propertyRecord = propertyNamesDirect[propertyName[0]];
+        Assert(propertyRecord == propertyMap->LookupWithKey(Js::HashedCharacterBuffer<char16>(propertyName, propertyNameLength)));
+    }
+    else
+    {
+        propertyRecord = propertyMap->LookupWithKey(Js::HashedCharacterBuffer<char16>(propertyName, propertyNameLength));
     }
 
-    return propertyMap->LookupWithKey(Js::HashedCharacterBuffer<char16>(propertyName, propertyNameLength));
+    return propertyRecord;
 }
 
 Js::PropertyRecord const *
@@ -1088,7 +1083,7 @@ ThreadContext::AddPropertyRecordInternal(const Js::PropertyRecord * propertyReco
 #if DBG
     // Only Assert we can't find the property if we are not adding a symbol.
     // For a symbol, the propertyName is not used and may collide with something in the map already.
-    if (propertyNameLength > 0 && !propertyRecord->IsSymbol())
+    if (!propertyRecord->IsSymbol())
     {
         Assert(FindPropertyRecord(propertyName, propertyNameLength) == nullptr);
     }
@@ -1137,7 +1132,7 @@ ThreadContext::AddPropertyRecordInternal(const Js::PropertyRecord * propertyReco
 #if DBG
     // Only Assert we can find the property if we are not adding a symbol.
     // For a symbol, the propertyName is not used and we won't be able to look the pid up via name.
-    if (propertyNameLength && !propertyRecord->IsSymbol())
+    if (!propertyRecord->IsSymbol())
     {
         Assert(FindPropertyRecord(propertyName, propertyNameLength) == propertyRecord);
     }
@@ -1235,11 +1230,6 @@ void ThreadContext::AddBuiltInPropertyRecord(const Js::PropertyRecord *propertyR
 
 BOOL ThreadContext::IsNumericPropertyId(Js::PropertyId propertyId, uint32* value)
 {
-    if (Js::IsInternalPropertyId(propertyId))
-    {
-        return false;
-    }
-
     Js::PropertyRecord const * propertyRecord = this->GetPropertyName(propertyId);
     Assert(propertyRecord != nullptr);
     if (propertyRecord == nullptr || !propertyRecord->IsNumeric())

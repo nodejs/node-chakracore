@@ -125,9 +125,6 @@ Note:
 Others are set to zero.
 
 --*/
-
-int GetCurrentThreadStackLimits(ULONG_PTR* lowLimit, ULONG_PTR* highLimit);
-
 VOID
 PALAPI
 GetSystemInfo(
@@ -170,15 +167,6 @@ GetSystemInfo(
     TRACE("dwNumberOfProcessors=%d\n", nrcpus);
     lpSystemInfo->dwNumberOfProcessors = nrcpus;
 
-// TODO: (BSD) is it a good idea to take maxOf(GetCurrentThreadStackLimits, USRSTACKXX) ?
-#ifdef __APPLE__ // defined(USRSTACK64) || defined(USRSTACK)
-ULONG_PTR lowl, highl;
-GetCurrentThreadStackLimits(&lowl, &highl);
-#ifndef PAL_MAX
-#define PAL_MAX(a, b) ((a > b) ? (a) : (b))
-#endif
-#endif
-
 #ifdef VM_MAXUSER_ADDRESS
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) VM_MAXUSER_ADDRESS;
 #elif defined(__LINUX__)
@@ -187,12 +175,12 @@ GetCurrentThreadStackLimits(&lowl, &highl);
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) USERLIMIT;
 #elif defined(_WIN64)
 #if defined(USRSTACK64)
-    lpSystemInfo->lpMaximumApplicationAddress = (PVOID) PAL_MAX(highl, USRSTACK64);
+    lpSystemInfo->lpMaximumApplicationAddress = (PVOID) USRSTACK64;
 #else // !USRSTACK64
 #error How come USRSTACK64 is not defined for 64bit?
 #endif // USRSTACK64
 #elif defined(USRSTACK)
-    lpSystemInfo->lpMaximumApplicationAddress = (PVOID) PAL_MAX(highl, USRSTACK);
+    lpSystemInfo->lpMaximumApplicationAddress = (PVOID) USRSTACK;
 #else
 #error The maximum application address is not known on this platform.
 #endif

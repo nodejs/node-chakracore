@@ -22,7 +22,12 @@ namespace Js
     // construct the message string before knowing whether or not the object is coercible.
     BOOL JavascriptConversion::CheckObjectCoercible(Var aValue, ScriptContext* scriptContext)
     {
-        return !JavascriptOperators::IsUndefinedOrNull(aValue);
+        TypeId typeId = JavascriptOperators::GetTypeId(aValue);
+        if (typeId == TypeIds_Null || typeId == TypeIds_Undefined)
+        {
+            return FALSE;
+        }
+        return TRUE;
     }
 
     //ES5 9.11  Undefined, Null, Boolean, Number, String - return false
@@ -58,9 +63,15 @@ namespace Js
         TypeId leftType = JavascriptOperators::GetTypeId(aLeft);
         TypeId rightType = JavascriptOperators::GetTypeId(aRight);
 
-        if (JavascriptOperators::IsUndefinedOrNullType(leftType))
+        //Check for undefined and null type;
+        if (leftType == TypeIds_Undefined )
         {
-            return leftType == rightType;
+            return rightType == TypeIds_Undefined;
+        }
+
+        if (leftType == TypeIds_Null)
+        {
+            return rightType == TypeIds_Null;
         }
 
         double dblLeft, dblRight;
@@ -358,22 +369,22 @@ CommonNumber:
         case TypeIds_StringObject:
             {
                 JavascriptStringObject * stringObject = JavascriptStringObject::FromVar(aValue);
-                ScriptContext * objectScriptContext = stringObject->GetScriptContext();
-                if (objectScriptContext->optimizationOverrides.GetSideEffects() & (hint == JavascriptHint::HintString ? SideEffects_ToString : SideEffects_ValueOf))
+
+                if (stringObject->GetScriptContext()->optimizationOverrides.GetSideEffects() & (hint == JavascriptHint::HintString ? SideEffects_ToString : SideEffects_ValueOf))
                 {
                     return MethodCallToPrimitive(aValue, hint, requestContext);
                 }
 
-                return CrossSite::MarshalVar(requestContext, stringObject->Unwrap(), objectScriptContext);
+                return CrossSite::MarshalVar(requestContext, stringObject->Unwrap());
             }
 
         case TypeIds_NumberObject:
             {
                 JavascriptNumberObject * numberObject = JavascriptNumberObject::FromVar(aValue);
-                ScriptContext * objectScriptContext = numberObject->GetScriptContext();
+
                 if (hint == JavascriptHint::HintString)
                 {
-                    if (objectScriptContext->optimizationOverrides.GetSideEffects() & SideEffects_ToString)
+                    if (numberObject->GetScriptContext()->optimizationOverrides.GetSideEffects() & SideEffects_ToString)
                     {
                         return MethodCallToPrimitive(aValue, hint, requestContext);
                     }
@@ -381,12 +392,11 @@ CommonNumber:
                 }
                 else
                 {
-                    if (objectScriptContext->optimizationOverrides.GetSideEffects() & SideEffects_ValueOf)
+                    if (numberObject->GetScriptContext()->optimizationOverrides.GetSideEffects() & SideEffects_ValueOf)
                     {
                         return MethodCallToPrimitive(aValue, hint, requestContext);
                     }
-
-                    return CrossSite::MarshalVar(requestContext, numberObject->Unwrap(), objectScriptContext);
+                    return CrossSite::MarshalVar(requestContext, numberObject->Unwrap());
                 }
             }
 
@@ -663,11 +673,8 @@ CommonNumber:
                 }
 
             case TypeIds_String:
-                {
-                    ScriptContext* aValueScriptContext = Js::RecyclableObject::FromVar(aValue)->GetScriptContext();
-                    return JavascriptString::FromVar(CrossSite::MarshalVar(scriptContext,
-                      aValue, aValueScriptContext));
-                }
+                return JavascriptString::FromVar(CrossSite::MarshalVar(scriptContext, aValue));
+
             case TypeIds_VariantDate:
                 return JavascriptVariantDate::FromVar(aValue)->GetValueString(scriptContext);
 

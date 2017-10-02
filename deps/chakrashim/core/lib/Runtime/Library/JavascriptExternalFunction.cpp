@@ -249,7 +249,7 @@ namespace Js
     Var JavascriptExternalFunction::DefaultExternalFunctionThunk(RecyclableObject* function, CallInfo callInfo, ...)
     {
         TypeId typeId = function->GetTypeId();
-        rtErrors err = typeId <= TypeIds_UndefinedOrNull ? JSERR_NeedObject : JSERR_NeedFunction;
+        rtErrors err = typeId == TypeIds_Undefined || typeId == TypeIds_Null ? JSERR_NeedObject : JSERR_NeedFunction;
         JavascriptError::ThrowTypeError(function->GetScriptContext(), err);
     }
 
@@ -285,21 +285,20 @@ namespace Js
         END_LEAVE_SCRIPT(scriptContext);
 #endif
 
-        bool marshallingMayBeNeeded = false;
-        if (result != nullptr)
+        if (result != nullptr && !Js::TaggedNumber::Is(result))
         {
-            marshallingMayBeNeeded = Js::RecyclableObject::Is(result);
-            if (marshallingMayBeNeeded)
+            if (!Js::RecyclableObject::Is(result))
             {
-                Js::RecyclableObject * obj = Js::RecyclableObject::FromVar(result);
+                Js::Throw::InternalError();
+            }
 
-                // For JSRT, we could get result marshalled in different context.
-                bool isJSRT = scriptContext->GetThreadContext()->IsJSRT();
-                marshallingMayBeNeeded = obj->GetScriptContext() != scriptContext;
-                if (!isJSRT && marshallingMayBeNeeded)
-                {
-                    Js::Throw::InternalError();
-                }
+            Js::RecyclableObject * obj = Js::RecyclableObject::FromVar(result);
+
+            // For JSRT, we could get result marshalled in different context.
+            bool isJSRT = scriptContext->GetThreadContext()->IsJSRT();
+            if (!isJSRT && obj->GetScriptContext() != scriptContext)
+            {
+                Js::Throw::InternalError();
             }
         }
 
@@ -325,7 +324,7 @@ namespace Js
         {
             result = scriptContext->GetLibrary()->GetUndefined();
         }
-        else if (marshallingMayBeNeeded)
+        else
         {
             result = CrossSite::MarshalVar(scriptContext, result);
         }
