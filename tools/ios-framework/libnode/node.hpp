@@ -1,11 +1,3 @@
-//
-//  node.hpp
-//  libnode
-//
-//  Created by Jaime Bernardo on 10/05/2017.
-//  Copyright © 2017 Janea Systems. All rights reserved.
-//
-
 #ifndef node_hpp
 #define node_hpp
 
