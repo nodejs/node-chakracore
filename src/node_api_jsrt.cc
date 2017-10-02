@@ -76,6 +76,8 @@ namespace node {
 // utf8 multibyte codepoint start check
 #define UTF8_MULTIBYTE_START(c) (((c) & 0xC0) == 0xC0)
 
+#define STR_AND_LENGTH(str) str, sizeof(str) - 1
+
 static napi_status napi_set_last_error(napi_status error_code,
                                        uint32_t engine_error_code = 0,
                                        void* engine_reserved = nullptr);
@@ -422,31 +424,22 @@ static napi_status SetErrorCode(JsValueRef error,
       CHECK_JSRT(JsCreateString(codeString, strlen(codeString), &codeValue));
     }
 
-    const char* codePropIdName = "code";
     JsPropertyIdRef codePropId = JS_INVALID_REFERENCE;
-    CHECK_JSRT(JsCreatePropertyId(codePropIdName,
-                                  strlen(codePropIdName),
-                                  &codePropId));
+    CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("code"), &codePropId));
 
     CHECK_JSRT(JsSetProperty(error, codePropId, codeValue, true));
 
     JsValueRef nameArray = JS_INVALID_REFERENCE;
     CHECK_JSRT(JsCreateArray(0, &nameArray));
 
-    const char* pushPropIdName = "push";
     JsPropertyIdRef pushPropId = JS_INVALID_REFERENCE;
-    CHECK_JSRT(JsCreatePropertyId(pushPropIdName,
-                                  strlen(pushPropIdName),
-                                  &pushPropId));
+    CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("push"), &pushPropId));
 
     JsValueRef pushFunction = JS_INVALID_REFERENCE;
     CHECK_JSRT(JsGetProperty(nameArray, pushPropId, &pushFunction));
 
-    const char* namePropIdName = "name";
     JsPropertyIdRef namePropId = JS_INVALID_REFERENCE;
-    CHECK_JSRT(JsCreatePropertyId(namePropIdName,
-                                  strlen(namePropIdName),
-                                  &namePropId));
+    CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("name"), &namePropId));
 
     bool hasProp = false;
     CHECK_JSRT(JsHasProperty(error, namePropId, &hasProp));
@@ -783,10 +776,10 @@ napi_status napi_define_class(napi_env env,
 
   JsPropertyIdRef pid = nullptr;
   JsValueRef prototype = nullptr;
-  CHECK_JSRT(JsCreatePropertyId("prototype", 10, &pid));
+  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("prototype"), &pid));
   CHECK_JSRT(JsGetProperty(constructor, pid, &prototype));
 
-  CHECK_JSRT(JsCreatePropertyId("constructor", 12, &pid));
+  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("constructor"), &pid));
   CHECK_JSRT(JsSetProperty(prototype, pid, constructor, false));
 
   int instancePropertyCount = 0;
@@ -913,10 +906,10 @@ napi_status napi_define_properties(napi_env env,
                                    size_t property_count,
                                    const napi_property_descriptor* properties) {
   JsPropertyIdRef configurableProperty;
-  CHECK_JSRT(JsCreatePropertyId("configurable", 12, &configurableProperty));
+  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("configurable"), &configurableProperty));
 
   JsPropertyIdRef enumerableProperty;
-  CHECK_JSRT(JsCreatePropertyId("enumerable", 10, &enumerableProperty));
+  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("enumerable"), &enumerableProperty));
 
   for (size_t i = 0; i < property_count; i++) {
     const napi_property_descriptor* p = properties + i;
@@ -941,7 +934,7 @@ napi_status napi_define_properties(napi_env env,
 
       if (p->getter != nullptr) {
         JsPropertyIdRef getProperty;
-        CHECK_JSRT(JsCreatePropertyId("get", 3, &getProperty));
+        CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("get"), &getProperty));
         JsValueRef getter;
         CHECK_NAPI(napi_create_property_function(env, property_name,
           p->getter, p->data, reinterpret_cast<napi_value*>(&getter)));
@@ -950,7 +943,7 @@ napi_status napi_define_properties(napi_env env,
 
       if (p->setter != nullptr) {
         JsPropertyIdRef setProperty;
-        CHECK_JSRT(JsCreatePropertyId("set", 5, &setProperty));
+        CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("set"), &setProperty));
         JsValueRef setter;
         CHECK_NAPI(napi_create_property_function(env, property_name,
           p->setter, p->data, reinterpret_cast<napi_value*>(&setter)));
@@ -962,7 +955,7 @@ napi_status napi_define_properties(napi_env env,
         jsrtimpl::JsNameValueFromPropertyDescriptor(p, &property_name));
 
       JsPropertyIdRef valueProperty;
-      CHECK_JSRT(JsCreatePropertyId("value", 5, &valueProperty));
+      CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("value"), &valueProperty));
       JsValueRef method;
       CHECK_NAPI(napi_create_property_function(env, property_name,
         p->method, p->data, reinterpret_cast<napi_value*>(&method)));
@@ -971,13 +964,13 @@ napi_status napi_define_properties(napi_env env,
       RETURN_STATUS_IF_FALSE(p->value != nullptr, napi_invalid_arg);
 
       JsPropertyIdRef writableProperty;
-      CHECK_JSRT(JsCreatePropertyId("writable", 8, &writableProperty));
+      CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("writable"), &writableProperty));
       JsValueRef writable;
       CHECK_JSRT(JsBoolToBoolean((p->attributes & napi_writable), &writable));
       CHECK_JSRT(JsSetProperty(descriptor, writableProperty, writable, true));
 
       JsPropertyIdRef valueProperty;
-      CHECK_JSRT(JsCreatePropertyId("value", 5, &valueProperty));
+      CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("value"), &valueProperty));
       CHECK_JSRT(JsSetProperty(descriptor, valueProperty,
         reinterpret_cast<JsValueRef>(p->value), true));
     }
@@ -1122,7 +1115,7 @@ napi_status napi_get_array_length(napi_env env,
                                   uint32_t* result) {
   CHECK_ARG(result);
   JsPropertyIdRef propertyIdRef;
-  CHECK_JSRT(JsCreatePropertyId("length", 7, &propertyIdRef));
+  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("length"), &propertyIdRef));
   JsValueRef lengthRef;
   JsValueRef arrayRef = reinterpret_cast<JsValueRef>(v);
   CHECK_JSRT(JsGetProperty(arrayRef, propertyIdRef, &lengthRef));
@@ -2641,9 +2634,7 @@ napi_status napi_run_script(napi_env env,
   JsValueRef scriptVar = reinterpret_cast<JsValueRef>(script);
 
   if (runScriptSourceUrl == JS_INVALID_REFERENCE) {
-    const char * napiScriptString = "NAPI run script";
-    CHECK_JSRT(JsCreateString(napiScriptString,
-                   strlen(napiScriptString),
+    CHECK_JSRT(JsCreateString(STR_AND_LENGTH("NAPI run script"),
                    &runScriptSourceUrl));
   }
 
@@ -2746,7 +2737,7 @@ class Work: public node::AsyncResource {
       JsValueRef exception;
       JsPropertyIdRef exProp;
 
-      if (JsCreatePropertyId("exception", -1, &exProp) != JsNoError) {
+      if (JsCreatePropertyId(STR_AND_LENGTH("exception"), &exProp) != JsNoError) {
         Fatal();
         return;
       }
