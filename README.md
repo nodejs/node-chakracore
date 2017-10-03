@@ -47,17 +47,17 @@ unzip ndk.zip
 ```
 It will create a `android-ndk-r15c` folder. Save that path for later.
 
-### Prerequisites to build the Android library on Mac OS:
+### Prerequisites to build the Android library on macOS:
 
 #### Git:
 
 Run `git` in a terminal window, it will show a prompt to install it if not already present.
 As an alternative, installing one of these will install `git`:
-* XCode, with the Command Line Tools.
+* Xcode, with the Command Line Tools.
 * [Homebrew](https://brew.sh/)
 * [Git-SCM](https://git-scm.com/download/mac)
 
-#### Install Android NDK r15c for Mac OS:
+#### Install Android NDK r15c for macOS:
 Choose a location where you want to install the Android NDK and run:
 ```sh
 curl https://dl.google.com/android/repository/android-ndk-r15c-darwin-x86_64.zip -o ndk.zip
@@ -65,7 +65,7 @@ unzip ndk.zip
 ```
 It will create a `android-ndk-r15c` folder. Save that path for later.
 
-### Building the Android library on Linux or Mac OS:
+### Building the Android library on Linux or macOS:
 
 #### 1) Clone this repo and check out the `mobile-master` branch:
 
@@ -99,6 +99,58 @@ make
 ```
 
 This will create the Android `armeabi-v7a` shared library in `out/Release/lib.target/libnode.so`.
+
+### Prerequisites to build the iOS .framework library on macOS:
+
+#### Xcode 9 with Command Line Tools
+
+Install Xcode 9 or higher, from the App Store, and then install the Command Line Tools by running the following command:
+
+```sh
+xcode-select --install
+```
+
+That installs `git`, as well.
+
+#### CMake
+
+To install `CMake`, you can use a package installer like [Homebrew](https://brew.sh/).
+
+First, install `HomeBrew`, if you don't have it already.
+
+```sh
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+```
+
+Then, use it to install `CMake`:
+
+```sh
+brew install cmake
+```
+
+### Building the iOS .framework library on macOS:
+
+#### 1) Clone this repo and check out the `mobile-master` branch:
+
+```sh
+git clone https://github.com/janeasystems/nodejs-mobile
+cd nodejs-mobile
+git checkout mobile-master
+```
+
+#### 2) Run the helper script:
+
+```sh
+./tools/ios_framework_prepare.sh
+```
+
+That will configure `gyp` to build Node.js and its dependencies as static libraries for iOS on the arm64 architecture, using the `ChakraCore` engine with JIT disabled. It will then copy those libraries into `tools/ios-framework/bin/`, to be used by the `nodeLib.xcodeproj` Xcode project.
+
+#### 3) Build the iOS Framework:
+
+Open `tools/ios-framework/nodeLib.xcodeproj` in Xcode and build the project with either a physical device or `Generic iOS Device` selected as the build target. After building, you can check on Xcode's project browser that a `libnode.framework` file is created in `nodeLib/Products/`.
+
+Control click `libnode.framework` in Xcode and select `Show in finder`. This will show you where the built `libnode.framework` is. It should be inside a folder named `Debug-iphoneos`.
 
 ## Contributing
 Please see the [CONTRIBUTING](https://github.com/janeasystems/nodejs-mobile/blob/mobile-master/doc_mobile/CONTRIBUTING.md) file in the `doc_mobile` folder in this source distribution.
