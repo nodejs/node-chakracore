@@ -1,10 +1,17 @@
-Node.js for Mobile Apps core library
+Node.js for Mobile Apps
 ====================================
 
-This project is an experimental fork of [nodejs/node-chakracore](https://github.com/nodejs/node-chakracore) bringing Node.js to mobile operating systems, as a library that can be embedded in mobile applications and frameworks.
+This is the main repository for the [Node.js for Mobile Apps](https://code.janeasystems.com/nodejs-mobile) project.
+
+It is the central repository for reporting **all issues** related to the Node.js for Mobile Apps project, including issues pertaining to the React Native and Cordova plugins. 
+
+The core library source code is in this repo. If you are looking for the *source code* for the plugins, you can find it at:
+
+* [React Native plugin source repo](https://github.com/janeasystems/nodejs-mobile-react-native)
+* [Cordova plugin source repo](https://github.com/janeasystems/nodejs-mobile-cordova)
+
 
 ##### Project Goals
-The goals of this project are:
 
 1. To provide the fixes necessary to run Node.js on mobile operating systems.
 1. To investigate which features need to be added to Node.js in order to make it a useful tool for mobile app development.
@@ -14,8 +21,7 @@ The goals of this project are:
 Binaries for Android and iOS are available at https://github.com/janeasystems/nodejs-mobile/releases.
 
 ## Documentation
-
-Samples and instructions on how to embed the binaries into mobile applications can be found in the [samples repo](https://github.com/janeasystems/nodejs-mobile-samples/).
+Documentation can be found on the [project website](https://code.janeasystems.com/nodejs-mobile). Sample code is available in the [samples repo](https://github.com/janeasystems/nodejs-mobile-samples/).
 
 ***Disclaimer:***  documentation found in this repository is currently unchanged from the parent repository and may only be applicable to node-chakracore.
 
