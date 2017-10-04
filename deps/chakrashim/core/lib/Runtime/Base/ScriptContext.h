@@ -391,8 +391,8 @@ namespace Js
     {
     public:
         typedef JsUtil::BaseDictionary<void *, uint, HeapAllocator> RangeMap;
-        typedef JsUtil::BaseDictionary<void *, RangeMap*, HeapAllocator, PrimeSizePolicy> JITPageAddrToFuncRangeMap;
-        typedef JsUtil::BaseDictionary<void *, uint, HeapAllocator, PrimeSizePolicy> LargeJITFuncAddrToSizeMap;
+        typedef JsUtil::BaseDictionary<void *, RangeMap*, HeapAllocator> JITPageAddrToFuncRangeMap;
+        typedef JsUtil::BaseDictionary<void *, uint, HeapAllocator> LargeJITFuncAddrToSizeMap;
 
     private:
         JITPageAddrToFuncRangeMap * jitPageAddrToFuncRangeMap;
@@ -1431,7 +1431,13 @@ private:
     public:
         Js::PropertyId GetEmptyStringPropertyId()
         {
-            return threadContext->GetEmptyStringPropertyId();
+            if (emptyStringPropertyId == Js::PropertyIds::_none)
+            {
+                Js::PropertyRecord const * propertyRecord;
+                this->GetOrAddPropertyRecord(_u(""), 0, &propertyRecord);
+                emptyStringPropertyId = propertyRecord->GetPropertyId();
+            }
+            return emptyStringPropertyId;
         }
 
         void FreeFunctionEntryPoint(Js::JavascriptMethod codeAddress, Js::JavascriptMethod thunkAddress);

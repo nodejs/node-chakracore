@@ -121,6 +121,7 @@ namespace Js
         // For boxing stack instance
         DynamicObject(DynamicObject * instance);
 
+        DynamicTypeHandler * GetTypeHandler() const;
         uint16 GetOffsetOfInlineSlots() const;
 
         template <class T>
@@ -134,8 +135,6 @@ namespace Js
 
         void EnsureSlots(int oldCount, int newCount, ScriptContext * scriptContext, DynamicTypeHandler * newTypeHandler = nullptr);
         void EnsureSlots(int newCount, ScriptContext *scriptContext);
-
-        DynamicTypeHandler * GetTypeHandler() const;
 
         Var GetSlot(int index);
         Var GetInlineSlot(int index);

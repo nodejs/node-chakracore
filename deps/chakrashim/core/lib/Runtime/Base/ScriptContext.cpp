@@ -199,6 +199,7 @@ namespace Js
 #endif
         , debugContext(nullptr)
         , jitFuncRangeCache(nullptr)
+        , emptyStringPropertyId(Js::PropertyIds::_none)
     {
        // This may allocate memory and cause exception, but it is ok, as we all we have done so far
        // are field init and those dtor will be called if exception occurs
@@ -6207,7 +6208,7 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         {
             if (jitPageAddrToFuncRangeMap == nullptr)
             {
-                jitPageAddrToFuncRangeMap = HeapNew(JITPageAddrToFuncRangeMap, &HeapAllocator::Instance, 1027);
+                jitPageAddrToFuncRangeMap = HeapNew(JITPageAddrToFuncRangeMap, &HeapAllocator::Instance);
             }
 
             void * pageAddr = GetPageAddr(address);
@@ -6227,7 +6228,7 @@ void ScriptContext::RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertie
         {
             if (largeJitFuncToSizeMap == nullptr)
             {
-                largeJitFuncToSizeMap = HeapNew(LargeJITFuncAddrToSizeMap, &HeapAllocator::Instance, 1027);
+                largeJitFuncToSizeMap = HeapNew(LargeJITFuncAddrToSizeMap, &HeapAllocator::Instance);
             }
 
             uint byteCount = 0;

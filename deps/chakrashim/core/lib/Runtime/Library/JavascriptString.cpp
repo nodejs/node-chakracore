@@ -1758,7 +1758,7 @@ case_2:
 
     Var JavascriptString::GetRegExSymbolFunction(Var regExp, PropertyId propertyId, ScriptContext* scriptContext)
     {
-        return JavascriptOperators::GetPropertyNoCache(
+        return JavascriptOperators::GetProperty(
             RecyclableObject::FromVar(JavascriptOperators::ToObject(regExp, scriptContext)),
             propertyId,
             scriptContext);
@@ -3079,9 +3079,7 @@ case_2:
 
             // a. Let s be the value of value's [[StringData]] internal slot.
             // b. If s is not undefined, then return s.
-            *pString = pStringObj->Unwrap();
-            *pString = JavascriptString::FromVar(CrossSite::MarshalVar(scriptContext,
-              *pString, pStringObj->GetScriptContext()));
+            *pString = JavascriptString::FromVar(CrossSite::MarshalVar(scriptContext, pStringObj->Unwrap()));
             return TRUE;
         }
 

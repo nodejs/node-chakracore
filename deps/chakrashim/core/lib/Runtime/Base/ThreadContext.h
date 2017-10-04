@@ -417,28 +417,7 @@ public:
 #endif
 #endif
 
-public:
-    Js::PropertyRecord const * GetEmptyStringPropertyRecord()
-    {
-        if (!emptyStringPropertyRecord)
-        {
-            emptyStringPropertyRecord = propertyMap->LookupWithKey(Js::HashedCharacterBuffer<char16>(_u(""), 0));
-            if (emptyStringPropertyRecord == nullptr)
-            {
-                emptyStringPropertyRecord = this->UncheckedAddPropertyId(_u(""), 0, true);
-            }
-        }
-        return emptyStringPropertyRecord;
-    }
-
-    Js::PropertyId GetEmptyStringPropertyId()
-    {
-        return GetEmptyStringPropertyRecord()->GetPropertyId();
-    }
-
 private:
-    const Js::PropertyRecord * emptyStringPropertyRecord;
-
     Js::JavascriptExceptionObject * pendingFinallyException;
     bool noScriptScope;
 
@@ -742,7 +721,7 @@ private:
     DListBase<Js::EntryPointInfo *> equivalentTypeCacheEntryPoints;
 
     typedef SList<Js::InlineCache*> InlineCacheList;
-    typedef JsUtil::BaseDictionary<Js::PropertyId, InlineCacheList*, ArenaAllocator, PrimeSizePolicy> InlineCacheListMapByPropertyId;
+    typedef JsUtil::BaseDictionary<Js::PropertyId, InlineCacheList*, ArenaAllocator> InlineCacheListMapByPropertyId;
     InlineCacheListMapByPropertyId protoInlineCacheByPropId;
     InlineCacheListMapByPropertyId storeFieldInlineCacheByPropId;
 
@@ -752,7 +731,7 @@ private:
     uint totalUnregisteredCacheCount;
 #endif
 
-    typedef JsUtil::BaseDictionary<Js::Var, Js::IsInstInlineCache*, ArenaAllocator, PrimeSizePolicy> IsInstInlineCacheListMapByFunction;
+    typedef JsUtil::BaseDictionary<Js::Var, Js::IsInstInlineCache*, ArenaAllocator> IsInstInlineCacheListMapByFunction;
     IsInstInlineCacheListMapByFunction isInstInlineCacheByFunction;
 
     Js::IsConcatSpreadableCache isConcatSpreadableCache;
@@ -819,7 +798,7 @@ private:
     bool isScriptActive;
 
     // When ETW rundown in background thread which needs to walk scriptContext/functionBody/entryPoint lists,
-    // or when JIT thread is getting auxPtrs from function body, we should not be modifying the list of
+    // or when JIT thread is getting auxPtrs from function body, we should not be modifying the list of 
     // functionBody/entrypoints, or expanding the auxPtrs
     CriticalSection csFunctionBody;
 
@@ -1796,7 +1775,7 @@ private:
 extern void(*InitializeAdditionalProperties)(ThreadContext *threadContext);
 
 // This is for protecting a region of code, where we can't recover and be consistent upon failures (mainly due to OOM and SO).
-// FailFast on that.
+// FailFast on that. 
 class AutoDisableInterrupt
 {
 public:

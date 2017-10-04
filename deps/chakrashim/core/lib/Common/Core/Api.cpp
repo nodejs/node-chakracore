@@ -3,9 +3,6 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "CommonCorePch.h"
-#ifdef _WIN32
-#include <wchar.h> // wmemcpy_s
-#endif
 
 void __stdcall js_memcpy_s(__bcount(sizeInBytes) void *dst, size_t sizeInBytes, __in_bcount(count) const void *src, size_t count)
 {
@@ -24,7 +21,8 @@ void __stdcall js_wmemcpy_s(__ecount(sizeInWords) char16 *dst, size_t sizeInWord
     {
         Js::Throw::FatalInternalError();
     }
-    wmemcpy_s(dst, count, src, count);
+
+    memcpy(dst, src, count * sizeof(char16));
 }
 
 #if defined(_M_IX86) || defined(_M_X64)

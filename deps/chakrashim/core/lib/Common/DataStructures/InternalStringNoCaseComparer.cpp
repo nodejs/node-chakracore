@@ -13,11 +13,11 @@ namespace JsUtil
         return (s1.GetLength() == s2.GetLength()) && (NoCaseComparer<JsUtil::CharacterBuffer<WCHAR>>::Compare(s1, s2)==0);
     }
 
-    hash_t NoCaseComparer<JsUtil::CharacterBuffer<WCHAR>>::GetHashCode(JsUtil::CharacterBuffer<WCHAR> const& s1)
+    uint NoCaseComparer<JsUtil::CharacterBuffer<WCHAR>>::GetHashCode(JsUtil::CharacterBuffer<WCHAR> const& s1)
     {
         const char16* s = s1.GetBuffer();
         size_t length = s1.GetLength();
-        hash_t hash = CC_HASH_OFFSET_VALUE;
+        uint hash = 0;
         for (size_t i = 0; i < length; i++)
         {
             CC_HASH_LOGIC(hash, tolower(s[i]));

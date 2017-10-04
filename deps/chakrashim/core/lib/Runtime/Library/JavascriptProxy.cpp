@@ -588,7 +588,7 @@ namespace Js
         }
         return FALSE;
     }
-
+  
     BOOL JavascriptProxy::GetAccessors(PropertyId propertyId, __out Var* getter, __out Var* setter, ScriptContext * requestContext)
     {
         PropertyDescriptor result;
@@ -681,7 +681,7 @@ namespace Js
         }
         else
         {
-            // ES2017 Spec'ed (9.1.9.1):
+            // ES2017 Spec'ed (9.1.9.1): 
             // If existingDescriptor is not undefined, then
             //    If IsAccessorDescriptor(existingDescriptor) is true, return false.
             //    If existingDescriptor.[[Writable]] is false, return false.
@@ -1031,8 +1031,7 @@ namespace Js
                                 // if (desc.enumerable) yield key;
                                 if (desc.IsEnumerable())
                                 {
-                                    return JavascriptString::FromVar(CrossSite::MarshalVar(
-                                      scriptContext, propertyName, propertyName->GetScriptContext()));
+                                    return JavascriptString::FromVar(CrossSite::MarshalVar(scriptContext, propertyName));
                                 }
                             }
                         }
@@ -1976,10 +1975,9 @@ namespace Js
             JavascriptError::ThrowTypeError(requestContext, JSERR_NeedFunction, requestContext->GetPropertyName(methodId)->GetBuffer());
         }
 
-        JavascriptFunction* function = JavascriptFunction::FromVar(varMethod);
+        varMethod = CrossSite::MarshalVar(requestContext, varMethod);
 
-        return JavascriptFunction::FromVar(CrossSite::MarshalVar(requestContext,
-          function, function->GetScriptContext()));
+        return JavascriptFunction::FromVar(varMethod);
     }
 
     Var JavascriptProxy::GetValueFromDescriptor(Var instance, PropertyDescriptor propertyDescriptor, ScriptContext* requestContext)
@@ -1998,10 +1996,11 @@ namespace Js
 
     void JavascriptProxy::PropertyIdFromInt(uint32 index, PropertyRecord const** propertyRecord)
     {
-        char16 buffer[22];
-        int pos = TaggedInt::ToBuffer(index, buffer, _countof(buffer));
+        char16 buffer[20];
 
-        GetScriptContext()->GetOrAddPropertyRecord((LPCWSTR)buffer + pos, (_countof(buffer) - 1) - pos, propertyRecord);
+        ::_i64tow_s(index, buffer, sizeof(buffer) / sizeof(char16), 10);
+
+        GetScriptContext()->GetOrAddPropertyRecord((LPCWSTR)buffer, static_cast<int>(wcslen(buffer)), propertyRecord);
     }
 
     Var JavascriptProxy::GetName(ScriptContext* requestContext, PropertyId propertyId)
