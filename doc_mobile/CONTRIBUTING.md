@@ -1,7 +1,7 @@
 # Contributing to Node.js for Mobile Apps
 
 ## Code Contributions
-Only changes that fall within the scope of the [project-goals](https://github.com/janeasystems/nodejs-mobile/blob/mobile-master/README.md#project-goals) will be accepted. 
+Only changes that fall within the scope of the [project goals](https://github.com/janeasystems/nodejs-mobile/blob/mobile-master/README.md#project-goals) will be accepted. 
 
 If you want to implement a major feature or a semantical change, please open an issue for discussion first. For minor fixes, feel free to just open a pull request.
 
