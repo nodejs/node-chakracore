@@ -906,10 +906,12 @@ napi_status napi_define_properties(napi_env env,
                                    size_t property_count,
                                    const napi_property_descriptor* properties) {
   JsPropertyIdRef configurableProperty;
-  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("configurable"), &configurableProperty));
+  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("configurable"),
+                                &configurableProperty));
 
   JsPropertyIdRef enumerableProperty;
-  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("enumerable"), &enumerableProperty));
+  CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("enumerable"),
+                                &enumerableProperty));
 
   for (size_t i = 0; i < property_count; i++) {
     const napi_property_descriptor* p = properties + i;
@@ -964,7 +966,8 @@ napi_status napi_define_properties(napi_env env,
       RETURN_STATUS_IF_FALSE(p->value != nullptr, napi_invalid_arg);
 
       JsPropertyIdRef writableProperty;
-      CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("writable"), &writableProperty));
+      CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("writable"),
+                                    &writableProperty));
       JsValueRef writable;
       CHECK_JSRT(JsBoolToBoolean((p->attributes & napi_writable), &writable));
       CHECK_JSRT(JsSetProperty(descriptor, writableProperty, writable, true));
@@ -2620,6 +2623,8 @@ napi_status napi_adjust_external_memory(napi_env env,
   CHECK_ARG(adjusted_value);
 
   // TODO(jackhorton): Determine if Chakra needs or is able to do anything here
+  // For now, we can lie and say that we always adjusted more memory
+  *adjusted_value = change_in_bytes;
 
   return napi_ok;
 }
@@ -2737,7 +2742,8 @@ class Work: public node::AsyncResource {
       JsValueRef exception;
       JsPropertyIdRef exProp;
 
-      if (JsCreatePropertyId(STR_AND_LENGTH("exception"), &exProp) != JsNoError) {
+      if (JsCreatePropertyId(STR_AND_LENGTH("exception"),
+                             &exProp) != JsNoError) {
         Fatal();
         return;
       }
