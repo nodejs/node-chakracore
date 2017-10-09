@@ -1719,6 +1719,8 @@ class FunctionCallbackInfo {
   V8_INLINE Local<Value> operator[](int i) const;
   Local<Function> Callee() const { return _callee; }
   Local<Object> This() const { return _thisPointer; }
+  // TODO(jahorto): Implement this once JSRT gains new.target support
+  Local<Value> NewTarget() const { return nullptr; }
   Local<Object> Holder() const { return _holder; }
   bool IsConstructCall() const { return _isConstructorCall; }
   Local<Value> Data() const { return _data; }
