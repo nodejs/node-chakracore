@@ -74,6 +74,10 @@ assert.strictEqual(test_string.TestUtf16Insufficient(str6), str6.slice(0, 3));
 assert.strictEqual(test_string.Utf16Length(str6), 5);
 assert.strictEqual(test_string.Utf8Length(str6), 14);
 
-assert.throws(() => {
-  test_string.TestLargeUtf8();
-}, /^Error: Invalid argument$/);
+// JSRT's JsCreateString happily takes in size_t lengths, while V8's doesn't
+// The TestLargeUtf8 function expects a fail fast here that Chakra doesn't need
+if (!common.isChakraEngine) {
+  assert.throws(() => {
+    test_string.TestLargeUtf8();
+  }, /^Error: Invalid argument$/);
+}
