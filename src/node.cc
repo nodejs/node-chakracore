@@ -1166,8 +1166,19 @@ bool ShouldAbortOnUncaughtException(Isolate* isolate) {
 }
 
 
+Local<Value> GetDomainProperty(Environment* env, Local<Object> object) {
+  Local<Value> domain_v =
+      object->GetPrivate(env->context(), env->domain_private_symbol())
+          .ToLocalChecked();
+  if (domain_v->IsObject()) {
+    return domain_v;
+  }
+  return object->Get(env->context(), env->domain_string()).ToLocalChecked();
+}
+
+
 void DomainEnter(Environment* env, Local<Object> object) {
-  Local<Value> domain_v = object->Get(env->domain_string());
+  Local<Value> domain_v = GetDomainProperty(env, object);
   if (domain_v->IsObject()) {
     Local<Object> domain = domain_v.As<Object>();
     Local<Value> enter_v = domain->Get(env->enter_string());
@@ -1182,7 +1193,7 @@ void DomainEnter(Environment* env, Local<Object> object) {
 
 
 void DomainExit(Environment* env, v8::Local<v8::Object> object) {
-  Local<Value> domain_v = object->Get(env->domain_string());
+  Local<Value> domain_v = GetDomainProperty(env, object);
   if (domain_v->IsObject()) {
     Local<Object> domain = domain_v.As<Object>();
     Local<Value> exit_v = domain->Get(env->exit_string());
@@ -1204,10 +1215,16 @@ void DomainPromiseHook(PromiseHookType type,
   Local<Context> context = env->context();
 
   if (type == PromiseHookType::kInit && env->in_domain()) {
-    promise->Set(context,
-                 env->domain_string(),
-                 env->domain_array()->Get(context,
-                                          0).ToLocalChecked()).FromJust();
+    Local<Value> domain_obj =
+        env->domain_array()->Get(context, 0).ToLocalChecked();
+    if (promise->CreationContext() == context) {
+      promise->Set(context, env->domain_string(), domain_obj).FromJust();
+    } else {
+      // Do not expose object from another context publicly in promises created
+      // in non-main contexts.
+      promise->SetPrivate(context, env->domain_private_symbol(), domain_obj)
+          .FromJust();
+    }
     return;
   }
 
@@ -1724,6 +1741,7 @@ void AppendExceptionLine(Environment* env,
   }
 
   // Print (filename):(line number): (message).
+  ScriptOrigin origin = message->GetScriptOrigin();
   node::Utf8Value filename(env->isolate(), message->GetScriptResourceName());
   const char* filename_string = *filename;
   int linenum = message->GetLineNumber();
@@ -1752,8 +1770,16 @@ void AppendExceptionLine(Environment* env,
   // sourceline to 78 characters, and we end up not providing very much
   // useful debugging info to the user if we remove 62 characters.
 
+  int script_start =
+      (linenum - origin.ResourceLineOffset()->Value()) == 1 ?
+          origin.ResourceColumnOffset()->Value() : 0;
   int start = message->GetStartColumn(env->context()).FromMaybe(0);
   int end = message->GetEndColumn(env->context()).FromMaybe(0);
+  if (start >= script_start) {
+    CHECK_GE(end, start);
+    start -= script_start;
+    end -= script_start;
+  }
 
   char arrow[1024];
   int max_off = sizeof(arrow) - 2;

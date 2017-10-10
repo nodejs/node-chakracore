@@ -1,5 +1,7 @@
 @echo off
 
+setlocal EnableExtensions
+
 cd %~dp0
 
 if /i "%1"=="help" goto help
@@ -46,7 +48,7 @@ set test_node_inspect=
 set test_check_deopts=
 set engine=chakracore
 set chakracore_test_build=
-set js_test_suites=abort async-hooks es-module inspector known_issues message parallel sequential
+set js_test_suites=default async-hooks known_issues
 set v8_test_options=
 set v8_build_options=
 set "common_test_suites=%js_test_suites% doctool addons addons-napi&set build_addons=1&set build_addons_napi=1"

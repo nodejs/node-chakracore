@@ -155,7 +155,7 @@ class URL {
     return context_.fragment;
   }
 
-  std::string path() {
+  std::string path() const {
     std::string ret;
     for (auto i = context_.path.begin(); i != context_.path.end(); i++) {
       ret += '/';
@@ -166,7 +166,7 @@ class URL {
 
   // Get the path of the file: URL in a format consumable by native file system
   // APIs. Returns an empty string if something went wrong.
-  std::string ToFilePath();
+  std::string ToFilePath() const;
 
   const Local<Value> ToObject(Environment* env) const;
 
