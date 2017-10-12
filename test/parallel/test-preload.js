@@ -1,12 +1,12 @@
 'use strict';
 
 const common = require('../common');
+const fixtures = require('../common/fixtures');
 // Refs: https://github.com/nodejs/node/pull/2253
 if (common.isSunOS)
   common.skip('unreliable on SunOS');
 
 const assert = require('assert');
-const path = require('path');
 const childProcess = require('child_process');
 if (common.isChakraEngine)
   common.skip('This test is disabled for chakra engine because debugger ' +
@@ -23,13 +23,11 @@ const preloadOption = (preloads) => {
   return option;
 };
 
-const fixture = (name) => path.join(common.fixturesDir, name);
-
-const fixtureA = fixture('printA.js');
-const fixtureB = fixture('printB.js');
-const fixtureC = fixture('printC.js');
-const fixtureD = fixture('define-global.js');
-const fixtureThrows = fixture('throws_error4.js');
+const fixtureA = fixtures.path('printA.js');
+const fixtureB = fixtures.path('printB.js');
+const fixtureC = fixtures.path('printC.js');
+const fixtureD = fixtures.path('define-global.js');
+const fixtureThrows = fixtures.path('throws_error4.js');
 
 // test preloading a single module works
 childProcess.exec(`"${nodeBinary}" ${preloadOption([fixtureA])} "${fixtureB}"`,
@@ -128,8 +126,8 @@ interactive.stdin.write('a\n');
 interactive.stdin.write('process.exit()\n');
 
 childProcess.exec(
-  `"${nodeBinary}" --require "${fixture('cluster-preload.js')}" "${
-    fixture('cluster-preload-test.js')}"`,
+  `"${nodeBinary}" --require "${fixtures.path('cluster-preload.js')}" "${
+    fixtures.path('cluster-preload-test.js')}"`,
   function(err, stdout, stderr) {
     assert.ifError(err);
     assert.ok(/worker terminated with code 43/.test(stdout));
@@ -137,10 +135,10 @@ childProcess.exec(
 );
 
 // https://github.com/nodejs/node/issues/1691
-process.chdir(common.fixturesDir);
+process.chdir(fixtures.fixturesDir);
 childProcess.exec(
   `"${nodeBinary}" --expose_natives_as=v8natives --require ` +
-     `"${fixture('cluster-preload.js')}" cluster-preload-test.js`,
+     `"${fixtures.path('cluster-preload.js')}" cluster-preload-test.js`,
   function(err, stdout, stderr) {
     assert.ifError(err);
     assert.ok(/worker terminated with code 43/.test(stdout));

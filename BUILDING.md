@@ -88,7 +88,7 @@ On macOS you will need to install the `Xcode Command Line Tools` by running
 installed, you can find them under the menu `Xcode -> Open Developer Tool ->
 More Developer Tools...`. This step will install `clang`, `clang++`, and
 `make`.
-* You may want to setup [firewall rules](tools/macosx-firewall.sh)
+* After building, you may want to setup [firewall rules](tools/macosx-firewall.sh)
 to avoid popups asking to accept incoming network connections when running tests:
 
 If the path to your build directory contains a space, the build will likely fail.
@@ -126,6 +126,9 @@ To run the tests:
 $ make test
 ```
 
+At this point you are ready to make code changes and re-run the tests!
+Optionally, continue below.
+
 To run the tests and generate code coverage reports:
 
 ```console
@@ -142,7 +145,7 @@ and overwrites the `lib/` directory. To clean up after generating the coverage
 reports:
 
 ```console
-make coverage-clean
+$ make coverage-clean
 ```
 
 To build the documentation:

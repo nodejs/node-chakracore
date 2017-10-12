@@ -42,6 +42,8 @@ const script = `
 
   vm.runInNewContext('Array', {});
   debugger;
+
+  vm.runInNewContext('debugger', {});
 `;
 
 async function getContext(session) {
@@ -96,6 +98,12 @@ async function runTests() {
   const thirdContext = await getContext(session);
   await checkScriptContext(session, thirdContext);
   await session.waitForBreakOnLine(33, '[eval]');
+
+  console.error('[test]', 'vm.runInNewContext can contain debugger statements');
+  await session.send({ 'method': 'Debugger.resume' });
+  const fourthContext = await getContext(session);
+  await checkScriptContext(session, fourthContext);
+  await session.waitForBreakOnLine(0, 'evalmachine.<anonymous>');
 
   await session.runToCompletion();
   assert.strictEqual(0, (await instance.expectShutdown()).exitCode);
