@@ -7,14 +7,19 @@ prefix es-module
 [true] # This section applies to all platforms
 
 [$jsEngine==chakracore]
+test-esm-addon : PASS,FLAKY
 test-esm-basic-imports : PASS,FLAKY
 test-esm-encoded-path : PASS,FLAKY
 test-esm-encoded-path-native : PASS,FLAKY
+test-esm-example-loader : PASS,FLAKY
 test-esm-forbidden-globals : PASS,FLAKY
+test-esm-json : PASS,FLAKY
+test-esm-named-exports : PASS,FLAKY
 test-esm-namespace : PASS,FLAKY
 test-esm-ok : PASS,FLAKY
 test-esm-preserve-symlinks : PASS,FLAKY
 test-esm-require-cache : PASS,FLAKY
+test-esm-resolve-hook : PASS,FLAKY
 test-esm-shebang : PASS,FLAKY
 test-esm-snapshot : PASS,FLAKY
 test-esm-symlink : PASS,FLAKY
