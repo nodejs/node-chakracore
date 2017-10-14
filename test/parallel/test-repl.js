@@ -72,7 +72,7 @@ function strict_mode_error_test() {
   send_expect([
     { client: client_unix, send: 'ref = 1',
       expect: common.engineSpecificMessage({
-        v8: /^ReferenceError:\sref\sis\snot\sdefined\n\s+at\srepl:1:5/,
+        v8: /^ReferenceError:\sref\sis\snot\sdefined\nnode via Unix socket> $/,
         chakracore: /^ReferenceError: Variable undefined in strict mode/
       })
     },
