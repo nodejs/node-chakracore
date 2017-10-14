@@ -74,6 +74,8 @@ test-promises-warning-on-unhandled-rejection : PASS,FLAKY
 test-regress-GH-12371 : PASS,FLAKY
 test-repl : PASS,FLAKY
 test-repl-mode : PASS,FLAKY
+test-repl-pretty-custom-stack : PASS,FLAKY
+test-repl-pretty-stack : PASS,FLAKY
 test-repl-sigint : PASS,FLAKY
 test-repl-tab-complete : PASS,FLAKY
 test-string-decoder : PASS,FLAKY
