@@ -20,7 +20,7 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 'use strict';
-require('../common');
+const common = require('../common');
 const { fixturesDir } = require('../common/fixtures');
 const assert = require('assert');
 const { exec } = require('child_process');
