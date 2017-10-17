@@ -21,11 +21,12 @@
 
 'use strict';
 const common = require('../common');
+const { fixturesDir } = require('../common/fixtures');
 const assert = require('assert');
-const exec = require('child_process').exec;
+const { exec } = require('child_process');
 
 const cmd =
-  `"${process.execPath}" "${common.fixturesDir}/test-regress-GH-4015.js"`;
+  `"${process.execPath}" "${fixturesDir}/test-regress-GH-4015.js"`;
 
 exec(cmd, function(err, stdout, stderr) {
   const expectedError = common.engineSpecificMessage({
