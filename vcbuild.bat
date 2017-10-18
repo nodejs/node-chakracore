@@ -500,7 +500,7 @@ goto lint-cpp
 
 :lint-cpp
 if not defined lint_cpp goto lint-js
-call :run-lint-cpp src\*.c src\*.cc src\*.h test\addons\*.cc test\addons\*.h test\cctest\*.cc test\cctest\*.h test\gc\binding.cc tools\icu\*.cc tools\icu\*.h
+call :run-lint-cpp src\*.c src\*.cc src\*.h test\addons\*.cc test\addons\*.h test\addons-napi\*.cc test\addons-napi\*.h test\cctest\*.cc test\cctest\*.h test\gc\binding.cc tools\icu\*.cc tools\icu\*.h
 call :run-lint-cpp %chakra_cpplint%
 call :run-python tools/check-imports.py
 goto lint-js
@@ -529,10 +529,13 @@ if %errorlevel% equ 0 goto exit
 echo %1 | findstr /r /c:"src\\.*\\.*" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.h" > nul 2>&1
+echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.h"
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.cc" > nul 2>&1
+echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.cc"
+if %errorlevel% equ 0 goto exit
+
+echo %1 | findstr /c:"test\\addons-napi\\common.h"
 if %errorlevel% equ 0 goto exit
 
 set "localcppfilelist=%localcppfilelist% %1"
