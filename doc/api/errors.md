@@ -940,6 +940,11 @@ Used when `hostname` can not be parsed from a provided URL.
 
 Used when a file descriptor ('fd') is not valid (e.g. it has a negative value).
 
+<a id="ERR_INVALID_FD_TYPE"></a>
+### ERR_INVALID_FD_TYPE
+
+Used when a file descriptor ('fd') type is not valid.
+
 <a id="ERR_INVALID_FILE_URL_HOST"></a>
 ### ERR_INVALID_FILE_URL_HOST
 
@@ -1250,6 +1255,12 @@ buffer.
 ### ERR_UNESCAPED_CHARACTERS
 
 Used when a string that contains unescaped characters was received.
+
+<a id="ERR_UNHANDLED_ERROR"></a>
+### ERR_UNHANDLED_ERROR
+
+Used when an unhandled "error" occurs (for instance, when an `'error'` event
+is emitted by an `EventEmitter` but an `'error'` handler is not registered).
 
 <a id="ERR_UNKNOWN_ENCODING"></a>
 ### ERR_UNKNOWN_ENCODING
