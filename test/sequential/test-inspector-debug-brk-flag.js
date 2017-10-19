@@ -5,7 +5,7 @@ common.skipIfInspectorDisabled();
 
 const assert = require('assert');
 const { mainScriptPath,
-        NodeInstance } = require('./inspector-helper.js');
+        NodeInstance } = require('../common/inspector-helper.js');
 
 async function testBreakpointOnStart(session) {
   const commands = [

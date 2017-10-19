@@ -5,7 +5,7 @@ const fixtures = require('../common/fixtures');
 common.skipIfInspectorDisabled();
 
 const assert = require('assert');
-const { NodeInstance } = require('./inspector-helper.js');
+const { NodeInstance } = require('../common/inspector-helper.js');
 
 const script = fixtures.path('throws_error.js');
 
