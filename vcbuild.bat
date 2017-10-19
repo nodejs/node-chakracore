@@ -135,6 +135,10 @@ goto next-arg
 
 :args-done
 
+if "%*"=="lint" (
+  goto lint-cpp
+)
+
 if defined build_release (
   set config=Release
   set package=1
@@ -500,7 +504,7 @@ goto lint-cpp
 
 :lint-cpp
 if not defined lint_cpp goto lint-js
-call :run-lint-cpp src\*.c src\*.cc src\*.h test\addons\*.cc test\addons\*.h test\cctest\*.cc test\cctest\*.h test\gc\binding.cc tools\icu\*.cc tools\icu\*.h
+call :run-lint-cpp src\*.c src\*.cc src\*.h test\addons\*.cc test\addons\*.h test\addons-napi\*.cc test\addons-napi\*.h test\cctest\*.cc test\cctest\*.h test\gc\binding.cc tools\icu\*.cc tools\icu\*.h
 call :run-lint-cpp %chakra_cpplint%
 call :run-python tools/check-imports.py
 goto lint-js
@@ -513,12 +517,12 @@ setlocal enabledelayedexpansion
 for /f "tokens=*" %%G in ('dir /b /s /a %*') do (
   set relpath=%%G
   set relpath=!relpath:*%~dp0=!
-  call :add-to-list !relpath!
+  call :add-to-list !relpath! > nul
 )
 ( endlocal
   set cppfilelist=%localcppfilelist%
 )
-call :run-python tools/cpplint.py %cppfilelist%
+call :run-python tools/cpplint.py %cppfilelist% > nul
 goto exit
 
 :add-to-list
@@ -529,10 +533,13 @@ if %errorlevel% equ 0 goto exit
 echo %1 | findstr /r /c:"src\\.*\\.*" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.h" > nul 2>&1
+echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.h"
 if %errorlevel% equ 0 goto exit
 
-echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.cc" > nul 2>&1
+echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.cc"
+if %errorlevel% equ 0 goto exit
+
+echo %1 | findstr /c:"test\\addons-napi\\common.h"
 if %errorlevel% equ 0 goto exit
 
 set "localcppfilelist=%localcppfilelist% %1"
@@ -571,6 +578,7 @@ echo   vcbuild.bat test                     : builds debug build and runs tests
 echo   vcbuild.bat build-release            : builds the release distribution as used by nodejs.org
 echo   vcbuild.bat enable-vtune             : builds nodejs with Intel VTune profiling support to profile JavaScript
 echo   vcbuild.bat link-module my_module.js : bundles my_module as built-in module
+echo   vcbuild.bat lint                     : runs the C++ and JavaScript linter
 goto exit
 
 :run-python
