@@ -55,6 +55,7 @@ test-http-pipeline-flood : PASS,FLAKY
 test-http-same-map : PASS,FLAKY
 test-http2-client-promisify-connect : PASS,FLAKY
 test-http2-server-rst-stream : PASS,FLAKY
+test-inspect-async-hook-setup-at-inspect : PASS,FLAKY
 test-intl : PASS,FLAKY
 test-intl-no-icu-data : PASS,FLAKY
 test-memory-usage : PASS,FLAKY
