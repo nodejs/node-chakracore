@@ -30,8 +30,6 @@
 #include "src/version.h"
 #include "test/cctest/cctest.h"
 
-using namespace v8::internal;
-
 
 namespace v8 {
 namespace internal {
@@ -46,10 +44,6 @@ void SetVersion(int major, int minor, int build, int patch,
   Version::candidate_ = candidate;
   Version::soname_ = soname;
 }
-
-}  // namespace internal
-}  // namespace v8
-
 
 static void CheckVersion(int major, int minor, int build, int patch,
                          const char* embedder, bool candidate,
@@ -120,3 +114,6 @@ TEST(VersionString) {
                "libv8-6.0.287.53-emb.1-candidate.so");
 #endif
 }
+
+}  // namespace internal
+}  // namespace v8
