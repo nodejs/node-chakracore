@@ -589,17 +589,27 @@ namespace Js
         return FALSE;
     }
   
-    BOOL JavascriptProxy::GetAccessors(PropertyId propertyId, Var* getter, Var* setter, ScriptContext * requestContext)
+    BOOL JavascriptProxy::GetAccessors(PropertyId propertyId, __out Var* getter, __out Var* setter, ScriptContext * requestContext)
     {
         PropertyDescriptor result;
+        if (getter != nullptr)
+        {
+            *getter = nullptr;
+        }
+
+        if (setter != nullptr)
+        {
+            *setter = nullptr;
+        }
+
         BOOL foundProperty = GetOwnPropertyDescriptor(this, propertyId, requestContext, &result);
         if (foundProperty && result.IsFromProxy())
         {
-            if (result.GetterSpecified())
+            if (result.GetterSpecified() && getter != nullptr)
             {
                 *getter = result.GetGetter();
             }
-            if (result.SetterSpecified())
+            if (result.SetterSpecified() && setter != nullptr)
             {
                 *setter = result.GetSetter();
             }
@@ -633,6 +643,8 @@ namespace Js
 
     BOOL JavascriptProxy::SetProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info)
     {
+        PROBE_STACK(GetScriptContext(), Js::Constants::MinStackDefault);
+
         // This is the second half of [[set]] where when the handler does not specified [[set]] so we forward to [[set]] on target
         // with receiver as the proxy.
         //c.Let existingDescriptor be the result of calling the[[GetOwnProperty]] internal method of Receiver with argument P.
@@ -1451,6 +1463,8 @@ namespace Js
 
     RecyclableObject* JavascriptProxy::GetPrototypeSpecial()
     {
+        PROBE_STACK(GetScriptContext(), Js::Constants::MinStackDefault);
+
         // Reject implicit call
         ThreadContext* threadContext = GetScriptContext()->GetThreadContext();
         if (threadContext->IsDisableImplicitCall())

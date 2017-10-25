@@ -1,5 +1,110 @@
 # ChakraShim ChangeLog
 
+## 2017-10-03, node-chakracore-8.6.0
+
+### Commits
+
+* [[`f2c076f89a`](https://github.com/nodejs/node-chakracore/commit/f2c076f89a)] - napi,lint: fixing lint errors in node_api_jsrt.cc
+* [[`ac5a059e2b`](https://github.com/nodejs/node-chakracore/commit/ac5a059e2b)] - napi: fix property string length
+* [[`8d001ffb38`](https://github.com/nodejs/node-chakracore/commit/8d001ffb38)] - napi_jsrt: initialize memory in napi_adjust_external_memory
+* [[`dea038833d`](https://github.com/nodejs/node-chakracore/commit/dea038833d)] - disabling inspector/test-contexts because it blocks CI
+* [[`77d8bf905a`](https://github.com/nodejs/node-chakracore/commit/77d8bf905a)] - test: fixing jslint issues
+* [[`2bc17ae221`](https://github.com/nodejs/node-chakracore/commit/2bc17ae221)] - lib,ttd: updating stale use of lazyConstants
+* [[`00ff650ab1`](https://github.com/nodejs/node-chakracore/commit/00ff650ab1)] - napi,jsrt: fixed erroneous version number when registering napi modules
+* [[`219ed708b7`](https://github.com/nodejs/node-chakracore/commit/219ed708b7)] - Updating flaky status for moved test
+* [[`0b79dd37de`](https://github.com/nodejs/node-chakracore/commit/0b79dd37de)] - test: updating inspector tests to work or be marked as flaky
+* [[`76c2d08dda`](https://github.com/nodejs/node-chakracore/commit/76c2d08dda)] - test,chakrashim: fixing v8::External objects to have no prototype
+* [[`a642b88f0f`](https://github.com/nodejs/node-chakracore/commit/a642b88f0f)] - test: disabling part of util-format test due to different property ordering
+* [[`6ede8e1f78`](https://github.com/nodejs/node-chakracore/commit/6ede8e1f78)] - napi: updating chakra napi implementation to match new spec
+* [[`8aa008154a`](https://github.com/nodejs/node-chakracore/commit/8aa008154a)] - src: fixing trace-sync-io flag handling after bad merge
+* [[`6db22af238`](https://github.com/nodejs/node-chakracore/commit/6db22af238)] - marking test-http2-client-promisify-connect as failing
+* [[`743f6343c0`](https://github.com/nodejs/node-chakracore/commit/743f6343c0)] - test,build: implement no-ops for Promise::Resolver methods, mark tests as flaky
+* [[`08a2c07619`](https://github.com/nodejs/node-chakracore/commit/08a2c07619)] - napi: Fix break on linux
+* [[`0446278e4e`](https://github.com/nodejs/node-chakracore/commit/0446278e4e)] - build: fix lint issues
+* [[`3cd421af84`](https://github.com/nodejs/node-chakracore/commit/3cd421af84)] - napi: Update jsrt implementation
+* [[`2cbd199bdb`](https://github.com/nodejs/node-chakracore/commit/2cbd199bdb)] - build: fix lint issues
+* [[`1daa223087`](https://github.com/nodejs/node-chakracore/commit/1daa223087)] - napi: Fix jsrt implementation of napi_create_async_work
+* [[`fb77947c92`](https://github.com/nodejs/node-chakracore/commit/fb77947c92)] - napi: adding napi_run_script support for chakracore
+* [[`598e085949`](https://github.com/nodejs/node-chakracore/commit/598e085949)] - n-api: implement stub for adjust_external_memory
+* [[`a838d66cdc`](https://github.com/nodejs/node-chakracore/commit/a838d66cdc)] - ttd: adding ttd tracking logic to aliased_buffer
+* [[`96ec10956f`](https://github.com/nodejs/node-chakracore/commit/96ec10956f)] - ttd: undoing custom TTD tracking for async-wrap
+* [[`b54102b53d`](https://github.com/nodejs/node-chakracore/commit/b54102b53d)] - Merge tag 'v8.6.0' into v8.6.0-proposal
+* [[`85d4313ddf`](https://github.com/nodejs/node-chakracore/commit/85d4313ddf)] - Merge tag 'v8.5.0' into v8.5.0-catchup
+* [[`e97bfc8cb5`](https://github.com/nodejs/node-chakracore/commit/e97bfc8cb5)] - [Merge Microsoft/Chakracore@ee46fc449c] [MERGE #3732 @MSLaguana] Preparing for release 1.7.2
+* [[`29a51f1791`](https://github.com/nodejs/node-chakracore/commit/29a51f1791)] - [Merge Microsoft/Chakracore@0709816282] [MERGE #3729 @suwc] 17-09 ChakraCore servicing release
+* [[`a4eecc6046`](https://github.com/nodejs/node-chakracore/commit/a4eecc6046)] - [Merge Microsoft/Chakracore@e905806855] [MERGE #3682 @dilijev] Fix #2987: Per spec, skip over holes when iterating over localeList
+* [[`e155292bc0`](https://github.com/nodejs/node-chakracore/commit/e155292bc0)] - [Merge Microsoft/Chakracore@8dd1b47365] [MERGE #3721 @jianchun] fix incorrect parameter to call ChangeStringLinguisticCase
+* [[`c3abd0ad56`](https://github.com/nodejs/node-chakracore/commit/c3abd0ad56)] - [Merge Microsoft/Chakracore@860ad1275e] [MERGE #3719 @jianchun] fix JavascriptFunction::CheckValidDebugThunk CrossSite check
+* [[`57b1462886`](https://github.com/nodejs/node-chakracore/commit/57b1462886)] - [Merge Microsoft/Chakracore@6c11e16af2] [MERGE #3707 @sigatrev] Remove unneeded symbol that is breaking RecordInlineeFrameInfo copy prop
+* [[`2199111435`](https://github.com/nodejs/node-chakracore/commit/2199111435)] - [Merge Microsoft/Chakracore@f17e37db34] [MERGE #3680 @dilijev] Intl-ICU: Add LanguageTag RegExp; make Intl.*.supportedLocalesOf work under ICU
+* [[`a3f3dc67e9`](https://github.com/nodejs/node-chakracore/commit/a3f3dc67e9)] - [Merge Microsoft/Chakracore@d655df5191] [MERGE #3712 @obastemur] fix recyclerList check failing on multi-thread usage
+* [[`def07b77ac`](https://github.com/nodejs/node-chakracore/commit/def07b77ac)] - chakrashim: fixing build break with stub v8::Module shim
+* [[`bb89ac91b5`](https://github.com/nodejs/node-chakracore/commit/bb89ac91b5)] - [Merge Microsoft/Chakracore@edbeb866a5] [MERGE #3516 @obastemur] perf: Improve hot MOD arithmetic
+* [[`9991aac9ce`](https://github.com/nodejs/node-chakracore/commit/9991aac9ce)] - [Merge Microsoft/Chakracore@4f07a58eec] [MERGE #3607 @MSLaguana] Adding a new enumerator flag to support short-term accesses
+* [[`c8f4860693`](https://github.com/nodejs/node-chakracore/commit/c8f4860693)] - [Merge Microsoft/Chakracore@743be56892] [MERGE #3702 @sigatrev] Call SetInternalProperty and fix flags
+* [[`3396570d32`](https://github.com/nodejs/node-chakracore/commit/3396570d32)] - [Merge Microsoft/Chakracore@daa3fc0313] [MERGE #3604 @obastemur] perf: reduce collision in hot maps
+* [[`e3599a3921`](https://github.com/nodejs/node-chakracore/commit/e3599a3921)] - [Merge Microsoft/Chakracore@9264e37437] [MERGE #3605 @obastemur] perf: use wmemcpy instead of memcpy for wide strings
+* [[`b0afaed68f`](https://github.com/nodejs/node-chakracore/commit/b0afaed68f)] - [Merge Microsoft/Chakracore@d4c8561029] [MERGE #3541 @obastemur] Better Debug coverage, smaller binary size
+* [[`1685cf32d9`](https://github.com/nodejs/node-chakracore/commit/1685cf32d9)] - chakrashim: added v8::Value::IsNullOrUndefined
+* [[`270d15f217`](https://github.com/nodejs/node-chakracore/commit/270d15f217)] - [Merge Microsoft/Chakracore@cfebb39b75] [MERGE #3684 @digitalinfinity] Fix broken config parsing in ChakraFull
+* [[`2d6277dfd8`](https://github.com/nodejs/node-chakracore/commit/2d6277dfd8)] - chakrashim: updating use of JsCopyString for perf
+* [[`9b071a2041`](https://github.com/nodejs/node-chakracore/commit/9b071a2041)] - [Merge Microsoft/Chakracore@7b7ddfe8f3] [MERGE #3609 @MSLaguana] Changing utf8 conversion codex to improve perf and safety
+* [[`e1adb2981a`](https://github.com/nodejs/node-chakracore/commit/e1adb2981a)] - [Merge Microsoft/Chakracore@09cf407949] [MERGE #3590 @mrkmarron] TTD: Fix leak on top-level function load and bug in external function inflate.
+* [[`35c2017b81`](https://github.com/nodejs/node-chakracore/commit/35c2017b81)] - [Merge Microsoft/Chakracore@fcf9a18f07] [MERGE #3608 @Penguinwizzard] Add a flag to use a stronger array sort for bug analysis.
+* [[`fc18b99ee1`](https://github.com/nodejs/node-chakracore/commit/fc18b99ee1)] - [Merge Microsoft/Chakracore@0df53e5b62] [MERGE #3578 @meg-gupta] Dont update valueInfo of bytecode constants
+* [[`bc8df9e795`](https://github.com/nodejs/node-chakracore/commit/bc8df9e795)] - [Merge Microsoft/Chakracore@1262d2ea6d] [1.6>1.7] [MERGE #3583 @rajatd] Allow cross-site objects too in ActivationObjectEx::Is
+* [[`b43c5eedef`](https://github.com/nodejs/node-chakracore/commit/b43c5eedef)] - [Merge Microsoft/Chakracore@a773e37180] [MERGE #3598 @Cellule] Fix #3597
+* [[`44e7610190`](https://github.com/nodejs/node-chakracore/commit/44e7610190)] - [Merge Microsoft/Chakracore@4bf71d047f] [MERGE #3587 @rajatd] Setting internal properties with
+* [[`6aff2d8c7e`](https://github.com/nodejs/node-chakracore/commit/6aff2d8c7e)] - [Merge Microsoft/Chakracore@e5c80f382f] [MERGE #3564 @dilijev] Fix space between , and exclude_xplat (rl doesn't handle spaces)
+* [[`ebbb2a6146`](https://github.com/nodejs/node-chakracore/commit/ebbb2a6146)] - [Merge Microsoft/Chakracore@e2345e7d4a] [1.6>1.7] [MERGE #3584 @thomasmo] OS#13419689 - DOMFastPathGetter instructions do not propagate destination profile data, adding overhead to inlined getter calls
+* [[`b871421a86`](https://github.com/nodejs/node-chakracore/commit/b871421a86)] - chakrashim: added missing Function methods
+* [[`3a113372fa`](https://github.com/nodejs/node-chakracore/commit/3a113372fa)] - [Merge Microsoft/Chakracore@fe2ddd367e] [MERGE #3577 @meg-gupta] Remove additional edges in try finally flowgraph transformation
+* [[`422dd870aa`](https://github.com/nodejs/node-chakracore/commit/422dd870aa)] - [Merge Microsoft/Chakracore@4a6e233be6] [MERGE #3576 @pleath] Clean up hasDeferredChild, hasRedeferrableChild, and IsRedeferrable() from FuncInfo.
+* [[`0b424130a0`](https://github.com/nodejs/node-chakracore/commit/0b424130a0)] - chakrashim: make inspector asyc methods no-op
+* [[`e1d5646df2`](https://github.com/nodejs/node-chakracore/commit/e1d5646df2)] - chakrashim: update platform implementation
+* [[`0dacfea4a8`](https://github.com/nodejs/node-chakracore/commit/0dacfea4a8)] - [Merge Microsoft/Chakracore@b0c58262f5] Use Phase instead of boolean flag for GloboptInstrString dump
+* [[`f270b1aa2f`](https://github.com/nodejs/node-chakracore/commit/f270b1aa2f)] - [Merge Microsoft/Chakracore@f75c14a5d2] [MERGE #3560 @Cellule] WASM: Spec fixes + improve debugging
+* [[`c6d7c03235`](https://github.com/nodejs/node-chakracore/commit/c6d7c03235)] - [Merge Microsoft/Chakracore@c966983c14] [MERGE #3570 @Cellule] -on:debugbreak in test builds
+* [[`865c082201`](https://github.com/nodejs/node-chakracore/commit/865c082201)] - [Merge Microsoft/Chakracore@4f8f11f61b] [MERGE #3571 @Cellule] Globopt Instr string config flag
+* [[`e27adae3c2`](https://github.com/nodejs/node-chakracore/commit/e27adae3c2)] - [Merge Microsoft/Chakracore@6479e1b964] [1.6>1.7] [MERGE #3536 @meg-gupta] Do not peep closure stack symbols
+* [[`7520bf696a`](https://github.com/nodejs/node-chakracore/commit/7520bf696a)] - [Merge Microsoft/Chakracore@94db98ccf2] [MERGE #3547 @Cellule] WASM: Update wabt and spec tests
+* [[`7865ce1965`](https://github.com/nodejs/node-chakracore/commit/7865ce1965)] - [Merge Microsoft/Chakracore@789ab367c7] [MERGE #3526 @sigatrev] OS#9030969 fix stack trace with jitted loops
+* [[`91a87601ff`](https://github.com/nodejs/node-chakracore/commit/91a87601ff)] - Fixing lint issue in jsrtisolateshim.cc
+* [[`fb8af2d915`](https://github.com/nodejs/node-chakracore/commit/fb8af2d915)] - chakrashim: ref count data sent to SetEmbedderData
+* [[`254a4e3aff`](https://github.com/nodejs/node-chakracore/commit/254a4e3aff)] - chakrashim: removing ObjectPrototypeToStringShim
+* [[`98f43c33d8`](https://github.com/nodejs/node-chakracore/commit/98f43c33d8)] - [Merge Microsoft/Chakracore@a4f0672dd0] [MERGE #3550 @xiaoyinl] Fix illegal qualified name in ThreadContext.h (Fix #3507)
+* [[`4ca31d4af4`](https://github.com/nodejs/node-chakracore/commit/4ca31d4af4)] - [Merge Microsoft/Chakracore@241da53bd4] [1.6>1.7] [MERGE #3546 @MikeHolman] disable asm.js in ES6 modules
+* [[`4b7cfa8e64`](https://github.com/nodejs/node-chakracore/commit/4b7cfa8e64)] - [Merge Microsoft/Chakracore@497c38192d] [MERGE #3232 @xiaoyinl] Fix file handle leak in Helpers.cpp
+* [[`b3075ba0b0`](https://github.com/nodejs/node-chakracore/commit/b3075ba0b0)] - [Merge Microsoft/Chakracore@08803454cc] [MERGE #3548 @Cellule] Put back assert that was removed in #3537
+* [[`9d94628399`](https://github.com/nodejs/node-chakracore/commit/9d94628399)] - [Merge Microsoft/Chakracore@71d8959010] [MERGE #3235 @xiaoyinl] Fix memory leak in AutoSystemInfo::InitPhysicalProcessorCount
+* [[`7a62dbea94`](https://github.com/nodejs/node-chakracore/commit/7a62dbea94)] - [Merge Microsoft/Chakracore@4014154daa] [MERGE #3240 @xiaoyinl] Fix memory leak in WScriptJsrt::LoadTextFileCallback
+* [[`9d2463aa2a`](https://github.com/nodejs/node-chakracore/commit/9d2463aa2a)] - [Merge Microsoft/Chakracore@08324e3ada] [MERGE #3539 @Cellule] OS#13149792 WASM: Table grow(0) with initial: 0
+* [[`c432f553ac`](https://github.com/nodejs/node-chakracore/commit/c432f553ac)] - [Merge Microsoft/Chakracore@1548eeaf78] [MERGE #3544 @MikeHolman] fix bugs in MemoryOperationLastError
+* [[`592041ad9c`](https://github.com/nodejs/node-chakracore/commit/592041ad9c)] - [Merge Microsoft/Chakracore@872220a98a] [1.6>1.7] OS#13129251: Math.min/max should return an integer value when all of its params are integers This change addresses a perf issue where non-inlined Math.min/max are always floating-point vars. In the bug, this causes expensive bailouts in a loop that was setting to a Uin8ClampedArray. The fix is to check whether all of the parameters are tagged integers, and, if so, return an int. With a reduced repro of the scenario from the original page, there is a significant improvement, where the same function takes 20% of the time it did before. Normal usage of Math.max with 3 int parameters set to a var results in taking 65% of the time it did before. Normal usage of Math.max with a float parameter showed a 1-5% regression, depending on where the first non-int parameter is listed.
+* [[`54c3f4edce`](https://github.com/nodejs/node-chakracore/commit/54c3f4edce)] - [Merge Microsoft/Chakracore@911cfcb915] [MERGE #3538 @sigatrev] OS:10898061 fix bug with cached scopes and default/destrctured arguments
+* [[`464059db71`](https://github.com/nodejs/node-chakracore/commit/464059db71)] - [Merge Microsoft/Chakracore@3103d16574] [MERGE #3512 @Cellule] OOM / SO exception counter
+* [[`01a4165770`](https://github.com/nodejs/node-chakracore/commit/01a4165770)] - [Merge Microsoft/Chakracore@4d0e8a6303] [MERGE #3537 @Cellule] Prioritize integer type in Lifetime
+* [[`b92a9a59bf`](https://github.com/nodejs/node-chakracore/commit/b92a9a59bf)] - [Merge Microsoft/Chakracore@a662302d6b] [MERGE #3514 @Cellule] WASM - preserve nan bits
+* [[`72aa31e53d`](https://github.com/nodejs/node-chakracore/commit/72aa31e53d)] - [Merge Microsoft/Chakracore@b8c3f5e761] [MERGE #3535 @Cellule] Cleanup FncFlags
+* [[`d3518ebf0a`](https://github.com/nodejs/node-chakracore/commit/d3518ebf0a)] - [Merge Microsoft/Chakracore@1e02d86605] [MERGE #3534 @MikeHolman] change how we shift addresses from JIT proc to be more futureproof
+* [[`90698304ad`](https://github.com/nodejs/node-chakracore/commit/90698304ad)] - [Merge Microsoft/Chakracore@84fd5b247b] [MERGE #3529 @Cellule] OS#11576900 Globopt array compensation
+* [[`e04472e51d`](https://github.com/nodejs/node-chakracore/commit/e04472e51d)] - [Merge Microsoft/Chakracore@b78c03930b] [1.6>1.7] [MERGE #3522 @tcare] Fix #2983 WeakMap + HostObject === Sadness (TypeError when using HostObject with WeakMap)
+* [[`359274fae5`](https://github.com/nodejs/node-chakracore/commit/359274fae5)] - [Merge Microsoft/Chakracore@6a23c85c43] [1.6>1.7] [MERGE #3533 @jianchun] module circular reference GetExportedNames/ResolveExport bugs
+* [[`b07697088f`](https://github.com/nodejs/node-chakracore/commit/b07697088f)] - [Merge Microsoft/Chakracore@f2ff94fb6e] [1.6>1.7] [MERGE #3523 @suwc] Fix issue#3245: Semicolon should not be required after certain module export forms
+* [[`245fad4fdb`](https://github.com/nodejs/node-chakracore/commit/245fad4fdb)] - [Merge Microsoft/Chakracore@2468ce3627] [MERGE #3399 @dilijev] Make toGMTString the same function object as toUTCString
+* [[`52e082b7fd`](https://github.com/nodejs/node-chakracore/commit/52e082b7fd)] - [Merge Microsoft/Chakracore@cb9be1fe92] [MERGE #3528 @MikeHolman] fix double print in trace:backend
+* [[`2771174f85`](https://github.com/nodejs/node-chakracore/commit/2771174f85)] - [Merge Microsoft/Chakracore@9ac1422978] [MERGE #3498 @ricobbe] OS:9682944 Fix bug in which we incorrectly copy-propagated away a load from a stack slot after boxing locals onto the heap
+* [[`13bb661b6f`](https://github.com/nodejs/node-chakracore/commit/13bb661b6f)] - [Merge Microsoft/Chakracore@b7cbc50012] [1.6>1.7] [MERGE #3493 @MikeHolman] remove inconsistent check in BuildJITTimeData
+* [[`cabe768c39`](https://github.com/nodejs/node-chakracore/commit/cabe768c39)] - [Merge Microsoft/Chakracore@8eacc83904] [1.6>1.7] [MERGE #3488 @akroshg] OS: 11478866 adding a probe_stack to one of GetPrototypeSpecial API.
+* [[`2b9f5d07c8`](https://github.com/nodejs/node-chakracore/commit/2b9f5d07c8)] - [Merge Microsoft/Chakracore@0b6a59148a] [1.6>1.7] [MERGE #3518 @Cellule] DetermineSymBoundOffsetOrValueRelativeToLandingPad: Handle case where we are unable to find the matching bound
+* [[`998919e8bb`](https://github.com/nodejs/node-chakracore/commit/998919e8bb)] - [Merge Microsoft/Chakracore@47ae4a21b0] [1.6>1.7] [MERGE #3486 @Cellule] WASM - fix assert in jsrt debugger
+* [[`ed9edf39e1`](https://github.com/nodejs/node-chakracore/commit/ed9edf39e1)] - [Merge Microsoft/Chakracore@b7e0e7ccb8] [1.6>1.7] [MERGE #3510 @Cellule] WASM: strengthen defer parse
+* [[`8699c040a1`](https://github.com/nodejs/node-chakracore/commit/8699c040a1)] - [Merge Microsoft/Chakracore@37742786a9] [1.6>1.7] [MERGE #3515 @MikeHolman] fix padding for rpc structs
+* [[`756aff1253`](https://github.com/nodejs/node-chakracore/commit/756aff1253)] - [Merge Microsoft/Chakracore@04cd94e2e1] [1.6>1.7] [MERGE #3499 @meg-gupta] Retain subclass valueinfo while optimizing BailOnNotObject in OptTagChecks
+* [[`cb4e16038d`](https://github.com/nodejs/node-chakracore/commit/cb4e16038d)] - [Merge Microsoft/Chakracore@68cc4e864c] [1.6>1.7] [MERGE #3504 @meg-gupta] Fix IV analysis when a loop modifies an induction variable of another sibling loop sharing the same loop parent
+* [[`3bf590a89a`](https://github.com/nodejs/node-chakracore/commit/3bf590a89a)] - [Merge Microsoft/Chakracore@7fc3e4ce9a] [1.6>1.7] [MERGE #3336 @suwc] Fix Issue#3064/#3423: Cache conflicts in super property access
+* [[`0ab13b6f81`](https://github.com/nodejs/node-chakracore/commit/0ab13b6f81)] -  chakrashim: update changelog
+
 ## 2017-08-18, node-chakracore-v8.4.0
 
 ### Commits

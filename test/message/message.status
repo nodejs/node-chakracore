@@ -18,4 +18,5 @@ prefix message
 
 [$jsEngine==chakracore]
 console_low_stack_space : PASS,FLAKY
+stack_overflow_async : PASS,FLAKY
 unhandled_promise_trace_warnings : PASS,FLAKY

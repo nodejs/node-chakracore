@@ -31,8 +31,6 @@
 #include "node_internals.h"
 #include "stream_base.h"
 #include "stream_base-inl.h"
-#include "util.h"
-#include "util-inl.h"
 
 namespace node {
 
@@ -938,12 +936,15 @@ void TLSWrap::Initialize(Local<Object> target,
     CHECK(args.IsConstructCall());
     args.This()->SetAlignedPointerInInternalField(0, nullptr);
   };
+
+  Local<String> tlsWrapString =
+      FIXED_ONE_BYTE_STRING(env->isolate(), "TLSWrap");
+
   auto t = env->NewFunctionTemplate(constructor);
   t->InstanceTemplate()->SetInternalFieldCount(1);
-  t->SetClassName(FIXED_ONE_BYTE_STRING(env->isolate(), "TLSWrap"));
+  t->SetClassName(tlsWrapString);
 
-  env->SetProtoMethod(t, "getAsyncId", AsyncWrap::GetAsyncId);
-  env->SetProtoMethod(t, "asyncReset", AsyncWrap::AsyncReset);
+  AsyncWrap::AddWrapMethods(env, t, AsyncWrap::kFlagHasReset);
   env->SetProtoMethod(t, "receive", Receive);
   env->SetProtoMethod(t, "start", Start);
   env->SetProtoMethod(t, "setVerifyMode", SetVerifyMode);
@@ -959,11 +960,9 @@ void TLSWrap::Initialize(Local<Object> target,
   env->SetProtoMethod(t, "setServername", SetServername);
 #endif  // SSL_CRT_SET_TLSEXT_SERVERNAME_CB
 
-  env->set_tls_wrap_constructor_template(t);
   env->set_tls_wrap_constructor_function(t->GetFunction());
 
-  target->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "TLSWrap"),
-              t->GetFunction());
+  target->Set(tlsWrapString, t->GetFunction());
 }
 
 }  // namespace node

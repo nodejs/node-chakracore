@@ -1,5 +1,7 @@
 # HTTP
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 To use the HTTP server and client one must `require('http')`.
@@ -74,9 +76,9 @@ to keep the Node.js process running when there are no outstanding requests.
 It is good practice, to [`destroy()`][] an `Agent` instance when it is no
 longer in use, because unused sockets consume OS resources.
 
-Sockets are removed from an agent's pool when the socket emits either
+Sockets are removed from an agent when the socket emits either
 a `'close'` event or an `'agentRemove'` event. When intending to keep one
-HTTP request open for a long time without keeping it in the pool, something
+HTTP request open for a long time without keeping it in the agent, something
 like the following may be done:
 
 ```js
@@ -168,8 +170,9 @@ Called when `socket` is detached from a request and could be persisted by the
 Agent. Default behavior is to:
 
 ```js
+socket.setKeepAlive(true, this.keepAliveMsecs);
 socket.unref();
-socket.setKeepAlive(agent.keepAliveMsecs);
+return true;
 ```
 
 This method can be overridden by a particular `Agent` subclass. If this
@@ -226,13 +229,14 @@ added: v0.11.4
   * `port` {number} Port of remote server
   * `localAddress` {string} Local interface to bind for network connections
     when issuing the request
+  * `family` {integer} Must be 4 or 6 if this doesn't equal `undefined`.
 * Returns: {string}
 
 Get a unique name for a set of request options, to determine whether a
-connection can be reused.  For an HTTP agent, this returns
-`host:port:localAddress`.  For an HTTPS agent, the name includes the
-CA, cert, ciphers, and other HTTPS/TLS-specific options that determine
-socket reusability.
+connection can be reused. For an HTTP agent, this returns
+`host:port:localAddress` or `host:port:localAddress:family`. For an HTTPS agent,
+the name includes the CA, cert, ciphers, and other HTTPS/TLS-specific options
+that determine socket reusability.
 
 ### agent.maxFreeSockets
 <!-- YAML
@@ -253,8 +257,7 @@ added: v0.3.6
 * {number}
 
 By default set to Infinity. Determines how many concurrent sockets the agent
-can have open per origin. Origin is either a 'host:port' or
-'host:port:localAddress' combination.
+can have open per origin. Origin is the returned value of [`agent.getName()`][].
 
 ### agent.requests
 <!-- YAML
@@ -283,9 +286,9 @@ added: v0.1.17
 
 This object is created internally and returned from [`http.request()`][].  It
 represents an _in-progress_ request whose header has already been queued.  The
-header is still mutable using the `setHeader(name, value)`, `getHeader(name)`,
-`removeHeader(name)` API.  The actual header will be sent along with the first
-data chunk or when closing the connection.
+header is still mutable using the [`setHeader(name, value)`][],
+ [`getHeader(name)`][], [`removeHeader(name)`][] API.  The actual header will
+be sent along with the first data chunk or when calling [`request.end()`][].
 
 To get the response, add a listener for [`'response'`][] to the request object.
 [`'response'`][] will be emitted from the request object when the response
@@ -317,14 +320,6 @@ added: v1.4.1
 
 Emitted when the request has been aborted by the client. This event is only
 emitted on the first call to `abort()`.
-
-### Event: 'aborted'
-<!-- YAML
-added: v0.3.8
--->
-
-Emitted when the request has been aborted by the server and the network
-socket has closed.
 
 ### Event: 'connect'
 <!-- YAML
@@ -423,6 +418,16 @@ added: v0.5.3
 * `socket` {net.Socket}
 
 Emitted after a socket is assigned to this request.
+
+### Event: 'timeout'
+<!-- YAML
+added: v0.7.8
+-->
+
+Emitted when the underlying socket times out from inactivity. This only notifies
+that the socket has been idle. The request must be aborted manually.
+
+See also: [`request.setTimeout()`][]
 
 ### Event: 'upgrade'
 <!-- YAML
@@ -539,6 +544,58 @@ That's usually desired (it saves a TCP round-trip), but not when the first
 data is not sent until possibly much later.  `request.flushHeaders()` bypasses
 the optimization and kickstarts the request.
 
+### request.getHeader(name)
+<!-- YAML
+added: v1.6.0
+-->
+
+* `name` {string}
+* Returns: {string}
+
+Reads out a header on the request. Note that the name is case insensitive.
+
+Example:
+```js
+const contentType = request.getHeader('Content-Type');
+```
+
+### request.removeHeader(name)
+<!-- YAML
+added: v1.6.0
+-->
+
+* `name` {string}
+
+Removes a header that's already defined into headers object.
+
+Example:
+```js
+request.removeHeader('Content-Type');
+```
+
+### request.setHeader(name, value)
+<!-- YAML
+added: v1.6.0
+-->
+
+* `name` {string}
+* `value` {string}
+
+Sets a single header value for headers object. If this header already exists in
+the to-be-sent headers, its value will be replaced. Use an array of strings
+here to send multiple headers with the same name.
+
+Example:
+```js
+request.setHeader('Content-Type', 'application/json');
+```
+
+or
+
+```js
+request.setHeader('Set-Cookie', ['type=ninja', 'language=javascript']);
+```
+
 ### request.setNoDelay([noDelay])
 <!-- YAML
 added: v0.5.9
@@ -590,11 +647,17 @@ Example:
 
 ```js
 const http = require('http');
-const server = http.createServer((req, res) => {
-  const ip = req.socket.remoteAddress;
-  const port = req.socket.remotePort;
-  res.end(`Your IP address is ${ip} and your source port is ${port}.`);
-}).listen(3000);
+const options = {
+  host: 'www.google.com',
+};
+const req = http.get(options);
+req.end();
+req.once('response', (res) => {
+  const ip = req.socket.localAddress;
+  const port = req.socket.localPort;
+  console.log(`Your IP address is ${ip} and your source port is ${port}.`);
+  // consume response object
+});
 ```
 
 ### request.write(chunk[, encoding][, callback])
@@ -652,7 +715,7 @@ not be emitted.
 added: v5.5.0
 -->
 
-* `request` {http.ClientRequest}
+* `request` {http.IncomingMessage}
 * `response` {http.ServerResponse}
 
 Emitted each time a request with an HTTP `Expect` header is received, where the
@@ -1224,8 +1287,8 @@ Example:
 ```js
 const http = require('http');
 const server = http.createServer((req, res) => {
-  const ip = req.socket.remoteAddress;
-  const port = req.socket.remotePort;
+  const ip = res.socket.remoteAddress;
+  const port = res.socket.remotePort;
   res.end(`Your IP address is ${ip} and your source port is ${port}.`);
 }).listen(3000);
 ```
@@ -1393,8 +1456,7 @@ following additional events, methods, and properties.
 added: v0.3.8
 -->
 
-Emitted when the request has been aborted by the client and the network
-socket has closed.
+Emitted when the request has been aborted and the network socket has closed.
 
 ### Event: 'close'
 <!-- YAML
@@ -1686,8 +1748,8 @@ changes:
 Since most requests are GET requests without bodies, Node.js provides this
 convenience method. The only difference between this method and
 [`http.request()`][] is that it sets the method to GET and calls `req.end()`
-automatically. Note that response data must be consumed in the callback
-for reasons stated in [`http.ClientRequest`][] section.
+automatically. Note that the callback must take care to consume the response
+data for reasons stated in [`http.ClientRequest`][] section.
 
 The `callback` is invoked with a single argument that is an instance of
 [`http.IncomingMessage`][]
@@ -1883,7 +1945,9 @@ const req = http.request(options, (res) => {
 [`TypeError`]: errors.html#errors_class_typeerror
 [`URL`]: url.html#url_the_whatwg_url_api
 [`agent.createConnection()`]: #http_agent_createconnection_options_callback
+[`agent.getName()`]: #http_agent_getname_options
 [`destroy()`]: #http_agent_destroy
+[`getHeader(name)`]: #http_request_getheader_name
 [`http.Agent`]: #http_class_http_agent
 [`http.ClientRequest`]: #http_class_http_clientrequest
 [`http.IncomingMessage`]: #http_class_http_incomingmessage
@@ -1898,6 +1962,9 @@ const req = http.request(options, (res) => {
 [`net.Server`]: net.html#net_class_net_server
 [`net.Socket`]: net.html#net_class_net_socket
 [`net.createConnection()`]: net.html#net_net_createconnection_options_connectlistener
+[`removeHeader(name)`]: #http_request_removeheader_name
+[`request.end()`]: #http_request_end_data_encoding_callback
+[`request.setTimeout()`]: #http_request_settimeout_timeout_callback
 [`request.socket`]: #http_request_socket
 [`request.socket.getPeerCertificate()`]: tls.html#tls_tlssocket_getpeercertificate_detailed
 [`request.write(data, encoding)`]: #http_request_write_chunk_encoding_callback
@@ -1909,6 +1976,7 @@ const req = http.request(options, (res) => {
 [`response.writeContinue()`]: #http_response_writecontinue
 [`response.writeHead()`]: #http_response_writehead_statuscode_statusmessage_headers
 [`server.timeout`]: #http_server_timeout
+[`setHeader(name, value)`]: #http_request_setheader_name_value
 [`socket.setKeepAlive()`]: net.html#net_socket_setkeepalive_enable_initialdelay
 [`socket.setNoDelay()`]: net.html#net_socket_setnodelay_nodelay
 [`socket.setTimeout()`]: net.html#net_socket_settimeout_timeout_callback

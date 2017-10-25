@@ -24,27 +24,36 @@
 
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
+#include "aliased_buffer.h"
 #include "ares.h"
 #if HAVE_INSPECTOR
 #include "inspector_agent.h"
 #endif
 #include "handle_wrap.h"
 #include "req-wrap.h"
-#include "tree.h"
 #include "util.h"
 #include "uv.h"
 #include "v8.h"
 #include "node.h"
+#include "node_http2_state.h"
 
 #include <list>
+#include <map>
 #include <stdint.h>
 #include <vector>
 #include <stack>
+#include <unordered_map>
+
+struct nghttp2_rcbuf;
 
 namespace node {
 
-namespace http2 {
-struct http2_state;
+namespace performance {
+struct performance_state;
+}
+
+namespace loader {
+class ModuleWrap;
 }
 
 // Pick an index that's hopefully out of the way when we're embedded inside
@@ -102,6 +111,7 @@ struct http2_state;
   V(callback_string, "callback")                                              \
   V(change_string, "change")                                                  \
   V(channel_string, "channel")                                                \
+  V(constants_string, "constants")                                            \
   V(oncertcb_string, "oncertcb")                                              \
   V(onclose_string, "_onclose")                                               \
   V(code_string, "code")                                                      \
@@ -290,17 +300,18 @@ struct http2_state;
   V(async_hooks_init_function, v8::Function)                                  \
   V(async_hooks_before_function, v8::Function)                                \
   V(async_hooks_after_function, v8::Function)                                 \
+  V(async_hooks_promise_resolve_function, v8::Function)                       \
   V(binding_cache_object, v8::Object)                                         \
-  V(buffer_constructor_function, v8::Function)                                \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
   V(domain_array, v8::Array)                                                  \
   V(domains_stack_array, v8::Array)                                           \
   V(inspector_console_api_object, v8::Object)                                 \
-  V(jsstream_constructor_template, v8::FunctionTemplate)                      \
   V(module_load_list_array, v8::Array)                                        \
   V(pbkdf2_constructor_template, v8::ObjectTemplate)                          \
   V(pipe_constructor_template, v8::FunctionTemplate)                          \
+  V(performance_entry_callback, v8::Function)                                 \
+  V(performance_entry_template, v8::Function)                                 \
   V(process_object, v8::Object)                                               \
   V(promise_reject_function, v8::Function)                                    \
   V(promise_wrap_template, v8::ObjectTemplate)                                \
@@ -312,9 +323,9 @@ struct http2_state;
   V(tcp_constructor_template, v8::FunctionTemplate)                           \
   V(tick_callback_function, v8::Function)                                     \
   V(tls_wrap_constructor_function, v8::Function)                              \
-  V(tls_wrap_constructor_template, v8::FunctionTemplate)                      \
   V(tty_constructor_template, v8::FunctionTemplate)                           \
   V(udp_constructor_function, v8::Function)                                   \
+  V(vm_parsing_context_symbol, v8::Symbol)                                    \
   V(url_constructor_function, v8::Function)                                   \
   V(write_wrap_constructor_function, v8::Function)                            \
 
@@ -341,6 +352,8 @@ class IsolateData {
 #undef V
 #undef VS
 #undef VP
+
+  std::unordered_map<nghttp2_rcbuf*, v8::Eternal<v8::String>> http2_static_strs;
 
  private:
 #define VP(PropertyName, StringValue) V(v8::Private, PropertyName)
@@ -370,6 +383,7 @@ class Environment {
       kBefore,
       kAfter,
       kDestroy,
+      kPromiseResolve,
       kTotals,
       kFieldsCount,
     };
@@ -382,28 +396,19 @@ class Environment {
       kUidFieldsCount,
     };
 
-#if ENABLE_TTD_NODE
-    // Work around AsyncHooks id hack
-    v8::Float64Array* uid_fields_ttdRef;
-
-    void AsyncWrapId_TTDRecord() {
-      if ((s_doTTRecord || s_doTTReplay) && (uid_fields_ttdRef != nullptr)) {
-        const int modlength = kUidFieldsCount * sizeof(double);
-        uid_fields_ttdRef->Buffer()->TTDRawBufferModifyNotifySync(0, modlength);
-      }
-    }
-#endif
-
     AsyncHooks() = delete;
 
-    inline uint32_t* fields();
+    inline AliasedBuffer<uint32_t, v8::Uint32Array>& fields();
     inline int fields_count() const;
-    inline double* uid_fields();
+
+    inline AliasedBuffer<double, v8::Float64Array>& uid_fields();
     inline int uid_fields_count() const;
+
     inline v8::Local<v8::String> provider_string(int idx);
 
     inline void push_ids(double async_id, double trigger_id);
     inline bool pop_ids(double async_id);
+    inline size_t stack_size();
     inline void clear_id_stack();  // Used in fatal exceptions.
 
     // Used to propagate the trigger_id to the constructor of any newly created
@@ -417,28 +422,9 @@ class Environment {
 
      private:
       Environment* env_;
-      double* uid_fields_;
+      AliasedBuffer<double, v8::Float64Array> uid_fields_ref_;
 
       DISALLOW_COPY_AND_ASSIGN(InitScope);
-    };
-
-    // Used to manage the stack of async and trigger ids as calls are made into
-    // JS. Mainly used in MakeCallback().
-    class ExecScope {
-     public:
-      ExecScope() = delete;
-      explicit ExecScope(Environment* env, double async_id, double trigger_id);
-      ~ExecScope();
-      void Dispose();
-
-     private:
-      Environment* env_;
-      double async_id_;
-      // Manually track if the destructor has run so it isn't accidentally run
-      // twice on RAII cleanup.
-      bool disposed_;
-
-      DISALLOW_COPY_AND_ASSIGN(ExecScope);
     };
 
    private:
@@ -450,13 +436,11 @@ class Environment {
     v8::Isolate* isolate_;
     // Stores the ids of the current execution context stack.
     std::stack<struct node_async_ids> ids_stack_;
-    // Used to communicate state between C++ and JS cheaply. Is placed in an
-    // Uint32Array() and attached to the async_wrap object.
-    uint32_t fields_[kFieldsCount];
-    // Used to communicate ids between C++ and JS cheaply. Placed in a
-    // Float64Array and attached to the async_wrap object. Using a double only
-    // gives us 2^53-1 unique ids, but that should be sufficient.
-    double uid_fields_[kUidFieldsCount];
+    // Attached to a Uint32Array that tracks the number of active hooks for
+    // each type.
+    AliasedBuffer<uint32_t, v8::Uint32Array> fields_;
+    // Attached to a Float64Array that tracks the state of async resources.
+    AliasedBuffer<double, v8::Float64Array> uid_fields_;
 
     DISALLOW_COPY_AND_ASSIGN(AsyncHooks);
   };
@@ -466,7 +450,7 @@ class Environment {
     AsyncCallbackScope() = delete;
     explicit AsyncCallbackScope(Environment* env);
     ~AsyncCallbackScope();
-    inline bool in_makecallback();
+    inline bool in_makecallback() const;
 
    private:
     Environment* env_;
@@ -606,6 +590,8 @@ class Environment {
   // List of id's that have been destroyed and need the destroy() cb called.
   inline std::vector<double>* destroy_ids_list();
 
+  std::unordered_multimap<int, loader::ModuleWrap*> module_map;
+
   inline double* heap_statistics_buffer() const;
   inline void set_heap_statistics_buffer(double* pointer);
 
@@ -615,11 +601,14 @@ class Environment {
   inline char* http_parser_buffer() const;
   inline void set_http_parser_buffer(char* buffer);
 
-  inline http2::http2_state* http2_state_buffer() const;
-  inline void set_http2_state_buffer(http2::http2_state* buffer);
+  inline http2::http2_state* http2_state() const;
+  inline void set_http2_state(http2::http2_state * state);
 
   inline v8::Local<v8::Float64Array> fs_stats_field_array() const;
   inline void set_fs_stats_field_array(v8::Local<v8::Float64Array> fields);
+
+  inline performance::performance_state* performance_state();
+  inline std::map<std::string, uint64_t>* performance_marks();
 
   inline void ThrowError(const char* errmsg);
   inline void ThrowTypeError(const char* errmsg);
@@ -688,6 +677,7 @@ class Environment {
 
   void AddPromiseHook(promise_hook_func fn, void* arg);
   bool RemovePromiseHook(promise_hook_func fn, void* arg);
+  bool EmitNapiWarning();
 
  private:
   inline void ThrowError(v8::Local<v8::Value> (*fun)(v8::Local<v8::String>),
@@ -700,6 +690,7 @@ class Environment {
   uv_timer_t destroy_ids_timer_handle_;
   uv_prepare_t idle_prepare_handle_;
   uv_check_t idle_check_handle_;
+
   AsyncHooks async_hooks_;
   DomainFlag domain_flag_;
   TickInfo tick_info_;
@@ -708,8 +699,13 @@ class Environment {
   bool printed_error_;
   bool trace_sync_io_;
   bool abort_on_uncaught_exception_;
+  bool emit_napi_warning_;
   size_t makecallback_cntr_;
   std::vector<double> destroy_ids_list_;
+
+  performance::performance_state* performance_state_ = nullptr;
+  std::map<std::string, uint64_t> performance_marks_;
+
 #if HAVE_INSPECTOR
   inspector::Agent inspector_agent_;
 #endif
@@ -724,7 +720,7 @@ class Environment {
   double* heap_space_statistics_buffer_ = nullptr;
 
   char* http_parser_buffer_;
-  http2::http2_state* http2_state_buffer_ = nullptr;
+  http2::http2_state* http2_state_ = nullptr;
 
   // We depend on the property in fs.js to manage the lifetime appropriately
   v8::Global<v8::Float64Array> fs_stats_field_array_;

@@ -932,8 +932,15 @@ Lowerer::LowerRange(IR::Instr *instrStart, IR::Instr *instrEnd, bool defaultDoFa
         case Js::OpCode::LdC_F8_R8:
         {
             IR::Opnd *src1 = instr->UnlinkSrc1();
-            AssertMsg(src1->IsFloatConstOpnd(), "Source of LdC_F8_R8 should be a FloatConst...");
-            instrPrev = m_lowererMD.LoadFloatValue(instr->UnlinkDst()->AsRegOpnd(), src1->AsFloatConstOpnd()->m_value, instr);
+            AssertMsg(src1->IsFloatConstOpnd() || src1->IsFloat32ConstOpnd(), "Source of LdC_F8_R8 should be a FloatConst...");
+            if (src1->IsFloatConstOpnd())
+            {
+                instrPrev = m_lowererMD.LoadFloatValue(instr->UnlinkDst()->AsRegOpnd(), src1->AsFloatConstOpnd()->m_value, instr);
+            }
+            else
+            {
+                instrPrev = m_lowererMD.LoadFloatValue(instr->UnlinkDst()->AsRegOpnd(), src1->AsFloat32ConstOpnd()->m_value, instr);
+            }
 
             src1->Free(this->m_func);
             instr->Remove();
@@ -8853,6 +8860,7 @@ Lowerer::LowerLdArrViewElem(IR::Instr * instr)
     IR::Instr * instrPrev = instr->m_prev;
 
     IR::RegOpnd * indexOpnd = instr->GetSrc1()->AsIndirOpnd()->GetIndexOpnd();
+    int32 offset = instr->GetSrc1()->AsIndirOpnd()->GetOffset();
 
     IR::Opnd * dst = instr->GetDst();
     IR::Opnd * src1 = instr->GetSrc1();
@@ -8860,7 +8868,29 @@ Lowerer::LowerLdArrViewElem(IR::Instr * instr)
 
     IR::Instr * done;
 
-    if (indexOpnd || m_func->GetJITFunctionBody()->GetAsmJsInfo()->AccessNeedsBoundCheck((uint32)src1->AsIndirOpnd()->GetOffset()))
+    if (offset < 0)
+    {
+        IR::Opnd * oobValue = nullptr;
+        if(dst->IsFloat32())
+        {
+            oobValue = IR::MemRefOpnd::New(m_func->GetThreadContextInfo()->GetFloatNaNAddr(), TyFloat32, m_func);
+        }
+        else if(dst->IsFloat64())
+        {
+            oobValue = IR::MemRefOpnd::New(m_func->GetThreadContextInfo()->GetDoubleNaNAddr(), TyFloat64, m_func);
+        }
+        else
+        {
+            oobValue = IR::IntConstOpnd::New(0, dst->GetType(), m_func);
+        }
+        instr->ReplaceSrc1(oobValue);
+        if (src2)
+        {
+            instr->FreeSrc2();
+        }
+        return m_lowererMD.ChangeToAssign(instr);
+    }
+    if (indexOpnd || m_func->GetJITFunctionBody()->GetAsmJsInfo()->AccessNeedsBoundCheck((uint32)offset))
     {
         // CMP indexOpnd, src2(arrSize)
         // JA $helper
@@ -9138,6 +9168,7 @@ Lowerer::LowerStArrViewElem(IR::Instr * instr)
 
     // type of dst is the type of array
     IR::RegOpnd * indexOpnd = dst->AsIndirOpnd()->GetIndexOpnd();
+    int32 offset = dst->AsIndirOpnd()->GetOffset();
 
     Assert(!dst->IsFloat32() || src1->IsFloat32());
     Assert(!dst->IsFloat64() || src1->IsFloat64());
@@ -9149,7 +9180,12 @@ Lowerer::LowerStArrViewElem(IR::Instr * instr)
     {
         done = LowerWasmMemOp(instr, dst);
     }
-    else if (indexOpnd || m_func->GetJITFunctionBody()->GetAsmJsInfo()->AccessNeedsBoundCheck((uint32)dst->AsIndirOpnd()->GetOffset()))
+    else if (offset < 0)
+    {
+        instr->Remove();
+        return instrPrev;
+    }
+    else if (indexOpnd || m_func->GetJITFunctionBody()->GetAsmJsInfo()->AccessNeedsBoundCheck((uint32)offset))
     {
         // CMP indexOpnd, src2(arrSize)
         // JA $helper
@@ -10071,7 +10107,9 @@ Lowerer::CreateOpndForSlotAccess(IR::Opnd * opnd)
         // Stack closure syms are made to look like slot accesses for the benefit of GlobOpt, so that it can do proper
         // copy prop and implicit call bailout. But what we really want is local stack load/store.
         // Don't do this for loop body, though, since we don't have the value saved on the stack.
-        return IR::SymOpnd::New(dstSym->m_stackSym, 0, TyMachReg, this->m_func);
+        IR::SymOpnd * closureSym = IR::SymOpnd::New(dstSym->m_stackSym, 0, TyMachReg, this->m_func);
+        closureSym->GetStackSym()->m_isClosureSym = true;
+        return closureSym;
     }
 
     int32 offset = dstSym->m_propertyId;
@@ -13625,6 +13663,11 @@ Lowerer::LoadFloatFromNonReg(IR::Opnd * opndSrc, IR::Opnd * opndDst, IR::Instr *
     else if (opndSrc->IsFloatConstOpnd())
     {
         value = (double)opndSrc->AsFloatConstOpnd()->m_value;
+    }
+    else if (opndSrc->IsFloat32ConstOpnd())
+    {
+        float floatValue = opndSrc->AsFloat32ConstOpnd()->m_value;
+        return LowererMD::LoadFloatValue(opndDst, floatValue, instrInsert);
     }
     else
     {

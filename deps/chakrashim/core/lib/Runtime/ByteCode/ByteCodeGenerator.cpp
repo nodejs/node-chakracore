@@ -1780,6 +1780,11 @@ Symbol * ByteCodeGenerator::AddSymbolToScope(Scope *scope, const char16 *key, in
 
     Assert(sym && sym->GetScope() && (sym->GetScope() == scope || sym->GetScope()->GetScopeType() == ScopeType_Parameter));
 
+    if (sym->NeedsScopeObject())
+    {
+        scope->SetIsObject();
+    }
+
     return sym;
 }
 
@@ -2473,7 +2478,7 @@ FuncInfo* PreVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerato
 #endif
 
                 //With statements - need scope object to be present.
-                if ((doStackArgsOpt && pnode->sxFnc.funcInfo->GetParamScope()->Count() > 1) && (pnode->sxFnc.funcInfo->HasDeferredChild() || (byteCodeGenerator->GetFlags() & fscrEval) ||
+                if ((doStackArgsOpt && pnode->sxFnc.funcInfo->GetParamScope()->Count() > 1) && ((byteCodeGenerator->GetFlags() & fscrEval) ||
                     pnode->sxFnc.HasWithStmt() || byteCodeGenerator->IsInDebugMode() || PHASE_OFF1(Js::StackArgFormalsOptPhase) || PHASE_OFF1(Js::StackArgOptPhase)))
                 {
                     doStackArgsOpt = false;
@@ -2794,34 +2799,6 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
                     byteCodeGenerator->AssignParamSlotsRegister();
                 }
 
-                if (top->GetBodyScope()->ContainsWith() && 
-                    (top->GetBodyScope()->GetHasOwnLocalInClosure() ||
-                     (top->GetParamScope()->GetHasOwnLocalInClosure() &&
-                      top->IsBodyAndParamScopeMerged())))
-                {
-                    // Parent scopes may contain symbols called inside the with.
-                    // Current implementation needs the symScope isObject.
-
-                    top->GetBodyScope()->SetIsObject();
-                    if (top->byteCodeFunction->IsFunctionBody())
-                    {
-                        // Record this for future use in the no-refresh debugging.
-                        top->byteCodeFunction->GetFunctionBody()->SetHasSetIsObject(true);
-                    }
-                }
-
-                if (top->GetParamScope()->ContainsWith() &&
-                    (top->GetParamScope()->GetHasOwnLocalInClosure() &&
-                     !top->IsBodyAndParamScopeMerged()))
-                {
-                    top->GetParamScope()->SetIsObject();
-                    if (top->byteCodeFunction->IsFunctionBody())
-                    {
-                        // Record this for future use in the no-refresh debugging.
-                        top->byteCodeFunction->GetFunctionBody()->SetHasSetIsObject(true);
-                    }
-                }
-
                 if (byteCodeGenerator->NeedObjectAsFunctionScope(top, top->root)
                     || top->bodyScope->GetIsObject()
                     || top->paramScope->GetIsObject())
@@ -2948,8 +2925,6 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
 
     Js::FunctionBody * parentFunctionBody = parentFunc->byteCodeFunction->GetFunctionBody();
     Assert(parentFunctionBody != nullptr);
-    bool const hasAnyDeferredChild = top->HasDeferredChild() || top->IsDeferred();
-    bool const hasAnyRedeferrableChild = top->HasRedeferrableChild() || top->IsRedeferrable();
     bool setHasNonLocalReference = parentFunctionBody->HasAllNonLocalReferenced();
 
     // If we have any deferred child, we need to instantiate the fake global block scope if it is not empty
@@ -2961,14 +2936,6 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
             if (globalEvalBlockScope->GetHasOwnLocalInClosure())
             {
                 globalEvalBlockScope->SetMustInstantiate(true);
-            }
-            if (hasAnyDeferredChild)
-            {
-                parentFunc->SetHasDeferredChild();
-            }
-            if (hasAnyRedeferrableChild)
-            {
-                parentFunc->SetHasRedeferrableChild();
             }
         }
     }
@@ -2984,18 +2951,6 @@ FuncInfo* PostVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerat
                 parentFunc->GetParamScope()->SetIsObject();
             }
         }
-
-        // Propagate "hasDeferredChild" attribute back to parent.
-        if (hasAnyDeferredChild)
-        {
-            Assert(CONFIG_FLAG(DeferNested));
-            parentFunc->SetHasDeferredChild();
-        }
-        if (hasAnyRedeferrableChild)
-        {
-            parentFunc->SetHasRedeferrableChild();
-        }
-
         // Propagate HasMaybeEscapedNestedFunc
         if (!byteCodeGenerator->CanStackNestedFunc(top, false) ||
             byteCodeGenerator->NeedObjectAsFunctionScope(top, pnode))
@@ -3173,11 +3128,6 @@ void ByteCodeGenerator::ProcessCapturedSym(Symbol *sym)
 void ByteCodeGenerator::ProcessScopeWithCapturedSym(Scope *scope)
 {
     Assert(scope->GetHasOwnLocalInClosure());
-
-    if (scope->ContainsWith() && scope->GetScopeType() != ScopeType_Global)
-    {
-        scope->SetIsObject();
-    }
 
     // (Note: if any catch var is closure-captured, we won't merge the catch scope with the function scope.
     // So don't mark the function scope "has local in closure".)
@@ -5027,7 +4977,6 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
 
         if (nonLambdaFunc != func || (func->IsGlobalFunction() && (byteCodeGenerator->GetFlags() & fscrEval)))
         {
-            nonLambdaFunc->root->sxFnc.SetHasNewTargetReference();
             nonLambdaFunc->AssignNewTargetRegister();
             nonLambdaFunc->SetIsNewTargetLexicallyCaptured();
 
@@ -5061,7 +5010,6 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
             {
                 func->AssignNewTargetRegister();
 
-                nonLambdaFunc->root->sxFnc.SetHasNewTargetReference();
                 nonLambdaFunc->AssignNewTargetRegister();
                 nonLambdaFunc->SetIsNewTargetLexicallyCaptured();
                 nonLambdaFunc->AssignUndefinedConstRegister();

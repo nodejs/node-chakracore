@@ -19,7 +19,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-/* eslint-disable required-modules */
+/* eslint-disable required-modules, crypto-check */
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -29,13 +29,15 @@ const { exec, execSync, spawn, spawnSync } = require('child_process');
 const stream = require('stream');
 const util = require('util');
 const Timer = process.binding('timer_wrap').Timer;
+const { fixturesDir } = require('./fixtures');
 
 const testRoot = process.env.NODE_TEST_DIR ?
   fs.realpathSync(process.env.NODE_TEST_DIR) : path.resolve(__dirname, '..');
 
 const noop = () => {};
 
-exports.fixturesDir = path.join(__dirname, '..', 'fixtures');
+exports.fixturesDir = fixturesDir;
+
 exports.tmpDirName = 'tmp';
 // PORT should match the definition in test/testpy/__init__.py.
 exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
@@ -261,7 +263,7 @@ Object.defineProperty(exports, 'hasFipsCrypto', {
 
 {
   const iFaces = os.networkInterfaces();
-  const re = /lo/;
+  const re = exports.isWindows ? /Loopback Pseudo-Interface/ : /lo/;
   exports.hasIPv6 = Object.keys(iFaces).some(function(name) {
     return re.test(name) && iFaces[name].some(function(info) {
       return info.family === 'IPv6';
@@ -409,6 +411,11 @@ if (global.Proxy) {
 
 if (global.Symbol) {
   knownGlobals.push(Symbol);
+}
+
+if (process.env.NODE_TEST_KNOWN_GLOBALS) {
+  const knownFromEnv = process.env.NODE_TEST_KNOWN_GLOBALS.split(',');
+  allowGlobals(...knownFromEnv);
 }
 
 function allowGlobals(...whitelist) {
@@ -770,6 +777,12 @@ exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {
   }
 };
 
+exports.skipIf32Bits = function skipIf32Bits() {
+  if (process.binding('config').bits < 64) {
+    exports.skip('The tested feature is not available in 32bit builds');
+  }
+};
+
 const arrayBufferViews = [
   Int8Array,
   Uint8Array,
@@ -827,7 +840,12 @@ function hijackStdWritable(name, listener) {
 
   stream.writeTimes = 0;
   stream.write = function(data, callback) {
-    listener(data);
+    try {
+      listener(data);
+    } catch (e) {
+      process.nextTick(() => { throw e; });
+    }
+
     _write.call(stream, data, callback);
     stream.writeTimes++;
   };
@@ -836,6 +854,32 @@ function hijackStdWritable(name, listener) {
 function restoreWritable(name) {
   process[name].write = stdWrite[name];
   delete process[name].writeTimes;
+}
+
+function onResolvedOrRejected(promise, callback) {
+  return promise.then((result) => {
+    callback();
+    return result;
+  }, (error) => {
+    callback();
+    throw error;
+  });
+}
+
+function timeoutPromise(error, timeoutMs) {
+  let clearCallback = null;
+  let done = false;
+  const promise = onResolvedOrRejected(new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(error), timeoutMs);
+    clearCallback = () => {
+      if (done)
+        return;
+      clearTimeout(timeout);
+      resolve();
+    };
+  }), () => done = true);
+  promise.clear = clearCallback;
+  return promise;
 }
 
 exports.hijackStdout = hijackStdWritable.bind(null, 'stdout');
@@ -850,4 +894,20 @@ exports.firstInvalidFD = function firstInvalidFD() {
     while (fs.fstatSync(++fd));
   } catch (e) {}
   return fd;
+};
+
+exports.fires = function fires(promise, error, timeoutMs) {
+  if (!timeoutMs && util.isNumber(error)) {
+    timeoutMs = error;
+    error = null;
+  }
+  if (!error)
+    error = 'timeout';
+  if (!timeoutMs)
+    timeoutMs = 100;
+  const timeout = timeoutPromise(error, timeoutMs);
+  return Promise.race([
+    onResolvedOrRejected(promise, () => timeout.clear()),
+    timeout
+  ]);
 };

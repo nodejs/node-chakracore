@@ -21,11 +21,11 @@
 
 'use strict';
 const common = require('../common');
-const path = require('path');
 const assert = require('assert');
+const fixtures = require('../common/fixtures');
 
 try {
-  require(path.join(common.fixturesDir, 'invalid.json'));
+  require(fixtures.path('invalid.json'));
 } catch (err) {
   assert.ok(
     common.engineSpecificMessage({

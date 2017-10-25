@@ -4,6 +4,7 @@
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #include "node_http2_core-inl.h"
+#include "node_http2_state.h"
 #include "stream_base-inl.h"
 #include "string_bytes.h"
 
@@ -68,7 +69,14 @@ using v8::MaybeLocal;
   V(ACCEPT_LANGUAGE, "accept-language")                                       \
   V(ACCEPT_RANGES, "accept-ranges")                                           \
   V(ACCEPT, "accept")                                                         \
+  V(ACCESS_CONTROL_ALLOW_CREDENTIALS, "access-control-allow-credentials")     \
+  V(ACCESS_CONTROL_ALLOW_HEADERS, "access-control-allow-headers")             \
+  V(ACCESS_CONTROL_ALLOW_METHODS, "access-control-allow-methods")             \
   V(ACCESS_CONTROL_ALLOW_ORIGIN, "access-control-allow-origin")               \
+  V(ACCESS_CONTROL_EXPOSE_HEADERS, "access-control-expose-headers")           \
+  V(ACCESS_CONTROL_MAX_AGE, "access-control-max-age")                         \
+  V(ACCESS_CONTROL_REQUEST_HEADERS, "access-control-request-headers")         \
+  V(ACCESS_CONTROL_REQUEST_METHOD, "access-control-request-method")           \
   V(AGE, "age")                                                               \
   V(ALLOW, "allow")                                                           \
   V(AUTHORIZATION, "authorization")                                           \
@@ -84,9 +92,11 @@ using v8::MaybeLocal;
   V(CONTENT_TYPE, "content-type")                                             \
   V(COOKIE, "cookie")                                                         \
   V(DATE, "date")                                                             \
+  V(DNT, "dnt")                                                               \
   V(ETAG, "etag")                                                             \
   V(EXPECT, "expect")                                                         \
   V(EXPIRES, "expires")                                                       \
+  V(FORWARDED, "forwarded")                                                   \
   V(FROM, "from")                                                             \
   V(HOST, "host")                                                             \
   V(IF_MATCH, "if-match")                                                     \
@@ -108,13 +118,19 @@ using v8::MaybeLocal;
   V(SERVER, "server")                                                         \
   V(SET_COOKIE, "set-cookie")                                                 \
   V(STRICT_TRANSPORT_SECURITY, "strict-transport-security")                   \
+  V(TRAILER, "trailer")                                                       \
   V(TRANSFER_ENCODING, "transfer-encoding")                                   \
   V(TE, "te")                                                                 \
+  V(TK, "tk")                                                                 \
+  V(UPGRADE_INSECURE_REQUESTS, "upgrade-insecure-requests")                   \
   V(UPGRADE, "upgrade")                                                       \
   V(USER_AGENT, "user-agent")                                                 \
   V(VARY, "vary")                                                             \
   V(VIA, "via")                                                               \
+  V(WARNING, "warning")                                                       \
   V(WWW_AUTHENTICATE, "www-authenticate")                                     \
+  V(X_CONTENT_TYPE_OPTIONS, "x-content-type-options")                         \
+  V(X_FRAME_OPTIONS, "x-frame-options")                                       \
   V(HTTP2_SETTINGS, "http2-settings")                                         \
   V(KEEP_ALIVE, "keep-alive")                                                 \
   V(PROXY_CONNECTION, "proxy-connection")
@@ -273,29 +289,13 @@ class Http2Options {
     nghttp2_option_del(options_);
   }
 
-  nghttp2_option* operator*() {
+  nghttp2_option* operator*() const {
     return options_;
   }
 
-  void SetPaddingStrategy(uint32_t val) {
+  void SetPaddingStrategy(padding_strategy_type val) {
     CHECK_LE(val, PADDING_STRATEGY_CALLBACK);
     padding_strategy_ = static_cast<padding_strategy_type>(val);
-  }
-
-  void SetMaxDeflateDynamicTableSize(size_t val) {
-    nghttp2_option_set_max_deflate_dynamic_table_size(options_, val);
-  }
-
-  void SetMaxReservedRemoteStreams(uint32_t val) {
-    nghttp2_option_set_max_reserved_remote_streams(options_, val);
-  }
-
-  void SetMaxSendHeaderBlockLength(size_t val) {
-    nghttp2_option_set_max_send_header_block_length(options_, val);
-  }
-
-  void SetPeerMaxConcurrentStreams(uint32_t val) {
-    nghttp2_option_set_peer_max_concurrent_streams(options_, val);
   }
 
   padding_strategy_type GetPaddingStrategy() {
@@ -488,24 +488,48 @@ class ExternalHeader :
     return vec_.len;
   }
 
-  static Local<String> New(Isolate* isolate, nghttp2_rcbuf* buf) {
-    EscapableHandleScope scope(isolate);
+  static inline
+  MaybeLocal<String> GetInternalizedString(Environment* env,
+                                           const nghttp2_vec& vec) {
+    return String::NewFromOneByte(env->isolate(),
+                                  vec.base,
+                                  v8::NewStringType::kInternalized,
+                                  vec.len);
+  }
+
+  template<bool may_internalize>
+  static MaybeLocal<String> New(Environment* env, nghttp2_rcbuf* buf) {
+    if (nghttp2_rcbuf_is_static(buf)) {
+      auto& static_str_map = env->isolate_data()->http2_static_strs;
+      v8::Eternal<v8::String>& eternal = static_str_map[buf];
+      if (eternal.IsEmpty()) {
+        Local<String> str =
+            GetInternalizedString(env, nghttp2_rcbuf_get_buf(buf))
+                .ToLocalChecked();
+        eternal.Set(env->isolate(), str);
+        return str;
+      }
+      return eternal.Get(env->isolate());
+    }
+
     nghttp2_vec vec = nghttp2_rcbuf_get_buf(buf);
     if (vec.len == 0) {
       nghttp2_rcbuf_decref(buf);
-      return scope.Escape(String::Empty(isolate));
+      return String::Empty(env->isolate());
+    }
+
+    if (may_internalize && vec.len < 64) {
+      // This is a short header name, so there is a good chance V8 already has
+      // it internalized.
+      return GetInternalizedString(env, vec);
     }
 
     ExternalHeader* h_str = new ExternalHeader(buf);
-    MaybeLocal<String> str = String::NewExternalOneByte(isolate, h_str);
-    isolate->AdjustAmountOfExternalAllocatedMemory(vec.len);
-
-    if (str.IsEmpty()) {
+    MaybeLocal<String> str = String::NewExternalOneByte(env->isolate(), h_str);
+    if (str.IsEmpty())
       delete h_str;
-      return scope.Escape(String::Empty(isolate));
-    }
 
-    return scope.Escape(str.ToLocalChecked());
+    return str;
   }
 
  private:

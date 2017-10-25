@@ -279,9 +279,7 @@ class TapProgressIndicator(SimpleProgressIndicator):
     # hard to decipher what test is running when only the filename is printed.
     prefix = abspath(join(dirname(__file__), '../test')) + os.sep
     command = output.command[-1]
-    if command.endswith('.js'): command = command[:-3]
-    if command.startswith(prefix): command = command[len(prefix):]
-    command = command.replace('\\', '/')
+    command = NormalizePath(command, prefix)
 
     if output.UnexpectedOutput():
       status_line = 'not ok %i %s' % (self._done, command)
@@ -352,9 +350,7 @@ class DeoptsCheckProgressIndicator(SimpleProgressIndicator):
     # hard to decipher what test is running when only the filename is printed.
     prefix = abspath(join(dirname(__file__), '../test')) + os.sep
     command = output.command[-1]
-    if command.endswith('.js'): command = command[:-3]
-    if command.startswith(prefix): command = command[len(prefix):]
-    command = command.replace('\\', '/')
+    command = NormalizePath(command, prefix)
 
     stdout = output.output.stdout.strip()
     printed_file = False
@@ -492,6 +488,7 @@ class TestCase(object):
     self.arch = arch
     self.mode = mode
     self.parallel = False
+    self.disable_core_files = False
     self.thread_id = 0
 
   def IsNegative(self):
@@ -516,7 +513,8 @@ class TestCase(object):
     output = Execute(full_command,
                      self.context,
                      self.context.GetTimeout(self.mode),
-                     env)
+                     env,
+                     disable_core_files = self.disable_core_files)
     self.Cleanup()
     return TestOutput(self,
                       full_command,
@@ -718,7 +716,7 @@ def CheckedUnlink(name):
       PrintError("os.unlink() " + str(e))
     break
 
-def Execute(args, context, timeout=None, env={}, faketty=False):
+def Execute(args, context, timeout=None, env={}, faketty=False, disable_core_files=False):
   if faketty:
     import pty
     (out_master, fd_out) = pty.openpty()
@@ -740,6 +738,14 @@ def Execute(args, context, timeout=None, env={}, faketty=False):
   for key, value in env.iteritems():
     env_copy[key] = value
 
+  preexec_fn = None
+
+  if disable_core_files and not utils.IsWindows():
+    def disableCoreFiles():
+      import resource
+      resource.setrlimit(resource.RLIMIT_CORE, (0,0))
+    preexec_fn = disableCoreFiles
+
   (process, exit_code, timed_out, output) = RunProcess(
     context,
     timeout,
@@ -749,7 +755,8 @@ def Execute(args, context, timeout=None, env={}, faketty=False):
     stderr = fd_err,
     env = env_copy,
     faketty = faketty,
-    pty_out = pty_out
+    pty_out = pty_out,
+    preexec_fn = preexec_fn
   )
   if faketty:
     os.close(out_master)
@@ -782,7 +789,7 @@ class TestConfiguration(object):
     if len(path) > len(file):
       return False
     for i in xrange(len(path)):
-      if not path[i].match(file[i]):
+      if not path[i].match(NormalizePath(file[i])):
         return False
     return True
 
@@ -1238,6 +1245,7 @@ class ClassifiedTest(object):
     self.case = case
     self.outcomes = outcomes
     self.parallel = self.case.parallel
+    self.disable_core_files = self.case.disable_core_files
 
 
 class Configuration(object):
@@ -1498,12 +1506,16 @@ def SplitPath(s):
   stripped = [ c.strip() for c in s.split('/') ]
   return [ Pattern(s) for s in stripped if len(s) > 0 ]
 
-def NormalizePath(path):
+def NormalizePath(path, prefix='test/'):
   # strip the extra path information of the specified test
-  if path.startswith('test/'):
-    path = path[5:]
+  prefix = prefix.replace('\\', '/')
+  path = path.replace('\\', '/')
+  if path.startswith(prefix):
+    path = path[len(prefix):]
   if path.endswith('.js'):
     path = path[:-3]
+  elif path.endswith('.mjs'):
+    path = path[:-4]
   return path
 
 def GetSpecialCommandProcessor(value):

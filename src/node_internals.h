@@ -27,9 +27,12 @@
 #include "node.h"
 #include "util.h"
 #include "util-inl.h"
+#include "env.h"
+#include "env-inl.h"
 #include "uv.h"
 #include "v8.h"
 #include "tracing/trace_event.h"
+#include "node_perf_common.h"
 #include "node_debug_options.h"
 
 #include <stdint.h>
@@ -68,6 +71,10 @@ extern bool config_preserve_symlinks;
 
 // Set in node.cc by ParseArgs when --expose-http2 is used.
 extern bool config_expose_http2;
+// Set in node.cc by ParseArgs when --experimental-modules is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/module.js
+extern bool config_experimental_modules;
 
 // Set in node.cc by ParseArgs when --expose-internals or --expose_internals is
 // used.
@@ -255,6 +262,14 @@ static v8::MaybeLocal<v8::Object> New(Environment* env,
   return ret;
 }
 }  // namespace Buffer
+
+v8::MaybeLocal<v8::Value> InternalMakeCallback(
+    Environment* env,
+    v8::Local<v8::Object> recv,
+    const v8::Local<v8::Function> callback,
+    int argc,
+    v8::Local<v8::Value> argv[],
+    async_context asyncContext);
 
 }  // namespace node
 

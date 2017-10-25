@@ -1,5 +1,6 @@
 # Errors
 
+<!--introduced_in=v4.0.0-->
 <!--type=misc-->
 
 Applications running in Node.js will generally experience four categories of
@@ -255,14 +256,14 @@ will affect any stack trace captured *after* the value has been changed.
 If set to a non-number value, or set to a negative number, stack traces will
 not capture any frames.
 
-#### error.code
+### error.code
 
 * {string}
 
 The `error.code` property is a string label that identifies the kind of error.
 See [Node.js Error Codes][] for details about specific codes.
 
-#### error.message
+### error.message
 
 * {string}
 
@@ -679,6 +680,7 @@ An invalid HTTP informational status code has been specified. Informational
 status codes must be an integer between `100` and `199` (inclusive).
 
 <a id="ERR_HTTP2_INVALID_PACKED_SETTINGS_LENGTH"></a>
+### ERR_HTTP2_INVALID_PACKED_SETTINGS_LENGTH
 
 Input `Buffer` and `Uint8Array` instances passed to the
 `http2.getUnpackedSettings()` API must have a length that is a multiple of
@@ -833,6 +835,11 @@ communication channel to a child process. See [`subprocess.send()`] and
 
 Used generically to identify when an invalid or unexpected value has been
 passed in an options object.
+
+<a id="ERR_INVALID_PROTOCOL"></a>
+### ERR_INVALID_PROTOCOL
+
+Used when an invalid `options.protocol` is passed.
 
 <a id="ERR_INVALID_SYNC_FORK_INPUT"></a>
 ### ERR_INVALID_SYNC_FORK_INPUT
@@ -991,6 +998,22 @@ Used when an attempt is made to launch a Node.js process with an unknown
 by errors in user code, although it is not impossible. Occurrences of this error
 are most likely an indication of a bug within Node.js itself.
 
+<a id="ERR_V8BREAKITERATOR"></a>
+### ERR_V8BREAKITERATOR
+
+Used when the V8 BreakIterator API is used but the full ICU data set is not
+installed.
+
+<a id="ERR_VALID_PERFORMANCE_ENTRY_TYPE"></a>
+### ERR_VALID_PERFORMANCE_ENTRY_TYPE
+
+Used by the Performance Timing API (`perf_hooks`) when no valid performance
+entry types were found.
+
+<a id="ERR_VALUE_OUT_OF_RANGE"></a>
+### ERR_VALUE_OUT_OF_RANGE
+
+Used when a given value is out of the accepted range.
 
 [`ERR_INVALID_ARG_TYPE`]: #ERR_INVALID_ARG_TYPE
 [`subprocess.kill()`]: child_process.html#child_process_subprocess_kill_signal

@@ -50,9 +50,12 @@ test-fs-promisified : PASS,FLAKY
 test-fs-stat : PASS,FLAKY
 test-http-pipeline-flood : PASS,FLAKY
 test-http-same-map : PASS,FLAKY
+test-http2-client-promisify-connect : PASS,FLAKY
 test-intl : PASS,FLAKY
 test-intl-no-icu-data : PASS,FLAKY
 test-memory-usage : PASS,FLAKY
+test-performance-function : PASS,FLAKY
+test-performance-gc : PASS,FLAKY
 test-process-env-symbols : PASS,FLAKY
 test-promise-internal-creation : PASS,FLAKY
 test-promises-unhandled-rejections : PASS,FLAKY
@@ -86,6 +89,7 @@ test-vm-sigint-existing-handler : PASS,FLAKY
 test-vm-strict-mode : PASS,FLAKY
 test-vm-timeout : PASS,FLAKY
 test-zlib-convenience-methods : PASS,FLAKY
+
 
 [$jsEngine==chakracore && $arch==x64]
 test-buffer-includes : PASS,FLAKY

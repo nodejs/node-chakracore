@@ -1,5 +1,7 @@
 # Zlib
 
+<!--introduced_in=v0.10.0-->
+
 > Stability: 2 - Stable
 
 The `zlib` module provides compression functionality implemented using Gzip and
@@ -42,6 +44,13 @@ zlib.unzip(buffer, (err, buffer) => {
   }
 });
 ```
+
+## Threadpool Usage
+
+Note that all zlib APIs except those that are explicitly synchronous use libuv's
+threadpool, which can have surprising and negative performance implications for
+some applications, see the [`UV_THREADPOOL_SIZE`][] documentation for more
+information.
 
 ## Compressing HTTP requests and responses
 

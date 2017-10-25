@@ -22,8 +22,8 @@
 'use strict';
 const common = require('../common');
 const assert = require('assert');
-const {join} = require('path');
-const {execFile} = require('child_process');
+const { join } = require('path');
+const { execFile } = require('child_process');
 
 // test for leaked global detection
 global.gc = 42;  // Not a valid global unless --expose_gc is set.
@@ -108,3 +108,26 @@ const HIJACK_TEST_ARRAY = [ 'foo\n', 'bar\n', 'baz\n' ];
   common[`restoreStd${txt}`]();
   assert.strictEqual(originalWrite, stream.write);
 });
+
+// hijackStderr and hijackStdout again
+// for console
+[[ 'err', 'error' ], [ 'out', 'log' ]].forEach(([ type, method ]) => {
+  common[`hijackStd${type}`](common.mustCall(function(data) {
+    assert.strictEqual(data, 'test\n');
+
+    // throw an error
+    throw new Error(`console ${type} error`);
+  }));
+
+  console[method]('test');
+  common[`restoreStd${type}`]();
+});
+
+let uncaughtTimes = 0;
+process.on('uncaughtException', common.mustCallAtLeast(function(e) {
+  assert.strictEqual(uncaughtTimes < 2, true);
+  assert.strictEqual(e instanceof Error, true);
+  assert.strictEqual(
+    e.message,
+    `console ${([ 'err', 'out' ])[uncaughtTimes++]} error`);
+}, 2));
