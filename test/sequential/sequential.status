@@ -7,6 +7,9 @@ prefix sequential
 [true] # This section applies to all platforms
 
 [$system==win32]
+test-inspector-bindings               : PASS, FLAKY
+test-inspector-debug-end              : PASS, FLAKY
+test-inspector-stop-profile-after-done: PASS, FLAKY
 
 [$system==linux]
 
@@ -22,6 +25,11 @@ prefix sequential
 test-vm-timeout-rethrow : PASS,FLAKY
 test-benchmark-child-process : PASS,FLAKY
 test-async-wrap-getasyncid : PASS,FLAKY
+test-inspector-async-hook-setup-at-inspect-brk : PASS,FLAKY
+test-inspector-async-stack-traces-promise-then : PASS,FLAKY
+test-inspector-async-stack-traces-set-interval : PASS,FLAKY
+test-inspector-break-when-eval : PASS,FLAKY
+test-inspector-scriptparsed-context : PASS,FLAKY
 
 [$jsEngine==chakracore && $system==linux]
 test-child-process-pass-fd : PASS,FLAKY

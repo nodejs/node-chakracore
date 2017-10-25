@@ -40,6 +40,7 @@ struct napi_env__ {
   v8::Persistent<v8::ObjectTemplate> function_data_template;
   v8::Persistent<v8::ObjectTemplate> accessor_data_template;
   napi_extended_error_info last_error;
+  int open_handle_scopes = 0;
 };
 
 #define ENV_OBJECT_TEMPLATE(env, prefix, destination, field_count) \
@@ -196,19 +197,23 @@ class EscapableHandleScopeWrapper {
   bool escape_called_;
 };
 
+static
 napi_handle_scope JsHandleScopeFromV8HandleScope(HandleScopeWrapper* s) {
   return reinterpret_cast<napi_handle_scope>(s);
 }
 
+static
 HandleScopeWrapper* V8HandleScopeFromJsHandleScope(napi_handle_scope s) {
   return reinterpret_cast<HandleScopeWrapper*>(s);
 }
 
+static
 napi_escapable_handle_scope JsEscapableHandleScopeFromV8EscapableHandleScope(
     EscapableHandleScopeWrapper* s) {
   return reinterpret_cast<napi_escapable_handle_scope>(s);
 }
 
+static
 EscapableHandleScopeWrapper*
 V8EscapableHandleScopeFromJsEscapableHandleScope(
     napi_escapable_handle_scope s) {
@@ -222,18 +227,22 @@ V8EscapableHandleScopeFromJsEscapableHandleScope(
 static_assert(sizeof(v8::Local<v8::Value>) == sizeof(napi_value),
   "Cannot convert between v8::Local<v8::Value> and napi_value");
 
+static
 napi_deferred JsDeferredFromV8Persistent(v8::Persistent<v8::Value>* local) {
   return reinterpret_cast<napi_deferred>(local);
 }
 
+static
 v8::Persistent<v8::Value>* V8PersistentFromJsDeferred(napi_deferred local) {
   return reinterpret_cast<v8::Persistent<v8::Value>*>(local);
 }
 
+static
 napi_value JsValueFromV8LocalValue(v8::Local<v8::Value> local) {
   return reinterpret_cast<napi_value>(*local);
 }
 
+static
 v8::Local<v8::Value> V8LocalValueFromJsValue(napi_value v) {
   v8::Local<v8::Value> local;
   memcpy(&local, &v, sizeof(v));
@@ -497,11 +506,15 @@ class CallbackWrapperBase : public CallbackWrapper {
     // Make sure any errors encountered last time we were in N-API are gone.
     napi_clear_last_error(env);
 
+    int open_handle_scopes = env->open_handle_scopes;
+
     napi_value result = cb(env, cbinfo_wrapper);
 
     if (result != nullptr) {
       this->SetReturnValue(result);
     }
+
+    CHECK_EQ(env->open_handle_scopes, open_handle_scopes);
 
     if (!env->last_exception.IsEmpty()) {
       isolate->ThrowException(
@@ -632,6 +645,7 @@ class SetterCallbackWrapper
 
 // Creates an object to be made available to the static function callback
 // wrapper, used to retrieve the native callback function and data pointer.
+static
 v8::Local<v8::Object> CreateFunctionCallbackData(napi_env env,
                                                  napi_callback cb,
                                                  void* data) {
@@ -657,6 +671,7 @@ v8::Local<v8::Object> CreateFunctionCallbackData(napi_env env,
 // Creates an object to be made available to the static getter/setter
 // callback wrapper, used to retrieve the native getter/setter callback
 // function and data pointer.
+static
 v8::Local<v8::Object> CreateAccessorCallbackData(napi_env env,
                                                  napi_callback getter,
                                                  napi_callback setter,
@@ -699,6 +714,7 @@ const char napi_wrap_name[] = "N-API Wrapper";
 // Search the object's prototype chain for the wrapper object. Usually the
 // wrapper would be the first in the chain, but it is OK for other objects to
 // be inserted in the prototype chain.
+static
 bool FindWrapper(v8::Local<v8::Object> obj,
                  v8::Local<v8::Object>* result = nullptr,
                  v8::Local<v8::Object>* parent = nullptr) {
@@ -732,6 +748,7 @@ static void DeleteEnv(napi_env env, void* data, void* hint) {
   delete env;
 }
 
+static
 napi_env GetEnv(v8::Local<v8::Context> context) {
   napi_env result;
 
@@ -767,6 +784,7 @@ napi_env GetEnv(v8::Local<v8::Context> context) {
   return result;
 }
 
+static
 napi_status Unwrap(napi_env env,
                    napi_value js_object,
                    void** result,
@@ -790,6 +808,7 @@ napi_status Unwrap(napi_env env,
   return napi_ok;
 }
 
+static
 napi_status ConcludeDeferred(napi_env env,
                              napi_deferred deferred,
                              napi_value result,
@@ -849,12 +868,8 @@ void napi_module_register_cb(v8::Local<v8::Object> exports,
 
 // Registers a NAPI module.
 void napi_module_register(napi_module* mod) {
-  int module_version = -1;
-#ifdef EXTERNAL_NAPI
-  module_version = NODE_MODULE_VERSION;
-#endif  // EXTERNAL_NAPI
   node::node_module* nm = new node::node_module {
-    module_version,
+    -1,
     mod->nm_flags,
     nullptr,
     mod->nm_filename,
@@ -868,6 +883,7 @@ void napi_module_register(napi_module* mod) {
 }
 
 // Warning: Keep in-sync with napi_status enum
+static
 const char* error_messages[] = {nullptr,
                                 "Invalid argument",
                                 "An object was expected",
@@ -1204,10 +1220,10 @@ napi_status napi_delete_property(napi_env env,
   return GET_RETURN_STATUS(env);
 }
 
-NAPI_EXTERN napi_status napi_has_own_property(napi_env env,
-                                              napi_value object,
-                                              napi_value key,
-                                              bool* result) {
+napi_status napi_has_own_property(napi_env env,
+                                  napi_value object,
+                                  napi_value key,
+                                  bool* result) {
   NAPI_PREAMBLE(env);
   CHECK_ARG(env, key);
 
@@ -2578,6 +2594,7 @@ napi_status napi_open_handle_scope(napi_env env, napi_handle_scope* result) {
 
   *result = v8impl::JsHandleScopeFromV8HandleScope(
       new v8impl::HandleScopeWrapper(env->isolate));
+  env->open_handle_scopes++;
   return napi_clear_last_error(env);
 }
 
@@ -2586,7 +2603,11 @@ napi_status napi_close_handle_scope(napi_env env, napi_handle_scope scope) {
   // JS exceptions.
   CHECK_ENV(env);
   CHECK_ARG(env, scope);
+  if (env->open_handle_scopes == 0) {
+    return napi_handle_scope_mismatch;
+  }
 
+  env->open_handle_scopes--;
   delete v8impl::V8HandleScopeFromJsHandleScope(scope);
   return napi_clear_last_error(env);
 }
@@ -2601,6 +2622,7 @@ napi_status napi_open_escapable_handle_scope(
 
   *result = v8impl::JsEscapableHandleScopeFromV8EscapableHandleScope(
       new v8impl::EscapableHandleScopeWrapper(env->isolate));
+  env->open_handle_scopes++;
   return napi_clear_last_error(env);
 }
 
@@ -2611,8 +2633,12 @@ napi_status napi_close_escapable_handle_scope(
   // JS exceptions.
   CHECK_ENV(env);
   CHECK_ARG(env, scope);
+  if (env->open_handle_scopes == 0) {
+    return napi_handle_scope_mismatch;
+  }
 
   delete v8impl::V8EscapableHandleScopeFromJsEscapableHandleScope(scope);
+  env->open_handle_scopes--;
   return napi_clear_last_error(env);
 }
 
@@ -3222,6 +3248,7 @@ napi_status napi_adjust_external_memory(napi_env env,
   return napi_clear_last_error(env);
 }
 
+namespace {
 namespace uvimpl {
 
 static napi_status ConvertUVErrorCode(int code) {
@@ -3320,6 +3347,7 @@ class Work : public node::AsyncResource {
 };
 
 }  // end of namespace uvimpl
+}  // end of anonymous namespace
 
 #define CALL_UV(env, condition)                                         \
   do {                                                                  \
@@ -3402,9 +3430,9 @@ napi_status napi_cancel_async_work(napi_env env, napi_async_work work) {
   return napi_clear_last_error(env);
 }
 
-NAPI_EXTERN napi_status napi_create_promise(napi_env env,
-                                            napi_deferred* deferred,
-                                            napi_value* promise) {
+napi_status napi_create_promise(napi_env env,
+                                napi_deferred* deferred,
+                                napi_value* promise) {
   NAPI_PREAMBLE(env);
   CHECK_ARG(env, deferred);
   CHECK_ARG(env, promise);
@@ -3421,21 +3449,21 @@ NAPI_EXTERN napi_status napi_create_promise(napi_env env,
   return GET_RETURN_STATUS(env);
 }
 
-NAPI_EXTERN napi_status napi_resolve_deferred(napi_env env,
-                                              napi_deferred deferred,
-                                              napi_value resolution) {
+napi_status napi_resolve_deferred(napi_env env,
+                                  napi_deferred deferred,
+                                  napi_value resolution) {
   return v8impl::ConcludeDeferred(env, deferred, resolution, true);
 }
 
-NAPI_EXTERN napi_status napi_reject_deferred(napi_env env,
-                                             napi_deferred deferred,
-                                             napi_value resolution) {
+napi_status napi_reject_deferred(napi_env env,
+                                 napi_deferred deferred,
+                                 napi_value resolution) {
   return v8impl::ConcludeDeferred(env, deferred, resolution, false);
 }
 
-NAPI_EXTERN napi_status napi_is_promise(napi_env env,
-                                        napi_value promise,
-                                        bool* is_promise) {
+napi_status napi_is_promise(napi_env env,
+                            napi_value promise,
+                            bool* is_promise) {
   CHECK_ENV(env);
   CHECK_ARG(env, promise);
   CHECK_ARG(env, is_promise);
@@ -3445,9 +3473,9 @@ NAPI_EXTERN napi_status napi_is_promise(napi_env env,
   return napi_clear_last_error(env);
 }
 
-NAPI_EXTERN napi_status napi_run_script(napi_env env,
-                                        napi_value script,
-                                        napi_value* result) {
+napi_status napi_run_script(napi_env env,
+                            napi_value script,
+                            napi_value* result) {
   NAPI_PREAMBLE(env);
   CHECK_ARG(env, script);
   CHECK_ARG(env, result);

@@ -31,8 +31,10 @@ assert(commonTemplate.test(process.versions.node));
 assert(commonTemplate.test(process.versions.uv));
 assert(commonTemplate.test(process.versions.zlib));
 
-assert(/^\d+\.\d+\.\d+(?:\.\d+)?(?: \(candidate\))?$/
-  .test(process.versions[jsEngine]));
+assert(common.engineSpecificMessage({
+  v8: /^\d+\.\d+\.\d+(?:\.\d+)?-node\.\d+(?: \(candidate\))?$/,
+  chakracore: /^\d+\.\d+\.\d+(?:\.\d+)?(?: \(candidate\))?$/
+}).test(process.versions[jsEngine]));
 assert(/^\d+$/.test(process.versions.modules));
 
 for (let i = 0; i < expected_keys.length; i++) {
