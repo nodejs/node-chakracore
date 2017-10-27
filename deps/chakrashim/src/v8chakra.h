@@ -108,12 +108,16 @@ class ObjectData: public ExternalData {
   NamedPropertyQueryCallback namedPropertyQuery;
   NamedPropertyDeleterCallback namedPropertyDeleter;
   NamedPropertyEnumeratorCallback namedPropertyEnumerator;
+  NamedPropertyDefinerCallback namedPropertyDefiner;
+  NamedPropertyDescriptorCallback namedPropertyDescriptor;
   Persistent<Value> namedPropertyInterceptorData;
   IndexedPropertyGetterCallback indexedPropertyGetter;
   IndexedPropertySetterCallback indexedPropertySetter;
   IndexedPropertyQueryCallback indexedPropertyQuery;
   IndexedPropertyDeleterCallback indexedPropertyDeleter;
   IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
+  IndexedPropertyDefinerCallback indexedPropertyDefiner;
+  IndexedPropertyDescriptorCallback indexedPropertyDescriptor;
   Persistent<Value> indexedPropertyInterceptorData;
   int internalFieldCount;
   FieldValue* internalFields;
@@ -206,6 +210,12 @@ class Utils {
       JsValueRef *arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
       void *callbackState);
+  static JsValueRef CHAKRA_CALLBACK DefinePropertyCallback(
+    JsValueRef callee,
+    bool isConstructCall,
+    JsValueRef *arguments,
+    unsigned short argumentCount,  // NOLINT(runtime/int)
+    void *callbackState);
 
   static void CHAKRA_CALLBACK WeakReferenceCallbackWrapperCallback(
       JsRef ref, void *data);
