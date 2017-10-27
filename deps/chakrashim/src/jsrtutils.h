@@ -348,6 +348,9 @@ JsErrorCode CreatePropertyDescriptor(v8::PropertyAttribute attributes,
                                      JsValueRef setter,
                                      JsValueRef *descriptor);
 
+JsErrorCode CreateV8PropertyDescriptor(JsValueRef descriptor,
+                                       v8::PropertyDescriptor* result);
+
 JsErrorCode DefineProperty(JsValueRef object,
                            const char * propertyName,
                            PropertyDescriptorOptionValues writable,

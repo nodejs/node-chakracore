@@ -85,7 +85,17 @@ PropertyDescriptor::PropertyDescriptor(Local<Value> get,
   }
 }
 
+PropertyDescriptor &
+PropertyDescriptor::operator=(PropertyDescriptor && other) {
+  private_ = other.private_;
+  other.private_ = nullptr;
+  return *this;
+}
+
 PropertyDescriptor::~PropertyDescriptor() {
+  if (private_ == nullptr) {
+    return;
+  }
   if (private_->value != JS_INVALID_REFERENCE) {
     JsRelease(private_->value, nullptr);
   }

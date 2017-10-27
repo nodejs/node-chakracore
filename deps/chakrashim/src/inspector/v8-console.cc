@@ -842,7 +842,7 @@ V8Console::CommandLineAPIScope::~CommandLineAPIScope() {
       v8::Local<v8::Value> descriptor;
       bool success = m_global
                          ->GetOwnPropertyDescriptor(
-                             m_context, v8::Local<v8::String>::Cast(name))
+                             m_context, v8::Local<v8::Name>::Cast(name))
                          .ToLocal(&descriptor);
       DCHECK(success);
       USE(success);
