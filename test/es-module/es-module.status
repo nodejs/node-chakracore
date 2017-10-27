@@ -19,6 +19,8 @@ test-esm-named-exports : PASS,FLAKY
 test-esm-namespace : PASS,FLAKY
 test-esm-ok : PASS,FLAKY
 test-esm-preserve-symlinks : PASS,FLAKY
+test-esm-preserve-symlinks-not-found : PASS,FLAKY
+test-esm-preserve-symlinks-not-found-plain : PASS,FLAKY
 test-esm-require-cache : PASS,FLAKY
 test-esm-resolve-hook : PASS,FLAKY
 test-esm-shebang : PASS,FLAKY
