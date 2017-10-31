@@ -96,6 +96,15 @@ test-vm-sigint-existing-handler : PASS,FLAKY
 test-vm-strict-mode : PASS,FLAKY
 test-vm-timeout : PASS,FLAKY
 test-zlib-convenience-methods : PASS,FLAKY
+test-vm-attributes-property-not-on-sandbox : PASS,FLAKY
+test-vm-function-declaration : PASS,FLAKY
+test-vm-getters : PASS,FLAKY
+test-vm-global-define-property : PASS,FLAKY
+test-vm-global-non-writable-properties : PASS,FLAKY
+test-vm-harmony-symbols : PASS,FLAKY
+test-vm-indexed-properties : PASS,FLAKY
+test-vm-proxies : PASS,FLAKY
+test-vm-strict-assign : PASS,FLAKY
 
 
 [$jsEngine==chakracore && $arch==x64]
