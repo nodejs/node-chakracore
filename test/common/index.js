@@ -54,7 +54,7 @@ exports.isFreeBSD = process.platform === 'freebsd';
 exports.isLinux = process.platform === 'linux';
 exports.isOSX = process.platform === 'darwin';
 
-exports.enoughTestMem = os.totalmem() > 0x40000000; /* 1 Gb */
+exports.enoughTestMem = os.totalmem() > 0x70000000; /* 1.75 Gb */
 const cpus = os.cpus();
 exports.enoughTestCpu = Array.isArray(cpus) &&
                         (cpus.length > 1 || cpus[0].speed > 999);
@@ -275,7 +275,7 @@ Object.defineProperty(exports, 'hasFipsCrypto', {
   const localRelative = path.relative(process.cwd(), `${exports.tmpDir}/`);
   const pipePrefix = exports.isWindows ? '\\\\.\\pipe\\' : localRelative;
   const pipeName = `node-test.${process.pid}.sock`;
-  exports.PIPE = pipePrefix + pipeName;
+  exports.PIPE = path.join(pipePrefix, pipeName);
 }
 
 {
