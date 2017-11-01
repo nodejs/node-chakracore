@@ -177,6 +177,7 @@ def headers(action):
   if 'v8' == variables.get('node_engine'):
     subdir_files('deps/v8/include', 'include/node/', action)
   elif 'chakracore' == variables.get('node_engine'):
+    action(['src/chakra_ttd.h'], 'include/node/')
     subdir_files('deps/chakrashim/include', 'include/node/', action)
     subdir_files('deps/chakrashim/src', 'include/node/', action)
   else:
