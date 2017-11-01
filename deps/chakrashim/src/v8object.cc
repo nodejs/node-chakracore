@@ -267,7 +267,7 @@ PropertyAttribute Object::GetPropertyAttributes(Handle<Value> key) {
 }
 
 MaybeLocal<Value> Object::GetOwnPropertyDescriptor(Local<Context> context,
-                                                   Local<String> key) {
+                                                   Local<Name> key) {
   JsValueRef result;
   if (jsrt::GetOwnPropertyDescriptor(this, *key, &result) != JsNoError) {
     return Local<Value>();
@@ -275,7 +275,7 @@ MaybeLocal<Value> Object::GetOwnPropertyDescriptor(Local<Context> context,
   return Local<Value>::New(result);
 }
 
-Local<Value> Object::GetOwnPropertyDescriptor(Local<String> key) {
+Local<Value> Object::GetOwnPropertyDescriptor(Local<Name> key) {
   return FromMaybe(GetOwnPropertyDescriptor(Local<Context>(), key));
 }
 

@@ -95,6 +95,15 @@ class Work;
 };
 
 namespace v8 {
+class PropertyDescriptor;
+}
+
+namespace jsrt {
+  JsErrorCode CreateV8PropertyDescriptor(JsValueRef descriptor,
+    v8::PropertyDescriptor* result);
+}
+
+namespace v8 {
 
 class AccessorSignature;
 class Array;
@@ -216,6 +225,11 @@ typedef void (*NamedPropertyDeleterCallback)(
   Local<String> property, const PropertyCallbackInfo<Boolean>& info);
 typedef void (*NamedPropertyEnumeratorCallback)(
   const PropertyCallbackInfo<Array>& info);
+typedef void (*NamedPropertyDescriptorCallback)(
+  Local<Name> property, const PropertyCallbackInfo<Value>& info);
+typedef void (*NamedPropertyDefinerCallback)(
+  Local<Name> property, const PropertyDescriptor& desc,
+  const PropertyCallbackInfo<Value>& info);
 
 typedef void (*GenericNamedPropertyGetterCallback)(
   Local<Name> property, const PropertyCallbackInfo<Value>& info);
@@ -228,6 +242,11 @@ typedef void (*GenericNamedPropertyDeleterCallback)(
   Local<Name> property, const PropertyCallbackInfo<Boolean>& info);
 typedef void (*GenericNamedPropertyEnumeratorCallback)(
   const PropertyCallbackInfo<Array>& info);
+typedef void (*GenericNamedPropertyDescriptorCallback)(
+  Local<Name> property, const PropertyCallbackInfo<Value>& info);
+typedef void (*GenericNamedPropertyDefinerCallback)(
+  Local<Name> property, const PropertyDescriptor& desc,
+  const PropertyCallbackInfo<Value>& info);
 
 typedef void (*IndexedPropertyGetterCallback)(
   uint32_t index, const PropertyCallbackInfo<Value>& info);
@@ -239,6 +258,11 @@ typedef void (*IndexedPropertyDeleterCallback)(
   uint32_t index, const PropertyCallbackInfo<Boolean>& info);
 typedef void (*IndexedPropertyEnumeratorCallback)(
   const PropertyCallbackInfo<Array>& info);
+typedef void (*IndexedPropertyDefinerCallback)(
+  uint32_t index, const PropertyDescriptor& desc,
+  const PropertyCallbackInfo<Value>& info);
+typedef void (*IndexedPropertyDescriptorCallback)(
+  uint32_t index, const PropertyCallbackInfo<Value>& info);
 
 typedef bool (*EntropySource)(unsigned char* buffer, size_t length);
 typedef void (*FatalErrorCallback)(const char *location, const char *message);
@@ -337,6 +361,9 @@ class Local {
   friend class Value;
   friend class JSON;
   friend class uvimpl::Work;
+  friend JsErrorCode jsrt::CreateV8PropertyDescriptor(
+    JsValueRef descriptor,
+    v8::PropertyDescriptor* result);
   template <class F> friend class FunctionCallbackInfo;
   template <class F> friend class MaybeLocal;
   template <class F> friend class PersistentBase;
@@ -1406,9 +1433,9 @@ class V8_EXPORT Object : public Value {
       Local<Context> context, Local<Value> key);
 
   V8_DEPRECATE_SOON("Use maybe version",
-                    Local<Value> GetOwnPropertyDescriptor(Local<String> key));
+                    Local<Value> GetOwnPropertyDescriptor(Local<Name> key));
   V8_WARN_UNUSED_RESULT MaybeLocal<Value> GetOwnPropertyDescriptor(
-    Local<Context> context, Local<String> key);
+    Local<Context> context, Local<Name> key);
 
   V8_DEPRECATE_SOON("Use maybe version", bool Has(Handle<Value> key));
   V8_WARN_UNUSED_RESULT Maybe<bool> Has(Local<Context> context,
@@ -1916,6 +1943,8 @@ class V8_EXPORT PropertyDescriptor {
   struct PrivateData;
   PrivateData* get_private() const { return private_; }
 
+  PropertyDescriptor & operator=(PropertyDescriptor &&);
+
   PropertyDescriptor(const PropertyDescriptor&) = delete;
   void operator=(const PropertyDescriptor&) = delete;
 
@@ -2251,16 +2280,39 @@ struct NamedPropertyHandlerConfiguration {
       query(query),
       deleter(deleter),
       enumerator(enumerator),
+      definer(0),
+      descriptor(0),
       data(data),
       flags(flags) {}
 
-  GenericNamedPropertyGetterCallback getter;
-  GenericNamedPropertySetterCallback setter;
-  GenericNamedPropertyQueryCallback query;
-  GenericNamedPropertyDeleterCallback deleter;
-  GenericNamedPropertyEnumeratorCallback enumerator;
-  Handle<Value> data;
-  PropertyHandlerFlags flags;
+    NamedPropertyHandlerConfiguration(
+      GenericNamedPropertyGetterCallback getter,
+      GenericNamedPropertySetterCallback setter,
+      GenericNamedPropertyDescriptorCallback descriptor,
+      GenericNamedPropertyDeleterCallback deleter,
+      GenericNamedPropertyEnumeratorCallback enumerator,
+      GenericNamedPropertyDefinerCallback definer,
+      Local<Value> data = Local<Value>(),
+      PropertyHandlerFlags flags = PropertyHandlerFlags::kNone)
+      : getter(getter),
+        setter(setter),
+        query(0),
+        deleter(deleter),
+        enumerator(enumerator),
+        definer(definer),
+        descriptor(descriptor),
+        data(data),
+        flags(flags) {}
+
+    GenericNamedPropertyGetterCallback getter;
+    GenericNamedPropertySetterCallback setter;
+    GenericNamedPropertyQueryCallback query;
+    GenericNamedPropertyDeleterCallback deleter;
+    GenericNamedPropertyEnumeratorCallback enumerator;
+    GenericNamedPropertyDefinerCallback definer;
+    GenericNamedPropertyDescriptorCallback descriptor;
+    Local<Value> data;
+    PropertyHandlerFlags flags;
 };
 
 struct IndexedPropertyHandlerConfiguration {
@@ -2277,6 +2329,27 @@ struct IndexedPropertyHandlerConfiguration {
       query(query),
       deleter(deleter),
       enumerator(enumerator),
+      definer(0),
+      descriptor(0),
+      data(data),
+      flags(flags) {}
+
+  IndexedPropertyHandlerConfiguration(
+    IndexedPropertyGetterCallback getter = 0,
+    IndexedPropertySetterCallback setter = 0,
+    IndexedPropertyDescriptorCallback descriptor = 0,
+    IndexedPropertyDeleterCallback deleter = 0 ,
+    IndexedPropertyEnumeratorCallback enumerator = 0,
+    IndexedPropertyDefinerCallback definer = 0,
+    Local<Value> data = Local<Value>(),
+    PropertyHandlerFlags flags = PropertyHandlerFlags::kNone)
+    : getter(getter),
+      setter(setter),
+      query(0),
+      deleter(deleter),
+      enumerator(enumerator),
+      definer(definer),
+      descriptor(descriptor),
       data(data),
       flags(flags) {}
 
@@ -2285,6 +2358,8 @@ struct IndexedPropertyHandlerConfiguration {
   IndexedPropertyQueryCallback query;
   IndexedPropertyDeleterCallback deleter;
   IndexedPropertyEnumeratorCallback enumerator;
+  IndexedPropertyDefinerCallback definer;
+  IndexedPropertyDescriptorCallback descriptor;
   Handle<Value> data;
   PropertyHandlerFlags flags;
 };
@@ -2321,6 +2396,8 @@ class V8_EXPORT ObjectTemplate : public Template {
     NamedPropertyQueryCallback query = 0,
     NamedPropertyDeleterCallback deleter = 0,
     NamedPropertyEnumeratorCallback enumerator = 0,
+    NamedPropertyDefinerCallback definer = 0,
+    NamedPropertyDescriptorCallback descriptor = 0,
     Handle<Value> data = Handle<Value>());
   void SetHandler(const NamedPropertyHandlerConfiguration& configuration);
 
@@ -2331,6 +2408,8 @@ class V8_EXPORT ObjectTemplate : public Template {
     IndexedPropertyQueryCallback query = 0,
     IndexedPropertyDeleterCallback deleter = 0,
     IndexedPropertyEnumeratorCallback enumerator = 0,
+    IndexedPropertyDefinerCallback definer = 0,
+    IndexedPropertyDescriptorCallback descriptor = 0,
     Handle<Value> data = Handle<Value>());
 
   void SetAccessCheckCallbacks(
