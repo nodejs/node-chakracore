@@ -357,14 +357,21 @@ class ContextifyContext {
     // with Node-ChakraCore- we can fix this issue after the merge.
 #ifndef NODE_ENGINE_CHAKRACORE
     auto attributes = PropertyAttribute::None;
-    bool is_declared = ctx->global_proxy()
+    bool is_declared_on_global_proxy = ctx->global_proxy()
         ->GetRealNamedPropertyAttributes(ctx->context(), property)
         .To(&attributes);
     bool read_only =
         static_cast<int>(attributes) &
         static_cast<int>(PropertyAttribute::ReadOnly);
 
-    if (is_declared && read_only)
+    bool is_declared_on_sandbox = ctx->sandbox()
+        ->GetRealNamedPropertyAttributes(ctx->context(), property)
+        .To(&attributes);
+    read_only = read_only ||
+        (static_cast<int>(attributes) &
+        static_cast<int>(PropertyAttribute::ReadOnly));
+
+    if (read_only)
       return;
 
     // true for x = 5
@@ -382,9 +389,19 @@ class ContextifyContext {
     // this.f = function() {}, is_contextual_store = false.
     bool is_function = value->IsFunction();
 
+    bool is_declared = is_declared_on_global_proxy || is_declared_on_sandbox;
     if (!is_declared && args.ShouldThrowOnError() && is_contextual_store &&
         !is_function)
       return;
+
+    if (!is_declared_on_global_proxy && is_declared_on_sandbox  &&
+        args.ShouldThrowOnError() && is_contextual_store && !is_function) {
+      // The property exists on the sandbox but not on the global
+      // proxy. Setting it would throw because we are in strict mode.
+      // Don't attempt to set it by signaling that the call was
+      // intercepted. Only change the value on the sandbox.
+      args.GetReturnValue().Set(false);
+    }
 
     ctx->sandbox()->Set(property, value);
 #else
@@ -466,7 +483,8 @@ class ContextifyContext {
             desc_for_sandbox->set_configurable(desc.configurable());
           }
           // Set the property on the sandbox.
-          sandbox->DefineProperty(context, property, *desc_for_sandbox);
+          sandbox->DefineProperty(context, property, *desc_for_sandbox)
+              .FromJust();
         };
 
     if (desc.has_get() || desc.has_set()) {
