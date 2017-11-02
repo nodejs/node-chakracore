@@ -32,7 +32,8 @@ assert.strictEqual(
   require.resolve(fixtures.path('a')).toLowerCase());
 assert.strictEqual(
   fixtures.path('nested-index', 'one', 'index.js').toLowerCase(),
-  require.resolve(fixtures.path('nested-index', 'one').toLowerCase()));
+  require.resolve(fixtures.path('nested-index', 'one')).toLowerCase());
 assert.strictEqual('path', require.resolve('path'));
 
-console.log('ok');
+// Test configurable resolve() paths.
+require(fixtures.path('require-resolve.js'));
