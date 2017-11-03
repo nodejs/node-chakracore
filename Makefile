@@ -102,11 +102,15 @@ uninstall:
 
 clean:
 	$(RM) -r out/Makefile $(NODE_EXE) $(NODE_G_EXE) out/$(BUILDTYPE)/$(NODE_EXE) \
-                out/$(BUILDTYPE)/node.exp
+		out/$(BUILDTYPE)/node.exp
 	@if [ -d out ]; then find out/ -name '*.o' -o -name '*.a' -o -name '*.d' | xargs $(RM) -r; fi
 	$(RM) -r node_modules
 	@if [ -d deps/icu ]; then echo deleting deps/icu; $(RM) -r deps/icu; fi
 	$(RM) test.tap
+	# Next one is legacy remove this at some point
+	$(RM) -r test/tmp*
+	$(RM) -r test/.tmp*
+	$(MAKE) test-addons-clean
 
 distclean:
 	$(RM) -r out
@@ -804,7 +808,7 @@ $(TARBALL): release-only $(NODE_EXE) doc
 	$(RM) -r $(TARNAME)/deps/openssl/openssl/{doc,demos,test}
 	$(RM) -r $(TARNAME)/deps/zlib/contrib # too big, unused
 	$(RM) -r $(TARNAME)/.{editorconfig,git*,mailmap}
-	$(RM) -r $(TARNAME)/tools/{eslint,eslint-rules,osx-pkg.pmdoc,pkgsrc}
+	$(RM) -r $(TARNAME)/tools/{eslint,eslint-rules,osx-pkg.pmdoc,pkgsrc,remark-cli,remark-preset-lint-node}
 	$(RM) -r $(TARNAME)/tools/{osx-*,license-builder.sh,cpplint.py}
 	$(RM) -r $(TARNAME)/test*.tap
 	find $(TARNAME)/ -name ".eslint*" -maxdepth 2 | xargs $(RM)
@@ -945,6 +949,21 @@ bench: bench-net bench-http bench-fs bench-tls
 
 bench-ci: bench
 
+lint-md-clean:
+	$(RM) -r tools/remark-cli/node_modules
+	$(RM) -r tools/remark-preset-lint-node/node_modules
+
+lint-md-build:
+	if [ ! -d tools/remark-cli/node_modules ]; then \
+		cd tools/remark-cli && ../../$(NODE) ../../$(NPM) install; fi
+	if [ ! -d tools/remark-preset-lint-node/node_modules ]; then \
+		cd tools/remark-preset-lint-node && ../../$(NODE) ../../$(NPM) install; fi
+
+lint-md: lint-md-build
+	@echo "Running Markdown linter..."
+	$(NODE) tools/remark-cli/cli.js -q -f \
+		./*.md doc src lib benchmark tools/doc/ tools/icu/
+
 LINT_JS_TARGETS = benchmark doc lib test tools
 
 lint-js:
@@ -1002,9 +1021,10 @@ lint:
 	@EXIT_STATUS=0 ; \
 	$(MAKE) lint-js || EXIT_STATUS=$$? ; \
 	$(MAKE) lint-cpp || EXIT_STATUS=$$? ; \
+	$(MAKE) lint-md || EXIT_STATUS=$$? ; \
 	exit $$EXIT_STATUS
 CONFLICT_RE=^>>>>>>> [0-9A-Fa-f]+|^<<<<<<< [A-Za-z]+
-lint-ci: lint-js-ci lint-cpp
+lint-ci: lint-js-ci lint-cpp lint-md
 	@if ! ( grep -IEqrs "$(CONFLICT_RE)" benchmark deps doc lib src test tools ) \
 		&& ! ( find . -maxdepth 1 -type f | xargs grep -IEqs "$(CONFLICT_RE)" ); then \
 		exit 0 ; \
@@ -1067,6 +1087,9 @@ endif
   lint-js \
   lint-js-ci \
   list-gtests \
+  lint-md \
+  lint-md-build \
+  lint-md-clean \
   pkg \
   release-only \
   run-ci \

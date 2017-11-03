@@ -5526,13 +5526,8 @@ void RandomBytesProcessSync(Environment* env,
 void RandomBytes(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (!args[0]->IsNumber() || args[0].As<v8::Number>()->Value() < 0) {
-    return env->ThrowTypeError("size must be a number >= 0");
-  }
-
   const int64_t size = args[0]->IntegerValue();
-  if (size > Buffer::kMaxLength)
-    return env->ThrowTypeError("size must be a uint32");
+  CHECK(size <= Buffer::kMaxLength);
 
   Local<Object> obj = env->randombytes_constructor_template()->
       NewInstance(env->context()).ToLocalChecked();
@@ -5618,15 +5613,10 @@ void GetSSLCiphers(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   SSL_CTX* ctx = SSL_CTX_new(TLSv1_server_method());
-  if (ctx == nullptr) {
-    return env->ThrowError("SSL_CTX_new() failed.");
-  }
+  CHECK_NE(ctx, nullptr);
 
   SSL* ssl = SSL_new(ctx);
-  if (ssl == nullptr) {
-    SSL_CTX_free(ctx);
-    return env->ThrowError("SSL_new() failed.");
-  }
+  CHECK_NE(ssl, nullptr);
 
   Local<Array> arr = Array::New(env->isolate());
   STACK_OF(SSL_CIPHER)* ciphers = SSL_get_ciphers(ssl);
@@ -5848,15 +5838,11 @@ void ExportChallenge(const FunctionCallbackInfo<Value>& args) {
 }
 
 void TimingSafeEqual(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-
-  THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "First argument");
-  THROW_AND_RETURN_IF_NOT_BUFFER(args[1], "Second argument");
+  CHECK(Buffer::HasInstance(args[0]));
+  CHECK(Buffer::HasInstance(args[1]));
 
   size_t buf_length = Buffer::Length(args[0]);
-  if (buf_length != Buffer::Length(args[1])) {
-    return env->ThrowTypeError("Input buffers must have the same length");
-  }
+  CHECK_EQ(buf_length, Buffer::Length(args[1]));
 
   const char* buf1 = Buffer::Data(args[0]);
   const char* buf2 = Buffer::Data(args[1]);
@@ -5946,48 +5932,38 @@ void SetEngine(const FunctionCallbackInfo<Value>& args) {
 
   if (engine == nullptr) {
     int err = ERR_get_error();
-    if (err == 0) {
-      char tmp[1024];
-      snprintf(tmp, sizeof(tmp), "Engine \"%s\" was not found", *engine_id);
-      return env->ThrowError(tmp);
-    } else {
-      return ThrowCryptoError(env, err);
-    }
+    if (err == 0)
+      return args.GetReturnValue().Set(false);
+    return ThrowCryptoError(env, err);
   }
 
   int r = ENGINE_set_default(engine, flags);
   ENGINE_free(engine);
   if (r == 0)
     return ThrowCryptoError(env, ERR_get_error());
+
+  args.GetReturnValue().Set(true);
 }
 #endif  // !OPENSSL_NO_ENGINE
 
+#ifdef NODE_FIPS_MODE
 void GetFipsCrypto(const FunctionCallbackInfo<Value>& args) {
-  if (FIPS_mode()) {
-    args.GetReturnValue().Set(1);
-  } else {
-    args.GetReturnValue().Set(0);
-  }
+  args.GetReturnValue().Set(FIPS_mode() ? 1 : 0);
 }
 
 void SetFipsCrypto(const FunctionCallbackInfo<Value>& args) {
+  CHECK(!force_fips_crypto);
   Environment* env = Environment::GetCurrent(args);
-#ifdef NODE_FIPS_MODE
   const bool enabled = FIPS_mode();
   const bool enable = args[0]->BooleanValue();
   if (enable == enabled)
     return;  // No action needed.
-  if (force_fips_crypto) {
-    return env->ThrowError(
-        "Cannot set FIPS mode, it was forced with --force-fips at startup.");
-  } else if (!FIPS_mode_set(enable)) {
+  if (!FIPS_mode_set(enable)) {
     unsigned long err = ERR_get_error();  // NOLINT(runtime/int)
     return ThrowCryptoError(env, err);
   }
-#else
-  return env->ThrowError("Cannot set FIPS mode in a non-FIPS build.");
-#endif /* NODE_FIPS_MODE */
 }
+#endif /* NODE_FIPS_MODE */
 
 void InitCrypto(Local<Object> target,
                 Local<Value> unused,
@@ -6013,8 +5989,12 @@ void InitCrypto(Local<Object> target,
 #ifndef OPENSSL_NO_ENGINE
   env->SetMethod(target, "setEngine", SetEngine);
 #endif  // !OPENSSL_NO_ENGINE
+
+#ifdef NODE_FIPS_MODE
   env->SetMethod(target, "getFipsCrypto", GetFipsCrypto);
   env->SetMethod(target, "setFipsCrypto", SetFipsCrypto);
+#endif
+
   env->SetMethod(target, "PBKDF2", PBKDF2);
   env->SetMethod(target, "randomBytes", RandomBytes);
   env->SetMethod(target, "randomFill", RandomBytesBuffer);
