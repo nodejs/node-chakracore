@@ -4,7 +4,6 @@
 
 #include "chakra_ttd.h"
 #include "v8.h"
-#include "util.h"
 #include "util-inl.h"
 
 namespace node {

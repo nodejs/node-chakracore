@@ -3,7 +3,6 @@
 
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
-#include "util.h"
 #include "util-inl.h"
 #include "uv.h"
 #include "nghttp2/nghttp2.h"
@@ -93,13 +92,12 @@ class Nghttp2Session {
  public:
   // Initializes the session instance
   inline int Init(
-      uv_loop_t*,
       const nghttp2_session_type type = NGHTTP2_SESSION_SERVER,
       nghttp2_option* options = nullptr,
       nghttp2_mem* mem = nullptr);
 
   // Frees this session instance
-  inline int Free();
+  inline ~Nghttp2Session();
   inline void MarkDestroying();
   bool IsDestroying() {
     return destroying_;
@@ -142,6 +140,8 @@ class Nghttp2Session {
   // Returns the nghttp2 library session
   inline nghttp2_session* session() const { return session_; }
 
+  inline bool IsClosed() const { return session_ == nullptr; }
+
   nghttp2_session_type type() const {
     return session_type_;
   }
@@ -176,7 +176,6 @@ class Nghttp2Session {
                             int error_code) {}
   virtual ssize_t GetPadding(size_t frameLength,
                              size_t maxFrameLength) { return 0; }
-  virtual void OnFreeSession() {}
   virtual void AllocateSend(uv_buf_t* buf) = 0;
 
   virtual bool HasGetPaddingCallback() { return false; }
@@ -200,8 +199,13 @@ class Nghttp2Session {
   virtual void OnTrailers(Nghttp2Stream* stream,
                           const SubmitTrailers& submit_trailers) {}
 
- private:
   inline void SendPendingData();
+
+  virtual uv_loop_t* event_loop() const = 0;
+
+  virtual void Close();
+
+ private:
   inline void HandleHeadersFrame(const nghttp2_frame* frame);
   inline void HandlePriorityFrame(const nghttp2_frame* frame);
   inline void HandleDataFrame(const nghttp2_frame* frame);
@@ -282,8 +286,6 @@ class Nghttp2Session {
   static Callbacks callback_struct_saved[2];
 
   nghttp2_session* session_;
-  uv_loop_t* loop_;
-  uv_prepare_t prep_;
   nghttp2_session_type session_type_;
   std::unordered_map<int32_t, Nghttp2Stream*> streams_;
   bool destroying_ = false;
@@ -383,6 +385,9 @@ class Nghttp2Stream {
   // Start Reading. If there are queued data chunks, they are pushed into
   // the session to be emitted at the JS side
   inline void ReadStart();
+
+  // Resume Reading
+  inline void ReadResume();
 
   // Stop/Pause Reading.
   inline void ReadStop();
