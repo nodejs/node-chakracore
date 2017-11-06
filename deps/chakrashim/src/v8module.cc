@@ -20,29 +20,27 @@
 
 #include "v8chakra.h"
 
+// CHAKRA-TODO: Find a way to support es6 modules under
+// the constraints of the node implementation
+
 namespace v8 {
+  Module::Status Module::GetStatus() const {
+    return kUninstantiated;
+  }
 
   int Module::GetModuleRequestsLength() const {
-      // CHAKRA-TODO: Find a way to support es6 modules under
-      // the constraints of the node implementation
       return 0;
   }
 
   Local<String> Module::GetModuleRequest(int i) const {
-      // CHAKRA-TODO: Find a way to support es6 modules under
-      // the constraints of the node implementation
       return Local<String>();
   }
 
   int Module::GetIdentityHash() const {
-      // CHAKRA-TODO: Find a way to support es6 modules under
-      // the constraints of the node implementation
       return 0;
   }
 
   bool Module::Instantiate(Local<Context> context, ResolveCallback callback) {
-      // CHAKRA-TODO: Find a way to support es6 modules under
-      // the constraints of the node implementation
       return false;
   }
 
@@ -52,9 +50,11 @@ namespace v8 {
   }
 
   MaybeLocal<Value> Module::Evaluate(Local<Context> context) {
-      // CHAKRA-TODO: Find a way to support es6 modules under
-      // the constraints of the node implementation
       return Local<Value>();
+  }
+
+  Local<Value> Module::GetModuleNamespace() {
+    return Local<Value>();
   }
 
 }  // namespace v8
