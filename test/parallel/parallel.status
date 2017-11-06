@@ -59,6 +59,7 @@ test-inspect-async-hook-setup-at-inspect : PASS,FLAKY
 test-intl : PASS,FLAKY
 test-intl-no-icu-data : PASS,FLAKY
 test-memory-usage : PASS,FLAKY
+test-module-main-extension-lookup : PASS,FLAKY
 test-performance-function : PASS,FLAKY
 test-performance-gc : PASS,FLAKY
 test-process-env-symbols : PASS,FLAKY
