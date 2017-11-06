@@ -1116,6 +1116,11 @@ API] [`URLSearchParams` constructor][`new URLSearchParams(iterable)`] does not
 represent a `[name, value]` tuple – that is, if an element is not iterable, or
 does not consist of exactly two elements.
 
+<a id="ERR_INVALID_URI"></a>
+### ERR_INVALID_URI
+
+Used when an invalid URI is passed.
+
 <a id="ERR_INVALID_URL"></a>
 ### ERR_INVALID_URL
 
@@ -1312,6 +1317,24 @@ Node.js does not allow `stdout` or `stderr` Streams to be closed by user code.
 Used when an attempt is made to close the `process.stdout` stream. By design,
 Node.js does not allow `stdout` or `stderr` Streams to be closed by user code.
 
+<a id="ERR_STREAM_PUSH_AFTER_EOF"></a>
+### ERR_STREAM_PUSH_AFTER_EOF
+
+Used when an attempt is made to call [`stream.push()`][] after a `null`(EOF)
+has been pushed to the stream.
+
+<a id="ERR_STREAM_READ_NOT_IMPLEMENTED"></a>
+### ERR_STREAM_READ_NOT_IMPLEMENTED
+
+Used when an attempt is made to use a readable stream that has not implemented
+[`readable._read()`][].
+
+<a id="ERR_STREAM_UNSHIFT_AFTER_END_EVENT"></a>
+### ERR_STREAM_UNSHIFT_AFTER_END_EVENT
+
+Used when an attempt is made to call [`stream.unshift()`][] after the
+`end` event has been emitted.
+
 <a id="ERR_STREAM_WRAP"></a>
 ### ERR_STREAM_WRAP
 
@@ -1451,13 +1474,21 @@ Used when a given value is out of the accepted range.
 Used when an attempt is made to use a `zlib` object after it has already been
 closed.
 
+<a id="ERR_ZLIB_INITIALIZATION_FAILED"></a>
+### ERR_ZLIB_INITIALIZATION_FAILED
+
+Used when creation of a [`zlib`][] object fails due to incorrect configuration.
+
 [`--force-fips`]: cli.html#cli_force_fips
 [`crypto.timingSafeEqual()`]: crypto.html#crypto_crypto_timingsafeequal_a_b
 [`dgram.createSocket()`]: dgram.html#dgram_dgram_createsocket_options_callback
 [`ERR_INVALID_ARG_TYPE`]: #ERR_INVALID_ARG_TYPE
 [`hash.digest()`]: crypto.html#crypto_hash_digest_encoding
 [`hash.update()`]: crypto.html#crypto_hash_update_data_inputencoding
+[`readable._read()`]: stream.html#stream_readable_read_size_1
 [`sign.sign()`]: crypto.html#crypto_sign_sign_privatekey_outputformat
+[`stream.push()`]: stream.html#stream_readable_push_chunk_encoding
+[`stream.unshift()`]: stream.html#stream_readable_unshift_chunk
 [`subprocess.kill()`]: child_process.html#child_process_subprocess_kill_signal
 [`subprocess.send()`]: child_process.html#child_process_subprocess_send_message_sendhandle_options_callback
 [`fs.readFileSync`]: fs.html#fs_fs_readfilesync_path_options
@@ -1489,3 +1520,4 @@ closed.
 [try-catch]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch
 [vm]: vm.html
 [WHATWG Supported Encodings]: util.html#util_whatwg_supported_encodings
+[`zlib`]: zlib.html
