@@ -154,6 +154,8 @@ class V8_EXPORT V8InspectorClient {
   virtual void beginUserGesture() {}
   virtual void endUserGesture() {}
 
+  virtual void maxAsyncCallStackDepthChanged(int depth) {}
+
   virtual std::unique_ptr<StringBuffer> valueSubtype(v8::Local<v8::Value>) {
     return nullptr;
   }
