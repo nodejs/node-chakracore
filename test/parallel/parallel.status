@@ -18,6 +18,8 @@ test-npm-install:      PASS,FLAKY
 [$system==solaris] # Also applies to SmartOS
 
 [$system==freebsd]
+test-http2-compat-serverrequest-pipe: PASS,FLAKY
+test-http2-pipe:                      PASS,FLAKY
 
 [$system==aix]
 
@@ -59,6 +61,7 @@ test-inspect-async-hook-setup-at-inspect : PASS,FLAKY
 test-intl : PASS,FLAKY
 test-intl-no-icu-data : PASS,FLAKY
 test-memory-usage : PASS,FLAKY
+test-module-main-extension-lookup : PASS,FLAKY
 test-performance-function : PASS,FLAKY
 test-performance-gc : PASS,FLAKY
 test-process-env-symbols : PASS,FLAKY
@@ -101,7 +104,7 @@ test-vm-function-declaration : PASS,FLAKY
 test-vm-getters : PASS,FLAKY
 test-vm-global-define-property : PASS,FLAKY
 test-vm-global-non-writable-properties : PASS,FLAKY
-test-vm-global-property-interceptors.js : PASS,FLAKY
+test-vm-global-property-interceptors : PASS,FLAKY
 test-vm-harmony-symbols : PASS,FLAKY
 test-vm-indexed-properties : PASS,FLAKY
 test-vm-proxies : PASS,FLAKY

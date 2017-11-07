@@ -69,8 +69,56 @@ Http2Options::Http2Options(Environment* env) {
   }
 }
 
-void Http2Session::OnFreeSession() {
-  ::delete this;
+
+Http2Session::Http2Session(Environment* env,
+                           Local<Object> wrap,
+                           nghttp2_session_type type)
+    : AsyncWrap(env, wrap, AsyncWrap::PROVIDER_HTTP2SESSION),
+      StreamBase(env) {
+  MakeWeak<Http2Session>(this);
+
+  Http2Options opts(env);
+
+  padding_strategy_ = opts.GetPaddingStrategy();
+
+  Init(type, *opts);
+
+  // For every node::Http2Session instance, there is a uv_prepare_t handle
+  // whose callback is triggered on every tick of the event loop. When
+  // run, nghttp2 is prompted to send any queued data it may have stored.
+  prep_ = new uv_prepare_t();
+  uv_prepare_init(env->event_loop(), prep_);
+  prep_->data = static_cast<void*>(this);
+  uv_prepare_start(prep_, [](uv_prepare_t* t) {
+    Http2Session* session = static_cast<Http2Session*>(t->data);
+    HandleScope scope(session->env()->isolate());
+    Context::Scope context_scope(session->env()->context());
+
+    // Sending data may call arbitrary JS code, so keep track of
+    // async context.
+    InternalCallbackScope callback_scope(session);
+    session->SendPendingData();
+  });
+}
+
+Http2Session::~Http2Session() {
+  CHECK(persistent().IsEmpty());
+  Close();
+}
+
+void Http2Session::Close() {
+  if (!object().IsEmpty())
+    ClearWrap(object());
+  persistent().Reset();
+
+  this->Nghttp2Session::Close();
+  // Stop the loop
+  CHECK_EQ(uv_prepare_stop(prep_), 0);
+  auto prep_close = [](uv_handle_t* handle) {
+    delete reinterpret_cast<uv_prepare_t*>(handle);
+  };
+  uv_close(reinterpret_cast<uv_handle_t*>(prep_), prep_close);
+  prep_ = nullptr;
 }
 
 ssize_t Http2Session::OnMaxFrameSizePadding(size_t frameLen,
@@ -364,7 +412,7 @@ void Http2Session::Destroy(const FunctionCallbackInfo<Value>& args) {
 
   if (!skipUnconsume)
     session->Unconsume();
-  session->Free();
+  session->Close();
 }
 
 void Http2Session::Destroying(const FunctionCallbackInfo<Value>& args) {
@@ -603,6 +651,8 @@ void Http2Session::SubmitFile(const FunctionCallbackInfo<Value>& args) {
     return args.GetReturnValue().Set(NGHTTP2_ERR_INVALID_STREAM_ID);
   }
 
+  session->chunks_sent_since_last_write_ = 0;
+
   Headers list(isolate, context, headers);
 
   args.GetReturnValue().Set(stream->SubmitFile(fd, *list, list.length(),
@@ -754,7 +804,24 @@ void Http2Session::FlushData(const FunctionCallbackInfo<Value>& args) {
   if (!(stream = session->FindStream(id))) {
     return args.GetReturnValue().Set(NGHTTP2_ERR_INVALID_STREAM_ID);
   }
-  stream->FlushDataChunks();
+  stream->ReadResume();
+}
+
+void Http2Session::UpdateChunksSent(const FunctionCallbackInfo<Value>& args) {
+  Http2Session* session;
+  Environment* env = Environment::GetCurrent(args);
+  Isolate* isolate = env->isolate();
+  ASSIGN_OR_RETURN_UNWRAP(&session, args.Holder());
+
+  HandleScope scope(isolate);
+
+  uint32_t length = session->chunks_sent_since_last_write_;
+
+  session->object()->Set(env->context(),
+                         env->chunks_sent_since_last_write_string(),
+                         Integer::NewFromUnsigned(isolate, length)).FromJust();
+
+  args.GetReturnValue().Set(length);
 }
 
 void Http2Session::SubmitPushPromise(const FunctionCallbackInfo<Value>& args) {
@@ -811,6 +878,8 @@ int Http2Session::DoWrite(WriteWrap* req_wrap,
     }
   }
 
+  chunks_sent_since_last_write_ = 0;
+
   nghttp2_stream_write_t* req = new nghttp2_stream_write_t;
   req->data = req_wrap;
 
@@ -824,7 +893,7 @@ int Http2Session::DoWrite(WriteWrap* req_wrap,
   return 0;
 }
 
-void Http2Session::AllocateSend(size_t recommended, uv_buf_t* buf) {
+void Http2Session::AllocateSend(uv_buf_t* buf) {
   buf->base = stream_alloc();
   buf->len = kAllocBufferSize;
 }
@@ -846,6 +915,7 @@ void Http2Session::Send(uv_buf_t* buf, size_t length) {
                                         this,
                                         AfterWrite);
 
+  chunks_sent_since_last_write_++;
   uv_buf_t actual = uv_buf_init(buf->base, length);
   if (stream_->DoWrite(write_req, &actual, 1, nullptr)) {
     write_req->Dispose();
@@ -1255,6 +1325,8 @@ void Initialize(Local<Object> target,
                       Http2Session::DestroyStream);
   env->SetProtoMethod(session, "flushData",
                       Http2Session::FlushData);
+  env->SetProtoMethod(session, "updateChunksSent",
+                      Http2Session::UpdateChunksSent);
   StreamBase::AddMethods<Http2Session>(env, session,
                                         StreamBase::kFlagHasWritev |
                                         StreamBase::kFlagNoShutdown);

@@ -5,7 +5,6 @@
 
 #include "env.h"
 #include "node_url.h"
-#include "util.h"
 #include "util-inl.h"
 #include "node_internals.h"
 
@@ -205,6 +204,29 @@ void ModuleWrap::Evaluate(const FunctionCallbackInfo<Value>& args) {
 
   auto ret = result.ToLocalChecked();
   args.GetReturnValue().Set(ret);
+}
+
+void ModuleWrap::Namespace(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  auto isolate = args.GetIsolate();
+  auto that = args.This();
+  ModuleWrap* obj = Unwrap<ModuleWrap>(that);
+  CHECK_NE(obj, nullptr);
+
+  auto module = obj->module_.Get(isolate);
+
+  switch (module->GetStatus()) {
+    default:
+      return env->ThrowError(
+          "cannot get namespace, Module has not been instantiated");
+    case v8::Module::Status::kInstantiated:
+    case v8::Module::Status::kEvaluating:
+    case v8::Module::Status::kEvaluated:
+      break;
+  }
+
+  auto result = module->GetModuleNamespace();
+  args.GetReturnValue().Set(result);
 }
 
 MaybeLocal<Module> ModuleWrap::ResolveCallback(Local<Context> context,
@@ -520,6 +542,7 @@ void ModuleWrap::Initialize(Local<Object> target,
   env->SetProtoMethod(tpl, "link", Link);
   env->SetProtoMethod(tpl, "instantiate", Instantiate);
   env->SetProtoMethod(tpl, "evaluate", Evaluate);
+  env->SetProtoMethod(tpl, "namespace", Namespace);
 
   target->Set(FIXED_ONE_BYTE_STRING(isolate, "ModuleWrap"), tpl->GetFunction());
   env->SetMethod(target, "resolve", node::loader::ModuleWrap::Resolve);

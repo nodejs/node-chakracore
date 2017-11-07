@@ -25,9 +25,7 @@
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #include "node.h"
-#include "util.h"
 #include "util-inl.h"
-#include "env.h"
 #include "env-inl.h"
 #include "uv.h"
 #include "v8.h"
@@ -311,6 +309,8 @@ class InternalCallbackScope {
                         v8::Local<v8::Object> object,
                         const async_context& asyncContext,
                         ResourceExpectation expect = kRequireResource);
+  // Utility that can be used by AsyncWrap classes.
+  explicit InternalCallbackScope(AsyncWrap* async_wrap);
   ~InternalCallbackScope();
   void Close();
 

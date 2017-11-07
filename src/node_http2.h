@@ -331,7 +331,8 @@ class Http2Options {
   padding_strategy_type padding_strategy_ = PADDING_STRATEGY_NONE;
 };
 
-static const size_t kAllocBufferSize = 64 * 1024;
+// This allows for 4 default-sized frames with their frame headers
+static const size_t kAllocBufferSize = 4 * (16384 + 9);
 
 typedef uint32_t(*get_setting)(nghttp2_session* session,
                                nghttp2_settings_id id);
@@ -342,24 +343,8 @@ class Http2Session : public AsyncWrap,
  public:
   Http2Session(Environment* env,
                Local<Object> wrap,
-               nghttp2_session_type type) :
-               AsyncWrap(env, wrap, AsyncWrap::PROVIDER_HTTP2SESSION),
-               StreamBase(env) {
-    Wrap(object(), this);
-
-    Http2Options opts(env);
-
-    padding_strategy_ = opts.GetPaddingStrategy();
-
-    Init(env->event_loop(), type, *opts);
-  }
-
-  ~Http2Session() override {
-    CHECK_EQ(false, persistent().IsEmpty());
-    ClearWrap(object());
-    persistent().Reset();
-    CHECK_EQ(true, persistent().IsEmpty());
-  }
+               nghttp2_session_type type);
+  ~Http2Session() override;
 
   static void OnStreamAllocImpl(size_t suggested_size,
                                 uv_buf_t* buf,
@@ -368,9 +353,8 @@ class Http2Session : public AsyncWrap,
                                const uv_buf_t* bufs,
                                uv_handle_type pending,
                                void* ctx);
- protected:
-  void OnFreeSession() override;
 
+ protected:
   ssize_t OnMaxFrameSizePadding(size_t frameLength,
                                 size_t maxPayloadLen);
 
@@ -414,7 +398,7 @@ class Http2Session : public AsyncWrap,
   void OnFrameError(int32_t id, uint8_t type, int error_code) override;
   void OnTrailers(Nghttp2Stream* stream,
                   const SubmitTrailers& submit_trailers) override;
-  void AllocateSend(size_t recommended, uv_buf_t* buf) override;
+  void AllocateSend(uv_buf_t* buf) override;
 
   int DoWrite(WriteWrap* w, uv_buf_t* bufs, size_t count,
               uv_stream_t* send_handle) override;
@@ -448,6 +432,9 @@ class Http2Session : public AsyncWrap,
     return 0;
   }
 
+  uv_loop_t* event_loop() const override {
+    return env()->event_loop();
+  }
  public:
   void Consume(Local<External> external);
   void Unconsume();
@@ -474,6 +461,7 @@ class Http2Session : public AsyncWrap,
   static void SubmitGoaway(const FunctionCallbackInfo<Value>& args);
   static void DestroyStream(const FunctionCallbackInfo<Value>& args);
   static void FlushData(const FunctionCallbackInfo<Value>& args);
+  static void UpdateChunksSent(const FunctionCallbackInfo<Value>& args);
 
   template <get_setting fn>
   static void GetSettings(const FunctionCallbackInfo<Value>& args);
@@ -486,11 +474,17 @@ class Http2Session : public AsyncWrap,
     return stream_buf_;
   }
 
+  void Close() override;
+
  private:
   StreamBase* stream_;
   StreamResource::Callback<StreamResource::AllocCb> prev_alloc_cb_;
   StreamResource::Callback<StreamResource::ReadCb> prev_read_cb_;
   padding_strategy_type padding_strategy_ = PADDING_STRATEGY_NONE;
+
+  // use this to allow timeout tracking during long-lasting writes
+  uint32_t chunks_sent_since_last_write_ = 0;
+  uv_prepare_t* prep_ = nullptr;
 
   char stream_buf_[kAllocBufferSize];
 };

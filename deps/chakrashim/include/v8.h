@@ -2948,6 +2948,23 @@ class V8_EXPORT Locker {
 class V8_EXPORT Module {
  public:
   /**
+   * The different states a module can be in.
+   */
+  enum Status {
+    kUninstantiated,
+    kInstantiating,
+    kInstantiated,
+    kEvaluating,
+    kEvaluated,
+    kErrored
+  };
+
+  /**
+   * Returns the module's current status.
+   */
+  Status GetStatus() const;
+
+  /**
    * Returns the number of modules requested by this module.
    */
   int GetModuleRequestsLength() const;
@@ -2984,6 +3001,12 @@ class V8_EXPORT Module {
    * Returns the completion value.
    */
   V8_WARN_UNUSED_RESULT MaybeLocal<Value> Evaluate(Local<Context> context);
+
+  /**
+   * Returns the namespace object of this module.
+   * The module's status must be kEvaluated.
+   */
+  Local<Value> GetModuleNamespace();
 };
 
 

@@ -22,11 +22,8 @@
 #include "node.h"
 #include "node_buffer.h"
 
-#include "async-wrap.h"
 #include "async-wrap-inl.h"
-#include "env.h"
 #include "env-inl.h"
-#include "util.h"
 #include "util-inl.h"
 
 #include "v8.h"
@@ -457,16 +454,8 @@ class ZCtx : public AsyncWrap {
 
   static void New(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
-
-    if (args.Length() < 1 || !args[0]->IsInt32()) {
-      return env->ThrowTypeError("Bad argument");
-    }
+    CHECK(args[0]->IsInt32());
     node_zlib_mode mode = static_cast<node_zlib_mode>(args[0]->Int32Value());
-
-    if (mode < DEFLATE || mode > UNZIP) {
-      return env->ThrowTypeError("Bad argument");
-    }
-
     new ZCtx(env, args.This(), mode);
   }
 
@@ -515,9 +504,14 @@ class ZCtx : public AsyncWrap {
       memcpy(dictionary, dictionary_, dictionary_len);
     }
 
-    Init(ctx, level, windowBits, memLevel, strategy, write_result, *array,
-         write_js_callback, dictionary, dictionary_len);
+    bool ret = Init(ctx, level, windowBits, memLevel, strategy, write_result,
+                    *array, write_js_callback, dictionary, dictionary_len);
+    if (!ret) goto end;
+
     SetDictionary(ctx);
+
+   end:
+    return args.GetReturnValue().Set(ret);
   }
 
   static void Params(const FunctionCallbackInfo<Value>& args) {
@@ -534,7 +528,7 @@ class ZCtx : public AsyncWrap {
     SetDictionary(ctx);
   }
 
-  static void Init(ZCtx *ctx, int level, int windowBits, int memLevel,
+  static bool Init(ZCtx *ctx, int level, int windowBits, int memLevel,
                    int strategy, uint32_t* write_result,
                    Uint32Array* write_resultTTDBuffer,
                    Local<Function> write_js_callback, char* dictionary,
@@ -601,7 +595,7 @@ class ZCtx : public AsyncWrap {
         ctx->dictionary_ = nullptr;
       }
       ctx->mode_ = NONE;
-      ctx->env()->ThrowError("Init error");
+      return false;
     }
 
     ctx->write_result_ = write_result;
@@ -610,6 +604,7 @@ class ZCtx : public AsyncWrap {
     ctx->write_result_ttdBuff = write_resultTTDBuffer;
 #endif
     ctx->write_js_callback_.Reset(ctx->env()->isolate(), write_js_callback);
+    return true;
   }
 
   static void SetDictionary(ZCtx* ctx) {
