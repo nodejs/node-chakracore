@@ -185,6 +185,7 @@ class ModuleWrap;
   V(kill_signal_string, "killSignal")                                         \
   V(length_string, "length")                                                  \
   V(mac_string, "mac")                                                        \
+  V(main_string, "main")                                                      \
   V(max_buffer_string, "maxBuffer")                                           \
   V(message_string, "message")                                                \
   V(minttl_string, "minttl")                                                  \
@@ -617,6 +618,19 @@ class Environment {
 
   inline performance::performance_state* performance_state();
   inline std::map<std::string, uint64_t>* performance_marks();
+
+  void CollectExceptionInfo(v8::Local<v8::Value> context,
+                            int errorno,
+                            const char* syscall = nullptr,
+                            const char* message = nullptr,
+                            const char* path = nullptr);
+
+  void CollectUVExceptionInfo(v8::Local<v8::Value> context,
+                              int errorno,
+                              const char* syscall = nullptr,
+                              const char* message = nullptr,
+                              const char* path = nullptr,
+                              const char* dest = nullptr);
 
   inline void ThrowError(const char* errmsg);
   inline void ThrowTypeError(const char* errmsg);
