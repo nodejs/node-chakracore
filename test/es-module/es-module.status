@@ -16,6 +16,7 @@ test-esm-example-loader : PASS,FLAKY
 test-esm-forbidden-globals : PASS,FLAKY
 test-esm-json : PASS,FLAKY
 test-esm-loader-dependency : PASS,FLAKY
+test-esm-loader-modulemap : PASS,FLAKY
 test-esm-named-exports : PASS,FLAKY
 test-esm-namespace : PASS,FLAKY
 test-esm-ok : PASS,FLAKY
