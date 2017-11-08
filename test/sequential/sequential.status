@@ -30,6 +30,7 @@ test-inspector-async-stack-traces-promise-then : PASS,FLAKY
 test-inspector-async-stack-traces-set-interval : PASS,FLAKY
 test-inspector-break-when-eval : PASS,FLAKY
 test-inspector-scriptparsed-context : PASS,FLAKY
+test-inspector-stop-profile-after-done : PASS,FLAKY
 
 [$jsEngine==chakracore && $system==linux]
 test-child-process-pass-fd : PASS,FLAKY
