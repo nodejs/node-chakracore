@@ -210,7 +210,7 @@ of the event loop.
 
 ### `--no-force-async-hooks-checks`
 <!-- YAML
-added: REPLACEME
+added: v9.0.0
 -->
 
 Disables runtime checks for `async_hooks`. These will still be enabled
@@ -471,6 +471,7 @@ Node options that are allowed are:
 V8 options that are allowed are:
 - `--abort-on-uncaught-exception`
 - `--max-old-space-size`
+- `--stack-trace-limit`
 
 ### `NODE_PENDING_DEPRECATION=1`
 <!-- YAML
