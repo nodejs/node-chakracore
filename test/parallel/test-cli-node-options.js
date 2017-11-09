@@ -36,11 +36,11 @@ if (!common.isChakraEngine) {
   // V8 options
   expect('--abort_on-uncaught_exception', 'B\n');
   expect('--max-old-space-size=0', 'B\n');
+  expect('--stack-trace-limit=100',
+    /(\s*at f \(\[eval\]:1:\d*\)\r?\n){100}/,
+    '(function f() { f(); })();',
+    true);
 }
-expect('--stack-trace-limit=100',
-       /(\s*at f \(\[eval\]:1:\d*\)\r?\n){100}/,
-       '(function f() { f(); })();',
-       true);
 
 function expect(opt, want, command = 'console.log("B")', wantsError = false) {
   const argv = ['-e', command];
