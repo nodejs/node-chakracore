@@ -21,6 +21,7 @@
 
 'use strict';
 const common = require('../common');
+const fixtures = require('../common/fixtures');
 const assert = require('assert');
 
 common.globalCheck = false;
@@ -40,7 +41,7 @@ let server_tcp, server_unix, client_tcp, client_unix, replServer;
 
 
 // absolute path to test/fixtures/a.js
-const moduleFilename = require('path').join(common.fixturesDir, 'a');
+const moduleFilename = fixtures.path('a');
 
 console.error('repl test');
 
@@ -449,6 +450,17 @@ function error_test() {
     {
       client: client_unix, send: '(function() {\nif (false) {} /bar"/;\n}())',
       expect: `${prompt_multiline}${prompt_multiline}undefined\n${prompt_unix}`
+    },
+
+    // https://github.com/nodejs/node/issues/16483
+    {
+      client: client_unix, send: 'new Proxy({x:42}, {get(){throw null}});',
+      expect: `Proxy [ { x: 42 }, { get: [Function: get] } ]\n${prompt_unix}`
+    },
+    {
+      client: client_unix,
+      send: 'repl.writer.options.showProxy = false, new Proxy({x:42}, {});',
+      expect: `{ x: 42 }\n${prompt_unix}`
     },
 
     // Newline within template string maintains whitespace.
