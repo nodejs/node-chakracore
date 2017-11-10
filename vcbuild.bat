@@ -534,8 +534,10 @@ goto exit
 echo %1 | findstr /c:"src\node_root_certs.h" > nul 2>&1
 if %errorlevel% equ 0 goto exit
 
-@rem skip subfolders under /src
-echo %1 | findstr /r /c:"src\\.*\\.*" > nul 2>&1
+echo %1 | findstr /r /c:"src\\tracing\\trace_event.h"
+if %errorlevel% equ 0 goto exit
+
+echo %1 | findstr /r /c:"src\\tracing\\trace_event_common.h"
 if %errorlevel% equ 0 goto exit
 
 echo %1 | findstr /r /c:"test\\addons\\[0-9].*_.*\.h"

@@ -539,12 +539,17 @@ static void InternalModuleReadFile(const FunctionCallbackInfo<Value>& args) {
     start = 3;  // Skip UTF-8 BOM.
   }
 
-  Local<String> chars_string =
-      String::NewFromUtf8(env->isolate(),
-                          &chars[start],
-                          String::kNormalString,
-                          offset - start);
-  args.GetReturnValue().Set(chars_string);
+  const size_t size = offset - start;
+  if (size == 0) {
+    args.GetReturnValue().SetEmptyString();
+  } else {
+    Local<String> chars_string =
+        String::NewFromUtf8(env->isolate(),
+                            &chars[start],
+                            String::kNormalString,
+                            size);
+    args.GetReturnValue().Set(chars_string);
+  }
 }
 
 // Used to speed up module loading.  Returns 0 if the path refers to
@@ -851,24 +856,15 @@ static void MKDir(const FunctionCallbackInfo<Value>& args) {
 }
 
 static void RealPath(const FunctionCallbackInfo<Value>& args) {
+  CHECK_GE(args.Length(), 2);
   Environment* env = Environment::GetCurrent(args);
-
-  const int argc = args.Length();
-
-  if (argc < 1)
-    return TYPE_ERROR("path required");
-
   BufferValue path(env->isolate(), args[0]);
   ASSERT_PATH(path)
 
   const enum encoding encoding = ParseEncoding(env->isolate(), args[1], UTF8);
 
-  Local<Value> callback = Null(env->isolate());
-  if (argc == 3)
-    callback = args[2];
-
-  if (callback->IsObject()) {
-    ASYNC_CALL(realpath, callback, encoding, *path);
+  if (args[2]->IsObject()) {
+    ASYNC_CALL(realpath, args[2], encoding, *path);
   } else {
     SYNC_CALL(realpath, *path, *path);
     const char* link_path = static_cast<const char*>(SYNC_REQ.ptr);
