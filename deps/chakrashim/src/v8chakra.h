@@ -77,6 +77,67 @@ class ExternalData {
   }
 };
 
+struct SetterGetterInterceptor
+{
+  NamedPropertyGetterCallback namedPropertyGetter;
+  NamedPropertySetterCallback namedPropertySetter;
+  NamedPropertyQueryCallback namedPropertyQuery;
+  NamedPropertyDeleterCallback namedPropertyDeleter;
+  NamedPropertyEnumeratorCallback namedPropertyEnumerator;
+  NamedPropertyDefinerCallback namedPropertyDefiner;
+  NamedPropertyDescriptorCallback namedPropertyDescriptor;
+  Persistent<Value> namedPropertyInterceptorData;
+  IndexedPropertyGetterCallback indexedPropertyGetter;
+  IndexedPropertySetterCallback indexedPropertySetter;
+  IndexedPropertyQueryCallback indexedPropertyQuery;
+  IndexedPropertyDeleterCallback indexedPropertyDeleter;
+  IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
+  IndexedPropertyDefinerCallback indexedPropertyDefiner;
+  IndexedPropertyDescriptorCallback indexedPropertyDescriptor;
+  Persistent<Value> indexedPropertyInterceptorData;
+
+  SetterGetterInterceptor(SetterGetterInterceptor * setterGetterInterceptor):
+    namedPropertyGetter(setterGetterInterceptor->namedPropertyGetter),
+    namedPropertySetter(setterGetterInterceptor->namedPropertySetter),
+    namedPropertyQuery(setterGetterInterceptor->namedPropertyQuery),
+    namedPropertyDeleter(setterGetterInterceptor->namedPropertyDeleter),
+    namedPropertyEnumerator(setterGetterInterceptor->namedPropertyEnumerator),
+    namedPropertyDefiner(setterGetterInterceptor->namedPropertyDefiner),
+    namedPropertyDescriptor(setterGetterInterceptor->namedPropertyDescriptor),
+    namedPropertyInterceptorData(
+      nullptr, setterGetterInterceptor->namedPropertyInterceptorData),
+    indexedPropertyGetter(setterGetterInterceptor->indexedPropertyGetter),
+    indexedPropertySetter(setterGetterInterceptor->indexedPropertySetter),
+    indexedPropertyQuery(setterGetterInterceptor->indexedPropertyQuery),
+    indexedPropertyDeleter(setterGetterInterceptor->indexedPropertyDeleter),
+    indexedPropertyEnumerator(setterGetterInterceptor->indexedPropertyEnumerator),
+    indexedPropertyDefiner(setterGetterInterceptor->indexedPropertyDefiner),
+    indexedPropertyDescriptor(setterGetterInterceptor->indexedPropertyDescriptor),
+    indexedPropertyInterceptorData(nullptr,
+      setterGetterInterceptor->indexedPropertyInterceptorData)
+  {
+  }
+
+  SetterGetterInterceptor():
+    namedPropertyGetter(nullptr),
+    namedPropertySetter(nullptr),
+    namedPropertyQuery(nullptr),
+    namedPropertyDeleter(nullptr),
+    namedPropertyEnumerator(nullptr),
+    namedPropertyDefiner(nullptr),
+    namedPropertyDescriptor(nullptr),
+    indexedPropertyGetter(nullptr),
+    indexedPropertySetter(nullptr),
+    indexedPropertyQuery(nullptr),
+    indexedPropertyDeleter(nullptr),
+    indexedPropertyEnumerator(nullptr),
+    indexedPropertyDefiner(nullptr),
+    indexedPropertyDescriptor(nullptr)
+  {
+
+  }
+};
+
 class ObjectData: public ExternalData {
  public:
   static const ExternalDataTypes ExternalDataType =
@@ -103,22 +164,7 @@ class ObjectData: public ExternalData {
 
   JsValueRef objectInstance;
   Persistent<ObjectTemplate> objectTemplate;  // Original ObjectTemplate
-  NamedPropertyGetterCallback namedPropertyGetter;
-  NamedPropertySetterCallback namedPropertySetter;
-  NamedPropertyQueryCallback namedPropertyQuery;
-  NamedPropertyDeleterCallback namedPropertyDeleter;
-  NamedPropertyEnumeratorCallback namedPropertyEnumerator;
-  NamedPropertyDefinerCallback namedPropertyDefiner;
-  NamedPropertyDescriptorCallback namedPropertyDescriptor;
-  Persistent<Value> namedPropertyInterceptorData;
-  IndexedPropertyGetterCallback indexedPropertyGetter;
-  IndexedPropertySetterCallback indexedPropertySetter;
-  IndexedPropertyQueryCallback indexedPropertyQuery;
-  IndexedPropertyDeleterCallback indexedPropertyDeleter;
-  IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
-  IndexedPropertyDefinerCallback indexedPropertyDefiner;
-  IndexedPropertyDescriptorCallback indexedPropertyDescriptor;
-  Persistent<Value> indexedPropertyInterceptorData;
+  SetterGetterInterceptor * setterGetterInterceptor;
   int internalFieldCount;
   FieldValue* internalFields;
 
