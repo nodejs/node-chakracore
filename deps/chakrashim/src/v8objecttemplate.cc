@@ -28,42 +28,15 @@ class ObjectTemplateData : public TemplateData {
       ExternalDataTypes::ObjectTemplateData;
 
   Persistent<String> className;
-  NamedPropertyGetterCallback namedPropertyGetter;
-  NamedPropertySetterCallback namedPropertySetter;
-  NamedPropertyQueryCallback namedPropertyQuery;
-  NamedPropertyDeleterCallback namedPropertyDeleter;
-  NamedPropertyEnumeratorCallback namedPropertyEnumerator;
-  NamedPropertyDefinerCallback namedPropertyDefiner;
-  NamedPropertyDescriptorCallback namedPropertyDescriptor;
-  Persistent<Value> namedPropertyInterceptorData;
-  IndexedPropertyGetterCallback indexedPropertyGetter;
-  IndexedPropertySetterCallback indexedPropertySetter;
-  IndexedPropertyQueryCallback indexedPropertyQuery;
-  IndexedPropertyDeleterCallback indexedPropertyDeleter;
-  IndexedPropertyEnumeratorCallback indexedPropertyEnumerator;
-  IndexedPropertyDefinerCallback indexedPropertyDefiner;
-  IndexedPropertyDescriptorCallback indexedPropertyDescriptor;
-  Persistent<Value> indexedPropertyInterceptorData;
+
+  SetterGetterInterceptor * setterGetterInterceptor;
   FunctionCallback functionCallDelegate;
   Persistent<Value> functionCallDelegateInterceptorData;
   int internalFieldCount;
 
   ObjectTemplateData()
       : TemplateData(ExternalDataType),
-        namedPropertyGetter(nullptr),
-        namedPropertySetter(nullptr),
-        namedPropertyQuery(nullptr),
-        namedPropertyDeleter(nullptr),
-        namedPropertyEnumerator(nullptr),
-        namedPropertyDefiner(nullptr),
-        namedPropertyDescriptor(nullptr),
-        indexedPropertyGetter(nullptr),
-        indexedPropertySetter(nullptr),
-        indexedPropertyQuery(nullptr),
-        indexedPropertyDeleter(nullptr),
-        indexedPropertyEnumerator(nullptr),
-        indexedPropertyDefiner(nullptr),
-        indexedPropertyDescriptor(nullptr),
+        setterGetterInterceptor(nullptr),
         functionCallDelegate(nullptr),
         functionCallDelegateInterceptorData(nullptr),
         internalFieldCount(0) {
@@ -71,8 +44,12 @@ class ObjectTemplateData : public TemplateData {
 
   ~ObjectTemplateData() {
       className.Reset();
-      namedPropertyInterceptorData.Reset();
-      indexedPropertyInterceptorData.Reset();
+
+      if (setterGetterInterceptor != nullptr) {
+        setterGetterInterceptor->namedPropertyInterceptorData.Reset();
+        setterGetterInterceptor->indexedPropertyInterceptorData.Reset();
+        delete setterGetterInterceptor;
+      }
       functionCallDelegateInterceptorData.Reset();
   }
 
@@ -85,20 +62,21 @@ class ObjectTemplateData : public TemplateData {
   }
 
   bool AreInterceptorsRequired() {
-    return namedPropertyDeleter != nullptr ||
-      namedPropertyEnumerator != nullptr ||
-      namedPropertyGetter != nullptr ||
-      namedPropertyQuery != nullptr ||
-      namedPropertySetter != nullptr ||
-      namedPropertyDefiner != nullptr ||
-      namedPropertyDescriptor != nullptr ||
-      indexedPropertyDeleter != nullptr ||
-      indexedPropertyEnumerator != nullptr ||
-      indexedPropertyGetter != nullptr ||
-      indexedPropertyQuery != nullptr ||
-      indexedPropertySetter != nullptr ||
-      indexedPropertyDefiner != nullptr ||
-      indexedPropertyDescriptor != nullptr;
+    return setterGetterInterceptor != nullptr &&
+     ( setterGetterInterceptor->namedPropertyDeleter != nullptr ||
+      setterGetterInterceptor->namedPropertyEnumerator != nullptr ||
+      setterGetterInterceptor->namedPropertyGetter != nullptr ||
+      setterGetterInterceptor->namedPropertyQuery != nullptr ||
+      setterGetterInterceptor->namedPropertySetter != nullptr ||
+      setterGetterInterceptor->namedPropertyDefiner != nullptr ||
+      setterGetterInterceptor->namedPropertyDescriptor != nullptr ||
+      setterGetterInterceptor->indexedPropertyDeleter != nullptr ||
+      setterGetterInterceptor->indexedPropertyEnumerator != nullptr ||
+      setterGetterInterceptor->indexedPropertyGetter != nullptr ||
+      setterGetterInterceptor->indexedPropertyQuery != nullptr ||
+      setterGetterInterceptor->indexedPropertySetter != nullptr ||
+      setterGetterInterceptor->indexedPropertyDefiner != nullptr ||
+      setterGetterInterceptor->indexedPropertyDescriptor != nullptr );
     /*
     CHAKRA: functionCallDelegate is intentionaly not added as interceptors because it can be invoked
     through Object::CallAsFunction or Object::CallAsConstructor
@@ -160,27 +138,16 @@ ObjectData::ObjectData(ObjectTemplate* objectTemplate,
                        ObjectTemplateData *templateData)
     : ExternalData(ExternalDataType),
       objectTemplate(nullptr, Utils::ToLocal(objectTemplate)),
-      namedPropertyGetter(templateData->namedPropertyGetter),
-      namedPropertySetter(templateData->namedPropertySetter),
-      namedPropertyQuery(templateData->namedPropertyQuery),
-      namedPropertyDeleter(templateData->namedPropertyDeleter),
-      namedPropertyEnumerator(templateData->namedPropertyEnumerator),
-      namedPropertyDefiner(templateData->namedPropertyDefiner),
-      namedPropertyDescriptor(templateData->namedPropertyDescriptor),
-      namedPropertyInterceptorData(
-        nullptr, templateData->namedPropertyInterceptorData),
-      indexedPropertyGetter(templateData->indexedPropertyGetter),
-      indexedPropertySetter(templateData->indexedPropertySetter),
-      indexedPropertyQuery(templateData->indexedPropertyQuery),
-      indexedPropertyDeleter(templateData->indexedPropertyDeleter),
-      indexedPropertyEnumerator(templateData->indexedPropertyEnumerator),
-      indexedPropertyDefiner(templateData->indexedPropertyDefiner),
-      indexedPropertyDescriptor(templateData->indexedPropertyDescriptor),
-      indexedPropertyInterceptorData(
-        nullptr, templateData->indexedPropertyInterceptorData),
       internalFieldCount(templateData->internalFieldCount) {
   if (internalFieldCount > 0) {
     internalFields = new FieldValue[internalFieldCount];
+  }
+
+  if (templateData->setterGetterInterceptor != nullptr) {
+    setterGetterInterceptor = new
+        SetterGetterInterceptor(templateData->setterGetterInterceptor);
+  } else {
+    setterGetterInterceptor = nullptr;
   }
 }
 
@@ -190,8 +157,11 @@ ObjectData::~ObjectData() {
   }
 
   objectTemplate.Reset();
-  namedPropertyInterceptorData.Reset();
-  indexedPropertyInterceptorData.Reset();
+  if (setterGetterInterceptor != nullptr) {
+    setterGetterInterceptor->namedPropertyInterceptorData.Reset();
+    setterGetterInterceptor->indexedPropertyInterceptorData.Reset();
+    delete setterGetterInterceptor;
+  }
 }
 
 void CHAKRA_CALLBACK ObjectData::FinalizeCallback(void *data) {
@@ -256,13 +226,14 @@ JsValueRef CHAKRA_CALLBACK Utils::GetCallback(
   }
 
   if (isPropIntType) {
-    if (objectData->indexedPropertyGetter) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+        objectData->setterGetterInterceptor->indexedPropertyGetter != nullptr) {
       // indexed array properties were set
       PropertyCallbackInfo<Value> info(
-        *objectData->indexedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->indexedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyGetter(index, info);
+      objectData->setterGetterInterceptor->indexedPropertyGetter(index, info);
       result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       if (result != JS_INVALID_REFERENCE) {
         return result;
@@ -274,12 +245,14 @@ JsValueRef CHAKRA_CALLBACK Utils::GetCallback(
     }
     return result;
   } else {
-    if (objectData->namedPropertyGetter) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+        objectData->setterGetterInterceptor->namedPropertyGetter != nullptr) {
       PropertyCallbackInfo<Value> info(
-        *objectData->namedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
+      objectData->setterGetterInterceptor->
+        namedPropertyGetter(reinterpret_cast<String*>(prop), info);
       result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       if (result != JS_INVALID_REFERENCE) {
         return result;
@@ -319,12 +292,13 @@ JsValueRef CHAKRA_CALLBACK Utils::SetCallback(
 
   Local<Value> setCallbackResult;
   if (isPropIntType) {
-    if (objectData->indexedPropertySetter) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+        objectData->setterGetterInterceptor->indexedPropertySetter != nullptr) {
       PropertyCallbackInfo<Value> info(
-        *objectData->indexedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->indexedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertySetter(
+      objectData->setterGetterInterceptor->indexedPropertySetter(
         index, reinterpret_cast<Value*>(value), info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
         return jsrt::GetTrue();  // intercepted
@@ -335,12 +309,13 @@ JsValueRef CHAKRA_CALLBACK Utils::SetCallback(
       return jsrt::GetFalse();
     }
   } else {
-    if (objectData->namedPropertySetter) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+        objectData->setterGetterInterceptor->namedPropertySetter != nullptr) {
       PropertyCallbackInfo<Value> info(
-        *objectData->namedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertySetter(
+      objectData->setterGetterInterceptor->namedPropertySetter(
         reinterpret_cast<String*>(prop), reinterpret_cast<Value*>(value), info);
       if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
         return jsrt::GetTrue();  // intercepted
@@ -380,12 +355,14 @@ JsValueRef CHAKRA_CALLBACK Utils::DeletePropertyCallback(
 
   Local<Value> deleteCallbackResult;
   if (isPropIntType) {
-    if (objectData->indexedPropertyDeleter != nullptr) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+        objectData->setterGetterInterceptor->
+                    indexedPropertyDeleter != nullptr) {
       PropertyCallbackInfo<Boolean> info(
-        *objectData->indexedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->indexedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyDeleter(index, info);
+      objectData->setterGetterInterceptor->indexedPropertyDeleter(index, info);
       result = info.GetReturnValue().Get();
       if (result != JS_INVALID_REFERENCE) {
         return result;  // intercepted
@@ -397,12 +374,14 @@ JsValueRef CHAKRA_CALLBACK Utils::DeletePropertyCallback(
     }
     return jsrt::GetTrue();  // no result from JsDeleteIndexedProperty
   } else {
-    if (objectData->namedPropertyDeleter != nullptr) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+        objectData->setterGetterInterceptor->namedPropertyDeleter != nullptr) {
       PropertyCallbackInfo<Boolean> info(
-        *objectData->namedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyDeleter(reinterpret_cast<String*>(prop), info);
+      objectData->setterGetterInterceptor->
+        namedPropertyDeleter(reinterpret_cast<String*>(prop), info);
       result = info.GetReturnValue().Get();
       if (result != JS_INVALID_REFERENCE) {
         return result;  // intercepted
@@ -436,27 +415,33 @@ JsValueRef Utils::HasPropertyHandler(
   }
 
   if (isPropIntType) {
-    if (objectData->indexedPropertyQuery != nullptr) {
-      HandleScope scope(nullptr);
-      PropertyCallbackInfo<Integer> info(
-        *objectData->indexedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyQuery(index, info);
-      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return jsrt::GetTrue();  // intercepted
+    if (objectData->setterGetterInterceptor != nullptr) {
+      if (objectData->setterGetterInterceptor->
+                      indexedPropertyQuery != nullptr) {
+        HandleScope scope(nullptr);
+        PropertyCallbackInfo<Integer> info(
+          *(objectData->setterGetterInterceptor->
+                        indexedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->indexedPropertyQuery(index, info);
+        if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+          return jsrt::GetTrue();  // intercepted
+        }
       }
-    }
 
-    if (objectData->indexedPropertyGetter) {
-      // indexed array properties were set
-      PropertyCallbackInfo<Value> info(
-        *objectData->indexedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyGetter(index, info);
-      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return jsrt::GetTrue();  // intercepted
+      if (objectData->setterGetterInterceptor->
+                      indexedPropertyGetter != nullptr) {
+        // indexed array properties were set
+        PropertyCallbackInfo<Value> info(
+          *(objectData->setterGetterInterceptor->
+                        indexedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->indexedPropertyGetter(index, info);
+        if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+          return jsrt::GetTrue();  // intercepted
+        }
       }
     }
 
@@ -467,26 +452,30 @@ JsValueRef Utils::HasPropertyHandler(
     }
     return hasProperty ? jsrt::GetTrue() : jsrt::GetFalse();
   } else {  // named property...
-    if (objectData->namedPropertyQuery != nullptr) {
-      HandleScope scope(nullptr);
-      PropertyCallbackInfo<Integer> info(
-        *objectData->namedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyQuery(reinterpret_cast<String*>(prop), info);
-      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return jsrt::GetTrue();  // intercepted
+    if (objectData->setterGetterInterceptor != nullptr) {
+      if (objectData->setterGetterInterceptor->namedPropertyQuery != nullptr) {
+        HandleScope scope(nullptr);
+        PropertyCallbackInfo<Integer> info(
+          *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->
+          namedPropertyQuery(reinterpret_cast<String*>(prop), info);
+        if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+          return jsrt::GetTrue();  // intercepted
+        }
       }
-    }
 
-    if (objectData->namedPropertyGetter) {
-      PropertyCallbackInfo<Value> info(
-        *objectData->namedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
-      if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
-        return jsrt::GetTrue();  // intercepted
+      if (objectData->setterGetterInterceptor->namedPropertyGetter != nullptr) {
+        PropertyCallbackInfo<Value> info(
+          *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->
+          namedPropertyGetter(reinterpret_cast<String*>(prop), info);
+        if (info.GetReturnValue().Get() != JS_INVALID_REFERENCE) {
+          return jsrt::GetTrue();  // intercepted
+        }
       }
     }
 
@@ -523,12 +512,14 @@ JsValueRef Utils::GetPropertiesHandler(
   }
 
   JsValueRef indexedProperties;
-  if (objectData->indexedPropertyEnumerator != nullptr) {
+  if (objectData->setterGetterInterceptor != nullptr &&
+      objectData->setterGetterInterceptor->
+                  indexedPropertyEnumerator != nullptr) {
     PropertyCallbackInfo<Array> info(
-      *objectData->indexedPropertyInterceptorData,
+      *(objectData->setterGetterInterceptor->indexedPropertyInterceptorData),
       reinterpret_cast<Object*>(object),
       /*holder*/reinterpret_cast<Object*>(object));
-    objectData->indexedPropertyEnumerator(info);
+    objectData->setterGetterInterceptor->indexedPropertyEnumerator(info);
     indexedProperties =
       reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
   } else if (getFromPrototype) {  // get indexed properties from object
@@ -543,12 +534,13 @@ JsValueRef Utils::GetPropertiesHandler(
   }
 
   JsValueRef namedProperties;
-  if (objectData->namedPropertyEnumerator != nullptr) {
+  if (objectData->setterGetterInterceptor != nullptr &&
+      objectData->setterGetterInterceptor->namedPropertyEnumerator != nullptr) {
     PropertyCallbackInfo<Array> info(
-      *objectData->namedPropertyInterceptorData,
+      *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
       reinterpret_cast<Object*>(object),
       /*holder*/reinterpret_cast<Object*>(object));
-    objectData->namedPropertyEnumerator(info);
+    objectData->setterGetterInterceptor->namedPropertyEnumerator(info);
     namedProperties = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
   } else if (getFromPrototype) {  // get named properties from object
     if (jsrt::GetEnumerableNamedProperties(object,
@@ -629,23 +621,29 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
   JsValueRef descriptor = JS_INVALID_REFERENCE;
 
   if (isPropIntType) {
-    if (objectData->indexedPropertyQuery != nullptr) {
-      HandleScope scope(nullptr);
-      PropertyCallbackInfo<Integer> info(
-        *objectData->indexedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyQuery(index, info);
-      queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-    }
+    if (objectData->setterGetterInterceptor != nullptr) {
+      if (objectData->setterGetterInterceptor->
+          indexedPropertyQuery != nullptr) {
+        HandleScope scope(nullptr);
+        PropertyCallbackInfo<Integer> info(
+          *(objectData->setterGetterInterceptor->
+                        indexedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->indexedPropertyQuery(index, info);
+        queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      }
 
-    if (objectData->indexedPropertyGetter != nullptr) {
-      PropertyCallbackInfo<Value> info(
-        *objectData->indexedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyGetter(index, info);
-      value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      if (objectData->setterGetterInterceptor->
+          indexedPropertyGetter != nullptr) {
+        PropertyCallbackInfo<Value> info(
+          *(objectData->setterGetterInterceptor->
+                        indexedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->indexedPropertyGetter(index, info);
+        value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      }
     }
 
     // if queryResult valid, ensure value available
@@ -656,34 +654,41 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     }
 
     // We should not have both a Descriptor and a Query.
-    if (objectData->indexedPropertyDescriptor != nullptr) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+        objectData->setterGetterInterceptor->
+                    indexedPropertyDescriptor != nullptr) {
       PropertyCallbackInfo<Value> info(
-        *objectData->indexedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->indexedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyDescriptor(index, info);
+      objectData->setterGetterInterceptor->
+                  indexedPropertyDescriptor(index, info);
       descriptor = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
     }
   } else {  // named property...
-    // query the property descriptor if there is such, and then get the value
-    // from the proxy in order to go through the interceptor
-    if (objectData->namedPropertyQuery != nullptr) {
-      HandleScope scope(nullptr);
-      PropertyCallbackInfo<Integer> info(
-        *objectData->namedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyQuery(reinterpret_cast<String*>(prop), info);
-      queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-    }
+    if (objectData->setterGetterInterceptor != nullptr) {
+      // query the property descriptor if there is such, and then get the value
+      // from the proxy in order to go through the interceptor
+      if (objectData->setterGetterInterceptor->namedPropertyQuery != nullptr) {
+        HandleScope scope(nullptr);
+        PropertyCallbackInfo<Integer> info(
+          *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->
+          namedPropertyQuery(reinterpret_cast<String*>(prop), info);
+        queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      }
 
-    if (objectData->namedPropertyGetter != nullptr) {
-      PropertyCallbackInfo<Value> info(
-        *objectData->namedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyGetter(reinterpret_cast<String*>(prop), info);
-      value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      if (objectData->setterGetterInterceptor->namedPropertyGetter != nullptr) {
+        PropertyCallbackInfo<Value> info(
+          *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->
+          namedPropertyGetter(reinterpret_cast<String*>(prop), info);
+        value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      }
     }
 
     // if queryResult valid, ensure value available
@@ -693,12 +698,13 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
       }
     }
 
-    if (objectData->namedPropertyDescriptor != nullptr) {
+    if (objectData->setterGetterInterceptor != nullptr &&
+      objectData->setterGetterInterceptor->namedPropertyDescriptor != nullptr) {
       PropertyCallbackInfo<Value> info(
-        *objectData->namedPropertyInterceptorData,
+        *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
         reinterpret_cast<Object*>(object),
         /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyDescriptor(
+      objectData->setterGetterInterceptor->namedPropertyDescriptor(
         reinterpret_cast<String*>(prop), info);
       descriptor = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
     }
@@ -758,24 +764,31 @@ JsValueRef CHAKRA_CALLBACK Utils::DefinePropertyCallback(
 
   JsValueRef result = JS_INVALID_REFERENCE;
 
-  if (isPropIntType) {
-    if (objectData->indexedPropertyDefiner != nullptr) {
-      PropertyCallbackInfo<Value> info(
-        *objectData->indexedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->indexedPropertyDefiner(index, v8desc, info);
-      result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
-    }
-  } else {
-    if (objectData->namedPropertyDefiner != nullptr) {
-      PropertyCallbackInfo<Value> info(
-        *objectData->namedPropertyInterceptorData,
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->namedPropertyDefiner(
-        reinterpret_cast<String*>(prop), v8desc, info);
-      result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+  if (objectData->setterGetterInterceptor != nullptr)
+  {
+    if (isPropIntType) {
+      if (objectData->setterGetterInterceptor->
+          indexedPropertyDefiner != nullptr) {
+        PropertyCallbackInfo<Value> info(
+          *(objectData->setterGetterInterceptor->
+                        indexedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->
+          indexedPropertyDefiner(index, v8desc, info);
+        result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      }
+    } else {
+      if (objectData->setterGetterInterceptor->
+                      namedPropertyDefiner != nullptr) {
+        PropertyCallbackInfo<Value> info(
+          *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
+          reinterpret_cast<Object*>(object),
+          /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->namedPropertyDefiner(
+          reinterpret_cast<String*>(prop), v8desc, info);
+        result = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+      }
     }
   }
 
@@ -863,44 +876,47 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
 
     JsNativeFunction proxyConf[jsrt::ProxyTraps::TrapCount] = {};
 
-    if (objectTemplateData->indexedPropertyGetter != nullptr ||
-        objectTemplateData->namedPropertyGetter != nullptr)
+    SetterGetterInterceptor * sgi = objectTemplateData->setterGetterInterceptor;
+    CHAKRA_ASSERT(sgi != nullptr);
+
+    if (sgi->indexedPropertyGetter != nullptr ||
+        sgi->namedPropertyGetter != nullptr)
       proxyConf[jsrt::ProxyTraps::GetTrap] = Utils::GetCallback;
 
-    if (objectTemplateData->indexedPropertySetter != nullptr ||
-        objectTemplateData->namedPropertySetter != nullptr)
+    if (sgi->indexedPropertySetter != nullptr ||
+        sgi->namedPropertySetter != nullptr)
       proxyConf[jsrt::ProxyTraps::SetTrap] = Utils::SetCallback;
 
-    if (objectTemplateData->indexedPropertyDeleter != nullptr ||
-        objectTemplateData->namedPropertyDeleter != nullptr)
+    if (sgi->indexedPropertyDeleter != nullptr ||
+        sgi->namedPropertyDeleter != nullptr)
       proxyConf[jsrt::ProxyTraps::DeletePropertyTrap] =
           Utils::DeletePropertyCallback;
 
-    if (objectTemplateData->indexedPropertyEnumerator != nullptr ||
-        objectTemplateData->namedPropertyEnumerator != nullptr) {
+    if (sgi->indexedPropertyEnumerator != nullptr ||
+        sgi->namedPropertyEnumerator != nullptr) {
       proxyConf[jsrt::ProxyTraps::EnumerateTrap] = Utils::EnumerateCallback;
       proxyConf[jsrt::ProxyTraps::OwnKeysTrap] = Utils::OwnKeysCallback;
     }
 
-    if (objectTemplateData->indexedPropertyQuery != nullptr ||
-        objectTemplateData->namedPropertyQuery != nullptr ||
-        objectTemplateData->indexedPropertyGetter != nullptr ||
-        objectTemplateData->namedPropertyGetter != nullptr) {
+    if (sgi->indexedPropertyQuery != nullptr ||
+        sgi->namedPropertyQuery != nullptr ||
+        sgi->indexedPropertyGetter != nullptr ||
+        sgi->namedPropertyGetter != nullptr) {
       proxyConf[jsrt::ProxyTraps::HasTrap] = Utils::HasCallback;
     }
 
-    if (objectTemplateData->indexedPropertyQuery != nullptr ||
-        objectTemplateData->namedPropertyQuery != nullptr ||
-        objectTemplateData->indexedPropertyGetter != nullptr ||
-        objectTemplateData->namedPropertyGetter != nullptr ||
-        objectTemplateData->indexedPropertyDescriptor != nullptr ||
-        objectTemplateData->namedPropertyDescriptor != nullptr) {
+    if (sgi->indexedPropertyQuery != nullptr ||
+        sgi->namedPropertyQuery != nullptr ||
+        sgi->indexedPropertyGetter != nullptr ||
+        sgi->namedPropertyGetter != nullptr ||
+        sgi->indexedPropertyDescriptor != nullptr ||
+        sgi->namedPropertyDescriptor != nullptr) {
       proxyConf[jsrt::ProxyTraps::GetOwnPropertyDescriptorTrap] =
           Utils::GetOwnPropertyDescriptorCallback;
     }
 
-    if (objectTemplateData->indexedPropertyDefiner != nullptr ||
-        objectTemplateData->namedPropertyDefiner != nullptr) {
+    if (sgi->indexedPropertyDefiner != nullptr ||
+        sgi->namedPropertyDefiner != nullptr) {
       proxyConf[jsrt::ProxyTraps::DefinePropertyTrap] =
           Utils::DefinePropertyCallback;
     }
@@ -967,14 +983,19 @@ void ObjectTemplate::SetNamedPropertyHandler(
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return;
   }
-  objectTemplateData->namedPropertyGetter = getter;
-  objectTemplateData->namedPropertySetter = setter;
-  objectTemplateData->namedPropertyQuery = query;
-  objectTemplateData->namedPropertyDeleter = remover;
-  objectTemplateData->namedPropertyEnumerator = enumerator;
-  objectTemplateData->namedPropertyDefiner = definer;
-  objectTemplateData->namedPropertyDescriptor = descriptor;
-  objectTemplateData->namedPropertyInterceptorData = data;
+
+  SetterGetterInterceptor * sgi = objectTemplateData->setterGetterInterceptor;
+  if (sgi == nullptr) {
+    sgi = new SetterGetterInterceptor();
+  }
+  sgi->namedPropertyGetter = getter;
+  sgi->namedPropertySetter = setter;
+  sgi->namedPropertyQuery = query;
+  sgi->namedPropertyDeleter = remover;
+  sgi->namedPropertyEnumerator = enumerator;
+  sgi->namedPropertyDefiner = definer;
+  sgi->namedPropertyDescriptor = descriptor;
+  sgi->namedPropertyInterceptorData = data;
 }
 
 void ObjectTemplate::SetHandler(
@@ -1004,14 +1025,18 @@ void ObjectTemplate::SetIndexedPropertyHandler(
     return;
   }
 
-  objectTemplateData->indexedPropertyGetter = getter;
-  objectTemplateData->indexedPropertySetter = setter;
-  objectTemplateData->indexedPropertyQuery = query;
-  objectTemplateData->indexedPropertyDeleter = remover;
-  objectTemplateData->indexedPropertyEnumerator = enumerator;
-  objectTemplateData->indexedPropertyDefiner = definer;
-  objectTemplateData->indexedPropertyDescriptor = descriptor;
-  objectTemplateData->indexedPropertyInterceptorData = data;
+  auto sgi = objectTemplateData->setterGetterInterceptor;
+  if (sgi == nullptr) {
+    sgi = new SetterGetterInterceptor();
+  }
+  sgi->indexedPropertyGetter = getter;
+  sgi->indexedPropertySetter = setter;
+  sgi->indexedPropertyQuery = query;
+  sgi->indexedPropertyDeleter = remover;
+  sgi->indexedPropertyEnumerator = enumerator;
+  sgi->indexedPropertyDefiner = definer;
+  sgi->indexedPropertyDescriptor = descriptor;
+  sgi->indexedPropertyInterceptorData = data;
 }
 
 void ObjectTemplate::SetHandler(
