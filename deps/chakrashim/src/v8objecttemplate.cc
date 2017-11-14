@@ -987,6 +987,7 @@ void ObjectTemplate::SetNamedPropertyHandler(
   SetterGetterInterceptor * sgi = objectTemplateData->setterGetterInterceptor;
   if (sgi == nullptr) {
     sgi = new SetterGetterInterceptor();
+    objectTemplateData->setterGetterInterceptor = sgi;
   }
   sgi->namedPropertyGetter = getter;
   sgi->namedPropertySetter = setter;
@@ -1025,9 +1026,10 @@ void ObjectTemplate::SetIndexedPropertyHandler(
     return;
   }
 
-  auto sgi = objectTemplateData->setterGetterInterceptor;
+  SetterGetterInterceptor * sgi = objectTemplateData->setterGetterInterceptor;
   if (sgi == nullptr) {
     sgi = new SetterGetterInterceptor();
+    objectTemplateData->setterGetterInterceptor = sgi;
   }
   sgi->indexedPropertyGetter = getter;
   sgi->indexedPropertySetter = setter;
