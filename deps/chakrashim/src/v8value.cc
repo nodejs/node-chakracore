@@ -45,11 +45,11 @@ static bool IsOfType(const Value* ref, JsValueType type) {
 }
 
 bool Value::IsUndefined() const {
-  return IsOfType(this, JsValueType::JsUndefined);
+  return this == jsrt::GetUndefined();
 }
 
 bool Value::IsNull() const {
-  return IsOfType(this, JsValueType::JsNull);
+  return this == jsrt::GetNull();
 }
 
 bool Value::IsNullOrUndefined() const {
@@ -57,21 +57,11 @@ bool Value::IsNullOrUndefined() const {
 }
 
 bool Value::IsTrue() const {
-  bool isTrue;
-  if (JsEquals(jsrt::GetTrue(), (JsValueRef)this, &isTrue) != JsNoError) {
-    return false;
-  }
-
-  return isTrue;
+  return this == jsrt::GetTrue();
 }
 
 bool Value::IsFalse() const {
-  bool isFalse;
-  if (JsEquals(jsrt::GetFalse(), (JsValueRef)this, &isFalse) != JsNoError) {
-    return false;
-  }
-
-  return isFalse;
+  return this == jsrt::GetFalse();
 }
 
 bool Value::IsString() const {

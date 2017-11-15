@@ -717,7 +717,9 @@ JsErrorCode Utils::GetObjectData(Object* object, ObjectData** objectData) {
   {
     JsPropertyIdRef selfSymbolIdRef =
       jsrt::IsolateShim::GetCurrent()->GetSelfSymbolPropertyIdRef();
-    if (selfSymbolIdRef != JS_INVALID_REFERENCE) {
+    bool hasSelf = false;
+    if (JsHasProperty(object, selfSymbolIdRef, &hasSelf) != JsNoError &&
+        hasSelf == true) {
       JsValueRef result;
       error = JsGetProperty(object, selfSymbolIdRef, &result);
       if (error != JsNoError) {
