@@ -63,7 +63,7 @@ class ObjectTemplateData : public TemplateData {
 
   bool AreInterceptorsRequired() {
     return setterGetterInterceptor != nullptr &&
-     ( setterGetterInterceptor->namedPropertyDeleter != nullptr ||
+     (setterGetterInterceptor->namedPropertyDeleter != nullptr ||
       setterGetterInterceptor->namedPropertyEnumerator != nullptr ||
       setterGetterInterceptor->namedPropertyGetter != nullptr ||
       setterGetterInterceptor->namedPropertyQuery != nullptr ||
@@ -76,7 +76,7 @@ class ObjectTemplateData : public TemplateData {
       setterGetterInterceptor->indexedPropertyQuery != nullptr ||
       setterGetterInterceptor->indexedPropertySetter != nullptr ||
       setterGetterInterceptor->indexedPropertyDefiner != nullptr ||
-      setterGetterInterceptor->indexedPropertyDescriptor != nullptr );
+      setterGetterInterceptor->indexedPropertyDescriptor != nullptr);
     /*
     CHAKRA: functionCallDelegate is intentionaly not added as interceptors because it can be invoked
     through Object::CallAsFunction or Object::CallAsConstructor
@@ -764,8 +764,7 @@ JsValueRef CHAKRA_CALLBACK Utils::DefinePropertyCallback(
 
   JsValueRef result = JS_INVALID_REFERENCE;
 
-  if (objectData->setterGetterInterceptor != nullptr)
-  {
+  if (objectData->setterGetterInterceptor != nullptr) {
     if (isPropIntType) {
       if (objectData->setterGetterInterceptor->
           indexedPropertyDefiner != nullptr) {

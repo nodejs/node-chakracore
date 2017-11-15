@@ -77,8 +77,7 @@ class ExternalData {
   }
 };
 
-struct SetterGetterInterceptor
-{
+struct SetterGetterInterceptor {
   NamedPropertyGetterCallback namedPropertyGetter;
   NamedPropertySetterCallback namedPropertySetter;
   NamedPropertyQueryCallback namedPropertyQuery;
@@ -96,7 +95,8 @@ struct SetterGetterInterceptor
   IndexedPropertyDescriptorCallback indexedPropertyDescriptor;
   Persistent<Value> indexedPropertyInterceptorData;
 
-  SetterGetterInterceptor(SetterGetterInterceptor * setterGetterInterceptor):
+  explicit SetterGetterInterceptor(
+    SetterGetterInterceptor * setterGetterInterceptor):
     namedPropertyGetter(setterGetterInterceptor->namedPropertyGetter),
     namedPropertySetter(setterGetterInterceptor->namedPropertySetter),
     namedPropertyQuery(setterGetterInterceptor->namedPropertyQuery),
@@ -110,12 +110,13 @@ struct SetterGetterInterceptor
     indexedPropertySetter(setterGetterInterceptor->indexedPropertySetter),
     indexedPropertyQuery(setterGetterInterceptor->indexedPropertyQuery),
     indexedPropertyDeleter(setterGetterInterceptor->indexedPropertyDeleter),
-    indexedPropertyEnumerator(setterGetterInterceptor->indexedPropertyEnumerator),
+    indexedPropertyEnumerator(
+      setterGetterInterceptor->indexedPropertyEnumerator),
     indexedPropertyDefiner(setterGetterInterceptor->indexedPropertyDefiner),
-    indexedPropertyDescriptor(setterGetterInterceptor->indexedPropertyDescriptor),
+    indexedPropertyDescriptor(
+      setterGetterInterceptor->indexedPropertyDescriptor),
     indexedPropertyInterceptorData(nullptr,
-      setterGetterInterceptor->indexedPropertyInterceptorData)
-  {
+      setterGetterInterceptor->indexedPropertyInterceptorData) {
   }
 
   SetterGetterInterceptor():
@@ -132,9 +133,7 @@ struct SetterGetterInterceptor
     indexedPropertyDeleter(nullptr),
     indexedPropertyEnumerator(nullptr),
     indexedPropertyDefiner(nullptr),
-    indexedPropertyDescriptor(nullptr)
-  {
-
+    indexedPropertyDescriptor(nullptr) {
   }
 };
 
