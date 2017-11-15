@@ -88,7 +88,10 @@ fn();
     assert.strictEqual(lines[1].trim(), code);
     // Skip lines[2] and lines[3]. They're just a ^ and blank line.
     assert.strictEqual(lines[4].trim(), 'Error: foo');
-    assert.strictEqual(lines[5].trim(), `at ${file}:1:7`);
+    assert(common.engineSpecificMessage({
+      v8: new RegExp(`^at ${file}:1:7$`),
+      chakracore: new RegExp(`^at Global code \\(${file}:1:1\\)$`)
+    }).test(lines[5].trim()));
     // The rest of the stack is uninteresting.
     return true;
   });
