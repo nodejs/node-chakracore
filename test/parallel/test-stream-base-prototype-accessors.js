@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 
 // This tests that the prototype accessors added by StreamBase::AddMethods
 // do not raise assersions when called with incompatible receivers.
@@ -12,7 +12,10 @@ const TTY = process.binding('tty_wrap').TTY;
 
 // Should throw instead of raise assertions
 {
-  const msg = /TypeError: Method \w+ called on incompatible receiver/;
+  const msg = common.engineSpecificMessage({
+    v8: /TypeError: Method \w+ called on incompatible receiver/,
+    chakracore: /TypeError: Illegal invocation/
+  });
   assert.throws(() => {
     TTY.prototype.bytesRead;
   }, msg);
