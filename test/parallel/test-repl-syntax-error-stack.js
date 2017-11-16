@@ -11,10 +11,12 @@ process.on('exit', () => {
 });
 
 common.ArrayStream.prototype.write = function(output) {
-  if (common.engineSpecificMessage({
-    v8: /var foo bar;/,
-    chakracore: /Expected ';'/  // chakra does not show source
-  }).test(output))
+  // Matching only on a minimal piece of the stack because the string will vary
+  // greatly depending on the JavaScript engine. V8 includes `;` because it
+  // displays the line of code (`var foo bar;`) that is causing a problem.
+  // ChakraCore does not display the line of code but includes `;` in the phrase
+  // `Expected ';' `.
+  if (/;/.test(output))
     found = true;
 };
 

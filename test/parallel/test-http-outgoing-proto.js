@@ -96,14 +96,14 @@ assert.throws(() => {
   message: 'The first argument must be one of type string or buffer'
 }));
 
-// addTrailers
+// addTrailers()
+// The `Error` comes from the JavaScript engine so confirm that it is a
+// `TypeError` but do not check the message. It will be different in different
+// JavaScript engines.
 assert.throws(() => {
   const outgoingMessage = new OutgoingMessage();
   outgoingMessage.addTrailers();
-}, common.engineSpecificMessage({
-  v8: /^TypeError: Cannot convert undefined or null to object$/,
-  chakracore: /^TypeError: Object expected/
-}));
+}, TypeError);
 
 assert.throws(() => {
   const outgoingMessage = new OutgoingMessage();
