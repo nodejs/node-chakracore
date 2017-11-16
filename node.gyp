@@ -311,7 +311,15 @@
         'V8_DEPRECATION_WARNINGS=1',
         'NODE_OPENSSL_SYSTEM_CERT_PATH="<(openssl_system_ca_path)"',
       ],
+      'direct_dependent_settings': {
+        'defines': [
+          'NODE_OPENSSL_SYSTEM_CERT_PATH="<(openssl_system_ca_path)"',
+        ],
+      },
       'conditions': [
+        [ 'node_shared=="true" and node_module_version!="" and OS!="win"', {
+          'product_extension': '<(shlib_suffix)',
+        }],
         [ 'node_engine=="chakracore"', {
           'sources': [
             'src/node_api_jsrt.cc',
@@ -327,17 +335,6 @@
           'sources': [
             'src/node_api.cc',
           ],
-        }],
-      ],
-
-      'direct_dependent_settings': {
-        'defines': [
-          'NODE_OPENSSL_SYSTEM_CERT_PATH="<(openssl_system_ca_path)"',
-        ],
-      },
-      'conditions': [
-        [ 'node_shared=="true" and node_module_version!="" and OS!="win"', {
-          'product_extension': '<(shlib_suffix)',
         }]
       ],
     },
