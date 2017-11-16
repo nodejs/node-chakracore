@@ -690,7 +690,7 @@ class Environment {
 
 #if HAVE_INSPECTOR
   inline inspector::Agent* inspector_agent() const {
-    return inspector_agent_;
+    return inspector_agent_.get();
   }
 #endif
 
@@ -735,7 +735,7 @@ class Environment {
   std::map<std::string, uint64_t> performance_marks_;
 
 #if HAVE_INSPECTOR
-  inspector::Agent* const inspector_agent_;
+  std::unique_ptr<inspector::Agent> inspector_agent_;
 #endif
 
   HandleWrapQueue handle_wrap_queue_;
