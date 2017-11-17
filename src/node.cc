@@ -134,6 +134,16 @@ uint32_t s_ttdSnapHistoryLength = 2;
 uint64_t s_ttdStartupMode = 0x1;
 #endif
 
+// This is used to load built-in modules. Instead of using
+// __attribute__((constructor)), we call the _register_<modname>
+// function for each built-in modules explicitly in
+// node::RegisterBuiltinModules(). This is only forward declaration.
+// The definitions are in each module's implementation when calling
+// the NODE_BUILTIN_MODULE_CONTEXT_AWARE.
+#define V(modname) void _register_##modname();
+  NODE_BUILTIN_MODULES(V)
+#undef V
+
 namespace node {
 
 using v8::Array;
@@ -272,10 +282,10 @@ node::DebugOptions debug_options;
 
 static struct {
 #if NODE_USE_V8_PLATFORM
-  void Initialize(int thread_pool_size, uv_loop_t* loop) {
+  void Initialize(int thread_pool_size) {
     tracing_agent_ =
         trace_enabled ? new tracing::Agent() : nullptr;
-    platform_ = new NodePlatform(thread_pool_size, loop,
+    platform_ = new NodePlatform(thread_pool_size,
         trace_enabled ? tracing_agent_->GetTracingController() : nullptr);
     V8::InitializePlatform(platform_);
     tracing::TraceEventHelper::SetTracingController(
@@ -290,8 +300,12 @@ static struct {
     tracing_agent_ = nullptr;
   }
 
-  void DrainVMTasks() {
-    platform_->DrainBackgroundTasks();
+  void DrainVMTasks(Isolate* isolate) {
+    platform_->DrainBackgroundTasks(isolate);
+  }
+
+  void CancelVMTasks(Isolate* isolate) {
+    platform_->CancelPendingDelayedTasks(isolate);
   }
 
 #if HAVE_INSPECTOR
@@ -316,12 +330,17 @@ static struct {
     tracing_agent_->Stop();
   }
 
+  NodePlatform* Platform() {
+    return platform_;
+  }
+
   tracing::Agent* tracing_agent_;
   NodePlatform* platform_;
 #else  // !NODE_USE_V8_PLATFORM
-  void Initialize(int thread_pool_size, uv_loop_t* loop) {}
+  void Initialize(int thread_pool_size) {}
   void Dispose() {}
-  void DrainVMTasks() {}
+  void DrainVMTasks(Isolate* isolate) {}
+  void CancelVMTasks(Isolate* isolate) {}
   bool StartInspector(Environment *env, const char* script_path,
                       const node::DebugOptions& options) {
     env->ThrowError("Node compiled with NODE_USE_V8_PLATFORM=0");
@@ -333,6 +352,10 @@ static struct {
                     "so event tracing is not available.\n");
   }
   void StopTracingAgent() {}
+
+  NodePlatform* Platform() {
+    return nullptr;
+  }
 #endif  // !NODE_USE_V8_PLATFORM
 
 #if !NODE_USE_V8_PLATFORM || !HAVE_INSPECTOR
@@ -3282,8 +3305,9 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(process, "pid", Integer::New(env->isolate(), getpid()));
   READONLY_PROPERTY(process, "features", GetFeatures(env));
 
-  process->SetAccessor(FIXED_ONE_BYTE_STRING(env->isolate(), "ppid"),
-                       GetParentProcessId);
+  CHECK(process->SetAccessor(env->context(),
+                             FIXED_ONE_BYTE_STRING(env->isolate(), "ppid"),
+                             GetParentProcessId).FromJust());
 
   auto need_immediate_callback_string =
       FIXED_ONE_BYTE_STRING(env->isolate(), "_needImmediateCallback");
@@ -4398,6 +4422,9 @@ void Init(int* argc,
   // Initialize prog_start_time to get relative uptime.
   prog_start_time = static_cast<double>(uv_now(uv_default_loop()));
 
+  // Register built-in modules
+  node::RegisterBuiltinModules();
+
   // Make inherited handles noninheritable.
   uv_disable_stdio_inheritance();
 
@@ -4558,7 +4585,14 @@ int EmitExit(Environment* env) {
 
 
 IsolateData* CreateIsolateData(Isolate* isolate, uv_loop_t* loop) {
-  return new IsolateData(isolate, loop);
+  return new IsolateData(isolate, loop, nullptr);
+}
+
+IsolateData* CreateIsolateData(
+    Isolate* isolate,
+    uv_loop_t* loop,
+    MultiIsolatePlatform* platform) {
+  return new IsolateData(isolate, loop, platform);
 }
 
 
@@ -4641,7 +4675,9 @@ inline int Start(Isolate* isolate, void* isolate_context,
   ChakraShimIsolateContext* chakra_isolate_context =
     reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
 
-  IsolateData data(isolate, chakra_isolate_context->event_loop,
+  IsolateData data(isolate,
+    chakra_isolate_context->event_loop,
+    v8_platform.Platform(),
     chakra_isolate_context->zero_fill_field);
   IsolateData* isolate_data = &data;
 #else
@@ -4688,7 +4724,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
     do {
       uv_run(env.event_loop(), UV_RUN_DEFAULT);
 
-      v8_platform.DrainVMTasks();
+      v8_platform.DrainVMTasks(isolate);
 
       more = uv_loop_alive(env.event_loop());
       if (more)
@@ -4713,7 +4749,8 @@ inline int Start(Isolate* isolate, void* isolate_context,
   RunAtExit(&env);
   uv_key_delete(&thread_local_env);
 
-  v8_platform.DrainVMTasks();
+  v8_platform.DrainVMTasks(isolate);
+  v8_platform.CancelVMTasks(isolate);
   WaitForInspectorDisconnect(&env);
 #if defined(LEAK_SANITIZER)
   __lsan_do_leak_check();
@@ -4782,7 +4819,11 @@ inline int Start(uv_loop_t* event_loop,
     void* isolate_data_ptr = nullptr;
 
 #ifndef NODE_ENGINE_CHAKRACORE
-    IsolateData isolate_data(isolate, event_loop, allocator.zero_fill_field());
+    IsolateData isolate_data(
+        isolate,
+        event_loop,
+        v8_platform.Platform(),
+        allocator.zero_fill_field());
     isolate_data_ptr = &isolate_data;
 #else
     ChakraShimIsolateContext chakra_isolate_ctx(event_loop,
@@ -4819,7 +4860,9 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
   ChakraShimIsolateContext* chakra_isolate_context =
     reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
 
-  IsolateData data(isolate, chakra_isolate_context->event_loop,
+  IsolateData data(isolate,
+    chakra_isolate_context->event_loop,
+    v8_platform.Platform(),
     chakra_isolate_context->zero_fill_field);
   IsolateData* isolate_data = &data;
 #else
@@ -4971,7 +5014,7 @@ int Start(int argc, char** argv) {
   V8::SetEntropySource(crypto::EntropySource);
 #endif  // HAVE_OPENSSL
 
-  v8_platform.Initialize(v8_thread_pool_size, uv_default_loop());
+  v8_platform.Initialize(v8_thread_pool_size);
 
 #ifndef NODE_ENGINE_CHAKRACORE
   // Enable tracing when argv has --trace-events-enabled.
@@ -5074,11 +5117,18 @@ int Start(int argc, char** argv) {
   return exit_code;
 }
 
+// Call built-in modules' _register_<module name> function to
+// do module registration explicitly.
+void RegisterBuiltinModules() {
+#define V(modname) _register_##modname();
+  NODE_BUILTIN_MODULES(V)
+#undef V
+}
 
 }  // namespace node
 
 #if !HAVE_INSPECTOR
-static void InitEmptyBindings() {}
+void InitEmptyBindings() {}
 
-NODE_MODULE_CONTEXT_AWARE_BUILTIN(inspector, InitEmptyBindings)
+NODE_BUILTIN_MODULE_CONTEXT_AWARE(inspector, InitEmptyBindings)
 #endif  // !HAVE_INSPECTOR

@@ -10,10 +10,10 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at emitNone (events.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
    at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at _tickCallback (internal/process/next_tick.js:*:*)
 42
 42
 [stdin]:1
@@ -28,9 +28,9 @@ Error: hello
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at emitNone (events.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
 [stdin]:1
 'use strict'; throw new Error("hello")
               ^
@@ -43,9 +43,9 @@ Error: hello
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at emitNone (events.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
 100
 [stdin]:1
 'use strict'; var x = 100; y = x;
@@ -59,9 +59,9 @@ ReferenceError: Variable undefined in strict mode
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at Anonymous function (bootstrap_node.js:*:*)
-   at emitNone (events.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
+   at _combinedTickCallback (internal/process/next_tick.js:*:*)
 
 vm.js:*
     return realRunInThisContext.call(this, options);

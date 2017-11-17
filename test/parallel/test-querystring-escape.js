@@ -28,18 +28,14 @@ assert.strictEqual(
   'test'
 );
 
-// toString is not callable, must throw an error
-assert.throws(() => qs.escape({ toString: 5 }),
-              common.engineSpecificMessage({
-                v8: /^TypeError: Cannot convert object to primitive value$/,
-                chakracore: /^TypeError: String expected$/
-              }));
+// `toString` is not callable, must throw an error.
+// Error message will vary between different JavaScript engines, so only check
+// that it is a `TypeError`.
+assert.throws(() => qs.escape({ toString: 5 }), TypeError);
 
-// should use valueOf instead of non-callable toString
+// Should use valueOf instead of non-callable toString.
 assert.strictEqual(qs.escape({ toString: 5, valueOf: () => 'test' }), 'test');
 
-assert.throws(() => qs.escape(Symbol('test')),
-              common.engineSpecificMessage({
-                v8: /^TypeError: Cannot convert a Symbol value to a string$/,
-                chakracore: /^TypeError: Object doesn't support property or method 'ToString'$/ // eslint-disable-line max-len
-              }));
+// Error message will vary between different JavaScript engines, so only check
+// that it is a `TypeError`.
+assert.throws(() => qs.escape(Symbol('test')), TypeError);

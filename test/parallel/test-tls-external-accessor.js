@@ -11,16 +11,12 @@ const tls = require('tls');
 {
   const pctx = tls.createSecureContext().context;
   const cctx = Object.create(pctx);
-  assert.throws(() => cctx._external, common.engineSpecificMessage({
-    v8: /incompatible receiver/,
-    chakracore: /Illegal invocation/ }));
+  assert.throws(() => cctx._external, TypeError);
   pctx._external;
 }
 {
   const pctx = tls.createSecurePair().credentials.context;
   const cctx = Object.create(pctx);
-  assert.throws(() => cctx._external, common.engineSpecificMessage({
-    v8: /incompatible receiver/,
-    chakracore: /Illegal invocation/ }));
+  assert.throws(() => cctx._external, TypeError);
   pctx._external;
 }

@@ -27,11 +27,7 @@ const fixtures = require('../common/fixtures');
 try {
   require(fixtures.path('invalid.json'));
 } catch (err) {
-  const re = common.engineSpecificMessage({
-    v8: /test[/\\]fixtures[/\\]invalid\.json: Unexpected string/,
-    chakracore:
-    /test[/\\]fixtures[/\\]invalid\.json: JSON\.parse Error: Expected '}'/
-  });
-  assert.ok(re, 'require() json error should include path - currently: ' +
-    err.message);
+  assert.ok(
+    /test[/\\]fixtures[/\\]invalid\.json: /.test(err.message),
+    `require() json error should include path: ${err.message}`);
 }

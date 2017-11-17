@@ -31,22 +31,15 @@ function errExec(script, callback) {
     // There was some error
     assert.ok(err);
 
-    if (!common.isChakraEngine) {
-      // More than one line of error output. (not necessarily for chakra engine)
-      assert.ok(stderr.split('\n').length > 2);
-    }
-
-    if (!common.isChakraEngine) { // chakra does not output script
-      // Assert the script is mentioned in error output.
-      assert.ok(stderr.includes(script));
-    }
+    // More than one line of error output.
+    assert.ok(stderr.split('\n').length);
 
     // Proxy the args for more tests.
     callback(err, stdout, stderr);
   });
 }
 
-const syntaxErrorMessage = /SyntaxError/;
+const syntaxErrorMessage = /\bSyntaxError\b/;
 
 
 // Simple throw error
@@ -69,9 +62,6 @@ errExec('throws_error3.js', common.mustCall(function(err, stdout, stderr) {
 
 // throw ILLEGAL error
 errExec('throws_error4.js', common.mustCall(function(err, stdout, stderr) {
-  if (!common.isChakraEngine) { // chakra does not output source line
-    assert.ok(/\/\*\*/.test(stderr));
-  }
   assert.ok(syntaxErrorMessage.test(stderr));
 }));
 

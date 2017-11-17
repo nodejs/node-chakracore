@@ -8,15 +8,9 @@ const eol = common.isWindows ? '\r\n' : '\n';
 
 assert.strictEqual(os.EOL, eol);
 
-common.expectsError(function() {
-  os.EOL = 123;
-}, {
-  type: TypeError,
-  message: common.engineSpecificMessage({
-    v8: /^Cannot assign to read only property 'EOL' of object '#<Object>'$/,
-    chakracore: /^Assignment to read-only properties is not allowed in strict mode$/
-  })
-});
+// Test that the `Error` is a `TypeError` but do not check the message as it
+// varies between different JavaScript engines.
+assert.throws(function() { os.EOL = 123; }, TypeError);
 
 const foo = 'foo';
 Object.defineProperties(os, {

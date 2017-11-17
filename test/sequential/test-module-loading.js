@@ -100,18 +100,6 @@ const d2 = require('../fixtures/b/d');
   assert.notStrictEqual(threeFolder, three);
 }
 
-console.error('test package.json require() loading');
-assert.throws(
-  function() {
-    require('../fixtures/packages/invalid');
-  },
-  new RegExp('^SyntaxError: Error parsing .+: ') +
-    common.engineSpecificMessage({
-      v8: 'Unexpected token , in JSON at position 1$',
-      chakracore: 'JSON.parse Error: Invalid character at position:2$'
-    })
-);
-
 assert.strictEqual(require('../fixtures/packages/index').ok, 'ok',
                    'Failed loading package');
 assert.strictEqual(require('../fixtures/packages/main').ok, 'ok',
