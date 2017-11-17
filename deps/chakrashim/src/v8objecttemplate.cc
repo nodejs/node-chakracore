@@ -848,18 +848,12 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
 
   ObjectData *objectData = new ObjectData(this, objectTemplateData);
   JsValueRef newInstanceRef = JS_INVALID_REFERENCE;
-  if (JsCreateExternalObject(objectData,
+  if (JsCreateExternalObjectWithPrototype(objectData,
                              ObjectData::FinalizeCallback,
+                             reinterpret_cast<JsValueRef>(*prototype)),
                              &newInstanceRef) != JsNoError) {
     delete objectData;
     return Local<Object>();
-  }
-
-  if (!prototype.IsEmpty()) {
-    if (JsSetPrototype(newInstanceRef,
-                       reinterpret_cast<JsValueRef>(*prototype)) != JsNoError) {
-      return Local<Object>();
-    }
   }
 
   // In case the object should support index or named properties interceptors,
