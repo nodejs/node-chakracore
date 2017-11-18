@@ -378,7 +378,13 @@
             'NODE_PLATFORM="win32"',
             '_UNICODE=1',
           ],
-          'libraries': [ '-lpsapi.lib' ]
+          'libraries': [ '-lpsapi.lib' ],
+          'conditions': [
+            # this is only necessary for chakra on windows because chakra is dynamically linked on windows
+            [ 'node_engine=="chakracore"', {
+              'libraries': [ '-ldbghelp.lib' ],
+            }],
+          ],
         }, { # POSIX
           'defines': [ '__POSIX__' ],
           'sources': [ 'src/backtrace_posix.cc' ],

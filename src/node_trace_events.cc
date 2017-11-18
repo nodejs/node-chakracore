@@ -1,6 +1,8 @@
 #include "node_internals.h"
 #include "tracing/agent.h"
 
+#include <unordered_set>
+
 namespace node {
 
 using v8::Context;
