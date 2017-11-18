@@ -120,9 +120,11 @@
       'lib/internal/process/write-coverage.js',
       'lib/internal/readline.js',
       'lib/internal/repl.js',
+      'lib/internal/repl/await.js',
       'lib/internal/socket_list.js',
       'lib/internal/test/unicode.js',
       'lib/internal/tls.js',
+      'lib/internal/trace_events_async_hooks.js',
       'lib/internal/url.js',
       'lib/internal/util.js',
       'lib/internal/util/comparisons.js',
@@ -150,6 +152,8 @@
       'deps/node-inspect/lib/_inspect.js',
       'deps/node-inspect/lib/internal/inspect_client.js',
       'deps/node-inspect/lib/internal/inspect_repl.js',
+      'deps/acorn/dist/acorn.js',
+      'deps/acorn/dist/walk.js',
     ],
     'conditions': [
       [ 'node_shared=="true"', {
@@ -189,7 +193,7 @@
       ],
 
       'sources': [
-        'src/async-wrap.cc',
+        'src/async_wrap.cc',
         'src/cares_wrap.cc',
         'src/connection_wrap.cc',
         'src/connect_wrap.cc',
@@ -212,6 +216,7 @@
         'src/node_platform.cc',
         'src/node_perf.cc',
         'src/node_serdes.cc',
+        'src/node_trace_events.cc',
         'src/node_url.cc',
         'src/node_util.cc',
         'src/node_v8.cc',
@@ -239,10 +244,10 @@
         'src/uv.cc',
         # headers to make for a more pleasant IDE experience
         'src/aliased_buffer.h',
-        'src/async-wrap.h',
-        'src/async-wrap-inl.h',
-        'src/base-object.h',
-        'src/base-object-inl.h',
+        'src/async_wrap.h',
+        'src/async_wrap-inl.h',
+        'src/base_object.h',
+        'src/base_object-inl.h',
         'src/connection_wrap.h',
         'src/connect_wrap.h',
         'src/chakra_ttd.h',
@@ -277,8 +282,8 @@
         'src/tty_wrap.h',
         'src/tcp_wrap.h',
         'src/udp_wrap.h',
-        'src/req-wrap.h',
-        'src/req-wrap-inl.h',
+        'src/req_wrap.h',
+        'src/req_wrap-inl.h',
         'src/string_bytes.h',
         'src/stream_base.h',
         'src/stream_base-inl.h',
@@ -359,7 +364,13 @@
         [ 'OS=="win"', {
           'sources': [
             'src/backtrace_win32.cc',
-            'src/res/node.rc',
+          ],
+          'conditions': [
+            [ 'node_target_type!="static_library"', {
+              'sources': [
+                'src/res/node.rc',
+              ],
+            }],
           ],
           'defines!': [
             'NODE_PLATFORM="win"',
@@ -370,7 +381,13 @@
             'NODE_PLATFORM="win32"',
             '_UNICODE=1',
           ],
-          'libraries': [ '-lpsapi.lib' ]
+          'libraries': [ '-lpsapi.lib' ],
+          'conditions': [
+            # this is only necessary for chakra on windows because chakra is dynamically linked on windows
+            [ 'node_engine=="chakracore"', {
+              'libraries': [ '-ldbghelp.lib' ],
+            }],
+          ],
         }, { # POSIX
           'defines': [ '__POSIX__' ],
           'sources': [ 'src/backtrace_posix.cc' ],
@@ -526,7 +543,7 @@
       'target_name': 'node_etw',
       'type': 'none',
       'conditions': [
-        [ 'node_use_etw=="true"', {
+        [ 'node_use_etw=="true" and node_target_type!="static_library"', {
           'actions': [
             {
               'action_name': 'node_etw',
@@ -547,7 +564,7 @@
       'target_name': 'node_perfctr',
       'type': 'none',
       'conditions': [
-        [ 'node_use_perfctr=="true"', {
+        [ 'node_use_perfctr=="true" and node_target_type!="static_library"', {
           'actions': [
             {
               'action_name': 'node_perfctr_man',
@@ -617,13 +634,15 @@
             '<(SHARED_INTERMEDIATE_DIR)/node_javascript.cc',
           ],
           'conditions': [
-            [ 'node_use_dtrace=="false" and node_use_etw=="false"', {
+            [ 'node_use_dtrace=="false" and node_use_etw=="false" or '
+              'node_target_type=="static_library"', {
               'inputs': [ 'src/notrace_macros.py' ]
             }],
-            ['node_use_lttng=="false"', {
+            ['node_use_lttng=="false" or node_target_type=="static_library"', {
               'inputs': [ 'src/nolttng_macros.py' ]
             }],
-            [ 'node_use_perfctr=="false"', {
+            [ 'node_use_perfctr=="false" or '
+              'node_target_type=="static_library"', {
               'inputs': [ 'src/noperfctr_macros.py' ]
             }]
           ],
@@ -876,7 +895,7 @@
         }],
         ['node_target_type!="static_library"', {
           'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)async-wrap.<(OBJ_SUFFIX)',
+            '<(OBJ_PATH)<(OBJ_SEPARATOR)async_wrap.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)env.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node_buffer.<(OBJ_SUFFIX)',
@@ -924,7 +943,20 @@
         [ 'node_use_dtrace=="true"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace.<(OBJ_SUFFIX)',
-          ]
+          ],
+          'conditions': [
+            ['OS!="mac" and OS!="linux"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_provider.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_ustack.<(OBJ_SUFFIX)',
+              ]
+            }],
+            ['OS=="linux"', {
+              'libraries': [
+                '<(SHARED_INTERMEDIATE_DIR)/node_dtrace_provider.o',
+              ]
+            }],
+          ],
         }],
         [ 'OS=="win"', {
           'libraries': [
@@ -934,16 +966,6 @@
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_posix.<(OBJ_SUFFIX)',
            ],
-        }],
-        [ 'node_use_dtrace=="true" and OS!="mac" and OS!="linux"', {
-          'copies': [{
-            'destination': '<(OBJ_DIR)/cctest/src',
-            'files': [
-              '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_ustack.<(OBJ_SUFFIX)',
-              '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_provider.<(OBJ_SUFFIX)',
-              '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace.<(OBJ_SUFFIX)',
-            ]},
-          ],
         }],
         [ 'node_shared_zlib=="false"', {
           'dependencies': [
@@ -1004,6 +1026,47 @@
   ], # end targets
 
   'conditions': [
+    [ 'node_target_type=="static_library"', {
+      'targets': [
+        {
+          'target_name': 'static_node',
+          'type': 'executable',
+          'product_name': '<(node_core_target_name)',
+          'dependencies': [
+            '<(node_core_target_name)',
+          ],
+          'sources+': [
+            'src/node_main.cc',
+          ],
+          'include_dirs': [
+            'deps/v8/include',
+          ],
+          'xcode_settings': {
+            'OTHER_LDFLAGS': [
+              '-Wl,-force_load,<(PRODUCT_DIR)/<(STATIC_LIB_PREFIX)'
+                  '<(node_core_target_name)<(STATIC_LIB_SUFFIX)',
+            ],
+          },
+          'msvs_settings': {
+            'VCLinkerTool': {
+              'AdditionalOptions': [
+                '/WHOLEARCHIVE:<(PRODUCT_DIR)/lib/'
+                    '<(node_core_target_name)<(STATIC_LIB_SUFFIX)',
+              ],
+            },
+          },
+          'conditions': [
+            ['OS in "linux freebsd openbsd solaris android"', {
+              'ldflags': [
+                '-Wl,--whole-archive,<(OBJ_DIR)/<(STATIC_LIB_PREFIX)'
+                    '<(node_core_target_name)<(STATIC_LIB_SUFFIX)',
+                '-Wl,--no-whole-archive',
+              ],
+            }],
+          ],
+         },
+      ],
+    }],
     ['OS=="aix"', {
       'targets': [
         {

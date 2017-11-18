@@ -40,10 +40,10 @@
 #endif
 
 // This should be defined in make system.
-// See issue https://github.com/joyent/node/issues/1236
+// See issue https://github.com/nodejs/node-v0.x-archive/issues/1236
 #if defined(__MINGW32__) || defined(_MSC_VER)
 #ifndef _WIN32_WINNT
-# define _WIN32_WINNT   0x0501
+# define _WIN32_WINNT   0x0600  // Windows Server 2008
 #endif
 
 #ifndef NOMINMAX
@@ -444,10 +444,6 @@ typedef void (*addon_context_register_func)(
     v8::Local<v8::Context> context,
     void* priv);
 
-#define NM_F_BUILTIN   0x01
-#define NM_F_LINKED    0x02
-#define NM_F_INTERNAL  0x04
-
 struct node_module {
   int nm_version;
   unsigned int nm_flags;
@@ -530,9 +526,6 @@ extern "C" NODE_EXTERN void node_module_register(void* mod);
 
 #define NODE_MODULE_CONTEXT_AWARE(modname, regfunc)                   \
   NODE_MODULE_CONTEXT_AWARE_X(modname, regfunc, NULL, 0)
-
-#define NODE_MODULE_CONTEXT_AWARE_BUILTIN(modname, regfunc)           \
-  NODE_MODULE_CONTEXT_AWARE_X(modname, regfunc, NULL, NM_F_BUILTIN)   \
 
 /*
  * For backward compatibility in add-on modules.

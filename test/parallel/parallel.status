@@ -76,7 +76,15 @@ test-repl-sigint : PASS,FLAKY
 test-repl-tab-complete : PASS,FLAKY
 test-string-decoder : PASS,FLAKY
 test-timers-promisified : PASS,FLAKY
-test-trace-event : PASS,FLAKY
+
+# ChakraCore does not support the chrome tracing framework
+test-trace-events-all : PASS,SKIP
+test-trace-events-async-hooks : PASS,SKIP
+test-trace-events-binding : PASS,SKIP
+test-trace-events-category-used : PASS,SKIP
+test-trace-events-none : PASS,SKIP
+test-trace-events-v8 : PASS,SKIP
+
 test-url-domain-ascii-unicode : PASS,FLAKY
 test-util : PASS,FLAKY
 test-util-format-shared-arraybuffer : PASS,FLAKY

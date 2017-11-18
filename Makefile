@@ -205,23 +205,18 @@ v8:
 	tools/make-v8.sh
 	$(MAKE) -C deps/v8 $(V8_ARCH).$(BUILDTYPE_LOWER) $(V8_BUILD_OPTIONS)
 
-ifeq ($(NODE_TARGET_TYPE),static_library)
 test: all
-	$(MAKE) cctest
-else
-test: all
-	$(MAKE) build-addons
-	$(MAKE) build-addons-napi
-	$(MAKE) doc-only
-	$(MAKE) lint
-	$(MAKE) cctest
+	$(MAKE) -s build-addons
+	$(MAKE) -s build-addons-napi
+	$(MAKE) -s doc-only
+	$(MAKE) -s lint
+	$(MAKE) -s cctest
 	$(PYTHON) tools/test.py --mode=release --flaky-tests=$(FLAKY_TESTS) -J \
 		$(CI_ASYNC_HOOKS) \
 		$(CI_JS_SUITES) \
 		$(CI_NATIVE_SUITES) \
 		$(CI_DOC) \
 		known_issues
-endif
 
 # For a quick test, does not run linter or build doc
 test-only: all
@@ -544,7 +539,8 @@ apidoc_dirs = out/doc out/doc/api/ out/doc/api/assets
 
 apiassets = $(subst api_assets,api/assets,$(addprefix out/,$(wildcard doc/api_assets/*)))
 
-doc-only: $(apidocs_html) $(apidocs_json)
+doc-targets: $(apidocs_html) $(apidocs_json)
+doc-only: | install-yaml doc-targets
 doc: $(NODE_EXE) doc-only
 
 $(apidoc_dirs):
@@ -561,15 +557,16 @@ gen-json = tools/doc/generate.js --format=json $< > $@
 gen-html = tools/doc/generate.js --node-version=$(FULLVERSION) --format=html \
 			--template=doc/template.html --analytics=$(DOCS_ANALYTICS) $< > $@
 
-gen-doc =	\
+install-yaml:
 	[ -e tools/doc/node_modules/js-yaml/package.json ] || \
 		[ -e tools/eslint/node_modules/js-yaml/package.json ] || \
 		if [ -x $(NODE) ]; then \
 			cd tools/doc && ../../$(NODE) ../../$(NPM) install; \
 		else \
 			cd tools/doc && node ../../$(NPM) install; \
-		fi;\
-	[ -x $(NODE) ] && $(NODE) $(1) || node $(1)
+		fi;
+
+gen-doc = [ -x $(NODE) ] && $(NODE) $(1) || node $(1)
 
 out/doc/api/%.json: doc/api/%.md
 	@$(call gen-doc, $(gen-json))
@@ -1155,6 +1152,7 @@ lint-clean:
   install \
   install-bin \
   install-includes \
+  install-yaml \
   lint \
   lint-clean \
   lint-ci \

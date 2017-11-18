@@ -30,7 +30,7 @@
 #include "inspector_agent.h"
 #endif
 #include "handle_wrap.h"
-#include "req-wrap.h"
+#include "req_wrap.h"
 #include "util.h"
 #include "uv.h"
 #include "v8.h"
@@ -120,6 +120,7 @@ class ModuleWrap;
   V(cwd_string, "cwd")                                                        \
   V(dest_string, "dest")                                                      \
   V(destroy_string, "destroy")                                                \
+  V(destroyed_string, "destroyed")                                            \
   V(detached_string, "detached")                                              \
   V(dns_a_string, "A")                                                        \
   V(dns_aaaa_string, "AAAA")                                                  \
