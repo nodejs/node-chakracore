@@ -120,6 +120,7 @@
       'lib/internal/process/write-coverage.js',
       'lib/internal/readline.js',
       'lib/internal/repl.js',
+      'lib/internal/repl/await.js',
       'lib/internal/socket_list.js',
       'lib/internal/test/unicode.js',
       'lib/internal/tls.js',
@@ -151,6 +152,8 @@
       'deps/node-inspect/lib/_inspect.js',
       'deps/node-inspect/lib/internal/inspect_client.js',
       'deps/node-inspect/lib/internal/inspect_repl.js',
+      'deps/acorn/dist/acorn.js',
+      'deps/acorn/dist/walk.js',
     ],
     'conditions': [
       [ 'node_shared=="true"', {
@@ -190,7 +193,7 @@
       ],
 
       'sources': [
-        'src/async-wrap.cc',
+        'src/async_wrap.cc',
         'src/cares_wrap.cc',
         'src/connection_wrap.cc',
         'src/connect_wrap.cc',
@@ -241,10 +244,10 @@
         'src/uv.cc',
         # headers to make for a more pleasant IDE experience
         'src/aliased_buffer.h',
-        'src/async-wrap.h',
-        'src/async-wrap-inl.h',
-        'src/base-object.h',
-        'src/base-object-inl.h',
+        'src/async_wrap.h',
+        'src/async_wrap-inl.h',
+        'src/base_object.h',
+        'src/base_object-inl.h',
         'src/connection_wrap.h',
         'src/connect_wrap.h',
         'src/chakra_ttd.h',
@@ -279,8 +282,8 @@
         'src/tty_wrap.h',
         'src/tcp_wrap.h',
         'src/udp_wrap.h',
-        'src/req-wrap.h',
-        'src/req-wrap-inl.h',
+        'src/req_wrap.h',
+        'src/req_wrap-inl.h',
         'src/string_bytes.h',
         'src/stream_base.h',
         'src/stream_base-inl.h',
@@ -892,7 +895,7 @@
         }],
         ['node_target_type!="static_library"', {
           'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)async-wrap.<(OBJ_SUFFIX)',
+            '<(OBJ_PATH)<(OBJ_SEPARATOR)async_wrap.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)env.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node_buffer.<(OBJ_SUFFIX)',
@@ -940,7 +943,20 @@
         [ 'node_use_dtrace=="true"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace.<(OBJ_SUFFIX)',
-          ]
+          ],
+          'conditions': [
+            ['OS!="mac" and OS!="linux"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_provider.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_ustack.<(OBJ_SUFFIX)',
+              ]
+            }],
+            ['OS=="linux"', {
+              'libraries': [
+                '<(SHARED_INTERMEDIATE_DIR)/node_dtrace_provider.o',
+              ]
+            }],
+          ],
         }],
         [ 'OS=="win"', {
           'libraries': [
@@ -950,16 +966,6 @@
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_posix.<(OBJ_SUFFIX)',
            ],
-        }],
-        [ 'node_use_dtrace=="true" and OS!="mac" and OS!="linux"', {
-          'copies': [{
-            'destination': '<(OBJ_DIR)/cctest/src',
-            'files': [
-              '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_ustack.<(OBJ_SUFFIX)',
-              '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace_provider.<(OBJ_SUFFIX)',
-              '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace.<(OBJ_SUFFIX)',
-            ]},
-          ],
         }],
         [ 'node_shared_zlib=="false"', {
           'dependencies': [

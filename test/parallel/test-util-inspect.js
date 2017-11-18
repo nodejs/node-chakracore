@@ -26,8 +26,6 @@ const JSStream = process.binding('js_stream').JSStream;
 const util = require('util');
 const vm = require('vm');
 
-/* eslint-disable accessor-pairs */
-
 assert.strictEqual(util.inspect(1), '1');
 assert.strictEqual(util.inspect(false), 'false');
 assert.strictEqual(util.inspect(''), "''");
@@ -280,6 +278,7 @@ assert.strictEqual(
     '{ readwrite: [Getter/Setter] }');
 
   assert.strictEqual(
+    // eslint-disable-next-line accessor-pairs
     util.inspect({ set writeonly(val) {} }),
     '{ writeonly: [Setter] }');
 
@@ -490,7 +489,7 @@ if (!common.isChakraEngine) {
     }
   });
   const setter = Object.create(null, {
-    b: {
+    b: { // eslint-disable-line accessor-pairs
       set: function() {}
     }
   });
@@ -1187,4 +1186,9 @@ if (!common.isChakraEngine) {
 }
 
 assert.doesNotThrow(() => util.inspect(process));
-/* eslint-enable accessor-pairs */
+
+// Setting custom inspect property to a non-function should do nothing.
+{
+  const obj = { inspect: 'fhqwhgads' };
+  assert.strictEqual(util.inspect(obj), "{ inspect: 'fhqwhgads' }");
+}
