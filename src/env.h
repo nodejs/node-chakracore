@@ -623,6 +623,8 @@ class Environment {
   inline v8::Local<v8::Float64Array> fs_stats_field_array() const;
   inline void set_fs_stats_field_array(v8::Local<v8::Float64Array> fields);
 
+  inline AliasedBuffer<uint32_t, v8::Uint32Array>& scheduled_immediate_count();
+
   inline performance::performance_state* performance_state();
   inline std::map<std::string, uint64_t>* performance_marks();
 
@@ -731,6 +733,8 @@ class Environment {
   bool emit_napi_warning_;
   size_t makecallback_cntr_;
   std::vector<double> destroy_async_id_list_;
+
+  AliasedBuffer<uint32_t, v8::Uint32Array> scheduled_immediate_count_;
 
   performance::performance_state* performance_state_ = nullptr;
   std::map<std::string, uint64_t> performance_marks_;
