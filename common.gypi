@@ -279,6 +279,14 @@
               }],
             ],
           }],
+          ['target_arch=="arm"', {
+            'TargetMachine' : 3, # /MACHINE:ARM
+            'target_conditions': [
+              ['_type=="executable"', {
+                'AdditionalOptions': [ '/SubSystem:Console,"6.02"' ],
+              }],
+            ],
+          }],
         ],
         'GenerateDebugInformation': 'true',
         'GenerateMapFile': 'true', # /MAP

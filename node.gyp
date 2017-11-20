@@ -871,7 +871,7 @@
             'deps/v8/include'
           ],
           'conditions' : [
-            ['node_use_v8_platform=="true"', {
+            ['node_use_v8_platform=="true" and node_engine=="v8"', {
               'dependencies': [
                 'deps/v8/src/v8.gyp:v8_libplatform',
               ],
@@ -961,6 +961,7 @@
         [ 'OS=="win"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_win32.<(OBJ_SUFFIX)',
+             '-ldbghelp.lib'
            ],
         }, {
           'libraries': [
@@ -987,7 +988,7 @@
             'deps/uv/uv.gyp:libuv'
           ]
         }],
-        [ 'node_use_v8_platform=="true"', {
+        [ 'node_use_v8_platform=="true" and node_engine=="v8"', {
           'dependencies': [
             'deps/v8/src/v8.gyp:v8_libplatform',
           ],
