@@ -28,15 +28,12 @@ test-async-hooks-enable-during-promise : PASS,FLAKY
 test-async-hooks-promise : PASS,FLAKY
 test-async-hooks-promise-enable-disable : PASS,FLAKY
 test-async-hooks-promise-triggerid : PASS,FLAKY
-test-async-wrap-getasyncid : PASS,FLAKY
 test-async-wrap-promise-after-enabled : PASS,FLAKY
 test-buffer-bindingobj-no-zerofill : PASS,FLAKY
 test-buffer-sharedarraybuffer : PASS,FLAKY
 test-child-process-promisified : PASS,FLAKY
-test-cluster-inspector-debug-port : PASS,FLAKY
 test-crypto-dh : PASS,FLAKY
 test-crypto-dh-leak : PASS,FLAKY
-test-debugger-repeat-last : PASS,FLAKY
 test-domain-abort-on-uncaught : PASS,FLAKY
 test-domain-no-error-handler-abort-on-uncaught-0 : PASS,FLAKY
 test-domain-no-error-handler-abort-on-uncaught-1 : PASS,FLAKY
@@ -57,7 +54,6 @@ test-http2-client-promisify-connect : PASS,FLAKY
 test-http2-server-rst-stream : PASS,FLAKY
 test-inspect-async-hook-setup-at-inspect : PASS,FLAKY
 test-intl : PASS,FLAKY
-test-intl-no-icu-data : PASS,FLAKY
 test-memory-usage : PASS,FLAKY
 test-module-main-extension-lookup : PASS,FLAKY
 test-performance-function : PASS,FLAKY
