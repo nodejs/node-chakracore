@@ -25,3 +25,8 @@ hello-world-esm/test : SKIP
 new-target/test : SKIP
 callback-scope/test : SKIP
 callback-scope/test-resolve-async : SKIP
+
+# This test is disabled for chakra engine because it depends
+# on v8 GC behavior. Chakra GC may find reference-like data
+# on native stack and may not do the GC as expected.
+null-buffer-neuter/test : SKIP

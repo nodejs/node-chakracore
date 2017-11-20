@@ -116,6 +116,21 @@ test-vm-strict-assign : SKIP
 # https://github.com/nodejs/node-chakracore/issues/395
 test-zlib-empty-buffer : SKIP
 
+# These tests are disabled for chakra engine because they depend
+# on v8-option --abort-on-uncaught-exception
+test-domain-throw-error-then-throw-from-uncaught-exception-handler : SKIP
+test-domain-with-abort-on-uncaught-exception : SKIP
+
+# These tests are disabled for chakra engine because they depend
+# on v8 flag --allow_natives_syntax
+test-v8-flags : SKIP
+test-v8-version-tag : SKIP
+
+# This test is disabled for chakra engine because it depends
+# on v8-option --max-old-space-size
+test-windows-failed-heap-allocation : SKIP
+
+
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-buffer-includes : SKIP
