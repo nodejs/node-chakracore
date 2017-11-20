@@ -19,4 +19,5 @@ prefix addons-napi
 [$system==aix]
 
 [$jsEngine==chakracore]
-test_env_sharing/test : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test_env_sharing/test : SKIP

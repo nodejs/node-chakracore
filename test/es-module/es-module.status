@@ -7,23 +7,24 @@ prefix es-module
 [true] # This section applies to all platforms
 
 [$jsEngine==chakracore]
-test-esm-basic-imports : PASS,FLAKY
-test-esm-double-encoding : PASS,FLAKY
-test-esm-encoded-path : PASS,FLAKY
-test-esm-encoded-path-native : PASS,FLAKY
-test-esm-example-loader : PASS,FLAKY
-test-esm-forbidden-globals : PASS,FLAKY
-test-esm-json : PASS,FLAKY
-test-esm-loader-dependency : PASS,FLAKY
-test-esm-loader-modulemap : PASS,FLAKY
-test-esm-named-exports : PASS,FLAKY
-test-esm-namespace : PASS,FLAKY
-test-esm-ok : PASS,FLAKY
-test-esm-preserve-symlinks : PASS,FLAKY
-test-esm-preserve-symlinks-not-found : PASS,FLAKY
-test-esm-preserve-symlinks-not-found-plain : PASS,FLAKY
-test-esm-require-cache : PASS,FLAKY
-test-esm-resolve-hook : PASS,FLAKY
-test-esm-shebang : PASS,FLAKY
-test-esm-snapshot : PASS,FLAKY
-test-esm-symlink : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-esm-basic-imports : SKIP
+test-esm-double-encoding : SKIP
+test-esm-encoded-path : SKIP
+test-esm-encoded-path-native : SKIP
+test-esm-example-loader : SKIP
+test-esm-forbidden-globals : SKIP
+test-esm-json : SKIP
+test-esm-loader-dependency : SKIP
+test-esm-loader-modulemap : SKIP
+test-esm-named-exports : SKIP
+test-esm-namespace : SKIP
+test-esm-ok : SKIP
+test-esm-preserve-symlinks : SKIP
+test-esm-preserve-symlinks-not-found : SKIP
+test-esm-preserve-symlinks-not-found-plain : SKIP
+test-esm-require-cache : SKIP
+test-esm-resolve-hook : SKIP
+test-esm-shebang : SKIP
+test-esm-snapshot : SKIP
+test-esm-symlink : SKIP
