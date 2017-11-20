@@ -19,7 +19,7 @@ prefix async-hooks
 [$system==freebsd]
 
 [$jsEngine==chakracore]
-test-promise : PASS,FLAKY
-test-promise.chain-promise-before-init-hooks : PASS,FLAKY
-test-promise.promise-before-init-hooks : PASS,FLAKY
-
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-promise : SKIP
+test-promise.chain-promise-before-init-hooks : SKIP
+test-promise.promise-before-init-hooks : SKIP

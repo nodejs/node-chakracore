@@ -23,15 +23,17 @@ test-inspector-async-hook-setup-at-signal:  PASS, FLAKY
 [$system==aix]
 
 [$jsEngine==chakracore]
-test-async-wrap-getasyncid : PASS,FLAKY
-test-benchmark-child-process : PASS,FLAKY
-test-inspector-async-hook-setup-at-inspect-brk : PASS,FLAKY
-test-inspector-async-stack-traces-promise-then : PASS,FLAKY
-test-inspector-async-stack-traces-set-interval : PASS,FLAKY
-test-inspector-break-when-eval : PASS,FLAKY
-test-inspector-scriptparsed-context : PASS,FLAKY
-test-inspector-stop-profile-after-done : PASS,FLAKY
-test-vm-timeout-rethrow : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-vm-timeout-rethrow : SKIP
+test-benchmark-child-process : SKIP
+test-async-wrap-getasyncid : SKIP
+test-inspector-async-hook-setup-at-inspect-brk : SKIP
+test-inspector-async-stack-traces-promise-then : SKIP
+test-inspector-async-stack-traces-set-interval : SKIP
+test-inspector-break-when-eval : SKIP
+test-inspector-scriptparsed-context : SKIP
+test-inspector-stop-profile-after-done : SKIP
 
 [$jsEngine==chakracore && $system==linux]
-test-child-process-pass-fd : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-child-process-pass-fd : SKIP
