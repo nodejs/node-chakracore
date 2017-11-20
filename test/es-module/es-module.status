@@ -7,7 +7,6 @@ prefix es-module
 [true] # This section applies to all platforms
 
 [$jsEngine==chakracore]
-test-esm-addon : PASS,FLAKY
 test-esm-basic-imports : PASS,FLAKY
 test-esm-double-encoding : PASS,FLAKY
 test-esm-encoded-path : PASS,FLAKY
