@@ -161,7 +161,6 @@ class ObjectData: public ExternalData {
     bool isRefValue;
   };
 
-  JsValueRef objectInstance;
   Persistent<ObjectTemplate> objectTemplate;  // Original ObjectTemplate
   SetterGetterInterceptor * setterGetterInterceptor;
   int internalFieldCount;
