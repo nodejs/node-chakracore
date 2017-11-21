@@ -947,7 +947,6 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
     return Local<Object>();
   }
 
-  objectData->objectInstance = newInstanceRef;
   return Local<Object>::New(static_cast<Object*>(newInstanceRef));
 }
 
