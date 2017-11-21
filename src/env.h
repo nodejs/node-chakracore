@@ -309,7 +309,6 @@ class ModuleWrap;
   V(internal_binding_cache_object, v8::Object)                                \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
-  V(domain_array, v8::Array)                                                  \
   V(domains_stack_array, v8::Array)                                           \
   V(inspector_console_api_object, v8::Object)                                 \
   V(module_load_list_array, v8::Array)                                        \
@@ -473,26 +472,6 @@ class Environment {
     DISALLOW_COPY_AND_ASSIGN(AsyncCallbackScope);
   };
 
-  class DomainFlag {
-   public:
-    inline uint32_t* fields();
-    inline int fields_count() const;
-    inline uint32_t count() const;
-
-   private:
-    friend class Environment;  // So we can call the constructor.
-    inline DomainFlag();
-
-    enum Fields {
-      kCount,
-      kFieldsCount
-    };
-
-    uint32_t fields_[kFieldsCount];
-
-    DISALLOW_COPY_AND_ASSIGN(DomainFlag);
-  };
-
   class TickInfo {
    public:
     inline uint32_t* fields();
@@ -561,7 +540,6 @@ class Environment {
 
   inline v8::Isolate* isolate() const;
   inline uv_loop_t* event_loop() const;
-  inline bool in_domain() const;
   inline uint32_t watched_providers() const;
 
   static inline Environment* from_immediate_check_handle(uv_check_t* handle);
@@ -578,7 +556,6 @@ class Environment {
   inline void FinishHandleCleanup(uv_handle_t* handle);
 
   inline AsyncHooks* async_hooks();
-  inline DomainFlag* domain_flag();
   inline TickInfo* tick_info();
   inline uint64_t timer_base() const;
 
@@ -618,7 +595,7 @@ class Environment {
   inline void set_http_parser_buffer(char* buffer);
 
   inline http2::http2_state* http2_state() const;
-  inline void set_http2_state(http2::http2_state * state);
+  inline void set_http2_state(std::unique_ptr<http2::http2_state> state);
 
   inline v8::Local<v8::Float64Array> fs_stats_field_array() const;
   inline void set_fs_stats_field_array(v8::Local<v8::Float64Array> fields);
@@ -723,7 +700,6 @@ class Environment {
   uv_check_t idle_check_handle_;
 
   AsyncHooks async_hooks_;
-  DomainFlag domain_flag_;
   TickInfo tick_info_;
   const uint64_t timer_base_;
   bool using_domains_;
@@ -753,7 +729,7 @@ class Environment {
   double* heap_space_statistics_buffer_ = nullptr;
 
   char* http_parser_buffer_;
-  http2::http2_state* http2_state_ = nullptr;
+  std::unique_ptr<http2::http2_state> http2_state_;
 
   // We depend on the property in fs.js to manage the lifetime appropriately
   v8::Global<v8::Float64Array> fs_stats_field_array_;
