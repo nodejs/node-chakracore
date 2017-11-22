@@ -116,6 +116,8 @@ test-vm-indexed-properties : PASS,FLAKY
 test-vm-proxies : PASS,FLAKY
 test-vm-strict-assign : PASS,FLAKY
 
+# https://github.com/nodejs/node-chakracore/issues/395
+test-zlib-empty-buffer : PASS,FLAKY
 
 [$jsEngine==chakracore && $arch==x64]
 test-buffer-includes : PASS,FLAKY
@@ -129,6 +131,11 @@ test-http-client-get-url : PASS,FLAKY
 [$jsEngine==chakracore && $system==linux]
 test-repl-sigint-nested-eval : PASS,FLAKY
 
+# https://github.com/Microsoft/ChakraCore/issues/3561
+test-wasm-simple : PASS,FLAKY
+
 [$jsEngine==chakracore && $system==macos]
 test-repl-sigint-nested-eval : PASS,FLAKY
 test-vm-sigint : PASS,FLAKY
+# https://github.com/Microsoft/ChakraCore/issues/3561
+test-wasm-simple : PASS,FLAKY
