@@ -31,8 +31,14 @@ test-inspector-async-hook-setup-at-inspect-brk : SKIP
 test-inspector-async-stack-traces-promise-then : SKIP
 test-inspector-async-stack-traces-set-interval : SKIP
 test-inspector-break-when-eval : SKIP
-test-inspector-scriptparsed-context : SKIP
 test-inspector-stop-profile-after-done : SKIP
+
+# This test is causing hangs in CI for some reason.
+test-inspector-contexts : SKIP
+
+# This test is disabled for chakra engine because the test
+# hangs after trying to parse in a new context
+test-inspector-scriptparsed-context : SKIP
 
 [$jsEngine==chakracore && $system==linux]
 # These tests are failing for Node-Chakracore and should eventually be fixed

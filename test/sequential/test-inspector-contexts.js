@@ -68,9 +68,5 @@ async function testBreakpointHit() {
   await pausedPromise;
 }
 
-if (common.isChakraEngine) {
-  common.skip('This test is causing hangs in CI for some reason.');
-}
-
 common.crashOnUnhandledRejection();
 testContextCreatedAndDestroyed().then(testBreakpointHit);
