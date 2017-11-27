@@ -1,9 +1,9 @@
-// Flags: --expose-http2
 'use strict';
 
 const common = require('../common');
 if (!common.hasCrypto)
   common.skip('missing crypto');
+const fixtures = require('../common/fixtures');
 const assert = require('assert');
 const http2 = require('http2');
 const fs = require('fs');
@@ -11,16 +11,17 @@ const path = require('path');
 
 // piping should work as expected with createWriteStream
 
-const loc = path.join(common.fixturesDir, 'person.jpg');
-const fn = path.join(common.tmpDir, 'http2pipe.jpg');
 common.refreshTmpDir();
+const loc = fixtures.path('url-tests.js');
+const fn = path.join(common.tmpDir, 'http2-url-tests.js');
 
 const server = http2.createServer();
 
 server.on('request', common.mustCall((req, res) => {
   const dest = req.pipe(fs.createWriteStream(fn));
   dest.on('finish', common.mustCall(() => {
-    assert.deepStrictEqual(fs.readFileSync(loc), fs.readFileSync(fn));
+    assert.strictEqual(req.complete, true);
+    assert.strictEqual(fs.readFileSync(loc).length, fs.readFileSync(fn).length);
     fs.unlinkSync(fn);
     res.end();
   }));

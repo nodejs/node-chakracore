@@ -76,6 +76,11 @@ extern bool config_expose_http2;
 // that is used by lib/module.js
 extern bool config_experimental_modules;
 
+// Set in node.cc by ParseArgs when --loader is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/internal/bootstrap_node.js
+extern std::string config_userland_loader;
+
 // Set in node.cc by ParseArgs when --expose-internals or --expose_internals is
 // used.
 // Used in node_config.cc to set a constant on process.binding('config')
@@ -271,7 +276,40 @@ v8::MaybeLocal<v8::Value> InternalMakeCallback(
     v8::Local<v8::Value> argv[],
     async_context asyncContext);
 
+class InternalCallbackScope {
+ public:
+  // Tell the constructor whether its `object` parameter may be empty or not.
+  enum ResourceExpectation { kRequireResource, kAllowEmptyResource };
+  InternalCallbackScope(Environment* env,
+                        v8::Local<v8::Object> object,
+                        const async_context& asyncContext,
+                        ResourceExpectation expect = kRequireResource);
+  // Utility that can be used by AsyncWrap classes.
+  explicit InternalCallbackScope(AsyncWrap* async_wrap);
+  ~InternalCallbackScope();
+  void Close();
+
+  inline bool Failed() const { return failed_; }
+  inline void MarkAsFailed() { failed_ = true; }
+  inline bool IsInnerMakeCallback() const {
+    return callback_scope_.in_makecallback();
+  }
+
+ private:
+  Environment* env_;
+  async_context async_context_;
+  v8::Local<v8::Object> object_;
+  Environment::AsyncCallbackScope callback_scope_;
+  bool failed_ = false;
+  bool pushed_ids_ = false;
+  bool closed_ = false;
+};
+
+#define NODE_MODULE_CONTEXT_AWARE_INTERNAL(modname, regfunc)          \
+  NODE_MODULE_CONTEXT_AWARE_X(modname, regfunc, NULL, NM_F_INTERNAL)  \
+
 }  // namespace node
+
 
 #endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 

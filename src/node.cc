@@ -179,6 +179,7 @@ static bool syntax_check_only = false;
 static bool trace_deprecation = false;
 static bool throw_deprecation = false;
 static bool trace_sync_io = false;
+static bool force_async_hooks_checks = false;
 static bool track_heap_objects = false;
 static const char* eval_string = nullptr;
 static std::vector<std::string> preload_modules;
@@ -189,6 +190,7 @@ static bool v8_is_profiling = false;
 static bool node_is_initialized = false;
 static node_module* modpending;
 static node_module* modlist_builtin;
+static node_module* modlist_internal;
 static node_module* modlist_linked;
 static node_module* modlist_addon;
 static bool trace_enabled = false;
@@ -237,6 +239,11 @@ bool config_preserve_symlinks = false;
 // that is used by lib/module.js
 bool config_experimental_modules = false;
 
+// Set in node.cc by ParseArgs when --loader is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/internal/bootstrap_node.js
+std::string config_userland_loader;  // NOLINT(runtime/string)
+
 // Set by ParseArgs when --pending-deprecation or NODE_PENDING_DEPRECATION
 // is used.
 bool config_pending_deprecation = false;
@@ -250,8 +257,8 @@ std::string config_warning_file;  // NOLINT(runtime/string)
 // that is used by lib/internal/bootstrap_node.js
 bool config_expose_internals = false;
 
-// Set in node.cc by ParseArgs when --expose-http2 is used.
-bool config_expose_http2 = false;
+// Set to false in node.cc when NODE_NO_HTTP2=1 is used.
+bool config_expose_http2 = true;
 
 bool v8_initialized = false;
 
@@ -1165,8 +1172,19 @@ bool ShouldAbortOnUncaughtException(Isolate* isolate) {
 }
 
 
+Local<Value> GetDomainProperty(Environment* env, Local<Object> object) {
+  Local<Value> domain_v =
+      object->GetPrivate(env->context(), env->domain_private_symbol())
+          .ToLocalChecked();
+  if (domain_v->IsObject()) {
+    return domain_v;
+  }
+  return object->Get(env->context(), env->domain_string()).ToLocalChecked();
+}
+
+
 bool DomainEnter(Environment* env, Local<Object> object) {
-  Local<Value> domain_v = object->Get(env->domain_string());
+  Local<Value> domain_v = GetDomainProperty(env, object);
   if (domain_v->IsObject()) {
     Local<Object> domain = domain_v.As<Object>();
     if (domain->Get(env->disposed_string())->IsTrue())
@@ -1184,7 +1202,7 @@ bool DomainEnter(Environment* env, Local<Object> object) {
 
 
 bool DomainExit(Environment* env, v8::Local<v8::Object> object) {
-  Local<Value> domain_v = object->Get(env->domain_string());
+  Local<Value> domain_v = GetDomainProperty(env, object);
   if (domain_v->IsObject()) {
     Local<Object> domain = domain_v.As<Object>();
     if (domain->Get(env->disposed_string())->IsTrue())
@@ -1209,10 +1227,16 @@ void DomainPromiseHook(PromiseHookType type,
   Local<Context> context = env->context();
 
   if (type == PromiseHookType::kInit && env->in_domain()) {
-    promise->Set(context,
-                 env->domain_string(),
-                 env->domain_array()->Get(context,
-                                          0).ToLocalChecked()).FromJust();
+    Local<Value> domain_obj =
+        env->domain_array()->Get(context, 0).ToLocalChecked();
+    if (promise->CreationContext() == context) {
+      promise->Set(context, env->domain_string(), domain_obj).FromJust();
+    } else {
+      // Do not expose object from another context publicly in promises created
+      // in non-main contexts.
+      promise->SetPrivate(context, env->domain_private_symbol(), domain_obj)
+          .FromJust();
+    }
     return;
   }
 
@@ -1351,30 +1375,6 @@ void AddPromiseHook(v8::Isolate* isolate, promise_hook_func fn, void* arg) {
   env->AddPromiseHook(fn, arg);
 }
 
-class InternalCallbackScope {
- public:
-  InternalCallbackScope(Environment* env,
-                        Local<Object> object,
-                        const async_context& asyncContext);
-  ~InternalCallbackScope();
-  void Close();
-
-  inline bool Failed() const { return failed_; }
-  inline void MarkAsFailed() { failed_ = true; }
-  inline bool IsInnerMakeCallback() const {
-    return callback_scope_.in_makecallback();
-  }
-
- private:
-  Environment* env_;
-  async_context async_context_;
-  v8::Local<v8::Object> object_;
-  Environment::AsyncCallbackScope callback_scope_;
-  bool failed_ = false;
-  bool pushed_ids_ = false;
-  bool closed_ = false;
-};
-
 CallbackScope::CallbackScope(Isolate* isolate,
                              Local<Object> object,
                              async_context asyncContext)
@@ -1391,19 +1391,29 @@ CallbackScope::~CallbackScope() {
   delete private_;
 }
 
+InternalCallbackScope::InternalCallbackScope(AsyncWrap* async_wrap)
+    : InternalCallbackScope(async_wrap->env(),
+                            async_wrap->object(),
+                            { async_wrap->get_async_id(),
+                              async_wrap->get_trigger_async_id() }) {}
+
 InternalCallbackScope::InternalCallbackScope(Environment* env,
                                              Local<Object> object,
-                                             const async_context& asyncContext)
+                                             const async_context& asyncContext,
+                                             ResourceExpectation expect)
   : env_(env),
     async_context_(asyncContext),
     object_(object),
     callback_scope_(env) {
-  CHECK(!object.IsEmpty());
+  if (expect == kRequireResource) {
+    CHECK(!object.IsEmpty());
+  }
 
+  HandleScope handle_scope(env->isolate());
   // If you hit this assertion, you forgot to enter the v8::Context first.
-  CHECK_EQ(env->context(), env->isolate()->GetCurrentContext());
+  CHECK_EQ(Environment::GetCurrent(env->isolate()), env);
 
-  if (env->using_domains()) {
+  if (env->using_domains() && !object_.IsEmpty()) {
     failed_ = DomainEnter(env, object_);
     if (failed_)
       return;
@@ -1415,7 +1425,7 @@ InternalCallbackScope::InternalCallbackScope(Environment* env,
     AsyncWrap::EmitBefore(env, asyncContext.async_id);
   }
 
-  env->async_hooks()->push_ids(async_context_.async_id,
+  env->async_hooks()->push_async_ids(async_context_.async_id,
                                async_context_.trigger_async_id);
   pushed_ids_ = true;
 }
@@ -1427,9 +1437,10 @@ InternalCallbackScope::~InternalCallbackScope() {
 void InternalCallbackScope::Close() {
   if (closed_) return;
   closed_ = true;
+  HandleScope handle_scope(env_->isolate());
 
   if (pushed_ids_)
-    env_->async_hooks()->pop_ids(async_context_.async_id);
+    env_->async_hooks()->pop_async_id(async_context_.async_id);
 
   if (failed_) return;
 
@@ -1437,7 +1448,7 @@ void InternalCallbackScope::Close() {
     AsyncWrap::EmitAfter(env_, async_context_.async_id);
   }
 
-  if (env_->using_domains()) {
+  if (env_->using_domains() && !object_.IsEmpty()) {
     failed_ = DomainExit(env_, object_);
     if (failed_) return;
   }
@@ -1454,8 +1465,10 @@ void InternalCallbackScope::Close() {
 
   // Make sure the stack unwound properly. If there are nested MakeCallback's
   // then it should return early and not reach this code.
-  CHECK_EQ(env_->current_async_id(), 0);
-  CHECK_EQ(env_->trigger_id(), 0);
+  if (env_->async_hooks()->fields()[AsyncHooks::kTotals]) {
+    CHECK_EQ(env_->execution_async_id(), 0);
+    CHECK_EQ(env_->trigger_async_id(), 0);
+  }
 
   Local<Object> process = env_->process_object();
 
@@ -1464,8 +1477,10 @@ void InternalCallbackScope::Close() {
     return;
   }
 
-  CHECK_EQ(env_->current_async_id(), 0);
-  CHECK_EQ(env_->trigger_id(), 0);
+  if (env_->async_hooks()->fields()[AsyncHooks::kTotals]) {
+    CHECK_EQ(env_->execution_async_id(), 0);
+    CHECK_EQ(env_->trigger_async_id(), 0);
+  }
 
   if (env_->tick_callback_function()->Call(process, 0, nullptr).IsEmpty()) {
     failed_ = true;
@@ -1478,6 +1493,7 @@ MaybeLocal<Value> InternalMakeCallback(Environment* env,
                                        int argc,
                                        Local<Value> argv[],
                                        async_context asyncContext) {
+  CHECK(!recv.IsEmpty());
   InternalCallbackScope scope(env, recv, asyncContext);
   if (scope.Failed()) {
     return Undefined(env->isolate());
@@ -1750,6 +1766,7 @@ void AppendExceptionLine(Environment* env,
   }
 
   // Print (filename):(line number): (message).
+  ScriptOrigin origin = message->GetScriptOrigin();
   node::Utf8Value filename(env->isolate(), message->GetScriptResourceName());
   const char* filename_string = *filename;
   int linenum = message->GetLineNumber();
@@ -1778,8 +1795,16 @@ void AppendExceptionLine(Environment* env,
   // sourceline to 78 characters, and we end up not providing very much
   // useful debugging info to the user if we remove 62 characters.
 
+  int script_start =
+      (linenum - origin.ResourceLineOffset()->Value()) == 1 ?
+          origin.ResourceColumnOffset()->Value() : 0;
   int start = message->GetStartColumn(env->context()).FromMaybe(0);
   int end = message->GetEndColumn(env->context()).FromMaybe(0);
+  if (start >= script_start) {
+    CHECK_GE(end, start);
+    start -= script_start;
+    end -= script_start;
+  }
 
   char arrow[1024];
   int max_off = sizeof(arrow) - 2;
@@ -2602,6 +2627,9 @@ extern "C" void node_module_register(void* m) {
   if (mp->nm_flags & NM_F_BUILTIN) {
     mp->nm_link = modlist_builtin;
     modlist_builtin = mp;
+  } else if (mp->nm_flags & NM_F_INTERNAL) {
+    mp->nm_link = modlist_internal;
+    modlist_internal = mp;
   } else if (!node_is_initialized) {
     // "Linked" modules are included as part of the node project.
     // Like builtins they are registered *before* node::Init runs.
@@ -2613,28 +2641,28 @@ extern "C" void node_module_register(void* m) {
   }
 }
 
-struct node_module* get_builtin_module(const char* name) {
+inline struct node_module* FindModule(struct node_module* list,
+                                      const char* name,
+                                      int flag) {
   struct node_module* mp;
 
-  for (mp = modlist_builtin; mp != nullptr; mp = mp->nm_link) {
+  for (mp = list; mp != nullptr; mp = mp->nm_link) {
     if (strcmp(mp->nm_modname, name) == 0)
       break;
   }
 
-  CHECK(mp == nullptr || (mp->nm_flags & NM_F_BUILTIN) != 0);
-  return (mp);
+  CHECK(mp == nullptr || (mp->nm_flags & flag) != 0);
+  return mp;
 }
 
-struct node_module* get_linked_module(const char* name) {
-  struct node_module* mp;
-
-  for (mp = modlist_linked; mp != nullptr; mp = mp->nm_link) {
-    if (strcmp(mp->nm_modname, name) == 0)
-      break;
-  }
-
-  CHECK(mp == nullptr || (mp->nm_flags & NM_F_LINKED) != 0);
-  return mp;
+node_module* get_builtin_module(const char* name) {
+  return FindModule(modlist_builtin, name, NM_F_BUILTIN);
+}
+node_module* get_internal_module(const char* name) {
+  return FindModule(modlist_internal, name, NM_F_INTERNAL);
+}
+node_module* get_linked_module(const char* name) {
+  return FindModule(modlist_linked, name, NM_F_LINKED);
 }
 
 // DLOpen is process.dlopen(module, filename).
@@ -2859,24 +2887,60 @@ void ProcessEmitWarning(Environment* env, const char* fmt, ...) {
   f.As<v8::Function>()->Call(process, 1, &arg);
 }
 
+static bool PullFromCache(Environment* env,
+                          const FunctionCallbackInfo<Value>& args,
+                          Local<String> module,
+                          Local<Object> cache) {
+  Local<Context> context = env->context();
+  Local<Value> exports_v;
+  Local<Object> exports;
+  if (cache->Get(context, module).ToLocal(&exports_v) &&
+      exports_v->IsObject() &&
+      exports_v->ToObject(context).ToLocal(&exports)) {
+    args.GetReturnValue().Set(exports);
+    return true;
+  }
+  return false;
+}
+
+static Local<Object> InitModule(Environment* env,
+                                 node_module* mod,
+                                 Local<String> module) {
+  Local<Object> exports = Object::New(env->isolate());
+  // Internal bindings don't have a "module" object, only exports.
+  CHECK_EQ(mod->nm_register_func, nullptr);
+  CHECK_NE(mod->nm_context_register_func, nullptr);
+  Local<Value> unused = Undefined(env->isolate());
+  mod->nm_context_register_func(exports,
+                                unused,
+                                env->context(),
+                                mod->nm_priv);
+  return exports;
+}
+
+static void ThrowIfNoSuchModule(Environment* env, const char* module_v) {
+  char errmsg[1024];
+  snprintf(errmsg,
+           sizeof(errmsg),
+           "No such module: %s",
+           module_v);
+  env->ThrowError(errmsg);
+}
 
 static void Binding(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  Local<String> module = args[0]->ToString(env->isolate());
-  node::Utf8Value module_v(env->isolate(), module);
+  Local<String> module;
+  if (!args[0]->ToString(env->context()).ToLocal(&module)) return;
 
   Local<Object> cache = env->binding_cache_object();
-  Local<Object> exports;
 
-  if (cache->Has(env->context(), module).FromJust()) {
-    exports = cache->Get(module)->ToObject(env->isolate());
-    args.GetReturnValue().Set(exports);
+  if (PullFromCache(env, args, module, cache))
     return;
-  }
 
   // Append a string to process.moduleLoadList
   char buf[1024];
+  node::Utf8Value module_v(env->isolate(), module);
   snprintf(buf, sizeof(buf), "Binding %s", *module_v);
 
   Local<Array> modules = env->module_load_list_array();
@@ -2884,33 +2948,49 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
   modules->Set(l, OneByteString(env->isolate(), buf));
 
   node_module* mod = get_builtin_module(*module_v);
+  Local<Object> exports;
   if (mod != nullptr) {
-    exports = Object::New(env->isolate());
-    // Internal bindings don't have a "module" object, only exports.
-    CHECK_EQ(mod->nm_register_func, nullptr);
-    CHECK_NE(mod->nm_context_register_func, nullptr);
-    Local<Value> unused = Undefined(env->isolate());
-    mod->nm_context_register_func(exports, unused,
-      env->context(), mod->nm_priv);
-    cache->Set(module, exports);
+    exports = InitModule(env, mod, module);
   } else if (!strcmp(*module_v, "constants")) {
     exports = Object::New(env->isolate());
     CHECK(exports->SetPrototype(env->context(),
                                 Null(env->isolate())).FromJust());
     DefineConstants(env->isolate(), exports);
-    cache->Set(module, exports);
   } else if (!strcmp(*module_v, "natives")) {
     exports = Object::New(env->isolate());
     DefineJavaScript(env, exports);
-    cache->Set(module, exports);
   } else {
-    char errmsg[1024];
-    snprintf(errmsg,
-             sizeof(errmsg),
-             "No such module: %s",
-             *module_v);
-    return env->ThrowError(errmsg);
+    return ThrowIfNoSuchModule(env, *module_v);
   }
+  cache->Set(module, exports);
+
+  args.GetReturnValue().Set(exports);
+}
+
+static void InternalBinding(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+
+  Local<String> module;
+  if (!args[0]->ToString(env->context()).ToLocal(&module)) return;
+
+  Local<Object> cache = env->internal_binding_cache_object();
+
+  if (PullFromCache(env, args, module, cache))
+    return;
+
+  // Append a string to process.moduleLoadList
+  char buf[1024];
+  node::Utf8Value module_v(env->isolate(), module);
+  snprintf(buf, sizeof(buf), "Internal Binding %s", *module_v);
+
+  Local<Array> modules = env->module_load_list_array();
+  uint32_t l = modules->Length();
+  modules->Set(l, OneByteString(env->isolate(), buf));
+
+  node_module* mod = get_internal_module(*module_v);
+  if (mod == nullptr) return ThrowIfNoSuchModule(env, *module_v);
+  Local<Object> exports = InitModule(env, mod, module);
+  cache->Set(module, exports);
 
   args.GetReturnValue().Set(exports);
 }
@@ -2918,7 +2998,8 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
 static void LinkedBinding(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args.GetIsolate());
 
-  Local<String> module_name = args[0]->ToString(env->isolate());
+  Local<String> module_name;
+  if (!args[0]->ToString(env->context()).ToLocal(&module_name)) return;
 
   Local<Object> cache = env->binding_cache_object();
   Local<Value> exports_v = cache->Get(module_name);
@@ -3415,6 +3496,11 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(release, "name",
                     OneByteString(env->isolate(), NODE_RELEASE));
 
+#if NODE_VERSION_IS_LTS
+  READONLY_PROPERTY(release, "lts",
+                    OneByteString(env->isolate(), NODE_VERSION_LTS_CODENAME));
+#endif
+
 // if this is a release build and no explicit base has been set
 // substitute the standard release download URL
 #ifndef NODE_RELEASE_URLBASE
@@ -3658,6 +3744,7 @@ void SetupProcessObject(Environment* env,
 
   env->SetMethod(process, "binding", Binding);
   env->SetMethod(process, "_linkedBinding", LinkedBinding);
+  env->SetMethod(process, "_internalBinding", InternalBinding);
 
   env->SetMethod(process, "_setupProcessObject", SetupProcessObject);
   env->SetMethod(process, "_setupNextTick", SetupNextTick);
@@ -3703,7 +3790,6 @@ static void RawDebug(const FunctionCallbackInfo<Value>& args) {
   fflush(stderr);
 }
 
-
 void LoadEnvironment(Environment* env) {
   HandleScope handle_scope(env->isolate());
 
@@ -3726,6 +3812,7 @@ void LoadEnvironment(Environment* env) {
   }
   // The bootstrap_node.js file returns a function 'f'
   CHECK(f_value->IsFunction());
+
   Local<Function> f = Local<Function>::Cast(f_value);
 
   // Add a reference to the global object
@@ -3765,7 +3852,17 @@ void LoadEnvironment(Environment* env) {
   // who do not like how bootstrap_node.js sets up the module system but do
   // like Node's I/O bindings may want to replace 'f' with their own function.
   Local<Value> arg = env->process_object();
-  f->Call(Null(env->isolate()), 1, &arg);
+
+  auto ret = f->Call(env->context(), Null(env->isolate()), 1, &arg);
+  // If there was an error during bootstrap then it was either handled by the
+  // FatalException handler or it's unrecoverable (e.g. max call stack
+  // exceeded). Either way, clear the stack so that the AsyncCallbackScope
+  // destructor doesn't fail on the id check.
+  // There are only two ways to have a stack size > 1: 1) the user manually
+  // called MakeCallback or 2) user awaited during bootstrap, which triggered
+  // _tickCallback().
+  if (ret.IsEmpty())
+    env->async_hooks()->clear_async_id_stack();
 }
 
 static void PrintHelp() {
@@ -3804,13 +3901,14 @@ static void PrintHelp() {
          "  --abort-on-uncaught-exception\n"
          "                             aborting instead of exiting causes a\n"
          "                             core file to be generated for analysis\n"
-         "  --expose-http2             enable experimental HTTP2 support\n"
          "  --trace-warnings           show stack traces on process warnings\n"
          "  --redirect-warnings=file\n"
          "                             write warnings to file instead of\n"
          "                             stderr\n"
          "  --trace-sync-io            show stack trace when use of sync IO\n"
          "                             is detected after the first tick\n"
+         "  --force-async-hooks-checks\n"
+         "                             enables checks for async_hooks\n"
          "  --trace-events-enabled     track trace events\n"
          "  --trace-event-categories   comma separated list of trace event\n"
          "                             categories to record\n"
@@ -3879,7 +3977,8 @@ static void PrintHelp() {
 #endif
 #endif
          "NODE_NO_WARNINGS             set to 1 to silence process warnings\n"
-#if !defined(NODE_WITHOUT_NODE_OPTIONS)
+         "NODE_NO_HTTP2                set to 1 to suppress the http2 module\n"
+         #if !defined(NODE_WITHOUT_NODE_OPTIONS)
          "NODE_OPTIONS                 set CLI options in the environment\n"
          "                             via a space-separated list\n"
 #endif
@@ -3889,6 +3988,8 @@ static void PrintHelp() {
          "NODE_PATH                    ':'-separated list of directories\n"
 #endif
          "                             prefixed to the module search path\n"
+         "NODE_PENDING_DEPRECATION     set to 1 to emit pending deprecation\n"
+         "                             warnings\n"
          "NODE_REPL_HISTORY            path to the persistent REPL history\n"
          "                             file\n"
          "NODE_REDIRECT_WARNINGS       write warnings to path instead of\n"
@@ -3962,9 +4063,12 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--no-warnings",
     "--napi-modules",
     "--expose-http2",
+    "--experimental-modules",
+    "--loader",
     "--trace-warnings",
     "--redirect-warnings",
     "--trace-sync-io",
+    "--force-async-hooks-checks",
     "--trace-events-enabled",
     "--trace-events-categories",
     "--track-heap-objects",
@@ -4103,6 +4207,8 @@ static void ParseArgs(int* argc,
       trace_deprecation = true;
     } else if (strcmp(arg, "--trace-sync-io") == 0) {
       trace_sync_io = true;
+    } else if (strcmp(arg, "--force-async-hooks-checks") == 0) {
+      force_async_hooks_checks = true;
     } else if (strcmp(arg, "--trace-events-enabled") == 0) {
       trace_enabled = true;
     } else if (strcmp(arg, "--trace-event-categories") == 0) {
@@ -4159,6 +4265,19 @@ static void ParseArgs(int* argc,
       config_preserve_symlinks = true;
     } else if (strcmp(arg, "--experimental-modules") == 0) {
       config_experimental_modules = true;
+    }  else if (strcmp(arg, "--loader") == 0) {
+      const char* module = argv[index + 1];
+      if (!config_experimental_modules) {
+        fprintf(stderr, "%s: %s requires --experimental-modules be enabled\n",
+            argv[0], arg);
+        exit(9);
+      }
+      if (module == nullptr) {
+        fprintf(stderr, "%s: %s requires an argument\n", argv[0], arg);
+        exit(9);
+      }
+      args_consumed += 1;
+      config_userland_loader = module;
     } else if (strcmp(arg, "--prof-process") == 0) {
       prof_process = true;
       short_circuit = true;
@@ -4198,7 +4317,7 @@ static void ParseArgs(int* argc,
       config_expose_internals = true;
     } else if (strcmp(arg, "--expose-http2") == 0 ||
                strcmp(arg, "--expose_http2") == 0) {
-      config_expose_http2 = true;
+      // Intentional non-op
     } else if (strcmp(arg, "-") == 0) {
       break;
     } else if (strcmp(arg, "--") == 0) {
@@ -4575,6 +4694,12 @@ void Init(int* argc,
         SafeGetenv("NODE_PENDING_DEPRECATION", &text) && text[0] == '1';
   }
 
+  {
+    std::string text;
+    config_expose_http2 =
+      !(SafeGetenv("NODE_NO_HTTP2", &text) && text[0] == '1');
+  }
+
   // Allow for environment set preserving symlinks.
   {
     std::string text;
@@ -4796,11 +4921,15 @@ inline int Start(Isolate* isolate, void* isolate_context,
 
   env.set_abort_on_uncaught_exception(abort_on_uncaught_exception);
 
+  if (force_async_hooks_checks) {
+    env.async_hooks()->force_checks();
+  }
+
   {
     Environment::AsyncCallbackScope callback_scope(&env);
-    env.async_hooks()->push_ids(1, 0);
+    env.async_hooks()->push_async_ids(1, 0);
     LoadEnvironment(&env);
-    env.async_hooks()->pop_ids(1);
+    env.async_hooks()->pop_async_id(1);
   }
 
 #if ENABLE_TTD_NODE
@@ -4820,9 +4949,14 @@ inline int Start(Isolate* isolate, void* isolate_context,
     do {
       uv_run(env.event_loop(), UV_RUN_DEFAULT);
 
+      v8_platform.DrainVMTasks();
+
+      more = uv_loop_alive(env.event_loop());
+      if (more)
+        continue;
+
       EmitBeforeExit(&env);
 
-      v8_platform.DrainVMTasks();
       // Emit `beforeExit` if the loop became alive either after emitting
       // event, or after running some callbacks.
       more = uv_loop_alive(env.event_loop());

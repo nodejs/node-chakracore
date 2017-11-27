@@ -10,13 +10,6 @@
 #endif
 
 #include "node_debug_options.h"
-
-// Forward declaration to break recursive dependency chain with src/env.h.
-namespace node {
-class Environment;
-class NodePlatform;
-}  // namespace node
-
 #include "v8.h"
 
 namespace v8_inspector {
@@ -24,6 +17,10 @@ class StringView;
 }  // namespace v8_inspector
 
 namespace node {
+// Forward declaration to break recursive dependency chain with src/env.h.
+class Environment;
+class NodePlatform;
+
 namespace inspector {
 
 class InspectorSessionDelegate {
@@ -52,7 +49,7 @@ class Agent {
 
   // IO thread started, and client connected
   bool IsConnected();
-
+  bool IsWaitingForConnect();
 
   void WaitForDisconnect();
   void FatalException(v8::Local<v8::Value> error,
@@ -82,12 +79,6 @@ class Agent {
   bool enabled() { return enabled_; }
   void PauseOnNextJavascriptStatement(const std::string& reason);
 
-  // Initialize 'inspector' module bindings
-  static void InitInspector(v8::Local<v8::Object> target,
-                            v8::Local<v8::Value> unused,
-                            v8::Local<v8::Context> context,
-                            void* priv);
-
   InspectorIo* io() {
     return io_.get();
   }
@@ -101,7 +92,12 @@ class Agent {
   DebugOptions& options() { return debug_options_; }
   void ContextCreated(v8::Local<v8::Context> context);
 
+  void EnableAsyncHook();
+  void DisableAsyncHook();
+
  private:
+  void ToggleAsyncHook(v8::Isolate* isolate, v8::Local<v8::Function> fn);
+
   node::Environment* parent_env_;
   std::unique_ptr<NodeInspectorClient> client_;
   std::unique_ptr<InspectorIo> io_;
@@ -111,6 +107,8 @@ class Agent {
   DebugOptions debug_options_;
   int next_context_number_;
 
+  bool pending_enable_async_hook_;
+  bool pending_disable_async_hook_;
   v8::Persistent<v8::Function> enable_async_hook_function_;
   v8::Persistent<v8::Function> disable_async_hook_function_;
 };

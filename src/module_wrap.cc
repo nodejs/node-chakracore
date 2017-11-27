@@ -7,6 +7,7 @@
 #include "node_url.h"
 #include "util.h"
 #include "util-inl.h"
+#include "node_internals.h"
 
 namespace node {
 namespace loader {
@@ -24,6 +25,7 @@ using v8::IntegrityLevel;
 using v8::Isolate;
 using v8::JSON;
 using v8::Local;
+using v8::Maybe;
 using v8::MaybeLocal;
 using v8::Module;
 using v8::Object;
@@ -178,14 +180,14 @@ void ModuleWrap::Instantiate(const FunctionCallbackInfo<Value>& args) {
 
   ModuleWrap* obj = Unwrap<ModuleWrap>(that);
   Local<Module> mod = obj->module_.Get(iso);
-  bool ok = mod->Instantiate(ctx, ModuleWrap::ResolveCallback);
+  Maybe<bool> ok = mod->InstantiateModule(ctx, ModuleWrap::ResolveCallback);
 
   // clear resolve cache on instantiate
   for (auto& entry : obj->resolve_cache_)
     entry.second.Reset();
   obj->resolve_cache_.clear();
 
-  if (!ok) {
+  if (!ok.FromMaybe(false)) {
     return;
   }
 }
@@ -203,6 +205,29 @@ void ModuleWrap::Evaluate(const FunctionCallbackInfo<Value>& args) {
 
   auto ret = result.ToLocalChecked();
   args.GetReturnValue().Set(ret);
+}
+
+void ModuleWrap::Namespace(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  auto isolate = args.GetIsolate();
+  auto that = args.This();
+  ModuleWrap* obj = Unwrap<ModuleWrap>(that);
+  CHECK_NE(obj, nullptr);
+
+  auto module = obj->module_.Get(isolate);
+
+  switch (module->GetStatus()) {
+    default:
+      return env->ThrowError(
+          "cannot get namespace, Module has not been instantiated");
+    case v8::Module::Status::kInstantiated:
+    case v8::Module::Status::kEvaluating:
+    case v8::Module::Status::kEvaluated:
+      break;
+  }
+
+  auto result = module->GetModuleNamespace();
+  args.GetReturnValue().Set(result);
 }
 
 MaybeLocal<Module> ModuleWrap::ResolveCallback(Local<Context> context,
@@ -321,8 +346,8 @@ inline const struct read_result read_file(uv_file file) {
 struct file_check {
   bool failed = true;
   uv_file file = -1;
-} file_check;
-inline const struct file_check check_file(URL search,
+};
+inline const struct file_check check_file(const URL& search,
                                           bool close = false,
                                           bool allow_dir = false) {
   struct file_check ret;
@@ -348,7 +373,7 @@ inline const struct file_check check_file(URL search,
   if (close) uv_fs_close(nullptr, &fs_req, fd, nullptr);
   return ret;
 }
-URL resolve_extensions(URL search, bool check_exact = true) {
+URL resolve_extensions(const URL& search, bool check_exact = true) {
   if (check_exact) {
     auto check = check_file(search, true);
     if (!check.failed) {
@@ -364,10 +389,10 @@ URL resolve_extensions(URL search, bool check_exact = true) {
   }
   return URL("");
 }
-inline URL resolve_index(URL search) {
+inline URL resolve_index(const URL& search) {
   return resolve_extensions(URL("index", &search), false);
 }
-URL resolve_main(URL search) {
+URL resolve_main(const URL& search) {
   URL pkg("package.json", &search);
   auto check = check_file(pkg);
   if (!check.failed) {
@@ -401,7 +426,7 @@ URL resolve_main(URL search) {
   }
   return URL("");
 }
-URL resolve_module(std::string specifier, URL* base) {
+URL resolve_module(std::string specifier, const URL* base) {
   URL parent(".", base);
   URL dir("");
   do {
@@ -426,7 +451,7 @@ URL resolve_module(std::string specifier, URL* base) {
   return URL("");
 }
 
-URL resolve_directory(URL search, bool read_pkg_json) {
+URL resolve_directory(const URL& search, bool read_pkg_json) {
   if (read_pkg_json) {
     auto main = resolve_main(search);
     if (!(main.flags() & URL_FLAGS_FAILED)) return main;
@@ -437,9 +462,14 @@ URL resolve_directory(URL search, bool read_pkg_json) {
 }  // anonymous namespace
 
 
-URL Resolve(std::string specifier, URL* base, bool read_pkg_json) {
+URL Resolve(std::string specifier, const URL* base, bool read_pkg_json) {
   URL pure_url(specifier);
   if (!(pure_url.flags() & URL_FLAGS_FAILED)) {
+    // just check existence, without altering
+    auto check = check_file(pure_url, true);
+    if (check.failed) {
+      return URL("");
+    }
     return pure_url;
   }
   if (specifier.length() == 0) {
@@ -491,9 +521,8 @@ void ModuleWrap::Resolve(const FunctionCallbackInfo<Value>& args) {
 
   URL result = node::loader::Resolve(*specifier_utf, &url, true);
   if (result.flags() & URL_FLAGS_FAILED) {
-    std::string msg = "module ";
+    std::string msg = "Cannot find module ";
     msg += *specifier_utf;
-    msg += " not found";
     env->ThrowError(msg.c_str());
     return;
   }
@@ -514,6 +543,7 @@ void ModuleWrap::Initialize(Local<Object> target,
   env->SetProtoMethod(tpl, "link", Link);
   env->SetProtoMethod(tpl, "instantiate", Instantiate);
   env->SetProtoMethod(tpl, "evaluate", Evaluate);
+  env->SetProtoMethod(tpl, "namespace", Namespace);
 
   target->Set(FIXED_ONE_BYTE_STRING(isolate, "ModuleWrap"), tpl->GetFunction());
   env->SetMethod(target, "resolve", node::loader::ModuleWrap::Resolve);
@@ -522,5 +552,5 @@ void ModuleWrap::Initialize(Local<Object> target,
 }  // namespace loader
 }  // namespace node
 
-NODE_MODULE_CONTEXT_AWARE_BUILTIN(module_wrap,
-                                  node::loader::ModuleWrap::Initialize)
+NODE_MODULE_CONTEXT_AWARE_INTERNAL(module_wrap,
+                                   node::loader::ModuleWrap::Initialize)

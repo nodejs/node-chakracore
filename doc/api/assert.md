@@ -275,8 +275,8 @@ added: v0.1.21
 * `actual` {any}
 * `expected` {any}
 * `message` {any}
-* `operator` {string} (default: '!=')
-* `stackStartFunction` {function} (default: `assert.fail`)
+* `operator` {string} **Default:** '!='
+* `stackStartFunction` {function} **Default:** `assert.fail`
 
 Throws an `AssertionError`. If `message` is falsy, the error message is set as
 the values of `actual` and `expected` separated by the provided `operator`.
@@ -387,7 +387,7 @@ assert.notDeepEqual(obj1, obj3);
 // AssertionError: { a: { b: 1 } } notDeepEqual { a: { b: 1 } }
 
 assert.notDeepEqual(obj1, obj4);
-// OK, obj1 and obj2 are not deeply equal
+// OK, obj1 and obj4 are not deeply equal
 ```
 
 If the values are deeply equal, an `AssertionError` is thrown with a `message`
@@ -628,7 +628,6 @@ assert(Object.is(str1 / 1, str2 / 1));
 For more information, see
 [MDN's guide on equality comparisons and sameness][mdn-equality-guide].
 
-[`Error`]: errors.html#errors_class_error
 [`Error.captureStackTrace`]: errors.html#errors_error_capturestacktrace_targetobject_constructoropt
 [`Map`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Map
 [`Object.is()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is

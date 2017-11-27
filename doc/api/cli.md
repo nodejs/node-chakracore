@@ -215,6 +215,14 @@ added: v2.1.0
 Prints a stack trace whenever synchronous I/O is detected after the first turn
 of the event loop.
 
+### `--force-async-hooks-checks`
+<!-- YAML
+added: v8.8.0
+-->
+
+Enables runtime checks for `async_hooks`. These can also be enabled dynamically
+by enabling one of the `async_hooks` hooks.
+
 ### `--trace-events-enabled`
 <!-- YAML
 added: v7.7.0
@@ -431,6 +439,13 @@ added: v7.5.0
 -->
 
 When set to `1`, process warnings are silenced.
+
+### `NODE_NO_HTTP2=1`
+<!-- YAML
+added: v8.8.0
+-->
+
+When set to `1`, the `http2` module is suppressed.
 
 ### `NODE_OPTIONS=options...`
 <!-- YAML

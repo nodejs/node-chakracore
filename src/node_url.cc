@@ -515,10 +515,10 @@ static inline void PercentDecode(const char* input,
   dest->reserve(len);
   const char* pointer = input;
   const char* end = input + len;
-  size_t remaining = pointer - end - 1;
+
   while (pointer < end) {
     const char ch = pointer[0];
-    remaining = (end - pointer) + 1;
+    const size_t remaining = end - pointer - 1;
     if (ch != '%' || remaining < 2 ||
         (ch == '%' &&
          (!IsASCIIHexDigit(pointer[1]) ||
@@ -573,30 +573,30 @@ static inline int NormalizePort(std::string scheme, int p) {
 }
 
 #if defined(NODE_HAVE_I18N_SUPPORT)
-static inline bool ToUnicode(std::string* input, std::string* output) {
+static inline bool ToUnicode(const std::string& input, std::string* output) {
   MaybeStackBuffer<char> buf;
-  if (i18n::ToUnicode(&buf, input->c_str(), input->length()) < 0)
+  if (i18n::ToUnicode(&buf, input.c_str(), input.length()) < 0)
     return false;
   output->assign(*buf, buf.length());
   return true;
 }
 
-static inline bool ToASCII(std::string* input, std::string* output) {
+static inline bool ToASCII(const std::string& input, std::string* output) {
   MaybeStackBuffer<char> buf;
-  if (i18n::ToASCII(&buf, input->c_str(), input->length()) < 0)
+  if (i18n::ToASCII(&buf, input.c_str(), input.length()) < 0)
     return false;
   output->assign(*buf, buf.length());
   return true;
 }
 #else
 // Intentional non-ops if ICU is not present.
-static inline bool ToUnicode(std::string* input, std::string* output) {
-  *output = *input;
+static inline bool ToUnicode(const std::string& input, std::string* output) {
+  *output = input;
   return true;
 }
 
-static inline bool ToASCII(std::string* input, std::string* output) {
-  *output = *input;
+static inline bool ToASCII(const std::string& input, std::string* output) {
+  *output = input;
   return true;
 }
 #endif
@@ -864,7 +864,7 @@ static url_host_type ParseHost(url_host* host,
   PercentDecode(input, length, &decoded);
 
   // Then we have to punycode toASCII
-  if (!ToASCII(&decoded, &decoded))
+  if (!ToASCII(decoded, &decoded))
     goto end;
 
   // If any of the following characters are still present, we have to fail
@@ -881,7 +881,7 @@ static url_host_type ParseHost(url_host* host,
     goto end;
 
   // If the unicode flag is set, run the result through punycode ToUnicode
-  if (unicode && !ToUnicode(&decoded, &decoded))
+  if (unicode && !ToUnicode(decoded, &decoded))
     goto end;
 
   // It's not an IPv4 or IPv6 address, it must be a domain
@@ -1206,8 +1206,6 @@ void URL::Parse(const char* input,
 
   while (p <= end) {
     const char ch = p < end ? p[0] : kEOL;
-    const size_t remaining = end == p ? 0 : (end - p - 1);
-
     bool special = (url->flags & URL_FLAGS_SPECIAL);
     bool cannot_be_base;
     const bool special_back_slash = (special && ch == '\\');
@@ -1599,10 +1597,11 @@ void URL::Parse(const char* input,
                    ch == '#' ||
                    special_back_slash) {
           if (buffer.size() > 0) {
-            int port = 0;
-            for (size_t i = 0; i < buffer.size(); i++)
+            unsigned port = 0;
+            // the condition port <= 0xffff prevents integer overflow
+            for (size_t i = 0; port <= 0xffff && i < buffer.size(); i++)
               port = port * 10 + buffer[i] - '0';
-            if (port < 0 || port > 0xffff) {
+            if (port > 0xffff) {
               // TODO(TimothyGu): This hack is currently needed for the host
               // setter since it needs access to hostname if it is valid, and
               // if the FAILED flag is set the entire response to JS layer
@@ -1613,7 +1612,8 @@ void URL::Parse(const char* input,
                 url->flags |= URL_FLAGS_FAILED;
               return;
             }
-            url->port = NormalizePort(url->scheme, port);
+            // the port is valid
+            url->port = NormalizePort(url->scheme, static_cast<int>(port));
             buffer.clear();
           } else if (has_state_override) {
             // TODO(TimothyGu): Similar case as above.
@@ -2083,7 +2083,7 @@ static void DomainToUnicode(const FunctionCallbackInfo<Value>& args) {
                           v8::NewStringType::kNormal).ToLocalChecked());
 }
 
-std::string URL::ToFilePath() {
+std::string URL::ToFilePath() const {
   if (context_.scheme != "file:") {
     return "";
   }
@@ -2104,7 +2104,7 @@ std::string URL::ToFilePath() {
   }
 #endif
   std::string decoded_path;
-  for (std::string& part : context_.path) {
+  for (const std::string& part : context_.path) {
     std::string decoded;
     PercentDecode(part.c_str(), part.length(), &decoded);
     for (char& ch : decoded) {
@@ -2126,7 +2126,7 @@ std::string URL::ToFilePath() {
   if ((context_.flags & URL_FLAGS_HAS_HOST) &&
       context_.host.length() > 0) {
     std::string unicode_host;
-    if (!ToUnicode(&context_.host, &unicode_host)) {
+    if (!ToUnicode(context_.host, &unicode_host)) {
       return "";
     }
     return "\\\\" + unicode_host + decoded_path;

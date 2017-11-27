@@ -8,6 +8,7 @@
 #include "uv.h"
 #include "nghttp2/nghttp2.h"
 
+#include <queue>
 #include <stdio.h>
 #include <unordered_map>
 
@@ -17,11 +18,11 @@ namespace http2 {
 #ifdef NODE_DEBUG_HTTP2
 
 // Adapted from nghttp2 own debug printer
-static inline void _debug_vfprintf(const char *fmt, va_list args) {
+static inline void _debug_vfprintf(const char* fmt, va_list args) {
   vfprintf(stderr, fmt, args);
 }
 
-void inline debug_vfprintf(const char *format, ...) {
+void inline debug_vfprintf(const char* format, ...) {
   va_list args;
   va_start(args, format);
   _debug_vfprintf(format, args);
@@ -39,11 +40,8 @@ class Nghttp2Session;
 class Nghttp2Stream;
 
 struct nghttp2_stream_write_t;
-struct nghttp2_data_chunk_t;
-struct nghttp2_data_chunks_t;
 
-#define MAX_BUFFER_COUNT 10
-#define SEND_BUFFER_RECOMMENDED_SIZE 4096
+#define MAX_BUFFER_COUNT 16
 
 enum nghttp2_session_type {
   NGHTTP2_SESSION_SERVER,
@@ -68,24 +66,26 @@ enum nghttp2_stream_flags {
   NGHTTP2_STREAM_FLAG_DESTROYED = 0x10
 };
 
+enum nghttp2_stream_options {
+  STREAM_OPTION_EMPTY_PAYLOAD = 0x1,
+  STREAM_OPTION_GET_TRAILERS = 0x2,
+};
 
 // Callbacks
 typedef void (*nghttp2_stream_write_cb)(
     nghttp2_stream_write_t* req,
     int status);
 
-struct nghttp2_stream_write_queue {
+struct nghttp2_stream_write {
   unsigned int nbufs = 0;
   nghttp2_stream_write_t* req = nullptr;
   nghttp2_stream_write_cb cb = nullptr;
-  nghttp2_stream_write_queue* next = nullptr;
   MaybeStackBuffer<uv_buf_t, MAX_BUFFER_COUNT> bufs;
 };
 
-struct nghttp2_header_list {
+struct nghttp2_header {
   nghttp2_rcbuf* name = nullptr;
   nghttp2_rcbuf* value = nullptr;
-  nghttp2_header_list* next = nullptr;
 };
 
 // Handle Types
@@ -93,20 +93,19 @@ class Nghttp2Session {
  public:
   // Initializes the session instance
   inline int Init(
-      uv_loop_t*,
       const nghttp2_session_type type = NGHTTP2_SESSION_SERVER,
       nghttp2_option* options = nullptr,
       nghttp2_mem* mem = nullptr);
 
   // Frees this session instance
-  inline int Free();
+  inline ~Nghttp2Session();
   inline void MarkDestroying();
   bool IsDestroying() {
     return destroying_;
   }
 
-  inline const char* TypeName(nghttp2_session_type type) {
-    switch (type) {
+  inline const char* TypeName() {
+    switch (session_type_) {
       case NGHTTP2_SESSION_SERVER: return "server";
       case NGHTTP2_SESSION_CLIENT: return "client";
       default:
@@ -127,8 +126,7 @@ class Nghttp2Session {
       nghttp2_nv* nva,
       size_t len,
       Nghttp2Stream** assigned = nullptr,
-      bool emptyPayload = true,
-      bool getTrailers = false);
+      int options = 0);
 
   // Submits a notice to the connected peer that the session is in the
   // process of shutting down.
@@ -143,6 +141,8 @@ class Nghttp2Session {
   // Returns the nghttp2 library session
   inline nghttp2_session* session() const { return session_; }
 
+  inline bool IsClosed() const { return session_ == nullptr; }
+
   nghttp2_session_type type() const {
     return session_type_;
   }
@@ -155,13 +155,14 @@ class Nghttp2Session {
   inline void RemoveStream(int32_t id);
 
   virtual void Send(uv_buf_t* buf, size_t length) {}
-  virtual void OnHeaders(Nghttp2Stream* stream,
-                         nghttp2_header_list* headers,
-                         nghttp2_headers_category cat,
-                         uint8_t flags) {}
+  virtual void OnHeaders(
+      Nghttp2Stream* stream,
+      std::queue<nghttp2_header>* headers,
+      nghttp2_headers_category cat,
+      uint8_t flags) {}
   virtual void OnStreamClose(int32_t id, uint32_t code) {}
   virtual void OnDataChunk(Nghttp2Stream* stream,
-                           nghttp2_data_chunk_t* chunk) {}
+                           uv_buf_t* chunk) {}
   virtual void OnSettings(bool ack) {}
   virtual void OnPriority(int32_t id,
                           int32_t parent,
@@ -176,8 +177,7 @@ class Nghttp2Session {
                             int error_code) {}
   virtual ssize_t GetPadding(size_t frameLength,
                              size_t maxFrameLength) { return 0; }
-  virtual void OnFreeSession() {}
-  virtual void AllocateSend(size_t suggested_size, uv_buf_t* buf) = 0;
+  virtual void AllocateSend(uv_buf_t* buf) = 0;
 
   virtual bool HasGetPaddingCallback() { return false; }
 
@@ -200,8 +200,13 @@ class Nghttp2Session {
   virtual void OnTrailers(Nghttp2Stream* stream,
                           const SubmitTrailers& submit_trailers) {}
 
- private:
   inline void SendPendingData();
+
+  virtual uv_loop_t* event_loop() const = 0;
+
+  virtual void Close();
+
+ private:
   inline void HandleHeadersFrame(const nghttp2_frame* frame);
   inline void HandlePriorityFrame(const nghttp2_frame* frame);
   inline void HandleDataFrame(const nghttp2_frame* frame);
@@ -249,7 +254,7 @@ class Nghttp2Session {
   static inline int OnDataChunkReceived(nghttp2_session* session,
                                         uint8_t flags,
                                         int32_t id,
-                                        const uint8_t *data,
+                                        const uint8_t* data,
                                         size_t len,
                                         void* user_data);
   static inline ssize_t OnStreamReadFD(nghttp2_session* session,
@@ -282,8 +287,6 @@ class Nghttp2Session {
   static Callbacks callback_struct_saved[2];
 
   nghttp2_session* session_;
-  uv_loop_t* loop_;
-  uv_prepare_t prep_;
   nghttp2_session_type session_type_;
   std::unordered_map<int32_t, Nghttp2Stream*> streams_;
   bool destroying_ = false;
@@ -299,27 +302,23 @@ class Nghttp2Stream {
       int32_t id,
       Nghttp2Session* session,
       nghttp2_headers_category category = NGHTTP2_HCAT_HEADERS,
-      bool getTrailers = false);
+      int options = 0);
 
   inline ~Nghttp2Stream() {
+#if defined(DEBUG) && DEBUG
     CHECK_EQ(session_, nullptr);
-    CHECK_EQ(queue_head_, nullptr);
-    CHECK_EQ(queue_tail_, nullptr);
-    CHECK_EQ(data_chunks_head_, nullptr);
-    CHECK_EQ(data_chunks_tail_, nullptr);
-    CHECK_EQ(current_headers_head_, nullptr);
-    CHECK_EQ(current_headers_tail_, nullptr);
+#endif
     DEBUG_HTTP2("Nghttp2Stream %d: freed\n", id_);
   }
 
-  inline void FlushDataChunks(bool done = false);
+  inline void FlushDataChunks();
 
   // Resets the state of the stream instance to defaults
   inline void ResetState(
       int32_t id,
       Nghttp2Session* session,
       nghttp2_headers_category category = NGHTTP2_HCAT_HEADERS,
-      bool getTrailers = false);
+      int options = 0);
 
   // Destroy this stream instance and free all held memory.
   // Note that this will free queued outbound and inbound
@@ -347,15 +346,14 @@ class Nghttp2Stream {
   // Initiate a response on this stream.
   inline int SubmitResponse(nghttp2_nv* nva,
                             size_t len,
-                            bool emptyPayload = false,
-                            bool getTrailers = false);
+                            int options);
 
   // Send data read from a file descriptor as the response on this stream.
   inline int SubmitFile(int fd,
                         nghttp2_nv* nva, size_t len,
                         int64_t offset,
                         int64_t length,
-                        bool getTrailers = false);
+                        int options);
 
   // Submit informational headers for this stream
   inline int SubmitInfo(nghttp2_nv* nva, size_t len);
@@ -372,7 +370,7 @@ class Nghttp2Stream {
       nghttp2_nv* nva,
       size_t len,
       Nghttp2Stream** assigned = nullptr,
-      bool writable = true);
+      int options = 0);
 
   // Marks the Writable side of the stream as being shutdown
   inline void Shutdown() {
@@ -388,6 +386,9 @@ class Nghttp2Stream {
   // Start Reading. If there are queued data chunks, they are pushed into
   // the session to be emitted at the JS side
   inline void ReadStart();
+
+  // Resume Reading
+  inline void ReadResume();
 
   // Stop/Pause Reading.
   inline void ReadStop();
@@ -433,23 +434,22 @@ class Nghttp2Stream {
     return id_;
   }
 
-  inline nghttp2_header_list* headers() const {
-    return current_headers_head_;
+  inline std::queue<nghttp2_header>* headers() {
+    return &current_headers_;
   }
 
   inline nghttp2_headers_category headers_category() const {
     return current_headers_category_;
   }
 
-  inline void FreeHeaders();
-
   void StartHeaders(nghttp2_headers_category category) {
     DEBUG_HTTP2("Nghttp2Stream %d: starting headers, category: %d\n",
                 id_, category);
     // We shouldn't be in the middle of a headers block already.
     // Something bad happened if this fails
-    CHECK_EQ(current_headers_head_, nullptr);
-    CHECK_EQ(current_headers_tail_, nullptr);
+#if defined(DEBUG) && DEBUG
+    CHECK(current_headers_.empty());
+#endif
     current_headers_category_ = category;
   }
 
@@ -465,23 +465,20 @@ class Nghttp2Stream {
 
   // Outbound Data... This is the data written by the JS layer that is
   // waiting to be written out to the socket.
-  nghttp2_stream_write_queue* queue_head_ = nullptr;
-  nghttp2_stream_write_queue* queue_tail_ = nullptr;
-  unsigned int queue_head_index_ = 0;
-  size_t queue_head_offset_ = 0;
+  std::queue<nghttp2_stream_write*> queue_;
+  unsigned int queue_index_ = 0;
+  size_t queue_offset_ = 0;
   int64_t fd_offset_ = 0;
   int64_t fd_length_ = -1;
 
   // The Current Headers block... As headers are received for this stream,
   // they are temporarily stored here until the OnFrameReceived is called
   // signalling the end of the HEADERS frame
-  nghttp2_header_list* current_headers_head_ = nullptr;
-  nghttp2_header_list* current_headers_tail_ = nullptr;
   nghttp2_headers_category current_headers_category_ = NGHTTP2_HCAT_HEADERS;
+  std::queue<nghttp2_header> current_headers_;
 
   // Inbound Data... This is the data received via DATA frames for this stream.
-  nghttp2_data_chunk_t* data_chunks_head_ = nullptr;
-  nghttp2_data_chunk_t* data_chunks_tail_ = nullptr;
+  std::queue<uv_buf_t> data_chunks_;
 
   // The RST_STREAM code used to close this stream
   int32_t code_ = NGHTTP2_NO_ERROR;
@@ -497,20 +494,6 @@ class Nghttp2Stream {
 struct nghttp2_stream_write_t {
   void* data;
   int status;
-  Nghttp2Stream* handle;
-  nghttp2_stream_write_queue* item;
-};
-
-struct nghttp2_data_chunk_t {
-  uv_buf_t buf;
-  nghttp2_data_chunk_t* next = nullptr;
-};
-
-struct nghttp2_data_chunks_t {
-  unsigned int nbufs = 0;
-  uv_buf_t buf[MAX_BUFFER_COUNT];
-
-  inline ~nghttp2_data_chunks_t();
 };
 
 }  // namespace http2

@@ -1396,7 +1396,11 @@ tarball.
   compiling Node.js native add-ons. _This property is only present on Windows
   builds of Node.js and will be missing on all other platforms._
 * `lts` {string} a string label identifying the [LTS][] label for this release.
-  If the Node.js release is not an LTS release, this will be `undefined`.
+  This property only exists for LTS releases and is `undefined` for all other
+  release types, including _Current_ releases.  Currently the valid values are:
+  - `'Argon'` for the v4.x LTS line beginning with v4.2.0.
+  - `'Boron'` for the v6.x LTS line beginning with v6.9.0.
+  - `'Carbon'` for the v8.x LTS line beginning with v8.9.1.
 
 For example:
 
@@ -1634,7 +1638,7 @@ important ways:
    respectively.
 2. They cannot be closed ([`end()`][] will throw).
 3. They will never emit the [`'finish'`][] event.
-4. Writes may be synchronous depending on the what the stream is connected to
+4. Writes may be synchronous depending on what the stream is connected to
    and whether the system is Windows or POSIX:
    - Files: *synchronous* on Windows and POSIX
    - TTYs (Terminals): *asynchronous* on Windows, *synchronous* on POSIX
@@ -1838,7 +1842,6 @@ cases:
 [`Error`]: errors.html#errors_class_error
 [`EventEmitter`]: events.html#events_class_eventemitter
 [`JSON.stringify` spec]: https://tc39.github.io/ecma262/#sec-json.stringify
-[`JSON.stringify()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify
 [`console.error()`]: console.html#console_console_error_data_args
 [`console.log()`]: console.html#console_console_log_data_args
 [`end()`]: stream.html#stream_writable_end_chunk_encoding_callback
@@ -1851,7 +1854,6 @@ cases:
 [`process.kill()`]: #process_process_kill_pid_signal
 [`promise.catch()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch
 [`require.main`]: modules.html#modules_accessing_the_main_module
-[`require.resolve()`]: modules.html#modules_require_resolve
 [`setTimeout(fn, 0)`]: timers.html#timers_settimeout_callback_delay_args
 [Child Process]: child_process.html
 [Cluster]: cluster.html

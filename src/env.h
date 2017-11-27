@@ -89,11 +89,11 @@ class ModuleWrap;
   V(arrow_message_private_symbol, "node:arrowMessage")                        \
   V(contextify_context_private_symbol, "node:contextify:context")             \
   V(contextify_global_private_symbol, "node:contextify:global")               \
-  V(inspector_delegate_private_symbol, "node:inspector:delegate")             \
   V(decorated_private_symbol, "node:decorated")                               \
   V(npn_buffer_private_symbol, "node:npnBuffer")                              \
   V(processed_private_symbol, "node:processed")                               \
   V(selected_npn_buffer_private_symbol, "node:selectedNpnBuffer")             \
+  V(domain_private_symbol, "node:domain")                                     \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
@@ -111,6 +111,7 @@ class ModuleWrap;
   V(callback_string, "callback")                                              \
   V(change_string, "change")                                                  \
   V(channel_string, "channel")                                                \
+  V(chunks_sent_since_last_write_string, "chunksSentSinceLastWrite")          \
   V(constants_string, "constants")                                            \
   V(oncertcb_string, "oncertcb")                                              \
   V(onclose_string, "_onclose")                                               \
@@ -225,6 +226,7 @@ class ModuleWrap;
   V(onstreamclose_string, "onstreamclose")                                    \
   V(ontrailers_string, "ontrailers")                                          \
   V(onwrite_string, "onwrite")                                                \
+  V(openssl_error_stack, "opensslErrorStack")                                 \
   V(output_string, "output")                                                  \
   V(order_string, "order")                                                    \
   V(owner_string, "owner")                                                    \
@@ -286,6 +288,7 @@ class ModuleWrap;
   V(verify_error_string, "verifyError")                                       \
   V(version_string, "version")                                                \
   V(weight_string, "weight")                                                  \
+  V(windows_hide_string, "windowsHide")                                       \
   V(windows_verbatim_arguments_string, "windowsVerbatimArguments")            \
   V(wrap_string, "wrap")                                                      \
   V(writable_string, "writable")                                              \
@@ -302,6 +305,7 @@ class ModuleWrap;
   V(async_hooks_after_function, v8::Function)                                 \
   V(async_hooks_promise_resolve_function, v8::Function)                       \
   V(binding_cache_object, v8::Object)                                         \
+  V(internal_binding_cache_object, v8::Object)                                \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
   V(domain_array, v8::Array)                                                  \
@@ -333,7 +337,7 @@ class Environment;
 
 struct node_async_ids {
   double async_id;
-  double trigger_id;
+  double trigger_async_id;
 };
 
 class IsolateData {
@@ -385,14 +389,15 @@ class Environment {
       kDestroy,
       kPromiseResolve,
       kTotals,
+      kCheck,
       kFieldsCount,
     };
 
     enum UidFields {
-      kCurrentAsyncId,
-      kCurrentTriggerId,
-      kAsyncUidCntr,
-      kInitTriggerId,
+      kExecutionAsyncId,
+      kTriggerAsyncId,
+      kAsyncIdCounter,
+      kInitTriggerAsyncId,
       kUidFieldsCount,
     };
 
@@ -401,28 +406,30 @@ class Environment {
     inline AliasedBuffer<uint32_t, v8::Uint32Array>& fields();
     inline int fields_count() const;
 
-    inline AliasedBuffer<double, v8::Float64Array>& uid_fields();
-    inline int uid_fields_count() const;
+    inline AliasedBuffer<double, v8::Float64Array>& async_id_fields();
+    inline int async_id_fields_count() const;
 
     inline v8::Local<v8::String> provider_string(int idx);
 
-    inline void push_ids(double async_id, double trigger_id);
-    inline bool pop_ids(double async_id);
-    inline size_t stack_size();
-    inline void clear_id_stack();  // Used in fatal exceptions.
+    inline void force_checks();
 
-    // Used to propagate the trigger_id to the constructor of any newly created
-    // resources using RAII. Instead of needing to pass the trigger_id along
-    // with other constructor arguments.
+    inline void push_async_ids(double async_id, double trigger_async_id);
+    inline bool pop_async_id(double async_id);
+    inline size_t stack_size();
+    inline void clear_async_id_stack();  // Used in fatal exceptions.
+
+    // Used to propagate the trigger_async_id to the constructor of any newly
+    // created resources using RAII. Instead of needing to pass the
+    // trigger_async_id along with other constructor arguments.
     class InitScope {
      public:
       InitScope() = delete;
-      explicit InitScope(Environment* env, double init_trigger_id);
+      explicit InitScope(Environment* env, double init_trigger_async_id);
       ~InitScope();
 
      private:
       Environment* env_;
-      AliasedBuffer<double, v8::Float64Array> uid_fields_ref_;
+      AliasedBuffer<double, v8::Float64Array> async_id_fields_ref_;
 
       DISALLOW_COPY_AND_ASSIGN(InitScope);
     };
@@ -435,12 +442,12 @@ class Environment {
     // Used by provider_string().
     v8::Isolate* isolate_;
     // Stores the ids of the current execution context stack.
-    std::stack<struct node_async_ids> ids_stack_;
+    std::stack<struct node_async_ids> async_ids_stack_;
     // Attached to a Uint32Array that tracks the number of active hooks for
     // each type.
     AliasedBuffer<uint32_t, v8::Uint32Array> fields_;
     // Attached to a Float64Array that tracks the state of async resources.
-    AliasedBuffer<double, v8::Float64Array> uid_fields_;
+    AliasedBuffer<double, v8::Float64Array> async_id_fields_;
 
     DISALLOW_COPY_AND_ASSIGN(AsyncHooks);
   };
@@ -550,10 +557,11 @@ class Environment {
   inline uint32_t watched_providers() const;
 
   static inline Environment* from_immediate_check_handle(uv_check_t* handle);
-  static inline Environment* from_destroy_ids_timer_handle(uv_timer_t* handle);
+  static inline Environment* from_destroy_async_ids_timer_handle(
+    uv_timer_t* handle);
   inline uv_check_t* immediate_check_handle();
   inline uv_idle_t* immediate_idle_handle();
-  inline uv_timer_t* destroy_ids_timer_handle();
+  inline uv_timer_t* destroy_async_ids_timer_handle();
 
   // Register clean-up cb to be called on environment destruction.
   inline void RegisterHandleCleanup(uv_handle_t* handle,
@@ -582,13 +590,13 @@ class Environment {
 
   // The necessary API for async_hooks.
   inline double new_async_id();
-  inline double current_async_id();
-  inline double trigger_id();
-  inline double get_init_trigger_id();
-  inline void set_init_trigger_id(const double id);
+  inline double execution_async_id();
+  inline double trigger_async_id();
+  inline double get_init_trigger_async_id();
+  inline void set_init_trigger_async_id(const double id);
 
   // List of id's that have been destroyed and need the destroy() cb called.
-  inline std::vector<double>* destroy_ids_list();
+  inline std::vector<double>* destroy_async_id_list();
 
   std::unordered_multimap<int, loader::ModuleWrap*> module_map;
 
@@ -661,8 +669,8 @@ class Environment {
 #undef V
 
 #if HAVE_INSPECTOR
-  inline inspector::Agent* inspector_agent() {
-    return &inspector_agent_;
+  inline inspector::Agent* inspector_agent() const {
+    return inspector_agent_;
   }
 #endif
 
@@ -687,7 +695,7 @@ class Environment {
   IsolateData* const isolate_data_;
   uv_check_t immediate_check_handle_;
   uv_idle_t immediate_idle_handle_;
-  uv_timer_t destroy_ids_timer_handle_;
+  uv_timer_t destroy_async_ids_timer_handle_;
   uv_prepare_t idle_prepare_handle_;
   uv_check_t idle_check_handle_;
 
@@ -701,13 +709,13 @@ class Environment {
   bool abort_on_uncaught_exception_;
   bool emit_napi_warning_;
   size_t makecallback_cntr_;
-  std::vector<double> destroy_ids_list_;
+  std::vector<double> destroy_async_id_list_;
 
   performance::performance_state* performance_state_ = nullptr;
   std::map<std::string, uint64_t> performance_marks_;
 
 #if HAVE_INSPECTOR
-  inspector::Agent inspector_agent_;
+  inspector::Agent* const inspector_agent_;
 #endif
 
   HandleWrapQueue handle_wrap_queue_;

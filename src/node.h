@@ -423,8 +423,9 @@ typedef void (*addon_context_register_func)(
     v8::Local<v8::Context> context,
     void* priv);
 
-#define NM_F_BUILTIN 0x01
-#define NM_F_LINKED  0x02
+#define NM_F_BUILTIN   0x01
+#define NM_F_LINKED    0x02
+#define NM_F_INTERNAL  0x04
 
 struct node_module {
   int nm_version;
@@ -437,9 +438,6 @@ struct node_module {
   void* nm_priv;
   struct node_module* nm_link;
 };
-
-node_module* get_builtin_module(const char *name);
-node_module* get_linked_module(const char *name);
 
 extern "C" NODE_EXTERN void node_module_register(void* mod);
 
@@ -583,7 +581,7 @@ NODE_EXTERN async_uid EmitAsyncInit(v8::Isolate* isolate,
 
 /* If the native API doesn't inherit from the helper class then the callbacks
  * must be triggered manually. This triggers the init() callback. The return
- * value is the uid assigned to the resource.
+ * value is the async id assigned to the resource.
  *
  * The `trigger_async_id` parameter should correspond to the resource which is
  * creating the new resource, which will usually be the return value of

@@ -52,7 +52,7 @@ using AsyncHooks = Environment::AsyncHooks;
 
 Local<Object> PipeWrap::Instantiate(Environment* env, AsyncWrap* parent) {
   EscapableHandleScope handle_scope(env->isolate());
-  AsyncHooks::InitScope init_scope(env, parent->get_id());
+  AsyncHooks::InitScope init_scope(env, parent->get_async_id());
   CHECK_EQ(false, env->pipe_constructor_template().IsEmpty());
   Local<Function> constructor = env->pipe_constructor_template()->GetFunction();
   CHECK_EQ(false, constructor.IsEmpty());
@@ -80,9 +80,9 @@ void PipeWrap::Initialize(Local<Object> target,
   env->SetProtoMethod(t, "hasRef", HandleWrap::HasRef);
 
 #ifdef _WIN32
-  StreamWrap::AddMethods(env, t);
+  LibuvStreamWrap::AddMethods(env, t);
 #else
-  StreamWrap::AddMethods(env, t, StreamBase::kFlagHasWritev);
+  LibuvStreamWrap::AddMethods(env, t, StreamBase::kFlagHasWritev);
 #endif
 
   env->SetProtoMethod(t, "bind", Bind);

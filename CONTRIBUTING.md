@@ -32,6 +32,7 @@ expect throughout each step of the process.
       * [Commit message guidelines](#commit-message-guidelines)
     * [Step 5: Rebase](#step-5-rebase)
     * [Step 6: Test](#step-6-test)
+      * [Test Coverage](#test-coverage)
     * [Step 7: Push](#step-7-push)
     * [Step 8: Opening the Pull Request](#step-8-opening-the-pull-request)
     * [Step 9: Discuss and Update](#step-9-discuss-and-update)
@@ -241,6 +242,10 @@ who you are:
 $ git config --global user.name "J. Random User"
 $ git config --global user.email "j.random.user@example.com"
 ```
+Please make sure this local email is also added to your
+[GitHub email list](https://github.com/settings/emails) so that your commits
+will be properly associated with your account and you will be promoted
+to Contributor once your first commit is landed.
 
 #### Step 1: Fork
 
@@ -281,6 +286,9 @@ should follow the [Style Guide](doc/STYLE_GUIDE.md). Code samples included
 in the API docs will also be checked when running `make lint` (or
 `vcbuild.bat lint` on Windows).
 
+For contributing C++ code, you may want to look at the
+[C++ Style Guide](CPP_STYLE_GUIDE.md).
+
 #### Step 4: Commit
 
 It is a recommended best practice to keep your changes as logically grouped
@@ -301,8 +309,8 @@ notes about [commit squashing](#commit-squashing)).
 A good commit message should describe what changed and why.
 
 1. The first line should:
-   - contain a short description of the change
-   - be 50 characters or less
+   - contain a short description of the change (preferably 50 characters or less,
+     and no more than 72 characters)
    - be entirely in lowercase with the exception of proper nouns, acronyms, and
    the words that refer to code, like function/variable names
    - be prefixed with the name of the changed subsystem and start with an
@@ -404,6 +412,13 @@ If you are updating tests and just want to run a single test to check it:
 $ python tools/test.py -J --mode=release parallel/test-stream2-transform
 ```
 
+You can execute the entire suite of tests for a given subsystem
+by providing the name of a subsystem:
+
+```text
+$ python tools/test.py -J --mode=release child-process
+```
+
 If you want to check the other options, please refer to the help by using
 the `--help` option
 
@@ -419,6 +434,38 @@ $ ./node ./test/parallel/test-stream2-transform.js
 
 Remember to recompile with `make -j4` in between test runs if you change code in
 the `lib` or `src` directories.
+
+##### Test Coverage
+
+It's good practice to ensure any code you add or change is covered by tests.
+You can do so by running the test suite with coverage enabled:
+
+```text
+$ ./configure --coverage && make coverage
+```
+
+A detailed coverage report will be written to `coverage/index.html` for
+JavaScript coverage and to `coverage/cxxcoverage.html` for C++ coverage.
+
+_Note that generating a test coverage report can take several minutes._
+
+To collect coverage for a subset of tests you can set the `CI_JS_SUITES` and
+`CI_NATIVE_SUITES` variables:
+
+```text
+$ CI_JS_SUITES=child-process CI_NATIVE_SUITES= make coverage
+```
+
+The above command executes tests for the `child-process` subsystem and
+outputs the resulting coverage report.
+
+Running tests with coverage will create and modify several directories
+and files. To clean up afterwards, run:
+
+```text
+make coverage-clean
+./configure && make -j4.
+```
 
 #### Step 7: Push
 
@@ -807,11 +854,8 @@ By making a contribution to this project, I certify that:
 [Building guide]: ./BUILDING.md
 [CI (Continuous Integration) test run]: #ci-testing
 [Code of Conduct]: https://github.com/nodejs/TSC/blob/master/CODE_OF_CONDUCT.md
-[guide for writing tests in Node.js]: ./doc/guides/writing-tests.md
 [https://ci.nodejs.org/]: https://ci.nodejs.org/
 [IRC in the #node-dev channel]: https://webchat.freenode.net?channels=node-dev&uio=d4
 [Node.js help repository]: https://github.com/nodejs/help/issues
-[notes about the waiting time]: #waiting-until-the-pull-request-gets-landed
 [Onboarding guide]: ./doc/onboarding.md
-[on GitHub]: https://github.com/nodejs/node
 [Technical Steering Committee (TSC) repository]: https://github.com/nodejs/TSC/issues

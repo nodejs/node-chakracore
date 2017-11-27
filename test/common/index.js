@@ -38,7 +38,9 @@ const noop = () => {};
 
 exports.fixturesDir = fixturesDir;
 
-exports.tmpDirName = 'tmp';
+// Using a `.` prefixed name, which is the convention for "hidden" on POSIX,
+// gets tools to ignore it by default or by simple rules, especially eslint.
+exports.tmpDirName = '.tmp';
 // PORT should match the definition in test/testpy/__init__.py.
 exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
 exports.isWindows = process.platform === 'win32';
@@ -54,13 +56,26 @@ exports.isFreeBSD = process.platform === 'freebsd';
 exports.isLinux = process.platform === 'linux';
 exports.isOSX = process.platform === 'darwin';
 
-exports.enoughTestMem = os.totalmem() > 0x40000000; /* 1 Gb */
+exports.enoughTestMem = os.totalmem() > 0x70000000; /* 1.75 Gb */
 const cpus = os.cpus();
 exports.enoughTestCpu = Array.isArray(cpus) &&
                         (cpus.length > 1 || cpus[0].speed > 999);
 
 exports.rootDir = exports.isWindows ? 'c:\\' : '/';
+exports.projectDir = path.resolve(__dirname, '..', '..');
+
 exports.buildType = process.config.target_defaults.default_configuration;
+
+// Always enable async_hooks checks in tests
+{
+  const async_wrap = process.binding('async_wrap');
+  const { kCheck } = async_wrap.constants;
+  async_wrap.async_hook_fields[kCheck] += 1;
+
+  exports.revert_force_async_hooks_checks = function() {
+    async_wrap.async_hook_fields[kCheck] -= 1;
+  };
+}
 
 // If env var is set then enable async_hook hooks for all tests.
 if (process.env.NODE_TEST_WITH_ASYNC_HOOKS) {
@@ -75,23 +90,26 @@ if (process.env.NODE_TEST_WITH_ASYNC_HOOKS) {
       util.inspect(initHandles[k]);
   });
 
-  const _addIdToDestroyList = async_wrap.addIdToDestroyList;
-  async_wrap.addIdToDestroyList = function addIdToDestroyList(id) {
+  const _queueDestroyAsyncId = async_wrap.queueDestroyAsyncId;
+  async_wrap.queueDestroyAsyncId = function queueDestroyAsyncId(id) {
     if (destroyListList[id] !== undefined) {
       process._rawDebug(destroyListList[id]);
       process._rawDebug();
-      throw new Error(`same id added twice (${id})`);
+      throw new Error(`same id added to destroy list twice (${id})`);
     }
     destroyListList[id] = new Error().stack;
-    _addIdToDestroyList(id);
+    _queueDestroyAsyncId(id);
   };
 
   require('async_hooks').createHook({
-    init(id, ty, tr, h) {
+    init(id, ty, tr, r) {
       if (initHandles[id]) {
+        process._rawDebug(
+          `Is same resource: ${r === initHandles[id].resource}`);
+        process._rawDebug(`Previous stack:\n${initHandles[id].stack}\n`);
         throw new Error(`init called twice for same id (${id})`);
       }
-      initHandles[id] = h;
+      initHandles[id] = { resource: r, stack: new Error().stack.substr(6) };
     },
     before() { },
     after() { },
@@ -256,9 +274,10 @@ Object.defineProperty(exports, 'hasFipsCrypto', {
 });
 
 {
-  const pipePrefix = exports.isWindows ? '\\\\.\\pipe\\' : `${exports.tmpDir}/`;
+  const localRelative = path.relative(process.cwd(), `${exports.tmpDir}/`);
+  const pipePrefix = exports.isWindows ? '\\\\.\\pipe\\' : localRelative;
   const pipeName = `node-test.${process.pid}.sock`;
-  exports.PIPE = pipePrefix + pipeName;
+  exports.PIPE = path.join(pipePrefix, pipeName);
 }
 
 {
@@ -322,7 +341,7 @@ exports.spawnSyncPwd = function(options) {
 };
 
 exports.platformTimeout = function(ms) {
-  if (process.config.target_defaults.default_configuration === 'Debug')
+  if (process.features.debug)
     ms = 2 * ms;
 
   if (global.__coverage__)

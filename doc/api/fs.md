@@ -102,6 +102,11 @@ example `fs.readdirSync('c:\\')` can potentially return a different result than
 `fs.readdirSync('c:')`. For more information, see
 [this MSDN page][MSDN-Rel-Path].
 
+*Note:* On Windows, opening an existing hidden file using the `w` flag (either
+through `fs.open` or `fs.writeFile`) will fail with `EPERM`. Existing hidden
+files can be opened for writing with the `r+` flag. A call to `fs.ftruncate` can
+be used to reset the file contents.
+
 ## Threadpool Usage
 
 Note that all file system APIs except `fs.FSWatcher()` and those that are
@@ -279,8 +284,7 @@ added: v0.1.93
 added: v0.1.93
 -->
 
-Emitted when the `ReadStream`'s underlying file descriptor has been closed
-using the `fs.close()` method.
+Emitted when the `ReadStream`'s underlying file descriptor has been closed.
 
 ### Event: 'open'
 <!-- YAML
@@ -398,8 +402,7 @@ added: v0.1.93
 added: v0.1.93
 -->
 
-Emitted when the `WriteStream`'s underlying file descriptor has been closed
-using the `fs.close()` method.
+Emitted when the `WriteStream`'s underlying file descriptor has been closed.
 
 ### Event: 'open'
 <!-- YAML
@@ -448,6 +451,7 @@ changes:
 * `path` {string|Buffer|URL}
 * `mode` {integer} **Default:** `fs.constants.F_OK`
 * `callback` {Function}
+  * `err` {Error}
 
 Tests a user's permissions for the file or directory specified by `path`.
 The `mode` argument is an optional integer that specifies the accessibility
@@ -600,6 +604,7 @@ changes:
   * `mode` {integer} **Default:** `0o666`
   * `flag` {string} **Default:** `'a'`
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronously append data to a file, creating the file if it does not yet exist.
 `data` can be a string or a buffer.
@@ -662,6 +667,7 @@ changes:
 * `path` {string|Buffer|URL}
 * `mode` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous chmod(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -699,6 +705,7 @@ changes:
 * `uid` {integer}
 * `gid` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous chown(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -731,6 +738,7 @@ changes:
 
 * `fd` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous close(2).  No arguments other than a possible exception are given
 to the completion callback.
@@ -980,6 +988,7 @@ deprecated: v1.0.0
 
 * `path` {string|Buffer|URL}
 * `callback` {Function}
+  * `exists` {Boolean}
 
 Test whether or not the given path exists by checking with the file system.
 Then call the `callback` argument with either true or false.  Example:
@@ -1108,6 +1117,7 @@ changes:
 * `fd` {integer}
 * `mode` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous fchmod(2). No arguments other than a possible exception
 are given to the completion callback.
@@ -1136,6 +1146,7 @@ changes:
 * `uid` {integer}
 * `gid` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous fchown(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -1163,6 +1174,7 @@ changes:
 
 * `fd` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous fdatasync(2). No arguments other than a possible exception are
 given to the completion callback.
@@ -1188,6 +1200,8 @@ changes:
 
 * `fd` {integer}
 * `callback` {Function}
+  * `err` {Error}
+  * `stats` {fs.Stats}
 
 Asynchronous fstat(2). The callback gets two arguments `(err, stats)` where
 `stats` is an [`fs.Stats`][] object. `fstat()` is identical to [`stat()`][],
@@ -1214,6 +1228,7 @@ changes:
 
 * `fd` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous fsync(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -1240,6 +1255,7 @@ changes:
 * `fd` {integer}
 * `len` {integer} **Default:** `0`
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous ftruncate(2). No arguments other than a possible exception are
 given to the completion callback.
@@ -1268,7 +1284,7 @@ If the file previously was shorter than `len` bytes, it is extended, and the
 extended part is filled with null bytes ('\0'). For example,
 
 ```js
-console.log(fs.readFileSync('temp.txt', 'utf-8'));
+console.log(fs.readFileSync('temp.txt', 'utf8'));
 // Prints: Node.js
 
 // get the file descriptor of the file to be truncated
@@ -1310,12 +1326,13 @@ changes:
 -->
 
 * `fd` {integer}
-* `atime` {integer}
-* `mtime` {integer}
+* `atime` {number|string|Date}
+* `mtime` {number|string|Date}
 * `callback` {Function}
+  * `err` {Error}
 
-Change the file timestamps of a file referenced by the supplied file
-descriptor.
+Change the file system timestamps of the object referenced by the supplied file
+descriptor. See [`fs.utimes()`][].
 
 *Note*: This function does not work on AIX versions before 7.1, it will return
 the error `UV_ENOSYS`.
@@ -1349,6 +1366,7 @@ changes:
 * `path` {string|Buffer}
 * `mode` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous lchmod(2). No arguments other than a possible exception
 are given to the completion callback.
@@ -1379,6 +1397,7 @@ changes:
 * `uid` {integer}
 * `gid` {integer}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous lchown(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -1412,6 +1431,7 @@ changes:
 * `existingPath` {string|Buffer|URL}
 * `newPath` {string|Buffer|URL}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous link(2). No arguments other than a possible exception are given to
 the completion callback.
@@ -1448,6 +1468,8 @@ changes:
 
 * `path` {string|Buffer|URL}
 * `callback` {Function}
+  * `err` {Error}
+  * `stats` {fs.Stats}
 
 Asynchronous lstat(2). The callback gets two arguments `(err, stats)` where
 `stats` is a [`fs.Stats`][] object. `lstat()` is identical to `stat()`,
@@ -1485,6 +1507,7 @@ changes:
 * `path` {string|Buffer|URL}
 * `mode` {integer} **Default:** `0o777`
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous mkdir(2). No arguments other than a possible exception are given
 to the completion callback. `mode` defaults to `0o777`.
@@ -1521,6 +1544,8 @@ changes:
 * `options` {string|Object}
   * `encoding` {string} **Default:** `'utf8'`
 * `callback` {Function}
+  * `err` {Error}
+  * `folder` {string}
 
 Creates a unique temporary directory.
 
@@ -1603,6 +1628,8 @@ changes:
 * `flags` {string|number}
 * `mode` {integer} **Default:** `0o666`
 * `callback` {Function}
+  * `err` {Error}
+  * `fd` {integer}
 
 Asynchronous file open. See open(2). `flags` can be:
 
@@ -1721,6 +1748,9 @@ changes:
 * `length` {integer}
 * `position` {integer}
 * `callback` {Function}
+  * `err` {Error}
+  * `bytesRead` {integer}
+  * `buffer` {Buffer}
 
 Read data from the file specified by `fd`.
 
@@ -1761,6 +1791,8 @@ changes:
 * `options` {string|Object}
   * `encoding` {string} **Default:** `'utf8'`
 * `callback` {Function}
+  * `err` {Error}
+  * `files` {string[]|Buffer[]}
 
 Asynchronous readdir(3).  Reads the contents of a directory.
 The callback gets two arguments `(err, files)` where `files` is an array of
@@ -1819,6 +1851,8 @@ changes:
   * `encoding` {string|null} **Default:** `null`
   * `flag` {string} **Default:** `'r'`
 * `callback` {Function}
+  * `err` {Error}
+  * `data` {string|Buffer}
 
 Asynchronously reads the entire contents of a file. Example:
 
@@ -1914,6 +1948,8 @@ changes:
 * `options` {string|Object}
   * `encoding` {string} **Default:** `'utf8'`
 * `callback` {Function}
+  * `err` {Error}
+  * `linkString` {string|Buffer}
 
 Asynchronous readlink(2). The callback gets two arguments `(err,
 linkString)`.
@@ -1989,6 +2025,8 @@ changes:
 * `options` {string|Object}
   * `encoding` {string} **Default:** `'utf8'`
 * `callback` {Function}
+  * `err` {Error}
+  * `resolvedPath` {string|Buffer}
 
 Asynchronous realpath(3). The `callback` gets two arguments `(err,
 resolvedPath)`. May use `process.cwd` to resolve relative paths.
@@ -2057,6 +2095,7 @@ changes:
 * `oldPath` {string|Buffer|URL}
 * `newPath` {string|Buffer|URL}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous rename(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -2093,6 +2132,7 @@ changes:
 
 * `path` {string|Buffer|URL}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous rmdir(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -2133,6 +2173,8 @@ changes:
 
 * `path` {string|Buffer|URL}
 * `callback` {Function}
+  * `err` {Error}
+  * `stats` {fs.Stats}
 
 Asynchronous stat(2). The callback gets two arguments `(err, stats)` where
 `stats` is an [`fs.Stats`][] object.
@@ -2176,6 +2218,7 @@ changes:
 * `path` {string|Buffer|URL}
 * `type` {string} **Default:** `'file'`
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous symlink(2). No arguments other than a possible exception are given
 to the completion callback. The `type` argument can be set to `'dir'`,
@@ -2222,6 +2265,7 @@ changes:
 * `path` {string|Buffer}
 * `len` {integer} **Default:** `0`
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous truncate(2). No arguments other than a possible exception are
 given to the completion callback. A file descriptor can also be passed as the
@@ -2254,6 +2298,7 @@ changes:
 
 * `path` {string|Buffer|URL}
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronous unlink(2). No arguments other than a possible exception are given
 to the completion callback.
@@ -2279,6 +2324,8 @@ added: v0.1.31
 
 * `filename` {string|Buffer}
 * `listener` {Function|undefined} **Default:** `undefined`
+  * `eventType` {string}
+  * `filename` {string|Buffer}
 
 Stop watching for changes on `filename`. If `listener` is specified, only that
 particular listener is removed. Otherwise, *all* listeners are removed,
@@ -2295,6 +2342,10 @@ and `fs.unwatchFile()` when possible.
 <!-- YAML
 added: v0.4.2
 changes:
+  - version: v8.0.0
+    pr-url: https://github.com/nodejs/node/pull/11919
+    description: "`NaN`, `Infinity`, and `-Infinity` are no longer valid time
+                 specifiers."
   - version: v7.6.0
     pr-url: https://github.com/nodejs/node/pull/10739
     description: The `path` parameter can be a WHATWG `URL` object using `file:`
@@ -2310,25 +2361,27 @@ changes:
 -->
 
 * `path` {string|Buffer|URL}
-* `atime` {integer}
-* `mtime` {integer}
+* `atime` {number|string|Date}
+* `mtime` {number|string|Date}
 * `callback` {Function}
+  * `err` {Error}
 
-Change file timestamps of the file referenced by the supplied path.
+Change the file system timestamps of the object referenced by `path`.
 
-*Note*: The arguments `atime` and `mtime` of the following related functions
-follow these rules:
-
-- The value should be a Unix timestamp in seconds. For example, `Date.now()`
-  returns milliseconds, so it should be divided by 1000 before passing it in.
-- If the value is a numeric string like `'123456789'`, the value will get
-  converted to the corresponding number.
-- If the value is `NaN`, `Infinity` or `-Infinity`, an Error will be thrown.
+The `atime` and `mtime` arguments follow these rules:
+- Values can be either numbers representing Unix epoch time, `Date`s, or a
+  numeric string like `'123456789.0'`.
+- If the value can not be converted to a number, or is `NaN`, `Infinity` or
+  `-Infinity`, a `Error` will be thrown.
 
 ## fs.utimesSync(path, atime, mtime)
 <!-- YAML
 added: v0.4.2
 changes:
+  - version: v8.0.0
+    pr-url: https://github.com/nodejs/node/pull/11919
+    description: "`NaN`, `Infinity`, and `-Infinity` are no longer valid time
+                 specifiers."
   - version: v7.6.0
     pr-url: https://github.com/nodejs/node/pull/10739
     description: The `path` parameter can be a WHATWG `URL` object using `file:`
@@ -2369,6 +2422,8 @@ changes:
   * `encoding` {string} Specifies the character encoding to be used for the
      filename passed to the listener. **Default:** `'utf8'`
 * `listener` {Function|undefined} **Default:** `undefined`
+  * `eventType` {string}
+  * `filename` {string|Buffer}
 
 Watch for changes on `filename`, where `filename` is either a file or a
 directory.  The returned object is a [`fs.FSWatcher`][].
@@ -2471,6 +2526,8 @@ changes:
   * `persistent` {boolean} **Default:** `true`
   * `interval` {integer} **Default:** `5007`
 * `listener` {Function}
+  * `current` {fs.Stats}
+  * `previous` {fs.Stats}
 
 Watch for changes on `filename`. The callback `listener` will be called each
 time the file is accessed.
@@ -2508,6 +2565,15 @@ v0.10.
 `fs.unwatchFile`. `fs.watch` should be used instead of `fs.watchFile` and
 `fs.unwatchFile` when possible.
 
+*Note:* When a file being watched by `fs.watchFile()` disappears and reappears,
+then the `previousStat` reported in the second callback event (the file's
+reappearance) will be the same as the `previousStat` of the first callback
+event (its disappearance).
+
+This happens when:
+- the file is deleted, followed by a restore
+- the file is renamed twice - the second time back to its original name
+
 ## fs.write(fd, buffer[, offset[, length[, position]]], callback)
 <!-- YAML
 added: v0.0.2
@@ -2530,6 +2596,9 @@ changes:
 * `length` {integer}
 * `position` {integer}
 * `callback` {Function}
+  * `err` {Error}
+  * `bytesWritten` {integer}
+  * `buffer` {Buffer|Uint8Array}
 
 Write `buffer` to the file specified by `fd`.
 
@@ -2572,6 +2641,9 @@ changes:
 * `position` {integer}
 * `encoding` {string}
 * `callback` {Function}
+  * `err` {Error}
+  * `written` {integer}
+  * `string` {string}
 
 Write `string` to the file specified by `fd`.  If `string` is not a string, then
 the value will be coerced to one.
@@ -2621,6 +2693,7 @@ changes:
   * `mode` {integer} **Default:** `0o666`
   * `flag` {string} **Default:** `'w'`
 * `callback` {Function}
+  * `err` {Error}
 
 Asynchronously writes data to a file, replacing the file if it already exists.
 `data` can be a string or a buffer.
@@ -2806,7 +2879,13 @@ The following constants are meant for use with `fs.open()`.
   </tr>
   <tr>
     <td><code>O_SYNC</code></td>
-    <td>Flag indicating that the file is opened for synchronous I/O.</td>
+    <td>Flag indicating that the file is opened for synchronized I/O with write
+    operations waiting for file integrity.</td>
+  </tr>
+  <tr>
+    <td><code>O_DSYNC</code></td>
+    <td>Flag indicating that the file is opened for synchronized I/O with write
+    operations waiting for data integrity.</td>
   </tr>
   <tr>
     <td><code>O_SYMLINK</code></td>

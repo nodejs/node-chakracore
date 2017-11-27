@@ -1060,8 +1060,8 @@ has ended but before the JavaScript VM is terminated and Node.js shuts down.
 
 #### void AtExit(callback, args)
 
-* `callback`: `void (*)(void*)` - A pointer to the function to call at exit.
-* `args`: `void*` - A pointer to pass to the callback at exit.
+* `callback` {void (\*)(void\*)} A pointer to the function to call at exit.
+* `args` {void\*} A pointer to pass to the callback at exit.
 
 Registers exit hooks that run after the event loop has ended but before the VM
 is killed.
@@ -1095,7 +1095,7 @@ static void at_exit_cb1(void* arg) {
   Isolate* isolate = static_cast<Isolate*>(arg);
   HandleScope scope(isolate);
   Local<Object> obj = Object::New(isolate);
-  assert(!obj.IsEmpty()); // assert VM is still alive
+  assert(!obj.IsEmpty());  // assert VM is still alive
   assert(obj->IsObject());
   at_exit_cb1_called++;
 }
