@@ -42,6 +42,28 @@ class Task {
   virtual void Run() = 0;
 };
 
+class IdleTask {
+ public:
+  virtual ~IdleTask() = default;
+  virtual void Run(double deadline_in_seconds) = 0;
+};
+
+class TaskRunner {
+ public:
+  virtual void PostTask(std::unique_ptr<Task> task) = 0;
+  virtual void PostDelayedTask(std::unique_ptr<Task> task,
+                               double delay_in_seconds) = 0;
+  virtual void PostIdleTask(std::unique_ptr<IdleTask> task) = 0;
+  virtual bool IdleTasksEnabled() = 0;
+
+  TaskRunner() = default;
+  virtual ~TaskRunner() = default;
+
+ private:
+  TaskRunner(const TaskRunner&) = delete;
+  TaskRunner& operator=(const TaskRunner&) = delete;
+};
+
 /**
 * The interface represents complex arguments to trace events.
 */
@@ -101,6 +123,17 @@ class Platform {
   virtual ~Platform() = default;
 
   virtual size_t NumberOfAvailableBackgroundThreads() { return 0; }
+  
+  virtual std::shared_ptr<v8::TaskRunner> GetForegroundTaskRunner(
+      Isolate* isolate) {
+    return {};
+  }
+
+  virtual std::shared_ptr<v8::TaskRunner> GetBackgroundTaskRunner(
+      Isolate* isolate) {
+    return {};
+  }
+
   virtual void CallOnBackgroundThread(Task* task,
                                       ExpectedRuntime expected_runtime) = 0;
   virtual void CallOnForegroundThread(Isolate* isolate, Task* task) = 0;

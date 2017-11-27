@@ -82,11 +82,11 @@ inline size_t _countof(T (&)[N]) {
 #define CHAKRA_ASSERT(expr) assert(expr)
 #define CHAKRA_UNIMPLEMENTED() jsrt::Unimplemented(__FUNCTION__)
 #define CHAKRA_UNIMPLEMENTED_(message) jsrt::Unimplemented(message)
-#else // DEBUG
+#else  // DEBUG
 #define CHAKRA_UNIMPLEMENTED()         /* no-op */
 #define CHAKRA_UNIMPLEMENTED_(message) /* no-op */
 #define CHAKRA_ASSERT(expr)            /* no-op */
-#endif // DEBUG
+#endif  // DEBUG
 
 #define CHAKRA_VERIFY(expr) if (!(expr)) { \
   jsrt::Fatal("internal error %s(%d): %s", __FILE__, __LINE__, #expr); }
