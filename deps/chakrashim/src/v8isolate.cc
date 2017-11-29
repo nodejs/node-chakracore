@@ -215,7 +215,7 @@ void Isolate::TerminateExecution() {
 }
 
 void Isolate::RequestGarbageCollectionForTesting(GarbageCollectionType type) {
-  JsCollectGarbage(jsrt::IsolateShim::FromIsolate(this)->GetRuntimeHandle());
+  jsrt::IsolateShim::FromIsolate(this)->CollectGarbage();
 }
 
 void Isolate::SetCounterFunction(CounterLookupCallback) {
@@ -241,7 +241,7 @@ bool Isolate::IdleNotification(int idle_time_in_ms) {
 }
 
 void Isolate::LowMemoryNotification() {
-  CHAKRA_UNIMPLEMENTED();
+  jsrt::IsolateShim::GetCurrent()->CollectGarbage();
 }
 
 int Isolate::ContextDisposedNotification() {

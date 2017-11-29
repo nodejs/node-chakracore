@@ -78,20 +78,21 @@ inline size_t _countof(T (&)[N]) {
     } \
   }
 
+#ifdef DEBUG
+#define CHAKRA_ASSERT(expr) assert(expr)
 #define CHAKRA_UNIMPLEMENTED() jsrt::Unimplemented(__FUNCTION__)
 #define CHAKRA_UNIMPLEMENTED_(message) jsrt::Unimplemented(message)
+#else // DEBUG
+#define CHAKRA_UNIMPLEMENTED()         /* no-op */
+#define CHAKRA_UNIMPLEMENTED_(message) /* no-op */
+#define CHAKRA_ASSERT(expr)            /* no-op */
+#endif // DEBUG
 
 #define CHAKRA_VERIFY(expr) if (!(expr)) { \
   jsrt::Fatal("internal error %s(%d): %s", __FILE__, __LINE__, #expr); }
 
 #define CHAKRA_VERIFY_NOERROR(errorCode) if (errorCode != JsNoError) { \
   jsrt::Fatal("internal error %s(%d): %x", __FILE__, __LINE__, errorCode); }
-
-#ifdef DEBUG
-#define CHAKRA_ASSERT(expr) assert(expr)
-#else
-#define CHAKRA_ASSERT(expr)
-#endif
 
 namespace jsrt {
 

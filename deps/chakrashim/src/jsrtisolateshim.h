@@ -62,6 +62,7 @@ class IsolateShim {
   bool NewContext(JsContextRef * context, bool exposeGC, bool useGlobalTTState,
                                JsValueRef globalObjectTemplateInstance);
   bool GetMemoryUsage(size_t * memoryUsage);
+  void CollectGarbage();
   bool Dispose();
   bool IsDisposing();
 
