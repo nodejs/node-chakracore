@@ -426,6 +426,10 @@ bool IsolateShim::GetMemoryUsage(size_t * memoryUsage) {
   return (JsGetRuntimeMemoryUsage(runtime, memoryUsage) == JsNoError);
 }
 
+void IsolateShim::CollectGarbage() {
+  JsCollectGarbage(runtime);
+}
+
 void IsolateShim::DisposeAll() {
   // CHAKRA-TODO: multithread locking for s_isolateList?
   IsolateShim * curr = s_isolateList;
