@@ -28,7 +28,11 @@ function checkVersion(response) {
 
 function checkBadPath(err) {
   assert(err instanceof SyntaxError);
-  assert(/Unexpected token/.test(err.message), err.message);
+  assert(
+    common.engineSpecificMessage({
+      v8: /Unexpected token/,
+      chakracore: /JSON\.parse Error: Invalid character at position:1/
+    }).test(err.message), err.message);
   assert(/WebSockets request was expected/.test(err.body), err.body);
 }
 
@@ -65,14 +69,20 @@ async function testBreakpointOnStart(session) {
     { 'method': 'Debugger.setPauseOnExceptions',
       'params': { 'state': 'none' } },
     { 'method': 'Debugger.setAsyncCallStackDepth',
-      'params': { 'maxDepth': 0 } },
-    { 'method': 'Profiler.enable' },
-    { 'method': 'Profiler.setSamplingInterval',
-      'params': { 'interval': 100 } },
+      'params': { 'maxDepth': 0 } }
+  ];
+
+  if (process.jsEngine !== 'chakracore') {
+    commands.push(
+      { 'method': 'Profiler.enable' },
+      { 'method': 'Profiler.setSamplingInterval',
+        'params': { 'interval': 100 } });
+  }
+
+  commands.push(
     { 'method': 'Debugger.setBlackboxPatterns',
       'params': { 'patterns': [] } },
-    { 'method': 'Runtime.runIfWaitingForDebugger' }
-  ];
+    { 'method': 'Runtime.runIfWaitingForDebugger' });
 
   await session.send(commands);
   await session.waitForBreakOnLine(0, mainScriptPath);
@@ -260,7 +270,10 @@ async function testCommandLineAPI(session) {
   checkException(result);
   assert.deepStrictEqual(JSON.parse(result['result']['value']), {
     parentsEqual: true,
-    parentId: '<inspector console>'
+    parentId: common.engineSpecificMessage({
+      v8: '<inspector console>',
+      chakracore: '.'
+    })
   });
   // the `require` in the module shadows the command line API's `require`
   result = await session.send(

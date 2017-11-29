@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 const fixtures = require('../common/fixtures');
 const assert = require('assert');
 const execFile = require('child_process').execFile;
