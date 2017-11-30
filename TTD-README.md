@@ -58,7 +58,7 @@ TTD functionality is available in Node-ChakraCore and is supported by
 traces even if you don't have the project sources available. This is done by:
 - Creating an empty `dummy.js` file in the trace directory.
 - Adding the following configuration into your `.vscode\launch.json` configuration file.
-```
+```json
 {
     "name": "Trace Debug",
     "type": "node",
@@ -85,10 +85,10 @@ To get started with diagnostic tracing and TTD you will need the following:
 - Install [Node-ChakraCore](https://github.com/nodejs/node-chakracore/releases)
     - (Recommended) install [NVS](https://github.com/jasongin/nvs/blob/master/README.md) which is a cross-platform tool for switching between different versions and forks of Node.js and will allow you to easily switch between Node-ChakraCore and other Node.js versions. Once NVS is installed simply enter the following commands in the console:
         
-        ```
-        nvs remote chakracore-nightly https://nodejs.org/download/chakracore-nightly/
-        nvs add chakracore-nightly/latest
-        nvs use chakracore-nightly
+        ```console
+        $ nvs remote chakracore-nightly https://nodejs.org/download/chakracore-nightly/
+        $ nvs add chakracore-nightly/latest
+        $ nvs use chakracore-nightly
         ```
     - (Manual) Download the build for your platform/architecture and manually add the location of the binaries to your path.
 - Install [VSCode](https://code.visualstudio.com/) using the latest installer.

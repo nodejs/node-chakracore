@@ -1,5 +1,4 @@
-Node.js on ChakraCore
-=====================
+# Node.js on ChakraCore
 
 This project enables Node.js to optionally use the [ChakraCore](https://github.com/Microsoft/ChakraCore)
 JavaScript engine. This project is still **work in progress** and not an officially
@@ -46,20 +45,20 @@ You can download and install stable prebuilt Node-ChakraCore from the
 _For installing Node-ChakraCore side-by-side your existing Node installation, we
 recommend [Node Version Switcher (NVS)](https://github.com/jasongin/nvs)._
 
-```
-nvs remote chakracore https://github.com/nodejs/node-chakracore/releases
-nvs add chakracore/latest
-nvs use chakracore
+```console
+$ nvs remote chakracore https://github.com/nodejs/node-chakracore/releases
+$ nvs add chakracore/latest
+$ nvs use chakracore
 ```
 
 Nightly builds of Node-ChakraCore are available at
 [https://nodejs.org/download/chakracore-nightly/](https://nodejs.org/download/chakracore-nightly/)
 Please use the following instructions to install the nightly builds.
 
-```
-nvs remote chakracore-nightly https://nodejs.org/download/chakracore-nightly/
-nvs add chakracore-nightly/latest
-nvs use chakracore-nightly
+```console
+$ nvs remote chakracore-nightly https://nodejs.org/download/chakracore-nightly/
+$ nvs add chakracore-nightly/latest
+$ nvs use chakracore-nightly
 ```
 
 ### Building Node-ChakraCore
@@ -74,19 +73,19 @@ Prerequisites:
 * [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
 
 Build Command:
-```batch
+```console
 > vcbuild [x86|x64|arm]
 ```
 
 To run unit tests
 
-```batch
+```console
 > vcbuild nobuild test ignore-flaky [x86|x64|arm]
 ```
 
 To test if Node.js was built correctly with ChakraCore:
 
-```batch
+```console
 > node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
@@ -97,12 +96,12 @@ Install building tools and ChakraCore dependencies:
 Clang 3.7+ / CMake 3.2 are required
 
 Debian/Ubuntu:
-```
+```console
 $ sudo apt-get install -y build-essential cmake clang libicu-dev
 ```
 
 Fedora:
-```
+```console
 $ su
 $ dnf group install -y "Development Tools" "C Development Tools and Libraries"
 $ dnf install -y git cmake clang gcc gcc-c++ kernel-devel python llvm
@@ -111,26 +110,26 @@ $ dnf install -y lttng-ust-devel.x86_64 libicu-devel.x86_64 libstdc++-static.x86
 
 Clone this repo and check out **`master`** branch:
 
-```
+```console
 $ git checkout master
 ```
 
 Build:
 
-```
+```console
 $ ./configure
 $ make
 ```
 
 To run unit tests:
 
-```
+```console
 $ FLAKY_TESTS=dontcare make test
 ```
 
 To test if Node.js was built correctly with ChakraCore:
 
-```
+```console
 $ node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
@@ -143,27 +142,27 @@ Prerequisites:
 
 Install the building tools:
 
-```
-xcode-select --install
-brew install cmake
+```console
+$ xcode-select --install
+$ brew install cmake
 ```
 
 Clone this repo and check out **`master`** branch:
 
-```
-git checkout master
+```console
+$ git checkout master
 ```
 
 Build:
 
-```
-./configure
-make 
+```console
+$ ./configure
+$ make 
 ```
 
 To test if Node.js was built correctly with ChakraCore:
 
-```
+```console
 $ ./node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
