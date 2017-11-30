@@ -170,6 +170,7 @@ class FunctionTemplateData : public TemplateData {
   Persistent<ObjectTemplate> instanceTemplate;
   Persistent<FunctionTemplate> parent;
   Persistent<Function> functionInstance;
+  Persistent<String> className;
   bool removePrototype;
 
  public:
@@ -191,6 +192,7 @@ class FunctionTemplateData : public TemplateData {
     instanceTemplate.Reset();
     parent.Reset();
     functionInstance.Reset();
+    className.Reset();
   }
 
   static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
@@ -208,6 +210,10 @@ class FunctionTemplateData : public TemplateData {
 
   void SetRemovePrototype(bool removePrototype) {
     this->removePrototype = removePrototype;
+  }
+
+  void SetClassName(Handle<String> className) {
+    this->className = className;
   }
 
   void Inherit(Local<FunctionTemplate> parent) {
@@ -237,13 +243,10 @@ class FunctionTemplateData : public TemplateData {
         return nullptr;
       }
 
-      Local<String> className = !instanceTemplate.IsEmpty() ?
-        instanceTemplate->GetClassName() : Local<String>();
-
       JsValueRef function = nullptr;
       {
-        if (!className.IsEmpty()) {
-          error = JsCreateNamedFunction(*className,
+        if (!this->className.IsEmpty()) {
+          error = JsCreateNamedFunction(*this->className,
                                         FunctionCallbackData::FunctionInvoked,
                                         funcCallbackObjectRef, &function);
         } else {
@@ -368,7 +371,10 @@ Local<ObjectTemplate> FunctionTemplate::InstanceTemplate() {
     return Local<ObjectTemplate>();
   }
 
-  return functionTemplateData->EnsureInstanceTemplate();
+  Local<ObjectTemplate> instanceTemplate =
+      functionTemplateData->EnsureInstanceTemplate();
+  instanceTemplate->SetConstructor(this);
+  return instanceTemplate;
 }
 
 Local<ObjectTemplate> FunctionTemplate::PrototypeTemplate() {
@@ -382,10 +388,13 @@ Local<ObjectTemplate> FunctionTemplate::PrototypeTemplate() {
 }
 
 void FunctionTemplate::SetClassName(Handle<String> name) {
-  Local<ObjectTemplate> instanceTemplate = InstanceTemplate();
-  if (!instanceTemplate.IsEmpty()) {
-    instanceTemplate->SetClassName(name);
+  FunctionTemplateData* functionTemplateData = nullptr;
+  if (!ExternalData::TryGet(this, &functionTemplateData)) {
+    CHAKRA_ASSERT(false);  // This should never happen
+    return;
   }
+
+  return functionTemplateData->SetClassName(name);
 }
 
 void FunctionTemplate::SetHiddenPrototype(bool value) {
