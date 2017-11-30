@@ -623,13 +623,29 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
   if (isPropIntType) {
     if (objectData->setterGetterInterceptor != nullptr) {
       if (objectData->setterGetterInterceptor->
+          indexedPropertyDescriptor != nullptr) {
+        PropertyCallbackInfo<Value> info(
+            *(objectData->setterGetterInterceptor->
+                indexedPropertyInterceptorData),
+            reinterpret_cast<Object*>(object),
+            /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->indexedPropertyDescriptor(
+            index, info);
+        descriptor = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+
+        if (descriptor != JS_INVALID_REFERENCE) {
+          return descriptor;
+        }
+      }
+
+      if (objectData->setterGetterInterceptor->
           indexedPropertyQuery != nullptr) {
         HandleScope scope(nullptr);
         PropertyCallbackInfo<Integer> info(
-          *(objectData->setterGetterInterceptor->
-                        indexedPropertyInterceptorData),
-          reinterpret_cast<Object*>(object),
-          /*holder*/reinterpret_cast<Object*>(object));
+            *(objectData->setterGetterInterceptor->
+                indexedPropertyInterceptorData),
+            reinterpret_cast<Object*>(object),
+            /*holder*/reinterpret_cast<Object*>(object));
         objectData->setterGetterInterceptor->indexedPropertyQuery(index, info);
         queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
@@ -637,77 +653,83 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
       if (objectData->setterGetterInterceptor->
           indexedPropertyGetter != nullptr) {
         PropertyCallbackInfo<Value> info(
-          *(objectData->setterGetterInterceptor->
-                        indexedPropertyInterceptorData),
-          reinterpret_cast<Object*>(object),
-          /*holder*/reinterpret_cast<Object*>(object));
+            *(objectData->setterGetterInterceptor->
+                indexedPropertyInterceptorData),
+            reinterpret_cast<Object*>(object),
+            /*holder*/reinterpret_cast<Object*>(object));
         objectData->setterGetterInterceptor->indexedPropertyGetter(index, info);
         value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
-    }
 
-    // if queryResult valid, ensure value available
-    if (queryResult != JS_INVALID_REFERENCE && value == JS_INVALID_REFERENCE) {
-      if (jsrt::GetIndexedProperty(object, index, &value) != JsNoError) {
-        return jsrt::GetUndefined();
+      // if queryResult valid, ensure value available
+      if (queryResult != JS_INVALID_REFERENCE && value ==
+          JS_INVALID_REFERENCE) {
+        if (jsrt::GetIndexedProperty(object, index, &value) != JsNoError) {
+          return jsrt::GetUndefined();
+        }
       }
-    }
-
-    // We should not have both a Descriptor and a Query.
-    if (objectData->setterGetterInterceptor != nullptr &&
-        objectData->setterGetterInterceptor->
-                    indexedPropertyDescriptor != nullptr) {
-      PropertyCallbackInfo<Value> info(
-        *(objectData->setterGetterInterceptor->indexedPropertyInterceptorData),
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->setterGetterInterceptor->
-                  indexedPropertyDescriptor(index, info);
-      descriptor = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
     }
   } else {  // named property...
     if (objectData->setterGetterInterceptor != nullptr) {
+      if (objectData->setterGetterInterceptor->
+          namedPropertyDescriptor != nullptr) {
+        PropertyCallbackInfo<Value> info(
+            *(objectData->setterGetterInterceptor->
+                namedPropertyInterceptorData),
+            reinterpret_cast<Object*>(object),
+            /*holder*/reinterpret_cast<Object*>(object));
+        objectData->setterGetterInterceptor->namedPropertyDescriptor(
+            reinterpret_cast<String*>(prop), info);
+        descriptor = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+
+        if (descriptor != JS_INVALID_REFERENCE) {
+          return descriptor;
+        }
+      }
+
       // query the property descriptor if there is such, and then get the value
       // from the proxy in order to go through the interceptor
       if (objectData->setterGetterInterceptor->namedPropertyQuery != nullptr) {
         HandleScope scope(nullptr);
         PropertyCallbackInfo<Integer> info(
-          *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
-          reinterpret_cast<Object*>(object),
-          /*holder*/reinterpret_cast<Object*>(object));
+            *(objectData->setterGetterInterceptor->
+                namedPropertyInterceptorData),
+            reinterpret_cast<Object*>(object),
+            /*holder*/reinterpret_cast<Object*>(object));
         objectData->setterGetterInterceptor->
-          namedPropertyQuery(reinterpret_cast<String*>(prop), info);
+            namedPropertyQuery(reinterpret_cast<String*>(prop), info);
         queryResult = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
 
       if (objectData->setterGetterInterceptor->namedPropertyGetter != nullptr) {
         PropertyCallbackInfo<Value> info(
-          *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
-          reinterpret_cast<Object*>(object),
-          /*holder*/reinterpret_cast<Object*>(object));
+            *(objectData->setterGetterInterceptor->
+                namedPropertyInterceptorData),
+            reinterpret_cast<Object*>(object),
+            /*holder*/reinterpret_cast<Object*>(object));
         objectData->setterGetterInterceptor->
-          namedPropertyGetter(reinterpret_cast<String*>(prop), info);
+            namedPropertyGetter(reinterpret_cast<String*>(prop), info);
         value = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
       }
-    }
 
-    // if queryResult valid, ensure value available
-    if (queryResult != JS_INVALID_REFERENCE && value == JS_INVALID_REFERENCE) {
-      if (jsrt::GetProperty(object, prop, &value) != JsNoError) {
-        return jsrt::GetUndefined();
+      // if queryResult valid, ensure value available
+      if (queryResult != JS_INVALID_REFERENCE && value ==
+          JS_INVALID_REFERENCE) {
+        if (jsrt::GetProperty(object, prop, &value) != JsNoError) {
+          return jsrt::GetUndefined();
+        }
       }
     }
+  }
 
-    if (objectData->setterGetterInterceptor != nullptr &&
-      objectData->setterGetterInterceptor->namedPropertyDescriptor != nullptr) {
-      PropertyCallbackInfo<Value> info(
-        *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
-        reinterpret_cast<Object*>(object),
-        /*holder*/reinterpret_cast<Object*>(object));
-      objectData->setterGetterInterceptor->namedPropertyDescriptor(
-        reinterpret_cast<String*>(prop), info);
-      descriptor = reinterpret_cast<JsValueRef>(info.GetReturnValue().Get());
+  // if neither is intercepted, fallback to default
+  if (queryResult == JS_INVALID_REFERENCE && value == JS_INVALID_REFERENCE) {
+    if (jsrt::GetOwnPropertyDescriptor(object, prop,
+                                       &descriptor) != JsNoError) {
+      return jsrt::GetUndefined();
     }
+
+    return descriptor;
   }
 
   int queryResultInt = v8::PropertyAttribute::DontEnum;
@@ -715,22 +737,14 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     if (jsrt::ValueToIntLikely(queryResult, &queryResultInt) != JsNoError) {
       return jsrt::GetUndefined();
     }
-
-    v8::PropertyAttribute attributes =
-      static_cast<v8::PropertyAttribute>(queryResultInt);
-    if (jsrt::CreatePropertyDescriptor(attributes, value, JS_INVALID_REFERENCE,
-                                       JS_INVALID_REFERENCE,
-                                       &descriptor) != JsNoError) {
-      return jsrt::GetUndefined();
-    }
   }
 
-  // if nothing is intercepted, fallback to default
-  if (descriptor == JS_INVALID_REFERENCE) {
-    if (jsrt::GetOwnPropertyDescriptor(object, prop,
-                                       &descriptor) != JsNoError) {
-      return jsrt::GetUndefined();
-    }
+  v8::PropertyAttribute attributes =
+      static_cast<v8::PropertyAttribute>(queryResultInt);
+  if (jsrt::CreatePropertyDescriptor(attributes, value, JS_INVALID_REFERENCE,
+                                     JS_INVALID_REFERENCE,
+                                     &descriptor) != JsNoError) {
+    return jsrt::GetUndefined();
   }
 
   return descriptor;
