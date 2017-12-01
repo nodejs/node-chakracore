@@ -27,23 +27,23 @@ class ObjectTemplateData : public TemplateData {
   static const ExternalDataTypes ExternalDataType =
       ExternalDataTypes::ObjectTemplateData;
 
-  Persistent<String> className;
-
   SetterGetterInterceptor * setterGetterInterceptor;
   FunctionCallback functionCallDelegate;
   Persistent<Value> functionCallDelegateInterceptorData;
+  Persistent<FunctionTemplate> constructor;
   int internalFieldCount;
 
-  ObjectTemplateData()
+  explicit ObjectTemplateData(Handle<FunctionTemplate> constructor)
       : TemplateData(ExternalDataType),
         setterGetterInterceptor(nullptr),
         functionCallDelegate(nullptr),
         functionCallDelegateInterceptorData(nullptr),
+        constructor(*constructor),
         internalFieldCount(0) {
   }
 
   ~ObjectTemplateData() {
-      className.Reset();
+      constructor.Reset();
 
       if (setterGetterInterceptor != nullptr) {
         setterGetterInterceptor->namedPropertyInterceptorData.Reset();
@@ -822,9 +822,10 @@ JsValueRef CHAKRA_CALLBACK Utils::DefinePropertyCallback(
   return jsrt::GetTrue();
 }
 
-Local<ObjectTemplate> ObjectTemplate::New(Isolate* isolate) {
+Local<ObjectTemplate> ObjectTemplate::New(Isolate* isolate,
+                                          Local<FunctionTemplate> constructor) {
   JsValueRef objectTemplateRef;
-  ObjectTemplateData* templateData = new ObjectTemplateData();
+  ObjectTemplateData* templateData = new ObjectTemplateData(constructor);
 
   if (JsCreateExternalObject(templateData,
                              ObjectTemplateData::FinalizeCallback,
@@ -866,6 +867,27 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
                              &newInstanceRef) != JsNoError) {
     delete objectData;
     return Local<Object>();
+  }
+
+  // If there was no prototype specifically provided, then try to get one from
+  // the constructor, if it exists.  It's possible that the constructor
+  // function doesn't have a prototype to provide.
+  if (prototype.IsEmpty()) {
+    if (!objectTemplateData->constructor.IsEmpty()) {
+      Local<Function> function = objectTemplateData->constructor->GetFunction();
+
+      if (!function.IsEmpty()) {
+        jsrt::IsolateShim* iso = jsrt::IsolateShim::GetCurrent();
+        JsValueRef prototypeValue = nullptr;
+
+        if (JsGetProperty(*function,
+                          iso->GetCachedPropertyIdRef(
+                              jsrt::CachedPropertyIdRef::prototype),
+                          &prototypeValue) == JsNoError) {
+          prototype = Local<Object>::New(prototypeValue);
+        }
+      }
+    }
   }
 
   if (!prototype.IsEmpty()) {
@@ -947,7 +969,6 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
     return Local<Object>();
   }
 
-  objectData->objectInstance = newInstanceRef;
   return Local<Object>::New(static_cast<Object*>(newInstanceRef));
 }
 
@@ -1097,24 +1118,14 @@ void ObjectTemplate::SetInternalFieldCount(int value) {
   objectTemplateData->internalFieldCount = value;
 }
 
-void ObjectTemplate::SetClassName(Handle<String> className) {
+void ObjectTemplate::SetConstructor(Handle<FunctionTemplate> constructor) {
   ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
     CHAKRA_ASSERT(false);  // This should never happen
     return;
   }
 
-  objectTemplateData->className = className;
-}
-
-Handle<String> ObjectTemplate::GetClassName() {
-  ObjectTemplateData* objectTemplateData = nullptr;
-  if (!ExternalData::TryGet(this, &objectTemplateData)) {
-    CHAKRA_ASSERT(false);  // This should never happen
-    return Handle<String>();
-  }
-
-  return objectTemplateData->className;
+  objectTemplateData->constructor = constructor;
 }
 
 }  // namespace v8

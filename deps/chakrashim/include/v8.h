@@ -2366,12 +2366,12 @@ struct IndexedPropertyHandlerConfiguration {
 
 class V8_EXPORT ObjectTemplate : public Template {
  public:
-  static Local<ObjectTemplate> New(Isolate* isolate);
+  static Local<ObjectTemplate> New(
+      Isolate* isolate,
+      Local<FunctionTemplate> constructor = Local<FunctionTemplate>());
 
   V8_DEPRECATE_SOON("Use maybe version", Local<Object> NewInstance());
   V8_WARN_UNUSED_RESULT MaybeLocal<Object> NewInstance(Local<Context> context);
-
-  void SetClassName(Handle<String> name);
 
   void SetAccessor(Handle<String> name,
                    AccessorGetterCallback getter,
@@ -2423,12 +2423,13 @@ class V8_EXPORT ObjectTemplate : public Template {
                                 Handle<Value> data = Handle<Value>());
 
  private:
+  friend class FunctionTemplate;
   friend class FunctionCallbackData;
   friend class FunctionTemplateData;
   friend class Utils;
 
   Local<Object> NewInstance(Handle<Object> prototype);
-  Handle<String> GetClassName();
+  void SetConstructor(Handle<FunctionTemplate> constructor);
 };
 
 class V8_EXPORT External : public Value {
