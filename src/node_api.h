@@ -14,7 +14,9 @@
 #include <stdbool.h>
 #include "node_api_types.h"
 
-#define NAPI_VERSION  1
+struct uv_loop_s;  // Forward declaration.
+
+#define NAPI_VERSION  2
 
 #ifdef _WIN32
   #ifdef BUILDING_NODE_EXTENSION
@@ -582,6 +584,10 @@ NAPI_EXTERN napi_status napi_adjust_external_memory(napi_env env,
 NAPI_EXTERN napi_status napi_run_script(napi_env env,
                                         napi_value script,
                                         napi_value* result);
+
+// Return the current libuv event loop for a given environment
+NAPI_EXTERN napi_status napi_get_uv_event_loop(napi_env env,
+                                               struct uv_loop_s** loop);
 
 EXTERN_C_END
 
