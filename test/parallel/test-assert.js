@@ -589,7 +589,7 @@ function testAssertionMessage(actual, expected) {
     assert.strictEqual(actual, '');
   } catch (e) {
     assert.strictEqual(e.message,
-                       [expected, '===', '\'\''].join(' '));
+                       [expected, 'strictEqual', '\'\''].join(' '));
     assert.ok(e.generatedMessage, 'Message not marked as generated');
   }
 }
@@ -636,7 +636,7 @@ testAssertionMessage({ a: NaN, b: Infinity, c: -Infinity },
 try {
   assert.strictEqual(1, 2);
 } catch (e) {
-  assert.strictEqual(e.message.split('\n')[0], '1 === 2');
+  assert.strictEqual(e.message.split('\n')[0], '1 strictEqual 2');
   assert.ok(e.generatedMessage, 'Message not marked as generated');
 }
 
@@ -730,7 +730,7 @@ assert.throws(() => {
   assert.strictEqual('A'.repeat(1000), '');
 }, common.expectsError({
   code: 'ERR_ASSERTION',
-  message: new RegExp(`^'${'A'.repeat(127)} === ''$`) }));
+  message: new RegExp(`^'${'A'.repeat(127)} strictEqual ''$`) }));
 
 {
   // bad args to AssertionError constructor should throw TypeError
@@ -752,6 +752,6 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: /^'Error: foo' === 'Error: foobar'$/
+    message: /^'Error: foo' strictEqual 'Error: foobar'$/
   }
 );

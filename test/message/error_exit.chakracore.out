@@ -3,7 +3,7 @@ assert.js:*
   throw new errors.AssertionError({
   ^
 
-AssertionError [ERR_ASSERTION]: 1 === 2
+AssertionError [ERR_ASSERTION]: 1 strictEqual 2
    at Anonymous function (*test*message*error_exit.js:*:*)
    at Module.prototype._compile (module.js:*:*)
    at Module._extensions[.js] (module.js:*:*)

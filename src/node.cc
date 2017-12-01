@@ -4517,6 +4517,19 @@ void FreeEnvironment(Environment* env) {
   delete env;
 }
 
+
+MultiIsolatePlatform* CreatePlatform(
+    int thread_pool_size,
+    v8::TracingController* tracing_controller) {
+  return new NodePlatform(thread_pool_size, tracing_controller);
+}
+
+
+void FreePlatform(MultiIsolatePlatform* platform) {
+  delete platform;
+}
+
+
 #ifdef NODE_ENGINE_CHAKRACORE
 struct ChakraShimIsolateContext {
   ChakraShimIsolateContext(uv_loop_t* event_loop, uint32_t* zero_fill_field)
@@ -4531,15 +4544,15 @@ struct ChakraShimIsolateContext {
 
 #ifdef NODE_ENGINE_CHAKRACORE
 Local<Context> NewContext(Isolate* isolate,
-    bool recordTTD,
-    Local<ObjectTemplate> object_template) {
+                          bool recordTTD,
+                          Local<ObjectTemplate> object_template) {
   auto context = Context::New(isolate, recordTTD, nullptr, object_template);
 
   return context;
 }
 #else
 Local<Context> NewContext(Isolate* isolate,
-    Local<ObjectTemplate> object_template) {
+                          Local<ObjectTemplate> object_template) {
   auto context = Context::New(isolate, nullptr, object_template);
   if (context.IsEmpty()) return context;
   HandleScope handle_scope(isolate);
