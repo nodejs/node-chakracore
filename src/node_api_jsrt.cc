@@ -95,9 +95,12 @@ struct CallbackInfo {
 };
 
 struct napi_env__ {
-  explicit napi_env__(v8::Isolate* _isolate): isolate(_isolate) {}
+  explicit napi_env__(v8::Isolate* _isolate, uv_loop_t* _loop)
+      : isolate(_isolate),
+        loop(_loop) {}
   ~napi_env__() {}
   v8::Isolate* isolate;
+  uv_loop_t* loop;
 };
 
 namespace {
@@ -534,7 +537,8 @@ void napi_module_register_cb(v8::Local<v8::Object> exports,
 
   // Create a new napi_env for this module. Once module unloading is supported
   // we shall have to call delete on this object from there.
-  napi_env env = new napi_env__(context->GetIsolate());
+  v8::Isolate* isolate = context->GetIsolate();
+  napi_env env = new napi_env__(isolate, node::GetCurrentEventLoop(isolate));
 
   napi_value _exports =
     mod->nm_register_func(env, v8impl::JsValueFromV8LocalValue(exports));
@@ -2906,5 +2910,14 @@ NAPI_EXTERN napi_status napi_is_promise(napi_env env,
   CHECK_NAPI(napi_get_named_property(env, global, "Promise", &promise_ctor));
   CHECK_NAPI(napi_instanceof(env, promise, promise_ctor, is_promise));
 
+  return napi_ok;
+}
+
+NAPI_EXTERN napi_status napi_get_uv_event_loop(napi_env env, uv_loop_t** loop) {
+  CHECK_ENV(env);
+  CHECK_ARG(loop);
+  *loop = env->loop;
+
+  napi_clear_last_error();
   return napi_ok;
 }
