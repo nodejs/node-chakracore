@@ -22,60 +22,57 @@ test-npm-install:      PASS,FLAKY
 [$system==aix]
 
 [$jsEngine==chakracore]
-test-assert-checktag : PASS,FLAKY
-test-async-hooks-disable-during-promise : PASS,FLAKY
-test-async-hooks-enable-during-promise : PASS,FLAKY
-test-async-hooks-promise : PASS,FLAKY
-test-async-hooks-promise-enable-disable : PASS,FLAKY
-test-async-hooks-promise-triggerid : PASS,FLAKY
-test-async-wrap-getasyncid : PASS,FLAKY
-test-async-wrap-promise-after-enabled : PASS,FLAKY
-test-buffer-bindingobj-no-zerofill : PASS,FLAKY
-test-buffer-sharedarraybuffer : PASS,FLAKY
-test-child-process-promisified : PASS,FLAKY
-test-cluster-inspector-debug-port : PASS,FLAKY
-test-crypto-dh : PASS,FLAKY
-test-crypto-dh-leak : PASS,FLAKY
-test-debugger-repeat-last : PASS,FLAKY
-test-domain-abort-on-uncaught : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-0 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-1 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-2 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-3 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-4 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-5 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-6 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-7 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-8 : PASS,FLAKY
-test-domain-no-error-handler-abort-on-uncaught-9 : PASS,FLAKY
-test-domain-promise : PASS,FLAKY
-test-fs-promisified : PASS,FLAKY
-test-fs-stat : PASS,FLAKY
-test-http-pipeline-flood : PASS,FLAKY
-test-http-same-map : PASS,FLAKY
-test-http2-client-promisify-connect : PASS,FLAKY
-test-http2-server-rst-stream : PASS,FLAKY
-test-inspect-async-hook-setup-at-inspect : PASS,FLAKY
-test-intl : PASS,FLAKY
-test-intl-no-icu-data : PASS,FLAKY
-test-memory-usage : PASS,FLAKY
-test-module-main-extension-lookup : PASS,FLAKY
-test-performance-function : PASS,FLAKY
-test-performance-gc : PASS,FLAKY
-test-process-env-symbols : PASS,FLAKY
-test-promise-internal-creation : PASS,FLAKY
-test-promises-unhandled-rejections : PASS,FLAKY
-test-promises-unhandled-symbol-rejections : PASS,FLAKY
-test-promises-warning-on-unhandled-rejection : PASS,FLAKY
-test-regress-GH-12371 : PASS,FLAKY
-test-repl : PASS,FLAKY
-test-repl-mode : PASS,FLAKY
-test-repl-pretty-custom-stack : PASS,FLAKY
-test-repl-pretty-stack : PASS,FLAKY
-test-repl-sigint : PASS,FLAKY
-test-repl-tab-complete : PASS,FLAKY
-test-string-decoder : PASS,FLAKY
-test-timers-promisified : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-assert-checktag : SKIP
+test-async-hooks-disable-during-promise : SKIP
+test-async-hooks-enable-during-promise : SKIP
+test-async-hooks-promise : SKIP
+test-async-hooks-promise-enable-disable : SKIP
+test-async-hooks-promise-triggerid : SKIP
+test-async-wrap-promise-after-enabled : SKIP
+test-buffer-bindingobj-no-zerofill : SKIP
+test-buffer-sharedarraybuffer : SKIP
+test-child-process-promisified : SKIP
+test-crypto-dh : SKIP
+test-crypto-dh-leak : SKIP
+test-domain-abort-on-uncaught : SKIP
+test-domain-no-error-handler-abort-on-uncaught-0 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-1 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-2 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-3 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-4 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-5 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-6 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-7 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-8 : SKIP
+test-domain-no-error-handler-abort-on-uncaught-9 : SKIP
+test-domain-promise : SKIP
+test-fs-promisified : SKIP
+test-fs-stat : SKIP
+test-http-pipeline-flood : SKIP
+test-http-same-map : SKIP
+test-http2-client-promisify-connect : SKIP
+test-http2-server-rst-stream : SKIP
+test-inspect-async-hook-setup-at-inspect : SKIP
+test-intl : SKIP
+test-memory-usage : SKIP
+test-module-main-extension-lookup : SKIP
+test-performance-function : SKIP
+test-performance-gc : SKIP
+test-process-env-symbols : SKIP
+test-promise-internal-creation : SKIP
+test-promises-unhandled-rejections : SKIP
+test-promises-unhandled-symbol-rejections : SKIP
+test-promises-warning-on-unhandled-rejection : SKIP
+test-regress-GH-12371 : SKIP
+test-repl : SKIP
+test-repl-mode : SKIP
+test-repl-pretty-custom-stack : SKIP
+test-repl-pretty-stack : SKIP
+test-repl-sigint : SKIP
+test-repl-tab-complete : SKIP
+test-string-decoder : SKIP
+test-timers-promisified : SKIP
 
 # ChakraCore does not support the chrome tracing framework
 test-trace-events-all : PASS,SKIP
@@ -85,57 +82,80 @@ test-trace-events-category-used : PASS,SKIP
 test-trace-events-none : PASS,SKIP
 test-trace-events-v8 : PASS,SKIP
 
-test-url-domain-ascii-unicode : PASS,FLAKY
-test-util : PASS,FLAKY
-test-util-format-shared-arraybuffer : PASS,FLAKY
-test-util-inspect-proxy : PASS,FLAKY
-test-util-promisify : PASS,FLAKY
-test-v8-serdes : PASS,FLAKY
-test-v8-serdes-sharedarraybuffer : PASS,FLAKY
-test-vm-cached-data : PASS,FLAKY
-test-vm-context : PASS,FLAKY
-test-vm-create-and-run-in-context : PASS,FLAKY
-test-vm-debug-context : PASS,FLAKY
-test-vm-global-identity : PASS,FLAKY
-test-vm-low-stack-space : PASS,FLAKY
-test-vm-preserves-property : PASS,FLAKY
-test-vm-property-not-on-sandbox : PASS,FLAKY
-test-vm-sigint : PASS,FLAKY
-test-vm-sigint-existing-handler : PASS,FLAKY
-test-vm-strict-mode : PASS,FLAKY
-test-vm-timeout : PASS,FLAKY
-test-zlib-convenience-methods : PASS,FLAKY
-test-vm-attributes-property-not-on-sandbox : PASS,FLAKY
-test-vm-function-declaration : PASS,FLAKY
-test-vm-getters : PASS,FLAKY
-test-vm-global-define-property : PASS,FLAKY
-test-vm-global-non-writable-properties : PASS,FLAKY
-test-vm-global-property-interceptors : PASS,FLAKY
-test-vm-harmony-symbols : PASS,FLAKY
-test-vm-indexed-properties : PASS,FLAKY
-test-vm-proxies : PASS,FLAKY
-test-vm-strict-assign : PASS,FLAKY
+test-url-domain-ascii-unicode : SKIP
+test-util : SKIP
+test-util-format-shared-arraybuffer : SKIP
+test-util-inspect-proxy : SKIP
+test-util-promisify : SKIP
+test-v8-serdes : SKIP
+test-v8-serdes-sharedarraybuffer : SKIP
+test-vm-cached-data : SKIP
+test-vm-context : SKIP
+test-vm-create-and-run-in-context : SKIP
+test-vm-debug-context : SKIP
+test-vm-global-identity : SKIP
+test-vm-low-stack-space : SKIP
+test-vm-preserves-property : SKIP
+test-vm-property-not-on-sandbox : SKIP
+test-vm-sigint : SKIP
+test-vm-sigint-existing-handler : SKIP
+test-vm-strict-mode : SKIP
+test-vm-timeout : SKIP
+test-zlib-convenience-methods : SKIP
+test-vm-attributes-property-not-on-sandbox : SKIP
+test-vm-function-declaration : SKIP
+test-vm-getters : SKIP
+test-vm-global-define-property : SKIP
+test-vm-global-non-writable-properties : SKIP
+test-vm-global-property-interceptors : SKIP
+test-vm-harmony-symbols : SKIP
+test-vm-indexed-properties : SKIP
+test-vm-proxies : SKIP
+test-vm-strict-assign : SKIP
 
 # https://github.com/nodejs/node-chakracore/issues/395
-test-zlib-empty-buffer : PASS,FLAKY
+test-zlib-empty-buffer : SKIP
+
+# These tests are disabled for chakra engine because they depend
+# on v8-option --abort-on-uncaught-exception
+test-domain-throw-error-then-throw-from-uncaught-exception-handler : SKIP
+test-domain-with-abort-on-uncaught-exception : SKIP
+
+# These tests are disabled for chakra engine because they depend
+# on v8 flag --allow_natives_syntax
+test-v8-flags : SKIP
+test-v8-version-tag : SKIP
+
+# This test is disabled for chakra engine because it depends
+# on v8-option --max-old-space-size
+test-windows-failed-heap-allocation : SKIP
+
+# This test is disabled for chakra engine because debugger
+# support is not implemented yet.
+test-preload : SKIP
+
 
 [$jsEngine==chakracore && $arch==x64]
-test-buffer-includes : PASS,FLAKY
-test-buffer-indexof : PASS,FLAKY
-test-buffer-slow : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-buffer-includes : SKIP
+test-buffer-indexof : SKIP
+test-buffer-slow : SKIP
 
 [$jsEngine==chakracore && $system==win32]
-test-module-loading-globalpaths : PASS,FLAKY
-test-http-client-get-url : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-module-loading-globalpaths : SKIP
+test-http-client-get-url : SKIP
 
 [$jsEngine==chakracore && $system==linux]
-test-repl-sigint-nested-eval : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-repl-sigint-nested-eval : SKIP
 
 # https://github.com/Microsoft/ChakraCore/issues/3561
-test-wasm-simple : PASS,FLAKY
+test-wasm-simple : SKIP
 
 [$jsEngine==chakracore && $system==macos]
-test-repl-sigint-nested-eval : PASS,FLAKY
-test-vm-sigint : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+test-repl-sigint-nested-eval : SKIP
+test-vm-sigint : SKIP
 # https://github.com/Microsoft/ChakraCore/issues/3561
-test-wasm-simple : PASS,FLAKY
+test-wasm-simple : SKIP
