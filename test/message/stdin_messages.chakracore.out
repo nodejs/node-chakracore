@@ -12,7 +12,7 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Anonymous function (bootstrap_node.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at Reflect.apply (native code)
    at _tickCallback (internal/process/next_tick.js:*:*)
 42
 42
@@ -30,7 +30,7 @@ Error: hello
    at Anonymous function (bootstrap_node.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at Reflect.apply (native code)
 [stdin]:1
 'use strict'; throw new Error("hello")
               ^
@@ -45,7 +45,7 @@ Error: hello
    at Anonymous function (bootstrap_node.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at Reflect.apply (native code)
 100
 [stdin]:1
 'use strict'; var x = 100; y = x;
@@ -61,7 +61,7 @@ ReferenceError: Variable undefined in strict mode
    at Anonymous function (bootstrap_node.js:*:*)
    at emit (events.js:*:*)
    at endReadableNT (_stream_readable.js:*:*)
-   at _combinedTickCallback (internal/process/next_tick.js:*:*)
+   at Reflect.apply (native code)
 
 vm.js:*
     return realRunInThisContext.call(this, options);

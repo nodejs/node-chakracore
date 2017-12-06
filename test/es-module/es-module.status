@@ -25,6 +25,7 @@ test-esm-preserve-symlinks-not-found : SKIP
 test-esm-preserve-symlinks-not-found-plain : SKIP
 test-esm-require-cache : SKIP
 test-esm-resolve-hook : SKIP
+test-esm-shared-loader-dep : SKIP
 test-esm-shebang : SKIP
 test-esm-snapshot : SKIP
 test-esm-symlink : SKIP
