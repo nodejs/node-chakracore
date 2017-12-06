@@ -28,6 +28,7 @@ Local<Map> Map::New(Isolate* isolate) {
 
   JsValueRef newMapRef;
   if (jsrt::ConstructObject(mapConstructor, &newMapRef) != JsNoError) {
+    CHAKRA_ASSERT(false);
     return Local<Map>();
   }
 
@@ -39,8 +40,10 @@ MaybeLocal<Value> Map::Get(Local<Context> context, Local<Value> key) {
     ContextShim::GetCurrent()->GetMapGetFunction();
 
   JsValueRef mapGetResult;
-  if (jsrt::CallFunction(mapGetFunction, (JsValueRef)this, *key,
-                         &mapGetResult) != JsNoError) {
+  JsValueRef args[] = { (JsValueRef)this, *key };
+  if (JsCallFunction(mapGetFunction, args, _countof(args),
+                     &mapGetResult) != JsNoError) {
+    CHAKRA_ASSERT(false);
     return MaybeLocal<Value>();
   }
 
@@ -53,8 +56,10 @@ MaybeLocal<Map> Map::Set(Local<Context> context, Local<Value> key,
     ContextShim::GetCurrent()->GetMapSetFunction();
 
   JsValueRef mapSetResult;
-  if (jsrt::CallFunction(mapSetFunction, (JsValueRef)this, *key, *value,
-                         &mapSetResult) != JsNoError) {
+  JsValueRef args[] = { (JsValueRef)this, *key, *value };
+  if (JsCallFunction(mapSetFunction, args, _countof(args),
+                     &mapSetResult) != JsNoError) {
+    CHAKRA_ASSERT(false);
     return MaybeLocal<Map>();
   }
 
@@ -66,8 +71,10 @@ Maybe<bool> Map::Has(Local<Context> context, Local<Value> key) {
     ContextShim::GetCurrent()->GetMapHasFunction();
 
   JsValueRef mapHasResult;
-  if (jsrt::CallFunction(mapHasFunction, (JsValueRef)this, *key,
-                         &mapHasResult) != JsNoError) {
+  JsValueRef args[] = { (JsValueRef)this, *key };
+  if (JsCallFunction(mapHasFunction, args, _countof(args),
+                     &mapHasResult) != JsNoError) {
+    CHAKRA_ASSERT(false);
     return Nothing<bool>();
   }
 
@@ -76,6 +83,7 @@ Maybe<bool> Map::Has(Local<Context> context, Local<Value> key) {
                                           JsBooleanToBool,
                                           mapHasResult,
                                           &hasResult) != JsNoError) {
+    CHAKRA_ASSERT(false);
     return Nothing<bool>();
   }
 

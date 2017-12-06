@@ -125,6 +125,9 @@ DEF(url)
 DEF(toStringTag)
 DEF(Symbol_toStringTag)
 
+DEF(add)
+DEF(from)
+
 DEFSYMBOL(self)
 DEFSYMBOL(__external__)
 DEFSYMBOL(__hiddenvalues__)

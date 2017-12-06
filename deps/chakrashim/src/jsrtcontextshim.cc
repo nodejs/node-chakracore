@@ -532,6 +532,10 @@ DECLARE_GETOBJECT(ProxyConstructor,
                   globalConstructor[GlobalType::Proxy])
 DECLARE_GETOBJECT(MapConstructor,
                   globalConstructor[GlobalType::Map])
+DECLARE_GETOBJECT(SetConstructor,
+                  globalConstructor[GlobalType::Set])
+DECLARE_GETOBJECT(ArrayConstructor,
+                  globalConstructor[GlobalType::Array])
 DECLARE_GETOBJECT(ToStringFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::Object_toString])
@@ -541,6 +545,9 @@ DECLARE_GETOBJECT(ValueOfFunction,
 DECLARE_GETOBJECT(StringConcatFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::String_concat])
+DECLARE_GETOBJECT(ArrayFromFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Array_from])
 DECLARE_GETOBJECT(ArrayPushFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::Array_push])
@@ -553,6 +560,9 @@ DECLARE_GETOBJECT(MapSetFunction,
 DECLARE_GETOBJECT(MapHasFunction,
                   globalPrototypeFunction[GlobalPrototypeFunction
                     ::Map_has])
+DECLARE_GETOBJECT(SetAddFunction,
+                  globalPrototypeFunction[GlobalPrototypeFunction
+                    ::Set_add])
 
 
 JsValueRef ContextShim::GetProxyOfGlobal() {

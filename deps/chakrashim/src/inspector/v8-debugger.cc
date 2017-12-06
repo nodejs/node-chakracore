@@ -278,7 +278,7 @@ JavaScriptCallFrames V8Debugger::currentCallFrames(int limit) {
   }
 
   JsValueRef stackTrace = JS_INVALID_REFERENCE;
-  JsDiagGetStackTrace(&stackTrace);
+  CHAKRA_VERIFY_NOERROR(JsDiagGetStackTrace(&stackTrace));
 
   unsigned int length = 0;
   CHAKRA_VERIFY_NOERROR(jsrt::GetArrayLength(stackTrace, &length));

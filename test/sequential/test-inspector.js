@@ -270,10 +270,7 @@ async function testCommandLineAPI(session) {
   checkException(result);
   assert.deepStrictEqual(JSON.parse(result['result']['value']), {
     parentsEqual: true,
-    parentId: common.engineSpecificMessage({
-      v8: '<inspector console>',
-      chakracore: '.'
-    })
+    parentId: '<inspector console>'
   });
   // the `require` in the module shadows the command line API's `require`
   result = await session.send(

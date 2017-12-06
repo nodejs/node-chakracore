@@ -23,17 +23,31 @@
 namespace v8 {
 
 Local<Set> Set::New(Isolate* isolate) {
-  // CHAKRA-TODO: Figure out what to do here
-  //
-  // kpathak: chakra_shim.js
-  CHAKRA_ASSERT(false);
-  return Local<Set>();
+  JsValueRef setConstructor =
+    ContextShim::GetCurrent()->GetSetConstructor();
+
+  JsValueRef newSetRef;
+  if (jsrt::ConstructObject(setConstructor, &newSetRef) != JsNoError) {
+    CHAKRA_ASSERT(false);
+    return Local<Set>();
+  }
+
+  return Local<Set>::New(newSetRef);
 }
 
-MaybeLocal<Set> Set::Add(Local<Context>, Local<Value>) {
-  // CHAKRA-TODO: Figure out what to do here
-  CHAKRA_ASSERT(false);
-  return MaybeLocal<Set>();
+MaybeLocal<Set> Set::Add(Local<Context>, Local<Value> key) {
+  JsValueRef setAddFunction =
+    ContextShim::GetCurrent()->GetSetAddFunction();
+
+  JsValueRef setAddResult;
+  JsValueRef args[] = { (JsValueRef)this, *key };
+  if (JsCallFunction(setAddFunction, args, _countof(args),
+                     &setAddResult) != JsNoError) {
+    CHAKRA_ASSERT(false);
+    return MaybeLocal<Set>();
+  }
+
+  return Local<Set>::New(setAddResult);
 }
 
 Maybe<bool> Set::Delete(Local<Context>, Local<Value>) {
@@ -43,9 +57,24 @@ Maybe<bool> Set::Delete(Local<Context>, Local<Value>) {
 }
 
 Local<Array> Set::AsArray() const {
-  // CHAKRA-TODO: Figure out what to do here
-  CHAKRA_ASSERT(false);
-  return Local<Array>();
+  JsValueRef arrayConstructor =
+      ContextShim::GetCurrent()->GetArrayConstructor();
+
+  JsValueRef arrayFromFunction;
+  if (jsrt::GetProperty(arrayConstructor, jsrt::CachedPropertyIdRef::from,
+                        &arrayFromFunction) != JsNoError) {
+    CHAKRA_ASSERT(false);
+    return Local<Array>();
+  }
+
+  JsValueRef arrayFromResult;
+  if (jsrt::CallFunction(arrayFromFunction, (JsValueRef)this,
+                         &arrayFromResult) != JsNoError) {
+    CHAKRA_ASSERT(false);
+    return Local<Array>();
+  }
+
+  return Local<Array>::New(arrayFromResult);
 }
 
 }  // namespace v8
