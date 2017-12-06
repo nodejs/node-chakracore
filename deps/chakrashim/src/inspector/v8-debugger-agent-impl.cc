@@ -6,11 +6,13 @@
 
 #include <algorithm>
 
+#include "src/inspector/inspected-context.h"
 #include "src/inspector/java-script-call-frame.h"
 #include "src/inspector/protocol/Protocol.h"
 #include "src/inspector/script-breakpoint.h"
 #include "src/inspector/search-util.h"
 #include "src/inspector/string-util.h"
+#include "src/inspector/v8-console.h"
 #include "src/inspector/v8-debugger-script.h"
 #include "src/inspector/v8-debugger.h"
 #include "src/inspector/v8-inspector-impl.h"
@@ -711,6 +713,20 @@ void V8DebuggerAgentImpl::evaluateOnCallFrame(
       static_cast<size_t>(ordinal) >= m_pausedCallFrames.size()) {
     *errorString = "Could not find call frame with given id";
     return;
+  }
+
+  std::unique_ptr<V8Console::CommandLineAPIScope> claScope;
+
+  if (includeCommandLineAPI.fromMaybe(false)) {
+    InspectedContext* inspectedContext =
+        m_inspector->getContext(
+            m_session->contextGroupId(),
+            V8Debugger::contextId(
+                v8::Local<v8::Context>::New(m_isolate, m_pausedContext)));
+    claScope.reset(new V8Console::CommandLineAPIScope(
+        inspectedContext->context(),
+        V8Console::createCommandLineAPI(inspectedContext),
+        inspectedContext->context()->Global()));
   }
 
   bool isError = false;

@@ -351,6 +351,7 @@ class Local {
   friend class PropertyDescriptor;
   friend class Proxy;
   friend class RegExp;
+  friend class Set;
   friend class Signature;
   friend class Script;
   friend class StackFrame;

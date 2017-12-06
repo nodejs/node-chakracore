@@ -33,6 +33,7 @@
 #include "src/inspector/inspected-context.h"
 #include "src/inspector/protocol/Protocol.h"
 #include "src/inspector/string-util.h"
+#include "src/inspector/v8-console.h"
 #include "src/inspector/v8-console-message.h"
 #include "src/inspector/v8-debugger-agent-impl.h"
 #include "src/inspector/v8-debugger.h"
@@ -69,6 +70,27 @@ std::unique_ptr<protocol::DictionaryValue> ParseObjectId(
   return wrapUnique(protocol::DictionaryValue::cast(parsedValue.release()));
 }
 
+bool ensureContext(ErrorString* errorString, V8InspectorImpl* inspector,
+                   int contextGroupId, Maybe<int> executionContextId,
+                   int* contextId) {
+  if (executionContextId.isJust()) {
+    *contextId = executionContextId.fromJust();
+  } else {
+    v8::HandleScope handles(inspector->isolate());
+    v8::Local<v8::Context> defaultContext =
+        inspector->client()->ensureDefaultContextInGroup(contextGroupId);
+
+    if (defaultContext.IsEmpty()) {
+      *errorString = "Cannot find default execution context";
+      return false;
+    }
+
+    *contextId = V8Debugger::contextId(defaultContext);
+  }
+
+  return true;
+}
+
 }  // namespace
 
 V8RuntimeAgentImpl::V8RuntimeAgentImpl(
@@ -91,6 +113,24 @@ void V8RuntimeAgentImpl::evaluate(
     std::unique_ptr<EvaluateCallback> callback) {
   ErrorString errorString;
 
+  int contextId = 0;
+  if (!ensureContext(&errorString, m_inspector, m_session->contextGroupId(),
+                     std::move(executionContextId), &contextId)) {
+    callback->sendFailure(errorString);
+    return;
+  }
+
+  std::unique_ptr<V8Console::CommandLineAPIScope> claScope;
+
+  if (includeCommandLineAPI.fromMaybe(false)) {
+    InspectedContext* inspectedContext =
+        m_inspector->getContext(m_session->contextGroupId(), contextId);
+    claScope.reset(new V8Console::CommandLineAPIScope(
+        inspectedContext->context(),
+        V8Console::createCommandLineAPI(inspectedContext),
+        inspectedContext->context()->Global()));
+  }
+
   JsValueRef expStr;
   if (JsCreateStringUtf16(expression.characters16(), expression.length(),
                           &expStr) != JsNoError) {
@@ -99,9 +139,10 @@ void V8RuntimeAgentImpl::evaluate(
     return;
   }
 
+  bool isError = false;
   v8::Local<v8::Value> evalResult =
-      jsrt::InspectorHelpers::EvaluateOnCallFrame(
-          /* ordinal */ 0, expStr, returnByValue.fromMaybe(false));
+      jsrt::InspectorHelpers::EvaluateOnGlobalCallFrame(
+          expStr, returnByValue.fromMaybe(false), &isError);
 
   if (evalResult.IsEmpty()) {
     errorString = "Failed to evaluate expression";
@@ -114,7 +155,7 @@ void V8RuntimeAgentImpl::evaluate(
   std::unique_ptr<protocol::Value> protocolValue =
       toProtocolValue(&errorString, v8::Context::GetCurrent(), evalResult);
   if (!protocolValue) {
-    callback->sendSuccess(nullptr, exceptionDetails);
+    callback->sendFailure(errorString);
     return;
   }
   std::unique_ptr<protocol::Runtime::RemoteObject> remoteObject =
@@ -123,6 +164,29 @@ void V8RuntimeAgentImpl::evaluate(
     errorString = errors.errors();
     callback->sendFailure(errorString);
     return;
+  }
+
+  if (isError) {
+    protocol::ErrorSupport errors;
+    std::unique_ptr<protocol::Runtime::RemoteObject> exceptionObject =
+        protocol::Runtime::RemoteObject::parse(protocolValue.get(), &errors);
+    if (!exceptionObject) {
+      errorString = errors.errors();
+      callback->sendFailure(errorString);
+      return;
+    }
+
+    std::unique_ptr<protocol::Runtime::ExceptionDetails> exDetails =
+        protocol::Runtime::ExceptionDetails::create()
+          .setExceptionId(m_session->inspector()->nextExceptionId())
+          .setText(exceptionObject->getDescription("Uncaught"))
+          .setLineNumber(0)
+          .setColumnNumber(0)
+          .build();
+
+    exDetails->setException(std::move(exceptionObject));
+
+    exceptionDetails = std::move(exDetails);
   }
 
   callback->sendSuccess(std::move(remoteObject), exceptionDetails);

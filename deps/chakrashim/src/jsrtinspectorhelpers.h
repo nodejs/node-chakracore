@@ -53,6 +53,8 @@ class InspectorHelpers {
                                                   JsValueRef expression,
                                                   bool returnByValue,
                                                   bool* isError = nullptr);
+  static v8::Local<v8::Value> EvaluateOnGlobalCallFrame(
+      JsValueRef expression, bool returnByValue, bool* isError = nullptr);
 
   static v8::Local<v8::Value> GetScriptSource(unsigned int scriptId);
 

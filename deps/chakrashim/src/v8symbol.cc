@@ -56,6 +56,7 @@ Local<Value> Symbol::Name() const {
 
   if (jsrt::CallFunction(getSymbolKeyForFunction, (JsValueRef)this,
                          &symbolDescription) != JsNoError) {
+    CHAKRA_ASSERT(false);
     return Local<Value>();
   }
 
