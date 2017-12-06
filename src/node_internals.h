@@ -273,13 +273,24 @@ constexpr size_t arraysize(const T(&)[N]) { return N; }
 
 bool IsExceptionDecorated(Environment* env, v8::Local<v8::Value> er);
 
-enum ErrorHandlingMode { FATAL_ERROR, CONTEXTIFY_ERROR };
+enum ErrorHandlingMode { CONTEXTIFY_ERROR, FATAL_ERROR, MODULE_ERROR };
 void AppendExceptionLine(Environment* env,
                          v8::Local<v8::Value> er,
                          v8::Local<v8::Message> message,
                          enum ErrorHandlingMode mode);
 
 NO_RETURN void FatalError(const char* location, const char* message);
+
+// Like a `TryCatch` but exits the process if an exception was caught.
+class FatalTryCatch : public v8::TryCatch {
+ public:
+  explicit FatalTryCatch(Environment* env)
+      : TryCatch(env->isolate()), env_(env) {}
+  ~FatalTryCatch();
+
+ private:
+  Environment* env_;
+};
 
 void ProcessEmitWarning(Environment* env, const char* fmt, ...);
 
@@ -335,11 +346,6 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
  private:
   uint32_t zero_fill_field_ = 1;  // Boolean but exposed as uint32 to JS land.
 };
-
-// Clear any domain and/or uncaughtException handlers to force the error's
-// propagation and shutdown the process. Use this to force the process to exit
-// by clearing all callbacks that could handle the error.
-void ClearFatalExceptionHandlers(Environment* env);
 
 namespace Buffer {
 v8::MaybeLocal<v8::Object> Copy(Environment* env, const char* data, size_t len);
