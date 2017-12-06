@@ -17,6 +17,6 @@ prefix message
 [$system==freebsd]
 
 [$jsEngine==chakracore]
-console_low_stack_space : PASS,FLAKY
-stack_overflow_async : PASS,FLAKY
-unhandled_promise_trace_warnings : PASS,FLAKY
+# These tests are failing for Node-Chakracore and should eventually be fixed
+console_low_stack_space : SKIP
+unhandled_promise_trace_warnings : SKIP

@@ -5,11 +5,6 @@ common.crashOnUnhandledRejection();
 const { NodeInstance } = require('../common/inspector-helper.js');
 const assert = require('assert');
 
-if (common.isChakraEngine) {
-  common.skip('This test is disabled for chakra engine because the test ' +
-              'hangs after trying to parse in a new context');
-}
-
 const script = `
   'use strict';
   const assert = require('assert');
