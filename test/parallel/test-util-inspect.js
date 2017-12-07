@@ -1035,7 +1035,7 @@ if (!common.isChakraEngine) {
   assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
                      common.engineSpecificMessage({
                        v8: 'PromiseSubclass [Promise] { <pending> }',
-                       chakracore: 'PromiseSubclass {}'
+                       chakracore: 'PromiseSubclass [Promise] {}'
                      }));
   assert.strictEqual(
     util.inspect({ a: { b: new ArraySubclass([1, [2], 3]) } }, { depth: 1 }),
