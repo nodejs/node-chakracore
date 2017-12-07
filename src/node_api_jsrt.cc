@@ -907,11 +907,11 @@ napi_status napi_define_properties(napi_env env,
                                    const napi_property_descriptor* properties) {
   JsPropertyIdRef configurableProperty;
   CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("configurable"),
-    &configurableProperty));
+                                &configurableProperty));
 
   JsPropertyIdRef enumerableProperty;
   CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("enumerable"),
-    &enumerableProperty));
+                                &enumerableProperty));
 
   for (size_t i = 0; i < property_count; i++) {
     const napi_property_descriptor* p = properties + i;
@@ -967,7 +967,7 @@ napi_status napi_define_properties(napi_env env,
 
       JsPropertyIdRef writableProperty;
       CHECK_JSRT(JsCreatePropertyId(STR_AND_LENGTH("writable"),
-        &writableProperty));
+                                    &writableProperty));
       JsValueRef writable;
       CHECK_JSRT(JsBoolToBoolean((p->attributes & napi_writable), &writable));
       CHECK_JSRT(JsSetProperty(descriptor, writableProperty, writable, true));
@@ -2065,7 +2065,7 @@ napi_status napi_new_instance(napi_env env,
 napi_status napi_make_external(napi_env env, napi_value v, napi_value* result) {
   CHECK_ARG(result);
   JsValueRef externalObj;
-  CHECK_JSRT(JsCreateExternalObject(NULL, NULL, &externalObj));
+  CHECK_JSRT(JsCreateExternalObject(nullptr, nullptr, &externalObj));
   CHECK_JSRT(JsSetPrototype(externalObj, reinterpret_cast<JsValueRef>(v)));
   *result = reinterpret_cast<napi_value>(externalObj);
   return napi_ok;
@@ -2742,8 +2742,8 @@ class Work: public node::AsyncResource {
       JsValueRef exception;
       JsPropertyIdRef exProp;
 
-      if (JsCreatePropertyId(STR_AND_LENGTH("exception"), &exProp)
-          != JsNoError) {
+      if (JsCreatePropertyId(STR_AND_LENGTH("exception"),
+                             &exProp) != JsNoError) {
         Fatal();
         return;
       }

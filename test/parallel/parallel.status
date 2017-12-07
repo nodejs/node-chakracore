@@ -103,6 +103,10 @@ test-vm-harmony-symbols : SKIP
 test-vm-indexed-properties : SKIP
 test-vm-proxies : SKIP
 
+# This test depends on V8 error API for stack traces which is not implemented
+# in Node-ChakraCore
+test-common-must-not-call : SKIP
+
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-buffer-includes : SKIP
