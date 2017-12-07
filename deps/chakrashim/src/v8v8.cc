@@ -91,6 +91,11 @@ const char *V8::GetVersion() {
   return versionStr;
 }
 
+void Isolate::SetHostImportModuleDynamicallyCallback(
+    HostImportModuleDynamicallyCallback callback) {
+  // CHAKRA-TODO
+}
+
 void Isolate::SetFatalErrorHandler(FatalErrorCallback that) {
   // CONSIDER: Ignoring for now, since we don't have an equivalent concept.
 }

@@ -150,6 +150,7 @@
         'src/v8proxy.cc',
         'src/v8regexp.cc',
         'src/v8script.cc',
+        'src/v8scriptormodule.cc',
         'src/v8sharedarraybuffer.cc',
         'src/v8set.cc',
         'src/v8signature.cc',
