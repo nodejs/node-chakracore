@@ -1990,6 +1990,7 @@ class V8_EXPORT ArrayBuffer : public Object {
     virtual void* Allocate(size_t length) = 0;
     virtual void* AllocateUninitialized(size_t length) = 0;
     virtual void Free(void* data, size_t length) = 0;
+    static Allocator* NewDefaultAllocator();
   };
 
   class V8_EXPORT Contents {  // NOLINT

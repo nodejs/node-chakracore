@@ -46,6 +46,10 @@ struct ArrayBufferFinalizeInfo {
   }
 };
 
+v8::ArrayBuffer::Allocator* v8::ArrayBuffer::Allocator::NewDefaultAllocator() {
+    return nullptr;
+}
+
 static void CHAKRA_CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
     static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
