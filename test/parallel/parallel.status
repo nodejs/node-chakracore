@@ -120,6 +120,8 @@ test-zlib-empty-buffer : SKIP
 # on v8-option --abort-on-uncaught-exception
 test-domain-throw-error-then-throw-from-uncaught-exception-handler : SKIP
 test-domain-with-abort-on-uncaught-exception : SKIP
+test-process-exception-capture : SKIP
+test-process-exception-capture-should-abort-on-uncaught : SKIP
 
 # These tests are disabled for chakra engine because they depend
 # on v8 flag --allow_natives_syntax

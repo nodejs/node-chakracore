@@ -2,7 +2,7 @@ prefix message
 
 # To mark a test as flaky, list the test name in the appropriate section
 # below, without ".js", followed by ": PASS,FLAKY". Example:
-# sample-test                       : PASS,FLAKY
+# sample-test                        : PASS,FLAKY
 
 [true] # This section applies to all platforms
 
@@ -19,4 +19,6 @@ prefix message
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 console_low_stack_space : SKIP
+esm_display_syntax_error : SKIP
+esm_display_syntax_error_module : SKIP
 unhandled_promise_trace_warnings : SKIP
