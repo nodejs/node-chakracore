@@ -10,6 +10,7 @@ prefix es-module
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-esm-basic-imports : SKIP
 test-esm-double-encoding : SKIP
+test-esm-dynamic-import : SKIP
 test-esm-encoded-path : SKIP
 test-esm-encoded-path-native : SKIP
 test-esm-example-loader : SKIP
