@@ -955,27 +955,27 @@ if (!common.isChakraEngine) {
   // Test Map iterators
   {
     const map = new Map([['foo', 'bar']]);
-    assert.strictEqual(util.inspect(map.keys()), 'MapIterator { \'foo\' }');
-    assert.strictEqual(util.inspect(map.values()), 'MapIterator { \'bar\' }');
+    assert.strictEqual(util.inspect(map.keys()), '[Map Iterator] { \'foo\' }');
+    assert.strictEqual(util.inspect(map.values()), '[Map Iterator] { \'bar\' }');
     assert.strictEqual(util.inspect(map.entries()),
-                       'MapIterator { [ \'foo\', \'bar\' ] }');
+                       '[Map Iterator] { [ \'foo\', \'bar\' ] }');
     // make sure the iterator doesn't get consumed
     const keys = map.keys();
-    assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-    assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+    assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
+    assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
   }
 
   // Test Set iterators
   {
     const aSet = new Set([1, 3]);
-    assert.strictEqual(util.inspect(aSet.keys()), 'SetIterator { 1, 3 }');
-    assert.strictEqual(util.inspect(aSet.values()), 'SetIterator { 1, 3 }');
+    assert.strictEqual(util.inspect(aSet.keys()), '[Set Iterator] { 1, 3 }');
+    assert.strictEqual(util.inspect(aSet.values()), '[Set Iterator] { 1, 3 }');
     assert.strictEqual(util.inspect(aSet.entries()),
-                       'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
+                       '[Set Iterator] { [ 1, 1 ], [ 3, 3 ] }');
     // make sure the iterator doesn't get consumed
     const keys = aSet.keys();
-    assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
-    assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+    assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
+    assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
   }
 }
 
@@ -1029,13 +1029,13 @@ if (!common.isChakraEngine) {
   assert.strictEqual(util.inspect(new ArraySubclass(1, 2, 3)),
                      'ArraySubclass [ 1, 2, 3 ]');
   assert.strictEqual(util.inspect(new SetSubclass([1, 2, 3])),
-                     'SetSubclass { 1, 2, 3 }');
+                     'SetSubclass [Set] { 1, 2, 3 }');
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
-                     'MapSubclass { \'foo\' => 42 }');
+                     'MapSubclass [Map] { \'foo\' => 42 }');
   assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
                      common.engineSpecificMessage({
-                       v8: 'PromiseSubclass { <pending> }',
-                       chakracore: 'PromiseSubclass {}'
+                       v8: 'PromiseSubclass [Promise] { <pending> }',
+                       chakracore: 'PromiseSubclass [Promise] {}'
                      }));
   assert.strictEqual(
     util.inspect({ a: { b: new ArraySubclass([1, [2], 3]) } }, { depth: 1 }),
@@ -1197,4 +1197,53 @@ assert.doesNotThrow(() => util.inspect(process));
 {
   const obj = { inspect: 'fhqwhgads' };
   assert.strictEqual(util.inspect(obj), "{ inspect: 'fhqwhgads' }");
+}
+
+{
+  // @@toStringTag
+  assert.strictEqual(util.inspect({ [Symbol.toStringTag]: 'a' }),
+                     'Object [a] { [Symbol(Symbol.toStringTag)]: \'a\' }');
+
+  class Foo {
+    constructor() {
+      this.foo = 'bar';
+    }
+
+    get [Symbol.toStringTag]() {
+      return this.foo;
+    }
+  }
+
+  assert.strictEqual(util.inspect(
+    Object.create(null, { [Symbol.toStringTag]: { value: 'foo' } })),
+                     '[foo] {}');
+
+  assert.strictEqual(util.inspect(new Foo()), 'Foo [bar] { foo: \'bar\' }');
+
+  assert.strictEqual(
+    util.inspect(new (class extends Foo {})()),
+    'Foo [bar] { foo: \'bar\' }');
+
+  assert.strictEqual(
+    util.inspect(Object.create(Object.create(Foo.prototype), {
+      foo: { value: 'bar', enumerable: true }
+    })),
+    'Foo [bar] { foo: \'bar\' }');
+
+  class ThrowingClass {
+    get [Symbol.toStringTag]() {
+      throw new Error('toStringTag error');
+    }
+  }
+
+  assert.throws(() => util.inspect(new ThrowingClass()), /toStringTag error/);
+
+  class NotStringClass {
+    get [Symbol.toStringTag]() {
+      return null;
+    }
+  }
+
+  assert.strictEqual(util.inspect(new NotStringClass()),
+                     'NotStringClass {}');
 }

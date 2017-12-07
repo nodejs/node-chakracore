@@ -29,7 +29,7 @@
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.12',
+    'v8_embedder_string': '-node.15',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,
@@ -473,7 +473,7 @@
       }],
       ['OS=="freebsd"', {
         'conditions': [
-          ['llvm_version < "4.0"', {
+          ['"0" < llvm_version < "4.0"', {
             # Use this flag because on FreeBSD std::pairs copy constructor is non-trivial.
             # Doesn't apply to llvm 4.0 (FreeBSD 11.1) or later.
             # Refs: https://lists.freebsd.org/pipermail/freebsd-toolchain/2016-March/002094.html

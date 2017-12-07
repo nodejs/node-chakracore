@@ -5,7 +5,7 @@
 > Stability: 2 - Stable
 
 The `crypto` module provides cryptographic functionality that includes a set of
-wrappers for OpenSSL's hash, HMAC, cipher, decipher, sign and verify functions.
+wrappers for OpenSSL's hash, HMAC, cipher, decipher, sign, and verify functions.
 
 Use `require('crypto')` to access this module.
 
@@ -651,7 +651,11 @@ added: v0.11.14
 changes:
   - version: v6.0.0
     pr-url: https://github.com/nodejs/node/pull/5522
-    description: The default `inputEncoding` changed from `binary` to `utf8`.
+    description: The default `inputEncoding` changed from `binary` to `utf8`
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/16849
+    description: Changed error format to better support invalid public key
+                 error
 -->
 - `otherPublicKey` {string | Buffer | TypedArray | DataView}
 - `inputEncoding` {string}
@@ -667,6 +671,12 @@ provided, `otherPublicKey` is expected to be a [`Buffer`][], `TypedArray`, or
 
 If `outputEncoding` is given a string will be returned; otherwise a
 [`Buffer`][] is returned.
+
+`ecdh.computeSecret` will throw an
+`ERR_CRYPTO_ECDH_INVALID_PUBLIC_KEY` error when `otherPublicKey`
+lies outside of the elliptic curve. Since `otherPublicKey` is
+usually supplied from a remote user over an insecure network,
+its recommended for developers to handle this exception accordingly.
 
 ### ecdh.generateKeys([encoding[, format]])
 <!-- YAML
@@ -1254,7 +1264,7 @@ In line with OpenSSL's recommendation to use pbkdf2 instead of
 [`EVP_BytesToKey`][] it is recommended that developers derive a key and IV on
 their own using [`crypto.pbkdf2()`][] and to use [`crypto.createCipheriv()`][]
 to create the `Cipher` object. Users should not use ciphers with counter mode
-(e.g. CTR, GCM or CCM) in `crypto.createCipher()`. A warning is emitted when
+(e.g. CTR, GCM, or CCM) in `crypto.createCipher()`. A warning is emitted when
 they are used in order to avoid the risk of IV reuse that causes
 vulnerabilities. For the case when IV is reused in GCM, see [Nonce-Disrespecting
 Adversaries][] for details.
@@ -1826,6 +1836,11 @@ Note that this API uses libuv's threadpool, which can have surprising and
 negative performance implications for some applications, see the
 [`UV_THREADPOOL_SIZE`][] documentation for more information.
 
+*Note*: The asynchronous version of `crypto.randomBytes()` is carried out
+in a single threadpool request. To minimize threadpool task length variation,
+partition large `randomBytes` requests when doing so as part of fulfilling a
+client request.
+
 ### crypto.randomFillSync(buffer[, offset][, size])
 <!-- YAML
 added: v7.10.0
@@ -1933,6 +1948,11 @@ Note that this API uses libuv's threadpool, which can have surprising and
 negative performance implications for some applications, see the
 [`UV_THREADPOOL_SIZE`][] documentation for more information.
 
+*Note*: The asynchronous version of `crypto.randomFill()` is carried out
+in a single threadpool request. To minimize threadpool task length variation,
+partition large `randomFill` requests when doing so as part of fulfilling a
+client request.
+
 ### crypto.setEngine(engine[, flags])
 <!-- YAML
 added: v0.11.11
@@ -2024,7 +2044,7 @@ Based on the recommendations of [NIST SP 800-131A][]:
 
 - MD5 and SHA-1 are no longer acceptable where collision resistance is
   required such as digital signatures.
-- The key used with RSA, DSA and DH algorithms is recommended to have
+- The key used with RSA, DSA, and DH algorithms is recommended to have
   at least 2048 bits and that of the curve of ECDSA and ECDH at least
   224 bits, to be safe to use for several years.
 - The DH groups of `modp1`, `modp2` and `modp5` have a key size

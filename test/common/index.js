@@ -40,7 +40,7 @@ exports.fixturesDir = fixturesDir;
 
 // Using a `.` prefixed name, which is the convention for "hidden" on POSIX,
 // gets tools to ignore it by default or by simple rules, especially eslint.
-exports.tmpDirName = '.tmp';
+let tmpDirName = '.tmp';
 // PORT should match the definition in test/testpy/__init__.py.
 exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
 exports.isWindows = process.platform === 'win32';
@@ -166,9 +166,9 @@ exports.refreshTmpDir = function() {
 
 if (process.env.TEST_THREAD_ID) {
   exports.PORT += process.env.TEST_THREAD_ID * 100;
-  exports.tmpDirName += `.${process.env.TEST_THREAD_ID}`;
+  tmpDirName += `.${process.env.TEST_THREAD_ID}`;
 }
-exports.tmpDir = path.join(testRoot, exports.tmpDirName);
+exports.tmpDir = path.join(testRoot, tmpDirName);
 
 let opensslCli = null;
 let inFreeBSDJail = null;
@@ -525,8 +525,8 @@ function _mustCallInner(fn, criteria = 1, field) {
 }
 
 exports.hasMultiLocalhost = function hasMultiLocalhost() {
-  const TCP = process.binding('tcp_wrap').TCP;
-  const t = new TCP();
+  const { TCP, constants: TCPConstants } = process.binding('tcp_wrap');
+  const t = new TCP(TCPConstants.SOCKET);
   const ret = t.bind('127.0.0.2', exports.PORT);
   t.close();
   return ret === 0;

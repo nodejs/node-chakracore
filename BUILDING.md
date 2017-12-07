@@ -89,6 +89,9 @@ Depending on host platform, the selection of toolchains may vary.
 
 ## Building Node.js on supported platforms
 
+*Note:* All prerequisites can be easily installed by following
+[this bootstrapping guide](https://github.com/nodejs/node/blob/master/tools/bootstrap/README.md).
+
 ### Unix / macOS
 
 Prerequisites:
@@ -209,6 +212,8 @@ Prerequisites:
 * Basic Unix tools required for some tests,
   [Git for Windows](http://git-scm.com/download/win) includes Git Bash
   and tools which can be included in the global `PATH`.
+* **Optional** (to build the MSI): the [WiX Toolset v3.11](http://wixtoolset.org/releases/)
+  and the [Wix Toolset Visual Studio 2017 Extension](https://marketplace.visualstudio.com/items?itemName=RobMensching.WixToolsetVisualStudio2017Extension).
 
 If the path to your build directory contains a space, the build will likely fail.
 

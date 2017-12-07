@@ -633,7 +633,7 @@ All [`Http2Stream`][] instances are destroyed either when:
 When an `Http2Stream` instance is destroyed, an attempt will be made to send an
 `RST_STREAM` frame will be sent to the connected peer.
 
-Once the `Http2Stream` instance is destroyed, the `'streamClosed'` event will
+When the `Http2Stream` instance is destroyed, the `'close'` event will
 be emitted. Because `Http2Stream` is an instance of `stream.Duplex`, the
 `'end'` event will also be emitted if the stream data is currently flowing.
 The `'error'` event may also be emitted if `http2stream.destroy()` was called
@@ -655,6 +655,18 @@ abnormally aborted in mid-communication.
 *Note*: The `'aborted'` event will only be emitted if the `Http2Stream`
 writable side has not been ended.
 
+#### Event: 'close'
+<!-- YAML
+added: v8.4.0
+-->
+
+The `'close'` event is emitted when the `Http2Stream` is destroyed. Once
+this event is emitted, the `Http2Stream` instance is no longer usable.
+
+The listener callback is passed a single argument specifying the HTTP/2 error
+code specified when closing the stream. If the code is any value other than
+`NGHTTP2_NO_ERROR` (`0`), an `'error'` event will also be emitted.
+
 #### Event: 'error'
 <!-- YAML
 added: v8.4.0
@@ -673,18 +685,6 @@ send a frame. When invoked, the handler function will receive an integer
 argument identifying the frame type, and an integer argument identifying the
 error code. The `Http2Stream` instance will be destroyed immediately after the
 `'frameError'` event is emitted.
-
-#### Event: 'streamClosed'
-<!-- YAML
-added: v8.4.0
--->
-
-The `'streamClosed'` event is emitted when the `Http2Stream` is destroyed. Once
-this event is emitted, the `Http2Stream` instance is no longer usable.
-
-The listener callback is passed a single argument specifying the HTTP/2 error
-code specified when closing the stream. If the code is any value other than
-`NGHTTP2_NO_ERROR` (`0`), an `'error'` event will also be emitted.
 
 #### Event: 'timeout'
 <!-- YAML
@@ -1264,7 +1264,7 @@ added: v8.4.0
 
 In `Http2Server`, there is no `'clientError'` event as there is in
 HTTP1. However, there are `'socketError'`, `'sessionError'`,  and
-`'streamError'`, for error happened on the socket, session or stream
+`'streamError'`, for error happened on the socket, session, or stream
 respectively.
 
 #### Event: 'socketError'
@@ -1857,7 +1857,7 @@ performance.
 There are several types of error conditions that may arise when using the
 `http2` module:
 
-Validation Errors occur when an incorrect argument, option or setting value is
+Validation Errors occur when an incorrect argument, option, or setting value is
 passed in. These will always be reported by a synchronous `throw`.
 
 State Errors occur when an action is attempted at an incorrect time (for
@@ -2127,6 +2127,18 @@ console.log(request.headers);
 
 See [Headers Object][].
 
+*Note*: In HTTP/2, the request path, host name, protocol, and method are
+represented as special headers prefixed with the `:` character (e.g. `':path'`).
+These special headers will be included in the `request.headers` object. Care
+must be taken not to inadvertently modify these special headers or errors may
+occur. For instance, removing all headers from the request will cause errors
+to occur:
+
+```js
+removeAllHeaders(request.headers);
+assert(request.url);   // Fails because the :path header has been removed
+```
+
 #### request.httpVersion
 <!-- YAML
 added: v8.4.0
@@ -2217,7 +2229,7 @@ added: v8.4.0
 * {net.Socket|tls.TLSSocket}
 
 Returns a Proxy object that acts as a `net.Socket` (or `tls.TLSSocket`) but
-applies getters, setters and methods based on HTTP/2 logic.
+applies getters, setters, and methods based on HTTP/2 logic.
 
 `destroyed`, `readable`, and `writable` properties will be retrieved from and
 set on `request.stream`.
@@ -2589,7 +2601,7 @@ added: v8.4.0
 * {net.Socket|tls.TLSSocket}
 
 Returns a Proxy object that acts as a `net.Socket` (or `tls.TLSSocket`) but
-applies getters, setters and methods based on HTTP/2 logic.
+applies getters, setters, and methods based on HTTP/2 logic.
 
 `destroyed`, `readable`, and `writable` properties will be retrieved from and
 set on `response.stream`.

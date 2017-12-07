@@ -27,7 +27,7 @@
 
 import test
 import os
-from os.path import join, dirname, exists, splitext
+from os.path import join, dirname, exists, splitext, isdir, basename
 import re
 import ast
 
@@ -49,7 +49,6 @@ class SimpleTestCase(test.TestCase):
     else:
       self.additional_flags = []
 
-
   def GetLabel(self):
     return "%s %s" % (self.mode, self.GetName())
 
@@ -70,10 +69,10 @@ class SimpleTestCase(test.TestCase):
       # the '--inspect' flag cannot be passed to the node process as it will
       # cause node to exit and report the test as failed. The use case
       # is currently when Node is configured --without-ssl and the tests should
-      # still be runnable but skip any tests that require ssl (which includes the
-      # inspector related tests). Also, if there is no ssl support the options
-      # '--use-bundled-ca' and '--use-openssl-ca' will also cause a similar
-      # failure so such tests are also skipped.
+      # still be runnable but skip any tests that require ssl (which includes
+      # the inspector related tests). Also, if there is no ssl support the
+      # options '--use-bundled-ca' and '--use-openssl-ca' will also cause a
+      # similar failure so such tests are also skipped.
       if ('--inspect' in flag[0] or \
           '--use-bundled-ca' in flag[0] or \
           '--use-openssl-ca' in flag[0]) and \
@@ -97,6 +96,63 @@ class SimpleTestCase(test.TestCase):
 
   def GetSource(self):
     return open(self.file).read()
+
+class MessageTestCase(SimpleTestCase):
+
+  def __init__(self, path, file, arch, mode, context, config, expected,
+                                                        additional=None):
+    super(MessageTestCase, self).__init__(path, file, arch, mode, context,
+                                                        config, additional)
+    self.expected = expected
+
+  def IgnoreLine(self, str):
+    """Ignore empty lines and valgrind output."""
+    if not str.strip(): return True
+    else: return str.startswith('==') or str.startswith('**')
+
+  def IsFailureOutput(self, output):
+    f = file(self.expected)
+    # Skip initial '#' comment and spaces
+    #for line in f:
+    #  if (not line.startswith('#')) and (not line.strip()):
+    #    break
+    # Convert output lines to regexps that we can match
+    env = { 'basename': basename(self.file) }
+    patterns = [ ]
+    for line in f:
+      if not line.strip():
+        continue
+      pattern = re.escape(line.rstrip() % env)
+      pattern = pattern.replace('\\*', '.*')
+      pattern = '^%s$' % pattern
+      patterns.append(pattern)
+    # Compare actual output with the expected
+    raw_lines = (output.stdout + output.stderr).split('\n')
+    outlines = [ s for s in raw_lines if not self.IgnoreLine(s) ]
+    if len(outlines) != len(patterns):
+      print "length differs."
+      print "expect=%d" % len(patterns)
+      print "actual=%d" % len(outlines)
+      print "patterns:"
+      for i in xrange(len(patterns)):
+        print "pattern = %s" % patterns[i]
+      print "outlines:"
+      for i in xrange(len(outlines)):
+        print "outline = %s" % outlines[i]
+      return True
+    for i in xrange(len(patterns)):
+      if not re.match(patterns[i], outlines[i]):
+        print "match failed"
+        print "line=%d" % i
+        print "expect=%s" % patterns[i]
+        print "actual=%s" % outlines[i]
+        return True
+    return False
+
+  def GetSource(self):
+    return (open(self.file).read()
+          + "\n--- expected output ---\n"
+          + open(self.expected).read())
 
 class SimpleTestConfiguration(test.TestConfiguration):
 
@@ -144,7 +200,8 @@ class ParallelTestConfiguration(SimpleTestConfiguration):
 
 class AddonTestConfiguration(SimpleTestConfiguration):
   def __init__(self, context, root, section, additional=None):
-    super(AddonTestConfiguration, self).__init__(context, root, section, additional)
+    super(AddonTestConfiguration, self).__init__(context, root, section,
+                                                    additional)
 
   def Ls(self, path):
     def SelectTest(name):
@@ -165,7 +222,8 @@ class AddonTestConfiguration(SimpleTestConfiguration):
       if self.Contains(path, test):
         file_path = join(self.root, reduce(join, test[1:], "") + ".js")
         result.append(
-            SimpleTestCase(test, file_path, arch, mode, self.context, self, self.additional_flags))
+            SimpleTestCase(test, file_path, arch, mode, self.context, self,
+                                                    self.additional_flags))
     return result
 
 class AsyncHooksTestConfiguration(SimpleTestConfiguration):
@@ -190,4 +248,35 @@ class AbortTestConfiguration(SimpleTestConfiguration):
          current_path, path, arch, mode, jsEngine)
     for test in result:
       test.disable_core_files = True
+    return result
+
+class MessageTestConfiguration(SimpleTestConfiguration):
+  def __init__(self, context, root, section, additional=None):
+    super(MessageTestConfiguration, self).__init__(context, root, section,
+                                                 additional)
+
+  def Ls(self, path):
+    if isdir(path):
+      return [f for f in os.listdir(path)
+                                if f.endswith('.js') or f.endswith('.mjs')]
+    else:
+      return []
+
+  def ListTests(self, current_path, path, arch, mode, jsEngine):
+    all_tests = [current_path + [t] for t in self.Ls(join(self.root))]
+    result = []
+    for test in all_tests:
+      if self.Contains(path, test):
+        test_name = test[:-1] + [splitext(test[-1])[0]]
+        file_path = join(self.root, reduce(join, test[1:], ''))
+        file_prefix = file_path[:file_path.rfind('.')]
+        engine_output_path = file_prefix + (".%s.out" % jsEngine)
+        output_path = file_prefix + '.out'
+        if exists(engine_output_path):
+          output_path = engine_output_path
+        else:
+          if not exists(output_path):
+            raise Exception("Could not find %s" % output_path)
+        result.append(MessageTestCase(test_name, file_path, arch, mode,
+                           self.context, self, output_path, self.additional_flags))
     return result

@@ -642,6 +642,17 @@ Node.js was unable to watch for the `SIGINT` signal.
 
 A child process was closed before the parent received a reply.
 
+<a id="ERR_CHILD_PROCESS_IPC_REQUIRED"></a>
+### ERR_CHILD_PROCESS_IPC_REQUIRED
+
+Used when a child process is being forked without specifying an IPC channel.
+
+<a id="ERR_CHILD_PROCESS_STDIO_MAXBUFFER"></a>
+### ERR_CHILD_PROCESS_STDIO_MAXBUFFER
+
+Used when the main process is trying to read data from the child process's
+STDERR / STDOUT, and the data's length is longer than the `maxBuffer` option.
+
 <a id="ERR_CONSOLE_WRITABLE_STREAM"></a>
 ### ERR_CONSOLE_WRITABLE_STREAM
 
@@ -664,6 +675,13 @@ of OpenSSL being used.
 
 An invalid value for the `format` argument was passed to the `crypto.ECDH()`
 class `getPublicKey()` method.
+
+<a id="ERR_CRYPTO_ECDH_INVALID_PUBLIC_KEY"></a>
+### ERR_CRYPTO_ECDH_INVALID_PUBLIC_KEY
+
+An invalid value for the `key` argument has been passed to the
+`crypto.ECDH()` class `computeSecret()` method. It means that the public
+key lies outside of the elliptic curve.
 
 <a id="ERR_CRYPTO_ENGINE_UNKNOWN"></a>
 ### ERR_CRYPTO_ENGINE_UNKNOWN
@@ -728,6 +746,23 @@ A signing `key` was not provided to the [`sign.sign()`][] method.
 ### ERR_DNS_SET_SERVERS_FAILED
 
 `c-ares` failed to set the DNS server.
+
+<a id="ERR_DOMAIN_CALLBACK_NOT_AVAILABLE"></a>
+### ERR_DOMAIN_CALLBACK_NOT_AVAILABLE
+
+The `domain` module was not usable since it could not establish the required
+error handling hooks, because
+[`process.setUncaughtExceptionCaptureCallback()`][] had been called at an
+earlier point in time.
+
+<a id="ERR_DOMAIN_CANNOT_SET_UNCAUGHT_EXCEPTION_CAPTURE"></a>
+### ERR_DOMAIN_CANNOT_SET_UNCAUGHT_EXCEPTION_CAPTURE
+
+[`process.setUncaughtExceptionCaptureCallback()`][] could not be called
+because the `domain` module has been loaded at an earlier point in time.
+
+The stack trace is extended to include the point in time at which the
+`domain` module had been loaded.
 
 <a id="ERR_ENCODING_INVALID_ENCODED_DATA"></a>
 ### ERR_ENCODING_INVALID_ENCODED_DATA
@@ -1459,6 +1494,15 @@ A Transform stream finished while it was still transforming.
 
 A Transform stream finished with data still in the write buffer.
 
+<a id="ERR_UNCAUGHT_EXCEPTION_CAPTURE_ALREADY_SET"></a>
+### ERR_UNCAUGHT_EXCEPTION_CAPTURE_ALREADY_SET
+
+[`process.setUncaughtExceptionCaptureCallback()`][] was called twice,
+without first resetting the callback to `null`.
+
+This error is designed to prevent accidentally overwriting a callback registered
+from another module.
+
 <a id="ERR_UNESCAPED_CHARACTERS"></a>
 ### ERR_UNESCAPED_CHARACTERS
 
@@ -1565,6 +1609,7 @@ Creation of a [`zlib`][] object failed due to incorrect configuration.
 [`new URLSearchParams(iterable)`]: url.html#url_constructor_new_urlsearchparams_iterable
 [`process.on('uncaughtException')`]: process.html#process_event_uncaughtexception
 [`process.send()`]: process.html#process_process_send_message_sendhandle_options_callback
+[`process.setUncaughtExceptionCaptureCallback()`]: process.html#process_process_setuncaughtexceptioncapturecallback_fn
 [`require('crypto').setEngine()`]: crypto.html#crypto_crypto_setengine_engine_flags
 [`server.listen()`]: net.html#net_server_listen
 [ES6 module]: esm.html

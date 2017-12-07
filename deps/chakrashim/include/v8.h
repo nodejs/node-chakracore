@@ -134,6 +134,7 @@ class Promise;
 class PropertyDescriptor;
 class Proxy;
 class Script;
+class ScriptOrModule;
 class Signature;
 class StartupData;
 class StackFrame;
@@ -268,6 +269,9 @@ typedef bool (*EntropySource)(unsigned char* buffer, size_t length);
 typedef void (*FatalErrorCallback)(const char *location, const char *message);
 typedef void (*JitCodeEventHandler)(const JitCodeEvent *event);
 
+typedef MaybeLocal<Promise>(*HostImportModuleDynamicallyCallback)(
+    Local<Context> context, Local<ScriptOrModule> referrer,
+    Local<String> specifier);
 
 template <class T>
 class Local {
@@ -836,6 +840,11 @@ typedef HandleScope SealHandleScope;
 
 class V8_EXPORT Data {
  public:
+};
+
+class V8_EXPORT ScriptOrModule {
+public:
+    Local<Value> GetResourceName();
 };
 
 class ScriptOrigin {
@@ -1981,6 +1990,7 @@ class V8_EXPORT ArrayBuffer : public Object {
     virtual void* Allocate(size_t length) = 0;
     virtual void* AllocateUninitialized(size_t length) = 0;
     virtual void Free(void* data, size_t length) = 0;
+    static Allocator* NewDefaultAllocator();
   };
 
   class V8_EXPORT Contents {  // NOLINT
@@ -2680,6 +2690,9 @@ class V8_EXPORT Isolate {
   typedef bool(*AbortOnUncaughtExceptionCallback)(Isolate*);
   void SetAbortOnUncaughtExceptionCallback(
     AbortOnUncaughtExceptionCallback callback);
+
+  void SetHostImportModuleDynamicallyCallback(
+      HostImportModuleDynamicallyCallback callback);
 
   void Enter();
   void Exit();

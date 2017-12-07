@@ -1411,6 +1411,9 @@ def BuildOptions():
   result.add_option('--abort-on-timeout',
       help='Send SIGABRT instead of SIGTERM to kill processes that time out',
       default=False, action="store_true", dest="abort_on_timeout")
+  result.add_option("--type",
+      help="Type of build (simple, fips)",
+      default=None)
   return result
 
 
@@ -1560,6 +1563,18 @@ def ArgsToTestPaths(test_root, args, suites):
   return paths
 
 
+def get_env_type(vm, options_type, context):
+  if options_type is not None:
+    env_type = options_type
+  else:
+    # 'simple' is the default value for 'env_type'.
+    env_type = 'simple'
+    ssl_ver = Execute([vm, '-p', 'process.versions.openssl'], context).stdout
+    if 'fips' in ssl_ver:
+      env_type = 'fips'
+  return env_type
+
+
 def Main():
   parser = BuildOptions()
   (options, args) = parser.parse_args()
@@ -1651,6 +1666,7 @@ def Main():
           'system': utils.GuessOS(),
           'arch': vmArch,
           'jsengine': jsEngine,
+          'type': get_env_type(vm, options.type, context),
         }
         test_list = root.ListTests([], path, context, arch, mode, jsEngine)
         unclassified_tests += test_list

@@ -600,7 +600,7 @@ Local<Value> ErrnoException(Isolate* isolate,
   }
   e = Exception::Error(cons);
 
-  Local<Object> obj = e->ToObject(env->isolate());
+  Local<Object> obj = e.As<Object>();
   obj->Set(env->errno_string(), Integer::New(env->isolate(), errorno));
   obj->Set(env->code_string(), estring);
 
@@ -762,7 +762,7 @@ Local<Value> WinapiErrnoException(Isolate* isolate,
     e = Exception::Error(message);
   }
 
-  Local<Object> obj = e->ToObject(env->isolate());
+  Local<Object> obj = e.As<Object>();
   obj->Set(env->errno_string(), Integer::New(isolate, errorno));
 
   if (path != nullptr) {
@@ -790,65 +790,12 @@ void* ArrayBufferAllocator::Allocate(size_t size) {
 
 namespace {
 
-bool DomainHasErrorHandler(const Environment* env,
-                           const Local<Object>& domain) {
-  HandleScope scope(env->isolate());
-
-  Local<Value> domain_event_listeners_v = domain->Get(env->events_string());
-  if (!domain_event_listeners_v->IsObject())
-    return false;
-
-  Local<Object> domain_event_listeners_o =
-      domain_event_listeners_v.As<Object>();
-
-  Local<Value> domain_error_listeners_v =
-      domain_event_listeners_o->Get(env->error_string());
-
-  if (domain_error_listeners_v->IsFunction() ||
-      (domain_error_listeners_v->IsArray() &&
-      domain_error_listeners_v.As<Array>()->Length() > 0))
-    return true;
-
-  return false;
-}
-
-bool DomainsStackHasErrorHandler(const Environment* env) {
-  HandleScope scope(env->isolate());
-
-  if (!env->using_domains())
-    return false;
-
-  Local<Array> domains_stack_array = env->domains_stack_array().As<Array>();
-  if (domains_stack_array->Length() == 0)
-    return false;
-
-  uint32_t domains_stack_length = domains_stack_array->Length();
-  for (uint32_t i = domains_stack_length; i > 0; --i) {
-    Local<Value> domain_v = domains_stack_array->Get(i - 1);
-    if (!domain_v->IsObject())
-      return false;
-
-    Local<Object> domain = domain_v.As<Object>();
-    if (DomainHasErrorHandler(env, domain))
-      return true;
-  }
-
-  return false;
-}
-
-
 bool ShouldAbortOnUncaughtException(Isolate* isolate) {
   HandleScope scope(isolate);
-
   Environment* env = Environment::GetCurrent(isolate);
-  Local<Object> process_object = env->process_object();
-  Local<String> emitting_top_level_domain_error_key =
-    env->emitting_top_level_domain_error_string();
-  bool isEmittingTopLevelDomainError =
-      process_object->Get(emitting_top_level_domain_error_key)->BooleanValue();
-
-  return isEmittingTopLevelDomainError || !DomainsStackHasErrorHandler(env);
+  return env->should_abort_on_uncaught_toggle()[0];
 }
+
 
 Local<Value> GetDomainProperty(Environment* env, Local<Object> object) {
   Local<Value> domain_v =
@@ -898,9 +845,6 @@ void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
   env->set_using_domains(true);
 
   HandleScope scope(env->isolate());
-
-  CHECK(args[0]->IsArray());
-  env->set_domains_stack_array(args[0].As<Array>());
 
   // Do a little housekeeping.
   env->process_object()->Delete(
@@ -1482,6 +1426,8 @@ void AppendExceptionLine(Environment* env,
 static void ReportException(Environment* env,
                             Local<Value> er,
                             Local<Message> message) {
+  CHECK(!er.IsEmpty());
+  CHECK(!message.IsEmpty());
   HandleScope scope(env->isolate());
 
   AppendExceptionLine(env, er, message, FATAL_ERROR);
@@ -1493,7 +1439,7 @@ static void ReportException(Environment* env,
   if (er->IsUndefined() || er->IsNull()) {
     trace_value = Undefined(env->isolate());
   } else {
-    Local<Object> err_obj = er->ToObject(env->isolate());
+    Local<Object> err_obj = er->ToObject(env->context()).ToLocalChecked();
 
     trace_value = err_obj->Get(env->stack_string());
     arrow =
@@ -1551,6 +1497,10 @@ static void ReportException(Environment* env,
   }
 
   fflush(stderr);
+
+#if HAVE_INSPECTOR
+  env->inspector_agent()->FatalException(er, message);
+#endif
 }
 
 
@@ -2335,7 +2285,8 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
     return env->ThrowTypeError("flag argument must be an integer.");
   }
 
-  Local<Object> module = args[0]->ToObject(env->isolate());  // Cast
+  Local<Object> module =
+      args[0]->ToObject(env->context()).ToLocalChecked();  // Cast
   node::Utf8Value filename(env->isolate(), args[1]);  // Cast
   DLib dlib;
   dlib.filename_ = *filename;
@@ -2353,7 +2304,8 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
     dlib.Close();
 #ifdef _WIN32
     // Windows needs to add the filename into the error message
-    errmsg = String::Concat(errmsg, args[1]->ToString(env->isolate()));
+    errmsg = String::Concat(errmsg,
+                            args[1]->ToString(env->context()).ToLocalChecked());
 #endif  // _WIN32
     env->isolate()->ThrowException(Exception::Error(errmsg));
     return;
@@ -2398,7 +2350,18 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
   modlist_addon = mp;
 
   Local<String> exports_string = env->exports_string();
-  Local<Object> exports = module->Get(exports_string)->ToObject(env->isolate());
+  MaybeLocal<Value> maybe_exports =
+      module->Get(env->context(), exports_string);
+
+  if (maybe_exports.IsEmpty() ||
+      maybe_exports.ToLocalChecked()->ToObject(env->context()).IsEmpty()) {
+    dlib.Close();
+    return;
+  }
+
+  Local<Object> exports =
+      maybe_exports.ToLocalChecked()->ToObject(env->context())
+          .FromMaybe(Local<Object>());
 
   if (mp->nm_context_register_func != nullptr) {
     mp->nm_context_register_func(exports, module, env->context(), mp->nm_priv);
@@ -2430,6 +2393,15 @@ NO_RETURN void FatalError(const char* location, const char* message) {
   OnFatalError(location, message);
   // to suppress compiler warning
   ABORT();
+}
+
+
+FatalTryCatch::~FatalTryCatch() {
+  if (HasCaught()) {
+    HandleScope scope(env_->isolate());
+    ReportException(env_, *this);
+    exit(7);
+  }
 }
 
 
@@ -2475,9 +2447,6 @@ void FatalException(Isolate* isolate,
   }
 
   if (exit_code) {
-#if HAVE_INSPECTOR
-    env->inspector_agent()->FatalException(error, message);
-#endif
     exit(exit_code);
   }
 }
@@ -2495,25 +2464,6 @@ static void OnMessage(Local<Message> message, Local<Value> error) {
   // The current version of V8 sends messages for errors only
   // (thus `error` is always set).
   FatalException(Isolate::GetCurrent(), error, message);
-}
-
-
-void ClearFatalExceptionHandlers(Environment* env) {
-  Local<Object> process = env->process_object();
-  Local<Value> events =
-      process->Get(env->context(), env->events_string()).ToLocalChecked();
-
-  if (events->IsObject()) {
-    events.As<Object>()->Set(
-        env->context(),
-        OneByteString(env->isolate(), "uncaughtException"),
-        Undefined(env->isolate())).FromJust();
-  }
-
-  process->Set(
-      env->context(),
-      env->domain_string(),
-      Undefined(env->isolate())).FromJust();
 }
 
 // Call process.emitWarning(str), fmt is a snprintf() format string
@@ -3207,6 +3157,13 @@ void SetupProcessObject(Environment* env,
                      scheduled_immediate_count,
                      env->scheduled_immediate_count().GetJSArray()).FromJust());
 
+  auto should_abort_on_uncaught_toggle =
+      FIXED_ONE_BYTE_STRING(env->isolate(), "_shouldAbortOnUncaughtToggle");
+  CHECK(process->Set(env->context(),
+                     should_abort_on_uncaught_toggle,
+                     env->should_abort_on_uncaught_toggle().GetJSArray())
+                         .FromJust());
+
   // -e, --eval
   if (eval_string) {
     READONLY_PROPERTY(process,
@@ -3706,7 +3663,7 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--trace-sync-io",
     "--no-force-async-hooks-checks",
     "--trace-events-enabled",
-    "--trace-events-categories",
+    "--trace-event-categories",
     "--track-heap-objects",
     "--zero-fill-buffers",
     "--v8-pool-size",
@@ -4455,7 +4412,7 @@ void EmitBeforeExit(Environment* env) {
   Local<String> exit_code = FIXED_ONE_BYTE_STRING(env->isolate(), "exitCode");
   Local<Value> args[] = {
     FIXED_ONE_BYTE_STRING(env->isolate(), "beforeExit"),
-    process_object->Get(exit_code)->ToInteger(env->isolate())
+    process_object->Get(exit_code)->ToInteger(env->context()).ToLocalChecked()
   };
   MakeCallback(env->isolate(),
                process_object, "emit", arraysize(args), args,
@@ -4709,10 +4666,6 @@ inline int Start(uv_loop_t* event_loop,
   isolate->SetAutorunMicrotasks(false);
   isolate->SetFatalErrorHandler(OnFatalError);
 
-  if (track_heap_objects) {
-    isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
-  }
-
   {
     Mutex::ScopedLock scoped_lock(node_isolate_mutex);
     CHECK_EQ(node_isolate, nullptr);
@@ -4747,6 +4700,9 @@ inline int Start(uv_loop_t* event_loop,
     isolate_data_ptr = &chakra_isolate_ctx;
 #endif
 
+    if (track_heap_objects) {
+      isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
+    }
     exit_code = Start(isolate, isolate_data_ptr, argc, argv,
                       exec_argc, exec_argv);
   }

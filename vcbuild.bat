@@ -109,7 +109,7 @@ if /i "%1"=="upload"        set upload=1&goto arg-ok
 if /i "%1"=="small-icu"     set i18n_arg=%1&goto arg-ok
 if /i "%1"=="full-icu"      set i18n_arg=%1&goto arg-ok
 if /i "%1"=="intl-none"     set i18n_arg=%1&goto arg-ok
-if /i "%1"=="without-intl"  set i18n_arg=%1&goto arg-ok
+if /i "%1"=="without-intl"  set i18n_arg=intl-none&goto arg-ok
 if /i "%1"=="download-all"  set download_arg="--download=all"&goto arg-ok
 if /i "%1"=="ignore-flaky"  set test_args=%test_args% --flaky-tests=dontcare&goto arg-ok
 if /i "%1"=="enable-vtune"  set enable_vtune_arg=1&goto arg-ok
@@ -153,25 +153,19 @@ set "node_gyp_exe="%node_exe%" deps\npm\node_modules\node-gyp\bin\node-gyp"
 if "%target_env%"=="vs2015" set "node_gyp_exe=%node_gyp_exe% --msvs_version=2015"
 if "%target_env%"=="vs2017" set "node_gyp_exe=%node_gyp_exe% --msvs_version=2017"
 
-if "%config%"=="Debug" set configure_flags=%configure_flags% --debug
+if "%config%"=="Debug"      set configure_flags=%configure_flags% --debug
 if "%chakracore_test_build%"=="1" set configure_flags=%configure_flags% --chakracore-test-build
-if defined nosnapshot set configure_flags=%configure_flags% --without-snapshot
-if defined noetw set configure_flags=%configure_flags% --without-etw& set noetw_msi_arg=/p:NoETW=1
-if defined noperfctr set configure_flags=%configure_flags% --without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
-if defined release_urlbase set configure_flags=%configure_flags% --release-urlbase=%release_urlbase%
-if defined download_arg set configure_flags=%configure_flags% %download_arg%
+if defined nosnapshot       set configure_flags=%configure_flags% --without-snapshot
+if defined noetw            set configure_flags=%configure_flags% --without-etw& set noetw_msi_arg=/p:NoETW=1
+if defined noperfctr        set configure_flags=%configure_flags% --without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
+if defined release_urlbase  set configure_flags=%configure_flags% --release-urlbase=%release_urlbase%
+if defined download_arg     set configure_flags=%configure_flags% %download_arg%
 if defined enable_vtune_arg set configure_flags=%configure_flags% --enable-vtune-profiling
-if defined dll set configure_flags=%configure_flags% --shared
-if defined enable_static set configure_flags=%configure_flags% --enable-static
-if defined no_NODE_OPTIONS set configure_flags=%configure_flags% --without-node-options
-
-REM if defined debug_http2 set configure_flags=%configure_flags% --debug-http2
-REM if defined debug_nghttp2 set configure_flags=%configure_flags% --debug-nghttp2
-
-if "%i18n_arg%"=="full-icu" set configure_flags=%configure_flags% --with-intl=full-icu
-if "%i18n_arg%"=="small-icu" set configure_flags=%configure_flags% --with-intl=small-icu
-if "%i18n_arg%"=="intl-none" set configure_flags=%configure_flags% --with-intl=none
-if "%i18n_arg%"=="without-intl" set configure_flags=%configure_flags% --without-intl
+if defined dll              set configure_flags=%configure_flags% --shared
+if defined enable_static    set configure_flags=%configure_flags% --enable-static
+if defined no_NODE_OPTIONS  set configure_flags=%configure_flags% --without-node-options
+if defined link_module      set configure_flags=%configure_flags% %link_module%
+if defined i18n_arg         set configure_flags=%configure_flags% --with-intl=%i18n_arg%
 
 if "%engine%"=="chakracore" (
   set configure_flags=%configure_flags% --without-bundled-v8
@@ -185,8 +179,9 @@ if "%target_arch%"=="arm" (
     set configure_flags=%configure_flags% --without-intl
   )
 )
-
-if defined config_flags set configure_flags=%configure_flags% %config_flags%
+if defined config_flags     set configure_flags=%configure_flags% %config_flags%
+if defined target_arch      set configure_flags=%configure_flags% --dest-cpu=%target_arch%
+if defined TAG              set configure_flags=%configure_flags% --tag=%TAG%
 
 if not exist "%~dp0deps\icu" goto no-depsicu
 if "%target%"=="Clean" echo deleting %~dp0deps\icu
@@ -213,12 +208,24 @@ if %target_arch%==x64 if %msvs_host_arch%==amd64 set vcvarsall_arg=amd64
 :vs-set-2017
 if defined target_env if "%target_env%" NEQ "vs2017" goto vs-set-2015
 echo Looking for Visual Studio 2017
+call tools\msvs\vswhere_usability_wrapper.cmd
+if "_%VCINSTALLDIR%_" == "__" goto vs-set-2015
+if defined msi (
+  echo Looking for WiX installation for Visual Studio 2017...
+  if not exist "%WIX%\SDK\VS2017" (
+    echo Failed to find WiX install for Visual Studio 2017
+    echo VS2017 support for WiX is only present starting at version 3.11
+    goto vs-set-2015
+  )
+  if not exist "%VCINSTALLDIR%\..\MSBuild\Microsoft\WiX" (
+    echo Failed to find the Wix Toolset Visual Studio 2017 Extension
+    goto vs-set-2015
+  )
+)
 @rem check if VS2017 is already setup, and for the requested arch
 if "_%VisualStudioVersion%_" == "_15.0_" if "_%VSCMD_ARG_TGT_ARCH%_"=="_%target_arch%_" goto found_vs2017
 @rem need to clear VSINSTALLDIR for vcvarsall to work as expected
 set "VSINSTALLDIR="
-call tools\msvs\vswhere_usability_wrapper.cmd
-if "_%VCINSTALLDIR%_" == "__" goto vs-set-2015
 @rem prevent VsDevCmd.bat from changing the current working directory
 set "VSCMD_START_DIR=%CD%"
 set vcvars_call="%VCINSTALLDIR%\Auxiliary\Build\vcvarsall.bat" %vcvarsall_arg%
@@ -275,7 +282,7 @@ goto run
 if defined noprojgen goto msbuild
 
 @rem Generate the VS project.
-call :run-python configure %configure_flags% --engine=%engine% --dest-cpu=%target_arch% --tag=%TAG% %link_module%
+call :run-python configure %configure_flags% --engine=%engine%
 if errorlevel 1 goto create-msvs-files-failed
 if not exist node.sln goto create-msvs-files-failed
 echo Project files generated.
@@ -387,7 +394,9 @@ if not defined msi goto upload
 
 :msibuild
 echo Building node-v%FULLVERSION%-%target_arch%.msi
-msbuild "%~dp0tools\msvs\msi\nodemsi.sln" /m /t:Clean,Build /p:PlatformToolset=%PLATFORM_TOOLSET% /p:GypMsvsVersion=%GYP_MSVS_VERSION% /p:Configuration=%config% /p:Platform=%target_arch% /p:NodeVersion=%NODE_VERSION% /p:FullVersion=%FULLVERSION% /p:DistTypeDir=%DISTTYPEDIR% %noetw_msi_arg% %noperfctr_msi_arg% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
+set "msbsdk="
+if defined WindowsSDKVersion set "msbsdk=/p:WindowsTargetPlatformVersion=%WindowsSDKVersion:~0,-1%"
+msbuild "%~dp0tools\msvs\msi\nodemsi.sln" /m /t:Clean,Build %msbsdk% /p:PlatformToolset=%PLATFORM_TOOLSET% /p:GypMsvsVersion=%GYP_MSVS_VERSION% /p:Configuration=%config% /p:Platform=%target_arch% /p:NodeVersion=%NODE_VERSION% /p:FullVersion=%FULLVERSION% /p:DistTypeDir=%DISTTYPEDIR% %noetw_msi_arg% %noperfctr_msi_arg% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
 
 if not defined sign goto upload
