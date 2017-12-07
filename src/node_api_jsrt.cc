@@ -2069,7 +2069,7 @@ napi_status napi_new_instance(napi_env env,
 napi_status napi_make_external(napi_env env, napi_value v, napi_value* result) {
   CHECK_ARG(result);
   JsValueRef externalObj;
-  CHECK_JSRT(JsCreateExternalObject(NULL, NULL, &externalObj));
+  CHECK_JSRT(JsCreateExternalObject(nullptr, nullptr, &externalObj));
   CHECK_JSRT(JsSetPrototype(externalObj, reinterpret_cast<JsValueRef>(v)));
   *result = reinterpret_cast<napi_value>(externalObj);
   return napi_ok;
