@@ -535,7 +535,7 @@ class PersistentBase {
   template <class S>
   V8_INLINE void Reset(Isolate* isolate, const PersistentBase<S>& other);
 
-  V8_INLINE bool IsEmpty() const { return val_ == NULL; }
+  V8_INLINE bool IsEmpty() const { return val_ == nullptr; }
   V8_INLINE void Empty() { Reset(); }
 
   V8_INLINE Local<T> Get(Isolate* isolate) const {
@@ -843,8 +843,8 @@ class V8_EXPORT Data {
 };
 
 class V8_EXPORT ScriptOrModule {
-public:
-    Local<Value> GetResourceName();
+ public:
+  Local<Value> GetResourceName();
 };
 
 class ScriptOrigin {
@@ -937,12 +937,12 @@ class V8_EXPORT ScriptCompiler {
     Source(
       Local<String> source_string,
       const ScriptOrigin& origin,
-      CachedData * cached_data = NULL)
+      CachedData * cached_data = nullptr)
       : source_string(source_string), resource_name(origin.ResourceName()) {
     }
 
     Source(Local<String> source_string,  // NOLINT(runtime/explicit)
-           CachedData * cached_data = NULL)
+           CachedData * cached_data = nullptr)
       : source_string(source_string) {
     }
 
@@ -1231,7 +1231,7 @@ class V8_EXPORT String : public Name {
                    int options = NO_OPTIONS) const;
   int WriteUtf8(char* buffer,
                 int length = -1,
-                int* nchars_ref = NULL,
+                int* nchars_ref = nullptr,
                 int options = NO_OPTIONS) const;
 
   static Local<String> Empty(Isolate* isolate);
@@ -1995,7 +1995,7 @@ class V8_EXPORT ArrayBuffer : public Object {
 
   class V8_EXPORT Contents {  // NOLINT
    public:
-    Contents() : data_(NULL), byte_length_(0) {}
+    Contents() : data_(nullptr), byte_length_(0) {}
     void* Data() const { return data_; }
     size_t ByteLength() const { return byte_length_; }
 
@@ -2628,13 +2628,13 @@ class V8_EXPORT Isolate {
  public:
   struct CreateParams {
     CreateParams()
-       : entry_hook(NULL),
-         code_event_handler(NULL),
-         snapshot_blob(NULL),
-         counter_lookup_callback(NULL),
-         create_histogram_callback(NULL),
-         add_histogram_sample_callback(NULL),
-         array_buffer_allocator(NULL) {
+       : entry_hook(nullptr),
+         code_event_handler(nullptr),
+         snapshot_blob(nullptr),
+         counter_lookup_callback(nullptr),
+         create_histogram_callback(nullptr),
+         add_histogram_sample_callback(nullptr),
+         array_buffer_allocator(nullptr) {
     }
 
     FunctionEntryHook entry_hook;
@@ -2716,7 +2716,7 @@ class V8_EXPORT Isolate {
   void SetPromiseHook(PromiseHook hook);
   void SetPromiseRejectCallback(PromiseRejectCallback callback);
   void RunMicrotasks();
-  void EnqueueMicrotask(MicrotaskCallback microtask, void* data = NULL);
+  void EnqueueMicrotask(MicrotaskCallback microtask, void* data = nullptr);
   void SetAutorunMicrotasks(bool autorun);
   void SetFatalErrorHandler(FatalErrorCallback that);
   void SetJitCodeEventHandler(
@@ -2930,7 +2930,7 @@ class V8_EXPORT Context {
   static Local<Context> New(
     Isolate* isolate,
     bool useGlobalTTState = false,
-    ExtensionConfiguration* extensions = NULL,
+    ExtensionConfiguration* extensions = nullptr,
     Handle<ObjectTemplate> global_template = Handle<ObjectTemplate>(),
     Handle<Value> global_object = Handle<Value>());
   static Local<Context> New(
