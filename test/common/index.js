@@ -36,8 +36,6 @@ const testRoot = process.env.NODE_TEST_DIR ?
 
 const noop = () => {};
 
-exports.fixturesDir = fixturesDir;
-
 // Using a `.` prefixed name, which is the convention for "hidden" on POSIX,
 // gets tools to ignore it by default or by simple rules, especially eslint.
 let tmpDirName = '.tmp';
@@ -304,7 +302,7 @@ exports.childShouldThrowAndAbort = function() {
 
 exports.ddCommand = function(filename, kilobytes) {
   if (exports.isWindows) {
-    const p = path.resolve(exports.fixturesDir, 'create-file.js');
+    const p = path.resolve(fixturesDir, 'create-file.js');
     return `"${process.argv[0]}" "${p}" "${filename}" ${kilobytes * 1024}`;
   } else {
     return `dd if=/dev/zero of="${filename}" bs=1024 count=${kilobytes}`;
@@ -569,9 +567,23 @@ exports.canCreateSymLink = function() {
   return true;
 };
 
+exports.getCallSite = function getCallSite(top) {
+  const originalStackFormatter = Error.prepareStackTrace;
+  Error.prepareStackTrace = (err, stack) =>
+    `${stack[0].getFileName()}:${stack[0].getLineNumber()}`;
+  const err = new Error();
+  Error.captureStackTrace(err, top);
+  // with the V8 Error API, the stack is not formatted until it is accessed
+  err.stack;
+  Error.prepareStackTrace = originalStackFormatter;
+  return err.stack;
+};
+
 exports.mustNotCall = function(msg) {
+  const callSite = exports.getCallSite(exports.mustNotCall);
   return function mustNotCall() {
-    assert.fail(msg || 'function should not have been called');
+    assert.fail(
+      `${msg || 'function should not have been called'} at ${callSite}`);
   };
 };
 
@@ -864,32 +876,6 @@ function restoreWritable(name) {
   delete process[name].writeTimes;
 }
 
-function onResolvedOrRejected(promise, callback) {
-  return promise.then((result) => {
-    callback();
-    return result;
-  }, (error) => {
-    callback();
-    throw error;
-  });
-}
-
-function timeoutPromise(error, timeoutMs) {
-  let clearCallback = null;
-  let done = false;
-  const promise = onResolvedOrRejected(new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(error), timeoutMs);
-    clearCallback = () => {
-      if (done)
-        return;
-      clearTimeout(timeout);
-      resolve();
-    };
-  }), () => done = true);
-  promise.clear = clearCallback;
-  return promise;
-}
-
 exports.hijackStdout = hijackStdWritable.bind(null, 'stdout');
 exports.hijackStderr = hijackStdWritable.bind(null, 'stderr');
 exports.restoreStdout = restoreWritable.bind(null, 'stdout');
@@ -902,20 +888,4 @@ exports.firstInvalidFD = function firstInvalidFD() {
     while (fs.fstatSync(++fd));
   } catch (e) {}
   return fd;
-};
-
-exports.fires = function fires(promise, error, timeoutMs) {
-  if (!timeoutMs && util.isNumber(error)) {
-    timeoutMs = error;
-    error = null;
-  }
-  if (!error)
-    error = 'timeout';
-  if (!timeoutMs)
-    timeoutMs = 100;
-  const timeout = timeoutPromise(error, timeoutMs);
-  return Promise.race([
-    onResolvedOrRejected(promise, () => timeout.clear()),
-    timeout
-  ]);
 };

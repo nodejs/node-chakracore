@@ -127,7 +127,7 @@ bool s_doTTRecord = false;
 bool s_doTTReplay = false;
 bool s_doTTDebug = false;
 size_t s_ttoptReplayUriLength = 0;
-const char* s_ttoptReplayUri = NULL;
+const char* s_ttoptReplayUri = nullptr;
 uint32_t s_ttdSnapInterval = 2000;
 uint32_t s_ttdSnapHistoryLength = 2;
 uint64_t s_ttdStartupMode = 0x1;
@@ -3144,7 +3144,7 @@ void SetupProcessObject(Environment* env,
   process->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "env"), process_env);
 
   READONLY_PROPERTY(process, "pid",
-                    Integer::New(env->isolate(), GetProcessId()));
+                    Integer::New(env->isolate(), uv_os_getpid()));
   READONLY_PROPERTY(process, "features", GetFeatures(env));
 
   CHECK(process->SetAccessor(env->context(),

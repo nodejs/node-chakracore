@@ -956,7 +956,8 @@ if (!common.isChakraEngine) {
   {
     const map = new Map([['foo', 'bar']]);
     assert.strictEqual(util.inspect(map.keys()), '[Map Iterator] { \'foo\' }');
-    assert.strictEqual(util.inspect(map.values()), '[Map Iterator] { \'bar\' }');
+    assert.strictEqual(util.inspect(map.values()),
+                       '[Map Iterator] { \'bar\' }');
     assert.strictEqual(util.inspect(map.entries()),
                        '[Map Iterator] { [ \'foo\', \'bar\' ] }');
     // make sure the iterator doesn't get consumed
