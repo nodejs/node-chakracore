@@ -32,10 +32,10 @@
 void TTReportLastIOError() {
 #ifdef _WIN32
   DWORD lastError = GetLastError();
-  LPTSTR pTemp = NULL;
+  LPTSTR pTemp = nullptr;
   FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
                 FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                NULL, lastError, 0, (LPTSTR)&pTemp, 0, NULL);
+                nullptr, lastError, 0, (LPTSTR)&pTemp, 0, nullptr);
   fprintf(stderr, "Error is: %i %s\n", lastError, pTemp);
 #else
   fprintf(stderr, "Error is: %i %s\n", errno, strerror(errno));
