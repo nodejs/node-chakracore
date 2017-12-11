@@ -132,7 +132,7 @@
             'cflags': [ '-gxcoff' ],
             'ldflags': [ '-Wl,-bbigtoc' ],
           }],
-          ['OS == "android" and node_shared!="true"', {
+          ['OS == "android" and node_shared!="true" and _type!="loadable_module"', {
             'cflags': [ '-fPIE' ],
             'ldflags': [ '-fPIE', '-pie' ]
           }],
@@ -188,7 +188,7 @@
           ['OS!="mac" and OS != "ios" and OS!="win"', {
             'cflags': [ '-fno-omit-frame-pointer' ],
           }],
-          ['OS == "android" and node_shared!="true"', {
+          ['OS == "android" and node_shared!="true" and _type!="loadable_module"', {
             'cflags': [ '-fPIE' ],
             'ldflags': [ '-fPIE', '-pie' ]
           }],
@@ -394,16 +394,16 @@
             'ldflags!': [ '-rdynamic' ],
           }],
           [ 'node_shared=="true"', {
-            'conditions': [
-              [ 'OS=="android"', {
-                'ldflags': [ '-fPIC' ],
-              }]
-            ],
             'cflags': [ '-fPIC' ],
           }],
         ],
       }],
       ['OS=="android"', {
+        'conditions': [
+          [ 'node_shared=="true" or _type=="loadable_module"', {
+            'ldflags': [ '-fPIC' ],
+          }]
+        ],
         'target_conditions': [
           ['_toolset=="target"', {
             'defines': [ '_GLIBCXX_USE_C99_MATH' ],
