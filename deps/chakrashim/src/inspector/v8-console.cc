@@ -839,11 +839,13 @@ V8Console::CommandLineAPIScope::~CommandLineAPIScope() {
     v8::Local<v8::Value> name;
     if (!names->Get(m_context, i).ToLocal(&name) || !name->IsName()) continue;
     if (name->IsString()) {
-      v8::Local<v8::Value> descriptor;
-      bool success = m_global
-                         ->GetOwnPropertyDescriptor(
-                             m_context, v8::Local<v8::Name>::Cast(name))
-                         .ToLocal(&descriptor);
+      // Trigger the accessorGetterCallback to do the delete. This ensures that
+      // the correct property is being deleted. It's possible (though unlikely)
+      // that some other code (or the user) has replaced these properties before
+      // they were able to be cleaned up.
+      v8::Local<v8::Value> value;
+      bool success = m_global->Get(m_context, v8::Local<v8::Name>::Cast(name))
+          .ToLocal(&value);
       DCHECK(success);
       USE(success);
     }

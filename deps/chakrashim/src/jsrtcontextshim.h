@@ -79,17 +79,21 @@ class ContextShim {
   JsValueRef GetRegExpConstructor();
   JsValueRef GetProxyConstructor();
   JsValueRef GetMapConstructor();
+  JsValueRef GetSetConstructor();
+  JsValueRef GetArrayConstructor();
   JsValueRef GetGlobalType(GlobalType index);
 
   JsValueRef GetToStringFunction();
   JsValueRef GetValueOfFunction();
   JsValueRef GetStringConcatFunction();
+  JsValueRef GetArrayFromFunction();
   JsValueRef GetArrayPushFunction();
   JsValueRef GetGlobalPrototypeFunction(GlobalPrototypeFunction index);
   JsValueRef GetProxyOfGlobal();
   JsValueRef GetMapGetFunction();
   JsValueRef GetMapSetFunction();
   JsValueRef GetMapHasFunction();
+  JsValueRef GetSetAddFunction();
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);

@@ -42,8 +42,10 @@ Local<String> StringObject::ValueOf() const {
     ContextShim::GetCurrent()->GetValueOfFunction();
 
   JsValueRef stringObjectValue;
-  if (jsrt::CallFunction(valueOfFunction, (JsValueRef)this,
-                         &stringObjectValue) != JsNoError) {
+  JsValueRef args[] = { (JsValueRef)this };
+  if (JsCallFunction(valueOfFunction, args, _countof(args),
+                     &stringObjectValue) != JsNoError) {
+    CHAKRA_ASSERT(false);
     return Local<String>();
   }
 
