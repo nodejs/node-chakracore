@@ -69,6 +69,129 @@ Http2Options::Http2Options(Environment* env) {
   }
 }
 
+Http2Settings::Http2Settings(Environment* env) : env_(env) {
+  entries_.AllocateSufficientStorage(IDX_SETTINGS_COUNT);
+  AliasedBuffer<uint32_t, v8::Uint32Array>& buffer =
+      env->http2_state()->settings_buffer;
+  uint32_t flags = buffer[IDX_SETTINGS_COUNT];
+
+  size_t n = 0;
+
+  if (flags & (1 << IDX_SETTINGS_HEADER_TABLE_SIZE)) {
+    uint32_t val = buffer[IDX_SETTINGS_HEADER_TABLE_SIZE];
+    DEBUG_HTTP2("Setting header table size: %d\n", val);
+    entries_[n].settings_id = NGHTTP2_SETTINGS_HEADER_TABLE_SIZE;
+    entries_[n].value = val;
+    n++;
+  }
+
+  if (flags & (1 << IDX_SETTINGS_MAX_CONCURRENT_STREAMS)) {
+    uint32_t val = buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS];
+    DEBUG_HTTP2("Setting max concurrent streams: %d\n", val);
+    entries_[n].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
+    entries_[n].value = val;
+    n++;
+  }
+
+  if (flags & (1 << IDX_SETTINGS_MAX_FRAME_SIZE)) {
+    uint32_t val = buffer[IDX_SETTINGS_MAX_FRAME_SIZE];
+    DEBUG_HTTP2("Setting max frame size: %d\n", val);
+    entries_[n].settings_id = NGHTTP2_SETTINGS_MAX_FRAME_SIZE;
+    entries_[n].value = val;
+    n++;
+  }
+
+  if (flags & (1 << IDX_SETTINGS_INITIAL_WINDOW_SIZE)) {
+    uint32_t val = buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE];
+    DEBUG_HTTP2("Setting initial window size: %d\n", val);
+    entries_[n].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
+    entries_[n].value = val;
+    n++;
+  }
+
+  if (flags & (1 << IDX_SETTINGS_MAX_HEADER_LIST_SIZE)) {
+    uint32_t val = buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE];
+    DEBUG_HTTP2("Setting max header list size: %d\n", val);
+    entries_[n].settings_id = NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE;
+    entries_[n].value = val;
+    n++;
+  }
+
+  if (flags & (1 << IDX_SETTINGS_ENABLE_PUSH)) {
+    uint32_t val = buffer[IDX_SETTINGS_ENABLE_PUSH];
+    DEBUG_HTTP2("Setting enable push: %d\n", val);
+    entries_[n].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
+    entries_[n].value = val;
+    n++;
+  }
+
+  count_ = n;
+}
+
+inline Local<Value> Http2Settings::Pack() {
+  const size_t len = count_ * 6;
+  Local<Value> buf = Buffer::New(env_, len).ToLocalChecked();
+  ssize_t ret =
+      nghttp2_pack_settings_payload(
+        reinterpret_cast<uint8_t*>(Buffer::Data(buf)), len,
+        *entries_, count_);
+  if (ret >= 0)
+    return buf;
+  else
+    return Undefined(env_->isolate());
+}
+
+inline void Http2Settings::Update(Environment* env,
+                                  Http2Session* session,
+                                  get_setting fn) {
+  AliasedBuffer<uint32_t, v8::Uint32Array>& buffer =
+      env->http2_state()->settings_buffer;
+  buffer[IDX_SETTINGS_HEADER_TABLE_SIZE] =
+      fn(session->session(), NGHTTP2_SETTINGS_HEADER_TABLE_SIZE);
+  buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS] =
+      fn(session->session(), NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS);
+  buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE] =
+      fn(session->session(), NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE);
+  buffer[IDX_SETTINGS_MAX_FRAME_SIZE] =
+      fn(session->session(), NGHTTP2_SETTINGS_MAX_FRAME_SIZE);
+  buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE] =
+      fn(session->session(), NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE);
+  buffer[IDX_SETTINGS_ENABLE_PUSH] =
+      fn(session->session(), NGHTTP2_SETTINGS_ENABLE_PUSH);
+}
+
+
+inline void Http2Settings::RefreshDefaults(Environment* env) {
+  AliasedBuffer<uint32_t, v8::Uint32Array>& buffer =
+      env->http2_state()->settings_buffer;
+
+  buffer[IDX_SETTINGS_HEADER_TABLE_SIZE] =
+      DEFAULT_SETTINGS_HEADER_TABLE_SIZE;
+  buffer[IDX_SETTINGS_ENABLE_PUSH] =
+      DEFAULT_SETTINGS_ENABLE_PUSH;
+  buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE] =
+      DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE;
+  buffer[IDX_SETTINGS_MAX_FRAME_SIZE] =
+      DEFAULT_SETTINGS_MAX_FRAME_SIZE;
+  buffer[IDX_SETTINGS_COUNT] =
+    (1 << IDX_SETTINGS_HEADER_TABLE_SIZE) |
+    (1 << IDX_SETTINGS_ENABLE_PUSH) |
+    (1 << IDX_SETTINGS_INITIAL_WINDOW_SIZE) |
+    (1 << IDX_SETTINGS_MAX_FRAME_SIZE);
+}
+
+Http2Priority::Http2Priority(Environment* env,
+                             Local<Value> parent,
+                             Local<Value> weight,
+                             Local<Value> exclusive) {
+  Local<Context> context = env->context();
+  int32_t parent_ = parent->Int32Value(context).ToChecked();
+  int32_t weight_ = weight->Int32Value(context).ToChecked();
+  bool exclusive_ = exclusive->BooleanValue(context).ToChecked();
+  DEBUG_HTTP2("Http2Priority: parent: %d, weight: %d, exclusive: %d\n",
+              parent_, weight_, exclusive_);
+  nghttp2_priority_spec_init(&spec, parent_, weight_, exclusive_ ? 1 : 0);
+}
 
 Http2Session::Http2Session(Environment* env,
                            Local<Object> wrap,
@@ -147,12 +270,8 @@ ssize_t Http2Session::OnCallbackPadding(size_t frameLen,
   buffer[PADDING_BUF_RETURN_VALUE] = frameLen;
   MakeCallback(env()->ongetpadding_string(), 0, nullptr);
   uint32_t retval = buffer[PADDING_BUF_RETURN_VALUE];
-  retval = retval <= maxPayloadLen ? retval : maxPayloadLen;
-  retval = retval >= frameLen ? retval : frameLen;
-#if defined(DEBUG) && DEBUG
-  CHECK_GE(retval, frameLen);
-  CHECK_LE(retval, maxPayloadLen);
-#endif
+  retval = std::min(retval, static_cast<uint32_t>(maxPayloadLen));
+  retval = std::max(retval, static_cast<uint32_t>(frameLen));
   return retval;
 }
 
@@ -178,119 +297,24 @@ void HttpErrorString(const FunctionCallbackInfo<Value>& args) {
 // output for an HTTP2-Settings header field.
 void PackSettings(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
-  HandleScope scope(env->isolate());
-
-  std::vector<nghttp2_settings_entry> entries;
-  entries.reserve(6);
-
-  AliasedBuffer<uint32_t, v8::Uint32Array>& buffer =
-      env->http2_state()->settings_buffer;
-  uint32_t flags = buffer[IDX_SETTINGS_COUNT];
-
-  if (flags & (1 << IDX_SETTINGS_HEADER_TABLE_SIZE)) {
-    DEBUG_HTTP2("Setting header table size: %d\n",
-                static_cast<uint32_t>(buffer[IDX_SETTINGS_HEADER_TABLE_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_HEADER_TABLE_SIZE,
-                       buffer[IDX_SETTINGS_HEADER_TABLE_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_MAX_CONCURRENT_STREAMS)) {
-    DEBUG_HTTP2("Setting max concurrent streams: %d\n",
-                static_cast<uint32_t>(
-                    buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS]));
-    entries.push_back({NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS,
-                       buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_MAX_FRAME_SIZE)) {
-    DEBUG_HTTP2("Setting max frame size: %d\n",
-                static_cast<uint32_t>(buffer[IDX_SETTINGS_MAX_FRAME_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_MAX_FRAME_SIZE,
-                       buffer[IDX_SETTINGS_MAX_FRAME_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_INITIAL_WINDOW_SIZE)) {
-    DEBUG_HTTP2("Setting initial window size: %d\n",
-                static_cast<uint32_t>(
-                    buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE,
-                       buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_MAX_HEADER_LIST_SIZE)) {
-    DEBUG_HTTP2("Setting max header list size: %d\n",
-                static_cast<uint32_t>(
-                    buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE,
-                       buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_ENABLE_PUSH)) {
-    DEBUG_HTTP2("Setting enable push: %d\n",
-                static_cast<uint32_t>(buffer[IDX_SETTINGS_ENABLE_PUSH]));
-    entries.push_back({NGHTTP2_SETTINGS_ENABLE_PUSH,
-                       buffer[IDX_SETTINGS_ENABLE_PUSH]});
-  }
-
-  const size_t len = entries.size() * 6;
-  MaybeStackBuffer<char> buf(len);
-  ssize_t ret =
-      nghttp2_pack_settings_payload(
-        reinterpret_cast<uint8_t*>(*buf), len, &entries[0], entries.size());
-  if (ret >= 0) {
-    args.GetReturnValue().Set(
-      Buffer::Copy(env, *buf, len).ToLocalChecked());
-  }
+  Http2Settings settings(env);
+  args.GetReturnValue().Set(settings.Pack());
 }
 
 // Used to fill in the spec defined initial values for each setting.
 void RefreshDefaultSettings(const FunctionCallbackInfo<Value>& args) {
   DEBUG_HTTP2("Http2Session: refreshing default settings\n");
   Environment* env = Environment::GetCurrent(args);
-  AliasedBuffer<uint32_t, v8::Uint32Array>& buffer =
-      env->http2_state()->settings_buffer;
-
-  buffer[IDX_SETTINGS_HEADER_TABLE_SIZE] =
-      DEFAULT_SETTINGS_HEADER_TABLE_SIZE;
-  buffer[IDX_SETTINGS_ENABLE_PUSH] =
-      DEFAULT_SETTINGS_ENABLE_PUSH;
-  buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE] =
-      DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE;
-  buffer[IDX_SETTINGS_MAX_FRAME_SIZE] =
-      DEFAULT_SETTINGS_MAX_FRAME_SIZE;
-  buffer[IDX_SETTINGS_COUNT] =
-    (1 << IDX_SETTINGS_HEADER_TABLE_SIZE) |
-    (1 << IDX_SETTINGS_ENABLE_PUSH) |
-    (1 << IDX_SETTINGS_INITIAL_WINDOW_SIZE) |
-    (1 << IDX_SETTINGS_MAX_FRAME_SIZE);
+  Http2Settings::RefreshDefaults(env);
 }
 
 template <get_setting fn>
-void RefreshSettings(const FunctionCallbackInfo<Value>& args) {
+void Http2Session::RefreshSettings(const FunctionCallbackInfo<Value>& args) {
   DEBUG_HTTP2("Http2Session: refreshing settings for session\n");
   Environment* env = Environment::GetCurrent(args);
-#if defined(DEBUG) && DEBUG
-  CHECK_EQ(args.Length(), 1);
-  CHECK(args[0]->IsObject());
-#endif
   Http2Session* session;
-  ASSIGN_OR_RETURN_UNWRAP(&session, args[0].As<Object>());
-  nghttp2_session* s = session->session();
-
-  AliasedBuffer<uint32_t, v8::Uint32Array>& buffer =
-      env->http2_state()->settings_buffer;
-  buffer[IDX_SETTINGS_HEADER_TABLE_SIZE] =
-      fn(s, NGHTTP2_SETTINGS_HEADER_TABLE_SIZE);
-  buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS] =
-      fn(s, NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS);
-  buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE] =
-      fn(s, NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE);
-  buffer[IDX_SETTINGS_MAX_FRAME_SIZE] =
-      fn(s, NGHTTP2_SETTINGS_MAX_FRAME_SIZE);
-  buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE] =
-      fn(s, NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE);
-  buffer[IDX_SETTINGS_ENABLE_PUSH] =
-      fn(s, NGHTTP2_SETTINGS_ENABLE_PUSH);
+  ASSIGN_OR_RETURN_UNWRAP(&session, args.Holder());
+  Http2Settings::Update(env, session, fn);
 }
 
 // Used to fill in the spec defined initial values for each setting.
@@ -429,30 +453,18 @@ void Http2Session::SubmitPriority(const FunctionCallbackInfo<Value>& args) {
   ASSIGN_OR_RETURN_UNWRAP(&session, args.Holder());
   Local<Context> context = env->context();
 
-  nghttp2_priority_spec spec;
   int32_t id = args[0]->Int32Value(context).ToChecked();
-  int32_t parent = args[1]->Int32Value(context).ToChecked();
-  int32_t weight = args[2]->Int32Value(context).ToChecked();
-  bool exclusive = args[3]->BooleanValue(context).ToChecked();
+  Http2Priority priority(env, args[1], args[2], args[3]);
   bool silent = args[4]->BooleanValue(context).ToChecked();
-  DEBUG_HTTP2("Http2Session: submitting priority for stream %d: "
-              "parent: %d, weight: %d, exclusive: %d, silent: %d\n",
-              id, parent, weight, exclusive, silent);
-
-#if defined(DEBUG) && DEBUG
-  CHECK_GT(id, 0);
-  CHECK_GE(parent, 0);
-  CHECK_GE(weight, 0);
-#endif
+  DEBUG_HTTP2("Http2Session: submitting priority for stream %d", id);
 
   Nghttp2Stream* stream;
   if (!(stream = session->FindStream(id))) {
     // invalid stream
     return args.GetReturnValue().Set(NGHTTP2_ERR_INVALID_STREAM_ID);
   }
-  nghttp2_priority_spec_init(&spec, parent, weight, exclusive ? 1 : 0);
 
-  args.GetReturnValue().Set(stream->SubmitPriority(&spec, silent));
+  args.GetReturnValue().Set(stream->SubmitPriority(*priority, silent));
 }
 
 void Http2Session::SubmitSettings(const FunctionCallbackInfo<Value>& args) {
@@ -460,65 +472,9 @@ void Http2Session::SubmitSettings(const FunctionCallbackInfo<Value>& args) {
   ASSIGN_OR_RETURN_UNWRAP(&session, args.Holder());
   Environment* env = session->env();
 
-  AliasedBuffer<uint32_t, v8::Uint32Array>& buffer =
-      env->http2_state()->settings_buffer;
-  uint32_t flags = buffer[IDX_SETTINGS_COUNT];
-
-  std::vector<nghttp2_settings_entry> entries;
-  entries.reserve(6);
-
-  if (flags & (1 << IDX_SETTINGS_HEADER_TABLE_SIZE)) {
-    DEBUG_HTTP2("Setting header table size: %d\n",
-                static_cast<uint32_t>(buffer[IDX_SETTINGS_HEADER_TABLE_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_HEADER_TABLE_SIZE,
-                       buffer[IDX_SETTINGS_HEADER_TABLE_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_MAX_CONCURRENT_STREAMS)) {
-    DEBUG_HTTP2("Setting max concurrent streams: %d\n",
-                static_cast<uint32_t>(
-                    buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS]));
-    entries.push_back({NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS,
-                       buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_MAX_FRAME_SIZE)) {
-    DEBUG_HTTP2("Setting max frame size: %d\n",
-                static_cast<uint32_t>(buffer[IDX_SETTINGS_MAX_FRAME_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_MAX_FRAME_SIZE,
-                       buffer[IDX_SETTINGS_MAX_FRAME_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_INITIAL_WINDOW_SIZE)) {
-    DEBUG_HTTP2("Setting initial window size: %d\n",
-                static_cast<uint32_t>(
-                    buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE,
-                       buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_MAX_HEADER_LIST_SIZE)) {
-    DEBUG_HTTP2("Setting max header list size: %d\n",
-                static_cast<uint32_t>(
-                    buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE]));
-    entries.push_back({NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE,
-                       buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE]});
-  }
-
-  if (flags & (1 << IDX_SETTINGS_ENABLE_PUSH)) {
-    DEBUG_HTTP2("Setting enable push: %d\n",
-                static_cast<uint32_t>(buffer[IDX_SETTINGS_ENABLE_PUSH]));
-    entries.push_back({NGHTTP2_SETTINGS_ENABLE_PUSH,
-                       buffer[IDX_SETTINGS_ENABLE_PUSH]});
-  }
-
-  if (entries.size() > 0) {
-    args.GetReturnValue().Set(
-        session->Nghttp2Session::SubmitSettings(&entries[0], entries.size()));
-  } else {
-    args.GetReturnValue().Set(
-        session->Nghttp2Session::SubmitSettings(nullptr, 0));
-  }
+  Http2Settings settings(env);
+  args.GetReturnValue().Set(
+    session->Nghttp2Session::SubmitSettings(*settings, settings.length()));
 }
 
 void Http2Session::SubmitRstStream(const FunctionCallbackInfo<Value>& args) {
@@ -564,20 +520,14 @@ void Http2Session::SubmitRequest(const FunctionCallbackInfo<Value>& args) {
 
   Local<Array> headers = args[0].As<Array>();
   int options = args[1]->IntegerValue(context).ToChecked();
-  int32_t parent = args[2]->Int32Value(context).ToChecked();
-  int32_t weight = args[3]->Int32Value(context).ToChecked();
-  bool exclusive = args[4]->BooleanValue(context).ToChecked();
+  Http2Priority priority(env, args[2], args[3], args[4]);
 
-  DEBUG_HTTP2("Http2Session: submitting request: headers: %d, options: %d, "
-              "parent: %d, weight: %d, exclusive: %d\n", headers->Length(),
-              options, parent, weight, exclusive);
-
-  nghttp2_priority_spec prispec;
-  nghttp2_priority_spec_init(&prispec, parent, weight, exclusive ? 1 : 0);
+  DEBUG_HTTP2("Http2Session: submitting request: headers: %d, options: %d\n",
+              headers->Length(), options);
 
   Headers list(isolate, context, headers);
 
-  int32_t ret = session->Nghttp2Session::SubmitRequest(&prispec,
+  int32_t ret = session->Nghttp2Session::SubmitRequest(*priority,
                                                        *list, list.length(),
                                                        nullptr, options);
   DEBUG_HTTP2("Http2Session: request submitted, response: %d\n", ret);
@@ -1327,6 +1277,12 @@ void Initialize(Local<Object> target,
                       Http2Session::FlushData);
   env->SetProtoMethod(session, "updateChunksSent",
                       Http2Session::UpdateChunksSent);
+  env->SetProtoMethod(
+      session, "refreshLocalSettings",
+      Http2Session::RefreshSettings<nghttp2_session_get_local_settings>);
+  env->SetProtoMethod(
+      session, "refreshRemoteSettings",
+      Http2Session::RefreshSettings<nghttp2_session_get_remote_settings>);
   StreamBase::AddMethods<Http2Session>(env, session,
                                         StreamBase::kFlagHasWritev |
                                         StreamBase::kFlagNoShutdown);
@@ -1416,10 +1372,6 @@ HTTP_KNOWN_METHODS(STRING_CONSTANT)
 HTTP_STATUS_CODES(V)
 #undef V
 
-  env->SetMethod(target, "refreshLocalSettings",
-                 RefreshSettings<nghttp2_session_get_local_settings>);
-  env->SetMethod(target, "refreshRemoteSettings",
-                 RefreshSettings<nghttp2_session_get_remote_settings>);
   env->SetMethod(target, "refreshDefaultSettings", RefreshDefaultSettings);
   env->SetMethod(target, "refreshSessionState", RefreshSessionState);
   env->SetMethod(target, "refreshStreamState", RefreshStreamState);

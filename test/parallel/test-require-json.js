@@ -32,5 +32,6 @@ try {
       v8: /test[/\\]fixtures[/\\]invalid\.json: Unexpected string/,
       chakracore: /test[/\\]fixtures[/\\]invalid\.json: JSON\.parse Error: Expected '}'/
     }).test(err.message),
-    'require() json error should include path');
+    `require() json error should include path - currently: ${err.message}`
+  );
 }

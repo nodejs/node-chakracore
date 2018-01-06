@@ -821,7 +821,7 @@ Shortcut for `http2stream.rstStream()` using error code `0x02` (Internal Error).
 added: v8.4.0
 -->
 
-* Value: {Http2Sesssion}
+* Value: {Http2Session}
 
 A reference to the `Http2Session` instance that owns this `Http2Stream`. The
 value will be `undefined` after the `Http2Stream` instance is destroyed.
@@ -1781,7 +1781,7 @@ All additional properties on the settings object are ignored.
 ### Using `options.selectPadding`
 
 When `options.paddingStrategy` is equal to
-`http2.constants.PADDING_STRATEGY_CALLBACK`, the the HTTP/2 implementation will
+`http2.constants.PADDING_STRATEGY_CALLBACK`, the HTTP/2 implementation will
 consult the `options.selectPadding` callback function, if provided, to determine
 the specific amount of padding to use per HEADERS and DATA frame.
 
