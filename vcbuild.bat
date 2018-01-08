@@ -181,7 +181,6 @@ if "%target_arch%"=="arm" (
 )
 if defined config_flags     set configure_flags=%configure_flags% %config_flags%
 if defined target_arch      set configure_flags=%configure_flags% --dest-cpu=%target_arch%
-if defined TAG              set configure_flags=%configure_flags% --tag=%TAG%
 if defined engine           set configure_flags=%configure_flags% --engine=%engine%
 
 if not exist "%~dp0deps\icu" goto no-depsicu
@@ -190,6 +189,8 @@ if "%target%"=="Clean" rmdir /S /Q %~dp0deps\icu
 :no-depsicu
 
 call :getnodeversion || exit /b 1
+
+if defined TAG set configure_flags=%configure_flags% --tag=%TAG%
 
 if "%target%"=="Clean" rmdir /Q /S "%~dp0%config%\node-v%FULLVERSION%-win-%target_arch%" > nul 2> nul
 
