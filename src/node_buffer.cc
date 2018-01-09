@@ -620,6 +620,8 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   THROW_AND_RETURN_IF_OOB(start <= end);
   THROW_AND_RETURN_IF_OOB(fill_length + start <= ts_obj_length);
 
+  args.GetReturnValue().Set(static_cast<double>(fill_length));
+
   // First check if Buffer has been passed.
   if (Buffer::HasInstance(args[1])) {
     SPREAD_BUFFER_ARG(args[1], fill_obj);
@@ -652,8 +654,10 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
       enc == UTF8 ? str_obj->Utf8Length() :
       enc == UCS2 ? str_obj->Length() * sizeof(uint16_t) : str_obj->Length();
 
-  if (str_length == 0)
+  if (str_length == 0) {
+    args.GetReturnValue().Set(0);
     return;
+  }
 
   // Can't use StringBytes::Write() in all cases. For example if attempting
   // to write a two byte character into a one byte Buffer.
@@ -684,10 +688,10 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
     // greater than 0 but couldn't be written then the string was invalid.
     if (str_length == 0) {
 #if ENABLE_TTD_NODE
-        TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
+      TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
 #endif
 
-        return;
+      return args.GetReturnValue().Set(0);
     }
   }
 
@@ -695,10 +699,10 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
 
   if (str_length >= fill_length) {
 #if ENABLE_TTD_NODE
-      TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Early Return");
+    TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Early Return");
 #endif
 
-      return;
+    return;
   }
 
   size_t in_there = str_length;
