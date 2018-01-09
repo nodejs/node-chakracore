@@ -6,6 +6,13 @@
 
 #include <queue>
 
+// min and max are defined in the PAL, which interferes
+// with <algorithm>'s std::min and std::max
+#ifdef NODE_ENGINE_CHAKRACORE
+#undef min
+#undef max
+#endif
+
 namespace node {
 
 using v8::Boolean;
