@@ -316,9 +316,6 @@
         'NODE_OPENSSL_SYSTEM_CERT_PATH="<(openssl_system_ca_path)"',
       ],
       'conditions': [
-        [ 'node_shared=="true" and node_module_version!="" and OS!="win"', {
-          'product_extension': '<(shlib_suffix)',
-        }],
         [ 'node_engine=="chakracore"', {
           'sources': [
             'src/node_api_jsrt.cc',
@@ -334,6 +331,9 @@
           'sources': [
             'src/node_api.cc',
           ],
+        }],
+        [ 'node_shared=="true" and node_module_version!="" and OS!="win"', {
+          'product_extension': '<(shlib_suffix)',
         }],
         [ 'v8_enable_inspector==1', {
           'defines': [
@@ -870,7 +870,7 @@
             'deps/v8/include'
           ],
           'conditions' : [
-            ['node_use_v8_platform=="true" and node_engine=="v8"', {
+            ['node_use_v8_platform=="true"', {
               'dependencies': [
                 'deps/v8/src/v8.gyp:v8_libplatform',
               ],
@@ -916,11 +916,18 @@
           ],
         }],
         [ 'node_use_openssl=="true"', {
-          'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_bio.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_clienthello.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)tls_wrap.<(OBJ_SUFFIX)',
+          'conditions': [
+            ['node_target_type!="static_library"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_bio.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_clienthello.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)tls_wrap.<(OBJ_SUFFIX)',
+              ],
+            }],
+          ],
+          'defines': [
+            'HAVE_OPENSSL=1',
           ],
         }],
         ['v8_enable_inspector==1', {
@@ -928,18 +935,22 @@
             'test/cctest/test_inspector_socket.cc',
             'test/cctest/test_inspector_socket_server.cc'
           ],
-          'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_agent.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_io.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_js_api.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket_server.<(OBJ_SUFFIX)',
+          'conditions': [
+            ['node_target_type!="static_library"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_agent.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_io.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_js_api.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket_server.<(OBJ_SUFFIX)',
+              ],
+            }],
           ],
           'defines': [
             'HAVE_INSPECTOR=1',
           ],
         }],
-        [ 'node_use_dtrace=="true"', {
+        [ 'node_use_dtrace=="true" and node_target_type!="static_library"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace.<(OBJ_SUFFIX)',
           ],
@@ -957,15 +968,24 @@
             }],
           ],
         }],
-        [ 'OS=="win"', {
+        [ 'OS=="win" and node_target_type!="static_library"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_win32.<(OBJ_SUFFIX)',
-             '-ldbghelp.lib'
            ],
+          'conditions': [
+            # this is only necessary for chakra on windows because chakra is dynamically linked on windows
+            [ 'node_engine=="chakracore"', {
+              'libraries': [ '-ldbghelp.lib' ],
+            }],
+          ],
         }, {
-          'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_posix.<(OBJ_SUFFIX)',
-           ],
+          'conditions': [
+            ['node_target_type!="static_library"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_posix.<(OBJ_SUFFIX)',
+              ],
+            }],
+          ],
         }],
         [ 'node_shared_zlib=="false"', {
           'dependencies': [
@@ -994,11 +1014,6 @@
           'include_dirs': [
             'deps/nghttp2/lib/includes'
           ]
-        }],
-        [ 'node_use_v8_platform=="true" and node_engine=="v8"', {
-          'dependencies': [
-            'deps/v8/src/v8.gyp:v8_libplatform',
-          ],
         }],
         ['OS=="solaris"', {
           'ldflags': [ '-I<(SHARED_INTERMEDIATE_DIR)' ]
