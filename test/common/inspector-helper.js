@@ -396,7 +396,7 @@ class NodeInstance {
     console.log('[test]', 'Connecting to a child Node process');
     const response = await this.httpGet(null, '/json/list');
     const url = response[0]['webSocketDebuggerUrl'];
-    return await this.wsHandshake(url);
+    return this.wsHandshake(url);
   }
 
   expectShutdown() {
