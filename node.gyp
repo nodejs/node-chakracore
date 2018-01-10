@@ -188,8 +188,6 @@
         'src/js_stream.cc',
         'src/module_wrap.cc',
         'src/node.cc',
-        'src/node_api.h',
-        'src/node_api_types.h',
         'src/node_buffer.cc',
         'src/node_config.cc',
         'src/node_constants.cc',
@@ -243,6 +241,8 @@
         'src/js_stream.h',
         'src/module_wrap.h',
         'src/node.h',
+        'src/node_api.h',
+        'src/node_api_types.h',
         'src/node_buffer.h',
         'src/node_constants.h',
         'src/node_debug_options.h',
@@ -358,7 +358,13 @@
             'NODE_PLATFORM="win32"',
             '_UNICODE=1',
           ],
-          'libraries': [ '-lpsapi.lib' ]
+          'libraries': [ '-lpsapi.lib' ],
+          'conditions': [
+            # this is only necessary for chakra on windows because chakra is dynamically linked on windows
+            [ 'node_engine=="chakracore"', {
+              'libraries': [ '-ldbghelp.lib' ],
+            }],
+          ],
         }, { # POSIX
           'defines': [ '__POSIX__' ],
           'sources': [ 'src/backtrace_posix.cc' ],
@@ -935,6 +941,12 @@
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_win32.<(OBJ_SUFFIX)',
            ],
+          'conditions': [
+            # this is only necessary for chakra on windows because chakra is dynamically linked on windows
+            [ 'node_engine=="chakracore"', {
+              'libraries': [ '-ldbghelp.lib' ],
+            }],
+          ],
         }, {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_posix.<(OBJ_SUFFIX)',
@@ -997,14 +1009,7 @@
               ],
             }]]
         }],
-      ],
-      'msvs_settings': {
-        'VCLinkerTool': {
-          'SubSystem': 1, # /subsystem:console
-        },
-      },
-
-
+      ]
     }
   ], # end targets
 
