@@ -92,7 +92,6 @@ test-v8-serdes-sharedarraybuffer : SKIP
 test-vm-cached-data : SKIP
 test-vm-context : SKIP
 test-vm-create-and-run-in-context : SKIP
-test-vm-debug-context : SKIP
 test-vm-global-identity : SKIP
 test-vm-low-stack-space : SKIP
 test-vm-preserves-property : SKIP
@@ -162,5 +161,6 @@ test-wasm-simple : SKIP
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-repl-sigint-nested-eval : SKIP
 test-vm-sigint : SKIP
+
 # https://github.com/Microsoft/ChakraCore/issues/3561
 test-wasm-simple : SKIP
