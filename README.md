@@ -46,7 +46,7 @@ _For installing Node-ChakraCore side-by-side your existing Node installation, we
 recommend [Node Version Switcher (NVS)](https://github.com/jasongin/nvs)._
 
 ```console
-$ nvs remote chakracore https://github.com/nodejs/node-chakracore/releases
+$ nvs remote chakracore https://nodejs.org/download/chakracore-release/
 $ nvs add chakracore/latest
 $ nvs use chakracore
 ```
