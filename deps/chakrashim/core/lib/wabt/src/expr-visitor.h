@@ -17,8 +17,8 @@
 #ifndef WABT_EXPR_VISITOR_H_
 #define WABT_EXPR_VISITOR_H_
 
-#include "common.h"
-#include "ir.h"
+#include "src/common.h"
+#include "src/ir.h"
 
 namespace wabt {
 
@@ -77,6 +77,12 @@ class ExprVisitor::Delegate {
   virtual Result OnCatchExpr(TryExpr*, Catch*) = 0;
   virtual Result OnThrowExpr(ThrowExpr*) = 0;
   virtual Result OnRethrowExpr(RethrowExpr*) = 0;
+  virtual Result OnAtomicWaitExpr(AtomicWaitExpr*) = 0;
+  virtual Result OnAtomicWakeExpr(AtomicWakeExpr*) = 0;
+  virtual Result OnAtomicLoadExpr(AtomicLoadExpr*) = 0;
+  virtual Result OnAtomicStoreExpr(AtomicStoreExpr*) = 0;
+  virtual Result OnAtomicRmwExpr(AtomicRmwExpr*) = 0;
+  virtual Result OnAtomicRmwCmpxchgExpr(AtomicRmwCmpxchgExpr*) = 0;
 };
 
 class ExprVisitor::DelegateNop : public ExprVisitor::Delegate {
@@ -117,6 +123,14 @@ class ExprVisitor::DelegateNop : public ExprVisitor::Delegate {
   Result OnCatchExpr(TryExpr*, Catch*) override { return Result::Ok; }
   Result OnThrowExpr(ThrowExpr*) override { return Result::Ok; }
   Result OnRethrowExpr(RethrowExpr*) override { return Result::Ok; }
+  Result OnAtomicWaitExpr(AtomicWaitExpr*) override { return Result::Ok; }
+  Result OnAtomicWakeExpr(AtomicWakeExpr*) override { return Result::Ok; }
+  Result OnAtomicLoadExpr(AtomicLoadExpr*) override { return Result::Ok; }
+  Result OnAtomicStoreExpr(AtomicStoreExpr*) override { return Result::Ok; }
+  Result OnAtomicRmwExpr(AtomicRmwExpr*) override { return Result::Ok; }
+  Result OnAtomicRmwCmpxchgExpr(AtomicRmwCmpxchgExpr*) override {
+    return Result::Ok;
+  }
 };
 
 }  // namespace wabt

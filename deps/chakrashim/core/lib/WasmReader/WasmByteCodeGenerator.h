@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #pragma once
@@ -145,13 +145,6 @@ namespace Wasm
 
     typedef JsUtil::BaseDictionary<uint32, LPCUTF8, ArenaAllocator> WasmExportDictionary;
 
-    struct WasmReaderInfo
-    {
-        Field(WasmFunctionInfo*) m_funcInfo;
-        Field(Js::WebAssemblyModule*) m_module;
-        Field(Js::Var) m_bufferSrc;
-    };
-
     class WasmModuleGenerator
     {
     public:
@@ -173,8 +166,6 @@ namespace Wasm
         static const Js::RegSlot ModuleSlotRegister = 0;
         static const Js::RegSlot ReturnRegister = 0;
 
-        static const Js::RegSlot FunctionRegister = 0;
-        static const Js::RegSlot CallReturnRegister = 0;
         static const Js::RegSlot ModuleEnvRegister = 1;
         static const Js::RegSlot ArrayBufferRegister = 2;
         static const Js::RegSlot ArraySizeRegister = 3;
@@ -188,6 +179,8 @@ namespace Wasm
     private:
         void GenerateFunction();
 
+        template <size_t lanes> 
+        EmitInfo EmitSimdBuildExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature);
         void EmitExpr(WasmOp op);
         EmitInfo EmitBlock();
         void EmitBlockCommon(BlockInfo* blockInfo, bool* endOnElse = nullptr);
@@ -219,14 +212,21 @@ namespace Wasm
         EmitInfo EmitBrIf();
 
         EmitInfo EmitMemAccess(WasmOp wasmOp, const WasmTypes::WasmType* signature, Js::ArrayBufferView::ViewType viewType, bool isStore);
+        EmitInfo EmitSimdMemAccess(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature, Js::ArrayBufferView::ViewType viewType, uint8 dataWidth, bool isStore);
         EmitInfo EmitBinExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature);
         EmitInfo EmitUnaryExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature);
+        EmitInfo EmitM128BitSelect();
+        EmitInfo EmitV8X16Shuffle();
+        EmitInfo EmitExtractLaneExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature);
+        EmitInfo EmitReplaceLaneExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature);
+        void CheckLaneIndex(Js::OpCodeAsmJs op, const uint index);
+        EmitInfo EmitLaneIndex(Js::OpCodeAsmJs op);
 
         EmitInfo EmitConst(WasmTypes::WasmType type, WasmConstLitNode cnst);
         void EmitLoadConst(EmitInfo dst, WasmConstLitNode cnst);
         WasmConstLitNode GetZeroCnst();
-
         void EnsureStackAvailable();
+
         void EnregisterLocals();
         void ReleaseLocation(EmitInfo* info);
 
@@ -239,6 +239,8 @@ namespace Wasm
         Js::OpCodeAsmJs GetReturnOp(WasmTypes::WasmType type);
         WasmRegisterSpace* GetRegisterSpace(WasmTypes::WasmType type);
 
+        EmitInfo PopValuePolymorphic() { return PopEvalStack(); }
+        EmitInfo PopStackPolymorphic(WasmTypes::WasmType expectedType = WasmTypes::Any, const char16* mismatchMessage = nullptr);
         EmitInfo PopEvalStack(WasmTypes::WasmType expectedType = WasmTypes::Any, const char16* mismatchMessage = nullptr);
         void PushEvalStack(EmitInfo);
         EmitInfo EnsureYield(BlockInfo);
@@ -252,6 +254,7 @@ namespace Wasm
         Js::FunctionBody* GetFunctionBody() const { return m_funcInfo->GetBody(); }
         WasmReaderBase* GetReader() const;
 
+        Js::ProfileId GetNextProfileId();
         bool IsValidating() const { return m_originalWriter == m_emptyWriter; }
 
         ArenaAllocator m_alloc;
@@ -271,6 +274,7 @@ namespace Wasm
 
         WAsmJs::TypedRegisterAllocator mTypedRegisterAllocator;
 
+        Js::ProfileId currentProfileId;
         JsUtil::Stack<BlockInfo> m_blockInfos;
         JsUtil::Stack<EmitInfo> m_evalStack;
     };

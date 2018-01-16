@@ -14,11 +14,37 @@
 namespace Wasm
 {
 
+namespace Simd
+{
+void EnsureSimdIsEnabled()
+{
+    if (!Wasm::Simd::IsEnabled())
+    {
+        throw WasmCompilationException(_u("Wasm.Simd support is not enabled"));
+    }
+}
+bool IsEnabled()
+{
+#ifdef ENABLE_WASM_SIMD
+    return CONFIG_FLAG(WasmSimd);
+#else
+    return false;
+#endif
+}
+}
+
 namespace WasmTypes
 {
+
 bool IsLocalType(WasmTypes::WasmType type)
 {
     // Check if type in range ]Void,Limit[
+#ifdef ENABLE_WASM_SIMD
+    if (type == WasmTypes::M128 && !Simd::IsEnabled())
+    {
+        return false;
+    }
+#endif
     return (uint32)(type - 1) < (WasmTypes::Limit - 1);
 }
 
@@ -31,6 +57,13 @@ uint32 GetTypeByteSize(WasmType type)
     case I64: return sizeof(int64);
     case F32: return sizeof(float);
     case F64: return sizeof(double);
+#ifdef ENABLE_WASM_SIMD
+    case M128:
+        Simd::EnsureSimdIsEnabled();
+        CompileAssert(sizeof(Simd::simdvec) == 16);
+        return sizeof(Simd::simdvec);
+#endif
+    case Ptr: return sizeof(void*);
     default:
         Js::Throw::InternalError();
     }
@@ -44,6 +77,11 @@ const char16 * GetTypeName(WasmType type)
     case WasmTypes::WasmType::I64: return _u("i64");
     case WasmTypes::WasmType::F32: return _u("f32");
     case WasmTypes::WasmType::F64: return _u("f64");
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::WasmType::M128: 
+        Simd::EnsureSimdIsEnabled();
+        return _u("m128");
+#endif
     case WasmTypes::WasmType::Any: return _u("any");
     default: Assert(UNREACHED); break;
     }
@@ -60,6 +98,11 @@ WasmTypes::WasmType LanguageTypes::ToWasmType(int8 binType)
     case LanguageTypes::i64: return WasmTypes::I64;
     case LanguageTypes::f32: return WasmTypes::F32;
     case LanguageTypes::f64: return WasmTypes::F64;
+#ifdef ENABLE_WASM_SIMD
+    case LanguageTypes::m128:
+        Simd::EnsureSimdIsEnabled();
+        return WasmTypes::M128;
+#endif
     default:
         throw WasmCompilationException(_u("Invalid binary type %d"), binType);
     }
@@ -71,13 +114,18 @@ bool FunctionIndexTypes::CanBeExported(FunctionIndexTypes::Type funcType)
 }
 
 WasmBinaryReader::WasmBinaryReader(ArenaAllocator* alloc, Js::WebAssemblyModule* module, const byte* source, size_t length) :
-    m_module(module),
-    m_curFuncEnd(nullptr),
     m_alloc(alloc),
-    m_readerState(READER_STATE_UNKNOWN)
+    m_start(source),
+    m_end(source + length),
+    m_pc(source),
+    m_curFuncEnd(nullptr),
+    m_currentSection(),
+    m_readerState(READER_STATE_UNKNOWN),
+    m_module(module)
+#if DBG_DUMP
+    , m_ops(nullptr)
+#endif
 {
-    m_start = m_pc = source;
-    m_end = source + length;
     m_currentSection.code = bSectLimit;
 #if DBG_DUMP
     m_ops = Anew(m_alloc, OpSet, m_alloc);
@@ -90,7 +138,7 @@ void WasmBinaryReader::InitializeReader()
     m_readerState = READER_STATE_UNKNOWN;
 }
 
-void WasmBinaryReader::ThrowDecodingError(const char16* msg, ...)
+void WasmBinaryReader::ThrowDecodingError(const char16* msg, ...) const
 {
     va_list argptr;
     va_start(argptr, msg);
@@ -213,6 +261,17 @@ SectionHeader WasmBinaryReader::ReadSectionHeader()
     return header;
 }
 
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+Js::FunctionBody* WasmBinaryReader::GetFunctionBody() const
+{
+    if (m_readerState == READER_STATE_FUNCTION)
+    {
+        return m_funcState.body;
+    }
+    return nullptr;
+}
+#endif
+
 #if DBG_DUMP
 void WasmBinaryReader::PrintOps()
 {
@@ -227,6 +286,7 @@ void WasmBinaryReader::PrintOps()
     int i = 0;
     while (iter.IsValid())
     {
+        __analysis_assume(i < count);
         ops[i] = iter.CurrentKey();
         iter.MoveNext();
         ++i;
@@ -243,13 +303,16 @@ void WasmBinaryReader::PrintOps()
             --j;
         }
     }
+
+    uint32 moduleId = m_module->GetWasmFunctionInfo(0)->GetBody()->GetSourceContextId();
+    Output::Print(_u("Module #%u's current opcode distribution\n"), moduleId);
     for (i = 0; i < count; ++i)
     {
         switch (ops[i])
         {
-#define WASM_OPCODE(opname, opcode, sig, nyi) \
+#define WASM_OPCODE(opname, opcode, sig, imp, wat) \
     case opcode: \
-        Output::Print(_u("%s\r\n"), _u(#opname)); \
+        Output::Print(_u("%s: %s\r\n"), _u(#opname), _u(wat)); \
         break;
 #include "WasmBinaryOpCodes.h"
         }
@@ -280,8 +343,7 @@ void WasmBinaryReader::ReadFunctionHeaders()
         {
             ThrowDecodingError(_u("Function body too big"));
         }
-        funcInfo->m_readerInfo.size = funcSize;
-        funcInfo->m_readerInfo.startOffset = (m_pc - m_start);
+        funcInfo->SetReaderInfo(FunctionBodyReaderInfo(funcSize, (m_pc - m_start)));
         CheckBytesLeft(funcSize);
         TRACE_WASM_DECODER(_u("Function body header: index = %u, size = %u"), funcIndex, funcSize);
         const byte* end = m_pc + funcSize;
@@ -291,8 +353,8 @@ void WasmBinaryReader::ReadFunctionHeaders()
 
 void WasmBinaryReader::SeekToFunctionBody(class WasmFunctionInfo* funcInfo)
 {
-    FunctionBodyReaderInfo readerInfo = funcInfo->m_readerInfo;
-    if (readerInfo.startOffset >= (m_end - m_start))
+    FunctionBodyReaderInfo readerInfo = funcInfo->GetReaderInfo();
+    if (m_end < m_start || readerInfo.startOffset >= (size_t)(m_end - m_start))
     {
         ThrowDecodingError(_u("Function byte offset out of bounds"));
     }
@@ -304,10 +366,27 @@ void WasmBinaryReader::SeekToFunctionBody(class WasmFunctionInfo* funcInfo)
 
     // Seek to the function start and skip function header (count)
     m_pc = m_start + readerInfo.startOffset;
+
     m_funcState.size = readerInfo.size;
     m_funcState.count = 0;
     CheckBytesLeft(readerInfo.size);
     m_curFuncEnd = m_pc + m_funcState.size;
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+    m_funcState.body = funcInfo->GetBody();
+    if (DO_WASM_TRACE_DECODER)
+    {
+        Output::Print(_u("Decoding "));
+        m_funcState.body->DumpFullFunctionName();
+        if (sizeof(intptr_t) == 8)
+        {
+            Output::Print(_u(": start = 0x%llx, end = 0x%llx, size = 0x%x\n"), (intptr_t)m_pc, (intptr_t)m_curFuncEnd, m_funcState.size);
+        }
+        else
+        {
+            Output::Print(_u(": start = 0x%x, end = 0x%x, size = 0x%x\n"), (intptr_t)m_pc, (intptr_t)m_curFuncEnd, m_funcState.size);
+        }
+    }
+#endif
 
     uint32 length = 0;
     uint32 numLocalsEntries = LEB128(length);
@@ -338,6 +417,9 @@ void WasmBinaryReader::SeekToFunctionBody(class WasmFunctionInfo* funcInfo)
 void WasmBinaryReader::FunctionEnd()
 {
     m_readerState = READER_STATE_UNKNOWN;
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+    m_funcState.body = nullptr;
+#endif
 }
 
 bool WasmBinaryReader::IsCurrentFunctionCompleted() const
@@ -345,10 +427,49 @@ bool WasmBinaryReader::IsCurrentFunctionCompleted() const
     return m_pc == m_curFuncEnd;
 }
 
+
+const uint32 WasmBinaryReader::EstimateCurrentFunctionBytecodeSize() const
+{
+    if (m_readerState != READER_STATE_FUNCTION)
+    {
+        ThrowDecodingError(_u("Wasm reader in an invalid state to get function information"));
+    }
+    // Use binary size to estimate bytecode size
+    return m_funcState.size;
+}
+
+WasmOp WasmBinaryReader::ReadPrefixedOpCode(WasmOp prefix, bool isSupported, const char16* notSupportedMsg)
+{
+    CompileAssert(sizeof(WasmOp) >= 2);
+    if (!isSupported)
+    {
+        ThrowDecodingError(notSupportedMsg);
+    }
+    CheckBytesLeft(1);
+    ++m_funcState.count;
+    return (WasmOp)((prefix << 8) | (*m_pc++));
+}
+
+WasmOp WasmBinaryReader::ReadOpCode()
+{
+    CheckBytesLeft(1);
+    WasmOp op = (WasmOp)*m_pc++;
+    ++m_funcState.count;
+
+    switch (op)
+    {
+#define WASM_PREFIX(name, value, imp, errorMsg) \
+    case prefix##name: \
+        return ReadPrefixedOpCode(op, imp, _u(errorMsg));
+#include "WasmBinaryOpCodes.h"
+    }
+
+    return op;
+}
+
 WasmOp WasmBinaryReader::ReadExpr()
 {
-    WasmOp op = m_currentNode.op = (WasmOp)*m_pc++;
-    ++m_funcState.count;
+    WasmOp op = m_currentNode.op = ReadOpCode();
 
     if (EndOfFunc())
     {
@@ -397,6 +518,11 @@ WasmOp WasmBinaryReader::ReadExpr()
     case wbF64Const:
         ConstNode<WasmTypes::F64>();
         break;
+#ifdef ENABLE_WASM_SIMD
+    case wbM128Const:
+        ConstNode<WasmTypes::M128>();
+        break;
+#endif
     case wbSetLocal:
     case wbGetLocal:
     case wbTeeLocal:
@@ -424,10 +550,19 @@ WasmOp WasmBinaryReader::ReadExpr()
         }
         break;
     }
-#define WASM_MEM_OPCODE(opname, opcode, sig, nyi) \
+#ifdef ENABLE_WASM_SIMD
+    case wbV8X16Shuffle:
+        ShuffleNode();
+        break;
+#define WASM_LANE_OPCODE(opname, ...) \
+    case wb##opname: \
+        LaneNode(); \
+        break;
+#endif
+#define WASM_MEM_OPCODE(opname, ...) \
     case wb##opname: \
         MemNode(); \
-    break;
+        break;
 #include "WasmBinaryOpCodes.h"
     default:
         break;
@@ -539,6 +674,22 @@ void WasmBinaryReader::BrTableNode()
     m_funcState.count += len;
 }
 
+void WasmBinaryReader::ShuffleNode()
+{
+    CheckBytesLeft(Simd::MAX_LANES);
+    for (uint32 i = 0; i < Simd::MAX_LANES; i++)
+    {
+        m_currentNode.shuffle.indices[i] = ReadConst<uint8>();
+    }
+    m_funcState.count += Simd::MAX_LANES;
+}
+
+void WasmBinaryReader::LaneNode()
+{
+    m_currentNode.lane.index = ReadConst<uint8>();
+    m_funcState.count++;
+}
+
 void WasmBinaryReader::MemNode()
 {
     uint32 len = 0;
@@ -587,6 +738,16 @@ void WasmBinaryReader::ConstNode()
         CompileAssert(sizeof(int64) == sizeof(double));
         m_funcState.count += sizeof(double);
         break;
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::M128:
+        Simd::EnsureSimdIsEnabled();
+        for (uint i = 0; i < Simd::VEC_WIDTH; i++) 
+        {
+            m_currentNode.cnst.v128[i] = ReadConst<uint>();
+        }
+        m_funcState.count += Simd::VEC_WIDTH;
+        break;
+#endif
     }
 }
 
@@ -1155,19 +1316,6 @@ MaxAllowedType WasmBinaryReader::LEB128(uint32 &length, bool sgn)
             result |= -((int64)1 << shamt);
         }
     }
-
-    if (!sgn)
-    {
-        if (sizeof(MaxAllowedType) == 4)
-        {
-            TRACE_WASM_LEB128(_u("Binary decoder: LEB128 length = %u, value = %u (0x%x)"), length, result, result);
-        }
-        else if (sizeof(MaxAllowedType) == 8)
-        {
-            TRACE_WASM_LEB128(_u("Binary decoder: LEB128 length = %u, value = %llu (0x%llx)"), length, result, result);
-        }
-    }
-
     return result;
 }
 
@@ -1175,19 +1323,13 @@ MaxAllowedType WasmBinaryReader::LEB128(uint32 &length, bool sgn)
 template<>
 int32 WasmBinaryReader::SLEB128(uint32 &length)
 {
-    int32 result = LEB128<uint32>(length, true);
-
-    TRACE_WASM_LEB128(_u("Binary decoder: SLEB128 length = %u, value = %d (0x%x)"), length, result, result);
-    return result;
+    return LEB128<uint32>(length, true);
 }
 
 template<>
 int64 WasmBinaryReader::SLEB128(uint32 &length)
 {
-    int64 result = LEB128<uint64>(length, true);
-
-    TRACE_WASM_LEB128(_u("Binary decoder: SLEB128 length = %u, value = %lld (0x%llx)"), length, result, result);
-    return result;
+    return LEB128<uint64>(length, true);
 }
 
 WasmNode WasmBinaryReader::ReadInitExpr(bool isOffset)
@@ -1198,7 +1340,10 @@ WasmNode WasmBinaryReader::ReadInitExpr(bool isOffset)
     }
 
     m_funcState.count = 0;
-    m_funcState.size = m_currentSection.end - m_pc;
+    m_funcState.size = (uint32)(m_currentSection.end - m_pc);
+#if TARGET_64
+    Assert(m_pc + m_funcState.size == m_currentSection.end);
+#endif
     ReadExpr();
     WasmNode node = m_currentNode;
     switch (node.op)

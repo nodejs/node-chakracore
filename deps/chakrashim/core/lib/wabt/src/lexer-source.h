@@ -22,8 +22,8 @@
 #include <string>
 #include <vector>
 
-#include "common.h"
-#include "range.h"
+#include "src/common.h"
+#include "src/range.h"
 
 namespace wabt {
 
@@ -41,7 +41,7 @@ class LexerSource {
 
 class LexerSourceFile : public LexerSource {
  public:
-  explicit LexerSourceFile(const std::string& filename);
+  explicit LexerSourceFile(string_view filename);
   ~LexerSourceFile();
 
   bool IsOpen() const { return file_ != nullptr; }

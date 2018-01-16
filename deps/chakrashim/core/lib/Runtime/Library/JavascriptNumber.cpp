@@ -368,10 +368,8 @@ namespace Js
         //
 
         AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
-        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
-        Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr
-            || JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch);
+        Var newTarget = args.GetNewTarget();
+        bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
 
         Var result;
 
@@ -1082,9 +1080,8 @@ namespace Js
         }
 
         JavascriptString *result = nullptr;
-        ENTER_PINNED_SCOPE(JavascriptString, dblStr);
-        dblStr = JavascriptString::FromVar(FormatDoubleToString(value, NumberUtilities::FormatFixed, -1, scriptContext));
 
+        JavascriptString *dblStr = JavascriptString::FromVar(FormatDoubleToString(value, NumberUtilities::FormatFixed, -1, scriptContext));
         const char16* szValue = dblStr->GetSz();
         const size_t szLength = dblStr->GetLength();
 
@@ -1115,8 +1112,6 @@ namespace Js
                 result = JavascriptString::NewCopySz(pszRes, scriptContext);
             }
         }
-
-        LEAVE_PINNED_SCOPE();   //  dblStr
 
         if ( pszToBeFreed )
         {

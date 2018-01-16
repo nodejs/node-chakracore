@@ -9,6 +9,8 @@
 #include "Language/WebAssemblySource.h"
 #include "ByteCode/WasmByteCodeWriter.h"
 #include "EmptyWasmByteCodeWriter.h"
+#include "ByteCode/ByteCodeDumper.h"
+#include "AsmJsByteCodeDumper.h"
 
 #if DBG_DUMP
 #define DebugPrintOp(op) if (DO_WASM_TRACE_BYTECODE) { PrintOpBegin(op); }
@@ -57,7 +59,7 @@ uint32 WasmBytecodeGenerator::WriteTypeStackToString(_Out_writes_(maxlen) char16
     });
     if (numwritten >= maxlen - 5)
     {
-        // null out the last 5 characters so we can properly end it 
+        // null out the last 5 characters so we can properly end it
         for (int i = 1; i <= 5; i++)
         {
             *(out + maxlen - i) = 0;
@@ -85,7 +87,7 @@ void WasmBytecodeGenerator::PrintOpBegin(WasmOp op)
     }
     switch (op)
     {
-#define WASM_OPCODE(opname, opcode, sig, nyi) \
+#define WASM_OPCODE(opname, ...) \
 case wb##opname: \
     Output::Print(_u(#opname)); \
     break;
@@ -99,10 +101,24 @@ case wb##opname: \
     case wbBr:
     case wbBrIf: Output::Print(_u(" depth: %u"), GetReader()->m_currentNode.br.depth); break;
     case wbBrTable: Output::Print(_u(" %u cases, default: %u"), GetReader()->m_currentNode.brTable.numTargets, GetReader()->m_currentNode.brTable.defaultTarget); break;
-    case wbCall:
     case wbCallIndirect:
     {
-        uint id = GetReader()->m_currentNode.call.num;
+        uint32 sigId = GetReader()->m_currentNode.call.num;
+        if (sigId < m_module->GetSignatureCount())
+        {
+            Output::Print(_u(" "));
+            WasmSignature* sig = m_module->GetSignature(sigId);
+            sig->Dump(20);
+        }
+        else
+        {
+            Output::Print(_u(" invalid signature id %u"), sigId);
+        }
+        break;
+    }
+    case wbCall:
+    {
+        uint32 id = GetReader()->m_currentNode.call.num;
         if (id < m_module->GetWasmFunctionCount())
         {
             FunctionIndexTypes::Type funcType = GetReader()->m_currentNode.call.funcType;
@@ -119,7 +135,7 @@ case wb##opname: \
         }
         else
         {
-            Output::Print(_u(" invalid id"));
+            Output::Print(_u(" invalid id %u"), id);
         }
         break;
     }
@@ -132,7 +148,7 @@ case wb##opname: \
     case wbI64Const: Output::Print(_u(" (%lld, 0x%llx)"), GetReader()->m_currentNode.cnst.i64, GetReader()->m_currentNode.cnst.i64); break;
     case wbF32Const: Output::Print(_u(" (%.4f)"), GetReader()->m_currentNode.cnst.f32); break;
     case wbF64Const: Output::Print(_u(" (%.4f)"), GetReader()->m_currentNode.cnst.f64); break;
-#define WASM_MEM_OPCODE(opname, opcode, sig, nyi) case wb##opname: // FallThrough
+#define WASM_MEM_OPCODE(opname, ...) case wb##opname: // FallThrough
 #include "WasmBinaryOpCodes.h"
     {
         const uint8 alignment = GetReader()->m_currentNode.mem.alignment;
@@ -177,6 +193,11 @@ Js::AsmJsRetType WasmToAsmJs::GetAsmJsReturnType(WasmTypes::WasmType wasmType)
     case WasmTypes::F32: return Js::AsmJsRetType::Float;
     case WasmTypes::F64: return Js::AsmJsRetType::Double;
     case WasmTypes::Void: return Js::AsmJsRetType::Void;
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::M128:
+        Simd::EnsureSimdIsEnabled();
+        return Js::AsmJsRetType::Float32x4;
+#endif
     default:
         throw WasmCompilationException(_u("Unknown return type %u"), wasmType);
     }
@@ -192,6 +213,11 @@ Js::AsmJsVarType WasmToAsmJs::GetAsmJsVarType(WasmTypes::WasmType wasmType)
     case WasmTypes::I64: return Js::AsmJsVarType::Int64;
     case WasmTypes::F32: return Js::AsmJsVarType::Float;
     case WasmTypes::F64: return Js::AsmJsVarType::Double;
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::M128:
+        Simd::EnsureSimdIsEnabled();
+        return Js::AsmJsVarType::Float32x4;
+#endif
     default:
         throw WasmCompilationException(_u("Unknown var type %u"), wasmType);
     }
@@ -213,6 +239,9 @@ WasmModuleGenerator::WasmModuleGenerator(Js::ScriptContext* scriptContext, Js::W
 
 Js::WebAssemblyModule* WasmModuleGenerator::GenerateModule()
 {
+    Js::AutoProfilingPhase wasmPhase(m_scriptContext, Js::WasmReaderPhase);
+    Unused(wasmPhase);
+
     m_module->GetReader()->InitializeReader();
 
     BVStatic<bSectLimit + 1> visitedSections;
@@ -224,7 +253,7 @@ Js::WebAssemblyModule* WasmModuleGenerator::GenerateModule()
         SectionCode sectionCode = sectionHeader.code;
         if (sectionCode == bSectLimit)
         {
-            TRACE_WASM_SECTION(_u("Done reading module's sections"));
+            TRACE_WASM(PHASE_TRACE1(Js::WasmSectionPhase), _u("Done reading module's sections"));
             break;
         }
 
@@ -255,6 +284,11 @@ Js::WebAssemblyModule* WasmModuleGenerator::GenerateModule()
     }
 
     uint32 funcCount = m_module->GetWasmFunctionCount();
+    SourceContextInfo * sourceContextInfo = m_sourceInfo->GetSrcInfo()->sourceContextInfo;
+    m_sourceInfo->EnsureInitialized(funcCount);
+    sourceContextInfo->nextLocalFunctionId += funcCount;
+    sourceContextInfo->EnsureInitialized();
+
     for (uint32 i = 0; i < funcCount; ++i)
     {
         GenerateFunctionHeader(i);
@@ -300,12 +334,6 @@ Js::WebAssemblyModule* WasmModuleGenerator::GenerateModule()
     }
 #endif
 
-#if DBG_DUMP
-    if (PHASE_TRACE1(Js::WasmReaderPhase))
-    {
-        GetReader()->PrintOps();
-    }
-#endif
     // If we see a FunctionSignatures section we need to see a FunctionBodies section
     if (visitedSections.Test(bSectFunction) && !visitedSections.Test(bSectFunctionBodies))
     {
@@ -449,8 +477,9 @@ WasmBytecodeGenerator::WasmBytecodeGenerator(Js::ScriptContext* scriptContext, W
     m_scriptContext(scriptContext),
     m_alloc(_u("WasmBytecodeGen"), scriptContext->GetThreadContext()->GetPageAllocator(), Js::Throw::OutOfMemory),
     m_evalStack(&m_alloc),
-    mTypedRegisterAllocator(&m_alloc, AllocateRegisterSpace, 1 << WAsmJs::SIMD),
+    mTypedRegisterAllocator(&m_alloc, AllocateRegisterSpace, Simd::IsEnabled() ? 0 : 1 << WAsmJs::SIMD),
     m_blockInfos(&m_alloc),
+    currentProfileId(0),
     isUnreachable(false)
 {
     m_emptyWriter = Anew(&m_alloc, Js::EmptyWasmByteCodeWriter);
@@ -461,9 +490,8 @@ WasmBytecodeGenerator::WasmBytecodeGenerator(Js::ScriptContext* scriptContext, W
     // Init reader to current func offset
     GetReader()->SeekToFunctionBody(m_funcInfo);
 
-    // Use binary size to estimate bytecode size
-    const uint32 astSize = readerInfo->m_funcInfo->m_readerInfo.size;
-    m_writer->InitData(&m_alloc, astSize);
+    const uint32 estimated = GetReader()->EstimateCurrentFunctionBytecodeSize();
+    m_writer->InitData(&m_alloc, estimated);
 }
 
 void WasmBytecodeGenerator::GenerateFunction()
@@ -486,42 +514,57 @@ void WasmBytecodeGenerator::GenerateFunction()
     m_maxArgOutDepth = 0;
 
     m_writer->Begin(GetFunctionBody(), &m_alloc);
-    try
+    struct AutoCleanupGeneratorState
     {
-        Js::ByteCodeLabel exitLabel = m_writer->DefineLabel();
-        m_funcInfo->SetExitLabel(exitLabel);
-        EnregisterLocals();
-
-        EnterEvalStackScope();
-        // The function's yield type is the return type
-        GetReader()->m_currentNode.block.sig = m_funcInfo->GetResultType();
-        EmitInfo lastInfo = EmitBlock();
-        if (lastInfo.type != WasmTypes::Void || m_funcInfo->GetResultType() == WasmTypes::Void)
+        WasmBytecodeGenerator* gen;
+        AutoCleanupGeneratorState(WasmBytecodeGenerator* gen) : gen(gen) {}
+        ~AutoCleanupGeneratorState()
         {
-            EmitReturnExpr(&lastInfo);
+            if (gen)
+            {
+                TRACE_WASM(PHASE_TRACE(Js::WasmBytecodePhase, gen->GetFunctionBody()), _u("\nHad Compilation error!"));
+                gen->GetReader()->FunctionEnd();
+                gen->m_originalWriter->Reset();
+            }
         }
-        DebugPrintOpEnd();
-        ExitEvalStackScope();
-        SetUnreachableState(false);
-        m_writer->MarkAsmJsLabel(exitLabel);
-        m_writer->EmptyAsm(Js::OpCodeAsmJs::Ret);
-        m_writer->End();
-        GetReader()->FunctionEnd();
-    }
-    catch (...)
+        void Complete() { gen = nullptr; }
+    };
+    AutoCleanupGeneratorState autoCleanupGeneratorState(this);
+    Js::ByteCodeLabel exitLabel = m_writer->DefineLabel();
+    m_funcInfo->SetExitLabel(exitLabel);
+    EnregisterLocals();
+
+    EnterEvalStackScope();
+    // The function's yield type is the return type
+    GetReader()->m_currentNode.block.sig = m_funcInfo->GetResultType();
+    EmitInfo lastInfo = EmitBlock();
+    if (lastInfo.type != WasmTypes::Void || m_funcInfo->GetResultType() == WasmTypes::Void)
     {
-        TRACE_WASM_BYTECODE(_u("\nHad Compilation error!"));
-        GetReader()->FunctionEnd();
-        m_originalWriter->Reset();
-        throw;
+        EmitReturnExpr(&lastInfo);
     }
+    DebugPrintOpEnd();
+    ExitEvalStackScope();
+    SetUnreachableState(false);
+    m_writer->MarkAsmJsLabel(exitLabel);
+    m_writer->EmptyAsm(Js::OpCodeAsmJs::Ret);
+    m_writer->SetCallSiteCount(this->currentProfileId);
+    m_writer->End();
+    GetReader()->FunctionEnd();
+    autoCleanupGeneratorState.Complete();
     // Make sure we don't have any unforeseen exceptions as we finalize the body
     AutoDisableInterrupt autoDisableInterrupt(m_scriptContext->GetThreadContext(), true);
 
 #if DBG_DUMP
-    if (PHASE_DUMP(Js::ByteCodePhase, GetFunctionBody()) && !IsValidating())
+    if ((
+        PHASE_DUMP(Js::WasmBytecodePhase, GetFunctionBody()) ||
+        PHASE_DUMP(Js::ByteCodePhase, GetFunctionBody()) 
+        ) && !IsValidating())
     {
         Js::AsmJsByteCodeDumper::Dump(GetFunctionBody(), &mTypedRegisterAllocator, nullptr);
+    }
+    if (PHASE_DUMP(Js::WasmOpCodeDistributionPhase, GetFunctionBody()))
+    {
+        m_module->GetReader()->PrintOps();
     }
 #endif
 
@@ -530,7 +573,6 @@ void WasmBytecodeGenerator::GenerateFunction()
     mTypedRegisterAllocator.CommitToFunctionInfo(info, GetFunctionBody());
 
     GetFunctionBody()->CheckAndSetOutParamMaxDepth(m_maxArgOutDepth);
-
     autoDisableInterrupt.Completed();
 }
 
@@ -566,6 +608,14 @@ void WasmBytecodeGenerator::EnregisterLocals()
             case WasmTypes::I64:
                 m_writer->AsmLong1Const1(Js::OpCodeAsmJs::Ld_LongConst, m_locals[i].location, 0);
                 break;
+#ifdef ENABLE_WASM_SIMD
+            case WasmTypes::M128:
+            {
+                Simd::EnsureSimdIsEnabled();
+                m_writer->WasmSimdConst(Js::OpCodeAsmJs::Simd128_LdC, m_locals[i].location, 0, 0, 0, 0);
+                break;
+            }
+#endif
             default:
                 Assume(UNREACHED);
             }
@@ -573,14 +623,51 @@ void WasmBytecodeGenerator::EnregisterLocals()
     }
 }
 
+template <size_t lanes>
+EmitInfo WasmBytecodeGenerator::EmitSimdBuildExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature)
+{
+    const WasmTypes::WasmType resultType = signature[0];
+    const WasmTypes::WasmType type = signature[1];
+
+    Js::RegSlot resultReg = GetRegisterSpace(resultType)->AcquireTmpRegister();
+
+    EmitInfo args[lanes];
+    for (uint i = 0; i < lanes; i++)
+    {
+        args[i] = PopEvalStack(type);
+    }
+
+    switch (lanes)
+    {
+        case 4:
+            m_writer->AsmReg5(op, resultReg, args[3].location, args[2].location, args[1].location, args[0].location);
+            break;
+        case 8:
+            m_writer->AsmReg9(op, resultReg, args[7].location, args[6].location, args[5].location, args[4].location, args[3].location, args[2].location, args[1].location, args[0].location);
+            break;
+        case 16:
+            m_writer->AsmReg17(op, resultReg, args[15].location, args[14].location, args[13].location, args[12].location, args[11].location, args[10].location, args[9].location, args[8].location, args[7].location, args[6].location, args[5].location, args[4].location, args[3].location, args[2].location, args[1].location, args[0].location);
+            break;
+        default:
+            Assert(UNREACHED);
+    }
+
+    for (uint i = 0; i < lanes; i++)
+    {
+        ReleaseLocation(&args[i]);
+    }
+
+    return EmitInfo(resultReg, resultType);
+}
+
 void WasmBytecodeGenerator::EmitExpr(WasmOp op)
 {
     DebugPrintOp(op);
     switch (op)
     {
-#define WASM_OPCODE(opname, opcode, sig, nyi) \
+#define WASM_OPCODE(opname, opcode, sig, imp, wat) \
     case opcode: \
-        if (nyi) throw WasmCompilationException(_u("Operator %s NYI"), _u(#opname)); break;
+        if (!imp) throw WasmCompilationException(_u("Operator %s is Not Yet Implemented"), _u(wat)); break;
 #include "WasmBinaryOpCodes.h"
     default:
         break;
@@ -620,6 +707,12 @@ void WasmBytecodeGenerator::EmitExpr(WasmOp op)
     case wbI64Const:
         info = EmitConst(WasmTypes::I64, GetReader()->m_currentNode.cnst);
         break;
+#ifdef ENABLE_WASM_SIMD
+    case wbM128Const:
+        Simd::EnsureSimdIsEnabled();
+        info = EmitConst(WasmTypes::M128, GetReader()->m_currentNode.cnst);
+        break;
+#endif
     case wbBlock:
         info = EmitBlock();
         break;
@@ -676,27 +769,62 @@ void WasmBytecodeGenerator::EmitExpr(WasmOp op)
         SetUnreachableState(true);
         info.type = WasmTypes::Any;
         break;
-#define WASM_MEMREAD_OPCODE(opname, opcode, sig, nyi, viewtype) \
+#ifdef ENABLE_WASM_SIMD
+    case wbM128Bitselect:
+        Simd::EnsureSimdIsEnabled();
+        info = EmitM128BitSelect();
+        break;
+    case wbV8X16Shuffle:
+        Simd::EnsureSimdIsEnabled();
+        info = EmitV8X16Shuffle();
+        break;
+#define WASM_EXTRACTLANE_OPCODE(opname, opcode, sig, asmjsop, ...) \
+    case wb##opname: \
+        Simd::EnsureSimdIsEnabled();\
+        info = EmitExtractLaneExpr(Js::OpCodeAsmJs::##asmjsop, WasmOpCodeSignatures::sig); \
+        break;
+#define WASM_REPLACELANE_OPCODE(opname, opcode, sig, asmjsop, ...) \
+    case wb##opname: \
+        Simd::EnsureSimdIsEnabled();\
+        info = EmitReplaceLaneExpr(Js::OpCodeAsmJs::##asmjsop, WasmOpCodeSignatures::sig); \
+        break;
+#endif
+#define WASM_MEMREAD_OPCODE(opname, opcode, sig, imp, viewtype, wat) \
     case wb##opname: \
         Assert(WasmOpCodeSignatures::n##sig > 0);\
         info = EmitMemAccess(wb##opname, WasmOpCodeSignatures::sig, viewtype, false); \
         break;
-#define WASM_MEMSTORE_OPCODE(opname, opcode, sig, nyi, viewtype) \
+#define WASM_MEMSTORE_OPCODE(opname, opcode, sig, imp, viewtype, wat) \
     case wb##opname: \
         Assert(WasmOpCodeSignatures::n##sig > 0);\
         info = EmitMemAccess(wb##opname, WasmOpCodeSignatures::sig, viewtype, true); \
         break;
-#define WASM_BINARY_OPCODE(opname, opcode, sig, asmjsop, nyi) \
+#define WASM_SIMD_MEMREAD_OPCODE(opname, opcode, sig, asmjsop, viewtype, dataWidth, ...) \
+    case wb##opname: \
+        Assert(WasmOpCodeSignatures::n##sig > 0);\
+        info = EmitSimdMemAccess(Js::OpCodeAsmJs::##asmjsop, WasmOpCodeSignatures::sig, viewtype, dataWidth, false); \
+        break;
+#define WASM_SIMD_MEMSTORE_OPCODE(opname, opcode, sig, asmjsop, viewtype, dataWidth, ...) \
+    case wb##opname: \
+        Assert(WasmOpCodeSignatures::n##sig > 0);\
+        info = EmitSimdMemAccess(Js::OpCodeAsmJs::##asmjsop, WasmOpCodeSignatures::sig, viewtype, dataWidth, true); \
+        break;
+#define WASM_BINARY_OPCODE(opname, opcode, sig, asmjsop, imp, wat) \
     case wb##opname: \
         Assert(WasmOpCodeSignatures::n##sig == 3);\
         info = EmitBinExpr(Js::OpCodeAsmJs::##asmjsop, WasmOpCodeSignatures::sig); \
         break;
-#define WASM_UNARY__OPCODE(opname, opcode, sig, asmjsop, nyi) \
+#define WASM_UNARY__OPCODE(opname, opcode, sig, asmjsop, imp, wat) \
     case wb##opname: \
         Assert(WasmOpCodeSignatures::n##sig == 2);\
         info = EmitUnaryExpr(Js::OpCodeAsmJs::##asmjsop, WasmOpCodeSignatures::sig); \
         break;
-#define WASM_EMPTY__OPCODE(opname, opcode, asmjsop, nyi) \
+#define WASM_SIMD_BUILD_OPCODE(opname, opcode, sig, asmjop, lanes, ...) \
+    case wb##opname: \
+        Assert(WasmOpCodeSignatures::n##sig == 2);\
+        info = EmitSimdBuildExpr<lanes>(Js::OpCodeAsmJs::##asmjop, WasmOpCodeSignatures::sig); \
+        break;
+#define WASM_EMPTY__OPCODE(opname, opcode, asmjsop, imp, wat) \
     case wb##opname: \
         m_writer->EmptyAsm(Js::OpCodeAsmJs::##asmjsop);\
         break;
@@ -841,6 +969,14 @@ void WasmBytecodeGenerator::EmitLoadConst(EmitInfo dst, WasmConstLitNode cnst)
     case WasmTypes::I64:
         m_writer->AsmLong1Const1(Js::OpCodeAsmJs::Ld_LongConst, dst.location, cnst.i64);
         break;
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::M128:
+    {
+        Simd::EnsureSimdIsEnabled();
+        m_writer->WasmSimdConst(Js::OpCodeAsmJs::Simd128_LdC, dst.location, cnst.v128[0], cnst.v128[1], cnst.v128[2], cnst.v128[3]);
+        break;
+    }
+#endif
     default:
         throw WasmCompilationException(_u("Unknown type %u"), dst.type);
     }
@@ -883,7 +1019,7 @@ void WasmBytecodeGenerator::EmitBlockCommon(BlockInfo* blockInfo, bool* endOnEls
     DebugPrintOp(op);
     if (blockInfo && blockInfo->HasYield())
     {
-        EmitInfo info = PopEvalStack();
+        EmitInfo info = PopStackPolymorphic();
         YieldToBlock(*blockInfo, info);
         ReleaseLocation(&info);
     }
@@ -913,10 +1049,24 @@ EmitInfo WasmBytecodeGenerator::EmitLoop()
     Js::ByteCodeLabel loopHeadLabel = m_writer->DefineLabel();
     Js::ByteCodeLabel loopLandingPadLabel = m_writer->DefineLabel();
 
-    uint32 loopId = m_writer->EnterLoop(loopHeadLabel);
+    // Push possibly yielding loop label before capturing all the yielding registers
+    BlockInfo implicitBlockInfo = PushLabel(loopTailLabel);
+
+    // Save the first tmp (per type) of this loop to discern a yield outside the loop in jitloopbody scenario
+    Js::RegSlot curRegs[WAsmJs::LIMIT];
+    for (WAsmJs::Types type = WAsmJs::Types(0); type != WAsmJs::LIMIT; type = WAsmJs::Types(type + 1))
+    {
+        uint32 minYield = 0;
+        if (!mTypedRegisterAllocator.IsTypeExcluded(type))
+        {
+            CompileAssert(sizeof(minYield) == sizeof(Js::RegSlot));
+            minYield = static_cast<uint32>(mTypedRegisterAllocator.GetRegisterSpace(type)->PeekNextTmpRegister());
+        }
+        curRegs[type] = minYield;
+    }
+    uint32 loopId = m_writer->WasmLoopStart(loopHeadLabel, curRegs);
 
     // Internally we create a block for loop to exit, but semantically, they don't exist so pop it
-    BlockInfo implicitBlockInfo = PushLabel(loopTailLabel);
     m_blockInfos.Pop();
 
     // We don't want nested block to jump directly to the loop header
@@ -946,20 +1096,29 @@ EmitInfo WasmBytecodeGenerator::EmitCall()
     uint32 funcNum = Js::Constants::UninitializedValue;
     uint32 signatureId = Js::Constants::UninitializedValue;
     WasmSignature* calleeSignature = nullptr;
+    Js::ProfileId profileId = Js::Constants::NoProfileId;
     EmitInfo indirectIndexInfo;
     const bool isImportCall = GetReader()->m_currentNode.call.funcType == FunctionIndexTypes::Import;
     Assert(isImportCall || GetReader()->m_currentNode.call.funcType == FunctionIndexTypes::Function || GetReader()->m_currentNode.call.funcType == FunctionIndexTypes::ImportThunk);
     switch (wasmOp)
     {
     case wbCall:
+    {
         funcNum = GetReader()->m_currentNode.call.num;
-        calleeSignature = m_module->GetWasmFunctionInfo(funcNum)->GetSignature();
+        WasmFunctionInfo* calleeInfo = m_module->GetWasmFunctionInfo(funcNum);
+        calleeSignature = calleeInfo->GetSignature();
+        // currently only handle inlining internal function calls
+        // in future we can expand to all calls by adding checks in inliner and falling back to call in case ScriptFunction doesn't match
+        if (GetReader()->m_currentNode.call.funcType == FunctionIndexTypes::Function && !PHASE_TRACE1(Js::WasmInOutPhase))
+        {
+            profileId = GetNextProfileId();
+        }
         break;
+    }
     case wbCallIndirect:
         indirectIndexInfo = PopEvalStack(WasmTypes::I32, _u("Indirect call index must be int type"));
         signatureId = GetReader()->m_currentNode.call.num;
         calleeSignature = m_module->GetSignature(signatureId);
-        ReleaseLocation(&indirectIndexInfo);
         break;
     default:
         Assume(UNREACHED);
@@ -1001,7 +1160,6 @@ EmitInfo WasmBytecodeGenerator::EmitCall()
     {
         EmitInfo info = PopEvalStack(calleeSignature->GetParam((Js::ArgSlot)i), _u("Call argument does not match formal type"));
         // We can release the location of the arguments now, because we won't create new temps between start/call
-        ReleaseLocation(&info);
         argsList[i] = info;
     }
 
@@ -1026,6 +1184,12 @@ EmitInfo WasmBytecodeGenerator::EmitCall()
         case WasmTypes::I64:
             argOp = isImportCall ? Js::OpCodeAsmJs::ArgOut_Long : Js::OpCodeAsmJs::I_ArgOut_Long;
             break;
+#ifdef ENABLE_WASM_SIMD
+        case WasmTypes::M128:
+            Simd::EnsureSimdIsEnabled();
+            argOp = isImportCall ? Js::OpCodeAsmJs::Simd128_ArgOut_F4 : Js::OpCodeAsmJs::Simd128_I_ArgOut_F4;
+            break;
+#endif
         case WasmTypes::Any:
             // In unreachable mode allow any type as argument since we won't actually emit the call
             Assert(IsUnreachable());
@@ -1054,7 +1218,7 @@ EmitInfo WasmBytecodeGenerator::EmitCall()
         }
     }
 
-    AdeleteArray(&m_alloc, nArgs, argsList);
+    Js::RegSlot funcReg = GetRegisterSpace(WasmTypes::Ptr)->AcquireTmpRegister();
 
     // emit call
     switch (wasmOp)
@@ -1063,62 +1227,88 @@ EmitInfo WasmBytecodeGenerator::EmitCall()
     {
         uint32 offset = isImportCall ? m_module->GetImportFuncOffset() : m_module->GetFuncOffset();
         uint32 index = UInt32Math::Add(offset, funcNum);
-        m_writer->AsmSlot(Js::OpCodeAsmJs::LdSlot, 0, 1, index);
+        m_writer->AsmSlot(Js::OpCodeAsmJs::LdSlot, funcReg, Js::AsmJsFunctionMemory::ModuleEnvRegister, index);
         break;
     }
     case wbCallIndirect:
-        m_writer->AsmSlot(Js::OpCodeAsmJs::LdSlotArr, 0, 1, m_module->GetTableEnvironmentOffset());
-        m_writer->AsmSlot(Js::OpCodeAsmJs::LdArr_WasmFunc, 0, 0, indirectIndexInfo.location);
-        m_writer->AsmReg1IntConst1(Js::OpCodeAsmJs::CheckSignature, 0, calleeSignature->GetSignatureId());
+    {
+        Js::RegSlot slotReg = GetRegisterSpace(WasmTypes::Ptr)->AcquireTmpRegister();
+        m_writer->AsmSlot(Js::OpCodeAsmJs::LdSlotArr, slotReg, Js::AsmJsFunctionMemory::ModuleEnvRegister, m_module->GetTableEnvironmentOffset());
+        m_writer->AsmSlot(Js::OpCodeAsmJs::LdArr_WasmFunc, funcReg, slotReg, indirectIndexInfo.location);
+        GetRegisterSpace(WasmTypes::Ptr)->ReleaseTmpRegister(slotReg);
+        m_writer->AsmReg1IntConst1(Js::OpCodeAsmJs::CheckSignature, funcReg, calleeSignature->GetSignatureId());
         break;
+    }
     default:
         Assume(UNREACHED);
     }
 
+    EmitInfo retInfo;
+    retInfo.type = calleeSignature->GetResultType();
     // calculate number of RegSlots(Js::Var) the call consumes
     Js::ArgSlot args;
-    Js::OpCodeAsmJs callOp = Js::OpCodeAsmJs::Nop;
     if (isImportCall)
     {
         args = calleeSignature->GetParamCount();
         ArgSlotMath::Inc(args, argOverflow);
-        callOp = Js::OpCodeAsmJs::Call;
+
+        Js::RegSlot varRetReg = GetRegisterSpace(WasmTypes::Ptr)->AcquireTmpRegister();
+        m_writer->AsmCall(Js::OpCodeAsmJs::Call, varRetReg, funcReg, args, WasmToAsmJs::GetAsmJsReturnType(calleeSignature->GetResultType()), profileId);
+
+        GetRegisterSpace(WasmTypes::Ptr)->ReleaseTmpRegister(varRetReg);
+        GetRegisterSpace(WasmTypes::Ptr)->ReleaseTmpRegister(funcReg);
+
+        ReleaseLocation(&indirectIndexInfo);
+        //registers need to be released from higher ordinals to lower
+        for (uint32 i = nArgs; i > 0; --i)
+        {
+            ReleaseLocation(&(argsList[i - 1]));
+        }
+        // emit result coercion
+        if (retInfo.type != WasmTypes::Void)
+        {
+            Js::OpCodeAsmJs convertOp = Js::OpCodeAsmJs::Nop;
+            switch (retInfo.type)
+            {
+            case WasmTypes::F32:
+                convertOp = Js::OpCodeAsmJs::Conv_VTF;
+                break;
+            case WasmTypes::F64:
+                convertOp = Js::OpCodeAsmJs::Conv_VTD;
+                break;
+            case WasmTypes::I32:
+                convertOp = Js::OpCodeAsmJs::Conv_VTI;
+                break;
+            case WasmTypes::I64:
+                convertOp = Js::OpCodeAsmJs::Conv_VTL;
+                break;
+            default:
+                throw WasmCompilationException(_u("Unknown call return type %u"), retInfo.type);
+            }
+            retInfo.location = GetRegisterSpace(retInfo.type)->AcquireTmpRegister();
+            m_writer->AsmReg2(convertOp, retInfo.location, varRetReg);
+        }
     }
     else
     {
-        Assert(Math::IsAligned<Js::ArgSlot>(argSize, sizeof(Js::Var)));
-        args = argSize / sizeof(Js::Var);
-        callOp = Js::OpCodeAsmJs::I_Call;
-    }
 
-    m_writer->AsmCall(callOp, 0, 0, args, WasmToAsmJs::GetAsmJsReturnType(calleeSignature->GetResultType()));
+        GetRegisterSpace(WasmTypes::Ptr)->ReleaseTmpRegister(funcReg);
 
-    // emit result coercion
-    EmitInfo retInfo;
-    retInfo.type = calleeSignature->GetResultType();
-    if (retInfo.type != WasmTypes::Void)
-    {
-        Js::OpCodeAsmJs convertOp = Js::OpCodeAsmJs::Nop;
-        retInfo.location = GetRegisterSpace(retInfo.type)->AcquireTmpRegister();
-        switch (retInfo.type)
+        ReleaseLocation(&indirectIndexInfo);
+        //registers need to be released from higher ordinals to lower
+        for (uint32 i = nArgs; i > 0; --i)
         {
-        case WasmTypes::F32:
-            convertOp = isImportCall ? Js::OpCodeAsmJs::Conv_VTF : Js::OpCodeAsmJs::Ld_Flt;
-            break;
-        case WasmTypes::F64:
-            convertOp = isImportCall ? Js::OpCodeAsmJs::Conv_VTD : Js::OpCodeAsmJs::Ld_Db;
-            break;
-        case WasmTypes::I32:
-            convertOp = isImportCall ? Js::OpCodeAsmJs::Conv_VTI : Js::OpCodeAsmJs::Ld_Int;
-            break;
-        case WasmTypes::I64:
-            convertOp = isImportCall ? Js::OpCodeAsmJs::Conv_VTL : Js::OpCodeAsmJs::Ld_Long;
-            break;
-        default:
-            throw WasmCompilationException(_u("Unknown call return type %u"), retInfo.type);
+            ReleaseLocation(&(argsList[i - 1]));
         }
-        m_writer->AsmReg2(convertOp, retInfo.location, 0);
+        if (retInfo.type != WasmTypes::Void)
+        {
+            retInfo.location = GetRegisterSpace(retInfo.type)->AcquireTmpRegister();
+        }
+
+        args = (Js::ArgSlot)(::ceil((double)(argSize / sizeof(Js::Var))));
+        m_writer->AsmCall(Js::OpCodeAsmJs::I_Call, retInfo.location, funcReg, args, WasmToAsmJs::GetAsmJsReturnType(calleeSignature->GetResultType()), profileId);
     }
+    AdeleteArray(&m_alloc, nArgs, argsList);
 
     if (isImportCall && (m_module->HasMemory() || m_module->HasMemoryImport()))
     {
@@ -1184,22 +1374,14 @@ void WasmBytecodeGenerator::EmitBrTable()
     const uint32 defaultEntry = GetReader()->m_currentNode.brTable.defaultTarget;
 
     // Compile scrutinee
-    EmitInfo scrutineeInfo = PopEvalStack(WasmTypes::I32, _u("br_table expression must be of type i32"));
+    EmitInfo scrutineeInfo = PopStackPolymorphic(WasmTypes::I32, _u("br_table expression must be of type i32"));
 
     m_writer->AsmReg2(Js::OpCodeAsmJs::BeginSwitch_Int, scrutineeInfo.location, scrutineeInfo.location);
     EmitInfo yieldValue;
     BlockInfo defaultBlockInfo = GetBlockInfo(defaultEntry);
     if (defaultBlockInfo.HasYield())
     {
-        // If the scrutinee is any then check the stack before popping
-        if (scrutineeInfo.type == WasmTypes::Any && m_evalStack.Peek().type == WasmTypes::Limit)
-        {
-            yieldValue = scrutineeInfo;
-        }
-        else
-        {
-            yieldValue = PopEvalStack();
-        }
+        yieldValue = PopStackPolymorphic();
     }
 
     // Compile cases
@@ -1237,7 +1419,7 @@ EmitInfo WasmBytecodeGenerator::EmitGrowMemory()
 
 EmitInfo WasmBytecodeGenerator::EmitDrop()
 {
-    EmitInfo info = PopEvalStack();
+    EmitInfo info = PopValuePolymorphic();
     ReleaseLocation(&info);
     return EmitInfo();
 }
@@ -1248,8 +1430,8 @@ EmitInfo WasmBytecodeGenerator::EmitBinExpr(Js::OpCodeAsmJs op, const WasmTypes:
     WasmTypes::WasmType lhsType = signature[1];
     WasmTypes::WasmType rhsType = signature[2];
 
-    EmitInfo rhs = PopEvalStack(lhsType);
-    EmitInfo lhs = PopEvalStack(rhsType);
+    EmitInfo rhs = PopEvalStack(rhsType);
+    EmitInfo lhs = PopEvalStack(lhsType);
 
     ReleaseLocation(&rhs);
     ReleaseLocation(&lhs);
@@ -1282,6 +1464,167 @@ EmitInfo WasmBytecodeGenerator::EmitUnaryExpr(Js::OpCodeAsmJs op, const WasmType
     return EmitInfo(resultReg, resultType);
 }
 
+#ifdef ENABLE_WASM_SIMD
+void WasmBytecodeGenerator::CheckLaneIndex(Js::OpCodeAsmJs op, const uint index)
+{
+    uint numLanes;
+    switch (op) 
+    {
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_I2:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_I2:
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_D2:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_D2:
+        numLanes = 2;
+        break;
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_I4:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_I4:
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_F4:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_F4:
+        numLanes = 4;
+        break;
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_I8:
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_U8:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_I8:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_U8:
+        numLanes = 8;
+        break;
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_I16:
+    case Js::OpCodeAsmJs::Simd128_ExtractLane_U16:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_I16:
+    case Js::OpCodeAsmJs::Simd128_ReplaceLane_U16:
+        numLanes = 16;
+        break;
+    default:
+        Assert(UNREACHED);
+        numLanes = 0;
+    }
+
+    if (index >= numLanes)
+    {
+        throw WasmCompilationException(_u("index is out of range"));
+    }
+}
+
+EmitInfo WasmBytecodeGenerator::EmitLaneIndex(Js::OpCodeAsmJs op)
+{
+    const uint index = GetReader()->m_currentNode.lane.index;
+    CheckLaneIndex(op, index);
+    WasmConstLitNode dummy;
+    dummy.i32 = index;
+    return EmitConst(WasmTypes::I32, dummy);
+}
+
+EmitInfo WasmBytecodeGenerator::EmitReplaceLaneExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature) {
+
+    const WasmTypes::WasmType resultType = signature[0];
+    const WasmTypes::WasmType valueType = signature[1];
+    EmitInfo valueArg = PopEvalStack(valueType, _u("lane argument type mismatch"));
+
+    EmitInfo simdArg = PopEvalStack(WasmTypes::M128, _u("simd argument type mismatch"));
+    Assert(resultType == WasmTypes::M128);
+
+    EmitInfo indexInfo = EmitLaneIndex(op);
+    Js::RegSlot resultReg = GetRegisterSpace(resultType)->AcquireTmpRegister();
+    EmitInfo result(resultReg, resultType);
+
+    m_writer->AsmReg4(op, resultReg, simdArg.location, indexInfo.location, valueArg.location);
+    ReleaseLocation(&indexInfo);
+    return result;
+}
+
+EmitInfo WasmBytecodeGenerator::EmitM128BitSelect()
+{
+    EmitInfo mask = PopEvalStack(WasmTypes::M128);
+    EmitInfo arg2Info = PopEvalStack(WasmTypes::M128);
+    EmitInfo arg1Info = PopEvalStack(WasmTypes::M128);
+    Js::RegSlot resultReg = GetRegisterSpace(WasmTypes::M128)->AcquireTmpRegister();
+    EmitInfo resultInfo(resultReg, WasmTypes::M128);
+    m_writer->AsmReg4(Js::OpCodeAsmJs::Simd128_BitSelect_I4, resultReg, arg1Info.location, arg2Info.location, mask.location);
+    return resultInfo;
+}
+
+EmitInfo WasmBytecodeGenerator::EmitV8X16Shuffle()
+{
+    EmitInfo arg2Info = PopEvalStack(WasmTypes::M128);
+    EmitInfo arg1Info = PopEvalStack(WasmTypes::M128);
+
+    Js::RegSlot resultReg = GetRegisterSpace(WasmTypes::M128)->AcquireTmpRegister();
+    EmitInfo resultInfo(resultReg, WasmTypes::M128);
+
+    uint8* indices = GetReader()->m_currentNode.shuffle.indices;
+    for (uint i = 0; i < Simd::MAX_LANES; i++)
+    {
+        if (indices[i] >= Simd::MAX_LANES * 2)
+        {
+            throw WasmCompilationException(_u("%u-th shuffle lane index is larger than %u"), i, (Simd::MAX_LANES * 2 -1));
+        }
+    }
+
+    m_writer->AsmShuffle(Js::OpCodeAsmJs::Simd128_Shuffle_V8X16, resultReg, arg1Info.location, arg2Info.location, indices);
+    return resultInfo;
+}
+
+EmitInfo WasmBytecodeGenerator::EmitExtractLaneExpr(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature)
+{
+    WasmTypes::WasmType resultType = signature[0];
+    WasmTypes::WasmType simdArgType = signature[1];
+
+    EmitInfo simdArgInfo = PopEvalStack(simdArgType, _u("Argument should be of type M128"));
+
+    Js::RegSlot resultReg = GetRegisterSpace(resultType)->AcquireTmpRegister();
+    EmitInfo resultInfo(resultReg, resultType);
+
+    //put index into a register to reuse the existing infra in Interpreter and Compiler
+    EmitInfo indexInfo = EmitLaneIndex(op);
+
+    m_writer->AsmReg3(op, resultReg, simdArgInfo.location, indexInfo.location);
+    ReleaseLocation(&indexInfo);
+    ReleaseLocation(&simdArgInfo);
+    return resultInfo;
+}
+
+EmitInfo WasmBytecodeGenerator::EmitSimdMemAccess(Js::OpCodeAsmJs op, const WasmTypes::WasmType* signature, Js::ArrayBufferView::ViewType viewType, uint8 dataWidth, bool isStore)
+{
+
+    WasmTypes::WasmType type = signature[0];
+    SetUsesMemory(0);
+
+    const uint32 mask = Js::ArrayBufferView::ViewMask[viewType];
+    const uint alignment = GetReader()->m_currentNode.mem.alignment;
+    const uint offset = GetReader()->m_currentNode.mem.offset;
+
+    if ((mask << 1) & (1 << alignment))
+    {
+        throw WasmCompilationException(_u("alignment must not be larger than natural"));
+    }
+
+    EmitInfo rhsInfo;
+    if (isStore)
+    {
+        rhsInfo = PopEvalStack(type, _u("Invalid type for store op"));
+    }
+    EmitInfo exprInfo = PopEvalStack(WasmTypes::I32, _u("Index expression must be of type i32"));
+
+    if (isStore)
+    {
+        m_writer->AsmSimdTypedArr(op, rhsInfo.location, exprInfo.location, dataWidth, viewType, offset);
+
+        ReleaseLocation(&rhsInfo);
+        ReleaseLocation(&exprInfo);
+
+        return EmitInfo();
+    }
+
+    Js::RegSlot resultReg = GetRegisterSpace(type)->AcquireTmpRegister();
+    m_writer->AsmSimdTypedArr(op, resultReg, exprInfo.location, dataWidth, viewType, offset);
+
+    EmitInfo yieldInfo = EmitInfo(resultReg, type);
+    ReleaseLocation(&exprInfo);
+
+    return yieldInfo;
+}
+#endif
+
 EmitInfo WasmBytecodeGenerator::EmitMemAccess(WasmOp wasmOp, const WasmTypes::WasmType* signature, Js::ArrayBufferView::ViewType viewType, bool isStore)
 {
     WasmTypes::WasmType type = signature[0];
@@ -1313,7 +1656,7 @@ EmitInfo WasmBytecodeGenerator::EmitMemAccess(WasmOp wasmOp, const WasmTypes::Wa
     }
 
     ReleaseLocation(&exprInfo);
-    Js::RegSlot resultReg = GetRegisterSpace(type)->AcquireTmpRegister();   
+    Js::RegSlot resultReg = GetRegisterSpace(type)->AcquireTmpRegister();
     m_writer->WasmMemAccess(Js::OpCodeAsmJs::LdArrWasm, resultReg, exprInfo.location, offset, viewType);
 
     EmitInfo yieldInfo;
@@ -1327,14 +1670,9 @@ EmitInfo WasmBytecodeGenerator::EmitMemAccess(WasmOp wasmOp, const WasmTypes::Wa
 
 void WasmBytecodeGenerator::EmitReturnExpr(EmitInfo* explicitRetInfo)
 {
-    if (m_funcInfo->GetResultType() == WasmTypes::Void)
+    if (m_funcInfo->GetResultType() != WasmTypes::Void)
     {
-        // TODO (michhol): consider moving off explicit 0 for return reg
-        m_writer->AsmReg1(Js::OpCodeAsmJs::LdUndef, 0);
-    }
-    else
-    {
-        EmitInfo retExprInfo = explicitRetInfo ? *explicitRetInfo : PopEvalStack();
+        EmitInfo retExprInfo = explicitRetInfo ? *explicitRetInfo : PopStackPolymorphic();
         if (retExprInfo.type != WasmTypes::Any && m_funcInfo->GetResultType() != retExprInfo.type)
         {
             throw WasmCompilationException(_u("Result type must match return type"));
@@ -1352,7 +1690,7 @@ void WasmBytecodeGenerator::EmitReturnExpr(EmitInfo* explicitRetInfo)
 EmitInfo WasmBytecodeGenerator::EmitSelect()
 {
     EmitInfo conditionInfo = PopEvalStack(WasmTypes::I32, _u("select condition must have i32 type"));
-    EmitInfo falseInfo = PopEvalStack();
+    EmitInfo falseInfo = PopValuePolymorphic();
     EmitInfo trueInfo = PopEvalStack(falseInfo.type, _u("select operands must both have same type"));
     ReleaseLocation(&conditionInfo);
     ReleaseLocation(&falseInfo);
@@ -1400,7 +1738,7 @@ void WasmBytecodeGenerator::EmitBr()
     BlockInfo blockInfo = GetBlockInfo(depth);
     if (blockInfo.HasYield())
     {
-        EmitInfo info = PopEvalStack();
+        EmitInfo info = PopStackPolymorphic();
         YieldToBlock(blockInfo, info);
         ReleaseLocation(&info);
     }
@@ -1419,7 +1757,7 @@ EmitInfo WasmBytecodeGenerator::EmitBrIf()
     BlockInfo blockInfo = GetBlockInfo(depth);
     if (blockInfo.HasYield())
     {
-        info = PopEvalStack();
+        info = PopStackPolymorphic();
         YieldToBlock(blockInfo, info);
         if (info.type == WasmTypes::Any)
         {
@@ -1445,6 +1783,11 @@ Js::OpCodeAsmJs WasmBytecodeGenerator::GetLoadOp(WasmTypes::WasmType wasmType)
         return Js::OpCodeAsmJs::Ld_Int;
     case WasmTypes::I64:
         return Js::OpCodeAsmJs::Ld_Long;
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::M128:
+        Simd::EnsureSimdIsEnabled();
+        return Js::OpCodeAsmJs::Simd128_Ld_F4;
+#endif
     case WasmTypes::Any:
         // In unreachable mode load the any type like an int since we won't actually emit the load
         Assert(IsUnreachable());
@@ -1474,6 +1817,12 @@ Js::OpCodeAsmJs WasmBytecodeGenerator::GetReturnOp(WasmTypes::WasmType type)
     case WasmTypes::I64:
         retOp = Js::OpCodeAsmJs::Return_Long;
         break;
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::M128:
+        Simd::EnsureSimdIsEnabled();
+        retOp = Js::OpCodeAsmJs::Simd128_Return_F4;
+        break;
+#endif
     case WasmTypes::Any:
         // In unreachable mode load the any type like an int since we won't actually emit the load
         Assert(IsUnreachable());
@@ -1553,7 +1902,7 @@ void WasmBytecodeGenerator::YieldToBlock(BlockInfo blockInfo, EmitInfo expr)
         if (!IsUnreachable())
         {
             blockInfo.yieldInfo->didYield = true;
-            m_writer->AsmReg2(GetLoadOp(expr.type), yieldInfo.location, expr.location);
+            m_writer->AsmReg2(GetReturnOp(expr.type), yieldInfo.location, expr.location);
         }
     }
 }
@@ -1567,17 +1916,47 @@ Wasm::BlockInfo WasmBytecodeGenerator::GetBlockInfo(uint32 relativeDepth) const
     return m_blockInfos.Peek(relativeDepth);
 }
 
+Js::ProfileId
+WasmBytecodeGenerator::GetNextProfileId()
+{
+    Js::ProfileId nextProfileId = this->currentProfileId;
+    UInt16Math::Inc(this->currentProfileId);
+    return nextProfileId;
+}
+
 WasmRegisterSpace* WasmBytecodeGenerator::GetRegisterSpace(WasmTypes::WasmType type)
 {
     switch (type)
     {
+#if TARGET_32
+    case WasmTypes::Ptr:
+#endif
     case WasmTypes::I32: return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::INT32);
-    case WasmTypes::I64: return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::INT64);
-    case WasmTypes::F32: return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::FLOAT32);
-    case WasmTypes::F64: return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::FLOAT64);
+#if TARGET_64
+    case WasmTypes::Ptr:
+#endif
+    case WasmTypes::I64:    return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::INT64);
+    case WasmTypes::F32:    return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::FLOAT32);
+    case WasmTypes::F64:    return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::FLOAT64);
+#ifdef ENABLE_WASM_SIMD
+    case WasmTypes::M128:
+        Simd::EnsureSimdIsEnabled();
+        return mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::SIMD);
+#endif
     default:
         return nullptr;
     }
+}
+
+
+Wasm::EmitInfo WasmBytecodeGenerator::PopStackPolymorphic(WasmTypes::WasmType expectedType, const char16* mismatchMessage)
+{
+    // Check the stack before popping, it is valid to yield nothing if we are Unreachable
+    if (IsUnreachable() && m_evalStack.Peek().type == WasmTypes::Limit)
+    {
+        return EmitInfo(WasmTypes::Any);
+    }
+    return PopEvalStack(expectedType, mismatchMessage);
 }
 
 EmitInfo WasmBytecodeGenerator::PopEvalStack(WasmTypes::WasmType expectedType, const char16* mismatchMessage)
@@ -1619,7 +1998,7 @@ void WasmBytecodeGenerator::ExitEvalStackScope()
     Assert(!m_evalStack.Empty());
     EmitInfo info = m_evalStack.Pop();
     // It is possible to have unconsumed Any type left on the stack, simply remove them
-    while (info.type == WasmTypes::Any) 
+    while (info.type == WasmTypes::Any)
     {
         Assert(!m_evalStack.Empty());
         info = m_evalStack.Pop();

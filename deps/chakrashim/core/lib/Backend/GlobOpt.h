@@ -169,7 +169,7 @@ private:
 
 public:
     PathDependentInfo(const PathDependentRelationship relationship, Value *const leftValue, Value *const rightValue)
-        : relationship(relationship), leftValue(leftValue), rightValue(rightValue)
+        : leftValue(leftValue), rightValue(rightValue), rightConstantValue(0), relationship(relationship)
     {
         Assert(leftValue);
         Assert(rightValue);
@@ -180,7 +180,7 @@ public:
         Value *const leftValue,
         Value *const rightValue,
         const int32 rightConstantValue)
-        : relationship(relationship), leftValue(leftValue), rightValue(rightValue), rightConstantValue(rightConstantValue)
+        : leftValue(leftValue), rightValue(rightValue), rightConstantValue(rightConstantValue), relationship(relationship)
     {
         Assert(leftValue);
     }
@@ -585,7 +585,7 @@ private:
     IR::Instr *             GetExtendedArg(IR::Instr *instr);
     int                     GetBoundCheckOffsetForSimd(ValueType arrValueType, const IR::Instr *instr, const int oldOffset = -1);
 
-    IR::Instr *             OptNewScObject(IR::Instr** instrPtr, Value* srcVal);
+    void                    OptNewScObject(IR::Instr** instrPtr, Value* srcVal);
     template <typename T>
     bool                    OptConstFoldBinaryWasm(IR::Instr * *pInstr, const Value* src1, const Value* src2, Value **pDstVal);
     template <typename T>
@@ -701,6 +701,7 @@ public:
 
     GlobOptBlockData const * CurrentBlockData() const;
     GlobOptBlockData * CurrentBlockData();
+    void                    CommitCapturedValuesCandidate();
 
 private:
     bool                    IsOperationThatLikelyKillsJsArraysWithNoMissingValues(IR::Instr *const instr);
@@ -764,6 +765,7 @@ public:
     static bool             DoTypedArrayTypeSpec(Func const * func);
     static bool             DoNativeArrayTypeSpec(Func const * func);
     static bool             IsSwitchOptEnabled(Func const * func);
+    static bool             IsSwitchOptEnabledForIntTypeSpec(Func const * func);
     static bool             DoInlineArgsOpt(Func const * func);
     static bool             IsPREInstrCandidateLoad(Js::OpCode opcode);
     static bool             IsPREInstrCandidateStore(Js::OpCode opcode);
@@ -790,6 +792,7 @@ private:
     bool                    DoNativeArrayTypeSpec() const { return GlobOpt::DoNativeArrayTypeSpec(this->func); }
     bool                    DoLdLenIntSpec(IR::Instr * const instr, const ValueType baseValueType);
     bool                    IsSwitchOptEnabled() const { return GlobOpt::IsSwitchOptEnabled(this->func); }
+    bool                    IsSwitchOptEnabledForIntTypeSpec() const { return GlobOpt::IsSwitchOptEnabledForIntTypeSpec(this->func); }
     bool                    DoPathDependentValues() const;
     bool                    DoTrackRelativeIntBounds() const;
     bool                    DoBoundCheckElimination() const;

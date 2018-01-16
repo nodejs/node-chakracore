@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -22,10 +22,26 @@ bool MarkContext::AddMarkedObject(void * objectAddress, size_t objectSize)
     RECYCLER_STATS_INTERLOCKED_INC(recycler, scanCount);
 
     MarkCandidate markCandidate;
-    markCandidate.obj = (void **) objectAddress;
+
+#if defined(_WIN64) && defined(_M_X64)
+    // Enabling store forwards. The intrinsic generates stores matching the load in size.
+    // This enables skipping caches and forwarding the store data to the following load.
+    *(__m128i *)&markCandidate = _mm_set_epi64x(objectSize, (__int64)objectAddress);
+#else
+    markCandidate.obj = (void**)objectAddress;
     markCandidate.byteCount = objectSize;
+#endif
     return markStack.Push(markCandidate);
 }
+
+#ifdef RECYCLER_VISITED_HOST
+inline bool MarkContext::AddPreciselyTracedObject(IRecyclerVisitedObject* obj)
+{
+    FAULTINJECT_MEMORY_MARK_NOTHROW(_u("AddPreciselyTracedObject"), 0);
+
+    return preciseStack.Push(obj);
+}
+#endif
 
 #if ENABLE_CONCURRENT_GC
 inline
@@ -48,7 +64,8 @@ bool MarkContext::AddTrackedObject(FinalizableObject * obj)
 template <bool parallel, bool interior, bool doSpecialMark>
 NO_SANITIZE_ADDRESS
 inline
-void MarkContext::ScanMemory(void ** obj, size_t byteCount)
+void MarkContext::ScanMemory(void ** obj, size_t byteCount
+        ADDRESS_SANITIZER_APPEND(void *asanFakeStack))
 {
     Assert(byteCount != 0);
     Assert(byteCount % sizeof(void *) == 0);
@@ -61,6 +78,11 @@ void MarkContext::ScanMemory(void ** obj, size_t byteCount)
     {
         Output::Print(_u("Scanning %p(%8d): "), obj, byteCount);
     }
+#endif
+
+#if __has_feature(address_sanitizer)
+    void *fakeFrameBegin = nullptr;
+    void *fakeFrameEnd = nullptr;
 #endif
 
     do
@@ -79,7 +101,30 @@ void MarkContext::ScanMemory(void ** obj, size_t byteCount)
 #if DBG
         this->parentRef = obj;
 #endif
-        Mark<parallel, interior, doSpecialMark>(candidate, parentObject);
+
+#if __has_feature(address_sanitizer)
+        bool isFakeStackAddr = false;
+        if (asanFakeStack)
+        {
+            void *beg = nullptr;
+            void *end = nullptr;
+            isFakeStackAddr = __asan_addr_is_in_fake_stack(asanFakeStack, candidate, &beg, &end) != nullptr;
+            if (isFakeStackAddr && (beg != fakeFrameBegin || end != fakeFrameEnd))
+            {
+                ScanMemory<parallel, interior, doSpecialMark>((void**)beg, (char*)end - (char*)beg);
+                fakeFrameBegin = beg;
+                fakeFrameEnd = end;
+            }
+        }
+
+        if (!isFakeStackAddr)
+        {
+#endif
+            Mark<parallel, interior, doSpecialMark>(candidate, parentObject);
+
+#if __has_feature(address_sanitizer)
+        }
+#endif
         obj++;
     } while (obj != objEnd);
 
@@ -117,29 +162,27 @@ void MarkContext::Mark(void * candidate, void * parentReference)
     // Otherwise our rescanState could be out of sync with mark state.
     Assert(!recycler->isProcessingRescan);
 
+#if defined(RECYCLER_STATS) || !defined(_M_X64)
     if ((size_t)candidate < 0x10000)
     {
         RECYCLER_STATS_INTERLOCKED_INC(recycler, tryMarkNullCount);
         return;
     }
+#endif
 
     if (interior)
     {
-#if ENABLE_CONCURRENT_GC
-        Assert(recycler->enableScanInteriorPointers
-            || (!recycler->IsConcurrentState() && recycler->collectionState != CollectionStateParallelMark));
-#else
-        Assert(recycler->enableScanInteriorPointers || recycler->collectionState != CollectionStateParallelMark);
-#endif
         recycler->heapBlockMap.MarkInterior<parallel>(candidate, this);
         return;
     }
 
+#if defined(RECYCLER_STATS) || !defined(_M_X64)
     if (!HeapInfo::IsAlignedAddress(candidate))
     {
         RECYCLER_STATS_INTERLOCKED_INC(recycler, tryMarkUnalignedCount);
         return;
     }
+#endif
 
     recycler->heapBlockMap.Mark<parallel, doSpecialMark>(candidate, this);
 
@@ -153,7 +196,11 @@ void MarkContext::MarkTrackedObject(FinalizableObject * trackedObject)
 {
 #if ENABLE_CONCURRENT_GC
     Assert(!recycler->queueTrackedObject);
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    Assert(!recycler->IsConcurrentExecutingState() && !recycler->IsConcurrentSweepState());
+#else
     Assert(!recycler->IsConcurrentExecutingState());
+#endif
 #endif
 #if ENABLE_PARTIAL_GC
     Assert(!recycler->inPartialCollectMode);
@@ -183,39 +230,69 @@ void MarkContext::ProcessMark()
     }
 #endif
 
-#if defined(_M_IX86) || defined(_M_X64)
-    MarkCandidate current, next;
-
-    while (markStack.Pop(&current))
+#ifdef RECYCLER_VISITED_HOST
+    // Flip between processing the generic mark stack (conservatively traced with ScanMemory) and
+    // the precise stack (precisely traced via IRecyclerVisitedObject::Trace). Each of those
+    // operations on an object has the potential to add new marked objects to either or both
+    // stacks so we must loop until they are both empty.
+    while (!markStack.IsEmpty() || !preciseStack.IsEmpty())
+#endif
     {
-        // Process entries and prefetch as we go.
-        while (markStack.Pop(&next))
+        // It is possible that when the stacks were split, only one of them had any chunks to process.
+        // If that is the case, one of the stacks might not be initialized, so we must check !IsEmpty before popping.
+        if (!markStack.IsEmpty())
         {
-            // Prefetch the next entry so it's ready when we need it.
-            _mm_prefetch((char *)next.obj, _MM_HINT_T0);
+#if defined(_M_IX86) || defined(_M_X64)
+            MarkCandidate current, next;
 
-            // Process the previously retrieved entry.
-            ScanObject<parallel, interior>(current.obj, current.byteCount);
+            while (markStack.Pop(&current))
+            {
+                // Process entries and prefetch as we go.
+                while (markStack.Pop(&next))
+                {
+                    // Prefetch the next entry so it's ready when we need it.
+                    _mm_prefetch((char *)next.obj, _MM_HINT_T0);
 
-            current = next;
+                    // Process the previously retrieved entry.
+                    ScanObject<parallel, interior>(current.obj, current.byteCount);
+
+                    _mm_prefetch((char *)*(next.obj), _MM_HINT_T0);
+
+                    current = next;
+                }
+
+                // The stack is empty, but we still have a previously retrieved entry; process it now.
+                ScanObject<parallel, interior>(current.obj, current.byteCount);
+
+                // Processing that entry may have generated more entries in the mark stack, so continue the loop.
+            }
+#else
+            // _mm_prefetch intrinsic is specific to Intel platforms.
+            // CONSIDER: There does seem to be a compiler intrinsic for prefetch on ARM,
+            // however, the information on this is scarce, so for now just don't do prefetch on ARM.
+            MarkCandidate current;
+
+            while (markStack.Pop(&current))
+            {
+                ScanObject<parallel, interior>(current.obj, current.byteCount);
+            }
+#endif
         }
 
-        // The stack is empty, but we still have a previously retrieved entry; process it now.
-        ScanObject<parallel, interior>(current.obj, current.byteCount);
+        Assert(markStack.IsEmpty());
 
-        // Processing that entry may have generated more entries in the mark stack, so continue the loop.
-    }
-#else
-    // _mm_prefetch intrinsic is specific to Intel platforms.
-    // CONSIDER: There does seem to be a compiler intrinsic for prefetch on ARM,
-    // however, the information on this is scarce, so for now just don't do prefetch on ARM.
-    MarkCandidate current;
+#ifdef RECYCLER_VISITED_HOST
+        if (!preciseStack.IsEmpty())
+        {
+            MarkContextWrapper<parallel> markContextWrapper(this);
+            IRecyclerVisitedObject* tracedObject;
+            while (preciseStack.Pop(&tracedObject))
+            {
+                tracedObject->Trace(&markContextWrapper);
+            }
+        }
 
-    while (markStack.Pop(&current))
-    {
-        ScanObject<parallel, interior>(current.obj, current.byteCount);
-    }
+        Assert(preciseStack.IsEmpty());
 #endif
-
-    Assert(markStack.IsEmpty());
+    }
 }

@@ -35,7 +35,7 @@ HELPERCALL(ScrObj_LdStrictInnerFrameDisplayNoParent, Js::JavascriptOperators::OP
 HELPERCALL(ScrObj_OP_IsInst, Js::JavascriptOperators::OP_IsInst, AttrCanThrow)
 
 HELPERCALL(Op_IsIn, Js::JavascriptOperators::IsIn, AttrCanThrow)
-HELPERCALL(Op_IsObject, Js::JavascriptOperators::IsObject, AttrCanThrow)
+HELPERCALL(Op_IsObject, (BOOL (*) (Js::Var))Js::JavascriptOperators::IsObject, AttrCanThrow)
 HELPERCALL(Op_IsClassConstructor, Js::JavascriptOperators::IsClassConstructor, AttrCanThrow)
 HELPERCALL(Op_IsBaseConstructorKind, Js::JavascriptOperators::IsBaseConstructorKind, AttrCanThrow)
 HELPERCALL(Op_LoadHeapArguments, Js::JavascriptOperators::LoadHeapArguments, 0)
@@ -172,14 +172,14 @@ HELPERCALL(Op_DeleteProperty, Js::JavascriptOperators::OP_DeleteProperty, AttrCa
 HELPERCALL(Op_DeleteRootProperty, Js::JavascriptOperators::OP_DeleteRootProperty, AttrCanThrow)
 HELPERCALL(Op_DeletePropertyScoped, Js::JavascriptOperators::OP_DeletePropertyScoped, AttrCanThrow)
 HELPERCALL(Op_GetElementI, Js::JavascriptOperators::OP_GetElementI_JIT, AttrCanThrow)
-HELPERCALL(Op_GetElementI_ExpectingNativeFloatArray, Js::JavascriptOperators::OP_GetElementI_JIT_ExpectingNativeFloatArray, AttrCanThrow)
-HELPERCALL(Op_GetElementI_ExpectingVarArray, Js::JavascriptOperators::OP_GetElementI_JIT_ExpectingVarArray, AttrCanThrow)
+HELPERCALL(Op_GetElementI_ExpectingNativeFloatArray, Js::JavascriptNativeOperators::OP_GetElementI_JIT_ExpectingNativeFloatArray, AttrCanThrow)
+HELPERCALL(Op_GetElementI_ExpectingVarArray, Js::JavascriptNativeOperators::OP_GetElementI_JIT_ExpectingVarArray, AttrCanThrow)
 HELPERCALL(Op_GetElementI_UInt32, Js::JavascriptOperators::OP_GetElementI_UInt32, AttrCanThrow)
-HELPERCALL(Op_GetElementI_UInt32_ExpectingNativeFloatArray, Js::JavascriptOperators::OP_GetElementI_UInt32_ExpectingNativeFloatArray, AttrCanThrow)
-HELPERCALL(Op_GetElementI_UInt32_ExpectingVarArray, Js::JavascriptOperators::OP_GetElementI_UInt32_ExpectingVarArray, AttrCanThrow)
+HELPERCALL(Op_GetElementI_UInt32_ExpectingNativeFloatArray, Js::JavascriptNativeOperators::OP_GetElementI_UInt32_ExpectingNativeFloatArray, AttrCanThrow)
+HELPERCALL(Op_GetElementI_UInt32_ExpectingVarArray, Js::JavascriptNativeOperators::OP_GetElementI_UInt32_ExpectingVarArray, AttrCanThrow)
 HELPERCALL(Op_GetElementI_Int32, Js::JavascriptOperators::OP_GetElementI_Int32, AttrCanThrow)
-HELPERCALL(Op_GetElementI_Int32_ExpectingNativeFloatArray, Js::JavascriptOperators::OP_GetElementI_Int32_ExpectingNativeFloatArray, AttrCanThrow)
-HELPERCALL(Op_GetElementI_Int32_ExpectingVarArray, Js::JavascriptOperators::OP_GetElementI_Int32_ExpectingVarArray, AttrCanThrow)
+HELPERCALL(Op_GetElementI_Int32_ExpectingNativeFloatArray, Js::JavascriptNativeOperators::OP_GetElementI_Int32_ExpectingNativeFloatArray, AttrCanThrow)
+HELPERCALL(Op_GetElementI_Int32_ExpectingVarArray, Js::JavascriptNativeOperators::OP_GetElementI_Int32_ExpectingVarArray, AttrCanThrow)
 HELPERCALL(Op_GetNativeIntElementI, Js::JavascriptOperators::OP_GetNativeIntElementI, AttrCanThrow)
 HELPERCALL(Op_GetNativeFloatElementI, Js::JavascriptOperators::OP_GetNativeFloatElementI, AttrCanThrow)
 HELPERCALL(Op_GetNativeIntElementI_Int32, Js::JavascriptOperators::OP_GetNativeIntElementI_Int32, AttrCanThrow)
@@ -250,8 +250,8 @@ HELPERCALL(Op_PatchGetRootMethodPolymorphic, ((Js::Var (*)(Js::FunctionBody *con
 HELPERCALL(Op_ScopedGetMethod, ((Js::Var (*)(Js::FunctionBody *const, Js::InlineCache *const, const Js::InlineCacheIndex, Js::Var, Js::PropertyId, bool))Js::JavascriptOperators::PatchScopedGetMethod<true, Js::InlineCache>), AttrCanThrow)
 HELPERCALL(Op_ScopedGetMethodPolymorphic, ((Js::Var (*)(Js::FunctionBody *const, Js::PolymorphicInlineCache *const, const Js::InlineCacheIndex, Js::Var, Js::PropertyId, bool))Js::JavascriptOperators::PatchScopedGetMethod<true, Js::PolymorphicInlineCache>), AttrCanThrow)
 
-HELPERCALL(CheckIfTypeIsEquivalent, Js::JavascriptOperators::CheckIfTypeIsEquivalent, 0)
-HELPERCALL(CheckIfTypeIsEquivalentForFixedField, Js::JavascriptOperators::CheckIfTypeIsEquivalentForFixedField, 0)
+HELPERCALL(CheckIfTypeIsEquivalent, Js::JavascriptNativeOperators::CheckIfTypeIsEquivalent, 0)
+HELPERCALL(CheckIfTypeIsEquivalentForFixedField, Js::JavascriptNativeOperators::CheckIfTypeIsEquivalentForFixedField, 0)
 
 HELPERCALL(Op_Delete, Js::JavascriptOperators::Delete, AttrCanThrow)
 HELPERCALL(OP_InitSetter, Js::JavascriptOperators::OP_InitSetter, AttrCanThrow)
@@ -347,6 +347,18 @@ HELPERCALL(AllocUninitializedNumber, Js::JavascriptOperators::AllocUninitialized
 // SIMD_JS
 HELPERCALL(AllocUninitializedSimdF4, Js::JavascriptSIMDFloat32x4::AllocUninitialized, 0)
 HELPERCALL(AllocUninitializedSimdI4, Js::JavascriptSIMDInt32x4::AllocUninitialized, 0)
+
+#endif
+
+#ifdef ENABLE_WASM_SIMD
+HELPERCALL(Simd128ShRtByScalarU2, Js::SIMDInt64x2Operation::OpShiftRightByScalarU, 0)
+HELPERCALL(Simd128ShRtByScalarI2, Js::SIMDInt64x2Operation::OpShiftRightByScalar, 0)
+HELPERCALL(Simd128ShLtByScalarI2, Js::SIMDInt64x2Operation::OpShiftLeftByScalar, 0)
+HELPERCALL(Simd128ReplaceLaneI2, Js::SIMDInt64x2Operation::OpReplaceLane, 0)
+HELPERCALL(Simd128TruncateI2, (void(*)(SIMDValue*, SIMDValue*))&Js::SIMDInt64x2Operation::OpTrunc<int64>, AttrCanThrow)
+HELPERCALL(Simd128TruncateU2, (void(*)(SIMDValue*, SIMDValue*))&Js::SIMDInt64x2Operation::OpTrunc<uint64>, AttrCanThrow)
+HELPERCALL(Simd128ConvertSD2, (void(*)(SIMDValue*, SIMDValue*))&Js::SIMDFloat64x2Operation::OpConv<int64>, 0)
+HELPERCALL(Simd128ConvertUD2, (void(*)(SIMDValue*, SIMDValue*))&Js::SIMDFloat64x2Operation::OpConv<uint64>, 0)
 #endif
 
 HELPERCALL(Op_TryCatch, nullptr, 0)
@@ -363,7 +375,6 @@ HELPERCALL(Op_WebAssemblyRuntimeError, Js::JavascriptExceptionOperators::OP_WebA
 HELPERCALL(Op_OutOfMemoryError, Js::Throw::OutOfMemory, AttrCanThrow)
 HELPERCALL(Op_FatalInternalError, Js::Throw::FatalInternalError, AttrCanThrow)
 
-HELPERCALL(Op_InvokePut, Js::JavascriptOperators::OP_InvokePut, 0)
 #if ENABLE_REGEX_CONFIG_OPTIONS
 HELPERCALL(ScrRegEx_OP_NewRegEx, Js::JavascriptRegExp::OP_NewRegEx, 0)
 #endif

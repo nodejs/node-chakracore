@@ -31,7 +31,7 @@ namespace Js
         void Initialize();
         ListForListIterator* GetSortedExportedNames() { return this->sortedExportedNames; }
         static bool Is(Var aValue) {  return JavascriptOperators::GetTypeId(aValue) == TypeIds_ModuleNamespace; }
-        static ModuleNamespace* FromVar(Var obj) { Assert(JavascriptOperators::GetTypeId(obj) == TypeIds_ModuleNamespace); return static_cast<ModuleNamespace*>(obj); }
+        static ModuleNamespace* FromVar(Var obj) { AssertOrFailFast(JavascriptOperators::GetTypeId(obj) == TypeIds_ModuleNamespace); return static_cast<ModuleNamespace*>(obj); }
 
         virtual PropertyId GetPropertyId(BigPropertyIndex index) override;
         virtual PropertyQueryFlags HasPropertyQuery(PropertyId propertyId) override;
@@ -49,7 +49,9 @@ namespace Js
         virtual BOOL SetPropertyWithAttributes(PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags = PropertyOperation_None, SideEffects possibleSideEffects = SideEffects_Any) override { return false; }
         virtual BOOL DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags) override;
         virtual BOOL DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags) override;
+#if ENABLE_FIXED_FIELDS
         virtual BOOL IsFixedProperty(PropertyId propertyId) override { return false; }
+#endif
         virtual PropertyQueryFlags HasItemQuery(uint32 index) override { return PropertyQueryFlags::Property_NotFound; }
         virtual BOOL HasOwnItem(uint32 index) override { return false; }
         virtual PropertyQueryFlags GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext) override { return PropertyQueryFlags::Property_NotFound; }

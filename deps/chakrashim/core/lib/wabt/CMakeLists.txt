@@ -37,16 +37,13 @@ endif ()
 include(CheckTypeSize)
 check_type_size(ssize_t SSIZE_T)
 check_type_size(size_t SIZEOF_SIZE_T)
-check_type_size(int SIZEOF_INT BUILTIN_TYPES_ONLY)
-check_type_size(long SIZEOF_LONG BUILTIN_TYPES_ONLY)
-check_type_size("long long" SIZEOF_LONG_LONG BUILTIN_TYPES_ONLY)
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in
   ${CMAKE_CURRENT_SOURCE_DIR}/built/config.h
 )
 
-include_directories(chakra src ${CMAKE_CURRENT_SOURCE_DIR}/built)
+include_directories(chakra ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/built)
 
 # disable -Wunused-parameter: this is really common when implementing
 #   interfaces, etc.
@@ -87,9 +84,11 @@ set(WAST_LEXER_GEN_CC src/prebuilt/wast-lexer-gen.cc)
 add_custom_target(everything)
 
 add_library(libwabt OBJECT
+  src/token.cc
   src/opcode.cc
   src/error-handler.cc
   src/hash-util.cc
+  src/filenames.cc
   src/string-view.cc
   src/ir.cc
   src/expr-visitor.cc
@@ -108,8 +107,8 @@ add_library(libwabt OBJECT
   src/binary-reader-ir.cc
   src/binding-hash.cc
   src/wat-writer.cc
-  src/interpreter.cc
-  src/binary-reader-interpreter.cc
+  src/interp.cc
+  src/binary-reader-interp.cc
   src/apply-names.cc
   src/generate-names.cc
   src/resolve-names.cc
@@ -119,12 +118,12 @@ add_library(libwabt OBJECT
   src/common.cc
   src/config.cc
   src/feature.cc
+  src/leb128.cc
   src/literal.cc
   src/option-parser.cc
   src/stream.cc
   src/tracing.cc
   src/utf8.cc
-  src/writer.cc
 
   chakra/wabtapi.cc
 

@@ -217,7 +217,11 @@ namespace Js
     bool DynamicProfileInfo::IsEnabled(const FunctionBody *const functionBody)
     {
         Assert(functionBody);
-        return IsEnabled_OptionalFunctionBody(functionBody, functionBody->GetScriptContext());
+        return (IsEnabled_OptionalFunctionBody(functionBody, functionBody->GetScriptContext())
+#ifdef ENABLE_WASM
+            && !(PHASE_TRACE1(Js::WasmInOutPhase) && functionBody->IsWasmFunction())
+#endif
+            );
     }
 
     bool DynamicProfileInfo::IsEnabled_OptionalFunctionBody(const FunctionBody *const functionBody, const ScriptContext *const scriptContext)
@@ -248,7 +252,11 @@ namespace Js
     bool DynamicProfileInfo::IsEnabled(const Js::Phase phase, const FunctionBody *const functionBody)
     {
         Assert(functionBody);
-        return IsEnabled_OptionalFunctionBody(phase, functionBody, functionBody->GetScriptContext());
+        return (IsEnabled_OptionalFunctionBody(phase, functionBody, functionBody->GetScriptContext())
+#ifdef ENABLE_WASM
+            && !(PHASE_TRACE1(Js::WasmInOutPhase) && functionBody->IsWasmFunction())
+#endif
+            );
     }
 
     bool DynamicProfileInfo::IsEnabled_OptionalFunctionBody(
@@ -409,6 +417,94 @@ namespace Js
         return callSiteInfo[callSiteId].isArgConstant;
     }
 
+#ifdef ASMJS_PLAT
+    void DynamicProfileInfo::RecordAsmJsCallSiteInfo(FunctionBody* callerBody, ProfileId callSiteId, FunctionBody* calleeBody)
+    {
+        if (!callerBody || !callerBody->GetIsAsmjsMode() || !calleeBody || !calleeBody->GetIsAsmjsMode())
+        {
+            AssertMsg(UNREACHED, "Call to RecordAsmJsCallSiteInfo without two asm.js/wasm FunctionBody");
+            return;
+        }
+        
+#if DBG_DUMP || defined(DYNAMIC_PROFILE_STORAGE) || defined(RUNTIME_DATA_COLLECTION)
+        // If we persistsAcrossScriptContext, the dynamic profile info may be referred to by multiple function body from
+        // different script context
+        Assert(!DynamicProfileInfo::NeedProfileInfoList() || this->persistsAcrossScriptContexts || this->functionBody == callerBody);
+#endif
+
+        bool doInline = true;
+        // This is a hard limit as we only use 4 bits to encode the actual count in the InlineeCallInfo
+        if (calleeBody->GetAsmJsFunctionInfo()->GetArgCount() > Js::InlineeCallInfo::MaxInlineeArgoutCount)
+        {
+            doInline = false;
+        }
+
+        // Mark the callsite bit where caller and callee is same function
+        if (calleeBody == callerBody && callSiteId < 32)
+        {
+            this->m_recursiveInlineInfo = this->m_recursiveInlineInfo | (1 << callSiteId);
+        }
+
+        // TODO: support polymorphic inlining in wasm
+        Assert(!callSiteInfo[callSiteId].isPolymorphic);
+        Js::SourceId oldSourceId = callSiteInfo[callSiteId].u.functionData.sourceId;
+        if (oldSourceId == InvalidSourceId)
+        {
+            return;
+        }
+
+        Js::LocalFunctionId oldFunctionId = callSiteInfo[callSiteId].u.functionData.functionId;
+
+        Js::SourceId sourceId = InvalidSourceId;
+        Js::LocalFunctionId functionId;
+        // We can only inline function that are from the same script context
+        if (callerBody->GetScriptContext() == calleeBody->GetScriptContext())
+        {
+            if (callerBody->GetSecondaryHostSourceContext() == calleeBody->GetSecondaryHostSourceContext())
+            {
+                if (callerBody->GetHostSourceContext() == calleeBody->GetHostSourceContext())
+                {
+                    sourceId = CurrentSourceId; // Caller and callee in same file
+                }
+                else
+                {
+                    sourceId = (Js::SourceId)calleeBody->GetHostSourceContext(); // Caller and callee in different files
+                }
+                functionId = calleeBody->GetLocalFunctionId();
+            }
+            else
+            {
+                // Pretend that we are cross context when call is crossing script file.
+                functionId = CallSiteCrossContext;
+            }
+        }
+        else
+        {
+            functionId = CallSiteCrossContext;
+        }
+
+        if (oldSourceId == NoSourceId)
+        {
+            callSiteInfo[callSiteId].u.functionData.sourceId = sourceId;
+            callSiteInfo[callSiteId].u.functionData.functionId = functionId;
+            this->currentInlinerVersion++; // we don't mind if this overflows
+        }
+        else if (oldSourceId != sourceId || oldFunctionId != functionId)
+        {
+            if (oldFunctionId != CallSiteMixed)
+            {
+                this->currentInlinerVersion++; // we don't mind if this overflows
+            }
+
+            callSiteInfo[callSiteId].u.functionData.functionId = CallSiteMixed;
+            doInline = false;
+        }
+        callSiteInfo[callSiteId].isConstructorCall = false;
+        callSiteInfo[callSiteId].dontInline = !doInline;
+        callSiteInfo[callSiteId].ldFldInlineCacheId = Js::Constants::NoInlineCacheIndex;
+    }
+#endif
+
     void DynamicProfileInfo::RecordCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId, FunctionInfo* calleeFunctionInfo, JavascriptFunction* calleeFunction, ArgSlot actualArgCount, bool isConstructorCall, InlineCacheIndex ldFldInlineCacheId)
     {
 #if DBG_DUMP || defined(DYNAMIC_PROFILE_STORAGE) || defined(RUNTIME_DATA_COLLECTION)
@@ -475,6 +571,11 @@ namespace Js
                         {
                             sourceId = (Js::SourceId)calleeFunctionProxy->GetHostSourceContext(); // Caller and callee in different files
                         }
+                        functionId = calleeFunctionProxy->GetLocalFunctionId();
+                    }
+                    else if (calleeFunctionProxy->GetHostSourceContext() == Js::Constants::JsBuiltInSourceContext)
+                    {
+                        sourceId = JsBuiltInSourceId;
                         functionId = calleeFunctionProxy->GetLocalFunctionId();
                     }
                     else
@@ -672,7 +773,7 @@ namespace Js
         Assert(functionBody);
         const auto callSiteCount = functionBody->GetProfiledCallSiteCount();
         Assert(callSiteId < callSiteCount);
-        Assert(HasCallSiteInfo(functionBody));
+        Assert(functionBody->IsJsBuiltInCode() || HasCallSiteInfo(functionBody));
         Assert(functionBodyArray);
         Assert(functionBodyArrayLength == DynamicProfileInfo::maxPolymorphicInliningSize);
 
@@ -763,7 +864,7 @@ namespace Js
         Assert(functionBody);
         const auto callSiteCount = functionBody->GetProfiledCallSiteCount();
         Assert(callSiteId < callSiteCount);
-        Assert(HasCallSiteInfo(functionBody));
+        Assert(functionBody->IsJsBuiltInCode() || HasCallSiteInfo(functionBody));
 
         *isConstructorCall = callSiteInfo[callSiteId].isConstructorCall;
         if (callSiteInfo[callSiteId].dontInline)
@@ -783,6 +884,31 @@ namespace Js
             {
                 FunctionProxy *inlineeProxy = functionBody->GetUtf8SourceInfo()->FindFunction(functionId);
                 return inlineeProxy ? inlineeProxy->GetFunctionInfo() : nullptr;
+            }
+
+            if (sourceId == JsBuiltInSourceId)
+            {
+                // For call across files find the function from the right source
+                JsUtil::List<RecyclerWeakReference<Utf8SourceInfo>*, Recycler, false, Js::FreeListedRemovePolicy> * sourceList = functionBody->GetScriptContext()->GetSourceList();
+                for (int i = 0; i < sourceList->Count(); i++)
+                {
+                    if (sourceList->IsItemValid(i))
+                    {
+                        Utf8SourceInfo *srcInfo = sourceList->Item(i)->Get();
+                        if (srcInfo && srcInfo->GetHostSourceContext() == Js::Constants::JsBuiltInSourceContext)
+                        {
+                            FunctionProxy *inlineeProxy = srcInfo->FindFunction(functionId);
+                            if (inlineeProxy)
+                            {
+                                return inlineeProxy->GetFunctionInfo();
+                            }
+                            else
+                            {
+                                return nullptr;
+                            }
+                        }
+                    }
+                }
             }
 
             if (sourceId != NoSourceId && sourceId != InvalidSourceId)
@@ -815,7 +941,7 @@ namespace Js
         Assert(functionBody);
         const auto callSiteCount = functionBody->GetProfiledCallSiteCount();
         Assert(callSiteId < callSiteCount);
-        Assert(HasCallSiteInfo(functionBody));
+        Assert(functionBody->IsJsBuiltInCode() || HasCallSiteInfo(functionBody));
 
         return callSiteInfo[callSiteId].ldFldInlineCacheId;
     }
@@ -1755,7 +1881,6 @@ namespace Js
 #if DBG_DUMP
         writer->Log(this);
 #endif
-
         FunctionBody * functionBody = this->GetFunctionBody();
         Js::ArgSlot paramInfoCount = functionBody->GetProfiledInParamsCount();
         if (!writer->Write(functionBody->GetLocalFunctionId())

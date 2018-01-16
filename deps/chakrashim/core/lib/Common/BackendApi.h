@@ -50,6 +50,7 @@ typedef double  FloatConstType;
 #include "IRType.h"
 #include "InlineeFrameInfo.h"
 #include "CodeGenAllocators.h"
+#include "PropertyGuard.h"
 
 NativeCodeGenerator * NewNativeCodeGenerator(Js::ScriptContext * nativeCodeGen);
 void DeleteNativeCodeGenerator(NativeCodeGenerator * nativeCodeGen);
@@ -61,7 +62,7 @@ void UpdateNativeCodeGeneratorForDebugMode(NativeCodeGenerator* nativeCodeGen);
 CriticalSection *GetNativeCodeGenCriticalSection(NativeCodeGenerator *pNativeCodeGen);
 bool TryReleaseNonHiPriWorkItem(Js::ScriptContext* scriptContext, CodeGenWorkItem* workItem);
 void NativeCodeGenEnterScriptStart(NativeCodeGenerator * nativeCodeGen);
-void FreeNativeCodeGenAllocation(Js::ScriptContext* scriptContext, Js::JavascriptMethod codeAddress, Js::JavascriptMethod thunkAddress);
+void FreeNativeCodeGenAllocation(Js::ScriptContext* scriptContext, Js::JavascriptMethod codeAddress, Js::JavascriptMethod thunkAddress, void** functionTable);
 InProcCodeGenAllocators* GetForegroundAllocator(NativeCodeGenerator * nativeCodeGen, PageAllocator* pageallocator);
 void GenerateFunction(NativeCodeGenerator * nativeCodeGen, Js::FunctionBody * functionBody, Js::ScriptFunction * function = NULL);
 void GenerateLoopBody(NativeCodeGenerator * nativeCodeGen, Js::FunctionBody * functionBody, Js::LoopHeader * loopHeader, Js::EntryPointInfo* entryPointInfo, uint localCount, Js::Var localSlots[]);
@@ -70,6 +71,9 @@ void GenerateAllFunctions(NativeCodeGenerator * nativeCodeGen, Js::FunctionBody 
 #endif
 #ifdef IR_VIEWER
 Js::Var RejitIRViewerFunction(NativeCodeGenerator *nativeCodeGen, Js::FunctionBody *fn, Js::ScriptContext *scriptContext);
+#endif
+#ifdef ALLOW_JIT_REPRO
+HRESULT JitFromEncodedWorkItem(NativeCodeGenerator *nativeCodeGen, _In_reads_(bufSize) const byte* buffer, _In_ uint bufferSize);
 #endif
 
 BOOL IsIntermediateCodeGenThunk(Js::JavascriptMethod codeAddress);
@@ -233,6 +237,7 @@ enum VTableValue {
     VtableDynamicObject,
     VtableInvalid,
     VtablePropertyString,
+    VtableLazyJSONString,
     VtableLiteralStringWithPropertyStringPtr,
     VtableJavascriptBoolean,
     VtableJavascriptArray,

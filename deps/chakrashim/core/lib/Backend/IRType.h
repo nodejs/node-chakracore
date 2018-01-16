@@ -4,8 +4,6 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 
-extern const int MachPtr;
-
 enum IRType : BYTE
 {
 #define IRTYPE(Name, BaseType, Bytes, Bits, EnRegOk, DumpName)  Ty ## Name,
@@ -29,6 +27,7 @@ extern bool IRType_IsUnsignedInt(IRType type);
 extern bool IRType_IsFloat(IRType type);
 extern bool IRType_IsNative(IRType type);
 extern bool IRType_IsNativeInt(IRType type);
+extern bool IRType_IsNativeIntOrVar(IRType type);
 extern bool IRType_IsInt64(IRType type);
 extern bool IRType_IsSimd(IRType type);
 extern bool IRType_IsSimd128(IRType type);
@@ -38,3 +37,14 @@ extern IRType IRType_EnsureUnsigned(IRType type);
 #if DBG_DUMP || defined(ENABLE_IR_VIEWER)
 extern void IRType_Dump(IRType type);
 #endif
+
+#ifdef _M_AMD64
+    #include "amd64/machvalues.h"
+#elif defined(_M_IX86)
+    #include "i386/machvalues.h"
+#elif defined(_M_ARM)
+    #include "arm/machvalues.h"
+#elif defined(_M_ARM64)
+    #include "arm64/machvalues.h"
+#endif
+

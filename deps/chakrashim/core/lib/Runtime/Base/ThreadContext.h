@@ -8,10 +8,12 @@ namespace Js
 {
     class ScriptContext;
     struct InlineCache;
-    class DebugManager;
     class CodeGenRecyclableData;
+#ifdef ENABLE_SCRIPT_DEBUGGING
+    class DebugManager;
     struct ReturnedValue;
     typedef JsUtil::List<ReturnedValue*> ReturnedValueList;
+#endif
 }
 
 typedef BVSparse<ArenaAllocator> ActiveFunctionSet;
@@ -410,7 +412,9 @@ public:
     void AddSimdFuncInfo(Js::OpCode op, Js::FunctionInfo *funcInfo);
     Js::OpCode GetSimdOpcodeFromFuncInfo(Js::FunctionInfo * funcInfo);
     void GetSimdFuncSignatureFromOpcode(Js::OpCode op, SimdFuncSignature &funcSignature);
+#endif
 
+#if defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
 #if _M_IX86 || _M_AMD64
     // auxiliary SIMD values in memory to help JIT'ed code. E.g. used for Int8x16 shuffle.
     _x86_SIMDValue X86_TEMP_SIMD[SIMD_TEMP_SIZE];
@@ -443,7 +447,9 @@ private:
     Js::JavascriptExceptionObject * pendingFinallyException;
     bool noScriptScope;
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
     Js::DebugManager * debugManager;
+#endif
 
     static uint const MaxTemporaryArenaAllocators = 5;
 
@@ -584,6 +590,7 @@ private:
         // that would not get removed, but it would also not get any bigger.
         Field(PropertyIdToTypeHashSetDictionary) typesWithProtoPropertyCache;
 
+#if ENABLE_NATIVE_CODEGEN
         // The property guard dictionary contains property guards which need to be invalidated in response to properties changing
         // from writable to read-only and vice versa, properties being shadowed or unshadowed on prototypes, etc.  The dictionary
         // holds only weak references to property guards and their lifetimes are controlled by their creators (typically entry points).
@@ -591,7 +598,7 @@ private:
         // the guards for a given property get invalidated.
         // TODO: Create and use a self-cleaning weak reference dictionary, which would periodically remove any unused weak references.
         Field(PropertyGuardDictionary) propertyGuards;
-
+#endif
 
         Field(PropertyNoCaseSetType *) caseInvariantPropertySet;
 
@@ -610,8 +617,10 @@ private:
         // See ES6 (draft 22) 19.4.2.2
         Field(SymbolRegistrationMap*) symbolRegistrationMap;
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         // Just holding the reference to the returnedValueList of the stepController. This way that list will not get recycled prematurely.
         Field(Js::ReturnedValueList *) returnedValueList;
+#endif
 
         Field(uint) constructorCacheInvalidationCount;
 
@@ -672,7 +681,7 @@ private:
     ThreadServiceWrapper* threadServiceWrapper;
     uint functionCount;
     uint sourceInfoCount;
-
+    void * tryCatchFrameAddr;
     enum RedeferralState
     {
         InitialRedeferralState,
@@ -710,7 +719,7 @@ private:
     CustomHeap::InProcCodePageAllocators thunkPageAllocators;
 #endif
     CustomHeap::InProcCodePageAllocators codePageAllocators;
-#if defined(_CONTROL_FLOW_GUARD) && (_M_IX86 || _M_X64)
+#if defined(_CONTROL_FLOW_GUARD) && !defined(_M_ARM)
     InProcJITThunkEmitter jitThunkEmitter;
 #endif
 #endif
@@ -873,7 +882,7 @@ public:
 #endif
     CustomHeap::InProcCodePageAllocators * GetCodePageAllocators() { return &codePageAllocators; }
 
-#if defined(_CONTROL_FLOW_GUARD) && (_M_IX86 || _M_X64)
+#if defined(_CONTROL_FLOW_GUARD) && !defined(_M_ARM)
     InProcJITThunkEmitter * GetJITThunkEmitter() { return &jitThunkEmitter; }
 #endif
 #endif // ENABLE_NATIVE_CODEGEN
@@ -963,6 +972,7 @@ public:
     Js::PropertyId handlerPropertyId = Js::Constants::NoProperty;
 #endif
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
     void SetReturnedValueList(Js::ReturnedValueList *returnedValueList)
     {
         Assert(this->recyclableData != nullptr);
@@ -974,6 +984,8 @@ public:
         Assert(this->recyclableData == nullptr || this->recyclableData->returnedValueList == nullptr);
     }
 #endif
+#endif
+
 #if DBG || defined(RUNTIME_DATA_COLLECTION)
     uint GetScriptContextCount() const { return this->scriptContextCount; }
 #endif
@@ -1136,8 +1148,8 @@ public:
     }
     void AddBuiltInPropertyRecord(const Js::PropertyRecord *propertyRecord);
 
-    void GetOrAddPropertyId(__in LPCWSTR propertyName, __in int propertyNameLength, Js::PropertyRecord const** propertyRecord);
-    void GetOrAddPropertyId(JsUtil::CharacterBuffer<WCHAR> const& propertyName, Js::PropertyRecord const** propertyRecord);
+    void GetOrAddPropertyId(_In_ LPCWSTR propertyName, _In_ int propertyNameLength, _Out_ Js::PropertyRecord const** propertyRecord);
+    void GetOrAddPropertyId(_In_ JsUtil::CharacterBuffer<WCHAR> const& propertyName, _Out_ Js::PropertyRecord const** propertyRecord);
     Js::PropertyRecord const * UncheckedAddPropertyId(JsUtil::CharacterBuffer<WCHAR> const& propertyName, bool bind, bool isSymbol = false);
     Js::PropertyRecord const * UncheckedAddPropertyId(__in LPCWSTR propertyName, __in int propertyNameLength, bool bind = false, bool isSymbol = false);
 
@@ -1245,6 +1257,9 @@ public:
     uint EnterScriptStart(Js::ScriptEntryExitRecord *, bool doCleanup);
     void EnterScriptEnd(Js::ScriptEntryExitRecord *, bool doCleanup);
 
+    void * GetTryCatchFrameAddr() { return this->tryCatchFrameAddr; }
+    void SetTryCatchFrameAddr(void * frameAddr) { this->tryCatchFrameAddr = frameAddr; }
+
     template <bool leaveForHost>
     void LeaveScriptStart(void *);
     template <bool leaveForHost>
@@ -1261,11 +1276,13 @@ public:
     Js::TempGuestArenaAllocatorObject * GetTemporaryGuestAllocator(LPCWSTR name);
     void ReleaseTemporaryGuestAllocator(Js::TempGuestArenaAllocatorObject * tempAllocator);
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
     // Should be called from script context, at the time when construction for scriptcontext is just done.
     void EnsureDebugManager();
 
     // Should be called from script context 's destructor,
     void ReleaseDebugManager();
+#endif
 
     void RegisterScriptContext(Js::ScriptContext *scriptContext);
     void UnregisterScriptContext(Js::ScriptContext *scriptContext);
@@ -1309,7 +1326,7 @@ public:
 
     virtual intptr_t GetThreadStackLimitAddr() const override;
 
-#if ENABLE_NATIVE_CODEGEN && defined(ENABLE_SIMDJS) && (defined(_M_IX86) || defined(_M_X64))
+#if ENABLE_NATIVE_CODEGEN && (defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)) && (defined(_M_IX86) || defined(_M_X64))
     virtual intptr_t GetSimdTempAreaAddr(uint8 tempIndex) const override;
 #endif
 
@@ -1442,7 +1459,7 @@ public:
         }
     }
 
-    static BOOLEAN IsOnStack(void const *ptr);
+    static bool IsOnStack(void const *ptr);
     _NOINLINE bool IsStackAvailable(size_t size);
     _NOINLINE bool IsStackAvailableNoThrow(size_t size = Js::Constants::MinStackDefault);
     static bool IsCurrentStackAvailable(size_t size);
@@ -1659,7 +1676,9 @@ public:
 
     bool IsInThreadServiceCallback() const { return threadService.IsInCallback(); }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
     Js::DebugManager * GetDebugManager() const { return this->debugManager; }
+#endif
 
     const NativeLibraryEntryRecord::Entry* PeekNativeLibraryEntry() const { return this->nativeLibraryEntry.Peek(); }
     void PushNativeLibraryEntry(_In_ NativeLibraryEntryRecord::Entry* entry) { this->nativeLibraryEntry.Push(entry); }

@@ -37,7 +37,7 @@ WebAssemblyModule::WebAssemblyModule(Js::ScriptContext* scriptContext, const byt
     m_customSections(nullptr)
 {
     m_alloc = HeapNew(ArenaAllocator, _u("WebAssemblyModule"), scriptContext->GetThreadContext()->GetPageAllocator(), Js::Throw::OutOfMemory);
-    //the first elm is the number of Vars in front of I32; makes for a nicer offset computation
+    // the first elem is the number of Vars in front of I32; makes for a nicer offset computation
     memset(m_globalCounts, 0, sizeof(uint) * Wasm::WasmTypes::Limit);
     m_functionsInfo = RecyclerNew(scriptContext->GetRecycler(), WasmFunctionInfosList, scriptContext->GetRecycler());
     m_imports = Anew(m_alloc, WasmImportsList, m_alloc);
@@ -56,6 +56,14 @@ WebAssemblyModule::Is(Var value)
 WebAssemblyModule *
 WebAssemblyModule::FromVar(Var value)
 {
+    AssertOrFailFast(WebAssemblyModule::Is(value));
+    return static_cast<WebAssemblyModule*>(value);
+}
+
+/* static */
+WebAssemblyModule *
+WebAssemblyModule::UnsafeFromVar(Var value)
+{
     Assert(WebAssemblyModule::Is(value));
     return static_cast<WebAssemblyModule*>(value);
 }
@@ -69,11 +77,10 @@ WebAssemblyModule::NewInstance(RecyclableObject* function, CallInfo callInfo, ..
     ARGUMENTS(args, callInfo);
     ScriptContext* scriptContext = function->GetScriptContext();
 
-    AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
+    AssertMsg(args.HasArg(), "Should always have implicit 'this'");
 
-    Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-    bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
-    Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr);
+    Var newTarget = args.GetNewTarget();
+    JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
 
     if (!(callInfo.Flags & CallFlags_New) || (newTarget && JavascriptOperators::IsUndefinedObject(newTarget)))
     {
@@ -203,7 +210,6 @@ Var WebAssemblyModule::EntryCustomSections(RecyclableObject* function, CallInfo 
             JavascriptArray::Push(scriptContext, customSections, arrayBuffer);
         }
     }
-
     LEAVE_PINNED_SCOPE();   // sectionName
 
     return customSections;
@@ -216,12 +222,12 @@ WebAssemblyModule::CreateModule(
     WebAssemblySource* src)
 {
     Assert(src);
-    AutoProfilingPhase wasmPhase(scriptContext, Js::WasmBytecodePhase);
-    Unused(wasmPhase);
 
     WebAssemblyModule * webAssemblyModule = nullptr;
     Wasm::WasmReaderInfo * readerInfo = nullptr;
     Js::FunctionBody * currentBody = nullptr;
+    char16* exceptionMessage = nullptr;
+    AutoFreeExceptionMessage autoCleanExceptionMessage;
     try
     {
         Wasm::WasmModuleGenerator bytecodeGen(scriptContext, src);
@@ -242,33 +248,14 @@ WebAssemblyModule::CreateModule(
     }
     catch (Wasm::WasmCompilationException& ex)
     {
-        // The reason that we use GetTempErrorMessageRef here, instead of just doing simply
-        // ReleaseErrorMessage and grabbing it away from the WasmCompilationException, is a
-        // slight niggle in the lifetime of the message buffer. The normal error throw..Var
-        // routines don't actually do anything to clean up their varargs - likely good, due
-        // to the variety of situations that we want to use them in. However, this fails to
-        // clean up strings if they're not cleaned up by some destructor. By handling these
-        // error strings not by grabbing them away from the WasmCompilationException, I can
-        // have the WasmCompilationException destructor clean up the strings when we throw,
-        // by which point SetErrorMessage will already have copied out what it needs.
-        BSTR originalMessage = ex.GetTempErrorMessageRef();
-        if (currentBody != nullptr)
-        {
-            Wasm::BinaryLocation location = readerInfo->m_module->GetReader()->GetCurrentLocation();
+        // The stackwalker doesn't need to see the current stack
+        // do not throw in the catch block to allow the stack to unwind before throwing.
+        exceptionMessage = FormatExceptionMessage(&ex, &autoCleanExceptionMessage, webAssemblyModule, currentBody);
+    }
 
-            originalMessage = ex.ReleaseErrorMessage();
-            ex = Wasm::WasmCompilationException(
-                _u("function %s at offset %u/%u (0x%x/0x%x): %s"),
-                currentBody->GetDisplayName(),
-                location.offset, location.size,
-                location.offset, location.size,
-                originalMessage
-            );
-            currentBody->GetAsmJsFunctionInfo()->SetWasmReaderInfo(nullptr);
-            SysFreeString(originalMessage);
-            originalMessage = ex.GetTempErrorMessageRef();
-        }
-        JavascriptError::ThrowWebAssemblyCompileErrorVar(scriptContext, WASMERR_WasmCompileError, originalMessage);
+    if (exceptionMessage)
+    {
+        JavascriptError::ThrowWebAssemblyCompileErrorVar(scriptContext, WASMERR_WasmCompileError, exceptionMessage);
     }
 
     return webAssemblyModule;
@@ -300,9 +287,9 @@ WebAssemblyModule::ValidateModule(
             if (PHASE_ON(WasmValidatePrejitPhase, body))
             {
                 CONFIG_FLAG(MaxAsmJsInterpreterRunCount) = 0;
-                AsmJsScriptFunction * funcObj = scriptContext->GetLibrary()->CreateAsmJsScriptFunction(body);
-                FunctionEntryPointInfo * entypointInfo = (FunctionEntryPointInfo*)funcObj->GetEntryPointInfo();
-                entypointInfo->SetIsAsmJSFunction(true);
+                WasmScriptFunction * funcObj = scriptContext->GetLibrary()->CreateWasmScriptFunction(body);
+                FunctionEntryPointInfo * entrypointInfo = (FunctionEntryPointInfo*)funcObj->GetEntryPointInfo();
+                entrypointInfo->SetIsAsmJSFunction(true);
                 GenerateFunction(scriptContext->GetNativeCodeGenerator(), body, funcObj);
             }
 #endif
@@ -809,8 +796,7 @@ WebAssemblyModule::SetStartFunction(uint32 i)
 {
     if (i >= GetWasmFunctionCount())
     {
-        TRACE_WASM_DECODER(_u("Invalid start function index"));
-        return;
+        throw Wasm::WasmCompilationException(_u("Invalid start function index %u"), i);
     }
     m_startFuncIndex = i;
 }
@@ -837,8 +823,35 @@ WebAssemblyModule::GetModuleEnvironmentSize() const
     uint32 size = 3;
     size = UInt32Math::Add(size, GetWasmFunctionCount());
     size = UInt32Math::Add(size, GetImportedFunctionCount());
-    size = UInt32Math::Add(size, WAsmJs::ConvertToJsVarOffset<byte>(GetGlobalsByteSize()));
+    size = UInt32Math::Add(size, WAsmJs::ConvertOffset<byte, Js::Var>(GetGlobalsByteSize()));
     return size;
+}
+
+char16* WebAssemblyModule::FormatExceptionMessage(Wasm::WasmCompilationException* ex, AutoFreeExceptionMessage* autoFree, WebAssemblyModule* wasmModule, FunctionBody* body)
+{
+    char16* originalExceptionMessage = ex->GetTempErrorMessageRef();
+    if (!wasmModule || !body)
+    {
+        size_t len = wcslen(originalExceptionMessage) + 1;
+        char16* buf = HeapNewArray(char16, len);
+        autoFree->Set(buf, len);
+        js_memcpy_s(buf, len * sizeof(char16), originalExceptionMessage, len * sizeof(char16));
+        return buf;
+    }
+
+    Wasm::BinaryLocation location = wasmModule->GetReader()->GetCurrentLocation();
+
+    const char16* format = _u("function %s at offset %u/%u (0x%x/0x%x): %s");
+    const char16* funcName = body->GetDisplayName();
+    char16* buf = HeapNewArray(char16, 2048);
+    autoFree->Set(buf, 2048);
+
+    _snwprintf_s(buf, 2048, _TRUNCATE, format,
+        funcName,
+        location.offset, location.size,
+        location.offset, location.size,
+        originalExceptionMessage);
+    return buf;
 }
 
 void
@@ -866,12 +879,12 @@ uint
 WebAssemblyModule::GetOffsetForGlobal(Wasm::WasmGlobal* global) const
 {
     Wasm::WasmTypes::WasmType type = global->GetType();
-    if (type >= Wasm::WasmTypes::Limit)
+    if (!Wasm::WasmTypes::IsLocalType(type))
     {
         throw Wasm::WasmCompilationException(_u("Invalid Global type"));
     }
 
-    uint32 offset = WAsmJs::ConvertFromJsVarOffset<byte>(GetGlobalOffset());
+    uint32 offset = WAsmJs::ConvertOffset<Js::Var, byte>(GetGlobalOffset());
 
     for (uint i = 1; i < (uint)type; i++)
     {
@@ -919,6 +932,10 @@ WebAssemblyModule::GetGlobalsByteSize() const
     uint32 size = 0;
     for (Wasm::WasmTypes::WasmType type = (Wasm::WasmTypes::WasmType)(Wasm::WasmTypes::Void + 1); type < Wasm::WasmTypes::Limit; type = (Wasm::WasmTypes::WasmType)(type + 1))
     {
+        if (!Wasm::WasmTypes::IsLocalType(type))
+        {
+            continue;
+        }
         size = AddGlobalByteSizeToOffset(type, size);
     }
     return size;

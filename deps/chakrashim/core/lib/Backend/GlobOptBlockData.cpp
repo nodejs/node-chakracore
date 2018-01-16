@@ -34,12 +34,16 @@ GlobOptBlockData::NullOutBlockData(GlobOpt* globOpt, Func* func)
     this->startCallCount = 0;
     this->argOutCount = 0;
     this->totalOutParamCount = 0;
-    this->inlinedArgOutCount = 0;
+    this->inlinedArgOutSize = 0;
     this->hasCSECandidates = false;
     this->curFunc = func;
 
     this->stackLiteralInitFldDataMap = nullptr;
 
+    if (this->capturedValues)
+    {
+        this->capturedValues->DecrementRefCount();
+    }
     this->capturedValues = nullptr;
     this->changedSyms = nullptr;
 
@@ -84,7 +88,7 @@ GlobOptBlockData::InitBlockData(GlobOpt* globOpt, Func* func)
     this->startCallCount = 0;
     this->argOutCount = 0;
     this->totalOutParamCount = 0;
-    this->inlinedArgOutCount = 0;
+    this->inlinedArgOutSize = 0;
     this->hasCSECandidates = false;
     this->curFunc = func;
 
@@ -137,13 +141,17 @@ GlobOptBlockData::ReuseBlockData(GlobOptBlockData *fromData)
     this->startCallCount = fromData->startCallCount;
     this->argOutCount = fromData->argOutCount;
     this->totalOutParamCount = fromData->totalOutParamCount;
-    this->inlinedArgOutCount = fromData->inlinedArgOutCount;
+    this->inlinedArgOutSize = fromData->inlinedArgOutSize;
     this->hasCSECandidates = fromData->hasCSECandidates;
 
     this->stackLiteralInitFldDataMap = fromData->stackLiteralInitFldDataMap;
 
     this->changedSyms = fromData->changedSyms;
-    this->changedSyms->ClearAll();
+    this->capturedValues = fromData->capturedValues;
+    if (this->capturedValues)
+    {
+        this->capturedValues->IncrementRefCount();
+    }
 
     this->OnDataReused(fromData);
 }
@@ -180,10 +188,11 @@ GlobOptBlockData::CopyBlockData(GlobOptBlockData *fromData)
     this->startCallCount = fromData->startCallCount;
     this->argOutCount = fromData->argOutCount;
     this->totalOutParamCount = fromData->totalOutParamCount;
-    this->inlinedArgOutCount = fromData->inlinedArgOutCount;
+    this->inlinedArgOutSize = fromData->inlinedArgOutSize;
     this->hasCSECandidates = fromData->hasCSECandidates;
 
     this->changedSyms = fromData->changedSyms;
+    this->capturedValues = fromData->capturedValues;
 
     this->stackLiteralInitFldDataMap = fromData->stackLiteralInitFldDataMap;
     this->OnDataReused(fromData);
@@ -253,6 +262,11 @@ GlobOptBlockData::DeleteBlockData()
     JitAdelete(alloc, this->changedSyms);
     this->changedSyms = nullptr;
 
+    if (this->capturedValues && this->capturedValues->DecrementRefCount() == 0)
+    {
+        JitAdelete(this->curFunc->m_alloc, this->capturedValues);
+        this->capturedValues = nullptr;
+    }
     this->OnDataDeleted();
 }
 
@@ -348,7 +362,7 @@ void GlobOptBlockData::CloneBlockData(BasicBlock *const toBlockContext, BasicBlo
     this->startCallCount = fromData->startCallCount;
     this->argOutCount = fromData->argOutCount;
     this->totalOutParamCount = fromData->totalOutParamCount;
-    this->inlinedArgOutCount = fromData->inlinedArgOutCount;
+    this->inlinedArgOutSize = fromData->inlinedArgOutSize;
     this->hasCSECandidates = fromData->hasCSECandidates;
 
     // Although we don't need the data on loop pre pass, we need to do it for the loop header
@@ -365,6 +379,11 @@ void GlobOptBlockData::CloneBlockData(BasicBlock *const toBlockContext, BasicBlo
 
     this->changedSyms = JitAnew(alloc, BVSparse<JitArenaAllocator>, alloc);
     this->changedSyms->Copy(fromData->changedSyms);
+    this->capturedValues = fromData->capturedValues;
+    if (this->capturedValues)
+    {
+        this->capturedValues->IncrementRefCount();
+    }
 
     Assert(fromData->HasData());
     this->OnDataInitialized(alloc);
@@ -476,10 +495,14 @@ GlobOptBlockData::MergeBlockData(
     this->isTempSrc->And(fromData->isTempSrc);
     this->hasCSECandidates &= fromData->hasCSECandidates;
 
+    this->changedSyms->Or(fromData->changedSyms);
     if (this->capturedValues == nullptr)
     {
         this->capturedValues = fromData->capturedValues;
-        this->changedSyms->Or(fromData->changedSyms);
+        if (this->capturedValues)
+        {
+            this->capturedValues->IncrementRefCount();
+        }
     }
     else
     {
@@ -488,6 +511,7 @@ GlobOptBlockData::MergeBlockData(
             fromData->capturedValues == nullptr ? nullptr : &fromData->capturedValues->constantValues,
             [&](ConstantStackSymValue * symValueFrom, ConstantStackSymValue * symValueTo)
             {
+                Assert(symValueFrom->Key()->m_id == symValueTo->Key()->m_id);
                 return symValueFrom->Value().IsEqual(symValueTo->Value());
             });
 
@@ -496,12 +520,12 @@ GlobOptBlockData::MergeBlockData(
             fromData->capturedValues == nullptr ? nullptr : &fromData->capturedValues->copyPropSyms,
             [&](CopyPropSyms * copyPropSymFrom, CopyPropSyms * copyPropSymTo)
             {
+                Assert(copyPropSymFrom->Key()->m_id == copyPropSymTo->Key()->m_id);
                 if (copyPropSymFrom->Value()->m_id == copyPropSymTo->Value()->m_id)
                 {
-                    Value * val = fromData->FindValue(copyPropSymFrom->Key());
-                    Value * copyVal = fromData->FindValue(copyPropSymTo->Key());
-                    return (val != nullptr && copyVal != nullptr &&
-                        val->GetValueNumber() == copyVal->GetValueNumber());
+                    Value * fromVal = fromData->FindValue(copyPropSymFrom->Key());
+                    Value * toVal = this->FindValue(copyPropSymFrom->Key());
+                    return fromVal && toVal && fromVal->IsEqualTo(toVal);
                 }
                 return false;
             });
@@ -835,7 +859,7 @@ GlobOptBlockData::MergeBlockData(
     Assert(this->startCallCount == fromData->startCallCount);
     Assert(this->argOutCount == fromData->argOutCount);
     Assert(this->totalOutParamCount == fromData->totalOutParamCount);
-    Assert(this->inlinedArgOutCount == fromData->inlinedArgOutCount);
+    Assert(this->inlinedArgOutSize == fromData->inlinedArgOutSize);
 
     // stackLiteralInitFldDataMap is a union of the stack literal from two path.
     // Although we don't need the data on loop prepass, we need to do it for the loop header
@@ -1652,6 +1676,15 @@ GlobOptBlockData::SetChangedSym(SymID symId)
 }
 
 void
+GlobOptBlockData::SetChangedSym(Sym* sym)
+{
+    if (sym && sym->IsStackSym() && sym->AsStackSym()->HasByteCodeRegSlot())
+    {
+        SetChangedSym(sym->m_id);
+    }
+}
+
+void
 GlobOptBlockData::SetValue(Value *val, Sym * sym)
 {
     ValueInfo *valueInfo = val->GetValueInfo();
@@ -1668,10 +1701,7 @@ GlobOptBlockData::SetValue(Value *val, Sym * sym)
     else
     {
         this->SetValueToHashTable(this->symToValueMap, val, sym);
-        if (isStackSym && sym->AsStackSym()->HasByteCodeRegSlot())
-        {
-            this->SetChangedSym(sym->m_id);
-        }
+        this->SetChangedSym(sym);
     }
 }
 
@@ -1786,7 +1816,7 @@ GlobOptBlockData::IsTypeSpecialized(Sym const * sym) const
 bool
 GlobOptBlockData::IsSwitchInt32TypeSpecialized(IR::Instr const * instr) const
 {
-    return GlobOpt::IsSwitchOptEnabled(instr->m_func->GetTopFunc())
+    return GlobOpt::IsSwitchOptEnabledForIntTypeSpec(instr->m_func->GetTopFunc())
         && instr->GetSrc1()->IsRegOpnd()
         && this->IsInt32TypeSpecialized(instr->GetSrc1()->AsRegOpnd()->m_sym);
 }

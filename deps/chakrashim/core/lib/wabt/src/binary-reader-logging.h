@@ -17,7 +17,7 @@
 #ifndef WABT_BINARY_READER_LOGGING_H_
 #define WABT_BINARY_READER_LOGGING_H_
 
-#include "binary-reader.h"
+#include "src/binary-reader.h"
 
 namespace wabt {
 
@@ -132,7 +132,20 @@ class BinaryReaderLogging : public BinaryReaderDelegate {
   Result OnOpcodeUint64(uint64_t value) override;
   Result OnOpcodeF32(uint32_t value) override;
   Result OnOpcodeF64(uint64_t value) override;
+  Result OnOpcodeV128(v128 value) override;
   Result OnOpcodeBlockSig(Index num_types, Type* sig_types) override;
+  Result OnAtomicLoadExpr(Opcode opcode,
+                          uint32_t alignment_log2,
+                          Address offset) override;
+  Result OnAtomicStoreExpr(Opcode opcode,
+                           uint32_t alignment_log2,
+                           Address offset) override;
+  Result OnAtomicRmwExpr(Opcode opcode,
+                         uint32_t alignment_log2,
+                         Address offset) override;
+  Result OnAtomicRmwCmpxchgExpr(Opcode opcode,
+                                uint32_t alignment_log2,
+                                Address offset) override;
   Result OnBinaryExpr(Opcode opcode) override;
   Result OnBlockExpr(Index num_types, Type* sig_types) override;
   Result OnBrExpr(Index depth) override;
@@ -153,6 +166,7 @@ class BinaryReaderLogging : public BinaryReaderDelegate {
   Result OnEndFunc() override;
   Result OnF32ConstExpr(uint32_t value_bits) override;
   Result OnF64ConstExpr(uint64_t value_bits) override;
+  Result OnV128ConstExpr(v128 value_bits) override;
   Result OnGetGlobalExpr(Index global_index) override;
   Result OnGetLocalExpr(Index local_index) override;
   Result OnGrowMemoryExpr() override;
@@ -177,6 +191,12 @@ class BinaryReaderLogging : public BinaryReaderDelegate {
   Result OnTryExpr(Index num_types, Type* sig_types) override;
   Result OnUnaryExpr(Opcode opcode) override;
   Result OnUnreachableExpr() override;
+  Result OnAtomicWaitExpr(Opcode opcode,
+                          uint32_t alignment_log2,
+                          Address offset) override;
+  Result OnAtomicWakeExpr(Opcode opcode,
+                          uint32_t alignment_log2,
+                          Address offset) override;
   Result EndFunctionBody(Index index) override;
   Result EndCodeSection() override;
 
@@ -233,8 +253,15 @@ class BinaryReaderLogging : public BinaryReaderDelegate {
 
   Result BeginLinkingSection(Offset size) override;
   Result OnStackGlobal(Index stack_global) override;
-  Result OnSymbolInfo(string_view name, uint32_t flags) override;
   Result OnSymbolInfoCount(Index count) override;
+  Result OnSymbolInfo(string_view name, uint32_t flags) override;
+  Result OnDataSize(uint32_t data_size) override;
+  Result OnDataAlignment(uint32_t data_alignment) override;
+  Result OnSegmentInfoCount(Index count) override;
+  Result OnSegmentInfo(Index index,
+                       string_view name,
+                       uint32_t alignment,
+                       uint32_t flags) override;
   Result EndLinkingSection() override;
 
   Result BeginExceptionSection(Offset size) override;
@@ -244,6 +271,7 @@ class BinaryReaderLogging : public BinaryReaderDelegate {
 
   Result OnInitExprF32ConstExpr(Index index, uint32_t value) override;
   Result OnInitExprF64ConstExpr(Index index, uint64_t value) override;
+  Result OnInitExprV128ConstExpr(Index index, v128 value) override;
   Result OnInitExprGetGlobalExpr(Index index,
                                  Index global_index) override;
   Result OnInitExprI32ConstExpr(Index index, uint32_t value) override;
@@ -256,9 +284,9 @@ class BinaryReaderLogging : public BinaryReaderDelegate {
   void LogTypes(Index type_count, Type* types);
   void LogTypes(TypeVector& types);
 
-  Stream* stream;
-  BinaryReaderDelegate* reader;
-  int indent;
+  Stream* stream_;
+  BinaryReaderDelegate* reader_;
+  int indent_;
 };
 
 }  // namespace wabt

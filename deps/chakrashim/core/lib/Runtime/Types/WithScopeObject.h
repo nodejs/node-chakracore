@@ -18,6 +18,7 @@ namespace Js
             WithScopeObject(RecyclableObject *wrappedObject, StaticType * type) : RecyclableObject(type), wrappedObject(wrappedObject) {}
             static bool Is(Var aValue);
             static WithScopeObject* FromVar(Var value);
+            static WithScopeObject* UnsafeFromVar(Var value);
             RecyclableObject *GetWrappedObject() { return wrappedObject; }
             virtual PropertyQueryFlags HasPropertyQuery(PropertyId propertyId) override;
             virtual BOOL HasOwnProperty(PropertyId propertyId) override;
@@ -37,7 +38,9 @@ namespace Js
             virtual BOOL SetInternalProperty(PropertyId internalPropertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info) override { AssertAndFailFast(); return FALSE; };
             virtual BOOL InitProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags = PropertyOperation_None, PropertyValueInfo* info = NULL) override { AssertAndFailFast(); return FALSE; };
             virtual BOOL SetPropertyWithAttributes(PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags = PropertyOperation_None, SideEffects possibleSideEffects = SideEffects_Any) override { AssertAndFailFast(); return FALSE; };
+#if ENABLE_FIXED_FIELDS
             virtual BOOL IsFixedProperty(PropertyId propertyId) override { AssertAndFailFast(); return FALSE; };
+#endif
             virtual PropertyQueryFlags HasItemQuery(uint32 index) override { AssertAndFailFast(); return PropertyQueryFlags::Property_NotFound; };
             virtual BOOL HasOwnItem(uint32 index) override { AssertAndFailFast(); return FALSE; };
             virtual PropertyQueryFlags GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext) override { AssertAndFailFast(); return PropertyQueryFlags::Property_NotFound; };

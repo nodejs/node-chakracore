@@ -341,7 +341,9 @@ namespace Js
         static bool Is(RecyclableObject *const object);
         static bool Is(const Var var);
         static CompoundString *FromVar(RecyclableObject *const object);
+        static CompoundString *UnsafeFromVar(RecyclableObject *const object);
         static CompoundString *FromVar(const Var var);
+        static CompoundString *UnsafeFromVar(const Var var);
         static size_t GetOffsetOfOwnsLastBlock() { return offsetof(CompoundString, ownsLastBlock); }
         static size_t GetOffsetOfDirectCharLength() { return offsetof(CompoundString, directCharLength); }
         static size_t GetOffsetOfLastBlockInfo() { return offsetof(CompoundString, lastBlockInfo); }
@@ -428,7 +430,6 @@ namespace Js
 
     protected:
         DEFINE_VTABLE_CTOR(CompoundString, LiteralString);
-        DECLARE_CONCRETE_STRING_CLASS;
 
     private:
         PREVENT_COPY(CompoundString);

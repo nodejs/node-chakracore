@@ -80,9 +80,8 @@ namespace Js
 
         AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
 
-        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
-        Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr);
+        Var newTarget = args.GetNewTarget();
+        bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
 
         if (!(callInfo.Flags & CallFlags_New) || (newTarget && JavascriptOperators::IsUndefinedObject(newTarget)))
         {
@@ -177,9 +176,7 @@ namespace Js
 
         if (scriptContext->GetConfig()->IsES6SpeciesEnabled())
         {
-            Var constructorVar = JavascriptOperators::SpeciesConstructor(currentBuffer, scriptContext->GetLibrary()->GetSharedArrayBufferConstructor(), scriptContext);
-
-            JavascriptFunction* constructor = JavascriptFunction::FromVar(constructorVar);
+            RecyclableObject* constructor = JavascriptOperators::SpeciesConstructor(currentBuffer, scriptContext->GetLibrary()->GetSharedArrayBufferConstructor(), scriptContext);
 
             Js::Var constructorArgs[] = { constructor, JavascriptNumber::ToVar(newbyteLength, scriptContext) };
             Js::CallInfo constructorCallInfo(Js::CallFlags_New, _countof(constructorArgs));
@@ -232,9 +229,16 @@ namespace Js
 
     SharedArrayBuffer* SharedArrayBuffer::FromVar(Var aValue)
     {
+        AssertOrFailFastMsg(Is(aValue), "var must be an SharedArrayBuffer");
+
+        return static_cast<SharedArrayBuffer *>(aValue);
+    }
+
+    SharedArrayBuffer* SharedArrayBuffer::UnsafeFromVar(Var aValue)
+    {
         AssertMsg(Is(aValue), "var must be an SharedArrayBuffer");
 
-        return static_cast<SharedArrayBuffer *>(RecyclableObject::FromVar(aValue));
+        return static_cast<SharedArrayBuffer *>(aValue);
     }
 
     bool  SharedArrayBuffer::Is(Var aValue)

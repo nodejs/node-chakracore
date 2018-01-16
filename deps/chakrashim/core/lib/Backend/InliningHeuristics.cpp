@@ -4,18 +4,14 @@
 //-------------------------------------------------------------------------------------------------------
 #include "Backend.h"
 
-InliningThreshold::InliningThreshold(uint nonLoadByteCodeCount, bool forLoopBody, bool aggressive) : nonLoadByteCodeCount(nonLoadByteCodeCount)
+InliningThreshold::InliningThreshold(uint nonLoadByteCodeCount, bool forLoopBody, bool asmjs) :
+    nonLoadByteCodeCount(nonLoadByteCodeCount),
+    forLoopBody(forLoopBody),
+    asmjs(asmjs)
 {
-    this->forLoopBody = forLoopBody;
-    if (aggressive)
-    {
-        SetAggressiveHeuristics();
-    }
-    else
-    {
-        SetHeuristics();
-    }
+    SetHeuristics();
 }
+
 void InliningThreshold::SetAggressiveHeuristics()
 {
     Assert(!this->forLoopBody);
@@ -53,6 +49,10 @@ void InliningThreshold::SetHeuristics()
     else if (nonLoadByteCodeCount < 50)
     {
         inlineThreshold += CONFIG_FLAG(InlineThresholdAdjustCountInSmallFunction);
+    }
+    if (this->asmjs)
+    {
+        inlineThreshold += CONFIG_FLAG(AsmJsInlineAdjust);
     }
 
     constructorInlineThreshold = CONFIG_FLAG(ConstructorInlineThreshold);
@@ -114,7 +114,8 @@ bool InliningHeuristics::BackendInlineIntoInliner(const FunctionJITTimeInfo * in
         return false;
     }
 
-    if(PHASE_FORCE(Js::InlinePhase, this->topFunc) ||
+    if(inlinee->IsJsBuiltInForceInline() ||
+        PHASE_FORCE(Js::InlinePhase, this->topFunc) ||
         PHASE_FORCE(Js::InlinePhase, inliner) ||
         PHASE_FORCE(Js::InlinePhase, inlinee))
     {

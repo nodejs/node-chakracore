@@ -14,6 +14,7 @@ set(CRL_SOURCE_FILES ${CRL_SOURCE_FILES}
     WAsmjsUtils.cpp
     WebAssemblySource.cpp
     CacheOperators.cpp
+    ConstructorCache.cpp
     CodeGenRecyclableData.cpp
     DynamicProfileInfo.cpp
     DynamicProfileMutator.cpp
@@ -26,7 +27,6 @@ set(CRL_SOURCE_FILES ${CRL_SOURCE_FILES}
     JavascriptExceptionObject.cpp
     JavascriptExceptionOperators.cpp
     JavascriptMathOperators.cpp
-    JavascriptNativeOperators.cpp
     JavascriptOperators.cpp
     JavascriptStackWalker.cpp
     ModuleNamespace.cpp
@@ -41,6 +41,7 @@ set(CRL_SOURCE_FILES ${CRL_SOURCE_FILES}
     SimdBool8x16OperationX86X64.cpp
     SimdFloat32x4Operation.cpp
     SimdFloat32x4OperationX86X64.cpp
+    SimdInt64x2Operation.cpp
     SimdFloat64x2Operation.cpp
     SimdFloat64x2OperationX86X64.cpp
     SimdInt16x8Operation.cpp

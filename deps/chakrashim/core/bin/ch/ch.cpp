@@ -4,10 +4,18 @@
 //-------------------------------------------------------------------------------------------------------
 #include "stdafx.h"
 #include "Core/AtomLockGuids.h"
-#include <CommonPal.h>
 #ifdef _WIN32
 #include <winver.h>
 #include <process.h>
+#include <fcntl.h>
+#else
+#include <pthread.h>
+#endif
+
+#ifdef __linux__
+#include <sys/sysinfo.h>
+#elif defined(__APPLE__)
+#include <sys/sysctl.h>
 #endif
 
 unsigned int MessageBase::s_messageCount = 0;
@@ -105,27 +113,30 @@ void __stdcall PrintChVersion()
 #ifdef _WIN32
 void __stdcall PrintChakraCoreVersion()
 {
-    char filename[_MAX_PATH];
-    char drive[_MAX_DRIVE];
-    char dir[_MAX_DIR];
+    char16 filename[_MAX_PATH];
+    char16 drive[_MAX_DRIVE];
+    char16 dir[_MAX_DIR];
 
-    LPCSTR chakraDllName = GetChakraDllName();
+    LPCWSTR chakraDllName = GetChakraDllNameW();
+    char16 modulename[_MAX_PATH];
+    if (!PlatformAgnostic::SystemInfo::GetBinaryLocation(modulename, _MAX_PATH))
+    {
+        return;
+    }
 
-    char modulename[_MAX_PATH];
-    GetModuleFileNameA(NULL, modulename, _MAX_PATH);
-    _splitpath_s(modulename, drive, _MAX_DRIVE, dir, _MAX_DIR, nullptr, 0, nullptr, 0);
-    _makepath_s(filename, drive, dir, chakraDllName, nullptr);
+    _wsplitpath_s(modulename, drive, _MAX_DRIVE, dir, _MAX_DIR, nullptr, 0, nullptr, 0);
+    _wmakepath_s(filename, drive, dir, chakraDllName, nullptr);
 
     UINT size = 0;
     LPBYTE lpBuffer = NULL;
-    DWORD verSize = GetFileVersionInfoSizeA(filename, NULL);
+    DWORD verSize = GetFileVersionInfoSizeW(filename, NULL);
 
     if (verSize != NULL)
     {
         LPSTR verData = new char[verSize];
 
-        if (GetFileVersionInfoA(filename, NULL, verSize, verData) &&
-            VerQueryValue(verData, _u("\\"), (VOID FAR * FAR *)&lpBuffer, &size) &&
+        if (GetFileVersionInfoW(filename, NULL, verSize, verData) &&
+            VerQueryValueW(verData, _u("\\"), (VOID FAR * FAR *)&lpBuffer, &size) &&
             (size != 0))
         {
             VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)lpBuffer;
@@ -134,7 +145,7 @@ void __stdcall PrintChakraCoreVersion()
                 // Doesn't matter if you are on 32 bit or 64 bit,
                 // DWORD is always 32 bits, so first two revision numbers
                 // come from dwFileVersionMS, last two come from dwFileVersionLS
-                printf("%s version %d.%d.%d.%d\n",
+                wprintf(_u("%s version %d.%d.%d.%d\n"),
                     chakraDllName,
                     (verInfo->dwFileVersionMS >> 16) & 0xffff,
                     (verInfo->dwFileVersionMS >> 0) & 0xffff,
@@ -305,7 +316,7 @@ static bool CHAKRA_CALLBACK DummyJsSerializedScriptLoadUtf8Source(
     return true;
 }
 
-HRESULT RunScript(const char* fileName, LPCSTR fileContents, JsFinalizeCallback fileContentsFinalizeCallback, JsValueRef bufferValue, char *fullPath)
+HRESULT RunScript(const char* fileName, LPCSTR fileContents, size_t fileLength, JsFinalizeCallback fileContentsFinalizeCallback, JsValueRef bufferValue, char *fullPath)
 {
     HRESULT hr = S_OK;
     MessageQueue * messageQueue = new MessageQueue();
@@ -430,7 +441,7 @@ HRESULT RunScript(const char* fileName, LPCSTR fileContents, JsFinalizeCallback 
         {
             JsValueRef scriptSource;
             IfJsErrorFailLog(ChakraRTInterface::JsCreateExternalArrayBuffer((void*)fileContents,
-                (unsigned int)strlen(fileContents),
+                (unsigned int)fileLength,
                 fileContentsFinalizeCallback, (void*)fileContents, &scriptSource));
 #if ENABLE_TTD
             if(doTTRecord)
@@ -522,26 +533,58 @@ Error:
 static HRESULT CreateRuntime(JsRuntimeHandle *runtime)
 {
     HRESULT hr = E_FAIL;
+
+#ifndef _WIN32
+    // On Posix, malloc optimistically returns a non-null address without
+    // checking if it's actually able to back that allocation in memory
+    // Upon use of that address however, if the address space for that allocation
+    // can't be committed, the process is killed
+    // See the man page for malloc
+    //
+    // In order to avoid having to deal with this, we set the memory limit for the
+    // runtime to the size of the physical memory on the system
+    // TODO: 
+    // We could move the following into its own platform agnostic API
+    // but in this case, this is a one-time call thats not applicable
+    // on Windows so decided to leave as is
+    // Additionally, we can probably do better than just limit to the physical memory
+    // size
+
+#if defined(__APPLE__) || defined(__linux__)
+    size_t memoryLimit;
+#ifdef __APPLE__
+    int totalRamHW[] = { CTL_HW, HW_MEMSIZE };
+    size_t length = sizeof(memoryLimit);
+    if (sysctl(totalRamHW, 2, &memoryLimit, &length, NULL, 0) == -1)
+    {
+        memoryLimit = 0;
+    }
+#else
+    struct sysinfo sysInfo;
+    if (sysinfo(&sysInfo) == -1)
+    {
+        memoryLimit = 0;
+    }
+    else
+    {
+        memoryLimit = sysInfo.totalram;
+    }
+#endif // __APPLE__
+#endif // __APPLE__ || __linux
+#endif // !_WIN32
+
     IfJsErrorFailLog(ChakraRTInterface::JsCreateRuntime(jsrtAttributes, nullptr, runtime));
 
 #ifndef _WIN32
-    // On Posix, malloc may not return NULL even if there is no
-    // memory left. However, kernel will send SIGKILL to process
-    // in case we use that `not actually available` memory address.
-    // (See posix man malloc and OOM)
-
-    size_t memoryLimit;
-    if (PlatformAgnostic::SystemInfo::GetTotalRam(&memoryLimit))
-    {
-        IfJsErrorFailLog(ChakraRTInterface::JsSetRuntimeMemoryLimit(*runtime, memoryLimit));
-    }
+    IfJsErrorFailLog(ChakraRTInterface::JsSetRuntimeMemoryLimit(*runtime, memoryLimit));
 #endif
+
     hr = S_OK;
 Error:
     return hr;
 }
 
-HRESULT CreateAndRunSerializedScript(const char* fileName, LPCSTR fileContents, JsFinalizeCallback fileContentsFinalizeCallback, char *fullPath)
+HRESULT CreateAndRunSerializedScript(const char* fileName, LPCSTR fileContents, size_t fileLength, JsFinalizeCallback fileContentsFinalizeCallback, char *fullPath)
 {
     HRESULT hr = S_OK;
     JsRuntimeHandle runtime = JS_INVALID_RUNTIME_HANDLE;
@@ -567,7 +610,7 @@ HRESULT CreateAndRunSerializedScript(const char* fileName, LPCSTR fileContents, 
     }
 
     // This is our last call to use fileContents, so pass in the finalizeCallback
-    IfFailGo(RunScript(fileName, fileContents, fileContentsFinalizeCallback, bufferVal, fullPath));
+    IfFailGo(RunScript(fileName, fileContents, fileLength, fileContentsFinalizeCallback, bufferVal, fullPath));
 
     if(false)
     {
@@ -619,7 +662,7 @@ HRESULT ExecuteTest(const char* fileName)
         IfJsErrorFailLog(ChakraRTInterface::JsTTDCreateContext(runtime, true, &context));
         IfJsErrorFailLog(ChakraRTInterface::JsSetCurrentContext(context));
 
-        IfFailGo(RunScript(fileName, fileContents, WScriptJsrt::FinalizeFree, nullptr, nullptr));
+        IfFailGo(RunScript(fileName, fileContents, lengthBytes, WScriptJsrt::FinalizeFree, nullptr, nullptr));
 
         unsigned int rcount = 0;
         IfJsErrorFailLog(ChakraRTInterface::JsSetCurrentContext(nullptr));
@@ -733,11 +776,11 @@ HRESULT ExecuteTest(const char* fileName)
         }
         else if (HostConfigFlags::flags.SerializedIsEnabled)
         {
-            CreateAndRunSerializedScript(fileName, fileContents, WScriptJsrt::FinalizeFree, fullPath);
+            CreateAndRunSerializedScript(fileName, fileContents, lengthBytes, WScriptJsrt::FinalizeFree, fullPath);
         }
         else
         {
-            IfFailGo(RunScript(fileName, fileContents, WScriptJsrt::FinalizeFree, nullptr, fullPath));
+            IfFailGo(RunScript(fileName, fileContents, lengthBytes, WScriptJsrt::FinalizeFree, nullptr, fullPath));
         }
     }
 Error:
@@ -801,8 +844,8 @@ HRESULT ExecuteTestWithMemoryCheck(char* fileName)
 #ifdef _WIN32
 bool HandleJITServerFlag(int& argc, _Inout_updates_to_(argc, argc) LPWSTR argv[])
 {
-    LPCWSTR flag = L"-jitserver:";
-    LPCWSTR flagWithoutColon = L"-jitserver";
+    LPCWSTR flag = _u("-jitserver:");
+    LPCWSTR flagWithoutColon = _u("-jitserver");
     size_t flagLen = wcslen(flag);
 
     int i = 0;
@@ -810,7 +853,7 @@ bool HandleJITServerFlag(int& argc, _Inout_updates_to_(argc, argc) LPWSTR argv[]
     {
         if (!_wcsicmp(argv[i], flagWithoutColon))
         {
-            connectionUuidString = L"";
+            connectionUuidString = _u("");
             break;
         }
         else if (!_wcsnicmp(argv[i], flag, flagLen))
@@ -818,7 +861,7 @@ bool HandleJITServerFlag(int& argc, _Inout_updates_to_(argc, argc) LPWSTR argv[]
             connectionUuidString = argv[i] + flagLen;
             if (wcslen(connectionUuidString) == 0)
             {
-                fwprintf(stdout, L"[FAILED]: must pass a UUID to -jitserver:\n");
+                fwprintf(stdout, _u("[FAILED]: must pass a UUID to -jitserver:\n"));
                 return false;
             }
             else
@@ -851,7 +894,7 @@ int _cdecl RunJITServer(int argc, __in_ecount(argc) LPWSTR argv[])
 
     if (!success)
     {
-        wprintf(L"\nDll load failed\n");
+        wprintf(_u("\nDll load failed\n"));
         return ERROR_DLL_INIT_FAILED;
     }
 
@@ -866,7 +909,7 @@ int _cdecl RunJITServer(int argc, __in_ecount(argc) LPWSTR argv[])
     status = initRpcServer(&connectionUuid, nullptr, nullptr);
     if (FAILED(status))
     {
-        wprintf(L"InitializeJITServer failed by 0x%x\n", status);
+        wprintf(_u("InitializeJITServer failed by 0x%x\n"), status);
         goto cleanup;
     }
     status = 0;
@@ -907,6 +950,17 @@ int _cdecl wmain(int argc, __in_ecount(argc) LPWSTR argv[])
 #endif
 
 #ifdef _WIN32
+    // Set the output mode of stdout so we can display non-ASCII characters on the console and redirect to file as UTF-8
+    {
+        int result = _setmode(_fileno(stdout), _O_U8TEXT); // set stdout to UTF-8 mode
+        if (result == -1)
+        {
+            // Failed to set mode. Undefined behavior may result, so exit now.
+            wprintf(_u("Failed to set output stream mode. Exiting...\n"));
+            return EXIT_FAILURE;
+        }
+    }
+
     bool runJITServer = HandleJITServerFlag(argc, argv);
 #endif
     int retval = -1;
@@ -1102,6 +1156,12 @@ return_cleanup:
     }
     delete[] argv;
     argv = nullptr;
-#endif
+#ifdef NO_SANITIZE_ADDRESS_CHECK
+    pthread_exit(&retval);
+#else
     return retval;
+#endif
+#else
+    return retval;
+#endif
 }

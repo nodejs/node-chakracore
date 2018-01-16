@@ -660,6 +660,217 @@ namespace JsRTApiTest
         JsRTApiTest::RunWithAttributes(JsRTApiTest::ExternalFunctionTest);
     }
 
+    JsValueRef CALLBACK ExternalEnhancedFunctionTestCallback(JsValueRef callee, JsValueRef *arguments, unsigned short argumentCount, JsNativeFunctionInfo *info, void *callbackData)
+    {
+        REQUIRE(callbackData != nullptr);
+        REQUIRE(*static_cast<int*>(callbackData) == 123);
+        REQUIRE(argumentCount == 2);
+
+        bool success = false;
+        JsValueRef _true;
+        REQUIRE(JsGetTrueValue(&_true) == JsNoError);
+        JsValueRef _false;
+        REQUIRE(JsGetFalseValue(&_false) == JsNoError);
+        
+
+        REQUIRE(JsStrictEquals(_true, arguments[0], &success) == JsNoError);
+        REQUIRE(success);
+        REQUIRE(JsStrictEquals(_false, arguments[1], &success) == JsNoError);
+        REQUIRE(success);
+
+        REQUIRE(!info->isConstructCall);
+        REQUIRE(info->thisArg == arguments[0]);
+
+        JsValueRef undefined;
+        REQUIRE(JsGetUndefinedValue(&undefined) == JsNoError);
+        REQUIRE(JsStrictEquals(undefined, info->newTargetArg, &success) == JsNoError);
+        REQUIRE(success);
+
+        JsValueRef _null;
+        REQUIRE(JsGetNullValue(&_null) == JsNoError);
+        return _null;
+    }
+
+    JsValueRef CALLBACK ExternalEnhancedConstructorFunctionTestCallback(JsValueRef callee, JsValueRef *arguments, unsigned short argumentCount, JsNativeFunctionInfo *info, void *callbackData)
+    {
+        REQUIRE(callbackData != nullptr);
+        REQUIRE(*static_cast<int*>(callbackData) == 456);
+        REQUIRE(argumentCount == 3);
+
+        bool success = false;
+        JsValueRef _true;
+        REQUIRE(JsGetTrueValue(&_true) == JsNoError);
+        JsValueRef _false;
+        REQUIRE(JsGetFalseValue(&_false) == JsNoError);
+        JsValueRef _null;
+        REQUIRE(JsGetNullValue(&_null) == JsNoError);
+
+        REQUIRE(info->thisArg == arguments[0]);
+        REQUIRE(JsStrictEquals(_true, arguments[1], &success) == JsNoError);
+        REQUIRE(success);
+        REQUIRE(JsStrictEquals(_false, arguments[2], &success) == JsNoError);
+        REQUIRE(success);
+
+        REQUIRE(info->isConstructCall);
+
+        JsValueType t;
+        REQUIRE(JsGetValueType(info->newTargetArg, &t) == JsNoError);
+        REQUIRE(t == JsFunction);
+        REQUIRE(JsGetValueType(info->thisArg, &t) == JsNoError);
+        REQUIRE(t == JsObject);
+
+        return info->thisArg;
+    }
+
+    void ExternalEnhancedFunctionTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
+    {
+        int sentinel = 123;
+        JsValueRef function = JS_INVALID_REFERENCE;
+        REQUIRE(JsCreateEnhancedFunction(ExternalEnhancedFunctionTestCallback, nullptr, &sentinel, &function) == JsNoError);
+        JsValueRef _true;
+        REQUIRE(JsGetTrueValue(&_true) == JsNoError);
+        JsValueRef _false;
+        REQUIRE(JsGetFalseValue(&_false) == JsNoError);
+        JsValueRef args[2] = { _true, _false };
+        JsValueRef _null;
+        REQUIRE(JsGetNullValue(&_null) == JsNoError);
+        JsValueRef result;
+        REQUIRE(JsCallFunction(function, args, 2, &result) == JsNoError);
+        bool success;
+        REQUIRE(JsStrictEquals(_null, result, &success) == JsNoError);
+        REQUIRE(success);
+
+        sentinel = 456;
+        function = JS_INVALID_REFERENCE;
+        REQUIRE(JsCreateEnhancedFunction(ExternalEnhancedConstructorFunctionTestCallback, nullptr, &sentinel, &function) == JsNoError);
+        JsValueRef ctorArgs[3] = { _null, _true, _false };
+        REQUIRE(JsConstructObject(function, ctorArgs, 3, &result) == JsNoError);
+        JsValueType t;
+        REQUIRE(JsGetValueType(result, &t) == JsNoError);
+        REQUIRE(t == JsObject);
+    }
+
+    TEST_CASE("ApiTest_ExternalEnhancedFunctionTest", "[ApiTest]")
+    {
+        JsRTApiTest::RunWithAttributes(JsRTApiTest::ExternalEnhancedFunctionTest);
+    }
+
+    struct ExternalEnhancedBaseClassFunctionTestInfo
+    {
+        JsValueRef derived;
+        JsValueRef base;
+    };
+
+    JsValueRef CALLBACK ExternalEnhancedBaseClassFunctionTestCallback(JsValueRef callee, JsValueRef *arguments, unsigned short argumentCount, JsNativeFunctionInfo *info, void *callbackData)
+    {
+        REQUIRE(callbackData != nullptr);
+
+        ExternalEnhancedBaseClassFunctionTestInfo* testinfo = (ExternalEnhancedBaseClassFunctionTestInfo*)callbackData;
+        JsValueType t;
+        REQUIRE(JsGetValueType(testinfo->derived, &t) == JsNoError);
+        REQUIRE(t == JsFunction);
+        REQUIRE(JsGetValueType(testinfo->base, &t) == JsNoError);
+        REQUIRE(t == JsFunction);
+        REQUIRE(argumentCount == 2);
+
+        JsPropertyIdRef propId;
+        bool success = false;
+        JsValueRef _true;
+        REQUIRE(JsGetTrueValue(&_true) == JsNoError);
+        JsValueRef _false;
+        REQUIRE(JsGetFalseValue(&_false) == JsNoError);
+
+        REQUIRE(info->thisArg == arguments[0]);
+        REQUIRE(JsStrictEquals(_true, arguments[1], &success) == JsNoError);
+        REQUIRE(success);
+
+        REQUIRE(info->isConstructCall);
+        REQUIRE(JsGetValueType(info->newTargetArg, &t) == JsNoError);
+        REQUIRE(t == JsFunction);
+        REQUIRE(JsGetValueType(info->thisArg, &t) == JsNoError);
+        REQUIRE(t == JsObject);
+
+        // new.target === Derived
+        REQUIRE(JsStrictEquals(info->newTargetArg, testinfo->derived, &success) == JsNoError);
+        REQUIRE(success);
+
+        // this.constructor === Derived
+        REQUIRE(JsGetPropertyIdFromName(_u("constructor"), &propId) == JsNoError);
+        JsValueRef thisCtor = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetProperty(info->thisArg, propId, &thisCtor) == JsNoError);
+        REQUIRE(JsStrictEquals(thisCtor, testinfo->derived, &success) == JsNoError);
+        REQUIRE(success);
+
+        // this.__proto__ === Derived.prototype
+        JsValueRef thisProto = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetPrototype(info->thisArg, &thisProto) == JsNoError);
+        JsValueRef derivedPrototype = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetPropertyIdFromName(_u("prototype"), &propId) == JsNoError);
+        REQUIRE(JsGetProperty(testinfo->derived, propId, &derivedPrototype) == JsNoError);
+        REQUIRE(JsStrictEquals(thisProto, derivedPrototype, &success) == JsNoError);
+        REQUIRE(success);
+
+        return info->thisArg;
+    }
+
+    void ExternalEnhancedBaseClassFunctionTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
+    {
+        ExternalEnhancedBaseClassFunctionTestInfo info = { nullptr, nullptr };
+        JsValueRef name = JS_INVALID_REFERENCE;
+        REQUIRE(JsCreateString("BaseClass", 10, &name) == JsNoError);
+        JsValueRef base = JS_INVALID_REFERENCE;
+        REQUIRE(JsCreateEnhancedFunction(ExternalEnhancedBaseClassFunctionTestCallback, name, &info, &base) == JsNoError);
+        info.base = base;
+
+        JsValueRef global = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetGlobalObject(&global) == JsNoError);
+        JsPropertyIdRef propId;
+        REQUIRE(JsGetPropertyIdFromName(_u("BaseClass"), &propId) == JsNoError);
+        REQUIRE(JsSetProperty(global, propId, base, false) == JsNoError);
+
+        bool success = false;
+        JsValueType t;
+        JsValueRef derived = JS_INVALID_REFERENCE;
+        REQUIRE(JsRunScript(
+            _u("class Derived extends BaseClass {") \
+            _u("  constructor() {") \
+            _u("    super(true);") \
+            _u("  }") \
+            _u("};"), JS_SOURCE_CONTEXT_NONE, _u(""), &derived) == JsNoError);
+
+        info.derived = derived;
+        REQUIRE(JsGetValueType(derived, &t) == JsNoError);
+        REQUIRE(t == JsFunction);
+
+        JsValueRef instance = JS_INVALID_REFERENCE;
+        REQUIRE(JsRunScript(
+            _u("new Derived();"), JS_SOURCE_CONTEXT_NONE, _u(""), &instance) == JsNoError);
+
+        REQUIRE(JsGetValueType(instance, &t) == JsNoError);
+        REQUIRE(t == JsObject);
+
+        // instance.constructor === Derived
+        REQUIRE(JsGetPropertyIdFromName(_u("constructor"), &propId) == JsNoError);
+        JsValueRef instanceCtor = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetProperty(instance, propId, &instanceCtor) == JsNoError);
+        REQUIRE(JsStrictEquals(instanceCtor, derived, &success) == JsNoError);
+        REQUIRE(success);
+
+        // instance.__proto__ === Derived.prototype
+        JsValueRef instanceProto = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetPrototype(instance, &instanceProto) == JsNoError);
+        JsValueRef derivedPrototype = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetPropertyIdFromName(_u("prototype"), &propId) == JsNoError);
+        REQUIRE(JsGetProperty(derived, propId, &derivedPrototype) == JsNoError);
+        REQUIRE(JsStrictEquals(instanceProto, derivedPrototype, &success) == JsNoError);
+        REQUIRE(success);
+    }
+
+    TEST_CASE("ApiTest_ExternalEnhancedBaseClassFunctionTest", "[ApiTest]")
+    {
+        JsRTApiTest::RunWithAttributes(JsRTApiTest::ExternalEnhancedBaseClassFunctionTest);
+    }
+
     void ExternalFunctionNameTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
     {
         auto testConstructorName = [=](JsValueRef function, PCWCHAR expectedName, size_t expectedNameLength)
@@ -2063,6 +2274,7 @@ namespace JsRTApiTest
         JsRTApiTest::WithSetup(JsRuntimeAttributeEnableExperimentalFeatures, ReentrantParseModuleTest);
     }
 
+
     ModuleResponseData reentrantNoErrorParseData;
     static JsErrorCode CALLBACK reentrantNoErrorParse_FIMC(_In_ JsModuleRecord referencingModule, _In_ JsValueRef specifier, _Outptr_result_maybenull_ JsModuleRecord* dependentModuleRecord)
     {
@@ -2131,6 +2343,50 @@ namespace JsRTApiTest
         JsRTApiTest::WithSetup(JsRuntimeAttributeEnableExperimentalFeatures, ReentrantNoErrorParseModuleTest);
     }
 
+    static JsErrorCode CALLBACK FIMC1(_In_ JsModuleRecord referencingModule, _In_ JsValueRef specifier, _Outptr_result_maybenull_ JsModuleRecord* dependentModuleRecord)
+    {
+        JsModuleRecord moduleRecord = JS_INVALID_REFERENCE;
+        LPCWSTR specifierStr;
+        size_t length;
+        JsErrorCode errorCode = JsStringToPointer(specifier, &specifierStr, &length);
+        REQUIRE(errorCode == JsNoError);
+
+        if (wcscmp(specifierStr, _u("foo.js")) == 0)
+        {
+            errorCode = JsInitializeModuleRecord(referencingModule, specifier, &moduleRecord);
+            REQUIRE(errorCode == JsNoError);
+        }
+
+        *dependentModuleRecord = moduleRecord;
+        return JsNoError;
+    }
+
+    static JsErrorCode CALLBACK NMRC1(_In_opt_ JsModuleRecord referencingModule, _In_opt_ JsValueRef exceptionVar)
+    {
+        // NotifyModuleReadyCallback handling.
+
+        return JsNoError;
+    }
+
+    void SomebugTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
+    {
+        JsModuleRecord rec;
+        JsInitializeModuleRecord(nullptr, nullptr, &rec);
+        JsSetModuleHostInfo(rec, JsModuleHostInfo_FetchImportedModuleCallback, FIMC1);
+        JsSetModuleHostInfo(rec, JsModuleHostInfo_FetchImportedModuleFromScriptCallback, FIMC1);
+        JsSetModuleHostInfo(rec, JsModuleHostInfo_NotifyModuleReadyCallback, NMRC1);
+
+        JsValueRef F = JS_INVALID_REFERENCE;
+        JsErrorCode err = JsRunScript(_u("var j = import('foo.js').then(mod => { mod.bar(); })"), 0, _u(""), &F);
+
+        CHECK(err == JsNoError);
+    }
+
+    TEST_CASE("ApiTest_SomebugTest", "[ApiTest]")
+    {
+        JsRTApiTest::WithSetup(JsRuntimeAttributeEnableExperimentalFeatures, SomebugTest);
+
+    }
     void ObjectHasOwnPropertyMethodTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
     {
         JsValueRef proto = JS_INVALID_REFERENCE;
@@ -2196,4 +2452,84 @@ namespace JsRTApiTest
         JsRTApiTest::RunWithAttributes(JsRTApiTest::JsCopyStringOneByteMethodTest);
     }
 
+    void JsLessThanTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
+    {
+        // Create some values
+        JsValueRef number1 = JS_INVALID_REFERENCE;  // number1 = 1
+        REQUIRE(JsDoubleToNumber(1, &number1) == JsNoError);
+        JsValueRef number2 = JS_INVALID_REFERENCE;  // number2 = 2
+        REQUIRE(JsDoubleToNumber(2, &number2) == JsNoError);
+        JsValueRef stringa = JS_INVALID_REFERENCE;  // stringa = "1"
+        REQUIRE(JsPointerToString(_u("1"), wcslen(_u("1")), &stringa) == JsNoError);
+        JsValueRef undefined = GetUndefined();
+        JsValueRef nullValue = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetNullValue(&nullValue) == JsNoError);
+        JsValueRef trueValue = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetTrueValue(&trueValue) == JsNoError);
+        JsValueRef falseValue = JS_INVALID_REFERENCE;
+        REQUIRE(JsGetFalseValue(&falseValue) == JsNoError);
+
+        bool result;
+        REQUIRE(JsLessThan(number1, number2, &result) == JsNoError);
+        CHECK(result == true);
+        REQUIRE(JsLessThan(number1, stringa, &result) == JsNoError);
+        CHECK(result == false);
+        REQUIRE(JsLessThan(number1, undefined, &result) == JsNoError);
+        CHECK(result == false);
+        REQUIRE(JsLessThan(falseValue, trueValue, &result) == JsNoError);
+        CHECK(result == true);
+        REQUIRE(JsLessThan(undefined, undefined, &result) == JsNoError);
+        CHECK(result == false);
+        REQUIRE(JsLessThan(nullValue, undefined, &result) == JsNoError);
+        CHECK(result == false);
+
+        REQUIRE(JsLessThanOrEqual(number1, number2, &result) == JsNoError);
+        CHECK(result == true);
+        REQUIRE(JsLessThanOrEqual(number1, number1, &result) == JsNoError);
+        CHECK(result == true);
+        REQUIRE(JsLessThanOrEqual(number1, stringa, &result) == JsNoError);
+        CHECK(result == true);
+        REQUIRE(JsLessThanOrEqual(trueValue, trueValue, &result) == JsNoError);
+        CHECK(result == true);
+        REQUIRE(JsLessThanOrEqual(falseValue, nullValue, &result) == JsNoError);
+        CHECK(result == true);
+        REQUIRE(JsLessThanOrEqual(falseValue, undefined, &result) == JsNoError);
+        CHECK(result == false);
+        REQUIRE(JsLessThanOrEqual(undefined, undefined, &result) == JsNoError);
+        CHECK(result == false);
+        REQUIRE(JsLessThanOrEqual(nullValue, undefined, &result) == JsNoError);
+        CHECK(result == false);
+    }
+
+    TEST_CASE("ApiTest_JsLessThanTest", "[ApiTest]")
+    {
+        JsRTApiTest::RunWithAttributes(JsRTApiTest::JsLessThanTest);
+    }
+
+    void JsCreateStringTest(JsRuntimeAttributes attributes, JsRuntimeHandle runtime)
+    {
+        // Passing in invalid utf8 sequences should result in the unicode replacement character
+        const char invalidUtf8[] = { -127 /* 0x80 */, '\0' };
+        JsValueRef result;
+        REQUIRE(JsCreateString(invalidUtf8, 1, &result) == JsNoError);
+        uint16_t utf16Result[2];
+        size_t written;
+        REQUIRE(JsCopyStringUtf16(result, 0, 1, utf16Result, &written) == JsNoError);
+        CHECK(written == 1);
+        CHECK(utf16Result[0] == 0xFFFD);
+
+        // Creating a utf8 string and then copying it back out should give an identical string
+        // Specifying -1 as the length should result in using strlen as the length
+        const char validUtf8Input[] = {'T', 'e', 's', 't', ' ', -30 /* 0xe2 */, -104 /* 0x98 */, -125 /* 0x83 */, 0};
+        REQUIRE(JsCreateString(validUtf8Input, static_cast<size_t>(-1), &result) == JsNoError);
+        char utf8Result[10];
+        REQUIRE(JsCopyString(result,utf8Result, 10, &written) == JsNoError);
+        CHECK(written == strlen(validUtf8Input));
+        CHECK(memcmp(utf8Result, validUtf8Input, written) == 0);
+    }
+
+    TEST_CASE("ApiTest_JsCreateStringTest", "[ApiTest]")
+    {
+        JsRTApiTest::RunWithAttributes(JsRTApiTest::JsCreateStringTest);
+    }
 }

@@ -23,7 +23,7 @@ Abstract:
 #define _CORUNIX_H
 
 #include "palinternal.h"
-#include "CCSpinLock.hpp"
+#include "cclock.hpp"
 
 namespace CorUnix
 {
@@ -144,7 +144,7 @@ namespace CorUnix
     // have already deleted it. ($$REIVEW -- would someone ever need access
     // to the shared data in order to cleanup process local state?)
     //
-    // When the third paramter (fShutdown) is TRUE the process is in
+    // When the third parameter (fShutdown) is TRUE the process is in
     // the act of exiting. The cleanup routine should not perform any
     // unnecessary cleanup operations (e.g., closing file descriptors,
     // since the OS will automatically close them when the process exits)

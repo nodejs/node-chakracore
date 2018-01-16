@@ -29,15 +29,6 @@ namespace Js
 
     }
 
-    bool FunctionInfo::Is(void* ptr)
-    {
-        if(!ptr)
-        {
-            return false;
-        }
-        return VirtualTableInfo<FunctionInfo>::HasVirtualTable(ptr);
-    }
-
     void FunctionInfo::VerifyOriginalEntryPoint() const
     {
         Assert(!this->HasBody() || this->IsDeferredParseFunction() || this->IsDeferredDeserializeFunction() || this->GetFunctionProxy()->HasValidEntryPoint());
@@ -70,6 +61,6 @@ namespace Js
     FunctionInfo::Attributes FunctionInfo::GetAttributes(Js::RecyclableObject * function)
     {
         return function->GetTypeId() == Js::TypeIds_Function ?
-            Js::JavascriptFunction::FromVar(function)->GetFunctionInfo()->GetAttributes() : Js::FunctionInfo::None;
+            Js::JavascriptFunction::UnsafeFromVar(function)->GetFunctionInfo()->GetAttributes() : Js::FunctionInfo::None;
     }
 }

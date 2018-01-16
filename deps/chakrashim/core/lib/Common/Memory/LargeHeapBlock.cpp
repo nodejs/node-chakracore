@@ -8,8 +8,10 @@ CompileAssert(
     sizeof(LargeObjectHeader) == HeapConstants::ObjectGranularity ||
     sizeof(LargeObjectHeader) == HeapConstants::ObjectGranularity * 2);
 
+#ifdef RECYCLER_PAGE_HEAP
 #ifdef STACK_BACK_TRACE
 const StackBackTrace* PageHeapData::s_StackTraceAllocFailed = (StackBackTrace*)1;
+#endif
 #endif
 
 void *
@@ -188,6 +190,13 @@ LargeHeapBlock::LargeHeapBlock(__in char * address, size_t pageCount, Segment * 
     this->segment = segment;
 #if ENABLE_CONCURRENT_GC
     this->isPendingConcurrentSweep = false;
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    // This flag is to identify whether this block was made available for allocations during the concurrent sweep and still needs to be swept.
+    this->isPendingConcurrentSweepPrep = false;
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+    this->wasAllocatedFromDuringSweep = false;
+#endif
+#endif
 #endif
     this->addressEnd = this->address + this->pageCount * AutoSystemInfo::PageSize;
 
@@ -343,7 +352,7 @@ LargeHeapBlock::ReleasePages(Recycler * recycler)
         size_t guardPageCount = pageHeapData->actualPageCount - this->pageCount;
         realPageCount = pageHeapData->actualPageCount;
 
-        if (pageHeapData->isGuardPageDecommited)
+        if (pageHeapData->isGuardPageDecommitted)
         {
             void* addr = nullptr;
 #ifdef RECYCLER_NO_PAGE_REUSE
@@ -502,6 +511,13 @@ LargeHeapBlock::AllocFreeListEntry(DECLSPEC_GUARD_OVERFLOW size_t size, ObjectIn
     Assert(entry->headerIndex < this->objectCount);
     Assert(this->HeaderList()[entry->headerIndex] == nullptr);
 
+#ifdef RECYCLER_VISITED_HOST
+    if (attributes & RecyclerVisitedHostBit)
+    {
+        ReportFatalException(NULL, E_FAIL, Fatal_RecyclerVisitedHost_LargeHeapBlock, 1);
+    }
+#endif
+
     uint headerIndex = entry->headerIndex;
     size_t originalSize = entry->objectSize;
 
@@ -544,6 +560,16 @@ LargeHeapBlock::AllocFreeListEntry(DECLSPEC_GUARD_OVERFLOW size_t size, ObjectIn
 #ifdef RECYCLER_WRITE_BARRIER
     header->hasWriteBarrier = (attributes & WithBarrierBit) == WithBarrierBit;
 #endif
+
+    if ((attributes & (FinalizeBit | TrackBit)) != 0)
+    {
+        // Make sure a valid vtable is installed as once the attributes have been set this allocation may be traced by background marking
+        allocObject = (char *)new (allocObject) DummyVTableObject();
+#if defined(_M_ARM32_OR_ARM64)
+        // On ARM, make sure the v-table write is performed before setting the attributes
+        MemoryBarrier();
+#endif
+    }
     header->SetAttributes(this->heapInfo->recycler->Cookie, (attributes & StoredObjectInfoBitMask));
     header->markOnOOMRescan = false;
     header->SetNext(this->heapInfo->recycler->Cookie, nullptr);
@@ -569,6 +595,12 @@ LargeHeapBlock::Alloc(DECLSPEC_GUARD_OVERFLOW size_t size, ObjectInfoBits attrib
     Assert(HeapInfo::IsAlignedSize(size) || InPageHeapMode());
     Assert((attributes & InternalObjectInfoBitMask) == attributes);
     AssertMsg((attributes & TrackBit) == 0, "Large tracked object collection not implemented");
+#ifdef RECYCLER_VISITED_HOST
+    if (attributes & RecyclerVisitedHostBit)
+    {
+        ReportFatalException(NULL, E_FAIL, Fatal_RecyclerVisitedHost_LargeHeapBlock, 2);
+    }
+#endif
 
     LargeObjectHeader * header = (LargeObjectHeader *)allocAddressEnd;
 #if ENABLE_PARTIAL_GC && ENABLE_CONCURRENT_GC
@@ -603,6 +635,15 @@ LargeHeapBlock::Alloc(DECLSPEC_GUARD_OVERFLOW size_t size, ObjectInfoBits attrib
 #ifdef RECYCLER_WRITE_BARRIER
     header->hasWriteBarrier = (attributes&WithBarrierBit) == WithBarrierBit;
 #endif
+    if ((attributes & (FinalizeBit | TrackBit)) != 0)
+    {
+        // Make sure a valid vtable is installed as once the attributes have been set this allocation may be traced by background marking
+        allocObject = (char *)new (allocObject) DummyVTableObject();
+#if defined(_M_ARM32_OR_ARM64)
+        // On ARM, make sure the v-table write is performed before setting the attributes
+        MemoryBarrier();
+#endif
+    }
     header->SetAttributes(recycler->Cookie, (attributes & StoredObjectInfoBitMask));
     HeaderList()[allocCount++] = header;
     finalizeCount += ((attributes & FinalizeBit) != 0);
@@ -635,6 +676,7 @@ LargeHeapBlock::Mark(void* objectAddress, MarkContext * markContext)
     DUMP_OBJECT_REFERENCE(markContext->GetRecycler(), objectAddress);
 
     size_t objectSize = header->objectSize;
+#ifdef RECYCLER_PAGE_HEAP
     if (this->InPageHeapMode())
     {        
         this->VerifyPageHeapPattern();
@@ -651,6 +693,7 @@ LargeHeapBlock::Mark(void* objectAddress, MarkContext * markContext)
         this->pageHeapData->lastMarkedBy = markContext->parentRef ? (char*)markContext->parentRef : "root";
 #endif
     }
+#endif
 
     bool markSucceed = UpdateAttributesOfMarkedObjects<doSpecialMark>(markContext, objectAddress, objectSize, attributes,
         [&](unsigned char attributes)
@@ -807,6 +850,7 @@ LargeObjectHeader *
 LargeHeapBlock::GetHeader(void * objectAddress) const
 {
     LargeObjectHeader * header = nullptr;
+#ifdef RECYCLER_PAGE_HEAP
     if (this->InPageHeapMode())
     {
         header = (LargeObjectHeader*)this->address;
@@ -816,6 +860,7 @@ LargeHeapBlock::GetHeader(void * objectAddress) const
         }
     }
     else
+#endif
     {
         Assert(objectAddress >= this->address && objectAddress < this->addressEnd);
         header = GetHeaderFromAddress(objectAddress);
@@ -982,6 +1027,7 @@ LargeHeapBlock::ScanInitialImplicitRoots(Recycler * recycler)
         // TODO: Assume scan interior?
         DUMP_IMPLICIT_ROOT(recycler, objectAddress);
 
+#ifdef RECYCLER_PAGE_HEAP
         if (this->InPageHeapMode())
         {
             size_t objectSize = header->objectSize;
@@ -993,6 +1039,7 @@ LargeHeapBlock::ScanInitialImplicitRoots(Recycler * recycler)
             }
         }
         else
+#endif
         {
             recycler->ScanObjectInlineInterior((void **)objectAddress, header->objectSize);
         }
@@ -1037,6 +1084,7 @@ LargeHeapBlock::ScanNewImplicitRoots(Recycler * recycler)
                 continue;
             }
 
+#ifdef RECYCLER_PAGE_HEAP
             if (this->InPageHeapMode())
             {
                 size_t objectSize = header->objectSize;
@@ -1048,6 +1096,7 @@ LargeHeapBlock::ScanNewImplicitRoots(Recycler * recycler)
                 }
             }
             else
+#endif
             {
                 // TODO: Assume scan interior
                 recycler->ScanObjectInlineInterior((void **)objectAddress, header->objectSize);
@@ -1185,11 +1234,13 @@ LargeHeapBlock::RescanOnePage(Recycler * recycler)
         RECYCLER_STATS_ADD(recycler, markData.rescanLargeByteCount, header->objectSize);
 
         size_t objectSize = header->objectSize;
+#ifdef RECYCLER_PAGE_HEAP
         if (this->InPageHeapMode())
         {
             // trim off the trailing part which is not a pointer
             objectSize = HeapInfo::RoundObjectSize(objectSize);
         }
+#endif
         if (objectSize > 0) // otherwize the object total size is less than a pointer size
         {
             if (!recycler->AddMark(objectAddress, objectSize))
@@ -1294,11 +1345,13 @@ LargeHeapBlock::RescanMultiPage(Recycler * recycler)
 #endif
 
         size_t objectSize = header->objectSize;
+#ifdef RECYCLER_PAGE_HEAP
         if (this->InPageHeapMode())
         {
             // trim off the trailing part which is not a pointer
             objectSize = HeapInfo::RoundObjectSize(objectSize);
         }
+#endif
 
         Assert(objectSize > 0);
         Assert(oldNeedOOMRescan || !header->markOnOOMRescan);
@@ -1758,7 +1811,7 @@ LargeHeapBlock::SweepObjects(Recycler * recycler)
 
     // mark count included newly allocated objects
 #if ENABLE_CONCURRENT_GC
-    Assert(expectedSweepCount == allocCount - markCount || recycler->collectionState == CollectionStateConcurrentSweep);
+    Assert(expectedSweepCount == allocCount - markCount || recycler->IsConcurrentSweepState());
 #else
     Assert(expectedSweepCount == allocCount - markCount);
 #endif
@@ -1923,6 +1976,30 @@ LargeHeapBlock::EnumerateObjects(ObjectInfoBits infoBits, void (*CallBackFunctio
     }
 }
 
+#if ENABLE_MEM_STATS
+void
+LargeHeapBlock::AggregateBlockStats(HeapBucketStats& stats)
+{
+    DUMP_FRAGMENTATION_STATS_ONLY(uint objectCount = 0);
+    size_t objectSize = 0;
+    for (uint i = 0; i < allocCount; i++)
+    {
+        LargeObjectHeader * header = this->GetHeaderByIndex(i);
+        if (header)
+        {
+            DUMP_FRAGMENTATION_STATS_ONLY(objectCount++);
+            objectSize += header->objectSize;
+        }
+    }
+
+    DUMP_FRAGMENTATION_STATS_ONLY(stats.totalBlockCount++);
+    DUMP_FRAGMENTATION_STATS_ONLY(stats.objectCount += objectCount);
+    DUMP_FRAGMENTATION_STATS_ONLY(stats.finalizeCount += this->finalizeCount);
+
+    stats.objectByteCount += objectSize;
+    stats.totalByteCount += AutoSystemInfo::PageSize * pageCount;
+}
+#endif  // ENABLE_MEM_STATS
 
 uint
 LargeHeapBlock::GetMaxLargeObjectCount(size_t pageCount, size_t firstAllocationSize)

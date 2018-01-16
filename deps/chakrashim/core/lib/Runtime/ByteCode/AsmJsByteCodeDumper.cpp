@@ -61,6 +61,9 @@ namespace Js
                 case AsmJsType::Float64x2:
                     Output::Print(_u("D2(In%hu)"), i);
                     break;
+                case AsmJsType::Int64x2:
+                    Output::Print(_u("I2(In%hu)"), i);
+                    break;
                 }
             }
             else
@@ -127,11 +130,6 @@ namespace Js
                 Output::Print(_u("\n    "));
             }
             Output::Print(_u("\n"));
-        }
-
-        if (funcInfo->GetReturnType() == AsmJsRetType::Void)
-        {
-            Output::Print(_u("    0000   %-20s R0\n"), OpCodeUtilAsmJs::GetOpCodeName(OpCodeAsmJs::LdUndef));
         }
 
         uint32 statementIndex = 0;
@@ -374,6 +372,12 @@ namespace Js
         Output::Print(_u(" D2_%d "), (int)reg);
     }
 
+    // Int64x2
+    void AsmJsByteCodeDumper::DumpInt64x2Reg(RegSlot reg)
+    {
+        Output::Print(_u(" I2_%d "), (int)reg);
+    }
+
     template <class T>
     void AsmJsByteCodeDumper::DumpElementSlot(OpCodeAsmJs op, const unaligned T * data, FunctionBody * dumpFunction, ByteCodeReader& reader)
     {
@@ -576,9 +580,9 @@ namespace Js
         switch (op)
         {
         case OpCodeAsmJs::LdArrWasm:
-            Output::Print(_u(" %c%d = %s[L%d + %d]"), tag.valueTag, data->Value, tag.heapTag, data->SlotIndex, data->Offset); break;
+            Output::Print(_u(" %c%d = %s[I%d + %d]"), tag.valueTag, data->Value, tag.heapTag, data->SlotIndex, data->Offset); break;
         case OpCodeAsmJs::StArrWasm:
-            Output::Print(_u(" %s[L%d + %d] = %c%d"), tag.heapTag, data->SlotIndex, data->Offset, tag.valueTag, data->Value); break;
+            Output::Print(_u(" %s[I%d + %d] = %c%d"), tag.heapTag, data->SlotIndex, data->Offset, tag.valueTag, data->Value); break;
         default:
             Assume(UNREACHED);
         }
@@ -602,10 +606,28 @@ namespace Js
     }
 
     template <class T>
+    void AsmJsByteCodeDumper::DumpProfiledAsmCall(OpCodeAsmJs op, const unaligned T * data, FunctionBody * dumpFunction, ByteCodeReader& reader)
+    {
+        if (data->Return != Constants::NoRegister)
+        {
+            DumpReg((RegSlot)data->Return);
+            Output::Print(_u("="));
+        }
+        Output::Print(_u(" R%d(ArgCount: %d, profileId: %d)"), data->Function, data->ArgCount, data->profileId);
+    }
+
+    template <class T>
     void AsmJsByteCodeDumper::DumpAsmUnsigned1(OpCodeAsmJs op, const unaligned T * data, FunctionBody * dumpFunction, ByteCodeReader& reader)
     {
         DumpU4(data->C1);
     }
+
+    template <class T>
+    void AsmJsByteCodeDumper::DumpWasmLoopStart(OpCodeAsmJs op, const unaligned T * data, FunctionBody * dumpFunction, ByteCodeReader& reader)
+    {
+        DumpU4(data->loopId);
+    }
+
     void AsmJsByteCodeDumper::DumpEmpty(OpCodeAsmJs op, const unaligned OpLayoutEmpty* data, FunctionBody * dumpFunction, ByteCodeReader& reader)
     {
         // empty
@@ -967,6 +989,19 @@ namespace Js
     }
 
     template <class T>
+    void AsmJsByteCodeDumper::DumpAsmShuffle(OpCodeAsmJs op, const unaligned T * data, FunctionBody * dumpFunction, ByteCodeReader& reader)
+    {
+        DumpFloat32x4Reg(data->R0);
+        DumpFloat32x4Reg(data->R1);
+        DumpFloat32x4Reg(data->R2);
+        const uint NUM_LANES = 16;
+        for (uint i = 0; i < NUM_LANES; i++)
+        {
+            DumpU4(data->INDICES[i]);
+        }
+    }
+
+    template <class T>
     void AsmJsByteCodeDumper::DumpAsmSimdTypedArr(OpCodeAsmJs op, const unaligned T * data, FunctionBody * dumpFunction, ByteCodeReader& reader)
     {
         const char16* heapTag = nullptr;
@@ -1011,6 +1046,7 @@ namespace Js
 #define SIMD_DUMP_ARR_U16 DumpUint8x16Reg
 #define SIMD_DUMP_ARR_F4 DumpFloat32x4Reg
 #define SIMD_DUMP_ARR_D2 DumpFloat64x2Reg
+#define SIMD_DUMP_ARR_I2 DumpInt64x2Reg
 #define SIMD_DUMP_REG(type) SIMD_DUMP_ARR_##type(data->Value)
 #define SIMD_DUMP_ARR_VALUE(type) \
         case OpCodeAsmJs::Simd128_LdArr_##type:\

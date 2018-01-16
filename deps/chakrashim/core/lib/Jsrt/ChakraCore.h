@@ -54,7 +54,8 @@ typedef enum JsModuleHostInfoKind
     JsModuleHostInfo_HostDefined = 0x02,
     JsModuleHostInfo_NotifyModuleReadyCallback = 0x3,
     JsModuleHostInfo_FetchImportedModuleCallback = 0x4,
-    JsModuleHostInfo_FetchImportedModuleFromScriptCallback = 0x5
+    JsModuleHostInfo_FetchImportedModuleFromScriptCallback = 0x5,
+    JsModuleHostInfo_Url = 0x6
 } JsModuleHostInfoKind;
 
 /// <summary>
@@ -102,6 +103,53 @@ typedef JsErrorCode(CHAKRA_CALLBACK * FetchImportedModuleFromScriptCallBack)(_In
 ///     true if the operation succeeded, false otherwise.
 /// </returns>
 typedef JsErrorCode(CHAKRA_CALLBACK * NotifyModuleReadyCallback)(_In_opt_ JsModuleRecord referencingModule, _In_opt_ JsValueRef exceptionVar);
+
+/// <summary>
+///     A structure containing information about a native function callback.
+/// </summary>
+typedef struct JsNativeFunctionInfo
+{
+    JsValueRef thisArg;
+    JsValueRef newTargetArg;
+    bool isConstructCall;
+}JsNativeFunctionInfo;
+
+/// <summary>
+///     A function callback.
+/// </summary>
+/// <param name="callee">
+///     A function object that represents the function being invoked.
+/// </param>
+/// <param name="arguments">The arguments to the call.</param>
+/// <param name="argumentCount">The number of arguments.</param>
+/// <param name="info">Additional information about this function call.</param>
+/// <param name="callbackState">
+///     The state passed to <c>JsCreateFunction</c>.
+/// </param>
+/// <returns>The result of the call, if any.</returns>
+typedef _Ret_maybenull_ JsValueRef(CHAKRA_CALLBACK * JsEnhancedNativeFunction)(_In_ JsValueRef callee, _In_ JsValueRef *arguments, _In_ unsigned short argumentCount, _In_ JsNativeFunctionInfo *info, _In_opt_ void *callbackState);
+
+/// <summary>
+///     Creates a new enhanced JavaScript function.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="nativeFunction">The method to call when the function is invoked.</param>
+/// <param name="metadata">If this is not <c>JS_INVALID_REFERENCE</c>, it is converted to a string and used as the name of the function.</param>
+/// <param name="callbackState">
+///     User provided state that will be passed back to the callback.
+/// </param>
+/// <param name="function">The new function object.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+JsCreateEnhancedFunction(
+    _In_ JsEnhancedNativeFunction nativeFunction,
+    _In_opt_ JsValueRef metadata,
+    _In_opt_ void *callbackState,
+    _Out_ JsValueRef *function);
 
 /// <summary>
 ///     Initialize a ModuleRecord from host
@@ -745,5 +793,204 @@ CHAKRA_API
         _Out_opt_ unsigned int *byteOffset,
         _Out_opt_ unsigned int *byteLength);
 
+/// <summary>
+///     Determine if one JavaScript value is less than another JavaScript value.
+/// </summary>
+/// <remarks>
+///     <para>
+///     This function is equivalent to the <c>&lt;</c> operator in Javascript.
+///     </para>
+///     <para>
+///     Requires an active script context.
+///     </para>
+/// </remarks>
+/// <param name="object1">The first object to compare.</param>
+/// <param name="object2">The second object to compare.</param>
+/// <param name="result">Whether object1 is less than object2.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsLessThan(
+        _In_ JsValueRef object1,
+        _In_ JsValueRef object2,
+        _Out_ bool *result);
+
+/// <summary>
+///     Determine if one JavaScript value is less than or equal to another JavaScript value.
+/// </summary>
+/// <remarks>
+///     <para>
+///     This function is equivalent to the <c>&lt;=</c> operator in Javascript.
+///     </para>
+///     <para>
+///     Requires an active script context.
+///     </para>
+/// </remarks>
+/// <param name="object1">The first object to compare.</param>
+/// <param name="object2">The second object to compare.</param>
+/// <param name="result">Whether object1 is less than or equal to object2.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsLessThanOrEqual(
+        _In_ JsValueRef object1,
+        _In_ JsValueRef object2,
+        _Out_ bool *result);
+
+/// <summary>
+///     Creates a new object (with prototype) that stores some external data.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="data">External data that the object will represent. May be null.</param>
+/// <param name="finalizeCallback">
+///     A callback for when the object is finalized. May be null.
+/// </param>
+/// <param name="prototype">Prototype object or nullptr.</param>
+/// <param name="object">The new object.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsCreateExternalObjectWithPrototype(
+        _In_opt_ void *data,
+        _In_opt_ JsFinalizeCallback finalizeCallback,
+        _In_ JsValueRef prototype,
+        _Out_ JsValueRef *object);
+
+/// <summary>
+///     Gets an object's property.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that contains the property.</param>
+/// <param name="key">The key (JavascriptString or JavascriptSymbol) to the property.</param>
+/// <param name="value">The value of the property.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsObjectGetProperty(
+        _In_ JsValueRef object,
+        _In_ JsValueRef key,
+        _Out_ JsValueRef *value);
+
+/// <summary>
+///     Puts an object's property.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that contains the property.</param>
+/// <param name="key">The key (JavascriptString or JavascriptSymbol) to the property.</param>
+/// <param name="value">The new value of the property.</param>
+/// <param name="useStrictRules">The property set should follow strict mode rules.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsObjectSetProperty(
+        _In_ JsValueRef object,
+        _In_ JsValueRef key,
+        _In_ JsValueRef value,
+        _In_ bool useStrictRules);
+
+/// <summary>
+///     Determines whether an object has a property.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that may contain the property.</param>
+/// <param name="key">The key (JavascriptString or JavascriptSymbol) to the property.</param>
+/// <param name="hasProperty">Whether the object (or a prototype) has the property.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsObjectHasProperty(
+        _In_ JsValueRef object,
+        _In_ JsValueRef key,
+        _Out_ bool *hasProperty);
+
+/// <summary>
+///     Defines a new object's own property from a property descriptor.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that has the property.</param>
+/// <param name="key">The key (JavascriptString or JavascriptSymbol) to the property.</param>
+/// <param name="propertyDescriptor">The property descriptor.</param>
+/// <param name="result">Whether the property was defined.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsObjectDefineProperty(
+        _In_ JsValueRef object,
+        _In_ JsValueRef key,
+        _In_ JsValueRef propertyDescriptor,
+        _Out_ bool *result);
+
+/// <summary>
+///     Deletes an object's property.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that contains the property.</param>
+/// <param name="key">The key (JavascriptString or JavascriptSymbol) to the property.</param>
+/// <param name="useStrictRules">The property set should follow strict mode rules.</param>
+/// <param name="result">Whether the property was deleted.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsObjectDeleteProperty(
+        _In_ JsValueRef object,
+        _In_ JsValueRef key,
+        _In_ bool useStrictRules,
+        _Out_ JsValueRef *result);
+
+/// <summary>
+///     Gets a property descriptor for an object's own property.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that has the property.</param>
+/// <param name="key">The key (JavascriptString or JavascriptSymbol) to the property.</param>
+/// <param name="propertyDescriptor">The property descriptor.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsObjectGetOwnPropertyDescriptor(
+        _In_ JsValueRef object,
+        _In_ JsValueRef key,
+        _Out_ JsValueRef *propertyDescriptor);
+
+/// <summary>
+///     Determines whether an object has a non-inherited property.
+/// </summary>
+/// <remarks>
+///     Requires an active script context.
+/// </remarks>
+/// <param name="object">The object that may contain the property.</param>
+/// <param name="key">The key (JavascriptString or JavascriptSymbol) to the property.</param>
+/// <param name="hasOwnProperty">Whether the object has the non-inherited property.</param>
+/// <returns>
+///     The code <c>JsNoError</c> if the operation succeeded, a failure code otherwise.
+/// </returns>
+CHAKRA_API
+    JsObjectHasOwnProperty(
+        _In_ JsValueRef object,
+        _In_ JsValueRef key,
+        _Out_ bool *hasOwnProperty);
 #endif // _CHAKRACOREBUILD
 #endif // _CHAKRACORE_H_

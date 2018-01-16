@@ -122,6 +122,9 @@ private:
     template <> Data<SmallLeafHeapBlock>& GetData<SmallLeafHeapBlock>() { return leafData; }
     template <> Data<SmallNormalHeapBlock>& GetData<SmallNormalHeapBlock>() { return normalData; }
     template <> Data<SmallFinalizableHeapBlock>& GetData<SmallFinalizableHeapBlock>() { return finalizableData; }
+#ifdef RECYCLER_VISITED_HOST
+    template <> Data<SmallRecyclerVisitedHostHeapBlock>& GetData<SmallRecyclerVisitedHostHeapBlock>() { return recyclerVisitedHostData; }
+#endif
 #ifdef RECYCLER_WRITE_BARRIER
     template <> Data<SmallNormalWithBarrierHeapBlock>& GetData<SmallNormalWithBarrierHeapBlock>() { return withBarrierData; }
     template <> Data<SmallFinalizableWithBarrierHeapBlock>& GetData<SmallFinalizableWithBarrierHeapBlock>() { return finalizableWithBarrierData; }
@@ -130,6 +133,9 @@ private:
     template <> Data<MediumLeafHeapBlock>& GetData<MediumLeafHeapBlock>() { return mediumLeafData; }
     template <> Data<MediumNormalHeapBlock>& GetData<MediumNormalHeapBlock>() { return mediumNormalData; }
     template <> Data<MediumFinalizableHeapBlock>& GetData<MediumFinalizableHeapBlock>() { return mediumFinalizableData; }
+#ifdef RECYCLER_VISITED_HOST
+    template <> Data<MediumRecyclerVisitedHostHeapBlock>& GetData<MediumRecyclerVisitedHostHeapBlock>() { return mediumRecyclerVisitedHostData; }
+#endif
 #ifdef RECYCLER_WRITE_BARRIER
     template <> Data<MediumNormalWithBarrierHeapBlock>& GetData<MediumNormalWithBarrierHeapBlock>() { return mediumWithBarrierData; }
     template <> Data<MediumFinalizableWithBarrierHeapBlock>& GetData<MediumFinalizableWithBarrierHeapBlock>() { return mediumFinalizableWithBarrierData; }
@@ -142,6 +148,9 @@ private:
     Data<SmallLeafHeapBlock> leafData;
     Data<SmallNormalHeapBlock> normalData;
     Data<SmallFinalizableHeapBlock> finalizableData;
+#ifdef RECYCLER_VISITED_HOST
+    Data<SmallRecyclerVisitedHostHeapBlock> recyclerVisitedHostData;
+#endif
 #ifdef RECYCLER_WRITE_BARRIER
     Data<SmallNormalWithBarrierHeapBlock> withBarrierData;
     Data<SmallFinalizableWithBarrierHeapBlock> finalizableWithBarrierData;
@@ -149,6 +158,9 @@ private:
     Data<MediumLeafHeapBlock> mediumLeafData;
     Data<MediumNormalHeapBlock> mediumNormalData;
     Data<MediumFinalizableHeapBlock> mediumFinalizableData;
+#ifdef RECYCLER_VISITED_HOST
+    Data<MediumRecyclerVisitedHostHeapBlock> mediumRecyclerVisitedHostData;
+#endif
 #ifdef RECYCLER_WRITE_BARRIER
     Data<MediumNormalWithBarrierHeapBlock> mediumWithBarrierData;
     Data<MediumFinalizableWithBarrierHeapBlock> mediumFinalizableWithBarrierData;
@@ -231,8 +243,8 @@ RecyclerSweep::TransferPendingEmptyHeapBlocks(HeapBucketT<TBlockType> * heapBuck
     if (list)
     {
         TBlockType * tail = bucketData.pendingEmptyBlockListTail;
-#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
-        size_t count = 0;
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED) || ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+        uint32 count = 0;
         HeapBlockList::ForEach(list, [tail, &count](TBlockType * heapBlock)
         {
             Assert(heapBlock->GetAddress() == nullptr);
@@ -240,8 +252,12 @@ RecyclerSweep::TransferPendingEmptyHeapBlocks(HeapBucketT<TBlockType> * heapBuck
             Assert(heapBlock->GetNextBlock() != nullptr || heapBlock == tail);
             count++;
         });
-        RECYCLER_SLOW_CHECK(heapBucket->emptyHeapBlockCount += count);
-        RECYCLER_SLOW_CHECK(heapBucket->heapBlockCount -= count);
+#if defined(RECYCLER_SLOW_CHECK_ENABLED)
+        heapBucket->emptyHeapBlockCount += count;
+#endif
+#if defined(RECYCLER_SLOW_CHECK_ENABLED) || ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+        heapBucket->heapBlockCount -= count;
+#endif
 #endif
 
 

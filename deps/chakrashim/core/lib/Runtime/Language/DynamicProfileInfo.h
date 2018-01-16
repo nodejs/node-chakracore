@@ -386,6 +386,9 @@ namespace Js
         ValueType GetSwitchType(FunctionBody* body, ProfileId switchId) const;
         ValueType * GetSwitchTypeInfo() const { return switchTypeInfo; }
 
+#ifdef ASMJS_PLAT
+        void RecordAsmJsCallSiteInfo(FunctionBody* callerBody, ProfileId callSiteId, FunctionBody* calleeBody);
+#endif
         void RecordCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId, FunctionInfo * calleeFunctionInfo, JavascriptFunction* calleeFunction, ArgSlot actualArgCount, bool isConstructorCall, InlineCacheIndex ldFldInlineCacheId = Js::Constants::NoInlineCacheIndex);
         void RecordConstParameterAtCallSite(ProfileId callSiteId, int argNum);
         static bool HasCallSiteInfo(FunctionBody* functionBody);
@@ -592,6 +595,7 @@ namespace Js
         static Js::SourceId const BuiltInSourceId   = (SourceId)-2;
         static Js::SourceId const CurrentSourceId   = (SourceId)-3; // caller and callee in the same file
         static Js::SourceId const InvalidSourceId   = (SourceId)-4;
+        static Js::SourceId const JsBuiltInSourceId = (SourceId)-5;
 
         bool MatchFunctionBody(FunctionBody * functionBody);
 

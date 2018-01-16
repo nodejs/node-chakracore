@@ -13,6 +13,7 @@
 CompileAssert(MaxPreInitializedObjectTypeInlineSlotCount <= USHRT_MAX);
 
 #include "StringCache.h"
+#include "Library/JavascriptGenerator.h"
 
 class ScriptSite;
 class ActiveScriptExternalLibrary;
@@ -43,6 +44,7 @@ namespace Js
     typedef TwoLevelHashDictionary<FastEvalMapString, ScriptFunction*, EvalMapRecord, EvalCacheTopLevelDictionary, EvalMapString> EvalCacheDictionary;
 
     typedef JsUtil::BaseDictionary<JavascriptMethod, JavascriptFunction*, Recycler, PrimeSizePolicy> BuiltInLibraryFunctionMap;
+    typedef JsUtil::BaseDictionary<uint, JavascriptString *, Recycler> StringMap;
 
     // valid if object!= NULL
     struct EnumeratedObjectCache
@@ -74,6 +76,7 @@ namespace Js
         Field(EvalCacheDictionary*) evalCacheDictionary;
         Field(EvalCacheDictionary*) indirectEvalCacheDictionary;
         Field(NewFunctionCache*) newFunctionCache;
+        Field(StringMap *) integerStringMap;
         Field(RegexPatternMruMap *) dynamicRegexMap;
         Field(SourceContextInfoMap*) sourceContextInfoMap;   // maps host provided context cookie to the URL of the script buffer passed.
         Field(DynamicSourceContextInfoMap*) dynamicSourceContextInfoMap;
@@ -81,11 +84,14 @@ namespace Js
         Field(SRCINFO*) noContextGlobalSourceInfo;
         Field(Field(SRCINFO const *)*) moduleSrcInfo;
         Field(BuiltInLibraryFunctionMap*) builtInLibraryFunctions;
+        Field(ScriptContextPolymorphicInlineCache*) toStringTagCache;
+        Field(ScriptContextPolymorphicInlineCache*) toJSONCache;
 #if ENABLE_PROFILE_INFO
 #if DBG_DUMP || defined(DYNAMIC_PROFILE_STORAGE) || defined(RUNTIME_DATA_COLLECTION)
         Field(DynamicProfileInfoList*) profileInfoList;
 #endif
 #endif
+        Cache() : toStringTagCache(nullptr), toJSONCache(nullptr) { }
     };
 
     class MissingPropertyTypeHandler;
@@ -186,6 +192,9 @@ namespace Js
         friend class ExternalLibraryBase;
         friend class ActiveScriptExternalLibrary;
         friend class IntlEngineInterfaceExtensionObject;
+#ifdef ENABLE_JS_BUILTINS
+        friend class JsBuiltInEngineInterfaceExtensionObject;
+#endif
         friend class ChakraHostScriptContext;
 #ifdef ENABLE_PROJECTION
         friend class ProjectionExternalLibrary;
@@ -226,6 +235,7 @@ namespace Js
         static DWORD GetBuiltinFunctionsOffset() { return offsetof(JavascriptLibrary, builtinFunctions); }
         static DWORD GetCharStringCacheOffset() { return offsetof(JavascriptLibrary, charStringCache); }
         static DWORD GetCharStringCacheAOffset() { return GetCharStringCacheOffset() + CharStringCache::GetCharStringCacheAOffset(); }
+        PolymorphicInlineCache *GetToStringTagCache() const { return cache.toStringTagCache; }
         const  JavascriptLibraryBase* GetLibraryBase() const { return static_cast<const JavascriptLibraryBase*>(this); }
         void SetGlobalObject(GlobalObject* globalObject) {this->globalObject = globalObject; }
         static DWORD GetRandSeed0Offset() { return offsetof(JavascriptLibrary, randSeed0); }
@@ -359,6 +369,7 @@ namespace Js
         Field(DynamicType *) numberTypeDynamic;
         Field(DynamicType *) objectTypes[PreInitializedObjectTypeCount];
         Field(DynamicType *) objectHeaderInlinedTypes[PreInitializedObjectTypeCount];
+        Field(DynamicType *) nullPrototypeObjectType;
         Field(DynamicType *) regexPrototypeType;
         Field(DynamicType *) regexType;
         Field(DynamicType *) regexResultType;
@@ -388,6 +399,8 @@ namespace Js
         Field(PropertyStringCacheMap*) propertyStringMap;
         Field(ConstructorCache*) builtInConstructorCache;
 
+        Field(DynamicObject*) chakraLibraryObject;
+
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
         Field(JavascriptFunction*) debugObjectFaultInjectionCookieGetterFunction;
         Field(JavascriptFunction*) debugObjectFaultInjectionCookieSetterFunction;
@@ -401,11 +414,16 @@ namespace Js
         Field(JavascriptFunction*) arrayPrototypeToLocaleStringFunction;
         Field(JavascriptFunction*) identityFunction;
         Field(JavascriptFunction*) throwerFunction;
+        Field(JavascriptFunction*) generatorReturnFunction;
         Field(JavascriptFunction*) generatorNextFunction;
         Field(JavascriptFunction*) generatorThrowFunction;
 
         Field(JavascriptFunction*) objectValueOfFunction;
         Field(JavascriptFunction*) objectToStringFunction;
+
+#ifdef ENABLE_JS_BUILTINS
+        Field(JavascriptFunction*) isArrayFunction;
+#endif
 
 #ifdef ENABLE_WASM
         Field(DynamicObject*) webAssemblyObject;
@@ -583,6 +601,7 @@ namespace Js
             bindRefChunkCurrent(nullptr),
             bindRefChunkEnd(nullptr),
             dynamicFunctionReference(nullptr)
+
         {
             this->globalObject = globalObject;
         }
@@ -651,6 +670,8 @@ namespace Js
         SCACHE_FUNCTION_PROXY(GetObjectNumberDisplayString)
         SCACHE_FUNCTION_PROXY(GetObjectRegExpDisplayString)
         SCACHE_FUNCTION_PROXY(GetObjectStringDisplayString)
+        SCACHE_FUNCTION_PROXY(GetObjectNullDisplayString)
+        SCACHE_FUNCTION_PROXY(GetObjectUndefinedDisplayString)
         SCACHE_FUNCTION_PROXY(GetUndefinedDisplayString)
         SCACHE_FUNCTION_PROXY(GetNaNDisplayString)
         SCACHE_FUNCTION_PROXY(GetNullDisplayString)
@@ -685,6 +706,8 @@ namespace Js
         DynamicObject* GetWebAssemblyRuntimeErrorConstructor() const { return webAssemblyRuntimeErrorConstructor; }
         DynamicObject* GetWebAssemblyLinkErrorPrototype() const { return webAssemblyLinkErrorPrototype; }
         DynamicObject* GetWebAssemblyLinkErrorConstructor() const { return webAssemblyLinkErrorConstructor; }
+
+        DynamicObject* GetChakraLib() const { return chakraLibraryObject; }
 
 #if ENABLE_TTD
         Js::PropertyId ExtractPrimitveSymbolId_TTD(Var value);
@@ -730,6 +753,9 @@ namespace Js
 
         Js::JavascriptPromiseAllResolveElementFunctionRemainingElementsWrapper* CreateRemainingElementsWrapper_TTD(Js::ScriptContext* ctx, uint32 value);
         Js::RecyclableObject* CreatePromiseAllResolveElementFunction_TTD(Js::JavascriptPromiseCapability* capabilities, uint32 index, Js::JavascriptPromiseAllResolveElementFunctionRemainingElementsWrapper* wrapper, Js::RecyclableObject* values, bool alreadyCalled);
+        Js::RecyclableObject* CreateJavascriptGenerator_TTD(Js::ScriptContext *ctx,
+                                                            Js::RecyclableObject *prototype, Js::Arguments &arguments,
+                                                            Js::JavascriptGenerator::GeneratorState generatorState);
 #endif
 
 #ifdef ENABLE_INTL_OBJECT
@@ -740,6 +766,17 @@ namespace Js
         void InitializeIntlForStringPrototype();
         void InitializeIntlForDatePrototype();
         void InitializeIntlForNumberPrototype();
+#endif
+
+#ifdef ENABLE_JS_BUILTINS
+        template <class Fn>
+        void InitializeBuiltInForPrototypes(Fn fn);
+
+        void EnsureBuiltInEngineIsReady();
+
+        static bool __cdecl InitializeChakraLibraryObject(DynamicObject* chakraLibraryObject, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
+        static bool __cdecl InitializeBuiltInObject(DynamicObject* builtInEngineObject, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
+
 #endif
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
@@ -776,6 +813,8 @@ namespace Js
         DynamicType * GetWebAssemblyInstanceType()  const { return webAssemblyInstanceType; }
         DynamicType * GetWebAssemblyMemoryType() const { return webAssemblyMemoryType; }
         DynamicType * GetWebAssemblyTableType() const { return webAssemblyTableType; }
+        DynamicType * GetGeneratorConstructorPrototypeObjectType() const { return generatorConstructorPrototypeObjectType; }
+
 #ifdef ENABLE_WASM
         JavascriptFunction* GetWebAssemblyQueryResponseFunction() const { return webAssemblyQueryResponseFunction; }
         JavascriptFunction* GetWebAssemblyCompileFunction() const { return webAssemblyCompileFunction; }
@@ -811,6 +850,7 @@ namespace Js
         DynamicType * GetObjectLiteralType(uint16 requestedInlineSlotCapacity);
         DynamicType * GetObjectHeaderInlinedLiteralType(uint16 requestedInlineSlotCapacity);
         DynamicType * GetObjectType() const { return objectTypes[0]; }
+        DynamicType * GetNullPrototypeObjectType() const { return nullPrototypeObjectType; }
         DynamicType * GetObjectHeaderInlinedType() const { return objectHeaderInlinedTypes[0]; }
         StaticType  * GetSymbolTypeStatic() const { return symbolTypeStatic; }
         DynamicType * GetSymbolTypeDynamic() const { return symbolTypeDynamic; }
@@ -1032,8 +1072,12 @@ namespace Js
         DynamicType * CreateFunctionWithLengthAndPrototypeType(DynamicObject * prototype, FunctionInfo * functionInfo);
         ScriptFunction * CreateScriptFunction(FunctionProxy* proxy);
         AsmJsScriptFunction * CreateAsmJsScriptFunction(FunctionProxy* proxy);
+#ifdef ENABLE_WASM
+        WasmScriptFunction * CreateWasmScriptFunction(FunctionProxy* proxy);
+#endif
         ScriptFunctionWithInlineCache * CreateScriptFunctionWithInlineCache(FunctionProxy* proxy);
         GeneratorVirtualScriptFunction * CreateGeneratorVirtualScriptFunction(FunctionProxy* proxy);
+
         DynamicType * CreateGeneratorType(RecyclableObject* prototype);
 
 #if 0
@@ -1041,12 +1085,14 @@ namespace Js
 #endif
         JavascriptNumber* CreateNumber(double value, RecyclerJavascriptNumberAllocator * numberAllocator);
         JavascriptGeneratorFunction* CreateGeneratorFunction(JavascriptMethod entryPoint, GeneratorVirtualScriptFunction* scriptFunction);
+        JavascriptGeneratorFunction* CreateGeneratorFunction(JavascriptMethod entryPoint, bool isAnonymousFunction);
         JavascriptAsyncFunction* CreateAsyncFunction(JavascriptMethod entryPoint, GeneratorVirtualScriptFunction* scriptFunction);
+        JavascriptAsyncFunction* CreateAsyncFunction(JavascriptMethod entryPoint, bool isAnonymousFunction);
         JavascriptExternalFunction* CreateExternalFunction(ExternalMethod entryPointer, PropertyId nameId, Var signature, UINT64 flags, bool isLengthAvailable = false);
         JavascriptExternalFunction* CreateExternalFunction(ExternalMethod entryPointer, Var nameId, Var signature, UINT64 flags, bool isLengthAvailable = false);
         JavascriptExternalFunction* CreateStdCallExternalFunction(StdCallJavascriptMethod entryPointer, PropertyId nameId, void *callbackState);
         JavascriptExternalFunction* CreateStdCallExternalFunction(StdCallJavascriptMethod entryPointer, Var name, void *callbackState);
-        JavascriptPromiseAsyncSpawnExecutorFunction* CreatePromiseAsyncSpawnExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var target);
+        JavascriptPromiseAsyncSpawnExecutorFunction* CreatePromiseAsyncSpawnExecutorFunction(JavascriptGenerator* generator, Var target);
         JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction* CreatePromiseAsyncSpawnStepArgumentExecutorFunction(JavascriptMethod entryPoint, JavascriptGenerator* generator, Var argument, Var resolve = nullptr, Var reject = nullptr, bool isReject = false);
         JavascriptPromiseCapabilitiesExecutorFunction* CreatePromiseCapabilitiesExecutorFunction(JavascriptMethod entryPoint, JavascriptPromiseCapability* capability);
         JavascriptPromiseResolveOrRejectFunction* CreatePromiseResolveOrRejectFunction(JavascriptMethod entryPoint, JavascriptPromise* promise, bool isReject, JavascriptPromiseResolveOrRejectFunctionAlreadyResolvedWrapper* alreadyResolvedRecord);
@@ -1108,6 +1154,7 @@ namespace Js
 
         JavascriptFunction* EnsurePromiseResolveFunction();
         JavascriptFunction* EnsurePromiseThenFunction();
+        JavascriptFunction* EnsureGeneratorReturnFunction();
         JavascriptFunction* EnsureGeneratorNextFunction();
         JavascriptFunction* EnsureGeneratorThrowFunction();
         JavascriptFunction* EnsureArrayPrototypeForEachFunction();
@@ -1189,6 +1236,7 @@ namespace Js
         void TypeAndPrototypesAreEnsuredToHaveOnlyWritableDataProperties(Type *const type);
         void NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
 
+        static bool IsDefaultArrayValuesFunction(RecyclableObject * function, ScriptContext *scriptContext);
         static bool ArrayIteratorPrototypeHasUserDefinedNext(ScriptContext *scriptContext);
 
         CharStringCache& GetCharStringCache() { return charStringCache;  }
@@ -1313,6 +1361,7 @@ namespace Js
 #ifdef ENABLE_INTL_OBJECT
         static bool __cdecl InitializeIntlObject(DynamicObject* IntlEngineObject, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
 #endif
+
 #ifdef ENABLE_PROJECTION
         void InitializeWinRTPromiseConstructor();
 #endif
@@ -1328,6 +1377,7 @@ namespace Js
         static bool __cdecl InitializeAsyncFunction(DynamicObject *function, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
 
         RuntimeFunction* CreateBuiltinConstructor(FunctionInfo * functionInfo, DynamicTypeHandler * typeHandler, DynamicObject* prototype = nullptr);
+        void DefaultCreateFunction(ParseableFunctionInfo * functionInfo, int length, DynamicObject * prototype, PropertyId nameId);
         RuntimeFunction* DefaultCreateFunction(FunctionInfo * functionInfo, int length, DynamicObject * prototype, DynamicType * functionType, PropertyId nameId);
         RuntimeFunction* DefaultCreateFunction(FunctionInfo * functionInfo, int length, DynamicObject * prototype, DynamicType * functionType, Var nameId);
         JavascriptFunction* AddFunction(DynamicObject* object, PropertyId propertyId, RuntimeFunction* function);

@@ -15,6 +15,7 @@ namespace Wasm
     class WasmDataSegment;
     class WasmElementSegment;
     class WasmGlobal;
+    class WasmCompilationException;
     struct WasmImport;
     struct WasmExport;
     struct CustomSection;
@@ -22,6 +23,8 @@ namespace Wasm
 
 namespace Js
 {
+typedef HeapAllocator::AutoFreeArray<char16> AutoFreeExceptionMessage;
+
 class WebAssemblyModule : public DynamicObject
 {
 protected:
@@ -46,6 +49,7 @@ public:
 
     static bool Is(Var aValue);
     static WebAssemblyModule * FromVar(Var aValue);
+    static WebAssemblyModule * UnsafeFromVar(Var aValue);
 
     static WebAssemblyModule * CreateModule(
         ScriptContext* scriptContext,
@@ -146,6 +150,8 @@ public:
     Wasm::CustomSection GetCustomSection(uint32 index) const;
 
     Wasm::WasmBinaryReader* GetReader() const { return m_reader; }
+
+    static char16* FormatExceptionMessage(Wasm::WasmCompilationException* ex, AutoFreeExceptionMessage* autoClean, WebAssemblyModule* wasmModule = nullptr, FunctionBody* body = nullptr);
 
     virtual void Finalize(bool isShutdown) override;
     virtual void Dispose(bool isShutdown) override;

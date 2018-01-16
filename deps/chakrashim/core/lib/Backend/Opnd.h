@@ -20,6 +20,7 @@ class PropertySymOpnd;
 class RegOpnd;
 class ArrayRegOpnd;
 class AddrOpnd;
+class ListOpnd;
 class IndirOpnd;
 class LabelOpnd;
 class MemRefOpnd;
@@ -39,7 +40,8 @@ enum OpndKind : BYTE {
     OpndKindIndir,
     OpndKindLabel,
     OpndKindMemRef,
-    OpndKindRegBV
+    OpndKindRegBV,
+    OpndKindList
 };
 
 enum AddrOpndKind : BYTE {
@@ -189,6 +191,9 @@ public:
     bool                IsAddrOpnd() const;
     AddrOpnd *          AsAddrOpnd();
     const AddrOpnd *    AsAddrOpnd() const;
+    bool                IsListOpnd() const;
+    ListOpnd *          AsListOpnd();
+    const ListOpnd *    AsListOpnd() const;
     bool                IsIndirOpnd() const;
     IndirOpnd *         AsIndirOpnd();
     const IndirOpnd *   AsIndirOpnd() const;
@@ -223,6 +228,7 @@ public:
     bool                IsInt64() const { return IRType_IsInt64(this->m_type); }
     bool                IsInt32() const { return this->m_type == TyInt32; }
     bool                IsUInt32() const { return this->m_type == TyUint32; }
+    bool                IsIntegral32() const { return IsInt32() || IsUInt32(); }
     bool                IsFloat32() const { return this->m_type == TyFloat32; }
     bool                IsFloat64() const { return this->m_type == TyFloat64; }
     bool                IsFloat() const { return this->IsFloat32() || this->IsFloat64(); }
@@ -238,6 +244,7 @@ public:
     bool                IsSimd128B8()  const { return this->m_type == TySimd128B8;  }
     bool                IsSimd128B16() const { return this->m_type == TySimd128B16; }
     bool                IsSimd128D2()  const { return this->m_type == TySimd128D2;  }
+    bool                IsSimd128I2()  const { return this->m_type == TySimd128I2; }
     bool                IsVar() const { return this->m_type == TyVar; }
     bool                IsTaggedInt() const;
     bool                IsTaggedValue() const;
@@ -248,7 +255,7 @@ public:
     void                SetIsDead(const bool isDead = true)   { this->m_isDead = isDead; }
     bool                GetIsDead()   { return this->m_isDead; }
     int64               GetImmediateValue(Func * func);
-#if TARGET_32 && !defined(_M_IX86)
+#if defined(_M_ARM)
     // Helper for 32bits systems without int64 const operand support
     int32               GetImmediateValueAsInt32(Func * func);
 #endif
@@ -1275,6 +1282,7 @@ private:
 
 public:
     static RegOpnd *        New(IRType type, Func *func);
+    static RegOpnd *        New(RegNum reg, IRType type, Func *func);
     static RegOpnd *        New(StackSym *sym, IRType type, Func *func);
     static RegOpnd *        New(StackSym *sym, RegNum reg, IRType type, Func *func);
 
@@ -1466,6 +1474,103 @@ public:
 #endif
 };
 
+typedef RegOpnd ListOpndType;
+class ListOpnd : public Opnd
+{
+    template<typename... T>
+    struct ListOpndInit
+    {
+        static constexpr int length = sizeof...(T);
+        ListOpndInit(T...rest)
+        {
+            insert(0, rest...);
+        }
+        ListOpndType* values[length];
+    private:
+        template<typename K1, typename... K>
+        void insert(int index, K1 arg, K... rest)
+        {
+            values[index] = arg;
+            insert(index + 1, rest...);
+        }
+        template<typename K>
+        void insert(int index, K last)
+        {
+            values[index] = last;
+        }
+    };
+public:
+    ~ListOpnd();
+    static ListOpnd* New(Func *func, __in_ecount(count) ListOpndType** opnds, DECLSPEC_GUARD_OVERFLOW int count);
+    template<typename... T>
+    static ListOpnd* New(Func *func, T... opnds)
+    {
+        auto a = ListOpndInit<T...>{ opnds... };
+        return ListOpnd::New(func, a.values, a.length);
+    }
+
+public:
+    void FreeInternal(Func* func);
+    bool IsEqualInternal(Opnd* opnd);
+    Opnd* CloneUseInternal(Func* func);
+    Opnd* CloneDefInternal(Func* func);
+    Opnd* CopyInternal(Func* func);
+
+    int Count() const { return count; }
+    ListOpndType* Item(int i) const { Assert(i < count); return opnds[i]; }
+    template <typename TConditionalFunction> bool Any(TConditionalFunction function)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            if (function(this->opnds[i]))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    template <typename TConditionalFunction> bool All(TConditionalFunction function)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            if (!function(this->opnds[i]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    template <typename TConditionalFunction> void Map(TConditionalFunction function)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            function(i, this->opnds[i]);
+        }
+    }
+    template<typename Result, typename Selector, typename Aggregator>
+    Result Reduce(Selector sel, Aggregator agg, Result init)
+    {
+        Result result = init;
+        for (int i = 0; i < count; ++i)
+        {
+            result = agg(
+                i,
+                sel(i, this->opnds[i]),
+                result
+            );
+        }
+        return result;
+    }
+
+private:
+    ListOpnd(Func* func, __in_ecount(count) ListOpndType** opnds, DECLSPEC_GUARD_OVERFLOW int count);
+
+private:
+    int count;
+    ListOpndType** opnds;
+    Func* m_func; // We need the allocator to copy/free the individual Opnd
+};
+
 ///---------------------------------------------------------------------------
 ///
 /// class IndirOpnd
@@ -1606,16 +1711,16 @@ private:
 class RegBVOpnd: public Opnd
 {
 public:
-    static RegBVOpnd *      New(BVUnit32 value, IRType type, Func *func);
+    static RegBVOpnd *      New(BVUnit value, IRType type, Func *func);
 
 public:
     //Note: type: OpndKindRegBV
     RegBVOpnd *             CopyInternal(Func *func);
     bool                    IsEqualInternal(Opnd *opnd);
     void                    FreeInternal(Func * func);
-    BVUnit32                GetValue() const;
+    BVUnit                  GetValue() const;
 public:
-    BVUnit32                m_value;
+    BVUnit                  m_value;
 };
 
 class AutoReuseOpnd
@@ -1671,13 +1776,11 @@ public:
         {
             return;
         }
+
+        opnd->UnUse();
         if(autoDelete)
         {
             opnd->Free(func);
-        }
-        else
-        {
-            opnd->UnUse();
         }
     }
 

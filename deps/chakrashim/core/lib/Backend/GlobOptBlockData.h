@@ -194,7 +194,7 @@ public:
     CapturedValues *                        capturedValues;
     BVSparse<JitArenaAllocator> *           changedSyms;
 
-    uint                                    inlinedArgOutCount;
+    uint                                    inlinedArgOutSize;
 
     bool                                    hasCSECandidates;
 
@@ -344,6 +344,7 @@ public:
     // Changed Symbol Tracking
 public:
     void                    SetChangedSym(SymID symId);
+    void                    SetChangedSym(Sym* sym);
 private:
 
     // Other

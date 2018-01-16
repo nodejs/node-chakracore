@@ -25,14 +25,13 @@ namespace Js
         // Initialization of this pattern is deferred until split() is called, or it's copied from another
         // RegExp object.
         Field(UnifiedRegex::RegexPattern*) splitPattern;
-
         Field(Var) lastIndexVar;  // null => must build lastIndexVar from current lastIndex
 
     public:
-
         // Three states for lastIndex value:
         //  1. lastIndexVar has been updated, we must calculate lastIndex from it when we next need it
         static const CharCount NotCachedValue = (CharCount)-2;
+
     private:
         //  2. ToNumber(lastIndexVar) yields +inf or -inf or an integer not in range [0, MaxCharCount]
         static const CharCount InvalidValue = CharCountFlag;
@@ -124,6 +123,7 @@ namespace Js
         static bool Is(Var aValue);
         static bool IsRegExpLike(Var aValue, ScriptContext* scriptContext);
         static JavascriptRegExp* FromVar(Var aValue);
+        static JavascriptRegExp* UnsafeFromVar(Var aValue);
 
         static JavascriptRegExp* CreateRegEx(const char16* pSource, CharCount sourceLen,
             UnifiedRegex::RegexFlags flags, ScriptContext *scriptContext);

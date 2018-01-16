@@ -5,7 +5,7 @@
 #include "Backend.h"
 
 InliningDecider::InliningDecider(Js::FunctionBody *const topFunc, bool isLoopBody, bool isInDebugMode, const ExecutionMode jitMode)
-    : topFunc(topFunc), isLoopBody(isLoopBody), isInDebugMode(isInDebugMode), jitMode(jitMode), bytecodeInlinedCount(0), numberOfInlineesWithLoop (0), threshold(topFunc->GetByteCodeWithoutLDACount(), isLoopBody)
+    : topFunc(topFunc), isLoopBody(isLoopBody), isInDebugMode(isInDebugMode), jitMode(jitMode), bytecodeInlinedCount(0), numberOfInlineesWithLoop (0), threshold(topFunc->GetByteCodeWithoutLDACount(), isLoopBody, topFunc->GetIsAsmjsMode())
 {
     Assert(topFunc);
 }
@@ -23,17 +23,18 @@ bool InliningDecider::InlineIntoTopFunc() const
     {
         return false;
     }
-
+#ifdef _M_IX86
     if (this->topFunc->GetHasTry())
     {
 #if defined(DBG_DUMP) || defined(ENABLE_DEBUG_CONFIG_OPTIONS)
         char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
         INLINE_TESTTRACE(_u("INLINING: Skip Inline: Has try\tCaller: %s (%s)\n"), this->topFunc->GetDisplayName(),
-            this->topFunc->GetDebugNumberSet(debugStringBuffer));
+        this->topFunc->GetDebugNumberSet(debugStringBuffer));
         // Glob opt doesn't run on function with try, so we can't generate bailout for it
         return false;
     }
+#endif
 
     return InlineIntoInliner(topFunc);
 }
@@ -218,13 +219,15 @@ Js::FunctionInfo *InliningDecider::Inline(Js::FunctionBody *const inliner, Js::F
             return nullptr;
         }
 
+#ifdef _M_IX86
         if (inlinee->GetHasTry())
         {
             INLINE_TESTTRACE(_u("INLINING: Skip Inline: Has try\tInlinee: %s (%s)\tCaller: %s (%s)\n"),
-                inlinee->GetDisplayName(), inlinee->GetDebugNumberSet(debugStringBuffer), inliner->GetDisplayName(),
-                inliner->GetDebugNumberSet(debugStringBuffer2));
+            inlinee->GetDisplayName(), inlinee->GetDebugNumberSet(debugStringBuffer), inliner->GetDisplayName(),
+            inliner->GetDebugNumberSet(debugStringBuffer2));
             return nullptr;
         }
+#endif
 
         // This is a hard limit as the argOuts array is statically sized.
         if (inlinee->GetInParamsCount() > Js::InlineeCallInfo::MaxInlineeArgoutCount)
@@ -235,7 +238,8 @@ Js::FunctionInfo *InliningDecider::Inline(Js::FunctionBody *const inliner, Js::F
             return nullptr;
         }
 
-        if (inlinee->GetInParamsCount() == 0)
+        // Wasm functions can have no params
+        if (inlinee->GetInParamsCount() == 0 && !inlinee->GetIsAsmjsMode())
         {
             // Inline candidate has no params, not even a this pointer.  This can only be the global function,
             // which we shouldn't inline.
@@ -670,12 +674,16 @@ bool InliningDecider::DeciderInlineIntoInliner(Js::FunctionBody * inlinee, Js::F
         return false;
     }
 
-    if (inlinee->GetIsAsmjsMode() || inliner->GetIsAsmjsMode())
+    if (inliner->GetIsAsmjsMode() != inlinee->GetIsAsmjsMode())
     {
         return false;
     }
-
-    if (PHASE_FORCE(Js::InlinePhase, this->topFunc) ||
+// Force inline all Js Builtins functions
+// The existing JsBuiltInForceInline flag can work only when we explictly create scriptFunction
+// We can also have methods that we define on the prototype like next of ArrayIterator for which we don't explictly create a script function
+// TODO (megupta) : use forceInline for methods defined on the prototype using ObjectDefineProperty
+    if (inlinee->GetSourceContextId() == Js::Constants::JsBuiltInSourceContextId ||
+        PHASE_FORCE(Js::InlinePhase, this->topFunc) ||
         PHASE_FORCE(Js::InlinePhase, inliner) ||
         PHASE_FORCE(Js::InlinePhase, inlinee))
     {

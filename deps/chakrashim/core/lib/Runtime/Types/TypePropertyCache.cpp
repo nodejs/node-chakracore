@@ -217,9 +217,11 @@ namespace Js
                     ? DynamicObject::FromVar(propertyObject)->GetInlineSlot(propertyIndex)
                     : DynamicObject::FromVar(propertyObject)->GetAuxSlot(propertyIndex);
 
-            if (propertyObject->GetScriptContext() == requestContext)
+            if(propertyObject->GetScriptContext() == requestContext)
             {
-                Assert(*propertyValue == JavascriptOperators::GetProperty(propertyObject, propertyId, requestContext));
+                DebugOnly(Var getPropertyValue = JavascriptOperators::GetProperty(propertyObject, propertyId, requestContext));
+                Assert(*propertyValue == getPropertyValue ||
+                    (getPropertyValue == requestContext->GetLibrary()->GetNull() && requestContext->GetThreadContext()->IsDisableImplicitCall() && propertyObject->GetType()->IsExternal()));
 
                 CacheOperators::Cache<false, true, false>(
                     false,
@@ -238,7 +240,7 @@ namespace Js
             }
             else
             {
-                *propertyValue = CrossSite::MarshalVar(requestContext, *propertyValue);
+            *propertyValue = CrossSite::MarshalVar(requestContext, *propertyValue);
             }
             // Cannot use GetProperty and compare results since they may not compare equal when they're marshaled
 
@@ -301,7 +303,7 @@ namespace Js
         }
         else
         {
-            *propertyValue = CrossSite::MarshalVar(requestContext, *propertyValue);
+        *propertyValue = CrossSite::MarshalVar(requestContext, *propertyValue);
         }
         // Cannot use GetProperty and compare results since they may not compare equal when they're marshaled
 
@@ -354,7 +356,9 @@ namespace Js
         }
     #endif
 
+#if ENABLE_FIXED_FIELDS
         Assert(!object->IsFixedProperty(propertyId));
+#endif
         Assert(
             (
                 DynamicObject

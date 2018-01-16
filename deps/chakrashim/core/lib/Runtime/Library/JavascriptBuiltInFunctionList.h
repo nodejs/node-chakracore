@@ -154,6 +154,9 @@ BUILTIN(JavascriptFunction, Call, EntryCall, FunctionInfo::ErrorOnNew)
 BUILTIN(JavascriptFunction, ToString, EntryToString, FunctionInfo::ErrorOnNew | FunctionInfo::HasNoSideEffect)
 BUILTIN(JavascriptFunction, SymbolHasInstance, EntrySymbolHasInstance, FunctionInfo::ErrorOnNew)
 BUILTIN(JavascriptFunction, NewAsyncFunctionInstance, NewAsyncFunctionInstance, FunctionInfo::SkipDefaultNewObject)
+#ifdef ALLOW_JIT_REPRO
+BUILTIN(JavascriptFunction, InvokeJit, EntryInvokeJit, FunctionInfo::ErrorOnNew)
+#endif
 BUILTIN(JavascriptNumber, IsNaN, EntryIsNaN, FunctionInfo::ErrorOnNew)
 BUILTIN(JavascriptNumber, IsFinite, EntryIsFinite, FunctionInfo::ErrorOnNew)
 BUILTIN(JavascriptNumber, IsInteger, EntryIsInteger, FunctionInfo::ErrorOnNew)
@@ -910,7 +913,9 @@ BUILTIN(ArrayBuffer, Slice, EntrySlice, FunctionInfo::ErrorOnNew)
 BUILTIN(ArrayBuffer, IsView, EntryIsView, FunctionInfo::ErrorOnNew)
 BUILTIN(ArrayBuffer, GetterByteLength, EntryGetterByteLength, FunctionInfo::ErrorOnNew | FunctionInfo::HasNoSideEffect)
 BUILTIN(ArrayBuffer, GetterSymbolSpecies, EntryGetterSymbolSpecies, FunctionInfo::ErrorOnNew)
-BUILTIN(ArrayBuffer, Transfer, EntryTransfer, FunctionInfo::ErrorOnNew)
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+BUILTIN(ArrayBuffer, Detach, EntryDetach, FunctionInfo::ErrorOnNew)
+#endif
 BUILTIN(DataView, NewInstance, NewInstance, FunctionInfo::SkipDefaultNewObject)
 BUILTIN(DataView, SetInt8, EntrySetInt8, FunctionInfo::ErrorOnNew)
 BUILTIN(DataView, SetUint8, EntrySetUint8, FunctionInfo::ErrorOnNew)

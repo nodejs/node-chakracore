@@ -4,12 +4,13 @@
 //-------------------------------------------------------------------------------------------------------
 
 #include "RuntimeBasePch.h"
-#include "BackendApi.h"
 #include "ThreadServiceWrapper.h"
 #include "Types/TypePropertyCache.h"
+#ifdef ENABLE_SCRIPT_DEBUGGING
 #include "Debug/DebuggingFlags.h"
 #include "Debug/DiagProbe.h"
 #include "Debug/DebugManager.h"
+#endif
 #include "Chars.h"
 #include "CaseInsensitive.h"
 #include "CharSet.h"
@@ -75,9 +76,13 @@ ThreadContext::RecyclableData::RecyclableData(Recycler *const recycler) :
     oomErrorObject(nullptr, nullptr, nullptr, true),
     terminatedErrorObject(nullptr, nullptr, nullptr),
     typesWithProtoPropertyCache(recycler),
+#if ENABLE_NATIVE_CODEGEN
     propertyGuards(recycler, 128),
+#endif
     oldEntryPointInfo(nullptr),
+#ifdef ENABLE_SCRIPT_DEBUGGING
     returnedValueList(nullptr),
+#endif
     constructorCacheInvalidationCount(0)
 {
 }
@@ -120,6 +125,7 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     entryExitRecord(nullptr),
     leafInterpreterFrame(nullptr),
     threadServiceWrapper(nullptr),
+    tryCatchFrameAddr(nullptr),
     temporaryArenaAllocatorCount(0),
     temporaryGuestArenaAllocatorCount(0),
     crefSContextForDiag(0),
@@ -166,7 +172,7 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     thunkPageAllocators(allocationPolicyManager, /* allocXData */ false, /* virtualAllocator */ nullptr, GetCurrentProcess()),
 #endif
     codePageAllocators(allocationPolicyManager, ALLOC_XDATA, GetPreReservedVirtualAllocator(), GetCurrentProcess()),
-#if defined(_CONTROL_FLOW_GUARD) && (_M_IX86 || _M_X64)
+#if defined(_CONTROL_FLOW_GUARD) && !defined(_M_ARM)
     jitThunkEmitter(this, &VirtualAllocWrapper::Instance , GetCurrentProcess()),
 #endif
 #endif
@@ -186,8 +192,10 @@ ThreadContext::ThreadContext(AllocationPolicyManager * allocationPolicyManager, 
     gcSinceLastRedeferral(0),
     gcSinceCallCountsCollected(0),
     tridentLoadAddress(nullptr),
-    m_remoteThreadContextInfo(nullptr),
-    debugManager(nullptr)
+    m_remoteThreadContextInfo(nullptr)
+#ifdef ENABLE_SCRIPT_DEBUGGING
+    , debugManager(nullptr)
+#endif
 #if ENABLE_TTD
     , TTDContext(nullptr)
     , TTDExecutionInfo(nullptr)
@@ -328,7 +336,7 @@ ThreadContext::GetThreadStackLimitAddr() const
     return (intptr_t)GetAddressOfStackLimitForCurrentThread();
 }
 
-#if ENABLE_NATIVE_CODEGEN && defined(ENABLE_SIMDJS) && (defined(_M_IX86) || defined(_M_X64))
+#if ENABLE_NATIVE_CODEGEN && (defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)) && (defined(_M_IX86) || defined(_M_X64))
 intptr_t
 ThreadContext::GetSimdTempAreaAddr(uint8 tempIndex) const
 {
@@ -470,11 +478,13 @@ ThreadContext::~ThreadContext()
             this->recyclableData->symbolRegistrationMap = nullptr;
         }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         if (this->recyclableData->returnedValueList != nullptr)
         {
             this->recyclableData->returnedValueList->Clear();
             this->recyclableData->returnedValueList = nullptr;
         }
+#endif
 
         if (this->propertyMap != nullptr)
         {
@@ -522,9 +532,9 @@ ThreadContext::~ThreadContext()
         }
 #endif
 #endif
-
+#ifdef ENABLE_SCRIPT_DEBUGGING
         Assert(this->debugManager == nullptr);
-
+#endif
         HeapDelete(recycler);
     }
 
@@ -617,7 +627,6 @@ void ThreadContext::CloseForJSRT()
 #endif
     ShutdownThreads();
 }
-
 
 ThreadContext* ThreadContext::GetContextForCurrentThread()
 {
@@ -783,7 +792,7 @@ Recycler* ThreadContext::EnsureRecycler()
         try
         {
 #ifdef RECYCLER_WRITE_BARRIER
-#ifdef _M_X64_OR_ARM64
+#ifdef TARGET_64
             if (!RecyclerWriteBarrierManager::OnThreadInit())
             {
                 Js::Throw::OutOfMemory();
@@ -878,6 +887,13 @@ ThreadContext::GetPropertyNameImpl(Js::PropertyId propertyId)
 void
 ThreadContext::FindPropertyRecord(Js::JavascriptString *pstName, Js::PropertyRecord const ** propertyRecord)
 {
+    const Js::PropertyRecord * propRecord = pstName->GetPropertyRecord(true);
+    if (propRecord != nullptr)
+    {
+        *propertyRecord = propRecord;
+        return;
+    }
+
     LPCWSTR psz = pstName->GetSz();
     FindPropertyRecord(psz, pstName->GetLength(), propertyRecord);
 }
@@ -1182,12 +1198,12 @@ ThreadContext::BindPropertyRecord(const Js::PropertyRecord * propertyRecord)
     }
 }
 
-void ThreadContext::GetOrAddPropertyId(__in LPCWSTR propertyName, __in int propertyNameLength, Js::PropertyRecord const ** propertyRecord)
+void ThreadContext::GetOrAddPropertyId(_In_ LPCWSTR propertyName, _In_ int propertyNameLength, _Out_ Js::PropertyRecord const ** propertyRecord)
 {
     GetOrAddPropertyId(JsUtil::CharacterBuffer<WCHAR>(propertyName, propertyNameLength), propertyRecord);
 }
 
-void ThreadContext::GetOrAddPropertyId(JsUtil::CharacterBuffer<WCHAR> const& propertyName, Js::PropertyRecord const ** propRecord)
+void ThreadContext::GetOrAddPropertyId(_In_ JsUtil::CharacterBuffer<WCHAR> const& propertyName, _Out_ Js::PropertyRecord const ** propRecord)
 {
     EnterPinnedScope((volatile void **)propRecord);
     *propRecord = GetOrAddPropertyRecord(propertyName);
@@ -1576,9 +1592,14 @@ ThreadContext::SetForceOneIdleCollection()
 
 }
 
-BOOLEAN
+bool
 ThreadContext::IsOnStack(void const *ptr)
 {
+    if (IS_ASAN_FAKE_STACK_ADDR(ptr))
+    {
+        return true;
+    }
+
 #if defined(_M_IX86) && defined(_MSC_VER)
     return ptr < (void*)__readfsdword(0x4) && ptr >= (void*)__readfsdword(0xE0C);
 #elif defined(_M_AMD64) && defined(_MSC_VER)
@@ -1969,18 +1990,7 @@ ThreadContext::EnsureJITThreadContext(bool allowPrereserveAlloc)
         return true;
     }
 
-#ifdef USE_RPC_HANDLE_MARSHALLING
-    HANDLE processHandle;
-    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &processHandle, 0, false, DUPLICATE_SAME_ACCESS))
-    {
-        return false;
-    }
-    AutoCloseHandle autoClose(processHandle);
-#endif
-
     ThreadContextDataIDL contextData;
-    contextData.chakraBaseAddress = (intptr_t)AutoSystemInfo::Data.GetChakraBaseAddr();
-    contextData.crtBaseAddress = (intptr_t)AutoSystemInfo::Data.GetCRTHandle();
     contextData.threadStackLimitAddr = reinterpret_cast<intptr_t>(GetAddressOfStackLimitForCurrentThread());
     contextData.bailOutRegisterSaveSpaceAddr = (intptr_t)bailOutRegisterSaveSpace;
     contextData.disableImplicitFlagsAddr = (intptr_t)GetAddressOfDisableImplicitFlags();
@@ -1988,7 +1998,7 @@ ThreadContext::EnsureJITThreadContext(bool allowPrereserveAlloc)
     contextData.scriptStackLimit = GetScriptStackLimit();
     contextData.isThreadBound = IsThreadBound();
     contextData.allowPrereserveAlloc = allowPrereserveAlloc;
-#if defined(ENABLE_SIMDJS) && (_M_IX86 || _M_AMD64)
+#if (defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)) && (_M_IX86 || _M_AMD64)
     contextData.simdTempAreaBaseAddr = (intptr_t)GetSimdTempArea();
 #endif
 
@@ -2005,9 +2015,6 @@ ThreadContext::EnsureJITThreadContext(bool allowPrereserveAlloc)
 
     HRESULT hr = JITManager::GetJITManager()->InitializeThreadContext(
         &contextData,
-#ifdef USE_RPC_HANDLE_MARSHALLING
-        processHandle,
-#endif
         &m_remoteThreadContextInfo,
         &m_prereservedRegionAddr,
         &m_jitThunkStartAddr);
@@ -2201,9 +2208,11 @@ ThreadContext::PushEntryExitRecord(Js::ScriptEntryExitRecord * record)
         // then the list somehow got messed up
         if (
 #if defined(JSRT_VERIFY_RUNTIME_STATE) || defined(DEBUG)
-        !IsOnStack(lastRecord) ||
+            !IsOnStack(lastRecord) ||
 #endif
-        (uintptr_t)record >= (uintptr_t)lastRecord)
+            ((uintptr_t)record >= (uintptr_t)lastRecord
+                && !IS_ASAN_FAKE_STACK_ADDR(record)
+                && !IS_ASAN_FAKE_STACK_ADDR(lastRecord)))
         {
             EntryExitRecord_Corrupted_fatal_error();
         }
@@ -2223,7 +2232,9 @@ void ThreadContext::PopEntryExitRecord(Js::ScriptEntryExitRecord * record)
 #if defined(JSRT_VERIFY_RUNTIME_STATE) || defined(DEBUG)
         !IsOnStack(next) ||
 #endif
-    (uintptr_t)this->entryExitRecord >= (uintptr_t)next))
+        ((uintptr_t)this->entryExitRecord >= (uintptr_t)next
+            && !IS_ASAN_FAKE_STACK_ADDR(this->entryExitRecord)
+            && !IS_ASAN_FAKE_STACK_ADDR(next))))
     {
         EntryExitRecord_Corrupted_fatal_error();
     }
@@ -2274,6 +2285,7 @@ void ThreadContext::SetWellKnownHostTypeId(WellKnownHostType wellKnownType, Js::
     }
 }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
 void ThreadContext::EnsureDebugManager()
 {
     if (this->debugManager == nullptr)
@@ -2307,7 +2319,7 @@ void ThreadContext::ReleaseDebugManager()
     }
 }
 
-
+#endif
 
 Js::TempArenaAllocatorObject *
 ThreadContext::GetTemporaryAllocator(LPCWSTR name)
@@ -2956,9 +2968,13 @@ ThreadContext::InExpirableCollectMode()
     // and when debugger is attaching, it might have set the function to deferredParse.
     return (expirableObjectList != nullptr &&
             numExpirableObjects > 0 &&
-            expirableCollectModeGcCount >= 0 &&
+            expirableCollectModeGcCount >= 0
+#ifdef ENABLE_SCRIPT_DEBUGGING
+        &&
             (this->GetDebugManager() != nullptr &&
-            !this->GetDebugManager()->IsDebuggerAttaching()));
+            !this->GetDebugManager()->IsDebuggerAttaching())
+#endif
+        );
 }
 
 void
@@ -3084,11 +3100,12 @@ ThreadContext::ClearInlineCachesWithDeadWeakRefs()
             polyInlineCacheSize += scriptContext->GetInlineCacheAllocator()->GetPolyInlineCacheSize();
 #endif
         };
-        printf("Inline cache arena: total = %5I64u KB, free list = %5I64u KB, poly caches = %5I64u KB, script contexts = %u\n",
+        Output::Print(_u("Inline cache arena: total = %5I64u KB, free list = %5I64u KB, poly caches = %5I64u KB, script contexts = %u\n"),
             static_cast<uint64>(size / 1024), static_cast<uint64>(freeListSize / 1024), static_cast<uint64>(polyInlineCacheSize / 1024), scriptContextCount);
     }
 }
 
+#if ENABLE_NATIVE_CODEGEN
 void
 ThreadContext::ClearInvalidatedUniqueGuards()
 {
@@ -3121,6 +3138,7 @@ ThreadContext::ClearInvalidatedUniqueGuards()
         });
     });
 }
+#endif
 
 void
 ThreadContext::ClearInlineCaches()
@@ -3132,7 +3150,7 @@ ThreadContext::ClearInlineCaches()
         size_t polyInlineCacheSize = 0;
         uint scriptContextCount = 0;
         for (Js::ScriptContext *scriptContext = scriptContextList;
-        scriptContext;
+            scriptContext;
             scriptContext = scriptContext->next)
         {
             scriptContextCount++;
@@ -3142,7 +3160,7 @@ ThreadContext::ClearInlineCaches()
             polyInlineCacheSize += scriptContext->GetInlineCacheAllocator()->GetPolyInlineCacheSize();
 #endif
         };
-        printf("Inline cache arena: total = %5I64u KB, free list = %5I64u KB, poly caches = %5I64u KB, script contexts = %u\n",
+        Output::Print(_u("Inline cache arena: total = %5I64u KB, free list = %5I64u KB, poly caches = %5I64u KB, script contexts = %u\n"),
             static_cast<uint64>(size / 1024), static_cast<uint64>(freeListSize / 1024), static_cast<uint64>(polyInlineCacheSize / 1024), scriptContextCount);
     }
 

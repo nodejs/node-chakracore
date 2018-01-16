@@ -114,6 +114,7 @@ namespace Js
         uint32                  GetBottomMostInlineeOffset() const;
         Js::JavascriptFunction *GetBottomMostFunctionObject() const;
         void                    FinalizeStackValues(__in_ecount(argCount) Js::Var args[], size_t argCount) const;
+        int32                   GetFrameCount() { return frameCount; }
 
     private:
         enum {
@@ -135,11 +136,13 @@ namespace Js
 
         };
 
-        void Initialize(int32 frameCount, __in_ecount(frameCount) InlinedFrame **frames, Js::ScriptFunction *parent);
+    public:
+        InlinedFrame *const     GetFrameAtIndex(signed index) const;
 
+    private:
+        void Initialize(int32 frameCount, __in_ecount(frameCount) InlinedFrame **frames, Js::ScriptFunction *parent);
         void MoveNext();
         InlinedFrame *const GetCurrentFrame() const;
-        InlinedFrame *const GetFrameAtIndex(signed index) const;
 
         Js::ScriptFunction *parentFunction;
         InlinedFrame          **frames;
@@ -228,11 +231,13 @@ namespace Js
         bool GetSourcePosition(const WCHAR** sourceFileName, ULONG* line, LONG* column);
 
         static bool TryIsTopJavaScriptFrameNative(ScriptContext* scriptContext, bool* istopFrameNative, bool ignoreLibraryCode = false);
+        static bool AlignAndCheckAddressOfReturnAddressMatch(void* addressOfReturnAddress, void* nativeLibraryEntryAddress);
 
 #if ENABLE_NATIVE_CODEGEN
         void ClearCachedInternalFrameInfo();
         void SetCachedInternalFrameInfo(InternalFrameType frameType, JavascriptFunction* function, bool hasInlinedFramesOnStack, bool prevIntFrameIsFromBailout);
         InternalFrameInfo GetCachedInternalFrameInfo() const { return this->lastInternalFrameInfo; }
+        void WalkAndClearInlineeFrameCallInfoOnException(void *tryCatchFrameAddr);
 #endif
         bool IsCurrentPhysicalFrameForLoopBody() const;
 

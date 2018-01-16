@@ -4,9 +4,11 @@
 //-------------------------------------------------------------------------------------------------------
 
 #include "Backend.h"
+#ifdef ENABLE_SCRIPT_DEBUGGING
 #include "Debug/DebuggingFlags.h"
 #include "Debug/DiagProbe.h"
 #include "Debug/DebugManager.h"
+#endif
 #include "Language/JavascriptFunctionArgIndex.h"
 
 extern const IRType RegTypes[RegNumCount];
@@ -16,8 +18,12 @@ BailOutInfo::Clear(JitArenaAllocator * allocator)
 {
     // Currently, we don't have a case where we delete bailout info after we allocated the bailout record
     Assert(!bailOutRecord);
-    this->capturedValues.constantValues.Clear(allocator);
-    this->capturedValues.copyPropSyms.Clear(allocator);
+    if (this->capturedValues && this->capturedValues->DecrementRefCount() == 0)
+    {
+        this->capturedValues->constantValues.Clear(allocator);
+        this->capturedValues->copyPropSyms.Clear(allocator);
+        JitAdelete(allocator, this->capturedValues);
+    }
     this->usedCapturedValues.constantValues.Clear(allocator);
     this->usedCapturedValues.copyPropSyms.Clear(allocator);
     if (byteCodeUpwardExposedUsed)
@@ -81,7 +87,7 @@ BailOutInfo::NeedsStartCallAdjust(uint i, const IR::Instr * bailOutInstr) const
 }
 
 void
-BailOutInfo::RecordStartCallInfo(uint i, uint argRestoreAdjustCount, IR::Instr *instr)
+BailOutInfo::RecordStartCallInfo(uint i, IR::Instr *instr)
 {
     Assert(i < this->startCallCount);
     Assert(this->startCallInfo);
@@ -90,7 +96,8 @@ BailOutInfo::RecordStartCallInfo(uint i, uint argRestoreAdjustCount, IR::Instr *
 
     this->startCallInfo[i].instr = instr;
     this->startCallInfo[i].argCount = instr->GetArgOutCount(/*getInterpreterArgOutCount*/ true);
-    this->startCallInfo[i].argRestoreAdjustCount = argRestoreAdjustCount;
+    this->startCallInfo[i].argRestoreAdjustCount = 0;
+    this->startCallInfo[i].isOrphanedCall = false;
 }
 
 void
@@ -122,7 +129,7 @@ BailOutInfo::GetStartCallOutParamCount(uint i) const
 }
 
 void
-BailOutInfo::RecordStartCallInfo(uint i, uint argRestoreAdjust, IR::Instr *instr)
+BailOutInfo::RecordStartCallInfo(uint i, IR::Instr *instr)
 {
     Assert(i < this->startCallCount);
     Assert(this->startCallInfo);
@@ -1026,6 +1033,7 @@ BailOutRecord::RestoreValues(IR::BailOutKind bailOutKind, Js::JavascriptCallStac
     bool fromLoopBody, Js::Var * registerSaves, Js::InterpreterStackFrame * newInstance, Js::Var* pArgumentsObject, void * argoutRestoreAddress) const
 {
     bool isLocal = offsets == nullptr;
+
     if (isLocal == true)
     {
         globalBailOutRecordTable->IterateGlobalBailOutRecordTableRows(m_bailOutRecordId, [=](GlobalBailOutRecordDataRow *row) {
@@ -1069,7 +1077,15 @@ BailOutRecord::RestoreValues(IR::BailOutKind bailOutKind, Js::JavascriptCallStac
             this->IsOffsetNativeIntOrFloat(i, argOutSlotStart, &isFloat64, &isInt32,
                                            &isSimd128F4, &isSimd128I4, &isSimd128I8, &isSimd128I16,
                                            &isSimd128U4, &isSimd128U8, &isSimd128U16, &isSimd128B4, &isSimd128B8, &isSimd128B16);
-
+#ifdef _M_IX86
+            if (this->argOutOffsetInfo->isOrphanedArgSlot->Test(argOutSlotStart + i))
+            {
+                RestoreValue(bailOutKind, layout, values, scriptContext, fromLoopBody, registerSaves, newInstance, pArgumentsObject,
+                    nullptr, i, offset, /* isLocal */ true, isFloat64, isInt32, isSimd128F4, isSimd128I4, isSimd128I8,
+                    isSimd128I16, isSimd128U4, isSimd128U8, isSimd128U16, isSimd128B4, isSimd128B8, isSimd128B16);
+                continue;
+            }
+#endif
             RestoreValue(bailOutKind, layout, values, scriptContext, fromLoopBody, registerSaves, newInstance, pArgumentsObject,
                          argoutRestoreAddress, i, offset, false, isFloat64, isInt32, isSimd128F4, isSimd128I4, isSimd128I8,
                          isSimd128I16, isSimd128U4, isSimd128U8, isSimd128U16, isSimd128B4, isSimd128B8, isSimd128B16);
@@ -1284,7 +1300,13 @@ BailOutRecord::BailOutInlinedHelper(Js::JavascriptCallStackLayout * layout, Bail
         InlinedFrameLayout *inlinedFrame = (InlinedFrameLayout *)(((char *)layout) + currentBailOutRecord->globalBailOutRecordTable->firstActualStackOffset);
         Js::InlineeCallInfo inlineeCallInfo = inlinedFrame->callInfo;
         Assert((Js::ArgSlot)inlineeCallInfo.Count == currentBailOutRecord->actualCount);
-        Js::CallInfo callInfo(Js::CallFlags_Value, (Js::ArgSlot)inlineeCallInfo.Count);
+
+        Js::CallFlags callFlags = Js::CallFlags_Value;
+        if (currentBailOutRecord->globalBailOutRecordTable->isInlinedConstructor)
+        {
+            callFlags |= Js::CallFlags_New;
+        }
+        Js::CallInfo callInfo(callFlags, (Js::ArgSlot)inlineeCallInfo.Count);
 
         Js::ScriptFunction ** functionRef = (Js::ScriptFunction **)&(inlinedFrame->function);
         AnalysisAssert(*functionRef);
@@ -1395,6 +1417,7 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
     // Clear the disable implicit call bit in case we bail from that region
     functionScriptContext->GetThreadContext()->ClearDisableImplicitFlags();
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
     bool isInDebugMode = executeFunction->IsInDebugMode();
     AssertMsg(!isInDebugMode || Js::Configuration::Global.EnableJitInDebugMode(),
         "In diag mode we can get here (function has to be JIT'ed) only when EnableJitInDiagMode is true!");
@@ -1465,6 +1488,8 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
             }
         }
     }
+#endif
+
 #if defined(DBG_DUMP) || defined(ENABLE_DEBUG_CONFIG_OPTIONS)
     char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 #endif
@@ -1528,7 +1553,7 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
             size_t varAllocCount = setup.GetAllocationVarCount();
             size_t varSizeInBytes = varAllocCount * sizeof(Js::Var);
             DWORD_PTR stackAddr = reinterpret_cast<DWORD_PTR>(&generator); // as mentioned above, use any stack address from this frame to ensure correct debugging functionality
-            Js::Var loopHeaderArray = executeFunction->GetHasAllocatedLoopHeaders() ? executeFunction->GetLoopHeaderArrayPtr() : nullptr;
+            Js::LoopHeader* loopHeaderArray = executeFunction->GetHasAllocatedLoopHeaders() ? executeFunction->GetLoopHeaderArrayPtr() : nullptr;
 
             allocation = RecyclerNewPlus(functionScriptContext->GetRecycler(), varSizeInBytes, Js::Var);
 
@@ -1567,7 +1592,7 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
             allocation = (Js::Var*)_alloca(varSizeInBytes);
         }
 
-        Js::Var loopHeaderArray = nullptr;
+        Js::LoopHeader* loopHeaderArray = nullptr;
 
         if (executeFunction->GetHasAllocatedLoopHeaders())
         {
@@ -1606,6 +1631,10 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
     if (bailOutKind == IR::BailOutOnArrayAccessHelperCall)
     {
         newInstance->OrFlags(Js::InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall);
+    }
+    if (isInlinee)
+    {
+        newInstance->OrFlags(Js::InterpreterStackFrameFlags_FromBailOutInInlinee);
     }
 
     ThreadContext *threadContext = newInstance->GetScriptContext()->GetThreadContext();
@@ -1754,7 +1783,11 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
     {
         // Following _AddressOfReturnAddress <= real address of "returnAddress". Suffices for RemoteStackWalker to test partially initialized interpreter frame.
         Js::InterpreterStackFrame::PushPopFrameHelper pushPopFrameHelper(newInstance, returnAddress, _AddressOfReturnAddress());
+#ifdef ENABLE_SCRIPT_DEBUGGING
         aReturn = isInDebugMode ? newInstance->DebugProcess() : newInstance->Process();
+#else
+        aReturn = newInstance->Process();
+#endif
         // Note: in debug mode we always have to bailout to debug thunk,
         //       as normal interpreter thunk expects byte code compiled w/o debugging.
     }
@@ -2755,7 +2788,9 @@ Js::Var BailOutRecord::BailOutForElidedYield(void * framePointer)
     Js::ScriptFunction ** functionRef = (Js::ScriptFunction **)&layout->functionObject;
     Js::ScriptFunction * function = *functionRef;
     Js::FunctionBody * executeFunction = function->GetFunctionBody();
+#ifdef ENABLE_SCRIPT_DEBUGGING
     bool isInDebugMode = executeFunction->IsInDebugMode();
+#endif
 
     Js::JavascriptGenerator* generator = static_cast<Js::JavascriptGenerator*>(layout->args[0]);
     Js::InterpreterStackFrame* frame = generator->GetFrame();
@@ -2775,7 +2810,11 @@ Js::Var BailOutRecord::BailOutForElidedYield(void * framePointer)
     {
         // Following _AddressOfReturnAddress <= real address of "returnAddress". Suffices for RemoteStackWalker to test partially initialized interpreter frame.
         Js::InterpreterStackFrame::PushPopFrameHelper pushPopFrameHelper(frame, _ReturnAddress(), _AddressOfReturnAddress());
+#ifdef ENABLE_SCRIPT_DEBUGGING
         aReturn = isInDebugMode ? frame->DebugProcess() : frame->Process();
+#else
+        aReturn = frame->Process();
+#endif
         // Note: in debug mode we always have to bailout to debug thunk,
         //       as normal interpreter thunk expects byte code compiled w/o debugging.
     }

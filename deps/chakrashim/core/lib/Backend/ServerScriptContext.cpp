@@ -271,6 +271,7 @@ ServerScriptContext::IsPRNGSeeded() const
     return m_isPRNGSeeded;
 }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
 intptr_t
 ServerScriptContext::GetDebuggingFlagsAddr() const
 {
@@ -293,6 +294,13 @@ intptr_t
 ServerScriptContext::GetDebugScriptIdWhenSetAddr() const
 {
     return static_cast<intptr_t>(m_contextData.debugScriptIdWhenSetAddr);
+}
+#endif
+
+intptr_t
+ServerScriptContext::GetChakraLibAddr() const
+{
+    return m_contextData.chakraLibAddr;
 }
 
 bool

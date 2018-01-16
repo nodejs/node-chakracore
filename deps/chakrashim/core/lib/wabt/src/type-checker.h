@@ -20,8 +20,8 @@
 #include <functional>
 #include <vector>
 
-#include "common.h"
-#include "opcode.h"
+#include "src/common.h"
+#include "src/opcode.h"
 
 namespace wabt {
 
@@ -51,6 +51,12 @@ class TypeChecker {
   Result GetLabel(Index depth, Label** out_label);
 
   Result BeginFunction(const TypeVector* sig);
+  Result OnAtomicLoad(Opcode);
+  Result OnAtomicStore(Opcode);
+  Result OnAtomicRmw(Opcode);
+  Result OnAtomicRmwCmpxchg(Opcode);
+  Result OnAtomicWait(Opcode);
+  Result OnAtomicWake(Opcode);
   Result OnBinary(Opcode);
   Result OnBlock(const TypeVector* sig);
   Result OnBr(Index depth);
@@ -98,25 +104,38 @@ class TypeChecker {
   Result PopLabel();
   Result CheckLabelType(Label* label, LabelType label_type);
   Result PeekType(Index depth, Type* out_type);
-  Result TopType(Type* out_type);
-  Result PopType(Type* out_type);
+  Result PeekAndCheckType(Index depth, Type expected);
   Result DropTypes(size_t drop_count);
   void PushType(Type type);
   void PushTypes(const TypeVector& types);
-  Result CheckTypeStackLimit(size_t expected, const char* desc);
   Result CheckTypeStackEnd(const char* desc);
-  Result CheckType(Type actual, Type expected, const char* desc);
-  Result CheckSignature(const TypeVector& sig, const char* desc);
+  Result CheckType(Type actual, Type expected);
+  Result CheckSignature(const TypeVector& sig);
   Result PopAndCheckSignature(const TypeVector& sig, const char* desc);
   Result PopAndCheckCall(const TypeVector& param_types,
                          const TypeVector& result_types,
                          const char* desc);
   Result PopAndCheck1Type(Type expected, const char* desc);
   Result PopAndCheck2Types(Type expected1, Type expected2, const char* desc);
-  Result PopAndCheck2TypesAreEqual(Type* out_type, const char* desc);
+  Result PopAndCheck3Types(Type expected1,
+                           Type expected2,
+                           Type expected3,
+                           const char* desc);
   Result CheckOpcode1(Opcode opcode);
   Result CheckOpcode2(Opcode opcode);
+  Result CheckOpcode3(Opcode opcode);
   Result OnEnd(Label* label, const char* sig_desc, const char* end_desc);
+
+  template <typename... Args>
+  void PrintStackIfFailed(Result result, const char* desc, Args... args) {
+    // Minor optimzation, check result before constructing the vector to pass
+    // to the other overload of PrintStackIfFailed.
+    if (Failed(result)) {
+      PrintStackIfFailed(result, desc, {args...});
+    }
+  }
+
+  void PrintStackIfFailed(Result, const char* desc, const TypeVector&);
 
   ErrorCallback error_callback_;
   TypeVector type_stack_;

@@ -20,9 +20,9 @@
 #include <string>
 #include <vector>
 
-#include "common.h"
-#include "feature.h"
-#include "stream.h"
+#include "src/common.h"
+#include "src/feature.h"
+#include "src/stream.h"
 
 namespace wabt {
 
@@ -45,7 +45,6 @@ struct ObjdumpOptions {
   bool disassemble;
   bool debug;
   bool relocs;
-  Features features;
   ObjdumpMode mode;
   const char* filename;
   const char* section_name;

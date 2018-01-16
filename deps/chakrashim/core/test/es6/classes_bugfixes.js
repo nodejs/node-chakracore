@@ -464,6 +464,38 @@ var tests = [
         assert.areEqual('Bsetter;Bgetter;', result);
     }
   },
+  {
+    name: "MSFT:13209141: Confusion on deferred function containing non-deferred extends cause calling eval",
+    body: function () {
+      function foo(a = class c extends eval("") {}) {}
+      try {
+        foo();
+      }
+      catch(e) {}
+    }
+  },
+  {
+    name: "OS: 12681861: SetPropertyWithAttributes assert does not cover static constructor case",
+    body: function () {
+      class tvawjo {
+        static constructor() { }
+        static get igwgep() { }
+        static igwgep() { }
+      };
+      
+      class staticTest2 extends null {
+        static constructor() { }
+        static get igwgep() { }
+        static igwgep() { }
+      };
+    }
+  },
+  {
+    name: "#3040 Class extends clause accepts LHS expressions only",
+    body: function() {
+      assert.throws(function () { eval("1,class extends[]/print(1){}"); }, SyntaxError, "Parsing extends expr should not go past a term", "Expected '{'");
+    }
+  }
 ];
 
 testRunner.runTests(tests, { verbose: WScript.Arguments[0] != "summary" });

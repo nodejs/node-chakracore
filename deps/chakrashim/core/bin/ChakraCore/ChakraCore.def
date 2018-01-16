@@ -55,3 +55,8 @@ JsInitializeJITServer
 JsCreateSharedArrayBufferWithSharedContent
 JsGetSharedArrayBufferContent
 JsReleaseSharedArrayBufferContentHandle
+
+JsLessThan
+JsLessThanOrEqual
+
+JsCreateEnhancedFunction

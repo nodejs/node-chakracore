@@ -1609,9 +1609,9 @@ BackwardPass::ProcessBailOutArgObj(BailOutInfo * bailOutInfo, BVSparse<JitArenaA
 {
     Assert(this->tag != Js::BackwardPhase);
 
-    if (this->globOpt->TrackArgumentsObject() && bailOutInfo->capturedValues.argObjSyms)
+    if (this->globOpt->TrackArgumentsObject() && bailOutInfo->capturedValues->argObjSyms)
     {
-        FOREACH_BITSET_IN_SPARSEBV(symId, bailOutInfo->capturedValues.argObjSyms)
+        FOREACH_BITSET_IN_SPARSEBV(symId, bailOutInfo->capturedValues->argObjSyms)
         {
             if (byteCodeUpwardExposedUsed->TestAndClear(symId))
             {
@@ -1646,7 +1646,7 @@ BackwardPass::ProcessBailOutConstants(BailOutInfo * bailOutInfo, BVSparse<JitAre
     NEXT_SLISTBASE_ENTRY;
 
     // Find other constants that we need to restore
-    FOREACH_SLISTBASE_ENTRY_EDITING(ConstantStackSymValue, value, &bailOutInfo->capturedValues.constantValues, iter)
+    FOREACH_SLISTBASE_ENTRY_EDITING(ConstantStackSymValue, value, &bailOutInfo->capturedValues->constantValues, iter)
     {
         if (byteCodeUpwardExposedUsed->TestAndClear(value.Key()->m_id) || bailoutReferencedArgSymsBv->TestAndClear(value.Key()->m_id))
         {
@@ -1682,7 +1682,7 @@ BackwardPass::ProcessBailOutCopyProps(BailOutInfo * bailOutInfo, BVSparse<JitAre
     BVSparse<JitArenaAllocator> * upwardExposedUses = block->upwardExposedUses;
 
     // Find other copy prop that we need to restore
-    FOREACH_SLISTBASE_ENTRY_EDITING(CopyPropSyms, copyPropSyms, &bailOutInfo->capturedValues.copyPropSyms, iter)
+    FOREACH_SLISTBASE_ENTRY_EDITING(CopyPropSyms, copyPropSyms, &bailOutInfo->capturedValues->copyPropSyms, iter)
     {
         // Copy prop syms should be vars
         Assert(!copyPropSyms.Key()->IsTypeSpec());
@@ -1747,7 +1747,7 @@ BackwardPass::ProcessBailOutCopyProps(BailOutInfo * bailOutInfo, BVSparse<JitAre
                     typeSpecSym = int32StackSym;
                     Assert(int32StackSym);
                 }
-                else if (bailOutInfo->liveFloat64Syms->Test(symId))
+                else if(bailOutInfo->liveFloat64Syms->Test(symId))
                 {
                     // Var/int32 version of the sym is not live, use the float64 version
                     float64StackSym = stackSym->GetFloat64EquivSym(nullptr);
@@ -5578,7 +5578,7 @@ BackwardPass::TrackIntUsage(IR::Instr *const instr)
             case Js::OpCode::Conv_Prim:
                 Assert(dstSym);
                 Assert(instr->GetSrc1());
-                Assert(!instr->GetSrc2());
+                Assert(!instr->GetSrc2() || instr->GetDst()->GetType() == instr->GetSrc1()->GetType());
 
                 if(instr->GetDst()->IsInt32())
                 {
@@ -6554,8 +6554,6 @@ BackwardPass::ProcessDef(IR::Opnd * opnd)
             if (propertySym->m_fieldKind == PropertyKindLocalSlots || propertySym->m_fieldKind == PropertyKindSlots)
             {
                 BOOLEAN isPropertySymUsed = !block->slotDeadStoreCandidates->TestAndSet(propertySym->m_id);
-                // we should not do any dead slots in asmjs loop body
-                Assert(!(this->func->GetJITFunctionBody()->IsAsmJsMode() && this->func->IsLoopBody() && !isPropertySymUsed));
                 Assert(isPropertySymUsed || !block->upwardExposedUses->Test(propertySym->m_id));
 
                 isUsed = isPropertySymUsed || block->upwardExposedUses->Test(propertySym->m_stackSym->m_id);
@@ -7076,6 +7074,10 @@ BackwardPass::ProcessBailOnNoProfile(IR::Instr *instr, BasicBlock *block)
     {
         return false;
     }
+    if (this->currentRegion && (this->currentRegion->GetType() == RegionTypeCatch || this->currentRegion->GetType() == RegionTypeFinally))
+    {
+        return false;
+    }
 
     IR::Instr *curInstr = instr->m_prev;
 
@@ -7171,6 +7173,11 @@ BackwardPass::ProcessBailOnNoProfile(IR::Instr *instr, BasicBlock *block)
             continue;
         }
 
+        if (pred->GetFirstInstr()->AsLabelInstr()->GetRegion() != this->currentRegion)
+        {
+            break;
+        }
+
         // If all successors of this predecessor start with a BailOnNoProfile, we should be
         // okay to hoist this bail to the predecessor.
         FOREACH_SUCCESSOR_BLOCK(predSucc, pred)
@@ -7190,6 +7197,7 @@ BackwardPass::ProcessBailOnNoProfile(IR::Instr *instr, BasicBlock *block)
         {
             IR::Instr *predInstr = pred->GetLastInstr();
             IR::Instr *instrCopy = instr->Copy();
+
 
             if (predInstr->EndsBasicBlock())
             {

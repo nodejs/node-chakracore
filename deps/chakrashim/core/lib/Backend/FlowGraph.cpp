@@ -325,10 +325,9 @@ FlowGraph::Build(void)
                     instr->m_func->SetHasCallsOnSelfAndParents();
                 }
 
-                // For ARM & X64 because of their register calling convention
+                // For ARM, ARM64 & X64 (non x86) because of their register calling convention
                 // the ArgOuts need to be moved next to the call.
-#if defined(_M_ARM) || defined(_M_X64)
-
+#if !defined(_M_IX86)
                 IR::Instr* argInsertInstr = instr;
                 instr->IterateArgInstrs([&](IR::Instr* argInstr)
                 {
@@ -1643,9 +1642,8 @@ FlowGraph::Destroy(void)
             }
         }
 
-        // We don't run the globopt with try/catch, don't need to remove branch to next for fall through blocks
         IR::Instr * lastInstr = block->GetLastInstr();
-        if (!fHasTry && lastInstr->IsBranchInstr())
+        if (lastInstr->IsBranchInstr())
         {
             IR::BranchInstr * branchInstr = lastInstr->AsBranchInstr();
             if (!branchInstr->IsConditional() && branchInstr->GetTarget() == branchInstr->m_next)
@@ -1773,7 +1771,7 @@ FlowGraph::Destroy(void)
             }
         }
         NEXT_BLOCK;
-        FOREACH_BLOCK_DEAD_OR_ALIVE(block, this)
+        FOREACH_BLOCK_ALL(block, this)
         {
             if (block->GetFirstInstr()->IsLabelInstr())
             {
@@ -1785,7 +1783,7 @@ FlowGraph::Destroy(void)
                     labelInstr->Remove();
                 }
             }
-        } NEXT_BLOCK_DEAD_OR_ALIVE;
+        } NEXT_BLOCK;
     }
 #endif
 
@@ -2912,6 +2910,10 @@ FlowGraph::PeepCm(IR::Instr *instr)
         StackSym *dstSym = instr->GetDst()->AsRegOpnd()->m_sym;
         instrBr->AsBranchInstr()->SetByteCodeReg(dstSym->GetByteCodeRegSlot());
     }
+
+    brSrc = brSrc->Copy(this->func);
+    // We need brSrc later, but instr->Remove() might delete it...
+    IR::AutoReuseOpnd brSrcAutoCopy(brSrc, this->func, true);
     instr->Remove();
 
     //
@@ -2991,7 +2993,7 @@ FlowGraph::PeepCm(IR::Instr *instr)
     if (instrLd3->GetByteCodeOffset() > instrBr->GetByteCodeOffset())
     {
         StackSym *symLd3 = instrLd3->GetDst()->AsRegOpnd()->m_sym;
-        if (IR::Instr::FindRegUseInRange(symLd3, instrBr->m_next, instrLd3))
+        if (IR::Instr::HasSymUseInRange(symLd3, instrBr->m_next, instrLd3))
         {
             return nullptr;
         }
@@ -3345,6 +3347,7 @@ FlowGraph::RemoveBlock(BasicBlock *block, GlobOpt * globOpt, bool tailDuping)
         {
             Assert(instr->IsLabelInstr());
             instr->AsLabelInstr()->m_isLoopTop = false;
+            instr->AsLabelInstr()->m_hasNonBranchRef = false;
         }
         else
         {
@@ -4190,6 +4193,7 @@ BasicBlock::CleanUpValueMaps()
                     this->globOptData.liveInt32Syms->Clear(sym->m_id);
                     this->globOptData.liveLossyInt32Syms->Clear(sym->m_id);
                     this->globOptData.liveFloat64Syms->Clear(sym->m_id);
+                    this->globOptData.SetChangedSym(sym);
                 }
             }
             else
@@ -4288,6 +4292,8 @@ BasicBlock::CleanUpValueMaps()
     FOREACH_BITSET_IN_SPARSEBV(dead_id, &deadSymsBv)
     {
         thisTable->Clear(dead_id);
+        Sym* sym = this->func->m_symTable->Find(dead_id);
+        this->globOptData.SetChangedSym(sym);
     }
     NEXT_BITSET_IN_SPARSEBV;
 

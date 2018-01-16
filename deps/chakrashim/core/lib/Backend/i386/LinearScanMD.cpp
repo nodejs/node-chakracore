@@ -219,6 +219,7 @@ LinearScanMD::GenerateBailInForGeneratorYield(IR::Instr * resumeLabelInstr, Bail
             newInstr = IR::Instr::New(Js::OpCode::CALL, this->func);
             newInstr->SetSrc1(IR::HelperCallOpnd::New(IR::HelperCRT_chkstk, this->func));
             instrAfter->InsertBefore(newInstr);
+            this->func->SetHasCallsOnSelfAndParents();
         }
         else
         {
@@ -249,8 +250,8 @@ LinearScanMD::GenerateBailInForGeneratorYield(IR::Instr * resumeLabelInstr, Bail
     IR::Instr * instrInsertStackSym = instrAfter;
     IR::Instr * instrInsertRegSym = instrAfter;
 
-    Assert(bailOutInfo->capturedValues.constantValues.Empty());
-    Assert(bailOutInfo->capturedValues.copyPropSyms.Empty());
+    Assert(bailOutInfo->capturedValues->constantValues.Empty());
+    Assert(bailOutInfo->capturedValues->copyPropSyms.Empty());
 
     auto restoreSymFn = [this, &eaxRegOpnd, &ecxRegOpnd, &eaxRestoreInstr, &instrInsertStackSym, &instrInsertRegSym](SymID symId)
     {
@@ -326,9 +327,9 @@ LinearScanMD::GenerateBailInForGeneratorYield(IR::Instr * resumeLabelInstr, Bail
     }
     NEXT_BITSET_IN_SPARSEBV;
 
-    if (bailOutInfo->capturedValues.argObjSyms)
+    if (bailOutInfo->capturedValues->argObjSyms)
     {
-        FOREACH_BITSET_IN_SPARSEBV(symId, bailOutInfo->capturedValues.argObjSyms)
+        FOREACH_BITSET_IN_SPARSEBV(symId, bailOutInfo->capturedValues->argObjSyms)
         {
             restoreSymFn(symId);
         }
@@ -540,11 +541,11 @@ LinearScanMD::InsertOpHelperSpillsAndRestores(OpHelperBlock const& opHelperBlock
             else
             {
                 regOpnd = IR::RegOpnd::New(NULL, opHelperSpilledLifetime.reg, sym->GetType(), this->func);
-                IR::Instr* instr = LowererMD::CreateAssign(IR::SymOpnd::New(sym, sym->GetType(), func), regOpnd, opHelperBlock.opHelperLabel->m_next);
+                IR::Instr* instr = Lowerer::InsertMove(IR::SymOpnd::New(sym, sym->GetType(), func), regOpnd, opHelperBlock.opHelperLabel->m_next);
                 instr->CopyNumber(opHelperBlock.opHelperLabel);
                 if (opHelperSpilledLifetime.reload)
                 {
-                    instr = LowererMD::CreateAssign(regOpnd, IR::SymOpnd::New(sym, sym->GetType(), func), opHelperBlock.opHelperEndInstr);
+                    instr = Lowerer::InsertMove(regOpnd, IR::SymOpnd::New(sym, sym->GetType(), func), opHelperBlock.opHelperEndInstr);
                     instr->CopyNumber(opHelperBlock.opHelperEndInstr);
                 }
             }

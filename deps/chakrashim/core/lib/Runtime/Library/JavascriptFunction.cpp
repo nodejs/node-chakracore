@@ -3,7 +3,6 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
-#include "BackendApi.h"
 #include "Library/StackScriptFunction.h"
 #include "Types/SpreadArgument.h"
 
@@ -110,9 +109,16 @@ namespace Js
 
     JavascriptFunction* JavascriptFunction::FromVar(Var aValue)
     {
+        AssertOrFailFastMsg(Is(aValue), "Ensure var is actually a 'JavascriptFunction'");
+
+        return static_cast<JavascriptFunction *>(aValue);
+    }
+
+    JavascriptFunction* JavascriptFunction::UnsafeFromVar(Var aValue)
+    {
         AssertMsg(Is(aValue), "Ensure var is actually a 'JavascriptFunction'");
 
-        return static_cast<JavascriptFunction *>(RecyclableObject::FromVar(aValue));
+        return static_cast<JavascriptFunction *>(aValue);
     }
 
     BOOL JavascriptFunction::IsStrictMode() const
@@ -148,19 +154,13 @@ namespace Js
 
         // SkipDefaultNewObject function flag should have prevented the default object from
         // being created, except when call true a host dispatch.
-        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
-        Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr
-            || JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch);
+        Var newTarget = args.GetNewTarget();
+        bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
 
         JavascriptString* separator = library->GetCommaDisplayString();
-        JavascriptFunction* pfuncScript;
 
-        ENTER_PINNED_SCOPE(JavascriptString, formals);
-        ENTER_PINNED_SCOPE(JavascriptString, fnBody);
-        fnBody = NULL;
         // Gather all the formals into a string like (fml1, fml2, fml3)
-        formals = library->GetOpenRBracketString();
+        JavascriptString *formals = library->GetOpenRBracketString();
 
         for (uint i = 1; i < args.Info.Count - 1; ++i)
         {
@@ -172,6 +172,7 @@ namespace Js
         }
         formals = JavascriptString::Concat(formals, library->GetNewLineCloseRBracketString());
         // Function body, last argument to Function(...)
+        JavascriptString *fnBody = NULL;
         if (args.Info.Count > 1)
         {
             fnBody = JavascriptConversion::ToString(args.Values[args.Info.Count - 1], scriptContext);
@@ -185,8 +186,7 @@ namespace Js
             0 // " {"  GetSpaceOpenBracketString
             == numberLinesPrependedToAnonymousFunction); // Be sure to add exactly one line to anonymous function
 
-        ENTER_PINNED_SCOPE(JavascriptString, bs);
-        bs = functionKind == FunctionKind::Async ?
+        JavascriptString *bs = functionKind == FunctionKind::Async ?
             library->GetAsyncFunctionAnonymouseString() :
             functionKind == FunctionKind::Generator ?
             library->GetFunctionPTRAnonymousString() :
@@ -205,6 +205,7 @@ namespace Js
 
         BOOL strictMode = FALSE;
 
+        JavascriptFunction* pfuncScript;
         FunctionInfo *pfuncInfoCache = NULL;
         char16 const * sourceString = bs->GetSz();
         charcount_t sourceLen = bs->GetLength();
@@ -298,10 +299,6 @@ namespace Js
             }
         }
 #endif
-
-        LEAVE_PINNED_SCOPE();   //  bs
-        LEAVE_PINNED_SCOPE();   //  fnBody
-        LEAVE_PINNED_SCOPE();   //  formals
 
         JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_FUNCTION(pfuncScript, EtwTrace::GetFunctionId(pfuncScript->GetFunctionProxy())));
 
@@ -561,7 +558,8 @@ namespace Js
         }
         else
         {
-            return JavascriptFunction::CallFunction<true>(pFunc, pFunc->GetEntryPoint(), outArgs);
+            // Apply scenarios can have more than Constants::MaxAllowedArgs number of args. Need to use the large argCount logic here.
+            return JavascriptFunction::CallFunction<true>(pFunc, pFunc->GetEntryPoint(), outArgs, /* useLargeArgCount */true);
         }
     }
 
@@ -623,12 +621,6 @@ namespace Js
         /// If not, throw TypeError
         ///
         uint argCount = args.Info.Count;
-        if (callInfo.Flags & CallFlags_ExtraArg)
-        {
-            // The last argument is the "extra". Don't consider it in the logic below.
-            // It will either remain in place (argCount == 1) or be copied.
-            argCount--;
-        }
         if (argCount == 0 || !JavascriptConversion::IsCallable(args[0]))
         {
             JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NeedFunction, _u("Function.prototype.call"));
@@ -866,20 +858,21 @@ namespace Js
             resultObject = JavascriptOperators::NewScObjectNoCtor(v, scriptContext);
         }
 
-        // JavascriptOperators::NewScObject should have thrown if 'v' is not a constructor
-        RecyclableObject* functionObj = RecyclableObject::FromVar(v);
+        // JavascriptOperators::NewScObjectNoCtor should have thrown if 'v' is not a constructor
+        RecyclableObject* functionObj = RecyclableObject::UnsafeFromVar(v);
 
         const unsigned STACK_ARGS_ALLOCA_THRESHOLD = 8; // Number of stack args we allow before using _alloca
         Var stackArgs[STACK_ARGS_ALLOCA_THRESHOLD];
         Var* newValues = args.Values;
         CallFlags newFlags = args.Info.Flags;
 
-        ushort newCount = args.Info.Count;
         bool thisAlreadySpecified = false;
 
         if (overridingNewTarget != nullptr)
         {
-            if (ScriptFunction::Is(functionObj) && ScriptFunction::FromVar(functionObj)->GetFunctionInfo()->IsClassConstructor())
+            ScriptFunction * scriptFunctionObj = JavascriptOperators::TryFromVar<ScriptFunction>(functionObj);
+            ushort newCount = args.Info.Count;
+            if (scriptFunctionObj && scriptFunctionObj->GetFunctionInfo()->IsClassConstructor())
             {
                 thisAlreadySpecified = true;
                 args.Values[0] = overridingNewTarget;
@@ -916,7 +909,7 @@ namespace Js
             newValues[0] = resultObject;
         }
 
-        CallInfo newCallInfo(newFlags, newCount);
+        CallInfo newCallInfo(newFlags, args.Info.Count);
         Arguments newArgs(newCallInfo, newValues);
 
         if (JavascriptProxy::Is(v))
@@ -985,18 +978,25 @@ namespace Js
         return JavascriptFunction::CallSpreadFunction(function, args, spreadIndices);
     }
 
-    uint32 JavascriptFunction::GetSpreadSize(const Arguments args, const Js::AuxArray<uint32> *spreadIndices, ScriptContext *scriptContext)
+    uint JavascriptFunction::GetSpreadSize(const Arguments args, const Js::AuxArray<uint32> *spreadIndices, ScriptContext *scriptContext)
     {
         // Work out the expanded number of arguments.
-        uint32 totalLength = args.Info.Count - spreadIndices->count;
-        ::Math::RecordOverflowPolicy overflow;
-        for (unsigned i = 0; i < spreadIndices->count; ++i)
+        AssertOrFailFast(args.Info.Count < CallInfo::kMaxCountArgs && args.Info.Count >= spreadIndices->count);
+
+        uint spreadArgsCount = spreadIndices->count;
+        uint32 totalLength = args.Info.Count - spreadArgsCount;
+
+        for (unsigned i = 0; i < spreadArgsCount; ++i)
         {
             uint32 elementLength = JavascriptArray::GetSpreadArgLen(args[spreadIndices->elements[i]], scriptContext);
-            totalLength = UInt32Math::Add(totalLength, elementLength, overflow);
+            if (elementLength >= CallInfo::kMaxCountArgs)
+            {
+                JavascriptError::ThrowRangeError(scriptContext, JSERR_ArgListTooLarge);
+            }
+            totalLength = UInt32Math::Add(totalLength, elementLength);
         }
 
-        if (totalLength >= CallInfo::kMaxCountArgs || overflow.HasOverflowed())
+        if (totalLength >= CallInfo::kMaxCountArgs)
         {
             JavascriptError::ThrowRangeError(scriptContext, JSERR_ArgListTooLarge);
         }
@@ -1010,14 +1010,16 @@ namespace Js
         Assert(destArgs.Values != nullptr);
 
         CallInfo callInfo = args.Info;
-        size_t destArgsByteSize = destArgs.Info.Count * sizeof(Var);
+        uint argCount = args.GetArgCountWithExtraArgs();
+        unsigned destArgCount = destArgs.GetLargeArgCountWithExtraArgs(); // Result can be bigger than Constants::MaxAllowedArgs
+        size_t destArgsByteSize = destArgCount * sizeof(Var);
 
         destArgs.Values[0] = args[0];
 
         // Iterate over the arguments, spreading inline. We skip 'this'.
 
         uint32 argsIndex = 1;
-        for (unsigned i = 1, spreadArgIndex = 0; i < callInfo.Count; ++i)
+        for (unsigned i = 1, spreadArgIndex = 0; i < argCount; ++i)
         {
             uint32 spreadIndex = spreadIndices->elements[spreadArgIndex]; // Next index to be spread.
             if (i < spreadIndex)
@@ -1037,7 +1039,7 @@ namespace Js
                 js_memcpy_s(destArgs.Values + argsIndex,
                             destArgsByteSize - (argsIndex * sizeof(Var)),
                             args.Values + i,
-                            (args.Info.Count - i) * sizeof(Var));
+                            (argCount - i) * sizeof(Var));
                 break;
             }
             else
@@ -1071,7 +1073,7 @@ namespace Js
                 }
             }
         }
-        if (argsIndex > destArgs.Info.Count)
+        if (argsIndex > destArgCount)
         {
             AssertMsg(false, "The array length has changed since we allocated the destArgs buffer?");
             Throw::FatalInternalError();
@@ -1084,17 +1086,17 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         // Work out the expanded number of arguments.
-        uint32 actualLength = GetSpreadSize(args, spreadIndices, scriptContext);
+        uint spreadSize = GetSpreadSize(args, spreadIndices, scriptContext);
+        uint32 actualLength = CallInfo::GetLargeArgCountWithExtraArgs(args.Info.Flags, spreadSize);
 
         // Allocate (if needed) space for the expanded arguments.
-        Arguments outArgs(CallInfo(args.Info.Flags, 0), nullptr);
-        outArgs.Info.Count = actualLength;
+        Arguments outArgs(CallInfo(args.Info.Flags, spreadSize, /* unUsedBool */ false), nullptr);
         Var stackArgs[STACK_ARGS_ALLOCA_THRESHOLD];
         size_t outArgsSize = 0;
-        if (outArgs.Info.Count > STACK_ARGS_ALLOCA_THRESHOLD)
+        if (actualLength > STACK_ARGS_ALLOCA_THRESHOLD)
         {
-            PROBE_STACK(scriptContext, outArgs.Info.Count * sizeof(Var) + Js::Constants::MinStackDefault); // args + function call
-            outArgsSize = outArgs.Info.Count * sizeof(Var);
+            PROBE_STACK(scriptContext, actualLength * sizeof(Var) + Js::Constants::MinStackDefault); // args + function call
+            outArgsSize = actualLength * sizeof(Var);
             outArgs.Values = (Var*)_alloca(outArgsSize);
             ZeroMemory(outArgs.Values, outArgsSize);
         }
@@ -1107,7 +1109,8 @@ namespace Js
 
         SpreadArgs(args, outArgs, spreadIndices, scriptContext);
 
-        return JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), outArgs);
+        // Number of arguments are allowed to be more than Constants::MaxAllowedArgs in runtime. Need to use the large argcount logic in this case.
+        return JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), outArgs, true);
     }
 
     Var JavascriptFunction::CallFunction(Arguments args)
@@ -1115,94 +1118,58 @@ namespace Js
         return JavascriptFunction::CallFunction<true>(this, this->GetEntryPoint(), args);
     }
 
-    template Var JavascriptFunction::CallFunction<true>(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args);
-    template Var JavascriptFunction::CallFunction<false>(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args);
+    template Var JavascriptFunction::CallFunction<true>(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args, bool useLargeArgCount);
+    template Var JavascriptFunction::CallFunction<false>(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args, bool useLargeArgCount);
 
 #if _M_IX86
 #ifdef ASMJS_PLAT
-    template <> int JavascriptFunction::CallAsmJsFunction<int>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
+    template <> int JavascriptFunction::CallAsmJsFunction<int>(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte* reg)
     {
-        return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retIntVal;
+        return CallAsmJsFunctionX86Thunk(function, entryPoint, argv, argsSize, reg).i32;
     }
-    template <> int64 JavascriptFunction::CallAsmJsFunction<int64>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
+    template <> int64 JavascriptFunction::CallAsmJsFunction<int64>(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte* reg)
     {
-        return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retInt64Val;
+        return CallAsmJsFunctionX86Thunk(function, entryPoint, argv, argsSize, reg).i64;
     }
-    template <> float JavascriptFunction::CallAsmJsFunction<float>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
+    template <> float JavascriptFunction::CallAsmJsFunction<float>(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte* reg)
     {
-        return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retFloatVal;
+        return CallAsmJsFunctionX86Thunk(function, entryPoint, argv, argsSize, reg).f32;
     }
-    template <> double JavascriptFunction::CallAsmJsFunction<double>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
+    template <> double JavascriptFunction::CallAsmJsFunction<double>(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte* reg)
     {
-        return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retDoubleVal;
+        return CallAsmJsFunctionX86Thunk(function, entryPoint, argv, argsSize, reg).f64;
     }
-    template <> AsmJsSIMDValue JavascriptFunction::CallAsmJsFunction<AsmJsSIMDValue>(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
+    template <> AsmJsSIMDValue JavascriptFunction::CallAsmJsFunction<AsmJsSIMDValue>(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte* reg)
     {
-        return CallAsmJsFunctionX86Thunk(function, entryPoint, argc, argv).retSimdVal;
+        return CallAsmJsFunctionX86Thunk(function, entryPoint, argv, argsSize, reg).simd;
     }
 
-    PossibleAsmJsReturnValues JavascriptFunction::CallAsmJsFunctionX86Thunk(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv)
+    PossibleAsmJsReturnValues JavascriptFunction::CallAsmJsFunctionX86Thunk(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte*)
     {
-        enum {
-            IsFloat = 1 << AsmJsRetType::Float,
-            IsDouble = 1 << AsmJsRetType::Double,
-            IsInt64 = 1 << AsmJsRetType::Int64,
-            IsSimd =
-            1 << AsmJsRetType::Int32x4 |
-            1 << AsmJsRetType::Bool32x4 |
-            1 << AsmJsRetType::Bool16x8 |
-            1 << AsmJsRetType::Bool8x16 |
-            1 << AsmJsRetType::Float32x4 |
-            1 << AsmJsRetType::Float64x2 |
-            1 << AsmJsRetType::Int16x8 |
-            1 << AsmJsRetType::Int8x16 |
-            1 << AsmJsRetType::Uint32x4 |
-            1 << AsmJsRetType::Uint16x8 |
-            1 << AsmJsRetType::Uint8x16,
-            CannotUseEax = IsFloat | IsDouble | IsInt64 | IsSimd
-        };
+        void* savedEsp;
+        _declspec(align(16)) PossibleAsmJsReturnValues retVals;
+        CompileAssert(sizeof(PossibleAsmJsReturnValues) == sizeof(int64) + sizeof(AsmJsSIMDValue));
+        CompileAssert(offsetof(PossibleAsmJsReturnValues, low) == offsetof(PossibleAsmJsReturnValues, i32));
+        CompileAssert(offsetof(PossibleAsmJsReturnValues, high) == offsetof(PossibleAsmJsReturnValues, i32) + sizeof(int32));
 
-        AsmJsFunctionInfo* asmInfo = ((ScriptFunction*)function)->GetFunctionBody()->GetAsmJsFunctionInfo();
-        Assert((uint)((ArgSlot)asmInfo->GetArgCount() + 1) == (uint)(asmInfo->GetArgCount() + 1));
-        uint argsSize = asmInfo->GetArgByteSize();
-        uint alignedSize = ::Math::Align<int32>(argsSize, 8);
-        ScriptContext * scriptContext = function->GetScriptContext();
-        PROBE_STACK_CALL(scriptContext, function, alignedSize);
-
-        PossibleAsmJsReturnValues retVals;
-        AsmJsRetType::Which retType = asmInfo->GetReturnType().which();
-
-        void *data = nullptr;
-        void *savedEsp = nullptr;
-        __asm
-        {
-            // Save ESP
-            mov savedEsp, esp;
-            mov eax, alignedSize;
-            // Make sure we don't go beyond guard page
-            cmp eax, 0x1000;
-            jge alloca_probe;
-            sub esp, eax;
-            jmp dbl_align;
-alloca_probe :
-            // Use alloca to allocate more then a page size
-            // Alloca assumes eax, contains size, and adjust ESP while
-            // probing each page.
-            call _alloca_probe_16;
-dbl_align :
-            and esp,-8
-                mov data, esp;
-        }
-
-        {
-            Var* outParam = argv + 1;
-            void* dest = (void*)data;
-            memmove(dest, outParam, argsSize);
-
-        }
         // call variable argument function provided in entryPoint
         __asm
         {
+            mov savedEsp, esp;
+            mov eax, argsSize;
+            cmp eax, 0x1000;
+            jl allocate_stack;
+            // Use _chkstk to probe each page when using more then a page size
+            call _chkstk;
+allocate_stack:
+            sub esp, eax;
+
+            mov edi, esp;
+            mov esi, argv;
+            add esi, 4; // Skip function
+            mov ecx, argsSize;
+            rep movs byte ptr[edi], byte ptr[esi];
+
 #ifdef _CONTROL_FLOW_GUARD
             // verify that the call target is valid
             mov  ecx, entryPoint
@@ -1211,35 +1178,9 @@ dbl_align :
 #endif
             push function;
             call entryPoint;
-            push edx; // save possible int64 return value
-            mov ecx, retType;
-            mov edx, 1;
-            shl edx, cl;
-            pop ecx; // restore possible int64 return value
-            and edx, CannotUseEax;
-            jz FromEax;
-            and edx, ~IsInt64;
-            jz FromEaxEcx;
-            and edx, ~IsFloat;
-            jz FromXmmWord;
-            and edx, ~IsDouble;
-            jz FromXmmDWord;
-            // simd
-            movups retVals.retSimdVal, xmm0;
-            jmp end
-                FromEax:
-            mov retVals.retIntVal, eax;
-            jmp end;
-FromEaxEcx:
-            mov retVals.retIntVal, eax;
-            mov retVals.retIntVal + 4, ecx;
-            jmp end;
-FromXmmWord:
-            movss retVals.retFloatVal, xmm0;
-            jmp end;
-FromXmmDWord:
-            movsd retVals.retDoubleVal, xmm0;
-end:
+            mov retVals.low, eax;
+            mov retVals.high, edx;
+            movaps retVals.xmm, xmm0;
             // Restore ESP
             mov esp, savedEsp;
         }
@@ -1265,7 +1206,7 @@ void __cdecl _alloca_probe_16()
 #endif
 
     static Var LocalCallFunction(RecyclableObject* function,
-        JavascriptMethod entryPoint, Arguments args, bool doStackProbe)
+        JavascriptMethod entryPoint, Arguments args, bool doStackProbe, bool useLargeArgCount = false)
     {
         Js::Var varResult;
 
@@ -1274,7 +1215,8 @@ void __cdecl _alloca_probe_16()
 #endif
         // compute size of stack to reserve
         CallInfo callInfo = args.Info;
-        uint argsSize = callInfo.Count * sizeof(Var);
+        uint argCount = useLargeArgCount ? args.GetLargeArgCountWithExtraArgs() : args.GetArgCountWithExtraArgs();
+        uint argsSize = argCount * sizeof(Var);
 
         ScriptContext * scriptContext = function->GetScriptContext();
 
@@ -1282,6 +1224,8 @@ void __cdecl _alloca_probe_16()
         {
             PROBE_STACK_CALL(scriptContext, function, argsSize);
         }
+
+        JS_REENTRANCY_CHECK(scriptContext->GetThreadContext());
 
         void *data;
         void *savedEsp;
@@ -1310,7 +1254,7 @@ dbl_align:
 
             Var* dest = (Var*)data;
             Var* src = args.Values;
-            for(unsigned int i =0; i < callInfo.Count; i++)
+            for(unsigned int i =0; i < argCount; i++)
             {
                 dest[i] = src[i];
             }
@@ -1344,18 +1288,19 @@ dbl_align:
     // when __asm op is under a template function
     template <bool doStackProbe>
     Var JavascriptFunction::CallFunction(RecyclableObject* function,
-        JavascriptMethod entryPoint, Arguments args)
+        JavascriptMethod entryPoint, Arguments args, bool useLargeArgCount)
     {
-        return LocalCallFunction(function, entryPoint, args, doStackProbe);
+        return LocalCallFunction(function, entryPoint, args, doStackProbe, useLargeArgCount);
     }
 
 #elif _M_X64
     template <bool doStackProbe>
-    Var JavascriptFunction::CallFunction(RecyclableObject *function, JavascriptMethod entryPoint, Arguments args)
+    Var JavascriptFunction::CallFunction(RecyclableObject *function, JavascriptMethod entryPoint, Arguments args, bool useLargeArgCount)
     {
         // compute size of stack to reserve and make sure we have enough stack.
-        CallInfo callInfo = args.Info;
-        uint argsSize = callInfo.Count * sizeof(Var);
+        uint argCount = useLargeArgCount ? args.GetLargeArgCountWithExtraArgs() : args.GetArgCountWithExtraArgs();
+        uint argsSize = argCount * sizeof(Var);
+
         if (doStackProbe == true)
         {
             PROBE_STACK_CALL(function->GetScriptContext(), function, argsSize);
@@ -1365,20 +1310,20 @@ dbl_align:
 #endif
 
         return JS_REENTRANCY_CHECK(function->GetScriptContext()->GetThreadContext(),
-            amd64_CallFunction(function, entryPoint, args.Info, args.Info.Count, &args.Values[0]));
+            amd64_CallFunction(function, entryPoint, args.Info, argCount, &args.Values[0]));
     }
 #elif defined(_M_ARM)
     extern "C"
     {
-        extern Var arm_CallFunction(JavascriptFunction* function, CallInfo info, Var* values, JavascriptMethod entryPoint);
+        extern Var arm_CallFunction(JavascriptFunction* function, CallInfo info, uint argCount, Var* values, JavascriptMethod entryPoint);
     }
 
     template <bool doStackProbe>
-    Var JavascriptFunction::CallFunction(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args)
+    Var JavascriptFunction::CallFunction(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args, bool useLargeArgCount)
     {
         // compute size of stack to reserve and make sure we have enough stack.
-        CallInfo callInfo = args.Info;
-        uint argsSize = callInfo.Count * sizeof(Var);
+        uint argCount = useLargeArgCount ? args.GetLargeArgCountWithExtraArgs() : args.GetArgCountWithExtraArgs();
+        uint argsSize = argCount * sizeof(Var);
         if (doStackProbe)
         {
             PROBE_STACK_CALL(function->GetScriptContext(), function, argsSize);
@@ -1391,13 +1336,12 @@ dbl_align:
 
         //The ARM can pass 4 arguments via registers so handle the cases for 0 or 1 values without resorting to asm code
         //(so that the asm code can assume 0 or more values will go on the stack: putting -1 values on the stack is unhealthy).
-        unsigned count = args.Info.Count;
-        if (count == 0)
+        if (argCount == 0)
         {
             varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
                 entryPoint, (JavascriptFunction*)function, args.Info);
         }
-        else if (count == 1)
+        else if (argCount == 1)
         {
             varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
                 entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0]);
@@ -1405,7 +1349,7 @@ dbl_align:
         else
         {
             varResult = JS_REENTRANCY_CHECK(function->GetScriptContext()->GetThreadContext(),
-                arm_CallFunction((JavascriptFunction*)function, args.Info, args.Values, entryPoint));
+                arm_CallFunction((JavascriptFunction*)function, args.Info, argCount, args.Values, entryPoint));
         }
 
         return varResult;
@@ -1413,15 +1357,15 @@ dbl_align:
 #elif defined(_M_ARM64)
     extern "C"
     {
-        extern Var arm64_CallFunction(JavascriptFunction* function, CallInfo info, Var* values, JavascriptMethod entryPoint);
+        extern Var arm64_CallFunction(JavascriptFunction* function, CallInfo info, uint argCount, Var* values, JavascriptMethod entryPoint);
     }
 
     template <bool doStackProbe>
-    Var JavascriptFunction::CallFunction(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args)
+    Var JavascriptFunction::CallFunction(RecyclableObject* function, JavascriptMethod entryPoint, Arguments args, bool useLargeArgCount)
     {
         // compute size of stack to reserve and make sure we have enough stack.
-        CallInfo callInfo = args.Info;
-        uint argsSize = callInfo.Count * sizeof(Var);
+        uint argCount = useLargeArgCount ? args.GetLargeArgCountWithExtraArgs() : args.GetArgCountWithExtraArgs();
+        uint argsSize = argCount * sizeof(Var);
         if (doStackProbe)
         {
             PROBE_STACK_CALL(function->GetScriptContext(), function, argsSize);
@@ -1433,7 +1377,7 @@ dbl_align:
         Js::Var varResult;
 
         varResult = JS_REENTRANCY_CHECK(function->GetScriptContext()->GetThreadContext(),
-            arm64_CallFunction((JavascriptFunction*)function, args.Info, args.Values, entryPoint));
+            arm64_CallFunction((JavascriptFunction*)function, args.Info, argCount, args.Values, entryPoint));
 
         return varResult;
     }
@@ -1705,19 +1649,19 @@ LABEL1:
         Assert(functionInfo);
         try
         {
-            functionInfo->GetFunctionBody()->AddDeferParseAttribute();
-            functionInfo->GetFunctionBody()->ResetEntryPoint();
-            functionInfo->GetFunctionBody()->ResetInParams();
+        functionInfo->GetFunctionBody()->AddDeferParseAttribute();
+        functionInfo->GetFunctionBody()->ResetEntryPoint();
+        functionInfo->GetFunctionBody()->ResetInParams();
 
-            FunctionBody * funcBody = functionInfo->Parse(functionRef);
+        FunctionBody * funcBody = functionInfo->Parse(functionRef);
 
-    #if ENABLE_PROFILE_INFO
-            // This is the first call to the function, ensure dynamic profile info
-            funcBody->EnsureDynamicProfileInfo();
-    #endif
+#if ENABLE_PROFILE_INFO
+        // This is the first call to the function, ensure dynamic profile info
+        funcBody->EnsureDynamicProfileInfo();
+#endif
 
-            (*functionRef)->UpdateUndeferredBody(funcBody);
-        }
+        (*functionRef)->UpdateUndeferredBody(funcBody);
+    }
         catch (JavascriptException&)
         {
             Js::Throw::FatalInternalError();
@@ -2322,14 +2266,15 @@ LABEL1:
         {
             return false;
         }
-        Js::FunctionBody* funcBody = func->GetFunctionBody();
-        bool isWAsmJs = funcBody->GetIsAsmJsFunction();
-        bool isWasmOnly = funcBody->IsWasmFunction();
-        if (isWAsmJs)
+
+        bool isAsmJs = AsmJsScriptFunction::Is(func);
+        bool isWasmOnly = WasmScriptFunction::Is(func);
+        uintptr_t faultingAddr = helper.GetFaultingAddress();
+        if (isAsmJs)
         {
+            AsmJsScriptFunction* asmFunc = AsmJsScriptFunction::FromVar(func);
             // some extra checks for asm.js because we have slightly more information that we can validate
-            uintptr_t moduleMemory = (uintptr_t)((AsmJsScriptFunction*)func)->GetModuleMemory();
-            if (!moduleMemory)
+            if (!asmFunc->GetModuleEnvironment())
             {
                 return false;
             }
@@ -2339,14 +2284,14 @@ LABEL1:
 #ifdef ENABLE_WASM
             if (isWasmOnly)
             {
-                WebAssemblyMemory* mem = *(WebAssemblyMemory**)(moduleMemory + WebAssemblyModule::GetMemoryOffset());
+                WebAssemblyMemory* mem = WasmScriptFunction::FromVar(func)->GetWebAssemblyMemory();
                 arrayBuffer = mem->GetBuffer();
                 reservationSize = MAX_WASM__ARRAYBUFFER_LENGTH;
             }
             else
 #endif
             {
-                arrayBuffer = *(ArrayBuffer**)(moduleMemory + AsmJsModuleMemory::MemoryTableBeginOffset);
+                arrayBuffer = asmFunc->GetAsmJsArrayBuffer();
                 reservationSize = MAX_ASMJS_ARRAYBUFFER_LENGTH;
             }
 
@@ -2363,12 +2308,33 @@ LABEL1:
             {
                 return false;
             }
-            uintptr_t faultingAddr = helper.GetFaultingAddress();
             if (faultingAddr < bufferAddr)
             {
                 return false;
             }
             if (faultingAddr >= bufferAddr + reservationSize)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            MEMORY_BASIC_INFORMATION info = { 0 };
+            size_t size = VirtualQuery((LPCVOID)faultingAddr, &info, sizeof(info));
+            if (size == 0)
+            {
+                return false;
+            }
+            size_t allocationSize = info.RegionSize + ((uintptr_t)info.BaseAddress - (uintptr_t)info.AllocationBase);
+            if (allocationSize != MAX_WASM__ARRAYBUFFER_LENGTH && allocationSize != MAX_ASMJS_ARRAYBUFFER_LENGTH)
+            {
+                return false;
+            }
+            if (info.State != MEM_RESERVE)
+            {
+                return false;
+            }
+            if (info.Type != MEM_PRIVATE)
             {
                 return false;
             }
@@ -2496,6 +2462,16 @@ LABEL1:
             this->IsBoundFunction() ||
             this->IsStrictMode()
             );
+    }
+
+    void JavascriptFunction::SetIsJsBuiltInCode()
+    {
+        isJsBuiltInCode = true;
+    }
+
+    bool JavascriptFunction::IsJsBuiltIn()
+    {
+        return isJsBuiltInCode;
     }
 
     PropertyQueryFlags JavascriptFunction::HasPropertyQuery(PropertyId propertyId)
@@ -3098,8 +3074,7 @@ LABEL1:
 
     BOOL JavascriptFunction::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags)
     {
-        JsUtil::CharacterBuffer<WCHAR> propertyName(propertyNameString->GetString(), propertyNameString->GetLength());
-        if (BuiltInPropertyRecords::caller.Equals(propertyName) || BuiltInPropertyRecords::arguments.Equals(propertyName))
+        if (BuiltInPropertyRecords::caller.Equals(propertyNameString) || BuiltInPropertyRecords::arguments.Equals(propertyNameString))
         {
             if (this->HasRestrictedProperties())
             {
@@ -3107,7 +3082,7 @@ LABEL1:
                 return false;
             }
         }
-        else if (BuiltInPropertyRecords::length.Equals(propertyName))
+        else if (BuiltInPropertyRecords::length.Equals(propertyNameString))
         {
             if (this->IsScriptFunction())
             {
@@ -3118,7 +3093,7 @@ LABEL1:
 
         BOOL result = DynamicObject::DeleteProperty(propertyNameString, flags);
 
-        if (result && (BuiltInPropertyRecords::prototype.Equals(propertyName) || BuiltInPropertyRecords::_symbolHasInstance.Equals(propertyName)))
+        if (result && (BuiltInPropertyRecords::prototype.Equals(propertyNameString) || BuiltInPropertyRecords::_symbolHasInstance.Equals(propertyNameString)))
         {
             InvalidateConstructorCacheOnPrototypeChange();
             this->GetScriptContext()->GetThreadContext()->InvalidateIsInstInlineCachesForFunction(this);
@@ -3382,7 +3357,7 @@ LABEL1:
                 && scriptContext == function->GetScriptContext())// only register when function has same scriptContext
             {
                 inlineCache->Cache(RecyclableObject::Is(instance) ?
-                    RecyclableObject::FromVar(instance)->GetType() : nullptr,
+                    RecyclableObject::UnsafeFromVar(instance)->GetType() : nullptr,
                     function, scriptContext->GetLibrary()->GetFalse(), scriptContext);
             }
             return result;
@@ -3468,4 +3443,39 @@ LABEL1:
 
         return result;
     }
+
+#ifdef ALLOW_JIT_REPRO
+    Var JavascriptFunction::EntryInvokeJit(RecyclableObject* function, CallInfo callInfo, ...)
+    {
+        PROBE_STACK(function->GetScriptContext(), Js::Constants::MinStackDefault);
+
+        ARGUMENTS(args, callInfo);
+        ScriptContext* scriptContext = function->GetScriptContext();
+
+        Assert(!(callInfo.Flags & CallFlags_New));
+
+        // todo:: make it work with inproc jit
+        if (!JITManager::GetJITManager()->IsOOPJITEnabled())
+        {
+            Output::Print(_u("Out of proc jit is necessary to repro using an encoded buffer"));
+            Js::Throw::FatalInternalError();
+        }
+
+        if (args.Info.Count < 2 || !ArrayBufferBase::Is(args[1]))
+        {
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedArrayBufferObject);
+        }
+
+        ArrayBufferBase* arrayBuffer = ArrayBufferBase::FromVar(args[1]);
+        const byte* buffer = arrayBuffer->GetBuffer();
+        uint32 size = arrayBuffer->GetByteLength();
+        HRESULT hr = JitFromEncodedWorkItem(scriptContext->GetNativeCodeGenerator(), buffer, size);
+        if (FAILED(hr))
+        {
+            JavascriptExceptionOperators::OP_Throw(JavascriptNumber::New(hr, scriptContext), scriptContext);
+        }
+        return scriptContext->GetLibrary()->GetUndefined();
+    }
+#endif
+
 }

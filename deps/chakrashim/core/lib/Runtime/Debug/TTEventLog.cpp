@@ -551,6 +551,7 @@ namespace TTD
         TTD_CREATE_EVENTLIST_VTABLE_ENTRY_COMMON(HasOwnPropertyActionTag, ContextAPIWrapper, JsRTSingleVarScalarArgumentAction, HasOwnPropertyAction_Execute);
         TTD_CREATE_EVENTLIST_VTABLE_ENTRY_COMMON(InstanceOfActionTag, ContextAPIWrapper, JsRTDoubleVarArgumentAction, InstanceOfAction_Execute);
         TTD_CREATE_EVENTLIST_VTABLE_ENTRY_COMMON(EqualsActionTag, ContextAPIWrapper, JsRTDoubleVarSingleScalarArgumentAction, EqualsAction_Execute);
+        TTD_CREATE_EVENTLIST_VTABLE_ENTRY_COMMON(LessThanActionTag, ContextAPIWrapper, JsRTDoubleVarSingleScalarArgumentAction, LessThanAction_Execute);
 
         TTD_CREATE_EVENTLIST_VTABLE_ENTRY_COMMON(GetPropertyIdFromSymbolTag, ContextAPINoScriptWrapper, JsRTSingleVarArgumentAction, GetPropertyIdFromSymbolAction_Execute);
 
@@ -821,8 +822,8 @@ namespace TTD
 
         if(tEvent->InfoString.Length != infoStrLength)
         {
-            wprintf(_u("New Telemetry Msg: %ls\n"), infoStr);
-            wprintf(_u("Original Telemetry Msg: %ls\n"), tEvent->InfoString.Contents);
+            Output::Print(_u("New Telemetry Msg: %ls\n"), infoStr);
+            Output::Print(_u("Original Telemetry Msg: %ls\n"), tEvent->InfoString.Contents);
             TTDAssert(false, "Telemetry messages differ??");
         }
         else
@@ -831,8 +832,8 @@ namespace TTD
             {
                 if(tEvent->InfoString.Contents[i] != infoStr[i])
                 {
-                    wprintf(_u("New Telemetry Msg: %ls\n"), infoStr);
-                    wprintf(_u("Original Telemetry Msg: %ls\n"), tEvent->InfoString.Contents);
+                    Output::Print(_u("New Telemetry Msg: %ls\n"), infoStr);
+                    Output::Print(_u("Original Telemetry Msg: %ls\n"), tEvent->InfoString.Contents);
                     TTDAssert(false, "Telemetry messages differ??");
 
                     break;
@@ -1198,7 +1199,8 @@ namespace TTD
 
     bool EventLog::IsTimeForSnapshot() const
     {
-        return (this->m_elapsedExecutionTimeSinceSnapshot > this->m_threadContext->TTDContext->SnapInterval);
+        return this->m_threadContext->TTDContext->SnapInterval == 0   // if SnapInterval is 0, we'll always snapshot irrespective of when last one was taken
+            || (this->m_elapsedExecutionTimeSinceSnapshot > this->m_threadContext->TTDContext->SnapInterval);
     }
 
     void EventLog::PruneLogLength()
@@ -2200,6 +2202,17 @@ namespace TTD
         actionPopper.InitializeWithEventAndEnter(evt);
     }
 
+    void EventLog::RecordJsRTLessThan(TTDJsRTActionResultAutoRecorder& actionPopper, Js::Var var1, Js::Var var2, bool allowsEqual)
+    {
+        NSLogEvents::JsRTDoubleVarSingleScalarArgumentAction* gpAction = nullptr;
+        NSLogEvents::EventLogEntry* evt = this->RecordGetInitializedEvent<NSLogEvents::JsRTDoubleVarSingleScalarArgumentAction, NSLogEvents::EventKind::LessThanActionTag>(&gpAction);
+        NSLogEvents::SetVarItem_0(gpAction, TTD_CONVERT_JSVAR_TO_TTDVAR(var1));
+        NSLogEvents::SetVarItem_1(gpAction, TTD_CONVERT_JSVAR_TO_TTDVAR(var2));
+        NSLogEvents::SetScalarItem_0(gpAction, allowsEqual);
+
+        actionPopper.InitializeWithEventAndEnter(evt);
+    }
+
     void EventLog::RecordJsRTGetPropertyIdFromSymbol(TTDJsRTActionResultAutoRecorder& actionPopper, Js::Var sym)
     {
         NSLogEvents::JsRTSingleVarArgumentAction* gpAction = nullptr;
@@ -2559,7 +2572,7 @@ namespace TTD
 
         writer.WriteSequenceStart_DefaultKey(NSTokens::Separator::CommaSeparator);
         writer.AdjustIndent(1);
-        writer.WriteSeperator(NSTokens::Separator::BigSpaceSeparator);
+        writer.WriteSeparator(NSTokens::Separator::BigSpaceSeparator);
         for(auto iter = this->m_eventList.GetIteratorAtFirst(); iter.IsValid(); iter.MoveNext())
         {
             const NSLogEvents::EventLogEntry* evt = iter.Current();
@@ -2595,7 +2608,7 @@ namespace TTD
                 {
                     writer.AdjustIndent(1);
 
-                    writer.WriteSeperator(NSTokens::Separator::BigSpaceSeparator);
+                    writer.WriteSeparator(NSTokens::Separator::BigSpaceSeparator);
                     firstElem = true;
                 }
             }
@@ -2607,7 +2620,7 @@ namespace TTD
                 if(!isJsRTCall & !isExternalCall & !isRegisterCall)
                 {
                     writer.AdjustIndent(-1);
-                    writer.WriteSeperator(NSTokens::Separator::BigSpaceSeparator);
+                    writer.WriteSeparator(NSTokens::Separator::BigSpaceSeparator);
                 }
                 writer.WriteSequenceEnd();
 

@@ -69,6 +69,9 @@ namespace Js
         friend class JavascriptNativeArray; // for xplat offsetof field access
         friend class JavascriptOperators; // for ReplaceType
         friend class PathTypeHandlerBase; // for ReplaceType
+        friend class SimplePathTypeHandlerNoAttr;
+        friend class SimplePathTypeHandlerWithAttr;
+        friend class PathTypeHandlerNoAttr;
         friend class JavascriptLibrary;  // for ReplaceType
         friend class ScriptFunction; // for ReplaceType;
         friend class JSON::JSONParser; //for ReplaceType
@@ -131,6 +134,7 @@ namespace Js
 
         static bool Is(Var aValue);
         static DynamicObject* FromVar(Var value);
+        static DynamicObject* UnsafeFromVar(Var value);
 
         void EnsureSlots(int oldCount, int newCount, ScriptContext * scriptContext, DynamicTypeHandler * newTypeHandler = nullptr);
         void EnsureSlots(int newCount, ScriptContext *scriptContext);
@@ -238,7 +242,9 @@ namespace Js
         virtual BOOL SetPropertyWithAttributes(PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags = PropertyOperation_None, SideEffects possibleSideEffects = SideEffects_Any) override;
         virtual BOOL DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags) override;
         virtual BOOL DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags) override;
+#if ENABLE_FIXED_FIELDS
         virtual BOOL IsFixedProperty(PropertyId propertyId) override;
+#endif
         virtual PropertyQueryFlags HasItemQuery(uint32 index) override;
         virtual BOOL HasOwnItem(uint32 index) override;
         virtual PropertyQueryFlags GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext) override;

@@ -2,6 +2,13 @@
 <regress-exe>
   <test>
     <default>
+      <files>likely.js</files>
+      <compile-flags>-bgjit- -lic:1</compile-flags>
+      <tags>typedarray</tags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>arraybuffer.js</files>
       <baseline>arrayBuffer.baseline</baseline>
       <tags>typedarray</tags>
@@ -95,6 +102,7 @@
       <files>dataview.js</files>
       <baseline>dataview.baseline</baseline>
       <tags>typedarray</tags>
+      <timeout>300</timeout>
     </default>
   </test>
   <test>
@@ -106,12 +114,26 @@
   </test>
   <test>
     <default>
+      <files>objectproperty.js</files>
+      <baseline>objectproperty_es6.baseline</baseline>
+      <compile-flags>-force:typedarrayvirtual</compile-flags>
+      <tags>typedarray</tags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>nan.js</files>
       <baseline>nan.baseline</baseline>
       <tags>typedarray,exclude_nonrazzle</tags>
     </default>
     <condition order="1" type="include">
       <target>amd64</target>
+      <override>
+        <baseline>nan.x64.baseline</baseline>
+      </override>
+    </condition>
+    <condition order="2" type="include">
+      <target>arm64</target>
       <override>
         <baseline>nan.x64.baseline</baseline>
       </override>
@@ -133,9 +155,18 @@
   </test>
   <test>
     <default>
+      <files>set.js</files>
+      <baseline>set.baseline</baseline>
+      <compile-flags>-force:typedarrayvirtual</compile-flags>
+      <tags>typedarray</tags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>samethread.js</files>
       <baseline>samethread.baseline</baseline>
       <tags>typedarray</tags>
+      <timeout>300</timeout>
     </default>
   </test>
   <!--
@@ -277,6 +308,14 @@ Below test fails with difference in space. Investigate the cause and re-enable t
   </test>
   <test>
     <default>
+      <files>setDifferentTypes.js</files>
+      <baseline>setDifferentTypes.baseline</baseline>
+      <compile-flags>-force:typedarrayvirtual</compile-flags>
+      <tags>typedarray</tags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>bug2230916.js</files>
       <tags>typedarray</tags>
     </default>
@@ -293,21 +332,6 @@ Below test fails with difference in space. Investigate the cause and re-enable t
     <default>
       <files>bug_4653428.js</files>
       <tags>typedarray,BUG</tags>
-    </default>
-  </test>
-  <test>
-    <default>
-      <files>transfer.js</files>
-      <baseline>transfer.baseline</baseline>
-      <compile-flags>-ArrayBufferTransfer</compile-flags>
-      <tags>typedarray</tags>
-    </default>
-  </test>
-  <test>
-    <default>
-      <files>transferdetach.js</files>
-      <compile-flags>-ArrayBufferTransfer</compile-flags>
-      <tags>typedarray</tags>
     </default>
   </test>
   <test>
@@ -349,6 +373,8 @@ Below test fails with difference in space. Investigate the cause and re-enable t
   <test>
     <default>
       <files>reentry1.js</files>
+      <timeout>480</timeout> <!-- ARM64 takes ~8 min -->
+      <tags>xplatslow,Slow</tags>
     </default>
   </test>
   <test>

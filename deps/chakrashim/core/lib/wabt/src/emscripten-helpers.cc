@@ -21,25 +21,24 @@
 
 #include <memory>
 
-#include "apply-names.h"
-#include "binary-reader.h"
-#include "binary-reader-ir.h"
-#include "binary-writer.h"
-#include "common.h"
-#include "error-handler.h"
-#include "ir.h"
-#include "generate-names.h"
-#include "resolve-names.h"
-#include "stream.h"
-#include "validator.h"
-#include "wast-lexer.h"
-#include "wast-parser.h"
-#include "wat-writer.h"
-#include "writer.h"
+#include "src/apply-names.h"
+#include "src/binary-reader.h"
+#include "src/binary-reader-ir.h"
+#include "src/binary-writer.h"
+#include "src/common.h"
+#include "src/error-handler.h"
+#include "src/ir.h"
+#include "src/generate-names.h"
+#include "src/resolve-names.h"
+#include "src/stream.h"
+#include "src/validator.h"
+#include "src/wast-lexer.h"
+#include "src/wast-parser.h"
+#include "src/wat-writer.h"
 
-struct WabtParseWastResult {
+struct WabtParseWatResult {
   wabt::Result result;
-  std::unique_ptr<wabt::Script> script;
+  std::unique_ptr<wabt::Module> module;
 };
 
 struct WabtReadBinaryResult {
@@ -63,12 +62,12 @@ wabt::WastLexer* wabt_new_wast_buffer_lexer(const char* filename,
   return lexer.release();
 }
 
-WabtParseWastResult* wabt_parse_wast(wabt::WastLexer* lexer,
-                                     wabt::ErrorHandlerBuffer* error_handler) {
-  WabtParseWastResult* result = new WabtParseWastResult();
-  wabt::Script* script = nullptr;
-  result->result = wabt::ParseWast(lexer, &script, error_handler);
-  result->script.reset(script);
+WabtParseWatResult* wabt_parse_wat(wabt::WastLexer* lexer,
+                                   wabt::ErrorHandlerBuffer* error_handler) {
+  WabtParseWatResult* result = new WabtParseWatResult();
+  std::unique_ptr<wabt::Module> module;
+  result->result = wabt::ParseWatModule(lexer, &module, error_handler);
+  result->module = std::move(module);
   return result;
 }
 
@@ -78,7 +77,6 @@ WabtReadBinaryResult* wabt_read_binary(
     int read_debug_names,
     wabt::ErrorHandlerBuffer* error_handler) {
   wabt::ReadBinaryOptions options;
-  options.log_stream = nullptr;
   options.read_debug_names = read_debug_names;
 
   WabtReadBinaryResult* result = new WabtReadBinaryResult();
@@ -91,36 +89,27 @@ WabtReadBinaryResult* wabt_read_binary(
   return result;
 }
 
-wabt::Result wabt_resolve_names_script(
-    wabt::WastLexer* lexer,
-    wabt::Script* script,
-    wabt::ErrorHandlerBuffer* error_handler) {
-  return ResolveNamesScript(lexer, script, error_handler);
-}
-
-wabt::Result wabt_resolve_names_module(
+wabt::Result::Enum wabt_resolve_names_module(
     wabt::WastLexer* lexer,
     wabt::Module* module,
     wabt::ErrorHandlerBuffer* error_handler) {
   return ResolveNamesModule(lexer, module, error_handler);
 }
 
-wabt::Result wabt_validate_script(wabt::WastLexer* lexer,
-                                  wabt::Script* script,
-                                  wabt::ErrorHandlerBuffer* error_handler) {
-  return ValidateScript(lexer, script, error_handler);
+wabt::Result::Enum wabt_validate_module(
+    wabt::WastLexer* lexer,
+    wabt::Module* module,
+    wabt::ErrorHandlerBuffer* error_handler) {
+  wabt::ValidateOptions options;
+  return ValidateModule(lexer, module, error_handler, &options);
 }
 
-wabt::Result wabt_apply_names_module(wabt::Module* module) {
+wabt::Result::Enum wabt_apply_names_module(wabt::Module* module) {
   return ApplyNames(module);
 }
 
-wabt::Result wabt_generate_names_module(wabt::Module* module) {
+wabt::Result::Enum wabt_generate_names_module(wabt::Module* module) {
   return GenerateNames(module);
-}
-
-wabt::Module* wabt_get_first_module(wabt::Script* script) {
-  return script->GetFirstModule();
 }
 
 WabtWriteModuleResult* wabt_write_binary_module(wabt::Module* module,
@@ -128,19 +117,18 @@ WabtWriteModuleResult* wabt_write_binary_module(wabt::Module* module,
                                                 int canonicalize_lebs,
                                                 int relocatable,
                                                 int write_debug_names) {
-  wabt::MemoryStream stream;
+  wabt::MemoryStream log_stream;
   wabt::WriteBinaryOptions options;
-  options.log_stream = log ? &stream : nullptr;
   options.canonicalize_lebs = canonicalize_lebs;
   options.relocatable = relocatable;
   options.write_debug_names = write_debug_names;
 
-  wabt::MemoryWriter writer;
+  wabt::MemoryStream stream(log ? &log_stream : nullptr);
   WabtWriteModuleResult* result = new WabtWriteModuleResult();
-  result->result = WriteBinaryModule(&writer, module, &options);
+  result->result = WriteBinaryModule(&stream, module, &options);
   if (result->result == wabt::Result::Ok) {
-    result->buffer = writer.ReleaseOutputBuffer();
-    result->log_buffer = log ? stream.ReleaseOutputBuffer() : nullptr;
+    result->buffer = stream.ReleaseOutputBuffer();
+    result->log_buffer = log ? log_stream.ReleaseOutputBuffer() : nullptr;
   }
   return result;
 }
@@ -148,22 +136,17 @@ WabtWriteModuleResult* wabt_write_binary_module(wabt::Module* module,
 WabtWriteModuleResult* wabt_write_text_module(wabt::Module* module,
                                               int fold_exprs,
                                               int inline_export) {
-  wabt::MemoryStream stream;
   wabt::WriteWatOptions options;
   options.fold_exprs = fold_exprs;
   options.inline_export = inline_export;
 
-  wabt::MemoryWriter writer;
+  wabt::MemoryStream stream;
   WabtWriteModuleResult* result = new WabtWriteModuleResult();
-  result->result = WriteWat(&writer, module, &options);
+  result->result = WriteWat(&stream, module, &options);
   if (result->result == wabt::Result::Ok) {
-    result->buffer = writer.ReleaseOutputBuffer();
+    result->buffer = stream.ReleaseOutputBuffer();
   }
   return result;
-}
-
-void wabt_destroy_script(wabt::Script* script) {
-  delete script;
 }
 
 void wabt_destroy_module(wabt::Module* module) {
@@ -198,22 +181,23 @@ void wabt_destroy_error_handler_buffer(
   delete error_handler;
 }
 
-// WabtParseWastResult
-wabt::Result wabt_parse_wast_result_get_result(WabtParseWastResult* result) {
+// WabtParseWatResult
+wabt::Result::Enum wabt_parse_wat_result_get_result(
+    WabtParseWatResult* result) {
   return result->result;
 }
 
-wabt::Script* wabt_parse_wast_result_release_script(
-    WabtParseWastResult* result) {
-  return result->script.release();
+wabt::Module* wabt_parse_wat_result_release_module(WabtParseWatResult* result) {
+  return result->module.release();
 }
 
-void wabt_destroy_parse_wast_result(WabtParseWastResult* result) {
+void wabt_destroy_parse_wat_result(WabtParseWatResult* result) {
   delete result;
 }
 
 // WabtReadBinaryResult
-wabt::Result wabt_read_binary_result_get_result(WabtReadBinaryResult* result) {
+wabt::Result::Enum wabt_read_binary_result_get_result(
+    WabtReadBinaryResult* result) {
   return result->result;
 }
 
@@ -227,7 +211,7 @@ void wabt_destroy_read_binary_result(WabtReadBinaryResult* result) {
 }
 
 // WabtWriteModuleResult
-wabt::Result wabt_write_module_result_get_result(
+wabt::Result::Enum wabt_write_module_result_get_result(
     WabtWriteModuleResult* result) {
   return result->result;
 }

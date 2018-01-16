@@ -14,6 +14,7 @@ namespace Wasm
         const int8 i64 = 0x80 - 0x2;
         const int8 f32 = 0x80 - 0x3;
         const int8 f64 = 0x80 - 0x4;
+        const int8 m128 = 0x80 - 0x5;
         const int8 anyfunc = 0x80 - 0x10;
         const int8 func = 0x80 - 0x20;
         const int8 emptyBlock = 0x80 - 0x40;
@@ -54,8 +55,12 @@ namespace Wasm
         bool ProcessCurrentSection();
         virtual void SeekToFunctionBody(class WasmFunctionInfo* funcInfo) override;
         virtual bool IsCurrentFunctionCompleted() const override;
+
+        WasmOp ReadPrefixedOpCode(WasmOp prefix, bool isSupported, const char16* notSupportedMsg);
+        WasmOp ReadOpCode();
         virtual WasmOp ReadExpr() override;
         virtual void FunctionEnd() override;
+        virtual const uint32 EstimateCurrentFunctionBytecodeSize() const override;
 #if DBG_DUMP
         void PrintOps();
 #endif
@@ -63,8 +68,11 @@ namespace Wasm
     private:
         struct ReaderState
         {
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+            Js::FunctionBody* body = nullptr;
+#endif
             uint32 count; // current entry
-            size_t size;  // number of entries
+            uint32 size;  // binary size of the function
         };
 
         void BlockNode();
@@ -73,6 +81,8 @@ namespace Wasm
         void BrNode();
         void BrTableNode();
         void MemNode();
+        void LaneNode();
+        void ShuffleNode();
         void VarNode();
 
         // Module readers
@@ -108,11 +118,10 @@ namespace Wasm
         void CheckBytesLeft(uint32 bytesNeeded);
         bool EndOfFunc();
         bool EndOfModule();
-        DECLSPEC_NORETURN void ThrowDecodingError(const char16* msg, ...);
+        DECLSPEC_NORETURN void ThrowDecodingError(const char16* msg, ...) const;
         Wasm::WasmTypes::WasmType ReadWasmType(uint32& length);
 
         ArenaAllocator* m_alloc;
-        uint32 m_funcNumber;
         const byte* m_start, *m_end, *m_pc, *m_curFuncEnd;
         SectionHeader m_currentSection;
         ReaderState m_funcState;   // func AST level
@@ -125,6 +134,9 @@ namespace Wasm
             READER_STATE_MODULE
         } m_readerState;
         Js::WebAssemblyModule* m_module;
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+        Js::FunctionBody* GetFunctionBody() const;
+#endif
 #if DBG_DUMP
         typedef JsUtil::BaseHashSet<WasmOp, ArenaAllocator, PowerOf2SizePolicy> OpSet;
         OpSet* m_ops;

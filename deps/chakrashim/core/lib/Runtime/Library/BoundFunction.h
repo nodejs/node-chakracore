@@ -10,11 +10,7 @@ namespace Js
     {
     protected:
         DEFINE_VTABLE_CTOR(BoundFunction, JavascriptFunction);
-        virtual void MarshalToScriptContext(Js::ScriptContext * scriptContext) override;
-
-#if ENABLE_TTD
-        virtual void MarshalCrossSite_TTDInflate() override;
-#endif
+        DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(BoundFunction);
 
     private:
         bool GetPropertyBuiltIns(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext, BOOL* result);
@@ -27,7 +23,7 @@ namespace Js
     public:
         static BoundFunction* New(ScriptContext* scriptContext, ArgumentReader args);
 
-        static bool Is(Var func){ return JavascriptFunction::Is(func) && JavascriptFunction::FromVar(func)->IsBoundFunction(); }
+        static bool Is(Var func){ return JavascriptFunction::Is(func) && JavascriptFunction::UnsafeFromVar(func)->IsBoundFunction(); }
         static Var NewInstance(RecyclableObject* function, CallInfo callInfo, ...);
         virtual JavascriptString* GetDisplayNameImpl() const override;
         virtual PropertyQueryFlags HasPropertyQuery(PropertyId propertyId) override;

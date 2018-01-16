@@ -605,6 +605,15 @@ namespace Js
 
     CompoundString *CompoundString::FromVar(RecyclableObject *const object)
     {
+        AssertOrFailFast(Is(object));
+
+        CompoundString *const cs = static_cast<CompoundString *>(object);
+        Assert(!cs->IsFinalized());
+        return cs;
+    }
+
+    CompoundString *CompoundString::UnsafeFromVar(RecyclableObject *const object)
+    {
         Assert(Is(object));
 
         CompoundString *const cs = static_cast<CompoundString *>(object);
@@ -617,6 +626,11 @@ namespace Js
         return FromVar(RecyclableObject::FromVar(var));
     }
 
+    CompoundString *CompoundString::UnsafeFromVar(const Var var)
+    {
+        return UnsafeFromVar(RecyclableObject::UnsafeFromVar(var));
+    }
+
     JavascriptString *CompoundString::GetImmutableOrScriptUnreferencedString(JavascriptString *const s)
     {
         Assert(s);
@@ -626,7 +640,7 @@ namespace Js
         // another CompoundString, for instance). If the provided string is a CompoundString, it must not be mutated by script
         // code after the concatenation operation. In that case, clone the string to ensure that it is not referenced by script
         // code. If the clone is never handed back to script code, it effectively behaves as an immutable string.
-        return Is(s) ? FromVar(s)->Clone(false) : s;
+        return Is(s) ? UnsafeFromVar(s)->Clone(false) : s;
     }
 
     bool CompoundString::ShouldAppendChars(const CharCount appendCharLength)
@@ -717,7 +731,7 @@ namespace Js
         Assert(packedSubstringInfoRef);
         Assert(packedSubstringInfo2Ref);
 
-    #if defined(_M_X64_OR_ARM64)
+    #if defined(TARGET_64)
         // On 64-bit architectures, two nonnegative 32-bit ints fit completely in a tagged pointer
         *packedSubstringInfoRef =
             reinterpret_cast<void *>(
@@ -776,7 +790,7 @@ namespace Js
         const uintptr_t packedSubstringInfo = reinterpret_cast<uintptr_t>(pointer);
         Assert(packedSubstringInfo & 1);
 
-    #if defined(_M_X64_OR_ARM64)
+    #if defined(TARGET_64)
         // On 64-bit architectures, two nonnegative 32-bit ints fit completely in a tagged pointer
         Assert(!pointer2);
         *startIndexRef = static_cast<CharCount>(packedSubstringInfo >> 32);
@@ -1100,7 +1114,7 @@ namespace Js
                 Assert(pointerIndex != 0);
                 void *pointer2 = blockPointers[--pointerIndex];
                 JavascriptString *s;
-    #if defined(_M_X64_OR_ARM64)
+    #if defined(TARGET_64)
                 Assert(!IsPackedInfo(pointer2));
     #else
                 if(IsPackedInfo(pointer2))

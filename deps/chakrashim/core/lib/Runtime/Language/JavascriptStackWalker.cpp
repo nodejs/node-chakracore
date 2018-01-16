@@ -353,7 +353,7 @@ namespace Js
 
         if (pCodeAddr)
         {
-#if defined(_M_ARM32_OR_ARM64)
+#if defined(_M_ARM)
             // Note that DWORD_PTR is not actually a pointer type (!) but is simple unsigned long/__int64 (see BaseTsd.h).
             // Thus, decrement would be by 1 byte and not 4 bytes as in pointer arithmetic. That's exactly what we need.
             // For ARM the 'return address' is always odd and is 'next instr addr' + 1 byte, so to get to the BLX instr, we need to subtract 2 bytes from it.
@@ -540,7 +540,7 @@ namespace Js
 #endif
 
                 // We might've bailed out of an inlinee, so check if there were any inlinees.
-                if (this->interpreterFrame->GetFlags() & InterpreterStackFrameFlags_FromBailOut)
+                if (this->interpreterFrame->TestFlags(InterpreterStackFrameFlags_FromBailOut))
                 {
                     previousInterpreterFrameIsFromBailout = true;
 
@@ -628,7 +628,32 @@ namespace Js
         }
         return nullptr;
     }
-
+#if ENABLE_NATIVE_CODEGEN
+    void JavascriptStackWalker::WalkAndClearInlineeFrameCallInfoOnException(void *tryCatchFrameAddr)
+    {
+        // Walk the stack and when we find the first native frame, we clear the inlinee's callinfo for this frame
+        // It is sufficient we stop at the first native frame which had the enclosing try-catch
+        // TODO : Revisit when we start inlining functions with try-catch/try-finally
+        while (this->Walk(true))
+        {
+            if (JavascriptFunction::IsNativeAddress(this->scriptContext, this->currentFrame.GetInstructionPointer()))
+            {
+                if (HasInlinedFramesOnStack())
+                {
+                    for (int index = inlinedFrameWalker.GetFrameCount() - 1; index >= 0; index--)
+                    {
+                        auto inlinedFrame = inlinedFrameWalker.GetFrameAtIndex(index);
+                        inlinedFrame->callInfo.Clear();
+                    }
+                }
+                if (this->currentFrame.GetFrame() == tryCatchFrameAddr)
+                {
+                    break;
+                }
+            }
+        }
+    }
+#endif
     // Note: noinline is to make sure that when we unwind to the unwindToAddress, there is at least one frame to unwind.
     _NOINLINE
     JavascriptStackWalker::JavascriptStackWalker(ScriptContext * scriptContext, bool useEERContext, PVOID returnAddress, bool _forceFullWalk /*=false*/) :
@@ -722,7 +747,7 @@ namespace Js
         }
 
         // If we're at the entry from a host frame, hop to the frame from which we left the script.
-        if (this->currentFrame.GetInstructionPointer() == this->entryExitRecord->returnAddrOfScriptEntryFunction)
+        if (AlignAndCheckAddressOfReturnAddressMatch(this->currentFrame.GetAddressOfInstructionPointer(), this->entryExitRecord->addrOfReturnAddrOfScriptEntryFunction))
         {
             BOOL hasCaller = this->entryExitRecord->hasCaller || this->forceFullWalk;
 
@@ -859,7 +884,7 @@ namespace Js
         return false;
     }
 
-    bool AlignAndCheckAddressOfReturnAddressMatch(void* addressOfReturnAddress, void* nativeLibraryEntryAddress)
+    bool JavascriptStackWalker::AlignAndCheckAddressOfReturnAddressMatch(void* addressOfReturnAddress, void* nativeLibraryEntryAddress)
     {
         return addressOfReturnAddress == nativeLibraryEntryAddress
 #if defined(_M_IX86)
@@ -868,7 +893,7 @@ namespace Js
             // return address offset by 4, 8, or 12.
             || (((uint)nativeLibraryEntryAddress - (uint)addressOfReturnAddress < 0x10) &&
                 *(void**)addressOfReturnAddress == *(void**)nativeLibraryEntryAddress
-               )
+                )
 #endif
             ;
     }
@@ -894,7 +919,7 @@ namespace Js
         void * codeAddr = this->currentFrame.GetInstructionPointer();
         if (this->tempInterpreterFrame && codeAddr == this->tempInterpreterFrame->GetReturnAddress())
         {
-            bool isBailoutInterpreter = (this->tempInterpreterFrame->GetFlags() & Js::InterpreterStackFrameFlags_FromBailOut) != 0;
+            bool isBailoutInterpreter = this->tempInterpreterFrame->TestFlags(Js::InterpreterStackFrameFlags_FromBailOut);
 
             // We need to skip over the first interpreter frame on the stack if it is the partially initialized frame
             // otherwise it is a real frame and we should continue.
@@ -927,7 +952,7 @@ namespace Js
                 // The return address of the interpreterFrame is the same as the entryPoint for a jitted loop body.
                 // This can only ever happen when we have bailed out from a function inlined in the loop body. We
                 // wouldn't have created a new interpreterFrame if the bailout were from the loop body itself.
-                Assert((this->interpreterFrame->GetFlags() & Js::InterpreterStackFrameFlags_FromBailOut) != 0);
+                Assert(this->interpreterFrame->TestFlags(Js::InterpreterStackFrameFlags_FromBailOut));
                 InlinedFrameWalker tmpFrameWalker;
                 Assert(InlinedFrameWalker::FromPhysicalFrame(tmpFrameWalker, currentFrame, Js::ScriptFunction::FromVar(argv[JavascriptFunctionArgIndex_Function]),
                     true /*fromBailout*/, this->tempInterpreterFrame->GetCurrentLoopNum(), this, false /*useInternalFrameInfo*/, true /*noAlloc*/, false /*deepCopy*/));
@@ -1072,7 +1097,6 @@ namespace Js
         if (callInfo.Flags & Js::CallFlags_ExtraArg)
         {
             callInfo.Flags = (CallFlags)(callInfo.Flags & ~Js::CallFlags_ExtraArg);
-            callInfo.Count--;
         }
 
         return callInfo;

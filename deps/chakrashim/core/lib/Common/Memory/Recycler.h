@@ -29,6 +29,30 @@ struct RecyclerMemoryData;
 
 namespace Memory
 {
+// NOTE: There is perf lab test infrastructure that takes a dependency on the events in this enumeration. Any modifications may cause
+// errors in ETL analysis or report incorrect numbers. Please verify that the GC events are analyzed correctly with your changes.
+    enum ETWEventGCActivationKind : unsigned
+    {
+        ETWEvent_GarbageCollect                         = 0,      // force in-thread GC
+        ETWEvent_ThreadCollect                          = 1,      // thread GC with wait
+        ETWEvent_ConcurrentCollect                      = 2,
+        ETWEvent_PartialCollect                         = 3,
+
+        ETWEvent_ConcurrentMark                         = 11,
+        ETWEvent_ConcurrentRescan                       = 12,
+        ETWEvent_ConcurrentSweep                        = 13,
+        ETWEvent_ConcurrentTransferSwept                = 14,
+        ETWEvent_ConcurrentFinishMark                   = 15,
+        ETWEvent_ConcurrentSweep_TwoPassSweepPreCheck   = 16,     // Check whether we should do a 2-pass concurrent sweep.
+
+        // The following events are only relevant to the 2-pass concurrent sweep and should not be seen otherwise.
+        ETWEvent_ConcurrentSweep_Pass1                  = 17,     // Concurrent sweep Pass1 of the blocks not getting allocated from during concurrent sweep.
+        ETWEvent_ConcurrentSweep_FinishSweepPrep        = 18,     // Stop allocations and remove all blocks from SLIST so we can finish Pass1 of the remaining blocks.
+        ETWEvent_ConcurrentSweep_FinishPass1            = 19,     // Concurrent sweep Pass1 of the blocks that were set aside for allocations during concurrent sweep.
+        ETWEvent_ConcurrentSweep_Pass2                  = 20,     // Concurrent sweep Pass1 of the blocks not getting allocated from during concurrent sweep.
+        ETWEvent_ConcurrentSweep_FinishTwoPassSweep     = 21,     // Drain the SLIST at the end of the 2-pass concurrent sweep and begin normal allocations.
+    };
+
 template <typename T> class RecyclerRootPtr;
 
 class AutoBooleanToggle
@@ -182,7 +206,12 @@ struct InfoBitsWrapper{};
 #define RecyclerNewTrackedLeaf(recycler,T,...) static_cast<T *>(static_cast<FinalizableObject *>(AllocatorNewBase(Recycler, recycler, AllocTrackedLeafInlined, T, __VA_ARGS__)))
 #define RecyclerNewTrackedLeafPlusZ(recycler,size,T,...) static_cast<T *>(static_cast<FinalizableObject *>(AllocatorNewPlusBase(Recycler, recycler, AllocZeroTrackedLeafInlined, size, T, __VA_ARGS__)))
 
-
+#ifdef RECYCLER_VISITED_HOST
+#define RecyclerAllocVisitedHostTracedAndFinalizedZero(recycler,size) recycler->AllocVisitedHost<RecyclerVisitedHostTracedFinalizableBits>(size)
+#define RecyclerAllocVisitedHostFinalizedZero(recycler,size) recycler->AllocVisitedHost<RecyclerVisitedHostFinalizableBits>(size)
+#define RecyclerAllocVisitedHostTracedZero(recycler,size) recycler->AllocVisitedHost<RecyclerVisitedHostTracedBits>(size)
+#define RecyclerAllocLeafZero(recycler,size) recycler->AllocVisitedHost<LeafBit>(size)
+#endif
 
 #ifdef TRACE_OBJECT_LIFETIME
 #define RecyclerNewLeafTrace(recycler,T,...) AllocatorNewBase(Recycler, recycler, AllocLeafTrace, T, __VA_ARGS__)
@@ -610,7 +639,6 @@ private:
 };
 #endif
 
-
 class Recycler
 {
     friend class RecyclerScanMemoryCallback;
@@ -724,6 +752,9 @@ private:
 
     CollectionState collectionState;
     JsUtil::ThreadService *threadService;
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    bool allowAllocationsDuringConcurrentSweepForCollection;
+#endif
 
     HeapBlockMap heapBlockMap;
 
@@ -845,7 +876,7 @@ private:
 #elif _M_ARM
         static const int NumRegistersToSave = 13;
 #elif _M_ARM64
-        static const int NumRegistersToSave = 13;
+        static const int NumRegistersToSave = 27;
 #elif _M_AMD64
         static const int NumRegistersToSave = 16;
 #endif
@@ -873,12 +904,18 @@ private:
 
     SavedRegisterState savedThreadContext;
 
+#if __has_feature(address_sanitizer)
+    void* savedAsanFakeStack;
+#define SAVE_THREAD_ASAN_FAKE_STACK() \
+        this->savedAsanFakeStack = __asan_get_current_fake_stack()
+#else
+#define SAVE_THREAD_ASAN_FAKE_STACK()
+#endif
+
     bool inDispose;
 
-#if DBG
-    uint collectionCount;
-#endif
 #if DBG || defined RECYCLER_TRACE
+    uint collectionCount;
     bool inResolveExternalWeakReferences;
 #endif
 
@@ -1056,6 +1093,7 @@ private:
 #endif
 #ifdef RECYCLER_TRACE
     CollectionParam collectionParam;
+    void PrintBlockStatus(HeapBucket * heapBucket, HeapBlock * heapBlock, char16 const * name);
 #endif
 #ifdef RECYCLER_MEMORY_VERIFY
     uint verifyPad;
@@ -1246,7 +1284,7 @@ public:
 #define DEFINE_RECYCLER_NOTHROW_ALLOC(AllocFunc, attributes) DEFINE_RECYCLER_NOTHROW_ALLOC_BASE(AllocFunc, AllocWithAttributes, attributes)
 #define DEFINE_RECYCLER_NOTHROW_ALLOC_ZERO(AllocFunc, attributes) DEFINE_RECYCLER_NOTHROW_ALLOC_BASE(AllocFunc, AllocZeroWithAttributes, attributes)
 
-#if GLOBAL_ENABLE_WRITE_BARRIER && !defined(_WIN32)
+#if GLOBAL_ENABLE_WRITE_BARRIER
     DEFINE_RECYCLER_ALLOC(Alloc, WithBarrierBit);
     DEFINE_RECYCLER_ALLOC_ZERO(AllocZero, WithBarrierBit);
     DEFINE_RECYCLER_ALLOC(AllocFinalized, FinalizableWithBarrierObjectBits);
@@ -1289,6 +1327,11 @@ public:
     char * AllocWithInfoBits(DECLSPEC_GUARD_OVERFLOW size_t size)
     {
         return AllocWithAttributes<infoBits, /* nothrow = */ false>(size);
+    }
+    template <ObjectInfoBits infoBits>
+    char * AllocVisitedHost(DECLSPEC_GUARD_OVERFLOW size_t size)
+    {
+        return AllocZeroWithAttributes<infoBits, /* nothrow = */ true>(size);
     }
 
     template<typename T>
@@ -1407,6 +1450,7 @@ public:
 #endif
 #ifdef RECYCLER_ZERO_MEM_CHECK
     void VerifyZeroFill(void * address, size_t size);
+    void VerifyLargeAllocZeroFill(void * address, size_t size, ObjectInfoBits attributes);
 #endif
 #ifdef RECYCLER_DUMP_OBJECT_GRAPH
     bool DumpObjectGraph(RecyclerObjectGraphDumper::Param * param = nullptr);
@@ -1560,11 +1604,17 @@ private:
 
     inline void ScanObjectInline(void ** obj, size_t byteCount);
     inline void ScanObjectInlineInterior(void ** obj, size_t byteCount);
+
     template <bool doSpecialMark>
-    inline void ScanMemoryInline(void ** obj, size_t byteCount);
+    inline void ScanMemoryInline(void ** obj, size_t byteCount
+        ADDRESS_SANITIZER_APPEND(RecyclerScanMemoryType scanMemoryType = RecyclerScanMemoryType::General));
+
     template <bool doSpecialMark>
     void ScanMemory(void ** obj, size_t byteCount) { if (byteCount != 0) { ScanMemoryInline<doSpecialMark>(obj, byteCount); } }
-    bool AddMark(void * candidate, size_t byteCount);
+    bool AddMark(void * candidate, size_t byteCount) throw();
+#ifdef RECYCLER_VISITED_HOST
+    bool AddPreciselyTracedMark(IRecyclerVisitedObject * candidate) throw();
+#endif
 
     // Sweep
 #if ENABLE_PARTIAL_GC
@@ -1576,7 +1626,10 @@ private:
     void SweepHeap(bool concurrent, RecyclerSweep& recyclerSweep);
     void FinishSweep(RecyclerSweep& recyclerSweep);
 
-#if ENABLE_CONCURRENT_GC && ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    void DoTwoPassConcurrentSweepPreCheck();
+    void FinishSweepPrep();
+    void FinishConcurrentSweepPass1();
     void FinishConcurrentSweep();
 #endif
 
@@ -1640,6 +1693,14 @@ private:
     {
         return ((collectionState & Collection_ConcurrentSweep) == Collection_ConcurrentSweep);
     }
+
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    bool AllowAllocationsDuringConcurrentSweep()
+    {
+        return this->allowAllocationsDuringConcurrentSweepForCollection;
+    }
+#endif
+
 #if DBG
     BOOL IsConcurrentFinishedState() const;
 #endif // DBG
@@ -1717,6 +1778,9 @@ private:
     template <class TBlockAttributes> friend class SmallNormalHeapBlockT;
     template <class TBlockAttributes> friend class SmallLeafHeapBlockT;
     template <class TBlockAttributes> friend class SmallFinalizableHeapBlockT;
+#ifdef RECYCLER_VISITED_HOST
+    template <class TBlockAttributes> friend class SmallRecyclerVisitedHostHeapBlockT;
+#endif
     friend class LargeHeapBlock;
     friend class HeapInfo;
     friend class LargeHeapBucket;
@@ -1907,8 +1971,10 @@ public:
     bool IsPostEnumHeapValidationInProgress() const { return pfPostHeapEnumScanCallback != NULL; }
 #endif
 
-private:
+public:
     void* GetRealAddressFromInterior(void* candidate);
+
+private:
     void BeginNonCollectingMark();
     void EndNonCollectingMark();
 
@@ -2180,7 +2246,6 @@ public:
     virtual bool FindHeapObject(void* objectAddress, Recycler * recycler, FindHeapObjectFlags flags, RecyclerHeapObjectInfo& heapObject) override { Assert(false); return false; }
     virtual bool TestObjectMarkedBit(void* objectAddress) override { Assert(false); return false; }
     virtual void SetObjectMarkedBit(void* objectAddress) override { Assert(false); }
-
 #ifdef RECYCLER_VERIFY_MARK
     virtual bool VerifyMark(void * objectAddress, void * target) override { Assert(false); return false; }
 #endif
@@ -2466,7 +2531,7 @@ struct ForceLeafAllocator<RecyclerNonLeafAllocator>
 };
 
 // TODO: enable -profile for GC phases.
-// access the same profiler object from multiple GC threads which shares one recyler object,
+// access the same profiler object from multiple GC threads which shares one recycler object,
 // but profiler object is not thread safe
 #if defined(PROFILE_EXEC) && 0
 #define RECYCLER_PROFILE_EXEC_BEGIN(recycler, phase) if (recycler->profiler != nullptr) { recycler->profiler->Begin(phase); }

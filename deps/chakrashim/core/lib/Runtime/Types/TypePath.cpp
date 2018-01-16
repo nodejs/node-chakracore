@@ -155,6 +155,7 @@ namespace Js {
         return clonedPath;
     }
 
+#if ENABLE_FIXED_FIELDS
 #if DBG
     bool TypePath::HasSingletonInstanceOnlyIfNeeded()
     {
@@ -186,6 +187,7 @@ namespace Js {
 #endif
 
     }
+#endif
 
     int TypePath::Data::Add(const PropertyRecord* propId, Field(const PropertyRecord *)* assignments)
     {
@@ -235,12 +237,12 @@ namespace Js {
         return propertyIndex;
     }
 
+#ifdef SUPPORT_FIXED_FIELDS_ON_PATH_TYPES
     void TypePath::AddBlankFieldAt(PropertyIndex index, int typePathLength)
     {
         Assert(index >= this->GetMaxInitializedLength());
         this->SetMaxInitializedLength(index + 1);
 
-#ifdef SUPPORT_FIXED_FIELDS_ON_PATH_TYPES
         if (PHASE_VERBOSE_TRACE1(FixMethodPropsPhase))
         {
             Output::Print(_u("FixedFields: TypePath::AddBlankFieldAt: singleton = 0x%p(0x%p)\n"),
@@ -257,7 +259,6 @@ namespace Js {
 
             Output::Print(_u("\n"));
         }
-#endif
     }
 
     void TypePath::AddSingletonInstanceFieldAt(DynamicObject* instance, PropertyIndex index, bool isFixed, int typePathLength)
@@ -282,7 +283,6 @@ namespace Js {
             this->GetData()->fixedFields.Set(index);
         }
 
-#ifdef SUPPORT_FIXED_FIELDS_ON_PATH_TYPES
         if (PHASE_VERBOSE_TRACE1(FixMethodPropsPhase))
         {
             Output::Print(_u("FixedFields: TypePath::AddSingletonInstanceFieldAt: singleton = 0x%p(0x%p)\n"),
@@ -299,7 +299,6 @@ namespace Js {
 
             Output::Print(_u("\n"));
         }
-#endif
     }
 
     void TypePath::AddSingletonInstanceFieldAt(PropertyIndex index, int typePathLength)
@@ -311,7 +310,6 @@ namespace Js {
 
         this->SetMaxInitializedLength(index + 1);
 
-#ifdef SUPPORT_FIXED_FIELDS_ON_PATH_TYPES
         if (PHASE_VERBOSE_TRACE1(FixMethodPropsPhase))
         {
             Output::Print(_u("FixedFields: TypePath::AddSingletonInstanceFieldAt: singleton = 0x%p(0x%p)\n"),
@@ -328,7 +326,7 @@ namespace Js {
 
             Output::Print(_u("\n"));
         }
-#endif
     }
+#endif
 
 }

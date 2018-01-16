@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "common.h"
+#include "src/common.h"
 
 #include <cassert>
 #include <climits>
@@ -37,23 +37,20 @@ Reloc::Reloc(RelocType type, Offset offset, Index index, int32_t addend)
 const char* g_kind_name[] = {"func", "table", "memory", "global", "except"};
 WABT_STATIC_ASSERT(WABT_ARRAY_SIZE(g_kind_name) == kExternalKindCount);
 
-const char* g_reloc_type_name[] = {"R_FUNC_INDEX_LEB",
-                                   "R_TABLE_INDEX_SLEB",
-                                   "R_TABLE_INDEX_I32",
-                                   "R_GLOBAL_ADDR_LEB",
-                                   "R_GLOBAL_ADDR_SLEB",
-                                   "R_GLOBAL_ADDR_I32",
-                                   "R_TYPE_INDEX_LEB",
-                                   "R_GLOBAL_INDEX_LEB",
-                                   };
+const char* g_reloc_type_name[] = {
+    "R_WEBASSEMBLY_FUNCTION_INDEX_LEB", "R_WEBASSEMBLY_TABLE_INDEX_SLEB",
+    "R_WEBASSEMBLY_TABLE_INDEX_I32",    "R_WEBASSEMBLY_MEMORY_ADDR_LEB",
+    "R_WEBASSEMBLY_MEMORY_ADDR_SLEB",   "R_WEBASSEMBLY_MEMORY_ADDR_I32",
+    "R_WEBASSEMBLY_TYPE_INDEX_LEB",     "R_WEBASSEMBLY_GLOBAL_INDEX_LEB",
+};
 WABT_STATIC_ASSERT(WABT_ARRAY_SIZE(g_reloc_type_name) == kRelocTypeCount);
 
-Result ReadFile(const char* filename, std::vector<uint8_t>* out_data) {
-  FILE* infile = fopen(filename, "rb");
+Result ReadFile(string_view filename, std::vector<uint8_t>* out_data) {
+  FILE* infile = fopen(filename.to_string().c_str(), "rb");
   if (!infile) {
     const char format[] = "unable to read file %s";
     char msg[PATH_MAX + sizeof(format)];
-    wabt_snprintf(msg, sizeof(msg), format, filename);
+    wabt_snprintf(msg, sizeof(msg), format, filename.to_string().c_str());
     perror(msg);
     return Result::Error;
   }
@@ -91,11 +88,13 @@ Result ReadFile(const char* filename, std::vector<uint8_t>* out_data) {
 void InitStdio() {
 #if COMPILER_IS_MSVC
   int result = _setmode(_fileno(stdout), _O_BINARY);
-  if (result == -1)
+  if (result == -1) {
     perror("Cannot set mode binary to stdout");
+  }
   result = _setmode(_fileno(stderr), _O_BINARY);
-  if (result == -1)
+  if (result == -1) {
     perror("Cannot set mode binary to stderr");
+  }
 #endif
 }
 

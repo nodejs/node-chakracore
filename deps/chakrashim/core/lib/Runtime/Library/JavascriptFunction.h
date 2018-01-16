@@ -13,11 +13,20 @@ namespace Js
     {
         union
         {
-            int retIntVal;
-            int64 retInt64Val;
-            float retFloatVal;
-            double retDoubleVal;
-            AsmJsSIMDValue retSimdVal;
+            byte xmm[sizeof(AsmJsSIMDValue)];
+            float f32;
+            double f64;
+            AsmJsSIMDValue simd;
+        };
+        union
+        {
+            int32 i32;
+            int64 i64;
+            struct
+            {
+                int32 low;
+                int32 high;
+            };
         };
     };
 
@@ -32,6 +41,8 @@ namespace Js
 
         // Need a constructor cache on every function (script and native) to avoid extra checks on the fast path, if the function isn't fixed.
         Field(ConstructorCache*) constructorCache;
+
+        Field(bool) isJsBuiltInCode;
 
     protected:
 
@@ -78,6 +89,9 @@ namespace Js
             static FunctionInfo SymbolHasInstance;
 
             static FunctionInfo NewAsyncFunctionInstance;
+#ifdef ALLOW_JIT_REPRO
+            static FunctionInfo InvokeJit;
+#endif
         };
 
         static const int numberLinesPrependedToAnonymousFunction = 1;
@@ -95,16 +109,20 @@ namespace Js
 
         static Var NewAsyncFunctionInstance(RecyclableObject* function, CallInfo callInfo, ...);
         static Var NewAsyncFunctionInstanceRestrictedMode(RecyclableObject* function, CallInfo callInfo, ...);
+#ifdef ALLOW_JIT_REPRO
+        static Var EntryInvokeJit(RecyclableObject* function, CallInfo callInfo, ...);
+#endif
 
         static bool Is(Var aValue);
         static JavascriptFunction* FromVar(Var aValue);
+        static JavascriptFunction* UnsafeFromVar(Var aValue);
         Var CallFunction(Arguments args);
         Var CallRootFunction(Arguments args, ScriptContext * scriptContext, bool inScript);
 #ifdef ASMJS_PLAT
         template <typename T>
-        static T VECTORCALL CallAsmJsFunction(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv);
+        static T VECTORCALL CallAsmJsFunction(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte* reg);
+        static PossibleAsmJsReturnValues CallAsmJsFunctionX86Thunk(RecyclableObject * function, JavascriptMethod entryPoint, Var * argv, uint argsSize, byte* reg);
 #endif
-        static PossibleAsmJsReturnValues CallAsmJsFunctionX86Thunk(RecyclableObject * function, JavascriptMethod entryPoint, uint argc, Var * argv);
         template <bool isConstruct>
         static Var CalloutHelper(RecyclableObject* function, Var thisArg, Var overridingNewTarget, Var argArray, ScriptContext* scriptContext);
 
@@ -119,11 +137,11 @@ namespace Js
         static void CheckValidDebugThunk(ScriptContext* scriptContext, RecyclableObject *function);
 #endif
         template <bool doStackProbe>
-        static Var CallFunction(RecyclableObject* obj, JavascriptMethod entryPoint, Arguments args);
+        static Var CallFunction(RecyclableObject* obj, JavascriptMethod entryPoint, Arguments args, bool useLargeArgCount = false);
         static Var CallRootFunction(RecyclableObject* obj, Arguments args, ScriptContext * scriptContext, bool inScript);
         static Var CallRootFunctionInternal(RecyclableObject* obj, Arguments args, ScriptContext * scriptContext, bool inScript);
         static Var CallSpreadFunction(RecyclableObject* obj, Arguments args, const Js::AuxArray<uint32> *spreadIndices);
-        static uint32 GetSpreadSize(const Arguments args, const Js::AuxArray<uint32> *spreadIndices, ScriptContext *scriptContext);
+        static uint GetSpreadSize(const Arguments args, const Js::AuxArray<uint32> *spreadIndices, ScriptContext *scriptContext);
         static void SpreadArgs(const Arguments args, Arguments& destArgs, const Js::AuxArray<uint32> *spreadIndices, ScriptContext *scriptContext);
         static Var EntrySpreadCall(const Js::AuxArray<uint32> *spreadIndices, RecyclableObject* function, CallInfo callInfo, ...);
         static void CheckAlignment();
@@ -171,6 +189,9 @@ namespace Js
         BOOL IsLambda() const;
         virtual inline BOOL IsConstructor() const;
         bool HasRestrictedProperties() const;
+
+        void SetIsJsBuiltInCode();
+        bool IsJsBuiltIn();
 
         ConstructorCache* GetConstructorCache() { Assert(this->constructorCache != nullptr); return this->constructorCache; }
         ConstructorCache* EnsureValidConstructorCache();

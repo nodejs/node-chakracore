@@ -4,7 +4,7 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 
-#include "Language/JavascriptNativeOperators.h"
+#include "JavascriptNativeOperators.h"
 
 class Func;
 class BasicBlock;
@@ -26,13 +26,29 @@ struct CapturedValues
     SListBase<ConstantStackSymValue> constantValues;           // Captured constant values during glob opt
     SListBase<CopyPropSyms> copyPropSyms;                      // Captured copy prop values during glob opt
     BVSparse<JitArenaAllocator> * argObjSyms;                  // Captured arg object symbols during glob opt
+    uint refCount;
 
+    CapturedValues() : argObjSyms(nullptr), refCount(0) {}
     ~CapturedValues()
     {
         // Reset SListBase to be exception safe. Captured values are from GlobOpt->func->alloc
         // in normal case the 2 SListBase are empty so no Clear needed, also no need to Clear in exception case
         constantValues.Reset();
         copyPropSyms.Reset();
+        argObjSyms = nullptr;
+        Assert(refCount == 0);
+    }
+
+    uint DecrementRefCount()
+    {
+        Assert(refCount != 0);
+        return --refCount;
+    }
+
+    void IncrementRefCount()
+    {
+        Assert(refCount > 0);
+        refCount++;
     }
 };
 
@@ -42,7 +58,7 @@ class BranchJumpTableWrapper
 {
 public:
 
-    BranchJumpTableWrapper(uint tableSize) : defaultTarget(nullptr), labelInstr(nullptr), tableSize(tableSize)
+    BranchJumpTableWrapper(uint tableSize) : jmpTable(nullptr), defaultTarget(nullptr), labelInstr(nullptr), tableSize(tableSize)
     {
     }
 
@@ -212,6 +228,7 @@ public:
     bool            ShouldCheckForIntOverflow() const;
     bool            ShouldCheckFor32BitOverflow() const;
     bool            ShouldCheckForNon32BitOverflow() const;
+    static bool     OpndHasAnyImplicitCalls(IR::Opnd* opnd, bool isSrc);
     bool            HasAnyImplicitCalls() const;
     bool            HasAnySideEffects() const;
     bool            AreAllOpndInt64() const;
@@ -271,8 +288,10 @@ public:
     IR::Instr *     GetPrevRealInstrOrLabel() const;
     IR::Instr *     GetInsertBeforeByteCodeUsesInstr();
     IR::LabelInstr *GetOrCreateContinueLabel(const bool isHelper = false);
-    RegOpnd *       FindRegUse(StackSym *sym);
-    static RegOpnd *FindRegUseInRange(StackSym *sym, Instr *instrBegin, Instr *instrEnd);
+    static bool     HasSymUseSrc(StackSym *sym, IR::Opnd*);
+    static bool     HasSymUseDst(StackSym *sym, IR::Opnd*);
+    bool            HasSymUse(StackSym *sym);
+    static bool     HasSymUseInRange(StackSym *sym, Instr *instrBegin, Instr *instrEnd);
     RegOpnd *       FindRegDef(StackSym *sym);
     static Instr*   FindSingleDefInstr(Js::OpCode opCode, Opnd* src);
 
@@ -312,7 +331,7 @@ public:
 
     BailOutInfo *   GetBailOutInfo() const;
     BailOutInfo *   UnlinkBailOutInfo();
-    bool            ReplaceBailOutInfo(BailOutInfo *newBailOutInfo);
+    void            ReplaceBailOutInfo(BailOutInfo *newBailOutInfo);
     IR::Instr *     ShareBailOut();
     BailOutKind     GetBailOutKind() const;
     BailOutKind     GetBailOutKindNoBits() const;
@@ -435,6 +454,8 @@ public:
     IR::Instr* GetArgOutSnapshot();
     FixedFieldInfo* GetFixedFunction() const;
     uint       GetArgOutCount(bool getInterpreterArgOutCount);
+    uint       GetArgOutSize(bool getInterpreterArgOutCount);
+    uint       GetAsmJsArgOutSize();
     IR::PropertySymOpnd *GetPropertySymOpnd() const;
     bool       CallsAccessor(IR::PropertySymOpnd * methodOpnd = nullptr);
     bool       CallsGetter();
@@ -457,9 +478,6 @@ private:
     void            SetBailOutKind_NoAssert(const IR::BailOutKind bailOutKind);
 
 public:
-    // used only for SIMD Ld/St from typed arrays.
-    // we keep these here to avoid increase in number of opcodes and to not use ExtendedArgs
-    uint8           dataWidth;
 
 #ifdef BAILOUT_INJECTION
     uint            bailOutByteCodeLocation;
@@ -473,6 +491,11 @@ public:
     // These should be together to pack into a uint32
     Js::OpCode      m_opcode;
     uint8           ignoreOverflowBitCount;      // Number of bits after which ovf matters. Currently used for MULs.
+
+    // used only for SIMD Ld/St from typed arrays.
+    // we keep these here to avoid increase in number of opcodes and to not use ExtendedArgs
+    uint8           dataWidth;
+
 
     bool            isFsBased : 1; // TEMP : just for BS testing
     bool            dstIsTempNumber : 1;
@@ -673,7 +696,7 @@ private:
     union labelLocation
     {
         BYTE *                  pc;     // Used by encoder and is the real pc offset
-        uint32                  offset; // Used by preEncoder and is an estimation pc offset, not accurate
+        uintptr_t               offset; // Used by preEncoder and is an estimation pc offset, not accurate
     } m_pc;
 
     BasicBlock *            m_block;
@@ -683,9 +706,9 @@ public:
 
     inline void             SetPC(BYTE * pc);
     inline BYTE *           GetPC(void) const;
-    inline void             SetOffset(uint32 offset);
-    inline void             ResetOffset(uint32 offset);
-    inline uint32           GetOffset(void) const;
+    inline void             SetOffset(uintptr_t offset);
+    inline void             ResetOffset(uintptr_t offset);
+    inline uintptr_t        GetOffset(void) const;
     inline void             SetBasicBlock(BasicBlock * block);
     inline BasicBlock *     GetBasicBlock(void) const;
     inline void             SetLoop(Loop *loop);
@@ -825,7 +848,10 @@ public:
     IntConstType m_lastCaseValue;
 
     MultiBranchInstr() :
-        m_branchTargets(nullptr)
+        m_branchTargets(nullptr),
+        m_kind(IntJumpTable),
+        m_baseCaseValue(0),
+        m_lastCaseValue(0)
     {
 #if DBG
         m_isMultiBranch = true;

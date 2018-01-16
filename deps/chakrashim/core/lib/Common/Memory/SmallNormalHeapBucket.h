@@ -20,8 +20,8 @@ public:
     friend class ::ScriptMemoryDumper;
 #endif
 
-#ifdef DUMP_FRAGMENTATION_STATS
-    void AggregateBucketStats(HeapBucketStats& stats);
+#if ENABLE_MEM_STATS
+    void AggregateBucketStats();
 #endif
 protected:
     template <class TBlockAttributes>
@@ -44,7 +44,7 @@ protected:
     ~SmallNormalHeapBucketBase();
 
     template <class Fn>
-    static void SweepPartialReusePages(RecyclerSweep& recyclerSweep, TBlockType * heapBlockList,
+    void SweepPartialReusePages(RecyclerSweep& recyclerSweep, TBlockType * heapBlockList,
         TBlockType *& reuseBlocklist, TBlockType *&unusedBlockList, bool allocationsAllowedDuringConcurrentSweep, Fn callBack);
     void SweepPartialReusePages(RecyclerSweep& recyclerSweep);
     void FinishPartialCollect(RecyclerSweep * recyclerSweep);
