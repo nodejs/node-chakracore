@@ -15,6 +15,7 @@ add_library (Chakra.Backend OBJECT
     EhFrame.cpp
     EmitBuffer.cpp
     Encoder.cpp
+    EquivalentTypeSet.cpp
     FixedFieldInfo.cpp
     FlowGraph.cpp
     Func.cpp
@@ -41,6 +42,7 @@ add_library (Chakra.Backend OBJECT
     IntBounds.cpp
     IntConstMath.cpp
     InterpreterThunkEmitter.cpp
+    JavascriptNativeOperators.cpp
     JITThunkEmitter.cpp
     JITOutput.cpp
     JITTimeConstructorCache.cpp

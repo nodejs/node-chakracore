@@ -9,7 +9,9 @@
 
 #include "Library/RegexHelper.h"
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
 #include "Debug/DiagHelperMethodWrapper.h"
+#endif
 #include "Math/CrtSSE2Math.h"
 #include "Library/JavascriptGeneratorFunction.h"
 #include "RuntimeMathPch.h"
@@ -65,6 +67,7 @@ void CheckJnHelperTable(intptr_t const* table)
 }
 #endif
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
 static intptr_t const helperMethodWrappers[] = {
     reinterpret_cast<intptr_t>(&Js::HelperMethodWrapper0),
     reinterpret_cast<intptr_t>(&Js::HelperMethodWrapper1),
@@ -84,6 +87,7 @@ static intptr_t const helperMethodWrappers[] = {
     reinterpret_cast<intptr_t>(&Js::HelperMethodWrapper15),
     reinterpret_cast<intptr_t>(&Js::HelperMethodWrapper16),
 };
+#endif
 
 ///----------------------------------------------------------------------------
 ///
@@ -97,7 +101,7 @@ intptr_t
 GetMethodAddress(ThreadContextInfo * context, IR::HelperCallOpnd* opnd)
 {
     Assert(opnd);
-
+#ifdef ENABLE_SCRIPT_DEBUGGING
 #if defined(_M_ARM32_OR_ARM64)
 #define LowererMDFinal LowererMD
 #else
@@ -120,7 +124,7 @@ GetMethodAddress(ThreadContextInfo * context, IR::HelperCallOpnd* opnd)
             AssertMsg(FALSE, "Unsupported arg count (need to implement).");
         }
     }
-
+#endif
     return GetMethodOriginalAddress(context, opnd->m_fnHelper);
 }
 
@@ -190,10 +194,10 @@ DECLSPEC_GUARDIGNORE  _NOINLINE intptr_t GetNonTableMethodAddress(ThreadContextI
         return ShiftAddr(context, (void*(*)(void *, void const*, size_t))memcpy);
 
     case HelperDirectMath_FloorFlt:
-        return ShiftAddr(context, (float(*)(float))floor);
+        return ShiftAddr(context, (float(*)(float))floorf);
 
     case HelperDirectMath_CeilFlt:
-        return ShiftAddr(context, (float(*)(float))ceil);
+        return ShiftAddr(context, (float(*)(float))ceilf);
 
 #if defined(_M_X64)
     case HelperDirectMath_Acos:

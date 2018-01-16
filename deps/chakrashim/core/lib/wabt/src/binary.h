@@ -17,11 +17,12 @@
 #ifndef WABT_BINARY_H_
 #define WABT_BINARY_H_
 
-#include "common.h"
+#include "src/common.h"
 
 #define WABT_BINARY_MAGIC 0x6d736100
 #define WABT_BINARY_VERSION 1
 #define WABT_BINARY_LIMITS_HAS_MAX_FLAG 0x1
+#define WABT_BINARY_LIMITS_IS_SHARED_FLAG 0x2
 
 #define WABT_BINARY_SECTION_NAME "name"
 #define WABT_BINARY_SECTION_RELOC "reloc"

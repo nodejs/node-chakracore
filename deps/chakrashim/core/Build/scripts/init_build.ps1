@@ -12,7 +12,7 @@
 # before running the Pre-Build script.
 
 param (
-    [ValidateSet("x86", "x64", "arm", "")]
+    [ValidateSet("x86", "x64", "arm", "arm64", "")]
     [string]$arch = "",
     [ValidateSet("debug", "release", "test", "codecoverage", "")]
     [string]$flavor = "",
@@ -178,6 +178,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $SourcesDirectory "test\log
 New-Item -ItemType Directory -Force -Path (Join-Path $BinariesDirectory "buildlogs")
 New-Item -ItemType Directory -Force -Path (Join-Path $BinariesDirectory "logs")
 
+New-Item -ItemType Directory -Force -Path (Join-Path $DropPath "bin")
 $FlavorBuildIncompleteFile = Join-Path $DropPath "${BuildType}.incomplete"
 
 if (-not (Test-Path $FlavorBuildIncompleteFile)) {

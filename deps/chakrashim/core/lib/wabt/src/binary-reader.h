@@ -20,11 +20,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "binary.h"
-#include "common.h"
-#include "feature.h"
-#include "opcode.h"
-#include "string-view.h"
+#include "src/binary.h"
+#include "src/common.h"
+#include "src/feature.h"
+#include "src/opcode.h"
+#include "src/string-view.h"
 
 namespace wabt {
 
@@ -34,14 +34,17 @@ struct ReadBinaryOptions {
   ReadBinaryOptions() = default;
   ReadBinaryOptions(const Features& features,
                     Stream* log_stream,
-                    bool read_debug_names)
+                    bool read_debug_names,
+                    bool stop_on_first_error)
       : features(features),
         log_stream(log_stream),
-        read_debug_names(read_debug_names) {}
+        read_debug_names(read_debug_names),
+        stop_on_first_error(stop_on_first_error) {}
 
   Features features;
   Stream* log_stream = nullptr;
   bool read_debug_names = false;
+  bool stop_on_first_error = true;
 };
 
 class BinaryReaderDelegate {
@@ -175,7 +178,26 @@ class BinaryReaderDelegate {
   virtual Result OnOpcodeUint64(uint64_t value) = 0;
   virtual Result OnOpcodeF32(uint32_t value) = 0;
   virtual Result OnOpcodeF64(uint64_t value) = 0;
+  virtual Result OnOpcodeV128(v128 value) = 0;
   virtual Result OnOpcodeBlockSig(Index num_types, Type* sig_types) = 0;
+  virtual Result OnAtomicLoadExpr(Opcode opcode,
+                                  uint32_t alignment_log2,
+                                  Address offset) = 0;
+  virtual Result OnAtomicStoreExpr(Opcode opcode,
+                                   uint32_t alignment_log2,
+                                   Address offset) = 0;
+  virtual Result OnAtomicRmwExpr(Opcode opcode,
+                                 uint32_t alignment_log2,
+                                 Address offset) = 0;
+  virtual Result OnAtomicRmwCmpxchgExpr(Opcode opcode,
+                                        uint32_t alignment_log2,
+                                        Address offset) = 0;
+  virtual Result OnAtomicWaitExpr(Opcode opcode,
+                                  uint32_t alignment_log2,
+                                  Address offset) = 0;
+  virtual Result OnAtomicWakeExpr(Opcode opcode,
+                                  uint32_t alignment_log2,
+                                  Address offset) = 0;
   virtual Result OnBinaryExpr(Opcode opcode) = 0;
   virtual Result OnBlockExpr(Index num_types, Type* sig_types) = 0;
   virtual Result OnBrExpr(Index depth) = 0;
@@ -196,6 +218,7 @@ class BinaryReaderDelegate {
   virtual Result OnEndFunc() = 0;
   virtual Result OnF32ConstExpr(uint32_t value_bits) = 0;
   virtual Result OnF64ConstExpr(uint64_t value_bits) = 0;
+  virtual Result OnV128ConstExpr(v128 value_bits) = 0;
   virtual Result OnGetGlobalExpr(Index global_index) = 0;
   virtual Result OnGetLocalExpr(Index local_index) = 0;
   virtual Result OnGrowMemoryExpr() = 0;
@@ -283,6 +306,13 @@ class BinaryReaderDelegate {
   virtual Result OnStackGlobal(Index stack_global) = 0;
   virtual Result OnSymbolInfoCount(Index count) = 0;
   virtual Result OnSymbolInfo(string_view name, uint32_t flags) = 0;
+  virtual Result OnDataSize(uint32_t data_size) = 0;
+  virtual Result OnDataAlignment(uint32_t data_alignment) = 0;
+  virtual Result OnSegmentInfoCount(Index count) = 0;
+  virtual Result OnSegmentInfo(Index index,
+                               string_view name,
+                               uint32_t alignment,
+                               uint32_t flags) = 0;
   virtual Result EndLinkingSection() = 0;
 
   /* Exception section */
@@ -295,6 +325,7 @@ class BinaryReaderDelegate {
    * only called between calls to Begin*InitExpr and End*InitExpr */
   virtual Result OnInitExprF32ConstExpr(Index index, uint32_t value) = 0;
   virtual Result OnInitExprF64ConstExpr(Index index, uint64_t value) = 0;
+  virtual Result OnInitExprV128ConstExpr(Index index, v128 value) = 0;
   virtual Result OnInitExprGetGlobalExpr(Index index, Index global_index) = 0;
   virtual Result OnInitExprI32ConstExpr(Index index, uint32_t value) = 0;
   virtual Result OnInitExprI64ConstExpr(Index index, uint64_t value) = 0;

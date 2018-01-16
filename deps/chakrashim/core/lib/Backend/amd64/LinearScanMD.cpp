@@ -206,10 +206,10 @@ LinearScanMD::InsertOpHelperSpillsAndRestores(const OpHelperBlock& opHelperBlock
                 func->StackAllocate(sym, MachRegInt);
             }
             IR::RegOpnd * regOpnd = IR::RegOpnd::New(nullptr, opHelperSpilledLifetime.reg, sym->GetType(), func);
-            LowererMD::CreateAssign(IR::SymOpnd::New(sym, sym->GetType(), func), regOpnd, opHelperBlock.opHelperLabel->m_next);
+            Lowerer::InsertMove(IR::SymOpnd::New(sym, sym->GetType(), func), regOpnd, opHelperBlock.opHelperLabel->m_next);
             if (opHelperSpilledLifetime.reload)
             {
-                LowererMD::CreateAssign(regOpnd, IR::SymOpnd::New(sym, sym->GetType(), func), opHelperBlock.opHelperEndInstr);
+                Lowerer::InsertMove(regOpnd, IR::SymOpnd::New(sym, sym->GetType(), func), opHelperBlock.opHelperEndInstr);
             }
         }
     }
@@ -368,8 +368,8 @@ LinearScanMD::GenerateBailInForGeneratorYield(IR::Instr * resumeLabelInstr, Bail
     IR::Instr * instrInsertStackSym = instrAfter;
     IR::Instr * instrInsertRegSym = instrAfter;
 
-    Assert(bailOutInfo->capturedValues.constantValues.Empty());
-    Assert(bailOutInfo->capturedValues.copyPropSyms.Empty());
+    Assert(bailOutInfo->capturedValues->constantValues.Empty());
+    Assert(bailOutInfo->capturedValues->copyPropSyms.Empty());
     Assert(bailOutInfo->liveLosslessInt32Syms->IsEmpty());
     Assert(bailOutInfo->liveFloat64Syms->IsEmpty());
 
@@ -441,9 +441,9 @@ LinearScanMD::GenerateBailInForGeneratorYield(IR::Instr * resumeLabelInstr, Bail
     }
     NEXT_BITSET_IN_SPARSEBV;
 
-    if (bailOutInfo->capturedValues.argObjSyms)
+    if (bailOutInfo->capturedValues->argObjSyms)
     {
-        FOREACH_BITSET_IN_SPARSEBV(symId, bailOutInfo->capturedValues.argObjSyms)
+        FOREACH_BITSET_IN_SPARSEBV(symId, bailOutInfo->capturedValues->argObjSyms)
         {
             StackSym* stackSym = this->func->m_symTable->FindStackSym(symId);
             restoreSymFn(stackSym->GetByteCodeRegSlot(), stackSym);

@@ -222,7 +222,7 @@ LargeHeapBucket::PageHeapAlloc(Recycler * recycler, size_t sizeCat, size_t size,
 #pragma prefast(suppress:6250, "Calling 'VirtualFree' without the MEM_RELEASE flag might free memory but not address descriptors (VADs).")
         if (VirtualFree(guardPageAddress, AutoSystemInfo::PageSize * guardPageCount, MEM_DECOMMIT))
         {
-            pageHeapData->isGuardPageDecommited = true;
+            pageHeapData->isGuardPageDecommitted = true;
         }
         else
         {
@@ -234,7 +234,7 @@ LargeHeapBucket::PageHeapAlloc(Recycler * recycler, size_t sizeCat, size_t size,
         DWORD oldProtect;
         if (VirtualProtect(guardPageAddress, AutoSystemInfo::PageSize * guardPageCount, PAGE_NOACCESS, &oldProtect))
         {
-            pageHeapData->isGuardPageDecommited = false;
+            pageHeapData->isGuardPageDecommitted = false;
         }
         else
         {
@@ -587,7 +587,11 @@ LargeHeapBucket::Sweep(RecyclerSweep& recyclerSweep)
 {
 #if ENABLE_CONCURRENT_GC
     // CONCURRENT-TODO: large buckets are not swept in the background currently.
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    Assert(!recyclerSweep.GetRecycler()->IsConcurrentExecutingState() && !recyclerSweep.GetRecycler()->IsConcurrentSweepState());
+#else
     Assert(!recyclerSweep.GetRecycler()->IsConcurrentExecutingState());
+#endif
 #endif
 
     LargeHeapBlock * currentLargeObjectBlocks = largeBlockList;
@@ -979,9 +983,12 @@ LargeHeapBucket::TransferDisposedObjects()
 {
 #if ENABLE_CONCURRENT_GC
     Recycler * recycler = this->heapInfo->recycler;
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    Assert(!recycler->IsConcurrentExecutingState() && !recycler->IsConcurrentSweepState());
+#else
     Assert(!recycler->IsConcurrentExecutingState());
 #endif
-
+#endif
     HeapBlockList::ForEachEditing(this->pendingDisposeLargeBlockList, [this](LargeHeapBlock * heapBlock)
     {
         /* GC-TODO: large heap block doesn't support free list yet */
@@ -1123,3 +1130,24 @@ LargeHeapBucket::VerifyMark()
 }
 #endif
 
+#if ENABLE_MEM_STATS
+void
+LargeHeapBucket::AggregateBucketStats()
+{
+    HeapBucket::AggregateBucketStats();  // call super
+
+    auto blockStatsAggregator = [this](LargeHeapBlock* largeHeapBlock) {
+        largeHeapBlock->AggregateBlockStats(this->memStats);
+    };
+
+    HeapBlockList::ForEach(largeBlockList, blockStatsAggregator);
+    HeapBlockList::ForEach(fullLargeBlockList, blockStatsAggregator);
+    HeapBlockList::ForEach(pendingDisposeLargeBlockList, blockStatsAggregator);
+#if ENABLE_CONCURRENT_GC
+    HeapBlockList::ForEach(pendingSweepLargeBlockList, blockStatsAggregator);
+#if ENABLE_PARTIAL_GC
+    HeapBlockList::ForEach(partialSweptLargeBlockList, blockStatsAggregator);
+#endif
+#endif
+}
+#endif

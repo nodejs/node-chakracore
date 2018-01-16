@@ -4,6 +4,7 @@
 //-------------------------------------------------------------------------------------------------------
 
 #include "JsrtPch.h"
+#ifdef ENABLE_SCRIPT_DEBUGGING
 #include "JsrtDebugUtils.h"
 #include "RuntimeDebugPch.h"
 #include "screrror.h"   // For CompileScriptException
@@ -144,6 +145,7 @@ void JsrtDebugUtils::AddPropertyType(Js::DynamicObject * object, Js::IDiagObject
     bool addValue = false;
 
     Js::Var varValue = objectDisplayRef->GetVarValue(FALSE);
+    Js::IDiagObjectAddress* varAddress = objectDisplayRef->GetDiagAddress();
 
     if (varValue != nullptr)
     {
@@ -365,6 +367,11 @@ void JsrtDebugUtils::AddPropertyType(Js::DynamicObject * object, Js::IDiagObject
         propertyAttributes |= JsrtDebugPropertyAttribute::HAVE_CHILDRENS;
     }
 
+    if (varAddress != nullptr && varAddress->IsInDeadZone())
+    {
+        propertyAttributes |= JsrtDebugPropertyAttribute::IN_TDZ;
+    }
+
     JsrtDebugUtils::AddPropertyToObject(object, JsrtDebugPropertyId::propertyAttributes, (UINT)propertyAttributes, scriptContext);
 }
 
@@ -509,3 +516,4 @@ const char16 * JsrtDebugUtils::GetDebugPropertyName(JsrtDebugPropertyId property
     Assert(false);
     return _u("");
 }
+#endif

@@ -18,13 +18,11 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "common.h"
-#include "feature.h"
-#include "option-parser.h"
-#include "stream.h"
-#include "writer.h"
-#include "binary-reader.h"
-#include "binary-reader-objdump.h"
+#include "src/common.h"
+#include "src/option-parser.h"
+#include "src/stream.h"
+#include "src/binary-reader.h"
+#include "src/binary-reader-objdump.h"
 
 using namespace wabt;
 
@@ -36,7 +34,6 @@ examples:
 )";
 
 static ObjdumpOptions s_objdump_options;
-static Features s_features;
 
 static std::vector<const char*> s_infiles;
 
@@ -59,7 +56,6 @@ static void ParseOptions(int argc, char** argv) {
     s_log_stream = FileStream::CreateStdout();
     s_objdump_options.log_stream = s_log_stream.get();
   });
-  s_features.AddOptions(&parser);
   parser.AddOption('x', "details", "Show section details",
                    []() { s_objdump_options.details = true; });
   parser.AddOption('r', "reloc", "Show relocations inline with disassembly",
@@ -74,56 +70,47 @@ static void ParseOptions(int argc, char** argv) {
 
 Result dump_file(const char* filename) {
   std::vector<uint8_t> file_data;
-  Result result = ReadFile(filename, &file_data);
-  if (Failed(result))
-    return result;
+  CHECK_RESULT(ReadFile(filename, &file_data));
 
-  uint8_t* data = DataOrNull(file_data);
+  uint8_t* data = file_data.data();
   size_t size = file_data.size();
 
   // Perform serveral passed over the binary in order to print out different
   // types of information.
   s_objdump_options.filename = filename;
-  s_objdump_options.features = s_features;
   printf("\n");
 
   ObjdumpState state;
 
+  Result result = Result::Ok;
+
   // Pass 0: Prepass
   s_objdump_options.mode = ObjdumpMode::Prepass;
-  result = ReadBinaryObjdump(data, size, &s_objdump_options, &state);
-  if (Failed(result))
-    return result;
+  result |= ReadBinaryObjdump(data, size, &s_objdump_options, &state);
   s_objdump_options.log_stream = nullptr;
 
   // Pass 1: Print the section headers
   if (s_objdump_options.headers) {
     s_objdump_options.mode = ObjdumpMode::Headers;
-    result = ReadBinaryObjdump(data, size, &s_objdump_options, &state);
-    if (Failed(result))
-      return result;
+    result |= ReadBinaryObjdump(data, size, &s_objdump_options, &state);
   }
 
   // Pass 2: Print extra information based on section type
   if (s_objdump_options.details) {
     s_objdump_options.mode = ObjdumpMode::Details;
-    result = ReadBinaryObjdump(data, size, &s_objdump_options, &state);
-    if (Failed(result))
-      return result;
+    result |= ReadBinaryObjdump(data, size, &s_objdump_options, &state);
   }
 
   // Pass 3: Disassemble code section
   if (s_objdump_options.disassemble) {
     s_objdump_options.mode = ObjdumpMode::Disassemble;
-    result = ReadBinaryObjdump(data, size, &s_objdump_options, &state);
-    if (Failed(result))
-      return result;
+    result |= ReadBinaryObjdump(data, size, &s_objdump_options, &state);
   }
 
   // Pass 4: Dump to raw contents of the sections
   if (s_objdump_options.raw) {
     s_objdump_options.mode = ObjdumpMode::RawData;
-    result = ReadBinaryObjdump(data, size, &s_objdump_options, &state);
+    result |= ReadBinaryObjdump(data, size, &s_objdump_options, &state);
   }
 
   return result;

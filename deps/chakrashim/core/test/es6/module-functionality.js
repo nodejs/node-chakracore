@@ -318,6 +318,38 @@ var tests = [
             testRunner.LoadModule(functionBody, 'samethread');
         }
     },
+    {
+        name: "try/catch at top level at module source should not throw syntax error",
+        body: function() {
+            let functionBody =
+                `try {
+                    var k = 1;
+                } catch(e) {
+                }
+                export var x = 1; `;
+
+            testRunner.LoadModule(functionBody, 'samethread');
+        }
+    },
+    {
+        name: "OS13924587 - should export only top level vars",
+        body: function() {
+            let functionBody =
+                `
+                export {a as baz};
+                function foo(a) {
+                    function bar() {
+                        a;
+                    }
+                }
+                var a = 1;
+                foo(30);
+                assert.areEqual(1, a);
+                `;
+
+            testRunner.LoadModule(functionBody, 'samethread');
+        }
+    },
 ];
 
 testRunner.runTests(tests, { verbose: WScript.Arguments[0] != "summary" });

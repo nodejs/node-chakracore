@@ -221,6 +221,10 @@ void DbCheckPostLower::Check(IR::Opnd *opnd)
         this->Check(opnd->AsIndirOpnd()->GetBaseOpnd());
         this->Check(opnd->AsIndirOpnd()->GetIndexOpnd());
     }
+    else if (opnd->IsListOpnd())
+    {
+        opnd->AsListOpnd()->Map([&](int i, IR::Opnd* opnd) { this->Check(opnd); });
+    }
     else if (opnd->IsSymOpnd() && opnd->AsSymOpnd()->m_sym->IsStackSym())
     {
         if (this->func->isPostRegAlloc)
@@ -260,6 +264,21 @@ void DbCheckPostLower::Check(IR::RegOpnd *regOpnd)
                 Assert(LinearScan::GetRegAttribs(reg) & RA_BYTEABLE);
             }
 #endif
+        }
+    }
+
+    if (regOpnd->GetSym())
+    {
+        StackSym *sym = regOpnd->GetSym()->AsStackSym();
+        IRType tySym = sym->GetType();
+        IRType tyReg = regOpnd->GetType();
+
+        if (!IRType_IsSimd(tySym))
+        {
+            Assert((IRType_IsNativeIntOrVar(tySym) && IRType_IsNativeIntOrVar(tyReg))
+                || (IRType_IsFloat(tySym) && IRType_IsFloat(tyReg)));
+
+            Assert(TySize[tySym] >= TySize[tyReg] || this->func->isPostRegAlloc);
         }
     }
 }

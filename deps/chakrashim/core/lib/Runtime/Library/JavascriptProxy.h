@@ -50,8 +50,10 @@ namespace Js
 
         JavascriptProxy(DynamicType * type);
         JavascriptProxy(DynamicType * type, ScriptContext * scriptContext, RecyclableObject* target, RecyclableObject* handler);
-        static BOOL Is(Var obj);
-        static JavascriptProxy* FromVar(Var obj) { Assert(Is(obj)); return static_cast<JavascriptProxy*>(obj); }
+        static BOOL Is(_In_ Var obj);
+        static BOOL Is(_In_ RecyclableObject* obj);
+        static JavascriptProxy* FromVar(Var obj) { AssertOrFailFast(Is(obj)); return static_cast<JavascriptProxy*>(obj); }
+        static JavascriptProxy* UnsafeFromVar(Var obj) { Assert(Is(obj)); return static_cast<JavascriptProxy*>(obj); }
 #ifndef IsJsDiag
         RecyclableObject* GetTarget();
         RecyclableObject* GetHandler();
@@ -94,7 +96,9 @@ namespace Js
         virtual BOOL InitFuncScoped(PropertyId propertyId, Var value) override;
         virtual BOOL DeleteProperty(PropertyId propertyId, PropertyOperationFlags flags) override;
         virtual BOOL DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags) override;
+#if ENABLE_FIXED_FIELDS
         virtual BOOL IsFixedProperty(PropertyId propertyId) override;
+#endif
         virtual PropertyQueryFlags HasItemQuery(uint32 index) override;
         virtual BOOL HasOwnItem(uint32 index) override;
         virtual PropertyQueryFlags GetItemQuery(Var originalInstance, uint32 index, Var* value, ScriptContext * requestContext) override;
@@ -112,7 +116,6 @@ namespace Js
         virtual BOOL IsExtensible() override;
         virtual BOOL PreventExtensions() override;
         virtual void ThrowIfCannotDefineProperty(PropertyId propId, const PropertyDescriptor& descriptor) { }
-        virtual void ThrowIfCannotGetOwnPropertyDescriptor(PropertyId propId) {};
         virtual BOOL GetDefaultPropertyDescriptor(PropertyDescriptor& descriptor) override;
         virtual BOOL Seal() override;
         virtual BOOL Freeze() override;
@@ -168,15 +171,13 @@ namespace Js
             PropertyId propertyId;
             for (uint32 i = 0; i < len; i++)
             {
-                if (!JavascriptOperators::GetItem(trapResultArray, i, &element, scriptContext))
-                    continue;
-
-                if (!(JavascriptString::Is(element) || JavascriptSymbol::Is(element)))
+                if (!JavascriptOperators::GetItem(trapResultArray, i, &element, scriptContext) || // missing
+                    !(JavascriptString::Is(element) || JavascriptSymbol::Is(element)))  // neither String nor Symbol
                 {
                     JavascriptError::ThrowTypeError(scriptContext, JSERR_InconsistentTrapResult, _u("ownKeys"));
                 }
 
-                JavascriptConversion::ToPropertyKey(element, scriptContext, &propertyRecord);
+                JavascriptConversion::ToPropertyKey(element, scriptContext, &propertyRecord, nullptr);
                 propertyId = propertyRecord->GetPropertyId();
 
                 if (!targetToTrapResultMap.ContainsKey(propertyId))

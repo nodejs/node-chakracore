@@ -7,6 +7,9 @@
 #include "AuxPtrs.h"
 #include "CompactCounters.h"
 
+// Where should I include this file?
+#include "FunctionExecutionStateMachine.h"
+
 struct CodeGenWorkItem;
 class SourceContextInfo;
 struct DeferredFunctionStub;
@@ -78,198 +81,6 @@ namespace Js
     {
         Type * type;
         void * data;
-    };
-    class PropertyGuard
-    {
-        friend class PropertyGuardValidator;
-
-    private:
-        Field(intptr_t) value; // value is address of Js::Type
-#if DBG
-        Field(bool) wasReincarnated = false;
-#endif
-    public:
-        static PropertyGuard* New(Recycler* recycler) { return RecyclerNewLeaf(recycler, Js::PropertyGuard); }
-        PropertyGuard() : value(GuardValue::Uninitialized) {}
-        PropertyGuard(intptr_t value) : value(value)
-        {
-            // GuardValue::Invalidated and GuardValue::Invalidated_DuringSweeping can only be set using
-            // Invalidate() and InvalidatedDuringSweep() methods respectively.
-            Assert(this->value != GuardValue::Invalidated && this->value != GuardValue::Invalidated_DuringSweep);
-        }
-
-        inline static size_t const GetSizeOfValue() { return sizeof(((PropertyGuard*)0)->value); }
-        inline static size_t const GetOffsetOfValue() { return offsetof(PropertyGuard, value); }
-
-        intptr_t GetValue() const { return this->value; }
-        bool IsValid()
-        {
-            return this->value != GuardValue::Invalidated && this->value != GuardValue::Invalidated_DuringSweep;
-        }
-        bool IsInvalidatedDuringSweep() { return this->value == GuardValue::Invalidated_DuringSweep; }
-        void SetValue(intptr_t value)
-        {
-            // GuardValue::Invalidated and GuardValue::Invalidated_DuringSweeping can only be set using
-            // Invalidate() and InvalidatedDuringSweep() methods respectively.
-            Assert(value != GuardValue::Invalidated && value != GuardValue::Invalidated_DuringSweep);
-            this->value = value;
-        }
-        intptr_t const* GetAddressOfValue() { return &this->value; }
-        void Invalidate() { this->value = GuardValue::Invalidated; }
-        void InvalidateDuringSweep()
-        {
-#if DBG
-            wasReincarnated = true;
-#endif
-            this->value = GuardValue::Invalidated_DuringSweep;
-        }
-#if DBG
-        bool WasReincarnated() { return this->wasReincarnated; }
-#endif
-        enum GuardValue : intptr_t
-        {
-            Invalidated = 0,
-            Uninitialized = 1,
-            Invalidated_DuringSweep = 2
-        };
-    };
-
-    class PropertyGuardValidator
-    {
-        // Required by EquivalentTypeGuard::SetType.
-        CompileAssert(offsetof(PropertyGuard, value) == 0);
-        CompileAssert(offsetof(ConstructorCache, guard.value) == offsetof(PropertyGuard, value));
-    };
-
-    class JitIndexedPropertyGuard : public Js::PropertyGuard
-    {
-    private:
-        int index;
-
-    public:
-        JitIndexedPropertyGuard(intptr_t value, int index):
-            Js::PropertyGuard(value), index(index) {}
-
-        int GetIndex() const { return this->index; }
-    };
-
-    class JitTypePropertyGuard : public Js::JitIndexedPropertyGuard
-    {
-    public:
-        JitTypePropertyGuard(intptr_t typeAddr, int index):
-            JitIndexedPropertyGuard(typeAddr, index) {}
-
-        intptr_t GetTypeAddr() const { return this->GetValue(); }
-
-    };
-
-    struct TypeGuardTransferEntry
-    {
-        PropertyId propertyId;
-        JitIndexedPropertyGuard* guards[0];
-
-        TypeGuardTransferEntry(): propertyId(Js::Constants::NoProperty) {}
-    };
-
-    class FakePropertyGuardWeakReference: public RecyclerWeakReference<Js::PropertyGuard>
-    {
-    public:
-        static FakePropertyGuardWeakReference* New(Recycler* recycler, Js::PropertyGuard* guard)
-        {
-            Assert(guard != nullptr);
-            return RecyclerNewLeaf(recycler, Js::FakePropertyGuardWeakReference, guard);
-        }
-        FakePropertyGuardWeakReference(const Js::PropertyGuard* guard)
-        {
-            this->strongRef = (char*)guard;
-            this->strongRefHeapBlock = &CollectedRecyclerWeakRefHeapBlock::Instance;
-        }
-
-        void Zero()
-        {
-            Assert(this->strongRef != nullptr);
-            this->strongRef = nullptr;
-        }
-    };
-
-    struct CtorCacheGuardTransferEntry
-    {
-        PropertyId propertyId;
-        intptr_t caches[0];
-
-        CtorCacheGuardTransferEntry(): propertyId(Js::Constants::NoProperty) {}
-    };
-
-    struct EquivalentTypeCache
-    {
-        Js::Type* types[EQUIVALENT_TYPE_CACHE_SIZE];
-        PropertyGuard *guard;
-        TypeEquivalenceRecord record;
-        uint nextEvictionVictim;
-        bool isLoadedFromProto;
-        bool hasFixedValue;
-
-        EquivalentTypeCache(): nextEvictionVictim(EQUIVALENT_TYPE_CACHE_SIZE) {}
-        bool ClearUnusedTypes(Recycler *recycler);
-        void SetGuard(PropertyGuard *theGuard) { this->guard = theGuard; }
-        void SetIsLoadedFromProto() { this->isLoadedFromProto = true; }
-        bool IsLoadedFromProto() const { return this->isLoadedFromProto; }
-        void SetHasFixedValue() { this->hasFixedValue = true; }
-        bool HasFixedValue() const { return this->hasFixedValue; }
-    };
-
-    class JitEquivalentTypeGuard : public JitIndexedPropertyGuard
-    {
-        // This pointer is allocated from background thread first, and then transferred to recycler,
-        // so as to keep the cached types alive.
-        EquivalentTypeCache* cache;
-        uint32 objTypeSpecFldId;
-        // TODO: OOP JIT, reenable these asserts
-#if DBG && 0
-        // Intentionally have as intptr_t so this guard doesn't hold scriptContext
-        intptr_t originalScriptContextValue = 0;
-#endif
-
-    public:
-        JitEquivalentTypeGuard(intptr_t typeAddr, int index, uint32 objTypeSpecFldId):
-            JitIndexedPropertyGuard(typeAddr, index), cache(nullptr), objTypeSpecFldId(objTypeSpecFldId)
-        {
-#if DBG && 0
-            originalScriptContextValue = reinterpret_cast<intptr_t>(type->GetScriptContext());
-#endif
-        }
-
-        intptr_t GetTypeAddr() const { return this->GetValue(); }
-
-        void SetTypeAddr(const intptr_t typeAddr)
-        {
-#if DBG && 0
-            if (originalScriptContextValue == 0)
-            {
-                originalScriptContextValue = reinterpret_cast<intptr_t>(type->GetScriptContext());
-            }
-            else
-            {
-                AssertMsg(originalScriptContextValue == reinterpret_cast<intptr_t>(type->GetScriptContext()), "Trying to set guard type from different script context.");
-            }
-#endif
-            this->SetValue(typeAddr);
-        }
-
-        uint32 GetObjTypeSpecFldId() const
-        {
-            return this->objTypeSpecFldId;
-        }
-
-        Js::EquivalentTypeCache* GetCache() const
-        {
-            return this->cache;
-        }
-
-        void SetCache(Js::EquivalentTypeCache* cache)
-        {
-            this->cache = cache;
-        }
     };
 
 #pragma region Inline Cache Info class declarations
@@ -674,7 +485,7 @@ namespace Js
 
         virtual void ReleasePendingWorkItem() {};
 
-        virtual void OnCleanup(bool isShutdown) = 0;
+        virtual void OnCleanup(bool isShutdown, void** functionTable) = 0;
 
 #ifdef PERF_COUNTERS
         virtual void OnRecorded() = 0;
@@ -1096,7 +907,7 @@ namespace Js
         }
 #endif
 
-        virtual void OnCleanup(bool isShutdown) override;
+        virtual void OnCleanup(bool isShutdown, void** functionTable) override;
 
         virtual void ReleasePendingWorkItem() override;
 
@@ -1125,7 +936,7 @@ namespace Js
 
         virtual FunctionBody *GetFunctionBody() const override;
 
-        virtual void OnCleanup(bool isShutdown) override;
+        virtual void OnCleanup(bool isShutdown, void** functionTable) override;
 
 #if ENABLE_NATIVE_CODEGEN
         virtual void ResetOnNativeCodeInstallFailure() override;
@@ -1480,6 +1291,9 @@ namespace Js
         void SetIsPublicLibraryCode() { m_isPublicLibraryCode = true; }
         bool IsPublicLibraryCode() const { return m_isPublicLibraryCode; }
 
+        void SetIsJsBuiltInCode() { m_isJsBuiltInCode = true; }
+        bool IsJsBuiltInCode() const { return m_isJsBuiltInCode; }
+
 #if DBG
         bool HasValidEntryPoint() const;
 #if defined(ENABLE_SCRIPT_PROFILING) || defined(ENABLE_SCRIPT_DEBUGGING)
@@ -1539,6 +1353,7 @@ namespace Js
 
         FieldWithBarrier(bool) m_isTopLevel : 1; // Indicates that this function is top-level function, currently being used in script profiler and debugger
         FieldWithBarrier(bool) m_isPublicLibraryCode: 1; // Indicates this function is public boundary library code that should be visible in JS stack
+        FieldWithBarrier(bool) m_isJsBuiltInCode: 1; // Indicates this function comes from the JS Built In implementation
         FieldWithBarrier(bool) m_canBeDeferred : 1;
         FieldWithBarrier(bool) m_displayNameIsRecyclerAllocated : 1;
 
@@ -1924,13 +1739,16 @@ namespace Js
         void SetIsAsmjsMode(bool value)
         {
             m_isAsmjsMode = value;
-    #if DBG
+#if DBG
             if (value)
             {
                 m_wasEverAsmjsMode = true;
             }
-    #endif
+#endif
         }
+#if DBG
+        bool WasEverAsmJsMode() const { return m_wasEverAsmjsMode; }
+#endif
 
         void SetIsWasmFunction(bool val)
         {
@@ -2027,7 +1845,9 @@ namespace Js
         void SetReparsed(bool set) { m_reparsed = set; }
         bool IsMethod() const { return m_isMethod; }
         void SetIsMethod(bool set) { m_isMethod = set; }
+#ifdef NTBUILD
         bool GetExternalDisplaySourceName(BSTR* sourceName);
+#endif
 
         void CleanupToReparse();
         void CleanupToReparseHelper();
@@ -2164,6 +1984,9 @@ namespace Js
         FieldWithBarrier(bool) m_dontInline : 1;          // Used by the JIT's inliner
         FieldWithBarrier(bool) m_reparsed : 1;            // Indicates if the function has been reparsed for debug attach/detach scenario.
         FieldWithBarrier(bool) m_isMethod : 1;            // Function is an object literal method
+#if DBG
+        FieldWithBarrier(bool) m_wasEverAsmjsMode : 1;    // has m_isAsmjsMode ever been true
+#endif
 
         // This field is not required for deferred parsing but because our thunks can't handle offsets > 128 bytes
         // yet, leaving this here for now. We can look at optimizing the function info and function proxy structures some
@@ -2192,7 +2015,6 @@ namespace Js
 
     public:
 #if DBG
-        FieldWithBarrier(bool) m_wasEverAsmjsMode; // has m_isAsmjsMode ever been true
         FieldWithBarrier(Js::LocalFunctionId) deferredParseNextFunctionId;
 #endif
 #if DBG
@@ -2530,6 +2352,8 @@ namespace Js
 
         FieldWithBarrier(bool) m_hasFirstTmpRegister : 1;
         FieldWithBarrier(bool) m_hasActiveReference : 1;
+
+        FieldWithBarrier(bool) m_isJsBuiltInForceInline : 1;
 #if DBG
         FieldWithBarrier(bool) m_isSerialized : 1;
 #endif
@@ -2539,10 +2363,6 @@ namespace Js
 #if DBG
         // Indicates that nested functions can be allocated on the stack (but may not be)
         FieldWithBarrier(bool) m_canDoStackNestedFunc : 1;
-#endif
-
-#if DBG
-        FieldWithBarrier(bool) initializedExecutionModeAndLimits : 1;
 #endif
 
 #ifdef IR_VIEWER
@@ -2556,21 +2376,11 @@ namespace Js
 
         FieldWithBarrier(byte) inlineDepth; // Used by inlining to avoid recursively inlining functions excessively
 
-        FieldWithBarrier(ExecutionMode) executionMode;
-        FieldWithBarrier(uint16) interpreterLimit;
-        FieldWithBarrier(uint16) autoProfilingInterpreter0Limit;
-        FieldWithBarrier(uint16) profilingInterpreter0Limit;
-        FieldWithBarrier(uint16) autoProfilingInterpreter1Limit;
-        FieldWithBarrier(uint16) simpleJitLimit;
-        FieldWithBarrier(uint16) profilingInterpreter1Limit;
-        FieldWithBarrier(uint16) fullJitThreshold;
-        FieldWithBarrier(uint16) fullJitRequeueThreshold;
-        FieldWithBarrier(uint16) committedProfiledIterations;
+        FieldWithBarrier(FunctionExecutionStateMachine) executionState;
 
-        FieldWithBarrier(uint) m_depth; // Indicates how many times the function has been entered (so increases by one on each recursive call, decreases by one when we're done)
+        // Indicates how many times the function has been entered (so increases by one on each recursive call, decreases by one when we're done)
+        FieldWithBarrier(uint) m_depth;
 
-        FieldWithBarrier(uint32) interpretedCount;
-        FieldWithBarrier(uint32) lastInterpretedCount;
         FieldWithBarrier(uint32) loopInterpreterLimit;
         FieldWithBarrier(uint32) debuggerScopeIndex;
         FieldWithBarrier(uint32) savedPolymorphicCacheState;
@@ -2727,9 +2537,8 @@ namespace Js
         bool HasCachedScopePropIds() const { return hasCachedScopePropIds; }
         void SetHasCachedScopePropIds(bool has) { hasCachedScopePropIds = has; }
 
-        uint32 GetInterpretedCount() const { return interpretedCount; }
-        uint32 SetInterpretedCount(uint32 val) { return interpretedCount = val; }
-        uint32 IncreaseInterpretedCount() { return interpretedCount++; }
+        uint32 GetInterpretedCount() const;
+        uint32 IncreaseInterpretedCount();
 
         uint32 GetLoopInterpreterLimit() const { return loopInterpreterLimit; }
         uint32 SetLoopInterpreterLimit(uint32 val) { return loopInterpreterLimit = val; }
@@ -2740,11 +2549,14 @@ namespace Js
 
         size_t GetLoopBodyName(uint loopNumber, _Out_writes_opt_z_(sizeInChars) WCHAR* displayName, _In_ size_t sizeInChars);
 
+        void SetJsBuiltInForceInline() { m_isJsBuiltInForceInline = true; }
+        bool IsJsBuiltInForceInline() const { return m_isJsBuiltInForceInline; }
+
         void AllocateLoopHeaders();
         void ReleaseLoopHeaders();
         Js::LoopHeader * GetLoopHeader(uint index) const;
         Js::LoopHeader * GetLoopHeaderWithLock(uint index) const;
-        Js::Var GetLoopHeaderArrayPtr() const
+        Js::LoopHeader * GetLoopHeaderArrayPtr() const
         {
             Assert(this->GetLoopHeaderArray() != nullptr);
             return this->GetLoopHeaderArray();
@@ -2805,13 +2617,10 @@ namespace Js
         FunctionEntryPointInfo *GetSimpleJitEntryPointInfo() const;
         void SetSimpleJitEntryPointInfo(FunctionEntryPointInfo *const entryPointInfo);
 
-    private:
-        void VerifyExecutionMode(const ExecutionMode executionMode) const;
-    public:
-        ExecutionMode GetDefaultInterpreterExecutionMode() const;
+        void SetAsmJsExecutionMode();
+        void SetDefaultInterpreterExecutionMode();
         ExecutionMode GetExecutionMode() const;
         ExecutionMode GetInterpreterExecutionMode(const bool isPostBailout);
-        void SetExecutionMode(const ExecutionMode executionMode);
     private:
         bool IsInterpreterExecutionMode() const;
 
@@ -2823,15 +2632,7 @@ namespace Js
         void TransitionToSimpleJitExecutionMode();
         void TransitionToFullJitExecutionMode();
 
-    private:
-        void VerifyExecutionModeLimits();
-        void InitializeExecutionModeAndLimits();
-    public:
         void ReinitializeExecutionModeAndLimits();
-    private:
-        void SetFullJitThreshold(const uint16 newFullJitThreshold, const bool skipSimpleJit = false);
-        void CommitExecutedIterations();
-        void CommitExecutedIterations(uint16 &limit, const uint executedIterations);
 
     private:
         uint16 GetSimpleJitExecutedIterations() const;
@@ -2856,8 +2657,6 @@ namespace Js
         bool DoSimpleJit() const;
         bool DoSimpleJitWithLock() const;
         bool DoSimpleJitDynamicProfile() const;
-
-    private:
         bool DoInterpreterProfile() const;
         bool DoInterpreterProfileWithLock() const;
         bool DoInterpreterAutoProfile() const;
@@ -3324,6 +3123,11 @@ namespace Js
         RegSlot GetOutParamMaxDepth();
         void SetOutParamMaxDepth(RegSlot cOutParamsDepth);
         void CheckAndSetOutParamMaxDepth(RegSlot cOutParamsDepth);
+#if _M_X64
+        // 1 Var to push current m_outparam, 1 Var for "this"
+        // 6 Vars for register optimization in InterpreterStackFrame::OP_CallAsmInternalCommon
+        static constexpr RegSlot MinAsmJsOutParams() { return 1 + 1 + 6; }
+#endif
 
         RegSlot GetYieldRegister();
 
@@ -3358,9 +3162,11 @@ namespace Js
         void         EndExecution();
         SourceInfo * GetSourceInfo() { return &this->m_sourceInfo; }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         bool InstallProbe(int offset);
         bool UninstallProbe(int offset);
         bool ProbeAtOffset(int offset, OpCode* pOriginalOpcode);
+#endif
 
         static bool ShouldShareInlineCaches() { return CONFIG_FLAG(ShareInlineCaches); }
 
@@ -3458,7 +3264,7 @@ namespace Js
         UnifiedRegex::RegexPattern *GetLiteralRegex(const uint index);
         UnifiedRegex::RegexPattern *GetLiteralRegexWithLock(const uint index);
 #ifdef ASMJS_PLAT
-        AsmJsFunctionInfo* GetAsmJsFunctionInfo()const { return static_cast<AsmJsFunctionInfo*>(this->GetAuxPtr(AuxPointerType::AsmJsFunctionInfo)); }
+        AsmJsFunctionInfo* GetAsmJsFunctionInfo() const { return static_cast<AsmJsFunctionInfo*>(this->GetAuxPtr(AuxPointerType::AsmJsFunctionInfo)); }
         AsmJsFunctionInfo* GetAsmJsFunctionInfoWithLock()const { return static_cast<AsmJsFunctionInfo*>(this->GetAuxPtrWithLock(AuxPointerType::AsmJsFunctionInfo)); }
         AsmJsFunctionInfo* AllocateAsmJsFunctionInfo();
         AsmJsModuleInfo* GetAsmJsModuleInfo()const { return static_cast<AsmJsModuleInfo*>(this->GetAuxPtr(AuxPointerType::AsmJsModuleInfo)); }
@@ -3468,7 +3274,7 @@ namespace Js
             SetAuxPtr(AuxPointerType::AsmJsFunctionInfo, nullptr);
             SetAuxPtr(AuxPointerType::AsmJsModuleInfo, nullptr);
         }
-        bool IsAsmJSModule()const{ return this->GetAsmJsFunctionInfo() != nullptr; }
+        bool IsAsmJSModule() const { return m_isAsmjsMode && !m_isAsmJsFunction; }
         AsmJsModuleInfo* AllocateAsmJsModuleInfo();
 #endif
         void SetLiteralRegex(const uint index, UnifiedRegex::RegexPattern *const pattern);
@@ -3599,8 +3405,10 @@ namespace Js
         void SetEntryToProfileMode();
 #endif
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         void CheckAndRegisterFuncToDiag(ScriptContext *scriptContext);
         void SetEntryToDeferParseForDebugger();
+#endif
         void ClearEntryPoints();
         void ResetEntryPoint();
         void CleanupToReparseHelper();
@@ -3774,20 +3582,17 @@ namespace Js
         {
         }
 
-        bool IsFunctionScopeSlotArray()
-        {
-            return FunctionInfo::Is(slotArray[ScopeMetadataSlotIndex]);
-        }
+        bool IsDebuggerScopeSlotArray();
 
         FunctionInfo* GetFunctionInfo()
         {
-            Assert(IsFunctionScopeSlotArray());
+            Assert(!IsDebuggerScopeSlotArray());
             return (FunctionInfo*)PointerValue(slotArray[ScopeMetadataSlotIndex]);
         }
 
         DebuggerScope* GetDebuggerScope()
         {
-            Assert(!IsFunctionScopeSlotArray());
+            Assert(IsDebuggerScopeSlotArray());
             return (DebuggerScope*)PointerValue(slotArray[ScopeMetadataSlotIndex]);
         }
 
@@ -3895,7 +3700,7 @@ namespace Js
         Field(bool) strictMode;
         Field(uint16) length;
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
         Field(uint32) unused;
 #endif
         Field(void*) scopes[];
@@ -4113,6 +3918,9 @@ namespace Js
     // Used to track with, catch, and block scopes for the debugger to determine context.
     class DebuggerScope
     {
+    protected:
+        DEFINE_VTABLE_CTOR_NOBASE(DebuggerScope);
+
     public:
         typedef JsUtil::List<DebuggerScopeProperty> DebuggerScopePropertyList;
 
@@ -4128,6 +3936,9 @@ namespace Js
             this->range.end = -1;
         }
 
+        virtual ~DebuggerScope() {}
+
+        static bool Is(void* ptr);
         DebuggerScope * GetSiblingScope(RegSlot location, FunctionBody *functionBody);
         void AddProperty(RegSlot location, Js::PropertyId propertyId, DebuggerScopePropertyFlags flags);
         bool GetPropertyIndex(Js::PropertyId propertyId, int& i);
@@ -4189,10 +4000,10 @@ namespace Js
         void EnsurePropertyListIsAllocated();
 
     private:
+        FieldNoBarrier(Recycler*) recycler;
         Field(DebuggerScope*) parentScope;
         Field(regex::Interval) range; // The start and end byte code writer offsets used when comparing where the debugger is currently stopped at (breakpoint location).
         Field(RegSlot) scopeLocation;
-        FieldNoBarrier(Recycler*) recycler;
     };
 
     class ScopeObjectChain

@@ -41,6 +41,7 @@ namespace Js
         return Constants::NoSlot;
     }
 
+#if ENABLE_NATIVE_CODEGEN
     bool NullTypeHandlerBase::GetPropertyEquivalenceInfo(PropertyRecord const* propertyRecord, PropertyEquivalenceInfo& info)
     {
         info.slotIndex = Constants::NoSlot;
@@ -69,6 +70,7 @@ namespace Js
     {
         return entry->slotIndex == Constants::NoSlot && !entry->mustBeWritable;
     }
+#endif
 
     BOOL NullTypeHandlerBase::HasProperty(DynamicObject* instance, PropertyId propertyId, __out_opt bool *noRedecl)
     {
@@ -340,6 +342,14 @@ namespace Js
 
     template<bool IsPrototypeTemplate>
     NullTypeHandler<IsPrototypeTemplate> * NullTypeHandler<IsPrototypeTemplate>::GetDefaultInstance() { return &defaultInstance; }
+
+#if DBG_DUMP
+    template<bool IsPrototypeTemplate>
+    void NullTypeHandler<IsPrototypeTemplate>::Dump(unsigned indent) const
+    {
+        Output::Print(_u("%*sNullTypeHandler<%d> (0x%p): Dump unimplemented\n"), indent, _u(""), static_cast<int>(IsPrototypeTemplate), this);
+    }
+#endif
 
     template class NullTypeHandler<false>;
     template class NullTypeHandler<true>;

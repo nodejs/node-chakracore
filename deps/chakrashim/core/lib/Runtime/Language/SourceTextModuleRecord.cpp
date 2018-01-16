@@ -31,6 +31,7 @@ namespace Js
         localExportMapByLocalName(nullptr),
         localExportIndexList(nullptr),
         normalizedSpecifier(nullptr),
+        moduleUrl(nullptr),
         errorObject(nullptr),
         hostDefined(nullptr),
         exportedNames(nullptr),
@@ -179,7 +180,12 @@ namespace Js
         {
             if (*exceptionVar == nullptr)
             {
-                *exceptionVar = JavascriptError::CreateFromCompileScriptException(scriptContext, &se);
+                const WCHAR * sourceUrl = nullptr;
+                if (this->GetModuleUrl())
+                {
+                  sourceUrl = this->GetModuleUrlSz();
+                }
+                *exceptionVar = JavascriptError::CreateFromCompileScriptException(scriptContext, &se, sourceUrl);
             }
             if (this->parser)
             {
@@ -322,7 +328,7 @@ namespace Js
             OUTPUT_TRACE_DEBUGONLY(Js::ModulePhase, _u("\t>NotifyParentsAsNeeded\n"));
             NotifyParentsAsNeeded();
 
-            if (!WasDeclarationInitialized() && isRootModule)
+            if (!WasDeclarationInitialized() && (isRootModule || this->promise != nullptr))
             {
                 // TODO: move this as a promise call? if parser is called from a different thread
                 // We'll need to call the bytecode gen in the main thread as we are accessing GC.
@@ -846,14 +852,21 @@ namespace Js
         this->rootFunction = scriptContext->GenerateRootFunction(parseTree, sourceIndex, this->parser, this->pSourceInfo->GetParseFlags(), &se, _u("module"));
         if (rootFunction == nullptr)
         {
-            this->errorObject = JavascriptError::CreateFromCompileScriptException(scriptContext, &se);
+            const WCHAR * sourceUrl = nullptr;
+            if (this->GetModuleUrl())
+            {
+                sourceUrl = this->GetModuleUrlSz();
+            }
+            this->errorObject = JavascriptError::CreateFromCompileScriptException(scriptContext, &se, sourceUrl);
             OUTPUT_TRACE_DEBUGONLY(Js::ModulePhase, _u("\t>NotifyParentAsNeeded rootFunction == nullptr\n"));
             NotifyParentsAsNeeded();
         }
+#ifdef ENABLE_SCRIPT_DEBUGGING
         else
         {
             scriptContext->GetDebugContext()->RegisterFunction(this->rootFunction->GetFunctionBody(), nullptr);
         }
+#endif
     }
 
     Var SourceTextModuleRecord::ModuleEvaluation()

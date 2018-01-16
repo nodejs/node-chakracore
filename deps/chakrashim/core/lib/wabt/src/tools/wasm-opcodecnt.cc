@@ -23,10 +23,10 @@
 #include <map>
 #include <vector>
 
-#include "binary-reader.h"
-#include "binary-reader-opcnt.h"
-#include "option-parser.h"
-#include "stream.h"
+#include "src/binary-reader.h"
+#include "src/binary-reader-opcnt.h"
+#include "src/option-parser.h"
+#include "src/stream.h"
 
 #define ERROR(fmt, ...) \
   fprintf(stderr, "%s:%d: " fmt, __FILE__, __LINE__, __VA_ARGS__)
@@ -158,7 +158,7 @@ int ProgramMain(int argc, char** argv) {
 
   if (Succeeded(result)) {
     OpcodeInfoCounts counts;
-    result = ReadBinaryOpcnt(DataOrNull(file_data), file_data.size(),
+    result = ReadBinaryOpcnt(file_data.data(), file_data.size(),
                              &s_read_binary_options, &counts);
     if (Succeeded(result)) {
       stream.Writef("Opcode counts:\n");

@@ -369,6 +369,8 @@ unsigned NumberOfThreads = 0;
 TestList DirList, ExcludeDirList;
 BOOL FUserSpecifiedFiles = FALSE;
 BOOL FUserSpecifiedDirs = TRUE;
+BOOL FNoProgramOutput = FALSE;
+BOOL FOnlyAssertOutput = FALSE;
 BOOL FExcludeDirs = FALSE;
 BOOL FGenLst = FALSE;
 char *ResumeDir, *MatchDir;
@@ -379,6 +381,7 @@ static const char *ProgramName;
 static const char *LogName;
 static const char *FullLogName;
 static const char *ResultsLogName;
+static const char *TestTimeout; // Stores timeout in seconds for all tests
 
 // NOTE: this might be unused now
 static char TempPath[MAX_PATH] = ""; // Path for temporary files
@@ -2966,6 +2969,21 @@ ParseArg(
             break;
          }
 
+         if (!_stricmp(&arg[1], "noprogramoutput")) {
+            FNoProgramOutput = TRUE;
+            break;
+         }
+
+         if (!_stricmp(&arg[1], "onlyassertoutput")) {
+            FOnlyAssertOutput = TRUE;
+            break;
+         }
+
+         if (!_stricmp(&arg[1], "timeout")) {
+             TestTimeout = ComplainIfNoArg(arg, s);
+             break;
+         }
+
 #ifndef NODEBUG
          if (!_stricmp(&arg[1], "debug")) {
             FDebug = FVerbose = TRUE;
@@ -3568,10 +3586,14 @@ GetTestInfoFromNode
                   childNode->Dump();
                   return FALSE;
                }
-            }
 
-            
+            }
          }
+      }
+      if (i == TIK_TIMEOUT && TestTimeout != NULL)
+      {
+          // Overriding the timeout value with the command line value
+          testInfo->data[i] = TestTimeout;
       }
    }
 
@@ -5048,7 +5070,11 @@ main(int argc, char *argv[])
       sprintf_s(fullCfg, "%s\\%s", pDir->fullPath, CFGfile);
       status = ProcessConfig(&TestList, fullCfg, Mode);
 
-      if (status != PCS_ERROR)
+      if (status == PCS_ERROR)
+      {
+          exit(1);
+      } 
+      else
       {
 
 #ifndef NODEBUG

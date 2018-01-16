@@ -26,7 +26,9 @@ namespace Js
         GlobalObject* globalObject = RecyclerNewPlus(scriptContext->GetRecycler(),
             sizeof(Var) * InlineSlotCapacity, GlobalObject, globalType, scriptContext);
 
+#if ENABLE_FIXED_FIELDS
         globalTypeHandler->SetSingletonInstanceIfNeeded(scriptContext->GetRecycler()->CreateWeakReferenceHandle<DynamicObject>(globalObject));
+#endif
 
         return globalObject;
     }
@@ -53,10 +55,16 @@ namespace Js
 
     bool GlobalObject::Is(Var aValue)
     {
-        return RecyclableObject::Is(aValue) && (RecyclableObject::FromVar(aValue)->GetTypeId() == TypeIds_GlobalObject);
+        return RecyclableObject::Is(aValue) && (RecyclableObject::UnsafeFromVar(aValue)->GetTypeId() == TypeIds_GlobalObject);
     }
 
     GlobalObject* GlobalObject::FromVar(Var aValue)
+    {
+        AssertOrFailFastMsg(Is(aValue), "Ensure var is actually a 'GlobalObject'");
+        return static_cast<GlobalObject*>(aValue);
+    }
+
+    GlobalObject* GlobalObject::UnsafeFromVar(Var aValue)
     {
         AssertMsg(Is(aValue), "Ensure var is actually a 'GlobalObject'");
         return static_cast<GlobalObject*>(aValue);
@@ -485,7 +493,7 @@ namespace Js
     }
 
 #endif /* IR_VIEWER */
-    Var GlobalObject::EntryEvalHelper(ScriptContext* scriptContext, RecyclableObject* function, CallInfo callInfo, Js::Arguments& args)
+    Var GlobalObject::EntryEvalHelper(ScriptContext* scriptContext, RecyclableObject* function, Js::Arguments& args)
     {
         FrameDisplay* environment = (FrameDisplay*)&NullFrameDisplay;
         ModuleID moduleID = kmodGlobal;
@@ -493,31 +501,16 @@ namespace Js
         // TODO: Handle call from global scope, strict mode
         BOOL isIndirect = FALSE;
 
-        if (Js::CallInfo::isDirectEvalCall(args.Info.Flags))
+        if (args.IsDirectEvalCall())
         {
             // This was recognized as an eval call at compile time. The last one or two args are internal to us.
             // Argcount will be one of the following when called from global code
             //  - eval("...")     : argcount 3 : this, evalString, frameDisplay
             //  - eval.call("..."): argcount 2 : this(which is string) , frameDisplay
-            if (args.Info.Count >= 2)
+            if (args.Info.Count >= 1)
             {
-                environment = (FrameDisplay*)(args[args.Info.Count - 1]);
-
-                // Check for a module root passed from the caller. If it's there, use its module ID to compile the eval.
-                // when called inside a module root, module root would be added before the frame display in above scenarios
-
-                // ModuleRoot is optional
-                //  - eval("...")     : argcount 3/4 : this, evalString , [module root], frameDisplay
-                //  - eval.call("..."): argcount 2/3 : this(which is string) , [module root], frameDisplay
-
+                environment = args.GetFrameDisplay();
                 strictMode = environment->GetStrictMode();
-
-                if (args.Info.Count >= 3 && JavascriptOperators::GetTypeId(args[args.Info.Count - 2]) == TypeIds_ModuleRoot)
-                {
-                    moduleID = ((Js::ModuleRoot*)(RecyclableObject::FromVar(args[args.Info.Count - 2])))->GetModuleID();
-                    args.Info.Count--;
-                }
-                args.Info.Count--;
             }
         }
         else
@@ -545,7 +538,7 @@ namespace Js
 
         scriptContext->CheckEvalRestriction();
 
-        return EntryEvalHelper(scriptContext, function, callInfo, args);
+        return EntryEvalHelper(scriptContext, function, args);
     }
 
     // This function is used to decipher eval function parameters and we don't want the stack arguments optimization by C++ compiler so turning off the optimization
@@ -559,7 +552,7 @@ namespace Js
         JavascriptLibrary* library = function->GetLibrary();
         ScriptContext* scriptContext = library->GetScriptContext();
 
-        return EntryEvalHelper(scriptContext, function, callInfo, args);
+        return EntryEvalHelper(scriptContext, function, args);
     }
 
     Var GlobalObject::VEval(JavascriptLibrary* library, FrameDisplay* environment, ModuleID moduleID, bool strictMode, bool isIndirect,
@@ -587,13 +580,14 @@ namespace Js
             return evalArg;
         }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         // It might happen that no script parsed on this context (scriptContext) till now,
         // so this Eval acts as the first source compile for scriptContext, transition to debugMode as needed
         scriptContext->TransitionToDebugModeIfFirstSource(/* utf8SourceInfo = */ nullptr);
+#endif
 
         ScriptFunction *pfuncScript = nullptr;
-        ENTER_PINNED_SCOPE(JavascriptString, argString);
-        argString = JavascriptString::FromVar(evalArg);
+        JavascriptString *argString = JavascriptString::FromVar(evalArg);
         char16 const * sourceString = argString->GetSz();
         charcount_t sourceLen = argString->GetLength();
         FastEvalMapString key(sourceString, sourceLen, moduleID, strictMode, isLibraryCode);
@@ -679,8 +673,6 @@ namespace Js
             }
         }
 #endif
-
-        LEAVE_PINNED_SCOPE();    // argString
 
         //We shouldn't be serializing eval functions; unless with -ForceSerialized flag
         if (CONFIG_FLAG(ForceSerialized)) {
@@ -1629,8 +1621,7 @@ LHexError:
             return function->GetScriptContext()->GetLibrary()->GetUndefined();
         }
 
-        Js::JavascriptString* jsString = Js::JavascriptConversion::ToString(args[1], function->GetScriptContext());
-        PlatformAgnostic::EventTrace::FireGenericEventTrace(jsString->GetSz());
+        JS_ETW(EventWriteJSCRIPT_INTERNAL_GENERIC_EVENT(Js::JavascriptConversion::ToString(args[1], function->GetScriptContext())->GetSz()));
         return function->GetScriptContext()->GetLibrary()->GetUndefined();
     }
 #endif
@@ -1662,7 +1653,7 @@ LHexError:
             //
             //TODO: the host should give us a print callback which we can use here
             //
-            wprintf(_u("%ls\n"), jsString->GetSz());
+            Output::Print(_u("%ls\n"), jsString->GetSz());
             fflush(stdout);
         }
 
@@ -1879,6 +1870,14 @@ LHexError:
         // In ES5 they are enumerable.
 
         PropertyAttributes attributes = PropertyWritable | PropertyEnumerable | PropertyDeclaredGlobal;
+        flags = static_cast<PropertyOperationFlags>(flags | PropertyOperation_ThrowIfNotExtensible);
+        return DynamicObject::SetPropertyWithAttributes(propertyId, value, attributes, info, flags);
+    }
+
+    BOOL GlobalObject::InitPropertyInEval(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info)
+    {
+        // This is var/function declared inside the 'eval'
+        PropertyAttributes attributes = PropertyDynamicTypeDefaults | PropertyDeclaredGlobal;
         flags = static_cast<PropertyOperationFlags>(flags | PropertyOperation_ThrowIfNotExtensible);
         return DynamicObject::SetPropertyWithAttributes(propertyId, value, attributes, info, flags);
     }

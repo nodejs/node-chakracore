@@ -31,6 +31,7 @@
   <test>
     <default>
       <files>stack.js</files>
+      <compile-flags>-JsBuiltIn- -off:inline </compile-flags>
     </default>
   </test>
   <test>

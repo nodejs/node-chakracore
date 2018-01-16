@@ -370,7 +370,7 @@ namespace Js
 #endif
         Js::ImplicitCallFlags savedImplicitCallFlags;
 
-        void * returnAddrOfScriptEntryFunction;
+        void * addrOfReturnAddrOfScriptEntryFunction;
         void * frameIdOfScriptExitFunction; // the frameAddres in x86, the return address in amd64/arm_soc
         ScriptContext * scriptContext;
         struct ScriptEntryExitRecord * next;
@@ -383,6 +383,7 @@ namespace Js
 #endif
     };
 
+#if ENABLE_NATIVE_CODEGEN
     /*
     * This class caches jitted func address ranges.
     * This is to facilitate WER scenarios to use this cache for checking native addresses.
@@ -415,6 +416,7 @@ namespace Js
         LargeJITFuncAddrToSizeMap * GetLargeJITFuncAddrToSizeMap();
         static CriticalSection * GetCriticalSection() { return &cs; }
     };
+#endif
 
     class ScriptContext : public ScriptContextBase, public ScriptContextInfo
     {
@@ -423,6 +425,7 @@ namespace Js
         friend class GlobalObject; // InitializeCache
         friend class SourceTextModuleRecord; // for module bytecode gen.
 
+#if ENABLE_NATIVE_CODEGEN
     public:
         static DWORD GetThreadContextOffset() { return offsetof(ScriptContext, threadContext); }
         static DWORD GetOptimizationOverridesOffset() { return offsetof(ScriptContext, optimizationOverrides); }
@@ -430,19 +433,13 @@ namespace Js
         static DWORD GetNumberAllocatorOffset() { return offsetof(ScriptContext, numberAllocator); }
 
         JITPageAddrToFuncRangeCache * GetJitFuncRangeCache();
+    private:
         JITPageAddrToFuncRangeCache * jitFuncRangeCache;
-
+#endif
+    public:
         ScriptContext *next;
         ScriptContext *prev;
         bool IsRegistered() { return next != nullptr || prev != nullptr || threadContext->GetScriptContextList() == this; }
-        union
-        {
-            int64 int64Val;
-            float floatVal;
-            double dbVal;
-            AsmJsSIMDValue simdVal; // stores raw simd result for Asm interpreter
-        } asmJsReturnValue;
-        static DWORD GetAsmJsReturnValueOffset() { return offsetof(ScriptContext, asmJsReturnValue); }
 
         ScriptContextOptimizationOverrideInfo optimizationOverrides;
 
@@ -492,17 +489,19 @@ namespace Js
 
 #ifdef ENABLE_JS_ETW
         void EmitStackTraceEvent(__in UINT64 operationID, __in USHORT maxFrameCount, bool emitV2AsyncStackEvent);
+        static ushort ProcessNameAndGetLength(Js::StringBuilder<ArenaAllocator>* nameBuffer, const WCHAR* name);
 #endif
 
         void SetIsDiagnosticsScriptContext(bool set) { this->isDiagnosticsScriptContext = set; }
         bool IsDiagnosticsScriptContext() const { return this->isDiagnosticsScriptContext; }
-
         bool IsScriptContextInNonDebugMode() const;
         bool IsScriptContextInDebugMode() const;
         bool IsScriptContextInSourceRundownOrDebugMode() const;
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         bool IsDebuggerRecording() const;
         void SetIsDebuggerRecording(bool isDebuggerRecording);
+#endif
 
         bool IsRunningScript() const { return this->threadContext->GetScriptEntryExit() != nullptr; }
 
@@ -569,13 +568,19 @@ namespace Js
         ArenaAllocator* interpreterArena;
         ArenaAllocator* guestArena;
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         ArenaAllocator* diagnosticArena;
+#endif
 
+#if ENABLE_NATIVE_CODEGEN
         PSCRIPTCONTEXT_HANDLE m_remoteScriptContextAddr;
+#endif
 
         bool startupComplete; // Indicates if the heuristic startup phase for this script context is complete
         bool isInvalidatedForHostObjects;  // Indicates that we've invalidate all objects in the host so stop calling them.
+#ifdef ENABLE_SCRIPT_DEBUGGING
         bool isEnumeratingRecyclerObjects; // Indicates this scriptContext is enumerating recycler objects. Used by recycler enumerating callbacks to filter out other unrelated scriptContexts.
+#endif
         bool m_enumerateNonUserFunctionsOnly; // Indicates that recycler enumeration callback will consider only non-user functions (which are built-ins, external, winrt etc).
 
         ThreadContext* threadContext;
@@ -800,7 +805,7 @@ private:
 #ifdef ASMJS_PLAT
         InterpreterThunkEmitter* asmJsInterpreterThunkEmitter;
         AsmJsCodeGenerator* asmJsCodeGenerator;
-        typedef JsUtil::BaseDictionary<void *, SList<AsmJsScriptFunction *>*, ArenaAllocator> AsmFunctionMap;
+        typedef JsUtil::BaseDictionary<void*, SList<AsmJsScriptFunction *>*, ArenaAllocator> AsmFunctionMap;
         AsmFunctionMap* asmJsEnvironmentMap;
         ArenaAllocator* debugTransitionAlloc;
 #endif
@@ -831,11 +836,9 @@ private:
 #endif
 
 #ifndef CC_LOW_MEMORY_TARGET
-        JsUtil::BaseDictionary<uint, JavascriptString *, ArenaAllocator> integerStringMap;
         uint integerStringMapCacheMissCount;
         uint integerStringMapCacheUseCount;
 #endif
-
         double lastNumberToStringRadix10;
         double lastUtcTimeFromStr;
 
@@ -866,6 +869,17 @@ private:
         typedef JsUtil::List<RecyclerWeakReference<Utf8SourceInfo>*, Recycler, false, Js::FreeListedRemovePolicy> SourceList;
         RecyclerRootPtr<SourceList> sourceList;
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
+        typedef void(*RaiseMessageToDebuggerFunctionType)(ScriptContext *, DEBUG_EVENT_INFO_TYPE, LPCWSTR, LPCWSTR);
+        RaiseMessageToDebuggerFunctionType raiseMessageToDebuggerFunctionType;
+
+        typedef void(*TransitionToDebugModeIfFirstSourceFn)(ScriptContext *, Utf8SourceInfo *);
+        TransitionToDebugModeIfFirstSourceFn transitionToDebugModeIfFirstSourceFn;
+
+        DebugContext* debugContext;
+        CriticalSection debugContextCloseCS;
+#endif
+
 #ifdef ENABLE_SCRIPT_PROFILING
         IActiveScriptProfilerHeapEnum* heapEnum;
 
@@ -891,12 +905,6 @@ private:
         SListBase<JsUtil::IWeakReferenceDictionary*> weakReferenceDictionaryList;
         bool isWeakReferenceDictionaryListCleared;
 
-        typedef void(*RaiseMessageToDebuggerFunctionType)(ScriptContext *, DEBUG_EVENT_INFO_TYPE, LPCWSTR, LPCWSTR);
-        RaiseMessageToDebuggerFunctionType raiseMessageToDebuggerFunctionType;
-
-        typedef void(*TransitionToDebugModeIfFirstSourceFn)(ScriptContext *, Utf8SourceInfo *);
-        TransitionToDebugModeIfFirstSourceFn transitionToDebugModeIfFirstSourceFn;
-
         ScriptContext(ThreadContext* threadContext);
         void InitializeAllocations();
         void InitializePreGlobal();
@@ -921,14 +929,7 @@ private:
 
         void InternalClose();
 
-        DebugContext* debugContext;
-        CriticalSection debugContextCloseCS;
-
     public:
-        static const int kArrayMatchCh=72;
-        static const int kMaxArrayMatchIndex=8192;
-        short arrayMatchItems[kArrayMatchCh];
-        bool arrayMatchInit;
 
 #ifdef LEAK_REPORT
         LeakReport::UrlRecord * urlRecord;
@@ -967,6 +968,7 @@ private:
         void SetDirectHostTypeId(TypeId typeId) {directHostTypeId = typeId; }
         TypeId GetDirectHostTypeId() const { return directHostTypeId; }
 
+#if ENABLE_NATIVE_CODEGEN
         PSCRIPTCONTEXT_HANDLE GetRemoteScriptAddr(bool allowInitialize = true)
         {
 #if ENABLE_OOP_NATIVE_CODEGEN
@@ -977,6 +979,7 @@ private:
 #endif
             return m_remoteScriptContextAddr;
         }
+#endif
 
         char16 const * GetUrl() const { return url; }
         void SetUrl(BSTR bstr);
@@ -984,25 +987,16 @@ private:
         time_t GetCreateTime() const { return createTime; }
         uint GetAllocId() const { return allocId; }
 #endif
-        void InitializeArrayMatch()
-        {
-            if (!arrayMatchInit)
-            {
-                for (int i=0;i<kArrayMatchCh;i++)
-                {
-                    arrayMatchItems[i]= -1;
-                }
-                arrayMatchInit=true;
-            }
-        }
 
 #ifdef HEAP_ENUMERATION_VALIDATION
         bool IsInitialized() { return this->isInitialized; }
 #endif
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         bool IsDebugContextInitialized() const { return this->isDebugContextInitialized; }
         DebugContext* GetDebugContext() const;
         CriticalSection* GetDebugContextCloseCS() { return &debugContextCloseCS; }
+#endif
 
         uint callCount;
 
@@ -1041,6 +1035,7 @@ private:
 
         void InitializeGlobalObject();
         bool IsIntlEnabled();
+        bool IsJsBuiltInEnabled();
         JavascriptLibrary* GetLibrary() const { return javascriptLibrary; }
         Js::Cache* Cache() const{ return &this->javascriptLibrary->cache; }
         const JavascriptLibraryBase* GetLibraryBase() const { return javascriptLibrary->GetLibraryBase(); }
@@ -1221,14 +1216,14 @@ private:
         {
             GetOrAddPropertyRecord(propertyName, N - 1, propertyRecord);
         }
-        void GetOrAddPropertyRecord(Js::JavascriptString * propertyString, PropertyRecord const** propertyRecord);
+        void GetOrAddPropertyRecord(_In_ Js::JavascriptString * propertyString, _Out_ PropertyRecord const** propertyRecord);
         PropertyId GetOrAddPropertyIdTracked(JsUtil::CharacterBuffer<WCHAR> const& propName);
         template <size_t N> PropertyId GetOrAddPropertyIdTracked(const char16(&propertyName)[N])
         {
             return GetOrAddPropertyIdTracked(propertyName, N - 1);
         }
         PropertyId GetOrAddPropertyIdTracked(__in_ecount(propertyNameLength) LPCWSTR pszPropertyName, __in int propertyNameLength);
-        void GetOrAddPropertyRecord(__in_ecount(propertyNameLength) LPCWSTR pszPropertyName, __in int propertyNameLength, PropertyRecord const** propertyRecord);
+        void GetOrAddPropertyRecord(__in_ecount(propertyNameLength) LPCWSTR pszPropertyName, _In_ int propertyNameLength, _Out_ PropertyRecord const** propertyRecord);
         BOOL IsNumericPropertyId(PropertyId propertyId, uint32* value);
 
         void RegisterWeakReferenceDictionary(JsUtil::IWeakReferenceDictionary* weakReferenceDictionary);
@@ -1275,7 +1270,9 @@ private:
         CacheAllocator * ForInCacheAllocator() { return &forInCacheAllocator; }
         ArenaAllocator* DynamicProfileInfoAllocator() { return &dynamicProfileInfoAllocator; }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         ArenaAllocator* AllocatorForDiagnostics();
+#endif
 
         Js::TempArenaAllocatorObject* GetTemporaryAllocator(LPCWSTR name);
         void ReleaseTemporaryAllocator(Js::TempArenaAllocatorObject* tempAllocator);
@@ -1382,6 +1379,7 @@ private:
         // Do not call this directly, look for ENFORCE_ENTRYEXITRECORD_HASCALLER macro.
         void EnforceEERHasCaller() { threadContext->GetScriptEntryExit()->hasCaller = true; }
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         void SetRaiseMessageToDebuggerFunction(RaiseMessageToDebuggerFunctionType function)
         {
             raiseMessageToDebuggerFunctionType = function;
@@ -1407,6 +1405,7 @@ private:
                 transitionToDebugModeIfFirstSourceFn(this, sourceInfo);
             }
         }
+#endif
 
         void AddSourceSize(size_t sourceSize)
         {
@@ -1439,7 +1438,7 @@ private:
             return threadContext->GetEmptyStringPropertyId();
         }
 
-        void FreeFunctionEntryPoint(Js::JavascriptMethod codeAddress, Js::JavascriptMethod thunkAddress);
+        void FreeFunctionEntryPoint(Js::JavascriptMethod codeAddress, Js::JavascriptMethod thunkAddress, void** functionTable);
 
     private:
         uint CloneSource(Utf8SourceInfo* info);
@@ -1500,8 +1499,12 @@ private:
 #endif
         }
 
+        SRCINFO *AddHostSrcInfo(SRCINFO const *pSrcInfo);
+
 #if DBG
         SourceContextInfo const * GetNoContextSourceContextInfo() const { return this->Cache()->noContextSourceContextInfo; }
+        bool hadProfiled;
+        bool HadProfiled() const { return hadProfiled; }
 
 #ifdef ENABLE_SCRIPT_PROFILING
         int GetProfileSession()
@@ -1521,37 +1524,36 @@ private:
             AssertMsg(m_pProfileCallback == nullptr, "How to stop when there is still the callback out there");
         }
 #endif // ENABLE_SCRIPT_PROFILING
-
-        bool hadProfiled;
-        bool HadProfiled() const { return hadProfiled; }
 #endif
 
-        SRCINFO *AddHostSrcInfo(SRCINFO const *pSrcInfo);
-
-        inline void CoreSetProfileEventMask(DWORD dwEventMask);
-        typedef HRESULT (*RegisterExternalLibraryType)(Js::ScriptContext *pScriptContext);
 #ifdef ENABLE_SCRIPT_PROFILING
+        void CoreSetProfileEventMask(DWORD dwEventMask);
+        typedef HRESULT(*RegisterExternalLibraryType)(Js::ScriptContext *pScriptContext);
         HRESULT RegisterProfileProbe(IActiveScriptProfilerCallback *pProfileCallback, DWORD dwEventMask, DWORD dwContext, RegisterExternalLibraryType RegisterExternalLibrary, JavascriptMethod dispatchInvoke);
         HRESULT DeRegisterProfileProbe(HRESULT hrReason, JavascriptMethod dispatchInvoke);
-#endif
+        HRESULT RegisterLibraryFunction(const char16 *pwszObjectName, const char16 *pwszFunctionName, Js::PropertyId functionPropertyId, JavascriptMethod entryPoint);
+        HRESULT RegisterBuiltinFunctions(RegisterExternalLibraryType RegisterExternalLibrary);
         HRESULT SetProfileEventMask(DWORD dwEventMask);
 
         HRESULT RegisterScript(Js::FunctionProxy *pFunctionBody, BOOL fRegisterScript = TRUE);
 
         // Register static and dynamic scripts
         HRESULT RegisterAllScripts();
+#endif
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         // Iterate through utf8sourceinfo and clear debug document if they are there.
         void EnsureClearDebugDocument();
+        void UpdateRecyclerFunctionEntryPointsForDebugger();
+        static void RecyclerFunctionCallbackForDebugger(void *address, size_t size);
+        void SetFunctionInRecyclerToProfileMode(bool enumerateNonUserFunctionsOnly = false);
+#ifdef ASMJS_PLAT
+        void TransitionEnvironmentForDebugger(ScriptFunction * scriptFunction);
+#endif
+#endif
 
         // To be called directly only when the thread context is shutting down
         void ShutdownClearSourceLists();
-
-        HRESULT RegisterLibraryFunction(const char16 *pwszObjectName, const char16 *pwszFunctionName, Js::PropertyId functionPropertyId, JavascriptMethod entryPoint);
-
-        HRESULT RegisterBuiltinFunctions(RegisterExternalLibraryType RegisterExternalLibrary);
-        void UpdateRecyclerFunctionEntryPointsForDebugger();
-        void SetFunctionInRecyclerToProfileMode(bool enumerateNonUserFunctionsOnly = false);
 
 #if defined(ENABLE_SCRIPT_PROFILING) || defined(ENABLE_SCRIPT_DEBUGGING)
         void RegisterDebugThunk(bool calledDuringAttach = true);
@@ -1560,25 +1562,21 @@ private:
         static void RestoreEntryPointFromProfileThunk(JavascriptFunction* function);
         static void RecyclerEnumClassEnumeratorCallback(void *address, size_t size);
 #endif
-        static void RecyclerFunctionCallbackForDebugger(void *address, size_t size);
-
-        static ushort ProcessNameAndGetLength(Js::StringBuilder<ArenaAllocator>* nameBuffer, const WCHAR* name);
-
-#ifdef ASMJS_PLAT
-        void TransitionEnvironmentForDebugger(ScriptFunction * scriptFunction);
-#endif
 
 #if ENABLE_NATIVE_CODEGEN
-        HRESULT RecreateNativeCodeGenerator();
+        HRESULT RecreateNativeCodeGenerator(NativeCodeGenerator ** previousCodeGen = nullptr);
+        void DeletePreviousNativeCodeGenerator(NativeCodeGenerator * codeGen);
+        HRESULT OnDebuggerAttachedDetached(bool attach, NativeCodeGenerator ** previousCodeGenHolder = nullptr);
+#else
+        HRESULT OnDebuggerAttachedDetached(bool attach);
 #endif
+        bool IsForceNoNative();
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         HRESULT OnDebuggerAttached();
         HRESULT OnDebuggerDetached();
-        HRESULT OnDebuggerAttachedDetached(bool attach);
         void InitializeDebugging();
-        bool IsForceNoNative();
         bool IsEnumeratingRecyclerObjects() const { return isEnumeratingRecyclerObjects; }
-
     private:
         class AutoEnumeratingRecyclerObjects
         {
@@ -1599,6 +1597,7 @@ private:
         private:
             ScriptContext* m_scriptContext;
         };
+#endif
 
 #ifdef EDIT_AND_CONTINUE
     private:
@@ -1628,7 +1627,10 @@ private:
         Js::PropertyId GetFunctionNumber(JavascriptMethod entryPoint);
 
         static const char16* CopyString(const char16* str, size_t charCount, ArenaAllocator* alloc);
+
+#ifdef ENABLE_JS_ETW
         static charcount_t AppendWithEscapeCharacters(Js::StringBuilder<ArenaAllocator>* stringBuilder, const WCHAR* sourceString, charcount_t sourceStringLen, WCHAR escapeChar, WCHAR charToEscape);
+#endif
 
     public:
 #if DYNAMIC_INTERPRETER_THUNK
@@ -1673,11 +1675,12 @@ private:
 
         static HRESULT FunctionExitSenderThunk(PROFILER_TOKEN functionId, PROFILER_TOKEN scriptId, ScriptContext *pScriptContext);
         static HRESULT FunctionExitByNameSenderThunk(const char16 *pwszFunctionName, ScriptContext *pScriptContext);
-#endif // ENABLE_SCRIPT_PROFILING
 
         bool SetDispatchProfile(bool fSet, JavascriptMethod dispatchInvoke);
         HRESULT OnDispatchFunctionEnter(const WCHAR *pwszFunctionName);
         HRESULT OnDispatchFunctionExit(const WCHAR *pwszFunctionName);
+
+#endif // ENABLE_SCRIPT_PROFILING
 
         void OnStartupComplete();
         void SaveStartupProfileAndRelease(bool isSaveOnClose = false);
@@ -1744,10 +1747,14 @@ private:
         virtual bool IsPRNGSeeded() const override;
         virtual intptr_t GetBuiltinFunctionsBaseAddr() const override;
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
         virtual intptr_t GetDebuggingFlagsAddr() const override;
         virtual intptr_t GetDebugStepTypeAddr() const override;
         virtual intptr_t GetDebugFrameAddressAddr() const override;
         virtual intptr_t GetDebugScriptIdWhenSetAddr() const override;
+#endif
+
+        virtual intptr_t GetChakraLibAddr() const override;
 
 #if ENABLE_NATIVE_CODEGEN
         virtual void AddToDOMFastPathHelperMap(intptr_t funcInfoAddr, IR::JnHelperMethod helper) override;
@@ -1898,6 +1905,7 @@ private:
         bool isPhaseComplete;
     };
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
     // Set up a scope in which we will initialize library JS code (like Intl.js),
     // which should not be treated as user-level JS code.
     // We should not profile and should not log debugger information in such a scope.
@@ -1924,6 +1932,7 @@ private:
             this->scriptContext->SetIsDebuggerRecording(this->oldIsDebuggerRecording);
         }
     };
+#endif
 }
 
 #define BEGIN_TEMP_ALLOCATOR(allocator, scriptContext, name) \

@@ -95,9 +95,16 @@ namespace Js
 
     JavascriptRegExp* JavascriptRegExp::FromVar(Var aValue)
     {
+        AssertOrFailFastMsg(Is(aValue), "Ensure var is actually a 'JavascriptRegExp'");
+
+        return static_cast<JavascriptRegExp *>(aValue);
+    }
+
+    JavascriptRegExp* JavascriptRegExp::UnsafeFromVar(Var aValue)
+    {
         AssertMsg(Is(aValue), "Ensure var is actually a 'JavascriptRegExp'");
 
-        return static_cast<JavascriptRegExp *>(RecyclableObject::FromVar(aValue));
+        return static_cast<JavascriptRegExp *>(aValue);
     }
 
     CharCount JavascriptRegExp::GetLastIndexProperty(RecyclableObject* instance, ScriptContext* scriptContext)
@@ -177,15 +184,16 @@ namespace Js
 
     JavascriptRegExp* JavascriptRegExp::ToRegExp(Var var, PCWSTR varName, ScriptContext* scriptContext)
     {
-        if (JavascriptRegExp::Is(var))
+        JavascriptRegExp * regExp = JavascriptOperators::TryFromVar<JavascriptRegExp>(var);
+        if (regExp)
         {
-            return JavascriptRegExp::FromVar(var);
+            return regExp;
         }
 
         if (JavascriptOperators::GetTypeId(var) == TypeIds_HostDispatch)
         {
             TypeId remoteTypeId = TypeIds_Limit;
-            RecyclableObject* reclObj = RecyclableObject::FromVar(var);
+            RecyclableObject* reclObj = RecyclableObject::UnsafeFromVar(var);
             if (reclObj->GetRemoteTypeId(&remoteTypeId) && remoteTypeId == TypeIds_RegEx)
             {
                 return static_cast<JavascriptRegExp *>(reclObj->GetRemoteObject());
@@ -212,13 +220,17 @@ namespace Js
         {
             return scriptContext->GetLibrary()->GetUndefinedDisplayString();
         }
-        else if (JavascriptString::Is(args[1]))
-        {
-            return JavascriptString::FromVar(args[1]);
-        }
         else
         {
-            return JavascriptConversion::ToString(args[1], scriptContext);
+            JavascriptString *jsString = JavascriptOperators::TryFromVar<JavascriptString>(args[1]);
+            if (jsString)
+            {
+                return jsString;
+            }
+            else
+            {
+                return JavascriptConversion::ToString(args[1], scriptContext);
+            }
         }
     }
 
@@ -240,10 +252,8 @@ namespace Js
 
         // SkipDefaultNewObject function flag should have prevented the default object from
         // being created, except when call true a host dispatch.
-        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : function;
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
-        Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr
-            || JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch);
+        Var newTarget = args.HasNewTarget() ? args.Values[args.Info.Count] : function;
+        bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
 
         UnifiedRegex::RegexPattern* pattern = nullptr;
         UnifiedRegex::RegexPattern* splitPattern = nullptr;
@@ -329,11 +339,7 @@ namespace Js
 
     UnifiedRegex::RegexPattern* JavascriptRegExp::CreatePattern(Var aValue, Var options, ScriptContext *scriptContext)
     {
-        UnifiedRegex::RegexPattern* pattern = nullptr;
-
-        ENTER_PINNED_SCOPE(JavascriptString, strBody);
-        ENTER_PINNED_SCOPE(JavascriptString, strOptions);
-        strOptions = nullptr;
+        JavascriptString * strBody;
 
         if (JavascriptString::Is(aValue))
         {
@@ -353,6 +359,7 @@ namespace Js
         int cOpts = 0;
         const char16 *szOptions = nullptr;
 
+        JavascriptString * strOptions = nullptr;
         if (options != nullptr && !JavascriptOperators::IsUndefinedObject(options))
         {
             if (JavascriptString::Is(options))
@@ -368,10 +375,7 @@ namespace Js
             cOpts = strOptions->GetLength();
         }
 
-        pattern = RegexHelper::CompileDynamic(scriptContext, szRegex, cBody, szOptions, cOpts, false);
-
-        LEAVE_PINNED_SCOPE();   //strOptions
-        LEAVE_PINNED_SCOPE();   //strBody
+        UnifiedRegex::RegexPattern* pattern = RegexHelper::CompileDynamic(scriptContext, szRegex, cBody, szOptions, cOpts, false);
 
         return pattern;
     }
@@ -573,11 +577,7 @@ namespace Js
         else
         {
             //compile with a string
-            ENTER_PINNED_SCOPE(JavascriptString, strBody);
-            ENTER_PINNED_SCOPE(JavascriptString, strOptions);
-            strBody = nullptr;
-            strOptions = nullptr;
-
+            JavascriptString * strBody;
             if (JavascriptString::Is(args[1]))
             {
                 strBody = JavascriptString::FromVar(args[1]);
@@ -596,6 +596,7 @@ namespace Js
             int cOpts = 0;
             const char16 *szOptions = nullptr;
 
+            JavascriptString * strOptions = nullptr;
             if (callInfo.Count > 2 && !JavascriptOperators::IsUndefinedObject(args[2]))
             {
                 if (JavascriptString::Is(args[2]))
@@ -612,9 +613,6 @@ namespace Js
             }
 
             pattern = RegexHelper::CompileDynamic(scriptContext, szRegex, cBody, szOptions, cOpts, false);
-
-            LEAVE_PINNED_SCOPE();   //strOptions
-            LEAVE_PINNED_SCOPE();   //strBody
         }
 
         thisRegularExpression->SetPattern(pattern);
@@ -872,8 +870,12 @@ namespace Js
         Var exec = JavascriptOperators::GetProperty(thisObj, PropertyIds::exec, scriptContext);
         if (JavascriptConversion::IsCallable(exec))
         {
-            RecyclableObject* execFn = RecyclableObject::FromVar(exec);
-            Var result = CALL_FUNCTION(scriptContext->GetThreadContext(), execFn, CallInfo(CallFlags_Value, 2), thisObj, string);
+            RecyclableObject* execFn = RecyclableObject::UnsafeFromVar(exec);
+            ThreadContext * threadContext = scriptContext->GetThreadContext();
+            Var result = threadContext->ExecuteImplicitCall(execFn, ImplicitCall_Accessor, [=]()->Js::Var
+            {
+                return CALL_FUNCTION(scriptContext->GetThreadContext(), execFn, CallInfo(CallFlags_Value, 2), thisObj, string);
+            });
 
             if (!JavascriptOperators::IsObjectOrNull(result))
             {
@@ -1323,7 +1325,6 @@ namespace Js
     BOOL JavascriptRegExp::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags flags)
     {
         const ScriptConfiguration* scriptConfig = this->GetScriptContext()->GetConfig();
-        JsUtil::CharacterBuffer<WCHAR> propertyName(propertyNameString->GetString(), propertyNameString->GetLength());
 
 #define DELETE_PROPERTY(ownProperty) \
         if (ownProperty) \
@@ -1333,23 +1334,23 @@ namespace Js
         } \
         return DynamicObject::DeleteProperty(propertyNameString, flags);
 
-        if (BuiltInPropertyRecords::lastIndex.Equals(propertyName))
+        if (BuiltInPropertyRecords::lastIndex.Equals(propertyNameString))
         {
             DELETE_PROPERTY(true);
         }
-        else if (BuiltInPropertyRecords::global.Equals(propertyName)
-            || BuiltInPropertyRecords::multiline.Equals(propertyName)
-            || BuiltInPropertyRecords::ignoreCase.Equals(propertyName)
-            || BuiltInPropertyRecords::source.Equals(propertyName)
-            || BuiltInPropertyRecords::options.Equals(propertyName))
+        else if (BuiltInPropertyRecords::global.Equals(propertyNameString)
+            || BuiltInPropertyRecords::multiline.Equals(propertyNameString)
+            || BuiltInPropertyRecords::ignoreCase.Equals(propertyNameString)
+            || BuiltInPropertyRecords::source.Equals(propertyNameString)
+            || BuiltInPropertyRecords::options.Equals(propertyNameString))
         {
             DELETE_PROPERTY(!scriptConfig->IsES6RegExPrototypePropertiesEnabled());
         }
-        else if (BuiltInPropertyRecords::unicode.Equals(propertyName))
+        else if (BuiltInPropertyRecords::unicode.Equals(propertyNameString))
         {
             DELETE_PROPERTY(scriptConfig->IsES6UnicodeExtensionsEnabled() && !scriptConfig->IsES6RegExPrototypePropertiesEnabled());
         }
-        else if (BuiltInPropertyRecords::sticky.Equals(propertyName))
+        else if (BuiltInPropertyRecords::sticky.Equals(propertyNameString))
         {
             DELETE_PROPERTY(scriptConfig->IsES6RegExStickyEnabled() && !scriptConfig->IsES6RegExPrototypePropertiesEnabled());
         }

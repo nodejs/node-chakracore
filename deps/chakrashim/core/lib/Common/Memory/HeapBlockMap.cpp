@@ -12,7 +12,7 @@ const uint Memory::HeapBlockMap32::L1Count;
 const uint Memory::HeapBlockMap32::L2Count;
 #endif
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
 HeapBlockMap32::HeapBlockMap32(__in char * startAddress) :
     startAddress(startAddress),
 #else
@@ -22,7 +22,7 @@ HeapBlockMap32::HeapBlockMap32() :
 {
     memset(map, 0, sizeof(map));
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
     Assert(((size_t)startAddress) % TotalSize == 0);
 #endif
 }
@@ -327,7 +327,12 @@ HeapBlockMap32::SetPageMarkCount(void * address, ushort markCount)
     // Callers should already have updated the mark bits by the time they call this,
     // so check that the new count is correct for the current mark bits.
     // Not true right now, will be true...
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    DebugOnly(HeapBlock * heapBlock = this->GetHeapBlock(address));
+    Assert(l2map->GetPageMarkBitVector(id2)->Count() == markCount || heapBlock->WasAllocatedFromDuringSweep());
+#else
     Assert(l2map->GetPageMarkBitVector(id2)->Count() == markCount);
+#endif
 
     l2map->pageMarkCount[id2] = markCount;
 }
@@ -350,7 +355,12 @@ HeapBlockMap32::VerifyMarkCountForPages(void * address, uint pageCount)
     for (uint i = id2; i < pageCount + id2; i++)
     {
         uint markCountForPage = l2map->GetPageMarkBitVector(i)->Count();
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+        DebugOnly(HeapBlock * heapBlock = this->GetHeapBlock(address));
+        Assert(markCountForPage == l2map->pageMarkCount[i] || heapBlock->WasAllocatedFromDuringSweep());
+#else
         Assert(markCountForPage == l2map->pageMarkCount[i]);
+#endif
     }
 }
 #endif
@@ -581,7 +591,7 @@ HeapBlockMap32::ForEachSegment(Recycler * recycler, Fn func)
             PageAllocator* segmentPageAllocator = (PageAllocator*)currentSegment->GetAllocator();
 
             Assert(segmentPageAllocator == block->GetPageAllocator(recycler));
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
             // On 64 bit, the segment may span multiple HeapBlockMap32 structures.
             // Limit the processing to the portion of the segment in this HeapBlockMap32.
             // We'll process other portions when we visit the other HeapBlockMap32 structures.
@@ -624,7 +634,7 @@ HeapBlockMap32::ResetDirtyPages(Recycler * recycler)
 #endif
 
 #ifdef RECYCLER_WRITE_BARRIER
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
         if (segment->IsWriteBarrierEnabled())
 #endif
         {
@@ -662,6 +672,10 @@ HeapBlockMap32::RescanPage(void * dirtyPage, bool* anyObjectsMarkedOnPage, Recyc
         case HeapBlock::HeapBlockType::SmallFinalizableBlockWithBarrierType:
 #endif
             return RescanHeapBlock<SmallFinalizableHeapBlock>(dirtyPage, blockType, chunk, id2, anyObjectsMarkedOnPage, recycler);
+#ifdef RECYCLER_VISITED_HOST
+        case HeapBlock::HeapBlockType::SmallRecyclerVisitedHostBlockType:
+            return RescanHeapBlock<SmallRecyclerVisitedHostHeapBlock>(dirtyPage, blockType, chunk, id2, anyObjectsMarkedOnPage, recycler);
+#endif
         case HeapBlock::HeapBlockType::MediumNormalBlockType:
 #ifdef RECYCLER_WRITE_BARRIER
         case HeapBlock::HeapBlockType::MediumNormalBlockWithBarrierType:
@@ -672,6 +686,10 @@ HeapBlockMap32::RescanPage(void * dirtyPage, bool* anyObjectsMarkedOnPage, Recyc
         case HeapBlock::HeapBlockType::MediumFinalizableBlockWithBarrierType:
 #endif
             return RescanHeapBlock<MediumFinalizableHeapBlock>(dirtyPage, blockType, chunk, id2, anyObjectsMarkedOnPage, recycler);
+#ifdef RECYCLER_VISITED_HOST
+        case HeapBlock::HeapBlockType::MediumRecyclerVisitedHostBlockType:
+            return RescanHeapBlock<MediumRecyclerVisitedHostHeapBlock>(dirtyPage, blockType, chunk, id2, anyObjectsMarkedOnPage, recycler);
+#endif
         default:
             // Shouldn't be here -- leaf blocks aren't rescanned, and large blocks are handled separately
             Assert(false);
@@ -742,6 +760,24 @@ HeapBlockMap32::GetHeapBlockForRescan(HeapBlockMap32::L2MapChunk* chunk, uint id
 {
     return (MediumFinalizableHeapBlock*)chunk->map[id2];
 }
+
+#ifdef RECYCLER_VISITED_HOST
+template <>
+SmallRecyclerVisitedHostHeapBlock*
+HeapBlockMap32::GetHeapBlockForRescan(HeapBlockMap32::L2MapChunk* chunk, uint id2) const
+{
+    return (SmallRecyclerVisitedHostHeapBlock*) chunk->map[id2];
+}
+#endif
+
+#ifdef RECYCLER_VISITED_HOST
+template <>
+MediumRecyclerVisitedHostHeapBlock*
+HeapBlockMap32::GetHeapBlockForRescan(HeapBlockMap32::L2MapChunk* chunk, uint id2) const
+{
+    return (MediumRecyclerVisitedHostHeapBlock*)chunk->map[id2];
+}
+#endif
 
 void
 HeapBlockMap32::MakeAllPagesReadOnly(Recycler* recycler)
@@ -891,7 +927,7 @@ HeapBlockMap32::Rescan(Recycler * recycler, bool resetWriteWatch)
                     Assert(dirtyPage >= segmentStart);
                     Assert(dirtyPage < segmentStart + segmentLength);
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
                     Assert(HeapBlockMap64::GetNodeStartAddress(dirtyPage) == this->startAddress);
 #endif
 
@@ -915,7 +951,7 @@ HeapBlockMap32::Rescan(Recycler * recycler, bool resetWriteWatch)
                 char * pageAddress = segmentStart + (i * AutoSystemInfo::PageSize);
                 Assert((size_t)(pageAddress - segmentStart) < segmentLength);
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
                 Assert(HeapBlockMap64::GetNodeStartAddress(pageAddress) == this->startAddress);
 #endif
 
@@ -977,7 +1013,7 @@ HeapBlockMap32::OOMRescan(Recycler * recycler)
                 char * pageAddress = segmentStart + (i * AutoSystemInfo::PageSize);
                 Assert((size_t)(pageAddress - segmentStart) < segmentLength);
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
                 Assert(HeapBlockMap64::GetNodeStartAddress(pageAddress) == this->startAddress);
 #endif
 
@@ -1022,6 +1058,14 @@ HeapBlockMap32::OOMRescan(Recycler * recycler)
                                     return;
                                 }
                                 break;
+#ifdef RECYCLER_VISITED_HOST
+                            case HeapBlock::HeapBlockType::SmallRecyclerVisitedHostBlockType:
+                                if (!RescanHeapBlockOnOOM<SmallRecyclerVisitedHostHeapBlock>((SmallRecyclerVisitedHostHeapBlock*) heapBlock, pageAddress, blockType, chunk->blockInfo[id2].bucketIndex, chunk, recycler))
+                                {
+                                    return;
+                                }
+                                break;
+#endif
 
                             case HeapBlock::HeapBlockType::MediumNormalBlockType:
 #ifdef RECYCLER_WRITE_BARRIER
@@ -1042,6 +1086,14 @@ HeapBlockMap32::OOMRescan(Recycler * recycler)
                                     return;
                                 }
                                 break;
+#ifdef RECYCLER_VISITED_HOST
+                            case HeapBlock::HeapBlockType::MediumRecyclerVisitedHostBlockType:
+                                if (!RescanHeapBlockOnOOM<MediumRecyclerVisitedHostHeapBlock>((MediumRecyclerVisitedHostHeapBlock*) heapBlock, pageAddress, blockType, chunk->blockInfo[id2].bucketIndex, chunk, recycler))
+                                {
+                                    return;
+                                }
+                                break;
+#endif
 
                             default:
                                 // Shouldn't be here -- leaf blocks aren't rescanned, and large blocks are handled separately
@@ -1130,7 +1182,7 @@ HeapBlockMap32::Cleanup(bool concurrentFindImplicitRoot)
     }
 }
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
 
 HeapBlockMap64::HeapBlockMap64():
     list(nullptr)

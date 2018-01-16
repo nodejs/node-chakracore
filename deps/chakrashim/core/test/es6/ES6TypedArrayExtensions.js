@@ -43,7 +43,7 @@ var tests = [
             assert.isTrue(typedArrayConstructor === Float32Array.__proto__, "All TypedArray constructors have their [[prototype]] slot set to the %TypedArray% intrinsic");
             assert.isTrue(typedArrayConstructor === Float64Array.__proto__, "All TypedArray constructors have their [[prototype]] slot set to the %TypedArray% intrinsic");
 
-            verifyTypedArrayConstructorPropertyValue(typedArrayConstructor, 'length', 'number',false);
+            verifyTypedArrayConstructorPropertyValue(typedArrayConstructor, 'length', 'number',true);
             verifyTypedArrayConstructorPropertyValue(typedArrayConstructor, 'name', 'string',true);
 
             assert.isFalse(typedArrayConstructor.from === undefined, "%TypedArray%.from !== undefined");
@@ -204,15 +204,15 @@ var tests = [
             assert.areEqual(3, Float32Array.length, "Float32Array.length === 3");
             assert.areEqual(3, Float64Array.length, "Float64Array.length === 3");
 
-            verifyTypedArrayConstructorPropertyValue(Int8Array, "length", "number",false);
-            verifyTypedArrayConstructorPropertyValue(Uint8Array, "length", "number",false);
-            verifyTypedArrayConstructorPropertyValue(Uint8ClampedArray, "length", "number", false);
-            verifyTypedArrayConstructorPropertyValue(Int16Array, "length", "number", false);
-            verifyTypedArrayConstructorPropertyValue(Uint16Array, "length", "number", false);
-            verifyTypedArrayConstructorPropertyValue(Int32Array, "length", "number", false);
-            verifyTypedArrayConstructorPropertyValue(Uint32Array, "length", "number", false);
-            verifyTypedArrayConstructorPropertyValue(Float32Array, "length", "number", false);
-            verifyTypedArrayConstructorPropertyValue(Float64Array, "length", "number", false);
+            verifyTypedArrayConstructorPropertyValue(Int8Array, "length", "number",true);
+            verifyTypedArrayConstructorPropertyValue(Uint8Array, "length", "number",true);
+            verifyTypedArrayConstructorPropertyValue(Uint8ClampedArray, "length", "number", true);
+            verifyTypedArrayConstructorPropertyValue(Int16Array, "length", "number", true);
+            verifyTypedArrayConstructorPropertyValue(Uint16Array, "length", "number", true);
+            verifyTypedArrayConstructorPropertyValue(Int32Array, "length", "number", true);
+            verifyTypedArrayConstructorPropertyValue(Uint32Array, "length", "number", true);
+            verifyTypedArrayConstructorPropertyValue(Float32Array, "length", "number", true);
+            verifyTypedArrayConstructorPropertyValue(Float64Array, "length", "number", true);
 
             verifyTypedArrayConstructorPropertyValue(Int8Array, "prototype", "object", false);
             verifyTypedArrayConstructorPropertyValue(Uint8Array, "prototype", "object", false);
@@ -905,6 +905,18 @@ var tests = [
             assert.throws(function() { copyWithinFn.call('string'); }, TypeError, "Calling %TypedArrayPrototype%.copyWithin with non-object this throws TypeError", "'this' is not a typed array object");
             assert.throws(function() { copyWithinFn.call(getRegularArray()); }, TypeError, "Calling %TypedArrayPrototype%.copyWithin with non-TypedArray object this throws TypeError", "'this' is not a typed array object");
             assert.throws(function() { copyWithinFn.call(getObjectArray()); }, TypeError, "Calling %TypedArrayPrototype%.copyWithin with non-TypedArray object this throws TypeError", "'this' is not a typed array object");
+
+            {
+                let buffer = new ArrayBuffer(0x1000);
+                let u32 = new Uint32Array(buffer);
+                let t = {
+                    valueOf: function() {
+                        ArrayBuffer.detach(buffer);
+                        return 3;
+                    }
+                };
+                assert.throws(function() { u32.copyWithin(3,0,t); }, TypeError, "Detaching the typed array buffer during reentrant code causes copyWithin to throw", "[TypedArray].prototype.copyWithin: The ArrayBuffer is detached.");
+            }
         }
     },
     {
@@ -1073,7 +1085,7 @@ var tests = [
                 counter++;
                 return elem;
             };
-            
+
             // Validating how many times the map function is called.
             [[-1, 0], [2, 2], [100, 8], [2**31, 8]].forEach(function ([len, expectedCounter]) {
                 var v = new Int8Array(8);
@@ -1092,7 +1104,7 @@ var tests = [
                 counter++;
                 return elem;
             };
-            
+
             // Validating how many times the find function is called.
             [[-1, 0], [2, 2], [100, 100]].forEach(function ([len, expectedCounter]) {
                 var v = new Int8Array(8);

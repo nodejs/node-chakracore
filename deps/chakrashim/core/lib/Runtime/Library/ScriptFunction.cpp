@@ -18,7 +18,7 @@ namespace Js
     {
         if (JavascriptFunction::Is(func))
         {
-            JavascriptFunction *function = JavascriptFunction::FromVar(func);
+            JavascriptFunction *function = JavascriptFunction::UnsafeFromVar(func);
             return ScriptFunction::Test(function) || JavascriptGeneratorFunction::Test(function)
                 || JavascriptAsyncFunction::Test(function);
         }
@@ -27,6 +27,12 @@ namespace Js
     }
 
     ScriptFunctionBase * ScriptFunctionBase::FromVar(Var func)
+    {
+        AssertOrFailFast(ScriptFunctionBase::Is(func));
+        return reinterpret_cast<ScriptFunctionBase *>(func);
+    }
+
+    ScriptFunctionBase * ScriptFunctionBase::UnsafeFromVar(Var func)
     {
         Assert(ScriptFunctionBase::Is(func));
         return reinterpret_cast<ScriptFunctionBase *>(func);
@@ -155,10 +161,16 @@ namespace Js
 
     bool ScriptFunction::Is(Var func)
     {
-        return JavascriptFunction::Is(func) && JavascriptFunction::FromVar(func)->GetFunctionInfo()->HasBody();
+        return JavascriptFunction::Is(func) && JavascriptFunction::UnsafeFromVar(func)->GetFunctionInfo()->HasBody();
     }
 
     ScriptFunction * ScriptFunction::FromVar(Var func)
+    {
+        AssertOrFailFast(ScriptFunction::Is(func));
+        return reinterpret_cast<ScriptFunction *>(func);
+    }
+
+    ScriptFunction * ScriptFunction::UnsafeFromVar(Var func)
     {
         Assert(ScriptFunction::Is(func));
         return reinterpret_cast<ScriptFunction *>(func);
@@ -566,13 +578,13 @@ namespace Js
                 uint slotArrayCount = static_cast<uint>(slotArray.GetCount());
 
                 //get the function body associated with the scope
-                if(slotArray.IsFunctionScopeSlotArray())
+                if (slotArray.IsDebuggerScopeSlotArray())
                 {
-                    rctxInfo->EnqueueNewFunctionBodyObject(this, slotArray.GetFunctionInfo()->GetFunctionBody(), scopePathString.GetStrValue());
+                    rctxInfo->AddWellKnownDebuggerScopePath(this, slotArray.GetDebuggerScope(), i);
                 }
                 else
                 {
-                    rctxInfo->AddWellKnownDebuggerScopePath(this, slotArray.GetDebuggerScope(), i);
+                    rctxInfo->EnqueueNewFunctionBodyObject(this, slotArray.GetFunctionInfo()->GetFunctionBody(), scopePathString.GetStrValue());
                 }
 
                 for(uint j = 0; j < slotArrayCount; j++)
@@ -613,6 +625,17 @@ namespace Js
         TTDAssert(this->GetFunctionInfo() != nullptr, "We are only doing this for functions with ParseableFunctionInfo.");
 
         TTD::NSSnapObjects::SnapScriptFunctionInfo* ssfi = alloc.SlabAllocateStruct<TTD::NSSnapObjects::SnapScriptFunctionInfo>();
+
+        this->ExtractSnapObjectDataIntoSnapScriptFunctionInfo(ssfi, alloc);
+
+        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapScriptFunctionInfo*, TTD::NSSnapObjects::SnapObjectType::SnapScriptFunctionObject>(objData, ssfi);
+    }
+    
+    // TODO:  Fixup function definition - something funky w/ header file includes - cycles?
+    void ScriptFunction::ExtractSnapObjectDataIntoSnapScriptFunctionInfo(/*TTD::NSSnapObjects::SnapScriptFunctionInfo* */ void* snapScriptFunctionInfo, TTD::SlabAllocator& alloc)
+    {
+        TTD::NSSnapObjects::SnapScriptFunctionInfo* ssfi = reinterpret_cast<TTD::NSSnapObjects::SnapScriptFunctionInfo*>(snapScriptFunctionInfo);
+
         Js::FunctionBody* fb = TTD::JsSupport::ForceAndGetFunctionBody(this->GetParseableFunctionInfo());
 
         alloc.CopyNullTermStringInto(fb->GetDisplayName(), ssfi->DebugFunctionName);
@@ -621,19 +644,19 @@ namespace Js
 
         Js::FrameDisplay* environment = this->GetEnvironment();
         ssfi->ScopeId = TTD_INVALID_PTR_ID;
-        if(environment->GetLength() != 0)
+        if (environment->GetLength() != 0)
         {
             ssfi->ScopeId = TTD_CONVERT_SCOPE_TO_PTR_ID(environment);
         }
 
         ssfi->CachedScopeObjId = TTD_INVALID_PTR_ID;
-        if(this->cachedScopeObj != nullptr)
+        if (this->cachedScopeObj != nullptr)
         {
             ssfi->CachedScopeObjId = TTD_CONVERT_VAR_TO_PTR_ID(this->cachedScopeObj);
         }
 
         ssfi->HomeObjId = TTD_INVALID_PTR_ID;
-        if(this->homeObj != nullptr)
+        if (this->homeObj != nullptr)
         {
             ssfi->HomeObjId = TTD_CONVERT_VAR_TO_PTR_ID(this->homeObj);
         }
@@ -641,34 +664,29 @@ namespace Js
         ssfi->ComputedNameInfo = TTD_CONVERT_JSVAR_TO_TTDVAR(this->computedNameVar);
 
         ssfi->HasSuperReference = this->hasSuperReference;
-
-        TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapScriptFunctionInfo*, TTD::NSSnapObjects::SnapObjectType::SnapScriptFunctionObject>(objData, ssfi);
     }
 #endif
 
     AsmJsScriptFunction::AsmJsScriptFunction(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType) :
-        ScriptFunction(proxy, deferredPrototypeType), m_moduleMemory(nullptr)
+        ScriptFunction(proxy, deferredPrototypeType), m_moduleEnvironment(nullptr)
     {}
 
     AsmJsScriptFunction::AsmJsScriptFunction(DynamicType * type) :
-        ScriptFunction(type), m_moduleMemory(nullptr)
+        ScriptFunction(type), m_moduleEnvironment(nullptr)
     {}
 
     bool AsmJsScriptFunction::Is(Var func)
     {
-        return ScriptFunction::Is(func) &&
-            ScriptFunction::FromVar(func)->HasFunctionBody() &&
-            ScriptFunction::FromVar(func)->GetFunctionBody()->GetIsAsmJsFunction();
-    }
-
-    bool AsmJsScriptFunction::IsWasmScriptFunction(Var func)
-    {
-        return ScriptFunction::Is(func) &&
-            ScriptFunction::FromVar(func)->HasFunctionBody() &&
-            ScriptFunction::FromVar(func)->GetFunctionBody()->IsWasmFunction();
+        return ScriptFunction::Is(func) && ScriptFunction::UnsafeFromVar(func)->IsAsmJsFunction();
     }
 
     AsmJsScriptFunction* AsmJsScriptFunction::FromVar(Var func)
+    {
+        AssertOrFailFast(AsmJsScriptFunction::Is(func));
+        return reinterpret_cast<AsmJsScriptFunction *>(func);
+    }
+
+    AsmJsScriptFunction* AsmJsScriptFunction::UnsafeFromVar(Var func)
     {
         Assert(AsmJsScriptFunction::Is(func));
         return reinterpret_cast<AsmJsScriptFunction *>(func);
@@ -695,6 +713,48 @@ namespace Js
         return asmJsFunc;
     }
 
+    JavascriptArrayBuffer* AsmJsScriptFunction::GetAsmJsArrayBuffer() const
+    {
+#ifdef ASMJS_PLAT
+        return *(JavascriptArrayBuffer**)(this->GetModuleEnvironment() + AsmJsModuleMemory::MemoryTableBeginOffset);
+#else
+        Assert(UNREACHED);
+        return nullptr;
+#endif
+    }
+
+#ifdef ENABLE_WASM
+    WasmScriptFunction::WasmScriptFunction(DynamicType * type) :
+        AsmJsScriptFunction(type), m_signature(nullptr)
+    {}
+
+    WasmScriptFunction::WasmScriptFunction(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType) :
+        AsmJsScriptFunction(proxy, deferredPrototypeType), m_signature(nullptr)
+    {}
+
+    bool WasmScriptFunction::Is(Var func)
+    {
+        return ScriptFunction::Is(func) && ScriptFunction::UnsafeFromVar(func)->IsWasmFunction();
+    }
+
+    WasmScriptFunction* WasmScriptFunction::FromVar(Var func)
+    {
+        AssertOrFailFast(WasmScriptFunction::Is(func));
+        return reinterpret_cast<WasmScriptFunction *>(func);
+    }
+
+    WasmScriptFunction* WasmScriptFunction::UnsafeFromVar(Var func)
+    {
+        Assert(WasmScriptFunction::Is(func));
+        return reinterpret_cast<WasmScriptFunction *>(func);
+    }
+
+    WebAssemblyMemory* WasmScriptFunction::GetWebAssemblyMemory() const
+    {
+        return *(WebAssemblyMemory**)(this->GetModuleEnvironment() + AsmJsModuleMemory::MemoryTableBeginOffset);
+    }
+#endif
+
     ScriptFunctionWithInlineCache::ScriptFunctionWithInlineCache(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType) :
         ScriptFunction(proxy, deferredPrototypeType), hasOwnInlineCaches(false)
     {}
@@ -705,10 +765,16 @@ namespace Js
 
     bool ScriptFunctionWithInlineCache::Is(Var func)
     {
-        return ScriptFunction::Is(func) && ScriptFunction::FromVar(func)->GetHasInlineCaches();
+        return ScriptFunction::Is(func) && ScriptFunction::UnsafeFromVar(func)->GetHasInlineCaches();
     }
 
     ScriptFunctionWithInlineCache* ScriptFunctionWithInlineCache::FromVar(Var func)
+    {
+        AssertOrFailFast(ScriptFunctionWithInlineCache::Is(func));
+        return reinterpret_cast<ScriptFunctionWithInlineCache *>(func);
+    }
+
+    ScriptFunctionWithInlineCache* ScriptFunctionWithInlineCache::UnsafeFromVar(Var func)
     {
         Assert(ScriptFunctionWithInlineCache::Is(func));
         return reinterpret_cast<ScriptFunctionWithInlineCache *>(func);

@@ -4,6 +4,8 @@
     <default>
       <files>argTest.js</files>
       <compile-flags>-maic:0 -maxInterpretCount:0</compile-flags>
+      <!-- This test is disabled on xplat until GH #4090 is fixed -->
+      <tags>exclude_xplat</tags>
     </default>
   </test>
   <test>
@@ -25,6 +27,7 @@
       <files>BasicBranching.js</files>
       <baseline>BasicBranchingLinkFail.baseline</baseline>
       <compile-flags>-testtrace:asmjs -forceAsmJsLinkFail</compile-flags>
+      <tags>Slow</tags>
     </default>
   </test>
 
@@ -117,7 +120,7 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
-      <tags>exclude_xplat</tags>
+      <tags>exclude_mac</tags>
       <compile-flags>-testtrace:asmjs</compile-flags>
     </default>
   </test>
@@ -125,7 +128,7 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
-      <tags>exclude_xplat</tags>
+      <tags>exclude_mac</tags>
       <compile-flags>-testtrace:asmjs -maic:1 -sse:3</compile-flags>
     </default>
   </test>
@@ -348,7 +351,7 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
-      <tags>exclude_amd64,exclude_xplat</tags>
+      <tags>exclude_amd64</tags>
       <!-- After removing -simdjs this test fail with -on:asmjsjittemplate. Investigate and enable
       <compile-flags>-testtrace:asmjs -oopjit- -on:asmjsjittemplate -off:fulljit</compile-flags>
       -->
@@ -521,7 +524,8 @@
     <default>
       <files>MathBuiltinsCall.js</files>
       <baseline>MathBuiltinsCall.baseline</baseline>
-      <tags>exclude_xplat</tags>
+      <!-- mac gives has some test which gives different precision result, so exclude it -->
+      <tags>exclude_mac</tags>
       <compile-flags>-testtrace:asmjs -nonative</compile-flags>
     </default>
   </test>
@@ -609,12 +613,17 @@
     <default>
       <files>cseBug.js</files>
       <baseline>cseBug.baseline</baseline>
-      <compile-flags>-testtrace:asmjs -forcedeferparse</compile-flags>
+      <compile-flags>-testtrace:asmjs -off:deferparse</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>evalbug.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>symBug.js</files>
     </default>
   </test>
   <test>
@@ -931,6 +940,7 @@
       <files>badFunctionType.js</files>
       <baseline>badFunctionType.baseline</baseline>
       <compile-flags>-testtrace:asmjs</compile-flags>
+      <tags>exclude_sanitize_address</tags>
     </default>
   </test>
   <test>
@@ -968,7 +978,7 @@
       <compile-flags>-testtrace:asmjs -args 14000 -endargs -EnableFatalErrorOnOOM-</compile-flags>
       <!-- todo:: On unix platforms there is more stack available,
            so we need to find the right limit to test in order to not timeout -->
-      <tags>exclude_dynapogo,exclude_xplat</tags>
+      <tags>exclude_dynapogo</tags>
     </default>
   </test>
   <test>
@@ -999,7 +1009,7 @@
       <files>badFunctionType.js</files>
       <baseline>badFunctionType.baseline</baseline>
       <compile-flags>-testtrace:asmjs</compile-flags>
-      <tags>exclude_drt</tags>
+      <tags>exclude_drt,exclude_sanitize_address</tags>
     </default>
   </test>
   <test>
@@ -1007,7 +1017,7 @@
       <files>badFunctionType.js</files>
       <baseline>badFunctionType.baseline</baseline>
       <compile-flags>-testtrace:asmjs</compile-flags>
-      <tags>exclude_drt</tags>
+      <tags>exclude_drt,exclude_sanitize_address</tags>
     </default>
   </test>
   <test>
@@ -1021,6 +1031,23 @@
   <test>
     <default>
       <files>trackdeferredonreparse.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>regress_hascalls.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>argassignbug.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>maybecallbug.js</files>
+      <baseline>maybecallbug.baseline</baseline>
+      <compile-flags>-testtrace:asmjs</compile-flags>
     </default>
   </test>
 </regress-exe>

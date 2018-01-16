@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "CommonDefines.h"
+
 #ifdef __midl
 import "wtypes.idl";
 #include "sdkddkver.h"
@@ -18,7 +20,7 @@ cpp_quote("#define USE_RPC_HANDLE_MARSHALLING 1")
 #define USE_RPC_HANDLE_MARSHALLING 1
 #endif
 
-#if defined(_M_IX86) || defined(_M_ARM)
+#if defined(TARGET_32)
 #ifdef __midl
 #define CHAKRA_WB_PTR int
 #else
@@ -26,7 +28,7 @@ cpp_quote("#define USE_RPC_HANDLE_MARSHALLING 1")
 #endif
 #define CHAKRA_PTR int
 #define BV_SHIFT 5
-#elif defined(_M_X64) || defined(_M_ARM64)
+#elif defined(TARGET_64)
 #ifdef __midl
 #define CHAKRA_WB_PTR __int64
 #else
@@ -46,13 +48,13 @@ cpp_quote("#define USE_RPC_HANDLE_MARSHALLING 1")
 #define IDL_PAD2(num) IDL_Field(short) struct_pad_##num;
 #define IDL_PAD4(num) IDL_Field(int) struct_pad_##num;
 
-#if defined(_M_X64) || defined(_M_ARM64)
+#if defined(TARGET_64)
 #define X64_PAD4(num) IDL_Field(int) struct_pad_##num;
 #else
 #define X64_PAD4(num)
 #endif
 
-#if defined(_M_IX86) || defined(_M_ARM)
+#if defined(TARGET_32)
 #define X86_PAD4(num) IDL_Field(int) struct_pad_##num;
 #else
 #define X86_PAD4(num)
@@ -76,7 +78,7 @@ typedef unsigned char boolean;
 #define __JITTypes_h__
 
 // TODO: OOP JIT, how do we make this better?
-const int VTABLE_COUNT = 48;
+const int VTABLE_COUNT = 49;
 const int EQUIVALENT_TYPE_CACHE_SIZE = 8;
 
 typedef IDL_DEF([context_handle]) void * PTHREADCONTEXT_HANDLE;
@@ -125,9 +127,9 @@ typedef struct EquivalentTypeSetIDL
 
 typedef struct FixedFieldIDL
 {
+    IDL_Field(unsigned short) valueType;
     IDL_Field(boolean) nextHasSameFixedField;
     IDL_Field(boolean) isClassCtor;
-    IDL_Field(unsigned short) valueType;
     IDL_Field(unsigned int) localFuncId;
     IDL_Field(TypeIDL) type;
     IDL_Field(CHAKRA_WB_PTR) fieldValue;
@@ -312,8 +314,6 @@ typedef struct ThreadContextDataIDL
 
     IDL_PAD2(0)
     X64_PAD4(1)
-    CHAKRA_PTR chakraBaseAddress;
-    CHAKRA_PTR crtBaseAddress;
     CHAKRA_PTR threadStackLimitAddr;
     CHAKRA_PTR scriptStackLimit;
     CHAKRA_PTR bailOutRegisterSaveSpaceAddr;
@@ -364,10 +364,13 @@ typedef struct ScriptContextDataIDL
     CHAKRA_PTR numberAllocatorAddr;
     CHAKRA_PTR recyclerAddr;
     CHAKRA_PTR builtinFunctionsBaseAddr;
+#ifdef ENABLE_SCRIPT_DEBUGGING
     CHAKRA_PTR debuggingFlagsAddr;
     CHAKRA_PTR debugStepTypeAddr;
     CHAKRA_PTR debugFrameAddressAddr;
     CHAKRA_PTR debugScriptIdWhenSetAddr;
+    CHAKRA_PTR chakraLibAddr;
+#endif
 } ScriptContextDataIDL;
 
 typedef struct SmallSpanSequenceIDL
@@ -824,9 +827,9 @@ typedef struct JITOutputIDL
     unsigned int propertyGuardCount;
     unsigned int ctorCachesCount;
 
-#if defined(_M_X64)
+#if TARGET_64
     CHAKRA_PTR xdataAddr;
-#elif defined(_M_ARM) || defined(_M_ARM64)
+#elif defined(_M_ARM)
     unsigned int xdataOffset;
 #else
     X86_PAD4(0)

@@ -43,6 +43,11 @@ LoweredBasicBlock* LoweredBasicBlock::New(JitArenaAllocator* allocator)
     return JitAnew(allocator, LoweredBasicBlock, allocator);
 }
 
+void LoweredBasicBlock::Delete(JitArenaAllocator* allocator)
+{
+    JitAdelete(allocator, this);
+}
+
 void LoweredBasicBlock::Copy(LoweredBasicBlock* block)
 {
     this->inlineeFrameLifetimes.Copy(&block->inlineeFrameLifetimes);
@@ -160,25 +165,32 @@ LinearScan::RegAlloc()
 #endif // DBG
 
         this->currentInstr = instr;
-        if(instr->StartsBasicBlock() || endOfBasicBlock)
+        if (instr->StartsBasicBlock() || endOfBasicBlock)
         {
             endOfBasicBlock = false;
             ++currentBlockNumber;
         }
 
+        bool isLoopBackEdge = false;
         if (instr->IsLabelInstr())
         {
             this->lastLabel = instr->AsLabelInstr();
             if (this->lastLabel->m_loweredBasicBlock)
             {
+                IR::Instr *const prevInstr = instr->GetPrevRealInstrOrLabel();
+                Assert(prevInstr);
+                if (prevInstr->HasFallThrough())
+                {
+                    this->currentBlock->Delete(&tempAlloc);
+                }
                 this->currentBlock = this->lastLabel->m_loweredBasicBlock;
             }
-            else if(currentBlock->HasData())
+            else if (currentBlock->HasData())
             {
                 // Check if the previous block has fall-through. If so, retain the block info. If not, create empty info.
                 IR::Instr *const prevInstr = instr->GetPrevRealInstrOrLabel();
                 Assert(prevInstr);
-                if(!prevInstr->HasFallThrough())
+                if (!prevInstr->HasFallThrough())
                 {
                     currentBlock = LoweredBasicBlock::New(&tempAlloc);
                 }
@@ -191,10 +203,9 @@ LinearScan::RegAlloc()
             {
                 this->ProcessEHRegionBoundary(instr);
             }
-            this->ProcessSecondChanceBoundary(instr->AsBranchInstr());
-        }
 
-        this->CheckIfInLoop(instr);
+            isLoopBackEdge = this->IsInLoop() && instr->GetNumber() >= this->curLoop->regAlloc.loopEnd;
+        }
 
         if (this->RemoveDeadStores(instr))
         {
@@ -222,7 +233,17 @@ LinearScan::RegAlloc()
         }
 
         this->SetSrcRegs(instr);
-        this->EndDeadLifetimes(instr);
+        this->EndDeadLifetimes(instr, isLoopBackEdge);
+
+        if (instr->IsBranchInstr())
+        {
+            this->ProcessSecondChanceBoundary(instr->AsBranchInstr());
+        }
+        this->CheckIfInLoop(instr);
+        if (isLoopBackEdge)
+        {
+            this->EndDeadLifetimes(instr, false);
+        }
 
         this->CheckOpHelper(instr);
 
@@ -466,6 +487,10 @@ LinearScan::CheckIfInLoop(IR::Instr *instr)
             while (this->IsInLoop() && instr->GetNumber() >= this->curLoop->regAlloc.loopEnd)
             {
                 this->loopNest--;
+                this->curLoop->regAlloc.defdInLoopBv->ClearAll();
+                this->curLoop->regAlloc.symRegUseBv->ClearAll();
+                this->curLoop->regAlloc.liveOnBackEdgeSyms->ClearAll();
+                this->curLoop->regAlloc.exitRegContentList->Clear();
                 this->curLoop->isProcessed = true;
                 this->curLoop = this->curLoop->parent;
                 if (this->loopNest == 0)
@@ -1101,6 +1126,16 @@ LinearScan::SetUses(IR::Instr *instr, IR::Opnd *opnd)
             }
         }
         break;
+
+    case IR::OpndKindList:
+    {
+        opnd->AsListOpnd()->Map([&](int i, IR::Opnd* opnd)
+        {
+            this->SetUses(instr, opnd);
+        });
+    }
+    break;
+
     case IR::OpndKindIntConst:
     case IR::OpndKindAddr:
         this->linearScanMD.LegalizeConstantUse(instr, opnd);
@@ -1396,6 +1431,14 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
         // To indicate this is a subsequent bailout from an inlinee
         bailOutRecord->bailOutOpcode = Js::OpCode::InlineeEnd;
 #endif
+        if (this->func->HasTry())
+        {
+            RegionType currentRegionType = this->currentRegion->GetType();
+            if (currentRegionType == RegionTypeTry || currentRegionType == RegionTypeCatch || currentRegionType == RegionTypeFinally)
+            {
+                bailOutRecord->ehBailoutData = this->currentRegion->ehBailoutData;
+            }
+        }
         funcBailOutData[funcIndex].bailOutRecord->parent = bailOutRecord;
         funcIndex--;
         funcBailOutData[funcIndex].bailOutRecord = bailOutRecord;
@@ -1697,6 +1740,9 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
         NativeCodeData::AllocatorNoFixup<BVFixed>* allocatorT = (NativeCodeData::AllocatorNoFixup<BVFixed>*)allocator;
         BVFixed * argOutFloat64Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocatorT);
         BVFixed * argOutLosslessInt32Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocatorT);
+#ifdef _M_IX86
+        BVFixed * isOrphanedArgSlot = BVFixed::New(bailOutInfo->totalOutParamCount, allocatorT);
+#endif
         // SIMD_JS
         BVFixed * argOutSimd128F4Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocatorT);
         BVFixed * argOutSimd128I4Syms = BVFixed::New(bailOutInfo->totalOutParamCount, allocatorT);
@@ -1729,7 +1775,12 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
             uint outParamCount = bailOutInfo->GetStartCallOutParamCount(i);
             startCallOutParamCounts[i] = outParamCount;
 #ifdef _M_IX86
-            startCallArgRestoreAdjustCounts[i] = bailOutInfo->startCallInfo[i].argRestoreAdjustCount;
+            if (bailOutInfo->startCallInfo[i].instr->m_opcode == Js::OpCode::StartCall)
+            {
+                // Deadcode might have eliminated the argouts and the call instruction due to a BailOnNoProfile after StartCall
+                // In such cases, StartCall opcode is not changed to LoweredStartCall, mark the StartCall instruction accordingly
+                bailOutInfo->startCallInfo[i].isOrphanedCall = true;
+            }
             // Only x86 has a progression of pushes of out args, with stack alignment.
             bool fDoStackAdjust = false;
             if (!bailOutInfo->inlinedStartCall->Test(i))
@@ -1790,6 +1841,7 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
                 currentBailOutRecord->argOutOffsetInfo->startCallIndex = i;
                 currentBailOutRecord->argOutOffsetInfo->startCallOutParamCounts = &startCallOutParamCounts[i];
 #ifdef _M_IX86
+                currentBailOutRecord->argOutOffsetInfo->isOrphanedArgSlot = isOrphanedArgSlot;
                 currentBailOutRecord->startCallArgRestoreAdjustCounts = &startCallArgRestoreAdjustCounts[i];
 #endif
                 currentBailOutRecord->argOutOffsetInfo->outParamOffsets = &outParamOffsets[outParamStart];
@@ -1799,13 +1851,13 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
 
 #ifdef ENABLE_SIMDJS
                 // SIMD_JS
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128F4Syms  = argOutSimd128F4Syms;
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I4Syms  = argOutSimd128I4Syms  ;
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I8Syms  = argOutSimd128I8Syms  ;
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I16Syms = argOutSimd128I16Syms ;
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U4Syms  = argOutSimd128U4Syms  ;
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U8Syms  = argOutSimd128U8Syms  ;
-                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U16Syms = argOutSimd128U16Syms ;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128F4Syms = argOutSimd128F4Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I4Syms = argOutSimd128I4Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I8Syms = argOutSimd128I8Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128I16Syms = argOutSimd128I16Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U4Syms = argOutSimd128U4Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U8Syms = argOutSimd128U8Syms;
+                currentBailOutRecord->argOutOffsetInfo->argOutSimd128U16Syms = argOutSimd128U16Syms;
                 currentBailOutRecord->argOutOffsetInfo->argOutSimd128B4Syms = argOutSimd128U4Syms;
                 currentBailOutRecord->argOutOffsetInfo->argOutSimd128B8Syms = argOutSimd128U8Syms;
                 currentBailOutRecord->argOutOffsetInfo->argOutSimd128B16Syms = argOutSimd128U16Syms;
@@ -1972,6 +2024,10 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
                                     // Stack offset are negative, includes the PUSH EBP and return address
                                     outParamOffsets[outParamOffsetIndex] = sym->m_offset - (2 * MachPtr);
 #endif
+#ifdef _M_IX86
+                                    isOrphanedArgSlot->Set(outParamOffsetIndex);
+                                    Assert(bailOutInfo->startCallInfo[i].isOrphanedCall == true);
+#endif
                                 }
 #ifdef _M_IX86
                                 else if (fDoStackAdjust)
@@ -2092,6 +2148,34 @@ LinearScan::FillBailOutRecord(IR::Instr * instr)
 #endif
                 }
             }
+        }
+
+        for (int i = startCallCount - 1; i >= 0; i--)
+        {
+#ifdef _M_IX86
+            uint argRestoreAdjustCount = 0;
+            if (this->currentRegion && (this->currentRegion->GetType() == RegionTypeTry || this->currentRegion->GetType() == RegionTypeFinally))
+            {
+                // For a bailout in argument evaluation from an EH region, the esp is offset by the TryCatch helper's frame. So, the argouts are not actually pushed at the
+                // offsets stored in the bailout record, which are relative to ebp. Need to restore the argouts from the actual value of esp before calling the Bailout helper.
+                // For nested calls, argouts for the outer call need to be restored from an offset of stack-adjustment-done-by-the-inner-call from esp.
+                if ((unsigned)(i + 1) == bailOutInfo->startCallCount)
+                {
+                    argRestoreAdjustCount = 0;
+                }
+                else
+                {
+                    uint argCount = bailOutInfo->startCallInfo[i + 1].isOrphanedCall ? 0 : bailOutInfo->startCallInfo[i + 1].argCount;
+                    argRestoreAdjustCount = bailOutInfo->startCallInfo[i + 1].argRestoreAdjustCount + argCount;
+                    if ((Math::Align<int32>(argCount * MachPtr, MachStackAlignment) - (argCount * MachPtr)) != 0)
+                    {
+                        argRestoreAdjustCount++;
+                    }
+                }
+                bailOutInfo->startCallInfo[i].argRestoreAdjustCount = argRestoreAdjustCount;
+            }
+            startCallArgRestoreAdjustCounts[i] = bailOutInfo->startCallInfo[i].argRestoreAdjustCount;
+#endif
         }
     }
     else
@@ -2499,23 +2583,28 @@ LinearScan::SkipNumberedInstr(IR::Instr *instr)
 // LinearScan::EndDeadLifetimes
 // Look for lifetimes that are ending here, and retire them.
 void
-LinearScan::EndDeadLifetimes(IR::Instr *instr)
+LinearScan::EndDeadLifetimes(IR::Instr *instr, bool isLoopBackEdge)
 {
-    Lifetime * deadLifetime;
-
     if (this->SkipNumberedInstr(instr))
     {
         return;
     }
 
     // Retire all active lifetime ending at this instruction
-    while (!this->activeLiveranges->Empty() && this->activeLiveranges->Head()->end <= instr->GetNumber())
+    FOREACH_SLIST_ENTRY_EDITING(Lifetime *, deadLifetime, this->activeLiveranges, iter)
     {
-        deadLifetime = this->activeLiveranges->Head();
+        if (deadLifetime->end > instr->GetNumber())
+        {
+            break;
+        }
+
+        if (isLoopBackEdge && this->curLoop->regAlloc.liveOnBackEdgeSyms->Test(deadLifetime->sym->m_id))
+        {
+            continue;
+        }
         deadLifetime->defList.Clear();
         deadLifetime->useList.Clear();
 
-        this->activeLiveranges->RemoveHead();
         RegNum reg = deadLifetime->reg;
         this->activeRegs.Clear(reg);
         this->regContent[reg] = nullptr;
@@ -2529,24 +2618,35 @@ LinearScan::EndDeadLifetimes(IR::Instr *instr)
             Assert(RegTypes[reg] == TyFloat64);
             this->floatRegUsedCount--;
         }
-    }
+        iter.RemoveCurrent();
+
+    } NEXT_SLIST_ENTRY_EDITING;
 
     // Look for spilled lifetimes which end here such that we can make their stack slot
     // available for stack-packing.
-    while (!this->stackPackInUseLiveRanges->Empty() && this->stackPackInUseLiveRanges->Head()->end <= instr->GetNumber())
+    FOREACH_SLIST_ENTRY_EDITING(Lifetime *, deadStackPack, this->stackPackInUseLiveRanges, stackPackIter)
     {
-        deadLifetime = this->stackPackInUseLiveRanges->Head();
-        deadLifetime->defList.Clear();
-        deadLifetime->useList.Clear();
-
-        this->stackPackInUseLiveRanges->RemoveHead();
-        if (!deadLifetime->cantStackPack)
+        if (deadStackPack->end > instr->GetNumber())
         {
-            Assert(deadLifetime->spillStackSlot);
-            deadLifetime->spillStackSlot->lastUse = deadLifetime->end;
-            this->stackSlotsFreeList->Push(deadLifetime->spillStackSlot);
+            break;
         }
-    }
+
+        if (isLoopBackEdge && this->curLoop->regAlloc.liveOnBackEdgeSyms->Test(deadStackPack->sym->m_id))
+        {
+            continue;
+        }
+        deadStackPack->defList.Clear();
+        deadStackPack->useList.Clear();
+
+        if (!deadStackPack->cantStackPack)
+        {
+            Assert(deadStackPack->spillStackSlot);
+            deadStackPack->spillStackSlot->lastUse = deadStackPack->end;
+            this->stackSlotsFreeList->Push(deadStackPack->spillStackSlot);
+        }
+        stackPackIter.RemoveCurrent();
+    } NEXT_SLIST_ENTRY_EDITING;
+
 }
 
 void
@@ -2772,18 +2872,30 @@ LinearScan::FindReg(Lifetime *newLifetime, IR::RegOpnd *regOpnd, bool force)
                 regsBv = this->linearScanMD.FilterRegIntSizeConstraints(regsBv, regSizeBv);
             }
 
+            BitVector regsBvNoTemps = regsBv;
+
             if (!this->tempRegs.IsEmpty())
             {
-                // avoid the temp reg that we have loaded in this basic block
-                BitVector regsBvTemp = regsBv;
-                regsBvTemp.Minus(this->tempRegs);
-                regIndex = regsBvTemp.GetPrevBit();
+                // Avoid the temp reg that we have loaded in this basic block
+                regsBvNoTemps.Minus(this->tempRegs);
+            }
+            
+            BitVector regsBvNoTempsNoCallee = regsBvNoTemps;
+            // Try to find a non-callee saved reg so that we don't have to save it in prolog
+            regsBvNoTempsNoCallee.Minus(this->calleeSavedRegs);
+
+            // Allocate a non-callee saved reg from the other end of the bit vector so that it can keep live for longer
+            regIndex = regsBvNoTempsNoCallee.GetPrevBit();
+            
+            if (regIndex == BVInvalidIndex)
+            {
+                // If we don't have any non-callee saved reg then get the first available callee saved reg so that prolog can store adjacent registers
+                regIndex = regsBvNoTemps.GetNextBit();
             }
 
             if (regIndex == BVInvalidIndex)
             {
-                // allocate a temp reg from the other end of the bit vector so that it can
-                // keep live for longer.
+                // Everything is used, get the temp from other end
                 regIndex = regsBv.GetPrevBit();
             }
         }
@@ -3352,11 +3464,11 @@ LinearScan::InsertLoad(IR::Instr *instr, StackSym *sym, RegNum reg)
         else
         {
             StackSym * oldSym = sym;
-            sym = StackSym::New(TyVar, this->func);
+            sym = StackSym::New(sym->GetType(), this->func);
             sym->m_isConst = true;
             sym->m_isIntConst = oldSym->m_isIntConst;
             sym->m_isInt64Const = oldSym->m_isInt64Const;
-            sym->m_isTaggableIntConst = sym->m_isTaggableIntConst;
+            sym->m_isTaggableIntConst = oldSym->m_isTaggableIntConst;
         }
     }
     else
@@ -3723,7 +3835,7 @@ LinearScan::RemoveDeadStores(IR::Instr *instr)
                 DebugOnly(this->func->allowRemoveBailOutArgInstr = true);
 
                 // We are removing this instruction, end dead life time now
-                this->EndDeadLifetimes(instr);
+                this->EndDeadLifetimes(instr, false);
                 instr->Remove();
 
                 DebugOnly(this->func->allowRemoveBailOutArgInstr = false);
@@ -3886,9 +3998,18 @@ LinearScan::ProcessSecondChanceBoundaryHelper(IR::BranchInstr *branchInstr, IR::
                     nextInstr->m_opcode != Js::OpCode::BailOutStackRestore &&
                     this->currentBlock->HasData())
                 {
-                    // Clone with shallow copy
-                    branchLabel->m_loweredBasicBlock = this->currentBlock;
-
+                    IR::Instr* branchNextInstr = branchInstr->GetNextRealInstrOrLabel();
+                    if (branchNextInstr->IsLabelInstr())
+                    {
+                        // Clone with shallow copy
+                        branchLabel->m_loweredBasicBlock = this->currentBlock;
+                    }
+                    else
+                    {
+                        // Dead code after the unconditional branch causes the currentBlock data to be freed later on...  
+                        // Deep copy in this case.
+                        branchLabel->m_loweredBasicBlock = this->currentBlock->Clone(this->tempAlloc);
+                    }
                 }
             }
         }
@@ -3928,7 +4049,18 @@ LinearScan::ProcessSecondChanceBoundary(IR::LabelInstr *labelInstr)
         if (branchInstr->GetNumber() < labelInstr->GetNumber())
         {
             // Normal branch
-            this->InsertSecondChanceCompensation(branchInstr->m_regContent, this->regContent, branchInstr, labelInstr);
+            Lifetime ** branchRegContent = branchInstr->m_regContent;
+            bool isMultiBranch = true;
+            if (!branchInstr->IsMultiBranch())
+            {
+                branchInstr->m_regContent = nullptr;
+                isMultiBranch = false;
+            }
+            this->InsertSecondChanceCompensation(branchRegContent, this->regContent, branchInstr, labelInstr);
+            if (!isMultiBranch)
+            {
+                JitAdeleteArray(this->tempAlloc, RegNumCount, branchRegContent);
+            }
         }
         else
         {
@@ -4181,7 +4313,7 @@ LinearScan::ReconcileRegContent(Lifetime ** branchRegContent, Lifetime **labelRe
     }
     else
     {
-        Assert(type == TyFloat64 || IRType_IsSimd128(type));
+        Assert(type == TyFloat64 || IRType_IsSimd(type));
 
         FOREACH_FLOAT_REG(regIter)
         {
@@ -4610,7 +4742,7 @@ LinearScan::SaveRegContent(IR::Instr *instr)
 
 bool LinearScan::RegsAvailable(IRType type)
 {
-    if (IRType_IsFloat(type) || IRType_IsSimd128(type))
+    if (IRType_IsFloat(type) || IRType_IsSimd(type))
     {
         return (this->floatRegUsedCount < FLOAT_REG_COUNT);
     }

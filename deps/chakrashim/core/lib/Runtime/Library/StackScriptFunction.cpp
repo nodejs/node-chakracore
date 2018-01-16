@@ -65,6 +65,14 @@ namespace Js
     StackScriptFunction *
     StackScriptFunction::FromVar(Var var)
     {
+        AssertOrFailFast(ScriptFunction::Is(var));
+        Assert(ThreadContext::IsOnStack(var));
+        return static_cast<StackScriptFunction *>(var);
+    }
+
+    StackScriptFunction *
+    StackScriptFunction::UnsafeFromVar(Var var)
+    {
         Assert(ScriptFunction::Is(var));
         Assert(ThreadContext::IsOnStack(var));
         return static_cast<StackScriptFunction *>(var);
@@ -349,13 +357,17 @@ namespace Js
                     for (i = 0; i < frameDisplay->GetLength(); i++)
                     {
                         Var *slotArray = (Var*)frameDisplay->GetItem(i);
-                        ScopeSlots slots(slotArray);
-                        if (slots.IsFunctionScopeSlotArray())
+
+                        if (ScopeSlots::Is(slotArray))
                         {
-                            FunctionProxy *functionProxy = slots.GetFunctionInfo()->GetFunctionProxy();
-                            if (functionProxy->IsFunctionBody() && this->NeedBoxFrame(functionProxy->GetFunctionBody()))
+                            ScopeSlots slots(slotArray);
+                            if (!slots.IsDebuggerScopeSlotArray())
                             {
-                                break;
+                                FunctionProxy *functionProxy = slots.GetFunctionInfo()->GetFunctionProxy();
+                                if (functionProxy->IsFunctionBody() && this->NeedBoxFrame(functionProxy->GetFunctionBody()))
+                                {
+                                    break;
+                                }
                             }
                         }
                     }

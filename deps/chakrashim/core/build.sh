@@ -47,11 +47,12 @@ PRINT_USAGE() {
     echo "     --icu=PATH        Path to ICU include folder (see example below)"
     echo " -j[=N], --jobs[=N]    Multicore build, allow N jobs at once."
     echo " -n, --ninja           Build with ninja instead of make."
-    echo "     --no-icu          Compile without unicode/icu support."
+    echo "     --no-icu          Compile without unicode/icu/intl support."
     echo "     --no-jit          Disable JIT"
     echo "     --libs-only       Do not build CH and GCStress"
     echo "     --lto             Enables LLVM Full LTO"
     echo "     --lto-thin        Enables LLVM Thin LTO - xcode 8+ or clang 3.9+"
+    echo "     --lttng           Enables LTTng support for ETW events"
     echo "     --static          Build as static library. Default: shared library"
     echo "     --sanitize=CHECKS Build with clang -fsanitize checks,"
     echo "                       e.g. undefined,signed-integer-overflow."
@@ -60,7 +61,7 @@ PRINT_USAGE() {
     echo "     --target-path[=S] Output path for compiled binaries. Default: out/"
     echo "     --trace           Enables experimental built-in trace."
     echo "     --xcode           Generate XCode project."
-    echo "     --with-intl       Include the Intl object (requires ICU)."
+    echo "     --without-intl    --icu arg also enables Intl by default. Disable it."
     echo "     --without=FEATURE,FEATURE,..."
     echo "                       Disable FEATUREs from JSRT experimental features."
     echo "     --valgrind        Enable Valgrind support"
@@ -104,6 +105,7 @@ OS_LINUX=0
 OS_APT_GET=0
 OS_UNIX=0
 LTO=""
+LTTNG=""
 TARGET_OS=""
 ENABLE_CC_XPLAT_TRACE=""
 WB_CHECK=
@@ -117,14 +119,14 @@ LIBS_ONLY_BUILD=
 SHOULD_EMBED_ICU=0
 ALWAYS_YES=0
 
-if [ -f "/proc/version" ]; then
+UNAME_S=`uname -s`
+if [[ $UNAME_S =~ 'Linux' ]]; then
     OS_LINUX=1
-    PROC_INFO=$(cat /proc/version)
-    if [[ $PROC_INFO =~ 'Ubuntu' || $PROC_INFO =~ 'Debian'
-       || $PROC_INFO =~ 'Linaro' ]]; then
+    PROC_INFO=$(which apt-get)
+    if [[ ${#PROC_INFO} > 0 && -f "$PROC_INFO" ]]; then
         OS_APT_GET=1
     fi
-elif [[ $(uname -s) =~ "Darwin" ]]; then
+elif [[ $UNAME_S =~ "Darwin" ]]; then
     OS_UNIX=1
 else
     echo -e "Warning: Installation script couldn't detect host OS..\n" # exit ?
@@ -230,6 +232,11 @@ while [[ $# -gt 0 ]]; do
         HAS_LTO=1
         ;;
 
+    --lttng)
+        LTTNG="-DENABLE_JS_LTTNG_SH=1"
+        HAS_LTTNG=1
+        ;;
+    
     -n | --ninja)
         CMAKE_GEN="-G Ninja"
         MAKE=ninja
@@ -243,8 +250,8 @@ while [[ $# -gt 0 ]]; do
         NO_JIT="-DNO_JIT_SH=1"
         ;;
 
-    --with-intl)
-        INTL_ICU="-DINTL_ICU_SH=1"
+    --without-intl)
+        INTL_ICU="-DNOINTL_ICU_SH=1"
         ;;
 
     --xcode)
@@ -272,18 +279,23 @@ while [[ $# -gt 0 ]]; do
         _TARGET_OS=$1
         _TARGET_OS="${_TARGET_OS:9}"
         if [[ $_TARGET_OS =~ "android" ]]; then
-            OLD_PATH=$PATH
-            export TOOLCHAIN=$PWD/android-toolchain-arm
+            if [[ -z "$TOOLCHAIN" ]]; then
+                OLD_PATH=$PATH
+                export TOOLCHAIN=$PWD/android-toolchain-arm
+                export PATH=$TOOLCHAIN/bin:$OLD_PATH
+                export AR=arm-linux-androideabi-ar
+                export CC=arm-linux-androideabi-clang
+                export CXX=arm-linux-androideabi-clang++
+                export LINK=arm-linux-androideabi-clang++
+                export STRIP=arm-linux-androideabi-strip
+                # override CXX and CC
+                _CXX="${TOOLCHAIN}/bin/${CXX}"
+                _CC="${TOOLCHAIN}/bin/${CC}"
+            fi
             TARGET_OS="-DCC_TARGET_OS_ANDROID_SH=1 -DANDROID_TOOLCHAIN_DIR=${TOOLCHAIN}/arm-linux-androideabi"
-            export PATH=$TOOLCHAIN/bin:$OLD_PATH
-            export AR=arm-linux-androideabi-ar
-            export CC=arm-linux-androideabi-clang
-            export CXX=arm-linux-androideabi-clang++
-            export LINK=arm-linux-androideabi-clang++
-            export STRIP=arm-linux-androideabi-strip
-            # override CXX and CC
-            _CXX="${TOOLCHAIN}/bin/${CXX}"
-            _CC="${TOOLCHAIN}/bin/${CC}"
+            # inherit CXX and CC
+            _CXX="${CXX}"
+            _CC="${CC}"
         fi
         ;;
 
@@ -511,6 +523,15 @@ else
         exit 1
     fi
 fi
+export TARGET_PATH
+
+if [[ $HAS_LTTNG == 1 ]]; then
+    CHAKRACORE_ROOT=`dirname $0`
+    python $CHAKRACORE_ROOT/tools/lttng.py --man $CHAKRACORE_ROOT/manifests/Microsoft-Scripting-Chakra-Instrumentation.man --intermediate $TARGET_PATH/intermediate
+    mkdir -p $TARGET_PATH/lttng
+    (diff -q $TARGET_PATH/intermediate/lttng/jscriptEtw.h $TARGET_PATH/lttng/jscriptEtw.h && echo "jscriptEtw.h up to date; skipping") || cp $TARGET_PATH/intermediate/lttng/* $TARGET_PATH/lttng/
+fi
+
 
 BUILD_DIRECTORY="${TARGET_PATH}/${BUILD_TYPE:0}"
 echo "Build path: ${BUILD_DIRECTORY}"
@@ -592,12 +613,13 @@ elif [[ $ARCH =~ "amd64" ]]; then
     ARCH="-DCC_TARGETS_AMD64_SH=1"
     echo "Compile Target : amd64"
 else
+    ARCH="-DCC_USES_SYSTEM_ARCH_SH=1"
     echo "Compile Target : System Default"
 fi
 
 echo Generating $BUILD_TYPE makefiles
 echo $EXTRA_DEFINES
-cmake $CMAKE_GEN $CC_PREFIX $ICU_PATH $LTO $STATIC_LIBRARY $ARCH $TARGET_OS \
+cmake $CMAKE_GEN $CC_PREFIX $ICU_PATH $LTO $LTTNG $STATIC_LIBRARY $ARCH $TARGET_OS \
     $ENABLE_CC_XPLAT_TRACE $EXTRA_DEFINES -DCMAKE_BUILD_TYPE=$BUILD_TYPE $SANITIZE $NO_JIT $INTL_ICU \
     $WITHOUT_FEATURES $WB_FLAG $WB_ARGS $CMAKE_EXPORT_COMPILE_COMMANDS $LIBS_ONLY_BUILD\
     $VALGRIND $BUILD_RELATIVE_DIRECTORY

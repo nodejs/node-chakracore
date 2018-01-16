@@ -18,11 +18,10 @@ namespace Js
 
     protected:
         DEFINE_VTABLE_CTOR(SingleCharString, JavascriptString);
-        DECLARE_CONCRETE_STRING_CLASS;
 
     private:
         SingleCharString(char16 ch, StaticType * type);
-        Field(char16) m_buff[2]; // the 2nd is always NULL so that GetSz works
+        Field(char16) m_buff[2] = { 0 }; // the 2nd is always NULL so that GetSz works
     };
 
 } // namespace Js

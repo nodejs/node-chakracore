@@ -54,7 +54,7 @@ namespace UnifiedRegex
     }
 
 #define EMIT(compiler, T, ...) (new (compiler.Emit(sizeof(T))) T(__VA_ARGS__))
-#define L2I(O, label) LabelToInstPointer<O##Inst>(Inst::O, label)
+#define L2I(O, label) LabelToInstPointer<O##Inst>(Inst::InstTag::O, label)
 
     // Remember: The machine address of an instruction is no longer valid after a subsequent emit,
     //           so all label fixups must be done using Compiler::GetFixup / Compiler::DoFixup
@@ -525,7 +525,15 @@ namespace UnifiedRegex
                         //  - not in a negative assertion
                         //  - backtracking could never rewind the input pointer
                         //
-                        EMIT(compiler, BOITestInst, isAtLeastOnce && isNotNegated && isPrevWillNotRegress);
+                        bool canHardFail = isAtLeastOnce && isNotNegated && isPrevWillNotRegress;
+                        if (canHardFail)
+                        {
+                            EMIT(compiler, BOITestInst<true>);
+                        }
+                        else
+                        {
+                            EMIT(compiler, BOITestInst<false>);
+                        }
                     }
                 }
                 break;
@@ -533,13 +541,16 @@ namespace UnifiedRegex
         case EOL:
             {
                 if ((compiler.program->flags & MultilineRegexFlag) != 0)
+                {
                     //
                     // Compilation scheme:
                     //
                     //   EOLTest
                     //
                     EMIT(compiler, EOLTestInst);
+                }
                 else
+                {
                     //
                     // Compilation scheme:
                     //
@@ -550,7 +561,16 @@ namespace UnifiedRegex
                     //  - not in a negative assertion
                     //  - backtracking could never advance the input pointer
                     //
-                    EMIT(compiler, EOITestInst, isAtLeastOnce && isNotNegated && isPrevWillNotProgress);
+                    bool canHardFail = isAtLeastOnce && isNotNegated && isPrevWillNotProgress;
+                    if (canHardFail)
+                    {
+                        EMIT(compiler, EOITestInst<true>);
+                    }
+                    else
+                    {
+                        EMIT(compiler, EOITestInst<false>);
+                    }
+                }
                 break;
             }
         default:
@@ -726,7 +746,15 @@ namespace UnifiedRegex
         //
         //   WordBoundaryTest
         //
-        EMIT(compiler, WordBoundaryTestInst, isNegation);
+        if (isNegation)
+        {
+            EMIT(compiler, WordBoundaryTestInst<true>);
+        }
+        else
+        {
+            EMIT(compiler, WordBoundaryTestInst<false>);
+
+        }
     }
 
     CharCount WordBoundaryNode::EmitScan(Compiler& compiler, bool isHeadSyncronizingNode)
@@ -2295,9 +2323,13 @@ namespace UnifiedRegex
                 }
                 numItems++;
                 if (!curr->head->firstSet->IsCompact())
+                {
                     allCompact = false;
+                }
                 if (!curr->head->IsSimpleOneChar())
+                {
                     allSimpleOneChar = false;
+                }
                 totalChars += curr->head->firstSet->Count();
             }
 
@@ -2311,24 +2343,27 @@ namespace UnifiedRegex
                 {
                     // **COMMIT**
                     if (allSimpleOneChar)
+                    {
                         // This will probably never fire since the parser has already converted alts-of-chars/sets
                         // to sets. We include it for symmetry with below.
                         scheme = Set;
-                    else if (allCompact && totalChars <= Switch20Inst::MaxCases)
+                    }
+                    else if (allCompact && totalChars <= Switch24Inst::MaxCases)
                     {
                         // Can use a switch instruction to jump to item
                         scheme = Switch;
                         switchSize = totalChars;
                     }
                     else
+                    {
                         // Must use a chain of jump instructions to jump to item
                         scheme = Chain;
+                    }
                     isOptional = false;
                     return;
                 }
             }
         }
-
 
         //
         // Compilation scheme: None/Switch/Chain/Set, isOptional
@@ -2362,7 +2397,9 @@ namespace UnifiedRegex
             for (AltNode* curr = this; curr != 0; curr = curr->tail)
             {
                 if (curr->head->IsEmptyOnly())
+                {
                     fires = true;
+                }
                 else if (curr->head->thisConsumes.CouldMatchEmpty())
                 {
                     fires = false;
@@ -2372,9 +2409,13 @@ namespace UnifiedRegex
                 {
                     numNonEmpty++;
                     if (!curr->head->IsSimpleOneChar())
+                    {
                         allSimpleOneChar = false;
+                    }
                     if (!curr->head->firstSet->IsCompact())
+                    {
                         allCompact = false;
+                    }
                     totalChars += curr->head->firstSet->Count();
                 }
             }
@@ -2397,23 +2438,31 @@ namespace UnifiedRegex
                     unionSet.UnionInPlace(compiler.ctAllocator, *firstSet);
                     unionSet.UnionInPlace(compiler.ctAllocator, *followSet);
                     if (totalChars + followSet->Count() == unionSet.Count())
+                    {
                         fires = true;
+                    }
                 }
 
                 if (fires)
                 {
                     // **COMMIT**
                     if (numNonEmpty == 0)
+                    {
                         scheme = None;
+                    }
                     else if (allSimpleOneChar)
+                    {
                         scheme = Set;
-                    else if (numNonEmpty > 1 && allCompact && totalChars <= Switch20Inst::MaxCases)
+                    }
+                    else if (numNonEmpty > 1 && allCompact && totalChars <= Switch24Inst::MaxCases)
                     {
                         switchSize = totalChars;
                         scheme = Switch;
                     }
                     else
+                    {
                         scheme = Chain;
+                    }
                     isOptional = true;
                     return;
                 }
@@ -2671,7 +2720,7 @@ namespace UnifiedRegex
                     //
                     // Compilation scheme:
                     //
-                    //            Switch(AndConsume)?(10|20)(<dispatch to each arm>)
+                    //            Switch(AndConsume)?(2|4|8|16|24)(<dispatch to each arm>)
                     //            Fail                                (if non-optional)
                     //            Jump Lexit                          (if optional)
                     //     L1:    <item1>
@@ -2681,7 +2730,7 @@ namespace UnifiedRegex
                     //     L3:    <item3>
                     //     Lexit:
                     //
-                    Assert(switchSize <= Switch20Inst::MaxCases);
+                    Assert(switchSize <= Switch24Inst::MaxCases);
                     int numItems = 0;
                     bool allCanSkip = true;
                     for (AltNode* curr = this; curr != 0; curr = curr->tail)
@@ -2694,7 +2743,9 @@ namespace UnifiedRegex
                         {
                             numItems++;
                             if (!curr->head->SupportsPrefixSkipping(compiler))
+                            {
                                 allCanSkip = false;
+                            }
                         }
                     }
                     Assert(numItems > 1);
@@ -2705,28 +2756,73 @@ namespace UnifiedRegex
                     Label* caseLabels = AnewArray(compiler.ctAllocator, Label, numItems);
                     // We must fixup the switch arms
                     Label switchLabel = compiler.CurrentLabel();
-                    Assert(switchSize <= Switch20Inst::MaxCases);
+
+                    Assert(switchSize <= Switch24Inst::MaxCases);
                     if (allCanSkip)
                     {
-                        if (switchSize > Switch10Inst::MaxCases)
-                            EMIT(compiler, SwitchAndConsume20Inst);
+                        if (switchSize <= Switch2Inst::MaxCases)
+                        {
+                            EMIT(compiler, SwitchAndConsume2Inst);
+                        }
+                        else if (switchSize <= Switch4Inst::MaxCases)
+                        {
+                            EMIT(compiler, SwitchAndConsume4Inst);
+                        }
+                        else if (switchSize <= Switch8Inst::MaxCases)
+                        {
+                            EMIT(compiler, SwitchAndConsume8Inst);
+                        }
+                        else if (switchSize <= Switch16Inst::MaxCases)
+                        {
+                            EMIT(compiler, SwitchAndConsume16Inst);
+                        }
+                        else if (switchSize <= Switch24Inst::MaxCases)
+                        {
+                            EMIT(compiler, SwitchAndConsume24Inst);
+                        }
                         else
-                            EMIT(compiler, SwitchAndConsume10Inst);
+                        {
+                            AssertOrFailFastMsg(false, "It should not be possible to reach here. This implies that we entered the Switch layout with greater than the max allowable cases.");
+                        }
                     }
                     else
                     {
-                        if (switchSize > Switch10Inst::MaxCases)
-                            EMIT(compiler, Switch20Inst);
+                        if (switchSize <= Switch2Inst::MaxCases)
+                        {
+                            EMIT(compiler, Switch2Inst);
+                        }
+                        else if (switchSize <= Switch4Inst::MaxCases)
+                        {
+                            EMIT(compiler, Switch4Inst);
+                        }
+                        else if (switchSize <= Switch8Inst::MaxCases)
+                        {
+                            EMIT(compiler, Switch8Inst);
+                        }
+                        else if (switchSize <= Switch16Inst::MaxCases)
+                        {
+                            EMIT(compiler, Switch16Inst);
+                        }
+                        else if (switchSize <= Switch24Inst::MaxCases)
+                        {
+                            EMIT(compiler, Switch24Inst);
+                        }
                         else
-                            EMIT(compiler, Switch10Inst);
+                        {
+                            AssertOrFailFastMsg(false, "It should not be possible to reach here. This implies that we entered the Switch layout with greater than the max allowable cases.");
+                        }
                     }
 
                     Label defaultJumpFixup = 0;
                     if (isOptional)
+                    {
                         // Must fixup default jump to exit
                         defaultJumpFixup = compiler.GetFixup(&EMIT(compiler, JumpInst)->targetLabel);
+                    }
                     else
+                    {
                         compiler.Emit<FailInst>();
+                    }
 
                     // Emit each item
                     int item = 0;
@@ -2735,20 +2831,29 @@ namespace UnifiedRegex
                         if (!curr->head->thisConsumes.CouldMatchEmpty())
                         {
                             if (allCanSkip)
+                            {
                                 skipped = 1;
+                            }
                             caseLabels[item] = compiler.CurrentLabel();
                             curr->head->Emit(compiler, skipped);
                             if (item < numItems - 1)
+                            {
                                 jumpFixups[item] = compiler.GetFixup(&EMIT(compiler, JumpInst)->targetLabel);
+                            }
                             item++;
                         }
                     }
 
                     // Fixup exit labels
                     if (isOptional)
+                    {
                         compiler.DoFixup(defaultJumpFixup, compiler.CurrentLabel());
+                    }
+
                     for (item = 0; item < numItems - 1; item++)
+                    {
                         compiler.DoFixup(jumpFixups[item], compiler.CurrentLabel());
+                    }
 
                     // Fixup the switch entries
                     item = 0;
@@ -2763,17 +2868,49 @@ namespace UnifiedRegex
                             {
                                 if (allCanSkip)
                                 {
-                                    if (switchSize > Switch10Inst::MaxCases)
-                                        compiler.L2I(SwitchAndConsume20, switchLabel)->AddCase(entries[i], caseLabels[item]);
-                                    else
-                                        compiler.L2I(SwitchAndConsume10, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    if (switchSize <= Switch2Inst::MaxCases)
+                                    {
+                                        compiler.L2I(SwitchAndConsume2, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch4Inst::MaxCases)
+                                    {
+                                        compiler.L2I(SwitchAndConsume4, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch8Inst::MaxCases)
+                                    {
+                                        compiler.L2I(SwitchAndConsume8, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch16Inst::MaxCases)
+                                    {
+                                        compiler.L2I(SwitchAndConsume16, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch24Inst::MaxCases)
+                                    {
+                                        compiler.L2I(SwitchAndConsume24, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
                                 }
                                 else
                                 {
-                                    if (switchSize > Switch10Inst::MaxCases)
-                                        compiler.L2I(Switch20, switchLabel)->AddCase(entries[i], caseLabels[item]);
-                                    else
-                                        compiler.L2I(Switch10, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    if (switchSize <= Switch2Inst::MaxCases)
+                                    {
+                                        compiler.L2I(Switch2, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch4Inst::MaxCases)
+                                    {
+                                        compiler.L2I(Switch4, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch8Inst::MaxCases)
+                                    {
+                                        compiler.L2I(Switch8, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch16Inst::MaxCases)
+                                    {
+                                        compiler.L2I(Switch16, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
+                                    else if (switchSize <= Switch24Inst::MaxCases)
+                                    {
+                                        compiler.L2I(Switch24, switchLabel)->AddCase(entries[i], caseLabels[item]);
+                                    }
                                 }
                             }
                             item++;
@@ -4452,7 +4589,7 @@ namespace UnifiedRegex
 #endif
         )
     {
-        program->tag = Program::InstructionsTag;
+        program->tag = Program::ProgramTag::InstructionsTag;
         CaptureNoLiterals(program);
         EmitAndCaptureSuccInst(pattern->GetScriptContext()->GetRecycler(), program);
     }
@@ -4532,7 +4669,7 @@ namespace UnifiedRegex
                 {
                     program->rep.insts.litbuf = nullptr;
                     oi.InitializeTrigramInfo(scriptContext, pattern);
-                    program->tag = Program::OctoquadTag;
+                    program->tag = Program::ProgramTag::OctoquadTag;
                     program->rep.octoquad.matcher = OctoquadMatcher::New(scriptContext->GetRecycler(), standardChars, program->GetCaseMappingSource(), &oi);
                     compiled = true;
                 }
@@ -4549,29 +4686,29 @@ namespace UnifiedRegex
                 if (root->IsSingleChar(compiler, c))
                 {
                     // SPECIAL CASE: c
-                    program->tag = Program::SingleCharTag;
+                    program->tag = Program::ProgramTag::SingleCharTag;
                     program->rep.singleChar.c = c;
                 }
                 else if (root->IsBoundedWord(compiler))
                 {
                     // SPECIAL CASE: \b\w+\b
-                    program->tag = Program::BoundedWordTag;
+                    program->tag = Program::ProgramTag::BoundedWordTag;
                 }
                 else if (root->IsLeadingTrailingSpaces(compiler,
                     program->rep.leadingTrailingSpaces.beginMinMatch,
                     program->rep.leadingTrailingSpaces.endMinMatch))
                 {
                     // SPECIAL CASE: ^\s*|\s*$
-                    program->tag = Program::LeadingTrailingSpacesTag;
+                    program->tag = Program::ProgramTag::LeadingTrailingSpacesTag;
                 }
                 else if (root->IsBOILiteral2(compiler))
                 {
-                    program->tag = Program::BOILiteral2Tag;
+                    program->tag = Program::ProgramTag::BOILiteral2Tag;
                     program->rep.boiLiteral2.literal = *(DWORD *)litbuf;
                 }
                 else
                 {
-                    program->tag = Program::InstructionsTag;
+                    program->tag = Program::ProgramTag::InstructionsTag;
                     compiler.CaptureLiterals(root, litbuf);
 
                     root->AnnotatePass0(compiler);
@@ -4649,7 +4786,7 @@ namespace UnifiedRegex
             }
             else
             {
-                program->tag = Program::InstructionsTag;
+                program->tag = Program::ProgramTag::InstructionsTag;
                 compiler.CaptureLiterals(root, litbuf);
                 CharCount skipped = 0;
                 root->Emit(compiler, skipped);
@@ -4661,7 +4798,7 @@ namespace UnifiedRegex
 #if ENABLE_REGEX_CONFIG_OPTIONS
         if (w != 0)
         {
-            w->PrintEOL(_u("REGEX PROGRAM /%s/ "), PointerValue(program->source));
+            w->PrintEOL(_u("REGEX PROGRAM /%s/"), PointerValue(program->source));
             program->Print(w);
             w->Flush();
         }

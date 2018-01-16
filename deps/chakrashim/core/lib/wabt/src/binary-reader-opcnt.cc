@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "binary-reader-opcnt.h"
+#include "src/binary-reader-opcnt.h"
 
 #include <cassert>
 #include <cinttypes>
@@ -22,10 +22,10 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "binary-reader-nop.h"
-#include "common.h"
-#include "literal.h"
-#include "stream.h"
+#include "src/binary-reader-nop.h"
+#include "src/common.h"
+#include "src/literal.h"
+#include "src/stream.h"
 
 namespace wabt {
 
@@ -143,12 +143,12 @@ bool operator!=(const OpcodeInfo& lhs, const OpcodeInfo& rhs) {
 }
 
 bool operator<(const OpcodeInfo& lhs, const OpcodeInfo& rhs) {
-  if (lhs.opcode_ < rhs.opcode_) return true;
-  if (lhs.opcode_ > rhs.opcode_) return false;
-  if (lhs.kind_ < rhs.kind_) return true;
-  if (lhs.kind_ > rhs.kind_) return false;
-  if (lhs.data_ < rhs.data_) return true;
-  if (lhs.data_ > rhs.data_) return false;
+  if (lhs.opcode_ < rhs.opcode_) { return true; }
+  if (lhs.opcode_ > rhs.opcode_) { return false; }
+  if (lhs.kind_ < rhs.kind_) { return true; }
+  if (lhs.kind_ > rhs.kind_) { return false; }
+  if (lhs.data_ < rhs.data_) { return true; }
+  if (lhs.data_ > rhs.data_) { return false; }
   return false;
 }
 

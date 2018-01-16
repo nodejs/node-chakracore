@@ -37,6 +37,12 @@
       <PrecompiledHeaderFile>RuntimePlatformAgnosticPch.h</PrecompiledHeaderFile>
     </ClCompile>
   </ItemDefinitionGroup>
+  <!-- We have to enable RTTI for ICU because ICU expects dynamic_cast to be used for NumberFormat -> DecimalFormat casts -->
+  <ItemDefinitionGroup Condition="'$(IntlICU)'=='true'">
+    <ClCompile>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)RuntimePlatformAgnosticPch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -49,7 +55,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\SystemInfo.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\Thread.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Common\UnicodeText.Common.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\EventTrace.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\PerfTrace.cpp" />
   </ItemGroup>
   <ItemGroup Condition="'$(IntlICU)'=='true'">
@@ -57,7 +62,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ChakraPlatform.h" />
-    <ClInclude Include="EventTrace.h" />
     <ClInclude Include="PerfTrace.h" />
     <ClInclude Include="RuntimePlatformAgnosticPch.h" />
     <ClInclude Include="UnicodeText.h" />

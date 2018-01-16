@@ -423,7 +423,7 @@ public:
 
     BOOL ProtectAllocation(__in Allocation* allocation, DWORD dwVirtualProtectFlags, DWORD desiredOldProtectFlag, __in_opt char* addressInPage = nullptr);
     BOOL ProtectAllocationWithExecuteReadWrite(Allocation *allocation, __in_opt char* addressInPage = nullptr);
-    BOOL ProtectAllocationWithExecuteReadOnly(Allocation *allocation, __in_opt char* addressInPage = nullptr);
+    BOOL ProtectAllocationWithExecuteReadOnly(__in Allocation *allocation, __in_opt char* addressInPage = nullptr);
 
     ~Heap();
 
@@ -482,8 +482,8 @@ private:
     DWORD EnsurePageReadWrite(Page* page)
     {
         Assert(!page->isDecommitted);
-        this->codePageAllocators->ProtectPages(page->address, 1, page->segment, readWriteFlags, PAGE_EXECUTE);
-        return PAGE_EXECUTE;
+        this->codePageAllocators->ProtectPages(page->address, 1, page->segment, readWriteFlags, PAGE_EXECUTE_READ);
+        return PAGE_EXECUTE_READ;
     }
 
     template<DWORD readWriteFlags>
@@ -492,8 +492,8 @@ private:
     {
         if (allocation->IsLargeAllocation())
         {
-            this->ProtectAllocation(allocation, readWriteFlags, PAGE_EXECUTE);
-            return PAGE_EXECUTE;
+            this->ProtectAllocation(allocation, readWriteFlags, PAGE_EXECUTE_READ);
+            return PAGE_EXECUTE_READ;
         }
         else
         {

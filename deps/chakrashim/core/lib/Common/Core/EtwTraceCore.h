@@ -28,20 +28,29 @@
         PAIR(EventWriteJSCRIPT_ ## e, args);    \
     }
 
+#define IS_GCETW_Enabled(e) \
+    (IsMemProtectMode() ? EventEnabledMEMPROTECT_##e() : EventEnabledJSCRIPT_##e())
+
 #define JS_ETW_INTERNAL(s) s
 #define EDGE_ETW_INTERNAL(s) s
-#else
+#else  // !NTBUILD
 #define GCETW(e, args)                          \
     PAIR(EventWriteJSCRIPT_ ## e, args);
+
+#define IS_GCETW_Enabled(e)  EventEnabledJSCRIPT_##e()
 
 #define GCETW_INTERNAL(e, args)
 #define JS_ETW_INTERNAL(s)
 #define EDGE_ETW_INTERNAL(s)
-#endif
+#endif  // !NTBUILD
 
 #define JS_ETW(s) s
 #define IS_JS_ETW(s) s
 
+#ifdef ENABLE_JS_LTTNG
+#include "jscriptEtw.h"
+
+#else
 // C-style callback
 extern "C" {
     void EtwCallback(
@@ -82,9 +91,11 @@ public:
 
     static bool s_registered;
 };
+#endif // ENABLE_JS_LTTNG
 
 #else
 #define GCETW(e, ...)
+#define IS_GCETW_Enabled(e)  false
 #define JS_ETW(s)
 #define IS_JS_ETW(s) (false)
 #define GCETW_INTERNAL(e, args)

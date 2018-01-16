@@ -262,12 +262,11 @@ namespace Js
                 return m.Fail(coercionNode, _u("Identifier not globally declared"));
             }
 
-            AsmJsVar * constSrc = constSymSource->Cast<AsmJsVar>();
-
-            if (constSymSource->GetSymbolType() != AsmJsSymbol::Variable || constSrc->isMutable())
+            if (!AsmJsVar::Is(constSymSource) || constSymSource->isMutable())
             {
                 return m.Fail(coercionNode, _u("Unannotated variables must be constant"));
             }
+            AsmJsVar * constSrc = AsmJsVar::FromSymbol(constSymSource);
 
             if (constSrc->GetType().isSigned())
             {
@@ -472,11 +471,11 @@ namespace Js
         {
             AsmJsSymbol * buffFunc = m.LookupIdentifier(ctorExpr->name());
 
-            if (!buffFunc || buffFunc->GetSymbolType() != AsmJsSymbol::TypedArrayBuiltinFunction)
+            if (!AsmJsTypedArrayFunction::Is(buffFunc))
             {
                 return m.Fail(ctorExpr, _u("invalid 'new' import"));
             }
-            type = buffFunc->Cast<AsmJsTypedArrayFunction>()->GetViewType();
+            type = AsmJsTypedArrayFunction::FromSymbol(buffFunc)->GetViewType();
             if (type == ArrayBufferView::TYPE_COUNT)
             {
                 return m.Fail(ctorExpr, _u("could not match typed array name"));
@@ -955,12 +954,12 @@ varDeclEnd:
                     return m.FailName( node, _u("Symbol %s not recognized inside module"), name );
                 }
 
-                if( sym->GetSymbolType() != AsmJsSymbol::ModuleFunction )
+                if (!AsmJsFunc::Is(sym))
                 {
                     return m.FailName( node, _u("Symbol %s can only be a function of the module"), name );
                 }
 
-                AsmJsFunc* func = sym->Cast<AsmJsFunc>();
+                AsmJsFunc* func = AsmJsFunc::FromSymbol(sym);
                 if( !m.SetExportFunc( func ) )
                 {
                     return m.FailName( node, _u("Error adding return Symbol %s"), name );
@@ -1008,12 +1007,12 @@ varDeclEnd:
                     return m.FailName( node, _u("Symbol %s not recognized inside module"), value->name() );
                 }
 
-                if( sym->GetSymbolType() != AsmJsSymbol::ModuleFunction )
+                if (!AsmJsFunc::Is(sym))
                 {
-                    return m.FailName( node, _u("Symbol %s can only be a function of the module"), value->name() );
+                    return m.FailName(node, _u("Symbol %s can only be a function of the module"), value->name());
                 }
 
-                AsmJsFunc* func = sym->Cast<AsmJsFunc>();
+                AsmJsFunc* func = AsmJsFunc::FromSymbol(sym);
                 if( !m.AddExport( field->name(), func->GetFunctionIndex() ) )
                 {
                     return m.FailName( node, _u("Error adding return Symbol %s"), value->name() );
@@ -1055,12 +1054,12 @@ varDeclEnd:
             else
             {
                 //Check name
-                if(symFunctionTable->GetSymbolType() != AsmJsSymbol::FuncPtrTable )
+                if(!AsmJsFunctionTable::Is(symFunctionTable))
                 {
                     return m.FailName( varStmt, _u("Variable %s is already defined"), tableName );
                 }
 
-                AsmJsFunctionTable* table = symFunctionTable->Cast<AsmJsFunctionTable>();
+                AsmJsFunctionTable* table = AsmJsFunctionTable::FromSymbol(symFunctionTable);
                 if( table->IsDefined() )
                 {
                     return m.FailName( varStmt, _u("Multiple declaration of function table %s"), tableName );
@@ -1094,11 +1093,11 @@ varDeclEnd:
                     if( ParserWrapper::IsNameDeclaration( funcNameNode ) )
                     {
                         AsmJsSymbol* sym = m.LookupIdentifier( funcNameNode->name() );
-                        if( !sym || sym->GetSymbolType() != AsmJsSymbol::ModuleFunction )
+                        if (!AsmJsFunc::Is(sym))
                         {
                             return m.FailName( varStmt, _u("Element in function table %s is not a function"), tableName );
                         }
-                        AsmJsFunc* func = sym->Cast<AsmJsFunc>();
+                        AsmJsFunc* func = AsmJsFunc::FromSymbol(sym);
                         AsmJsRetType retType;
                         if (!table->SupportsArgCall(func->GetArgCount(), func->GetArgTypeArray(), retType))
                         {
@@ -1253,9 +1252,11 @@ AsmJsCompilationError:
         size = _vsnwprintf_s(buf, _countof(buf), _TRUNCATE, message, argptr);
         if (size == -1)
         {
-            size = 2048;
+            size = _countof(buf) - 1;  // characters written, excluding the terminating null
         }
+#ifdef ENABLE_SCRIPT_DEBUGGING
         scriptContext->RaiseMessageToDebugger(messageType, buf, scriptContext->GetUrl());
+#endif
         if (PHASE_TRACE1(AsmjsPhase) || PHASE_TESTTRACE1(AsmjsPhase))
         {
             Output::PrintBuffer(buf, size);

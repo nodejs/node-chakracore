@@ -102,20 +102,9 @@ namespace Js
         return NewWithBuffer(content, GetBufferLength(content), scriptContext);
     }
 
-    JavascriptString* JavascriptString::NewWithArenaSz(__in_z const char16 * content, ScriptContext * scriptContext)
-    {
-        AssertMsg(content != nullptr, "NULL value passed to JavascriptString::New");
-        return NewWithArenaBuffer(content, GetBufferLength(content), scriptContext);
-    }
-
     JavascriptString* JavascriptString::NewWithBuffer(__in_ecount(cchUseLength) const char16 * content, charcount_t cchUseLength, ScriptContext * scriptContext)
     {
         return NewWithBufferT<LiteralString, false>(content, cchUseLength, scriptContext);
-    }
-
-    JavascriptString* JavascriptString::NewWithArenaBuffer(__in_ecount(cchUseLength) const char16* content, charcount_t cchUseLength, ScriptContext* scriptContext)
-    {
-        return NewWithBufferT<ArenaLiteralString, false>(content, cchUseLength, scriptContext);
     }
 
     JavascriptString* JavascriptString::NewCopySz(__in_z const char16* content, ScriptContext* scriptContext)
@@ -126,21 +115,6 @@ namespace Js
     JavascriptString* JavascriptString::NewCopyBuffer(__in_ecount(cchUseLength) const char16* content, charcount_t cchUseLength, ScriptContext* scriptContext)
     {
         return NewWithBufferT<LiteralString, true>(content, cchUseLength, scriptContext);
-    }
-
-    JavascriptString* JavascriptString::NewCopySzFromArena(__in_z const char16* content,
-        ScriptContext* scriptContext, ArenaAllocator *arena, charcount_t cchUseLength)
-    {
-        AssertMsg(content != nullptr, "NULL value passed to JavascriptString::New");
-
-        if (!cchUseLength)
-        {
-            cchUseLength = JavascriptString::GetBufferLength(content);
-        }
-
-        char16* buffer = JavascriptString::AllocateAndCopySz(arena, content, cchUseLength);
-        return ArenaLiteralString::New(scriptContext->GetLibrary()->GetStringTypeStatic(),
-            buffer, cchUseLength, arena);
     }
 
     Var JavascriptString::NewInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -154,20 +128,19 @@ namespace Js
 
         // SkipDefaultNewObject function flag should have prevented the default object from
         // being created, except when call true a host dispatch.
-        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
-        Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr
-            || JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch);
+        Var newTarget = args.GetNewTarget();
+        bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
 
         JavascriptString* str;
         Var result;
 
         if (args.Info.Count > 1)
         {
-            if (JavascriptSymbol::Is(args[1]) && !(callInfo.Flags & CallFlags_New))
+            JavascriptSymbol * symbol = JavascriptOperators::TryFromVar<JavascriptSymbol>(args[1]);
+            if (symbol && !(callInfo.Flags & CallFlags_New))
             {
                 // By ES2015 21.1.1.1 step 2, calling the String constructor directly results in an explicit ToString, which does not throw.
-                return JavascriptSymbol::ToString(JavascriptSymbol::FromVar(args[1])->GetValue(), scriptContext);
+                return JavascriptSymbol::ToString(symbol->GetValue(), scriptContext);
                 // Calling with new is an implicit ToString on the Symbol, resulting in a throw. For this case we can let JavascriptConversion handle the call.
             }
             str = JavascriptConversion::ToString(args[1], scriptContext);
@@ -187,7 +160,7 @@ namespace Js
         }
 
         return isCtorSuperCall ?
-            JavascriptOperators::OrdinaryCreateFromConstructor(RecyclableObject::FromVar(newTarget), RecyclableObject::FromVar(result), nullptr, scriptContext) :
+            JavascriptOperators::OrdinaryCreateFromConstructor(RecyclableObject::FromVar(newTarget), RecyclableObject::UnsafeFromVar(result), nullptr, scriptContext) :
             result;
     }
 
@@ -251,11 +224,31 @@ namespace Js
         return JavascriptOperators::GetTypeId(aValue) == TypeIds_String;
     }
 
+    Js::PropertyRecord const * JavascriptString::GetPropertyRecord(bool dontLookupFromDictionary)
+    {
+        if (dontLookupFromDictionary)
+        {
+            return nullptr;
+        }
+
+        Js::PropertyRecord const * propertyRecord;
+        GetScriptContext()->GetOrAddPropertyRecord(GetString(), GetLength(), &propertyRecord);
+
+        return propertyRecord;
+    }
+
     JavascriptString* JavascriptString::FromVar(Var aValue)
+    {
+        AssertOrFailFastMsg(Is(aValue), "Ensure var is actually a 'JavascriptString'");
+
+        return static_cast<JavascriptString *>(aValue);
+    }
+
+    JavascriptString* JavascriptString::UnsafeFromVar(Var aValue)
     {
         AssertMsg(Is(aValue), "Ensure var is actually a 'JavascriptString'");
 
-        return static_cast<JavascriptString *>(RecyclableObject::FromVar(aValue));
+        return static_cast<JavascriptString *>(aValue);
     }
 
     charcount_t
@@ -263,7 +256,7 @@ namespace Js
     {
         size_t cchActual = wcslen(content);
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
         if (!IsValidCharCount(cchActual))
         {
             // Limit javascript string to 31-bit length
@@ -874,15 +867,11 @@ case_2:
             JavascriptError::ThrowTypeError(scriptContext, JSERR_This_NullOrUndefined, _u("String.prototype.concat"));
         }
 
-        JavascriptString* pstr = nullptr;
         JavascriptString* accum = nullptr;
         for (uint index = 0; index < args.Info.Count; index++)
         {
-            if (JavascriptString::Is(args[index]))
-            {
-                pstr = JavascriptString::FromVar(args[index]);
-            }
-            else
+            JavascriptString * pstr = JavascriptOperators::TryFromVar<JavascriptString>(args[index]);
+            if (!pstr)
             {
                 pstr = JavascriptConversion::ToString(args[index], scriptContext);
             }
@@ -1060,10 +1049,8 @@ case_2:
         // The indexOf function is intentionally generic; it does not require that its this value be a String object. Therefore, it can be transferred to other kinds of objects for use as a method.
         //
 
-        int result = -1;
-
-        ENTER_PINNED_SCOPE(JavascriptString, pThis);
-        ENTER_PINNED_SCOPE(JavascriptString, searchString);
+        JavascriptString * pThis;
+        JavascriptString * searchString;
 
         GetThisAndSearchStringArguments(args, scriptContext, apiNameForErrorMsg, &pThis, &searchString, isRegExpAnAllowedArg);
 
@@ -1090,6 +1077,8 @@ case_2:
         {
             return position;
         }
+
+        int result = -1;
 
         if (position < pThis->GetLengthAsSignedInt())
         {
@@ -1118,10 +1107,6 @@ case_2:
                 }
             }
         }
-
-        LEAVE_PINNED_SCOPE();   //  searchString
-        LEAVE_PINNED_SCOPE();   //  pThis
-
         return result;
     }
 
@@ -1142,20 +1127,16 @@ case_2:
         // 3. Let searchStr be ? ToString(searchString).
 
         // default search string if the search argument is not provided
-        ENTER_PINNED_SCOPE(JavascriptString, pThis);
-        ENTER_PINNED_SCOPE(JavascriptString, searchArg);
-        pThis = nullptr;
-        searchArg = nullptr;
+
+        JavascriptString * pThis = nullptr;
 
         GetThisStringArgument(args, scriptContext, _u("String.prototype.lastIndexOf"), &pThis);
 
+        JavascriptString * searchArg = nullptr;
         if(args.Info.Count > 1)
         {
-            if (JavascriptString::Is(args[1]))
-            {
-                searchArg = JavascriptString::FromVar(args[1]);
-            }
-            else
+            searchArg = JavascriptOperators::TryFromVar<JavascriptString>(args[1]);
+            if (!searchArg)
             {
                 searchArg = JavascriptConversion::ToString(args[1], scriptContext);
             }
@@ -1256,10 +1237,6 @@ case_2:
             }
             --currentPos;
         }
-
-        LEAVE_PINNED_SCOPE(); //pThis
-        LEAVE_PINNED_SCOPE(); //searchArg
-
         return JavascriptNumber::ToVar(-1, scriptContext);
     }
 
@@ -1275,16 +1252,10 @@ case_2:
         }
         AssertMsg(args.Info.Count > 0, "Negative argument count");
 
-        JavascriptString * pThis;
-        if (JavascriptString::Is(args[0]))
+        JavascriptString * pThis = JavascriptOperators::TryFromVar<JavascriptString>(args[0]);
+        if (!pThis)
         {
-            pThis = JavascriptString::FromVar(args[0]);
-        }
-        else
-        {
-
             pThis = JavascriptConversion::CoerseString(args[0], scriptContext , apiNameForErrorMsg);
-
         }
 
         *ppThis = pThis;
@@ -1307,13 +1278,13 @@ case_2:
             {
                 JavascriptError::ThrowTypeError(scriptContext, JSERR_FunctionArgument_FirstCannotBeRegExp, apiNameForErrorMsg);
             }
-            else if (JavascriptString::Is(args[1]))
-            {
-                pSearch = JavascriptString::FromVar(args[1]);
-            }
             else
             {
-                pSearch = JavascriptConversion::ToString(args[1], scriptContext);
+                pSearch = JavascriptOperators::TryFromVar<JavascriptString>(args[1]);
+                if (!pSearch)
+                {
+                    pSearch = JavascriptConversion::ToString(args[1], scriptContext);
+                }
             }
         }
 
@@ -1335,9 +1306,8 @@ case_2:
         }
         AssertMsg(args.Info.Count > 0, "Negative argument count");
 
-        Var resultVar = scriptContext->GetLibrary()->GetUndefined();
-        ENTER_PINNED_SCOPE(JavascriptString, pThis);
-        ENTER_PINNED_SCOPE(JavascriptString, pThat);
+        JavascriptString * pThis;
+        JavascriptString * pThat;
 
         GetThisAndSearchStringArguments(args, scriptContext, _u("String.prototype.localeCompare"), &pThis, &pThat, true);
 
@@ -1400,17 +1370,12 @@ case_2:
             JavascriptError::ThrowRangeError(function->GetScriptContext(),
                 VBSERR_InternalError /* TODO-ERROR: _u("Failed compare operation")*/ );
         }
-        resultVar = JavascriptNumber::ToVar(result-2, scriptContext);
+        return JavascriptNumber::ToVar(result-2, scriptContext);
 #else // !ENABLE_GLOBALIZATION
         // no ICU / or external support for localization. Use c-lib
         const int result = wcscmp(pThisStr, pThatStr);
-        resultVar = JavascriptNumber::ToVar(result > 0 ? 1 : result == 0 ? 0 : -1, scriptContext);
+        return JavascriptNumber::ToVar(result > 0 ? 1 : result == 0 ? 0 : -1, scriptContext);
 #endif
-
-        LEAVE_PINNED_SCOPE();    //  pThat
-        LEAVE_PINNED_SCOPE();    //  pThis
-
-        return resultVar;
     }
 
 
@@ -1468,12 +1433,8 @@ case_2:
 
         if (args.Info.Count >= 2 && !(JavascriptOperators::IsUndefinedObject(args.Values[1])))
         {
-            JavascriptString *formStr = nullptr;
-            if (JavascriptString::Is(args[1]))
-            {
-                formStr = JavascriptString::FromVar(args[1]);
-            }
-            else
+            JavascriptString *formStr = JavascriptOperators::TryFromVar<JavascriptString>(args[1]);
+            if (!formStr)
             {
                 formStr = JavascriptConversion::ToString(args[1], scriptContext);
             }
@@ -1784,7 +1745,7 @@ case_2:
     Var JavascriptString::GetRegExSymbolFunction(Var regExp, PropertyId propertyId, ScriptContext* scriptContext)
     {
         return JavascriptOperators::GetPropertyNoCache(
-            RecyclableObject::FromVar(JavascriptOperators::ToObject(regExp, scriptContext)),
+            JavascriptOperators::ToObject(regExp, scriptContext),
             propertyId,
             scriptContext);
     }
@@ -1797,7 +1758,7 @@ case_2:
             JavascriptError::ThrowTypeError(scriptContext, JSERR_FunctionArgument_Invalid, varName);
         }
 
-        RecyclableObject* fnObj = RecyclableObject::FromVar(fn);
+        RecyclableObject* fnObj = RecyclableObject::UnsafeFromVar(fn);
         return CallRegExFunction<argCount>(fnObj, regExp, args, scriptContext);
     }
 
@@ -1805,7 +1766,11 @@ case_2:
     Var JavascriptString::CallRegExFunction<1>(RecyclableObject* fnObj, Var regExp, Arguments& args, ScriptContext *scriptContext)
     {
         // args[0]: String
-        return CALL_FUNCTION(scriptContext->GetThreadContext(), fnObj, CallInfo(CallFlags_Value, 2), regExp, args[0]);
+        ThreadContext * threadContext = scriptContext->GetThreadContext();
+        return threadContext->ExecuteImplicitCall(fnObj, ImplicitCall_Accessor, [=]()->Js::Var
+        {
+            return CALL_FUNCTION(threadContext, fnObj, CallInfo(CallFlags_Value, 2), regExp, args[0]);
+        });
     }
 
     template<>
@@ -1820,7 +1785,11 @@ case_2:
             return CallRegExFunction<1>(fnObj, regExp, args, scriptContext);
         }
 
-        return CALL_FUNCTION(scriptContext->GetThreadContext(), fnObj, CallInfo(CallFlags_Value, 3), regExp, args[0], args[2]);
+        ThreadContext * threadContext = scriptContext->GetThreadContext();
+        return threadContext->ExecuteImplicitCall(fnObj, ImplicitCall_Accessor, [=]()->Js::Var
+        {
+            return CALL_FUNCTION(threadContext, fnObj, CallInfo(CallFlags_Value, 3), regExp, args[0], args[2]);
+        });
     }
 
     Var JavascriptString::EntrySlice(RecyclableObject* function, CallInfo callInfo, ...)
@@ -1918,7 +1887,7 @@ case_2:
             if (!scriptContext->GetConfig()->IsES6RegExSymbolsEnabled()
                 && JavascriptRegExp::Is(args[1]))
             {
-                return RegexHelper::RegexSplit(scriptContext, JavascriptRegExp::FromVar(args[1]), input, limit,
+                return RegexHelper::RegexSplit(scriptContext, JavascriptRegExp::UnsafeFromVar(args[1]), input, limit,
                     RegexHelper::IsResultNotUsed(callInfo.Flags));
             }
             else
@@ -2223,7 +2192,7 @@ case_2:
             if (JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch)
             {
                 Var result;
-                if (RecyclableObject::FromVar(args[0])->InvokeBuiltInOperationRemotely(EntryToString, args, &result))
+                if (RecyclableObject::UnsafeFromVar(args[0])->InvokeBuiltInOperationRemotely(EntryToString, args, &result))
                 {
                     return result;
                 }
@@ -2528,14 +2497,11 @@ case_2:
         Assert(currentString->GetLength() > 0);
         Assert(count > 0);
 
-        charcount_t finalBufferCount = 0;
-        char16* buffer = nullptr;
-        EnterPinnedScope((volatile void**)& currentString);
         const char16* currentRawString = currentString->GetString();
         charcount_t currentLength = currentString->GetLength();
 
-        finalBufferCount = UInt32Math::Add(UInt32Math::Mul(count, currentLength), 1);
-        buffer = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, finalBufferCount);
+        charcount_t finalBufferCount = UInt32Math::Add(UInt32Math::Mul(count, currentLength), 1);
+        char16* buffer = RecyclerNewArrayLeaf(scriptContext->GetRecycler(), char16, finalBufferCount);
 
         if (currentLength == 1)
         {
@@ -2557,8 +2523,6 @@ case_2:
             Assert(bufferDstSize == 1);
             *bufferDst = '\0';
         }
-
-        LeavePinnedScope();     //  currentString
 
         return JavascriptString::NewWithBuffer(buffer, finalBufferCount - 1, scriptContext);
     }
@@ -2714,7 +2678,7 @@ case_2:
             if (JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch)
             {
                 Var result;
-                if (RecyclableObject::FromVar(args[0])->InvokeBuiltInOperationRemotely(EntryValueOf, args, &result))
+                if (RecyclableObject::UnsafeFromVar(args[0])->InvokeBuiltInOperationRemotely(EntryValueOf, args, &result))
                 {
                     return result;
                 }
@@ -3154,11 +3118,8 @@ case_2:
         charcount_t cchPropertyValue;
         charcount_t cchTotalChars;
         charcount_t ich;
-        JavascriptString * resultString = nullptr;
-        ENTER_PINNED_SCOPE(JavascriptString, pThis);
-        ENTER_PINNED_SCOPE(JavascriptString, pPropertyValue);
-        pThis = nullptr;
-        pPropertyValue = nullptr;
+        JavascriptString * pThis = nullptr;
+        JavascriptString * pPropertyValue = nullptr;
         const char16 * propertyValueStr = nullptr;
         uint quotesCount = 0;
         const char16 quotStr[] = _u("&quot;");
@@ -3198,11 +3159,8 @@ case_2:
             }
         }
 
-        if (JavascriptString::Is(args[0]))
-        {
-            pThis = JavascriptString::FromVar(args[0]);
-        }
-        else
+        pThis = JavascriptOperators::TryFromVar<JavascriptString>(args[0]);
+        if (!pThis)
         {
             pThis = JavascriptConversion::ToString(args[0], scriptContext);
         }
@@ -3218,11 +3176,8 @@ case_2:
             // Need one string argument.
             if (args.Info.Count >= 2)
             {
-                if (JavascriptString::Is(args[1]))
-                {
-                    pPropertyValue = JavascriptString::FromVar(args[1]);
-                }
-                else
+                pPropertyValue = JavascriptOperators::TryFromVar<JavascriptString>(args[1]);
+                if (!pPropertyValue)
                 {
                     pPropertyValue = JavascriptConversion::ToString(args[1], scriptContext);
                 }
@@ -3363,24 +3318,15 @@ case_2:
         // Assert we ended at the right place.
         AssertMsg((charcount_t)(pResult - builder.DangerousGetWritableBuffer()) == cchTotalChars, "Exceeded allocated string limit");
 
-        resultString = builder.ToString();
-
-        LEAVE_PINNED_SCOPE();   // pThis
-        LEAVE_PINNED_SCOPE();   // pPropertyValue
-
-        return resultString;
+        return builder.ToString();
     }
     Var JavascriptString::ToLocaleCaseHelper(Var thisObj, bool toUpper, ScriptContext *scriptContext)
     {
         using namespace PlatformAgnostic::UnicodeText;
-        JavascriptString * resultString = nullptr;
-        ENTER_PINNED_SCOPE(JavascriptString, pThis);
 
-        if (JavascriptString::Is(thisObj))
-        {
-            pThis = JavascriptString::FromVar(thisObj);
-        }
-        else
+        JavascriptString * pThis = JavascriptOperators::TryFromVar<JavascriptString>(thisObj);
+
+        if (!pThis)
         {
             pThis = JavascriptConversion::ToString(thisObj, scriptContext);
         }
@@ -3414,11 +3360,7 @@ case_2:
             Throw::InternalError();
         }
 
-        resultString = builder.ToString();
-
-        LEAVE_PINNED_SCOPE();   // pThis
-
-        return resultString;
+        return builder.ToString();
     }
 
     int JavascriptString::IndexOfUsingJmpTable(JmpTable jmpTable, const char16* inputStr, charcount_t len, const char16* searchStr, int searchLen, int position)
@@ -3567,16 +3509,6 @@ case_2:
     {
         uint i;
 
-        // We want to pin the strings string and substring because flattening of any of these strings could cause a GC and result in the other string getting collected if it was optimized
-        // away by the compiler. We would normally have called the EnterPinnedScope/LeavePinnedScope methods here but it adds extra call instructions to the assembly code. As Equals
-        // methods could get called a lot of times this can show up as regressions in benchmarks.
-        volatile Js::JavascriptString** keepAliveString1 = (volatile Js::JavascriptString**)& string;
-        volatile Js::JavascriptString** keepAliveString2 = (volatile Js::JavascriptString**)& substring;
-        auto keepAliveLambda = [&]() {
-            UNREFERENCED_PARAMETER(keepAliveString1);
-            UNREFERENCED_PARAMETER(keepAliveString2);
-        };
-
         const char16 *stringOrig = string->GetString();
         uint stringLenOrig = string->GetLength();
         const char16 *stringSz = stringOrig + start;
@@ -3630,8 +3562,8 @@ case_2:
         uint string1Len = string1->GetLength();
         uint string2Len = string2->GetLength();
 
-        // We want to pin the strings string1 and string2 because flattening of any of these strings could cause a GC and result in the other string getting collected if it was optimized 
-        // away by the compiler. We would normally have called the EnterPinnedScope/LeavePinnedScope methods here but it adds extra call instructions to the assembly code. As Equals 
+        // We want to pin the strings string1 and string2 because flattening of any of these strings could cause a GC and result in the other string getting collected if it was optimized
+        // away by the compiler. We would normally have called the EnterPinnedScope/LeavePinnedScope methods here but it adds extra call instructions to the assembly code. As Equals
         // methods could get called a lot of times this can show up as regressions in benchmarks.
         volatile Js::JavascriptString** keepAliveString1 = (volatile Js::JavascriptString**)& string1;
         volatile Js::JavascriptString** keepAliveString2 = (volatile Js::JavascriptString**)& string2;
@@ -3939,8 +3871,7 @@ case_2:
 
     BOOL JavascriptString::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags propertyOperationFlags)
     {
-        JsUtil::CharacterBuffer<WCHAR> propertyName(propertyNameString->GetString(), propertyNameString->GetLength());
-        if (BuiltInPropertyRecords::length.Equals(propertyName))
+        if (BuiltInPropertyRecords::length.Equals(propertyNameString))
         {
             JavascriptError::ThrowCantDeleteIfStrictMode(propertyOperationFlags, this->GetScriptContext(), propertyNameString->GetString());
 
@@ -3981,8 +3912,8 @@ case_2:
 
         if (aLeft == aRight) return true;
 
-        T *leftString = T::FromVar(aLeft);
-        T *rightString = T::FromVar(aRight);
+        T *leftString = T::UnsafeFromVar(aLeft);
+        T *rightString = T::UnsafeFromVar(aRight);
 
         // methods could get called a lot of times this can show up as regressions in benchmarks.
         volatile T** keepAliveLeftString = (volatile T**)& leftString;

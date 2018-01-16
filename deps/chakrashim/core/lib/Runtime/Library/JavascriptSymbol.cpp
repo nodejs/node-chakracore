@@ -13,9 +13,16 @@ namespace Js
 
     JavascriptSymbol* JavascriptSymbol::FromVar(Js::Var aValue)
     {
+        AssertOrFailFastMsg(Is(aValue), "Ensure var is actually a 'JavascriptSymbol'");
+
+        return static_cast<JavascriptSymbol *>(aValue);
+    }
+
+    JavascriptSymbol* JavascriptSymbol::UnsafeFromVar(Js::Var aValue)
+    {
         AssertMsg(Is(aValue), "Ensure var is actually a 'JavascriptSymbol'");
 
-        return static_cast<JavascriptSymbol *>(RecyclableObject::FromVar(aValue));
+        return static_cast<JavascriptSymbol *>(aValue);
     }
 
     Var JavascriptSymbol::NewInstance(RecyclableObject* function, CallInfo callInfo, ...)
@@ -30,10 +37,7 @@ namespace Js
 
         // SkipDefaultNewObject function flag should have prevented the default object from
         // being created, except when call true a host dispatch.
-        Var newTarget = callInfo.Flags & CallFlags_NewTarget ? args.Values[args.Info.Count] : args[0];
-        bool isCtorSuperCall = (callInfo.Flags & CallFlags_New) && newTarget != nullptr && !JavascriptOperators::IsUndefined(newTarget);
-        Assert(isCtorSuperCall || !(callInfo.Flags & CallFlags_New) || args[0] == nullptr
-            || JavascriptOperators::GetTypeId(args[0]) == TypeIds_HostDispatch);
+        JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
 
         if (callInfo.Flags & CallFlags_New)
         {
@@ -116,11 +120,10 @@ namespace Js
         AssertMsg(args.Info.Count, "Should always have implicit 'this'.");
         ScriptContext* scriptContext = function->GetScriptContext();
         JavascriptLibrary* library = scriptContext->GetLibrary();
-        const Js::PropertyRecord* propertyRecord = nullptr;
 
         Assert(!(callInfo.Flags & CallFlags_New));
 
-        ENTER_PINNED_SCOPE(JavascriptString, key);
+        JavascriptString* key;
 
         if (args.Info.Count > 1)
         {
@@ -134,7 +137,7 @@ namespace Js
         // Search the global symbol registration map for a symbol with description equal to the string key.
         // The map can only have one symbol with that description so if we found a symbol, that is the registered
         // symbol for the string key.
-        propertyRecord = scriptContext->GetThreadContext()->GetSymbolFromRegistrationMap(key->GetString(), key->GetLength());
+        const Js::PropertyRecord* propertyRecord = scriptContext->GetThreadContext()->GetSymbolFromRegistrationMap(key->GetString(), key->GetLength());
 
         // If we didn't find a PropertyRecord in the map, we'll create a new symbol with description equal to the key string.
         // This is the only place we add new PropertyRecords to the map, so we should never have multiple PropertyRecords in the
@@ -143,8 +146,6 @@ namespace Js
         {
             propertyRecord = scriptContext->GetThreadContext()->AddSymbolToRegistrationMap(key->GetString(), key->GetLength());
         }
-
-        LEAVE_PINNED_SCOPE();   //  key
 
         Assert(propertyRecord != nullptr);
 

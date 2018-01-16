@@ -3,34 +3,45 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "stdafx.h"
-
 #include <sys/stat.h>
+
+#define MAX_URI_LENGTH 512
 
 //TODO: x-plat definitions
 #ifdef _WIN32
-#define MAX_URI_LENGTH 512
+#define TTD_MAX_FILE_LENGTH MAX_PATH
 #define TTD_HOST_PATH_SEP "\\"
+#else
+#define TTD_MAX_FILE_LENGTH MAX_URI_LENGTH
+#define TTD_HOST_PATH_SEP "/"
+#endif
 
 void TTDHostBuildCurrentExeDirectory(char* path, size_t* pathLength, size_t bufferLength)
 {
-    wchar exePath[MAX_PATH];
-    GetModuleFileName(NULL, exePath, MAX_PATH);
+    char exePath[TTD_MAX_FILE_LENGTH];
+    PlatformAgnostic::SystemInfo::GetBinaryLocation(exePath, TTD_MAX_FILE_LENGTH);
 
-    size_t i = wcslen(exePath) - 1;
-    while(exePath[i] != _u('\\'))
+    size_t i = strlen(exePath) - 1;
+    while (exePath[i] != TTD_HOST_PATH_SEP[0] && i != 0)
     {
         --i;
     }
-
-    if(i * 3 > bufferLength)
+    if (i == 0)
     {
-        printf("Don't overflow path buffer during conversion");
+        fwprintf(stderr, _u("Can't get current exe directory"));
         exit(1);
     }
-    *pathLength = utf8::EncodeInto((LPUTF8)path, exePath, (charcount_t)(i + 1));
+    if (i + 2 > bufferLength)
+    {
+        fwprintf(stderr, _u("Don't overflow path buffer during copy"));
+        exit(1);
+    }
+    memcpy_s(path, bufferLength, exePath, i + 1);
+    *pathLength = i + 1;
     path[*pathLength] = '\0';
 }
 
+#ifdef _WIN32
 int TTDHostMKDir(const char* path, size_t pathLength)
 {
     char16 cpath[MAX_PATH];
@@ -38,7 +49,7 @@ int TTDHostMKDir(const char* path, size_t pathLength)
 
     if(MAX_PATH <= pathLength) //<= to account for null terminator
     {
-        printf("Don't overflow path buffer during conversion");
+        wprintf(_u("Don't overflow path buffer during conversion"));
         exit(1);
     }
     utf8::DecodeUnitsIntoAndNullTerminate(cpath, pathbase, pathbase + pathLength);
@@ -53,7 +64,7 @@ JsTTDStreamHandle TTDHostOpen(size_t pathLength, const char* path, bool isWrite)
 
     if(MAX_PATH <= pathLength) //<= to account for null terminator
     {
-        printf("Don't overflow path buffer during conversion");
+        wprintf(_u("Don't overflow path buffer during conversion"));
         exit(1);
     }
     utf8::DecodeUnitsIntoAndNullTerminate(wpath, pathbase, pathbase + pathLength);
@@ -67,42 +78,6 @@ JsTTDStreamHandle TTDHostOpen(size_t pathLength, const char* path, bool isWrite)
 #define TTDHostRead(buff, size, handle) fread_s(buff, size, 1, size, (FILE*)handle);
 #define TTDHostWrite(buff, size, handle) fwrite(buff, 1, size, (FILE*)handle)
 #else
-
-#ifdef __APPLE__
-#include <mach-o/dyld.h>
-#else
-#include <unistd.h>
-#endif
-#define MAX_URI_LENGTH 512
-#define TTD_HOST_PATH_SEP "/"
-
-void TTDHostBuildCurrentExeDirectory(char* path, size_t* pathLength, size_t bufferLength)
-{
-    char exePath[MAX_URI_LENGTH];
-    //TODO: xplattodo move this logic to PAL
-    #ifdef __APPLE__
-    uint32_t tmpPathSize = sizeof(exePath);
-    _NSGetExecutablePath(exePath, &tmpPathSize);
-    size_t i = strlen(exePath) - 1;
-    #else
-    size_t i = readlink("/proc/self/exe", exePath, MAX_URI_LENGTH) - 1;
-    #endif
-
-    while(exePath[i] != '/')
-    {
-        --i;
-    }
-    *pathLength = i + 1;
-
-    if(*pathLength > bufferLength)
-    {
-        printf("Don't overflow path buffer during copy.");
-        exit(1);
-    }
-
-    memcpy_s(path, bufferLength, exePath, *pathLength);
-}
-
 int TTDHostMKDir(const char* path, size_t pathLength)
 {
     return mkdir(path, 0700);
@@ -117,13 +92,113 @@ JsTTDStreamHandle TTDHostOpen(size_t pathLength, const char* path, bool isWrite)
 #define TTDHostWrite(buff, size, handle) fwrite(buff, 1, size, (FILE*)handle)
 #endif
 
-HRESULT Helpers::LoadScriptFromFile(LPCSTR filename, LPCSTR& contents, UINT* lengthBytesOut /*= nullptr*/)
+int GetPathNameLocation(LPCSTR filename)
 {
+    int filenameLength = (int) strlen(filename);
+    int pos;
+
+    if (filenameLength <= 0)
+    {
+        return -1;
+    }
+
+    for (pos = filenameLength - 1; pos >= 0; pos--)
+    {
+        char ch = filename[pos];
+        if (ch == '/' || ch == '\\') break;
+    }
+
+    return pos;
+}
+
+inline void pathcpy(char * target, LPCSTR src, uint length)
+{
+#ifndef _WIN32
+    for (int i = 0; i < length; i++)
+    {
+        if (src[i] == '\\')
+        {
+            target[i] = '/';
+        }
+        else
+        {
+            target[i] = src[i];
+        }
+    }
+#else
+    memcpy(target, src, length);
+#endif
+}
+
+uint ConcatPath(LPCSTR filenameLeft, uint posPathSep, LPCSTR filenameRight, char* buffer, uint bufferLength)
+{
+    int filenameRightLength = (int) strlen(filenameRight);
+
+    // [ path[/] ] + [filename] + /0
+    uint totalLength = posPathSep + filenameRightLength + 1;
+    if (buffer == nullptr)
+    {
+        return totalLength;
+    }
+
+    if (bufferLength < totalLength)
+    {
+        fprintf(stderr, "Error: file path is too long.\n");
+        return (uint)-1;
+    }
+
+    pathcpy(buffer, filenameLeft, posPathSep);
+    buffer += posPathSep;
+    pathcpy(buffer, filenameRight, filenameRightLength);
+    buffer += filenameRightLength;
+    buffer[0] = char(0);
+    return totalLength;
+}
+
+HRESULT Helpers::LoadScriptFromFile(LPCSTR filenameToLoad, LPCSTR& contents, UINT* lengthBytesOut /*= nullptr*/)
+{
+    static char sHostApplicationPathBuffer[MAX_URI_LENGTH];
+    static uint sHostApplicationPathBufferLength = (uint) -1;
+    char combinedPathBuffer[MAX_URI_LENGTH];
+
     HRESULT hr = S_OK;
     BYTE * pRawBytes = nullptr;
     UINT lengthBytes = 0;
     contents = nullptr;
     FILE * file = NULL;
+
+    LPCSTR filename = filenameToLoad;
+    if (sHostApplicationPathBufferLength == (uint)-1)
+    {
+        // consider incoming filename as the host app and base its' path for others
+        sHostApplicationPathBufferLength = GetPathNameLocation(filename);
+        if (sHostApplicationPathBufferLength == -1)
+        {
+            // host app has no path info. (it must be located on current folder!)
+            sHostApplicationPathBufferLength = 0;
+        }
+        else
+        {
+            sHostApplicationPathBufferLength += 1;
+            Assert(sHostApplicationPathBufferLength < MAX_URI_LENGTH);
+            // save host app's path and fix the path separator for platform
+            pathcpy(sHostApplicationPathBuffer, filename, sHostApplicationPathBufferLength);
+        }
+        sHostApplicationPathBuffer[sHostApplicationPathBufferLength] = char(0);
+    }
+    else if (filename[0] != '/' && filename[0] != '\\') // make sure it's not a full path
+    {
+        // concat host path and filename
+        uint len = ConcatPath(sHostApplicationPathBuffer, sHostApplicationPathBufferLength,
+                   filename, combinedPathBuffer, MAX_URI_LENGTH);
+
+        if (len == (uint)-1)
+        {
+            hr = E_FAIL;
+            goto Error;
+        }
+        filename = combinedPathBuffer;
+    }
 
     //
     // Open the file as a binary file to prevent CRT from handling encoding, line-break conversions,
@@ -135,7 +210,7 @@ HRESULT Helpers::LoadScriptFromFile(LPCSTR filename, LPCSTR& contents, UINT* len
         {
 #ifdef _WIN32
             DWORD lastError = GetLastError();
-            char16 wszBuff[512];
+            char16 wszBuff[MAX_URI_LENGTH];
             fprintf(stderr, "Error in opening file '%s' ", filename);
             wszBuff[0] = 0;
             if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
@@ -191,6 +266,9 @@ HRESULT Helpers::LoadScriptFromFile(LPCSTR filename, LPCSTR& contents, UINT* len
         // wrongly classified as ANSI
         //
         {
+#pragma warning(push)
+// suppressing prefast warning that "readable size is bufferLength bytes but 2 may be read" as bufferLength is clearly > 2 in the code that follows
+#pragma warning(disable:6385)
             C_ASSERT(sizeof(WCHAR) == 2);
             if (bufferLength > 2)
             {
@@ -211,6 +289,7 @@ HRESULT Helpers::LoadScriptFromFile(LPCSTR filename, LPCSTR& contents, UINT* len
 #pragma prefast(pop)
             }
         }
+#pragma warning(pop)
     }
 
     contents = reinterpret_cast<LPCSTR>(pRawBytes);
@@ -336,7 +415,7 @@ HRESULT Helpers::LoadBinaryFile(LPCSTR filename, LPCSTR& contents, UINT& lengthB
             fprintf(stderr, "Error in opening file '%s' ", filename);
 #ifdef _WIN32
             DWORD lastError = GetLastError();
-            char16 wszBuff[512];
+            char16 wszBuff[MAX_URI_LENGTH];
             wszBuff[0] = 0;
             if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
                 nullptr,
@@ -351,7 +430,7 @@ HRESULT Helpers::LoadBinaryFile(LPCSTR filename, LPCSTR& contents, UINT& lengthB
 #endif
             fprintf(stderr, "\n");
         }
-        return E_FAIL;        
+        return E_FAIL;
     }
     // file will not be nullptr if _wfopen_s succeeds
     __analysis_assume(file != nullptr);
@@ -415,8 +494,8 @@ void Helpers::CreateTTDDirectoryAsNeeded(size_t* uriLength, char* uri, const cha
 {
     if(*uriLength + strlen(asciiDir1) + wcslen(asciiDir2) + 2 > MAX_URI_LENGTH || strlen(asciiDir1) >= MAX_TTD_ASCII_PATH_EXT_LENGTH || wcslen(asciiDir2) >= MAX_TTD_ASCII_PATH_EXT_LENGTH)
     {
-        printf("We assume bounded MAX_URI_LENGTH for simplicity.\n");
-        printf("%s, %s, %ls\n", uri, asciiDir1, asciiDir2);
+        wprintf(_u("We assume bounded MAX_URI_LENGTH for simplicity.\n"));
+        wprintf(_u("%S, %S, %ls\n"), uri, asciiDir1, asciiDir2);
         exit(1);
     }
 
@@ -426,8 +505,8 @@ void Helpers::CreateTTDDirectoryAsNeeded(size_t* uriLength, char* uri, const cha
     extLength = sprintf_s(uri + *uriLength, MAX_TTD_ASCII_PATH_EXT_LENGTH, "%s%s", asciiDir1, TTD_HOST_PATH_SEP);
     if(extLength == -1 || MAX_URI_LENGTH < (*uriLength) + extLength)
     {
-        printf("Failed directory extension 1.\n");
-        printf("%s, %s, %ls\n", uri, asciiDir1, asciiDir2);
+        wprintf(_u("Failed directory extension 1.\n"));
+        wprintf(_u("%S, %S, %ls\n"), uri, asciiDir1, asciiDir2);
         exit(1);
     }
     *uriLength += extLength;
@@ -445,7 +524,7 @@ void Helpers::CreateTTDDirectoryAsNeeded(size_t* uriLength, char* uri, const cha
     {
         if(asciiDir2[i] > CHAR_MAX)
         {
-            printf("Test directory names can only include ascii chars.\n");
+            wprintf(_u("Test directory names can only include ascii chars.\n"));
             exit(1);
         }
         realAsciiDir2[i] = (char)asciiDir2[i];
@@ -454,8 +533,8 @@ void Helpers::CreateTTDDirectoryAsNeeded(size_t* uriLength, char* uri, const cha
     extLength = sprintf_s(uri + *uriLength, MAX_TTD_ASCII_PATH_EXT_LENGTH, "%s%s", realAsciiDir2, TTD_HOST_PATH_SEP);
     if(extLength == -1 || MAX_URI_LENGTH < *uriLength + extLength)
     {
-        printf("Failed directory create 2.\n");
-        printf("%s, %s, %ls\n", uri, asciiDir1, asciiDir2);
+        wprintf(_u("Failed directory create 2.\n"));
+        wprintf(_u("%S, %S, %ls\n"), uri, asciiDir1, asciiDir2);
         exit(1);
     }
     *uriLength += extLength;
@@ -481,7 +560,7 @@ JsTTDStreamHandle CALLBACK Helpers::TTCreateStreamCallback(size_t uriLength, con
 
     if(uriLength + asciiNameLength + 1 > MAX_URI_LENGTH)
     {
-        printf("We assume bounded MAX_URI_LENGTH for simplicity.");
+        wprintf(_u("We assume bounded MAX_URI_LENGTH for simplicity."));
         exit(1);
     }
 

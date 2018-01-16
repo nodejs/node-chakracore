@@ -14,17 +14,11 @@
  * limitations under the License.
  */
 
-#include "lexer-source-line-finder.h"
+#include "src/lexer-source-line-finder.h"
 
 #include <algorithm>
 
-#include "lexer-source.h"
-
-#define CHECK_RESULT(expr)  \
-  do {                      \
-    if (Failed(expr))       \
-      return Result::Error; \
-  } while (0)
+#include "src/lexer-source.h"
 
 namespace wabt {
 
@@ -56,15 +50,17 @@ Result LexerSourceLineFinder::GetSourceLine(const Location& loc,
     out_source_line->line += "...";
     clamped.start += 3;
   }
-  if (has_end_ellipsis)
+  if (has_end_ellipsis) {
     clamped.end -= 3;
+  }
 
   std::vector<char> read_line;
   CHECK_RESULT(source_->ReadRange(clamped, &read_line));
   out_source_line->line.append(read_line.begin(), read_line.end());
 
-  if (has_end_ellipsis)
+  if (has_end_ellipsis) {
     out_source_line->line += "...";
+  }
 
   return Result::Ok;
 }
@@ -90,11 +86,12 @@ Result LexerSourceLineFinder::GetLineOffsets(int find_line,
 
   assert(!line_ranges_.empty());
   Offset buffer_file_offset = 0;
-  CHECK_RESULT(source_->Tell(&buffer_file_offset));
   while (!IsLineCached(find_line) && !eof_) {
+    CHECK_RESULT(source_->Tell(&buffer_file_offset));
     size_t read_size = source_->Fill(buffer.data(), buffer.size());
-    if (read_size < buffer.size())
+    if (read_size < buffer.size()) {
       eof_ = true;
+    }
 
     for (auto iter = buffer.begin(), end = iter + read_size; iter < end;
          ++iter) {
@@ -140,8 +137,9 @@ OffsetRange LexerSourceLineFinder::ClampSourceLineOffsets(
       // the entire range fits, display it all in the center.
       center_on = (column_range.start + column_range.end) / 2 - 1;
     }
-    if (center_on > max_line_length / 2)
+    if (center_on > max_line_length / 2) {
       offset_range.start += center_on - max_line_length / 2;
+    }
     offset_range.start =
         std::min(offset_range.start, offset_range.end - max_line_length);
     offset_range.end = offset_range.start + max_line_length;

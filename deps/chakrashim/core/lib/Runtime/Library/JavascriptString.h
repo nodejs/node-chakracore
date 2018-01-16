@@ -29,24 +29,6 @@ namespace Js
     bool IsValidCharCount(size_t charCount);
     const charcount_t k_InvalidCharCount = static_cast<charcount_t>(-1);
 
-
-    //
-    // To inspect strings in hybrid debugging, we use vtable lookup to find out concrete string type
-    // then inspect string content accordingly.
-    //
-    // To ensure all known string vtables are listed and exported from chakra.dll and handler class
-    // exists in chakradiag.dll, declare an abstract method in base JavascriptString class. Any concrete
-    // subclass that has runtime string instance must DECLARE_CONCRETE_STRING_CLASS, otherwise
-    // we'll get a compile time error.
-    //
-#if DBG && defined(NTBUILD)
-#define DECLARE_CONCRETE_STRING_CLASS_BASE  virtual void _declareConcreteStringClass() = 0
-#define DECLARE_CONCRETE_STRING_CLASS       virtual void _declareConcreteStringClass() override
-#else
-#define DECLARE_CONCRETE_STRING_CLASS_BASE
-#define DECLARE_CONCRETE_STRING_CLASS
-#endif
-
     class JavascriptString _ABSTRACT : public RecyclableObject
     {
         friend Lowerer;
@@ -67,6 +49,8 @@ namespace Js
         BOOL HasItemAt(charcount_t idxChar);
         BOOL GetItemAt(charcount_t idxChar, Var* value);
         char16 GetItem(charcount_t index);
+
+        virtual Js::PropertyRecord const * GetPropertyRecord(bool dontLookupFromDictionary = false);
 
         _Ret_range_(m_charLength, m_charLength) charcount_t GetLength() const;
         virtual size_t GetAllocatedByteCount() const;
@@ -142,6 +126,7 @@ namespace Js
 
         static bool Is(Var aValue);
         static JavascriptString* FromVar(Var aValue);
+        static JavascriptString* UnsafeFromVar(Var aValue);
         static bool Equals(Var aLeft, Var aRight);
         static bool LessThan(Var aLeft, Var aRight);
         static bool IsNegZero(JavascriptString *string);
@@ -174,7 +159,6 @@ namespace Js
         JavascriptString(StaticType * type);
         JavascriptString(StaticType * type, charcount_t charLength, const char16* szValue);
         DEFINE_VTABLE_CTOR_ABSTRACT(JavascriptString, RecyclableObject);
-        DECLARE_CONCRETE_STRING_CLASS_BASE;
 
         void SetLength(charcount_t newLength);
         void SetBuffer(const char16* buffer);
@@ -191,11 +175,6 @@ namespace Js
         static JavascriptString* NewWithBuffer(__in_ecount(charLength) const char16 * content, charcount_t charLength, ScriptContext * scriptContext);
         static JavascriptString* NewCopySz(__in_z const char16* content, ScriptContext* scriptContext);
         static JavascriptString* NewCopyBuffer(__in_ecount(charLength)  const char16* content, charcount_t charLength, ScriptContext* scriptContext);
-
-        static JavascriptString* NewWithArenaSz(__in_z const char16 * content, ScriptContext* scriptContext);
-        static JavascriptString* NewWithArenaBuffer(__in_ecount(charLength) const char16 * content, charcount_t charLength, ScriptContext * scriptContext);
-
-        static JavascriptString* NewCopySzFromArena(__in_z const char16* content, ScriptContext* scriptContext, ArenaAllocator *arena, charcount_t cchUseLength = 0);
 
         static __ecount(length+1) char16* AllocateLeafAndCopySz(__in Recycler* recycler, __in_ecount(length) const char16* content, charcount_t length);
         static __ecount(length+1) char16* AllocateAndCopySz(__in ArenaAllocator* arena, __in_ecount(length) const char16* content, charcount_t length);

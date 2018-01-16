@@ -18,6 +18,7 @@ using namespace Windows::Globalization;
 #ifdef INTL_ICU
 #include <CommonPal.h>
 #include "PlatformAgnostic/IPlatformAgnosticResource.h"
+#include "PlatformAgnostic/Intl.h"
 using namespace PlatformAgnostic::Intl;
 using namespace PlatformAgnostic::Resource;
 #endif
@@ -27,13 +28,13 @@ using namespace PlatformAgnostic::Resource;
 #pragma warning(disable:4838) // conversion from 'int' to 'const char' requires a narrowing conversion
 
 #if DISABLE_JIT
-#if _M_AMD64
+#if TARGET_64
 #include "InJavascript/Intl.js.nojit.bc.64b.h"
 #else
 #include "InJavascript/Intl.js.nojit.bc.32b.h"
 #endif
 #else
-#if _M_AMD64
+#if TARGET_64
 #include "InJavascript/Intl.js.bc.64b.h"
 #else
 #include "InJavascript/Intl.js.bc.32b.h"
@@ -164,7 +165,10 @@ namespace Js
             }
         }
     };
+#endif
 
+// Defining Finalizable wrappers for Intl data
+#if defined(INTL_WINGLOB)
     class AutoCOMJSObject : public FinalizableObject
     {
         IInspectable *instance;
@@ -199,6 +203,55 @@ namespace Js
         }
 
         IInspectable *GetInstance()
+        {
+            return instance;
+        }
+    };
+
+#elif defined(INTL_ICU)
+
+    template<typename T>
+    class AutoIcuJsObject : public FinalizableObject
+    {
+    private:
+        FieldNoBarrier(T *) instance;
+
+    public:
+        DEFINE_VTABLE_CTOR_NOBASE(AutoIcuJsObject<T>);
+
+        AutoIcuJsObject(T *object)
+            : instance(object)
+        { }
+
+        static AutoIcuJsObject<T> * New(Recycler *recycler, T *object)
+        {
+            return RecyclerNewFinalized(recycler, AutoIcuJsObject<T>, object);
+        }
+
+        void Finalize(bool isShutdown) override
+        {
+        }
+
+        void Dispose(bool isShutdown) override
+        {
+            if (!isShutdown)
+            {
+                // Here we use Cleanup() because we can't rely on delete (not dealing with virtual destructors).
+                // The template thus requires that the type implement the Cleanup function.
+                instance->Cleanup(); // e.g. deletes the object held in the IPlatformAgnosticResource
+
+                // REVIEW (doilij): Is cleanup in this way necessary or are the trivial destructors enough, assuming Cleanup() has been called?
+                // Note: delete here introduces a build break on Linux complaining of non-virtual dtor
+                // delete instance; // deletes the instance itself
+                // instance = nullptr;
+            }
+        }
+
+        void Mark(Recycler *recycler) override
+        {
+        }
+
+        T * GetInstance()
         {
             return instance;
         }
@@ -280,7 +333,7 @@ namespace Js
     void IntlEngineInterfaceExtensionObject::DumpByteCode()
     {
         Output::Print(_u("Dumping Intl Byte Code:"));
-        this->EnsureIntlByteCode(scriptContext);
+        Assert(this->intlByteCode);
         Js::ByteCodeDumper::DumpRecursively(intlByteCode);
     }
 #endif
@@ -410,6 +463,8 @@ namespace Js
             HRESULT hr = Js::ByteCodeSerializer::DeserializeFromBuffer(scriptContext, flags, (LPCUTF8)nullptr, hsi, (byte*)Library_Bytecode_Intl, nullptr, &this->intlByteCode);
 
             IfFailAssertMsgAndThrowHr(hr, "Failed to deserialize Intl.js bytecode - very probably the bytecode needs to be rebuilt.");
+
+            this->SetHasBytecode();
         }
     }
 
@@ -475,9 +530,11 @@ namespace Js
             }
 #endif
 
+#ifdef ENABLE_SCRIPT_DEBUGGING
             // Mark we are profiling library code already, so that any initialization library code called here won't be reported to profiler.
             // Also tell the debugger not to record events during intialization so that we don't leak information about initialization.
             AutoInitLibraryCodeScope autoInitLibraryCodeScope(scriptContext);
+#endif
 
             Js::Var args[] = { scriptContext->GetLibrary()->GetUndefined(), scriptContext->GetLibrary()->GetEngineInterfaceObject(), initType };
             Js::CallInfo callInfo(Js::CallFlags_Value, _countof(args));
@@ -495,6 +552,14 @@ namespace Js
                 deletePrototypePropertyHelper(scriptContext, intlObject, Js::PropertyIds::NumberFormat, Js::PropertyIds::format);
                 deletePrototypePropertyHelper(scriptContext, intlObject, Js::PropertyIds::DateTimeFormat, Js::PropertyIds::format);
             }
+
+#if DBG_DUMP
+            if (PHASE_DUMP(Js::ByteCodePhase, function->GetFunctionProxy()) && Js::Configuration::Global.flags.Verbose)
+            {
+                DumpByteCode();
+            }
+#endif
+
         }
         catch (const JavascriptException& err)
         {
@@ -614,21 +679,28 @@ namespace Js
         char16 normalized[ULOC_FULLNAME_CAPACITY] = { 0 };
         size_t normalizedLength = 0;
         hr = NormalizeLanguageTag(argString->GetSz(), argString->GetLength(), normalized, &normalizedLength);
-        retVal = Js::JavascriptString::NewCopyBuffer(normalized, static_cast<charcount_t>(normalizedLength), scriptContext);
-#else
-        AutoHSTRING str;
-        hr = GetWindowsGlobalizationAdapter(scriptContext)->NormalizeLanguageTag(scriptContext, argString->GetSz(), &str);
-        DelayLoadWindowsGlobalization *wsl = scriptContext->GetThreadContext()->GetWindowsGlobalizationLibrary();
-        PCWSTR strBuf = wsl->WindowsGetStringRawBuffer(*str, NULL);
-        retVal = Js::JavascriptString::NewCopySz(strBuf, scriptContext);
-#endif
-
         if (FAILED(hr))
         {
             HandleOOMSOEHR(hr);
             //If we can't normalize the tag; return undefined.
             return scriptContext->GetLibrary()->GetUndefined();
         }
+
+        retVal = Js::JavascriptString::NewCopyBuffer(normalized, static_cast<charcount_t>(normalizedLength), scriptContext);
+#else
+        AutoHSTRING str;
+        hr = GetWindowsGlobalizationAdapter(scriptContext)->NormalizeLanguageTag(scriptContext, argString->GetSz(), &str);
+        if (FAILED(hr))
+        {
+            HandleOOMSOEHR(hr);
+            //If we can't normalize the tag; return undefined.
+            return scriptContext->GetLibrary()->GetUndefined();
+        }
+
+        DelayLoadWindowsGlobalization *wsl = scriptContext->GetThreadContext()->GetWindowsGlobalizationLibrary();
+        PCWSTR strBuf = wsl->WindowsGetStringRawBuffer(*str, NULL);
+        retVal = Js::JavascriptString::NewCopySz(strBuf, scriptContext);
+#endif
 
         return retVal;
     }
@@ -682,8 +754,7 @@ namespace Js
         }
 
         Var toReturn = nullptr;
-        ENTER_PINNED_SCOPE(JavascriptString, localeStrings);
-        localeStrings = JavascriptString::FromVar(args.Values[1]);
+        JavascriptString *localeStrings = JavascriptString::FromVar(args.Values[1]);
         PCWSTR passedLocale = localeStrings->GetSz();
 
 #if defined(INTL_ICU)
@@ -721,8 +792,6 @@ namespace Js
         toReturn = JavascriptString::NewCopySz(wgl->WindowsGetStringRawBuffer(*locale, NULL), scriptContext);
 
 #endif
-
-        LEAVE_PINNED_SCOPE();   // localeStrings
 
         return toReturn;
     }
@@ -874,23 +943,11 @@ namespace Js
         }
 
         Assert(numberFormatter);
-        // REVIEW (doilij): AutoPtr will call delete on IPlatformAgnosticResource and complain of non-virtual dtor. There are no IfFailThrowHr so is this still necessary?
-        // TODO (doilij): If necessary, introduce an PlatformAgnosticResourceAutoPtr that calls Cleanup() instead of delete on the pointer.
-        // AutoPtr<IPlatformAgnosticResource> numberFormatterGuard(numberFormatter);
-
-        // TODO (doilij): Render signed zero.
-
-        bool isDecimalPointAlwaysDisplayed = false;
-        bool useGrouping = true;
-
-        if (GetTypedPropertyBuiltInFrom(options, __isDecimalPointAlwaysDisplayed, JavascriptBoolean))
-        {
-            isDecimalPointAlwaysDisplayed = JavascriptBoolean::FromVar(propertyValue)->GetValue();
-        }
 
         if (GetTypedPropertyBuiltInFrom(options, __useGrouping, JavascriptBoolean))
         {
-            useGrouping = JavascriptBoolean::FromVar(propertyValue)->GetValue();
+            bool useGrouping = JavascriptBoolean::FromVar(propertyValue)->GetValue();
+            SetNumberFormatGroupingUsed(numberFormatter, useGrouping);
         }
 
         // Numeral system is in the locale and is therefore already set on the icu::NumberFormat
@@ -940,9 +997,6 @@ namespace Js
         // Set the object as a cache
         auto *autoObject = AutoIcuJsObject<IPlatformAgnosticResource>::New(scriptContext->GetRecycler(), numberFormatter);
         options->SetInternalProperty(Js::InternalPropertyIds::HiddenObject, autoObject, Js::PropertyOperationFlags::PropertyOperation_None, NULL);
-
-        // clear the pointer so it is not freed when numberFormatterGuard goes out of scope
-        // numberFormatterGuard.setPointer(nullptr);
 
         return scriptContext->GetLibrary()->GetUndefined();
 #else
@@ -1233,12 +1287,8 @@ namespace Js
         const char16 *givenLocale = nullptr;
         defaultLocale[0] = '\0';
 
-        ENTER_PINNED_SCOPE(JavascriptString, str1);
-        ENTER_PINNED_SCOPE(JavascriptString, str2);
-        ENTER_PINNED_SCOPE(JavascriptString, givenLocaleStr);
-        str1 = JavascriptString::FromVar(args.Values[1]);
-        str2 = JavascriptString::FromVar(args.Values[2]);
-        givenLocaleStr = nullptr;
+        JavascriptString *str1 = JavascriptString::FromVar(args.Values[1]);
+        JavascriptString *str2 = JavascriptString::FromVar(args.Values[2]);
 
         if (!JavascriptOperators::IsUndefinedObject(args.Values[3]))
         {
@@ -1246,8 +1296,7 @@ namespace Js
             {
                 return scriptContext->GetLibrary()->GetUndefined();
             }
-            givenLocaleStr = JavascriptString::FromVar(args.Values[3]);
-            givenLocale = givenLocaleStr->GetSz();
+            givenLocale = JavascriptString::FromVar(args.Values[3])->GetSz();
         }
 
         if (!JavascriptOperators::IsUndefinedObject(args.Values[4]))
@@ -1343,10 +1392,6 @@ namespace Js
             }
         }
         END_TEMP_ALLOCATOR(tempAllocator, scriptContext);
-
-        LEAVE_PINNED_SCOPE();   //  str1
-        LEAVE_PINNED_SCOPE();   //  str2
-        LEAVE_PINNED_SCOPE();   //  givenLocaleStr
 
         // CompareStringEx returns 1, 2, 3 on success; 2 if the strings are equal, 1 if the first string is lexically less than second, 3 otherwise.
         if (compareResult != 0)
@@ -1682,41 +1727,53 @@ namespace Js
     */
     Var IntlEngineInterfaceExtensionObject::EntryIntl_RegisterBuiltInFunction(RecyclableObject* function, CallInfo callInfo, ...)
     {
+        // Don't put this in a header or add it to the namespace even in this file. Keep it to the minimum scope needed.
+        enum class IntlBuiltInFunctionID : int32 {
+            Min = 0,
+            DateToLocaleString = Min,
+            DateToLocaleDateString,
+            DateToLocaleTimeString,
+            NumberToLocaleString,
+            StringLocaleCompare,
+            Max
+        };
+
         EngineInterfaceObject_CommonFunctionProlog(function, callInfo);
 
-        //This function will only be used during the construction of the Intl object, hence Asserts are in place.
+        // This function will only be used during the construction of the Intl object, hence Asserts are in place.
         Assert(args.Info.Count >= 3 && JavascriptFunction::Is(args.Values[1]) && TaggedInt::Is(args.Values[2]));
 
         JavascriptFunction *func = JavascriptFunction::FromVar(args.Values[1]);
         int32 id = TaggedInt::ToInt32(args.Values[2]);
+        Assert(id >= (int32)IntlBuiltInFunctionID::Min && id < (int32)IntlBuiltInFunctionID::Max);
 
-        Assert(id >= 0 && id < 5);
         EngineInterfaceObject* nativeEngineInterfaceObj = scriptContext->GetLibrary()->GetEngineInterfaceObject();
         IntlEngineInterfaceExtensionObject* extensionObject = static_cast<IntlEngineInterfaceExtensionObject*>(nativeEngineInterfaceObj->GetEngineExtension(EngineInterfaceExtensionKind_Intl));
 
-        switch (id)
+        IntlBuiltInFunctionID functionID = static_cast<IntlBuiltInFunctionID>(id);
+        switch (functionID)
         {
-        case 0:
+        case IntlBuiltInFunctionID::DateToLocaleString:
             extensionObject->dateToLocaleString = func;
             break;
-        case 1:
+        case IntlBuiltInFunctionID::DateToLocaleDateString:
             extensionObject->dateToLocaleDateString = func;
             break;
-        case 2:
+        case IntlBuiltInFunctionID::DateToLocaleTimeString:
             extensionObject->dateToLocaleTimeString = func;
             break;
-        case 3:
+        case IntlBuiltInFunctionID::NumberToLocaleString:
             extensionObject->numberToLocaleString = func;
             break;
-        case 4:
+        case IntlBuiltInFunctionID::StringLocaleCompare:
             extensionObject->stringLocaleCompare = func;
             break;
         default:
-            Assert(false);//Shouldn't hit here, the previous assert should catch this.
+            AssertMsg(false, "functionID was not one of the allowed values. The previous assert should catch this.");
             break;
         }
 
-        //Don't need to return anything
+        // Don't need to return anything
         return scriptContext->GetLibrary()->GetUndefined();
     }
 

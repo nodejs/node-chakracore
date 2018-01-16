@@ -4,7 +4,7 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
 #define UINT_PAD_64BIT(x) uint x
 #else
 #define UINT_PAD_64BIT(x)
@@ -56,7 +56,7 @@ public:
     void SetAttributes(uint cookie, unsigned char attributes);
     unsigned char GetAttributes(uint cookie);
 };
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
 static_assert(sizeof(LargeObjectHeader) == 0x20, "Incorrect LargeObjectHeader size");
 #else
 static_assert(sizeof(LargeObjectHeader) == 0x10, "Incorrect LargeObjectHeader size");
@@ -96,7 +96,7 @@ struct PageHeapData
 {
     ~PageHeapData();
     bool isLockedWithPageHeap;
-    bool isGuardPageDecommited;
+    bool isGuardPageDecommitted;
     PageHeapMode pageHeapMode;
 
     uint actualPageCount;
@@ -185,6 +185,10 @@ public:
     static uint GetMaxLargeObjectCount(size_t pageCount, size_t firstAllocationSize);
 
     void EnumerateObjects(ObjectInfoBits infoBits, void (*CallBackFunction)(void * address, size_t size));
+
+#if ENABLE_MEM_STATS
+    void AggregateBlockStats(HeapBucketStats& stats);
+#endif
 
 #ifdef RECYCLER_SLOW_CHECK_ENABLED
     void Check(bool expectFull, bool expectPending);

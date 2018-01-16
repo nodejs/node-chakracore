@@ -4,9 +4,9 @@
 //-------------------------------------------------------------------------------------------------------
 #include "CommonMemoryPch.h"
 #include "Memory/PageHeapBlockTypeFilter.h"
-#if defined(_M_IX86_OR_ARM32)
+#if defined(TARGET_32)
 #include "ValidPointersMap/vpm.32b.h"
-#elif defined(_M_X64_OR_ARM64)
+#elif defined(TARGET_64)
 #include "ValidPointersMap/vpm.64b.h"
 #else
 #error "Platform is not handled"
@@ -26,38 +26,117 @@ HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>  HeapInfo::smallAlloc
 HeapInfo::ValidPointersMap<MediumAllocationBlockAttributes> HeapInfo::mediumAllocValidPointersMap;
 
 template <class TBlockAttributes>
-ValidPointers<TBlockAttributes>::ValidPointers(ushort const * validPointers)
+ValidPointers<TBlockAttributes>::ValidPointers(ushort const * validPointers, uint bucketIndex)
+#if USE_VPM_TABLE
     : validPointers(validPointers)
+#endif
 {
+#if !USE_VPM_TABLE
+    Assert(validPointers == nullptr);
+    maxObjectIndex = CalculateBucketInfo(bucketIndex, &indexPerObject);
+#endif
+#if DBG && USE_VPM_TABLE
+    uint localIndexPerObject;
+    uint localMaxObjectIndex = CalculateBucketInfo(bucketIndex, &localIndexPerObject);
+    for (uint index = 0; index < TBlockAttributes::MaxSmallObjectCount; index++)
+    {
+        Assert(CalculateAddressIndex(index, localIndexPerObject, localMaxObjectIndex) == validPointers[index]);
+        Assert(CalculateInteriorAddressIndex(index, localIndexPerObject, localMaxObjectIndex) == validPointers[index + TBlockAttributes::MaxSmallObjectCount]);
+    }
+#endif
 }
 
 template <class TBlockAttributes>
 ushort ValidPointers<TBlockAttributes>::GetAddressIndex(uint index) const
 {
     Assert(index < TBlockAttributes::MaxSmallObjectCount);
+#if USE_VPM_TABLE    
     return validPointers[index];
+#else
+    return CalculateAddressIndex(index, indexPerObject, maxObjectIndex);
+#endif
+    
 }
 
 template <class TBlockAttributes>
 ushort ValidPointers<TBlockAttributes>::GetInteriorAddressIndex(uint index) const
 {
     Assert(index < TBlockAttributes::MaxSmallObjectCount);
+#if USE_VPM_TABLE    
     return validPointers[index + TBlockAttributes::MaxSmallObjectCount];
+#else
+    return CalculateInteriorAddressIndex(index, indexPerObject, maxObjectIndex);
+#endif
+}
+
+#if !USE_VPM_TABLE || DBG
+template <class TBlockAttributes>
+uint ValidPointers<TBlockAttributes>::CalculateBucketInfo(uint bucketIndex, uint * indexPerObject)
+{
+    uint bucketSize;
+    if (TBlockAttributes::IsSmallBlock)
+    {
+        bucketSize = TBlockAttributes::MinObjectSize + HeapConstants::ObjectGranularity * bucketIndex;
+    }
+    else
+    {
+        bucketSize = TBlockAttributes::MinObjectSize + HeapConstants::MediumObjectGranularity * (bucketIndex + 1);
+    }
+    *indexPerObject = bucketSize / HeapConstants::ObjectGranularity;
+    return ((TBlockAttributes::PageCount * AutoSystemInfo::PageSize) / bucketSize) * bucketSize / HeapConstants::ObjectGranularity;
 }
 
 template <class TBlockAttributes>
-void HeapInfo::ValidPointersMap<TBlockAttributes>::GenerateValidPointersMap(ValidPointersMapTable& validTable, InvalidBitsTable& invalidTable, BlockInfoMapTable& blockInfoTable)
+ushort ValidPointers<TBlockAttributes>::CalculateAddressIndex(uint index, uint indexPerObject, uint maxObjectIndex)
+{
+    Assert(index < TBlockAttributes::MaxSmallObjectCount);
+    if (index >= maxObjectIndex)
+    {
+        return (ushort)-1;
+    }
+    uint addressIndex = index / indexPerObject;
+    Assert(addressIndex < USHRT_MAX);
+    if (addressIndex * indexPerObject != index)
+    {
+        return (ushort)-1;
+    }
+    return (ushort)addressIndex;
+}
+
+template <class TBlockAttributes>
+ushort ValidPointers<TBlockAttributes>::CalculateInteriorAddressIndex(uint index, uint indexPerObject, uint maxObjectIndex)
+{
+    Assert(index < TBlockAttributes::MaxSmallObjectCount);
+    if (index >= maxObjectIndex)
+    {
+        return (ushort)-1;
+    }
+    uint addressIndex = index / indexPerObject;
+    Assert(addressIndex < USHRT_MAX);
+    return (ushort)addressIndex;
+}
+#endif
+
+#if defined(ENABLE_TEST_HOOKS) || !USE_STATIC_VPM
+template <class TBlockAttributes>
+void HeapInfo::ValidPointersMap<TBlockAttributes>::GenerateValidPointersMap(ValidPointersMapTable * validTable, InvalidBitsTable& invalidTable, BlockInfoMapTable& blockInfoTable)
 {
     // Create the valid pointer map to be shared by the buckets.
     // Also create the invalid objects bit vector.
-    ushort * buffer = &validTable[0][0];
-    memset(buffer, -1, sizeof(ushort)* 2 * TBlockAttributes::MaxSmallObjectCount * TBlockAttributes::BucketCount);
+    ushort * buffer = &((*validTable)[0][0]);
+    if (buffer)
+    {
+        memset(buffer, -1, sizeof(ushort) * 2 * TBlockAttributes::MaxSmallObjectCount * TBlockAttributes::BucketCount);
+    }
 
     for (uint i = 0; i < TBlockAttributes::BucketCount; i++)
     {
         // Non-interior first
         ushort * validPointers = buffer;
-        buffer += TBlockAttributes::MaxSmallObjectCount;
+        if (buffer)
+        {            
+            buffer += TBlockAttributes::MaxSmallObjectCount;
+        }
 
         typename SmallHeapBlockT<TBlockAttributes>::SmallHeapBlockBitVector * invalidBitVector = &invalidTable[i];
         invalidBitVector->SetAll();
@@ -82,7 +161,10 @@ void HeapInfo::ValidPointersMap<TBlockAttributes>::GenerateValidPointersMap(Vali
 
         for (ushort j = 0; j < maxObjectCountForBucket; j++)
         {
-            validPointers[j * stride] = j;
+            if (validPointers)
+            {
+                validPointers[j * stride] = j;
+            }
 
             uintptr_t objectAddress = j * bucketSize;
             Assert(objectAddress / AutoSystemInfo::PageSize < USHRT_MAX);
@@ -94,21 +176,26 @@ void HeapInfo::ValidPointersMap<TBlockAttributes>::GenerateValidPointersMap(Vali
             invalidBitVector->Clear(j * stride);
         }
 
-        // interior pointer
-        ushort * validInteriorPointers = buffer;
-        buffer += TBlockAttributes::MaxSmallObjectCount;
-        for (ushort j = 0; j < maxObjectCountForBucket; j++)
+        if (buffer)
         {
-            uint start = j * stride;
-            uint end = min(start + stride, TBlockAttributes::MaxSmallObjectCount);
-            for (uint k = start; k < end; k++)
+            // interior pointer
+            ushort * validInteriorPointers = buffer;
+            buffer += TBlockAttributes::MaxSmallObjectCount;
+            for (ushort j = 0; j < maxObjectCountForBucket; j++)
             {
-                validInteriorPointers[k] = j;
+                uint start = j * stride;
+                uint end = min(start + stride, TBlockAttributes::MaxSmallObjectCount);
+                for (uint k = start; k < end; k++)
+                {
+                    validInteriorPointers[k] = j;
+                }
             }
         }
     }
 }
+#endif
 
+#ifdef ENABLE_TEST_HOOKS
 template <>
 HRESULT HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>::GenerateValidPointersMapForBlockType(FILE* file)
 {
@@ -128,8 +215,9 @@ HRESULT HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>::GenerateVali
         hr = E_FAIL;
         goto cleanup;
     }
-    GenerateValidPointersMap(*valid, *invalid, *blockMap);
+    GenerateValidPointersMap(valid, *invalid, *blockMap);
 
+    IfErrorGotoCleanup(fwprintf(file, _u("#if USE_VPM_TABLE\n")))
     IfErrorGotoCleanup(fwprintf(file, _u("const ushort HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>::validPointersBuffer[HeapConstants::BucketCount][HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>::rowSize] = \n{\n")));
     // Generate the full buffer.
     for (unsigned i = 0; i < HeapConstants::BucketCount; ++i)
@@ -145,6 +233,7 @@ HRESULT HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>::GenerateVali
         IfErrorGotoCleanup(fwprintf(file, (i < HeapConstants::BucketCount - 1 ? _u("\n    },\n") : _u("\n    }\n"))));
     }
     IfErrorGotoCleanup(fwprintf(file, _u("};\n")));
+    IfErrorGotoCleanup(fwprintf(file, _u("#endif // USE_VPM_TABLE\n\n")))
 
     // Generate the invalid bitvectors.
     IfErrorGotoCleanup(fwprintf(
@@ -157,9 +246,9 @@ HRESULT HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>::GenerateVali
         for (unsigned j = 0; j < (*invalid)[i].wordCount; ++j)
         {
             const char16 *format = (j < (*invalid)[i].wordCount - 1) ?
-#if defined(_M_IX86_OR_ARM32)
+#if defined(TARGET_32)
                 _u("0x%08X, ") : _u("0x%08X")
-#elif defined(_M_X64_OR_ARM64)
+#elif defined(TARGET_64)
                 _u("0x%016I64X, ") : _u("0x%016I64X")
 #else
 #error "Platform is not handled"
@@ -194,7 +283,7 @@ HRESULT HeapInfo::ValidPointersMap<SmallAllocationBlockAttributes>::GenerateVali
             IfErrorGotoCleanup(fwprintf(file, format, (*blockMap)[i][j].lastObjectIndexOnPage, (*blockMap)[i][j].pageObjectCount));
             IfErrorGotoCleanup(fwprintf(file, (j < SmallAllocationBlockAttributes::PageCount - 1 ? _u(" },\n") : _u(" }\n"))));
         }
-        IfErrorGotoCleanup(fwprintf(file, (i < HeapConstants::BucketCount - 1 ? _u("\n    },\n") : _u("\n        }\n"))));
+        IfErrorGotoCleanup(fwprintf(file, (i < HeapConstants::BucketCount - 1 ? _u("    },\n") : _u("    }\n"))));
     }
 
     IfErrorGotoCleanup(fwprintf(file, _u("};\n")));
@@ -225,8 +314,9 @@ HRESULT HeapInfo::ValidPointersMap<MediumAllocationBlockAttributes>::GenerateVal
         hr = E_FAIL;
         goto cleanup;
     }
-    GenerateValidPointersMap(*valid, *invalid, *blockMap);
+    GenerateValidPointersMap(valid, *invalid, *blockMap);
 
+    IfErrorGotoCleanup(fwprintf(file, _u("#if USE_VPM_TABLE\n")))
     IfErrorGotoCleanup(fwprintf(file, _u("const ushort HeapInfo::ValidPointersMap<MediumAllocationBlockAttributes>::validPointersBuffer[MediumAllocationBlockAttributes::BucketCount][HeapInfo::ValidPointersMap<MediumAllocationBlockAttributes>::rowSize] = \n{\n")));
     // Generate the full buffer.
     for (unsigned i = 0; i < HeapConstants::MediumBucketCount; ++i)
@@ -242,6 +332,7 @@ HRESULT HeapInfo::ValidPointersMap<MediumAllocationBlockAttributes>::GenerateVal
         IfErrorGotoCleanup(fwprintf(file, (i < HeapConstants::MediumBucketCount - 1 ? _u("\n    },\n") : _u("\n    }\n"))));
     }
     IfErrorGotoCleanup(fwprintf(file, _u("};\n")));
+    IfErrorGotoCleanup(fwprintf(file, _u("#endif // USE_VPM_TABLE\n\n")))
 
     // Generate the invalid bitvectors.
     IfErrorGotoCleanup(fwprintf(
@@ -254,9 +345,9 @@ HRESULT HeapInfo::ValidPointersMap<MediumAllocationBlockAttributes>::GenerateVal
         for (unsigned j = 0; j < (*invalid)[i].wordCount; ++j)
         {
             const char16 *format = (j < (*invalid)[i].wordCount - 1) ?
-#if defined(_M_IX86_OR_ARM32)
+#if defined(TARGET_32)
                 _u("0x%08X, ") : _u("0x%08X")
-#elif defined(_M_X64_OR_ARM64)
+#elif defined(TARGET_64)
                 _u("0x%016I64X, ") : _u("0x%016I64X")
 #else
 #error "Platform is not handled"
@@ -291,7 +382,7 @@ HRESULT HeapInfo::ValidPointersMap<MediumAllocationBlockAttributes>::GenerateVal
             IfErrorGotoCleanup(fwprintf(file, format, (*blockMap)[i][j].lastObjectIndexOnPage, (*blockMap)[i][j].pageObjectCount));
             IfErrorGotoCleanup(fwprintf(file, (j < MediumAllocationBlockAttributes::PageCount - 1 ? _u(" },\n") : _u(" }\n"))));
         }
-        IfErrorGotoCleanup(fwprintf(file, (i < HeapConstants::MediumBucketCount - 1 ? _u("\n    },\n") : _u("\n        }\n"))));
+        IfErrorGotoCleanup(fwprintf(file, (i < HeapConstants::MediumBucketCount - 1 ? _u("    },\n") : _u("    }\n"))));
     }
 
     IfErrorGotoCleanup(fwprintf(file, _u("};\n")));
@@ -318,9 +409,9 @@ HRESULT HeapInfo::ValidPointersMap<TBlockAttributes>::GenerateValidPointersMapHe
             _u("// Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.\n")
             _u("//-------------------------------------------------------------------------------------------------------\n")
             _u("// Generated via jshost -GenerateValidPointersMapHeader\n")
-#if defined(_M_IX86_OR_ARM32)
+#if defined(TARGET_32)
             _u("// Target platforms: 32bit - x86 & arm\n")
-#elif defined(_M_X64_OR_ARM64)
+#elif defined(TARGET_64)
             _u("// Target platform: 64bit - amd64 & arm64\n")
 #else
 #error "Platform is not handled"
@@ -343,6 +434,7 @@ HRESULT HeapInfo::ValidPointersMap<TBlockAttributes>::GenerateValidPointersMapHe
 
     return hr;
 }
+#endif
 
 HeapInfo::HeapInfo() :
     recycler(nullptr),
@@ -354,11 +446,17 @@ HeapInfo::HeapInfo() :
     newFinalizableWithBarrierHeapBlockList(nullptr),
 #endif
     newFinalizableHeapBlockList(nullptr),
+#ifdef RECYCLER_VISITED_HOST
+    newRecyclerVisitedHostHeapBlockList(nullptr),
+#endif
     newMediumLeafHeapBlockList(nullptr),
     newMediumNormalHeapBlockList(nullptr),
 #ifdef RECYCLER_WRITE_BARRIER
     newMediumNormalWithBarrierHeapBlockList(nullptr),
     newMediumFinalizableWithBarrierHeapBlockList(nullptr),
+#endif
+#ifdef RECYCLER_VISITED_HOST
+    newMediumRecyclerVisitedHostHeapBlockList(nullptr),
 #endif
     newMediumFinalizableHeapBlockList(nullptr),
 #endif
@@ -406,6 +504,10 @@ HeapInfo::~HeapInfo()
 #if ENABLE_CONCURRENT_GC
     SmallFinalizableHeapBucket::FinalizeHeapBlockList(this->newFinalizableHeapBlockList);
     MediumFinalizableHeapBucket::FinalizeHeapBlockList(this->newMediumFinalizableHeapBlockList);
+#ifdef RECYCLER_VISITED_HOST
+    SmallRecyclerVisitedHostHeapBucket::FinalizeHeapBlockList(this->newRecyclerVisitedHostHeapBlockList);
+    MediumRecyclerVisitedHostHeapBucket::FinalizeHeapBlockList(this->newMediumRecyclerVisitedHostHeapBlockList);
+#endif
 #ifdef RECYCLER_WRITE_BARRIER
     SmallFinalizableWithBarrierHeapBucket::FinalizeHeapBlockList(this->newFinalizableWithBarrierHeapBlockList);
     MediumFinalizableWithBarrierHeapBucket::FinalizeHeapBlockList(this->newMediumFinalizableWithBarrierHeapBlockList);
@@ -449,6 +551,12 @@ HeapInfo::~HeapInfo()
     MediumFinalizableWithBarrierHeapBucket::DeleteHeapBlockList(this->newMediumFinalizableWithBarrierHeapBlockList, recycler);
 #endif
     MediumFinalizableHeapBucket::DeleteHeapBlockList(this->newMediumFinalizableHeapBlockList, recycler);
+
+#ifdef RECYCLER_VISITED_HOST
+    SmallFinalizableHeapBucket::DeleteHeapBlockList(this->newRecyclerVisitedHostHeapBlockList, recycler);
+    MediumFinalizableHeapBucket::DeleteHeapBlockList(this->newMediumRecyclerVisitedHostHeapBlockList, recycler);
+#endif
+
 #endif
 
     // We do this here, instead of in the Recycler destructor, because the above stuff may
@@ -468,9 +576,9 @@ HeapInfo::Initialize(Recycler * recycler
 {
     this->recycler = recycler;
 #ifdef DUMP_FRAGMENTATION_STATS
-    if (recycler->GetRecyclerFlagsTable().flags.DumpFragmentationStats)
+    if (recycler->GetRecyclerFlagsTable().DumpFragmentationStats)
     {
-        printf("[FRAG %d] Start", ::GetTickCount());
+        Output::Print(_u("[FRAG %d] Start"), ::GetTickCount());
     }
 #endif
 
@@ -689,7 +797,6 @@ HeapInfo::ResetMarks(ResetMarkFlags flags)
             heapBlock->MarkImplicitRoots();
         });
 #endif
-
         HeapBlockList::ForEach(newMediumFinalizableHeapBlockList, [flags](MediumNormalHeapBlock * heapBlock)
         {
             heapBlock->MarkImplicitRoots();
@@ -936,9 +1043,14 @@ HeapInfo::Sweep(RecyclerSweep& recyclerSweep, bool concurrent)
     // Merge the new blocks before we sweep the finalizable object in thread
     recyclerSweep.MergePendingNewHeapBlockList<SmallFinalizableHeapBlock>();
     recyclerSweep.MergePendingNewMediumHeapBlockList<MediumFinalizableHeapBlock>();
+   
 #ifdef RECYCLER_WRITE_BARRIER
     recyclerSweep.MergePendingNewHeapBlockList<SmallFinalizableWithBarrierHeapBlock>();
     recyclerSweep.MergePendingNewMediumHeapBlockList<MediumFinalizableWithBarrierHeapBlock>();
+#endif
+#ifdef RECYCLER_VISITED_HOST
+    recyclerSweep.MergePendingNewHeapBlockList<SmallRecyclerVisitedHostHeapBlock>();
+    recyclerSweep.MergePendingNewMediumHeapBlockList<MediumRecyclerVisitedHostHeapBlock>();
 #endif
 #endif
 
@@ -1037,42 +1149,257 @@ HeapInfo::Rescan(RescanFlags flags)
     return scannedPageCount;
 }
 
+
+#if ENABLE_MEM_STATS
+
 #ifdef DUMP_FRAGMENTATION_STATS
+template <ObjectInfoBits TBucketType>
+struct DumpBucketTypeName { static char16 name[]; };
+template<> char16 DumpBucketTypeName<NoBit>::name[] = _u("Normal ");
+template<> char16 DumpBucketTypeName<LeafBit>::name[] = _u("Leaf   ");
+template<> char16 DumpBucketTypeName<FinalizeBit>::name[] = _u("Fin    ");
+#ifdef RECYCLER_WRITE_BARRIER
+template<> char16 DumpBucketTypeName<WithBarrierBit>::name[] = _u("NormWB ");
+template<> char16 DumpBucketTypeName<FinalizableWithBarrierBit>::name[] = _u("FinWB  ");
+#endif
+#ifdef RECYCLER_VISITED_HOST
+template<> char16 DumpBucketTypeName<RecyclerVisitedHostBit>::name[] = _u("Visited");
+#endif
+template <typename TBlockType>
+struct DumpBlockTypeName { static char16 name[]; };
+template<> char16 DumpBlockTypeName<SmallAllocationBlockAttributes>::name[] = _u("(S)");
+template<> char16 DumpBlockTypeName<MediumAllocationBlockAttributes>::name[] = _u("(M)");
+#endif  // DUMP_FRAGMENTATION_STATS
 
-template <ObjectInfoBits TBucketType, class TBlockAttributes>
-void DumpBucket(uint bucketIndex, typename SmallHeapBlockType<TBucketType, TBlockAttributes>::BucketType& bucket)
+template <ObjectInfoBits TBucketType>
+struct EtwBucketTypeEnum { static uint16 code; };
+template<> uint16 EtwBucketTypeEnum<NoBit>::code = 0;
+template<> uint16 EtwBucketTypeEnum<LeafBit>::code = 1;
+template<> uint16 EtwBucketTypeEnum<FinalizeBit>::code = 2;
+#ifdef RECYCLER_WRITE_BARRIER
+template<> uint16 EtwBucketTypeEnum<WithBarrierBit>::code = 3;
+template<> uint16 EtwBucketTypeEnum<FinalizableWithBarrierBit>::code = 4;
+#endif
+#ifdef RECYCLER_VISITED_HOST
+template<> uint16 EtwBucketTypeEnum<RecyclerVisitedHostBit>::code = 5;
+#endif
+template <typename TBlockType>
+struct EtwBlockTypeEnum { static uint16 code; };
+template<> uint16 EtwBlockTypeEnum<SmallAllocationBlockAttributes>::code = 0;
+template<> uint16 EtwBlockTypeEnum<MediumAllocationBlockAttributes>::code = 1;
+
+class BucketStatsReporter
 {
-    HeapBucketStats stats = { 0 };
+private:
+    static const uint16 LargeBucketNameCode = 2 << 8;
+    static const uint16 TotalBucketNameCode = 3 << 8;
 
-    bucket.AggregateBucketStats(stats);
+    Recycler* recycler;
+    HeapBucketStats total;
 
-    Output::Print(_u("%d,%d,"), bucketIndex, (bucketIndex + 1) << HeapConstants::ObjectAllocationShift);
-    Output::Print(_u("%d,%d,%d,%d,%d,%d,%d\n"), stats.totalBlockCount, stats.finalizeBlockCount, stats.emptyBlockCount, stats.objectCount, stats.finalizeCount, stats.objectByteCount, stats.totalByteCount);
-}
+    template <class TBlockAttributes, ObjectInfoBits TBucketType>
+    uint16 BucketNameCode() const
+    {
+        return EtwBucketTypeEnum<TBucketType>::code + (EtwBlockTypeEnum<TBlockAttributes>::code << 8);
+    }
+
+    bool IsMemProtectMode() const
+    {
+        return recycler->IsMemProtectMode();
+    }
+
+public:
+    BucketStatsReporter(Recycler* recycler)
+        : recycler(recycler)
+    {
+        DUMP_FRAGMENTATION_STATS_ONLY(DumpHeader());
+    }
+
+    bool IsEtwEnabled() const
+    {
+        return IS_GCETW_Enabled(GC_BUCKET_STATS);
+    }
+
+    bool IsDumpEnabled() const
+    {
+        return DUMP_FRAGMENTATION_STATS_IS(!!recycler->GetRecyclerFlagsTable().DumpFragmentationStats);
+    }
+
+    bool IsEnabled() const
+    {
+        return IsEtwEnabled() || IsDumpEnabled();
+    }
+
+    template <class TBlockType>
+    void PreAggregateBucketStats(TBlockType* list)
+    {
+        HeapBlockList::ForEach(list, [](TBlockType* heapBlock)
+        {
+            // Process blocks not in allocator in pre-pass. They are not put into buckets yet.
+            if (!heapBlock->IsInAllocator())
+            {
+                heapBlock->heapBucket->PreAggregateBucketStats(heapBlock);
+            }
+        });
+    }
+
+    template <class TBlockAttributes, ObjectInfoBits TBucketType>
+    void GetBucketStats(HeapBucketGroup<TBlockAttributes>& group)
+    {
+        auto& bucket = group.template GetBucket<TBucketType>();
+        bucket.AggregateBucketStats();
+
+        const auto& stats = bucket.GetMemStats();
+        total.Aggregate(stats);
+
+        if (stats.totalByteCount > 0)
+        {
+            const uint16 bucketNameCode = BucketNameCode<TBlockAttributes, TBucketType>();
+            const uint16 sizeCat = static_cast<uint16>(bucket.GetSizeCat());
+            GCETW(GC_BUCKET_STATS, (recycler, bucketNameCode, sizeCat, stats.objectByteCount, stats.totalByteCount));
+#ifdef DUMP_FRAGMENTATION_STATS
+            DumpStats<TBlockAttributes, TBucketType>(sizeCat, stats);
+#endif
+        }
+    }
+
+    void GetBucketStats(LargeHeapBucket& bucket)
+    {
+        bucket.AggregateBucketStats();
+
+        const auto& stats = bucket.GetMemStats();
+        total.Aggregate(stats);
+
+        if (stats.totalByteCount > 0)
+        {
+            const uint16 sizeCat = static_cast<uint16>(bucket.GetSizeCat());
+            GCETW(GC_BUCKET_STATS, (recycler, LargeBucketNameCode, sizeCat, stats.objectByteCount, stats.totalByteCount));
+            DUMP_FRAGMENTATION_STATS_ONLY(DumpLarge(stats));
+        }
+    }
+
+    void Report()
+    {
+        GCETW(GC_BUCKET_STATS, (recycler, TotalBucketNameCode, 0, total.objectByteCount, total.totalByteCount));
+        DUMP_FRAGMENTATION_STATS_ONLY(DumpFooter());
+    }
+
+#ifdef DUMP_FRAGMENTATION_STATS
+    void DumpHeader()
+    {
+        if (IsDumpEnabled())
+        {
+            Output::Print(_u("[FRAG %d] Post-Collection State\n"), ::GetTickCount());
+            Output::Print(_u("---------------------------------------------------------------------------------------\n"));
+            Output::Print(_u("                  #Blk   #Objs    #Fin     ObjBytes   FreeBytes  TotalBytes UsedPercent\n"));
+            Output::Print(_u("---------------------------------------------------------------------------------------\n"));
+        }
+    }
+
+    template <class TBlockAttributes, ObjectInfoBits TBucketType>
+    void DumpStats(uint sizeCat, const HeapBucketStats& stats)
+    {
+        if (IsDumpEnabled())
+        {
+            Output::Print(_u("%-7s%s %4d : "),
+                DumpBucketTypeName<TBucketType>::name, DumpBlockTypeName<TBlockAttributes>::name, sizeCat);
+            stats.Dump();
+        }
+    }
+
+    void DumpLarge(const HeapBucketStats& stats)
+    {
+        if (IsDumpEnabled())
+        {
+            Output::Print(_u("Large           : "));
+            stats.Dump();
+        }
+    }
+
+    void DumpFooter()
+    {
+        if (IsDumpEnabled())
+        {
+            Output::Print(_u("---------------------------------------------------------------------------------------\n"));
+            Output::Print(_u("Total           : "));
+            total.Dump();
+        }
+    }
+#endif
+};
 
 void
-HeapInfo::DumpFragmentationStats()
+HeapInfo::ReportMemStats()
 {
-    Output::Print(_u("[FRAG %d] Post-Collection State\n"), ::GetTickCount());
-    Output::Print(_u("Bucket,SizeCat,Block Count,Finalizable Block Count,Empty Block Count, Object Count, Finalizable Object Count, Object size, Block Size\n"));
+    BucketStatsReporter report(recycler);
+    if (!report.IsEnabled())
+    {
+        return;
+    }
+
+#if ENABLE_CONCURRENT_GC
+    // Pre aggregate pass on all the heap blocks that are not merged into bucket's lists yet
+    report.PreAggregateBucketStats(this->newNormalHeapBlockList);
+    report.PreAggregateBucketStats(this->newLeafHeapBlockList);
+    report.PreAggregateBucketStats(this->newFinalizableHeapBlockList);
+#ifdef RECYCLER_WRITE_BARRIER
+    report.PreAggregateBucketStats(this->newNormalWithBarrierHeapBlockList);
+    report.PreAggregateBucketStats(this->newFinalizableWithBarrierHeapBlockList);
+#endif
+#ifdef RECYCLER_VISITED_HOST
+    report.PreAggregateBucketStats(this->newRecyclerVisitedHostHeapBlockList);
+#endif
+
+#if defined(BUCKETIZE_MEDIUM_ALLOCATIONS) && SMALLBLOCK_MEDIUM_ALLOC
+    report.PreAggregateBucketStats(this->newMediumNormalHeapBlockList);
+    report.PreAggregateBucketStats(this->newMediumLeafHeapBlockList);
+    report.PreAggregateBucketStats(this->newMediumFinalizableHeapBlockList);
+#ifdef RECYCLER_WRITE_BARRIER
+    report.PreAggregateBucketStats(this->newMediumNormalWithBarrierHeapBlockList);
+    report.PreAggregateBucketStats(this->newMediumFinalizableWithBarrierHeapBlockList);
+#endif
+#ifdef RECYCLER_VISITED_HOST
+    report.PreAggregateBucketStats(this->newMediumRecyclerVisitedHostHeapBlockList);
+#endif
+#endif
+#endif  // ENABLE_CONCURRENT_GC
 
     for (uint i = 0; i < HeapConstants::BucketCount; i++)
     {
-        DumpBucket<NoBit, SmallAllocationBlockAttributes>(i, heapBuckets[i].GetBucket<NoBit>());
-        DumpBucket<FinalizeBit, SmallAllocationBlockAttributes>(i, heapBuckets[i].GetBucket<FinalizeBit>());
-        DumpBucket<LeafBit, SmallAllocationBlockAttributes>(i, heapBuckets[i].GetBucket<LeafBit>());
+        report.GetBucketStats<SmallAllocationBlockAttributes, NoBit>(heapBuckets[i]);
+        report.GetBucketStats<SmallAllocationBlockAttributes, LeafBit>(heapBuckets[i]);
+        report.GetBucketStats<SmallAllocationBlockAttributes, FinalizeBit>(heapBuckets[i]);
+#ifdef RECYCLER_WRITE_BARRIER
+        report.GetBucketStats<SmallAllocationBlockAttributes, WithBarrierBit>(heapBuckets[i]);
+        report.GetBucketStats<SmallAllocationBlockAttributes, FinalizableWithBarrierBit>(heapBuckets[i]);
+#endif
+#ifdef RECYCLER_VISITED_HOST
+        report.GetBucketStats<SmallAllocationBlockAttributes, RecyclerVisitedHostBit>(heapBuckets[i]);
+#endif
     }
 
 #if defined(BUCKETIZE_MEDIUM_ALLOCATIONS) && SMALLBLOCK_MEDIUM_ALLOC
     for (uint i = 0; i < HeapConstants::MediumBucketCount; i++)
     {
-        DumpBucket<NoBit, MediumAllocationBlockAttributes>(i, mediumHeapBuckets[i].GetBucket<NoBit>());
-        DumpBucket<FinalizeBit, MediumAllocationBlockAttributes>(i, mediumHeapBuckets[i].GetBucket<FinalizeBit>());
-        DumpBucket<LeafBit, MediumAllocationBlockAttributes>(i, mediumHeapBuckets[i].GetBucket<LeafBit>());
+        report.GetBucketStats<MediumAllocationBlockAttributes, NoBit>(mediumHeapBuckets[i]);
+        report.GetBucketStats<MediumAllocationBlockAttributes, LeafBit>(mediumHeapBuckets[i]);
+        report.GetBucketStats<MediumAllocationBlockAttributes, FinalizeBit>(mediumHeapBuckets[i]);
+#ifdef RECYCLER_WRITE_BARRIER
+        report.GetBucketStats<MediumAllocationBlockAttributes, WithBarrierBit>(mediumHeapBuckets[i]);
+        report.GetBucketStats<MediumAllocationBlockAttributes, FinalizableWithBarrierBit>(mediumHeapBuckets[i]);
+#endif
+#ifdef RECYCLER_VISITED_HOST
+        report.GetBucketStats<MediumAllocationBlockAttributes, RecyclerVisitedHostBit>(mediumHeapBuckets[i]);
+#endif
     }
 #endif
+
+    report.GetBucketStats(largeObjectBucket);
+    report.Report();
 }
-#endif
+
+#endif  // ENABLE_MEM_STATS
+
 
 #if ENABLE_PARTIAL_GC
 void
@@ -1171,7 +1498,7 @@ HeapInfo::SweepPendingObjects(RecyclerSweep& recyclerSweep)
 }
 #endif
 
-#if ENABLE_CONCURRENT_GC && ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
 void HeapInfo::StartAllocationsDuringConcurrentSweep()
 {
     for (uint i = 0; i < HeapConstants::BucketCount; i++)
@@ -1183,6 +1510,65 @@ void HeapInfo::StartAllocationsDuringConcurrentSweep()
     for (uint i = 0; i < HeapConstants::MediumBucketCount; i++)
     {
         mediumHeapBuckets[i].StartAllocationDuringConcurrentSweep();
+    }
+#endif
+}
+
+bool
+HeapInfo::DoTwoPassConcurrentSweepPreCheck()
+{
+    bool enableTwoPassSweep = false;
+    // We will continue to do the check for all the buckets so we can enable/disable the feature 
+    // per bucket.
+    for (uint i = 0; i < HeapConstants::BucketCount; i++)
+    {
+        if (heapBuckets[i].DoTwoPassConcurrentSweepPreCheck())
+        {
+            enableTwoPassSweep = true;
+        }
+    }
+
+#if defined(BUCKETIZE_MEDIUM_ALLOCATIONS) && SMALLBLOCK_MEDIUM_ALLOC
+    for (uint i = 0; i < HeapConstants::MediumBucketCount; i++)
+    {
+        if (mediumHeapBuckets[i].DoTwoPassConcurrentSweepPreCheck())
+        {
+            enableTwoPassSweep = true;
+        }
+    }
+#endif
+
+    return enableTwoPassSweep;
+}
+
+void
+HeapInfo::FinishConcurrentSweepPass1(RecyclerSweep& recyclerSweep)
+{
+    for (uint i = 0; i < HeapConstants::BucketCount; i++)
+    {
+        heapBuckets[i].FinishConcurrentSweepPass1(recyclerSweep);
+    }
+
+#if defined(BUCKETIZE_MEDIUM_ALLOCATIONS) && SMALLBLOCK_MEDIUM_ALLOC
+    for (uint i = 0; i < HeapConstants::MediumBucketCount; i++)
+    {
+        mediumHeapBuckets[i].FinishConcurrentSweepPass1(recyclerSweep);
+    }
+#endif
+}
+
+void
+HeapInfo::FinishSweepPrep(RecyclerSweep& recyclerSweep)
+{
+    for (uint i = 0; i < HeapConstants::BucketCount; i++)
+    {
+        heapBuckets[i].FinishSweepPrep(recyclerSweep);
+    }
+
+#if defined(BUCKETIZE_MEDIUM_ALLOCATIONS) && SMALLBLOCK_MEDIUM_ALLOC
+    for (uint i = 0; i < HeapConstants::MediumBucketCount; i++)
+    {
+        mediumHeapBuckets[i].FinishSweepPrep(recyclerSweep);
     }
 #endif
 }
@@ -1304,7 +1690,12 @@ HeapInfo::DisposeObjects()
 
     recycler->hasPendingTransferDisposedObjects = true;
 #if ENABLE_CONCURRENT_GC
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 
+    // As during concurrent sweep we start/stop allocations it is safer to prevent transferring disposed objects altogether.
+    if (!recycler->IsConcurrentExecutingState() && !recycler->IsConcurrentSweepState())
+#else
     if (!recycler->IsConcurrentExecutingState())
+#endif
 #endif
     {
         // Can't transfer disposed object when the background thread is walking the heap block list
@@ -1326,7 +1717,11 @@ HeapInfo::TransferDisposedObjects()
     Recycler * recycler = this->recycler;
     Assert(recycler->hasPendingTransferDisposedObjects);
 #if ENABLE_CONCURRENT_GC
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 
+    Assert(!recycler->IsConcurrentExecutingState() && !recycler->IsConcurrentSweepState());
+#else
     Assert(!recycler->IsConcurrentExecutingState());
+#endif
 #endif
     recycler->hasPendingTransferDisposedObjects = false;
 
@@ -1370,6 +1765,9 @@ HeapInfo::EnumerateObjects(ObjectInfoBits infoBits, void (*CallBackFunction)(voi
     HeapBucket::EnumerateObjects(newFinalizableWithBarrierHeapBlockList, infoBits, CallBackFunction);
 #endif
 
+#ifdef RECYCLER_VISITED_HOST
+    HeapBucket::EnumerateObjects(newRecyclerVisitedHostHeapBlockList, infoBits, CallBackFunction);
+#endif
     HeapBucket::EnumerateObjects(newFinalizableHeapBlockList, infoBits, CallBackFunction);
 
     HeapBucket::EnumerateObjects(newMediumLeafHeapBlockList, infoBits, CallBackFunction);
@@ -1379,6 +1777,9 @@ HeapInfo::EnumerateObjects(ObjectInfoBits infoBits, void (*CallBackFunction)(voi
     HeapBucket::EnumerateObjects(newMediumFinalizableWithBarrierHeapBlockList, infoBits, CallBackFunction);
 #endif
 
+#ifdef RECYCLER_VISITED_HOST
+    HeapBucket::EnumerateObjects(newMediumRecyclerVisitedHostHeapBlockList, infoBits, CallBackFunction);
+#endif
     HeapBucket::EnumerateObjects(newMediumFinalizableHeapBlockList, infoBits, CallBackFunction);
 #endif
 }
@@ -1406,6 +1807,9 @@ HeapInfo::GetSmallHeapBlockCount(bool checkCount) const
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newLeafHeapBlockList);
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newNormalHeapBlockList);
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newFinalizableHeapBlockList);
+#ifdef RECYCLER_VISITED_HOST
+    currentSmallHeapBlockCount += HeapBlockList::Count(this->newRecyclerVisitedHostHeapBlockList);
+#endif
 #ifdef RECYCLER_WRITE_BARRIER
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newNormalWithBarrierHeapBlockList);
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newFinalizableWithBarrierHeapBlockList);
@@ -1413,6 +1817,9 @@ HeapInfo::GetSmallHeapBlockCount(bool checkCount) const
 
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newMediumLeafHeapBlockList);
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newMediumNormalHeapBlockList);
+#ifdef RECYCLER_VISITED_HOST
+    currentSmallHeapBlockCount += HeapBlockList::Count(this->newMediumRecyclerVisitedHostHeapBlockList);
+#endif
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newMediumFinalizableHeapBlockList);
 #ifdef RECYCLER_WRITE_BARRIER
     currentSmallHeapBlockCount += HeapBlockList::Count(this->newMediumNormalWithBarrierHeapBlockList);
@@ -1433,6 +1840,10 @@ HeapInfo::GetSmallHeapBlockCount(bool checkCount) const
         this->heapBlockCount[HeapBlock::HeapBlockType::SmallNormalBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::SmallLeafBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::SmallFinalizableBlockType]
+#ifdef RECYCLER_VISITED_HOST
+        + this->heapBlockCount[HeapBlock::HeapBlockType::SmallRecyclerVisitedHostBlockType]
+        + this->heapBlockCount[HeapBlock::HeapBlockType::MediumRecyclerVisitedHostBlockType]
+#endif
         + this->heapBlockCount[HeapBlock::HeapBlockType::MediumNormalBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::MediumLeafBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::MediumFinalizableBlockType];
@@ -1506,6 +1917,10 @@ HeapInfo::Check()
     currentSmallHeapBlockCount += Check(true, false, this->newFinalizableWithBarrierHeapBlockList);
 #endif
     currentSmallHeapBlockCount += Check(true, false, this->newFinalizableHeapBlockList);
+#ifdef RECYCLER_VISITED_HOST
+    currentSmallHeapBlockCount += Check(true, false, this->newRecyclerVisitedHostHeapBlockList);
+    currentSmallHeapBlockCount += Check(true, false, this->newMediumRecyclerVisitedHostHeapBlockList);
+#endif
 #endif
 
 #if ENABLE_CONCURRENT_GC
@@ -1522,6 +1937,10 @@ HeapInfo::Check()
         this->heapBlockCount[HeapBlock::HeapBlockType::SmallNormalBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::SmallLeafBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::SmallFinalizableBlockType]
+#ifdef RECYCLER_VISITED_HOST
+        + this->heapBlockCount[HeapBlock::HeapBlockType::SmallRecyclerVisitedHostBlockType]
+        + this->heapBlockCount[HeapBlock::HeapBlockType::MediumRecyclerVisitedHostBlockType]
+#endif
         + this->heapBlockCount[HeapBlock::HeapBlockType::MediumNormalBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::MediumLeafBlockType]
         + this->heapBlockCount[HeapBlock::HeapBlockType::MediumFinalizableBlockType];
@@ -1558,6 +1977,10 @@ HeapInfo::Check(bool expectFull, bool expectPending, TBlockType * list, TBlockTy
 template size_t HeapInfo::Check<SmallNormalHeapBlock>(bool expectFull, bool expectPending, SmallNormalHeapBlock * list, SmallNormalHeapBlock * tail);
 template size_t HeapInfo::Check<SmallLeafHeapBlock>(bool expectFull, bool expectPending, SmallLeafHeapBlock * list, SmallLeafHeapBlock * tail);
 template size_t HeapInfo::Check<SmallFinalizableHeapBlock>(bool expectFull, bool expectPending, SmallFinalizableHeapBlock * list, SmallFinalizableHeapBlock * tail);
+#ifdef RECYCLER_VISITED_HOST
+template size_t HeapInfo::Check<SmallRecyclerVisitedHostHeapBlock>(bool expectFull, bool expectPending, SmallRecyclerVisitedHostHeapBlock * list, SmallRecyclerVisitedHostHeapBlock * tail);
+template size_t HeapInfo::Check<MediumRecyclerVisitedHostHeapBlock>(bool expectFull, bool expectPending, MediumRecyclerVisitedHostHeapBlock * list, MediumRecyclerVisitedHostHeapBlock * tail);
+#endif
 template size_t HeapInfo::Check<LargeHeapBlock>(bool expectFull, bool expectPending, LargeHeapBlock * list, LargeHeapBlock * tail);
 #ifdef RECYCLER_WRITE_BARRIER
 template size_t HeapInfo::Check<SmallNormalWithBarrierHeapBlock>(bool expectFull, bool expectPending, SmallNormalWithBarrierHeapBlock * list, SmallNormalWithBarrierHeapBlock * tail);
@@ -1623,6 +2046,12 @@ HeapInfo::Verify()
         heapBlock->Verify();
     });
 #endif
+#ifdef RECYCLER_VISITED_HOST
+    HeapBlockList::ForEach(newRecyclerVisitedHostHeapBlockList, [](SmallFinalizableHeapBlock * heapBlock)
+    {
+        heapBlock->Verify();
+    });
+#endif
     HeapBlockList::ForEach(newFinalizableHeapBlockList, [](SmallFinalizableHeapBlock * heapBlock)
     {
         heapBlock->Verify();
@@ -1644,6 +2073,12 @@ HeapInfo::Verify()
         heapBlock->Verify();
     });
     HeapBlockList::ForEach(newMediumFinalizableWithBarrierHeapBlockList, [](MediumFinalizableWithBarrierHeapBlock * heapBlock)
+    {
+        heapBlock->Verify();
+    });
+#endif
+#ifdef RECYCLER_VISITED_HOST
+    HeapBlockList::ForEach(newMediumRecyclerVisitedHostHeapBlockList, [](MediumFinalizableHeapBlock * heapBlock)
     {
         heapBlock->Verify();
     });
@@ -1693,6 +2128,12 @@ HeapInfo::VerifyMark()
         heapBlock->VerifyMark();
     });
 #endif
+#ifdef RECYCLER_VISITED_HOST
+    HeapBlockList::ForEach(newRecyclerVisitedHostHeapBlockList, [](SmallFinalizableHeapBlock * heapBlock)
+    {
+        heapBlock->VerifyMark();
+    });
+#endif
     HeapBlockList::ForEach(newFinalizableHeapBlockList, [](SmallFinalizableHeapBlock * heapBlock)
     {
         heapBlock->VerifyMark();
@@ -1714,6 +2155,12 @@ HeapInfo::VerifyMark()
         heapBlock->VerifyMark();
     });
     HeapBlockList::ForEach(newMediumFinalizableWithBarrierHeapBlockList, [](MediumFinalizableWithBarrierHeapBlock * heapBlock)
+    {
+        heapBlock->VerifyMark();
+    });
+#endif
+#ifdef RECYCLER_VISITED_HOST
+    HeapBlockList::ForEach(newMediumRecyclerVisitedHostHeapBlockList, [](MediumFinalizableHeapBlock * heapBlock)
     {
         heapBlock->VerifyMark();
     });

@@ -3,15 +3,16 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "CommonMemoryPch.h"
-#ifdef _M_X64
-#include "Memory/amd64/XDataAllocator.h"
-#elif defined(_M_ARM)
-#include "Memory/arm/XDataAllocator.h"
+#include "Memory/XDataAllocator.h"
+#if defined(_M_ARM)
 #include <wchar.h>
-#elif defined(_M_ARM64)
-#include "Memory/arm64/XDataAllocator.h"
 #endif
 #include "CustomHeap.h"
+
+#if PDATA_ENABLED && defined(_WIN32)
+#include "Core/DelayLoadLibrary.h"
+#include <malloc.h>
+#endif
 
 namespace Memory
 {
@@ -115,7 +116,7 @@ void Heap<TAlloc, TPreReservedAlloc>::DecommitAll()
 
     DListBase<Allocation>::EditingIterator i(&this->largeObjectAllocations);
     while (i.Next())
-    {
+    { 
         Allocation& allocation = i.Data();
         Assert(!allocation.largeObjectAllocation.isDecommitted);
 
@@ -267,7 +268,7 @@ Allocation* Heap<TAlloc, TPreReservedAlloc>::Alloc(size_t bytes, ushort pdataCou
         }
         else
         {
-            Assert(memBasicInfo.Protect == PAGE_EXECUTE);
+            Assert(memBasicInfo.Protect == PAGE_EXECUTE_READ);
         }
 #endif
 
@@ -292,11 +293,11 @@ BOOL Heap<TAlloc, TPreReservedAlloc>::ProtectAllocationWithExecuteReadWrite(Allo
     {
         protectFlags = PAGE_EXECUTE_READWRITE;
     }
-    return this->ProtectAllocation(allocation, protectFlags, PAGE_EXECUTE, addressInPage);
+    return this->ProtectAllocation(allocation, protectFlags, PAGE_EXECUTE_READ, addressInPage);
 }
 
 template<typename TAlloc, typename TPreReservedAlloc>
-BOOL Heap<TAlloc, TPreReservedAlloc>::ProtectAllocationWithExecuteReadOnly(Allocation *allocation, __in_opt char* addressInPage)
+BOOL Heap<TAlloc, TPreReservedAlloc>::ProtectAllocationWithExecuteReadOnly(__in Allocation *allocation, __in_opt char* addressInPage)
 {
     DWORD protectFlags = 0;
     if (AutoSystemInfo::Data.IsCFGEnabled())
@@ -305,7 +306,7 @@ BOOL Heap<TAlloc, TPreReservedAlloc>::ProtectAllocationWithExecuteReadOnly(Alloc
     }
     else
     {
-        protectFlags = PAGE_EXECUTE;
+        protectFlags = PAGE_EXECUTE_READ;
     }
     return this->ProtectAllocation(allocation, protectFlags, PAGE_EXECUTE_READWRITE, addressInPage);
 }
@@ -419,7 +420,7 @@ Allocation* Heap<TAlloc, TPreReservedAlloc>::AllocLargeObject(size_t bytes, usho
             }
             else
             {
-                protectFlags = PAGE_EXECUTE;
+                protectFlags = PAGE_EXECUTE_READ;
             }
             this->codePageAllocators->ProtectPages(address, pages, segment, protectFlags /*dwVirtualProtectFlags*/, PAGE_READWRITE /*desiredOldProtectFlags*/);
         }
@@ -444,7 +445,7 @@ Allocation* Heap<TAlloc, TPreReservedAlloc>::AllocLargeObject(size_t bytes, usho
     }
     else
     {
-        Assert(memBasicInfo.Protect == PAGE_EXECUTE);
+        Assert(memBasicInfo.Protect == PAGE_EXECUTE_READ);
     }
 #endif
 
@@ -687,7 +688,7 @@ Page* Heap<TAlloc, TPreReservedAlloc>::AllocNewPage(BucketId bucket, bool canAll
     }
     else
     {
-        protectFlags = PAGE_EXECUTE;
+        protectFlags = PAGE_EXECUTE_READ;
     }
 
     //Change the protection of the page to Read-Only Execute, before adding it to the bucket list.
@@ -819,7 +820,7 @@ bool Heap<TAlloc, TPreReservedAlloc>::FreeAllocation(Allocation* object)
     if (page->inFullList)
     {
         VerboseHeapTrace(_u("Recycling page 0x%p because address 0x%p of size %d was freed\n"), page->address, object->address, object->size);
-
+       
         // If the object being freed is equal to the page size, we're
         // going to remove it anyway so don't add it to a bucket
         if (object->size != pageSize)
@@ -842,7 +843,7 @@ bool Heap<TAlloc, TPreReservedAlloc>::FreeAllocation(Allocation* object)
 
             void* pageAddress = page->address;
 
-            this->fullPages[page->currentBucket].RemoveElement(this->auxiliaryAllocator, page);
+            this->fullPages[page->currentBucket].RemoveElement(this->auxiliaryAllocator, page);            
 
             // The page is not in any bucket- just update the stats, free the allocation
             // and dump the page- we don't need to update free object size since the object
@@ -877,7 +878,7 @@ bool Heap<TAlloc, TPreReservedAlloc>::FreeAllocation(Allocation* object)
         EnsureAllocationExecuteWriteable(object);
         FreeAllocationHelper(object, index, length);
 
-        // after freeing part of the page, the page should be in PAGE_EXECUTE_READWRITE protection, and turning to PAGE_EXECUTE (always with TARGETS_NO_UPDATE state)
+        // after freeing part of the page, the page should be in PAGE_EXECUTE_READWRITE protection, and turning to PAGE_EXECUTE_READ (always with TARGETS_NO_UPDATE state)
 
         DWORD protectFlags = 0;
 
@@ -887,7 +888,7 @@ bool Heap<TAlloc, TPreReservedAlloc>::FreeAllocation(Allocation* object)
         }
         else
         {
-            protectFlags = PAGE_EXECUTE;
+            protectFlags = PAGE_EXECUTE_READ;
         }
 
         this->codePageAllocators->ProtectPages(page->address, 1, segment, protectFlags, PAGE_EXECUTE_READWRITE);
@@ -1030,7 +1031,7 @@ bool Heap<TAlloc, TPreReservedAlloc>::UpdateFullPages()
 template<typename TAlloc, typename TPreReservedAlloc>
 void Heap<TAlloc, TPreReservedAlloc>::FreeXdata(XDataAllocation* xdata, void* segment)
 {
-    Assert(!xdata->IsFreed());
+    Assert(!xdata->IsFreed()); 
     {
         AutoCriticalSection autoLock(&this->codePageAllocators->cs);
         this->codePageAllocators->ReleaseSecondary(*xdata, segment);
@@ -1052,17 +1053,17 @@ void Heap<TAlloc, TPreReservedAlloc>::DumpStats()
     HeapTrace(_u("Buckets: \n"));
     for (int i = 0; i < BucketId::NumBuckets; i++)
     {
-        printf("\t%d => %u [", (1 << (i + 7)), buckets[i].Count());
+        Output::Print(_u("\t%d => %u ["), (1 << (i + 7)), buckets[i].Count());
 
         FOREACH_DLISTBASE_ENTRY_EDITING(Page, page, &this->buckets[i], bucketIter)
         {
             BVUnit usedBitVector = page.freeBitVector;
             usedBitVector.ComplimentAll(); // Get the actual used bit vector
-            printf(" %u ", usedBitVector.Count() * Page::Alignment); // Print out the space used in this page
+            Output::Print(_u(" %u "), usedBitVector.Count() * Page::Alignment); // Print out the space used in this page
         }
 
         NEXT_DLISTBASE_ENTRY_EDITING
-            printf("] {{%u}}\n", this->fullPages[i].Count());
+            Output::Print(_u("] {{%u}}\n"), this->fullPages[i].Count());
     }
 }
 #endif

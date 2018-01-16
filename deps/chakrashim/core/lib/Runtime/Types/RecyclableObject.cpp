@@ -23,9 +23,9 @@ namespace Js
     }
 
     void PropertyValueInfo::SetCacheInfo(
-        PropertyValueInfo* info,
-        PropertyString *const propertyString,
-        PolymorphicInlineCache *const polymorphicInlineCache,
+        _Out_ PropertyValueInfo* info,
+        _In_opt_ PropertyString *const propertyString,
+        _In_ PolymorphicInlineCache *const polymorphicInlineCache,
         bool allowResizing)
     {
         Assert(info);
@@ -165,7 +165,7 @@ namespace Js
     {
         if (DynamicType::Is(this->GetTypeId()))
         {
-            DynamicObject* dynamicThis = DynamicObject::FromVar(this);
+            DynamicObject* dynamicThis = DynamicObject::UnsafeFromVar(this);
             dynamicThis->SetIsPrototype();      // Call the DynamicObject::SetIsPrototype
         }
     }
@@ -174,7 +174,7 @@ namespace Js
     {
         if (DynamicType::Is(this->GetTypeId()))
         {
-            DynamicObject* obj = DynamicObject::FromVar(this);
+            DynamicObject* obj = DynamicObject::UnsafeFromVar(this);
             return obj->GetTypeHandler()->GetHasOnlyWritableDataProperties() &&
                 (!obj->HasObjectArray() || obj->GetObjectArrayOrFlagsAsArray()->HasOnlyWritableDataProperties());
         }
@@ -186,7 +186,7 @@ namespace Js
     {
         if (DynamicType::Is(this->GetTypeId()))
         {
-            DynamicObject* obj = DynamicObject::FromVar(this);
+            DynamicObject* obj = DynamicObject::UnsafeFromVar(this);
             obj->GetTypeHandler()->ClearWritableDataOnlyDetectionBit();
             if (obj->HasObjectArray())
             {
@@ -199,7 +199,7 @@ namespace Js
     {
         if (DynamicType::Is(this->GetTypeId()))
         {
-            DynamicObject* obj = DynamicObject::FromVar(this);
+            DynamicObject* obj = DynamicObject::UnsafeFromVar(this);
             return obj->GetTypeHandler()->IsWritableDataOnlyDetectionBitSet() ||
                 (obj->HasObjectArray() && obj->GetObjectArrayOrFlagsAsArray()->IsWritableDataOnlyDetectionBitSet());
         }
@@ -380,6 +380,11 @@ namespace Js
         return false;
     }
 
+    BOOL RecyclableObject::InitPropertyInEval(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info)
+    {
+        return false;
+    }
+
     BOOL RecyclableObject::InitPropertyScoped(PropertyId propertyId, Var value)
     {
         return false;
@@ -410,10 +415,12 @@ namespace Js
         return true;
     }
 
+#if ENABLE_FIXED_FIELDS
     BOOL RecyclableObject::IsFixedProperty(PropertyId propertyId)
     {
         return false;
     }
+#endif
 
     PropertyQueryFlags RecyclableObject::HasItemQuery(uint32 index)
     {
@@ -764,13 +771,6 @@ namespace Js
     Var RecyclableObject::GetTypeOfString(ScriptContext * requestContext)
     {
         return requestContext->GetLibrary()->GetUnknownDisplayString();
-    }
-
-    Var RecyclableObject::InvokePut(Arguments args)
-    {
-        // Handle x(y) = z.
-        // Native jscript object behavior: throw an error in all such cases.
-        JavascriptError::ThrowReferenceError(GetScriptContext(), JSERR_CantAsgCall);
     }
 
     BOOL RecyclableObject::GetRemoteTypeId(TypeId * typeId)

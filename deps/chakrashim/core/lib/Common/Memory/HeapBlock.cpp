@@ -7,6 +7,95 @@
 #include <cxxabi.h>
 #endif
 
+
+#if ENABLE_MEM_STATS
+MemStats::MemStats()
+    : objectByteCount(0), totalByteCount(0)
+{}
+
+void MemStats::Reset()
+{
+    objectByteCount = 0;
+    totalByteCount = 0;
+}
+
+size_t MemStats::FreeBytes() const
+{
+    return totalByteCount - objectByteCount;
+}
+
+double MemStats::UsedRatio() const
+{
+    return (double)objectByteCount / totalByteCount;
+}
+
+void MemStats::Aggregate(const MemStats& other)
+{
+    objectByteCount += other.objectByteCount;
+    totalByteCount += other.totalByteCount;
+}
+
+#ifdef DUMP_FRAGMENTATION_STATS
+HeapBucketStats::HeapBucketStats()
+    : totalBlockCount(0), objectCount(0), finalizeCount(0)
+{}
+
+void HeapBucketStats::Reset()
+{
+    MemStats::Reset();
+    totalBlockCount = 0;
+    objectCount = 0;
+    finalizeCount = 0;
+}
+
+void HeapBucketStats::Dump() const
+{
+    Output::Print(_u("%5d %7d %7d %11lu %11lu %11lu   %6.2f%%\n"),
+        totalBlockCount, objectCount, finalizeCount,
+        static_cast<ULONG>(objectByteCount),
+        static_cast<ULONG>(FreeBytes()),
+        static_cast<ULONG>(totalByteCount),
+        UsedRatio() * 100);
+}
+#endif
+
+void HeapBucketStats::PreAggregate()
+{
+    // When first enter Pre-Aggregate state, clear data and mark state.
+    if (!(totalByteCount & 1))
+    {
+        Reset();
+        totalByteCount |= 1;
+    }
+}
+
+void HeapBucketStats::BeginAggregate()
+{
+    // If was Pre-Aggregate state, keep data and clear state
+    if (totalByteCount & 1)
+    {
+        totalByteCount &= ~1;
+    }
+    else
+    {
+        Reset();
+    }
+}
+
+void HeapBucketStats::Aggregate(const HeapBucketStats& other)
+{
+    MemStats::Aggregate(other);
+#ifdef DUMP_FRAGMENTATION_STATS
+    totalBlockCount += other.totalBlockCount;
+    objectCount += other.objectCount;
+    finalizeCount += other.finalizeCount;
+#endif
+}
+#endif  // ENABLE_MEM_STATS
+
+//========================================================================================================
+// HeapBlock
+//========================================================================================================
 template <typename TBlockAttributes>
 SmallNormalHeapBlockT<TBlockAttributes> *
 HeapBlock::AsNormalBlock()
@@ -30,6 +119,16 @@ HeapBlock::AsFinalizableBlock()
     Assert(IsAnyFinalizableBlock());
     return static_cast<SmallFinalizableHeapBlockT<TBlockAttributes> *>(this);
 }
+
+#ifdef RECYCLER_VISITED_HOST
+template <typename TBlockAttributes>
+SmallRecyclerVisitedHostHeapBlockT<TBlockAttributes> *
+HeapBlock::AsRecyclerVisitedHostBlock()
+{
+    Assert(IsRecyclerVisitedHostBlock());
+    return static_cast<SmallRecyclerVisitedHostHeapBlockT<TBlockAttributes> *>(this);
+}
+#endif
 
 #ifdef RECYCLER_WRITE_BARRIER
 template <typename TBlockAttributes>
@@ -88,7 +187,7 @@ SmallHeapBlockT<TBlockAttributes>::ConstructorCommon(HeapBucket * bucket, ushort
     this->Init(objectSize, objectCount);
     Assert(heapBlockType < HeapBlock::HeapBlockType::SmallAllocBlockTypeCount + HeapBlock::HeapBlockType::MediumAllocBlockTypeCount);
     Assert(objectCount > 1 && objectCount == (this->GetPageCount() * AutoSystemInfo::PageSize) / objectSize);
-#ifdef RECYCLER_SLOW_CHECK_ENABLED
+#if defined(RECYCLER_SLOW_CHECK_ENABLED)
     heapBucket->heapInfo->heapBlockCount[heapBlockType]++;
 #endif
 
@@ -131,8 +230,11 @@ SmallHeapBlockT<TBlockAttributes>::~SmallHeapBlockT()
         (this->IsLeafBlock()) ||
         this->GetPageAllocator(heapBucket->heapInfo->recycler)->IsClosed());
 
-#ifdef RECYCLER_SLOW_CHECK_ENABLED
+#if defined(RECYCLER_SLOW_CHECK_ENABLED)
     heapBucket->heapInfo->heapBlockCount[this->GetHeapBlockType()]--;
+#endif
+
+#if defined(RECYCLER_SLOW_CHECK_ENABLED) || ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
     heapBucket->heapBlockCount--;
 #endif
 }
@@ -234,8 +336,10 @@ ushort
 SmallHeapBlockT<TBlockAttributes>::GetExpectedFreeObjectCount() const
 {
     Assert(this->GetRecycler()->IsSweeping());
+
     return objectCount - markCount;
 }
+
 template <class TBlockAttributes>
 uint
 SmallHeapBlockT<TBlockAttributes>::GetExpectedFreeBytes() const
@@ -269,6 +373,19 @@ SmallHeapBlockT<TBlockAttributes>::Init(ushort objectSize, ushort objectCount)
 #endif
 #if ENABLE_CONCURRENT_GC
     this->isPendingConcurrentSweep = false;
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+    {
+        // This flag is to identify whether this block was made available for allocations during the concurrent sweep and still needs to be swept.
+        this->isPendingConcurrentSweepPrep = false;
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+        this->objectsAllocatedDuringConcurrentSweepCount = 0;
+        this->hasFinishedSweepObjects = false;
+        this->wasAllocatedFromDuringSweep = false;
+        this->lastObjectsAllocatedDuringConcurrentSweepCount = 0;
+#endif
+    }
+#endif
 #endif
 
     Assert(!this->isInAllocator);
@@ -468,6 +585,20 @@ SmallHeapBlockT<TBlockAttributes>::Reset()
 
     this->freeCount = 0;
     this->markCount = 0;
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+    {
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+        this->hasFinishedSweepObjects = false;
+        this->wasAllocatedFromDuringSweep = false;
+        this->objectsMarkedDuringSweep = 0;
+        this->objectsAllocatedDuringConcurrentSweepCount = 0;
+        this->lastObjectsAllocatedDuringConcurrentSweepCount = 0;
+#endif
+        this->isPendingConcurrentSweepPrep = false;
+    }
+#endif
+
 #if ENABLE_PARTIAL_GC
     this->oldFreeCount = this->lastFreeCount = this->objectCount;
 #else
@@ -877,7 +1008,7 @@ void HeapBlock::PrintVerifyMarkFailure(Recycler* recycler, char* objectAddress, 
             }
             else
             {
-                auto dumpFalsePositive = [&]() 
+                auto dumpFalsePositive = [&]()
                 {
                     if (CONFIG_FLAG(Verbose))
                     {
@@ -894,7 +1025,7 @@ void HeapBlock::PrintVerifyMarkFailure(Recycler* recycler, char* objectAddress, 
                 //TODO: (leish)(swb) analyze pdb to check if the field is a pointer field or not
                 Output::Print(_u("Missing Barrier\nOn type %S+0x%x\n"), typeName, offset);
             }
-        }        
+        }
 
 
         targetStartAddress = target - targetOffset;
@@ -1055,6 +1186,24 @@ SmallHeapBlockT<TBlockAttributes>::ClearAllAllocBytes()
 #endif
 }
 
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+template <class TBlockAttributes>
+void
+SmallHeapBlockT<TBlockAttributes>::ResetConcurrentSweepAllocationCounts()
+{
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc) && this->objectsAllocatedDuringConcurrentSweepCount > 0)
+    {
+        // Reset the count of objects allocated during this concurrent sweep; so we will start afresh the next time around.
+        Assert(this->objectsAllocatedDuringConcurrentSweepCount == this->objectsMarkedDuringSweep);
+        this->lastObjectsAllocatedDuringConcurrentSweepCount = this->objectsAllocatedDuringConcurrentSweepCount;
+        this->objectsAllocatedDuringConcurrentSweepCount = 0;
+        this->objectsMarkedDuringSweep = 0;
+    }
+}
+#endif
+#endif
+
 #if ENABLE_PARTIAL_GC
 template <class TBlockAttributes>
 bool
@@ -1090,6 +1239,7 @@ SmallHeapBlockT<TBlockAttributes>::GetAndClearUnaccountedAllocBytes()
 {
     Assert(this->lastFreeCount >= this->freeCount);
     const ushort currentFreeCount = this->freeCount;
+
     uint unaccountedAllocBytes = (this->lastFreeCount - currentFreeCount) * this->objectSize;
     this->lastFreeCount = currentFreeCount;
     return unaccountedAllocBytes;
@@ -1171,17 +1321,28 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
 #if ENABLE_CONCURRENT_GC
     Assert(!this->isPendingConcurrentSweep);
 #endif
-    DebugOnly(VerifyMarkBitVector());
+
+#if DBG && ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    // In concurrent sweep pass1, we mark the object directly in the mark bit vector for objects allocated during the sweep to prevent them from getting swept during the ongoing sweep itself.
+    // This will make the mark bit vector on the HeapBlockMap out-of-date w.r.t. these newly allocated objects.
+    if (!this->wasAllocatedFromDuringSweep)
+#endif
+    {
+        DebugOnly(VerifyMarkBitVector());
+    }
 
     if (allocable)
     {
         // This block has been allocated from since the last GC.
         // We need to update its free bit vector so we can use it below.
-        Assert(freeCount == this->GetFreeBitVector()->Count());
+        DebugOnly(ushort currentFreeCount = (ushort)this->GetFreeBitVector()->Count());
+        Assert(freeCount == currentFreeCount);
 #if ENABLE_PARTIAL_GC
         Assert(this->lastFreeCount == 0 || this->oldFreeCount == this->lastFreeCount);
 #endif
+
         this->EnsureFreeBitVector();
+
         Assert(this->lastFreeCount >= this->freeCount);
 #if ENABLE_PARTIAL_GC
         Assert(this->oldFreeCount >= this->freeCount);
@@ -1203,7 +1364,8 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
     const uint expectFreeCount = objectCount - localMarkCount;
     Assert(expectFreeCount >= this->freeCount);
 
-    const uint expectSweepCount = expectFreeCount - this->freeCount;
+    uint expectSweepCount = expectFreeCount - this->freeCount;
+
     Assert(!this->IsLeafBlock() || finalizeCount == 0);
 
     Recycler * recycler = recyclerSweep.GetRecycler();
@@ -1219,14 +1381,35 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
 
     bool noRealObjectsMarked = (localMarkCount == 0);
 
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+    {
+        Assert(!this->IsAnyFinalizableBlock() || !this->isPendingConcurrentSweepPrep);
+        // This heap block is ready to be swept concurrently.
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+        this->hasFinishedSweepObjects = false;
+#endif
+        this->isPendingConcurrentSweepPrep = false;
+    }
+#endif
+
     const bool isAllFreed = (finalizeCount == 0 && noRealObjectsMarked && !hasPendingDispose);
     if (isAllFreed)
     {
-        recycler->NotifyFree(this);
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+        if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+        {
+            AssertMsg(this->objectsAllocatedDuringConcurrentSweepCount == 0, "This block shouldn't be considered EMPTY if we allocated from it during concurrent sweep.");
+        }
+#endif
+            recycler->NotifyFree(this);
 
-        Assert(!this->HasPendingDisposeObjects());
+            Assert(!this->HasPendingDisposeObjects());
 
-        return SweepStateEmpty;
+#ifdef RECYCLER_TRACE
+            recycler->PrintBlockStatus(this->heapBucket, this, _u("[**26**] ending sweep Pass1, state returned SweepStateEmpty."));
+#endif
+            return SweepStateEmpty;
     }
 
     RECYCLER_STATS_ADD(recycler, heapBlockFreeByteCount[this->GetHeapBlockType()], expectFreeCount * this->objectSize);
@@ -1241,7 +1424,23 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
 
     if (expectSweepCount == 0)
     {
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+        if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+        {
+            this->ResetConcurrentSweepAllocationCounts();
+        }
+#endif
+#endif
+
         // nothing has been freed
+#ifdef RECYCLER_TRACE
+        if (recycler->GetRecyclerFlagsTable().Trace.IsEnabled(Js::ConcurrentSweepPhase) && CONFIG_FLAG_RELEASE(Verbose))
+        {
+            SweepState stateReturned = (this->freeCount == 0) ? SweepStateFull : state;
+            Output::Print(_u("[GC #%d] [HeapBucket 0x%p] HeapBlock 0x%p %s %d [CollectionState: %d] \n"), recycler->collectionCount, this->heapBucket, this, _u("[**37**] heapBlock swept. State returned:"), stateReturned, recycler->collectionState);
+        }
+#endif
         return (this->freeCount == 0) ? SweepStateFull : state;
     }
 
@@ -1267,21 +1466,54 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
         RECYCLER_STATS_INC(recycler, heapBlockConcurrentSweptCount[this->GetHeapBlockType()]);
         // This heap block has objects that need to be swept concurrently.
         this->isPendingConcurrentSweep = true;
+#ifdef RECYCLER_TRACE
+        if (recycler->GetRecyclerFlagsTable().Trace.IsEnabled(Js::ConcurrentSweepPhase))
+        {
+            recycler->PrintBlockStatus(this->heapBucket, this, _u("[**29**] heapBlock swept. State returned: SweepStatePendingSweep"));
+    }
+#endif
         return SweepStatePendingSweep;
     }
 #else
     Assert(!recyclerSweep.IsBackground());
 #endif
 
+#ifdef RECYCLER_TRACE
+    recycler->PrintBlockStatus(this->heapBucket, this, _u("[**16**] calling SweepObjects."));
+#endif
     SweepObjects<SweepMode_InThread>(recycler);
     if (HasPendingDisposeObjects())
     {
         Assert(finalizeCount != 0);
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+        if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+        {
+            AssertMsg(this->objectsAllocatedDuringConcurrentSweepCount == 0, "Allocations during concurrent sweep not supported for finalizable blocks.");
+        }
+#endif
+
         return SweepStatePendingDispose;
     }
 
-    // Already swept, no more work to be done.  Put it back to the queue
-    return state;
+    // Already swept, no more work to be done. Put it back to the queue.
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc) && !this->IsAnyFinalizableBlock())
+    {
+#ifdef RECYCLER_TRACE
+        if (recycler->GetRecyclerFlagsTable().Trace.IsEnabled(Js::ConcurrentSweepPhase) && CONFIG_FLAG_RELEASE(Verbose))
+        {
+            SweepState stateReturned = (this->freeCount == 0) ? SweepStateFull : state;
+            Output::Print(_u("[GC #%d] [HeapBucket 0x%p] HeapBlock 0x%p %s %d [CollectionState: %d] \n"), recycler->collectionCount, this->heapBucket, this, _u("[**38**] heapBlock swept. State returned:"), stateReturned, recycler->collectionState);
+        }
+#endif
+        // We always need to check the free count as we may have allocated from this block during concurrent sweep.
+        return (this->freeCount == 0) ? SweepStateFull : state;
+    }
+    else
+#endif
+    {
+        return state;
+    }
 }
 
 #if DBG
@@ -1313,15 +1545,43 @@ SmallHeapBlockT<TBlockAttributes>::SweepObjects(Recycler * recycler)
     Assert(mode == SweepMode_InThread);
 #endif
     Assert(this->IsFreeBitsValid());
-    Assert(this->markCount != 0 || this->isForceSweeping || this->IsAnyFinalizableBlock());
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    AssertMsg(!hasFinishedSweepObjects, "Block in SweepObjects more than once during the ongoing sweep.");
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+    {
+        Assert(this->markCount != 0 || this->objectsAllocatedDuringConcurrentSweepCount > 0 || this->isForceSweeping || this->IsAnyFinalizableBlock());
+    }
+    else
+#endif
+    {
+        Assert(this->markCount != 0 || this->isForceSweeping || this->IsAnyFinalizableBlock());
+    }
+
     Assert(this->markCount == this->GetMarkCountForSweep());
 
-    DebugOnly(VerifyMarkBitVector());
+#if DBG && ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    // In concurrent sweep pass1, we mark the object directly in the mark bit vector for objects allocated during the sweep to prevent them from getting swept during the ongoing sweep itself.
+    // This will make the mark bit vector on the HeapBlockMap out-of-date w.r.t. these newly allocated objects.
+    if (!this->wasAllocatedFromDuringSweep)
+#endif
+    {
+        DebugOnly(VerifyMarkBitVector());
+    }
 
     SmallHeapBlockBitVector * marked = this->GetMarkedBitVector();
 
-    DebugOnly(const uint expectedSweepCount = objectCount - freeCount - markCount);
-    Assert(expectedSweepCount != 0 || this->isForceSweeping);
+    DebugOnly(uint expectedSweepCount = objectCount - freeCount - markCount);
+#if DBG && ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+    {
+        Assert(expectedSweepCount != 0 || this->isForceSweeping || this->objectsAllocatedDuringConcurrentSweepCount != 0);
+    }
+    else
+#endif
+    {
+        Assert(expectedSweepCount != 0 || this->isForceSweeping);
+    }
+
     DebugOnly(uint sweepCount = 0);
 
     const uint localSize = objectSize;
@@ -1334,6 +1594,7 @@ SmallHeapBlockT<TBlockAttributes>::SweepObjects(Recycler * recycler)
         Assert(IsValidBitIndex(bitIndex));
 
         RECYCLER_STATS_ADD(recycler, objectSweepScanCount, !isForceSweeping);
+
         if (!marked->Test(bitIndex))
         {
             if (!this->GetFreeBitVector()->Test(bitIndex))
@@ -1368,6 +1629,7 @@ SmallHeapBlockT<TBlockAttributes>::SweepObjects(Recycler * recycler)
     }
 
     Assert(sweepCount == expectedSweepCount);
+
 #if ENABLE_CONCURRENT_GC
     this->isPendingConcurrentSweep = false;
 #endif
@@ -1387,6 +1649,7 @@ SmallHeapBlockT<TBlockAttributes>::SweepObjects(Recycler * recycler)
         // Need to update even if there are not swept object because finalizable object are
         // consider freed but not on the free list.
         ushort currentFreeCount = GetExpectedFreeObjectCount();
+
         this->GetFreeBitVector()->OrComplimented(marked);
         this->GetFreeBitVector()->Minus(this->GetInvalidBitVector());
 #if ENABLE_PARTIAL_GC
@@ -1398,10 +1661,34 @@ SmallHeapBlockT<TBlockAttributes>::SweepObjects(Recycler * recycler)
         this->lastFreeObjectHead = this->freeObjectList;
     }
 
-    RECYCLER_SLOW_CHECK(CheckFreeBitVector(true));
+    // While allocations are allowed during concurrent sweep into still unswept blocks the
+    // free bit vectors are not valid yet.
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP && defined(RECYCLER_SLOW_CHECK_ENABLED)
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc) && this->objectsAllocatedDuringConcurrentSweepCount == 0)
+#endif
+    {
+        RECYCLER_SLOW_CHECK(CheckFreeBitVector(true));
+    }
+
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+    if (CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
+    {
+        this->ResetConcurrentSweepAllocationCounts();
+    }
+#endif
+#endif
 
     // The count of marked, non-free objects should still be the same
     Assert(this->markCount == this->GetMarkCountForSweep());
+
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    DebugOnly(this->hasFinishedSweepObjects = true);
+#endif
+
+#ifdef RECYCLER_TRACE
+    recycler->PrintBlockStatus(this->heapBucket, this, _u("[**30**] finished SweepObjects, heapblock SWEPT."));
+#endif
 }
 
 template <class TBlockAttributes>
@@ -1494,28 +1781,39 @@ template <class TBlockAttributes>
 void
 SmallHeapBlockT<TBlockAttributes>::Check(bool expectFull, bool expectPending)
 {
-    if (this->IsFreeBitsValid())
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    // If we allocated from this block during the concurrent sweep the free bit vectors would be invalid.
+#if DBG || defined(RECYCLER_SLOW_CHECK_ENABLED)
+    if (!this->wasAllocatedFromDuringSweep)
+#endif
+#endif
     {
-        CheckFreeBitVector(false);
-    }
-    else
-    {
-        CheckDebugFreeBitVector(false);
+        if (this->IsFreeBitsValid())
+        {
+            CheckFreeBitVector(false);
+        }
+        else
+        {
+            CheckDebugFreeBitVector(false);
+        }
     }
 
     Assert(expectPending == HasAnyDisposeObjects());
 
-    // As the blocks are added to the SLIST and used from there during concurrent sweep, the exepectFull assertion doesn't hold anymore.
-#if !(ENABLE_CONCURRENT_GC && ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP)
-    if (this->isInAllocator || this->isClearedFromAllocator)
-    {
-        Assert(expectFull && !expectPending);
-    }
-    else
-    {
-        Assert(expectFull == (!this->HasFreeObject() && !HasAnyDisposeObjects()));
-    }
+    // As the blocks are added to the SLIST and used from there during concurrent sweep, the expectFull assertion doesn't hold anymore.
+#if ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP
+    if (!CONFIG_FLAG_RELEASE(EnableConcurrentSweepAlloc))
 #endif
+    {
+        if (this->isInAllocator || this->isClearedFromAllocator)
+        {
+            Assert(expectFull && !expectPending);
+        }
+        else
+        {
+            Assert(expectFull == (!this->HasFreeObject() && !HasAnyDisposeObjects()));
+        }
+    }
 }
 
 
@@ -1944,28 +2242,26 @@ void SmallHeapBlockT<TBlockAttributes>::Verify(bool pendingDispose)
 }
 #endif
 
-#ifdef DUMP_FRAGMENTATION_STATS
+#if ENABLE_MEM_STATS
 template <class TBlockAttributes>
 void
 SmallHeapBlockT<TBlockAttributes>::AggregateBlockStats(HeapBucketStats& stats, bool isAllocatorBlock, FreeObject* freeObjectList, bool isBumpAllocated)
 {
-    stats.totalBlockCount++;
+    if (this->segment == nullptr || this->IsInAllocator() != isAllocatorBlock)
+    {
+        return;  // skip empty blocks, or blocks mismatching isInAllocator to avoid double count
+    }
+
+    DUMP_FRAGMENTATION_STATS_ONLY(stats.totalBlockCount++);
 
     ushort blockObjectCount = this->objectCount;
     BVIndex blockFreeCount = this->GetFreeBitVector()->Count();
     ushort blockObjectSize = this->objectSize;
 
-    if (this->segment == nullptr)
-    {
-        stats.emptyBlockCount++;
-        blockObjectCount = 0;
-        blockFreeCount = 0;
-    }
-
-    int objectCount = 0;
+    uint objectCount = 0;
     if (isBumpAllocated)
     {
-        objectCount = ((char*) freeObjectList - this->address) / blockObjectSize;
+        objectCount = static_cast<uint>(((char*) freeObjectList - this->address) / blockObjectSize);
     }
     else
     {
@@ -1989,34 +2285,20 @@ SmallHeapBlockT<TBlockAttributes>::AggregateBlockStats(HeapBucketStats& stats, b
         }
     }
 
-    // If we have a block that's on the allocator, it could also be on the heap block list
-    // In that case, we need to make sure we don't double-count this. To do that, we take out
-    // the block's allocatorCount/freeCount and adjust it later when we see the block
-    if (isAllocatorBlock)
-    {
-        objectCount -= blockObjectCount;
-        objectCount += blockFreeCount;
-    }
-
-    // Don't count empty blocks as allocable
-    if (this->segment != nullptr)
-    {
-        stats.totalByteCount += AutoSystemInfo::PageSize;
-    }
-
-    stats.objectCount += objectCount;
+    DUMP_FRAGMENTATION_STATS_ONLY(stats.objectCount += objectCount);
     stats.objectByteCount += (objectCount * blockObjectSize);
+    stats.totalByteCount += this->GetPageCount() * AutoSystemInfo::PageSize;
 
+#ifdef DUMP_FRAGMENTATION_STATS
     if (!isAllocatorBlock)
     {
         if (this->IsAnyFinalizableBlock())
         {
-            SmallFinalizableHeapBlock* finalizableBlock = this->AsFinalizableBlock<TBlockAttributes>();
-
-            stats.finalizeBlockCount++;
+            auto finalizableBlock = this->AsFinalizableBlock<TBlockAttributes>();
             stats.finalizeCount += (finalizableBlock->GetFinalizeCount());
         }
     }
+#endif
 }
 #endif
 

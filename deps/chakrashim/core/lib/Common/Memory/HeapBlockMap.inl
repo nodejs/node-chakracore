@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------------
-// Copyright (C) Microsoft. All rights reserved.
+// Copyright (C) Microsoft Corporation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 
@@ -142,13 +142,38 @@ HeapBlockMap32::Mark(void * candidate, MarkContext * markContext)
 #endif
         ((SmallFinalizableHeapBlock*)chunk->map[id2])->ProcessMarkedObject<doSpecialMark>(candidate, markContext);
         break;
+#ifdef RECYCLER_VISITED_HOST
+    case HeapBlock::HeapBlockType::SmallRecyclerVisitedHostBlockType:
+        {
+            void * realCandidate = ((SmallFinalizableHeapBlock*)chunk->map[id2])->GetRealAddressFromInterior(candidate);
+            if (MarkInteriorInternal<interlocked, false>(markContext, chunk, candidate, realCandidate))
+            {
+                break;
+            }
+
+            ((SmallRecyclerVisitedHostHeapBlock*)chunk->map[id2])->ProcessMarkedObject<doSpecialMark>(realCandidate, markContext);
+        }
+        break;
+#endif
     case HeapBlock::HeapBlockType::MediumFinalizableBlockType:
 #ifdef RECYCLER_WRITE_BARRIER
     case HeapBlock::HeapBlockType::MediumFinalizableBlockWithBarrierType:
 #endif
         ((MediumFinalizableHeapBlock*)chunk->map[id2])->ProcessMarkedObject<doSpecialMark>(candidate, markContext);
         break;
+#ifdef RECYCLER_VISITED_HOST
+    case HeapBlock::HeapBlockType::MediumRecyclerVisitedHostBlockType:
+        {
+            void * realCandidate = ((MediumFinalizableHeapBlock*)chunk->map[id2])->GetRealAddressFromInterior(candidate);
+            if (MarkInteriorInternal<interlocked, false>(markContext, chunk, candidate, realCandidate))
+            {
+                break;
+            }
 
+            ((MediumRecyclerVisitedHostHeapBlock*)chunk->map[id2])->ProcessMarkedObject<doSpecialMark>(realCandidate, markContext);
+        }
+        break;
+#endif
     case HeapBlock::HeapBlockType::LargeBlockType:
         ((LargeHeapBlock*)chunk->map[id2])->Mark<doSpecialMark>(candidate, markContext);
         break;
@@ -237,13 +262,13 @@ HeapBlockMap32::MarkInteriorInternal(MarkContext * markContext, L2MapChunk *& ch
     if (largeBlockType)
     {
 
-#if defined(_M_IX86_OR_ARM32)
+#if defined(TARGET_32)
         // we only check the first MaxLargeObjectMarkOffset byte for marking purpuse. 
         if ( (size_t)originalCandidate - (size_t)realCandidate > HeapConstants::MaxLargeObjectMarkOffset )
             return true;
 #endif    
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
         if (HeapBlockMap64::GetNodeIndex(originalCandidate) != HeapBlockMap64::GetNodeIndex(realCandidate))
         {
             // We crossed a node boundary (very rare) so we should just re-start from the real candidate.
@@ -367,7 +392,30 @@ HeapBlockMap32::MarkInterior(void * candidate, MarkContext * markContext)
             ((MediumFinalizableHeapBlock*)chunk->map[id2])->ProcessMarkedObject<false>(realCandidate, markContext);
         }
         break;
+#ifdef RECYCLER_VISITED_HOST
+    case HeapBlock::HeapBlockType::SmallRecyclerVisitedHostBlockType:
+        {
+            void * realCandidate = ((SmallFinalizableHeapBlock*)chunk->map[id2])->GetRealAddressFromInterior(candidate);
+            if (MarkInteriorInternal<interlocked, false>(markContext, chunk, candidate, realCandidate))
+            {
+                break;
+            }
 
+            ((SmallRecyclerVisitedHostHeapBlock*)chunk->map[id2])->ProcessMarkedObject<false>(realCandidate, markContext);
+        }
+        break;
+    case HeapBlock::HeapBlockType::MediumRecyclerVisitedHostBlockType:
+        {
+            void * realCandidate = ((MediumFinalizableHeapBlock*)chunk->map[id2])->GetRealAddressFromInterior(candidate);
+            if (MarkInteriorInternal<interlocked, false>(markContext, chunk, candidate, realCandidate))
+            {
+                break;
+            }
+
+            ((MediumRecyclerVisitedHostHeapBlock*)chunk->map[id2])->ProcessMarkedObject<false>(realCandidate, markContext);
+        }
+        break;
+#endif
     case HeapBlock::HeapBlockType::LargeBlockType:
         {
             void * realCandidate = ((LargeHeapBlock*)chunk->map[id2])->GetRealAddressFromInterior(candidate);
@@ -391,7 +439,7 @@ HeapBlockMap32::MarkInterior(void * candidate, MarkContext * markContext)
     }
 }
 
-#if defined(_M_X64_OR_ARM64)
+#if defined(TARGET_64)
 
 //
 // 64-bit Mark
@@ -403,6 +451,10 @@ inline
 void
 HeapBlockMap64::Mark(void * candidate, MarkContext * markContext)
 {
+    if (!list || !HeapInfo::IsAlignedAddress(candidate) || (size_t)candidate < 0x10000)
+    {
+        return;
+    }
     uint index = GetNodeIndex(candidate);
 
     Node * node = list;
@@ -427,6 +479,10 @@ inline
 void
 HeapBlockMap64::MarkInterior(void * candidate, MarkContext * markContext)
 {
+    if (!list || (size_t)candidate < 0x10000)
+    {
+        return;
+    }
     uint index = GetNodeIndex(candidate);
 
     Node * node = list;
@@ -446,4 +502,4 @@ HeapBlockMap64::MarkInterior(void * candidate, MarkContext * markContext)
     // No Node found; must be an invalid reference. Do nothing.
 }
 
-#endif // defined(_M_X64_OR_ARM64)
+#endif // defined(TARGET_64)

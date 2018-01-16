@@ -63,6 +63,12 @@
   </test>
   <test>
     <default>
+      <files>propertyRecordLargeHeapBlock.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
         <files>toLocaleString2.js</files>
         <compile-flags>-args summary -endargs</compile-flags>
     </default>
@@ -72,7 +78,8 @@
         <files>toLocaleStringBasics.js</files>
         <baseline>toLocaleStringBasics.baseline</baseline>
         <compile-flags>-args summary -endargs</compile-flags>
-        <tags>Intl</tags>
+        <!-- The output is different on windows with Intl off, may want to merge the windows and linux implementation -->
+        <tags>Intl,exclude_sanitize_address</tags>
     </default>
   </test>
   <!-- Disabled until we can resolve failures on Windows Server 2012 R2 (Microsoft/ChakraCore#3030)
@@ -167,6 +174,7 @@
       <files>moreProperties-enumeration.js</files>
       <baseline>moreProperties-enumeration.baseline</baseline>
       <tags>Slow</tags>
+      <timeout>600</timeout>
     </default>
   </test>
   <test>

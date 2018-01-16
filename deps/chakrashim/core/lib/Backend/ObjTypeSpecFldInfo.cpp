@@ -275,7 +275,9 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::InlineCache* cac
     bool isLocal = localCache.IsLocal();
     bool isProto = localCache.IsProto();
     bool isAccessor = localCache.IsAccessor();
+#if ENABLE_FIXED_FIELDS
     bool isGetter = localCache.IsGetterAccessor();
+#endif
     if (isLocal)
     {
         type = TypeWithoutAuxSlotTag(localCache.u.local.type);
@@ -372,12 +374,13 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::InlineCache* cac
     Assert(entryPoint->GetJitTransferData() != nullptr);
     entryPoint->GetJitTransferData()->AddJitTimeTypeRef(type, recycler);
 
+#if ENABLE_FIXED_FIELDS
     bool allFixedPhaseOFF = PHASE_OFF(Js::FixedMethodsPhase, topFunctionBody) & PHASE_OFF(Js::UseFixedDataPropsPhase, topFunctionBody);
 
     if (!allFixedPhaseOFF)
     {
         Assert(propertyOwnerType != nullptr);
-        if (Js::DynamicType::Is(propertyOwnerType->GetTypeId()))
+        if (Js::DynamicType::Is(propertyOwnerType))
         {
             Js::DynamicTypeHandler* propertyOwnerTypeHandler = ((Js::DynamicType*)propertyOwnerType)->GetTypeHandler();
             Js::PropertyRecord const * const fixedPropertyRecord = functionBody->GetScriptContext()->GetPropertyName(propertyId);
@@ -534,6 +537,7 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::InlineCache* cac
             }
         }
     }
+#endif
 
     FixedFieldInfo * fixedFieldInfoArray = RecyclerNewArrayZ(recycler, FixedFieldInfo, 1);
 
@@ -558,7 +562,7 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::InlineCache* cac
         // Fixed field checks allow us to assume a specific type ID, but the assumption is only
         // valid if we lock the type. Otherwise, the type ID may change out from under us without
         // evolving the type.
-        if (Js::DynamicType::Is(type->GetTypeId()))
+        if (Js::DynamicType::Is(type))
         {
             Js::DynamicType *dynamicType = static_cast<Js::DynamicType*>(type);
             if (!dynamicType->GetIsLocked())
@@ -766,7 +770,12 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::PolymorphicInlin
         areEquivalent = areStressEquivalent = false;
     }
 
+#if ENABLE_FIXED_FIELDS
     gatherDataForInlining = gatherDataForInlining && (typeCount <= 4); // Only support 4-way (max) polymorphic inlining
+#else
+    gatherDataForInlining = false;
+#endif
+
     if (!areEquivalent && !areStressEquivalent)
     {
         IncInlineCacheCount(nonEquivPolyInlineCacheCount);
@@ -796,6 +805,7 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::PolymorphicInlin
     // as the allocation may trigger a GC which can clear the inline caches.
     FixedFieldInfo localFixedFieldInfoArray[Js::DynamicProfileInfo::maxPolymorphicInliningSize] = {};
 
+#if ENABLE_FIXED_FIELDS
     // For polymorphic field loads we only support fixed functions on prototypes. This helps keep the equivalence check helper simple.
     // Since all types in the polymorphic cache share the same prototype, it's enough to grab the fixed function from the prototype object.
     Js::Var fixedProperty = nullptr;
@@ -815,12 +825,11 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::PolymorphicInlin
 
         // TODO (ObjTypeSpec): Enable constructor caches on equivalent polymorphic field loads with fixed functions.
     }
-
+#endif
     // Let's get the types.
     Js::Type* localTypes[MaxPolymorphicInlineCacheSize];
 
     uint16 typeNumber = 0;
-    Js::JavascriptFunction* fixedFunctionObject = nullptr;
     for (uint16 i = firstNonEmptyCacheIndex; i < polyCacheSize; i++)
     {
         Js::InlineCache& inlineCache = inlineCaches[i];
@@ -830,8 +839,10 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::PolymorphicInlin
             inlineCache.IsProto() ? TypeWithoutAuxSlotTag(inlineCache.u.proto.type) :
             TypeWithoutAuxSlotTag(inlineCache.u.accessor.type);
 
+#if ENABLE_FIXED_FIELDS
         if (gatherDataForInlining)
         {
+            Js::JavascriptFunction* fixedFunctionObject = nullptr;
             inlineCache.TryGetFixedMethodFromCache(functionBody, cacheId, &fixedFunctionObject);
             if (!fixedFunctionObject || !fixedFunctionObject->GetFunctionInfo()->HasBody())
             {
@@ -855,7 +866,7 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::PolymorphicInlin
 
             fixedFunctionCount++;
         }
-
+#endif
         typeNumber++;
     }
 
@@ -911,7 +922,7 @@ ObjTypeSpecFldInfo* ObjTypeSpecFldInfo::CreateFrom(uint id, Js::PolymorphicInlin
                 // Fixed field checks allow us to assume a specific type ID, but the assumption is only
                 // valid if we lock the type. Otherwise, the type ID may change out from under us without
                 // evolving the type.
-                if (Js::DynamicType::Is(localTypes[i]->GetTypeId()))
+                if (Js::DynamicType::Is(localTypes[i]))
                 {
                     Js::DynamicType *dynamicType = static_cast<Js::DynamicType*>(localTypes[i]);
                     if (!dynamicType->GetIsLocked())

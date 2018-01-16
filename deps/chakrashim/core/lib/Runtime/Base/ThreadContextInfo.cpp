@@ -418,7 +418,12 @@ ThreadContextInfo::SetValidCallTargetForCFG(PVOID callTargetAddress, bool isSetV
 #ifdef _CONTROL_FLOW_GUARD
     if (IsCFGEnabled())
     {
+#ifdef _M_ARM
+        AssertMsg(((uintptr_t)callTargetAddress & 0x1) != 0, "on ARM we expect the thumb bit to be set on anything we use as a call target");
+        AssertMsg(IS_16BYTE_ALIGNED((uintptr_t)callTargetAddress & ~0x1), "callTargetAddress is not 16-byte page aligned?");
+#else
         AssertMsg(IS_16BYTE_ALIGNED(callTargetAddress), "callTargetAddress is not 16-byte page aligned?");
+#endif
 
         // If SetProcessValidCallTargets is not allowed by global policy (e.g.
         // OOP JIT is in use in the client), then generate a fast fail
@@ -450,9 +455,9 @@ ThreadContextInfo::SetValidCallTargetForCFG(PVOID callTargetAddress, bool isSetV
                 //Throw OOM, if there is not enough virtual memory for paging (required for CFG BitMap)
                 Js::Throw::OutOfMemory();
             }
-            else if (gle == STATUS_PROCESS_IS_TERMINATING)
+            else if (gle == ERROR_ACCESS_DENIED)
             {
-                // When this error is set, the target process is exiting and thus cannot proceed with
+                // When this error is set, the target process may be exiting and thus cannot proceed with
                 // JIT output. Throw this exception to safely abort this call.
                 throw Js::OperationAbortedException();
             }

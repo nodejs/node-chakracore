@@ -44,9 +44,16 @@ namespace Js
 
     JavascriptStringObject* JavascriptStringObject::FromVar(Var aValue)
     {
+        AssertOrFailFastMsg(Is(aValue), "Ensure var is actually a 'JavascriptString'");
+
+        return static_cast<JavascriptStringObject *>(aValue);
+    }
+
+    JavascriptStringObject* JavascriptStringObject::UnsafeFromVar(Var aValue)
+    {
         AssertMsg(Is(aValue), "Ensure var is actually a 'JavascriptString'");
 
-        return static_cast<JavascriptStringObject *>(RecyclableObject::FromVar(aValue));
+        return static_cast<JavascriptStringObject *>(aValue);
     }
 
     void JavascriptStringObject::Initialize(JavascriptString* value)
@@ -335,8 +342,7 @@ namespace Js
 
     BOOL JavascriptStringObject::DeleteProperty(JavascriptString *propertyNameString, PropertyOperationFlags propertyOperationFlags)
     {
-        JsUtil::CharacterBuffer<WCHAR> propertyName(propertyNameString->GetString(), propertyNameString->GetLength());
-        if (BuiltInPropertyRecords::length.Equals(propertyName))
+        if (BuiltInPropertyRecords::length.Equals(propertyNameString))
         {
             JavascriptError::ThrowCantDeleteIfStrictMode(propertyOperationFlags, this->GetScriptContext(), propertyNameString->GetString());
 

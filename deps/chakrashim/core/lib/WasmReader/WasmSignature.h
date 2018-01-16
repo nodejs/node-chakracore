@@ -26,13 +26,14 @@ public:
     uint32 GetSignatureId() const;
     size_t GetShortSig() const;
 
+    template<bool useShortSig = true>
     bool IsEquivalent(const WasmSignature* sig) const;
     static WasmSignature* FromIDL(WasmSignatureIDL* sig);
 
     static uint32 GetOffsetOfShortSig() { return offsetof(WasmSignature, m_shortSig); }
 
     uint32 WriteSignatureToString(_Out_writes_(maxlen) char16 *out, uint32 maxlen);
-    void Dump();
+    void Dump(uint32 maxlen = 512);
 private:
     Field(WasmTypes::WasmType) m_resultType;
     Field(uint32) m_id;
