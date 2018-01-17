@@ -70,10 +70,10 @@ class FunctionCallbackData : public ExternalData {
     this->prototype.Reset(nullptr, prototype);
   }
 
-  Local<Object> NewInstance() {
+  Local<Object> NewInstance(Handle<Function> newTarget) {
     Utils::EnsureObjectTemplate(&instanceTemplate);
     return !instanceTemplate.IsEmpty() ?
-      instanceTemplate->NewInstance(prototype) : Local<Object>();
+      instanceTemplate->NewInstance(newTarget) : Local<Object>();
   }
 
   bool CheckSignature(Local<Object> thisPointer,
@@ -91,9 +91,9 @@ class FunctionCallbackData : public ExternalData {
 
   static JsValueRef CHAKRA_CALLBACK FunctionInvoked(
       JsValueRef callee,
-      bool isConstructCall,
       JsValueRef *arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
+      JsNativeFunctionInfo *info,
       void *callbackState) {
     CHAKRA_VERIFY(argumentCount >= 1);
 
@@ -110,15 +110,16 @@ class FunctionCallbackData : public ExternalData {
     }
 
     Local<Object> thisPointer;
-    ++arguments;  // skip the this argument
+    Local<Function> newTargetPointer = info->newTargetArg;
+    ++arguments;  // skip arguments[0]
 
-    if (isConstructCall) {
-      thisPointer = callbackData->NewInstance();
+    if (info->isConstructCall) {
+      thisPointer = callbackData->NewInstance(newTargetPointer);
       if (thisPointer.IsEmpty()) {
         return JS_INVALID_REFERENCE;
       }
     } else {
-      thisPointer = static_cast<Object*>(arguments[-1]);
+      thisPointer = info->thisArg;
     }
 
     if (callbackData->callback != nullptr) {
@@ -132,8 +133,9 @@ class FunctionCallbackData : public ExternalData {
         reinterpret_cast<Value**>(arguments),
         argumentCount - 1,
         thisPointer,
+        newTargetPointer,
         holder,
-        isConstructCall,
+        info->isConstructCall,
         callbackData->data,
         static_cast<Function*>(callee));
 
@@ -142,7 +144,7 @@ class FunctionCallbackData : public ExternalData {
 
       // if this is a regualr function call return the result, otherwise this is
       // a constructor call return the new instance
-      if (!isConstructCall) {
+      if (!info->isConstructCall) {
         return *result;
       } else if (!result.IsEmpty()) {
         if (!result->IsUndefined() && !result->IsNull()) {
@@ -245,14 +247,11 @@ class FunctionTemplateData : public TemplateData {
 
       JsValueRef function = nullptr;
       {
-        if (!this->className.IsEmpty()) {
-          error = JsCreateNamedFunction(*this->className,
-                                        FunctionCallbackData::FunctionInvoked,
-                                        funcCallbackObjectRef, &function);
-        } else {
-          error = JsCreateFunction(FunctionCallbackData::FunctionInvoked,
-                                  funcCallbackObjectRef, &function);
-        }
+        error = JsCreateEnhancedFunction(
+          FunctionCallbackData::FunctionInvoked,
+          this->className.IsEmpty() ? JS_INVALID_REFERENCE : *this->className,
+          funcCallbackObjectRef,
+          &function);
 
         if (error != JsNoError) {
           return nullptr;

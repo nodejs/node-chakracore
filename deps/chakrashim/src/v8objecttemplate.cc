@@ -847,14 +847,14 @@ JsValueRef CHAKRA_CALLBACK GetSelf(
 }
 
 MaybeLocal<Object> ObjectTemplate::NewInstance(Local<Context> context) {
-  return NewInstance(Local<Object>());
+  return NewInstance(Local<Function>());
 }
 
 Local<Object> ObjectTemplate::NewInstance() {
   return FromMaybe(NewInstance(Local<Context>()));
 }
 
-Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
+Local<Object> ObjectTemplate::NewInstance(Handle<Function> constructor) {
   ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return Local<Object>();
@@ -869,31 +869,23 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Object> prototype) {
     return Local<Object>();
   }
 
-  // If there was no prototype specifically provided, then try to get one from
-  // the constructor, if it exists.  It's possible that the constructor
-  // function doesn't have a prototype to provide.
-  if (prototype.IsEmpty()) {
+  if (constructor.IsEmpty()) {
     if (!objectTemplateData->constructor.IsEmpty()) {
-      Local<Function> function = objectTemplateData->constructor->GetFunction();
-
-      if (!function.IsEmpty()) {
-        jsrt::IsolateShim* iso = jsrt::IsolateShim::GetCurrent();
-        JsValueRef prototypeValue = nullptr;
-
-        if (JsGetProperty(*function,
-                          iso->GetCachedPropertyIdRef(
-                              jsrt::CachedPropertyIdRef::prototype),
-                          &prototypeValue) == JsNoError) {
-          prototype = Local<Object>::New(prototypeValue);
-        }
-      }
+      constructor = objectTemplateData->constructor->GetFunction();
     }
   }
 
-  if (!prototype.IsEmpty()) {
-    if (JsSetPrototype(newInstanceRef,
-                       reinterpret_cast<JsValueRef>(*prototype)) != JsNoError) {
-      return Local<Object>();
+  if (!constructor.IsEmpty()) {
+    jsrt::IsolateShim* iso = jsrt::IsolateShim::GetCurrent();
+    JsValueRef prototypeValue = nullptr;
+
+    if (JsGetProperty(*constructor,
+                      iso->GetCachedPropertyIdRef(
+                          jsrt::CachedPropertyIdRef::prototype),
+                      &prototypeValue) == JsNoError) {
+        if (JsSetPrototype(newInstanceRef, prototypeValue) != JsNoError) {
+          return Local<Object>();
+        }
     }
   }
 
