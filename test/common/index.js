@@ -494,6 +494,8 @@ exports.mustCallAtLeast = function(fn, minimum) {
 };
 
 function _mustCallInner(fn, criteria = 1, field) {
+  if (process._exiting)
+    throw new Error('Cannot use common.mustCall*() in process exit handler');
   if (typeof fn === 'number') {
     criteria = fn;
     fn = noop;
@@ -525,7 +527,7 @@ function _mustCallInner(fn, criteria = 1, field) {
 exports.hasMultiLocalhost = function hasMultiLocalhost() {
   const { TCP, constants: TCPConstants } = process.binding('tcp_wrap');
   const t = new TCP(TCPConstants.SOCKET);
-  const ret = t.bind('127.0.0.2', exports.PORT);
+  const ret = t.bind('127.0.0.2', 0);
   t.close();
   return ret === 0;
 };
