@@ -89,7 +89,7 @@ change. In the case of pull requests proposed by an existing
 Collaborator, an additional Collaborator is required for sign-off.
 
 In some cases, it may be necessary to summon a qualified Collaborator
-or a Github team to a pull request for review by @-mention.
+or a GitHub team to a pull request for review by @-mention.
 [See "Who to CC in issues"](./doc/onboarding-extras.md#who-to-cc-in-issues)
 
 If you are unsure about the modification and are not prepared to take
@@ -130,7 +130,7 @@ can be fast-tracked and may be landed after a shorter delay:
 * Changes that fix regressions.
 
 When a pull request is deemed suitable to be fast-tracked, label it with
-`fast-track`. The pull request can be landed once 2 or more collaborators
+`fast-track`. The pull request can be landed once 2 or more Collaborators
 approve both the pull request and the fast-tracking request, and the necessary
 CI testing is done.
 
@@ -160,7 +160,7 @@ trivial changes that do not require being tested on all platforms.
 * [`citgm-smoker`](https://ci.nodejs.org/job/citgm-smoker/)
 uses [`CitGM`](https://github.com/nodejs/citgm) to allow you to run `npm install && npm test`
 on a large selection of common modules. This is useful to check whether a
-change will cause breakage in the ecosystem. To test Node.JS ABI changes
+change will cause breakage in the ecosystem. To test Node.js ABI changes
 you can run [`citgm-abi-smoker`](https://ci.nodejs.org/job/citgm-abi-smoker/).
 
 * [`node-stress-single-test`](https://ci.nodejs.org/job/node-stress-single-test/)
@@ -225,15 +225,16 @@ on how to handle those types of changes.
 ### Breaking Changes
 
 Backwards-incompatible changes may land on the master branch at any time after
-sufficient review by collaborators and approval of at least two TSC members.
+sufficient review by Collaborators and approval of at least two TSC members.
 
-Examples of breaking changes include, but are not necessarily limited to,
-removal or redefinition of existing API arguments, changing return values
-(except when return values do not currently exist), removing or modifying
-existing properties on an options argument, adding or removing errors,
-changing error messages in any way, altering expected timing of an event (e.g.
-moving from sync to async responses or vice versa), and changing the
-non-internal side effects of using a particular API.
+Examples of breaking changes include:
+
+* removal or redefinition of existing API arguments
+* changing return values
+* removing or modifying existing properties on an options argument
+* adding or removing errors
+* altering expected timing of an event
+* changing the side effects of using a particular API
 
 Purely additive changes (e.g. adding new events to `EventEmitter`
 implementations, adding new arguments to a method in a way that allows
@@ -407,7 +408,7 @@ Changes" section of the release notes.
 
 Collaborators may opt to elevate pull requests or issues to the [TSC][] for
 discussion by assigning the `tsc-review` label or @-mentioning the
-`@nodejs/tsc` Github team. This should be done where a pull request:
+`@nodejs/tsc` GitHub team. This should be done where a pull request:
 
 - is labeled `semver-major`, or
 - has a significant impact on the codebase, or
