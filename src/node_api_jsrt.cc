@@ -222,11 +222,11 @@ class ExternalCallback {
     : _env(env), _cb(cb), _data(data) {
   }
 
-  // JsNativeFunction
+  // JsEnhancedNativeFunction
   static JsValueRef CALLBACK Callback(JsValueRef callee,
-                                      bool isConstructCall,
                                       JsValueRef *arguments,
                                       uint16_t argumentCount,
+                                      JsNativeFunctionInfo *info,
                                       void *callbackState) {
     jsrtimpl::ExternalCallback* externalCallback =
       reinterpret_cast<jsrtimpl::ExternalCallback*>(callbackState);
@@ -235,15 +235,8 @@ class ExternalCallback {
     napi_clear_last_error();
 
     CallbackInfo cbInfo;
-    cbInfo.thisArg = reinterpret_cast<napi_value>(arguments[0]);
-
-    // TODO(digitalinfinity): This is incorrect as per spec, but
-    // implementing this behavior for now to at least handle the case
-    // where folks check newTarget != null to determine they're in a
-    // constructor.
-    // JSRT will need to implement an API to get new.target for this
-    // to work correctly
-    cbInfo.newTarget = (isConstructCall ? cbInfo.thisArg : nullptr);
+    cbInfo.thisArg = reinterpret_cast<napi_value>(info->thisArg);
+    cbInfo.newTarget = reinterpret_cast<napi_value>(info->newTargetArg);
     cbInfo.argc = argumentCount - 1;
     cbInfo.argv = reinterpret_cast<napi_value*>(arguments + 1);
     cbInfo.data = externalCallback->_data;
@@ -684,23 +677,19 @@ napi_status napi_create_function(napi_env env,
   }
 
   JsValueRef function;
+  JsValueRef name = JS_INVALID_REFERENCE;
   if (utf8name != nullptr) {
-    JsValueRef name;
     CHECK_JSRT(JsCreateString(
       utf8name,
       length == -1 ? strlen(utf8name) : length,
       &name));
-    CHECK_JSRT(JsCreateNamedFunction(
-      name,
-      jsrtimpl::ExternalCallback::Callback,
-      externalCallback,
-      &function));
-  } else {
-    CHECK_JSRT(JsCreateFunction(
-      jsrtimpl::ExternalCallback::Callback,
-      externalCallback,
-      &function));
   }
+
+  CHECK_JSRT(JsCreateEnhancedFunction(
+    jsrtimpl::ExternalCallback::Callback,
+    name,
+    externalCallback,
+    &function));
 
   CHECK_JSRT(JsSetObjectBeforeCollectCallback(
     function, externalCallback, jsrtimpl::ExternalCallback::Finalize));
@@ -726,18 +715,16 @@ static napi_status napi_create_property_function(napi_env env,
   CHECK_NAPI(napi_typeof(env, property_name, &nameType));
 
   JsValueRef function;
+  JsValueRef name = JS_INVALID_REFERENCE;
   if (nameType == napi_string) {
-    CHECK_JSRT(JsCreateNamedFunction(
-      property_name,
-      jsrtimpl::ExternalCallback::Callback,
-      externalCallback,
-      &function));
-  } else {
-    CHECK_JSRT(JsCreateFunction(
-      jsrtimpl::ExternalCallback::Callback,
-      externalCallback,
-      &function));
+    name = property_name;
   }
+
+  CHECK_JSRT(JsCreateEnhancedFunction(
+    jsrtimpl::ExternalCallback::Callback,
+    name,
+    externalCallback,
+    &function));
 
   CHECK_JSRT(JsSetObjectBeforeCollectCallback(
     function, externalCallback, jsrtimpl::ExternalCallback::Finalize));
@@ -766,10 +753,10 @@ napi_status napi_define_class(napi_env env,
   }
 
   JsValueRef constructor;
-  CHECK_JSRT(JsCreateNamedFunction(namestring,
-                                   jsrtimpl::ExternalCallback::Callback,
-                                   externalCallback,
-                                   &constructor));
+  CHECK_JSRT(JsCreateEnhancedFunction(jsrtimpl::ExternalCallback::Callback,
+                                      namestring,
+                                      externalCallback,
+                                      &constructor));
 
   CHECK_JSRT(JsSetObjectBeforeCollectCallback(
     constructor, externalCallback, jsrtimpl::ExternalCallback::Finalize));
