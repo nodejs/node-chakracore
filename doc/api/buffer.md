@@ -511,7 +511,7 @@ console.log(buf2.toString());
 <!-- YAML
 added: v5.10.0
 changes:
-  - version: REPLACEME
+  - version: v8.9.3
     pr-url: https://github.com/nodejs/node/pull/17428
     description: Specifying an invalid string for `fill` now results in a
                  zero-filled buffer.
@@ -1276,7 +1276,7 @@ const buf = Buffer.allocUnsafe(5);
 console.log(buf.fill('a'));
 // Prints: <Buffer aa aa aa aa aa>
 console.log(buf.fill('aazz', 'hex'));
-// Throws a exception.
+// Throws an exception.
 console.log(buf.fill('zz', 'hex'));
 ```
 
