@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <string>
 #include <memory>
+#include <chrono>
 
 namespace v8 {
 
@@ -145,6 +146,7 @@ class Platform {
   }
 
   virtual double MonotonicallyIncreasingTime() = 0;
+  virtual double CurrentClockTimeMillis() = 0;
   typedef void(*StackTracePrinter)();
 
   virtual StackTracePrinter GetStackTracePrinter() { return nullptr; }
@@ -187,6 +189,12 @@ class Platform {
   typedef v8::TracingController::TraceStateObserver TraceStateObserver;
   virtual void AddTraceStateObserver(TraceStateObserver*) {}
   virtual void RemoveTraceStateObserver(TraceStateObserver*) {}
+
+ protected:
+  static double SystemClockTimeMillis() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+  }
 };
 
 }  // namespace v8

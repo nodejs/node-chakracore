@@ -687,7 +687,7 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
     // string is invalid. This will trigger a throw in JavaScript. Silently
     // failing should be avoided because it can lead to buffers with unexpected
     // contents.
-    if (str_length == 0)
+    if (str_length == 0) {
 #if ENABLE_TTD_NODE
         TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
 #endif
