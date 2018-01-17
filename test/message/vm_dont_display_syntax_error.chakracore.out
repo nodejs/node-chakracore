@@ -1,10 +1,10 @@
 beginning
 middle
-vm.js:*
-  return new Script(code, options);
-  ^
-
+test.vm:1
+var 5;
+    ^^
 SyntaxError: Expected identifier
+   at Script (vm.js:*)
    at createScript (vm.js:*)
    at runInThisContext (vm.js:*)
    at Anonymous function (*test*message*vm_dont_display_syntax_error.js:*)
@@ -14,4 +14,3 @@ SyntaxError: Expected identifier
    at tryModuleLoad (module.js:*)
    at Module._load (module.js:*)
    at Module.runMain (module.js:*)
-   at startup (bootstrap_node.js:*)

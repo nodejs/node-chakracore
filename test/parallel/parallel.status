@@ -121,6 +121,7 @@ test-domain-throw-error-then-throw-from-uncaught-exception-handler : SKIP
 test-domain-with-abort-on-uncaught-exception : SKIP
 test-process-exception-capture : SKIP
 test-process-exception-capture-should-abort-on-uncaught : SKIP
+test-vm-parse-abort-on-uncaught-exception : SKIP
 
 # These tests are disabled for chakra engine because they depend
 # on v8 flag --allow_natives_syntax
