@@ -929,6 +929,9 @@
           'defines': [
             'HAVE_OPENSSL=1',
           ],
+          'defines': [
+            'HAVE_OPENSSL=1',
+          ],
         }],
         ['v8_enable_inspector==1', {
           'sources': [
