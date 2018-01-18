@@ -30,6 +30,7 @@ test-async-wrap-getasyncid : SKIP
 test-inspector-async-hook-setup-at-inspect-brk : SKIP
 test-inspector-async-stack-traces-promise-then : SKIP
 test-inspector-async-stack-traces-set-interval : SKIP
+test-inspector-async-call-stack-abort          : SKIP
 test-inspector-break-when-eval : SKIP
 test-inspector-stop-profile-after-done : SKIP
 
