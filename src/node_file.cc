@@ -475,10 +475,7 @@ void Access(const FunctionCallbackInfo<Value>& args) {
 void Close(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (args.Length() < 1)
-    return TYPE_ERROR("fd is required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be a file descriptor");
+  CHECK(args[0]->IsInt32());
 
   int fd = args[0]->Int32Value();
 
@@ -661,10 +658,7 @@ static void LStat(const FunctionCallbackInfo<Value>& args) {
 static void FStat(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (args.Length() < 1)
-    return TYPE_ERROR("fd is required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be a file descriptor");
+  CHECK(args[0]->IsInt32());
 
   int fd = args[0]->Int32Value();
 
@@ -793,24 +787,11 @@ static void Rename(const FunctionCallbackInfo<Value>& args) {
 static void FTruncate(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (args.Length() < 2)
-    return TYPE_ERROR("fd and length are required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be a file descriptor");
+  CHECK(args[0]->IsInt32());
+  CHECK(args[1]->IsNumber());
 
   int fd = args[0]->Int32Value();
-
-  // FIXME(bnoordhuis) It's questionable to reject non-ints here but still
-  // allow implicit coercion from null or undefined to zero.  Probably best
-  // handled in lib/fs.js.
-  Local<Value> len_v(args[1]);
-  if (!len_v->IsUndefined() &&
-      !len_v->IsNull() &&
-      !IsInt64(len_v->NumberValue())) {
-    return env->ThrowTypeError("Not an integer");
-  }
-
-  const int64_t len = len_v->IntegerValue();
+  const int64_t len = args[1]->IntegerValue();
 
   if (args[2]->IsObject()) {
     ASYNC_CALL(ftruncate, args[2], UTF8, fd, len)
@@ -822,10 +803,7 @@ static void FTruncate(const FunctionCallbackInfo<Value>& args) {
 static void Fdatasync(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (args.Length() < 1)
-    return TYPE_ERROR("fd is required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be a file descriptor");
+  CHECK(args[0]->IsInt32());
 
   int fd = args[0]->Int32Value();
 
@@ -839,10 +817,7 @@ static void Fdatasync(const FunctionCallbackInfo<Value>& args) {
 static void Fsync(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (args.Length() < 1)
-    return TYPE_ERROR("fd is required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be a file descriptor");
+  CHECK(args[0]->IsInt32());
 
   int fd = args[0]->Int32Value();
 
@@ -1227,12 +1202,8 @@ static void WriteString(const FunctionCallbackInfo<Value>& args) {
 static void Read(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (args.Length() < 2)
-    return TYPE_ERROR("fd and buffer are required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be a file descriptor");
-  if (!Buffer::HasInstance(args[1]))
-    return TYPE_ERROR("Second argument needs to be a buffer");
+  CHECK(args[0]->IsInt32());
+  CHECK(Buffer::HasInstance(args[1]));
 
   int fd = args[0]->Int32Value();
 
@@ -1248,13 +1219,10 @@ static void Read(const FunctionCallbackInfo<Value>& args) {
   size_t buffer_length = Buffer::Length(buffer_obj);
 
   size_t off = args[2]->Int32Value();
-  if (off >= buffer_length) {
-    return env->ThrowError("Offset is out of bounds");
-  }
+  CHECK_LT(off, buffer_length);
 
   len = args[3]->Int32Value();
-  if (!Buffer::IsWithinBounds(off, len, buffer_length))
-    return env->ThrowRangeError("Length extends beyond buffer");
+  CHECK(Buffer::IsWithinBounds(off, len, buffer_length));
 
   pos = GET_OFFSET(args[4]);
 
@@ -1313,12 +1281,8 @@ static void Chmod(const FunctionCallbackInfo<Value>& args) {
 static void FChmod(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (args.Length() < 2)
-    return TYPE_ERROR("fd and mode are required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be a file descriptor");
-  if (!args[1]->IsInt32())
-    return TYPE_ERROR("mode must be an integer");
+  CHECK(args[0]->IsInt32());
+  CHECK(args[1]->IsInt32());
 
   int fd = args[0]->Int32Value();
   int mode = static_cast<int>(args[1]->Int32Value());
@@ -1369,19 +1333,9 @@ static void Chown(const FunctionCallbackInfo<Value>& args) {
 static void FChown(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  int len = args.Length();
-  if (len < 1)
-    return TYPE_ERROR("fd required");
-  if (len < 2)
-    return TYPE_ERROR("uid required");
-  if (len < 3)
-    return TYPE_ERROR("gid required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be an int");
-  if (!args[1]->IsUint32())
-    return TYPE_ERROR("uid must be an unsigned int");
-  if (!args[2]->IsUint32())
-    return TYPE_ERROR("gid must be an unsigned int");
+  CHECK(args[0]->IsInt32());
+  CHECK(args[1]->IsUint32());
+  CHECK(args[2]->IsUint32());
 
   int fd = args[0]->Int32Value();
   uv_uid_t uid = static_cast<uv_uid_t>(args[1]->Uint32Value());
@@ -1426,19 +1380,9 @@ static void UTimes(const FunctionCallbackInfo<Value>& args) {
 static void FUTimes(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  int len = args.Length();
-  if (len < 1)
-    return TYPE_ERROR("fd required");
-  if (len < 2)
-    return TYPE_ERROR("atime required");
-  if (len < 3)
-    return TYPE_ERROR("mtime required");
-  if (!args[0]->IsInt32())
-    return TYPE_ERROR("fd must be an int");
-  if (!args[1]->IsNumber())
-    return TYPE_ERROR("atime must be a number");
-  if (!args[2]->IsNumber())
-    return TYPE_ERROR("mtime must be a number");
+  CHECK(args[0]->IsInt32());
+  CHECK(args[1]->IsNumber());
+  CHECK(args[2]->IsNumber());
 
   const int fd = args[0]->Int32Value();
   const double atime = static_cast<double>(args[1]->NumberValue());
@@ -1457,8 +1401,7 @@ static void Mkdtemp(const FunctionCallbackInfo<Value>& args) {
   CHECK_GE(args.Length(), 2);
 
   BufferValue tmpl(env->isolate(), args[0]);
-  if (*tmpl == nullptr)
-    return TYPE_ERROR("template must be a string or Buffer");
+  CHECK_NE(*tmpl, nullptr);
 
   const enum encoding encoding = ParseEncoding(env->isolate(), args[1], UTF8);
 
