@@ -101,6 +101,19 @@ TLSWrap::~TLSWrap() {
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   sni_context_.Reset();
 #endif  // SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
+
+  // See test/parallel/test-tls-transport-destroy-after-own-gc.js:
+  // If this TLSWrap is garbage collected, we cannot allow callbacks to be
+  // called on this stream.
+
+  if (stream_ == nullptr)
+    return;
+  stream_->set_destruct_cb({ nullptr, nullptr });
+  stream_->set_after_write_cb({ nullptr, nullptr });
+  stream_->set_alloc_cb({ nullptr, nullptr });
+  stream_->set_read_cb({ nullptr, nullptr });
+  stream_->set_destruct_cb({ nullptr, nullptr });
+  stream_->Unconsume();
 }
 
 
@@ -315,8 +328,7 @@ void TLSWrap::EncOut() {
           ->NewInstance(env()->context()).ToLocalChecked();
   WriteWrap* write_req = WriteWrap::New(env(),
                                         req_wrap_obj,
-                                        this,
-                                        EncOutCb);
+                                        stream_);
 
   uv_buf_t buf[arraysize(data)];
   for (size_t i = 0; i < count; i++)
@@ -333,34 +345,31 @@ void TLSWrap::EncOut() {
 }
 
 
-void TLSWrap::EncOutCb(WriteWrap* req_wrap, int status) {
-  TLSWrap* wrap = req_wrap->wrap()->Cast<TLSWrap>();
-  req_wrap->Dispose();
-
+void TLSWrap::EncOutAfterWrite(WriteWrap* req_wrap, int status) {
   // We should not be getting here after `DestroySSL`, because all queued writes
   // must be invoked with UV_ECANCELED
-  CHECK_NE(wrap->ssl_, nullptr);
+  CHECK_NE(ssl_, nullptr);
 
   // Handle error
   if (status) {
     // Ignore errors after shutdown
-    if (wrap->shutdown_)
+    if (shutdown_)
       return;
 
     // Notify about error
-    wrap->InvokeQueued(status);
+    InvokeQueued(status);
     return;
   }
 
   // Commit
-  crypto::NodeBIO::FromBIO(wrap->enc_out_)->Read(nullptr, wrap->write_size_);
+  crypto::NodeBIO::FromBIO(enc_out_)->Read(nullptr, write_size_);
 
   // Ensure that the progress will be made and `InvokeQueued` will be called.
-  wrap->ClearIn();
+  ClearIn();
 
   // Try writing more data
-  wrap->write_size_ = 0;
-  wrap->EncOut();
+  write_size_ = 0;
+  EncOut();
 }
 
 
@@ -521,11 +530,6 @@ bool TLSWrap::ClearIn() {
 }
 
 
-void* TLSWrap::Cast() {
-  return reinterpret_cast<void*>(this);
-}
-
-
 AsyncWrap* TLSWrap::GetAsyncWrap() {
   return static_cast<AsyncWrap*>(this);
 }
@@ -564,12 +568,16 @@ uint32_t TLSWrap::UpdateWriteQueueSize(uint32_t write_queue_size) {
 
 
 int TLSWrap::ReadStart() {
-  return stream_->ReadStart();
+  if (stream_ != nullptr)
+    return stream_->ReadStart();
+  return 0;
 }
 
 
 int TLSWrap::ReadStop() {
-  return stream_->ReadStop();
+  if (stream_ != nullptr)
+    return stream_->ReadStop();
+  return 0;
 }
 
 
@@ -664,9 +672,9 @@ int TLSWrap::DoWrite(WriteWrap* w,
 }
 
 
-void TLSWrap::OnAfterWriteImpl(WriteWrap* w, void* ctx) {
+void TLSWrap::OnAfterWriteImpl(WriteWrap* w, int status, void* ctx) {
   TLSWrap* wrap = static_cast<TLSWrap*>(ctx);
-  wrap->UpdateWriteQueueSize();
+  wrap->EncOutAfterWrite(w, status);
 }
 
 

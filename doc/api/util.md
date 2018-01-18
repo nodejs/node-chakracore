@@ -348,8 +348,9 @@ changes:
     line. Defaults to 60 for legacy compatibility.
 
 The `util.inspect()` method returns a string representation of `object` that is
-primarily useful for debugging. Additional `options` may be passed that alter
-certain aspects of the formatted string.
+intended for debugging. The output of `util.inspect` may change at any time
+and should not be depended upon programmatically. Additional `options` may be
+passed that alter certain aspects of the formatted string.
 `util.inspect()` will use the constructor's name and/or `@@toStringTag` to make an
 identifiable tag for an inspected value.
 
@@ -552,8 +553,10 @@ If there is an `original[util.promisify.custom]` property present, `promisify`
 will return its value, see [Custom promisified functions][].
 
 `promisify()` assumes that `original` is a function taking a callback as its
-final argument in all cases, and the returned function will result in undefined
-behavior if it does not.
+final argument in all cases. If `original` is not a function, `promisify()`
+will throw an error. If `original` is a function but its last argument is not a
+Node.js style callback, it will still be passed a Node.js style callback
+as its last argument.
 
 ### Custom promisified functions
 
@@ -588,6 +591,8 @@ doSomething[util.promisify.custom] = (foo) => {
   });
 };
 ```
+If `promisify.custom` is defined but is not a function, `promisify()` will
+throw an error.
 
 ### util.promisify.custom
 <!-- YAML

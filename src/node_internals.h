@@ -291,7 +291,10 @@ class FatalTryCatch : public v8::TryCatch {
   Environment* env_;
 };
 
-void ProcessEmitWarning(Environment* env, const char* fmt, ...);
+v8::Maybe<bool> ProcessEmitWarning(Environment* env, const char* fmt, ...);
+v8::Maybe<bool> ProcessEmitDeprecationWarning(Environment* env,
+                                              const char* warning,
+                                              const char* deprecation_code);
 
 void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
                     const uv_stat_t* s,

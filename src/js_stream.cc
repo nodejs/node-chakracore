@@ -74,11 +74,6 @@ void JSStream::OnReadImpl(ssize_t nread,
 }
 
 
-void* JSStream::Cast() {
-  return static_cast<void*>(this);
-}
-
-
 AsyncWrap* JSStream::GetAsyncWrap() {
   return static_cast<AsyncWrap*>(this);
 }
@@ -181,7 +176,7 @@ void JSStream::DoAfterWrite(const FunctionCallbackInfo<Value>& args) {
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
   ASSIGN_OR_RETURN_UNWRAP(&w, args[0].As<Object>());
 
-  wrap->OnAfterWrite(w);
+  w->Done(0);
 }
 
 
