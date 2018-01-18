@@ -2246,6 +2246,14 @@ class V8_EXPORT Template : public Data {
   V8_INLINE void Set(Isolate* isolate, const char* name, Local<Data> value) {
     Set(v8::String::NewFromUtf8(isolate, name), value);
   }
+
+  void SetAccessorProperty(
+      Local<Name> name,
+      Local<FunctionTemplate> getter = Local<FunctionTemplate>(),
+      Local<FunctionTemplate> setter = Local<FunctionTemplate>(),
+      PropertyAttribute attribute = None,
+      AccessControl settings = DEFAULT);
+
  private:
   Template();
 };

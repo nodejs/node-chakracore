@@ -27,19 +27,40 @@ namespace v8 {
 Template::Template() {
 }
 
-void Template::Set(
-    Local<Name> name, Local<Data> value, PropertyAttribute attributes) {
+Object* GetTemplateProperties(Template* const templ) {
   ExternalData* externalData = nullptr;
-  if (!ExternalData::TryGet(this, &externalData)) {
+  if (!ExternalData::TryGet(templ, &externalData)) {
     // This should never happen
     CHAKRA_ASSERT(false);
-    return;
+    return nullptr;
   }
 
   TemplateData *templateData = static_cast<TemplateData*>(externalData);
-  Object* properties = templateData->EnsureProperties();
+  return templateData->EnsureProperties();
+}
+
+void Template::Set(
+    Local<Name> name, Local<Data> value, PropertyAttribute attributes) {
+  Object* properties = GetTemplateProperties(this);
   if (properties != nullptr) {
     properties->ForceSet(name, value.As<Value>(), attributes);
+  }
+}
+
+void Template::SetAccessorProperty(
+    Local<Name> name,
+    Local<FunctionTemplate> getter,
+    Local<FunctionTemplate> setter,
+    PropertyAttribute attribute,
+    AccessControl access_control) {
+  Object* properties = GetTemplateProperties(this);
+  if (properties != nullptr) {
+    properties->SetAccessorProperty(
+        name,
+        getter->GetFunction(),
+        setter->GetFunction(),
+        attribute,
+        access_control);
   }
 }
 
