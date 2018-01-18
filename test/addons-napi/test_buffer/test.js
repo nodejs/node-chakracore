@@ -12,15 +12,13 @@ assert.strictEqual(binding.newExternalBuffer().toString(), binding.theText);
 if (process.jsEngine !== 'chakracore') {
   console.log('gc1');
   global.gc();
-  assert.strictEqual(binding.getDeleterCallCount(), 1,
-                     'deleter was not called');
+  assert.strictEqual(binding.getDeleterCallCount(), 1);
 }
 
 assert.strictEqual(binding.copyBuffer().toString(), binding.theText);
 
 let buffer = binding.staticBuffer();
-assert.strictEqual(binding.bufferHasInstance(buffer), true,
-                   'buffer type checking fails');
+assert.strictEqual(binding.bufferHasInstance(buffer), true);
 assert.strictEqual(binding.bufferInfo(buffer), true);
 buffer = null;
 
@@ -28,6 +26,5 @@ buffer = null;
 if (process.jsEngine !== 'chakracore') {
   global.gc();
   console.log('gc2');
-  assert.strictEqual(binding.getDeleterCallCount(), 2,
-                     'deleter was not called');
+  assert.strictEqual(binding.getDeleterCallCount(), 2);
 }

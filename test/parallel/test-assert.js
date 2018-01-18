@@ -469,10 +469,15 @@ assert.throws(() => { assert.ifError(new Error('test error')); },
 assert.doesNotThrow(() => { assert.ifError(null); });
 assert.doesNotThrow(() => { assert.ifError(); });
 
-assert.throws(() => {
-  assert.doesNotThrow(makeBlock(thrower, Error), 'user message');
-}, /Got unwanted exception: user message/,
-              'a.doesNotThrow ignores user message');
+common.expectsError(
+  () => assert.doesNotThrow(makeBlock(thrower, Error), 'user message'),
+  {
+    type: a.AssertionError,
+    code: 'ERR_ASSERTION',
+    operator: 'doesNotThrow',
+    message: 'Got unwanted exception: user message\n[object Object]'
+  }
+);
 
 {
   let threw = false;
@@ -559,7 +564,8 @@ a.throws(makeBlock(thrower, TypeError), (err) => {
     () => { a.throws((noop)); },
     common.expectsError({
       code: 'ERR_ASSERTION',
-      message: /^Missing expected exception\.$/
+      message: /^Missing expected exception\.$/,
+      operator: 'throws'
     }));
 
   assert.throws(
@@ -777,3 +783,12 @@ common.expectsError(
   /* eslint-enable no-restricted-properties */
   assert(7);
 }
+
+common.expectsError(
+  () => assert.ok(null),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: 'null == true'
+  }
+);
