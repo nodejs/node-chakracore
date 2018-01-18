@@ -39,8 +39,18 @@ const noop = () => {};
 // Using a `.` prefixed name, which is the convention for "hidden" on POSIX,
 // gets tools to ignore it by default or by simple rules, especially eslint.
 let tmpDirName = '.tmp';
-// PORT should match the definition in test/testpy/__init__.py.
-exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
+
+Object.defineProperty(exports, 'PORT', {
+  get: () => {
+    if (+process.env.TEST_PARALLEL) {
+      throw new Error('common.PORT cannot be used in a parallelized test');
+    }
+    return +process.env.NODE_COMMON_PORT || 12346;
+  },
+  enumerable: true
+});
+
+
 exports.isWindows = process.platform === 'win32';
 exports.isChakraEngine = process.jsEngine === 'chakracore';
 exports.isWOW64 = exports.isWindows &&
@@ -163,7 +173,6 @@ exports.refreshTmpDir = function() {
 };
 
 if (process.env.TEST_THREAD_ID) {
-  exports.PORT += process.env.TEST_THREAD_ID * 100;
   tmpDirName += `.${process.env.TEST_THREAD_ID}`;
 }
 exports.tmpDir = path.join(testRoot, tmpDirName);
@@ -752,7 +761,7 @@ exports.expectsError = function expectsError(fn, settings, exact) {
     settings = fn;
     fn = undefined;
   }
-  const innerFn = exports.mustCall(function(error) {
+  function innerFn(error) {
     assert.strictEqual(error.code, settings.code);
     if ('type' in settings) {
       const type = settings.type;
@@ -785,12 +794,12 @@ exports.expectsError = function expectsError(fn, settings, exact) {
       });
     }
     return true;
-  }, exact);
+  }
   if (fn) {
     assert.throws(fn, innerFn);
     return;
   }
-  return innerFn;
+  return exports.mustCall(innerFn, exact);
 };
 
 exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {

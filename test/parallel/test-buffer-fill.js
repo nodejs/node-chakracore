@@ -424,13 +424,12 @@ common.expectsError(() => {
 
 // Testing process.binding. Make sure "end" is properly checked for -1 wrap
 // around.
-assert.throws(() => {
+common.expectsError(() => {
   process.binding('buffer').fill(Buffer.alloc(1), 1, 1, -2, 1);
-}, common.expectsError(
-  { code: undefined, type: RangeError, message: 'Index out of range' }));
+}, { code: undefined, type: RangeError, message: 'Index out of range' });
 
 // Test that bypassing 'length' won't cause an abort.
-assert.throws(() => {
+common.expectsError(() => {
   if (common.isChakraEngine) {
     // Skip on ChakraCore due to TypedArray .length JIT bug
     // (see this issue: https://github.com/Microsoft/ChakraCore/issues/2319)
@@ -442,8 +441,7 @@ assert.throws(() => {
     enumerable: true
   });
   buf.fill('');
-}, common.expectsError(
-  { code: undefined, type: RangeError, message: 'Index out of range' }));
+}, { code: undefined, type: RangeError, message: 'Index out of range' });
 
 assert.deepStrictEqual(
   Buffer.allocUnsafeSlow(16).fill('ab', 'utf16le'),
