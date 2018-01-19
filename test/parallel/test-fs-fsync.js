@@ -34,7 +34,7 @@ const fileTemp = path.join(common.tmpDir, 'a.js');
 common.refreshTmpDir();
 fs.copyFileSync(fileFixture, fileTemp);
 
-fs.open(fileFixture, 'a', 0o777, common.mustCall(function(err, fd) {
+fs.open(fileTemp, 'a', 0o777, common.mustCall(function(err, fd) {
   assert.ifError(err);
 
   fs.fdatasyncSync(fd);
@@ -55,7 +55,7 @@ fs.open(fileFixture, 'a', 0o777, common.mustCall(function(err, fd) {
     {
       code: 'ERR_INVALID_ARG_TYPE',
       type: TypeError,
-      message: 'The "fd" argument must be of type number'
+      message: 'The "fd" argument must be of type integer'
     }
   );
   common.expectsError(
@@ -63,7 +63,7 @@ fs.open(fileFixture, 'a', 0o777, common.mustCall(function(err, fd) {
     {
       code: 'ERR_INVALID_ARG_TYPE',
       type: TypeError,
-      message: 'The "fd" argument must be of type number'
+      message: 'The "fd" argument must be of type integer'
     }
   );
   common.expectsError(
@@ -71,7 +71,7 @@ fs.open(fileFixture, 'a', 0o777, common.mustCall(function(err, fd) {
     {
       code: 'ERR_INVALID_ARG_TYPE',
       type: TypeError,
-      message: 'The "fd" argument must be of type number'
+      message: 'The "fd" argument must be of type integer'
     }
   );
   common.expectsError(
@@ -79,26 +79,7 @@ fs.open(fileFixture, 'a', 0o777, common.mustCall(function(err, fd) {
     {
       code: 'ERR_INVALID_ARG_TYPE',
       type: TypeError,
-      message: 'The "fd" argument must be of type number'
-    }
-  );
-});
-
-[-1, 0xFFFFFFFF + 1].forEach((i) => {
-  common.expectsError(
-    () => fs.fsync(i),
-    {
-      code: 'ERR_OUT_OF_RANGE',
-      type: RangeError,
-      message: 'The "fd" argument is out of range'
-    }
-  );
-  common.expectsError(
-    () => fs.fsyncSync(i),
-    {
-      code: 'ERR_OUT_OF_RANGE',
-      type: RangeError,
-      message: 'The "fd" argument is out of range'
+      message: 'The "fd" argument must be of type integer'
     }
   );
 });

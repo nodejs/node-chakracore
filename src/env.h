@@ -288,6 +288,7 @@ class ModuleWrap;
   V(host_import_module_dynamically_callback, v8::Function)                    \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
   V(http2stream_constructor_template, v8::ObjectTemplate)                     \
+  V(http2settings_constructor_template, v8::ObjectTemplate)                   \
   V(inspector_console_api_object, v8::Object)                                 \
   V(module_load_list_array, v8::Array)                                        \
   V(pbkdf2_constructor_template, v8::ObjectTemplate)                          \
@@ -358,6 +359,13 @@ class IsolateData {
   MultiIsolatePlatform* platform_;
 
   DISALLOW_COPY_AND_ASSIGN(IsolateData);
+};
+
+struct ContextInfo {
+  explicit ContextInfo(const std::string& name) : name(name) {}
+  const std::string name;
+  std::string origin;
+  bool is_default = false;
 };
 
 class Environment {
@@ -508,8 +516,10 @@ class Environment {
              int exec_argc,
              const char* const* exec_argv,
              bool start_profiler_idle_notifier);
-  void AssignToContext(v8::Local<v8::Context> context);
   void CleanupHandles();
+
+  inline void AssignToContext(v8::Local<v8::Context> context,
+                              const ContextInfo& info);
 
   void StartProfilerIdleNotifier();
   void StopProfilerIdleNotifier();
