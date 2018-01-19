@@ -1340,7 +1340,7 @@ An operation caused an out-of-memory condition.
 <a id="ERR_OUT_OF_RANGE"></a>
 ### ERR_OUT_OF_RANGE
 
-An input argument value was outside an acceptable range.
+A given value is out of the accepted range.
 
 <a id="ERR_PARSE_HISTORY_DATA"></a>
 ### ERR_PARSE_HISTORY_DATA
@@ -1364,7 +1364,14 @@ Script execution was interrupted by `SIGINT` (For example, when Ctrl+C was press
 
 The [`server.listen()`][] method was called while a `net.Server` was already
 listening. This applies to all instances of `net.Server`, including HTTP, HTTPS,
-and HTTP/2 Server instances.
+and HTTP/2 `Server` instances.
+
+<a id="ERR_SERVER_NOT_RUNNING"></a>
+### ERR_SERVER_NOT_RUNNING
+
+The [`server.close()`][] method was called when a `net.Server` was not
+running. This applies to all instances of `net.Server`, including HTTP, HTTPS,
+and HTTP/2 `Server` instances.
 
 <a id="ERR_SOCKET_ALREADY_BOUND"></a>
 ### ERR_SOCKET_ALREADY_BOUND
@@ -1602,7 +1609,7 @@ entry types were found.
 <a id="ERR_VALUE_OUT_OF_RANGE"></a>
 ### ERR_VALUE_OUT_OF_RANGE
 
-A given value is out of the accepted range.
+Superseded by `ERR_OUT_OF_RANGE`
 
 <a id="ERR_ZLIB_BINDING_CLOSED"></a>
 ### ERR_ZLIB_BINDING_CLOSED
