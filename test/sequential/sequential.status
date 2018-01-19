@@ -32,6 +32,7 @@ test-inspector-async-stack-traces-promise-then : SKIP
 test-inspector-async-stack-traces-set-interval : SKIP
 test-inspector-async-call-stack-abort          : SKIP
 test-inspector-break-when-eval : SKIP
+test-inspector-port-cluster : SKIP
 test-inspector-stop-profile-after-done : SKIP
 
 # This test is causing hangs in CI for some reason.

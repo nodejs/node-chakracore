@@ -68,6 +68,7 @@ test-promises-unhandled-symbol-rejections : SKIP
 test-promises-warning-on-unhandled-rejection : SKIP
 test-regress-GH-12371 : SKIP
 test-repl : SKIP
+test-repl-inspector : SKIP
 test-repl-mode : SKIP
 test-repl-pretty-custom-stack : SKIP
 test-repl-pretty-stack : SKIP
@@ -88,6 +89,7 @@ test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
 test-util-format-shared-arraybuffer : SKIP
 test-util-inspect-proxy : SKIP
+test-util-inspect : SKIP
 test-util-promisify : SKIP
 test-v8-serdes : SKIP
 test-v8-serdes-sharedarraybuffer : SKIP
