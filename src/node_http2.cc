@@ -78,6 +78,11 @@ Http2Scope::Http2Scope(Http2Session* session) {
   }
   session->flags_ |= SESSION_STATE_HAS_SCOPE;
   session_ = session;
+
+  // Always keep the session object alive for at least as long as
+  // this scope is active.
+  session_handle_ = session->object();
+  CHECK(!session_handle_.IsEmpty());
 }
 
 Http2Scope::~Http2Scope() {
@@ -181,7 +186,7 @@ void Http2Session::Http2Settings::Init() {
 
   if (flags & (1 << IDX_SETTINGS_HEADER_TABLE_SIZE)) {
     uint32_t val = buffer[IDX_SETTINGS_HEADER_TABLE_SIZE];
-    DEBUG_HTTP2SESSION2(session, "setting header table size: %d\n", val);
+    DEBUG_HTTP2SESSION2(session_, "setting header table size: %d\n", val);
     entries_[n].settings_id = NGHTTP2_SETTINGS_HEADER_TABLE_SIZE;
     entries_[n].value = val;
     n++;
@@ -189,7 +194,7 @@ void Http2Session::Http2Settings::Init() {
 
   if (flags & (1 << IDX_SETTINGS_MAX_CONCURRENT_STREAMS)) {
     uint32_t val = buffer[IDX_SETTINGS_MAX_CONCURRENT_STREAMS];
-    DEBUG_HTTP2SESSION2(session, "setting max concurrent streams: %d\n", val);
+    DEBUG_HTTP2SESSION2(session_, "setting max concurrent streams: %d\n", val);
     entries_[n].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
     entries_[n].value = val;
     n++;
@@ -197,7 +202,7 @@ void Http2Session::Http2Settings::Init() {
 
   if (flags & (1 << IDX_SETTINGS_MAX_FRAME_SIZE)) {
     uint32_t val = buffer[IDX_SETTINGS_MAX_FRAME_SIZE];
-    DEBUG_HTTP2SESSION2(session, "setting max frame size: %d\n", val);
+    DEBUG_HTTP2SESSION2(session_, "setting max frame size: %d\n", val);
     entries_[n].settings_id = NGHTTP2_SETTINGS_MAX_FRAME_SIZE;
     entries_[n].value = val;
     n++;
@@ -205,7 +210,7 @@ void Http2Session::Http2Settings::Init() {
 
   if (flags & (1 << IDX_SETTINGS_INITIAL_WINDOW_SIZE)) {
     uint32_t val = buffer[IDX_SETTINGS_INITIAL_WINDOW_SIZE];
-    DEBUG_HTTP2SESSION2(session, "setting initial window size: %d\n", val);
+    DEBUG_HTTP2SESSION2(session_, "setting initial window size: %d\n", val);
     entries_[n].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
     entries_[n].value = val;
     n++;
@@ -213,7 +218,7 @@ void Http2Session::Http2Settings::Init() {
 
   if (flags & (1 << IDX_SETTINGS_MAX_HEADER_LIST_SIZE)) {
     uint32_t val = buffer[IDX_SETTINGS_MAX_HEADER_LIST_SIZE];
-    DEBUG_HTTP2SESSION2(session, "setting max header list size: %d\n", val);
+    DEBUG_HTTP2SESSION2(session_, "setting max header list size: %d\n", val);
     entries_[n].settings_id = NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE;
     entries_[n].value = val;
     n++;
@@ -221,7 +226,7 @@ void Http2Session::Http2Settings::Init() {
 
   if (flags & (1 << IDX_SETTINGS_ENABLE_PUSH)) {
     uint32_t val = buffer[IDX_SETTINGS_ENABLE_PUSH];
-    DEBUG_HTTP2SESSION2(session, "setting enable push: %d\n", val);
+    DEBUG_HTTP2SESSION2(session_, "setting enable push: %d\n", val);
     entries_[n].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
     entries_[n].value = val;
     n++;
@@ -519,6 +524,7 @@ void Http2Session::Unconsume() {
 }
 
 Http2Session::~Http2Session() {
+  CHECK_EQ(flags_ & SESSION_STATE_HAS_SCOPE, 0);
   if (!object().IsEmpty())
     ClearWrap(object());
   persistent().Reset();
@@ -1372,6 +1378,7 @@ void Http2Session::OnStreamReadImpl(ssize_t nread,
                                     void* ctx) {
   Http2Session* session = static_cast<Http2Session*>(ctx);
   Http2Scope h2scope(session);
+  CHECK_NE(session->stream_, nullptr);
   DEBUG_HTTP2SESSION2(session, "receiving %d bytes", nread);
   if (nread < 0) {
     uv_buf_t tmp_buf;
