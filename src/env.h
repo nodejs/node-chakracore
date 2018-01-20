@@ -179,6 +179,7 @@ class ModuleWrap;
   V(netmask_string, "netmask")                                                \
   V(nsname_string, "nsname")                                                  \
   V(ocsp_request_string, "OCSPRequest")                                       \
+  V(onaltsvc_string, "onaltsvc")                                              \
   V(onchange_string, "onchange")                                              \
   V(onclienthello_string, "onclienthello")                                    \
   V(oncomplete_string, "oncomplete")                                          \
@@ -453,22 +454,45 @@ class Environment {
     DISALLOW_COPY_AND_ASSIGN(AsyncCallbackScope);
   };
 
-  class TickInfo {
+  class ImmediateInfo {
    public:
-    inline uint8_t* fields();
-    inline int fields_count() const;
-    inline uint8_t scheduled() const;
+    inline AliasedBuffer<uint32_t, v8::Uint32Array>& fields();
+    inline uint32_t count() const;
+    inline bool has_outstanding() const;
+
+    inline void count_inc(uint32_t increment);
+    inline void count_dec(uint32_t decrement);
 
    private:
     friend class Environment;  // So we can call the constructor.
-    inline TickInfo();
+    inline explicit ImmediateInfo(v8::Isolate* isolate);
 
     enum Fields {
-      kScheduled,
+      kCount,
+      kHasOutstanding,
       kFieldsCount
     };
 
-    uint8_t fields_[kFieldsCount];
+    AliasedBuffer<uint32_t, v8::Uint32Array> fields_;
+
+    DISALLOW_COPY_AND_ASSIGN(ImmediateInfo);
+  };
+
+  class TickInfo {
+   public:
+    inline AliasedBuffer<uint8_t, v8::Uint8Array>& fields();
+    inline bool has_scheduled() const;
+
+   private:
+    friend class Environment;  // So we can call the constructor.
+    inline explicit TickInfo(v8::Isolate* isolate);
+
+    enum Fields {
+      kHasScheduled,
+      kFieldsCount
+    };
+
+    AliasedBuffer<uint8_t, v8::Uint8Array> fields_;
 
     DISALLOW_COPY_AND_ASSIGN(TickInfo);
   };
@@ -533,6 +557,7 @@ class Environment {
   inline void FinishHandleCleanup(uv_handle_t* handle);
 
   inline AsyncHooks* async_hooks();
+  inline ImmediateInfo* immediate_info();
   inline TickInfo* tick_info();
   inline uint64_t timer_base() const;
 
@@ -582,8 +607,6 @@ class Environment {
 
   inline v8::Local<v8::Float64Array> fs_stats_field_array() const;
   inline void set_fs_stats_field_array(v8::Local<v8::Float64Array> fields);
-
-  inline AliasedBuffer<uint32_t, v8::Uint32Array>& scheduled_immediate_count();
 
   inline performance::performance_state* performance_state();
   inline std::map<std::string, uint64_t>* performance_marks();
@@ -705,6 +728,7 @@ class Environment {
   uv_check_t idle_check_handle_;
 
   AsyncHooks async_hooks_;
+  ImmediateInfo immediate_info_;
   TickInfo tick_info_;
   const uint64_t timer_base_;
   bool using_domains_;
@@ -715,7 +739,6 @@ class Environment {
   size_t makecallback_cntr_;
   std::vector<double> destroy_async_id_list_;
 
-  AliasedBuffer<uint32_t, v8::Uint32Array> scheduled_immediate_count_;
   AliasedBuffer<uint32_t, v8::Uint32Array> should_abort_on_uncaught_toggle_;
 
   int should_not_abort_scope_counter_ = 0;

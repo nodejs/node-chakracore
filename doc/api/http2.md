@@ -191,7 +191,7 @@ the handler function will receive three arguments:
 added: v8.4.0
 -->
 
-The `'localSettings'` event is emitted when an acknowledgement SETTINGS frame
+The `'localSettings'` event is emitted when an acknowledgment SETTINGS frame
 has been received. When invoked, the handler function will receive a copy of
 the local settings.
 
@@ -327,7 +327,7 @@ Once destroyed, the `Http2Session` will emit the `'close'` event. If `error`
 is not undefined, an `'error'` event will be emitted immediately after the
 `'close'` event.
 
-If there are any remaining open `Http2Streams` associatd with the
+If there are any remaining open `Http2Streams` associated with the
 `Http2Session`, those will also be destroyed.
 
 #### http2session.destroyed
@@ -371,7 +371,7 @@ added: v8.4.0
 * Value: {boolean}
 
 Indicates whether or not the `Http2Session` is currently waiting for an
-acknowledgement for a sent SETTINGS frame. Will be `true` after calling the
+acknowledgment for a sent SETTINGS frame. Will be `true` after calling the
 `http2session.settings()` method. Will be `false` once all sent SETTINGS
 frames have been acknowledged.
 
@@ -393,12 +393,12 @@ The maximum number of outstanding (unacknowledged) pings is determined by the
 
 If provided, the `payload` must be a `Buffer`, `TypedArray`, or `DataView`
 containing 8 bytes of data that will be transmitted with the `PING` and
-returned with the ping acknowledgement.
+returned with the ping acknowledgment.
 
 The callback will be invoked with three arguments: an error argument that will
 be `null` if the `PING` was successfully acknowledged, a `duration` argument
 that reports the number of milliseconds elapsed since the ping was sent and the
-acknowledgement was received, and a `Buffer` containing the 8-byte `PING`
+acknowledgment was received, and a `Buffer` containing the 8-byte `PING`
 payload.
 
 ```js
@@ -534,8 +534,8 @@ while the session is waiting for the remote peer to acknowledge the new
 settings.
 
 *Note*: The new settings will not become effective until the SETTINGS
-acknowledgement is received and the `'localSettings'` event is emitted. It
-is possible to send multiple SETTINGS frames while acknowledgement is still
+acknowledgment is received and the `'localSettings'` event is emitted. It
+is possible to send multiple SETTINGS frames while acknowledgment is still
 pending.
 
 #### http2session.type
@@ -558,10 +558,102 @@ added: REPLACEME
 Calls [`unref()`][`net.Socket.prototype.unref`] on this `Http2Session`
 instance's underlying [`net.Socket`].
 
+### Class: ServerHttp2Session
+<!-- YAML
+added: v8.4.0
+-->
+
+#### serverhttp2session.altsvc(alt, originOrStream)
+<!-- YAML
+added: REPLACEME
+-->
+
+* `alt` {string} A description of the alternative service configuration as
+  defined by [RFC 7838][].
+* `originOrStream` {number|string|URL|Object} Either a URL string specifying
+  the origin (or an Object with an `origin` property) or the numeric identifier
+  of an active `Http2Stream` as given by the `http2stream.id` property.
+
+Submits an `ALTSVC` frame (as defined by [RFC 7838][]) to the connected client.
+
+```js
+const http2 = require('http2');
+
+const server = http2.createServer();
+server.on('session', (session) => {
+  // Set altsvc for origin https://example.org:80
+  session.altsvc('h2=":8000"', 'https://example.org:80');
+});
+
+server.on('stream', (stream) => {
+  // Set altsvc for a specific stream
+  stream.session.altsvc('h2=":8000"', stream.id);
+});
+```
+
+Sending an `ALTSVC` frame with a specific stream ID indicates that the alternate
+service is associated with the origin of the given `Http2Stream`.
+
+The `alt` and origin string *must* contain only ASCII bytes and are
+strictly interpreted as a sequence of ASCII bytes. The special value `'clear'`
+may be passed to clear any previously set alternative service for a given
+domain.
+
+When a string is passed for the `originOrStream` argument, it will be parsed as
+a URL and the origin will be derived. For insetance, the origin for the
+HTTP URL `'https://example.org/foo/bar'` is the ASCII string
+`'https://example.org'`. An error will be thrown if either the given string
+cannot be parsed as a URL or if a valid origin cannot be derived.
+
+A `URL` object, or any object with an `origin` property, may be passed as
+`originOrStream`, in which case the value of the `origin` property will be
+used. The value of the `origin` property *must* be a properly serialized
+ASCII origin.
+
+#### Specifying alternative services
+
+The format of the `alt` parameter is strictly defined by [RFC 7838][] as an
+ASCII string containing a comma-delimited list of "alternative" protocols
+associated with a specific host and port.
+
+For example, the value `'h2="example.org:81"'` indicates that the HTTP/2
+protocol is available on the host `'example.org'` on TCP/IP port 81. The
+host and port *must* be contained within the quote (`"`) characters.
+
+Multiple alternatives may be specified, for instance: `'h2="example.org:81",
+h2=":82"'`
+
+The protocol identifier (`'h2'` in the examples) may be any valid
+[ALPN Protocol ID][].
+
+The syntax of these values is not validated by the Node.js implementation and
+are passed through as provided by the user or received from the peer.
+
 ### Class: ClientHttp2Session
 <!-- YAML
 added: v8.4.0
 -->
+
+#### Event: 'altsvc'
+<!-- YAML
+added: REPLACEME
+-->
+
+The `'altsvc'` event is emitted whenever an `ALTSVC` frame is received by
+the client. The event is emitted with the `ALTSVC` value, origin, and stream
+ID, if any. If no `origin` is provided in the `ALTSVC` frame, `origin` will
+be an empty string.
+
+```js
+const http2 = require('http2');
+const client = http2.connect('https://example.org');
+
+client.on('altsvc', (alt, origin, stream) => {
+  console.log(alt);
+  console.log(origin);
+  console.log(stream);
+});
+```
 
 #### clienthttp2session.request(headers[, options])
 <!-- YAML
@@ -746,7 +838,7 @@ added: v8.4.0
 -->
 
 The `'timeout'` event is emitted after no activity is received for this
-`'Http2Stream'` within the number of millseconds set using
+`'Http2Stream'` within the number of milliseconds set using
 `http2stream.setTimeout()`.
 
 #### Event: 'trailers'
@@ -2044,7 +2136,7 @@ the status message for HTTP codes is ignored.
 ### ALPN negotiation
 
 ALPN negotiation allows to support both [HTTPS][] and HTTP/2 over
-the same socket. The `req` and `res` objects can be either HTTP/1 or
+the same socket. The `req` and `res` objects can be either HTTP/1 or
 HTTP/2, and an application **must** restrict itself to the public API of
 [HTTP/1][], and detect if it is possible to use the more advanced
 features of HTTP/2.
@@ -2800,14 +2892,66 @@ given newly created [`Http2Stream`] on `Http2ServerRespose`.
 The callback will be called with an error with code `ERR_HTTP2_STREAM_CLOSED`
 if the stream is closed.
 
+## Collecting HTTP/2 Performance Metrics
+
+The [Performance Observer][] API can be used to collect basic performance
+metrics for each `Http2Session` and `Http2Stream` instance.
+
+```js
+const { PerformanceObserver } = require('perf_hooks');
+
+const obs = new PerformanceObserver((items) => {
+  const entry = items.getEntries()[0];
+  console.log(entry.entryType);  // prints 'http2'
+  if (entry.name === 'Http2Session') {
+    // entry contains statistics about the Http2Session
+  } else if (entry.name === 'Http2Stream') {
+    // entry contains statistics about the Http2Stream
+  }
+});
+obs.observe({ entryTypes: ['http2'] });
+```
+
+The `entryType` property of the `PerformanceEntry` will be equal to `'http2'`.
+
+The `name` property of the `PerformanceEntry` will be equal to either
+`'Http2Stream'` or `'Http2Session'`.
+
+If `name` is equal to `Http2Stream`, the `PerformanceEntry` will contain the
+following additional properties:
+
+* `timeToFirstByte` {number} The number of milliseconds elapsed between the
+  `PerformanceEntry` `startTime` and the reception of the first `DATA` frame.
+* `timeToFirstHeader` {number} The number of milliseconds elapsed between the
+  `PerformanceEntry` `startTime` and the reception of the first header.
+
+If `name` is equal to `Http2Session`, the `PerformanceEntry` will contain the
+following additional properties:
+
+* `pingRTT` {number} The number of milliseconds elapsed since the transmission
+  of a `PING` frame and the reception of its acknowledgement. Only present if
+  a `PING` frame has been sent on the `Http2Session`.
+* `streamCount` {number} The number of `Http2Stream` instances processed by
+  the `Http2Session`.
+* `streamAverageDuration` {number} The average duration (in milliseconds) for
+  all `Http2Stream` instances.
+* `framesReceived` {number} The number of HTTP/2 frames received by the
+  `Http2Session`.
+* `type` {string} Either `'server'` or `'client'` to identify the type of
+  `Http2Session`.
+
+
 [ALPN negotiation]: #http2_alpn_negotiation
+[ALPN Protocol ID]: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
 [Compatibility API]: #http2_compatibility_api
 [HTTP/1]: http.html
 [HTTP/2]: https://tools.ietf.org/html/rfc7540
 [HTTPS]: https.html
 [Headers Object]: #http2_headers_object
 [Http2Session and Sockets]: #http2_http2session_and_sockets
+[Performance Observer]: perf_hooks.html
 [Readable Stream]: stream.html#stream_class_stream_readable
+[RFC 7838]: https://tools.ietf.org/html/rfc7838
 [Settings Object]: #http2_settings_object
 [Using options.selectPadding]: #http2_using_options_selectpadding
 [Writable Stream]: stream.html#stream_writable_streams
