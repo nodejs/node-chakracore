@@ -2046,6 +2046,9 @@ static void Exit(const FunctionCallbackInfo<Value>& args) {
     }
 #endif
   WaitForInspectorDisconnect(Environment::GetCurrent(args));
+  if (trace_enabled) {
+    v8_platform.StopTracingAgent();
+  }
   exit(args[0]->Int32Value());
 }
 
