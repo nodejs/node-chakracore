@@ -464,6 +464,8 @@ Http2Session::Callbacks::Callbacks(bool kHasGetPaddingCallback) {
     callbacks, OnNghttpError);
   nghttp2_session_callbacks_set_send_data_callback(
     callbacks, OnSendData);
+  nghttp2_session_callbacks_set_on_invalid_frame_recv_callback(
+    callbacks, OnInvalidFrame);
 
   if (kHasGetPaddingCallback) {
     nghttp2_session_callbacks_set_select_padding_callback(
@@ -499,8 +501,7 @@ Http2Session::Http2Session(Environment* env,
   padding_strategy_ = opts.GetPaddingStrategy();
 
   bool hasGetPaddingCallback =
-      padding_strategy_ == PADDING_STRATEGY_MAX ||
-      padding_strategy_ == PADDING_STRATEGY_CALLBACK;
+      padding_strategy_ != PADDING_STRATEGY_NONE;
 
   nghttp2_session_callbacks* callbacks
       = callback_struct_saved[hasGetPaddingCallback ? 1 : 0].callbacks;
@@ -565,13 +566,13 @@ inline void Http2Stream::EmitStatistics() {
           FIXED_ONE_BYTE_STRING(env->isolate(), "timeToFirstByte"),
           Number::New(env->isolate(),
                       (entry->first_byte() - entry->startTimeNano()) / 1e6),
-          attr);
+          attr).FromJust();
       obj->DefineOwnProperty(
           context,
           FIXED_ONE_BYTE_STRING(env->isolate(), "timeToFirstHeader"),
           Number::New(env->isolate(),
                       (entry->first_header() - entry->startTimeNano()) / 1e6),
-          attr);
+          attr).FromJust();
       entry->Notify(obj);
     }
     delete entry;
@@ -597,25 +598,29 @@ inline void Http2Session::EmitStatistics() {
           String::NewFromUtf8(env->isolate(),
                               entry->typeName(),
                               v8::NewStringType::kInternalized)
-                                  .ToLocalChecked(), attr);
+                                  .ToLocalChecked(), attr).FromJust();
       if (entry->ping_rtt() != 0) {
         obj->DefineOwnProperty(
             context,
             FIXED_ONE_BYTE_STRING(env->isolate(), "pingRTT"),
-            Number::New(env->isolate(), entry->ping_rtt() / 1e6), attr);
+            Number::New(env->isolate(), entry->ping_rtt() / 1e6),
+            attr).FromJust();
       }
       obj->DefineOwnProperty(
           context,
           FIXED_ONE_BYTE_STRING(env->isolate(), "framesReceived"),
-          Integer::NewFromUnsigned(env->isolate(), entry->frame_count()), attr);
+          Integer::NewFromUnsigned(env->isolate(), entry->frame_count()),
+          attr).FromJust();
       obj->DefineOwnProperty(
           context,
           FIXED_ONE_BYTE_STRING(env->isolate(), "streamCount"),
-          Integer::New(env->isolate(), entry->stream_count()), attr);
+          Integer::New(env->isolate(), entry->stream_count()),
+          attr).FromJust();
       obj->DefineOwnProperty(
           context,
           FIXED_ONE_BYTE_STRING(env->isolate(), "streamAverageDuration"),
-          Number::New(env->isolate(), entry->stream_average_duration()), attr);
+          Number::New(env->isolate(), entry->stream_average_duration()),
+          attr).FromJust();
       entry->Notify(obj);
     }
     delete entry;
@@ -686,6 +691,25 @@ inline void Http2Session::AddStream(Http2Stream* stream) {
 
 inline void Http2Session::RemoveStream(int32_t id) {
   streams_.erase(id);
+}
+
+// Used as one of the Padding Strategy functions. Will attempt to ensure
+// that the total frame size, including header bytes, are 8-byte aligned.
+// If maxPayloadLen is smaller than the number of bytes necessary to align,
+// will return maxPayloadLen instead.
+inline ssize_t Http2Session::OnDWordAlignedPadding(size_t frameLen,
+                                                   size_t maxPayloadLen) {
+  size_t r = (frameLen + 9) % 8;
+  if (r == 0) return frameLen;  // If already a multiple of 8, return.
+
+  size_t pad = frameLen + (8 - r);
+
+  // If maxPayloadLen happens to be less than the calculated pad length,
+  // use the max instead, even tho this means the frame will not be
+  // aligned.
+  pad = std::min(maxPayloadLen, pad);
+  DEBUG_HTTP2SESSION2(this, "using frame size padding: %d", pad);
+  return pad;
 }
 
 // Used as one of the Padding Strategy functions. Uses the maximum amount
@@ -869,6 +893,31 @@ inline int Http2Session::OnFrameReceive(nghttp2_session* handle,
   return 0;
 }
 
+inline int Http2Session::OnInvalidFrame(nghttp2_session* handle,
+                                        const nghttp2_frame *frame,
+                                        int lib_error_code,
+                                        void* user_data) {
+  Http2Session* session = static_cast<Http2Session*>(user_data);
+
+  DEBUG_HTTP2SESSION2(session, "invalid frame received, code: %d",
+                      lib_error_code);
+
+  // If the error is fatal or if error code is ERR_STREAM_CLOSED... emit error
+  if (nghttp2_is_fatal(lib_error_code) ||
+      lib_error_code == NGHTTP2_ERR_STREAM_CLOSED) {
+    Environment* env = session->env();
+    Isolate* isolate = env->isolate();
+    HandleScope scope(isolate);
+    Local<Context> context = env->context();
+    Context::Scope context_scope(context);
+
+    Local<Value> argv[1] = {
+      Integer::New(isolate, lib_error_code),
+    };
+    session->MakeCallback(env->error_string(), arraysize(argv), argv);
+  }
+  return 0;
+}
 
 // If nghttp2 is unable to send a queued up frame, it will call this callback
 // to let us know. If the failure occurred because we are in the process of
@@ -994,9 +1043,21 @@ inline ssize_t Http2Session::OnSelectPadding(nghttp2_session* handle,
   Http2Session* session = static_cast<Http2Session*>(user_data);
   ssize_t padding = frame->hd.length;
 
-  return session->padding_strategy_ == PADDING_STRATEGY_MAX
-    ? session->OnMaxFrameSizePadding(padding, maxPayloadLen)
-    : session->OnCallbackPadding(padding, maxPayloadLen);
+  switch (session->padding_strategy_) {
+    case PADDING_STRATEGY_NONE:
+      // Fall-through
+      break;
+    case PADDING_STRATEGY_MAX:
+      padding = session->OnMaxFrameSizePadding(padding, maxPayloadLen);
+      break;
+    case PADDING_STRATEGY_ALIGNED:
+      padding = session->OnDWordAlignedPadding(padding, maxPayloadLen);
+      break;
+    case PADDING_STRATEGY_CALLBACK:
+      padding = session->OnCallbackPadding(padding, maxPayloadLen);
+      break;
+  }
+  return padding;
 }
 
 #define BAD_PEER_MESSAGE "Remote peer returned unexpected data while we "     \
@@ -2879,6 +2940,7 @@ void Initialize(Local<Object> target,
   NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE);
 
   NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_NONE);
+  NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_ALIGNED);
   NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_MAX);
   NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_CALLBACK);
 
