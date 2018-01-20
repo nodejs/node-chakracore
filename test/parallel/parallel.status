@@ -83,6 +83,7 @@ test-trace-events-async-hooks : PASS,SKIP
 test-trace-events-binding : PASS,SKIP
 test-trace-events-category-used : PASS,SKIP
 test-trace-events-none : PASS,SKIP
+test-trace-events-process-exit : PASS,SKIP
 test-trace-events-v8 : PASS,SKIP
 
 test-url-domain-ascii-unicode : SKIP
