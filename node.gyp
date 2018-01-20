@@ -977,7 +977,7 @@
         [ 'OS=="win" and node_target_type!="static_library"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_win32.<(OBJ_SUFFIX)',
-           ],
+          ],
           'conditions': [
             # this is only necessary for chakra on windows because chakra is dynamically linked on windows
             [ 'node_engine=="chakracore"', {

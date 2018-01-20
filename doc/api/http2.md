@@ -285,7 +285,7 @@ session.on('timeout', () => { /** .. **/ });
 
 #### http2session.alpnProtocol
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * Value: {string|undefined}
@@ -297,7 +297,7 @@ property.
 
 #### http2session.close([callback])
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * `callback` {Function}
@@ -312,7 +312,7 @@ If specified, the `callback` function is registered as a handler for the
 
 #### http2session.closed
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * Value: {boolean}
@@ -354,7 +354,7 @@ longer be used, otherwise `false`.
 
 #### http2session.encrypted
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * Value: {boolean|undefined}
@@ -366,7 +366,7 @@ or stream.
 
 #### http2session.goaway([code, [lastStreamID, [opaqueData]]])
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * `code` {number} An HTTP/2 error code
@@ -389,7 +389,7 @@ A prototype-less object describing the current local settings of this
 
 #### http2session.originSet
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * Value: {string[]|undefined}
@@ -450,7 +450,7 @@ If the `payload` argument is not specified, the default payload will be the
 
 #### http2session.ref()
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 Calls [`ref()`][`net.Socket.prototype.ref`] on this `Http2Session`
@@ -540,16 +540,28 @@ All other interactions will be routed directly to the socket.
 added: v8.4.0
 -->
 
+Provides miscellaneous information about the current state of the
+`Http2Session`.
+
 * Value: {Object}
-  * `effectiveLocalWindowSize` {number}
-  * `effectiveRecvDataLength` {number}
-  * `nextStreamID` {number}
-  * `localWindowSize` {number}
-  * `lastProcStreamID` {number}
-  * `remoteWindowSize` {number}
-  * `outboundQueueSize` {number}
-  * `deflateDynamicTableSize` {number}
-  * `inflateDynamicTableSize` {number}
+  * `effectiveLocalWindowSize` {number} The current local (receive)
+    flow control window size for the `Http2Session`.
+  * `effectiveRecvDataLength` {number} The current number of bytes
+    that have been received since the last flow control `WINDOW_UPDATE`.
+  * `nextStreamID` {number} The numeric identifier to be used the
+    next time a new `Http2Stream` is created by this `Http2Session`.
+  * `localWindowSize` {number} The number of bytes that the remote peer can
+    send without receiving a `WINDOW_UPDATE`.
+  * `lastProcStreamID` {number} The numeric id of the `Http2Stream`
+    for which a `HEADERS` or `DATA` frame was most recently received.
+  * `remoteWindowSize` {number} The number of bytes that this `Http2Session`
+    may send without receiving a `WINDOW_UPDATE`.
+  * `outboundQueueSize` {number} The number of frames currently within the
+    outbound queue for this `Http2Session`.
+  * `deflateDynamicTableSize` {number} The current size in bytes of the
+    outbound header compression state table.
+  * `inflateDynamicTableSize` {number} The current size in bytes of the
+    inbound header compression state table.
 
 An object describing the current status of this `Http2Session`.
 
@@ -587,7 +599,7 @@ client.
 
 #### http2session.unref()
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 Calls [`unref()`][`net.Socket.prototype.unref`] on this `Http2Session`
@@ -600,7 +612,7 @@ added: v8.4.0
 
 #### serverhttp2session.altsvc(alt, originOrStream)
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * `alt` {string} A description of the alternative service configuration as
@@ -671,7 +683,7 @@ added: v8.4.0
 
 #### Event: 'altsvc'
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 The `'altsvc'` event is emitted whenever an `ALTSVC` frame is received by
@@ -917,7 +929,7 @@ connected HTTP/2 peer.
 
 #### http2stream.closed
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * Value: {boolean}
@@ -936,7 +948,7 @@ usable.
 
 #### http2stream.pending
 <!-- YAML
-added: REPLACEME
+added: v9.4.0
 -->
 
 * Value: {boolean}
@@ -1010,14 +1022,21 @@ req.setTimeout(5000, () => req.rstStream(NGHTTP2_CANCEL));
 <!-- YAML
 added: v8.4.0
 -->
+Provides miscellaneous information about the current state of the
+`Http2Stream`.
 
 * Value: {Object}
-  * `localWindowSize` {number}
-  * `state` {number}
-  * `localClose` {number}
-  * `remoteClose` {number}
-  * `sumDependencyWeight` {number}
-  * `weight` {number}
+  * `localWindowSize` {number} The number of bytes the connected peer may send
+    for this `Http2Stream` without receiving a `WINDOW_UPDATE`.
+  * `state` {number} A flag indicating the low-level current state of the
+    `Http2Stream` as determined by nghttp2.
+  * `localClose` {number} `true` if this `Http2Stream` has been closed locally.
+  * `remoteClose` {number} `true` if this `Http2Stream` has been closed
+    remotely.
+  * `sumDependencyWeight` {number} The sum weight of all `Http2Stream`
+    instances that depend on this `Http2Stream` as specified using
+    `PRIORITY` frames.
+  * `weight` {number} The priority weight of this `Http2Stream`.
 
 A current state of this `Http2Stream`.
 
@@ -3003,23 +3022,35 @@ The `name` property of the `PerformanceEntry` will be equal to either
 If `name` is equal to `Http2Stream`, the `PerformanceEntry` will contain the
 following additional properties:
 
+* `bytesRead` {number} The number of DATA frame bytes received for this
+  `Http2Stream`.
+* `bytesWritten` {number} The number of DATA frame bytes sent for this
+  `Http2Stream`.
+* `id` {number} The identifier of the associated `Http2Stream`
 * `timeToFirstByte` {number} The number of milliseconds elapsed between the
   `PerformanceEntry` `startTime` and the reception of the first `DATA` frame.
+* `timeToFirstByteSent` {number} The number of milliseconds elapsed between
+  the `PerformanceEntry` `startTime` and sending of the first `DATA` frame.
 * `timeToFirstHeader` {number} The number of milliseconds elapsed between the
   `PerformanceEntry` `startTime` and the reception of the first header.
 
 If `name` is equal to `Http2Session`, the `PerformanceEntry` will contain the
 following additional properties:
 
+* `bytesRead` {number} The number of bytes received for this `Http2Session`.
+* `bytesWritten` {number} The number of bytes sent for this `Http2Session`.
+* `framesReceived` {number} The number of HTTP/2 frames received by the
+  `Http2Session`.
+* `framesSent` {number} The number of HTTP/2 frames sent by the `Http2Session`.
+* `maxConcurrentStreams` {number} The maximum number of streams concurrently
+  open during the lifetime of the `Http2Session`.
 * `pingRTT` {number} The number of milliseconds elapsed since the transmission
   of a `PING` frame and the reception of its acknowledgment. Only present if
   a `PING` frame has been sent on the `Http2Session`.
-* `streamCount` {number} The number of `Http2Stream` instances processed by
-  the `Http2Session`.
 * `streamAverageDuration` {number} The average duration (in milliseconds) for
   all `Http2Stream` instances.
-* `framesReceived` {number} The number of HTTP/2 frames received by the
-  `Http2Session`.
+* `streamCount` {number} The number of `Http2Stream` instances processed by
+  the `Http2Session`.
 * `type` {string} Either `'server'` or `'client'` to identify the type of
   `Http2Session`.
 
