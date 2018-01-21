@@ -3,7 +3,7 @@ const common = require('../common');
 const assert = require('assert');
 
 const expected_keys = ['ares', 'http_parser', 'modules', 'node',
-                       'uv', 'zlib', 'nghttp2'];
+                       'uv', 'zlib', 'nghttp2', 'napi'];
 const jsEngine = process.jsEngine || 'v8';
 expected_keys.push(jsEngine);
 

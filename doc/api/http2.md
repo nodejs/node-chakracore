@@ -989,6 +989,34 @@ destroyed after either receiving an `RST_STREAM` frame from the connected peer,
 calling `http2stream.close()`, or `http2stream.destroy()`. Will be
 `undefined` if the `Http2Stream` has not been closed.
 
+#### http2stream.sentHeaders
+<!-- YAML
+added: REPLACEME
+-->
+
+* Value: {[Headers Object][]}
+
+An object containing the outbound headers sent for this `Http2Stream`.
+
+#### http2stream.sentInfoHeaders
+<!-- YAML
+added: REPLACEME
+-->
+
+* Value: {[Headers Object][]\[\]}
+
+An array of objects containing the outbound informational (additional) headers
+sent for this `Http2Stream`.
+
+#### http2stream.sentTrailers
+<!-- YAML
+added: REPLACEME
+-->
+
+* Value: {[Headers Object][]}
+
+An object containing the outbound trailers sent for this this `HttpStream`.
+
 #### http2stream.session
 <!-- YAML
 added: v8.4.0
@@ -1015,7 +1043,7 @@ const { NGHTTP2_CANCEL } = http2.constants;
 const req = client.request({ ':path': '/' });
 
 // Cancel the stream if there's no activity after 5 seconds
-req.setTimeout(5000, () => req.rstStream(NGHTTP2_CANCEL));
+req.setTimeout(5000, () => req.close(NGHTTP2_CANCEL));
 ```
 
 #### http2stream.state
@@ -1174,14 +1202,16 @@ added: v8.4.0
 * Returns: {undefined}
 
 Initiates a push stream. The callback is invoked with the new `Http2Stream`
-instance created for the push stream.
+instance created for the push stream passed as the second argument, or an
+`Error` passed as the first argument.
 
 ```js
 const http2 = require('http2');
 const server = http2.createServer();
 server.on('stream', (stream) => {
   stream.respond({ ':status': 200 });
-  stream.pushStream({ ':path': '/' }, (pushStream) => {
+  stream.pushStream({ ':path': '/' }, (err, pushStream) => {
+    if (err) throw err;
     pushStream.respond({ ':status': 200 });
     pushStream.end('some pushed data');
   });
@@ -1202,7 +1232,7 @@ added: v8.4.0
 * `options` {Object}
   * `endStream` {boolean} Set to `true` to indicate that the response will not
     include payload data.
-  * `getTrailers` {function} Callback function invoked to collect trailer
+  * `getTrailers` {Function} Callback function invoked to collect trailer
     headers.
 * Returns: {undefined}
 
