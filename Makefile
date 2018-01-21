@@ -14,6 +14,7 @@ COVTESTS ?= test-cov
 GTEST_FILTER ?= "*"
 GNUMAKEFLAGS += --no-print-directory
 GCOV ?= gcov
+PWD = $(CURDIR)
 
 ifdef JOBS
   PARALLEL_ARGS = -j $(JOBS)
@@ -640,7 +641,7 @@ out/doc/api/assets/%: doc/api_assets/% out/doc/api/assets
 available-node = \
   if [ -x $(PWD)/$(NODE) ] && [ -e $(PWD)/$(NODE) ]; then \
 		$(PWD)/$(NODE) $(1); \
-	elif [ -x `which node` ] && [ -e `which node` ]; then \
+	elif [ -x `which node` ] && [ -e `which node` ] && [ `which node` ]; then \
 		`which node` $(1); \
 	else \
 		echo "No available node, cannot run \"node $(1)\""; \
@@ -913,7 +914,7 @@ $(TARBALL): release-only $(NODE_EXE) doc
 	$(RM) -r $(TARNAME)/deps/openssl/openssl/{doc,demos,test}
 	$(RM) -r $(TARNAME)/deps/zlib/contrib # too big, unused
 	$(RM) -r $(TARNAME)/.{editorconfig,git*,mailmap}
-	$(RM) -r $(TARNAME)/tools/{eslint,eslint-rules,osx-pkg.pmdoc,pkgsrc,remark-cli,remark-preset-lint-node}
+	$(RM) -r $(TARNAME)/tools/{eslint-rules,node_modules,osx-pkg.pmdoc,pkgsrc,remark-cli,remark-preset-lint-node}
 	$(RM) -r $(TARNAME)/tools/{osx-*,license-builder.sh,cpplint.py}
 	$(RM) -r $(TARNAME)/test*.tap
 	find $(TARNAME)/ -name ".eslint*" -maxdepth 2 | xargs $(RM)
@@ -1115,7 +1116,7 @@ lint-md:
 endif
 
 LINT_JS_TARGETS = benchmark doc lib test tools
-LINT_JS_CMD = tools/eslint/bin/eslint.js --cache \
+LINT_JS_CMD = tools/node_modules/eslint/bin/eslint.js --cache \
 	--rulesdir=tools/eslint-rules --ext=.js,.mjs,.md \
 	$(LINT_JS_TARGETS)
 
@@ -1206,7 +1207,7 @@ cpplint: lint-cpp
 
 .PHONY: lint
 .PHONY: lint-ci
-ifneq ("","$(wildcard tools/eslint/)")
+ifneq ("","$(wildcard tools/node_modules/eslint/)")
 lint: ## Run JS, C++, MD and doc linters.
 	@EXIT_STATUS=0 ; \
 	$(MAKE) lint-js || EXIT_STATUS=$$? ; \
