@@ -2524,6 +2524,23 @@ napi_status napi_create_dataview(napi_env env,
 
   JsValueRef jsArrayBuffer = reinterpret_cast<JsValueRef>(arraybuffer);
 
+  BYTE* unused = nullptr;
+  unsigned int bufferLength = 0;
+
+  CHECK_JSRT(JsGetArrayBufferStorage(
+    jsArrayBuffer,
+    &unused,
+    &bufferLength));
+
+  if (byte_length + byte_offset > bufferLength) {
+    napi_throw_range_error(
+      env,
+      "ERR_NAPI_INVALID_DATAVIEW_ARGS",
+      "byte_offset + byte_length should be less than or "
+       "equal to the size in bytes of the array passed in");
+    return napi_set_last_error(napi_pending_exception);
+  }
+
   CHECK_JSRT(JsCreateDataView(
     jsArrayBuffer,
     static_cast<unsigned int>(byte_offset),
