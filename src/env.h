@@ -49,7 +49,7 @@ struct nghttp2_rcbuf;
 namespace node {
 
 namespace performance {
-struct performance_state;
+class performance_state;
 }
 
 namespace loader {
@@ -714,7 +714,7 @@ class Environment {
   size_t makecallback_cntr_;
   std::vector<double> destroy_async_id_list_;
 
-  performance::performance_state* performance_state_ = nullptr;
+  std::unique_ptr<performance::performance_state> performance_state_;
   std::map<std::string, uint64_t> performance_marks_;
 
 #if HAVE_INSPECTOR

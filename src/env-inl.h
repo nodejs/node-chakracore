@@ -331,7 +331,7 @@ inline Environment::Environment(IsolateData* isolate_data,
   AssignToContext(context);
 
   destroy_async_id_list_.reserve(512);
-  performance_state_ = Calloc<performance::performance_state>(1);
+  performance_state_.reset(new performance::performance_state(isolate()));
   performance_state_->milestones[
       performance::NODE_PERFORMANCE_MILESTONE_ENVIRONMENT] =
           PERFORMANCE_NOW();
@@ -363,7 +363,6 @@ inline Environment::~Environment() {
   delete[] heap_statistics_buffer_;
   delete[] heap_space_statistics_buffer_;
   delete[] http_parser_buffer_;
-  free(performance_state_);
 }
 
 inline v8::Isolate* Environment::isolate() const {
@@ -537,7 +536,7 @@ inline void Environment::set_fs_stats_field_array(
 }
 
 inline performance::performance_state* Environment::performance_state() {
-  return performance_state_;
+  return performance_state_.get();
 }
 
 inline std::map<std::string, uint64_t>* Environment::performance_marks() {
