@@ -63,8 +63,8 @@ object mode is not safe.
 <!--type=misc-->
 
 Both [Writable][] and [Readable][] streams will store data in an internal
-buffer that can be retrieved using `writable._writableState.getBuffer()` or
-`readable._readableState.buffer`, respectively.
+buffer that can be retrieved using `writable.writableBuffer` or
+`readable.readableBuffer`, respectively.
 
 The amount of data potentially buffered depends on the `highWaterMark` option
 passed into the streams constructor. For normal streams, the `highWaterMark`
@@ -439,11 +439,19 @@ See also: [`writable.cork()`][].
 
 ##### writable.writableHighWaterMark
 <!-- YAML
-added: REPLACEME
+added: v9.3.0
 -->
-
 Return the value of `highWaterMark` passed when constructing this
 `Writable`.
+
+##### writable.writableLength
+<!-- YAML
+added: v9.4.0
+-->
+
+This property contains the number of bytes (or objects) in the queue
+ready to be written. The value provides introspection data regarding
+the status of the `highWaterMark`.
 
 ##### writable.write(chunk[, encoding][, callback])
 <!-- YAML
@@ -602,22 +610,22 @@ Readable stream implementation.
 Specifically, at any given point in time, every Readable is in one of three
 possible states:
 
-* `readable._readableState.flowing = null`
-* `readable._readableState.flowing = false`
-* `readable._readableState.flowing = true`
+* `readable.readableFlowing = null`
+* `readable.readableFlowing = false`
+* `readable.readableFlowing = true`
 
-When `readable._readableState.flowing` is `null`, no mechanism for consuming the
+When `readable.readableFlowing` is `null`, no mechanism for consuming the
 streams data is provided so the stream will not generate its data. While in this
 state, attaching a listener for the `'data'` event, calling the `readable.pipe()`
 method, or calling the `readable.resume()` method will switch
-`readable._readableState.flowing` to `true`, causing the Readable to begin
+`readable.readableFlowing` to `true`, causing the Readable to begin
 actively emitting events as data is generated.
 
 Calling `readable.pause()`, `readable.unpipe()`, or receiving "back pressure"
-will cause the `readable._readableState.flowing` to be set as `false`,
+will cause the `readable.readableFlowing` to be set as `false`,
 temporarily halting the flowing of events but *not* halting the generation of
 data. While in this state, attaching a listener for the `'data'` event
-would not cause `readable._readableState.flowing` to switch to `true`.
+would not cause `readable.readableFlowing` to switch to `true`.
 
 ```js
 const { PassThrough, Writable } = require('stream');
@@ -626,14 +634,14 @@ const writable = new Writable();
 
 pass.pipe(writable);
 pass.unpipe(writable);
-// flowing is now false
+// readableFlowing is now false
 
 pass.on('data', (chunk) => { console.log(chunk.toString()); });
 pass.write('ok'); // will not emit 'data'
 pass.resume(); // must be called to make 'data' being emitted
 ```
 
-While `readable._readableState.flowing` is `false`, data may be accumulating
+While `readable.readableFlowing` is `false`, data may be accumulating
 within the streams internal buffer.
 
 #### Choose One
@@ -739,6 +747,12 @@ The listener callback will be passed a single `Error` object.
 ##### Event: 'readable'
 <!-- YAML
 added: v0.9.4
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/17979
+    description: >
+      'readable' is always emitted in the next tick after
+      .push() is called
 -->
 
 The `'readable'` event is emitted when there is data available to be read from
@@ -889,7 +903,7 @@ options.
 
 ##### readable.readableHighWaterMark
 <!-- YAML
-added: REPLACEME
+added: v9.3.0
 -->
 
 Return the value of `highWaterMark` passed when constructing this
@@ -944,6 +958,15 @@ event will also be emitted.
 
 *Note*: Calling [`stream.read([size])`][stream-read] after the [`'end'`][]
 event has been emitted will return `null`. No runtime error will be raised.
+
+##### readable.readableLength
+<!-- YAML
+added: v9.4.0
+-->
+
+This property contains the number of bytes (or objects) in the queue
+ready to be read. The value provides introspection data regarding
+the status of the `highWaterMark`.
 
 ##### readable.resume()
 <!-- YAML
@@ -1141,6 +1164,31 @@ Destroy the stream, and emit `'error'`. After this call, the
 readable stream will release any internal resources.
 Implementors should not override this method, but instead implement
 [`readable._destroy`][readable-_destroy].
+
+##### readable[@@asyncIterator]
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1 - Experimental
+
+Returns an [AsyncIterator][async-iterator] to fully consume the stream.
+
+```js
+async function print(readable) {
+  readable.setEncoding('utf8');
+  let data = '';
+  for await (const k of readable) {
+    data += k;
+  }
+  console.log(data);
+}
+
+print(fs.createReadStream('file')).catch(console.log);
+```
+
+If the loop terminates with a `break` or a `throw`, the stream will be destroyed.
+In other terms, iterating over a stream will consume the stream fully.
 
 ### Duplex and Transform Streams
 
@@ -1409,12 +1457,11 @@ successfully or failed with an error. The first argument passed to the
 `callback` must be the `Error` object if the call failed or `null` if the
 write succeeded.
 
-It is important to note that all calls to `writable.write()` that occur between
-the time `writable._write()` is called and the `callback` is called will cause
-the written data to be buffered. Once the `callback` is invoked, the stream will
-emit a [`'drain'`][] event. If a stream implementation is capable of processing
-multiple chunks of data at once, the `writable._writev()` method should be
-implemented.
+All calls to `writable.write()` that occur between the time `writable._write()`
+is called and the `callback` is called will cause the written data to be
+buffered. Once the `callback` is invoked, the stream will emit a [`'drain'`][]
+event. If a stream implementation is capable of processing multiple chunks of
+data at once, the `writable._writev()` method should be implemented.
 
 If the `decodeStrings` property is set in the constructor options, then
 `chunk` may be a string rather than a Buffer, and `encoding` will
@@ -1631,6 +1678,13 @@ const myReadable = new Readable({
 ```
 
 #### readable.\_read(size)
+<!-- YAML
+added: v0.9.4
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/17979
+    description: call _read() only once per microtick
+-->
 
 * `size` {number} Number of bytes to read asynchronously
 
@@ -1650,6 +1704,8 @@ additional data onto the queue.
 
 *Note*: Once the `readable._read()` method has been called, it will not be
 called again until the [`readable.push()`][stream-push] method is called.
+`readable._read()` is guaranteed to be called only once within a
+synchronous execution, i.e. a microtick.
 
 The `size` argument is advisory. For implementations where a "read" is a
 single operation that returns data can use the `size` argument to determine how
@@ -2297,3 +2353,4 @@ contain multi-byte characters.
 [readable-destroy]: #stream_readable_destroy_error
 [writable-_destroy]: #stream_writable_destroy_err_callback
 [writable-destroy]: #stream_writable_destroy_error
+[async-iterator]: https://github.com/tc39/proposal-async-iteration

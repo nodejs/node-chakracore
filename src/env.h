@@ -41,7 +41,6 @@
 #include <map>
 #include <stdint.h>
 #include <vector>
-#include <stack>
 #include <unordered_map>
 
 struct nghttp2_rcbuf;
@@ -91,7 +90,6 @@ class ModuleWrap;
   V(contextify_global_private_symbol, "node:contextify:global")               \
   V(decorated_private_symbol, "node:decorated")                               \
   V(npn_buffer_private_symbol, "node:npnBuffer")                              \
-  V(processed_private_symbol, "node:processed")                               \
   V(selected_npn_buffer_private_symbol, "node:selectedNpnBuffer")             \
   V(domain_private_symbol, "node:domain")                                     \
 
@@ -101,6 +99,7 @@ class ModuleWrap;
   V(address_string, "address")                                                \
   V(args_string, "args")                                                      \
   V(async, "async")                                                           \
+  V(async_ids_stack_string, "async_ids_stack")                                \
   V(buffer_string, "buffer")                                                  \
   V(bytes_string, "bytes")                                                    \
   V(bytes_parsed_string, "bytesParsed")                                       \
@@ -108,7 +107,6 @@ class ModuleWrap;
   V(cached_data_string, "cachedData")                                         \
   V(cached_data_produced_string, "cachedDataProduced")                        \
   V(cached_data_rejected_string, "cachedDataRejected")                        \
-  V(callback_string, "callback")                                              \
   V(change_string, "change")                                                  \
   V(channel_string, "channel")                                                \
   V(chunks_sent_since_last_write_string, "chunksSentSinceLastWrite")          \
@@ -116,10 +114,8 @@ class ModuleWrap;
   V(oncertcb_string, "oncertcb")                                              \
   V(onclose_string, "_onclose")                                               \
   V(code_string, "code")                                                      \
-  V(configurable_string, "configurable")                                      \
   V(cwd_string, "cwd")                                                        \
   V(dest_string, "dest")                                                      \
-  V(destroy_string, "destroy")                                                \
   V(destroyed_string, "destroyed")                                            \
   V(detached_string, "detached")                                              \
   V(dns_a_string, "A")                                                        \
@@ -133,19 +129,14 @@ class ModuleWrap;
   V(dns_srv_string, "SRV")                                                    \
   V(dns_txt_string, "TXT")                                                    \
   V(domain_string, "domain")                                                  \
-  V(emit_string, "emit")                                                      \
+  V(emit_warning_string, "emitWarning")                                       \
   V(exchange_string, "exchange")                                              \
-  V(enumerable_string, "enumerable")                                          \
-  V(idle_string, "idle")                                                      \
-  V(irq_string, "irq")                                                        \
-  V(enablepush_string, "enablePush")                                          \
   V(encoding_string, "encoding")                                              \
   V(enter_string, "enter")                                                    \
   V(entries_string, "entries")                                                \
   V(env_pairs_string, "envPairs")                                             \
   V(errno_string, "errno")                                                    \
   V(error_string, "error")                                                    \
-  V(events_string, "_events")                                                 \
   V(exiting_string, "_exiting")                                               \
   V(exit_code_string, "exitCode")                                             \
   V(exit_string, "exit")                                                      \
@@ -160,43 +151,34 @@ class ModuleWrap;
   V(file_string, "file")                                                      \
   V(fingerprint_string, "fingerprint")                                        \
   V(flags_string, "flags")                                                    \
-  V(get_string, "get")                                                        \
   V(get_data_clone_error_string, "_getDataCloneError")                        \
   V(get_shared_array_buffer_id_string, "_getSharedArrayBufferId")             \
   V(gid_string, "gid")                                                        \
   V(handle_string, "handle")                                                  \
-  V(heap_total_string, "heapTotal")                                           \
-  V(heap_used_string, "heapUsed")                                             \
   V(homedir_string, "homedir")                                                \
   V(hostmaster_string, "hostmaster")                                          \
-  V(id_string, "id")                                                          \
   V(ignore_string, "ignore")                                                  \
-  V(immediate_callback_string, "_immediateCallback")                          \
   V(infoaccess_string, "infoAccess")                                          \
   V(inherit_string, "inherit")                                                \
   V(input_string, "input")                                                    \
   V(internal_string, "internal")                                              \
   V(ipv4_string, "IPv4")                                                      \
   V(ipv6_string, "IPv6")                                                      \
-  V(isalive_string, "isAlive")                                                \
   V(isclosing_string, "isClosing")                                            \
   V(issuer_string, "issuer")                                                  \
   V(issuercert_string, "issuerCertificate")                                   \
   V(kill_signal_string, "killSignal")                                         \
-  V(length_string, "length")                                                  \
   V(mac_string, "mac")                                                        \
   V(main_string, "main")                                                      \
   V(max_buffer_string, "maxBuffer")                                           \
   V(message_string, "message")                                                \
   V(minttl_string, "minttl")                                                  \
-  V(model_string, "model")                                                    \
   V(modulus_string, "modulus")                                                \
   V(name_string, "name")                                                      \
   V(netmask_string, "netmask")                                                \
-  V(nice_string, "nice")                                                      \
   V(nsname_string, "nsname")                                                  \
-  V(nexttick_string, "nextTick")                                              \
   V(ocsp_request_string, "OCSPRequest")                                       \
+  V(onaltsvc_string, "onaltsvc")                                              \
   V(onchange_string, "onchange")                                              \
   V(onclienthello_string, "onclienthello")                                    \
   V(oncomplete_string, "oncomplete")                                          \
@@ -255,26 +237,20 @@ class ModuleWrap;
   V(service_string, "service")                                                \
   V(servername_string, "servername")                                          \
   V(session_id_string, "sessionId")                                           \
-  V(set_string, "set")                                                        \
   V(shell_string, "shell")                                                    \
   V(signal_string, "signal")                                                  \
   V(size_string, "size")                                                      \
   V(sni_context_err_string, "Invalid SNI context")                            \
   V(sni_context_string, "sni_context")                                        \
-  V(speed_string, "speed")                                                    \
   V(stack_string, "stack")                                                    \
   V(status_string, "status")                                                  \
   V(stdio_string, "stdio")                                                    \
-  V(stream_string, "stream")                                                  \
   V(subject_string, "subject")                                                \
   V(subjectaltname_string, "subjectaltname")                                  \
-  V(sys_string, "sys")                                                        \
   V(syscall_string, "syscall")                                                \
-  V(tick_callback_string, "_tickCallback")                                    \
   V(tick_domain_cb_string, "_tickDomainCallback")                             \
   V(ticketkeycallback_string, "onticketkeycallback")                          \
   V(timeout_string, "timeout")                                                \
-  V(times_string, "times")                                                    \
   V(tls_ticket_string, "tlsTicket")                                           \
   V(ttl_string, "ttl")                                                        \
   V(type_string, "type")                                                      \
@@ -304,6 +280,7 @@ class ModuleWrap;
   V(async_hooks_before_function, v8::Function)                                \
   V(async_hooks_after_function, v8::Function)                                 \
   V(async_hooks_promise_resolve_function, v8::Function)                       \
+  V(async_hooks_binding, v8::Object)                                          \
   V(binding_cache_object, v8::Object)                                         \
   V(internal_binding_cache_object, v8::Object)                                \
   V(buffer_prototype_object, v8::Object)                                      \
@@ -311,6 +288,8 @@ class ModuleWrap;
   V(host_import_module_dynamically_callback, v8::Function)                    \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
   V(http2stream_constructor_template, v8::ObjectTemplate)                     \
+  V(http2settings_constructor_template, v8::ObjectTemplate)                   \
+  V(immediate_callback_function, v8::Function)                                \
   V(inspector_console_api_object, v8::Object)                                 \
   V(module_load_list_array, v8::Array)                                        \
   V(pbkdf2_constructor_template, v8::ObjectTemplate)                          \
@@ -335,11 +314,6 @@ class ModuleWrap;
   V(write_wrap_constructor_function, v8::Function)                            \
 
 class Environment;
-
-struct node_async_ids {
-  double async_id;
-  double trigger_async_id;
-};
 
 class IsolateData {
  public:
@@ -383,6 +357,13 @@ class IsolateData {
   DISALLOW_COPY_AND_ASSIGN(IsolateData);
 };
 
+struct ContextInfo {
+  explicit ContextInfo(const std::string& name) : name(name) {}
+  const std::string name;
+  std::string origin;
+  bool is_default = false;
+};
+
 class Environment {
  public:
   class AsyncHooks {
@@ -397,6 +378,7 @@ class Environment {
       kPromiseResolve,
       kTotals,
       kCheck,
+      kStackLength,
       kFieldsCount,
     };
 
@@ -404,58 +386,56 @@ class Environment {
       kExecutionAsyncId,
       kTriggerAsyncId,
       kAsyncIdCounter,
-      kInitTriggerAsyncId,
+      kDefaultTriggerAsyncId,
       kUidFieldsCount,
     };
 
-
-    AsyncHooks() = delete;
-
     inline AliasedBuffer<uint32_t, v8::Uint32Array>& fields();
-    inline int fields_count() const;
-
     inline AliasedBuffer<double, v8::Float64Array>& async_id_fields();
-    inline int async_id_fields_count() const;
+    inline AliasedBuffer<double, v8::Float64Array>& async_ids_stack();
 
     inline v8::Local<v8::String> provider_string(int idx);
 
     inline void no_force_checks();
+    inline Environment* env();
 
     inline void push_async_ids(double async_id, double trigger_async_id);
     inline bool pop_async_id(double async_id);
-    inline size_t stack_size();
     inline void clear_async_id_stack();  // Used in fatal exceptions.
 
-    // Used to propagate the trigger_async_id to the constructor of any newly
-    // created resources using RAII. Instead of needing to pass the
-    // trigger_async_id along with other constructor arguments.
-    class InitScope {
+    // Used to set the kDefaultTriggerAsyncId in a scope. This is instead of
+    // passing the trigger_async_id along with other constructor arguments.
+    class DefaultTriggerAsyncIdScope {
      public:
-      InitScope() = delete;
-      explicit InitScope(Environment* env, double init_trigger_async_id);
-      ~InitScope();
+      DefaultTriggerAsyncIdScope() = delete;
+      explicit DefaultTriggerAsyncIdScope(Environment* env,
+                                          double init_trigger_async_id);
+      ~DefaultTriggerAsyncIdScope();
 
      private:
-      Environment* env_;
       AliasedBuffer<double, v8::Float64Array> async_id_fields_ref_;
+      double old_default_trigger_async_id_;
 
-      DISALLOW_COPY_AND_ASSIGN(InitScope);
+      DISALLOW_COPY_AND_ASSIGN(DefaultTriggerAsyncIdScope);
     };
+
 
    private:
     friend class Environment;  // So we can call the constructor.
-    inline explicit AsyncHooks(v8::Isolate* isolate);
+    inline AsyncHooks();
     // Keep a list of all Persistent strings used for Provider types.
     v8::Eternal<v8::String> providers_[AsyncWrap::PROVIDERS_LENGTH];
-    // Used by provider_string().
-    v8::Isolate* isolate_;
+    // Keep track of the environment copy itself.
+    Environment* env_;
     // Stores the ids of the current execution context stack.
-    std::stack<struct node_async_ids> async_ids_stack_;
+    AliasedBuffer<double, v8::Float64Array> async_ids_stack_;
     // Attached to a Uint32Array that tracks the number of active hooks for
     // each type.
     AliasedBuffer<uint32_t, v8::Uint32Array> fields_;
     // Attached to a Float64Array that tracks the state of async resources.
     AliasedBuffer<double, v8::Float64Array> async_id_fields_;
+
+    void grow_async_ids_stack();
 
     DISALLOW_COPY_AND_ASSIGN(AsyncHooks);
   };
@@ -473,25 +453,45 @@ class Environment {
     DISALLOW_COPY_AND_ASSIGN(AsyncCallbackScope);
   };
 
-  class TickInfo {
+  class ImmediateInfo {
    public:
-    inline uint32_t* fields();
-    inline int fields_count() const;
-    inline uint32_t index() const;
-    inline uint32_t length() const;
-    inline void set_index(uint32_t value);
+    inline AliasedBuffer<uint32_t, v8::Uint32Array>& fields();
+    inline uint32_t count() const;
+    inline bool has_outstanding() const;
+
+    inline void count_inc(uint32_t increment);
+    inline void count_dec(uint32_t decrement);
 
    private:
     friend class Environment;  // So we can call the constructor.
-    inline TickInfo();
+    inline explicit ImmediateInfo(v8::Isolate* isolate);
 
     enum Fields {
-      kIndex,
-      kLength,
+      kCount,
+      kHasOutstanding,
       kFieldsCount
     };
 
-    uint32_t fields_[kFieldsCount];
+    AliasedBuffer<uint32_t, v8::Uint32Array> fields_;
+
+    DISALLOW_COPY_AND_ASSIGN(ImmediateInfo);
+  };
+
+  class TickInfo {
+   public:
+    inline AliasedBuffer<uint8_t, v8::Uint8Array>& fields();
+    inline bool has_scheduled() const;
+
+   private:
+    friend class Environment;  // So we can call the constructor.
+    inline explicit TickInfo(v8::Isolate* isolate);
+
+    enum Fields {
+      kHasScheduled,
+      kFieldsCount
+    };
+
+    AliasedBuffer<uint8_t, v8::Uint8Array> fields_;
 
     DISALLOW_COPY_AND_ASSIGN(TickInfo);
   };
@@ -533,8 +533,10 @@ class Environment {
              int exec_argc,
              const char* const* exec_argv,
              bool start_profiler_idle_notifier);
-  void AssignToContext(v8::Local<v8::Context> context);
   void CleanupHandles();
+
+  inline void AssignToContext(v8::Local<v8::Context> context,
+                              const ContextInfo& info);
 
   void StartProfilerIdleNotifier();
   void StopProfilerIdleNotifier();
@@ -554,6 +556,7 @@ class Environment {
   inline void FinishHandleCleanup(uv_handle_t* handle);
 
   inline AsyncHooks* async_hooks();
+  inline ImmediateInfo* immediate_info();
   inline TickInfo* tick_info();
   inline uint64_t timer_base() const;
 
@@ -582,8 +585,7 @@ class Environment {
   inline double new_async_id();
   inline double execution_async_id();
   inline double trigger_async_id();
-  inline double get_init_trigger_async_id();
-  inline void set_init_trigger_async_id(const double id);
+  inline double get_default_trigger_async_id();
 
   // List of id's that have been destroyed and need the destroy() cb called.
   inline std::vector<double>* destroy_async_id_list();
@@ -604,8 +606,6 @@ class Environment {
 
   inline v8::Local<v8::Float64Array> fs_stats_field_array() const;
   inline void set_fs_stats_field_array(v8::Local<v8::Float64Array> fields);
-
-  inline AliasedBuffer<uint32_t, v8::Uint32Array>& scheduled_immediate_count();
 
   inline performance::performance_state* performance_state();
   inline std::map<std::string, uint64_t>* performance_marks();
@@ -701,6 +701,20 @@ class Environment {
   // This needs to be available for the JS-land setImmediate().
   void ActivateImmediateCheck();
 
+  class ShouldNotAbortOnUncaughtScope {
+   public:
+    explicit inline ShouldNotAbortOnUncaughtScope(Environment* env);
+    inline void Close();
+    inline ~ShouldNotAbortOnUncaughtScope();
+
+   private:
+    Environment* env_;
+  };
+
+  inline bool inside_should_not_abort_on_uncaught_scope() const;
+
+  static inline Environment* ForAsyncHooks(AsyncHooks* hooks);
+
  private:
   inline void ThrowError(v8::Local<v8::Value> (*fun)(v8::Local<v8::String>),
                          const char* errmsg);
@@ -713,6 +727,7 @@ class Environment {
   uv_check_t idle_check_handle_;
 
   AsyncHooks async_hooks_;
+  ImmediateInfo immediate_info_;
   TickInfo tick_info_;
   const uint64_t timer_base_;
   bool using_domains_;
@@ -723,8 +738,9 @@ class Environment {
   size_t makecallback_cntr_;
   std::vector<double> destroy_async_id_list_;
 
-  AliasedBuffer<uint32_t, v8::Uint32Array> scheduled_immediate_count_;
   AliasedBuffer<uint32_t, v8::Uint32Array> should_abort_on_uncaught_toggle_;
+
+  int should_not_abort_scope_counter_ = 0;
 
   performance::performance_state* performance_state_ = nullptr;
   std::map<std::string, uint64_t> performance_marks_;

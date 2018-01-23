@@ -81,10 +81,9 @@ const { Console } = console;
 * `stdout` {Writable}
 * `stderr` {Writable}
 
-Creates a new `Console` by passing one or two writable stream instances.
-`stdout` is a writable stream to print log or info output. `stderr`
-is used for warning or error output. If `stderr` is not passed, warning and error
-output will be sent to `stdout`.
+Creates a new `Console` with one or two writable stream instances. `stdout` is a
+writable stream to print log or info output. `stderr` is used for warning or
+error output. If `stderr` is not provided, `stdout` is used for `stderr`.
 
 ```js
 const output = fs.createWriteStream('./stdout.log');
@@ -104,70 +103,33 @@ The global `console` is a special `Console` whose output is sent to
 new Console(process.stdout, process.stderr);
 ```
 
-### console.assert(value[, message][, ...args])
+### console.assert(value[, ...message])
 <!-- YAML
 added: v0.1.101
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/REPLACEME
+    description: The implementation is now spec compliant and does not throw
+                 anymore.
 -->
-* `value` {any}
-* `message` {any}
-* `...args` {any}
+* `value` {any} The value tested for being truthy.
+* `...message` {any} All arguments besides `value` are used as error message.
 
 A simple assertion test that verifies whether `value` is truthy. If it is not,
-an `AssertionError` is thrown. If provided, the error `message` is formatted
-using [`util.format()`][] and used as the error message.
+`Assertion failed` is logged. If provided, the error `message` is formatted
+using [`util.format()`][] by passing along all message arguments. The output is
+used as the error message.
 
 ```js
 console.assert(true, 'does nothing');
 // OK
-console.assert(false, 'Whoops %s', 'didn\'t work');
-// AssertionError: Whoops didn't work
+console.assert(false, 'Whoops %s work', 'didn\'t');
+// Assertion failed: Whoops didn't work
 ```
 
-*Note*: The `console.assert()` method is implemented differently in Node.js
-than the `console.assert()` method [available in browsers][web-api-assert].
-
-Specifically, in browsers, calling `console.assert()` with a falsy
-assertion will cause the `message` to be printed to the console without
-interrupting execution of subsequent code. In Node.js, however, a falsy
-assertion will cause an `AssertionError` to be thrown.
-
-Functionality approximating that implemented by browsers can be implemented
-by extending Node.js' `console` and overriding the `console.assert()` method.
-
-In the following example, a simple module is created that extends and overrides
-the default behavior of `console` in Node.js.
-
-<!-- eslint-disable func-name-matching -->
-```js
-'use strict';
-
-// Creates a simple extension of console with a
-// new impl for assert without monkey-patching.
-const myConsole = Object.create(console, {
-  assert: {
-    value: function assert(assertion, message, ...args) {
-      try {
-        console.assert(assertion, message, ...args);
-      } catch (err) {
-        console.error(err.stack);
-      }
-    },
-    configurable: true,
-    enumerable: true,
-    writable: true,
-  },
-});
-
-module.exports = myConsole;
-```
-
-This can then be used as a direct replacement for the built in console:
-
-```js
-const console = require('./myConsole');
-console.assert(false, 'this message will print, but no error thrown');
-console.log('this will also print');
-```
+*Note*: Calling `console.assert()` with a falsy assertion will only cause the
+`message` to be printed to the console without interrupting execution of
+subsequent code.
 
 ### console.clear()
 <!-- YAML
@@ -242,7 +204,7 @@ undefined
 <!-- YAML
 added: v8.0.0
 changes:
-  - version: REPLACEME
+  - version: 9.3.0
     pr-url: https://github.com/nodejs/node/pull/17033
     description: "`console.debug` is now an alias for `console.log`."
 -->
@@ -281,7 +243,7 @@ Defaults to `false`. Colors are customizable; see
 <!-- YAML
 added: v8.0.0
 changes:
-  - version: REPLACEME
+  - version: 9.3.0
     pr-url: https://github.com/nodejs/node/pull/17152
     description: "`console.dirxml` now calls `console.log` for its arguments."
 -->
@@ -402,11 +364,6 @@ for (let i = 0; i < 100; i++) {}
 console.timeEnd('100-elements');
 // prints 100-elements: 225.438ms
 ```
-
-*Note*: As of Node.js v6.0.0, `console.timeEnd()` deletes the timer to avoid
-leaking it. On older versions, the timer persisted. This allowed
-`console.timeEnd()` to be called multiple times for the same label. This
-functionality was unintended and is no longer supported.
 
 ### console.trace([message][, ...args])
 <!-- YAML
@@ -537,4 +494,3 @@ This method does not display anything unless used in the inspector. The
 [customizing `util.inspect()` colors]: util.html#util_customizing_util_inspect_colors
 [inspector]: debugger.html
 [note on process I/O]: process.html#process_a_note_on_process_i_o
-[web-api-assert]: https://developer.mozilla.org/en-US/docs/Web/API/console/assert

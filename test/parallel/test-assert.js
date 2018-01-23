@@ -20,6 +20,9 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 'use strict';
+
+/* eslint-disable prefer-common-expectserror */
+
 const common = require('../common');
 const assert = require('assert');
 const a = assert;
@@ -35,19 +38,6 @@ assert.ok(a.AssertionError.prototype instanceof Error,
           'a.AssertionError instanceof Error');
 
 assert.throws(makeBlock(a, false), a.AssertionError, 'ok(false)');
-
-// Using a object as second arg results in a failure
-assert.throws(
-  () => { assert.throws(() => { throw new Error(); }, { foo: 'bar' }); },
-  common.expectsError({
-    type: TypeError,
-    message: common.engineSpecificMessage({
-      v8: 'expected.test is not a function',
-      chakracore: 'Object doesn\'t support property or method \'test\''
-    })
-  })
-);
-
 
 assert.doesNotThrow(makeBlock(a, true), a.AssertionError, 'ok(true)');
 
@@ -466,38 +456,31 @@ assert.throws(() => { assert.ifError(new Error('test error')); },
 assert.doesNotThrow(() => { assert.ifError(null); });
 assert.doesNotThrow(() => { assert.ifError(); });
 
-assert.throws(() => {
-  assert.doesNotThrow(makeBlock(thrower, Error), 'user message');
-}, /Got unwanted exception: user message/,
-              'a.doesNotThrow ignores user message');
-
-{
-  let threw = false;
-  try {
-    assert.doesNotThrow(makeBlock(thrower, Error), 'user message');
-  } catch (e) {
-    threw = true;
-    common.expectsError({
-      code: 'ERR_ASSERTION',
-      message: /Got unwanted exception: user message\n\[object Object\]/
-    })(e);
+common.expectsError(
+  () => assert.doesNotThrow(makeBlock(thrower, Error), 'user message'),
+  {
+    type: a.AssertionError,
+    code: 'ERR_ASSERTION',
+    operator: 'doesNotThrow',
+    message: 'Got unwanted exception: user message\n[object Object]'
   }
-  assert.ok(threw);
-}
+);
 
-{
-  let threw = false;
-  try {
-    assert.doesNotThrow(makeBlock(thrower, Error));
-  } catch (e) {
-    threw = true;
-    common.expectsError({
-      code: 'ERR_ASSERTION',
-      message: /Got unwanted exception\.\n\[object Object\]/
-    })(e);
+common.expectsError(
+  () => assert.doesNotThrow(makeBlock(thrower, Error), 'user message'),
+  {
+    code: 'ERR_ASSERTION',
+    message: /Got unwanted exception: user message\n\[object Object\]/
   }
-  assert.ok(threw);
-}
+);
+
+common.expectsError(
+  () => assert.doesNotThrow(makeBlock(thrower, Error)),
+  {
+    code: 'ERR_ASSERTION',
+    message: /Got unwanted exception\.\n\[object Object\]/
+  }
+);
 
 // make sure that validating using constructor really works
 {
@@ -556,7 +539,8 @@ a.throws(makeBlock(thrower, TypeError), (err) => {
     () => { a.throws((noop)); },
     common.expectsError({
       code: 'ERR_ASSERTION',
-      message: /^Missing expected exception\.$/
+      message: /^Missing expected exception\.$/,
+      operator: 'throws'
     }));
 
   assert.throws(
@@ -617,7 +601,7 @@ testAssertionMessage({ a: undefined, b: null }, '{ a: undefined, b: null }');
 testAssertionMessage({ a: NaN, b: Infinity, c: -Infinity },
                      '{ a: NaN, b: Infinity, c: -Infinity }');
 
-// #2893
+// https://github.com/nodejs/node-v0.x-archive/issues/2893
 {
   let threw = false;
   try {
@@ -628,11 +612,12 @@ testAssertionMessage({ a: NaN, b: Infinity, c: -Infinity },
   } catch (e) {
     threw = true;
     assert.strictEqual(e.message, 'Missing expected exception.');
+    assert.ok(!e.stack.includes('throws'), e.stack);
   }
   assert.ok(threw);
 }
 
-// #5292
+// https://github.com/nodejs/node-v0.x-archive/issues/5292
 try {
   assert.strictEqual(1, 2);
 } catch (e) {
@@ -672,6 +657,7 @@ try {
     threw = true;
     assert.ok(e.message.includes(rangeError.message));
     assert.ok(e instanceof assert.AssertionError);
+    assert.ok(!e.stack.includes('doesNotThrow'), e.stack);
   }
   assert.ok(threw);
 }
@@ -683,21 +669,15 @@ try {
   }
 
   const testBlockTypeError = (method, block) => {
-    let threw = true;
-
-    try {
-      method(block);
-      threw = false;
-    } catch (e) {
-      common.expectsError({
+    common.expectsError(
+      () => method(block),
+      {
         code: 'ERR_INVALID_ARG_TYPE',
         type: TypeError,
         message: 'The "block" argument must be of type Function. Received ' +
-                 `type ${typeName(block)}`
-      })(e);
-    }
-
-    assert.ok(threw);
+                `type ${typeName(block)}`
+      }
+    );
   };
 
   testBlockTypeError(assert.throws, 'string');
@@ -773,4 +753,120 @@ common.expectsError(
   assert.equal(Object.keys(assert).length, Object.keys(a).length);
   /* eslint-enable no-restricted-properties */
   assert(7);
+  common.expectsError(
+    () => assert(),
+    {
+      code: 'ERR_ASSERTION',
+      type: assert.AssertionError,
+      message: 'undefined == true'
+    }
+  );
+}
+
+common.expectsError(
+  () => assert.ok(null),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: 'null == true'
+  }
+);
+
+common.expectsError(
+  // eslint-disable-next-line no-restricted-syntax
+  () => assert.throws(() => {}, 'Error message', 'message'),
+  {
+    code: 'ERR_INVALID_ARG_TYPE',
+    type: TypeError,
+    message: 'The "error" argument must be one of type Function or RegExp. ' +
+             'Received type string'
+  }
+);
+
+{
+  const errFn = () => {
+    const err = new TypeError('Wrong value');
+    err.code = 404;
+    throw err;
+  };
+  const errObj = {
+    name: 'TypeError',
+    message: 'Wrong value'
+  };
+  assert.throws(errFn, errObj);
+
+  errObj.code = 404;
+  assert.throws(errFn, errObj);
+
+  errObj.code = '404';
+  common.expectsError(
+  // eslint-disable-next-line no-restricted-syntax
+    () => assert.throws(errFn, errObj),
+    {
+      code: 'ERR_ASSERTION',
+      type: assert.AssertionError,
+      message: 'code: expected \'404\', not 404'
+    }
+  );
+
+  errObj.code = 404;
+  errObj.foo = 'bar';
+  common.expectsError(
+  // eslint-disable-next-line no-restricted-syntax
+    () => assert.throws(errFn, errObj),
+    {
+      code: 'ERR_ASSERTION',
+      type: assert.AssertionError,
+      message: 'foo: expected \'bar\', not undefined'
+    }
+  );
+
+  common.expectsError(
+    () => assert.throws(() => { throw new Error(); }, { foo: 'bar' }, 'foobar'),
+    {
+      type: assert.AssertionError,
+      code: 'ERR_ASSERTION',
+      message: 'foobar'
+    }
+  );
+
+  common.expectsError(
+    () => assert.doesNotThrow(() => { throw new Error(); }, { foo: 'bar' }),
+    {
+      type: TypeError,
+      code: 'ERR_INVALID_ARG_TYPE',
+      message: 'The "expected" argument must be one of type Function or ' +
+               'RegExp. Received type object'
+    }
+  );
+
+  assert.throws(() => { throw new Error('e'); }, new Error('e'));
+  common.expectsError(
+    () => assert.throws(() => { throw new TypeError('e'); }, new Error('e')),
+    {
+      type: assert.AssertionError,
+      code: 'ERR_ASSERTION',
+      message: "name: expected 'Error', not 'TypeError'"
+    }
+  );
+  common.expectsError(
+    () => assert.throws(() => { throw new Error('foo'); }, new Error('')),
+    {
+      type: assert.AssertionError,
+      code: 'ERR_ASSERTION',
+      message: "message: expected '', not 'foo'"
+    }
+  );
+
+  // eslint-disable-next-line no-throw-literal
+  assert.throws(() => { throw undefined; }, /undefined/);
+  common.expectsError(
+    // eslint-disable-next-line no-throw-literal
+    () => assert.doesNotThrow(() => { throw undefined; }),
+    {
+      type: assert.AssertionError,
+      code: 'ERR_ASSERTION',
+      message: 'Got unwanted exception.\nundefined'
+    }
+  );
 }

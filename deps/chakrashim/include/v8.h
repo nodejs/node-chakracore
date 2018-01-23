@@ -1756,8 +1756,7 @@ class FunctionCallbackInfo {
   V8_INLINE Local<Value> operator[](int i) const;
   Local<Function> Callee() const { return _callee; }
   Local<Object> This() const { return _thisPointer; }
-  // TODO(jahorto): Implement this once JSRT gains new.target support
-  Local<Value> NewTarget() const { return nullptr; }
+  Local<Value> NewTarget() const { return _newTargetPointer; }
   Local<Object> Holder() const { return _holder; }
   bool IsConstructCall() const { return _isConstructorCall; }
   Local<Value> Data() const { return _data; }
@@ -1771,6 +1770,7 @@ class FunctionCallbackInfo {
     Value** args,
     int length,
     Local<Object> _this,
+    Local<Object> _newTarget,
     Local<Object> holder,
     bool isConstructorCall,
     Local<Value> data,
@@ -1778,6 +1778,7 @@ class FunctionCallbackInfo {
        : _args(args),
          _length(length),
          _thisPointer(_this),
+         _newTargetPointer(_newTarget),
          _holder(holder),
          _isConstructorCall(isConstructorCall),
          _data(data),
@@ -1789,6 +1790,7 @@ class FunctionCallbackInfo {
   Value** _args;
   int _length;
   Local<Object> _thisPointer;
+  Local<Object> _newTargetPointer;
   Local<Object> _holder;
   bool _isConstructorCall;
   Local<Value> _data;
@@ -2244,6 +2246,14 @@ class V8_EXPORT Template : public Data {
   V8_INLINE void Set(Isolate* isolate, const char* name, Local<Data> value) {
     Set(v8::String::NewFromUtf8(isolate, name), value);
   }
+
+  void SetAccessorProperty(
+      Local<Name> name,
+      Local<FunctionTemplate> getter = Local<FunctionTemplate>(),
+      Local<FunctionTemplate> setter = Local<FunctionTemplate>(),
+      PropertyAttribute attribute = None,
+      AccessControl settings = DEFAULT);
+
  private:
   Template();
 };
@@ -2439,7 +2449,7 @@ class V8_EXPORT ObjectTemplate : public Template {
   friend class FunctionTemplateData;
   friend class Utils;
 
-  Local<Object> NewInstance(Handle<Object> prototype);
+  Local<Object> NewInstance(Handle<Function> constructor);
   void SetConstructor(Handle<FunctionTemplate> constructor);
 };
 

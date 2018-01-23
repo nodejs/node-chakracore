@@ -21,6 +21,7 @@
 
 /* eslint-disable required-modules, crypto-check */
 'use strict';
+const process = global.process;  // Some tests tamper with the process global.
 const path = require('path');
 const fs = require('fs');
 const assert = require('assert');
@@ -39,8 +40,18 @@ const noop = () => {};
 // Using a `.` prefixed name, which is the convention for "hidden" on POSIX,
 // gets tools to ignore it by default or by simple rules, especially eslint.
 let tmpDirName = '.tmp';
-// PORT should match the definition in test/testpy/__init__.py.
-exports.PORT = +process.env.NODE_COMMON_PORT || 12346;
+
+Object.defineProperty(exports, 'PORT', {
+  get: () => {
+    if (+process.env.TEST_PARALLEL) {
+      throw new Error('common.PORT cannot be used in a parallelized test');
+    }
+    return +process.env.NODE_COMMON_PORT || 12346;
+  },
+  enumerable: true
+});
+
+
 exports.isWindows = process.platform === 'win32';
 exports.isChakraEngine = process.jsEngine === 'chakracore';
 exports.isWOW64 = exports.isWindows &&
@@ -60,7 +71,6 @@ exports.enoughTestCpu = Array.isArray(cpus) &&
                         (cpus.length > 1 || cpus[0].speed > 999);
 
 exports.rootDir = exports.isWindows ? 'c:\\' : '/';
-exports.projectDir = path.resolve(__dirname, '..', '..');
 
 exports.buildType = process.config.target_defaults.default_configuration;
 
@@ -72,7 +82,7 @@ if (process.env.NODE_TEST_WITH_ASYNC_HOOKS) {
   const async_wrap = process.binding('async_wrap');
 
   process.on('exit', () => {
-    // itterate through handles to make sure nothing crashes
+    // iterate through handles to make sure nothing crashes
     for (const k in initHandles)
       util.inspect(initHandles[k]);
   });
@@ -163,7 +173,6 @@ exports.refreshTmpDir = function() {
 };
 
 if (process.env.TEST_THREAD_ID) {
-  exports.PORT += process.env.TEST_THREAD_ID * 100;
   tmpDirName += `.${process.env.TEST_THREAD_ID}`;
 }
 exports.tmpDir = path.join(testRoot, tmpDirName);
@@ -494,6 +503,8 @@ exports.mustCallAtLeast = function(fn, minimum) {
 };
 
 function _mustCallInner(fn, criteria = 1, field) {
+  if (process._exiting)
+    throw new Error('Cannot use common.mustCall*() in process exit handler');
   if (typeof fn === 'number') {
     criteria = fn;
     fn = noop;
@@ -525,7 +536,7 @@ function _mustCallInner(fn, criteria = 1, field) {
 exports.hasMultiLocalhost = function hasMultiLocalhost() {
   const { TCP, constants: TCPConstants } = process.binding('tcp_wrap');
   const t = new TCP(TCPConstants.SOCKET);
-  const ret = t.bind('127.0.0.2', exports.PORT);
+  const ret = t.bind('127.0.0.2', 0);
   t.close();
   return ret === 0;
 };
@@ -750,7 +761,7 @@ exports.expectsError = function expectsError(fn, settings, exact) {
     settings = fn;
     fn = undefined;
   }
-  const innerFn = exports.mustCall(function(error) {
+  function innerFn(error) {
     assert.strictEqual(error.code, settings.code);
     if ('type' in settings) {
       const type = settings.type;
@@ -759,6 +770,11 @@ exports.expectsError = function expectsError(fn, settings, exact) {
       }
       assert(error instanceof type,
              `${error.name} is not instance of ${type.name}`);
+      let typeName = error.constructor.name;
+      if (typeName === 'NodeError' && type.name !== 'NodeError') {
+        typeName = Object.getPrototypeOf(error.constructor).name;
+      }
+      assert.strictEqual(typeName, type.name);
     }
     if ('message' in settings) {
       const message = settings.message;
@@ -783,12 +799,12 @@ exports.expectsError = function expectsError(fn, settings, exact) {
       });
     }
     return true;
-  }, exact);
+  }
   if (fn) {
     assert.throws(fn, innerFn);
     return;
   }
-  return innerFn;
+  return exports.mustCall(innerFn, exact);
 };
 
 exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {
@@ -803,23 +819,24 @@ exports.skipIf32Bits = function skipIf32Bits() {
   }
 };
 
-const arrayBufferViews = [
-  Int8Array,
-  Uint8Array,
-  Uint8ClampedArray,
-  Int16Array,
-  Uint16Array,
-  Int32Array,
-  Uint32Array,
-  Float32Array,
-  Float64Array,
-  DataView
-];
-
 exports.getArrayBufferViews = function getArrayBufferViews(buf) {
   const { buffer, byteOffset, byteLength } = buf;
 
   const out = [];
+
+  const arrayBufferViews = [
+    Int8Array,
+    Uint8Array,
+    Uint8ClampedArray,
+    Int16Array,
+    Uint16Array,
+    Int32Array,
+    Uint32Array,
+    Float32Array,
+    Float64Array,
+    DataView
+  ];
+
   for (const type of arrayBufferViews) {
     const { BYTES_PER_ELEMENT = 1 } = type;
     if (byteLength % BYTES_PER_ELEMENT === 0) {
@@ -829,27 +846,14 @@ exports.getArrayBufferViews = function getArrayBufferViews(buf) {
   return out;
 };
 
+exports.getBufferSources = function getBufferSources(buf) {
+  return [...exports.getArrayBufferViews(buf), new Uint8Array(buf).buffer];
+};
+
 // Crash the process on unhandled rejections.
 exports.crashOnUnhandledRejection = function() {
   process.on('unhandledRejection',
              (err) => process.nextTick(() => { throw err; }));
-};
-
-exports.getTTYfd = function getTTYfd() {
-  const tty = require('tty');
-  let tty_fd = 0;
-  if (!tty.isatty(tty_fd)) tty_fd++;
-  else if (!tty.isatty(tty_fd)) tty_fd++;
-  else if (!tty.isatty(tty_fd)) tty_fd++;
-  else {
-    try {
-      tty_fd = fs.openSync('/dev/tty');
-    } catch (e) {
-      // There aren't any tty fd's available to use.
-      return -1;
-    }
-  }
-  return tty_fd;
 };
 
 // Hijack stdout and stderr
@@ -880,12 +884,3 @@ exports.hijackStdout = hijackStdWritable.bind(null, 'stdout');
 exports.hijackStderr = hijackStdWritable.bind(null, 'stderr');
 exports.restoreStdout = restoreWritable.bind(null, 'stdout');
 exports.restoreStderr = restoreWritable.bind(null, 'stderr');
-
-let fd = 2;
-exports.firstInvalidFD = function firstInvalidFD() {
-  // Get first known bad file descriptor.
-  try {
-    while (fs.fstatSync(++fd));
-  } catch (e) {}
-  return fd;
-};

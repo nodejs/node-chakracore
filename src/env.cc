@@ -283,14 +283,14 @@ void Environment::RunAndClearNativeImmediates() {
     }
 
 #ifdef DEBUG
-    CHECK_GE(scheduled_immediate_count_[0], count);
+    CHECK_GE(immediate_info()->count(), count);
 #endif
-    scheduled_immediate_count_[0] = scheduled_immediate_count_[0] - count;
+    immediate_info()->count_dec(count);
   }
 }
 
 static bool MaybeStopImmediate(Environment* env) {
-  if (env->scheduled_immediate_count()[0] == 0) {
+  if (env->immediate_info()->count() == 0) {
     uv_check_stop(env->immediate_check_handle());
     uv_idle_stop(env->immediate_idle_handle());
     return true;
@@ -309,12 +309,14 @@ void Environment::CheckImmediate(uv_check_t* handle) {
 
   env->RunAndClearNativeImmediates();
 
-  MakeCallback(env->isolate(),
-               env->process_object(),
-               env->immediate_callback_string(),
-               0,
-               nullptr,
-               {0, 0}).ToLocalChecked();
+  do {
+    MakeCallback(env->isolate(),
+                 env->process_object(),
+                 env->immediate_callback_function(),
+                 0,
+                 nullptr,
+                 {0, 0}).ToLocalChecked();
+  } while (env->immediate_info()->has_outstanding());
 
   MaybeStopImmediate(env);
 }
@@ -401,6 +403,23 @@ void Environment::CollectUVExceptionInfo(v8::Local<v8::Value> object,
 
   node::CollectExceptionInfo(this, obj, errorno, err_string,
                              syscall, message, path, dest);
+}
+
+
+void Environment::AsyncHooks::grow_async_ids_stack() {
+  const uint32_t old_capacity = async_ids_stack_.Length() / 2;
+  const uint32_t new_capacity = old_capacity * 1.5;
+  AliasedBuffer<double, v8::Float64Array> new_buffer(
+      env()->isolate(), new_capacity * 2);
+
+  for (uint32_t i = 0; i < old_capacity * 2; ++i)
+    new_buffer[i] = async_ids_stack_[i];
+  async_ids_stack_ = std::move(new_buffer);
+
+  env()->async_hooks_binding()->Set(
+      env()->context(),
+      env()->async_ids_stack_string(),
+      async_ids_stack_.GetJSArray()).FromJust();
 }
 
 }  // namespace node

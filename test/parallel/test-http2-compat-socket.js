@@ -1,3 +1,5 @@
+// Flags: --expose_internals
+
 'use strict';
 
 const common = require('../common');
@@ -7,9 +9,11 @@ const assert = require('assert');
 const h2 = require('http2');
 const net = require('net');
 
-// Tests behaviour of the proxied socket in Http2ServerRequest
+const { kTimeout } = require('internal/timers');
+
+// Tests behavior of the proxied socket in Http2ServerRequest
 // & Http2ServerResponse - this proxy socket should mimic the
-// behaviour of http1 but against the http2 api & model
+// behavior of http1 but against the http2 api & model
 
 const errMsg = {
   code: 'ERR_HTTP2_NO_SOCKET_MANIPULATION',
@@ -31,7 +35,7 @@ server.on('request', common.mustCall(function(request, response) {
   assert.strictEqual(request.socket.destroyed, false);
 
   request.socket.setTimeout(987);
-  assert.strictEqual(request.stream.session._idleTimeout, 987);
+  assert.strictEqual(request.stream.session[kTimeout]._idleTimeout, 987);
   request.socket.setTimeout(0);
 
   common.expectsError(() => request.socket.read(), errMsg);
@@ -81,7 +85,7 @@ server.listen(0, common.mustCall(function() {
     };
     const request = client.request(headers);
     request.on('end', common.mustCall(() => {
-      client.destroy();
+      client.close();
     }));
     request.end();
     request.resume();

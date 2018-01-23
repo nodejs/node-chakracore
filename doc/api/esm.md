@@ -33,15 +33,14 @@ node --experimental-modules my-app.mjs
 ### Supported
 
 Only the CLI argument for the main entry point to the program can be an entry
-point into an ESM graph. In the future `import()` can be used to create entry
-points into ESM graphs at run time.
+point into an ESM graph. Dynamic import can also be used with the flag
+`--harmony-dynamic-import` to create entry points into ESM graphs at run time.
 
 ### Unsupported
 
 | Feature | Reason |
 | --- | --- |
-| `require('./foo.mjs')` | ES Modules have differing resolution and timing, use language standard `import()` |
-| `import()` | pending newer V8 release used in Node.js |
+| `require('./foo.mjs')` | ES Modules have differing resolution and timing, use dynamic import |
 | `import.meta` | pending V8 implementation |
 
 ## Notable differences between `import` and `require`
@@ -147,15 +146,13 @@ be written:
 import url from 'url';
 import path from 'path';
 import process from 'process';
+import Module from 'module';
 
-const builtins = new Set(
-  Object.keys(process.binding('natives')).filter((str) =>
-    /^(?!(?:internal|node|v8)\/)/.test(str))
-);
+const builtins = Module.builtinModules;
 const JS_EXTENSIONS = new Set(['.js', '.mjs']);
 
 export function resolve(specifier, parentModuleURL/*, defaultResolve */) {
-  if (builtins.has(specifier)) {
+  if (builtins.includes(specifier)) {
     return {
       url: specifier,
       format: 'builtin'
@@ -209,7 +206,7 @@ export async function dynamicInstantiate(url) {
 ```
 
 With the list of module exports provided upfront, the `execute` function will
-then be called at the exact point of module evalutation order for that module
+then be called at the exact point of module evaluation order for that module
 in the import tree.
 
 [Node.js EP for ES Modules]: https://github.com/nodejs/node-eps/blob/master/002-es-modules.md

@@ -3,11 +3,6 @@
 const common = require('../common');
 const assert = require('assert');
 const inherits = require('util').inherits;
-const errCheck = common.expectsError({
-  code: 'ERR_INVALID_ARG_TYPE',
-  type: TypeError,
-  message: 'The "superCtor" argument must be of type Function'
-});
 
 // super constructor
 function A() {
@@ -80,22 +75,26 @@ assert.strictEqual(e.e(), 'e');
 assert.strictEqual(e.constructor, E);
 
 // should throw with invalid arguments
-assert.throws(function() {
+common.expectsError(function() {
   inherits(A, {});
-}, common.expectsError({
+}, {
   code: 'ERR_INVALID_ARG_TYPE',
   type: TypeError,
   message: 'The "superCtor.prototype" property must be of type Function'
-})
-);
-assert.throws(function() {
+});
+
+common.expectsError(function() {
   inherits(A, null);
-}, errCheck);
-assert.throws(function() {
+}, {
+  code: 'ERR_INVALID_ARG_TYPE',
+  type: TypeError,
+  message: 'The "superCtor" argument must be of type Function'
+});
+
+common.expectsError(function() {
   inherits(null, A);
-}, common.expectsError({
+}, {
   code: 'ERR_INVALID_ARG_TYPE',
   type: TypeError,
   message: 'The "ctor" argument must be of type Function'
-})
-);
+});

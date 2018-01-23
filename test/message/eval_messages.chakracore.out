@@ -4,6 +4,7 @@
               ^^^^^
 
 SyntaxError: 'with' statements are not allowed in strict mode
+   at Script (vm.js:*:*)
    at createScript (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)

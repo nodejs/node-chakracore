@@ -30,6 +30,8 @@ using v8::HandleScope;
 using v8::Isolate;
 using v8::Local;
 using v8::Object;
+using v8::Persistent;
+using v8::String;
 using v8::Value;
 
 using v8_inspector::StringBuffer;
@@ -303,7 +305,9 @@ class NodeInspectorClient : public V8InspectorClient {
         running_nested_loop_(false) {
     client_ = V8Inspector::create(env->isolate(), this);
     // TODO(bnoordhuis) Make name configurable from src/node.cc.
-    contextCreated(env->context(), GetHumanReadableProcessName());
+    ContextInfo info(GetHumanReadableProcessName());
+    info.is_default = true;
+    contextCreated(env->context(), info);
   }
 
   void runMessageLoopOnPause(int context_group_id) override {
@@ -324,18 +328,32 @@ class NodeInspectorClient : public V8InspectorClient {
   }
 
   void maxAsyncCallStackDepthChanged(int depth) override {
-    if (depth == 0) {
-      env_->inspector_agent()->DisableAsyncHook();
-    } else {
-      env_->inspector_agent()->EnableAsyncHook();
+    if (auto agent = env_->inspector_agent()) {
+      if (depth == 0) {
+        agent->DisableAsyncHook();
+      } else {
+        agent->EnableAsyncHook();
+      }
     }
   }
 
-  void contextCreated(Local<Context> context, const std::string& name) {
-    std::unique_ptr<StringBuffer> name_buffer = Utf8ToStringView(name);
-    v8_inspector::V8ContextInfo info(context, CONTEXT_GROUP_ID,
-                                     name_buffer->string());
-    client_->contextCreated(info);
+  void contextCreated(Local<Context> context, const ContextInfo& info) {
+    auto name_buffer = Utf8ToStringView(info.name);
+    auto origin_buffer = Utf8ToStringView(info.origin);
+    std::unique_ptr<StringBuffer> aux_data_buffer;
+
+    v8_inspector::V8ContextInfo v8info(
+        context, CONTEXT_GROUP_ID, name_buffer->string());
+    v8info.origin = origin_buffer->string();
+
+    if (info.is_default) {
+      aux_data_buffer = Utf8ToStringView("{\"isDefault\":true}");
+    } else {
+      aux_data_buffer = Utf8ToStringView("{\"isDefault\":false}");
+    }
+    v8info.auxData = aux_data_buffer->string();
+
+    client_->contextCreated(v8info);
   }
 
   void contextDestroyed(Local<Context> context) {
@@ -461,7 +479,6 @@ Agent::Agent(Environment* env) : parent_env_(env),
                                  client_(nullptr),
                                  platform_(nullptr),
                                  enabled_(false),
-                                 next_context_number_(1),
                                  pending_enable_async_hook_(false),
                                  pending_disable_async_hook_(false) {}
 
@@ -547,10 +564,6 @@ void Agent::Connect(InspectorSessionDelegate* delegate) {
   client_->connectFrontend(delegate);
 }
 
-bool Agent::IsConnected() {
-  return io_ && io_->IsConnected();
-}
-
 void Agent::WaitForDisconnect() {
   CHECK_NE(client_, nullptr);
   client_->contextDestroyed(parent_env_->context());
@@ -613,8 +626,7 @@ void Agent::RegisterAsyncHook(Isolate* isolate,
 
 void Agent::EnableAsyncHook() {
   if (!enable_async_hook_function_.IsEmpty()) {
-    Isolate* isolate = parent_env_->isolate();
-    ToggleAsyncHook(isolate, enable_async_hook_function_.Get(isolate));
+    ToggleAsyncHook(parent_env_->isolate(), enable_async_hook_function_);
   } else if (pending_disable_async_hook_) {
     CHECK(!pending_enable_async_hook_);
     pending_disable_async_hook_ = false;
@@ -625,8 +637,7 @@ void Agent::EnableAsyncHook() {
 
 void Agent::DisableAsyncHook() {
   if (!disable_async_hook_function_.IsEmpty()) {
-    Isolate* isolate = parent_env_->isolate();
-    ToggleAsyncHook(isolate, disable_async_hook_function_.Get(isolate));
+    ToggleAsyncHook(parent_env_->isolate(), disable_async_hook_function_);
   } else if (pending_enable_async_hook_) {
     CHECK(!pending_disable_async_hook_);
     pending_enable_async_hook_ = false;
@@ -635,10 +646,11 @@ void Agent::DisableAsyncHook() {
   }
 }
 
-void Agent::ToggleAsyncHook(Isolate* isolate, Local<Function> fn) {
+void Agent::ToggleAsyncHook(Isolate* isolate, const Persistent<Function>& fn) {
   HandleScope handle_scope(isolate);
+  CHECK(!fn.IsEmpty());
   auto context = parent_env_->context();
-  auto result = fn->Call(context, Undefined(isolate), 0, nullptr);
+  auto result = fn.Get(isolate)->Call(context, Undefined(isolate), 0, nullptr);
   if (result.IsEmpty()) {
     FatalError(
         "node::inspector::Agent::ToggleAsyncHook",
@@ -678,12 +690,10 @@ void Agent::RequestIoThreadStart() {
   uv_async_send(&start_io_thread_async);
 }
 
-void Agent::ContextCreated(Local<Context> context) {
+void Agent::ContextCreated(Local<Context> context, const ContextInfo& info) {
   if (client_ == nullptr)  // This happens for a main context
     return;
-  std::ostringstream name;
-  name << "VM Context " << next_context_number_++;
-  client_->contextCreated(context, name.str());
+  client_->contextCreated(context, info);
 }
 
 bool Agent::IsWaitingForConnect() {

@@ -83,6 +83,7 @@ inline uint32_t cares_get_32bit(const unsigned char* p) {
 
 const int ns_t_cname_or_a = -1;
 
+#define DNS_ESETSRVPENDING -1000
 inline const char* ToErrorCodeString(int status) {
   switch (status) {
 #define V(code) case ARES_##code: return #code;
@@ -150,6 +151,8 @@ class ChannelWrap : public AsyncWrap {
   void EnsureServers();
   void CleanupTimer();
 
+  void ModifyActivityQueryCount(int count);
+
   inline uv_timer_t* timer_handle() { return timer_handle_; }
   inline ares_channel cares_channel() { return channel_; }
   inline bool query_last_ok() const { return query_last_ok_; }
@@ -158,6 +161,7 @@ class ChannelWrap : public AsyncWrap {
   inline void set_is_servers_default(bool is_default) {
     is_servers_default_ = is_default;
   }
+  inline int active_query_count() { return active_query_count_; }
   inline node_ares_task_list* task_list() { return &task_list_; }
 
   size_t self_size() const override { return sizeof(*this); }
@@ -170,6 +174,7 @@ class ChannelWrap : public AsyncWrap {
   bool query_last_ok_;
   bool is_servers_default_;
   bool library_inited_;
+  int active_query_count_;
   node_ares_task_list task_list_;
 };
 
@@ -180,7 +185,8 @@ ChannelWrap::ChannelWrap(Environment* env,
     channel_(nullptr),
     query_last_ok_(true),
     is_servers_default_(true),
-    library_inited_(false) {
+    library_inited_(false),
+    active_query_count_(0) {
   MakeWeak<ChannelWrap>(this);
 
   Setup();
@@ -361,26 +367,6 @@ void ares_sockstate_cb(void* data,
 }
 
 
-Local<Array> HostentToAddresses(Environment* env,
-                                struct hostent* host,
-                                Local<Array> append_to = Local<Array>()) {
-  EscapableHandleScope scope(env->isolate());
-  auto context = env->context();
-  bool append = !append_to.IsEmpty();
-  Local<Array> addresses = append ? append_to : Array::New(env->isolate());
-  size_t offset = addresses->Length();
-
-  char ip[INET6_ADDRSTRLEN];
-  for (uint32_t i = 0; host->h_addr_list[i] != nullptr; ++i) {
-    uv_inet_ntop(host->h_addrtype, host->h_addr_list[i], ip, sizeof(ip));
-    Local<String> address = OneByteString(env->isolate(), ip);
-    addresses->Set(context, i + offset, address).FromJust();
-  }
-
-  return append ? addresses : scope.Escape(addresses);
-}
-
-
 Local<Array> HostentToNames(Environment* env,
                             struct hostent* host,
                             Local<Array> append_to = Local<Array>()) {
@@ -545,6 +531,11 @@ void ChannelWrap::CleanupTimer() {
   timer_handle_ = nullptr;
 }
 
+void ChannelWrap::ModifyActivityQueryCount(int count) {
+  active_query_count_ += count;
+  if (active_query_count_ < 0) active_query_count_ = 0;
+}
+
 
 /**
  * This function is to check whether current servers are fallback servers
@@ -682,6 +673,7 @@ class QueryWrap : public AsyncWrap {
                               CaresAsyncCb));
 
     wrap->channel_->set_query_last_ok(status != ARES_ECONNREFUSED);
+    wrap->channel_->ModifyActivityQueryCount(-1);
     async_handle->data = data;
     uv_async_send(async_handle);
   }
@@ -831,12 +823,17 @@ int ParseGeneralReply(Environment* env,
   } else if (*type == ns_t_ptr) {
     uint32_t offset = ret->Length();
     for (uint32_t i = 0; host->h_aliases[i] != nullptr; i++) {
-      ret->Set(context,
-               i + offset,
-               OneByteString(env->isolate(), host->h_aliases[i])).FromJust();
+      auto alias = OneByteString(env->isolate(), host->h_aliases[i]);
+      ret->Set(context, i + offset, alias).FromJust();
     }
   } else {
-    HostentToAddresses(env, host, ret);
+    uint32_t offset = ret->Length();
+    char ip[INET6_ADDRSTRLEN];
+    for (uint32_t i = 0; host->h_addr_list[i] != nullptr; ++i) {
+      uv_inet_ntop(host->h_addrtype, host->h_addr_list[i], ip, sizeof(ip));
+      auto address = OneByteString(env->isolate(), ip);
+      ret->Set(context, i + offset, address).FromJust();
+    }
   }
 
   ares_free_hostent(host);
@@ -1760,33 +1757,6 @@ class GetHostByAddrWrap: public QueryWrap {
 };
 
 
-class GetHostByNameWrap: public QueryWrap {
- public:
-  explicit GetHostByNameWrap(ChannelWrap* channel, Local<Object> req_wrap_obj)
-      : QueryWrap(channel, req_wrap_obj) {
-  }
-
-  int Send(const char* name, int family) override {
-    ares_gethostbyname(channel_->cares_channel(),
-                       name,
-                       family,
-                       Callback,
-                       static_cast<void*>(static_cast<QueryWrap*>(this)));
-    return 0;
-  }
-
- protected:
-  void Parse(struct hostent* host) override {
-    HandleScope scope(env()->isolate());
-
-    Local<Array> addresses = HostentToAddresses(env(), host);
-    Local<Integer> family = Integer::New(env()->isolate(), host->h_addrtype);
-
-    this->CallOnComplete(addresses, family);
-  }
-};
-
-
 template <class Wrap>
 static void Query(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
@@ -1802,9 +1772,12 @@ static void Query(const FunctionCallbackInfo<Value>& args) {
   Wrap* wrap = new Wrap(channel, req_wrap_obj);
 
   node::Utf8Value name(env->isolate(), string);
+  channel->ModifyActivityQueryCount(1);
   int err = wrap->Send(*name);
-  if (err)
+  if (err) {
+    channel->ModifyActivityQueryCount(-1);
     delete wrap;
+  }
 
   args.GetReturnValue().Set(err);
 }
@@ -2081,6 +2054,10 @@ void SetServers(const FunctionCallbackInfo<Value>& args) {
   ChannelWrap* channel;
   ASSIGN_OR_RETURN_UNWRAP(&channel, args.Holder());
 
+  if (channel->active_query_count()) {
+    return args.GetReturnValue().Set(DNS_ESETSRVPENDING);
+  }
+
   CHECK(args[0]->IsArray());
 
   Local<Array> arr = Local<Array>::Cast(args[0]);
@@ -2161,11 +2138,13 @@ void Cancel(const FunctionCallbackInfo<Value>& args) {
   ares_cancel(channel->cares_channel());
 }
 
-
+const char EMSG_ESETSRVPENDING[] = "There are pending queries.";
 void StrError(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
-  const char* errmsg = ares_strerror(args[0]->Int32Value(env->context())
-                                     .FromJust());
+  int code = args[0]->Int32Value(env->context()).FromJust();
+  const char* errmsg = (code == DNS_ESETSRVPENDING) ?
+    EMSG_ESETSRVPENDING :
+    ares_strerror(code);
   args.GetReturnValue().Set(OneByteString(env->isolate(), errmsg));
 }
 

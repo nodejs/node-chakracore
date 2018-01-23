@@ -308,12 +308,13 @@ static void PromiseHook(PromiseHookType type, Local<Promise> promise,
       if (parent_wrap == nullptr) {
         parent_wrap = PromiseWrap::New(env, parent_promise, nullptr, true);
       }
-      // get id from parentWrap
-      double trigger_async_id = parent_wrap->get_async_id();
-      env->set_init_trigger_async_id(trigger_async_id);
-    }
 
-    wrap = PromiseWrap::New(env, promise, parent_wrap, silent);
+      AsyncHooks::DefaultTriggerAsyncIdScope trigger_scope(
+        env, parent_wrap->get_async_id());
+      wrap = PromiseWrap::New(env, promise, parent_wrap, silent);
+    } else {
+      wrap = PromiseWrap::New(env, promise, nullptr, silent);
+    }
   }
 
   CHECK_NE(wrap, nullptr);
@@ -328,7 +329,7 @@ static void PromiseHook(PromiseHookType type, Local<Promise> promise,
     if (env->execution_async_id() == wrap->get_async_id()) {
       // This condition might not be true if async_hooks was enabled during
       // the promise callback execution.
-      // Popping it off the stack can be skipped in that case, because is is
+      // Popping it off the stack can be skipped in that case, because it is
       // known that it would correspond to exactly one call with
       // PromiseHookType::kBefore that was not witnessed by the PromiseHook.
       env->async_hooks()->pop_async_id(wrap->get_async_id());
@@ -342,8 +343,7 @@ static void PromiseHook(PromiseHookType type, Local<Promise> promise,
 static void SetupHooks(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  if (!args[0]->IsObject())
-    return env->ThrowTypeError("first argument must be an object");
+  CHECK(args[0]->IsObject());
 
   // All of init, before, after, destroy are supplied by async_hooks
   // internally, so this should every only be called once. At which time all
@@ -467,13 +467,6 @@ void AsyncWrap::PopAsyncIds(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-void AsyncWrap::AsyncIdStackSize(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-  args.GetReturnValue().Set(
-      static_cast<double>(env->async_hooks()->stack_size()));
-}
-
-
 void AsyncWrap::ClearAsyncIdStack(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   env->async_hooks()->clear_async_id_stack();
@@ -512,7 +505,6 @@ void AsyncWrap::Initialize(Local<Object> target,
   env->SetMethod(target, "setupHooks", SetupHooks);
   env->SetMethod(target, "pushAsyncIds", PushAsyncIds);
   env->SetMethod(target, "popAsyncIds", PopAsyncIds);
-  env->SetMethod(target, "asyncIdStackSize", AsyncIdStackSize);
   env->SetMethod(target, "clearAsyncIdStack", ClearAsyncIdStack);
   env->SetMethod(target, "queueDestroyAsyncId", QueueDestroyAsyncId);
   env->SetMethod(target, "enablePromiseHook", EnablePromiseHook);
@@ -542,12 +534,17 @@ void AsyncWrap::Initialize(Local<Object> target,
   //
   // kAsyncUid: Maintains the state of the next unique id to be assigned.
   //
-  // kInitTriggerAsyncId: Write the id of the resource responsible for a
+  // kDefaultTriggerAsyncId: Write the id of the resource responsible for a
   //   handle's creation just before calling the new handle's constructor.
-  //   After the new handle is constructed kInitTriggerAsyncId is set back to 0.
+  //   After the new handle is constructed kDefaultTriggerAsyncId is set back
+  //   to 0.
   FORCE_SET_TARGET_FIELD(target,
                          "async_id_fields",
                          env->async_hooks()->async_id_fields().GetJSArray());
+
+  target->Set(context,
+              env->async_ids_stack_string(),
+              env->async_hooks()->async_ids_stack().GetJSArray()).FromJust();
 
   Local<Object> constants = Object::New(isolate);
 #define SET_HOOKS_CONSTANT(name)                                              \
@@ -564,7 +561,8 @@ void AsyncWrap::Initialize(Local<Object> target,
   SET_HOOKS_CONSTANT(kExecutionAsyncId);
   SET_HOOKS_CONSTANT(kTriggerAsyncId);
   SET_HOOKS_CONSTANT(kAsyncIdCounter);
-  SET_HOOKS_CONSTANT(kInitTriggerAsyncId);
+  SET_HOOKS_CONSTANT(kDefaultTriggerAsyncId);
+  SET_HOOKS_CONSTANT(kStackLength);
 #undef SET_HOOKS_CONSTANT
   FORCE_SET_TARGET_FIELD(target, "constants", constants);
 
@@ -594,6 +592,7 @@ void AsyncWrap::Initialize(Local<Object> target,
   env->set_async_hooks_after_function(Local<Function>());
   env->set_async_hooks_destroy_function(Local<Function>());
   env->set_async_hooks_promise_resolve_function(Local<Function>());
+  env->set_async_hooks_binding(target);
 }
 
 
@@ -677,7 +676,7 @@ void AsyncWrap::EmitDestroy(Environment* env, double async_id) {
 void AsyncWrap::AsyncReset(double execution_async_id, bool silent) {
   async_id_ =
     execution_async_id == -1 ? env()->new_async_id() : execution_async_id;
-  trigger_async_id_ = env()->get_init_trigger_async_id();
+  trigger_async_id_ = env()->get_default_trigger_async_id();
 
   switch (provider_type()) {
 #define V(PROVIDER)                                                           \
@@ -778,7 +777,7 @@ async_context EmitAsyncInit(Isolate* isolate,
 
   // Initialize async context struct
   if (trigger_async_id == -1)
-    trigger_async_id = env->get_init_trigger_async_id();
+    trigger_async_id = env->get_default_trigger_async_id();
 
   async_context context = {
     env->new_async_id(),  // async_id_

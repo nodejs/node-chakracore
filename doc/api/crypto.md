@@ -422,7 +422,7 @@ changes:
 When using an authenticated encryption mode (only `GCM` is currently
 supported), the `decipher.setAuthTag()` method is used to pass in the
 received _authentication tag_. If no tag is provided, or if the cipher text
-has been tampered with, [`decipher.final()`][] with throw, indicating that the
+has been tampered with, [`decipher.final()`][] will throw, indicating that the
 cipher text should be discarded due to failed authentication.
 
 The `decipher.setAuthTag()` method must be called before
@@ -1622,7 +1622,7 @@ higher the number of iterations, the more secure the derived key will be,
 but will take a longer amount of time to complete.
 
 The `salt` should also be as unique as possible. It is recommended that the
-salts are random and their lengths are greater than 16 bytes. See
+salts are random and their lengths are at least 16 bytes. See
 [NIST SP 800-132][] for details.
 
 Example:
@@ -1686,7 +1686,7 @@ higher the number of iterations, the more secure the derived key will be,
 but will take a longer amount of time to complete.
 
 The `salt` should also be as unique as possible. It is recommended that the
-salts are random and their lengths are greater than 16 bytes. See
+salts are random and their lengths are at least 16 bytes. See
 [NIST SP 800-132][] for details.
 
 Example:
@@ -1792,6 +1792,11 @@ be passed instead of a public key.
 ### crypto.randomBytes(size[, callback])
 <!-- YAML
 added: v0.5.8
+changes:
+  - version: v9.0.0
+    pr-url: https://github.com/nodejs/node/pull/16454
+    description: Passing `null` as the `callback` argument now throws
+                 `ERR_INVALID_CALLBACK`.
 -->
 - `size` {number}
 - `callback` {Function}
@@ -1847,10 +1852,10 @@ added: v7.10.0
 changes:
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15231
-    description: The `buffer` argument may be any ArrayBufferView
+    description: The `buffer` argument may be any `TypedArray` or `DataView`.
 -->
 
-* `buffer` {Buffer|Uint8Array|ArrayBufferView} Must be supplied.
+* `buffer` {Buffer|TypedArray|DataView} Must be supplied.
 * `offset` {number} Defaults to `0`.
 * `size` {number} Defaults to `buffer.length - offset`.
 
@@ -1889,10 +1894,10 @@ added: v7.10.0
 changes:
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15231
-    description: The `buffer` argument may be any ArrayBufferView
+    description: The `buffer` argument may be any `TypedArray` or `DataView`.
 -->
 
-* `buffer` {Buffer|Uint8Array|ArrayBufferView} Must be supplied.
+* `buffer` {Buffer|TypedArray|DataView} Must be supplied.
 * `offset` {number} Defaults to `0`.
 * `size` {number} Defaults to `buffer.length - offset`.
 * `callback` {Function} `function(err, buf) {}`.

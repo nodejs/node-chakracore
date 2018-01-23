@@ -683,15 +683,16 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
                                     enc,
                                     nullptr);
     // This check is also needed in case Write() returns that no bytes could
-    // be written.
-    // TODO(trevnorris): Should this throw? Because of the string length was
-    // greater than 0 but couldn't be written then the string was invalid.
+    // be written. If no bytes could be written, then return -1 because the
+    // string is invalid. This will trigger a throw in JavaScript. Silently
+    // failing should be avoided because it can lead to buffers with unexpected
+    // contents.
     if (str_length == 0) {
 #if ENABLE_TTD_NODE
         TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
 #endif
 
-      return args.GetReturnValue().Set(0);
+      return args.GetReturnValue().Set(-1);
     }
   }
 
@@ -775,49 +776,6 @@ static inline void Swizzle(char* start, unsigned int len) {
     *start++ = *end;
     *end-- = tmp;
   }
-}
-
-
-template <typename T, enum Endianness endianness>
-void ReadFloatGeneric(const FunctionCallbackInfo<Value>& args) {
-  THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
-  SPREAD_BUFFER_ARG(args[0], ts_obj);
-
-  uint32_t offset = args[1]->Uint32Value();
-  CHECK_LE(offset + sizeof(T), ts_obj_length);
-
-  union NoAlias {
-    T val;
-    char bytes[sizeof(T)];
-  };
-
-  union NoAlias na;
-  const char* ptr = static_cast<const char*>(ts_obj_data) + offset;
-  memcpy(na.bytes, ptr, sizeof(na.bytes));
-  if (endianness != GetEndianness())
-    Swizzle(na.bytes, sizeof(na.bytes));
-
-  args.GetReturnValue().Set(na.val);
-}
-
-
-void ReadFloatLE(const FunctionCallbackInfo<Value>& args) {
-  ReadFloatGeneric<float, kLittleEndian>(args);
-}
-
-
-void ReadFloatBE(const FunctionCallbackInfo<Value>& args) {
-  ReadFloatGeneric<float, kBigEndian>(args);
-}
-
-
-void ReadDoubleLE(const FunctionCallbackInfo<Value>& args) {
-  ReadFloatGeneric<double, kLittleEndian>(args);
-}
-
-
-void ReadDoubleBE(const FunctionCallbackInfo<Value>& args) {
-  ReadFloatGeneric<double, kBigEndian>(args);
 }
 
 
@@ -1050,7 +1008,7 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
                                      is_forward);
 
   if (needle_length == 0) {
-    // Match String#indexOf() and String#lastIndexOf() behaviour.
+    // Match String#indexOf() and String#lastIndexOf() behavior.
     args.GetReturnValue().Set(static_cast<double>(opt_offset));
     return;
   }
@@ -1163,7 +1121,7 @@ void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
                                      is_forward);
 
   if (needle_length == 0) {
-    // Match String#indexOf() and String#lastIndexOf() behaviour.
+    // Match String#indexOf() and String#lastIndexOf() behavior.
     args.GetReturnValue().Set(static_cast<double>(opt_offset));
     return;
   }
@@ -1360,11 +1318,6 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "indexOfBuffer", IndexOfBuffer);
   env->SetMethod(target, "indexOfNumber", IndexOfNumber);
   env->SetMethod(target, "indexOfString", IndexOfString);
-
-  env->SetMethod(target, "readDoubleBE", ReadDoubleBE);
-  env->SetMethod(target, "readDoubleLE", ReadDoubleLE);
-  env->SetMethod(target, "readFloatBE", ReadFloatBE);
-  env->SetMethod(target, "readFloatLE", ReadFloatLE);
 
   env->SetMethod(target, "writeDoubleBE", WriteDoubleBE);
   env->SetMethod(target, "writeDoubleLE", WriteDoubleLE);

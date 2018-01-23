@@ -11,6 +11,8 @@ test-inspector-async-call-stack       : PASS, FLAKY
 test-inspector-bindings               : PASS, FLAKY
 test-inspector-debug-end              : PASS, FLAKY
 test-inspector-async-hook-setup-at-signal:  PASS, FLAKY
+test-http2-ping-flood                 : PASS, FLAKY
+test-http2-settings-flood             : PASS, FLAKY
 
 [$system==linux]
 
@@ -30,7 +32,9 @@ test-async-wrap-getasyncid : SKIP
 test-inspector-async-hook-setup-at-inspect-brk : SKIP
 test-inspector-async-stack-traces-promise-then : SKIP
 test-inspector-async-stack-traces-set-interval : SKIP
+test-inspector-async-call-stack-abort          : SKIP
 test-inspector-break-when-eval : SKIP
+test-inspector-port-cluster : SKIP
 test-inspector-stop-profile-after-done : SKIP
 
 # This test is causing hangs in CI for some reason.

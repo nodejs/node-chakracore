@@ -26,7 +26,7 @@
 
 #include "node.h"
 // ClientHelloParser
-#include "node_crypto_clienthello-inl.h"
+#include "node_crypto_clienthello.h"
 
 #include "node_buffer.h"
 
@@ -148,8 +148,7 @@ class SecureContext : public BaseObject {
       const v8::FunctionCallbackInfo<v8::Value>& args);
   static void EnableTicketKeyCallback(
       const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void CtxGetter(v8::Local<v8::String> property,
-                        const v8::PropertyCallbackInfo<v8::Value>& info);
+  static void CtxGetter(const v8::FunctionCallbackInfo<v8::Value>& info);
 
   template <bool primary>
   static void GetCertificate(const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -329,8 +328,7 @@ class SSLWrap {
                                 void* arg);
   static int TLSExtStatusCallback(SSL* s, void* arg);
   static int SSLCertCallback(SSL* s, void* arg);
-  static void SSLGetter(v8::Local<v8::String> property,
-                        const v8::PropertyCallbackInfo<v8::Value>& info);
+  static void SSLGetter(const v8::FunctionCallbackInfo<v8::Value>& info);
 
   void DestroySSL();
   void WaitForCertCb(CertCb cb, void* arg);
@@ -432,19 +430,7 @@ class Connection : public AsyncWrap, public SSLWrap<Connection> {
   Connection(Environment* env,
              v8::Local<v8::Object> wrap,
              SecureContext* sc,
-             SSLWrap<Connection>::Kind kind)
-      : AsyncWrap(env, wrap, AsyncWrap::PROVIDER_SSLCONNECTION),
-        SSLWrap<Connection>(env, sc, kind),
-        bio_read_(nullptr),
-        bio_write_(nullptr),
-        hello_offset_(0) {
-    MakeWeak<Connection>(this);
-    Wrap(wrap, this);
-    hello_parser_.Start(SSLWrap<Connection>::OnClientHello,
-                        OnClientHelloParseEnd,
-                        this);
-    enable_session_callbacks();
-  }
+             SSLWrap<Connection>::Kind kind);
 
  private:
   static void SSLInfoCallback(const SSL *ssl, int where, int ret);
@@ -696,8 +682,7 @@ class DiffieHellman : public BaseObject {
   static void SetPublicKey(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void SetPrivateKey(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void VerifyErrorGetter(
-      v8::Local<v8::String> property,
-      const v8::PropertyCallbackInfo<v8::Value>& args);
+      const v8::FunctionCallbackInfo<v8::Value>& args);
 
   DiffieHellman(Environment* env, v8::Local<v8::Object> wrap)
       : BaseObject(env, wrap),
@@ -712,7 +697,7 @@ class DiffieHellman : public BaseObject {
                        const BIGNUM* (*get_field)(const DH*),
                        const char* err_if_null);
   static void SetKey(const v8::FunctionCallbackInfo<v8::Value>& args,
-                     void (*set_field)(DH*, BIGNUM*), const char* what);
+                     int (*set_field)(DH*, BIGNUM*), const char* what);
   bool VerifyContext();
 
   bool initialised_;

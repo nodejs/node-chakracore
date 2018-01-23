@@ -455,7 +455,10 @@ changes:
     description: ALPN options are supported now.
 -->
 
-* `socket` {net.Socket} An instance of [`net.Socket`][]
+* `socket` {net.Socket|stream.Duplex}
+  On the server side, any `Duplex` stream. On the client side, any
+  instance of [`net.Socket`][] (for generic `Duplex` stream support
+  on the client side, [`tls.connect()`][] must be used).
 * `options` {Object}
   * `isServer`: The SSL/TLS protocol is asymmetrical, TLSSockets must know if
     they are to behave as a server or a client. If `true` the TLS socket will be
@@ -753,8 +756,8 @@ added: v0.8.4
 
 Verifies the certificate `cert` is issued to host `host`.
 
-Returns {Error} object, populating it with the reason, host and cert on failure.
-On success, returns {undefined}.
+Returns {Error} object, populating it with the reason, host, and cert on
+failure. On success, returns {undefined}.
 
 *Note*: This function can be overwritten by providing alternative function
 as part of the `options.checkServerIdentity` option passed to `tls.connect()`.
@@ -815,10 +818,12 @@ changes:
   * `port` {number} Port the client should connect to.
   * `path` {string} Creates unix socket connection to path. If this option is
     specified, `host` and `port` are ignored.
-  * `socket` {net.Socket} Establish secure connection on a given socket rather
-    than creating a new socket. If this option is specified, `path`, `host` and
-    `port` are ignored.  Usually, a socket is already connected when passed to
-    `tls.connect()`, but it can be connected later. Note that
+  * `socket` {stream.Duplex} Establish secure connection on a given socket
+    rather than creating a new socket. Typically, this is an instance of
+    [`net.Socket`][], but any `Duplex` stream is allowed.
+    If this option is specified, `path`, `host` and `port` are ignored,
+    except for certificate validation.  Usually, a socket is already connected
+    when passed to `tls.connect()`, but it can be connected later. Note that
     connection/disconnection/destruction of `socket` is the user's
     responsibility, calling `tls.connect()` will not cause `net.connect()` to be
     called.
@@ -841,7 +846,7 @@ changes:
   * `servername`: {string} Server name for the SNI (Server Name Indication) TLS
     extension.
   * `checkServerIdentity(servername, cert)` {Function} A callback function
-    to be used (instead of the builtin `tls.checkServerIdentity()` function)
+    to be used (instead of the builtin `tls.checkServerIdentity()` function)
     when checking the server's hostname (or the provided `servername` when
     explicitly set) against the certificate. This should return an {Error} if
     verification fails. The method should return `undefined` if the `servername`
@@ -956,8 +961,8 @@ port or host argument.
 <!-- YAML
 added: v0.11.13
 changes:
-  - version: REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/6569
+  - version: v9.3.0
+    pr-url: https://github.com/nodejs/node/pull/14903
     description: The `options` parameter can now include `clientCertEngine`.
   - version: v7.3.0
     pr-url: https://github.com/nodejs/node/pull/10294
@@ -1071,8 +1076,8 @@ publicly trusted list of CAs as given in
 <!-- YAML
 added: v0.3.2
 changes:
-  - version: REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/6569
+  - version: v9.3.0
+    pr-url: https://github.com/nodejs/node/pull/14903
     description: The `options` parameter can now include `clientCertEngine`.
   - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/11984

@@ -375,7 +375,7 @@ added: v0.1.21
 * `expected` {any}
 * `message` {any} **Default:** `'Failed'`
 * `operator` {string} **Default:** '!='
-* `stackStartFunction` {function} **Default:** `assert.fail`
+* `stackStartFunction` {Function} **Default:** `assert.fail`
 
 Throws an `AssertionError`. If `message` is falsy, the error message is set as
 the values of `actual` and `expected` separated by the provided `operator`. If
@@ -510,13 +510,13 @@ assert.notDeepEqual(obj1, obj1);
 // AssertionError: { a: { b: 1 } } notDeepEqual { a: { b: 1 } }
 
 assert.notDeepEqual(obj1, obj2);
-// OK, obj1 and obj2 are not deeply equal
+// OK: obj1 and obj2 are not deeply equal
 
 assert.notDeepEqual(obj1, obj3);
 // AssertionError: { a: { b: 1 } } notDeepEqual { a: { b: 1 } }
 
 assert.notDeepEqual(obj1, obj4);
-// OK, obj1 and obj4 are not deeply equal
+// OK: obj1 and obj4 are not deeply equal
 ```
 
 If the values are deeply equal, an `AssertionError` is thrown with a `message`
@@ -711,18 +711,21 @@ instead of the `AssertionError`.
 <!-- YAML
 added: v0.1.21
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/REPLACEME
+    description: The `error` parameter can now be an object as well.
   - version: v4.2.0
     pr-url: https://github.com/nodejs/node/pull/3276
     description: The `error` parameter can now be an arrow function.
 -->
 * `block` {Function}
-* `error` {RegExp|Function}
+* `error` {RegExp|Function|Object}
 * `message` {any}
 
 Expects the function `block` to throw an error.
 
-If specified, `error` can be a constructor, [`RegExp`][], or validation
-function.
+If specified, `error` can be a constructor, [`RegExp`][], a validation
+function, or an object where each property will be tested for.
 
 If specified, `message` will be the message provided by the `AssertionError` if
 the block fails to throw.
@@ -740,12 +743,15 @@ assert.throws(
 
 Validate error message using [`RegExp`][]:
 
+Using a regular expression runs `.toString` on the error object, and will
+therefore also include the error name.
+
 ```js
 assert.throws(
   () => {
     throw new Error('Wrong value');
   },
-  /value/
+  /^Error: Wrong value$/
 );
 ```
 
@@ -765,18 +771,60 @@ assert.throws(
 );
 ```
 
+Custom error object / error instance:
+
+```js
+assert.throws(
+  () => {
+    const err = new TypeError('Wrong value');
+    err.code = 404;
+    throw err;
+  },
+  {
+    name: 'TypeError',
+    message: 'Wrong value'
+    // Note that only properties on the error object will be tested!
+  }
+);
+```
+
 Note that `error` can not be a string. If a string is provided as the second
 argument, then `error` is assumed to be omitted and the string will be used for
-`message` instead. This can lead to easy-to-miss mistakes:
+`message` instead. This can lead to easy-to-miss mistakes. Please read the
+example below carefully if using a string as the second argument gets
+considered:
 
 <!-- eslint-disable no-restricted-syntax -->
 ```js
-// THIS IS A MISTAKE! DO NOT DO THIS!
-assert.throws(myFunction, 'missing foo', 'did not throw with expected message');
+function throwingFirst() {
+  throw new Error('First');
+}
+function throwingSecond() {
+  throw new Error('Second');
+}
+function notThrowing() {}
 
-// Do this instead.
-assert.throws(myFunction, /missing foo/, 'did not throw with expected message');
+// The second argument is a string and the input function threw an Error.
+// In that case both cases do not throw as neither is going to try to
+// match for the error message thrown by the input function!
+assert.throws(throwingFirst, 'Second');
+assert.throws(throwingSecond, 'Second');
+
+// The string is only used (as message) in case the function does not throw:
+assert.throws(notThrowing, 'Second');
+// AssertionError [ERR_ASSERTION]: Missing expected exception: Second
+
+// If it was intended to match for the error message do this instead:
+assert.throws(throwingSecond, /Second$/);
+// Does not throw because the error messages match.
+assert.throws(throwingFirst, /Second$/);
+// Throws a error:
+// Error: First
+//     at throwingFirst (repl:2:9)
 ```
+
+Due to the confusing notation, it is recommended not to use a string as the
+second argument. This might lead to difficult-to-spot errors.
 
 [`Error.captureStackTrace`]: errors.html#errors_error_capturestacktrace_targetobject_constructoropt
 [`Map`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Map

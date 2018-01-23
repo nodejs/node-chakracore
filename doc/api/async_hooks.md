@@ -484,9 +484,8 @@ fs.open(path, 'r', (err, fd) => {
 });
 ```
 
-It is important to note that the ID returned fom `executionAsyncId()` is related
-to execution timing, not causality (which is covered by `triggerAsyncId()`). For
-example:
+The ID returned fom `executionAsyncId()` is related to execution timing, not
+causality (which is covered by `triggerAsyncId()`). For example:
 
 ```js
 const server = net.createServer(function onConnection(conn) {
@@ -526,7 +525,7 @@ const server = net.createServer((conn) => {
 
 ## JavaScript Embedder API
 
-Library developers that handle their own asychronous resources performing tasks
+Library developers that handle their own asynchronous resources performing tasks
 like I/O, connection pooling, or managing callback queues may use the `AsyncWrap`
 JavaScript API so that all the appropriate callbacks are called.
 
@@ -538,9 +537,9 @@ own resources.
 
 The `init` hook will trigger when an `AsyncResource` is instantiated.
 
-*Note*: It is important that `before`/`after` calls are unwound
-in the same order they are called. Otherwise an unrecoverable exception
-will occur and the process will abort.
+*Note*: `before` and `after` calls must be unwound in the same order that they
+are called. Otherwise, an unrecoverable exception will occur and the process
+will abort.
 
 The following is an overview of the `AsyncResource` API.
 

@@ -7,8 +7,10 @@ env:
   node: true
   es6: true
 
+parser: babel-eslint
+
 parserOptions:
-  ecmaVersion: 2017
+  sourceType: script
 
 overrides:
   - files: ["doc/api/esm.md", "*.mjs", "test/es-module/test-esm-example-loader.js"]
@@ -43,6 +45,7 @@ rules:
   # Best Practices
   # http://eslint.org/docs/rules/#best-practices
   accessor-pairs: error
+  array-callback-return: error
   dot-location: [error, property]
   eqeqeq: [error, smart]
   no-fallthrough: error

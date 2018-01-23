@@ -718,10 +718,12 @@ changes:
     `'ipc'` entry. When this option is provided, it overrides `silent`.
   * `uid` {number} Sets the user identity of the process. (See setuid(2).)
   * `gid` {number} Sets the group identity of the process. (See setgid(2).)
-  * `inspectPort` {number|function} Sets inspector port of worker.
+  * `inspectPort` {number|Function} Sets inspector port of worker.
     This can be a number, or a function that takes no arguments and returns a
     number. By default each worker gets its own port, incremented from the
     master's `process.debugPort`.
+  * `windowsHide` {boolean} Hide the forked processes console window that would
+    normally be created on Windows systems. **Default:** `false`
 
 After calling `.setupMaster()` (or `.fork()`) this settings object will contain
 the settings, including the default values.

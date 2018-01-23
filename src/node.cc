@@ -158,12 +158,15 @@ using v8::HandleScope;
 using v8::HeapStatistics;
 using v8::Integer;
 using v8::Isolate;
+using v8::Just;
 using v8::Local;
 using v8::Locker;
+using v8::Maybe;
 using v8::MaybeLocal;
 using v8::Message;
 using v8::Name;
 using v8::NamedPropertyHandlerConfiguration;
+using v8::Nothing;
 using v8::Null;
 using v8::Number;
 using v8::Object;
@@ -793,7 +796,8 @@ namespace {
 bool ShouldAbortOnUncaughtException(Isolate* isolate) {
   HandleScope scope(isolate);
   Environment* env = Environment::GetCurrent(isolate);
-  return env->should_abort_on_uncaught_toggle()[0];
+  return env->should_abort_on_uncaught_toggle()[0] &&
+         !env->inside_should_not_abort_on_uncaught_scope();
 }
 
 
@@ -874,25 +878,25 @@ void SetupNextTick(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK(args[0]->IsFunction());
-  CHECK(args[1]->IsObject());
 
   env->set_tick_callback_function(args[0].As<Function>());
 
-  env->SetMethod(args[1].As<Object>(), "runMicrotasks", RunMicrotasks);
-
-  // Do a little housekeeping.
   env->process_object()->Delete(
       env->context(),
-      FIXED_ONE_BYTE_STRING(args.GetIsolate(), "_setupNextTick")).FromJust();
+      FIXED_ONE_BYTE_STRING(env->isolate(), "_setupNextTick")).FromJust();
 
-  // Values use to cross communicate with processNextTick.
-  uint32_t* const fields = env->tick_info()->fields();
-  uint32_t const fields_count = env->tick_info()->fields_count();
+  v8::Local<v8::Function> run_microtasks_fn =
+      env->NewFunctionTemplate(RunMicrotasks)->GetFunction(env->context())
+          .ToLocalChecked();
+  run_microtasks_fn->SetName(
+      FIXED_ONE_BYTE_STRING(env->isolate(), "runMicrotasks"));
 
-  Local<ArrayBuffer> array_buffer =
-      ArrayBuffer::New(env->isolate(), fields, sizeof(*fields) * fields_count);
+  Local<Array> ret = Array::New(env->isolate(), 2);
+  ret->Set(env->context(), 0,
+           env->tick_info()->fields().GetJSArray()).FromJust();
+  ret->Set(env->context(), 1, run_microtasks_fn).FromJust();
 
-  args.GetReturnValue().Set(Uint32Array::New(array_buffer, 0, fields_count));
+  args.GetReturnValue().Set(ret);
 }
 
 void PromiseRejectCallback(PromiseRejectMessage message) {
@@ -1018,7 +1022,7 @@ void InternalCallbackScope::Close() {
 
   Environment::TickInfo* tick_info = env_->tick_info();
 
-  if (tick_info->length() == 0) {
+  if (!tick_info->has_scheduled()) {
     env_->isolate()->RunMicrotasks();
   }
 
@@ -1029,10 +1033,7 @@ void InternalCallbackScope::Close() {
     CHECK_EQ(env_->trigger_async_id(), 0);
   }
 
-  Local<Object> process = env_->process_object();
-
-  if (tick_info->length() == 0) {
-    tick_info->set_index(0);
+  if (!tick_info->has_scheduled()) {
     return;
   }
 
@@ -1040,6 +1041,8 @@ void InternalCallbackScope::Close() {
     CHECK_EQ(env_->execution_async_id(), 0);
     CHECK_EQ(env_->trigger_async_id(), 0);
   }
+
+  Local<Object> process = env_->process_object();
 
   if (env_->tick_callback_function()->Call(process, 0, nullptr).IsEmpty()) {
     failed_ = true;
@@ -1312,16 +1315,6 @@ void AppendExceptionLine(Environment* env,
   Local<Object> err_obj;
   if (!er.IsEmpty() && er->IsObject()) {
     err_obj = er.As<Object>();
-
-    auto context = env->context();
-    auto processed_private_symbol = env->processed_private_symbol();
-    // Do it only once per message
-    if (err_obj->HasPrivate(context, processed_private_symbol).FromJust())
-      return;
-    err_obj->SetPrivate(
-        context,
-        processed_private_symbol,
-        True(env->isolate()));
   }
 
   // Print (filename):(line number): (message).
@@ -1332,6 +1325,8 @@ void AppendExceptionLine(Environment* env,
   // Print line of source code.
   node::Utf8Value sourceline(env->isolate(), message->GetSourceLine());
   const char* sourceline_string = *sourceline;
+  if (strstr(sourceline_string, "node-do-not-add-exception-line") != nullptr)
+    return;
 
   // Because of how node modules work, all scripts are wrapped with a
   // "function (module, exports, __filename, ...) {"
@@ -2024,7 +2019,7 @@ static void InitGroups(const FunctionCallbackInfo<Value>& args) {
 
 static void WaitForInspectorDisconnect(Environment* env) {
 #if HAVE_INSPECTOR
-  if (env->inspector_agent()->IsConnected()) {
+  if (env->inspector_agent()->delegate() != nullptr) {
     // Restore signal dispositions, the app is done and is no longer
     // capable of handling signals.
 #if defined(__POSIX__) && !defined(NODE_SHARED_MODE)
@@ -2051,6 +2046,9 @@ static void Exit(const FunctionCallbackInfo<Value>& args) {
     }
 #endif
   WaitForInspectorDisconnect(Environment::GetCurrent(args));
+  if (trace_enabled) {
+    v8_platform.StopTracingAgent();
+  }
   exit(args[0]->Int32Value());
 }
 
@@ -2318,8 +2316,11 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
   }
   if (mp->nm_version == -1) {
     if (env->EmitNapiWarning()) {
-      ProcessEmitWarning(env, "N-API is an experimental feature and could "
-                         "change at any time.");
+      if (ProcessEmitWarning(env, "N-API is an experimental feature and could "
+                                  "change at any time.").IsNothing()) {
+        dlib.Close();
+        return;
+      }
     }
   } else if (mp->nm_version != NODE_MODULE_VERSION) {
     char errmsg[1024];
@@ -2466,8 +2467,62 @@ static void OnMessage(Local<Message> message, Local<Value> error) {
   FatalException(Isolate::GetCurrent(), error, message);
 }
 
+static Maybe<bool> ProcessEmitWarningGeneric(Environment* env,
+                                             const char* warning,
+                                             const char* type = nullptr,
+                                             const char* code = nullptr) {
+  HandleScope handle_scope(env->isolate());
+  Context::Scope context_scope(env->context());
+
+  Local<Object> process = env->process_object();
+  Local<Value> emit_warning;
+  if (!process->Get(env->context(),
+                    env->emit_warning_string()).ToLocal(&emit_warning)) {
+    return Nothing<bool>();
+  }
+
+  if (!emit_warning->IsFunction()) return Just(false);
+
+  int argc = 0;
+  Local<Value> args[3];  // warning, type, code
+
+  // The caller has to be able to handle a failure anyway, so we might as well
+  // do proper error checking for string creation.
+  if (!String::NewFromUtf8(env->isolate(),
+                           warning,
+                           v8::NewStringType::kNormal).ToLocal(&args[argc++])) {
+    return Nothing<bool>();
+  }
+  if (type != nullptr) {
+    if (!String::NewFromOneByte(env->isolate(),
+                                reinterpret_cast<const uint8_t*>(type),
+                                v8::NewStringType::kNormal)
+                                    .ToLocal(&args[argc++])) {
+      return Nothing<bool>();
+    }
+    if (code != nullptr &&
+        !String::NewFromOneByte(env->isolate(),
+                                reinterpret_cast<const uint8_t*>(code),
+                                v8::NewStringType::kNormal)
+                                    .ToLocal(&args[argc++])) {
+      return Nothing<bool>();
+    }
+  }
+
+  // MakeCallback() unneeded because emitWarning is internal code, it calls
+  // process.emit('warning', ...), but does so on the nextTick.
+  if (emit_warning.As<Function>()->Call(env->context(),
+                                        process,
+                                        argc,
+                                        args).IsEmpty()) {
+    return Nothing<bool>();
+  }
+  return Just(true);
+}
+
+
 // Call process.emitWarning(str), fmt is a snprintf() format string
-void ProcessEmitWarning(Environment* env, const char* fmt, ...) {
+Maybe<bool> ProcessEmitWarning(Environment* env, const char* fmt, ...) {
   char warning[1024];
   va_list ap;
 
@@ -2475,23 +2530,19 @@ void ProcessEmitWarning(Environment* env, const char* fmt, ...) {
   vsnprintf(warning, sizeof(warning), fmt, ap);
   va_end(ap);
 
-  HandleScope handle_scope(env->isolate());
-  Context::Scope context_scope(env->context());
-
-  Local<Object> process = env->process_object();
-  MaybeLocal<Value> emit_warning = process->Get(env->context(),
-      FIXED_ONE_BYTE_STRING(env->isolate(), "emitWarning"));
-  Local<Value> arg = node::OneByteString(env->isolate(), warning);
-
-  Local<Value> f;
-
-  if (!emit_warning.ToLocal(&f)) return;
-  if (!f->IsFunction()) return;
-
-  // MakeCallback() unneeded, because emitWarning is internal code, it calls
-  // process.emit('warning', ..), but does so on the nextTick.
-  f.As<v8::Function>()->Call(process, 1, &arg);
+  return ProcessEmitWarningGeneric(env, warning);
 }
+
+
+Maybe<bool> ProcessEmitDeprecationWarning(Environment* env,
+                                          const char* warning,
+                                          const char* deprecation_code) {
+  return ProcessEmitWarningGeneric(env,
+                                   warning,
+                                   "DeprecationWarning",
+                                   deprecation_code);
+}
+
 
 static bool PullFromCache(Environment* env,
                           const FunctionCallbackInfo<Value>& args,
@@ -2917,12 +2968,6 @@ static void DebugEnd(const FunctionCallbackInfo<Value>& args);
 
 namespace {
 
-void ActivateImmediateCheck(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-  env->ActivateImmediateCheck();
-}
-
-
 void StartProfilerIdleNotifier(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   env->StartProfilerIdleNotifier();
@@ -3025,6 +3070,12 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(versions,
                     "nghttp2",
                     FIXED_ONE_BYTE_STRING(env->isolate(), NGHTTP2_VERSION));
+
+  const char node_napi_version[] = NODE_STRINGIFY(NAPI_VERSION);
+  READONLY_PROPERTY(
+      versions,
+      "napi",
+      FIXED_ONE_BYTE_STRING(env->isolate(), node_napi_version));
 
   // process._promiseRejectEvent
   Local<Object> promiseRejectEvent = Object::New(env->isolate());
@@ -3150,12 +3201,6 @@ void SetupProcessObject(Environment* env,
   CHECK(process->SetAccessor(env->context(),
                              FIXED_ONE_BYTE_STRING(env->isolate(), "ppid"),
                              GetParentProcessId).FromJust());
-
-  auto scheduled_immediate_count =
-      FIXED_ONE_BYTE_STRING(env->isolate(), "_scheduledImmediateCount");
-  CHECK(process->Set(env->context(),
-                     scheduled_immediate_count,
-                     env->scheduled_immediate_count().GetJSArray()).FromJust());
 
   auto should_abort_on_uncaught_toggle =
       FIXED_ONE_BYTE_STRING(env->isolate(), "_shouldAbortOnUncaughtToggle");
@@ -3289,9 +3334,6 @@ void SetupProcessObject(Environment* env,
 
   // define various internal methods
   env->SetMethod(process,
-                 "_activateImmediateCheck",
-                 ActivateImmediateCheck);
-  env->SetMethod(process,
                  "_startProfilerIdleNotifier",
                  StartProfilerIdleNotifier);
   env->SetMethod(process,
@@ -3344,12 +3386,6 @@ void SetupProcessObject(Environment* env,
   env->SetMethod(process, "_setupNextTick", SetupNextTick);
   env->SetMethod(process, "_setupPromises", SetupPromises);
   env->SetMethod(process, "_setupDomainUse", SetupDomainUse);
-
-  // pre-set _events object for faster emit checks
-  Local<Object> events_obj = Object::New(env->isolate());
-  CHECK(events_obj->SetPrototype(env->context(),
-                                 Null(env->isolate())).FromJust());
-  process->Set(env->events_string(), events_obj);
 }
 
 
@@ -4362,7 +4398,6 @@ void Init(int* argc,
   // Buffer::Data().
   const char no_typed_array_heap[] = "--typed_array_max_size_in_heap=0";
   V8::SetFlagsFromString(no_typed_array_heap, sizeof(no_typed_array_heap) - 1);
-
   // Needed for access to V8 intrinsics.  Disabled again during bootstrapping,
   // see lib/internal/bootstrap_node.js.
   const char allow_natives_syntax[] = "--allow_natives_syntax";

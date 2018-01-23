@@ -10,7 +10,7 @@ file a new issue.
 
 ## Supported platforms
 
-This list of supported platforms is current as of the branch / release to
+This list of supported platforms is current as of the branch/release to
 which it is attached.
 
 ### Input
@@ -33,15 +33,15 @@ Support is divided into three tiers:
 
 ### Supported platforms
 
-The community does not build or test against end of life distributions (EoL).
-Thus we do not recommend that you use Node on end of life or unsupported platforms
+The community does not build or test against end-of-life distributions (EoL).
+Thus we do not recommend that you use Node on end-of-life or unsupported platforms
 in production.
 
 |  System      | Support type | Version                          | Architectures        | Notes            |
 |--------------|--------------|----------------------------------|----------------------|------------------|
 | GNU/Linux    | Tier 1       | kernel >= 2.6.32, glibc >= 2.12  | x64, arm, arm64      |                  |
 | macOS        | Tier 1       | >= 10.10                         | x64                  |                  |
-| Windows      | Tier 1       | >= Windows 7 / 2008 R2           | x86, x64             | vs2017           |
+| Windows      | Tier 1       | >= Windows 7/2008 R2             | x86, x64             | vs2017           |
 | SmartOS      | Tier 2       | >= 15 < 16.4                     | x86, x64             | see note1        |
 | FreeBSD      | Tier 2       | >= 10                            | x64                  |                  |
 | GNU/Linux    | Tier 2       | kernel >= 3.13.0, glibc >= 2.19  | ppc64le >=power8     |                  |
@@ -92,16 +92,16 @@ Depending on host platform, the selection of toolchains may vary.
 *Note:* All prerequisites can be easily installed by following
 [this bootstrapping guide](https://github.com/nodejs/node/blob/master/tools/bootstrap/README.md).
 
-### Unix / macOS
+### Unix/macOS
 
-Prerequisites:
+#### Prerequisites
 
 * `gcc` and `g++` 4.9.4 or newer, or
 * `clang` and `clang++` 3.4.2 or newer (macOS: latest Xcode Command Line Tools)
 * Python 2.6 or 2.7
 * GNU Make 3.81 or newer
 
-On macOS you will need to install the `Xcode Command Line Tools` by running
+On macOS, you will need to install the `Xcode Command Line Tools` by running
 `xcode-select --install`. Alternatively, if you already have the full Xcode
 installed, you can find them under the menu `Xcode -> Open Developer Tool ->
 More Developer Tools...`. This step will install `clang`, `clang++`, and
@@ -114,11 +114,13 @@ If the path to your build directory contains a space, the build will likely fail
 ```console
 $ sudo ./tools/macosx-firewall.sh
 ```
-Running this script will add rules for the executable `node` in the out
+Running this script will add rules for the executable `node` in the `out`
 directory and the symbolic `node` link in the project's root directory.
 
 On FreeBSD and OpenBSD, you may also need:
 * libexecinfo
+
+#### Building Node.js
 
 To build Node.js:
 
@@ -138,13 +140,26 @@ for more information.
 Note that the above requires that `python` resolve to Python 2.6 or 2.7
 and not a newer version.
 
-To run the tests:
+#### Running Tests
+
+To verify the build:
+
+```console
+$ make test-only
+```
+
+At this point, you are ready to make code changes and re-run the tests.
+
+If you are running tests prior to submitting a Pull Request, the recommended
+command is:
 
 ```console
 $ make test
 ```
 
-At this point you are ready to make code changes and re-run the tests!
+`make test` does a full check on the codebase, including running linters and
+documentation tests.
+
 Optionally, continue below.
 
 To run the tests and generate code coverage reports:
@@ -165,6 +180,8 @@ reports:
 ```console
 $ make coverage-clean
 ```
+
+#### Building the documentation
 
 To build the documentation:
 
@@ -233,7 +250,7 @@ To test if Node.js was built correctly:
 > Release\node -e "console.log('Hello from Node.js', process.version)"
 ```
 
-### Android / Android-based devices (e.g. Firefox OS)
+### Android/Android-based devices (e.g. Firefox OS)
 
 Although these instructions for building on Android are provided, please note
 that Android is not an officially supported platform at this time. Patches to
@@ -273,7 +290,7 @@ With the `--download=all`, this may download ICU if you don't have an
 ICU in `deps/icu`. (The embedded `small-icu` included in the default
 Node.js source does not include all locales.)
 
-##### Unix / macOS:
+##### Unix/macOS:
 
 ```console
 $ ./configure --with-intl=full-icu --download=all
@@ -290,7 +307,7 @@ $ ./configure --with-intl=full-icu --download=all
 The `Intl` object will not be available, nor some other APIs such as
 `String.normalize`.
 
-##### Unix / macOS:
+##### Unix/macOS:
 
 ```console
 $ ./configure --without-intl
@@ -302,7 +319,7 @@ $ ./configure --without-intl
 > .\vcbuild without-intl
 ```
 
-#### Use existing installed ICU (Unix / macOS only):
+#### Use existing installed ICU (Unix/macOS only):
 
 ```console
 $ pkg-config --modversion icu-i18n && ./configure --with-intl=system-icu
@@ -318,7 +335,7 @@ You can find other ICU releases at
 Download the file named something like `icu4c-**##.#**-src.tgz` (or
 `.zip`).
 
-##### Unix / macOS
+##### Unix/macOS
 
 From an already-unpacked ICU:
 ```console
@@ -347,17 +364,13 @@ as `deps/icu` (You'll have: `deps/icu/source/...`)
 
 ## Building Node.js with FIPS-compliant OpenSSL
 
-NOTE: Windows is not yet supported
+It is possible to build Node.js with the
+[OpenSSL FIPS module](https://www.openssl.org/docs/fipsnotes.html) on POSIX
+systems. Windows is not supported.
 
-It is possible to build Node.js with
-[OpenSSL FIPS module](https://www.openssl.org/docs/fipsnotes.html).
-
-**Note**: building in this way does **not** allow you to claim that the
-runtime is FIPS 140-2 validated. Instead you can indicate that the runtime
-uses a validated module. See the
-[security policy](http://csrc.nist.gov/groups/STM/cmvp/documents/140-1/140sp/140sp1747.pdf)
-page 60 for more details. In addition, the validation for the underlying module
-is only valid if it is deployed in accordance with its
+Building in this way does not mean the runtime is FIPS 140-2 validated, but
+rather that the runtime uses a validated module. In addition, the validation for
+the underlying module is only valid if it is deployed in accordance with its
 [security policy](http://csrc.nist.gov/groups/STM/cmvp/documents/140-1/140sp/140sp1747.pdf).
 If you need FIPS validated cryptography it is recommended that you read both
 the [security policy](http://csrc.nist.gov/groups/STM/cmvp/documents/140-1/140sp/140sp1747.pdf)
@@ -370,7 +383,7 @@ and [user guide](https://openssl.org/docs/fips/UserGuide-2.0.pdf).
    through which you get the file complies with the requirements
    for a "secure installation" as described in section 6.6 in
    the [user guide](https://openssl.org/docs/fips/UserGuide-2.0.pdf).
-   For evaluation/experimentation you can simply download and verify
+   For evaluation/experimentation, you can simply download and verify
    `openssl-fips-x.x.x.tar.gz` from https://www.openssl.org/source/
 2. Extract source to `openssl-fips` folder and `cd openssl-fips`
 3. `./config`

@@ -53,11 +53,11 @@ inline MultiIsolatePlatform* IsolateData::platform() const {
   return platform_;
 }
 
-inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
-    : isolate_(isolate),
-      fields_(isolate, kFieldsCount),
-      async_id_fields_(isolate, kUidFieldsCount) {
-  v8::HandleScope handle_scope(isolate_);
+inline Environment::AsyncHooks::AsyncHooks()
+    : async_ids_stack_(env()->isolate(), 16 * 2),
+      fields_(env()->isolate(), kFieldsCount),
+      async_id_fields_(env()->isolate(), kUidFieldsCount) {
+  v8::HandleScope handle_scope(env()->isolate());
 
   // Always perform async_hooks checks, not just when async_hooks is enabled.
   // TODO(AndreasMadsen): Consider removing this for LTS releases.
@@ -65,6 +65,12 @@ inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
   // When removing this, do it by reverting the commit. Otherwise the test
   // and flag changes won't be included.
   fields_[kCheck] = 1;
+
+  // kDefaultTriggerAsyncId should be -1, this indicates that there is no
+  // specified default value and it should fallback to the executionAsyncId.
+  // 0 is not used as the magic value, because that indicates a missing context
+  // which is different from a default context.
+  async_id_fields_[AsyncHooks::kDefaultTriggerAsyncId] = -1;
 
   // kAsyncIdCounter should start at 1 because that'll be the id the execution
   // context during bootstrap (code that runs before entering uv_run()).
@@ -75,9 +81,9 @@ inline Environment::AsyncHooks::AsyncHooks(v8::Isolate* isolate)
   // strings can be retrieved quickly.
 #define V(Provider)                                                           \
   providers_[AsyncWrap::PROVIDER_ ## Provider].Set(                           \
-      isolate_,                                                               \
+      env()->isolate(),                                                       \
       v8::String::NewFromOneByte(                                             \
-        isolate_,                                                             \
+        env()->isolate(),                                                     \
         reinterpret_cast<const uint8_t*>(#Provider),                          \
         v8::NewStringType::kInternalized,                                     \
         sizeof(#Provider) - 1).ToLocalChecked());
@@ -90,21 +96,18 @@ Environment::AsyncHooks::fields() {
   return fields_;
 }
 
-inline int Environment::AsyncHooks::fields_count() const {
-  return kFieldsCount;
-}
-
 inline AliasedBuffer<double, v8::Float64Array>&
 Environment::AsyncHooks::async_id_fields() {
   return async_id_fields_;
 }
 
-inline int Environment::AsyncHooks::async_id_fields_count() const {
-  return kUidFieldsCount;
+inline AliasedBuffer<double, v8::Float64Array>&
+Environment::AsyncHooks::async_ids_stack() {
+  return async_ids_stack_;
 }
 
 inline v8::Local<v8::String> Environment::AsyncHooks::provider_string(int idx) {
-  return providers_[idx].Get(isolate_);
+  return providers_[idx].Get(env()->isolate());
 }
 
 inline void Environment::AsyncHooks::no_force_checks() {
@@ -112,6 +115,11 @@ inline void Environment::AsyncHooks::no_force_checks() {
   fields_[kCheck] = fields_[kCheck] - 1;
 }
 
+inline Environment* Environment::AsyncHooks::env() {
+  return Environment::ForAsyncHooks(this);
+}
+
+// Remember to keep this code aligned with pushAsyncIds() in JS.
 inline void Environment::AsyncHooks::push_async_ids(double async_id,
                                               double trigger_async_id) {
   // Since async_hooks is experimental, do only perform the check
@@ -121,16 +129,21 @@ inline void Environment::AsyncHooks::push_async_ids(double async_id,
     CHECK_GE(trigger_async_id, -1);
   }
 
-  async_ids_stack_.push({ async_id_fields_[kExecutionAsyncId],
-                    async_id_fields_[kTriggerAsyncId] });
+  uint32_t offset = fields_[kStackLength];
+  if (offset * 2 >= async_ids_stack_.Length())
+    grow_async_ids_stack();
+  async_ids_stack_[2 * offset] = async_id_fields_[kExecutionAsyncId];
+  async_ids_stack_[2 * offset + 1] = async_id_fields_[kTriggerAsyncId];
+  fields_[kStackLength] = fields_[kStackLength] + 1;
   async_id_fields_[kExecutionAsyncId] = async_id;
   async_id_fields_[kTriggerAsyncId] = trigger_async_id;
 }
 
+// Remember to keep this code aligned with popAsyncIds() in JS.
 inline bool Environment::AsyncHooks::pop_async_id(double async_id) {
   // In case of an exception then this may have already been reset, if the
   // stack was multiple MakeCallback()'s deep.
-  if (async_ids_stack_.empty()) return false;
+  if (fields_[kStackLength] == 0) return false;
 
   // Ask for the async_id to be restored as a check that the stack
   // hasn't been corrupted.
@@ -142,50 +155,54 @@ inline bool Environment::AsyncHooks::pop_async_id(double async_id) {
             "actual: %.f, expected: %.f)\n",
             async_id_fields_.GetValue(kExecutionAsyncId),
             async_id);
-    Environment* env = Environment::GetCurrent(isolate_);
     DumpBacktrace(stderr);
     fflush(stderr);
-    if (!env->abort_on_uncaught_exception())
+    if (!env()->abort_on_uncaught_exception())
       exit(1);
     fprintf(stderr, "\n");
     fflush(stderr);
     ABORT_NO_BACKTRACE();
   }
 
-  auto async_ids = async_ids_stack_.top();
-  async_ids_stack_.pop();
-  async_id_fields_[kExecutionAsyncId] = async_ids.async_id;
-  async_id_fields_[kTriggerAsyncId] = async_ids.trigger_async_id;
-  return !async_ids_stack_.empty();
-}
+  uint32_t offset = fields_[kStackLength] - 1;
+  async_id_fields_[kExecutionAsyncId] = async_ids_stack_[2 * offset];
+  async_id_fields_[kTriggerAsyncId] = async_ids_stack_[2 * offset + 1];
+  fields_[kStackLength] = offset;
 
-inline size_t Environment::AsyncHooks::stack_size() {
-  return async_ids_stack_.size();
+  return fields_[kStackLength] > 0;
 }
 
 inline void Environment::AsyncHooks::clear_async_id_stack() {
-  while (!async_ids_stack_.empty())
-    async_ids_stack_.pop();
   async_id_fields_[kExecutionAsyncId] = 0;
   async_id_fields_[kTriggerAsyncId] = 0;
+  fields_[kStackLength] = 0;
 }
 
-inline Environment::AsyncHooks::InitScope::InitScope(
-    Environment* env, double init_trigger_async_id)
-        : env_(env),
-          async_id_fields_ref_(env->async_hooks()->async_id_fields()) {
-  if (env_->async_hooks()->fields()[AsyncHooks::kCheck] > 0) {
-    CHECK_GE(init_trigger_async_id, -1);
+inline Environment::AsyncHooks::DefaultTriggerAsyncIdScope
+  ::DefaultTriggerAsyncIdScope(Environment* env,
+                               double default_trigger_async_id)
+    : async_id_fields_ref_(env->async_hooks()->async_id_fields()) {
+  if (env->async_hooks()->fields()[AsyncHooks::kCheck] > 0) {
+    CHECK_GE(default_trigger_async_id, 0);
   }
-  env->async_hooks()->push_async_ids(
-    async_id_fields_ref_[AsyncHooks::kExecutionAsyncId],
-    init_trigger_async_id);
+
+  old_default_trigger_async_id_ =
+    async_id_fields_ref_[AsyncHooks::kDefaultTriggerAsyncId];
+  async_id_fields_ref_[AsyncHooks::kDefaultTriggerAsyncId] =
+    default_trigger_async_id;
 }
 
-inline Environment::AsyncHooks::InitScope::~InitScope() {
-  env_->async_hooks()->pop_async_id(
-    async_id_fields_ref_[AsyncHooks::kExecutionAsyncId]);
+inline Environment::AsyncHooks::DefaultTriggerAsyncIdScope
+  ::~DefaultTriggerAsyncIdScope() {
+  async_id_fields_ref_[AsyncHooks::kDefaultTriggerAsyncId] =
+    old_default_trigger_async_id_;
 }
+
+
+Environment* Environment::ForAsyncHooks(AsyncHooks* hooks) {
+  return ContainerOf(&Environment::async_hooks_, hooks);
+}
+
 
 inline Environment::AsyncCallbackScope::AsyncCallbackScope(Environment* env)
     : env_(env) {
@@ -200,35 +217,46 @@ inline bool Environment::AsyncCallbackScope::in_makecallback() const {
   return env_->makecallback_cntr_ > 1;
 }
 
-inline Environment::TickInfo::TickInfo() {
-  for (int i = 0; i < kFieldsCount; ++i)
-    fields_[i] = 0;
-}
+inline Environment::ImmediateInfo::ImmediateInfo(v8::Isolate* isolate)
+    : fields_(isolate, kFieldsCount) {}
 
-inline uint32_t* Environment::TickInfo::fields() {
+inline AliasedBuffer<uint32_t, v8::Uint32Array>&
+    Environment::ImmediateInfo::fields() {
   return fields_;
 }
 
-inline int Environment::TickInfo::fields_count() const {
-  return kFieldsCount;
+inline uint32_t Environment::ImmediateInfo::count() const {
+  return fields_[kCount];
 }
 
-inline uint32_t Environment::TickInfo::index() const {
-  return fields_[kIndex];
+inline bool Environment::ImmediateInfo::has_outstanding() const {
+  return fields_[kHasOutstanding] == 1;
 }
 
-inline uint32_t Environment::TickInfo::length() const {
-  return fields_[kLength];
+inline void Environment::ImmediateInfo::count_inc(uint32_t increment) {
+  fields_[kCount] = fields_[kCount] + increment;
 }
 
-inline void Environment::TickInfo::set_index(uint32_t value) {
-  fields_[kIndex] = value;
+inline void Environment::ImmediateInfo::count_dec(uint32_t decrement) {
+  fields_[kCount] = fields_[kCount] - decrement;
 }
 
-inline void Environment::AssignToContext(v8::Local<v8::Context> context) {
+inline Environment::TickInfo::TickInfo(v8::Isolate* isolate)
+    : fields_(isolate, kFieldsCount) {}
+
+inline AliasedBuffer<uint8_t, v8::Uint8Array>& Environment::TickInfo::fields() {
+  return fields_;
+}
+
+inline bool Environment::TickInfo::has_scheduled() const {
+  return fields_[kHasScheduled] == 1;
+}
+
+inline void Environment::AssignToContext(v8::Local<v8::Context> context,
+                                         const ContextInfo& info) {
   context->SetAlignedPointerInEmbedderData(kContextEmbedderDataIndex, this);
 #if HAVE_INSPECTOR
-  inspector_agent()->ContextCreated(context);
+  inspector_agent()->ContextCreated(context, info);
 #endif  // HAVE_INSPECTOR
 }
 
@@ -259,7 +287,8 @@ inline Environment::Environment(IsolateData* isolate_data,
                                 v8::Local<v8::Context> context)
     : isolate_(context->GetIsolate()),
       isolate_data_(isolate_data),
-      async_hooks_(context->GetIsolate()),
+      immediate_info_(context->GetIsolate()),
+      tick_info_(context->GetIsolate()),
       timer_base_(uv_now(isolate_data->event_loop())),
       using_domains_(false),
       printed_error_(false),
@@ -267,7 +296,6 @@ inline Environment::Environment(IsolateData* isolate_data,
       abort_on_uncaught_exception_(false),
       emit_napi_warning_(true),
       makecallback_cntr_(0),
-      scheduled_immediate_count_(isolate_, 1),
       should_abort_on_uncaught_toggle_(isolate_, 1),
 #if HAVE_INSPECTOR
       inspector_agent_(new inspector::Agent(this)),
@@ -293,7 +321,7 @@ inline Environment::Environment(IsolateData* isolate_data,
 
   set_module_load_list_array(v8::Array::New(isolate()));
 
-  AssignToContext(context);
+  AssignToContext(context, ContextInfo(""));
 
   destroy_async_id_list_.reserve(512);
   performance_state_ = Calloc<performance::performance_state>(1);
@@ -367,6 +395,10 @@ inline Environment::AsyncHooks* Environment::async_hooks() {
   return &async_hooks_;
 }
 
+inline Environment::ImmediateInfo* Environment::immediate_info() {
+  return &immediate_info_;
+}
+
 inline Environment::TickInfo* Environment::tick_info() {
   return &tick_info_;
 }
@@ -408,6 +440,27 @@ Environment::should_abort_on_uncaught_toggle() {
   return should_abort_on_uncaught_toggle_;
 }
 
+Environment::ShouldNotAbortOnUncaughtScope::ShouldNotAbortOnUncaughtScope(
+    Environment* env)
+    : env_(env) {
+  env_->should_not_abort_scope_counter_++;
+}
+
+Environment::ShouldNotAbortOnUncaughtScope::~ShouldNotAbortOnUncaughtScope() {
+  Close();
+}
+
+void Environment::ShouldNotAbortOnUncaughtScope::Close() {
+  if (env_ != nullptr) {
+    env_->should_not_abort_scope_counter_--;
+    env_ = nullptr;
+  }
+}
+
+bool Environment::inside_should_not_abort_on_uncaught_scope() const {
+  return should_not_abort_scope_counter_ > 0;
+}
+
 inline std::vector<double>* Environment::destroy_async_id_list() {
   return &destroy_async_id_list_;
 }
@@ -426,18 +479,13 @@ inline double Environment::trigger_async_id() {
   return async_hooks()->async_id_fields()[AsyncHooks::kTriggerAsyncId];
 }
 
-inline double Environment::get_init_trigger_async_id() {
-  AliasedBuffer<double, v8::Float64Array>& async_id_fields =
-    async_hooks()->async_id_fields();
-  double tid = async_id_fields[AsyncHooks::kInitTriggerAsyncId];
-  async_id_fields[AsyncHooks::kInitTriggerAsyncId] = 0;
-
-  if (tid <= 0) tid = execution_async_id();
-  return tid;
-}
-
-inline void Environment::set_init_trigger_async_id(const double id) {
-  async_hooks()->async_id_fields()[AsyncHooks::kInitTriggerAsyncId] = id;
+inline double Environment::get_default_trigger_async_id() {
+  double default_trigger_async_id =
+    async_hooks()->async_id_fields()[AsyncHooks::kDefaultTriggerAsyncId];
+  // If defaultTriggerAsyncId isn't set, use the executionAsyncId
+  if (default_trigger_async_id < 0)
+    default_trigger_async_id = execution_async_id();
+  return default_trigger_async_id;
 }
 
 inline double* Environment::heap_statistics_buffer() const {
@@ -489,11 +537,6 @@ inline void Environment::set_fs_stats_field_array(
   fs_stats_field_array_ = v8::Global<v8::Float64Array>(isolate_, fields);
 }
 
-inline AliasedBuffer<uint32_t, v8::Uint32Array>&
-Environment::scheduled_immediate_count() {
-  return scheduled_immediate_count_;
-}
-
 void Environment::SetImmediate(native_immediate_callback cb,
                                void* data,
                                v8::Local<v8::Object> obj) {
@@ -503,9 +546,9 @@ void Environment::SetImmediate(native_immediate_callback cb,
     std::unique_ptr<v8::Persistent<v8::Object>>(
         obj.IsEmpty() ? nullptr : new v8::Persistent<v8::Object>(isolate_, obj))
   });
-  if (scheduled_immediate_count_[0] == 0)
+  if (immediate_info()->count() == 0)
     ActivateImmediateCheck();
-  scheduled_immediate_count_[0] = scheduled_immediate_count_[0] + 1;
+  immediate_info()->count_inc(1);
 }
 
 inline performance::performance_state* Environment::performance_state() {

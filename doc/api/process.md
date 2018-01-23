@@ -94,9 +94,8 @@ The listener callback is invoked with the following arguments:
 * `sendHandle` {Handle object} a [`net.Socket`][] or [`net.Server`][] object, or
   undefined.
 
-*Note*: The message goes through JSON serialization and parsing. The resulting
-message might not be the same as what is originally sent. See notes in
-[the `JSON.stringify()` specification][`JSON.stringify` spec].
+*Note*: The message goes through serialization and parsing. The resulting
+message might not be the same as what is originally sent.
 
 ### Event: 'rejectionHandled'
 <!-- YAML
@@ -375,16 +374,11 @@ process.on('SIGINT', handle);
 process.on('SIGTERM', handle);
 ```
 
-*Note*: An easy way to send the `SIGINT` signal is with `<Ctrl>-C` in most
-terminal programs.
-
-It is important to take note of the following:
-
-* `SIGUSR1` is reserved by Node.js to start the debugger.  It's possible to
+* `SIGUSR1` is reserved by Node.js to start the [debugger][]. It's possible to
   install a listener but doing so will _not_ stop the debugger from starting.
 * `SIGTERM` and `SIGINT` have default handlers on non-Windows platforms that
-  resets the terminal mode before exiting with code `128 + signal number`. If
-  one of these signals has a listener installed, its default behavior will be
+  reset the terminal mode before exiting with code `128 + signal number`. If one
+  of these signals has a listener installed, its default behavior will be
   removed (Node.js will no longer exit).
 * `SIGPIPE` is ignored by default. It can have a listener installed.
 * `SIGHUP` is generated on Windows when the console window is closed, and on
@@ -395,7 +389,7 @@ It is important to take note of the following:
   installed its default behavior will be removed.
 * `SIGTERM` is not supported on Windows, it can be listened on.
 * `SIGINT` from the terminal is supported on all platforms, and can usually be
-  generated with `CTRL+C` (though this may be configurable). It is not generated
+  generated with `<Ctrl>+C` (though this may be configurable). It is not generated
   when terminal raw mode is enabled.
 * `SIGBREAK` is delivered on Windows when `<Ctrl>+<Break>` is pressed, on
   non-Windows platforms it can be listened on, but there is no way to send or
@@ -433,9 +427,11 @@ added: v0.5.0
 
 * {string}
 
-The `process.arch` property returns a String identifying the processor
-architecture that the Node.js process is currently running on. For instance
-`'arm'`, `'ia32'`, or `'x64'`.
+The `process.arch` property returns a string identifying the operating system CPU
+architecture for which the Node.js binary was compiled.
+
+The current possible values are: `'arm'`, `'arm64'`, `'ia32'`, `'mips'`,
+`'mipsel'`, `'ppc'`, `'ppc64'`, `'s390'`, `'s390x'`, `'x32'`, and `'x64'`.
 
 ```js
 console.log(`This processor architecture is ${process.arch}`);
@@ -988,10 +984,10 @@ process.exit(1);
 
 The shell that executed Node.js should see the exit code as `1`.
 
-It is important to note that calling `process.exit()` will force the process to
-exit as quickly as possible *even if there are still asynchronous operations
-pending* that have not yet completed fully, *including* I/O operations to
-`process.stdout` and `process.stderr`.
+Calling `process.exit()` will force the process to exit as quickly as possible
+even if there are still asynchronous operations pending that have not yet
+completed fully, including I/O operations to `process.stdout` and
+`process.stderr`.
 
 In most situations, it is not actually necessary to call `process.exit()`
 explicitly. The Node.js process will exit on its own *if there is no additional
@@ -1138,7 +1134,7 @@ or Android).
 
 ## process.hasUncaughtExceptionCaptureCallback()
 <!-- YAML
-added: REPLACEME
+added: v9.3.0
 -->
 
 * Returns: {boolean}
@@ -1409,6 +1405,19 @@ event loop **before** additional I/O is processed.  As a result,
 recursively setting nextTick callbacks will block any I/O from
 happening, just like a `while(true);` loop.
 
+## process.noDeprecation
+<!-- YAML
+added: v0.8.0
+-->
+
+* {boolean}
+
+The `process.noDeprecation` property indicates whether the `--no-deprecation`
+flag is set on the current Node.js process. See the documentation for
+the [`warning` event][process_warning] and the
+[`emitWarning` method][process_emit_warning] for more information about this
+flag's behavior.
+
 ## process.pid
 <!-- YAML
 added: v0.1.15
@@ -1519,9 +1528,8 @@ used to send messages to the parent process. Messages will be received as a
 If Node.js was not spawned with an IPC channel, `process.send()` will be
 `undefined`.
 
-*Note*: The message goes through JSON serialization and parsing. The resulting
-message might not be the same as what is originally sent. See notes in
-[the `JSON.stringify()` specification][`JSON.stringify` spec].
+*Note*: The message goes through serialization and parsing. The resulting
+message might not be the same as what is originally sent.
 
 ## process.setegid(id)
 <!-- YAML
@@ -1649,7 +1657,7 @@ or Android).
 
 ## process.setUncaughtExceptionCaptureCallback(fn)
 <!-- YAML
-added: REPLACEME
+added: v9.3.0
 -->
 
 * `fn` {Function|null}
@@ -1783,6 +1791,19 @@ false
 
 See the [TTY][] documentation for more information.
 
+## process.throwDeprecation
+<!-- YAML
+added: v0.9.12
+-->
+
+* {boolean}
+
+The `process.throwDeprecation` property indicates whether the
+`--throw-deprecation` flag is set on the current Node.js process. See the
+documentation for the [`warning` event][process_warning] and the
+[`emitWarning` method][process_emit_warning] for more information about this
+flag's behavior.
+
 ## process.title
 <!-- YAML
 added: v0.1.104
@@ -1802,6 +1823,19 @@ because setting the `process.title` overwrites the `argv` memory of the
 process.  Node.js v0.8 allowed for longer process title strings by also
 overwriting the `environ` memory but that was potentially insecure and
 confusing in some (rather obscure) cases.
+
+## process.traceDeprecation
+<!-- YAML
+added: v0.8.0
+-->
+
+* {boolean}
+
+The `process.traceDeprecation` property indicates whether the
+`--trace-deprecation` flag is set on the current Node.js process. See the
+documentation for the [`warning` event][process_warning] and the
+[`emitWarning` method][process_emit_warning] for more information about this
+flag's behavior.
 
 ## process.umask([mask])
 <!-- YAML
@@ -1951,7 +1985,6 @@ cases:
 [`ChildProcess`]: child_process.html#child_process_class_childprocess
 [`Error`]: errors.html#errors_class_error
 [`EventEmitter`]: events.html#events_class_eventemitter
-[`JSON.stringify` spec]: https://tc39.github.io/ecma262/#sec-json.stringify
 [`console.error()`]: console.html#console_console_error_data_args
 [`console.log()`]: console.html#console_console_log_data_args
 [`domain`]: domain.html
@@ -1974,6 +2007,7 @@ cases:
 [`v8.setFlagsFromString()`]: v8.html#v8_v8_setflagsfromstring_flags
 [Child Process]: child_process.html
 [Cluster]: cluster.html
+[debugger]: debugger.html
 [Duplex]: stream.html#stream_duplex_and_transform_streams
 [LTS]: https://github.com/nodejs/LTS/
 [note on process I/O]: process.html#process_a_note_on_process_i_o

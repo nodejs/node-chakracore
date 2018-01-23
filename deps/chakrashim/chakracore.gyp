@@ -92,8 +92,7 @@
               '<(chakra_libs_absolute)/lib/libChakraCoreStatic.a',
             ],
             'icu_args': [
-              '--icu=<(icu_include_path)',
-              '--with-intl'
+              '--icu=<(icu_include_path)'
             ],
             'linker_start_group': '-Wl,-force_load',
           }]

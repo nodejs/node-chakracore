@@ -35,21 +35,23 @@ import subprocess
 import shutil
 import string
 
+# If not run from node/, cd to node/.
+os.chdir(os.path.dirname(__file__) or '.')
+
 # gcc and g++ as defaults matches what GYP's Makefile generator does,
 # except on OS X.
 CC = os.environ.get('CC', 'cc' if sys.platform == 'darwin' else 'gcc')
 CXX = os.environ.get('CXX', 'c++' if sys.platform == 'darwin' else 'g++')
 
-root_dir = os.path.dirname(__file__)
-sys.path.insert(0, os.path.join(root_dir, 'tools', 'gyp', 'pylib'))
+sys.path.insert(0, os.path.join('tools', 'gyp', 'pylib'))
 from gyp.common import GetFlavor
 
 # imports in tools/configure.d
-sys.path.insert(0, os.path.join(root_dir, 'tools', 'configure.d'))
+sys.path.insert(0, os.path.join('tools', 'configure.d'))
 import nodedownload
 
 # imports in tools/
-sys.path.insert(0, os.path.join(root_dir, 'tools'))
+sys.path.insert(0, 'tools')
 import getmoduleversion
 from gyp_node import run_gyp
 
@@ -146,7 +148,7 @@ parser.add_option("--enable-vtune-profiling",
     dest="enable_vtune_profiling",
     help="Enable profiling support for Intel VTune profiler to profile "
          "JavaScript code executed in nodejs. This feature is only available "
-         "for x32, x86 and x64 architectures.")
+         "for x32, x86, and x64 architectures.")
 
 
 parser.add_option("--link-module",
@@ -432,7 +434,7 @@ intl_optgroup.add_option('--download',
 intl_optgroup.add_option('--download-path',
     action='store',
     dest='download_path',
-    default=os.path.join(root_dir, 'deps'),
+    default='deps',
     help='Download directory [default: %default]')
 
 parser.add_option_group(intl_optgroup)
@@ -913,7 +915,7 @@ def configure_node(o):
     o['variables']['node_enable_v8_vtunejit'] = b(options.enable_vtune_profiling)
   elif options.enable_vtune_profiling:
     raise Exception(
-       'The VTune profiler for JavaScript is only supported on x32, x86 and x64 '
+       'The VTune profiler for JavaScript is only supported on x32, x86, and x64 '
        'architectures.')
   else:
     o['variables']['node_enable_v8_vtunejit'] = 'false'
@@ -1057,6 +1059,10 @@ def configure_v8(o):
   o['variables']['node_use_bundled_v8'] = b(not options.without_bundled_v8)
   o['variables']['force_dynamic_crt'] = 1 if options.shared else 0
   o['variables']['node_enable_d8'] = b(options.enable_d8)
+  # Unconditionally force typed arrays to allocate outside the v8 heap. This
+  # is to prevent memory pointers from being moved around that are returned by
+  # Buffer::Data().
+  o['variables']['v8_typed_array_max_size_in_heap'] = 0
   if options.enable_d8:
     o['variables']['test_isolation_mode'] = 'noop'  # Needed by d8.gyp.
   if options.without_bundled_v8 and options.enable_d8:
@@ -1076,7 +1082,7 @@ def configure_openssl(o):
       o['defines'] += ['NODE_WITHOUT_NODE_OPTIONS']
   if options.openssl_fips:
     o['variables']['openssl_fips'] = options.openssl_fips
-    fips_dir = os.path.join(root_dir, 'deps', 'openssl', 'fips')
+    fips_dir = os.path.join('deps', 'openssl', 'fips')
     fips_ld = os.path.abspath(os.path.join(fips_dir, 'fipsld'))
     # LINK is for Makefiles, LD/LDXX is for ninja
     o['make_fips_settings'] = [
@@ -1121,7 +1127,7 @@ def configure_static(o):
 
 
 def write(filename, data):
-  filename = os.path.join(root_dir, filename)
+  filename = filename
   print('creating %s' % filename)
   f = open(filename, 'w+')
   f.write(data)
@@ -1243,7 +1249,7 @@ def configure_intl(o):
     return
 
   # this is just the 'deps' dir. Used for unpacking.
-  icu_parent_path = os.path.join(root_dir, 'deps')
+  icu_parent_path = 'deps'
 
   # The full path to the ICU source directory. Should not include './'.
   icu_full_path = 'deps/icu'

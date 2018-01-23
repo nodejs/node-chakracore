@@ -175,7 +175,7 @@ added and `'removeListener'` when existing listeners are removed.
 added: v0.1.26
 -->
 
-* `eventName` {any} The name of the event being listened for
+* `eventName` {string|symbol} The name of the event being listened for
 * `listener` {Function} The event handler function
 
 The `EventEmitter` instance will emit its own `'newListener'` event *before*
@@ -219,7 +219,7 @@ changes:
                  now yields the original listener function.
 -->
 
-* `eventName` {any} The event name
+* `eventName` {string|symbol} The event name
 * `listener` {Function} The event handler function
 
 The `'removeListener'` event is emitted *after* the `listener` is removed.
@@ -287,7 +287,7 @@ Its `name` property is set to `'MaxListenersExceededWarning'`.
 <!-- YAML
 added: v0.1.26
 -->
-- `eventName` {any}
+- `eventName` {string|symbol}
 - `listener` {Function}
 
 Alias for `emitter.on(eventName, listener)`.
@@ -296,7 +296,7 @@ Alias for `emitter.on(eventName, listener)`.
 <!-- YAML
 added: v0.1.26
 -->
-- `eventName` {any}
+- `eventName` {string|symbol}
 - `...args` {any}
 
 Synchronously calls each of the listeners registered for the event named
@@ -340,7 +340,7 @@ set by [`emitter.setMaxListeners(n)`][] or defaults to
 added: v3.2.0
 -->
 
-* `eventName` {any} The name of the event being listened for
+* `eventName` {string|symbol} The name of the event being listened for
 
 Returns the number of listeners listening to the event named `eventName`.
 
@@ -353,7 +353,7 @@ changes:
     description: For listeners attached using `.once()` this returns the
                  original listeners instead of wrapper functions now.
 -->
-- `eventName` {any}
+- `eventName` {string|symbol}
 
 Returns a copy of the array of listeners for the event named `eventName`.
 
@@ -370,7 +370,7 @@ console.log(util.inspect(server.listeners('connection')));
 added: v0.1.101
 -->
 
-* `eventName` {any} The name of the event.
+* `eventName` {string|symbol} The name of the event.
 * `listener` {Function} The callback function
 
 Adds the `listener` function to the end of the listeners array for the
@@ -406,10 +406,10 @@ myEE.emit('foo');
 added: v0.3.0
 -->
 
-* `eventName` {any} The name of the event.
+* `eventName` {string|symbol} The name of the event.
 * `listener` {Function} The callback function
 
-Adds a **one time** `listener` function for the event named `eventName`. The
+Adds a **one-time** `listener` function for the event named `eventName`. The
 next time `eventName` is triggered, this listener is removed and then invoked.
 
 ```js
@@ -439,7 +439,7 @@ myEE.emit('foo');
 added: v6.0.0
 -->
 
-* `eventName` {any} The name of the event.
+* `eventName` {string|symbol} The name of the event.
 * `listener` {Function} The callback function
 
 Adds the `listener` function to the *beginning* of the listeners array for the
@@ -461,10 +461,10 @@ Returns a reference to the `EventEmitter`, so that calls can be chained.
 added: v6.0.0
 -->
 
-* `eventName` {any} The name of the event.
+* `eventName` {string|symbol} The name of the event.
 * `listener` {Function} The callback function
 
-Adds a **one time** `listener` function for the event named `eventName` to the
+Adds a **one-time** `listener` function for the event named `eventName` to the
 *beginning* of the listeners array. The next time `eventName` is triggered, this
 listener is removed, and then invoked.
 
@@ -480,7 +480,7 @@ Returns a reference to the `EventEmitter`, so that calls can be chained.
 <!-- YAML
 added: v0.1.26
 -->
-- `eventName` {any}
+- `eventName` {string|symbol}
 
 Removes all listeners, or those of the specified `eventName`.
 
@@ -494,7 +494,7 @@ Returns a reference to the `EventEmitter`, so that calls can be chained.
 <!-- YAML
 added: v0.1.26
 -->
-- `eventName` {any}
+- `eventName` {string|symbol}
 - `listener` {Function}
 
 Removes the specified `listener` from the listener array for the event named
@@ -573,6 +573,39 @@ specific `EventEmitter` instance. The value can be set to `Infinity` (or `0`)
 to indicate an unlimited number of listeners.
 
 Returns a reference to the `EventEmitter`, so that calls can be chained.
+
+### emitter.rawListeners(eventName)
+<!-- YAML
+added: v9.4.0
+-->
+- `eventName` {string|symbol}
+
+Returns a copy of the array of listeners for the event named `eventName`,
+including any wrappers (such as those created by `.once`).
+
+```js
+const emitter = new EventEmitter();
+emitter.once('log', () => console.log('log once'));
+
+// Returns a new Array with a function `onceWrapper` which has a property
+// `listener` which contains the original listener bound above
+const listeners = emitter.rawListeners('log');
+const logFnWrapper = listeners[0];
+
+// logs "log once" to the console and does not unbind the `once` event
+logFnWrapper.listener();
+
+// logs "log once" to the console and removes the listener
+logFnWrapper();
+
+emitter.on('log', () => console.log('log persistently'));
+// will return a new Array with a single function bound by `on` above
+const newListeners = emitter.rawListeners('log');
+
+// logs "log persistently" twice
+newListeners[0]();
+emitter.emit('log');
+```
 
 [`--trace-warnings`]: cli.html#cli_trace_warnings
 [`EventEmitter.defaultMaxListeners`]: #events_eventemitter_defaultmaxlisteners

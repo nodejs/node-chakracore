@@ -1,17 +1,15 @@
 # Contributing to Node.js
 
-Contributions to Node.js may come in many forms. Some contribute code changes,
-others contribute docs, others help answer questions from users, help keep the
-infrastructure running, or seek out ways of advocating for Node.js users of all
-types.
+Contributions to Node.js include code, documentation, answering user questions,
+running the project's infrastructure, and advocating for all types of Node.js
+users.
 
 The Node.js project welcomes all contributions from anyone willing to work in
-good faith both with other contributors and with the community. No contribution
-is too small and all contributions are valued.
+good faith with other contributors and the community. No contribution is too
+small and all contributions are valued.
 
-This guide details the basic steps for getting started contributing to the
-Node.js project's core `nodejs/node` GitHub Repository and describes what to
-expect throughout each step of the process.
+This guide explains the process for contributing to the Node.js project's core
+`nodejs/node` GitHub Repository and describes what to expect at each step.
 
 * [Code of Conduct](#code-of-conduct)
   * [Bad Actors](#bad-actors)
@@ -201,9 +199,8 @@ functional guidelines of the Node.js project.
 
 ## Pull Requests
 
-Pull Requests are the way in which concrete changes are made to the code,
-documentation, dependencies, and tools contained with the `nodejs/node`
-repository.
+Pull Requests are the way concrete changes are made to the code, documentation,
+dependencies, and tools contained in the `nodejs/node` repository.
 
 There are two fundamental components of the Pull Request process: one concrete
 and technical, and one more process oriented. The concrete and technical
@@ -605,12 +602,11 @@ your name on it. Congratulations and thanks for your contribution!
 All Node.js contributors who choose to review and provide feedback on Pull
 Requests have a responsibility to both the project and the individual making the
 contribution. Reviews and feedback must be helpful, insightful, and geared
-towards improving the contribution as opposed to simply blocking it or
-stopping it. If there are reasons why you feel the PR should not land, explain
-what those are. Do not expect to be able to block a Pull Request from advancing
-simply because you say "No" without giving an explanation. It is also important
-to be open to having your mind changed, and to being open to working with the
-contributor to make the Pull Request better.
+towards improving the contribution as opposed to simply blocking it. If there
+are reasons why you feel the PR should not land, explain what those are. Do not
+expect to be able to block a Pull Request from advancing simply because you say
+"No" without giving an explanation. Be open to having your mind changed. Be open
+to working with the contributor to make the Pull Request better.
 
 Reviews that are dismissive or disrespectful of the contributor or any other
 reviewers are strictly counter to the [Code of Conduct][].

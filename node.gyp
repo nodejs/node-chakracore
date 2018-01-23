@@ -125,11 +125,13 @@
       'lib/internal/repl/await.js',
       'lib/internal/socket_list.js',
       'lib/internal/test/unicode.js',
+      'lib/internal/timers.js',
       'lib/internal/tls.js',
       'lib/internal/trace_events_async_hooks.js',
       'lib/internal/url.js',
       'lib/internal/util.js',
       'lib/internal/util/comparisons.js',
+      'lib/internal/util/inspector.js',
       'lib/internal/util/types.js',
       'lib/internal/http2/core.js',
       'lib/internal/http2/compat.js',
@@ -138,6 +140,7 @@
       'lib/internal/v8_prof_polyfill.js',
       'lib/internal/v8_prof_processor.js',
       'lib/internal/streams/lazy_transform.js',
+      'lib/internal/streams/async_iterator.js',
       'lib/internal/streams/BufferList.js',
       'lib/internal/streams/legacy.js',
       'lib/internal/streams/destroy.js',
@@ -263,6 +266,7 @@
         'src/node_buffer.h',
         'src/node_constants.h',
         'src/node_debug_options.h',
+        'src/node_file.h',
         'src/node_http2.h',
         'src/node_http2_state.h',
         'src/node_internals.h',
@@ -929,6 +933,9 @@
           'defines': [
             'HAVE_OPENSSL=1',
           ],
+          'defines': [
+            'HAVE_OPENSSL=1',
+          ],
         }],
         ['v8_enable_inspector==1', {
           'sources': [
@@ -971,7 +978,7 @@
         [ 'OS=="win" and node_target_type!="static_library"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_win32.<(OBJ_SUFFIX)',
-           ],
+          ],
           'conditions': [
             # this is only necessary for chakra on windows because chakra is dynamically linked on windows
             [ 'node_engine=="chakracore"', {
