@@ -400,7 +400,7 @@
       }],
       ['OS=="android"', {
         'conditions': [
-          [ 'node_shared=="true" or _type=="loadable_module"', {
+          [ 'node_shared=="true"', {
             'ldflags': [ '-fPIC' ],
           }]
         ],
@@ -408,6 +408,28 @@
           ['_toolset=="target"', {
             'defines': [ '_GLIBCXX_USE_C99_MATH' ],
             'libraries': [ '-llog' ],
+          }],
+          [ '_type=="loadable_module"', {
+            'ldflags': [ '-fPIC' ],
+            'conditions': [
+              # While loading a native node module, Android needs to have a
+              # (NEEDED) entry for libnode.so, or it won't be able to locate
+              # referenced symbols.
+              # We link to the binary libraries that are distributed with the
+              # nodejs-mobile headers so the (NEEDED) entry is created
+              [ 'target_arch=="arm"', {
+                'libraries': ['>(node_root_dir)/bin/armeabi-v7a/libnode.so'],
+              }],
+              [ 'target_arch=="arm64"', {
+                'libraries': ['>(node_root_dir)/bin/arm64-v8a/libnode.so'],
+              }],
+              [ 'target_arch=="x86"', {
+                'libraries': ['>(node_root_dir)/bin/x86/libnode.so'],
+              }],
+              [ 'target_arch=="x86_64"', {
+                'libraries': ['>(node_root_dir)/bin/x86_64/libnode.so'],
+              }],
+            ],
           }],
         ],
       }],
