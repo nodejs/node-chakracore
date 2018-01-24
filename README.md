@@ -63,7 +63,7 @@ $ nvs use chakracore-nightly
 
 ### Building Node-ChakraCore
 
-Node-ChakraCore can be build on Windows, Linux and Mac OS.
+Node-ChakraCore can be built on Windows, Linux, and macOS.
 
 If you are looking to build this yourself, here's what you will need.
 
