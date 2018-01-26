@@ -57,8 +57,8 @@ void Template::SetAccessorProperty(
   if (properties != nullptr) {
     properties->SetAccessorProperty(
         name,
-        getter->GetFunction(),
-        setter->GetFunction(),
+        !getter.IsEmpty() ? getter->GetFunction() : Local<Function>(),
+        !setter.IsEmpty() ? setter->GetFunction() : Local<Function>(),
         attribute,
         access_control);
   }
