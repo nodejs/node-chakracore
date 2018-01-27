@@ -46,7 +46,6 @@ namespace node {
 void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
                     const uv_stat_t* s,
                     int offset) {
-
   Local<v8::ArrayBuffer> ab = fields_array->Buffer();
   double* fields = static_cast<double*>(ab->GetContents().Data()) + offset;
 

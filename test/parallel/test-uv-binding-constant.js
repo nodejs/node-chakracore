@@ -12,10 +12,10 @@ keys.forEach((key) => {
   if (key.startsWith('UV_')) {
     const val = uv[key];
     assert.throws(() => uv[key] = 1,
-        common.engineSpecificMessage({
-            v8: /^TypeError: Cannot assign to read only property/,
-            chakracore: /^TypeError: Assignment to read-only properties is not allowed in strict mode$/
-        })
+                  common.engineSpecificMessage({
+                    v8: /^TypeError: Cannot assign to read only property/,
+                    chakracore: /^TypeError: Assignment to read-only properties is not allowed in strict mode$/
+                  })
     );
     assert.strictEqual(uv[key], val);
   }
