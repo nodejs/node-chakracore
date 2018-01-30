@@ -691,19 +691,12 @@ namespace Js
         {
             Assert(useCache);
             cachedResult = (cache->resultBV.Test(cacheIndex) != 0);
-
-            // If our cache says this test should produce a match (which we aren't going to compute),
-            // notify the Ctor to invalidate the last match so it must be recomputed before access.
-            if (cachedResult)
-            {
-                InvalidateLastMatchOnCtor(scriptContext, regularExpression, input);
-            }
-
             // for debug builds, let's still do the real test so we can validate values in the cache
 #if !DBG
             return JavascriptBoolean::ToVar(cachedResult, scriptContext);
 #endif
         }
+
 
         CharCount offset;
         if (!GetInitialOffset(isGlobal, isSticky, regularExpression, inputLength, offset))
@@ -2092,16 +2085,6 @@ namespace Js
                 : regularExpression->GetPattern();
             scriptContext->GetLibrary()->GetRegExpConstructor()->SetLastMatch(pattern, lastInput, lastSuccessfulMatch);
         }
-    }
-
-    void RegexHelper::InvalidateLastMatchOnCtor(ScriptContext* scriptContext, JavascriptRegExp* regularExpression, JavascriptString* lastInput, bool useSplitPattern)
-    {
-        Assert(lastInput);
-
-        UnifiedRegex::RegexPattern* pattern = useSplitPattern
-            ? regularExpression->GetSplitPattern()
-            : regularExpression->GetPattern();
-        scriptContext->GetLibrary()->GetRegExpConstructor()->InvalidateLastMatch(pattern, lastInput);
     }
 
     bool RegexHelper::GetInitialOffset(bool isGlobal, bool isSticky, JavascriptRegExp* regularExpression, CharCount inputLength, CharCount& offset)
