@@ -122,7 +122,7 @@ extern char **environ;
 #if ENABLE_TTD_NODE
 bool s_doTTRecord = false;
 bool s_doTTReplay = false;
-bool s_doTTDebug = false;
+bool s_doTTEnableDebug = false;
 size_t s_ttoptReplayUriLength = 0;
 const char* s_ttoptReplayUri = NULL;
 uint32_t s_ttdSnapInterval = 2000;
@@ -3887,6 +3887,7 @@ static void PrintHelp() {
          "                             categories to record\n"
 #if ENABLE_TTD_NODE
          "  --record                 enable diagnostics record mode\n"
+         "  --tt-debug               debug with interactive time-travel\n"
          "  --record-interval=num    interval between snapshots in recording\n"
          "                           (in milliseconds) defaults to 2 seconds\n"
          "  --record-history=num     number of snapshots retained in log \n"
@@ -3971,7 +3972,7 @@ static void PrintHelp() {
          "\n"
 #if ENABLE_TTD_NODE
          "Documentation can be found at https://nodejs.org/\n"
-         "Record/Replay diagnostics info at http://aka.ms/nodettd\n");
+         "TTD info at https://github.com/nodejs/node-chakracore\n");
 #else
          "Documentation can be found at https://nodejs.org/\n");
 #endif
@@ -4197,13 +4198,19 @@ static void ParseArgs(int* argc,
       // Parse and extract the TT args
       } else if (strcmp(arg, "--record") == 0) {
           s_doTTRecord = true;
+      }
+      else if (strstr(arg, "--tt-debug") == arg) {
+        s_doTTRecord = true;
+        s_doTTEnableDebug = true;
+        s_ttdSnapInterval = 500;
+        s_ttdSnapHistoryLength = 4;
       } else if (strstr(arg, "--replay=") == arg) {
           s_doTTReplay = true;
           s_ttoptReplayUri = arg + strlen("--replay=");
           s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
       } else if (strstr(arg, "--replay-debug=") == arg) {
           s_doTTReplay = true;
-          s_doTTDebug = true;
+          s_doTTEnableDebug = true;
           s_ttoptReplayUri = arg + strlen("--replay-debug=");
           s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
       } else if (strcmp(arg, "--break-first") == 0) {
@@ -4741,7 +4748,7 @@ void Init(int* argc,
   // CHAKRA-TODO : fix this to not do it here
   if (debug_options.inspector_enabled()) {
 #if ENABLE_TTD_NODE
-    v8::Debug::EnableInspector(s_doTTReplay && s_doTTDebug);
+    v8::Debug::EnableInspector(s_doTTEnableDebug);
 #else
     v8::Debug::EnableInspector();
 #endif
@@ -4988,7 +4995,7 @@ inline int Start(uv_loop_t* event_loop,
   Isolate* const isolate = Isolate::NewWithTTDSupport(params,
                                                       0, nullptr,
                                                       s_doTTRecord,
-                                                      false, false,
+                                                      false, s_doTTEnableDebug,
                                                       s_ttdSnapInterval,
                                                       s_ttdSnapHistoryLength);
 #else
@@ -5101,10 +5108,8 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
         &nextEventTime);
 
     // don't continue replay actions if we are not in debug mode
-    continueReplayActions &= s_doTTDebug;
+    continueReplayActions &= s_doTTEnableDebug;
   }
-
-  JsTTDStop();
 
   // We are done just dump the process.
   // In the future we might want to clean up more.
@@ -5125,7 +5130,7 @@ inline int Start_TTDReplay(uv_loop_t* event_loop,
   Isolate* const isolate = Isolate::NewWithTTDSupport(params,
                                                       s_ttoptReplayUriLength,
                                                       s_ttoptReplayUri,
-                                                      false, true, s_doTTDebug,
+                                                      false, true, s_doTTEnableDebug,
                                                       UINT32_MAX, UINT32_MAX);
 
   if (isolate == nullptr)
@@ -5262,18 +5267,21 @@ int Start(int argc, char** argv) {
   }
 
   if (s_doTTRecord) {
-      TTDFlagWarning_Cond(!chk_debug_enabled,
-          "Cannot enable debugger with record mode.\n");
+      TTDFlagWarning_Cond(!chk_debug_enabled || s_doTTEnableDebug,
+          "Must use --tt-debug if attaching debugger to live session.\n");
+
+      TTDFlagWarning_Cond(!s_doTTEnableDebug || chk_debug_enabled,
+        "Must enable debugger if running --tt-debug.\n");
 
       TTDFlagWarning_Cond(s_ttdStartupMode == 0x1,
           "Cannot set break flags in record mode.\n");
   }
 
   if (s_doTTReplay) {
-      TTDFlagWarning_Cond(!chk_debug_enabled || s_doTTDebug,
-          "Must enable --replay-debug if attaching debugger.\n");
+      TTDFlagWarning_Cond(!chk_debug_enabled || s_doTTEnableDebug,
+          "Must enable --replay-debug if attaching debugger to recording.\n");
 
-      TTDFlagWarning_Cond(!s_doTTDebug || chk_debug_enabled,
+      TTDFlagWarning_Cond(!s_doTTEnableDebug || chk_debug_enabled,
           "Must enable debugger if running --replay-debug.\n");
 
       TTDFlagWarning_Cond(s_ttoptReplayUri != nullptr,

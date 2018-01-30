@@ -26,6 +26,7 @@ class V8TimeTravelAgentImpl : public protocol::TimeTravel::Backend {
   ~V8TimeTravelAgentImpl() override;
 
   // Part of the protocol.
+  void writeTTDLog(ErrorString*, const String16&) override;
   void reverse(ErrorString*) override;
   void stepBack(ErrorString*) override;
 

@@ -783,6 +783,13 @@
         "description": "TimeTravel domain exposes JavaScript time travel capabilities. It allows stepping backwards through execution.",
         "commands": [
             {
+              "name": "writeTTDLog",
+              "parameters": [
+                    { "name": "uri", "type": "string", "description": "Location to write time-travel log." }
+                ],
+                "description": "Write a TTD log to the given location"
+            },
+            {
                 "name": "stepBack",
                 "description": "Steps backwards to the previous statement."
             },
