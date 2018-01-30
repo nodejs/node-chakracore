@@ -30,7 +30,7 @@ class InspectorBreakQueue;
 class Inspector {
  public:
   static bool IsInspectorEnabled();
-  static bool IsReplayDebugEnabled();
+  static bool IsTTDebugEnabled();
   static void StartDebugging(JsRuntimeHandle runtime);
   static void RequestAsyncBreak(JsRuntimeHandle runtime,
                                 v8::InterruptCallback callback,

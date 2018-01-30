@@ -24,11 +24,11 @@
 namespace v8 {
 
   THREAD_LOCAL bool g_EnableInspector = false;
-  THREAD_LOCAL bool g_EnableReplayDebug = false;
+  THREAD_LOCAL bool g_EnableTTDebug = false;
 
-  void Debug::EnableInspector(bool enableReplayDebug) {
+  void Debug::EnableInspector(bool enableTTDebug) {
     g_EnableInspector = true;
-    g_EnableReplayDebug = enableReplayDebug;
+    g_EnableTTDebug = enableTTDebug;
   }
 
   Local<Context> Debug::GetDebugContext(Isolate* isolate) {
