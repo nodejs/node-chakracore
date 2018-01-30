@@ -99,13 +99,9 @@ CHAKRA_API JsDiagStartDebugging(
                 return JsErrorFatal;
             }
 
-            // ScriptContext might get closed in OnDebuggerAttached
-            if (!scriptContext->IsClosed())
-            {
-                Js::ProbeContainer* probeContainer = debugContext->GetProbeContainer();
-                probeContainer->InitializeInlineBreakEngine(jsrtDebugManager);
-                probeContainer->InitializeDebuggerScriptOptionCallback(jsrtDebugManager);
-            }
+            Js::ProbeContainer* probeContainer = debugContext->GetProbeContainer();
+            probeContainer->InitializeInlineBreakEngine(jsrtDebugManager);
+            probeContainer->InitializeDebuggerScriptOptionCallback(jsrtDebugManager);
         }
 
         return JsNoError;
