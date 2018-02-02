@@ -111,6 +111,7 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
           positions) override;
 
   // Time travel implementations
+  void writeTTDLog(ErrorString*, const String16&);
   void reverse(ErrorString*);
   void stepBack(ErrorString*);
 

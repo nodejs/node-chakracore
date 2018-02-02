@@ -668,6 +668,11 @@ void V8DebuggerAgentImpl::reverse(ErrorString* errorString) {
   m_debugger->reverse();
 }
 
+void V8DebuggerAgentImpl::writeTTDLog(ErrorString* errorString, const String16& uri) {
+  if (!assertPaused(errorString)) return;
+  m_debugger->writeTTDLog(uri);
+}
+
 void V8DebuggerAgentImpl::stepBack(ErrorString* errorString) {
   if (!assertPaused(errorString)) return;
   m_scheduledDebuggerStep = StepBack;

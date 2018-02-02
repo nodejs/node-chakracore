@@ -249,6 +249,12 @@ void V8Debugger::clearStepping() {
   JsDiagSetStepType(JsDiagStepTypeContinue);
 }
 
+void V8Debugger::writeTTDLog(const String16& uri) {
+  DCHECK(isPaused());
+  auto sval = uri.utf8();
+  JsTTDDiagWriteLog(sval.c_str(), sval.length());
+}
+
 void V8Debugger::reverse() {
   DCHECK(isPaused());
   JsDiagSetStepType(JsDiagStepTypeReverseContinue);
