@@ -1328,6 +1328,18 @@ While using `N-API`, `Constructor.prototype` was not an object.
 While calling `napi_create_dataview()`, a given `offset` was outside the bounds
 of the dataview or `offset + length` was larger than a length of given `buffer`.
 
+<a id="ERR_NAPI_INVALID_TYPEDARRAY_ALIGNMENT"></a>
+### ERR_NAPI_INVALID_TYPEDARRAY_ALIGNMENT
+
+While calling `napi_create_typedarray()`, the provided `offset` was not a
+multiple of the element size.
+
+<a id="ERR_NAPI_INVALID_TYPEDARRAY_LENGTH"></a>
+### ERR_NAPI_INVALID_TYPEDARRAY_LENGTH
+
+While calling `napi_create_typedarray()`, `(length * size_of_element) +
+byte_offset` was larger than the length of given `buffer`.
+
 <a id="ERR_NO_CRYPTO"></a>
 ### ERR_NO_CRYPTO
 
@@ -1529,6 +1541,12 @@ a hostname in the first parameter.
 
 An excessive amount of TLS renegotiations is detected, which is a potential
 vector for denial-of-service attacks.
+
+<a id="ERR_TLS_SNI_FROM_SERVER"></a>
+### ERR_TLS_SNI_FROM_SERVER
+
+An attempt was made to issue Server Name Indication from a TLS server-side
+socket, which is only valid from a client.
 
 <a id="ERR_TLS_RENEGOTIATION_DISABLED"></a>
 ### ERR_TLS_RENEGOTIATION_DISABLED
