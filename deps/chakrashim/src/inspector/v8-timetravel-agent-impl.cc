@@ -28,7 +28,15 @@ bool V8TimeTravelAgentImpl::checkEnabled(ErrorString* errorString) {
 }
 
 bool V8TimeTravelAgentImpl::enabled() {
-  return jsrt::Inspector::IsReplayDebugEnabled();
+  return jsrt::Inspector::IsTTDebugEnabled();
+}
+
+void V8TimeTravelAgentImpl::writeTTDLog(ErrorString* errorString, const String16& uri) {
+  if(!checkEnabled(errorString)) {
+    return;
+  }
+
+  m_session->debuggerAgent()->writeTTDLog(errorString, uri);
 }
 
 void V8TimeTravelAgentImpl::reverse(ErrorString* errorString) {

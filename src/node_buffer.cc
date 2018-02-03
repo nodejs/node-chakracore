@@ -682,18 +682,6 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
                                     str_obj,
                                     enc,
                                     nullptr);
-    // This check is also needed in case Write() returns that no bytes could
-    // be written. If no bytes could be written, then return -1 because the
-    // string is invalid. This will trigger a throw in JavaScript. Silently
-    // failing should be avoided because it can lead to buffers with unexpected
-    // contents.
-    if (str_length == 0) {
-#if ENABLE_TTD_NODE
-        TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
-#endif
-
-      return args.GetReturnValue().Set(-1);
-    }
   }
 
  start_fill:
@@ -705,6 +693,17 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
 
       return;
   }
+  // If str_length is zero, then either an empty buffer was provided, or Write()
+  // indicated that no bytes could be written. If no bytes could be written,
+  // then return -1 because the fill value is invalid. This will trigger a throw
+  // in JavaScript. Silently failing should be avoided because it can lead to
+  // buffers with unexpected contents.
+  if (str_length == 0) {
+#if ENABLE_TTD_NODE
+        TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
+#endif
+    return args.GetReturnValue().Set(-1);
+  }	
 
   size_t in_there = str_length;
   char* ptr = ts_obj_data + start + str_length;

@@ -26,7 +26,7 @@
 
 namespace v8 {
   extern THREAD_LOCAL bool g_EnableInspector;
-  extern THREAD_LOCAL bool g_EnableReplayDebug;
+  extern THREAD_LOCAL bool g_EnableTTDebug;
 }
 
 namespace jsrt {
@@ -160,8 +160,8 @@ bool Inspector::IsInspectorEnabled() {
   return v8::g_EnableInspector;
 }
 
-bool Inspector::IsReplayDebugEnabled() {
-  return v8::g_EnableReplayDebug;
+bool Inspector::IsTTDebugEnabled() {
+  return v8::g_EnableTTDebug;
 }
 
 void Inspector::StartDebugging(JsRuntimeHandle runtime) {

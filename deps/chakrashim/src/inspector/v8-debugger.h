@@ -59,6 +59,7 @@ class V8Debugger {
   void clearStepping();
 
   // Time travel
+  void writeTTDLog(const String16& uri);
   void reverse();
   void stepBack();
 

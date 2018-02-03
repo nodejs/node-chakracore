@@ -25,6 +25,7 @@
 
 const common = require('../common');
 const assert = require('assert');
+const { EOL } = require('os');
 const a = assert;
 
 function makeBlock(f) {
@@ -736,6 +737,18 @@ common.expectsError(
   }
 );
 
+// https://github.com/nodejs/node/pull/17581 added functionality to
+// lib/assert.js that made assert messages much nicer.
+// However, it relies on non-standard/undocumented V8 error APIs.
+// Thus, there is a modification to that file to fall back to the old
+// path for ChakraCore
+function engineSpecificAssert(v8, cc) {
+  return common.engineSpecificMessage({
+    v8: `The expression evaluated to a falsy value:${EOL}${EOL}  ${v8}`,
+    chakracore: cc
+  });
+}
+
 // Test strict assert
 {
   const a = require('assert');
@@ -756,11 +769,37 @@ common.expectsError(
   common.expectsError(
     () => assert(),
     {
-      code: 'ERR_ASSERTION',
-      type: assert.AssertionError,
-      message: 'undefined == true'
+      code: 'ERR_MISSING_ARGS',
+      type: TypeError
     }
   );
+  common.expectsError(
+    () => a(),
+    {
+      code: 'ERR_MISSING_ARGS',
+      type: TypeError
+    }
+  );
+
+  // Test setting the limit to zero and that assert.strict works properly.
+  const tmpLimit = Error.stackTraceLimit;
+  Error.stackTraceLimit = 0;
+  common.expectsError(
+    () => {
+      assert.ok(
+        typeof 123 === 'string'
+      );
+    },
+    {
+      code: 'ERR_ASSERTION',
+      type: assert.AssertionError,
+      message: engineSpecificAssert(
+        `assert.ok(typeof 123 === 'string')${EOL}`,
+        'false == true'
+      )
+    }
+  );
+  Error.stackTraceLimit = tmpLimit;
 }
 
 common.expectsError(
@@ -768,7 +807,115 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: 'null == true'
+    message: engineSpecificAssert(`assert.ok(null)${EOL}`, 'null == true')
+  }
+);
+common.expectsError(
+  () => assert(typeof 123 === 'string'),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: engineSpecificAssert(
+      `assert(typeof 123 === 'string')${EOL}`,
+      'false == true'
+    )
+  }
+);
+
+{
+  // Test caching
+  const fs = process.binding('fs');
+  const tmp = fs.close;
+  fs.close = common.mustCall(tmp, process.jsEngine === 'chakracore' ? 0 : 1);
+  function throwErr() {
+    // eslint-disable-next-line prefer-assert-methods
+    assert(
+      (Buffer.from('test') instanceof Error)
+    );
+  }
+  common.expectsError(
+    () => throwErr(),
+    {
+      code: 'ERR_ASSERTION',
+      type: assert.AssertionError,
+      message: engineSpecificAssert(
+        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        'false == true'
+      )
+    }
+  );
+  common.expectsError(
+    () => throwErr(),
+    {
+      code: 'ERR_ASSERTION',
+      type: assert.AssertionError,
+      message: engineSpecificAssert(
+        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        'false == true'
+      )
+    }
+  );
+  fs.close = tmp;
+}
+
+common.expectsError(
+  () => {
+    a(
+      (() => 'string')()
+      // eslint-disable-next-line
+      ===
+      123 instanceof
+          Buffer
+    );
+  },
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: engineSpecificAssert(`assert((() => 'string')()${EOL}` +
+                                  `      // eslint-disable-next-line${EOL}` +
+                                  `      ===${EOL}` +
+                                  `      123 instanceof${EOL}` +
+                                  `          Buffer)${EOL}`,
+                                  'false == true')
+  }
+);
+
+common.expectsError(
+  () => assert(null, undefined),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: engineSpecificAssert(
+      `assert(null, undefined)${EOL}`,
+      'null == true'
+    )
+  }
+);
+
+common.expectsError(
+  () => assert.ok.apply(null, [0]),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: '0 == true'
+  }
+);
+
+common.expectsError(
+  () => assert.ok.call(null, 0),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: '0 == true'
+  }
+);
+
+common.expectsError(
+  () => assert.ok.call(null, 0, 'test'),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: 'test'
   }
 );
 
