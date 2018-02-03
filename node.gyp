@@ -199,9 +199,22 @@
       ],
       'include_dirs': [
         'src',
-        'deps/v8/include',
       ],
       'conditions': [
+        [ 'node_engine=="v8"', {
+          'include_dirs': [ 'deps/v8/include' ],
+        }],
+        [ 'node_engine=="chakracore"', {
+          'include_dirs': [ 'deps/chakrashim/include' ],
+          'conditions': [
+            [ 'OS!="win" and chakracore_use_lto=="true"', {
+              'ldflags': [ '-flto' ]
+            }],
+            [ 'OS=="win"', {
+              'libraries': [ '-ldbghelp.lib' ],
+            }]
+          ]
+        }],
         [ 'node_intermediate_lib_type=="static_library" and '
             'node_shared=="true" and OS=="aix"', {
           # For AIX, shared lib is linked by static lib and .exp. In the
