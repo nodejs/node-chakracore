@@ -737,6 +737,18 @@ common.expectsError(
   }
 );
 
+// https://github.com/nodejs/node/pull/17581 added functionality to
+// lib/assert.js that made assert messages much nicer.
+// However, it relies on non-standard/undocumented V8 error APIs.
+// Thus, there is a modification to that file to fall back to the old
+// path for ChakraCore
+function engineSpecificAssert(v8, cc) {
+  return common.engineSpecificMessage({
+    v8: `The expression evaluated to a falsy value:${EOL}${EOL}  ${v8}`,
+    chakracore: cc
+  });
+}
+
 // Test strict assert
 {
   const a = require('assert');
@@ -781,8 +793,10 @@ common.expectsError(
     {
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
-      message: `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-               `assert.ok(typeof 123 === 'string')${EOL}`
+      message: engineSpecificAssert(
+        `assert.ok(typeof 123 === 'string')${EOL}`,
+        'false == true'
+      )
     }
   );
   Error.stackTraceLimit = tmpLimit;
@@ -793,8 +807,7 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-             `assert.ok(null)${EOL}`
+    message: engineSpecificAssert(`assert.ok(null)${EOL}`, 'null == true')
   }
 );
 common.expectsError(
@@ -802,8 +815,10 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-             `assert(typeof 123 === 'string')${EOL}`
+    message: engineSpecificAssert(
+      `assert(typeof 123 === 'string')${EOL}`,
+      'false == true'
+    )
   }
 );
 
@@ -811,7 +826,7 @@ common.expectsError(
   // Test caching
   const fs = process.binding('fs');
   const tmp = fs.close;
-  fs.close = common.mustCall(tmp, 1);
+  fs.close = common.mustCall(tmp, process.jsEngine === 'chakracore' ? 0 : 1);
   function throwErr() {
     // eslint-disable-next-line prefer-assert-methods
     assert(
@@ -823,8 +838,10 @@ common.expectsError(
     {
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
-      message: `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-               `assert(Buffer.from('test') instanceof Error)${EOL}`
+      message: engineSpecificAssert(
+        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        'false == true'
+      )
     }
   );
   common.expectsError(
@@ -832,8 +849,10 @@ common.expectsError(
     {
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
-      message: `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-               `assert(Buffer.from('test') instanceof Error)${EOL}`
+      message: engineSpecificAssert(
+        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        'false == true'
+      )
     }
   );
   fs.close = tmp;
@@ -852,12 +871,12 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-             `assert((() => 'string')()${EOL}` +
-             `      // eslint-disable-next-line${EOL}` +
-             `      ===${EOL}` +
-             `      123 instanceof${EOL}` +
-             `          Buffer)${EOL}`
+    message: engineSpecificAssert(`assert((() => 'string')()${EOL}` +
+                                  `      // eslint-disable-next-line${EOL}` +
+                                  `      ===${EOL}` +
+                                  `      123 instanceof${EOL}` +
+                                  `          Buffer)${EOL}`,
+                                  'false == true')
   }
 );
 
@@ -866,8 +885,10 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-             `assert(null, undefined)${EOL}`
+    message: engineSpecificAssert(
+      `assert(null, undefined)${EOL}`,
+      'null == true'
+    )
   }
 );
 
