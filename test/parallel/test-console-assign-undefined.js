@@ -14,13 +14,7 @@ const assert = require('assert');
 assert.strictEqual(global.console, 42);
 assert.strictEqual(global.console, 42);
 
-common.expectsError(
-  () => console.log('foo'),
-  {
-    type: TypeError,
-    message: 'console.log is not a function'
-  }
-);
+assert.throws(() => console.log('foo'), TypeError);
 
 global.console = 1;
 assert.strictEqual(global.console, 1);
