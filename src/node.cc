@@ -4198,8 +4198,7 @@ static void ParseArgs(int* argc,
       // Parse and extract the TT args
       } else if (strcmp(arg, "--record") == 0) {
           s_doTTRecord = true;
-      }
-      else if (strstr(arg, "--tt-debug") == arg) {
+      } else if (strstr(arg, "--tt-debug") == arg) {
         s_doTTRecord = true;
         s_doTTEnableDebug = true;
         s_ttdSnapInterval = 500;
@@ -5130,7 +5129,8 @@ inline int Start_TTDReplay(uv_loop_t* event_loop,
   Isolate* const isolate = Isolate::NewWithTTDSupport(params,
                                                       s_ttoptReplayUriLength,
                                                       s_ttoptReplayUri,
-                                                      false, true, s_doTTEnableDebug,
+                                                      false, true,
+                                                      s_doTTEnableDebug,
                                                       UINT32_MAX, UINT32_MAX);
 
   if (isolate == nullptr)
