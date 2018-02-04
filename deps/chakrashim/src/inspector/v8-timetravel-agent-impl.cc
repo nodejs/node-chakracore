@@ -31,8 +31,9 @@ bool V8TimeTravelAgentImpl::enabled() {
   return jsrt::Inspector::IsTTDebugEnabled();
 }
 
-void V8TimeTravelAgentImpl::writeTTDLog(ErrorString* errorString, const String16& uri) {
-  if(!checkEnabled(errorString)) {
+void V8TimeTravelAgentImpl::writeTTDLog(
+    ErrorString* errorString, const String16& uri) {
+  if (!checkEnabled(errorString)) {
     return;
   }
 
