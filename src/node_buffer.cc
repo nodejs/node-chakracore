@@ -703,7 +703,7 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
         TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
 #endif
     return args.GetReturnValue().Set(-1);
-  }	
+  }
 
   size_t in_there = str_length;
   char* ptr = ts_obj_data + start + str_length;
