@@ -114,7 +114,7 @@
       ],
       'conditions': [
         # -force_load is not applicable for the static library
-        [ 'node_target_type!="static_library"', {
+        [ 'force_load=="true"', {
           'xcode_settings': {
             'OTHER_LDFLAGS': [
               '-Wl,-force_load,<(CHAKRASHIM_BASE)',
