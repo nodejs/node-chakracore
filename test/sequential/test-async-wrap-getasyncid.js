@@ -112,9 +112,8 @@ if (common.hasCrypto) { // eslint-disable-line crypto-check
   const req = new FSReqWrap();
   req.oncomplete = () => { };
 
-  testUninitialized(req, 'FSReqWrap');
-  binding.access(path.toNamespacedPath('../'), fs.F_OK, req);
   testInitialized(req, 'FSReqWrap');
+  binding.access(path.toNamespacedPath('../'), fs.F_OK, req);
 
   const StatWatcher = binding.StatWatcher;
   testInitialized(new StatWatcher(), 'StatWatcher');
@@ -139,6 +138,8 @@ if (common.hasCrypto) { // eslint-disable-line crypto-check
 }
 
 {
+  common.refreshTmpDir();
+
   const server = net.createServer(common.mustCall((socket) => {
     server.close();
   })).listen(common.PIPE, common.mustCall(() => {
