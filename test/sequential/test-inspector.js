@@ -1,12 +1,11 @@
+// Flags: --expose-internals
 'use strict';
 const common = require('../common');
 
 common.skipIfInspectorDisabled();
 
 const assert = require('assert');
-const { mainScriptPath,
-        readMainScriptSource,
-        NodeInstance } = require('../common/inspector-helper.js');
+const { NodeInstance } = require('../common/inspector-helper.js');
 
 function checkListResponse(response) {
   assert.strictEqual(1, response.length);
@@ -87,7 +86,7 @@ async function testBreakpointOnStart(session) {
     { 'method': 'Runtime.runIfWaitingForDebugger' });
 
   await session.send(commands);
-  await session.waitForBreakOnLine(0, mainScriptPath);
+  await session.waitForBreakOnLine(0, session.scriptPath());
 }
 
 async function testBreakpoint(session) {
@@ -95,7 +94,7 @@ async function testBreakpoint(session) {
   const commands = [
     { 'method': 'Debugger.setBreakpointByUrl',
       'params': { 'lineNumber': 5,
-                  'url': mainScriptPath,
+                  'url': session.scriptPath(),
                   'columnNumber': 0,
                   'condition': ''
       }
@@ -106,11 +105,11 @@ async function testBreakpoint(session) {
   const { scriptSource } = await session.send({
     'method': 'Debugger.getScriptSource',
     'params': { 'scriptId': session.mainScriptId } });
-  assert(scriptSource && (scriptSource.includes(readMainScriptSource())),
+  assert(scriptSource && (scriptSource.includes(session.script())),
          `Script source is wrong: ${scriptSource}`);
 
   await session.waitForConsoleOutput('log', ['A message', 5]);
-  const paused = await session.waitForBreakOnLine(5, mainScriptPath);
+  const paused = await session.waitForBreakOnLine(5, session.scriptPath());
   const scopeId = paused.params.callFrames[0].scopeChain[0].object.objectId;
 
   console.log('[test]', 'Verify we can read current application state');
