@@ -18,6 +18,9 @@ For more information about the used equality comparisons see
 added: REPLACEME
 changes:
   - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/REPLACEME
+    description: Added error diffs to the strict mode
+  - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/17002
     description: Added strict mode to the assert module.
 -->
@@ -26,11 +29,44 @@ When using the `strict mode`, any `assert` function will use the equality used i
 the strict function mode. So [`assert.deepEqual()`][] will, for example, work the
 same as [`assert.deepStrictEqual()`][].
 
+On top of that, error messages which involve objects produce an error diff
+instead of displaying both objects. That is not the case for the legacy mode.
+
 It can be accessed using:
 
 ```js
 const assert = require('assert').strict;
 ```
+
+Example error diff (the `expected`, `actual`, and `Lines skipped` will be on a
+single row):
+
+```js
+const assert = require('assert').strict;
+
+assert.deepEqual([[[1, 2, 3]], 4, 5], [[[1, 2, '3']], 4, 5]);
+```
+
+```diff
+AssertionError [ERR_ASSERTION]: Input A expected to deepStrictEqual input B:
++ expected
+- actual
+... Lines skipped
+
+  [
+    [
+...
+      2,
+-     3
++     '3'
+    ],
+...
+    5
+  ]
+```
+
+To deactivate the colors, use the `NODE_DISABLE_COLORS` environment variable.
+Please note that this will also deactivate the colors in the REPL.
 
 ## Legacy mode
 
@@ -433,11 +469,20 @@ suppressFrame();
 ## assert.ifError(value)
 <!-- YAML
 added: v0.1.97
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/18247
+    description: Instead of throwing the original error it is now wrapped into
+                 a AssertionError that contains the full stack trace.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/18247
+    description: Value may now only be `undefined` or `null`. Before any truthy
+                 input was accepted.
 -->
 * `value` {any}
 
-Throws `value` if `value` is truthy. This is useful when testing the `error`
-argument in callbacks.
+Throws `value` if `value` is not `undefined` or `null`. This is useful when
+testing the `error` argument in callbacks.
 
 ```js
 const assert = require('assert').strict;
@@ -445,13 +490,11 @@ const assert = require('assert').strict;
 assert.ifError(null);
 // OK
 assert.ifError(0);
-// OK
-assert.ifError(1);
-// Throws 1
+// AssertionError [ERR_ASSERTION]: ifError got unwanted exception: 0
 assert.ifError('error');
-// Throws 'error'
+// AssertionError [ERR_ASSERTION]: ifError got unwanted exception: 'error'
 assert.ifError(new Error());
-// Throws Error
+// AssertionError [ERR_ASSERTION]: ifError got unwanted exception: Error
 ```
 
 ## assert.notDeepEqual(actual, expected[, message])

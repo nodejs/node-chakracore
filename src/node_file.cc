@@ -19,6 +19,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#include "aliased_buffer.h"
 #include "node_buffer.h"
 #include "node_internals.h"
 #include "node_stat_watcher.h"
@@ -39,61 +40,50 @@
 # include <io.h>
 #endif
 
+#include <memory>
 #include <vector>
 
 namespace node {
 
-void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
-                    const uv_stat_t* s,
-                    int offset) {
-  Local<v8::ArrayBuffer> ab = fields_array->Buffer();
-  double* fields = static_cast<double*>(ab->GetContents().Data()) + offset;
-
-  fields[0] = s->st_dev;
-  fields[1] = s->st_mode;
-  fields[2] = s->st_nlink;
-  fields[3] = s->st_uid;
-  fields[4] = s->st_gid;
-  fields[5] = s->st_rdev;
+void FillStatsArray(AliasedBuffer<double, v8::Float64Array>* fields_ptr,
+                    const uv_stat_t* s, int offset) {
+  AliasedBuffer<double, v8::Float64Array>& fields = *fields_ptr;
+  fields[offset + 0] = s->st_dev;
+  fields[offset + 1] = s->st_mode;
+  fields[offset + 2] = s->st_nlink;
+  fields[offset + 3] = s->st_uid;
+  fields[offset + 4] = s->st_gid;
+  fields[offset + 5] = s->st_rdev;
 #if defined(__POSIX__)
-  fields[6] = s->st_blksize;
+  fields[offset + 6] = s->st_blksize;
 #else
-  fields[6] = -1;
+  fields[offset + 6] = -1;
 #endif
-  fields[7] = s->st_ino;
-  fields[8] = s->st_size;
+  fields[offset + 7] = s->st_ino;
+  fields[offset + 8] = s->st_size;
 #if defined(__POSIX__)
-  fields[9] = s->st_blocks;
+  fields[offset + 9] = s->st_blocks;
 #else
-  fields[9] = -1;
+  fields[offset + 9] = -1;
 #endif
 // Dates.
 // NO-LINT because the fields are 'long' and we just want to cast to `unsigned`
-#define X(idx, name)                                           \
-  /* NOLINTNEXTLINE(runtime/int) */                            \
-  fields[idx] = ((unsigned long)(s->st_##name.tv_sec) * 1e3) + \
-  /* NOLINTNEXTLINE(runtime/int) */                            \
-                ((unsigned long)(s->st_##name.tv_nsec) / 1e6); \
+#define X(idx, name)                                                    \
+  /* NOLINTNEXTLINE(runtime/int) */                                     \
+  fields[offset + idx] = ((unsigned long)(s->st_##name.tv_sec) * 1e3) + \
+  /* NOLINTNEXTLINE(runtime/int) */                                     \
+                ((unsigned long)(s->st_##name.tv_nsec) / 1e6);          \
 
   X(10, atim)
   X(11, mtim)
   X(12, ctim)
   X(13, birthtim)
 #undef X
-
-#if ENABLE_TTD_NODE
-  if (s_doTTRecord || s_doTTReplay) {
-    int modspos = offset * sizeof(double);
-    int modlength = 14 * sizeof(double);
-    ab->TTDRawBufferModifyNotifySync(modspos, modlength);
-  }
-#endif
 }
 
 namespace fs {
 
 using v8::Array;
-using v8::ArrayBuffer;
 using v8::Context;
 using v8::Float64Array;
 using v8::Function;
@@ -1043,40 +1033,53 @@ static void WriteString(const FunctionCallbackInfo<Value>& args) {
 
   CHECK(args[0]->IsInt32());
 
+  std::unique_ptr<char[]> delete_on_return;
   Local<Value> req;
-  Local<Value> string = args[1];
+  Local<Value> value = args[1];
   int fd = args[0]->Int32Value();
   char* buf = nullptr;
-  int64_t pos;
   size_t len;
+  const int64_t pos = GET_OFFSET(args[2]);
+  const auto enc = ParseEncoding(env->isolate(), args[3], UTF8);
+  const auto is_async = args[4]->IsObject();
 
-  // will assign buf and len if string was external
-  if (!StringBytes::GetExternalParts(string,
-                                     const_cast<const char**>(&buf),
-                                     &len)) {
-    enum encoding enc = ParseEncoding(env->isolate(), args[3], UTF8);
-    len = StringBytes::StorageSize(env->isolate(), string, enc);
+  // Avoid copying the string when it is externalized but only when:
+  // 1. The target encoding is compatible with the string's encoding, and
+  // 2. The write is synchronous, otherwise the string might get neutered
+  //    while the request is in flight, and
+  // 3. For UCS2, when the host system is little-endian.  Big-endian systems
+  //    need to call StringBytes::Write() to ensure proper byte swapping.
+  // The const_casts are conceptually sound: memory is read but not written.
+  if (!is_async && value->IsString()) {
+    auto string = value.As<String>();
+    if ((enc == ASCII || enc == LATIN1) && string->IsExternalOneByte()) {
+      auto ext = string->GetExternalOneByteStringResource();
+      buf = const_cast<char*>(ext->data());
+      len = ext->length();
+    } else if (enc == UCS2 && IsLittleEndian() && string->IsExternal()) {
+      auto ext = string->GetExternalStringResource();
+      buf = reinterpret_cast<char*>(const_cast<uint16_t*>(ext->data()));
+      len = ext->length() * sizeof(*ext->data());
+    }
+  }
+
+  if (buf == nullptr) {
+    len = StringBytes::StorageSize(env->isolate(), value, enc);
     buf = new char[len];
+    // SYNC_CALL returns on error.  Make sure to always free the memory.
+    if (!is_async) delete_on_return.reset(buf);
     // StorageSize may return too large a char, so correct the actual length
     // by the write size
     len = StringBytes::Write(env->isolate(), buf, len, args[1], enc);
   }
-  pos = GET_OFFSET(args[2]);
 
-  uv_buf_t uvbuf = uv_buf_init(const_cast<char*>(buf), len);
+  uv_buf_t uvbuf = uv_buf_init(buf, len);
 
-  if (args[4]->IsObject()) {
+  if (is_async) {
     CHECK_EQ(args.Length(), 5);
     AsyncCall(env, args, "write", UTF8, AfterInteger,
               uv_fs_write, fd, &uvbuf, 1, pos);
   } else {
-    // SYNC_CALL returns on error.  Make sure to always free the memory.
-    struct Delete {
-      inline explicit Delete(char* pointer) : pointer_(pointer) {}
-      inline ~Delete() { delete[] pointer_; }
-      char* const pointer_;
-    };
-    Delete delete_on_return(buf);
     SYNC_CALL(write, nullptr, fd, &uvbuf, 1, pos)
     return args.GetReturnValue().Set(SYNC_RESULT);
   }
@@ -1314,24 +1317,6 @@ static void Mkdtemp(const FunctionCallbackInfo<Value>& args) {
   }
 }
 
-void GetStatValues(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-  Local<Float64Array> fields = env->fs_stats_field_array();
-
-  if (fields.IsEmpty()) {
-    // stat fields contains twice the number of entries because `fs.StatWatcher`
-    // needs room to store data for *two* `fs.Stats` instances.
-    Local<ArrayBuffer> ab = ArrayBuffer::New(env->isolate(),
-        new double[2 * 14],
-        sizeof(double) * 2 * 14);
-    fields = Float64Array::New(ab, 0, 2 * 14);
-
-    env->set_fs_stats_field_array(fields);
-  }
-
-  args.GetReturnValue().Set(fields);
-}
-
 void InitFs(Local<Object> target,
             Local<Value> unused,
             Local<Context> context,
@@ -1377,7 +1362,9 @@ void InitFs(Local<Object> target,
 
   env->SetMethod(target, "mkdtemp", Mkdtemp);
 
-  env->SetMethod(target, "getStatValues", GetStatValues);
+  target->Set(context,
+              FIXED_ONE_BYTE_STRING(env->isolate(), "statValues"),
+              env->fs_stats_field_array()->GetJSArray()).FromJust();
 
   StatWatcher::Initialize(env, target);
 

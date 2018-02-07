@@ -452,11 +452,6 @@ assert.throws(makeBlock(thrower, TypeError));
                      'a.doesNotThrow is not catching type matching errors');
 }
 
-assert.throws(() => { assert.ifError(new Error('test error')); },
-              /^Error: test error$/);
-assert.doesNotThrow(() => { assert.ifError(null); });
-assert.doesNotThrow(() => { assert.ifError(); });
-
 common.expectsError(
   () => assert.doesNotThrow(makeBlock(thrower, Error), 'user message'),
   {
@@ -602,22 +597,6 @@ testAssertionMessage({ a: undefined, b: null }, '{ a: undefined, b: null }');
 testAssertionMessage({ a: NaN, b: Infinity, c: -Infinity },
                      '{ a: NaN, b: Infinity, c: -Infinity }');
 
-// https://github.com/nodejs/node-v0.x-archive/issues/2893
-{
-  let threw = false;
-  try {
-    // eslint-disable-next-line no-restricted-syntax
-    assert.throws(() => {
-      assert.ifError(null);
-    });
-  } catch (e) {
-    threw = true;
-    assert.strictEqual(e.message, 'Missing expected exception.');
-    assert.ok(!e.stack.includes('throws'), e.stack);
-  }
-  assert.ok(threw);
-}
-
 // https://github.com/nodejs/node-v0.x-archive/issues/5292
 try {
   assert.strictEqual(1, 2);
@@ -711,7 +690,8 @@ assert.throws(() => {
   assert.strictEqual('A'.repeat(1000), '');
 }, common.expectsError({
   code: 'ERR_ASSERTION',
-  message: new RegExp(`^'${'A'.repeat(127)} strictEqual ''$`) }));
+  message: /^'A{124}\.\.\. strictEqual ''$/
+}));
 
 {
   // bad args to AssertionError constructor should throw TypeError
@@ -764,7 +744,6 @@ function engineSpecificAssert(v8, cc) {
   assert.equal(assert.notEqual, assert.notStrictEqual);
   assert.equal(assert.notDeepEqual, assert.notDeepStrictEqual);
   assert.equal(Object.keys(assert).length, Object.keys(a).length);
-  /* eslint-enable no-restricted-properties */
   assert(7);
   common.expectsError(
     () => assert(),
@@ -800,6 +779,148 @@ function engineSpecificAssert(v8, cc) {
     }
   );
   Error.stackTraceLimit = tmpLimit;
+
+  // Test error diffs
+  const colors = process.stdout.isTTY && process.stdout.getColorDepth() > 1;
+  const start = 'Input A expected to deepStrictEqual input B:';
+  const actExp = colors ?
+    '\u001b[32m+ expected\u001b[39m \u001b[31m- actual\u001b[39m' :
+    '+ expected - actual';
+  const plus = colors ? '\u001b[32m+\u001b[39m' : '+';
+  const minus = colors ? '\u001b[31m-\u001b[39m' : '-';
+  let message = [
+    start,
+    `${actExp} ... Lines skipped`,
+    '',
+    '  [',
+    '    [',
+    '...',
+    '        2,',
+    `${minus}       3`,
+    `${plus}       '3'`,
+    '      ]',
+    '...',
+    '    5',
+    '  ]'].join('\n');
+  assert.throws(
+    () => assert.deepEqual([[[1, 2, 3]], 4, 5], [[[1, 2, '3']], 4, 5]),
+    { message });
+
+  message = [
+    start,
+    `${actExp} ... Lines skipped`,
+    '',
+    '  [',
+    '    1,',
+    '...',
+    '    0,',
+    `${plus}   1,`,
+    '    1,',
+    '...',
+    '    1',
+    '  ]'
+  ].join('\n');
+  assert.throws(
+    () => assert.deepEqual(
+      [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1]),
+    { message });
+
+  message = [
+    start,
+    `${actExp} ... Lines skipped`,
+    '',
+    '  [',
+    '    1,',
+    '...',
+    '    0,',
+    `${minus}   1,`,
+    '    1,',
+    '...',
+    '    1',
+    '  ]'
+  ].join('\n');
+  assert.throws(
+    () => assert.deepEqual(
+      [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1]),
+    { message });
+
+  message = [
+    start,
+    actExp,
+    '',
+    '  [',
+    '    1,',
+    `${minus}   2,`,
+    `${plus}   1,`,
+    '    1,',
+    '    1,',
+    '    0,',
+    `${minus}   1,`,
+    '    1',
+    '  ]'
+  ].join('\n');
+  assert.throws(
+    () => assert.deepEqual(
+      [1, 2, 1, 1, 0, 1, 1],
+      [1, 1, 1, 1, 0, 1]),
+    { message });
+
+  message = [
+    start,
+    actExp,
+    '',
+    `${minus} [`,
+    `${minus}   1,`,
+    `${minus}   2,`,
+    `${minus}   1`,
+    `${minus} ]`,
+    `${plus} undefined`,
+  ].join('\n');
+  assert.throws(
+    () => assert.deepEqual([1, 2, 1]),
+    { message });
+
+  message = [
+    start,
+    actExp,
+    '',
+    '  [',
+    `${minus}   1,`,
+    '    2,',
+    '    1',
+    '  ]'
+  ].join('\n');
+  assert.throws(
+    () => assert.deepEqual([1, 2, 1], [2, 1]),
+    { message });
+
+  message = `${start}\n` +
+    `${actExp} ... Lines skipped\n` +
+    '\n' +
+    '  [\n' +
+    `${minus}   1,\n`.repeat(10) +
+    '...\n' +
+    `${plus}   2,\n`.repeat(10) +
+    '...';
+  assert.throws(
+    () => assert.deepEqual(Array(12).fill(1), Array(12).fill(2)),
+    { message });
+
+  // notDeepEqual tests
+  message = 'Identical input passed to notDeepStrictEqual:\n[\n  1\n]';
+  assert.throws(
+    () => assert.notDeepEqual([1], [1]),
+    { message });
+
+  message = 'Identical input passed to notDeepStrictEqual:' +
+        `\n[${'\n  1,'.repeat(18)}\n...`;
+  const data = Array(21).fill(1);
+  assert.throws(
+    () => assert.notDeepEqual(data, data),
+    { message });
+  /* eslint-enable no-restricted-properties */
 }
 
 common.expectsError(

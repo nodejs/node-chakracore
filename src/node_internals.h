@@ -296,9 +296,8 @@ v8::Maybe<bool> ProcessEmitDeprecationWarning(Environment* env,
                                               const char* warning,
                                               const char* deprecation_code);
 
-void FillStatsArray(v8::Local<v8::Float64Array> fields_array,
-                    const uv_stat_t* s,
-                    int offset = 0);
+void FillStatsArray(AliasedBuffer<double, v8::Float64Array>* fields_ptr,
+                    const uv_stat_t* s, int offset = 0);
 
 void SetupProcessObject(Environment* env,
                         int argc,
