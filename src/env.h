@@ -91,7 +91,6 @@ class ModuleWrap;
   V(decorated_private_symbol, "node:decorated")                               \
   V(npn_buffer_private_symbol, "node:npnBuffer")                              \
   V(selected_npn_buffer_private_symbol, "node:selectedNpnBuffer")             \
-  V(domain_private_symbol, "node:domain")                                     \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
@@ -128,7 +127,6 @@ class ModuleWrap;
   V(dns_soa_string, "SOA")                                                    \
   V(dns_srv_string, "SRV")                                                    \
   V(dns_txt_string, "TXT")                                                    \
-  V(domain_string, "domain")                                                  \
   V(emit_warning_string, "emitWarning")                                       \
   V(exchange_string, "exchange")                                              \
   V(encoding_string, "encoding")                                              \
@@ -244,7 +242,6 @@ class ModuleWrap;
   V(subject_string, "subject")                                                \
   V(subjectaltname_string, "subjectaltname")                                  \
   V(syscall_string, "syscall")                                                \
-  V(tick_domain_cb_string, "_tickDomainCallback")                             \
   V(ticketkeycallback_string, "onticketkeycallback")                          \
   V(timeout_string, "timeout")                                                \
   V(tls_ticket_string, "tlsTicket")                                           \
@@ -277,17 +274,15 @@ class ModuleWrap;
   V(async_hooks_after_function, v8::Function)                                 \
   V(async_hooks_promise_resolve_function, v8::Function)                       \
   V(async_hooks_binding, v8::Object)                                          \
-  V(binding_cache_object, v8::Object)                                         \
-  V(internal_binding_cache_object, v8::Object)                                \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
+  V(domain_callback, v8::Function)                                            \
   V(host_import_module_dynamically_callback, v8::Function)                    \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
   V(http2stream_constructor_template, v8::ObjectTemplate)                     \
   V(http2settings_constructor_template, v8::ObjectTemplate)                   \
   V(immediate_callback_function, v8::Function)                                \
   V(inspector_console_api_object, v8::Object)                                 \
-  V(module_load_list_array, v8::Array)                                        \
   V(pbkdf2_constructor_template, v8::ObjectTemplate)                          \
   V(pipe_constructor_template, v8::FunctionTemplate)                          \
   V(performance_entry_callback, v8::Function)                                 \
@@ -568,9 +563,6 @@ class Environment {
 
   inline IsolateData* isolate_data() const;
 
-  inline bool using_domains() const;
-  inline void set_using_domains(bool value);
-
   inline bool printed_error() const;
   inline void set_printed_error(bool value);
 
@@ -746,7 +738,6 @@ class Environment {
   ImmediateInfo immediate_info_;
   TickInfo tick_info_;
   const uint64_t timer_base_;
-  bool using_domains_;
   bool printed_error_;
   bool trace_sync_io_;
   bool abort_on_uncaught_exception_;
