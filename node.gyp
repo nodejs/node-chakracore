@@ -1054,6 +1054,7 @@
           ],
           'sources!': [
             'test/cctest/test_environment.cc', # TODO: Enable these test for node-chakracore
+            'test/cctest/test_node_postmortem_metadata.cc',
           ],
           'conditions': [
             [ 'OS!="win" and chakracore_use_lto=="true"', {
