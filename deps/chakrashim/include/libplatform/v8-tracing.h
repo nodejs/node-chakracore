@@ -234,6 +234,8 @@ class TracingController
   void StartTracing(TraceConfig* trace_config);
   void StopTracing();
 
+  virtual int64_t CurrentTimestampMicroseconds();
+
  private:
   const uint8_t* GetCategoryGroupEnabledInternal(const char* category_group);
   void UpdateCategoryGroupEnabledFlag(size_t category_index);
