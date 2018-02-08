@@ -31,47 +31,49 @@ const fn3 = path.join(common.tmpDir, 'write3.txt');
 const expected = 'ümlaut.';
 const constants = fs.constants;
 
-/* eslint-disable no-undef */
-common.allowGlobals(externalizeString, isOneByteString, x);
+if (!common.isChakraEngine) {
+  /* eslint-disable no-undef */
+  common.allowGlobals(externalizeString, isOneByteString, x);
 
-{
-  const expected = 'ümlaut eins';  // Must be a unique string.
-  externalizeString(expected);
-  assert.strictEqual(true, isOneByteString(expected));
-  const fd = fs.openSync(fn, 'w');
-  fs.writeSync(fd, expected, 0, 'latin1');
-  fs.closeSync(fd);
-  assert.strictEqual(expected, fs.readFileSync(fn, 'latin1'));
-}
+  {
+    const expected = 'ümlaut eins';  // Must be a unique string.
+    externalizeString(expected);
+    assert.strictEqual(true, isOneByteString(expected));
+    const fd = fs.openSync(fn, 'w');
+    fs.writeSync(fd, expected, 0, 'latin1');
+    fs.closeSync(fd);
+    assert.strictEqual(expected, fs.readFileSync(fn, 'latin1'));
+  }
 
-{
-  const expected = 'ümlaut zwei';  // Must be a unique string.
-  externalizeString(expected);
-  assert.strictEqual(true, isOneByteString(expected));
-  const fd = fs.openSync(fn, 'w');
-  fs.writeSync(fd, expected, 0, 'utf8');
-  fs.closeSync(fd);
-  assert.strictEqual(expected, fs.readFileSync(fn, 'utf8'));
-}
+  {
+    const expected = 'ümlaut zwei';  // Must be a unique string.
+    externalizeString(expected);
+    assert.strictEqual(true, isOneByteString(expected));
+    const fd = fs.openSync(fn, 'w');
+    fs.writeSync(fd, expected, 0, 'utf8');
+    fs.closeSync(fd);
+    assert.strictEqual(expected, fs.readFileSync(fn, 'utf8'));
+  }
 
-{
-  const expected = '中文 1';  // Must be a unique string.
-  externalizeString(expected);
-  assert.strictEqual(false, isOneByteString(expected));
-  const fd = fs.openSync(fn, 'w');
-  fs.writeSync(fd, expected, 0, 'ucs2');
-  fs.closeSync(fd);
-  assert.strictEqual(expected, fs.readFileSync(fn, 'ucs2'));
-}
+  {
+    const expected = '中文 1';  // Must be a unique string.
+    externalizeString(expected);
+    assert.strictEqual(false, isOneByteString(expected));
+    const fd = fs.openSync(fn, 'w');
+    fs.writeSync(fd, expected, 0, 'ucs2');
+    fs.closeSync(fd);
+    assert.strictEqual(expected, fs.readFileSync(fn, 'ucs2'));
+  }
 
-{
-  const expected = '中文 2';  // Must be a unique string.
-  externalizeString(expected);
-  assert.strictEqual(false, isOneByteString(expected));
-  const fd = fs.openSync(fn, 'w');
-  fs.writeSync(fd, expected, 0, 'utf8');
-  fs.closeSync(fd);
-  assert.strictEqual(expected, fs.readFileSync(fn, 'utf8'));
+  {
+    const expected = '中文 2';  // Must be a unique string.
+    externalizeString(expected);
+    assert.strictEqual(false, isOneByteString(expected));
+    const fd = fs.openSync(fn, 'w');
+    fs.writeSync(fd, expected, 0, 'utf8');
+    fs.closeSync(fd);
+    assert.strictEqual(expected, fs.readFileSync(fn, 'utf8'));
+  }
 }
 
 common.refreshTmpDir();
