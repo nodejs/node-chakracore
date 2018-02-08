@@ -120,6 +120,16 @@ Isolate* Context::GetIsolate() {
   return Isolate::GetCurrent();
 }
 
+void Context::Enter() {
+  // CHAKRA-TODO - Figure out what to do here.
+  CHAKRA_UNIMPLEMENTED();
+}
+
+void Context::Exit() {
+  // CHAKRA-TODO - Figure out what to do here.
+  CHAKRA_UNIMPLEMENTED();
+}
+
 void* Context::GetAlignedPointerFromEmbedderData(int index) {
   jsrt::ContextShim * contextShim =
     jsrt::IsolateShim::GetCurrent()->GetContextShim((JsContextRef)this);

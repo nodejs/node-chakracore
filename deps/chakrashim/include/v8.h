@@ -763,7 +763,7 @@ class Global : public PersistentBase<T> {
 
 
 template <class T>
-class Eternal : private Persistent<T> {
+class Eternal : protected Persistent<T> {
  public:
   Eternal() {}
 
@@ -801,6 +801,8 @@ class V8_EXPORT HandleScope {
   ~HandleScope();
 
   static int NumberOfHandles(Isolate* isolate);
+
+  Isolate* GetIsolate() const;
 
  private:
   friend class EscapableHandleScope;
@@ -2954,6 +2956,9 @@ class V8_EXPORT Context {
   static Local<Context> GetCurrent();
 
   Isolate* GetIsolate();
+
+  void Enter();
+  void Exit();
 
   enum EmbedderDataFields { kDebugIdIndex = 0 };
   void* GetAlignedPointerFromEmbedderData(int index);
