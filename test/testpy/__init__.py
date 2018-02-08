@@ -35,15 +35,17 @@ import ast
 FLAGS_PATTERN = re.compile(r"//\s+Flags:(.*)")
 FILES_PATTERN = re.compile(r"//\s+Files:(.*)")
 
+chakraBannedFlags = ["--expose_externalize_string"]
 
 class SimpleTestCase(test.TestCase):
 
-  def __init__(self, path, file, arch, mode, context, config, additional=None):
+  def __init__(self, path, file, arch, mode, context, config, jsEngine, additional=None):
     super(SimpleTestCase, self).__init__(context, path, arch, mode)
     self.file = file
     self.config = config
     self.arch = arch
     self.mode = mode
+    self.jsEngine = jsEngine
     if additional is not None:
       self.additional_flags = additional
     else:
@@ -61,6 +63,9 @@ class SimpleTestCase(test.TestCase):
     flags_match = FLAGS_PATTERN.search(source)
     if flags_match:
       flag = flags_match.group(1).strip().split()
+      if self.jsEngine == "chakracore":
+        flag = filter(lambda x: x not in chakraBannedFlags, flag)
+
       # The following block reads config.gypi to extract the v8_enable_inspector
       # value. This is done to check if the inspector is disabled in which case
       # the '--inspect' flag cannot be passed to the node process as it will
@@ -70,7 +75,9 @@ class SimpleTestCase(test.TestCase):
       # the inspector related tests). Also, if there is no ssl support the
       # options '--use-bundled-ca' and '--use-openssl-ca' will also cause a
       # similar failure so such tests are also skipped.
-      if ('--inspect' in flag[0] or \
+      if len(flag) == 0:
+        pass
+      elif ('--inspect' in flag[0] or \
           '--use-bundled-ca' in flag[0] or \
           '--use-openssl-ca' in flag[0]) and \
           self.context.v8_enable_inspector == 0:
@@ -97,9 +104,9 @@ class SimpleTestCase(test.TestCase):
 class MessageTestCase(SimpleTestCase):
 
   def __init__(self, path, file, arch, mode, context, config, expected,
-                                                        additional=None):
+                                        jsEngine, additional=None):
     super(MessageTestCase, self).__init__(path, file, arch, mode, context,
-                                                        config, additional)
+                                                config, jsEngine, additional)
     self.expected = expected
 
   def IgnoreLine(self, str):
@@ -172,7 +179,8 @@ class SimpleTestConfiguration(test.TestConfiguration):
         file_path = join(self.root, reduce(join, test[1:], ""))
         test_name = test[:-1] + [splitext(test[-1])[0]]
         result.append(SimpleTestCase(test_name, file_path, arch, mode,
-                                     self.context, self, self.additional_flags))
+                                     self.context, self, jsEngine,
+                                     self.additional_flags))
     return result
 
   def GetBuildRequirements(self):
@@ -220,7 +228,7 @@ class AddonTestConfiguration(SimpleTestConfiguration):
         file_path = join(self.root, reduce(join, test[1:], "") + ".js")
         result.append(
             SimpleTestCase(test, file_path, arch, mode, self.context, self,
-                                                    self.additional_flags))
+                            jsEngine, self.additional_flags))
     return result
 
 class AsyncHooksTestConfiguration(SimpleTestConfiguration):
@@ -275,5 +283,6 @@ class MessageTestConfiguration(SimpleTestConfiguration):
           if not exists(output_path):
             raise Exception("Could not find %s" % output_path)
         result.append(MessageTestCase(test_name, file_path, arch, mode,
-                           self.context, self, output_path, self.additional_flags))
+                           self.context, self, output_path, jsEngine,
+                           self.additional_flags))
     return result

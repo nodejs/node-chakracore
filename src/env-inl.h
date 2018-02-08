@@ -322,7 +322,7 @@ inline Environment::Environment(IsolateData* isolate_data,
 #endif
       handle_cleanup_waiting_(0),
       http_parser_buffer_(nullptr),
-      fs_stats_field_array_(),
+      fs_stats_field_array_(isolate_, kFsStatsFieldsLength),
       context_(context->GetIsolate(), context) {
   // We'll be creating new objects so make sure we've entered the context.
   v8::HandleScope handle_scope(isolate());
@@ -361,7 +361,6 @@ inline Environment::Environment(IsolateData* isolate_data,
 
 inline Environment::~Environment() {
   v8::HandleScope handle_scope(isolate());
-  fs_stats_field_array_.Empty();
 #if HAVE_INSPECTOR
   // Destroy inspector agent before erasing the context. The inspector
   // destructor depends on the context still being accessible.
@@ -547,14 +546,9 @@ inline void Environment::set_http2_state(
   http2_state_ = std::move(buffer);
 }
 
-inline v8::Local<v8::Float64Array> Environment::fs_stats_field_array() const {
-  return v8::Local<v8::Float64Array>::New(isolate_, fs_stats_field_array_);
-}
-
-inline void Environment::set_fs_stats_field_array(
-    v8::Local<v8::Float64Array> fields) {
-  CHECK_EQ(fs_stats_field_array_.IsEmpty(), true);  // Should be set only once.
-  fs_stats_field_array_ = v8::Global<v8::Float64Array>(isolate_, fields);
+inline AliasedBuffer<double, v8::Float64Array>*
+Environment::fs_stats_field_array() {
+  return &fs_stats_field_array_;
 }
 
 void Environment::CreateImmediate(native_immediate_callback cb,
