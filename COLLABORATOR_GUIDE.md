@@ -368,7 +368,10 @@ Node.js uses three Deprecation levels:
   being staged for deprecation in a future Node.js major release. An explicit
   notice indicating the deprecated status is added to the API documentation
   but no functional changes are implemented in the code. There will be no
-  runtime deprecation warnings emitted for such deprecations.
+  runtime deprecation warnings emitted for such deprecations by default.
+  Documentation-only deprecations may trigger a runtime warning when launched
+  with [`--pending-deprecation`][] flag (or its alternative,
+  `NODE_PENDING_DEPRECATION=1` environment variable).
 
 * *Runtime Deprecation* refers to the use of process warnings emitted at
   runtime the first time that a deprecated API is used. A command-line
@@ -593,20 +596,20 @@ Validate that the commit message is properly formatted using
 $ git rev-list upstream/master...HEAD | xargs core-validate-commit
 ```
 
+Optional: When landing your own commits, force push the amended commit to the
+branch you used to open the pull request. If your branch is called `bugfix`,
+then the command would be `git push --force-with-lease origin master:bugfix`.
+When the pull request is closed, this will cause the pull request to
+show the purple merged status rather than the red closed status that is
+usually used for pull requests that weren't merged.
+
 Time to push it:
 
 ```text
 $ git push upstream master
 ```
-* Optional: Force push the amended commit to the branch you used to
-open the pull request. If your branch is called `bugfix`, then the
-command would be `git push --force-with-lease origin master:bugfix`.
-When the pull request is closed, this will cause the pull request to
-show the purple merged status rather than the red closed status that is
-usually used for pull requests that weren't merged. Only do this when
-landing your own contributions.
 
-* Close the pull request with a "Landed in `<commit hash>`" comment. If
+Close the pull request with a "Landed in `<commit hash>`" comment. If
 your pull request shows the purple merged status then you should still
 add the "Landed in <commit hash>..<commit hash>" comment if you added
 multiple commits.
@@ -744,6 +747,7 @@ LTS working group and the Release team.
 [backporting guide]: doc/guides/backporting-to-release-lines.md
 [Stability Index]: doc/api/documentation.md#stability-index
 [Enhancement Proposal]: https://github.com/nodejs/node-eps
+[`--pending-deprecation`]: doc/api/cli.md#--pending-deprecation
 [git-username]: https://help.github.com/articles/setting-your-username-in-git/
 [`node-core-utils`]: https://github.com/nodejs/node-core-utils
 [TSC]: https://github.com/nodejs/TSC
