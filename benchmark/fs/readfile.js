@@ -8,6 +8,7 @@ const common = require('../common.js');
 const filename = path.resolve(process.env.NODE_TMPDIR || __dirname,
                               `.removeme-benchmark-garbage-${process.pid}`);
 const fs = require('fs');
+const assert = require('assert');
 
 const bench = common.createBenchmark(main, {
   dur: [5],
@@ -22,10 +23,10 @@ function main({ len, dur, concurrent }) {
   data = null;
 
   var reads = 0;
-  var bench_ended = false;
+  var benchEnded = false;
   bench.start();
   setTimeout(function() {
-    bench_ended = true;
+    benchEnded = true;
     bench.end(reads);
     try { fs.unlinkSync(filename); } catch (e) {}
     process.exit(0);
@@ -36,14 +37,20 @@ function main({ len, dur, concurrent }) {
   }
 
   function afterRead(er, data) {
-    if (er)
+    if (er) {
+      if (er.code === 'ENOENT') {
+        // Only OK if unlinked by the timer from main.
+        assert.ok(benchEnded);
+        return;
+      }
       throw er;
+    }
 
     if (data.length !== len)
       throw new Error('wrong number of bytes returned');
 
     reads++;
-    if (!bench_ended)
+    if (!benchEnded)
       read();
   }
 

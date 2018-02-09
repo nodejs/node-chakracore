@@ -210,6 +210,7 @@ class ModuleWrap;
   V(owner_string, "owner")                                                    \
   V(parse_error_string, "Parse Error")                                        \
   V(path_string, "path")                                                      \
+  V(pending_handle_string, "pendingHandle")                                   \
   V(pbkdf2_error_string, "PBKDF2 Error")                                      \
   V(pid_string, "pid")                                                        \
   V(pipe_string, "pipe")                                                      \
@@ -249,6 +250,7 @@ class ModuleWrap;
   V(type_string, "type")                                                      \
   V(uid_string, "uid")                                                        \
   V(unknown_string, "<unknown>")                                              \
+  V(url_string, "url")                                                        \
   V(user_string, "user")                                                      \
   V(username_string, "username")                                              \
   V(valid_from_string, "valid_from")                                          \
@@ -278,6 +280,7 @@ class ModuleWrap;
   V(context, v8::Context)                                                     \
   V(domain_callback, v8::Function)                                            \
   V(host_import_module_dynamically_callback, v8::Function)                    \
+  V(host_initialize_import_meta_object_callback, v8::Function)                \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
   V(http2stream_constructor_template, v8::ObjectTemplate)                     \
   V(http2settings_constructor_template, v8::ObjectTemplate)                   \

@@ -824,6 +824,22 @@ a future version at which point only authentication tag lengths of 128, 120,
 is not included in this list will be considered invalid in compliance with
 [NIST SP 800-38D][].
 
+<a id="DEP0091"></a>
+### DEP0091: crypto.DEFAULT_ENCODING
+
+Type: Runtime
+
+The [`crypto.DEFAULT_ENCODING`][] property is deprecated.
+
+<a id="DEP0092"></a>
+### DEP0092: Top-level `this` bound to `module.exports`
+
+Type: Documentation-only
+
+Assigning properties to the top-level `this` as an alternative
+to `module.exports` is deprecated. Developers should use `exports`
+or `module.exports` instead.
+
 [`--pending-deprecation`]: cli.html#cli_pending_deprecation
 [`Buffer.allocUnsafeSlow(size)`]: buffer.html#buffer_class_method_buffer_allocunsafeslow_size
 [`Buffer.from(array)`]: buffer.html#buffer_class_method_buffer_from_array
@@ -838,6 +854,7 @@ is not included in this list will be considered invalid in compliance with
 [`console.error()`]: console.html#console_console_error_data_args
 [`console.log()`]: console.html#console_console_log_data_args
 [`crypto.createCredentials()`]: crypto.html#crypto_crypto_createcredentials_details
+[`crypto.DEFAULT_ENCODING`]: crypto.html#crypto_crypto_default_encoding
 [`crypto.pbkdf2()`]: crypto.html#crypto_crypto_pbkdf2_password_salt_iterations_keylen_digest_callback
 [`decipher.setAuthTag()`]: crypto.html#crypto_decipher_setauthtag_buffer
 [`domain`]: domain.html

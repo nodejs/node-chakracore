@@ -99,7 +99,7 @@
         [ 'force_load=="true"', {
           'xcode_settings': {
             'OTHER_LDFLAGS': [
-              '-Wl,-force_load,<(V8_BASE)',
+              '-Wl,-force_load,<(v8_base)',
             ],
           },
         }],
@@ -117,7 +117,7 @@
         [ 'force_load=="true"', {
           'xcode_settings': {
             'OTHER_LDFLAGS': [
-              '-Wl,-force_load,<(CHAKRASHIM_BASE)',
+              '-Wl,-force_load,<(chakrashim_base)',
             ],
           },
         }],
@@ -172,7 +172,7 @@
             {
               'action_name': 'expfile',
               'inputs': [
-                '<(OBJ_DIR)'
+                '<(obj_dir)'
               ],
               'outputs': [
                 '<(PRODUCT_DIR)/node.exp'
@@ -206,11 +206,11 @@
       'ldflags': [ '-Wl,-z,noexecstack' ],
       'conditions': [
       [ 'node_engine=="v8"', {
-        'ldflags': [ '-Wl,--whole-archive <(V8_BASE)',
+        'ldflags': [ '-Wl,--whole-archive <(v8_base)',
                      '-Wl,--no-whole-archive' ],
       }],
       ['node_engine=="chakracore"', {
-        'ldflags': [ '-Wl,--whole-archive <(CHAKRASHIM_BASE)',
+        'ldflags': [ '-Wl,--whole-archive <(chakrashim_base)',
                      '-Wl,--no-whole-archive' ],
       }],
       ]
@@ -218,6 +218,8 @@
     [ '(OS=="freebsd" or OS=="linux") and node_shared=="false"'
         ' and coverage=="true" and force_load=="true"', {
       'ldflags': [ '-Wl,-z,noexecstack',
+                   '-Wl,--whole-archive <(v8_base)',
+                   '-Wl,--no-whole-archive',
                    '--coverage',
                    '-g',
                    '-O0' ],
@@ -261,15 +263,15 @@
             [ 'force_load=="true"', {
               'xcode_settings': {
                 'OTHER_LDFLAGS': [
-                  '-Wl,-force_load,<(PRODUCT_DIR)/<(OPENSSL_PRODUCT)',
+                  '-Wl,-force_load,<(PRODUCT_DIR)/<(openssl_product)',
                 ],
               },
               'conditions': [
                 ['OS in "linux freebsd" and node_shared=="false"', {
                   'ldflags': [
                     '-Wl,--whole-archive,'
-                        '<(OBJ_DIR)/deps/openssl/'
-                        '<(OPENSSL_PRODUCT)',
+                        '<(obj_dir)/deps/openssl/'
+                        '<(openssl_product)',
                     '-Wl,--no-whole-archive',
                   ],
                 }],

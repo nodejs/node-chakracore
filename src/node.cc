@@ -3603,6 +3603,8 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--icu-data-dir",
 
     // V8 options (define with '_', which allows '-' or '_')
+    "--perf_prof",
+    "--perf_basic_prof",
     "--abort_on_uncaught_exception",
     "--max_old_space_size",
     "--stack_trace_limit",
@@ -3791,6 +3793,10 @@ static void ParseArgs(int* argc,
       config_preserve_symlinks = true;
     } else if (strcmp(arg, "--experimental-modules") == 0) {
       config_experimental_modules = true;
+      new_v8_argv[new_v8_argc] = "--harmony-dynamic-import";
+      new_v8_argc += 1;
+      new_v8_argv[new_v8_argc] = "--harmony-import-meta";
+      new_v8_argc += 1;
     } else if (strcmp(arg, "--experimental-vm-modules") == 0) {
       config_experimental_vm_modules = true;
     }  else if (strcmp(arg, "--loader") == 0) {

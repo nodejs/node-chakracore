@@ -745,18 +745,18 @@ function engineSpecificAssert(v8, cc) {
   assert.equal(assert.notDeepEqual, assert.notDeepStrictEqual);
   assert.equal(Object.keys(assert).length, Object.keys(a).length);
   assert(7);
-  common.expectsError(
-    () => assert(),
+  assert.throws(
+    () => assert(...[]),
     {
-      code: 'ERR_MISSING_ARGS',
-      type: TypeError
+      message: 'No value argument passed to `assert.ok()`',
+      name: 'AssertionError [ERR_ASSERTION]'
     }
   );
-  common.expectsError(
+  assert.throws(
     () => a(),
     {
-      code: 'ERR_MISSING_ARGS',
-      type: TypeError
+      message: 'No value argument passed to `assert.ok()`',
+      name: 'AssertionError [ERR_ASSERTION]'
     }
   );
 
