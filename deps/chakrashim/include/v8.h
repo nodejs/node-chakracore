@@ -2995,6 +2995,11 @@ class V8_EXPORT Module {
   Status GetStatus() const;
 
   /**
+   * For a module in kErrored status, this returns the corresponding exception.
+   */
+  Local<Value> GetException() const;
+
+  /**
    * Returns the number of modules requested by this module.
    */
   int GetModuleRequestsLength() const;
