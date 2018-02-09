@@ -28,6 +28,10 @@ namespace v8 {
     return kUninstantiated;
   }
 
+  Local<Value> Module::GetException() const {
+      return Local<Value>();
+  }
+
   int Module::GetModuleRequestsLength() const {
       return 0;
   }
