@@ -273,6 +273,11 @@ typedef MaybeLocal<Promise>(*HostImportModuleDynamicallyCallback)(
     Local<Context> context, Local<ScriptOrModule> referrer,
     Local<String> specifier);
 
+typedef void (*HostInitializeImportMetaObjectCallback)(
+    Local<Context> context,
+    Local<Module> module,
+    Local<Object> meta);
+
 template <class T>
 class Local {
  public:
@@ -2706,6 +2711,8 @@ class V8_EXPORT Isolate {
 
   void SetHostImportModuleDynamicallyCallback(
       HostImportModuleDynamicallyCallback callback);
+  void SetHostInitializeImportMetaObjectCallback(
+      HostInitializeImportMetaObjectCallback callback);
 
   void Enter();
   void Exit();
