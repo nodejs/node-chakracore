@@ -211,17 +211,18 @@ void AfterInteger(uv_fs_t* req) {
   FSReqWrap* req_wrap = static_cast<FSReqWrap*>(req->data);
   FSReqAfterScope after(req_wrap, req);
 
-  if (after.Proceed()) {
 #if ENABLE_TTD_NODE
-        if (s_doTTRecord || s_doTTReplay) {
+  if (req->fs_type == UV_FS_READ && (s_doTTRecord || s_doTTReplay)) {
 #ifdef WIN32
-          byte* bufbase = reinterpret_cast<byte*>(req->fs.info.bufsml[0].base);
+    byte* bufbase = reinterpret_cast<byte*>(req->fs.info.bufsml[0].base);
 #else
-          byte* bufbase = reinterpret_cast<byte*>(req->bufsml[0].base);
+    byte* bufbase = reinterpret_cast<byte*>(req->bufsml[0].base);
 #endif
-          Buffer::TTDAsyncModNotify(bufbase + req->result);
-        }
+    Buffer::TTDAsyncModNotify(bufbase + req->result);
+  }
 #endif
+
+  if (after.Proceed()) {
     req_wrap->Resolve(Integer::New(req_wrap->env()->isolate(), req->result));
   }
 }

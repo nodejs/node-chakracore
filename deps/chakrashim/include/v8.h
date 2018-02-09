@@ -763,7 +763,7 @@ class Global : public PersistentBase<T> {
 
 
 template <class T>
-class Eternal : private Persistent<T> {
+class Eternal : protected Persistent<T> {
  public:
   Eternal() {}
 
@@ -801,6 +801,8 @@ class V8_EXPORT HandleScope {
   ~HandleScope();
 
   static int NumberOfHandles(Isolate* isolate);
+
+  Isolate* GetIsolate() const;
 
  private:
   friend class EscapableHandleScope;
@@ -2955,6 +2957,9 @@ class V8_EXPORT Context {
 
   Isolate* GetIsolate();
 
+  void Enter();
+  void Exit();
+
   enum EmbedderDataFields { kDebugIdIndex = 0 };
   void* GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void* value);
@@ -2988,6 +2993,11 @@ class V8_EXPORT Module {
    * Returns the module's current status.
    */
   Status GetStatus() const;
+
+  /**
+   * For a module in kErrored status, this returns the corresponding exception.
+   */
+  Local<Value> GetException() const;
 
   /**
    * Returns the number of modules requested by this module.

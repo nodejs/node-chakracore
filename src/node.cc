@@ -251,6 +251,11 @@ bool config_preserve_symlinks = false;
 // that is used by lib/module.js
 bool config_experimental_modules = false;
 
+// Set in node.cc by ParseArgs when --experimental-vm-modules is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/vm.js
+bool config_experimental_vm_modules = false;
+
 // Set in node.cc by ParseArgs when --loader is used.
 // Used in node_config.cc to set a constant on process.binding('config')
 // that is used by lib/internal/bootstrap_node.js
@@ -801,62 +806,6 @@ bool ShouldAbortOnUncaughtException(Isolate* isolate) {
 }
 
 
-Local<Value> GetDomainProperty(Environment* env, Local<Object> object) {
-  Local<Value> domain_v =
-      object->GetPrivate(env->context(), env->domain_private_symbol())
-          .ToLocalChecked();
-  if (domain_v->IsObject()) {
-    return domain_v;
-  }
-  return object->Get(env->context(), env->domain_string()).ToLocalChecked();
-}
-
-
-void DomainEnter(Environment* env, Local<Object> object) {
-  Local<Value> domain_v = GetDomainProperty(env, object);
-  if (domain_v->IsObject()) {
-    Local<Object> domain = domain_v.As<Object>();
-    Local<Value> enter_v = domain->Get(env->enter_string());
-    if (enter_v->IsFunction()) {
-      if (enter_v.As<Function>()->Call(domain, 0, nullptr).IsEmpty()) {
-        FatalError("node::AsyncWrap::MakeCallback",
-                   "domain enter callback threw, please report this");
-      }
-    }
-  }
-}
-
-
-void DomainExit(Environment* env, v8::Local<v8::Object> object) {
-  Local<Value> domain_v = GetDomainProperty(env, object);
-  if (domain_v->IsObject()) {
-    Local<Object> domain = domain_v.As<Object>();
-    Local<Value> exit_v = domain->Get(env->exit_string());
-    if (exit_v->IsFunction()) {
-      if (exit_v.As<Function>()->Call(domain, 0, nullptr).IsEmpty()) {
-        FatalError("node::AsyncWrap::MakeCallback",
-                  "domain exit callback threw, please report this");
-      }
-    }
-  }
-}
-
-void SetupDomainUse(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-
-  if (env->using_domains())
-    return;
-  env->set_using_domains(true);
-
-  HandleScope scope(env->isolate());
-
-  // Do a little housekeeping.
-  env->process_object()->Delete(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(args.GetIsolate(), "_setupDomainUse")).FromJust();
-}
-
-
 void RunMicrotasks(const FunctionCallbackInfo<Value>& args) {
   args.GetIsolate()->RunMicrotasks();
 }
@@ -993,11 +942,6 @@ InternalCallbackScope::InternalCallbackScope(Environment* env,
   // If you hit this assertion, you forgot to enter the v8::Context first.
   CHECK_EQ(Environment::GetCurrent(env->isolate()), env);
 
-  if (asyncContext.async_id == 0 && env->using_domains() &&
-      !object_.IsEmpty()) {
-    DomainEnter(env, object_);
-  }
-
   if (asyncContext.async_id != 0) {
     // No need to check a return value because the application will exit if
     // an exception occurs.
@@ -1027,11 +971,6 @@ void InternalCallbackScope::Close() {
     AsyncWrap::EmitAfter(env_, async_context_.async_id);
   }
 
-  if (async_context_.async_id == 0 && env_->using_domains() &&
-      !object_.IsEmpty()) {
-    DomainExit(env_, object_);
-  }
-
   if (IsInnerMakeCallback()) {
     return;
   }
@@ -1053,11 +992,6 @@ void InternalCallbackScope::Close() {
     return;
   }
 
-  if (env_->async_hooks()->fields()[AsyncHooks::kTotals]) {
-    CHECK_EQ(env_->execution_async_id(), 0);
-    CHECK_EQ(env_->trigger_async_id(), 0);
-  }
-
   Local<Object> process = env_->process_object();
 
   if (env_->tick_callback_function()->Call(process, 0, nullptr).IsEmpty()) {
@@ -1077,17 +1011,22 @@ MaybeLocal<Value> InternalMakeCallback(Environment* env,
     return Undefined(env->isolate());
   }
 
+  Local<Function> domain_cb = env->domain_callback();
   MaybeLocal<Value> ret;
-
-  {
+  if (asyncContext.async_id != 0 || domain_cb.IsEmpty() || recv.IsEmpty()) {
     ret = callback->Call(env->context(), recv, argc, argv);
+  } else {
+    std::vector<Local<Value>> args(1 + argc);
+    args[0] = callback;
+    std::copy(&argv[0], &argv[argc], args.begin() + 1);
+    ret = domain_cb->Call(env->context(), recv, args.size(), &args[0]);
+  }
 
-    if (ret.IsEmpty()) {
-      // NOTE: For backwards compatibility with public API we return Undefined()
-      // if the top level call threw.
-      scope.MarkAsFailed();
-      return scope.IsInnerMakeCallback() ? ret : Undefined(env->isolate());
-    }
+  if (ret.IsEmpty()) {
+    // NOTE: For backwards compatibility with public API we return Undefined()
+    // if the top level call threw.
+    scope.MarkAsFailed();
+    return scope.IsInnerMakeCallback() ? ret : Undefined(env->isolate());
   }
 
   scope.Close();
@@ -2560,22 +2499,6 @@ Maybe<bool> ProcessEmitDeprecationWarning(Environment* env,
 }
 
 
-static bool PullFromCache(Environment* env,
-                          const FunctionCallbackInfo<Value>& args,
-                          Local<String> module,
-                          Local<Object> cache) {
-  Local<Context> context = env->context();
-  Local<Value> exports_v;
-  Local<Object> exports;
-  if (cache->Get(context, module).ToLocal(&exports_v) &&
-      exports_v->IsObject() &&
-      exports_v->ToObject(context).ToLocal(&exports)) {
-    args.GetReturnValue().Set(exports);
-    return true;
-  }
-  return false;
-}
-
 static Local<Object> InitModule(Environment* env,
                                  node_module* mod,
                                  Local<String> module) {
@@ -2603,22 +2526,10 @@ static void ThrowIfNoSuchModule(Environment* env, const char* module_v) {
 static void Binding(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  Local<String> module;
-  if (!args[0]->ToString(env->context()).ToLocal(&module)) return;
+  CHECK(args[0]->IsString());
 
-  Local<Object> cache = env->binding_cache_object();
-
-  if (PullFromCache(env, args, module, cache))
-    return;
-
-  // Append a string to process.moduleLoadList
-  char buf[1024];
+  Local<String> module = args[0].As<String>();
   node::Utf8Value module_v(env->isolate(), module);
-  snprintf(buf, sizeof(buf), "Binding %s", *module_v);
-
-  Local<Array> modules = env->module_load_list_array();
-  uint32_t l = modules->Length();
-  modules->Set(l, OneByteString(env->isolate(), buf));
 
   node_module* mod = get_builtin_module(*module_v);
   Local<Object> exports;
@@ -2635,7 +2546,6 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
   } else {
     return ThrowIfNoSuchModule(env, *module_v);
   }
-  cache->Set(module, exports);
 
   args.GetReturnValue().Set(exports);
 }
@@ -2643,27 +2553,14 @@ static void Binding(const FunctionCallbackInfo<Value>& args) {
 static void InternalBinding(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  Local<String> module;
-  if (!args[0]->ToString(env->context()).ToLocal(&module)) return;
+  CHECK(args[0]->IsString());
 
-  Local<Object> cache = env->internal_binding_cache_object();
-
-  if (PullFromCache(env, args, module, cache))
-    return;
-
-  // Append a string to process.moduleLoadList
-  char buf[1024];
+  Local<String> module = args[0].As<String>();
   node::Utf8Value module_v(env->isolate(), module);
-  snprintf(buf, sizeof(buf), "Internal Binding %s", *module_v);
-
-  Local<Array> modules = env->module_load_list_array();
-  uint32_t l = modules->Length();
-  modules->Set(l, OneByteString(env->isolate(), buf));
 
   node_module* mod = get_internal_module(*module_v);
   if (mod == nullptr) return ThrowIfNoSuchModule(env, *module_v);
   Local<Object> exports = InitModule(env, mod, module);
-  cache->Set(module, exports);
 
   args.GetReturnValue().Set(exports);
 }
@@ -2671,14 +2568,9 @@ static void InternalBinding(const FunctionCallbackInfo<Value>& args) {
 static void LinkedBinding(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args.GetIsolate());
 
-  Local<String> module_name;
-  if (!args[0]->ToString(env->context()).ToLocal(&module_name)) return;
+  CHECK(args[0]->IsString());
 
-  Local<Object> cache = env->binding_cache_object();
-  Local<Value> exports_v = cache->Get(module_name);
-
-  if (exports_v->IsObject())
-    return args.GetReturnValue().Set(exports_v.As<Object>());
+  Local<String> module_name = args[0].As<String>();
 
   node::Utf8Value module_name_v(env->isolate(), module_name);
   node_module* mod = get_linked_module(*module_name_v);
@@ -2709,7 +2601,6 @@ static void LinkedBinding(const FunctionCallbackInfo<Value>& args) {
   }
 
   auto effective_exports = module->Get(exports_prop);
-  cache->Set(module_name, effective_exports);
 
   args.GetReturnValue().Set(effective_exports);
 }
@@ -3041,11 +2932,6 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(process,
                     "version",
                     FIXED_ONE_BYTE_STRING(env->isolate(), NODE_VERSION));
-
-  // process.moduleLoadList
-  READONLY_PROPERTY(process,
-                    "moduleLoadList",
-                    env->module_load_list_array());
 
   // process.versions
   Local<Object> versions = Object::New(env->isolate());
@@ -3387,7 +3273,6 @@ void SetupProcessObject(Environment* env,
   env->SetMethod(process, "_setupProcessObject", SetupProcessObject);
   env->SetMethod(process, "_setupNextTick", SetupNextTick);
   env->SetMethod(process, "_setupPromises", SetupPromises);
-  env->SetMethod(process, "_setupDomainUse", SetupDomainUse);
 }
 
 
@@ -3595,6 +3480,8 @@ static void PrintHelp() {
          "  --preserve-symlinks        preserve symbolic links when resolving\n"
          "  --experimental-modules     experimental ES Module support\n"
          "                             and caching modules\n"
+         "  --experimental-vm-modules  experimental ES Module support\n"
+         "                             in vm module\n"
 #endif
          "\n"
          "Environment variables:\n"
@@ -3696,6 +3583,7 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--napi-modules",
     "--expose-http2",   // keep as a non-op through v9.x
     "--experimental-modules",
+    "--experimental-vm-modules",
     "--loader",
     "--trace-warnings",
     "--redirect-warnings",
@@ -3903,6 +3791,8 @@ static void ParseArgs(int* argc,
       config_preserve_symlinks = true;
     } else if (strcmp(arg, "--experimental-modules") == 0) {
       config_experimental_modules = true;
+    } else if (strcmp(arg, "--experimental-vm-modules") == 0) {
+      config_experimental_vm_modules = true;
     }  else if (strcmp(arg, "--loader") == 0) {
       const char* module = argv[index + 1];
       if (!config_experimental_modules) {

@@ -247,6 +247,10 @@ namespace tracing {
     jsrt::Unimplemented("TracingController");
   }
 
+  int64_t TracingController::CurrentTimestampMicroseconds() {
+    jsrt::Unimplemented("TracingController");
+  }
+
   void TraceConfig::AddIncludedCategory(char const*) {
     jsrt::Unimplemented("TraceConfig");
   }

@@ -1204,7 +1204,6 @@ A Node.js API function was called with an incompatible `this` value.
 Example:
 
 ```js
-const { URLSearchParams } = require('url');
 const urlSearchParams = new URLSearchParams('foo=bar&baz=new');
 
 const buf = Buffer.alloc(1);
@@ -1638,6 +1637,43 @@ entry types were found.
 ### ERR_VALUE_OUT_OF_RANGE
 
 Superseded by `ERR_OUT_OF_RANGE`
+
+<a id="ERR_VM_MODULE_ALREADY_LINKED"></a>
+### ERR_VM_MODULE_ALREADY_LINKED
+
+The module attempted to be linked is not eligible for linking, because of one of
+the following reasons:
+
+- It has already been linked (`linkingStatus` is `'linked'`)
+- It is being linked (`linkingStatus` is `'linking'`)
+- Linking has failed for this module (`linkingStatus` is `'errored'`)
+
+<a id="ERR_VM_MODULE_DIFFERENT_CONTEXT"></a>
+### ERR_VM_MODULE_DIFFERENT_CONTEXT
+
+The module being returned from the linker function is from a different context
+than the parent module. Linked modules must share the same context.
+
+<a id="ERR_VM_MODULE_LINKING_ERRORED"></a>
+### ERR_VM_MODULE_LINKING_ERRORED
+
+The linker function returned a module for which linking has failed.
+
+<a id="ERR_VM_MODULE_NOT_LINKED"></a>
+### ERR_VM_MODULE_NOT_LINKED
+
+The module must be successfully linked before instantiation.
+
+<a id="ERR_VM_MODULE_NOT_MODULE"></a>
+### ERR_VM_MODULE_NOT_MODULE
+
+The fulfilled value of a linking promise is not a `vm.Module` object.
+
+<a id="ERR_VM_MODULE_STATUS"></a>
+### ERR_VM_MODULE_STATUS
+
+The current module's status does not allow for this operation. The specific
+meaning of the error depends on the specific function.
 
 <a id="ERR_ZLIB_BINDING_CLOSED"></a>
 ### ERR_ZLIB_BINDING_CLOSED

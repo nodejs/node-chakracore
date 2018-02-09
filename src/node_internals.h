@@ -104,6 +104,7 @@ struct sockaddr;
     V(cares_wrap)                                                             \
     V(config)                                                                 \
     V(contextify)                                                             \
+    V(domain)                                                                 \
     V(fs)                                                                     \
     V(fs_event_wrap)                                                          \
     V(http2)                                                                  \
@@ -170,6 +171,11 @@ extern bool config_preserve_symlinks;
 // Used in node_config.cc to set a constant on process.binding('config')
 // that is used by lib/module.js
 extern bool config_experimental_modules;
+
+// Set in node.cc by ParseArgs when --experimental-vm-modules is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/vm.js
+extern bool config_experimental_vm_modules;
 
 // Set in node.cc by ParseArgs when --loader is used.
 // Used in node_config.cc to set a constant on process.binding('config')

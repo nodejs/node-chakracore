@@ -54,6 +54,11 @@ HandleScope *HandleScope::GetCurrent() {
   return current;
 }
 
+Isolate* HandleScope::GetIsolate() const {
+  return Isolate::GetCurrent();
+}
+
+
 bool HandleScope::AddLocal(JsValueRef value) {
   // _locals is full, save them in _locals[0]
   if (_count == kOnStackLocals) {

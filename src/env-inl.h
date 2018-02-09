@@ -310,7 +310,6 @@ inline Environment::Environment(IsolateData* isolate_data,
       immediate_info_(context->GetIsolate()),
       tick_info_(context->GetIsolate()),
       timer_base_(uv_now(isolate_data->event_loop())),
-      using_domains_(false),
       printed_error_(false),
       trace_sync_io_(false),
       abort_on_uncaught_exception_(false),
@@ -329,22 +328,10 @@ inline Environment::Environment(IsolateData* isolate_data,
   v8::Context::Scope context_scope(context);
   set_as_external(v8::External::New(isolate(), this));
 
-  v8::Local<v8::Primitive> null = v8::Null(isolate());
-  v8::Local<v8::Object> binding_cache_object = v8::Object::New(isolate());
-  CHECK(binding_cache_object->SetPrototype(context, null).FromJust());
-  set_binding_cache_object(binding_cache_object);
-
-  v8::Local<v8::Object> internal_binding_cache_object =
-      v8::Object::New(isolate());
-  CHECK(internal_binding_cache_object->SetPrototype(context, null).FromJust());
-  set_internal_binding_cache_object(internal_binding_cache_object);
-
-  set_module_load_list_array(v8::Array::New(isolate()));
-
   AssignToContext(context, ContextInfo(""));
 
   destroy_async_id_list_.reserve(512);
-  performance_state_ = Calloc<performance::performance_state>(1);
+  performance_state_.reset(new performance::performance_state(isolate()));
   performance_state_->milestones[
       performance::NODE_PERFORMANCE_MILESTONE_ENVIRONMENT] =
           PERFORMANCE_NOW();
@@ -376,7 +363,6 @@ inline Environment::~Environment() {
   delete[] heap_statistics_buffer_;
   delete[] heap_space_statistics_buffer_;
   delete[] http_parser_buffer_;
-  free(performance_state_);
 }
 
 inline v8::Isolate* Environment::isolate() const {
@@ -424,14 +410,6 @@ inline Environment::TickInfo* Environment::tick_info() {
 
 inline uint64_t Environment::timer_base() const {
   return timer_base_;
-}
-
-inline bool Environment::using_domains() const {
-  return using_domains_;
-}
-
-inline void Environment::set_using_domains(bool value) {
-  using_domains_ = value;
 }
 
 inline bool Environment::printed_error() const {
@@ -582,7 +560,7 @@ void Environment::SetUnrefImmediate(native_immediate_callback cb,
 }
 
 inline performance::performance_state* Environment::performance_state() {
-  return performance_state_;
+  return performance_state_.get();
 }
 
 inline std::map<std::string, uint64_t>* Environment::performance_marks() {
