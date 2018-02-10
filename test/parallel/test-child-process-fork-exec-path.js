@@ -24,10 +24,11 @@ const common = require('../common');
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const tmpdir = require('../common/tmpdir');
 const msg = { test: 'this' };
 const nodePath = process.execPath;
-const nodeCopyPath = path.join(common.tmpDir, 'node-copy.exe');
-const chakracoreCopyPath = path.join(common.tmpDir, 'chakracore.dll');
+const nodeCopyPath = path.join(tmpdir.path, 'node-copy.exe');
+const chakracoreCopyPath = path.join(tmpdir.path, 'chakracore.dll');
 const exePaths = [
   { srcPath: nodePath,
     destPath: nodeCopyPath }];
@@ -44,7 +45,7 @@ if (process.env.FORK) {
   process.send(msg);
   process.exit();
 } else {
-  common.refreshTmpDir();
+  tmpdir.refresh();
   try {
     exePaths.forEach(function(value) {
       fs.unlinkSync(value.destPath);

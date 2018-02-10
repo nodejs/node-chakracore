@@ -30,3 +30,4 @@ test-esm-shared-loader-dep : SKIP
 test-esm-shebang : SKIP
 test-esm-snapshot : SKIP
 test-esm-symlink : SKIP
+test-esm-import-meta: SKIP

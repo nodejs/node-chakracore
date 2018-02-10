@@ -394,7 +394,7 @@ changes:
 -->
 
 * `encoding` {string} The new default encoding
-* Returns: `this`
+* Returns: {this}
 
 The `writable.setDefaultEncoding()` method sets the default `encoding` for a
 [Writable][] stream.
@@ -533,7 +533,7 @@ A Writable stream in object mode will always ignore the `encoding` argument.
 added: v8.0.0
 -->
 
-* Returns: `this`
+* Returns: {this}
 
 Destroy the stream, and emit the passed error. After this call, the
 writable stream has ended. Implementors should not override this method,
@@ -580,8 +580,8 @@ The Readable can switch back to paused mode using one of the following:
 
 * If there are no pipe destinations, by calling the
   [`stream.pause()`][stream-pause] method.
-* If there are pipe destinations, by removing any [`'data'`][] event
-  handlers, and removing all pipe destinations by calling the
+* If there are pipe destinations, by removing all pipe destinations.
+  Multiple pipe destinations may be removed by calling the
   [`stream.unpipe()`][] method.
 
 The important concept to remember is that a Readable will not generate data
@@ -824,7 +824,7 @@ readable.isPaused(); // === false
 added: v0.9.4
 -->
 
-* Returns: `this`
+* Returns: {this}
 
 The `readable.pause()` method will cause a stream in flowing mode to stop
 emitting [`'data'`][] events, switching out of flowing mode. Any data that
@@ -973,7 +973,7 @@ the status of the `highWaterMark`.
 added: v0.9.4
 -->
 
-* Returns: `this`
+* Returns: {this}
 
 The `readable.resume()` method causes an explicitly paused Readable stream to
 resume emitting [`'data'`][] events, switching the stream into flowing mode.
@@ -996,7 +996,7 @@ added: v0.9.4
 -->
 
 * `encoding` {string} The encoding to use.
-* Returns: `this`
+* Returns: {this}
 
 The `readable.setEncoding()` method sets the character encoding for
 data read from the Readable stream.
@@ -1459,7 +1459,7 @@ write succeeded.
 
 All calls to `writable.write()` that occur between the time `writable._write()`
 is called and the `callback` is called will cause the written data to be
-buffered. Once the `callback` is invoked, the stream will emit a [`'drain'`][]
+buffered. When the `callback` is invoked, the stream might emit a [`'drain'`][]
 event. If a stream implementation is capable of processing multiple chunks of
 data at once, the `writable._writev()` method should be implemented.
 

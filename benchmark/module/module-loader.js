@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const common = require('../common.js');
 
-const { refreshTmpDir, tmpDir } = require('../../test/common');
-const benchmarkDirectory = path.join(tmpDir, 'nodejs-benchmark-module');
+const tmpdir = require('../../test/common/tmpdir');
+const benchmarkDirectory = path.join(tmpdir.path, 'nodejs-benchmark-module');
 
 const bench = common.createBenchmark(main, {
   thousands: [50],
@@ -13,12 +13,10 @@ const bench = common.createBenchmark(main, {
 });
 
 function main({ thousands, fullPath, useCache }) {
-  const n = thousands * 1e3;
-
-  refreshTmpDir();
+  tmpdir.refresh();
   try { fs.mkdirSync(benchmarkDirectory); } catch (e) {}
 
-  for (var i = 0; i <= n; i++) {
+  for (var i = 0; i <= thousands * 1e3; i++) {
     fs.mkdirSync(`${benchmarkDirectory}${i}`);
     fs.writeFileSync(
       `${benchmarkDirectory}${i}/package.json`,
@@ -31,37 +29,37 @@ function main({ thousands, fullPath, useCache }) {
   }
 
   if (fullPath === 'true')
-    measureFull(n, useCache === 'true');
+    measureFull(thousands, useCache === 'true');
   else
-    measureDir(n, useCache === 'true');
+    measureDir(thousands, useCache === 'true');
 
-  refreshTmpDir();
+  tmpdir.refresh();
 }
 
-function measureFull(n, useCache) {
+function measureFull(thousands, useCache) {
   var i;
   if (useCache) {
-    for (i = 0; i <= n; i++) {
+    for (i = 0; i <= thousands * 1e3; i++) {
       require(`${benchmarkDirectory}${i}/index.js`);
     }
   }
   bench.start();
-  for (i = 0; i <= n; i++) {
+  for (i = 0; i <= thousands * 1e3; i++) {
     require(`${benchmarkDirectory}${i}/index.js`);
   }
-  bench.end(n / 1e3);
+  bench.end(thousands);
 }
 
-function measureDir(n, useCache) {
+function measureDir(thousands, useCache) {
   var i;
   if (useCache) {
-    for (i = 0; i <= n; i++) {
+    for (i = 0; i <= thousands * 1e3; i++) {
       require(`${benchmarkDirectory}${i}`);
     }
   }
   bench.start();
-  for (i = 0; i <= n; i++) {
+  for (i = 0; i <= thousands * 1e3; i++) {
     require(`${benchmarkDirectory}${i}`);
   }
-  bench.end(n / 1e3);
+  bench.end(thousands);
 }

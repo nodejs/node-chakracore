@@ -96,6 +96,11 @@ void Isolate::SetHostImportModuleDynamicallyCallback(
   // CHAKRA-TODO
 }
 
+void Isolate::SetHostInitializeImportMetaObjectCallback(
+    HostInitializeImportMetaObjectCallback callback) {
+  CHAKRA_UNIMPLEMENTED();
+}
+
 void Isolate::SetFatalErrorHandler(FatalErrorCallback that) {
   // CONSIDER: Ignoring for now, since we don't have an equivalent concept.
 }

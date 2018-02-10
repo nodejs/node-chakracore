@@ -91,6 +91,8 @@ class ModuleWrap;
   V(decorated_private_symbol, "node:decorated")                               \
   V(npn_buffer_private_symbol, "node:npnBuffer")                              \
   V(selected_npn_buffer_private_symbol, "node:selectedNpnBuffer")             \
+  V(napi_env, "node:napi:env")                                                \
+  V(napi_wrapper, "node:napi:wrapper")                                        \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
@@ -210,6 +212,7 @@ class ModuleWrap;
   V(owner_string, "owner")                                                    \
   V(parse_error_string, "Parse Error")                                        \
   V(path_string, "path")                                                      \
+  V(pending_handle_string, "pendingHandle")                                   \
   V(pbkdf2_error_string, "PBKDF2 Error")                                      \
   V(pid_string, "pid")                                                        \
   V(pipe_string, "pipe")                                                      \
@@ -249,6 +252,7 @@ class ModuleWrap;
   V(type_string, "type")                                                      \
   V(uid_string, "uid")                                                        \
   V(unknown_string, "<unknown>")                                              \
+  V(url_string, "url")                                                        \
   V(user_string, "user")                                                      \
   V(username_string, "username")                                              \
   V(valid_from_string, "valid_from")                                          \
@@ -278,6 +282,7 @@ class ModuleWrap;
   V(context, v8::Context)                                                     \
   V(domain_callback, v8::Function)                                            \
   V(host_import_module_dynamically_callback, v8::Function)                    \
+  V(host_initialize_import_meta_object_callback, v8::Function)                \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
   V(http2stream_constructor_template, v8::ObjectTemplate)                     \
   V(http2settings_constructor_template, v8::ObjectTemplate)                   \
@@ -479,8 +484,10 @@ class Environment {
     inline AliasedBuffer<uint8_t, v8::Uint8Array>& fields();
     inline bool has_scheduled() const;
     inline bool has_promise_rejections() const;
+    inline bool has_thrown() const;
 
     inline void promise_rejections_toggle_on();
+    inline void set_has_thrown(bool state);
 
    private:
     friend class Environment;  // So we can call the constructor.
@@ -489,6 +496,7 @@ class Environment {
     enum Fields {
       kHasScheduled,
       kHasPromiseRejections,
+      kHasThrown,
       kFieldsCount
     };
 

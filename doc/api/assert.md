@@ -249,6 +249,8 @@ are recursively evaluated also by the following rules.
 * Map keys and Set items are compared unordered.
 * Recursion stops when both sides differ or both sides encounter a circular
   reference.
+* [`WeakMap`][] and [`WeakSet`][] comparison does not rely on their values. See
+  below for further details.
 
 ```js
 const assert = require('assert').strict;
@@ -290,6 +292,16 @@ assert.deepStrictEqual({ [symbol1]: 1 }, { [symbol1]: 1 });
 // OK, because it is the same symbol on both objects.
 assert.deepStrictEqual({ [symbol1]: 1 }, { [symbol2]: 1 });
 // Fails because symbol1 !== symbol2!
+
+const weakMap1 = new WeakMap();
+const weakMap2 = new WeakMap([[{}, {}]]);
+const weakMap3 = new WeakMap();
+weakMap3.unequal = true;
+
+assert.deepStrictEqual(weakMap1, weakMap2);
+// OK, because it is impossible to compare the entries
+assert.deepStrictEqual(weakMap1, weakMap3);
+// Fails because weakMap3 has a property that weakMap1 does not contain!
 ```
 
 If the values are not equal, an `AssertionError` is thrown with a `message`
@@ -403,29 +415,63 @@ parameter is an instance of an [`Error`][] then it will be thrown instead of the
 `AssertionError`.
 
 ## assert.fail([message])
-## assert.fail(actual, expected[, message[, operator[, stackStartFunction]]])
 <!-- YAML
 added: v0.1.21
 -->
-* `actual` {any}
-* `expected` {any}
 * `message` {any} **Default:** `'Failed'`
-* `operator` {string} **Default:** '!='
-* `stackStartFunction` {Function} **Default:** `assert.fail`
 
-Throws an `AssertionError`. If `message` is falsy, the error message is set as
-the values of `actual` and `expected` separated by the provided `operator`. If
-the `message` parameter is an instance of an [`Error`][] then it will be thrown
-instead of the `AssertionError`. If just the two `actual` and `expected`
-arguments are provided, `operator` will default to `'!='`. If `message` is
-provided only it will be used as the error message, the other arguments will be
-stored as properties on the thrown object. If `stackStartFunction` is provided,
-all stack frames above that function will be removed from stacktrace (see
-[`Error.captureStackTrace`]). If no arguments are given, the default message
-`Failed` will be used.
+Throws an `AssertionError` with the provided error message or a default error
+message. If the `message` parameter is an instance of an [`Error`][] then it
+will be thrown instead of the `AssertionError`.
 
 ```js
 const assert = require('assert').strict;
+
+assert.fail();
+// AssertionError [ERR_ASSERTION]: Failed
+
+assert.fail('boom');
+// AssertionError [ERR_ASSERTION]: boom
+
+assert.fail(new TypeError('need array'));
+// TypeError: need array
+```
+
+Using `assert.fail()` with more than two arguments is possible but deprecated.
+See below for further details.
+
+## assert.fail(actual, expected[, message[, operator[, stackStartFunction]]])
+<!-- YAML
+added: v0.1.21
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/REPLACEME
+    description: Calling `assert.fail` with more than one argument is deprecated
+                 and emits a warning.
+-->
+* `actual` {any}
+* `expected` {any}
+* `message` {any}
+* `operator` {string} **Default:** '!='
+* `stackStartFunction` {Function} **Default:** `assert.fail`
+
+> Stability: 0 - Deprecated: Use `assert.fail([message])` or other assert
+> functions instead.
+
+If `message` is falsy, the error message is set as the values of `actual` and
+`expected` separated by the provided `operator`. If just the two `actual` and
+`expected` arguments are provided, `operator` will default to `'!='`. If
+`message` is provided as third argument it will be used as the error message and
+the other arguments will be stored as properties on the thrown object. If
+`stackStartFunction` is provided, all stack frames above that function will be
+removed from stacktrace (see [`Error.captureStackTrace`]). If no arguments are
+given, the default message `Failed` will be used.
+
+```js
+const assert = require('assert').strict;
+
+assert.fail('a', 'b');
+// AssertionError [ERR_ASSERTION]: 'a' != 'b'
 
 assert.fail(1, 2, undefined, '>');
 // AssertionError [ERR_ASSERTION]: 1 > 2
@@ -440,21 +486,11 @@ assert.fail(1, 2, new TypeError('need array'));
 // TypeError: need array
 ```
 
-*Note*: In the last two cases `actual`, `expected`, and `operator` have no
+In the last three cases `actual`, `expected`, and `operator` have no
 influence on the error message.
 
-```js
-assert.fail();
-// AssertionError [ERR_ASSERTION]: Failed
-
-assert.fail('boom');
-// AssertionError [ERR_ASSERTION]: boom
-
-assert.fail('a', 'b');
-// AssertionError [ERR_ASSERTION]: 'a' != 'b'
-```
-
 Example use of `stackStartFunction` for truncating the exception's stacktrace:
+
 ```js
 function suppressFrame() {
   assert.fail('a', 'b', undefined, '!==', suppressFrame);
@@ -692,9 +728,8 @@ parameter is an instance of an [`Error`][] then it will be thrown instead of the
 added: v0.1.21
 changes:
   - version: REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/17581
-    description: assert.ok() will throw a `ERR_MISSING_ARGS` error.
-                 Use assert.fail() instead.
+    pr-url: https://github.com/nodejs/node/pull/REPLACEME
+    description: assert.ok() (no arguments) will now use a predefined error msg.
 -->
 * `value` {any}
 * `message` {any}
@@ -707,6 +742,8 @@ property set equal to the value of the `message` parameter. If the `message`
 parameter is `undefined`, a default error message is assigned. If the `message`
 parameter is an instance of an [`Error`][] then it will be thrown instead of the
 `AssertionError`.
+If no arguments are passed in at all `message` will be set to the string:
+"No value argument passed to assert.ok".
 
 Be aware that in the `repl` the error message will be different to the one
 thrown in a file! See below for further details.
@@ -718,6 +755,10 @@ assert.ok(true);
 // OK
 assert.ok(1);
 // OK
+
+assert.ok();
+// throws:
+// "AssertionError: No value argument passed to `assert.ok`.
 
 assert.ok(false, 'it\'s false');
 // throws "AssertionError: it's false"
@@ -915,6 +956,8 @@ second argument. This might lead to difficult-to-spot errors.
 [`Set`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Set
 [`Symbol`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Symbol
 [`TypeError`]: errors.html#errors_class_typeerror
+[`WeakMap`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/WeakMap
+[`WeakSet`]: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/WeakSet
 [`assert.deepEqual()`]: #assert_assert_deepequal_actual_expected_message
 [`assert.deepStrictEqual()`]: #assert_assert_deepstrictequal_actual_expected_message
 [`assert.notDeepStrictEqual()`]: #assert_assert_notdeepstrictequal_actual_expected_message

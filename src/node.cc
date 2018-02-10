@@ -948,6 +948,10 @@ InternalCallbackScope::InternalCallbackScope(Environment* env,
     AsyncWrap::EmitBefore(env, asyncContext.async_id);
   }
 
+  if (!IsInnerMakeCallback()) {
+    env->tick_info()->set_has_thrown(false);
+  }
+
   env->async_hooks()->push_async_ids(async_context_.async_id,
                                async_context_.trigger_async_id);
   pushed_ids_ = true;
@@ -995,6 +999,7 @@ void InternalCallbackScope::Close() {
   Local<Object> process = env_->process_object();
 
   if (env_->tick_callback_function()->Call(process, 0, nullptr).IsEmpty()) {
+    env_->tick_info()->set_has_thrown(true);
     failed_ = true;
   }
 }
@@ -2637,6 +2642,7 @@ static void EnvGetter(Local<Name> property,
 #else  // _WIN32
   node::TwoByteValue key(isolate, property);
   WCHAR buffer[32767];  // The maximum size allowed for environment variables.
+  SetLastError(ERROR_SUCCESS);
   DWORD result = GetEnvironmentVariableW(reinterpret_cast<WCHAR*>(*key),
                                          buffer,
                                          arraysize(buffer));
@@ -2685,6 +2691,7 @@ static void EnvQuery(Local<Name> property,
 #else  // _WIN32
     node::TwoByteValue key(info.GetIsolate(), property);
     WCHAR* key_ptr = reinterpret_cast<WCHAR*>(*key);
+    SetLastError(ERROR_SUCCESS);
     if (GetEnvironmentVariableW(key_ptr, nullptr, 0) > 0 ||
         GetLastError() == ERROR_SUCCESS) {
       rc = 0;
@@ -3603,6 +3610,8 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--icu-data-dir",
 
     // V8 options (define with '_', which allows '-' or '_')
+    "--perf_prof",
+    "--perf_basic_prof",
     "--abort_on_uncaught_exception",
     "--max_old_space_size",
     "--stack_trace_limit",
@@ -3791,6 +3800,10 @@ static void ParseArgs(int* argc,
       config_preserve_symlinks = true;
     } else if (strcmp(arg, "--experimental-modules") == 0) {
       config_experimental_modules = true;
+      new_v8_argv[new_v8_argc] = "--harmony-dynamic-import";
+      new_v8_argc += 1;
+      new_v8_argv[new_v8_argc] = "--harmony-import-meta";
+      new_v8_argc += 1;
     } else if (strcmp(arg, "--experimental-vm-modules") == 0) {
       config_experimental_vm_modules = true;
     }  else if (strcmp(arg, "--loader") == 0) {
