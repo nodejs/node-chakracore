@@ -39,6 +39,8 @@ class V8_EXPORT CpuProfiler {
   // void StartProfiling(Handle<String> title, bool record_samples = false);
   // CpuProfile* StopProfiling(Handle<String> title);
   void SetIdle(bool is_idle) {}
+  static CpuProfiler* New(Isolate* isolate) { return nullptr; };
+  void Dispose() {}
 };
 
 class V8_EXPORT OutputStream {  // NOLINT
