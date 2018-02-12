@@ -547,7 +547,7 @@
         obj instanceof URIError;
     };
     utils.isPromise = function(obj) {
-      return compareType(obj, 'Object') && obj instanceof Promise;
+      return compareType(obj, 'Promise') && obj instanceof Promise;
     };
     utils.isRegExp = function(obj) {
       return compareType(obj, 'RegExp');
