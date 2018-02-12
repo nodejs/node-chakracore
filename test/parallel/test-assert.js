@@ -19,6 +19,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+// Flags: --expose-internals
+
 'use strict';
 
 /* eslint-disable prefer-common-expectserror */
@@ -26,6 +28,9 @@
 const common = require('../common');
 const assert = require('assert');
 const { EOL } = require('os');
+const EventEmitter = require('events');
+const { errorCache } = require('internal/errors');
+const { writeFileSync, unlinkSync } = require('fs');
 const a = assert;
 
 function makeBlock(f) {
@@ -928,7 +933,11 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: engineSpecificAssert(`assert.ok(null)${EOL}`, 'null == true')
+    generatedMessage: !common.isChakraEngine,
+    message: engineSpecificAssert(
+      `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
+        `assert.ok(null)${EOL}`,
+      'null == true')
   }
 );
 common.expectsError(
@@ -936,10 +945,11 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
+    generatedMessage: !common.isChakraEngine,
     message: engineSpecificAssert(
-      `assert(typeof 123 === 'string')${EOL}`,
-      'false == true'
-    )
+      `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
+        `assert(typeof 123 === 'string')${EOL}`,
+      'false == true')
   }
 );
 
@@ -1027,7 +1037,8 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: '0 == true'
+    message: '0 == true',
+    generatedMessage: !common.isChakraEngine
   }
 );
 
@@ -1036,9 +1047,42 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: 'test'
+    message: 'test',
+    generatedMessage: false
   }
 );
+
+// Do not try to check Node.js modules.
+{
+  const e = new EventEmitter();
+
+  e.on('hello', assert);
+
+  let threw = false;
+  try {
+    e.emit('hello', false);
+  } catch (err) {
+    const frames = err.stack.split('\n');
+    const [, filename, line, column] = frames[1].match(/\((.+):(\d+):(\d+)\)/);
+    // Reset the cache to check again
+    errorCache.delete(`${filename}${line - 1}${column - 1}`);
+    const data = `${'\n'.repeat(line - 1)}${' '.repeat(column - 1)}` +
+                 'ok(failed(badly));';
+    try {
+      writeFileSync(filename, data);
+      assert.throws(
+        () => e.emit('hello', false),
+        {
+          message: 'false == true'
+        }
+      );
+      threw = true;
+    } finally {
+      unlinkSync(filename);
+    }
+  }
+  assert(threw);
+}
 
 common.expectsError(
   // eslint-disable-next-line no-restricted-syntax

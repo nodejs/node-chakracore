@@ -681,7 +681,9 @@ Defaults to `'utf8'`.
 The `callback` argument is optional and will be called when this chunk of data
 is flushed.
 
-Returns `request`.
+Returns `true` if the entire data was flushed successfully to the kernel
+buffer. Returns `false` if all or part of the data was queued in user memory.
+`'drain'` will be emitted when the buffer is free again.
 
 ## Class: http.Server
 <!-- YAML
@@ -1661,10 +1663,20 @@ A collection of all the standard HTTP response status codes, and the
 short description of each.  For example, `http.STATUS_CODES[404] === 'Not
 Found'`.
 
-## http.createServer([requestListener])
+## http.createServer([options][, requestListener])
 <!-- YAML
 added: v0.1.13
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/15752
+    description: The `options` argument is supported now.
 -->
+- `options` {Object}
+  * `IncomingMessage` {http.IncomingMessage} Specifies the IncomingMessage class
+    to be used. Useful for extending the original `IncomingMessage`. Defaults
+    to: `IncomingMessage`
+  * `ServerResponse` {http.ServerResponse} Specifies the ServerResponse class to
+    be used. Useful for extending the original `ServerResponse`. Defaults to:
+    `ServerResponse`
 - `requestListener` {Function}
 
 * Returns: {http.Server}

@@ -1,6 +1,5 @@
 #include "node_internals.h"
 #include "async_wrap.h"
-#include "v8-profiler.h"
 #include "node_buffer.h"
 #include "node_platform.h"
 
@@ -67,6 +66,15 @@ IsolateData::IsolateData(Isolate* isolate,
 IsolateData::~IsolateData() {
   if (platform_ != nullptr)
     platform_->UnregisterIsolate(this);
+  if (cpu_profiler_ != nullptr)
+    cpu_profiler_->Dispose();
+}
+
+v8::CpuProfiler* IsolateData::GetCpuProfiler() {
+  if (cpu_profiler_ != nullptr) return cpu_profiler_;
+  cpu_profiler_ = v8::CpuProfiler::New(isolate());
+  CHECK_NE(cpu_profiler_, nullptr);
+  return cpu_profiler_;
 }
 
 void Environment::Start(int argc,
@@ -152,12 +160,12 @@ void Environment::CleanupHandles() {
 void Environment::StartProfilerIdleNotifier() {
   uv_prepare_start(&idle_prepare_handle_, [](uv_prepare_t* handle) {
     Environment* env = ContainerOf(&Environment::idle_prepare_handle_, handle);
-    env->isolate()->GetCpuProfiler()->SetIdle(true);
+    env->isolate_data()->GetCpuProfiler()->SetIdle(true);
   });
 
   uv_check_start(&idle_check_handle_, [](uv_check_t* handle) {
     Environment* env = ContainerOf(&Environment::idle_check_handle_, handle);
-    env->isolate()->GetCpuProfiler()->SetIdle(false);
+    env->isolate_data()->GetCpuProfiler()->SetIdle(false);
   });
 }
 
@@ -290,13 +298,26 @@ void Environment::RunAndClearNativeImmediates() {
     size_t ref_count = 0;
     std::vector<NativeImmediateCallback> list;
     native_immediate_callbacks_.swap(list);
-    for (const auto& cb : list) {
-      cb.cb_(this, cb.data_);
-      if (cb.keep_alive_)
-        cb.keep_alive_->Reset();
-      if (cb.refed_)
-        ref_count++;
-    }
+    auto drain_list = [&]() {
+      v8::TryCatch try_catch(isolate());
+      for (auto it = list.begin(); it != list.end(); ++it) {
+        it->cb_(this, it->data_);
+        if (it->keep_alive_)
+          it->keep_alive_->Reset();
+        if (it->refed_)
+          ref_count++;
+        if (UNLIKELY(try_catch.HasCaught())) {
+          FatalException(isolate(), try_catch);
+          // Bail out, remove the already executed callbacks from list
+          // and set up a new TryCatch for the other pending callbacks.
+          std::move_backward(it, list.end(), list.begin() + (list.end() - it));
+          list.resize(list.end() - it);
+          return true;
+        }
+      }
+      return false;
+    };
+    while (drain_list()) {}
 
 #ifdef DEBUG
     CHECK_GE(immediate_info()->count(), count);
