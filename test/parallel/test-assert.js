@@ -1053,7 +1053,7 @@ common.expectsError(
 );
 
 // Do not try to check Node.js modules.
-{
+if (!common.isChakraEngine) {
   const e = new EventEmitter();
 
   e.on('hello', assert);

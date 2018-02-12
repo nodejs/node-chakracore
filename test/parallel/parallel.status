@@ -169,6 +169,10 @@ test-util-inspect-bigint : SKIP
 # One of the benchmarks uses object spread syntax, which chakra does not support
 test-benchmark-es : SKIP
 
+# This test exercises Promise.prototype.finally which isn't currently supported
+# https://github.com/Microsoft/ChakraCore/pull/4668
+test-fs-promises-writefile : SKIP
+
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-buffer-includes : SKIP
