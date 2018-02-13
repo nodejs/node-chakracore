@@ -573,7 +573,7 @@ napi_extended_error_info static_last_error;
 // Warning: Keep in-sync with napi_status enum
 const char* error_messages[] = {
   nullptr,
-  "Invalid pointer passed as argument",
+  "Invalid argument",
   "An object was expected",
   "A string was expected",
   "A string or symbol was expected",
@@ -584,7 +584,8 @@ const char* error_messages[] = {
   "Unknown failure",
   "An exception is pending",
   "The async work item was cancelled",
-  "napi_escape_handle already called on scope"
+  "napi_escape_handle already called on scope",
+  "Invalid handle scope usage"
 };
 
 napi_status napi_get_last_error_info(napi_env env,
@@ -592,9 +593,9 @@ napi_status napi_get_last_error_info(napi_env env,
   CHECK_ARG(result);
 
   static_assert(
-    node::arraysize(error_messages) == napi_escape_called_twice + 1,
+    node::arraysize(error_messages) == napi_handle_scope_mismatch + 1,
     "Count of error messages must match count of error values");
-  assert(static_last_error.error_code <= napi_escape_called_twice);
+  assert(static_last_error.error_code <= napi_handle_scope_mismatch);
 
   // Wait until someone requests the last error information to fetch the error
   // message string
