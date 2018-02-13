@@ -2110,6 +2110,34 @@ napi_status napi_async_destroy(napi_env env,
   return napi_ok;
 }
 
+napi_status napi_open_callback_scope(napi_env env,
+                                     napi_value resource_object,
+                                     napi_async_context async_context_handle,
+                                     napi_callback_scope* result) {
+  node::async_context* node_async_context =
+      reinterpret_cast<node::async_context*>(async_context_handle);
+
+  // TODO: It'd be nice if we could remove the dependency on v8::*
+  // from here by changing node::CallbackScope's signature
+  v8::Local<v8::Object> resource =
+    v8impl::V8LocalValueFromJsValue(resource_object).As<v8::Object>();
+
+  *result = reinterpret_cast<napi_callback_scope>(
+      new node::InternalCallbackScope(node::Environment::GetCurrent(env->isolate),
+                              resource,
+                              *node_async_context));
+
+  napi_clear_last_error();
+  return napi_ok;
+}
+
+napi_status napi_close_callback_scope(napi_env env, napi_callback_scope scope) {
+  delete reinterpret_cast<node::InternalCallbackScope*>(scope);
+
+  napi_clear_last_error();
+  return napi_ok;
+}
+
 napi_status napi_make_callback(napi_env env,
                                napi_async_context async_context,
                                napi_value recv,

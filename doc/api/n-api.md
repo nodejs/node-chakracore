@@ -918,7 +918,7 @@ For example, to set a function to be returned by the `require()` for the addon:
 napi_value Init(napi_env env, napi_value exports) {
   napi_value method;
   napi_status status;
-  status = napi_create_function(env, "exports", Method, NULL, &method));
+  status = napi_create_function(env, "exports", Method, NULL, &method);
   if (status != napi_ok) return NULL;
   return method;
 }
@@ -3146,11 +3146,8 @@ required in order to enable correct proper of the reference.
 Afterward, additional manipulation of the wrapper's prototype chain may cause
 `napi_unwrap()` to fail.
 
-*Note*: Calling `napi_wrap()` a second time on an object that already has a
-native instance associated with it by virtue of a previous call to
-`napi_wrap()` will cause an error to be returned. If you wish to associate
-another native instance with the given object, call `napi_remove_wrap()` on it
-first.
+Calling napi_wrap() a second time on an object will return an error. To associate
+another native instance with the object, use napi_remove_wrap() first.
 
 ### napi_unwrap
 <!-- YAML
@@ -3433,6 +3430,42 @@ context has already been set up, so a direct call to `napi_call_function`
 is sufficient and appropriate. Use of the `napi_make_callback` function
 may be required when implementing custom async behavior that does not use
 `napi_create_async_work`.
+
+### *napi_open_callback_scope*
+<!-- YAML
+added: REPLACEME
+-->
+```C
+NAPI_EXTERN napi_status napi_open_callback_scope(napi_env env,
+                                                 napi_value resource_object,
+                                                 napi_async_context context,
+                                                 napi_callback_scope* result)
+```
+- `[in] env`: The environment that the API is invoked under.
+- `[in] resource_object`: An optional object associated with the async work
+  that will be passed to possible async_hooks [`init` hooks][].
+- `[in] context`: Context for the async operation that is
+invoking the callback. This should be a value previously obtained
+from [`napi_async_init`][].
+- `[out] result`: The newly created scope.
+
+There are cases (for example resolving promises) where it is
+necessary to have the equivalent of the scope associated with a callback
+in place when making certain N-API calls.  If there is no other script on
+the stack the [`napi_open_callback_scope`][] and
+[`napi_close_callback_scope`][] functions can be used to open/close
+the required scope.
+
+### *napi_close_callback_scope*
+<!-- YAML
+added: REPLACEME
+-->
+```C
+NAPI_EXTERN napi_status napi_close_callback_scope(napi_env env,
+                                                  napi_callback_scope scope)
+```
+- `[in] env`: The environment that the API is invoked under.
+- `[in] scope`: The scope to be closed.
 
 ## Version Management
 
@@ -3719,6 +3752,7 @@ NAPI_EXTERN napi_status napi_get_uv_event_loop(napi_env env,
 [`napi_async_init`]: #n_api_napi_async_init
 [`napi_cancel_async_work`]: #n_api_napi_cancel_async_work
 [`napi_close_escapable_handle_scope`]: #n_api_napi_close_escapable_handle_scope
+[`napi_close_callback_scope`]: #n_api_napi_close_callback_scope
 [`napi_close_handle_scope`]: #n_api_napi_close_handle_scope
 [`napi_create_async_work`]: #n_api_napi_create_async_work
 [`napi_create_error`]: #n_api_napi_create_error
@@ -3744,6 +3778,7 @@ NAPI_EXTERN napi_status napi_get_uv_event_loop(napi_env env,
 [`napi_get_last_error_info`]: #n_api_napi_get_last_error_info
 [`napi_get_and_clear_last_exception`]: #n_api_napi_get_and_clear_last_exception
 [`napi_make_callback`]: #n_api_napi_make_callback
+[`napi_open_callback_scope`]: #n_api_napi_open_callback_scope
 [`napi_open_escapable_handle_scope`]: #n_api_napi_open_escapable_handle_scope
 [`napi_open_handle_scope`]: #n_api_napi_open_handle_scope
 [`napi_property_descriptor`]: #n_api_napi_property_descriptor

@@ -33,6 +33,7 @@
 #include "req_wrap.h"
 #include "util.h"
 #include "uv.h"
+#include "v8-profiler.h"
 #include "v8.h"
 #include "node.h"
 #include "node_http2_state.h"
@@ -220,6 +221,7 @@ class ModuleWrap;
   V(preference_string, "preference")                                          \
   V(priority_string, "priority")                                              \
   V(produce_cached_data_string, "produceCachedData")                          \
+  V(promise_string, "promise")                                                \
   V(raw_string, "raw")                                                        \
   V(read_host_object_string, "_readHostObject")                               \
   V(readable_string, "readable")                                              \
@@ -281,6 +283,9 @@ class ModuleWrap;
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
   V(domain_callback, v8::Function)                                            \
+  V(fd_constructor_template, v8::ObjectTemplate)                              \
+  V(fsreqpromise_constructor_template, v8::ObjectTemplate)                    \
+  V(fdclose_constructor_template, v8::ObjectTemplate)                         \
   V(host_import_module_dynamically_callback, v8::Function)                    \
   V(host_initialize_import_meta_object_callback, v8::Function)                \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
@@ -309,6 +314,7 @@ class ModuleWrap;
   V(vm_parsing_context_symbol, v8::Symbol)                                    \
   V(url_constructor_function, v8::Function)                                   \
   V(write_wrap_constructor_function, v8::Function)                            \
+  V(fs_use_promises_symbol, v8::Symbol)
 
 class Environment;
 
@@ -335,6 +341,8 @@ class IsolateData {
   std::unordered_map<nghttp2_rcbuf*, v8::Eternal<v8::String>> http2_static_strs;
   inline v8::Isolate* isolate() const;
 
+  v8::CpuProfiler* GetCpuProfiler();
+
  private:
 #define VP(PropertyName, StringValue) V(v8::Private, PropertyName)
 #define VS(PropertyName, StringValue) V(v8::String, PropertyName)
@@ -350,6 +358,7 @@ class IsolateData {
   uv_loop_t* const event_loop_;
   uint32_t* const zero_fill_field_;
   MultiIsolatePlatform* platform_;
+  v8::CpuProfiler* cpu_profiler_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(IsolateData);
 };

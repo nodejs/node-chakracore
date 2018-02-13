@@ -26,11 +26,27 @@ namespace v8 {
 Promise::Promise() { }
 
 Local<Value> Promise::Result() {
-  return Local<Value>();
+  JsValueRef value;
+  if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::value, &value) != JsNoError) {
+    return Local<Value>();
+  }
+  return Local<Value>::New(value);
 }
 
 Promise::PromiseState Promise::State() {
-  return PromiseState::kFulfilled;
+  JsValueRef state;
+  if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::state, &state) != JsNoError) {
+    return PromiseState::kPending;
+  }
+  int stateNumber;
+  if (JsNumberToInt(state, &stateNumber) != JsNoError) {
+    return PromiseState::kPending;
+  }
+  switch(stateNumber) {
+    case 1: return PromiseState::kFulfilled;
+    case 2: return PromiseState::kRejected;
+    default: return PromiseState::kPending;
+  }
 }
 
 MaybeLocal<Promise> Promise::Then(Local<Context> context,

@@ -128,6 +128,12 @@ DEF(Symbol_toStringTag)
 DEF(add)
 DEF(from)
 
+
+DEF(promise)
+DEF(resolve)
+DEF(reject)
+DEF(state)
+
 DEFSYMBOL(self)
 DEFSYMBOL(__external__)
 DEFSYMBOL(__hiddenvalues__)
