@@ -7,7 +7,9 @@
 
 #include <fstream>
 #include <memory>
+#include <unordered_set>
 #include <vector>
+
 #include "v8-platform.h"
 
 namespace v8 {
