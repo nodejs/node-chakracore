@@ -121,12 +121,12 @@ class ExternString: public ResourceType {
     ExternString* h_str = new ExternString<ResourceType, TypeName>(isolate,
                                                                    data,
                                                                    length);
-      // CHAKRA-TODO: Revert this change. Currently chakrashim
-      // String::NewExternal deletes h_str immediately. Avoid accessing h_str
-      // after passing it to String::NewExternal.
-      size_t byte_length = h_str->byte_length();
-      MaybeLocal<Value> str = NewExternal(isolate, h_str);
-      isolate->AdjustAmountOfExternalAllocatedMemory(byte_length);
+    // CHAKRA-TODO: Revert this change. Currently chakrashim
+    // String::NewExternal deletes h_str immediately. Avoid accessing h_str
+    // after passing it to String::NewExternal.
+    size_t byte_length = h_str->byte_length();
+    MaybeLocal<Value> str = NewExternal(isolate, h_str);
+    isolate->AdjustAmountOfExternalAllocatedMemory(byte_length);
 
     if (str.IsEmpty()) {
       delete h_str;

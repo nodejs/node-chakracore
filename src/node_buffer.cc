@@ -678,10 +678,10 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
 
   if (str_length >= fill_length) {
 #if ENABLE_TTD_NODE
-      TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Early Return");
+    TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Early Return");
 #endif
 
-      return;
+    return;
   }
   // If str_length is zero, then either an empty buffer was provided, or Write()
   // indicated that no bytes could be written. If no bytes could be written,
@@ -690,8 +690,9 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
   // buffers with unexpected contents.
   if (str_length == 0) {
 #if ENABLE_TTD_NODE
-        TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
+    TTD_NATIVE_BUFFER_ACCESS_NOTIFY("Fill Questionable Case");
 #endif
+
     return args.GetReturnValue().Set(-1);
   }
 
@@ -752,7 +753,7 @@ void StringWrite(const FunctionCallbackInfo<Value>& args) {
 #if ENABLE_TTD_NODE
   if (s_doTTRecord || s_doTTReplay) {
     args.This().As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-      ts_obj_offset + offset, written);
+        ts_obj_offset + offset, written);
   }
 #endif
 }
@@ -1198,7 +1199,7 @@ void Swap16(const FunctionCallbackInfo<Value>& args) {
 #if ENABLE_TTD_NODE
   if (s_doTTRecord || s_doTTReplay) {
     args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-      ts_obj_offset, ts_obj_length);
+        ts_obj_offset, ts_obj_length);
   }
 #endif
 }
@@ -1214,7 +1215,7 @@ void Swap32(const FunctionCallbackInfo<Value>& args) {
 #if ENABLE_TTD_NODE
   if (s_doTTRecord || s_doTTReplay) {
     args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-      ts_obj_offset, ts_obj_length);
+        ts_obj_offset, ts_obj_length);
   }
 #endif
 }
@@ -1230,7 +1231,7 @@ void Swap64(const FunctionCallbackInfo<Value>& args) {
 #if ENABLE_TTD_NODE
   if (s_doTTRecord || s_doTTReplay) {
     args[0].As<Uint8Array>()->Buffer()->TTDRawBufferModifyNotifySync(
-      ts_obj_offset, ts_obj_length);
+        ts_obj_offset, ts_obj_length);
   }
 #endif
 }

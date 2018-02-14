@@ -7,7 +7,6 @@
 #include "env-inl.h"
 
 #include <string>
-#include <vector>
 
 namespace node {
 namespace url {

@@ -46,13 +46,14 @@ NODE_EXTERN void TTDAsyncModRegister(v8::Local<v8::Object> val,
                                      unsigned char* initialModPosition);
 NODE_EXTERN void TTDAsyncModNotify(unsigned char* finalModPosition);
 NODE_EXTERN void TTDSyncDataModNotify(v8::Local<v8::Object> val,
-    unsigned int index, unsigned int count);
+                                      unsigned int index, unsigned int count);
+
 // Notify us that a native buffer access (which we don't currently
 // understand/support) happened.
 #define TTD_NATIVE_BUFFER_ACCESS_NOTIFY(X) \
     if (s_doTTRecord || s_doTTReplay) { \
       JsTTDCheckAndAssertIfTTDRunning( \
-            "Unsupported raw buffer access -- investigate this!!!\n"); \
+          "Unsupported raw buffer access -- investigate this!!!\n"); \
     }
 #else
 #define TTD_NATIVE_BUFFER_ACCESS_NOTIFY(X)

@@ -16,8 +16,6 @@
 
 struct uv_loop_s;  // Forward declaration.
 
-#define NAPI_VERSION  2
-
 #ifdef _WIN32
   #ifdef BUILDING_NODE_EXTENSION
     #ifdef EXTERNAL_NAPI
