@@ -105,15 +105,15 @@ ArrayBuffer::Contents ArrayBuffer::GetContents() {
   }
 
   Contents contents;
-  if (buffer == nullptr)
-  {
+  if (buffer == nullptr) {
     CHAKRA_ASSERT(bufferLength == 0);
-    // v8's version of ArrayBuffer will return a non-null pointer even in the case of
-    // an empty ArrayBuffer, and this behavior is relied upon by some of the i18n code.
-    // To support that, if we would otherwise return a null buffer, as long as the
-    // length is 0 we instead return a valid pointer to something, on the understanding
-    // that nobody will actually try to read it.
-    buffer = (BYTE*)this;
+    // v8's version of ArrayBuffer will return a non-null pointer even in the
+    // case of an empty ArrayBuffer, and this behavior is relied upon by some
+    // of the i18n code. To support that, if we would otherwise return a null
+    // buffer, as long as the length is 0 we instead return a valid pointer
+    // to something, on the understanding that nobody will actually try to
+    // read it.
+    buffer = reinterpret_cast<BYTE*>(this);
   }
   contents.data_ = buffer;
   contents.byte_length_ = bufferLength;

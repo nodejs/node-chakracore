@@ -27,7 +27,10 @@ Promise::Promise() { }
 
 Local<Value> Promise::Result() {
   JsValueRef value;
-  if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::value, &value) != JsNoError) {
+  if (jsrt::GetProperty(
+        this,
+        jsrt::CachedPropertyIdRef::value,
+        &value) != JsNoError) {
     return Local<Value>();
   }
   return Local<Value>::New(value);
@@ -35,14 +38,17 @@ Local<Value> Promise::Result() {
 
 Promise::PromiseState Promise::State() {
   JsValueRef state;
-  if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::state, &state) != JsNoError) {
+  if (jsrt::GetProperty(
+        this,
+        jsrt::CachedPropertyIdRef::state,
+        &state) != JsNoError) {
     return PromiseState::kPending;
   }
   int stateNumber;
   if (JsNumberToInt(state, &stateNumber) != JsNoError) {
     return PromiseState::kPending;
   }
-  switch(stateNumber) {
+  switch (stateNumber) {
     case 1: return PromiseState::kFulfilled;
     case 2: return PromiseState::kRejected;
     default: return PromiseState::kPending;
