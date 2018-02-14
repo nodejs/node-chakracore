@@ -202,8 +202,9 @@ class Platform {
 
  protected:
   static double SystemClockTimeMillis() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    return std::chrono::duration_cast<
+        std::chrono::duration<double, std::milli>>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
   }
 };
 
