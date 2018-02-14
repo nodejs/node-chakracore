@@ -393,7 +393,7 @@ void ContextifyContext::PropertySetterCallback(
 
   ctx->sandbox()->Set(property, value);
 #else
-  bool is_declared = 
+  bool is_declared =
     ctx->global_proxy()->HasRealNamedProperty(ctx->context(),
       property).FromJust();
 

@@ -35,21 +35,33 @@ namespace v8 {
       return Local<Resolver>();
     }
 
-    if (jsrt::SetProperty(resolver, jsrt::CachedPropertyIdRef::promise, promise) != JsNoError) {
+    if (jsrt::SetProperty(
+          resolver,
+          jsrt::CachedPropertyIdRef::promise,
+          promise) != JsNoError) {
       return Local<Resolver>();
     }
 
-    if (jsrt::SetProperty(resolver, jsrt::CachedPropertyIdRef::resolve, resolve) != JsNoError) {
+    if (jsrt::SetProperty(
+          resolver,
+          jsrt::CachedPropertyIdRef::resolve,
+          resolve) != JsNoError) {
       return Local<Resolver>();
     }
 
-    if (jsrt::SetProperty(resolver, jsrt::CachedPropertyIdRef::reject, reject) != JsNoError) {
+    if (jsrt::SetProperty(
+          resolver,
+          jsrt::CachedPropertyIdRef::reject,
+          reject) != JsNoError) {
       return Local<Resolver>();
     }
 
     JsValueRef state;
     jsrt::UintToValue(0, &state);
-    if (jsrt::SetProperty(promise, jsrt::CachedPropertyIdRef::value, state) != JsNoError) {
+    if (jsrt::SetProperty(
+          promise,
+          jsrt::CachedPropertyIdRef::value,
+          state) != JsNoError) {
       return Local<Resolver>();
     }
 
@@ -62,7 +74,10 @@ namespace v8 {
 
   Local<Promise> Resolver::GetPromise() {
     JsValueRef promise;
-    if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::promise, &promise) != JsNoError) {
+    if (jsrt::GetProperty(
+          this,
+          jsrt::CachedPropertyIdRef::promise,
+          &promise) != JsNoError) {
       return Local<Promise>();
     }
     return Local<Promise>::New(static_cast<Promise*>(promise));
@@ -74,28 +89,40 @@ namespace v8 {
 
   Maybe<bool> Resolver::Resolve(Local<Context> context, Local<Value> value) {
     JsValueRef resolve;
-    if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::resolve, &resolve) != JsNoError) {
+    if (jsrt::GetProperty(
+          this,
+          jsrt::CachedPropertyIdRef::resolve,
+          &resolve) != JsNoError) {
       return Nothing<bool>();
     }
 
     JsValueRef promise;
-    if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::promise, &promise) != JsNoError) {
+    if (jsrt::GetProperty(
+          this,
+          jsrt::CachedPropertyIdRef::promise,
+          &promise) != JsNoError) {
       return Nothing<bool>();
     }
 
-    if (jsrt::SetProperty(promise, jsrt::CachedPropertyIdRef::value, *value) != JsNoError) {
+    if (jsrt::SetProperty(
+          promise,
+          jsrt::CachedPropertyIdRef::value,
+          *value) != JsNoError) {
       return Nothing<bool>();
     }
 
     JsValueRef state;
     jsrt::UintToValue(1, &state);
-    if (jsrt::SetProperty(promise, jsrt::CachedPropertyIdRef::value, state) != JsNoError) {
+    if (jsrt::SetProperty(
+          promise,
+          jsrt::CachedPropertyIdRef::value,
+          state) != JsNoError) {
       return Nothing<bool>();
     }
-    
+
     JsValueRef result;
     JsValueRef args[2];
-    args[0] = this; // ? What is the "this" of the resolver here?
+    args[0] = this;  // ? What is the "this" of the resolver here?
     args[1] = reinterpret_cast<JsValueRef>(*value);
 
     if (JsCallFunction(resolve, args, 2, &result) != JsNoError) {
@@ -112,28 +139,40 @@ namespace v8 {
 
   Maybe<bool> Resolver::Reject(Local<Context> context, Local<Value> value) {
     JsValueRef reject;
-    if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::reject, &reject) != JsNoError) {
+    if (jsrt::GetProperty(
+          this,
+          jsrt::CachedPropertyIdRef::reject,
+          &reject) != JsNoError) {
       return Nothing<bool>();
     }
 
     JsValueRef promise;
-    if (jsrt::GetProperty(this, jsrt::CachedPropertyIdRef::promise, &promise) != JsNoError) {
+    if (jsrt::GetProperty(
+          this,
+          jsrt::CachedPropertyIdRef::promise,
+          &promise) != JsNoError) {
       return Nothing<bool>();
     }
 
-    if (jsrt::SetProperty(promise, jsrt::CachedPropertyIdRef::value, *value) != JsNoError) {
+    if (jsrt::SetProperty(
+          promise,
+          jsrt::CachedPropertyIdRef::value,
+          *value) != JsNoError) {
       return Nothing<bool>();
     }
 
     JsValueRef state;
     jsrt::UintToValue(2, &state);
-    if (jsrt::SetProperty(promise, jsrt::CachedPropertyIdRef::value, state) != JsNoError) {
+    if (jsrt::SetProperty(
+          promise,
+          jsrt::CachedPropertyIdRef::value,
+          state) != JsNoError) {
       return Nothing<bool>();
     }
-    
+
     JsValueRef result;
     JsValueRef args[2];
-    args[0] = this; // ? What is the "this" of the resolver here?
+    args[0] = this;  // ? What is the "this" of the resolver here?
     args[1] = reinterpret_cast<JsValueRef>(*value);
 
     if (JsCallFunction(reject, args, 2, &result) != JsNoError) {
