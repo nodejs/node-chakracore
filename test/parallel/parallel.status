@@ -147,6 +147,7 @@ test-common-must-not-call : SKIP
 
 # This test does a deep recursion which occasionally fails in Node-ChakraCore
 test-async-hooks-recursive-stack : SKIP
+test-async-hooks-recursive-stack-runInAsyncScope : SKIP
 
 # This test requires for...await support which is not in Node-ChakraCore
 test-stream-readable-async-iterators : SKIP
@@ -172,6 +173,13 @@ test-benchmark-es : SKIP
 # This test exercises Promise.prototype.finally which isn't currently supported
 # https://github.com/Microsoft/ChakraCore/pull/4668
 test-fs-promises-writefile : SKIP
+
+# This test expects stack overflow to behave in a specific way, which doesn't happen with chakracore
+test-fs-readdir-stack-overflow : SKIP
+
+# This test assumes that converting a utf8 string with invalid sequences generates replacement characters
+# in a particular way which is true for v8 but not true for charkacore
+test-string-decoder-end : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed
