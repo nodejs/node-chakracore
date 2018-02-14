@@ -14,7 +14,12 @@ const assert = require('assert');
 assert.strictEqual(global.console, 42);
 assert.strictEqual(global.console, 42);
 
-assert.throws(() => console.log('foo'), TypeError);
+common.expectsError(
+  () => console.log('foo'),
+  {
+    type: TypeError
+  }
+);
 
 global.console = 1;
 assert.strictEqual(global.console, 1);
