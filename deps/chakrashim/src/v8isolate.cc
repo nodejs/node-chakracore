@@ -156,6 +156,9 @@ void Isolate::RunMicrotasks() {
   jsrt::ContextShim::GetCurrent()->RunMicrotasks();
 }
 
+void Isolate::SetMicrotasksPolicy(MicrotasksPolicy policy) {
+}
+
 void Isolate::SetAutorunMicrotasks(bool autorun) {
 }
 
