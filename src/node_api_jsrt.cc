@@ -2119,15 +2119,16 @@ napi_status napi_open_callback_scope(napi_env env,
   node::async_context* node_async_context =
       reinterpret_cast<node::async_context*>(async_context_handle);
 
-  // TODO: It'd be nice if we could remove the dependency on v8::*
+  // TODO(MSLaguana): It'd be nice if we could remove the dependency on v8::*
   // from here by changing node::CallbackScope's signature
   v8::Local<v8::Object> resource =
     v8impl::V8LocalValueFromJsValue(resource_object).As<v8::Object>();
 
   *result = reinterpret_cast<napi_callback_scope>(
-      new node::InternalCallbackScope(node::Environment::GetCurrent(env->isolate),
-                              resource,
-                              *node_async_context));
+    new node::InternalCallbackScope(
+      node::Environment::GetCurrent(env->isolate),
+      resource,
+      *node_async_context));
 
   napi_clear_last_error();
   return napi_ok;

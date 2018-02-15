@@ -662,9 +662,8 @@ void Close(const FunctionCallbackInfo<Value>& args) {
 
 
 // Used to speed up module loading.  Returns the contents of the file as
-// a string or undefined when the file cannot be opened.  Returns an empty
-// string when the file does not contain the substring '"main"' because that
-// is the property we care about.
+// a string or undefined when the file cannot be opened or "main" is not found
+// in the file.
 static void InternalModuleReadJSON(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   uv_loop_t* loop = env->event_loop();
@@ -718,7 +717,7 @@ static void InternalModuleReadJSON(const FunctionCallbackInfo<Value>& args) {
 
   const size_t size = offset - start;
   if (size == 0 || size == SearchString(&chars[start], size, "\"main\"")) {
-    args.GetReturnValue().SetEmptyString();
+    return;
   } else {
     Local<String> chars_string =
         String::NewFromUtf8(env->isolate(),
@@ -1142,14 +1141,20 @@ static void ReadDir(const FunctionCallbackInfo<Value>& args) {
       name_v[name_idx++] = filename.ToLocalChecked();
 
       if (name_idx >= arraysize(name_v)) {
-        fn->Call(env->context(), names, name_idx, name_v)
-            .ToLocalChecked();
+        MaybeLocal<Value> ret = fn->Call(env->context(), names, name_idx,
+                                         name_v);
+        if (ret.IsEmpty()) {
+          return;
+        }
         name_idx = 0;
       }
     }
 
     if (name_idx > 0) {
-      fn->Call(env->context(), names, name_idx, name_v).ToLocalChecked();
+      MaybeLocal<Value> ret = fn->Call(env->context(), names, name_idx, name_v);
+      if (ret.IsEmpty()) {
+        return;
+      }
     }
 
     args.GetReturnValue().Set(names);
@@ -1202,13 +1207,9 @@ static void OpenFileHandle(const FunctionCallbackInfo<Value>& args) {
     req_wrap->SetReturnValue(args);
   } else {
     SYNC_CALL(open, *path, *path, flags, mode)
-    if (SYNC_RESULT < 0) {
-      args.GetReturnValue().Set(SYNC_RESULT);
-    } else {
-      HandleScope scope(env->isolate());
-      FileHandle* fd = new FileHandle(env, SYNC_RESULT);
-      args.GetReturnValue().Set(fd->object());
-    }
+    HandleScope scope(env->isolate());
+    FileHandle* fd = new FileHandle(env, SYNC_RESULT);
+    args.GetReturnValue().Set(fd->object());
   }
 }
 

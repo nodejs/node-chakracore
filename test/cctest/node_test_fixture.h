@@ -103,7 +103,8 @@ class EnvironmentTestFixture : public NodeTestFixture {
     Env(const v8::HandleScope& handle_scope, const Argv& argv) {
       auto isolate = handle_scope.GetIsolate();
 #if ENABLE_TTD_NODE
-      context_ = node::NewContext(isolate, false); // TODO: should we support TTD in cctest?
+      // TODO(MSLaguana): should we support TTD in cctest?
+      context_ = node::NewContext(isolate, false);
 #else
       context_ = node::NewContext(isolate);
 #endif

@@ -771,13 +771,7 @@ inline ssize_t Http2Session::Write(const uv_buf_t* bufs, size_t nbufs) {
                                bufs[n].len);
     CHECK_NE(ret, NGHTTP2_ERR_NOMEM);
 
-    // If there is an error calling any of the callbacks, ret will be a
-    // negative number identifying the error code. This can happen, for
-    // instance, if the session is destroyed during any of the JS callbacks
-    // Note: if ssize_t is not defined (e.g. on Win32), nghttp2 will typedef
-    // ssize_t to int. Cast here so that the < 0 check actually works on
-    // Windows.
-    if (static_cast<int>(ret) < 0)
+    if (ret < 0)
       return ret;
 
     total += ret;
@@ -1565,18 +1559,9 @@ void Http2Session::SendPendingData() {
 
   chunks_sent_since_last_write_++;
 
-  // DoTryWrite may modify both the buffer list start itself and the
-  // base pointers/length of the individual buffers.
-  uv_buf_t* writebufs = *bufs;
-  if (stream_->DoTryWrite(&writebufs, &count) != 0 || count == 0) {
-    // All writes finished synchronously, nothing more to do here.
-    ClearOutgoing(0);
-    return;
-  }
-
-  WriteWrap* req = AllocateSend();
-  if (stream_->DoWrite(req, writebufs, count, nullptr) != 0) {
-    req->Dispose();
+  StreamWriteResult res = underlying_stream()->Write(*bufs, count);
+  if (!res.async) {
+    ClearOutgoing(res.err);
   }
 
   DEBUG_HTTP2SESSION2(this, "wants data in return? %d",
@@ -1662,15 +1647,6 @@ inline void Http2Session::SetChunksSinceLastWrite(size_t n) {
   chunks_sent_since_last_write_ = n;
 }
 
-// Allocates the data buffer used to pass outbound data to the i/o stream.
-WriteWrap* Http2Session::AllocateSend() {
-  HandleScope scope(env()->isolate());
-  Local<Object> obj =
-      env()->write_wrap_constructor_function()
-          ->NewInstance(env()->context()).ToLocalChecked();
-  return WriteWrap::New(env(), obj, static_cast<StreamBase*>(stream_));
-}
-
 // Callback used to receive inbound data from the i/o stream
 void Http2Session::OnStreamRead(ssize_t nread, const uv_buf_t& buf) {
   Http2Scope h2scope(this);
@@ -1716,10 +1692,7 @@ void Http2Session::OnStreamRead(ssize_t nread, const uv_buf_t& buf) {
     statistics_.data_received += nread;
     ssize_t ret = Write(&stream_buf_, 1);
 
-    // Note: if ssize_t is not defined (e.g. on Win32), nghttp2 will typedef
-    // ssize_t to int. Cast here so that the < 0 check actually works on
-    // Windows.
-    if (static_cast<int>(ret) < 0) {
+    if (ret < 0) {
       DEBUG_HTTP2SESSION2(this, "fatal error receiving data: %d", ret);
 
       Local<Value> argv[] = {
@@ -1849,20 +1822,15 @@ inline void Http2Stream::Close(int32_t code) {
   DEBUG_HTTP2STREAM2(this, "closed with code %d", code);
 }
 
-
-inline void Http2Stream::Shutdown() {
-  CHECK(!this->IsDestroyed());
-  Http2Scope h2scope(this);
-  flags_ |= NGHTTP2_STREAM_FLAG_SHUT;
-  CHECK_NE(nghttp2_session_resume_data(session_->session(), id_),
-           NGHTTP2_ERR_NOMEM);
-  DEBUG_HTTP2STREAM(this, "writable side shutdown");
-}
-
 int Http2Stream::DoShutdown(ShutdownWrap* req_wrap) {
   CHECK(!this->IsDestroyed());
-  req_wrap->Dispatched();
-  Shutdown();
+  {
+    Http2Scope h2scope(this);
+    flags_ |= NGHTTP2_STREAM_FLAG_SHUT;
+    CHECK_NE(nghttp2_session_resume_data(session_->session(), id_),
+             NGHTTP2_ERR_NOMEM);
+    DEBUG_HTTP2STREAM(this, "writable side shutdown");
+  }
   req_wrap->Done(0);
   return 0;
 }
@@ -2054,7 +2022,6 @@ inline int Http2Stream::DoWrite(WriteWrap* req_wrap,
   CHECK_EQ(send_handle, nullptr);
   Http2Scope h2scope(this);
   session_->SetChunksSinceLastWrite();
-  req_wrap->Dispatched();
   if (!IsWritable()) {
     req_wrap->Done(UV_EOF);
     return 0;
