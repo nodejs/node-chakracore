@@ -4617,7 +4617,7 @@ inline int Start(uv_loop_t* event_loop,
 
   isolate->AddMessageListener(OnMessage);
   isolate->SetAbortOnUncaughtExceptionCallback(ShouldAbortOnUncaughtException);
-  isolate->SetAutorunMicrotasks(false);
+  isolate->SetMicrotasksPolicy(v8::MicrotasksPolicy::kExplicit);
   isolate->SetFatalErrorHandler(OnFatalError);
 
   {

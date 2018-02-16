@@ -198,6 +198,8 @@ enum JitCodeEventOptions {
 
 enum class IntegrityLevel { kFrozen, kSealed };
 
+enum class MicrotasksPolicy { kExplicit, kScoped, kAuto };
+
 typedef void (*AccessorGetterCallback)(
   Local<String> property,
   const PropertyCallbackInfo<Value>& info);
@@ -2738,6 +2740,7 @@ class V8_EXPORT Isolate {
   void SetPromiseRejectCallback(PromiseRejectCallback callback);
   void RunMicrotasks();
   void EnqueueMicrotask(MicrotaskCallback microtask, void* data = nullptr);
+  void SetMicrotasksPolicy(MicrotasksPolicy policy);
   void SetAutorunMicrotasks(bool autorun);
   void SetFatalErrorHandler(FatalErrorCallback that);
   void SetJitCodeEventHandler(

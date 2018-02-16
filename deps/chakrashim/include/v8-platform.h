@@ -100,6 +100,16 @@ class TracingController {
     return 0;
   }
 
+  virtual uint64_t AddTraceEventWithTimestamp(
+      char phase, const uint8_t* category_enabled_flag, const char* name,
+      const char* scope, uint64_t id, uint64_t bind_id, int32_t num_args,
+      const char** arg_names, const uint8_t* arg_types,
+      const uint64_t* arg_values,
+      std::unique_ptr<ConvertableToTraceFormat>* arg_convertables,
+      unsigned int flags, int64_t timestamp) {
+    return 0;
+  }
+
   virtual void UpdateTraceEventDuration(const uint8_t* category_enabled_flag,
                                         const char* name, uint64_t handle) {}
 
