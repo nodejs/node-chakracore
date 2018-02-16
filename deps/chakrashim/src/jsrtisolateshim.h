@@ -161,6 +161,8 @@ class IsolateShim {
     return isIdleGcScheduled;
   }
 
+  void SetPromiseRejectCallback(v8::PromiseRejectCallback callback);
+
  private:
   // Construction/Destruction should go thru New/Dispose
   explicit IsolateShim(JsRuntimeHandle runtime);
@@ -168,6 +170,8 @@ class IsolateShim {
   static v8::Isolate * ToIsolate(IsolateShim * isolate);
   static void CHAKRA_CALLBACK JsContextBeforeCollectCallback(JsRef contextRef,
                                                              void *data);
+  static void CHAKRA_CALLBACK PromiseRejectionCallback(
+      JsValueRef promise, JsValueRef reason, bool handled, void *callbackState);
 
   JsRuntimeHandle runtime;
   JsPropertyIdRef symbolPropertyIdRefs[CachedSymbolPropertyIdRef::SymbolCount];

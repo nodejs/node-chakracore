@@ -61,9 +61,7 @@ test-performance-function : SKIP
 test-performance-gc : SKIP
 test-process-env-symbols : SKIP
 test-promise-internal-creation : SKIP
-test-promises-unhandled-rejections : SKIP
 test-promises-unhandled-symbol-rejections : SKIP
-test-promises-warning-on-unhandled-rejection : SKIP
 test-regress-GH-12371 : SKIP
 test-repl : SKIP
 test-repl-mode : SKIP
