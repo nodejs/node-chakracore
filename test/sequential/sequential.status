@@ -34,6 +34,7 @@ test-inspector-async-call-stack-abort : SKIP
 test-inspector-async-hook-setup-at-inspect-brk : SKIP
 test-inspector-async-stack-traces-promise-then : SKIP
 test-inspector-async-stack-traces-set-interval : SKIP
+test-inspector-bindings : SKIP
 test-inspector-break-when-eval : SKIP
 test-inspector-contexts : SKIP
 test-inspector-scriptparsed-context : SKIP

@@ -99,8 +99,10 @@ class PropertyDescriptor;
 }
 
 namespace jsrt {
-  JsErrorCode CreateV8PropertyDescriptor(JsValueRef descriptor,
-    v8::PropertyDescriptor* result);
+class IsolateShim;
+
+JsErrorCode CreateV8PropertyDescriptor(JsValueRef descriptor,
+  v8::PropertyDescriptor* result);
 }
 
 namespace v8 {
@@ -377,6 +379,7 @@ class Local {
   friend JsErrorCode jsrt::CreateV8PropertyDescriptor(
     JsValueRef descriptor,
     v8::PropertyDescriptor* result);
+  friend class jsrt::IsolateShim;
   template <class F> friend class FunctionCallbackInfo;
   template <class F> friend class MaybeLocal;
   template <class F> friend class PersistentBase;
