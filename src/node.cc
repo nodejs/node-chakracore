@@ -2000,11 +2000,12 @@ static void WaitForInspectorDisconnect(Environment* env) {
 
 static void Exit(const FunctionCallbackInfo<Value>& args) {
 #if ENABLE_TTD_NODE
-    // If TTD recording is enable then we want to emit the log info
-    if (s_doTTRecord) {
-        JsTTDHostExit(args[0]->Int32Value());
-    }
+  // If TTD recording is enable then we want to emit the log info
+  if (s_doTTRecord) {
+      JsTTDHostExit(args[0]->Int32Value());
+  }
 #endif
+
   WaitForInspectorDisconnect(Environment::GetCurrent(args));
   if (trace_enabled) {
     v8_platform.StopTracingAgent();
@@ -2091,6 +2092,7 @@ static void Hrtime(const FunctionCallbackInfo<Value>& args) {
   fields[0] = (t / NANOS_PER_SEC) >> 32;
   fields[1] = (t / NANOS_PER_SEC) & 0xffffffff;
   fields[2] = t % NANOS_PER_SEC;
+
 #if ENABLE_TTD_NODE
   if (s_doTTRecord || s_doTTReplay) {
     ab->TTDRawBufferModifyNotifySync(args[0].As<Uint32Array>()->ByteOffset(),
@@ -2129,6 +2131,7 @@ static void CPUUsage(const FunctionCallbackInfo<Value>& args) {
   // Set the Float64Array elements to be user / system values in microseconds.
   fields[0] = MICROS_PER_SEC * rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec;
   fields[1] = MICROS_PER_SEC * rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec;
+
 #if ENABLE_TTD_NODE
   if (s_doTTRecord || s_doTTReplay) {
     ab->TTDRawBufferModifyNotifySync(array->ByteOffset(), 2 * sizeof(double));
@@ -3532,10 +3535,10 @@ static void PrintHelp() {
 
 #if ENABLE_TTD_NODE
 void TTDFlagWarning(const char* arg, const char* newflag) {
-    fprintf(stderr, "Flag %s is deprecated use %s\n", arg, newflag);
-    fprintf(stderr, "Run with \"-h\" for help with flags.\n");
+  fprintf(stderr, "Flag %s is deprecated use %s\n", arg, newflag);
+  fprintf(stderr, "Run with \"-h\" for help with flags.\n");
 
-    exit(1);
+  exit(1);
 }
 
 void TTDFlagWarning_Cond(bool cond, const char* msg) {
@@ -3750,44 +3753,44 @@ static void ParseArgs(int* argc,
       args_consumed += 1;
       trace_enabled_categories = categories;
 #if ENABLE_TTD_NODE
-      // Parse and extract the TT args
-      } else if (strcmp(arg, "--record") == 0) {
-          s_doTTRecord = true;
-      } else if (strstr(arg, "--tt-debug") == arg) {
-        s_doTTRecord = true;
-        s_doTTEnableDebug = true;
-        s_ttdSnapInterval = 500;
-        s_ttdSnapHistoryLength = 4;
-      } else if (strstr(arg, "--replay=") == arg) {
-          s_doTTReplay = true;
-          s_ttoptReplayUri = arg + strlen("--replay=");
-          s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-      } else if (strstr(arg, "--replay-debug=") == arg) {
-          s_doTTReplay = true;
-          s_doTTEnableDebug = true;
-          s_ttoptReplayUri = arg + strlen("--replay-debug=");
-          s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-      } else if (strcmp(arg, "--break-first") == 0) {
-          s_ttdStartupMode = (0x100 | 0x1);
-          debug_options.do_wait_for_connect();
-      } else if (strstr(arg, "--record-interval=") == arg) {
-          const char* intervalStr = arg + strlen("--record-interval=");
-          s_ttdSnapInterval = (uint32_t)atoi(intervalStr);
-      } else if (strstr(arg, "--record-history=") == arg) {
-          const char* historyStr = arg + strlen("--record-history=");
-          s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
-      } else if (strstr(arg, "-TTRecord:") == arg) {
-          TTDFlagWarning(arg, "--record");
-      } else if (strstr(arg, "-TTReplay:") == arg) {
-          TTDFlagWarning(arg, "--replay=dir");
-      } else if (strstr(arg, "-TTDebug:") == arg) {
-          TTDFlagWarning(arg, "--replay-debug=dir");
-      } else if (strstr(arg, "-TTBreakFirst") == arg) {
-          TTDFlagWarning(arg, "--break-first");
-      } else if (strstr(arg, "-TTSnapInterval:") == arg) {
-          TTDFlagWarning(arg, "--record-interval=num");
-      } else if (strstr(arg, "-TTHistoryLength:") == arg) {
-          TTDFlagWarning(arg, "--record-history=num");
+    // Parse and extract the TT args
+    } else if (strcmp(arg, "--record") == 0) {
+      s_doTTRecord = true;
+    } else if (strstr(arg, "--tt-debug") == arg) {
+      s_doTTRecord = true;
+      s_doTTEnableDebug = true;
+      s_ttdSnapInterval = 500;
+      s_ttdSnapHistoryLength = 4;
+    } else if (strstr(arg, "--replay=") == arg) {
+      s_doTTReplay = true;
+      s_ttoptReplayUri = arg + strlen("--replay=");
+      s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
+    } else if (strstr(arg, "--replay-debug=") == arg) {
+      s_doTTReplay = true;
+      s_doTTEnableDebug = true;
+      s_ttoptReplayUri = arg + strlen("--replay-debug=");
+      s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
+    } else if (strcmp(arg, "--break-first") == 0) {
+      s_ttdStartupMode = (0x100 | 0x1);
+      debug_options.do_wait_for_connect();
+    } else if (strstr(arg, "--record-interval=") == arg) {
+      const char* intervalStr = arg + strlen("--record-interval=");
+      s_ttdSnapInterval = (uint32_t)atoi(intervalStr);
+    } else if (strstr(arg, "--record-history=") == arg) {
+      const char* historyStr = arg + strlen("--record-history=");
+      s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
+    } else if (strstr(arg, "-TTRecord:") == arg) {
+      TTDFlagWarning(arg, "--record");
+    } else if (strstr(arg, "-TTReplay:") == arg) {
+      TTDFlagWarning(arg, "--replay=dir");
+    } else if (strstr(arg, "-TTDebug:") == arg) {
+      TTDFlagWarning(arg, "--replay-debug=dir");
+    } else if (strstr(arg, "-TTBreakFirst") == arg) {
+      TTDFlagWarning(arg, "--break-first");
+    } else if (strstr(arg, "-TTSnapInterval:") == arg) {
+      TTDFlagWarning(arg, "--record-interval=num");
+    } else if (strstr(arg, "-TTHistoryLength:") == arg) {
+      TTDFlagWarning(arg, "--record-history=num");
 #endif
     } else if (strcmp(arg, "--track-heap-objects") == 0) {
       track_heap_objects = true;
@@ -4304,11 +4307,6 @@ void Init(int* argc,
   }
 #endif
 
-  // Unconditionally force typed arrays to allocate outside the v8 heap. This
-  // is to prevent memory pointers from being moved around that are returned by
-  // Buffer::Data().
-  const char no_typed_array_heap[] = "--typed_array_max_size_in_heap=0";
-  V8::SetFlagsFromString(no_typed_array_heap, sizeof(no_typed_array_heap) - 1);
   // Needed for access to V8 intrinsics.  Disabled again during bootstrapping,
   // see lib/internal/bootstrap_node.js.
   const char allow_natives_syntax[] = "--allow_natives_syntax";
@@ -4451,8 +4449,7 @@ void FreePlatform(MultiIsolatePlatform* platform) {
 struct ChakraShimIsolateContext {
   ChakraShimIsolateContext(uv_loop_t* event_loop, uint32_t* zero_fill_field)
       : event_loop(event_loop),
-        zero_fill_field(zero_fill_field)
-  {}
+        zero_fill_field(zero_fill_field) {}
 
   uv_loop_t* event_loop;
   uint32_t*  zero_fill_field;
@@ -4463,9 +4460,7 @@ struct ChakraShimIsolateContext {
 Local<Context> NewContext(Isolate* isolate,
                           bool recordTTD,
                           Local<ObjectTemplate> object_template) {
-  auto context = Context::New(isolate, recordTTD, nullptr, object_template);
-
-  return context;
+  return Context::New(isolate, recordTTD, nullptr, object_template);
 }
 #else
 Local<Context> NewContext(Isolate* isolate,
@@ -4544,6 +4539,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
 #endif
 
   env.set_trace_sync_io(trace_sync_io);
+
   {
     SealHandleScope seal(isolate);
     bool more;
@@ -4586,7 +4582,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
   return exit_code;
 }
 
-
 inline int Start(uv_loop_t* event_loop,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv) {
@@ -4599,7 +4594,7 @@ inline int Start(uv_loop_t* event_loop,
 
 #if ENABLE_TTD_NODE
   if (s_doTTRecord) {
-      fprintf(stderr, "Recording is enabled (but not yet started)...\n");
+    fprintf(stderr, "Recording is enabled (but not yet started)...\n");
   }
 
   Isolate* const isolate = Isolate::NewWithTTDSupport(params,
@@ -4650,15 +4645,15 @@ inline int Start(uv_loop_t* event_loop,
     isolate_data_ptr = &isolate_data;
 #else
     ChakraShimIsolateContext chakra_isolate_ctx(event_loop,
-      allocator.zero_fill_field());
+                                                allocator.zero_fill_field());
     isolate_data_ptr = &chakra_isolate_ctx;
 #endif
 
     if (track_heap_objects) {
       isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
     }
-    exit_code = Start(isolate, isolate_data_ptr, argc, argv,
-                      exec_argc, exec_argv);
+    exit_code = Start(isolate, isolate_data_ptr, argc, argv, exec_argc,
+                      exec_argv);
   }
 
   {
@@ -4674,8 +4669,8 @@ inline int Start(uv_loop_t* event_loop,
 
 #if ENABLE_TTD_NODE
 inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
-  int argc, const char* const* argv,
-  int exec_argc, const char* const* exec_argv) {
+                           int argc, const char* const* argv,
+                           int exec_argc, const char* const* exec_argv) {
   HandleScope handle_scope(isolate);
 
   Local<Context> context = Context::New(isolate, true);
@@ -4684,12 +4679,11 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
 
 #ifdef NODE_ENGINE_CHAKRACORE
   ChakraShimIsolateContext* chakra_isolate_context =
-    reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
+      reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
 
-  IsolateData data(isolate,
-    chakra_isolate_context->event_loop,
-    v8_platform.Platform(),
-    chakra_isolate_context->zero_fill_field);
+  IsolateData data(isolate, chakra_isolate_context->event_loop,
+                   v8_platform.Platform(),
+                   chakra_isolate_context->zero_fill_field);
   IsolateData* isolate_data = &data;
 #else
   IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
@@ -4732,8 +4726,8 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
 }
 
 inline int Start_TTDReplay(uv_loop_t* event_loop,
-  int argc, const char* const* argv,
-  int exec_argc, const char* const* exec_argv) {
+                           int argc, const char* const* argv,
+                           int exec_argc, const char* const* exec_argv) {
   Isolate::CreateParams params;
   ArrayBufferAllocator allocator;
   params.array_buffer_allocator = &allocator;
@@ -4872,36 +4866,38 @@ int Start(int argc, char** argv) {
   }
 
   TTDFlagWarning_Cond(!s_doTTRecord || !s_doTTReplay,
-      "Cannot enable record & replay at same time.\n");
+                      "Cannot enable record & replay at same time.\n");
 
   if (s_doTTRecord || s_doTTReplay) {
-      TTDFlagWarning_Cond(eval_string == nullptr,
-          "Eval mode not supported in record/replay.\n");
+    TTDFlagWarning_Cond(eval_string == nullptr,
+                        "Eval mode not supported in record/replay.\n");
 
-      TTDFlagWarning_Cond(!force_repl,
-          "Repl mode not supported in record/replay.\n");
+    TTDFlagWarning_Cond(!force_repl,
+                        "Repl mode not supported in record/replay.\n");
   }
 
   if (s_doTTRecord) {
-      TTDFlagWarning_Cond(!chk_debug_enabled || s_doTTEnableDebug,
-          "Must use --tt-debug if attaching debugger to live session.\n");
+    TTDFlagWarning_Cond(
+        !chk_debug_enabled || s_doTTEnableDebug,
+        "Must use --tt-debug if attaching debugger to live session.\n");
 
-      TTDFlagWarning_Cond(!s_doTTEnableDebug || chk_debug_enabled,
-        "Must enable debugger if running --tt-debug.\n");
+    TTDFlagWarning_Cond(!s_doTTEnableDebug || chk_debug_enabled,
+                        "Must enable debugger if running --tt-debug.\n");
 
-      TTDFlagWarning_Cond(s_ttdStartupMode == 0x1,
-          "Cannot set break flags in record mode.\n");
+    TTDFlagWarning_Cond(s_ttdStartupMode == 0x1,
+                        "Cannot set break flags in record mode.\n");
   }
 
   if (s_doTTReplay) {
-      TTDFlagWarning_Cond(!chk_debug_enabled || s_doTTEnableDebug,
-          "Must enable --replay-debug if attaching debugger to recording.\n");
+    TTDFlagWarning_Cond(
+        !chk_debug_enabled || s_doTTEnableDebug,
+        "Must enable --replay-debug if attaching debugger to recording.\n");
 
-      TTDFlagWarning_Cond(!s_doTTEnableDebug || chk_debug_enabled,
-          "Must enable debugger if running --replay-debug.\n");
+    TTDFlagWarning_Cond(!s_doTTEnableDebug || chk_debug_enabled,
+                        "Must enable debugger if running --replay-debug.\n");
 
-      TTDFlagWarning_Cond(s_ttoptReplayUri != nullptr,
-          "Must set replay source info when replaying.\n");
+    TTDFlagWarning_Cond(s_ttoptReplayUri != nullptr,
+                        "Must set replay source info when replaying.\n");
   }
 
   if (s_doTTRecord) {
@@ -4910,15 +4906,14 @@ int Start(int argc, char** argv) {
   }
 #endif
 
-
 #if ENABLE_TTD_NODE
   int exit_code;
   if (s_doTTReplay) {
     exit_code =
-      Start_TTDReplay(uv_default_loop(), argc, argv, exec_argc, exec_argv);
+        Start_TTDReplay(uv_default_loop(), argc, argv, exec_argc, exec_argv);
   } else {
     exit_code =
-      Start(uv_default_loop(), argc, argv, exec_argc, exec_argv);
+        Start(uv_default_loop(), argc, argv, exec_argc, exec_argv);
   }
 #else
   const int exit_code =

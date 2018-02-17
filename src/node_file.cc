@@ -411,9 +411,8 @@ void AfterInteger(uv_fs_t* req) {
   }
 #endif
 
-  if (after.Proceed()) {
+  if (after.Proceed())
     req_wrap->Resolve(Integer::New(req_wrap->env()->isolate(), req->result));
-  }
 }
 
 void AfterOpenFileHandle(uv_fs_t* req) {

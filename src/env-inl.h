@@ -356,6 +356,7 @@ inline Environment::Environment(IsolateData* isolate_data,
 
 inline Environment::~Environment() {
   v8::HandleScope handle_scope(isolate());
+
 #if HAVE_INSPECTOR
   // Destroy inspector agent before erasing the context. The inspector
   // destructor depends on the context still being accessible.

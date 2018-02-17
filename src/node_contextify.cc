@@ -165,11 +165,10 @@ Local<Context> ContextifyContext::CreateV8Context(
   object_template->SetHandler(indexed_config);
 
 #if ENABLE_TTD_NODE
-    // Don't use TT global state -- inherit TT mode from calling script context
-    Local<Context> ctx = NewContext(env->isolate(),
-                                      false, object_template);
+  // Don't use TT global state -- inherit TT mode from calling script context
+  Local<Context> ctx = NewContext(env->isolate(), false, object_template);
 #else
-    Local<Context> ctx = NewContext(env->isolate(), object_template);
+  Local<Context> ctx = NewContext(env->isolate(), object_template);
 #endif
 
   if (ctx.IsEmpty()) {
@@ -339,10 +338,10 @@ void ContextifyContext::PropertySetterCallback(
   if (ctx->context_.IsEmpty())
     return;
 
-    // Node-ChakraCore TODO: ChakraShim does not implement ShouldThrowOnError
-    // correctly. This causes contextify to break in node-chakracore with
-    // upstream PR 10227. For maintaining compat, using the old incorrect code
-    // with Node-ChakraCore- we can fix this issue after the merge.
+  // Node-ChakraCore TODO: ChakraShim does not implement ShouldThrowOnError
+  // correctly. This causes contextify to break in node-chakracore with
+  // upstream PR 10227. For maintaining compat, using the old incorrect code
+  // with Node-ChakraCore- we can fix this issue after the merge.
 #ifndef NODE_ENGINE_CHAKRACORE
   auto attributes = PropertyAttribute::None;
   bool is_declared_on_global_proxy = ctx->global_proxy()
