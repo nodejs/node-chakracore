@@ -11,11 +11,9 @@ assert(MAX_STRING_LENGTH <= MAX_LENGTH);
 if (!common.isChakraEngine) {
   assert.throws(() => ' '.repeat(MAX_STRING_LENGTH + 1),
                 /^RangeError: Invalid string length$/);
-} else {
-  assert.doesNotThrow(() => ' '.repeat(MAX_STRING_LENGTH + 1));
 }
 
-assert.doesNotThrow(() => ' '.repeat(MAX_STRING_LENGTH));
+' '.repeat(MAX_STRING_LENGTH); // Should not throw.
 
 // Legacy values match:
 assert.strictEqual(kMaxLength, MAX_LENGTH);

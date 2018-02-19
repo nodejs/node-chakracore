@@ -4334,11 +4334,8 @@ uv_loop_t* GetCurrentEventLoop(v8::Isolate* isolate) {
 }
 
 
-static uv_key_t thread_local_env;
-
-
 void AtExit(void (*cb)(void* arg), void* arg) {
-  auto env = static_cast<Environment*>(uv_key_get(&thread_local_env));
+  auto env = Environment::GetThreadLocalEnv();
   AtExit(env, cb, arg);
 }
 
@@ -4507,8 +4504,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
 #endif
 
   Environment env(isolate_data, context);
-  CHECK_EQ(0, uv_key_create(&thread_local_env));
-  uv_key_set(&thread_local_env, &env);
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
   const char* path = argc > 1 ? argv[1] : nullptr;
@@ -4570,7 +4565,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
 
   const int exit_code = EmitExit(&env);
   RunAtExit(&env);
-  uv_key_delete(&thread_local_env);
 
   v8_platform.DrainVMTasks(isolate);
   v8_platform.CancelVMTasks(isolate);

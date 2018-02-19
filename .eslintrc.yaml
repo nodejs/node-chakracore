@@ -74,6 +74,7 @@ rules:
       message: __defineSetter__ is deprecated.
   no-return-await: error
   no-self-assign: error
+  no-self-compare: error
   no-throw-literal: error
   no-unused-labels: error
   no-useless-call: error
@@ -135,8 +136,11 @@ rules:
   no-mixed-spaces-and-tabs: error
   no-multiple-empty-lines: [error, {max: 2, maxEOF: 0, maxBOF: 0}]
   no-restricted-syntax: [error, {
+    selector: "CallExpression[callee.object.name='assert'][callee.property.name='doesNotThrow']",
+    message: "Please replace `assert.doesNotThrow()` and add a comment next to the code instead."
+  }, {
     selector: "CallExpression[callee.object.name='assert'][callee.property.name='throws'][arguments.1.type='Literal']:not([arguments.1.regex])",
-    message: "use a regular expression for second argument of assert.throws()"
+    message: "Use a regular expression for second argument of assert.throws()"
   }, {
     selector: "CallExpression[callee.object.name='assert'][callee.property.name='throws'][arguments.length<2]",
     message: "assert.throws() must be invoked with at least two arguments."
@@ -152,6 +156,7 @@ rules:
   }]
   no-tabs: error
   no-trailing-spaces: error
+  no-unsafe-finally: error
   object-curly-spacing: [error, always]
   one-var-declaration-per-line: error
   operator-linebreak: [error, after]
