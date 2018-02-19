@@ -243,6 +243,11 @@ Platform check for Windows.
 
 Platform check for Windows 32-bit on Windows 64-bit.
 
+### isCPPSymbolsNotMapped
+* [&lt;Boolean>]
+
+Platform check for C++ symbols are mapped or not.
+
 ### leakedGlobals()
 * return [&lt;Array>]
 
@@ -352,6 +357,11 @@ Path to the 'root' directory. either `/` or `c:\\` (windows)
 * `msg` [&lt;String>]
 
 Logs '1..0 # Skipped: ' + `msg` and exits with exit code `0`.
+
+### skipIfEslintMissing()
+
+Skip the rest of the tests in the current file when `ESLint` is not available
+at `tools/node_modules/eslint`
 
 ### skipIfInspectorDisabled()
 
