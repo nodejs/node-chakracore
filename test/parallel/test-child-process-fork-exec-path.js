@@ -39,6 +39,10 @@ if (common.isChakraEngine) {
       destPath: chakracoreCopyPath });
 }
 
+const { addLibraryPath } = require('../common/shared-lib-util');
+
+addLibraryPath(process.env);
+
 if (process.env.FORK) {
   assert(process.send);
   assert.strictEqual(process.argv[0], nodeCopyPath);

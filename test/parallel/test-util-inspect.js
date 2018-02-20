@@ -146,7 +146,7 @@ for (const showHidden of [true, false]) {
                      '  y: 1337 }');
 }
 
-// Now do the same checks but from a different context
+// Now do the same checks but from a different context.
 for (const showHidden of [true, false]) {
   const ab = vm.runInNewContext('new ArrayBuffer(4)');
   const dv = vm.runInNewContext('new DataView(ab, 1, 2)', { ab });
@@ -211,7 +211,7 @@ for (const showHidden of [true, false]) {
   );
 });
 
-// Now check that declaring a TypedArray in a different context works the same
+// Now check that declaring a TypedArray in a different context works the same.
 [ Float32Array,
   Float64Array,
   Int16Array,
@@ -252,7 +252,7 @@ assert.strictEqual(
   }), { showHidden: true }),
   '{ visible: 1, [hidden]: 2 }'
 );
-// Objects without prototype
+// Objects without prototype.
 assert.strictEqual(
   util.inspect(Object.create(null, {
     name: { value: 'Tim', enumerable: true },
@@ -269,7 +269,7 @@ assert.strictEqual(
   '{ name: \'Tim\' }'
 );
 
-// Dynamic properties
+// Dynamic properties.
 {
   assert.strictEqual(
     util.inspect({ get readonly() {} }),
@@ -285,11 +285,11 @@ assert.strictEqual(
     '{ writeonly: [Setter] }');
 
   const value = {};
-  value['a'] = value;
+  value.a = value;
   assert.strictEqual(util.inspect(value), '{ a: [Circular] }');
 }
 
-// Array with dynamic properties
+// Array with dynamic properties.
 {
   const value = [1, 2, 3];
   Object.defineProperty(
@@ -312,7 +312,7 @@ assert.strictEqual(
                      '[ 1, 2, 3, growingLength: [Getter], \'-1\': -1 ]');
 }
 
-// Array with inherited number properties
+// Array with inherited number properties.
 {
   class CustomArray extends Array {}
   CustomArray.prototype[5] = 'foo';
@@ -320,50 +320,52 @@ assert.strictEqual(
   assert.strictEqual(util.inspect(arr), 'CustomArray [ <50 empty items> ]');
 }
 
-// Array with extra properties
-// Skip showHidden on ChakraCore due to issue in util.inspect
-// See https://github.com/nodejs/node-chakracore/issues/402
-const arr = [1, 2, 3, , ];
-arr.foo = 'bar';
-assert.strictEqual(util.inspect(arr),
-                   "[ 1, 2, 3, <1 empty item>, foo: 'bar' ]");
+// Array with extra properties.
+{
+  // Skip showHidden on ChakraCore due to issue in util.inspect
+  // See https://github.com/nodejs/node-chakracore/issues/402
+  const arr = [1, 2, 3, , ];
+  arr.foo = 'bar';
+  assert.strictEqual(util.inspect(arr),
+                     "[ 1, 2, 3, <1 empty item>, foo: 'bar' ]");
 
-const arr2 = [];
-assert.strictEqual(util.inspect([], { showHidden: true }), '[ [length]: 0 ]');
-arr2['00'] = 1;
-assert.strictEqual(util.inspect(arr2), "[ '00': 1 ]");
-if (!common.isChakraEngine) {
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ [length]: 0, '00': 1 ]");
-}
-arr2[1] = 0;
-assert.strictEqual(util.inspect(arr2), "[ <1 empty item>, 0, '00': 1 ]");
-if (!common.isChakraEngine) {
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <1 empty item>, 0, [length]: 2, '00': 1 ]");
-}
-delete arr2[1];
-assert.strictEqual(util.inspect(arr2), "[ <2 empty items>, '00': 1 ]");
-if (!common.isChakraEngine) {
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <2 empty items>, [length]: 2, '00': 1 ]");
-}
-arr2['01'] = 2;
-assert.strictEqual(util.inspect(arr2),
-                   "[ <2 empty items>, '00': 1, '01': 2 ]");
-if (!common.isChakraEngine) {
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ <2 empty items>, [length]: 2, '00': 1, '01': 2 ]");
+  const arr2 = [];
+  assert.strictEqual(util.inspect([], { showHidden: true }), '[ [length]: 0 ]');
+  arr2['00'] = 1;
+  assert.strictEqual(util.inspect(arr2), "[ '00': 1 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ [length]: 0, '00': 1 ]");
+  }
+  arr2[1] = 0;
+  assert.strictEqual(util.inspect(arr2), "[ <1 empty item>, 0, '00': 1 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ <1 empty item>, 0, [length]: 2, '00': 1 ]");
+  }
+  delete arr2[1];
+  assert.strictEqual(util.inspect(arr2), "[ <2 empty items>, '00': 1 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ <2 empty items>, [length]: 2, '00': 1 ]");
+  }
+  arr2['01'] = 2;
+  assert.strictEqual(util.inspect(arr2),
+                     "[ <2 empty items>, '00': 1, '01': 2 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ <2 empty items>, [length]: 2, '00': 1, '01': 2 ]");
+  }
+
+  const arr3 = [];
+  arr3[-1] = -1;
+  assert.strictEqual(util.inspect(arr3), "[ '-1': -1 ]");
 }
 
-const arr3 = [];
-arr3[-1] = -1;
-assert.strictEqual(util.inspect(arr3), "[ '-1': -1 ]");
-
-// Indices out of bounds
+// Indices out of bounds.
 {
   const arr = [];
-  arr[2 ** 32] = true; // not a valid array index
+  arr[2 ** 32] = true; // Not a valid array index.
   assert.strictEqual(util.inspect(arr), "[ '4294967296': true ]");
   arr[0] = true;
   arr[10] = true;
@@ -383,28 +385,28 @@ assert.strictEqual(util.inspect(arr3), "[ '-1': -1 ]");
                      ].join('\n  '));
 }
 
-// Function with properties
+// Function with properties.
 {
   const value = () => {};
   value.aprop = 42;
   assert.strictEqual(util.inspect(value), '{ [Function: value] aprop: 42 }');
 }
 
-// Anonymous function with properties
+// Anonymous function with properties.
 {
   const value = (() => function() {})();
   value.aprop = 42;
   assert.strictEqual(util.inspect(value), '{ [Function] aprop: 42 }');
 }
 
-// Regular expressions with properties
+// Regular expressions with properties.
 {
   const value = /123/ig;
   value.aprop = 42;
   assert.strictEqual(util.inspect(value), '{ /123/gi aprop: 42 }');
 }
 
-// Dates with properties
+// Dates with properties.
 {
   const value = new Date('Sun, 14 Feb 2010 11:48:40 GMT');
   value.aprop = 42;
@@ -412,7 +414,7 @@ assert.strictEqual(util.inspect(arr3), "[ '-1': -1 ]");
                      '{ 2010-02-14T11:48:40.000Z aprop: 42 }');
 }
 
-// test the internal isDate implementation
+// Test the internal isDate implementation.
 {
   const Date2 = vm.runInNewContext('Date');
   const d = new Date2();
@@ -422,13 +424,13 @@ assert.strictEqual(util.inspect(arr3), "[ '-1': -1 ]");
   assert.strictEqual(orig, after);
 }
 
-// test positive/negative zero
+// Test positive/negative zero.
 assert.strictEqual(util.inspect(0), '0');
 assert.strictEqual(util.inspect(-0), '-0');
-// edge case from check
+// Edge case from check.
 assert.strictEqual(util.inspect(-5e-324), '-5e-324');
 
-// test for sparse array
+// Test for sparse array.
 {
   const a = ['foo', 'bar', 'baz'];
   assert.strictEqual(util.inspect(a), '[ \'foo\', \'bar\', \'baz\' ]');
@@ -454,7 +456,7 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
 
 // Skip for chakra engine as debugger support not yet present
 if (!common.isChakraEngine) {
-  // test for Array constructor in different context
+  // Test for Array constructor in different context.
   {
     const map = new Map();
     map.set(1, 2);
@@ -468,7 +470,7 @@ if (!common.isChakraEngine) {
   }
 }
 
-// test for other constructors in different context
+// Test for other constructors in different context.
 {
   let obj = vm.runInNewContext('(function(){return {}})()', {});
   assert.strictEqual(util.inspect(obj), '{}');
@@ -483,7 +485,7 @@ if (!common.isChakraEngine) {
   }));
 }
 
-// test for property descriptors
+// Test for property descriptors.
 {
   const getter = Object.create(null, {
     a: {
@@ -509,7 +511,7 @@ if (!common.isChakraEngine) {
   );
 }
 
-// exceptions should print the error message, not '{}'
+// Exceptions should print the error message, not '{}'.
 {
   const errors = [];
   errors.push(new Error());
@@ -530,7 +532,7 @@ if (!common.isChakraEngine) {
   assert(ex.includes('[message]'));
 }
 
-// Doesn't capture stack trace
+// Doesn't capture stack trace.
 {
   function BadCustomError(msg) {
     Error.call(this);
@@ -547,34 +549,29 @@ if (!common.isChakraEngine) {
 }
 
 // GH-1941
-// should not throw:
 assert.strictEqual(util.inspect(Object.create(Date.prototype)), 'Date {}');
 
 // GH-1944
-assert.doesNotThrow(() => {
+{
   const d = new Date();
   d.toUTCString = null;
   util.inspect(d);
-});
+}
 
-assert.doesNotThrow(() => {
+// Should not throw.
+{
   const d = new Date();
   d.toISOString = null;
   util.inspect(d);
-});
+}
 
-assert.doesNotThrow(() => {
-  const r = /regexp/;
-  r.toString = null;
-  util.inspect(r);
-});
+// Should not throw.
+const r = /regexp/;
+r.toString = null;
+util.inspect(r);
 
-// bug with user-supplied inspect function returns non-string
-assert.doesNotThrow(() => {
-  util.inspect([{
-    inspect: () => 123
-  }]);
-});
+// Bug with user-supplied inspect function returns non-string.
+util.inspect([{ inspect: () => 123 }]);
 
 // GH-2225
 {
@@ -610,7 +607,7 @@ assert.doesNotThrow(() => {
   );
 }
 
-// util.inspect.styles and util.inspect.colors
+// Test util.inspect.styles and util.inspect.colors.
 {
   function testColorStyle(style, input, implicit) {
     const colorName = util.inspect.styles[style];
@@ -637,14 +634,10 @@ assert.doesNotThrow(() => {
   testColorStyle('regexp', /regexp/);
 }
 
-// an object with "hasOwnProperty" overwritten should not throw
-assert.doesNotThrow(() => {
-  util.inspect({
-    hasOwnProperty: null
-  });
-});
+// An object with "hasOwnProperty" overwritten should not throw.
+util.inspect({ hasOwnProperty: null });
 
-// new API, accepts an "options" object
+// New API, accepts an "options" object.
 {
   const subject = { foo: 'bar', hello: 31, a: { b: { c: { d: 0 } } } };
   Object.defineProperty(subject, 'hidden', { enumerable: false, value: null });
@@ -684,7 +677,7 @@ assert.doesNotThrow(() => {
 }
 
 {
-  // "customInspect" option can enable/disable calling inspect() on objects
+  // "customInspect" option can enable/disable calling inspect() on objects.
   const subject = { inspect: () => 123 };
 
   assert.strictEqual(
@@ -704,7 +697,7 @@ assert.doesNotThrow(() => {
     true
   );
 
-  // custom inspect() functions should be able to return other Objects
+  // Custom inspect() functions should be able to return other Objects.
   subject.inspect = () => ({ foo: 'bar' });
 
   assert.strictEqual(util.inspect(subject), '{ foo: \'bar\' }');
@@ -717,7 +710,7 @@ assert.doesNotThrow(() => {
 }
 
 {
-  // "customInspect" option can enable/disable calling [util.inspect.custom]()
+  // "customInspect" option can enable/disable calling [util.inspect.custom]().
   const subject = { [util.inspect.custom]: () => 123 };
 
   assert.strictEqual(
@@ -729,7 +722,7 @@ assert.doesNotThrow(() => {
     false
   );
 
-  // a custom [util.inspect.custom]() should be able to return other Objects
+  // A custom [util.inspect.custom]() should be able to return other Objects.
   subject[util.inspect.custom] = () => ({ foo: 'bar' });
 
   assert.strictEqual(util.inspect(subject), '{ foo: \'bar\' }');
@@ -742,7 +735,7 @@ assert.doesNotThrow(() => {
 }
 
 {
-  // [util.inspect.custom] takes precedence over inspect
+  // [util.inspect.custom] takes precedence over inspect.
   const subject = {
     [util.inspect.custom]() { return 123; },
     inspect() { return 456; }
@@ -777,7 +770,7 @@ assert.doesNotThrow(() => {
                      `{ a: 123,\n  [Symbol(${UIC})]: [Function: [${UIC}]] }`);
 }
 
-// util.inspect with "colors" option should produce as many lines as without it
+// util.inspect with "colors" option should produce as many lines as without it.
 {
   function testLines(input) {
     const countLines = (str) => (str.match(/\n/g) || []).length;
@@ -801,7 +794,7 @@ assert.doesNotThrow(() => {
   });
 }
 
-// test boxed primitives output the correct values
+// Test boxed primitives output the correct values.
 assert.strictEqual(util.inspect(new String('test')), '[String: \'test\']');
 assert.strictEqual(
   util.inspect(Object(Symbol('test'))),
@@ -814,7 +807,7 @@ assert.strictEqual(util.inspect(new Number(-0)), '[Number: -0]');
 assert.strictEqual(util.inspect(new Number(-1.1)), '[Number: -1.1]');
 assert.strictEqual(util.inspect(new Number(13.37)), '[Number: 13.37]');
 
-// test boxed primitives with own properties
+// Test boxed primitives with own properties.
 {
   const str = new String('baz');
   str.foo = 'bar';
@@ -829,7 +822,7 @@ assert.strictEqual(util.inspect(new Number(13.37)), '[Number: 13.37]');
   assert.strictEqual(util.inspect(num), '{ [Number: 13.37] foo: \'bar\' }');
 }
 
-// test es6 Symbol
+// Test es6 Symbol.
 if (typeof Symbol !== 'undefined') {
   assert.strictEqual(util.inspect(Symbol()), 'Symbol()');
   assert.strictEqual(util.inspect(Symbol(123)), 'Symbol(123)');
@@ -865,7 +858,7 @@ if (typeof Symbol !== 'undefined') {
                      '[ 1, 2, 3, [Symbol(symbol)]: 42 ]');
 }
 
-// test Set
+// Test Set.
 {
   assert.strictEqual(util.inspect(new Set()), 'Set {}');
   assert.strictEqual(util.inspect(new Set([1, 2, 3])), 'Set { 1, 2, 3 }');
@@ -877,14 +870,14 @@ if (typeof Symbol !== 'undefined') {
   );
 }
 
-// Test circular Set
+// Test circular Set.
 {
   const set = new Set();
   set.add(set);
   assert.strictEqual(util.inspect(set), 'Set { [Circular] }');
 }
 
-// test Map
+// Test Map.
 {
   assert.strictEqual(util.inspect(new Map()), 'Map {}');
   assert.strictEqual(util.inspect(new Map([[1, 'a'], [2, 'b'], [3, 'c']])),
@@ -895,7 +888,7 @@ if (typeof Symbol !== 'undefined') {
                      'Map { \'foo\' => null, [size]: 1, bar: 42 }');
 }
 
-// Test circular Map
+// Test circular Map.
 {
   const map = new Map();
   map.set(map, 'map');
@@ -907,7 +900,7 @@ if (typeof Symbol !== 'undefined') {
   assert.strictEqual(util.inspect(map), "Map { 'map' => [Circular] }");
 }
 
-// test Promise
+// Test Promise.
 {
   const resolved = Promise.resolve(3);
   assert.strictEqual(util.inspect(resolved),
@@ -922,7 +915,7 @@ if (typeof Symbol !== 'undefined') {
                        v8: 'Promise { <rejected> 3 }',
                        chakracore: 'Promise {}'
                      }));
-  // squelch UnhandledPromiseRejection
+  // Squelch UnhandledPromiseRejection.
   rejected.catch(() => {});
 
   const pending = new Promise(() => {});
@@ -954,7 +947,7 @@ if (typeof Symbol !== 'undefined') {
 // Skip for chakra engine as debugger support not yet present
 // below code uses `Debug.MakeMirror` to inspect
 if (!common.isChakraEngine) {
-  // Test Map iterators
+  // Test Map iterators.
   {
     const map = new Map([['foo', 'bar']]);
     assert.strictEqual(util.inspect(map.keys()), '[Map Iterator] { \'foo\' }');
@@ -962,27 +955,27 @@ if (!common.isChakraEngine) {
                        '[Map Iterator] { \'bar\' }');
     assert.strictEqual(util.inspect(map.entries()),
                        '[Map Iterator] { [ \'foo\', \'bar\' ] }');
-    // make sure the iterator doesn't get consumed
+    // Make sure the iterator doesn't get consumed.
     const keys = map.keys();
     assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
     assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
   }
 
-  // Test Set iterators
+  // Test Set iterators.
   {
     const aSet = new Set([1, 3]);
     assert.strictEqual(util.inspect(aSet.keys()), '[Set Iterator] { 1, 3 }');
     assert.strictEqual(util.inspect(aSet.values()), '[Set Iterator] { 1, 3 }');
     assert.strictEqual(util.inspect(aSet.entries()),
                        '[Set Iterator] { [ 1, 1 ], [ 3, 3 ] }');
-    // make sure the iterator doesn't get consumed
+    // Make sure the iterator doesn't get consumed.
     const keys = aSet.keys();
     assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
     assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
   }
 }
 
-// Test alignment of items in container
+// Test alignment of items in container.
 // Assumes that the first numeric character is the start of an item.
 {
   function checkAlignment(container) {
@@ -1017,7 +1010,7 @@ if (!common.isChakraEngine) {
 }
 
 
-// Test display of constructors
+// Test display of constructors.
 {
   class ObjectSubclass {}
   class ArraySubclass extends Array {}
@@ -1046,7 +1039,7 @@ if (!common.isChakraEngine) {
   );
 }
 
-// Empty and circular before depth
+// Empty and circular before depth.
 {
   const arr = [[[[]]]];
   assert.strictEqual(util.inspect(arr, { depth: 2 }), '[ [ [ [] ] ] ]');
@@ -1142,14 +1135,14 @@ if (!common.isChakraEngine) {
   assert.strictEqual(twoLines, '{ foo: \'abc\',\n  bar: \'xyz\' }');
 }
 
-// util.inspect.defaultOptions tests
+// util.inspect.defaultOptions tests.
 {
   const arr = new Array(101).fill();
   const obj = { a: { a: { a: { a: 1 } } } };
 
   const oldOptions = Object.assign({}, util.inspect.defaultOptions);
 
-  // Set single option through property assignment
+  // Set single option through property assignment.
   util.inspect.defaultOptions.maxArrayLength = null;
   assert(!/1 more item/.test(util.inspect(arr)));
   util.inspect.defaultOptions.maxArrayLength = oldOptions.maxArrayLength;
@@ -1163,7 +1156,7 @@ if (!common.isChakraEngine) {
     JSON.stringify(oldOptions)
   );
 
-  // Set multiple options through object assignment
+  // Set multiple options through object assignment.
   util.inspect.defaultOptions = { maxArrayLength: null, depth: 2 };
   assert(!/1 more item/.test(util.inspect(arr)));
   assert(/Object/.test(util.inspect(obj)));
@@ -1194,7 +1187,7 @@ if (!common.isChakraEngine) {
   );
 }
 
-assert.doesNotThrow(() => util.inspect(process));
+util.inspect(process);
 
 // Setting custom inspect property to a non-function should do nothing.
 {

@@ -56,6 +56,7 @@ exports.isLinuxPPCBE = (process.platform === 'linux') &&
                        (os.endianness() === 'BE');
 exports.isSunOS = process.platform === 'sunos';
 exports.isFreeBSD = process.platform === 'freebsd';
+exports.isOpenBSD = process.platform === 'openbsd';
 exports.isLinux = process.platform === 'linux';
 exports.isOSX = process.platform === 'darwin';
 
@@ -494,6 +495,14 @@ exports.fileExists = function(pathname) {
   }
 };
 
+exports.skipIfEslintMissing = function() {
+  if (!exports.fileExists(
+    path.join('..', '..', 'tools', 'node_modules', 'eslint')
+  )) {
+    exports.skip('missing ESLint');
+  }
+};
+
 exports.canCreateSymLink = function() {
   // On Windows, creating symlinks requires admin privileges.
   // We'll only try to run symlink test if we have enough privileges.
@@ -502,24 +511,16 @@ exports.canCreateSymLink = function() {
     // whoami.exe needs to be the one from System32
     // If unix tools are in the path, they can shadow the one we want,
     // so use the full path while executing whoami
-    const whoamiPath = path.join(process.env['SystemRoot'],
+    const whoamiPath = path.join(process.env.SystemRoot,
                                  'System32', 'whoami.exe');
 
-    let err = false;
-    let output = '';
-
     try {
-      output = execSync(`${whoamiPath} /priv`, { timout: 1000 });
+      const output = execSync(`${whoamiPath} /priv`, { timout: 1000 });
+      return output.includes('SeCreateSymbolicLinkPrivilege');
     } catch (e) {
-      err = true;
-    } finally {
-      if (err || !output.includes('SeCreateSymbolicLinkPrivilege')) {
-        return false;
-      }
+      return false;
     }
   }
-
-  return true;
 };
 
 exports.getCallSite = function getCallSite(top) {
@@ -828,3 +829,8 @@ exports.hijackStdout = hijackStdWritable.bind(null, 'stdout');
 exports.hijackStderr = hijackStdWritable.bind(null, 'stderr');
 exports.restoreStdout = restoreWritable.bind(null, 'stdout');
 exports.restoreStderr = restoreWritable.bind(null, 'stderr');
+exports.isCPPSymbolsNotMapped = exports.isWindows ||
+                                exports.isSunOS ||
+                                exports.isAIX ||
+                                exports.isLinuxPPCBE ||
+                                exports.isFreeBSD;

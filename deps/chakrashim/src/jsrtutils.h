@@ -281,6 +281,8 @@ JsErrorCode CloneObject(JsValueRef source,
 JsErrorCode GetPropertyNames(JsValueRef object,
                              JsValueRef *namesArray);
 
+JsPropertyIdRef GetExternalPropertyId();
+
 JsErrorCode AddExternalData(JsValueRef ref,
                             JsPropertyIdRef externalDataPropertyId,
                             void *data,

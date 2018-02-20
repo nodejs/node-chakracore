@@ -21,164 +21,154 @@
 #include "v8chakra.h"
 #include "jsrtutils.h"
 
+#include <array>
+
 namespace v8 {
-  using Resolver = Promise::Resolver;
-  // CHAKRA-TODO: Unimplemented completely
-  MaybeLocal<Resolver> Resolver::New(Local<Context> context) {
-    JsValueRef resolver;
-    if (JsCreateObject(&resolver) != JsNoError) {
-      return Local<Resolver>();
-    }
 
-    JsValueRef promise, resolve, reject;
-    if (JsCreatePromise(&promise, &resolve, &reject) != JsNoError) {
-      return Local<Resolver>();
-    }
+class PromiseResolverData : public ExternalData {
+ public:
+  static const ExternalDataTypes ExternalDataType =
+    ExternalDataTypes::PromiseResolverData;
 
-    if (jsrt::SetProperty(
-          resolver,
-          jsrt::CachedPropertyIdRef::promise,
-          promise) != JsNoError) {
-      return Local<Resolver>();
-    }
+ private:
+  Persistent<Value> resolve;
+  Persistent<Value> reject;
 
-    if (jsrt::SetProperty(
-          resolver,
-          jsrt::CachedPropertyIdRef::resolve,
-          resolve) != JsNoError) {
-      return Local<Resolver>();
-    }
+ public:
+  PromiseResolverData(Local<Value> resolve,
+                      Local<Value> reject)
+      : ExternalData(ExternalDataType),
+        resolve(nullptr, resolve),
+        reject(nullptr, reject) {}
 
-    if (jsrt::SetProperty(
-          resolver,
-          jsrt::CachedPropertyIdRef::reject,
-          reject) != JsNoError) {
-      return Local<Resolver>();
-    }
-
-    JsValueRef state;
-    jsrt::UintToValue(0, &state);
-    if (jsrt::SetProperty(
-          promise,
-          jsrt::CachedPropertyIdRef::value,
-          state) != JsNoError) {
-      return Local<Resolver>();
-    }
-
-    return Local<Resolver>::New(static_cast<Resolver*>(resolver));
+  ~PromiseResolverData() {
+    resolve.Reset();
+    reject.Reset();
   }
 
-  Local<Resolver> Resolver::New(Isolate* isolate) {
-    return New(isolate->GetCurrentContext()).ToLocalChecked();
+  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
+    if (data != nullptr) {
+      PromiseResolverData* promiseResolverData =
+        reinterpret_cast<PromiseResolverData*>(data);
+      delete promiseResolverData;
+    }
   }
 
-  Local<Promise> Resolver::GetPromise() {
-    JsValueRef promise;
-    if (jsrt::GetProperty(
-          this,
-          jsrt::CachedPropertyIdRef::promise,
-          &promise) != JsNoError) {
-      return Local<Promise>();
-    }
-    return Local<Promise>::New(static_cast<Promise*>(promise));
+  JsErrorCode Resolve(Local<Value> value) {
+    JsValueRef result = nullptr;
+    std::array<JsValueRef, 2> args = { jsrt::GetUndefined(), *value };
+    return JsCallFunction(*resolve, args.data(), args.size(), &result);
   }
 
-  Resolver* Resolver::Cast(Value* obj) {
-    return static_cast<Resolver*>(obj);
+  JsErrorCode Reject(Local<Value> value) {
+    JsValueRef result = nullptr;
+    std::array<JsValueRef, 2> args = { jsrt::GetUndefined(), *value };
+    return JsCallFunction(*reject, args.data(), args.size(), &result);
+  }
+};
+
+MaybeLocal<Promise::Resolver> Promise::Resolver::New(Local<Context> context) {
+  JsValueRef promise, resolve, reject;
+  if (JsCreatePromise(&promise, &resolve, &reject) != JsNoError) {
+    return Local<Promise::Resolver>();
   }
 
-  Maybe<bool> Resolver::Resolve(Local<Context> context, Local<Value> value) {
-    JsValueRef resolve;
-    if (jsrt::GetProperty(
-          this,
-          jsrt::CachedPropertyIdRef::resolve,
-          &resolve) != JsNoError) {
-      return Nothing<bool>();
-    }
-
-    JsValueRef promise;
-    if (jsrt::GetProperty(
-          this,
-          jsrt::CachedPropertyIdRef::promise,
-          &promise) != JsNoError) {
-      return Nothing<bool>();
-    }
-
-    if (jsrt::SetProperty(
-          promise,
-          jsrt::CachedPropertyIdRef::value,
-          *value) != JsNoError) {
-      return Nothing<bool>();
-    }
-
-    JsValueRef state;
-    jsrt::UintToValue(1, &state);
-    if (jsrt::SetProperty(
-          promise,
-          jsrt::CachedPropertyIdRef::value,
-          state) != JsNoError) {
-      return Nothing<bool>();
-    }
-
-    JsValueRef result;
-    JsValueRef args[2];
-    args[0] = this;  // ? What is the "this" of the resolver here?
-    args[1] = reinterpret_cast<JsValueRef>(*value);
-
-    if (JsCallFunction(resolve, args, 2, &result) != JsNoError) {
-      return Nothing<bool>();
-    }
-
-    return Just(true);
+  PromiseResolverData* data = new PromiseResolverData(resolve, reject);
+  if (jsrt::AddExternalData(
+          promise, data, PromiseResolverData::FinalizeCallback) != JsNoError) {
+    delete data;
+    return Local<Promise::Resolver>();
   }
 
-  void Resolver::Resolve(Local<Value> value) {
-    Local<Context> context;
-    Resolve(context, value);
+  JsValueRef state;
+  jsrt::UintToValue(0, &state);
+  if (jsrt::SetProperty(
+        promise,
+        jsrt::CachedPropertyIdRef::state,
+        state) != JsNoError) {
+    return Local<Promise::Resolver>();
   }
 
-  Maybe<bool> Resolver::Reject(Local<Context> context, Local<Value> value) {
-    JsValueRef reject;
-    if (jsrt::GetProperty(
-          this,
-          jsrt::CachedPropertyIdRef::reject,
-          &reject) != JsNoError) {
-      return Nothing<bool>();
-    }
+  return Local<Promise::Resolver>::New(promise);
+}
 
-    JsValueRef promise;
-    if (jsrt::GetProperty(
-          this,
-          jsrt::CachedPropertyIdRef::promise,
-          &promise) != JsNoError) {
-      return Nothing<bool>();
-    }
+Local<Promise::Resolver> Promise::Resolver::New(Isolate* isolate) {
+  return New(isolate->GetCurrentContext()).ToLocalChecked();
+}
 
-    if (jsrt::SetProperty(
-          promise,
-          jsrt::CachedPropertyIdRef::value,
-          *value) != JsNoError) {
-      return Nothing<bool>();
-    }
+Local<Promise> Promise::Resolver::GetPromise() {
+  return Local<Promise>::New(static_cast<JsValueRef>(this));
+}
 
-    JsValueRef state;
-    jsrt::UintToValue(2, &state);
-    if (jsrt::SetProperty(
-          promise,
-          jsrt::CachedPropertyIdRef::value,
-          state) != JsNoError) {
-      return Nothing<bool>();
-    }
+Promise::Resolver* Promise::Resolver::Cast(Value* obj) {
+  return static_cast<Promise::Resolver*>(obj);
+}
 
-    JsValueRef result;
-    JsValueRef args[2];
-    args[0] = this;  // ? What is the "this" of the resolver here?
-    args[1] = reinterpret_cast<JsValueRef>(*value);
-
-    if (JsCallFunction(reject, args, 2, &result) != JsNoError) {
-      return Nothing<bool>();
-    }
-
-    return Just(true);
+Maybe<bool> Promise::Resolver::Resolve(Local<Context> context,
+                                       Local<Value> value) {
+  PromiseResolverData* data = nullptr;
+  if (!ExternalData::TryGetFromProperty(this, jsrt::GetExternalPropertyId(),
+                                        &data)) {
+    return Nothing<bool>();
   }
+
+  if (jsrt::SetProperty(
+        this,
+        jsrt::CachedPropertyIdRef::value,
+        *value) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  JsValueRef state;
+  jsrt::UintToValue(1, &state);
+  if (jsrt::SetProperty(
+        this,
+        jsrt::CachedPropertyIdRef::state,
+        state) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  if (data->Resolve(value) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  return Just(true);
+}
+
+void Promise::Resolver::Resolve(Local<Value> value) {
+  Local<Context> context;
+  Resolve(context, value);
+}
+
+Maybe<bool> Promise::Resolver::Reject(Local<Context> context,
+                                      Local<Value> value) {
+  PromiseResolverData* data = nullptr;
+  if (!ExternalData::TryGetFromProperty(this, jsrt::GetExternalPropertyId(),
+                                        &data)) {
+    return Nothing<bool>();
+  }
+
+  if (jsrt::SetProperty(
+        this,
+        jsrt::CachedPropertyIdRef::value,
+        *value) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  JsValueRef state;
+  jsrt::UintToValue(2, &state);
+  if (jsrt::SetProperty(
+        this,
+        jsrt::CachedPropertyIdRef::state,
+        state) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  if (data->Reject(value) != JsNoError) {
+    return Nothing<bool>();
+  }
+
+  return Just(true);
+}
+
 }  // namespace v8

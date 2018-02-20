@@ -172,6 +172,7 @@ inline bool Environment::AsyncHooks::pop_async_id(double async_id) {
   return fields_[kStackLength] > 0;
 }
 
+// Keep in sync with clearAsyncIdStack in lib/internal/async_hooks.js.
 inline void Environment::AsyncHooks::clear_async_id_stack() {
   async_id_fields_[kExecutionAsyncId] = 0;
   async_id_fields_[kTriggerAsyncId] = 0;
@@ -309,6 +310,10 @@ inline Environment* Environment::GetCurrent(
   CHECK(info.Data()->IsExternal());
   return static_cast<Environment*>(
       info.Data().template As<v8::External>()->Value());
+}
+
+inline Environment* Environment::GetThreadLocalEnv() {
+  return static_cast<Environment*>(uv_key_get(&thread_local_env));
 }
 
 inline Environment::Environment(IsolateData* isolate_data,
