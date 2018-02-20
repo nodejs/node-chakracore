@@ -36,6 +36,7 @@ enum class ExternalDataTypes {
   ObjectData,
   FunctionTemplateData,
   FunctionCallbackData,
+  PromiseResolverData,
 };
 
 // Base class for external object data
@@ -74,6 +75,17 @@ class ExternalData {
   template <class T>
   static bool TryGet(JsValueRef ref, T** data) {
     return GetExternalData(ref, data) == JsNoError && *data != nullptr;
+  }
+
+  template <class T>
+  static bool TryGetFromProperty(JsValueRef ref, JsPropertyIdRef propertyId,
+                                 T** data) {
+    JsValueRef propertyValue = nullptr;
+    if (JsGetProperty(ref, propertyId, &propertyValue) != JsNoError) {
+      return false;
+    }
+
+    return T::TryGet(propertyValue, data);
   }
 };
 
