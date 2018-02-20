@@ -145,7 +145,6 @@
         'src/v8persistent.cc',
         'src/v8private.cc',
         'src/v8promise.cc',
-        'src/v8resolver.cc',
         'src/v8propertydescriptor.cc',
         'src/v8proxy.cc',
         'src/v8regexp.cc',
