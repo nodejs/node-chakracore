@@ -703,6 +703,7 @@ class Persistent : public PersistentBase<T> {
   friend class Utils;
   template <class F> friend class Local;
   template <class F> friend class ReturnValue;
+  friend class PromiseResolverData;
 
   V8_INLINE Persistent(T* that)
     : PersistentBase<T>(PersistentBase<T>::New(nullptr, that)) { }

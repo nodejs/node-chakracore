@@ -391,6 +391,12 @@ JsErrorCode GetPropertyNames(JsValueRef object,
     object, result);
 }
 
+JsPropertyIdRef GetExternalPropertyId() {
+  IsolateShim* iso = IsolateShim::GetCurrent();
+  return iso->GetCachedSymbolPropertyIdRef(
+      CachedSymbolPropertyIdRef::__external__);
+}
+
 JsErrorCode AddExternalData(JsValueRef ref,
                             JsPropertyIdRef externalDataPropertyId,
                             void *data,
@@ -413,11 +419,7 @@ JsErrorCode AddExternalData(JsValueRef ref,
 JsErrorCode AddExternalData(JsValueRef ref,
                             void *data,
                             JsFinalizeCallback onObjectFinalize) {
-  IsolateShim* iso = IsolateShim::GetCurrent();
-  JsPropertyIdRef propId = iso->GetCachedSymbolPropertyIdRef(
-    CachedSymbolPropertyIdRef::__external__);
-
-  return AddExternalData(ref, propId, data, onObjectFinalize);
+  return AddExternalData(ref, GetExternalPropertyId(), data, onObjectFinalize);
 }
 
 JsErrorCode GetExternalData(JsValueRef ref,
@@ -437,11 +439,7 @@ JsErrorCode GetExternalData(JsValueRef ref,
 
 JsErrorCode GetExternalData(JsValueRef ref,
                             void **data) {
-  IsolateShim* iso = IsolateShim::GetCurrent();
-  JsPropertyIdRef propId = iso->GetCachedSymbolPropertyIdRef(
-    CachedSymbolPropertyIdRef::__external__);
-
-  return GetExternalData(ref, propId, data);
+  return GetExternalData(ref, GetExternalPropertyId(), data);
 }
 
 JsErrorCode CreateFunctionWithExternalData(
