@@ -1718,7 +1718,7 @@ changes:
     Http2ServerRequest class to use.
     Useful for extending the original `Http2ServerRequest`.
     **Default:** `Http2ServerRequest`
-  * `Http2ServerResponse` {htt2.Http2ServerResponse} Specifies the
+  * `Http2ServerResponse` {http2.Http2ServerResponse} Specifies the
     Http2ServerResponse class to use.
     Useful for extending the original `Http2ServerResponse`.
     **Default:** `Http2ServerResponse`
@@ -2624,11 +2624,16 @@ See [`response.socket`][].
 #### response.end([data][, encoding][, callback])
 <!-- YAML
 added: v8.4.0
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/18780
+    description: This method now returns a reference to `ServerResponse`.
 -->
 
 * `data` {string|Buffer}
 * `encoding` {string}
 * `callback` {Function}
+* Returns: {this}
 
 This method signals to the server that all of the response headers and body
 have been sent; that server should consider this message complete.

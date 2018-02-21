@@ -23,4 +23,3 @@ esm_display_syntax_error : SKIP
 esm_display_syntax_error_import : SKIP
 esm_display_syntax_error_import_module : SKIP
 esm_display_syntax_error_module : SKIP
-unhandled_promise_trace_warnings : SKIP

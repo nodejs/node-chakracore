@@ -112,7 +112,7 @@ Local<Context> Isolate::GetCurrentContext() {
 }
 
 void Isolate::SetPromiseRejectCallback(PromiseRejectCallback callback) {
-  // CHAKRA does not support this explicit callback
+  jsrt::IsolateShim::FromIsolate(this)->SetPromiseRejectCallback(callback);
 }
 
 void Isolate::SetPromiseHook(PromiseHook hook) {

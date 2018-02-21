@@ -643,6 +643,27 @@ JsValueRef IsolateShim::GetChakraInspectorShimJsArrayBuffer() {
   return chakraInspectorShimArrayBuffer;
 }
 
+void CHAKRA_CALLBACK IsolateShim::PromiseRejectionCallback(
+    JsValueRef promise, JsValueRef reason, bool handled, void *callbackState) {
+  CHAKRA_VERIFY(callbackState != nullptr);
+  v8::PromiseRejectCallback callback =
+      reinterpret_cast<v8::PromiseRejectCallback>(callbackState);
+
+  v8::PromiseRejectMessage message(
+      promise,
+      handled ? v8::kPromiseHandlerAddedAfterReject :
+          v8::kPromiseRejectWithNoHandler,
+      reason,
+      v8::Local<v8::StackTrace>());
+
+  callback(message);
+}
+
+void IsolateShim::SetPromiseRejectCallback(v8::PromiseRejectCallback callback) {
+  JsSetHostPromiseRejectionTracker(IsolateShim::PromiseRejectionCallback,
+                                   reinterpret_cast<void*>(callback));
+}
+
 /*static*/
 bool IsolateShim::RunSingleStepOfReverseMoveLoop(v8::Isolate* isolate,
                                                  uint64_t* moveMode,
