@@ -922,7 +922,7 @@ common.expectsError(
   }
 }
 
-if (common.hasCrypto) { // eslint-disable-line crypto-check
+if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
   // Test truncation after decode
   const crypto = require('crypto');
 

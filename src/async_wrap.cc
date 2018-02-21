@@ -409,8 +409,8 @@ static void DisablePromiseHook(const FunctionCallbackInfo<Value>& args) {
 class DestroyParam {
  public:
   double asyncId;
-  v8::Persistent<Object> target;
-  v8::Persistent<Object> propBag;
+  Persistent<Object> target;
+  Persistent<Object> propBag;
 };
 
 
@@ -425,8 +425,6 @@ void AsyncWrap::WeakCallback(const v8::WeakCallbackInfo<DestroyParam>& info) {
   if (val->IsFalse()) {
     AsyncWrap::EmitDestroy(env, p->asyncId);
   }
-  p->target.Reset();
-  p->propBag.Reset();
   delete p;
 }
 
