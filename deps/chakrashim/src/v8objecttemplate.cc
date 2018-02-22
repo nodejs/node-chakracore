@@ -860,33 +860,33 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Function> constructor) {
     return Local<Object>();
   }
 
-  ObjectData *objectData = new ObjectData(this, objectTemplateData);
-  JsValueRef newInstanceRef = JS_INVALID_REFERENCE;
-  if (JsCreateExternalObject(objectData,
-                             ObjectData::FinalizeCallback,
-                             &newInstanceRef) != JsNoError) {
-    delete objectData;
-    return Local<Object>();
-  }
-
   if (constructor.IsEmpty()) {
     if (!objectTemplateData->constructor.IsEmpty()) {
       constructor = objectTemplateData->constructor->GetFunction();
     }
   }
 
+  JsValueRef prototype = nullptr;
+
   if (!constructor.IsEmpty()) {
     jsrt::IsolateShim* iso = jsrt::IsolateShim::GetCurrent();
-    JsValueRef prototypeValue = nullptr;
 
     if (JsGetProperty(*constructor,
                       iso->GetCachedPropertyIdRef(
                           jsrt::CachedPropertyIdRef::prototype),
-                      &prototypeValue) == JsNoError) {
-        if (JsSetPrototype(newInstanceRef, prototypeValue) != JsNoError) {
-          return Local<Object>();
-        }
+                      &prototype) != JsNoError) {
+      prototype = nullptr;
     }
+  }
+
+  ObjectData *objectData = new ObjectData(this, objectTemplateData);
+  JsValueRef newInstanceRef = JS_INVALID_REFERENCE;
+  if (JsCreateExternalObjectWithPrototype(objectData,
+                                          ObjectData::FinalizeCallback,
+                                          prototype,
+                                          &newInstanceRef) != JsNoError) {
+    delete objectData;
+    return Local<Object>();
   }
 
   // In case the object should support index or named properties interceptors,

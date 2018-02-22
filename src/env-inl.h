@@ -370,9 +370,6 @@ inline Environment::~Environment() {
 
   context()->SetAlignedPointerInEmbedderData(kContextEmbedderDataIndex,
                                              nullptr);
-#define V(PropertyName, TypeName) PropertyName ## _.Reset();
-  ENVIRONMENT_STRONG_PERSISTENT_PROPERTIES(V)
-#undef V
 
   delete[] heap_statistics_buffer_;
   delete[] heap_space_statistics_buffer_;
@@ -550,8 +547,8 @@ void Environment::CreateImmediate(native_immediate_callback cb,
   native_immediate_callbacks_.push_back({
     cb,
     data,
-    std::unique_ptr<v8::Persistent<v8::Object>>(obj.IsEmpty() ?
-        nullptr : new v8::Persistent<v8::Object>(isolate_, obj)),
+    std::unique_ptr<Persistent<v8::Object>>(obj.IsEmpty() ?
+        nullptr : new Persistent<v8::Object>(isolate_, obj)),
     ref
   });
   immediate_info()->count_inc(1);
