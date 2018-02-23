@@ -86,7 +86,6 @@ test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
 test-util-format-shared-arraybuffer : SKIP
 test-util-inspect-proxy : SKIP
-test-util-inspect : SKIP
 test-v8-serdes : SKIP
 test-v8-serdes-sharedarraybuffer : SKIP
 test-vm-cached-data : SKIP
