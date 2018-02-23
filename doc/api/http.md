@@ -422,7 +422,7 @@ const req = http.request(options);
 req.end();
 
 req.on('information', (res) => {
-  console.log('got information prior to main response: ' + res.statusCode);
+  console.log(`Got information prior to main response: ${res.statusCode}`);
 });
 ```
 
@@ -1716,7 +1716,7 @@ Found'`.
 <!-- YAML
 added: v0.1.13
 changes:
-  - version: REPLACEME
+  - version: v9.6.0
     pr-url: https://github.com/nodejs/node/pull/15752
     description: The `options` argument is supported now.
 -->
