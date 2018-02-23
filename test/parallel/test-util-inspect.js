@@ -467,10 +467,11 @@ if (!common.isChakraEngine) {
   obj = vm.runInNewContext('var s=new Set();s.add(1);s.add(2);s', {});
   assert.strictEqual(util.inspect(obj), 'Set { 1, 2 }');
   obj = vm.runInNewContext('fn=function(){};new Promise(fn,fn)', {});
-  assert.strictEqual(util.inspect(obj), common.engineSpecificMessage({
-    v8: 'Promise { <pending> }',
-    chakracore: 'Promise {}'
-  }));
+  assert.strictEqual(util.inspect(obj),
+                     common.engineSpecificMessage({
+                       v8: 'Promise { <pending> }',
+                       chakracore: 'Promise {}'
+                     }));
 }
 
 // test for property descriptors
@@ -892,6 +893,8 @@ if (typeof Symbol !== 'undefined') {
 }
 
 // test Promise
+// NOTE: ChakraCore promise objects are only inspectable when created from
+// native code. Promises created in script will always show as `<pending>`.
 {
   const resolved = Promise.resolve(3);
   assert.strictEqual(util.inspect(resolved),
