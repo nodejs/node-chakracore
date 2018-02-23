@@ -32,12 +32,10 @@ const thorny = new Proxy({}, {
   construct: throwErr
 });
 
-if (!common.isChakraEngine) {
-  common.expectWarning({
-    DeprecationWarning: expectedDeprecationWarning,
-    UnhandledPromiseRejectionWarning: expectedPromiseWarning,
-  });
-}
+common.expectWarning({
+  DeprecationWarning: expectedDeprecationWarning,
+  UnhandledPromiseRejectionWarning: expectedPromiseWarning,
+});
 
 // ensure this doesn't crash
 Promise.reject(thorny);
