@@ -897,33 +897,29 @@ if (typeof Symbol !== 'undefined') {
   assert.strictEqual(util.inspect(resolved),
                      common.engineSpecificMessage({
                        v8: 'Promise { 3 }',
-                       chakracore: 'Promise {}'
+                       chakracore: 'Promise { <pending> }'
                      }));
 
   const rejected = Promise.reject(3);
   assert.strictEqual(util.inspect(rejected),
                      common.engineSpecificMessage({
                        v8: 'Promise { <rejected> 3 }',
-                       chakracore: 'Promise {}'
+                       chakracore: 'Promise { <pending> }'
                      }));
   // squelch UnhandledPromiseRejection
   rejected.catch(() => {});
 
   const pending = new Promise(() => {});
-  assert.strictEqual(util.inspect(pending), common.engineSpecificMessage({
-    v8: 'Promise { <pending> }',
-    chakracore: 'Promise {}'
-  }));
+  assert.strictEqual(util.inspect(pending), 'Promise { <pending> }');
 
   const promiseWithProperty = Promise.resolve('foo');
   promiseWithProperty.bar = 42;
   assert.strictEqual(util.inspect(promiseWithProperty),
                      common.engineSpecificMessage({
                        v8: 'Promise { \'foo\', bar: 42 }',
-                       chakracore: 'Promise { bar: 42 }'
+                       chakracore: 'Promise { <pending>, bar: 42 }'
                      }));
 }
-
 
 // Make sure it doesn't choke on polyfills. Unlike Set/Map, there is no standard
 // interface to synchronously inspect a Promise, so our techniques only work on
@@ -1019,10 +1015,7 @@ if (!common.isChakraEngine) {
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
                      'MapSubclass { \'foo\' => 42 }');
   assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
-                     common.engineSpecificMessage({
-                       v8: 'PromiseSubclass { <pending> }',
-                       chakracore: 'PromiseSubclass {}'
-                     }));
+                     'PromiseSubclass { <pending> }');
 }
 
 // Empty and circular before depth
