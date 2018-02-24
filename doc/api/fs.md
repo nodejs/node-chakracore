@@ -22,8 +22,6 @@ The arguments passed to the completion callback depend on the method, but the
 first argument is always reserved for an exception. If the operation was
 completed successfully, then the first argument will be `null` or `undefined`.
 
-For example:
-
 ```js
 const fs = require('fs');
 
@@ -35,8 +33,6 @@ fs.unlink('/tmp/hello', (err) => {
 
 Exceptions that occur using synchronous operations are thrown immediately and
 may be handled using `try`/`catch`, or may be allowed to bubble up.
-
-For example:
 
 ```js
 const fs = require('fs');
@@ -402,7 +398,6 @@ A `fs.Stats` object provides information about a file.
 Objects returned from [`fs.stat()`][], [`fs.lstat()`][] and [`fs.fstat()`][] and
 their synchronous counterparts are of this type.
 
-For example:
 ```console
 Stats {
   dev: 2114,
@@ -702,9 +697,6 @@ Using `fs.access()` to check for the accessibility of a file before calling
 so introduces a race condition, since other processes may change the file's
 state between the two calls. Instead, user code should open/read/write the
 file directly and handle the error raised if the file is not accessible.
-
-For example:
-
 
 **write (NOT RECOMMENDED)**
 
@@ -1355,8 +1347,6 @@ Using `fs.exists()` to check for the existence of a file before calling
 so introduces a race condition, since other processes may change the file's
 state between the two calls. Instead, user code should open/read/write the
 file directly and handle the error raised if the file does not exist.
-
-For example:
 
 **write (NOT RECOMMENDED)**
 
@@ -2898,9 +2888,9 @@ directory.  The returned object is a [`fs.FSWatcher`][].
 The second argument is optional. If `options` is provided as a string, it
 specifies the `encoding`. Otherwise `options` should be passed as an object.
 
-The listener callback gets two arguments `(eventType, filename)`.  `eventType` is either
-`'rename'` or `'change'`, and `filename` is the name of the file which triggered
-the event.
+The listener callback gets two arguments `(eventType, filename)`.  `eventType`
+is either `'rename'` or `'change'`, and `filename` is the name of the file
+which triggered the event.
 
 Note that on most platforms, `'rename'` is emitted whenever a filename appears
 or disappears in the directory.
@@ -3377,8 +3367,8 @@ and the file position will be updated.
 If `position` is an integer, the file position will remain unchanged.
 
 Following successful read, the `Promise` is resolved with an object with a
-`bytesRead` property specifying the number of bytes read, and a `buffer` property
-that is a reference to the passed in `buffer` argument.
+`bytesRead` property specifying the number of bytes read, and a `buffer`
+property that is a reference to the passed in `buffer` argument.
 
 #### filehandle.readFile(options)
 <!-- YAML
@@ -3995,8 +3985,8 @@ and the file position will be updated.
 If `position` is an integer, the file position will remain unchanged.
 
 Following successful read, the `Promise` is resolved with an object with a
-`bytesRead` property specifying the number of bytes read, and a `buffer` property
-that is a reference to the passed in `buffer` argument.
+`bytesRead` property specifying the number of bytes read, and a `buffer`
+property that is a reference to the passed in `buffer` argument.
 
 ### fsPromises.readdir(path[, options])
 <!-- YAML

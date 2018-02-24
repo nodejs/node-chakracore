@@ -58,8 +58,6 @@ The listener callback function is invoked with the exit code specified either
 by the [`process.exitCode`][] property, or the `exitCode` argument passed to the
 [`process.exit()`] method, as the only argument.
 
-For example:
-
 ```js
 process.on('exit', (code) => {
   console.log(`About to exit with code: ${code}`);
@@ -129,8 +127,6 @@ In asynchronous code, the `'unhandledRejection'` event is emitted when the list
 of unhandled rejections grows, and the `'rejectionHandled'` event is emitted
 when the list of unhandled rejections shrinks.
 
-For example:
-
 ```js
 const unhandledRejections = new Map();
 process.on('unhandledRejection', (reason, p) => {
@@ -160,8 +156,6 @@ behavior.
 
 The listener function is called with the `Error` object passed as the only
 argument.
-
-For example:
 
 ```js
 process.on('uncaughtException', (err) => {
@@ -199,9 +193,10 @@ of allocated resources (e.g. file descriptors, handles, etc) before shutting
 down the process. **It is not safe to resume normal operation after
 `'uncaughtException'`.**
 
-To restart a crashed application in a more reliable way, whether `uncaughtException`
-is emitted or not, an external monitor should be employed in a separate process
-to detect application failures and recover or restart as needed.
+To restart a crashed application in a more reliable way, whether
+`uncaughtException` is emitted or not, an external monitor should be employed
+in a separate process to detect application failures and recover or restart as
+needed.
 
 ### Event: 'unhandledRejection'
 <!-- YAML
@@ -229,8 +224,6 @@ The listener function is called with the following arguments:
 * `reason` {Error|any} The object with which the promise was rejected
   (typically an [`Error`][] object).
 * `p` the `Promise` that was rejected.
-
-For example:
 
 ```js
 process.on('unhandledRejection', (reason, p) => {
@@ -355,8 +348,6 @@ The signal handler will receive the signal's name (`'SIGINT'`,
 The name of each event will be the uppercase common name for the signal (e.g.
 `'SIGINT'` for `SIGINT` signals).
 
-For example:
-
 ```js
 // Begin reading from stdin so the process does not exit.
 process.stdin.resume();
@@ -389,8 +380,8 @@ process.on('SIGTERM', handle);
   installed its default behavior will be removed.
 * `SIGTERM` is not supported on Windows, it can be listened on.
 * `SIGINT` from the terminal is supported on all platforms, and can usually be
-  generated with `<Ctrl>+C` (though this may be configurable). It is not generated
-  when terminal raw mode is enabled.
+  generated with `<Ctrl>+C` (though this may be configurable). It is not
+  generated when terminal raw mode is enabled.
 * `SIGBREAK` is delivered on Windows when `<Ctrl>+<Break>` is pressed, on
   non-Windows platforms it can be listened on, but there is no way to send or
   generate it.
@@ -426,8 +417,8 @@ added: v0.5.0
 
 * {string}
 
-The `process.arch` property returns a string identifying the operating system CPU
-architecture for which the Node.js binary was compiled.
+The `process.arch` property returns a string identifying the operating system
+CPU architecture for which the Node.js binary was compiled.
 
 The current possible values are: `'arm'`, `'arm64'`, `'ia32'`, `'mips'`,
 `'mipsel'`, `'ppc'`, `'ppc64'`, `'s390'`, `'s390x'`, `'x32'`, and `'x64'`.
@@ -924,8 +915,6 @@ include the Node.js executable, the name of the script, or any options following
 the script name. These options are useful in order to spawn child processes with
 the same execution environment as the parent.
 
-For example:
-
 ```console
 $ node --harmony script.js --version
 ```
@@ -953,8 +942,6 @@ added: v0.1.100
 
 The `process.execPath` property returns the absolute pathname of the executable
 that started the Node.js process.
-
-For example:
 
 <!-- eslint-disable semi -->
 ```js
@@ -1226,8 +1213,6 @@ group.
 Even though the name of this function is `process.kill()`, it is really just a
 signal sender, like the `kill` system call.  The signal sent may do something
 other than kill the target process.
-
-For example:
 
 ```js
 process.on('SIGHUP', () => {
@@ -1504,8 +1489,6 @@ tarball.
   - `'Boron'` for the 6.x LTS line beginning with 6.9.0.
   - `'Carbon'` for the 8.x LTS line beginning with 8.9.1.
 
-For example:
-
 <!-- eslint-skip -->
 ```js
 {
@@ -1632,8 +1615,8 @@ added: v0.9.4
 * `groups` {Array}
 
 The `process.setgroups()` method sets the supplementary group IDs for the
-Node.js process. This is a privileged operation that requires the Node.js process
-to have `root` or the `CAP_SETGID` capability.
+Node.js process. This is a privileged operation that requires the Node.js
+process to have `root` or the `CAP_SETGID` capability.
 
 The `groups` array can contain numeric group IDs, group names or both.
 
@@ -1708,8 +1691,6 @@ The `process.stdin` property returns a stream connected to
 `stdin` (fd `0`). It is a [`net.Socket`][] (which is a [Duplex][]
 stream) unless fd `0` refers to a file, in which case it is
 a [Readable][] stream.
-
-For example:
 
 ```js
 process.stdin.setEncoding('utf8');
