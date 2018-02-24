@@ -21,28 +21,27 @@
 /* eslint-disable strict */
 (function(keepAlive) {
   // Save original builtIns
-  var
-    Function_prototype_toString = Function.prototype.toString,
-    Object_defineProperty = Object.defineProperty,
-    Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
-    Object_getOwnPropertyNames = Object.getOwnPropertyNames,
-    Object_keys = Object.keys,
-    Object_prototype_toString = Object.prototype.toString,
-    Object_setPrototypeOf = Object.setPrototypeOf,
-    Reflect_apply = Reflect.apply,
-    Reflect_construct = Reflect.construct,
-    Map_keys = Map.prototype.keys,
-    Map_values = Map.prototype.values,
-    Map_entries = Map.prototype.entries,
-    Set_entries = Set.prototype.entries,
-    Set_values = Set.prototype.values,
-    Symbol_keyFor = Symbol.keyFor,
-    Symbol_for = Symbol.for,
-    Global_ParseInt = parseInt,
-    JSON_parse = JSON.parse,
-    JSON_stringify = JSON.stringify;
-  var BuiltInError = Error;
-  var global = this;
+  const Function_prototype_toString = Function.prototype.toString;
+  const Object_defineProperty = Object.defineProperty;
+  const Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+  const Object_getOwnPropertyNames = Object.getOwnPropertyNames;
+  const Object_keys = Object.keys;
+  const Object_prototype_toString = Object.prototype.toString;
+  const Object_setPrototypeOf = Object.setPrototypeOf;
+  const Reflect_apply = Reflect.apply;
+  const Reflect_construct = Reflect.construct;
+  const Map_keys = Map.prototype.keys;
+  const Map_values = Map.prototype.values;
+  const Map_entries = Map.prototype.entries;
+  const Set_entries = Set.prototype.entries;
+  const Set_values = Set.prototype.values;
+  const Symbol_keyFor = Symbol.keyFor;
+  const Symbol_for = Symbol.for;
+  const Global_ParseInt = parseInt;
+  const JSON_parse = JSON.parse;
+  const JSON_stringify = JSON.stringify;
+  const BuiltInError = Error;
+  const global = this;
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(func, funcName, fileName, lineNumber, columnNumber) {
@@ -614,9 +613,9 @@
 
       var attributes = 0;
       // taken from v8.h. Update if this changes in future
-      const ReadOnly = 1,
-        DontEnum = 2,
-        DontDelete = 4;
+      const ReadOnly = 1;
+      const DontEnum = 2;
+      const DontDelete = 4;
 
       if (!descriptor.writable) {
         attributes |= ReadOnly;
