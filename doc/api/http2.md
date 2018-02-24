@@ -1090,8 +1090,6 @@ received for this stream from the connected HTTP/2 server. The listener is
 invoked with two arguments: an Object containing the received
 [HTTP2 Headers Object][], and flags associated with the headers.
 
-For example:
-
 ```js
 const http2 = require('http2');
 const client = http2.connect('https://localhost');
@@ -1454,10 +1452,10 @@ a request with an HTTP `Expect: 100-continue` is received. If this event is
 not listened for, the server will automatically respond with a status
 `100 Continue` as appropriate.
 
-Handling this event involves calling [`response.writeContinue()`][] if the client
-should continue to send the request body, or generating an appropriate HTTP
-response (e.g. 400 Bad Request) if the client should not continue to send the
-request body.
+Handling this event involves calling [`response.writeContinue()`][] if the
+client should continue to send the request body, or generating an appropriate
+HTTP response (e.g. 400 Bad Request) if the client should not continue to send
+the request body.
 
 Note that when this event is emitted and handled, the [`'request'`][] event will
 not be emitted.
@@ -1557,10 +1555,10 @@ time a request with an HTTP `Expect: 100-continue` is received. If this event
 is not listened for, the server will automatically respond with a status
 `100 Continue` as appropriate.
 
-Handling this event involves calling [`response.writeContinue()`][] if the client
-should continue to send the request body, or generating an appropriate HTTP
-response (e.g. 400 Bad Request) if the client should not continue to send the
-request body.
+Handling this event involves calling [`response.writeContinue()`][] if the
+client should continue to send the request body, or generating an appropriate
+HTTP response (e.g. 400 Bad Request) if the client should not continue to send
+the request body.
 
 Note that when this event is emitted and handled, the [`'request'`][] event will
 not be emitted.
@@ -2000,8 +1998,6 @@ Headers are represented as own-properties on JavaScript objects. The property
 keys will be serialized to lower-case. Property values should be strings (if
 they are not they will be coerced to strings) or an Array of strings (in order
 to send more than one value per header field).
-
-For example:
 
 ```js
 const headers = {

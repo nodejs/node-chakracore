@@ -227,7 +227,8 @@ Error.captureStackTrace(myObject);
 myObject.stack;  // similar to `new Error().stack`
 ```
 
-The first line of the trace will be prefixed with `${myObject.name}: ${myObject.message}`.
+The first line of the trace will be prefixed with
+`${myObject.name}: ${myObject.message}`.
 
 The optional `constructorOpt` argument accepts a function. If given, all frames
 above `constructorOpt`, including `constructorOpt`, will be omitted from the
@@ -291,8 +292,6 @@ console.error(err.message);
 
 The `error.stack` property is a string describing the point in the code at which
 the `Error` was instantiated.
-
-For example:
 
 ```txt
 Error: Things keep happening!
@@ -368,8 +367,6 @@ detailed [here](#errors_system_errors).
 A subclass of `Error` that indicates the failure of an assertion. Such errors
 commonly indicate inequality of actual and expected value.
 
-For example:
-
 ```js
 assert.strictEqual(1, 2);
 // AssertionError [ERR_ASSERTION]: 1 === 2
@@ -380,8 +377,6 @@ assert.strictEqual(1, 2);
 A subclass of `Error` that indicates that a provided argument was not within the
 set or range of acceptable values for a function; whether that is a numeric
 range, or outside the set of options for a given function parameter.
-
-For example:
 
 ```js
 require('net').connect(-1);
@@ -1309,9 +1304,8 @@ compiled with ICU support.
 <a id="ERR_NO_LONGER_SUPPORTED"></a>
 ### ERR_NO_LONGER_SUPPORTED
 
-A Node.js API was called in an unsupported manner.
-
-For example: `Buffer.write(string, encoding, offset[, length])`
+A Node.js API was called in an unsupported manner, such as
+`Buffer.write(string, encoding, offset[, length])`.
 
 <a id="ERR_OUT_OF_RANGE"></a>
 ### ERR_OUT_OF_RANGE
@@ -1328,7 +1322,8 @@ An attempt was made to `require()` an [ES6 module][].
 <a id="ERR_SCRIPT_EXECUTION_INTERRUPTED"></a>
 ### ERR_SCRIPT_EXECUTION_INTERRUPTED
 
-Script execution was interrupted by `SIGINT` (For example, when Ctrl+C was pressed).
+Script execution was interrupted by `SIGINT` (For example, when Ctrl+C was
+pressed).
 
 <a id="ERR_SERVER_ALREADY_LISTEN"></a>
 ### ERR_SERVER_ALREADY_LISTEN
