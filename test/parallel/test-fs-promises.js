@@ -117,7 +117,13 @@ function verifyStatObject(stat) {
     verifyStatObject(stats);
 
     const newLink = path.resolve(tmpDir, 'baz3.js');
-    await symlink(newPath, newLink);
+    try {
+      await symlink(newPath, newLink);
+    } catch (err) {
+      if (err.code !== 'EPERM') throw err;
+      // insufficient privileges for symlinks, skip the rest
+      return;
+    }
 
     const newLink2 = path.resolve(tmpDir, 'baz4.js');
     await link(newPath, newLink2);
