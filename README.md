@@ -1,8 +1,9 @@
 # Node.js on ChakraCore
 
-This project enables Node.js to optionally use the [ChakraCore](https://github.com/Microsoft/ChakraCore)
-JavaScript engine. This project is still **work in progress** and not an officially
-supported Node.js branch. For more context into this project, please refer to the
+This project enables Node.js to optionally use the
+[ChakraCore](https://github.com/Microsoft/ChakraCore) JavaScript engine. This
+project is still **work in progress** and not an officially supported Node.js
+branch. For more context into this project, please refer to the
 [original PR](https://github.com/nodejs/node/pull/4765).
 
 ### How it works
@@ -19,18 +20,20 @@ to work.
 
 ### Time Travel Debugging
 Time-Travel debugging is an exciting new addition to Node.js debugging, first
-introduced in Node-ChakraCore, and now supported by [VSCode](https://github.com/microsoft/vscode/).
-We are developing in the open and want to share our progress to get feedback,
-bug reports, functionality requests, and pull-requests from the community.
+introduced in Node-ChakraCore, and now supported by
+[VSCode](https://github.com/microsoft/vscode/). We are developing in the open
+and want to share our progress to get feedback, bug reports, functionality
+requests, and pull-requests from the community.
 
 Check out this [Time-Travel Debugging](TTD-README.md)
 page to learn how to get started with TTD on Node-ChakraCore with VSCode.
 
 ### Node.js API (NAPI)
-Node-ChakraCore is an active participant in the [ABI-Stable-Node](https://github.com/nodejs/abi-stable-node)
-project also called NAPI. The goal of this project is to ease the lives of native
-add-ons developers, by providing a stable Node API which also guarantees stable
-ABI across disparate Node versions. This allows native modules to just work across
+Node-ChakraCore is an active participant in the
+[ABI-Stable-Node](https://github.com/nodejs/abi-stable-node) project also called
+NAPI. The goal of this project is to ease the lives of native add-ons
+developers, by providing a stable Node API which also guarantees stable ABI
+across disparate Node versions. This allows native modules to just work across
 different versions and flavors of Node.js without recompilations, reducing the
 maintenance cost for module developers and thus improving compatibility.
 

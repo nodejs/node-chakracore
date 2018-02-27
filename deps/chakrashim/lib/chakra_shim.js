@@ -110,7 +110,7 @@
 
   // default StackTrace stringify function
   function prepareStackTrace(error, stack) {
-    var stackString = (error.name || 'Error') + ': ' + (error.message || '');
+    let stackString = (error.name || 'Error') + ': ' + (error.message || '');
 
     for (var i = 0; i < stack.length; i++) {
       stackString += '\n   at ' + stack[i].toString();
@@ -122,13 +122,13 @@
   // Parse 'stack' string into StackTrace frames. Skip top 'skipDepth' frames,
   // and optionally skip top to 'startName' function frames.
   function parseStack(stack, skipDepth, startName) {
-    var stackSplitter = /\)\s*at/;
-    var reStackDetails = /\s(?:at\s)?(.*)\s\((.*)/;
-    var fileDetailsSplitter = /:(\d+)/;
+    const stackSplitter = /\)\s*at/;
+    const reStackDetails = /\s(?:at\s)?(.*)\s\((.*)/;
+    const fileDetailsSplitter = /:(\d+)/;
 
-    var curr = parseStack;
-    var splittedStack = stack.split(stackSplitter);
-    var errstack = [];
+    let curr = parseStack;
+    const splittedStack = stack.split(stackSplitter);
+    const errstack = [];
 
     for (var i = 0; i < splittedStack.length; i++) {
       // parseStack has 1 frame lesser than skipDepth. So skip calling .caller
@@ -145,9 +145,9 @@
         continue;
       }
 
-      var func = curr;
-      var stackDetails = reStackDetails.exec(splittedStack[i]);
-      var funcName = stackDetails[1];
+      const func = curr;
+      const stackDetails = reStackDetails.exec(splittedStack[i]);
+      let funcName = stackDetails[1];
 
       if (startName) {
         if (funcName === startName) {
@@ -159,15 +159,16 @@
         funcName = null;
       }
 
-      var fileDetails = stackDetails[2].split(fileDetailsSplitter);
+      const fileDetails = stackDetails[2].split(fileDetailsSplitter);
 
-      var fileName = fileDetails[0];
-      var lineNumber = fileDetails[1] ? fileDetails[1] : 0;
-      var columnNumber = fileDetails[3] ? fileDetails[3] : 0;
+      const fileName = fileDetails[0];
+      const lineNumber = fileDetails[1] ? fileDetails[1] : 0;
+      const columnNumber = fileDetails[3] ? fileDetails[3] : 0;
 
       errstack.push(new StackFrame(func, funcName, fileName, lineNumber,
                                    columnNumber));
     }
+
     return errstack;
   }
 
@@ -177,9 +178,9 @@
     }
 
     try {
-      var curr = privateCaptureStackTrace.caller;
-      var limit = Error.stackTraceLimit;
-      var skipDepth = 0;
+      let curr = privateCaptureStackTrace.caller;
+      const limit = Error.stackTraceLimit;
+      let skipDepth = 0;
       while (curr) {
         skipDepth++;
         if (curr === func) {
@@ -199,10 +200,11 @@
   }
 
   function withStackTraceLimitOffset(offset, f) {
-    var oldLimit = BuiltInError.stackTraceLimit;
+    const oldLimit = BuiltInError.stackTraceLimit;
     if (typeof oldLimit === 'number') {
       BuiltInError.stackTraceLimit = oldLimit + offset;
     }
+
     try {
       return f();
     } finally {
@@ -223,31 +225,34 @@
   //  e -- a new Error object which already captured stack
   //  skipDepth -- known number of top frames to be skipped
   function privateCaptureStackTrace(err, func, e, skipDepth) {
-    var currentStack = e;
-    var isPrepared = false;
-    var oldStackDesc = Object_getOwnPropertyDescriptor(e, 'stack');
+    let currentStack = e;
+    let isPrepared = false;
+    const oldStackDesc = Object_getOwnPropertyDescriptor(e, 'stack');
 
-    var funcSkipDepth = findFuncDepth(func);
-    var startFuncName = (func && funcSkipDepth < 0) ? func.name : undefined;
+    const funcSkipDepth = findFuncDepth(func);
+    const startFuncName = (func && funcSkipDepth < 0) ? func.name : undefined;
     skipDepth += Math.max(funcSkipDepth - 1, 0);
 
-    var currentStackTrace;
+    let currentStackTrace;
     function ensureStackTrace() {
       if (!currentStackTrace) {
         currentStackTrace = parseStack(
           Reflect_apply(oldStackDesc.get, e, []) || '', // Call saved old getter
           skipDepth, startFuncName);
       }
+
       return currentStackTrace;
     }
 
     function stackGetter() {
       if (!isPrepared) {
-        var prep = Error.prepareStackTrace || prepareStackTrace;
+        const prep = Error.prepareStackTrace || prepareStackTrace;
         stackSetter(prep(err, ensureStackTrace()));
       }
+
       return currentStack;
     }
+
     function stackSetter(value) {
       currentStack = value;
       isPrepared = true;
@@ -272,7 +277,7 @@
   // patch Error types to hook with Error.captureStackTrace/prepareStackTrace
   function patchErrorTypes() {
     // save a map from wrapper to builtin native types
-    var typeToNative = new Map();
+    const typeToNative = new Map();
 
     // patch all these builtin Error types
     [
@@ -280,7 +285,7 @@
       URIError
     ].forEach(function(type) {
       function newType() {
-        var e = withStackTraceLimitOffset(
+        const e = withStackTraceLimitOffset(
           3, () => Reflect_construct(type, arguments, new.target || newType));
         // skip 3 frames: lambda, withStackTraceLimitOffset, this frame
         privateCaptureStackTrace(e, undefined, e, 3);
@@ -319,16 +324,16 @@
     Error.captureStackTrace = captureStackTrace;
   }
 
-  var mapIteratorProperty = 'MapIteratorIndicator';
+  const mapIteratorProperty = 'MapIteratorIndicator';
   function patchMapIterator() {
-    var originalMapMethods = [];
+    const originalMapMethods = [];
     originalMapMethods.push(['entries', Map_entries]);
     originalMapMethods.push(['values', Map_values]);
     originalMapMethods.push(['keys', Map_keys]);
 
     originalMapMethods.forEach(function(pair) {
       Map.prototype[pair[0]] = function() {
-        var result = pair[1].apply(this);
+        const result = pair[1].apply(this);
         Object_defineProperty(
           result, mapIteratorProperty,
           { value: true, enumerable: false, writable: false });
@@ -337,15 +342,15 @@
     });
   }
 
-  var setIteratorProperty = 'SetIteratorIndicator';
+  const setIteratorProperty = 'SetIteratorIndicator';
   function patchSetIterator() {
-    var originalSetMethods = [];
+    const originalSetMethods = [];
     originalSetMethods.push(['entries', Set_entries]);
     originalSetMethods.push(['values', Set_values]);
 
     originalSetMethods.forEach(function(pair) {
       Set.prototype[pair[0]] = function() {
-        var result = pair[1].apply(this);
+        const result = pair[1].apply(this);
         Object_defineProperty(
           result, setIteratorProperty,
           { value: true, enumerable: false, writable: false });
@@ -366,7 +371,7 @@
     patchDebug(global.Debug);
   }
 
-  var otherProcess;
+  let otherProcess;
 
   function patchDebug(Debug) {
     if (!Debug || Debug.MakeMirror) {
@@ -430,20 +435,21 @@
   }
 
   // Simulate v8 micro tasks queue
-  var microTasks = [];
+  const microTasks = [];
 
   function patchUtils(utils) {
-    var isUintRegex = /^(0|[1-9]\d*)$/;
+    const isUintRegex = /^(0|[1-9]\d*)$/;
 
     function isUint(value) {
-      var result = isUintRegex.test(value);
+      const result = isUintRegex.test(value);
       isUintRegex.lastIndex = 0;
       return result;
     }
+
     utils.cloneObject = function(source, target) {
       Object_getOwnPropertyNames(source).forEach(function(key) {
         try {
-          var desc = Object_getOwnPropertyDescriptor(source, key);
+          const desc = Object_getOwnPropertyDescriptor(source, key);
           if (desc.value === source) desc.value = target;
           Object_defineProperty(target, key, desc);
         } catch (e) {
@@ -451,45 +457,52 @@
         }
       });
     };
+
     utils.getPropertyNames = function(a) {
-      var names = [];
-      for (var propertyName in a) {
+      const names = [];
+      for (const propertyName in a) {
         if (isUint(propertyName)) {
           names.push(Global_ParseInt(propertyName));
         } else {
           names.push(propertyName);
         }
       }
+
       return names;
     };
+
     utils.getEnumerableNamedProperties = function(obj) {
-      var props = [];
-      for (var key in obj) {
+      const props = [];
+      for (const key in obj) {
         if (!isUint(key))
           props.push(key);
       }
+
       return props;
     };
+
     utils.getEnumerableIndexedProperties = function(obj) {
-      var props = [];
-      for (var key in obj) {
+      const props = [];
+      for (const key in obj) {
         if (isUint(key))
           props.push(key);
       }
+
       return props;
     };
+
     utils.createEnumerationIterator = function(props) {
-      var i = 0;
+      let i = 0;
       return {
         next: function() {
-          if (i === props.length)
-            return { done: true };
+          if (i === props.length) return { done: true };
           return { value: props[i++] };
         }
       };
     };
+
     utils.createPropertyDescriptorsEnumerationIterator = function(props) {
-      var i = 0;
+      let i = 0;
       return {
         next: function() {
           if (i === props.length) return { done: true };
@@ -497,44 +510,56 @@
         }
       };
     };
+
     utils.getNamedOwnKeys = function(obj) {
-      var props = [];
+      const props = [];
       Object_keys(obj).forEach(function(item) {
         if (!isUint(item))
           props.push(item);
       });
+
       return props;
     };
+
     utils.getIndexedOwnKeys = function(obj) {
-      var props = [];
+      const props = [];
       Object_keys(obj).forEach(function(item) {
         if (isUint(item))
           props.push(item);
       });
+
       return props;
     };
+
     utils.getStackTrace = function() {
       return captureStackTrace({}, undefined)();
     };
+
     utils.isMapIterator = function(value) {
       return value[mapIteratorProperty] === true;
     };
+
     utils.isSetIterator = function(value) {
       return value[setIteratorProperty] === true;
     };
+
     function compareType(o, expectedType) {
       return Object_prototype_toString.call(o) === '[object ' +
             expectedType + ']';
     }
+
     utils.isBooleanObject = function(obj) {
       return compareType(obj, 'Boolean');
     };
+
     utils.isDate = function(obj) {
       return compareType(obj, 'Date');
     };
+
     utils.isMap = function(obj) {
       return compareType(obj, 'Map');
     };
+
     utils.isNativeError = function(obj) {
       return compareType(obj, 'Error') ||
         obj instanceof Error ||
@@ -545,73 +570,94 @@
         obj instanceof TypeError ||
         obj instanceof URIError;
     };
+
     utils.isPromise = function(obj) {
       return compareType(obj, 'Promise') && obj instanceof Promise;
     };
+
     utils.isRegExp = function(obj) {
       return compareType(obj, 'RegExp');
     };
+
     utils.isAsyncFunction = function(obj) {
       // CHAKRA-TODO
       return false;
     };
+
     utils.isSet = function(obj) {
       return compareType(obj, 'Set');
     };
+
     utils.isStringObject = function(obj) {
       return compareType(obj, 'String');
     };
+
     utils.isNumberObject = function(obj) {
       return compareType(obj, 'Number');
     };
+
     utils.isArgumentsObject = function(obj) {
       return compareType(obj, 'Arguments');
     };
+
     utils.isGeneratorObject = function(obj) {
       return compareType(obj, 'Generator');
     };
+
     utils.isWeakMap = function(obj) {
       return compareType(obj, 'WeakMap');
     };
+
     utils.isWeakSet = function(obj) {
       return compareType(obj, 'WeakSet');
     };
+
     utils.isSymbolObject = function(obj) {
       return compareType(obj, 'Symbol');
     };
+
     utils.isName = function(obj) {
       return compareType(obj, 'String') || compareType(obj, 'Symbol');
     };
+
     utils.getSymbolKeyFor = function(symbol) {
       return Symbol_keyFor(symbol);
     };
+
     utils.getSymbolFor = function(key) {
       return Symbol_for(key);
     };
+
     utils.jsonParse = function(text, reviver) {
       return JSON_parse(text, reviver);
     };
+
     utils.jsonStringify = function(value, replacer, space) {
       return JSON_stringify(value, replacer, space);
     };
+
     utils.ensureDebug = ensureDebug;
+
     utils.enqueueMicrotask = function(task) {
       microTasks.push(task);
     };
+
     utils.dequeueMicrotask = function(task) {
       return microTasks.shift();
     };
+
     utils.isProxy = function(value) {
       // CHAKRA-TODO: Need to add JSRT API to detect this
       return false;
     };
+
     utils.getPropertyAttributes = function(object, value) {
-      var descriptor = Object_getOwnPropertyDescriptor(object, value);
+      const descriptor = Object_getOwnPropertyDescriptor(object, value);
       if (descriptor === undefined) {
         return -1;
       }
 
-      var attributes = 0;
+      let attributes = 0;
       // taken from v8.h. Update if this changes in future
       const ReadOnly = 1;
       const DontEnum = 2;
@@ -620,28 +666,34 @@
       if (!descriptor.writable) {
         attributes |= ReadOnly;
       }
+
       if (!descriptor.enumerable) {
         attributes |= DontEnum;
       }
+
       if (!descriptor.configurable) {
         attributes |= DontDelete;
       }
+
       return attributes;
     };
+
     utils.getOwnPropertyNames = function(obj) {
-      var ownPropertyNames = Object_getOwnPropertyNames(obj);
-      var i = 0;
+      const ownPropertyNames = Object_getOwnPropertyNames(obj);
+      let i = 0;
       while (i < ownPropertyNames.length) {
-        var item = ownPropertyNames[i];
+        const item = ownPropertyNames[i];
         if (isUint(item)) {
           ownPropertyNames[i] = Global_ParseInt(item);
           i++;
           continue;
         }
+
         // As per spec, getOwnPropertyNames() first include
         // numeric properties followed by non-numeric
         break;
       }
+
       return ownPropertyNames;
     };
   }
