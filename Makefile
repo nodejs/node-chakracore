@@ -176,8 +176,8 @@ coverage-build: all
 		--single-branch git://github.com/gcovr/gcovr.git; fi
 	if [ ! -d build ]; then git clone --depth=1 \
 		--single-branch https://github.com/nodejs/build.git; fi
-	if [ ! -f gcovr/scripts/gcovr.orig ]; then \
-		(cd gcovr && patch -N -p1 < \
+	if [ ! -f gcovr/gcovr/gcov.py.orig ]; then \
+		(cd gcovr && patch -b -N -p1 < \
 		"$(CURDIR)/build/jenkins/scripts/coverage/gcovr-patches.diff"); fi
 	if [ -d lib_ ]; then $(RM) -r lib; mv lib_ lib; fi
 	mv lib lib_
@@ -203,7 +203,7 @@ coverage-test: coverage-build
 	(cd lib && .$(NODE) ../node_modules/.bin/nyc report \
 		--temp-directory "$(CURDIR)/.cov_tmp" \
 		--report-dir "../coverage")
-	-(cd out && "../gcovr/scripts/gcovr" --gcov-exclude='.*deps' \
+	-(cd out && PYTHONPATH=$(CURDIR)/gcovr $(PYTHON) -m gcovr --gcov-exclude='.*deps' \
 		--gcov-exclude='.*usr' -v -r Release/obj.target \
 		--html --html-detail -o ../coverage/cxxcoverage.html \
 		--gcov-executable="$(GCOV)")
@@ -1056,15 +1056,18 @@ lint-md-clean:
 	$(RM) -r tools/remark-preset-lint-node/node_modules
 	$(RM) tools/.*mdlintstamp
 
-.PHONY: lint-md-build
-lint-md-build:
-	@if [ ! -d tools/remark-cli/node_modules ]; then \
-		echo "Markdown linter: installing remark-cli into tools/"; \
-		cd tools/remark-cli && $(call available-node,$(run-npm-install)) fi
-	@if [ ! -d tools/remark-preset-lint-node/node_modules ]; then \
-		echo "Markdown linter: installing remark-preset-lint-node into tools/"; \
-		cd tools/remark-preset-lint-node && $(call available-node,$(run-npm-install)) fi
+tools/remark-cli/node_modules: tools/remark-cli/package.json
+	@echo "Markdown linter: installing remark-cli into tools/"
+	@cd tools/remark-cli && $(call available-node,$(run-npm-install))
 
+tools/remark-preset-lint-node/node_modules: \
+	tools/remark-preset-lint-node/package.json
+	@echo "Markdown linter: installing remark-preset-lint-node into tools/"
+	@cd tools/remark-preset-lint-node && $(call available-node,$(run-npm-install))
+
+.PHONY: lint-md-build
+lint-md-build: tools/remark-cli/node_modules \
+	tools/remark-preset-lint-node/node_modules
 
 .PHONY: lint-md
 ifneq ("","$(wildcard tools/remark-cli/node_modules/)")
