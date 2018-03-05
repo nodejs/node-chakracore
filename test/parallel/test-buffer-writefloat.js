@@ -51,6 +51,8 @@ assert.strictEqual(buffer.readFloatLE(4), -Infinity);
 buffer.writeFloatBE(NaN, 0);
 buffer.writeFloatLE(NaN, 4);
 assert.ok(buffer.equals(
+  process.jsEngine === 'chakracore' ?
+  new Uint8Array([ 0xFF, 0xC0, 0x00, 0x00, 0x00, 0x00, 0xC0, 0xFF ]) :
   new Uint8Array([ 0x7F, 0xC0, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x7F ])));
 
 assert.ok(Number.isNaN(buffer.readFloatBE(0)));
