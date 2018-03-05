@@ -6,6 +6,7 @@
 </tr>
 <tr>
 <td>
+<a href="#0.1.4">0.1.4</a><br/>
 <a href="#0.1.3">0.1.3</a><br/>
 <a href="#0.1.2">0.1.2</a><br/>
 <a href="#0.1.1">0.1.1</a><br/>
@@ -14,13 +15,36 @@
 </tr>
 </table>
 
-<a id="0.1.3"></a>
-## 2017-10-31, Version 0.1.3 (Current), @jaimecbernardo
+<a id="0.1.4"></a>
+## 2018-03-05, Version 0.1.4 (Current)
 
 ### Notable Changes
 
-* Add x86_64 simulator binary for iOS 11. @jaimecbernardo
-* Upgrade `node-chakracore` from `v8.4.0` to `v8.6.0`. @jaimecbernardo
+* Renames the iOS framework according to Apple Guidelines.
+* Adds C API to the iOS framework for Swift compatibility.
+* Fixes `fs.copyFile()` and `os.cpus()` on iOS.
+* Changes release headers for native module building.
+
+### Commits
+
+* [[`f745cdb90b`](https://github.com/janeasystems/nodejs-mobile/commit/f745cdb90b4c8dea8bcc7d8f36c7706a29e2af37)] - Node.js on Mobile v0.1.4 (Jaime Bernardo)
+* [[`9aa5556c13`](https://github.com/janeasystems/nodejs-mobile/commit/9aa5556c138419f86fca59d7e3ce4d8a49a2d31f)] - android: link native modules with libnode.so (Jaime Bernardo)
+* [[`3d6cc9ea38`](https://github.com/janeasystems/nodejs-mobile/commit/3d6cc9ea382b2dc37f25103b010581fbfdf4f49a)] - tools: add chakra_ttd.h to install.py (Jaime Bernardo)
+* [[`7b809ea67d`](https://github.com/janeasystems/nodejs-mobile/commit/7b809ea67d0a5ef3f7657ea6af68f006295e342c)] - android: remove -fPIE if building a native module (Jaime Bernardo)
+* [[`12747ef24b`](https://github.com/janeasystems/nodejs-mobile/commit/12747ef24b8cdad82b4dd5f9120386e012920243)] - ios,os: set CPU speed to 0 in os.cpus (Jaime Bernardo)
+* [[`5b286e16a5`](https://github.com/janeasystems/nodejs-mobile/commit/5b286e16a5bc88ac9f84d8a0910b9b8eefb18042)] - deps,libuv,ios: enable 'filecopy' (Enrico Giordani)
+* [[`f1ed329c63`](https://github.com/janeasystems/nodejs-mobile/commit/f1ed329c6345773eedea3d908a067ef893c7500f)] - docs: update README.md for new iOS framework name (Jaime Bernardo)
+* [[`ec36bb664d`](https://github.com/janeasystems/nodejs-mobile/commit/ec36bb664d80fda9e768d100455fad4d041a73f0)] - ios: rename, C API, iOS 9.0 target, parallel build (Ian McDowell)
+* [[`876733792a`](https://github.com/janeasystems/nodejs-mobile/commit/876733792a375595a0e097ff10cde15b881f82f0)] - Working on Node.js for Mobile Apps v0.1.4 (Jaime Bernardo)
+* [[`72ae1da0c3`](https://github.com/janeasystems/nodejs-mobile/commit/72ae1da0c33c6c24374099bd1ed6f969c824c816)] - docs: add nodejs-mobile changelog file (Jaime Bernardo)
+
+<a id="0.1.3"></a>
+## 2017-10-31, Version 0.1.3
+
+### Notable Changes
+
+* Add x86_64 simulator binary for iOS 11.
+* Upgrade `node-chakracore` from `v8.4.0` to `v8.6.0`.
 
 ### Commits
 
@@ -38,11 +62,11 @@
 * [[`3af940ed98`](https://github.com/janeasystems/nodejs-mobile/commit/3af940ed9828221faa3fcf3acba8bcece1bed6d2)] - Update README.md (Alexis Campailla)
 
 <a id="0.1.2"></a>
-## 2017-10-02, Version 0.1.2, @jaimecbernardo
+## 2017-10-02, Version 0.1.2
 
 ### Notable Changes
 
-* Add arm64 binary for iOS 11. @jaimecbernardo, @enricogior
+* Add arm64 binary for iOS 11.
 
 ### Commits
 
@@ -93,11 +117,11 @@
 * [[`4861d43d76`](https://github.com/janeasystems/nodejs-mobile/commit/4861d43d76997926d162558bfed4daea42a0127c)] - Working on Node.js on Mobile v0.1.2 (Jaime Bernardo)
 
 <a id="0.1.1"></a>
-## 2017-09-01, Version 0.1.1, @jaimecbernardo
+## 2017-09-01, Version 0.1.1
 
 ### Notable Changes
 
-* Releases the `x86`, `x86_64` and `arm64-v8a` architectures binaries for Android. @jaimecbernardo
+* Releases the `x86`, `x86_64` and `arm64-v8a` architectures binaries for Android.
 
 ### Commits
 
@@ -111,13 +135,13 @@
 * [[`c116ad4f83`](https://github.com/janeasystems/nodejs-mobile/commit/c116ad4f83166150b1894a8f5c166f4cd6ef01f3)] - Working on Node.js on Mobile v0.1.1 (Jaime Bernardo)
 
 <a id="0.1.0"></a>
-## 2017-08-24, Version 0.1.0, @jaimecbernardo
+## 2017-08-24, Version 0.1.0
 
 The first experimental release of `nodejs-mobile`, built on top of [nodejs-chakracore v8.4.0](https://github.com/janeasystems/nodejs-mobile/commit/0ab13b6f812804c14892f6bb67d27f0d404be6c1)
 
 ### Notable Changes
 
-* Releases the `armeabi-v7a` architecture binary for Android. @jaimecbernardo
+* Releases the `armeabi-v7a` architecture binary for Android.
 
 ### Commits
 
