@@ -157,8 +157,8 @@
       const fileDetails = stackDetails[2].split(fileDetailsSplitter);
 
       const fileName = fileDetails[0];
-      const lineNumber = fileDetails[1] ? fileDetails[1] : 0;
-      const columnNumber = fileDetails[3] ? fileDetails[3] : 0;
+      const lineNumber = fileDetails[1] ? parseInt(fileDetails[1]) : 0;
+      const columnNumber = fileDetails[3] ? parseInt(fileDetails[3]) : 0;
 
       errstack.push(new StackFrame(func, funcName, fileName, lineNumber,
                                    columnNumber));
