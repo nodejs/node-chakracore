@@ -28,6 +28,18 @@ server.listen(0, common.mustCall(() => {
   );
   assert.strictEqual(req.closed, false);
 
+  [true, 1, {}, [], null, 'test'].forEach((notFunction) => {
+    common.expectsError(
+      () => req.close(closeCode, notFunction),
+      {
+        type: TypeError,
+        code: 'ERR_INVALID_CALLBACK',
+        message: 'Callback must be a function'
+      }
+    );
+    assert.strictEqual(req.closed, false);
+  });
+
   req.close(closeCode, common.mustCall());
   assert.strictEqual(req.closed, true);
 
@@ -47,7 +59,7 @@ server.listen(0, common.mustCall(() => {
   req.on('error', common.expectsError({
     code: 'ERR_HTTP2_STREAM_ERROR',
     type: Error,
-    message: `Stream closed with error code ${closeCode}`
+    message: 'Stream closed with error code NGHTTP2_PROTOCOL_ERROR'
   }));
 
   req.on('response', common.mustCall());
