@@ -580,8 +580,7 @@
     };
 
     utils.isAsyncFunction = function(obj) {
-      // CHAKRA-TODO
-      return false;
+      return compareType(obj, 'AsyncFunction');
     };
 
     utils.isSet = function(obj) {
@@ -602,6 +601,14 @@
 
     utils.isGeneratorObject = function(obj) {
       return compareType(obj, 'Generator');
+    };
+
+    utils.isGeneratorFunction = function(obj) {
+      return compareType(obj, 'GeneratorFunction');
+    };
+
+    utils.isWebAssemblyCompiledModule = function(obj) {
+      return compareType(obj, 'WebAssembly.Module');
     };
 
     utils.isWeakMap = function(obj) {

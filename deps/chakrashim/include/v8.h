@@ -1101,6 +1101,8 @@ class V8_EXPORT Value : public Data {
   bool IsRegExp() const;
   bool IsAsyncFunction() const;
   bool IsGeneratorObject() const;
+  bool IsGeneratorFunction() const;
+  bool IsWebAssemblyCompiledModule() const;
   bool IsExternal() const;
   bool IsArrayBuffer() const;
   bool IsArrayBufferView() const;
