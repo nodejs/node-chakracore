@@ -79,6 +79,7 @@
       'lib/v8.js',
       'lib/vm.js',
       'lib/zlib.js',
+      'lib/internal/async_hooks.js',
       'lib/internal/buffer.js',
       'lib/internal/child_process.js',
       'lib/internal/cluster/child.js',
@@ -115,6 +116,7 @@
       'lib/internal/repl.js',
       'lib/internal/socket_list.js',
       'lib/internal/test/unicode.js',
+      'lib/internal/trace_events_async_hooks.js',
       'lib/internal/url.js',
       'lib/internal/util.js',
       'lib/internal/util/types.js',
@@ -178,7 +180,7 @@
       ],
 
       'sources': [
-        'src/async-wrap.cc',
+        'src/async_wrap.cc',
         'src/cares_wrap.cc',
         'src/connection_wrap.cc',
         'src/connect_wrap.cc',
@@ -201,6 +203,7 @@
         'src/node_platform.cc',
         'src/node_perf.cc',
         'src/node_serdes.cc',
+        'src/node_trace_events.cc',
         'src/node_url.cc',
         'src/node_util.cc',
         'src/node_v8.cc',
@@ -228,8 +231,8 @@
         'src/uv.cc',
         # headers to make for a more pleasant IDE experience
         'src/aliased_buffer.h',
-        'src/async-wrap.h',
-        'src/async-wrap-inl.h',
+        'src/async_wrap.h',
+        'src/async_wrap-inl.h',
         'src/base-object.h',
         'src/base-object-inl.h',
         'src/connection_wrap.h',
@@ -286,12 +289,17 @@
         '<(SHARED_INTERMEDIATE_DIR)/node_javascript.cc',
       ],
 
+      'variables': {
+        'openssl_system_ca_path%': '',
+      },
+
       'defines': [
         'NODE_ARCH="<(target_arch)"',
         'NODE_PLATFORM="<(OS)"',
         'NODE_WANT_INTERNALS=1',
         # Warn when using deprecated V8 APIs.
         'V8_DEPRECATION_WARNINGS=1',
+        'NODE_OPENSSL_SYSTEM_CERT_PATH="<(openssl_system_ca_path)"',
       ],
       'conditions': [
         [ 'node_engine=="chakracore"', {
@@ -465,6 +473,11 @@
           'defines': [ 'HAVE_OPENSSL=0' ]
         }],
       ],
+      'direct_dependent_settings': {
+        'defines': [
+          'NODE_OPENSSL_SYSTEM_CERT_PATH="<(openssl_system_ca_path)"',
+        ],
+      },
     },
     {
       'target_name': 'mkssldef',
@@ -829,6 +842,7 @@
       'defines': [ 'NODE_WANT_INTERNALS=1' ],
 
       'sources': [
+        'test/cctest/node_module_reg.cc',
         'test/cctest/node_test_fixture.cc',
         'test/cctest/test_aliased_buffer.cc',
         'test/cctest/test_base64.cc',
@@ -871,7 +885,7 @@
         }],
         ['node_target_type!="static_library"', {
           'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)async-wrap.<(OBJ_SUFFIX)',
+            '<(OBJ_PATH)<(OBJ_SEPARATOR)async_wrap.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)env.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node.<(OBJ_SUFFIX)',
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node_buffer.<(OBJ_SUFFIX)',
@@ -893,11 +907,15 @@
           ],
         }],
         [ 'node_use_openssl=="true"', {
-          'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_bio.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_clienthello.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)tls_wrap.<(OBJ_SUFFIX)',
+          'conditions': [
+            ['node_target_type!="static_library"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_bio.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)node_crypto_clienthello.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)tls_wrap.<(OBJ_SUFFIX)',
+              ],
+            }],
           ],
           'defines': [
             'HAVE_OPENSSL=1',
@@ -908,18 +926,22 @@
             'test/cctest/test_inspector_socket.cc',
             'test/cctest/test_inspector_socket_server.cc'
           ],
-          'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_agent.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_io.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_js_api.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket.<(OBJ_SUFFIX)',
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket_server.<(OBJ_SUFFIX)',
+          'conditions': [
+            ['node_target_type!="static_library"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_agent.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_io.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_js_api.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket.<(OBJ_SUFFIX)',
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)inspector_socket_server.<(OBJ_SUFFIX)',
+              ],
+            }],
           ],
           'defines': [
             'HAVE_INSPECTOR=1',
           ],
         }],
-        [ 'node_use_dtrace=="true"', {
+        [ 'node_use_dtrace=="true" and node_target_type!="static_library"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)node_dtrace.<(OBJ_SUFFIX)',
           ],
@@ -937,10 +959,10 @@
             }],
           ],
         }],
-        [ 'OS=="win"', {
+        [ 'OS=="win" and node_target_type!="static_library"', {
           'libraries': [
             '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_win32.<(OBJ_SUFFIX)',
-           ],
+          ],
           'conditions': [
             # this is only necessary for chakra on windows because chakra is dynamically linked on windows
             [ 'node_engine=="chakracore"', {
@@ -948,9 +970,13 @@
             }],
           ],
         }, {
-          'libraries': [
-            '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_posix.<(OBJ_SUFFIX)',
-           ],
+          'conditions': [
+            ['node_target_type!="static_library"', {
+              'libraries': [
+                '<(OBJ_PATH)<(OBJ_SEPARATOR)backtrace_posix.<(OBJ_SUFFIX)',
+              ],
+            }],
+          ],
         }],
         [ 'node_shared_zlib=="false"', {
           'dependencies': [

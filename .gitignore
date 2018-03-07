@@ -59,6 +59,7 @@ _UpgradeReport_Files/
 ipch/
 *.sdf
 *.opensdf
+*.VC.db
 *.VC.opendb
 *.VC.db
 .vs/
@@ -119,3 +120,6 @@ icu_config.gypi
 deps/uv/.github/
 deps/uv/docs/code/
 deps/uv/docs/src/guide/
+
+# do not override V8's .gitignore
+!deps/v8/**
