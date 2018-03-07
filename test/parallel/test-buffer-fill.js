@@ -375,7 +375,7 @@ common.expectsError(() => {
     err.code = 'ERR_INDEX_OUT_OF_RANGE';
     throw err;
   }
-  const buf = new Buffer('w00t');
+  const buf = Buffer.from('w00t');
   Object.defineProperty(buf, 'length', {
     value: 1337,
     enumerable: true

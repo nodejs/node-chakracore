@@ -203,6 +203,8 @@ static node_module* modlist_linked;
 static node_module* modlist_addon;
 static bool trace_enabled = false;
 static std::string trace_enabled_categories;  // NOLINT(runtime/string)
+static std::string trace_file_pattern =  // NOLINT(runtime/string)
+  "node_trace.${rotation}.log";
 static bool abort_on_uncaught_exception = false;
 
 // Bit flag used to track security reverts (see node_revert.h)
@@ -286,7 +288,7 @@ static struct {
 #if NODE_USE_V8_PLATFORM
   void Initialize(int thread_pool_size) {
     if (trace_enabled) {
-      tracing_agent_.reset(new tracing::Agent());
+      tracing_agent_.reset(new tracing::Agent(trace_file_pattern));
       platform_ = new NodePlatform(thread_pool_size,
         tracing_agent_->GetTracingController());
       V8::InitializePlatform(platform_);
@@ -3464,6 +3466,10 @@ static void PrintHelp() {
          "  --trace-events-enabled     track trace events\n"
          "  --trace-event-categories   comma separated list of trace event\n"
          "                             categories to record\n"
+		 "  --trace-event-file-pattern Template string specifying the\n"
+         "                             filepath for the trace-events data, it\n"
+         "                             supports ${rotation} and ${pid}\n"
+         "                             log-rotation id. %%2$u is the pid.\n"
 #if ENABLE_TTD_NODE
          "  --record                 enable diagnostics record mode\n"
          "  --tt-debug               debug with interactive time-travel\n"
@@ -3626,6 +3632,7 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--no-force-async-hooks-checks",
     "--trace-events-enabled",
     "--trace-event-categories",
+    "--trace-event-file-pattern",
     "--track-heap-objects",
     "--zero-fill-buffers",
     "--v8-pool-size",
@@ -3777,6 +3784,14 @@ static void ParseArgs(int* argc,
       }
       args_consumed += 1;
       trace_enabled_categories = categories;
+  	} else if (strcmp(arg, "--trace-event-file-pattern") == 0) {
+      const char* file_pattern = argv[index + 1];
+      if (file_pattern == nullptr) {
+        fprintf(stderr, "%s: %s requires an argument\n", argv[0], arg);
+        exit(9);
+      }
+      args_consumed += 1;
+      trace_file_pattern = file_pattern;
 #if ENABLE_TTD_NODE
     // Parse and extract the TT args
     } else if (strcmp(arg, "--record") == 0) {
