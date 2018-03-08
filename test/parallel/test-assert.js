@@ -630,7 +630,7 @@ common.expectsError(
   // Test caching.
   const fs = process.binding('fs');
   const tmp = fs.close;
-  fs.close = common.mustCall(tmp, process.jsEngine === 'chakracore' ? 0 : 1);
+  fs.close = common.mustCall(tmp, common.isChakraEngine ? 0 : 1);
   function throwErr() {
     // eslint-disable-next-line prefer-assert-methods
     assert(

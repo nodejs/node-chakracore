@@ -2,7 +2,7 @@
 
 // Tests to verify doubles are correctly written
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 
 const buffer = Buffer.allocUnsafe(16);
@@ -67,7 +67,7 @@ assert.strictEqual(buffer.readDoubleLE(8), -Infinity);
 buffer.writeDoubleBE(NaN, 0);
 buffer.writeDoubleLE(NaN, 8);
 
-if (process.jsEngine === 'chakracore') {
+if (common.isChakraEngine) {
   assert.ok(buffer.equals(new Uint8Array([
     0xFF, 0xF8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF8, 0xFF
