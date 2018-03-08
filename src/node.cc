@@ -3466,7 +3466,7 @@ static void PrintHelp() {
          "  --trace-events-enabled     track trace events\n"
          "  --trace-event-categories   comma separated list of trace event\n"
          "                             categories to record\n"
-		 "  --trace-event-file-pattern Template string specifying the\n"
+         "  --trace-event-file-pattern Template string specifying the\n"
          "                             filepath for the trace-events data, it\n"
          "                             supports ${rotation} and ${pid}\n"
          "                             log-rotation id. %%2$u is the pid.\n"
@@ -3784,7 +3784,7 @@ static void ParseArgs(int* argc,
       }
       args_consumed += 1;
       trace_enabled_categories = categories;
-  	} else if (strcmp(arg, "--trace-event-file-pattern") == 0) {
+    } else if (strcmp(arg, "--trace-event-file-pattern") == 0) {
       const char* file_pattern = argv[index + 1];
       if (file_pattern == nullptr) {
         fprintf(stderr, "%s: %s requires an argument\n", argv[0], arg);
