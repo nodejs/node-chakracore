@@ -260,7 +260,7 @@ class InspectorSession {
     if (!Array.isArray(values))
       values = [ values ];
 
-    if (process.jsEngine === 'chakracore') {
+    if (common.isChakraEngine) {
       // Only the first parameter is returned by ChakraCore
       values = values.slice(0, 1);
     }

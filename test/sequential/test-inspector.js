@@ -72,7 +72,7 @@ async function testBreakpointOnStart(session) {
       'params': { 'maxDepth': 0 } }
   ];
 
-  if (process.jsEngine !== 'chakracore') {
+  if (!common.isChakraEngine) {
     commands.push(
       { 'method': 'Profiler.enable' },
       { 'method': 'Profiler.setSamplingInterval',
