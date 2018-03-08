@@ -59,7 +59,6 @@ test-performance-gc : SKIP
 test-process-env-symbols : SKIP
 test-promises-unhandled-proxy-rejections : SKIP
 test-promises-unhandled-symbol-rejections : SKIP
-test-regress-GH-12371 : SKIP
 test-repl : SKIP
 test-repl-mode : SKIP
 test-repl-pretty-custom-stack : SKIP
@@ -74,7 +73,6 @@ test-trace-events-async-hooks : SKIP
 test-trace-events-binding : SKIP
 test-trace-events-category-used : SKIP
 test-trace-events-none : SKIP
-test-trace-events-perf : SKIP
 test-trace-events-process-exit : SKIP
 test-trace-events-v8 : SKIP
 
@@ -109,7 +107,6 @@ test-common-must-not-call : SKIP
 
 # This test does a deep recursion which occasionally fails in Node-ChakraCore
 test-async-hooks-recursive-stack : SKIP
-test-async-hooks-recursive-stack-runInAsyncScope : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed
@@ -126,12 +123,7 @@ test-http-client-get-url : SKIP
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-repl-sigint-nested-eval : SKIP
 
-# https://github.com/Microsoft/ChakraCore/issues/3561
-test-wasm-simple : SKIP
-
 [$jsEngine==chakracore && $system==macos]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-repl-sigint-nested-eval : SKIP
 test-vm-sigint : SKIP
-# https://github.com/Microsoft/ChakraCore/issues/3561
-test-wasm-simple : SKIP
