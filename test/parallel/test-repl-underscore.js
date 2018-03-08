@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const repl = require('repl');
 const stream = require('stream');
@@ -168,6 +168,13 @@ function testError() {
            `);
 
   setImmediate(() => {
+    if (common.isChakraEngine) {
+      // skip this part of the test for ChakraCore because
+      // the expected output relies on filtering out internal frames
+      // from stack traces, which uses V8 Error APIs that ChakraCore
+      // does not support.
+      return;
+    }
     const lines = r.output.accum.trim().split('\n');
     const expectedLines = [
       'undefined',
