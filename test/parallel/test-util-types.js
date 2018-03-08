@@ -49,7 +49,9 @@ for (const [ value, _method ] of [
                           { value: 'foo' }) ],
   [ new DataView(new ArrayBuffer()) ],
   [ new SharedArrayBuffer() ],
-  [ new Proxy({}, {}), 'isProxy' ],
+  // Node-ChakraCore does not support util.types.isProxy() due to
+  // Microsoft/ChakraCore#950 and node/node-chakracore#488
+  !common.isChakraEngine ? [ new Proxy({}, {}), 'isProxy' ] : [ new Date() ],
   [ new WebAssembly.Module(wasmBuffer), 'isWebAssemblyCompiledModule' ],
 ]) {
   const method = _method || `is${value.constructor.name}`;

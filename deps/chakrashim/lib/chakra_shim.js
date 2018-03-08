@@ -30,11 +30,6 @@
   const Object_setPrototypeOf = Object.setPrototypeOf;
   const Reflect_apply = Reflect.apply;
   const Reflect_construct = Reflect.construct;
-  const Map_keys = Map.prototype.keys;
-  const Map_values = Map.prototype.values;
-  const Map_entries = Map.prototype.entries;
-  const Set_entries = Set.prototype.entries;
-  const Set_values = Set.prototype.values;
   const Symbol_keyFor = Symbol.keyFor;
   const Symbol_for = Symbol.for;
   const Global_ParseInt = parseInt;
@@ -324,41 +319,6 @@
     Error.captureStackTrace = captureStackTrace;
   }
 
-  const mapIteratorProperty = 'MapIteratorIndicator';
-  function patchMapIterator() {
-    const originalMapMethods = [];
-    originalMapMethods.push(['entries', Map_entries]);
-    originalMapMethods.push(['values', Map_values]);
-    originalMapMethods.push(['keys', Map_keys]);
-
-    originalMapMethods.forEach(function(pair) {
-      Map.prototype[pair[0]] = function() {
-        const result = pair[1].apply(this);
-        Object_defineProperty(
-          result, mapIteratorProperty,
-          { value: true, enumerable: false, writable: false });
-        return result;
-      };
-    });
-  }
-
-  const setIteratorProperty = 'SetIteratorIndicator';
-  function patchSetIterator() {
-    const originalSetMethods = [];
-    originalSetMethods.push(['entries', Set_entries]);
-    originalSetMethods.push(['values', Set_values]);
-
-    originalSetMethods.forEach(function(pair) {
-      Set.prototype[pair[0]] = function() {
-        const result = pair[1].apply(this);
-        Object_defineProperty(
-          result, setIteratorProperty,
-          { value: true, enumerable: false, writable: false });
-        return result;
-      };
-    });
-  }
-
   // Ensure global Debug object if not already exists, and patch it.
   function ensureDebug(otherGlobal) {
     if (!global.Debug) {
@@ -535,18 +495,18 @@
       return captureStackTrace({}, undefined)();
     };
 
-    utils.isMapIterator = function(value) {
-      return value[mapIteratorProperty] === true;
-    };
-
-    utils.isSetIterator = function(value) {
-      return value[setIteratorProperty] === true;
-    };
-
     function compareType(o, expectedType) {
       return Object_prototype_toString.call(o) === '[object ' +
             expectedType + ']';
     }
+
+    utils.isMapIterator = function(obj) {
+      return compareType(obj, 'Map Iterator');
+    };
+
+    utils.isSetIterator = function(obj) {
+      return compareType(obj, 'Set Iterator');
+    };
 
     utils.isBooleanObject = function(obj) {
       return compareType(obj, 'Boolean');
@@ -625,6 +585,10 @@
 
     utils.isName = function(obj) {
       return compareType(obj, 'String') || compareType(obj, 'Symbol');
+    };
+
+    utils.isSharedArrayBuffer = function(obj) {
+      return compareType(obj, 'SharedArrayBuffer');
     };
 
     utils.getSymbolKeyFor = function(symbol) {
@@ -707,8 +671,6 @@
 
   patchErrorTypes();
   patchErrorStack();
-  patchMapIterator();
-  patchSetIterator();
 
   patchUtils(keepAlive);
 });
