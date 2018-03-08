@@ -11,7 +11,7 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
+   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
 42
 42
 [eval]:1
@@ -26,7 +26,7 @@ Error: hello
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
+   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
 [eval]:1
 'use strict'; throw new Error("hello")
               ^
@@ -39,7 +39,7 @@ Error: hello
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
+   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
 100
 [eval]:1
 'use strict'; var x = 100; y = x;
@@ -53,7 +53,7 @@ ReferenceError: Variable undefined in strict mode
    at Module.prototype._compile (module.js:*:*)
    at evalScript (bootstrap_node.js:*:*)
    at startup (bootstrap_node.js:*:*)
-   at Anonymous function (bootstrap_node.js:*:*)
+   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
 
 vm.js:*
     return realRunInThisContext.call(this, options);
