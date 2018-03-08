@@ -89,9 +89,10 @@ static void napi_clear_last_error();
 struct CallbackInfo {
   napi_value newTarget;
   napi_value thisArg;
-  uint16_t argc;
   napi_value* argv;
   void* data;
+  uint16_t argc;
+  bool isConstructCall;
 };
 
 struct napi_env__ {
@@ -240,6 +241,7 @@ class ExternalCallback {
     CallbackInfo cbInfo;
     cbInfo.thisArg = reinterpret_cast<napi_value>(info->thisArg);
     cbInfo.newTarget = reinterpret_cast<napi_value>(info->newTargetArg);
+    cbInfo.isConstructCall = info->isConstructCall;
     cbInfo.argc = argumentCount - 1;
     cbInfo.argv = reinterpret_cast<napi_value*>(arguments + 1);
     cbInfo.data = externalCallback->_data;
@@ -1385,8 +1387,14 @@ napi_status napi_get_new_target(napi_env env,
                                 napi_value* result) {
   CHECK_ARG(cbinfo);
   CHECK_ARG(result);
+
   const CallbackInfo *info = reinterpret_cast<CallbackInfo*>(cbinfo);
-  *result = info->newTarget;
+  if (info->isConstructCall) {
+    *result = info->newTarget;
+  } else {
+    *result = nullptr;
+  }
+
   return napi_ok;
 }
 

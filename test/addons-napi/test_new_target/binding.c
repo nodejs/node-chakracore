@@ -15,6 +15,7 @@ napi_value BaseClass(napi_env env, napi_callback_info info) {
   NAPI_ASSERT(env, !result, "this !== new.target");
 
   // new.target !== undefined because we should be called as a new expression
+  NAPI_ASSERT(env, newTargetArg != NULL, "newTargetArg != NULL");
   NAPI_CALL(env, napi_strict_equals(env, newTargetArg, undefined, &result));
   NAPI_ASSERT(env, !result, "new.target !== undefined");
 
@@ -33,6 +34,7 @@ napi_value Constructor(napi_env env, napi_callback_info info) {
   NAPI_CALL(env, napi_get_undefined(env, &undefined));
 
   // new.target !== undefined because we should be called as a new expression
+  NAPI_ASSERT(env, newTargetArg != NULL, "newTargetArg != NULL");
   NAPI_CALL(env, napi_strict_equals(env, newTargetArg, undefined, &result));
   NAPI_ASSERT(env, !result, "new.target !== undefined");
   
@@ -44,15 +46,10 @@ napi_value Constructor(napi_env env, napi_callback_info info) {
 }
 
 napi_value OrdinaryFunction(napi_env env, napi_callback_info info) {
-  bool result;
   napi_value newTargetArg;
   NAPI_CALL(env, napi_get_new_target(env, info, &newTargetArg));
-  napi_value undefined;
-  NAPI_CALL(env, napi_get_undefined(env, &undefined));
 
-  // new.target === undefined because we are not called as a new expression
-  NAPI_CALL(env, napi_strict_equals(env, newTargetArg, undefined, &result));
-  NAPI_ASSERT(env, result, "new.target === undefined");
+  NAPI_ASSERT(env, newTargetArg == NULL, "newTargetArg == NULL");
 
   napi_value _true;
   NAPI_CALL(env, napi_get_boolean(env, true, &_true));
