@@ -161,6 +161,7 @@ DEF_IS_TYPE(isWeakMap)
 DEF_IS_TYPE(isWeakSet)
 DEF_IS_TYPE(isSymbolObject)
 DEF_IS_TYPE(isName)
+DEF_IS_TYPE(isSharedArrayBuffer)
 
 
 #undef DEF
