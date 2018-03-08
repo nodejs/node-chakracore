@@ -30,11 +30,6 @@
   const Object_setPrototypeOf = Object.setPrototypeOf;
   const Reflect_apply = Reflect.apply;
   const Reflect_construct = Reflect.construct;
-  const Map_keys = Map.prototype.keys;
-  const Map_values = Map.prototype.values;
-  const Map_entries = Map.prototype.entries;
-  const Set_entries = Set.prototype.entries;
-  const Set_values = Set.prototype.values;
   const Symbol_keyFor = Symbol.keyFor;
   const Symbol_for = Symbol.for;
   const Global_ParseInt = parseInt;
@@ -162,8 +157,8 @@
       const fileDetails = stackDetails[2].split(fileDetailsSplitter);
 
       const fileName = fileDetails[0];
-      const lineNumber = fileDetails[1] ? fileDetails[1] : 0;
-      const columnNumber = fileDetails[3] ? fileDetails[3] : 0;
+      const lineNumber = fileDetails[1] ? parseInt(fileDetails[1]) : 0;
+      const columnNumber = fileDetails[3] ? parseInt(fileDetails[3]) : 0;
 
       errstack.push(new StackFrame(func, funcName, fileName, lineNumber,
                                    columnNumber));
@@ -322,41 +317,6 @@
 
   function patchErrorStack() {
     Error.captureStackTrace = captureStackTrace;
-  }
-
-  const mapIteratorProperty = 'MapIteratorIndicator';
-  function patchMapIterator() {
-    const originalMapMethods = [];
-    originalMapMethods.push(['entries', Map_entries]);
-    originalMapMethods.push(['values', Map_values]);
-    originalMapMethods.push(['keys', Map_keys]);
-
-    originalMapMethods.forEach(function(pair) {
-      Map.prototype[pair[0]] = function() {
-        const result = pair[1].apply(this);
-        Object_defineProperty(
-          result, mapIteratorProperty,
-          { value: true, enumerable: false, writable: false });
-        return result;
-      };
-    });
-  }
-
-  const setIteratorProperty = 'SetIteratorIndicator';
-  function patchSetIterator() {
-    const originalSetMethods = [];
-    originalSetMethods.push(['entries', Set_entries]);
-    originalSetMethods.push(['values', Set_values]);
-
-    originalSetMethods.forEach(function(pair) {
-      Set.prototype[pair[0]] = function() {
-        const result = pair[1].apply(this);
-        Object_defineProperty(
-          result, setIteratorProperty,
-          { value: true, enumerable: false, writable: false });
-        return result;
-      };
-    });
   }
 
   // Ensure global Debug object if not already exists, and patch it.
@@ -535,18 +495,18 @@
       return captureStackTrace({}, undefined)();
     };
 
-    utils.isMapIterator = function(value) {
-      return value[mapIteratorProperty] === true;
-    };
-
-    utils.isSetIterator = function(value) {
-      return value[setIteratorProperty] === true;
-    };
-
     function compareType(o, expectedType) {
       return Object_prototype_toString.call(o) === '[object ' +
             expectedType + ']';
     }
+
+    utils.isMapIterator = function(obj) {
+      return compareType(obj, 'Map Iterator');
+    };
+
+    utils.isSetIterator = function(obj) {
+      return compareType(obj, 'Set Iterator');
+    };
 
     utils.isBooleanObject = function(obj) {
       return compareType(obj, 'Boolean');
@@ -580,8 +540,7 @@
     };
 
     utils.isAsyncFunction = function(obj) {
-      // CHAKRA-TODO
-      return false;
+      return compareType(obj, 'AsyncFunction');
     };
 
     utils.isSet = function(obj) {
@@ -604,6 +563,14 @@
       return compareType(obj, 'Generator');
     };
 
+    utils.isGeneratorFunction = function(obj) {
+      return compareType(obj, 'GeneratorFunction');
+    };
+
+    utils.isWebAssemblyCompiledModule = function(obj) {
+      return compareType(obj, 'WebAssembly.Module');
+    };
+
     utils.isWeakMap = function(obj) {
       return compareType(obj, 'WeakMap');
     };
@@ -618,6 +585,10 @@
 
     utils.isName = function(obj) {
       return compareType(obj, 'String') || compareType(obj, 'Symbol');
+    };
+
+    utils.isSharedArrayBuffer = function(obj) {
+      return compareType(obj, 'SharedArrayBuffer');
     };
 
     utils.getSymbolKeyFor = function(symbol) {
@@ -700,8 +671,6 @@
 
   patchErrorTypes();
   patchErrorStack();
-  patchMapIterator();
-  patchSetIterator();
 
   patchUtils(keepAlive);
 });

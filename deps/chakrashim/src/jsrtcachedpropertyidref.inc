@@ -155,10 +155,13 @@ DEF_IS_TYPE(isStringObject)
 DEF_IS_TYPE(isNumberObject)
 DEF_IS_TYPE(isArgumentsObject)
 DEF_IS_TYPE(isGeneratorObject)
+DEF_IS_TYPE(isGeneratorFunction)
+DEF_IS_TYPE(isWebAssemblyCompiledModule)
 DEF_IS_TYPE(isWeakMap)
 DEF_IS_TYPE(isWeakSet)
 DEF_IS_TYPE(isSymbolObject)
 DEF_IS_TYPE(isName)
+DEF_IS_TYPE(isSharedArrayBuffer)
 
 
 #undef DEF

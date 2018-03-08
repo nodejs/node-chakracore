@@ -23,3 +23,9 @@ esm_display_syntax_error : SKIP
 esm_display_syntax_error_import : SKIP
 esm_display_syntax_error_import_module : SKIP
 esm_display_syntax_error_module : SKIP
+
+# These tests fail because of https://github.com/nodejs/node/pull/19003,
+# which uses Error.captureStackTrace internally
+events_unhandled_error_common_trace : SKIP
+events_unhandled_error_nexttick : SKIP
+events_unhandled_error_sameline : SKIP

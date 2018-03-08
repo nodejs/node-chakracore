@@ -64,21 +64,20 @@ bool Value::IsFalse() const {
   return this == jsrt::GetFalse();
 }
 
-bool Value::IsString() const {
-  return IsOfType(this, JsValueType::JsString);
+#define ISJSVALUETYPE(Type) \
+bool Value::Is##Type() const { \
+  return IsOfType(this, JsValueType::Js##Type); \
 }
 
-bool Value::IsSymbol() const {
-  return IsOfType(this, JsValueType::JsSymbol);
-}
-
-bool Value::IsFunction() const {
-  return IsOfType(this, JsValueType::JsFunction);
-}
-
-bool Value::IsArray() const {
-  return IsOfType(this, JsValueType::JsArray);
-}
+ISJSVALUETYPE(String)
+ISJSVALUETYPE(Symbol)
+ISJSVALUETYPE(Function)
+ISJSVALUETYPE(Array)
+ISJSVALUETYPE(ArrayBuffer)
+ISJSVALUETYPE(TypedArray)
+ISJSVALUETYPE(DataView)
+ISJSVALUETYPE(Boolean)
+ISJSVALUETYPE(Number)
 
 bool Value::IsObject() const {
   JsValueType type;
@@ -91,14 +90,6 @@ bool Value::IsObject() const {
 
 bool Value::IsExternal() const {
   return External::IsExternal(this);
-}
-
-bool Value::IsArrayBuffer() const {
-  return IsOfType(this, JsValueType::JsArrayBuffer);
-}
-
-bool Value::IsTypedArray() const {
-  return IsOfType(this, JsValueType::JsTypedArray);
 }
 
 #define DEFINE_TYPEDARRAY_CHECK(ArrayType) \
@@ -123,18 +114,6 @@ DEFINE_TYPEDARRAY_CHECK(Float64)
 
 bool Value::IsArrayBufferView() const {
   return IsTypedArray() || IsDataView();
-}
-
-bool Value::IsDataView() const {
-  return IsOfType(this, JsValueType::JsDataView);
-}
-
-bool Value::IsBoolean() const {
-  return IsOfType(this, JsValueType::JsBoolean);
-}
-
-bool Value::IsNumber() const {
-  return IsOfType(this, JsValueType::JsNumber);
 }
 
 bool Value::IsInt32() const {
@@ -175,8 +154,10 @@ if (errorCode != JsNoError) { \
   return false; \
 } \
 return Local<Value>(resultRef)->BooleanValue(); \
-} \
+}
 
+// Refer to jsrtcachedpropertyidref.inc for the full list
+// DEF_IS_TYPE is not structured correctly in order to be used here
 IS_TYPE_FUNCTION(IsBooleanObject, isBooleanObject)
 IS_TYPE_FUNCTION(IsDate, isDate)
 IS_TYPE_FUNCTION(IsMap, isMap)
@@ -192,10 +173,13 @@ IS_TYPE_FUNCTION(IsMapIterator, isMapIterator)
 IS_TYPE_FUNCTION(IsSetIterator, isSetIterator)
 IS_TYPE_FUNCTION(IsArgumentsObject, isArgumentsObject)
 IS_TYPE_FUNCTION(IsGeneratorObject, isGeneratorObject)
+IS_TYPE_FUNCTION(IsGeneratorFunction, isGeneratorFunction)
+IS_TYPE_FUNCTION(IsWebAssemblyCompiledModule, isWebAssemblyCompiledModule)
 IS_TYPE_FUNCTION(IsWeakMap, isWeakMap)
 IS_TYPE_FUNCTION(IsWeakSet, isWeakSet)
 IS_TYPE_FUNCTION(IsSymbolObject, isSymbolObject)
 IS_TYPE_FUNCTION(IsName, isName)
+IS_TYPE_FUNCTION(IsSharedArrayBuffer, isSharedArrayBuffer)
 
 MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;
