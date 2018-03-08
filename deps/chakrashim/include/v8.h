@@ -997,6 +997,11 @@ class V8_EXPORT ScriptCompiler {
 
   static V8_WARN_UNUSED_RESULT MaybeLocal<Module> CompileModule(
     Isolate* isolate, Source* source);
+
+  static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script,
+                                     Local<String> source) {
+    return nullptr;
+  }
 };
 
 class V8_EXPORT Message {
