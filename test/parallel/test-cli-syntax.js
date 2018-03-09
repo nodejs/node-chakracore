@@ -116,7 +116,7 @@ syntaxArgs.forEach(function(args) {
   const c = spawnSync(node, args, { encoding: 'utf8', input: stdin });
 
   // stderr should include '[stdin]' as the filename
-  if (process.jsEngine === 'v8') {
+  if (!common.isChakraEngine) {
     assert(c.stderr.startsWith('[stdin]'), `${c.stderr} starts with ${stdin}`);
   }
 

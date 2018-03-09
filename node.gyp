@@ -25,6 +25,7 @@
     'node_lib_target_name%': 'node_lib',
     'node_intermediate_lib_type%': 'static_library',
     'library_files': [
+      'lib/internal/bootstrap_loaders.js',
       'lib/internal/bootstrap_node.js',
       'lib/async_hooks.js',
       'lib/assert.js',
@@ -147,6 +148,7 @@
       'lib/internal/streams/lazy_transform.js',
       'lib/internal/streams/async_iterator.js',
       'lib/internal/streams/BufferList.js',
+      'lib/internal/streams/duplex_base.js',
       'lib/internal/streams/duplexpair.js',
       'lib/internal/streams/legacy.js',
       'lib/internal/streams/destroy.js',

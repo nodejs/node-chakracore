@@ -2,7 +2,7 @@
 
 // Tests to verify floats are correctly written
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 
 const buffer = Buffer.allocUnsafe(8);
@@ -51,7 +51,7 @@ assert.strictEqual(buffer.readFloatLE(4), -Infinity);
 buffer.writeFloatBE(NaN, 0);
 buffer.writeFloatLE(NaN, 4);
 assert.ok(buffer.equals(
-  process.jsEngine === 'chakracore' ?
+  common.isChakraEngine ?
     new Uint8Array([ 0xFF, 0xC0, 0x00, 0x00, 0x00, 0x00, 0xC0, 0xFF ]) :
     new Uint8Array([ 0x7F, 0xC0, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x7F ])));
 
