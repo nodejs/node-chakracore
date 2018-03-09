@@ -21,17 +21,31 @@
 
 'use strict';
 const common = require('../common');
-const { fixturesDir } = require('../common/fixtures');
+
+// Make sure the deletion event gets reported in the following scenario:
+// 1. Watch a file.
+// 2. The initial stat() goes okay.
+// 3. Something deletes the watched file.
+// 4. The second stat() fails with ENOENT.
+
+// The second stat() translates into the first 'change' event but a logic error
+// stopped it from getting emitted.
+// https://github.com/nodejs/node-v0.x-archive/issues/4027
+
 const assert = require('assert');
-const { exec } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
-const cmd =
-  `"${process.execPath}" "${fixturesDir}/test-regress-GH-4015.js"`;
+const tmpdir = require('../common/tmpdir');
+tmpdir.refresh();
 
-exec(cmd, function(err, stdout, stderr) {
-  const expectedError = common.engineSpecificMessage({
-    v8: /RangeError: Maximum call stack size exceeded/,
-    chakracore: /Error: Out of stack space/
-  });
-  assert(expectedError.test(stderr));
-});
+const filename = path.join(tmpdir.path, 'watched');
+fs.writeFileSync(filename, 'quis custodiet ipsos custodes');
+
+fs.watchFile(filename, { interval: 50 }, common.mustCall(function(curr, prev) {
+  assert.strictEqual(prev.nlink, 1);
+  assert.strictEqual(curr.nlink, 0);
+  fs.unwatchFile(filename);
+}));
+
+setTimeout(fs.unlinkSync, common.platformTimeout(300), filename);
