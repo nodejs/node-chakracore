@@ -179,7 +179,8 @@ void AsyncWrap::EmitTraceEventBefore() {
   switch (provider_type()) {
 #define V(PROVIDER)                                                           \
     case PROVIDER_ ## PROVIDER:                                               \
-      TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("node.async_hooks",                   \
+      TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(                                      \
+        TRACING_CATEGORY_NODE1(async_hooks),                                  \
         #PROVIDER "_CALLBACK", static_cast<int64_t>(get_async_id()));         \
       break;
     NODE_ASYNC_PROVIDER_TYPES(V)
@@ -207,7 +208,8 @@ void AsyncWrap::EmitTraceEventAfter() {
   switch (provider_type()) {
 #define V(PROVIDER)                                                           \
     case PROVIDER_ ## PROVIDER:                                               \
-      TRACE_EVENT_NESTABLE_ASYNC_END0("node.async_hooks",                     \
+      TRACE_EVENT_NESTABLE_ASYNC_END0(                                        \
+        TRACING_CATEGORY_NODE1(async_hooks),                                  \
         #PROVIDER "_CALLBACK", static_cast<int64_t>(get_async_id()));         \
       break;
     NODE_ASYNC_PROVIDER_TYPES(V)
@@ -415,14 +417,14 @@ void AsyncWrap::WeakCallback(const v8::WeakCallbackInfo<DestroyParam>& info) {
   HandleScope scope(info.GetIsolate());
 
   Environment* env = Environment::GetCurrent(info.GetIsolate());
-  DestroyParam* p = info.GetParameter();
+  std::unique_ptr<DestroyParam> p{info.GetParameter()};
   Local<Object> prop_bag = PersistentToLocal(info.GetIsolate(), p->propBag);
 
   Local<Value> val = prop_bag->Get(env->destroyed_string());
   if (val->IsFalse()) {
     AsyncWrap::EmitDestroy(env, p->asyncId);
   }
-  delete p;
+  // unique_ptr goes out of scope here and pointer is deleted.
 }
 
 
@@ -631,7 +633,8 @@ void AsyncWrap::EmitTraceEventDestroy() {
   switch (provider_type()) {
   #define V(PROVIDER)                                                         \
     case PROVIDER_ ## PROVIDER:                                               \
-      TRACE_EVENT_NESTABLE_ASYNC_END0("node.async_hooks",                     \
+      TRACE_EVENT_NESTABLE_ASYNC_END0(                                        \
+        TRACING_CATEGORY_NODE1(async_hooks),                                  \
         #PROVIDER, static_cast<int64_t>(get_async_id()));                     \
       break;
     NODE_ASYNC_PROVIDER_TYPES(V)
@@ -664,7 +667,8 @@ void AsyncWrap::AsyncReset(double execution_async_id, bool silent) {
   switch (provider_type()) {
 #define V(PROVIDER)                                                           \
     case PROVIDER_ ## PROVIDER:                                               \
-      TRACE_EVENT_NESTABLE_ASYNC_BEGIN2("node.async_hooks",                   \
+      TRACE_EVENT_NESTABLE_ASYNC_BEGIN2(                                      \
+        TRACING_CATEGORY_NODE1(async_hooks),                                  \
         #PROVIDER, static_cast<int64_t>(get_async_id()),                      \
         "executionAsyncId",                                                   \
         static_cast<int64_t>(env()->execution_async_id()),                    \

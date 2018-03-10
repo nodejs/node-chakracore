@@ -479,10 +479,11 @@ if (!common.isChakraEngine) {
   obj = vm.runInNewContext('var s=new Set();s.add(1);s.add(2);s', {});
   assert.strictEqual(util.inspect(obj), 'Set { 1, 2 }');
   obj = vm.runInNewContext('fn=function(){};new Promise(fn,fn)', {});
-  assert.strictEqual(util.inspect(obj), common.engineSpecificMessage({
-    v8: 'Promise { <pending> }',
-    chakracore: 'Promise {}'
-  }));
+  assert.strictEqual(util.inspect(obj),
+                     common.engineSpecificMessage({
+                       v8: 'Promise { <pending> }',
+                       chakracore: 'Promise {}'
+                     }));
 }
 
 // Test for property descriptors.
@@ -901,38 +902,36 @@ if (typeof Symbol !== 'undefined') {
 }
 
 // Test Promise.
+// NOTE: ChakraCore promise objects are only inspectable when created from
+// native code. Promises created in script will always show as `<pending>`.
 {
   const resolved = Promise.resolve(3);
   assert.strictEqual(util.inspect(resolved),
                      common.engineSpecificMessage({
                        v8: 'Promise { 3 }',
-                       chakracore: 'Promise {}'
+                       chakracore: 'Promise { <pending> }'
                      }));
 
   const rejected = Promise.reject(3);
   assert.strictEqual(util.inspect(rejected),
                      common.engineSpecificMessage({
                        v8: 'Promise { <rejected> 3 }',
-                       chakracore: 'Promise {}'
+                       chakracore: 'Promise { <pending> }'
                      }));
   // Squelch UnhandledPromiseRejection.
   rejected.catch(() => {});
 
   const pending = new Promise(() => {});
-  assert.strictEqual(util.inspect(pending), common.engineSpecificMessage({
-    v8: 'Promise { <pending> }',
-    chakracore: 'Promise {}'
-  }));
+  assert.strictEqual(util.inspect(pending), 'Promise { <pending> }');
 
   const promiseWithProperty = Promise.resolve('foo');
   promiseWithProperty.bar = 42;
   assert.strictEqual(util.inspect(promiseWithProperty),
                      common.engineSpecificMessage({
                        v8: 'Promise { \'foo\', bar: 42 }',
-                       chakracore: 'Promise { bar: 42 }'
+                       chakracore: 'Promise { <pending>, bar: 42 }'
                      }));
 }
-
 
 // Make sure it doesn't choke on polyfills. Unlike Set/Map, there is no standard
 // interface to synchronously inspect a Promise, so our techniques only work on
@@ -1029,10 +1028,7 @@ if (!common.isChakraEngine) {
   assert.strictEqual(util.inspect(new MapSubclass([['foo', 42]])),
                      'MapSubclass [Map] { \'foo\' => 42 }');
   assert.strictEqual(util.inspect(new PromiseSubclass(() => {})),
-                     common.engineSpecificMessage({
-                       v8: 'PromiseSubclass [Promise] { <pending> }',
-                       chakracore: 'PromiseSubclass [Promise] {}'
-                     }));
+                     'PromiseSubclass [Promise] { <pending> }');
   assert.strictEqual(
     util.inspect({ a: { b: new ArraySubclass([1, [2], 3]) } }, { depth: 1 }),
     '{ a: { b: [ArraySubclass] } }'
@@ -1357,8 +1353,14 @@ util.inspect(process);
   expect = [
     '{',
     '  a: [Function] {',
-    '    [length]: 0,',
-    "    [name]: ''",
+    common.engineSpecificMessage({
+      v8: '    [length]: 0,',
+      chakracore: "    [name]: '',",
+    }),
+    common.engineSpecificMessage({
+      v8: "    [name]: ''",
+      chakracore: '    [length]: 0',
+    }),
     '  },',
     '  b: [Number: 3]',
     '}'

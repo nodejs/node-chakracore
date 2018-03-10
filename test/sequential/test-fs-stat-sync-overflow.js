@@ -20,21 +20,22 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 'use strict';
-const common = require('../common');
+require('../common');
+const { fixturesDir } = require('../common/fixtures');
+
+// Check that the calls to Integer::New() and Date::New() succeed and bail out
+// if they don't.
+// V8 returns an empty handle on stack overflow. Trying to set the empty handle
+// as a property on an object results in a NULL pointer dereference in release
+// builds and an assert in debug builds.
+// https://github.com/nodejs/node-v0.x-archive/issues/4015
+
 const assert = require('assert');
-const path = require('path');
-const fs = require('fs');
+const { exec } = require('child_process');
 
-const tmpdir = require('../common/tmpdir');
-tmpdir.refresh();
+const cmd =
+  `"${process.execPath}" "${fixturesDir}/test-fs-stat-sync-overflow.js"`;
 
-const filename = path.join(tmpdir.path, 'watched');
-fs.writeFileSync(filename, 'quis custodiet ipsos custodes');
-
-fs.watchFile(filename, { interval: 50 }, common.mustCall(function(curr, prev) {
-  assert.strictEqual(prev.nlink, 1);
-  assert.strictEqual(curr.nlink, 0);
-  fs.unwatchFile(filename);
-}));
-
-setTimeout(fs.unlinkSync, common.platformTimeout(300), filename);
+exec(cmd, function(err, stdout, stderr) {
+  assert(/Error: .*stack/.test(stderr));
+});

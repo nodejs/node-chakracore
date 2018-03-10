@@ -86,7 +86,6 @@ test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
 test-util-format-shared-arraybuffer : SKIP
 test-util-inspect-proxy : SKIP
-test-util-inspect : SKIP
 test-v8-serdes : SKIP
 test-v8-serdes-sharedarraybuffer : SKIP
 test-vm-cached-data : SKIP
@@ -172,6 +171,11 @@ test-fs-readdir-stack-overflow : SKIP
 # This test assumes that converting a utf8 string with invalid sequences generates replacement characters
 # in a particular way which is true for v8 but not true for charkacore
 test-string-decoder-end : SKIP
+
+# These tests use the v8 module which chakracore does not support
+test-process-exception-capture-should-abort-on-uncaught-setflagsfromstring : SKIP
+test-v8-flag-type-check : SKIP
+test-v8-stats : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed

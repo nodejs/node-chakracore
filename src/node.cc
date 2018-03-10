@@ -2696,6 +2696,17 @@ static void EnvGetter(Local<Name> property,
 static void EnvSetter(Local<Name> property,
                       Local<Value> value,
                       const PropertyCallbackInfo<Value>& info) {
+  Environment* env = Environment::GetCurrent(info);
+  if (config_pending_deprecation && env->EmitProcessEnvWarning() &&
+      !value->IsString() && !value->IsNumber() && !value->IsBoolean()) {
+    if (ProcessEmitDeprecationWarning(
+          env,
+          "Assigning any value other than a string, number, or boolean to a "
+          "process.env property is deprecated. Please make sure to convert the "
+          "value to a string before setting process.env with it.",
+          "DEP0104").IsNothing())
+      return;
+  }
 #ifdef __POSIX__
   node::Utf8Value key(info.GetIsolate(), property);
   node::Utf8Value val(info.GetIsolate(), value);

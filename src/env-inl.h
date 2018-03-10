@@ -31,6 +31,7 @@
 #include "uv.h"
 #include "v8.h"
 #include "node_perf_common.h"
+#include "node_context_data.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -111,8 +112,7 @@ inline v8::Local<v8::String> Environment::AsyncHooks::provider_string(int idx) {
 }
 
 inline void Environment::AsyncHooks::no_force_checks() {
-  // fields_ does not have the -= operator defined
-  fields_[kCheck] = fields_[kCheck] - 1;
+  fields_[kCheck] -= 1;
 }
 
 inline Environment* Environment::AsyncHooks::env() {
@@ -134,7 +134,7 @@ inline void Environment::AsyncHooks::push_async_ids(double async_id,
     grow_async_ids_stack();
   async_ids_stack_[2 * offset] = async_id_fields_[kExecutionAsyncId];
   async_ids_stack_[2 * offset + 1] = async_id_fields_[kTriggerAsyncId];
-  fields_[kStackLength] = fields_[kStackLength] + 1;
+  fields_[kStackLength] += 1;
   async_id_fields_[kExecutionAsyncId] = async_id;
   async_id_fields_[kTriggerAsyncId] = trigger_async_id;
 }
@@ -239,19 +239,19 @@ inline bool Environment::ImmediateInfo::has_outstanding() const {
 }
 
 inline void Environment::ImmediateInfo::count_inc(uint32_t increment) {
-  fields_[kCount] = fields_[kCount] + increment;
+  fields_[kCount] += increment;
 }
 
 inline void Environment::ImmediateInfo::count_dec(uint32_t decrement) {
-  fields_[kCount] = fields_[kCount] - decrement;
+  fields_[kCount] -= decrement;
 }
 
 inline void Environment::ImmediateInfo::ref_count_inc(uint32_t increment) {
-  fields_[kRefCount] = fields_[kRefCount] + increment;
+  fields_[kRefCount] += increment;
 }
 
 inline void Environment::ImmediateInfo::ref_count_dec(uint32_t decrement) {
-  fields_[kRefCount] = fields_[kRefCount] - decrement;
+  fields_[kRefCount] -= decrement;
 }
 
 inline Environment::TickInfo::TickInfo(v8::Isolate* isolate)
@@ -283,7 +283,8 @@ inline void Environment::TickInfo::set_has_thrown(bool state) {
 
 inline void Environment::AssignToContext(v8::Local<v8::Context> context,
                                          const ContextInfo& info) {
-  context->SetAlignedPointerInEmbedderData(kContextEmbedderDataIndex, this);
+  context->SetAlignedPointerInEmbedderData(
+      ContextEmbedderIndex::kEnvironment, this);
 #if HAVE_INSPECTOR
   inspector_agent()->ContextCreated(context, info);
 #endif  // HAVE_INSPECTOR
@@ -295,7 +296,8 @@ inline Environment* Environment::GetCurrent(v8::Isolate* isolate) {
 
 inline Environment* Environment::GetCurrent(v8::Local<v8::Context> context) {
   return static_cast<Environment*>(
-      context->GetAlignedPointerFromEmbedderData(kContextEmbedderDataIndex));
+      context->GetAlignedPointerFromEmbedderData(
+          ContextEmbedderIndex::kEnvironment));
 }
 
 inline Environment* Environment::GetCurrent(
@@ -327,6 +329,7 @@ inline Environment::Environment(IsolateData* isolate_data,
       trace_sync_io_(false),
       abort_on_uncaught_exception_(false),
       emit_napi_warning_(true),
+      emit_env_nonstring_warning_(true),
       makecallback_cntr_(0),
       should_abort_on_uncaught_toggle_(isolate_, 1),
 #if HAVE_INSPECTOR
@@ -368,8 +371,8 @@ inline Environment::~Environment() {
   inspector_agent_.reset();
 #endif
 
-  context()->SetAlignedPointerInEmbedderData(kContextEmbedderDataIndex,
-                                             nullptr);
+  context()->SetAlignedPointerInEmbedderData(
+      ContextEmbedderIndex::kEnvironment, nullptr);
 
   delete[] heap_statistics_buffer_;
   delete[] heap_space_statistics_buffer_;
@@ -474,8 +477,7 @@ inline std::vector<double>* Environment::destroy_async_id_list() {
 }
 
 inline double Environment::new_async_id() {
-  async_hooks()->async_id_fields()[AsyncHooks::kAsyncIdCounter] =
-    async_hooks()->async_id_fields()[AsyncHooks::kAsyncIdCounter] + 1;
+  async_hooks()->async_id_fields()[AsyncHooks::kAsyncIdCounter] += 1;
   return async_hooks()->async_id_fields()[AsyncHooks::kAsyncIdCounter];
 }
 
