@@ -109,10 +109,6 @@ namespace v8impl {
 
 //=== Conversion between V8 Isolate and napi_env ==========================
 
-napi_env JsEnvFromV8Isolate(v8::Isolate* isolate) {
-  return reinterpret_cast<napi_env>(isolate);
-}
-
 v8::Isolate* V8IsolateFromJsEnv(napi_env e) {
   return reinterpret_cast<v8::Isolate*>(e);
 }
@@ -136,26 +132,6 @@ class EscapableHandleScopeWrapper {
  private:
   v8::EscapableHandleScope scope;
 };
-
-napi_handle_scope JsHandleScopeFromV8HandleScope(HandleScopeWrapper* s) {
-  return reinterpret_cast<napi_handle_scope>(s);
-}
-
-HandleScopeWrapper* V8HandleScopeFromJsHandleScope(napi_handle_scope s) {
-  return reinterpret_cast<HandleScopeWrapper*>(s);
-}
-
-napi_escapable_handle_scope
-  JsEscapableHandleScopeFromV8EscapableHandleScope(
-    EscapableHandleScopeWrapper* s) {
-  return reinterpret_cast<napi_escapable_handle_scope>(s);
-}
-
-EscapableHandleScopeWrapper*
-  V8EscapableHandleScopeFromJsEscapableHandleScope(
-    napi_escapable_handle_scope s) {
-  return reinterpret_cast<EscapableHandleScopeWrapper*>(s);
-}
 
 //=== Conversion between V8 Handles and napi_value ========================
 
@@ -552,9 +528,6 @@ void napi_module_register_cb(v8::Local<v8::Object> exports,
 
 // Registers a NAPI module.
 void napi_module_register(napi_module* mod) {
-  // NAPI modules always work with the current node version.
-  int module_version = NODE_MODULE_VERSION;
-
   node::node_module* nm = new node::node_module {
     -1,
     mod->nm_flags,
@@ -651,14 +624,16 @@ NAPI_NO_RETURN void napi_fatal_error(const char* location,
                                      size_t message_len) {
   const char* location_string = location;
   const char* message_string = message;
-  if (location_len != -1) {
+
+  if (location_len != NAPI_AUTO_LENGTH) {
     char* location_nullterminated = static_cast<char*>(
       malloc((location_len + 1) * sizeof(char)));
     strncpy(location_nullterminated, location, location_len);
     location_nullterminated[location_len] = 0;
     location_string = location_nullterminated;
   }
-  if (message_len != -1) {
+
+  if (message_len != NAPI_AUTO_LENGTH) {
     char* message_nullterminated = static_cast<char*>(
       malloc((message_len + 1) * sizeof(char)));
     strncpy(message_nullterminated, message, message_len);
@@ -688,7 +663,7 @@ napi_status napi_create_function(napi_env env,
   if (utf8name != nullptr) {
     CHECK_JSRT(JsCreateString(
       utf8name,
-      length == -1 ? strlen(utf8name) : length,
+      length == NAPI_AUTO_LENGTH ? strlen(utf8name) : length,
       &name));
   }
 
@@ -1512,9 +1487,17 @@ napi_status napi_get_value_uint32(napi_env env,
 napi_status napi_get_value_int64(napi_env env, napi_value v, int64_t* result) {
   CHECK_ARG(result);
   JsValueRef value = reinterpret_cast<JsValueRef>(v);
-  int valueInt;
-  CHECK_JSRT_EXPECTED(JsNumberToInt(value, &valueInt), napi_number_expected);
-  *result = static_cast<int64_t>(valueInt);
+
+  double valueDouble;
+  CHECK_JSRT_EXPECTED(JsNumberToDouble(value, &valueDouble),
+                      napi_number_expected);
+
+  if (std::isnan(valueDouble)) {
+    *result = 0;
+  } else {
+    *result = static_cast<int64_t>(valueDouble);
+  }
+
   return napi_ok;
 }
 
