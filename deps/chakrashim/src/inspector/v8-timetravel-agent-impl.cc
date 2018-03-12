@@ -13,8 +13,7 @@ V8TimeTravelAgentImpl::V8TimeTravelAgentImpl(
     V8InspectorSessionImpl* session, protocol::FrontendChannel* frontendChannel,
     protocol::DictionaryValue* state)
     : m_session(session),
-      m_frontend(frontendChannel),
-      m_state(state) {}
+      m_frontend(frontendChannel) {}
 
 V8TimeTravelAgentImpl::~V8TimeTravelAgentImpl() {}
 
