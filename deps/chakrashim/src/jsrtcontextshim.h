@@ -137,9 +137,6 @@ class ContextShim {
   JsValueRef proxyOfGlobal;
 
   JsValueRef globalPrototypeFunction[GlobalPrototypeFunction::_FunctionCount];
-  JsValueRef getOwnPropertyDescriptorFunction;
-
-  JsValueRef promiseContinuationFunction;
   std::vector<void*> embedderData;
 
 #define DECLARE_CHAKRASHIM_FUNCTION_GETTER(F) \

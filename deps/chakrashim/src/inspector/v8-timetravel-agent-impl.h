@@ -37,7 +37,6 @@ class V8TimeTravelAgentImpl : public protocol::TimeTravel::Backend {
 
   V8InspectorSessionImpl* m_session;
   protocol::TimeTravel::Frontend m_frontend;
-  protocol::DictionaryValue* m_state;
 
   DISALLOW_COPY_AND_ASSIGN(V8TimeTravelAgentImpl);
 };
