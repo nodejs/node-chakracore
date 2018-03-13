@@ -115,6 +115,10 @@ class V8_EXPORT RetainedObjectInfo {
   virtual const char *GetGroupLabel() { return nullptr; }
   virtual intptr_t GetElementCount() { return 0; }
   virtual intptr_t GetSizeInBytes() { return 0; }
+
+ protected:
+  RetainedObjectInfo() {}
+  virtual ~RetainedObjectInfo() {}
 };
 
 struct HeapStatsUpdate {

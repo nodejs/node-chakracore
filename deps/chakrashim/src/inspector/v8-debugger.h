@@ -130,7 +130,6 @@ class V8Debugger {
   v8::Global<v8::Context> m_debuggerContext;
   v8::Local<v8::Context> m_pausedContext;
   bool m_runningNestedMessageLoop;
-  int m_ignoreScriptParsedEventsCounter;
 
   int m_maxAsyncCallStackDepth;
   bool m_pauseOnNextStatement;

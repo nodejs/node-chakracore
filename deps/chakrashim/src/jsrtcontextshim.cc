@@ -80,7 +80,6 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       zero(JS_INVALID_REFERENCE),
       globalObject(JS_INVALID_REFERENCE),
       proxyOfGlobal(JS_INVALID_REFERENCE),
-      promiseContinuationFunction(JS_INVALID_REFERENCE),
 #include "jsrtcachedpropertyidref.inc"
 #undef DEF_IS_TYPE
       cloneObjectFunction(JS_INVALID_REFERENCE),

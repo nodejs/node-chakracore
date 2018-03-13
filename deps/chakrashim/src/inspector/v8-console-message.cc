@@ -236,7 +236,6 @@ V8ConsoleMessage::wrapArguments(V8InspectorSessionImpl* session,
 
   v8::Isolate* isolate = inspectedContext->isolate();
   v8::HandleScope handles(isolate);
-  v8::Local<v8::Context> context = inspectedContext->context();
 
   std::unique_ptr<protocol::Array<protocol::Runtime::RemoteObject>> args =
     protocol::Array<protocol::Runtime::RemoteObject>::create();
@@ -247,7 +246,6 @@ V8ConsoleMessage::wrapArguments(V8InspectorSessionImpl* session,
   } else {
     for (size_t i = 0; i < m_arguments.size(); ++i) {
       // CHAKRA-TODO - Figure out what to do here.
-      v8::Local<v8::Value> arg = m_arguments[i]->Get(isolate);
       std::unique_ptr<protocol::Runtime::RemoteObject> wrapped = nullptr;
       if (!wrapped) {
         args = nullptr;
