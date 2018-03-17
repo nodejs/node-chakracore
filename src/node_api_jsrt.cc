@@ -1493,10 +1493,10 @@ napi_status napi_get_value_int64(napi_env env, napi_value v, int64_t* result) {
   CHECK_JSRT_EXPECTED(JsNumberToDouble(value, &valueDouble),
                       napi_number_expected);
 
-  if (std::isnan(valueDouble)) {
-    *result = 0;
-  } else {
+  if (std::isfinite(valueDouble)) {
     *result = static_cast<int64_t>(valueDouble);
+  } else {
+    *result = 0;
   }
 
   return napi_ok;
