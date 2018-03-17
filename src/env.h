@@ -431,6 +431,7 @@ class Environment {
       DefaultTriggerAsyncIdScope() = delete;
       explicit DefaultTriggerAsyncIdScope(Environment* env,
                                           double init_trigger_async_id);
+      explicit DefaultTriggerAsyncIdScope(AsyncWrap* async_wrap);
       ~DefaultTriggerAsyncIdScope();
 
      private:
@@ -561,8 +562,8 @@ class Environment {
   static uv_key_t thread_local_env;
   static inline Environment* GetThreadLocalEnv();
 
-  inline Environment(IsolateData* isolate_data, v8::Local<v8::Context> context);
-  inline ~Environment();
+  Environment(IsolateData* isolate_data, v8::Local<v8::Context> context);
+  ~Environment();
 
   void Start(int argc,
              const char* const* argv,
@@ -823,17 +824,13 @@ class Environment {
   static const int kFsStatsFieldsLength = 2 * 14;
   AliasedBuffer<double, v8::Float64Array> fs_stats_field_array_;
 
-  struct BeforeExitCallback {
+  struct ExitCallback {
     void (*cb_)(void* arg);
     void* arg_;
   };
-  std::list<BeforeExitCallback> before_exit_functions_;
+  std::list<ExitCallback> before_exit_functions_;
 
-  struct AtExitCallback {
-    void (*cb_)(void* arg);
-    void* arg_;
-  };
-  std::list<AtExitCallback> at_exit_functions_;
+  std::list<ExitCallback> at_exit_functions_;
 
   struct PromiseHookCallback {
     promise_hook_func cb_;

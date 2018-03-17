@@ -7,4 +7,3 @@ AssertionError [ERR_ASSERTION]: bar: expected true, not undefined
    at *
    at *
    at *
-   at *
