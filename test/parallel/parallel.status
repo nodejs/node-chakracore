@@ -60,7 +60,6 @@ test-performance-gc : SKIP
 test-postmortem-metadata: SKIP
 test-process-env-symbols : SKIP
 test-promises-unhandled-symbol-rejections : SKIP
-test-regress-GH-12371 : SKIP
 test-repl : SKIP
 test-repl-inspector : SKIP
 test-repl-mode : SKIP
@@ -87,28 +86,29 @@ test-util-format-shared-arraybuffer : SKIP
 test-util-inspect-proxy : SKIP
 test-v8-serdes : SKIP
 test-v8-serdes-sharedarraybuffer : SKIP
+test-vm-attributes-property-not-on-sandbox : SKIP
 test-vm-cached-data : SKIP
+test-vm-codegen : SKIP
 test-vm-context : SKIP
 test-vm-create-and-run-in-context : SKIP
-test-vm-global-identity : SKIP
-test-vm-low-stack-space : SKIP
-test-vm-preserves-property : SKIP
-test-vm-property-not-on-sandbox : SKIP
-test-vm-sigint : SKIP
-test-vm-sigint-existing-handler : SKIP
-test-vm-strict-mode : SKIP
-test-vm-timeout : SKIP
-test-zlib-convenience-methods : SKIP
-test-vm-attributes-property-not-on-sandbox : SKIP
 test-vm-function-declaration : SKIP
 test-vm-getters : SKIP
 test-vm-global-define-property : SKIP
+test-vm-global-identity : SKIP
 test-vm-global-non-writable-properties : SKIP
 test-vm-global-property-interceptors : SKIP
 test-vm-harmony-symbols : SKIP
 test-vm-indexed-properties : SKIP
+test-vm-low-stack-space : SKIP
+test-vm-preserves-property : SKIP
+test-vm-property-not-on-sandbox : SKIP
 test-vm-proxies : SKIP
+test-vm-sigint : SKIP
+test-vm-sigint-existing-handler : SKIP
 test-vm-strict-assign : SKIP
+test-vm-strict-mode : SKIP
+test-vm-timeout : SKIP
+test-zlib-convenience-methods : SKIP
 
 # These tests are disabled for chakra engine because they depend
 # on v8-option --abort-on-uncaught-exception
@@ -147,12 +147,12 @@ test-stream-buffer-list : SKIP
 
 # These tests requires esmodule support, which is pending in node-chakracore https://github.com/nodejs/node-chakracore/issues/391
 test-inspector-esm : SKIP
+test-internal-module-wrap : SKIP
 test-vm-module-basic : SKIP
 test-vm-module-dynamic-import : SKIP
 test-vm-module-errors : SKIP
 test-vm-module-link : SKIP
 test-vm-module-reevaluate : SKIP
-test-internal-module-wrap : SKIP
 
 # This test requires support for bigints
 test-util-inspect-bigint : SKIP
@@ -184,8 +184,8 @@ test-buffer-slow : SKIP
 
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
-test-module-loading-globalpaths : SKIP
 test-http-client-get-url : SKIP
+test-module-loading-globalpaths : SKIP
 
 [$jsEngine==chakracore && $system==linux]
 # These tests are failing for Node-Chakracore and should eventually be fixed
