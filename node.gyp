@@ -205,6 +205,9 @@
       'sources': [
         'src/node_main.cc'
       ],
+      'includes': [
+        'node.gypi'
+      ],
       'include_dirs': [
         'src',
       ],
@@ -235,9 +238,6 @@
         }],
         [ 'node_intermediate_lib_type=="static_library" and '
             'node_shared=="false"', {
-          'includes': [
-            'node.gypi'
-          ],
           'xcode_settings': {
             'OTHER_LDFLAGS': [
               '-Wl,-force_load,<(PRODUCT_DIR)/<(STATIC_LIB_PREFIX)'
@@ -500,19 +500,6 @@
               ],
             }],
           ],
-          'defines!': [
-            'NODE_PLATFORM="win"',
-          ],
-          'defines': [
-            'FD_SETSIZE=1024',
-            # we need to use node's preferred "win32" rather than gyp's preferred "win"
-            'NODE_PLATFORM="win32"',
-            # Stop <windows.h> from defining macros that conflict with
-            # std::min() and std::max().  We don't use <windows.h> (much)
-            # but we still inherit it from uv.h.
-            'NOMINMAX',
-            '_UNICODE=1',
-          ],
           'libraries': [ '-lpsapi.lib' ],
           'conditions': [
             # this is only necessary for chakra on windows because chakra is dynamically linked on windows
@@ -521,7 +508,6 @@
             }],
           ],
         }, { # POSIX
-          'defines': [ '__POSIX__' ],
           'sources': [ 'src/backtrace_posix.cc' ],
         }],
         [ 'node_use_etw=="true"', {

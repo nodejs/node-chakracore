@@ -37,7 +37,7 @@ napi_value Constructor(napi_env env, napi_callback_info info) {
   NAPI_ASSERT(env, newTargetArg != NULL, "newTargetArg != NULL");
   NAPI_CALL(env, napi_strict_equals(env, newTargetArg, undefined, &result));
   NAPI_ASSERT(env, !result, "new.target !== undefined");
-  
+
   // arguments[0] should be Constructor itself (test harness passed it)
   NAPI_CALL(env, napi_strict_equals(env, newTargetArg, argv, &result));
   NAPI_ASSERT(env, result, "new.target === Constructor");
