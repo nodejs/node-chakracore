@@ -159,4 +159,8 @@ Handle<Value> Context::GetSecurityToken() {
   return Handle<Value>();
 }
 
+void Context::AllowCodeGenerationFromStrings(bool allow) {
+  // CHAKRA-TODO
+}
+
 }  // namespace v8
