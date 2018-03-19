@@ -2534,6 +2534,9 @@ class V8_EXPORT MicrotasksScope {
     MicrotasksScope& operator=(const MicrotasksScope&) = delete;
 };
 
+typedef bool (*AllowWasmCodeGenerationCallback)(Local<Context> context,
+                                                Local<String> source);
+
 enum GCType {
   kGCTypeScavenge = 1 << 0,
   kGCTypeMarkSweepCompact = 1 << 1,
@@ -2804,6 +2807,8 @@ class V8_EXPORT Isolate {
   void SetCaptureStackTraceForUncaughtExceptions(
       bool capture, int frame_limit = 10,
       StackTrace::StackTraceOptions options = StackTrace::kOverview);
+  void SetAllowWasmCodeGenerationCallback(
+      AllowWasmCodeGenerationCallback callback);
 };
 
 class V8_EXPORT JitCodeEvent {
@@ -2986,6 +2991,7 @@ class V8_EXPORT Context {
   Local<Value> GetEmbedderData(int index);
   void SetSecurityToken(Handle<Value> token);
   Handle<Value> GetSecurityToken();
+  void AllowCodeGenerationFromStrings(bool allow);
 };
 
 class V8_EXPORT Locker {
