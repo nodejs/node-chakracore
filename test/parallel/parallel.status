@@ -70,15 +70,16 @@ test-repl-tab-complete : SKIP
 test-string-decoder : SKIP
 
 # ChakraCore does not support the chrome tracing framework
-test-trace-events-all : PASS,SKIP
-test-trace-events-async-hooks : PASS,SKIP
-test-trace-events-binding : PASS,SKIP
-test-trace-events-category-used : PASS,SKIP
-test-trace-events-file-pattern : PASS,SKIP
-test-trace-events-none : PASS,SKIP
-test-trace-events-perf : PASS,SKIP
-test-trace-events-process-exit : PASS,SKIP
-test-trace-events-v8 : PASS,SKIP
+test-trace-events-all : SKIP
+test-trace-events-async-hooks : SKIP
+test-trace-events-binding : SKIP
+test-trace-events-bootstrap : SKIP
+test-trace-events-category-used : SKIP
+test-trace-events-file-pattern : SKIP
+test-trace-events-none : SKIP
+test-trace-events-perf : SKIP
+test-trace-events-process-exit : SKIP
+test-trace-events-v8 : SKIP
 
 test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
