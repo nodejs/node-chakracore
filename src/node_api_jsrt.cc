@@ -2125,8 +2125,14 @@ napi_status napi_make_callback(napi_env env,
     node::MakeCallback(isolate, v8recv, v8func, argc, v8argv,
                        *node_async_context);
 
+  bool hasException;
+  CHECK_JSRT(JsHasException(&hasException));
+  if (hasException) {
+    return napi_set_last_error(napi_pending_exception);
+  }
+
   if (v8result.IsEmpty()) {
-      return napi_set_last_error(napi_generic_failure);
+    return napi_set_last_error(napi_generic_failure);
   }
 
   if (result != nullptr) {
