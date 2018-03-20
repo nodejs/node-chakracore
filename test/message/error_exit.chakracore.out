@@ -5,9 +5,9 @@ assert.js:*
 
 AssertionError [ERR_ASSERTION]: 1 strictEqual 2
    at Anonymous function (*test*message*error_exit.js:*:*)
-   at Module.prototype._compile (module.js:*:*)
-   at Module._extensions[.js] (module.js:*:*)
-   at Module.prototype.load (module.js:*:*)
-   at tryModuleLoad (module.js:*)
-   at Module._load (module.js:*:*)
-   at Module.runMain (module.js:*:*)
+   at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
+   at Module._extensions[.js] (internal/modules/cjs/loader.js:*:*)
+   at Module.prototype.load (internal/modules/cjs/loader.js:*:*)
+   at tryModuleLoad (internal/modules/cjs/loader.js:*)
+   at Module._load (internal/modules/cjs/loader.js:*:*)
+   at Module.runMain (internal/modules/cjs/loader.js:*:*)

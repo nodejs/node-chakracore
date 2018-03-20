@@ -8,10 +8,10 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at createScript (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)
-   at Module.prototype._compile (module.js:*:*)
-   at evalScript (bootstrap_node.js:*:*)
-   at startup (bootstrap_node.js:*:*)
-   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
+   at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
+   at evalScript (internal/bootstrap/node.js:*:*)
+   at startup (internal/bootstrap/node.js:*:*)
+   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 42
 42
 [eval]:1
@@ -23,10 +23,10 @@ Error: hello
    at Script.prototype.runInThisContext (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)
-   at Module.prototype._compile (module.js:*:*)
-   at evalScript (bootstrap_node.js:*:*)
-   at startup (bootstrap_node.js:*:*)
-   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
+   at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
+   at evalScript (internal/bootstrap/node.js:*:*)
+   at startup (internal/bootstrap/node.js:*:*)
+   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 [eval]:1
 'use strict'; throw new Error("hello")
               ^
@@ -36,10 +36,10 @@ Error: hello
    at Script.prototype.runInThisContext (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)
-   at Module.prototype._compile (module.js:*:*)
-   at evalScript (bootstrap_node.js:*:*)
-   at startup (bootstrap_node.js:*:*)
-   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
+   at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
+   at evalScript (internal/bootstrap/node.js:*:*)
+   at startup (internal/bootstrap/node.js:*:*)
+   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 100
 [eval]:1
 'use strict'; var x = 100; y = x;
@@ -50,10 +50,10 @@ ReferenceError: Variable undefined in strict mode
    at Script.prototype.runInThisContext (vm.js:*:*)
    at runInThisContext (vm.js:*:*)
    at Anonymous function ([eval]-wrapper:*:*)
-   at Module.prototype._compile (module.js:*:*)
-   at evalScript (bootstrap_node.js:*:*)
-   at startup (bootstrap_node.js:*:*)
-   at bootstrapNodeJSCore (bootstrap_node.js:*:*)
+   at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
+   at evalScript (internal/bootstrap/node.js:*:*)
+   at startup (internal/bootstrap/node.js:*:*)
+   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 
 vm.js:*
     return realRunInThisContext.call(this, options);
