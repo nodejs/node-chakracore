@@ -25,8 +25,8 @@
     'node_lib_target_name%': 'node_lib',
     'node_intermediate_lib_type%': 'static_library',
     'library_files': [
-      'lib/internal/bootstrap_loaders.js',
-      'lib/internal/bootstrap_node.js',
+      'lib/internal/bootstrap/loaders.js',
+      'lib/internal/bootstrap/node.js',
       'lib/async_hooks.js',
       'lib/assert.js',
       'lib/buffer.js',
@@ -106,17 +106,18 @@
       'lib/internal/http.js',
       'lib/internal/inspector_async_hook.js',
       'lib/internal/linkedlist.js',
-      'lib/internal/loader/Loader.js',
-      'lib/internal/loader/CreateDynamicModule.js',
-      'lib/internal/loader/DefaultResolve.js',
-      'lib/internal/loader/ModuleJob.js',
-      'lib/internal/loader/ModuleMap.js',
-      'lib/internal/loader/Translators.js',
+      'lib/internal/modules/cjs/helpers.js',
+      'lib/internal/modules/cjs/loader.js',
+      'lib/internal/modules/esm/Loader.js',
+      'lib/internal/modules/esm/CreateDynamicModule.js',
+      'lib/internal/modules/esm/DefaultResolve.js',
+      'lib/internal/modules/esm/ModuleJob.js',
+      'lib/internal/modules/esm/ModuleMap.js',
+      'lib/internal/modules/esm/Translators.js',
       'lib/internal/safe_globals.js',
       'lib/internal/net.js',
-      'lib/internal/module.js',
       'lib/internal/os.js',
-      'lib/internal/process/modules.js',
+      'lib/internal/process/esm_loader.js',
       'lib/internal/process/next_tick.js',
       'lib/internal/process/promises.js',
       'lib/internal/process/stdio.js',
@@ -205,6 +206,9 @@
       'sources': [
         'src/node_main.cc'
       ],
+      'includes': [
+        'node.gypi'
+      ],
       'include_dirs': [
         'src',
       ],
@@ -235,9 +239,6 @@
         }],
         [ 'node_intermediate_lib_type=="static_library" and '
             'node_shared=="false"', {
-          'includes': [
-            'node.gypi'
-          ],
           'xcode_settings': {
             'OTHER_LDFLAGS': [
               '-Wl,-force_load,<(PRODUCT_DIR)/<(STATIC_LIB_PREFIX)'
@@ -350,6 +351,7 @@
         'src/string_decoder.cc',
         'src/string_search.cc',
         'src/stream_base.cc',
+        'src/stream_pipe.cc',
         'src/stream_wrap.cc',
         'src/tcp_wrap.cc',
         'src/timer_wrap.cc',
@@ -409,6 +411,7 @@
         'src/string_decoder-inl.h',
         'src/stream_base.h',
         'src/stream_base-inl.h',
+        'src/stream_pipe.h',
         'src/stream_wrap.h',
         'src/tracing/agent.h',
         'src/tracing/node_trace_buffer.h',
@@ -500,19 +503,6 @@
               ],
             }],
           ],
-          'defines!': [
-            'NODE_PLATFORM="win"',
-          ],
-          'defines': [
-            'FD_SETSIZE=1024',
-            # we need to use node's preferred "win32" rather than gyp's preferred "win"
-            'NODE_PLATFORM="win32"',
-            # Stop <windows.h> from defining macros that conflict with
-            # std::min() and std::max().  We don't use <windows.h> (much)
-            # but we still inherit it from uv.h.
-            'NOMINMAX',
-            '_UNICODE=1',
-          ],
           'libraries': [ '-lpsapi.lib' ],
           'conditions': [
             # this is only necessary for chakra on windows because chakra is dynamically linked on windows
@@ -521,7 +511,6 @@
             }],
           ],
         }, { # POSIX
-          'defines': [ '__POSIX__' ],
           'sources': [ 'src/backtrace_posix.cc' ],
         }],
         [ 'node_use_etw=="true"', {

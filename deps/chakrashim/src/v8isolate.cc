@@ -272,6 +272,11 @@ bool Isolate::GetHeapSpaceStatistics(HeapSpaceStatistics* space_statistics,
   return true;
 }
 
+void Isolate::SetAllowWasmCodeGenerationCallback(
+    AllowWasmCodeGenerationCallback callback) {
+  // CHAKRA-TODO: Figure out what to do here
+}
+
 Isolate::DisallowJavascriptExecutionScope::DisallowJavascriptExecutionScope(
   Isolate* isolate,
   OnFailure on_failure) {
