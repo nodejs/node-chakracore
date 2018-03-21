@@ -47,7 +47,7 @@ Object.defineProperty(exports, 'PORT', {
 
 
 exports.isWindows = process.platform === 'win32';
-exports.isChakraEngine = process.jsEngine === 'chakracore';
+exports.isChakraEngine = 'chakracore' in process.versions;
 exports.isWOW64 = exports.isWindows &&
                   (process.env.PROCESSOR_ARCHITEW6432 !== undefined);
 exports.isAIX = process.platform === 'aix';
@@ -618,8 +618,14 @@ exports.engineSpecificMessage = function(messageObject) {
   assert.ok(!areAllValuesStringEqual(messageObject),
             'Unnecessary usage of \'engineSpecificMessage\'');
 
-  const jsEngine = process.jsEngine || 'v8'; //default is 'v8'
-  return messageObject[jsEngine];
+  for (const version of Object.getOwnPropertyNames(process.versions)) {
+    const message = messageObject[version];
+    if (message !== undefined) {
+      return message;
+    }
+  }
+
+  return undefined;
 };
 
 exports.busyLoop = function busyLoop(time) {

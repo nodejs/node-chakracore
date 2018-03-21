@@ -783,18 +783,6 @@ falsy value.
 An invalid symlink type was passed to the [`fs.symlink()`][] or
 [`fs.symlinkSync()`][] methods.
 
-<a id="ERR_FS_WATCHER_ALREADY_STARTED"></a>
-### ERR_FS_WATCHER_ALREADY_STARTED
-
-An attempt was made to start a watcher returned by `fs.watch()` that has
-already been started.
-
-<a id="ERR_FS_WATCHER_NOT_STARTED"></a>
-### ERR_FS_WATCHER_NOT_STARTED
-
-An attempt was made to initiate operations on a watcher returned by
-`fs.watch()` that has not yet been started.
-
 <a id="ERR_HTTP_HEADERS_SENT"></a>
 ### ERR_HTTP_HEADERS_SENT
 
@@ -1053,6 +1041,11 @@ The `inspector` module is not available for use.
 
 While using the `inspector` module, an attempt was made to use the inspector
 before it was connected.
+
+<a id="ERR_INVALID_ADDRESS_FAMILY"></a>
+### ERR_INVALID_ADDRESS_FAMILY
+
+The provided address family is not understood by the Node.js API.
 
 <a id="ERR_INVALID_ARG_TYPE"></a>
 ### ERR_INVALID_ARG_TYPE
