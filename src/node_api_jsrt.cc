@@ -109,10 +109,6 @@ namespace v8impl {
 
 //=== Conversion between V8 Isolate and napi_env ==========================
 
-v8::Isolate* V8IsolateFromJsEnv(napi_env e) {
-  return reinterpret_cast<v8::Isolate*>(e);
-}
-
 class HandleScopeWrapper {
  public:
   explicit HandleScopeWrapper(
@@ -2109,7 +2105,7 @@ napi_status napi_make_callback(napi_env env,
                                size_t argc,
                                const napi_value* argv,
                                napi_value* result) {
-  v8::Isolate* isolate = v8impl::V8IsolateFromJsEnv(env);
+  v8::Isolate* isolate = env->isolate;
   v8::Local<v8::Object> v8recv =
     v8impl::V8LocalValueFromJsValue(recv).As<v8::Object>();
   v8::Local<v8::Function> v8func =
@@ -2161,7 +2157,7 @@ napi_status napi_create_buffer(napi_env env,
   // TODO(tawoll): Replace v8impl with jsrt-based version.
 
   v8::MaybeLocal<v8::Object> maybe =
-    node::Buffer::New(v8impl::V8IsolateFromJsEnv(env), length);
+    node::Buffer::New(env->isolate, length);
   if (maybe.IsEmpty()) {
     return napi_generic_failure;
   }
@@ -2187,7 +2183,7 @@ napi_status napi_create_external_buffer(napi_env env,
   jsrtimpl::ExternalData* externalData = new jsrtimpl::ExternalData(
     env, data, finalize_cb, finalize_hint);
   v8::MaybeLocal<v8::Object> maybe = node::Buffer::New(
-    v8impl::V8IsolateFromJsEnv(env),
+    env->isolate,
     static_cast<char*>(data),
     length,
     jsrtimpl::ExternalData::FinalizeBuffer,
@@ -2211,7 +2207,7 @@ napi_status napi_create_buffer_copy(napi_env env,
   // chakra shim here.
 
   v8::MaybeLocal<v8::Object> maybe = node::Buffer::Copy(
-    v8impl::V8IsolateFromJsEnv(env), static_cast<const char*>(data), length);
+    env->isolate, static_cast<const char*>(data), length);
   if (maybe.IsEmpty()) {
     return napi_generic_failure;
   }
