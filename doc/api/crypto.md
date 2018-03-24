@@ -1254,7 +1254,11 @@ This property is deprecated. Please use `crypto.setFips()` and
 ### crypto.createCipher(algorithm, password[, options])
 <!-- YAML
 added: v0.1.94
+deprecated: REPLACEME
 -->
+
+> Stability: 0 - Deprecated: Use [`crypto.createCipheriv()`][] instead.
+
 - `algorithm` {string}
 - `password` {string | Buffer | TypedArray | DataView}
 - `options` {Object} [`stream.transform` options][]
@@ -1290,7 +1294,7 @@ Adversaries][] for details.
 <!-- YAML
 added: v0.1.94
 changes:
-  - version: REPLACEME
+  - version: v9.9.0
     pr-url: https://github.com/nodejs/node/pull/18644
     description: The `iv` parameter may now be `null` for ciphers which do not
                  need an initialization vector.
@@ -1334,7 +1338,11 @@ called.
 ### crypto.createDecipher(algorithm, password[, options])
 <!-- YAML
 added: v0.1.94
+deprecated: REPLACEME
 -->
+
+> Stability: 0 - Deprecated: Use [`crypto.createDecipheriv()`][] instead.
+
 - `algorithm` {string}
 - `password` {string | Buffer | TypedArray | DataView}
 - `options` {Object} [`stream.transform` options][]
@@ -1358,7 +1366,7 @@ to create the `Decipher` object.
 <!-- YAML
 added: v0.1.94
 changes:
-  - version: REPLACEME
+  - version: v9.9.0
     pr-url: https://github.com/nodejs/node/pull/18644
     description: The `iv` parameter may now be `null` for ciphers which do not
                  need an initialization vector.

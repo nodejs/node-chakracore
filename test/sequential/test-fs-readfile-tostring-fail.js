@@ -30,7 +30,6 @@ for (let i = 0; i < 201; i++) {
 
 stream.end();
 stream.on('finish', common.mustCall(function() {
-  // make sure that the toString does not throw an error
   fs.readFile(file, 'utf8', common.mustCall(function(err, buf) {
     // Skip 'toString()' check for chakra engine because it verifies limit of v8
     // specific kStringMaxLength variable.
@@ -38,8 +37,8 @@ stream.on('finish', common.mustCall(function() {
       return;
     }
     assert.ok(err instanceof Error);
-    assert(/^(Array buffer allocation failed|"toString\(\)" failed)$/
-             .test(err.message));
+    assert.ok(/^(Array buffer allocation failed|"toString\(\)" failed)$/
+              .test(err.message));
     assert.strictEqual(buf, undefined);
   }));
 }));

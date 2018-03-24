@@ -343,6 +343,7 @@ class Local {
   friend class Context;
   friend class Date;
   friend class Debug;
+  friend class Exception;
   friend class External;
   friend class Function;
   friend class FunctionCallbackData;
@@ -2520,6 +2521,7 @@ class V8_EXPORT Exception {
   static Local<Value> SyntaxError(Handle<String> message);
   static Local<Value> TypeError(Handle<String> message);
   static Local<Value> Error(Handle<String> message);
+  static Local<Message> CreateMessage(Isolate* isolate, Local<Value> exception);
 };
 
 class V8_EXPORT MicrotasksScope {

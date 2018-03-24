@@ -51,4 +51,13 @@ Local<Value> Exception::Error(Handle<String> message) {
   return Utils::NewError(message, JsCreateError);
 }
 
+Local<Message> Exception::CreateMessage(Isolate* isolate,
+                                        Local<Value> exception) {
+  // ChakraCore doesn't have any way to get metadata about an error that was
+  // instantiated, but not thrown. Create an empty object to use instead.
+  JsValueRef metadata;
+  JsCreateObject(&metadata);
+  return v8::Local<v8::Message>::New(metadata);
+}
+
 }  // namespace v8
