@@ -41,6 +41,9 @@ String::Utf8Value::Utf8Value(Handle<v8::Value> obj)
   }
 }
 
+String::Utf8Value::Utf8Value(Isolate* isolate, Local<v8::Value> obj)
+    : Utf8Value(obj) {}
+
 String::Utf8Value::~Utf8Value() {
   if (_str != nullptr) {
     free(_str);
@@ -59,6 +62,9 @@ String::Value::Value(Handle<v8::Value> obj) : _str(nullptr), _length(0) {
   _str = new uint16_t[_length + 1];
   str->Write(_str);
 }
+
+String::Value::Value(Isolate* isolate, Local<v8::Value> obj)
+    : Value(obj) {}
 
 String::Value::~Value() {
   if (_str != nullptr) {
