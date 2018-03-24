@@ -118,9 +118,6 @@ static bool startsWith(const char* str, const char (&prefix)[N]) {
   return strncmp(str, prefix, N - 1) == 0;
 }
 
-
-
-
 void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
   for (int i = 1; i < *argc; i++) {
     // Note: Node now exits on invalid options. We may not recognize V8 flags
@@ -142,18 +139,24 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
         argv[i] = nullptr;
       }
     } else if (equals("--trace-debug-json", arg) ||
-      equals("--trace_debug_json", arg)) {
+               equals("--trace_debug_json", arg)) {
       g_trace_debug_json = true;
       if (remove_flags) {
         argv[i] = nullptr;
       }
-    } else if (remove_flags &&
-               (startsWith(
-                 arg, "--debug")  // Ignore some flags to reduce unit test noise
-                || startsWith(arg, "--harmony")
-                || startsWith(arg, "--stack-size=")
-                || startsWith(arg, "--nolazy"))) {
-      argv[i] = nullptr;
+    } else if (startsWith(arg, "--debug") ||
+               startsWith(arg, "--harmony") ||
+               startsWith(arg, "--max-old-space-size=") ||
+               startsWith(arg, "--nolazy") ||
+               startsWith(arg, "--stack-size=")) {
+      // Ignore some flags to reduce compatibility issues. These flags don't
+      // have any functionality differences in ChakraCore and are generally
+      // invisible to the running code.
+      fprintf(stderr, "Warning: Ignored engine flag: %s\n", arg);
+
+      if (remove_flags) {
+        argv[i] = nullptr;
+      }
     } else if (equals("--help", arg)) {
         printf(
           "Options:\n"
