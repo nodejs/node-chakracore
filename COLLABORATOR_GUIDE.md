@@ -35,6 +35,7 @@
     - [How are LTS Branches Managed?](#how-are-lts-branches-managed)
     - [How can I help?](#how-can-i-help)
     - [How is an LTS release cut?](#how-is-an-lts-release-cut)
+* [Who to CC in the issue tracker](#who-to-cc-in-the-issue-tracker)
 
 This document contains information for Collaborators of the Node.js
 project regarding managing the project's code, documentation, and issue tracker.
@@ -53,7 +54,7 @@ requests they feel qualified to handle. Make sure this is done while being
 mindful of these guidelines, the opinions of other Collaborators, and guidance
 of the [TSC][]. They may also notify other qualified parties for more input on
 an issue or a pull request.
-[See "Who to CC in issues"](./doc/onboarding-extras.md#who-to-cc-in-issues)
+See [Who to CC in the issue tracker](#who-to-cc-in-the-issue-tracker).
 
 ### Welcoming First-Time Contributors
 
@@ -118,7 +119,7 @@ Collaborator, an additional Collaborator is required for sign-off.
 
 In some cases, it may be necessary to summon a GitHub team to a pull request for
 review by @-mention.
-[See "Who to CC in issues"](./doc/onboarding-extras.md#who-to-cc-in-issues).
+See [Who to CC in the issue tracker](#who-to-cc-in-the-issue-tracker).
 
 If you are unsure about the modification and are not prepared to take
 full responsibility for the change, defer to another Collaborator.
@@ -192,9 +193,17 @@ All bugfixes require a test case which demonstrates the defect. The
 test should *fail* before the change, and *pass* after the change.
 
 All pull requests that modify executable code should also include a test case
-and be subjected to continuous integration tests on the
+and must be subjected to continuous integration tests on the
 [project CI server](https://ci.nodejs.org/). The pull request should have a CI
-status indicator if possible.
+status indicator.
+
+Do not land any Pull Requests without passing (green or yellow) CI runs. If you
+believe any failed (red or grey) CI sub-tasks are unrelated to the change in the
+Pull Request, you may re-run the sub-task to try to see if it passes. If re-runs
+of all failed sub-tasks pass, it is permissible to land the Pull Request but
+only if the initial failures are believed in good faith to be unrelated to the
+changes in the Pull Request. Otherwise, reasonable steps must be taken to
+confirm that the changes are not resulting in an unreliable test.
 
 #### Useful CI Jobs
 
@@ -203,13 +212,9 @@ is the standard CI run we do to check Pull Requests. It triggers
 `node-test-commit`, which runs the `build-ci` and `test-ci` targets on all
 supported platforms.
 
-* [`node-test-linter`](https://ci.nodejs.org/job/node-test-linter/)
-only runs the linter targets, which is useful for changes that only affect
-comments or documentation.
-
 * [`node-test-pull-request-lite`](https://ci.nodejs.org/job/node-test-pull-request-lite/)
-only runs the linter job, as well as the tests on LinuxONE. Should only be used
-for trivial changes that do not require being tested on all platforms.
+only runs the linter job, as well as the tests on LinuxONE, which is very fast.
+This is useful for changes that only affect comments or documentation.
 
 * [`citgm-smoker`](https://ci.nodejs.org/job/citgm-smoker/)
 uses [`CitGM`](https://github.com/nodejs/citgm) to allow you to run
@@ -498,12 +503,11 @@ The TSC should serve as the final arbiter where required.
    one](https://github.com/nodejs/node/commit/b636ba8186) if unsure exactly how
    to format your commit messages.
 
-Additionally:
+Check PRs from new contributors to make sure the person's name and email address
+are correct before merging.
 
-* Double check PRs to make sure the person's _full name_ and email
-  address are correct before merging.
-* All commits should be self-contained (meaning every commit should pass all
-  tests). This makes it much easier when bisecting to find a breaking change.
+All commits should be self-contained, meaning every commit should pass all
+tests. This makes it much easier when bisecting to find a breaking change.
 
 ### Using `git-node`
 
@@ -817,6 +821,54 @@ When the LTS working group determines that a new LTS release is required,
 selected commits will be picked from the staging branch to be included in the
 release. This process of making a release will be a collaboration between the
 LTS working group and the Release team.
+
+## Who to CC in the issue tracker
+
+| Subsystem                                | Maintainers                                                           |
+| ---                                      | ---                                                                   |
+| `benchmark/*`                            | @nodejs/benchmarking, @mscdex                                         |
+| `bootstrap_node.js`                      | @nodejs/process                                                       |
+| `doc/*`, `*.md`                          | @nodejs/documentation                                                 |
+| `lib/assert`                             | @nodejs/testing                                                       |
+| `lib/async_hooks`                        | @nodejs/async\_hooks for bugs/reviews (+ @nodejs/diagnostics for API) |
+| `lib/buffer`                             | @nodejs/buffer                                                        |
+| `lib/child_process`                      | @nodejs/child\_process                                                |
+| `lib/cluster`                            | @nodejs/cluster                                                       |
+| `lib/{crypto,tls,https}`                 | @nodejs/crypto                                                        |
+| `lib/dgram`                              | @nodejs/dgram                                                         |
+| `lib/domains`                            | @nodejs/domains                                                       |
+| `lib/fs`, `src/{fs,file}`                | @nodejs/fs                                                            |
+| `lib/{_}http{*}`                         | @nodejs/http                                                          |
+| `lib/inspector.js`, `src/inspector_*`    | @nodejs/V8-inspector                                                  |
+| `lib/internal/url`, `src/node_url`       | @nodejs/url                                                           |
+| `lib/net`                                | @bnoordhuis, @indutny, @nodejs/streams                                |
+| `lib/repl`                               | @nodejs/repl                                                          |
+| `lib/{_}stream{*}`                       | @nodejs/streams                                                       |
+| `lib/timers`                             | @nodejs/timers                                                        |
+| `lib/util`                               | @nodejs/util                                                          |
+| `lib/zlib`                               | @nodejs/zlib                                                          |
+| `src/async-wrap.*`                       | @nodejs/async\_hooks                                                  |
+| `src/node_api.*`                         | @nodejs/n-api                                                         |
+| `src/node_crypto.*`                      | @nodejs/crypto                                                        |
+| `test/*`                                 | @nodejs/testing                                                       |
+| `tools/node_modules/eslint`, `.eslintrc` | @nodejs/linting                                                       |
+| build                                    | @nodejs/build                                                         |
+| `src/module_wrap.*`, `lib/internal/loader/*`, `lib/internal/vm/Module.js` | @nodejs/modules                      |
+| GYP                                      | @nodejs/gyp                                                           |
+| performance                              | @nodejs/performance                                                   |
+| platform specific                        | @nodejs/platform-{aix,arm,freebsd,macos,ppc,smartos,s390,windows}     |
+| python code                              | @nodejs/python                                                        |
+| upgrading c-ares                         | @rvagg                                                                |
+| upgrading http-parser                    | @nodejs/http, @nodejs/http2                                           |
+| upgrading libuv                          | @nodejs/libuv                                                         |
+| upgrading npm                            | @fishrock123, @MylesBorins                                            |
+| upgrading V8                             | @nodejs/V8, @nodejs/post-mortem                                       |
+| Embedded use or delivery of Node.js      | @nodejs/delivery-channels                                             |
+
+When things need extra attention, are controversial, or `semver-major`:
+@nodejs/tsc
+
+If you cannot find who to cc for a file, `git shortlog -n -s <file>` may help.
 
 [backporting guide]: doc/guides/backporting-to-release-lines.md
 [contributing]: ./doc/guides/contributing/pull-requests.md#commit-message-guidelines
