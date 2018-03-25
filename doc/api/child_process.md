@@ -27,10 +27,16 @@ ls.on('close', (code) => {
 ```
 
 By default, pipes for `stdin`, `stdout`, and `stderr` are established between
-the parent Node.js process and the spawned child. It is possible to stream data
-through these pipes in a non-blocking way. *Note, however, that some programs
-use line-buffered I/O internally. While that does not affect Node.js, it can
-mean that data sent to the child process may not be immediately consumed.*
+the parent Node.js process and the spawned child. These pipes have
+limited (and platform-specific) capacity. If the child process writes to
+stdout in excess of that limit without the output being captured, the child
+process will block waiting for the pipe buffer to accept more data. This is
+identical to the behavior of pipes in the shell. Use the `{ stdio: 'ignore' }`
+option if the output will not be consumed.
+It is possible to stream data through these pipes in a non-blocking way. Note,
+however, that some programs use line-buffered I/O internally. While that does
+not affect Node.js, it can mean that data sent to the child process may not be
+immediately consumed.
 
 The [`child_process.spawn()`][] method spawns the child process asynchronously,
 without blocking the Node.js event loop. The [`child_process.spawnSync()`][]
@@ -223,8 +229,9 @@ the existing process and uses a shell to execute the command.
 
 If this method is invoked as its [`util.promisify()`][]ed version, it returns
 a Promise for an object with `stdout` and `stderr` properties. In case of an
-error, a rejected promise is returned, with the same `error` object given in the
-callback, but with an additional two properties `stdout` and `stderr`.
+error (including any error resulting in an exit code other than 0), a rejected
+promise is returned, with the same `error` object given in the callback, but
+with an additional two properties `stdout` and `stderr`.
 
 ```js
 const util = require('util');
@@ -301,7 +308,8 @@ encoding, `Buffer` objects will be passed to the callback instead.
 
 If this method is invoked as its [`util.promisify()`][]ed version, it returns
 a Promise for an object with `stdout` and `stderr` properties. In case of an
-error, a rejected promise is returned, with the same `error` object given in the
+error (including any error resulting in an exit code other than 0), a rejected
+promise is returned, with the same `error` object given in the
 callback, but with an additional two properties `stdout` and `stderr`.
 
 ```js

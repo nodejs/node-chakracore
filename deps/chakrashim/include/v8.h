@@ -1332,7 +1332,9 @@ class V8_EXPORT String : public Name {
 
   class V8_EXPORT Utf8Value {
    public:
-    explicit Utf8Value(Handle<v8::Value> obj);
+    V8_DEPRECATE_SOON("Use Isolate version",
+                      explicit Utf8Value(Local<v8::Value> obj));
+    Utf8Value(Isolate* isolate, Local<v8::Value> obj);
     ~Utf8Value();
     char *operator*() { return _str; }
     const char *operator*() const { return _str; }
@@ -1347,7 +1349,9 @@ class V8_EXPORT String : public Name {
 
   class V8_EXPORT Value {
    public:
-    explicit Value(Handle<v8::Value> obj);
+    V8_DEPRECATE_SOON("Use Isolate version",
+                      explicit Value(Local<v8::Value> obj));
+    Value(Isolate* isolate, Local<v8::Value> obj);
     ~Value();
     uint16_t *operator*() { return _str; }
     const uint16_t *operator*() const { return _str; }

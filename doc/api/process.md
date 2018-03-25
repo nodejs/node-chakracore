@@ -489,6 +489,8 @@ $ bash -c 'exec -a customArgv0 ./node'
 added: v7.1.0
 -->
 
+* {Object}
+
 If the Node.js process was spawned with an IPC channel (see the
 [Child Process][] documentation), the `process.channel`
 property is a reference to the IPC channel. If no IPC channel exists, this
@@ -921,7 +923,7 @@ console.log(process.env.test);
 added: v0.7.7
 -->
 
-* {Object}
+* {Array}
 
 The `process.execArgv` property returns the set of Node.js-specific command-line
 options passed when the Node.js process was launched. These options do not
@@ -1250,6 +1252,8 @@ debugger, see [Signal Events][].
 added: v0.1.17
 -->
 
+* {Object}
+
 The `process.mainModule` property provides an alternative way of retrieving
 [`require.main`][]. The difference is that if the main module changes at
 runtime, [`require.main`][] may still refer to the original main module in
@@ -1479,6 +1483,8 @@ changes:
     description: The `lts` property is now supported.
 -->
 
+* {Object}
+
 The `process.release` property returns an Object containing metadata related to
 the current release, including URLs for the source tarball and headers-only
 tarball.
@@ -1503,6 +1509,21 @@ tarball.
   - `'Argon'` for the 4.x LTS line beginning with 4.2.0.
   - `'Boron'` for the 6.x LTS line beginning with 6.9.0.
   - `'Carbon'` for the 8.x LTS line beginning with 8.9.1.
+* `majorVersion` {number} The major version of Node.js.
+* `minorVersion` {number} The minor version of Node.js.
+* `patchVersion` {number} The patch version of Node.js.
+* `prereleaseTag` {string} The SemVer pre-release tag for Node.js.
+* `computedVersion` {number} A number representing the current version, created
+  using the following method:
+  `(majorVersion << 16) + (minorVersion << 8) + patchVersion`
+* `compareVersion` {function} Perform a SemVer comparison to the release
+  version.
+    * `major`
+    * `minor`
+    * `patch`
+    * Returns: {number} `-1` if the given version is lower than the release
+      version, `0` if the given version matches the process version, and `1`
+      if the given version is greater than the release version.
 
 <!-- eslint-skip -->
 ```js
@@ -1511,7 +1532,12 @@ tarball.
   lts: 'Argon',
   sourceUrl: 'https://nodejs.org/download/release/v4.4.5/node-v4.4.5.tar.gz',
   headersUrl: 'https://nodejs.org/download/release/v4.4.5/node-v4.4.5-headers.tar.gz',
-  libUrl: 'https://nodejs.org/download/release/v4.4.5/win-x64/node.lib'
+  libUrl: 'https://nodejs.org/download/release/v4.4.5/win-x64/node.lib',
+  majorVersion: 4,
+  minorVersion: 4,
+  patchVersion: 5,
+  prereleaseTag: '',
+  computedVersion: 263173,
 }
 ```
 
