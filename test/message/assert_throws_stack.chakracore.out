@@ -1,4 +1,4 @@
-assert.js:428
+assert.js:*
       compareExceptionKey(actual, expected, key, msg, keys);
       ^
 
