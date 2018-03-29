@@ -365,7 +365,7 @@ Emitted when the `fs.ReadStream`'s file descriptor has been opened.
 
 ### readStream.bytesRead
 <!-- YAML
-added: 6.4.0
+added: v6.4.0
 -->
 
 * Value: {number}
@@ -421,24 +421,36 @@ Stats {
 ```
 
 ### stats.isBlockDevice()
+<!-- YAML
+added: v0.1.10
+-->
 
 * Returns: {boolean}
 
 Returns `true` if the `fs.Stats` object describes a block device.
 
 ### stats.isCharacterDevice()
+<!-- YAML
+added: v0.1.10
+-->
 
 * Returns: {boolean}
 
 Returns `true` if the `fs.Stats` object describes a character device.
 
 ### stats.isDirectory()
+<!-- YAML
+added: v0.1.10
+-->
 
 * Returns: {boolean}
 
 Returns `true` if the `fs.Stats` object describes a file system directory.
 
 ### stats.isFIFO()
+<!-- YAML
+added: v0.1.10
+-->
 
 * Returns: {boolean}
 
@@ -446,18 +458,27 @@ Returns `true` if the `fs.Stats` object describes a first-in-first-out (FIFO)
 pipe.
 
 ### stats.isFile()
+<!-- YAML
+added: v0.1.10
+-->
 
 * Returns: {boolean}
 
 Returns `true` if the `fs.Stats` object describes a regular file.
 
 ### stats.isSocket()
+<!-- YAML
+added: v0.1.10
+-->
 
 * Returns: {boolean}
 
 Returns `true` if the `fs.Stats` object describes a socket.
 
 ### stats.isSymbolicLink()
+<!-- YAML
+added: v0.1.10
+-->
 
 * Returns: {boolean}
 
@@ -520,6 +541,9 @@ The file system block size for i/o operations.
 The number of blocks allocated for this file.
 
 ### stats.atimeMs
+<!-- YAML
+added: v8.1.0
+-->
 
 * Value: {number}
 
@@ -527,6 +551,9 @@ The timestamp indicating the last time this file was accessed expressed in
 milliseconds since the POSIX Epoch.
 
 ### stats.mtimeMs
+<!-- YAML
+added: v8.1.0
+-->
 
 * Value: {number}
 
@@ -534,6 +561,9 @@ The timestamp indicating the last time this file was modified expressed in
 milliseconds since the POSIX Epoch.
 
 ### stats.ctimeMs
+<!-- YAML
+added: v8.1.0
+-->
 
 * Value: {number}
 
@@ -541,6 +571,9 @@ The timestamp indicating the last time the file status was changed expressed
 in milliseconds since the POSIX Epoch.
 
 ### stats.birthtimeMs
+<!-- YAML
+added: v8.1.0
+-->
 
 * Value: {number}
 
@@ -548,24 +581,36 @@ The timestamp indicating the creation time of this file expressed in
 milliseconds since the POSIX Epoch.
 
 ### stats.atime
+<!-- YAML
+added: v0.11.13
+-->
 
 * Value: {Date}
 
 The timestamp indicating the last time this file was accessed.
 
 ### stats.mtime
+<!-- YAML
+added: v0.11.13
+-->
 
 * Value: {Date}
 
 The timestamp indicating the last time this file was modified.
 
 ### stats.ctime
+<!-- YAML
+added: v0.11.13
+-->
 
 * Value: {Date}
 
 The timestamp indicating the last time the file status was changed.
 
 ### stats.birthtime
+<!-- YAML
+added: v0.11.13
+-->
 
 * Value: {Date}
 
@@ -2031,6 +2076,9 @@ object with an `encoding` property specifying the character encoding to use.
 <!-- YAML
 added: v0.0.2
 changes:
+  - version: v9.9.0
+    pr-url: https://github.com/nodejs/node/pull/18801
+    description: The `as` and `as+` modes are supported now.
   - version: v7.6.0
     pr-url: https://github.com/nodejs/node/pull/10739
     description: The `path` parameter can be a WHATWG `URL` object using `file:`

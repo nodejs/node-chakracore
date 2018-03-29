@@ -34,6 +34,12 @@ const { writeFileSync, unlinkSync } = require('fs');
 const { inspect } = require('util');
 const a = assert;
 
+const colors = process.stdout.isTTY && process.stdout.getColorDepth() > 1;
+const start = 'Input A expected to deepStrictEqual input B:';
+const actExp = colors ?
+  '\u001b[32m+ expected\u001b[39m \u001b[31m- actual\u001b[39m' :
+  '+ expected - actual';
+
 assert.ok(a.AssertionError.prototype instanceof Error,
           'a.AssertionError instanceof Error');
 
@@ -317,10 +323,6 @@ try {
 
 {
   // Verify that throws() and doesNotThrow() throw on non-function block.
-  function typeName(value) {
-    return value === null ? 'null' : typeof value;
-  }
-
   const testBlockTypeError = (method, block) => {
     common.expectsError(
       () => method(block),
@@ -328,7 +330,7 @@ try {
         code: 'ERR_INVALID_ARG_TYPE',
         type: TypeError,
         message: 'The "block" argument must be of type Function. Received ' +
-                `type ${typeName(block)}`
+                 `type ${typeof block}`
       }
     );
   };
@@ -369,15 +371,15 @@ assert.throws(() => {
 {
   // Bad args to AssertionError constructor should throw TypeError.
   const args = [1, true, false, '', null, Infinity, Symbol('test'), undefined];
-  const re = /^The "options" argument must be of type Object$/;
   args.forEach((input) => {
     assert.throws(
       () => new assert.AssertionError(input),
-      common.expectsError({
+      {
         code: 'ERR_INVALID_ARG_TYPE',
-        type: TypeError,
-        message: re
-      }));
+        name: 'TypeError [ERR_INVALID_ARG_TYPE]',
+        message: 'The "options" argument must be of type Object. ' +
+                 `Received type ${typeof input}`
+      });
   });
 }
 
@@ -455,11 +457,6 @@ function engineSpecificAssert(v8, cc) {
   Error.stackTraceLimit = tmpLimit;
 
   // Test error diffs.
-  const colors = process.stdout.isTTY && process.stdout.getColorDepth() > 1;
-  const start = 'Input A expected to deepStrictEqual input B:';
-  const actExp = colors ?
-    '\u001b[32m+ expected\u001b[39m \u001b[31m- actual\u001b[39m' :
-    '+ expected - actual';
   const plus = colors ? '\u001b[32m+\u001b[39m' : '+';
   const minus = colors ? '\u001b[31m-\u001b[39m' : '-';
   let message = [
@@ -794,24 +791,32 @@ common.expectsError(
   errObj.code = 404;
   assert.throws(errFn, errObj);
 
-  errObj.code = '404';
-  common.expectsError(
+  // Fail in case a expected property is undefined and not existent on the
+  // error.
+  errObj.foo = undefined;
+  assert.throws(
     () => assert.throws(errFn, errObj),
     {
       code: 'ERR_ASSERTION',
-      type: assert.AssertionError,
-      message: 'code: expected \'404\', not 404'
+      name: 'AssertionError [ERR_ASSERTION]',
+      message: `${start}\n${actExp}\n\n` +
+               "  Comparison {\n    name: 'TypeError',\n" +
+               "    message: 'Wrong value',\n-   code: 404\n" +
+               '+   code: 404,\n+   foo: undefined\n  }'
     }
   );
 
-  errObj.code = 404;
-  errObj.foo = 'bar';
-  common.expectsError(
+  // Show multiple wrong properties at the same time.
+  errObj.code = '404';
+  assert.throws(
     () => assert.throws(errFn, errObj),
     {
       code: 'ERR_ASSERTION',
-      type: assert.AssertionError,
-      message: 'foo: expected \'bar\', not undefined'
+      name: 'AssertionError [ERR_ASSERTION]',
+      message: `${start}\n${actExp}\n\n` +
+               "  Comparison {\n    name: 'TypeError',\n" +
+               "    message: 'Wrong value',\n-   code: 404\n" +
+               "+   code: '404',\n+   foo: undefined\n  }"
     }
   );
 
@@ -835,20 +840,24 @@ common.expectsError(
   );
 
   assert.throws(() => { throw new Error('e'); }, new Error('e'));
-  common.expectsError(
+  assert.throws(
     () => assert.throws(() => { throw new TypeError('e'); }, new Error('e')),
     {
-      type: assert.AssertionError,
+      name: 'AssertionError [ERR_ASSERTION]',
       code: 'ERR_ASSERTION',
-      message: "name: expected 'Error', not 'TypeError'"
+      message: `${start}\n${actExp}\n\n` +
+               "  Comparison {\n-   name: 'TypeError',\n+   name: 'Error'," +
+               "\n    message: 'e'\n  }"
     }
   );
-  common.expectsError(
+  assert.throws(
     () => assert.throws(() => { throw new Error('foo'); }, new Error('')),
     {
-      type: assert.AssertionError,
+      name: 'AssertionError [ERR_ASSERTION]',
       code: 'ERR_ASSERTION',
-      message: "message: expected '', not 'foo'"
+      message: `${start}\n${actExp}\n\n` +
+               "  Comparison {\n    name: 'Error',\n-   message: 'foo'" +
+               "\n+   message: ''\n  }"
     }
   );
 

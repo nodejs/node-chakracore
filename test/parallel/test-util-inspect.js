@@ -26,7 +26,9 @@ const assert = require('assert');
 const JSStream = process.binding('js_stream').JSStream;
 const util = require('util');
 const vm = require('vm');
-const { previewMapIterator } = require('internal/v8');
+if (!common.isChakraEngine) {
+  const { previewMapIterator } = require('internal/v8');
+}
 
 assert.strictEqual(util.inspect(1), '1');
 assert.strictEqual(util.inspect(false), 'false');
@@ -454,13 +456,11 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
   );
 }
 
-// Skip for chakra engine as debugger support not yet present
 if (!common.isChakraEngine) {
-  // Test for Array constructor in different context.
   {
     const map = new Map();
     map.set(1, 2);
-    const vals = previewMapIterator(map.entries(), 100);
+    const vals = previewMapIterator(map.entries());
     const valsOutput = [];
     for (const o of vals) {
       valsOutput.push(o);
@@ -943,35 +943,45 @@ if (typeof Symbol !== 'undefined') {
   global.Promise = oldPromise;
 }
 
-// Skip for chakra engine as debugger support not yet present
-// below code uses `Debug.MakeMirror` to inspect
-if (!common.isChakraEngine) {
-  // Test Map iterators.
-  {
-    const map = new Map([['foo', 'bar']]);
-    assert.strictEqual(util.inspect(map.keys()), '[Map Iterator] { \'foo\' }');
-    assert.strictEqual(util.inspect(map.values()),
-                       '[Map Iterator] { \'bar\' }');
-    assert.strictEqual(util.inspect(map.entries()),
-                       '[Map Iterator] { [ \'foo\', \'bar\' ] }');
-    // Make sure the iterator doesn't get consumed.
-    const keys = map.keys();
-    assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
-    assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
-  }
+if (!common.isChakraEngine) 
+{
+// Test Map iterators.
+{
+  const map = new Map([['foo', 'bar']]);
+  assert.strictEqual(util.inspect(map.keys()), '[Map Iterator] { \'foo\' }');
+  assert.strictEqual(util.inspect(map.values()), '[Map Iterator] { \'bar\' }');
+  assert.strictEqual(util.inspect(map.entries()),
+                     '[Map Iterator] { [ \'foo\', \'bar\' ] }');
+  // Make sure the iterator doesn't get consumed.
+  const keys = map.keys();
+  assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
+  assert.strictEqual(util.inspect(keys), '[Map Iterator] { \'foo\' }');
+  keys.extra = true;
+  assert.strictEqual(
+    util.inspect(keys, { maxArrayLength: 0 }),
+    '[Map Iterator] { ... more items, extra: true }');
+}
+}
 
-  // Test Set iterators.
-  {
-    const aSet = new Set([1, 3]);
-    assert.strictEqual(util.inspect(aSet.keys()), '[Set Iterator] { 1, 3 }');
-    assert.strictEqual(util.inspect(aSet.values()), '[Set Iterator] { 1, 3 }');
-    assert.strictEqual(util.inspect(aSet.entries()),
-                       '[Set Iterator] { [ 1, 1 ], [ 3, 3 ] }');
-    // Make sure the iterator doesn't get consumed.
-    const keys = aSet.keys();
-    assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
-    assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
-  }
+if (!common.isChakraEngine) 
+{
+// Test Set iterators.
+{
+  const aSet = new Set([1, 3]);
+  assert.strictEqual(util.inspect(aSet.keys()), '[Set Iterator] { 1, 3 }');
+  assert.strictEqual(util.inspect(aSet.values()), '[Set Iterator] { 1, 3 }');
+  assert.strictEqual(util.inspect(aSet.entries()),
+                     '[Set Iterator] { [ 1, 1 ], [ 3, 3 ] }');
+  // Make sure the iterator doesn't get consumed.
+  const keys = aSet.keys();
+  assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
+  assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
+  keys.extra = true;
+  assert.strictEqual(
+    util.inspect(keys, { maxArrayLength: 1 }),
+    '[Set Iterator] { 1, ... more items, extra: true }');
+
+}
 }
 
 // Test alignment of items in container.
@@ -1169,7 +1179,8 @@ if (!common.isChakraEngine) {
   }, {
     code: 'ERR_INVALID_ARG_TYPE',
     type: TypeError,
-    message: 'The "options" argument must be of type Object'
+    message: 'The "options" argument must be of type Object. ' +
+             'Received type object'
   }
   );
 
@@ -1178,7 +1189,8 @@ if (!common.isChakraEngine) {
   }, {
     code: 'ERR_INVALID_ARG_TYPE',
     type: TypeError,
-    message: 'The "options" argument must be of type Object'
+    message: 'The "options" argument must be of type Object. ' +
+             'Received type string'
   }
   );
 }
@@ -1381,4 +1393,58 @@ util.inspect(process);
   out = util.inspect(o, { compact: false, breakLength: 3 });
   expect = '{\n  a: \'12 45 78 01 34 \' +\n    \'67 90 23\'\n}';
   assert.strictEqual(out, expect);
+}
+
+if (!common.isChakraEngine) 
+{
+{ // Test WeakMap
+  const obj = {};
+  const arr = [];
+  const weakMap = new WeakMap([[obj, arr], [arr, obj]]);
+  let out = util.inspect(weakMap, { showHidden: true });
+  let expect = 'WeakMap { [ [length]: 0 ] => {}, {} => [ [length]: 0 ] }';
+  assert.strictEqual(out, expect);
+
+  out = util.inspect(weakMap);
+  expect = 'WeakMap { [items unknown] }';
+  assert.strictEqual(out, expect);
+
+  out = util.inspect(weakMap, { maxArrayLength: 0, showHidden: true });
+  expect = 'WeakMap { ... more items }';
+  assert.strictEqual(out, expect);
+
+  weakMap.extra = true;
+  out = util.inspect(weakMap, { maxArrayLength: 1, showHidden: true });
+  // It is not possible to determine the output reliable.
+  expect = 'WeakMap { [ [length]: 0 ] => {}, ... more items, extra: true }';
+  const expectAlt = 'WeakMap { {} => [ [length]: 0 ], ... more items, ' +
+                    'extra: true }';
+  assert(out === expect || out === expectAlt);
+}
+}
+
+if (!common.isChakraEngine) 
+{
+{ // Test WeakSet
+  const weakSet = new WeakSet([{}, [1]]);
+  let out = util.inspect(weakSet, { showHidden: true });
+  let expect = 'WeakSet { [ 1, [length]: 1 ], {} }';
+  assert.strictEqual(out, expect);
+
+  out = util.inspect(weakSet);
+  expect = 'WeakSet { [items unknown] }';
+  assert.strictEqual(out, expect);
+
+  out = util.inspect(weakSet, { maxArrayLength: -2, showHidden: true });
+  expect = 'WeakSet { ... more items }';
+  assert.strictEqual(out, expect);
+
+  weakSet.extra = true;
+  out = util.inspect(weakSet, { maxArrayLength: 1, showHidden: true });
+  // It is not possible to determine the output reliable.
+  expect = 'WeakSet { {}, ... more items, extra: true }';
+  const expectAlt = 'WeakSet { [ 1, [length]: 1 ], ... more items, ' +
+                    'extra: true }';
+  assert(out === expect || out === expectAlt);
+}
 }
