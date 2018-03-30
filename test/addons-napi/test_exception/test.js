@@ -76,5 +76,9 @@ function testFinalize(binding) {
   // To assuage the linter's concerns.
   (function() {})(x);
 }
-testFinalize('createExternal');
-testFinalize('createExternalBuffer');
+
+// BUGBUG:  test diabled - https://github.com/nodejs/node-chakracore/issues/507
+if (!common.isChakraEngine) {
+  testFinalize('createExternal');
+  testFinalize('createExternalBuffer');
+}
