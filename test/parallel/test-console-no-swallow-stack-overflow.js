@@ -14,5 +14,5 @@ for (const method of ['dir', 'log', 'warn']) {
     const c = new Console(out, out, true);
 
     c[method]('Hello, world!');
-  }, { name: 'RangeError' });
+  }, { name: common.isChakraEngine ? 'Error' : 'RangeError' });
 }
