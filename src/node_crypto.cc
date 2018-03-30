@@ -34,14 +34,6 @@
 #include "string_bytes.h"
 #include "util-inl.h"
 #include "v8.h"
-// CNNIC Hash WhiteList is taken from
-// https://hg.mozilla.org/mozilla-central/raw-file/98820360ab66/security/
-// certverifier/CNNICHashWhitelist.inc
-#include "CNNICHashWhitelist.inc"
-// StartCom and WoSign root CA list is taken from
-// https://hg.mozilla.org/mozilla-central/file/tip/security/certverifier/
-// StartComAndWoSignData.inc
-#include "StartComAndWoSignData.inc"
 
 #include <errno.h>
 #include <limits.h>  // INT_MAX
@@ -89,7 +81,6 @@ using v8::DontDelete;
 using v8::EscapableHandleScope;
 using v8::Exception;
 using v8::External;
-using v8::False;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
 using v8::HandleScope;
@@ -226,34 +217,6 @@ void HMAC_CTX_free(HMAC_CTX* ctx) {
 }
 #endif  // OPENSSL_VERSION_NUMBER < 0x10100000L
 
-// Subject DER of CNNIC ROOT CA and CNNIC EV ROOT CA are taken from
-// https://hg.mozilla.org/mozilla-central/file/98820360ab66/security/
-// certverifier/NSSCertDBTrustDomain.cpp#l672
-// C = CN, O = CNNIC, CN = CNNIC ROOT
-static const uint8_t CNNIC_ROOT_CA_SUBJECT_DATA[] =
-    "\x30\x32\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x43\x4E\x31\x0E\x30"
-    "\x0C\x06\x03\x55\x04\x0A\x13\x05\x43\x4E\x4E\x49\x43\x31\x13\x30\x11\x06"
-    "\x03\x55\x04\x03\x13\x0A\x43\x4E\x4E\x49\x43\x20\x52\x4F\x4F\x54";
-static const uint8_t* cnnic_p = CNNIC_ROOT_CA_SUBJECT_DATA;
-static X509_NAME* cnnic_name =
-    d2i_X509_NAME(nullptr, &cnnic_p, sizeof(CNNIC_ROOT_CA_SUBJECT_DATA)-1);
-
-// C = CN, O = China Internet Network Information Center, CN = China
-// Internet Network Information Center EV Certificates Root
-static const uint8_t CNNIC_EV_ROOT_CA_SUBJECT_DATA[] =
-    "\x30\x81\x8A\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x43\x4E\x31\x32"
-    "\x30\x30\x06\x03\x55\x04\x0A\x0C\x29\x43\x68\x69\x6E\x61\x20\x49\x6E\x74"
-    "\x65\x72\x6E\x65\x74\x20\x4E\x65\x74\x77\x6F\x72\x6B\x20\x49\x6E\x66\x6F"
-    "\x72\x6D\x61\x74\x69\x6F\x6E\x20\x43\x65\x6E\x74\x65\x72\x31\x47\x30\x45"
-    "\x06\x03\x55\x04\x03\x0C\x3E\x43\x68\x69\x6E\x61\x20\x49\x6E\x74\x65\x72"
-    "\x6E\x65\x74\x20\x4E\x65\x74\x77\x6F\x72\x6B\x20\x49\x6E\x66\x6F\x72\x6D"
-    "\x61\x74\x69\x6F\x6E\x20\x43\x65\x6E\x74\x65\x72\x20\x45\x56\x20\x43\x65"
-    "\x72\x74\x69\x66\x69\x63\x61\x74\x65\x73\x20\x52\x6F\x6F\x74";
-static const uint8_t* cnnic_ev_p = CNNIC_EV_ROOT_CA_SUBJECT_DATA;
-static X509_NAME *cnnic_ev_name =
-    d2i_X509_NAME(nullptr, &cnnic_ev_p,
-                  sizeof(CNNIC_EV_ROOT_CA_SUBJECT_DATA)-1);
-
 static const char* const root_certs[] = {
 #include "node_root_certs.h"  // NOLINT(build/include_order)
 };
@@ -267,7 +230,7 @@ static X509_STORE* root_cert_store;
 // Just to generate static methods
 template void SSLWrap<TLSWrap>::AddMethods(Environment* env,
                                            Local<FunctionTemplate> t);
-template void SSLWrap<TLSWrap>::InitNPN(SecureContext* sc);
+template void SSLWrap<TLSWrap>::ConfigureSecureContext(SecureContext* sc);
 template void SSLWrap<TLSWrap>::SetSNIContext(SecureContext* sc);
 template int SSLWrap<TLSWrap>::SetCACerts(SecureContext* sc);
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -288,21 +251,6 @@ template int SSLWrap<TLSWrap>::NewSessionCallback(SSL* s,
 template void SSLWrap<TLSWrap>::OnClientHello(
     void* arg,
     const ClientHelloParser::ClientHello& hello);
-
-#ifndef OPENSSL_NO_NEXTPROTONEG
-template int SSLWrap<TLSWrap>::AdvertiseNextProtoCallback(
-    SSL* s,
-    const unsigned char** data,
-    unsigned int* len,
-    void* arg);
-template int SSLWrap<TLSWrap>::SelectNextProtoCallback(
-    SSL* s,
-    unsigned char** out,
-    unsigned char* outlen,
-    const unsigned char* in,
-    unsigned int inlen,
-    void* arg);
-#endif
 
 #ifdef NODE__HAVE_TLSEXT_STATUS_CB
 template int SSLWrap<TLSWrap>::TLSExtStatusCallback(SSL* s, void* arg);
@@ -1629,31 +1577,13 @@ void SSLWrap<Base>::AddMethods(Environment* env, Local<FunctionTemplate> t) {
   env->SetProtoMethod(t, "setMaxSendFragment", SetMaxSendFragment);
 #endif  // SSL_set_max_send_fragment
 
-#ifndef OPENSSL_NO_NEXTPROTONEG
-  env->SetProtoMethod(t, "getNegotiatedProtocol", GetNegotiatedProto);
-#endif  // OPENSSL_NO_NEXTPROTONEG
-
-#ifndef OPENSSL_NO_NEXTPROTONEG
-  env->SetProtoMethod(t, "setNPNProtocols", SetNPNProtocols);
-#endif
-
   env->SetProtoMethod(t, "getALPNNegotiatedProtocol", GetALPNNegotiatedProto);
   env->SetProtoMethod(t, "setALPNProtocols", SetALPNProtocols);
 }
 
 
 template <class Base>
-void SSLWrap<Base>::InitNPN(SecureContext* sc) {
-#ifndef OPENSSL_NO_NEXTPROTONEG
-  // Server should advertise NPN protocols
-  SSL_CTX_set_next_protos_advertised_cb(sc->ctx_,
-                                        AdvertiseNextProtoCallback,
-                                        nullptr);
-  // Client should select protocol from list of advertised
-  // If server supports NPN
-  SSL_CTX_set_next_proto_select_cb(sc->ctx_, SelectNextProtoCallback, nullptr);
-#endif  // OPENSSL_NO_NEXTPROTONEG
-
+void SSLWrap<Base>::ConfigureSecureContext(SecureContext* sc) {
 #ifdef NODE__HAVE_TLSEXT_STATUS_CB
   // OCSP stapling
   SSL_CTX_set_tlsext_status_cb(sc->ctx_, TLSExtStatusCallback);
@@ -2510,148 +2440,6 @@ void SSLWrap<Base>::GetProtocol(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-#ifndef OPENSSL_NO_NEXTPROTONEG
-template <class Base>
-int SSLWrap<Base>::AdvertiseNextProtoCallback(SSL* s,
-                                              const unsigned char** data,
-                                              unsigned int* len,
-                                              void* arg) {
-  Base* w = static_cast<Base*>(SSL_get_app_data(s));
-  Environment* env = w->env();
-  HandleScope handle_scope(env->isolate());
-  Context::Scope context_scope(env->context());
-
-  auto npn_buffer =
-      w->object()->GetPrivate(
-          env->context(),
-          env->npn_buffer_private_symbol()).ToLocalChecked();
-
-  if (npn_buffer->IsUndefined()) {
-    // No initialization - no NPN protocols
-    *data = reinterpret_cast<const unsigned char*>("");
-    *len = 0;
-  } else {
-    CHECK(Buffer::HasInstance(npn_buffer));
-    *data = reinterpret_cast<const unsigned char*>(Buffer::Data(npn_buffer));
-    *len = Buffer::Length(npn_buffer);
-  }
-
-  return SSL_TLSEXT_ERR_OK;
-}
-
-
-template <class Base>
-int SSLWrap<Base>::SelectNextProtoCallback(SSL* s,
-                                           unsigned char** out,
-                                           unsigned char* outlen,
-                                           const unsigned char* in,
-                                           unsigned int inlen,
-                                           void* arg) {
-  Base* w = static_cast<Base*>(SSL_get_app_data(s));
-  Environment* env = w->env();
-  HandleScope handle_scope(env->isolate());
-  Context::Scope context_scope(env->context());
-
-  auto npn_buffer =
-      w->object()->GetPrivate(
-          env->context(),
-          env->npn_buffer_private_symbol()).ToLocalChecked();
-
-  if (npn_buffer->IsUndefined()) {
-    // We should at least select one protocol
-    // If server is using NPN
-    *out = reinterpret_cast<unsigned char*>(const_cast<char*>("http/1.1"));
-    *outlen = 8;
-
-    // set status: unsupported
-    CHECK(
-        w->object()->SetPrivate(
-            env->context(),
-            env->selected_npn_buffer_private_symbol(),
-            False(env->isolate())).FromJust());
-
-    return SSL_TLSEXT_ERR_OK;
-  }
-
-  CHECK(Buffer::HasInstance(npn_buffer));
-  const unsigned char* npn_protos =
-      reinterpret_cast<const unsigned char*>(Buffer::Data(npn_buffer));
-  size_t len = Buffer::Length(npn_buffer);
-
-  int status = SSL_select_next_proto(out, outlen, in, inlen, npn_protos, len);
-  Local<Value> result;
-  switch (status) {
-    case OPENSSL_NPN_UNSUPPORTED:
-      result = Null(env->isolate());
-      break;
-    case OPENSSL_NPN_NEGOTIATED:
-      result = OneByteString(env->isolate(), *out, *outlen);
-      break;
-    case OPENSSL_NPN_NO_OVERLAP:
-      result = False(env->isolate());
-      break;
-    default:
-      break;
-  }
-
-  CHECK(
-      w->object()->SetPrivate(
-          env->context(),
-          env->selected_npn_buffer_private_symbol(),
-          result).FromJust());
-
-  return SSL_TLSEXT_ERR_OK;
-}
-
-
-template <class Base>
-void SSLWrap<Base>::GetNegotiatedProto(
-    const FunctionCallbackInfo<Value>& args) {
-  Base* w;
-  ASSIGN_OR_RETURN_UNWRAP(&w, args.Holder());
-  Environment* env = w->env();
-
-  if (w->is_client()) {
-    auto selected_npn_buffer =
-        w->object()->GetPrivate(
-            env->context(),
-            env->selected_npn_buffer_private_symbol()).ToLocalChecked();
-    args.GetReturnValue().Set(selected_npn_buffer);
-    return;
-  }
-
-  const unsigned char* npn_proto;
-  unsigned int npn_proto_len;
-
-  SSL_get0_next_proto_negotiated(w->ssl_, &npn_proto, &npn_proto_len);
-
-  if (!npn_proto)
-    return args.GetReturnValue().Set(false);
-
-  args.GetReturnValue().Set(
-      OneByteString(args.GetIsolate(), npn_proto, npn_proto_len));
-}
-
-
-template <class Base>
-void SSLWrap<Base>::SetNPNProtocols(const FunctionCallbackInfo<Value>& args) {
-  Base* w;
-  ASSIGN_OR_RETURN_UNWRAP(&w, args.Holder());
-  Environment* env = w->env();
-
-  if (args.Length() < 1)
-    return env->ThrowTypeError("NPN protocols argument is mandatory");
-
-  THROW_AND_RETURN_IF_NOT_BUFFER(args[0], "NPN protocols");
-
-  CHECK(
-      w->object()->SetPrivate(
-          env->context(),
-          env->npn_buffer_private_symbol(),
-          args[0]).FromJust());
-}
-#endif  // OPENSSL_NO_NEXTPROTONEG
-
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
 template <class Base>
 int SSLWrap<Base>::SelectALPNCallback(SSL* s,
@@ -2919,7 +2707,7 @@ void SSLWrap<Base>::DestroySSL() {
 
 template <class Base>
 void SSLWrap<Base>::SetSNIContext(SecureContext* sc) {
-  InitNPN(sc);
+  ConfigureSecureContext(sc);
   CHECK_EQ(SSL_set_SSL_CTX(ssl_, sc->ctx_), sc->ctx_);
 
   SetCACerts(sc);
@@ -2940,123 +2728,49 @@ int SSLWrap<Base>::SetCACerts(SecureContext* sc) {
   return 1;
 }
 
-
-inline int compar(const void* a, const void* b) {
-  return memcmp(a, b, CNNIC_WHITELIST_HASH_LEN);
-}
-
-
-inline int IsSelfSigned(X509* cert) {
-  return X509_NAME_cmp(X509_get_subject_name(cert),
-                       X509_get_issuer_name(cert)) == 0;
-}
-
-
-inline X509* FindRoot(STACK_OF(X509)* sk) {
-  for (int i = 0; i < sk_X509_num(sk); i++) {
-    X509* cert = sk_X509_value(sk, i);
-    if (IsSelfSigned(cert))
-      return cert;
-  }
-  return nullptr;
-}
-
-
-inline bool CertIsStartComOrWoSign(X509_NAME* name) {
-  const unsigned char* startcom_wosign_data;
-  X509_NAME* startcom_wosign_name;
-
-  for (const auto& dn : StartComAndWoSignDNs) {
-    startcom_wosign_data = dn.data;
-    startcom_wosign_name = d2i_X509_NAME(nullptr, &startcom_wosign_data,
-                                         dn.len);
-    int cmp = X509_NAME_cmp(name, startcom_wosign_name);
-    X509_NAME_free(startcom_wosign_name);
-    if (cmp == 0)
-      return true;
-  }
-
-  return false;
-}
-
-// Revoke the certificates issued by StartCom or WoSign that has
-// notBefore after 00:00:00 on October 21, 2016 (1477008000 in epoch).
-inline bool CheckStartComOrWoSign(X509_NAME* root_name, X509* cert) {
-  if (!CertIsStartComOrWoSign(root_name))
-    return true;
-
-  time_t october_21_2016 = static_cast<time_t>(1477008000);
-  if (X509_cmp_time(X509_get_notBefore(cert), &october_21_2016) < 0)
-    return true;
-
-  return false;
-}
-
-// Whitelist check for certs issued by CNNIC, StartCom and WoSign. See
-// https://blog.mozilla.org/security/2015/04/02
-// /distrusting-new-cnnic-certificates/ and
-// https://blog.mozilla.org/security/2016/10/24/
-// distrusting-new-wosign-and-startcom-certificates
-inline CheckResult CheckWhitelistedServerCert(X509_STORE_CTX* ctx) {
-  unsigned char hash[CNNIC_WHITELIST_HASH_LEN];
-  unsigned int hashlen = CNNIC_WHITELIST_HASH_LEN;
-
-  StackOfX509 chain(X509_STORE_CTX_get1_chain(ctx));
-  CHECK(chain);
-  CHECK_GT(sk_X509_num(chain.get()), 0);
-
-  // Take the last cert as root at the first time.
-  X509* root_cert = sk_X509_value(chain.get(), sk_X509_num(chain.get())-1);
-  X509_NAME* root_name = X509_get_subject_name(root_cert);
-
-  if (!IsSelfSigned(root_cert)) {
-    root_cert = FindRoot(chain.get());
-    CHECK_NE(root_cert, nullptr);
-    root_name = X509_get_subject_name(root_cert);
-  }
-
-  X509* leaf_cert = sk_X509_value(chain.get(), 0);
-  if (!CheckStartComOrWoSign(root_name, leaf_cert))
-    return CHECK_CERT_REVOKED;
-
-  // When the cert is issued from either CNNNIC ROOT CA or CNNNIC EV
-  // ROOT CA, check a hash of its leaf cert if it is in the whitelist.
-  if (X509_NAME_cmp(root_name, cnnic_name) == 0 ||
-      X509_NAME_cmp(root_name, cnnic_ev_name) == 0) {
-    int ret = X509_digest(leaf_cert, EVP_sha256(), hash,
-                          &hashlen);
-    CHECK(ret);
-
-    void* result = bsearch(hash, WhitelistedCNNICHashes,
-                           arraysize(WhitelistedCNNICHashes),
-                           CNNIC_WHITELIST_HASH_LEN, compar);
-    if (result == nullptr)
-      return CHECK_CERT_REVOKED;
-  }
-
-  return CHECK_OK;
-}
-
 int VerifyCallback(int preverify_ok, X509_STORE_CTX* ctx) {
-  // Failure on verification of the cert is handled in
-  // Connection::VerifyError.
-  if (preverify_ok == 0 || X509_STORE_CTX_get_error(ctx) != X509_V_OK)
-    return CHECK_OK;
-
-  // Server does not need to check the whitelist.
-  SSL* ssl = static_cast<SSL*>(
-      X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx()));
-
-  if (SSL_is_server(ssl))
-    return CHECK_OK;
-
-  // Client needs to check if the server cert is listed in the
-  // whitelist when it is issued by the specific rootCAs.
-  CheckResult ret = CheckWhitelistedServerCert(ctx);
-  if (ret == CHECK_CERT_REVOKED)
-    X509_STORE_CTX_set_error(ctx, X509_V_ERR_CERT_REVOKED);
-
-  return ret;
+  // Quoting SSL_set_verify(3ssl):
+  //
+  //   The VerifyCallback function is used to control the behaviour when
+  //   the SSL_VERIFY_PEER flag is set. It must be supplied by the
+  //   application and receives two arguments: preverify_ok indicates,
+  //   whether the verification of the certificate in question was passed
+  //   (preverify_ok=1) or not (preverify_ok=0). x509_ctx is a pointer to
+  //   the complete context used for the certificate chain verification.
+  //
+  //   The certificate chain is checked starting with the deepest nesting
+  //   level (the root CA certificate) and worked upward to the peer's
+  //   certificate.  At each level signatures and issuer attributes are
+  //   checked.  Whenever a verification error is found, the error number is
+  //   stored in x509_ctx and VerifyCallback is called with preverify_ok=0.
+  //   By applying X509_CTX_store_* functions VerifyCallback can locate the
+  //   certificate in question and perform additional steps (see EXAMPLES).
+  //   If no error is found for a certificate, VerifyCallback is called
+  //   with preverify_ok=1 before advancing to the next level.
+  //
+  //   The return value of VerifyCallback controls the strategy of the
+  //   further verification process. If VerifyCallback returns 0, the
+  //   verification process is immediately stopped with "verification
+  //   failed" state. If SSL_VERIFY_PEER is set, a verification failure
+  //   alert is sent to the peer and the TLS/SSL handshake is terminated. If
+  //   VerifyCallback returns 1, the verification process is continued. If
+  //   VerifyCallback always returns 1, the TLS/SSL handshake will not be
+  //   terminated with respect to verification failures and the connection
+  //   will be established. The calling process can however retrieve the
+  //   error code of the last verification error using
+  //   SSL_get_verify_result(3) or by maintaining its own error storage
+  //   managed by VerifyCallback.
+  //
+  //   If no VerifyCallback is specified, the default callback will be
+  //   used.  Its return value is identical to preverify_ok, so that any
+  //   verification failure will lead to a termination of the TLS/SSL
+  //   handshake with an alert message, if SSL_VERIFY_PEER is set.
+  //
+  // Since we cannot perform I/O quickly enough in this callback, we ignore
+  // all preverify_ok errors and let the handshake continue. It is
+  // imparative that the user use Connection::VerifyError after the
+  // 'secure' callback has been made.
+  return 1;
 }
 
 void CipherBase::Initialize(Environment* env, Local<Object> target) {

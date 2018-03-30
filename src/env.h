@@ -38,7 +38,6 @@
 #include "node_http2_state.h"
 
 #include <list>
-#include <map>
 #include <stdint.h>
 #include <vector>
 #include <unordered_map>
@@ -104,8 +103,6 @@ struct PackageConfig {
   V(contextify_context_private_symbol, "node:contextify:context")             \
   V(contextify_global_private_symbol, "node:contextify:global")               \
   V(decorated_private_symbol, "node:decorated")                               \
-  V(npn_buffer_private_symbol, "node:npnBuffer")                              \
-  V(selected_npn_buffer_private_symbol, "node:selectedNpnBuffer")             \
   V(napi_env, "node:napi:env")                                                \
   V(napi_wrapper, "node:napi:wrapper")                                        \
 
@@ -646,7 +643,7 @@ class Environment {
       file_handle_read_wrap_freelist();
 
   inline performance::performance_state* performance_state();
-  inline std::map<std::string, uint64_t>* performance_marks();
+  inline std::unordered_map<std::string, uint64_t>* performance_marks();
 
   void CollectExceptionInfo(v8::Local<v8::Value> context,
                             int errorno,
@@ -795,7 +792,7 @@ class Environment {
   int should_not_abort_scope_counter_ = 0;
 
   std::unique_ptr<performance::performance_state> performance_state_;
-  std::map<std::string, uint64_t> performance_marks_;
+  std::unordered_map<std::string, uint64_t> performance_marks_;
 
 #if HAVE_INSPECTOR
   std::unique_ptr<inspector::Agent> inspector_agent_;
