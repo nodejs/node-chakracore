@@ -127,13 +127,11 @@ class AliasedBuffer {
           index_(that.index_) {
     }
 
-    template <typename T>
-    inline Reference& operator=(const T& val) {
+    inline Reference& operator=(const NativeT& val) {
       aliased_buffer_->SetValue(index_, val);
       return *this;
     }
 
-    // This is not caught by the template operator= above.
     inline Reference& operator=(const Reference& val) {
       return *this = static_cast<NativeT>(val);
     }
@@ -142,9 +140,8 @@ class AliasedBuffer {
       return aliased_buffer_->GetValue(index_);
     }
 
-    template <typename T>
-    inline Reference& operator+=(const T& val) {
-      const T current = aliased_buffer_->GetValue(index_);
+    inline Reference& operator+=(const NativeT& val) {
+      const NativeT current = aliased_buffer_->GetValue(index_);
       aliased_buffer_->SetValue(index_, current + val);
       return *this;
     }
@@ -153,9 +150,10 @@ class AliasedBuffer {
       return this->operator+=(static_cast<NativeT>(val));
     }
 
-    template <typename T>
-    inline Reference& operator-=(const T& val) {
-      return this->operator+=(-val);
+    inline Reference& operator-=(const NativeT& val) {
+      const NativeT current = aliased_buffer_->GetValue(index_);
+      aliased_buffer_->SetValue(index_, current - val);
+      return *this;
     }
 
    private:
