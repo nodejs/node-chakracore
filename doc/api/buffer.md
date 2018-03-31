@@ -48,33 +48,31 @@ const buf6 = Buffer.from('tést', 'latin1');
 
 ## `Buffer.from()`, `Buffer.alloc()`, and `Buffer.allocUnsafe()`
 
-In versions of Node.js prior to v6, `Buffer` instances were created using the
+In versions of Node.js prior to 6.0.0, `Buffer` instances were created using the
 `Buffer` constructor function, which allocates the returned `Buffer`
 differently based on what arguments are provided:
 
-* Passing a number as the first argument to `Buffer()` (e.g. `new Buffer(10)`),
+* Passing a number as the first argument to `Buffer()` (e.g. `new Buffer(10)`)
   allocates a new `Buffer` object of the specified size. Prior to Node.js 8.0.0,
   the memory allocated for such `Buffer` instances is *not* initialized and
   *can contain sensitive data*. Such `Buffer` instances *must* be subsequently
   initialized by using either [`buf.fill(0)`][`buf.fill()`] or by writing to the
-  `Buffer` completely. While this behavior is *intentional* to improve
-  performance, development experience has demonstrated that a more explicit
-  distinction is required between creating a fast-but-uninitialized `Buffer`
-  versus creating a slower-but-safer `Buffer`. Starting in Node.js 8.0.0,
-  `Buffer(num)` and `new Buffer(num)` will return a `Buffer` with initialized
-  memory.
+  entire `Buffer`. While this behavior is *intentional* to improve performance,
+  development experience has demonstrated that a more explicit distinction is
+  required between creating a fast-but-uninitialized `Buffer` versus creating a
+  slower-but-safer `Buffer`. Starting in Node.js 8.0.0,  `Buffer(num)` and
+  `new Buffer(num)` will return a `Buffer` with initialized memory.
 * Passing a string, array, or `Buffer` as the first argument copies the
   passed object's data into the `Buffer`.
 * Passing an [`ArrayBuffer`] or a [`SharedArrayBuffer`] returns a `Buffer` that
   shares allocated memory with the given array buffer.
 
-Because the behavior of `new Buffer()` changes significantly based on the type
-of value passed as the first argument, applications that do not properly
-validate the input arguments passed to `new Buffer()`, or that fail to
-appropriately initialize newly allocated `Buffer` content, can inadvertently
-introduce security and reliability issues into their code.
+Because the behavior of `new Buffer()` is different depending on the type of the
+first argument, security and reliability issues can be inadvertently introduced
+into applications when argument validation or `Buffer` initialization is not
+performed.
 
-To make the creation of `Buffer` instances more reliable and less error prone,
+To make the creation of `Buffer` instances more reliable and less error-prone,
 the various forms of the `new Buffer()` constructor have been **deprecated**
 and replaced by separate `Buffer.from()`, [`Buffer.alloc()`], and
 [`Buffer.allocUnsafe()`] methods.
@@ -82,24 +80,25 @@ and replaced by separate `Buffer.from()`, [`Buffer.alloc()`], and
 *Developers should migrate all existing uses of the `new Buffer()` constructors
 to one of these new APIs.*
 
-* [`Buffer.from(array)`] returns a new `Buffer` containing a *copy* of the provided
-  octets.
+* [`Buffer.from(array)`] returns a new `Buffer` that *contains a copy* of the
+  provided octets.
 * [`Buffer.from(arrayBuffer[, byteOffset [, length]])`][`Buffer.from(arrayBuffer)`]
-  returns a new `Buffer` that *shares* the same allocated memory as the given
+  returns a new `Buffer` that *shares the same allocated memory* as the given
   [`ArrayBuffer`].
-* [`Buffer.from(buffer)`] returns a new `Buffer` containing a *copy* of the
+* [`Buffer.from(buffer)`] returns a new `Buffer` that *contains a copy* of the
   contents of the given `Buffer`.
-* [`Buffer.from(string[, encoding])`][`Buffer.from(string)`] returns a new `Buffer`
-  containing a *copy* of the provided string.
-* [`Buffer.alloc(size[, fill[, encoding]])`][`Buffer.alloc()`] returns a "filled"
-  `Buffer` instance of the specified size. This method can be significantly
-  slower than [`Buffer.allocUnsafe(size)`][`Buffer.allocUnsafe()`] but ensures
-  that newly created `Buffer` instances never contain old and potentially
-  sensitive data.
+* [`Buffer.from(string[, encoding])`][`Buffer.from(string)`] returns a new
+  `Buffer` that *contains a copy* of the provided string.
+* [`Buffer.alloc(size[, fill[, encoding]])`][`Buffer.alloc()`] returns a new
+  initialized `Buffer` of the specified size. This method is slower than
+  [`Buffer.allocUnsafe(size)`][`Buffer.allocUnsafe()`] but guarantees that newly
+  created `Buffer` instances never contain old data that is potentially
+  sensitive.
 * [`Buffer.allocUnsafe(size)`][`Buffer.allocUnsafe()`] and
   [`Buffer.allocUnsafeSlow(size)`][`Buffer.allocUnsafeSlow()`] each return a
-  new `Buffer` of the specified `size` whose content *must* be initialized
-  using either [`buf.fill(0)`][`buf.fill()`] or written to completely.
+  new uninitialized `Buffer` of the specified `size`. Because the `Buffer` is
+  uninitialized, the allocated segment of memory might contain old data that is
+  potentially sensitive.
 
 `Buffer` instances returned by [`Buffer.allocUnsafe()`] *may* be allocated off
 a shared internal memory pool if `size` is less than or equal to half
@@ -112,13 +111,13 @@ added: v5.10.0
 -->
 
 Node.js can be started using the `--zero-fill-buffers` command line option to
-force all newly allocated `Buffer` instances created using either
-`new Buffer(size)`, [`Buffer.allocUnsafe()`], [`Buffer.allocUnsafeSlow()`] or
-`new SlowBuffer(size)` to be *automatically zero-filled* upon creation. Use of
-this flag *changes the default behavior* of these methods and *can have a significant
-impact* on performance. Use of the `--zero-fill-buffers` option is recommended
-only when necessary to enforce that newly allocated `Buffer` instances cannot
-contain potentially sensitive data.
+cause all newly allocated `Buffer` instances to be zero-filled upon creation by
+default, including buffers returned by `new Buffer(size)`,
+[`Buffer.allocUnsafe()`], [`Buffer.allocUnsafeSlow()`], and `new
+SlowBuffer(size)`. Use of this flag can have a significant negative impact on
+performance. Use of the `--zero-fill-buffers` option is recommended only when
+necessary to enforce that newly allocated `Buffer` instances cannot contain old
+data that is potentially sensitive.
 
 ```txt
 $ node --zero-fill-buffers
@@ -150,10 +149,8 @@ changes:
     description: Removed the deprecated `raw` and `raws` encodings.
 -->
 
-`Buffer` instances are commonly used to represent sequences of encoded characters
-such as UTF-8, UCS2, Base64, or even Hex-encoded data. It is possible to
-convert back and forth between `Buffer` instances and ordinary JavaScript strings
-by using an explicit character encoding.
+When string data is stored in or extracted out of a `Buffer` instance, a
+character encoding may be specified.
 
 ```js
 const buf = Buffer.from('hello world', 'ascii');
@@ -162,6 +159,11 @@ console.log(buf.toString('hex'));
 // Prints: 68656c6c6f20776f726c64
 console.log(buf.toString('base64'));
 // Prints: aGVsbG8gd29ybGQ=
+
+console.log(Buffer.from('fhqwhgads', 'ascii'));
+// Prints: <Buffer 66 68 71 77 68 67 61 64 73>
+console.log(Buffer.from('fhqwhgads', 'ucs2'));
+// Prints: <Buffer 66 00 68 00 71 00 77 00 68 00 67 00 61 00 64 00 73 00>
 ```
 
 The character encodings currently supported by Node.js include:

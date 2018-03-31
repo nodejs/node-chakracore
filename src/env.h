@@ -38,7 +38,6 @@
 #include "node_http2_state.h"
 
 #include <list>
-#include <map>
 #include <stdint.h>
 #include <vector>
 #include <unordered_map>
@@ -104,8 +103,6 @@ struct PackageConfig {
   V(contextify_context_private_symbol, "node:contextify:context")             \
   V(contextify_global_private_symbol, "node:contextify:global")               \
   V(decorated_private_symbol, "node:decorated")                               \
-  V(npn_buffer_private_symbol, "node:npnBuffer")                              \
-  V(selected_npn_buffer_private_symbol, "node:selectedNpnBuffer")             \
   V(napi_env, "node:napi:env")                                                \
   V(napi_wrapper, "node:napi:wrapper")                                        \
 
@@ -120,6 +117,7 @@ struct PackageConfig {
   V(bytes_string, "bytes")                                                    \
   V(bytes_parsed_string, "bytesParsed")                                       \
   V(bytes_read_string, "bytesRead")                                           \
+  V(bytes_written_string, "bytesWritten")                                     \
   V(cached_data_string, "cachedData")                                         \
   V(cached_data_produced_string, "cachedDataProduced")                        \
   V(cached_data_rejected_string, "cachedDataRejected")                        \
@@ -167,11 +165,13 @@ struct PackageConfig {
   V(fingerprint_string, "fingerprint")                                        \
   V(fingerprint256_string, "fingerprint256")                                  \
   V(flags_string, "flags")                                                    \
+  V(fragment_string, "fragment")                                              \
   V(get_data_clone_error_string, "_getDataCloneError")                        \
   V(get_shared_array_buffer_id_string, "_getSharedArrayBufferId")             \
   V(gid_string, "gid")                                                        \
   V(handle_string, "handle")                                                  \
   V(homedir_string, "homedir")                                                \
+  V(host_string, "host")                                                      \
   V(hostmaster_string, "hostmaster")                                          \
   V(ignore_string, "ignore")                                                  \
   V(infoaccess_string, "infoAccess")                                          \
@@ -228,6 +228,7 @@ struct PackageConfig {
   V(order_string, "order")                                                    \
   V(owner_string, "owner")                                                    \
   V(parse_error_string, "Parse Error")                                        \
+  V(password_string, "password")                                              \
   V(path_string, "path")                                                      \
   V(pending_handle_string, "pendingHandle")                                   \
   V(pbkdf2_error_string, "PBKDF2 Error")                                      \
@@ -241,6 +242,7 @@ struct PackageConfig {
   V(produce_cached_data_string, "produceCachedData")                          \
   V(promise_string, "promise")                                                \
   V(pubkey_string, "pubkey")                                                  \
+  V(query_string, "query")                                                    \
   V(raw_string, "raw")                                                        \
   V(read_host_object_string, "_readHostObject")                               \
   V(readable_string, "readable")                                              \
@@ -249,6 +251,7 @@ struct PackageConfig {
   V(rename_string, "rename")                                                  \
   V(replacement_string, "replacement")                                        \
   V(retry_string, "retry")                                                    \
+  V(scheme_string, "scheme")                                                  \
   V(serial_string, "serial")                                                  \
   V(scopeid_string, "scopeid")                                                \
   V(serial_number_string, "serialNumber")                                     \
@@ -295,24 +298,25 @@ struct PackageConfig {
 
 #define ENVIRONMENT_STRONG_PERSISTENT_PROPERTIES(V)                           \
   V(as_external, v8::External)                                                \
+  V(async_hooks_after_function, v8::Function)                                 \
+  V(async_hooks_before_function, v8::Function)                                \
+  V(async_hooks_binding, v8::Object)                                          \
   V(async_hooks_destroy_function, v8::Function)                               \
   V(async_hooks_init_function, v8::Function)                                  \
-  V(async_hooks_before_function, v8::Function)                                \
-  V(async_hooks_after_function, v8::Function)                                 \
   V(async_hooks_promise_resolve_function, v8::Function)                       \
-  V(async_hooks_binding, v8::Object)                                          \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
   V(domain_callback, v8::Function)                                            \
+  V(fdclose_constructor_template, v8::ObjectTemplate)                         \
   V(fd_constructor_template, v8::ObjectTemplate)                              \
   V(filehandlereadwrap_template, v8::ObjectTemplate)                          \
   V(fsreqpromise_constructor_template, v8::ObjectTemplate)                    \
-  V(fdclose_constructor_template, v8::ObjectTemplate)                         \
+  V(fs_use_promises_symbol, v8::Symbol)                                       \
   V(host_import_module_dynamically_callback, v8::Function)                    \
   V(host_initialize_import_meta_object_callback, v8::Function)                \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
-  V(http2stream_constructor_template, v8::ObjectTemplate)                     \
   V(http2settings_constructor_template, v8::ObjectTemplate)                   \
+  V(http2stream_constructor_template, v8::ObjectTemplate)                     \
   V(immediate_callback_function, v8::Function)                                \
   V(inspector_console_api_object, v8::Object)                                 \
   V(pbkdf2_constructor_template, v8::ObjectTemplate)                          \
@@ -337,8 +341,7 @@ struct PackageConfig {
   V(udp_constructor_function, v8::Function)                                   \
   V(vm_parsing_context_symbol, v8::Symbol)                                    \
   V(url_constructor_function, v8::Function)                                   \
-  V(write_wrap_template, v8::ObjectTemplate)                                  \
-  V(fs_use_promises_symbol, v8::Symbol)
+  V(write_wrap_template, v8::ObjectTemplate)
 
 class Environment;
 
@@ -646,7 +649,7 @@ class Environment {
       file_handle_read_wrap_freelist();
 
   inline performance::performance_state* performance_state();
-  inline std::map<std::string, uint64_t>* performance_marks();
+  inline std::unordered_map<std::string, uint64_t>* performance_marks();
 
   void CollectExceptionInfo(v8::Local<v8::Value> context,
                             int errorno,
@@ -795,7 +798,7 @@ class Environment {
   int should_not_abort_scope_counter_ = 0;
 
   std::unique_ptr<performance::performance_state> performance_state_;
-  std::map<std::string, uint64_t> performance_marks_;
+  std::unordered_map<std::string, uint64_t> performance_marks_;
 
 #if HAVE_INSPECTOR
   std::unique_ptr<inspector::Agent> inspector_agent_;

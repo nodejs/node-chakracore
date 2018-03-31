@@ -68,9 +68,8 @@ const TEST_CASES = [
     ct: 'dda53a4059aa17b88756984995f7bba3c636cc44',
     tag: 'd2a35e5c611e5e3d2258360241c5b045', tampered: false },
 
-  // Following test cases are from
-  //   http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/
-  //    proposedmodes/gcm/gcm-revised-spec.pdf
+  // Following test cases are from "The Galois/Counter Mode of Operation (GCM)"
+  // by D. McGrew and J. Viega, published by NIST.
 
   // Test case 1
   { algo: 'aes-128-gcm',
@@ -336,13 +335,16 @@ const errMessages = {
 const ciphers = crypto.getCiphers();
 
 const expectedWarnings = common.hasFipsCrypto ?
-  [] : ['Use Cipheriv for counter mode of aes-192-gcm'];
+  [] : [['Use Cipheriv for counter mode of aes-192-gcm',
+         common.noWarnCode]];
 
 const expectedDeprecationWarnings = [0, 1, 2, 6, 9, 10, 11, 17]
-  .map((i) => `Permitting authentication tag lengths of ${i} bytes is ` +
-            'deprecated. Valid GCM tag lengths are 4, 8, 12, 13, 14, 15, 16.');
+  .map((i) => [`Permitting authentication tag lengths of ${i} bytes is ` +
+            'deprecated. Valid GCM tag lengths are 4, 8, 12, 13, 14, 15, 16.',
+               'DEP0090']);
 
-expectedDeprecationWarnings.push('crypto.DEFAULT_ENCODING is deprecated.');
+expectedDeprecationWarnings.push(['crypto.DEFAULT_ENCODING is deprecated.',
+                                  'DEP0091']);
 
 common.expectWarning({
   Warning: expectedWarnings,

@@ -34,11 +34,8 @@ const { writeFileSync, unlinkSync } = require('fs');
 const { inspect } = require('util');
 const a = assert;
 
-const colors = process.stdout.isTTY && process.stdout.getColorDepth() > 1;
 const start = 'Input A expected to deepStrictEqual input B:';
-const actExp = colors ?
-  '\u001b[32m+ expected\u001b[39m \u001b[31m- actual\u001b[39m' :
-  '+ expected - actual';
+const actExp = '+ expected - actual';
 
 assert.ok(a.AssertionError.prototype instanceof Error,
           'a.AssertionError instanceof Error');
@@ -457,8 +454,6 @@ function engineSpecificAssert(v8, cc) {
   Error.stackTraceLimit = tmpLimit;
 
   // Test error diffs.
-  const plus = colors ? '\u001b[32m+\u001b[39m' : '+';
-  const minus = colors ? '\u001b[31m-\u001b[39m' : '-';
   let message = [
     start,
     `${actExp} ... Lines skipped`,
@@ -467,8 +462,8 @@ function engineSpecificAssert(v8, cc) {
     '    [',
     '...',
     '        2,',
-    `${minus}       3`,
-    `${plus}       '3'`,
+    '-       3',
+    "+       '3'",
     '      ]',
     '...',
     '    5',
@@ -485,7 +480,7 @@ function engineSpecificAssert(v8, cc) {
     '    1,',
     '...',
     '    0,',
-    `${plus}   1,`,
+    '+   1,',
     '    1,',
     '...',
     '    1',
@@ -505,7 +500,7 @@ function engineSpecificAssert(v8, cc) {
     '    1,',
     '...',
     '    0,',
-    `${minus}   1,`,
+    '-   1,',
     '    1,',
     '...',
     '    1',
@@ -523,12 +518,12 @@ function engineSpecificAssert(v8, cc) {
     '',
     '  [',
     '    1,',
-    `${minus}   2,`,
-    `${plus}   1,`,
+    '-   2,',
+    '+   1,',
     '    1,',
     '    1,',
     '    0,',
-    `${minus}   1,`,
+    '-   1,',
     '    1',
     '  ]'
   ].join('\n');
@@ -542,12 +537,12 @@ function engineSpecificAssert(v8, cc) {
     start,
     actExp,
     '',
-    `${minus} [`,
-    `${minus}   1,`,
-    `${minus}   2,`,
-    `${minus}   1`,
-    `${minus} ]`,
-    `${plus} undefined`,
+    '- [',
+    '-   1,',
+    '-   2,',
+    '-   1',
+    '- ]',
+    '+ undefined',
   ].join('\n');
   assert.throws(
     () => assert.deepEqual([1, 2, 1]),
@@ -558,7 +553,7 @@ function engineSpecificAssert(v8, cc) {
     actExp,
     '',
     '  [',
-    `${minus}   1,`,
+    '-   1,',
     '    2,',
     '    1',
     '  ]'
@@ -571,9 +566,9 @@ function engineSpecificAssert(v8, cc) {
     `${actExp} ... Lines skipped\n` +
     '\n' +
     '  [\n' +
-    `${minus}   1,\n`.repeat(10) +
+    '-   1,\n'.repeat(10) +
     '...\n' +
-    `${plus}   2,\n`.repeat(10) +
+    '+   2,\n'.repeat(10) +
     '...';
   assert.throws(
     () => assert.deepEqual(Array(12).fill(1), Array(12).fill(2)),
@@ -587,11 +582,11 @@ function engineSpecificAssert(v8, cc) {
     message: `${start}\n` +
     `${actExp}\n` +
     '\n' +
-    `${minus} {}\n` +
-    `${plus} {\n` +
-    `${plus}   loop: 'forever',\n` +
-    `${plus}   [Symbol(util.inspect.custom)]: [Function]\n` +
-    `${plus} }`
+    '- {}\n' +
+    '+ {\n' +
+    "+   loop: 'forever',\n" +
+    '+   [Symbol(util.inspect.custom)]: [Function]\n' +
+    '+ }'
   });
 
   // notDeepEqual tests

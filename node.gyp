@@ -108,12 +108,12 @@
       'lib/internal/linkedlist.js',
       'lib/internal/modules/cjs/helpers.js',
       'lib/internal/modules/cjs/loader.js',
-      'lib/internal/modules/esm/Loader.js',
-      'lib/internal/modules/esm/CreateDynamicModule.js',
-      'lib/internal/modules/esm/DefaultResolve.js',
-      'lib/internal/modules/esm/ModuleJob.js',
-      'lib/internal/modules/esm/ModuleMap.js',
-      'lib/internal/modules/esm/Translators.js',
+      'lib/internal/modules/esm/loader.js',
+      'lib/internal/modules/esm/create_dynamic_module.js',
+      'lib/internal/modules/esm/default_resolve.js',
+      'lib/internal/modules/esm/module_job.js',
+      'lib/internal/modules/esm/module_map.js',
+      'lib/internal/modules/esm/translators.js',
       'lib/internal/safe_globals.js',
       'lib/internal/net.js',
       'lib/internal/os.js',
@@ -145,10 +145,11 @@
       'lib/internal/v8.js',
       'lib/internal/v8_prof_polyfill.js',
       'lib/internal/v8_prof_processor.js',
-      'lib/internal/vm/Module.js',
+      'lib/internal/stream_base_commons.js',
+      'lib/internal/vm/module.js',
       'lib/internal/streams/lazy_transform.js',
       'lib/internal/streams/async_iterator.js',
-      'lib/internal/streams/BufferList.js',
+      'lib/internal/streams/buffer_list.js',
       'lib/internal/streams/duplex_base.js',
       'lib/internal/streams/duplexpair.js',
       'lib/internal/streams/legacy.js',
@@ -622,8 +623,8 @@
             'mkssldef_flags': [
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
-              'NEXTPROTONEG,PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,'
-              'STDIO,TLSEXT,FP_API',
+              'PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,STDIO,TLSEXT,'
+              'FP_API',
               # Defines.
               '-DWIN32',
               # Symbols to filter from the export list.
