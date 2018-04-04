@@ -1,8 +1,8 @@
 beginning
 middle
 vm.js:*
-    return realRunInThisContext.call(this, options);
-    ^
+      return super.runInThisContext(...args);
+      ^
 
 Error: boo!
    at Global code (test.vm:*)
