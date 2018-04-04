@@ -41,7 +41,7 @@ the event loop until the spawned process either exits or is terminated.
 
 For convenience, the `child_process` module provides a handful of synchronous
 and asynchronous alternatives to [`child_process.spawn()`][] and
-[`child_process.spawnSync()`][].  *Note that each of these alternatives are
+[`child_process.spawnSync()`][]. *Note that each of these alternatives are
 implemented on top of [`child_process.spawn()`][] or [`child_process.spawnSync()`][].*
 
   * [`child_process.exec()`][]: spawns a shell and runs a command within that shell,
@@ -139,15 +139,16 @@ changes:
 * `command` {string} The command to run, with space-separated arguments.
 * `options` {Object}
   * `cwd` {string} Current working directory of the child process.
-  * `env` {Object} Environment key-value pairs.
+    **Default:** `null`.
+  * `env` {Object} Environment key-value pairs. **Default:** `null`.
   * `encoding` {string} **Default:** `'utf8'`
-  * `shell` {string} Shell to execute the command with.
-    **Default:** `'/bin/sh'` on UNIX, `process.env.ComSpec` on Windows. See
-    [Shell Requirements][] and [Default Windows Shell][].
+  * `shell` {string} Shell to execute the command with. See
+    [Shell Requirements][] and [Default Windows Shell][]. **Default:**
+    `'/bin/sh'` on UNIX, `process.env.ComSpec` on Windows.
   * `timeout` {number} **Default:** `0`
   * `maxBuffer` {number} Largest amount of data in bytes allowed on stdout or
-    stderr. **Default:** `200*1024`. If exceeded, the child process is terminated.
-    See caveat at [`maxBuffer` and Unicode][].
+    stderr. If exceeded, the child process is terminated. See caveat at
+    [`maxBuffer` and Unicode][]. **Default:** `200 * 1024`.
   * `killSignal` {string|integer} **Default:** `'SIGTERM'`
   * `uid` {number} Sets the user identity of the process (see setuid(2)).
   * `gid` {number} Sets the group identity of the process (see setgid(2)).
@@ -189,7 +190,7 @@ exec('cat *.js bad_file | wc -l', (error, stdout, stderr) => {
 ```
 
 If a `callback` function is provided, it is called with the arguments
-`(error, stdout, stderr)`. On success, `error` will be `null`.  On error,
+`(error, stdout, stderr)`. On success, `error` will be `null`. On error,
 `error` will be an instance of [`Error`][]. The `error.code` property will be
 the exit code of the child process while `error.signal` will be set to the
 signal that terminated the process. Any exit code other than `0` is considered
@@ -201,20 +202,6 @@ the output as UTF-8 and pass strings to the callback. The `encoding` option
 can be used to specify the character encoding used to decode the stdout and
 stderr output. If `encoding` is `'buffer'`, or an unrecognized character
 encoding, `Buffer` objects will be passed to the callback instead.
-
-The `options` argument may be passed as the second argument to customize how
-the process is spawned. The default options are:
-
-```js
-const defaults = {
-  encoding: 'utf8',
-  timeout: 0,
-  maxBuffer: 200 * 1024,
-  killSignal: 'SIGTERM',
-  cwd: null,
-  env: null
-};
-```
 
 If `timeout` is greater than `0`, the parent will send the signal
 identified by the `killSignal` property (the default is `'SIGTERM'`) if the
@@ -258,8 +245,8 @@ changes:
   * `encoding` {string} **Default:** `'utf8'`
   * `timeout` {number} **Default:** `0`
   * `maxBuffer` {number} Largest amount of data in bytes allowed on stdout or
-    stderr. **Default:** `200*1024` If exceeded, the child process is terminated.
-    See caveat at [`maxBuffer` and Unicode][].
+    stderr. If exceeded, the child process is terminated. See caveat at
+    [`maxBuffer` and Unicode][]. **Default:** `200 * 1024`.
   * `killSignal` {string|integer} **Default:** `'SIGTERM'`
   * `uid` {number} Sets the user identity of the process (see setuid(2)).
   * `gid` {number} Sets the group identity of the process (see setgid(2)).
@@ -341,11 +328,11 @@ changes:
   * `env` {Object} Environment key-value pairs.
   * `execPath` {string} Executable used to create the child process.
   * `execArgv` {Array} List of string arguments passed to the executable.
-    **Default:** `process.execArgv`
+    **Default:** `process.execArgv`.
   * `silent` {boolean} If `true`, stdin, stdout, and stderr of the child will be
     piped to the parent, otherwise they will be inherited from the parent, see
     the `'pipe'` and `'inherit'` options for [`child_process.spawn()`][]'s
-    [`stdio`][] for more details. **Default:** `false`
+    [`stdio`][] for more details. **Default:** `false`.
   * `stdio` {Array|string} See [`child_process.spawn()`][]'s [`stdio`][].
     When this option is provided, it overrides `silent`. If the array variant
     is used, it must contain exactly one item with value `'ipc'` or an error
@@ -540,7 +527,7 @@ disabled*.
 On non-Windows platforms, if `options.detached` is set to `true`, the child
 process will be made the leader of a new process group and session. Note that
 child processes may continue running after the parent exits regardless of
-whether they are detached or not.  See setsid(2) for more information.
+whether they are detached or not. See setsid(2) for more information.
 
 By default, the parent will wait for the detached child to exit. To prevent
 the parent from waiting for a given `subprocess`, use the `subprocess.unref()`
@@ -701,22 +688,22 @@ changes:
 * `options` {Object}
   * `cwd` {string} Current working directory of the child process.
   * `input` {string|Buffer|Uint8Array} The value which will be passed as stdin
-    to the spawned process.
-    - supplying this value will override `stdio[0]`
-  * `stdio` {string|Array} Child's stdio configuration. **Default:** `'pipe'`
-    - `stderr` by default will be output to the parent process' stderr unless
-      `stdio` is specified
+    to the spawned process. Supplying this value will override `stdio[0]`.
+  * `stdio` {string|Array} Child's stdio configuration. `stderr` by default will
+    be output to the parent process' stderr unless `stdio` is specified.
+    **Default:** `'pipe'`.
   * `env` {Object} Environment key-value pairs.
   * `uid` {number} Sets the user identity of the process (see setuid(2)).
   * `gid` {number} Sets the group identity of the process (see setgid(2)).
   * `timeout` {number} In milliseconds the maximum amount of time the process
-    is allowed to run. **Default:** `undefined`
+    is allowed to run. **Default:** `undefined`.
   * `killSignal` {string|integer} The signal value to be used when the spawned
-    process will be killed. **Default:** `'SIGTERM'`
+    process will be killed. **Default:** `'SIGTERM'`.
   * `maxBuffer` {number} Largest amount of data in bytes allowed on stdout or
-    stderr. **Default:** `200*1024` If exceeded, the child process is terminated.
-    See caveat at [`maxBuffer` and Unicode][].
-  * `encoding` {string} The encoding used for all stdio inputs and outputs. **Default:** `'buffer'`
+    stderr. If exceeded, the child process is terminated. See caveat at
+    [`maxBuffer` and Unicode][]. **Default:** `200 * 1024`.
+  * `encoding` {string} The encoding used for all stdio inputs and outputs.
+    **Default:** `'buffer'`.
   * `windowsHide` {boolean} Hide the subprocess console window that would
     normally be created on Windows systems. **Default:** `false`.
   * `shell` {boolean|string} If `true`, runs `command` inside of a shell. Uses
@@ -759,26 +746,25 @@ changes:
 * `options` {Object}
   * `cwd` {string} Current working directory of the child process.
   * `input` {string|Buffer|Uint8Array} The value which will be passed as stdin
-    to the spawned process.
-    - supplying this value will override `stdio[0]`.
-  * `stdio` {string|Array} Child's stdio configuration. **Default:** `'pipe'`
-    - `stderr` by default will be output to the parent process' stderr unless
-      `stdio` is specified
+    to the spawned process. Supplying this value will override `stdio[0]`.
+  * `stdio` {string|Array} Child's stdio configuration. `stderr` by default will
+    be output to the parent process' stderr unless `stdio` is specified.
+    **Default:** `'pipe'`.
   * `env` {Object} Environment key-value pairs.
-  * `shell` {string} Shell to execute the command with.
-    **Default:** `'/bin/sh'` on UNIX, `process.env.ComSpec` on Windows. See
-    [Shell Requirements][] and [Default Windows Shell][].
+  * `shell` {string} Shell to execute the command with. See
+    [Shell Requirements][] and [Default Windows Shell][]. **Default:**
+    `'/bin/sh'` on UNIX, `process.env.ComSpec` on Windows.
   * `uid` {number} Sets the user identity of the process. (See setuid(2)).
   * `gid` {number} Sets the group identity of the process. (See setgid(2)).
   * `timeout` {number} In milliseconds the maximum amount of time the process
-    is allowed to run. **Default:** `undefined`
+    is allowed to run. **Default:** `undefined`.
   * `killSignal` {string|integer} The signal value to be used when the spawned
-    process will be killed. **Default:** `'SIGTERM'`
+    process will be killed. **Default:** `'SIGTERM'`.
   * `maxBuffer` {number} Largest amount of data in bytes allowed on stdout or
-    stderr. **Default:** `200*1024` If exceeded, the child process is terminated.
-    See caveat at [`maxBuffer` and Unicode][].
+    stderr. If exceeded, the child process is terminated. See caveat at
+    [`maxBuffer` and Unicode][]. **Default:** `200 * 1024`.
   * `encoding` {string} The encoding used for all stdio inputs and outputs.
-    **Default:** `'buffer'`
+    **Default:** `'buffer'`.
   * `windowsHide` {boolean} Hide the subprocess console window that would
     normally be created on Windows systems. **Default:** `false`.
 * Returns: {Buffer|string} The stdout from the command.
@@ -787,12 +773,12 @@ The `child_process.execSync()` method is generally identical to
 [`child_process.exec()`][] with the exception that the method will not return until
 the child process has fully closed. When a timeout has been encountered and
 `killSignal` is sent, the method won't return until the process has completely
-exited. *Note that if  the child process intercepts and handles the `SIGTERM`
+exited. *Note that if the child process intercepts and handles the `SIGTERM`
 signal and doesn't exit, the parent process will wait until the child
 process has exited.*
 
 If the process times out or has a non-zero exit code, this method ***will***
-throw.  The [`Error`][] object will contain the entire result from
+throw. The [`Error`][] object will contain the entire result from
 [`child_process.spawnSync()`][]
 
 **Never pass unsanitized user input to this function. Any input containing shell
@@ -821,21 +807,20 @@ changes:
 * `options` {Object}
   * `cwd` {string} Current working directory of the child process.
   * `input` {string|Buffer|Uint8Array} The value which will be passed as stdin
-    to the spawned process.
-    - supplying this value will override `stdio[0]`.
+    to the spawned process. Supplying this value will override `stdio[0]`.
   * `stdio` {string|Array} Child's stdio configuration.
   * `env` {Object} Environment key-value pairs.
   * `uid` {number} Sets the user identity of the process (see setuid(2)).
   * `gid` {number} Sets the group identity of the process (see setgid(2)).
   * `timeout` {number} In milliseconds the maximum amount of time the process
-    is allowed to run. **Default:** `undefined`
+    is allowed to run. **Default:** `undefined`.
   * `killSignal` {string|integer} The signal value to be used when the spawned
-    process will be killed. **Default:** `'SIGTERM'`
+    process will be killed. **Default:** `'SIGTERM'`.
   * `maxBuffer` {number} Largest amount of data in bytes allowed on stdout or
-    stderr. **Default:** `200*1024` If exceeded, the child process is terminated.
-    See caveat at [`maxBuffer` and Unicode][].
+    stderr. If exceeded, the child process is terminated. See caveat at
+    [`maxBuffer` and Unicode][]. **Default:** `200 * 1024`.
   * `encoding` {string} The encoding used for all stdio inputs and outputs.
-    **Default:** `'buffer'`
+    **Default:** `'buffer'`.
   * `shell` {boolean|string} If `true`, runs `command` inside of a shell. Uses
     `'/bin/sh'` on UNIX, and `process.env.ComSpec` on Windows. A different
     shell can be specified as a string. See [Shell Requirements][] and
@@ -1106,7 +1091,12 @@ changes:
 
 * `message` {Object}
 * `sendHandle` {Handle}
-* `options` {Object}
+* `options` {Object} The `options` argument, if present, is an object used to
+  parameterize the sending of certain types of handles. `options` supports
+  the following properties:
+  * `keepOpen` - A Boolean value that can be used when passing instances of
+    `net.Socket`. When `true`, the socket is kept open in the sending process.
+    **Default:** `false`.
 * `callback` {Function}
 * Returns: {boolean}
 
@@ -1161,16 +1151,8 @@ receive the object as the second argument passed to the callback function
 registered on the [`process.on('message')`][] event. Any data that is received
 and buffered in the socket will not be sent to the child.
 
-The `options` argument, if present, is an object used to parameterize the
-sending of certain types of handles. `options` supports the following
-properties:
-
-  * `keepOpen` - A Boolean value that can be used when passing instances of
-    `net.Socket`. When `true`, the socket is kept open in the sending process.
-    Defaults to `false`.
-
 The optional `callback` is a function that is invoked after the message is
-sent but before the child may have received it.  The function is called with a
+sent but before the child may have received it. The function is called with a
 single argument: `null` on success, or an [`Error`][] object on failure.
 
 If no `callback` function is provided and the message cannot be sent, an

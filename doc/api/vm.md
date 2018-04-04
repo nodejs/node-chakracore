@@ -159,7 +159,7 @@ const contextifiedSandbox = vm.createContext({ secret: 42 });
 
 * `code` {string} JavaScript Module code to parse
 * `options`
-  * `url` {string} URL used in module resolution and stack traces. **Default**:
+  * `url` {string} URL used in module resolution and stack traces. **Default:**
     `'vm:module(i)'` where `i` is a context-specific ascending index.
   * `context` {Object} The [contextified][] object as returned by the
     `vm.createContext()` method, to compile and evaluate this Module in.
@@ -307,7 +307,7 @@ The URL of the current module, as set in the constructor.
     will be thrown.
   * `breakOnSigint` {boolean} If `true`, the execution will be terminated when
     `SIGINT` (Ctrl+C) is received. Existing handlers for the event that have
-    been attached via `process.on("SIGINT")` will be disabled during script
+    been attached via `process.on('SIGINT')` will be disabled during script
     execution, but will continue to work after that. If execution is
     interrupted, an [`Error`][] will be thrown.
 * Returns: {Promise}
@@ -468,7 +468,7 @@ changes:
     will be thrown.
   * `breakOnSigint`: if `true`, the execution will be terminated when
     `SIGINT` (Ctrl+C) is received. Existing handlers for the
-    event that have been attached via `process.on("SIGINT")` will be disabled
+    event that have been attached via `process.on('SIGINT')` will be disabled
     during script execution, but will continue to work after that.
     If execution is terminated, an [`Error`][] will be thrown.
 
@@ -542,11 +542,9 @@ changes:
   * `contextCodeGeneration` {Object}
     * `strings` {boolean} If set to false any calls to `eval` or function
       constructors (`Function`, `GeneratorFunction`, etc) will throw an
-      `EvalError`.
-      **Default**: `true`.
+      `EvalError`. **Default:** `true`.
     * `wasm` {boolean} If set to false any attempt to compile a WebAssembly
-      module will throw a `WebAssembly.CompileError`.
-      **Default**: `true`.
+      module will throw a `WebAssembly.CompileError`. **Default:** `true`.
 
 First contextifies the given `sandbox`, runs the compiled code contained by
 the `vm.Script` object within the created sandbox, and returns the result.
@@ -640,11 +638,9 @@ changes:
   * `codeGeneration` {Object}
     * `strings` {boolean} If set to false any calls to `eval` or function
       constructors (`Function`, `GeneratorFunction`, etc) will throw an
-      `EvalError`.
-      **Default**: `true`.
+      `EvalError`. **Default:** `true`.
     * `wasm` {boolean} If set to false any attempt to compile a WebAssembly
-      module will throw a `WebAssembly.CompileError`.
-      **Default**: `true`.
+      module will throw a `WebAssembly.CompileError`. **Default:** `true`.
 
 If given a `sandbox` object, the `vm.createContext()` method will [prepare
 that sandbox][contextified] so that it can be used in calls to

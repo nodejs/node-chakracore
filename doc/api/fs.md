@@ -75,7 +75,7 @@ fs.rename('/tmp/hello', '/tmp/world', (err) => {
 
 In busy processes, the programmer is _strongly encouraged_ to use the
 asynchronous versions of these calls. The synchronous versions will block
-the entire process until they complete--halting all connections.
+the entire process until they complete — halting all connections.
 
 While it is not recommended, most fs functions allow the callback argument to
 be omitted, in which case a default callback is used that rethrows errors. To
@@ -634,16 +634,16 @@ representation.
 
 The times in the stat object have the following semantics:
 
-* `atime` "Access Time" - Time when file data last accessed.  Changed
+* `atime` "Access Time" - Time when file data last accessed. Changed
   by the mknod(2), utimes(2), and read(2) system calls.
 * `mtime` "Modified Time" - Time when file data last modified.
   Changed by the mknod(2), utimes(2), and write(2) system calls.
 * `ctime` "Change Time" - Time when file status was last changed
-  (inode data modification).  Changed by the chmod(2), chown(2),
+  (inode data modification). Changed by the chmod(2), chown(2),
   link(2), mknod(2), rename(2), unlink(2), utimes(2),
   read(2), and write(2) system calls.
-* `birthtime` "Birth Time" -  Time of file creation. Set once when the
-  file is created.  On filesystems where birthtime is not available,
+* `birthtime` "Birth Time" - Time of file creation. Set once when the
+  file is created. On filesystems where birthtime is not available,
   this field may instead hold either the `ctime` or
   `1970-01-01T00:00Z` (ie, unix epoch timestamp `0`). Note that this
   value may be greater than `atime` or `mtime` in this case. On Darwin
@@ -652,7 +652,7 @@ The times in the stat object have the following semantics:
   utimes(2) system call.
 
 Prior to Node.js v0.12, the `ctime` held the `birthtime` on Windows
-systems.  Note that as of v0.12, `ctime` is not "creation time", and
+systems. Note that as of v0.12, `ctime` is not "creation time", and
 on Unix systems, it never was.
 
 ## Class: fs.WriteStream
@@ -1140,7 +1140,7 @@ changes:
 * `callback` {Function}
   * `err` {Error}
 
-Asynchronous close(2).  No arguments other than a possible exception are given
+Asynchronous close(2). No arguments other than a possible exception are given
 to the completion callback.
 
 ## fs.closeSync(fd)
@@ -1165,7 +1165,7 @@ added: v8.5.0
 
 * `src` {string|Buffer|URL} source filename to copy
 * `dest` {string|Buffer|URL} destination filename of the copy operation
-* `flags` {number} modifiers for copy operation. **Default:** `0`
+* `flags` {number} modifiers for copy operation. **Default:** `0`.
 * `callback` {Function}
 
 Asynchronously copies `src` to `dest`. By default, `dest` is overwritten if it
@@ -1208,7 +1208,7 @@ added: v8.5.0
 
 * `src` {string|Buffer|URL} source filename to copy
 * `dest` {string|Buffer|URL} destination filename of the copy operation
-* `flags` {number} modifiers for copy operation. **Default:** `0`
+* `flags` {number} modifiers for copy operation. **Default:** `0`.
 
 Synchronously copies `src` to `dest`. By default, `dest` is overwritten if it
 already exists. Returns `undefined`. Node.js makes no guarantees about the
@@ -1288,7 +1288,7 @@ const defaults = {
 ```
 
 `options` can include `start` and `end` values to read a range of bytes from
-the file instead of the entire file.  Both `start` and `end` are inclusive and
+the file instead of the entire file. Both `start` and `end` are inclusive and
 start counting at 0. If `fd` is specified and `start` is omitted or `undefined`,
 `fs.createReadStream()` reads sequentially from the current file position.
 The `encoding` can be any one of those accepted by [`Buffer`][].
@@ -1359,7 +1359,7 @@ const defaults = {
 ```
 
 `options` may also include a `start` option to allow writing data at
-some position past the beginning of the file.  Modifying a file rather
+some position past the beginning of the file. Modifying a file rather
 than replacing it may require a `flags` mode of `r+` rather than the
 default mode `w`. The `encoding` can be any one of those accepted by
 [`Buffer`][].
@@ -1395,7 +1395,7 @@ deprecated: v1.0.0
   * `exists` {boolean}
 
 Test whether or not the given path exists by checking with the file system.
-Then call the `callback` argument with either true or false.  Example:
+Then call the `callback` argument with either true or false. Example:
 
 ```js
 fs.exists('/etc/passwd', (exists) => {
@@ -1964,7 +1964,7 @@ changes:
   * `err` {Error}
 
 Asynchronously creates a directory. No arguments other than a possible exception
-are given to the completion callback. `mode` defaults to `0o777`.
+are given to the completion callback.
 
 See also: mkdir(2)
 
@@ -2093,7 +2093,7 @@ changes:
 
 * `path` {string|Buffer|URL}
 * `flags` {string|number}
-* `mode` {integer} **Default:** `0o666`
+* `mode` {integer} **Default:** `0o666` (readable and writable)
 * `callback` {Function}
   * `err` {Error}
   * `fd` {integer}
@@ -2143,7 +2143,7 @@ The file is created if it does not exist.
 The file is created if it does not exist.
 
 `mode` sets the file mode (permission and sticky bits), but only if the file was
-created. It defaults to `0o666` (readable and writable).
+created.
 
 The callback gets two arguments `(err, fd)`.
 
@@ -2153,7 +2153,7 @@ to a non-existent file. The exclusive flag may or may not work with network file
 systems.
 
 `flags` can also be a number as documented by open(2); commonly used constants
-are available from `fs.constants`.  On Windows, flags are translated to
+are available from `fs.constants`. On Windows, flags are translated to
 their equivalent ones where applicable, e.g. `O_WRONLY` to `FILE_GENERIC_WRITE`,
 or `O_EXCL|O_CREAT` to `CREATE_NEW`, as accepted by CreateFileW.
 
@@ -2277,7 +2277,7 @@ changes:
   * `err` {Error}
   * `files` {string[]|Buffer[]}
 
-Asynchronous readdir(3).  Reads the contents of a directory.
+Asynchronous readdir(3). Reads the contents of a directory.
 The callback gets two arguments `(err, files)` where `files` is an array of
 the names of the files in the directory excluding `'.'` and `'..'`.
 
@@ -2581,7 +2581,7 @@ the path passed to the callback. If the `encoding` is set to `'buffer'`,
 the path returned will be passed as a `Buffer` object.
 
 On Linux, when Node.js is linked against musl libc, the procfs file system must
-be mounted on `/proc` in order for this function to work.  Glibc does not have
+be mounted on `/proc` in order for this function to work. Glibc does not have
 this restriction.
 
 ## fs.realpathSync(path[, options])
@@ -2650,7 +2650,7 @@ the path passed to the callback. If the `encoding` is set to `'buffer'`,
 the path returned will be passed as a `Buffer` object.
 
 On Linux, when Node.js is linked against musl libc, the procfs file system must
-be mounted on `/proc` in order for this function to work.  Glibc does not have
+be mounted on `/proc` in order for this function to work. Glibc does not have
 this restriction.
 
 ## fs.rename(oldPath, newPath, callback)
@@ -2822,7 +2822,7 @@ changes:
 
 Asynchronous symlink(2). No arguments other than a possible exception are given
 to the completion callback. The `type` argument can be set to `'dir'`,
-`'file'`, or `'junction'` (default is `'file'`) and is only available on
+`'file'`, or `'junction'` and is only available on
 Windows (ignored on other platforms). Note that Windows junction points require
 the destination path to be absolute. When using `'junction'`, the `target`
 argument will automatically be normalized to absolute path.
@@ -2961,7 +2961,7 @@ Calling `fs.unwatchFile()` with a filename that is not being watched is a
 no-op, not an error.
 
 Using [`fs.watch()`][] is more efficient than `fs.watchFile()` and
-`fs.unwatchFile()`.  `fs.watch()` should be used instead of `fs.watchFile()`
+`fs.unwatchFile()`. `fs.watch()` should be used instead of `fs.watchFile()`
 and `fs.unwatchFile()` when possible.
 
 ## fs.utimes(path, atime, mtime, callback)
@@ -3044,24 +3044,24 @@ changes:
 * `filename` {string|Buffer|URL}
 * `options` {string|Object}
   * `persistent` {boolean} Indicates whether the process should continue to run
-    as long as files are being watched. **Default:** `true`
+    as long as files are being watched. **Default:** `true`.
   * `recursive` {boolean} Indicates whether all subdirectories should be
     watched, or only the current directory. This applies when a directory is
     specified, and only on supported platforms (See [Caveats][]). **Default:**
-    `false`
+    `false`.
   * `encoding` {string} Specifies the character encoding to be used for the
-     filename passed to the listener. **Default:** `'utf8'`
+     filename passed to the listener. **Default:** `'utf8'`.
 * `listener` {Function|undefined} **Default:** `undefined`
   * `eventType` {string}
   * `filename` {string|Buffer}
 
 Watch for changes on `filename`, where `filename` is either a file or a
-directory.  The returned object is a [`fs.FSWatcher`][].
+directory. The returned object is a [`fs.FSWatcher`][].
 
 The second argument is optional. If `options` is provided as a string, it
 specifies the `encoding`. Otherwise `options` should be passed as an object.
 
-The listener callback gets two arguments `(eventType, filename)`.  `eventType`
+The listener callback gets two arguments `(eventType, filename)`. `eventType`
 is either `'rename'` or `'change'`, and `filename` is the name of the file
 which triggered the event.
 
@@ -3123,7 +3123,7 @@ content, and one for truncation).
 <!--type=misc-->
 
 Providing `filename` argument in the callback is only supported on Linux,
-macOS, Windows, and AIX.  Even on supported platforms, `filename` is not always
+macOS, Windows, and AIX. Even on supported platforms, `filename` is not always
 guaranteed to be provided. Therefore, don't assume that `filename` argument is
 always provided in the callback, and have some fallback logic if it is null.
 
@@ -3163,8 +3163,7 @@ The `options` argument may be omitted. If provided, it should be an object. The
 `options` object may contain a boolean named `persistent` that indicates
 whether the process should continue to run as long as files are being watched.
 The `options` object may specify an `interval` property indicating how often the
-target should be polled in milliseconds. The default is
-`{ persistent: true, interval: 5007 }`.
+target should be polled in milliseconds.
 
 The `listener` gets two arguments the current stat object and the previous
 stat object:
@@ -3280,7 +3279,7 @@ changes:
   * `written` {integer}
   * `string` {string}
 
-Write `string` to the file specified by `fd`.  If `string` is not a string, then
+Write `string` to the file specified by `fd`. If `string` is not a string, then
 the value will be coerced to one.
 
 `position` refers to the offset from the beginning of the file where this data
@@ -3337,8 +3336,7 @@ changes:
 Asynchronously writes data to a file, replacing the file if it already exists.
 `data` can be a string or a buffer.
 
-The `encoding` option is ignored if `data` is a buffer. It defaults
-to `'utf8'`.
+The `encoding` option is ignored if `data` is a buffer.
 
 Example:
 
@@ -3444,7 +3442,7 @@ Instances of the `FileHandle` object are created internally by the
 `fsPromises.open()` method.
 
 Unlike callback-based such as `fs.fstat()`, `fs.fchown()`, `fs.fchmod()`,
-`fs.ftruncate()`, `fs.read()`, and `fs.write()`, operations -- all of which
+`fs.ftruncate()`, `fs.read()`, and `fs.write()`, operations — all of which
 use a simple numeric file descriptor, all `fsPromises.*` variations use the
 `FileHandle` class in order to help protect against accidental leaking of
 unclosed file descriptors after a `Promise` is resolved or rejected.
@@ -3702,8 +3700,7 @@ Asynchronously writes data to a file, replacing the file if it already exists.
 `data` can be a string or a buffer. The `Promise` will be resolved with no
 arguments upon success.
 
-The `encoding` option is ignored if `data` is a buffer. It defaults
-to `'utf8'`.
+The `encoding` option is ignored if `data` is a buffer.
 
 If `options` is a string, then it specifies the encoding.
 
@@ -3806,7 +3803,7 @@ added: REPLACEME
 
 * `src` {string|Buffer|URL} source filename to copy
 * `dest` {string|Buffer|URL} destination filename of the copy operation
-* `flags` {number} modifiers for copy operation. **Default:** `0`
+* `flags` {number} modifiers for copy operation. **Default:** `0`.
 * Returns: {Promise}
 
 Asynchronously copies `src` to `dest`. By default, `dest` is overwritten if it
@@ -4062,8 +4059,8 @@ added: REPLACEME
 
 * `path` {string|Buffer|URL}
 * `flags` {string|number}
-* `mode` {integer} **Default:** `0o666`
-* Return: {Promise}
+* `mode` {integer} **Default:** `0o666` (readable and writable)
+* Returns: {Promise}
 
 Asynchronous file open that returns a `Promise` that, when resolved, yields a
 `FileHandle` object. See open(2).
@@ -4113,7 +4110,7 @@ The file is created if it does not exist.
 The file is created if it does not exist.
 
 `mode` sets the file mode (permission and sticky bits), but only if the file was
-created. It defaults to `0o666` (readable and writable).
+created.
 
 The exclusive flag `'x'` (`O_EXCL` flag in open(2)) ensures that `path` is newly
 created. On POSIX systems, `path` is considered to exist even if it is a symlink
@@ -4121,7 +4118,7 @@ to a non-existent file. The exclusive flag may or may not work with network file
 systems.
 
 `flags` can also be a number as documented by open(2); commonly used constants
-are available from `fs.constants`.  On Windows, flags are translated to
+are available from `fs.constants`. On Windows, flags are translated to
 their equivalent ones where applicable, e.g. `O_WRONLY` to `FILE_GENERIC_WRITE`,
 or `O_EXCL|O_CREAT` to `CREATE_NEW`, as accepted by CreateFileW.
 
@@ -4257,7 +4254,7 @@ the path. If the `encoding` is set to `'buffer'`, the path returned will be
 passed as a `Buffer` object.
 
 On Linux, when Node.js is linked against musl libc, the procfs file system must
-be mounted on `/proc` in order for this function to work.  Glibc does not have
+be mounted on `/proc` in order for this function to work. Glibc does not have
 this restriction.
 
 ### fsPromises.rename(oldPath, newPath)
@@ -4311,7 +4308,7 @@ Creates a symbolic link then resolves the `Promise` with no arguments upon
 success.
 
 The `type` argument is only used on Windows platforms and can be one of `'dir'`,
-`'file'`, or `'junction'` (default is `'file'`). Note that Windows junction
+`'file'`, or `'junction'`. Note that Windows junction
 points require the destination path to be absolute. When using `'junction'`,
 the `target` argument will automatically be normalized to absolute path.
 
@@ -4407,8 +4404,7 @@ Asynchronously writes data to a file, replacing the file if it already exists.
 `data` can be a string or a buffer. The `Promise` will be resolved with no
 arguments upon success.
 
-The `encoding` option is ignored if `data` is a buffer. It defaults
-to `'utf8'`.
+The `encoding` option is ignored if `data` is a buffer.
 
 If `options` is a string, then it specifies the encoding.
 

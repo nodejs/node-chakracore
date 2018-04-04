@@ -873,7 +873,7 @@ added: v0.9.4
 
 * `destination` {stream.Writable} The destination for writing data
 * `options` {Object} Pipe options
-  * `end` {boolean} End the writer when the reader ends. Defaults to `true`.
+  * `end` {boolean} End the writer when the reader ends. **Default:** `true`.
 * Returns: {stream.Writable} making it possible to set up chains of piped
   streams
 
@@ -1405,18 +1405,18 @@ changes:
 
 * `options` {Object}
   * `highWaterMark` {number} Buffer level when
-    [`stream.write()`][stream-write] starts returning `false`. Defaults to
+    [`stream.write()`][stream-write] starts returning `false`. **Default:**
     `16384` (16kb), or `16` for `objectMode` streams.
   * `decodeStrings` {boolean} Whether or not to decode strings into
     Buffers before passing them to [`stream._write()`][stream-_write].
-    Defaults to `true`
+    **Default:** `true`.
   * `objectMode` {boolean} Whether or not the
     [`stream.write(anyObj)`][stream-write] is a valid operation. When set,
     it becomes possible to write JavaScript values other than string,
     `Buffer` or `Uint8Array` if supported by the stream implementation.
-    Defaults to `false`
+    **Default:** `false`.
   * `emitClose` {boolean} Whether or not the stream should emit `close`
-    after it has been destroyed. Defaults to `true`
+    after it has been destroyed. **Default:** `true`.
   * `write` {Function} Implementation for the
     [`stream._write()`][stream-_write] method.
   * `writev` {Function} Implementation for the
@@ -1567,7 +1567,7 @@ It is recommended that errors occurring during the processing of the
 the callback and passing the error as the first argument. This will cause an
 `'error'` event to be emitted by the Writable. Throwing an Error from within
 `writable._write()` can result in unexpected and inconsistent behavior depending
-on how the stream is being used.  Using the callback ensures consistent and
+on how the stream is being used. Using the callback ensures consistent and
 predictable handling of errors.
 
 If a Readable stream pipes into a Writable stream when Writable emits an
@@ -1666,12 +1666,12 @@ constructor and implement the `readable._read()` method.
 * `options` {Object}
   * `highWaterMark` {number} The maximum [number of bytes][hwm-gotcha] to store
     in the internal buffer before ceasing to read from the underlying resource.
-    Defaults to `16384` (16kb), or `16` for `objectMode` streams
+    **Default:** `16384` (16kb), or `16` for `objectMode` streams.
   * `encoding` {string} If specified, then buffers will be decoded to
-    strings using the specified encoding. Defaults to `null`
+    strings using the specified encoding. **Default:** `null`.
   * `objectMode` {boolean} Whether this stream should behave
     as a stream of objects. Meaning that [`stream.read(n)`][stream-read] returns
-    a single value instead of a Buffer of size n. Defaults to `false`
+    a single value instead of a Buffer of size n. **Default:** `false`.
   * `read` {Function} Implementation for the [`stream._read()`][stream-_read]
     method.
   * `destroy` {Function} Implementation for the
@@ -1779,7 +1779,7 @@ changes:
   read queue. For streams not operating in object mode, `chunk` must be a
   string, `Buffer` or `Uint8Array`. For object mode streams, `chunk` may be
   any JavaScript value.
-* `encoding` {string} Encoding of string chunks.  Must be a valid
+* `encoding` {string} Encoding of string chunks. Must be a valid
   Buffer encoding, such as `'utf8'` or `'ascii'`
 * Returns: {boolean} `true` if additional chunks of data may continued to be
   pushed; `false` otherwise.
@@ -1923,15 +1923,13 @@ changes:
 
 * `options` {Object} Passed to both Writable and Readable
   constructors. Also has the following fields:
-  * `allowHalfOpen` {boolean} Defaults to `true`. If set to `false`, then
-    the stream will automatically end the writable side when the
-    readable side ends.
-  * `readableObjectMode` {boolean} Defaults to `false`. Sets `objectMode`
-    for readable side of the stream. Has no effect if `objectMode`
-    is `true`.
-  * `writableObjectMode` {boolean} Defaults to `false`. Sets `objectMode`
-    for writable side of the stream. Has no effect if `objectMode`
-    is `true`.
+  * `allowHalfOpen` {boolean} If set to `false`, then the stream will
+    automatically end the writable side when the readable side ends.
+    **Default:** `true`.
+  * `readableObjectMode` {boolean} Sets `objectMode` for readable side of the
+    stream. Has no effect if `objectMode` is `true`. **Default:** `false`.
+  * `writableObjectMode` {boolean} Sets `objectMode` for writable side of the
+    stream. Has no effect if `objectMode` is `true`. **Default:** `false`.
   * `readableHighWaterMark` {number} Sets `highWaterMark` for the readable side
     of the stream. Has no effect if `highWaterMark` is provided.
   * `writableHighWaterMark` {number} Sets `highWaterMark` for the writable side
@@ -2213,7 +2211,7 @@ The `transform._transform()` method is prefixed with an underscore because it
 is internal to the class that defines it, and should never be called directly by
 user programs.
 
-`transform._transform()` is never called in  parallel; streams implement a
+`transform._transform()` is never called in parallel; streams implement a
 queue mechanism, and to receive the next chunk, `callback` must be
 called, either synchronously or asynchronously.
 
