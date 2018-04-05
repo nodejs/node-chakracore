@@ -236,36 +236,40 @@ v8:
 	tools/make-v8.sh
 	$(MAKE) -C deps/v8 $(V8_ARCH).$(BUILDTYPE_LOWER) $(V8_BUILD_OPTIONS)
 
+.PHONY: jstest
+jstest: build-addons build-addons-napi ## Runs addon tests and JS tests
+	$(PYTHON) tools/test.py --mode=release --flaky-tests=$(FLAKY_TESTS) -J \
+		$(CI_JS_SUITES) \
+		$(CI_NATIVE_SUITES)
+
 .PHONY: test
 # This does not run tests of third-party libraries inside deps.
 test: all ## Runs default tests, linters, and builds docs.
+	# Build the addons before running the tests so the test results
+	# can be displayed together
 	$(MAKE) -s build-addons
 	$(MAKE) -s build-addons-napi
-	$(MAKE) -s doc-only
-	$(MAKE) -s lint
+	$(MAKE) -s test-doc
 	$(MAKE) -s cctest
-	$(PYTHON) tools/test.py --mode=release --flaky-tests=$(FLAKY_TESTS) -J \
-		$(CI_JS_SUITES) \
-		$(CI_NATIVE_SUITES) \
-		$(CI_DOC)
+	$(MAKE) -s jstest
 
 .PHONY: test-only
 test-only: all  ## For a quick test, does not run linter or build docs.
+	# Build the addons before running the tests so the test results
+	# can be displayed together
 	$(MAKE) build-addons
 	$(MAKE) build-addons-napi
 	$(MAKE) cctest
-	$(PYTHON) tools/test.py --mode=release -J \
-		$(CI_JS_SUITES) \
-		$(CI_NATIVE_SUITES)
+	$(MAKE) jstest
 
 # Used by `make coverage-test`
 test-cov: all
+	# Build the addons before running the tests so the test results
+	# can be displayed together
 	$(MAKE) build-addons
 	$(MAKE) build-addons-napi
 	# $(MAKE) cctest
-	$(PYTHON) tools/test.py --mode=release -J \
-		$(CI_JS_SUITES) \
-		$(CI_NATIVE_SUITES)
+	$(MAKE) jstest
 	$(MAKE) lint
 
 test-parallel: all
@@ -1133,7 +1137,8 @@ lint-js-ci:
 jslint-ci: lint-js-ci
 	@echo "Please use lint-js-ci instead of jslint-ci"
 
-LINT_CPP_ADDON_DOC_FILES = $(wildcard test/addons/??_*/*.cc test/addons/??_*/*.h)
+LINT_CPP_ADDON_DOC_FILES_GLOB = test/addons/??_*/*.cc test/addons/??_*/*.h
+LINT_CPP_ADDON_DOC_FILES = $(wildcard $(LINT_CPP_ADDON_DOC_FILES_GLOB))
 LINT_CPP_EXCLUDE ?=
 LINT_CPP_EXCLUDE += src/node_root_certs.h
 LINT_CPP_EXCLUDE += $(LINT_CPP_ADDON_DOC_FILES)
@@ -1176,7 +1181,7 @@ tools/.cpplintstamp: $(LINT_CPP_FILES)
 
 lint-addon-docs: test/addons/.docbuildstamp
 	@echo "Running C++ linter on addon docs..."
-	@$(PYTHON) tools/cpplint.py --filter=$(ADDON_DOC_LINT_FLAGS) $(LINT_CPP_ADDON_DOC_FILES)
+	@$(PYTHON) tools/cpplint.py --filter=$(ADDON_DOC_LINT_FLAGS) $(LINT_CPP_ADDON_DOC_FILES_GLOB)
 
 cpplint: lint-cpp
 	@echo "Please use lint-cpp instead of cpplint"

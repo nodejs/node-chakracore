@@ -677,7 +677,7 @@ added: v8.4.0
   * `exclusive` {boolean} When `true` and `parent` identifies a parent Stream,
     the created stream is made the sole direct dependency of the parent, with
     all other existing dependents made a dependent of the newly created stream.
-    **Default:** `false`
+    **Default:** `false`.
   * `parent` {number} Specifies the numeric identifier of a stream the newly
     created stream is dependent on.
   * `weight` {number} Specifies the relative dependency of a stream in relation
@@ -879,7 +879,7 @@ added: v8.4.0
 -->
 
 * code {number} Unsigned 32-bit integer identifying the error code. **Default:**
-  `http2.constants.NGHTTP2_NO_ERROR` (`0x00`)
+  `http2.constants.NGHTTP2_NO_ERROR` (`0x00`).
 * `callback` {Function} An optional function registered to listen for the
   `'close'` event.
 
@@ -924,7 +924,7 @@ added: v8.4.0
   * `exclusive` {boolean} When `true` and `parent` identifies a parent Stream,
     this stream is made the sole direct dependency of the parent, with
     all other existing dependents made a dependent of this stream. **Default:**
-    `false`
+    `false`.
   * `parent` {number} Specifies the numeric identifier of a stream this stream
     is dependent on.
   * `weight` {number} Specifies the relative dependency of a stream in relation
@@ -1148,7 +1148,7 @@ added: v8.4.0
   * `exclusive` {boolean} When `true` and `parent` identifies a parent Stream,
     the created stream is made the sole direct dependency of the parent, with
     all other existing dependents made a dependent of the newly created stream.
-    **Default:** `false`
+    **Default:** `false`.
   * `parent` {number} Specifies the numeric identifier of a stream the newly
     created stream is dependent on.
 * `callback` {Function} Callback that is called once the push stream has been
@@ -1439,7 +1439,7 @@ added: v8.4.0
 * Extends: {net.Server}
 
 In `Http2Server`, there are no `'clientError'` events as there are in
-HTTP1. However, there are `'sessionError'`,  and `'streamError'` events for
+HTTP1. However, there are `'sessionError'`, and `'streamError'` events for
 errors emitted on the socket, or from `Http2Session` or `Http2Stream` instances.
 
 #### Event: 'checkContinue'
@@ -1665,20 +1665,20 @@ changes:
 
 * `options` {Object}
   * `maxDeflateDynamicTableSize` {number} Sets the maximum dynamic table size
-    for deflating header fields. **Default:** `4Kib`
+    for deflating header fields. **Default:** `4Kib`.
   * `maxSessionMemory`{number} Sets the maximum memory that the `Http2Session`
     is permitted to use. The value is expressed in terms of number of megabytes,
-    e.g. `1` equal 1 megabyte. The minimum value allowed is `1`. **Default:**
-    `10`. This is a credit based limit, existing `Http2Stream`s may cause this
+    e.g. `1` equal 1 megabyte. The minimum value allowed is `1`.
+    This is a credit based limit, existing `Http2Stream`s may cause this
     limit to be exceeded, but new `Http2Stream` instances will be rejected
     while this limit is exceeded. The current number of `Http2Stream` sessions,
     the current memory use of the header compression tables, current data
     queued to be sent, and unacknowledged PING and SETTINGS frames are all
-    counted towards the current limit.
+    counted towards the current limit. **Default:** `10`.
   * `maxHeaderListPairs` {number} Sets the maximum number of header entries.
-    **Default:** `128`. The minimum value is `4`.
+    The minimum value is `4`. **Default:** `128`.
   * `maxOutstandingPings` {number} Sets the maximum number of outstanding,
-    unacknowledged pings. The default is `10`.
+    unacknowledged pings. **Default:** `10`.
   * `maxSendHeaderBlockLength` {number} Sets the maximum allowed size for a
     serialized, compressed block of headers. Attempts to send headers that
     exceed this limit will result in a `'frameError'` event being emitted
@@ -1704,7 +1704,7 @@ changes:
   * `peerMaxConcurrentStreams` {number} Sets the maximum number of concurrent
     streams for the remote peer as if a SETTINGS frame had been received. Will
     be overridden if the remote peer sets its own value for
-    `maxConcurrentStreams`. **Default:** `100`
+    `maxConcurrentStreams`. **Default:** `100`.
   * `selectPadding` {Function} When `options.paddingStrategy` is equal to
     `http2.constants.PADDING_STRATEGY_CALLBACK`, provides the callback function
     used to determine the padding. See [Using options.selectPadding][].
@@ -1712,18 +1712,18 @@ changes:
     remote peer upon connection.
   * `Http1IncomingMessage` {http.IncomingMessage} Specifies the IncomingMessage
     class to used for HTTP/1 fallback. Useful for extending the original
-    `http.IncomingMessage`. **Default:** `http.IncomingMessage`
+    `http.IncomingMessage`. **Default:** `http.IncomingMessage`.
   * `Http1ServerResponse` {http.ServerResponse} Specifies the ServerResponse
     class to used for HTTP/1 fallback. Useful for extending the original
-    `http.ServerResponse`. **Default:** `http.ServerResponse`
+    `http.ServerResponse`. **Default:** `http.ServerResponse`.
   * `Http2ServerRequest` {http2.Http2ServerRequest} Specifies the
     Http2ServerRequest class to use.
     Useful for extending the original `Http2ServerRequest`.
-    **Default:** `Http2ServerRequest`
+    **Default:** `Http2ServerRequest`.
   * `Http2ServerResponse` {http2.Http2ServerResponse} Specifies the
     Http2ServerResponse class to use.
     Useful for extending the original `Http2ServerResponse`.
-    **Default:** `Http2ServerResponse`
+    **Default:** `Http2ServerResponse`.
 * `onRequestHandler` {Function} See [Compatibility API][]
 * Returns: {Http2Server}
 
@@ -1771,23 +1771,24 @@ changes:
 
 * `options` {Object}
   * `allowHTTP1` {boolean} Incoming client connections that do not support
-    HTTP/2 will be downgraded to HTTP/1.x when set to `true`. **Default:**
-    `false`. See the [`'unknownProtocol'`][] event. See [ALPN negotiation][].
+    HTTP/2 will be downgraded to HTTP/1.x when set to `true`.
+    See the [`'unknownProtocol'`][] event. See [ALPN negotiation][].
+    **Default:** `false`.
   * `maxDeflateDynamicTableSize` {number} Sets the maximum dynamic table size
-    for deflating header fields. **Default:** `4Kib`
+    for deflating header fields. **Default:** `4Kib`.
   * `maxSessionMemory`{number} Sets the maximum memory that the `Http2Session`
     is permitted to use. The value is expressed in terms of number of megabytes,
-    e.g. `1` equal 1 megabyte. The minimum value allowed is `1`. **Default:**
-    `10`. This is a credit based limit, existing `Http2Stream`s may cause this
+    e.g. `1` equal 1 megabyte. The minimum value allowed is `1`. This is a
+    credit based limit, existing `Http2Stream`s may cause this
     limit to be exceeded, but new `Http2Stream` instances will be rejected
     while this limit is exceeded. The current number of `Http2Stream` sessions,
     the current memory use of the header compression tables, current data
     queued to be sent, and unacknowledged PING and SETTINGS frames are all
-    counted towards the current limit.
+    counted towards the current limit. **Default:** `10`.
   * `maxHeaderListPairs` {number} Sets the maximum number of header entries.
-    **Default:** `128`. The minimum value is `4`.
+    The minimum value is `4`. **Default:** `128`.
   * `maxOutstandingPings` {number} Sets the maximum number of outstanding,
-    unacknowledged pings. The default is `10`.
+    unacknowledged pings. **Default:** `10`.
   * `maxSendHeaderBlockLength` {number} Sets the maximum allowed size for a
     serialized, compressed block of headers. Attempts to send headers that
     exceed this limit will result in a `'frameError'` event being emitted
@@ -1813,7 +1814,7 @@ changes:
   * `peerMaxConcurrentStreams` {number} Sets the maximum number of concurrent
     streams for the remote peer as if a SETTINGS frame had been received. Will
     be overridden if the remote peer sets its own value for
-    `maxConcurrentStreams`. **Default:** `100`
+    `maxConcurrentStreams`. **Default:** `100`.
   * `selectPadding` {Function} When `options.paddingStrategy` is equal to
     `http2.constants.PADDING_STRATEGY_CALLBACK`, provides the callback function
     used to determine the padding. See [Using options.selectPadding][].
@@ -1822,7 +1823,7 @@ changes:
   * ...: Any [`tls.createServer()`][] options can be provided. For
     servers, the identity options (`pfx` or `key`/`cert`) are usually required.
 * `onRequestHandler` {Function} See [Compatibility API][]
-* Returns {Http2SecureServer}
+* Returns: {Http2SecureServer}
 
 Returns a `tls.Server` instance that creates and manages `Http2Session`
 instances.
@@ -1866,20 +1867,20 @@ changes:
 * `authority` {string|URL}
 * `options` {Object}
   * `maxDeflateDynamicTableSize` {number} Sets the maximum dynamic table size
-    for deflating header fields. **Default:** `4Kib`
+    for deflating header fields. **Default:** `4Kib`.
   * `maxSessionMemory`{number} Sets the maximum memory that the `Http2Session`
     is permitted to use. The value is expressed in terms of number of megabytes,
-    e.g. `1` equal 1 megabyte. The minimum value allowed is `1`. **Default:**
-    `10`. This is a credit based limit, existing `Http2Stream`s may cause this
+    e.g. `1` equal 1 megabyte. The minimum value allowed is `1`.
+    This is a credit based limit, existing `Http2Stream`s may cause this
     limit to be exceeded, but new `Http2Stream` instances will be rejected
     while this limit is exceeded. The current number of `Http2Stream` sessions,
     the current memory use of the header compression tables, current data
     queued to be sent, and unacknowledged PING and SETTINGS frames are all
-    counted towards the current limit.
+    counted towards the current limit. **Default:** `10`.
   * `maxHeaderListPairs` {number} Sets the maximum number of header entries.
-    **Default:** `128`. The minimum value is `1`.
+    The minimum value is `1`. **Default:** `128`.
   * `maxOutstandingPings` {number} Sets the maximum number of outstanding,
-    unacknowledged pings. The default is `10`.
+    unacknowledged pings. **Default:** `10`.
   * `maxReservedRemoteStreams` {number} Sets the maximum number of reserved push
     streams the client will accept at any given time. Once the current number of
     currently reserved push streams exceeds reaches this limit, new push streams
@@ -1909,7 +1910,7 @@ changes:
   * `peerMaxConcurrentStreams` {number} Sets the maximum number of concurrent
     streams for the remote peer as if a SETTINGS frame had been received. Will
     be overridden if the remote peer sets its own value for
-    `maxConcurrentStreams`. **Default:** `100`
+    `maxConcurrentStreams`. **Default:** `100`.
   * `selectPadding` {Function} When `options.paddingStrategy` is equal to
     `http2.constants.PADDING_STRATEGY_CALLBACK`, provides the callback function
     used to determine the padding. See [Using options.selectPadding][].
@@ -1920,7 +1921,7 @@ changes:
     [`Duplex`][] stream that is to be used as the connection for this session.
   * ...: Any [`net.connect()`][] or [`tls.connect()`][] options can be provided.
 * `listener` {Function}
-* Returns {ClientHttp2Session}
+* Returns: {ClientHttp2Session}
 
 Returns a `ClientHttp2Session` instance.
 
@@ -2052,16 +2053,16 @@ These objects are ordinary JavaScript objects containing the following
 properties.
 
 * `headerTableSize` {number} Specifies the maximum number of bytes used for
-  header compression. **Default:** `4,096 octets`. The minimum allowed
-  value is 0. The maximum allowed value is 2<sup>32</sup>-1.
+  header compression. The minimum allowed value is 0. The maximum allowed value
+  is 2<sup>32</sup>-1. **Default:** `4,096 octets`.
 * `enablePush` {boolean} Specifies `true` if HTTP/2 Push Streams are to be
   permitted on the `Http2Session` instances.
 * `initialWindowSize` {number} Specifies the *senders* initial window size
-  for stream-level flow control. **Default:** `65,535 bytes`. The minimum
-  allowed value is 0. The maximum allowed value is 2<sup>32</sup>-1.
+  for stream-level flow control. The minimum allowed value is 0. The maximum
+  allowed value is 2<sup>32</sup>-1. **Default:** `65,535 bytes`.
 * `maxFrameSize` {number} Specifies the size of the largest frame payload.
-  **Default:** `16,384 bytes`. The minimum allowed value is 16,384. The maximum
-  allowed value is 2<sup>24</sup>-1.
+  The minimum allowed value is 16,384. The maximum allowed value
+  is 2<sup>24</sup>-1. **Default:** `16,384 bytes`.
 * `maxConcurrentStreams` {number} Specifies the maximum number of concurrent
   streams permitted on an `Http2Session`. There is no default value which
   implies, at least theoretically, 2<sup>31</sup>-1 streams may be open
@@ -2069,7 +2070,7 @@ properties.
   is 0. The maximum allowed value is 2<sup>31</sup>-1.
 * `maxHeaderListSize` {number} Specifies the maximum size (uncompressed octets)
   of header list that will be accepted. The minimum allowed value is 0. The
-  maximum allowed value is 2<sup>32</sup>-1. **Default:** 65535.
+  maximum allowed value is 2<sup>32</sup>-1. **Default:** `65535`.
 
 All additional properties on the settings object are ignored.
 
@@ -2416,8 +2417,8 @@ added: v8.4.0
 
 The raw request/response headers list exactly as they were received.
 
-Note that the keys and values are in the same list.  It is *not* a
-list of tuples.  So, the even-numbered offsets are key values, and the
+Note that the keys and values are in the same list. It is *not* a
+list of tuples. So, the even-numbered offsets are key values, and the
 odd-numbered offsets are the associated values.
 
 Header names are not lowercased, and duplicates are not merged.
@@ -2444,7 +2445,7 @@ added: v8.4.0
 * {Array}
 
 The raw request/response trailer keys and values exactly as they were
-received.  Only populated at the `'end'` event.
+received. Only populated at the `'end'` event.
 
 #### request.setTimeout(msecs, callback)
 <!-- YAML
@@ -2454,7 +2455,7 @@ added: v8.4.0
 * `msecs` {number}
 * `callback` {Function}
 
-Sets the [`Http2Stream`]()'s timeout value to `msecs`.  If a callback is
+Sets the [`Http2Stream`]()'s timeout value to `msecs`. If a callback is
 provided, then it is added as a listener on the `'timeout'` event on
 the response object.
 
@@ -2533,7 +2534,7 @@ Then `request.url` will be:
 ```
 
 To parse the url into its parts `require('url').parse(request.url)`
-can be used.  Example:
+can be used. Example:
 
 ```txt
 $ node
@@ -2581,7 +2582,7 @@ Url {
 added: v8.4.0
 -->
 
-This object is created internally by an HTTP server--not by the user. It is
+This object is created internally by an HTTP server — not by the user. It is
 passed as the second parameter to the [`'request'`][] event.
 
 The response implements, but does not inherit from, the [Writable Stream][]
@@ -2790,8 +2791,8 @@ added: v8.4.0
 * `name` {string}
 * `value` {string|string[]}
 
-Sets a single header value for implicit headers.  If this header already exists
-in the to-be-sent headers, its value will be replaced.  Use an array of strings
+Sets a single header value for implicit headers. If this header already exists
+in the to-be-sent headers, its value will be replaced. Use an array of strings
 here to send multiple headers with the same name.
 
 Example:
@@ -2831,7 +2832,7 @@ added: v8.4.0
 * `msecs` {number}
 * `callback` {Function}
 
-Sets the [`Http2Stream`]()'s timeout value to `msecs`.  If a callback is
+Sets the [`Http2Stream`]()'s timeout value to `msecs`. If a callback is
 provided, then it is added as a listener on the `'timeout'` event on
 the response object.
 
@@ -2990,7 +2991,7 @@ response.writeHead(200, {
 ```
 
 Note that Content-Length is given in bytes not characters. The
-`Buffer.byteLength()` API  may be used to determine the number of bytes in a
+`Buffer.byteLength()` API may be used to determine the number of bytes in a
 given encoding. On outbound messages, Node.js does not check if Content-Length
 and the length of the body being transmitted are equal or not. However, when
 receiving messages, Node.js will automatically reject messages when the

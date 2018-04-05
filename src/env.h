@@ -239,7 +239,6 @@ struct PackageConfig {
   V(port_string, "port")                                                      \
   V(preference_string, "preference")                                          \
   V(priority_string, "priority")                                              \
-  V(produce_cached_data_string, "produceCachedData")                          \
   V(promise_string, "promise")                                                \
   V(pubkey_string, "pubkey")                                                  \
   V(query_string, "query")                                                    \
@@ -645,6 +644,10 @@ class Environment {
 
   inline AliasedBuffer<double, v8::Float64Array>* fs_stats_field_array();
 
+  // stat fields contains twice the number of entries because `fs.StatWatcher`
+  // needs room to store data for *two* `fs.Stats` instances.
+  static const int kFsStatsFieldsLength = 14;
+
   inline std::vector<std::unique_ptr<fs::FileHandleReadWrap>>&
       file_handle_read_wrap_freelist();
 
@@ -823,9 +826,6 @@ class Environment {
   bool http_parser_buffer_in_use_ = false;
   std::unique_ptr<http2::http2_state> http2_state_;
 
-  // stat fields contains twice the number of entries because `fs.StatWatcher`
-  // needs room to store data for *two* `fs.Stats` instances.
-  static const int kFsStatsFieldsLength = 2 * 14;
   AliasedBuffer<double, v8::Float64Array> fs_stats_field_array_;
 
   std::vector<std::unique_ptr<fs::FileHandleReadWrap>>

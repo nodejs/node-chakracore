@@ -64,12 +64,12 @@ ReferenceError: Variable undefined in strict mode
    at endReadableNT (_stream_readable.js:*:*)
 
 vm.js:*
-    return realRunInThisContext.call(this, options);
-    ^
+      return super.runInThisContext(...args);
+      ^
 10
 
 vm.js:*
-    return realRunInThisContext.call(this, options);
-    ^
+      return super.runInThisContext(...args);
+      ^
 10
 done
