@@ -723,6 +723,9 @@ exports.expectsError = function expectsError(fn, settings, exact) {
     fn = undefined;
   }
   function innerFn(error) {
+    const descriptor = Object.getOwnPropertyDescriptor(error, 'message');
+    assert.strictEqual(descriptor.enumerable,
+                       false, 'The error message should be non-enumerable');
     if ('type' in settings) {
       const type = settings.type;
       if (type !== Error && !Error.isPrototypeOf(type)) {
@@ -735,6 +738,9 @@ exports.expectsError = function expectsError(fn, settings, exact) {
         typeName = Object.getPrototypeOf(error.constructor).name;
       }
       assert.strictEqual(typeName, type.name);
+    }
+    if ('info' in settings) {
+      assert.deepStrictEqual(error.info, settings.info);
     }
     if ('message' in settings) {
       const message = settings.message;
@@ -749,7 +755,7 @@ exports.expectsError = function expectsError(fn, settings, exact) {
     // Check all error properties.
     const keys = Object.keys(settings);
     for (const key of keys) {
-      if (key === 'message' || key === 'type')
+      if (key === 'message' || key === 'type' || key === 'info')
         continue;
       const actual = error[key];
       const expected = settings[key];
