@@ -54,7 +54,7 @@
   };
 
   StackFrame.prototype.getTypeName = function() {
-    //TODO : Fix this
+    // TODO : Fix this
     return this.functionName;
   };
 

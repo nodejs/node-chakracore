@@ -443,19 +443,17 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
 // Skip for chakra engine as debugger support not yet present
 if (!common.isChakraEngine) {
   // test for Array constructor in different context
-  {
-    const Debug = vm.runInDebugContext('Debug');
-    const map = new Map();
-    map.set(1, 2);
-    const mirror = Debug.MakeMirror(map.entries(), true);
-    const vals = mirror.preview();
-    const valsOutput = [];
-    for (const o of vals) {
-      valsOutput.push(o);
-    }
-
-    assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
+  const Debug = vm.runInDebugContext('Debug');
+  const map = new Map();
+  map.set(1, 2);
+  const mirror = Debug.MakeMirror(map.entries(), true);
+  const vals = mirror.preview();
+  const valsOutput = [];
+  for (const o of vals) {
+    valsOutput.push(o);
   }
+
+  assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
 }
 
 // test for other constructors in different context
@@ -938,30 +936,28 @@ if (typeof Symbol !== 'undefined') {
 // below code uses `Debug.MakeMirror` to inspect
 if (!common.isChakraEngine) {
   // Test Map iterators
-  {
-    const map = new Map([['foo', 'bar']]);
-    assert.strictEqual(util.inspect(map.keys()), 'MapIterator { \'foo\' }');
-    assert.strictEqual(util.inspect(map.values()), 'MapIterator { \'bar\' }');
-    assert.strictEqual(util.inspect(map.entries()),
-                       'MapIterator { [ \'foo\', \'bar\' ] }');
-    // make sure the iterator doesn't get consumed
-    const keys = map.keys();
-    assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-    assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
-  }
+  const map = new Map([['foo', 'bar']]);
+  assert.strictEqual(util.inspect(map.keys()), 'MapIterator { \'foo\' }');
+  assert.strictEqual(util.inspect(map.values()), 'MapIterator { \'bar\' }');
+  assert.strictEqual(util.inspect(map.entries()),
+                     'MapIterator { [ \'foo\', \'bar\' ] }');
+  // make sure the iterator doesn't get consumed
+  const keys = map.keys();
+  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+  assert.strictEqual(util.inspect(keys), 'MapIterator { \'foo\' }');
+}
 
+if (!common.isChakraEngine) {
   // Test Set iterators
-  {
-    const aSet = new Set([1, 3]);
-    assert.strictEqual(util.inspect(aSet.keys()), 'SetIterator { 1, 3 }');
-    assert.strictEqual(util.inspect(aSet.values()), 'SetIterator { 1, 3 }');
-    assert.strictEqual(util.inspect(aSet.entries()),
-                       'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
-    // make sure the iterator doesn't get consumed
-    const keys = aSet.keys();
-    assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
-    assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
-  }
+  const aSet = new Set([1, 3]);
+  assert.strictEqual(util.inspect(aSet.keys()), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(aSet.values()), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(aSet.entries()),
+                     'SetIterator { [ 1, 1 ], [ 3, 3 ] }');
+  // make sure the iterator doesn't get consumed
+  const keys = aSet.keys();
+  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
+  assert.strictEqual(util.inspect(keys), 'SetIterator { 1, 3 }');
 }
 
 // Test alignment of items in container
