@@ -27,6 +27,7 @@ const JSStream = process.binding('js_stream').JSStream;
 const util = require('util');
 const vm = require('vm');
 if (!common.isChakraEngine) {
+  // eslint-disable-next-line no-unused-vars
   const { previewMapIterator } = require('internal/v8');
 }
 
@@ -457,17 +458,16 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
 }
 
 if (!common.isChakraEngine) {
-  {
-    const map = new Map();
-    map.set(1, 2);
-    const vals = previewMapIterator(map.entries());
-    const valsOutput = [];
-    for (const o of vals) {
-      valsOutput.push(o);
-    }
-
-    assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
+  const map = new Map();
+  map.set(1, 2);
+  // eslint-disable-next-line no-undef
+  const vals = previewMapIterator(map.entries());
+  const valsOutput = [];
+  for (const o of vals) {
+    valsOutput.push(o);
   }
+
+  assert.strictEqual(util.inspect(valsOutput), '[ [ 1, 2 ] ]');
 }
 
 // Test for other constructors in different context.
@@ -943,10 +943,8 @@ if (typeof Symbol !== 'undefined') {
   global.Promise = oldPromise;
 }
 
-if (!common.isChakraEngine) 
-{
-// Test Map iterators.
-{
+if (!common.isChakraEngine) {
+  // Test Map iterators.
   const map = new Map([['foo', 'bar']]);
   assert.strictEqual(util.inspect(map.keys()), '[Map Iterator] { \'foo\' }');
   assert.strictEqual(util.inspect(map.values()), '[Map Iterator] { \'bar\' }');
@@ -961,12 +959,9 @@ if (!common.isChakraEngine)
     util.inspect(keys, { maxArrayLength: 0 }),
     '[Map Iterator] { ... more items, extra: true }');
 }
-}
 
-if (!common.isChakraEngine) 
-{
-// Test Set iterators.
-{
+if (!common.isChakraEngine) {
+  // Test Set iterators.
   const aSet = new Set([1, 3]);
   assert.strictEqual(util.inspect(aSet.keys()), '[Set Iterator] { 1, 3 }');
   assert.strictEqual(util.inspect(aSet.values()), '[Set Iterator] { 1, 3 }');
@@ -980,8 +975,6 @@ if (!common.isChakraEngine)
   assert.strictEqual(
     util.inspect(keys, { maxArrayLength: 1 }),
     '[Set Iterator] { 1, ... more items, extra: true }');
-
-}
 }
 
 // Test alignment of items in container.
@@ -1395,9 +1388,8 @@ util.inspect(process);
   assert.strictEqual(out, expect);
 }
 
-if (!common.isChakraEngine) 
-{
-{ // Test WeakMap
+if (!common.isChakraEngine) {
+  // Test WeakMap
   const obj = {};
   const arr = [];
   const weakMap = new WeakMap([[obj, arr], [arr, obj]]);
@@ -1418,14 +1410,12 @@ if (!common.isChakraEngine)
   // It is not possible to determine the output reliable.
   expect = 'WeakMap { [ [length]: 0 ] => {}, ... more items, extra: true }';
   const expectAlt = 'WeakMap { {} => [ [length]: 0 ], ... more items, ' +
-                    'extra: true }';
+                  'extra: true }';
   assert(out === expect || out === expectAlt);
 }
-}
 
-if (!common.isChakraEngine) 
-{
-{ // Test WeakSet
+if (!common.isChakraEngine) {
+  // Test WeakSet
   const weakSet = new WeakSet([{}, [1]]);
   let out = util.inspect(weakSet, { showHidden: true });
   let expect = 'WeakSet { [ 1, [length]: 1 ], {} }';
@@ -1444,7 +1434,6 @@ if (!common.isChakraEngine)
   // It is not possible to determine the output reliable.
   expect = 'WeakSet { {}, ... more items, extra: true }';
   const expectAlt = 'WeakSet { [ 1, [length]: 1 ], ... more items, ' +
-                    'extra: true }';
+                  'extra: true }';
   assert(out === expect || out === expectAlt);
-}
 }
