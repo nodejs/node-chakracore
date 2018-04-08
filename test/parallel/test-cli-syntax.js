@@ -14,8 +14,9 @@ const syntaxArgs = [
 ];
 
 // Match on the name of the `Error` but not the message as it is different
-// depending on the JavaScript engine.
-const syntaxErrorRE = /^SyntaxError: \b/m;
+// depending on the JavaScript engine. Some ChakraCore messages start with a
+// single quote character so add that as an optional character.
+const syntaxErrorRE = /^SyntaxError: '?\b/m;
 const notFoundRE = /^Error: Cannot find module/m;
 
 // test good syntax with and without shebang
@@ -62,10 +63,7 @@ const notFoundRE = /^Error: Cannot find module/m;
       assert.strictEqual(stdout, '');
 
       // stderr should have a syntax error message
-      assert(common.engineSpecificMessage({
-        v8: syntaxErrorRE,
-        chakracore: /^SyntaxError: Expected ';'$/m
-      }).test(stderr), `${syntaxErrorRE} === ${stderr}`);
+      assert(syntaxErrorRE.test(stderr), `${syntaxErrorRE} === ${stderr}`);
 
       // stderr should include the filename
       assert(stderr.startsWith(file), `${stderr} starts with ${file}`);
@@ -124,10 +122,7 @@ syntaxArgs.forEach(function(args) {
   assert.strictEqual(c.stdout, '');
 
   // stderr should have a syntax error message
-  assert(common.engineSpecificMessage({
-    v8: syntaxErrorRE,
-    chakracore: /^SyntaxError: Expected ';'$/m
-  }).test(c.stderr), `${syntaxErrorRE} === ${c.stderr}`);
+  assert(syntaxErrorRE.test(c.stderr), `${syntaxErrorRE} === ${c.stderr}`);
 
   assert.strictEqual(c.status, 1);
 });
@@ -145,6 +140,29 @@ syntaxArgs.forEach(function(args) {
           `${node}: either --check or --eval can be used, not both`
         )
       );
+    }));
+  });
+});
+
+// should work with -r flags
+['-c', '--check'].forEach(function(checkFlag) {
+  ['-r', '--require'].forEach(function(requireFlag) {
+    const preloadFile = fixtures.path('no-wrapper.js');
+    const file = fixtures.path('syntax', 'illegal_if_not_wrapped.js');
+    const args = [requireFlag, preloadFile, checkFlag, file];
+    const cmd = [node, ...args].join(' ');
+    exec(cmd, common.mustCall((err, stdout, stderr) => {
+      assert.strictEqual(err instanceof Error, true);
+      assert.strictEqual(err.code, 1);
+
+      // no stdout should be produced
+      assert.strictEqual(stdout, '');
+
+      // stderr should have a syntax error message
+      assert(syntaxErrorRE.test(stderr), `${syntaxErrorRE} === ${stderr}`);
+
+      // stderr should include the filename
+      assert(stderr.startsWith(file), `${stderr} starts with ${file}`);
     }));
   });
 });

@@ -1242,6 +1242,12 @@ An attempt was made to open an IPC communication channel with a synchronously
 forked Node.js process. See the documentation for the [`child_process`][] module
 for more information.
 
+<a id="ERR_MEMORY_ALLOCATION_FAILED"></a>
+### ERR_MEMORY_ALLOCATION_FAILED
+
+An attempt was made to allocate memory (usually in the C++ layer) but it
+failed.
+
 <a id="ERR_METHOD_NOT_IMPLEMENTED"></a>
 ### ERR_METHOD_NOT_IMPLEMENTED
 
@@ -1468,6 +1474,12 @@ additional details.
 A stream method was called that cannot complete because the stream was
 destroyed using `stream.destroy()`.
 
+<a id="ERR_STRING_TOO_LARGE"></a>
+### ERR_STRING_TOO_LARGE
+
+An attempt has been made to create a string larger than the maximum allowed
+size.
+
 <a id="ERR_TLS_CERT_ALTNAME_INVALID"></a>
 ### ERR_TLS_CERT_ALTNAME_INVALID
 
@@ -1520,6 +1532,11 @@ A Transform stream finished while it was still transforming.
 ### ERR_TRANSFORM_WITH_LENGTH_0
 
 A Transform stream finished with data still in the write buffer.
+
+<a id="ERR_TTY_INIT_FAILED"></a>
+### ERR_TTY_INIT_FAILED
+
+The initialization of a TTY failed due to a system error.
 
 <a id="ERR_UNCAUGHT_EXCEPTION_CAPTURE_ALREADY_SET"></a>
 ### ERR_UNCAUGHT_EXCEPTION_CAPTURE_ALREADY_SET
