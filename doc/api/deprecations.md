@@ -72,7 +72,7 @@ be used.
 <a id="DEP0005"></a>
 ### DEP0005: Buffer() constructor
 
-Type: Documentation-only (supports [`--pending-deprecation`][])
+Type: Runtime (supports [`--pending-deprecation`][])
 
 The `Buffer()` function and `new Buffer()` constructor are deprecated due to
 API usability issues that can potentially lead to accidental security issues.
@@ -92,6 +92,10 @@ is strongly recommended:
 * [`Buffer.from(buffer)`][] - Create a `Buffer` that copies `buffer`.
 * [`Buffer.from(string[, encoding])`][from_string_encoding] - Create a `Buffer`
   that copies `string`.
+
+As of REPLACEME, a deprecation warning is printed at runtime when
+`--pending-deprecation` is used or when the calling code is
+outside `node_modules` in order to better target developers, rather than users.
 
 <a id="DEP0006"></a>
 ### DEP0006: child\_process options.customFds
@@ -979,6 +983,16 @@ Type: Runtime
 This was an undocumented helper function not intended for use outside Node.js
 core and obsoleted by the removal of NPN (Next Protocol Negotiation) support.
 
+<a id="DEP0108"></a>
+### DEP0108: zlib.bytesRead
+
+Type: Documentation-only
+
+Deprecated alias for [`zlib.bytesWritten`][]. This original name was chosen
+because it also made sense to interpret the value as the number of bytes
+read by the engine, but is inconsistent with other streams in Node.js that
+expose values under these names.
+
 [`--pending-deprecation`]: cli.html#cli_pending_deprecation
 [`Buffer.allocUnsafeSlow(size)`]: buffer.html#buffer_class_method_buffer_allocunsafeslow_size
 [`Buffer.from(array)`]: buffer.html#buffer_class_method_buffer_from_array
@@ -1058,6 +1072,7 @@ core and obsoleted by the removal of NPN (Next Protocol Negotiation) support.
 [`util.types`]: util.html#util_util_types
 [`util`]: util.html
 [`worker.exitedAfterDisconnect`]: cluster.html#cluster_worker_exitedafterdisconnect
+[`zlib.bytesWritten`]: zlib.html#zlib_zlib_byteswritten
 [alloc]: buffer.html#buffer_class_method_buffer_alloc_size_fill_encoding
 [alloc_unsafe_size]: buffer.html#buffer_class_method_buffer_allocunsafe_size
 [from_arraybuffer]: buffer.html#buffer_class_method_buffer_from_arraybuffer_byteoffset_length
