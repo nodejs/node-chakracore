@@ -645,4 +645,4 @@ set FULLVERSION=%NODE_VERSION%-%TAG%
 
 :distexit
 if not defined DISTTYPEDIR set DISTTYPEDIR=%DISTTYPE%
-goto :EOF
+exit /b 0
