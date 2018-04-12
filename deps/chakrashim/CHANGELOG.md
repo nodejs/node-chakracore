@@ -1,5 +1,28 @@
 # ChakraShim ChangeLog
 
+## 2018-04-12, node-chakracore-v8.11.1
+
+### Commits
+
+* [[`8b64115a73`](https://github.com/nodejs/node-chakracore/commit/8b64115a73)] - 2018-04-12, Node-ChakraCore Version 8.11.1
+* [[`5c296ee394`](https://github.com/nodejs/node-chakracore/commit/5c296ee394)] - chakrashim: update Error.prepareStackTrace shim
+* [[`a5686d803d`](https://github.com/nodejs/node-chakracore/commit/a5686d803d)] - deps: update ChakraCore to Microsoft/ChakraCore@495de1a75c
+* [[`69a3d1029b`](https://github.com/nodejs/node-chakracore/commit/69a3d1029b)] - deps: update ChakraCore to Microsoft/ChakraCore@7f1ab68f0a
+* [[`74324ce95d`](https://github.com/nodejs/node-chakracore/commit/74324ce95d)] - chakrashim,lib,test: fix lint errors
+* [[`725fc8000b`](https://github.com/nodejs/node-chakracore/commit/725fc8000b)] - chakrashim: remove `constexpr` usage
+* [[`ea8e749dd8`](https://github.com/nodejs/node-chakracore/commit/ea8e749dd8)] - lib: disable eslint rule in trace_mgr.js
+* [[`adb9e5a798`](https://github.com/nodejs/node-chakracore/commit/adb9e5a798)] - chakrashim: add missing shim API
+* [[`8820dbeffb`](https://github.com/nodejs/node-chakracore/commit/8820dbeffb)] - deps: update ChakraCore to Microsoft/ChakraCore@8e52453b89
+* [[`34ef2131f4`](https://github.com/nodejs/node-chakracore/commit/34ef2131f4)] - Merge tag 'v8.11.1' into v8.11.1-proposal
+* [[`b4ec1bb69c`](https://github.com/nodejs/node-chakracore/commit/b4ec1bb69c)] - n-api: `napi_make_callback` error handling
+* [[`c2f52f76d8`](https://github.com/nodejs/node-chakracore/commit/c2f52f76d8)] - n-api: add more `int64_t` tests
+* [[`b405dedad4`](https://github.com/nodejs/node-chakracore/commit/b405dedad4)] - chakrashim: add warning for ignored engine flags
+* [[`4f6dd32cfa`](https://github.com/nodejs/node-chakracore/commit/4f6dd32cfa)] - chakrashim: shim missing String constructors
+* [[`1aa78c3a15`](https://github.com/nodejs/node-chakracore/commit/1aa78c3a15)] - chakrashim,n-api: Add `napi_fatal_exception`
+* [[`093c06cede`](https://github.com/nodejs/node-chakracore/commit/093c06cede)] - chakrashim: shim new API calls
+* [[`c03869a373`](https://github.com/nodejs/node-chakracore/commit/c03869a373)] - Merge tag 'v8.11.0' into v8.11.0-proposal
+* [[`f99d348642`](https://github.com/nodejs/node-chakracore/commit/f99d348642)] - chakrashim,src: prepare for next release
+
 ## 2018-03-19, node-chakracore-v8.10.0
 
 ### Commits
