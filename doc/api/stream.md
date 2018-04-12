@@ -128,7 +128,7 @@ const server = http.createServer((req, res) => {
     body += chunk;
   });
 
-  // the end event indicates that the entire body has been received
+  // the 'end' event indicates that the entire body has been received
   req.on('end', () => {
     try {
       const data = JSON.parse(body);
@@ -361,11 +361,11 @@ added: v8.0.0
 
 * Returns: {this}
 
-Destroy the stream, and emit the passed `error` and a `close` event.
+Destroy the stream, and emit the passed `'error'` and a `'close'` event.
 After this call, the writable stream has ended and subsequent calls
-to `write` / `end` will give an `ERR_STREAM_DESTROYED` error.
+to `write()` / `end()` will give an `ERR_STREAM_DESTROYED` error.
 Implementors should not override this method,
-but instead implement [`writable._destroy`][writable-_destroy].
+but instead implement [`writable._destroy()`][writable-_destroy].
 
 ##### writable.end([chunk][, encoding][, callback])
 <!-- YAML
@@ -462,6 +462,9 @@ See also: [`writable.cork()`][].
 <!-- YAML
 added: v9.3.0
 -->
+
+* {number}
+
 Return the value of `highWaterMark` passed when constructing this
 `Writable`.
 
@@ -760,11 +763,11 @@ changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/17979
     description: >
-      'readable' is always emitted in the next tick after
-      .push() is called
+      The `'readable'` is always emitted in the next tick after `.push()`
+      is called
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/18994
-    description: Using 'readable' requires calling .read().
+    description: Using `'readable'` requires calling `.read()`.
 -->
 
 The `'readable'` event is emitted when there is data available to be read from
@@ -827,11 +830,11 @@ added: v8.0.0
 * `error` {Error} Error which will be passed as payload in `'error'` event
 * Returns: {this}
 
-Destroy the stream, and emit `'error'` and `close`. After this call, the
+Destroy the stream, and emit `'error'` and `'close'`. After this call, the
 readable stream will release any internal resources and subsequent calls
-to `push` will be ignored.
+to `push()` will be ignored.
 Implementors should not override this method, but instead implement
-[`readable._destroy`][readable-_destroy].
+[`readable._destroy()`][readable-_destroy].
 
 ##### readable.isPaused()
 <!-- YAML
@@ -1013,7 +1016,8 @@ added: v0.9.4
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/18994
-    description: Resume has no effect if there is a 'readable' event listening
+    description: The `resume()` has no effect if there is a `'readable'` event
+                 listening.
 -->
 
 * Returns: {this}
@@ -1146,7 +1150,7 @@ function parseHeader(stream, callback) {
         const remaining = split.join('\n\n');
         const buf = Buffer.from(remaining, 'utf8');
         stream.removeListener('error', callback);
-        // remove the readable listener before unshifting
+        // remove the 'readable' listener before unshifting
         stream.removeListener('readable', onReadable);
         if (buf.length)
           stream.unshift(buf);
@@ -1208,6 +1212,8 @@ added: REPLACEME
 -->
 
 > Stability: 1 - Experimental
+
+* {AsyncIterator}
 
 Returns an [AsyncIterator][async-iterator] to fully consume the stream.
 
@@ -1280,8 +1286,8 @@ added: v8.0.0
 Destroy the stream, and emit `'error'`. After this call, the
 transform stream would release any internal resources.
 implementors should not override this method, but instead implement
-[`readable._destroy`][readable-_destroy].
-The default implementation of `_destroy` for `Transform` also emit `'close'`.
+[`readable._destroy()`][readable-_destroy].
+The default implementation of `_destroy()` for `Transform` also emit `'close'`.
 
 ## API for Stream Implementers
 
@@ -1420,7 +1426,7 @@ changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/18438
     description: >
-      Add `emitClose` option to specify if `close` is emitted on destroy
+      Add `emitClose` option to specify if `'close'` is emitted on destroy
 -->
 
 * `options` {Object}
@@ -1435,7 +1441,7 @@ changes:
     it becomes possible to write JavaScript values other than string,
     `Buffer` or `Uint8Array` if supported by the stream implementation.
     **Default:** `false`.
-  * `emitClose` {boolean} Whether or not the stream should emit `close`
+  * `emitClose` {boolean} Whether or not the stream should emit `'close'`
     after it has been destroyed. **Default:** `true`.
   * `write` {Function} Implementation for the
     [`stream._write()`][stream-_write] method.
@@ -1576,7 +1582,7 @@ by child classes, and if so, will be called by the internal Writable
 class methods only.
 
 This optional function will be called before the stream closes, delaying the
-`finish` event until `callback` is called. This is useful to close resources
+`'finish'` event until `callback` is called. This is useful to close resources
 or write buffered data before a stream ends.
 
 #### Errors While Writing
@@ -2281,7 +2287,7 @@ For example, consider the following code:
 // WARNING!  BROKEN!
 net.createServer((socket) => {
 
-  // we add an 'end' method, but never consume the data
+  // we add an 'end' listener, but never consume the data
   socket.on('end', () => {
     // It will never get here.
     socket.end('The message was received but was not processed.\n');

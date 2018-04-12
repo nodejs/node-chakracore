@@ -19,8 +19,8 @@ compatibility with the existing [HTTP/1][] module API. However,
 the [Compatibility API][] is.
 
 The `http2` Core API is much more symmetric between client and server than the
-`http` API. For instance, most events, like `error`, `connect` and `stream`, can
-be emitted either by client-side code or server-side code.
+`http` API. For instance, most events, like `'error'`, `'connect'` and
+`'stream'`, can be emitted either by client-side code or server-side code.
 
 ### Server-side example
 
@@ -320,6 +320,17 @@ added: v9.4.0
 Will be `true` if this `Http2Session` instance has been closed, otherwise
 `false`.
 
+#### http2session.connecting
+<!-- YAML
+added: REPLACEME
+-->
+
+* {boolean}
+
+Will be `true` if this `Http2Session` instance is still connecting, will be set
+to `false` before emitting `connect` event and/or calling the `http2.connect`
+callback.
+
 #### http2session.destroy([error,][code])
 <!-- YAML
 added: v8.4.0
@@ -452,7 +463,7 @@ If the `payload` argument is not specified, the default payload will be the
 added: v9.4.0
 -->
 
-Calls [`ref()`][`net.Socket.prototype.ref`] on this `Http2Session`
+Calls [`ref()`][`net.Socket.prototype.ref()`] on this `Http2Session`
 instance's underlying [`net.Socket`].
 
 #### http2session.remoteSettings
@@ -560,7 +571,7 @@ client.
 added: v9.4.0
 -->
 
-Calls [`unref()`][`net.Socket.prototype.unref`] on this `Http2Session`
+Calls [`unref()`][`net.Socket.prototype.unref()`] on this `Http2Session`
 instance's underlying [`net.Socket`].
 
 ### Class: ServerHttp2Session
@@ -845,7 +856,7 @@ added: v8.4.0
 -->
 
 The `'timeout'` event is emitted after no activity is received for this
-`'Http2Stream'` within the number of milliseconds set using
+`Http2Stream` within the number of milliseconds set using
 `http2stream.setTimeout()`.
 
 #### Event: 'trailers'
@@ -2478,6 +2489,7 @@ added: v8.4.0
 
 * `msecs` {number}
 * `callback` {Function}
+* Returns: {http2.Http2ServerRequest}
 
 Sets the [`Http2Stream`]()'s timeout value to `msecs`. If a callback is
 provided, then it is added as a listener on the `'timeout'` event on
@@ -2487,8 +2499,6 @@ If no `'timeout'` listener is added to the request, the response, or
 the server, then [`Http2Stream`]()s are destroyed when they time out. If a
 handler is assigned to the request, the response, or the server's `'timeout'`
 events, timed out sockets must be handled explicitly.
-
-Returns `request`.
 
 #### request.socket
 <!-- YAML
@@ -2521,7 +2531,7 @@ authentication details.
 added: v8.4.0
 -->
 
-* {http2.Http2Stream}
+* {Http2Stream}
 
 The [`Http2Stream`][] object backing the request.
 
@@ -2855,6 +2865,7 @@ added: v8.4.0
 
 * `msecs` {number}
 * `callback` {Function}
+* Returns: {http2.Http2ServerResponse}
 
 Sets the [`Http2Stream`]()'s timeout value to `msecs`. If a callback is
 provided, then it is added as a listener on the `'timeout'` event on
@@ -2864,8 +2875,6 @@ If no `'timeout'` listener is added to the request, the response, or
 the server, then [`Http2Stream`]()s are destroyed when they time out. If a
 handler is assigned to the request, the response, or the server's `'timeout'`
 events, timed out sockets must be handled explicitly.
-
-Returns `response`.
 
 #### response.socket
 <!-- YAML
@@ -2937,7 +2946,7 @@ an empty string.
 added: v8.4.0
 -->
 
-* {http2.Http2Stream}
+* {Http2Stream}
 
 The [`Http2Stream`][] object backing the response.
 
@@ -3149,8 +3158,8 @@ following additional properties:
 [`http2stream.pushStream()`]: #http2_http2stream_pushstream_headers_options_callback
 [`net.Server.close()`]: net.html#net_server_close_callback
 [`net.Socket`]: net.html#net_class_net_socket
-[`net.Socket.prototype.ref`]: net.html#net_socket_ref
-[`net.Socket.prototype.unref`]: net.html#net_socket_unref
+[`net.Socket.prototype.ref()`]: net.html#net_socket_ref
+[`net.Socket.prototype.unref()`]: net.html#net_socket_unref
 [`net.connect()`]: net.html#net_net_connect
 [`request.socket.getPeerCertificate()`]: tls.html#tls_tlssocket_getpeercertificate_detailed
 [`response.end()`]: #http2_response_end_data_encoding_callback

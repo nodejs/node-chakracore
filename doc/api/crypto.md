@@ -233,9 +233,8 @@ added: v0.1.94
 -->
 - `outputEncoding` {string}
 - Returns: {Buffer | string} Any remaining enciphered contents.
-  If `outputEncoding` parameter is one of `'latin1'`, `'base64'` or `'hex'`,
-  a string is returned. If an `outputEncoding` is not provided, a [`Buffer`][]
-  is returned.
+  If `outputEncoding` is one of `'latin1'`, `'base64'` or `'hex'`, a string is
+  returned. If an `outputEncoding` is not provided, a [`Buffer`][] is returned.
 
 Once the `cipher.final()` method has been called, the `Cipher` object can no
 longer be used to encrypt data. Attempts to call `cipher.final()` more than
@@ -392,9 +391,8 @@ added: v0.1.94
 -->
 - `outputEncoding` {string}
 - Returns: {Buffer | string} Any remaining deciphered contents.
-  If `outputEncoding` parameter is one of `'latin1'`, `'ascii'` or `'utf8'`,
-  a string is returned. If an `outputEncoding` is not provided, a [`Buffer`][]
-  is returned.
+  If `outputEncoding` is one of `'latin1'`, `'ascii'` or `'utf8'`, a string is
+  returned. If an `outputEncoding` is not provided, a [`Buffer`][] is returned.
 
 Once the `decipher.final()` method has been called, the `Decipher` object can
 no longer be used to decrypt data. Attempts to call `decipher.final()` more
@@ -1407,6 +1405,7 @@ deprecated: v0.11.13
 > Stability: 0 - Deprecated: Use [`tls.createSecureContext()`][] instead.
 
 - `details` {Object} Identical to [`tls.createSecureContext()`][].
+- Returns: {tls.SecureContext}
 
 The `crypto.createCredentials()` method is a deprecated function for creating
 and returning a `tls.SecureContext`. It should not be used. Replace it with
