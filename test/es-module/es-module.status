@@ -34,3 +34,4 @@ test-esm-shebang : SKIP
 test-esm-snapshot : SKIP
 test-esm-symlink : SKIP
 test-esm-symlink-main : SKIP
+test-esm-throw-undefined : SKIP

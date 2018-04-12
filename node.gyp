@@ -646,8 +646,8 @@
             {
               'action_name': 'mkssldef',
               'inputs': [
-                'deps/openssl/openssl/util/libeay.num',
-                'deps/openssl/openssl/util/ssleay.num',
+                'deps/openssl/openssl/util/libcrypto.num',
+                'deps/openssl/openssl/util/libssl.num',
               ],
               'outputs': ['<(SHARED_INTERMEDIATE_DIR)/openssl.def'],
               'action': [
@@ -1051,6 +1051,7 @@
 
   'conditions': [
     [ 'OS=="aix" and node_shared=="true"', {
+      'variables': {'real_os_name': '<!(uname -s)',},
       'targets': [
         {
           'target_name': 'node_aix_shared',
@@ -1069,7 +1070,14 @@
               'ldflags': [
                 '-Wl,-blibpath:/usr/lib:/lib:/opt/freeware/lib/pthread'
               ],
-            }]
+            }],
+            ['"<(real_os_name)"=="OS400"', {
+              'ldflags': [
+                '-Wl,-blibpath:/QOpenSys/pkgs/lib:/QOpenSys/usr/lib',
+                '-Wl,-bbigtoc',
+                '-Wl,-brtl',
+              ],
+            }],
           ],
           'includes': [
             'node.gypi'

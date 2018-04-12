@@ -304,6 +304,10 @@ It can be constructed in a variety of ways.
 <!-- YAML
 deprecated: v6.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/19524
+    description: Calling this constructor emits a deprecation warning when
+                 run from code outside the `node_modules` directory.
   - version: v7.2.1
     pr-url: https://github.com/nodejs/node/pull/9529
     description: Calling this constructor no longer emits a deprecation warning.
@@ -328,6 +332,10 @@ const buf = new Buffer([0x62, 0x75, 0x66, 0x66, 0x65, 0x72]);
 added: v3.0.0
 deprecated: v6.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/19524
+    description: Calling this constructor emits a deprecation warning when
+                 run from code outside the `node_modules` directory.
   - version: v7.2.1
     pr-url: https://github.com/nodejs/node/pull/9529
     description: Calling this constructor no longer emits a deprecation warning.
@@ -380,6 +388,10 @@ console.log(buf);
 <!-- YAML
 deprecated: v6.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/19524
+    description: Calling this constructor emits a deprecation warning when
+                 run from code outside the `node_modules` directory.
   - version: v7.2.1
     pr-url: https://github.com/nodejs/node/pull/9529
     description: Calling this constructor no longer emits a deprecation warning.
@@ -410,6 +422,10 @@ console.log(buf2.toString());
 <!-- YAML
 deprecated: v6.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/19524
+    description: Calling this constructor emits a deprecation warning when
+                 run from code outside the `node_modules` directory.
   - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/12141
     description: new Buffer(size) will return zero-filled memory by default.
@@ -447,6 +463,10 @@ console.log(buf);
 <!-- YAML
 deprecated: v6.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/19524
+    description: Calling this constructor emits a deprecation warning when
+                 run from code outside the `node_modules` directory.
   - version: v7.2.1
     pr-url: https://github.com/nodejs/node/pull/9529
     description: Calling this constructor no longer emits a deprecation warning.
@@ -712,7 +732,8 @@ changes:
     description: The elements of `list` can now be `Uint8Array`s.
 -->
 
-* `list` {Array} List of `Buffer` or [`Uint8Array`] instances to concat.
+* `list` {Buffer[] | Uint8Array[]} List of `Buffer` or [`Uint8Array`] instances
+  to concat.
 * `totalLength` {integer} Total length of the `Buffer` instances in `list`
   when concatenated.
 * Returns: {Buffer}
@@ -756,7 +777,7 @@ console.log(bufA.length);
 added: v5.10.0
 -->
 
-* `array` {Array}
+* `array` {integer[]}
 
 Allocates a new `Buffer` using an `array` of octets.
 
@@ -1258,10 +1279,10 @@ changes:
 
 * `value` {string|Buffer|Uint8Array|integer} What to search for.
 * `byteOffset` {integer} Where to begin searching in `buf`. **Default:** `0`.
-* `encoding` {string} If `value` is a string, this is its encoding.
+* `encoding` {string} The encoding of `value` if `value` is a string.
   **Default:** `'utf8'`.
-* Returns: {integer} The index of the first occurrence of `value` in `buf` or `-1`
-  if `buf` does not contain `value`.
+* Returns: {integer} The index of the first occurrence of `value` in `buf` or
+  `-1` if `buf` does not contain `value`.
 
 If `value` is:
 
@@ -1300,9 +1321,9 @@ If `value` is not a string, number, or `Buffer`, this method will throw a
 `TypeError`. If `value` is a number, it will be coerced to a valid byte value,
 an integer between 0 and 255.
 
-If `byteOffset` is not a number, it will be coerced to a number. Any arguments
-that coerce to `NaN` or 0, like `{}`, `[]`, `null` or `undefined`, will search
-the whole buffer. This behavior matches [`String#indexOf()`].
+If `byteOffset` is not a number, it will be coerced to a number. If the result
+of coercion is `NaN` or `0`, then the entire buffer will be searched. This
+behavior matches [`String#indexOf()`].
 
 ```js
 const b = Buffer.from('abcdef');
@@ -2368,9 +2389,10 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - byteLength`.
-* `byteLength` {integer} Number of bytes to write. Must satisfy: `0 < byteLength <= 6`.
-  **Default:** `false`.
+* `offset` {integer} Number of bytes to skip before starting to write.
+  Must satisfy: `0 <= offset <= buf.length - byteLength`.
+* `byteLength` {integer} Number of bytes to write. Must satisfy:
+  `0 < byteLength <= 6`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `byteLength` bytes of `value` to `buf` at the specified `offset`.
