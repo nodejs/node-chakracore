@@ -43,8 +43,9 @@ for (const [ value, _method ] of [
   [ new Int32Array() ],
   [ new Float32Array() ],
   [ new Float64Array() ],
-  [ new BigInt64Array() ],
-  [ new BigUint64Array() ],
+  // Node-ChakraCore does not support BigInts
+  [ !common.isChakraEngine ? new BigInt64Array() : new Date() ],
+  [ !common.isChakraEngine ? new BigUint64Array() : new Date() ],
   [ Object.defineProperty(new Uint8Array(),
                           Symbol.toStringTag,
                           { value: 'foo' }) ],
