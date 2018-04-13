@@ -1279,9 +1279,10 @@ changes:
 
 * `value` {string|Buffer|Uint8Array|integer} What to search for.
 * `byteOffset` {integer} Where to begin searching in `buf`. **Default:** `0`.
-* `encoding` {string} The encoding of `value` if `value` is a string.
-  **Default:** `'utf8'`.
-* Returns: {integer} The index of the first occurrence of `value` in `buf` or
+* `encoding` {string} If `value` is a string, this is the encoding used to
+  determine the binary representation of the string that will be searched for in
+  `buf`. **Default:** `'utf8'`.
+* Returns: {integer} The index of the first occurrence of `value` in `buf`, or
   `-1` if `buf` does not contain `value`.
 
 If `value` is:
@@ -1381,13 +1382,14 @@ changes:
 * `value` {string|Buffer|Uint8Array|integer} What to search for.
 * `byteOffset` {integer} Where to begin searching in `buf`.
   **Default:** [`buf.length`]` - 1`.
-* `encoding` {string} If `value` is a string, this is its encoding.
-  **Default:** `'utf8'`.
-* Returns: {integer} The index of the last occurrence of `value` in `buf` or `-1`
-  if `buf` does not contain `value`.
+* `encoding` {string} If `value` is a string, this is the encoding used to
+  determine the binary representation of the string that will be searched for in
+  `buf`. **Default:** `'utf8'`.
+* Returns: {integer} The index of the last occurrence of `value` in `buf`, or
+  `-1` if `buf` does not contain `value`.
 
-Identical to [`buf.indexOf()`], except `buf` is searched from back to front
-instead of front to back.
+Identical to [`buf.indexOf()`], except the last occurrence of `value` is found
+rather than the first occurrence.
 
 ```js
 const buf = Buffer.from('this buffer is a buffer');
@@ -1507,7 +1509,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 8`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 8`.
 * Returns: {number}
 
 Reads a 64-bit double from `buf` at the specified `offset` with specified
@@ -1522,10 +1525,7 @@ console.log(buf.readDoubleBE(0));
 console.log(buf.readDoubleLE(0));
 // Prints: 5.447603722011605e-270
 console.log(buf.readDoubleLE(1));
-// Throws an exception: RangeError: Index out of range
-console.log(buf.readDoubleLE(1, true));
-// Warning: reads passed end of buffer!
-// This will result in a segmentation fault! Don't do this!
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readFloatBE(offset)
@@ -1539,7 +1539,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 4`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 4`.
 * Returns: {number}
 
 Reads a 32-bit float from `buf` at the specified `offset` with specified
@@ -1554,10 +1555,7 @@ console.log(buf.readFloatBE(0));
 console.log(buf.readFloatLE(0));
 // Prints: 1.539989614439558e-36
 console.log(buf.readFloatLE(1));
-// Throws an exception: RangeError: Index out of range
-console.log(buf.readFloatLE(1, true));
-// Warning: reads passed end of buffer!
-// This will result in a segmentation fault! Don't do this!
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readInt8(offset)
@@ -1570,7 +1568,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 1`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 1`.
 * Returns: {integer}
 
 Reads a signed 8-bit integer from `buf` at the specified `offset`.
@@ -1585,7 +1584,7 @@ console.log(buf.readInt8(0));
 console.log(buf.readInt8(1));
 // Prints: 5
 console.log(buf.readInt8(2));
-// Throws an exception: RangeError: Index out of range
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readInt16BE(offset)
@@ -1599,7 +1598,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 2`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 2`.
 * Returns: {integer}
 
 Reads a signed 16-bit integer from `buf` at the specified `offset` with
@@ -1616,7 +1616,7 @@ console.log(buf.readInt16BE(0));
 console.log(buf.readInt16LE(0));
 // Prints: 1280
 console.log(buf.readInt16LE(1));
-// Throws an exception: RangeError: Index out of range
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readInt32BE(offset)
@@ -1630,7 +1630,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 4`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 4`.
 * Returns: {integer}
 
 Reads a signed 32-bit integer from `buf` at the specified `offset` with
@@ -1647,7 +1648,7 @@ console.log(buf.readInt32BE(0));
 console.log(buf.readInt32LE(0));
 // Prints: 83886080
 console.log(buf.readInt32LE(1));
-// Throws an exception: RangeError: Index out of range
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readIntBE(offset, byteLength)
@@ -1661,8 +1662,10 @@ changes:
                  byteLength to uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - byteLength`.
-* `byteLength` {integer} Number of bytes to read. Must satisfy: `0 < byteLength <= 6`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - byteLength`.
+* `byteLength` {integer} Number of bytes to read. Must satisfy
+  `0 < byteLength <= 6`.
 * Returns: {integer}
 
 Reads `byteLength` number of bytes from `buf` at the specified `offset`
@@ -1677,9 +1680,9 @@ console.log(buf.readIntLE(0, 6).toString(16));
 console.log(buf.readIntBE(0, 6).toString(16));
 // Prints: 1234567890ab
 console.log(buf.readIntBE(1, 6).toString(16));
-// Throws ERR_INDEX_OUT_OF_RANGE:
+// Throws ERR_INDEX_OUT_OF_RANGE
 console.log(buf.readIntBE(1, 0).toString(16));
-// Throws ERR_OUT_OF_RANGE:
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readUInt8(offset)
@@ -1692,7 +1695,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 1`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 1`.
 * Returns: {integer}
 
 Reads an unsigned 8-bit integer from `buf` at the specified `offset`.
@@ -1705,7 +1709,7 @@ console.log(buf.readUInt8(0));
 console.log(buf.readUInt8(1));
 // Prints: 254
 console.log(buf.readUInt8(2));
-// Throws an exception: RangeError: Index out of range
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readUInt16BE(offset)
@@ -1719,7 +1723,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 2`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 2`.
 * Returns: {integer}
 
 Reads an unsigned 16-bit integer from `buf` at the specified `offset` with
@@ -1738,7 +1743,7 @@ console.log(buf.readUInt16BE(1).toString(16));
 console.log(buf.readUInt16LE(1).toString(16));
 // Prints: 5634
 console.log(buf.readUInt16LE(2).toString(16));
-// Throws an exception: RangeError: Index out of range
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readUInt32BE(offset)
@@ -1752,7 +1757,8 @@ changes:
                  uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 4`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - 4`.
 * Returns: {integer}
 
 Reads an unsigned 32-bit integer from `buf` at the specified `offset` with
@@ -1767,7 +1773,7 @@ console.log(buf.readUInt32BE(0).toString(16));
 console.log(buf.readUInt32LE(0).toString(16));
 // Prints: 78563412
 console.log(buf.readUInt32LE(1).toString(16));
-// Throws an exception: RangeError: Index out of range
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.readUIntBE(offset, byteLength)
@@ -1781,8 +1787,10 @@ changes:
                  byteLength to uint32 anymore.
 -->
 
-* `offset` {integer} Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - byteLength`.
-* `byteLength` {integer} Number of bytes to read. Must satisfy: `0 < byteLength <= 6`.
+* `offset` {integer} Number of bytes to skip before starting to read. Must
+  satisfy `0 <= offset <= buf.length - byteLength`.
+* `byteLength` {integer} Number of bytes to read. Must satisfy
+  `0 < byteLength <= 6`.
 * Returns: {integer}
 
 Reads `byteLength` number of bytes from `buf` at the specified `offset`
@@ -1797,7 +1805,7 @@ console.log(buf.readUIntBE(0, 6).toString(16));
 console.log(buf.readUIntLE(0, 6).toString(16));
 // Prints: ab9078563412
 console.log(buf.readUIntBE(1, 6).toString(16));
-// Throws an exception: RangeError: Index out of range
+// Throws ERR_OUT_OF_RANGE
 ```
 
 ### buf.slice([start[, end]])
@@ -1893,7 +1901,7 @@ console.log(buf1);
 const buf2 = Buffer.from([0x1, 0x2, 0x3]);
 
 buf2.swap16();
-// Throws an exception: RangeError: Buffer size must be a multiple of 16-bits
+// Throws ERR_INVALID_BUFFER_SIZE
 ```
 
 ### buf.swap32()
@@ -1920,7 +1928,7 @@ console.log(buf1);
 const buf2 = Buffer.from([0x1, 0x2, 0x3]);
 
 buf2.swap32();
-// Throws an exception: RangeError: Buffer size must be a multiple of 32-bits
+// Throws ERR_INVALID_BUFFER_SIZE
 ```
 
 ### buf.swap64()
@@ -1947,7 +1955,7 @@ console.log(buf1);
 const buf2 = Buffer.from([0x1, 0x2, 0x3]);
 
 buf2.swap64();
-// Throws an exception: RangeError: Buffer size must be a multiple of 64-bits
+// Throws ERR_INVALID_BUFFER_SIZE
 ```
 
 Note that JavaScript cannot encode 64-bit integers. This method is intended
@@ -2093,7 +2101,8 @@ changes:
 -->
 
 * `value` {number} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 8`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 8`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset` with specified endian
@@ -2127,7 +2136,8 @@ changes:
 -->
 
 * `value` {number} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 4`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 4`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset` with specified endian
@@ -2160,7 +2170,8 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 1`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 1`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset`. `value` *should* be a valid
@@ -2191,7 +2202,8 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 2`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 2`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset` with specified endian
@@ -2223,7 +2235,8 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 4`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 4`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset` with specified endian
@@ -2255,8 +2268,10 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - byteLength`.
-* `byteLength` {integer} Number of bytes to write. Must satisfy: `0 < byteLength <= 6`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - byteLength`.
+* `byteLength` {integer} Number of bytes to write. Must satisfy
+  `0 < byteLength <= 6`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `byteLength` bytes of `value` to `buf` at the specified `offset`.
@@ -2288,7 +2303,8 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 1`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 1`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset`. `value` *should* be a
@@ -2319,7 +2335,8 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 2`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 2`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset` with specified endian
@@ -2355,7 +2372,8 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 4`.
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - 4`.
 * Returns: {integer} `offset` plus the number of bytes written.
 
 Writes `value` to `buf` at the specified `offset` with specified endian
@@ -2389,9 +2407,9 @@ changes:
 -->
 
 * `value` {integer} Number to be written to `buf`.
-* `offset` {integer} Number of bytes to skip before starting to write.
-  Must satisfy: `0 <= offset <= buf.length - byteLength`.
-* `byteLength` {integer} Number of bytes to write. Must satisfy:
+* `offset` {integer} Number of bytes to skip before starting to write. Must
+  satisfy `0 <= offset <= buf.length - byteLength`.
+* `byteLength` {integer} Number of bytes to write. Must satisfy
   `0 < byteLength <= 6`.
 * Returns: {integer} `offset` plus the number of bytes written.
 

@@ -311,7 +311,7 @@ support. If `filename` is provided, it will be provided as a `Buffer` if
 `filename` will be a UTF-8 string.
 
 ```js
-// Example when handled through fs.watch listener
+// Example when handled through fs.watch() listener
 fs.watch('./tmp', { encoding: 'buffer' }, (eventType, filename) => {
   if (filename) {
     console.log(filename);
@@ -359,9 +359,18 @@ Emitted when the `fs.ReadStream`'s underlying file descriptor has been closed.
 added: v0.1.93
 -->
 
-* `fd` {integer} Integer file descriptor used by the ReadStream.
+* `fd` {integer} Integer file descriptor used by the `ReadStream`.
 
 Emitted when the `fs.ReadStream`'s file descriptor has been opened.
+
+### Event: 'ready'
+<!-- YAML
+added: v9.11.0
+-->
+
+Emitted when the `fs.ReadStream` is ready to be used.
+
+Fires immediately after `'open'`.
 
 ### readStream.bytesRead
 <!-- YAML
@@ -674,9 +683,18 @@ Emitted when the `WriteStream`'s underlying file descriptor has been closed.
 added: v0.1.93
 -->
 
-* `fd` {integer} Integer file descriptor used by the WriteStream.
+* `fd` {integer} Integer file descriptor used by the `WriteStream`.
 
-Emitted when the WriteStream's file is opened.
+Emitted when the `WriteStream`'s file is opened.
+
+### Event: 'ready'
+<!-- YAML
+added: v9.11.0
+-->
+
+Emitted when the `fs.WriteStream` is ready to be used.
+
+Fires immediately after `'open'`.
 
 ### writeStream.bytesWritten
 <!-- YAML
@@ -1154,6 +1172,8 @@ Synchronous close(2). Returns `undefined`.
 
 ## fs.constants
 
+* {Object}
+
 Returns an object containing commonly used constants for file system
 operations. The specific constants currently defined are described in
 [FS Constants][].
@@ -1321,7 +1341,7 @@ to [`net.Socket`][].
 If `autoClose` is false, then the file descriptor won't be closed, even if
 there's an error. It is the application's responsibility to close it and make
 sure there's no file descriptor leak. If `autoClose` is set to true (default
-behavior), on `error` or `end` the file descriptor will be closed
+behavior), on `'error'` or `'end'` the file descriptor will be closed
 automatically.
 
 `mode` sets the file mode (permission and sticky bits), but only if the
@@ -1384,7 +1404,7 @@ than replacing it may require a `flags` mode of `r+` rather than the
 default mode `w`. The `encoding` can be any one of those accepted by
 [`Buffer`][].
 
-If `autoClose` is set to true (default behavior) on `error` or `end`
+If `autoClose` is set to true (default behavior) on `'error'` or `'finish'`
 the file descriptor will be closed automatically. If `autoClose` is false,
 then the file descriptor won't be closed, even if there's an error.
 It is the application's responsibility to close it and make sure there's no
