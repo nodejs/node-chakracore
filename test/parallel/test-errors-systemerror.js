@@ -4,16 +4,18 @@
 const common = require('../common');
 const assert = require('assert');
 const errors = require('internal/errors');
-const { AssertionError } = require('assert');
 
 const { E, SystemError } = errors;
 
-common.expectsError(
+assert.throws(
   () => { throw new errors.SystemError(); },
   {
-    code: 'ERR_ASSERTION',
-    type: AssertionError,
-    message: 'An invalid error message key was used: undefined.'
+    name: 'TypeError',
+    message: common.engineSpecificMessage({
+      v8: 'Cannot read property \'match\' of undefined',
+      chakracore: 'Unable to get property \'match\' ' +
+                  'of undefined or null reference'
+    })
   }
 );
 
@@ -29,11 +31,11 @@ const { ERR_TEST } = errors.codes;
     dest: '/str2'
   };
 
-  common.expectsError(
+  assert.throws(
     () => { throw new ERR_TEST(ctx); },
     {
       code: 'ERR_TEST',
-      type: SystemError,
+      name: 'SystemError [ERR_TEST]',
       message: 'custom message: syscall_test returned ETEST (code message)' +
                ' /str => /str2',
       info: ctx
@@ -49,11 +51,11 @@ const { ERR_TEST } = errors.codes;
     path: Buffer.from('/buf'),
     dest: '/str2'
   };
-  common.expectsError(
+  assert.throws(
     () => { throw new ERR_TEST(ctx); },
     {
       code: 'ERR_TEST',
-      type: SystemError,
+      name: 'SystemError [ERR_TEST]',
       message: 'custom message: syscall_test returned ETEST (code message)' +
                ' /buf => /str2',
       info: ctx
@@ -69,11 +71,11 @@ const { ERR_TEST } = errors.codes;
     path: Buffer.from('/buf'),
     dest: Buffer.from('/buf2')
   };
-  common.expectsError(
+  assert.throws(
     () => { throw new ERR_TEST(ctx); },
     {
       code: 'ERR_TEST',
-      type: SystemError,
+      name: 'SystemError [ERR_TEST]',
       message: 'custom message: syscall_test returned ETEST (code message)' +
                ' /buf => /buf2',
       info: ctx
