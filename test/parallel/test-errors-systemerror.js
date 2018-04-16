@@ -1,7 +1,7 @@
 // Flags: --expose-internals
 'use strict';
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const errors = require('internal/errors');
 
@@ -11,7 +11,11 @@ assert.throws(
   () => { throw new errors.SystemError(); },
   {
     name: 'TypeError',
-    message: 'Cannot read property \'match\' of undefined'
+    message: common.engineSpecificMessage({
+      v8: 'Cannot read property \'match\' of undefined',
+      chakracore: 'Unable to get property \'match\' ' +
+                  'of undefined or null reference'
+    })
   }
 );
 
