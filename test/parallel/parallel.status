@@ -156,6 +156,7 @@ test-vm-module-errors : SKIP
 test-vm-module-import-meta : SKIP
 test-vm-module-link : SKIP
 test-vm-module-reevaluate : SKIP
+test-util-types : SKIP
 
 # This test requires support for bigints
 test-util-inspect-bigint : SKIP
@@ -163,8 +164,9 @@ test-util-inspect-bigint : SKIP
 # One of the benchmarks uses object spread syntax, which chakra does not support
 test-benchmark-es : SKIP
 
-# This test exercises Promise.prototype.finally which isn't currently supported
+# These tests exercises Promise.prototype.finally which isn't currently supported
 # https://github.com/Microsoft/ChakraCore/pull/4668
+test-fs-promises-readfile : SKIP
 test-fs-promises-writefile : SKIP
 
 # This test expects stack overflow to behave in a specific way, which doesn't happen with chakracore
