@@ -76,6 +76,7 @@ test-trace-events-binding : SKIP
 test-trace-events-bootstrap : SKIP
 test-trace-events-category-used : SKIP
 test-trace-events-file-pattern : SKIP
+test-trace-events-fs-sync : SKIP
 test-trace-events-none : SKIP
 test-trace-events-perf : SKIP
 test-trace-events-process-exit : SKIP
