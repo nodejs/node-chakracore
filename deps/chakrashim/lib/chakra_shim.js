@@ -243,12 +243,17 @@
       if (!isPrepared) {
         const prep = Error.prepareStackTrace || prepareStackTrace;
 
-        // Prep can be re-entrant, of sorts, with regards to setting err.stack vs returning what err.stack should be
+        // Prep can be re-entrant, of sorts, with regards to setting err.stack
+        // vs returning what err.stack should be.
         // We are trying to emulate the following behavior:
-        // Error.prepareStackTrace = function (err, frames) { err.stack = 1 } -> err.stack should be 1
-        // Error.prepareStackTrace = function (err, frames) { console.log("Called prepare") } -> err.stack should be undefined
-        // Error.prepareStackTrace = function (err, frames) { return 2 } -> err.stack should be 2
-        // Error.prepareStackTrace = function (err, frames) { err.stack = 1; return 2; } -> err.stack should be *1*
+        // * Error.prepareStackTrace = function (err, frames)
+        //   { err.stack = 1 } -> err.stack should be 1
+        // * Error.prepareStackTrace = function (err, frames)
+        //   { console.log("Called prepare") } -> err.stack should be undefined
+        // * Error.prepareStackTrace = function (err, frames)
+        //   { return 2 } -> err.stack should be 2
+        // * Error.prepareStackTrace = function (err, frames)
+        //   { err.stack = 1; return 2; } -> err.stack should be *1*
         const preparedStack = prep(err, ensureStackTrace());
         if (!isPrepared) {
           stackSetter(preparedStack);
@@ -599,6 +604,10 @@
 
     utils.isSharedArrayBuffer = function(obj) {
       return compareType(obj, 'SharedArrayBuffer');
+    };
+
+    utils.isModuleNamespaceObject = function(obj) {
+      return compareType(obj, 'Module');
     };
 
     utils.getSymbolKeyFor = function(symbol) {

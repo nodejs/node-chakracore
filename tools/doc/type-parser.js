@@ -59,7 +59,10 @@ const customTypesMap = {
   'EventEmitter': 'events.html#events_class_eventemitter',
 
   'FileHandle': 'fs.html#fs_class_filehandle',
+  'fs.FSWatcher': 'fs.html#fs_class_fs_fswatcher',
+  'fs.ReadStream': 'fs.html#fs_class_fs_readstream',
   'fs.Stats': 'fs.html#fs_class_fs_stats',
+  'fs.WriteStream': 'fs.html#fs_class_fs_writestream',
 
   'http.Agent': 'http.html#http_class_http_agent',
   'http.ClientRequest': 'http.html#http_class_http_clientrequest',
@@ -92,7 +95,7 @@ const customTypesMap = {
   'PerformanceNodeTiming':
     'perf_hooks.html#perf_hooks_class_performancenodetiming_extends_performanceentry', // eslint-disable-line max-len
   'PerformanceObserver':
-    'perf_hooks.html#perf_hooks_class_performanceobserver_callback',
+    'perf_hooks.html#perf_hooks_class_performanceobserver',
   'PerformanceObserverEntryList':
     'perf_hooks.html#perf_hooks_class_performanceobserverentrylist',
 
