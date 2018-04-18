@@ -233,9 +233,8 @@ added: v0.1.94
 -->
 - `outputEncoding` {string}
 - Returns: {Buffer | string} Any remaining enciphered contents.
-  If `outputEncoding` parameter is one of `'latin1'`, `'base64'` or `'hex'`,
-  a string is returned. If an `outputEncoding` is not provided, a [`Buffer`][]
-  is returned.
+  If `outputEncoding` is one of `'latin1'`, `'base64'` or `'hex'`, a string is
+  returned. If an `outputEncoding` is not provided, a [`Buffer`][] is returned.
 
 Once the `cipher.final()` method has been called, the `Cipher` object can no
 longer be used to encrypt data. Attempts to call `cipher.final()` more than
@@ -263,10 +262,10 @@ The `cipher.setAAD()` method must be called before [`cipher.update()`][].
 <!-- YAML
 added: v1.0.0
 -->
-- Returns: {Buffer} When using an authenticated encryption mode (only `GCM` is
-  currently supported), the `cipher.getAuthTag()` method returns a [`Buffer`][]
-  containing the _authentication tag_ that has been computed from the given
-  data.
+- Returns: {Buffer} When using an authenticated encryption mode (only `GCM` and
+  `CCM` are currently supported), the `cipher.getAuthTag()` method returns a
+  [`Buffer`][] containing the _authentication tag_ that has been computed from
+  the given data.
 
 The `cipher.getAuthTag()` method should only be called after encryption has
 been completed using the [`cipher.final()`][] method.
@@ -392,9 +391,8 @@ added: v0.1.94
 -->
 - `outputEncoding` {string}
 - Returns: {Buffer | string} Any remaining deciphered contents.
-  If `outputEncoding` parameter is one of `'latin1'`, `'ascii'` or `'utf8'`,
-  a string is returned. If an `outputEncoding` is not provided, a [`Buffer`][]
-  is returned.
+  If `outputEncoding` is one of `'latin1'`, `'ascii'` or `'utf8'`, a string is
+  returned. If an `outputEncoding` is not provided, a [`Buffer`][] is returned.
 
 Once the `decipher.final()` method has been called, the `Decipher` object can
 no longer be used to decrypt data. Attempts to call `decipher.final()` more
@@ -411,7 +409,7 @@ changes:
 - `buffer` {Buffer | TypedArray | DataView}
 - Returns: {Cipher} for method chaining.
 
-When using an authenticated encryption mode (only `GCM` is currently
+When using an authenticated encryption mode (only `GCM` and `CCM` are currently
 supported), the `decipher.setAAD()` method sets the value used for the
 _additional authenticated data_ (AAD) input parameter.
 
@@ -428,7 +426,7 @@ changes:
 - `buffer` {Buffer | TypedArray | DataView}
 - Returns: {Cipher} for method chaining.
 
-When using an authenticated encryption mode (only `GCM` is currently
+When using an authenticated encryption mode (only `GCM` and `CCM` are currently
 supported), the `decipher.setAuthTag()` method is used to pass in the
 received _authentication tag_. If no tag is provided, or if the cipher text
 has been tampered with, [`decipher.final()`][] will throw, indicating that the
@@ -1407,6 +1405,7 @@ deprecated: v0.11.13
 > Stability: 0 - Deprecated: Use [`tls.createSecureContext()`][] instead.
 
 - `details` {Object} Identical to [`tls.createSecureContext()`][].
+- Returns: {tls.SecureContext}
 
 The `crypto.createCredentials()` method is a deprecated function for creating
 and returning a `tls.SecureContext`. It should not be used. Replace it with
