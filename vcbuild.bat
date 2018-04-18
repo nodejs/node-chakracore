@@ -181,6 +181,8 @@ if "%target_arch%"=="arm" (
     echo Skipping building ARM with Intl on a non-ARM device
     set configure_flags=%configure_flags% --without-intl
   )
+
+  set openssl_no_asm=1
 )
 if defined config_flags     set configure_flags=%configure_flags% %config_flags%
 if defined target_arch      set configure_flags=%configure_flags% --dest-cpu=%target_arch%
