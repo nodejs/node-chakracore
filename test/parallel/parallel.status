@@ -71,6 +71,7 @@ test-string-decoder : SKIP
 
 # ChakraCore does not support the chrome tracing framework
 test-trace-events-all : SKIP
+test-trace-events-api : SKIP
 test-trace-events-async-hooks : SKIP
 test-trace-events-binding : SKIP
 test-trace-events-bootstrap : SKIP
