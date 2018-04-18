@@ -226,28 +226,24 @@ namespace platform {
   void SetTracingController(
       v8::Platform* platform,
       v8::platform::tracing::TracingController* tracing_controller) {
-    jsrt::Unimplemented("TracingController");
   }
 }  // namespace platform
 
 namespace platform {
 namespace tracing {
   void TracingController::StopTracing() {
-    jsrt::Unimplemented("TracingController");
   }
 
   void TracingController::StartTracing(TraceConfig*) {
-    jsrt::Unimplemented("TracingController");
   }
 
   void TracingController::Initialize(TraceBuffer*) {
-    jsrt::Unimplemented("TracingController");
   }
 
   const uint8_t* TracingController::GetCategoryGroupEnabled(
       const char* category_group) {
-    jsrt::Unimplemented("TracingController");
-    return nullptr;
+    static uint8_t no = 0;
+    return &no;
   }
 
   uint64_t TracingController::AddTraceEvent(
@@ -257,17 +253,14 @@ namespace tracing {
       const uint64_t* arg_values,
       std::unique_ptr<v8::ConvertableToTraceFormat>* arg_convertables,
       unsigned int flags) {
-    jsrt::Unimplemented("TracingController");
     return 0;
   }
 
   void TracingController::UpdateTraceEventDuration(
       const uint8_t* category_enabled_flag, const char* name, uint64_t handle) {
-    jsrt::Unimplemented("TracingController");
   }
 
   int64_t TracingController::CurrentTimestampMicroseconds() {
-    jsrt::Unimplemented("TracingController");
     return 0;
   }
 

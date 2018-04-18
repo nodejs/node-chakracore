@@ -180,6 +180,7 @@ IS_TYPE_FUNCTION(IsWeakSet, isWeakSet)
 IS_TYPE_FUNCTION(IsSymbolObject, isSymbolObject)
 IS_TYPE_FUNCTION(IsName, isName)
 IS_TYPE_FUNCTION(IsSharedArrayBuffer, isSharedArrayBuffer)
+IS_TYPE_FUNCTION(IsModuleNamespaceObject, isModuleNamespaceObject)
 
 MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;

@@ -4824,7 +4824,7 @@ inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
   IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
 #endif
 
-  Environment env(isolate_data, context);
+  Environment env(isolate_data, context, v8_platform.GetTracingAgent());
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
   StartInspector(&env, nullptr, debug_options);
@@ -4973,11 +4973,6 @@ int Start(int argc, char** argv) {
 #ifndef NODE_ENGINE_CHAKRACORE
   // Enable tracing when argv has --trace-events-enabled.
   v8_platform.StartTracingAgent();
-#else
-  if (trace_enabled) {
-    fprintf(stderr, "Warning: Tracing is not supported in node-chakracore");
-    trace_enabled = false;
-  }
 #endif
 
   V8::Initialize();

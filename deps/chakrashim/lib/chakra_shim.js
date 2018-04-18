@@ -606,6 +606,10 @@
       return compareType(obj, 'SharedArrayBuffer');
     };
 
+    utils.isModuleNamespaceObject = function(obj) {
+      return compareType(obj, 'Module');
+    };
+
     utils.getSymbolKeyFor = function(symbol) {
       return Symbol_keyFor(symbol);
     };

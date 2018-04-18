@@ -1132,6 +1132,7 @@ class V8_EXPORT Value : public Data {
   bool IsWeakSet() const;
   bool IsPromise() const;
   bool IsProxy() const;
+  bool IsModuleNamespaceObject() const;
 
   V8_WARN_UNUSED_RESULT MaybeLocal<Boolean> ToBoolean(
     Local<Context> context) const;
