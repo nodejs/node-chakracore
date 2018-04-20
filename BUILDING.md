@@ -84,6 +84,9 @@ Depending on host platform, the selection of toolchains may vary.
 * GCC 4.9.4 or newer
 * Clang 3.4.2 or newer
 
+#### AIX
+* GCC 6.3 or newer
+
 #### Windows
 
 * Visual Studio 2017 or the Build Tools thereof
@@ -176,10 +179,10 @@ If you are running tests prior to submitting a Pull Request, the recommended
 command is:
 
 ```console
-$ make test
+$ make -j4 test
 ```
 
-`make test` does a full check on the codebase, including running linters and
+`make -j4 test` does a full check on the codebase, including running linters and
 documentation tests.
 
 Optionally, continue below.
