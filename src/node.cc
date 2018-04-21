@@ -64,7 +64,9 @@
 #if NODE_USE_V8_PLATFORM
 #include "libplatform/libplatform.h"
 #endif  // NODE_USE_V8_PLATFORM
+#ifdef NODE_ENGINE_CHAKRACORE
 #include "v8-debug.h"
+#endif
 #include "v8-profiler.h"
 #include "zlib.h"
 
