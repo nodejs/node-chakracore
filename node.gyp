@@ -717,32 +717,69 @@
       'toolsets': ['host'],
       'conditions': [
         [ 'v8_enable_inspector==1', {
-          'actions': [
-            {
-              'action_name': 'v8_inspector_compress_protocol_json',
-              'process_outputs_as_sources': 1,
-              'outputs': [
-                '<(SHARED_INTERMEDIATE_DIR)/v8_inspector_protocol_json.h',
+          'conditions': [
+            [ 'node_engine=="v8"', {
+              'actions': [
+                {
+                  'action_name': 'v8_inspector_copy_protocol_to_intermediate_folder',
+                  'inputs': [ 'deps/v8/src/inspector/js_protocol.pdl' ],
+                  'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/js_protocol.pdl' ],
+                  'action': [ 'cp', '<@(_inputs)', '<(SHARED_INTERMEDIATE_DIR)' ],
+                },
+                {
+                  'action_name': 'v8_inspector_convert_protocol_to_json',
+                  'inputs': [
+                    '<(SHARED_INTERMEDIATE_DIR)/js_protocol.pdl',
+                  ],
+                  'outputs': [
+                    '<(SHARED_INTERMEDIATE_DIR)/js_protocol.json',
+                  ],
+                  'action': [
+                    'python',
+                    'deps/v8/third_party/inspector_protocol/ConvertProtocolToJSON.py',
+                    '<@(_inputs)',
+                    '<@(_outputs)',
+                  ],
+                },
+                {
+                  'action_name': 'v8_inspector_compress_protocol_json',
+                  'process_outputs_as_sources': 1,
+                  'inputs': [
+                    '<(SHARED_INTERMEDIATE_DIR)/js_protocol.json',
+                  ],
+                  'outputs': [
+                    '<(SHARED_INTERMEDIATE_DIR)/v8_inspector_protocol_json.h',
+                  ],
+                  'action': [
+                    'python',
+                    'tools/compress_json.py',
+                    '<@(_inputs)',
+                    '<@(_outputs)',
+                  ],
+                },
               ],
-              'action': [
-                'python',
-                'tools/compress_json.py',
-                '<@(_inputs)',
-                '<@(_outputs)',
-              ],
-              'conditions': [
-                [ 'node_engine=="chakracore"', {
+            }],
+            [ 'node_engine=="chakracore"', {
+              'actions': [
+                {
+                  'action_name': 'v8_inspector_compress_protocol_json',
+                  'process_outputs_as_sources': 1,
                   'inputs': [
                     'deps/chakrashim/src/inspector/js_protocol.json',
                   ],
-                }, {
-                  'inputs': [
-                    'deps/v8/src/inspector/js_protocol.json',
+                  'outputs': [
+                    '<(SHARED_INTERMEDIATE_DIR)/v8_inspector_protocol_json.h',
                   ],
-                }],
+                  'action': [
+                    'python',
+                    'tools/compress_json.py',
+                    '<@(_inputs)',
+                    '<@(_outputs)',
+                  ],
+                },
               ],
-            },
-          ],
+            }]
+          ]
         }],
       ],
     },
