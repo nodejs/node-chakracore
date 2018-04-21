@@ -88,7 +88,6 @@ test-util : SKIP
 test-util-format-shared-arraybuffer : SKIP
 test-util-inspect-proxy : SKIP
 test-v8-serdes : SKIP
-test-v8-serdes-sharedarraybuffer : SKIP
 test-vm-attributes-property-not-on-sandbox : SKIP
 test-vm-cached-data : SKIP
 test-vm-codegen : SKIP

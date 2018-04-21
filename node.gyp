@@ -1030,13 +1030,6 @@
           'include_dirs': [
             'deps/v8/include'
           ],
-          'conditions' : [
-            ['node_use_v8_platform=="true"', {
-              'dependencies': [
-                'deps/v8/src/v8.gyp:v8_libplatform',
-              ],
-            }],
-          ]
         }],
         ['node_engine=="chakracore"', {
           'include_dirs': [

@@ -636,8 +636,7 @@ common.expectsError(
     type: assert.AssertionError,
     generatedMessage: !common.isChakraEngine,
     message: engineSpecificAssert(
-      `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-        `assert.ok(null)${EOL}`,
+      `assert.ok(null)${EOL}`,
       'null == true')
   }
 );
@@ -648,8 +647,7 @@ common.expectsError(
     type: assert.AssertionError,
     generatedMessage: !common.isChakraEngine,
     message: engineSpecificAssert(
-      `The expression evaluated to a falsy value:${EOL}${EOL}  ` +
-        `assert(typeof 123 === 'string')${EOL}`,
+      `assert(typeof 123 === 'string')${EOL}`,
       'false == true')
   }
 );

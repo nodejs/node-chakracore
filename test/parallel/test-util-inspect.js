@@ -26,10 +26,7 @@ const assert = require('assert');
 const JSStream = process.binding('js_stream').JSStream;
 const util = require('util');
 const vm = require('vm');
-if (!common.isChakraEngine) {
-  // eslint-disable-next-line no-unused-vars
-  const { previewMapIterator } = require('internal/v8');
-}
+const { previewMapIterator } = common.requireInternalV8();
 
 assert.strictEqual(util.inspect(1), '1');
 assert.strictEqual(util.inspect(false), 'false');
@@ -460,7 +457,6 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
 if (!common.isChakraEngine) {
   const map = new Map();
   map.set(1, 2);
-  // eslint-disable-next-line no-undef
   const vals = previewMapIterator(map.entries());
   const valsOutput = [];
   for (const o of vals) {
