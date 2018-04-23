@@ -1,15 +1,13 @@
 # Buffer
 
 <!--introduced_in=v0.1.90-->
-<!--lint disable maximum-line-length-->
 
 > Stability: 2 - Stable
 
 Prior to the introduction of [`TypedArray`], the JavaScript language had no
 mechanism for reading or manipulating streams of binary data. The `Buffer` class
-was introduced as part of the Node.js API to make it possible to interact with
-octet streams in the context of things like TCP streams and file system
-operations.
+was introduced as part of the Node.js API to enable interaction with octet
+streams in TCP streams, file system operations, and other contexts.
 
 With [`TypedArray`] now available, the `Buffer` class implements the
 [`Uint8Array`] API in a manner that is more optimized and suitable for Node.js.
@@ -81,7 +79,7 @@ to one of these new APIs.*
 
 * [`Buffer.from(array)`] returns a new `Buffer` that *contains a copy* of the
   provided octets.
-* [`Buffer.from(arrayBuffer[, byteOffset [, length]])`][`Buffer.from(arrayBuffer)`]
+* [`Buffer.from(arrayBuffer[, byteOffset[, length]])`][`Buffer.from(arrayBuf)`]
   returns a new `Buffer` that *shares the same allocated memory* as the given
   [`ArrayBuffer`].
 * [`Buffer.from(buffer)`] returns a new `Buffer` that *contains a copy* of the
@@ -194,8 +192,8 @@ Modern Web browsers follow the [WHATWG Encoding Standard][] which aliases
 both `'latin1'` and `'ISO-8859-1'` to `'win-1252'`. This means that while doing
 something like `http.get()`, if the returned charset is one of those listed in
 the WHATWG specification it is possible that the server actually returned
-win-1252-encoded data, and using `'latin1'` encoding may incorrectly decode the
-characters.
+`'win-1252'`-encoded data, and using `'latin1'` encoding may incorrectly decode
+the characters.
 
 ## Buffers and TypedArray
 <!-- YAML
@@ -273,7 +271,7 @@ function:
 
 * [`Buffer.from(array)`]
 * [`Buffer.from(buffer)`]
-* [`Buffer.from(arrayBuffer[, byteOffset [, length]])`][`Buffer.from(arrayBuffer)`]
+* [`Buffer.from(arrayBuffer[, byteOffset[, length]])`][`Buffer.from(arrayBuf)`]
 * [`Buffer.from(string[, encoding])`][`Buffer.from(string)`]
 
 ## Buffers and iteration
@@ -327,7 +325,7 @@ Allocates a new `Buffer` using an `array` of octets.
 const buf = new Buffer([0x62, 0x75, 0x66, 0x66, 0x65, 0x72]);
 ```
 
-### new Buffer(arrayBuffer[, byteOffset [, length]])
+### new Buffer(arrayBuffer[, byteOffset[, length]])
 <!-- YAML
 added: v3.0.0
 deprecated: v6.0.0
@@ -348,7 +346,7 @@ changes:
 -->
 
 > Stability: 0 - Deprecated: Use
-> [`Buffer.from(arrayBuffer[, byteOffset [, length]])`][`Buffer.from(arrayBuffer)`]
+> [`Buffer.from(arrayBuffer[, byteOffset[, length]])`][`Buffer.from(arrayBuf)`]
 > instead.
 
 * `arrayBuffer` {ArrayBuffer|SharedArrayBuffer} An [`ArrayBuffer`],
@@ -402,7 +400,8 @@ changes:
 
 > Stability: 0 - Deprecated: Use [`Buffer.from(buffer)`] instead.
 
-* `buffer` {Buffer} An existing `Buffer` to copy data from.
+* `buffer` {Buffer|Uint8Array} An existing `Buffer` or [`Uint8Array`] from which
+  to copy data.
 
 Copies the passed `buffer` data onto a new `Buffer` instance.
 
@@ -842,7 +841,8 @@ A `TypeError` will be thrown if `arrayBuffer` is not an [`ArrayBuffer`] or a
 added: v5.10.0
 -->
 
-* `buffer` {Buffer} An existing `Buffer` to copy data from.
+* `buffer` {Buffer|Uint8Array} An existing `Buffer` or [`Uint8Array`] from which
+  to copy data.
 
 Copies the passed `buffer` data onto a new `Buffer` instance.
 
@@ -1887,7 +1887,7 @@ added: v5.10.0
 * Returns: {Buffer} A reference to `buf`.
 
 Interprets `buf` as an array of unsigned 16-bit integers and swaps the
-byte-order *in-place*. Throws [`ERR_INVALID_BUFFER_SIZE`] if [`buf.length`] is
+byte order *in-place*. Throws [`ERR_INVALID_BUFFER_SIZE`] if [`buf.length`] is
 not a multiple of 2.
 
 ```js
@@ -1915,7 +1915,7 @@ added: v5.10.0
 * Returns: {Buffer} A reference to `buf`.
 
 Interprets `buf` as an array of unsigned 32-bit integers and swaps the
-byte-order *in-place*. Throws [`ERR_INVALID_BUFFER_SIZE`] if [`buf.length`] is
+byte order *in-place*. Throws [`ERR_INVALID_BUFFER_SIZE`] if [`buf.length`] is
 not a multiple of 4.
 
 ```js
@@ -1942,9 +1942,8 @@ added: v6.3.0
 
 * Returns: {Buffer} A reference to `buf`.
 
-Interprets `buf` as an array of 64-bit numbers and swaps the byte-order
-*in-place*. Throws [`ERR_INVALID_BUFFER_SIZE`] if [`buf.length`] is not a
-multiple of 8.
+Interprets `buf` as an array of 64-bit numbers and swaps byte order *in-place*.
+Throws [`ERR_INVALID_BUFFER_SIZE`] if [`buf.length`] is not a multiple of 8.
 
 ```js
 const buf1 = Buffer.from([0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]);
@@ -2215,8 +2214,8 @@ changes:
 
 Writes `value` to `buf` at the specified `offset` with specified endian
 format (`writeInt16BE()` writes big endian, `writeInt16LE()` writes little
-endian). `value` *should* be a valid signed 16-bit integer. Behavior is undefined
-when `value` is anything other than a signed 16-bit integer.
+endian). `value` *should* be a valid signed 16-bit integer. Behavior is
+undefined when `value` is anything other than a signed 16-bit integer.
 
 `value` is interpreted and written as a two's complement signed integer.
 
@@ -2248,8 +2247,8 @@ changes:
 
 Writes `value` to `buf` at the specified `offset` with specified endian
 format (`writeInt32BE()` writes big endian, `writeInt32LE()` writes little
-endian). `value` *should* be a valid signed 32-bit integer. Behavior is undefined
-when `value` is anything other than a signed 32-bit integer.
+endian). `value` *should* be a valid signed 32-bit integer. Behavior is
+undefined when `value` is anything other than a signed 32-bit integer.
 
 `value` is interpreted and written as a two's complement signed integer.
 
@@ -2607,7 +2606,7 @@ This value may depend on the JS engine that is being used.
 [`Buffer.allocUnsafe()`]: #buffer_class_method_buffer_allocunsafe_size
 [`Buffer.allocUnsafeSlow()`]: #buffer_class_method_buffer_allocunsafeslow_size
 [`Buffer.from(array)`]: #buffer_class_method_buffer_from_array
-[`Buffer.from(arrayBuffer)`]: #buffer_class_method_buffer_from_arraybuffer_byteoffset_length
+[`Buffer.from(arrayBuf)`]: #buffer_class_method_buffer_from_arraybuffer_byteoffset_length
 [`Buffer.from(buffer)`]: #buffer_class_method_buffer_from_buffer
 [`Buffer.from(string)`]: #buffer_class_method_buffer_from_string_encoding
 [`Buffer.poolSize`]: #buffer_class_property_buffer_poolsize
