@@ -98,7 +98,10 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getPropertyAttributesFunction(JS_INVALID_REFERENCE),
       getOwnPropertyNamesFunction(JS_INVALID_REFERENCE),
       jsonParseFunction(JS_INVALID_REFERENCE),
-      jsonStringifyFunction(JS_INVALID_REFERENCE) {
+      jsonStringifyFunction(JS_INVALID_REFERENCE),
+      beforeContextFunction(JS_INVALID_REFERENCE),
+      afterContextFunction(JS_INVALID_REFERENCE),
+      cachedDescriptors(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -482,6 +485,33 @@ void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
   }
 }
 
+void ContextShim::CacheGlobalProperties() {
+  JsValueRef beforeContext = this->GetbeforeContextFunction();
+  JsValueRef result = JS_INVALID_REFERENCE;
+  if (jsrt::CallFunction(beforeContext, globalObject, &result) != JsNoError) {
+    return;
+  }
+  this->cachedDescriptors = result;
+  JsAddRef(this->cachedDescriptors, nullptr);
+}
+
+void ContextShim::ResolveGlobalChanges(JsValueRef sandbox) {
+  JsValueRef beforeDescriptors = this->cachedDescriptors;
+  this->cachedDescriptors = JS_INVALID_REFERENCE;
+  if (beforeDescriptors == JS_INVALID_REFERENCE) {
+    return;
+  }
+  JsRelease(beforeDescriptors, nullptr);
+  JsValueRef afterContext = this->GetafterContextFunction();
+  JsValueRef result = JS_INVALID_REFERENCE;
+  jsrt::CallFunction(
+    afterContext,
+    beforeDescriptors,
+    globalObject,
+    sandbox,
+    &result);
+}
+
 // check initialization state first instead of calling
 // InitializeCurrentContextShim to save a function call for cases where
 // contextshim is already initialized
@@ -600,6 +630,8 @@ CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
 CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
 CHAKRASHIM_FUNCTION_GETTER(jsonParse);
 CHAKRASHIM_FUNCTION_GETTER(jsonStringify);
+CHAKRASHIM_FUNCTION_GETTER(beforeContext);
+CHAKRASHIM_FUNCTION_GETTER(afterContext);
 
 #define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"

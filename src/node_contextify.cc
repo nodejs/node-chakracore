@@ -830,11 +830,23 @@ class ContextifyScript : public BaseObject {
 
     // Do the eval within the context
     Context::Scope context_scope(contextify_context->context());
+
+#ifdef NODE_ENGINE_CHAKRACORE
+    // node-chakracore does not handle interceptors on contexts the same
+    // way that node-v8 does, so we need to patch things up here
+
+    contextify_context->context()->CacheGlobalProperties();
+#endif
+
     EvalMachine(contextify_context->env(),
                 timeout,
                 display_errors,
                 break_on_sigint,
                 args);
+
+#ifdef NODE_ENGINE_CHAKRACORE
+    contextify_context->context()->ResolveGlobalChanges(sandbox);
+#endif
 
     TRACE_EVENT_NESTABLE_ASYNC_END0(
         TRACING_CATEGORY_NODE2(vm, script), "RunInContext", wrapped_script);

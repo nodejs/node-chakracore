@@ -3005,6 +3005,9 @@ class V8_EXPORT Context {
   void SetSecurityToken(Handle<Value> token);
   Handle<Value> GetSecurityToken();
   void AllowCodeGenerationFromStrings(bool allow);
+
+  void CacheGlobalProperties();
+  void ResolveGlobalChanges(Local<Object> sandbox);
 };
 
 class V8_EXPORT Locker {

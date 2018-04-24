@@ -98,6 +98,9 @@ class ContextShim {
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
 
+  void CacheGlobalProperties();
+  void ResolveGlobalChanges(JsValueRef sandbox);
+
   static ContextShim * GetCurrent();
 
  private:
@@ -138,6 +141,8 @@ class ContextShim {
   JsValueRef globalPrototypeFunction[GlobalPrototypeFunction::_FunctionCount];
   std::vector<void*> embedderData;
 
+  JsValueRef cachedDescriptors;
+
 #define DECLARE_CHAKRASHIM_FUNCTION_GETTER(F) \
  public: \
   JsValueRef Get##F##Function(); \
@@ -165,6 +170,8 @@ class ContextShim {
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(jsonParse);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(jsonStringify);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(beforeContext);
+  DECLARE_CHAKRASHIM_FUNCTION_GETTER(afterContext);
 };
 
 }  // namespace jsrt
