@@ -605,16 +605,22 @@ exports.nodeProcessAborted = function nodeProcessAborted(exitCode, signal) {
 };
 
 function areAllValuesStringEqual(obj) {
-  let exemplar;
-  for (const key of Object.keys(obj)) {
-    if (exemplar === undefined) {
-      exemplar = obj[key].toString();
-    } else if (exemplar !== obj[key].toString()) {
-      return false;
+  try {
+    let exemplar;
+    for (const key of Object.keys(obj)) {
+      if (exemplar === undefined) {
+        exemplar = obj[key].toString();
+      } else if (exemplar !== obj[key].toString()) {
+        return false;
+      }
     }
-  }
 
-  return true;
+    return true;
+  } catch (e) {
+    // If any exceptions are thrown just return false. They are likely due to
+    // symbols being used in the message object.
+    return false;
+  }
 }
 
 exports.engineSpecificMessage = function(messageObject) {
@@ -633,6 +639,19 @@ exports.engineSpecificMessage = function(messageObject) {
   }
 
   return undefined;
+};
+
+exports.requireInternalV8 = function() {
+  if (exports.isChakraEngine) {
+    return {
+      previewMapIterator: function() { return []; },
+      previewSetIterator: function() { return []; },
+      previewWeakMap: function() { return []; },
+      previewWeakSet: function() { return []; }
+    };
+  } else {
+    return require('internal/v8');
+  }
 };
 
 exports.busyLoop = function busyLoop(time) {
