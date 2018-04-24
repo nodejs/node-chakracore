@@ -163,4 +163,14 @@ void Context::AllowCodeGenerationFromStrings(bool allow) {
   // CHAKRA-TODO
 }
 
+void Context::CacheGlobalProperties() {
+  jsrt::IsolateShim::GetContextShim(
+      reinterpret_cast<JsContextRef *>(this))->CacheGlobalProperties();
+}
+
+void Context::ResolveGlobalChanges(Local<Object> sandbox) {
+  jsrt::IsolateShim::GetContextShim(
+      reinterpret_cast<JsContextRef *>(this))
+    ->ResolveGlobalChanges((JsValueRef)*sandbox);
+}
 }  // namespace v8
