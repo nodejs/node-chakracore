@@ -2798,7 +2798,7 @@ void CipherBase::InitIv(const FunctionCallbackInfo<Value>& args) {
 
 
 static bool IsValidGCMTagLength(unsigned int tag_len) {
-  return tag_len == 4 || tag_len == 8 || tag_len >= 12 && tag_len <= 16;
+  return tag_len == 4 || tag_len == 8 || (tag_len >= 12 && tag_len <= 16);
 }
 
 bool CipherBase::InitAuthenticated(const char *cipher_type, int iv_len,
@@ -2922,8 +2922,8 @@ void CipherBase::SetAuthTag(const FunctionCallbackInfo<Value>& args) {
   unsigned int tag_len = Buffer::Length(args[0]);
   const int mode = EVP_CIPHER_CTX_mode(cipher->ctx_);
   if (mode == EVP_CIPH_GCM_MODE) {
-    if (cipher->auth_tag_len_ != kNoAuthTagLength &&
-        cipher->auth_tag_len_ != tag_len ||
+    if ((cipher->auth_tag_len_ != kNoAuthTagLength &&
+        cipher->auth_tag_len_ != tag_len) ||
         !IsValidGCMTagLength(tag_len)) {
       char msg[50];
       snprintf(msg, sizeof(msg),
@@ -5170,7 +5170,7 @@ void GetCurves(const FunctionCallbackInfo<Value>& args) {
 
 
 bool VerifySpkac(const char* data, unsigned int len) {
-  bool i = 0;
+  bool verify_result = false;
   EVP_PKEY* pkey = nullptr;
   NETSCAPE_SPKI* spki = nullptr;
 
@@ -5182,7 +5182,7 @@ bool VerifySpkac(const char* data, unsigned int len) {
   if (pkey == nullptr)
     goto exit;
 
-  i = NETSCAPE_SPKI_verify(spki, pkey) > 0;
+  verify_result = NETSCAPE_SPKI_verify(spki, pkey) > 0;
 
  exit:
   if (pkey != nullptr)
@@ -5191,23 +5191,23 @@ bool VerifySpkac(const char* data, unsigned int len) {
   if (spki != nullptr)
     NETSCAPE_SPKI_free(spki);
 
-  return i;
+  return verify_result;
 }
 
 
 void VerifySpkac(const FunctionCallbackInfo<Value>& args) {
-  bool i = false;
+  bool verify_result = false;
 
   size_t length = Buffer::Length(args[0]);
   if (length == 0)
-    return args.GetReturnValue().Set(i);
+    return args.GetReturnValue().Set(verify_result);
 
   char* data = Buffer::Data(args[0]);
   CHECK_NE(data, nullptr);
 
-  i = VerifySpkac(data, length);
+  verify_result = VerifySpkac(data, length);
 
-  args.GetReturnValue().Set(i);
+  args.GetReturnValue().Set(verify_result);
 }
 
 
