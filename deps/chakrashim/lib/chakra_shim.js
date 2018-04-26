@@ -636,11 +636,6 @@
       return microTasks.shift();
     };
 
-    utils.isProxy = function(value) {
-      // CHAKRA-TODO: Need to add JSRT API to detect this
-      return false;
-    };
-
     utils.getPropertyAttributes = function(object, value) {
       const descriptor = Object_getOwnPropertyDescriptor(object, value);
       if (descriptor === undefined) {
