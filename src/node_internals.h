@@ -33,6 +33,7 @@
 #include "tracing/trace_event.h"
 #include "node_perf_common.h"
 #include "node_debug_options.h"
+#include "node_api.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -316,7 +317,7 @@ v8::Maybe<bool> ProcessEmitDeprecationWarning(Environment* env,
                                               const char* deprecation_code);
 
 template <typename NativeT, typename V8T>
-void FillStatsArray(AliasedBuffer<NativeT, V8T>* fields_ptr,
+v8::Local<v8::Value> FillStatsArray(AliasedBuffer<NativeT, V8T>* fields_ptr,
                     const uv_stat_t* s, int offset = 0) {
   AliasedBuffer<NativeT, V8T>& fields = *fields_ptr;
   fields[offset + 0] = s->st_dev;
@@ -350,12 +351,14 @@ void FillStatsArray(AliasedBuffer<NativeT, V8T>* fields_ptr,
   X(12, ctim)
   X(13, birthtim)
 #undef X
+
+  return fields_ptr->GetJSArray();
 }
 
-inline void FillGlobalStatsArray(Environment* env,
-                                 const uv_stat_t* s,
-                                 int offset = 0) {
-  node::FillStatsArray(env->fs_stats_field_array(), s, offset);
+inline v8::Local<v8::Value> FillGlobalStatsArray(Environment* env,
+                                                 const uv_stat_t* s,
+                                                 int offset = 0) {
+  return node::FillStatsArray(env->fs_stats_field_array(), s, offset);
 }
 
 void SetupProcessObject(Environment* env,
@@ -841,6 +844,10 @@ static inline const char *errno_string(int errorno) {
 
 }  // namespace node
 
+void napi_module_register_by_symbol(v8::Local<v8::Object> exports,
+                                    v8::Local<v8::Value> module,
+                                    v8::Local<v8::Context> context,
+                                    napi_addon_register_func init);
 
 #endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 

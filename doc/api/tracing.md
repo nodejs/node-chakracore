@@ -13,15 +13,17 @@ a list of comma-separated category names.
 
 The available categories are:
 
-* `node`
-* `node.async_hooks` - Enables capture of detailed async_hooks trace data.
+* `node` - An empty placeholder.
+* `node.async_hooks` - Enables capture of detailed [async_hooks] trace data.
+  The [async_hooks] events have a unique `asyncId` and a special triggerId
+  `triggerAsyncId` property.
 * `node.bootstrap` - Enables capture of Node.js bootstrap milestones.
 * `node.perf` - Enables capture of [Performance API] measurements.
   * `node.perf.usertiming` - Enables capture of only Performance API User Timing
     measures and marks.
   * `node.perf.timerify` - Enables capture of only Performance API timerify
     measurements.
-* `v8`
+* `v8` - The [V8] events are GC, compiling, and execution related.
 
 By default the `node`, `node.async_hooks`, and `v8` categories are enabled.
 
@@ -74,12 +76,12 @@ unlike `process.hrtime()` which returns nanoseconds.
 
 ## The `trace_events` module
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 ### `Tracing` object
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 The `Tracing` object is used to enable or disable tracing for sets of
@@ -93,7 +95,7 @@ set of enabled trace event categories.
 
 #### `tracing.categories`
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 * {string}
@@ -103,7 +105,7 @@ A comma-separated list of the trace event categories covered by this
 
 #### `tracing.disable()`
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 Disables this `Tracing` object.
@@ -129,7 +131,7 @@ console.log(trace_events.getEnabledCategories());
 
 #### `tracing.enable()`
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 Enables this `Tracing` object for the set of categories covered by the
@@ -137,14 +139,14 @@ Enables this `Tracing` object for the set of categories covered by the
 
 #### `tracing.enabled`
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 * {boolean} `true` only if the `Tracing` object has been enabled.
 
 ### `trace_events.createTracing(options)`
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 * `options` {Object}
@@ -166,7 +168,7 @@ tracing.disable();
 
 ### `trace_events.getEnabledCategories()`
 <!-- YAML
-added: REPLACEME
+added: v10.0.0
 -->
 
 * Returns: {string}
@@ -193,3 +195,5 @@ console.log(trace_events.getEnabledCategories());
 ```
 
 [Performance API]: perf_hooks.html
+[V8]: v8.html
+[async_hooks]: async_hooks.html

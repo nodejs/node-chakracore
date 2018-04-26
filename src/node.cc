@@ -2266,6 +2266,13 @@ inline InitializerCallback GetInitializerCallback(DLib* dlib) {
   return reinterpret_cast<InitializerCallback>(dlib->GetSymbolAddress(name));
 }
 
+inline napi_addon_register_func GetNapiInitializerCallback(DLib* dlib) {
+  const char* name =
+      STRINGIFY(NAPI_MODULE_INITIALIZER_BASE) STRINGIFY(NAPI_MODULE_VERSION);
+  return
+      reinterpret_cast<napi_addon_register_func>(dlib->GetSymbolAddress(name));
+}
+
 // DLOpen is process.dlopen(module, filename, flags).
 // Used to load 'module.node' dynamically shared objects.
 //
@@ -2322,6 +2329,8 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
   if (mp == nullptr) {
     if (auto callback = GetInitializerCallback(&dlib)) {
       callback(exports, module, context);
+    } else if (auto napi_callback = GetNapiInitializerCallback(&dlib)) {
+      napi_module_register_by_symbol(exports, module, context, napi_callback);
     } else {
       dlib.Close();
       env->ThrowError("Module did not self-register.");
@@ -2331,6 +2340,13 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
 
   // -1 is used for N-API modules
   if ((mp->nm_version != -1) && (mp->nm_version != NODE_MODULE_VERSION)) {
+    // Even if the module did self-register, it may have done so with the wrong
+    // version. We must only give up after having checked to see if it has an
+    // appropriate initializer callback.
+    if (auto callback = GetInitializerCallback(&dlib)) {
+      callback(exports, module, context);
+      return;
+    }
     char errmsg[1024];
     snprintf(errmsg,
              sizeof(errmsg),
