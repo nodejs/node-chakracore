@@ -22,15 +22,23 @@
 
 namespace v8 {
 Local<Object> Proxy::GetTarget() {
-  // CHAKRA-TODO: Need to add JSRT API to get target of proxy
-  JsValueRef undefinedValue = jsrt::GetUndefined();
-  return Local<Object>::New(undefinedValue);
+  JsValueRef returnValue = JS_INVALID_REFERENCE;
+  bool isProxy = false;
+  JsGetProxyProperties((JsValueRef) this, &isProxy, &returnValue, nullptr);
+  if (!isProxy || returnValue == JS_INVALID_REFERENCE) {
+    returnValue = jsrt::GetUndefined();
+  }
+  return Local<Object>::New(returnValue);
 }
 
 Local<Value> Proxy::GetHandler() {
-  // CHAKRA-TODO: Need to add JSRT API to get handler of proxy
-  JsValueRef undefinedValue = jsrt::GetUndefined();
-  return Local<Value>::New(undefinedValue);
+  JsValueRef returnValue = JS_INVALID_REFERENCE;
+  bool isProxy = false;
+  JsGetProxyProperties((JsValueRef) this, &isProxy, nullptr, &returnValue);
+  if (!isProxy || returnValue == JS_INVALID_REFERENCE) {
+    returnValue = jsrt::GetUndefined();
+  }
+  return Local<Object>::New(returnValue);
 }
 
 Proxy *Proxy::Cast(v8::Value *obj) {
