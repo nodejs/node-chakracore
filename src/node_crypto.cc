@@ -340,19 +340,6 @@ void SecureContext::Initialize(Environment* env, Local<Object> target) {
   t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyIVIndex"),
          Integer::NewFromUnsigned(env->isolate(), kTicketKeyIVIndex));
 
-  Local<FunctionTemplate> ctx_getter_templ =
-      FunctionTemplate::New(env->isolate(),
-                            CtxGetter,
-                            env->as_external(),
-                            Signature::New(env->isolate(), t));
-
-
-  t->PrototypeTemplate()->SetAccessorProperty(
-      FIXED_ONE_BYTE_STRING(env->isolate(), "_external"),
-      ctx_getter_templ,
-      Local<FunctionTemplate>(),
-      static_cast<PropertyAttribute>(ReadOnly | DontDelete));
-
   target->Set(secureContextString, t->GetFunction());
   env->set_secure_context_constructor_template(t);
 }
@@ -1349,14 +1336,6 @@ int SecureContext::TicketCompatibilityCallback(SSL* ssl,
     return -1;
   }
   return 1;
-}
-
-
-void SecureContext::CtxGetter(const FunctionCallbackInfo<Value>& info) {
-  SecureContext* sc;
-  ASSIGN_OR_RETURN_UNWRAP(&sc, info.This());
-  Local<External> ext = External::New(info.GetIsolate(), sc->ctx_);
-  info.GetReturnValue().Set(ext);
 }
 
 
@@ -3127,9 +3106,10 @@ bool CipherBase::Final(unsigned char** out, int *out_len) {
     ok = EVP_CipherFinal_ex(ctx_, *out, out_len) == 1;
 
     if (ok && kind_ == kCipher && IsAuthenticatedMode()) {
-      // For GCM, the tag length is static (16 bytes), while the CCM tag length
-      // must be specified in advance.
-      if (mode == EVP_CIPH_GCM_MODE)
+      // In GCM mode, the authentication tag length can be specified in advance,
+      // but defaults to 16 bytes when encrypting. In CCM mode, it must always
+      // be given by the user.
+      if (mode == EVP_CIPH_GCM_MODE && auth_tag_len_ == kNoAuthTagLength)
         auth_tag_len_ = sizeof(auth_tag_);
       // TOOD(tniessen) Use EVP_CTRL_AEAP_GET_TAG in OpenSSL 1.1.0
       static_assert(EVP_CTRL_CCM_GET_TAG == EVP_CTRL_GCM_GET_TAG,

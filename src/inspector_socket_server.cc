@@ -373,27 +373,17 @@ void InspectorSocketServer::SendListResponse(InspectorSocket* socket,
     target_map["url"] = delegate_->GetTargetUrl(id);
     Escape(&target_map["url"]);
 
-    bool connected = false;
-    for (const auto& session : connected_sessions_) {
-      if (session.second.first == id) {
-        connected = true;
-        break;
-      }
+    std::string detected_host = host;
+    if (detected_host.empty()) {
+      detected_host = FormatHostPort(socket->GetHost(),
+                                     session->server_port());
     }
-    if (!connected) {
-      std::string detected_host = host;
-      if (detected_host.empty()) {
-        detected_host = FormatHostPort(socket->GetHost(),
-                                       session->server_port());
-      }
-      std::ostringstream frontend_url;
-      frontend_url << "chrome-devtools://devtools/bundled";
-      frontend_url << "/inspector.html?experiments=true&v8only=true&ws=";
-      frontend_url << FormatAddress(detected_host, id, false);
-      target_map["devtoolsFrontendUrl"] += frontend_url.str();
-      target_map["webSocketDebuggerUrl"] =
-          FormatAddress(detected_host, id, true);
-    }
+    std::ostringstream frontend_url;
+    frontend_url << "chrome-devtools://devtools/bundled";
+    frontend_url << "/inspector.html?experiments=true&v8only=true&ws=";
+    frontend_url << FormatAddress(detected_host, id, false);
+    target_map["devtoolsFrontendUrl"] += frontend_url.str();
+    target_map["webSocketDebuggerUrl"] = FormatAddress(detected_host, id, true);
   }
   SendHttpResponse(socket, MapsToString(response));
 }
@@ -587,7 +577,8 @@ int ServerSocket::Listen(InspectorSocketServer* inspector_server,
   CHECK_EQ(0, uv_tcp_init(loop, server));
   int err = uv_tcp_bind(server, addr, 0);
   if (err == 0) {
-    err = uv_listen(reinterpret_cast<uv_stream_t*>(server), 1,
+    // 511 is the value used by a 'net' module by default
+    err = uv_listen(reinterpret_cast<uv_stream_t*>(server), 511,
                     ServerSocket::SocketConnectedCallback);
   }
   if (err == 0) {

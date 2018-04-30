@@ -107,7 +107,7 @@ pass or fail).
 
 For *all* [`EventEmitter`][] objects, if an `'error'` event handler is not
 provided, the error will be thrown, causing the Node.js process to report an
-unhandled exception and crash unless either: The [`domain`][domains] module is
+uncaught exception and crash unless either: The [`domain`][domains] module is
 used appropriately or a handler has been registered for the
 [`'uncaughtException'`][] event.
 
@@ -1606,6 +1606,11 @@ A string that contained unescaped characters was received.
 
 An unhandled error occurred (for instance, when an `'error'` event is emitted
 by an [`EventEmitter`][] but an `'error'` handler is not registered).
+
+<a id="ERR_UNKNOWN_CREDENTIAL"></a>
+### ERR_UNKNOWN_CREDENTIAL
+
+A Unix group or user identifier that does not exist was passed.
 
 <a id="ERR_UNKNOWN_ENCODING"></a>
 ### ERR_UNKNOWN_ENCODING
