@@ -137,6 +137,7 @@
         'deps/chakrashim', # include/v8_platform.h
       ],
       'dependencies': [
+        'deps/chakrashim/chakracore.gyp:chakracore#host',
         'deps/chakrashim/chakrashim.gyp:chakrashim'
       ],
       'conditions': [

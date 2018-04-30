@@ -177,6 +177,7 @@
       'actions': [
         {
           'action_name': 'chakra_js2c',
+          'process_outputs_as_sources': 1,
           'inputs': [
             '<@(library_files)'
           ],
