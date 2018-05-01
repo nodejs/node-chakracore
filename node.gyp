@@ -1038,11 +1038,6 @@
           'include_dirs': [
             'deps/chakrashim/include'
           ],
-          'sources!': [
-            'test/cctest/test_environment.cc', # TODO: Enable these test for node-chakracore
-            'test/cctest/test_node_postmortem_metadata.cc',
-            'test/cctest/test_platform.cc', # TODO: Enable this test after fixing issue #529
-          ],
           'conditions': [
             [ 'OS!="win" and chakracore_use_lto=="true"', {
               'ldflags': [
