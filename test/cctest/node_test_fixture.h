@@ -87,9 +87,11 @@ class NodeTestFixture : public ::testing::Test {
   virtual void SetUp() {
     isolate_ = v8::Isolate::New(params);
     CHECK_NE(isolate_, nullptr);
+    isolate_->Enter();
   }
 
   virtual void TearDown() {
+    isolate_->Exit();
     isolate_->Dispose();
     isolate_ = nullptr;
   }
@@ -100,16 +102,16 @@ class EnvironmentTestFixture : public NodeTestFixture {
  public:
   class Env {
    public:
-    Env(const v8::HandleScope& handle_scope, const Argv& argv) {
-      auto isolate = handle_scope.GetIsolate();
+    Env(const v8::HandleScope& handle_scope, const Argv& argv) :
 #if ENABLE_TTD_NODE
-      // TODO(MSLaguana): should we support TTD in cctest?
-      context_ = node::NewContext(isolate, false);
+        // TODO(MSLaguana): should we support TTD in cctest?
+        context_(node::NewContext(handle_scope.GetIsolate(), false)),
 #else
-      context_ = node::NewContext(isolate);
+        context_(node::NewContext(handle_scope.GetIsolate())),
 #endif
+        context_scope_(context_) {
+      auto isolate = handle_scope.GetIsolate();
       CHECK(!context_.IsEmpty());
-      context_->Enter();
 
       isolate_data_ = node::CreateIsolateData(isolate,
                                               &NodeTestFixture::current_loop,
@@ -125,7 +127,6 @@ class EnvironmentTestFixture : public NodeTestFixture {
     ~Env() {
       node::FreeEnvironment(environment_);
       node::FreeIsolateData(isolate_data_);
-      context_->Exit();
     }
 
     node::Environment* operator*() const {
@@ -136,8 +137,10 @@ class EnvironmentTestFixture : public NodeTestFixture {
       return context_;
     }
 
+
    private:
     v8::Local<v8::Context> context_;
+    v8::Context::Scope context_scope_;
     node::IsolateData* isolate_data_;
     node::Environment* environment_;
     DISALLOW_COPY_AND_ASSIGN(Env);
