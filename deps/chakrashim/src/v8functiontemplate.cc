@@ -101,7 +101,7 @@ class FunctionCallbackData : public ExternalData {
     // CHAKRA_CALLBACK in the current callee context.
     ContextShim* contextShim = IsolateShim::GetContextShimOfObject(callee);
     ContextShim::Scope contextScope(contextShim);
-    HandleScope scope(nullptr);
+    HandleScope scope(Isolate::GetCurrent());
 
     FunctionCallbackData* callbackData = nullptr;
     if (!ExternalData::TryGet(JsValueRef(callbackState), &callbackData)) {
