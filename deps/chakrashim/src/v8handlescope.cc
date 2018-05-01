@@ -31,6 +31,7 @@ HandleScope::HandleScope(Isolate* isolate)
       _count(0),
       _contextRef(JS_INVALID_REFERENCE),
       _addRefRecordHead(nullptr) {
+  CHAKRA_ASSERT(isolate == Isolate::GetCurrent());
   _locals[0] = JS_INVALID_REFERENCE;
   current = this;
 }

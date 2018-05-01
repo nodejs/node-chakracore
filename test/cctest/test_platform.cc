@@ -38,7 +38,6 @@ class RepostingTask : public v8::Task {
 class PlatformTest : public EnvironmentTestFixture {};
 
 TEST_F(PlatformTest, SkipNewTasksInFlushForegroundTasks) {
-  v8::Isolate::Scope isolate_scope(isolate_);
   const v8::HandleScope handle_scope(isolate_);
   const Argv argv;
   Env env {handle_scope, argv};
