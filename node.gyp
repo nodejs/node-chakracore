@@ -120,6 +120,7 @@
       'lib/internal/net.js',
       'lib/internal/os.js',
       'lib/internal/process/esm_loader.js',
+      'lib/internal/process/methods.js',
       'lib/internal/process/next_tick.js',
       'lib/internal/process/promises.js',
       'lib/internal/process/stdio.js',
@@ -148,6 +149,7 @@
       'lib/internal/v8.js',
       'lib/internal/v8_prof_polyfill.js',
       'lib/internal/v8_prof_processor.js',
+      'lib/internal/validators.js',
       'lib/internal/stream_base_commons.js',
       'lib/internal/vm/module.js',
       'lib/internal/streams/lazy_transform.js',
@@ -1021,6 +1023,7 @@
         'test/cctest/test_base64.cc',
         'test/cctest/test_node_postmortem_metadata.cc',
         'test/cctest/test_environment.cc',
+        'test/cctest/test_platform.cc',
         'test/cctest/test_util.cc',
         'test/cctest/test_url.cc'
       ],
@@ -1038,6 +1041,7 @@
           'sources!': [
             'test/cctest/test_environment.cc', # TODO: Enable these test for node-chakracore
             'test/cctest/test_node_postmortem_metadata.cc',
+            'test/cctest/test_platform.cc', # TODO: Enable this test after fixing issue #529
           ],
           'conditions': [
             [ 'OS!="win" and chakracore_use_lto=="true"', {

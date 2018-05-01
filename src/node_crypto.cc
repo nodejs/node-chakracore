@@ -72,6 +72,7 @@ using v8::External;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
 using v8::HandleScope;
+using v8::Int32;
 using v8::Integer;
 using v8::Isolate;
 using v8::Local;
@@ -84,6 +85,7 @@ using v8::PropertyAttribute;
 using v8::ReadOnly;
 using v8::Signature;
 using v8::String;
+using v8::Uint32;
 using v8::Value;
 
 
@@ -337,19 +339,6 @@ void SecureContext::Initialize(Environment* env, Local<Object> target) {
          Integer::NewFromUnsigned(env->isolate(), kTicketKeyNameIndex));
   t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyIVIndex"),
          Integer::NewFromUnsigned(env->isolate(), kTicketKeyIVIndex));
-
-  Local<FunctionTemplate> ctx_getter_templ =
-      FunctionTemplate::New(env->isolate(),
-                            CtxGetter,
-                            env->as_external(),
-                            Signature::New(env->isolate(), t));
-
-
-  t->PrototypeTemplate()->SetAccessorProperty(
-      FIXED_ONE_BYTE_STRING(env->isolate(), "_external"),
-      ctx_getter_templ,
-      Local<FunctionTemplate>(),
-      static_cast<PropertyAttribute>(ReadOnly | DontDelete));
 
   target->Set(secureContextString, t->GetFunction());
   env->set_secure_context_constructor_template(t);
@@ -1347,14 +1336,6 @@ int SecureContext::TicketCompatibilityCallback(SSL* ssl,
     return -1;
   }
   return 1;
-}
-
-
-void SecureContext::CtxGetter(const FunctionCallbackInfo<Value>& info) {
-  SecureContext* sc;
-  ASSIGN_OR_RETURN_UNWRAP(&sc, info.This());
-  Local<External> ext = External::New(info.GetIsolate(), sc->ctx_);
-  info.GetReturnValue().Set(ext);
 }
 
 
@@ -2629,7 +2610,7 @@ void CipherBase::New(const FunctionCallbackInfo<Value>& args) {
 void CipherBase::Init(const char* cipher_type,
                       const char* key_buf,
                       int key_buf_len,
-                      int auth_tag_len) {
+                      unsigned int auth_tag_len) {
   HandleScope scope(env()->isolate());
 
 #ifdef NODE_FIPS_MODE
@@ -2700,10 +2681,16 @@ void CipherBase::Init(const FunctionCallbackInfo<Value>& args) {
   const node::Utf8Value cipher_type(args.GetIsolate(), args[0]);
   const char* key_buf = Buffer::Data(args[1]);
   ssize_t key_buf_len = Buffer::Length(args[1]);
-  CHECK(args[2]->IsInt32());
+
   // Don't assign to cipher->auth_tag_len_ directly; the value might not
   // represent a valid length at this point.
-  int auth_tag_len = args[2].As<v8::Int32>()->Value();
+  unsigned int auth_tag_len;
+  if (args[2]->IsUint32()) {
+    auth_tag_len = args[2].As<Uint32>()->Value();
+  } else {
+    CHECK(args[2]->IsInt32() && args[2].As<Int32>()->Value() == -1);
+    auth_tag_len = kNoAuthTagLength;
+  }
 
   cipher->Init(*cipher_type, key_buf, key_buf_len, auth_tag_len);
 }
@@ -2714,7 +2701,7 @@ void CipherBase::InitIv(const char* cipher_type,
                         int key_len,
                         const char* iv,
                         int iv_len,
-                        int auth_tag_len) {
+                        unsigned int auth_tag_len) {
   HandleScope scope(env()->isolate());
 
   const EVP_CIPHER* const cipher = EVP_get_cipherbyname(cipher_type);
@@ -2788,10 +2775,16 @@ void CipherBase::InitIv(const FunctionCallbackInfo<Value>& args) {
     iv_buf = Buffer::Data(args[2]);
     iv_len = Buffer::Length(args[2]);
   }
-  CHECK(args[3]->IsInt32());
+
   // Don't assign to cipher->auth_tag_len_ directly; the value might not
   // represent a valid length at this point.
-  int auth_tag_len = args[3].As<v8::Int32>()->Value();
+  unsigned int auth_tag_len;
+  if (args[3]->IsUint32()) {
+    auth_tag_len = args[3].As<Uint32>()->Value();
+  } else {
+    CHECK(args[3]->IsInt32() && args[3].As<Int32>()->Value() == -1);
+    auth_tag_len = kNoAuthTagLength;
+  }
 
   cipher->InitIv(*cipher_type, key_buf, key_len, iv_buf, iv_len, auth_tag_len);
 }
@@ -2802,7 +2795,7 @@ static bool IsValidGCMTagLength(unsigned int tag_len) {
 }
 
 bool CipherBase::InitAuthenticated(const char *cipher_type, int iv_len,
-                                   int auth_tag_len) {
+                                   unsigned int auth_tag_len) {
   CHECK(IsAuthenticatedMode());
 
   // TODO(tniessen) Use EVP_CTRL_AEAD_SET_IVLEN when migrating to OpenSSL 1.1.0
@@ -2815,7 +2808,7 @@ bool CipherBase::InitAuthenticated(const char *cipher_type, int iv_len,
 
   const int mode = EVP_CIPHER_CTX_mode(ctx_);
   if (mode == EVP_CIPH_CCM_MODE) {
-    if (auth_tag_len < 0) {
+    if (auth_tag_len == kNoAuthTagLength) {
       char msg[128];
       snprintf(msg, sizeof(msg), "authTagLength required for %s", cipher_type);
       env()->ThrowError(msg);
@@ -2850,7 +2843,7 @@ bool CipherBase::InitAuthenticated(const char *cipher_type, int iv_len,
   } else {
     CHECK_EQ(mode, EVP_CIPH_GCM_MODE);
 
-    if (auth_tag_len >= 0) {
+    if (auth_tag_len != kNoAuthTagLength) {
       if (!IsValidGCMTagLength(auth_tag_len)) {
         char msg[50];
         snprintf(msg, sizeof(msg),
@@ -2990,7 +2983,7 @@ void CipherBase::SetAAD(const FunctionCallbackInfo<Value>& args) {
 
   CHECK_EQ(args.Length(), 2);
   CHECK(args[1]->IsInt32());
-  int plaintext_len = args[1].As<v8::Int32>()->Value();
+  int plaintext_len = args[1].As<Int32>()->Value();
 
   if (!cipher->SetAAD(Buffer::Data(args[0]), Buffer::Length(args[0]),
                       plaintext_len))
@@ -3113,9 +3106,10 @@ bool CipherBase::Final(unsigned char** out, int *out_len) {
     ok = EVP_CipherFinal_ex(ctx_, *out, out_len) == 1;
 
     if (ok && kind_ == kCipher && IsAuthenticatedMode()) {
-      // For GCM, the tag length is static (16 bytes), while the CCM tag length
-      // must be specified in advance.
-      if (mode == EVP_CIPH_GCM_MODE)
+      // In GCM mode, the authentication tag length can be specified in advance,
+      // but defaults to 16 bytes when encrypting. In CCM mode, it must always
+      // be given by the user.
+      if (mode == EVP_CIPH_GCM_MODE && auth_tag_len_ == kNoAuthTagLength)
         auth_tag_len_ = sizeof(auth_tag_);
       // TOOD(tniessen) Use EVP_CTRL_AEAP_GET_TAG in OpenSSL 1.1.0
       static_assert(EVP_CTRL_CCM_GET_TAG == EVP_CTRL_GCM_GET_TAG,
