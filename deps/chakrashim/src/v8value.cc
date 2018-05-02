@@ -145,6 +145,12 @@ bool Value::IsUint32() const {
   return trunc(value) == value;
 }
 
+bool Value::IsProxy() const {
+  bool isProxy = false;
+  JsGetProxyProperties((JsValueRef) this, &isProxy, nullptr, nullptr);
+  return isProxy;
+}
+
 #define IS_TYPE_FUNCTION(v8ValueFunc, chakrashimFunc) \
 bool Value::v8ValueFunc() const { \
 JsValueRef resultRef = JS_INVALID_REFERENCE; \
@@ -163,7 +169,6 @@ IS_TYPE_FUNCTION(IsDate, isDate)
 IS_TYPE_FUNCTION(IsMap, isMap)
 IS_TYPE_FUNCTION(IsNativeError, isNativeError)
 IS_TYPE_FUNCTION(IsPromise, isPromise)
-IS_TYPE_FUNCTION(IsProxy, isProxy)
 IS_TYPE_FUNCTION(IsRegExp, isRegExp)
 IS_TYPE_FUNCTION(IsAsyncFunction, isAsyncFunction)
 IS_TYPE_FUNCTION(IsSet, isSet)

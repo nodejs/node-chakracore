@@ -51,9 +51,7 @@ for (const [ value, _method ] of [
                           { value: 'foo' }) ],
   [ new DataView(new ArrayBuffer()) ],
   [ new SharedArrayBuffer() ],
-  // Node-ChakraCore does not support util.types.isProxy() due to
-  // Microsoft/ChakraCore#950 and node/node-chakracore#488
-  !common.isChakraEngine ? [ new Proxy({}, {}), 'isProxy' ] : [ new Date() ],
+  [ new Proxy({}, {}), 'isProxy' ],
   [ new WebAssembly.Module(wasmBuffer), 'isWebAssemblyCompiledModule' ],
 ]) {
   const method = _method || `is${value.constructor.name}`;
@@ -130,10 +128,13 @@ for (const [ value, _method ] of [
   }
 }
 
-(async () => {
-  const m = new vm.Module('');
-  await m.link(() => 0);
-  m.instantiate();
-  await m.evaluate();
-  assert.ok(types.isModuleNamespaceObject(m.namespace));
-})();
+// Node-ChakraCore does not support esmodules
+if (!common.isChakraEngine) {
+  (async () => {
+    const m = new vm.Module('');
+    await m.link(() => 0);
+    m.instantiate();
+    await m.evaluate();
+    assert.ok(types.isModuleNamespaceObject(m.namespace));
+  })();
+}

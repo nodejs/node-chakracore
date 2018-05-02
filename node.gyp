@@ -721,13 +721,13 @@
         [ 'v8_enable_inspector==1', {
           'conditions': [
             [ 'node_engine=="v8"', {
-              'actions': [
+              'copies': [
                 {
-                  'action_name': 'v8_inspector_copy_protocol_to_intermediate_folder',
-                  'inputs': [ 'deps/v8/src/inspector/js_protocol.pdl' ],
-                  'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/js_protocol.pdl' ],
-                  'action': [ 'cp', '<@(_inputs)', '<(SHARED_INTERMEDIATE_DIR)' ],
-                },
+                  'destination': '<(SHARED_INTERMEDIATE_DIR)',
+                  'files': ['deps/v8/src/inspector/js_protocol.pdl']
+                }
+              ],
+              'actions': [
                 {
                   'action_name': 'v8_inspector_convert_protocol_to_json',
                   'inputs': [
@@ -1037,11 +1037,6 @@
         ['node_engine=="chakracore"', {
           'include_dirs': [
             'deps/chakrashim/include'
-          ],
-          'sources!': [
-            'test/cctest/test_environment.cc', # TODO: Enable these test for node-chakracore
-            'test/cctest/test_node_postmortem_metadata.cc',
-            'test/cctest/test_platform.cc', # TODO: Enable this test after fixing issue #529
           ],
           'conditions': [
             [ 'OS!="win" and chakracore_use_lto=="true"', {
