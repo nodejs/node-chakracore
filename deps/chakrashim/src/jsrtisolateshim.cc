@@ -244,8 +244,15 @@ IsolateShim::~IsolateShim() {
   assert(this->prevnext == nullptr);
 
   if (IsolateShim::IsIdleGcEnabled()) {
+    uv_prepare_stop(idleGc_prepare_handle());
     uv_close(reinterpret_cast<uv_handle_t*>(idleGc_prepare_handle()), nullptr);
+    uv_timer_stop(idleGc_timer_handle());
     uv_close(reinterpret_cast<uv_handle_t*>(idleGc_timer_handle()), nullptr);
+    // We need to run the UV loop to properly clean up these handles,
+    // but we don't want to run much script code since we are tearing
+    // down the isolate. UV_RUN_NOWAIT should clean up the handles
+    // with the least amount of additonal work.
+    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
   }
 }
 
@@ -298,8 +305,7 @@ IsolateShim::~IsolateShim() {
     uv_prepare_init(uv_default_loop(), newIsolateshim->idleGc_prepare_handle());
     uv_unref(reinterpret_cast<uv_handle_t*>(
       newIsolateshim->idleGc_prepare_handle()));
-    uv_timer_init(uv_default_loop(),
-      newIsolateshim->idleGc_timer_handle());
+    uv_timer_init(uv_default_loop(), newIsolateshim->idleGc_timer_handle());
     uv_unref(reinterpret_cast<uv_handle_t*>(
       newIsolateshim->idleGc_timer_handle()));
   }
