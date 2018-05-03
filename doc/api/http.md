@@ -605,7 +605,6 @@ const contentLength = request.getHeader('Content-Length');
 // contentLength is of type number
 const setCookie = request.getHeader('set-cookie');
 // setCookie is of type string[]
-
 ```
 
 ### request.removeHeader(name)
@@ -1053,7 +1052,6 @@ response.end();
 
 Attempting to set a header field name or value that contains invalid characters
 will result in a [`TypeError`][] being thrown.
-
 
 ### response.connection
 <!-- YAML
@@ -1902,7 +1900,7 @@ Node.js maintains several connections per server to make HTTP requests.
 This function allows one to transparently issue requests.
 
 `options` can be an object, a string, or a [`URL`][] object. If `options` is a
-string, it is automatically parsed with [`url.parse()`][]. If it is a [`URL`][]
+string, it is automatically parsed with [`new URL()`][]. If it is a [`URL`][]
 object, it will be automatically converted to an ordinary `options` object.
 
 The optional `callback` parameter will be added as a one-time listener for
@@ -2052,6 +2050,7 @@ not abort the request or do anything besides add a `'timeout'` event.
 [`net.Server`]: net.html#net_class_net_server
 [`net.Socket`]: net.html#net_class_net_socket
 [`net.createConnection()`]: net.html#net_net_createconnection_options_connectlistener
+[`new URL()`]: url.html#url_constructor_new_url_input_base
 [`removeHeader(name)`]: #http_request_removeheader_name
 [`request.end()`]: #http_request_end_data_encoding_callback
 [`request.getHeader()`]: #http_request_getheader_name
