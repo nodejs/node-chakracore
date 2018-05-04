@@ -418,7 +418,7 @@ JsValueRef Utils::HasPropertyHandler(
     if (objectData->setterGetterInterceptor != nullptr) {
       if (objectData->setterGetterInterceptor->
                       indexedPropertyQuery != nullptr) {
-        HandleScope scope(nullptr);
+        HandleScope scope(Isolate::GetCurrent());
         PropertyCallbackInfo<Integer> info(
           *(objectData->setterGetterInterceptor->
                         indexedPropertyInterceptorData),
@@ -454,7 +454,7 @@ JsValueRef Utils::HasPropertyHandler(
   } else {  // named property...
     if (objectData->setterGetterInterceptor != nullptr) {
       if (objectData->setterGetterInterceptor->namedPropertyQuery != nullptr) {
-        HandleScope scope(nullptr);
+        HandleScope scope(Isolate::GetCurrent());
         PropertyCallbackInfo<Integer> info(
           *(objectData->setterGetterInterceptor->namedPropertyInterceptorData),
           reinterpret_cast<Object*>(object),
@@ -503,7 +503,7 @@ JsValueRef Utils::GetPropertiesHandler(
     bool getFromPrototype) {
   CHAKRA_VERIFY(argumentsCount >= 2);
 
-  HandleScope scope(nullptr);
+  HandleScope scope(Isolate::GetCurrent());
   JsValueRef object = arguments[1];
 
   ObjectData* objectData = nullptr;
@@ -640,7 +640,7 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
 
       if (objectData->setterGetterInterceptor->
           indexedPropertyQuery != nullptr) {
-        HandleScope scope(nullptr);
+        HandleScope scope(Isolate::GetCurrent());
         PropertyCallbackInfo<Integer> info(
             *(objectData->setterGetterInterceptor->
                 indexedPropertyInterceptorData),
@@ -690,7 +690,7 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
       // query the property descriptor if there is such, and then get the value
       // from the proxy in order to go through the interceptor
       if (objectData->setterGetterInterceptor->namedPropertyQuery != nullptr) {
-        HandleScope scope(nullptr);
+        HandleScope scope(Isolate::GetCurrent());
         PropertyCallbackInfo<Integer> info(
             *(objectData->setterGetterInterceptor->
                 namedPropertyInterceptorData),
