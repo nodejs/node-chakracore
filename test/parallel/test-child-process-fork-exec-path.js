@@ -23,6 +23,7 @@
 const common = require('../common');
 const assert = require('assert');
 const fs = require('fs');
+const { COPYFILE_FICLONE } = fs.constants;
 const path = require('path');
 const tmpdir = require('../common/tmpdir');
 const msg = { test: 'this' };
@@ -59,9 +60,10 @@ if (process.env.FORK) {
   }
 
   exePaths.forEach(function(value) {
-    fs.writeFileSync(value.destPath, fs.readFileSync(value.srcPath));
+    fs.copyFileSync(value.srcPath, value.destPath, COPYFILE_FICLONE);
     fs.chmodSync(value.destPath, '0755');
   });
+
 
   // slow but simple
   const envCopy = JSON.parse(JSON.stringify(process.env));
