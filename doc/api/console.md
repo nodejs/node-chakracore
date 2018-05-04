@@ -63,7 +63,6 @@ changes:
                  will now be ignored by default.
 -->
 
-
 <!--type=class-->
 
 The `Console` class can be used to create a simple logger with configurable
@@ -100,7 +99,7 @@ changes:
     Setting to `true` enables coloring while inspecting values, setting to
     `'auto'` will make color support depend on the value of the `isTTY` property
     and the value returned by `getColorDepth()` on the respective stream.
-    **Default:** `'auto'`
+    **Default:** `'auto'`.
 
 Creates a new `Console` with one or two writable stream instances. `stdout` is a
 writable stream to print log or info output. `stderr` is used for warning or

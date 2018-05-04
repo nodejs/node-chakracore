@@ -177,7 +177,7 @@ Using WHATWG [`URL`][] objects might introduce platform-specific behaviors.
 
 On Windows, `file:` URLs with a hostname convert to UNC paths, while `file:`
 URLs with drive letters convert to local absolute paths. `file:` URLs without a
-hostname nor a drive letter will result in a throw :
+hostname nor a drive letter will result in a throw:
 
 ```js
 // On Windows :
@@ -500,7 +500,7 @@ added: v0.1.10
 
 Returns `true` if the `fs.Stats` object describes a symbolic link.
 
-This method is only valid when using [`fs.lstat()`][]
+This method is only valid when using [`fs.lstat()`][].
 
 ### stats.dev
 
@@ -1038,7 +1038,7 @@ changes:
 Asynchronously changes the permissions of a file. No arguments other than a
 possible exception are given to the completion callback.
 
-See also: chmod(2)
+See also: chmod(2).
 
 ### File modes
 
@@ -1097,7 +1097,7 @@ changes:
 Synchronously changes the permissions of a file. Returns `undefined`.
 This is the synchronous version of [`fs.chmod()`][].
 
-See also: chmod(2)
+See also: chmod(2).
 
 ## fs.chown(path, uid, gid, callback)
 <!-- YAML
@@ -1126,7 +1126,7 @@ changes:
 Asynchronously changes owner and group of a file. No arguments other than a
 possible exception are given to the completion callback.
 
-See also: chown(2)
+See also: chown(2).
 
 ## fs.chownSync(path, uid, gid)
 <!-- YAML
@@ -1145,7 +1145,7 @@ changes:
 Synchronously changes owner and group of a file. Returns `undefined`.
 This is the synchronous version of [`fs.chown()`][].
 
-See also: chown(2)
+See also: chown(2).
 
 ## fs.close(fd, callback)
 <!-- YAML
@@ -1316,9 +1316,8 @@ changes:
   * `highWaterMark` {integer} **Default:** `64 * 1024`
 * Returns: {fs.ReadStream} See [Readable Streams][].
 
-Be aware that, unlike the default value set for `highWaterMark` on a
-readable stream (16 kb), the stream returned by this method has a
-default value of 64 kb for the same parameter.
+Unlike the 16 kb default `highWaterMark` for a readable stream, the stream
+returned by this method has a default `highWaterMark` of 64 kb.
 
 `options` can include `start` and `end` values to read a range of bytes from
 the file instead of the entire file. Both `start` and `end` are inclusive and
@@ -1712,7 +1711,8 @@ given to the completion callback.
 If the file referred to by the file descriptor was larger than `len` bytes, only
 the first `len` bytes will be retained in the file.
 
-For example, the following program retains only the first four bytes of the file
+For example, the following program retains only the first four bytes of the
+file:
 
 ```js
 console.log(fs.readFileSync('temp.txt', 'utf8'));
@@ -1730,7 +1730,7 @@ fs.ftruncate(fd, 4, (err) => {
 ```
 
 If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes ('\0'). For example,
+extended part is filled with null bytes (`'\0'`). For example,
 
 ```js
 console.log(fs.readFileSync('temp.txt', 'utf8'));
@@ -1748,7 +1748,7 @@ fs.ftruncate(fd, 10, (err) => {
 // ('Node.js\0\0\0' in UTF8)
 ```
 
-The last three bytes are null bytes ('\0'), to compensate the over-truncation.
+The last three bytes are null bytes (`'\0'`), to compensate the over-truncation.
 
 ## fs.ftruncateSync(fd[, len])
 <!-- YAML
@@ -1986,7 +1986,7 @@ changes:
 Asynchronously creates a directory. No arguments other than a possible exception
 are given to the completion callback.
 
-See also: mkdir(2)
+See also: mkdir(2).
 
 ## fs.mkdirSync(path[, mode])
 <!-- YAML
@@ -2004,7 +2004,7 @@ changes:
 Synchronously creates a directory. Returns `undefined`.
 This is the synchronous version of [`fs.mkdir()`][].
 
-See also: mkdir(2)
+See also: mkdir(2).
 
 ## fs.mkdtemp(prefix[, options], callback)
 <!-- YAML
@@ -2189,7 +2189,7 @@ If `position` is an integer, the file position will remain unchanged.
 The callback is given the three arguments, `(err, bytesRead, buffer)`.
 
 If this method is invoked as its [`util.promisify()`][]ed version, it returns
-a Promise for an object with `bytesRead` and `buffer` properties.
+a `Promise` for an `Object` with `bytesRead` and `buffer` properties.
 
 ## fs.readdir(path[, options], callback)
 <!-- YAML
@@ -2869,7 +2869,7 @@ fs.unlink('path/file.txt', (err) => {
 `fs.unlink()` will not work on a directory, empty or otherwise. To remove a
 directory, use [`fs.rmdir()`][].
 
-See also: unlink(2)
+See also: unlink(2).
 
 ## fs.unlinkSync(path)
 <!-- YAML
@@ -2943,7 +2943,7 @@ The `atime` and `mtime` arguments follow these rules:
 - Values can be either numbers representing Unix epoch time, `Date`s, or a
   numeric string like `'123456789.0'`.
 - If the value can not be converted to a number, or is `NaN`, `Infinity` or
-  `-Infinity`, a `Error` will be thrown.
+  `-Infinity`, an `Error` will be thrown.
 
 ## fs.utimesSync(path, atime, mtime)
 <!-- YAML
@@ -3067,7 +3067,7 @@ content, and one for truncation).
 Providing `filename` argument in the callback is only supported on Linux,
 macOS, Windows, and AIX. Even on supported platforms, `filename` is not always
 guaranteed to be provided. Therefore, don't assume that `filename` argument is
-always provided in the callback, and have some fallback logic if it is null.
+always provided in the callback, and have some fallback logic if it is `null`.
 
 ```js
 fs.watch('somedir', (eventType, filename) => {
@@ -3185,7 +3185,7 @@ The callback will be given three arguments `(err, bytesWritten, buffer)` where
 `bytesWritten` specifies how many _bytes_ were written from `buffer`.
 
 If this method is invoked as its [`util.promisify()`][]ed version, it returns
-a Promise for an object with `bytesWritten` and `buffer` properties.
+a `Promise` for an `Object` with `bytesWritten` and `buffer` properties.
 
 Note that it is unsafe to use `fs.write` multiple times on the same file
 without waiting for the callback. For this scenario,
@@ -3233,10 +3233,6 @@ the current position. See pwrite(2).
 The callback will receive the arguments `(err, written, string)` where `written`
 specifies how many _bytes_ the passed string required to be written. Note that
 bytes written is not the same as string characters. See [`Buffer.byteLength`][].
-
-Unlike when writing `buffer`, the entire string must be written. No substring
-may be specified. This is because the byte offset of the resulting data may not
-be the same as the string offset.
 
 Note that it is unsafe to use `fs.write` multiple times on the same file
 without waiting for the callback. For this scenario,
@@ -3383,11 +3379,11 @@ and will emit a process warning, thereby helping to prevent memory leaks.
 Instances of the `FileHandle` object are created internally by the
 `fsPromises.open()` method.
 
-Unlike callback-based such as `fs.fstat()`, `fs.fchown()`, `fs.fchmod()`,
-`fs.ftruncate()`, `fs.read()`, and `fs.write()`, operations — all of which
-use a simple numeric file descriptor, all `fsPromises.*` variations use the
-`FileHandle` class in order to help protect against accidental leaking of
-unclosed file descriptors after a `Promise` is resolved or rejected.
+Unlike the callback-based API (`fs.fstat()`, `fs.fchown()`, `fs.fchmod()`, and
+so on), a numeric file descriptor is not used by the promise-based API. Instead,
+the promise-based API uses the `FileHandle` class in order to help avoid
+accidental leaking of unclosed file descriptors after a `Promise` is resolved or
+rejected.
 
 #### filehandle.appendFile(data, options)
 <!-- YAML
@@ -3565,7 +3561,7 @@ doTruncate().catch(console.error);
 ```
 
 If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes ('\0'). For example,
+extended part is filled with null bytes (`'\0'`). For example,
 
 ```js
 console.log(fs.readFileSync('temp.txt', 'utf8'));
@@ -3580,14 +3576,14 @@ async function doTruncate() {
 doTruncate().catch(console.error);
 ```
 
-The last three bytes are null bytes ('\0'), to compensate the over-truncation.
+The last three bytes are null bytes (`'\0'`), to compensate the over-truncation.
 
 #### filehandle.utimes(atime, mtime)
 <!-- YAML
 added: v10.0.0
 -->
 * `atime` {number|string|Date}
-* `mtime` {number|string|Date}`
+* `mtime` {number|string|Date}
 * Returns: {Promise}
 
 Change the file system timestamps of the object referenced by the `FileHandle`
@@ -3882,7 +3878,7 @@ doTruncate().catch(console.error);
 ```
 
 If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes ('\0'). For example,
+extended part is filled with null bytes (`'\0'`). For example,
 
 ```js
 console.log(fs.readFileSync('temp.txt', 'utf8'));
@@ -3897,7 +3893,7 @@ async function doTruncate() {
 doTruncate().catch(console.error);
 ```
 
-The last three bytes are null bytes ('\0'), to compensate the over-truncation.
+The last three bytes are null bytes (`'\0'`), to compensate the over-truncation.
 
 ### fsPromises.futimes(filehandle, atime, mtime)
 <!-- YAML
@@ -3906,7 +3902,7 @@ added: v10.0.0
 
 * `filehandle` {FileHandle}
 * `atime` {number|string|Date}
-* `mtime` {number|string|Date}`
+* `mtime` {number|string|Date}
 * Returns: {Promise}
 
 Change the file system timestamps of the object referenced by the supplied
@@ -4297,7 +4293,6 @@ Any specified `FileHandle` has to support writing.
 It is unsafe to use `fsPromises.writeFile()` multiple times on the same file
 without waiting for the `Promise` to be resolved (or rejected).
 
-
 ## FS Constants
 
 The following constants are exported by `fs.constants`.
@@ -4604,7 +4599,7 @@ The file is created (if it does not exist) or truncated (if it exists).
 `flag` can also be a number as documented by open(2); commonly used constants
 are available from `fs.constants`. On Windows, flags are translated to
 their equivalent ones where applicable, e.g. `O_WRONLY` to `FILE_GENERIC_WRITE`,
-or `O_EXCL|O_CREAT` to `CREATE_NEW`, as accepted by CreateFileW.
+or `O_EXCL|O_CREAT` to `CREATE_NEW`, as accepted by `CreateFileW`.
 
 The exclusive flag `'x'` (`O_EXCL` flag in open(2)) ensures that path is newly
 created. On POSIX systems, path is considered to exist even if it is a symlink

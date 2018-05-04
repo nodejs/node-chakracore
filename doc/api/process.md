@@ -45,6 +45,8 @@ the IPC channel is closed.
 added: v0.1.7
 -->
 
+* `code` {integer}
+
 The `'exit'` event is emitted when the Node.js process is about to exit as a
 result of either:
 
@@ -56,7 +58,7 @@ all `'exit'` listeners have finished running the Node.js process will terminate.
 
 The listener callback function is invoked with the exit code specified either
 by the [`process.exitCode`][] property, or the `exitCode` argument passed to the
-[`process.exit()`] method, as the only argument.
+[`process.exit()`] method.
 
 ```js
 process.on('exit', (code) => {
@@ -82,15 +84,15 @@ process.on('exit', (code) => {
 added: v0.5.10
 -->
 
+* `message` { Object | boolean | number | string | null } a parsed JSON object
+  or a serializable primitive value.
+* `sendHandle` {net.Server|net.Socket} a [`net.Server`][] or [`net.Socket`][]
+  object, or undefined.
+
 If the Node.js process is spawned with an IPC channel (see the [Child Process][]
 and [Cluster][] documentation), the `'message'` event is emitted whenever a
 message sent by a parent process using [`childprocess.send()`][] is received by
 the child process.
-
-The listener callback is invoked with the following arguments:
-* `message` {Object} a parsed JSON object or primitive value.
-* `sendHandle` {net.Server|net.Socket} a [`net.Server`][] or [`net.Socket`][]
-  object, or undefined.
 
 The message goes through serialization and parsing. The resulting message might
 not be the same as what is originally sent.
@@ -100,12 +102,11 @@ not be the same as what is originally sent.
 added: v1.4.1
 -->
 
+* `promise` {Promise} The late handled promise.
+
 The `'rejectionHandled'` event is emitted whenever a `Promise` has been rejected
 and an error handler was attached to it (using [`promise.catch()`][], for
 example) later than one turn of the Node.js event loop.
-
-The listener callback is invoked with a reference to the rejected `Promise` as
-the only argument.
 
 The `Promise` object would have previously been emitted in an
 `'unhandledRejection'` event, but during the course of processing gained a
@@ -129,11 +130,11 @@ when the list of unhandled rejections shrinks.
 
 ```js
 const unhandledRejections = new Map();
-process.on('unhandledRejection', (reason, p) => {
-  unhandledRejections.set(p, reason);
+process.on('unhandledRejection', (reason, promise) => {
+  unhandledRejections.set(promise, reason);
 });
-process.on('rejectionHandled', (p) => {
-  unhandledRejections.delete(p);
+process.on('rejectionHandled', (promise) => {
+  unhandledRejections.delete(promise);
 });
 ```
 
@@ -204,10 +205,10 @@ added: v1.4.1
 changes:
   - version: v7.0.0
     pr-url: https://github.com/nodejs/node/pull/8217
-    description: Not handling Promise rejections has been deprecated.
+    description: Not handling `Promise` rejections has been deprecated.
   - version: v6.6.0
     pr-url: https://github.com/nodejs/node/pull/8223
-    description: Unhandled Promise rejections will now emit
+    description: Unhandled `Promise` rejections will now emit
                  a process warning.
 -->
 
@@ -233,7 +234,7 @@ process.on('unhandledRejection', (reason, p) => {
 
 somePromise.then((res) => {
   return reportToUser(JSON.pasre(res)); // note the typo (`pasre`)
-}); // no `.catch` or `.then`
+}); // no `.catch()` or `.then()`
 ```
 
 The following will also trigger the `'unhandledRejection'` event to be
@@ -261,6 +262,12 @@ being emitted. Alternatively, the [`'rejectionHandled'`][] event may be used.
 added: v6.0.0
 -->
 
+* `warning` {Error} Key properties of the warning are:
+  * `name` {string} The name of the warning. **Default:** `'Warning'`.
+  * `message` {string} A system-provided description of the warning.
+  * `stack` {string} A stack trace to the location in the code where the warning
+    was issued.
+
 The `'warning'` event is emitted whenever Node.js emits a process warning.
 
 A process warning is similar to an error in that it describes exceptional
@@ -268,14 +275,6 @@ conditions that are being brought to the user's attention. However, warnings
 are not part of the normal Node.js and JavaScript error handling flow.
 Node.js can emit warnings whenever it detects bad coding practices that could
 lead to sub-optimal application performance, bugs, or security vulnerabilities.
-
-The listener function is called with a single `warning` argument whose value is
-an `Error` object. There are three key properties that describe the warning:
-
-* `name` {string} The name of the warning (currently `'Warning'` by default).
-* `message` {string} A system-provided description of the warning.
-* `stack` {string} A stack trace to the location in the code where the warning
-  was issued.
 
 ```js
 process.on('warning', (warning) => {
@@ -290,7 +289,7 @@ command-line option can be used to suppress the default console output but the
 `'warning'` event will still be emitted by the `process` object.
 
 The following example illustrates the warning that is printed to `stderr` when
-too many listeners have been added to an event
+too many listeners have been added to an event:
 
 ```txt
 $ node
@@ -525,7 +524,7 @@ added: v0.7.7
 
 * {Object}
 
-The `process.config` property returns an Object containing the JavaScript
+The `process.config` property returns an `Object` containing the JavaScript
 representation of the configure options used to compile the current Node.js
 executable. This is the same as the `config.gypi` file that was produced when
 running the `./configure` script.
@@ -700,10 +699,10 @@ added: v8.0.0
 
 * `warning` {string|Error} The warning to emit.
 * `options` {Object}
-  * `type` {string} When `warning` is a String, `type` is the name to use
+  * `type` {string} When `warning` is a `String`, `type` is the name to use
     for the *type* of warning being emitted. **Default:** `'Warning'`.
   * `code` {string} A unique identifier for the warning instance being emitted.
-  * `ctor` {Function} When `warning` is a String, `ctor` is an optional
+  * `ctor` {Function} When `warning` is a `String`, `ctor` is an optional
     function used to limit the generated stack trace. **Default:**
     `process.emitWarning`.
   * `detail` {string} Additional text to include with the error.
@@ -745,10 +744,10 @@ added: v6.0.0
 -->
 
 * `warning` {string|Error} The warning to emit.
-* `type` {string} When `warning` is a String, `type` is the name to use
+* `type` {string} When `warning` is a `String`, `type` is the name to use
   for the *type* of warning being emitted. **Default:** `'Warning'`.
 * `code` {string} A unique identifier for the warning instance being emitted.
-* `ctor` {Function} When `warning` is a String, `ctor` is an optional
+* `ctor` {Function} When `warning` is a `String`, `ctor` is an optional
   function used to limit the generated stack trace. **Default:**
   `process.emitWarning`.
 
@@ -966,7 +965,6 @@ that started the Node.js process.
 '/usr/local/bin/node'
 ```
 
-
 ## process.exit([code])
 <!-- YAML
 added: v0.1.13
@@ -1045,7 +1043,6 @@ a code.
 
 Specifying a code to [`process.exit(code)`][`process.exit()`] will override any
 previous setting of `process.exitCode`.
-
 
 ## process.getegid()
 <!-- YAML
@@ -1154,12 +1151,12 @@ added: v0.7.6
 * Returns: {integer[]}
 
 The `process.hrtime()` method returns the current high-resolution real time
-in a `[seconds, nanoseconds]` tuple Array, where `nanoseconds` is the
+in a `[seconds, nanoseconds]` tuple `Array`, where `nanoseconds` is the
 remaining part of the real time that can't be represented in second precision.
 
 `time` is an optional parameter that must be the result of a previous
 `process.hrtime()` call to diff with the current time. If the parameter
-passed in is not a tuple Array, a `TypeError` will be thrown. Passing in a
+passed in is not a tuple `Array`, a `TypeError` will be thrown. Passing in a
 user-defined array instead of the result of a previous call to
 `process.hrtime()` will lead to undefined behavior.
 
@@ -1180,7 +1177,6 @@ setTimeout(() => {
   // benchmark took 1000000552 nanoseconds
 }, 1000);
 ```
-
 
 ## process.initgroups(user, extraGroup)
 <!-- YAML
@@ -1405,7 +1401,7 @@ function definitelyAsync(arg, cb) {
 
 The next tick queue is completely drained on each pass of the event loop
 **before** additional I/O is processed. As a result, recursively setting
-nextTick callbacks will block any I/O from happening, just like a
+`nextTick()` callbacks will block any I/O from happening, just like a
 `while(true);` loop.
 
 ## process.noDeprecation
@@ -1486,8 +1482,8 @@ changes:
 
 * {Object}
 
-The `process.release` property returns an Object containing metadata related to
-the current release, including URLs for the source tarball and headers-only
+The `process.release` property returns an `Object` containing metadata related
+to the current release, including URLs for the source tarball and headers-only
 tarball.
 
 `process.release` contains the following properties:
@@ -1573,7 +1569,6 @@ if (process.getegid && process.setegid) {
 
 This function is only available on POSIX platforms (i.e. not Windows or
 Android).
-
 
 ## process.seteuid(id)
 <!-- YAML
@@ -1746,7 +1741,7 @@ The `process.stdout` property returns a stream connected to
 stream) unless fd `1` refers to a file, in which case it is
 a [Writable][] stream.
 
-For example, to copy process.stdin to process.stdout:
+For example, to copy `process.stdin` to `process.stdout`:
 
 ```js
 process.stdin.pipe(process.stdout);
@@ -1870,7 +1865,6 @@ console.log(
 );
 ```
 
-
 ## process.uptime()
 <!-- YAML
 added: v0.5.0
@@ -1967,7 +1961,7 @@ cases:
 * `7` **Internal Exception Handler Run-Time Failure** - There was an
   uncaught exception, and the internal fatal exception handler
   function itself threw an error while attempting to handle it. This
-  can happen, for example, if a [`'uncaughtException'`][] or
+  can happen, for example, if an [`'uncaughtException'`][] or
   `domain.on('error')` handler throws an error.
 * `8` - Unused. In previous versions of Node.js, exit code 8 sometimes
   indicated an uncaught exception.
@@ -1986,7 +1980,6 @@ cases:
   the high-order bit, and then contain the value of the signal code.
   For example, signal `SIGABRT` has value `6`, so the expected exit
   code will be `128` + `6`, or `134`.
-
 
 [`'exit'`]: #process_event_exit
 [`'finish'`]: stream.html#stream_event_finish

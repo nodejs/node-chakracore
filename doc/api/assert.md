@@ -102,31 +102,25 @@ It can be accessed using:
 const assert = require('assert').strict;
 ```
 
-Example error diff (the `expected`, `actual`, and `Lines skipped` will be on a
-single row):
+Example error diff:
 
 ```js
 const assert = require('assert').strict;
 
 assert.deepEqual([[[1, 2, 3]], 4, 5], [[[1, 2, '3']], 4, 5]);
-```
-
-```diff
-AssertionError [ERR_ASSERTION]: Input A expected to deepStrictEqual input B:
-+ expected
-- actual
-... Lines skipped
-
-  [
-    [
-...
-      2,
--     3
-+     '3'
-    ],
-...
-    5
-  ]
+// AssertionError: Input A expected to strictly deep-equal input B:
+// + expected - actual ... Lines skipped
+//
+//   [
+//     [
+// ...
+//       2,
+// -     3
+// +     '3'
+//     ],
+// ...
+//     5
+//   ]
 ```
 
 To deactivate the colors, use the `NODE_DISABLE_COLORS` environment variable.
@@ -171,10 +165,10 @@ added: v0.1.21
 changes:
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15001
-    description: Error names and messages are now properly compared
+    description: The `Error` names and messages are now properly compared
   - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/12142
-    description: Set and Map content is also compared
+    description: The `Set` and `Map` content is also compared
   - version: v6.4.0, v4.7.1
     pr-url: https://github.com/nodejs/node/pull/8002
     description: Typed array slices are handled correctly now.
@@ -214,7 +208,7 @@ the [`RegExp`][] object are not enumerable:
 assert.deepEqual(/a/gi, new Date());
 ```
 
-An exception is made for [`Map`][] and [`Set`][]. Maps and Sets have their
+An exception is made for [`Map`][] and [`Set`][]. `Map`s and `Set`s have their
 contained items compared too, as expected.
 
 "Deep" equality means that the enumerable "own" properties of child objects
@@ -270,15 +264,15 @@ changes:
     description: Enumerable symbol properties are now compared.
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15036
-    description: NaN is now compared using the
+    description: The `NaN` is now compared using the
               [SameValueZero](https://tc39.github.io/ecma262/#sec-samevaluezero)
               comparison.
   - version: v8.5.0
     pr-url: https://github.com/nodejs/node/pull/15001
-    description: Error names and messages are now properly compared
+    description: The `Error` names and messages are now properly compared
   - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/12142
-    description: Set and Map content is also compared
+    description: The `Set` and `Map` content is also compared
   - version: v6.4.0, v4.7.1
     pr-url: https://github.com/nodejs/node/pull/8002
     description: Typed array slices are handled correctly now.
@@ -309,8 +303,8 @@ are recursively evaluated also by the following rules.
   enumerable properties.
 * Enumerable own [`Symbol`][] properties are compared as well.
 * [Object wrappers][] are compared both as objects and unwrapped values.
-* Object properties are compared unordered.
-* Map keys and Set items are compared unordered.
+* `Object` properties are compared unordered.
+* `Map` keys and `Set` items are compared unordered.
 * Recursion stops when both sides differ or both sides encounter a circular
   reference.
 * [`WeakMap`][] and [`WeakSet`][] comparison does not rely on their values. See
@@ -319,9 +313,14 @@ are recursively evaluated also by the following rules.
 ```js
 const assert = require('assert').strict;
 
+// This fails because 1 !== '1'.
 assert.deepStrictEqual({ a: 1 }, { a: '1' });
-// AssertionError: { a: 1 } deepStrictEqual { a: '1' }
-// because 1 !== '1' using SameValue comparison
+// AssertionError: Input A expected to strictly deep-equal input B:
+// + expected - actual
+//   {
+// -   a: 1
+// +   a: '1'
+//   }
 
 // The following objects don't have own properties
 const date = new Date();
@@ -329,33 +328,52 @@ const object = {};
 const fakeDate = {};
 Object.setPrototypeOf(fakeDate, Date.prototype);
 
+// Different [[Prototype]]:
 assert.deepStrictEqual(object, fakeDate);
-// AssertionError: {} deepStrictEqual Date {}
-// Different [[Prototype]]
+// AssertionError: Input A expected to strictly deep-equal input B:
+// + expected - actual
+// - {}
+// + Date {}
 
+// Different type tags:
 assert.deepStrictEqual(date, fakeDate);
-// AssertionError: 2017-03-11T14:25:31.849Z deepStrictEqual Date {}
-// Different type tags
+// AssertionError: Input A expected to strictly deep-equal input B:
+// + expected - actual
+// - 2018-04-26T00:49:08.604Z
+// + Date {}
 
 assert.deepStrictEqual(NaN, NaN);
 // OK, because of the SameValue comparison
 
+// Different unwrapped numbers:
 assert.deepStrictEqual(new Number(1), new Number(2));
-// Fails because the wrapped number is unwrapped and compared as well.
+// AssertionError: Input A expected to strictly deep-equal input B:
+// + expected - actual
+// - [Number: 1]
+// + [Number: 2]
+
 assert.deepStrictEqual(new String('foo'), Object('foo'));
 // OK because the object and the string are identical when unwrapped.
 
 assert.deepStrictEqual(-0, -0);
 // OK
+
+// Different zeros using the SameValue Comparison:
 assert.deepStrictEqual(0, -0);
-// AssertionError: 0 deepStrictEqual -0
+// AssertionError: Input A expected to strictly deep-equal input B:
+// + expected - actual
+// - 0
+// + -0
 
 const symbol1 = Symbol();
 const symbol2 = Symbol();
 assert.deepStrictEqual({ [symbol1]: 1 }, { [symbol1]: 1 });
 // OK, because it is the same symbol on both objects.
 assert.deepStrictEqual({ [symbol1]: 1 }, { [symbol2]: 1 });
-// Fails because symbol1 !== symbol2!
+// AssertionError [ERR_ASSERTION]: Input objects not identical:
+// {
+//   [Symbol()]: 1
+// }
 
 const weakMap1 = new WeakMap();
 const weakMap2 = new WeakMap([[{}, {}]]);
@@ -364,8 +382,16 @@ weakMap3.unequal = true;
 
 assert.deepStrictEqual(weakMap1, weakMap2);
 // OK, because it is impossible to compare the entries
+
+// Fails because weakMap3 has a property that weakMap1 does not contain:
 assert.deepStrictEqual(weakMap1, weakMap3);
-// Fails because weakMap3 has a property that weakMap1 does not contain!
+// AssertionError: Input A expected to strictly deep-equal input B:
+// + expected - actual
+//   WeakMap {
+// -   [items unknown]
+// +   [items unknown],
+// +   unequal: true
+//   }
 ```
 
 If the values are not equal, an `AssertionError` is thrown with a `message`
@@ -387,10 +413,10 @@ function and awaits the returned promise to complete. It will then check that
 the promise is not rejected.
 
 If `block` is a function and it throws an error synchronously,
-`assert.doesNotReject()` will return a rejected Promise with that error. If the
-function does not return a promise, `assert.doesNotReject()` will return a
-rejected Promise with an [`ERR_INVALID_RETURN_VALUE`][] error. In both cases the
-error handler is skipped.
+`assert.doesNotReject()` will return a rejected `Promise` with that error. If
+the function does not return a promise, `assert.doesNotReject()` will return a
+rejected `Promise` with an [`ERR_INVALID_RETURN_VALUE`][] error. In both cases
+the error handler is skipped.
 
 Please note: Using `assert.doesNotReject()` is actually not useful because there
 is little benefit by catching a rejection and then rejecting it again. Instead,
@@ -468,7 +494,7 @@ assert.doesNotThrow(
 ```
 
 However, the following will result in an `AssertionError` with the message
-'Got unwanted exception (TypeError)..':
+'Got unwanted exception...':
 
 <!-- eslint-disable no-restricted-syntax -->
 ```js
@@ -493,7 +519,7 @@ assert.doesNotThrow(
   /Wrong value/,
   'Whoops'
 );
-// Throws: AssertionError: Got unwanted exception (TypeError). Whoops
+// Throws: AssertionError: Got unwanted exception: Whoops
 ```
 
 ## assert.equal(actual, expected[, message])
@@ -630,7 +656,7 @@ changes:
   - version: v10.0.0
     pr-url: https://github.com/nodejs/node/pull/18247
     description: Instead of throwing the original error it is now wrapped into
-                 a AssertionError that contains the full stack trace.
+                 an `AssertionError` that contains the full stack trace.
   - version: v10.0.0
     pr-url: https://github.com/nodejs/node/pull/18247
     description: Value may now only be `undefined` or `null`. Before any truthy
@@ -639,7 +665,9 @@ changes:
 * `value` {any}
 
 Throws `value` if `value` is not `undefined` or `null`. This is useful when
-testing the `error` argument in callbacks.
+testing the `error` argument in callbacks. The stack trace contains all frames
+from the error passed to `ifError()` including the potential new frames for
+`ifError()` itself. See below for an example.
 
 ```js
 const assert = require('assert').strict;
@@ -652,6 +680,19 @@ assert.ifError('error');
 // AssertionError [ERR_ASSERTION]: ifError got unwanted exception: 'error'
 assert.ifError(new Error());
 // AssertionError [ERR_ASSERTION]: ifError got unwanted exception: Error
+
+// Create some random error frames.
+let err;
+(function errorFrame() {
+  err = new Error('test error');
+})();
+
+(function ifErrorFrame() {
+  assert.ifError(err);
+})();
+// AssertionError [ERR_ASSERTION]: ifError got unwanted exception: test error
+//     at ifErrorFrame
+//     at errorFrame
 ```
 
 ## assert.notDeepEqual(actual, expected[, message])
@@ -660,10 +701,10 @@ added: v0.1.21
 changes:
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15001
-    description: Error names and messages are now properly compared
+    description: The `Error` names and messages are now properly compared
   - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/12142
-    description: Set and Map content is also compared
+    description: The `Set` and `Map` content is also compared
   - version: v6.4.0, v4.7.1
     pr-url: https://github.com/nodejs/node/pull/8002
     description: Typed array slices are handled correctly now.
@@ -733,18 +774,18 @@ added: v1.2.0
 changes:
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15398
-    description: -0 and +0 are not considered equal anymore.
+    description: The `-0` and `+0` are not considered equal anymore.
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15036
-    description: NaN is now compared using the
+    description: The `NaN` is now compared using the
               [SameValueZero](https://tc39.github.io/ecma262/#sec-samevaluezero)
               comparison.
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/15001
-    description: Error names and messages are now properly compared
+    description: The `Error` names and messages are now properly compared
   - version: v8.0.0
     pr-url: https://github.com/nodejs/node/pull/12142
-    description: Set and Map content is also compared
+    description: The `Set` and `Map` content is also compared
   - version: v6.4.0, v4.7.1
     pr-url: https://github.com/nodejs/node/pull/8002
     description: Typed array slices are handled correctly now.
@@ -834,7 +875,7 @@ assert.notStrictEqual(1, 2);
 // OK
 
 assert.notStrictEqual(1, 1);
-// AssertionError: 1 notStrictEqual 1
+// AssertionError [ERR_ASSERTION]: Identical input passed to notStrictEqual: 1
 
 assert.notStrictEqual(1, '1');
 // OK
@@ -852,7 +893,8 @@ added: v0.1.21
 changes:
   - version: v10.0.0
     pr-url: https://github.com/nodejs/node/pull/18319
-    description: assert.ok() (no arguments) will now use a predefined error msg.
+    description: The `assert.ok()` (no arguments) will now use a predefined
+                 error message.
 -->
 * `value` {any}
 * `message` {any}
@@ -866,7 +908,7 @@ parameter is `undefined`, a default error message is assigned. If the `message`
 parameter is an instance of an [`Error`][] then it will be thrown instead of the
 `AssertionError`.
 If no arguments are passed in at all `message` will be set to the string:
-"No value argument passed to assert.ok".
+``'No value argument passed to `assert.ok()`'``.
 
 Be aware that in the `repl` the error message will be different to the one
 thrown in a file! See below for further details.
@@ -880,40 +922,34 @@ assert.ok(1);
 // OK
 
 assert.ok();
-// throws:
-// "AssertionError: No value argument passed to `assert.ok`.
+// AssertionError: No value argument passed to `assert.ok()`
 
 assert.ok(false, 'it\'s false');
-// throws "AssertionError: it's false"
+// AssertionError: it's false
 
 // In the repl:
 assert.ok(typeof 123 === 'string');
-// throws:
-// "AssertionError: false == true
+// AssertionError: false == true
 
 // In a file (e.g. test.js):
 assert.ok(typeof 123 === 'string');
-// throws:
-// "AssertionError: The expression evaluated to a falsy value:
+// AssertionError: The expression evaluated to a falsy value:
 //
 //   assert.ok(typeof 123 === 'string')
 
 assert.ok(false);
-// throws:
-// "AssertionError: The expression evaluated to a falsy value:
+// AssertionError: The expression evaluated to a falsy value:
 //
 //   assert.ok(false)
 
 assert.ok(0);
-// throws:
-// "AssertionError: The expression evaluated to a falsy value:
+// AssertionError: The expression evaluated to a falsy value:
 //
 //   assert.ok(0)
 
 // Using `assert()` works the same:
 assert(0);
-// throws:
-// "AssertionError: The expression evaluated to a falsy value:
+// AssertionError: The expression evaluated to a falsy value:
 //
 //   assert(0)
 ```
@@ -931,9 +967,9 @@ function and awaits the returned promise to complete. It will then check that
 the promise is rejected.
 
 If `block` is a function and it throws an error synchronously,
-`assert.rejects()` will return a rejected Promise with that error. If the
+`assert.rejects()` will return a rejected `Promise` with that error. If the
 function does not return a promise, `assert.rejects()` will return a rejected
-Promise with an [`ERR_INVALID_RETURN_VALUE`][] error. In both cases the error
+`Promise` with an [`ERR_INVALID_RETURN_VALUE`][] error. In both cases the error
 handler is skipped.
 
 Besides the async nature to await the completion behaves identically to
@@ -995,13 +1031,19 @@ determined by the [SameValue Comparison][].
 const assert = require('assert').strict;
 
 assert.strictEqual(1, 2);
-// AssertionError: 1 strictEqual 2
+// AssertionError [ERR_ASSERTION]: Input A expected to strictly equal input B:
+// + expected - actual
+// - 1
+// + 2
 
 assert.strictEqual(1, 1);
 // OK
 
 assert.strictEqual(1, '1');
-// AssertionError: 1 strictEqual '1'
+// AssertionError [ERR_ASSERTION]: Input A expected to strictly equal input B:
+// + expected - actual
+// - 1
+// + '1'
 ```
 
 If the values are not strictly equal, an `AssertionError` is thrown with a
@@ -1034,6 +1076,34 @@ each property will be tested for including the non-enumerable `message` and
 
 If specified, `message` will be the message provided by the `AssertionError` if
 the block fails to throw.
+
+Custom error object / error instance:
+
+```js
+const err = new TypeError('Wrong value');
+err.code = 404;
+
+assert.throws(
+  () => {
+    throw err;
+  },
+  {
+    name: 'TypeError',
+    message: 'Wrong value'
+    // Note that only properties on the error object will be tested!
+  }
+);
+
+// Fails due to the different `message` and `name` properties:
+assert.throws(
+  () => {
+    const otherErr = new Error('Not found');
+    otherErr.code = 404;
+    throw otherErr;
+  },
+  err // This tests for `message`, `name` and `code`.
+);
+```
 
 Validate instanceof using constructor:
 
@@ -1076,39 +1146,12 @@ assert.throws(
 );
 ```
 
-Custom error object / error instance:
-
-```js
-const err = new TypeError('Wrong value');
-err.code = 404;
-
-assert.throws(
-  () => {
-    throw err;
-  },
-  {
-    name: 'TypeError',
-    message: 'Wrong value'
-    // Note that only properties on the error object will be tested!
-  }
-);
-
-// Fails due to the different `message` and `name` properties:
-assert.throws(
-  () => {
-    const otherErr = new Error('Not found');
-    otherErr.code = 404;
-    throw otherErr;
-  },
-  err // This tests for `message`, `name` and `code`.
-);
-```
-
 Note that `error` cannot be a string. If a string is provided as the second
 argument, then `error` is assumed to be omitted and the string will be used for
-`message` instead. This can lead to easy-to-miss mistakes. Please read the
-example below carefully if using a string as the second argument gets
-considered:
+`message` instead. This can lead to easy-to-miss mistakes. Using the same
+message as the thrown error message is going to result in an
+`ERR_AMBIGUOUS_ARGUMENT` error. Please read the example below carefully if using
+a string as the second argument gets considered:
 
 <!-- eslint-disable no-restricted-syntax -->
 ```js
@@ -1121,10 +1164,15 @@ function throwingSecond() {
 function notThrowing() {}
 
 // The second argument is a string and the input function threw an Error.
-// In that case both cases do not throw as neither is going to try to
-// match for the error message thrown by the input function!
+// The first case will not throw as it does not match for the error message
+// thrown by the input function!
 assert.throws(throwingFirst, 'Second');
+// In the next example the message has no benefit over the message from the
+// error and since it is not clear if the user intended to actually match
+// against the error message, Node.js thrown an `ERR_AMBIGUOUS_ARGUMENT` error.
 assert.throws(throwingSecond, 'Second');
+// Throws an error:
+// TypeError [ERR_AMBIGUOUS_ARGUMENT]
 
 // The string is only used (as message) in case the function does not throw:
 assert.throws(notThrowing, 'Second');
@@ -1134,7 +1182,7 @@ assert.throws(notThrowing, 'Second');
 assert.throws(throwingSecond, /Second$/);
 // Does not throw because the error messages match.
 assert.throws(throwingFirst, /Second$/);
-// Throws a error:
+// Throws an error:
 // Error: First
 //     at throwingFirst (repl:2:9)
 ```

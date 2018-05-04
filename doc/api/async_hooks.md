@@ -17,8 +17,8 @@ const async_hooks = require('async_hooks');
 An asynchronous resource represents an object with an associated callback.
 This callback may be called multiple times, for example, the `'connection'`
 event in `net.createServer()`, or just a single time like in `fs.open()`.
-A resource can also be closed before the callback is called. AsyncHook does not
-explicitly distinguish between these different cases but will represent them
+A resource can also be closed before the callback is called. `AsyncHook` does
+not explicitly distinguish between these different cases but will represent them
 as the abstract concept that is a resource.
 
 ## Public API
@@ -141,7 +141,6 @@ future. This is subject to change in the future if a comprehensive analysis is
 performed to ensure an exception can follow the normal control flow without
 unintentional side effects.
 
-
 ##### Printing in AsyncHooks callbacks
 
 Because printing to the console is an asynchronous operation, `console.log()`
@@ -189,7 +188,7 @@ const hook = async_hooks.createHook(callbacks).enable();
 * Returns: {AsyncHook} A reference to `asyncHook`.
 
 Disable the callbacks for a given `AsyncHook` instance from the global pool of
-AsyncHook callbacks to be executed. Once a hook has been disabled it will not
+`AsyncHook` callbacks to be executed. Once a hook has been disabled it will not
 be called again until enabled.
 
 For API consistency `disable()` also returns the `AsyncHook` instance.
@@ -257,7 +256,6 @@ the new resource to initialize and that caused `init` to call. This is different
 from `async_hooks.executionAsyncId()` that only shows *when* a resource was
 created, while `triggerAsyncId` shows *why* a resource was created.
 
-
 The following is a simple demonstration of `triggerAsyncId`:
 
 ```js
@@ -301,10 +299,10 @@ and document their own resource objects. For example, such a resource object
 could contain the SQL query being executed.
 
 In the case of Promises, the `resource` object will have `promise` property
-that refers to the Promise that is being initialized, and a `isChainedPromise`
-property, set to `true` if the promise has a parent promise, and `false`
-otherwise. For example, in the case of `b = a.then(handler)`, `a` is considered
-a parent Promise of `b`. Here, `b` is considered a chained promise.
+that refers to the `Promise` that is being initialized, and an
+`isChainedPromise` property, set to `true` if the promise has a parent promise,
+and `false` otherwise. For example, in the case of `b = a.then(handler)`, `a` is
+considered a parent `Promise` of `b`. Here, `b` is considered a chained promise.
 
 In some cases the resource object is reused for performance reasons, it is
 thus not safe to use it as a key in a `WeakMap` or add properties to it.
@@ -395,7 +393,6 @@ API the user's callback is placed in a `process.nextTick()`.
 The graph only shows *when* a resource was created, not *why*, so to track
 the *why* use `triggerAsyncId`.
 
-
 ##### before(asyncId)
 
 * `asyncId` {number}
@@ -413,7 +410,6 @@ asynchronous resources like a TCP server will typically call the `before`
 callback multiple times, while other operations like `fs.open()` will call
 it only once.
 
-
 ##### after(asyncId)
 
 * `asyncId` {number}
@@ -423,7 +419,6 @@ Called immediately after the callback specified in `before` is completed.
 If an uncaught exception occurs during execution of the callback, then `after`
 will run *after* the `'uncaughtException'` event is emitted or a `domain`'s
 handler runs.
-
 
 ##### destroy(asyncId)
 
@@ -471,7 +466,7 @@ added: v8.1.0
 changes:
   - version: v8.2.0
     pr-url: https://github.com/nodejs/node/pull/13490
-    description: Renamed from currentId
+    description: Renamed from `currentId`
 -->
 
 * Returns: {number} The `asyncId` of the current execution context. Useful to
@@ -503,7 +498,7 @@ const server = net.createServer(function onConnection(conn) {
 });
 ```
 
-Note that promise contexts may not get precise executionAsyncIds by default.
+Note that promise contexts may not get precise `executionAsyncIds` by default.
 See the section on [promise execution tracking][].
 
 #### async_hooks.triggerAsyncId()
@@ -526,12 +521,12 @@ const server = net.createServer((conn) => {
 });
 ```
 
-Note that promise contexts may not get valid triggerAsyncIds by default. See
+Note that promise contexts may not get valid `triggerAsyncId`s by default. See
 the section on [promise execution tracking][].
 
 ## Promise execution tracking
 
-By default, promise executions are not assigned asyncIds due to the relatively
+By default, promise executions are not assigned `asyncId`s due to the relatively
 expensive nature of the [promise introspection API][PromiseHooks] provided by
 V8. This means that programs using promises or `async`/`await` will not get
 correct execution and trigger ids for promise callback contexts by default.
@@ -547,10 +542,10 @@ Promise.resolve(1729).then(() => {
 // eid 1 tid 0
 ```
 
-Observe that the `then` callback claims to have executed in the context of the
+Observe that the `then()` callback claims to have executed in the context of the
 outer scope even though there was an asynchronous hop involved. Also note that
-the triggerAsyncId value is 0, which means that we are missing context about the
-resource that caused (triggered) the `then` callback to be executed.
+the `triggerAsyncId` value is `0`, which means that we are missing context about
+the resource that caused (triggered) the `then()` callback to be executed.
 
 Installing async hooks via `async_hooks.createHook` enables promise execution
 tracking. Example:
@@ -567,15 +562,16 @@ Promise.resolve(1729).then(() => {
 
 In this example, adding any actual hook function enabled the tracking of
 promises. There are two promises in the example above; the promise created by
-`Promise.resolve()` and the promise returned by the call to `then`. In the
-example above, the first promise got the asyncId 6 and the latter got asyncId 7.
-During the execution of the `then` callback, we are executing in the context of
-promise with asyncId 7. This promise was triggered by async resource 6.
+`Promise.resolve()` and the promise returned by the call to `then()`. In the
+example above, the first promise got the `asyncId` `6` and the latter got
+`asyncId` `7`. During the execution of the `then()` callback, we are executing
+in the context of promise with `asyncId` `7`. This promise was triggered by
+async resource `6`.
 
 Another subtlety with promises is that `before` and `after` callbacks are run
-only on chained promises. That means promises not created by `then`/`catch` will
-not have the `before` and `after` callbacks fired on them. For more details see
-the details of the V8 [PromiseHooks][] API.
+only on chained promises. That means promises not created by `then()`/`catch()`
+will not have the `before` and `after` callbacks fired on them. For more details
+see the details of the V8 [PromiseHooks][] API.
 
 ## JavaScript Embedder API
 
@@ -637,8 +633,9 @@ asyncResource.emitAfter();
   async event. **Default:** `executionAsyncId()`.
   * `requireManualDestroy` {boolean} Disables automatic `emitDestroy` when the
   object is garbage collected. This usually does not need to be set (even if
-  `emitDestroy` is called manually), unless the resource's asyncId is retrieved
-  and the sensitive API's `emitDestroy` is called with it. **Default:** `false`.
+  `emitDestroy` is called manually), unless the resource's `asyncId` is
+  retrieved and the sensitive API's `emitDestroy` is called with it.
+  **Default:** `false`.
 
 Example usage:
 

@@ -170,23 +170,23 @@ explicitly via error event handlers set on the domain instead.
 Type: End-of-Life
 
 Calling an asynchronous function without a callback throws a `TypeError`
-v10.0.0 onwards. Refer: [PR 12562](https://github.com/nodejs/node/pull/12562)
+v10.0.0 onwards. Refer: [PR 12562](https://github.com/nodejs/node/pull/12562).
 
 <a id="DEP0014"></a>
 ### DEP0014: fs.read legacy String interface
 
 Type: End-of-Life
 
-The [`fs.read()`][] legacy String interface is deprecated. Use the Buffer API as
-mentioned in the documentation instead.
+The [`fs.read()`][] legacy `String` interface is deprecated. Use the `Buffer`
+API as mentioned in the documentation instead.
 
 <a id="DEP0015"></a>
 ### DEP0015: fs.readSync legacy String interface
 
 Type: End-of-Life
 
-The [`fs.readSync()`][] legacy String interface is deprecated. Use the Buffer
-API as mentioned in the documentation instead.
+The [`fs.readSync()`][] legacy `String` interface is deprecated. Use the
+`Buffer` API as mentioned in the documentation instead.
 
 <a id="DEP0016"></a>
 ### DEP0016: GLOBAL/root
@@ -994,6 +994,18 @@ because it also made sense to interpret the value as the number of bytes
 read by the engine, but is inconsistent with other streams in Node.js that
 expose values under these names.
 
+<a id="DEP0109"></a>
+### DEP0109: http, https, and tls support for invalid URLs
+
+Type: Runtime
+
+Some previously supported (but strictly invalid) URLs were accepted through the
+[`http.request()`][], [`http.get()`][], [`https.request()`][],
+[`https.get()`][], and [`tls.checkServerIdentity()`][] APIs because those were
+accepted by the legacy `url.parse()` API. The mentioned APIs now use the WHATWG
+URL parser that requires strictly valid URLs. Passing an invalid URL is
+deprecated and support will be removed in the future.
+
 [`--pending-deprecation`]: cli.html#cli_pending_deprecation
 [`Buffer.allocUnsafeSlow(size)`]: buffer.html#buffer_class_method_buffer_allocunsafeslow_size
 [`Buffer.from(array)`]: buffer.html#buffer_class_method_buffer_from_array
@@ -1035,6 +1047,10 @@ expose values under these names.
 [`fs.read()`]: fs.html#fs_fs_read_fd_buffer_offset_length_position_callback
 [`fs.readSync()`]: fs.html#fs_fs_readsync_fd_buffer_offset_length_position
 [`fs.stat()`]: fs.html#fs_fs_stat_path_callback
+[`http.get()`]: http.html#http_http_get_options_callback
+[`http.request()`]: http.html#http_http_request_options_callback
+[`https.get()`]: https.html#https_https_get_options_callback
+[`https.request()`]: https.html#https_https_request_options_callback
 [`os.networkInterfaces`]: os.html#os_os_networkinterfaces
 [`os.tmpdir()`]: os.html#os_os_tmpdir
 [`process.env`]: process.html#process_process_env
@@ -1046,6 +1062,7 @@ expose values under these names.
 [`tls.SecureContext`]: tls.html#tls_tls_createsecurecontext_options
 [`tls.SecurePair`]: tls.html#tls_class_securepair
 [`tls.TLSSocket`]: tls.html#tls_class_tls_tlssocket
+[`tls.checkServerIdentity()`]: tls.html#tls_tls_checkserveridentity_host_cert
 [`tls.createSecureContext()`]: tls.html#tls_tls_createsecurecontext_options
 [`util._extend()`]: util.html#util_util_extend_target_source
 [`util.debug()`]: util.html#util_util_debug_string
