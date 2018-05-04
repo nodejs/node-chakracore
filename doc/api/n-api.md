@@ -33,22 +33,6 @@ properties:
   using `napi_get_last_error_info`. More information can be found in the error
   handling section [Error Handling][].
 
-The documentation for N-API is structured as follows:
-
-* [Basic N-API Data Types][]
-* [Error Handling][]
-* [Object Lifetime Management][]
-* [Module Registration][]
-* [Working with JavaScript Values][]
-* [Working with JavaScript Values - Abstract Operations][]
-* [Working with JavaScript Properties][]
-* [Working with JavaScript Functions][]
-* [Object Wrap][]
-* [Simple Asynchronous Operations][]
-* [Custom Asynchronous Operations][]
-* [Promises][]
-* [Script Execution][]
-
 The N-API is a C API that ensures ABI stability across Node.js versions
 and different compiler levels. However, we also understand that a C++
 API can be easier to use in many cases. To support these cases we expect
@@ -1051,6 +1035,9 @@ the ECMAScript Language Specification.
 In addition to types in that section, `napi_valuetype` can also represent
 `Function`s and `Object`s with external data.
 
+A JavaScript value of type `napi_external` appears in JavaScript as a plain
+object such that no properties can be set on it, and no prototype.
+
 #### napi_typedarray_type
 ```C
 typedef enum {
@@ -1541,7 +1528,7 @@ napi_status napi_create_string_latin1(napi_env env,
 Returns `napi_ok` if the API succeeded.
 
 This API creates a JavaScript `String` object from a ISO-8859-1-encoded C
-string.
+string. The native string is copied.
 
 The JavaScript `String` type is described in
 [Section 6.1.4][] of the ECMAScript Language Specification.
@@ -1566,6 +1553,7 @@ napi_status napi_create_string_utf16(napi_env env,
 Returns `napi_ok` if the API succeeded.
 
 This API creates a JavaScript `String` object from a UTF16-LE-encoded C string.
+The native string is copied.
 
 The JavaScript `String` type is described in
 [Section 6.1.4][] of the ECMAScript Language Specification.
@@ -1590,6 +1578,7 @@ if it is null-terminated.
 Returns `napi_ok` if the API succeeded.
 
 This API creates a JavaScript `String` object from a UTF8-encoded C string.
+The native string is copied.
 
 The JavaScript `String` type is described in
 [Section 6.1.4][] of the ECMAScript Language Specification.
@@ -2520,7 +2509,9 @@ and [`napi_get_element`][].
 
 Returns `napi_ok` if the API succeeded.
 
-This API returns the array of properties for the `Object` passed in.
+This API returns the names of the enumerable properties of `object` as an array
+of strings. The properties of `object` whose key is a symbol will not be
+included.
 
 #### napi_set_property
 <!-- YAML
@@ -3788,17 +3779,11 @@ NAPI_EXTERN napi_status napi_get_uv_event_loop(napi_env env,
 - `[in] env`: The environment that the API is invoked under.
 - `[out] loop`: The current libuv loop instance.
 
-[Promises]: #n_api_promises
-[Simple Asynchronous Operations]: #n_api_simple_asynchronous_operations
-[Custom Asynchronous Operations]: #n_api_custom_asynchronous_operations
-[Basic N-API Data Types]: #n_api_basic_n_api_data_types
 [ECMAScript Language Specification]: https://tc39.github.io/ecma262/
 [Error Handling]: #n_api_error_handling
-[Module Registration]: #n_api_module_registration
 [Native Abstractions for Node.js]: https://github.com/nodejs/nan
 [Object Lifetime Management]: #n_api_object_lifetime_management
 [Object Wrap]: #n_api_object_wrap
-[Script Execution]: #n_api_script_execution
 [Section 6.1.4]: https://tc39.github.io/ecma262/#sec-ecmascript-language-types-string-type
 [Section 6.1.6]: https://tc39.github.io/ecma262/#sec-ecmascript-language-types-number-type
 [Section 6.1.7.1]: https://tc39.github.io/ecma262/#table-2
