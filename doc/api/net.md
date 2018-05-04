@@ -114,11 +114,10 @@ added: v0.1.90
 
 * Returns: {Object}
 
-Returns the bound address, the address family name, and port of the server
-as reported by the operating system if listening on an IP socket.
-Useful to find which port was assigned when getting an OS-assigned address.
-Returns an object with `port`, `family`, and `address` properties:
-`{ port: 12346, family: 'IPv4', address: '127.0.0.1' }`
+Returns the bound `address`, the address `family` name, and `port` of the server
+as reported by the operating system if listening on an IP socket
+(useful to find which port was assigned when getting an OS-assigned address):
+`{ port: 12346, family: 'IPv4', address: '127.0.0.1' }`.
 
 For a server listening on a pipe or UNIX domain socket, the name is returned
 as a string.
@@ -192,7 +191,8 @@ Possible signatures:
 * [`server.listen(options[, callback])`][`server.listen(options)`]
 * [`server.listen(path[, backlog][, callback])`][`server.listen(path)`]
   for [IPC][] servers
-* [`server.listen([port[, host[, backlog]]][, callback])`][`server.listen(port, host)`]
+* <a href="#net_server_listen_port_host_backlog_callback">
+  <code>server.listen([port[, host[, backlog]]][, callback])</code></a>
   for TCP servers
 
 This function is asynchronous. When the server starts listening, the
@@ -264,7 +264,8 @@ added: v0.11.14
 * Returns: {net.Server}
 
 If `port` is specified, it behaves the same as
-[`server.listen([port[, host[, backlog]]][, callback])`][`server.listen(port, host)`].
+<a href="#net_server_listen_port_host_backlog_callback">
+<code>server.listen([port[, host[, backlog]]][, callback])</code></a>.
 Otherwise, if `path` is specified, it behaves the same as
 [`server.listen(path[, backlog][, callback])`][`server.listen(path)`].
 If none of them is specified, an error will be thrown.
@@ -440,7 +441,7 @@ added: v0.1.90
 
 Emitted when the write buffer becomes empty. Can be used to throttle uploads.
 
-See also: the return values of `socket.write()`
+See also: the return values of `socket.write()`.
 
 ### Event: 'end'
 <!-- YAML
@@ -502,7 +503,7 @@ added: v0.1.90
 Emitted if the socket times out from inactivity. This is only to notify that
 the socket has been idle. The user must manually close the connection.
 
-See also: [`socket.setTimeout()`][]
+See also: [`socket.setTimeout()`][].
 
 ### socket.address()
 <!-- YAML
@@ -511,9 +512,8 @@ added: v0.1.90
 
 * Returns: {Object}
 
-Returns the bound address, the address family name and port of the
-socket as reported by the operating system. Returns an object with
-three properties, e.g.
+Returns the bound `address`, the address `family` name and `port` of the
+socket as reported by the operating system:
 `{ port: 12346, family: 'IPv4', address: '127.0.0.1' }`
 
 ### socket.bufferSize
@@ -952,7 +952,7 @@ client.on('end', () => {
 ```
 
 To connect on the socket `/tmp/echo.sock` the second line would just be
-changed to
+changed to:
 
 ```js
 const client = net.createConnection({ path: '/tmp/echo.sock' });
@@ -1062,7 +1062,7 @@ $ telnet localhost 8124
 ```
 
 To listen on the socket `/tmp/echo.sock` the third line from the last would
-just be changed to
+just be changed to:
 
 ```js
 server.listen('/tmp/echo.sock', () => {
@@ -1136,7 +1136,6 @@ Returns `true` if input is a version 6 IP address, otherwise returns `false`.
 [`server.listen(handle)`]: #net_server_listen_handle_backlog_callback
 [`server.listen(options)`]: #net_server_listen_options_callback
 [`server.listen(path)`]: #net_server_listen_path_backlog_callback
-[`server.listen(port, host)`]: #net_server_listen_port_host_backlog_callback
 [`socket.connect()`]: #net_socket_connect
 [`socket.connect(options)`]: #net_socket_connect_options_connectlistener
 [`socket.connect(path)`]: #net_socket_connect_path_connectlistener

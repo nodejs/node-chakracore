@@ -84,7 +84,8 @@ process.on('exit', (code) => {
 added: v0.5.10
 -->
 
-* `message` {Object} a parsed JSON object or primitive value.
+* `message` { Object | boolean | number | string | null } a parsed JSON object
+  or a serializable primitive value.
 * `sendHandle` {net.Server|net.Socket} a [`net.Server`][] or [`net.Socket`][]
   object, or undefined.
 
@@ -288,7 +289,7 @@ command-line option can be used to suppress the default console output but the
 `'warning'` event will still be emitted by the `process` object.
 
 The following example illustrates the warning that is printed to `stderr` when
-too many listeners have been added to an event
+too many listeners have been added to an event:
 
 ```txt
 $ node
