@@ -760,12 +760,35 @@ no effect on Windows (will behave like `fs.constants.F_OK`).
 
 The final argument, `callback`, is a callback function that is invoked with
 a possible error argument. If any of the accessibility checks fail, the error
-argument will be an `Error` object. The following example checks if the file
-`/etc/passwd` can be read and written by the current process.
+argument will be an `Error` object. The following examples check if
+`package.json` exists, and if it is readable or writable.
 
 ```js
-fs.access('/etc/passwd', fs.constants.R_OK | fs.constants.W_OK, (err) => {
-  console.log(err ? 'no access!' : 'can read/write');
+const file = 'package.json';
+
+// Check if the file exists in the current directory.
+fs.access(file, fs.constants.F_OK, (err) => {
+  console.log(`${file} ${err ? 'does not exist' : 'exists'}`);
+});
+
+// Check if the file is readable.
+fs.access(file, fs.constants.R_OK, (err) => {
+  console.log(`${file} ${err ? 'is not readable' : 'is readable'}`);
+});
+
+// Check if the file is writable.
+fs.access(file, fs.constants.W_OK, (err) => {
+  console.log(`${file} ${err ? 'is not writable' : 'is writable'}`);
+});
+
+// Check if the file exists in the current directory, and if it is writable.
+fs.access(file, fs.constants.F_OK | fs.constants.W_OK, (err) => {
+  if (err) {
+    console.error(
+      `${file} ${err.code === 'ENOENT' ? 'does not exist' : 'is read-only'}`);
+  } else {
+    console.log(`${file} exists, and it is writable`);
+  }
 });
 ```
 
@@ -892,7 +915,7 @@ try {
 }
 ```
 
-## fs.appendFile(file, data[, options], callback)
+## fs.appendFile(path, data[, options], callback)
 <!-- YAML
 added: v0.6.7
 changes:
@@ -912,7 +935,7 @@ changes:
     description: The `file` parameter can be a file descriptor now.
 -->
 
-* `file` {string|Buffer|URL|number} filename or file descriptor
+* `path` {string|Buffer|URL|number} filename or file descriptor
 * `data` {string|Buffer}
 * `options` {Object|string}
   * `encoding` {string|null} **Default:** `'utf8'`
@@ -939,7 +962,7 @@ If `options` is a string, then it specifies the encoding. Example:
 fs.appendFile('message.txt', 'data to append', 'utf8', callback);
 ```
 
-The `file` may be specified as a numeric file descriptor that has been opened
+The `path` may be specified as a numeric file descriptor that has been opened
 for appending (using `fs.open()` or `fs.openSync()`). The file descriptor will
 not be closed automatically.
 
@@ -955,7 +978,7 @@ fs.open('message.txt', 'a', (err, fd) => {
 });
 ```
 
-## fs.appendFileSync(file, data[, options])
+## fs.appendFileSync(path, data[, options])
 <!-- YAML
 added: v0.6.7
 changes:
@@ -967,7 +990,7 @@ changes:
     description: The `file` parameter can be a file descriptor now.
 -->
 
-* `file` {string|Buffer|URL|number} filename or file descriptor
+* `path` {string|Buffer|URL|number} filename or file descriptor
 * `data` {string|Buffer}
 * `options` {Object|string}
   * `encoding` {string|null} **Default:** `'utf8'`
@@ -994,7 +1017,7 @@ If `options` is a string, then it specifies the encoding. Example:
 fs.appendFileSync('message.txt', 'data to append', 'utf8');
 ```
 
-The `file` may be specified as a numeric file descriptor that has been opened
+The `path` may be specified as a numeric file descriptor that has been opened
 for appending (using `fs.open()` or `fs.openSync()`). The file descriptor will
 not be closed automatically.
 
@@ -2041,8 +2064,6 @@ parameter.
 The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use.
 
-Example:
-
 ```js
 fs.mkdtemp(path.join(os.tmpdir(), 'foo-'), (err, folder) => {
   if (err) throw err;
@@ -2054,7 +2075,7 @@ fs.mkdtemp(path.join(os.tmpdir(), 'foo-'), (err, folder) => {
 The `fs.mkdtemp()` method will append the six randomly selected characters
 directly to the `prefix` string. For instance, given a directory `/tmp`, if the
 intention is to create a temporary directory *within* `/tmp`, the `prefix`
-*must* end with a trailing platform-specific path separator
+must end with a trailing platform-specific path separator
 (`require('path').sep`).
 
 ```js
@@ -3687,12 +3708,12 @@ condition, since other processes may change the file's state between the two
 calls. Instead, user code should open/read/write the file directly and handle
 the error raised if the file is not accessible.
 
-### fsPromises.appendFile(file, data[, options])
+### fsPromises.appendFile(path, data[, options])
 <!-- YAML
 added: v10.0.0
 -->
 
-* `file` {string|Buffer|URL|FileHandle} filename or `FileHandle`
+* `path` {string|Buffer|URL|FileHandle} filename or `FileHandle`
 * `data` {string|Buffer}
 * `options` {Object|string}
   * `encoding` {string|null} **Default:** `'utf8'`
@@ -3706,7 +3727,7 @@ resolved with no arguments upon success.
 
 If `options` is a string, then it specifies the encoding.
 
-The `file` may be specified as a `FileHandle` that has been opened
+The `path` may be specified as a `FileHandle` that has been opened
 for appending (using `fsPromises.open()`).
 
 ### fsPromises.chmod(path, mode)
@@ -3980,24 +4001,22 @@ added: v10.0.0
   * `encoding` {string} **Default:** `'utf8'`
 * Returns: {Promise}
 
-Creates a unique temporary directory then resolves the `Promise` with the
-created folder path. A unique directory name is generated by appending six
-random characters to the end of the provided `prefix`.
+Creates a unique temporary directory and resolves the `Promise` with the created
+folder path. A unique directory name is generated by appending six random
+characters to the end of the provided `prefix`.
 
 The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use.
-
-Example:
 
 ```js
 fsPromises.mkdtemp(path.join(os.tmpdir(), 'foo-'))
   .catch(console.error);
 ```
 
-The `fs.mkdtemp()` method will append the six randomly selected characters
-directly to the `prefix` string. For instance, given a directory `/tmp`, if the
-intention is to create a temporary directory *within* `/tmp`, the `prefix`
-*must* end with a trailing platform-specific path separator
+The `fsPromises.mkdtemp()` method will append the six randomly selected
+characters directly to the `prefix` string. For instance, given a directory
+`/tmp`, if the intention is to create a temporary directory *within* `/tmp`, the
+`prefix` must end with a trailing platform-specific path separator
 (`require('path').sep`).
 
 ### fsPromises.open(path, flags[, mode])

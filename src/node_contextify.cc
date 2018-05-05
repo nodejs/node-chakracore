@@ -121,7 +121,7 @@ Local<Value> ContextifyContext::CreateDataWrapper(Environment* env) {
   if (wrapper.IsEmpty())
     return scope.Escape(Local<Value>::New(env->isolate(), Local<Value>()));
 
-  Wrap(wrapper, this);
+  wrapper->SetAlignedPointerInInternalField(0, this);
   return scope.Escape(wrapper);
 }
 
@@ -297,11 +297,18 @@ ContextifyContext* ContextifyContext::ContextFromContextifiedSandbox(
 }
 
 // static
+template <typename T>
+ContextifyContext* ContextifyContext::Get(const PropertyCallbackInfo<T>& args) {
+  Local<Value> data = args.Data();
+  return static_cast<ContextifyContext*>(
+      data.As<Object>()->GetAlignedPointerFromInternalField(0));
+}
+
+// static
 void ContextifyContext::PropertyGetterCallback(
     Local<Name> property,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -330,8 +337,7 @@ void ContextifyContext::PropertySetterCallback(
     Local<Name> property,
     Local<Value> value,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -412,8 +418,7 @@ void ContextifyContext::PropertySetterCallback(
 void ContextifyContext::PropertyDescriptorCallback(
     Local<Name> property,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -435,8 +440,7 @@ void ContextifyContext::PropertyDefinerCallback(
     Local<Name> property,
     const PropertyDescriptor& desc,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -498,8 +502,7 @@ void ContextifyContext::PropertyDefinerCallback(
 void ContextifyContext::PropertyDeleterCallback(
     Local<Name> property,
     const PropertyCallbackInfo<Boolean>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -518,8 +521,7 @@ void ContextifyContext::PropertyDeleterCallback(
 // static
 void ContextifyContext::PropertyEnumeratorCallback(
     const PropertyCallbackInfo<Array>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -532,8 +534,7 @@ void ContextifyContext::PropertyEnumeratorCallback(
 void ContextifyContext::IndexedPropertyGetterCallback(
     uint32_t index,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -548,8 +549,7 @@ void ContextifyContext::IndexedPropertySetterCallback(
     uint32_t index,
     Local<Value> value,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -563,8 +563,7 @@ void ContextifyContext::IndexedPropertySetterCallback(
 void ContextifyContext::IndexedPropertyDescriptorCallback(
     uint32_t index,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -579,8 +578,7 @@ void ContextifyContext::IndexedPropertyDefinerCallback(
     uint32_t index,
     const PropertyDescriptor& desc,
     const PropertyCallbackInfo<Value>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -594,8 +592,7 @@ void ContextifyContext::IndexedPropertyDefinerCallback(
 void ContextifyContext::IndexedPropertyDeleterCallback(
     uint32_t index,
     const PropertyCallbackInfo<Boolean>& args) {
-  ContextifyContext* ctx;
-  ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
+  ContextifyContext* ctx = ContextifyContext::Get(args);
 
   // Still initializing
   if (ctx->context_.IsEmpty())
@@ -914,7 +911,7 @@ class ContextifyScript : public BaseObject {
 
   ContextifyScript(Environment* env, Local<Object> object)
       : BaseObject(env, object) {
-    MakeWeak<ContextifyScript>(this);
+    MakeWeak();
   }
 };
 
