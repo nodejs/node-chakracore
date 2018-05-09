@@ -1418,6 +1418,8 @@ class V8_EXPORT Uint32 : public Integer {
   static Uint32* Cast(v8::Value* obj);
 };
 
+enum class SideEffectType { kHasSideEffect, kHasNoSideEffect };
+
 class V8_EXPORT Object : public Value {
  public:
   V8_DEPRECATE_SOON("Use maybe version",
@@ -2289,7 +2291,9 @@ class V8_EXPORT FunctionTemplate : public Template {
   static Local<FunctionTemplate> New(
       Isolate* isolate, FunctionCallback callback = 0,
       Local<Value> data = Local<Value>(),
-      Local<Signature> signature = Local<Signature>(), int length = 0);
+      Local<Signature> signature = Local<Signature>(), int length = 0,
+      ConstructorBehavior behavior = ConstructorBehavior::kAllow,
+      SideEffectType side_effect_type = SideEffectType::kHasSideEffect);
 
   V8_DEPRECATE_SOON("Use maybe version", Local<Function> GetFunction());
   V8_WARN_UNUSED_RESULT MaybeLocal<Function> GetFunction(

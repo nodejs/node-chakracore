@@ -336,7 +336,9 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
                                               FunctionCallback callback,
                                               Local<Value> data,
                                               Local<Signature> signature,
-                                              int length) {
+                                              int length,
+                                              ConstructorBehavior behavior,
+                                              SideEffectType side_effect_type) {
   FunctionTemplateData * templateData =
     new FunctionTemplateData(callback, data, signature);
   JsValueRef functionTemplateRef;
@@ -346,7 +348,11 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
     delete templateData;
     return Local<FunctionTemplate>();
   }
-  return Local<FunctionTemplate>::New(functionTemplateRef);
+  Local<FunctionTemplate> t = Local<FunctionTemplate>::New(functionTemplateRef);
+  if (behavior == ConstructorBehavior::kThrow) {
+      t->RemovePrototype();
+  }
+  return t;
 }
 
 MaybeLocal<Function> FunctionTemplate::GetFunction(Local<Context> context) {
