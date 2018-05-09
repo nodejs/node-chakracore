@@ -9,16 +9,16 @@ const common = require('../common');
 // see https://github.com/nodejs/node-chakracore/issues/536
 //
 if (!common.isChakraEngine) {
-const assert = require('assert');
+  const assert = require('assert');
 
-[
-  process.binding('udp_wrap').UDP.prototype.bind6,
-  process.binding('tcp_wrap').TCP.prototype.bind6,
-  process.binding('udp_wrap').UDP.prototype.send6,
-  process.binding('tcp_wrap').TCP.prototype.bind,
-  process.binding('udp_wrap').UDP.prototype.close,
-  process.binding('tcp_wrap').TCP.prototype.open
-].forEach((binding, i) => {
-  assert.strictEqual('prototype' in binding, false, `Test ${i} failed`);
-});
+  [
+    process.binding('udp_wrap').UDP.prototype.bind6,
+    process.binding('tcp_wrap').TCP.prototype.bind6,
+    process.binding('udp_wrap').UDP.prototype.send6,
+    process.binding('tcp_wrap').TCP.prototype.bind,
+    process.binding('udp_wrap').UDP.prototype.close,
+    process.binding('tcp_wrap').TCP.prototype.open
+  ].forEach((binding, i) => {
+    assert.strictEqual('prototype' in binding, false, `Test ${i} failed`);
+  });
 }
