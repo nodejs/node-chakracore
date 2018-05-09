@@ -298,10 +298,8 @@ class TapProgressIndicator(SimpleProgressIndicator):
 
       if output.HasCrashed():
         self.severity = 'crashed'
-        exit_code = output.output.exit_code
-        self.traceback = "oh no!\nexit code: " + PrintCrashed(exit_code)
 
-      if output.HasTimedOut():
+      elif output.HasTimedOut():
         self.severity = 'fail'
 
     else:
@@ -333,7 +331,7 @@ class TapProgressIndicator(SimpleProgressIndicator):
       (total_seconds, duration.microseconds / 1000))
     if self.severity is not 'ok' or self.traceback is not '':
       if output.HasTimedOut():
-        self.traceback = 'timeout'
+        self.traceback = 'timeout\n' + output.output.stdout + output.output.stderr
       self._printDiagnostic()
     logger.info('  ...')
 
@@ -1759,7 +1757,7 @@ def Main():
     timed_tests.sort(lambda a, b: a.CompareTime(b))
     index = 1
     for entry in timed_tests[:20]:
-      t = FormatTime(entry.duration)
+      t = FormatTime(entry.duration.total_seconds())
       sys.stderr.write("%4i (%s) %s\n" % (index, t, entry.GetLabel()))
       index += 1
 

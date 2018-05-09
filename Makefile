@@ -393,7 +393,7 @@ clear-stalled:
 	ps awwx | grep Release/node | grep -v grep | cat
 	@PS_OUT=`ps awwx | grep Release/node | grep -v grep | awk '{print $$1}'`; \
 	if [ "$${PS_OUT}" ]; then \
-		echo $${PS_OUT} | xargs kill; \
+		echo $${PS_OUT} | xargs kill -9; \
 	fi
 
 .PHONY: test-gc
@@ -439,7 +439,7 @@ test-ci-js: | clear-stalled
 	ps awwx | grep Release/node | grep -v grep | cat
 	@PS_OUT=`ps awwx | grep Release/node | grep -v grep | awk '{print $$1}'`; \
 	if [ "$${PS_OUT}" ]; then \
-		echo $${PS_OUT} | xargs kill; exit 1; \
+		echo $${PS_OUT} | xargs kill -9; exit 1; \
 	fi
 
 .PHONY: test-ci
@@ -454,7 +454,7 @@ test-ci: | clear-stalled build-addons build-addons-napi doc-only
 	ps awwx | grep Release/node | grep -v grep | cat
 	@PS_OUT=`ps awwx | grep Release/node | grep -v grep | awk '{print $$1}'`; \
 	if [ "$${PS_OUT}" ]; then \
-		echo $${PS_OUT} | xargs kill; exit 1; \
+		echo $${PS_OUT} | xargs kill -9; exit 1; \
 	fi
 
 .PHONY: build-ci
@@ -652,7 +652,7 @@ tools/doc/node_modules/js-yaml/package.json:
 
 gen-json = tools/doc/generate.js --format=json $< > $@
 gen-html = tools/doc/generate.js --node-version=$(FULLVERSION) --format=html \
-			--template=doc/template.html --analytics=$(DOCS_ANALYTICS) $< > $@
+			--analytics=$(DOCS_ANALYTICS) $< > $@
 
 out/doc/api/%.json: doc/api/%.md
 	$(call available-node, $(gen-json))
@@ -813,8 +813,8 @@ release-only:
 		exit 1 ; \
 	fi
 	@if [ "$(DISTTYPE)" != "nightly" ] && [ "$(DISTTYPE)" != "next-nightly" ] && \
-		`grep -q DEP00XX doc/api/deprecations.md`; then \
-		echo 'Please update DEP00XX in doc/api/deprecations.md (See doc/releases.md)' ; \
+		`grep -q DEP...X doc/api/deprecations.md`; then \
+		echo 'Please update DEP...X in doc/api/deprecations.md (See doc/releases.md)' ; \
 		exit 1 ; \
 	fi
 	@if [ "$(shell git status --porcelain | egrep -v '^\?\? ')" = "" ]; then \

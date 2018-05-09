@@ -36,6 +36,13 @@ See [`server.close()`][`http.close()`] from the HTTP module for details.
 Starts the HTTPS server listening for encrypted connections.
 This method is identical to [`server.listen()`][] from [`net.Server`][].
 
+
+### server.maxHeadersCount
+
+- {number} **Default:** `2000`
+
+See [`http.Server#maxHeadersCount`][].
+
 ### server.setTimeout([msecs][, callback])
 <!-- YAML
 added: v0.11.2
@@ -165,13 +172,12 @@ changes:
   - `agent` **Default:** `https.globalAgent`
 - `callback` {Function}
 
-
 Makes a request to a secure web server.
 
 The following additional `options` from [`tls.connect()`][] are also accepted:
 `ca`, `cert`, `ciphers`, `clientCertEngine`, `crl`, `dhparam`, `ecdhCurve`,
 `honorCipherOrder`, `key`, `passphrase`, `pfx`, `rejectUnauthorized`,
-`secureOptions`, `secureProtocol`, `servername`, `sessionIdContext`
+`secureOptions`, `secureProtocol`, `servername`, `sessionIdContext`.
 
 `options` can be an object, a string, or a [`URL`][] object. If `options` is a
 string, it is automatically parsed with [`url.parse()`][]. If it is a [`URL`][]
@@ -326,9 +332,10 @@ req.on('error', (e) => {
   console.error(e.message);
 });
 req.end();
-
 ```
- Outputs for example:
+
+Outputs for example:
+
 ```text
 Subject Common Name: github.com
   Certificate SHA256 fingerprint: 25:FE:39:32:D9:63:8C:8A:FC:A1:9A:29:87:D8:3E:4C:1D:98:DB:71:E4:1A:48:03:98:EA:22:6A:BD:8B:93:16
@@ -348,6 +355,7 @@ headers: max-age=0; pin-sha256="WoiWRyIOVNa9ihaBciRSC7XHjliYS9VwUGOIud4PB18="; p
 [`URL`]: url.html#url_the_whatwg_url_api
 [`http.Agent`]: http.html#http_class_http_agent
 [`http.Server#keepAliveTimeout`]: http.html#http_server_keepalivetimeout
+[`http.Server#maxHeadersCount`]: http.html#http_server_maxheaderscount
 [`http.Server#setTimeout()`]: http.html#http_server_settimeout_msecs_callback
 [`http.Server#timeout`]: http.html#http_server_timeout
 [`http.Server`]: http.html#http_class_http_server

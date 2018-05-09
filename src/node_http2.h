@@ -16,7 +16,6 @@ namespace http2 {
 
 using v8::Array;
 using v8::Context;
-using v8::EscapableHandleScope;
 using v8::Isolate;
 using v8::MaybeLocal;
 
@@ -591,6 +590,8 @@ class Http2Stream : public AsyncWrap,
   // Submits an RST_STREAM frame using the given code
   void SubmitRstStream(const uint32_t code);
 
+  void FlushRstStream();
+
   // Submits a PUSH_PROMISE frame with this stream as the parent.
   Http2Stream* SubmitPushPromise(
       nghttp2_nv* nva,
@@ -797,7 +798,7 @@ class Http2Session : public AsyncWrap, public StreamListener {
 
   bool Ping(v8::Local<v8::Function> function);
 
-  void SendPendingData();
+  uint8_t SendPendingData();
 
   // Submits a new request. If the request is a success, assigned
   // will be a pointer to the Http2Stream instance assigned.
@@ -844,6 +845,11 @@ class Http2Session : public AsyncWrap, public StreamListener {
   ssize_t Write(const uv_buf_t* bufs, size_t nbufs);
 
   size_t self_size() const override { return sizeof(*this); }
+
+  // Schedule an RstStream for after the current write finishes.
+  inline void AddPendingRstStream(int32_t stream_id) {
+    pending_rst_streams_.emplace_back(stream_id);
+  }
 
   // Handle reads/writes from the underlying network transport.
   void OnStreamRead(ssize_t nread, const uv_buf_t& buf) override;
@@ -1049,6 +1055,7 @@ class Http2Session : public AsyncWrap, public StreamListener {
 
   std::vector<nghttp2_stream_write> outgoing_buffers_;
   std::vector<uint8_t> outgoing_storage_;
+  std::vector<int32_t> pending_rst_streams_;
 
   void CopyDataIntoOutgoing(const uint8_t* src, size_t src_length);
   void ClearOutgoing(int status);
@@ -1141,7 +1148,6 @@ class Http2StreamPerformanceEntry : public PerformanceEntry {
 class Http2Session::Http2Ping : public AsyncWrap {
  public:
   explicit Http2Ping(Http2Session* session);
-  ~Http2Ping();
 
   size_t self_size() const override { return sizeof(*this); }
 
@@ -1162,7 +1168,6 @@ class Http2Session::Http2Settings : public AsyncWrap {
  public:
   explicit Http2Settings(Environment* env);
   explicit Http2Settings(Http2Session* session);
-  ~Http2Settings();
 
   size_t self_size() const override { return sizeof(*this); }
 

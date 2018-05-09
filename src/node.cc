@@ -1986,7 +1986,7 @@ static void InitGroups(const FunctionCallbackInfo<Value>& args) {
 
 static void WaitForInspectorDisconnect(Environment* env) {
 #if HAVE_INSPECTOR
-  if (env->inspector_agent()->delegate() != nullptr) {
+  if (env->inspector_agent()->HasConnectedSessions()) {
     // Restore signal dispositions, the app is done and is no longer
     // capable of handling signals.
 #if defined(__POSIX__) && !defined(NODE_SHARED_MODE)
@@ -2266,6 +2266,13 @@ inline InitializerCallback GetInitializerCallback(DLib* dlib) {
   return reinterpret_cast<InitializerCallback>(dlib->GetSymbolAddress(name));
 }
 
+inline napi_addon_register_func GetNapiInitializerCallback(DLib* dlib) {
+  const char* name =
+      STRINGIFY(NAPI_MODULE_INITIALIZER_BASE) STRINGIFY(NAPI_MODULE_VERSION);
+  return
+      reinterpret_cast<napi_addon_register_func>(dlib->GetSymbolAddress(name));
+}
+
 // DLOpen is process.dlopen(module, filename, flags).
 // Used to load 'module.node' dynamically shared objects.
 //
@@ -2322,6 +2329,8 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
   if (mp == nullptr) {
     if (auto callback = GetInitializerCallback(&dlib)) {
       callback(exports, module, context);
+    } else if (auto napi_callback = GetNapiInitializerCallback(&dlib)) {
+      napi_module_register_by_symbol(exports, module, context, napi_callback);
     } else {
       dlib.Close();
       env->ThrowError("Module did not self-register.");
@@ -2418,38 +2427,29 @@ void FatalException(Isolate* isolate,
   Local<Function> fatal_exception_function =
       process_object->Get(fatal_exception_string).As<Function>();
 
-  int exit_code = 0;
   if (!fatal_exception_function->IsFunction()) {
-    // failed before the process._fatalException function was added!
+    // Failed before the process._fatalException function was added!
     // this is probably pretty bad.  Nothing to do but report and exit.
     ReportException(env, error, message);
-    exit_code = 6;
-  }
-
-  if (exit_code == 0) {
+    exit(6);
+  } else {
     TryCatch fatal_try_catch(isolate);
 
     // Do not call FatalException when _fatalException handler throws
     fatal_try_catch.SetVerbose(false);
 
-    // this will return true if the JS layer handled it, false otherwise
+    // This will return true if the JS layer handled it, false otherwise
     Local<Value> caught =
         fatal_exception_function->Call(process_object, 1, &error);
 
     if (fatal_try_catch.HasCaught()) {
-      // the fatal exception function threw, so we must exit
+      // The fatal exception function threw, so we must exit
       ReportException(env, fatal_try_catch);
-      exit_code = 7;
-    }
-
-    if (exit_code == 0 && false == caught->BooleanValue()) {
+      exit(7);
+    } else if (caught->IsFalse()) {
       ReportException(env, error, message);
-      exit_code = 1;
+      exit(1);
     }
-  }
-
-  if (exit_code) {
-    exit(exit_code);
   }
 }
 
@@ -4566,6 +4566,11 @@ Environment* CreateEnvironment(IsolateData* isolate_data,
 void FreeEnvironment(Environment* env) {
   env->CleanupHandles();
   delete env;
+}
+
+
+MultiIsolatePlatform* GetMainThreadMultiIsolatePlatform() {
+  return v8_platform.Platform();
 }
 
 

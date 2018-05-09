@@ -495,7 +495,7 @@ exports.fileExists = function(pathname) {
 
 exports.skipIfEslintMissing = function() {
   if (!exports.fileExists(
-    path.join('..', '..', 'tools', 'node_modules', 'eslint')
+    path.join(__dirname, '..', '..', 'tools', 'node_modules', 'eslint')
   )) {
     exports.skip('missing ESLint');
   }
@@ -519,6 +519,8 @@ exports.canCreateSymLink = function() {
       return false;
     }
   }
+  // On non-Windows platforms, this always returns `true`
+  return true;
 };
 
 exports.getCallSite = function getCallSite(top) {
@@ -759,6 +761,11 @@ exports.expectsError = function expectsError(fn, settings, exact) {
   }
 
   function innerFn(error) {
+    if (arguments.length !== 1) {
+      // Do not use `assert.strictEqual()` to prevent `util.inspect` from
+      // always being called.
+      assert.fail(`Expected one argument, got ${util.inspect(arguments)}`);
+    }
     const descriptor = Object.getOwnPropertyDescriptor(error, 'message');
     assert.strictEqual(descriptor.enumerable,
                        false, 'The error message should be non-enumerable');

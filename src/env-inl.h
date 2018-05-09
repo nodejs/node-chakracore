@@ -482,12 +482,12 @@ inline void Environment::set_http_parser_buffer_in_use(bool in_use) {
   http_parser_buffer_in_use_ = in_use;
 }
 
-inline http2::http2_state* Environment::http2_state() const {
+inline http2::Http2State* Environment::http2_state() const {
   return http2_state_.get();
 }
 
 inline void Environment::set_http2_state(
-    std::unique_ptr<http2::http2_state> buffer) {
+    std::unique_ptr<http2::Http2State> buffer) {
   CHECK(!http2_state_);  // Should be set only once.
   http2_state_ = std::move(buffer);
 }
@@ -583,9 +583,11 @@ inline void Environment::ThrowUVException(int errorno,
 
 inline v8::Local<v8::FunctionTemplate>
     Environment::NewFunctionTemplate(v8::FunctionCallback callback,
-                                     v8::Local<v8::Signature> signature) {
+                                     v8::Local<v8::Signature> signature,
+                                     v8::ConstructorBehavior behavior) {
   v8::Local<v8::External> external = as_external();
-  return v8::FunctionTemplate::New(isolate(), callback, external, signature);
+  return v8::FunctionTemplate::New(isolate(), callback, external,
+                                   signature, 0, behavior);
 }
 
 inline void Environment::SetMethod(v8::Local<v8::Object> that,
@@ -605,7 +607,8 @@ inline void Environment::SetProtoMethod(v8::Local<v8::FunctionTemplate> that,
                                         const char* name,
                                         v8::FunctionCallback callback) {
   v8::Local<v8::Signature> signature = v8::Signature::New(isolate(), that);
-  v8::Local<v8::FunctionTemplate> t = NewFunctionTemplate(callback, signature);
+  v8::Local<v8::FunctionTemplate> t =
+      NewFunctionTemplate(callback, signature, v8::ConstructorBehavior::kThrow);
   // kInternalized strings are created in the old space.
   const v8::NewStringType type = v8::NewStringType::kInternalized;
   v8::Local<v8::String> name_string =

@@ -91,10 +91,9 @@ need to be attached anymore, as only important bugfixes will be included.
 to update from nodejs/node:
 
 * `git checkout master`
-* `git remote update -p` OR `git fetch --all` (I prefer the former)
+* `git remote update -p` OR `git fetch --all`
 * `git merge --ff-only upstream/master` (or `REMOTENAME/BRANCH`)
 
 ## Best practices
 
 * When making PRs, spend time writing a thorough description.
-* Usually only squash at the end of your work.

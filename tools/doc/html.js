@@ -25,7 +25,6 @@ const common = require('./common.js');
 const fs = require('fs');
 const marked = require('marked');
 const path = require('path');
-const preprocess = require('./preprocess.js');
 const typeParser = require('./type-parser.js');
 
 module.exports = toHTML;
@@ -42,76 +41,36 @@ marked.setOptions({
   renderer: renderer
 });
 
-// TODO(chrisdickinson): never stop vomiting / fix this.
-const gtocPath = path.resolve(path.join(
-  __dirname,
-  '..',
-  '..',
-  'doc',
-  'api',
-  '_toc.md'
-));
-var gtocLoading = null;
-var gtocData = null;
+const docPath = path.resolve(__dirname, '..', '..', 'doc');
+
+const gtocPath = path.join(docPath, 'api', '_toc.md');
+const gtocMD = fs.readFileSync(gtocPath, 'utf8').replace(/^@\/\/.*$/gm, '');
+const gtocHTML = marked(gtocMD).replace(
+  /<a href="(.*?)"/g,
+  (all, href) => `<a class="nav-${toID(href)}" href="${href}"`
+);
+
+const templatePath = path.join(docPath, 'template.html');
+const template = fs.readFileSync(templatePath, 'utf8');
+
 var docCreated = null;
 var nodeVersion = null;
 
 /**
- * opts: input, filename, template, nodeVersion.
+ * opts: input, filename, nodeVersion.
  */
 function toHTML(opts, cb) {
-  const template = opts.template;
-
   nodeVersion = opts.nodeVersion || process.version;
   docCreated = opts.input.match(DOC_CREATED_REG_EXP);
 
-  if (gtocData) {
-    return onGtocLoaded();
-  }
-
-  if (gtocLoading === null) {
-    gtocLoading = [onGtocLoaded];
-    return loadGtoc(function(err, data) {
-      if (err) throw err;
-      gtocData = data;
-      gtocLoading.forEach(function(xs) {
-        xs();
-      });
-    });
-  }
-
-  if (gtocLoading) {
-    return gtocLoading.push(onGtocLoaded);
-  }
-
-  function onGtocLoaded() {
-    const lexed = marked.lexer(opts.input);
-    fs.readFile(template, 'utf8', function(er, template) {
-      if (er) return cb(er);
-      render({
-        lexed: lexed,
-        filename: opts.filename,
-        template: template,
-        nodeVersion: nodeVersion,
-        analytics: opts.analytics,
-      }, cb);
-    });
-  }
-}
-
-function loadGtoc(cb) {
-  fs.readFile(gtocPath, 'utf8', function(err, data) {
-    if (err) return cb(err);
-
-    preprocess(gtocPath, data, function(err, data) {
-      if (err) return cb(err);
-
-      data = marked(data).replace(/<a href="(.*?)"/gm, function(a, m) {
-        return `<a class="nav-${toID(m)}" href="${m}"`;
-      });
-      return cb(null, data);
-    });
-  });
+  const lexed = marked.lexer(opts.input);
+  render({
+    lexed: lexed,
+    filename: opts.filename,
+    template: template,
+    nodeVersion: nodeVersion,
+    analytics: opts.analytics,
+  }, cb);
 }
 
 function toID(filename) {
@@ -134,7 +93,7 @@ function render(opts, cb) {
   filename = path.basename(filename, '.md');
 
   parseText(lexed);
-  lexed = parseLists(lexed);
+  lexed = preprocessElements(lexed);
 
   // Generate the table of contents.
   // This mutates the lexed contents in-place.
@@ -150,7 +109,7 @@ function render(opts, cb) {
     template = template.replace(/__TOC__/g, toc);
     template = template.replace(
       /__GTOC__/g,
-      gtocData.replace(`class="nav-${id}`, `class="nav-${id} active`)
+      gtocHTML.replace(`class="nav-${id}`, `class="nav-${id} active`)
     );
 
     if (opts.analytics) {
@@ -209,6 +168,7 @@ function altDocs(filename) {
   }
 
   const versions = [
+    { num: '10.x' },
     { num: '9.x' },
     { num: '8.x', lts: true },
     { num: '7.x' },
@@ -272,25 +232,28 @@ function parseText(lexed) {
   });
 }
 
-// Just update the list item text in-place.
-// Lists that come right after a heading are what we're after.
-function parseLists(input) {
+// Preprocess stability blockquotes and YAML blocks.
+function preprocessElements(input) {
   var state = null;
-  const savedState = [];
-  var depth = 0;
   const output = [];
   let headingIndex = -1;
   let heading = null;
 
   output.links = input.links;
   input.forEach(function(tok, index) {
+    if (tok.type === 'heading') {
+      headingIndex = index;
+      heading = tok;
+    }
+    if (tok.type === 'html' && common.isYAMLBlock(tok.text)) {
+      tok.text = parseYAML(tok.text);
+    }
     if (tok.type === 'blockquote_start') {
-      savedState.push(state);
       state = 'MAYBE_STABILITY_BQ';
       return;
     }
     if (tok.type === 'blockquote_end' && state === 'MAYBE_STABILITY_BQ') {
-      state = savedState.pop();
+      state = null;
       return;
     }
     if ((tok.type === 'paragraph' && state === 'MAYBE_STABILITY_BQ') ||
@@ -312,50 +275,7 @@ function parseLists(input) {
         return;
       } else if (state === 'MAYBE_STABILITY_BQ') {
         output.push({ type: 'blockquote_start' });
-        state = savedState.pop();
-      }
-    }
-    if (state === null ||
-      (state === 'AFTERHEADING' && tok.type === 'heading')) {
-      if (tok.type === 'heading') {
-        headingIndex = index;
-        heading = tok;
-        state = 'AFTERHEADING';
-      }
-      output.push(tok);
-      return;
-    }
-    if (state === 'AFTERHEADING') {
-      if (tok.type === 'list_start') {
-        state = 'LIST';
-        if (depth === 0) {
-          output.push({ type: 'html', text: '<div class="signature">' });
-        }
-        depth++;
-        output.push(tok);
-        return;
-      }
-      if (tok.type === 'html' && common.isYAMLBlock(tok.text)) {
-        tok.text = parseYAML(tok.text);
-      }
-      state = null;
-      output.push(tok);
-      return;
-    }
-    if (state === 'LIST') {
-      if (tok.type === 'list_start') {
-        depth++;
-        output.push(tok);
-        return;
-      }
-      if (tok.type === 'list_end') {
-        depth--;
-        output.push(tok);
-        if (depth === 0) {
-          state = null;
-          output.push({ type: 'html', text: '</div>' });
-        }
-        return;
+        state = null;
       }
     }
     output.push(tok);

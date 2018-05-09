@@ -37,7 +37,7 @@ class NodeCategorySet : public BaseObject {
                   Local<Object> wrap,
                   std::set<std::string> categories) :
         BaseObject(env, wrap), categories_(categories) {
-    MakeWeak<NodeCategorySet>(this);
+    MakeWeak();
   }
 
   bool enabled_ = false;
@@ -63,7 +63,7 @@ void NodeCategorySet::Enable(const FunctionCallbackInfo<Value>& args) {
   NodeCategorySet* category_set;
   ASSIGN_OR_RETURN_UNWRAP(&category_set, args.Holder());
   CHECK_NE(category_set, nullptr);
-  auto categories = category_set->GetCategories();
+  const auto& categories = category_set->GetCategories();
   if (!category_set->enabled_ && !categories.empty()) {
     env->tracing_agent()->Enable(categories);
     category_set->enabled_ = true;
@@ -75,7 +75,7 @@ void NodeCategorySet::Disable(const FunctionCallbackInfo<Value>& args) {
   NodeCategorySet* category_set;
   ASSIGN_OR_RETURN_UNWRAP(&category_set, args.Holder());
   CHECK_NE(category_set, nullptr);
-  auto categories = category_set->GetCategories();
+  const auto& categories = category_set->GetCategories();
   if (category_set->enabled_ && !categories.empty()) {
     env->tracing_agent()->Disable(categories);
     category_set->enabled_ = false;

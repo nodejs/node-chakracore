@@ -3,12 +3,10 @@
 
 const common = require('../common');
 const assert = require('assert');
-const errors = require('internal/errors');
-
-const { E, SystemError } = errors;
+const { E, SystemError, codes } = require('internal/errors');
 
 assert.throws(
-  () => { throw new errors.SystemError(); },
+  () => { throw new SystemError(); },
   {
     name: 'TypeError',
     message: common.engineSpecificMessage({
@@ -20,7 +18,7 @@ assert.throws(
 );
 
 E('ERR_TEST', 'custom message', SystemError);
-const { ERR_TEST } = errors.codes;
+const { ERR_TEST } = codes;
 
 {
   const ctx = {

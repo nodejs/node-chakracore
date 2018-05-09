@@ -282,7 +282,7 @@ add padding to the input data to the appropriate block size. To disable the
 default padding call `cipher.setAutoPadding(false)`.
 
 When `autoPadding` is `false`, the length of the entire input data must be a
-multiple of the cipher's block size or [`cipher.final()`][] will throw an Error.
+multiple of the cipher's block size or [`cipher.final()`][] will throw an error.
 Disabling automatic padding is useful for non-standard padding, for instance
 using `0x0` instead of PKCS padding.
 
@@ -810,7 +810,7 @@ to be a string; otherwise `privateKey` is expected to be a [`Buffer`][],
 
 If `privateKey` is not valid for the curve specified when the `ECDH` object was
 created, an error is thrown. Upon setting the private key, the associated
-public point (key) is also generated and set in the ECDH object.
+public point (key) is also generated and set in the `ECDH` object.
 
 ### ecdh.setPublicKey(publicKey[, encoding])
 <!-- YAML
@@ -1334,8 +1334,9 @@ cipher in CCM mode is used (e.g. `'aes-128-ccm'`). In that case, the
 authentication tag in bytes, see [CCM mode][].
 
 The `algorithm` is dependent on OpenSSL, examples are `'aes192'`, etc. On
-recent OpenSSL releases, `openssl list-cipher-algorithms` will display the
-available cipher algorithms.
+recent OpenSSL releases, `openssl list -cipher-algorithms`
+(`openssl list-cipher-algorithms` for older versions of OpenSSL) will
+display the available cipher algorithms.
 
 The `password` is used to derive the cipher key and initialization vector (IV).
 The value must be either a `'latin1'` encoded string, a [`Buffer`][], a
@@ -1381,8 +1382,9 @@ cipher in CCM mode is used (e.g. `'aes-128-ccm'`). In that case, the
 authentication tag in bytes, see [CCM mode][].
 
 The `algorithm` is dependent on OpenSSL, examples are `'aes192'`, etc. On
-recent OpenSSL releases, `openssl list-cipher-algorithms` will display the
-available cipher algorithms.
+recent OpenSSL releases, `openssl list -cipher-algorithms`
+(`openssl list-cipher-algorithms` for older versions of OpenSSL) will
+display the available cipher algorithms.
 
 The `key` is the raw key used by the `algorithm` and `iv` is an
 [initialization vector][]. Both arguments must be `'utf8'` encoded strings,
@@ -1472,8 +1474,9 @@ cipher in CCM mode is used (e.g. `'aes-128-ccm'`). In that case, the
 authentication tag in bytes, see [CCM mode][].
 
 The `algorithm` is dependent on OpenSSL, examples are `'aes192'`, etc. On
-recent OpenSSL releases, `openssl list-cipher-algorithms` will display the
-available cipher algorithms.
+recent OpenSSL releases, `openssl list -cipher-algorithms`
+(`openssl list-cipher-algorithms` for older versions of OpenSSL) will
+display the available cipher algorithms.
 
 The `key` is the raw key used by the `algorithm` and `iv` is an
 [initialization vector][]. Both arguments must be `'utf8'` encoded strings,
@@ -1561,7 +1564,8 @@ behavior.
 
 The `algorithm` is dependent on the available algorithms supported by the
 version of OpenSSL on the platform. Examples are `'sha256'`, `'sha512'`, etc.
-On recent releases of OpenSSL, `openssl list-message-digest-algorithms` will
+On recent releases of OpenSSL, `openssl list -digest-algorithms`
+(`openssl list-message-digest-algorithms` for older versions of OpenSSL) will
 display the available digest algorithms.
 
 Example: generating the sha256 sum of a file
@@ -1598,7 +1602,8 @@ Optional `options` argument controls stream behavior.
 
 The `algorithm` is dependent on the available algorithms supported by the
 version of OpenSSL on the platform. Examples are `'sha256'`, `'sha512'`, etc.
-On recent releases of OpenSSL, `openssl list-message-digest-algorithms` will
+On recent releases of OpenSSL, `openssl list -digest-algorithms`
+(`openssl list-message-digest-algorithms` for older versions of OpenSSL) will
 display the available digest algorithms.
 
 The `key` is the HMAC key used to generate the cryptographic HMAC hash.
@@ -1764,7 +1769,7 @@ applied to derive a key of the requested byte length (`keylen`) from the
 
 The supplied `callback` function is called with two arguments: `err` and
 `derivedKey`. If an error occurs while deriving the key, `err` will be set;
-otherwise `err` will be null. By default, the successfully generated
+otherwise `err` will be `null`. By default, the successfully generated
 `derivedKey` will be passed to the callback as a [`Buffer`][]. An error will be
 thrown if any of the input arguments specify invalid values or types.
 
@@ -1831,7 +1836,7 @@ implementation. A selected HMAC digest algorithm specified by `digest` is
 applied to derive a key of the requested byte length (`keylen`) from the
 `password`, `salt` and `iterations`.
 
-If an error occurs an Error will be thrown, otherwise the derived key will be
+If an error occurs an `Error` will be thrown, otherwise the derived key will be
 returned as a [`Buffer`][].
 
 The `iterations` argument must be a number set as high as possible. The
@@ -1963,7 +1968,7 @@ is a number indicating the number of bytes to generate.
 
 If a `callback` function is provided, the bytes are generated asynchronously
 and the `callback` function is invoked with two arguments: `err` and `buf`.
-If an error occurs, `err` will be an Error object; otherwise it is null. The
+If an error occurs, `err` will be an `Error` object; otherwise it is `null`. The
 `buf` argument is a [`Buffer`][] containing the generated bytes.
 
 ```js
@@ -2184,7 +2189,7 @@ unified Stream API, and before there were [`Buffer`][] objects for handling
 binary data. As such, the many of the `crypto` defined classes have methods not
 typically found on other Node.js classes that implement the [streams][stream]
 API (e.g. `update()`, `final()`, or `digest()`). Also, many methods accepted
-and returned `'latin1'` encoded strings by default rather than Buffers. This
+and returned `'latin1'` encoded strings by default rather than `Buffer`s. This
 default was changed after Node.js v0.8 to use [`Buffer`][] objects by default
 instead.
 
@@ -2601,7 +2606,6 @@ the `crypto`, `tls`, and `https` modules and are generally specific to OpenSSL.
     process.</td>
   </tr>
 </table>
-
 
 [`Buffer`]: buffer.html
 [`EVP_BytesToKey`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_BytesToKey.html

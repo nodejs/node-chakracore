@@ -33,6 +33,7 @@
 #include "tracing/trace_event.h"
 #include "node_perf_common.h"
 #include "node_debug_options.h"
+#include "node_api.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -246,9 +247,10 @@ v8::Local<v8::Object> AddressToJS(
 
 template <typename T, int (*F)(const typename T::HandleType*, sockaddr*, int*)>
 void GetSockOrPeerName(const v8::FunctionCallbackInfo<v8::Value>& args) {
-  T* const wrap = Unwrap<T>(args.Holder());
-  if (wrap == nullptr)
-    return args.GetReturnValue().Set(UV_EBADF);
+  T* wrap;
+  ASSIGN_OR_RETURN_UNWRAP(&wrap,
+                          args.Holder(),
+                          args.GetReturnValue().Set(UV_EBADF));
   CHECK(args[0]->IsObject());
   sockaddr_storage storage;
   int addrlen = sizeof(storage);
@@ -843,6 +845,10 @@ static inline const char *errno_string(int errorno) {
 
 }  // namespace node
 
+void napi_module_register_by_symbol(v8::Local<v8::Object> exports,
+                                    v8::Local<v8::Value> module,
+                                    v8::Local<v8::Context> context,
+                                    napi_addon_register_func init);
 
 #endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 

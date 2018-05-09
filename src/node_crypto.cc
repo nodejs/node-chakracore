@@ -338,19 +338,6 @@ void SecureContext::Initialize(Environment* env, Local<Object> target) {
   t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyIVIndex"),
          Integer::NewFromUnsigned(env->isolate(), kTicketKeyIVIndex));
 
-  Local<FunctionTemplate> ctx_getter_templ =
-      FunctionTemplate::New(env->isolate(),
-                            CtxGetter,
-                            env->as_external(),
-                            Signature::New(env->isolate(), t));
-
-
-  t->PrototypeTemplate()->SetAccessorProperty(
-      FIXED_ONE_BYTE_STRING(env->isolate(), "_external"),
-      ctx_getter_templ,
-      Local<FunctionTemplate>(),
-      static_cast<PropertyAttribute>(ReadOnly | DontDelete));
-
   target->Set(secureContextString, t->GetFunction());
   env->set_secure_context_constructor_template(t);
 }
@@ -1350,14 +1337,6 @@ int SecureContext::TicketCompatibilityCallback(SSL* ssl,
 }
 
 
-void SecureContext::CtxGetter(const FunctionCallbackInfo<Value>& info) {
-  SecureContext* sc;
-  ASSIGN_OR_RETURN_UNWRAP(&sc, info.This());
-  Local<External> ext = External::New(info.GetIsolate(), sc->ctx_);
-  info.GetReturnValue().Set(ext);
-}
-
-
 template <bool primary>
 void SecureContext::GetCertificate(const FunctionCallbackInfo<Value>& args) {
   SecureContext* wrap;
@@ -2117,7 +2096,8 @@ void SSLWrap<Base>::GetEphemeralKeyInfo(
   EVP_PKEY* key;
 
   if (SSL_get_server_tmp_key(w->ssl_, &key)) {
-    switch (EVP_PKEY_id(key)) {
+    int kid = EVP_PKEY_id(key);
+    switch (kid) {
       case EVP_PKEY_DH:
         info->Set(context, env->type_string(),
                   FIXED_ONE_BYTE_STRING(env->isolate(), "DH")).FromJust();
@@ -2125,19 +2105,29 @@ void SSLWrap<Base>::GetEphemeralKeyInfo(
                   Integer::New(env->isolate(), EVP_PKEY_bits(key))).FromJust();
         break;
       case EVP_PKEY_EC:
+      // TODO(shigeki) Change this to EVP_PKEY_X25519 and add EVP_PKEY_X448
+      // after upgrading to 1.1.1.
+      case NID_X25519:
         {
-          EC_KEY* ec = EVP_PKEY_get1_EC_KEY(key);
-          int nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec));
-          EC_KEY_free(ec);
+          const char* curve_name;
+          if (kid == EVP_PKEY_EC) {
+            EC_KEY* ec = EVP_PKEY_get1_EC_KEY(key);
+            int nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec));
+            curve_name = OBJ_nid2sn(nid);
+            EC_KEY_free(ec);
+          } else {
+            curve_name = OBJ_nid2sn(kid);
+          }
           info->Set(context, env->type_string(),
                     FIXED_ONE_BYTE_STRING(env->isolate(), "ECDH")).FromJust();
           info->Set(context, env->name_string(),
                     OneByteString(args.GetIsolate(),
-                                  OBJ_nid2sn(nid))).FromJust();
+                                  curve_name)).FromJust();
           info->Set(context, env->size_string(),
                     Integer::New(env->isolate(),
                                  EVP_PKEY_bits(key))).FromJust();
         }
+        break;
     }
     EVP_PKEY_free(key);
   }
@@ -2801,10 +2791,7 @@ bool CipherBase::InitAuthenticated(const char *cipher_type, int iv_len,
                                    int auth_tag_len) {
   CHECK(IsAuthenticatedMode());
 
-  // TODO(tniessen) Use EVP_CTRL_AEAD_SET_IVLEN when migrating to OpenSSL 1.1.0
-  static_assert(EVP_CTRL_CCM_SET_IVLEN == EVP_CTRL_GCM_SET_IVLEN,
-                "OpenSSL constants differ between GCM and CCM");
-  if (!EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_SET_IVLEN, iv_len, nullptr)) {
+  if (!EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_AEAD_SET_IVLEN, iv_len, nullptr)) {
     env()->ThrowError("Invalid IV length");
     return false;
   }
@@ -3095,10 +3082,8 @@ bool CipherBase::Final(unsigned char** out, int *out_len) {
       // must be specified in advance.
       if (mode == EVP_CIPH_GCM_MODE)
         auth_tag_len_ = sizeof(auth_tag_);
-      // TOOD(tniessen) Use EVP_CTRL_AEAP_GET_TAG in OpenSSL 1.1.0
-      static_assert(EVP_CTRL_CCM_GET_TAG == EVP_CTRL_GCM_GET_TAG,
-                    "OpenSSL constants differ between GCM and CCM");
-      CHECK_EQ(1, EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_GET_TAG, auth_tag_len_,
+      CHECK_EQ(1, EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_AEAD_GET_TAG,
+                      auth_tag_len_,
                       reinterpret_cast<unsigned char*>(auth_tag_)));
     }
   }
@@ -4668,7 +4653,6 @@ class PBKDF2Request : public AsyncWrap {
         keylen_(keylen),
         key_(node::Malloc(keylen)),
         iter_(iter) {
-    Wrap(object, this);
   }
 
   ~PBKDF2Request() override {
@@ -4683,8 +4667,6 @@ class PBKDF2Request : public AsyncWrap {
     free(key_);
     key_ = nullptr;
     keylen_ = 0;
-
-    ClearWrap(object());
   }
 
   uv_work_t* work_req() {
@@ -4846,11 +4828,6 @@ class RandomBytesRequest : public AsyncWrap {
         size_(size),
         data_(data),
         free_mode_(free_mode) {
-    Wrap(object, this);
-  }
-
-  ~RandomBytesRequest() override {
-    ClearWrap(object());
   }
 
   uv_work_t* work_req() {
@@ -5148,7 +5125,7 @@ void GetCurves(const FunctionCallbackInfo<Value>& args) {
 
 
 bool VerifySpkac(const char* data, unsigned int len) {
-  bool i = 0;
+  bool verify_result = false;
   EVP_PKEY* pkey = nullptr;
   NETSCAPE_SPKI* spki = nullptr;
 
@@ -5160,7 +5137,7 @@ bool VerifySpkac(const char* data, unsigned int len) {
   if (pkey == nullptr)
     goto exit;
 
-  i = NETSCAPE_SPKI_verify(spki, pkey) > 0;
+  verify_result = NETSCAPE_SPKI_verify(spki, pkey) > 0;
 
  exit:
   if (pkey != nullptr)
@@ -5169,23 +5146,23 @@ bool VerifySpkac(const char* data, unsigned int len) {
   if (spki != nullptr)
     NETSCAPE_SPKI_free(spki);
 
-  return i;
+  return verify_result;
 }
 
 
 void VerifySpkac(const FunctionCallbackInfo<Value>& args) {
-  bool i = false;
+  bool verify_result = false;
 
   size_t length = Buffer::Length(args[0]);
   if (length == 0)
-    return args.GetReturnValue().Set(i);
+    return args.GetReturnValue().Set(verify_result);
 
   char* data = Buffer::Data(args[0]);
   CHECK_NE(data, nullptr);
 
-  i = VerifySpkac(data, length);
+  verify_result = VerifySpkac(data, length);
 
-  args.GetReturnValue().Set(i);
+  args.GetReturnValue().Set(verify_result);
 }
 
 

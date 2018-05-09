@@ -416,14 +416,15 @@ longer be used.
 
 Node.js uses three Deprecation levels:
 
-* *Documentation-Only Deprecation* refers to elements of the Public API that are
-  being staged for deprecation in a future Node.js major release. An explicit
-  notice indicating the deprecated status is added to the API documentation
-  but no functional changes are implemented in the code. There will be no
-  runtime deprecation warnings emitted for such deprecations by default.
-  Documentation-only deprecations may trigger a runtime warning when Node.js
-  is started with the [`--pending-deprecation`][] flag or the
-  `NODE_PENDING_DEPRECATION=1` environment variable is set.
+* *Documentation-Only Deprecation* refers to elements of the Public API that
+  should be avoided by developers and that might be staged for a runtime
+  deprecation in a future Node.js major release. An explicit notice indicating
+  the deprecation status is added to the API documentation but no functional
+  changes are implemented in the code. By default there will be no deprecation
+  warnings emitted for such deprecations at runtime. Documentation-only
+  deprecations may trigger a runtime warning when Node.js is started with the
+  [`--pending-deprecation`][] flag or the `NODE_PENDING_DEPRECATION=1`
+  environment variable is set.
 
 * *Runtime Deprecation* refers to the use of process warnings emitted at
   runtime the first time that a deprecated API is used. A command-line
@@ -489,8 +490,7 @@ The TSC should serve as the final arbiter where required.
 1. Never use GitHub's green ["Merge Pull Request"][] button. Reasons for not
    using the web interface button:
    * The merge method will add an unnecessary merge commit.
-   * The squash & merge method has been known to add metadata to the commit
-     title (the PR #).
+   * The squash & merge method can add metadata (the PR #) to the commit title.
    * If more than one author has contributed to the PR, keep the most recent
      author when squashing.
 1. Make sure the CI is done and the result is green. If the CI is not green,
@@ -832,7 +832,6 @@ LTS working group and the Release team.
 | Subsystem                                | Maintainers                                                           |
 | ---                                      | ---                                                                   |
 | `benchmark/*`                            | @nodejs/benchmarking, @mscdex                                         |
-| `bootstrap_node.js`                      | @nodejs/process                                                       |
 | `doc/*`, `*.md`                          | @nodejs/documentation                                                 |
 | `lib/assert`                             | @nodejs/testing                                                       |
 | `lib/async_hooks`                        | @nodejs/async\_hooks for bugs/reviews (+ @nodejs/diagnostics for API) |
@@ -845,6 +844,7 @@ LTS working group and the Release team.
 | `lib/fs`, `src/{fs,file}`                | @nodejs/fs                                                            |
 | `lib/{_}http{*}`                         | @nodejs/http                                                          |
 | `lib/inspector.js`, `src/inspector_*`    | @nodejs/V8-inspector                                                  |
+| `lib/internal/bootstrap/*`               | @nodejs/process                                                       |
 | `lib/internal/url`, `src/node_url`       | @nodejs/url                                                           |
 | `lib/net`                                | @bnoordhuis, @indutny, @nodejs/streams                                |
 | `lib/repl`                               | @nodejs/repl                                                          |
@@ -852,13 +852,13 @@ LTS working group and the Release team.
 | `lib/timers`                             | @nodejs/timers                                                        |
 | `lib/util`                               | @nodejs/util                                                          |
 | `lib/zlib`                               | @nodejs/zlib                                                          |
-| `src/async-wrap.*`                       | @nodejs/async\_hooks                                                  |
+| `src/async_wrap.*`                       | @nodejs/async\_hooks                                                  |
 | `src/node_api.*`                         | @nodejs/n-api                                                         |
 | `src/node_crypto.*`                      | @nodejs/crypto                                                        |
 | `test/*`                                 | @nodejs/testing                                                       |
 | `tools/node_modules/eslint`, `.eslintrc` | @nodejs/linting                                                       |
 | build                                    | @nodejs/build                                                         |
-| `src/module_wrap.*`, `lib/internal/loader/*`, `lib/internal/vm/Module.js` | @nodejs/modules                      |
+| `src/module_wrap.*`, `lib/internal/modules/*`, `lib/internal/vm/module.js` | @nodejs/modules                     |
 | GYP                                      | @nodejs/gyp                                                           |
 | performance                              | @nodejs/performance                                                   |
 | platform specific                        | @nodejs/platform-{aix,arm,freebsd,macos,ppc,smartos,s390,windows}     |

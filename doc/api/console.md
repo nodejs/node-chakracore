@@ -63,7 +63,6 @@ changes:
                  will now be ignored by default.
 -->
 
-
 <!--type=class-->
 
 The `Console` class can be used to create a simple logger with configurable
@@ -100,7 +99,7 @@ changes:
     Setting to `true` enables coloring while inspecting values, setting to
     `'auto'` will make color support depend on the value of the `isTTY` property
     and the value returned by `getColorDepth()` on the respective stream.
-    **Default:** `'auto'`
+    **Default:** `'auto'`.
 
 Creates a new `Console` with one or two writable stream instances. `stdout` is a
 writable stream to print log or info output. `stderr` is used for warning or
@@ -165,7 +164,7 @@ operates similarly to the `clear` shell command. On Windows, `console.clear()`
 will clear only the output in the current terminal viewport for the Node.js
 binary.
 
-### console.count([label])
+### console.count([label='default'])
 <!-- YAML
 added: v8.3.0
 -->
@@ -354,7 +353,7 @@ added: v10.0.0
 * `properties` {string[]} Alternate properties for constructing the table.
 
 Try to construct a table with the columns of the properties of `tabularData`
-(or use `properties`) and rows of `tabularData` and logit. Falls back to just
+(or use `properties`) and rows of `tabularData` and log it. Falls back to just
 logging the argument if it can’t be parsed as tabular.
 
 ```js
@@ -364,9 +363,7 @@ console.table(Symbol());
 
 console.table(undefined);
 // undefined
-```
 
-```js
 console.table([{ a: 1, b: 'Y' }, { a: 'Z', b: 2 }]);
 // ┌─────────┬─────┬─────┐
 // │ (index) │  a  │  b  │
@@ -374,9 +371,7 @@ console.table([{ a: 1, b: 'Y' }, { a: 'Z', b: 2 }]);
 // │    0    │  1  │ 'Y' │
 // │    1    │ 'Z' │  2  │
 // └─────────┴─────┴─────┘
-```
 
-```js
 console.table([{ a: 1, b: 'Y' }, { a: 'Z', b: 2 }], ['a']);
 // ┌─────────┬─────┐
 // │ (index) │  a  │
@@ -494,17 +489,6 @@ This method does not display anything unless used in the inspector. Stops the
 current JavaScript CPU profiling session if one has been started and prints
 the report to the **Profiles** panel of the inspector. See
 [`console.profile()`][] for an example.
-
-### console.table(array[, columns])
-<!-- YAML
-added: v8.0.0
--->
-* `array` {Array|Object}
-* `columns` {string[]} Display only selected properties of objects in the
-  `array`.
-
-This method does not display anything unless used in the inspector. Prints to
-`stdout` the array `array` formatted as a table.
 
 ### console.timeStamp([label])
 <!-- YAML

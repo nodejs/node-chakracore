@@ -643,8 +643,8 @@ class Environment {
   inline bool http_parser_buffer_in_use() const;
   inline void set_http_parser_buffer_in_use(bool in_use);
 
-  inline http2::http2_state* http2_state() const;
-  inline void set_http2_state(std::unique_ptr<http2::http2_state> state);
+  inline http2::Http2State* http2_state() const;
+  inline void set_http2_state(std::unique_ptr<http2::Http2State> state);
 
   inline AliasedBuffer<double, v8::Float64Array>* fs_stats_field_array();
 
@@ -687,7 +687,9 @@ class Environment {
   inline v8::Local<v8::FunctionTemplate>
       NewFunctionTemplate(v8::FunctionCallback callback,
                           v8::Local<v8::Signature> signature =
-                              v8::Local<v8::Signature>());
+                              v8::Local<v8::Signature>(),
+                          v8::ConstructorBehavior behavior =
+                              v8::ConstructorBehavior::kAllow);
 
   // Convenience methods for NewFunctionTemplate().
   inline void SetMethod(v8::Local<v8::Object> that,
@@ -829,7 +831,7 @@ class Environment {
 
   char* http_parser_buffer_;
   bool http_parser_buffer_in_use_ = false;
-  std::unique_ptr<http2::http2_state> http2_state_;
+  std::unique_ptr<http2::Http2State> http2_state_;
 
   AliasedBuffer<double, v8::Float64Array> fs_stats_field_array_;
 

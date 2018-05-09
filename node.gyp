@@ -40,7 +40,6 @@
       'lib/domain.js',
       'lib/events.js',
       'lib/fs.js',
-      'lib/fs/promises.js',
       'lib/http.js',
       'lib/http2.js',
       'lib/_http_agent.js',
@@ -103,8 +102,10 @@
       'lib/internal/constants.js',
       'lib/internal/encoding.js',
       'lib/internal/errors.js',
+      'lib/internal/fixed_queue.js',
       'lib/internal/freelist.js',
-      'lib/internal/fs.js',
+      'lib/internal/fs/promises.js',
+      'lib/internal/fs/utils.js',
       'lib/internal/http.js',
       'lib/internal/inspector_async_hook.js',
       'lib/internal/linkedlist.js',
@@ -719,13 +720,13 @@
         [ 'v8_enable_inspector==1', {
           'conditions': [
             [ 'node_engine=="v8"', {
+              'copies': [
+	        {
+                  'destination': '<(SHARED_INTERMEDIATE_DIR)',
+                  'files': ['deps/v8/src/inspector/js_protocol.pdl']
+		}
+              ],
               'actions': [
-                {
-                  'action_name': 'v8_inspector_copy_protocol_to_intermediate_folder',
-                  'inputs': [ 'deps/v8/src/inspector/js_protocol.pdl' ],
-                  'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/js_protocol.pdl' ],
-                  'action': [ 'cp', '<@(_inputs)', '<(SHARED_INTERMEDIATE_DIR)' ],
-                },
                 {
                   'action_name': 'v8_inspector_convert_protocol_to_json',
                   'inputs': [
@@ -1021,6 +1022,7 @@
         'test/cctest/test_base64.cc',
         'test/cctest/test_node_postmortem_metadata.cc',
         'test/cctest/test_environment.cc',
+        'test/cctest/test_platform.cc',
         'test/cctest/test_util.cc',
         'test/cctest/test_url.cc'
       ],
