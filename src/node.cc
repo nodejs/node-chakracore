@@ -4555,6 +4555,11 @@ void FreeEnvironment(Environment* env) {
 }
 
 
+MultiIsolatePlatform* GetMainThreadMultiIsolatePlatform() {
+  return v8_platform.Platform();
+}
+
+
 MultiIsolatePlatform* CreatePlatform(
     int thread_pool_size,
     v8::TracingController* tracing_controller) {
