@@ -664,9 +664,9 @@ added: v8.4.0
 added: v9.4.0
 -->
 
-* `alt`: {string}
-* `origin`: {string}
-* `streamId`: {number}
+* `alt` {string}
+* `origin` {string}
+* `streamId` {number}
 
 The `'altsvc'` event is emitted whenever an `ALTSVC` frame is received by
 the client. The event is emitted with the `ALTSVC` value, origin, and stream
@@ -845,6 +845,8 @@ the `http2stream.rstCode` property. If the code is any value other than
 <!-- YAML
 added: v8.4.0
 -->
+
+* `error` {Error}
 
 The `'error'` event is emitted when an error occurs during the processing of
 an `Http2Stream`.
@@ -2424,7 +2426,7 @@ Just like `'end'`, this event occurs only once per response.
 
 #### request.aborted
 <!-- YAML
-added: REPLACEME
+added: v10.1.0
 -->
 
 * {boolean}

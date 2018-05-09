@@ -168,6 +168,7 @@ function altDocs(filename) {
   }
 
   const versions = [
+    { num: '10.x' },
     { num: '9.x' },
     { num: '8.x', lts: true },
     { num: '7.x' },
@@ -255,8 +256,7 @@ function preprocessElements(input) {
       state = null;
       return;
     }
-    if ((tok.type === 'paragraph' && state === 'MAYBE_STABILITY_BQ') ||
-      tok.type === 'code') {
+    if (tok.type === 'paragraph' && state === 'MAYBE_STABILITY_BQ') {
       if (tok.text.match(/Stability:.*/g)) {
         const stabilityMatch = tok.text.match(STABILITY_TEXT_REG_EXP);
         const stability = Number(stabilityMatch[2]);
