@@ -8,8 +8,7 @@
 
 Much of the Node.js core API is built around an idiomatic asynchronous
 event-driven architecture in which certain kinds of objects (called "emitters")
-periodically emit named events that cause `Function` objects ("listeners") to be
-called.
+emit named events that cause `Function` objects ("listeners") to be called.
 
 For instance: a [`net.Server`][] object emits an event each time a peer
 connects to it; a [`fs.ReadStream`][] emits an event when the file is opened;
@@ -44,21 +43,21 @@ myEmitter.emit('event');
 ## Passing arguments and `this` to listeners
 
 The `eventEmitter.emit()` method allows an arbitrary set of arguments to be
-passed to the listener functions. It is important to keep in mind that when an
-ordinary listener function is called by the `EventEmitter`, the standard `this`
-keyword is intentionally set to reference the `EventEmitter` to which the
+passed to the listener functions. It is important to keep in mind that when
+an ordinary listener function is called, the standard `this` keyword
+is intentionally set to reference the `EventEmitter` instance to which the
 listener is attached.
 
 ```js
 const myEmitter = new MyEmitter();
 myEmitter.on('event', function(a, b) {
-  console.log(a, b, this);
+  console.log(a, b, this, this === myEmitter);
   // Prints:
   //   a b MyEmitter {
   //     domain: null,
   //     _events: { event: [Function] },
   //     _eventsCount: 1,
-  //     _maxListeners: undefined }
+  //     _maxListeners: undefined } true
 });
 myEmitter.emit('event', 'a', 'b');
 ```

@@ -36,7 +36,7 @@ if (!common.isChakraEngine) {
     expect('--perf-basic-prof', 'B\n');
   }
 
-  if (common.isLinux && ['arm', 'x64', 'mips'].includes(process.arch)) {
+  if (common.isLinux && ['arm', 'x64'].includes(process.arch)) {
     // PerfJitLogger is only implemented in Linux.
     expect('--perf-prof', 'B\n');
   }
