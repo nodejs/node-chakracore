@@ -547,6 +547,7 @@
     };
 
     utils.isPromise = function(obj) {
+      // This won't correctly detect Promise objects from other contexts.
       return compareType(obj, 'Promise') && obj instanceof Promise;
     };
 

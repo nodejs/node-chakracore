@@ -454,6 +454,7 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
   );
 }
 
+// Test for Array constructor in different context.
 if (!common.isChakraEngine) {
   const map = new Map();
   map.set(1, 2);
@@ -475,11 +476,7 @@ if (!common.isChakraEngine) {
   obj = vm.runInNewContext('var s=new Set();s.add(1);s.add(2);s', {});
   assert.strictEqual(util.inspect(obj), 'Set { 1, 2 }');
   obj = vm.runInNewContext('fn=function(){};new Promise(fn,fn)', {});
-  assert.strictEqual(util.inspect(obj),
-                     common.engineSpecificMessage({
-                       v8: 'Promise { <pending> }',
-                       chakracore: 'Promise {}'
-                     }));
+  assert.strictEqual(util.inspect(obj), 'Promise { <pending> }');
 }
 
 // Test for property descriptors.
@@ -898,22 +895,12 @@ if (typeof Symbol !== 'undefined') {
 }
 
 // Test Promise.
-// NOTE: ChakraCore promise objects are only inspectable when created from
-// native code. Promises created in script will always show as `<pending>`.
 {
   const resolved = Promise.resolve(3);
-  assert.strictEqual(util.inspect(resolved),
-                     common.engineSpecificMessage({
-                       v8: 'Promise { 3 }',
-                       chakracore: 'Promise { <pending> }'
-                     }));
+  assert.strictEqual(util.inspect(resolved), 'Promise { 3 }');
 
   const rejected = Promise.reject(3);
-  assert.strictEqual(util.inspect(rejected),
-                     common.engineSpecificMessage({
-                       v8: 'Promise { <rejected> 3 }',
-                       chakracore: 'Promise { <pending> }'
-                     }));
+  assert.strictEqual(util.inspect(rejected), 'Promise { <rejected> 3 }');
   // Squelch UnhandledPromiseRejection.
   rejected.catch(() => {});
 
@@ -923,10 +910,7 @@ if (typeof Symbol !== 'undefined') {
   const promiseWithProperty = Promise.resolve('foo');
   promiseWithProperty.bar = 42;
   assert.strictEqual(util.inspect(promiseWithProperty),
-                     common.engineSpecificMessage({
-                       v8: 'Promise { \'foo\', bar: 42 }',
-                       chakracore: 'Promise { <pending>, bar: 42 }'
-                     }));
+                     'Promise { \'foo\', bar: 42 }');
 }
 
 // Make sure it doesn't choke on polyfills. Unlike Set/Map, there is no standard
@@ -939,8 +923,8 @@ if (typeof Symbol !== 'undefined') {
   global.Promise = oldPromise;
 }
 
+// Test Map iterators.
 if (!common.isChakraEngine) {
-  // Test Map iterators.
   const map = new Map([['foo', 'bar']]);
   assert.strictEqual(util.inspect(map.keys()), '[Map Iterator] { \'foo\' }');
   assert.strictEqual(util.inspect(map.values()), '[Map Iterator] { \'bar\' }');
@@ -956,8 +940,8 @@ if (!common.isChakraEngine) {
     '[Map Iterator] { ... more items, extra: true }');
 }
 
+// Test Set iterators.
 if (!common.isChakraEngine) {
-  // Test Set iterators.
   const aSet = new Set([1, 3]);
   assert.strictEqual(util.inspect(aSet.keys()), '[Set Iterator] { 1, 3 }');
   assert.strictEqual(util.inspect(aSet.values()), '[Set Iterator] { 1, 3 }');
@@ -1384,8 +1368,8 @@ util.inspect(process);
   assert.strictEqual(out, expect);
 }
 
+// Test WeakMap
 if (!common.isChakraEngine) {
-  // Test WeakMap
   const obj = {};
   const arr = [];
   const weakMap = new WeakMap([[obj, arr], [arr, obj]]);
@@ -1410,8 +1394,8 @@ if (!common.isChakraEngine) {
   assert(out === expect || out === expectAlt);
 }
 
+// Test WeakSet
 if (!common.isChakraEngine) {
-  // Test WeakSet
   const weakSet = new WeakSet([{}, [1]]);
   let out = util.inspect(weakSet, { showHidden: true });
   let expect = 'WeakSet { [ 1, [length]: 1 ], {} }';
