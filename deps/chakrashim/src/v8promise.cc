@@ -33,21 +33,17 @@ class PromiseResolverData : public ExternalData {
  private:
   Persistent<Value> resolve;
   Persistent<Value> reject;
-  Persistent<Value> result;
-  Promise::PromiseState state;
 
  public:
   PromiseResolverData(Local<Value> resolve,
                       Local<Value> reject)
       : ExternalData(ExternalDataType),
         resolve(nullptr, resolve),
-        reject(nullptr, reject),
-        state(Promise::PromiseState::kPending) {}
+        reject(nullptr, reject) {}
 
   ~PromiseResolverData() {
     this->resolve.Reset();
     this->reject.Reset();
-    this->result.Reset();
   }
 
   static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
@@ -58,63 +54,48 @@ class PromiseResolverData : public ExternalData {
     }
   }
 
-  Promise::PromiseState State() {
-    return this->state;
-  }
-
-  Local<Value> Result() {
-    return Local<Value>::New(nullptr, this->result);
-  }
-
   JsErrorCode Resolve(Local<Value> value) {
     JsValueRef result = nullptr;
     std::array<JsValueRef, 2> args = { jsrt::GetUndefined(), *value };
-    JsErrorCode err = JsCallFunction(*this->resolve, args.data(), args.size(),
-                                     &result);
-
-    if (err == JsNoError) {
-      this->state = Promise::PromiseState::kFulfilled;
-      this->result = value;
-    }
-
-    return err;
+    return JsCallFunction(*(this->resolve), args.data(), args.size(), &result);
   }
 
   JsErrorCode Reject(Local<Value> value) {
     JsValueRef result = nullptr;
     std::array<JsValueRef, 2> args = { jsrt::GetUndefined(), *value };
-    JsErrorCode err = JsCallFunction(*this->reject, args.data(), args.size(),
-                                     &result);
-
-    if (err == JsNoError) {
-      this->state = Promise::PromiseState::kRejected;
-      this->result = value;
-    }
-
-    return err;
+    return JsCallFunction(*(this->reject), args.data(), args.size(), &result);
   }
 };
 
 Promise::Promise() { }
 
 Local<Value> Promise::Result() {
-  PromiseResolverData* data = nullptr;
-  if (!ExternalData::TryGetFromProperty(this, jsrt::GetExternalPropertyId(),
-                                        &data)) {
+  JsValueRef result = JS_INVALID_REFERENCE;
+  if (JsGetPromiseResult(reinterpret_cast<JsValueRef>(this),
+                         &result) != JsNoError) {
     return Local<Value>();
   }
 
-  return data->Result();
+  return result;
 }
 
 Promise::PromiseState Promise::State() {
-  PromiseResolverData* data = nullptr;
-  if (!ExternalData::TryGetFromProperty(this, jsrt::GetExternalPropertyId(),
-                                        &data)) {
+  JsPromiseState state = JsPromiseStatePending;
+  if (JsGetPromiseState(reinterpret_cast<JsValueRef>(this),
+                        &state) != JsNoError) {
     return PromiseState::kPending;
   }
 
-  return data->State();
+  switch (state) {
+    case JsPromiseStateFulfilled:
+      return PromiseState::kFulfilled;
+
+    case JsPromiseStateRejected:
+      return PromiseState::kRejected;
+
+    default:
+      return PromiseState::kPending;
+  }
 }
 
 MaybeLocal<Promise> Promise::Then(Local<Context> context,

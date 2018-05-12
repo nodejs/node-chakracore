@@ -147,8 +147,19 @@ bool Value::IsUint32() const {
 
 bool Value::IsProxy() const {
   bool isProxy = false;
-  JsGetProxyProperties((JsValueRef) this, &isProxy, nullptr, nullptr);
-  return isProxy;
+  if (JsGetProxyProperties((JsValueRef)this, &isProxy, nullptr,
+                           nullptr) == JsNoError) {
+    return isProxy;
+  }
+
+  return false;
+}
+
+bool Value::IsPromise() const {
+  // If the call to JsGetPromiseState returns successfully, then we must have
+  // a valid Promise object.
+  JsPromiseState state = JsPromiseStatePending;
+  return (JsGetPromiseState((JsValueRef)this, &state) == JsNoError);
 }
 
 #define IS_TYPE_FUNCTION(v8ValueFunc, chakrashimFunc) \
@@ -168,7 +179,6 @@ IS_TYPE_FUNCTION(IsBooleanObject, isBooleanObject)
 IS_TYPE_FUNCTION(IsDate, isDate)
 IS_TYPE_FUNCTION(IsMap, isMap)
 IS_TYPE_FUNCTION(IsNativeError, isNativeError)
-IS_TYPE_FUNCTION(IsPromise, isPromise)
 IS_TYPE_FUNCTION(IsRegExp, isRegExp)
 IS_TYPE_FUNCTION(IsAsyncFunction, isAsyncFunction)
 IS_TYPE_FUNCTION(IsSet, isSet)
@@ -186,6 +196,7 @@ IS_TYPE_FUNCTION(IsSymbolObject, isSymbolObject)
 IS_TYPE_FUNCTION(IsName, isName)
 IS_TYPE_FUNCTION(IsSharedArrayBuffer, isSharedArrayBuffer)
 IS_TYPE_FUNCTION(IsModuleNamespaceObject, isModuleNamespaceObject)
+#undef IS_TYPE_FUNCTION
 
 MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;
