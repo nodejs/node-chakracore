@@ -13,3 +13,4 @@ AssertionError [ERR_ASSERTION]: Input A expected to strictly deep-equal input B:
    at *
    at *
    at *
+   at *
