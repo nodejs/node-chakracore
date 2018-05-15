@@ -551,6 +551,28 @@ void napi_module_register(napi_module* mod) {
   node::node_module_register(nm);
 }
 
+napi_status napi_add_env_cleanup_hook(napi_env env,
+                                      void (*fun)(void* arg),
+                                      void* arg) {
+  CHECK_ENV(env);
+  CHECK_ARG(fun);
+
+  node::AddEnvironmentCleanupHook(env->isolate, fun, arg);
+
+  return napi_ok;
+}
+
+napi_status napi_remove_env_cleanup_hook(napi_env env,
+                                         void (*fun)(void* arg),
+                                         void* arg) {
+  CHECK_ENV(env);
+  CHECK_ARG(fun);
+
+  node::RemoveEnvironmentCleanupHook(env->isolate, fun, arg);
+
+  return napi_ok;
+}
+
 // Static last error returned from napi_get_last_error_info
 napi_extended_error_info static_last_error;
 
