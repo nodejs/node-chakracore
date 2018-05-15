@@ -18,6 +18,7 @@ test-esm-example-loader : SKIP
 test-esm-forbidden-globals : SKIP
 test-esm-import-meta: SKIP
 test-esm-json : SKIP
+test-esm-live-binding : SKIP
 test-esm-loader-dependency : SKIP
 test-esm-loader-modulemap : SKIP
 test-esm-main-lookup : SKIP
