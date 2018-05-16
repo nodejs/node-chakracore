@@ -25,6 +25,7 @@ test-esm-main-lookup : SKIP
 test-esm-named-exports : SKIP
 test-esm-namespace : SKIP
 test-esm-preserve-symlinks : SKIP
+test-esm-preserve-symlinks-main : SKIP
 test-esm-preserve-symlinks-not-found : SKIP
 test-esm-preserve-symlinks-not-found-plain : SKIP
 test-esm-require-cache : SKIP

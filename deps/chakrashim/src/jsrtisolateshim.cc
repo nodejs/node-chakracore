@@ -251,7 +251,7 @@ IsolateShim::~IsolateShim() {
     // but we don't want to run much script code since we are tearing
     // down the isolate. UV_RUN_NOWAIT should clean up the handles
     // with the least amount of additonal work.
-    uv_run(uv_default_loop(), UV_RUN_NOWAIT); 
+    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
   }
 }
 
