@@ -68,7 +68,7 @@ assert.strictEqual(util.inspect({ a: 1, b: 2 }), '{ a: 1, b: 2 }');
 assert.strictEqual(util.inspect({ 'a': {} }), '{ a: {} }');
 assert.strictEqual(util.inspect({ 'a': { 'b': 2 } }), '{ a: { b: 2 } }');
 assert.strictEqual(util.inspect({ 'a': { 'b': { 'c': { 'd': 2 } } } }),
-                   '{ a: { b: { c: { d: 2 } } } }');
+                   '{ a: { b: { c: [Object] } } }');
 assert.strictEqual(
   util.inspect({ 'a': { 'b': { 'c': { 'd': 2 } } } }, false, null),
   '{ a: { b: { c: { d: 2 } } } }');
@@ -106,7 +106,7 @@ assert.strictEqual(util.inspect((new JSStream())._externalStream),
   assert.strictEqual(util.inspect({ a: regexp }, false, 0), '{ a: /regexp/ }');
 }
 
-assert(!/Object/.test(
+assert(/Object/.test(
   util.inspect({ a: { a: { a: { a: {} } } } }, undefined, undefined, true)
 ));
 assert(!/Object/.test(
@@ -1021,15 +1021,15 @@ if (!common.isChakraEngine) {
 // Empty and circular before depth.
 {
   const arr = [[[[]]]];
-  assert.strictEqual(util.inspect(arr, { depth: 2 }), '[ [ [ [] ] ] ]');
+  assert.strictEqual(util.inspect(arr), '[ [ [ [] ] ] ]');
   arr[0][0][0][0] = [];
-  assert.strictEqual(util.inspect(arr, { depth: 2 }), '[ [ [ [Array] ] ] ]');
+  assert.strictEqual(util.inspect(arr), '[ [ [ [Array] ] ] ]');
   arr[0][0][0] = {};
-  assert.strictEqual(util.inspect(arr, { depth: 2 }), '[ [ [ {} ] ] ]');
+  assert.strictEqual(util.inspect(arr), '[ [ [ {} ] ] ]');
   arr[0][0][0] = { a: 2 };
-  assert.strictEqual(util.inspect(arr, { depth: 2 }), '[ [ [ [Object] ] ] ]');
+  assert.strictEqual(util.inspect(arr), '[ [ [ [Object] ] ] ]');
   arr[0][0][0] = arr;
-  assert.strictEqual(util.inspect(arr, { depth: 2 }), '[ [ [ [Circular] ] ] ]');
+  assert.strictEqual(util.inspect(arr), '[ [ [ [Circular] ] ] ]');
 }
 
 // Corner cases.
@@ -1126,10 +1126,10 @@ if (!common.isChakraEngine) {
   assert(!/1 more item/.test(util.inspect(arr)));
   util.inspect.defaultOptions.maxArrayLength = oldOptions.maxArrayLength;
   assert(/1 more item/.test(util.inspect(arr)));
-  util.inspect.defaultOptions.depth = 2;
-  assert(/Object/.test(util.inspect(obj)));
-  util.inspect.defaultOptions.depth = oldOptions.depth;
+  util.inspect.defaultOptions.depth = null;
   assert(!/Object/.test(util.inspect(obj)));
+  util.inspect.defaultOptions.depth = oldOptions.depth;
+  assert(/Object/.test(util.inspect(obj)));
   assert.strictEqual(
     JSON.stringify(util.inspect.defaultOptions),
     JSON.stringify(oldOptions)
@@ -1141,7 +1141,7 @@ if (!common.isChakraEngine) {
   assert(/Object/.test(util.inspect(obj)));
   util.inspect.defaultOptions = oldOptions;
   assert(/1 more item/.test(util.inspect(arr)));
-  assert(!/Object/.test(util.inspect(obj)));
+  assert(/Object/.test(util.inspect(obj)));
   assert.strictEqual(
     JSON.stringify(util.inspect.defaultOptions),
     JSON.stringify(oldOptions)
@@ -1421,4 +1421,16 @@ if (!common.isChakraEngine) {
 { // Test argument objects.
   const args = (function() { return arguments; })('a');
   assert.strictEqual(util.inspect(args), "[Arguments] { '0': 'a' }");
+}
+
+{
+  // Test that a long linked list can be inspected without throwing an error.
+  const list = {};
+  let head = list;
+  // The real cutoff value is closer to 1400 stack frames as of May 2018,
+  // but let's be generous here – even a linked listed of length 100k should be
+  // inspectable in some way.
+  for (let i = 0; i < 100000; i++)
+    head = head.next = {};
+  util.inspect(list);
 }

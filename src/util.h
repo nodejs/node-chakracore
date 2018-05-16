@@ -211,7 +211,7 @@ inline v8::Local<TypeName> PersistentToLocal(
     v8::Isolate* isolate,
     const Persistent<TypeName>& persistent);
 
-// Unchecked conversion from a non-weak Persistent<T> to Local<TLocal<T>,
+// Unchecked conversion from a non-weak Persistent<T> to Local<T>,
 // use with care!
 //
 // Do not call persistent.Reset() while the returned Local<T> is still in
@@ -447,8 +447,16 @@ struct MallocedBuffer {
   MallocedBuffer& operator=(const MallocedBuffer&) = delete;
 };
 
-}  // namespace node
+// Test whether some value can be called with ().
+template<typename T, typename = void>
+struct is_callable : std::is_function<T> { };
 
+template<typename T>
+struct is_callable<T, typename std::enable_if<
+    std::is_same<decltype(void(&T::operator())), void>::value
+    >::type> : std::true_type { };
+
+}  // namespace node
 
 #endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 

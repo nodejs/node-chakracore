@@ -29,7 +29,7 @@ const common = require('../common');
 const assert = require('assert');
 const { EOL } = require('os');
 const EventEmitter = require('events');
-const { errorCache } = require('internal/errors');
+const { errorCache } = require('internal/assert');
 const { writeFileSync, unlinkSync } = require('fs');
 const { inspect } = require('util');
 const a = assert;
@@ -763,7 +763,9 @@ if (!common.isChakraEngine) {
     const frames = err.stack.split('\n');
     const [, filename, line, column] = frames[1].match(/\((.+):(\d+):(\d+)\)/);
     // Reset the cache to check again
+    const size = errorCache.size;
     errorCache.delete(`${filename}${line - 1}${column - 1}`);
+    assert.strictEqual(errorCache.size, size - 1);
     const data = `${'\n'.repeat(line - 1)}${' '.repeat(column - 1)}` +
                  'ok(failed(badly));';
     try {
@@ -792,6 +794,21 @@ common.expectsError(
              'Function, or RegExp. Received type string'
   }
 );
+
+[
+  1,
+  false,
+  Symbol()
+].forEach((input) => {
+  assert.throws(
+    () => assert.throws(() => {}, input),
+    {
+      code: 'ERR_INVALID_ARG_TYPE',
+      message: 'The "error" argument must be one of type Object, Error, ' +
+               `Function, or RegExp. Received type ${typeof input}`
+    }
+  );
+});
 
 {
   const errFn = () => {
@@ -872,6 +889,7 @@ common.expectsError(
     {
       name: 'AssertionError [ERR_ASSERTION]',
       code: 'ERR_ASSERTION',
+      generatedMessage: true,
       message: `${start}\n${actExp}\n\n` +
                "  Comparison {\n    name: 'Error',\n-   message: 'foo'" +
                "\n+   message: ''\n  }"
@@ -890,6 +908,14 @@ common.expectsError(
     }
   );
 }
+
+assert.throws(
+  () => assert.throws(() => { throw new Error(); }, {}),
+  {
+    message: "The argument 'error' may not be an empty object. Received {}",
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+);
 
 assert.throws(
   () => a.throws(
@@ -934,6 +960,70 @@ assert.throws(
     {
       message: 'Input A expected to strictly equal input B:\n+ expected' +
                " - actual\n\n- [Arguments] {\n+ {\n    '0': 'a'\n  }"
+    }
+  );
+}
+
+assert.throws(
+  () => { throw new TypeError('foobar'); },
+  {
+    message: /foo/,
+    name: /^TypeError$/
+  }
+);
+
+assert.throws(
+  () => assert.throws(
+    () => { throw new TypeError('foobar'); },
+    {
+      message: /fooa/,
+      name: /^TypeError$/
+    }
+  ),
+  {
+    message: `${start}\n${actExp}\n\n` +
+             '  Comparison {\n' +
+             "-   message: 'foobar',\n" +
+             '+   message: /fooa/,\n' +
+             "    name: 'TypeError'\n" +
+             '  }'
+  }
+);
+
+{
+  let actual = null;
+  const expected = { message: 'foo' };
+  assert.throws(
+    () => assert.throws(
+      () => { throw actual; },
+      expected
+    ),
+    {
+      operator: 'throws',
+      actual,
+      expected,
+      generatedMessage: true,
+      message: `${start}\n${actExp}\n\n` +
+              '- null\n' +
+              '+ {\n' +
+              "+   message: 'foo'\n" +
+              '+ }'
+    }
+  );
+
+  actual = 'foobar';
+  const message = 'message';
+  assert.throws(
+    () => assert.throws(
+      () => { throw actual; },
+      { message: 'foobar' },
+      message
+    ),
+    {
+      actual,
+      message,
+      operator: 'throws',
+      generatedMessage: false
     }
   );
 }

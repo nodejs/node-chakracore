@@ -183,9 +183,6 @@ property take precedence over `--trace-deprecation` and
 <!-- YAML
 added: v0.5.3
 changes:
-  - version: REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/17907
-    description: The `%o` specifiers `depth` option is now set to `Infinity`.
   - version: v8.4.0
     pr-url: https://github.com/nodejs/node/pull/14558
     description: The `%o` and `%O` specifiers are supported now.
@@ -367,9 +364,6 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/19259
     description: The `WeakMap` and `WeakSet` entries can now be inspected
                  as well.
-  - version: REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/17907
-    description: The `depth` default changed to `Infinity`.
   - version: v9.9.0
     pr-url: https://github.com/nodejs/node/pull/17576
     description: The `compact` option is supported now.
@@ -393,6 +387,9 @@ changes:
   * `showHidden` {boolean} If `true`, the `object`'s non-enumerable symbols and
     properties will be included in the formatted result as well as [`WeakMap`][]
     and [`WeakSet`][] entries. **Default:** `false`.
+  * `depth` {number} Specifies the number of times to recurse while formatting
+    the `object`. This is useful for inspecting large complicated objects.
+    To make it recurse indefinitely pass `null`. **Default:** `2`.
   * `colors` {boolean} If `true`, the output will be styled with ANSI color
     codes. Colors are customizable, see [Customizing `util.inspect` colors][].
     **Default:** `false`.
@@ -419,10 +416,7 @@ changes:
     objects the same as arrays. Note that no text will be reduced below 16
     characters, no matter the `breakLength` size. For more information, see the
     example below. **Default:** `true`.
-  * `depth` {number} Specifies the number of visible nested `Object`s in an
-    `object`. This is useful to minimize the inspection output for large
-    complicated objects. To make it recurse indefinitely pass `null` or
-    `Infinity`. **Default:** `Infinity`.
+
 * Returns: {string} The representation of passed object
 
 The `util.inspect()` method returns a string representation of `object` that is
@@ -448,23 +442,12 @@ util.inspect(new Bar()); // 'Bar {}'
 util.inspect(baz);       // '[foo] {}'
 ```
 
-The following example limits the inspected output of the `paths` property:
+The following example inspects all properties of the `util` object:
 
 ```js
 const util = require('util');
 
-console.log(util.inspect(module, { depth: 0 }));
-// Instead of showing all entries in `paths` `[Array]` is used to limit the
-// output for readability:
-
-// Module {
-//   id: '<repl>',
-//   exports: {},
-//   parent: undefined,
-//   filename: null,
-//   loaded: false,
-//   children: [],
-//   paths: [Array] }
+console.log(util.inspect(util, { showHidden: true, depth: null }));
 ```
 
 Values may supply their own custom `inspect(depth, opts)` functions, when
@@ -484,7 +467,7 @@ const o = {
     'foo']], 4],
   b: new Map([['za', 1], ['zb', 'test']])
 };
-console.log(util.inspect(o, { compact: true, breakLength: 80 }));
+console.log(util.inspect(o, { compact: true, depth: 5, breakLength: 80 }));
 
 // This will print
 
@@ -498,7 +481,7 @@ console.log(util.inspect(o, { compact: true, breakLength: 80 }));
 //   b: Map { 'za' => 1, 'zb' => 'test' } }
 
 // Setting `compact` to false changes the output to be more reader friendly.
-console.log(util.inspect(o, { compact: false, breakLength: 80 }));
+console.log(util.inspect(o, { compact: false, depth: 5, breakLength: 80 }));
 
 // {
 //   a: [
@@ -1285,6 +1268,24 @@ util.types.isMapIterator(map.keys());  // Returns true
 util.types.isMapIterator(map.values());  // Returns true
 util.types.isMapIterator(map.entries());  // Returns true
 util.types.isMapIterator(map[Symbol.iterator]());  // Returns true
+```
+
+### util.types.isModuleNamespaceObject(value)
+<!-- YAML
+added: v10.0.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the value is an instance of a [Module Namespace Object][].
+
+For example:
+
+<!-- eslint-skip -->
+```js
+import * as ns from './a.js';
+
+util.types.isModuleNamespaceObject(ns);  // Returns true
 ```
 
 ### util.types.isNativeError(value)
@@ -2127,6 +2128,7 @@ Deprecated predecessor of `console.log`.
 [Custom promisified functions]: #util_custom_promisified_functions
 [Customizing `util.inspect` colors]: #util_customizing_util_inspect_colors
 [Internationalization]: intl.html
+[Module Namespace Object]: https://tc39.github.io/ecma262/#sec-module-namespace-exotic-objects
 [WHATWG Encoding Standard]: https://encoding.spec.whatwg.org/
 [Common System Errors]: errors.html#errors_common_system_errors
 [constructor]: https://developer.mozilla.org/en-US/JavaScript/Reference/Global_Objects/Object/constructor
