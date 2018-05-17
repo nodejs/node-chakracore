@@ -586,7 +586,7 @@ class PersistentBase {
                          typename WeakCallbackInfo<P>::Callback callback,
                          WeakCallbackType type);
 
-  template<typename P>
+  template <typename P>
   V8_INLINE P* ClearWeak();
 
   V8_INLINE void ClearWeak() { ClearWeak<void>(); }
@@ -598,9 +598,9 @@ class PersistentBase {
   V8_INLINE void SetWrapperClassId(uint16_t class_id);
 
  private:
-  template<class F> friend class Local;
-  template<class F> friend class Global;
-  template<class F1, class F2> friend class Persistent;
+  template <class F> friend class Local;
+  template <class F> friend class Global;
+  template <class F1, class F2> friend class Persistent;
   template <class F> friend class Global;
 
   explicit V8_INLINE PersistentBase(T* val)
@@ -617,27 +617,27 @@ class PersistentBase {
 };
 
 
-template<class T>
+template <class T>
 class NonCopyablePersistentTraits {
  public:
   typedef Persistent<T, NonCopyablePersistentTraits<T> > NonCopyablePersistent;
   static const bool kResetInDestructor = true;  // chakra: changed to true!
-  template<class S, class M>
+  template <class S, class M>
   V8_INLINE static void Copy(const Persistent<S, M>& source,
                              NonCopyablePersistent* dest) {
     Uncompilable<Object>();
   }
-  template<class O> V8_INLINE static void Uncompilable() {
+  template <class O> V8_INLINE static void Uncompilable() {
     TYPE_CHECK(O, Primitive);
   }
 };
 
 
-template<class T>
+template <class T>
 struct CopyablePersistentTraits {
   typedef Persistent<T, CopyablePersistentTraits<T> > CopyablePersistent;
   static const bool kResetInDestructor = true;
-  template<class S, class M>
+  template <class S, class M>
   static V8_INLINE void Copy(const Persistent<S, M>& source,
                              CopyablePersistent* dest) {
     // do nothing, just allow copy
@@ -715,7 +715,7 @@ class Persistent : public PersistentBase<T> {
   V8_INLINE T* operator*() const { return this->val_; }
   V8_INLINE T* operator->() const { return this->val_; }
 
-  template<class S, class M2>
+  template <class S, class M2>
   V8_INLINE void Copy(const Persistent<S, M2>& that);
 
   template <class S>
@@ -780,7 +780,7 @@ class Eternal : protected Persistent<T> {
  public:
   Eternal() {}
 
-  template<class S>
+  template <class S>
   Eternal(Isolate* isolate, Local<S> handle) {
     Set(isolate, handle);
   }
@@ -793,7 +793,7 @@ class Eternal : protected Persistent<T> {
     return Persistent<T>::IsEmpty();
   }
 
-  template<class S> void Set(Isolate* isolate, Local<S> handle) {
+  template <class S> void Set(Isolate* isolate, Local<S> handle) {
     this->Reset(isolate, handle);
   }
 };
@@ -1741,7 +1741,7 @@ class V8_EXPORT Set : public Object {
   Set();
 };
 
-template<typename T>
+template <typename T>
 class ReturnValue {
  public:
   // Handle setters
@@ -1775,7 +1775,7 @@ class ReturnValue {
   template <typename F> friend class PropertyCallbackInfo;
 };
 
-template<typename T>
+template <typename T>
 class FunctionCallbackInfo {
  public:
   int Length() const { return _length; }
@@ -1825,7 +1825,7 @@ class FunctionCallbackInfo {
 };
 
 
-template<typename T>
+template <typename T>
 class PropertyCallbackInfo {
  public:
   V8_INLINE Isolate* GetIsolate() const;
@@ -3274,38 +3274,38 @@ inline Local<Context> HandleScope::Close(Handle<Context> value) {
   return Local<Context>(*value);
 }
 
-template<typename T>
+template <typename T>
 void ReturnValue<T>::SetNull() {
   Set(Null(nullptr));
 }
 
-template<typename T>
+template <typename T>
 void ReturnValue<T>::SetUndefined() {
   Set(Undefined(nullptr));
 }
 
-template<typename T>
+template <typename T>
 void ReturnValue<T>::SetEmptyString() {
   Set(String::Empty(nullptr));
 }
 
-template<typename T>
+template <typename T>
 Isolate* ReturnValue<T>::GetIsolate() {
   return Isolate::GetCurrent();
 }
 
-template<typename T>
+template <typename T>
 Local<Value> FunctionCallbackInfo<T>::operator[](int i) const {
   return (i >= 0 && i < _length) ?
     _args[i] : Undefined(nullptr).As<Value>();
 }
 
-template<typename T>
+template <typename T>
 Isolate* FunctionCallbackInfo<T>::GetIsolate() const {
   return Isolate::GetCurrent();
 }
 
-template<typename T>
+template <typename T>
 Isolate* PropertyCallbackInfo<T>::GetIsolate() const {
   return Isolate::GetCurrent();
 }

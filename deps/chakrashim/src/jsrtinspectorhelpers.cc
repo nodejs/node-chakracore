@@ -30,7 +30,7 @@ namespace jsrt {
 
   typedef JsErrorCode(*ConvertFunc)(JsValueRef, JsValueRef*);
 
-  template<class ValueConvertFunc>
+  template <class ValueConvertFunc>
   static JsErrorCode CopyPropertyImpl(
       JsValueRef sourceObj,
       JsPropertyIdRef sourceIdRef,
