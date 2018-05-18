@@ -409,9 +409,6 @@
     };
   }
 
-  // Simulate v8 micro tasks queue
-  const microTasks = [];
-
   function patchUtils(utils) {
     const isUintRegex = /^(0|[1-9]\d*)$/;
 
@@ -628,14 +625,6 @@
     };
 
     utils.ensureDebug = ensureDebug;
-
-    utils.enqueueMicrotask = function(task) {
-      microTasks.push(task);
-    };
-
-    utils.dequeueMicrotask = function(task) {
-      return microTasks.shift();
-    };
 
     utils.getPropertyAttributes = function(object, value) {
       const descriptor = Object_getOwnPropertyDescriptor(object, value);

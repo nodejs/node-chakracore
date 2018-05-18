@@ -185,6 +185,10 @@ test-v8-stats : SKIP
 # This test uses the V8 untrusted code mitigation and accompanying V8 option
 test-v8-untrusted-code-mitigations : SKIP
 
+# This test should be enabled once chakracore fixes
+# https://github.com/Microsoft/ChakraCore/issues/5196
+test-repl-top-level-await : SKIP
+
 # This test seems to fail under system stress, marking it flaky for now
 # https://github.com/nodejs/node-chakracore/issues/494
 test-async-hooks-destroy-on-gc : PASS,FLAKY

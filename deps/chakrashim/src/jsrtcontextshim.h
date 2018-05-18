@@ -97,7 +97,6 @@ class ContextShim {
 
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
-  void RunMicrotasks();
 
   static ContextShim * GetCurrent();
 
@@ -162,8 +161,6 @@ class ContextShim {
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getSymbolFor);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(ensureDebug);
-  DECLARE_CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
-  DECLARE_CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
   DECLARE_CHAKRASHIM_FUNCTION_GETTER(jsonParse);
