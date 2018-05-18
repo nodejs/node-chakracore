@@ -1390,8 +1390,9 @@ if (!common.isChakraEngine) {
   // It is not possible to determine the output reliable.
   expect = 'WeakMap { [ [length]: 0 ] => {}, ... more items, extra: true }';
   const expectAlt = 'WeakMap { {} => [ [length]: 0 ], ... more items, ' +
-                  'extra: true }';
-  assert(out === expect || out === expectAlt);
+                    'extra: true }';
+  assert(out === expect || out === expectAlt,
+         `Found "${out}" rather than "${expect}" or "${expectAlt}"`);
 }
 
 // Test WeakSet
@@ -1414,8 +1415,9 @@ if (!common.isChakraEngine) {
   // It is not possible to determine the output reliable.
   expect = 'WeakSet { {}, ... more items, extra: true }';
   const expectAlt = 'WeakSet { [ 1, [length]: 1 ], ... more items, ' +
-                  'extra: true }';
-  assert(out === expect || out === expectAlt);
+                    'extra: true }';
+  assert(out === expect || out === expectAlt,
+         `Found "${out}" rather than "${expect}" or "${expectAlt}"`);
 }
 
 { // Test argument objects.

@@ -196,7 +196,11 @@ TEMPLATE = """
 
 namespace node {{
 
+namespace {{
+
 {definitions}
+
+}}  // anonymous namespace
 
 v8::Local<v8::String> LoadersBootstrapperSource(Environment* env) {{
   return internal_bootstrap_loaders_value.ToStringChecked(env->isolate());

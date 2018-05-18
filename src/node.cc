@@ -1427,8 +1427,10 @@ static void ReportException(Environment* env,
                             Local<Value> er,
                             Local<Message> message) {
   CHECK(!er.IsEmpty());
-  CHECK(!message.IsEmpty());
   HandleScope scope(env->isolate());
+
+  if (message.IsEmpty())
+    message = Exception::CreateMessage(env->isolate(), er);
 
   AppendExceptionLine(env, er, message, FATAL_ERROR);
 
@@ -4569,15 +4571,35 @@ int EmitExit(Environment* env) {
 }
 
 
+ArrayBufferAllocator* CreateArrayBufferAllocator() {
+  return new ArrayBufferAllocator();
+}
+
+
+void FreeArrayBufferAllocator(ArrayBufferAllocator* allocator) {
+  delete allocator;
+}
+
+
 IsolateData* CreateIsolateData(Isolate* isolate, uv_loop_t* loop) {
   return new IsolateData(isolate, loop, nullptr);
 }
+
 
 IsolateData* CreateIsolateData(
     Isolate* isolate,
     uv_loop_t* loop,
     MultiIsolatePlatform* platform) {
   return new IsolateData(isolate, loop, platform);
+}
+
+
+IsolateData* CreateIsolateData(
+    Isolate* isolate,
+    uv_loop_t* loop,
+    MultiIsolatePlatform* platform,
+    ArrayBufferAllocator* allocator) {
+  return new IsolateData(isolate, loop, platform, allocator->zero_fill_field());
 }
 
 
@@ -4627,12 +4649,13 @@ void FreePlatform(MultiIsolatePlatform* platform) {
 
 #ifdef NODE_ENGINE_CHAKRACORE
 struct ChakraShimIsolateContext {
-  ChakraShimIsolateContext(uv_loop_t* event_loop, uint32_t* zero_fill_field)
+  ChakraShimIsolateContext(uv_loop_t* event_loop,
+                           ArrayBufferAllocator* allocator)
       : event_loop(event_loop),
-        zero_fill_field(zero_fill_field) {}
+        allocator(allocator) {}
 
   uv_loop_t* event_loop;
-  uint32_t*  zero_fill_field;
+  ArrayBufferAllocator* allocator;
 };
 #endif
 
@@ -4668,7 +4691,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   HandleScope handle_scope(isolate);
 
 #if ENABLE_TTD_NODE
-  Local<Context> context = NewContext(isolate, s_doTTRecord);
+  Local<Context> context = NewContext(isolate, s_doTTRecord || s_doTTReplay);
 #else
   Local<Context> context = NewContext(isolate);
 #endif
@@ -4679,11 +4702,14 @@ inline int Start(Isolate* isolate, void* isolate_context,
   ChakraShimIsolateContext* chakra_isolate_context =
     reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
 
-  IsolateData data(isolate,
-    chakra_isolate_context->event_loop,
-    v8_platform.Platform(),
-    chakra_isolate_context->zero_fill_field);
-  IsolateData* isolate_data = &data;
+  std::unique_ptr<IsolateData, decltype(&FreeIsolateData)> data(
+      CreateIsolateData(
+          isolate,
+          chakra_isolate_context->event_loop,
+          v8_platform.Platform(),
+          chakra_isolate_context->allocator),
+      &FreeIsolateData);
+  IsolateData* isolate_data = data.get();
 #else
   IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
 #endif
@@ -4712,15 +4738,39 @@ inline int Start(Isolate* isolate, void* isolate_context,
 
 #if ENABLE_TTD_NODE
   // Start time travel after environment is loaded
-  if (s_doTTRecord) {
-    fprintf(stderr, "Recording started (after main module loaded)...\n");
+  if (s_doTTRecord || s_doTTReplay) {
+    if (s_doTTRecord) {
+      fprintf(stderr, "Recording started (after main module loaded)...\n");
+    }
+
     JsTTDStart();
   }
 #endif
 
   env.set_trace_sync_io(trace_sync_io);
 
+#if ENABLE_TTD_NODE
+  if (s_doTTReplay) {
+    int64_t nextEventTime = -2;
+    bool continueReplayActions = true;
+
+    while (continueReplayActions) {
+      continueReplayActions = v8::Isolate::RunSingleStepOfReverseMoveLoop(
+          isolate,
+          &s_ttdStartupMode,
+          &nextEventTime);
+
+      // don't continue replay actions if we are not in debug mode
+      continueReplayActions &= s_doTTEnableDebug;
+    }
+
+    // We are done just dump the process.
+    // In the future we might want to clean up more.
+    exit(0);
+  } else {
+#else
   {
+#endif
     SealHandleScope seal(isolate);
     bool more;
     env.performance_state()->Mark(
@@ -4774,12 +4824,9 @@ bool AllowWasmCodeGenerationCallback(
   return wasm_code_gen->IsUndefined() || wasm_code_gen->IsTrue();
 }
 
-inline int Start(uv_loop_t* event_loop,
-                 int argc, const char* const* argv,
-                 int exec_argc, const char* const* exec_argv) {
+Isolate* NewIsolate(ArrayBufferAllocator* allocator) {
   Isolate::CreateParams params;
-  ArrayBufferAllocator allocator;
-  params.array_buffer_allocator = &allocator;
+  params.array_buffer_allocator = allocator;
 #ifdef NODE_ENABLE_VTUNE_PROFILING
   params.code_event_handler = vTune::GetVtuneCodeEventHandler();
 #endif
@@ -4790,17 +4837,19 @@ inline int Start(uv_loop_t* event_loop,
   }
 
   Isolate* const isolate = Isolate::NewWithTTDSupport(params,
-                                                      0, nullptr,
+                                                      s_ttoptReplayUriLength,
+                                                      s_ttoptReplayUri,
                                                       s_doTTRecord,
-                                                      false, s_doTTEnableDebug,
+                                                      s_doTTReplay,
+                                                      s_doTTEnableDebug,
                                                       s_ttdSnapInterval,
                                                       s_ttdSnapHistoryLength);
 #else
-  Isolate* const isolate = Isolate::New(params);
+  Isolate* isolate = Isolate::New(params);
 #endif
 
   if (isolate == nullptr)
-    return 12;  // Signal internal error.
+    return nullptr;
 
   isolate->AddMessageListener(OnMessage);
   isolate->SetAbortOnUncaughtExceptionCallback(ShouldAbortOnUncaughtException);
@@ -4808,6 +4857,18 @@ inline int Start(uv_loop_t* event_loop,
   isolate->SetFatalErrorHandler(OnFatalError);
   isolate->SetAllowWasmCodeGenerationCallback(AllowWasmCodeGenerationCallback);
 
+  return isolate;
+}
+
+inline int Start(uv_loop_t* event_loop,
+                 int argc, const char* const* argv,
+                 int exec_argc, const char* const* exec_argv) {
+  std::unique_ptr<ArrayBufferAllocator, decltype(&FreeArrayBufferAllocator)>
+      allocator(CreateArrayBufferAllocator(), &FreeArrayBufferAllocator);
+  Isolate* const isolate = NewIsolate(allocator.get());
+  if (isolate == nullptr)
+    return 12;  // Signal internal error.
+
   {
     Mutex::ScopedLock scoped_lock(node_isolate_mutex);
     CHECK_EQ(node_isolate, nullptr);
@@ -4830,23 +4891,25 @@ inline int Start(uv_loop_t* event_loop,
     void* isolate_data_ptr = nullptr;
 
 #ifndef NODE_ENGINE_CHAKRACORE
-    IsolateData isolate_data(
-        isolate,
-        event_loop,
-        v8_platform.Platform(),
-        allocator.zero_fill_field());
-    isolate_data_ptr = &isolate_data;
+    std::unique_ptr<IsolateData, decltype(&FreeIsolateData)> isolate_data(
+        CreateIsolateData(
+            isolate,
+            event_loop,
+            v8_platform.Platform(),
+            allocator.get()),
+        &FreeIsolateData);
+    isolate_data_ptr = isolate_data.get();
 #else
     ChakraShimIsolateContext chakra_isolate_ctx(event_loop,
-                                                allocator.zero_fill_field());
+                                                allocator.get());
     isolate_data_ptr = &chakra_isolate_ctx;
 #endif
 
     if (track_heap_objects) {
       isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
     }
-    exit_code = Start(isolate, isolate_data_ptr, argc, argv, exec_argc,
-                      exec_argv);
+    exit_code =
+        Start(isolate, isolate_data_ptr, argc, argv, exec_argc, exec_argv);
   }
 
   {
@@ -4859,140 +4922,6 @@ inline int Start(uv_loop_t* event_loop,
 
   return exit_code;
 }
-
-#if ENABLE_TTD_NODE
-inline int Start_TTDReplay(Isolate* isolate, void* isolate_context,
-                           int argc, const char* const* argv,
-                           int exec_argc, const char* const* exec_argv) {
-  HandleScope handle_scope(isolate);
-
-  Local<Context> context = Context::New(isolate, true);
-
-  Context::Scope context_scope(context);
-
-#ifdef NODE_ENGINE_CHAKRACORE
-  ChakraShimIsolateContext* chakra_isolate_context =
-      reinterpret_cast<ChakraShimIsolateContext*>(isolate_context);
-
-  IsolateData data(isolate, chakra_isolate_context->event_loop,
-                   v8_platform.Platform(),
-                   chakra_isolate_context->zero_fill_field);
-  IsolateData* isolate_data = &data;
-#else
-  IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
-#endif
-
-  Environment env(isolate_data, context, v8_platform.GetTracingAgent());
-  env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
-
-  StartInspector(&env, nullptr, debug_options);
-
-  if (debug_options.inspector_enabled() && !v8_platform.InspectorStarted(&env))
-    return 12;  // Signal internal error.
-
-  {
-    Environment::AsyncCallbackScope callback_scope(&env);
-    LoadEnvironment(&env);
-  }
-
-  env.set_trace_sync_io(trace_sync_io);
-
-  //// TTD Specific code
-  JsTTDStart();
-
-  int64_t nextEventTime = -2;
-  bool continueReplayActions = true;
-
-  while (continueReplayActions) {
-    continueReplayActions = v8::Isolate::RunSingleStepOfReverseMoveLoop(
-        isolate,
-        &s_ttdStartupMode,
-        &nextEventTime);
-
-    // don't continue replay actions if we are not in debug mode
-    continueReplayActions &= s_doTTEnableDebug;
-  }
-
-  // We are done just dump the process.
-  // In the future we might want to clean up more.
-  exit(0);
-}
-
-inline int Start_TTDReplay(uv_loop_t* event_loop,
-                           int argc, const char* const* argv,
-                           int exec_argc, const char* const* exec_argv) {
-  Isolate::CreateParams params;
-  ArrayBufferAllocator allocator;
-  params.array_buffer_allocator = &allocator;
-#ifdef NODE_ENABLE_VTUNE_PROFILING
-  params.code_event_handler = vTune::GetVtuneCodeEventHandler();
-#endif
-
-  fprintf(stderr, "Starting replay/debug using log in %s\n", s_ttoptReplayUri);
-  Isolate* const isolate = Isolate::NewWithTTDSupport(params,
-                                                      s_ttoptReplayUriLength,
-                                                      s_ttoptReplayUri,
-                                                      false, true,
-                                                      s_doTTEnableDebug,
-                                                      UINT32_MAX, UINT32_MAX);
-
-  if (isolate == nullptr)
-    return 12;  // Signal internal error.
-
-  isolate->AddMessageListener(OnMessage);
-  isolate->SetAbortOnUncaughtExceptionCallback(ShouldAbortOnUncaughtException);
-  isolate->SetAutorunMicrotasks(false);
-  isolate->SetFatalErrorHandler(OnFatalError);
-
-  if (track_heap_objects) {
-    isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
-  }
-
-  {
-    Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-    CHECK_EQ(node_isolate, nullptr);
-    node_isolate = isolate;
-  }
-
-  int exit_code;
-  {
-    Locker locker(isolate);
-    Isolate::Scope isolate_scope(isolate);
-    HandleScope handle_scope(isolate);
-
-    // Node-ChakraCore requires the context to be created before the
-    // IsolateData is created
-    // So for the Node-ChakraCore case, we just populate a context
-    // that we use later, to create the IsolateData after the v8 Context
-    // has been created.
-    // Node-ChakraCore-TODO: Fix this. Also, why does the isolate data
-    // need to be populated before the context is created?
-    void* isolate_data_ptr = nullptr;
-
-#ifndef NODE_ENGINE_CHAKRACORE
-    IsolateData isolate_data(isolate, event_loop, allocator.zero_fill_field());
-    isolate_data_ptr = &isolate_data;
-#else
-    ChakraShimIsolateContext chakra_isolate_ctx(event_loop,
-      allocator.zero_fill_field());
-    isolate_data_ptr = &chakra_isolate_ctx;
-#endif
-
-    exit_code = Start_TTDReplay(isolate, isolate_data_ptr, argc, argv,
-                                exec_argc, exec_argv);
-  }
-
-  {
-    Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-    CHECK_EQ(node_isolate, isolate);
-    node_isolate = nullptr;
-  }
-
-  isolate->Dispose();
-
-  return exit_code;
-}
-#endif
 
 int Start(int argc, char** argv) {
   atexit([] () { uv_tty_reset_mode(); });
@@ -5090,19 +5019,8 @@ int Start(int argc, char** argv) {
   }
 #endif
 
-#if ENABLE_TTD_NODE
-  int exit_code;
-  if (s_doTTReplay) {
-    exit_code =
-        Start_TTDReplay(uv_default_loop(), argc, argv, exec_argc, exec_argv);
-  } else {
-    exit_code =
-        Start(uv_default_loop(), argc, argv, exec_argc, exec_argv);
-  }
-#else
   const int exit_code =
       Start(uv_default_loop(), argc, argv, exec_argc, exec_argv);
-#endif
 
   v8_platform.StopTracingAgent();
   v8_initialized = false;
