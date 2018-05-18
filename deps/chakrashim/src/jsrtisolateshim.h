@@ -122,6 +122,9 @@ class IsolateShim {
     }
   }
 
+  void RunMicrotasks();
+  void QueueMicrotask(JsValueRef task);
+
   JsValueRef GetChakraShimJsArrayBuffer();
   JsValueRef GetChakraInspectorShimJsArrayBuffer();
 
@@ -164,6 +167,27 @@ class IsolateShim {
   void SetPromiseRejectCallback(v8::PromiseRejectCallback callback);
 
  private:
+  struct MicroTask {
+    explicit MicroTask(JsValueRef task) : task(task) {
+      JsAddRef(this->task, nullptr);
+    }
+
+    ~MicroTask() {
+      if (this->task) {
+        JsRelease(this->task, nullptr);
+      }
+    }
+
+    MicroTask(MicroTask&& other)
+      : task(other.task)  {
+        other.task = nullptr;
+    }
+
+    MicroTask(const MicroTask&) = delete;
+
+    JsValueRef task;
+  };
+
   // Construction/Destruction should go thru New/Dispose
   explicit IsolateShim(JsRuntimeHandle runtime);
   ~IsolateShim();
@@ -200,6 +224,7 @@ class IsolateShim {
   uv_timer_t idleGc_timer_handle_;
   bool jsScriptExecuted = false;
   bool isIdleGcScheduled = false;
+  std::vector<MicroTask> microtaskQueue;
 };
 }  // namespace jsrt
 

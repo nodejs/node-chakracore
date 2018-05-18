@@ -95,8 +95,6 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getSymbolKeyForFunction(JS_INVALID_REFERENCE),
       getSymbolForFunction(JS_INVALID_REFERENCE),
       ensureDebugFunction(JS_INVALID_REFERENCE),
-      enqueueMicrotaskFunction(JS_INVALID_REFERENCE),
-      dequeueMicrotaskFunction(JS_INVALID_REFERENCE),
       getPropertyAttributesFunction(JS_INVALID_REFERENCE),
       getOwnPropertyNamesFunction(JS_INVALID_REFERENCE),
       jsonParseFunction(JS_INVALID_REFERENCE),
@@ -484,23 +482,6 @@ void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
   }
 }
 
-void ContextShim::RunMicrotasks() {
-  JsValueRef dequeueMicrotaskFunction = GetdequeueMicrotaskFunction();
-
-  for (;;) {
-    JsValueRef task;
-    if (jsrt::CallFunction(dequeueMicrotaskFunction, &task) != JsNoError ||
-      reinterpret_cast<v8::Value*>(task)->IsUndefined()) {
-      break;
-    }
-
-    JsValueRef notUsed;
-    if (jsrt::CallFunction(task, &notUsed) != JsNoError) {
-      JsGetAndClearException(&notUsed);  // swallow any exception from task
-    }
-  }
-}
-
 // check initialization state first instead of calling
 // InitializeCurrentContextShim to save a function call for cases where
 // contextshim is already initialized
@@ -615,8 +596,6 @@ CHAKRASHIM_FUNCTION_GETTER(getStackTrace)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolFor)
 CHAKRASHIM_FUNCTION_GETTER(ensureDebug)
-CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
-CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
 CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
 CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
 CHAKRASHIM_FUNCTION_GETTER(jsonParse);

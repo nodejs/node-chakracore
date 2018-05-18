@@ -229,7 +229,8 @@ IsolateShim::IsolateShim(JsRuntimeHandle runtime)
       isDisposing(false),
       contextScopeStack(nullptr),
       tryCatchStackTop(nullptr),
-      embeddedData() {
+      embeddedData(),
+      microtaskQueue() {
   // CHAKRA-TODO: multithread locking for s_isolateList?
   this->prevnext = &s_isolateList;
   this->next = s_isolateList;
@@ -662,6 +663,26 @@ void CHAKRA_CALLBACK IsolateShim::PromiseRejectionCallback(
 void IsolateShim::SetPromiseRejectCallback(v8::PromiseRejectCallback callback) {
   JsSetHostPromiseRejectionTracker(IsolateShim::PromiseRejectionCallback,
                                    reinterpret_cast<void*>(callback));
+}
+
+void IsolateShim::RunMicrotasks() {
+  // Loop until we've handled all the tasks, including the ones
+  // added by these tasks
+  while (!this->microtaskQueue.empty()) {
+    std::vector<MicroTask> batch;
+    std::swap(batch, this->microtaskQueue);
+
+    for (const MicroTask& mt : batch) {
+      JsValueRef notUsed = JS_INVALID_REFERENCE;
+      if (jsrt::CallFunction(mt.task, &notUsed) != JsNoError) {
+        JsGetAndClearException(&notUsed);  // swallow any exception from task
+      }
+    }
+  }
+}
+
+void IsolateShim::QueueMicrotask(JsValueRef task) {
+  this->microtaskQueue.emplace_back(task);
 }
 
 /*static*/
