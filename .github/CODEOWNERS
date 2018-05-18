@@ -16,7 +16,7 @@
 *http* @nodejs/http
 *http2* @nodejs/http2
 *https* @nodejs/http @nodejs/crypto @nodejs/tls @nodejs/http2
-*inspector* @nodejs/V8-inspector
+*inspector* @nodejs/v8-inspector
 *net* @nodejs/streams
 *node_api* @nodejs/n-api
 *repl* @nodejs/repl
@@ -56,6 +56,7 @@
 *.md @nodejs/documentation
 *.py @nodejs/python
 *.gyp @nodejs/gyp
+*.gypi @nodejs/gyp
 
 Makefile @nodejs/build
 vcbuild.bat @nodejs/build
@@ -73,6 +74,10 @@ android-configure @nodejs/build
 *s390* @nodejs/platform-s390
 *windows* @nodejs/platform-windows
 
+/src/node_postmortem_metadata.cc @nodejs/diagnostics @nodejs/post-mortem
+/src/*.d @nodejs/diagnostics @nodejs/platform-smartos @nodejs/platform-freebsd @nodejs/platform-macos @nodejs/dtrace-mdb
+/src/node.stp @nodejs/diagnostics
+
 CODE_OF_CONDUCT.md @nodejs/tsc
 COLLABORATOR_GUIDE.md @nodejs/tsc
 CONTRIBUTING.md @nodejs/tsc
@@ -80,7 +85,3 @@ CPP_STYLE_GUIDE.md @nodejs/tsc
 GOVERNANCE.md @nodejs/tsc
 LICENSE @nodejs/tsc
 README.md @nodejs/tsc
-
-/src/node_postmortem_metadata.cc @nodejs/diagnostics @nodejs/post-mortem
-/src/*.d @nodejs/diagnostics @nodejs/platform-smartos @nodejs/platform-freebsd @nodejs/platform-macos @nodejs/dtrace-mdb
-/src/node.stp @nodejs/diagnostics
