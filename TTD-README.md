@@ -63,10 +63,9 @@ to understand the problem.
 
 TTD functionality is available in Node-ChakraCore and is supported by
 [VSCode](https://code.visualstudio.com/). You can use VSCode to debug diagnostic
-traces even if you don't have the project sources available. This is done by:
-- Creating an empty `dummy.js` file in the trace directory.
-- Adding the following configuration into your `.vscode\launch.json`
-  configuration file.
+traces even if you don't have the project sources available. This is done by
+adding the following configuration into your `.vscode\launch.json`configuration
+file.
 
 ```json
 {
@@ -74,16 +73,15 @@ traces even if you don't have the project sources available. This is done by:
     "type": "node",
     "request": "launch",
     "stopOnEntry": true,
-    "program": "${workspaceRoot}/dummy.js",
     "windows": { "runtimeExecutable": "nvs.cmd" },
     "osx": { "runtimeExecutable": "nvs" },
     "linux": { "runtimeExecutable": "nvs" },
     "runtimeArgs": [
         "run",
-        "chakracore-nightly",
+        "chakracore",
         "--nolazy",
         "--break-first",
-        "--replay-debug=./"
+        "--replay-debug=[path to trace directory]"
     ],
     "console": "internalConsole"
 }
