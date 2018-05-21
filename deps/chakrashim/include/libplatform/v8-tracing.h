@@ -98,6 +98,8 @@ class TraceWriter {
   virtual void Flush() = 0;
 
   static TraceWriter* CreateJSONTraceWriter(std::ostream& stream);
+  static TraceWriter* CreateJSONTraceWriter(std::ostream& stream,
+                                            const std::string& tag);
 
  private:
   // Disallow copy and assign
