@@ -126,6 +126,7 @@ bool s_doTTRecord = false;
 bool s_doTTReplay = false;
 bool s_doTTEnableDebug = false;
 size_t s_ttoptReplayUriLength = 0;
+bool s_ttAutoTraceEnabled = true;
 const char* s_ttoptReplayUri = nullptr;
 uint32_t s_ttdSnapInterval = 2000;
 uint32_t s_ttdSnapHistoryLength = 2;
@@ -3616,6 +3617,8 @@ static void PrintHelp() {
          "  --replay-debug=dir         replay and debug using recording log\n"
          "  --break-first              break at first statement when running\n"
          "                             in --replay-debug mode\n"
+         "  --disableAutoTrace       disable the auto-trace feature during\n"
+         "                           record\n"
  #endif
          "  --track-heap-objects       track heap object allocations for heap "
          "snapshots\n"
@@ -3947,6 +3950,8 @@ static void ParseArgs(int* argc,
     } else if (strstr(arg, "--record-history=") == arg) {
       const char* historyStr = arg + strlen("--record-history=");
       s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
+    } else if (strcmp(arg, "--disableAutoTrace") == 0) {
+      s_ttAutoTraceEnabled = false;
     } else if (strstr(arg, "-TTRecord:") == arg) {
       TTDFlagWarning(arg, "--record");
     } else if (strstr(arg, "-TTReplay:") == arg) {
@@ -4744,6 +4749,10 @@ inline int Start(Isolate* isolate, void* isolate_context,
     }
 
     JsTTDStart();
+
+    if (!s_ttAutoTraceEnabled) {
+      JsTTDDiagSetAutoTraceStatus(s_ttAutoTraceEnabled);
+    }
   }
 #endif
 
