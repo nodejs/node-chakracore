@@ -9,6 +9,7 @@
 #include <cctype>
 
 #include <memory>
+#include <vector>
 
 #include "v8.h"  // NOLINT(build/include)
 

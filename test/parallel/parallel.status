@@ -52,6 +52,9 @@ test-http-pipeline-flood : SKIP
 test-http-same-map : SKIP
 test-http2-server-rst-stream : SKIP
 test-inspect-async-hook-setup-at-inspect : SKIP
+test-inspector-multisession-js : SKIP
+test-inspector-multisession-ws : SKIP
+test-inspector-tracing-domain : SKIP
 test-intl : SKIP
 test-memory-usage : SKIP
 test-module-main-extension-lookup : SKIP
@@ -68,8 +71,6 @@ test-repl-pretty-stack : SKIP
 test-repl-sigint : SKIP
 test-repl-tab-complete : SKIP
 test-string-decoder : SKIP
-test-inspector-multisession-ws : SKIP
-test-inspector-multisession-js : SKIP
 
 # ChakraCore does not support the chrome tracing framework
 test-trace-events-all : SKIP
