@@ -3617,8 +3617,8 @@ static void PrintHelp() {
          "  --replay-debug=dir         replay and debug using recording log\n"
          "  --break-first              break at first statement when running\n"
          "                             in --replay-debug mode\n"
-         "  --disableAutoTrace       disable the auto-trace feature during\n"
-         "                           record\n"
+         "  --disable-auto-trace       disable the auto-trace feature during\n"
+         "                             record\n"
  #endif
          "  --track-heap-objects       track heap object allocations for heap "
          "snapshots\n"
@@ -3950,7 +3950,7 @@ static void ParseArgs(int* argc,
     } else if (strstr(arg, "--record-history=") == arg) {
       const char* historyStr = arg + strlen("--record-history=");
       s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
-    } else if (strcmp(arg, "--disableAutoTrace") == 0) {
+    } else if (strcmp(arg, "--disable-auto-trace") == 0) {
       s_ttAutoTraceEnabled = false;
     } else if (strstr(arg, "-TTRecord:") == arg) {
       TTDFlagWarning(arg, "--record");
