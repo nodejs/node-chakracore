@@ -245,7 +245,7 @@ function makeIterableFunc(array) {
   const toStringError = /^Error: toString$/;
   const symbolError = /^TypeError: Cannot convert a Symbol value to a string$/;
   const chakracoreSymbolErrorRegex =
-         /^TypeError: Object doesn't support property or method 'ToString'/;
+         /^TypeError: No implicit conversion of Symbol to String/;
   assert.throws(() => new URLSearchParams({ a: obj }), toStringError);
   assert.throws(() => new URLSearchParams([['a', obj]]), toStringError);
   assert.throws(() => new URLSearchParams(sym),
