@@ -81,6 +81,7 @@ test-trace-events-bootstrap : SKIP
 test-trace-events-category-used : SKIP
 test-trace-events-file-pattern : SKIP
 test-trace-events-fs-sync : SKIP
+test-trace-events-metadata : SKIP
 test-trace-events-none : SKIP
 test-trace-events-perf : SKIP
 test-trace-events-process-exit : SKIP
@@ -153,6 +154,7 @@ test-stream-buffer-list : SKIP
 # These tests requires esmodule support, which is pending in node-chakracore https://github.com/nodejs/node-chakracore/issues/391
 test-inspector-esm : SKIP
 test-internal-module-wrap : SKIP
+test-util-inspect-namespace : SKIP
 test-vm-module-basic : SKIP
 test-vm-module-dynamic-import : SKIP
 test-vm-module-errors : SKIP

@@ -802,6 +802,10 @@ Isolate* Object::GetIsolate() {
       GetIsolateShim()->GetCurrentAsIsolate();
 }
 
+MaybeLocal<Array> Object::PreviewEntries(bool* is_key_value) {
+  return Array::New();
+}
+
 Local<Object> Object::New(Isolate* isolate) {
   JsValueRef newObjectRef;
   if (JsCreateObject(&newObjectRef) != JsNoError) {

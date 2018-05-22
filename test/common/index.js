@@ -643,19 +643,6 @@ exports.engineSpecificMessage = function(messageObject) {
   return undefined;
 };
 
-exports.requireInternalV8 = function() {
-  if (exports.isChakraEngine) {
-    return {
-      previewMapIterator: function() { return []; },
-      previewSetIterator: function() { return []; },
-      previewWeakMap: function() { return []; },
-      previewWeakSet: function() { return []; }
-    };
-  } else {
-    return require('internal/v8');
-  }
-};
-
 exports.busyLoop = function busyLoop(time) {
   const startTime = Timer.now();
   const stopTime = startTime + time;
