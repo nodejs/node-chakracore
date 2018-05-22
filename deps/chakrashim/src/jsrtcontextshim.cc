@@ -95,12 +95,13 @@ ContextShim::ContextShim(IsolateShim * isolateShim,
       getSymbolKeyForFunction(JS_INVALID_REFERENCE),
       getSymbolForFunction(JS_INVALID_REFERENCE),
       ensureDebugFunction(JS_INVALID_REFERENCE),
-      enqueueMicrotaskFunction(JS_INVALID_REFERENCE),
-      dequeueMicrotaskFunction(JS_INVALID_REFERENCE),
       getPropertyAttributesFunction(JS_INVALID_REFERENCE),
       getOwnPropertyNamesFunction(JS_INVALID_REFERENCE),
       jsonParseFunction(JS_INVALID_REFERENCE),
-      jsonStringifyFunction(JS_INVALID_REFERENCE) {
+      jsonStringifyFunction(JS_INVALID_REFERENCE),
+      beforeContextFunction(JS_INVALID_REFERENCE),
+      afterContextFunction(JS_INVALID_REFERENCE),
+      cachedDescriptors(JS_INVALID_REFERENCE) {
   memset(globalConstructor, 0, sizeof(globalConstructor));
   memset(globalPrototypeFunction, 0, sizeof(globalPrototypeFunction));
 }
@@ -484,21 +485,31 @@ void ContextShim::SetAlignedPointerInEmbedderData(int index, void * value) {
   }
 }
 
-void ContextShim::RunMicrotasks() {
-  JsValueRef dequeueMicrotaskFunction = GetdequeueMicrotaskFunction();
-
-  for (;;) {
-    JsValueRef task;
-    if (jsrt::CallFunction(dequeueMicrotaskFunction, &task) != JsNoError ||
-      reinterpret_cast<v8::Value*>(task)->IsUndefined()) {
-      break;
-    }
-
-    JsValueRef notUsed;
-    if (jsrt::CallFunction(task, &notUsed) != JsNoError) {
-      JsGetAndClearException(&notUsed);  // swallow any exception from task
-    }
+void ContextShim::CacheGlobalProperties() {
+  JsValueRef beforeContext = this->GetbeforeContextFunction();
+  JsValueRef result = JS_INVALID_REFERENCE;
+  if (jsrt::CallFunction(beforeContext, globalObject, &result) != JsNoError) {
+    return;
   }
+  this->cachedDescriptors = result;
+  JsAddRef(this->cachedDescriptors, nullptr);
+}
+
+void ContextShim::ResolveGlobalChanges(JsValueRef sandbox) {
+  JsValueRef beforeDescriptors = this->cachedDescriptors;
+  this->cachedDescriptors = JS_INVALID_REFERENCE;
+  if (beforeDescriptors == JS_INVALID_REFERENCE) {
+    return;
+  }
+  JsRelease(beforeDescriptors, nullptr);
+  JsValueRef afterContext = this->GetafterContextFunction();
+  JsValueRef result = JS_INVALID_REFERENCE;
+  jsrt::CallFunction(
+    afterContext,
+    beforeDescriptors,
+    globalObject,
+    sandbox,
+    &result);
 }
 
 // check initialization state first instead of calling
@@ -615,12 +626,12 @@ CHAKRASHIM_FUNCTION_GETTER(getStackTrace)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolKeyFor)
 CHAKRASHIM_FUNCTION_GETTER(getSymbolFor)
 CHAKRASHIM_FUNCTION_GETTER(ensureDebug)
-CHAKRASHIM_FUNCTION_GETTER(enqueueMicrotask);
-CHAKRASHIM_FUNCTION_GETTER(dequeueMicrotask);
 CHAKRASHIM_FUNCTION_GETTER(getPropertyAttributes);
 CHAKRASHIM_FUNCTION_GETTER(getOwnPropertyNames);
 CHAKRASHIM_FUNCTION_GETTER(jsonParse);
 CHAKRASHIM_FUNCTION_GETTER(jsonStringify);
+CHAKRASHIM_FUNCTION_GETTER(beforeContext);
+CHAKRASHIM_FUNCTION_GETTER(afterContext);
 
 #define DEF_IS_TYPE(F) CHAKRASHIM_FUNCTION_GETTER(F)
 #include "jsrtcachedpropertyidref.inc"

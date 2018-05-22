@@ -289,6 +289,12 @@ namespace tracing {
     jsrt::Unimplemented("TraceWriter");
     return 0;
   }
+
+  TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&,
+                                                  const std::string&) {
+    jsrt::Unimplemented("TraceWriter");
+    return 0;
+  }
 }  // namespace tracing
 }  // namespace platform
 }  // namespace v8

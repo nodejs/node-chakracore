@@ -52,6 +52,9 @@ test-http-pipeline-flood : SKIP
 test-http-same-map : SKIP
 test-http2-server-rst-stream : SKIP
 test-inspect-async-hook-setup-at-inspect : SKIP
+test-inspector-multisession-js : SKIP
+test-inspector-multisession-ws : SKIP
+test-inspector-tracing-domain : SKIP
 test-intl : SKIP
 test-memory-usage : SKIP
 test-module-main-extension-lookup : SKIP
@@ -68,8 +71,6 @@ test-repl-pretty-stack : SKIP
 test-repl-sigint : SKIP
 test-repl-tab-complete : SKIP
 test-string-decoder : SKIP
-test-inspector-multisession-ws : SKIP
-test-inspector-multisession-js : SKIP
 
 # ChakraCore does not support the chrome tracing framework
 test-trace-events-all : SKIP
@@ -184,6 +185,15 @@ test-v8-stats : SKIP
 
 # This test uses the V8 untrusted code mitigation and accompanying V8 option
 test-v8-untrusted-code-mitigations : SKIP
+
+# This test should be enabled once chakracore fixes
+# https://github.com/Microsoft/ChakraCore/issues/5196
+test-repl-top-level-await : SKIP
+
+# This test fails due to the workaround for vm.runInContext not working
+# with "var" declarations. Once we have an alternate fix, this can be
+# re-enabled
+test-vm-proxy-failure-CP : SKIP
 
 # This test seems to fail under system stress, marking it flaky for now
 # https://github.com/nodejs/node-chakracore/issues/494

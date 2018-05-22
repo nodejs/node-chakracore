@@ -24,6 +24,7 @@
   const Function_prototype_toString = Function.prototype.toString;
   const Object_defineProperty = Object.defineProperty;
   const Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+  const Object_getOwnPropertyDescriptors = Object.getOwnPropertyDescriptors;
   const Object_getOwnPropertyNames = Object.getOwnPropertyNames;
   const Object_keys = Object.keys;
   const Object_prototype_toString = Object.prototype.toString;
@@ -409,9 +410,6 @@
     };
   }
 
-  // Simulate v8 micro tasks queue
-  const microTasks = [];
-
   function patchUtils(utils) {
     const isUintRegex = /^(0|[1-9]\d*)$/;
 
@@ -629,14 +627,6 @@
 
     utils.ensureDebug = ensureDebug;
 
-    utils.enqueueMicrotask = function(task) {
-      microTasks.push(task);
-    };
-
-    utils.dequeueMicrotask = function(task) {
-      return microTasks.shift();
-    };
-
     utils.getPropertyAttributes = function(object, value) {
       const descriptor = Object_getOwnPropertyDescriptor(object, value);
       if (descriptor === undefined) {
@@ -681,6 +671,82 @@
       }
 
       return ownPropertyNames;
+    };
+
+    utils.beforeContext = function(contextGlobal) {
+      return Object_getOwnPropertyDescriptors(contextGlobal);
+    };
+
+    function descriptorDiff(a, b) {
+      if (!a || !b) {
+        return true;
+      }
+
+      // eslint-disable-next-line no-self-compare
+      if (a.value !== b.value && a.value === a.value && b.value === b.value) {
+        // allow for NaN in value
+        return true;
+      }
+      if (a.enumerable !== b.enumerable ||
+          a.configurable !== b.configurable ||
+          a.writable !== b.writable) {
+        return true;
+      }
+      if (a.get !== b.get || a.set !== b.set) {
+        return true;
+      }
+      return false;
+    }
+    utils.afterContext = function(beforeDescriptors, contextGlobal, sandbox) {
+      try {
+        const afterDescriptors =
+            Object_getOwnPropertyDescriptors(contextGlobal);
+        const beforeKeys = Object_keys(beforeDescriptors);
+        const afterKeys = Object_keys(afterDescriptors);
+
+        for (const beforeKey of beforeKeys) {
+          const beforeDescriptor = beforeDescriptors[beforeKey];
+          const afterDescriptor = afterDescriptors[beforeKey];
+          const sandboxDescriptor =
+              Object_getOwnPropertyDescriptor(sandbox, beforeKey);
+          if (!afterDescriptor) {
+            // The descriptor was removed
+            if (sandboxDescriptor) {
+              if (sandboxDescriptor.configurable) {
+                delete sandbox[beforeKey];
+              } else {
+                // TODO: How to handle this?
+              }
+            }
+          } else if (descriptorDiff(beforeDescriptor, afterDescriptor)) {
+            // Before and after differ; apply an update if possible
+            if (!sandboxDescriptor || sandboxDescriptor.configurable) {
+              Object_defineProperty(sandbox, beforeKey, afterDescriptor);
+            } else {
+              // TODO: How can we handle this case? Node tries to avoid it, but
+              //       we don't always
+            }
+          }
+        }
+
+        for (const afterKey of afterKeys) {
+          if (afterKey in beforeDescriptors) {
+            continue; // Handled above
+          }
+
+          // This property is freshly added
+          const afterDescriptor = afterDescriptors[afterKey];
+          const sandboxDescriptor =
+              Object_getOwnPropertyDescriptor(sandbox, afterKey);
+          if (!sandboxDescriptor || sandboxDescriptor.configurable) {
+            Object_defineProperty(sandbox, afterKey, afterDescriptor);
+          } else {
+            // TODO: How can we handle this?
+          }
+        }
+      } catch (e) {
+        // ignored;
+      }
     };
   }
 

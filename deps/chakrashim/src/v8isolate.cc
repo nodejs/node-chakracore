@@ -153,7 +153,7 @@ void Isolate::EnqueueMicrotask(MicrotaskCallback microtask, void* data) {
 }
 
 void Isolate::RunMicrotasks() {
-  jsrt::ContextShim::GetCurrent()->RunMicrotasks();
+  jsrt::IsolateShim::FromIsolate(this)->RunMicrotasks();
 }
 
 void Isolate::SetMicrotasksPolicy(MicrotasksPolicy policy) {
