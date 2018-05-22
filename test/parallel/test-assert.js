@@ -27,7 +27,6 @@
 
 const common = require('../common');
 const assert = require('assert');
-const { EOL } = require('os');
 const EventEmitter = require('events');
 const { errorCache } = require('internal/assert');
 const { writeFileSync, unlinkSync } = require('fs');
@@ -427,7 +426,7 @@ assert.throws(
 
 function engineSpecificAssert(v8, cc) {
   return common.engineSpecificMessage({
-    v8: `The expression evaluated to a falsy value:${EOL}${EOL}  ${v8}`,
+    v8: `The expression evaluated to a falsy value:\n\n  ${v8}`,
     chakracore: cc
   });
 }
@@ -476,7 +475,7 @@ function engineSpecificAssert(v8, cc) {
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        `assert.ok(typeof 123 === 'string')${EOL}`,
+        `assert.ok(typeof 123 === 'string')\n`,
         'false == true'
       )
     }
@@ -641,7 +640,7 @@ common.expectsError(
     type: assert.AssertionError,
     generatedMessage: !common.isChakraEngine,
     message: engineSpecificAssert(
-      `assert.ok(null)${EOL}`,
+      `assert.ok(null)\n`,
       'null == true')
   }
 );
@@ -652,7 +651,7 @@ common.expectsError(
     type: assert.AssertionError,
     generatedMessage: !common.isChakraEngine,
     message: engineSpecificAssert(
-      `assert(typeof 123 === 'string')${EOL}`,
+      `assert(typeof 123 === 'string')\n`,
       'false == true')
   }
 );
@@ -684,7 +683,7 @@ common.expectsError(
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        `assert(Buffer.from('test') instanceof Error)\n`,
         'false == true'
       )
     }
@@ -695,7 +694,7 @@ common.expectsError(
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        `assert(Buffer.from('test') instanceof Error)\n`,
         'false == true'
       )
     }
@@ -716,11 +715,11 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: engineSpecificAssert(`assert((() => 'string')()${EOL}` +
-                                  `      // eslint-disable-next-line${EOL}` +
-                                  `      ===${EOL}` +
-                                  `      123 instanceof${EOL}` +
-                                  `          Buffer)${EOL}`,
+    message: engineSpecificAssert(`assert((() => 'string')()\n` +
+                                  `      // eslint-disable-next-line\n` +
+                                  `      ===\n` +
+                                  `      123 instanceof\n` +
+                                  `          Buffer)\n`,
                                   'false == true')
   }
 );
@@ -731,7 +730,7 @@ common.expectsError(
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
     message: engineSpecificAssert(
-      `assert(null, undefined)${EOL}`,
+      `assert(null, undefined)\n`,
       'null == true'
     )
   }

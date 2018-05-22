@@ -148,7 +148,6 @@
       'lib/internal/http2/core.js',
       'lib/internal/http2/compat.js',
       'lib/internal/http2/util.js',
-      'lib/internal/v8.js',
       'lib/internal/v8_prof_polyfill.js',
       'lib/internal/v8_prof_processor.js',
       'lib/internal/validators.js',
@@ -639,7 +638,7 @@
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
               'PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,STDIO,TLSEXT,'
-              'FP_API',
+              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD',
               # Defines.
               '-DWIN32',
               # Symbols to filter from the export list.
