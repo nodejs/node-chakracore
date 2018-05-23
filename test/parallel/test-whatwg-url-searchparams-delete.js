@@ -83,7 +83,7 @@ test(function() {
   };
   const sym = Symbol();
   const chakracoreSymbolErrorRegex =
-         /^TypeError: Object doesn't support property or method 'ToString'/;
+         /^TypeError: No implicit conversion of Symbol to String/;
   assert.throws(() => params.delete(obj), /^Error: toString$/);
   assert.throws(() => params.delete(sym),
                 common.engineSpecificMessage({
