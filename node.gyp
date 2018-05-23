@@ -125,6 +125,7 @@
       'lib/internal/safe_globals.js',
       'lib/internal/net.js',
       'lib/internal/os.js',
+      'lib/internal/priority_queue.js',
       'lib/internal/process/esm_loader.js',
       'lib/internal/process/methods.js',
       'lib/internal/process/next_tick.js',
