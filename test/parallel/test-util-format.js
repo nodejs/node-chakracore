@@ -140,7 +140,7 @@ assert.strictEqual(
     chakracore:
     '{ foo: \'bar\',\n' +
     '  foobar: 1,\n' +
-    '  func: \n' +
+    '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
     '     [name]: \'func\',\n' +
@@ -162,8 +162,8 @@ assert.strictEqual(
     chakracore:
     '{ foo: \'bar\',\n' +
     '  foobar: 1,\n' +
-    '  func: \n' +
-    '   [ { a: \n' +
+    '  func:\n' +
+    '   [ { a:\n' +
     '        { [Function: a]\n' +
     '          [prototype]: a { [constructor]: [Circular] },\n' +
     '          [name]: \'a\',\n' +
@@ -184,9 +184,9 @@ assert.strictEqual(
     '        [prototype]: func { [constructor]: [Circular] } } } }',
     chakracore:
     '{ foo: \'bar\',\n' +
-    '  foobar: \n' +
+    '  foobar:\n' +
     '   { foo: \'bar\',\n' +
-    '     func: \n' +
+    '     func:\n' +
     '      { [Function: func]\n' +
     '        [prototype]: func { [constructor]: [Circular] },\n' +
     '        [name]: \'func\',\n' +
@@ -213,14 +213,14 @@ assert.strictEqual(
     chakracore:
     '{ foo: \'bar\',\n' +
     '  foobar: 1,\n' +
-    '  func: \n' +
+    '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
     '     [name]: \'func\',\n' +
     '     [length]: 0 } }' +
     ' { foo: \'bar\',\n' +
     '  foobar: 1,\n' +
-    '  func: \n' +
+    '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
     '     [name]: \'func\',\n' +
@@ -240,7 +240,7 @@ assert.strictEqual(
     chakracore:
     '{ foo: \'bar\',\n' +
     '  foobar: 1,\n' +
-    '  func: \n' +
+    '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
     '     [name]: \'func\',\n' +

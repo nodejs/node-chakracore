@@ -27,7 +27,9 @@ expect('--track-heap-objects', 'B\n');
 expect('--throw-deprecation', 'B\n');
 expect('--zero-fill-buffers', 'B\n');
 expect('--v8-pool-size=10', 'B\n');
-expect('--trace-event-categories node', 'B\n');
+if (!common.isChakraEngine) {
+  expect('--trace-event-categories node', 'B\n');
+}
 // eslint-disable-next-line no-template-curly-in-string
 expect('--trace-event-file-pattern {pid}-${rotation}.trace_events', 'B\n');
 
