@@ -148,7 +148,6 @@
       'lib/internal/http2/core.js',
       'lib/internal/http2/compat.js',
       'lib/internal/http2/util.js',
-      'lib/internal/v8.js',
       'lib/internal/v8_prof_polyfill.js',
       'lib/internal/v8_prof_processor.js',
       'lib/internal/validators.js',
@@ -320,10 +319,12 @@
 
       'sources': [
         'src/async_wrap.cc',
+        'src/callback_scope.cc',
         'src/cares_wrap.cc',
         'src/connection_wrap.cc',
         'src/connect_wrap.cc',
         'src/env.cc',
+        'src/exceptions.cc',
         'src/fs_event_wrap.cc',
         'src/handle_wrap.cc',
         'src/js_stream.cc',
@@ -378,11 +379,13 @@
         'src/async_wrap-inl.h',
         'src/base_object.h',
         'src/base_object-inl.h',
+        'src/callback_scope.h',
         'src/connection_wrap.h',
         'src/connect_wrap.h',
         'src/chakra_ttd.h',
         'src/env.h',
         'src/env-inl.h',
+        'src/exceptions.h',
         'src/handle_wrap.h',
         'src/js_stream.h',
         'src/module_wrap.h',
@@ -639,7 +642,7 @@
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
               'PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,STDIO,TLSEXT,'
-              'FP_API',
+              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD',
               # Defines.
               '-DWIN32',
               # Symbols to filter from the export list.
