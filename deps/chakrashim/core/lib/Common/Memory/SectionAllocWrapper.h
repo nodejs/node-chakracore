@@ -35,8 +35,10 @@ private:
 #if TARGET_64
     static const size_t TotalSize = 0x100000000;        // 4GB
 #endif
+
     static const uint L1Count = 4096;
-    static const uint L2Count = 256;
+    static const uint L2Count = (1<<20) / AutoSystemInfo::PageSize; // L2 spans 1MB of virtual pages
+
     static uint GetLevel1Id(void * address)
     {
         return ::Math::PointerCastToIntegralTruncate<uint>(address) / L2Count / AutoSystemInfo::PageSize;
@@ -86,7 +88,7 @@ private:
     bool EnsureSection(void * address, size_t pageCount);
     void SetSectionNoCheck(void * address, size_t pageCount, SectionInfo * section);
 
-    static const uint PagesPer4GB = 1 << 20; // = 1M,  assume page size = 4K
+    static const uint PagesPer4GB = (uint) (((ULONG64)1 << 32) / AutoSystemInfo::PageSize);
 
     struct Node
     {

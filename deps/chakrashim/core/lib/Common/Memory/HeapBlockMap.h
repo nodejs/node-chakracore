@@ -13,8 +13,8 @@ public:
     // Segment mapping
 
     static const uint L1Count = 4096;
-    static const uint L2Count = 256;
-    static const uint PageSize = AutoSystemInfo::PageSize; // 4096
+    static const uint L2Count = (1<<20) / AutoSystemInfo::PageSize; // L2 spans 1MB of virtual pages
+    static const uint PageSize = AutoSystemInfo::PageSize; // 4K for most platforms and 16K for iOS
 
     // Mark bit definitions
 
@@ -289,7 +289,7 @@ private:
         HeapBlockMap32 map;
     };
 
-    static const uint PagesPer4GB = 1 << 20; // = 1M,  assume page size = 4K
+    static const uint PagesPer4GB = (uint) (((ULONG64)1 << 32) / AutoSystemInfo::PageSize);
 
     static uint GetNodeIndex(void * address)
     {
