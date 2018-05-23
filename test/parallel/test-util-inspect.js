@@ -1327,7 +1327,7 @@ if (!common.isChakraEngine) {
   assert.strictEqual(out, expect);
 
   out = util.inspect(weakMap);
-  expect = 'WeakMap { [items unknown] }';
+  expect = 'WeakMap { <items unknown> }';
   assert.strictEqual(out, expect);
 
   out = util.inspect(weakMap, { maxArrayLength: 0, showHidden: true });
@@ -1352,7 +1352,7 @@ if (!common.isChakraEngine) {
   assert.strictEqual(out, expect);
 
   out = util.inspect(weakSet);
-  expect = 'WeakSet { [items unknown] }';
+  expect = 'WeakSet { <items unknown> }';
   assert.strictEqual(out, expect);
 
   out = util.inspect(weakSet, { maxArrayLength: -2, showHidden: true });

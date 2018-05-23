@@ -3046,9 +3046,9 @@ The recursive option is only supported on macOS and Windows.
 This feature depends on the underlying operating system providing a way
 to be notified of filesystem changes.
 
-* On Linux systems, this uses [`inotify`]
-* On BSD systems, this uses [`kqueue`]
-* On macOS, this uses [`kqueue`] for files and [`FSEvents`] for directories.
+* On Linux systems, this uses [`inotify(7)`].
+* On BSD systems, this uses [`kqueue(2)`].
+* On macOS, this uses [`kqueue(2)`] for files and [`FSEvents`] for directories.
 * On SunOS systems (including Solaris and SmartOS), this uses [`event ports`].
 * On Windows systems, this feature depends on [`ReadDirectoryChangesW`].
 * On Aix systems, this feature depends on [`AHAFS`], which must be enabled.
@@ -3453,6 +3453,7 @@ added: v10.0.0
 Closes the file descriptor.
 
 ```js
+const fsPromises = require('fs').promises;
 async function openAndClose() {
   let filehandle;
   try {
@@ -3564,6 +3565,9 @@ For example, the following program retains only the first four bytes of the
 file:
 
 ```js
+const fs = require('fs');
+const fsPromises = fs.promises;
+
 console.log(fs.readFileSync('temp.txt', 'utf8'));
 // Prints: Node.js
 
@@ -3580,6 +3584,9 @@ If the file previously was shorter than `len` bytes, it is extended, and the
 extended part is filled with null bytes (`'\0'`). For example,
 
 ```js
+const fs = require('fs');
+const fsPromises = fs.promises;
+
 console.log(fs.readFileSync('temp.txt', 'utf8'));
 // Prints: Node.js
 
@@ -3684,6 +3691,9 @@ with an `Error` object. The following example checks if the file
 `/etc/passwd` can be read and written by the current process.
 
 ```js
+const fs = require('fs');
+const fsPromises = fs.promises;
+
 fsPromises.access('/etc/passwd', fs.constants.R_OK | fs.constants.W_OK)
   .then(() => console.log('can access'))
   .catch(() => console.error('cannot access'));
@@ -3776,7 +3786,7 @@ then the operation will fail.
 Example:
 
 ```js
-const fs = require('fs');
+const fsPromises = require('fs').promises;
 
 // destination.txt will be created or overwritten by default.
 fsPromises.copyFile('source.txt', 'destination.txt')
@@ -3789,6 +3799,7 @@ following example.
 
 ```js
 const fs = require('fs');
+const fsPromises = fs.promises;
 const { COPYFILE_EXCL } = fs.constants;
 
 // By using COPYFILE_EXCL, the operation will fail if destination.txt exists.
@@ -4495,8 +4506,8 @@ the file contents.
 [`fs.watch()`]: #fs_fs_watch_filename_options_listener
 [`fs.write()`]: #fs_fs_write_fd_buffer_offset_length_position_callback
 [`fs.writeFile()`]: #fs_fs_writefile_file_data_options_callback
-[`inotify`]: http://man7.org/linux/man-pages/man7/inotify.7.html
-[`kqueue`]: https://www.freebsd.org/cgi/man.cgi?kqueue
+[`inotify(7)`]: http://man7.org/linux/man-pages/man7/inotify.7.html
+[`kqueue(2)`]: https://www.freebsd.org/cgi/man.cgi?query=kqueue&sektion=2
 [`net.Socket`]: net.html#net_class_net_socket
 [`stat()`]: fs.html#fs_fs_stat_path_callback
 [`util.promisify()`]: util.html#util_util_promisify_original
