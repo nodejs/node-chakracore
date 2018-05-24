@@ -806,6 +806,16 @@ common.expectsError(
   }
 );
 
+// works in eval
+common.expectsError(
+  () => new Function('assert', 'assert(1 === 2);')(assert),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: 'false == true'
+  }
+);
+
 // Do not try to check Node.js modules.
 if (!common.isChakraEngine) {
   const e = new EventEmitter();
