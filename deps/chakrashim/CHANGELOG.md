@@ -1,5 +1,38 @@
 # ChakraShim ChangeLog
 
+## 2018-05-24, node-chakracore-10.0.1-nightly20180425022021833d1
+
+### Commits
+
+* [[`f49890ed8c`](https://github.com/nodejs/node-chakracore/commit/f49890ed8c)] - 2018-05-24, Node-ChakraCore Version 10.1.0
+* [[`b612f0e9a4`](https://github.com/nodejs/node-chakracore/commit/b612f0e9a4)] - lib,src: enable TTD auto-trace config
+* [[`b621e3c91d`](https://github.com/nodejs/node-chakracore/commit/b621e3c91d)] - deps, test, lib: fix ChakraCore build and test
+* [[`7fc38651e9`](https://github.com/nodejs/node-chakracore/commit/7fc38651e9)] - deps: update ChakraCore to Microsoft/ChakraCore@1b469e2352
+* [[`a5e48bffa3`](https://github.com/nodejs/node-chakracore/commit/a5e48bffa3)] - chakrashim,test: fixes from merge
+* [[`f8f6b8e077`](https://github.com/nodejs/node-chakracore/commit/f8f6b8e077)] - deps,src: workaround vm.runInContext issue with top level "var"
+* [[`7a711e0faa`](https://github.com/nodejs/node-chakracore/commit/7a711e0faa)] - deps: fixing microtask behavior with multiple contexts
+* [[`7bc70fb4ab`](https://github.com/nodejs/node-chakracore/commit/7bc70fb4ab)] - chakrashim: fix lint errors
+* [[`e5d697976c`](https://github.com/nodejs/node-chakracore/commit/e5d697976c)] - deps: update ChakraCore to Microsoft/ChakraCore@fe4d653dc8
+* [[`55ba49826b`](https://github.com/nodejs/node-chakracore/commit/55ba49826b)] - chakrashim,test: fix Promise API compatibility
+* [[`606e73eacb`](https://github.com/nodejs/node-chakracore/commit/606e73eacb)] - deps: update ChakraCore to Microsoft/ChakraCore@9c82675e54
+* [[`a9f5ca4c5a`](https://github.com/nodejs/node-chakracore/commit/a9f5ca4c5a)] - deps: update ChakraCore to Microsoft/ChakraCore@1c76177a11
+* [[`079aaadfa2`](https://github.com/nodejs/node-chakracore/commit/079aaadfa2)] - fixing linter errors in test
+* [[`8854f00a57`](https://github.com/nodejs/node-chakracore/commit/8854f00a57)] - fixing broken test
+* [[`6bc097e6ad`](https://github.com/nodejs/node-chakracore/commit/6bc097e6ad)] - test: disable tests on node-chakracore
+* [[`66b5c1c47f`](https://github.com/nodejs/node-chakracore/commit/66b5c1c47f)] - napi: add napi_module_register_by_symbol to node_api_jsrt.cc
+* [[`ba1662603d`](https://github.com/nodejs/node-chakracore/commit/ba1662603d)] - lib: fix call stack extraction in trace_mgr.js
+* [[`043c068950`](https://github.com/nodejs/node-chakracore/commit/043c068950)] - updating ChakraShim to account for new params in FunctionTemplate::New
+* [[`a132dd8d2c`](https://github.com/nodejs/node-chakracore/commit/a132dd8d2c)] - deps: update ChakraCore to Microsoft/ChakraCore@2c6efb563b
+* [[`29af11731d`](https://github.com/nodejs/node-chakracore/commit/29af11731d)] - deps: update ChakraCore to Microsoft/ChakraCore@865f63bd26
+* [[`9ea0323bc5`](https://github.com/nodejs/node-chakracore/commit/9ea0323bc5)] - deps: fixing additional invalid uses of HandleScope
+* [[`b54fd8c090`](https://github.com/nodejs/node-chakracore/commit/b54fd8c090)] - deps: update ChakraCore to Microsoft/ChakraCore@08cf998b1d
+* [[`51b6c6bd01`](https://github.com/nodejs/node-chakracore/commit/51b6c6bd01)] - deps: updating incorrect usage of HandleScope
+* [[`e04616ca17`](https://github.com/nodejs/node-chakracore/commit/e04616ca17)] - chakrashim: implement proxy methods in chakrashim
+* [[`2cd04857e8`](https://github.com/nodejs/node-chakracore/commit/2cd04857e8)] - test: using v8::Context::Scope in cctest EnvironmentTestFixture
+* [[`68c92c1a06`](https://github.com/nodejs/node-chakracore/commit/68c92c1a06)] - build: fix chakracore dependency
+* [[`8b7991f82d`](https://github.com/nodejs/node-chakracore/commit/8b7991f82d)] - Merge tag 'v10.1.0' into 10.1.0-proposal
+* [[`022021833d`](https://github.com/nodejs/node-chakracore/commit/022021833d)] - Working on v10.0.1
+
 ## 2018-04-24, node-chakracore-v10.0.0
 
 ### Commits
