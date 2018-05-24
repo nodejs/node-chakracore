@@ -716,13 +716,54 @@ common.expectsError(
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
     message: engineSpecificAssert('assert((() => \'string\')()\n' +
-                                  '      // eslint-disable-next-line\n' +
-                                  '      ===\n' +
-                                  '      123 instanceof\n' +
-                                  '          Buffer)\n',
+                                  '    // eslint-disable-next-line\n' +
+                                  '    ===\n' +
+                                  '    123 instanceof\n' +
+                                  '        Buffer)\n',
                                   'false == true')
   }
 );
+
+common.expectsError(
+  () => {
+    a(
+      (() => 'string')()
+      // eslint-disable-next-line
+      ===
+  123 instanceof
+          Buffer
+    );
+  },
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: engineSpecificAssert('assert((() => \'string\')()\n' +
+                                  '    // eslint-disable-next-line\n' +
+                                  '    ===\n' +
+                                  '  123 instanceof\n' +
+                                  '        Buffer)\n',
+                                  'false == true')
+  }
+);
+
+/* eslint-disable indent */
+common.expectsError(() => {
+a((
+  () => 'string')() ===
+123 instanceof
+Buffer
+);
+}, {
+  code: 'ERR_ASSERTION',
+  type: assert.AssertionError,
+  message: engineSpecificAssert('assert((\n' +
+                                '    () => \'string\')() ===\n' +
+                                '  123 instanceof\n' +
+                                '  Buffer)\n',
+                                'false == true')
+  }
+);
+/* eslint-enable indent */
 
 common.expectsError(
   () => assert(null, undefined),

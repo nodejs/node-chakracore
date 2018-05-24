@@ -8,12 +8,6 @@ prefix parallel
 # Postmortem debugging data is prone to accidental removal during V8 updates.
 test-postmortem-metadata: PASS,FLAKY
 
-# http2 has a few bugs that make these tests flaky and that are currently worked
-# on.
-test-http2-client-upload-reject: PASS,FLAKY
-test-http2-pipe: PASS,FLAKY
-test-http2-client-upload: PASS,FLAKY
-
 [$system==win32]
 
 [$system==linux]
@@ -176,6 +170,7 @@ test-benchmark-es : SKIP
 
 # These tests exercises Promise.prototype.finally which isn't currently supported
 # https://github.com/Microsoft/ChakraCore/pull/4668
+test-fs-append-file : SKIP
 test-fs-promises-readfile : SKIP
 test-fs-promises-writefile : SKIP
 

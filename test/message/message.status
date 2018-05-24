@@ -29,3 +29,4 @@ esm_display_syntax_error_module : SKIP
 events_unhandled_error_common_trace : SKIP
 events_unhandled_error_nexttick : SKIP
 events_unhandled_error_sameline : SKIP
+util_inspect_error : SKIP

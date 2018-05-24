@@ -303,11 +303,11 @@ static struct {
 #if NODE_USE_V8_PLATFORM
   void Initialize(int thread_pool_size) {
     tracing_agent_.reset(new tracing::Agent(trace_file_pattern));
-    platform_ = new NodePlatform(thread_pool_size,
-        tracing_agent_->GetTracingController());
+    auto controller = tracing_agent_->GetTracingController();
+    tracing::TraceEventHelper::SetTracingController(controller);
+    StartTracingAgent();
+    platform_ = new NodePlatform(thread_pool_size, controller);
     V8::InitializePlatform(platform_);
-    tracing::TraceEventHelper::SetTracingController(
-        tracing_agent_->GetTracingController());
   }
 
   void Dispose() {
@@ -2410,7 +2410,7 @@ static void EnvGetter(Local<Name> property,
                                          arraysize(buffer));
   // If result >= sizeof buffer the buffer was too small. That should never
   // happen. If result == 0 and result != ERROR_SUCCESS the variable was not
-  // not found.
+  // found.
   if ((result > 0 || GetLastError() == ERROR_SUCCESS) &&
       result < arraysize(buffer)) {
     const uint16_t* two_byte_buffer = reinterpret_cast<const uint16_t*>(buffer);
@@ -4657,12 +4657,6 @@ int Start(int argc, char** argv) {
 #endif  // HAVE_OPENSSL
 
   v8_platform.Initialize(v8_thread_pool_size);
-
-#ifndef NODE_ENGINE_CHAKRACORE
-  // Enable tracing when argv has --trace-events-enabled.
-  v8_platform.StartTracingAgent();
-#endif
-
   V8::Initialize();
   performance::performance_v8_start = PERFORMANCE_NOW();
   v8_initialized = true;
