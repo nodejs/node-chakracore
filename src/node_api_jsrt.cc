@@ -518,6 +518,12 @@ void napi_module_register_by_symbol(v8::Local<v8::Object> exports,
                                     v8::Local<v8::Value> module,
                                     v8::Local<v8::Context> context,
                                     napi_addon_register_func init) {
+  if (init == nullptr) {
+    node::Environment::GetCurrent(context)->ThrowError(
+        "Module has no declared entry point.");
+    return;
+  }
+
   // Create a new napi_env for this module. Once module unloading is supported
   // we shall have to call delete on this object from there.
   v8::Isolate* isolate = context->GetIsolate();
