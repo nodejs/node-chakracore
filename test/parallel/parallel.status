@@ -33,6 +33,7 @@ test-async-hooks-promise-triggerid : SKIP
 test-async-wrap-promise-after-enabled : SKIP
 test-buffer-bindingobj-no-zerofill : SKIP
 test-buffer-sharedarraybuffer : SKIP
+test-child-process-fork-net : PASS,FLAKY
 test-crypto-dh : SKIP
 test-crypto-dh-leak : SKIP
 test-domain-abort-on-uncaught : SKIP
@@ -50,6 +51,7 @@ test-domain-promise : SKIP
 test-fs-stat : SKIP
 test-http-pipeline-flood : SKIP
 test-http-same-map : SKIP
+test-http2-client-upload : PASS,FLAKY
 test-http2-server-rst-stream : SKIP
 test-inspect-async-hook-setup-at-inspect : SKIP
 test-inspector-multisession-js : SKIP
