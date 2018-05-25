@@ -9,6 +9,7 @@ prefix async-hooks
 [$system==win32]
 
 [$system==linux]
+test-zlib.zlib-binding.deflate: PASS,FLAKY
 
 [$system==macos]
 
@@ -17,6 +18,8 @@ prefix async-hooks
 [$system==solaris] # Also applies to SmartOS
 
 [$system==freebsd]
+
+[$system==aix]
 
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
