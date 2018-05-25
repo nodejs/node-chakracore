@@ -223,7 +223,7 @@ behavior for the main module, also use `--preserve-symlinks-main`.
 
 ### `--preserve-symlinks-main`
 <!-- YAML
-added: REPLACEME
+added: v10.2.0
 -->
 
 Instructs the module loader to preserve symbolic links when resolving and
@@ -239,6 +239,13 @@ is expected that `--preserve-symlinks-main` will be used in addition to
 resolving relative paths.
 
 See `--preserve-symlinks` for more information.
+
+### `--prof`
+<!-- YAML
+added: v2.0.0
+-->
+
+Generate V8 profiler output.
 
 ### `--prof-process`
 <!-- YAML
