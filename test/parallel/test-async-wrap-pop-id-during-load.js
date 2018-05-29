@@ -16,7 +16,7 @@ const { spawnSync } = require('child_process');
 const ret = spawnSync(
   process.execPath,
   [common.engineSpecificMessage({
-    v8: '--stack_size=50',
+    v8: '--stack_size=75',
     chakracore: ''
   }), __filename, 'async']
 );
