@@ -142,7 +142,7 @@ Hello from Node.js chakracore
 #### macOS
 
 Prerequisites:
-* XCode v7 or higher
+* Xcode v7 or higher
 * [Homebrew](https://brew.sh/)
 
 Install the building tools:
