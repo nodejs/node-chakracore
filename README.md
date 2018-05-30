@@ -139,10 +139,10 @@ $ node -e "console.log('Hello from Node.js ' + process.jsEngine)"
 Hello from Node.js chakracore
 ```
 
-#### Mac OS
+#### macOS
 
 Prerequisites:
-* XCode v7 or higher
+* Xcode v7 or higher
 * [Homebrew](https://brew.sh/)
 
 Install the building tools:
