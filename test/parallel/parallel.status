@@ -178,6 +178,7 @@ test-benchmark-es : SKIP
 # https://github.com/Microsoft/ChakraCore/pull/4668
 test-fs-append-file : SKIP
 test-fs-promises : SKIP
+test-fs-promises-file-handle-truncate : SKIP
 test-fs-promises-readfile : SKIP
 test-fs-promises-readfile-empty : SKIP
 test-fs-promises-writefile : SKIP
