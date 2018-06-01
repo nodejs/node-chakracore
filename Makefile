@@ -907,6 +907,7 @@ $(TARBALL): release-only $(NODE_EXE) doc
 	$(RM) -r $(TARNAME)/.editorconfig
 	$(RM) -r $(TARNAME)/.git*
 	$(RM) -r $(TARNAME)/.mailmap
+	$(RM) -r $(TARNAME)/deps/chakrashim/core/test
 	$(RM) -r $(TARNAME)/deps/openssl/openssl/demos
 	$(RM) -r $(TARNAME)/deps/openssl/openssl/doc
 	$(RM) -r $(TARNAME)/deps/openssl/openssl/test
