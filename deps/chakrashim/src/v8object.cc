@@ -66,16 +66,11 @@ bool Object::Set(Handle<Value> key, Handle<Value> value) {
 
 Maybe<bool> Object::Set(Handle<Value> key, Handle<Value> value,
                         PropertyAttribute attribs, bool force) {
-  JsPropertyIdRef idRef;
-
-  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
-    return Nothing<bool>();
-  }
-
   // Do it faster if there are no property attributes
   if (!force && attribs == None) {
-    if (JsSetProperty((JsValueRef)this,
-                      idRef, (JsValueRef)*value, false) != JsNoError) {
+    if (JsObjectSetProperty((JsValueRef)this,
+                            (JsValueRef)*key, (JsValueRef)*value,
+                            false) != JsNoError) {
       return Nothing<bool>();
     }
   } else {  // we have attributes just use it
@@ -100,8 +95,8 @@ Maybe<bool> Object::Set(Handle<Value> key, Handle<Value> value,
       configurable = jsrt::PropertyDescriptorOptionValues::True;
     }
 
-    if (jsrt::DefineProperty((JsValueRef)this,
-                             idRef,
+    if (jsrt::DefinePropertyByName((JsValueRef)this,
+                             (JsValueRef)*key,
                              writable,
                              enumerable,
                              configurable,
@@ -134,12 +129,6 @@ Maybe<bool> Object::DefineOwnProperty(
 Maybe<bool> Object::DefineProperty(Local<v8::Context> context,
                                    Local<Name> key,
                                    PropertyDescriptor& descriptor) {
-  JsPropertyIdRef idRef;
-
-  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
-    return Nothing<bool>();
-  }
-
   Local<Value> value = descriptor.value();
   Local<Value> get = descriptor.get();
   Local<Value> set = descriptor.set();
@@ -149,8 +138,9 @@ Maybe<bool> Object::DefineProperty(Local<v8::Context> context,
       !descriptor.has_enumerable() &&
       !descriptor.has_configurable() &&
       !descriptor.has_writable()) {
-    if (JsSetProperty((JsValueRef)this,
-                      idRef, (JsValueRef)*value, false) != JsNoError) {
+    if (JsObjectSetProperty((JsValueRef)this,
+                            (JsValueRef)*key, (JsValueRef)*value,
+                            false) != JsNoError) {
       return Nothing<bool>();
     }
   } else {  // we have attributes just use it
@@ -179,8 +169,8 @@ Maybe<bool> Object::DefineProperty(Local<v8::Context> context,
           jsrt::PropertyDescriptorOptionValues::False;
     }
 
-    if (jsrt::DefineProperty((JsValueRef)this,
-                             idRef,
+    if (jsrt::DefinePropertyByName((JsValueRef)this,
+                             (JsValueRef)*key,
                              writable,
                              enumerable,
                              configurable,
@@ -280,13 +270,8 @@ Local<Value> Object::GetOwnPropertyDescriptor(Local<Name> key) {
 }
 
 Maybe<bool> Object::Has(Local<Context> context, Local<Value> key) {
-  JsPropertyIdRef idRef;
-  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
-    return Nothing<bool>();
-  }
-
   bool result;
-  if (JsHasProperty(this, idRef, &result) != JsNoError) {
+  if (JsHasProperty(this, (JsValueRef)*key, &result) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -298,13 +283,8 @@ bool Object::Has(Handle<Value> key) {
 }
 
 Maybe<bool> Object::Delete(Local<Context> context, Local<Value> key) {
-  JsPropertyIdRef idRef;
-  if (jsrt::GetPropertyIdFromValue((JsValueRef)*key, &idRef) != JsNoError) {
-    return Nothing<bool>();
-  }
-
   JsValueRef result;
-  if (JsDeleteProperty(this, idRef, false, &result) != JsNoError) {
+  if (JsDeleteProperty(this, (JsValueRef)*key, false, &result) != JsNoError) {
     return Nothing<bool>();
   }
 
@@ -356,11 +336,6 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
   JsValueRef getterRef = JS_INVALID_REFERENCE;
   JsValueRef setterRef = JS_INVALID_REFERENCE;
 
-  JsPropertyIdRef idRef;
-  if (jsrt::GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
-    return Nothing<bool>();
-  }
-
   if (getter != nullptr) {
     AccessorExternalData *externalData = new AccessorExternalData();
     externalData->type = Getter;
@@ -400,8 +375,8 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
 
   // CHAKRA-TODO: we ignore  AccessControl for now..
 
-  if (jsrt::DefineProperty((JsValueRef)this,
-                           idRef,
+  if (jsrt::DefinePropertyByName((JsValueRef)this,
+                           (JsValueRef)*name,
                            jsrt::PropertyDescriptorOptionValues::None,
                            enumerable,
                            configurable,
@@ -834,10 +809,6 @@ void Object::SetAccessorProperty(Local<Name> name, Local<Function> getter,
                                  Local<Function> setter,
                                  PropertyAttribute attribute,
                                  AccessControl settings) {
-  JsPropertyIdRef idRef;
-  if (jsrt::GetPropertyIdFromName((JsValueRef)*name, &idRef) != JsNoError) {
-    return;
-  }
 
   jsrt::PropertyDescriptorOptionValues enumerable =
       jsrt::GetPropertyDescriptorOptionValue(!(attribute & DontEnum));
@@ -846,8 +817,8 @@ void Object::SetAccessorProperty(Local<Name> name, Local<Function> getter,
 
   // CHAKRA-TODO: we ignore  AccessControl for now..
 
-  if (jsrt::DefineProperty((JsValueRef)this,
-                           idRef,
+  if (jsrt::DefinePropertyByName((JsValueRef)this,
+                           (JsValueRef)*name,
                            jsrt::PropertyDescriptorOptionValues::None,
                            enumerable,
                            configurable,

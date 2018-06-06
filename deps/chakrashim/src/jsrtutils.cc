@@ -40,9 +40,7 @@ JsErrorCode UintToValue(uint32_t value, JsValueRef* result) {
 JsErrorCode GetProperty(JsValueRef ref,
                         JsValueRef propName,
                         JsValueRef *result) {
-  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
-  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
-  IfJsErrorRet(JsGetProperty(ref, idRef, result));
+  IfJsErrorRet(JsObjectGetProperty(ref, propName, result));
 
   return JsNoError;
 }
@@ -113,9 +111,7 @@ JsErrorCode SetProperty(JsValueRef ref,
 JsErrorCode SetProperty(JsValueRef ref,
                         JsValueRef propName,
                         JsValueRef propValue) {
-  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
-  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
-  IfJsErrorRet(JsSetProperty(ref, idRef, propValue, false));
+  IfJsErrorRet(JsObjectSetProperty(ref, propName, propValue, false));
 
   return JsNoError;
 }
@@ -171,9 +167,7 @@ JsErrorCode SetProperty(JsValueRef ref,
 JsErrorCode DeleteProperty(JsValueRef ref,
                            JsValueRef propName,
                            JsValueRef* result) {
-  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
-  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
-  IfJsErrorRet(JsDeleteProperty(ref, idRef, false, result));
+  IfJsErrorRet(JsObjectDeleteProperty(ref, propName, false, result));
 
   return JsNoError;
 }
@@ -292,11 +286,8 @@ JsErrorCode HasOwnProperty(JsValueRef object,
 
   *result = JS_INVALID_REFERENCE;
 
-  JsPropertyIdRef propId = JS_INVALID_REFERENCE;
-  IfJsErrorRet(GetPropertyIdFromValue(prop, &propId));
-
   bool hasOwnProperty = false;
-  IfJsErrorRet(JsHasOwnProperty(object, propId, &hasOwnProperty));
+  IfJsErrorRet(JsObjectHasOwnProperty(object, prop, &hasOwnProperty));
   IfJsErrorRet(JsBoolToBoolean(hasOwnProperty, result));
 
   return JsNoError;
@@ -305,10 +296,7 @@ JsErrorCode HasOwnProperty(JsValueRef object,
 JsErrorCode GetOwnPropertyDescriptor(JsValueRef ref,
                                      JsValueRef prop,
                                      JsValueRef* result) {
-  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
-  IfJsErrorRet(GetPropertyIdFromName(prop, &idRef));
-
-  return JsGetOwnPropertyDescriptor(ref, idRef, result);
+  return JsObjectGetOwnPropertyDescriptor(ref, prop, result);
 }
 
 JsErrorCode IsZero(JsValueRef value,
@@ -405,7 +393,7 @@ JsErrorCode AddExternalData(JsValueRef ref,
   IfJsErrorRet(JsCreateExternalObject(data, onObjectFinalize,
                                       &externalObjectRef));
 
-  IfJsErrorRet(DefineProperty(ref,
+  IfJsErrorRet(DefinePropertyById(ref,
                               externalDataPropertyId,
                               PropertyDescriptorOptionValues::False,
                               PropertyDescriptorOptionValues::False,
@@ -653,7 +641,7 @@ JsErrorCode CreateV8PropertyDescriptor(
     return JsNoError;
 }
 
-JsErrorCode DefineProperty(JsValueRef object,
+JsErrorCode DefinePropertyById(JsValueRef object,
                            JsPropertyIdRef propertyIdRef,
                            PropertyDescriptorOptionValues writable,
                            PropertyDescriptorOptionValues enumerable,
@@ -667,6 +655,28 @@ JsErrorCode DefineProperty(JsValueRef object,
 
   bool result = false;
   IfJsErrorRet(JsDefineProperty(object, propertyIdRef, descriptor, &result));
+
+  if (!result) {
+    return JsErrorInvalidArgument;
+  }
+
+  return JsNoError;
+}
+
+JsErrorCode DefinePropertyByName(JsValueRef object,
+                           JsValueRef propertyName,
+                           PropertyDescriptorOptionValues writable,
+                           PropertyDescriptorOptionValues enumerable,
+                           PropertyDescriptorOptionValues configurable,
+                           JsValueRef value,
+                           JsValueRef getter,
+                           JsValueRef setter) {
+  JsValueRef descriptor = JS_INVALID_REFERENCE;
+  IfJsErrorRet(CreatePropertyDescriptor(writable, enumerable, configurable,
+                value, getter, setter, &descriptor));
+
+  bool result = false;
+  IfJsErrorRet(JsObjectDefineProperty(object, propertyName, descriptor, &result));
 
   if (!result) {
     return JsErrorInvalidArgument;
@@ -749,9 +759,7 @@ JsErrorCode DeleteIndexedProperty(JsValueRef object,
 JsErrorCode HasProperty(JsValueRef object,
                         JsValueRef propName,
                         bool *result) {
-  JsPropertyIdRef idRef = JS_INVALID_REFERENCE;
-  IfJsErrorRet(GetPropertyIdFromName(propName, &idRef));
-  IfJsErrorRet(JsHasProperty(object, idRef, result));
+  IfJsErrorRet(JsObjectHasProperty(object, propName, result));
 
   return JsNoError;
 }
@@ -882,9 +890,6 @@ JsErrorCode GetPrivate(JsValueRef object, JsValueRef key,
       return JsNoError;
   }
 
-  JsPropertyIdRef keyIdRef = JS_INVALID_REFERENCE;
-  IfJsErrorRet(GetPropertyIdFromName(key, &keyIdRef));
-
   // Is 'key' present in hiddenValuesTable? If not, return undefined
   JsValueRef hasPropertyRef = JS_INVALID_REFERENCE;
   IfJsErrorRet(HasOwnProperty(hiddenValuesTable, key, &hasPropertyRef));
@@ -897,7 +902,7 @@ JsErrorCode GetPrivate(JsValueRef object, JsValueRef key,
     return JsNoError;
   }
 
-  IfJsErrorRet(JsGetProperty(hiddenValuesTable, keyIdRef, result));
+  IfJsErrorRet(JsObjectGetProperty(hiddenValuesTable, key, result));
 
   return JsNoError;
 }
@@ -915,7 +920,7 @@ JsErrorCode SetPrivate(JsValueRef object, JsValueRef key,
   if (isUndefined) {
     IfJsErrorRet(JsCreateObject(&hiddenValuesTable));
 
-    IfJsErrorRet(DefineProperty(object, hiddenValuesIdRef,
+    IfJsErrorRet(DefinePropertyById(object, hiddenValuesIdRef,
                                 PropertyDescriptorOptionValues::False,
                                 PropertyDescriptorOptionValues::False,
                                 PropertyDescriptorOptionValues::False,

@@ -26,7 +26,7 @@ namespace v8 {
 using jsrt::IsolateShim;
 using jsrt::ContextShim;
 using jsrt::PropertyDescriptorOptionValues;
-using jsrt::DefineProperty;
+using jsrt::DefinePropertyById;
 
 MaybeLocal<Function> Function::New(Local<Context> context,
                                    FunctionCallback callback,
@@ -106,7 +106,7 @@ Local<Value> Function::Call(Handle<Value> recv,
 }
 
 void Function::SetName(Handle<String> name) {
-  JsErrorCode error = jsrt::DefineProperty((JsValueRef)this,
+  JsErrorCode error = jsrt::DefinePropertyById((JsValueRef)this,
                  IsolateShim::GetCurrent()->GetCachedPropertyIdRef(
                    jsrt::CachedPropertyIdRef::name),
                  PropertyDescriptorOptionValues::False,

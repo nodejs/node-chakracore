@@ -47,7 +47,7 @@ Local<External> External::New(Isolate* isolate, void* value) {
 
   IsolateShim* iso = IsolateShim::FromIsolate(isolate);
   JsValueRef trueRef = iso->GetCurrentContextShim()->GetTrue();
-  if (jsrt::DefineProperty(externalRef,
+  if (jsrt::DefinePropertyById(externalRef,
                            iso->GetCachedSymbolPropertyIdRef(
                              jsrt::CachedSymbolPropertyIdRef::__isexternal__),
                            jsrt::PropertyDescriptorOptionValues::False,

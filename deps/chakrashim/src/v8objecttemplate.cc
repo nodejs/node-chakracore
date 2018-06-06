@@ -806,14 +806,8 @@ JsValueRef CHAKRA_CALLBACK Utils::DefinePropertyCallback(
   }
 
   if (result == JS_INVALID_REFERENCE) {
-    // No interception took place; fall back to default behavior
-    JsPropertyIdRef propertyIdRef;
-    if (jsrt::GetPropertyIdFromName(prop, &propertyIdRef) != JsNoError) {
-      return jsrt::GetFalse();
-    }
-
     bool result = false;
-    if (JsDefineProperty(object, propertyIdRef, descriptor, &result)
+    if (JsObjectDefineProperty(object, prop, descriptor, &result)
         != JsNoError || !result) {
       return jsrt::GetFalse();
     }

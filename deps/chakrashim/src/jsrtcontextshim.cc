@@ -292,7 +292,7 @@ bool ContextShim::InitializeBuiltIns() {
     return false;
   }
 
-  if (DefineProperty(globalObject,
+  if (DefinePropertyById(globalObject,
                      GetIsolateShim()->GetKeepAliveObjectSymbolPropertyIdRef(),
                      PropertyDescriptorOptionValues::False,
                      PropertyDescriptorOptionValues::False,

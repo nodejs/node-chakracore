@@ -354,8 +354,8 @@ JsErrorCode CreatePropertyDescriptor(v8::PropertyAttribute attributes,
 JsErrorCode CreateV8PropertyDescriptor(JsValueRef descriptor,
                                        v8::PropertyDescriptor* result);
 
-JsErrorCode DefineProperty(JsValueRef object,
-                           const char * propertyName,
+JsErrorCode DefinePropertyById(JsValueRef object,
+                           JsPropertyIdRef propertyIdRef,
                            PropertyDescriptorOptionValues writable,
                            PropertyDescriptorOptionValues enumerable,
                            PropertyDescriptorOptionValues configurable,
@@ -363,8 +363,8 @@ JsErrorCode DefineProperty(JsValueRef object,
                            JsValueRef getter,
                            JsValueRef setter);
 
-JsErrorCode DefineProperty(JsValueRef object,
-                           JsPropertyIdRef propertyIdRef,
+JsErrorCode DefinePropertyByName(JsValueRef object,
+                           JsValueRef propertyName,
                            PropertyDescriptorOptionValues writable,
                            PropertyDescriptorOptionValues enumerable,
                            PropertyDescriptorOptionValues configurable,

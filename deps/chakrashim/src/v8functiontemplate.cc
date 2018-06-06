@@ -279,7 +279,7 @@ class FunctionTemplateData : public TemplateData {
           }
 
           if (!className.IsEmpty()) {
-            if (jsrt::DefineProperty(*prototype,
+            if (jsrt::DefinePropertyById(*prototype,
                 iso->GetToStringTagSymbolPropertyIdRef(),
                 jsrt::PropertyDescriptorOptionValues::True, /* writable */
                 jsrt::PropertyDescriptorOptionValues::False, /* enumerable */
@@ -291,7 +291,7 @@ class FunctionTemplateData : public TemplateData {
             }
           }
 
-          if (jsrt::DefineProperty(*prototype,
+          if (jsrt::DefinePropertyById(*prototype,
               iso->GetCachedPropertyIdRef(
                   jsrt::CachedPropertyIdRef::constructor),
               jsrt::PropertyDescriptorOptionValues::True, /* writable */
