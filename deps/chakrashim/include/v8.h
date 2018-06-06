@@ -1133,6 +1133,7 @@ class V8_EXPORT Value : public Data {
   bool IsPromise() const;
   bool IsProxy() const;
   bool IsModuleNamespaceObject() const;
+  bool IsBigIntObject() const;
 
   V8_WARN_UNUSED_RESULT MaybeLocal<Boolean> ToBoolean(
     Local<Context> context) const;
@@ -2834,6 +2835,8 @@ class V8_EXPORT Isolate {
       StackTrace::StackTraceOptions options = StackTrace::kOverview);
   void SetAllowWasmCodeGenerationCallback(
       AllowWasmCodeGenerationCallback callback);
+
+  void SetIdle(bool is_idle);
 };
 
 class V8_EXPORT JitCodeEvent {

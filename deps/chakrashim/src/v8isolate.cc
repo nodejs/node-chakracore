@@ -277,6 +277,11 @@ void Isolate::SetAllowWasmCodeGenerationCallback(
   // CHAKRA-TODO: Figure out what to do here
 }
 
+// this is used with the --prof argument for V8 profiling
+void Isolate::SetIdle(bool is_idle) {
+  CHAKRA_UNIMPLEMENTED();
+}
+
 Isolate::DisallowJavascriptExecutionScope::DisallowJavascriptExecutionScope(
   Isolate* isolate,
   OnFailure on_failure) {
