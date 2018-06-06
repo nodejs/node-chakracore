@@ -28,6 +28,7 @@
 #include "v8.h"
 
 #include <stdint.h>
+#include <string>
 
 namespace node {
 

@@ -198,6 +198,11 @@ IS_TYPE_FUNCTION(IsSharedArrayBuffer, isSharedArrayBuffer)
 IS_TYPE_FUNCTION(IsModuleNamespaceObject, isModuleNamespaceObject)
 #undef IS_TYPE_FUNCTION
 
+bool Value::IsBigIntObject() const {
+  // CHAKRA-TODO: BigInt support needed in ChakraCore
+  return false;
+}
+
 MaybeLocal<Boolean> Value::ToBoolean(Local<Context> context) const {
   JsValueRef value;
   if (JsConvertValueToBoolean((JsValueRef)this, &value) != JsNoError) {
