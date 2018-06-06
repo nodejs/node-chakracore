@@ -325,7 +325,8 @@ fs.watch('./tmp', { encoding: 'buffer' }, (eventType, filename) => {
 added: v10.0.0
 -->
 
-Emitted when the watcher stops watching for changes.
+Emitted when the watcher stops watching for changes. The closed
+`fs.FSWatcher` object is no longer usable in the event handler.
 
 ### Event: 'error'
 <!-- YAML
@@ -334,7 +335,8 @@ added: v0.5.8
 
 * `error` {Error}
 
-Emitted when an error occurs while watching the file.
+Emitted when an error occurs while watching the file. The errored
+`fs.FSWatcher` object is no longer usable in the event handler.
 
 ### watcher.close()
 <!-- YAML
@@ -1088,6 +1090,12 @@ For example, the octal value `0o765` means:
 * The owner may read, write and execute the file.
 * The group may read and write the file.
 * Others may read and execute the file.
+
+Note: When using raw numbers where file modes are expected,
+any value larger than `0o777` may result in platform-specific
+behaviors that are not supported to work consistently.
+Therefore constants like `S_ISVTX`, `S_ISGID` or `S_ISUID` are
+not exposed in `fs.constants`.
 
 Caveats: on Windows only the write permission can be changed, and the
 distinction among the permissions of group, owner or others is not
@@ -2146,7 +2154,7 @@ by [Naming Files, Paths, and Namespaces][]. Under NTFS, if the filename contains
 a colon, Node.js will open a file system stream, as described by
 [this MSDN page][MSDN-Using-Streams].
 
-Functions based on `fs.open()` exhibit this behavior as well. eg.
+Functions based on `fs.open()` exhibit this behavior as well:
 `fs.writeFile()`, `fs.readFile()`, etc.
 
 ## fs.openSync(path, flags[, mode])
