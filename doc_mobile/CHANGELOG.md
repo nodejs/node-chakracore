@@ -6,6 +6,7 @@
 </tr>
 <tr>
 <td>
+<a href="#0.1.5">0.1.5</a><br/>
 <a href="#0.1.4">0.1.4</a><br/>
 <a href="#0.1.3">0.1.3</a><br/>
 <a href="#0.1.2">0.1.2</a><br/>
@@ -15,8 +16,32 @@
 </tr>
 </table>
 
+<a id="0.1.5"></a>
+## 2018-06-07, Version 0.1.5 (Current)
+
+### Notable Changes
+
+* Adds method to run node tests on mobile.
+* Memory optimizations on iOS.
+
+### Commits
+
+* [[`799a3116d3`](https://github.com/janeasystems/nodejs-mobile/commit/799a3116d3b3d7b1b83d8f28bbb8e05e1cc3ec00)] - Node.js on Mobile v0.1.5 (Jaime Bernardo)
+* [[`76f8ace6a6`](https://github.com/janeasystems/nodejs-mobile/commit/76f8ace6a6e5fdae89c28a9358941c27a17a0bb9)] - ios,chakra: use 16KB page size for heap block map (Jaime Bernardo)
+* [[`c91c284756`](https://github.com/janeasystems/nodejs-mobile/commit/c91c2847567e7c2cac0b789728d9c7d46402b82d)] - ios: increase baseFactor for Recycler on iOS (Jaime Bernardo)
+* [[`6e878e949f`](https://github.com/janeasystems/nodejs-mobile/commit/6e878e949fd523291f9518dd79ae3aa22870a134)] - test,ios: use same timeout in proxy as test.py (Jaime Bernardo)
+* [[`e67e150756`](https://github.com/janeasystems/nodejs-mobile/commit/e67e150756bc767c6fe88967d9c227ad38b2ef56)] - doc: add instructions on how to run mobile tests (Jaime Bernardo)
+* [[`f123f15454`](https://github.com/janeasystems/nodejs-mobile/commit/f123f15454ed4ec03cc013e11161027b8d67163b)] - test,android: add build and proxy copy to prepare (Jaime Bernardo)
+* [[`6ae749b424`](https://github.com/janeasystems/nodejs-mobile/commit/6ae749b4248bf6b22923f94cab8237369de23ed6)] - android: use release folder structure for build (Jaime Bernardo)
+* [[`7bbb106289`](https://github.com/janeasystems/nodejs-mobile/commit/7bbb10628980803e9db667d401a6c0323c4d18ad)] - test,android: preload test app helper script (Jaime Bernardo)
+* [[`d50f651203`](https://github.com/janeasystems/nodejs-mobile/commit/d50f6512034a34c65807e02f4761174086a78189)] - test,ios: fixes to run tests on mobile (Jaime Bernardo)
+* [[`a78dabda86`](https://github.com/janeasystems/nodejs-mobile/commit/a78dabda8689510e5edf0a59af51ea511565eb8e)] - test,ios: test app to run tests on iOS (Jaime Bernardo)
+* [[`954fa9cab1`](https://github.com/janeasystems/nodejs-mobile/commit/954fa9cab1323091782c53333aa2dfb7c083b761)] - test,android: fixes to run tests on mobile (Enrico Giordani)
+* [[`93619f358c`](https://github.com/janeasystems/nodejs-mobile/commit/93619f358c12be284a2e35bc9bfa5f8f45fd02f1)] - test,android: test app to run tests on mobile (Enrico Giordani)
+* [[`fbe535de4c`](https://github.com/janeasystems/nodejs-mobile/commit/fbe535de4c3a052d5a8948a573d40ef954a5554b)] - Working on Node.js for Mobile Apps v0.1.5 (Jaime Bernardo)
+
 <a id="0.1.4"></a>
-## 2018-03-05, Version 0.1.4 (Current)
+## 2018-03-05, Version 0.1.4
 
 ### Notable Changes
 
