@@ -20,6 +20,7 @@ for (const [ value, _method ] of [
   [ new Number(), 'isNumberObject' ],
   [ new String(), 'isStringObject' ],
   [ Object(Symbol()), 'isSymbolObject' ],
+  common.isChakraEngine ? [ new Date() ] : [ Object(BigInt(0)), 'isBigIntObject' ],
   [ new Error(), 'isNativeError' ],
   [ new RegExp() ],
   [ async function() {}, 'isAsyncFunction' ],

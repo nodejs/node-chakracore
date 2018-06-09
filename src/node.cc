@@ -103,6 +103,7 @@ typedef int mode_t;
 #else
 #include <pthread.h>
 #include <sys/resource.h>  // getrlimit, setrlimit
+#include <termios.h>  // tcgetattr, tcsetattr
 #include <unistd.h>  // setuid, getuid
 #endif
 
@@ -172,7 +173,6 @@ using v8::Number;
 using v8::Object;
 using v8::ObjectTemplate;
 using v8::Promise;
-using v8::PromiseRejectMessage;
 using v8::PropertyCallbackInfo;
 using v8::ScriptOrigin;
 using v8::SealHandleScope;
@@ -186,6 +186,9 @@ using v8::Value;
 
 static Mutex process_mutex;
 static Mutex environ_mutex;
+
+// Safe to call more than once and from signal handlers.
+inline void PlatformExit();
 
 static bool print_eval = false;
 static bool force_repl = false;
@@ -627,97 +630,6 @@ bool ShouldAbortOnUncaughtException(Isolate* isolate) {
          !env->inside_should_not_abort_on_uncaught_scope();
 }
 
-
-void RunMicrotasks(const FunctionCallbackInfo<Value>& args) {
-  args.GetIsolate()->RunMicrotasks();
-}
-
-
-void SetupProcessObject(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-
-  CHECK(args[0]->IsFunction());
-
-  env->set_push_values_to_array_function(args[0].As<Function>());
-  env->process_object()->Delete(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(env->isolate(), "_setupProcessObject")).FromJust();
-}
-
-
-void SetupNextTick(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-
-  CHECK(args[0]->IsFunction());
-
-  env->set_tick_callback_function(args[0].As<Function>());
-
-  env->process_object()->Delete(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(env->isolate(), "_setupNextTick")).FromJust();
-
-  v8::Local<v8::Function> run_microtasks_fn =
-      env->NewFunctionTemplate(RunMicrotasks)->GetFunction(env->context())
-          .ToLocalChecked();
-  run_microtasks_fn->SetName(
-      FIXED_ONE_BYTE_STRING(env->isolate(), "runMicrotasks"));
-
-  Local<Array> ret = Array::New(env->isolate(), 2);
-  ret->Set(env->context(), 0,
-           env->tick_info()->fields().GetJSArray()).FromJust();
-  ret->Set(env->context(), 1, run_microtasks_fn).FromJust();
-
-  args.GetReturnValue().Set(ret);
-}
-
-void PromiseRejectCallback(PromiseRejectMessage message) {
-  Local<Promise> promise = message.GetPromise();
-  Isolate* isolate = promise->GetIsolate();
-  v8::PromiseRejectEvent event = message.GetEvent();
-
-  Environment* env = Environment::GetCurrent(isolate);
-  Local<Function> callback;
-  Local<Value> value;
-
-  if (event == v8::kPromiseRejectWithNoHandler) {
-    callback = env->promise_reject_unhandled_function();
-    value = message.GetValue();
-
-    if (value.IsEmpty())
-      value = Undefined(isolate);
-  } else if (event == v8::kPromiseHandlerAddedAfterReject) {
-    callback = env->promise_reject_handled_function();
-    value = Undefined(isolate);
-  } else {
-    UNREACHABLE();
-  }
-
-  Local<Value> args[] = { promise, value };
-  MaybeLocal<Value> ret = callback->Call(env->context(),
-                                         Undefined(isolate),
-                                         arraysize(args),
-                                         args);
-
-  if (!ret.IsEmpty() && ret.ToLocalChecked()->IsTrue())
-    env->tick_info()->promise_rejections_toggle_on();
-}
-
-void SetupPromises(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-  Isolate* isolate = env->isolate();
-
-  CHECK(args[0]->IsFunction());
-  CHECK(args[1]->IsFunction());
-
-  isolate->SetPromiseRejectCallback(PromiseRejectCallback);
-  env->set_promise_reject_unhandled_function(args[0].As<Function>());
-  env->set_promise_reject_handled_function(args[1].As<Function>());
-
-  env->process_object()->Delete(
-      env->context(),
-      FIXED_ONE_BYTE_STRING(isolate, "_setupPromises")).FromJust();
-}
-
 }  // anonymous namespace
 
 
@@ -1106,7 +1018,7 @@ void AppendExceptionLine(Environment* env,
     Mutex::ScopedLock lock(process_mutex);
     env->set_printed_error(true);
 
-    uv_tty_reset_mode();
+    PlatformExit();
     PrintErrorString("\n%s", arrow);
     return;
   }
@@ -1325,7 +1237,7 @@ static void Abort(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void Chdir(const FunctionCallbackInfo<Value>& args) {
+void Chdir(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK_EQ(args.Length(), 1);
@@ -1361,7 +1273,7 @@ static void Cwd(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void Umask(const FunctionCallbackInfo<Value>& args) {
+void Umask(const FunctionCallbackInfo<Value>& args) {
   uint32_t old;
 
   CHECK_EQ(args.Length(), 1);
@@ -1506,7 +1418,7 @@ static void GetEGid(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void SetGid(const FunctionCallbackInfo<Value>& args) {
+void SetGid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK_EQ(args.Length(), 1);
@@ -1525,7 +1437,7 @@ static void SetGid(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void SetEGid(const FunctionCallbackInfo<Value>& args) {
+void SetEGid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK_EQ(args.Length(), 1);
@@ -1544,7 +1456,7 @@ static void SetEGid(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void SetUid(const FunctionCallbackInfo<Value>& args) {
+void SetUid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK_EQ(args.Length(), 1);
@@ -1563,7 +1475,7 @@ static void SetUid(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void SetEUid(const FunctionCallbackInfo<Value>& args) {
+void SetEUid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK_EQ(args.Length(), 1);
@@ -1620,7 +1532,7 @@ static void GetGroups(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void SetGroups(const FunctionCallbackInfo<Value>& args) {
+void SetGroups(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK_EQ(args.Length(), 1);
@@ -1654,7 +1566,7 @@ static void SetGroups(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void InitGroups(const FunctionCallbackInfo<Value>& args) {
+void InitGroups(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   CHECK_EQ(args.Length(), 2);
@@ -1750,7 +1662,7 @@ static void Uptime(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static void MemoryUsage(const FunctionCallbackInfo<Value>& args) {
+void MemoryUsage(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   size_t rss;
@@ -1808,7 +1720,7 @@ static void Kill(const FunctionCallbackInfo<Value>& args) {
 // broken into the upper/lower 32 bits to be converted back in JS,
 // because there is no Uint64Array in JS.
 // The third entry contains the remaining nanosecond part of the value.
-static void Hrtime(const FunctionCallbackInfo<Value>& args) {
+void Hrtime(const FunctionCallbackInfo<Value>& args) {
   uint64_t t = uv_hrtime();
 
   Local<ArrayBuffer> ab = args[0].As<Uint32Array>()->Buffer();
@@ -1834,7 +1746,7 @@ static void Hrtime(const FunctionCallbackInfo<Value>& args) {
 // which are uv_timeval_t structs (long tv_sec, long tv_usec).
 // Returns those values as Float64 microseconds in the elements of the array
 // passed to the function.
-static void CPUUsage(const FunctionCallbackInfo<Value>& args) {
+void CPUUsage(const FunctionCallbackInfo<Value>& args) {
   uv_rusage_t rusage;
 
   // Call libuv to get the values we'll return.
@@ -2870,13 +2782,6 @@ void SetupProcessObject(Environment* env,
                              FIXED_ONE_BYTE_STRING(env->isolate(), "ppid"),
                              GetParentProcessId).FromJust());
 
-  auto should_abort_on_uncaught_toggle =
-      FIXED_ONE_BYTE_STRING(env->isolate(), "_shouldAbortOnUncaughtToggle");
-  CHECK(process->Set(env->context(),
-                     should_abort_on_uncaught_toggle,
-                     env->should_abort_on_uncaught_toggle().GetJSArray())
-                         .FromJust());
-
   // -e, --eval
   if (eval_string) {
     READONLY_PROPERTY(process,
@@ -3019,17 +2924,9 @@ void SetupProcessObject(Environment* env,
 #if defined(__POSIX__) && !defined(__ANDROID__) && !defined(__CloudABI__)
   env->SetMethod(process, "getuid", GetUid);
   env->SetMethod(process, "geteuid", GetEUid);
-  env->SetMethod(process, "setuid", SetUid);
-  env->SetMethod(process, "seteuid", SetEUid);
-
-  env->SetMethod(process, "setgid", SetGid);
-  env->SetMethod(process, "setegid", SetEGid);
   env->SetMethod(process, "getgid", GetGid);
   env->SetMethod(process, "getegid", GetEGid);
-
   env->SetMethod(process, "getgroups", GetGroups);
-  env->SetMethod(process, "setgroups", SetGroups);
-  env->SetMethod(process, "initgroups", InitGroups);
 #endif  // __POSIX__ && !defined(__ANDROID__) && !defined(__CloudABI__)
 
   env->SetMethod(process, "_kill", Kill);
@@ -3045,10 +2942,6 @@ void SetupProcessObject(Environment* env,
 
   env->SetMethod(process, "uptime", Uptime);
   env->SetMethod(process, "memoryUsage", MemoryUsage);
-
-  env->SetMethod(process, "_setupProcessObject", SetupProcessObject);
-  env->SetMethod(process, "_setupNextTick", SetupNextTick);
-  env->SetMethod(process, "_setupPromises", SetupPromises);
 }
 
 
@@ -3056,7 +2949,7 @@ void SetupProcessObject(Environment* env,
 
 
 void SignalExit(int signo) {
-  uv_tty_reset_mode();
+  PlatformExit();
   v8_platform.StopTracingAgent();
 #ifdef __FreeBSD__
   // FreeBSD has a nasty bug, see RegisterSignalHandler for details
@@ -3073,7 +2966,7 @@ void SignalExit(int signo) {
 // to the process.stderr stream.  However, in some cases, such as
 // when debugging the stream.Writable class or the process.nextTick
 // function, it is useful to bypass JavaScript entirely.
-static void RawDebug(const FunctionCallbackInfo<Value>& args) {
+void RawDebug(const FunctionCallbackInfo<Value>& args) {
   CHECK(args.Length() == 1 && args[0]->IsString() &&
         "must be called with a single string");
   node::Utf8Value message(args.GetIsolate(), args[0]);
@@ -3204,9 +3097,12 @@ void LoadEnvironment(Environment* env) {
   }
 
   // Bootstrap Node.js
+  Local<Object> bootstrapper = Object::New(env->isolate());
+  SetupBootstrapObject(env, bootstrapper);
   Local<Value> bootstrapped_node;
   Local<Value> node_bootstrapper_args[] = {
     env->process_object(),
+    bootstrapper,
     bootstrapped_loaders
   };
   if (!ExecuteBootstrapper(env, node_bootstrapper,
@@ -3348,6 +3244,9 @@ static void PrintHelp() {
          "Environment variables:\n"
          "NODE_DEBUG                   ','-separated list of core modules\n"
          "                             that should print debug information\n"
+         "NODE_DEBUG_NATIVE            ','-separated list of C++ core debug\n"
+         "                             categories that should print debug\n"
+         "                             output\n"
          "NODE_DISABLE_COLORS          set to 1 to disable colors in the REPL\n"
          "NODE_EXTRA_CA_CERTS          path to additional CA certificates\n"
          "                             file\n"
@@ -3949,6 +3848,27 @@ static void DebugEnd(const FunctionCallbackInfo<Value>& args) {
 }
 
 
+#ifdef __POSIX__
+static struct {
+  int flags;
+  bool isatty;
+  struct stat stat;
+  struct termios termios;
+} stdio[1 + STDERR_FILENO];
+
+
+inline int GetFileDescriptorFlags(int fd) {
+  int flags;
+
+  do {
+    flags = fcntl(fd, F_GETFL);
+  } while (flags == -1 && errno == EINTR);
+
+  return flags;
+}
+#endif  // __POSIX__
+
+
 inline void PlatformInit() {
 #ifdef __POSIX__
 #if HAVE_INSPECTOR
@@ -3959,15 +3879,17 @@ inline void PlatformInit() {
 #endif  // HAVE_INSPECTOR
 
   // Make sure file descriptors 0-2 are valid before we start logging anything.
-  for (int fd = STDIN_FILENO; fd <= STDERR_FILENO; fd += 1) {
-    struct stat ignored;
-    if (fstat(fd, &ignored) == 0)
+  for (auto& s : stdio) {
+    const int fd = &s - stdio;
+    if (fstat(fd, &s.stat) == 0)
       continue;
     // Anything but EBADF means something is seriously wrong.  We don't
     // have to special-case EINTR, fstat() is not interruptible.
     if (errno != EBADF)
       ABORT();
     if (fd != open("/dev/null", O_RDWR))
+      ABORT();
+    if (fstat(fd, &s.stat) != 0)
       ABORT();
   }
 
@@ -3990,6 +3912,24 @@ inline void PlatformInit() {
     CHECK_EQ(0, sigaction(nr, &act, nullptr));
   }
 #endif  // !NODE_SHARED_MODE
+
+  // Record the state of the stdio file descriptors so we can restore it
+  // on exit.  Needs to happen before installing signal handlers because
+  // they make use of that information.
+  for (auto& s : stdio) {
+    const int fd = &s - stdio;
+    int err;
+
+    s.flags = GetFileDescriptorFlags(fd);
+    CHECK_NE(s.flags, -1);
+
+    if (!isatty(fd)) continue;
+    s.isatty = true;
+    do {
+      err = tcgetattr(fd, &s.termios);
+    } while (err == -1 && errno == EINTR);
+    CHECK_EQ(err, 0);
+  }
 
   RegisterSignalHandler(SIGINT, SignalExit, true);
   RegisterSignalHandler(SIGTERM, SignalExit, true);
@@ -4028,6 +3968,49 @@ inline void PlatformInit() {
     }
   }
 #endif  // _WIN32
+}
+
+
+// This function must be safe to call more than once and from signal handlers.
+inline void PlatformExit() {
+#ifdef __POSIX__
+  for (auto& s : stdio) {
+    const int fd = &s - stdio;
+
+    struct stat tmp;
+    if (-1 == fstat(fd, &tmp)) {
+      CHECK_EQ(errno, EBADF);  // Program closed file descriptor.
+      continue;
+    }
+
+    bool is_same_file =
+        (s.stat.st_dev == tmp.st_dev && s.stat.st_ino == tmp.st_ino);
+    if (!is_same_file) continue;  // Program reopened file descriptor.
+
+    int flags = GetFileDescriptorFlags(fd);
+    CHECK_NE(flags, -1);
+
+    // Restore the O_NONBLOCK flag if it changed.
+    if (O_NONBLOCK & (flags ^ s.flags)) {
+      flags &= ~O_NONBLOCK;
+      flags |= s.flags & O_NONBLOCK;
+
+      int err;
+      do {
+        err = fcntl(fd, F_SETFL, flags);
+      } while (err == -1 && errno == EINTR);
+      CHECK_NE(err, -1);
+    }
+
+    if (s.isatty) {
+      int err;
+      do {
+        err = tcsetattr(fd, TCSANOW, &s.termios);
+      } while (err == -1 && errno == EINTR);
+      CHECK_NE(err, -1);
+    }
+  }
+#endif  // __POSIX__
 }
 
 
@@ -4408,6 +4391,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   Environment env(isolate_data, context, v8_platform.GetTracingAgent());
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
+  TRACE_EVENT_METADATA1("__metadata", "version", "node", NODE_VERSION_STRING);
   TRACE_EVENT_METADATA1("__metadata", "thread_name", "name",
                         "JavaScriptMainThread");
 
@@ -4622,7 +4606,7 @@ inline int Start(uv_loop_t* event_loop,
 }
 
 int Start(int argc, char** argv) {
-  atexit([] () { uv_tty_reset_mode(); });
+  atexit([] () { PlatformExit(); });
   PlatformInit();
   performance::performance_node_start = PERFORMANCE_NOW();
 
