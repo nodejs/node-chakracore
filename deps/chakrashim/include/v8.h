@@ -2033,6 +2033,7 @@ class V8_EXPORT ArrayBuffer : public Object {
     virtual void* AllocateUninitialized(size_t length) = 0;
     virtual void Free(void* data, size_t length) = 0;
     static Allocator* NewDefaultAllocator();
+    enum class AllocationMode { kNormal, kReservation };
   };
 
   class V8_EXPORT Contents {  // NOLINT
@@ -2180,7 +2181,39 @@ class V8_EXPORT Float64Array : public TypedArray {
 
 class V8_EXPORT SharedArrayBuffer : public Object {
  public:
+  class V8_EXPORT Contents {  // NOLINT
+   public:
+    Contents()
+        : data_(nullptr),
+          byte_length_(0),
+          allocation_base_(nullptr),
+          allocation_length_(0),
+          allocation_mode_(ArrayBuffer::Allocator::AllocationMode::kNormal) {}
+
+    void* AllocationBase() const { return allocation_base_; }
+    size_t AllocationLength() const { return allocation_length_; }
+    ArrayBuffer::Allocator::AllocationMode AllocationMode() const {
+      return allocation_mode_;
+    }
+
+    void* Data() const { return data_; }
+    size_t ByteLength() const { return byte_length_; }
+
+   private:
+    void* data_;
+    size_t byte_length_;
+    void* allocation_base_;
+    size_t allocation_length_;
+    ArrayBuffer::Allocator::AllocationMode allocation_mode_;
+
+    friend class SharedArrayBuffer;
+  };
+
+  static Local<SharedArrayBuffer> New(
+      Isolate* isolate, void* data, size_t byte_length,
+      ArrayBufferCreationMode mode = ArrayBufferCreationMode::kExternalized);
   static SharedArrayBuffer* Cast(Value* obj);
+  Contents Externalize();
 
  private:
   SharedArrayBuffer();
@@ -2244,6 +2277,9 @@ class V8_EXPORT ValueDeserializer {
     virtual ~Delegate() {}
 
     virtual MaybeLocal<Object> ReadHostObject(Isolate* isolate);
+
+    virtual MaybeLocal<SharedArrayBuffer> GetSharedArrayBufferFromId(
+        Isolate* isolate, uint32_t clone_id);
   };
 
   ValueDeserializer(Isolate* isolate, const uint8_t* data, size_t size,
@@ -2753,6 +2789,8 @@ class V8_EXPORT Isolate {
       HostImportModuleDynamicallyCallback callback);
   void SetHostInitializeImportMetaObjectCallback(
       HostInitializeImportMetaObjectCallback callback);
+
+  void DiscardThreadSpecificMetadata();
 
   void Enter();
   void Exit();

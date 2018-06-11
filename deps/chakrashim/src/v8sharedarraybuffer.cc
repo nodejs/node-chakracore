@@ -22,9 +22,22 @@
 
 namespace v8 {
 
+Local<SharedArrayBuffer> SharedArrayBuffer::New(
+    Isolate* isolate, void* data, size_t byte_length,
+    ArrayBufferCreationMode mode) {
+  CHAKRA_UNIMPLEMENTED();
+  return Local<SharedArrayBuffer>();
+}
+
 SharedArrayBuffer* SharedArrayBuffer::Cast(Value* obj) {
   CHAKRA_UNIMPLEMENTED();
   return nullptr;
+}
+
+// CHAKRA-TODO: Enable SharedArrayBuffer/Workers for Node
+SharedArrayBuffer::Contents SharedArrayBuffer::Externalize() {
+  CHAKRA_UNIMPLEMENTED();
+  return SharedArrayBuffer::Contents();
 }
 
 }  // namespace v8

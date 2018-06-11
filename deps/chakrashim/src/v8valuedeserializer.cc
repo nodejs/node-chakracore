@@ -28,6 +28,13 @@ MaybeLocal<Object> ValueDeserializer::Delegate::ReadHostObject(
   return Local<Object>();
 }
 
+MaybeLocal<SharedArrayBuffer>
+ValueDeserializer::Delegate::GetSharedArrayBufferFromId(Isolate* isolate,
+                                                        uint32_t clone_id) {
+  CHAKRA_UNIMPLEMENTED();
+  return Local<SharedArrayBuffer>();
+}
+
 ValueDeserializer::ValueDeserializer(Isolate* isolate, const uint8_t* data,
                                      size_t size, Delegate* delegate) {
   CHAKRA_UNIMPLEMENTED();
