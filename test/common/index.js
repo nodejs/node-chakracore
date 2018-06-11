@@ -49,7 +49,9 @@ Object.defineProperty(exports, 'PORT', {
 exports.isMainThread = (() => {
   try {
     return require('worker_threads').isMainThread;
-  } catch {
+    // CHAKRA-TODO: remove the following catch binding to match upstream
+    // when ChakraCore supports optional catch bindings
+  } catch (ex) {
     // Worker module not enabled → only a single main thread exists.
     return true;
   }
