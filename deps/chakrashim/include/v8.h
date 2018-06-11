@@ -324,7 +324,7 @@ class Local {
   }
 
   template <class S>
-  V8_INLINE Local<S> As() {
+  V8_INLINE Local<S> As() const {
     return Local<S>::Cast(*this);
   }
 
