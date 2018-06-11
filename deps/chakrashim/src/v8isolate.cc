@@ -63,6 +63,10 @@ void Isolate::SetAbortOnUncaughtExceptionCallback(
   // CHAKRA-TODO: To be implemented
 }
 
+void Isolate::DiscardThreadSpecificMetadata() {
+  CHAKRA_UNIMPLEMENTED();
+}
+
 void Isolate::Enter() {
   return jsrt::IsolateShim::FromIsolate(this)->Enter();
 }

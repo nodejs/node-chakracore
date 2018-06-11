@@ -86,7 +86,11 @@ Worker::Worker(Environment* env, Local<Object> wrap)
                                           array_buffer_allocator_.get()));
     CHECK(isolate_data_);
 
+#if ENABLE_TTD_NODE
+    Local<Context> context = NewContext(isolate_, s_doTTRecord || s_doTTReplay);
+#else
     Local<Context> context = NewContext(isolate_);
+#endif
     Context::Scope context_scope(context);
 
     // TODO(addaleax): Use CreateEnvironment(), or generally another public API.
