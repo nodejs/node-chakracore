@@ -267,6 +267,11 @@ bool config_experimental_modules = false;
 // that is used by lib/vm.js
 bool config_experimental_vm_modules = false;
 
+// Set in node.cc by ParseArgs when --experimental-worker is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/worker.js
+bool config_experimental_worker = false;
+
 // Set in node.cc by ParseArgs when --experimental-repl-await is used.
 // Used in node_config.cc to set a constant on process.binding('config')
 // that is used by lib/repl.js.
@@ -329,7 +334,7 @@ static struct {
   }
 
 #if HAVE_INSPECTOR
-  bool StartInspector(Environment *env, const char* script_path,
+  bool StartInspector(Environment* env, const char* script_path,
                       const DebugOptions& options) {
     // Inspector agent can't fail to start, but if it was configured to listen
     // right away on the websocket port and fails to bind/etc, this will return
@@ -337,7 +342,7 @@ static struct {
     return env->inspector_agent()->Start(platform_, script_path, options);
   }
 
-  bool InspectorStarted(Environment *env) {
+  bool InspectorStarted(Environment* env) {
     return env->inspector_agent()->IsStarted();
   }
 #endif  // HAVE_INSPECTOR
@@ -366,7 +371,7 @@ static struct {
   void Dispose() {}
   void DrainVMTasks(Isolate* isolate) {}
   void CancelVMTasks(Isolate* isolate) {}
-  bool StartInspector(Environment *env, const char* script_path,
+  bool StartInspector(Environment* env, const char* script_path,
                       const DebugOptions& options) {
     env->ThrowError("Node compiled with NODE_USE_V8_PLATFORM=0");
     return true;
@@ -388,7 +393,7 @@ static struct {
 #endif  // !NODE_USE_V8_PLATFORM
 
 #if !NODE_USE_V8_PLATFORM || !HAVE_INSPECTOR
-  bool InspectorStarted(Environment *env) {
+  bool InspectorStarted(Environment* env) {
     return false;
   }
 #endif  //  !NODE_USE_V8_PLATFORM || !HAVE_INSPECTOR
@@ -433,7 +438,7 @@ static void PrintErrorString(const char* format, ...) {
   va_end(ap);
 }
 
-const char *signo_string(int signo) {
+const char* signo_string(int signo) {
 #define SIGNO_CASE(e)  case e: return #e;
   switch (signo) {
 #ifdef SIGHUP
@@ -1030,9 +1035,9 @@ void AppendExceptionLine(Environment* env,
 }
 
 
-static void ReportException(Environment* env,
-                            Local<Value> er,
-                            Local<Message> message) {
+void ReportException(Environment* env,
+                     Local<Value> er,
+                     Local<Message> message) {
   CHECK(!er.IsEmpty());
   HandleScope scope(env->isolate());
 
@@ -1119,9 +1124,9 @@ static void ReportException(Environment* env, const TryCatch& try_catch) {
 
 
 // Executes a str within the current v8 context.
-static Local<Value> ExecuteString(Environment* env,
-                                  Local<String> source,
-                                  Local<String> filename) {
+static MaybeLocal<Value> ExecuteString(Environment* env,
+                                       Local<String> source,
+                                       Local<String> filename) {
   EscapableHandleScope scope(env->isolate());
   TryCatch try_catch(env->isolate());
 
@@ -1134,13 +1139,19 @@ static Local<Value> ExecuteString(Environment* env,
       v8::Script::Compile(env->context(), source, &origin);
   if (script.IsEmpty()) {
     ReportException(env, try_catch);
-    exit(3);
+    env->Exit(3);
+    return MaybeLocal<Value>();
   }
 
   MaybeLocal<Value> result = script.ToLocalChecked()->Run(env->context());
   if (result.IsEmpty()) {
+    if (try_catch.HasTerminated()) {
+      env->isolate()->CancelTerminateExecution();
+      return MaybeLocal<Value>();
+    }
     ReportException(env, try_catch);
-    exit(4);
+    env->Exit(4);
+    return MaybeLocal<Value>();
   }
 
   return scope.Escape(result.ToLocalChecked());
@@ -1239,6 +1250,7 @@ static void Abort(const FunctionCallbackInfo<Value>& args) {
 
 void Chdir(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  CHECK(env->is_main_thread());
 
   CHECK_EQ(args.Length(), 1);
   CHECK(args[0]->IsString());
@@ -1420,6 +1432,7 @@ static void GetEGid(const FunctionCallbackInfo<Value>& args) {
 
 void SetGid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  CHECK(env->is_main_thread());
 
   CHECK_EQ(args.Length(), 1);
   CHECK(args[0]->IsUint32() || args[0]->IsString());
@@ -1439,6 +1452,7 @@ void SetGid(const FunctionCallbackInfo<Value>& args) {
 
 void SetEGid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  CHECK(env->is_main_thread());
 
   CHECK_EQ(args.Length(), 1);
   CHECK(args[0]->IsUint32() || args[0]->IsString());
@@ -1458,6 +1472,7 @@ void SetEGid(const FunctionCallbackInfo<Value>& args) {
 
 void SetUid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  CHECK(env->is_main_thread());
 
   CHECK_EQ(args.Length(), 1);
   CHECK(args[0]->IsUint32() || args[0]->IsString());
@@ -1477,6 +1492,7 @@ void SetUid(const FunctionCallbackInfo<Value>& args) {
 
 void SetEUid(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  CHECK(env->is_main_thread());
 
   CHECK_EQ(args.Length(), 1);
   CHECK(args[0]->IsUint32() || args[0]->IsString());
@@ -1645,9 +1661,10 @@ static void Exit(const FunctionCallbackInfo<Value>& args) {
   }
 #endif
 
-  WaitForInspectorDisconnect(Environment::GetCurrent(args));
+  Environment* env = Environment::GetCurrent(args);
+  WaitForInspectorDisconnect(env);
   v8_platform.StopTracingAgent();
-  exit(args[0]->Int32Value());
+  env->Exit(args[0]->Int32Value());
 }
 
 
@@ -2075,6 +2092,9 @@ void FatalException(Isolate* isolate,
     Local<Value> caught =
         fatal_exception_function->Call(process_object, 1, &error);
 
+    if (fatal_try_catch.HasTerminated())
+      return;
+
     if (fatal_try_catch.HasCaught()) {
       // The fatal exception function threw, so we must exit
       ReportException(env, fatal_try_catch);
@@ -2088,6 +2108,12 @@ void FatalException(Isolate* isolate,
 
 
 void FatalException(Isolate* isolate, const TryCatch& try_catch) {
+  // If we try to print out a termination exception, we'd just get 'null',
+  // so just crashing here with that information seems like a better idea,
+  // and in particular it seems like we should handle terminations at the call
+  // site for this function rather than by printing them out somewhere.
+  CHECK(!try_catch.HasTerminated());
+
   HandleScope scope(isolate);
   if (!try_catch.IsVerbose()) {
     FatalException(isolate, try_catch.Exception(), try_catch.Message());
@@ -2456,7 +2482,7 @@ static void EnvEnumerator(const PropertyCallbackInfo<Array>& info) {
   Local<Array> envarr = Array::New(isolate);
   WCHAR* p = environment;
   while (*p) {
-    WCHAR *s;
+    WCHAR* s;
     if (*p == L'=') {
       // If the key starts with '=' it is a hidden environment variable.
       p += wcslen(p) + 1;
@@ -2609,11 +2635,12 @@ void SetupProcessObject(Environment* env,
   Local<Object> process = env->process_object();
 
   auto title_string = FIXED_ONE_BYTE_STRING(env->isolate(), "title");
-  CHECK(process->SetAccessor(env->context(),
-                             title_string,
-                             ProcessTitleGetter,
-                             ProcessTitleSetter,
-                             env->as_external()).FromJust());
+  CHECK(process->SetAccessor(
+      env->context(),
+      title_string,
+      ProcessTitleGetter,
+      env->is_main_thread() ? ProcessTitleSetter : nullptr,
+      env->as_external()).FromJust());
 
   // process.jsEngine
   READONLY_PROPERTY(process,
@@ -2902,24 +2929,26 @@ void SetupProcessObject(Environment* env,
   CHECK(process->SetAccessor(env->context(),
                              debug_port_string,
                              DebugPortGetter,
-                             DebugPortSetter,
+                             env->is_main_thread() ? DebugPortSetter : nullptr,
                              env->as_external()).FromJust());
 
   // define various internal methods
-  env->SetMethod(process,
-                 "_startProfilerIdleNotifier",
-                 StartProfilerIdleNotifier);
-  env->SetMethod(process,
-                 "_stopProfilerIdleNotifier",
-                 StopProfilerIdleNotifier);
+  if (env->is_main_thread()) {
+    env->SetMethod(process,
+                   "_startProfilerIdleNotifier",
+                   StartProfilerIdleNotifier);
+    env->SetMethod(process,
+                   "_stopProfilerIdleNotifier",
+                   StopProfilerIdleNotifier);
+    env->SetMethod(process, "abort", Abort);
+    env->SetMethod(process, "chdir", Chdir);
+    env->SetMethod(process, "umask", Umask);
+  }
+
   env->SetMethod(process, "_getActiveRequests", GetActiveRequests);
   env->SetMethod(process, "_getActiveHandles", GetActiveHandles);
   env->SetMethod(process, "reallyExit", Exit);
-  env->SetMethod(process, "abort", Abort);
-  env->SetMethod(process, "chdir", Chdir);
   env->SetMethod(process, "cwd", Cwd);
-
-  env->SetMethod(process, "umask", Umask);
 
 #if defined(__POSIX__) && !defined(__ANDROID__) && !defined(__CloudABI__)
   env->SetMethod(process, "getuid", GetUid);
@@ -2930,15 +2959,16 @@ void SetupProcessObject(Environment* env,
 #endif  // __POSIX__ && !defined(__ANDROID__) && !defined(__CloudABI__)
 
   env->SetMethod(process, "_kill", Kill);
+  env->SetMethod(process, "dlopen", DLOpen);
 
-  env->SetMethod(process, "_debugProcess", DebugProcess);
-  env->SetMethod(process, "_debugEnd", DebugEnd);
+  if (env->is_main_thread()) {
+    env->SetMethod(process, "_debugProcess", DebugProcess);
+    env->SetMethod(process, "_debugEnd", DebugEnd);
+  }
 
   env->SetMethod(process, "hrtime", Hrtime);
 
   env->SetMethod(process, "cpuUsage", CPUUsage);
-
-  env->SetMethod(process, "dlopen", DLOpen);
 
   env->SetMethod(process, "uptime", Uptime);
   env->SetMethod(process, "memoryUsage", MemoryUsage);
@@ -2975,8 +3005,10 @@ void RawDebug(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-static Local<Function> GetBootstrapper(Environment* env, Local<String> source,
-                                  Local<String> script_name) {
+static MaybeLocal<Function> GetBootstrapper(
+    Environment* env,
+    Local<String> source,
+    Local<String> script_name) {
   EscapableHandleScope scope(env->isolate());
 
   TryCatch try_catch(env->isolate());
@@ -2987,16 +3019,17 @@ static Local<Function> GetBootstrapper(Environment* env, Local<String> source,
   try_catch.SetVerbose(false);
 
   // Execute the bootstrapper javascript file
-  Local<Value> bootstrapper_v = ExecuteString(env, source, script_name);
+  MaybeLocal<Value> bootstrapper_v = ExecuteString(env, source, script_name);
+  if (bootstrapper_v.IsEmpty())  // This happens when execution was interrupted.
+    return MaybeLocal<Function>();
+
   if (try_catch.HasCaught())  {
     ReportException(env, try_catch);
     exit(10);
   }
 
-  CHECK(bootstrapper_v->IsFunction());
-  Local<Function> bootstrapper = Local<Function>::Cast(bootstrapper_v);
-
-  return scope.Escape(bootstrapper);
+  CHECK(bootstrapper_v.ToLocalChecked()->IsFunction());
+  return scope.Escape(bootstrapper_v.ToLocalChecked().As<Function>());
 }
 
 static bool ExecuteBootstrapper(Environment* env, Local<Function> bootstrapper,
@@ -3035,12 +3068,17 @@ void LoadEnvironment(Environment* env) {
   // node_js2c.
   Local<String> loaders_name =
       FIXED_ONE_BYTE_STRING(env->isolate(), "internal/bootstrap/loaders.js");
-  Local<Function> loaders_bootstrapper =
+  MaybeLocal<Function> loaders_bootstrapper =
       GetBootstrapper(env, LoadersBootstrapperSource(env), loaders_name);
   Local<String> node_name =
       FIXED_ONE_BYTE_STRING(env->isolate(), "internal/bootstrap/node.js");
-  Local<Function> node_bootstrapper =
+  MaybeLocal<Function> node_bootstrapper =
       GetBootstrapper(env, NodeBootstrapperSource(env), node_name);
+
+  if (loaders_bootstrapper.IsEmpty() || node_bootstrapper.IsEmpty()) {
+    // Execution was interrupted.
+    return;
+  }
 
   // Add a reference to the global object
   Local<Object> global = env->context()->Global();
@@ -3089,7 +3127,7 @@ void LoadEnvironment(Environment* env) {
 
   // Bootstrap internal loaders
   Local<Value> bootstrapped_loaders;
-  if (!ExecuteBootstrapper(env, loaders_bootstrapper,
+  if (!ExecuteBootstrapper(env, loaders_bootstrapper.ToLocalChecked(),
                            arraysize(loaders_bootstrapper_args),
                            loaders_bootstrapper_args,
                            &bootstrapped_loaders)) {
@@ -3105,7 +3143,7 @@ void LoadEnvironment(Environment* env) {
     bootstrapper,
     bootstrapped_loaders
   };
-  if (!ExecuteBootstrapper(env, node_bootstrapper,
+  if (!ExecuteBootstrapper(env, node_bootstrapper.ToLocalChecked(),
                            arraysize(node_bootstrapper_args),
                            node_bootstrapper_args,
                            &bootstrapped_node)) {
@@ -3139,6 +3177,7 @@ static void PrintHelp() {
          "  --experimental-vm-modules  experimental ES Module support\n"
          "                             in vm module\n"
 #endif  // defined(NODE_HAVE_I18N_SUPPORT)
+         "  --experimental-worker      experimental threaded Worker support\n"
 #if HAVE_OPENSSL && NODE_FIPS_MODE
          "  --force-fips               force FIPS crypto (cannot be disabled)\n"
 #endif  // HAVE_OPENSSL && NODE_FIPS_MODE
@@ -3339,6 +3378,7 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--experimental-modules",
     "--experimental-repl-await",
     "--experimental-vm-modules",
+    "--experimental-worker",
     "--force-fips",
     "--icu-data-dir",
     "--inspect",
@@ -3578,6 +3618,8 @@ static void ParseArgs(int* argc,
       new_v8_argc += 1;
     } else if (strcmp(arg, "--experimental-vm-modules") == 0) {
       config_experimental_vm_modules = true;
+    } else if (strcmp(arg, "--experimental-worker") == 0) {
+      config_experimental_worker = true;
     } else if (strcmp(arg, "--experimental-repl-await") == 0) {
       config_experimental_repl_await = true;
     }  else if (strcmp(arg, "--loader") == 0) {
@@ -4487,6 +4529,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   WaitForInspectorDisconnect(&env);
 
   env.set_can_call_into_js(false);
+  env.stop_sub_worker_contexts();
   env.RunCleanup();
   RunAtExit(&env);
 

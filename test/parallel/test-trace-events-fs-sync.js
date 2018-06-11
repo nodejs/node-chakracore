@@ -3,6 +3,10 @@ const common = require('../common');
 const assert = require('assert');
 const cp = require('child_process');
 const fs = require('fs');
+const util = require('util');
+
+if (!common.isMainThread)
+  common.skip('process.chdir is not available in Workers');
 
 const tests = new Array();
 const traceFile = 'node_trace.1.log';
@@ -118,7 +122,8 @@ for (const tr in tests) {
   const proc = cp.spawnSync(process.execPath,
                             [ '--trace-events-enabled',
                               '--trace-event-categories', 'node.fs.sync',
-                              '-e', tests[tr] ]);
+                              '-e', tests[tr] ],
+                            { encoding: 'utf8' });
   // Some AIX versions don't support futimes or utimes, so skip.
   if (common.isAIX && proc.status !== 0 && tr === 'fs.sync.futimes') {
     continue;
@@ -128,7 +133,7 @@ for (const tr in tests) {
   }
 
   // Make sure the operation is successful.
-  assert.strictEqual(proc.status, 0, tr + ': ' + proc.stderr);
+  assert.strictEqual(proc.status, 0, `${tr}:\n${util.inspect(proc)}`);
 
   // Confirm that trace log file is created.
   assert(common.fileExists(traceFile));

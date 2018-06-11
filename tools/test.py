@@ -1376,6 +1376,8 @@ def BuildOptions():
       help="Expect test cases to fail", default=False, action="store_true")
   result.add_option("--valgrind", help="Run tests through valgrind",
       default=False, action="store_true")
+  result.add_option("--worker", help="Run parallel tests inside a worker context",
+      default=False, action="store_true")
   result.add_option("--check-deopts", help="Check tests for permanent deoptimizations",
       default=False, action="store_true")
   result.add_option("--cat", help="Print the source of the tests",
@@ -1554,7 +1556,8 @@ IGNORED_SUITES = [
   'pummel',
   'test-known-issues',
   'tick-processor',
-  'timers'
+  'timers',
+  'v8-updates'
 ]
 
 
@@ -1617,6 +1620,11 @@ def Main():
     # optimizer to kick in, so this flag will force it to run.
     options.node_args.append("--always-opt")
     options.progress = "deopts"
+
+  if options.worker:
+    run_worker = join(workspace, "tools", "run-worker.js")
+    options.node_args.append('--experimental-worker')
+    options.node_args.append(run_worker)
 
   shell = abspath(options.shell)
   buildspace = dirname(shell)
