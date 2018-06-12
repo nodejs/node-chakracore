@@ -440,7 +440,7 @@ void V8Debugger::DebugEventHandler(
 }
 
 void V8Debugger::HandleSourceEvents(JsValueRef eventData, bool success) {
-  V8DebuggerAgentImpl *agent = m_inspector->enabledDebuggerAgentForGroup(
+  V8DebuggerAgentImpl* agent = m_inspector->enabledDebuggerAgentForGroup(
       getGroupId(m_isolate->GetCurrentContext()));
 
   if (agent != nullptr) {

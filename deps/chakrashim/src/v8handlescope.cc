@@ -23,7 +23,7 @@
 
 namespace v8 {
 
-THREAD_LOCAL HandleScope *current = nullptr;
+THREAD_LOCAL HandleScope* current = nullptr;
 
 HandleScope::HandleScope(Isolate* isolate)
     : _prev(current),
@@ -51,7 +51,7 @@ HandleScope::~HandleScope() {
   }
 }
 
-HandleScope *HandleScope::GetCurrent() {
+HandleScope* HandleScope::GetCurrent() {
   return current;
 }
 

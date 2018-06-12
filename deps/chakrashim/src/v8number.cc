@@ -40,7 +40,7 @@ Local<Number> Number::From(double value) {
   return Local<Number>(ref);
 }
 
-Number *Number::Cast(v8::Value *obj) {
+Number* Number::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsNumber());
   return static_cast<Number*>(obj);
 }

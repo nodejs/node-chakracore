@@ -37,7 +37,7 @@ Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate, size_t byte_length) {
 
 struct ArrayBufferFinalizeInfo {
   ArrayBuffer::Allocator* allocator;
-  void *data;
+  void* data;
   size_t length;
 
   void Free() {
@@ -50,7 +50,7 @@ v8::ArrayBuffer::Allocator* v8::ArrayBuffer::Allocator::NewDefaultAllocator() {
     return nullptr;
 }
 
-static void CHAKRA_CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
+static void CHAKRA_CALLBACK ExternalArrayBufferFinalizeCallback(void* data) {
     static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
 

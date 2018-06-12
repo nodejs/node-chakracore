@@ -48,7 +48,7 @@ class Inspector {
     JsValueRef eventData,
     void* callbackState);
   static void InstallHostCallback(JsValueRef chakraDebugObject,
-    const char *name,
+    const char* name,
     JsNativeFunction nativeFunction);
 
   static JsDiagDebugEventCallback s_callback;

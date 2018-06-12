@@ -34,7 +34,7 @@ namespace v8 {
 
   MaybeLocal<Value> JSON::Parse(Local<Context> context,
                                 Local<String> json_string) {
-    jsrt::ContextShim *contextShim = jsrt::IsolateShim::GetContextShim(
+    jsrt::ContextShim* contextShim = jsrt::IsolateShim::GetContextShim(
         (JsContextRef)*context);
 
     JsValueRef jsonParseFunction = contextShim->GetjsonParseFunction();
@@ -51,7 +51,7 @@ namespace v8 {
   MaybeLocal<String> JSON::Stringify(Local<Context> context,
                                      Local<Object> json_object,
                                      Local<String> gap) {
-    jsrt::ContextShim *contextShim = jsrt::IsolateShim::GetContextShim(
+    jsrt::ContextShim* contextShim = jsrt::IsolateShim::GetContextShim(
         (JsContextRef)*context);
 
     JsValueRef jsonStringifyFunction = contextShim->GetjsonStringifyFunction();

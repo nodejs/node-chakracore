@@ -24,7 +24,7 @@
 namespace jsrt {
 
 static void CHAKRA_CALLBACK PromiseContinuationCallback(JsValueRef task,
-                                                 void *callbackState) {
+                                                 void* callbackState) {
   jsrt::IsolateShim::GetCurrent()->QueueMicrotask(task);
 }
 

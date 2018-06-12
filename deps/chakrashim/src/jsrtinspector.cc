@@ -34,9 +34,9 @@ namespace jsrt {
 static JsValueRef CHAKRA_CALLBACK Log(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   JsValueRef scriptRef;
   jsrt::StringUtf8 script;
 
@@ -54,9 +54,9 @@ static JsValueRef CHAKRA_CALLBACK Log(
 static JsValueRef CHAKRA_CALLBACK JsGetScripts(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   JsValueRef sourcesList;
   JsErrorCode errorCode = JsDiagGetScripts(&sourcesList);
   CHAKRA_VERIFY_NOERROR(errorCode);
@@ -67,9 +67,9 @@ static JsValueRef CHAKRA_CALLBACK JsGetScripts(
 static JsValueRef CHAKRA_CALLBACK JsSetBreakpoint(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   int scriptId;
   int line;
   int column;
@@ -88,9 +88,9 @@ static JsValueRef CHAKRA_CALLBACK JsSetBreakpoint(
 static JsValueRef CHAKRA_CALLBACK JsGetFunctionPosition(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   CHAKRA_VERIFY(argumentCount >= 2);
 
   JsValueRef valueRef = JS_INVALID_REFERENCE;
@@ -105,9 +105,9 @@ static JsValueRef CHAKRA_CALLBACK JsGetFunctionPosition(
 static JsValueRef CHAKRA_CALLBACK JsRemoveBreakpoint(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   int bpId = 0;
   if (argumentCount >= 2 &&
     jsrt::ValueToInt(arguments[1], &bpId) == JsNoError) {
@@ -121,7 +121,7 @@ class InspectorBreakQueue {
  public:
   InspectorBreakQueue();
   ~InspectorBreakQueue();
-  void Push(v8::InterruptCallback callback, void *data);
+  void Push(v8::InterruptCallback callback, void* data);
   void Swap(std::vector<std::pair<v8::InterruptCallback, void*>> *other);
 
  private:
@@ -138,7 +138,7 @@ InspectorBreakQueue::~InspectorBreakQueue() {
   uv_mutex_destroy(&m_queueMutex);
 }
 
-void InspectorBreakQueue::Push(v8::InterruptCallback callback, void *data) {
+void InspectorBreakQueue::Push(v8::InterruptCallback callback, void* data) {
   uv_mutex_lock(&m_queueMutex);
   m_queue.emplace_back(callback, data);
   uv_mutex_unlock(&m_queueMutex);
@@ -266,7 +266,7 @@ void CHAKRA_CALLBACK Inspector::JsDiagDebugEventHandler(
 }
 
 void Inspector::InstallHostCallback(JsValueRef chakraDebugObject,
-    const char *name, JsNativeFunction nativeFunction) {
+    const char* name, JsNativeFunction nativeFunction) {
   JsValueRef nameVar;
   CHAKRA_VERIFY_NOERROR(JsCreateString(name, strlen(name), &nameVar));
 

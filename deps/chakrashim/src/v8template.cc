@@ -35,7 +35,7 @@ Object* GetTemplateProperties(Template* const templ) {
     return nullptr;
   }
 
-  TemplateData *templateData = static_cast<TemplateData*>(externalData);
+  TemplateData* templateData = static_cast<TemplateData*>(externalData);
   return templateData->EnsureProperties();
 }
 

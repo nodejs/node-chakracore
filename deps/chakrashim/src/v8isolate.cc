@@ -54,7 +54,7 @@ Isolate* Isolate::New() {
                                 UINT32_MAX, UINT32_MAX);
 }
 
-Isolate *Isolate::GetCurrent() {
+Isolate* Isolate::GetCurrent() {
   return jsrt::IsolateShim::GetCurrentAsIsolate();
 }
 
@@ -256,7 +256,7 @@ int Isolate::ContextDisposedNotification() {
   return 0;
 }
 
-void Isolate::GetHeapStatistics(HeapStatistics *heap_statistics) {
+void Isolate::GetHeapStatistics(HeapStatistics* heap_statistics) {
   size_t memoryUsage;
   if (!jsrt::IsolateShim::FromIsolate(this)->GetMemoryUsage(&memoryUsage)) {
     return;

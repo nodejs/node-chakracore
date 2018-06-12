@@ -51,11 +51,11 @@ CachedPropertyIdRef GetProxyTrapCachedPropertyIdRef(ProxyTraps trap);
 JsErrorCode CreateProxy(
     JsValueRef target,
     const JsNativeFunction config[ProxyTraps::TrapCount],
-    JsValueRef *result);
+    JsValueRef* result);
 
 JsErrorCode TryParseUInt32(JsValueRef strRef,
                            bool* isUInt32,
-                           unsigned int *uint32Value);
+                           unsigned int* uint32Value);
 
 }  // namespace jsrt
 

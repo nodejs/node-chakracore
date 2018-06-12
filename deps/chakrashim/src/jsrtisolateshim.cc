@@ -325,7 +325,7 @@ IsolateShim::~IsolateShim() {
   return ToIsolate(s_currentIsolate);
 }
 
-/* static */ IsolateShim *IsolateShim::GetCurrent() {
+/* static */ IsolateShim* IsolateShim::GetCurrent() {
   assert(s_currentIsolate);
   return s_currentIsolate;
 }
@@ -384,7 +384,7 @@ bool IsolateShim::IsDisposing() {
 // CHAKRA-TODO: This is not called after cross context work in chakra. Fix this
 // else we will leak chakrashim object.
 void CHAKRA_CALLBACK IsolateShim::JsContextBeforeCollectCallback(
-    JsRef contextRef, void *data) {
+    JsRef contextRef, void* data) {
   IsolateShim * isolateShim = reinterpret_cast<IsolateShim *>(data);
   ContextShim * contextShim = isolateShim->GetContextShim(contextRef);
 
@@ -421,7 +421,7 @@ bool IsolateShim::NewContext(JsContextRef * context, bool exposeGC,
 /* static */
 ContextShim * IsolateShim::GetContextShim(JsContextRef contextRef) {
   assert(contextRef != JS_INVALID_REFERENCE);
-  void *data;
+  void* data;
   if (JsGetContextData(contextRef, &data) != JsNoError) {
     return nullptr;
   }
@@ -651,7 +651,7 @@ JsValueRef IsolateShim::GetChakraInspectorShimJsArrayBuffer() {
 }
 
 void CHAKRA_CALLBACK IsolateShim::PromiseRejectionCallback(
-    JsValueRef promise, JsValueRef reason, bool handled, void *callbackState) {
+    JsValueRef promise, JsValueRef reason, bool handled, void* callbackState) {
   CHAKRA_VERIFY(callbackState != nullptr);
   v8::PromiseRejectCallback callback =
       reinterpret_cast<v8::PromiseRejectCallback>(callbackState);

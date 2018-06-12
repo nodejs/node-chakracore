@@ -52,7 +52,7 @@ Local<String> StringObject::ValueOf() const {
   return Local<String>::New(stringObjectValue);
 }
 
-StringObject *StringObject::Cast(v8::Value *obj) {
+StringObject* StringObject::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsStringObject());
   return static_cast<StringObject*>(obj);
 }
