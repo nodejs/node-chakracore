@@ -37,7 +37,7 @@ namespace jsrt {
       JsValueRef destObj,
       JsPropertyIdRef destIdRef,
       ValueConvertFunc convertFunc,
-      bool *wasCopied) {
+      bool* wasCopied) {
     if (sourceObj == JS_INVALID_REFERENCE ||
         sourceIdRef == JS_INVALID_REFERENCE ||
         destObj == JS_INVALID_REFERENCE) {
@@ -148,7 +148,7 @@ namespace jsrt {
   }
 
   static std::string GetObjectIdForFrameProp(unsigned int frameIndex,
-                                             const char *propName) {
+                                             const char* propName) {
     std::string objectId("{\"ordinal\":");
     objectId.append(std::to_string(frameIndex));
     objectId.append(",\"name\":\"");
@@ -368,7 +368,7 @@ namespace jsrt {
       JsPropertyIdRef sourceIdRef,
       JsValueRef destObj,
       JsPropertyIdRef destIdRef,
-      bool *wasCopied) {
+      bool* wasCopied) {
     return CopyPropertyImpl(sourceObj, sourceIdRef, destObj, destIdRef,
                             static_cast<ConvertFunc>(nullptr), wasCopied);
   }
@@ -378,7 +378,7 @@ namespace jsrt {
       JsPropertyIdRef sourceIdRef,
       JsValueRef destObj,
       JsPropertyIdRef destIdRef,
-      bool *wasCopied) {
+      bool* wasCopied) {
     return CopyPropertyImpl(sourceObj, sourceIdRef, destObj, destIdRef,
                             &JsConvertValueToString, wasCopied);
   }
@@ -660,7 +660,7 @@ namespace jsrt {
   }
 
   JsRuntimeHandle InspectorHelpers::GetRuntimeFromIsolate(
-      v8::Isolate *isolate) {
+      v8::Isolate* isolate) {
     return IsolateShim::FromIsolate(isolate)->GetRuntimeHandle();
   }
 

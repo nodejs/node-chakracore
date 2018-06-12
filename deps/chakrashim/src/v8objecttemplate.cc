@@ -53,7 +53,7 @@ class ObjectTemplateData : public TemplateData {
       functionCallDelegateInterceptorData.Reset();
   }
 
-  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
+  static void CHAKRA_CALLBACK FinalizeCallback(void* data) {
     if (data != nullptr) {
       ObjectTemplateData* objectTemplateData =
         reinterpret_cast<ObjectTemplateData*>(data);
@@ -135,7 +135,7 @@ void ObjectData::FieldValue::Reset() {
 }
 
 ObjectData::ObjectData(ObjectTemplate* objectTemplate,
-                       ObjectTemplateData *templateData)
+                       ObjectTemplateData* templateData)
     : ExternalData(ExternalDataType),
       objectTemplate(nullptr, Utils::ToLocal(objectTemplate)),
       internalFieldCount(templateData->internalFieldCount) {
@@ -164,7 +164,7 @@ ObjectData::~ObjectData() {
   }
 }
 
-void CHAKRA_CALLBACK ObjectData::FinalizeCallback(void *data) {
+void CHAKRA_CALLBACK ObjectData::FinalizeCallback(void* data) {
   if (data != nullptr) {
     ObjectData* objectData = reinterpret_cast<ObjectData*>(data);
     delete objectData;
@@ -188,9 +188,9 @@ ObjectData::FieldValue* ObjectData::GetInternalField(Object* object,
 JsValueRef CHAKRA_CALLBACK Utils::GetCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   CHAKRA_VERIFY(argumentCount >= 3);
 
   JsValueRef result;
@@ -270,9 +270,9 @@ JsValueRef CHAKRA_CALLBACK Utils::GetCallback(
 JsValueRef CHAKRA_CALLBACK Utils::SetCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   CHAKRA_VERIFY(argumentCount >= 4);
 
   JsValueRef object = arguments[1];
@@ -333,9 +333,9 @@ JsValueRef CHAKRA_CALLBACK Utils::SetCallback(
 JsValueRef CHAKRA_CALLBACK Utils::DeletePropertyCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   CHAKRA_VERIFY(argumentCount >= 3);
 
   JsValueRef object = arguments[1];
@@ -396,7 +396,7 @@ JsValueRef CHAKRA_CALLBACK Utils::DeletePropertyCallback(
 }
 
 JsValueRef Utils::HasPropertyHandler(
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount) {  // NOLINT(runtime/int)
   CHAKRA_VERIFY(argumentCount >= 3);
 
@@ -491,9 +491,9 @@ JsValueRef Utils::HasPropertyHandler(
 JsValueRef CHAKRA_CALLBACK Utils::HasCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   return HasPropertyHandler(arguments, argumentCount);
 }
 
@@ -579,27 +579,27 @@ JsValueRef Utils::GetPropertiesEnumeratorHandler(
 JsValueRef CHAKRA_CALLBACK Utils::EnumerateCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   return GetPropertiesEnumeratorHandler(arguments, argumentCount);
 }
 
 JsValueRef CHAKRA_CALLBACK Utils::OwnKeysCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   return GetPropertiesHandler(arguments, argumentCount, false);
 }
 
 JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   CHAKRA_VERIFY(argumentCount >= 3);
 
   JsValueRef object = arguments[1];
@@ -753,9 +753,9 @@ JsValueRef CHAKRA_CALLBACK Utils::GetOwnPropertyDescriptorCallback(
 JsValueRef CHAKRA_CALLBACK Utils::DefinePropertyCallback(
   JsValueRef callee,
   bool isConstructCall,
-  JsValueRef *arguments,
+  JsValueRef* arguments,
   unsigned short argumentCount,  // NOLINT(runtime/int)
-  void *callbackState) {
+  void* callbackState) {
   CHAKRA_VERIFY(argumentCount >= 4);
 
   JsValueRef object = arguments[1];
@@ -840,9 +840,9 @@ Local<ObjectTemplate> ObjectTemplate::New(Isolate* isolate,
 JsValueRef CHAKRA_CALLBACK GetSelf(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   return reinterpret_cast<JsValueRef>(callbackState);
 }
 
@@ -879,7 +879,7 @@ Local<Object> ObjectTemplate::NewInstance(Handle<Function> constructor) {
     }
   }
 
-  ObjectData *objectData = new ObjectData(this, objectTemplateData);
+  ObjectData* objectData = new ObjectData(this, objectTemplateData);
   JsValueRef newInstanceRef = JS_INVALID_REFERENCE;
   if (JsCreateExternalObjectWithPrototype(objectData,
                                           ObjectData::FinalizeCallback,
@@ -984,7 +984,7 @@ void ObjectTemplate::SetAccessor(Handle<Name> name,
                                  AccessControl settings,
                                  PropertyAttribute attribute,
                                  Handle<AccessorSignature> signature) {
-  ObjectTemplateData *objectTemplateData = nullptr;
+  ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return;
   }
@@ -1005,7 +1005,7 @@ void ObjectTemplate::SetNamedPropertyHandler(
     NamedPropertyDefinerCallback definer,
     NamedPropertyDescriptorCallback descriptor,
     Handle<Value> data) {
-  ObjectTemplateData *objectTemplateData = nullptr;
+  ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return;
   }
@@ -1047,7 +1047,7 @@ void ObjectTemplate::SetIndexedPropertyHandler(
     IndexedPropertyDefinerCallback definer,
     IndexedPropertyDescriptorCallback descriptor,
     Handle<Value> data) {
-  ObjectTemplateData *objectTemplateData = nullptr;
+  ObjectTemplateData* objectTemplateData = nullptr;
   if (!ExternalData::TryGet(this, &objectTemplateData)) {
     return;
   }

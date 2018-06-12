@@ -89,7 +89,7 @@ PropertyDescriptor &
 PropertyDescriptor::operator=(PropertyDescriptor && other) {
   private_ = other.private_;
   other.private_ = nullptr;
-  return *this;
+  return* this;
 }
 
 PropertyDescriptor::~PropertyDescriptor() {

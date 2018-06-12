@@ -312,9 +312,9 @@ bool ContextShim::InitializeBuiltIns() {
 static JsValueRef CHAKRA_CALLBACK ProxyOfGlobalGetPrototypeOfCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
+    void* callbackState) {
   // Return the target (which is the global object)
   CHAKRA_VERIFY(argumentCount >= 2);
   return arguments[1];

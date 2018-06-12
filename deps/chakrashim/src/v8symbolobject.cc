@@ -55,7 +55,7 @@ Local<Symbol> SymbolObject::ValueOf() const {
   return Local<Symbol>::New(symbolObjectValue);
 }
 
-SymbolObject *SymbolObject::Cast(v8::Value *obj) {
+SymbolObject* SymbolObject::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsSymbolObject());
   return static_cast<SymbolObject*>(obj);
 }

@@ -338,9 +338,9 @@ bool Object::Delete(uint32_t index) {
   return FromMaybe(Delete(Local<Context>(), index));
 }
 
-void CHAKRA_CALLBACK AcessorExternalObjectFinalizeCallback(void *data) {
+void CHAKRA_CALLBACK AcessorExternalObjectFinalizeCallback(void* data) {
   if (data != nullptr) {
-    AccessorExternalData *accessorData =
+    AccessorExternalData* accessorData =
       static_cast<AccessorExternalData*>(data);
     delete accessorData;
   }
@@ -362,7 +362,7 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
   }
 
   if (getter != nullptr) {
-    AccessorExternalData *externalData = new AccessorExternalData();
+    AccessorExternalData* externalData = new AccessorExternalData();
     externalData->type = Getter;
     externalData->propertyName = name;
     externalData->getter = getter;
@@ -378,7 +378,7 @@ Maybe<bool> Object::SetAccessor(Handle<Name> name,
   }
 
   if (setter != nullptr) {
-    AccessorExternalData *externalData = new AccessorExternalData();
+    AccessorExternalData* externalData = new AccessorExternalData();
     externalData->type = Setter;
     externalData->propertyName = name;
     externalData->setter = setter;
@@ -589,10 +589,10 @@ Maybe<PropertyAttribute> Object::GetRealNamedPropertyAttributes(
 JsValueRef CHAKRA_CALLBACK Utils::AccessorHandler(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState) {
-  void *externalData;
+    void* callbackState) {
+  void* externalData;
   JsValueRef result = JS_INVALID_REFERENCE;
 
   if (JsGetUndefinedValue(&result) != JsNoError) {
@@ -607,7 +607,7 @@ JsValueRef CHAKRA_CALLBACK Utils::AccessorHandler(
     return result;
   }
 
-  AccessorExternalData *accessorData =
+  AccessorExternalData* accessorData =
     static_cast<AccessorExternalData*>(externalData);
   Local<Value> dataLocal = accessorData->data;
 
@@ -699,7 +699,7 @@ Maybe<bool> Object::SetPrivate(Local<Context> context, Local<Private> key,
 
 
 ObjectTemplate* Object::GetObjectTemplate() {
-  ObjectData *objectData = nullptr;
+  ObjectData* objectData = nullptr;
   return Utils::GetObjectData(this, &objectData) == JsNoError
           && objectData != nullptr ?
     *objectData->objectTemplate : nullptr;
@@ -761,7 +761,7 @@ void* Object::GetAlignedPointerFromInternalField(int index) {
   return field ? field->GetPointer() : nullptr;
 }
 
-void Object::SetAlignedPointerInInternalField(int index, void *value) {
+void Object::SetAlignedPointerInInternalField(int index, void* value) {
   ObjectData::FieldValue* field = ObjectData::GetInternalField(this, index);
   if (field) {
     field->SetPointer(value);
@@ -815,7 +815,7 @@ Local<Object> Object::New(Isolate* isolate) {
   return Local<Object>::New(static_cast<Object*>(newObjectRef));
 }
 
-Object *Object::Cast(Value *obj) {
+Object* Object::Cast(Value* obj) {
   CHAKRA_ASSERT(obj->IsObject());
   return static_cast<Object*>(obj);
 }

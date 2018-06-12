@@ -71,7 +71,7 @@ JsErrorCode SetPropertyOnTrapConfig(
 
 JsErrorCode CreateProxyTrapConfig(
     const JsNativeFunction proxyConf[ProxyTraps::TrapCount],
-    JsValueRef *confObj) {
+    JsValueRef* confObj) {
   JsErrorCode error = JsNoError;
 
   error = JsCreateObject(confObj);
@@ -96,7 +96,7 @@ JsErrorCode CreateProxyTrapConfig(
 JsErrorCode CreateProxy(
     JsValueRef target,
     const JsNativeFunction config[ProxyTraps::TrapCount],
-    JsValueRef *result) {
+    JsValueRef* result) {
   JsErrorCode error;
 
   JsValueRef proxyConfigObj;
@@ -112,7 +112,7 @@ JsErrorCode CreateProxy(
 }
 
 JsErrorCode TryParseUInt32(
-    JsValueRef strRef, bool* isUInt32, unsigned int *uint32Value) {
+    JsValueRef strRef, bool* isUInt32, unsigned int* uint32Value) {
   JsErrorCode error;
 
   *isUInt32 = false;

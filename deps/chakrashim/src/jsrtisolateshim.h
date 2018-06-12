@@ -193,9 +193,9 @@ class IsolateShim {
   ~IsolateShim();
   static v8::Isolate * ToIsolate(IsolateShim * isolate);
   static void CHAKRA_CALLBACK JsContextBeforeCollectCallback(JsRef contextRef,
-                                                             void *data);
+                                                             void* data);
   static void CHAKRA_CALLBACK PromiseRejectionCallback(
-      JsValueRef promise, JsValueRef reason, bool handled, void *callbackState);
+      JsValueRef promise, JsValueRef reason, bool handled, void* callbackState);
 
   JsRuntimeHandle runtime;
   JsPropertyIdRef symbolPropertyIdRefs[CachedSymbolPropertyIdRef::SymbolCount];

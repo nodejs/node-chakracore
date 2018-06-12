@@ -164,7 +164,7 @@ Local<Value> Function::GetBoundFunction() const {
   return Local<Value>();
 }
 
-Function *Function::Cast(Value *obj) {
+Function* Function::Cast(Value* obj) {
   CHAKRA_ASSERT(obj->IsFunction());
   return static_cast<Function*>(obj);
 }

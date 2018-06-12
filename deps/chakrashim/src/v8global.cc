@@ -39,7 +39,7 @@ Handle<Boolean> False(Isolate* isolate) {
   return Handle<Boolean>(static_cast<Boolean *>(jsrt::GetFalse()));
 }
 
-bool SetResourceConstraints(ResourceConstraints *constraints) {
+bool SetResourceConstraints(ResourceConstraints* constraints) {
   // CHAKRA-TODO: Ignore for now, we don't support setting the stack limit.
   return true;
 }

@@ -41,7 +41,7 @@ Local<Value> Proxy::GetHandler() {
   return Local<Object>::New(returnValue);
 }
 
-Proxy *Proxy::Cast(v8::Value *obj) {
+Proxy* Proxy::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsProxy());
   return static_cast<Proxy*>(obj);
 }

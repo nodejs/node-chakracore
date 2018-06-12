@@ -209,10 +209,10 @@ class ExternalCallback {
 
   // JsEnhancedNativeFunction
   static JsValueRef CALLBACK Callback(JsValueRef callee,
-                                      JsValueRef *arguments,
+                                      JsValueRef* arguments,
                                       uint16_t argumentCount,
-                                      JsNativeFunctionInfo *info,
-                                      void *callbackState) {
+                                      JsNativeFunctionInfo* info,
+                                      void* callbackState) {
     jsrtimpl::ExternalCallback* externalCallback =
       reinterpret_cast<jsrtimpl::ExternalCallback*>(callbackState);
 
@@ -255,8 +255,8 @@ class StringUtf8 {
       _length = 0;
     }
   }
-  char *operator*() { return _str; }
-  operator const char *() const { return _str; }
+  char* operator*() { return _str; }
+  operator const char* () const { return _str; }
   int length() const { return static_cast<int>(_length); }
 
   napi_status From(JsValueRef strRef) {
@@ -1340,7 +1340,7 @@ napi_status napi_get_cb_info(
     napi_value* this_arg,  // [out] Receives the JS 'this' arg for the call
     void** data) {         // [out] Receives the data pointer for the callback.
   CHECK_ARG(cbinfo);
-  const CallbackInfo *info = reinterpret_cast<CallbackInfo*>(cbinfo);
+  const CallbackInfo* info = reinterpret_cast<CallbackInfo*>(cbinfo);
 
   if (argv != nullptr) {
     CHECK_ARG(argc);
@@ -1383,7 +1383,7 @@ napi_status napi_get_new_target(napi_env env,
   CHECK_ARG(cbinfo);
   CHECK_ARG(result);
 
-  const CallbackInfo *info = reinterpret_cast<CallbackInfo*>(cbinfo);
+  const CallbackInfo* info = reinterpret_cast<CallbackInfo*>(cbinfo);
   if (info->isConstructCall) {
     *result = info->newTarget;
   } else {
@@ -1561,7 +1561,7 @@ napi_status napi_get_value_string_latin1(napi_env env,
     if (bufsize <= count) {
       // if bufsize == count there is no space for null terminator
       // Slow path: must implement truncation here.
-      char* fullBuffer = static_cast<char *>(malloc(count));
+      char* fullBuffer = static_cast<char*>(malloc(count));
       CHAKRA_VERIFY(fullBuffer != nullptr);
 
       CHECK_JSRT_EXPECTED(
@@ -1645,7 +1645,7 @@ napi_status napi_get_value_string_utf8(napi_env env,
     if (bufsize <= count) {
       // if bufsize == count there is no space for null terminator
       // Slow path: must implement truncation here.
-      char* fullBuffer = static_cast<char *>(malloc(count));
+      char* fullBuffer = static_cast<char*>(malloc(count));
       CHAKRA_VERIFY(fullBuffer != nullptr);
 
       CHECK_JSRT_EXPECTED(
@@ -2196,7 +2196,7 @@ napi_status napi_make_callback(napi_env env,
 }
 
 struct ArrayBufferFinalizeInfo {
-  void *data;
+  void* data;
 
   void Free() {
     free(data);
@@ -2204,7 +2204,7 @@ struct ArrayBufferFinalizeInfo {
   }
 };
 
-void CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
+void CALLBACK ExternalArrayBufferFinalizeCallback(void* data) {
   static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
 

@@ -58,7 +58,7 @@ class FunctionCallbackData : public ExternalData {
     prototype.Reset();
   }
 
-  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
+  static void CHAKRA_CALLBACK FinalizeCallback(void* data) {
     if (data != nullptr) {
       FunctionCallbackData* functionCallbackData =
         reinterpret_cast<FunctionCallbackData*>(data);
@@ -77,7 +77,7 @@ class FunctionCallbackData : public ExternalData {
   }
 
   bool CheckSignature(Local<Object> thisPointer,
-                      JsValueRef *arguments,
+                      JsValueRef* arguments,
                       unsigned short argumentCount,  // NOLINT(runtime/int)
                       Local<Object>* holder) {
     if (signature.IsEmpty()) {
@@ -91,10 +91,10 @@ class FunctionCallbackData : public ExternalData {
 
   static JsValueRef CHAKRA_CALLBACK FunctionInvoked(
       JsValueRef callee,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      JsNativeFunctionInfo *info,
-      void *callbackState) {
+      JsNativeFunctionInfo* info,
+      void* callbackState) {
     CHAKRA_VERIFY(argumentCount >= 1);
 
     // Script engine could have switched context. Make sure to invoke the
@@ -197,7 +197,7 @@ class FunctionTemplateData : public TemplateData {
     className.Reset();
   }
 
-  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
+  static void CHAKRA_CALLBACK FinalizeCallback(void* data) {
     if (data != nullptr) {
       FunctionTemplateData * functionTemplateData =
         reinterpret_cast<FunctionTemplateData*>(data);

@@ -39,7 +39,7 @@ Local<Array> Array::New(Isolate* isolate, int length) {
   return Local<Array>::New(newArrayRef);
 }
 
-Array *Array::Cast(Value *obj) {
+Array* Array::Cast(Value* obj) {
   CHAKRA_ASSERT(obj->IsArray());
   return static_cast<Array*>(obj);
 }

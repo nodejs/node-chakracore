@@ -29,7 +29,7 @@ static const size_t kMaxFlagCount = 3;
 
 MaybeLocal<RegExp> RegExp::New(Local<Context> context, Handle<String> pattern,
                                Flags flags) {
-  ContextShim *contextShim = IsolateShim::GetContextShim(
+  ContextShim* contextShim = IsolateShim::GetContextShim(
       (JsContextRef)*context);
   JsValueRef regExpConstructor = contextShim->GetRegExpConstructor();
 
