@@ -111,7 +111,6 @@ DEFINE_TYPEDARRAY_CHECK(Int32)
 DEFINE_TYPEDARRAY_CHECK(Float32)
 DEFINE_TYPEDARRAY_CHECK(Float64)
 
-
 bool Value::IsArrayBufferView() const {
   return IsTypedArray() || IsDataView();
 }
@@ -199,6 +198,11 @@ IS_TYPE_FUNCTION(IsModuleNamespaceObject, isModuleNamespaceObject)
 #undef IS_TYPE_FUNCTION
 
 bool Value::IsBigIntObject() const {
+  // CHAKRA-TODO: BigInt support needed in ChakraCore
+  return false;
+}
+
+bool Value::IsBigUint64Array() const {
   // CHAKRA-TODO: BigInt support needed in ChakraCore
   return false;
 }
