@@ -75,7 +75,7 @@ static String16 calculateHash(const String16& str) {
 
 static JsErrorCode GetNamedStringValue(JsValueRef object,
                                        jsrt::CachedPropertyIdRef cachedIdRef,
-                                       String16 *value) {
+                                       String16* value) {
   JsErrorCode err = JsNoError;
 
   JsValueRef propValue;

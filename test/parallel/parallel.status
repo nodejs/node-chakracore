@@ -5,8 +5,6 @@ prefix parallel
 # sample-test                        : PASS,FLAKY
 
 [true] # This section applies to all platforms
-# Postmortem debugging data is prone to accidental removal during V8 updates.
-test-postmortem-metadata: PASS,FLAKY
 
 [$system==win32]
 test-child-process-fork-net-socket: PASS,FLAKY
@@ -209,6 +207,28 @@ test-vm-proxy-failure-CP : SKIP
 # This test seems to fail under system stress, marking it flaky for now
 # https://github.com/nodejs/node-chakracore/issues/494
 test-async-hooks-destroy-on-gc : PASS,FLAKY
+
+# This test fails because it requires V8's custom serialization and deserialization support
+test-error-serdes : SKIP
+
+# These tests are for worker_threads support, which is currently not implemented in Node-ChakraCore
+test-message-channel : SKIP
+test-message-channel-sharedarraybuffer : SKIP
+test-message-port : SKIP
+test-message-port-arraybuffer : SKIP
+test-message-port-message-port-transferring : SKIP
+test-worker : SKIP
+test-worker-cleanup-handles : SKIP
+test-worker-dns-terminate : SKIP
+test-worker-esmodule : SKIP
+test-worker-memory : SKIP
+test-worker-nexttick-terminate : SKIP
+test-worker-stdio : SKIP
+test-worker-syntax-error : SKIP
+test-worker-syntax-error-file : SKIP
+test-worker-uncaught-exception : SKIP
+test-worker-uncaught-exception-async : SKIP
+test-worker-unsupported-things : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed

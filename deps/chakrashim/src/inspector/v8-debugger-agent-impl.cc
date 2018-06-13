@@ -135,7 +135,7 @@ String16 serializeCallFrameId(int frameOrdinal) {
   return "{\"ordinal\":" + String16::fromInteger(frameOrdinal) + "}";
 }
 
-bool parseCallFrameId(const String16& objectId, int *ordinal) {
+bool parseCallFrameId(const String16& objectId, int* ordinal) {
   *ordinal = 0;
 
   std::unique_ptr<protocol::Value> parsedValue = protocol::parseJSON(objectId);

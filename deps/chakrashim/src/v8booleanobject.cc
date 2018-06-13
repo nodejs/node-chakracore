@@ -56,7 +56,7 @@ bool BooleanObject::ValueOf() const {
   return value;
 }
 
-BooleanObject *BooleanObject::Cast(v8::Value *obj) {
+BooleanObject* BooleanObject::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsBooleanObject());
   return static_cast<BooleanObject*>(obj);
 }

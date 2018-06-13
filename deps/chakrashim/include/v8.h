@@ -270,8 +270,8 @@ typedef void (*IndexedPropertyDescriptorCallback)(
   uint32_t index, const PropertyCallbackInfo<Value>& info);
 
 typedef bool (*EntropySource)(unsigned char* buffer, size_t length);
-typedef void (*FatalErrorCallback)(const char *location, const char *message);
-typedef void (*JitCodeEventHandler)(const JitCodeEvent *event);
+typedef void (*FatalErrorCallback)(const char* location, const char* message);
+typedef void (*JitCodeEventHandler)(const JitCodeEvent* event);
 
 typedef MaybeLocal<Promise>(*HostImportModuleDynamicallyCallback)(
     Local<Context> context, Local<ScriptOrModule> referrer,
@@ -324,7 +324,7 @@ class Local {
   }
 
   template <class S>
-  V8_INLINE Local<S> As() {
+  V8_INLINE Local<S> As() const {
     return Local<S>::Cast(*this);
   }
 
@@ -479,7 +479,9 @@ class WeakCallbackInfo {
   }
 
   bool IsFirstPass() const { return callback_ != nullptr; }
-  void SetSecondPassCallback(Callback callback) const { *callback_ = callback; }
+  void SetSecondPassCallback(Callback callback) const {
+    *callback_ = callback; /* NOLINT (readability/null_usage) */
+  }
 
  private:
   Isolate* isolate_;
@@ -510,7 +512,7 @@ class WeakCallbackData {
 
 namespace chakrashim {
 struct WeakReferenceCallbackWrapper {
-  void *parameters;
+  void* parameters;
   union {
     WeakCallbackInfo<void>::Callback infoCallback;
     WeakCallbackData<Value, void>::Callback dataCallback;
@@ -822,7 +824,7 @@ class V8_EXPORT HandleScope {
   template <class T> friend class Local;
   static const int kOnStackLocals = 8;  // Arbitrary number of refs on stack
 
-  HandleScope *_prev;
+  HandleScope* _prev;
 
   // Save some refs on stack. 1st element on stack
   // is the JavascriptArray where other refs go.
@@ -838,7 +840,7 @@ class V8_EXPORT HandleScope {
   bool AddLocalContext(JsContextRef value);
   bool AddLocalAddRef(JsRef value);
 
-  static HandleScope *GetCurrent();
+  static HandleScope* GetCurrent();
 
   template <class T>
   Local<T> Close(Handle<T> value);
@@ -1263,7 +1265,7 @@ class V8_EXPORT String : public Name {
   class V8_EXPORT ExternalOneByteStringResource {
    public:
     virtual ~ExternalOneByteStringResource() {}
-    virtual const char *data() const = 0;
+    virtual const char* data() const = 0;
     virtual size_t length() const = 0;
     virtual void Dispose() { delete this; }
   };
@@ -1282,7 +1284,7 @@ class V8_EXPORT String : public Name {
     return nullptr;
   }
 
-  static String *Cast(v8::Value *obj);
+  static String* Cast(v8::Value* obj);
 
   enum NewStringType {
     kNormalString = static_cast<int>(v8::NewStringType::kNormal),
@@ -1338,8 +1340,8 @@ class V8_EXPORT String : public Name {
                       explicit Utf8Value(Local<v8::Value> obj));
     Utf8Value(Isolate* isolate, Local<v8::Value> obj);
     ~Utf8Value();
-    char *operator*() { return _str; }
-    const char *operator*() const { return _str; }
+    char* operator*() { return _str; }
+    const char* operator*() const { return _str; }
     int length() const { return static_cast<int>(_length); }
    private:
     Utf8Value(const Utf8Value&);
@@ -1355,8 +1357,8 @@ class V8_EXPORT String : public Name {
                       explicit Value(Local<v8::Value> obj));
     Value(Isolate* isolate, Local<v8::Value> obj);
     ~Value();
-    uint16_t *operator*() { return _str; }
-    const uint16_t *operator*() const { return _str; }
+    uint16_t* operator*() { return _str; }
+    const uint16_t* operator*() const { return _str; }
     int length() const { return _length; }
    private:
     Value(const Value&);
@@ -1384,7 +1386,7 @@ class V8_EXPORT Number : public Primitive {
  public:
   double Value() const;
   static Local<Number> New(Isolate* isolate, double value);
-  static Number *Cast(v8::Value *obj);
+  static Number* Cast(v8::Value* obj);
 
  private:
   friend class Integer;
@@ -1396,7 +1398,7 @@ class V8_EXPORT Integer : public Number {
  public:
   static Local<Integer> New(Isolate* isolate, int32_t value);
   static Local<Integer> NewFromUnsigned(Isolate* isolate, uint32_t value);
-  static Integer *Cast(v8::Value *obj);
+  static Integer* Cast(v8::Value* obj);
 
   int64_t Value() const;
 
@@ -1619,7 +1621,7 @@ class V8_EXPORT Object : public Value {
   MaybeLocal<Array> PreviewEntries(bool* is_key_value);
 
   static Local<Object> New(Isolate* isolate = nullptr);
-  static Object *Cast(Value *obj);
+  static Object* Cast(Value* obj);
 
   Maybe<bool> SetIntegrityLevel(Local<Context> context, IntegrityLevel level);
 
@@ -1650,7 +1652,7 @@ class V8_EXPORT Array : public Object {
     Local<Context> context, uint32_t index);
 
   static Local<Array> New(Isolate* isolate = nullptr, int length = 0);
-  static Array *Cast(Value *obj);
+  static Array* Cast(Value* obj);
 };
 
 class V8_EXPORT BooleanObject : public Object {
@@ -1690,7 +1692,7 @@ class V8_EXPORT Date : public Object {
   static V8_WARN_UNUSED_RESULT MaybeLocal<Value> New(Local<Context> context,
                                                      double time);
 
-  static Date *Cast(Value *obj);
+  static Date* Cast(Value* obj);
 };
 
 class V8_EXPORT RegExp : public Object {
@@ -1709,7 +1711,7 @@ class V8_EXPORT RegExp : public Object {
                                                       Handle<String> pattern,
                                                       Flags flags);
   Local<String> GetSource() const;
-  static RegExp *Cast(v8::Value *obj);
+  static RegExp* Cast(v8::Value* obj);
 };
 
 
@@ -1916,7 +1918,7 @@ class V8_EXPORT Function : public Object {
   int ScriptId() const;
   Local<Value> GetBoundFunction() const;
 
-  static Function *Cast(Value *obj);
+  static Function* Cast(Value* obj);
   static const int kLineOffsetNotFound;
 };
 
@@ -2033,6 +2035,7 @@ class V8_EXPORT ArrayBuffer : public Object {
     virtual void* AllocateUninitialized(size_t length) = 0;
     virtual void Free(void* data, size_t length) = 0;
     static Allocator* NewDefaultAllocator();
+    enum class AllocationMode { kNormal, kReservation };
   };
 
   class V8_EXPORT Contents {  // NOLINT
@@ -2180,7 +2183,39 @@ class V8_EXPORT Float64Array : public TypedArray {
 
 class V8_EXPORT SharedArrayBuffer : public Object {
  public:
+  class V8_EXPORT Contents {  // NOLINT
+   public:
+    Contents()
+        : data_(nullptr),
+          byte_length_(0),
+          allocation_base_(nullptr),
+          allocation_length_(0),
+          allocation_mode_(ArrayBuffer::Allocator::AllocationMode::kNormal) {}
+
+    void* AllocationBase() const { return allocation_base_; }
+    size_t AllocationLength() const { return allocation_length_; }
+    ArrayBuffer::Allocator::AllocationMode AllocationMode() const {
+      return allocation_mode_;
+    }
+
+    void* Data() const { return data_; }
+    size_t ByteLength() const { return byte_length_; }
+
+   private:
+    void* data_;
+    size_t byte_length_;
+    void* allocation_base_;
+    size_t allocation_length_;
+    ArrayBuffer::Allocator::AllocationMode allocation_mode_;
+
+    friend class SharedArrayBuffer;
+  };
+
+  static Local<SharedArrayBuffer> New(
+      Isolate* isolate, void* data, size_t byte_length,
+      ArrayBufferCreationMode mode = ArrayBufferCreationMode::kExternalized);
   static SharedArrayBuffer* Cast(Value* obj);
+  Contents Externalize();
 
  private:
   SharedArrayBuffer();
@@ -2244,6 +2279,9 @@ class V8_EXPORT ValueDeserializer {
     virtual ~Delegate() {}
 
     virtual MaybeLocal<Object> ReadHostObject(Isolate* isolate);
+
+    virtual MaybeLocal<SharedArrayBuffer> GetSharedArrayBufferFromId(
+        Isolate* isolate, uint32_t clone_id);
   };
 
   ValueDeserializer(Isolate* isolate, const uint8_t* data, size_t size,
@@ -2530,12 +2568,12 @@ V8_EXPORT Handle<Primitive> Undefined(Isolate* isolate);
 V8_EXPORT Handle<Primitive> Null(Isolate* isolate);
 V8_EXPORT Handle<Boolean> True(Isolate* isolate);
 V8_EXPORT Handle<Boolean> False(Isolate* isolate);
-V8_EXPORT bool SetResourceConstraints(ResourceConstraints *constraints);
+V8_EXPORT bool SetResourceConstraints(ResourceConstraints* constraints);
 
 
 class V8_EXPORT ResourceConstraints {
  public:
-  void set_stack_limit(uint32_t *value) {}
+  void set_stack_limit(uint32_t* value) {}
 };
 
 class V8_EXPORT Exception {
@@ -2754,11 +2792,13 @@ class V8_EXPORT Isolate {
   void SetHostInitializeImportMetaObjectCallback(
       HostInitializeImportMetaObjectCallback callback);
 
+  void DiscardThreadSpecificMetadata();
+
   void Enter();
   void Exit();
   void Dispose();
 
-  void GetHeapStatistics(HeapStatistics *heap_statistics);
+  void GetHeapStatistics(HeapStatistics* heap_statistics);
   size_t NumberOfHeapSpaces();
   bool GetHeapSpaceStatistics(HeapSpaceStatistics* space_statistics,
                               size_t index);
@@ -2867,8 +2907,8 @@ class V8_EXPORT V8 {
   static bool IsDead();
   static void SetFlagsFromString(const char* str, int length);
   static void SetFlagsFromCommandLine(
-    int *argc, char **argv, bool remove_flags);
-  static const char *GetVersion();
+    int* argc, char **argv, bool remove_flags);
+  static const char* GetVersion();
   static bool Initialize();
   static void SetEntropySource(EntropySource source);
   static void TerminateExecution(Isolate* isolate);

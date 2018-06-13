@@ -37,7 +37,7 @@ Local<ArrayBuffer> ArrayBuffer::New(Isolate* isolate, size_t byte_length) {
 
 struct ArrayBufferFinalizeInfo {
   ArrayBuffer::Allocator* allocator;
-  void *data;
+  void* data;
   size_t length;
 
   void Free() {
@@ -50,7 +50,7 @@ v8::ArrayBuffer::Allocator* v8::ArrayBuffer::Allocator::NewDefaultAllocator() {
     return nullptr;
 }
 
-static void CHAKRA_CALLBACK ExternalArrayBufferFinalizeCallback(void *data) {
+static void CHAKRA_CALLBACK ExternalArrayBufferFinalizeCallback(void* data) {
     static_cast<ArrayBufferFinalizeInfo*>(data)->Free();
 }
 
@@ -93,7 +93,18 @@ size_t ArrayBuffer::ByteLength() const {
   return length;
 }
 
+bool ArrayBuffer::IsExternal() const {
+  CHAKRA_UNIMPLEMENTED();
+  return false;
+}
+
+bool ArrayBuffer::IsNeuterable() const {
+  CHAKRA_UNIMPLEMENTED();
+  return false;
+}
+
 void ArrayBuffer::Neuter() {
+  CHAKRA_UNIMPLEMENTED();
   // Chakra: not supported, ignore
 }
 
@@ -118,6 +129,11 @@ ArrayBuffer::Contents ArrayBuffer::GetContents() {
   contents.data_ = buffer;
   contents.byte_length_ = bufferLength;
   return contents;
+}
+
+ArrayBuffer::Contents ArrayBuffer::Externalize() {
+  CHAKRA_UNIMPLEMENTED();
+  return Contents();
 }
 
 // ENABLE_TTD

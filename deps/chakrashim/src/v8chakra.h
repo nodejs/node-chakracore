@@ -178,9 +178,9 @@ class ObjectData: public ExternalData {
   int internalFieldCount;
   FieldValue* internalFields;
 
-  ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData *templateData);
+  ObjectData(ObjectTemplate* objectTemplate, ObjectTemplateData* templateData);
   ~ObjectData();
-  static void CHAKRA_CALLBACK FinalizeCallback(void *data);
+  static void CHAKRA_CALLBACK FinalizeCallback(void* data);
 
   static FieldValue* GetInternalField(Object* object, int index);
 };
@@ -207,38 +207,38 @@ class Utils {
   static JsValueRef CHAKRA_CALLBACK AccessorHandler(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
 
   static JsValueRef CHAKRA_CALLBACK GetCallback(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
   static JsValueRef CHAKRA_CALLBACK SetCallback(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
   static JsValueRef CHAKRA_CALLBACK DeletePropertyCallback(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
 
   static JsValueRef HasPropertyHandler(
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount);  // NOLINT(runtime/int)
   static JsValueRef CHAKRA_CALLBACK HasCallback(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
 
   static JsValueRef GetPropertiesEnumeratorHandler(
       JsValueRef* arguments,
@@ -246,9 +246,9 @@ class Utils {
   static JsValueRef CHAKRA_CALLBACK EnumerateCallback(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
 
   static JsValueRef GetPropertiesHandler(
       JsValueRef* arguments,
@@ -257,24 +257,24 @@ class Utils {
   static JsValueRef CHAKRA_CALLBACK OwnKeysCallback(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
   static JsValueRef CHAKRA_CALLBACK GetOwnPropertyDescriptorCallback(
       JsValueRef callee,
       bool isConstructCall,
-      JsValueRef *arguments,
+      JsValueRef* arguments,
       unsigned short argumentCount,  // NOLINT(runtime/int)
-      void *callbackState);
+      void* callbackState);
   static JsValueRef CHAKRA_CALLBACK DefinePropertyCallback(
     JsValueRef callee,
     bool isConstructCall,
-    JsValueRef *arguments,
+    JsValueRef* arguments,
     unsigned short argumentCount,  // NOLINT(runtime/int)
-    void *callbackState);
+    void* callbackState);
 
   static void CHAKRA_CALLBACK WeakReferenceCallbackWrapperCallback(
-      JsRef ref, void *data);
+      JsRef ref, void* data);
 
   // Create a Local<T> internally (use private constructor)
   template <class T>
@@ -313,7 +313,7 @@ class Utils {
     return **objectTemplate;
   }
 
-  static MaybeLocal<String> NewString(const char *data, int length = -1);
+  static MaybeLocal<String> NewString(const char* data, int length = -1);
 };
 
 

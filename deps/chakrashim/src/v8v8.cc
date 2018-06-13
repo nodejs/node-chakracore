@@ -51,7 +51,7 @@ HeapStatistics::HeapStatistics()
       peak_malloced_memory_(0),
       does_zap_garbage_(0) {}
 
-const char *V8::GetVersion() {
+const char* V8::GetVersion() {
   static char versionStr[kMaxVersionLength] = {};
 
   if (versionStr[0] == '\0') {
@@ -118,11 +118,11 @@ static bool startsWith(const char* str, const char (&prefix)[N]) {
   return strncmp(str, prefix, N - 1) == 0;
 }
 
-void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
+void V8::SetFlagsFromCommandLine(int* argc, char** argv, bool remove_flags) {
   for (int i = 1; i < *argc; i++) {
     // Note: Node now exits on invalid options. We may not recognize V8 flags
     // and fail here, causing Node to exit.
-    char *arg = argv[i];
+    char* arg = argv[i];
     if (equals("--expose-gc", arg) || equals("--expose_gc", arg)) {
       g_exposeGC = true;
       if (remove_flags) {
@@ -175,7 +175,9 @@ void V8::SetFlagsFromCommandLine(int *argc, char **argv, bool remove_flags) {
   }
 
   if (remove_flags) {
-    char** end = std::remove(argv + 1, argv + *argc, nullptr);
+    char** end = std::remove(argv + 1,
+                             argv + *argc, // NOLINT (readability/null_usage)
+                             nullptr);
     *argc = static_cast<int>(end - argv);
   }
 }

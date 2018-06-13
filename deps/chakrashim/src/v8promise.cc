@@ -46,7 +46,7 @@ class PromiseResolverData : public ExternalData {
     this->reject.Reset();
   }
 
-  static void CHAKRA_CALLBACK FinalizeCallback(void *data) {
+  static void CHAKRA_CALLBACK FinalizeCallback(void* data) {
     if (data != nullptr) {
       PromiseResolverData* promiseResolverData =
           reinterpret_cast<PromiseResolverData*>(data);

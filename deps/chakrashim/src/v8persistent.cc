@@ -23,12 +23,12 @@
 namespace v8 {
 
 void CHAKRA_CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
-                                                                 void *data) {
+                                                                 void* data) {
   if (jsrt::IsolateShim::GetCurrent()->IsDisposing()) {
     return;
   }
 
-  const chakrashim::WeakReferenceCallbackWrapper *callbackWrapper =
+  const chakrashim::WeakReferenceCallbackWrapper* callbackWrapper =
     reinterpret_cast<const chakrashim::WeakReferenceCallbackWrapper*>(data);
   if (callbackWrapper->isWeakCallbackInfo) {
     WeakCallbackInfo<void>::Callback callback;
@@ -48,7 +48,7 @@ void CHAKRA_CALLBACK Utils::WeakReferenceCallbackWrapperCallback(JsRef ref,
 namespace chakrashim {
 
 static void CHAKRA_CALLBACK DummyObjectBeforeCollectCallback(JsRef ref,
-                                                             void *data) {
+                                                             void* data) {
   // Do nothing, only used to revive an object temporarily
 }
 
@@ -81,7 +81,7 @@ void SetObjectWeakReferenceCallbackCommon(
   assert(!*weakWrapper && "This should be nullptr.");
   *weakWrapper = new WeakReferenceCallbackWrapper();
 
-  WeakReferenceCallbackWrapper *callbackWrapper = (*weakWrapper);
+  WeakReferenceCallbackWrapper* callbackWrapper = (*weakWrapper);
   initWrapper(callbackWrapper);
 
   JsSetObjectBeforeCollectCallback(
@@ -96,7 +96,7 @@ void SetObjectWeakReferenceCallback(
     WeakReferenceCallbackWrapper** weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
-    [=](WeakReferenceCallbackWrapper *callbackWrapper) {
+    [=](WeakReferenceCallbackWrapper* callbackWrapper) {
       callbackWrapper->parameters = parameters;
       callbackWrapper->infoCallback = callback;
       callbackWrapper->isWeakCallbackInfo = true;
@@ -110,7 +110,7 @@ void SetObjectWeakReferenceCallback(
     WeakReferenceCallbackWrapper** weakWrapper) {
   SetObjectWeakReferenceCallbackCommon(
     object, callback, weakWrapper,
-    [=](WeakReferenceCallbackWrapper *callbackWrapper) {
+    [=](WeakReferenceCallbackWrapper* callbackWrapper) {
       callbackWrapper->parameters = parameters;
       callbackWrapper->dataCallback = callback;
       callbackWrapper->isWeakCallbackInfo = false;
