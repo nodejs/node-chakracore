@@ -692,12 +692,12 @@ def get_llvm_version(cc):
 
 def get_xcode_version(cc):
   return get_version_helper(
-    cc, r"(^Apple LLVM version) ([5-9]\.[0-9]+)")
+    cc, r"(^Apple LLVM version) ([0-9]+\.[0-9]+)")
 
 def get_gas_version(cc):
   try:
     custom_env = os.environ.copy()
-    custom_env["LC_ALL"] = "en_US"
+    custom_env["LC_ALL"] = "C"
     proc = subprocess.Popen(shlex.split(cc) + ['-Wa,-v', '-c', '-o',
                                                '/dev/null', '-x',
                                                'assembler',  '/dev/null'],
@@ -710,12 +710,13 @@ def get_gas_version(cc):
        consider adjusting the CC environment variable if you installed
        it in a non-standard prefix.''')
 
-  match = re.match(r"GNU assembler version ([2-9]\.[0-9]+)",
-                   proc.communicate()[1])
+  gas_ret = proc.communicate()[1]
+  match = re.match(r"GNU assembler version ([2-9]\.[0-9]+)", gas_ret)
 
   if match:
     return match.group(1)
   else:
+    warn('Could not recognize `gas`: ' + gas_ret)
     return '0'
 
 # Note: Apple clang self-reports as clang 4.2.0 and gcc 4.2.1.  It passes
