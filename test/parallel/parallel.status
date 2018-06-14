@@ -7,7 +7,6 @@ prefix parallel
 [true] # This section applies to all platforms
 
 [$system==win32]
-test-child-process-fork-net-socket: PASS,FLAKY
 
 [$system==linux]
 
@@ -167,6 +166,8 @@ test-vm-module-reevaluate : SKIP
 
 # This test requires support for bigints
 test-util-inspect-bigint : SKIP
+test-fs-stat-bigint : SKIP
+test-fs-watchfile-bigint : SKIP
 
 # One of the benchmarks uses object spread syntax, which chakra does not support
 test-benchmark-es : SKIP

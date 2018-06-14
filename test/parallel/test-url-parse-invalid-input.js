@@ -25,10 +25,13 @@ const url = require('url');
   });
 });
 
-const engineSpecificMalformedUrlError =
-    common.engineSpecificMessage({
-      v8: /^URIError: URI malformed$/,
-      chakracore: /^URIError: The URI to be decoded is not a valid encoding$/
-    });
+assert.throws(() => { url.parse('http://%E0%A4%A@fail'); },
+              (e) => {
+                // The error should be a URIError.
+                if (!(e instanceof URIError))
+                  return false;
 
-assert.throws(() => { url.parse('http://%E0%A4%A@fail'); }, engineSpecificMalformedUrlError);
+                // The error should be from the JS engine and not from Node.js.
+                // JS engine errors do not have the `code` property.
+                return e.code === undefined;
+              });

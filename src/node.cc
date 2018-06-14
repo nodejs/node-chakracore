@@ -784,129 +784,6 @@ Local<Value> MakeCallback(Isolate* isolate,
           .FromMaybe(Local<Value>()));
 }
 
-
-enum encoding ParseEncoding(const char* encoding,
-                            enum encoding default_encoding) {
-  switch (encoding[0]) {
-    case 'u':
-      // utf8, utf16le
-      if (encoding[1] == 't' && encoding[2] == 'f') {
-        // Skip `-`
-        encoding += encoding[3] == '-' ? 4 : 3;
-        if (encoding[0] == '8' && encoding[1] == '\0')
-          return UTF8;
-        if (strncmp(encoding, "16le", 4) == 0)
-          return UCS2;
-
-      // ucs2
-      } else if (encoding[1] == 'c' && encoding[2] == 's') {
-        encoding += encoding[3] == '-' ? 4 : 3;
-        if (encoding[0] == '2' && encoding[1] == '\0')
-          return UCS2;
-      }
-      break;
-    case 'l':
-      // latin1
-      if (encoding[1] == 'a') {
-        if (strncmp(encoding + 2, "tin1", 4) == 0)
-          return LATIN1;
-      }
-      break;
-    case 'b':
-      // binary
-      if (encoding[1] == 'i') {
-        if (strncmp(encoding + 2, "nary", 4) == 0)
-          return LATIN1;
-
-      // buffer
-      } else if (encoding[1] == 'u') {
-        if (strncmp(encoding + 2, "ffer", 4) == 0)
-          return BUFFER;
-      }
-      break;
-    case '\0':
-      return default_encoding;
-    default:
-      break;
-  }
-
-  if (StringEqualNoCase(encoding, "utf8")) {
-    return UTF8;
-  } else if (StringEqualNoCase(encoding, "utf-8")) {
-    return UTF8;
-  } else if (StringEqualNoCase(encoding, "ascii")) {
-    return ASCII;
-  } else if (StringEqualNoCase(encoding, "base64")) {
-    return BASE64;
-  } else if (StringEqualNoCase(encoding, "ucs2")) {
-    return UCS2;
-  } else if (StringEqualNoCase(encoding, "ucs-2")) {
-    return UCS2;
-  } else if (StringEqualNoCase(encoding, "utf16le")) {
-    return UCS2;
-  } else if (StringEqualNoCase(encoding, "utf-16le")) {
-    return UCS2;
-  } else if (StringEqualNoCase(encoding, "latin1")) {
-    return LATIN1;
-  } else if (StringEqualNoCase(encoding, "binary")) {
-    return LATIN1;  // BINARY is a deprecated alias of LATIN1.
-  } else if (StringEqualNoCase(encoding, "buffer")) {
-    return BUFFER;
-  } else if (StringEqualNoCase(encoding, "hex")) {
-    return HEX;
-  } else {
-    return default_encoding;
-  }
-}
-
-
-enum encoding ParseEncoding(Isolate* isolate,
-                            Local<Value> encoding_v,
-                            enum encoding default_encoding) {
-  CHECK(!encoding_v.IsEmpty());
-
-  if (!encoding_v->IsString())
-    return default_encoding;
-
-  node::Utf8Value encoding(isolate, encoding_v);
-
-  return ParseEncoding(*encoding, default_encoding);
-}
-
-Local<Value> Encode(Isolate* isolate,
-                    const char* buf,
-                    size_t len,
-                    enum encoding encoding) {
-  CHECK_NE(encoding, UCS2);
-  Local<Value> error;
-  return StringBytes::Encode(isolate, buf, len, encoding, &error)
-      .ToLocalChecked();
-}
-
-Local<Value> Encode(Isolate* isolate, const uint16_t* buf, size_t len) {
-  Local<Value> error;
-  return StringBytes::Encode(isolate, buf, len, &error)
-      .ToLocalChecked();
-}
-
-// Returns -1 if the handle was not valid for decoding
-ssize_t DecodeBytes(Isolate* isolate,
-                    Local<Value> val,
-                    enum encoding encoding) {
-  HandleScope scope(isolate);
-
-  return StringBytes::Size(isolate, val, encoding);
-}
-
-// Returns number of bytes written.
-ssize_t DecodeWrite(Isolate* isolate,
-                    char* buf,
-                    size_t buflen,
-                    Local<Value> val,
-                    enum encoding encoding) {
-  return StringBytes::Write(isolate, buf, buflen, val, encoding, nullptr);
-}
-
 bool IsExceptionDecorated(Environment* env, Local<Value> er) {
   if (!er.IsEmpty() && er->IsObject()) {
     Local<Object> err_obj = er.As<Object>();
@@ -2536,30 +2413,16 @@ static Local<Object> GetFeatures(Environment* env) {
   // TODO(bnoordhuis) ping libuv
   obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "ipv6"), True(env->isolate()));
 
-#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
-  Local<Boolean> tls_alpn = True(env->isolate());
+#ifdef HAVE_OPENSSL
+  Local<Boolean> have_openssl = True(env->isolate());
 #else
-  Local<Boolean> tls_alpn = False(env->isolate());
+  Local<Boolean> have_openssl = False(env->isolate());
 #endif
-  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_alpn"), tls_alpn);
 
-#ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
-  Local<Boolean> tls_sni = True(env->isolate());
-#else
-  Local<Boolean> tls_sni = False(env->isolate());
-#endif
-  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_sni"), tls_sni);
-
-#if !defined(OPENSSL_NO_TLSEXT) && defined(SSL_CTX_set_tlsext_status_cb)
-  Local<Boolean> tls_ocsp = True(env->isolate());
-#else
-  Local<Boolean> tls_ocsp = False(env->isolate());
-#endif  // !defined(OPENSSL_NO_TLSEXT) && defined(SSL_CTX_set_tlsext_status_cb)
-  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_ocsp"), tls_ocsp);
-
-  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls"),
-           Boolean::New(env->isolate(),
-                        get_builtin_module("crypto") != nullptr));
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_alpn"), have_openssl);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_sni"), have_openssl);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls_ocsp"), have_openssl);
+  obj->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "tls"), have_openssl);
 
   return scope.Escape(obj);
 }
@@ -4252,10 +4115,11 @@ void EmitBeforeExit(Environment* env) {
   HandleScope handle_scope(env->isolate());
   Context::Scope context_scope(env->context());
   Local<Object> process_object = env->process_object();
-  Local<String> exit_code = FIXED_ONE_BYTE_STRING(env->isolate(), "exitCode");
+  Local<String> exit_code = env->exit_code_string();
   Local<Value> args[] = {
     FIXED_ONE_BYTE_STRING(env->isolate(), "beforeExit"),
-    process_object->Get(exit_code)->ToInteger(env->context()).ToLocalChecked()
+    process_object->Get(env->context(), exit_code).ToLocalChecked()
+        ->ToInteger(env->context()).ToLocalChecked()
   };
   MakeCallback(env->isolate(),
                process_object, "emit", arraysize(args), args,
@@ -4268,13 +4132,15 @@ int EmitExit(Environment* env) {
   HandleScope handle_scope(env->isolate());
   Context::Scope context_scope(env->context());
   Local<Object> process_object = env->process_object();
-  process_object->Set(env->exiting_string(), True(env->isolate()));
+  process_object->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "_exiting"),
+                      True(env->isolate()));
 
-  Local<String> exitCode = env->exit_code_string();
-  int code = process_object->Get(exitCode)->Int32Value();
+  Local<String> exit_code = env->exit_code_string();
+  int code = process_object->Get(env->context(), exit_code).ToLocalChecked()
+      ->Int32Value(env->context()).ToChecked();
 
   Local<Value> args[] = {
-    env->exit_string(),
+    FIXED_ONE_BYTE_STRING(env->isolate(), "exit"),
     Integer::New(env->isolate(), code)
   };
 
@@ -4283,7 +4149,8 @@ int EmitExit(Environment* env) {
                {0, 0}).ToLocalChecked();
 
   // Reload exit code, it may be changed by `emit('exit')`
-  return process_object->Get(exitCode)->Int32Value();
+  return process_object->Get(env->context(), exit_code).ToLocalChecked()
+      ->Int32Value(env->context()).ToChecked();
 }
 
 

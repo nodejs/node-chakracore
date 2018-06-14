@@ -60,7 +60,7 @@ common.crashOnUnhandledRejection();
   }, /ERR_MISSING_ARGS/);
   assert.throws(() => {
     pipeline();
-  }, /ERR_MISSING_ARGS/);
+  }, /ERR_INVALID_CALLBACK/);
 }
 
 {
@@ -281,12 +281,6 @@ common.crashOnUnhandledRejection();
     });
 
     pipeline(rs, req, common.mustCall((err) => {
-      // TODO: this is working around an http2 bug
-      // where the client keeps the event loop going
-      // (replacing the rs.destroy() with req.end()
-      // exits it so seems to be a destroy bug there
-      client.unref();
-
       server.close();
       client.close();
     }));
@@ -499,17 +493,8 @@ common.crashOnUnhandledRejection();
     }
   });
 
-  read.on('close', common.mustCall());
-  transform.on('close', common.mustCall());
-  write.on('close', common.mustCall());
-
-  process.on('uncaughtException', common.mustCall((err) => {
-    assert.deepStrictEqual(err, new Error('kaboom'));
-  }));
-
-  const dst = pipeline(read, transform, write);
-
-  assert.strictEqual(dst, write);
-
-  read.push('hello');
+  assert.throws(
+    () => pipeline(read, transform, write),
+    { code: 'ERR_INVALID_CALLBACK' }
+  );
 }
