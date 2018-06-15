@@ -228,6 +228,7 @@ test-worker-syntax-error-file : SKIP
 test-worker-uncaught-exception : SKIP
 test-worker-uncaught-exception-async : SKIP
 test-worker-unsupported-things : SKIP
+test-worker-workerdata-sharedarraybuffer : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed
