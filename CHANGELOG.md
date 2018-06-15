@@ -33,7 +33,8 @@ release.
 </tr>
 <tr>
     <td valign="top">
-<b><a href="doc/changelogs/CHANGELOG_V10.md#10.4.0">10.4.0</a></b><br/>
+<b><a href="doc/changelogs/CHANGELOG_V10.md#10.4.1">10.4.1</a></b><br/>
+<a href="doc/changelogs/CHANGELOG_V10.md#10.4.0">10.4.0</a><br/>
 <a href="doc/changelogs/CHANGELOG_V10.md#10.3.0">10.3.0</a><br/>
 <a href="doc/changelogs/CHANGELOG_V10.md#10.2.1">10.2.1</a><br/>
 <a href="doc/changelogs/CHANGELOG_V10.md#10.2.0">10.2.0</a><br/>
@@ -41,7 +42,8 @@ release.
 <a href="doc/changelogs/CHANGELOG_V10.md#10.0.0">10.0.0</a><br/>
     </td>
     <td valign="top">
-<b><a href="doc/changelogs/CHANGELOG_V9.md#9.11.1">9.11.1</a></b><br/>
+<b><a href="doc/changelogs/CHANGELOG_V9.md#9.11.2">9.11.2</a></b><br/>
+<a href="doc/changelogs/CHANGELOG_V9.md#9.11.1">9.11.1</a><br/>
 <a href="doc/changelogs/CHANGELOG_V9.md#9.11.0">9.11.0</a><br/>
 <a href="doc/changelogs/CHANGELOG_V9.md#9.10.1">9.10.1</a><br/>
 <a href="doc/changelogs/CHANGELOG_V9.md#9.10.0">9.10.0</a><br/>
@@ -60,7 +62,8 @@ release.
 <a href="doc/changelogs/CHANGELOG_V9.md#9.0.0">9.0.0</a><br/>
     </td>
     <td valign="top">
-<b><a href="doc/changelogs/CHANGELOG_V8.md#8.11.2">8.11.2</a></b><br/>
+<b><a href="doc/changelogs/CHANGELOG_V8.md#8.11.3">8.11.3</a></b><br/>
+<a href="doc/changelogs/CHANGELOG_V8.md#8.11.2">8.11.2</a><br/>
 <a href="doc/changelogs/CHANGELOG_V8.md#8.11.1">8.11.1</a><br/>
 <a href="doc/changelogs/CHANGELOG_V8.md#8.11.0">8.11.0</a><br/>
 <a href="doc/changelogs/CHANGELOG_V8.md#8.10.0">8.10.0</a><br/>
@@ -86,7 +89,8 @@ release.
 <a href="doc/changelogs/CHANGELOG_V8.md#8.0.0">8.0.0</a><br/>
     </td>
   <td valign="top">
-<b><a href="doc/changelogs/CHANGELOG_V6.md#6.14.2">6.14.2</a></b><br/>
+<b><a href="doc/changelogs/CHANGELOG_V6.md#6.14.3">6.14.3</a></b><br/>
+<a href="doc/changelogs/CHANGELOG_V6.md#6.14.2">6.14.2</a><br/>
 <a href="doc/changelogs/CHANGELOG_V6.md#6.14.1">6.14.1</a><br/>
 <a href="doc/changelogs/CHANGELOG_V6.md#6.14.0">6.14.0</a><br/>
 <a href="doc/changelogs/CHANGELOG_V6.md#6.13.1">6.13.1</a><br/>
