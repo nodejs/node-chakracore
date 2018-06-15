@@ -33,6 +33,7 @@ test-async-hooks-promise-triggerid : SKIP
 test-async-wrap-promise-after-enabled : SKIP
 test-buffer-bindingobj-no-zerofill : SKIP
 test-buffer-sharedarraybuffer : SKIP
+test-worker-workerdata-sharedarraybuffer : SKIP
 test-child-process-fork-net : PASS,FLAKY
 test-crypto-dh : SKIP
 test-crypto-dh-leak : SKIP
