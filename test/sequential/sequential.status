@@ -44,6 +44,7 @@ test-inspector-stop-profile-after-done : SKIP
 [$jsEngine==chakracore && $system==win32]
 # This test can fail depending on the ports that other processes are using
 test-inspector-port-cluster : PASS, FLAKY
+test-inspector-port-zero-cluster : PASS, FLAKY
 
 [$jsEngine==chakracore && $system==linux]
 # These tests are failing for Node-Chakracore and should eventually be fixed
