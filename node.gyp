@@ -99,6 +99,7 @@
       'lib/internal/crypto/hash.js',
       'lib/internal/crypto/pbkdf2.js',
       'lib/internal/crypto/random.js',
+      'lib/internal/crypto/scrypt.js',
       'lib/internal/crypto/sig.js',
       'lib/internal/crypto/util.js',
       'lib/internal/constants.js',
@@ -332,6 +333,7 @@
         'src/cares_wrap.cc',
         'src/connection_wrap.cc',
         'src/connect_wrap.cc',
+        'src/debug_utils.cc',
         'src/env.cc',
         'src/exceptions.cc',
         'src/fs_event_wrap.cc',
@@ -526,9 +528,6 @@
           'defines': [ 'HAVE_INSPECTOR=0' ]
         }],
         [ 'OS=="win"', {
-          'sources': [
-            'src/backtrace_win32.cc',
-          ],
           'conditions': [
             [ 'node_intermediate_lib_type!="static_library"', {
               'sources': [
@@ -543,8 +542,6 @@
               'libraries': [ '-ldbghelp.lib' ],
             }],
           ],
-        }, { # POSIX
-          'sources': [ 'src/backtrace_posix.cc' ],
         }],
         [ 'node_use_etw=="true"', {
           'defines': [ 'HAVE_ETW=1' ],
@@ -656,7 +653,7 @@
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
               'PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,STDIO,TLSEXT,'
-              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD',
+              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD,SCRYPT',
               # Defines.
               '-DWIN32',
               # Symbols to filter from the export list.
