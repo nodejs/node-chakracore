@@ -95,6 +95,7 @@ test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
 test-util-format-shared-arraybuffer : SKIP
 test-v8-serdes : SKIP
+test-v8-deserialize-buffer : SKIP
 test-vm-attributes-property-not-on-sandbox : SKIP
 test-vm-cached-data : SKIP
 test-vm-codegen : SKIP
