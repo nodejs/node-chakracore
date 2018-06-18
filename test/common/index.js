@@ -84,7 +84,7 @@ exports.isGlibc = () => {
     const nmOut = spawnSync('nm', ['-D', libcInfo[0][1]]).stdout;
     if (/gnu_get_libc_version/.test(nmOut))
       return isGlibc = true;
-  } catch {}
+  } catch (e) {}
   return isGlibc = false;
 };
 

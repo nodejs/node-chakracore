@@ -214,6 +214,7 @@ test-async-hooks-destroy-on-gc : PASS,FLAKY
 test-error-serdes : SKIP
 
 # These tests are for worker_threads support, which is currently not implemented in Node-ChakraCore
+test-async-wrap-missing-method : SKIP
 test-message-channel : SKIP
 test-message-channel-sharedarraybuffer : SKIP
 test-message-port : SKIP

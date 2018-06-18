@@ -16,7 +16,7 @@ try {
   const { isMainThread } = require('worker_threads');
   if (!isMainThread)
     common.skip('Cannot run test in environment with clean-exit policy');
-} catch {}
+} catch (e) {}
 
 binding.leakHandle();
 binding.leakHandle(0);
