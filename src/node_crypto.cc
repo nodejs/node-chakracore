@@ -64,7 +64,6 @@ namespace crypto {
 using v8::Array;
 using v8::Boolean;
 using v8::Context;
-using v8::DEFAULT;
 using v8::DontDelete;
 using v8::EscapableHandleScope;
 using v8::Exception;
@@ -75,12 +74,14 @@ using v8::HandleScope;
 using v8::Int32;
 using v8::Integer;
 using v8::Isolate;
+using v8::Just;
 using v8::Local;
 using v8::Maybe;
 using v8::MaybeLocal;
+using v8::NewStringType;
+using v8::Nothing;
 using v8::Null;
 using v8::Object;
-using v8::ObjectTemplate;
 using v8::PropertyAttribute;
 using v8::ReadOnly;
 using v8::Signature;
@@ -204,57 +205,75 @@ static int NoPasswordCallback(char* buf, int size, int rwflag, void* u) {
 }
 
 
+struct CryptoErrorVector : public std::vector<std::string> {
+  inline void Capture() {
+    clear();
+    while (auto err = ERR_get_error()) {
+      char buf[256];
+      ERR_error_string_n(err, buf, sizeof(buf));
+      push_back(buf);
+    }
+    std::reverse(begin(), end());
+  }
+
+  inline Local<Value> ToException(
+      Environment* env,
+      Local<String> exception_string = Local<String>()) const {
+    if (exception_string.IsEmpty()) {
+      CryptoErrorVector copy(*this);
+      if (copy.empty()) copy.push_back("no error");  // But possibly a bug...
+      // Use last element as the error message, everything else goes
+      // into the .opensslErrorStack property on the exception object.
+      auto exception_string =
+          String::NewFromUtf8(env->isolate(), copy.back().data(),
+                              NewStringType::kNormal, copy.back().size())
+          .ToLocalChecked();
+      copy.pop_back();
+      return copy.ToException(env, exception_string);
+    }
+
+    Local<Value> exception_v = Exception::Error(exception_string);
+    CHECK(!exception_v.IsEmpty());
+
+    if (!empty()) {
+      Local<Array> array = Array::New(env->isolate(), size());
+      CHECK(!array.IsEmpty());
+
+      for (const std::string& string : *this) {
+        const size_t index = &string - &front();
+        Local<String> value =
+            String::NewFromUtf8(env->isolate(), string.data(),
+                                NewStringType::kNormal, string.size())
+            .ToLocalChecked();
+        array->Set(env->context(), index, value).FromJust();
+      }
+
+      CHECK(exception_v->IsObject());
+      Local<Object> exception = exception_v.As<Object>();
+      exception->Set(env->context(),
+                     env->openssl_error_stack(), array).FromJust();
+    }
+
+    return exception_v;
+  }
+};
+
+
 void ThrowCryptoError(Environment* env,
                       unsigned long err,  // NOLINT(runtime/int)
-                      const char* default_message = nullptr) {
+                      const char* message = nullptr) {
+  char message_buffer[128] = {0};
+  if (err != 0 || message == nullptr) {
+    ERR_error_string_n(err, message_buffer, sizeof(message_buffer));
+    message = message_buffer;
+  }
   HandleScope scope(env->isolate());
-  Local<String> message;
-
-  if (err != 0 || default_message == nullptr) {
-    char errmsg[128] = { 0 };
-    ERR_error_string_n(err, errmsg, sizeof(errmsg));
-    message = String::NewFromUtf8(env->isolate(), errmsg,
-                                  v8::NewStringType::kNormal)
-                                      .ToLocalChecked();
-  } else {
-    message = String::NewFromUtf8(env->isolate(), default_message,
-                                  v8::NewStringType::kNormal)
-                                      .ToLocalChecked();
-  }
-
-  Local<Value> exception_v = Exception::Error(message);
-  CHECK(!exception_v.IsEmpty());
-  Local<Object> exception = exception_v.As<Object>();
-
-  std::vector<Local<String>> errors;
-  for (;;) {
-    unsigned long err = ERR_get_error();  // NOLINT(runtime/int)
-    if (err == 0) {
-      break;
-    }
-    char tmp_str[256];
-    ERR_error_string_n(err, tmp_str, sizeof(tmp_str));
-    errors.push_back(String::NewFromUtf8(env->isolate(), tmp_str,
-                                         v8::NewStringType::kNormal)
-                     .ToLocalChecked());
-  }
-
-  // ERR_get_error returns errors in order of most specific to least
-  // specific. We wish to have the reverse ordering:
-  // opensslErrorStack: [
-  // 'error:0906700D:PEM routines:PEM_ASN1_read_bio:ASN1 lib',
-  // 'error:0D07803A:asn1 encoding routines:ASN1_ITEM_EX_D2I:nested asn1 err'
-  // ]
-  if (!errors.empty()) {
-    std::reverse(errors.begin(), errors.end());
-    Local<Array> errors_array = Array::New(env->isolate(), errors.size());
-    for (size_t i = 0; i < errors.size(); i++) {
-      errors_array->Set(env->context(), i, errors[i]).FromJust();
-    }
-    exception->Set(env->context(), env->openssl_error_stack(), errors_array)
-        .FromJust();
-  }
-
+  auto exception_string =
+      String::NewFromUtf8(env->isolate(), message, NewStringType::kNormal)
+      .ToLocalChecked();
+  CryptoErrorVector errors;
+  errors.Capture();
+  auto exception = errors.ToException(env, exception_string);
   env->isolate()->ThrowException(exception);
 }
 
@@ -2592,10 +2611,14 @@ void CipherBase::Init(const char* cipher_type,
                                iv);
 
   ctx_.reset(EVP_CIPHER_CTX_new());
+
+  const int mode = EVP_CIPHER_mode(cipher);
+  if (mode == EVP_CIPH_WRAP_MODE)
+    EVP_CIPHER_CTX_set_flags(ctx_.get(), EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+
   const bool encrypt = (kind_ == kCipher);
   EVP_CipherInit_ex(ctx_.get(), cipher, nullptr, nullptr, nullptr, encrypt);
 
-  int mode = EVP_CIPHER_CTX_mode(ctx_.get());
   if (encrypt && (mode == EVP_CIPH_CTR_MODE || mode == EVP_CIPH_GCM_MODE ||
       mode == EVP_CIPH_CCM_MODE)) {
     // Ignore the return value (i.e. possible exception) because we are
@@ -2604,9 +2627,6 @@ void CipherBase::Init(const char* cipher_type,
                        "Use Cipheriv for counter mode of %s",
                        cipher_type);
   }
-
-  if (mode == EVP_CIPH_WRAP_MODE)
-    EVP_CIPHER_CTX_set_flags(ctx_.get(), EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
   if (IsAuthenticatedMode()) {
     if (!InitAuthenticated(cipher_type, EVP_CIPHER_iv_length(cipher),
@@ -4529,345 +4549,248 @@ bool ECDH::IsKeyPairValid() {
 }
 
 
-class PBKDF2Request : public AsyncWrap, public ThreadPoolWork {
- public:
-  PBKDF2Request(Environment* env,
-                Local<Object> object,
-                const EVP_MD* digest,
-                MallocedBuffer<char>&& pass,
-                MallocedBuffer<char>&& salt,
-                int keylen,
-                int iteration_count)
-      : AsyncWrap(env, object, AsyncWrap::PROVIDER_PBKDF2REQUEST),
-        ThreadPoolWork(env),
-        digest_(digest),
-        success_(false),
-        pass_(std::move(pass)),
-        salt_(std::move(salt)),
-        key_(keylen),
-        iteration_count_(iteration_count) {
-  }
-
-  size_t self_size() const override { return sizeof(*this); }
-
-  void DoThreadPoolWork() override;
-  void AfterThreadPoolWork(int status) override;
-
-  void After(Local<Value> (*argv)[2]);
-
- private:
-  const EVP_MD* digest_;
-  bool success_;
-  MallocedBuffer<char> pass_;
-  MallocedBuffer<char> salt_;
-  MallocedBuffer<char> key_;
-  int iteration_count_;
+struct CryptoJob : public ThreadPoolWork {
+  Environment* const env;
+  std::unique_ptr<AsyncWrap> async_wrap;
+  inline explicit CryptoJob(Environment* env) : ThreadPoolWork(env), env(env) {}
+  inline void AfterThreadPoolWork(int status) final;
+  virtual void AfterThreadPoolWork() = 0;
+  static inline void Run(std::unique_ptr<CryptoJob> job, Local<Value> wrap);
 };
 
 
-void PBKDF2Request::DoThreadPoolWork() {
-  success_ =
-      PKCS5_PBKDF2_HMAC(
-          pass_.data, pass_.size,
-          reinterpret_cast<unsigned char*>(salt_.data), salt_.size,
-          iteration_count_, digest_,
-          key_.size,
-          reinterpret_cast<unsigned char*>(key_.data));
-  OPENSSL_cleanse(pass_.data, pass_.size);
-  OPENSSL_cleanse(salt_.data, salt_.size);
+void CryptoJob::AfterThreadPoolWork(int status) {
+  CHECK(status == 0 || status == UV_ECANCELED);
+  std::unique_ptr<CryptoJob> job(this);
+  if (status == UV_ECANCELED) return;
+  HandleScope handle_scope(env->isolate());
+  Context::Scope context_scope(env->context());
+  CHECK_EQ(false, async_wrap->persistent().IsWeak());
+  AfterThreadPoolWork();
 }
 
 
-void PBKDF2Request::After(Local<Value> (*argv)[2]) {
-  if (success_) {
-    (*argv)[0] = Null(env()->isolate());
-    (*argv)[1] = Buffer::New(env(), key_.release(), key_.size)
-        .ToLocalChecked();
-  } else {
-    (*argv)[0] = Exception::Error(env()->pbkdf2_error_string());
-    (*argv)[1] = Undefined(env()->isolate());
-  }
+void CryptoJob::Run(std::unique_ptr<CryptoJob> job, Local<Value> wrap) {
+  CHECK(wrap->IsObject());
+  CHECK_EQ(nullptr, job->async_wrap);
+  job->async_wrap.reset(Unwrap<AsyncWrap>(wrap.As<Object>()));
+  CHECK_EQ(false, job->async_wrap->persistent().IsWeak());
+  job->ScheduleWork();
+  job.release();  // Run free, little job!
 }
 
 
-void PBKDF2Request::AfterThreadPoolWork(int status) {
-  std::unique_ptr<PBKDF2Request> req(this);
-  if (status == UV_ECANCELED)
-    return;
-  CHECK_EQ(status, 0);
-
-  HandleScope handle_scope(env()->isolate());
-  Context::Scope context_scope(env()->context());
-  Local<Value> argv[2];
-  After(&argv);
-  MakeCallback(env()->ondone_string(), arraysize(argv), argv);
+inline void CopyBuffer(Local<Value> buf, std::vector<char>* vec) {
+  vec->clear();
+  if (auto p = Buffer::Data(buf)) vec->assign(p, p + Buffer::Length(buf));
 }
 
 
-void PBKDF2(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
+struct RandomBytesJob : public CryptoJob {
+  unsigned char* data;
+  size_t size;
+  CryptoErrorVector errors;
+  Maybe<int> rc;
 
-  const EVP_MD* digest = nullptr;
-  int keylen = -1;
-  int iteration_count = -1;
-  Local<Object> obj;
+  inline explicit RandomBytesJob(Environment* env)
+      : CryptoJob(env), rc(Nothing<int>()) {}
 
-  int passlen = Buffer::Length(args[0]);
-
-  MallocedBuffer<char> pass(passlen);
-  memcpy(pass.data, Buffer::Data(args[0]), passlen);
-
-  int saltlen = Buffer::Length(args[1]);
-
-  MallocedBuffer<char> salt(saltlen);
-  memcpy(salt.data, Buffer::Data(args[1]), saltlen);
-
-  iteration_count = args[2]->Int32Value(env->context()).FromJust();
-  keylen = args[3]->IntegerValue(env->context()).FromJust();
-
-  if (args[4]->IsString()) {
-    node::Utf8Value digest_name(env->isolate(), args[4]);
-    digest = EVP_get_digestbyname(*digest_name);
-    if (digest == nullptr) {
-      args.GetReturnValue().Set(-1);
-      return;
-    }
+  inline void DoThreadPoolWork() override {
+    CheckEntropy();  // Ensure that OpenSSL's PRNG is properly seeded.
+    rc = Just(RAND_bytes(data, size));
+    if (0 == rc.FromJust()) errors.Capture();
   }
 
-  if (digest == nullptr) {
-    digest = EVP_sha1();
+  inline void AfterThreadPoolWork() override {
+    Local<Value> arg = ToResult();
+    async_wrap->MakeCallback(env->ondone_string(), 1, &arg);
   }
 
-  obj = env->pbkdf2_constructor_template()->
-      NewInstance(env->context()).ToLocalChecked();
-  std::unique_ptr<PBKDF2Request> req(
-      new PBKDF2Request(env, obj, digest,
-                        std::move(pass),
-                        std::move(salt),
-                        keylen,
-                        iteration_count));
-
-  if (args[5]->IsFunction()) {
-    obj->Set(env->context(), env->ondone_string(), args[5]).FromJust();
-
-    req.release()->ScheduleWork();
-  } else {
-    env->PrintSyncTrace();
-    req->DoThreadPoolWork();
-    Local<Value> argv[2];
-    req->After(&argv);
-
-    if (argv[0]->IsObject())
-      env->isolate()->ThrowException(argv[0]);
-    else
-      args.GetReturnValue().Set(argv[1]);
+  inline Local<Value> ToResult() const {
+    if (errors.empty()) return Undefined(env->isolate());
+    return errors.ToException(env);
   }
-}
-
-
-// Only instantiate within a valid HandleScope.
-class RandomBytesRequest : public AsyncWrap, public ThreadPoolWork {
- public:
-  enum FreeMode { FREE_DATA, DONT_FREE_DATA };
-
-  RandomBytesRequest(Environment* env,
-                     Local<Object> object,
-                     size_t size,
-                     char* data,
-                     FreeMode free_mode)
-      : AsyncWrap(env, object, AsyncWrap::PROVIDER_RANDOMBYTESREQUEST),
-        ThreadPoolWork(env),
-        error_(0),
-        size_(size),
-        data_(data),
-        free_mode_(free_mode) {
-  }
-
-  inline size_t size() const {
-    return size_;
-  }
-
-  inline char* data() const {
-    return data_;
-  }
-
-  inline void set_data(char* data) {
-    data_ = data;
-  }
-
-  inline void release() {
-    size_ = 0;
-    if (free_mode_ == FREE_DATA) {
-      free(data_);
-      data_ = nullptr;
-    }
-  }
-
-  inline void return_memory(char** d, size_t* len) {
-    *d = data_;
-    data_ = nullptr;
-    *len = size_;
-    size_ = 0;
-  }
-
-  inline unsigned long error() const {  // NOLINT(runtime/int)
-    return error_;
-  }
-
-  inline void set_error(unsigned long err) {  // NOLINT(runtime/int)
-    error_ = err;
-  }
-
-  size_t self_size() const override { return sizeof(*this); }
-
-  void DoThreadPoolWork() override;
-  void AfterThreadPoolWork(int status) override;
-
- private:
-  unsigned long error_;  // NOLINT(runtime/int)
-  size_t size_;
-  char* data_;
-  const FreeMode free_mode_;
 };
-
-
-void RandomBytesRequest::DoThreadPoolWork() {
-  // Ensure that OpenSSL's PRNG is properly seeded.
-  CheckEntropy();
-
-  const int r = RAND_bytes(reinterpret_cast<unsigned char*>(data_), size_);
-
-  // RAND_bytes() returns 0 on error.
-  if (r == 0) {
-    set_error(ERR_get_error());  // NOLINT(runtime/int)
-  } else if (r == -1) {
-    set_error(static_cast<unsigned long>(-1));  // NOLINT(runtime/int)
-  }
-}
-
-
-// don't call this function without a valid HandleScope
-void RandomBytesCheck(RandomBytesRequest* req, Local<Value> (*argv)[2]) {
-  if (req->error()) {
-    char errmsg[256] = "Operation not supported";
-
-    if (req->error() != static_cast<unsigned long>(-1))  // NOLINT(runtime/int)
-      ERR_error_string_n(req->error(), errmsg, sizeof errmsg);
-
-    (*argv)[0] = Exception::Error(OneByteString(req->env()->isolate(), errmsg));
-    (*argv)[1] = Null(req->env()->isolate());
-    req->release();
-  } else {
-    char* data = nullptr;
-    size_t size;
-    req->return_memory(&data, &size);
-    (*argv)[0] = Null(req->env()->isolate());
-    Local<Value> buffer =
-        req->object()->Get(req->env()->context(),
-                           req->env()->buffer_string()).ToLocalChecked();
-
-    if (buffer->IsArrayBufferView()) {
-      CHECK_LE(req->size(), Buffer::Length(buffer));
-      char* buf = Buffer::Data(buffer);
-      memcpy(buf, data, req->size());
-      (*argv)[1] = buffer;
-    } else {
-      (*argv)[1] = Buffer::New(req->env(), data, size)
-          .ToLocalChecked();
-    }
-  }
-}
-
-
-void RandomBytesRequest::AfterThreadPoolWork(int status) {
-  std::unique_ptr<RandomBytesRequest> req(this);
-  if (status == UV_ECANCELED)
-    return;
-  CHECK_EQ(status, 0);
-  HandleScope handle_scope(env()->isolate());
-  Context::Scope context_scope(env()->context());
-  Local<Value> argv[2];
-  RandomBytesCheck(this, &argv);
-  MakeCallback(env()->ondone_string(), arraysize(argv), argv);
-}
-
-
-void RandomBytesProcessSync(Environment* env,
-                            std::unique_ptr<RandomBytesRequest> req,
-                            Local<Value> (*argv)[2]) {
-  env->PrintSyncTrace();
-  req->DoThreadPoolWork();
-  RandomBytesCheck(req.get(), argv);
-
-  if (!(*argv)[0]->IsNull())
-    env->isolate()->ThrowException((*argv)[0]);
-}
 
 
 void RandomBytes(const FunctionCallbackInfo<Value>& args) {
+  CHECK(args[0]->IsArrayBufferView());  // buffer; wrap object retains ref.
+  CHECK(args[1]->IsUint32());  // offset
+  CHECK(args[2]->IsUint32());  // size
+  CHECK(args[3]->IsObject() || args[3]->IsUndefined());  // wrap object
+  const uint32_t offset = args[1].As<Uint32>()->Value();
+  const uint32_t size = args[2].As<Uint32>()->Value();
+  CHECK_GE(offset + size, offset);  // Overflow check.
+  CHECK_LE(offset + size, Buffer::Length(args[0]));  // Bounds check.
   Environment* env = Environment::GetCurrent(args);
-
-  const int64_t size = args[0]->IntegerValue();
-  CHECK(size <= Buffer::kMaxLength);
-
-  Local<Object> obj = env->randombytes_constructor_template()->
-      NewInstance(env->context()).ToLocalChecked();
-  char* data = node::Malloc(size);
-  std::unique_ptr<RandomBytesRequest> req(
-      new RandomBytesRequest(env,
-                             obj,
-                             size,
-                             data,
-                             RandomBytesRequest::FREE_DATA));
-
-  if (args[1]->IsFunction()) {
-    obj->Set(env->context(), env->ondone_string(), args[1]).FromJust();
-
-    req.release()->ScheduleWork();
-    args.GetReturnValue().Set(obj);
-  } else {
-    Local<Value> argv[2];
-    RandomBytesProcessSync(env, std::move(req), &argv);
-    if (argv[0]->IsNull())
-      args.GetReturnValue().Set(argv[1]);
-  }
+  std::unique_ptr<RandomBytesJob> job(new RandomBytesJob(env));
+  job->data = reinterpret_cast<unsigned char*>(Buffer::Data(args[0])) + offset;
+  job->size = size;
+  if (args[3]->IsObject()) return RandomBytesJob::Run(std::move(job), args[3]);
+  env->PrintSyncTrace();
+  job->DoThreadPoolWork();
+  args.GetReturnValue().Set(job->ToResult());
 }
 
 
-void RandomBytesBuffer(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
+struct PBKDF2Job : public CryptoJob {
+  unsigned char* keybuf_data;
+  size_t keybuf_size;
+  std::vector<char> pass;
+  std::vector<char> salt;
+  uint32_t iteration_count;
+  const EVP_MD* digest;
+  Maybe<bool> success;
 
-  CHECK(args[0]->IsArrayBufferView());
-  CHECK(args[1]->IsUint32());
-  CHECK(args[2]->IsUint32());
+  inline explicit PBKDF2Job(Environment* env)
+      : CryptoJob(env), success(Nothing<bool>()) {}
 
-  int64_t offset = args[1]->IntegerValue();
-  int64_t size = args[2]->IntegerValue();
-
-  Local<Object> obj = env->randombytes_constructor_template()->
-      NewInstance(env->context()).ToLocalChecked();
-  obj->Set(env->context(), env->buffer_string(), args[0]).FromJust();
-  char* data = Buffer::Data(args[0]);
-  data += offset;
-
-  std::unique_ptr<RandomBytesRequest> req(
-      new RandomBytesRequest(env,
-                             obj,
-                             size,
-                             data,
-                             RandomBytesRequest::DONT_FREE_DATA));
-  if (args[3]->IsFunction()) {
-    obj->Set(env->context(), env->ondone_string(), args[3]).FromJust();
-
-    req.release()->ScheduleWork();
-    args.GetReturnValue().Set(obj);
-  } else {
-    Local<Value> argv[2];
-    RandomBytesProcessSync(env, std::move(req), &argv);
-    if (argv[0]->IsNull())
-      args.GetReturnValue().Set(argv[1]);
+  inline ~PBKDF2Job() override {
+    Cleanse();
   }
+
+  inline void DoThreadPoolWork() override {
+    auto salt_data = reinterpret_cast<const unsigned char*>(salt.data());
+    const bool ok =
+        PKCS5_PBKDF2_HMAC(pass.data(), pass.size(), salt_data, salt.size(),
+                          iteration_count, digest, keybuf_size, keybuf_data);
+    success = Just(ok);
+    Cleanse();
+  }
+
+  inline void AfterThreadPoolWork() override {
+    Local<Value> arg = ToResult();
+    async_wrap->MakeCallback(env->ondone_string(), 1, &arg);
+  }
+
+  inline Local<Value> ToResult() const {
+    return Boolean::New(env->isolate(), success.FromJust());
+  }
+
+  inline void Cleanse() {
+    OPENSSL_cleanse(pass.data(), pass.size());
+    OPENSSL_cleanse(salt.data(), salt.size());
+    pass.clear();
+    salt.clear();
+  }
+};
+
+
+inline void PBKDF2(const FunctionCallbackInfo<Value>& args) {
+  auto rv = args.GetReturnValue();
+  Environment* env = Environment::GetCurrent(args);
+  CHECK(args[0]->IsArrayBufferView());  // keybuf; wrap object retains ref.
+  CHECK(args[1]->IsArrayBufferView());  // pass
+  CHECK(args[2]->IsArrayBufferView());  // salt
+  CHECK(args[3]->IsUint32());  // iteration_count
+  CHECK(args[4]->IsString());  // digest_name
+  CHECK(args[5]->IsObject() || args[5]->IsUndefined());  // wrap object
+  std::unique_ptr<PBKDF2Job> job(new PBKDF2Job(env));
+  job->keybuf_data = reinterpret_cast<unsigned char*>(Buffer::Data(args[0]));
+  job->keybuf_size = Buffer::Length(args[0]);
+  CopyBuffer(args[1], &job->pass);
+  CopyBuffer(args[2], &job->salt);
+  job->iteration_count = args[3].As<Uint32>()->Value();
+  Utf8Value digest_name(args.GetIsolate(), args[4]);
+  job->digest = EVP_get_digestbyname(*digest_name);
+  if (job->digest == nullptr) return rv.Set(-1);
+  if (args[5]->IsObject()) return PBKDF2Job::Run(std::move(job), args[5]);
+  env->PrintSyncTrace();
+  job->DoThreadPoolWork();
+  rv.Set(job->ToResult());
 }
+
+
+#ifndef OPENSSL_NO_SCRYPT
+struct ScryptJob : public CryptoJob {
+  unsigned char* keybuf_data;
+  size_t keybuf_size;
+  std::vector<char> pass;
+  std::vector<char> salt;
+  uint32_t N;
+  uint32_t r;
+  uint32_t p;
+  uint32_t maxmem;
+  CryptoErrorVector errors;
+
+  inline explicit ScryptJob(Environment* env) : CryptoJob(env) {}
+
+  inline ~ScryptJob() override {
+    Cleanse();
+  }
+
+  inline bool Validate() {
+    if (1 == EVP_PBE_scrypt(nullptr, 0, nullptr, 0, N, r, p, maxmem,
+                            nullptr, 0)) {
+      return true;
+    } else {
+      // Note: EVP_PBE_scrypt() does not always put errors on the error stack.
+      errors.Capture();
+      return false;
+    }
+  }
+
+  inline void DoThreadPoolWork() override {
+    auto salt_data = reinterpret_cast<const unsigned char*>(salt.data());
+    if (1 != EVP_PBE_scrypt(pass.data(), pass.size(), salt_data, salt.size(),
+                            N, r, p, maxmem, keybuf_data, keybuf_size)) {
+      errors.Capture();
+    }
+  }
+
+  inline void AfterThreadPoolWork() override {
+    Local<Value> arg = ToResult();
+    async_wrap->MakeCallback(env->ondone_string(), 1, &arg);
+  }
+
+  inline Local<Value> ToResult() const {
+    if (errors.empty()) return Undefined(env->isolate());
+    return errors.ToException(env);
+  }
+
+  inline void Cleanse() {
+    OPENSSL_cleanse(pass.data(), pass.size());
+    OPENSSL_cleanse(salt.data(), salt.size());
+    pass.clear();
+    salt.clear();
+  }
+};
+
+
+void Scrypt(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  CHECK(args[0]->IsArrayBufferView());  // keybuf; wrap object retains ref.
+  CHECK(args[1]->IsArrayBufferView());  // pass
+  CHECK(args[2]->IsArrayBufferView());  // salt
+  CHECK(args[3]->IsUint32());  // N
+  CHECK(args[4]->IsUint32());  // r
+  CHECK(args[5]->IsUint32());  // p
+  CHECK(args[6]->IsUint32());  // maxmem
+  CHECK(args[7]->IsObject() || args[7]->IsUndefined());  // wrap object
+  std::unique_ptr<ScryptJob> job(new ScryptJob(env));
+  job->keybuf_data = reinterpret_cast<unsigned char*>(Buffer::Data(args[0]));
+  job->keybuf_size = Buffer::Length(args[0]);
+  CopyBuffer(args[1], &job->pass);
+  CopyBuffer(args[2], &job->salt);
+  job->N = args[3].As<Uint32>()->Value();
+  job->r = args[4].As<Uint32>()->Value();
+  job->p = args[5].As<Uint32>()->Value();
+  job->maxmem = args[6].As<Uint32>()->Value();
+  if (!job->Validate()) {
+    // EVP_PBE_scrypt() does not always put errors on the error stack
+    // and therefore ToResult() may or may not return an exception
+    // object.  Return a sentinel value to inform JS land it should
+    // throw an ERR_CRYPTO_SCRYPT_PARAMETER_ERROR on our behalf.
+    auto result = job->ToResult();
+    if (result->IsUndefined()) result = Null(args.GetIsolate());
+    return args.GetReturnValue().Set(result);
+  }
+  if (args[7]->IsObject()) return ScryptJob::Run(std::move(job), args[7]);
+  env->PrintSyncTrace();
+  job->DoThreadPoolWork();
+  args.GetReturnValue().Set(job->ToResult());
+}
+#endif  // OPENSSL_NO_SCRYPT
 
 
 void GetSSLCiphers(const FunctionCallbackInfo<Value>& args) {
@@ -5269,9 +5192,8 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "setFipsCrypto", SetFipsCrypto);
 #endif
 
-  env->SetMethod(target, "PBKDF2", PBKDF2);
+  env->SetMethod(target, "pbkdf2", PBKDF2);
   env->SetMethod(target, "randomBytes", RandomBytes);
-  env->SetMethod(target, "randomFill", RandomBytesBuffer);
   env->SetMethod(target, "timingSafeEqual", TimingSafeEqual);
   env->SetMethod(target, "getSSLCiphers", GetSSLCiphers);
   env->SetMethod(target, "getCiphers", GetCiphers);
@@ -5293,20 +5215,9 @@ void Initialize(Local<Object> target,
                  PublicKeyCipher::Cipher<PublicKeyCipher::kPublic,
                                          EVP_PKEY_verify_recover_init,
                                          EVP_PKEY_verify_recover>);
-
-  Local<FunctionTemplate> pb = FunctionTemplate::New(env->isolate());
-  pb->SetClassName(FIXED_ONE_BYTE_STRING(env->isolate(), "PBKDF2"));
-  AsyncWrap::AddWrapMethods(env, pb);
-  Local<ObjectTemplate> pbt = pb->InstanceTemplate();
-  pbt->SetInternalFieldCount(1);
-  env->set_pbkdf2_constructor_template(pbt);
-
-  Local<FunctionTemplate> rb = FunctionTemplate::New(env->isolate());
-  rb->SetClassName(FIXED_ONE_BYTE_STRING(env->isolate(), "RandomBytes"));
-  AsyncWrap::AddWrapMethods(env, rb);
-  Local<ObjectTemplate> rbt = rb->InstanceTemplate();
-  rbt->SetInternalFieldCount(1);
-  env->set_randombytes_constructor_template(rbt);
+#ifndef OPENSSL_NO_SCRYPT
+  env->SetMethod(target, "scrypt", Scrypt);
+#endif  // OPENSSL_NO_SCRYPT
 }
 
 }  // namespace crypto

@@ -95,6 +95,7 @@ test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
 test-util-format-shared-arraybuffer : SKIP
 test-v8-serdes : SKIP
+test-v8-deserialize-buffer : SKIP
 test-vm-attributes-property-not-on-sandbox : SKIP
 test-vm-cached-data : SKIP
 test-vm-codegen : SKIP
@@ -169,6 +170,7 @@ test-vm-module-reevaluate : SKIP
 test-util-inspect-bigint : SKIP
 test-fs-stat-bigint : SKIP
 test-fs-watchfile-bigint : SKIP
+test-process-hrtime-bigint : SKIP
 
 # One of the benchmarks uses object spread syntax, which chakra does not support
 test-benchmark-es : SKIP
@@ -214,6 +216,7 @@ test-async-hooks-destroy-on-gc : PASS,FLAKY
 test-error-serdes : SKIP
 
 # These tests are for worker_threads support, which is currently not implemented in Node-ChakraCore
+test-async-wrap-missing-method : SKIP
 test-message-channel : SKIP
 test-message-channel-sharedarraybuffer : SKIP
 test-message-port : SKIP

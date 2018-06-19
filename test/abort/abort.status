@@ -22,3 +22,7 @@ prefix abort
 # This test is disabled for chakra engine because it depends
 # on v8-option --abort-on-uncaught-exception
 test-abort-uncaught-exception : SKIP
+
+# These tests require worker_threads which is not implemented
+# in node-chakracore
+test-addon-uv-handle-leak : SKIP

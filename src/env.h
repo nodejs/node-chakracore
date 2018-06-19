@@ -244,7 +244,6 @@ struct PackageConfig {
   V(password_string, "password")                                              \
   V(path_string, "path")                                                      \
   V(pending_handle_string, "pendingHandle")                                   \
-  V(pbkdf2_error_string, "PBKDF2 Error")                                      \
   V(pid_string, "pid")                                                        \
   V(pipe_string, "pipe")                                                      \
   V(pipe_target_string, "pipeTarget")                                         \
@@ -319,6 +318,7 @@ struct PackageConfig {
   V(async_hooks_destroy_function, v8::Function)                               \
   V(async_hooks_init_function, v8::Function)                                  \
   V(async_hooks_promise_resolve_function, v8::Function)                       \
+  V(async_wrap_constructor_template, v8::FunctionTemplate)                    \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
   V(domain_callback, v8::Function)                                            \
@@ -336,7 +336,6 @@ struct PackageConfig {
   V(inspector_console_api_object, v8::Object)                                 \
   V(message_port, v8::Object)                                                 \
   V(message_port_constructor_template, v8::FunctionTemplate)                  \
-  V(pbkdf2_constructor_template, v8::ObjectTemplate)                          \
   V(pipe_constructor_template, v8::FunctionTemplate)                          \
   V(performance_entry_callback, v8::Function)                                 \
   V(performance_entry_template, v8::Function)                                 \
@@ -345,7 +344,6 @@ struct PackageConfig {
   V(promise_reject_unhandled_function, v8::Function)                          \
   V(promise_wrap_template, v8::ObjectTemplate)                                \
   V(push_values_to_array_function, v8::Function)                              \
-  V(randombytes_constructor_template, v8::ObjectTemplate)                     \
   V(sab_lifetimepartner_constructor_template, v8::FunctionTemplate)           \
   V(script_context_constructor_template, v8::FunctionTemplate)                \
   V(script_data_constructor_function, v8::Function)                           \
