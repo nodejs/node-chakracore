@@ -171,6 +171,7 @@ test-vm-module-reevaluate : SKIP
 test-util-inspect-bigint : SKIP
 test-fs-stat-bigint : SKIP
 test-fs-watchfile-bigint : SKIP
+test-process-hrtime-bigint : SKIP
 
 # One of the benchmarks uses object spread syntax, which chakra does not support
 test-benchmark-es : SKIP
