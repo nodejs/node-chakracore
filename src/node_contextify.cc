@@ -63,6 +63,7 @@ using v8::Uint8Array;
 using v8::UnboundScript;
 using v8::Value;
 using v8::WeakCallbackInfo;
+using v8::WeakCallbackType;
 
 // The vm module executes code in a sandboxed environment with a different
 // global object than the rest of the code. This is achieved by applying
@@ -103,7 +104,7 @@ ContextifyContext::ContextifyContext(
   // Allocation failure or maximum call stack size reached
   if (context_.IsEmpty())
     return;
-  context_.SetWeak(this, WeakCallback, v8::WeakCallbackType::kParameter);
+  context_.SetWeak(this, WeakCallback, WeakCallbackType::kParameter);
 }
 
 
@@ -446,7 +447,7 @@ void ContextifyContext::PropertyDefinerCallback(
     return;
 
   Local<Context> context = ctx->context();
-  v8::Isolate* isolate = context->GetIsolate();
+  Isolate* isolate = context->GetIsolate();
 
   auto attributes = PropertyAttribute::None;
   bool is_declared =
@@ -479,13 +480,13 @@ void ContextifyContext::PropertyDefinerCallback(
 
   if (desc.has_get() || desc.has_set()) {
     PropertyDescriptor desc_for_sandbox(
-        desc.has_get() ? desc.get() : v8::Undefined(isolate).As<Value>(),
-        desc.has_set() ? desc.set() : v8::Undefined(isolate).As<Value>());
+        desc.has_get() ? desc.get() : Undefined(isolate).As<Value>(),
+        desc.has_set() ? desc.set() : Undefined(isolate).As<Value>());
 
     define_prop_on_sandbox(&desc_for_sandbox);
   } else {
     Local<Value> value =
-        desc.has_value() ? desc.value() : v8::Undefined(isolate).As<Value>();
+        desc.has_value() ? desc.value() : Undefined(isolate).As<Value>();
 
     if (desc.has_writable()) {
       PropertyDescriptor desc_for_sandbox(value, desc.writable());
@@ -690,6 +691,16 @@ class ContextifyScript : public BaseObject {
     ContextifyScript* contextify_script =
         new ContextifyScript(env, args.This());
 
+    if (*TRACE_EVENT_API_GET_CATEGORY_GROUP_ENABLED(
+            TRACING_CATEGORY_NODE2(vm, script)) != 0) {
+      Utf8Value fn(isolate, filename);
+      TRACE_EVENT_NESTABLE_ASYNC_BEGIN1(
+          TRACING_CATEGORY_NODE2(vm, script),
+          "ContextifyScript::New",
+          contextify_script,
+          "filename", TRACE_STR_COPY(*fn));
+    }
+
     ScriptCompiler::CachedData* cached_data = nullptr;
     if (!cached_data_buf.IsEmpty()) {
       ArrayBuffer::Contents contents = cached_data_buf->Buffer()->GetContents();
@@ -719,6 +730,10 @@ class ContextifyScript : public BaseObject {
       DecorateErrorStack(env, try_catch);
       no_abort_scope.Close();
       try_catch.ReThrow();
+      TRACE_EVENT_NESTABLE_ASYNC_END0(
+          TRACING_CATEGORY_NODE2(vm, script),
+          "ContextifyScript::New",
+          contextify_script);
       return;
     }
     contextify_script->script_.Reset(isolate, v8_script.ToLocalChecked());
@@ -742,6 +757,10 @@ class ContextifyScript : public BaseObject {
           env->cached_data_produced_string(),
           Boolean::New(isolate, cached_data_produced));
     }
+    TRACE_EVENT_NESTABLE_ASYNC_END0(
+        TRACING_CATEGORY_NODE2(vm, script),
+        "ContextifyScript::New",
+        contextify_script);
   }
 
 
@@ -753,6 +772,12 @@ class ContextifyScript : public BaseObject {
 
   static void RunInThisContext(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
+
+    ContextifyScript* wrapped_script;
+    ASSIGN_OR_RETURN_UNWRAP(&wrapped_script, args.Holder());
+
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(
+        TRACING_CATEGORY_NODE2(vm, script), "RunInThisContext", wrapped_script);
 
     CHECK_EQ(args.Length(), 3);
 
@@ -767,10 +792,16 @@ class ContextifyScript : public BaseObject {
 
     // Do the eval within this context
     EvalMachine(env, timeout, display_errors, break_on_sigint, args);
+
+    TRACE_EVENT_NESTABLE_ASYNC_END0(
+        TRACING_CATEGORY_NODE2(vm, script), "RunInThisContext", wrapped_script);
   }
 
   static void RunInContext(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
+
+    ContextifyScript* wrapped_script;
+    ASSIGN_OR_RETURN_UNWRAP(&wrapped_script, args.Holder());
 
     CHECK_EQ(args.Length(), 4);
 
@@ -783,6 +814,9 @@ class ContextifyScript : public BaseObject {
 
     if (contextify_context->context().IsEmpty())
       return;
+
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(
+        TRACING_CATEGORY_NODE2(vm, script), "RunInContext", wrapped_script);
 
     CHECK(args[1]->IsNumber());
     int64_t timeout = args[1]->IntegerValue(env->context()).FromJust();
@@ -812,6 +846,9 @@ class ContextifyScript : public BaseObject {
 #ifdef NODE_ENGINE_CHAKRACORE
     contextify_context->context()->ResolveGlobalChanges(sandbox);
 #endif
+
+    TRACE_EVENT_NESTABLE_ASYNC_END0(
+        TRACING_CATEGORY_NODE2(vm, script), "RunInContext", wrapped_script);
   }
 
   static void DecorateErrorStack(Environment* env, const TryCatch& try_catch) {
@@ -857,6 +894,8 @@ class ContextifyScript : public BaseObject {
                           const bool display_errors,
                           const bool break_on_sigint,
                           const FunctionCallbackInfo<Value>& args) {
+    if (!env->can_call_into_js())
+      return false;
     if (!ContextifyScript::InstanceOf(env, args.Holder())) {
       env->ThrowTypeError(
           "Script methods can only be called on script instances.");

@@ -27,12 +27,17 @@
 
 const common = require('../common');
 const assert = require('assert');
-const { EOL } = require('os');
 const EventEmitter = require('events');
-const { errorCache } = require('internal/errors');
+const { errorCache } = require('internal/assert');
 const { writeFileSync, unlinkSync } = require('fs');
 const { inspect } = require('util');
 const a = assert;
+
+// Disable colored output to prevent color codes from breaking assertion
+// message comparisons. This should only be an issue when process.stdout
+// is a TTY.
+if (process.stdout.isTTY)
+  process.env.NODE_DISABLE_COLORS = '1';
 
 const start = 'Input A expected to strictly deep-equal input B:';
 const actExp = '+ expected - actual';
@@ -421,7 +426,7 @@ assert.throws(
 
 function engineSpecificAssert(v8, cc) {
   return common.engineSpecificMessage({
-    v8: `The expression evaluated to a falsy value:${EOL}${EOL}  ${v8}`,
+    v8: `The expression evaluated to a falsy value:\n\n  ${v8}`,
     chakracore: cc
   });
 }
@@ -470,7 +475,7 @@ function engineSpecificAssert(v8, cc) {
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        `assert.ok(typeof 123 === 'string')${EOL}`,
+        'assert.ok(typeof 123 === \'string\')\n',
         'false == true'
       )
     }
@@ -635,7 +640,7 @@ common.expectsError(
     type: assert.AssertionError,
     generatedMessage: !common.isChakraEngine,
     message: engineSpecificAssert(
-      `assert.ok(null)${EOL}`,
+      'assert.ok(null)\n',
       'null == true')
   }
 );
@@ -646,8 +651,18 @@ common.expectsError(
     type: assert.AssertionError,
     generatedMessage: !common.isChakraEngine,
     message: engineSpecificAssert(
-      `assert(typeof 123 === 'string')${EOL}`,
+      'assert(typeof 123 === \'string\')\n',
       'false == true')
+  }
+);
+
+common.expectsError(
+  () => assert(false, Symbol('foo')),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    generatedMessage: false,
+    message: 'Symbol(foo)'
   }
 );
 
@@ -668,7 +683,7 @@ common.expectsError(
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        'assert(Buffer.from(\'test\') instanceof Error)\n',
         'false == true'
       )
     }
@@ -679,7 +694,7 @@ common.expectsError(
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        `assert(Buffer.from('test') instanceof Error)${EOL}`,
+        'assert(Buffer.from(\'test\') instanceof Error)\n',
         'false == true'
       )
     }
@@ -700,14 +715,55 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: engineSpecificAssert(`assert((() => 'string')()${EOL}` +
-                                  `      // eslint-disable-next-line${EOL}` +
-                                  `      ===${EOL}` +
-                                  `      123 instanceof${EOL}` +
-                                  `          Buffer)${EOL}`,
+    message: engineSpecificAssert('assert((() => \'string\')()\n' +
+                                  '    // eslint-disable-next-line\n' +
+                                  '    ===\n' +
+                                  '    123 instanceof\n' +
+                                  '        Buffer)\n',
                                   'false == true')
   }
 );
+
+common.expectsError(
+  () => {
+    a(
+      (() => 'string')()
+      // eslint-disable-next-line
+      ===
+  123 instanceof
+          Buffer
+    );
+  },
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: engineSpecificAssert('assert((() => \'string\')()\n' +
+                                  '    // eslint-disable-next-line\n' +
+                                  '    ===\n' +
+                                  '  123 instanceof\n' +
+                                  '        Buffer)\n',
+                                  'false == true')
+  }
+);
+
+/* eslint-disable indent */
+common.expectsError(() => {
+a((
+  () => 'string')() ===
+123 instanceof
+Buffer
+);
+}, {
+  code: 'ERR_ASSERTION',
+  type: assert.AssertionError,
+  message: engineSpecificAssert('assert((\n' +
+                                '    () => \'string\')() ===\n' +
+                                '  123 instanceof\n' +
+                                '  Buffer)\n',
+                                'false == true')
+  }
+);
+/* eslint-enable indent */
 
 common.expectsError(
   () => assert(null, undefined),
@@ -715,7 +771,7 @@ common.expectsError(
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
     message: engineSpecificAssert(
-      `assert(null, undefined)${EOL}`,
+      'assert(null, undefined)\n',
       'null == true'
     )
   }
@@ -763,7 +819,9 @@ if (!common.isChakraEngine) {
     const frames = err.stack.split('\n');
     const [, filename, line, column] = frames[1].match(/\((.+):(\d+):(\d+)\)/);
     // Reset the cache to check again
+    const size = errorCache.size;
     errorCache.delete(`${filename}${line - 1}${column - 1}`);
+    assert.strictEqual(errorCache.size, size - 1);
     const data = `${'\n'.repeat(line - 1)}${' '.repeat(column - 1)}` +
                  'ok(failed(badly));';
     try {
@@ -872,6 +930,7 @@ common.expectsError(
     {
       name: 'AssertionError [ERR_ASSERTION]',
       code: 'ERR_ASSERTION',
+      generatedMessage: true,
       message: `${start}\n${actExp}\n\n` +
                "  Comparison {\n    name: 'Error',\n-   message: 'foo'" +
                "\n+   message: ''\n  }"
@@ -937,3 +996,71 @@ assert.throws(
     }
   );
 }
+
+assert.throws(
+  () => { throw new TypeError('foobar'); },
+  {
+    message: /foo/,
+    name: /^TypeError$/
+  }
+);
+
+assert.throws(
+  () => assert.throws(
+    () => { throw new TypeError('foobar'); },
+    {
+      message: /fooa/,
+      name: /^TypeError$/
+    }
+  ),
+  {
+    message: `${start}\n${actExp}\n\n` +
+             '  Comparison {\n' +
+             "-   message: 'foobar',\n" +
+             '+   message: /fooa/,\n' +
+             "    name: 'TypeError'\n" +
+             '  }'
+  }
+);
+
+{
+  let actual = null;
+  const expected = { message: 'foo' };
+  assert.throws(
+    () => assert.throws(
+      () => { throw actual; },
+      expected
+    ),
+    {
+      operator: 'throws',
+      actual,
+      expected,
+      generatedMessage: true,
+      message: `${start}\n${actExp}\n\n` +
+              '- null\n' +
+              '+ {\n' +
+              "+   message: 'foo'\n" +
+              '+ }'
+    }
+  );
+
+  actual = 'foobar';
+  const message = 'message';
+  assert.throws(
+    () => assert.throws(
+      () => { throw actual; },
+      { message: 'foobar' },
+      message
+    ),
+    {
+      actual,
+      message,
+      operator: 'throws',
+      generatedMessage: false
+    }
+  );
+}
+
+// TODO: This case is only there to make sure there is no breaking change.
+// eslint-disable-next-line no-restricted-syntax, no-throw-literal
+assert.throws(() => { throw 4; }, 4);

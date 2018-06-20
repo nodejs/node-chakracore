@@ -25,6 +25,7 @@
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #include "node.h"
+#include "node_mutex.h"
 #include "node_persistent.h"
 #include "util-inl.h"
 #include "env-inl.h"
@@ -172,6 +173,11 @@ extern std::string openssl_config;
 // that is used by lib/module.js
 extern bool config_preserve_symlinks;
 
+// Set in node.cc by ParseArgs when --preserve-symlinks-main is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/module.js
+extern bool config_preserve_symlinks_main;
+
 // Set in node.cc by ParseArgs when --experimental-modules is used.
 // Used in node_config.cc to set a constant on process.binding('config')
 // that is used by lib/module.js
@@ -225,17 +231,6 @@ template <class TypeName>
 inline v8::Local<TypeName> PersistentToLocal(
     v8::Isolate* isolate,
     const Persistent<TypeName>& persistent);
-
-// Creates a new context with Node.js-specific tweaks.  Currently, it removes
-// the `v8BreakIterator` property from the global `Intl` object if present.
-// See https://github.com/nodejs/node/issues/14909 for more info.
-v8::Local<v8::Context> NewContext(
-    v8::Isolate* isolate,
-#ifdef NODE_ENGINE_CHAKRACORE
-    bool recordTTD,
-#endif
-    v8::Local<v8::ObjectTemplate> object_template =
-        v8::Local<v8::ObjectTemplate>());
 
 // Convert a struct sockaddr to a { address: '1.2.3.4', port: 1234 } JS object.
 // Sets address and port properties on the info object and returns it.
@@ -504,6 +499,41 @@ class InternalCallbackScope {
   bool pushed_ids_ = false;
   bool closed_ = false;
 };
+
+class ThreadPoolWork {
+ public:
+  explicit inline ThreadPoolWork(Environment* env) : env_(env) {}
+  inline void ScheduleWork();
+  inline int CancelWork();
+
+  virtual void DoThreadPoolWork() = 0;
+  virtual void AfterThreadPoolWork(int status) = 0;
+
+ private:
+  Environment* env_;
+  uv_work_t work_req_;
+};
+
+void ThreadPoolWork::ScheduleWork() {
+  env_->IncreaseWaitingRequestCounter();
+  int status = uv_queue_work(
+      env_->event_loop(),
+      &work_req_,
+      [](uv_work_t* req) {
+        ThreadPoolWork* self = ContainerOf(&ThreadPoolWork::work_req_, req);
+        self->DoThreadPoolWork();
+      },
+      [](uv_work_t* req, int status) {
+        ThreadPoolWork* self = ContainerOf(&ThreadPoolWork::work_req_, req);
+        self->env_->DecreaseWaitingRequestCounter();
+        self->AfterThreadPoolWork(status);
+      });
+  CHECK_EQ(status, 0);
+}
+
+int ThreadPoolWork::CancelWork() {
+  return uv_cancel(reinterpret_cast<uv_req_t*>(&work_req_));
+}
 
 static inline const char *errno_string(int errorno) {
 #define ERRNO_CASE(e)  case e: return #e;

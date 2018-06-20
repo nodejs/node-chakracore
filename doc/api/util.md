@@ -1009,6 +1009,44 @@ util.types.isAsyncFunction(function foo() {});  // Returns false
 util.types.isAsyncFunction(async function foo() {});  // Returns true
 ```
 
+### util.types.isBigInt64Array(value)
+<!-- YAML
+added: v10.0.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the value is a `BigInt64Array` instance. The
+`--harmony-bigint` command line flag is required in order to use the
+`BigInt64Array` type, but it is not required in order to use
+`isBigInt64Array()`.
+
+For example:
+
+```js
+util.types.isBigInt64Array(new BigInt64Array());   // Returns true
+util.types.isBigInt64Array(new BigUint64Array());  // Returns false
+```
+
+### util.types.isBigUint64Array(value)
+<!-- YAML
+added: v10.0.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the value is a `BigUint64Array` instance. The
+`--harmony-bigint` command line flag is required in order to use the
+`BigUint64Array` type, but it is not required in order to use
+`isBigUint64Array()`.
+
+For example:
+
+```js
+util.types.isBigUint64Array(new BigInt64Array());   // Returns false
+util.types.isBigUint64Array(new BigUint64Array());  // Returns true
+```
+
 ### util.types.isBooleanObject(value)
 <!-- YAML
 added: v10.0.0
@@ -1231,6 +1269,24 @@ util.types.isMapIterator(map.keys());  // Returns true
 util.types.isMapIterator(map.values());  // Returns true
 util.types.isMapIterator(map.entries());  // Returns true
 util.types.isMapIterator(map[Symbol.iterator]());  // Returns true
+```
+
+### util.types.isModuleNamespaceObject(value)
+<!-- YAML
+added: v10.0.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the value is an instance of a [Module Namespace Object][].
+
+For example:
+
+<!-- eslint-skip -->
+```js
+import * as ns from './a.js';
+
+util.types.isModuleNamespaceObject(ns);  // Returns true
 ```
 
 ### util.types.isNativeError(value)
@@ -2073,6 +2129,7 @@ Deprecated predecessor of `console.log`.
 [Custom promisified functions]: #util_custom_promisified_functions
 [Customizing `util.inspect` colors]: #util_customizing_util_inspect_colors
 [Internationalization]: intl.html
+[Module Namespace Object]: https://tc39.github.io/ecma262/#sec-module-namespace-exotic-objects
 [WHATWG Encoding Standard]: https://encoding.spec.whatwg.org/
 [Common System Errors]: errors.html#errors_common_system_errors
 [constructor]: https://developer.mozilla.org/en-US/JavaScript/Reference/Global_Objects/Object/constructor

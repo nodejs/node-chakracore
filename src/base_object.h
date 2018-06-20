@@ -34,9 +34,9 @@ class Environment;
 
 class BaseObject {
  public:
-  // Associates this object with `handle`. It uses the 0th internal field for
+  // Associates this object with `object`. It uses the 0th internal field for
   // that, and in particular aborts if there is no such field.
-  inline BaseObject(Environment* env, v8::Local<v8::Object> handle);
+  inline BaseObject(Environment* env, v8::Local<v8::Object> object);
   virtual inline ~BaseObject();
 
   // Returns the wrapped object.  Returns an empty handle when
@@ -70,6 +70,8 @@ class BaseObject {
 
  private:
   BaseObject();
+
+  static inline void DeleteMe(void* data);
 
   // persistent_handle_ needs to be at a fixed offset from the start of the
   // class because it is used by src/node_postmortem_metadata.cc to calculate

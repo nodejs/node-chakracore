@@ -664,9 +664,9 @@ added: v8.4.0
 added: v9.4.0
 -->
 
-* `alt`: {string}
-* `origin`: {string}
-* `streamId`: {number}
+* `alt` {string}
+* `origin` {string}
+* `streamId` {number}
 
 The `'altsvc'` event is emitted whenever an `ALTSVC` frame is received by
 the client. The event is emitted with the `ALTSVC` value, origin, and stream
@@ -846,6 +846,8 @@ the `http2stream.rstCode` property. If the code is any value other than
 added: v8.4.0
 -->
 
+* `error` {Error}
+
 The `'error'` event is emitted when an error occurs during the processing of
 an `Http2Stream`.
 
@@ -877,6 +879,10 @@ added: v8.4.0
 The `'trailers'` event is emitted when a block of headers associated with
 trailing header fields is received. The listener callback is passed the
 [HTTP/2 Headers Object][] and flags associated with the headers.
+
+Note that this event might not be emitted if `http2stream.end()` is called
+before trailers are received and the incoming data is not being read or
+listened for.
 
 ```js
 stream.on('trailers', (headers, flags) => {
@@ -3119,7 +3125,7 @@ added: v8.4.0
 -->
 
 Call [`http2stream.pushStream()`][] with the given headers, and wraps the
-given newly created [`Http2Stream`] on `Http2ServerRespose`.
+given newly created [`Http2Stream`] on `Http2ServerResponse`.
 
 The callback will be called with an error with code `ERR_HTTP2_STREAM_CLOSED`
 if the stream is closed.

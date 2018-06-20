@@ -70,6 +70,8 @@ using v8::Value;
 
 namespace {
 
+Mutex ares_library_mutex;
+
 inline uint16_t cares_get_16bit(const unsigned char* p) {
   return static_cast<uint32_t>(p[0] << 8U) | (static_cast<uint32_t>(p[1]));
 }
@@ -265,9 +267,8 @@ void ares_poll_cb(uv_poll_t* watcher, int status, int events) {
 }
 
 
-void ares_poll_close_cb(uv_handle_t* watcher) {
-  node_ares_task* task = ContainerOf(&node_ares_task::poll_watcher,
-                                  reinterpret_cast<uv_poll_t*>(watcher));
+void ares_poll_close_cb(uv_poll_t* watcher) {
+  node_ares_task* task = ContainerOf(&node_ares_task::poll_watcher, watcher);
   free(task);
 }
 
@@ -345,8 +346,7 @@ void ares_sockstate_cb(void* data,
           "When an ares socket is closed we should have a handle for it");
 
     channel->task_list()->erase(it);
-    uv_close(reinterpret_cast<uv_handle_t*>(&task->poll_watcher),
-             ares_poll_close_cb);
+    channel->env()->CloseHandle(&task->poll_watcher, ares_poll_close_cb);
 
     if (channel->task_list()->empty()) {
       uv_timer_stop(channel->timer_handle());
@@ -470,6 +470,7 @@ void ChannelWrap::Setup() {
 
   int r;
   if (!library_inited_) {
+    Mutex::ScopedLock lock(ares_library_mutex);
     // Multiple calls to ares_library_init() increase a reference counter,
     // so this is a no-op except for the first call to it.
     r = ares_library_init(ARES_LIB_INIT_ALL);
@@ -483,6 +484,7 @@ void ChannelWrap::Setup() {
                         ARES_OPT_FLAGS | ARES_OPT_SOCK_STATE_CB);
 
   if (r != ARES_SUCCESS) {
+    Mutex::ScopedLock lock(ares_library_mutex);
     ares_library_cleanup();
     return env()->ThrowError(ToErrorCodeString(r));
   }
@@ -500,6 +502,7 @@ void ChannelWrap::Setup() {
 
 ChannelWrap::~ChannelWrap() {
   if (library_inited_) {
+    Mutex::ScopedLock lock(ares_library_mutex);
     // This decreases the reference counter increased by ares_library_init().
     ares_library_cleanup();
   }
@@ -512,10 +515,7 @@ ChannelWrap::~ChannelWrap() {
 void ChannelWrap::CleanupTimer() {
   if (timer_handle_ == nullptr) return;
 
-  uv_close(reinterpret_cast<uv_handle_t*>(timer_handle_),
-           [](uv_handle_t* handle) {
-    delete reinterpret_cast<uv_timer_t*>(handle);
-  });
+  env()->CloseHandle(timer_handle_, [](uv_timer_t* handle) { delete handle; });
   timer_handle_ = nullptr;
 }
 
@@ -605,8 +605,7 @@ class QueryWrap : public AsyncWrap {
                static_cast<void*>(this));
   }
 
-  static void CaresAsyncClose(uv_handle_t* handle) {
-    uv_async_t* async = reinterpret_cast<uv_async_t*>(handle);
+  static void CaresAsyncClose(uv_async_t* async) {
     auto data = static_cast<struct CaresAsyncData*>(async->data);
     delete data->wrap;
     delete data;
@@ -631,7 +630,7 @@ class QueryWrap : public AsyncWrap {
       free(host);
     }
 
-    uv_close(reinterpret_cast<uv_handle_t*>(handle), CaresAsyncClose);
+    wrap->env()->CloseHandle(handle, CaresAsyncClose);
   }
 
   static void Callback(void *arg, int status, int timeouts,
@@ -723,7 +722,7 @@ class QueryWrap : public AsyncWrap {
 };
 
 
-template<typename T>
+template <typename T>
 Local<Array> AddrTTLToArray(Environment* env,
                             const T* addrttls,
                             size_t naddrttls) {
@@ -1928,13 +1927,11 @@ void GetAddrInfo(const FunctionCallbackInfo<Value>& args) {
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = flags;
 
-  int err = uv_getaddrinfo(env->event_loop(),
-                           req_wrap->req(),
-                           AfterGetAddrInfo,
-                           *hostname,
-                           nullptr,
-                           &hints);
-  req_wrap->Dispatched();
+  int err = req_wrap->Dispatch(uv_getaddrinfo,
+                               AfterGetAddrInfo,
+                               *hostname,
+                               nullptr,
+                               &hints);
   if (err)
     delete req_wrap;
 
@@ -1958,12 +1955,10 @@ void GetNameInfo(const FunctionCallbackInfo<Value>& args) {
 
   GetNameInfoReqWrap* req_wrap = new GetNameInfoReqWrap(env, req_wrap_obj);
 
-  int err = uv_getnameinfo(env->event_loop(),
-                           req_wrap->req(),
-                           AfterGetNameInfo,
-                           (struct sockaddr*)&addr,
-                           NI_NAMEREQD);
-  req_wrap->Dispatched();
+  int err = req_wrap->Dispatch(uv_getnameinfo,
+                               AfterGetNameInfo,
+                               reinterpret_cast<struct sockaddr*>(&addr),
+                               NI_NAMEREQD);
   if (err)
     delete req_wrap;
 

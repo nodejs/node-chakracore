@@ -311,8 +311,6 @@ let knownGlobals = [
   clearImmediate,
   clearInterval,
   clearTimeout,
-  console,
-  constructor, // Enumerable in V8 3.21.
   global,
   process,
   setImmediate,
@@ -342,29 +340,6 @@ if (global.COUNTER_NET_SERVER_CONNECTION) {
   knownGlobals.push(COUNTER_HTTP_CLIENT_RESPONSE);
 }
 
-if (global.ArrayBuffer) {
-  knownGlobals.push(ArrayBuffer);
-  knownGlobals.push(Int8Array);
-  knownGlobals.push(Uint8Array);
-  knownGlobals.push(Uint8ClampedArray);
-  knownGlobals.push(Int16Array);
-  knownGlobals.push(Uint16Array);
-  knownGlobals.push(Int32Array);
-  knownGlobals.push(Uint32Array);
-  knownGlobals.push(Float32Array);
-  knownGlobals.push(Float64Array);
-  knownGlobals.push(DataView);
-}
-
-// Harmony features.
-if (global.Proxy) {
-  knownGlobals.push(Proxy);
-}
-
-if (global.Symbol) {
-  knownGlobals.push(Symbol);
-}
-
 if (process.env.NODE_TEST_KNOWN_GLOBALS) {
   const knownFromEnv = process.env.NODE_TEST_KNOWN_GLOBALS.split(',');
   allowGlobals(...knownFromEnv);
@@ -392,20 +367,14 @@ function leakedGlobals() {
 }
 exports.leakedGlobals = leakedGlobals;
 
-// Turn this off if the test should not check for global leaks.
-exports.globalCheck = true;
-
 process.on('exit', function() {
-  if (!exports.globalCheck) return;
   const leaked = leakedGlobals();
   if (leaked.length > 0) {
     assert.fail(`Unexpected global(s) found: ${leaked.join(', ')}`);
   }
 });
 
-
 const mustCallChecks = [];
-
 
 function runCallChecks(exitCode) {
   if (exitCode !== 0) return;
@@ -641,19 +610,6 @@ exports.engineSpecificMessage = function(messageObject) {
   }
 
   return undefined;
-};
-
-exports.requireInternalV8 = function() {
-  if (exports.isChakraEngine) {
-    return {
-      previewMapIterator: function() { return []; },
-      previewSetIterator: function() { return []; },
-      previewWeakMap: function() { return []; },
-      previewWeakSet: function() { return []; }
-    };
-  } else {
-    return require('internal/v8');
-  }
 };
 
 exports.busyLoop = function busyLoop(time) {

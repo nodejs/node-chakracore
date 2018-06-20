@@ -19,14 +19,13 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Flags: --expose_internals
 'use strict';
 const common = require('../common');
 const assert = require('assert');
 const JSStream = process.binding('js_stream').JSStream;
 const util = require('util');
 const vm = require('vm');
-const { previewMapIterator } = common.requireInternalV8();
+const { previewEntries } = process.binding('util');
 
 assert.strictEqual(util.inspect(1), '1');
 assert.strictEqual(util.inspect(false), 'false');
@@ -458,7 +457,7 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
 if (!common.isChakraEngine) {
   const map = new Map();
   map.set(1, 2);
-  const vals = previewMapIterator(map.entries());
+  const vals = previewEntries(map.entries());
   const valsOutput = [];
   for (const o of vals) {
     valsOutput.push(o);
@@ -507,12 +506,12 @@ if (!common.isChakraEngine) {
 
 // Exceptions should print the error message, not '{}'.
 {
-  const errors = [];
-  errors.push(new Error());
-  errors.push(new Error('FAIL'));
-  errors.push(new TypeError('FAIL'));
-  errors.push(new SyntaxError('FAIL'));
-  errors.forEach((err) => {
+  [
+    new Error(),
+    new Error('FAIL'),
+    new TypeError('FAIL'),
+    new SyntaxError('FAIL')
+  ].forEach((err) => {
     assert.strictEqual(util.inspect(err), err.stack);
   });
   try {
@@ -524,6 +523,56 @@ if (!common.isChakraEngine) {
   assert(ex.includes('Error: FAIL'));
   assert(ex.includes('[stack]'));
   assert(ex.includes('[message]'));
+}
+
+{
+  const tmp = Error.stackTraceLimit;
+  Error.stackTraceLimit = 0;
+  const err = new Error('foo');
+  const err2 = new Error('foo\nbar');
+  assert.strictEqual(util.inspect(err, { compact: true }), '[Error: foo]');
+  assert(err.stack);
+  delete err.stack;
+  assert(!err.stack);
+  assert.strictEqual(util.inspect(err, { compact: true }), '[Error: foo]');
+  assert.strictEqual(
+    util.inspect(err2, { compact: true }),
+    '[Error: foo\nbar]'
+  );
+
+  err.bar = true;
+  err2.bar = true;
+
+  assert.strictEqual(
+    util.inspect(err, { compact: true }),
+    '{ [Error: foo] bar: true }'
+  );
+  assert.strictEqual(
+    util.inspect(err2, { compact: true }),
+    '{ [Error: foo\nbar] bar: true }'
+  );
+  assert.strictEqual(
+    util.inspect(err, { compact: true, breakLength: 5 }),
+    '{ [Error: foo]\n  bar: true }'
+  );
+  assert.strictEqual(
+    util.inspect(err, { compact: true, breakLength: 1 }),
+    '{ [Error: foo]\n  bar:\n   true }'
+  );
+  assert.strictEqual(
+    util.inspect(err2, { compact: true, breakLength: 5 }),
+    '{ [Error: foo\nbar]\n  bar: true }'
+  );
+  assert.strictEqual(
+    util.inspect(err, { compact: false }),
+    '[Error: foo] {\n  bar: true\n}'
+  );
+  assert.strictEqual(
+    util.inspect(err2, { compact: false }),
+    '[Error: foo\nbar] {\n  bar: true\n}'
+  );
+
+  Error.stackTraceLimit = tmp;
 }
 
 // Doesn't capture stack trace.
@@ -945,8 +994,7 @@ if (!common.isChakraEngine) {
   const aSet = new Set([1, 3]);
   assert.strictEqual(util.inspect(aSet.keys()), '[Set Iterator] { 1, 3 }');
   assert.strictEqual(util.inspect(aSet.values()), '[Set Iterator] { 1, 3 }');
-  assert.strictEqual(util.inspect(aSet.entries()),
-                     '[Set Iterator] { [ 1, 1 ], [ 3, 3 ] }');
+  assert.strictEqual(util.inspect(aSet.entries()), '[Set Iterator] { 1, 3 }');
   // Make sure the iterator doesn't get consumed.
   const keys = aSet.keys();
   assert.strictEqual(util.inspect(keys), '[Set Iterator] { 1, 3 }');
@@ -1237,7 +1285,7 @@ util.inspect(process);
 
   let out = util.inspect(o, { compact: true, depth: 5, breakLength: 80 });
   let expect = [
-    '{ a: ',
+    '{ a:',
     '   [ 1,',
     '     2,',
     "     [ [ 'Lorem ipsum dolor\\nsit amet,\\tconsectetur adipiscing elit, " +
@@ -1390,8 +1438,9 @@ if (!common.isChakraEngine) {
   // It is not possible to determine the output reliable.
   expect = 'WeakMap { [ [length]: 0 ] => {}, ... more items, extra: true }';
   const expectAlt = 'WeakMap { {} => [ [length]: 0 ], ... more items, ' +
-                  'extra: true }';
-  assert(out === expect || out === expectAlt);
+                    'extra: true }';
+  assert(out === expect || out === expectAlt,
+         `Found "${out}" rather than "${expect}" or "${expectAlt}"`);
 }
 
 // Test WeakSet
@@ -1414,11 +1463,24 @@ if (!common.isChakraEngine) {
   // It is not possible to determine the output reliable.
   expect = 'WeakSet { {}, ... more items, extra: true }';
   const expectAlt = 'WeakSet { [ 1, [length]: 1 ], ... more items, ' +
-                  'extra: true }';
-  assert(out === expect || out === expectAlt);
+                    'extra: true }';
+  assert(out === expect || out === expectAlt,
+         `Found "${out}" rather than "${expect}" or "${expectAlt}"`);
 }
 
 { // Test argument objects.
   const args = (function() { return arguments; })('a');
   assert.strictEqual(util.inspect(args), "[Arguments] { '0': 'a' }");
+}
+
+{
+  // Test that a long linked list can be inspected without throwing an error.
+  const list = {};
+  let head = list;
+  // The real cutoff value is closer to 1400 stack frames as of May 2018,
+  // but let's be generous here – even a linked listed of length 100k should be
+  // inspectable in some way.
+  for (let i = 0; i < 100000; i++)
+    head = head.next = {};
+  util.inspect(list);
 }

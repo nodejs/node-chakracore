@@ -154,8 +154,8 @@ assert.deepEqual(/a/gi, new Date());
 <!-- YAML
 added: v0.5.9
 -->
-* `value` {any}
-* `message` {any}
+* `value` {any} The input that is checked for being truthy.
+* `message` {string|Error}
 
 An alias of [`assert.ok()`][].
 
@@ -181,7 +181,7 @@ changes:
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 **Strict mode**
 
@@ -235,18 +235,18 @@ const obj3 = {
 const obj4 = Object.create(obj1);
 
 assert.deepEqual(obj1, obj1);
-// OK, object is equal to itself
+// OK
 
+// Values of b are different:
 assert.deepEqual(obj1, obj2);
 // AssertionError: { a: { b: 1 } } deepEqual { a: { b: 2 } }
-// values of b are different
 
 assert.deepEqual(obj1, obj3);
-// OK, objects are equal
+// OK
 
+// Prototypes are ignored:
 assert.deepEqual(obj1, obj4);
 // AssertionError: { a: { b: 1 } } deepEqual {}
-// Prototypes are ignored
 ```
 
 If the values are not equal, an `AssertionError` is thrown with a `message`
@@ -285,7 +285,7 @@ changes:
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 Tests for deep equality between the `actual` and `expected` parameters.
 "Deep" equality means that the enumerable "own" properties of child objects
@@ -406,7 +406,7 @@ added: v10.0.0
 -->
 * `block` {Function|Promise}
 * `error` {RegExp|Function}
-* `message` {any}
+* `message` {string|Error}
 
 Awaits the `block` promise or, if `block` is a function, immediately calls the
 function and awaits the returned promise to complete. It will then check that
@@ -460,7 +460,7 @@ changes:
 -->
 * `block` {Function}
 * `error` {RegExp|Function}
-* `message` {any}
+* `message` {string|Error}
 
 Asserts that the function `block` does not throw an error.
 
@@ -528,7 +528,7 @@ added: v0.1.21
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 **Strict mode**
 
@@ -565,7 +565,7 @@ parameter is an instance of an [`Error`][] then it will be thrown instead of the
 <!-- YAML
 added: v0.1.21
 -->
-* `message` {any} **Default:** `'Failed'`
+* `message` {string|Error} **Default:** `'Failed'`
 
 Throws an `AssertionError` with the provided error message or a default error
 message. If the `message` parameter is an instance of an [`Error`][] then it
@@ -598,7 +598,7 @@ changes:
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 * `operator` {string} **Default:** `'!='`
 * `stackStartFunction` {Function} **Default:** `assert.fail`
 
@@ -659,8 +659,8 @@ changes:
                  an `AssertionError` that contains the full stack trace.
   - version: v10.0.0
     pr-url: https://github.com/nodejs/node/pull/18247
-    description: Value may now only be `undefined` or `null`. Before any truthy
-                 input was accepted.
+    description: Value may now only be `undefined` or `null`. Before all falsy
+                 values were handled the same as `null` and did not throw.
 -->
 * `value` {any}
 
@@ -717,7 +717,7 @@ changes:
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 **Strict mode**
 
@@ -753,13 +753,13 @@ assert.notDeepEqual(obj1, obj1);
 // AssertionError: { a: { b: 1 } } notDeepEqual { a: { b: 1 } }
 
 assert.notDeepEqual(obj1, obj2);
-// OK: obj1 and obj2 are not deeply equal
+// OK
 
 assert.notDeepEqual(obj1, obj3);
 // AssertionError: { a: { b: 1 } } notDeepEqual { a: { b: 1 } }
 
 assert.notDeepEqual(obj1, obj4);
-// OK: obj1 and obj4 are not deeply equal
+// OK
 ```
 
 If the values are deeply equal, an `AssertionError` is thrown with a `message`
@@ -798,7 +798,7 @@ changes:
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 Tests for deep strict inequality. Opposite of [`assert.deepStrictEqual()`][].
 
@@ -821,7 +821,7 @@ added: v0.1.21
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 **Strict mode**
 
@@ -863,7 +863,7 @@ changes:
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 Tests strict inequality between the `actual` and `expected` parameters as
 determined by the [SameValue Comparison][].
@@ -897,7 +897,7 @@ changes:
                  error message.
 -->
 * `value` {any}
-* `message` {any}
+* `message` {string|Error}
 
 Tests if `value` is truthy. It is equivalent to
 `assert.equal(!!value, true, message)`.
@@ -960,7 +960,7 @@ added: v10.0.0
 -->
 * `block` {Function|Promise}
 * `error` {RegExp|Function|Object|Error}
-* `message` {any}
+* `message` {string|Error}
 
 Awaits the `block` promise or, if `block` is a function, immediately calls the
 function and awaits the returned promise to complete. It will then check that
@@ -1022,7 +1022,7 @@ changes:
 -->
 * `actual` {any}
 * `expected` {any}
-* `message` {any}
+* `message` {string|Error}
 
 Tests strict equality between the `actual` and `expected` parameters as
 determined by the [SameValue Comparison][].
@@ -1056,6 +1056,10 @@ instead of the `AssertionError`.
 <!-- YAML
 added: v0.1.21
 changes:
+  - version: v10.2.0
+    pr-url: https://github.com/nodejs/node/pull/20485
+    description: The `error` parameter can be an object containing regular
+                 expressions now.
   - version: v9.9.0
     pr-url: https://github.com/nodejs/node/pull/17584
     description: The `error` parameter can now be an object as well.
@@ -1065,23 +1069,31 @@ changes:
 -->
 * `block` {Function}
 * `error` {RegExp|Function|Object|Error}
-* `message` {any}
+* `message` {string|Error}
 
 Expects the function `block` to throw an error.
 
 If specified, `error` can be a [`Class`][], [`RegExp`][], a validation function,
-an object where each property will be tested for, or an instance of error where
-each property will be tested for including the non-enumerable `message` and
-`name` properties.
+a validation object where each property will be tested for strict deep equality,
+or an instance of error where each property will be tested for strict deep
+equality including the non-enumerable `message` and `name` properties. When
+using an object, it is also possible to use a regular expression, when
+validating against a string property. See below for examples.
 
 If specified, `message` will be the message provided by the `AssertionError` if
 the block fails to throw.
 
-Custom error object / error instance:
+Custom validation object / error instance:
 
 ```js
 const err = new TypeError('Wrong value');
 err.code = 404;
+err.foo = 'bar';
+err.info = {
+  nested: true,
+  baz: 'text'
+};
+err.reg = /abc/i;
 
 assert.throws(
   () => {
@@ -1089,8 +1101,38 @@ assert.throws(
   },
   {
     name: 'TypeError',
-    message: 'Wrong value'
-    // Note that only properties on the error object will be tested!
+    message: 'Wrong value',
+    info: {
+      nested: true,
+      baz: 'text'
+    }
+    // Note that only properties on the validation object will be tested for.
+    // Using nested objects requires all properties to be present. Otherwise
+    // the validation is going to fail.
+  }
+);
+
+// Using regular expressions to validate error properties:
+assert.throws(
+  () => {
+    throw err;
+  },
+  {
+    // The `name` and `message` properties are strings and using regular
+    // expressions on those will match against the string. If they fail, an
+    // error is thrown.
+    name: /^TypeError$/,
+    message: /Wrong/,
+    foo: 'bar',
+    info: {
+      nested: true,
+      // It is not possible to use regular expressions for nested properties!
+      baz: 'text'
+    },
+    // The `reg` property contains a regular expression and only if the
+    // validation object contains an identical regular expression, it is going
+    // to pass.
+    reg: /abc/i
   }
 );
 
