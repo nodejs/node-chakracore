@@ -2226,7 +2226,7 @@ class V8_EXPORT BigUint64Array : public TypedArray {
 public:
     static Local<BigUint64Array> New(Local<ArrayBuffer> array_buffer,
         size_t byte_offset, size_t length);
-    V8_INLINE static BigUint64Array* Cast(Value* obj);
+    static BigUint64Array* Cast(Value* obj);
 
 private:
     BigUint64Array();
