@@ -2092,43 +2092,43 @@ class V8_EXPORT ArrayBufferView : public Object {
 };
 
 class V8_EXPORT SharedArrayBuffer : public Object {
-public:
-    class V8_EXPORT Contents {  // NOLINT
-    public:
-        Contents()
-            : data_(nullptr),
-            byte_length_(0),
-            allocation_base_(nullptr),
-            allocation_length_(0),
-            allocation_mode_(ArrayBuffer::Allocator::AllocationMode::kNormal) {}
+ public:
+  class V8_EXPORT Contents {  // NOLINT
+   public:
+    Contents()
+        : data_(nullptr),
+        byte_length_(0),
+        allocation_base_(nullptr),
+        allocation_length_(0),
+        allocation_mode_(ArrayBuffer::Allocator::AllocationMode::kNormal) {}
 
-        void* AllocationBase() const { return allocation_base_; }
-        size_t AllocationLength() const { return allocation_length_; }
-        ArrayBuffer::Allocator::AllocationMode AllocationMode() const {
-            return allocation_mode_;
-        }
+    void* AllocationBase() const { return allocation_base_; }
+    size_t AllocationLength() const { return allocation_length_; }
+    ArrayBuffer::Allocator::AllocationMode AllocationMode() const {
+        return allocation_mode_;
+    }
 
-        void* Data() const { return data_; }
-        size_t ByteLength() const { return byte_length_; }
+    void* Data() const { return data_; }
+    size_t ByteLength() const { return byte_length_; }
 
-    private:
-        void* data_;
-        size_t byte_length_;
-        void* allocation_base_;
-        size_t allocation_length_;
-        ArrayBuffer::Allocator::AllocationMode allocation_mode_;
+   private:
+    void* data_;
+    size_t byte_length_;
+    void* allocation_base_;
+    size_t allocation_length_;
+    ArrayBuffer::Allocator::AllocationMode allocation_mode_;
 
-        friend class SharedArrayBuffer;
-    };
+    friend class SharedArrayBuffer;
+  };
 
-    static Local<SharedArrayBuffer> New(
-        Isolate* isolate, void* data, size_t byte_length,
-        ArrayBufferCreationMode mode = ArrayBufferCreationMode::kExternalized);
-    static SharedArrayBuffer* Cast(Value* obj);
-    Contents Externalize();
+  static Local<SharedArrayBuffer> New(
+      Isolate* isolate, void* data, size_t byte_length,
+      ArrayBufferCreationMode mode = ArrayBufferCreationMode::kExternalized);
+  static SharedArrayBuffer* Cast(Value* obj);
+  Contents Externalize();
 
-private:
-    SharedArrayBuffer();
+ private:
+  SharedArrayBuffer();
 };
 
 class V8_EXPORT TypedArray : public ArrayBufferView {
@@ -2223,13 +2223,13 @@ class V8_EXPORT Float64Array : public TypedArray {
 };
 
 class V8_EXPORT BigUint64Array : public TypedArray {
-public:
-    static Local<BigUint64Array> New(Local<ArrayBuffer> array_buffer,
-        size_t byte_offset, size_t length);
-    static BigUint64Array* Cast(Value* obj);
+ public:
+  static Local<BigUint64Array> New(Local<ArrayBuffer> array_buffer,
+                                   size_t byte_offset, size_t length);
+  static BigUint64Array* Cast(Value* obj);
 
-private:
-    BigUint64Array();
+ private:
+  BigUint64Array();
 };
 
 class V8_EXPORT JSON {
