@@ -197,7 +197,8 @@ static const char* s_globalTypeNames[] = {
 
 bool ContextShim::InitializeGlobalTypes() {
   for (int i = 0; i < GlobalType::_TypeCount; i++) {
-    // TODO: Remove this shim when BigUint64Array is supported in chakra
+    // TODO(boingoing): Remove this shim when BigUint64Array is supported in
+    //                  chakra
     const char* globalName = (i != GlobalType::BigUint64Array) ?
       s_globalTypeNames[i] :
       s_globalTypeNames[GlobalType::Uint32Array];
