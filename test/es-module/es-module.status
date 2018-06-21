@@ -18,12 +18,14 @@ test-esm-example-loader : SKIP
 test-esm-forbidden-globals : SKIP
 test-esm-import-meta: SKIP
 test-esm-json : SKIP
+test-esm-live-binding : SKIP
 test-esm-loader-dependency : SKIP
 test-esm-loader-modulemap : SKIP
 test-esm-main-lookup : SKIP
 test-esm-named-exports : SKIP
 test-esm-namespace : SKIP
 test-esm-preserve-symlinks : SKIP
+test-esm-preserve-symlinks-main : SKIP
 test-esm-preserve-symlinks-not-found : SKIP
 test-esm-preserve-symlinks-not-found-plain : SKIP
 test-esm-require-cache : SKIP

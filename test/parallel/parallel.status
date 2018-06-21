@@ -54,6 +54,7 @@ test-http2-server-rst-stream : SKIP
 test-inspect-async-hook-setup-at-inspect : SKIP
 test-inspector-multisession-js : SKIP
 test-inspector-multisession-ws : SKIP
+test-inspector-tracing-domain : SKIP
 test-intl : SKIP
 test-memory-usage : SKIP
 test-module-main-extension-lookup : SKIP
@@ -80,10 +81,12 @@ test-trace-events-bootstrap : SKIP
 test-trace-events-category-used : SKIP
 test-trace-events-file-pattern : SKIP
 test-trace-events-fs-sync : SKIP
+test-trace-events-metadata : SKIP
 test-trace-events-none : SKIP
 test-trace-events-perf : SKIP
 test-trace-events-process-exit : SKIP
 test-trace-events-v8 : SKIP
+test-trace-events-vm : SKIP
 
 test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
@@ -151,6 +154,7 @@ test-stream-buffer-list : SKIP
 # These tests requires esmodule support, which is pending in node-chakracore https://github.com/nodejs/node-chakracore/issues/391
 test-inspector-esm : SKIP
 test-internal-module-wrap : SKIP
+test-util-inspect-namespace : SKIP
 test-vm-module-basic : SKIP
 test-vm-module-dynamic-import : SKIP
 test-vm-module-errors : SKIP
@@ -166,6 +170,7 @@ test-benchmark-es : SKIP
 
 # These tests exercises Promise.prototype.finally which isn't currently supported
 # https://github.com/Microsoft/ChakraCore/pull/4668
+test-fs-append-file : SKIP
 test-fs-promises-readfile : SKIP
 test-fs-promises-writefile : SKIP
 
