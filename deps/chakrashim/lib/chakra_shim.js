@@ -41,12 +41,12 @@
 
   // TODO: Remove this shim when BigUint64Array is supported in chakra
   Object_defineProperty(global, 'BigUint64Array',
-      {
-          value: Uint32Array,
-          configurable: true,
-          writable: true,
-          enumerable: false
-      });
+                        {
+                          value: Uint32Array,
+                          configurable: true,
+                          writable: true,
+                          enumerable: false
+                        });
 
   // Simulate V8 JavaScript stack trace API
   function StackFrame(func, funcName, fileName, lineNumber, columnNumber) {

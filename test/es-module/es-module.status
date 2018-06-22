@@ -37,3 +37,4 @@ test-esm-symlink : SKIP
 test-esm-symlink-main : SKIP
 test-esm-throw-undefined : SKIP
 test-esm-cjs-main : SKIP
+test-esm-error-cache : SKIP
