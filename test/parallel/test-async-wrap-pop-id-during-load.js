@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 
 if (process.argv[2] === 'async') {
   async function fn() {
@@ -13,9 +13,14 @@ if (process.argv[2] === 'async') {
 const assert = require('assert');
 const { spawnSync } = require('child_process');
 
+const engineArgs = [];
+if (!common.isChakraEngine) {
+  engineArgs.push('--stack_size=75');
+}
+
 const ret = spawnSync(
   process.execPath,
-  ['--stack_size=75', __filename, 'async']
+  [...engineArgs, __filename, 'async']
 );
 assert.strictEqual(ret.status, 0,
                    `EXIT CODE: ${ret.status}, STDERR:\n${ret.stderr}`);

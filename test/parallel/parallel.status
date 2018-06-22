@@ -25,6 +25,7 @@ test-postmortem-metadata: PASS,FLAKY
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-assert-checktag : SKIP
+test-assert-builtins-not-read-from-filesystem : SKIP
 test-async-hooks-disable-during-promise : SKIP
 test-async-hooks-enable-during-promise : SKIP
 test-async-hooks-promise : SKIP
