@@ -2367,7 +2367,7 @@ fs.readFileSync('<directory>');
 // => [Error: EISDIR: illegal operation on a directory, read <directory>]
 
 //  FreeBSD
-fs.readFileSync('<directory>'); // => null, <data>
+fs.readFileSync('<directory>'); // => <data>
 ```
 
 ## fs.readlink(path[, options], callback)
@@ -3562,8 +3562,16 @@ console.log(fs.readFileSync('temp.txt', 'utf8'));
 // Prints: Node.js
 
 async function doTruncate() {
-  const fd = await fsPromises.open('temp.txt', 'r+');
-  await fsPromises.ftruncate(fd, 4);
+  let filehandle = null;
+  try {
+    filehandle = await fsPromises.open('temp.txt', 'r+');
+    await filehandle.truncate(4);
+  } finally {
+    if (filehandle) {
+      // close the file if it is opened.
+      await filehandle.close();
+    }
+  }
   console.log(fs.readFileSync('temp.txt', 'utf8'));  // Prints: Node
 }
 
@@ -3581,8 +3589,16 @@ console.log(fs.readFileSync('temp.txt', 'utf8'));
 // Prints: Node.js
 
 async function doTruncate() {
-  const fd = await fsPromises.open('temp.txt', 'r+');
-  await fsPromises.ftruncate(fd, 10);
+  let filehandle = null;
+  try {
+    filehandle = await fsPromises.open('temp.txt', 'r+');
+    await filehandle.truncate(10);
+  } finally {
+    if (filehandle) {
+      // close the file if it is opened.
+      await filehandle.close();
+    }
+  }
   console.log(fs.readFileSync('temp.txt', 'utf8'));  // Prints Node.js\0\0\0
 }
 
@@ -4650,7 +4666,7 @@ the file contents.
 [`AHAFS`]: https://www.ibm.com/developerworks/aix/library/au-aix_event_infrastructure/
 [`Buffer.byteLength`]: buffer.html#buffer_class_method_buffer_bytelength_string_encoding
 [`Buffer`]: buffer.html#buffer_buffer
-[`FSEvents`]: https://developer.apple.com/library/mac/documentation/Darwin/Conceptual/FSEvents_ProgGuide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40005289-CH1-SW1
+[`FSEvents`]: https://developer.apple.com/documentation/coreservices/file_system_events
 [`ReadDirectoryChangesW`]: https://msdn.microsoft.com/en-us/library/windows/desktop/aa365465%28v=vs.85%29.aspx
 [`ReadStream`]: #fs_class_fs_readstream
 [`URL`]: url.html#url_the_whatwg_url_api

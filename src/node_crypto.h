@@ -75,15 +75,6 @@ struct MarkPopErrorOnReturn {
   ~MarkPopErrorOnReturn() { ERR_pop_to_mark(); }
 };
 
-template <typename T, void (*function)(T*)>
-struct FunctionDeleter {
-  void operator()(T* pointer) const { function(pointer); }
-  typedef std::unique_ptr<T, FunctionDeleter> Pointer;
-};
-
-template <typename T, void (*function)(T*)>
-using DeleteFnPtr = typename FunctionDeleter<T, function>::Pointer;
-
 // Define smart pointers for the most commonly used OpenSSL types:
 using X509Pointer = DeleteFnPtr<X509, X509_free>;
 using BIOPointer = DeleteFnPtr<BIO, BIO_free_all>;
@@ -630,7 +621,7 @@ class ECDH : public BaseObject {
         key_(std::move(key)),
         group_(EC_KEY_get0_group(key_.get())) {
     MakeWeak();
-    CHECK_NE(group_, nullptr);
+    CHECK_NOT_NULL(group_);
   }
 
   static void New(const v8::FunctionCallbackInfo<v8::Value>& args);

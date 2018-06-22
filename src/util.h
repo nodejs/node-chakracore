@@ -129,6 +129,9 @@ void DumpBacktrace(FILE* fp);
 #define CHECK_LE(a, b) CHECK((a) <= (b))
 #define CHECK_LT(a, b) CHECK((a) < (b))
 #define CHECK_NE(a, b) CHECK((a) != (b))
+#define CHECK_NULL(val) CHECK((val) == nullptr)
+#define CHECK_NOT_NULL(val) CHECK((val) != nullptr)
+#define CHECK_IMPLIES(a, b) CHECK(!(a) || (b))
 
 #define UNREACHABLE() ABORT()
 
@@ -438,7 +441,7 @@ struct MallocedBuffer {
   }
   MallocedBuffer& operator=(MallocedBuffer&& other) {
     this->~MallocedBuffer();
-    return *new(this) MallocedBuffer(other);
+    return *new(this) MallocedBuffer(std::move(other));
   }
   ~MallocedBuffer() {
     free(data);
@@ -455,6 +458,15 @@ template <typename T>
 struct is_callable<T, typename std::enable_if<
     std::is_same<decltype(void(&T::operator())), void>::value
     >::type> : std::true_type { };
+
+template <typename T, void (*function)(T*)>
+struct FunctionDeleter {
+  void operator()(T* pointer) const { function(pointer); }
+  typedef std::unique_ptr<T, FunctionDeleter> Pointer;
+};
+
+template <typename T, void (*function)(T*)>
+using DeleteFnPtr = typename FunctionDeleter<T, function>::Pointer;
 
 }  // namespace node
 

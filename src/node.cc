@@ -2018,7 +2018,7 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   auto context = env->context();
 
-  CHECK_EQ(modpending, nullptr);
+  CHECK_NULL(modpending);
 
   if (args.Length() < 2) {
     env->ThrowError("process.dlopen needs at least 2 arguments.");
@@ -2285,8 +2285,8 @@ static Local<Object> InitModule(Environment* env,
                                  Local<String> module) {
   Local<Object> exports = Object::New(env->isolate());
   // Internal bindings don't have a "module" object, only exports.
-  CHECK_EQ(mod->nm_register_func, nullptr);
-  CHECK_NE(mod->nm_context_register_func, nullptr);
+  CHECK_NULL(mod->nm_register_func);
+  CHECK_NOT_NULL(mod->nm_context_register_func);
   Local<Value> unused = Undefined(env->isolate());
   mod->nm_context_register_func(exports,
                                 unused,
@@ -3293,7 +3293,8 @@ static void PrintHelp() {
          "  --preserve-symlinks-main   preserve symbolic links when resolving\n"
          "                             the main module\n"
 #endif
-         "  --prof-process             process v8 profiler output generated\n"
+         "  --prof                     generate V8 profiler output\n"
+         "  --prof-process             process V8 profiler output generated\n"
          "                             using --prof\n"
          "  --redirect-warnings=file\n"
          "                             write warnings to file instead of\n"
@@ -4227,7 +4228,7 @@ void AtExit(void (*cb)(void* arg), void* arg) {
 
 
 void AtExit(Environment* env, void (*cb)(void* arg), void* arg) {
-  CHECK_NE(env, nullptr);
+  CHECK_NOT_NULL(env);
   env->AtExit(cb, arg);
 }
 
@@ -4586,7 +4587,7 @@ inline int Start(uv_loop_t* event_loop,
 
   {
     Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-    CHECK_EQ(node_isolate, nullptr);
+    CHECK_NULL(node_isolate);
     node_isolate = isolate;
   }
 
