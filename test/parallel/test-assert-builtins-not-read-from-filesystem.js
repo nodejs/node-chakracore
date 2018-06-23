@@ -1,5 +1,4 @@
 'use strict';
-const common = require('../common');
 
 // Do not read filesystem when creating AssertionError messages for code in
 // builtin modules.
@@ -17,7 +16,7 @@ if (process.argv[2] !== 'child') {
               { cwd: tmpdir.path, env: process.env });
   assert.ifError(error);
   assert.strictEqual(status, 0, `Exit code: ${status}\n${output}`);
-} else if (!common.isChakraEngine) {
+} else {
   const EventEmitter = require('events');
   const { errorCache } = require('internal/assert');
   const { writeFileSync } = require('fs');
