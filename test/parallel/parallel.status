@@ -91,6 +91,7 @@ test-trace-events-perf : SKIP
 test-trace-events-process-exit : SKIP
 test-trace-events-v8 : SKIP
 test-trace-events-vm : SKIP
+test-trace-events-worker-metadata : SKIP
 
 test-url-domain-ascii-unicode : SKIP
 test-util : SKIP
