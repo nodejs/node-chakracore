@@ -32,7 +32,6 @@
 #include "req_wrap.h"
 #include "util.h"
 #include "uv.h"
-#include "v8-profiler.h"
 #include "v8.h"
 #include "node.h"
 #include "node_http2_state.h"
@@ -369,8 +368,6 @@ class IsolateData {
   std::unordered_map<nghttp2_rcbuf*, v8::Eternal<v8::String>> http2_static_strs;
   inline v8::Isolate* isolate() const;
 
-  v8::CpuProfiler* GetCpuProfiler();
-
  private:
 #define VP(PropertyName, StringValue) V(v8::Private, PropertyName)
 #define VS(PropertyName, StringValue) V(v8::String, PropertyName)
@@ -386,7 +383,6 @@ class IsolateData {
   uv_loop_t* const event_loop_;
   uint32_t* const zero_fill_field_;
   MultiIsolatePlatform* platform_;
-  v8::CpuProfiler* cpu_profiler_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(IsolateData);
 };
@@ -396,6 +392,19 @@ struct ContextInfo {
   const std::string name;
   std::string origin;
   bool is_default = false;
+};
+
+// Listing the AsyncWrap provider types first enables us to cast directly
+// from a provider type to a debug category. Currently no other debug
+// categories are available.
+#define DEBUG_CATEGORY_NAMES(V) \
+    NODE_ASYNC_PROVIDER_TYPES(V)
+
+enum class DebugCategory {
+#define V(name) name,
+  DEBUG_CATEGORY_NAMES(V)
+#undef V
+  CATEGORY_COUNT
 };
 
 class Environment {
@@ -654,6 +663,10 @@ class Environment {
   inline http2::Http2State* http2_state() const;
   inline void set_http2_state(std::unique_ptr<http2::Http2State> state);
 
+  inline bool debug_enabled(DebugCategory category) const;
+  inline void set_debug_enabled(DebugCategory category, bool enabled);
+  void set_debug_categories(const std::string& cats, bool enabled);
+
   inline AliasedBuffer<double, v8::Float64Array>* fs_stats_field_array();
 
   // stat fields contains twice the number of entries because `fs.StatWatcher`
@@ -852,6 +865,8 @@ class Environment {
   char* http_parser_buffer_;
   bool http_parser_buffer_in_use_ = false;
   std::unique_ptr<http2::Http2State> http2_state_;
+
+  bool debug_enabled_[static_cast<int>(DebugCategory::CATEGORY_COUNT)] = {0};
 
   AliasedBuffer<double, v8::Float64Array> fs_stats_field_array_;
 
