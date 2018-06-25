@@ -3611,7 +3611,7 @@ struct ChakraShimIsolateContext {
 Local<Context> NewContext(Isolate* isolate,
                           bool recordTTD,
                           Local<ObjectTemplate> object_template) {
-  auto context = Context::New(isolate, nullptr, object_template);
+  auto context = Context::New(isolate, recordTTD, nullptr, object_template);
   if (context.IsEmpty()) return context;
   Context::Scope context_scope(context);
 #else
