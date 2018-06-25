@@ -3611,13 +3611,15 @@ struct ChakraShimIsolateContext {
 Local<Context> NewContext(Isolate* isolate,
                           bool recordTTD,
                           Local<ObjectTemplate> object_template) {
-  return Context::New(isolate, recordTTD, nullptr, object_template);
-}
+  auto context = Context::New(isolate, nullptr, object_template);
+  if (context.IsEmpty()) return context;
+  Context::Scope context_scope(context);
 #else
 Local<Context> NewContext(Isolate* isolate,
                           Local<ObjectTemplate> object_template) {
   auto context = Context::New(isolate, nullptr, object_template);
   if (context.IsEmpty()) return context;
+#endif
   HandleScope handle_scope(isolate);
   context->SetEmbedderData(
       ContextEmbedderIndex::kAllowWasmCodeGeneration, True(isolate));
@@ -3652,7 +3654,6 @@ Local<Context> NewContext(Isolate* isolate,
 
   return context;
 }
-#endif
 
 inline int Start(Isolate* isolate, void* isolate_context,
                  int argc, const char* const* argv,
