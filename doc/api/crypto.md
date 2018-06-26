@@ -245,7 +245,8 @@ once will result in an error being thrown.
 added: v1.0.0
 -->
 - `buffer` {Buffer}
-- `options` {Object}
+- `options` {Object} [`stream.transform` options][]
+  - `plaintextLength` {number}
 - Returns: {Cipher} for method chaining.
 
 When using an authenticated encryption mode (only `GCM` and `CCM` are currently
@@ -398,7 +399,7 @@ Once the `decipher.final()` method has been called, the `Decipher` object can
 no longer be used to decrypt data. Attempts to call `decipher.final()` more
 than once will result in an error being thrown.
 
-### decipher.setAAD(buffer)
+### decipher.setAAD(buffer[, options])
 <!-- YAML
 added: v1.0.0
 changes:
@@ -407,11 +408,17 @@ changes:
     description: This method now returns a reference to `decipher`.
 -->
 - `buffer` {Buffer | TypedArray | DataView}
-- Returns: {Cipher} for method chaining.
+- `options` {Object} [`stream.transform` options][]
+  - `plaintextLength` {number}
+- Returns: {Decipher} for method chaining.
 
 When using an authenticated encryption mode (only `GCM` and `CCM` are currently
 supported), the `decipher.setAAD()` method sets the value used for the
 _additional authenticated data_ (AAD) input parameter.
+
+The `options` argument is optional for `GCM`. When using `CCM`, the
+`plaintextLength` option must be specified and its value must match the length
+of the plaintext in bytes. See [CCM mode][].
 
 The `decipher.setAAD()` method must be called before [`decipher.update()`][].
 
@@ -427,23 +434,15 @@ changes:
     description: This method now returns a reference to `decipher`.
 -->
 - `buffer` {Buffer | TypedArray | DataView}
-- Returns: {Cipher} for method chaining.
+- Returns: {Decipher} for method chaining.
 
 When using an authenticated encryption mode (only `GCM` and `CCM` are currently
 supported), the `decipher.setAuthTag()` method is used to pass in the
 received _authentication tag_. If no tag is provided, or if the cipher text
 has been tampered with, [`decipher.final()`][] will throw, indicating that the
 cipher text should be discarded due to failed authentication. If the tag length
-is invalid according to [NIST SP 800-38D][], `decipher.setAuthTag()` will throw
-an error.
-
-Note that this Node.js version does not verify the length of GCM authentication
-tags. Such a check *must* be implemented by applications and is crucial to the
-authenticity of the encrypted data, otherwise, an attacker can use an
-arbitrarily short authentication tag to increase the chances of successfully
-passing authentication (up to 0.39%). It is highly recommended to associate one
-of the values 16, 15, 14, 13, 12, 8 or 4 bytes with each key, and to only permit
-authentication tags of that length, see [NIST SP 800-38D][].
+is invalid according to [NIST SP 800-38D][] or does not match the value of the
+`authTagLength` option, `decipher.setAuthTag()` will throw an error.
 
 The `decipher.setAuthTag()` method must be called before
 [`decipher.final()`][].
@@ -453,7 +452,7 @@ The `decipher.setAuthTag()` method must be called before
 added: v0.7.1
 -->
 - `autoPadding` {boolean} **Default:** `true`
-- Returns: {Cipher} for method chaining.
+- Returns: {Decipher} for method chaining.
 
 When data has been encrypted without standard block padding, calling
 `decipher.setAutoPadding(false)` will disable automatic padding to prevent

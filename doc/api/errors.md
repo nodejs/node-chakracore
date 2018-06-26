@@ -869,17 +869,16 @@ forbidden.
 For HTTP/2 requests using the `CONNECT` method, the `:scheme` pseudo-header is
 forbidden.
 
+<a id="ERR_HTTP2_ERROR"></a>
+### ERR_HTTP2_ERROR
+
+A non-specific HTTP/2 error has occurred.
+
 <a id="ERR_HTTP2_GOAWAY_SESSION"></a>
 ### ERR_HTTP2_GOAWAY_SESSION
 
 New HTTP/2 Streams may not be opened after the `Http2Session` has received a
 `GOAWAY` frame from the connected peer.
-
-<a id="ERR_HTTP2_HEADER_SINGLE_VALUE"></a>
-### ERR_HTTP2_HEADER_SINGLE_VALUE
-
-Multiple values were provided for an HTTP/2 header field that was required to
-have only a single value.
 
 <a id="ERR_HTTP2_HEADERS_AFTER_RESPOND"></a>
 ### ERR_HTTP2_HEADERS_AFTER_RESPOND
@@ -890,6 +889,12 @@ An additional headers was specified after an HTTP/2 response was initiated.
 ### ERR_HTTP2_HEADERS_SENT
 
 An attempt was made to send multiple response headers.
+
+<a id="ERR_HTTP2_HEADER_SINGLE_VALUE"></a>
+### ERR_HTTP2_HEADER_SINGLE_VALUE
+
+Multiple values were provided for an HTTP/2 header field that was required to
+have only a single value.
 
 <a id="ERR_HTTP2_INFO_STATUS_NOT_ALLOWED"></a>
 ### ERR_HTTP2_INFO_STATUS_NOT_ALLOWED
@@ -1407,6 +1412,7 @@ An attempt was made to `require()` an [ES6 module][].
 Script execution was interrupted by `SIGINT` (For example, when Ctrl+C was
 pressed).
 
+<a id="ERR_SCRIPT_EXECUTION_TIMEOUT"></a>
 ### ERR_SCRIPT_EXECUTION_TIMEOUT
 
 Script execution timed out, possibly due to bugs in the script being executed.
@@ -1485,6 +1491,12 @@ does not allow `stdout` or `stderr` streams to be closed by user code.
 
 An attempt was made to call [`stream.pipe()`][] on a [`Writable`][] stream.
 
+<a id="ERR_STREAM_DESTROYED"></a>
+### ERR_STREAM_DESTROYED
+
+A stream method was called that cannot complete because the stream was
+destroyed using `stream.destroy()`.
+
 <a id="ERR_STREAM_NULL_VALUES"></a>
 ### ERR_STREAM_NULL_VALUES
 
@@ -1534,24 +1546,18 @@ instance.setEncoding('utf8');
 An attempt was made to call [`stream.write()`][] after `stream.end()` has been
 called.
 
+<a id="ERR_STRING_TOO_LONG"></a>
+### ERR_STRING_TOO_LONG
+
+An attempt has been made to create a string longer than the maximum allowed
+length.
+
 <a id="ERR_SYSTEM_ERROR"></a>
 ### ERR_SYSTEM_ERROR
 
 An unspecified or non-specific system error has occurred within the Node.js
 process. The error object will have an `err.info` object property with
 additional details.
-
-<a id="ERR_STREAM_DESTROYED"></a>
-### ERR_STREAM_DESTROYED
-
-A stream method was called that cannot complete because the stream was
-destroyed using `stream.destroy()`.
-
-<a id="ERR_STRING_TOO_LONG"></a>
-### ERR_STRING_TOO_LONG
-
-An attempt has been made to create a string longer than the maximum allowed
-length.
 
 <a id="ERR_TLS_CERT_ALTNAME_INVALID"></a>
 ### ERR_TLS_CERT_ALTNAME_INVALID
@@ -1573,6 +1579,11 @@ recommended to use 2048 bits or larger for stronger security.
 A TLS/SSL handshake timed out. In this case, the server must also abort the
 connection.
 
+<a id="ERR_TLS_RENEGOTIATION_DISABLED"></a>
+### ERR_TLS_RENEGOTIATION_DISABLED
+
+An attempt was made to renegotiate TLS on a socket instance with TLS disabled.
+
 <a id="ERR_TLS_REQUIRED_SERVER_NAME"></a>
 ### ERR_TLS_REQUIRED_SERVER_NAME
 
@@ -1590,11 +1601,6 @@ vector for denial-of-service attacks.
 
 An attempt was made to issue Server Name Indication from a TLS server-side
 socket, which is only valid from a client.
-
-<a id="ERR_TLS_RENEGOTIATION_DISABLED"></a>
-### ERR_TLS_RENEGOTIATION_DISABLED
-
-An attempt was made to renegotiate TLS on a socket instance with TLS disabled.
 
 <a id="ERR_TRACE_EVENTS_CATEGORY_REQUIRED"></a>
 ### ERR_TRACE_EVENTS_CATEGORY_REQUIRED
@@ -1642,6 +1648,13 @@ A string that contained unescaped characters was received.
 
 An unhandled error occurred (for instance, when an `'error'` event is emitted
 by an [`EventEmitter`][] but an `'error'` handler is not registered).
+
+<a id="ERR_UNKNOWN_BUILTIN_MODULE"></a>
+### ERR_UNKNOWN_BUILTIN_MODULE
+
+Used to identify a specific kind of internal Node.js error that should not
+typically be triggered by user code. Instances of this error point to an
+internal bug within the Node.js binary itself.
 
 <a id="ERR_UNKNOWN_CREDENTIAL"></a>
 ### ERR_UNKNOWN_CREDENTIAL
