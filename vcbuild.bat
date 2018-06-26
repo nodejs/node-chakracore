@@ -158,8 +158,8 @@ if defined build_release (
 :: assign path to node_exe
 set "node_exe=%~dp0%config%\node.exe"
 if not defined native_node_exe set "native_node_exe=%node_exe%"
-set "node_gyp_exe="%node_exe%" deps\npm\node_modules\node-gyp\bin\node-gyp"
-set "npm_exe="%~dp0%node_exe%" %~dp0deps\npm\bin\npm-cli.js"
+set "node_gyp_exe="%node_exe%" %~dp0deps\npm\node_modules\node-gyp\bin\node-gyp"
+set "npm_exe="%node_exe%" %~dp0deps\npm\bin\npm-cli.js"
 if "%target_env%"=="vs2017" set "node_gyp_exe=%node_gyp_exe% --msvs_version=2017"
 
 if "%config%"=="Debug"      set configure_flags=%configure_flags% --debug
@@ -388,7 +388,7 @@ exit /b 1
 
 :msi
 @rem Skip msi generation if not requested
-if not defined msi goto build-doc
+if not defined msi goto upload
 
 :msibuild
 echo Building node-v%FULLVERSION%-%target_arch%.msi
