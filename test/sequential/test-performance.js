@@ -4,6 +4,9 @@ const common = require('../common');
 const assert = require('assert');
 const { performance } = require('perf_hooks');
 
+if (!common.isMainThread)
+  common.skip('bootstrapping workers works differently');
+
 assert(performance);
 assert(performance.nodeTiming);
 assert.strictEqual(typeof performance.timeOrigin, 'number');
@@ -77,15 +80,7 @@ checkNodeTiming({
   bootstrapComplete: { around: inited },
   environment: { around: 0 },
   loopStart: -1,
-  loopExit: -1,
-  thirdPartyMainStart: -1,
-  thirdPartyMainEnd: -1,
-  clusterSetupStart: -1,
-  clusterSetupEnd: -1,
-  moduleLoadStart: { around: inited },
-  moduleLoadEnd: { around: inited },
-  preloadModuleLoadStart: { around: inited },
-  preloadModuleLoadEnd: { around: inited },
+  loopExit: -1
 });
 
 setTimeout(() => {
@@ -99,15 +94,7 @@ setTimeout(() => {
     bootstrapComplete: { around: inited },
     environment: { around: 0 },
     loopStart: { around: inited },
-    loopExit: -1,
-    thirdPartyMainStart: -1,
-    thirdPartyMainEnd: -1,
-    clusterSetupStart: -1,
-    clusterSetupEnd: -1,
-    moduleLoadStart: { around: inited },
-    moduleLoadEnd: { around: inited },
-    preloadModuleLoadStart: { around: inited },
-    preloadModuleLoadEnd: { around: inited },
+    loopExit: -1
   });
 }, 2000);
 
@@ -122,14 +109,6 @@ process.on('exit', () => {
     bootstrapComplete: { around: inited },
     environment: { around: 0 },
     loopStart: { around: inited },
-    loopExit: { around: performance.now() },
-    thirdPartyMainStart: -1,
-    thirdPartyMainEnd: -1,
-    clusterSetupStart: -1,
-    clusterSetupEnd: -1,
-    moduleLoadStart: { around: inited },
-    moduleLoadEnd: { around: inited },
-    preloadModuleLoadStart: { around: inited },
-    preloadModuleLoadEnd: { around: inited },
+    loopExit: { around: performance.now() }
   });
 });

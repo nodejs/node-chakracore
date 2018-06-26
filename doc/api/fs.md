@@ -325,7 +325,8 @@ fs.watch('./tmp', { encoding: 'buffer' }, (eventType, filename) => {
 added: v10.0.0
 -->
 
-Emitted when the watcher stops watching for changes.
+Emitted when the watcher stops watching for changes. The closed
+`fs.FSWatcher` object is no longer usable in the event handler.
 
 ### Event: 'error'
 <!-- YAML
@@ -334,7 +335,8 @@ added: v0.5.8
 
 * `error` {Error}
 
-Emitted when an error occurs while watching the file.
+Emitted when an error occurs while watching the file. The errored
+`fs.FSWatcher` object is no longer usable in the event handler.
 
 ### watcher.close()
 <!-- YAML
@@ -413,6 +415,8 @@ A `fs.Stats` object provides information about a file.
 
 Objects returned from [`fs.stat()`][], [`fs.lstat()`][] and [`fs.fstat()`][] and
 their synchronous counterparts are of this type.
+If `bigint` in the `options` passed to those methods is true, the numeric values
+will be `bigint` instead of `number`.
 
 ```console
 Stats {
@@ -430,6 +434,30 @@ Stats {
   mtimeMs: 1318289051000.1,
   ctimeMs: 1318289051000.1,
   birthtimeMs: 1318289051000.1,
+  atime: Mon, 10 Oct 2011 23:24:11 GMT,
+  mtime: Mon, 10 Oct 2011 23:24:11 GMT,
+  ctime: Mon, 10 Oct 2011 23:24:11 GMT,
+  birthtime: Mon, 10 Oct 2011 23:24:11 GMT }
+```
+
+`bigint` version:
+
+```console
+Stats {
+  dev: 2114n,
+  ino: 48064969n,
+  mode: 33188n,
+  nlink: 1n,
+  uid: 85n,
+  gid: 100n,
+  rdev: 0n,
+  size: 527n,
+  blksize: 4096n,
+  blocks: 8n,
+  atimeMs: 1318289051000n,
+  mtimeMs: 1318289051000n,
+  ctimeMs: 1318289051000n,
+  birthtimeMs: 1318289051000n,
   atime: Mon, 10 Oct 2011 23:24:11 GMT,
   mtime: Mon, 10 Oct 2011 23:24:11 GMT,
   ctime: Mon, 10 Oct 2011 23:24:11 GMT,
@@ -504,61 +532,61 @@ This method is only valid when using [`fs.lstat()`][].
 
 ### stats.dev
 
-* {number}
+* {number|bigint}
 
 The numeric identifier of the device containing the file.
 
 ### stats.ino
 
-* {number}
+* {number|bigint}
 
 The file system specific "Inode" number for the file.
 
 ### stats.mode
 
-* {number}
+* {number|bigint}
 
 A bit-field describing the file type and mode.
 
 ### stats.nlink
 
-* {number}
+* {number|bigint}
 
 The number of hard-links that exist for the file.
 
 ### stats.uid
 
-* {number}
+* {number|bigint}
 
 The numeric user identifier of the user that owns the file (POSIX).
 
 ### stats.gid
 
-* {number}
+* {number|bigint}
 
 The numeric group identifier of the group that owns the file (POSIX).
 
 ### stats.rdev
 
-* {number}
+* {number|bigint}
 
 A numeric device identifier if the file is considered "special".
 
 ### stats.size
 
-* {number}
+* {number|bigint}
 
 The size of the file in bytes.
 
 ### stats.blksize
 
-* {number}
+* {number|bigint}
 
 The file system block size for i/o operations.
 
 ### stats.blocks
 
-* {number}
+* {number|bigint}
 
 The number of blocks allocated for this file.
 
@@ -567,7 +595,7 @@ The number of blocks allocated for this file.
 added: v8.1.0
 -->
 
-* {number}
+* {number|bigint}
 
 The timestamp indicating the last time this file was accessed expressed in
 milliseconds since the POSIX Epoch.
@@ -577,7 +605,7 @@ milliseconds since the POSIX Epoch.
 added: v8.1.0
 -->
 
-* {number}
+* {number|bigint}
 
 The timestamp indicating the last time this file was modified expressed in
 milliseconds since the POSIX Epoch.
@@ -587,7 +615,7 @@ milliseconds since the POSIX Epoch.
 added: v8.1.0
 -->
 
-* {number}
+* {number|bigint}
 
 The timestamp indicating the last time the file status was changed expressed
 in milliseconds since the POSIX Epoch.
@@ -597,7 +625,7 @@ in milliseconds since the POSIX Epoch.
 added: v8.1.0
 -->
 
-* {number}
+* {number|bigint}
 
 The timestamp indicating the creation time of this file expressed in
 milliseconds since the POSIX Epoch.
@@ -1088,6 +1116,16 @@ For example, the octal value `0o765` means:
 * The owner may read, write and execute the file.
 * The group may read and write the file.
 * Others may read and execute the file.
+
+Note: When using raw numbers where file modes are expected,
+any value larger than `0o777` may result in platform-specific
+behaviors that are not supported to work consistently.
+Therefore constants like `S_ISVTX`, `S_ISGID` or `S_ISUID` are
+not exposed in `fs.constants`.
+
+Caveats: on Windows only the write permission can be changed, and the
+distinction among the permissions of group, owner or others is not
+implemented.
 
 ## fs.chmodSync(path, mode)
 <!-- YAML
@@ -1631,7 +1669,7 @@ added: v0.1.96
 
 Synchronous fdatasync(2). Returns `undefined`.
 
-## fs.fstat(fd, callback)
+## fs.fstat(fd[, options], callback)
 <!-- YAML
 added: v0.1.95
 changes:
@@ -1643,9 +1681,16 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/7897
     description: The `callback` parameter is no longer optional. Not passing
                  it will emit a deprecation warning with id DEP0013.
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `fd` {integer}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * `callback` {Function}
   * `err` {Error}
   * `stats` {fs.Stats}
@@ -1654,12 +1699,20 @@ Asynchronous fstat(2). The callback gets two arguments `(err, stats)` where
 `stats` is an [`fs.Stats`][] object. `fstat()` is identical to [`stat()`][],
 except that the file to be stat-ed is specified by the file descriptor `fd`.
 
-## fs.fstatSync(fd)
+## fs.fstatSync(fd[, options])
 <!-- YAML
 added: v0.1.95
+changes:
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `fd` {integer}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * Returns: {fs.Stats}
 
 Synchronous fstat(2).
@@ -1925,7 +1978,7 @@ changes:
 
 Synchronous link(2). Returns `undefined`.
 
-## fs.lstat(path, callback)
+## fs.lstat(path[, options], callback)
 <!-- YAML
 added: v0.1.30
 changes:
@@ -1941,9 +1994,16 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/7897
     description: The `callback` parameter is no longer optional. Not passing
                  it will emit a deprecation warning with id DEP0013.
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `path` {string|Buffer|URL}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * `callback` {Function}
   * `err` {Error}
   * `stats` {fs.Stats}
@@ -1953,7 +2013,7 @@ Asynchronous lstat(2). The callback gets two arguments `(err, stats)` where
 except that if `path` is a symbolic link, then the link itself is stat-ed,
 not the file that it refers to.
 
-## fs.lstatSync(path)
+## fs.lstatSync(path[, options])
 <!-- YAML
 added: v0.1.30
 changes:
@@ -1961,9 +2021,16 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/10739
     description: The `path` parameter can be a WHATWG `URL` object using `file:`
                  protocol. Support is currently still *experimental*.
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `path` {string|Buffer|URL}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * Returns: {fs.Stats}
 
 Synchronous lstat(2).
@@ -1987,7 +2054,7 @@ changes:
 -->
 
 * `path` {string|Buffer|URL}
-* `mode` {integer} **Default:** `0o777`
+* `mode` {integer} Not supported on Windows. **Default:** `0o777`.
 * `callback` {Function}
   * `err` {Error}
 
@@ -2007,7 +2074,7 @@ changes:
 -->
 
 * `path` {string|Buffer|URL}
-* `mode` {integer} **Default:** `0o777`
+* `mode` {integer} Not supported on Windows. **Default:** `0o777`.
 
 Synchronously creates a directory. Returns `undefined`.
 This is the synchronous version of [`fs.mkdir()`][].
@@ -2127,7 +2194,8 @@ changes:
 Asynchronous file open. See open(2).
 
 `mode` sets the file mode (permission and sticky bits), but only if the file was
-created.
+created. Note that on Windows only the write permission can be manipulated,
+see [`fs.chmod()`][].
 
 The callback gets two arguments `(err, fd)`.
 
@@ -2680,7 +2748,7 @@ Synchronous rmdir(2). Returns `undefined`.
 Using `fs.rmdirSync()` on a file (not a directory) results in an `ENOENT` error
 on Windows and an `ENOTDIR` error on POSIX.
 
-## fs.stat(path, callback)
+## fs.stat(path[, options], callback)
 <!-- YAML
 added: v0.0.2
 changes:
@@ -2696,9 +2764,16 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/7897
     description: The `callback` parameter is no longer optional. Not passing
                  it will emit a deprecation warning with id DEP0013.
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `path` {string|Buffer|URL}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * `callback` {Function}
   * `err` {Error}
   * `stats` {fs.Stats}
@@ -2716,7 +2791,7 @@ error raised if the file is not available.
 To check if a file exists without manipulating it afterwards, [`fs.access()`]
 is recommended.
 
-## fs.statSync(path)
+## fs.statSync(path[, options])
 <!-- YAML
 added: v0.1.21
 changes:
@@ -2724,9 +2799,16 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/10739
     description: The `path` parameter can be a WHATWG `URL` object using `file:`
                  protocol. Support is currently still *experimental*.
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `path` {string|Buffer|URL}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * Returns: {fs.Stats}
 
 Synchronous stat(2).
@@ -3503,10 +3585,18 @@ returned.
 
 The `FileHandle` has to support reading.
 
-#### filehandle.stat()
+#### filehandle.stat([options])
 <!-- YAML
 added: v10.0.0
+changes:
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * Returns: {Promise}
 
 Retrieves the [`fs.Stats`][] for the file.
@@ -3795,128 +3885,6 @@ fsPromises.copyFile('source.txt', 'destination.txt', COPYFILE_EXCL)
   .catch(() => console.log('The file could not be copied'));
 ```
 
-### fsPromises.fchmod(filehandle, mode)
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* `mode` {integer}
-* Returns: {Promise}
-
-Asynchronous fchmod(2). The `Promise` is resolved with no arguments upon
-success.
-
-### fsPromises.fchown(filehandle, uid, gid)
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* `uid` {integer}
-* `gid` {integer}
-* Returns: {Promise}
-
-Changes the ownership of the file represented by `filehandle` then resolves
-the `Promise` with no arguments upon success.
-
-### fsPromises.fdatasync(filehandle)
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* Returns: {Promise}
-
-Asynchronous fdatasync(2). The `Promise` is resolved with no arguments upon
-success.
-
-### fsPromises.fstat(filehandle)
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* Returns: {Promise}
-
-Retrieves the [`fs.Stats`][] for the given `filehandle`.
-
-### fsPromises.fsync(filehandle)
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* Returns: {Promise}
-
-Asynchronous fsync(2). The `Promise` is resolved with no arguments upon
-success.
-
-### fsPromises.ftruncate(filehandle[, len])
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* `len` {integer} **Default:** `0`
-* Returns: {Promise}
-
-Truncates the file represented by `filehandle` then resolves the `Promise`
-with no arguments upon success.
-
-If the file referred to by the `FileHandle` was larger than `len` bytes, only
-the first `len` bytes will be retained in the file.
-
-For example, the following program retains only the first four bytes of the
-file:
-
-```js
-console.log(fs.readFileSync('temp.txt', 'utf8'));
-// Prints: Node.js
-
-async function doTruncate() {
-  const fd = await fsPromises.open('temp.txt', 'r+');
-  await fsPromises.ftruncate(fd, 4);
-  console.log(fs.readFileSync('temp.txt', 'utf8'));  // Prints: Node
-}
-
-doTruncate().catch(console.error);
-```
-
-If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes (`'\0'`). For example,
-
-```js
-console.log(fs.readFileSync('temp.txt', 'utf8'));
-// Prints: Node.js
-
-async function doTruncate() {
-  const fd = await fsPromises.open('temp.txt', 'r+');
-  await fsPromises.ftruncate(fd, 10);
-  console.log(fs.readFileSync('temp.txt', 'utf8'));  // Prints Node.js\0\0\0
-}
-
-doTruncate().catch(console.error);
-```
-
-The last three bytes are null bytes (`'\0'`), to compensate the over-truncation.
-
-### fsPromises.futimes(filehandle, atime, mtime)
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* `atime` {number|string|Date}
-* `mtime` {number|string|Date}
-* Returns: {Promise}
-
-Change the file system timestamps of the object referenced by the supplied
-`FileHandle` then resolves the `Promise` with no arguments upon success.
-
-This function does not work on AIX versions before 7.1, it will resolve the
-`Promise` with an error using code `UV_ENOSYS`.
-
 ### fsPromises.lchmod(path, mode)
 <!-- YAML
 deprecated: v10.0.0
@@ -3953,12 +3921,20 @@ added: v10.0.0
 
 Asynchronous link(2). The `Promise` is resolved with no arguments upon success.
 
-### fsPromises.lstat(path)
+### fsPromises.lstat(path[, options])
 <!-- YAML
 added: v10.0.0
+changes:
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `path` {string|Buffer|URL}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * Returns: {Promise}
 
 Asynchronous lstat(2). The `Promise` is resolved with the [`fs.Stats`][] object
@@ -4024,35 +4000,6 @@ Some characters (`< > : " / \ | ? *`) are reserved under Windows as documented
 by [Naming Files, Paths, and Namespaces][]. Under NTFS, if the filename contains
 a colon, Node.js will open a file system stream, as described by
 [this MSDN page][MSDN-Using-Streams].
-
-### fsPromises.read(filehandle, buffer, offset, length, position)
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* `buffer` {Buffer|Uint8Array}
-* `offset` {integer}
-* `length` {integer}
-* `position` {integer}
-* Returns: {Promise}
-
-Read data from the file specified by `filehandle`.
-
-`buffer` is the buffer that the data will be written to.
-
-`offset` is the offset in the buffer to start writing at.
-
-`length` is an integer specifying the number of bytes to read.
-
-`position` is an argument specifying where to begin reading from in the file.
-If `position` is `null`, data will be read from the current file position,
-and the file position will be updated.
-If `position` is an integer, the file position will remain unchanged.
-
-Following successful read, the `Promise` is resolved with an object with a
-`bytesRead` property specifying the number of bytes read, and a `buffer`
-property that is a reference to the passed in `buffer` argument.
 
 ### fsPromises.readdir(path[, options])
 <!-- YAML
@@ -4168,12 +4115,20 @@ Using `fsPromises.rmdir()` on a file (not a directory) results in the
 `Promise` being rejected with an `ENOENT` error on Windows and an `ENOTDIR`
 error on POSIX.
 
-### fsPromises.stat(path)
+### fsPromises.stat(path[, options])
 <!-- YAML
 added: v10.0.0
+changes:
+  - version: v10.5.0
+    pr-url: https://github.com/nodejs/node/pull/20220
+    description: Accepts an additional `options` object to specify whether
+                 the numeric values returned should be bigint.
 -->
 
 * `path` {string|Buffer|URL}
+* `options` {Object}
+  * `bigint` {boolean} Whether the numeric values in the returned
+    [`fs.Stats`][] object should be `bigint`. **Default:** `false`.
 * Returns: {Promise}
 
 The `Promise` is resolved with the [`fs.Stats`][] object for the given `path`.
@@ -4237,39 +4192,6 @@ The `atime` and `mtime` arguments follow these rules:
   numeric string like `'123456789.0'`.
 - If the value can not be converted to a number, or is `NaN`, `Infinity` or
   `-Infinity`, an `Error` will be thrown.
-
-### fsPromises.write(filehandle, buffer[, offset[, length[, position]]])
-<!-- YAML
-added: v10.0.0
--->
-
-* `filehandle` {FileHandle}
-* `buffer` {Buffer|Uint8Array}
-* `offset` {integer}
-* `length` {integer}
-* `position` {integer}
-* Returns: {Promise}
-
-Write `buffer` to the file specified by `filehandle`.
-
-The `Promise` is resolved with an object containing a `bytesWritten` property
-identifying the number of bytes written, and a `buffer` property containing
-a reference to the `buffer` written.
-
-`offset` determines the part of the buffer to be written, and `length` is
-an integer specifying the number of bytes to write.
-
-`position` refers to the offset from the beginning of the file where this data
-should be written. If `typeof position !== 'number'`, the data will be written
-at the current position. See pwrite(2).
-
-It is unsafe to use `fsPromises.write()` multiple times on the same file
-without waiting for the `Promise` to be resolved (or rejected). For this
-scenario, `fs.createWriteStream` is strongly recommended.
-
-On Linux, positional writes do not work when the file is opened in append mode.
-The kernel ignores the position argument and always appends the data to
-the end of the file.
 
 ### fsPromises.writeFile(file, data[, options])
 <!-- YAML
@@ -4662,9 +4584,9 @@ the file contents.
 [`fs.chown()`]: #fs_fs_chown_path_uid_gid_callback
 [`fs.copyFile()`]: #fs_fs_copyfile_src_dest_flags_callback
 [`fs.exists()`]: fs.html#fs_fs_exists_path_callback
-[`fs.fstat()`]: #fs_fs_fstat_fd_callback
+[`fs.fstat()`]: #fs_fs_fstat_fd_options_callback
 [`fs.futimes()`]: #fs_fs_futimes_fd_atime_mtime_callback
-[`fs.lstat()`]: #fs_fs_lstat_path_callback
+[`fs.lstat()`]: #fs_fs_lstat_path_options_callback
 [`fs.mkdir()`]: #fs_fs_mkdir_path_mode_callback
 [`fs.mkdtemp()`]: #fs_fs_mkdtemp_prefix_options_callback
 [`fs.open()`]: #fs_fs_open_path_flags_mode_callback
@@ -4673,7 +4595,7 @@ the file contents.
 [`fs.readFileSync()`]: #fs_fs_readfilesync_path_options
 [`fs.realpath()`]: #fs_fs_realpath_path_options_callback
 [`fs.rmdir()`]: #fs_fs_rmdir_path_callback
-[`fs.stat()`]: #fs_fs_stat_path_callback
+[`fs.stat()`]: #fs_fs_stat_path_options_callback
 [`fs.utimes()`]: #fs_fs_utimes_path_atime_mtime_callback
 [`fs.watch()`]: #fs_fs_watch_filename_options_listener
 [`fs.write()`]: #fs_fs_write_fd_buffer_offset_length_position_callback

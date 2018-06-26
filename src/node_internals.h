@@ -114,6 +114,7 @@ struct sockaddr;
     V(http_parser)                                                            \
     V(inspector)                                                              \
     V(js_stream)                                                              \
+    V(messaging)                                                              \
     V(module_wrap)                                                            \
     V(os)                                                                     \
     V(performance)                                                            \
@@ -125,6 +126,7 @@ struct sockaddr;
     V(stream_pipe)                                                            \
     V(stream_wrap)                                                            \
     V(string_decoder)                                                         \
+    V(symbols)                                                                \
     V(tcp_wrap)                                                               \
     V(timer_wrap)                                                             \
     V(trace_events)                                                           \
@@ -135,6 +137,7 @@ struct sockaddr;
     V(util)                                                                   \
     V(uv)                                                                     \
     V(v8)                                                                     \
+    V(worker)                                                                 \
     V(zlib)
 
 #define NODE_BUILTIN_MODULES(V)                                               \
@@ -187,6 +190,11 @@ extern bool config_experimental_modules;
 // Used in node_config.cc to set a constant on process.binding('config')
 // that is used by lib/vm.js
 extern bool config_experimental_vm_modules;
+
+// Set in node.cc by ParseArgs when --experimental-vm-modules is used.
+// Used in node_config.cc to set a constant on process.binding('config')
+// that is used by lib/vm.js
+extern bool config_experimental_worker;
 
 // Set in node.cc by ParseArgs when --experimental-repl-await is used.
 // Used in node_config.cc to set a constant on process.binding('config')
@@ -307,6 +315,10 @@ class FatalTryCatch : public v8::TryCatch {
   Environment* env_;
 };
 
+void ReportException(Environment* env,
+                     v8::Local<v8::Value> er,
+                     v8::Local<v8::Message> message);
+
 v8::Maybe<bool> ProcessEmitWarning(Environment* env, const char* fmt, ...);
 v8::Maybe<bool> ProcessEmitDeprecationWarning(Environment* env,
                                               const char* warning,
@@ -325,14 +337,14 @@ v8::Local<v8::Value> FillStatsArray(AliasedBuffer<NativeT, V8T>* fields_ptr,
 #if defined(__POSIX__)
   fields[offset + 6] = s->st_blksize;
 #else
-  fields[offset + 6] = -1;
+  fields[offset + 6] = 0;
 #endif
   fields[offset + 7] = s->st_ino;
   fields[offset + 8] = s->st_size;
 #if defined(__POSIX__)
   fields[offset + 9] = s->st_blocks;
 #else
-  fields[offset + 9] = -1;
+  fields[offset + 9] = 0;
 #endif
 // Dates.
 // NO-LINT because the fields are 'long' and we just want to cast to `unsigned`
@@ -353,10 +365,18 @@ v8::Local<v8::Value> FillStatsArray(AliasedBuffer<NativeT, V8T>* fields_ptr,
 
 inline v8::Local<v8::Value> FillGlobalStatsArray(Environment* env,
                                                  const uv_stat_t* s,
+                                                 bool use_bigint = false,
                                                  int offset = 0) {
-  return node::FillStatsArray(env->fs_stats_field_array(), s, offset);
+  if (use_bigint) {
+    return node::FillStatsArray(
+        env->fs_stats_field_bigint_array(), s, offset);
+  } else {
+    return node::FillStatsArray(env->fs_stats_field_array(), s, offset);
+  }
 }
 
+void SetupBootstrapObject(Environment* env,
+                          v8::Local<v8::Object> bootstrapper);
 void SetupProcessObject(Environment* env,
                         int argc,
                         const char* const* argv,
@@ -503,6 +523,8 @@ class InternalCallbackScope {
 class ThreadPoolWork {
  public:
   explicit inline ThreadPoolWork(Environment* env) : env_(env) {}
+  inline virtual ~ThreadPoolWork() = default;
+
   inline void ScheduleWork();
   inline int CancelWork();
 
@@ -535,7 +557,7 @@ int ThreadPoolWork::CancelWork() {
   return uv_cancel(reinterpret_cast<uv_req_t*>(&work_req_));
 }
 
-static inline const char *errno_string(int errorno) {
+static inline const char* errno_string(int errorno) {
 #define ERRNO_CASE(e)  case e: return #e;
   switch (errorno) {
 #ifdef EACCES
@@ -872,6 +894,24 @@ static inline const char *errno_string(int errorno) {
     TRACING_CATEGORY_NODE ","                                                 \
     TRACING_CATEGORY_NODE "." #one ","                                        \
     TRACING_CATEGORY_NODE "." #one "." #two
+
+// Functions defined in node.cc that are exposed via the bootstrapper object
+
+void Chdir(const v8::FunctionCallbackInfo<v8::Value>& args);
+void CPUUsage(const v8::FunctionCallbackInfo<v8::Value>& args);
+void Hrtime(const v8::FunctionCallbackInfo<v8::Value>& args);
+void MemoryUsage(const v8::FunctionCallbackInfo<v8::Value>& args);
+void RawDebug(const v8::FunctionCallbackInfo<v8::Value>& args);
+void Umask(const v8::FunctionCallbackInfo<v8::Value>& args);
+
+#if defined(__POSIX__) && !defined(__ANDROID__) && !defined(__CloudABI__)
+void SetGid(const v8::FunctionCallbackInfo<v8::Value>& args);
+void SetEGid(const v8::FunctionCallbackInfo<v8::Value>& args);
+void SetUid(const v8::FunctionCallbackInfo<v8::Value>& args);
+void SetEUid(const v8::FunctionCallbackInfo<v8::Value>& args);
+void SetGroups(const v8::FunctionCallbackInfo<v8::Value>& args);
+void InitGroups(const v8::FunctionCallbackInfo<v8::Value>& args);
+#endif  // __POSIX__ && !defined(__ANDROID__) && !defined(__CloudABI__)
 
 }  // namespace node
 

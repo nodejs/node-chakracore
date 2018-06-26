@@ -210,7 +210,7 @@ NODE_EXTERN extern bool force_fips_crypto;
 # endif
 #endif
 
-NODE_EXTERN int Start(int argc, char *argv[]);
+NODE_EXTERN int Start(int argc, char* argv[]);
 NODE_EXTERN void Init(int* argc,
                       const char** argv,
                       int* exec_argc,
@@ -227,6 +227,10 @@ class Environment;
 class MultiIsolatePlatform : public v8::Platform {
  public:
   virtual ~MultiIsolatePlatform() { }
+  // Returns true if work was dispatched or executed. New tasks that are
+  // posted during flushing of the queue are postponed until the next
+  // flushing.
+  virtual bool FlushForegroundTasks(v8::Isolate* isolate) = 0;
   virtual void DrainBackgroundTasks(v8::Isolate* isolate) = 0;
   virtual void CancelPendingDelayedTasks(v8::Isolate* isolate) = 0;
 
@@ -460,14 +464,14 @@ NODE_DEPRECATED("Use DecodeWrite(isolate, ...)",
 NODE_EXTERN v8::Local<v8::Value> WinapiErrnoException(
     v8::Isolate* isolate,
     int errorno,
-    const char *syscall = nullptr,
-    const char *msg = "",
-    const char *path = nullptr);
+    const char* syscall = nullptr,
+    const char* msg = "",
+    const char* path = nullptr);
 
 NODE_DEPRECATED("Use WinapiErrnoException(isolate, ...)",
                 inline v8::Local<v8::Value> WinapiErrnoException(int errorno,
-    const char *syscall = nullptr,  const char *msg = "",
-    const char *path = nullptr) {
+    const char* syscall = nullptr,  const char* msg = "",
+    const char* path = nullptr) {
   return WinapiErrnoException(v8::Isolate::GetCurrent(),
                               errorno,
                               syscall,
@@ -476,7 +480,7 @@ NODE_DEPRECATED("Use WinapiErrnoException(isolate, ...)",
 })
 #endif
 
-const char *signo_string(int errorno);
+const char* signo_string(int errorno);
 
 
 typedef void (*addon_register_func)(

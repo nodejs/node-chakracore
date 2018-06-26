@@ -53,10 +53,6 @@
 #include <openssl/rand.h>
 #include <openssl/pkcs12.h>
 
-#if !defined(OPENSSL_NO_TLSEXT) && defined(SSL_CTX_set_tlsext_status_cb)
-# define NODE__HAVE_TLSEXT_STATUS_CB
-#endif  // !defined(OPENSSL_NO_TLSEXT) && defined(SSL_CTX_set_tlsext_status_cb)
-
 namespace node {
 namespace crypto {
 
@@ -331,13 +327,8 @@ class SSLWrap {
 
   ClientHelloParser hello_parser_;
 
-#ifdef NODE__HAVE_TLSEXT_STATUS_CB
   Persistent<v8::Object> ocsp_response_;
-#endif  // NODE__HAVE_TLSEXT_STATUS_CB
-
-#ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   Persistent<v8::Value> sni_context_;
-#endif
 
   friend class SecureContext;
 };
@@ -368,12 +359,12 @@ class CipherBase : public BaseObject {
               const char* iv,
               int iv_len,
               unsigned int auth_tag_len);
-  bool InitAuthenticated(const char *cipher_type, int iv_len,
+  bool InitAuthenticated(const char* cipher_type, int iv_len,
                          unsigned int auth_tag_len);
   bool CheckCCMMessageLength(int message_len);
   UpdateResult Update(const char* data, int len, unsigned char** out,
                       int* out_len);
-  bool Final(unsigned char** out, int *out_len);
+  bool Final(unsigned char** out, int* out_len);
   bool SetAutoPadding(bool auto_padding);
 
   bool IsAuthenticatedMode() const;
@@ -492,7 +483,7 @@ class Sign : public SignBase {
                   int key_pem_len,
                   const char* passphrase,
                   unsigned char* sig,
-                  unsigned int *sig_len,
+                  unsigned int* sig_len,
                   int padding,
                   int saltlen);
 
@@ -532,10 +523,10 @@ class Verify : public SignBase {
 
 class PublicKeyCipher {
  public:
-  typedef int (*EVP_PKEY_cipher_init_t)(EVP_PKEY_CTX *ctx);
-  typedef int (*EVP_PKEY_cipher_t)(EVP_PKEY_CTX *ctx,
-                                   unsigned char *out, size_t *outlen,
-                                   const unsigned char *in, size_t inlen);
+  typedef int (*EVP_PKEY_cipher_init_t)(EVP_PKEY_CTX* ctx);
+  typedef int (*EVP_PKEY_cipher_t)(EVP_PKEY_CTX* ctx,
+                                   unsigned char* out, size_t* outlen,
+                                   const unsigned char* in, size_t inlen);
 
   enum Operation {
     kPublic,

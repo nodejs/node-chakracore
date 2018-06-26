@@ -965,7 +965,7 @@ class Http2Session : public AsyncWrap, public StreamListener {
       void* user_data);
   static int OnInvalidFrame(
       nghttp2_session* session,
-      const nghttp2_frame *frame,
+      const nghttp2_frame* frame,
       int lib_error_code,
       void* user_data);
 
@@ -1203,6 +1203,7 @@ class ExternalHeader :
     }
 
     if (may_internalize && vec.len < 64) {
+      nghttp2_rcbuf_decref(buf);
       // This is a short header name, so there is a good chance V8 already has
       // it internalized.
       return GetInternalizedString(env, vec);

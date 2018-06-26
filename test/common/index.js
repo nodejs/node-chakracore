@@ -46,6 +46,14 @@ Object.defineProperty(exports, 'PORT', {
   enumerable: true
 });
 
+exports.isMainThread = (() => {
+  try {
+    return require('worker_threads').isMainThread;
+  } catch (e) {
+    // Worker module not enabled → only a single main thread exists.
+    return true;
+  }
+})();
 
 exports.isWindows = process.platform === 'win32';
 exports.isChakraEngine = 'chakracore' in process.versions;
@@ -60,6 +68,23 @@ exports.isFreeBSD = process.platform === 'freebsd';
 exports.isOpenBSD = process.platform === 'openbsd';
 exports.isLinux = process.platform === 'linux';
 exports.isOSX = process.platform === 'darwin';
+
+let isGlibc;
+exports.isGlibc = () => {
+  if (isGlibc !== undefined)
+    return isGlibc;
+  try {
+    const lddOut = spawnSync('ldd', [process.execPath]).stdout;
+    const libcInfo = lddOut.toString().split('\n').map(
+      (line) => line.match(/libc\.so.+=>\s*(\S+)\s/)).filter((info) => info);
+    if (libcInfo.length === 0)
+      return isGlibc = false;
+    const nmOut = spawnSync('nm', ['-D', libcInfo[0][1]]).stdout;
+    if (/gnu_get_libc_version/.test(nmOut))
+      return isGlibc = true;
+  } catch (e) {}
+  return isGlibc = false;
+};
 
 exports.enoughTestMem = os.totalmem() > 0x70000000; /* 1.75 Gb */
 const cpus = os.cpus();
@@ -783,6 +808,10 @@ exports.expectsError = function expectsError(fn, settings, exact) {
 exports.skipIfInspectorDisabled = function skipIfInspectorDisabled() {
   if (process.config.variables.v8_enable_inspector === 0) {
     exports.skip('V8 inspector is disabled');
+  }
+  if (!exports.isMainThread) {
+    // TODO(addaleax): Fix me.
+    exports.skip('V8 inspector is not available in Workers');
   }
 };
 

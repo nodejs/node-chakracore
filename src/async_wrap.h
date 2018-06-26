@@ -50,6 +50,7 @@ namespace node {
   V(HTTP2SETTINGS)                                                            \
   V(HTTPPARSER)                                                               \
   V(JSSTREAM)                                                                 \
+  V(MESSAGEPORT)                                                              \
   V(PIPECONNECTWRAP)                                                          \
   V(PIPESERVERWRAP)                                                           \
   V(PIPEWRAP)                                                                 \
@@ -67,6 +68,7 @@ namespace node {
   V(TTYWRAP)                                                                  \
   V(UDPSENDWRAP)                                                              \
   V(UDPWRAP)                                                                  \
+  V(WORKER)                                                                   \
   V(WRITEWRAP)                                                                \
   V(ZLIB)
 
@@ -74,6 +76,7 @@ namespace node {
 #define NODE_ASYNC_CRYPTO_PROVIDER_TYPES(V)                                   \
   V(PBKDF2REQUEST)                                                            \
   V(RANDOMBYTESREQUEST)                                                       \
+  V(SCRYPTREQUEST)                                                            \
   V(TLSWRAP)
 #else
 #define NODE_ASYNC_CRYPTO_PROVIDER_TYPES(V)
@@ -160,12 +163,17 @@ class AsyncWrap : public BaseObject {
                                          int argc,
                                          v8::Local<v8::Value>* argv);
   inline v8::MaybeLocal<v8::Value> MakeCallback(
+      const v8::Local<v8::Symbol> symbol,
+      int argc,
+      v8::Local<v8::Value>* argv);
+  inline v8::MaybeLocal<v8::Value> MakeCallback(
       const v8::Local<v8::String> symbol,
       int argc,
       v8::Local<v8::Value>* argv);
-  inline v8::MaybeLocal<v8::Value> MakeCallback(uint32_t index,
-                                                int argc,
-                                                v8::Local<v8::Value>* argv);
+  inline v8::MaybeLocal<v8::Value> MakeCallback(
+      const v8::Local<v8::Name> symbol,
+      int argc,
+      v8::Local<v8::Value>* argv);
 
   virtual size_t self_size() const = 0;
   virtual std::string diagnostic_name() const;

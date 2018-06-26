@@ -131,7 +131,6 @@ distclean:
 	$(RM) -r deps/icu
 	$(RM) -r deps/icu4c*.tgz deps/icu4c*.zip deps/icu-tmp
 	$(RM) $(BINARYTAR).* $(TARBALL).*
-	$(RM) -r deps/v8/testing/gmock
 
 .PHONY: check
 check: test
@@ -277,6 +276,7 @@ test-check-deopts: all
 	$(PYTHON) tools/test.py $(PARALLEL_ARGS) --mode=$(BUILDTYPE_LOWER) --check-deopts parallel sequential
 
 benchmark/misc/function_call/build/Release/binding.node: all \
+		benchmark/misc/function_call/napi_binding.c \
 		benchmark/misc/function_call/binding.cc \
 		benchmark/misc/function_call/binding.gyp
 	$(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp rebuild \
@@ -316,25 +316,14 @@ ADDONS_BINDING_SOURCES := \
 # Depends on node-gyp package.json so that build-addons is (re)executed when
 # node-gyp is updated as part of an npm update.
 test/addons/.buildstamp: config.gypi \
-	deps/npm/node_modules/node-gyp/package.json \
+	deps/npm/node_modules/node-gyp/package.json tools/build-addons.js \
 	$(ADDONS_BINDING_GYPS) $(ADDONS_BINDING_SOURCES) \
 	deps/uv/include/*.h deps/v8/include/*.h \
 	src/node.h src/node_buffer.h src/node_object_wrap.h src/node_version.h \
 	test/addons/.docbuildstamp
-#	Cannot use $(wildcard test/addons/*/) here, it's evaluated before
-#	embedded addons have been generated from the documentation.
-#	Ignore folders without binding.gyp
-#	(https://github.com/nodejs/node/issues/14843)
-	@for dirname in test/addons/*/; do \
-		if [ ! -f "$$PWD/$${dirname}binding.gyp" ]; then \
-			continue; fi ; \
-		printf "\nBuilding addon $$PWD/$$dirname\n" ; \
-		env MAKEFLAGS="-j1" $(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp \
-		        --loglevel=$(LOGLEVEL) rebuild \
-			--python="$(PYTHON)" \
-			--directory="$$PWD/$$dirname" \
-			--nodedir="$$PWD" || exit 1 ; \
-	done
+	env npm_config_loglevel=$(LOGLEVEL) npm_config_nodedir="$$PWD" \
+		npm_config_python="$(PYTHON)" $(NODE) "$$PWD/tools/build-addons" \
+		"$$PWD/deps/npm/node_modules/node-gyp/bin/node-gyp.js" "$$PWD/test/addons"
 	touch $@
 
 .PHONY: build-addons
@@ -356,25 +345,15 @@ ADDONS_NAPI_BINDING_SOURCES := \
 
 # Implicitly depends on $(NODE_EXE), see the build-addons-napi rule for rationale.
 test/addons-napi/.buildstamp: config.gypi \
-	deps/npm/node_modules/node-gyp/package.json \
+	deps/npm/node_modules/node-gyp/package.json tools/build-addons.js \
 	$(ADDONS_NAPI_BINDING_GYPS) $(ADDONS_NAPI_BINDING_SOURCES) \
 	deps/uv/include/*.h deps/v8/include/*.h \
 	src/node.h src/node_buffer.h src/node_object_wrap.h src/node_version.h \
 	src/node_api.h src/node_api_types.h
-#	Cannot use $(wildcard test/addons-napi/*/) here, it's evaluated before
-#	embedded addons have been generated from the documentation.
-#	Ignore folders without binding.gyp
-#	(https://github.com/nodejs/node/issues/14843)
-	@for dirname in test/addons-napi/*/; do \
-		if [ ! -f "$$PWD/$${dirname}binding.gyp" ]; then \
-			continue; fi ; \
-		printf "\nBuilding addon $$PWD/$$dirname\n" ; \
-		env MAKEFLAGS="-j1" $(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp \
-		        --loglevel=$(LOGLEVEL) rebuild \
-			--python="$(PYTHON)" \
-			--directory="$$PWD/$$dirname" \
-			--nodedir="$$PWD" || exit 1 ; \
-	done
+	env npm_config_loglevel=$(LOGLEVEL) npm_config_nodedir="$$PWD" \
+		npm_config_python="$(PYTHON)" $(NODE) "$$PWD/tools/build-addons" \
+		"$$PWD/deps/npm/node_modules/node-gyp/bin/node-gyp.js" \
+		"$$PWD/test/addons-napi"
 	touch $@
 
 .PHONY: build-addons-napi
@@ -561,6 +540,7 @@ test-with-async-hooks:
 .PHONY: test-v8-all
 .PHONY: test-v8-benchmarks
 .PHONY: test-v8-intl
+.PHONY: test-v8-updates
 ifneq ("","$(wildcard deps/v8/tools/run-tests.py)")
 # Related CI job: node-test-commit-v8-linux
 test-v8: v8  ## Runs the V8 test suite on deps/v8.
@@ -581,7 +561,10 @@ test-v8-benchmarks: v8
         benchmarks \
 	      $(TAP_V8_BENCHMARKS)
 
-test-v8-all: test-v8 test-v8-intl test-v8-benchmarks
+test-v8-updates:
+	$(PYTHON) tools/test.py $(PARALLEL_ARGS) --mode=$(BUILDTYPE_LOWER) v8-updates
+
+test-v8-all: test-v8 test-v8-intl test-v8-benchmarks test-v8-updates
 # runs all v8 tests
 else
 test-v8 test-v8-intl test-v8-benchmarks test-v8-all:
@@ -1062,7 +1045,7 @@ lint-md-build: tools/remark-cli/node_modules \
 .PHONY: lint-md
 ifneq ("","$(wildcard tools/remark-cli/node_modules/)")
 
-LINT_MD_DOC_FILES = $(shell ls doc/**/*.md)
+LINT_MD_DOC_FILES = $(shell ls doc/*.md doc/**/*.md)
 run-lint-doc-md = tools/remark-cli/cli.js -q -f $(LINT_MD_DOC_FILES)
 # Lint all changed markdown files under doc/
 tools/.docmdlintstamp: $(LINT_MD_DOC_FILES)

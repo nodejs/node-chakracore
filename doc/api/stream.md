@@ -37,10 +37,10 @@ the elements of the API that are required to *implement* new types of streams.
 
 There are four fundamental stream types within Node.js:
 
-* [`Readable`][] - streams from which data can be read (for example
-  [`fs.createReadStream()`][]).
 * [`Writable`][] - streams to which data can be written (for example
   [`fs.createWriteStream()`][]).
+* [`Readable`][] - streams from which data can be read (for example
+  [`fs.createReadStream()`][]).
 * [`Duplex`][] - streams that are both `Readable` and `Writable` (for example
   [`net.Socket`][]).
 * [`Transform`][] - `Duplex` streams that can modify or transform the data as it
@@ -367,7 +367,7 @@ added: v8.0.0
 
 Destroy the stream, and emit the passed `'error'` and a `'close'` event.
 After this call, the writable stream has ended and subsequent calls
-to `write()` / `end()` will give an `ERR_STREAM_DESTROYED` error.
+to `write()` or `end()` will result in an `ERR_STREAM_DESTROYED` error.
 Implementors should not override this method,
 but instead implement [`writable._destroy()`][writable-_destroy].
 
@@ -954,7 +954,7 @@ added: v0.9.4
 -->
 
 * `size` {number} Optional argument to specify how much data to read.
-* Returns: {string|Buffer|null}
+* Returns: {string|Buffer|null|any}
 
 The `readable.read()` method pulls some data out of the internal buffer and
 returns it. If no data available to be read, `null` is returned. By default,

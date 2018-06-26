@@ -11,19 +11,13 @@ const {
   access,
   chmod,
   copyFile,
-  fchmod,
-  fdatasync,
-  fstat,
-  fsync,
-  ftruncate,
-  futimes,
   link,
   lchmod,
   lstat,
   mkdir,
   mkdtemp,
   open,
-  read,
+  readFile,
   readdir,
   readlink,
   realpath,
@@ -31,7 +25,7 @@ const {
   rmdir,
   stat,
   symlink,
-  write,
+  truncate,
   unlink,
   utimes
 } = fsPromises;
@@ -75,13 +69,13 @@ function verifyStatObject(stat) {
     const handle = await open(dest, 'r+');
     assert.strictEqual(typeof handle, 'object');
 
-    let stats = await fstat(handle);
+    let stats = await handle.stat();
     verifyStatObject(stats);
     assert.strictEqual(stats.size, 35);
 
-    await ftruncate(handle, 1);
+    await handle.truncate(1);
 
-    stats = await fstat(handle);
+    stats = await handle.stat();
     verifyStatObject(stats);
     assert.strictEqual(stats.size, 1);
 
@@ -91,15 +85,13 @@ function verifyStatObject(stat) {
     stats = await handle.stat();
     verifyStatObject(stats);
 
-    await fdatasync(handle);
     await handle.datasync();
-    await fsync(handle);
     await handle.sync();
 
     const buf = Buffer.from('hello fsPromises');
     const bufLen = buf.length;
-    await write(handle, buf);
-    const ret = await read(handle, Buffer.alloc(bufLen), 0, bufLen, 0);
+    await handle.write(buf);
+    const ret = await handle.read(Buffer.alloc(bufLen), 0, bufLen, 0);
     assert.strictEqual(ret.bytesRead, bufLen);
     assert.deepStrictEqual(ret.buffer, buf);
 
@@ -109,38 +101,18 @@ function verifyStatObject(stat) {
     const ret2 = await handle.read(Buffer.alloc(buf2Len), 0, buf2Len, 0);
     assert.strictEqual(ret2.bytesRead, buf2Len);
     assert.deepStrictEqual(ret2.buffer, buf2);
+    await truncate(dest, 5);
+    assert.deepStrictEqual((await readFile(dest)).toString(), 'hello');
 
     await chmod(dest, 0o666);
-    await fchmod(handle, 0o666);
     await handle.chmod(0o666);
 
-    // `mode` can't be > 0o777
-    assert.rejects(
-      async () => chmod(handle, (0o777 + 1)),
-      {
-        code: 'ERR_INVALID_ARG_TYPE',
-        name: 'TypeError [ERR_INVALID_ARG_TYPE]'
-      }
-    );
-    assert.rejects(
-      async () => fchmod(handle, (0o777 + 1)),
-      {
-        code: 'ERR_OUT_OF_RANGE',
-        name: 'RangeError [ERR_OUT_OF_RANGE]'
-      }
-    );
-    assert.rejects(
-      async () => handle.chmod(handle, (0o777 + 1)),
-      {
-        code: 'ERR_INVALID_ARG_TYPE',
-        name: 'TypeError [ERR_INVALID_ARG_TYPE]'
-      }
-    );
+    await chmod(dest, (0o10777));
+    await handle.chmod(0o10777);
 
     await utimes(dest, new Date(), new Date());
 
     try {
-      await futimes(handle, new Date(), new Date());
       await handle.utimes(new Date(), new Date());
     } catch (err) {
       // Some systems do not have futimes. If there is an error,

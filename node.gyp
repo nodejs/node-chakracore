@@ -80,6 +80,7 @@
       'lib/util.js',
       'lib/v8.js',
       'lib/vm.js',
+      'lib/worker_threads.js',
       'lib/zlib.js',
       'lib/internal/assert.js',
       'lib/internal/async_hooks.js',
@@ -98,15 +99,21 @@
       'lib/internal/crypto/hash.js',
       'lib/internal/crypto/pbkdf2.js',
       'lib/internal/crypto/random.js',
+      'lib/internal/crypto/scrypt.js',
       'lib/internal/crypto/sig.js',
       'lib/internal/crypto/util.js',
       'lib/internal/constants.js',
       'lib/internal/encoding.js',
       'lib/internal/errors.js',
+      'lib/internal/error-serdes.js',
       'lib/internal/fixed_queue.js',
       'lib/internal/freelist.js',
       'lib/internal/fs/promises.js',
+      'lib/internal/fs/read_file_context.js',
+      'lib/internal/fs/streams.js',
+      'lib/internal/fs/sync_write_stream.js',
       'lib/internal/fs/utils.js',
+      'lib/internal/fs/watchers.js',
       'lib/internal/http.js',
       'lib/internal/inspector_async_hook.js',
       'lib/internal/linkedlist.js',
@@ -122,6 +129,7 @@
       'lib/internal/net.js',
       'lib/internal/os.js',
       'lib/internal/process/esm_loader.js',
+      'lib/internal/process/methods.js',
       'lib/internal/process/next_tick.js',
       'lib/internal/process/promises.js',
       'lib/internal/process/stdio.js',
@@ -152,6 +160,7 @@
       'lib/internal/validators.js',
       'lib/internal/stream_base_commons.js',
       'lib/internal/vm/module.js',
+      'lib/internal/worker.js',
       'lib/internal/streams/lazy_transform.js',
       'lib/internal/streams/async_iterator.js',
       'lib/internal/streams/buffer_list.js',
@@ -318,10 +327,12 @@
 
       'sources': [
         'src/async_wrap.cc',
+        'src/bootstrapper.cc',
         'src/callback_scope.cc',
         'src/cares_wrap.cc',
         'src/connection_wrap.cc',
         'src/connect_wrap.cc',
+        'src/debug_utils.cc',
         'src/env.cc',
         'src/exceptions.cc',
         'src/fs_event_wrap.cc',
@@ -335,10 +346,12 @@
         'src/node_contextify.cc',
         'src/node_debug_options.cc',
         'src/node_domain.cc',
+        'src/node_encoding.cc',
         'src/node_errors.h',
         'src/node_file.cc',
         'src/node_http2.cc',
         'src/node_http_parser.cc',
+        'src/node_messaging.cc',
         'src/node_os.cc',
         'src/node_platform.cc',
         'src/node_perf.cc',
@@ -351,10 +364,12 @@
         'src/node_v8.cc',
         'src/node_stat_watcher.cc',
         'src/node_watchdog.cc',
+        'src/node_worker.cc',
         'src/node_zlib.cc',
         'src/node_i18n.cc',
         'src/pipe_wrap.cc',
         'src/process_wrap.cc',
+        'src/sharedarraybuffer_metadata.cc',
         'src/signal_wrap.cc',
         'src/spawn_sync.cc',
         'src/string_bytes.cc',
@@ -399,6 +414,7 @@
         'src/node_http2_state.h',
         'src/node_internals.h',
         'src/node_javascript.h',
+        'src/node_messaging.h',
         'src/node_mutex.h',
         'src/node_perf.h',
         'src/node_perf_common.h',
@@ -410,12 +426,14 @@
         'src/node_wrap.h',
         'src/node_revert.h',
         'src/node_i18n.h',
+        'src/node_worker.h',
         'src/pipe_wrap.h',
         'src/tty_wrap.h',
         'src/tcp_wrap.h',
         'src/udp_wrap.h',
         'src/req_wrap.h',
         'src/req_wrap-inl.h',
+        'src/sharedarraybuffer_metadata.h',
         'src/string_bytes.h',
         'src/string_decoder.h',
         'src/string_decoder-inl.h',
@@ -510,9 +528,6 @@
           'defines': [ 'HAVE_INSPECTOR=0' ]
         }],
         [ 'OS=="win"', {
-          'sources': [
-            'src/backtrace_win32.cc',
-          ],
           'conditions': [
             [ 'node_intermediate_lib_type!="static_library"', {
               'sources': [
@@ -527,8 +542,6 @@
               'libraries': [ '-ldbghelp.lib' ],
             }],
           ],
-        }, { # POSIX
-          'sources': [ 'src/backtrace_posix.cc' ],
         }],
         [ 'node_use_etw=="true"', {
           'defines': [ 'HAVE_ETW=1' ],
@@ -640,7 +653,7 @@
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
               'PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,STDIO,TLSEXT,'
-              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD',
+              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD,SCRYPT',
               # Defines.
               '-DWIN32',
               # Symbols to filter from the export list.

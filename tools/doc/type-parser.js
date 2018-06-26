@@ -15,13 +15,10 @@ const jsPrimitives = {
 
 const jsGlobalObjectsUrl = `${jsDocPrefix}Reference/Global_Objects/`;
 const jsGlobalTypes = [
-  'Array', 'ArrayBuffer', 'AsyncFunction', 'DataView', 'Date', 'Error',
-  'EvalError', 'Float32Array', 'Float64Array', 'Function', 'Generator',
-  'GeneratorFunction', 'Int16Array', 'Int32Array', 'Int8Array', 'Map', 'Object',
-  'Promise', 'Proxy', 'RangeError', 'ReferenceError', 'RegExp', 'Set',
+  'Array', 'ArrayBuffer', 'DataView', 'Date', 'Error', 'EvalError', 'Function',
+  'Object', 'Promise', 'RangeError', 'ReferenceError', 'RegExp',
   'SharedArrayBuffer', 'SyntaxError', 'TypeError', 'TypedArray', 'URIError',
-  'Uint16Array', 'Uint32Array', 'Uint8Array', 'Uint8ClampedArray', 'WeakMap',
-  'WeakSet'
+  'Uint8Array',
 ];
 
 const customTypesMap = {
@@ -30,6 +27,8 @@ const customTypesMap = {
   'this': `${jsDocPrefix}Reference/Operators/this`,
 
   'AsyncIterator': 'https://github.com/tc39/proposal-async-iteration',
+
+  'bigint': 'https://github.com/tc39/proposal-bigint',
 
   'Iterable':
     `${jsDocPrefix}Reference/Iteration_protocols#The_iterable_protocol`,
@@ -117,7 +116,9 @@ const customTypesMap = {
   'Tracing': 'tracing.html#tracing_tracing_object',
 
   'URL': 'url.html#url_the_whatwg_url_api',
-  'URLSearchParams': 'url.html#url_class_urlsearchparams'
+  'URLSearchParams': 'url.html#url_class_urlsearchparams',
+
+  'MessagePort': 'worker.html#worker_class_messageport'
 };
 
 const arrayPart = /(?:\[])+$/;

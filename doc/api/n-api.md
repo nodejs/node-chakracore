@@ -179,6 +179,11 @@ operations. Callback functions must statisfy the following signature:
 typedef void (*napi_async_execute_callback)(napi_env env, void* data);
 ```
 
+Implementations of this type of function should avoid making any N-API calls
+that could result in the execution of JavaScript or interaction with
+JavaScript objects. Most often, any code that needs to make N-API
+calls should be made in `napi_async_complete_callback` instead.
+
 #### napi_async_complete_callback
 Function pointer used with functions that support asynchronous
 operations. Callback functions must statisfy the following signature:
@@ -531,7 +536,7 @@ napi_status napi_fatal_exception(napi_env env, napi_value err);
 ```
 
 - `[in] env`: The environment that the API is invoked under.
-- `[in] err`: The error you want to pass to `'uncaughtException'`.
+- `[in] err`: The error that is passed to `'uncaughtException'`.
 
 Trigger an `'uncaughtException'` in JavaScript. Useful if an async
 callback throws an exception with no way to recover.
@@ -1014,9 +1019,8 @@ napi_value Init(napi_env env, napi_value exports) {
 }
 ```
 
-If you expect that your module will be loaded multiple times during the lifetime
-of the Node.js process, you can use the `NAPI_MODULE_INIT` macro to initialize
-your module:
+If the module will be loaded multiple times during the lifetime of the Node.js
+process, use the `NAPI_MODULE_INIT` macro to initialize the module:
 
 ```C
 NAPI_MODULE_INIT() {
@@ -3322,7 +3326,14 @@ asynchronous workers. Instances are created/deleted with
 
 The `execute` and `complete` callbacks are functions that will be
 invoked when the executor is ready to execute and when it completes its
-task respectively. These functions implement the following interfaces:
+task respectively.
+
+The `execute` function should avoid making any N-API calls
+that could result in the execution of JavaScript or interaction with
+JavaScript objects. Most often, any code that needs to make N-API
+calls should be made in `complete` callback instead.
+
+These functions implement the following interfaces:
 
 ```C
 typedef void (*napi_async_execute_callback)(napi_env env,

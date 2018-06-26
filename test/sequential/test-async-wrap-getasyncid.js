@@ -1,4 +1,5 @@
 'use strict';
+// Flags: --expose-gc
 
 const common = require('../common');
 const assert = require('assert');
@@ -22,6 +23,11 @@ common.crashOnUnhandledRejection();
     },
   }).enable();
   process.on('beforeExit', common.mustCall(() => {
+    // This garbage collection call verifies that the wraps being garbage
+    // collected doesn't resurrect the process again due to weirdly timed
+    // uv_close calls and other similar instruments in destructors.
+    global.gc();
+
     process.removeAllListeners('uncaughtException');
     hooks.disable();
     delete providers.NONE;  // Should never be used.
@@ -35,7 +41,12 @@ common.crashOnUnhandledRejection();
     delete providers.HTTP2STREAM;
     delete providers.HTTP2PING;
     delete providers.HTTP2SETTINGS;
+    // TODO(addaleax): Test for these
     delete providers.STREAMPIPE;
+    delete providers.MESSAGEPORT;
+    delete providers.WORKER;
+    if (!common.isMainThread)
+      delete providers.INSPECTORJSBINDING;
 
     const objKeys = Object.keys(providers);
     if (objKeys.length > 0)
@@ -104,13 +115,19 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
   // so need to check it from the callback.
 
   const mc = common.mustCall(function pb() {
-    testInitialized(this, 'PBKDF2');
+    testInitialized(this, 'AsyncWrap');
   });
   crypto.pbkdf2('password', 'salt', 1, 20, 'sha256', mc);
 
   crypto.randomBytes(1, common.mustCall(function rb() {
-    testInitialized(this, 'RandomBytes');
+    testInitialized(this, 'AsyncWrap');
   }));
+
+  if (typeof process.binding('crypto').scrypt === 'function') {
+    crypto.scrypt('password', 'salt', 8, common.mustCall(function() {
+      testInitialized(this, 'AsyncWrap');
+    }));
+  }
 }
 
 
@@ -278,7 +295,8 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
   testInitialized(req, 'SendWrap');
 }
 
-if (process.config.variables.v8_enable_inspector !== 0) {
+if (process.config.variables.v8_enable_inspector !== 0 &&
+    common.isMainThread) {
   const binding = process.binding('inspector');
   const handle = new binding.Connection(() => {});
   testInitialized(handle, 'Connection');
