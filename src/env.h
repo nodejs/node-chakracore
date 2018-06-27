@@ -415,10 +415,10 @@ struct ContextInfo {
 };
 
 // Listing the AsyncWrap provider types first enables us to cast directly
-// from a provider type to a debug category. Currently no other debug
-// categories are available.
+// from a provider type to a debug category.
 #define DEBUG_CATEGORY_NAMES(V) \
-    NODE_ASYNC_PROVIDER_TYPES(V)
+    NODE_ASYNC_PROVIDER_TYPES(V) \
+    V(INSPECTOR_SERVER)
 
 enum class DebugCategory {
 #define V(name) name,
@@ -752,18 +752,33 @@ class Environment {
                           v8::Local<v8::Signature> signature =
                               v8::Local<v8::Signature>(),
                           v8::ConstructorBehavior behavior =
-                              v8::ConstructorBehavior::kAllow);
+                              v8::ConstructorBehavior::kAllow,
+                          v8::SideEffectType side_effect =
+                              v8::SideEffectType::kHasSideEffect);
 
   // Convenience methods for NewFunctionTemplate().
   inline void SetMethod(v8::Local<v8::Object> that,
                         const char* name,
                         v8::FunctionCallback callback);
+
   inline void SetProtoMethod(v8::Local<v8::FunctionTemplate> that,
                              const char* name,
                              v8::FunctionCallback callback);
   inline void SetTemplateMethod(v8::Local<v8::FunctionTemplate> that,
                                 const char* name,
                                 v8::FunctionCallback callback);
+
+  // Safe variants denote the function has no side effects.
+  inline void SetMethodNoSideEffect(v8::Local<v8::Object> that,
+                                    const char* name,
+                                    v8::FunctionCallback callback);
+  inline void SetProtoMethodNoSideEffect(v8::Local<v8::FunctionTemplate> that,
+                                         const char* name,
+                                         v8::FunctionCallback callback);
+  inline void SetTemplateMethodNoSideEffect(
+      v8::Local<v8::FunctionTemplate> that,
+      const char* name,
+      v8::FunctionCallback callback);
 
   void BeforeExit(void (*cb)(void* arg), void* arg);
   void RunBeforeExitCallbacks();
