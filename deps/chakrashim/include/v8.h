@@ -1513,7 +1513,8 @@ class V8_EXPORT Object : public Value {
                           AccessorNameSetterCallback setter = 0,
                           MaybeLocal<Value> data = MaybeLocal<Value>(),
                           AccessControl settings = DEFAULT,
-                          PropertyAttribute attribute = None);
+                          PropertyAttribute attribute = None,
+                          SideEffectType getter_side_effect_type = SideEffectType::kHasSideEffect);
 
   V8_DEPRECATE_SOON("Use maybe version", Local<Array> GetPropertyNames());
   V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetPropertyNames(

@@ -420,7 +420,8 @@ Maybe<bool> Object::SetAccessor(Local<Context> context,
                                 AccessorNameSetterCallback setter,
                                 MaybeLocal<Value> data,
                                 AccessControl settings,
-                                PropertyAttribute attribute) {
+                                PropertyAttribute attribute,
+                                SideEffectType getter_side_effect_type) {
   return SetAccessor(name, getter, setter, FromMaybe(data), settings, attribute,
                      Local<AccessorSignature>());
 }
