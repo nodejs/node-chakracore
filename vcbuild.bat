@@ -158,8 +158,8 @@ if defined build_release (
 :: assign path to node_exe
 set "node_exe=%~dp0%config%\node.exe"
 if not defined native_node_exe set "native_node_exe=%node_exe%"
-set "node_gyp_exe="%node_exe%" deps\npm\node_modules\node-gyp\bin\node-gyp"
-set "npm_exe="%~dp0%node_exe%" %~dp0deps\npm\bin\npm-cli.js"
+set "node_gyp_exe="%node_exe%" %~dp0deps\npm\node_modules\node-gyp\bin\node-gyp"
+set "npm_exe="%node_exe%" %~dp0deps\npm\bin\npm-cli.js"
 if "%target_env%"=="vs2017" set "node_gyp_exe=%node_gyp_exe% --msvs_version=2017"
 
 if "%config%"=="Debug"      set configure_flags=%configure_flags% --debug
@@ -388,7 +388,7 @@ exit /b 1
 
 :msi
 @rem Skip msi generation if not requested
-if not defined msi goto build-doc
+if not defined msi goto upload
 
 :msibuild
 echo Building node-v%FULLVERSION%-%target_arch%.msi
@@ -481,13 +481,11 @@ for /d %%F in (test\addons\??_*) do (
 "%node_exe%" tools\doc\addon-verify.js
 if %errorlevel% neq 0 exit /b %errorlevel%
 :: building addons
-setlocal EnableDelayedExpansion
-for /d %%F in (test\addons\*) do (
-  %node_gyp_exe% rebuild ^
-    --directory="%%F" ^
-    --nodedir="%cd%"
-  if !errorlevel! neq 0 exit /b !errorlevel!
-)
+setlocal
+set npm_config_nodedir=%~dp0
+"%node_exe%" "%~dp0tools\build-addons.js" "%~dp0deps\npm\node_modules\node-gyp\bin\node-gyp.js" "%~dp0test\addons"
+if errorlevel 1 exit /b 1
+endlocal
 
 :build-addons-napi
 if not defined build_addons_napi goto run-tests

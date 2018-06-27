@@ -46,6 +46,9 @@ test-inspector-stop-profile-after-done : SKIP
 test-inspector-port-cluster : PASS, FLAKY
 test-inspector-port-zero-cluster : PASS, FLAKY
 
+# This test seems to fail based on machine load or configuration
+test-net-bytes-per-incoming-chunk-overhead : PASS, FLAKY
+
 [$jsEngine==chakracore && $system==linux]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-child-process-pass-fd : SKIP
