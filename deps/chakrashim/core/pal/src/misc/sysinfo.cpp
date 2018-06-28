@@ -104,15 +104,6 @@ SET_DEFAULT_DEBUG_CHANNEL(MISC);
 #endif
 #endif // __LINUX__
 
-#ifdef __IOS__
-#ifdef BIT64
-// This is the size of the virtual address space on 64 bits IOS,
-// according to Apple, is 18 exabytes.
-#define MAX_PROCESS_VA_SPACE_IOS64 \
-    (18ull * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
-#endif
-#endif
-
 /*++
 Function:
   GetSystemInfo
@@ -183,13 +174,13 @@ GetSystemInfo(
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) VM_MAXUSER_ADDRESS;
 #elif defined(__LINUX__)
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) MAX_PROCESS_VA_SPACE_LINUX;
-#elif defined(__IOS__)&&defined(BIT64)
-    lpSystemInfo->lpMaximumApplicationAddress = (PVOID) MAX_PROCESS_VA_SPACE_IOS64;
 #elif defined(USERLIMIT)
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) USERLIMIT;
 #elif defined(_WIN64)
 #if defined(USRSTACK64)
     lpSystemInfo->lpMaximumApplicationAddress = (PVOID) USRSTACK64;
+#elif defined(MACH_VM_MAX_ADDRESS)
+    lpSystemInfo->lpMaximumApplicationAddress = (PVOID) MACH_VM_MAX_ADDRESS;
 #else // !USRSTACK64
 #error How come USRSTACK64 is not defined for 64bit?
 #endif // USRSTACK64

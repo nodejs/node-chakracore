@@ -46,12 +46,7 @@ RecyclerHeuristic::RecyclerHeuristic()
     else if (isSuccess && physicalMemoryBytes <= 1024 MEGABYTES)
     {
         // Tablet/slate/high-end Apollo scenario, including 512MB non-Apollo.
-#if defined(__IOS__)
-        // 64MB is too little for the require phase of many node modules on a mobile device.
-        baseFactor = 192;
-#else
         baseFactor = 64;
-#endif
         this->DefaultMaxFreePageCount = 64 MEGABYTES_OF_PAGES;
         this->DefaultMaxAllocPageCount = 64;
     }

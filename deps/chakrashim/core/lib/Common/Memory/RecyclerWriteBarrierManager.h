@@ -211,10 +211,20 @@ public:
     static DWORD GetWriteBarrier(void * address);
 #endif
 
+#if defined(__IOS__)&&defined(_M_ARM64)
+//Apple documentation reveals that virtual page size is 16KB on
+// newer versions of iOS.
+    static size_t const s_WriteBarrierPageSize = 16384;
+    // A card is a DWORD. For a 16KB page size to be represented by a DWORD, each bit represents 512 bytes.
+    static uint const s_BitArrayCardTableShift = 9;
+    static uint const s_BytesPerCardBit = 1 << s_BitArrayCardTableShift;  // 512 = 1 << 9
+    static uint const s_BytesPerCard = s_BytesPerCardBit * 32;      // 16K  = 1 << 14 = 512 << 5
+#else
     static size_t const s_WriteBarrierPageSize = 4096;
     static uint const s_BitArrayCardTableShift = 7;
     static uint const s_BytesPerCardBit = 1 << s_BitArrayCardTableShift;  // 128 = 1 << 7
     static uint const s_BytesPerCard = s_BytesPerCardBit * 32;      // 4K  = 1 << 12 = 128 << 5
+#endif
 
 private:
 
