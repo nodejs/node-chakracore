@@ -1425,11 +1425,14 @@ if (!common.isChakraEngine) {
 }
 
 {
+  // Chakra exhausts stack w/ fairly low value, so just skipping this test
+  if (!common.isChakraEngine) {
   // Test that a long linked list can be inspected without throwing an error.
   const list = {};
   let head = list;
   // A linked list of length 100k should be inspectable in some way, even though
   // the real cutoff value is much lower than 100k.
+
   for (let i = 0; i < 100000; i++)
     head = head.next = {};
   assert.strictEqual(
@@ -1441,4 +1444,5 @@ if (!common.isChakraEngine) {
   assert(match.length > 1000 && match.length < 10000);
   assert(longList.includes('[Object: Inspection interrupted ' +
     'prematurely. Maximum call stack size exceeded.]'));
+}
 }
