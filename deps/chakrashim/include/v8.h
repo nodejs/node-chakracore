@@ -1001,6 +1001,11 @@ class V8_EXPORT ScriptCompiler {
   static V8_WARN_UNUSED_RESULT MaybeLocal<Module> CompileModule(
     Isolate* isolate, Source* source);
 
+  static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script) {
+      // BUGBUG:  https://github.com/nodejs/node-chakracore/issues/560 - need to implement this
+      return nullptr;
+  }
+
   static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script,
                                      Local<String> source) {
     return nullptr;
