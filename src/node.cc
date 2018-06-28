@@ -3628,6 +3628,7 @@ Local<Context> NewContext(Isolate* isolate,
   context->SetEmbedderData(
       ContextEmbedderIndex::kAllowWasmCodeGeneration, True(isolate));
 
+#ifndef NODE_ENGINE_CHAKRACORE
   auto intl_key = FIXED_ONE_BYTE_STRING(isolate, "Intl");
   auto break_iter_key = FIXED_ONE_BYTE_STRING(isolate, "v8BreakIterator");
   Local<Value> intl_v;
@@ -3636,6 +3637,7 @@ Local<Context> NewContext(Isolate* isolate,
     Local<Object> intl = intl_v.As<Object>();
     intl->Delete(context, break_iter_key).FromJust();
   }
+#endif
 
   // https://github.com/nodejs/node/issues/21219
   // TODO(devsnek): remove when v8 supports Atomics.notify
