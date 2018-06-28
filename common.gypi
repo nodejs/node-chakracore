@@ -18,6 +18,7 @@
     'node_use_v8_platform%': 'true',
     'node_use_bundled_v8%': 'true',
     'node_module_version%': '',
+    'node_with_ltcg%': '',
 
     'node_tag%': '',
     'uv_library%': 'static_library',
@@ -239,6 +240,35 @@
                 'RuntimeLibrary': 0 # MultiThreaded (/MT)
               }
             }
+          }],
+          ['node_with_ltcg=="true"', {
+            'msvs_settings': {
+              'VCCLCompilerTool': {
+                'WholeProgramOptimization': 'true' # /GL, whole program optimization, needed for LTCG
+              },
+              'VCLibrarianTool': {
+                'AdditionalOptions': [
+                  '/LTCG:INCREMENTAL', # link time code generation
+                ]
+              },
+              'VCLinkerTool': {
+                'OptimizeReferences': 2, # /OPT:REF
+                'EnableCOMDATFolding': 2, # /OPT:ICF
+                'LinkIncremental': 1, # disable incremental linking
+                'AdditionalOptions': [
+                  '/LTCG:INCREMENTAL', # incremental link-time code generation
+                ]
+              }
+            }
+          }, {
+            'msvs_settings': {
+              'VCCLCompilerTool': {
+                'WholeProgramOptimization': 'false'
+              },
+              'VCLinkerTool': {
+                'LinkIncremental': 2 # enable incremental linking
+              }
+            }
           }]
         ],
         'msvs_settings': {
@@ -246,7 +276,6 @@
             'Optimization': 3, # /Ox, full optimization
             'FavorSizeOrSpeed': 1, # /Ot, favor speed over size
             'InlineFunctionExpansion': 2, # /Ob2, inline anything eligible
-            'WholeProgramOptimization': 'true', # /GL, whole program optimization, needed for LTCG
             'OmitFramePointers': 'true',
             'EnableFunctionLevelLinking': 'true',
             'EnableIntrinsicFunctions': 'true',
@@ -254,21 +283,8 @@
             'AdditionalOptions': [
               '/MP', # compile across multiple CPUs
             ],
-          },
-          'VCLibrarianTool': {
-            'AdditionalOptions': [
-              '/LTCG', # link time code generation
-            ],
-          },
-          'VCLinkerTool': {
-            'OptimizeReferences': 2, # /OPT:REF
-            'EnableCOMDATFolding': 2, # /OPT:ICF
-            'LinkIncremental': 1, # disable incremental linking
-            'AdditionalOptions': [
-              '/LTCG:INCREMENTAL', # incremental link-time code generation
-            ],
-          },
-        },
+          }
+        }
       }
     },
     # Forcibly disable -Werror.  We support a wide range of compilers, it's
