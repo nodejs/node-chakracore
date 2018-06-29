@@ -17,6 +17,7 @@ set target=Build
 set target_arch=x64
 set target_env=
 set noprojgen=
+set projgen=
 set nobuild=
 set sign=
 set nosnapshot=
@@ -71,6 +72,7 @@ if /i "%1"=="x64"           set target_arch=x64&goto arg-ok
 if /i "%1"=="arm"           set target_arch=arm&goto arg-ok
 if /i "%1"=="vs2017"        set target_env=vs2017&goto arg-ok
 if /i "%1"=="noprojgen"     set noprojgen=1&goto arg-ok
+if /i "%1"=="projgen"       set projgen=1&goto arg-ok
 if /i "%1"=="nobuild"       set nobuild=1&goto arg-ok
 if /i "%1"=="nosign"        set "sign="&echo Note: vcbuild no longer signs by default. "nosign" is redundant.&goto arg-ok
 if /i "%1"=="sign"          set sign=1&goto arg-ok
@@ -153,6 +155,7 @@ if defined build_release (
   set licensertf=1
   set download_arg="--download=all"
   set i18n_arg=small-icu
+  set projgen=1
 )
 
 :: assign path to node_exe
@@ -226,6 +229,8 @@ if _%PROCESSOR_ARCHITEW6432%_==_AMD64_ set msvs_host_arch=amd64
 set vcvarsall_arg=%msvs_host_arch%_%target_arch%
 @rem unless both host and target are x64
 if %target_arch%==x64 if %msvs_host_arch%==amd64 set vcvarsall_arg=amd64
+@rem also if both are x86
+if %target_arch%==x86 if %msvs_host_arch%==x86 set vcvarsall_arg=x86
 
 @rem Look for Visual Studio 2017
 :vs-set-2017
@@ -273,16 +278,36 @@ goto build-doc
 
 :msbuild-found
 
+set project_generated=
 :project-gen
 @rem Skip project generation if requested.
 if defined noprojgen goto msbuild
+if defined projgen goto run-configure
+if not exist node.sln goto run-configure
+if not exist .gyp_configure_stamp goto run-configure
+echo %configure_flags% > .tmp_gyp_configure_stamp
+where /R . /T *.gyp? >> .tmp_gyp_configure_stamp
+fc .gyp_configure_stamp .tmp_gyp_configure_stamp >NUL 2>&1
+if errorlevel 1 goto run-configure
 
+:skip-configure
+del .tmp_gyp_configure_stamp
+echo Reusing solution generated with %configure_flags%
+goto msbuild
+
+:run-configure
+del .tmp_gyp_configure_stamp
+del .gyp_configure_stamp
 @rem Generate the VS project.
 echo configure %configure_flags% --engine=%engine%
+echo %configure_flags%> .used_configure_flags
 python configure %configure_flags% --engine=%engine%
 if errorlevel 1 goto create-msvs-files-failed
 if not exist node.sln goto create-msvs-files-failed
+set project_generated=1
 echo Project files generated.
+echo %configure_flags% > .gyp_configure_stamp
+where /R . /T *.gyp? >> .gyp_configure_stamp
 
 :msbuild
 @rem Skip build if requested.
@@ -296,7 +321,10 @@ if "%target_arch%"=="x64" set "msbplatform=x64"
 if "%target_arch%"=="arm" set "msbplatform=ARM"
 if "%target%"=="Build" if defined no_cctest set target=node
 msbuild node.sln %msbcpu% /t:%target% /p:Configuration=%config% /p:Platform=%msbplatform% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
-if errorlevel 1 goto exit
+if errorlevel 1 (
+  if not defined project_generated echo Building Node with reused solution failed. To regenerate project files use "vcbuild projgen"
+  goto exit
+)
 if "%target%" == "Clean" goto exit
 
 :sign
@@ -658,10 +686,11 @@ goto exit
 
 :create-msvs-files-failed
 echo Failed to create vc project files.
+del .used_configure_flags
 goto exit
 
 :help
-echo vcbuild.bat [debug/release] [msi] [doc] [test/test-ci/test-all/test-addons/test-addons-napi/test-internet/test-pummel/test-simple/test-message/test-gc/test-tick-processor/test-known-issues/test-node-inspect/test-check-deopts/test-npm/test-async-hooks/test-v8/test-v8-intl/test-v8-benchmarks/test-v8-all] [ignore-flaky] [static/dll] [noprojgen] [small-icu/full-icu/without-intl] [nobuild] [nosnapshot] [noetw] [noperfctr] [licensetf] [sign] [ia32/x86/x64] [vs2017] [download-all] [enable-vtune] [lint/lint-ci/lint-js/lint-js-ci/lint-md] [lint-md-build] [package] [build-release] [upload] [no-NODE-OPTIONS] [link-module path-to-module] [debug-http2] [debug-nghttp2] [clean] [no-cctest] [openssl-no-asm]
+echo vcbuild.bat [debug/release] [msi] [doc] [test/test-ci/test-all/test-addons/test-addons-napi/test-internet/test-pummel/test-simple/test-message/test-gc/test-tick-processor/test-known-issues/test-node-inspect/test-check-deopts/test-npm/test-async-hooks/test-v8/test-v8-intl/test-v8-benchmarks/test-v8-all] [ignore-flaky] [static/dll] [noprojgen] [projgen] [small-icu/full-icu/without-intl] [nobuild] [nosnapshot] [noetw] [noperfctr] [licensetf] [sign] [ia32/x86/x64] [vs2017] [download-all] [enable-vtune] [lint/lint-ci/lint-js/lint-js-ci/lint-md] [lint-md-build] [package] [build-release] [upload] [no-NODE-OPTIONS] [link-module path-to-module] [debug-http2] [debug-nghttp2] [clean] [no-cctest] [openssl-no-asm]
 echo Examples:
 echo   vcbuild.bat                          : builds release build
 echo   vcbuild.bat debug                    : builds debug build
