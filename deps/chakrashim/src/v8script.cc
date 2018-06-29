@@ -70,7 +70,9 @@ MaybeLocal<Script> Script::Compile(Local<Context> context,
 
   if (origin != nullptr) {
     filenameRef = *origin->ResourceName();
-  } else {
+  }
+
+  if (origin == nullptr || filenameRef == nullptr) {
     error = JsCreateString(filename,
                            strlen(filename),
                            &filenameRef);
