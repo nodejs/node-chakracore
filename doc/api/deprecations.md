@@ -351,20 +351,6 @@ Type: Documentation-only
 
 The [`fs.lchmodSync(path, mode)`][] API is deprecated.
 
-<a id="DEP0037"></a>
-### DEP0037: fs.lchown(path, uid, gid, callback)
-
-Type: Documentation-only
-
-The [`fs.lchown(path, uid, gid, callback)`][] API is deprecated.
-
-<a id="DEP0038"></a>
-### DEP0038: fs.lchownSync(path, uid, gid)
-
-Type: Documentation-only
-
-The [`fs.lchownSync(path, uid, gid)`][] API is deprecated.
-
 <a id="DEP0039"></a>
 ### DEP0039: require.extensions
 
@@ -1005,8 +991,8 @@ accepted by the legacy `url.parse()` API. The mentioned APIs now use the WHATWG
 URL parser that requires strictly valid URLs. Passing an invalid URL is
 deprecated and support will be removed in the future.
 
-<a id="DEP00XX"></a>
-### DEP00XX: vm.Script cached data
+<a id="DEP0110"></a>
+### DEP0110: vm.Script cached data
 
 Type: Documentation-only
 
@@ -1049,8 +1035,6 @@ The option `produceCachedData` has been deprecated. Use
 [`fs.exists(path, callback)`]: fs.html#fs_fs_exists_path_callback
 [`fs.lchmod(path, mode, callback)`]: fs.html#fs_fs_lchmod_path_mode_callback
 [`fs.lchmodSync(path, mode)`]: fs.html#fs_fs_lchmodsync_path_mode
-[`fs.lchown(path, uid, gid, callback)`]: fs.html#fs_fs_lchown_path_uid_gid_callback
-[`fs.lchownSync(path, uid, gid)`]: fs.html#fs_fs_lchownsync_path_uid_gid
 [`fs.read()`]: fs.html#fs_fs_read_fd_buffer_offset_length_position_callback
 [`fs.readSync()`]: fs.html#fs_fs_readsync_fd_buffer_offset_length_position
 [`fs.stat()`]: fs.html#fs_fs_stat_path_callback
@@ -1063,7 +1047,7 @@ The option `produceCachedData` has been deprecated. Use
 [`process.env`]: process.html#process_process_env
 [`punycode`]: punycode.html
 [`require.extensions`]: modules.html#modules_require_extensions
-[`script.createCachedData()`]: vm.html#vm_script_create_cached_data
+[`script.createCachedData()`]: vm.html#vm_script_createcacheddata
 [`setInterval()`]: timers.html#timers_setinterval_callback_delay_args
 [`setTimeout()`]: timers.html#timers_settimeout_callback_delay_args
 [`tls.CryptoStream`]: tls.html#tls_class_cryptostream
