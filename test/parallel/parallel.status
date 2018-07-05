@@ -230,6 +230,9 @@ test-worker-dns-terminate : SKIP
 test-worker-esmodule : SKIP
 test-worker-memory : SKIP
 test-worker-nexttick-terminate : SKIP
+test-worker-onmessage : SKIP
+test-worker-relative-path : SKIP
+test-worker-relative-path-double-dot : SKIP
 test-worker-stdio : SKIP
 test-worker-syntax-error : SKIP
 test-worker-syntax-error-file : SKIP
@@ -278,3 +281,7 @@ test-cluster-fork-windowsHide : SKIP
 
 # ChakraCore doesn't support WASM on WoA
 test-wasm-simple : SKIP
+
+# Chakra doesn't yet support createCachedData.
+# See bug https://github.com/nodejs/node-chakracore/issues/560
+test-vm-createcacheddata : SKIP
