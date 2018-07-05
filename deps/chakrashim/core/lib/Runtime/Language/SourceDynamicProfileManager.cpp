@@ -5,9 +5,6 @@
 #include "RuntimeLanguagePch.h"
 
 #if ENABLE_PROFILE_INFO
-#ifdef ENABLE_WININET_PROFILE_DATA_CACHE
-#include "activscp_private.h"
-#endif
 namespace Js
 {
     ExecutionFlags
@@ -63,7 +60,7 @@ namespace Js
     void SourceDynamicProfileManager::MarkAsExecuted(LocalFunctionId functionId)
     {
         Assert(startupFunctions != nullptr);
-        Assert(functionId <= startupFunctions->Length());
+        AssertOrFailFast(functionId <= startupFunctions->Length());
         startupFunctions->Set(functionId);
     }
 
@@ -87,57 +84,32 @@ namespace Js
     //
     void SourceDynamicProfileManager::Reuse()
     {
-        AssertMsg(profileDataCache == nullptr, "Persisted profiles cannot be re-used");
+        AssertMsg(dataCacheWrapper == nullptr, "Persisted profiles cannot be re-used");
         cachedStartupFunctions = startupFunctions;
     }
 
     //
     // Loads the profile from the WININET cache
     //
-    bool SourceDynamicProfileManager::LoadFromProfileCache(IActiveScriptDataCache* profileDataCache, LPCWSTR url)
+    bool SourceDynamicProfileManager::LoadFromProfileCache(SimpleDataCacheWrapper* dataCacheWrapper, LPCWSTR url)
     {
-    #ifdef ENABLE_WININET_PROFILE_DATA_CACHE
+#ifdef ENABLE_WININET_PROFILE_DATA_CACHE
         AssertMsg(CONFIG_FLAG(WininetProfileCache), "Profile caching should be enabled for us to get here");
-        Assert(profileDataCache);
+        Assert(dataCacheWrapper);
         AssertMsg(!IsProfileLoadedFromWinInet(), "Duplicate profile cache loading?");
 
-        // Keep a copy of this and addref it
-        profileDataCache->AddRef();
-        this->profileDataCache = profileDataCache;
-
-        IStream* readStream;
-        HRESULT hr = profileDataCache->GetReadDataStream(&readStream);
+        // Keep a copy of this
+        this->dataCacheWrapper = dataCacheWrapper;
+        HRESULT hr = dataCacheWrapper->SeekReadStreamToBlock(SimpleDataCacheWrapper::BlockType_ProfileData);
         if(SUCCEEDED(hr))
         {
-            Assert(readStream != nullptr);
-            // stream reader owns the stream and will close it on destruction
-            SimpleStreamReader streamReader(readStream);
-            DWORD jscriptMajorVersion;
-            DWORD jscriptMinorVersion;
-            if(FAILED(AutoSystemInfo::GetJscriptFileVersion(&jscriptMajorVersion, &jscriptMinorVersion)))
-            {
-                return false;
-            }
-
-            DWORD majorVersion;
-            if(!streamReader.Read(&majorVersion) || majorVersion != jscriptMajorVersion)
-            {
-                return false;
-            }
-
-            DWORD minorVersion;
-            if(!streamReader.Read(&minorVersion) || minorVersion != jscriptMinorVersion)
-            {
-                return false;
-            }
-
-            uint numberOfFunctions;
-            if(!streamReader.Read(&numberOfFunctions) || numberOfFunctions > MAX_FUNCTION_COUNT)
+            uint numberOfFunctions = 0;
+            if (FAILED(dataCacheWrapper->Read(&numberOfFunctions)) || numberOfFunctions > MAX_FUNCTION_COUNT)
             {
                 return false;
             }
             BVFixed* functions = BVFixed::New(numberOfFunctions, this->recycler);
-            if(!streamReader.ReadArray(functions->GetData(), functions->WordCount()))
+            if (FAILED(dataCacheWrapper->ReadArray(functions->GetData(), functions->WordCount())))
             {
                 return false;
             }
@@ -172,7 +144,7 @@ namespace Js
     {
         uint bytesWritten = 0;
 #ifdef ENABLE_WININET_PROFILE_DATA_CACHE
-        if(profileDataCache)
+        if(dataCacheWrapper)
         {
             if(ShouldSaveToProfileCache(info))
             {
@@ -180,14 +152,24 @@ namespace Js
 
                 bytesWritten = SaveToProfileCache();
 
-                if(bytesWritten == 0)
+                if (bytesWritten == 0)
                 {
                     OUTPUT_TRACE(Js::DynamicProfilePhase, _u("Profile saving FAILED\n"));
                 }
+                else
+                {
+                    OUTPUT_TRACE(Js::DynamicProfilePhase, _u("Profile saving succeeded. Bytes written: %d\n"), bytesWritten);
+                }
             }
 
-            profileDataCache->Release();
-            profileDataCache = nullptr;
+            if (!isNonCachableScript)
+            {
+                if (FAILED(dataCacheWrapper->SaveWriteStream()))
+                {
+                    return 0;
+                }
+            }
+            dataCacheWrapper = nullptr;
         }
 #endif
         return bytesWritten;
@@ -204,54 +186,23 @@ namespace Js
         uint bytesWritten = 0;
 #ifdef ENABLE_WININET_PROFILE_DATA_CACHE
         //TODO: Add some diffing logic to not write unless necessary
-        IStream* writeStream;
-        HRESULT hr = profileDataCache->GetWriteDataStream(&writeStream);
-        if(FAILED(hr))
-        {
-            return 0;
-        }
-        Assert(writeStream != nullptr);
-        // stream writer owns the stream and will close it on destruction
-        SimpleStreamWriter streamWriter(writeStream);
-
-        DWORD jscriptMajorVersion;
-        DWORD jscriptMinorVersion;
-        if(FAILED(AutoSystemInfo::GetJscriptFileVersion(&jscriptMajorVersion, &jscriptMinorVersion)))
+        ULONG byteCount = startupFunctions->WordCount() * sizeof(BVUnit) + sizeof(BVIndex);
+        if (FAILED(dataCacheWrapper->StartBlock(SimpleDataCacheWrapper::BlockType::BlockType_ProfileData, byteCount)))
         {
             return 0;
         }
 
-        if(!streamWriter.Write(jscriptMajorVersion))
+        if (FAILED(dataCacheWrapper->Write(startupFunctions->Length())))
         {
             return 0;
         }
 
-        if(!streamWriter.Write(jscriptMinorVersion))
+        if (SUCCEEDED(dataCacheWrapper->WriteArray(startupFunctions->GetData(), startupFunctions->WordCount())))
         {
-            return 0;
-        }
+            bytesWritten = dataCacheWrapper->BytesWrittenInBlock();
 
-        if(!streamWriter.Write(startupFunctions->Length()))
-        {
-            return 0;
-        }
-        if(streamWriter.WriteArray(startupFunctions->GetData(), startupFunctions->WordCount()))
-        {
-            STATSTG stats;
-            if(SUCCEEDED(writeStream->Stat(&stats, STATFLAG_NONAME)))
-            {
-                bytesWritten = stats.cbSize.LowPart;
-                Assert(stats.cbSize.LowPart > 0);
-                AssertMsg(stats.cbSize.HighPart == 0, "We should not be writing such long data that the high part is non-zero");
-            }
-
-            hr = profileDataCache->SaveWriteDataStream(writeStream);
-            if(FAILED(hr))
-            {
-                return 0;
-            }
 #if DBG_DUMP
-            if(PHASE_TRACE1(Js::DynamicProfilePhase) && Js::Configuration::Global.flags.Verbose)
+            if (PHASE_TRACE1(Js::DynamicProfilePhase) && Js::Configuration::Global.flags.Verbose)
             {
                 OUTPUT_VERBOSE_TRACE(Js::DynamicProfilePhase, _u("Saved profile:\n"));
                 startupFunctions->Dump();
@@ -276,6 +227,12 @@ namespace Js
             return false;
         }
 
+        if (dataCacheWrapper->BlocksWritten() > 0)
+        {
+            OUTPUT_VERBOSE_TRACE(Js::DynamicProfilePhase, _u("Saving profile. There are other blocks in the cache. %s\n"), info->url);
+            return true;
+        }
+
         if(!startupFunctions || startupFunctions->Length() <= DEFAULT_CONFIG_MinProfileCacheSize)
         {
             OUTPUT_VERBOSE_TRACE(Js::DynamicProfilePhase, _u("Skipping save of profile. Small number of functions. %s\n"), info->url);
@@ -294,14 +251,14 @@ namespace Js
             }
             else
             {
-                OUTPUT_VERBOSE_TRACE(Js::DynamicProfilePhase, _u("Number of functions different: %d "), numberOfBitsDifferent);
+                OUTPUT_VERBOSE_TRACE(Js::DynamicProfilePhase, _u("Number of functions different: %d \n"), numberOfBitsDifferent);
             }
         }
         return true;
     }
 
     SourceDynamicProfileManager *
-    SourceDynamicProfileManager::LoadFromDynamicProfileStorage(SourceContextInfo* info, ScriptContext* scriptContext, IActiveScriptDataCache* profileDataCache)
+    SourceDynamicProfileManager::LoadFromDynamicProfileStorage(SourceContextInfo* info, ScriptContext* scriptContext, SimpleDataCacheWrapper* dataCacheWrapper)
     {
         SourceDynamicProfileManager* manager = nullptr;
         Recycler* recycler = scriptContext->GetRecycler();
@@ -320,9 +277,9 @@ namespace Js
         {
             manager = RecyclerNew(recycler, SourceDynamicProfileManager, recycler);
         }
-        if(profileDataCache != nullptr)
+        if(dataCacheWrapper != nullptr)
         {
-            bool profileLoaded = manager->LoadFromProfileCache(profileDataCache, info->url);
+            bool profileLoaded = manager->LoadFromProfileCache(dataCacheWrapper, info->url);
             if(profileLoaded)
             {
                 JS_ETW(EventWriteJSCRIPT_PROFILE_LOAD(info->dwHostSourceContext, scriptContext));
@@ -337,7 +294,7 @@ namespace Js
         dynamicProfileInfoMapSaving.Reset();
     }
 
-    void SourceDynamicProfileManager::AddItem(LocalFunctionId functionId, DynamicProfileInfo *info)
+    void SourceDynamicProfileManager::AddSavingItem(LocalFunctionId functionId, DynamicProfileInfo *info)
     {
         try
         {
@@ -351,19 +308,11 @@ namespace Js
         }
     }
 
-    void SourceDynamicProfileManager::CopySavingData()
-    {
-        dynamicProfileInfoMap.Map([&](LocalFunctionId functionId, DynamicProfileInfo *info)
-        {
-            this->AddItem(functionId, info);
-        });
-    }
-
     void
     SourceDynamicProfileManager::SaveDynamicProfileInfo(LocalFunctionId functionId, DynamicProfileInfo * dynamicProfileInfo)
     {
         Assert(dynamicProfileInfo->GetFunctionBody()->HasExecutionDynamicProfileInfo());
-        this->AddItem(functionId, dynamicProfileInfo);
+        this->AddSavingItem(functionId, dynamicProfileInfo);
     }
 
     template <typename T>
@@ -373,6 +322,7 @@ namespace Js
         uint functionCount;
         if (!reader->Peek(&functionCount))
         {
+            Assert(false);
             return nullptr;
         }
 
@@ -380,6 +330,7 @@ namespace Js
         if (!reader->ReadArray(((char *)startupFunctions),
             BVFixed::GetAllocSize(functionCount)))
         {
+            Assert(false);
             return nullptr;
         }
 
@@ -387,6 +338,7 @@ namespace Js
 
         if (!reader->Read(&profileCount))
         {
+            Assert(false);
             return nullptr;
         }
 
@@ -410,9 +362,11 @@ namespace Js
             DynamicProfileInfo * dynamicProfileInfo = DynamicProfileInfo::Deserialize(reader, recycler, &functionId);
             if (dynamicProfileInfo == nullptr || functionId >= functionCount)
             {
+                Assert(false);
                 return nullptr;
             }
             sourceDynamicProfileManager->dynamicProfileInfoMap.Add(functionId, dynamicProfileInfo);
+            sourceDynamicProfileManager->AddSavingItem(functionId, dynamicProfileInfo);
         }
         return sourceDynamicProfileManager;
     }

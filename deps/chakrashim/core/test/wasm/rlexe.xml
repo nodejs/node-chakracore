@@ -2,6 +2,41 @@
 <regress-exe>
 <test>
   <default>
+    <files>unsigned.js</files>
+    <compile-flags>-wasm -args 0 5 -endargs</compile-flags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>unsigned.js</files>
+    <compile-flags>-wasm -args 6 10 -endargs</compile-flags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>unsigned.js</files>
+    <compile-flags>-wasm -args 11 15 -endargs</compile-flags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>unsigned.js</files>
+    <compile-flags>-wasm -args 16 20 -endargs</compile-flags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>unsigned.js</files>
+    <compile-flags>-wasm -args 21 -endargs</compile-flags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
     <files>regress.js</files>
     <compile-flags>-wasm -args --no-verbose -endargs</compile-flags>
     <tags>exclude_jshost,exclude_win7</tags>
@@ -85,6 +120,20 @@
   <default>
     <files>f32address.js</files>
     <compile-flags>-wasm  </compile-flags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>divByConstants.js</files>
+    <compile-flags>-wasm  </compile-flags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>divByConstants_unsigned.js</files>
+    <compile-flags>-wasm  </compile-flags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
   </default>
 </test>
 <test>
@@ -226,28 +275,28 @@
     <files>oom_wasm.js</files>
       <!-- These tests expect OOM, -EnableFatalErrorOnOOM- to disable fatal error for this test case. Bug will be filed to address this later -->
     <compile-flags>-EnableFatalErrorOnOOM- -wasm -args 0 16384 -endargs</compile-flags>
-    <tags>exclude_amd64</tags>
+    <tags>exclude_x64</tags>
   </default>
 </test>
 <test>
   <default>
     <files>oom_wasm.js</files>
     <compile-flags>-EnableFatalErrorOnOOM- -wasm -args 3 16381 -endargs</compile-flags>
-    <tags>exclude_amd64</tags>
+    <tags>exclude_x64</tags>
   </default>
 </test>
 <test>
   <default>
     <files>oom.js</files>
     <compile-flags>-EnableFatalErrorOnOOM- -wasm -args 0 16384 -endargs</compile-flags>
-    <tags>exclude_amd64</tags>
+    <tags>exclude_x64</tags>
   </default>
 </test>
 <test>
   <default>
     <files>oom.js</files>
     <compile-flags>-EnableFatalErrorOnOOM- -wasm -args 3 16381 -endargs</compile-flags>
-    <tags>exclude_amd64</tags>
+    <tags>exclude_x64</tags>
   </default>
 </test>
 <test>
@@ -268,7 +317,7 @@
   <default>
     <files>i64cf.js</files>
     <compile-flags>-wasm -maic:0</compile-flags>
-    <tags>exclude_amd64</tags>
+    <tags>exclude_x64</tags>
   </default>
 </test>
 <test>
@@ -282,7 +331,7 @@
   <default>
     <files>cse.js</files>
     <baseline>baselines/cse.baseline</baseline>
-    <compile-flags>-wasm -maic:0 -testtrace:cse:2.0-99.999</compile-flags>
+    <compile-flags>-wasm -maic:0 -WasmAssignModuleID -testtrace:cse:2.0-99.999</compile-flags>
     <tags>exclude_jshost,exclude_drt,exclude_win7,exclude_interpreted,exclude_sanitize_address</tags>
   </default>
 </test>
@@ -291,14 +340,6 @@
     <files>signextend.js</files>
     <compile-flags>-wasm -args --no-verbose -endargs</compile-flags>
     <tags>exclude_jshost,exclude_win7</tags>
-  </default>
-</test>
-<test>
-  <default>
-    <files>unsigned.js</files>
-    <baseline>baselines/unsigned.baseline</baseline>
-    <compile-flags>-wasm</compile-flags>
-    <tags>exclude_jshost,exclude_drt,exclude_win7</tags>
   </default>
 </test>
 <test>
@@ -346,7 +387,7 @@
     <files>limits.js</files>
     <compile-flags>-wasm -args --no-verbose --end 4 -endargs</compile-flags>
     <timeout>300</timeout>
-    <tags>exclude_jshost,exclude_drt,exclude_win7,exclude_chk,exclude_dynapogo,exclude_x86,Slow</tags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7,exclude_debug,exclude_dynapogo,exclude_x86,Slow</tags>
   </default>
 </test>
 <test>
@@ -354,7 +395,7 @@
     <files>limits.js</files>
     <compile-flags>-wasm -args --no-verbose --start 4 --end 12 -endargs</compile-flags>
     <timeout>300</timeout>
-    <tags>exclude_jshost,exclude_drt,exclude_win7,exclude_chk,exclude_dynapogo,exclude_x86,Slow</tags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7,exclude_debug,exclude_dynapogo,exclude_x86,Slow</tags>
   </default>
 </test>
 <test>
@@ -362,7 +403,7 @@
     <files>limits.js</files>
     <compile-flags>-wasm -args --no-verbose --start 12 -endargs</compile-flags>
     <timeout>300</timeout>
-    <tags>exclude_jshost,exclude_drt,exclude_win7,exclude_chk,exclude_dynapogo,exclude_x86,Slow</tags>
+    <tags>exclude_jshost,exclude_drt,exclude_win7,exclude_debug,exclude_dynapogo,exclude_x86,Slow</tags>
   </default>
 </test>
 <test>
@@ -398,6 +439,19 @@
     <files>loopyieldregress.js</files>
     <compile-flags>-lic:0 -bgjit-</compile-flags>
     <tags>exclude_win7</tags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>atomics_test.js</files>
+    <compile-flags>-wasmthreads -ESSharedArrayBuffer -args summary -endargs</compile-flags>
+  </default>
+</test>
+<test>
+  <default>
+    <files>reload.js</files>
+    <compile-flags>-wasmthreads -ESSharedArrayBuffer</compile-flags>
+    <tags>exclude_jshost</tags>
   </default>
 </test>
 </regress-exe>

@@ -234,6 +234,10 @@ typedef unsigned short uint16_t;
         /// </summary>
         JsErrorPromisePending,
         /// <summary>
+        ///     Module was not yet evaluated when JsGetModuleNamespace was called.
+        /// </summary>
+        JsErrorModuleNotEvaluated,
+        /// <summary>
         ///     Category of errors that relates to errors occurring within the engine itself.
         /// </summary>
         JsErrorCategoryEngine = 0x20000,
@@ -454,6 +458,15 @@ typedef unsigned short uint16_t;
         ///     Disable Failfast fatal error on OOM
         /// </summary>
         JsRuntimeAttributeDisableFatalOnOOM = 0x00000080,
+        /// <summary>
+        ///     Runtime will not allocate executable code pages
+        ///     This also implies that Native Code generation will be turned off
+        ///     Note that this will break JavaScript stack decoding in tools
+        //      like WPA since they rely on allocation of unique thunks to
+        //      interpret each function and allocation of those thunks will be
+        //      disabled as well
+        /// </summary>
+        JsRuntimeAttributeDisableExecutablePageAllocation = 0x00000100,
 
     } JsRuntimeAttributes;
 

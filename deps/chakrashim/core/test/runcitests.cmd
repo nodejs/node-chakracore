@@ -86,7 +86,7 @@ set _HadFailures=0
     call :runNativeTests x86 test
     call :runNativeTests x64 debug
     call :runNativeTests x64 test
-    
+
     call :summarizeLogs summary.log
   ) else (
     call :runTests %_BuildArch% %_BuildType% %_ExtraArgs%
@@ -97,11 +97,19 @@ set _HadFailures=0
   call :copyLogsToDrop
 
   echo.
-  if "%_HadFailures%" == "1" (
-    echo -- runcitests.cmd ^>^> Tests failed! 1>&2
+  echo -- runcitests.cmd ^>^> Failure code: %_HadFailures%
+  if "%_HadFailures%" NEQ "0" (
+    if "%_HadFailures%" == "3" (
+      echo -- runcitests.cmd ^>^> Unit tests failed! 1>&2
+    ) else if "%_HadFailures%" == "4" (
+      echo -- runcitests.cmd ^>^> Native tests failed! 1>&2
+    ) else (
+      echo -- runcitests.cmd ^>^> Unknown failure! 1>&2
+    )
   ) else (
     echo -- runcitests.cmd ^>^> Tests passed!
   )
+
   echo -- runcitests.cmd ^>^> Logs at %_DropRootDir%\testlogs
 
   popd
@@ -123,7 +131,10 @@ set _HadFailures=0
 
   call :do %_TestDir%\runtests.cmd -%1%2 %3 -quiet -cleanupall -binDir %_StagingDir%\bin
 
-  if ERRORLEVEL 1 set _HadFailures=1
+  if "%_error%" NEQ "0" (
+    echo -- runcitests.cmd ^>^> runtests.cmd failed
+    set _HadFailures=3
+  )
 
   goto :eof
 
@@ -132,12 +143,20 @@ set _HadFailures=0
 :: ============================================================================
 :runNativeTests
 
-  call :do %_TestDir%\runnativetests.cmd -%1%2 > %_TestDir%\logs\%1_%2\nativetests.log 2>&1
+  echo -- runcitests.cmd ^>^> Running native tests... this can take some time
+  if not exist %_LogDir%\ mkdir %_LogDir%
+  set _LogFile=%_TestDir%\logs\%1_%2\nativetests.log
+  call :do %_TestDir%\runnativetests.cmd -%1%2 -d yes > %_LogFile% 2>&1
+  echo -- runcitests.cmd ^>^> Running native tests... DONE!
 
-  if ERRORLEVEL 1 set _HadFailures=1
+  if "%_error%" NEQ "0" (
+    echo -- runcitests.cmd ^>^> runnativetests.cmd failed; printing %_LogFile%
+    powershell "if (Test-Path %_LogFile%) { Get-Content %_LogFile% }"
+    set _HadFailures=4
+  )
 
   goto :eof
-  
+
 :: ============================================================================
 :: Copy all result logs to the drop share
 :: ============================================================================
@@ -267,6 +286,7 @@ set _HadFailures=0
 
   echo -- runcitests.cmd ^>^> %*
   cmd /s /c "%*"
+  set _error=%ERRORLEVEL%
 
   goto :eof
 
@@ -278,5 +298,6 @@ set _HadFailures=0
 
   echo -- runcitests.cmd ^>^> %* ^> nul 2^>^&1
   cmd /s /c "%* > nul 2>&1"
+  set _error=%ERRORLEVEL%
 
   goto :eof

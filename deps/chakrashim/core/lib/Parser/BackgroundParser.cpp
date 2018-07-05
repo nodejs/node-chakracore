@@ -32,7 +32,8 @@ BackgroundParser::~BackgroundParser()
         static_cast<JsUtil::BackgroundJobProcessor*>(processor)->IterateBackgroundThreads([&](JsUtil::ParallelThreadData *threadData)->bool {
             if (threadData->parser)
             {
-                threadData->parser->Release();
+                // Adelete to make sure dtor are called (since the HashTbl has its NoReleaseAllocator)
+                Adelete(threadData->threadArena, threadData->parser);
                 threadData->parser = nullptr;
             }
             return false;
@@ -79,7 +80,6 @@ bool BackgroundParser::Process(JsUtil::Job *const job, JsUtil::ParallelThreadDat
         // the background thread to decommit its pages.
         threadData->parser = Anew(threadData->threadArena, Parser, this->scriptContext, backgroundItem->IsStrictMode(), &threadData->backgroundPageAllocator, true);
         threadData->pse = Anew(threadData->threadArena, CompileScriptException);
-        threadData->parser->PrepareScanner(backgroundItem->GetParseContext()->fromExternal);
     }
 
     Parser *parser = threadData->parser;
@@ -143,19 +143,20 @@ void BackgroundParser::OnDecommit(JsUtil::ParallelThreadData *threadData)
 {
     if (threadData->parser)
     {
-        threadData->parser->Release();
+        // Adelete to make sure dtor are called (since the HashTbl has its NoReleaseAllocator)
+        Adelete(threadData->threadArena, threadData->parser);
         threadData->parser = nullptr;
     }
 }
 
-BackgroundParseItem * BackgroundParser::NewBackgroundParseItem(Parser *parser, ParseNode *parseNode, bool isDeferred)
+BackgroundParseItem * BackgroundParser::NewBackgroundParseItem(Parser *parser, ParseNodeFnc *parseNode, bool isDeferred)
 {
     BackgroundParseItem *item = Anew(parser->GetAllocator(), BackgroundParseItem, this, parser, parseNode, isDeferred);
     parser->AddBackgroundParseItem(item);
     return item;
 }
 
-bool BackgroundParser::ParseBackgroundItem(Parser *parser, ParseNode *parseNode, bool isDeferred)
+bool BackgroundParser::ParseBackgroundItem(Parser *parser, ParseNodeFnc *parseNode, bool isDeferred)
 {
     ASSERT_THREAD();
 
@@ -255,7 +256,7 @@ BackgroundParseItem *BackgroundParser::GetNextUnprocessedItem() const
     return nullptr;
 }
 
-BackgroundParseItem::BackgroundParseItem(JsUtil::JobManager *const manager, Parser *const parser, ParseNode *parseNode, bool defer)
+BackgroundParseItem::BackgroundParseItem(JsUtil::JobManager *const manager, Parser *const parser, ParseNodeFnc *parseNode, bool defer)
     : JsUtil::Job(manager),
       maxBlockId((uint)-1),
       strictMode(parser->IsStrictMode()),

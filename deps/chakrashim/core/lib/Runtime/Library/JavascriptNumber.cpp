@@ -673,7 +673,7 @@ namespace Js
         {
             return ToStringNan(scriptContext);
         }
-        if(value >= 1e21)
+        if(value >= 1e21 || value <= -1e21)
         {
             return ToStringRadix10(value, scriptContext);
         }
@@ -777,14 +777,22 @@ namespace Js
                 JavascriptFunction* func = intlExtensionObject->GetNumberToLocaleString();
                 if (func)
                 {
-                    return JavascriptString::FromVar(func->CallFunction(args));
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return JavascriptString::FromVar(func->CallFunction(args));
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
                 // Initialize Number.prototype.toLocaleString
                 scriptContext->GetLibrary()->InitializeIntlForNumberPrototype();
                 func = intlExtensionObject->GetNumberToLocaleString();
                 if (func)
                 {
-                    return JavascriptString::FromVar(func->CallFunction(args));
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return JavascriptString::FromVar(func->CallFunction(args));
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
             }
         }
@@ -921,7 +929,8 @@ namespace Js
         }
     }
 
-    static const int bufSize = 256;
+    // The largest string representing a number is the base 2 representation of -Math.pow(2,-1073), at 1076 characters.
+    static const int bufSize = 1280;
 
     JavascriptString* JavascriptNumber::ToString(double value, ScriptContext* scriptContext)
     {

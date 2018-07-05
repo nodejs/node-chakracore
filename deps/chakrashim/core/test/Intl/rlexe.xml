@@ -2,43 +2,27 @@
 <regress-exe>
   <test>
     <default>
-      <files>Basics.js</files>
-      <tags>Intl</tags>
-      <compile-flags>-args summary -endargs</compile-flags>
-    </default>
-  </test>
-
-  <test>
-    <default>
       <files>Collator.js</files>
-      <tags>Intl,require_winglob</tags>
-    </default>
-  </test>
-  <test>
-    <default>
-      <files>CollatorOptions.js</files>
-      <compile-flags>-args summary -endargs</compile-flags>
-      <tags>Intl,require_winglob</tags>
-    </default>
-  </test>
-  <test>
-    <default>
-      <files>DateTimeFormatInvalidOptions.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
       <tags>Intl</tags>
     </default>
   </test>
   <test>
     <default>
-      <files>DateTimeFormatOptions.js</files>
+      <files>common.js</files>
+      <tags>Intl</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>DateTimeFormat.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
-      <tags>Intl,require_winglob</tags>
+      <tags>Intl</tags>
     </default>
   </test>
   <test>
     <default>
       <files>NumberFormat.js</files>
-      <compile-flags>-args summary -endargs</compile-flags>
       <tags>Intl,exclude_drt</tags>
     </default>
   </test>
@@ -49,7 +33,6 @@
       <tags>Intl</tags>
     </default>
   </test>
-
   <test>
     <default>
       <files>GetCanonicalLocales.js</files>
@@ -61,7 +44,7 @@
     <default>
       <files>SupportedLocalesOf.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
-      <tags>Intl,require_winglob</tags>
+      <tags>Intl</tags>
     </default>
   </test>
   <test>
@@ -86,15 +69,6 @@
   </test>
   <test>
     <default>
-      <compile-flags>-Intl -JsBuiltIn-</compile-flags>
-      <files>IntlTaintingTests.js</files>
-      <baseline>IntlTaintingTests.baseline</baseline>
-      <tags>Intl,exclude_winglob</tags>
-    </default>
-  </test>
-
-  <test>
-    <default>
       <files>IntlBuiltIns.js</files>
       <tags>Intl</tags>
     </default>
@@ -110,10 +84,9 @@
     <default>
       <compile-flags> -Intl -debugLaunch -dbgbaseline:IntlReturnedValueTests.js.dbg.baseline</compile-flags>
       <files>IntlReturnedValueTests.js</files>
-      <tags>Intl,require_winglob</tags>
+      <tags>Intl,require_winglob</tags> <!-- require_winglob because the baseline contains embedded bi-di markers -->
     </default>
   </test>
-
   <test>
     <default>
       <!-- TODO investigate why -ExtendedErrorStackForTestHost inserts tabs at the beginning of some frames (Microsoft/ChakraCore#3130) -->
@@ -130,6 +103,19 @@
       <baseline>IntlInternalsHiddenFromFirstChanceExceptionStackTest.baseline</baseline>
       <compile-flags>-ExtendedErrorStackForTestHost-</compile-flags>
       <tags>Intl</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>IntlPlatform.js</files>
+      <compile-flags>-IntlPlatform</compile-flags>
+      <tags>Intl,exclude_windows</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>PluralRules.js</files>
+      <tags>Intl,exclude_windows</tags>
     </default>
   </test>
 

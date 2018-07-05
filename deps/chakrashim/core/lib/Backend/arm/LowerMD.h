@@ -101,6 +101,7 @@ public:
             void            GenerateClz(IR::Instr * instr);
             void            GenerateCtz(IR::Instr * instr) { Assert(UNREACHED); }
             void            GeneratePopCnt(IR::Instr * instr) { Assert(UNREACHED); }
+            template <bool Saturate>
             void            GenerateTruncWithCheck(IR::Instr * instr) { Assert(UNREACHED); }
             void            GenerateFastDivByPow2(IR::Instr *instr);
             bool            GenerateFastAdd(IR::Instr * instrAdd);
@@ -111,6 +112,7 @@ public:
             bool            GenerateFastOr(IR::Instr * instrOr);
             bool            GenerateFastNot(IR::Instr * instrNot);
             bool            GenerateFastNeg(IR::Instr * instrNeg);
+            bool            GenerateFastDivAndRem(IR::Instr* instrDiv, IR::LabelInstr* bailOutLabel = false);
             bool            GenerateFastShiftLeft(IR::Instr * instrShift);
             bool            GenerateFastShiftRight(IR::Instr * instrShift);
             void            GenerateFastBrS(IR::BranchInstr *brInstr);
@@ -120,7 +122,6 @@ public:
             void            GenerateSmIntTest(IR::Opnd *opndSrc, IR::Instr *insertInstr, IR::LabelInstr *labelHelper, IR::Instr **instrFirst = nullptr, bool fContinueLabel = false);
             IR::RegOpnd *   LoadNonnegativeIndex(IR::RegOpnd *indexOpnd, const bool skipNegativeCheck, IR::LabelInstr *const notTaggedIntLabel, IR::LabelInstr *const negativeLabel, IR::Instr *const insertBeforeInstr);
             IR::RegOpnd *   GenerateUntagVar(IR::RegOpnd * opnd, IR::LabelInstr * labelFail, IR::Instr * insertBeforeInstr, bool generateTagCheck = true);
-            bool            GenerateFastLdMethodFromFlags(IR::Instr * instrLdFld);
             void            GenerateInt32ToVarConversion( IR::Opnd * opndSrc, IR::Instr * insertInstr );
             IR::Instr *     GenerateFastScopedFld(IR::Instr * instrScopedFld, bool isLoad);
             IR::Instr *     GenerateFastScopedLdFld(IR::Instr * instrLdFld);
@@ -161,7 +162,9 @@ public:
             IR::Instr *         LowerStartCall(IR::Instr * instr);
             IR::Instr *         LowerAsmJsCallI(IR::Instr * callInstr) { Assert(UNREACHED); return nullptr; }
             IR::Instr *         LowerAsmJsCallE(IR::Instr * callInstr) { Assert(UNREACHED); return nullptr; }
-            IR::Instr *         LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd) { Assert(UNREACHED); return nullptr; }
+            IR::Instr *         LowerWasmArrayBoundsCheck(IR::Instr * instr, IR::Opnd *addrOpnd) { Assert(UNREACHED); return nullptr; }
+            void                LowerAtomicStore(IR::Opnd * dst, IR::Opnd * src1, IR::Instr * insertBeforeInstr) { Assert(UNREACHED); }
+            void                LowerAtomicLoad(IR::Opnd* dst, IR::Opnd* src1, IR::Instr* insertBeforeInstr) { Assert(UNREACHED); }
             IR::Instr *         LowerAsmJsStElemHelper(IR::Instr * callInstr) { Assert(UNREACHED); return nullptr; }
             IR::Instr *         LowerAsmJsLdElemHelper(IR::Instr * callInstr) { Assert(UNREACHED); return nullptr; }
             IR::Instr *         LowerCallIDynamic(IR::Instr *callInstr, IR::Instr*saveThisArgOutInstr, IR::Opnd *argsLength, ushort callFlags, IR::Instr * insertBeforeInstrForCFG = nullptr);
@@ -272,5 +275,4 @@ protected:
     IR::Opnd *          helperCallArgs[MaxArgumentsToHelper];
 
     void                FlipHelperCallArgsOrder();
-
 };

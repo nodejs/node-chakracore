@@ -37,6 +37,7 @@ namespace Js
         JavascriptString * MoveAndGetNextNoCache(PropertyId& propertyId, PropertyAttributes * attributes);
 
         void Initialize(DynamicType * type, CachedData * data, Js::BigPropertyIndex initialPropertyCount);
+        BigPropertyIndex PropertyIndexToPropertyEnumeration(BigPropertyIndex index) const { return object->GetTypeHandler()->PropertyIndexToPropertyEnumeration(index); }
     public:
         DynamicObject * GetObject() const { return object; }
         EnumeratorFlags GetFlags() const { return flags; }
@@ -45,9 +46,8 @@ namespace Js
         bool GetSnapShotSemantics() const;
         bool GetUseCache() const;
         ScriptContext * GetScriptContext() const { return scriptContext; }
-        BigPropertyIndex GetInitialPropertyCount() const { return this->initialPropertyCount; }
 
-        bool Initialize(DynamicObject * object, EnumeratorFlags flags, ScriptContext * requestContext, ForInCache * forInCache);
+        bool Initialize(DynamicObject * object, EnumeratorFlags flags, ScriptContext * requestContext, EnumeratorCache * enumeratorCache);
         bool IsNullEnumerator() const;
         void Reset();
         void Clear(EnumeratorFlags flags, ScriptContext * requestContext);

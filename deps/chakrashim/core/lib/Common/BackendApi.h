@@ -50,7 +50,6 @@ typedef double  FloatConstType;
 #include "IRType.h"
 #include "InlineeFrameInfo.h"
 #include "CodeGenAllocators.h"
-#include "PropertyGuard.h"
 
 NativeCodeGenerator * NewNativeCodeGenerator(Js::ScriptContext * nativeCodeGen);
 void DeleteNativeCodeGenerator(NativeCodeGenerator * nativeCodeGen);
@@ -73,7 +72,7 @@ void GenerateAllFunctions(NativeCodeGenerator * nativeCodeGen, Js::FunctionBody 
 Js::Var RejitIRViewerFunction(NativeCodeGenerator *nativeCodeGen, Js::FunctionBody *fn, Js::ScriptContext *scriptContext);
 #endif
 #ifdef ALLOW_JIT_REPRO
-HRESULT JitFromEncodedWorkItem(NativeCodeGenerator *nativeCodeGen, _In_reads_(bufSize) const byte* buffer, _In_ uint bufferSize);
+HRESULT JitFromEncodedWorkItem(NativeCodeGenerator *nativeCodeGen, _In_reads_(bufferSize) const byte* buffer, _In_ uint bufferSize);
 #endif
 
 BOOL IsIntermediateCodeGenThunk(Js::JavascriptMethod codeAddress);
@@ -213,6 +212,7 @@ enum LibraryValue {
     ValueNegativeZero,
     ValueNumberTypeStatic,
     ValueStringTypeStatic,
+    ValueSymbolTypeStatic,
     ValueObjectType,
     ValueObjectHeaderInlinedType,
     ValueRegexType,
@@ -275,6 +275,8 @@ enum VTableValue {
     VtableJavascriptGeneratorFunction,
     VtableJavascriptAsyncFunction,
     VtableStackScriptFunction,
+    VtableScriptFunctionWithInlineCacheAndHomeObj,
+    VtableScriptFunctionWithInlineCacheHomeObjAndComputedName,
     VtableConcatStringMulti,
     VtableCompoundString,
     // SIMD_JS

@@ -34,13 +34,11 @@
   <test>
     <default>
       <files>array_map.js</files>
-      <baseline>array_map.baseline</baseline>
     </default>
   </test>
   <test>
     <default>
       <files>array_filter.js</files>
-      <baseline>array_filter.baseline</baseline>
     </default>
   </test>
   <test>
@@ -81,6 +79,11 @@
   </test>
   <test>
     <default>
+      <files>ObjLitGetSet2.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>ObjLitGetSetParseOnly.js</files>
       <baseline>ObjLitGetSetParseOnly.baseline</baseline>
     </default>
@@ -90,7 +93,7 @@
       <compile-flags>-Force:Deferparse</compile-flags>
       <files>ObjLitGetSetParseOnly.js</files>
       <baseline>ObjLitGetSetParseOnlyFdp.baseline</baseline>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
     </default>
   </test>
   <test>
@@ -126,7 +129,7 @@
   <test>
     <default>
       <compile-flags>-ForceES5Array</compile-flags>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
       <files>array_length.js</files>
       <baseline>array_length.baseline</baseline>
     </default>
@@ -134,7 +137,7 @@
   <test>
     <default>
       <files>ES5ArrayIndexList.js</files>
-      <tags>exclude_chk,Slow</tags>
+      <tags>exclude_debug,Slow</tags>
       <timeout>900</timeout>
     </default>
   </test>
@@ -182,6 +185,16 @@
     <default>
       <files>hasItem.js</files>
       <baseline>hasItem.baseline</baseline>
+      <!-- Bug 16538950: jshost - adapt the ch change to support printing strings with U+0000 (NULL) -->
+      <tags>exclude_jshost</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>hasItem.js</files>
+      <baseline>hasItem.jshost.baseline</baseline>
+      <!-- Bug 16538950: jshost - adapt the ch change to support printing strings with U+0000 (NULL) -->
+      <tags>exclude_ch</tags>
     </default>
   </test>
   <test>
@@ -259,7 +272,7 @@
       <compile-flags>-Force:Deferparse</compile-flags>
       <files>settersArguments.js</files>
       <baseline>settersArguments.baseline</baseline>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
     </default>
   </test>
   <test>
@@ -347,6 +360,11 @@
   <test>
     <default>
       <files>es5_defineProperty_arrayLength.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>strictdefaultsetter.js</files>
     </default>
   </test>
 </regress-exe>

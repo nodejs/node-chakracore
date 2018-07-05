@@ -6,4 +6,10 @@
       <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
+  <test>
+    <default>
+      <files>InvalidCharacter.js</files>
+      <baseline>InvalidCharacter.baseline</baseline>
+    </default>
+  </test>
 </regress-exe>

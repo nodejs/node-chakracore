@@ -4,13 +4,11 @@
 //-------------------------------------------------------------------------------------------------------
 
 #include "RuntimePlatformAgnosticPch.h"
-
-#ifdef _WIN32
-// Windows Specific implementation
 #include "UnicodeText.h"
+#include "UnicodeTextInternal.h"
+
 #include <windows.h>
 #include "Runtime.h"
-#include "Base/ThreadContext.h"
 #ifdef NTBUILD
 #include "Windows.Globalization.h"
 #else
@@ -124,7 +122,50 @@ namespace PlatformAgnostic
             return 0;
         }
 
-        // Helper wrapper methods
+        CharacterClassificationType GetLegacyCharacterClassificationType(char16 ch)
+        {
+            WORD charType = 0;
+            BOOL res = ::GetStringTypeW(CT_CTYPE1, &ch, 1, &charType);
+
+            if (res == TRUE)
+            {
+                // BOM ( 0xfeff) is recognized as GetStringTypeW as WS.
+                if ((0x03FF & charType) == 0x0200)
+                {
+                    // Some of the char types changed for Whistler (Unicode 3.0).
+                    // They will return 0x0200 on Whistler, indicating a defined char
+                    // with no type attributes. We want to continue to support these
+                    // characters, so we return the Win2K (Unicode 2.1) attributes.
+                    // We only return the ones we care about - ALPHA for ALPHA, PUNCT
+                    // for PUNCT or DIGIT, and SPACE for SPACE or BLANK.
+                    WORD wOldCharType = oFindOldCharType(ch);
+                    if (0 == wOldCharType)
+                    {
+                        return CharacterClassificationType::Invalid;
+                    }
+
+                    charType = wOldCharType;
+                }
+
+                if (charType & C1_ALPHA)
+                {
+                    return CharacterClassificationType::Letter;
+                }
+                else if (charType & (C1_DIGIT | C1_PUNCT))
+                {
+                    return CharacterClassificationType::DigitOrPunct;
+                }
+                else if (charType & (C1_SPACE | C1_BLANK))
+                {
+                    return CharacterClassificationType::Whitespace;
+                }
+            }
+
+            return CharacterClassificationType::Invalid;
+        }
+
+// Everything below this has a preferred ICU implementation in Platform\Common\UnicodeText.ICU.cpp
+#ifndef HAS_ICU
         template <typename TRet, typename Fn>
         static TRet ExecuteWithThreadContext(Fn fn, TRet defaultValue)
         {
@@ -144,7 +185,6 @@ namespace PlatformAgnostic
             return defaultValue;
         }
 
-#ifdef INTL_WINGLOB
         template <typename Fn, typename TDefaultValue>
         static TDefaultValue ExecuteWinGlobApi(Fn fn, TDefaultValue defaultValue)
         {
@@ -174,7 +214,6 @@ namespace PlatformAgnostic
                 return (returnValue != 0);
             }, false);
         }
-#endif
 
         // Helper Win32 conversion utilities
         static NORM_FORM TranslateToWin32NormForm(NormalizationForm normalizationForm)
@@ -256,59 +295,50 @@ namespace PlatformAgnostic
             return (::IsNormalizedString(TranslateToWin32NormForm(normalizationForm), (LPCWSTR)testString, testStringLength) == TRUE);
         }
 
-        int32 ChangeStringLinguisticCase(CaseFlags caseFlags, const char16* sourceString, uint32 sourceLength, char16* destString, uint32 destLength, ApiError* pErrorOut)
+        template<bool toUpper, bool useInvariant>
+        charcount_t ChangeStringLinguisticCase(const char16* sourceString, charcount_t sourceLength, char16* destString, charcount_t destLength, ApiError* pErrorOut)
         {
-            // Assert pointers
-            Assert(sourceString != nullptr);
+            Assert(sourceString != nullptr && sourceLength > 0);
             Assert(destString != nullptr || destLength == 0);
-
-            // LCMapString does not allow the source length to be set to 0
-            Assert(sourceLength > 0);
 
             *pErrorOut = NoError;
 
-            DWORD dwFlags = caseFlags == CaseFlags::CaseFlagsUpper ? LCMAP_UPPERCASE : LCMAP_LOWERCASE;
+            DWORD dwFlags = toUpper ? LCMAP_UPPERCASE : LCMAP_LOWERCASE;
             dwFlags |= LCMAP_LINGUISTIC_CASING;
 
-            LCID lcid = GetUserDefaultLCID();
+            // REVIEW: The documentation for LCMapStringEx says that it returns "the number of characters or bytes in the translated string
+            // or sort key, including a terminating null character, if successful." However, in testing, this does not seem to be the case,
+            // as it always returns the count of characters without the null terminator.
+            // See https://msdn.microsoft.com/en-us/library/windows/desktop/dd318702(v=vs.85).aspx
+            int required = LCMapStringEx(
+                useInvariant ? LOCALE_NAME_INVARIANT : LOCALE_NAME_USER_DEFAULT,
+                dwFlags,
+                sourceString,
+                sourceLength,
+                destString,
+                destLength,
+                nullptr,
+                nullptr,
+                0
+            );
 
-            int translatedStringLength = LCMapStringW(lcid, dwFlags, sourceString, sourceLength, destString, destLength);
+            Assert(required >= 0);
+            if (destString != nullptr)
+            {
+                Assert(static_cast<charcount_t>(required) == destLength - 1);
+                destString[required] = 0;
+            }
 
-            if (translatedStringLength == 0)
+            if (required == 0)
             {
                 *pErrorOut = TranslateWin32Error(::GetLastError());
             }
 
-            Assert(translatedStringLength >= 0);
-            return (uint32) translatedStringLength;
-        }
-
-        uint32 ChangeStringCaseInPlace(CaseFlags caseFlags, char16* sourceString, uint32 sourceLength)
-        {
-            // Assert pointers
-            Assert(sourceString != nullptr);
-
-            if (sourceLength == 0 || sourceString == nullptr)
-            {
-                return 0;
-            }
-
-            if (caseFlags == CaseFlagsUpper)
-            {
-                return (uint32) CharUpperBuff(sourceString, sourceLength);
-            }
-            else if (caseFlags == CaseFlagsLower)
-            {
-                return (uint32) CharLowerBuff(sourceString, sourceLength);
-            }
-
-            AssertMsg(false, "Invalid flags passed to ChangeStringCaseInPlace");
-            return 0;
+            return static_cast<charcount_t>(required);
         }
 
         UnicodeGeneralCategoryClass GetGeneralCategoryClass(codepoint_t codepoint)
         {
-#ifdef INTL_WINGLOB
             return ExecuteWinGlobApi([&](IUnicodeCharactersStatics* pUnicodeCharStatics) {
                 UnicodeGeneralCategory category = UnicodeGeneralCategory::UnicodeGeneralCategory_NotAssigned;
 
@@ -346,51 +376,30 @@ namespace PlatformAgnostic
 
                 return UnicodeGeneralCategoryClass::CategoryClassOther;
             }, UnicodeGeneralCategoryClass::CategoryClassOther);
-#else
-            // TODO (doilij) implement with ICU
-            return UnicodeGeneralCategoryClass::CategoryClassOther;
-#endif
         }
 
         bool IsIdStart(codepoint_t codepoint)
         {
-#ifdef INTL_WINGLOB
             return ExecuteWinGlobCodepointCheckApi(codepoint, &IUnicodeCharactersStatics::IsIdStart);
-#else
-            // TODO (doilij) implement with ICU
-            return false;
-#endif
         }
 
         bool IsIdContinue(codepoint_t codepoint)
         {
-#ifdef INTL_WINGLOB
             return ExecuteWinGlobCodepointCheckApi(codepoint, &IUnicodeCharactersStatics::IsIdContinue);
-#else
-            // TODO (doilij) implement with ICU
-            return false;
-#endif
         }
 
         bool IsWhitespace(codepoint_t codepoint)
         {
-#ifdef INTL_WINGLOB
             return ExecuteWinGlobCodepointCheckApi(codepoint, &IUnicodeCharactersStatics::IsWhitespace);
-#else
-            // TODO (doilij) implement with ICU
-            return false;
-#endif
         }
 
         bool IsExternalUnicodeLibraryAvailable()
         {
-#ifdef INTL_WINGLOB
             return ExecuteWithThreadContext([](ThreadContext* threadContext) {
                 Js::WindowsGlobalizationAdapter* globalizationAdapter = threadContext->GetWindowsGlobalizationAdapter();
                 Js::DelayLoadWindowsGlobalization* globLibrary = threadContext->GetWindowsGlobalizationLibrary();
                 HRESULT hr = globalizationAdapter->EnsureDataTextObjectsInitialized(globLibrary);
-                // Failed to load windows.globalization.dll or jsintl.dll. No unicodeStatics support
-                // in that case.
+                // Failed to load windows.globalization.dll or jsintl.dll. No unicodeStatics support in that case.
                 if (SUCCEEDED(hr))
                 {
                     auto winGlobCharApi = globalizationAdapter->GetUnicodeStatics();
@@ -398,14 +407,24 @@ namespace PlatformAgnostic
                     {
                         return true;
                     }
+#if INTL_ICU || INTL_WINGLOB // don't assert in _no_icu builds (where there is no i18n library, by design)
+                    else
+                    {
+                        // did not find winGlobCharApi
+                        Js::Throw::FatalInternalGlobalizationError();
+                    }
+                }
+                else
+                {
+                    // failed to initialize Windows Globalization
+                    Js::Throw::FatalInternalGlobalizationError();
+#endif
                 }
 
-                return false;
-            }, false);
-#else
-            // TODO (doilij) implement with ICU
-            return false;
+#if (INTL_ICU || INTL_WINGLOB) && !defined(DBG)
+                return false; // in debug builds, this is unreachable code
 #endif
+            }, false);
         }
 
         int LogicalStringCompare(const char16* string1, const char16* string2)
@@ -416,51 +435,6 @@ namespace PlatformAgnostic
 
             return i - CSTR_EQUAL;
         }
-
-        // Win32 implementation of platform-agnostic Unicode interface
-        // These are the public APIs of this interface
-        CharacterClassificationType GetLegacyCharacterClassificationType(char16 ch)
-        {
-            WORD charType = 0;
-            BOOL res = ::GetStringTypeW(CT_CTYPE1, &ch, 1, &charType);
-
-            if (res == TRUE)
-            {
-                // BOM ( 0xfeff) is recognized as GetStringTypeW as WS.
-                if ((0x03FF & charType) == 0x0200)
-                {
-                    // Some of the char types changed for Whistler (Unicode 3.0).
-                    // They will return 0x0200 on Whistler, indicating a defined char
-                    // with no type attributes. We want to continue to support these
-                    // characters, so we return the Win2K (Unicode 2.1) attributes.
-                    // We only return the ones we care about - ALPHA for ALPHA, PUNCT
-                    // for PUNCT or DIGIT, and SPACE for SPACE or BLANK.
-                    WORD wOldCharType = oFindOldCharType(ch);
-                    if (0 == wOldCharType)
-                    {
-                        return CharacterClassificationType::Invalid;
-                    }
-
-                    charType = wOldCharType;
-                }
-
-                if (charType & C1_ALPHA)
-                {
-                    return CharacterClassificationType::Letter;
-                }
-                else if (charType & (C1_DIGIT | C1_PUNCT))
-                {
-                    return CharacterClassificationType::DigitOrPunct;
-                }
-                else if (charType & (C1_SPACE | C1_BLANK))
-                {
-                    return CharacterClassificationType::Whitespace;
-                }
-            }
-
-            return CharacterClassificationType::Invalid;
-        }
+#endif // HAS_ICU
     };
 };
-
-#endif

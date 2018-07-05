@@ -103,6 +103,17 @@ struct StackLiteralInitFldData
 typedef JsUtil::BaseDictionary<StackSym *, StackLiteralInitFldData, JitArenaAllocator> StackLiteralInitFldDataMap;
 
 typedef SList<GlobHashBucket*, JitArenaAllocator> PRECandidatesList;
+class PRECandidates
+{
+public:
+    PRECandidates() : candidatesToProcess(nullptr), candidatesBv(nullptr), candidatesList(nullptr) {}
+
+public:
+    BVSparse<JitArenaAllocator> * candidatesToProcess;
+    BVSparse<JitArenaAllocator> * candidatesBv;
+    PRECandidatesList * candidatesList;
+};
+
 
 class GlobOptBlockData
 {
@@ -118,11 +129,6 @@ public:
         liveInt32Syms(nullptr),
         liveLossyInt32Syms(nullptr),
         liveFloat64Syms(nullptr),
-#ifdef ENABLE_SIMDJS
-        liveSimd128F4Syms(nullptr),
-        liveSimd128I4Syms(nullptr),
-#endif
-        hoistableFields(nullptr),
         argObjSyms(nullptr),
         maybeTempObjectSyms(nullptr),
         canStoreTempObjectSyms(nullptr),
@@ -162,13 +168,6 @@ public:
     // Conversely, a lossless int32 sym can be reused to avoid a lossy conversion.
     BVSparse<JitArenaAllocator> *           liveLossyInt32Syms;
     BVSparse<JitArenaAllocator> *           liveFloat64Syms;
-
-#ifdef ENABLE_SIMDJS
-    // SIMD_JS
-    BVSparse<JitArenaAllocator> *           liveSimd128F4Syms;
-    BVSparse<JitArenaAllocator> *           liveSimd128I4Syms;
-#endif
-    BVSparse<JitArenaAllocator> *           hoistableFields;
     BVSparse<JitArenaAllocator> *           argObjSyms;
     BVSparse<JitArenaAllocator> *           maybeTempObjectSyms;
     BVSparse<JitArenaAllocator> *           canStoreTempObjectSyms;
@@ -241,22 +240,6 @@ public:
         return false;
     }
 
-#ifdef ENABLE_SIMDJS
-    // SIMD_JS
-    BVSparse<JitArenaAllocator> * GetSimd128LivenessBV(IRType type)
-    {
-        switch (type)
-        {
-        case TySimd128F4:
-            return liveSimd128F4Syms;
-        case TySimd128I4:
-            return liveSimd128I4Syms;
-        default:
-            Assert(UNREACHED);
-            return nullptr;
-        }
-    }
-#endif
     // Functions pulled out of GlobOpt.cpp
 
     // Initialization/copying/moving
@@ -269,7 +252,7 @@ public:
     void                    CloneBlockData(BasicBlock *const toBlock, BasicBlock *const fromBlock);
 
 public:
-    void                    RemoveUnavailableCandidates(PRECandidatesList *candidates);
+    void                    RemoveUnavailableCandidates(PRECandidates *candidates);
 
     // Merging functions
 public:
@@ -329,17 +312,6 @@ public:
     bool                    IsSwitchInt32TypeSpecialized(IR::Instr const * instr) const;
     bool                    IsInt32TypeSpecialized(Sym const * sym) const;
     bool                    IsFloat64TypeSpecialized(Sym const * sym) const;
-
-#ifdef ENABLE_SIMDJS
-    // SIMD_JS
-    bool                    IsSimd128TypeSpecialized(Sym const * sym) const;
-    bool                    IsSimd128TypeSpecialized(IRType type, Sym const * sym) const;
-    bool                    IsSimd128F4TypeSpecialized(Sym const * sym) const;
-    bool                    IsSimd128I4TypeSpecialized(Sym const * sym) const;
-    bool                    IsLiveAsSimd128(Sym const * sym) const;
-    bool                    IsLiveAsSimd128F4(Sym const * sym) const;
-    bool                    IsLiveAsSimd128I4(Sym const * sym) const;
-#endif
 
     // Changed Symbol Tracking
 public:

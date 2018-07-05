@@ -3,18 +3,17 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeTypePch.h"
-#include "Library/JavascriptSymbol.h"
 
 namespace Js
 {
 
     bool JavascriptStaticEnumerator::Initialize(JavascriptEnumerator * prefixEnumerator, ArrayObject * arrayToEnumerate,
-        DynamicObject * objectToEnumerate, EnumeratorFlags flags, ScriptContext * requestContext, ForInCache * forInCache)
+        DynamicObject * objectToEnumerate, EnumeratorFlags flags, ScriptContext * requestContext, EnumeratorCache * enumeratorCache)
     {
         this->prefixEnumerator = prefixEnumerator;
         this->arrayEnumerator = arrayToEnumerate ? arrayToEnumerate->GetIndexEnumerator(flags, requestContext) : nullptr;
         this->currentEnumerator = prefixEnumerator ? prefixEnumerator : PointerValue(arrayEnumerator);
-        return this->propertyEnumerator.Initialize(objectToEnumerate, flags, requestContext, forInCache);
+        return this->propertyEnumerator.Initialize(objectToEnumerate, flags, requestContext, enumeratorCache);
     }
 
     void JavascriptStaticEnumerator::Clear(EnumeratorFlags flags, ScriptContext * requestContext)

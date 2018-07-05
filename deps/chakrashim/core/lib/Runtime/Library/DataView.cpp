@@ -116,6 +116,12 @@ namespace Js
             mappedLength = byteLength - offset;
         }
 
+        // Evaluation of the argument(s) above is reentrant and can detach the array.
+        if (arrayBuffer->IsDetached())
+        {
+            JavascriptError::ThrowTypeError(scriptContext, JSERR_DetachedTypedArray);
+        }
+
         //10.   Let O be OrdinaryCreateFromConstructor(NewTarget, "%DataViewPrototype%", [[DataView]], [[ViewedArrayBuffer]], [[ByteLength]], [[ByteOffset]]).
         //11.   Set O's[[DataView]] internal slot to true.
         //12.   Set O's[[ViewedArrayBuffer]] internal slot to buffer.
@@ -159,8 +165,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->template GetValue<int8>(offset, _u("DataView.prototype.GetInt8"), FALSE);
+        return dataView->template GetValue<int8>(args[1], _u("DataView.prototype.GetInt8"), FALSE);
     }
 
     Var DataView::EntryGetUint8(RecyclableObject* function, CallInfo callInfo, ...)
@@ -182,8 +187,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->GetValue<uint8>(offset, _u("DataView.prototype.GetUint8"), FALSE);
+        return dataView->GetValue<uint8>(args[1], _u("DataView.prototype.GetUint8"), FALSE);
     }
 
     Var DataView::EntryGetInt16(RecyclableObject* function, CallInfo callInfo, ...)
@@ -210,8 +214,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->GetValue<int16>(offset, _u("DataView.prototype.GetInt16"), isLittleEndian);
+        return dataView->GetValue<int16>(args[1], _u("DataView.prototype.GetInt16"), isLittleEndian);
     }
 
     Var DataView::EntryGetUint16(RecyclableObject* function, CallInfo callInfo, ...)
@@ -238,8 +241,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->template GetValue<uint16>(offset, _u("DataView.prototype.GetUint16"), isLittleEndian);
+        return dataView->template GetValue<uint16>(args[1], _u("DataView.prototype.GetUint16"), isLittleEndian);
     }
 
     Var DataView::EntryGetUint32(RecyclableObject* function, CallInfo callInfo, ...)
@@ -266,8 +268,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->GetValue<uint32>(offset, _u("DataView.prototype.GetUint32"), isLittleEndian);
+        return dataView->GetValue<uint32>(args[1], _u("DataView.prototype.GetUint32"), isLittleEndian);
     }
 
     Var DataView::EntryGetInt32(RecyclableObject* function, CallInfo callInfo, ...)
@@ -294,8 +295,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->GetValue<int32>(offset, _u("DataView.prototype.GetInt32"), isLittleEndian);
+        return dataView->GetValue<int32>(args[1], _u("DataView.prototype.GetInt32"), isLittleEndian);
     }
 
     Var DataView::EntryGetFloat32(RecyclableObject* function, CallInfo callInfo, ...)
@@ -322,8 +322,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->GetValueWithCheck<float>(offset, _u("DataView.prototype.GetFloat32"), isLittleEndian);
+        return dataView->GetValueWithCheck<float>(args[1], _u("DataView.prototype.GetFloat32"), isLittleEndian);
     }
 
     Var DataView::EntryGetFloat64(RecyclableObject* function, CallInfo callInfo, ...)
@@ -350,8 +349,7 @@ namespace Js
         }
 
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
-        return dataView->GetValueWithCheck<double>(offset, _u("DataView.prototype.GetFloat64"), isLittleEndian);
+       return dataView->GetValueWithCheck<double>(args[1], _u("DataView.prototype.GetFloat64"), isLittleEndian);
     }
 
     Var DataView::EntrySetInt8(RecyclableObject* function, CallInfo callInfo, ...)
@@ -372,9 +370,8 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument,  _u("offset or value"));
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         int8 value = JavascriptConversion::ToInt8(args[2], scriptContext);
-        dataView->SetValue<int8>(offset, value, _u("DataView.prototype.SetInt8"));
+        dataView->SetValue<int8>(args[1], value, _u("DataView.prototype.SetInt8"));
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -396,9 +393,8 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument,  _u("offset or value"));
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         uint8 value = JavascriptConversion::ToUInt8(args[2], scriptContext);
-        dataView->SetValue<uint8>(offset, value, _u("DataView.prototype.SetUint8"));
+        dataView->SetValue<uint8>(args[1], value, _u("DataView.prototype.SetUint8"));
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -421,13 +417,12 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument,  _u("offset or value"));
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         int16 value = JavascriptConversion::ToInt16(args[2], scriptContext);
         if (args.Info.Count > 3)
         {
             isLittleEndian = JavascriptConversion::ToBoolean(args[3], scriptContext);
         }
-        dataView->SetValue<int16>(offset, value, _u("DataView.prototype.SetInt16"), isLittleEndian);
+        dataView->SetValue<int16>(args[1], value, _u("DataView.prototype.SetInt16"), isLittleEndian);
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -450,13 +445,12 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument, _u("offset or value"));
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         uint16 value = JavascriptConversion::ToUInt16(args[2], scriptContext);
         if (args.Info.Count > 3)
         {
             isLittleEndian = JavascriptConversion::ToBoolean(args[3], scriptContext);
         }
-        dataView->SetValue<uint16>(offset, value, _u("DataView.prototype.SetUint16"), isLittleEndian);
+        dataView->SetValue<uint16>(args[1], value, _u("DataView.prototype.SetUint16"), isLittleEndian);
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -479,13 +473,12 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument,  _u("offset or value"));
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         int32 value = JavascriptConversion::ToInt32(args[2], scriptContext);
         if (args.Info.Count > 3)
         {
             isLittleEndian = JavascriptConversion::ToBoolean(args[3], scriptContext);
         }
-        dataView->SetValue<int32>(offset, value, _u("DataView.prototype.SetInt32"), isLittleEndian);
+        dataView->SetValue<int32>(args[1], value, _u("DataView.prototype.SetInt32"), isLittleEndian);
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -508,13 +501,12 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument,  _u("offset or value"));
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         uint32 value = JavascriptConversion::ToUInt32(args[2], scriptContext);
         if (args.Info.Count > 3)
         {
             isLittleEndian = JavascriptConversion::ToBoolean(args[3], scriptContext);
         }
-        dataView->SetValue<uint32>(offset, value, _u("DataView.prototype.SetUint32"), isLittleEndian);
+        dataView->SetValue<uint32>(args[1], value, _u("DataView.prototype.SetUint32"), isLittleEndian);
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -537,13 +529,12 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument);
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         float value = JavascriptConversion::ToFloat(args[2], scriptContext);
         if (args.Info.Count > 3)
         {
             isLittleEndian = JavascriptConversion::ToBoolean(args[3], scriptContext);
         }
-        dataView->SetValue<float>(offset, value, _u("DataView.prototype.SetFloat32"), isLittleEndian);
+        dataView->SetValue<float>(args[1], value, _u("DataView.prototype.SetFloat32"), isLittleEndian);
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -566,13 +557,12 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_DataView_NeedArgument,  _u("offset or value"));
         }
         DataView* dataView = DataView::FromVar(args[0]);
-        uint32 offset = JavascriptConversion::ToUInt32(args[1], scriptContext);
         double value = JavascriptConversion::ToNumber(args[2], scriptContext);
         if (args.Info.Count > 3)
         {
             isLittleEndian = JavascriptConversion::ToBoolean(args[3], scriptContext);
         }
-        dataView->SetValue<double>(offset, value, _u("DataView.prototype.SetFloat64"), isLittleEndian);
+        dataView->SetValue<double>(args[1], value, _u("DataView.prototype.SetFloat64"), isLittleEndian);
         return scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -675,27 +665,27 @@ namespace Js
 #ifdef _M_ARM
     // Provide template specialization (only) for memory access at unaligned float/double address which causes data alignment exception otherwise.
     template<>
-    Var DataView::GetValueWithCheck<float>(uint32 byteOffset, const char16 *funcName, BOOL isLittleEndian)
+    Var DataView::GetValueWithCheck<float>(Var offset, const char16 *funcName, BOOL isLittleEndian)
     {
-        return this->GetValueWithCheck<float, float UNALIGNED*>(byteOffset, isLittleEndian, funcName);
+        return this->GetValueWithCheck<float, float UNALIGNED*>(offset, isLittleEndian, funcName);
     }
 
     template<>
-    Var DataView::GetValueWithCheck<double>(uint32 byteOffset, const char16 *funcName, BOOL isLittleEndian)
+    Var DataView::GetValueWithCheck<double>(Var offset, const char16 *funcName, BOOL isLittleEndian)
     {
-        return this->GetValueWithCheck<double, double UNALIGNED*>(byteOffset, isLittleEndian, funcName);
+        return this->GetValueWithCheck<double, double UNALIGNED*>(offset, isLittleEndian, funcName);
     }
 
     template<>
-    void DataView::SetValue<float>(uint32 byteOffset, float value, const char16 *funcName, BOOL isLittleEndian)
+    void DataView::SetValue<float>(Var offset, float value, const char16 *funcName, BOOL isLittleEndian)
     {
-        this->SetValue<float, float UNALIGNED*>(byteOffset, value, isLittleEndian, funcName);
+        this->SetValue<float, float UNALIGNED*>(offset, value, isLittleEndian, funcName);
     }
 
     template<>
-    void DataView::SetValue<double>(uint32 byteOffset, double value, const char16 *funcName, BOOL isLittleEndian)
+    void DataView::SetValue<double>(Var offset, double value, const char16 *funcName, BOOL isLittleEndian)
     {
-        this->SetValue<double, double UNALIGNED*>(byteOffset, value, isLittleEndian, funcName);
+        this->SetValue<double, double UNALIGNED*>(offset, value, isLittleEndian, funcName);
     }
 #endif
 

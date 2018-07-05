@@ -347,7 +347,7 @@ template<typename EncodedChar>
 void BIGNUM::SetFromRgchExp(const EncodedChar *prgch, int32 cch, int32 lwExp)
 {
     Assert(cch > 0);
-    AssertArrMemR(prgch, cch);
+    Assert(prgch);
 
     const BIGNUM *prgnum;
     int wT;
@@ -1883,7 +1883,6 @@ LFail:
 
 static BOOL FormatDigits(_In_reads_(pbLim - pbSrc) byte *pbSrc, byte *pbLim, int wExp10, _Out_writes_(cchDst) OLECHAR *pchDst, int cchDst)
 {
-    AssertArrMem(pbSrc, pbLim - pbSrc);
     AnalysisAssert(pbLim > pbSrc);
 
     if (pbLim <= pbSrc)
@@ -1891,6 +1890,8 @@ static BOOL FormatDigits(_In_reads_(pbLim - pbSrc) byte *pbSrc, byte *pbLim, int
         Assert(0);
         return FALSE;
     }
+
+    Assert(pbSrc);
 
     // check the expected size of the resulting string...
     size_t nCount;
@@ -1987,7 +1988,7 @@ __success(return <= nDstBufSize)
 static int FormatDigitsFixed(byte *pbSrc, byte *pbLim, int wExp10, int nFractionDigits, __out_ecount_part(nDstBufSize, return) char16 *pchDst, int nDstBufSize)
 {
     AnalysisAssert(pbLim > pbSrc);
-    AssertArrMem(pbSrc, pbLim - pbSrc);
+    Assert(pbSrc);
     AnalysisAssert(nFractionDigits >= -1);
     // nFractionDigits == -1 => print exactly as many fractional digits as necessary : no trailing 0's.
 
@@ -2083,8 +2084,8 @@ static int FormatDigitsExponential(
 {
     AnalysisAssert(pbLim > pbSrc);
     Assert(pbLim - pbSrc <= kcbMaxRgb);
-    AssertArrMem(pbSrc, pbLim - pbSrc);
-    AssertArrMem(pchDst, cchDst);
+    Assert(pbSrc);
+    Assert(cchDst == 0 || pchDst != nullptr);
     Assert(wExp10 < 1000);
 
     int n = 1; // first digit
@@ -2196,7 +2197,7 @@ static int FormatDigitsExponential(
 static int RoundTo(byte *pbSrc, byte *pbLim, int nDigits, __out_bcount(nDigits+1) byte *pbDst, byte **ppbLimRes )
 {
     AnalysisAssert(pbLim > pbSrc);
-    AssertArrMem(pbSrc, pbLim - pbSrc);
+    Assert(pbSrc);
     AnalysisAssert(nDigits >= 0);
 
     int retVal = 0;
@@ -2473,17 +2474,20 @@ BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, __out_ecount(cchDst
     return TRUE;
 }
 
-// Maximum number of digits to show for each base.
+// Maximum number of digits to show for each base
+// so we keep the same precision as the original number.
+// Thus, the number is calculated as: ceil(ln(2**53)/ln(base)).
 static const int g_rgcchSig[] =
 {
-    00,00,53,34,27,24,22,20,19,18,
-    17,17,16,16,15,15,14,14,14,14,
-    14,13,13,13,13,13,13,12,12,12,
-    12,12,12,12,12,12,12
+    00,00,53,34,27,23,21,19,18,17,
+    16,16,15,15,14,14,14,13,13,13,
+    13,13,12,12,12,12,12,12,12,11,
+    11,11,11,11,11,11,11
 };
 
 //
-// Convert a non-Nan, non-Zero, non-Infinite double value to string. (Moved from JavascriptNumber.cpp).
+// Convert a non-Nan, non-Zero, non-Infinite double value to string representation 
+// with given radix. (Moved from JavascriptNumber.cpp, back compat port of FDblToStrRadix()).
 //
 _Success_(return)
 BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, _In_range_(2, 36) int radix, _Out_writes_(nDstBufSize) WCHAR* psz, int nDstBufSize)
@@ -2495,46 +2499,50 @@ BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, _In_range_(2, 36) i
     Assert(radix != 10);
     Assert(radix >= 2 && radix <= 36);
 
-    // convert to string with radix
-    //( back compat port of FDblToStrRadix())
-
-    int cbitDigit;
-    double valueDen, valueT;
-    int wExp2, wExp, wDig;
-    int maxOutDigits, cchSig, cch;
+    int wDig;
+    int cchSig, cch;
     int len = nDstBufSize;
     char16 * ppsz = psz;
 
+    // handle negative number
     if (0x80000000 & Js::NumberUtilities::LuHiDbl(dbl))
     {
+        if (len < 2)
+        {
+            return FALSE;
+        }
         *ppsz++ = '-';
         len--;
         Js::NumberUtilities::LuHiDbl(dbl) &= 0x7FFFFFFF;
     }
+
+    // We special case log computations for powers of 2.
+    int cbitDigit = 0;
     switch (radix)
     {
-        // We special case log computations for powers of 2.
         case  2: cbitDigit = 1; break;
         case  4: cbitDigit = 2; break;
         case  8: cbitDigit = 3; break;
         case 16: cbitDigit = 4; break;
         case 32: cbitDigit = 5; break;
-        default: cbitDigit = 0; break;
     }
 
     // REVIEW : fix this to do more accurate conversions? This is exact for
     // powers of 2, but not for other radixes.
     // REVIEW : round?
-    wExp2 = (int)((Js::NumberUtilities::LuHiDbl(dbl) & 0x7FF00000) >> 20) - 0x03FF;
-    maxOutDigits = g_rgcchSig[radix];
+    const int maxOutDigits = g_rgcchSig[radix];
     __analysis_assume(maxOutDigits > 0);
 
     // Output the integer portion.
     if (1 <= dbl)
     {
+        double valueDen;
+
         if (0 != cbitDigit)
         {
-            wExp = wExp2 / cbitDigit;
+            int wExp2 = (int)((Js::NumberUtilities::LuHiDbl(dbl) & 0x7FF00000) >> 20) - 0x03FF;
+
+            int wExp = wExp2 / cbitDigit;
             wExp2 = wExp * cbitDigit;
 
             Js::NumberUtilities::LuHiDbl(valueDen) = (uint32)(0x03FF + wExp2) << 20;
@@ -2544,6 +2552,7 @@ BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, _In_range_(2, 36) i
         else
         {
             cchSig = 1;
+            double valueT;
             for (valueDen = 1; (valueT = valueDen * radix) <= dbl; valueDen = valueT)
             {
                 cchSig++;
@@ -2591,6 +2600,7 @@ BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, _In_range_(2, 36) i
         }
         len--;
         *ppsz++ = '.';
+
         do
         {
             dbl *= radix;
@@ -2599,24 +2609,46 @@ BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, _In_range_(2, 36) i
             {
                 wDig = radix - 1;
             }
+
             if (len < 2)
             {
                 return FALSE; //We run out of buffer size.
             }
             len--;
-            *ppsz++ = ToDigit(wDig);
             dbl -= wDig;
+
+            // If this is the last digit we are going to output,
+            // peek into the next one and round the current based on it.
+            // Should we replace equivalent of decimal "0.599999999" with "0.56"?
+            if (cchSig == maxOutDigits - 1)
+            {
+                const int nextDig = (int)(dbl*radix);
+                if (nextDig >= radix / 2 && wDig < radix - 1)
+                    wDig++;
+            }
+
+            // Don't count leading zeros towards precision.
+            *ppsz++ = ToDigit(wDig);
             if (0 != wDig || 0 != cchSig)
             {
                 cchSig++;
             }
+
         } while (0 != dbl && cchSig < maxOutDigits);
+
+        // Trim trailing zeros, this would trim "0.0" to "0." 
+        // but "0.0" should have been treated as integer above.
+        while (*(ppsz - 1) == '0')
+        {
+            ppsz--;
+        }
     }
 
     if (len < 1)
     {
         return FALSE; //We run out of buffer size.
     }
+
     *ppsz = 0;
 
     return TRUE;

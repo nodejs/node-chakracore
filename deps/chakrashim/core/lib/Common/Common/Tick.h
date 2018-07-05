@@ -33,8 +33,6 @@ namespace Js {
     {
     // Construction
     public:
-        static  void            InitType();
-
                                 Tick();
     private:
                                 Tick(uint64 luTick);
@@ -42,6 +40,7 @@ namespace Js {
     // Properties
     public:
                 uint64          ToMicroseconds() const;
+                double          ToMilliseconds() const;
         static  Tick            FromMicroseconds(uint64 luTick);
         static  Tick            FromQPC(uint64 luQPCTick);
 
@@ -71,6 +70,26 @@ namespace Js {
                 uint64          m_luTick;           // Current time sample
 
         friend TickDelta;
+    
+    private:
+        class TickStaticInitializer
+        {
+        public:
+            TickStaticInitializer() 
+            { 
+                if (!s_isInitialized)
+                {
+                    s_isInitialized = true;
+                    InitType();
+                }
+            }
+        private:
+            static bool s_isInitialized;
+
+            static void InitType();
+        };
+        
+        static TickStaticInitializer s_tickStaticInitializer;
     };
 
 
@@ -90,7 +109,6 @@ namespace Js {
     // Construction
     public:
                 TickDelta();
-    private:
                 TickDelta(int64 lnDelta);
 
     // Properties

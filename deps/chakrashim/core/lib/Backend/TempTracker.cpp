@@ -733,7 +733,7 @@ NumberTemp::IsTempIndirTransferLoad(IR::Instr * instr, BackwardPass * backwardPa
             // If the index is an int, then we don't care about the non-temp use
             IR::Opnd * src1Opnd = instr->GetSrc1();
             IR::RegOpnd * indexOpnd = src1Opnd->AsIndirOpnd()->GetIndexOpnd();
-            if (indexOpnd && (indexOpnd->m_sym->m_isNotInt || !indexOpnd->GetValueType().IsInt()))
+            if (indexOpnd && (indexOpnd->m_sym->m_isNotNumber || !indexOpnd->GetValueType().IsInt()))
             {
                 return src1Opnd->CanStoreTemp();
             }
@@ -818,7 +818,7 @@ NumberTemp::GetRepresentativePropertySymId(PropertySym * propertySym, BackwardPa
 {
     // Since we don't track alias with objects, all property accesses are all grouped together.
     // Use a single property sym id to represent a propertyId to track dependencies.
-    SymID symId = (SymID)-1;
+    SymID symId = SymID_Invalid;
     Js::PropertyId propertyId = propertySym->m_propertyId;
     if (!backwardPass->numberTempRepresentativePropertySym->TryGetValue(propertyId, &symId))
     {
@@ -997,10 +997,14 @@ ObjectTemp::IsTempUseOpCodeSym(IR::Instr * instr, Js::OpCode opcode, Sym * sym)
     // Special case ArgOut_A which communicate information about CallDirect
     switch (opcode)
     {
-    case Js::OpCode::LdLen_A:
-        return instr->GetSrc1()->AsRegOpnd()->GetStackSym() == sym;
     case Js::OpCode::ArgOut_A:
         return instr->dstIsTempObject;
+    case Js::OpCode::LdLen_A:
+        if (instr->GetSrc1()->IsRegOpnd())
+        {
+            return instr->GetSrc1()->AsRegOpnd()->GetStackSym() == sym;
+        }
+        // fall through
     case Js::OpCode::LdFld:
     case Js::OpCode::LdFldForTypeOf:
     case Js::OpCode::LdMethodFld:

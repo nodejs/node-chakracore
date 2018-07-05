@@ -9,6 +9,7 @@
   <test>
     <default>
       <files>array_qsortr.js</files>
+      <tags>exclude_windows</tags>
     </default>
   </test>
   <test>
@@ -30,7 +31,7 @@
     <default>
       <compile-flags>-args summary -endargs -ForceArrayBTree -recyclerStress</compile-flags>
       <files>SpliceBtreeMemoryCorruption.js</files>
-      <tags>exclude_fre,Slow</tags>
+      <tags>exclude_test,Slow</tags>
     </default>
   </test>
   <test>
@@ -43,40 +44,35 @@
     <default>
       <compile-flags>-ForceArrayBTree</compile-flags>
       <files>bug945376SegLeftPlusSizeGreaterThanMaxArrayLen.js</files>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>bug1062870.js</files>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>bug1065362.js</files>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>bug11370283.js</files>
       <compile-flags>-bgjit- -lic:1</compile-flags>
-      <tags>BugFix,exclude_dynapogo</tags>
+      <tags>exclude_dynapogo</tags>
     </default>
   </test>
   <test>
     <default>
       <files>bug4916987.js</files>
       <compile-flags>-mic:1 -off:simplejit</compile-flags>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>bug6268659.js</files>
       <compile-flags>-mic:1 -off:simplejit</compile-flags>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
@@ -84,7 +80,6 @@
       <compile-flags>-ForceArrayBTree</compile-flags>
       <files>ArrayBtreeBadCodeGen.js</files>
       <baseline>ArrayBtreeBadCodeGen.baseline</baseline>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
@@ -128,7 +123,7 @@
       <compile-flags>-arrayValidate</compile-flags>
       <files>array_ctr.js</files>
       <baseline>array_ctr.baseline</baseline>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
     </default>
   </test>
   <test>
@@ -168,7 +163,7 @@
   <test>
     <default>
       <files>bug612012.js</files>
-      <compile-flags>-maxinterpretcount:1 -loopinterpretcount:1 -force:fieldhoist -ForceArrayBTree -oopjit-</compile-flags>
+      <compile-flags>-maxinterpretcount:1 -loopinterpretcount:1 -ForceArrayBTree -oopjit-</compile-flags>
       <tags>exclude_serialized</tags>
     </default>
   </test>
@@ -268,7 +263,7 @@
     <default>
       <files>toString.js</files>
       <compile-flags>-ForceES5Array</compile-flags>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
       <baseline>toString.baseline</baseline>
     </default>
   </test>
@@ -282,7 +277,7 @@
     <default>
       <files>toLocaleString.js</files>
       <compile-flags>-ForceES5Array</compile-flags>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
       <baseline>toLocaleString.baseline</baseline>
     </default>
   </test>
@@ -328,7 +323,7 @@
       <files>array_sort3.js</files>
       <baseline>array_sort3.baseline</baseline>
       <compile-flags>-arrayValidate</compile-flags>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
     </default>
   </test>
   <test>
@@ -348,7 +343,7 @@
       <compile-flags>-arrayValidate</compile-flags>
       <files>array_splice.js</files>
       <baseline>array_splice.baseline</baseline>
-      <tags>exclude_fre</tags>
+      <tags>exclude_test</tags>
     </default>
   </test>
   <test>
@@ -436,7 +431,7 @@
       <compile-flags>-recyclerStress</compile-flags>
       <files>array_literal.js</files>
       <baseline>array_literal.baseline</baseline>
-      <tags>exclude_fre,Slow</tags>
+      <tags>exclude_test,Slow</tags>
     </default>
   </test>
   <test>
@@ -617,13 +612,12 @@
     <default>
       <compile-flags>-ForceArrayBTree</compile-flags>
       <files>bug945376SizeBoundStartSeg.js</files>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>CopyOnAccessArray_bugs.js</files>
-      <tags>BugFix,require_backend</tags>
+      <tags>require_backend</tags>
       <compile-flags>-force:copyonaccessarray</compile-flags>
       <baseline>CopyOnAccessArray_bugs.baseline</baseline>
     </default>
@@ -631,7 +625,7 @@
   <test>
     <default>
       <files>CopyOnAccessArray_cache_index_overflow.js</files>
-      <tags>BugFix,exclude_nonative,exclude_forceserialized,require_backend</tags>
+      <tags>exclude_nonative,exclude_forceserialized,require_backend</tags>
       <compile-flags>-force:copyonaccessarray -testtrace:CopyOnAccessArray</compile-flags>
       <baseline>CopyOnAccessArray_cache_index_overflow.baseline</baseline>
     </default>
@@ -722,6 +716,12 @@
   </test>
   <test>
     <default>
+      <files>memop_missingValues.js</files>
+      <compile-flags>-mmoc:0</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>bug4587739.js</files>
       <compile-flags>-mic:1 -off:simplejit</compile-flags>
     </default>
@@ -736,14 +736,12 @@
     <default>
       <files>Array_TypeConfusion_bugs.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>Array_TypeConfusion_bugs.js</files>
       <compile-flags>-ForceArrayBTree -args summary -endargs</compile-flags>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
@@ -754,8 +752,7 @@
   <test>
     <default>
       <files>bug_12044876.js</files>
-        <compile-flags>-forcearraybtree</compile-flags>
-        <tags>BugFix</tags>
+      <compile-flags>-forcearraybtree</compile-flags>
     </default>
   </test>
   <test>
@@ -766,6 +763,16 @@
   <test>
     <default>
       <files>bug12340575.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>constructor_fastpath.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>bug16717501.js</files>
     </default>
   </test>
 </regress-exe>

@@ -127,7 +127,7 @@ namespace Js
         }
 
         BoundFunction *boundFunction = (BoundFunction *) function;
-        Var targetFunction = boundFunction->targetFunction;
+        RecyclableObject *targetFunction = boundFunction->targetFunction;
 
         //
         // var o = new boundFunction()
@@ -136,16 +136,42 @@ namespace Js
         Var newVarInstance = nullptr;
         if (callInfo.Flags & CallFlags_New)
         {
-          if (JavascriptProxy::Is(targetFunction))
-          {
-            JavascriptProxy* proxy = JavascriptProxy::FromVar(targetFunction);
-            Arguments proxyArgs(CallInfo(CallFlags_New, 1), &targetFunction);
-            args.Values[0] = newVarInstance = proxy->ConstructorTrap(proxyArgs, scriptContext, 0);
-          }
-          else
-          {
-            args.Values[0] = newVarInstance = JavascriptOperators::NewScObjectNoCtor(targetFunction, scriptContext);
-          }
+            if (args.HasNewTarget())
+            {
+                // target has an overriden new target make a new object from the newTarget
+                Var newTargetVar = args.GetNewTarget();
+                AssertOrFailFastMsg(JavascriptOperators::IsConstructor(newTargetVar), "newTarget must be a constructor");
+                RecyclableObject* newTarget = RecyclableObject::UnsafeFromVar(newTargetVar);
+
+                // Class constructors expect newTarget to be in args slot 0 (usually "this"),
+                // because "this" is not constructed until we reach the most-super superclass.
+                FunctionInfo* functionInfo = JavascriptOperators::GetConstructorFunctionInfo(targetFunction, scriptContext);
+                if (functionInfo && functionInfo->IsClassConstructor())
+                {
+                    args.Values[0] = newVarInstance = newTarget;
+                }
+                else
+                {
+                    args.Values[0] = newVarInstance = JavascriptOperators::CreateFromConstructor(newTarget, scriptContext);
+                }
+            }
+            else if (!JavascriptProxy::Is(targetFunction))
+            {
+                // No new target and target is not a proxy can make a new object in a "normal" way.
+                // NewScObjectNoCtor will either construct an object or return targetFunction depending
+                // on whether targetFunction is a class constructor.
+                BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                {
+                    args.Values[0] = newVarInstance = JavascriptOperators::NewScObjectNoCtor(targetFunction, scriptContext);
+                }
+                END_SAFE_REENTRANT_CALL
+            }
+            else
+            {
+                // target is a proxy without an overriden new target
+                // give nullptr - FunctionCallTrap will make a new object
+                args.Values[0] = newVarInstance;
+            }
         }
 
         Js::Arguments actualArgs = args;
@@ -155,12 +181,13 @@ namespace Js
             // OACR thinks that this can change between here and the check in the for loop below
             const unsigned int argCount = args.Info.Count;
 
-            if ((boundFunction->count + args.GetArgCountWithExtraArgs()) > CallInfo::kMaxCountArgs)
+            uint32 newArgCount = UInt32Math::Add(boundFunction->count, args.GetLargeArgCountWithExtraArgs());
+            if (newArgCount > CallInfo::kMaxCountArgs)
             {
                 JavascriptError::ThrowRangeError(scriptContext, JSERR_ArgListTooLarge);
             }
 
-            Field(Var) *newValues = RecyclerNewArray(scriptContext->GetRecycler(), Field(Var), boundFunction->count + args.GetArgCountWithExtraArgs());
+            Field(Var) *newValues = RecyclerNewArray(scriptContext->GetRecycler(), Field(Var), newArgCount);
 
             uint index = 0;
 
@@ -196,7 +223,7 @@ namespace Js
             actualArgs = Arguments(args.Info, unsafe_write_barrier_cast<Var*>(newValues));
             actualArgs.Info.Count = boundFunction->count + argCount;
 
-            Assert(index == actualArgs.GetArgCountWithExtraArgs());
+            Assert(index == actualArgs.GetLargeArgCountWithExtraArgs());
         }
         else
         {
@@ -206,10 +233,14 @@ namespace Js
             }
         }
 
-        RecyclableObject* actualFunction = RecyclableObject::FromVar(targetFunction);
-        // Number of arguments are allowed to be more than Constants::MaxAllowedArgs in runtime. Need to use the larger argcount logic for this call.
-        Var aReturnValue = JavascriptFunction::CallFunction<true>(actualFunction, actualFunction->GetEntryPoint(), actualArgs, /* useLargeArgCount */ true);
-
+        Var aReturnValue = nullptr;
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            // Number of arguments are allowed to be more than Constants::MaxAllowedArgs in runtime. Need to use the larger argcount logic for this call.
+            aReturnValue = JavascriptFunction::CallFunction<true>(targetFunction, targetFunction->GetEntryPoint(), actualArgs, /* useLargeArgCount */ true);
+        }
+        END_SAFE_REENTRANT_CALL
+        
         //
         // [[Construct]] and call returned a non-object
         // return the newly created var instance
@@ -276,14 +307,14 @@ namespace Js
         return false;
     }
 
-    PropertyQueryFlags BoundFunction::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags BoundFunction::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
         if (propertyId == PropertyIds::length)
         {
             return PropertyQueryFlags::Property_Found;
         }
 
-        return JavascriptFunction::HasPropertyQuery(propertyId);
+        return JavascriptFunction::HasPropertyQuery(propertyId, info);
     }
 
     PropertyQueryFlags BoundFunction::GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
@@ -378,7 +409,7 @@ namespace Js
         return false;
     }
 
-    BOOL BoundFunction::GetAccessors(PropertyId propertyId, Var *getter, Var *setter, ScriptContext * requestContext)
+    _Check_return_ _Success_(return) BOOL BoundFunction::GetAccessors(PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter, ScriptContext* requestContext)
     {
         return DynamicObject::GetAccessors(propertyId, getter, setter, requestContext);
     }

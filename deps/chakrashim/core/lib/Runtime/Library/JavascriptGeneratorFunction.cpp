@@ -4,8 +4,8 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeLibraryPch.h"
 
-namespace Js
-{
+using namespace Js;
+
     FunctionInfo JavascriptGeneratorFunction::functionInfo(
         FORCE_NO_WRITE_BARRIER_TAG(JavascriptGeneratorFunction::EntryGeneratorFunctionImplementation),
         (FunctionInfo::Attributes)(FunctionInfo::DoNotProfile | FunctionInfo::ErrorOnNew));
@@ -104,12 +104,10 @@ namespace Js
     {
         FunctionProxy* functionProxy = (*infoRef)->GetFunctionProxy();
         ScriptContext* scriptContext = functionProxy->GetScriptContext();
-
-        bool hasSuperReference = functionProxy->HasSuperReference();
+        JIT_HELPER_NOT_REENTRANT_HEADER(ScrFunc_OP_NewScGenFunc, reentrancylock, scriptContext->GetThreadContext());
 
         GeneratorVirtualScriptFunction* scriptFunction = scriptContext->GetLibrary()->CreateGeneratorVirtualScriptFunction(functionProxy);
         scriptFunction->SetEnvironment(environment);
-        scriptFunction->SetHasSuperReference(hasSuperReference);
 
         JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_FUNCTION(scriptFunction, EtwTrace::GetFunctionId(functionProxy)));
 
@@ -121,6 +119,20 @@ namespace Js
         scriptFunction->SetRealGeneratorFunction(genFunc);
 
         return genFunc;
+        JIT_HELPER_END(ScrFunc_OP_NewScGenFunc);
+    }
+
+    JavascriptGeneratorFunction * JavascriptGeneratorFunction::OP_NewScGenFuncHomeObj(FrameDisplay *environment, FunctionInfoPtrPtr infoRef, Var homeObj)
+    {
+        Assert(homeObj != nullptr);
+        JIT_HELPER_NOT_REENTRANT_HEADER(ScrFunc_OP_NewScGenFuncHomeObj, reentrancylock, (*infoRef)->GetFunctionProxy()->GetScriptContext()->GetThreadContext());
+
+        JavascriptGeneratorFunction* genFunc = JavascriptGeneratorFunction::OP_NewScGenFunc(environment, infoRef);
+
+        genFunc->SetHomeObj(homeObj);
+
+        return genFunc;
+        JIT_HELPER_END(ScrFunc_OP_NewScGenFuncHomeObj);
     }
 
     Var JavascriptGeneratorFunction::EntryGeneratorFunctionImplementation(RecyclableObject* function, CallInfo callInfo, ...)
@@ -145,7 +157,11 @@ namespace Js
         JavascriptOperators::OrdinaryCreateFromConstructor(function, generator, prototype, scriptContext);
 
         // Call a next on the generator to execute till the beginning of the body
-        CALL_ENTRYPOINT(scriptContext->GetThreadContext(), generator->EntryNext, function, CallInfo(CallFlags_Value, 1), generator);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            CALL_ENTRYPOINT(scriptContext->GetThreadContext(), generator->EntryNext, function, CallInfo(CallFlags_Value, 1), generator);
+        }
+        END_SAFE_REENTRANT_CALL
 
         return generator;
     }
@@ -178,7 +194,11 @@ namespace Js
 
         try
         {
-            CALL_FUNCTION(scriptContext->GetThreadContext(), executor, CallInfo(CallFlags_Value, 3), library->GetUndefined(), resolve, reject);
+            BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+            {
+                CALL_FUNCTION(scriptContext->GetThreadContext(), executor, CallInfo(CallFlags_Value, 3), library->GetUndefined(), resolve, reject);
+            }
+            END_SAFE_REENTRANT_CALL
         }
         catch (const JavascriptException& err)
         {
@@ -251,12 +271,12 @@ namespace Js
         return scriptFunction->GetSourceString();
     }
 
-    Var JavascriptGeneratorFunction::EnsureSourceString()
+    JavascriptString * JavascriptGeneratorFunction::EnsureSourceString()
     {
         return scriptFunction->EnsureSourceString();
     }
 
-    PropertyQueryFlags JavascriptGeneratorFunction::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags JavascriptGeneratorFunction::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
         if (propertyId == PropertyIds::length)
         {
@@ -266,10 +286,10 @@ namespace Js
         if (propertyId == PropertyIds::caller || propertyId == PropertyIds::arguments)
         {
             // JavascriptFunction has special case for caller and arguments; call DynamicObject:: virtual directly to skip that.
-            return DynamicObject::HasPropertyQuery(propertyId);
+            return DynamicObject::HasPropertyQuery(propertyId, info);
         }
 
-        return JavascriptFunction::HasPropertyQuery(propertyId);
+        return JavascriptFunction::HasPropertyQuery(propertyId, info);
     }
 
     PropertyQueryFlags JavascriptGeneratorFunction::GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
@@ -401,7 +421,7 @@ namespace Js
         return JavascriptFunction::SetAccessors(propertyId, getter, setter, flags);
     }
 
-    BOOL JavascriptGeneratorFunction::GetAccessors(PropertyId propertyId, Var *getter, Var *setter, ScriptContext * requestContext)
+    _Check_return_ _Success_(return) BOOL JavascriptGeneratorFunction::GetAccessors(PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter, ScriptContext* requestContext)
     {
         if (propertyId == PropertyIds::length)
         {
@@ -619,4 +639,4 @@ namespace Js
         TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<TTD::NSSnapObjects::SnapGeneratorVirtualScriptFunctionInfo*, TTD::NSSnapObjects::SnapObjectType::SnapGeneratorVirtualScriptFunction>(objData, fi);
     }
 #endif
-}
+

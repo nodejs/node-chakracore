@@ -198,7 +198,6 @@ JSONStringifier::Stringify(_In_ ScriptContext* scriptContext, _In_ Var value, _I
         wrapper,
         prop,
         value,
-        scriptContext->GetThreadContext()->GetEmptyStringPropertyRecord(),
         &objStack);
 
     if (prop->type == JSONContentType::Undefined)
@@ -227,7 +226,7 @@ JSONStringifier::ReadValue(_In_ JavascriptString* key, _In_opt_ const PropertyRe
     if (propertyString != nullptr)
     {
         PropertyValueInfo::SetCacheInfo(&info, propertyString, propertyString->GetLdElemInlineCache(), false);
-        if (propertyString->TryGetPropertyFromCache<false /* ownPropertyOnly */>(holder, holder, &value, this->scriptContext, &info))
+        if (propertyString->TryGetPropertyFromCache<false /* ownPropertyOnly */, false /* OutputExistence */>(holder, holder, &value, this->scriptContext, &info))
         {
             return value;
         }
@@ -271,17 +270,45 @@ JSONStringifier::ToJSON(_In_ JavascriptString* key, _In_ RecyclableObject* value
     Var toJSON = nullptr;
     PolymorphicInlineCache* cache = this->scriptContext->Cache()->toJSONCache;
     PropertyValueInfo info;
-    PropertyValueInfo::SetCacheInfo(&info, nullptr, cache, false);
+    PropertyValueInfo::SetCacheInfo(&info, cache, false);
+
+    // The vast majority of objects don't have custom toJSON, so check the missing cache first.
+    // We can check all of the others afterward.
+    if (CacheOperators::TryGetProperty<
+        false,  // CheckLocal
+        false,  // CheckProto
+        false,  // CheckAccessor
+        true,   // CheckMissing
+        true,   // CheckPolymorphicInlineCache
+        false,  // CheckTypePropertyCache
+        false,  // IsInlineCacheAvailable
+        true,   // IsPolymorphicInlineCacheAvailable
+        false,  // ReturnOperationInfo
+        false>  // OutputExistence
+        (valueObject,
+            false,
+            valueObject,
+            PropertyIds::toJSON,
+            &toJSON,
+            this->scriptContext,
+            nullptr,
+            &info))
+    {
+        // Any cache hit means the property is missing, so don't bother to do anything else
+        return nullptr;
+    }
+
     if (!CacheOperators::TryGetProperty<
         true,   // CheckLocal
         true,   // CheckProto
         true,   // CheckAccessor
-        true,   // CheckMissing
+        false,  // CheckMissing
         true,   // CheckPolymorphicInlineCache
         true,   // CheckTypePropertyCache
         false,  // IsInlineCacheAvailable
         true,   // IsPolymorphicInlineCacheAvailable
-        false>  // ReturnOperationInfo
+        false,  // ReturnOperationInfo
+        false>  // OutputExistence
         (valueObject,
             false,
             valueObject,
@@ -303,7 +330,11 @@ JSONStringifier::ToJSON(_In_ JavascriptString* key, _In_ RecyclableObject* value
         Arguments args(2, values);
         args.Values[0] = valueObject;
         args.Values[1] = key;
-        return JavascriptFunction::CallFunction<true>(func, func->GetEntryPoint(), args);
+        BEGIN_SAFE_REENTRANT_CALL(this->scriptContext->GetThreadContext())
+        {
+            return JavascriptFunction::CallFunction<true>(func, func->GetEntryPoint(), args);
+        }
+        END_SAFE_REENTRANT_CALL;
     }
     return nullptr;
 }
@@ -340,7 +371,7 @@ JSONStringifier::ReadArrayElement(uint32 index, _In_ RecyclableObject* arr, _Out
         JavascriptOperators::GetItem(arr, index, &value, this->scriptContext);
     }
     JavascriptString* indexString = this->scriptContext->GetIntegerString(index);
-    this->ReadProperty(indexString, arr, prop, value, nullptr, objectStack);
+    this->ReadProperty(indexString, arr, prop, value, objectStack);
 }
 
 JSONArray*
@@ -386,19 +417,13 @@ JSONStringifier::ReadArray(_In_ RecyclableObject* arr, _In_ JSONObjectStack* obj
 }
 
 void
-JSONStringifier::ReadObjectElement(
+JSONStringifier::AppendObjectElement(
     _In_ JavascriptString* propertyName,
-    _In_opt_ PropertyRecord const* propertyRecord,
-    _In_ RecyclableObject* obj,
     _In_ JSONObject* jsonObject,
-    _In_ JSONObjectStack* objectStack)
+    _In_ JSONObjectProperty* prop)
 {
-    JSONObjectProperty prop;
-    prop.propertyName = propertyName;
-    this->ReadProperty(propertyName, obj, &prop.propertyValue, nullptr, propertyRecord, objectStack);
-
     // Undefined result is not concatenated
-    if (prop.propertyValue.type != JSONContentType::Undefined)
+    if (prop->propertyValue.type != JSONContentType::Undefined)
     {
         // Increase length for the name of the property
         this->totalStringLength = UInt32Math::Add(this->totalStringLength, CalculateStringElementLength(propertyName));
@@ -409,8 +434,45 @@ JSONStringifier::ReadObjectElement(
             // If gap is specified, a space is appended
             UInt32Math::Inc(this->totalStringLength);
         }
-        jsonObject->Push(prop);
+
+        jsonObject->Push(*prop);
     }
+}
+
+void
+JSONStringifier::ReadObjectElement(
+    _In_ JavascriptString* propertyName,
+    _In_ uint32 numericIndex,
+    _In_ RecyclableObject* obj,
+    _In_ JSONObject* jsonObject,
+    _In_ JSONObjectStack* objectStack)
+{
+    JSONObjectProperty prop;
+    prop.propertyName = propertyName;
+
+    Var value = JavascriptOperators::GetItem(obj, numericIndex, this->scriptContext);
+
+    this->ReadProperty(propertyName, obj, &prop.propertyValue, value, objectStack);
+
+    this->AppendObjectElement(propertyName, jsonObject, &prop);
+}
+
+void
+JSONStringifier::ReadObjectElement(
+    _In_ JavascriptString* propertyName,
+    _In_opt_ PropertyRecord const* propertyRecord,
+    _In_ RecyclableObject* obj,
+    _In_ JSONObject* jsonObject,
+    _In_ JSONObjectStack* objectStack)
+{
+    JSONObjectProperty prop;
+    prop.propertyName = propertyName;
+
+    Var value = this->ReadValue(propertyName, propertyRecord, obj);
+
+    this->ReadProperty(propertyName, obj, &prop.propertyValue, value, objectStack);
+
+    this->AppendObjectElement(propertyName, jsonObject, &prop);
 }
 
 // Calculates how many additional characters are needed for printing the Object/Array structure
@@ -518,20 +580,28 @@ JSONStringifier::ReadObject(_In_ RecyclableObject* obj, _In_ JSONObjectStack* ob
         else
         {
             JavascriptStaticEnumerator enumerator;
-            if (obj->GetEnumerator(&enumerator, EnumeratorFlags::SnapShotSemantics | EnumeratorFlags::EphemeralReference, this->scriptContext))
+            EnumeratorCache* cache = this->scriptContext->GetLibrary()->GetStringifyCache(obj->GetType());
+            if (obj->GetEnumerator(&enumerator, EnumeratorFlags::SnapShotSemantics | EnumeratorFlags::EphemeralReference | EnumeratorFlags::UseCache, this->scriptContext, cache))
             {
-                enumerator.GetInitialPropertyCount();
                 JavascriptString* propertyName = nullptr;
                 PropertyId nextKey = Constants::NoProperty;
                 while ((propertyName = enumerator.MoveAndGetNext(nextKey)) != nullptr)
                 {
-                    PropertyRecord const * propertyRecord = nullptr;
-                    if (nextKey == Constants::NoProperty)
+                    const uint32 numericIndex = enumerator.GetCurrentItemIndex();
+                    if (numericIndex != Constants::InvalidSourceIndex)
                     {
-                        this->scriptContext->GetOrAddPropertyRecord(propertyName, &propertyRecord);
-                        nextKey = propertyRecord->GetPropertyId();
+                        this->ReadObjectElement(propertyName, numericIndex, obj, jsonObject, &stack);
                     }
-                    this->ReadObjectElement(propertyName, propertyRecord, obj, jsonObject, &stack);
+                    else
+                    {
+                        PropertyRecord const * propertyRecord = nullptr;
+                        if (nextKey == Constants::NoProperty)
+                        {
+                            this->scriptContext->GetOrAddPropertyRecord(propertyName, &propertyRecord);
+                            nextKey = propertyRecord->GetPropertyId();
+                        }
+                        this->ReadObjectElement(propertyName, propertyRecord, obj, jsonObject, &stack);
+                    }
                 }
             }
         }
@@ -559,7 +629,11 @@ JSONStringifier::CallReplacerFunction(_In_opt_ RecyclableObject* holder, _In_ Ja
     args.Values[1] = key;
     args.Values[2] = value;
 
-    return JavascriptFunction::CallFunction<true>(this->replacerFunction, this->replacerFunction->GetEntryPoint(), args);
+    BEGIN_SAFE_REENTRANT_CALL(this->scriptContext->GetThreadContext())
+    {
+        return JavascriptFunction::CallFunction<true>(this->replacerFunction, this->replacerFunction->GetEntryPoint(), args);
+    }
+    END_SAFE_REENTRANT_CALL;
 }
 
 void
@@ -728,24 +802,17 @@ JSONStringifier::ReadProperty(
     _In_ JavascriptString* key,
     _In_opt_ RecyclableObject* holder,
     _Out_ JSONProperty* prop,
-    _In_opt_ Var value,
-    _In_opt_ const PropertyRecord* propertyRecord,
+    _In_ Var value,
     _In_ JSONObjectStack* objectStack)
 {
     PROBE_STACK(this->scriptContext, Constants::MinStackDefault);
-    if (value == nullptr)
-    {
-        // If we don't have a value, we must have an object from which we can read it
-        AnalysisAssert(holder != nullptr);
-        value = this->ReadValue(key, propertyRecord, holder);
-    }
 
     // Save these to avoid having to recheck conditions unless value is modified by ToJSON or a replacer function
     RecyclableObject* valueObj = JavascriptOperators::TryFromVar<RecyclableObject>(value);
     bool isObject = false;
     if (valueObj)
     {
-        isObject = JavascriptOperators::IsObject(value) != FALSE;
+        isObject = JavascriptOperators::IsObject(valueObj) != FALSE;
         if (isObject)
         {
             // If value is an object, we must first check if it has a ToJSON method
@@ -770,7 +837,7 @@ JSONStringifier::ReadProperty(
         // Callable JS objects are undefined, but we still stringify callable host objects
         // Host object case is for compat with old implementation, but isn't defined in the
         // spec, so we should consider removing it
-        if (JavascriptConversion::IsCallable(valueObj) && JavascriptOperators::IsJsNativeObject(value))
+        if (JavascriptConversion::IsCallable(valueObj) && JavascriptOperators::IsJsNativeObject(valueObj))
         {
             prop->type = JSONContentType::Undefined;
             return;

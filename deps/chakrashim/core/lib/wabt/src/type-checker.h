@@ -30,10 +30,18 @@ class TypeChecker {
   typedef std::function<void(const char* msg)> ErrorCallback;
 
   struct Label {
-    Label(LabelType, const TypeVector& sig, size_t limit);
+    Label(LabelType,
+          const TypeVector& param_types,
+          const TypeVector& result_types,
+          size_t limit);
+
+    TypeVector& br_types() {
+      return label_type == LabelType::Loop ? param_types : result_types;
+    }
 
     LabelType label_type;
-    TypeVector sig;
+    TypeVector param_types;
+    TypeVector result_types;
     size_t type_stack_limit;
     bool unreachable;
   };
@@ -50,7 +58,7 @@ class TypeChecker {
   bool IsUnreachable();
   Result GetLabel(Index depth, Label** out_label);
 
-  Result BeginFunction(const TypeVector* sig);
+  Result BeginFunction(const TypeVector& sig);
   Result OnAtomicLoad(Opcode);
   Result OnAtomicStore(Opcode);
   Result OnAtomicRmw(Opcode);
@@ -58,39 +66,44 @@ class TypeChecker {
   Result OnAtomicWait(Opcode);
   Result OnAtomicWake(Opcode);
   Result OnBinary(Opcode);
-  Result OnBlock(const TypeVector* sig);
+  Result OnBlock(const TypeVector& param_types, const TypeVector& result_types);
   Result OnBr(Index depth);
   Result OnBrIf(Index depth);
   Result BeginBrTable();
   Result OnBrTableTarget(Index depth);
   Result EndBrTable();
-  Result OnCall(const TypeVector* param_types, const TypeVector* result_types);
-  Result OnCallIndirect(const TypeVector* param_types,
-                        const TypeVector* result_types);
-  Result OnCatch(const TypeVector* sig);
-  Result OnCatchBlock(const TypeVector* sig);
+  Result OnCall(const TypeVector& param_types, const TypeVector& result_types);
+  Result OnCallIndirect(const TypeVector& param_types,
+                        const TypeVector& result_types);
+  Result OnCatch();
   Result OnCompare(Opcode);
   Result OnConst(Type);
   Result OnConvert(Opcode);
-  Result OnCurrentMemory();
   Result OnDrop();
   Result OnElse();
   Result OnEnd();
   Result OnGetGlobal(Type);
   Result OnGetLocal(Type);
-  Result OnGrowMemory();
-  Result OnIf(const TypeVector* sig);
+  Result OnIf(const TypeVector& param_types, const TypeVector& result_types);
+  Result OnIfExcept(const TypeVector& param_types,
+                    const TypeVector& result_types,
+                    const TypeVector& except_sig);
   Result OnLoad(Opcode);
-  Result OnLoop(const TypeVector* sig);
-  Result OnRethrow(Index depth);
+  Result OnLoop(const TypeVector& param_types, const TypeVector& result_types);
+  Result OnMemoryGrow();
+  Result OnMemorySize();
+  Result OnRethrow();
   Result OnReturn();
   Result OnSelect();
   Result OnSetGlobal(Type);
   Result OnSetLocal(Type);
+  Result OnSimdLaneOp(Opcode, uint64_t);
+  Result OnSimdShuffleOp(Opcode, v128);
   Result OnStore(Opcode);
   Result OnTeeLocal(Type);
-  Result OnThrow(const TypeVector* sig);
-  Result OnTryBlock(const TypeVector* sig);
+  Result OnTernary(Opcode);
+  Result OnThrow(const TypeVector& sig);
+  Result OnTry(const TypeVector& param_types, const TypeVector& result_types);
   Result OnUnary(Opcode);
   Result OnUnreachable();
   Result EndFunction();
@@ -100,7 +113,9 @@ class TypeChecker {
   Result TopLabel(Label** out_label);
   void ResetTypeStackToLabel(Label* label);
   Result SetUnreachable();
-  void PushLabel(LabelType label_type, const TypeVector& sig);
+  void PushLabel(LabelType label_type,
+                 const TypeVector& param_types,
+                 const TypeVector& result_types);
   Result PopLabel();
   Result CheckLabelType(Label* label, LabelType label_type);
   Result PeekType(Index depth, Type* out_type);
@@ -110,7 +125,7 @@ class TypeChecker {
   void PushTypes(const TypeVector& types);
   Result CheckTypeStackEnd(const char* desc);
   Result CheckType(Type actual, Type expected);
-  Result CheckSignature(const TypeVector& sig);
+  Result CheckSignature(const TypeVector& sig, const char* desc);
   Result PopAndCheckSignature(const TypeVector& sig, const char* desc);
   Result PopAndCheckCall(const TypeVector& param_types,
                          const TypeVector& result_types,
@@ -140,9 +155,9 @@ class TypeChecker {
   ErrorCallback error_callback_;
   TypeVector type_stack_;
   std::vector<Label> label_stack_;
-  // TODO(binji): This will need to be complete signature when signatures with
-  // multiple types are allowed.
-  Type br_table_sig_ = Type::Void;
+  // Cache the expected br_table signature. It will be initialized to `nullptr`
+  // to represent "any".
+  TypeVector* br_table_sig_ = nullptr;
 };
 
 }  // namespace wabt

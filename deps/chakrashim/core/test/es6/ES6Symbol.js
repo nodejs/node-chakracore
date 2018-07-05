@@ -185,14 +185,14 @@ var tests = [
     {
         name: "Symbol primitive toString should throw a type error",
         body: function() {
-            assert.throws(function() { 'string' + Symbol.iterator; }, TypeError, "Symbol primitives throw on implicit string conversion", "Object doesn't support property or method 'ToString'");
+            assert.throws(function() { 'string' + Symbol.iterator; }, TypeError, "Symbol primitives throw on implicit string conversion", "No implicit conversion of Symbol to String");
         }
     },
     {
         name: "String(symbol) behavior",
         body: function() {
             assert.areEqual('Symbol(description)', String(Symbol('description')), "String(Symbol('description')) === 'Symbol(description)'");
-            assert.throws(function () { new String(Symbol('description')); }, TypeError, "Symbol as an argument to new String() throws", "Object doesn't support property or method 'ToString'");
+            assert.throws(function () { new String(Symbol('description')); }, TypeError, "Symbol as an argument to new String() throws", "No implicit conversion of Symbol to String");
         }
     },
     {
@@ -827,8 +827,8 @@ var tests = [
         body: function() {
             var x = Symbol();
 
-            assert.throws(function() { "str" + x; }, TypeError, "Adding a string and a symbol throws TypeError", "Object doesn't support property or method 'ToString'");
-            assert.throws(function() { x + "str"; }, TypeError, "Adding a symbol and a string throws TypeError", "Object doesn't support property or method 'ToString'");
+            assert.throws(function() { "str" + x; }, TypeError, "Adding a string and a symbol throws TypeError", "No implicit conversion of Symbol to String");
+            assert.throws(function() { x + "str"; }, TypeError, "Adding a symbol and a string throws TypeError", "No implicit conversion of Symbol to String");
             assert.throws(function() { 10 + x; }, TypeError, "Adding a number and a symbol throws TypeError", "Number expected");
             assert.throws(function() { x + 10; }, TypeError, "Adding a symbol and a number throws TypeError", "Number expected");
         }
@@ -988,7 +988,7 @@ var tests = [
         body() {
             assert.isTrue(Symbol.toPrimitive != 1);
             assert.isTrue(Symbol.toPrimitive != NaN);
-            
+
             var valueOfCalled = false;
             var a = Symbol('f');
             var b = {
@@ -1004,7 +1004,19 @@ var tests = [
             assert.isTrue(valueOfCalled);
             assert.isTrue(a == Object(a));
         }
-    }
+    },
+    {
+        name: 'Getting or setting symbol properties on null or undefined should throw',
+        body: function () {
+            assert.throws(function () { null[Symbol()]; }, TypeError, "Getting symbol property from null fails", "Unable to get property 'Symbol()' of undefined or null reference");
+            assert.throws(function () { typeof null[Symbol()]; }, TypeError, "Getting symbol property from null fails", "Unable to get property 'Symbol()' of undefined or null reference");
+            assert.throws(function () { new null[Symbol()]; }, TypeError, "Getting symbol property from null fails", "Unable to get property 'Symbol()' of undefined or null reference");
+            assert.throws(function () { undefined[Symbol('foo')]; }, TypeError, "Getting symbol property from undefined fails", "Unable to get property 'Symbol(foo)' of undefined or null reference");
+            assert.throws(function () { null[Symbol.iterator](); }, TypeError, "Getting symbol method from null fails", "Unable to get property 'Symbol(Symbol.iterator)' of undefined or null reference");
+            assert.throws(function () { undefined[Symbol()] = 5; }, TypeError, "Setting symbol property on undefined fails", "Unable to set property 'Symbol()' of undefined or null reference");
+            assert.throws(function () { delete null[Symbol()]; }, TypeError, "Deleting symbol property on undefined fails", "Unable to delete property 'Symbol()' of undefined or null reference");
+        }
+    },
 ];
 
 testRunner.runTests(tests, { verbose: WScript.Arguments[0] != "summary" });

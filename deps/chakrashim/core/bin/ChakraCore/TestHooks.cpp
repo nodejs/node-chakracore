@@ -3,7 +3,21 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "Runtime.h"
+#include "Core/ConfigParser.h"
 #include "TestHooks.h"
+
+namespace PlatformAgnostic
+{
+namespace UnicodeText
+{
+namespace Internal
+{
+// this is in place of including PlatformAgnostic/UnicodeTextInternal.h, which has template
+// instantiations that upset Clang on macOS and Linux
+int LogicalStringCompareImpl(const char16* p1, const char16* p2);
+}
+}
+}
 
 #ifdef ENABLE_TEST_HOOKS
 
@@ -15,6 +29,13 @@ HRESULT __stdcall SetConfigFlags(__in int argc, __in_ecount(argc) LPWSTR argv[],
         return E_FAIL;
     }
 
+    return S_OK;
+}
+
+HRESULT __stdcall SetConfigFile(__in LPWSTR strConfigFile)
+{
+    CmdLineArgsParser parser;
+    ConfigParser::ParseCustomConfigFile(parser, strConfigFile);
     return S_OK;
 }
 
@@ -141,9 +162,11 @@ HRESULT OnChakraCoreLoaded(OnChakraCoreLoadedPtr pfChakraCoreLoaded)
     TestHooks testHooks =
     {
         SetConfigFlags,
+        SetConfigFile,
         PrintConfigFlagsUsageString,
         SetAssertToConsoleFlag,
         SetEnableCheckMemoryLeakOutput,
+        PlatformAgnostic::UnicodeText::Internal::LogicalStringCompareImpl,
 
 #define FLAG(type, name, description, defaultValue, ...) FLAG_##type##(name)
 #define FLAGINCLUDE(name) \

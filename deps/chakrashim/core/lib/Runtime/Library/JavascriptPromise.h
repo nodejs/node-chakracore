@@ -232,6 +232,85 @@ namespace Js
 #endif
     };
 
+    class JavascriptPromiseThenFinallyFunction : public RuntimeFunction
+    {
+    protected:
+        DEFINE_VTABLE_CTOR(JavascriptPromiseThenFinallyFunction, RuntimeFunction);
+        DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(JavascriptPromiseThenFinallyFunction);
+
+    public:
+        JavascriptPromiseThenFinallyFunction(DynamicType* type, FunctionInfo* functionInfo, RecyclableObject* OnFinally, RecyclableObject* Constructor, bool shouldThrow)
+            : RuntimeFunction(type, functionInfo), OnFinally(OnFinally), Constructor(Constructor), shouldThrow(shouldThrow)
+        { }
+
+        inline static bool Is(Var var)
+        {
+            if (JavascriptFunction::Is(var))
+            {
+                JavascriptFunction* obj = JavascriptFunction::UnsafeFromVar(var);
+
+                return VirtualTableInfo<JavascriptPromiseThenFinallyFunction>::HasVirtualTable(obj)
+                    || VirtualTableInfo<CrossSiteObject<JavascriptPromiseThenFinallyFunction>>::HasVirtualTable(obj);
+            }
+
+            return false;
+        }
+
+        inline static JavascriptPromiseThenFinallyFunction* FromVar(Var var)
+        {
+            AssertOrFailFast(JavascriptPromiseThenFinallyFunction::Is(var));
+
+            return static_cast<JavascriptPromiseThenFinallyFunction*>(var);
+        }
+
+        inline bool GetShouldThrow() { return this->shouldThrow; }
+        inline RecyclableObject* GetOnFinally() { return this->OnFinally; }
+        inline RecyclableObject* GetConstructor() { return this->Constructor; }
+
+    private:
+        Field(RecyclableObject*) OnFinally;
+        Field(RecyclableObject*) Constructor;
+        Field(bool) shouldThrow;
+    };
+
+    class JavascriptPromiseThunkFinallyFunction : public RuntimeFunction
+    {
+    protected:
+        DEFINE_VTABLE_CTOR(JavascriptPromiseThunkFinallyFunction, RuntimeFunction);
+        DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(JavascriptPromiseThunkFinallyFunction);
+
+    public:
+        JavascriptPromiseThunkFinallyFunction(DynamicType* type, FunctionInfo* functionInfo, Var value, bool shouldThrow)
+            : RuntimeFunction(type, functionInfo), value(value), shouldThrow(shouldThrow)
+        { }
+
+        inline static bool Is(Var var)
+        {
+            if (JavascriptFunction::Is(var))
+            {
+                JavascriptFunction* obj = JavascriptFunction::UnsafeFromVar(var);
+
+                return VirtualTableInfo<JavascriptPromiseThunkFinallyFunction>::HasVirtualTable(obj)
+                    || VirtualTableInfo<CrossSiteObject<JavascriptPromiseThunkFinallyFunction>>::HasVirtualTable(obj);
+            }
+            return false;
+        }
+
+        inline static JavascriptPromiseThunkFinallyFunction* FromVar(Var var)
+        {
+            AssertOrFailFast(JavascriptPromiseThunkFinallyFunction::Is(var));
+
+            return static_cast<JavascriptPromiseThunkFinallyFunction*>(var);
+        }
+
+        inline bool GetShouldThrow() { return this->shouldThrow; }
+        inline Var GetValue() { return this->value; }
+
+    private:
+        Field(Var) value;
+        Field(bool) shouldThrow;
+    };
+
     struct JavascriptPromiseAllResolveElementFunctionRemainingElementsWrapper
     {
         Field(uint32) remainingElements;
@@ -324,8 +403,6 @@ namespace Js
 #endif
     };
 
-    typedef JsUtil::List<Js::JavascriptPromiseCapability*> JavascriptPromiseCapabilityList;
-
     class JavascriptPromiseReaction : FinalizableObject
     {
     private:
@@ -368,7 +445,13 @@ namespace Js
 #endif
     };
 
-    typedef JsUtil::List<Js::JavascriptPromiseReaction*> JavascriptPromiseReactionList;
+    struct JavascriptPromiseReactionPair
+    {
+        JavascriptPromiseReaction* resolveReaction;
+        JavascriptPromiseReaction* rejectReaction;
+    };
+
+    typedef SList<Js::JavascriptPromiseReactionPair, Recycler> JavascriptPromiseReactionList;
 
     class JavascriptPromise : public DynamicObject
     {
@@ -388,10 +471,13 @@ namespace Js
             static FunctionInfo Reject;
             static FunctionInfo Resolve;
             static FunctionInfo Then;
+            static FunctionInfo Finally;
 
             static FunctionInfo Identity;
             static FunctionInfo Thrower;
 
+            static FunctionInfo FinallyValueFunction;
+            static FunctionInfo ThenFinallyFunction;
             static FunctionInfo ResolveOrRejectFunction;
             static FunctionInfo CapabilitiesExecutorFunction;
             static FunctionInfo AllResolveElementFunction;
@@ -409,7 +495,10 @@ namespace Js
         static Var EntryReject(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryResolve(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryThen(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var EntryFinally(RecyclableObject* function, CallInfo callInfo, ...);
 
+        static Var EntryThunkFinallyFunction(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var EntryThenFinallyFunction(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryCapabilitiesExecutorFunction(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryResolveOrRejectFunction(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryReactionTaskFunction(RecyclableObject* function, CallInfo callInfo, ...);
@@ -436,12 +525,12 @@ namespace Js
         virtual BOOL GetDiagValueString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
         virtual BOOL GetDiagTypeString(StringBuilder<ArenaAllocator>* stringBuilder, ScriptContext* requestContext) override;
 
-        JavascriptPromiseReactionList* GetResolveReactions();
-        JavascriptPromiseReactionList* GetRejectReactions();
+        JavascriptPromiseReactionList* GetReactions();
+
 
         static JavascriptPromiseCapability* NewPromiseCapability(Var constructor, ScriptContext* scriptContext);
         static JavascriptPromiseCapability* CreatePromiseCapabilityRecord(RecyclableObject* constructor, ScriptContext* scriptContext);
-        static Var TriggerPromiseReactions(JavascriptPromiseReactionList* reactions, Var resolution, ScriptContext* scriptContext);
+        static Var TriggerPromiseReactions(JavascriptPromiseReactionList* reactions, bool isReject, Var resolution, ScriptContext* scriptContext);
         static void EnqueuePromiseReactionTask(JavascriptPromiseReaction* reaction, Var resolution, ScriptContext* scriptContext);
 
         static void InitializePromise(JavascriptPromise* promise, JavascriptPromiseResolveOrRejectFunction** resolve, JavascriptPromiseResolveOrRejectFunction** reject, ScriptContext* scriptContext);
@@ -453,31 +542,38 @@ namespace Js
         Var Resolve(Var resolution, ScriptContext* scriptContext);
         Var Reject(Var resolution, ScriptContext* scriptContext);
 
-        enum PromiseStatus
+        enum PromiseStatus : unsigned char
         {
-            PromiseStatusCode_Undefined,
-            PromiseStatusCode_Unresolved,
-            PromiseStatusCode_HasResolution,
-            PromiseStatusCode_HasRejection
+            PromiseStatusCode_Undefined     = 0x00,
+            PromiseStatusCode_Unresolved    = 0x01,
+            PromiseStatusCode_HasResolution = 0x02,
+            PromiseStatusCode_HasRejection  = 0x03
         };
 
-        bool GetIsHandled() { return isHandled; }
-        void SetIsHandled() { isHandled = true; }
-        PromiseStatus GetStatus() const { return status; }
+
+        bool GetIsHandled() const { return this->isHandled; }
+        void SetIsHandled() { this->isHandled = true; }
+
+        PromiseStatus GetStatus() const { return this->status; }
+        void SetStatus(const PromiseStatus newStatus) { this->status = newStatus; }
+
         Var GetResult() const { return result; }
 
     protected:
         Var ResolveHelper(Var resolution, bool isRejecting, ScriptContext* scriptContext);
 
     protected:
+        Field(Var) result;
+        Field(JavascriptPromiseReactionList*) reactions;
+
+        // we could pack status & isHandled into a single byte, but the compiler is aligning this on address-size
+        // boundaries, so we don't save anything.  Leaving these separate fields for clarity
         Field(PromiseStatus) status;
         Field(bool) isHandled;
-        Field(Var) result;
-        Field(JavascriptPromiseReactionList*) resolveReactions;
-        Field(JavascriptPromiseReactionList*) rejectReactions;
 
     private :
         static void AsyncSpawnStep(JavascriptPromiseAsyncSpawnStepArgumentExecutorFunction* nextFunction, JavascriptGenerator* gen, Var resolve, Var reject);
+        bool WillRejectionBeUnhandled();
 
 #if ENABLE_TTD
     public:
@@ -486,7 +582,7 @@ namespace Js
         virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
         virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
 
-        static JavascriptPromise* InitializePromise_TTD(ScriptContext* scriptContext, uint32 status, Var result, JsUtil::List<Js::JavascriptPromiseReaction*, HeapAllocator>& resolveReactions, JsUtil::List<Js::JavascriptPromiseReaction*, HeapAllocator>& rejectReactions);
+        static JavascriptPromise* InitializePromise_TTD(ScriptContext* scriptContext, uint32 status, bool isHandled, Var result, SList<Js::JavascriptPromiseReaction*, HeapAllocator>& resolveReactions, SList<Js::JavascriptPromiseReaction*, HeapAllocator>& rejectReactions);
 #endif
     };
 }

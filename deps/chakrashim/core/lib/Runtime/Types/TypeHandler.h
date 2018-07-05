@@ -301,6 +301,7 @@ namespace Js
         }
 
         static bool CanBeSingletonInstance(DynamicObject * instance);
+        static Var CanonicalizeAccessor(Var accessor, /*const*/ JavascriptLibrary* library);
     public:
         BYTE GetFlags() const { return this->flags; }
         static int GetOffsetOfFlags() { return offsetof(DynamicTypeHandler, flags); }
@@ -378,6 +379,11 @@ namespace Js
             SetFlags(HasKnownSlot0Flag);
         }
 
+        void ClearHasKnownSlot0()
+        {
+            ClearFlags(HasKnownSlot0Flag);
+        }
+
         void SetIsInlineSlotCapacityLocked()
         {
             Assert(!GetIsInlineSlotCapacityLocked());
@@ -386,6 +392,8 @@ namespace Js
 
         PropertyTypes GetPropertyTypes() { Assert((propertyTypes & PropertyTypesReserved) != 0); return propertyTypes; }
         bool GetHasOnlyWritableDataProperties() { return (GetPropertyTypes() & PropertyTypesWritableDataOnly) == PropertyTypesWritableDataOnly; }
+        bool GetHasSpecialProperties() { return (GetPropertyTypes() & PropertyTypesHasSpecialProperties) == PropertyTypesHasSpecialProperties; }
+        void SetHasSpecialProperties() { propertyTypes |= PropertyTypesHasSpecialProperties; }
         // Do not use this method.  It's here only for the __proto__ performance workaround.
         void SetHasOnlyWritableDataProperties() { SetHasOnlyWritableDataProperties(true); }
         void ClearHasOnlyWritableDataProperties() { SetHasOnlyWritableDataProperties(false); };
@@ -420,6 +428,7 @@ namespace Js
         virtual BOOL IsSharable() const = 0;
 
         virtual int GetPropertyCount() = 0;
+        virtual int GetPropertyCountForEnum() { return GetPropertyCount(); }
         virtual PropertyId GetPropertyId(ScriptContext* scriptContext, PropertyIndex index) = 0;
         virtual PropertyId GetPropertyId(ScriptContext* scriptContext, BigPropertyIndex index) = 0;
         virtual BOOL FindNextProperty(ScriptContext* scriptContext, PropertyIndex& index, JavascriptString** propertyString,
@@ -434,7 +443,7 @@ namespace Js
 #endif
 
         virtual bool EnsureObjectReady(DynamicObject* instance) { return true; }
-        virtual BOOL HasProperty(DynamicObject* instance, PropertyId propertyId, __out_opt bool *pNoRedecl = nullptr) = 0;
+        virtual BOOL HasProperty(DynamicObject* instance, PropertyId propertyId, __out_opt bool *pNoRedecl = nullptr, _Inout_opt_ PropertyValueInfo* info = nullptr) = 0;
         virtual BOOL HasProperty(DynamicObject* instance, JavascriptString* propertyNameString) = 0;
         virtual BOOL GetProperty(DynamicObject* instance, Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) = 0;
         virtual BOOL GetProperty(DynamicObject* instance, Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) = 0;
@@ -490,7 +499,7 @@ namespace Js
         virtual DescriptorFlags GetItemSetter(DynamicObject* instance, uint32 index, Var* setterValue, ScriptContext* requestContext);
 
         virtual BOOL SetAccessors(DynamicObject* instance, PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None) = 0;
-        virtual BOOL GetAccessors(DynamicObject* instance, PropertyId propertyId, Var* getter, Var* setter) { return false; };
+        _Check_return_ _Success_(return) virtual BOOL GetAccessors(DynamicObject* instance, PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter) { return FALSE; };
 
         virtual BOOL PreventExtensions(DynamicObject *instance) = 0;
         virtual BOOL Seal(DynamicObject *instance) = 0;
@@ -609,12 +618,14 @@ namespace Js
         BigPropertyIndex GetPropertyIndexFromInlineSlotIndex(uint inlineSlotIndexSlot);
         BigPropertyIndex GetPropertyIndexFromAuxSlotIndex(uint auxIndex);
 
+        virtual BigPropertyIndex PropertyIndexToPropertyEnumeration(BigPropertyIndex index) const { return index; }
+
+        static PropertyId TMapKey_GetPropertyId(ScriptContext* scriptContext, const PropertyId key);
+        static PropertyId TMapKey_GetPropertyId(ScriptContext* scriptContext, const PropertyRecord* key);
+        static PropertyId TMapKey_GetPropertyId(ScriptContext* scriptContext, JavascriptString* key);
     protected:
         void SetPropertyUpdateSideEffect(DynamicObject* instance, PropertyId propertyId, Var value, SideEffects possibleSideEffects);
         void SetPropertyUpdateSideEffect(DynamicObject* instance, JsUtil::CharacterBuffer<WCHAR> const& propertyName, Var value, SideEffects possibleSideEffects);
-        PropertyId TMapKey_GetPropertyId(ScriptContext* scriptContext, const PropertyId key);
-        PropertyId TMapKey_GetPropertyId(ScriptContext* scriptContext, const PropertyRecord* key);
-        PropertyId TMapKey_GetPropertyId(ScriptContext* scriptContext, JavascriptString* key);
         bool VerifyIsExtensible(ScriptContext* scriptContext, bool alwaysThrow);
 
         void SetOffsetOfInlineSlots(const uint16 offsetOfInlineSlots) { this->offsetOfInlineSlots = offsetOfInlineSlots; }

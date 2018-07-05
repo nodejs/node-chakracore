@@ -137,6 +137,7 @@ private:
     void                BuildProfiledReg2(Js::OpCode newOpcode, uint32 offset, Js::RegSlot dstRegSlot, Js::RegSlot srcRegSlot, Js::ProfileId profileId);
     void                BuildReg3(Js::OpCode newOpcode, uint32 offset, Js::RegSlot dstRegSlot, Js::RegSlot src1RegSlot,
                             Js::RegSlot src2RegSlot, Js::ProfileId profileId);
+    void                BuildIsIn(Js::OpCode newOpcode, uint32 offset, Js::RegSlot dstRegSlot, Js::RegSlot src1RegSlot, Js::RegSlot src2RegSlot, Js::ProfileId profileId);
     void                BuildReg3C(Js::OpCode newOpCode, uint32 offset, Js::RegSlot dstRegSlot, Js::RegSlot src1RegSlot,
                             Js::RegSlot src2RegSlot, Js::CacheId inlineCacheIndex);
     void                BuildReg4(Js::OpCode newOpcode, uint32 offset, Js::RegSlot dstRegSlot, Js::RegSlot src1RegSlot,
@@ -160,12 +161,15 @@ private:
                             int32 slotId, Js::ProfileId profileId);
     void                BuildElementSlotI2(Js::OpCode newOpcode, uint32 offset, Js::RegSlot regSlot,
                             int32 slotId1, int32 slotId2, Js::ProfileId profileId);
+    void                BuildElementSlotI3(Js::OpCode newOpcode, uint32 offset, Js::RegSlot fieldRegSlot, Js::RegSlot regSlot,
+                            int32 slotId, Js::RegSlot homeObjLocation, Js::ProfileId profileId);
     void                BuildArgIn0(uint32 offset, Js::RegSlot R0);
     void                BuildArg(Js::OpCode newOpcode, uint32 offset, Js::ArgSlot argument, Js::RegSlot srcRegSlot);
     void                BuildArgIn(uint32 offset, Js::RegSlot dstRegSlot, uint16 argument);
     void                BuildArgInRest();
     void                BuildElementP(Js::OpCode newOpcode, uint32 offset, Js::RegSlot regSlot, Js::CacheId inlineCacheIndex);
     void                BuildElementCP(Js::OpCode newOpcode, uint32 offset, Js::RegSlot instance, Js::RegSlot regSlot, Js::CacheId inlineCacheIndex);
+    void                BuildProfiledElementCP(Js::OpCode newOpcode, uint32 offset, Js::RegSlot instance, Js::RegSlot regSlot, Js::CacheId inlineCacheIndex, Js::ProfileId profileId);
     void                BuildElementC2(Js::OpCode newOpcode, uint32 offset, Js::RegSlot instanceSlot, Js::RegSlot instance2Slot,
                             Js::RegSlot regSlot, Js::PropertyIdIndexType propertyIdIndex);
     void                BuildElementScopedC2(Js::OpCode newOpcode, uint32 offset, Js::RegSlot instance2Slot,
@@ -318,7 +322,9 @@ private:
     void                InsertDoneLoopBodyLoopCounter(uint32 lastOffset);
 
     IR::RegOpnd *       InsertConvPrimStr(IR::RegOpnd * srcOpnd, uint offset, bool forcePreOpBailOutIfNeeded);
-
+    IR::Opnd *          IRBuilder::GetEnvironmentOperand(uint32 offset);
+    bool                DoLoadInstructionArrayProfileInfo();
+    bool                AllowNativeArrayProfileInfo();
 
 #ifdef BAILOUT_INJECTION
     void InjectBailOut(uint offset);

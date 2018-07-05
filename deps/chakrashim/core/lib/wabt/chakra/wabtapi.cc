@@ -24,7 +24,7 @@ class MyErrorHandler : public ErrorHandler
 public:
     MyErrorHandler() : ErrorHandler(Location::Type::Text) {}
 
-    virtual bool OnError(const Location& loc, const std::string& error, const std::string& source_line, size_t source_line_column_offset) override
+    virtual bool OnError(ErrorLevel level, const Location& loc, const std::string& error, const std::string& source_line, size_t source_line_column_offset) override
     {
         int colStart = loc.first_column - 1 - (int)source_line_column_offset;
         int sourceErrorLength = (loc.last_column - loc.first_column) - 2;
@@ -34,7 +34,8 @@ public:
             sourceErrorLength = 0;
         }
         char buf[4096];
-        wabt_snprintf(buf, 4096, "Wast Parsing error:%u:%u:\n%s\n%s\n%*s^%*s^",
+        wabt_snprintf(buf, 4096, "Wast Parsing %s:%u:%u:\n%s\n%s\n%*s^%*s^",
+            GetErrorLevelName(level),
             loc.line,
             loc.first_column,
             error.c_str(),
@@ -64,10 +65,25 @@ namespace ChakraWabt
 Features GetWabtFeatures(const ChakraContext& ctx)
 {
     Features features;
-    if (ctx.features.sign_extends || ctx.features.threads)
+    if (ctx.features.sign_extends)
+    {
+        features.enable_sign_extension();
+    }
+    if (ctx.features.threads)
     {
         features.enable_threads();
     }
+    if (ctx.features.simd)
+    {
+        features.enable_simd();
+    }
+    if (ctx.features.sat_float_to_int)
+    {
+        features.enable_sat_float_to_int();
+    }
+
+    // Enable wabt features that have made it into the spec
+    features.enable_mutable_globals();
     return features;
 }
 

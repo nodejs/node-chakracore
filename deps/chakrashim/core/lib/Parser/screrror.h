@@ -7,7 +7,7 @@
 /***************************************************************************
 Exception blocks
 ***************************************************************************/
-struct ParseNode;
+class ParseNode;
 class COleScript;
 interface IScanner;
 
@@ -69,6 +69,8 @@ public:
         ScriptException::GetError(phr, pei);
         Free();
     }
+
+    void CopyInto(CompileScriptException* cse);
 
     HRESULT  ProcessError(IScanner * pScan, HRESULT hr, ParseNode * pnodeBase);
 

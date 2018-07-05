@@ -56,9 +56,12 @@ namespace Js
     NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_RegisterChakraLibraryFunction(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_RegisterChakraLibraryFunction));
 
     NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_GetLength(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_GetLength));
-    NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_SetPrototype(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_SetPrototype));
     NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_GetIteratorPrototype(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_GetIteratorPrototype));
     NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_InitInternalProperties(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_InitInternalProperties));
+    NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_ToLengthFunction(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ToLengthFunction));
+    NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_ToIntegerFunction(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ToIntegerFunction));
+    NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_ArraySpeciesCreate(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ArraySpeciesCreate));
+    NoProfileFunctionInfo JsBuiltInEngineInterfaceExtensionObject::EntryInfo::JsBuiltIn_Internal_ArrayCreateDataPropertyOrThrow(FORCE_NO_WRITE_BARRIER_TAG(JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ArrayCreateDataPropertyOrThrow));
 
     void JsBuiltInEngineInterfaceExtensionObject::Initialize()
     {
@@ -110,9 +113,6 @@ namespace Js
             // so marshalling will inadvertantly transition the entrypoint of the prototype to a crosssite entrypoint
             // So we set the prototype to null here
             functionGlobal->SetPrototype(scriptContext->GetLibrary()->nullValue);
-#if DBG
-            functionGlobal->GetFunctionProxy()->SetIsJsBuiltInInitCode();
-#endif
 
 #ifdef ENABLE_SCRIPT_PROFILING
             // If we are profiling, we need to register the script to the profiler callback, so the script compiled event will be sent.
@@ -131,6 +131,12 @@ namespace Js
             Js::Var args[] = { scriptContext->GetLibrary()->GetUndefined(), scriptContext->GetLibrary()->GetEngineInterfaceObject() };
             Js::CallInfo callInfo(Js::CallFlags_Value, _countof(args));
 
+#if ENABLE_JS_REENTRANCY_CHECK
+            // Create a Reentrancy lock to make sure we correctly restore the lock at the end of BuiltIns initialization
+            JsReentLock lock(scriptContext->GetThreadContext());
+            // Clear ReentrancyLock bit as initialization code doesn't have any side effect
+            scriptContext->GetThreadContext()->SetNoJsReentrancy(false);
+#endif
             // Clear disable implicit call bit as initialization code doesn't have any side effect
             Js::ImplicitCallFlags saveImplicitCallFlags = scriptContext->GetThreadContext()->GetImplicitCallFlags();
             scriptContext->GetThreadContext()->ClearDisableImplicitFlags();
@@ -139,9 +145,6 @@ namespace Js
 
             Js::ScriptFunction *functionBuiltins = scriptContext->GetLibrary()->CreateScriptFunction(jsBuiltInByteCode->GetNestedFunctionForExecution(0));
             functionBuiltins->SetPrototype(scriptContext->GetLibrary()->nullValue);
-#if DBG
-            functionBuiltins->GetFunctionProxy()->SetIsJsBuiltInInitCode();
-#endif
 
             // Clear disable implicit call bit as initialization code doesn't have any side effect
             saveImplicitCallFlags = scriptContext->GetThreadContext()->GetImplicitCallFlags();
@@ -191,7 +194,7 @@ namespace Js
 #if DBG
     void JsBuiltInEngineInterfaceExtensionObject::DumpByteCode()
     {
-        Output::Print(_u("Dumping JS Built Ins Byte Code:\r"));
+        Output::Print(_u("Dumping JS Built Ins Byte Code:\n"));
         Assert(this->jsBuiltInByteCode);
         Js::ByteCodeDumper::DumpRecursively(jsBuiltInByteCode);
     }
@@ -241,6 +244,25 @@ namespace Js
         }
     }
 
+    void JsBuiltInEngineInterfaceExtensionObject::RecordCommonNativeInterfaceBuiltIns(Js::PropertyIds propertyId, ScriptContext * scriptContext, JavascriptFunction * scriptFunction)
+    {
+        PropertyId commonNativeInterfaceId;
+        switch (propertyId)
+        {
+            case PropertyIds::indexOf:
+                commonNativeInterfaceId = Js::PropertyIds::builtInJavascriptArrayEntryIndexOf;
+                break;
+
+            case PropertyIds::filter:
+                commonNativeInterfaceId = Js::PropertyIds::builtInJavascriptArrayEntryFilter;
+                break;
+
+            default:
+                return;
+        }
+
+        scriptContext->GetLibrary()->AddMember(scriptContext->GetLibrary()->GetEngineInterfaceObject()->GetCommonNativeInterfaces(), commonNativeInterfaceId, scriptFunction);
+    }
 
     void JsBuiltInEngineInterfaceExtensionObject::RecordDefaultIteratorFunctions(Js::PropertyIds propertyId, ScriptContext * scriptContext, JavascriptFunction * iteratorFunc)
     {
@@ -280,16 +302,12 @@ namespace Js
 
         // Link the function to __chakraLibrary.
         ScriptFunction* scriptFunction = library->CreateScriptFunction(func->GetFunctionProxy());
-        scriptFunction->SetIsJsBuiltInCode();
         scriptFunction->GetFunctionProxy()->SetIsJsBuiltInCode();
 
         Assert(scriptFunction->HasFunctionBody());
         scriptFunction->GetFunctionBody()->SetJsBuiltInForceInline();
 
-        if (scriptFunction->GetScriptContext()->GetConfig()->IsES6FunctionNameEnabled())
-        {
-            scriptFunction->SetPropertyWithAttributes(PropertyIds::name, methodName, PropertyConfigurable, nullptr);
-        }
+        scriptFunction->SetPropertyWithAttributes(PropertyIds::name, methodName, PropertyConfigurable, nullptr);
 
         library->AddMember(chakraLibraryObject, functionIdentifier, scriptFunction);
 
@@ -340,7 +358,6 @@ namespace Js
 
         // Link the function to the prototype.
         ScriptFunction* scriptFunction = library->CreateScriptFunction(func->GetFunctionProxy());
-        scriptFunction->SetIsJsBuiltInCode();
         scriptFunction->GetFunctionProxy()->SetIsJsBuiltInCode();
 
         if (forceInline)
@@ -353,12 +370,11 @@ namespace Js
         scriptFunction->SetConfigurable(PropertyIds::prototype, true);
         scriptFunction->DeleteProperty(PropertyIds::prototype, Js::PropertyOperationFlags::PropertyOperation_None);
 
-        if (scriptFunction->GetScriptContext()->GetConfig()->IsES6FunctionNameEnabled())
-        {
-            scriptFunction->SetPropertyWithAttributes(PropertyIds::name, methodName, PropertyConfigurable, nullptr);
-        }
+        scriptFunction->SetPropertyWithAttributes(PropertyIds::name, methodName, PropertyConfigurable, nullptr);
 
         library->AddMember(prototype, functionIdentifier, scriptFunction);
+
+        RecordCommonNativeInterfaceBuiltIns(functionIdentifier, scriptContext, scriptFunction);
 
         if (!JavascriptOperators::IsUndefinedOrNull(aliasProperty))
         {
@@ -376,6 +392,31 @@ namespace Js
 
         //Don't need to return anything
         return library->GetUndefined();
+    }
+
+    Var JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ToLengthFunction(RecyclableObject * function, CallInfo callInfo, ...)
+    {
+        EngineInterfaceObject_CommonFunctionProlog(function, callInfo);
+        Assert(args.Info.Count == 2);
+        return JavascriptNumber::ToVar(JavascriptConversion::ToLength(args.Values[1], scriptContext), scriptContext);
+    }
+
+    Var JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ToIntegerFunction(RecyclableObject * function, CallInfo callInfo, ...)
+    {
+        EngineInterfaceObject_CommonFunctionProlog(function, callInfo);
+        Assert(args.Info.Count == 2);
+
+        Var value = args.Values[1];
+        if (JavascriptOperators::IsUndefinedOrNull(value))
+        {
+            return TaggedInt::ToVarUnchecked(0);
+        }
+        else if (TaggedInt::Is(value))
+        {
+            return value;
+        }
+
+        return JavascriptNumber::ToVarNoCheck(JavascriptConversion::ToInteger(value, scriptContext), scriptContext);
     }
 
     Var JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_GetLength(RecyclableObject *function, CallInfo callInfo, ...)
@@ -407,24 +448,6 @@ namespace Js
         return JavascriptNumber::ToVar(length, scriptContext);
     }
 
-    /*
-    * First parameter is the object onto which prototype should be set; second is the value
-    */
-    Var JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_SetPrototype(RecyclableObject *function, CallInfo callInfo, ...)
-    {
-        EngineInterfaceObject_CommonFunctionProlog(function, callInfo);
-        UNREFERENCED_PARAMETER(scriptContext);
-
-        Assert(callInfo.Count == 3 && DynamicObject::Is(args.Values[1]) && RecyclableObject::Is(args.Values[2]));
-
-        DynamicObject* obj = DynamicObject::FromVar(args.Values[1]);
-        RecyclableObject* value = RecyclableObject::FromVar(args.Values[2]);
-
-        obj->SetPrototype(value);
-
-        return obj;
-    }
-
     Var JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_GetIteratorPrototype(RecyclableObject *function, CallInfo callInfo, ...)
     {
         EngineInterfaceObject_CommonFunctionProlog(function, callInfo);
@@ -440,7 +463,7 @@ namespace Js
 
         DynamicObject* obj = DynamicObject::FromVar(args.Values[1]);
         unsigned propCount = TaggedInt::ToUInt32(args.Values[2]);
-        
+
         Assert(callInfo.Count == 3 + propCount);
 
         for (unsigned i = 0; i < propCount; i++)
@@ -448,9 +471,54 @@ namespace Js
             JavascriptString *propName = JavascriptString::FromVar(args.Values[i + 3]);
             obj->SetPropertyWithAttributes(JavascriptOperators::GetPropertyId(propName, scriptContext), scriptContext->GetLibrary()->GetNull(), PropertyWritable, nullptr);
         }
-        
+
         return obj;
     }
 
+    Var JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ArraySpeciesCreate(RecyclableObject *function, CallInfo callInfo, ...)
+    {
+        EngineInterfaceObject_CommonFunctionProlog(function, callInfo);
+        AssertOrFailFast(args.Info.Count == 3);
+
+        int64 length64 = JavascriptConversion::ToLength(args.Values[2], scriptContext);
+        if (length64 > UINT_MAX)
+        {
+            JavascriptError::ThrowRangeError(scriptContext, JSERR_ArrayLengthConstructIncorrect);
+        }
+
+        uint32 length = static_cast<uint32>(length64);
+
+        bool isBuiltinArrayCtor = true;
+        RecyclableObject * newObj = JavascriptArray::ArraySpeciesCreate(args.Values[1], length, scriptContext, nullptr, nullptr, &isBuiltinArrayCtor);
+        nullptr;
+
+        if (newObj == nullptr)
+        {
+            newObj = scriptContext->GetLibrary()->CreateArray(length);
+        }
+        else
+        {
+#if ENABLE_COPYONACCESS_ARRAY
+            JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(newObj);
+#endif
+        }
+
+        return newObj;
+    }
+
+    Var JsBuiltInEngineInterfaceExtensionObject::EntryJsBuiltIn_Internal_ArrayCreateDataPropertyOrThrow(RecyclableObject *function, CallInfo callInfo, ...)
+    {
+        EngineInterfaceObject_CommonFunctionProlog(function, callInfo);
+        AssertOrFailFast(args.Info.Count == 4);
+
+        RecyclableObject * obj = RecyclableObject::FromVar(args.Values[1]);
+        double index = JavascriptConversion::ToInteger(args.Values[2], scriptContext);
+        AssertOrFailFast(index >= 0);
+        JavascriptArray::BigIndex bigIndex(static_cast<uint64>(index));
+        Var item = args.Values[3];
+
+        JavascriptArray::CreateDataPropertyOrThrow(obj, bigIndex, item, scriptContext);
+        return scriptContext->GetLibrary()->GetTrue();
+    }
 #endif // ENABLE_JS_BUILTINS
 }

@@ -8,8 +8,8 @@
 #include "DebugWriter.h"
 #include "RegexPattern.h"
 
-namespace Js
-{
+using namespace Js;
+
     JavascriptRegExp::JavascriptRegExp(UnifiedRegex::RegexPattern* pattern, DynamicType* type) :
         DynamicObject(type),
         pattern(pattern),
@@ -19,6 +19,7 @@ namespace Js
     {
         Assert(type->GetTypeId() == TypeIds_RegEx);
         Assert(!this->GetType()->AreThisAndPrototypesEnsuredToHaveOnlyWritableDataProperties());
+        Assert(!this->GetType()->ThisAndPrototypesHaveNoSpecialProperties());
 
 #if ENABLE_REGEX_CONFIG_OPTIONS
         if (REGEX_CONFIG_FLAG(RegexTracing))
@@ -394,6 +395,7 @@ namespace Js
 
     JavascriptRegExp* JavascriptRegExp::CreateRegEx(Var aValue, Var options, ScriptContext *scriptContext)
     {
+        JIT_HELPER_REENTRANT_HEADER(Op_CoerseRegex);
         // This is called as helper from OpCode::CoerseRegEx. If aValue is regex pattern /a/, CreatePattern converts
         // it to pattern "/a/" instead of "a". So if we know that aValue is regex, then just return the same object
         if (JavascriptRegExp::Is(aValue))
@@ -404,6 +406,7 @@ namespace Js
         {
             return CreateRegExNoCoerce(aValue, options, scriptContext);
         }
+        JIT_HELPER_END(Op_CoerseRegex);
     }
 
     JavascriptRegExp* JavascriptRegExp::CreateRegExNoCoerce(Var aValue, Var options, ScriptContext *scriptContext)
@@ -626,10 +629,10 @@ namespace Js
         return thisRegularExpression;
     }
 
-    Var JavascriptRegExp::OP_NewRegEx(Var aCompiledRegex, ScriptContext* scriptContext)
+    Var JavascriptRegExp::OP_NewRegEx(UnifiedRegex::RegexPattern* aCompiledRegex, ScriptContext* scriptContext)
     {
         JavascriptRegExp * pNewInstance =
-            RecyclerNew(scriptContext->GetRecycler(),JavascriptRegExp,((UnifiedRegex::RegexPattern*)aCompiledRegex),
+            RecyclerNew(scriptContext->GetRecycler(), JavascriptRegExp, aCompiledRegex,
             scriptContext->GetLibrary()->GetRegexType());
         return pNewInstance;
     }
@@ -710,7 +713,7 @@ namespace Js
 
         ScriptContext* scriptContext = function->GetScriptContext();
 
-        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_RegexSymbolMatch);
+        CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, RegexSymbolMatch, scriptContext);
 
         PCWSTR const varName = _u("RegExp.prototype[Symbol.match]");
 
@@ -780,7 +783,7 @@ namespace Js
 
         ScriptContext* scriptContext = function->GetScriptContext();
 
-        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_RegexSymbolReplace);
+        CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, RegexSymbolReplace, scriptContext);
 
         PCWSTR varName = _u("RegExp.prototype[Symbol.replace]");
 
@@ -814,7 +817,7 @@ namespace Js
 
         ScriptContext* scriptContext = function->GetScriptContext();
 
-        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_RegexSymbolSearch);
+        CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, RegexSymbolSearch, scriptContext);
 
         PCWSTR const varName = _u("RegExp.prototype[Symbol.search]");
 
@@ -843,7 +846,7 @@ namespace Js
 
         ScriptContext* scriptContext = function->GetScriptContext();
 
-        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_RegexSymbolSplit);
+        CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, RegexSymbolSplit, scriptContext);
 
         RecyclableObject *thisObj = GetThisObject(args, _u("RegExp.prototype[Symbol.match]"), scriptContext);
         JavascriptString* string = GetFirstStringArg(args, scriptContext);
@@ -1103,12 +1106,12 @@ namespace Js
         PropertyIds::sticky
     };
 
-    PropertyQueryFlags JavascriptRegExp::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags JavascriptRegExp::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
         const ScriptConfiguration* scriptConfig = this->GetScriptContext()->GetConfig();
 
 #define HAS_PROPERTY(ownProperty) \
-        return (ownProperty ? PropertyQueryFlags::Property_Found : DynamicObject::HasPropertyQuery(propertyId));
+        return (ownProperty ? PropertyQueryFlags::Property_Found : DynamicObject::HasPropertyQuery(propertyId, info));
 
         switch (propertyId)
         {
@@ -1125,7 +1128,7 @@ namespace Js
         case PropertyIds::sticky:
             HAS_PROPERTY(scriptConfig->IsES6RegExStickyEnabled() && !scriptConfig->IsES6RegExPrototypePropertiesEnabled())
         default:
-            return DynamicObject::HasPropertyQuery(propertyId);
+            return DynamicObject::HasPropertyQuery(propertyId, info);
         }
 
 #undef HAS_PROPERTY
@@ -1598,4 +1601,3 @@ namespace Js
         this->lastIndexVar = lastVar;
     }
 #endif
-} // namespace Js

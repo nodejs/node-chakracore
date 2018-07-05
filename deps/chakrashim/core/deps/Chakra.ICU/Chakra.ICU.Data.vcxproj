@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Condition="'$(ChakraBuildPathImported)'!='true'" Project="$(SolutionDir)Chakra.Build.Paths.props" />
+  <Import Project="$(BuildConfigPropsPath)Chakra.Build.ProjectConfiguration.props" />
+  <PropertyGroup Label="Globals">
+    <TargetName>Chakra.ICU.Data</TargetName>
+    <ProjectGuid>{347824B1-7100-4EE6-8A6B-4FF64E66B0C0}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectName>Chakra.ICU.Data</ProjectName>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType Condition="'$(ChakraICU)'!='shared'">StaticLibrary</ConfigurationType>
+    <ConfigurationType Condition="'$(ChakraICU)'=='shared'">DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(BuildConfigPropsPath)Chakra.Build.Default.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(BuildConfigPropsPath)Chakra.Build.props" />
+  <Import Project="$(MSBuildThisFileDirectory)Chakra.ICU.Build.props" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link Condition="'$(ChakraICU)'=='shared'">
+      <SubSystem>Console</SubSystem>
+      <NoEntryPoint>true</NoEntryPoint>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup Condition="'$(BuildChakraICUData)'=='true'">
+    <!-- TODO(jahorto): allow the data file to be trimmed or allow an alternate data file to be supplied -->
+    <CustomBuild Include="$(MSBuildThisFileDirectory)source\data\in\icudt$(IcuVersionMajor)l.dat">
+      <Command>cmd /c "powershell $(ChakraCoreRootDirectory)\tools\icu\create_data_obj.ps1 -d $(MSBuildThisFileDirectory)icu\source\data\in\icudt$(IcuVersionMajor)l.dat -p $(Platform) -c $(Configuration) -m '$(MSBuildBinPath)\msbuild.exe' -i $(IntDir) -v $(IcuVersionMajor)"</Command>
+      <Outputs>$(IntDir)icudt$(IcuVersionMajor)l_dat.obj</Outputs>
+    </CustomBuild>
+  </ItemGroup>
+  <Import Project="$(BuildConfigPropsPath)Chakra.Build.targets" Condition="exists('$(BuildConfigPropsPath)Chakra.Build.targets')" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

@@ -13,18 +13,6 @@ namespace Js
     }
 
     template <typename T>
-    DictionaryTypeHandlerBase<T>* DictionaryTypeHandlerBase<T>::CreateTypeHandlerForArgumentsInStrictMode(Recycler * recycler, ScriptContext * scriptContext)
-    {
-        DictionaryTypeHandlerBase<T> * dictTypeHandler = New(recycler, 8, 0, 0);
-
-        dictTypeHandler->Add(scriptContext->GetPropertyName(Js::PropertyIds::callee), PropertyWritable, scriptContext);
-        dictTypeHandler->Add(scriptContext->GetPropertyName(Js::PropertyIds::length), PropertyBuiltInMethodDefaults, scriptContext);
-        dictTypeHandler->Add(scriptContext->GetPropertyName(Js::PropertyIds::_symbolIterator), PropertyBuiltInMethodDefaults, scriptContext);
-
-        return dictTypeHandler;
-    }
-
-    template <typename T>
     DictionaryTypeHandlerBase<T>::DictionaryTypeHandlerBase(Recycler* recycler) :
         DynamicTypeHandler(1),
         nextPropertyIndex(0)
@@ -62,7 +50,7 @@ namespace Js
 #endif
     {
         Assert(typeHandler->GetIsInlineSlotCapacityLocked());
-        CopyPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection | PropertyTypesInlineSlotCapacityLocked, typeHandler->GetPropertyTypes());
+        CopyPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection | PropertyTypesInlineSlotCapacityLocked | PropertyTypesHasSpecialProperties, typeHandler->GetPropertyTypes());
     }
 
     template <typename T>
@@ -136,16 +124,7 @@ namespace Js
                 if (dataSlot != NoSlots && (attribs & PropertyWritable))
                 {
                     PropertyValueInfo::SetCacheInfo(info, propertyString, propertyString->GetLdElemInlineCache(), false);
-                    SetPropertyValueInfo(info, instance, dataSlot, descriptor.Attributes);
-                    if (descriptor.IsOrMayBecomeFixed())
-                    {
-                        PropertyValueInfo::DisableStoreFieldCache(info);
-                    }
-                    if (descriptor.Attributes & PropertyDeleted)
-                    {
-                        // letconst shadowing a deleted property. don't bother to cache
-                        PropertyValueInfo::SetNoCache(info, instance);
-                    }
+                    SetPropertyValueInfo(info, instance, dataSlot, &descriptor);
                 }
                 else
                 {
@@ -368,16 +347,16 @@ namespace Js
 
     template <typename T>
     void DictionaryTypeHandlerBase<T>::Add(
-        const PropertyRecord* propertyId,
+        const PropertyRecord* propertyRecord,
         PropertyAttributes attributes,
         ScriptContext *const scriptContext)
     {
-        return Add(propertyId, attributes, true, false, false, scriptContext);
+        return Add(propertyRecord, attributes, true, false, false, scriptContext);
     }
 
     template <typename T>
     void DictionaryTypeHandlerBase<T>::Add(
-        const PropertyRecord* propertyId,
+        const PropertyRecord* propertyRecord,
         PropertyAttributes attributes,
         bool isInitialized, bool isFixed, bool usedAsFixed,
         ScriptContext *const scriptContext)
@@ -388,39 +367,32 @@ namespace Js
 
         DictionaryPropertyDescriptor<T> descriptor(index, attributes);
 #if ENABLE_FIXED_FIELDS
-        Assert((!isFixed && !usedAsFixed) || (!IsInternalPropertyId(propertyId->GetPropertyId()) && this->singletonInstance != nullptr));
+        Assert((!isFixed && !usedAsFixed) || (!IsInternalPropertyId(propertyRecord->GetPropertyId()) && this->singletonInstance != nullptr));
         descriptor.IsInitialized = isInitialized;
         descriptor.IsFixed = isFixed;
         descriptor.UsedAsFixed = usedAsFixed;
 #endif
-        propertyMap->Add(propertyId, descriptor);
+        propertyMap->Add(propertyRecord, descriptor);
 
-        if (!(attributes & PropertyWritable))
-        {
-            this->ClearHasOnlyWritableDataProperties();
-            if(GetFlags() & IsPrototypeFlag)
-            {
-                scriptContext->InvalidateStoreFieldCaches(propertyId->GetPropertyId());
-                scriptContext->GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
-            }
-        }
+        scriptContext->GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->ProcessProperty(this, attributes, propertyRecord, scriptContext);
+        scriptContext->GetLibrary()->GetTypesWithNoSpecialPropertyProtoChainCache()->ProcessProperty(this, attributes, propertyRecord, scriptContext);
     }
 
     template <typename T>
-    BOOL DictionaryTypeHandlerBase<T>::HasProperty(DynamicObject* instance, PropertyId propertyId, bool *noRedecl)
+    BOOL DictionaryTypeHandlerBase<T>::HasProperty(DynamicObject* instance, PropertyId propertyId, bool *noRedecl, _Inout_opt_ PropertyValueInfo* info)
     {
-        return HasProperty_Internal<false>(instance, propertyId, noRedecl, nullptr, nullptr);
+        return HasProperty_Internal<false>(instance, propertyId, noRedecl, info, nullptr, nullptr);
     }
 
     template <typename T>
     BOOL DictionaryTypeHandlerBase<T>::HasRootProperty(DynamicObject* instance, PropertyId propertyId, bool *noRedecl, bool *pDeclaredProperty, bool *pNonconfigurableProperty)
     {
-        return HasProperty_Internal<true>(instance, propertyId, noRedecl, pDeclaredProperty, pNonconfigurableProperty);
+        return HasProperty_Internal<true>(instance, propertyId, noRedecl, nullptr /*info*/, pDeclaredProperty, pNonconfigurableProperty);
     }
 
     template <typename T>
     template <bool allowLetConstGlobal>
-    BOOL DictionaryTypeHandlerBase<T>::HasProperty_Internal(DynamicObject* instance, PropertyId propertyId, bool *noRedecl, bool *pDeclaredProperty, bool *pNonconfigurableProperty)
+    BOOL DictionaryTypeHandlerBase<T>::HasProperty_Internal(DynamicObject* instance, PropertyId propertyId, bool *noRedecl, _Inout_opt_ PropertyValueInfo* info, bool *pDeclaredProperty, bool *pNonconfigurableProperty)
     {
         // HasProperty is called with NoProperty in JavascriptDispatch.cpp to for undeferral of the
         // deferred type system that DOM objects use.  Allow NoProperty for this reason, but only
@@ -450,6 +422,23 @@ namespace Js
             if (pNonconfigurableProperty && !(descriptor->Attributes & PropertyConfigurable))
             {
                 *pNonconfigurableProperty = true;
+            }
+            if (info)
+            {
+                T dataSlot = descriptor->template GetDataPropertyIndex<allowLetConstGlobal>();
+                if (dataSlot != NoSlots)
+                {
+                    SetPropertyValueInfo(info, instance, dataSlot, descriptor);
+                }
+                else if (descriptor->GetGetterPropertyIndex() != NoSlots)
+                {
+                    // PropertyAttributes is only one byte so it can't carry out data about whether this is an accessor.
+                    // Accessors must be cached differently than normal properties, so if we want to cache this we must
+                    // do so here rather than in the caller. However, caching here would require passing originalInstance and 
+                    // requestContext through a wide variety of call paths to this point (like we do for GetProperty), for
+                    // very little improvement. For now, just block caching this case.
+                    PropertyValueInfo::SetNoCache(info, instance);
+                }
             }
             return true;
         }
@@ -526,21 +515,12 @@ namespace Js
         if (dataSlot != NoSlots)
         {
             *value = instance->GetSlot(dataSlot);
-            SetPropertyValueInfo(info, instance, dataSlot, descriptor->Attributes);
-            if (descriptor->IsOrMayBecomeFixed())
-            {
-                PropertyValueInfo::DisableStoreFieldCache(info);
-            }
-            if (descriptor->Attributes & PropertyDeleted)
-            {
-                // letconst shadowing a deleted property. don't bother to cache
-                PropertyValueInfo::SetNoCache(info, instance);
-            }
+            SetPropertyValueInfo(info, instance, dataSlot, descriptor);
         }
         else if (descriptor->GetGetterPropertyIndex() != NoSlots)
         {
             // We must update cache before calling a getter, because it can invalidate something. Bug# 593815
-            SetPropertyValueInfo(info, instance, descriptor->GetGetterPropertyIndex(), descriptor->Attributes);
+            SetPropertyValueInfoNonFixed(info, instance, descriptor->GetGetterPropertyIndex(), descriptor->Attributes);
             CacheOperators::CachePropertyReadForGetter(info, originalInstance, propertyT, requestContext);
             PropertyValueInfo::SetNoCache(info, instance); // we already cached getter, so we don't have to do it once more
 
@@ -598,14 +578,28 @@ namespace Js
     }
 
     template <typename T>
-    void DictionaryTypeHandlerBase<T>::SetPropertyValueInfo(PropertyValueInfo* info, RecyclableObject* instance, T propIndex, PropertyAttributes attributes, InlineCacheFlags flags)
+    void DictionaryTypeHandlerBase<T>::SetPropertyValueInfo(PropertyValueInfo* info, RecyclableObject* instance, T propIndex, DictionaryPropertyDescriptor<T>* descriptor)
+    {
+        SetPropertyValueInfoNonFixed(info, instance, propIndex, descriptor->Attributes);
+        if (descriptor->IsOrMayBecomeFixed())
+        {
+            PropertyValueInfo::DisableStoreFieldCache(info);
+        }
+        if (descriptor->Attributes & PropertyDeleted)
+        {
+            // letconst shadowing a deleted property. don't bother to cache
+            PropertyValueInfo::SetNoCache(info, instance);
+        }
+    }
+
+    template <typename T>
+    void DictionaryTypeHandlerBase<T>::SetPropertyValueInfoNonFixed(PropertyValueInfo* info, RecyclableObject* instance, T propIndex, PropertyAttributes attributes, InlineCacheFlags flags)
     {
         PropertyValueInfo::Set(info, instance, propIndex, attributes, flags);
     }
 
-
     template <>
-    void DictionaryTypeHandlerBase<BigPropertyIndex>::SetPropertyValueInfo(PropertyValueInfo* info, RecyclableObject* instance, BigPropertyIndex propIndex, PropertyAttributes attributes, InlineCacheFlags flags)
+    void DictionaryTypeHandlerBase<BigPropertyIndex>::SetPropertyValueInfoNonFixed(PropertyValueInfo* info, RecyclableObject* instance, BigPropertyIndex propIndex, PropertyAttributes attributes, InlineCacheFlags flags)
     {
         PropertyValueInfo::SetNoCache(info, instance);
     }
@@ -673,7 +667,7 @@ namespace Js
         else if (descriptor->GetSetterPropertyIndex() != NoSlots)
         {
             *setterValue=((DynamicObject*)instance)->GetSlot(descriptor->GetSetterPropertyIndex());
-            SetPropertyValueInfo(info, instance, descriptor->GetSetterPropertyIndex(), descriptor->Attributes, InlineCacheSetterFlag);
+            SetPropertyValueInfoNonFixed(info, instance, descriptor->GetSetterPropertyIndex(), descriptor->Attributes, InlineCacheSetterFlag);
             return Accessor;
         }
         return None;
@@ -716,10 +710,13 @@ namespace Js
 
     template <typename T>
     template <bool allowLetConstGlobal>
-    void DictionaryTypeHandlerBase<T>::SetPropertyWithDescriptor(DynamicObject* instance,
-        PropertyRecord const* propertyRecord,
-        DictionaryPropertyDescriptor<T> ** pdescriptor,
-        Var value, PropertyOperationFlags flags, PropertyValueInfo* info)
+    void DictionaryTypeHandlerBase<T>::SetPropertyWithDescriptor(
+        _In_ DynamicObject* instance,
+        _In_ PropertyRecord const* propertyRecord,
+        _Inout_ DictionaryPropertyDescriptor<T> ** pdescriptor,
+        _In_ Var value,
+        _In_ PropertyOperationFlags flags,
+        _Inout_opt_ PropertyValueInfo* info)
     {
         Assert(pdescriptor && *pdescriptor);
         DictionaryPropertyDescriptor<T> * descriptor = *pdescriptor;
@@ -775,7 +772,7 @@ namespace Js
             // when overwriting this property and correctly invalidate any JIT-ed code that hard-coded this method.
             if (!descriptor->IsOrMayBecomeFixed())
             {
-                SetPropertyValueInfo(info, instance, dataSlotAllowLetConstGlobal, GetLetConstGlobalPropertyAttributes<allowLetConstGlobal>(descriptor->Attributes));
+                SetPropertyValueInfoNonFixed(info, instance, dataSlotAllowLetConstGlobal, GetLetConstGlobalPropertyAttributes<allowLetConstGlobal>(descriptor->Attributes));
             }
             else
             {
@@ -796,16 +793,24 @@ namespace Js
                 T dataSlot = descriptor->template GetDataPropertyIndex<false>();
                 if (dataSlot != NoSlots)
                 {
-                    SetPropertyValueInfo(info, instance, dataSlot, descriptor->Attributes);
+                    SetPropertyValueInfoNonFixed(info, instance, dataSlot, descriptor->Attributes);
                 }
                 else if (descriptor->GetSetterPropertyIndex() != NoSlots)
                 {
-                    SetPropertyValueInfo(info, instance, descriptor->GetSetterPropertyIndex(), descriptor->Attributes, InlineCacheSetterFlag);
+                    SetPropertyValueInfoNonFixed(info, instance, descriptor->GetSetterPropertyIndex(), descriptor->Attributes, InlineCacheSetterFlag);
                 }
             }
             else
             {
                 *pdescriptor = nullptr;
+            }
+        }
+        if (NoSpecialPropertyCache::IsDefaultHandledSpecialProperty(propertyId))
+        {
+            this->SetHasSpecialProperties();
+            if (GetFlags() & IsPrototypeFlag)
+            {
+                instance->GetScriptContext()->GetLibrary()->GetTypesWithNoSpecialPropertyProtoChainCache()->Clear();
             }
         }
         SetPropertyUpdateSideEffect(instance, propertyId, value, SideEffects_Any);
@@ -911,11 +916,22 @@ namespace Js
             "Numeric property names should have been converted to uint or PropertyRecord* ");
 
         ScriptContext* scriptContext = instance->GetScriptContext();
+        JavascriptLibrary* library = scriptContext->GetLibrary();
         DictionaryPropertyDescriptor<T>* descriptor;
         JsUtil::CharacterBuffer<WCHAR> propertyName(propertyNameString->GetString(), propertyNameString->GetLength());
 
         if (propertyMap->TryGetReference(propertyName, &descriptor))
         {
+            if (!this->GetHasSpecialProperties() && NoSpecialPropertyCache::IsDefaultHandledSpecialProperty(propertyNameString))
+            {
+                // If you are deleting a valueOf/toString and the flag wasn't set, it means you are deleting the default
+                // implementation off of Object.prototype
+                this->SetHasSpecialProperties();
+                if (GetFlags() & IsPrototypeFlag)
+                {
+                    library->GetTypesWithNoSpecialPropertyProtoChainCache()->Clear();
+                }
+            }
 #if ENABLE_FIXED_FIELDS
             Assert(descriptor->SanityCheckFixedBits());
 #endif
@@ -926,12 +942,13 @@ namespace Js
             else if (!(descriptor->Attributes & PropertyConfigurable))
             {
                 // Let/const properties do not have attributes and they cannot be deleted
-                JavascriptError::ThrowCantDelete(propertyOperationFlags, scriptContext, propertyNameString->GetString());
+                JavascriptError::ThrowCantDeleteIfStrictModeOrNonconfigurable(
+                    propertyOperationFlags, scriptContext, propertyNameString->GetString());
 
                 return false;
             }
 
-            Var undefined = scriptContext->GetLibrary()->GetUndefined();
+            Var undefined = library->GetUndefined();
 
             if (descriptor->HasNonLetConstGlobal())
             {
@@ -999,6 +1016,14 @@ namespace Js
         PropertyRecord const* propertyRecord = scriptContext->GetPropertyName(propertyId);
         if (propertyMap->TryGetReference(propertyRecord, &descriptor))
         {
+            if (!this->GetHasSpecialProperties() && NoSpecialPropertyCache::IsDefaultHandledSpecialProperty(propertyId))
+            {
+                this->SetHasSpecialProperties();
+                if (GetFlags() & IsPrototypeFlag)
+                {
+                    scriptContext->GetLibrary()->GetTypesWithNoSpecialPropertyProtoChainCache()->Clear();
+                }
+            }
 #if ENABLE_FIXED_FIELDS
             Assert(descriptor->SanityCheckFixedBits());
 #endif
@@ -1021,7 +1046,8 @@ namespace Js
                 (allowLetConstGlobal && (descriptor->Attributes & PropertyLetConstGlobal)))
             {
                 // Let/const properties do not have attributes and they cannot be deleted
-                JavascriptError::ThrowCantDelete(propertyOperationFlags, scriptContext, scriptContext->GetPropertyName(propertyId)->GetBuffer());
+                JavascriptError::ThrowCantDeleteIfStrictModeOrNonconfigurable(
+                    propertyOperationFlags, scriptContext, scriptContext->GetPropertyName(propertyId)->GetBuffer());
 
                 return false;
             }
@@ -1302,12 +1328,8 @@ namespace Js
             else
             {
                 descriptor->Attributes &= (~PropertyWritable);
-                this->ClearHasOnlyWritableDataProperties();
-                if(GetFlags() & IsPrototypeFlag)
-                {
-                    scriptContext->InvalidateStoreFieldCaches(propertyId);
-                    instance->GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
-                }
+
+                instance->GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->ProcessProperty(this, descriptor->Attributes, propertyId, scriptContext);
             }
             instance->ChangeType();
             return true;
@@ -1450,7 +1472,7 @@ namespace Js
         if(GetFlags() & IsPrototypeFlag)
         {
             InvalidateStoreFieldCachesForAllProperties(instance->GetScriptContext());
-            instance->GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
+            instance->GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->Clear();
         }
 
         return true;
@@ -1526,7 +1548,7 @@ namespace Js
     }
 
     template <typename T>
-    BOOL DictionaryTypeHandlerBase<T>::GetAccessors(DynamicObject* instance, PropertyId propertyId, Var* getter, Var* setter)
+    _Check_return_ _Success_(return) BOOL DictionaryTypeHandlerBase<T>::GetAccessors(DynamicObject* instance, PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter)
     {
         DictionaryPropertyDescriptor<T>* descriptor;
         ScriptContext* scriptContext = instance->GetScriptContext();
@@ -1547,11 +1569,16 @@ namespace Js
                 if (descriptor->GetGetterPropertyIndex() != NoSlots)
                 {
                     *getter = instance->GetSlot(descriptor->GetGetterPropertyIndex());
+                    *setter = nullptr;
                     getset = true;
                 }
                 if (descriptor->GetSetterPropertyIndex() != NoSlots)
                 {
                     *setter = instance->GetSlot(descriptor->GetSetterPropertyIndex());
+                    if(!getset) {
+                        // if we didn't set the getter above, we need to set it here
+                        *getter = nullptr;
+                    }
                     getset = true;
                 }
                 return getset;
@@ -1698,12 +1725,9 @@ namespace Js
                 SetSlotUnchecked(instance, descriptor->GetSetterPropertyIndex(), setter);
             }
             instance->ChangeType();
-            this->ClearHasOnlyWritableDataProperties();
-            if(GetFlags() & IsPrototypeFlag)
-            {
-                scriptContext->InvalidateStoreFieldCaches(propertyId);
-                library->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
-            }
+            library->GetTypesWithOnlyWritablePropertyProtoChainCache()->ProcessProperty(this, PropertyNone, propertyRecord, scriptContext);
+            library->GetTypesWithNoSpecialPropertyProtoChainCache()->ProcessProperty(this, PropertyNone, propertyRecord, scriptContext);
+
             SetPropertyUpdateSideEffect(instance, propertyId, nullptr, SideEffects_Any);
 
             // Let's make sure we always have a getter and a setter
@@ -1751,12 +1775,10 @@ namespace Js
 
         SetSlotUnchecked(instance, newDescriptor.GetGetterPropertyIndex(), getter);
         SetSlotUnchecked(instance, newDescriptor.GetSetterPropertyIndex(), setter);
-        this->ClearHasOnlyWritableDataProperties();
-        if(GetFlags() & IsPrototypeFlag)
-        {
-            scriptContext->InvalidateStoreFieldCaches(propertyId);
-            library->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
-        }
+
+        library->GetTypesWithOnlyWritablePropertyProtoChainCache()->ProcessProperty(this, PropertyNone, propertyRecord, scriptContext);
+        library->GetTypesWithNoSpecialPropertyProtoChainCache()->ProcessProperty(this, PropertyNone, propertyRecord, scriptContext);
+
         SetPropertyUpdateSideEffect(instance, propertyId, nullptr, SideEffects_Any);
 
         // Let's make sure we always have a getter and a setter
@@ -1921,15 +1943,7 @@ namespace Js
                 {
                     instance->SetHasNoEnumerableProperties(false);
                 }
-                if (!(descriptor->Attributes & PropertyWritable))
-                {
-                    this->ClearHasOnlyWritableDataProperties();
-                    if (GetFlags() & IsPrototypeFlag)
-                    {
-                        scriptContext->InvalidateStoreFieldCaches(propertyId);
-                        instance->GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
-                    }
-                }
+                instance->GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->ProcessProperty(this, descriptor->Attributes, propertyId, scriptContext);
             }
 
             SetPropertyUpdateSideEffect(instance, propertyId, value, possibleSideEffects);
@@ -1988,15 +2002,7 @@ namespace Js
                 instance->SetHasNoEnumerableProperties(false);
             }
 
-            if (!(descriptor->Attributes & PropertyWritable))
-            {
-                this->ClearHasOnlyWritableDataProperties();
-                if(GetFlags() & IsPrototypeFlag)
-                {
-                    scriptContext->InvalidateStoreFieldCaches(propertyId);
-                    instance->GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
-                }
-            }
+            instance->GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->ProcessProperty(this, descriptor->Attributes, propertyId, scriptContext);
 
             return true;
         }
@@ -2029,16 +2035,6 @@ namespace Js
         }
         *attributes = descriptor->Attributes & PropertyDynamicTypeDefaults;
         return true;
-    }
-
-    template <typename T>
-    Var DictionaryTypeHandlerBase<T>::CanonicalizeAccessor(Var accessor, /*const*/ JavascriptLibrary* library)
-    {
-        if (accessor == nullptr || JavascriptOperators::IsUndefinedObject(accessor))
-        {
-            accessor = library->GetDefaultAccessorFunction();
-        }
-        return accessor;
     }
 
     template <typename T>
@@ -2086,7 +2082,7 @@ namespace Js
         // Any new type handler we expect to see here should have inline slot capacity locked.  If this were to change, we would need
         // to update our shrinking logic (see PathTypeHandlerBase::ShrinkSlotAndInlineSlotCapacity).
         Assert(newTypeHandler->GetIsInlineSlotCapacityLocked());
-        newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection,  this->GetPropertyTypes());
+        newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection | PropertyTypesHasSpecialProperties, this->GetPropertyTypes());
         newTypeHandler->SetInstanceTypeHandler(instance);
 
 #if ENABLE_FIXED_FIELDS
@@ -2135,7 +2131,7 @@ namespace Js
         AnalysisAssert(instance);
         ScriptContext* scriptContext = instance->GetScriptContext();
         bool isForce = (flags & PropertyOperation_Force) != 0;
-
+        PropertyId propertyId = propertyRecord->GetPropertyId();
 #if DBG
         DictionaryPropertyDescriptor<T>* descriptor;
         Assert(!propertyMap->TryGetReference(propertyRecord, &descriptor));
@@ -2174,7 +2170,7 @@ namespace Js
         if ((flags & PropertyOperation_PreInit) == 0)
         {
             newDescriptor.IsInitialized = true;
-            if (localSingletonInstance == instance && !IsInternalPropertyId(propertyRecord->GetPropertyId()) &&
+            if (localSingletonInstance == instance && !IsInternalPropertyId(propertyId) &&
                 (flags & (PropertyOperation_NonFixedValue | PropertyOperation_SpecialValue)) == 0)
             {
                 Assert(value != nullptr);
@@ -2191,14 +2187,22 @@ namespace Js
         {
             instance->SetHasNoEnumerableProperties(false);
         }
+        JavascriptLibrary* library = scriptContext->GetLibrary();
 
-        if (!(attributes & PropertyWritable))
+        library->GetTypesWithOnlyWritablePropertyProtoChainCache()->ProcessProperty(this, attributes, propertyId, scriptContext);
+        if (NoSpecialPropertyCache::IsSpecialProperty(propertyId) && !this->GetHasSpecialProperties())
         {
-            this->ClearHasOnlyWritableDataProperties();
-            if(GetFlags() & IsPrototypeFlag)
+            if (!NoSpecialPropertyCache::IsDefaultSpecialProperty(instance, library, propertyId))
             {
-                instance->GetScriptContext()->InvalidateStoreFieldCaches(propertyRecord->GetPropertyId());
-                instance->GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
+                this->SetHasSpecialProperties();
+                if (GetFlags() & IsPrototypeFlag)
+                {
+                    library->GetTypesWithNoSpecialPropertyProtoChainCache()->Clear();
+                }
+            }
+            else
+            {
+                PropertyValueInfo::SetNoCache(info, instance);
             }
         }
 
@@ -2215,7 +2219,7 @@ namespace Js
         else
 #endif
         {
-            SetPropertyValueInfo(info, instance, index, attributes);
+            SetPropertyValueInfoNonFixed(info, instance, index, attributes);
         }
 
         // Always invalidate prototype caches when we add a property.  Previously, we only did this if the current

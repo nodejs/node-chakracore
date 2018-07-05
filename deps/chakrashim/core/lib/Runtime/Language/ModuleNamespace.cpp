@@ -145,13 +145,13 @@ namespace Js
         unambiguousNonLocalExports->AddNew(propertyId, *nonLocalExportNameRecord);
     }
 
-    PropertyQueryFlags ModuleNamespace::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags ModuleNamespace::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
         SimpleDictionaryPropertyDescriptor<BigPropertyIndex> propertyDescriptor;
         const Js::PropertyRecord* propertyRecord = GetScriptContext()->GetThreadContext()->GetPropertyName(propertyId);
         if (propertyRecord->IsSymbol())
         {
-            return this->DynamicObject::HasPropertyQuery(propertyId);
+            return this->DynamicObject::HasPropertyQuery(propertyId, info);
         }
         if (propertyMap != nullptr && propertyMap->TryGetValue(propertyRecord, &propertyDescriptor))
         {
@@ -295,9 +295,9 @@ namespace Js
         return JavascriptConversion::BooleanToPropertyQueryFlags(GetProperty(originalInstance, propertyId, value, info, requestContext));
     }
 
-    BOOL ModuleNamespace::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache)
+    BOOL ModuleNamespace::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, EnumeratorCache * enumeratorCache)
     {
-        ModuleNamespaceEnumerator* moduleEnumerator = ModuleNamespaceEnumerator::New(this, flags, requestContext, forInCache);
+        ModuleNamespaceEnumerator* moduleEnumerator = ModuleNamespaceEnumerator::New(this, flags, requestContext, enumeratorCache);
         if (moduleEnumerator == nullptr)
         {
             return FALSE;

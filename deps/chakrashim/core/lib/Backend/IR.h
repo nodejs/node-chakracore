@@ -168,7 +168,8 @@ protected:
         isCtorCall(false),
         isCallInstrProtectedByNoProfileBailout(false),
         hasSideEffects(false),
-        isNonFastPathFrameDisplay(false)
+        isNonFastPathFrameDisplay(false),
+        isSafeToSpeculate(false)
 #if DBG
         , highlight(0)
 #endif
@@ -219,6 +220,10 @@ public:
 
     bool            IsCloned() const { return isCloned; }
     void            SetIsCloned(bool isCloned) { this->isCloned = isCloned; }
+
+    bool            IsSafeToSpeculate() const { return isSafeToSpeculate; }
+    void            SetIsSafeToSpeculate(bool isSafe) { this->isSafeToSpeculate = isSafe; }
+
     bool            HasBailOutInfo() const { return hasBailOutInfo; }
     bool            HasAuxBailOut() const { return hasAuxBailOut; }
     bool            HasTypeCheckBailOut() const;
@@ -260,11 +265,6 @@ public:
     void            FreeSrc2();
     Opnd *          ReplaceSrc2(Opnd * newSrc);
     Instr *         HoistSrc2(Js::OpCode assignOpcode, RegNum regNum = RegNOREG, StackSym *newSym = nullptr);
-    Instr *         HoistIndirOffset(IndirOpnd *indirOpnd, RegNum regNum = RegNOREG);
-    Instr *         HoistSymOffset(SymOpnd *symOpnd, RegNum baseReg, uint32 offset, RegNum regNum = RegNOREG);
-    Instr *         HoistIndirOffsetAsAdd(IndirOpnd *orgOpnd, IR::Opnd *baseOpnd, int offset,  RegNum regNum);
-    Instr *         HoistSymOffsetAsAdd(SymOpnd *orgOpnd, IR::Opnd *baseOpnd, int offset,  RegNum regNum);
-    Instr *         HoistIndirIndexOpndAsAdd(IR::IndirOpnd *orgOpnd, IR::Opnd *baseOpnd, IR::Opnd *indexOpnd, RegNum regNum);
     IndirOpnd *     HoistMemRefAddress(MemRefOpnd *const memRefOpnd, const Js::OpCode loadOpCode);
     Opnd *          UnlinkSrc(Opnd *src);
     Opnd *          ReplaceSrc(Opnd *oldSrc, Opnd * newSrc);
@@ -280,16 +280,21 @@ public:
     void            SwapOpnds();
     void            TransferTo(Instr * instr);
     void            TransferDstAttributesTo(Instr * instr);
-    IR::Instr *     Copy();
+    IR::Instr *     Copy(bool copyDst = true);
+    IR::Instr *     CopyWithoutDst();
     IR::Instr *     Clone();
     IR::Instr *     ConvertToBailOutInstr(IR::Instr * bailOutTarget, BailOutKind kind, uint32 bailOutOffset = Js::Constants::NoByteCodeOffset);
     IR::Instr *     ConvertToBailOutInstr(BailOutInfo * bailOutInfo, BailOutKind kind, bool useAuxBailout = false);
     IR::Instr *     GetNextRealInstr() const;
     IR::Instr *     GetNextRealInstrOrLabel() const;
     IR::Instr *     GetNextBranchOrLabel() const;
+    IR::Instr *     GetNextByteCodeInstr() const;
     IR::Instr *     GetPrevRealInstr() const;
     IR::Instr *     GetPrevRealInstrOrLabel() const;
+    IR::LabelInstr *GetPrevLabelInstr() const;
+    IR::Instr *     GetBlockStartInstr() const;
     IR::Instr *     GetInsertBeforeByteCodeUsesInstr();
+    bool            IsByteCodeUsesInstrFor(IR::Instr * instr) const;
     IR::LabelInstr *GetOrCreateContinueLabel(const bool isHelper = false);
     static bool     HasSymUseSrc(StackSym *sym, IR::Opnd*);
     static bool     HasSymUseDst(StackSym *sym, IR::Opnd*);
@@ -297,6 +302,7 @@ public:
     static bool     HasSymUseInRange(StackSym *sym, Instr *instrBegin, Instr *instrEnd);
     RegOpnd *       FindRegDef(StackSym *sym);
     static Instr*   FindSingleDefInstr(Js::OpCode opCode, Opnd* src);
+    bool            CanAggregateByteCodeUsesAcrossInstr(IR::Instr * instr);
 
     BranchInstr *   ChangeCmCCToBranchInstr(LabelInstr *targetInstr);
     static void     MoveRangeAfter(Instr * instrStart, Instr * instrLast, Instr * instrAfter);
@@ -324,7 +330,7 @@ public:
 #endif
 #if ENABLE_DEBUG_CONFIG_OPTIONS
     void            DumpTestTrace();
-    void            DumpFieldCopyPropTestTrace();
+    void            DumpFieldCopyPropTestTrace(bool inLandingPad);
 #endif
     uint32          GetByteCodeOffset() const;
     uint32          GetNumber() const;
@@ -361,7 +367,9 @@ public:
     bool            BinaryCalculatorT(T src1Const, T src2Const, int64 *pResult, bool checkWouldTrap);
     bool            UnaryCalculator(IntConstType src1Const, IntConstType *pResult, IRType type);
     IR::Instr*      GetNextArg();
-
+#if DBG
+    bool            ShouldEmitIntRangeCheck();
+#endif
     // Iterates argument chain
     template<class Fn>
     bool IterateArgInstrs(Fn callback)
@@ -498,6 +506,9 @@ public:
     // used only for SIMD Ld/St from typed arrays.
     // we keep these here to avoid increase in number of opcodes and to not use ExtendedArgs
     uint8           dataWidth;
+#if DBG
+    WORD            highlight;
+#endif
 
 
     bool            isFsBased : 1; // TEMP : just for BS testing
@@ -521,8 +532,9 @@ public:
     bool            hasSideEffects : 1; // The instruction cannot be dead stored
     bool            isNonFastPathFrameDisplay : 1;
 protected:
-    bool            isCloned:1;
-    bool            hasBailOutInfo:1;
+    bool            isCloned : 1;
+    bool            hasBailOutInfo : 1;
+    bool            isSafeToSpeculate : 1;
 
     // Used for aux bail out. We are using same bailOutInfo, just different boolean to hide regular bail out.
     // Refer to ConvertToBailOutInstr implementation for details.
@@ -533,11 +545,6 @@ protected:
     Opnd *          m_dst;
     Opnd *          m_src1;
     Opnd *          m_src2;
-#if DBG
-    WORD            highlight;
-#endif
-
-
 
     void Init(Js::OpCode opcode, IRKind kind, Func * func);
     IR::Instr *     CloneInstr() const;
@@ -571,7 +578,11 @@ public:
     // a compare, but still need to generate them for bailouts. Without this, we cause
     // problems because we end up with an instruction losing atomicity in terms of its
     // bytecode use and generation lifetimes.
-    void Aggregate();
+    void AggregateFollowingByteCodeUses();
+    void AggregatePrecedingByteCodeUses();
+
+private:
+    void Aggregate(ByteCodeUsesInstr * byteCodeUsesInstr);
 };
 
 class JitProfilingInstr : public Instr
@@ -614,17 +625,30 @@ public:
         const Js::LdElemInfo *  ldElemInfo;
         const Js::StElemInfo *  stElemInfo;
     private:
-        Js::FldInfo::TSize      fldInfoData;
+        struct
+        {
+            Js::FldInfo::TSize      fldInfoData;
+            Js::LdLenInfo::TSize    ldLenInfoData;
+        };
 
     public:
         Js::FldInfo &FldInfo()
         {
             return reinterpret_cast<Js::FldInfo &>(fldInfoData);
         }
+        Js::LdLenInfo & LdLenInfo()
+        {
+            return reinterpret_cast<Js::LdLenInfo &>(ldLenInfoData);
+        }
     } u;
 
     static const uint InvalidProfileId = (uint)-1;
 };
+
+#if TARGET_64
+// Ensure that the size of the union doesn't exceed the size of a 64 bit pointer.
+CompileAssert(sizeof(ProfiledInstr::u) <= sizeof(void*));
+#endif
 
 ///---------------------------------------------------------------------------
 ///

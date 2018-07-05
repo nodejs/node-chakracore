@@ -10,13 +10,12 @@
   <test>
     <default>
       <files>unicode_digit_as_identifier_should_work.js</files>
-      <tags>exclude_serialized,bugfix,exclude_noicu</tags>
+      <tags>exclude_serialized,exclude_noicu</tags>
     </default>
   </test>
   <test>
     <default>
       <files>OS_2977448.js</files>
-      <tags>require_winglob,BugFix</tags>
     </default>
   </test>
   <test>
@@ -39,13 +38,20 @@
     <default>
       <files>bugGH2656.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
-      <tags>require_winglob,exclude_noicu</tags> <!-- Microsoft/ChakraCore#3777: Fix this test under ICU -->
+      <tags>exclude_noicu</tags>
     </default>
   </test>
   <test>
     <default>
       <files>utf8_console_log.js</files>
       <baseline>utf8_console_log.baseline</baseline>
+      <tags>exclude_jshost</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>utf8_console_log_null_embedded.js</files>
+      <baseline>utf8_console_log_null_embedded.baseline</baseline>
       <tags>exclude_jshost</tags>
     </default>
   </test>

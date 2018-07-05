@@ -11,6 +11,7 @@ namespace Js
         typedef JsUtil::LeafValueDictionary<Js::LocalFunctionId, Js::FunctionBody*>::Type FunctionBodyDictionary;
         typedef JsUtil::LeafValueDictionary<Js::LocalFunctionId, Js::ParseableFunctionInfo*>::Type DeferredFunctionsDictionary;
         typedef JsUtil::List<Js::FunctionInfo *, Recycler> FunctionInfoList;
+        typedef JsUtil::BaseHashSet<Js::PropertyRecord const *, Recycler>  BoundedPropertyRecordHashSet;
 
         friend class RemoteUtf8SourceInfo;
         friend class ScriptContext;
@@ -298,7 +299,6 @@ namespace Js
         static Utf8SourceInfo* NewWithNoCopy(ScriptContext* scriptContext,
             LPCUTF8 utf8String, int32 length, size_t numBytes,
             SRCINFO const* srcInfo, bool isLibraryCode, Js::Var scriptSource = nullptr);
-        static Utf8SourceInfo* Clone(ScriptContext* scriptContext, const Utf8SourceInfo* sourceinfo);
 
         ScriptContext * GetScriptContext() const
         {
@@ -367,6 +367,7 @@ namespace Js
         void SetCallerUtf8SourceInfo(Utf8SourceInfo* callerUtf8SourceInfo);
         Utf8SourceInfo* GetCallerUtf8SourceInfo() const;
 
+        BoundedPropertyRecordHashSet * GetBoundedPropertyRecordHashSet() { return &this->boundedPropertyRecordHashSet; }
 #ifdef NTBUILD
         bool GetDebugDocumentName(BSTR * sourceName);
 #endif
@@ -380,6 +381,7 @@ namespace Js
         Field(FunctionBodyDictionary*) functionBodyDictionary;
         Field(DeferredFunctionsDictionary*) m_deferredFunctionsDictionary;
         Field(FunctionInfoList*) topLevelFunctionInfoList;
+        Field(BoundedPropertyRecordHashSet) boundedPropertyRecordHashSet;
 
 #ifdef ENABLE_SCRIPT_DEBUGGING
         Field(DebugDocument*) m_debugDocument;

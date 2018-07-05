@@ -59,41 +59,22 @@ namespace Js
     {
         enum ViewType: uint8
         {
-            TYPE_INT8 = 0,
-            TYPE_UINT8,
-            TYPE_INT16,
-            TYPE_UINT16,
-            TYPE_INT32,
-            TYPE_UINT32,
-            TYPE_FLOAT32,
-            TYPE_FLOAT64,
-            TYPE_INT64,
-            TYPE_INT8_TO_INT64,
-            TYPE_UINT8_TO_INT64,
-            TYPE_INT16_TO_INT64,
-            TYPE_UINT16_TO_INT64,
-            TYPE_INT32_TO_INT64,
-            TYPE_UINT32_TO_INT64,
+#define ARRAYBUFFER_VIEW(name, ...) TYPE_##name,
+#include "AsmJsArrayBufferViews.h"
             TYPE_COUNT
         };
 
+        const uint32 NaturalAlignment[ArrayBufferView::TYPE_COUNT] =
+        {
+#define ARRAYBUFFER_VIEW(name, align, ...) align,
+#include "AsmJsArrayBufferViews.h"
+        };
+
+#define ARRAYBUFFER_VIEW_MASK(align) ((uint32)~((1 << align) - 1))
         const uint32 ViewMask[] =
         {
-            (uint32)~0 //TYPE_INT8
-            , (uint32)~0 //TYPE_UINT8
-            , (uint32)~1 //TYPE_INT16
-            , (uint32)~1 //TYPE_UINT16
-            , (uint32)~3 //TYPE_INT32
-            , (uint32)~3 //TYPE_UINT32
-            , (uint32)~3 //TYPE_FLOAT32
-            , (uint32)~7 //TYPE_FLOAT64
-            , (uint32)~7 //TYPE_INT64
-            , (uint32)~0 //TYPE_INT8_TO_INT64
-            , (uint32)~0 //TYPE_UINT8_TO_UINT64
-            , (uint32)~1 //TYPE_INT16_TO_INT64
-            , (uint32)~1 //TYPE_UINT16_TO_UINT64
-            , (uint32)~3 //TYPE_INT32_TO_INT64
-            , (uint32)~3 //TYPE_UINT32_TO_UINT64
+#define ARRAYBUFFER_VIEW(name, align, ...) ARRAYBUFFER_VIEW_MASK(align),
+#include "AsmJsArrayBufferViews.h"
         };
 
     } /* namespace ArrayBufferView */
@@ -205,6 +186,7 @@ namespace Js
             Fixnum = AsmJsType::Fixnum,
             Unsigned = AsmJsType::Unsigned,
             Floatish = AsmJsType::Floatish,
+#ifdef ENABLE_WASM_SIMD
             Int32x4 = AsmJsType::Int32x4,
             Bool32x4 = AsmJsType::Bool32x4,
             Bool16x8 = AsmJsType::Bool16x8,
@@ -217,6 +199,7 @@ namespace Js
             Uint32x4 = AsmJsType::Uint32x4,
             Uint16x8 = AsmJsType::Uint16x8,
             Uint8x16 = AsmJsType::Uint8x16
+#endif
         };
 
     private:
@@ -342,8 +325,6 @@ namespace Js
             ArrayView,
             MathBuiltinFunction,
             TypedArrayBuiltinFunction,
-            /*SIMDVariable,*/
-            SIMDBuiltinFunction,
             ModuleArgument,
             ClosureFunction
         };
@@ -480,7 +461,6 @@ namespace Js
             double doubleVal;
             float floatVal;
             int intVal;
-            AsmJsSIMDValue simdVal;
         }mConstInitialiser;
     public:
         ASMJS_SYMBOL_LEAF_CAST(AsmJsVar, Variable)
@@ -499,9 +479,6 @@ namespace Js
         inline float    GetFloatInitialiser() const      { return mConstInitialiser.floatVal; }
         inline void   SetConstInitialiser ( int val )   { mConstInitialiser.intVal = val; }
         inline int    GetIntInitialiser   () const      { return mConstInitialiser.intVal; }
-
-        inline void SetConstInitialiser(AsmJsSIMDValue val) { mConstInitialiser.simdVal = val; }
-        inline AsmJsSIMDValue GetSimdConstInitialiser()      { return mConstInitialiser.simdVal; }
     };
 
     // AsmJsArgument defines the arguments of a function
@@ -775,10 +752,8 @@ namespace Js
         unsigned        mCompileTime; //unused
         VarNameMap      mVarMap;
         ParseNode*      mBodyNode;
-        ParseNode*      mFncNode;
+        ParseNodeFnc*      mFncNode;
         WAsmJs::TypedRegisterAllocator mTypedRegisterAllocator;
-        typedef JsUtil::List<AsmJsVarBase*, ArenaAllocator> SIMDVarsList;
-        SIMDVarsList    mSimdVarsList;
 
         FuncInfo*       mFuncInfo;
         FunctionBody*   mFuncBody;
@@ -789,14 +764,14 @@ namespace Js
         bool            mDefined : 1; // true when compiled completely without any errors
     public:
         ASMJS_SYMBOL_LEAF_CAST(AsmJsFunc, ModuleFunction)
-        AsmJsFunc( PropertyName name, ParseNode* pnodeFnc, ArenaAllocator* allocator, ScriptContext* scriptContext );
+        AsmJsFunc( PropertyName name, ParseNodeFnc* pnodeFnc, ArenaAllocator* allocator, ScriptContext* scriptContext );
 
         unsigned GetCompileTime() const { return mCompileTime; }
         void AccumulateCompileTime(unsigned ms) { mCompileTime += ms; }
         ProfileId GetNextProfileId();
         ProfileId GetProfileIdCount() const { return mCurrentProfileId; }
-        inline ParseNode* GetFncNode() const{ return mFncNode; }
-        inline void       SetFncNode(ParseNode* fncNode) { mFncNode = fncNode; }
+        inline ParseNodeFnc* GetFncNode() const{ return mFncNode; }
+        inline void       SetFncNode(ParseNodeFnc* fncNode) { mFncNode = fncNode; }
         inline FuncInfo*  GetFuncInfo() const{ return mFuncInfo; }
         inline void       SetFuncInfo(FuncInfo* fncInfo) { mFuncInfo = fncInfo; }
         inline FunctionBody*GetFuncBody() const{ return mFuncBody; }
@@ -811,10 +786,9 @@ namespace Js
         inline void SetDeferred() { mDeferred = true; }
         inline bool IsDeferred()const { return mDeferred; }
         template<typename T> inline AsmJsRegisterSpace<T>& GetRegisterSpace() {
-            return *(AsmJsRegisterSpace<T>*)mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::RegisterSpace::GetRegisterSpaceType<T>());
+            return *(AsmJsRegisterSpace<T>*)mTypedRegisterAllocator.GetRegisterSpace(WAsmJs::FromPrimitiveType<T>());
         }
         const WAsmJs::TypedRegisterAllocator& GetTypedRegisterAllocator() const { return mTypedRegisterAllocator; }
-        inline SIMDVarsList& GetSimdVarsList()    { return mSimdVarsList;  }
 
         /// Wrapper for RegisterSpace methods
         template<typename T> inline RegSlot AcquireRegister   (){return GetRegisterSpace<T>().AcquireRegister();}
@@ -919,6 +893,7 @@ namespace Js
 
         Field(FunctionBody*) asmJsModuleFunctionBody;
         Field(Js::JavascriptError *) mLazyError;
+        Field(uint32) mTotalSizeBytes = 0;
 
     public:
         AsmJsFunctionInfo() : mArgCount(0),
@@ -951,7 +926,9 @@ namespace Js
         TYPED_SLOT_INFO_GETTER(Float, FLOAT32);
         TYPED_SLOT_INFO_GETTER(Int, INT32);
         TYPED_SLOT_INFO_GETTER(Int64, INT64);
+#ifdef ENABLE_WASM_SIMD
         TYPED_SLOT_INFO_GETTER(Simd, SIMD);
+#endif
 #undef TYPED_SLOT_INFO_GETTER
 
         inline ArgSlot GetArgCount() const{ return mArgCount; }
@@ -964,12 +941,11 @@ namespace Js
         inline void SetUsesHeapBuffer(bool val) { mUsesHeapBuffer = val; }
         inline bool UsesHeapBuffer() const{ return mUsesHeapBuffer; }
 
-        inline int GetSimdAllCount() const { return GetSimdConstCount() + GetSimdVarCount() + GetSimdTmpCount(); }
-
         Js::JavascriptError * GetLazyError() const { return mLazyError; }
         void SetLazyError(Js::JavascriptError * val) { mLazyError = val; }
 
-        int GetTotalSizeinBytes()const;
+        void SetTotalSizeinBytes(uint32 totalSize);
+        int GetTotalSizeinBytes() const;
         void SetArgType(AsmJsVarType type, ArgSlot index);
         inline AsmJsVarType GetArgType(ArgSlot index ) const
         {
@@ -1022,180 +998,6 @@ namespace Js
         void SetWebAssemblyModule(WebAssemblyModule * module) { mWasmModule= module; }
         bool IsWasmDeferredParse() const { return mWasmReaderInfo != nullptr; }
 #endif
-    };
-
-    // The asm.js spec recognizes this set of builtin SIMD functions.
-    // !! Note: keep these grouped by SIMD type
-    enum AsmJsSIMDBuiltinFunction
-    {
-#define ASMJS_SIMD_NAMES(name, propertyName, libName, entryPoint) AsmJsSIMDBuiltin_##name,
-#define ASMJS_SIMD_MARKERS(name) AsmJsSIMDBuiltin_##name,
-#include "AsmJsBuiltInNames.h"
-        AsmJsSIMDBuiltin_COUNT
-    };
-
-    // SIMD built-in function symbol
-    // Do we have overloads for any SIMD function ?
-    class AsmJsSIMDFunction : public AsmJsFunctionDeclaration
-    {
-        AsmJsSIMDBuiltinFunction mBuiltIn;
-        AsmJsSIMDFunction* mOverload;
-        OpCodeAsmJs mOpCode;
-    public:
-        ASMJS_SYMBOL_LEAF_CAST(AsmJsSIMDFunction, SIMDBuiltinFunction)
-        AsmJsSIMDFunction(PropertyName name, ArenaAllocator* allocator, ArgSlot argCount, AsmJsSIMDBuiltinFunction builtIn, OpCodeAsmJs op, AsmJsRetType retType, ...);
-
-        PropertyId GetBuiltinPropertyId();
-        void SetOverload(AsmJsSIMDFunction* val);
-        AsmJsSIMDBuiltinFunction GetSimdBuiltInFunction(){ return mBuiltIn; };
-        virtual bool CheckAndSetReturnType(Js::AsmJsRetType val) override;
-
-        bool SupportsSIMDCall(ArgSlot argCount, AsmJsType* args, OpCodeAsmJs& op, AsmJsRetType& retType);
-
-        bool IsConstructor();
-        bool IsConstructor(uint argCount);
-        bool IsTypeCheck();  // e.g. float32x4(x)
-        bool IsUnsignedTypeCheck();
-        bool IsInt32x4Func()  { return mBuiltIn >  AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Int32x4_Start   && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Int32x4_End;   }
-        bool IsBool32x4Func() { return mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Bool32x4_Start  && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Bool32x4_End;  }
-        bool IsBool16x8Func() { return mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Bool16x8_Start  && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Bool16x8_End;  }
-        bool IsBool8x16Func() { return mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Bool8x16_Start  && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Bool8x16_End; }
-        bool IsFloat32x4Func(){ return mBuiltIn >  AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Float32x4_Start && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Float32x4_End; }
-        bool IsFloat64x2Func(){ return mBuiltIn >  AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Float64x2_Start && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Float64x2_End; }
-
-        bool IsInt16x8Func()  { return mBuiltIn >  AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Int16x8_Start   && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Int16x8_End;   }
-        bool IsInt8x16Func() { return mBuiltIn > AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Int8x16_Start && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Int8x16_End; }
-        bool IsUint32x4Func() { return mBuiltIn >  AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Uint32x4_Start  && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Uint32x4_End;  }
-        bool IsUint16x8Func() { return mBuiltIn >  AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Uint16x8_Start  && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Uint16x8_End;  }
-        bool IsUint8x16Func() { return mBuiltIn >  AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Uint8x16_Start  && mBuiltIn < AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_Uint8x16_End;  }
-
-        bool IsSimdLoadFunc()
-        {
-            return (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_load && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_load3) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int16x8_load) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int8x16_load) ||
-                (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_load && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_load3) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint16x8_load) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint8x16_load) ||
-                (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_load && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_load3) ||
-                (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float64x2_load && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float64x2_load1);
-        }
-        bool IsSimdStoreFunc()
-        {
-            return (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_store && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_store3) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int16x8_store) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int8x16_store) ||
-                (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_store && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_store3) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint16x8_store) ||
-                (mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint8x16_store) ||
-                (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_store && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_store3) ||
-                (mBuiltIn >= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float64x2_store && mBuiltIn <= AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float64x2_store1);
-        }
-        bool IsExtractLaneFunc()
-        {
-            return (
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int16x8_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int8x16_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint16x8_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint8x16_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_bool32x4_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_bool16x8_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_bool8x16_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_extractLane
-                );
-        }
-        bool IsReplaceLaneFunc()
-        {
-            return (
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int16x8_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int8x16_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint16x8_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint8x16_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_bool32x4_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_bool16x8_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_bool8x16_replaceLane ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_replaceLane
-                );
-        }
-        bool IsLaneAccessFunc()
-        {
-            return (
-                IsExtractLaneFunc() || IsReplaceLaneFunc()
-                );
-        }
-
-        uint32 LanesCount()
-        {
-            if (IsInt32x4Func() || IsFloat32x4Func() || IsUint32x4Func() || IsBool32x4Func())
-            {
-                return 4;
-            }
-            if (IsInt16x8Func() || IsUint16x8Func() || IsBool16x8Func())
-            {
-                return 8;
-            }
-            if (IsUint8x16Func() || IsInt8x16Func() || IsBool8x16Func())
-            {
-                return 16;
-            }
-            if (IsFloat64x2Func())
-            {
-                return 2;
-            }
-            Assert(UNREACHED);
-            return 0;
-        }
-
-       bool IsShuffleFunc()
-       {
-
-           return (
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_shuffle ||
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int16x8_shuffle ||
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int8x16_shuffle ||
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_shuffle ||
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint16x8_shuffle ||
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint8x16_shuffle ||
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_shuffle ||
-               mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float64x2_shuffle
-               );
-        }
-
-        bool IsSwizzleFunc()
-        {
-            return  (
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int32x4_swizzle ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int16x8_swizzle ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_int8x16_swizzle ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint32x4_swizzle ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint16x8_swizzle ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_uint8x16_swizzle ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float32x4_swizzle ||
-                mBuiltIn == AsmJsSIMDBuiltinFunction::AsmJsSIMDBuiltin_float64x2_swizzle
-                );
-        }
-
-        bool ReturnsBool()
-        {
-            return (
-                mBuiltIn == AsmJsSIMDBuiltin_bool32x4_allTrue || mBuiltIn == AsmJsSIMDBuiltin_bool32x4_anyTrue ||
-                mBuiltIn == AsmJsSIMDBuiltin_bool16x8_allTrue || mBuiltIn == AsmJsSIMDBuiltin_bool16x8_anyTrue ||
-                mBuiltIn == AsmJsSIMDBuiltin_bool8x16_allTrue || mBuiltIn == AsmJsSIMDBuiltin_bool8x16_anyTrue ||
-                mBuiltIn == AsmJsSIMDBuiltin_bool32x4_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltin_bool16x8_extractLane ||
-                mBuiltIn == AsmJsSIMDBuiltin_bool8x16_extractLane );
-        }
-
-        AsmJsVarType GetTypeCheckVarType();
-        AsmJsVarType GetConstructorVarType();
-        OpCodeAsmJs GetOpcode() { return mOpCode;  }
-
-    private:
-        virtual bool SupportsArgCall(ArgSlot argCount, AsmJsType* args, AsmJsRetType& retType) override;
     };
 };
 #endif

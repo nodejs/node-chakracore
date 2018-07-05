@@ -6,6 +6,11 @@
 
 namespace Js
 {
+    PropertyRecordUsageCache * JavascriptSymbol::GetPropertyRecordUsageCache()
+    {
+        return &this->propertyRecordUsageCache;
+    }
+
     bool JavascriptSymbol::Is(Var aValue)
     {
         return JavascriptOperators::GetTypeId(aValue) == TypeIds_Symbol;
@@ -33,7 +38,7 @@ namespace Js
         ScriptContext* scriptContext = function->GetScriptContext();
 
         AssertMsg(args.Info.Count > 0, "Should always have implicit 'this'");
-        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_Symbol);
+        CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, Symbol, scriptContext);
 
         // SkipDefaultNewObject function flag should have prevented the default object from
         // being created, except when call true a host dispatch.
@@ -74,7 +79,8 @@ namespace Js
         }
         else if (JavascriptSymbolObject::Is(args[0]))
         {
-            return scriptContext->GetLibrary()->CreateSymbol(JavascriptSymbolObject::FromVar(args[0])->GetValue());
+            JavascriptSymbolObject* obj = JavascriptSymbolObject::FromVar(args[0]);
+            return CrossSite::MarshalVar(scriptContext, obj->Unwrap(), obj->GetScriptContext());
         }
         else
         {
@@ -149,7 +155,7 @@ namespace Js
 
         Assert(propertyRecord != nullptr);
 
-        return library->CreateSymbol(propertyRecord);
+        return scriptContext->GetSymbol(propertyRecord);
     }
 
     // Symbol.keyFor as described in ES 2015
@@ -206,7 +212,8 @@ namespace Js
         }
         else if (JavascriptSymbolObject::Is(args[0]))
         {
-            return scriptContext->GetLibrary()->CreateSymbol(JavascriptSymbolObject::FromVar(args[0])->GetValue());
+            JavascriptSymbolObject* obj = JavascriptSymbolObject::FromVar(args[0]);
+            return CrossSite::MarshalVar(scriptContext, obj->Unwrap(), obj->GetScriptContext());
         }
         else
         {
@@ -218,7 +225,7 @@ namespace Js
     {
         // PropertyRecords are per-ThreadContext so we can just create a new primitive wrapper
         // around the PropertyRecord stored in this symbol via the other context library.
-        return requestContext->GetLibrary()->CreateSymbol(this->GetValue());
+        return requestContext->GetSymbol(this->GetValue());
     }
 
     Var JavascriptSymbol::TryInvokeRemotelyOrThrow(JavascriptMethod entryPoint, ScriptContext * scriptContext, Arguments & args, int32 errorCode, PCWSTR varName)
@@ -252,17 +259,19 @@ namespace Js
         TypeId typeId = JavascriptOperators::GetTypeId(right);
         if (typeId != TypeIds_Symbol && typeId != TypeIds_SymbolObject)
         {
-            right = JavascriptConversion::ToPrimitive(right, JavascriptHint::None, requestContext);
+            right = JavascriptConversion::ToPrimitive<JavascriptHint::None>(right, requestContext);
             typeId = JavascriptOperators::GetTypeId(right);
         }
 
         switch (typeId)
         {
         case TypeIds_Symbol:
-            *value = left->GetValue() == JavascriptSymbol::FromVar(right)->GetValue();
+            *value = left == JavascriptSymbol::UnsafeFromVar(right);
+            Assert((left->GetValue() == JavascriptSymbol::UnsafeFromVar(right)->GetValue()) == *value);
             break;
         case TypeIds_SymbolObject:
-            *value = left->GetValue() == JavascriptSymbolObject::FromVar(right)->GetValue();
+            *value = left == JavascriptSymbol::UnsafeFromVar(JavascriptSymbolObject::UnsafeFromVar(right)->Unwrap());
+            Assert((left->GetValue() == JavascriptSymbolObject::UnsafeFromVar(right)->GetValue()) == *value);
             break;
         default:
             *value = FALSE;
@@ -303,7 +312,7 @@ namespace Js
     {
         if (requestContext->GetThreadContext()->RecordImplicitException())
         {
-            JavascriptError::ThrowTypeError(requestContext, VBSERR_OLENoPropOrMethod, _u("ToString"));
+            JavascriptError::ThrowTypeError(requestContext, JSERR_ImplicitStrConv, _u("Symbol"));
         }
 
         return requestContext->GetLibrary()->GetEmptyString();

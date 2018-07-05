@@ -61,6 +61,11 @@
 #endif
 
 #define WASM_PREFIX_TRACING 0xf0
+#define WASM_PREFIX_NUMERIC 0xfc
+#define WASM_PREFIX_THREADS 0xfe
+
+WASM_PREFIX(Numeric, WASM_PREFIX_NUMERIC, Wasm::WasmNontrapping::IsEnabled(), "WebAssembly nontrapping float-to-int conversion support is not enabled")
+WASM_PREFIX(Threads, WASM_PREFIX_THREADS, Wasm::Threads::IsEnabled(), "WebAssembly Threads support is not enabled")
 #if ENABLE_DEBUG_CONFIG_OPTIONS
 // We won't even look at that prefix in release builds
 // Mark the prefix as not implemented so we don't allow it in the binary buffer
@@ -164,8 +169,8 @@ WASM_MEMSTORE_OPCODE(I64StoreMem8,  0x3c, L_IL, true, Js::ArrayBufferView::TYPE_
 WASM_MEMSTORE_OPCODE(I64StoreMem16, 0x3d, L_IL, true, Js::ArrayBufferView::TYPE_INT16_TO_INT64, "i64.store16")
 WASM_MEMSTORE_OPCODE(I64StoreMem32, 0x3e, L_IL, true, Js::ArrayBufferView::TYPE_INT32_TO_INT64, "i64.store32")
 
-WASM_MISC_OPCODE(CurrentMemory, 0x3f, I_I, true, "current_memory")
-WASM_MISC_OPCODE(GrowMemory,    0x40, I_I, true, "grow_memory")
+WASM_MISC_OPCODE(MemorySize, 0x3f, I_I, true, "memory.size")
+WASM_MISC_OPCODE(MemoryGrow,    0x40, I_I, true, "memory.grow")
 
 // Constants
 WASM_MISC_OPCODE(I32Const,     0x41, Limit, true, "i32.const")
@@ -300,6 +305,20 @@ WASM_UNARY__OPCODE(I64TruncU_F32,     0xaf, L_F , Conv_Check_FTUL, true, "i64.tr
 WASM_UNARY__OPCODE(I64TruncS_F64,     0xb0, L_D , Conv_Check_DTL , true, "i64.trunc_s/f64")
 WASM_UNARY__OPCODE(I64TruncU_F64,     0xb1, L_D , Conv_Check_DTUL, true, "i64.trunc_u/f64")
 
+#define __has_nontrapping (Wasm::WasmNontrapping::IsEnabled())
+#define __prefix (WASM_PREFIX_NUMERIC << 8)
+WASM_UNARY__OPCODE(I32SatTruncS_F32, __prefix | 0x00, I_F, Conv_Sat_FTI, __has_nontrapping, "i32.trunc_s:sat/f32")
+WASM_UNARY__OPCODE(I32SatTruncU_F32, __prefix | 0x01, I_F, Conv_Sat_FTU, __has_nontrapping, "i32.trunc_u:sat/f32")
+WASM_UNARY__OPCODE(I32SatTruncS_F64, __prefix | 0x02, I_D, Conv_Sat_DTI, __has_nontrapping, "i32.trunc_s:sat/f64")
+WASM_UNARY__OPCODE(I32SatTruncU_F64, __prefix | 0x03, I_D, Conv_Sat_DTU, __has_nontrapping, "i32.trunc_u:sat/f64")
+
+WASM_UNARY__OPCODE(I64SatTruncS_F32, __prefix | 0x04, L_F, Conv_Sat_FTL, __has_nontrapping, "i64.trunc_s:sat/f32")
+WASM_UNARY__OPCODE(I64SatTruncU_F32, __prefix | 0x05, L_F, Conv_Sat_FTUL, __has_nontrapping, "i64.trunc_u:sat/f32")
+WASM_UNARY__OPCODE(I64SatTruncS_F64, __prefix | 0x06, L_D, Conv_Sat_DTL, __has_nontrapping, "i64.trunc_s:sat/f64")
+WASM_UNARY__OPCODE(I64SatTruncU_F64, __prefix | 0x07, L_D, Conv_Sat_DTUL, __has_nontrapping, "i64.trunc_u:sat/f64")
+#undef __has_nontrapping
+#undef __prefix
+
 WASM_UNARY__OPCODE(F32SConvertI32,    0xb2, F_I , Fround_Int     , true, "f32.convert_s/i32")
 WASM_UNARY__OPCODE(F32UConvertI32,    0xb3, F_I , Conv_UTF       , true, "f32.convert_u/i32")
 WASM_UNARY__OPCODE(F32SConvertI64,    0xb4, F_L , Conv_LTF       , true, "f32.convert_s/i64")
@@ -320,11 +339,80 @@ WASM_UNARY__OPCODE(F32ReinterpretI32, 0xbe, F_I , Reinterpret_ITF, true, "f32.re
 WASM_UNARY__OPCODE(F64ReinterpretI64, 0xbf, D_L , Reinterpret_LTD, true, "f64.reinterpret/i64")
 
 // New sign extend operators
-WASM_UNARY__OPCODE(I32Extend8_s , 0xc0, I_I, I32Extend8_s , CONFIG_FLAG(WasmSignExtends), "i32.extend8_s")
-WASM_UNARY__OPCODE(I32Extend16_s, 0xc1, I_I, I32Extend16_s, CONFIG_FLAG(WasmSignExtends), "i32.extend16_s")
-WASM_UNARY__OPCODE(I64Extend8_s , 0xc2, L_L, I64Extend8_s , CONFIG_FLAG(WasmSignExtends), "i64.extend8_s")
-WASM_UNARY__OPCODE(I64Extend16_s, 0xc3, L_L, I64Extend16_s, CONFIG_FLAG(WasmSignExtends), "i64.extend16_s")
-WASM_UNARY__OPCODE(I64Extend32_s, 0xc4, L_L, I64Extend32_s, CONFIG_FLAG(WasmSignExtends), "i64.extend32_s")
+#define __has_signextends (Wasm::SignExtends::IsEnabled())
+WASM_UNARY__OPCODE(I32Extend8_s , 0xc0, I_I, I32Extend8_s , __has_signextends, "i32.extend8_s")
+WASM_UNARY__OPCODE(I32Extend16_s, 0xc1, I_I, I32Extend16_s, __has_signextends, "i32.extend16_s")
+WASM_UNARY__OPCODE(I64Extend8_s , 0xc2, L_L, I64Extend8_s , __has_signextends, "i64.extend8_s")
+WASM_UNARY__OPCODE(I64Extend16_s, 0xc3, L_L, I64Extend16_s, __has_signextends, "i64.extend16_s")
+WASM_UNARY__OPCODE(I64Extend32_s, 0xc4, L_L, I64Extend32_s, __has_signextends, "i64.extend32_s")
+
+#define __has_atomics (Wasm::Threads::IsEnabled())
+#define __prefix (WASM_PREFIX_THREADS << 8)
+WASM_ATOMICREAD_OPCODE (I32AtomicLoad          , __prefix | 0x10, I_I  , __has_atomics, Js::ArrayBufferView::TYPE_INT32, "i32.atomic.load")
+WASM_ATOMICREAD_OPCODE (I64AtomicLoad          , __prefix | 0x11, L_I  , __has_atomics, Js::ArrayBufferView::TYPE_INT64, "i64.atomic.load")
+WASM_ATOMICREAD_OPCODE (I32AtomicLoad8U        , __prefix | 0x12, I_I  , __has_atomics, Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.load8_u")
+WASM_ATOMICREAD_OPCODE (I32AtomicLoad16U       , __prefix | 0x13, I_I  , __has_atomics, Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.load16_u")
+WASM_ATOMICREAD_OPCODE (I64AtomicLoad8U        , __prefix | 0x14, L_I  , __has_atomics, Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.load8_u")
+WASM_ATOMICREAD_OPCODE (I64AtomicLoad16U       , __prefix | 0x15, L_I  , __has_atomics, Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.load16_u")
+WASM_ATOMICREAD_OPCODE (I64AtomicLoad32U       , __prefix | 0x16, L_I  , __has_atomics, Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.load32_u")
+WASM_ATOMICSTORE_OPCODE(I32AtomicStore         , __prefix | 0x17, I_II , __has_atomics, Js::ArrayBufferView::TYPE_INT32, "i32.atomic.store")
+WASM_ATOMICSTORE_OPCODE(I64AtomicStore         , __prefix | 0x18, L_IL , __has_atomics, Js::ArrayBufferView::TYPE_INT64, "i64.atomic.store")
+WASM_ATOMICSTORE_OPCODE(I32AtomicStore8        , __prefix | 0x19, I_II , __has_atomics, Js::ArrayBufferView::TYPE_INT8, "i32.atomic.store8")
+WASM_ATOMICSTORE_OPCODE(I32AtomicStore16       , __prefix | 0x1a, I_II , __has_atomics, Js::ArrayBufferView::TYPE_INT16, "i32.atomic.store16")
+WASM_ATOMICSTORE_OPCODE(I64AtomicStore8        , __prefix | 0x1b, L_IL , __has_atomics, Js::ArrayBufferView::TYPE_INT8_TO_INT64, "i64.atomic.store8")
+WASM_ATOMICSTORE_OPCODE(I64AtomicStore16       , __prefix | 0x1c, L_IL , __has_atomics, Js::ArrayBufferView::TYPE_INT16_TO_INT64, "i64.atomic.store16")
+WASM_ATOMICSTORE_OPCODE(I64AtomicStore32       , __prefix | 0x1d, L_IL , __has_atomics, Js::ArrayBufferView::TYPE_INT32_TO_INT64, "i64.atomic.store32")
+WASM_ATOMIC_OPCODE     (I32AtomicRmwAdd        , __prefix | 0x1e, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT32, "i32.atomic.rmw.add")
+WASM_ATOMIC_OPCODE     (I64AtomicRmwAdd        , __prefix | 0x1f, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT64, "i64.atomic.rmw.add")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw8UAdd      , __prefix | 0x20, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.rmw8_u.add")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw16UAdd     , __prefix | 0x21, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.rmw16_u.add")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw8UAdd      , __prefix | 0x22, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.rmw8_u.add")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw16UAdd     , __prefix | 0x23, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.rmw16_u.add")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw32UAdd     , __prefix | 0x24, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.rmw32_u.add")
+WASM_ATOMIC_OPCODE     (I32AtomicRmwSub        , __prefix | 0x25, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT32, "i32.atomic.rmw.sub")
+WASM_ATOMIC_OPCODE     (I64AtomicRmwSub        , __prefix | 0x26, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT64, "i64.atomic.rmw.sub")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw8USub      , __prefix | 0x27, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.rmw8_u.sub")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw16USub     , __prefix | 0x28, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.rmw16_u.sub")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw8USub      , __prefix | 0x29, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.rmw8_u.sub")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw16USub     , __prefix | 0x2a, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.rmw16_u.sub")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw32USub     , __prefix | 0x2b, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.rmw32_u.sub")
+WASM_ATOMIC_OPCODE     (I32AtomicRmwAnd        , __prefix | 0x2c, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT32, "i32.atomic.rmw.and")
+WASM_ATOMIC_OPCODE     (I64AtomicRmwAnd        , __prefix | 0x2d, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT64, "i64.atomic.rmw.and")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw8UAnd      , __prefix | 0x2e, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.rmw8_u.and")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw16UAnd     , __prefix | 0x2f, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.rmw16_u.and")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw8UAnd      , __prefix | 0x30, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.rmw8_u.and")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw16UAnd     , __prefix | 0x31, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.rmw16_u.and")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw32UAnd     , __prefix | 0x32, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.rmw32_u.and")
+WASM_ATOMIC_OPCODE     (I32AtomicRmwOr         , __prefix | 0x33, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT32, "i32.atomic.rmw.or")
+WASM_ATOMIC_OPCODE     (I64AtomicRmwOr         , __prefix | 0x34, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT64, "i64.atomic.rmw.or")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw8UOr       , __prefix | 0x35, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.rmw8_u.or")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw16UOr      , __prefix | 0x36, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.rmw16_u.or")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw8UOr       , __prefix | 0x37, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.rmw8_u.or")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw16UOr      , __prefix | 0x38, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.rmw16_u.or")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw32UOr      , __prefix | 0x39, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.rmw32_u.or")
+WASM_ATOMIC_OPCODE     (I32AtomicRmwXor        , __prefix | 0x3a, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT32, "i32.atomic.rmw.xor")
+WASM_ATOMIC_OPCODE     (I64AtomicRmwXor        , __prefix | 0x3b, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT64, "i64.atomic.rmw.xor")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw8UXor      , __prefix | 0x3c, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.rmw8_u.xor")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw16UXor     , __prefix | 0x3d, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.rmw16_u.xor")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw8UXor      , __prefix | 0x3e, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.rmw8_u.xor")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw16UXor     , __prefix | 0x3f, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.rmw16_u.xor")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw32UXor     , __prefix | 0x40, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.rmw32_u.xor")
+WASM_ATOMIC_OPCODE     (I32AtomicRmwXchg       , __prefix | 0x41, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT32, "i32.atomic.rmw.xchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmwXchg       , __prefix | 0x42, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_INT64, "i64.atomic.rmw.xchg")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw8UXchg     , __prefix | 0x43, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.rmw8_u.xchg")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw16UXchg    , __prefix | 0x44, I_II , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.rmw16_u.xchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw8UXchg     , __prefix | 0x45, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.rmw8_u.xchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw16UXchg    , __prefix | 0x46, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.rmw16_u.xchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw32UXchg    , __prefix | 0x47, L_IL , (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.rmw32_u.xchg")
+WASM_ATOMIC_OPCODE     (I32AtomicRmwCmpxchg    , __prefix | 0x48, I_III, (false && __has_atomics), Js::ArrayBufferView::TYPE_INT32, "i32.atomic.rmw.cmpxchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmwCmpxchg    , __prefix | 0x49, L_ILL, (false && __has_atomics), Js::ArrayBufferView::TYPE_INT64, "i64.atomic.rmw.cmpxchg")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw8UCmpxchg  , __prefix | 0x4a, I_III, (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8, "i32.atomic.rmw8_u.cmpxchg")
+WASM_ATOMIC_OPCODE     (I32AtomicRmw16UCmpxchg , __prefix | 0x4b, I_III, (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16, "i32.atomic.rmw16_u.cmpxchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw8UCmpxchg  , __prefix | 0x4c, L_ILL, (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT8_TO_INT64, "i64.atomic.rmw8_u.cmpxchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw16UCmpxchg , __prefix | 0x4d, L_ILL, (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT16_TO_INT64, "i64.atomic.rmw16_u.cmpxchg")
+WASM_ATOMIC_OPCODE     (I64AtomicRmw32UCmpxchg , __prefix | 0x4e, L_ILL, (false && __has_atomics), Js::ArrayBufferView::TYPE_UINT32_TO_INT64, "i64.atomic.rmw32_u.cmpxchg")
+#undef __prefix
+#undef __has_atomics
 
 #if ENABLE_DEBUG_CONFIG_OPTIONS
 #define __prefix (WASM_PREFIX_TRACING << 8)
@@ -345,6 +433,8 @@ WASM_UNARY__OPCODE(PrintF64         , __prefix | 0x0f, D_D , PrintF64         , 
 #include "WasmBinaryOpcodesSimd.h"
 #endif
 
+#undef WASM_PREFIX_THREADS
+#undef WASM_PREFIX_NUMERIC
 #undef WASM_PREFIX_TRACING
 #undef WASM_PREFIX
 #undef WASM_OPCODE

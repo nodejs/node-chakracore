@@ -19,8 +19,6 @@ public:
     static const uint MaxMediumObjectSize = 9216;
 #endif
 
-    static const uint MaxLargeObjectSize = 1u << 31; // Maximum recycler object is 2GB
-
 #if defined(TARGET_32)
     // Only if a pointer points to first 8k region of a large object, it will set the mark bit in the chunk->MarkBits
     // If the pointer points outside of that region, no mark bit will be set
@@ -50,14 +48,9 @@ class SmallAllocationBlockAttributes
 public:
     static const size_t MinObjectSize = HeapConstants::ObjectGranularity;
 
-#if defined(TARGET_32)
-    static const size_t PageCount = 2;
-#else
-    static const size_t PageCount = 4;
-#endif
+    static const size_t PageCount = 1;
     static const size_t BitVectorCount = ((PageCount * AutoSystemInfo::PageSize) / HeapConstants::ObjectGranularity);
     static const ushort MaxAddressBit = BitVectorCount - 1;
-
     static const uint   BucketCount = HeapConstants::BucketCount;
     static const size_t BucketGranularity = HeapConstants::ObjectGranularity;
     static const uint   MaxObjectSize = HeapConstants::MaxSmallObjectSize;

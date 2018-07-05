@@ -4,38 +4,38 @@
 //-------------------------------------------------------------------------------------------------------
 #pragma once
 template <class Fn, bool mapRest>
-void MapFormalsImpl(ParseNode *pnodeFunc, Fn fn)
+void MapFormalsImpl(ParseNodeFnc *pnodeFunc, Fn fn)
 {
-    for (ParseNode *pnode = pnodeFunc->sxFnc.pnodeParams; pnode != nullptr; pnode = pnode->GetFormalNext())
+    for (ParseNode *pnode = pnodeFunc->pnodeParams; pnode != nullptr; pnode = pnode->GetFormalNext())
     {
         fn(pnode);
     }
-    if (mapRest && pnodeFunc->sxFnc.pnodeRest != nullptr)
+    if (mapRest && pnodeFunc->pnodeRest != nullptr)
     {
-        fn(pnodeFunc->sxFnc.pnodeRest);
+        fn(pnodeFunc->pnodeRest);
     }
 }
 
 template <class Fn>
-void MapFormalsWithoutRest(ParseNode *pnodeFunc, Fn fn)
+void MapFormalsWithoutRest(ParseNodeFnc *pnodeFunc, Fn fn)
 {
     return MapFormalsImpl<Fn, false>(pnodeFunc, fn);
 }
 
 template <class Fn>
-void MapFormals(ParseNode *pnodeFunc, Fn fn)
+void MapFormals(ParseNodeFnc *pnodeFunc, Fn fn)
 {
     return MapFormalsImpl<Fn, true>(pnodeFunc, fn);
 }
 
 template <class Fn>
-void MapFormalsFromPattern(ParseNode *pnodeFunc, Fn fn)
+void MapFormalsFromPattern(ParseNodeFnc *pnodeFunc, Fn fn)
 {
-    for (ParseNode *pnode = pnodeFunc->sxFnc.pnodeParams; pnode != nullptr; pnode = pnode->GetFormalNext())
+    for (ParseNode *pnode = pnodeFunc->pnodeParams; pnode != nullptr; pnode = pnode->GetFormalNext())
     {
         if (pnode->nop == knopParamPattern)
         {
-            Parser::MapBindIdentifier(pnode->sxParamPattern.pnode1, fn);
+            Parser::MapBindIdentifier(pnode->AsParseNodeParamPattern()->pnode1, fn);
         }
     }
 }

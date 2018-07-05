@@ -28,7 +28,7 @@ HRESULT FileLoadHelpers::LoadScriptFromFile(LPCSTR filename, LPCWSTR& contents, 
             char16 wszBuff[512];
             fprintf(stderr, "Error in opening file '%s' ", filename);
             wszBuff[0] = 0;
-            if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
+            if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                 nullptr,
                 lastError,
                 0,
@@ -114,7 +114,7 @@ HRESULT FileLoadHelpers::LoadScriptFromFile(LPCSTR filename, LPCWSTR& contents, 
         utf8::DecodeOptions decodeOptions = utf8::doAllowInvalidWCHARs;
 
         UINT cUtf16Chars = utf8::ByteIndexIntoCharacterIndex(pRawBytes, lengthBytes, decodeOptions);
-        contents = (LPCWSTR)HeapAlloc(GetProcessHeap(), 0, (cUtf16Chars + 1) * sizeof(WCHAR));
+        contents = (LPCWSTR)HeapAlloc(GetProcessHeap(), 0, (cUtf16Chars + (size_t)1) * sizeof(WCHAR));
         if (nullptr == contents)
         {
             fwprintf(stderr, _u("out of memory"));

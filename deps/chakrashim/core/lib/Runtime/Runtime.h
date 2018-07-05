@@ -83,7 +83,7 @@ namespace Js
     struct ByteCodeReader;
     struct ByteCodeWriter;
     enum class EnumeratorFlags : byte;
-    struct ForInCache;
+    struct EnumeratorCache;
     class JavascriptStaticEnumerator;
     class ForInObjectEnumerator;
     class JavascriptConversion;
@@ -117,6 +117,8 @@ namespace Js
     class JavascriptPromiseCapabilitiesExecutorFunction;
     class JavascriptPromiseResolveOrRejectFunction;
     class JavascriptPromiseReactionTaskFunction;
+    class JavascriptPromiseThenFinallyFunction;
+    class JavascriptPromiseThunkFinallyFunction;
     class JavascriptPromiseResolveThenableTaskFunction;
     class JavascriptPromiseAllResolveElementFunction;
     struct JavascriptPromiseAllResolveElementFunctionRemainingElementsWrapper;
@@ -132,7 +134,7 @@ namespace Js
     class DeferredTypeHandlerBase;
     template <bool IsPrototype> class NullTypeHandler;
     template<size_t size> class SimpleTypeHandler;
-    class PathTypeHandler;
+    class PathTypeHandlerBase;
     class IndexPropertyDescriptor;
     class DynamicObject;
     class ArrayObject;
@@ -143,6 +145,7 @@ namespace Js
     class StringCopyInfoStack;
     class ObjectPrototypeObject;
     class PropertyString;
+    class PropertyRecordUsageCache;
     class ArgumentsObject;
     class HeapArgumentsObject;
     class ActivationObject;
@@ -153,35 +156,6 @@ namespace Js
 
     struct RestrictedErrorStrings;
     class JavascriptError;
-
-#ifdef ENABLE_SIMDJS
-//SIMD_JS
-    // SIMD
-    class JavascriptSIMDObject;
-    class SIMDFloat32x4Lib;
-    class JavascriptSIMDFloat32x4;
-    class SIMDFloat64x2Lib;
-    class JavascriptSIMDFloat64x2;
-    class SIMDInt32x4Lib;
-    class JavascriptSIMDInt32x4;
-    class SIMDInt16x8Lib;
-    class JavascriptSIMDInt16x8;
-    class SIMDInt8x16Lib;
-    class JavascriptSIMDInt8x16;
-    class SIMDUint16x8Lib;
-    class JavascriptSIMDUint16x8;
-    class SIMDUint8x16Lib;
-    class JavascriptSIMDUint8x16;
-    class SIMDUint32x4Lib;
-    class JavascriptSIMDUint32x4;
-    class SIMDBool32x4Lib;
-    class JavascriptSIMDBool32x4;
-    class SIMDBool8x16Lib;
-    class JavascriptSIMDBool8x16;
-    class SIMDBool16x8Lib;
-    class JavascriptSIMDBool16x8;
-#endif // #ifdef ENABLE_SIMDJS
-
     class RecyclableObject;
     class JavascriptRegExp;
     class JavascriptRegularExpressionResult;
@@ -253,7 +227,7 @@ namespace Js
     class EntryPointInfo;
     struct LoopHeader;
     class InternalString;
-    /* enum */ struct JavascriptHint;
+    enum class JavascriptHint;
     /* enum */ struct BuiltinFunction;
     class EnterScriptObject;
     class PropertyRecord;
@@ -306,7 +280,13 @@ namespace Js
     class AsmJSByteCodeGenerator;
     enum AsmJSMathBuiltinFunction: int;
     //////////////////////////////////////////////////////////////////////////
-    typedef JsUtil::WeakReferenceDictionary<PropertyId, PropertyString, PrimeSizePolicy> PropertyStringCacheMap;
+#if ENABLE_WEAK_REFERENCE_REGIONS
+    template <typename T> using WeakPropertyIdMap = JsUtil::WeakReferenceRegionDictionary<PropertyId, T*, PrimeSizePolicy>;
+#else
+    template <typename T> using WeakPropertyIdMap = JsUtil::WeakReferenceDictionary<PropertyId, T, PrimeSizePolicy>;
+#endif
+    typedef WeakPropertyIdMap<PropertyString> PropertyStringCacheMap;
+    typedef WeakPropertyIdMap<JavascriptSymbol> SymbolCacheMap;
 
     extern const FrameDisplay NullFrameDisplay;
     extern const FrameDisplay StrictNullFrameDisplay;
@@ -395,8 +375,9 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Types/TypeId.h"
 
 #include "Base/Constants.h"
-#include "Language/ConstructorCache.h"
 #include "BackendApi.h"
+#include "Language/PropertyGuard.h"
+#include "Language/ConstructorCache.h"
 #include "ByteCode/OpLayoutsCommon.h"
 #include "ByteCode/OpLayouts.h"
 #include "ByteCode/OpLayoutsAsmJs.h"
@@ -449,6 +430,7 @@ enum tagDEBUG_EVENT_INFO_TYPE
 
 #include "Base/CharStringCache.h"
 
+#include "Language/PrototypeChainCache.h"
 #include "Library/JavascriptObject.h"
 #include "Library/BuiltInFlags.h"
 #include "Types/DynamicObjectPropertyEnumerator.h"
@@ -484,11 +466,10 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Base/Entropy.h"
 #ifdef ENABLE_BASIC_TELEMETRY
 #include "DirectCall.h"
-#include "LanguageTelemetry.h"
+#include "ScriptContext/ScriptContextTelemetry.h"
 #else
 #define CHAKRATEL_LANGSTATS_INC_BUILTINCOUNT(builtin)
-#define CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(feature, m_scriptContext)
-#define CHAKRATEL_LANGSTATS_INC_DATACOUNT(feature)
+#define CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(esVersion, feature, m_scriptContext)
 #endif
 #include "Base/ThreadContext.h"
 
@@ -513,6 +494,7 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Library/LiteralString.h"
 #include "Library/ConcatString.h"
 #include "Library/CompoundString.h"
+#include "Library/PropertyRecordUsageCache.h"
 #include "Library/PropertyString.h"
 #include "Library/SingleCharString.h"
 
@@ -520,6 +502,7 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Library/SparseArraySegment.h"
 #include "Library/JavascriptError.h"
 #include "Library/JavascriptArray.h"
+#include "Library/JavascriptSymbol.h"
 
 #include "Library/AtomicsObject.h"
 #include "DetachedStateBase.h"
@@ -562,6 +545,8 @@ enum tagDEBUG_EVENT_INFO_TYPE
 #include "Language/AsmJsTypes.h"
 #include "Language/AsmJsModule.h"
 #include "Language/AsmJs.h"
+
+#include "Core/JitHelperUtils.h"
 
 //
 // .inl files

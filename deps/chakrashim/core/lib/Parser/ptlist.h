@@ -21,13 +21,12 @@ PTNODE(knopNone       , "<none>"           , Nop      , None        , fnopNone  
 /***************************************************************************
     Leaf nodes.
 ***************************************************************************/
-PTNODE(knopName       , "name"             , Nop      , Pid         , fnopLeaf              , "NameExpr"                       )
-PTNODE(knopSpecialName, "special name"     , Nop      , SpecialName , fnopLeaf              , "SpecialNameExpr"                )
+PTNODE(knopName       , "name"             , Nop      , Name        , fnopLeaf|fnopAllowDefer, "NameExpr"                       )
 PTNODE(knopInt        , "int const"        , Nop      , Int         , fnopLeaf|fnopConst    , "NumberLit"                      )
 PTNODE(knopImport     , "import"           , Nop      , None        , fnopLeaf              , "ImportExpr"                     )
-PTNODE(knopFlt        , "flt const"        , Nop      , Flt         , fnopLeaf|fnopConst    , "NumberLit"                      )
-PTNODE(knopStr        , "str const"        , Nop      , Pid         , fnopLeaf|fnopConst    , "StringLit"                      )
-PTNODE(knopRegExp     , "reg expr"         , Nop      , Pid         , fnopLeaf|fnopConst    , "RegExprLit"                     )
+PTNODE(knopFlt        , "flt const"        , Nop      , Float       , fnopLeaf|fnopConst    , "NumberLit"                      )
+PTNODE(knopStr        , "str const"        , Nop      , Str         , fnopLeaf|fnopConst    , "StringLit"                      )
+PTNODE(knopRegExp     , "reg expr"         , Nop      , RegExp      , fnopLeaf|fnopConst    , "RegExprLit"                     )
 PTNODE(knopNull       , "null"             , Nop      , None        , fnopLeaf              , "NullLit"                        )
 PTNODE(knopFalse      , "false"            , Nop      , None        , fnopLeaf              , "FalseLit"                       )
 PTNODE(knopTrue       , "true"             , Nop      , None        , fnopLeaf              , "TrueLit"                        )
@@ -78,7 +77,7 @@ PTNODE(knopLt         , "<"                , OP(Lt)   , Bin         , fnopBin|fn
 PTNODE(knopLe         , "<="               , OP(Le)   , Bin         , fnopBin|fnopRel       , "LessThanEqualOper"              )
 PTNODE(knopGe         , ">="               , OP(Ge)   , Bin         , fnopBin|fnopRel       , "GreaterThanEqualOper"           )
 PTNODE(knopGt         , ">"                , OP(Gt)   , Bin         , fnopBin|fnopRel       , "GreaterThanOper"                )
-PTNODE(knopCall       , "()"               , Nop      , Call        , fnopBin               , "CallExpr"                       )
+PTNODE(knopCall       , "()"               , Nop      , Call        , fnopNone              , "CallExpr"                       )
 PTNODE(knopDot        , "."                , Nop      , Bin         , fnopBin               , "DotOper"                        )
 PTNODE(knopAsg        , "="                , Nop      , Bin         , fnopBin|fnopAsg       , "AssignmentOper"                 )
 PTNODE(knopInstOf     , "instanceof"       , IsInst   , Bin         , fnopBin|fnopRel       , "InstanceOfExpr"                 )
@@ -91,9 +90,9 @@ PTNODE(knopLogAnd     , "&&"               , Nop      , Bin         , fnopBin   
 PTNODE(knopLsh        , "<<"               , Shl_A    , Bin         , fnopBin               , "LeftShiftOper"                  )
 PTNODE(knopRsh        , ">>"               , Shr_A    , Bin         , fnopBin               , "RightShiftOper"                 )
 PTNODE(knopRs2        , ">>>"              , ShrU_A   , Bin         , fnopBin               , "UnsignedRightShiftOper"         )
-PTNODE(knopNew        , "new"              , Nop      , Call        , fnopBin               , "NewExpr"                        )
+PTNODE(knopNew        , "new"              , Nop      , Call        , fnopNone              , "NewExpr"                        )
 PTNODE(knopIndex      , "[]"               , Nop      , Bin         , fnopBin               , "IndexOper"                      )
-PTNODE(knopQmark      , "?"                , Nop      , Tri         , fnopBin               , "IfExpr"                         )
+PTNODE(knopQmark      , "?"                , Nop      , Tri         , fnopNone              , "IfExpr"                         )
 
 // ___compact range : do not add or remove in this range.
 //    Gen code of  OP_LclAsg*,.. depends on parallel tables with this range
@@ -119,11 +118,11 @@ PTNODE(knopGetMember  , "get"              , Nop      , Bin         , fnopBin   
 General nodes.
 ***************************************************************************/
 PTNODE(knopList       , "<list>"           , Nop      , Bin         , fnopBinList|fnopNotExprStmt, ""                          )
-PTNODE(knopVarDecl    , "varDcl"           , Nop      , Var         , fnopNotExprStmt        , "VarDecl"                       )
-PTNODE(knopConstDecl  , "constDcl"         , Nop      , Var         , fnopNotExprStmt        , "ConstDecl"                     )
-PTNODE(knopLetDecl    , "letDcl"           , Nop      , Var         , fnopNotExprStmt        , "LetDecl"                       )
+PTNODE(knopVarDecl    , "varDcl"           , Nop      , Var         , fnopNotExprStmt|fnopAllowDefer, "VarDecl"                       )
+PTNODE(knopConstDecl  , "constDcl"         , Nop      , Var         , fnopNotExprStmt|fnopAllowDefer, "ConstDecl"                     )
+PTNODE(knopLetDecl    , "letDcl"           , Nop      , Var         , fnopNotExprStmt|fnopAllowDefer, "LetDecl"                       )
 PTNODE(knopTemp       , "temp"             , Nop      , Var         , fnopNone               , "Temp"                          )
-PTNODE(knopFncDecl    , "fncDcl"           , Nop      , Fnc         , fnopLeaf               , "FuncDecl"                      )
+PTNODE(knopFncDecl    , "fncDcl"           , Nop      , Fnc         , fnopLeaf|fnopAllowDefer, "FuncDecl"                      )
 PTNODE(knopClassDecl  , "classDecl"        , Nop      , Class       , fnopLeaf               , "ClassDecl"                     )
 PTNODE(knopProg       , "program"          , Nop      , Prog        , fnopNotExprStmt        , "Unit"                          )
 PTNODE(knopModule     , "module"           , Nop      , Module      , fnopNotExprStmt        , "Module")
@@ -133,9 +132,9 @@ PTNODE(knopFor        , "for"              , Nop      , For         , fnopNotExp
 PTNODE(knopIf         , "if"               , Nop      , If          , fnopNotExprStmt        , "IfStmt"                        )
 PTNODE(knopWhile      , "while"            , Nop      , While       , fnopNotExprStmt|fnopCleanup|fnopBreak|fnopContinue , "WhileStmt"      )
 PTNODE(knopDoWhile    , "do-while"         , Nop      , While       , fnopNotExprStmt|fnopCleanup|fnopBreak|fnopContinue , "DoWhileStmt"    )
-PTNODE(knopForIn      , "for in"           , Nop      , ForIn       , fnopNotExprStmt|fnopCleanup|fnopBreak|fnopContinue , "ForInStmt"      )
-PTNODE(knopForOf      , "for of"           , Nop      , ForOf       , fnopNotExprStmt|fnopCleanup|fnopBreak|fnopContinue , "ForOfStmt"      )
-PTNODE(knopBlock      , "{}"               , Nop      , Block       , fnopNotExprStmt        , "Block"                         )
+PTNODE(knopForIn      , "for in"           , Nop      , ForInOrForOf, fnopNotExprStmt|fnopCleanup|fnopBreak|fnopContinue , "ForInStmt"      )
+PTNODE(knopForOf      , "for of"           , Nop      , ForInOrForOf, fnopNotExprStmt|fnopCleanup|fnopBreak|fnopContinue , "ForOfStmt"      )
+PTNODE(knopBlock      , "{}"               , Nop      , Block       , fnopNotExprStmt|fnopAllowDefer, "Block"                         )
 PTNODE(knopStrTemplate, "``"               , Nop      , StrTemplate , fnopNone               , "StringTemplateDecl"            )
 PTNODE(knopWith       , "with"             , Nop      , With        , fnopNotExprStmt        , "WithStmt"                      )
 PTNODE(knopBreak      , "break"            , Nop      , Jump        , fnopNotExprStmt        , "BreakStmt"                     )
@@ -154,8 +153,6 @@ PTNODE(knopObjectPatternMember, "{:} = "   , Nop      , Bin         , fnopBin   
 PTNODE(knopArrayPattern, "[] = "           , Nop      , ArrLit      , fnopUni                , "ArrayAssignmentPattern"        )
 PTNODE(knopParamPattern, "({[]})"          , Nop      , ParamPattern, fnopUni                , "DestructurePattern"            )
 PTNODE(knopExportDefault, "export default" , Nop      , ExportDefault,fnopNone               , "ExportDefault"                 )
-PTNODE(knopSuperReference, "super ref"     , Nop      , SuperReference, fnopBin              , "SuperReference"                )
-PTNODE(knopSuperCall  , "super call"       , Nop      , SuperCall   , fnopBin                , "SuperCall"                     )
 
 
 #undef PTNODE

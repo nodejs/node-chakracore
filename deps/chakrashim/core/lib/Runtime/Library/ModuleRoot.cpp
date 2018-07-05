@@ -17,9 +17,9 @@ namespace Js
         __super::SetHostObject(hostObject);
     }
 
-    PropertyQueryFlags ModuleRoot::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags ModuleRoot::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
-        if (JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId)))
+        if (JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId, info)))
         {
             return PropertyQueryFlags::Property_Found;
         }
@@ -27,7 +27,7 @@ namespace Js
         {
             return PropertyQueryFlags::Property_Found;
         }
-        return this->GetLibrary()->GetGlobalObject()->GlobalObject::HasPropertyQuery(propertyId);
+        return this->GetLibrary()->GetGlobalObject()->GlobalObject::HasPropertyQuery(propertyId, info);
     }
 
     BOOL ModuleRoot::EnsureProperty(PropertyId propertyId)
@@ -56,7 +56,7 @@ namespace Js
 
     BOOL ModuleRoot::HasOwnProperty(PropertyId propertyId)
     {
-        return JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId));
+        return JavascriptConversion::PropertyQueryFlagsToBoolean(DynamicObject::HasPropertyQuery(propertyId, nullptr /*info*/));
     }
 
     PropertyQueryFlags ModuleRoot::GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext)
@@ -130,7 +130,7 @@ namespace Js
         return ModuleRoot::GetPropertyQuery(originalInstance, propertyRecord->GetPropertyId(), value, info, requestContext);
     }
 
-    BOOL ModuleRoot::GetAccessors(PropertyId propertyId, Var* getter, Var* setter, ScriptContext * requestContext)
+    _Check_return_ _Success_(return) BOOL ModuleRoot::GetAccessors(PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter, ScriptContext* requestContext)
     {
         if (DynamicObject::GetAccessors(propertyId, getter, setter, requestContext))
         {

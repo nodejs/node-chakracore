@@ -53,6 +53,7 @@ JsParseModuleSource
 JsModuleEvaluation
 JsSetModuleHostInfo
 JsGetModuleHostInfo
+JsGetModuleNamespace
 JsInitializeJITServer
 
 JsCreateSharedArrayBufferWithSharedContent
@@ -65,5 +66,7 @@ JsLessThanOrEqual
 JsCreateEnhancedFunction
 JsSetHostPromiseRejectionTracker
 JsGetProxyProperties
+JsSerializeParserState
+JsRunScriptWithParserState
 JsGetPromiseState
 JsGetPromiseResult

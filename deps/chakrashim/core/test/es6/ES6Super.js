@@ -71,6 +71,30 @@ var tests = [
         assert.areEqual("expression", obj1.prop);
     }
   },
+    {
+        name: "super bound through call",
+        body: function () {
+            var obj = {
+                m() {
+                    super.x = 17;
+                },
+                n() {
+                    'use strict';
+                    super.x = 19;
+                }
+            };
+
+            var bar = { x: 11 };
+            obj.m.call(bar);
+            assert.areEqual(17, bar.x);
+
+            obj.n.call(bar);
+            assert.areEqual(19, bar.x);
+
+            obj.m.call(42); // noop in non-strict mode
+            assert.throws(() => obj.n.call(42), TypeError, "super bound to number", "Assignment to read-only properties is not allowed in strict mode");
+        }
+    },
   {
     name: "super in strict mode - class",
     body: function () {
@@ -202,6 +226,85 @@ var tests = [
         assert.doesNotThrow(function(){class A extends Object{constructor(){eval("(()=>{count++; super();})();");}};new A();}, "");
         assert.doesNotThrow(function(){class A extends Object{constructor(){eval("(()=>eval(\"count++; super();\"))();");}};new A();}, "");
         assert.areEqual(6, count, "Side effects expected without SyntaxError");
+    }
+  },
+  {
+    name: "return value of super() should be this when super is plain function",
+    body: function () {
+        function A() { }
+
+        let s;
+        class B extends A {
+            constructor() {
+                s = super();
+            }
+        }
+
+        const b = new B();
+        assert.areEqual(b, s);
+    }
+  },
+  {
+    name: "return value of super() should be this when super is class",
+    body: function () {
+        class A { }
+
+        let s;
+        class B extends A {
+            constructor() {
+                s = super();
+            }
+        }
+
+        const b = new B();
+        assert.areEqual(b, s);
+    }
+  },
+  {
+    name: "return value of super() should be this when super is function with non-object return value",
+    body: function () {
+        function A() { return 4; }
+
+        let s;
+        class B extends A {
+            constructor() {
+                s = super();
+            }
+        }
+
+        const b = new B();
+        assert.areEqual(b, s);
+    }
+  },
+  {
+    name: "return value of super() should be this when super is function that returns an object",
+    body: function () {
+        function A() { return { a: 1 }; }
+
+        let s;
+        class B extends A {
+            constructor() {
+                s = super();
+            }
+        }
+
+        const b = new B();
+        assert.areEqual(b, s);
+        assert.areEqual(1, b.a);
+    }
+  },
+  {
+    name: "return value of super() should be this when super is built-in type",
+    body: function () {
+        let s;
+        class B extends Uint32Array {
+            constructor() {
+                s = super();
+            }
+        }
+
+        const b = new B();
+        assert.areEqual(b, s);
     }
   },
 ];

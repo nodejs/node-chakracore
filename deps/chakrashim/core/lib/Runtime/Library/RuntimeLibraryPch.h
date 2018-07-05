@@ -39,7 +39,6 @@
 
 #include "Library/JavascriptVariantDate.h"
 #include "Library/JavascriptPromise.h"
-#include "Library/JavascriptSymbol.h"
 #include "Library/JavascriptSymbolObject.h"
 #include "Library/JavascriptProxy.h"
 #include "Library/JavascriptReflect.h"
@@ -84,8 +83,7 @@
 
 #include "Library/ModuleRoot.h"
 #include "Library/ArgumentsObject.h"
-// SIMD_JS
-#include "Library/SimdLib.h"
+// SIMD
 #include "Language/SimdOps.h"
 
 #include "Library/WebAssemblyInstance.h"
@@ -97,16 +95,6 @@
 #include "Library/JavascriptString.inl"
 #include "Library/ConcatString.inl"
 #include "Language/CacheOperators.inl"
-
-#ifdef INTL_ICU
-#define U_STATIC_IMPLEMENTATION
-#define U_SHOW_CPLUSPLUS_API 0
-#define U_USING_ICU_NAMESPACE 0
-#pragma warning(push)
-#pragma warning(disable:4995)
-#include <unicode/uloc.h>
-#pragma warning(pop)
-#endif
 
 #endif // !IsJsDiag
 

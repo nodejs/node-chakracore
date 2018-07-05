@@ -326,6 +326,7 @@ StackSym::SetIsIntConst(IntConstType value)
     this->m_isInt64Const = false;
     this->m_isTaggableIntConst = !Js::TaggedInt::IsOverflow(value);
     this->m_isFltConst = false;
+    this->m_isStrConst = false;
 }
 
 void StackSym::SetIsInt64Const()
@@ -337,6 +338,7 @@ void StackSym::SetIsInt64Const()
     this->m_isIntConst = false;
     this->m_isTaggableIntConst = false;
     this->m_isFltConst = false;
+    this->m_isStrConst = false;
 }
 
 void
@@ -348,6 +350,7 @@ StackSym::SetIsFloatConst()
     this->m_isIntConst = false;
     this->m_isTaggableIntConst = false;
     this->m_isFltConst = true;
+    this->m_isStrConst = false;
 }
 
 void
@@ -360,6 +363,22 @@ StackSym::SetIsSimd128Const()
     this->m_isTaggableIntConst = false;
     this->m_isFltConst = false;
     this->m_isSimd128Const = true;
+    this->m_isStrConst = false;
+    this->m_isNotNumber = true;
+}
+
+void
+StackSym::SetIsStrConst()
+{
+    Assert(this->m_isSingleDef);
+    Assert(this->m_instrDef);
+    this->m_isConst = true;
+    this->m_isIntConst = false;
+    this->m_isTaggableIntConst = false;
+    this->m_isFltConst = false;
+    this->m_isSimd128Const = false;
+    this->m_isStrConst = true;
+    this->m_isNotNumber = true;
 }
 
 Js::RegSlot
@@ -543,7 +562,7 @@ StackSym::CloneUse(Func *func)
 void
 StackSym::CopySymAttrs(StackSym *symSrc)
 {
-    m_isNotInt = symSrc->m_isNotInt;
+    m_isNotNumber = symSrc->m_isNotNumber;
     m_isSafeThis = symSrc->m_isSafeThis;
     m_builtInIndex = symSrc->m_builtInIndex;
 }
@@ -791,55 +810,6 @@ BailoutConstantValue StackSym::GetConstValueForBailout() const
     return src1->GetConstValue();
 }
 
-
-// SIMD_JS
-StackSym *
-StackSym::GetSimd128EquivSym(IRType type, Func *func)
-{
-    switch (type)
-    {
-    case TySimd128F4:
-        return this->GetSimd128F4EquivSym(func);
-        break;
-    case TySimd128I4:
-        return this->GetSimd128I4EquivSym(func);
-        break;
-    case TySimd128I16:
-        return this->GetSimd128I16EquivSym(func);
-        break;
-    case TySimd128D2:
-        return this->GetSimd128D2EquivSym(func);
-        break;
-    default:
-        Assert(UNREACHED);
-        return nullptr;
-    }
-}
-
-StackSym *
-StackSym::GetSimd128F4EquivSym(Func *func)
-{
-    return this->GetTypeEquivSym(TySimd128F4, func);
-}
-
-StackSym *
-StackSym::GetSimd128I4EquivSym(Func *func)
-{
-    return this->GetTypeEquivSym(TySimd128I4, func);
-}
-
-StackSym *
-StackSym::GetSimd128I16EquivSym(Func *func)
-{
-    return this->GetTypeEquivSym(TySimd128I16, func);
-}
-
-StackSym *
-StackSym::GetSimd128D2EquivSym(Func *func)
-{
-    return this->GetTypeEquivSym(TySimd128D2, func);
-}
-
 StackSym *
 StackSym::GetFloat64EquivSym(Func *func)
 {
@@ -951,6 +921,17 @@ StackSym const *StackSym::GetVarEquivStackSym_NoCreate(Sym const * const sym)
         stackSym = stackSym->GetVarEquivSym_NoCreate();
     }
     return stackSym;
+}
+
+StackSym *StackSym::EnsureAuxSlotPtrSym(Func * func)
+{
+    Assert(HasObjectInfo());
+    StackSym * auxSlotPtrSym = GetObjectInfo()->m_auxSlotPtrSym;
+    if (auxSlotPtrSym == nullptr)
+    {
+        auxSlotPtrSym = GetObjectInfo()->m_auxSlotPtrSym = StackSym::New(func);
+    }
+    return auxSlotPtrSym;
 }
 
 ///----------------------------------------------------------------------------

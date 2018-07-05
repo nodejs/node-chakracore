@@ -54,6 +54,7 @@ namespace Js
     {
     public:
         Field(Js::ArgSlot) paramInfoCount;
+        Field(ProfileId) ldLenInfoCount;
         Field(ProfileId) ldElemInfoCount;
         Field(ProfileId) stElemInfoCount;
         Field(ProfileId) arrayCallSiteCount;
@@ -82,6 +83,30 @@ namespace Js
         {
         }
     };
+
+    struct CallbackInfo
+    {
+        bool CanInlineCallback(Js::ArgSlot argIndex)
+        {
+            return canInlineCallback && argNumber == argIndex;
+        }
+
+        // False if there is more than one ArgIn that is a function object or a function object with arg number greater than MaxInlineeArgoutCount
+        Field(uint8) canInlineCallback : 1;
+
+        Field(uint8) isPolymorphic : 1;
+
+        // Used to correlate from callee's ArgIn to this ArgOut
+        Field(uint8) argNumber : 5;
+        static_assert(Js::InlineeCallInfo::MaxInlineeArgoutCount < (1 << 5), "Ensure CallbackInfo::argNumber is large enough to hold all inline arguments");
+
+        Field(uint16) callSiteId;
+
+        Field(Js::SourceId) sourceId;
+        Field(Js::LocalFunctionId) functionId;
+    };
+
+    using CallbackInfoList = SList<CallbackInfo*, Recycler, RealCount>;
 
     struct CallSiteInfo
     {
@@ -176,10 +201,48 @@ namespace Js
     };
     CompileAssert(sizeof(FldInfo::TSize) == sizeof(FldInfo));
 
+    struct LdLenInfo
+    {
+        typedef struct { ValueType::TSize f1; byte f2; } TSize;
+
+        ValueType arrayType;
+
+        union
+        {
+            struct
+            {
+                bool disableAggressiveSpecialization : 1;
+            };
+            byte bits;
+        };
+
+        LdLenInfo() : bits(0)
+        {
+        }
+
+        void Merge(const LdLenInfo & other)
+        {
+            arrayType = arrayType.Merge(other.arrayType);
+            bits |= other.bits;
+        }
+
+        ValueType GetArrayType() const
+        {
+            return arrayType;
+        }
+
+        bool IsAggressiveSpecializationDisabled() const
+        {
+            return disableAggressiveSpecialization;
+        }
+    };
+    CompileAssert(sizeof(LdLenInfo::TSize) == sizeof(LdLenInfo));
+
     struct LdElemInfo
     {
         ValueType arrayType;
         ValueType elemType;
+        FldInfoFlags flags;
 
         union
         {
@@ -187,21 +250,17 @@ namespace Js
             {
                 bool wasProfiled : 1;
                 bool neededHelperCall : 1;
+                bool disableAggressiveSpecialization : 1;
             };
             byte bits;
         };
 
-        LdElemInfo() : bits(0)
+        LdElemInfo() : bits(0), flags(FldInfo_NoInfo)
         {
             wasProfiled = true;
         }
 
-        void Merge(const LdElemInfo &other)
-        {
-            arrayType = arrayType.Merge(other.arrayType);
-            elemType = elemType.Merge(other.elemType);
-            bits |= other.bits;
-        }
+        void Merge(const LdElemInfo &other);
 
         ValueType GetArrayType() const
         {
@@ -222,11 +281,17 @@ namespace Js
         {
             return neededHelperCall;
         }
+
+        bool IsAggressiveSpecializationDisabled() const
+        {
+            return disableAggressiveSpecialization;
+        }
     };
 
     struct StElemInfo
     {
         ValueType arrayType;
+        FldInfoFlags flags;
 
         union
         {
@@ -238,20 +303,17 @@ namespace Js
                 bool neededHelperCall : 1;
                 bool storedOutsideHeadSegmentBounds : 1;
                 bool storedOutsideArrayBounds : 1;
+                bool disableAggressiveSpecialization : 1;
             };
             byte bits;
         };
 
-        StElemInfo() : bits(0)
+        StElemInfo() : bits(0), flags(FldInfo_NoInfo)
         {
             wasProfiled = true;
         }
 
-        void Merge(const StElemInfo &other)
-        {
-            arrayType = arrayType.Merge(other.arrayType);
-            bits |= other.bits;
-        }
+        void Merge(const StElemInfo &other);
 
         ValueType GetArrayType() const
         {
@@ -286,6 +348,11 @@ namespace Js
         bool LikelyStoresOutsideArrayBounds() const
         {
             return storedOutsideArrayBounds;
+        }
+
+        bool IsAggressiveSpecializationDisabled() const
+        {
+            return disableAggressiveSpecialization;
         }
     };
 
@@ -350,6 +417,9 @@ namespace Js
         FunctionBody * GetFunctionBody() const { Assert(hasFunctionBody); return functionBody; }
 #endif
 
+        void RecordLengthLoad(FunctionBody* functionBody, ProfileId ldLenId, const LdLenInfo& info);
+        const LdLenInfo *GetLdLenInfo() const { return ldLenInfo; }
+
         void RecordElementLoad(FunctionBody* functionBody, ProfileId ldElemId, const LdElemInfo& info);
         void RecordElementLoadAsProfiled(FunctionBody *const functionBody, const ProfileId ldElemId);
         const LdElemInfo *GetLdElemInfo() const { return ldElemInfo; }
@@ -390,9 +460,11 @@ namespace Js
         void RecordAsmJsCallSiteInfo(FunctionBody* callerBody, ProfileId callSiteId, FunctionBody* calleeBody);
 #endif
         void RecordCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId, FunctionInfo * calleeFunctionInfo, JavascriptFunction* calleeFunction, uint actualArgCount, bool isConstructorCall, InlineCacheIndex ldFldInlineCacheId = Js::Constants::NoInlineCacheIndex);
-        void RecordConstParameterAtCallSite(ProfileId callSiteId, int argNum);
+        void RecordParameterAtCallSite(FunctionBody * functionBody, ProfileId callSiteId, Var arg, int argNum, Js::RegSlot regSlot);
         static bool HasCallSiteInfo(FunctionBody* functionBody);
         bool HasCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId); // Does a particular callsite have ProfileInfo?
+        FunctionInfo * GetCallbackInfo(FunctionBody * functionBody, ProfileId callSiteId);
+        bool MayHaveNonBuiltinCallee(ProfileId callSiteId);
         FunctionInfo * GetCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId, bool *isConstructorCall, bool *isPolymorphicCall);
         CallSiteInfo * GetCallSiteInfo() const { return callSiteInfo; }
         uint16 GetConstantArgInfo(ProfileId callSiteId);
@@ -464,6 +536,7 @@ namespace Js
         Field(ValueType *) returnTypeInfo; // return type of calls for non inline call sites
         Field(ValueType *) divideTypeInfo;
         Field(ValueType *) switchTypeInfo;
+        Field(LdLenInfo *) ldLenInfo;
         Field(LdElemInfo *) ldElemInfo;
         Field(StElemInfo *) stElemInfo;
         Field(ArrayCallSiteInfo *) arrayCallSiteInfo;
@@ -521,6 +594,7 @@ namespace Js
             Field(bool) disableStackArgOpt : 1;
             Field(bool) disableTagCheck : 1;
             Field(bool) disableOptimizeTryFinally : 1;
+            Field(bool) disableFieldPRE : 1;
         };
         Field(Bits) bits;
 
@@ -533,6 +607,8 @@ namespace Js
 #if DBG
         Field(bool) persistsAcrossScriptContexts;
 #endif
+
+        static CriticalSection callSiteInfoCS;
 
         static JavascriptMethod EnsureDynamicProfileInfo(Js::ScriptFunction * function);
 #if DBG_DUMP
@@ -548,12 +624,15 @@ namespace Js
 
         static void DumpLoopInfo(FunctionBody *fbody);
 #endif
+        CallbackInfo * FindCallbackInfo(FunctionBody * funcBody, ProfileId callSiteId);
+        CallbackInfo * EnsureCallbackInfo(FunctionBody * funcBody, ProfileId callSiteId);
 
         bool IsPolymorphicCallSite(Js::LocalFunctionId curFunctionId, Js::SourceId curSourceId, Js::LocalFunctionId oldFunctionId, Js::SourceId oldSourceId);
         void CreatePolymorphicDynamicProfileCallSiteInfo(FunctionBody * funcBody, ProfileId callSiteId, Js::LocalFunctionId functionId, Js::LocalFunctionId oldFunctionId, Js::SourceId sourceId, Js::SourceId oldSourceId);
         void ResetPolymorphicCallSiteInfo(ProfileId callSiteId, Js::LocalFunctionId functionId);
         void SetFunctionIdSlotForNewPolymorphicCall(ProfileId callSiteId, Js::LocalFunctionId curFunctionId, Js::SourceId curSourceId, Js::FunctionBody *inliner);
         void RecordPolymorphicCallSiteInfo(FunctionBody* functionBody, ProfileId callSiteId, FunctionInfo * calleeFunctionInfo);
+
 #ifdef RUNTIME_DATA_COLLECTION
         static CriticalSection s_csOutput;
         template <typename T>
@@ -602,6 +681,9 @@ namespace Js
         DynamicProfileInfo(FunctionBody * functionBody);
 
         friend class SourceDynamicProfileManager;
+
+        static FunctionInfo * GetFunctionInfo(FunctionBody * functionBody, Js::SourceId sourceId, Js::LocalFunctionId functionId);
+        static void GetSourceAndFunctionId(FunctionBody * functionBody, FunctionInfo * calleeFunctionInfo, JavascriptFunction * calleeFunction, Js::SourceId * sourceId, Js::LocalFunctionId * functionId);
 
     public:
         bool IsAggressiveIntTypeSpecDisabled(const bool isJitLoopBody) const
@@ -821,6 +903,8 @@ namespace Js
         void DisableTagCheck() { this->bits.disableTagCheck = true; }
         bool IsOptimizeTryFinallyDisabled() const { return bits.disableOptimizeTryFinally; }
         void DisableOptimizeTryFinally() { this->bits.disableOptimizeTryFinally = true; }
+        bool IsFieldPREDisabled() const { return bits.disableFieldPRE; }
+        void DisableFieldPRE() { this->bits.disableFieldPRE = true; }
 
         static bool IsCallSiteNoInfo(Js::LocalFunctionId functionId) { return functionId == CallSiteNoInfo; }
         int IncRejitCount() { return this->rejitCount++; }
@@ -866,6 +950,7 @@ namespace Js
         {
             if (lengthLeft < sizeof(T))
             {
+                AssertOrFailFast(false);
                 return false;
             }
             *data = *(T *)current;
@@ -891,6 +976,7 @@ namespace Js
             size_t size = sizeof(T) * len;
             if (lengthLeft < size)
             {
+                AssertOrFailFast(false);
                 return false;
             }
             memcpy_s(data, size, current, size);

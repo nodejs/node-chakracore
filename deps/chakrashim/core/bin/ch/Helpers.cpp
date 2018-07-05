@@ -218,12 +218,12 @@ HRESULT Helpers::LoadScriptFromFile(LPCSTR filenameToLoad, LPCSTR& contents, UIN
         {
             if (!HostConfigFlags::flags.MuteHostErrorMsgIsEnabled)
             {
-    #ifdef _WIN32
+#ifdef _WIN32
                 DWORD lastError = GetLastError();
                 char16 wszBuff[MAX_URI_LENGTH];
                 fprintf(stderr, "Error in opening file '%s' ", filename);
                 wszBuff[0] = 0;
-                if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
+                if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                     nullptr,
                     lastError,
                     0,
@@ -234,10 +234,10 @@ HRESULT Helpers::LoadScriptFromFile(LPCSTR filenameToLoad, LPCSTR& contents, UIN
                     fwprintf(stderr, _u(": %s"), wszBuff);
                 }
                 fwprintf(stderr, _u("\n"));
-    #elif defined(_POSIX_VERSION)
+#elif defined(_POSIX_VERSION)
                 fprintf(stderr, "Error in opening file: ");
                 perror(filename);
-    #endif
+#endif
             }
 
             IfFailGo(E_FAIL);
@@ -257,6 +257,11 @@ HRESULT Helpers::LoadScriptFromFile(LPCSTR filenameToLoad, LPCSTR& contents, UIN
         bufferLength = lengthBytes + sizeof(BYTE);
         pRawBytes = (LPBYTE)malloc(bufferLength);
     }
+    else
+    {
+        bufferLength = 1;
+        pRawBytes = (LPBYTE)malloc(bufferLength);
+    }
 
     if (nullptr == pRawBytes)
     {
@@ -264,24 +269,27 @@ HRESULT Helpers::LoadScriptFromFile(LPCSTR filenameToLoad, LPCSTR& contents, UIN
         IfFailGo(E_OUTOFMEMORY);
     }
 
-    if (file != NULL)
+    if (lengthBytes != 0)
     {
-        //
-        // Read the entire content as a binary block.
-        //
-        size_t readBytes = fread(pRawBytes, sizeof(BYTE), lengthBytes, file);
-        if (readBytes < lengthBytes * sizeof(BYTE))
+        if (file != NULL)
         {
-            IfFailGo(E_FAIL);
+            //
+            // Read the entire content as a binary block.
+            //
+            size_t readBytes = fread(pRawBytes, sizeof(BYTE), lengthBytes, file);
+            if (readBytes < lengthBytes * sizeof(BYTE))
+            {
+                IfFailGo(E_FAIL);
+            }
         }
-    }
-    else // from module source register
-    {
-        // Q: module source is on persistent memory. Why do we use the copy instead?
-        // A: if we use the same memory twice, ch doesn't know that during FinalizeCallback free.
-        // the copy memory will be freed by the finalizer
-        Assert(pRawBytesFromMap);
-        memcpy_s(pRawBytes, bufferLength, pRawBytesFromMap, lengthBytes);
+        else // from module source register
+        {
+            // Q: module source is on persistent memory. Why do we use the copy instead?
+            // A: if we use the same memory twice, ch doesn't know that during FinalizeCallback free.
+            // the copy memory will be freed by the finalizer
+            Assert(pRawBytesFromMap);
+            memcpy_s(pRawBytes, bufferLength, pRawBytesFromMap, lengthBytes);
+        }
     }
 
     if (pRawBytes)
@@ -449,7 +457,7 @@ HRESULT Helpers::LoadBinaryFile(LPCSTR filename, LPCSTR& contents, UINT& lengthB
             DWORD lastError = GetLastError();
             char16 wszBuff[MAX_URI_LENGTH];
             wszBuff[0] = 0;
-            if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
+            if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                 nullptr,
                 lastError,
                 0,
@@ -507,8 +515,9 @@ void Helpers::TTReportLastIOErrorAsNeeded(BOOL ok, const char* msg)
 #ifdef _WIN32
         DWORD lastError = GetLastError();
         LPTSTR pTemp = NULL;
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY, NULL, lastError, 0, (LPTSTR)&pTemp, 0, NULL);
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError, 0, (LPTSTR)&pTemp, 0, NULL);
         fwprintf(stderr, _u("Error is: %s\n"), pTemp);
+        LocalFree(pTemp);
 #else
         fprintf(stderr, "Error is: %i %s\n", errno, strerror(errno));
 #endif
@@ -547,7 +556,7 @@ void Helpers::CreateTTDDirectoryAsNeeded(size_t* uriLength, char* uri, const cha
     if(success != 0)
     {
         //we may fail because someone else created the directory -- that is ok
-        Helpers::TTReportLastIOErrorAsNeeded(errno != ENOENT, "Failed to create directory");
+        Helpers::TTReportLastIOErrorAsNeeded(errno == EEXIST, "Failed to create directory");
     }
 
     char realAsciiDir2[MAX_TTD_ASCII_PATH_EXT_LENGTH];
@@ -575,7 +584,7 @@ void Helpers::CreateTTDDirectoryAsNeeded(size_t* uriLength, char* uri, const cha
     if(success != 0)
     {
         //we may fail because someone else created the directory -- that is ok
-        Helpers::TTReportLastIOErrorAsNeeded(errno != ENOENT, "Failed to create directory");
+        Helpers::TTReportLastIOErrorAsNeeded(errno == EEXIST, "Failed to create directory");
     }
 }
 

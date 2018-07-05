@@ -75,6 +75,7 @@ public:
     bool IsLambda() const;
     bool IsAsmJsMode() const;
     bool IsWasmFunction() const;
+    bool UsesWAsmJsFastVirtualBuffer() const;
     bool IsStrictMode() const;
     bool IsEval() const;
     bool HasImplicitArgIns() const;
@@ -99,6 +100,8 @@ public:
     bool NeedScopeObjectForArguments(bool hasNonSimpleParams) const;
     bool GetDoScopeObjectCreation() const;
     void EnsureConsistentConstCount() const;
+    bool HasComputedName() const;
+    bool HasHomeObj() const;
 
     const byte * GetByteCodeBuffer() const;
     StatementMapIDL * GetFullStatementMap() const;
@@ -183,7 +186,7 @@ public:
     const Js::PropertyIdArray * ReadPropertyIdArrayFromAuxData(uint offset) const;
     Js::PropertyIdArray * GetFormalsPropIdArray() const;
 
-    Js::ForInCache * GetForInCache(uint profileId) const;
+    Js::EnumeratorCache * GetForInCache(uint profileId) const;
     bool InitializeStatementMap(Js::SmallSpanSequence * statementMap, ArenaAllocator* alloc) const;
 private:
     Js::FunctionInfo::Attributes GetAttributes() const;

@@ -26,6 +26,7 @@ const uint fnopJump     = 0x0200;
 const uint fnopNotExprStmt = 0x0400;
 const uint fnopBinList  = 0x0800;
 const uint fnopExprMask = (fnopLeaf|fnopUni|fnopBin);
+const uint fnopAllowDefer = 0x1000; // allow to be created during defer parse
 
 /***************************************************************************
 Flags for classifying parse nodes.
@@ -65,95 +66,343 @@ enum PNodeFlags : ushort
 };
 
 /***************************************************************************
-Data structs for ParseNodes. ParseNode includes a union of these.
+Data structs for ParseNodes.
 ***************************************************************************/
-struct PnUni
+class ParseNodeUni;
+class ParseNodeBin;
+class ParseNodeTri;
+class ParseNodeInt;
+class ParseNodeFloat;
+class ParseNodeRegExp;
+class ParseNodeStr;
+class ParseNodeName;
+class ParseNodeVar;
+class ParseNodeCall;
+class ParseNodeSuperCall;
+class ParseNodeSpecialName;
+class ParseNodeExportDefault;
+class ParseNodeStrTemplate;
+class ParseNodeSuperReference;
+class ParseNodeArrLit;
+class ParseNodeClass;
+class ParseNodeParamPattern;
+
+class ParseNodeStmt;
+class ParseNodeBlock;
+class ParseNodeJump;
+class ParseNodeWith;
+class ParseNodeIf;
+class ParseNodeSwitch;
+class ParseNodeCase;
+class ParseNodeReturn;
+class ParseNodeTryFinally;
+class ParseNodeTryCatch;
+class ParseNodeTry;
+class ParseNodeCatch;
+class ParseNodeFinally;
+class ParseNodeLoop;
+class ParseNodeWhile;
+class ParseNodeFor;
+class ParseNodeForInOrForOf;
+
+class ParseNodeFnc;
+class ParseNodeProg;
+class ParseNodeModule;
+
+class ParseNode
 {
-    ParseNodePtr pnode1;
+public:
+    ParseNode(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodeUni * AsParseNodeUni();
+    ParseNodeBin * AsParseNodeBin();
+    ParseNodeTri * AsParseNodeTri();
+    ParseNodeInt * AsParseNodeInt();
+    ParseNodeFloat * AsParseNodeFloat();
+    ParseNodeRegExp * AsParseNodeRegExp();
+    ParseNodeVar * AsParseNodeVar();
+    ParseNodeStr * AsParseNodeStr();
+    ParseNodeName * AsParseNodeName();
+
+    ParseNodeSpecialName * AsParseNodeSpecialName();
+    ParseNodeExportDefault * AsParseNodeExportDefault();
+    ParseNodeStrTemplate * AsParseNodeStrTemplate();
+    ParseNodeSuperReference * AsParseNodeSuperReference();
+    ParseNodeArrLit * AsParseNodeArrLit();
+
+    ParseNodeCall * AsParseNodeCall();
+    ParseNodeSuperCall * AsParseNodeSuperCall();
+    ParseNodeClass * AsParseNodeClass();
+    ParseNodeParamPattern * AsParseNodeParamPattern();
+
+    ParseNodeStmt * AsParseNodeStmt();
+    ParseNodeBlock * AsParseNodeBlock();
+    ParseNodeJump * AsParseNodeJump();
+    ParseNodeWith * AsParseNodeWith();
+    ParseNodeIf * AsParseNodeIf();
+    ParseNodeSwitch * AsParseNodeSwitch();
+    ParseNodeCase * AsParseNodeCase();
+    ParseNodeReturn * AsParseNodeReturn();
+
+    ParseNodeTryFinally * AsParseNodeTryFinally();
+    ParseNodeTryCatch * AsParseNodeTryCatch();
+    ParseNodeTry * AsParseNodeTry();
+    ParseNodeCatch * AsParseNodeCatch();
+    ParseNodeFinally * AsParseNodeFinally();
+
+    ParseNodeLoop * AsParseNodeLoop();
+    ParseNodeWhile * AsParseNodeWhile();
+    ParseNodeFor * AsParseNodeFor();
+    ParseNodeForInOrForOf * AsParseNodeForInOrForOf();
+
+    ParseNodeFnc * AsParseNodeFnc();
+    ParseNodeProg * AsParseNodeProg();
+    ParseNodeModule * AsParseNodeModule();
+
+    static uint Grfnop(int nop)
+    {
+        Assert(nop < knopLim);
+        return nop < knopLim ? mpnopgrfnop[nop] : fnopNone;
+    }
+
+    BOOL IsStatement()
+    {
+        return nop >= knopList || ((Grfnop(nop) & fnopAsg) != 0);
+    }
+
+    uint Grfnop(void)
+    {
+        Assert(nop < knopLim);
+        return nop < knopLim ? mpnopgrfnop[nop] : fnopNone;
+    }
+
+    IdentPtr name();
+
+    charcount_t LengthInCodepoints() const
+    {
+        return (this->ichLim - this->ichMin);
+    }
+
+    // This node is a function decl node and function has a var declaration named 'arguments',
+    bool HasVarArguments() const
+    {
+        return ((nop == knopFncDecl) && (grfpn & PNodeFlags::fpnArguments_varDeclaration));
+    }
+
+    bool CapturesSyms() const
+    {
+        return (grfpn & PNodeFlags::fpnCapturesSyms) != 0;
+    }
+
+    void SetCapturesSyms()
+    {
+        grfpn |= PNodeFlags::fpnCapturesSyms;
+    }
+
+    bool IsInList() const { return this->isInList; }
+    void SetIsInList() { this->isInList = true; }
+
+    bool IsNotEscapedUse() const { return this->notEscapedUse; }
+    void SetNotEscapedUse() { this->notEscapedUse = true; }
+
+    bool CanFlattenConcatExpr() const { return !!(this->grfpn & PNodeFlags::fpnCanFlattenConcatExpr); }
+
+    bool IsCallApplyTargetLoad() { return isCallApplyTargetLoad; }
+    void SetIsCallApplyTargetLoad() { isCallApplyTargetLoad = true; }    
+
+    bool IsPatternDeclaration() { return isPatternDeclaration; }
+    void SetIsPatternDeclaration() { isPatternDeclaration = true; }
+
+    bool IsUserIdentifier();
+
+    bool IsVarLetOrConst() const
+    {
+        return this->nop == knopVarDecl || this->nop == knopLetDecl || this->nop == knopConstDecl;
+    }
+
+    ParseNodePtr GetFormalNext();
+
+    bool IsPattern() const
+    {
+        return nop == knopObjectPattern || nop == knopArrayPattern;
+    }
+
+#if DBG_DUMP
+    void Dump();
+#endif
+
+public:
+    static const uint mpnopgrfnop[knopLim];
+
+    OpCode nop;
+
+    bool isUsed : 1;                // indicates whether an expression such as x++ is used
+
+private:
+    bool isInList : 1;
+    // Use by byte code generator
+    bool notEscapedUse : 1;         // Currently, only used by child of knopComma
+    bool isCallApplyTargetLoad : 1;
+
+    // Use by bytecodegen to identify the current node is a destructuring pattern declaration node.
+    bool isPatternDeclaration : 1;
+
+public:
+    ushort grfpn;
+
+    charcount_t ichMin;         // start offset into the original source buffer
+    charcount_t ichLim;         // end offset into the original source buffer
+    Js::RegSlot location;
+
+#ifdef EDIT_AND_CONTINUE
+    ParseNodePtr parent;
+#endif
 };
 
-struct PnBin
+#define DISABLE_SELF_CAST(T) private: T * As##T()
+// unary operators
+class ParseNodeUni : public ParseNode
 {
-    ParseNodePtr pnodeNext;
+public:
+    ParseNodeUni(OpCode nop, charcount_t ichMin, charcount_t ichLim, ParseNode * pnode1);
+
+    ParseNodePtr pnode1;
+
+    DISABLE_SELF_CAST(ParseNodeUni);
+};
+
+// binary operators
+class ParseNodeBin : public ParseNode
+{
+public:
+    ParseNodeBin(OpCode nop, charcount_t ichMin, charcount_t ichLim, ParseNode * pnode1, ParseNode * pnode2);
+
     ParseNodePtr pnode1;
     ParseNodePtr pnode2;
+
+    DISABLE_SELF_CAST(ParseNodeBin);
 };
 
-struct PnTri
+// ternary operator
+class ParseNodeTri : public ParseNode
 {
-    ParseNodePtr pnodeNext;
+public:
+    ParseNodeTri(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnode1;
     ParseNodePtr pnode2;
     ParseNodePtr pnode3;
+
+    DISABLE_SELF_CAST(ParseNodeTri);
 };
 
-struct PnSlot
+// integer constant
+class ParseNodeInt : public ParseNode
 {
-  uint slotIndex;
-};
+public:
+    ParseNodeInt(charcount_t ichMin, charcount_t ichMax, int32 lw);
 
-struct PnUniSlot : PnUni
-{
-  uint slotIndex;
-  uint staticFuncId;
-};
-
-struct PnInt
-{
     int32 lw;
+
+    DISABLE_SELF_CAST(ParseNodeInt);
 };
 
-struct PnFlt
+// double constant
+class ParseNodeFloat : public ParseNode
 {
+public:
+    ParseNodeFloat(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     double dbl;
     bool maybeInt : 1;
+
+    DISABLE_SELF_CAST(ParseNodeFloat);
+};
+
+class ParseNodeRegExp : public ParseNode
+{
+public:
+    ParseNodeRegExp(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    UnifiedRegex::RegexPattern* regexPattern;
+    uint regexPatternIndex;
+
+    DISABLE_SELF_CAST(ParseNodeRegExp);
+};
+
+// identifier or string
+
+class ParseNodeStr : public ParseNode
+{
+public:
+    ParseNodeStr(charcount_t ichMin, charcount_t ichLim, IdentPtr pid);
+
+    IdentPtr const pid;
+
+    DISABLE_SELF_CAST(ParseNodeStr);
+
 };
 
 class Symbol;
 struct PidRefStack;
-struct PnPid
+class ParseNodeName : public ParseNode
 {
-    IdentPtr pid;
+public:
+    ParseNodeName(charcount_t ichMin, charcount_t ichLim, IdentPtr pid);
+
+    IdentPtr const pid;
+private:
     Symbol **symRef;
+public:
     Symbol *sym;
-    UnifiedRegex::RegexPattern* regexPattern;
-    uint regexPatternIndex;
 
     void SetSymRef(PidRefStack *ref);
+    void ClearSymRef() { symRef = nullptr; }
     Symbol **GetSymRef() const { return symRef; }
     Js::PropertyId PropertyIdFromNameNode() const;
+
+    bool IsSpecialName() { return isSpecialName; }
+
+    DISABLE_SELF_CAST(ParseNodeName);
+
+protected:
+    void SetIsSpecialName() { isSpecialName = true; }
+
+private:
+    bool isSpecialName;         // indicates a PnPid (knopName) is a special name like 'this' or 'super'
 };
 
-struct PnVar
+// variable declaration
+class ParseNodeVar : public ParseNode
 {
+public:
+    ParseNodeVar(OpCode nop, charcount_t ichMin, charcount_t ichLim, IdentPtr name);
+
     ParseNodePtr pnodeNext;
-    IdentPtr pid;
+    IdentPtr const pid;
     Symbol *sym;
     Symbol **symRef;
     ParseNodePtr pnodeInit;
     BOOLEAN isSwitchStmtDecl;
     BOOLEAN isBlockScopeFncDeclVar;
 
-    void InitDeclNode(IdentPtr name, ParseNodePtr initExpr)
-    {
-        this->pid = name;
-        this->pnodeInit = initExpr;
-        this->pnodeNext = nullptr;
-        this->sym = nullptr;
-        this->symRef = nullptr;
-        this->isSwitchStmtDecl = false;
-        this->isBlockScopeFncDeclVar = false;
-    }
+    DISABLE_SELF_CAST(ParseNodeVar);
 };
 
-struct PnArrLit : PnUni
+// Array literal
+class ParseNodeArrLit : public ParseNodeUni
 {
+public:
+    ParseNodeArrLit(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     uint count;
     uint spreadCount;
     BYTE arrayOfTaggedInts:1;     // indicates that array initializer nodes are all tagged ints
     BYTE arrayOfInts:1;           // indicates that array initializer nodes are all ints
     BYTE arrayOfNumbers:1;        // indicates that array initializer nodes are all numbers
     BYTE hasMissingValues:1;
+
+    DISABLE_SELF_CAST(ParseNodeArrLit);
 };
 
 class FuncInfo;
@@ -180,7 +429,7 @@ enum FncFlags : uint
     kFunctionStrictMode                         = 1 << 8,
     kFunctionHasDestructuredParams              = 1 << 9,
     kFunctionIsModule                           = 1 << 10, // function is a module body
-    // Free = 1 << 11,
+    kFunctionHasComputedName                    = 1 << 11,
     kFunctionHasWithStmt                        = 1 << 12, // function (or child) uses with
     kFunctionIsLambda                           = 1 << 13,
     kFunctionChildCallsEval                     = 1 << 14,
@@ -190,7 +439,7 @@ enum FncFlags : uint
     kFunctionIsClassConstructor                 = 1 << 18, // function is a class constructor
     kFunctionIsBaseClassConstructor             = 1 << 19, // function is a base class constructor
     kFunctionIsClassMember                      = 1 << 20, // function is a class member
-    // Free = 1 << 21,
+    kFunctionHasHomeObj                         = 1 << 21, // function has home object. Class or member functions need to have home obj.
     kFunctionIsGeneratedDefault                 = 1 << 22, // Is the function generated by us as a default (e.g. default class constructor)
     kFunctionHasDefaultArguments                = 1 << 23, // Function has one or more ES6 default arguments
     kFunctionIsStaticMember                     = 1 << 24,
@@ -206,28 +455,32 @@ enum FncFlags : uint
 struct RestorePoint;
 struct DeferredFunctionStub;
 
-struct PnFnc
+// function declaration
+class ParseNodeFnc : public ParseNode
 {
+public:
+    ParseNodeFnc(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeNext;
-    ParseNodePtr pnodeName;
+    ParseNodeVar * pnodeName;
     IdentPtr pid;
     LPCOLESTR hint;
     uint32 hintLength;
     uint32 hintOffset;
     bool  isNameIdentifierRef;
     bool  nestedFuncEscapes;
-    ParseNodePtr pnodeScopes;
-    ParseNodePtr pnodeBodyScope;
+    ParseNodeBlock * pnodeScopes;
+    ParseNodeBlock * pnodeBodyScope;
     ParseNodePtr pnodeParams;
     ParseNodePtr pnodeVars;
     ParseNodePtr pnodeBody;
-    ParseNodePtr pnodeRest;
+    ParseNodeVar * pnodeRest;
 
     FuncInfo *funcInfo; // function information gathered during byte code generation
     Scope *scope;
 
     uint nestedCount; // Nested function count (valid until children have been processed)
-    uint nestedIndex; // Index within the parent function
+    uint nestedIndex; // Index within the parent function (Used by ByteCodeGenerator)
 
     uint16 firstDefaultArg; // Position of the first default argument, if any
 
@@ -243,9 +496,11 @@ struct PnFnc
 #endif
     RestorePoint *pRestorePoint;
     DeferredFunctionStub *deferredStub;
+    IdentPtrSet *capturedNames;
     bool canBeDeferred;
     bool isBodyAndParamScopeMerged; // Indicates whether the param scope and the body scope of the function can be merged together or not.
                                     // We cannot merge both scopes together if there is any closure capture or eval is present in the param scope.
+    Js::RegSlot homeObjLocation;    // Stores the RegSlot from where the home object needs to be copied
 
     static const int32 MaxStackClosureAST = 800000;
 
@@ -314,11 +569,14 @@ public:
     void SetNested(bool set = true) { SetFlags(kFunctionNested, set); }
     void SetStrictMode(bool set = true) { SetFlags(kFunctionStrictMode, set); }
     void SetIsModule(bool set = true) { SetFlags(kFunctionIsModule, set); }
+    void SetHasComputedName(bool set = true) { SetFlags(kFunctionHasComputedName, set); }
+    void SetHasHomeObj(bool set = true) { SetFlags(kFunctionHasHomeObj, set); }
     void SetUsesArguments(bool set = true) { SetFlags(kFunctionUsesArguments, set); }
     void SetIsDefaultModuleExport(bool set = true) { SetFlags(kFunctionIsDefaultModuleExport, set); }
     void SetNestedFuncEscapes(bool set = true) { nestedFuncEscapes = set; }
     void SetCanBeDeferred(bool set = true) { canBeDeferred = set; }
     void ResetBodyAndParamScopeMerged() { isBodyAndParamScopeMerged = false; }
+    void SetHomeObjLocation(Js::RegSlot location) { this->homeObjLocation = location; }
 
     bool CallsEval() const { return HasFlags(kFunctionCallsEval); }
     bool ChildCallsEval() const { return HasFlags(kFunctionChildCallsEval); }
@@ -351,11 +609,14 @@ public:
     bool IsNested() const { return HasFlags(kFunctionNested); }
     bool IsStaticMember() const { return HasFlags(kFunctionIsStaticMember); }
     bool IsModule() const { return HasFlags(kFunctionIsModule); }
+    bool HasComputedName() const { return HasFlags(kFunctionHasComputedName); }
+    bool HasHomeObj() const { return HasFlags(kFunctionHasHomeObj); }
     bool UsesArguments() const { return HasFlags(kFunctionUsesArguments); }
     bool IsDefaultModuleExport() const { return HasFlags(kFunctionIsDefaultModuleExport); }
     bool NestedFuncEscapes() const { return nestedFuncEscapes; }
     bool CanBeDeferred() const { return canBeDeferred; }
     bool IsBodyAndParamScopeMerged() { return isBodyAndParamScopeMerged; }
+    Js::RegSlot GetHomeObjLocation() const { return homeObjLocation; }
     // Only allow the normal functions to be asm.js
     bool IsAsmJsAllowed() const { return (fncFlags & ~(
         kFunctionAsmjsMode |
@@ -387,20 +648,30 @@ public:
     template<typename Fn>
     void MapContainerScopes(Fn fn)
     {
-        fn(this->pnodeScopes->sxBlock.pnodeScopes);
+        fn(this->pnodeScopes->pnodeScopes);
         if (this->pnodeBodyScope != nullptr)
         {
-            fn(this->pnodeBodyScope->sxBlock.pnodeScopes);
+            fn(this->pnodeBodyScope->pnodeScopes);
         }
     }
+
+    IdentPtrSet* EnsureCapturedNames(ArenaAllocator* alloc);
+    IdentPtrSet* GetCapturedNames();
+    bool HasAnyCapturedNames();
+
+    DISABLE_SELF_CAST(ParseNodeFnc);
 };
 
-struct PnClass
+// class declaration
+class ParseNodeClass : public ParseNode
 {
-    ParseNodePtr pnodeName;
-    ParseNodePtr pnodeDeclName;
-    ParseNodePtr pnodeBlock;
-    ParseNodePtr pnodeConstructor;
+public:
+    ParseNodeClass(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodeVar * pnodeName;
+    ParseNodeVar * pnodeDeclName;
+    ParseNodeBlock * pnodeBlock;
+    ParseNodeFnc * pnodeConstructor;
     ParseNodePtr pnodeMembers;
     ParseNodePtr pnodeStaticMembers;
     ParseNodePtr pnodeExtends;
@@ -409,40 +680,69 @@ struct PnClass
 
     void SetIsDefaultModuleExport(bool set) { isDefaultModuleExport = set; }
     bool IsDefaultModuleExport() const { return isDefaultModuleExport; }
+
+    DISABLE_SELF_CAST(ParseNodeClass);
 };
 
-struct PnExportDefault
+// export default expr
+class ParseNodeExportDefault : public ParseNode
 {
+public:
+    ParseNodeExportDefault(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeExpr;
+
+    DISABLE_SELF_CAST(ParseNodeExportDefault);
 };
 
-struct PnStrTemplate
+// string template declaration
+class ParseNodeStrTemplate : public ParseNode
 {
+public:
+    ParseNodeStrTemplate(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeStringLiterals;
     ParseNodePtr pnodeStringRawLiterals;
     ParseNodePtr pnodeSubstitutionExpressions;
     uint16 countStringLiterals;
     BYTE isTaggedTemplate:1;
+
+    DISABLE_SELF_CAST(ParseNodeStrTemplate);
 };
 
-struct PnProg : PnFnc
+// global program
+class ParseNodeProg : public ParseNodeFnc
 {
-    ParseNodePtr pnodeLastValStmt;
+public:
+    ParseNodeProg(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodePtr pnodeLastValStmt;  // Used by ByteCodeGenerator
     bool m_UsesArgumentsAtGlobal;
+
+    DISABLE_SELF_CAST(ParseNodeProg);
 };
 
-struct PnModule : PnProg
+// global module
+class ParseNodeModule : public ParseNodeProg
 {
+public:
+    ParseNodeModule(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ModuleImportOrExportEntryList* localExportEntries;
     ModuleImportOrExportEntryList* indirectExportEntries;
     ModuleImportOrExportEntryList* starExportEntries;
     ModuleImportOrExportEntryList* importEntries;
     IdentPtrList* requestedModules;
+
+    DISABLE_SELF_CAST(ParseNodeModule);
 };
 
-struct PnCall
+// function call
+class ParseNodeCall : public ParseNode
 {
-    ParseNodePtr pnodeNext;
+public:
+    ParseNodeCall(OpCode nop, charcount_t ichMin, charcount_t ichLim, ParseNodePtr pnodeTarget, ParseNodePtr pnodeArgs);
+
     ParseNodePtr pnodeTarget;
     ParseNodePtr pnodeArgs;
     uint16 argCount;
@@ -452,11 +752,17 @@ struct PnCall
     BYTE isEvalCall : 1;
     BYTE isSuperCall : 1;
     BYTE hasDestructuring : 1;
+
+    DISABLE_SELF_CAST(ParseNodeCall);
 };
 
-struct PnStmt
+// base for statement nodes
+class ParseNodeStmt : public ParseNode
 {
-    ParseNodePtr pnodeOuter;
+public:
+    ParseNodeStmt(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodeStmt * pnodeOuter;
 
     // Set by parsing code, used by code gen.
     uint grfnop;
@@ -464,10 +770,18 @@ struct PnStmt
     // Needed for byte code gen.
     Js::ByteCodeLabel breakLabel;
     Js::ByteCodeLabel continueLabel;
+
+    bool emitLabels;
+
+    DISABLE_SELF_CAST(ParseNodeStmt);
 };
 
-struct PnBlock : PnStmt
+// block { }
+class ParseNodeBlock : public ParseNodeStmt
 {
+public:
+    ParseNodeBlock(charcount_t ichMin, charcount_t ichLim, int blockId, PnodeBlockType blockType);
+
     ParseNodePtr pnodeStmt;
     ParseNodePtr pnodeLastValStmt;
     ParseNodePtr pnodeLexVars;
@@ -475,7 +789,7 @@ struct PnBlock : PnStmt
     ParseNodePtr pnodeNext;
     Scope        *scope;
 
-    ParseNodePtr enclosingBlock;
+    ParseNodeBlock * enclosingBlock;
     int blockId;
     PnodeBlockType blockType:2;
     BYTE         callsEval:1;
@@ -487,351 +801,272 @@ struct PnBlock : PnStmt
     void SetChildCallsEval(bool does) { childCallsEval = does; }
     bool GetChildCallsEval() const { return childCallsEval; }
 
-    void SetEnclosingBlock(ParseNodePtr pnode) { enclosingBlock = pnode; }
-    ParseNodePtr GetEnclosingBlock() const { return enclosingBlock; }
+    void SetEnclosingBlock(ParseNodeBlock * pnode) { enclosingBlock = pnode; }
+    ParseNodeBlock * GetEnclosingBlock() const { return enclosingBlock; }
 
     bool HasBlockScopedContent() const;
+
+    DISABLE_SELF_CAST(ParseNodeBlock);
 };
 
-struct PnJump : PnStmt
+// break and continue
+class ParseNodeJump : public ParseNodeStmt
 {
-    ParseNodePtr pnodeTarget;
+public:
+    ParseNodeJump(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodeStmt * pnodeTarget;
     bool hasExplicitTarget;
+
+    DISABLE_SELF_CAST(ParseNodeJump);
 };
 
-struct PnLoop : PnStmt
+// base for loop nodes
+class ParseNodeLoop : public ParseNodeStmt
 {
+public:
+    ParseNodeLoop(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     // Needed for byte code gen
     uint loopId;
+
+
+    DISABLE_SELF_CAST(ParseNodeLoop);
 };
 
-struct PnWhile : PnLoop
+// while and do-while loops
+class ParseNodeWhile : public ParseNodeLoop
 {
+public:
+    ParseNodeWhile(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeCond;
     ParseNodePtr pnodeBody;
+
+    DISABLE_SELF_CAST(ParseNodeWhile);
 };
 
-struct PnWith : PnStmt
+// with
+class ParseNodeWith : public ParseNodeStmt
 {
+public:
+    ParseNodeWith(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeObj;
     ParseNodePtr pnodeBody;
     ParseNodePtr pnodeScopes;
     ParseNodePtr pnodeNext;
     Scope        *scope;
+
+    DISABLE_SELF_CAST(ParseNodeWith);
 };
 
-struct PnParamPattern
+// Destructure pattern for function/catch parameter
+class ParseNodeParamPattern : public ParseNodeUni
 {
+public:
+    ParseNodeParamPattern(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeNext;
     Js::RegSlot location;
-    ParseNodePtr pnode1;
+    DISABLE_SELF_CAST(ParseNodeParamPattern);
 };
 
-struct PnIf : PnStmt
+// if
+class ParseNodeIf : public ParseNodeStmt
 {
+public:
+    ParseNodeIf(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeCond;
     ParseNodePtr pnodeTrue;
     ParseNodePtr pnodeFalse;
+
+    DISABLE_SELF_CAST(ParseNodeIf);
 };
 
-struct PnHelperCall2 {
-  ParseNodePtr pnodeArg1;
-  ParseNodePtr pnodeArg2;
-  int helperId;
-};
-
-struct PnForInOrForOf : PnLoop
+// for-in loop
+class ParseNodeForInOrForOf : public ParseNodeLoop
 {
+public:
+    ParseNodeForInOrForOf(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeObj;
     ParseNodePtr pnodeBody;
     ParseNodePtr pnodeLval;
-    ParseNodePtr pnodeBlock;
+    ParseNodeBlock * pnodeBlock;
     Js::RegSlot itemLocation;
+
+    DISABLE_SELF_CAST(ParseNodeForInOrForOf);
 };
 
-struct PnFor : PnLoop
+// for loop
+class ParseNodeFor : public ParseNodeLoop
 {
+public:
+    ParseNodeFor(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeCond;
     ParseNodePtr pnodeBody;
     ParseNodePtr pnodeInit;
     ParseNodePtr pnodeIncr;
-    ParseNodePtr pnodeBlock;
-    ParseNodePtr pnodeInverted;
+    ParseNodeBlock * pnodeBlock;
+    ParseNodeFor * pnodeInverted;
+
+    DISABLE_SELF_CAST(ParseNodeFor);
 };
 
-struct PnSwitch : PnStmt
+// switch
+class ParseNodeSwitch : public ParseNodeStmt
 {
+public:
+    ParseNodeSwitch(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeVal;
-    ParseNodePtr pnodeCases;
-    ParseNodePtr pnodeDefault;
-    ParseNodePtr pnodeBlock;
+    ParseNodeCase * pnodeCases;
+    ParseNodeCase * pnodeDefault;
+    ParseNodeBlock * pnodeBlock;
+
+    DISABLE_SELF_CAST(ParseNodeSwitch);
 };
 
-struct PnCase : PnStmt
+// switch case
+class ParseNodeCase : public ParseNodeStmt
 {
-    ParseNodePtr pnodeNext;
+public:
+    ParseNodeCase(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodeCase * pnodeNext;
     ParseNodePtr pnodeExpr; // nullptr for default
-    ParseNodePtr pnodeBody;
+    ParseNodeBlock * pnodeBody;
     Js::ByteCodeLabel labelCase;
+
+
+    DISABLE_SELF_CAST(ParseNodeCase);
 };
 
-struct PnReturn : PnStmt
+// return [expr]
+class ParseNodeReturn : public ParseNodeStmt
 {
+public:
+    ParseNodeReturn(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeExpr;
+
+    DISABLE_SELF_CAST(ParseNodeReturn);
 };
 
-struct PnTryFinally : PnStmt
+// try-catch-finally
+class ParseNodeTryFinally : public ParseNodeStmt
 {
-    ParseNodePtr pnodeTry;
-    ParseNodePtr pnodeFinally;
+public:
+    ParseNodeTryFinally(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodeTry * pnodeTry;
+    ParseNodeFinally * pnodeFinally;
+
+    DISABLE_SELF_CAST(ParseNodeTryFinally);
 };
 
-struct PnTryCatch : PnStmt
+// try-catch
+class ParseNodeTryCatch : public ParseNodeStmt
 {
-    ParseNodePtr pnodeTry;
-    ParseNodePtr pnodeCatch;
+public:
+    ParseNodeTryCatch(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodeTry * pnodeTry;
+    ParseNodeCatch * pnodeCatch;
+
+    DISABLE_SELF_CAST(ParseNodeTryCatch);
 };
 
-struct PnTry : PnStmt
+// try-catch
+class ParseNodeTry : public ParseNodeStmt
 {
+public:
+    ParseNodeTry(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeBody;
+
+    DISABLE_SELF_CAST(ParseNodeTry);
 };
 
-struct PnCatch : PnStmt
+// { catch(e : expr) {body} }
+class ParseNodeCatch : public ParseNodeStmt
 {
+public:
+    ParseNodeCatch(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodePtr GetParam() { return pnodeParam; }
+    void SetParam(ParseNodeName * pnode) { pnodeParam = pnode;  }
+    void SetParam(ParseNodeParamPattern * pnode) { pnodeParam = pnode; }    
+
     ParseNodePtr pnodeNext;
-    ParseNodePtr pnodeParam;
+
+private:
+    ParseNode *  pnodeParam;   // Name or ParamPattern
+public:
     ParseNodePtr pnodeBody;
     ParseNodePtr pnodeScopes;
     Scope        *scope;
+
+    DISABLE_SELF_CAST(ParseNodeCatch);
 };
 
-struct PnFinally : PnStmt
+// finally
+class ParseNodeFinally : public ParseNodeStmt
 {
+public:
+    ParseNodeFinally(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+
     ParseNodePtr pnodeBody;
+
+    DISABLE_SELF_CAST(ParseNodeFinally);
 };
 
-struct PnSpecialName : PnPid
+// special name like 'this'
+class ParseNodeSpecialName : public ParseNodeName
 {
+public:
+    ParseNodeSpecialName(charcount_t ichMin, charcount_t ichLim, IdentPtr pid);
+
     bool isThis : 1;
     bool isSuper : 1;
+
+    DISABLE_SELF_CAST(ParseNodeSpecialName);
 };
 
-struct PnSuperReference : PnBin
+// binary operator with super reference
+class ParseNodeSuperReference : public ParseNodeBin
 {
-    ParseNodePtr pnodeThis;
+public:
+    ParseNodeSuperReference(OpCode nop, charcount_t ichMin, charcount_t ichLim, ParseNode * pnode1, ParseNode * pnode2);
+
+    ParseNodeSpecialName * pnodeThis;
+
+    DISABLE_SELF_CAST(ParseNodeSuperReference);
 };
 
-struct PnSuperCall : PnCall
+// call node with super target
+class ParseNodeSuperCall : public ParseNodeCall
 {
-    ParseNodePtr pnodeThis;
-    ParseNodePtr pnodeNewTarget;
+public:
+    ParseNodeSuperCall(OpCode nop, charcount_t ichMin, charcount_t ichLim, ParseNode * pnodeTarget, ParseNode * pnodeArgs);
+
+    ParseNodeSpecialName * pnodeThis;
+    ParseNodeSpecialName * pnodeNewTarget;
+
+    DISABLE_SELF_CAST(ParseNodeSuperCall);
 };
 
-struct ParseNode
-{
-    OpCode nop;
-    ushort grfpn;
-    charcount_t ichMin;         // start offset into the original source buffer
-    charcount_t ichLim;         // end offset into the original source buffer
-    Js::RegSlot location;
-    bool isUsed;                // indicates whether an expression such as x++ is used
-    bool emitLabels;
-    bool notEscapedUse;         // Use by byte code generator.  Currently, only used by child of knopComma
-    bool isInList;
-    bool isCallApplyTargetLoad;
-    bool isSpecialName;         // indicates a PnPid (knopName) is a special name like 'this' or 'super'
-#ifdef EDIT_AND_CONTINUE
-    ParseNodePtr parent;
-#endif
-
-    union
-    {
-        PnArrLit         sxArrLit;         // Array literal
-        PnBin            sxBin;            // binary operators
-        PnBlock          sxBlock;          // block { }
-        PnCall           sxCall;           // function call
-        PnCase           sxCase;           // switch case
-        PnCatch          sxCatch;          // { catch(e : expr) {body} }
-        PnClass          sxClass;          // class declaration
-        PnExportDefault  sxExportDefault;  // export default expr;
-        PnFinally        sxFinally;        // finally
-        PnFlt            sxFlt;            // double constant
-        PnFnc            sxFnc;            // function declaration
-        PnFor            sxFor;            // for loop
-        PnForInOrForOf   sxForInOrForOf;   // for-in loop
-        PnHelperCall2    sxHelperCall2;    // call to helper
-        PnIf             sxIf;             // if
-        PnInt            sxInt;            // integer constant
-        PnJump           sxJump;           // break and continue
-        PnLoop           sxLoop;           // base for loop nodes
-        PnModule         sxModule;         // global module
-        PnParamPattern   sxParamPattern;   // Destructure pattern for function/catch parameter
-        PnPid            sxPid;            // identifier or string
-        PnProg           sxProg;           // global program
-        PnReturn         sxReturn;         // return [expr]
-        PnSpecialName    sxSpecialName;    // special name like 'this'
-        PnStmt           sxStmt;           // base for statement nodes
-        PnStrTemplate    sxStrTemplate;    // string template declaration
-        PnSuperCall      sxSuperCall;      // call node with super target
-        PnSuperReference sxSuperReference; // binary operator with super reference
-        PnSwitch         sxSwitch;         // switch
-        PnTri            sxTri;            // ternary operator
-        PnTry            sxTry;            // try-catch
-        PnTryCatch       sxTryCatch;       // try-catch
-        PnTryFinally     sxTryFinally;     // try-catch-finally
-        PnUni            sxUni;            // unary operators
-        PnVar            sxVar;            // variable declaration
-        PnWhile          sxWhile;          // while and do-while loops
-        PnWith           sxWith;           // with
+typedef ParseNode ParseNodeNone;
+template <OpCode nop> class OpCodeTrait;
+#define PTNODE(nop,sn,pc,nk,ok,json) \
+    template<> \
+    class OpCodeTrait<nop>  \
+    { \
+    public:  \
+        typedef ParseNode##nk ParseNodeType; \
+        static const bool AllowDefer = ((ok) & fnopAllowDefer) != 0; \
     };
-
-    IdentPtr name()
-    {
-        if (this->nop == knopName || this->nop == knopStr)
-        {
-            return this->sxPid.pid;
-        }
-        else if (this->nop == knopVarDecl)
-        {
-            return this->sxVar.pid;
-        }
-        else if (this->nop == knopConstDecl)
-        {
-            return this->sxVar.pid;
-        }
-        return nullptr;
-    }
-
-    static const uint mpnopgrfnop[knopLim];
-
-    static uint Grfnop(int nop)
-    {
-        Assert(nop < knopLim);
-        return nop < knopLim ? mpnopgrfnop[nop] : fnopNone;
-    }
-
-    BOOL IsStatement()
-    {
-        return nop >= knopList || ((Grfnop(nop) & fnopAsg) != 0);
-    }
-
-    uint Grfnop(void)
-    {
-        Assert(nop < knopLim);
-        return nop < knopLim ? mpnopgrfnop[nop] : fnopNone;
-    }
-
-    charcount_t LengthInCodepoints() const
-    {
-        return (this->ichLim - this->ichMin);
-    }
-
-    // This node is a function decl node and function has a var declaration named 'arguments',
-    bool HasVarArguments() const
-    {
-        return ((nop == knopFncDecl) && (grfpn & PNodeFlags::fpnArguments_varDeclaration));
-    }
-
-    bool CapturesSyms() const
-    {
-        return (grfpn & PNodeFlags::fpnCapturesSyms) != 0;
-    }
-
-    void SetCapturesSyms()
-    {
-        grfpn |= PNodeFlags::fpnCapturesSyms;
-    }
-
-    bool IsInList() const { return this->isInList; }
-    void SetIsInList() { this->isInList = true; }
-
-    bool IsNotEscapedUse() const { return this->notEscapedUse; }
-    void SetNotEscapedUse() { this->notEscapedUse = true; }
-
-    bool CanFlattenConcatExpr() const { return !!(this->grfpn & PNodeFlags::fpnCanFlattenConcatExpr); }
-
-    bool IsCallApplyTargetLoad() { return isCallApplyTargetLoad; }
-    void SetIsCallApplyTargetLoad() { isCallApplyTargetLoad = true; }
-
-    bool IsSpecialName() { return isSpecialName; }
-    void SetIsSpecialName() { isSpecialName = true; }
-
-    bool IsUserIdentifier() const
-    {
-        return this->nop == knopName && !this->isSpecialName;
-    }
-
-    bool IsVarLetOrConst() const
-    {
-        return this->nop == knopVarDecl || this->nop == knopLetDecl || this->nop == knopConstDecl;
-    }
-
-    ParseNodePtr GetFormalNext()
-    {
-        ParseNodePtr pnodeNext = nullptr;
-
-        if (nop == knopParamPattern)
-        {
-            pnodeNext = this->sxParamPattern.pnodeNext;
-        }
-        else
-        {
-            Assert(IsVarLetOrConst());
-            pnodeNext = this->sxVar.pnodeNext;
-        }
-        return pnodeNext;
-    }
-
-    bool IsPattern() const
-    {
-        return nop == knopObjectPattern || nop == knopArrayPattern;
-    }
-
-#if DBG_DUMP
-    void Dump();
-#endif
-};
-
-const int kcbPnNone           = offsetof(ParseNode, sxUni);
-const int kcbPnArrLit         = kcbPnNone + sizeof(PnArrLit);
-const int kcbPnBin            = kcbPnNone + sizeof(PnBin);
-const int kcbPnBlock          = kcbPnNone + sizeof(PnBlock);
-const int kcbPnCall           = kcbPnNone + sizeof(PnCall);
-const int kcbPnCase           = kcbPnNone + sizeof(PnCase);
-const int kcbPnCatch          = kcbPnNone + sizeof(PnCatch);
-const int kcbPnClass          = kcbPnNone + sizeof(PnClass);
-const int kcbPnExportDefault  = kcbPnNone + sizeof(PnExportDefault);
-const int kcbPnFinally        = kcbPnNone + sizeof(PnFinally);
-const int kcbPnFlt            = kcbPnNone + sizeof(PnFlt);
-const int kcbPnFnc            = kcbPnNone + sizeof(PnFnc);
-const int kcbPnFor            = kcbPnNone + sizeof(PnFor);
-const int kcbPnForIn          = kcbPnNone + sizeof(PnForInOrForOf);
-const int kcbPnForOf          = kcbPnNone + sizeof(PnForInOrForOf);
-const int kcbPnHelperCall3    = kcbPnNone + sizeof(PnHelperCall2);
-const int kcbPnIf             = kcbPnNone + sizeof(PnIf);
-const int kcbPnInt            = kcbPnNone + sizeof(PnInt);
-const int kcbPnJump           = kcbPnNone + sizeof(PnJump);
-const int kcbPnModule         = kcbPnNone + sizeof(PnModule);
-const int kcbPnParamPattern   = kcbPnNone + sizeof(PnParamPattern);
-const int kcbPnPid            = kcbPnNone + sizeof(PnPid);
-const int kcbPnProg           = kcbPnNone + sizeof(PnProg);
-const int kcbPnReturn         = kcbPnNone + sizeof(PnReturn);
-const int kcbPnSlot           = kcbPnNone + sizeof(PnSlot);
-const int kcbPnSpecialName    = kcbPnNone + sizeof(PnSpecialName);
-const int kcbPnStrTemplate    = kcbPnNone + sizeof(PnStrTemplate);
-const int kcbPnSuperCall      = kcbPnNone + sizeof(PnSuperCall);
-const int kcbPnSuperReference = kcbPnNone + sizeof(PnSuperReference);
-const int kcbPnSwitch         = kcbPnNone + sizeof(PnSwitch);
-const int kcbPnTri            = kcbPnNone + sizeof(PnTri);
-const int kcbPnTry            = kcbPnNone + sizeof(PnTry);
-const int kcbPnTryCatch       = kcbPnNone + sizeof(PnTryCatch);
-const int kcbPnTryFinally     = kcbPnNone + sizeof(PnTryFinally);
-const int kcbPnUni            = kcbPnNone + sizeof(PnUni);
-const int kcbPnUniSlot        = kcbPnNone + sizeof(PnUniSlot);
-const int kcbPnVar            = kcbPnNone + sizeof(PnVar);
-const int kcbPnWhile          = kcbPnNone + sizeof(PnWhile);
-const int kcbPnWith           = kcbPnNone + sizeof(PnWith);
-
-#define AssertNodeMem(pnode) AssertPvCb(pnode, kcbPnNone)
-#define AssertNodeMemN(pnode) AssertPvCbN(pnode, kcbPnNone)
+#include "ptlist.h"

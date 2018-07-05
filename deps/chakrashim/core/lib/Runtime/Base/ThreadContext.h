@@ -44,6 +44,7 @@ enum ThreadContextFlags
     ThreadContextFlagEvalDisabled                  = 0x00000002,
     ThreadContextFlagNoJIT                         = 0x00000004,
     ThreadContextFlagDisableFatalOnOOM             = 0x00000008,
+    ThreadContextFlagNoDynamicThunks               = 0x00000010,
 };
 
 const int LS_MAX_STACK_SIZE_KB = 300;
@@ -56,7 +57,7 @@ public:
 
 class ThreadContext;
 
-class InterruptPoller _ABSTRACT
+class InterruptPoller
 {
     // Interface with a polling object located in the hosting layer.
 
@@ -97,8 +98,8 @@ protected:
         { \
             void * __frameAddr = nullptr; \
             GET_CURRENT_FRAME_ID(__frameAddr); \
-            Js::LeaveScriptObject<stackProbe, leaveForHost, isFPUControlRestoreNeeded> __leaveScriptObject(scriptContext, __frameAddr);
-
+            Js::LeaveScriptObject<stackProbe, leaveForHost, isFPUControlRestoreNeeded> __leaveScriptObject(scriptContext, __frameAddr); \
+            AutoReentrancyHandler autoReentrancyHandler(scriptContext->GetThreadContext());
 #define LEAVE_SCRIPT_END_EX(scriptContext) \
             if (scriptContext != nullptr) \
                 {   \
@@ -106,16 +107,19 @@ protected:
                 }\
         }
 
-#define LEAVE_SCRIPT_IF(scriptContext, condition, block) \
-        if (condition) \
+#define LEAVE_SCRIPT_IF_ACTIVE(scriptContext, externalCall) \
+        if (scriptContext->GetThreadContext()->IsScriptActive()) \
         { \
             BEGIN_LEAVE_SCRIPT(scriptContext); \
-            block \
+            externalCall \
             END_LEAVE_SCRIPT(scriptContext); \
         } \
         else \
         { \
-            block \
+            DECLARE_EXCEPTION_CHECK_DATA \
+            SAVE_EXCEPTION_CHECK \
+            externalCall \
+            RESTORE_EXCEPTION_CHECK \
         }
 
 #define ENTER_SCRIPT_IF(scriptContext, doCleanup, isCallRoot, hasCaller, condition, block) \
@@ -164,6 +168,17 @@ protected:
         Assert(!scriptContext->HasRecordedException()); \
         END_LEAVE_SCRIPT(scriptContext)
 
+#define BEGIN_SAFE_REENTRANT_CALL(threadContext) \
+    { \
+        AutoReentrancyHandler autoReentrancyHandler(threadContext);
+
+#define END_SAFE_REENTRANT_CALL }
+
+#define BEGIN_SAFE_REENTRANT_REGION(threadContext) \
+    { \
+        AutoReentrancySafeRegion autoReentrancySafeRegion(threadContext);
+
+#define END_SAFE_REENTRANT_REGION }
 // Keep in sync with CollectGarbageCallBackFlags in scriptdirect.idl
 
 enum RecyclerCollectCallBackFlags
@@ -381,40 +396,7 @@ public:
 
     virtual bool IsNumericProperty(Js::PropertyId propertyId) override;
 
-#ifdef ENABLE_BASIC_TELEMETRY
-    Js::LanguageStats* GetLanguageStats()
-    {
-        return langTel.GetLanguageStats();
-    }
-
-    void ResetLangStats()
-    {
-        this->langTel.Reset();
-    }
-#endif
-
-#if ENABLE_NATIVE_CODEGEN && defined(ENABLE_SIMDJS)
-    // used by inliner. Maps Simd FuncInfo (library func) to equivalent opcode.
-    typedef JsUtil::BaseDictionary<Js::FunctionInfo *, Js::OpCode, ArenaAllocator> FuncInfoToOpcodeMap;
-    FuncInfoToOpcodeMap * simdFuncInfoToOpcodeMap;
-
-    struct SimdFuncSignature
-    {
-        bool valid;
-        uint argCount;          // actual arguments count (excluding this)
-        ValueType returnType;
-        ValueType *args;        // argument types
-    };
-
-    SimdFuncSignature *simdOpcodeToSignatureMap;
-
-    void AddSimdFuncToMaps(Js::OpCode op, ...);
-    void AddSimdFuncInfo(Js::OpCode op, Js::FunctionInfo *funcInfo);
-    Js::OpCode GetSimdOpcodeFromFuncInfo(Js::FunctionInfo * funcInfo);
-    void GetSimdFuncSignatureFromOpcode(Js::OpCode op, SimdFuncSignature &funcSignature);
-#endif
-
-#if defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
+#ifdef ENABLE_WASM_SIMD
 #if _M_IX86 || _M_AMD64
     // auxiliary SIMD values in memory to help JIT'ed code. E.g. used for Int8x16 shuffle.
     _x86_SIMDValue X86_TEMP_SIMD[SIMD_TEMP_SIZE];
@@ -460,10 +442,6 @@ private:
     // The current heap enumeration object being used during enumeration.
     IActiveScriptProfilerHeapEnum* heapEnum;
 
-#ifdef ENABLE_BASIC_TELEMETRY
-    Js::LanguageTelemetry langTel;
-#endif
-
     struct PropertyGuardEntry
     {
     public:
@@ -483,7 +461,7 @@ private:
     };
 
 public:
-    typedef JsUtil::BaseHashSet<const Js::PropertyRecord *, HeapAllocator, PrimeSizePolicy, const Js::PropertyRecord *,
+    typedef JsUtil::BaseHashSet<const Js::PropertyRecord *, HeapAllocator, PowerOf2SizePolicy, const Js::PropertyRecord *,
         Js::PropertyRecordStringHashComparer, JsUtil::SimpleHashedEntry, JsUtil::AsymetricResizeLock> PropertyMap;
     PropertyMap * propertyMap;
 
@@ -643,11 +621,16 @@ private:
 #if ENABLE_JS_REENTRANCY_CHECK
     bool noJsReentrancy;
 #endif
+private:
+    bool reentrancySafeOrHandled;
+    bool isInReentrancySafeRegion;
 
-    AllocationPolicyManager * allocationPolicyManager;
+    AllocationPolicyManager * allocationPolicyManager; 
 
     JsUtil::ThreadService threadService;
+#if ENABLE_NATIVE_CODEGEN
     PreReservedVirtualAllocWrapper preReservedVirtualAllocator;
+#endif
 
     uint callRootLevel;
 
@@ -769,8 +752,8 @@ private:
 
     Js::IsConcatSpreadableCache isConcatSpreadableCache;
 
-    ArenaAllocator prototypeChainEnsuredToHaveOnlyWritableDataPropertiesAllocator;
-    DListBase<Js::ScriptContext *> prototypeChainEnsuredToHaveOnlyWritableDataPropertiesScriptContext;
+    Js::NoSpecialPropertyThreadRegistry noSpecialPropertyRegistry;
+    Js::OnlyWritablePropertyThreadRegistry onlyWritablePropertyRegistry;
 
     DListBase<CollectCallBack> collectCallBackList;
     CriticalSection csCollectionCallBack;
@@ -876,6 +859,11 @@ public:
 
     AllocationPolicyManager * GetAllocationPolicyManager() { return allocationPolicyManager; }
 
+    // used for diagnosing abnormally high number of closed, but still formally reachable script contexts
+    // at the time of failfast due to allocation limits.
+    // high number may indicate that context leaks have occured.
+    uint closedScriptContextCount;
+
 #if ENABLE_NATIVE_CODEGEN
     PreReservedVirtualAllocWrapper * GetPreReservedVirtualAllocator() { return &preReservedVirtualAllocator; }
 #if DYNAMIC_INTERPRETER_THUNK || defined(ASMJS_PLAT)
@@ -919,11 +907,15 @@ public:
 
 #ifdef ENABLE_BASIC_TELEMETRY
     GUID activityId;
+    LPFILETIME GetLastScriptExecutionEndTime() const;
 #endif
     void *tridentLoadAddress;
 
     void* GetTridentLoadAddress() const { return tridentLoadAddress;  }
     void SetTridentLoadAddress(void *loadAddress) { tridentLoadAddress = loadAddress; }
+
+    Js::NoSpecialPropertyThreadRegistry* GetNoSpecialPropertyRegistry() { return &this->noSpecialPropertyRegistry; }
+    Js::OnlyWritablePropertyThreadRegistry* GetOnlyWritablePropertyRegistry() { return &this->onlyWritablePropertyRegistry; }
 
 #ifdef ENABLE_DIRECTCALL_TELEMETRY
     DirectCallTelemetry directCallTelemetry;
@@ -966,6 +958,11 @@ public:
         return this->TestThreadContextFlag(ThreadContextFlagNoJIT);
     }
 
+    bool NoDynamicThunks() const
+    {
+        return this->TestThreadContextFlag(ThreadContextFlagNoDynamicThunks);
+    }
+
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
     Js::Var GetMemoryStat(Js::ScriptContext* scriptContext);
     void SetAutoProxyName(LPCWSTR objectName);
@@ -1002,6 +999,7 @@ public:
     virtual void AsyncHostOperationEnd(bool wasInAsync, void *) override;
 #endif
 #if DBG
+    virtual void CheckJsReentrancyOnDispose() override;
     bool IsInAsyncHostOperation() const;
 #endif
 
@@ -1130,7 +1128,7 @@ private:
     template <bool locked> Js::PropertyRecord const * GetPropertyNameImpl(Js::PropertyId propertyId);
 public:
     void FindPropertyRecord(Js::JavascriptString *pstName, Js::PropertyRecord const ** propertyRecord);
-    void FindPropertyRecord(__in LPCWSTR propertyName, __in int propertyNameLength, Js::PropertyRecord const ** propertyRecord);
+    void FindPropertyRecord(__in LPCWCH propertyName, __in int propertyNameLength, Js::PropertyRecord const ** propertyRecord);
     const Js::PropertyRecord * FindPropertyRecord(const char16 * propertyName, int propertyNameLength);
 
     JsUtil::List<const RecyclerWeakReference<Js::PropertyRecord const>*>* FindPropertyIdNoCase(Js::ScriptContext * scriptContext, LPCWSTR propertyName, int propertyNameLength);
@@ -1327,7 +1325,7 @@ public:
 
     virtual intptr_t GetThreadStackLimitAddr() const override;
 
-#if ENABLE_NATIVE_CODEGEN && (defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)) && (defined(_M_IX86) || defined(_M_X64))
+#if ENABLE_NATIVE_CODEGEN && defined(ENABLE_WASM_SIMD)
     virtual intptr_t GetSimdTempAreaAddr(uint8 tempIndex) const override;
 #endif
 
@@ -1411,7 +1409,7 @@ public:
     void ClearInvalidatedUniqueGuards();
     void ClearInlineCaches();
     void ClearIsInstInlineCaches();
-    void ClearForInCaches();
+    void ClearEnumeratorCaches();
     void ClearEquivalentTypeCaches();
     void ClearScriptContextCaches();
 
@@ -1419,10 +1417,6 @@ public:
     void InvalidateProtoTypePropertyCaches(const Js::PropertyId propertyId);
     void InternalInvalidateProtoTypePropertyCaches(const Js::PropertyId propertyId);
     void InvalidateAllProtoTypePropertyCaches();
-
-    Js::ScriptContext ** RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertiesScriptContext(Js::ScriptContext * scriptContext);
-    void UnregisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertiesScriptContext(Js::ScriptContext ** scriptContext);
-    void ClearPrototypeChainEnsuredToHaveOnlyWritableDataPropertiesCaches();
 
     BOOL HasUnhandledException() const { return hasUnhandledException; }
     void SetHasUnhandledException() {hasUnhandledException = TRUE; }
@@ -1461,7 +1455,7 @@ public:
     }
 
     static bool IsOnStack(void const *ptr);
-    _NOINLINE bool IsStackAvailable(size_t size);
+    _NOINLINE bool IsStackAvailable(size_t size, bool* isInterrupt = nullptr);
     _NOINLINE bool IsStackAvailableNoThrow(size_t size = Js::Constants::MinStackDefault);
     static bool IsCurrentStackAvailable(size_t size);
     void ProbeStackNoDispose(size_t size, Js::ScriptContext *scriptContext, PVOID returnAddress = nullptr);
@@ -1590,6 +1584,7 @@ public:
     template <class Fn>
     inline Js::Var ExecuteImplicitCall(Js::RecyclableObject * function, Js::ImplicitCallFlags flags, Fn implicitCall)
     {
+        AutoReentrancyHandler autoReentrancyHandler(this);
 
         Js::FunctionInfo::Attributes attributes = Js::FunctionInfo::GetAttributes(function);
 
@@ -1795,9 +1790,29 @@ public:
             Js::Throw::FatalJsReentrancyError();
         }
     }
+#else
+    void AssertJsReentrancy() {}
 #endif
 
 public:
+    void CheckAndResetReentrancySafeOrHandled()
+    {
+        AssertOrFailFast(reentrancySafeOrHandled || isInReentrancySafeRegion);
+        SetReentrancySafeOrHandled(false);
+    }
+
+    void SetReentrancySafeOrHandled(bool val) { reentrancySafeOrHandled = val; }
+    bool GetReentrancySafeOrHandled() { return reentrancySafeOrHandled; }
+    void SetIsInReentrancySafeRegion(bool val) { isInReentrancySafeRegion = val; }
+    bool GetIsInReentrancySafeRegion() { return isInReentrancySafeRegion; }
+
+    template <typename Fn>
+    Js::Var SafeReentrantCall(Fn fn)
+    {
+        AutoReentrancyHandler autoReentrancyHandler(this);
+        return fn();
+    }
+
     bool IsEntryPointToBuiltInOperationIdCacheInitialized()
     {
         return entryPointToBuiltInOperationIdCache.Count() != 0;
@@ -1856,6 +1871,29 @@ private:
 
     DWORD threadId;
 #endif
+
+private:
+    class ThreadContextRecyclerTelemetryHostInterface : public RecyclerTelemetryHostInterface
+    {
+    public:
+        ThreadContextRecyclerTelemetryHostInterface(ThreadContext* tc) :
+            tc(tc)
+        {
+        }
+
+        virtual LPFILETIME GetLastScriptExecutionEndTime() const;
+        virtual bool TransmitGCTelemetryStats(RecyclerTelemetryInfo& rti);
+        virtual bool TransmitTelemetryError(const RecyclerTelemetryInfo& rti, const char * msg);
+        virtual bool TransmitHeapUsage(size_t totalHeapBytes, size_t usedHeapBytes, double heapUsedRatio);
+        virtual bool ThreadContextRecyclerTelemetryHostInterface::IsThreadBound() const;
+        virtual DWORD ThreadContextRecyclerTelemetryHostInterface::GetCurrentScriptThreadID() const;
+        virtual bool IsTelemetryProviderEnabled() const;
+        virtual uint GetClosedContextCount() const;
+
+    private:
+        ThreadContext * tc;
+    };
+    ThreadContextRecyclerTelemetryHostInterface recyclerTelemetryHostInterface;
 };
 
 extern void(*InitializeAdditionalProperties)(ThreadContext *threadContext);
@@ -1894,6 +1932,44 @@ private:
     bool m_operationCompleted;
     bool m_interruptDisableState;
     bool m_explicitCompletion;
+};
+
+class AutoReentrancyHandler
+{
+    ThreadContext * m_threadContext;
+    bool m_savedReentrancySafeOrHandled;
+
+public:
+    AutoReentrancyHandler(ThreadContext * threadContext)
+    {
+        m_threadContext = threadContext;
+        m_savedReentrancySafeOrHandled = threadContext->GetReentrancySafeOrHandled();
+        threadContext->SetReentrancySafeOrHandled(true);
+    }
+
+    ~AutoReentrancyHandler()
+    {
+        m_threadContext->SetReentrancySafeOrHandled(m_savedReentrancySafeOrHandled);
+    }
+};
+
+class AutoReentrancySafeRegion
+{
+    ThreadContext * m_threadContext;
+    bool m_savedIsInReentrancySafeRegion;
+
+public:
+    AutoReentrancySafeRegion(ThreadContext * threadContext)
+    {
+        m_threadContext = threadContext;
+        m_savedIsInReentrancySafeRegion = threadContext->GetIsInReentrancySafeRegion();
+        threadContext->SetIsInReentrancySafeRegion(true);
+    }
+
+    ~AutoReentrancySafeRegion()
+    {
+        m_threadContext->SetIsInReentrancySafeRegion(m_savedIsInReentrancySafeRegion);
+    }
 };
 
 #if ENABLE_JS_REENTRANCY_CHECK

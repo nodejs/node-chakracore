@@ -30,6 +30,9 @@ var tests = [
       assert.doesNotThrow(function () { eval("for([] = ((...a) => {}) in '' ) { }"); }, "Having a lambda function with rest parameter as initializer should not assert and is a valid syntax");
       assert.doesNotThrow(function () { eval("[[[] = [function () { }] ] = []]"); }, "Nested array has array pattern which has function expression is a valid syntax");
       assert.doesNotThrow(function () { eval("var a = ({x = 1}) => x;"); }, "Lambda has Object destructuring as parameter which has initializer on shorthand is a valid syntax");
+      assert.doesNotThrow(function () { eval("var a = (b, {x = 1}) => x;"); }, "Lambda has Object destructuring as a second parameter which has initializer on shorthand is a valid syntax");
+      assert.doesNotThrow(function () { eval("var a = ({x = 1}, b) => x;"); }, "Lambda has Object destructuring as first parameter which has initializer on shorthand is a valid syntax");
+      assert.throws(function () { eval("let a = ({name = 'foo'}, 1) = {}"); }, ReferenceError, "Object shorthand will behave as pattern when on left-hand side and should not throw syntax error");
     }
   },
   {
@@ -493,6 +496,17 @@ var tests = [
         var it = gn();
         var k = it.next();
         assert.areEqual(2, k.value, "next should invoke the yield in the generator and which yields 2");
+    }
+  },
+  {
+    name: "re-parsing the expression in pattern should work fine",
+    body: function () {
+        function test1(){
+
+          function bar() { this.x = ({ y1: { z1:z1 = ((arguments)) } } = {}); { } }
+          for (var y in {}) { };
+        };
+        test1();
     }
   }
 ];

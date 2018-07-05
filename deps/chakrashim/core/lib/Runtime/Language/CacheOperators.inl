@@ -15,7 +15,8 @@ namespace Js
         bool CheckTypePropertyCache,
         bool IsInlineCacheAvailable,
         bool IsPolymorphicInlineCacheAvailable,
-        bool ReturnOperationInfo>
+        bool ReturnOperationInfo,
+        bool OutputExistence /*When set, propertyValue represents whether the property exists on the instance, not its actual value*/>
     inline bool CacheOperators::TryGetProperty(
         Var const instance,
         const bool isRoot,
@@ -33,12 +34,12 @@ namespace Js
         Assert(IsPolymorphicInlineCacheAvailable == !!propertyValueInfo->GetPolymorphicInlineCache());
         Assert(!ReturnOperationInfo || operationInfo);
 
-        if(CheckLocal || CheckProto || CheckAccessor)
+        if(CheckLocal || CheckProto || CheckAccessor || CheckMissing)
         {
             InlineCache *const inlineCache = IsInlineCacheAvailable ? propertyValueInfo->GetInlineCache() : nullptr;
             if(IsInlineCacheAvailable)
             {
-                if (inlineCache->TryGetProperty<CheckLocal, CheckProto, CheckAccessor, CheckMissing, ReturnOperationInfo>(
+                if (inlineCache->TryGetProperty<CheckLocal, CheckProto, CheckAccessor, CheckMissing, ReturnOperationInfo, OutputExistence>(
                         instance,
                         object,
                         propertyId,
@@ -73,7 +74,8 @@ namespace Js
                             CheckAccessor,
                             CheckMissing,
                             IsInlineCacheAvailable,
-                            ReturnOperationInfo
+                            ReturnOperationInfo,
+                            OutputExistence
                         >(
                             instance,
                             object,
@@ -96,7 +98,7 @@ namespace Js
 
         TypePropertyCache *const typePropertyCache = object->GetType()->GetPropertyCache();
         if(!typePropertyCache ||
-            !typePropertyCache->TryGetProperty(
+            !typePropertyCache->TryGetProperty<OutputExistence>(
                     CheckMissing,
                     object,
                     propertyId,
@@ -346,6 +348,9 @@ namespace Js
             {
                 return;
             }
+
+            // Before allowing proxies to cache, we would need to solve various issues (see JavascriptProxy::GetPropertyQuery).
+            Assert(!JavascriptProxy::Is(objectWithProperty));
         }
         else
         {
@@ -362,7 +367,13 @@ namespace Js
                 JavascriptFunction::IsBuiltinProperty(objectWithProperty, propertyId));
         }
 
-        const bool includeTypePropertyCache = IncludeTypePropertyCache && !isRoot;
+        const bool includeTypePropertyCache = 
+            IncludeTypePropertyCache && 
+            !isRoot && 
+            (info->GetFunctionBody()
+                 ? !PHASE_OFF(Js::TypePropertyCachePhase, info->GetFunctionBody())
+                 : !PHASE_OFF1(Js::TypePropertyCachePhase)
+            );
         bool createTypePropertyCache = false;
         PolymorphicInlineCache *polymorphicInlineCache = info->GetPolymorphicInlineCache();
         if(!polymorphicInlineCache && info->GetFunctionBody())
@@ -434,7 +445,7 @@ namespace Js
             // Don't resize a polymorphic inline cache from full JIT because it currently doesn't rejit to use the new
             // polymorphic inline cache. Once resized, bailouts would populate only the new set of caches and full JIT would
             // continue to use to old set of caches.
-            Assert(!info->AllowResizingPolymorphicInlineCache() || info->GetFunctionBody() || info->GetPropertyString());
+            Assert(!info->AllowResizingPolymorphicInlineCache() || info->GetFunctionBody() || info->GetPropertyRecordUsageCache());
             if(((includeTypePropertyCache && !createTypePropertyCache) || info->AllowResizingPolymorphicInlineCache()) &&
                 polymorphicInlineCache->HasDifferentType<IsAccessor>(isProto, type, typeWithoutProperty))
             {
@@ -442,6 +453,7 @@ namespace Js
                 {
                     if (info->GetFunctionBody())
                     {
+                        Assert(polymorphicInlineCache == info->GetFunctionBody()->GetPolymorphicInlineCache(info->GetInlineCacheIndex()));
                         polymorphicInlineCache =
                             info->GetFunctionBody()->CreateBiggerPolymorphicInlineCache(
                                 info->GetInlineCacheIndex(),
@@ -450,7 +462,8 @@ namespace Js
                     else
                     {
                         Assert(!info->GetFunctionBody());
-                        polymorphicInlineCache = info->GetPropertyString()->CreateBiggerPolymorphicInlineCache(IsRead);
+                        Assert(polymorphicInlineCache == (IsRead ? info->GetPropertyRecordUsageCache()->GetLdElemInlineCache() : info->GetPropertyRecordUsageCache()->GetStElemInlineCache()));
+                        polymorphicInlineCache = info->GetPropertyRecordUsageCache()->CreateBiggerPolymorphicInlineCache(IsRead);
                     }
                 }
                 if(includeTypePropertyCache)

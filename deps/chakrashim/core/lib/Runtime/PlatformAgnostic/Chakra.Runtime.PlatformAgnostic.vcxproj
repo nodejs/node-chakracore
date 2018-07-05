@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Condition="'$(ChakraBuildPathImported)'!='true'" Project="$(SolutionDir)Chakra.Build.Paths.props" />
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.ProjectConfiguration.props" />
@@ -37,12 +37,6 @@
       <PrecompiledHeaderFile>RuntimePlatformAgnosticPch.h</PrecompiledHeaderFile>
     </ClCompile>
   </ItemDefinitionGroup>
-  <!-- We have to enable RTTI for ICU because ICU expects dynamic_cast to be used for NumberFormat -> DecimalFormat casts -->
-  <ItemDefinitionGroup Condition="'$(IntlICU)'=='true'">
-    <ClCompile>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-    </ClCompile>
-  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)RuntimePlatformAgnosticPch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -52,23 +46,20 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\HiResTimer.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\UnicodeText.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\NumbersUtility.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\ArraysUtility.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\SystemInfo.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\Thread.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Common\UnicodeText.Common.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Windows\PerfTrace.cpp" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(IntlICU)'=='true'">
-    <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Common\Intl.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Common\UnicodeText.Common.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)Platform\Common\UnicodeText.ICU.cpp" Condition="'$(ChakraICU)'!='false'" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ChakraPlatform.h" />
     <ClInclude Include="PerfTrace.h" />
     <ClInclude Include="RuntimePlatformAgnosticPch.h" />
     <ClInclude Include="UnicodeText.h" />
-    <ClInclude Include="IPlatformAgnosticResource.h" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(IntlICU)'=='true'">
-    <ClInclude Include="Intl.h" />
+    <ClInclude Include="ChakraICU.h" />
+    <ClInclude Include="UnicodeTextInternal.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\JITIDL\Chakra.JITIDL.vcxproj">

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Condition="'$(ChakraBuildPathImported)'!='true'" Project="$(SolutionDir)Chakra.Build.Paths.props" />
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.ProjectConfiguration.props" />
@@ -40,8 +40,6 @@
       </AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>BackEnd.h</PrecompiledHeaderFile>
-      <!-- # Check out https://osgwiki.com/wiki/Dev_14_Migration for more details about -Zc:implicitNoexcept- -->
-      <AdditionalOptions>-Zc:implicitNoexcept- %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(OptimizedBuild)'!='true'">
@@ -185,7 +183,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)EquivalentTypeSet.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)GlobOptBailOut.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)GlobOptExpr.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)GlobOptSimd128.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)GlobOptFields.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)GlobOptIntBounds.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Backend.cpp">
@@ -199,6 +196,7 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)FlowGraph.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Func.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)GlobOpt.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)GlobOptArrays.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)InductionVariable.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)InlineeFrameInfo.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)InliningHeuristics.cpp" />
@@ -253,8 +251,12 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)ValueInfo.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JITThunkEmitter.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)IntConstMath.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)NativeEntryPointData.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)JitTransferData.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="JitTransferData.h" />
+    <ClInclude Include="NativeEntryPointData.h" />
     <ClInclude Include="AgenPeeps.h" />
     <ClInclude Include="arm64\ARM64Encoder.h">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
@@ -303,6 +305,7 @@
     <ClInclude Include="FunctionCodeGenJitTimeData.h" />
     <ClInclude Include="FunctionJITRuntimeInfo.h" />
     <ClInclude Include="FunctionJITTimeInfo.h" />
+    <ClInclude Include="GlobOptArrays.h" />
     <ClInclude Include="GlobOptBlockData.h" />
     <ClInclude Include="IntConstMath.h" />
     <ClInclude Include="IRBaseTypeList.h" />
@@ -470,7 +473,6 @@
     <ClInclude Include="NativeCodeGenerator.h" />
     <ClInclude Include="Opnd.h" />
     <ClInclude Include="Peeps.h" />
-    <ClInclude Include="PropertyGuard.h" />
     <ClInclude Include="QueuedFullJitWorkItem.h" />
     <ClInclude Include="Region.h" />
     <ClInclude Include="SccLiveness.h" />
@@ -525,11 +527,6 @@
     <ProjectReference Include="..\JITIDL\Chakra.JITIDL.vcxproj">
       <Project>{0db5ecbc-9385-4a65-be2c-4ef7c65cb719}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="CRC.h">
-      <FileType>CppCode</FileType>
-    </ClInclude>
   </ItemGroup>
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.targets" Condition="exists('$(BuildConfigPropsPath)Chakra.Build.targets')" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

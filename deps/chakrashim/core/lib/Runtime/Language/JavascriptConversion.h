@@ -9,9 +9,12 @@ namespace Js {
     class JavascriptConversion  /* All static */
     {
     public:
-        static Var OrdinaryToPrimitive(Var aValue, JavascriptHint hint, ScriptContext * scriptContext);
-        static Var MethodCallToPrimitive(Var aValue, JavascriptHint hint, ScriptContext * scriptContext);
-        static Var ToPrimitive(Var aValue, JavascriptHint hint, ScriptContext * scriptContext);
+        template <JavascriptHint hint>
+        static Var OrdinaryToPrimitive(_In_ RecyclableObject* value, _In_ ScriptContext * scriptContext);
+        template <JavascriptHint hint>
+        static Var MethodCallToPrimitive(_In_ RecyclableObject* value, _In_ ScriptContext * scriptContext);
+        template <JavascriptHint hint>
+        static Var ToPrimitive(_In_ Var aValue, _In_ ScriptContext * scriptContext);
         static BOOL CanonicalNumericIndexString(JavascriptString *aValue, double *indexValue, ScriptContext * scriptContext);
 
         static void ToPropertyKey(
@@ -49,9 +52,12 @@ namespace Js {
         static int32 ToInt32_Full(Var aValue, ScriptContext* scriptContext);
 
         static int8 ToInt8(Var aValue, ScriptContext* scriptContext);
+        static int8 ToInt8(double aValue);
         static uint8 ToUInt8(Var aValue, ScriptContext* scriptContext);
+        static uint8 ToUInt8(double aValue);
         static uint8 ToUInt8Clamped(Var aValue, ScriptContext* scriptContext);
         static int16 ToInt16(Var aValue, ScriptContext* scriptContext);
+        static int16 ToInt16(double aValue);
         static float ToFloat(Var aValue, ScriptContext* scriptContext);
 
         static uint32 ToUInt32(Var aValue, ScriptContext* scriptContext);
@@ -68,6 +74,7 @@ namespace Js {
         static bool SameValue(Var aValue, Var bValue);
         static bool SameValueZero(Var aValue, Var bValue);
         static bool IsCallable(Var aValue);
+        static bool IsCallable(_In_ RecyclableObject* aValue);
 
         static BOOL ToInt32Finite(Var aValue, ScriptContext* scriptContext, int32* result);
 
@@ -75,21 +82,23 @@ namespace Js {
         static JavascriptString * ToPrimitiveString(Var aValue, ScriptContext * scriptContext);
 
         static int64 ToLength(Var aValue, ScriptContext* scriptContext);
-        static int64 F32TOI64(float src, ScriptContext * ctx);
-        static uint64 F32TOU64(float src, ScriptContext * ctx);
-        static int64 F64TOI64(double src, ScriptContext * ctx);
-        static uint64 F64TOU64(double src, ScriptContext * ctx);
-        static int32 F32TOI32(float src, ScriptContext * ctx);
-        static uint32 F32TOU32(float src, ScriptContext * ctx);
-        static int32 F64TOI32(double src, ScriptContext * ctx);
-        static uint32 F64TOU32(double src, ScriptContext * ctx);
 
         static float  LongToFloat(__int64 aValue);
         static float  ULongToFloat(unsigned __int64 aValue);
         static double LongToDouble(__int64 aValue);
         static double ULongToDouble(unsigned __int64 aValue);
 
+        template <bool allowNegOne, bool allowLossyConversion>
+        static Var TryCanonicalizeAsTaggedInt(Var value);
+        template <bool allowNegOne, bool allowLossyConversion>
+        static Var TryCanonicalizeAsTaggedInt(Var value, TypeId typeId);
+        template <bool allowLossyConversion>
+        static Var TryCanonicalizeAsSimpleVar(Var value);
+
     private:
+        template <typename T, bool allowNegOne>
+        static Var TryCanonicalizeIntHelper(T val);
+
         static BOOL ToInt32Finite(double value, int32* result);
         template<bool zero>
         static bool SameValueCommon(Var aValue, Var bValue);

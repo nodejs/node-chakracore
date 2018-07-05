@@ -14,6 +14,7 @@ namespace Js {
 
     inline BOOL JavascriptConversion::ToBoolean(Var aValue,ScriptContext* scriptContext)
     {
+        JIT_HELPER_NOT_REENTRANT_HEADER(Conv_ToBoolean, reentrancylock, scriptContext->GetThreadContext());
         if (TaggedInt::Is(aValue))
         {
             return aValue != reinterpret_cast<Var>(AtomTag_IntPtr);
@@ -73,6 +74,7 @@ namespace Js {
 
     inline uint32 JavascriptConversion::ToUInt32(Var aValue, ScriptContext* scriptContext)
     {
+        JIT_HELPER_REENTRANT_HEADER(Conv_ToUInt32);
         return
             TaggedInt::Is(aValue) ?
             TaggedInt::ToUInt32(aValue) :
@@ -201,6 +203,116 @@ namespace Js {
    inline bool JavascriptConversion::SameValueZero(Var aValue, Var bValue)
    {
        return SameValueCommon<true>(aValue, bValue);
+   }
+
+   template <typename T, bool allowNegOne>
+   inline Var JavascriptConversion::TryCanonicalizeIntHelper(T val)
+   {
+       if (TaggedInt::IsOverflow(val))
+       {
+           return nullptr;
+       }
+
+       if (!allowNegOne && val == -1)
+       {
+           return nullptr;
+       }
+
+       return TaggedInt::ToVarUnchecked((int)val);
+   }
+
+   template <bool allowNegOne, bool allowLossyConversion>
+   inline Var JavascriptConversion::TryCanonicalizeAsTaggedInt(Var value, TypeId typeId)
+   {
+       switch (typeId)
+       {
+       case TypeIds_Integer:
+           return (allowNegOne || value != TaggedInt::ToVarUnchecked(-1))
+               ? value
+               : nullptr;
+
+       case TypeIds_Number:
+       {
+           double doubleVal = JavascriptNumber::GetValue(value);
+           int32 intVal = 0;
+
+           if (!JavascriptNumber::TryGetInt32Value<allowLossyConversion>(doubleVal, &intVal))
+           {
+               return nullptr;
+           }
+           return TryCanonicalizeIntHelper<int32, allowNegOne>(intVal);
+       }
+       case TypeIds_Int64Number:
+       {
+           if (!allowLossyConversion)
+           {
+               return nullptr;
+           }
+           int64 int64Val = JavascriptInt64Number::UnsafeFromVar(value)->GetValue();
+
+           return TryCanonicalizeIntHelper<int64, allowNegOne>(int64Val);
+
+       }
+       case TypeIds_UInt64Number:
+       {
+           if (!allowLossyConversion)
+           {
+               return nullptr;
+           }
+           uint64 uint64Val = JavascriptUInt64Number::UnsafeFromVar(value)->GetValue();
+
+           return TryCanonicalizeIntHelper<uint64, allowNegOne>(uint64Val);
+       }
+       default:
+           return nullptr;
+       }
+   }
+
+   template <bool allowNegOne, bool allowLossyConversion>
+   inline Var JavascriptConversion::TryCanonicalizeAsTaggedInt(Var value)
+   {
+       TypeId typeId = JavascriptOperators::GetTypeId(value);
+       return TryCanonicalizeAsTaggedInt<allowNegOne, allowLossyConversion>(value, typeId);
+   }
+
+   // Lossy conversion means values are StrictEqual equivalent,
+   // but we cannot reconstruct the original value after canonicalization
+   // (e.g. -0 or an Int64Number object)
+   template <bool allowLossyConversion>
+   inline Var JavascriptConversion::TryCanonicalizeAsSimpleVar(Var value)
+   {
+       TypeId typeId = JavascriptOperators::GetTypeId(value);
+       switch (typeId)
+       {
+       case TypeIds_Integer:
+       case TypeIds_Number:
+       case TypeIds_Int64Number:
+       case TypeIds_UInt64Number:
+       {
+           Var taggedInt = TryCanonicalizeAsTaggedInt<true, allowLossyConversion>(value, typeId);
+           if (taggedInt)
+           {
+               return taggedInt;
+           }
+#if FLOATVAR
+           if (typeId == TypeIds_Number)
+           {
+               // NaN could have sign bit set, but that isn't observable so canonicalize to positive NaN
+               double numberValue = JavascriptNumber::GetValue(value);
+               return JavascriptNumber::IsNan(numberValue)
+                   ? JavascriptNumber::ToVar(JavascriptNumber::NaN)
+                   : value;
+           }
+#else
+           return nullptr;
+#endif
+       }
+       case TypeIds_String:
+           return nullptr;
+
+       default:
+           return value;
+       }
    }
 
 } // namespace Js

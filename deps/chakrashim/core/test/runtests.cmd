@@ -58,6 +58,8 @@ goto :main
   echo Options:
   echo.
   echo   -dirs dirname  Run only the specified directory
+  echo   -rebase        Create .rebase file on baseline comparision failure
+  echo   -stoponerror   Stop testing after first failure (will finish current execution)
   :: TODO Add more usage help
 
   goto :eof
@@ -119,6 +121,14 @@ goto :main
     )
   )
 
+  if "%_HadFailures%" NEQ "0" (
+    echo -- runtests.cmd ^>^> Tests failed. See logs for details.
+  ) else (
+    echo -- runtests.cmd ^>^> All tests passed!
+  )
+
+  echo -- runtests.cmd ^>^> exiting with exit code %_HadFailures%
+
   exit /b %_HadFailures%
 
 :: ============================================================================
@@ -169,6 +179,7 @@ goto :main
   :: TODO Consider removing -drt and exclude_drt in some reasonable manner
   if /i "%1" == "-drt"              set _drt=1& set _NOTTAGS=%_NOTTAGS% -nottags:exclude_drt&   goto :ArgOk
   if /i "%1" == "-rebase"           set _rebase=-rebase&                                        goto :ArgOk
+  if /i "%1" == "-stoponerror"      set _stoponerror=-stoponerror&                              goto :ArgOk
   if /i "%1" == "-rundebug"         set _RUNDEBUG=1&                                            goto :ArgOk
   :: TODO Figure out best way to specify build arch for tests that are excluded to specific archs
   if /i "%1" == "-platform"         set _buildArch=%2&                                          goto :ArgOkShift2
@@ -185,8 +196,9 @@ goto :main
   if /i "%1" == "-DumpOnCrash"      set _DumpOnCrash=1&                                         goto :ArgOk
   if /i "%1" == "-CrashOnException" set _CrashOnException=1&                                    goto :ArgOk
 
-  ::Timeout flag
-  if /i "%1" == "-timeout"          set _TestTimeout=%~2&                                       goto : ArgOkShift2
+  ::Timeout flags
+  if /i "%1" == "-timeout"          set _TestTimeout=%~2&                                       goto :ArgOkShift2
+  if /i "%1" == "-timeoutRetries"   set _TestTimeoutRetries=%~2&                                goto :ArgOkShift2
 
   if /i "%1" == "-extraVariants" (
     :: Extra variants are specified by the user but not run by default.
@@ -224,7 +236,7 @@ goto :main
     set _Variants=lite
     goto :ArgOk
   )
-  
+
   if /i "%1" == "-nightly" (
     set _nightly=1
     if "%_ExtraVariants%" == "" (
@@ -265,6 +277,7 @@ goto :main
   set _DIRTAGS=
   set _drt=
   set _rebase=
+  set _stoponerror=
   set _ExtraVariants=
   set _dynamicprofilecache=-dynamicprofilecache:profile.dpl
   set _dynamicprofileinput=-dynamicprofileinput:profile.dpl
@@ -340,15 +353,28 @@ goto :main
     set _DIRS=-all
   )
 
+  set _NOTTAGS=%_NOTTAGS% -nottags:exclude_windows
+
   set _BuildArchMapped=%_BuildArch%
   set _BuildTypeMapped=%_BuildType%
+  :: _NewBuildArchMapped and _NewBuildTypeMapped store new terms of the build and architecture
+  :: _NewBuildArchMapped: x86/x64 _BuildArchMapped:x86/amd64
+  :: _NewBuildTypeMapped: debug/test _BuildTypeMapped:chk/fre
+  set _NewBuildArchMapped=%_BuildArch%
+  set _NewBuildTypeMapped=%_BuildType%
 
   :: Map new build arch and type names to old names until rl test tags are
   :: updated to the new names
   if "%_BuildArchMapped%" == "x64" set _BuildArchMapped=amd64
   if "%_BuildTypeMapped%" == "debug" set _BuildTypeMapped=chk
   if "%_BuildTypeMapped%" == "test" set _BuildTypeMapped=fre
-  if "%_BuildTypeMapped%" == "codecoverage" set _BuildTypeMapped=fre
+  if "%_BuildTypeMapped%" == "codecoverage" (
+    set _BuildTypeMapped=fre
+    set _NewBuildTypeMapped=test
+  )
+
+  if "%_BuildArch%" == "arm"    set _NOTTAGS=%_NOTTAGS% -nottags:require_asmjs -nottags:require_wasm
+  if "%_BuildArch%" == "arm64"  set _NOTTAGS=%_NOTTAGS% -nottags:require_asmjs -nottags:require_wasm
 
   if "%Disable_JIT%" == "1" (
       set _dynamicprofilecache=
@@ -360,6 +386,15 @@ goto :main
 :: Run one variant
 :: ============================================================================
 :RunOneVariant
+  if exist %_logsRoot%\%_BuildArch%_%_BuildType%\%_TESTCONFIG% (
+    rd /q /s %_logsRoot%\%_BuildArch%_%_BuildType%\%_TESTCONFIG%
+  )
+
+  if %_HadFailures% NEQ 0 (
+    if "%_stoponerror%" NEQ "" (
+      goto :eof
+    )
+  )
 
   if "%_BuildType%" == "test" (
     rem bytecode layout switches not available in test build
@@ -461,6 +496,9 @@ goto :main
   if not "%_TestTimeout%" == "" (
     set EXTRA_RL_FLAGS=%EXTRA_RL_FLAGS% -timeout:%_TestTimeout%
   )
+  if not "%_TestTimeoutRetries%" == "" (
+    set EXTRA_RL_FLAGS=%EXTRA_RL_FLAGS% -timeoutRetries:%_TestTimeoutRetries%
+  )
 
   echo.
   echo ############# Starting %_TESTCONFIG% variant #############
@@ -482,18 +520,25 @@ goto :main
   set _rlArgs=%_rlArgs% -nottags:exclude_%_TESTCONFIG%
   set _rlArgs=%_rlArgs% -nottags:exclude_%TARGET_OS%
   set _rlArgs=%_rlArgs% -nottags:exclude_%_BuildArchMapped%
+  set _rlArgs=%_rlArgs% -nottags:exclude_%_NewBuildArchMapped%
   set _rlArgs=%_rlArgs% -nottags:exclude_%_BuildTypeMapped%
+  set _rlArgs=%_rlArgs% -nottags:exclude_%_NewBuildTypeMapped%
+
+  if [%_JSHOST%] NEQ [1] (
+    set _rlArgs=%_rlArgs% -nottags:exclude_ch
+  )
+
   set _rlArgs=%_rlArgs% %_exclude_serialized%
   set _rlArgs=%_rlArgs% %_exclude_forcedeferparse%
   set _rlArgs=%_rlArgs% %_exclude_nodeferparse%
   set _rlArgs=%_rlArgs% %_exclude_forceundodefer%
-  set _rlArgs=%_rlArgs% %_ExcludeApolloTests%
   set _rlArgs=%_rlArgs% %_NoProgramOutput%
   set _rlArgs=%_rlArgs% %_OnlyAssertOutput%
   set _rlArgs=%_rlArgs% %_quiet%
   set _rlArgs=%_rlArgs% -exe
   set _rlArgs=%_rlArgs% %EXTRA_RL_FLAGS%
   set _rlArgs=%_rlArgs% %_rebase%
+  set _rlArgs=%_rlArgs% %_stoponerror%
 
   set REGRESS=%CD%
 

@@ -19,6 +19,10 @@
   <PropertyGroup>
     <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
   </PropertyGroup>
+  <PropertyGroup>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
+    <RunCodeAnalysisOnThisProject>false</RunCodeAnalysisOnThisProject>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalIncludeDirectories>
@@ -32,6 +36,7 @@
       <DisableSpecificWarnings>
         %(DisableSpecificWarnings);
         4996; <!-- Call to 'std::move' with parameters that may be unsafe; could also disable with -D_SCL_SECURE_NO_WARNINGS --></DisableSpecificWarnings>
+      <EnablePREfast>false</EnablePREfast>
     </ClCompile>
   </ItemDefinitionGroup>
   <!-- Do not build wabt with old toolset -->
@@ -124,11 +129,13 @@
     <ClInclude Include="src\type-checker.h" />
     <ClInclude Include="src\utf8.h" />
     <ClInclude Include="src\validator.h" />
-    <ClInclude Include="src\wasm-link.h" />
     <ClInclude Include="src\wast-lexer.h" />
     <ClInclude Include="src\wast-parser-lexer-shared.h" />
     <ClInclude Include="src\wast-parser.h" />
     <ClInclude Include="src\wat-writer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\token.def" />
   </ItemGroup>
   <Import Project="$(BuildConfigPropsPath)Chakra.Build.targets" Condition="exists('$(BuildConfigPropsPath)Chakra.Build.targets')" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

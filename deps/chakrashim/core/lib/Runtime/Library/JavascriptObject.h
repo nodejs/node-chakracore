@@ -108,8 +108,12 @@ namespace Js
         static BOOL DefineOwnPropertyHelper(RecyclableObject* obj, PropertyId propId, const PropertyDescriptor& descriptor, ScriptContext* scriptContext, bool throwOnError = true);
         static Var ToStringHelper(Var thisArg, ScriptContext* scriptContext);
         static JavascriptString* ToStringTagHelper(Var thisArg, ScriptContext* scriptContext, TypeId type);
+        static bool IsPrototypeOf(RecyclableObject* proto, RecyclableObject* obj, ScriptContext* scriptContext);
+        static bool IsPrototypeOfStopAtProxy(RecyclableObject* proto, RecyclableObject* obj, ScriptContext* scriptContext);
 
     private:
+        template <bool tryCopy>
+        static void AssignHelper(Var fromArg, RecyclableObject* to, ScriptContext* scriptContext);
         static void AssignForGenericObjects(RecyclableObject* from, RecyclableObject* to, ScriptContext* scriptContext);
         static void AssignForProxyObjects(RecyclableObject* from, RecyclableObject* to, ScriptContext* scriptContext);
         static JavascriptArray* CreateKeysHelper(RecyclableObject* object, ScriptContext* scriptContext, BOOL enumNonEnumerable, bool includeSymbolProperties, bool includeStringProperties, bool includeSpecialProperties);
@@ -119,7 +123,6 @@ namespace Js
         static Var DefinePropertiesHelper(RecyclableObject* object, RecyclableObject* properties, ScriptContext* scriptContext);
         static Var DefinePropertiesHelperForGenericObjects(RecyclableObject* object, RecyclableObject* properties, ScriptContext* scriptContext);
         static Var DefinePropertiesHelperForProxyObjects(RecyclableObject* object, RecyclableObject* properties, ScriptContext* scriptContext);
-        static bool IsPrototypeOf(RecyclableObject* proto, RecyclableObject* obj, ScriptContext* scriptContext);
 
         static Var GetToStringTagValue(RecyclableObject *thisArg, ScriptContext *scriptContext);
     };

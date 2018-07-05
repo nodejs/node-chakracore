@@ -110,20 +110,32 @@
 #define ENABLE_UNICODE_API 1                        // Enable use of Unicode-related APIs
 #endif
 
-// Language features
+// Normalize ICU_VERSION for non-Kit ICU
+#if defined(HAS_ICU) && !defined(ICU_VERSION) && !defined(WINDOWS10_ICU)
+#include "unicode/uvernum.h"
+#define ICU_VERSION U_ICU_VERSION_MAJOR_NUM
+#endif
 
+// Make non-Windows Kit ICU look and act like Windows Kit ICU for better compat
+#if defined(HAS_ICU) && !defined(WINDOWS10_ICU)
+#define U_SHOW_CPLUSPLUS_API 0
+// ICU 55 (Ubuntu 16.04 system default) has uloc_toUnicodeLocale* marked as draft, which is required for Intl
+#if ICU_VERSION > 56
+#define U_DEFAULT_SHOW_DRAFT 0
+#define U_HIDE_DRAFT_API 1
+#endif
+#define U_HIDE_DEPRECATED_API 1
+#define U_HIDE_OBSOLETE_API 1
+#define U_HIDE_INTERNAL_API 1
+#endif
+
+// Language features
 #if !defined(CHAKRACORE_LITE) && (defined(_WIN32) || defined(INTL_ICU))
 #define ENABLE_INTL_OBJECT                          // Intl support
 #define ENABLE_JS_BUILTINS                          // Built In functions support
 #endif
-//#define INTL_ICU 1                    // NOTE: uncomment this to allow the IDE to see INTL_ICU blocks
-#ifdef INTL_ICU
-#ifdef DBG
-//#define INTL_ICU_DEBUG 1              // NOTE: uncomment this to display INTL_ICU-specific debug output
-#endif
-//#define INTL_ICU_ALLOW_HYBRID 1       // NOTE: uncomment this line to test INTL_ICU SxS with INTL_WINGLOB while INTL_ICU is in-development
-#endif
-#if defined(_WIN32) && (!defined(INTL_ICU) || (defined(INTL_ICU) && defined(INTL_ICU_ALLOW_HYBRID)))
+
+#if defined(_WIN32) && !defined(HAS_ICU)
 #define INTL_WINGLOB 1
 #endif
 
@@ -145,11 +157,10 @@
 #ifdef _WIN32
 // dep: TIME_ZONE_INFORMATION, DaylightTimeHelper, Windows.Globalization
 #define ENABLE_GLOBALIZATION
+// dep: IActiveScriptProfilerCallback, IActiveScriptProfilerHeapEnum
 // #ifndef __clang__
 // xplat-todo: change DISABLE_SEH to ENABLE_SEH and move here
-// #define ENABLE_SIMDJS
 // #endif
-
 #define ENABLE_CUSTOM_ENTROPY
 #endif
 
@@ -167,14 +178,15 @@
 #endif
 
 #if defined(NTBUILD) || defined(ENABLE_DEBUG_CONFIG_OPTIONS)
-#define RECYCLER_PAGE_HEAP                          // PageHeap support, on by default, off in ChakraCore release build
+#define RECYCLER_PAGE_HEAP                          // PageHeap support
 #endif
 
+#define USE_FEWER_PAGES_PER_BLOCK 1
 
 #ifndef ENABLE_VALGRIND
 #define ENABLE_CONCURRENT_GC 1
 #ifdef _WIN32
-#define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 1 // Needs ENABLE_CONCURRENT_GC to be enabled for this to be enabled.
+#define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 1 // Only takes effect when ENABLE_CONCURRENT_GC is enabled.
 #else
 #define ENABLE_ALLOCATIONS_DURING_CONCURRENT_SWEEP 0 // Needs ENABLE_CONCURRENT_GC to be enabled for this to be enabled.
 #endif
@@ -200,7 +212,7 @@
 #define USE_VPM_TABLE 1
 #endif
 
-// xplat-todo: fix up vpm.64b.h generation to generate correctly
+
 // templatized code
 #if defined(_MSC_VER) && !defined(__clang__)
 #define USE_STATIC_VPM 1 // Disable to force generation at runtime
@@ -250,6 +262,9 @@
 #if defined(_WIN32) && !GLOBAL_ENABLE_WRITE_BARRIER
 #define RECYCLER_VISITED_HOST
 #endif
+
+
+#define ENABLE_WEAK_REFERENCE_REGIONS 1
 
 // JIT features
 
@@ -343,42 +358,17 @@
 // Telemetry features (non-DEBUG related)
 #ifdef ENABLE_BASIC_TELEMETRY
 
-    // These defines can be "overridden" in other headers (e.g. ESBuiltInsTelemetryProvider.h) in case a specific telemetry provider wants to change an option for performance.
-    #define TELEMETRY_OPCODE_OFFSET_ENABLED true              // If the BytecodeOffset and FunctionId are logged.
-    #define TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId) true // Any filter to apply on a per propertyId basis in the opcode handler for GetProperty/TypeofProperty/GetMethodProperty/etc.
-    #define TELEMETRY_OPCODE_GET_PROPERTY_VALUES true         // If no telemetry providers need the values of properties then this option skips getting the value in the TypeofProperty opcode handler.
-
 //    #define TELEMETRY_PROFILED    // If telemetry should capture "Profiled*" operations
-//    #define TELEMETRY_CACHEHIT    // If telemetry should capture data that was gotten with a Cache Hit
+
 //    #define TELEMETRY_JSO         // If telemetry should capture JavascriptOperators (expensive, as it happens during JITed code too, not just interpreted mode)
     #define TELEMETRY_AddToCache    // If telemetry should capture property-gets only when the propertyId is added to the cache (generally this means only the first usage of any feature is logged)
 //    #define TELEMETRY_INTERPRETER // If telemetry should capture more interpreter events compared to just TELEMETRY_AddToCache
 
-
-    #define TELEMETRY_TRACELOGGING   // Telemetry output using TraceLogging
-//    #define TELEMETRY_OUTPUTPRINT    // Telemetry output using Output::Print
-
-    // Enable/disable specific telemetry providers:
-    #define TELEMETRY_ESB  // Telemetry of ECMAScript Built-Ins usage or detection.
-//    #define TELEMETRY_ARRAY_USAGE // Telemetry of Array usage statistics
-    #define TELEMETRY_DateParse // Telemetry of `Date.parse`
-
-    #ifdef TELEMETRY_ESB
-        // Because ESB telemetry is in-production and has major performance implications, this redefines some of the #defines above to disable non-critical functionality to get more performance.
-        #undef TELEMETRY_OPCODE_OFFSET_ENABLED // Disable the FunctionId+Offset tracker.
-        #define TELEMETRY_OPCODE_OFFSET_ENABLED false
-        #undef TELEMETRY_PROPERTY_OPCODE_FILTER // Redefine the Property Opcode filter to ignore non-built-in properties.
-        #define TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId) (propertyId < Js::PropertyIds::_countJSOnlyProperty)
-        #undef TELEMETRY_OPCODE_GET_PROPERTY_VALUES
-        #define TELEMETRY_OPCODE_GET_PROPERTY_VALUES false
-
-        //#define TELEMETRY_ESB_GetConstructorPropertyPolyfillDetection // Whether telemetry will inspect the `.constructor` property of every Object instance to determine if it's a polyfill of a known ES built-in.
-    #endif
+     #define TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId) (propertyId < Js::PropertyIds::_countJSOnlyProperty)
 
     #define REJIT_STATS
 #else
 
-    #define TELEMETRY_OPCODE_OFFSET_ENABLED false
     #define TELEMETRY_OPCODE_FILTER(propertyId) false
 
 #endif
@@ -458,7 +448,7 @@
 #endif
 
 #if ENABLE_TTD
-#define TTDAssert(C, M) { if(!(C)) TTDAbort_fatal_error(M); }
+#define TTDAssert(C, M) { if(!(C)) TTDAbort_unrecoverable_error(M); }
 #else
 #define TTDAssert(C, M)
 #endif
@@ -537,6 +527,7 @@
 
 #ifdef DBG
 #define VALIDATE_ARRAY
+#define ENABLE_ENTRYPOINT_CLEANUP_TRACE 1
 
 // xplat-todo: Do we need dump generation for non-Win32 platforms?
 #ifdef _WIN32
@@ -676,6 +667,7 @@
 
 #if defined(ENABLE_JS_ETW) || defined(DUMP_FRAGMENTATION_STATS)
 #define ENABLE_MEM_STATS 1
+#define POLY_INLINE_CACHE_SIZE_STATS
 #endif
 
 #define NO_SANITIZE_ADDRESS
@@ -725,6 +717,7 @@
 
 #if defined(ASMJS_PLAT)
 #define ENABLE_WASM
+#define ENABLE_WASM_THREADS
 #define ENABLE_WASM_SIMD
 
 #ifdef CAN_BUILD_WABT

@@ -157,9 +157,10 @@ public:
     FlowEdge *   AddEdge(BasicBlock * predBlock, BasicBlock * succBlock);
     BasicBlock * InsertCompensationCodeForBlockMove(FlowEdge * edge, // Edge where compensation code needs to be inserted
                                                     bool insertCompensationBlockToLoopList = false,
-                                                    bool sinkBlockLoop  = false // Loop to which compensation block belongs
+                                                    bool sinkBlockLoop  = false, // Loop to which compensation block belongs
+                                                    bool afterForward = false // Inserting compentation code after forward pass
                                                     );
-    BasicBlock * InsertAirlockBlock(FlowEdge * edge);
+    BasicBlock * InsertAirlockBlock(FlowEdge * edge, bool afterForward = false);
     void         InsertCompBlockToLoopList(Loop *loop, BasicBlock* compBlock, BasicBlock* targetBlock, bool postTarget);
     void         RemoveUnreachableBlocks();
     bool         RemoveUnreachableBlock(BasicBlock *block, GlobOpt * globOpt = nullptr);
@@ -346,12 +347,17 @@ public:
     }
 
     bool IsLandingPad();
+    BailOutInfo * CreateLoopTopBailOutInfo(GlobOpt * globOpt);
 
     // GlobOpt Stuff
 public:
+    bool         PathDepBranchFolding(GlobOpt* globOptState);
     void         MergePredBlocksValueMaps(GlobOpt* globOptState);
 private:
     void         CleanUpValueMaps();
+    void         CheckLegalityAndFoldPathDepBranches(GlobOpt* globOpt);
+    Value *      FindValueInLocalThenGlobalValueTableAndUpdate(GlobOpt *globOpt, GlobHashTable * localSymToValueMap, IR::Instr *instr, Sym *dstSym, Sym *srcSym);
+    IR::LabelInstr*         CanProveConditionalBranch(IR::BranchInstr *branch, GlobOpt* globOpt, GlobHashTable * localSymToValueMap);
 
 #if DBG_DUMP
 public:
@@ -383,11 +389,12 @@ public:
     BVSparse<JitArenaAllocator> *              upwardExposedUses;
     BVSparse<JitArenaAllocator> *              upwardExposedFields;
     BVSparse<JitArenaAllocator> *              typesNeedingKnownObjectLayout;
-    BVSparse<JitArenaAllocator> *              fieldHoistCandidates;
     BVSparse<JitArenaAllocator> *              slotDeadStoreCandidates;
     TempNumberTracker *                     tempNumberTracker;
     TempObjectTracker *                     tempObjectTracker;
 #if DBG
+    BVSparse<JitArenaAllocator> *           trackingByteCodeUpwardExposedUsed = nullptr;
+    BVSparse<JitArenaAllocator> *           excludeByteCodeUpwardExposedTracking = nullptr;
     TempObjectVerifyTracker *               tempObjectVerifyTracker;
 #endif
     HashTable<AddPropertyCacheBucket> *     stackSymToFinalType;
@@ -453,7 +460,6 @@ private:
         isBreakCompensationBlockAtSource(false),
         isBreakCompensationBlockAtSink(false),
 #endif
-        fieldHoistCandidates(nullptr),
         dataUseCount(0),
         intOverflowDoesNotMatterRange(nullptr),
         func(func),
@@ -551,7 +557,6 @@ class Loop
 {
     friend FlowGraph;
 private:
-    typedef JsUtil::BaseDictionary<SymID, StackSym *, JitArenaAllocator, PowerOf2SizePolicy> FieldHoistSymMap;
     typedef JsUtil::BaseDictionary<PropertySym *, Value *, JitArenaAllocator> InitialValueFieldMap;
 
     Js::ImplicitCallFlags implicitCallFlags;
@@ -571,18 +576,6 @@ public:
     BVSparse<JitArenaAllocator> *float64SymsOnEntry;
     BVSparse<JitArenaAllocator> *liveFieldsOnEntry;
 
-#ifdef ENABLE_SIMDJS
-    // SIMD_JS
-    // live syms upon entering loop header (from pred merge + forced syms + used before defs in loop)
-    BVSparse<JitArenaAllocator> *simd128F4SymsOnEntry;
-    BVSparse<JitArenaAllocator> *simd128I4SymsOnEntry;
-    BVSparse<JitArenaAllocator> *likelySimd128F4SymsUsedBeforeDefined;    // stack syms that are live in the landing pad with a likely-Simd128F4 value, and used before they are defined in the loop
-    BVSparse<JitArenaAllocator> *likelySimd128I4SymsUsedBeforeDefined;    // stack syms that are live in the landing pad with a likely-Simd128I4 value, and used before they are defined in the loop
-    // syms need to be forced to certain type due to hoisting
-    BVSparse<JitArenaAllocator> *forceSimd128F4SymsOnEntry;
-    BVSparse<JitArenaAllocator> *forceSimd128I4SymsOnEntry;
-#endif
-
     BVSparse<JitArenaAllocator> *symsUsedBeforeDefined;                // stack syms that are live in the landing pad, and used before they are defined in the loop
     BVSparse<JitArenaAllocator> *likelyIntSymsUsedBeforeDefined;       // stack syms that are live in the landing pad with a likely-int value, and used before they are defined in the loop
     BVSparse<JitArenaAllocator> *likelyNumberSymsUsedBeforeDefined;    // stack syms that are live in the landing pad with a likely-number value, and used before they are defined in the loop
@@ -590,13 +583,13 @@ public:
     BVSparse<JitArenaAllocator> *forceFloat64SymsOnEntry;
 
     BVSparse<JitArenaAllocator> *symsDefInLoop;
+    // This is different from symsDefInLoop which only captures syms that survived IR 
+    // cleanup in PreOptPeep in the pre-pass of a loop. For aggressively transferring
+    // values in prepass, we need to know if a source sym was ever assigned to in a loop.
+    BVSparse<JitArenaAllocator> *symsAssignedToInLoop;
+
     BailOutInfo *       bailOutInfo;
     IR::BailOutInstr *  toPrimitiveSideEffectCheck;
-    BVSparse<JitArenaAllocator> * fieldHoistCandidates;
-    BVSparse<JitArenaAllocator> * liveInFieldHoistCandidates;
-    BVSparse<JitArenaAllocator> * fieldHoistCandidateTypes;
-    SListBase<IR::Instr *> prepassFieldHoistInstrCandidates;
-    FieldHoistSymMap fieldHoistSymMap;
     IR::Instr *         endDisableImplicitCall;
     BVSparse<JitArenaAllocator> * hoistedFields;
     BVSparse<JitArenaAllocator> * hoistedFieldCopySyms;
@@ -604,13 +597,17 @@ public:
     ValueNumber         firstValueNumberInLoop;
     JsArrayKills        jsArrayKills;
     BVSparse<JitArenaAllocator> *fieldKilled;
-    BVSparse<JitArenaAllocator> *fieldPRESymStore;
+    BVSparse<JitArenaAllocator> *fieldPRESymStores;
     InitialValueFieldMap initialValueFieldMap;
 
     InductionVariableSet *inductionVariables;
     BasicBlock *dominatingLoopCountableBlock;
     LoopCount *loopCount;
     SymIdToStackSymMap *loopCountBasedBoundBaseSyms;
+    typedef SegmentClusterList<SymID, JitArenaAllocator> LoopSymClusterList;
+    LoopSymClusterList *symClusterList;
+    BVSparse<JitArenaAllocator> * internallyDereferencedSyms;
+    SList<IR::ByteCodeUsesInstr*> *outwardSpeculationMaskInstrs;
 
     bool                isDead : 1;
     bool                hasDeadStoreCollectionPass : 1;
@@ -729,21 +726,17 @@ public:
         symsUsedBeforeDefined(nullptr),
         likelyIntSymsUsedBeforeDefined(nullptr),
         likelyNumberSymsUsedBeforeDefined(nullptr),
-#ifdef ENABLE_SIMDJS
-        likelySimd128F4SymsUsedBeforeDefined(nullptr),
-        likelySimd128I4SymsUsedBeforeDefined(nullptr),
-        forceSimd128F4SymsOnEntry(nullptr),
-        forceSimd128I4SymsOnEntry(nullptr),
-#endif
         forceFloat64SymsOnEntry(nullptr),
         symsDefInLoop(nullptr),
-        fieldHoistCandidateTypes(nullptr),
-        fieldHoistSymMap(alloc),
+        symsAssignedToInLoop(nullptr),
         needImplicitCallBailoutChecksForJsArrayCheckHoist(false),
         inductionVariables(nullptr),
         dominatingLoopCountableBlock(nullptr),
         loopCount(nullptr),
         loopCountBasedBoundBaseSyms(nullptr),
+        symClusterList(nullptr),
+        internallyDereferencedSyms(nullptr),
+        outwardSpeculationMaskInstrs(nullptr),
         isDead(false),
         allFieldsKilled(false),
         isLeaf(true),
@@ -765,11 +758,12 @@ public:
     void SetLoopFlags(Js::LoopFlags val) { loopFlags = val; }
     bool                CanHoistInvariants() const;
     bool                CanDoFieldCopyProp();
-    bool                CanDoFieldHoist();
     void                SetHasCall();
     IR::LabelInstr *    GetLoopTopInstr() const;
     void                SetLoopTopInstr(IR::LabelInstr * loopTop);
     Func *              GetFunc() const { return GetLoopTopInstr()->m_func; }
+    bool                IsSymAssignedToInSelfOrParents(StackSym * const sym) const;
+    BasicBlock *        GetAnyTailBlock() const;
 #if DBG_DUMP
     bool                GetHasCall() const { return hasCall; }
     uint                GetLoopNumber() const;
@@ -1024,6 +1018,16 @@ struct MemCopyEmitData : public MemOpEmitData
 #define NEXT_PREDECESSOR_BLOCK\
     }\
     NEXT_EDGE_IN_LIST
+
+#define FOREACH_PREDECESSOR_BLOCK_EDITING(blockPred, block, iter)\
+    FOREACH_EDGE_IN_LIST_EDITING(__edge, block->GetPredList(), iter)\
+    {\
+        BasicBlock * blockPred = __edge->GetPred(); \
+        AnalysisAssert(blockPred);
+
+#define NEXT_PREDECESSOR_BLOCK_EDITING\
+    }\
+    NEXT_EDGE_IN_LIST_EDITING
 
 #define FOREACH_DEAD_PREDECESSOR_BLOCK(blockPred, block)\
     FOREACH_EDGE_IN_LIST(__edge, block->GetDeadPredList())\

@@ -153,6 +153,7 @@
   <test>
     <default>
       <files>asyncintrystackwalkbug.js</files>
+      <compile-flags>-CollectGarbage</compile-flags>
     </default>
   </test>
   <test>
@@ -180,6 +181,27 @@
     <default>
        <files>hasBailedOutBug.js</files>
        <baseline>hasBailedOutBug.baseline</baseline>
+    </default>
+  </test>
+  <test>
+    <default>
+       <files>hasBailedOutBug2.js</files>
+       <tags>exclude_dynapogo</tags>
+    </default>
+  </test>
+  <test>
+    <default>
+       <files>StackOverflow.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+       <files>tfjitlooparmbug.js</files>
+  </default>
+  </test>
+  <test>
+    <default>
+       <files>tfjitloopbug.js</files>
   </default>
   </test>
 </regress-exe>

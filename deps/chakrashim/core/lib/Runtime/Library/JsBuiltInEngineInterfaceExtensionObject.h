@@ -26,9 +26,12 @@ namespace Js
             static NoProfileFunctionInfo JsBuiltIn_RegisterChakraLibraryFunction;
             static NoProfileFunctionInfo JsBuiltIn_RegisterFunction;
             static NoProfileFunctionInfo JsBuiltIn_Internal_GetLength;
-            static NoProfileFunctionInfo JsBuiltIn_Internal_SetPrototype;
             static NoProfileFunctionInfo JsBuiltIn_Internal_GetIteratorPrototype;
             static NoProfileFunctionInfo JsBuiltIn_Internal_InitInternalProperties;
+            static NoProfileFunctionInfo JsBuiltIn_Internal_ToLengthFunction;
+            static NoProfileFunctionInfo JsBuiltIn_Internal_ToIntegerFunction;
+            static NoProfileFunctionInfo JsBuiltIn_Internal_ArraySpeciesCreate;
+            static NoProfileFunctionInfo JsBuiltIn_Internal_ArrayCreateDataPropertyOrThrow;
         };
 
     private:
@@ -41,12 +44,16 @@ namespace Js
 
         static DynamicObject* GetPrototypeFromName(Js::PropertyIds propertyId, ScriptContext* scriptContext);
         static void RecordDefaultIteratorFunctions(Js::PropertyIds propertyId, ScriptContext * scriptContext, JavascriptFunction* iteratorFunc);
+        static void RecordCommonNativeInterfaceBuiltIns(Js::PropertyIds propertyId, ScriptContext * scriptContext, JavascriptFunction * scriptFunction);
         static Var EntryJsBuiltIn_RegisterChakraLibraryFunction(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryJsBuiltIn_RegisterFunction(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryJsBuiltIn_Internal_GetLength(RecyclableObject* function, CallInfo callInfo, ...);
-        static Var EntryJsBuiltIn_Internal_SetPrototype(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryJsBuiltIn_Internal_GetIteratorPrototype(RecyclableObject* function, CallInfo callInfo, ...);
         static Var EntryJsBuiltIn_Internal_InitInternalProperties(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var EntryJsBuiltIn_Internal_ToLengthFunction(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var EntryJsBuiltIn_Internal_ToIntegerFunction(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var EntryJsBuiltIn_Internal_ArraySpeciesCreate(RecyclableObject* function, CallInfo callInfo, ...);
+        static Var EntryJsBuiltIn_Internal_ArrayCreateDataPropertyOrThrow(RecyclableObject* function, CallInfo callInfo, ...);
     };
 }
 #endif // ENABLE_JS_BUILTINS
