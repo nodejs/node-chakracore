@@ -1002,7 +1002,8 @@ class V8_EXPORT ScriptCompiler {
     Isolate* isolate, Source* source);
 
   static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script) {
-      // BUGBUG:  https://github.com/nodejs/node-chakracore/issues/560 - need to implement this
+      // BUGBUG: https://github.com/nodejs/node-chakracore/issues/560 - need to
+      //         implement this
       return nullptr;
   }
 
@@ -1512,14 +1513,15 @@ class V8_EXPORT Object : public Value {
                                      AccessControl settings = DEFAULT,
                                      PropertyAttribute attribute = None));
   V8_WARN_UNUSED_RESULT
-  Maybe<bool> SetAccessor(Local<Context> context,
-                          Local<Name> name,
-                          AccessorNameGetterCallback getter,
-                          AccessorNameSetterCallback setter = 0,
-                          MaybeLocal<Value> data = MaybeLocal<Value>(),
-                          AccessControl settings = DEFAULT,
-                          PropertyAttribute attribute = None,
-                          SideEffectType getter_side_effect_type = SideEffectType::kHasSideEffect);
+  Maybe<bool> SetAccessor(
+      Local<Context> context,
+      Local<Name> name,
+      AccessorNameGetterCallback getter,
+      AccessorNameSetterCallback setter = 0,
+      MaybeLocal<Value> data = MaybeLocal<Value>(),
+      AccessControl settings = DEFAULT,
+      PropertyAttribute attribute = None,
+      SideEffectType getter_side_effect_type = SideEffectType::kHasSideEffect);
 
   V8_DEPRECATE_SOON("Use maybe version", Local<Array> GetPropertyNames());
   V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetPropertyNames(
