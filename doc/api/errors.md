@@ -1209,10 +1209,23 @@ An invalid `options.protocol` was passed.
 Both `breakEvalOnSigint` and `eval` options were set in the REPL config, which
 is not supported.
 
+<a id="ERR_INVALID_RETURN_PROPERTY"></a>
+### ERR_INVALID_RETURN_PROPERTY
+
+Thrown in case a function option does not provide a valid value for one of its
+returned object properties on execution.
+
+<a id="ERR_INVALID_RETURN_PROPERTY_VALUE"></a>
+### ERR_INVALID_RETURN_PROPERTY_VALUE
+
+Thrown in case a function option does not provide an expected value
+type for one of its returned object properties on execution.
+
 <a id="ERR_INVALID_RETURN_VALUE"></a>
 ### ERR_INVALID_RETURN_VALUE
 
-Thrown in case a function option does not return an expected value on execution.
+Thrown in case a function option does not return an expected value
+type on execution.
 For example when a function is expected to return a promise.
 
 <a id="ERR_INVALID_SYNC_FORK_INPUT"></a>
@@ -1375,6 +1388,31 @@ multiple of the element size.
 
 While calling `napi_create_typedarray()`, `(length * size_of_element) +
 byte_offset` was larger than the length of given `buffer`.
+
+<a id="ERR_NAPI_TSFN_CALL_JS"></a>
+### ERR_NAPI_TSFN_CALL_JS
+
+An error occurred while invoking the JavaScript portion of the thread-safe
+function.
+
+<a id="ERR_NAPI_TSFN_GET_UNDEFINED"></a>
+### ERR_NAPI_TSFN_GET_UNDEFINED
+
+An error occurred while attempting to retrieve the JavaScript `undefined`
+value.
+
+<a id="ERR_NAPI_TSFN_START_IDLE_LOOP"></a>
+### ERR_NAPI_TSFN_START_IDLE_LOOP
+
+On the main thread, values are removed from the queue associated with the
+thread-safe function in an idle loop. This error indicates that an error
+has occurred when attemping to start the loop.
+
+<a id="ERR_NAPI_TSFN_STOP_IDLE_LOOP"></a>
+### ERR_NAPI_TSFN_STOP_IDLE_LOOP
+
+Once no more items are left in the queue, the idle loop must be suspended. This
+error indicates that the idle loop has failed to stop.
 
 <a id="ERR_NO_CRYPTO"></a>
 ### ERR_NO_CRYPTO
