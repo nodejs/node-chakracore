@@ -41,6 +41,23 @@ public:
 #endif
 
 private:
+    class AutoResetWaitingToEnterIdleDecommitFlag
+    {
+    public:
+        AutoResetWaitingToEnterIdleDecommitFlag(IdleDecommitPageAllocator * pageAllocator)
+        {
+            this->pageAllocator = pageAllocator;
+            pageAllocator->waitingToEnterIdleDecommit = true;
+        }
+
+        ~AutoResetWaitingToEnterIdleDecommitFlag()
+        {
+            pageAllocator->waitingToEnterIdleDecommit = false;
+        }
+
+    private:
+        IdleDecommitPageAllocator * pageAllocator;
+    };
 
 #ifdef IDLE_DECOMMIT_ENABLED
 #if DBG_DUMP
@@ -60,7 +77,9 @@ private:
 #endif
 
     friend class PageAllocatorBase<VirtualAllocWrapper>;
+#if ENABLE_NATIVE_CODEGEN
     friend class PageAllocatorBase<PreReservedVirtualAllocWrapper>;
+#endif
 
 #if IDLE_DECOMMIT_ENABLED && DBG
 public:
@@ -81,5 +100,4 @@ public:
     }
 #endif
 };
-
 }

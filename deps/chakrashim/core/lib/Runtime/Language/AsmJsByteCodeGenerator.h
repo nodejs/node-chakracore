@@ -94,17 +94,11 @@ namespace Js
         EmitExpressionInfo EmitBinaryMultiType( ParseNode * pnode, EBinaryMathOpCodes op );
         EmitExpressionInfo EmitBinaryInt( ParseNode * pnode, OpCodeAsmJs op );
         EmitExpressionInfo EmitQMark( ParseNode * pnode );
-        EmitExpressionInfo EmitSwitch( ParseNode * pnode );
+        EmitExpressionInfo EmitSwitch( ParseNodeSwitch * pnode );
         EmitExpressionInfo EmitBinaryComparator( ParseNode * pnode, EBinaryComparatorOpCodes op);
-        EmitExpressionInfo EmitLoop( ParseNode *loopNode, ParseNode *cond, ParseNode *body, ParseNode *incr, BOOL doWhile = false );
-        EmitExpressionInfo EmitIf( ParseNode * pnode );
+        EmitExpressionInfo EmitLoop( ParseNodeLoop *loopNode, ParseNode *cond, ParseNode *body, ParseNode *incr, BOOL doWhile = false );
+        EmitExpressionInfo EmitIf( ParseNodeIf * pnode );
         EmitExpressionInfo EmitBooleanExpression( ParseNode* pnodeCond, Js::ByteCodeLabel trueLabel, Js::ByteCodeLabel falseLabel );
-
-        EmitExpressionInfo* EmitSimdBuiltinArguments(ParseNode* pnode, AsmJsFunctionDeclaration* func, __out_ecount(pnode->sxCall.argCount) AsmJsType *argsTypes, EmitExpressionInfo *argsInfo);
-        bool ValidateSimdFieldAccess(PropertyName field, const AsmJsType& receiverType, OpCodeAsmJs &op);
-        EmitExpressionInfo EmitDotExpr(ParseNode* pnode);
-        EmitExpressionInfo EmitSimdBuiltin(ParseNode* pnode, AsmJsSIMDFunction* simdFunction, AsmJsRetType expectedType);
-        EmitExpressionInfo EmitSimdLoadStoreBuiltin(ParseNode* pnode, AsmJsSIMDFunction* simdFunction, AsmJsRetType expectedType);
 
         void FinalizeRegisters( FunctionBody* byteCodeFunction );
         template<typename T> byte* SetConstsToTable(byte* byteTable, T zeroValue);
@@ -130,22 +124,11 @@ namespace Js
         void SetModuleFloat(Js::RegSlot dst, RegSlot src);
         void SetModuleDouble( Js::RegSlot dst, RegSlot src );
 
-        void LoadModuleSimd(RegSlot dst, RegSlot index, AsmJsVarType type);
-        void SetModuleSimd(RegSlot dst, RegSlot src, AsmJsVarType type);
-        void LoadSimd(RegSlot dst, RegSlot src, AsmJsVarType type);
-
-        bool IsValidSimdFcnRetType(AsmJsSIMDFunction& simdFunction, const AsmJsRetType& expectedType, const AsmJsRetType& retType);
         /// TODO:: Finish removing references to old bytecode generator
         ByteCodeGenerator* GetOldByteCodeGenerator() const
         {
             return mByteCodeGenerator;
         }
-#ifdef ENABLE_SIMDJS
-        bool IsSimdjsEnabled()
-        {
-            return mFunction->GetFuncBody()->GetScriptContext()->GetConfig()->IsSimdjsEnabled();
-        }
-#endif
         // try to reuse a tmp register or acquire a new one
         // also takes care of releasing tmp register
         template<typename T>

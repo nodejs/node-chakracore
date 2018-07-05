@@ -29,7 +29,7 @@ namespace Js
             static WithScopeObject* FromVar(Var value);
             static WithScopeObject* UnsafeFromVar(Var value);
             RecyclableObject *GetWrappedObject() { return wrappedObject; }
-            virtual PropertyQueryFlags HasPropertyQuery(PropertyId propertyId) override;
+            virtual PropertyQueryFlags HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info) override;
             virtual BOOL HasOwnProperty(PropertyId propertyId) override;
             virtual BOOL SetProperty(PropertyId propertyId, Var value, PropertyOperationFlags flags, PropertyValueInfo* info) override;
             virtual PropertyQueryFlags GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) override;
@@ -58,9 +58,9 @@ namespace Js
             virtual BOOL SetItem(uint32 index, Var value, PropertyOperationFlags flags) override { UNWRAP_FAILFAST(); return FALSE; };
             virtual BOOL DeleteItem(uint32 index, PropertyOperationFlags flags) override { UNWRAP_FAILFAST(); return FALSE; };
             virtual BOOL ToPrimitive(JavascriptHint hint, Var* result, ScriptContext * requestContext) override { UNWRAP_FAILFAST(); return FALSE; };
-            virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache = nullptr) override { UNWRAP_FAILFAST(); return FALSE; };
+            virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, EnumeratorCache * enumeratorCache = nullptr) override { UNWRAP_FAILFAST(); return FALSE; };
             virtual BOOL SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None) override { UNWRAP_FAILFAST(); return FALSE; };
-            virtual BOOL GetAccessors(PropertyId propertyId, Var *getter, Var *setter, ScriptContext * requestContext) override { UNWRAP_FAILFAST(); return FALSE; };
+            _Check_return_ _Success_(return) virtual BOOL GetAccessors(PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter, ScriptContext * requestContext) override { UNWRAP_FAILFAST(); return FALSE; };
             virtual BOOL IsWritable(PropertyId propertyId) override { UNWRAP_FAILFAST(); return FALSE; };
             virtual BOOL IsConfigurable(PropertyId propertyId) override { UNWRAP_FAILFAST(); return FALSE; };
             virtual BOOL IsEnumerable(PropertyId propertyId) override { UNWRAP_FAILFAST(); return FALSE; };

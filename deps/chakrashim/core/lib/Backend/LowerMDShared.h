@@ -7,14 +7,26 @@
 
 class Lowerer;
 
-enum LegalForms : uint
+enum LegalForms : uint8
 {
-    L_None = 0x0,
-    L_Reg = 0x1,
-    L_Mem = 0x2,
-    L_Imm32 = 0x4,  // supports 8-bit, 16-bit, and 32-bit immediate values
-    L_Ptr = 0x8     // supports 8-bit, 16-bit, 32-bit, and 64-bit immediate values on 64-bit architectures
+    L_None  = 0,
+    L_Reg   = 1 << 0,
+    L_Mem   = 1 << 1,
+    L_Imm32 = 1 << 2,  // supports 8-bit, 16-bit, and 32-bit immediate values
+    L_Ptr   = 1 << 3,  // supports 8-bit, 16-bit, 32-bit, and 64-bit immediate values on 64-bit architectures
+
+    L_FormMask = (L_Ptr << 1) - 1,
+
+    // Start flags for common behavior
+    LF_Custom   = 1 << 4,   // Legal Form Flag: Custom Legal forms, must be handled in the Legalizer Switch-Case
+#if DBG
+    LF_Optional = 1 << 5,   // Legal Form Flag: legal for the opnd to be missing
+#else
+    LF_Optional = 0,        // Legal Form Flag: legal for the opnd to be missing
+#endif
 };
+ENUM_CLASS_HELPERS(LegalForms, uint8);
+
 
 #include "LowererMDArch.h"
 
@@ -68,10 +80,11 @@ public:
     static const Js::OpCode MDCallOpcode;
     static const Js::OpCode MDImulOpcode;
     static const Js::OpCode MDLea;
+    static const Js::OpCode MDSpecBlockNEOpcode;
+    static const Js::OpCode MDSpecBlockFNEOpcode;
 
     UINT FloatPrefThreshold;
 
-public:
             void            Init(Lowerer *lowerer);
             IR::Opnd *      GenerateMemRef(intptr_t addr, IRType type, IR::Instr *instr, bool dontEncode = false);
             void            GenerateMemInit(IR::RegOpnd * opnd, int32 offset, size_t value, IR::Instr * insertBeforeInstr, bool isZeroed = false);
@@ -102,7 +115,9 @@ public:
             IR::Instr *     LowerCondBranch(IR::Instr * instr);
             IR::Instr *     LoadFunctionObjectOpnd(IR::Instr *instr, IR::Opnd *&functionObjOpnd);
             IR::Instr *     LowerNewScObject(IR::Instr *newObjInstr);
-            IR::Instr *     LowerWasmMemOp(IR::Instr *instr, IR::Opnd *addrOpnd);
+            IR::Instr *     LowerWasmArrayBoundsCheck(IR::Instr *instr, IR::Opnd *addrOpnd);
+            void            LowerAtomicStore(IR::Opnd * dst, IR::Opnd * src1, IR::Instr * insertBeforeInstr);
+            void            LowerAtomicLoad(IR::Opnd* dst, IR::Opnd* src1, IR::Instr* insertBeforeInstr);
             void            ForceDstToReg(IR::Instr *instr);
 
 public:
@@ -110,11 +125,11 @@ public:
             static void     Legalize(IR::Instr *const instr, bool fPostRegAlloc = false);
 private:
             template <bool verify>
-            static void     LegalizeOpnds(IR::Instr *const instr, const uint dstForms, const uint src1Forms, uint src2Forms);
+            static void     LegalizeOpnds(IR::Instr *const instr, const LegalForms dstForms, LegalForms src1Forms, LegalForms src2Forms);
             template <bool verify>
-            static void     LegalizeDst(IR::Instr *const instr, const uint forms);
+            static void     LegalizeDst(IR::Instr *const instr, const LegalForms forms);
             template <bool verify>
-            static void     LegalizeSrc(IR::Instr *const instr, IR::Opnd *src, const uint forms);
+            static void     LegalizeSrc(IR::Instr *const instr, IR::Opnd *src, const LegalForms forms);
             template <bool verify = false>
             static void     MakeDstEquSrc1(IR::Instr *const instr);
             static bool     HoistLargeConstant(IR::IndirOpnd *indirOpnd, IR::Opnd *src, IR::Instr *instr);
@@ -134,8 +149,9 @@ public:
             void            GenerateFastCmXxR8(IR::Instr *instr);
             void            GenerateFastCmXx(IR::Instr *instr);
             IR::Instr *     GenerateConvBool(IR::Instr *instr);
-            void            GenerateFastDivByPow2(IR::Instr *instr);
+            void            GenerateFastDivByPow2(IR::Instr *instrDiv);
             bool            GenerateFastAdd(IR::Instr * instrAdd);
+            bool            GenerateFastDivAndRem(IR::Instr* instr, IR::LabelInstr* bailoutLabel = nullptr);
 #if DBG
             static void     GenerateDebugBreak( IR::Instr * insertInstr );
 #endif
@@ -155,7 +171,6 @@ public:
             void            GenerateCheckForArgumentsLength(IR::Instr* ldElem, IR::LabelInstr* labelCreateHeapArgs, IR::Opnd* actualParamOpnd, IR::Opnd* valueOpnd, Js::OpCode);
             IR::RegOpnd *   LoadNonnegativeIndex(IR::RegOpnd *indexOpnd, const bool skipNegativeCheck, IR::LabelInstr *const notTaggedIntLabel, IR::LabelInstr *const negativeLabel, IR::Instr *const insertBeforeInstr);
             IR::RegOpnd *   GenerateUntagVar(IR::RegOpnd * opnd, IR::LabelInstr * labelFail, IR::Instr * insertBeforeInstr, bool generateTagCheck = true);
-            bool            GenerateFastLdMethodFromFlags(IR::Instr * instrLdFld);
             IR::Instr *     GenerateFastScopedLdFld(IR::Instr * instrLdFld);
             IR::Instr *     GenerateFastScopedStFld(IR::Instr * instrStFld);
             void            GenerateFastAbs(IR::Opnd *dst, IR::Opnd *src, IR::Instr *callInstr, IR::Instr *insertInstr, IR::LabelInstr *labelHelper, IR::LabelInstr *doneLabel);
@@ -163,20 +178,16 @@ public:
             void            GenerateClz(IR::Instr * instr);
             void            GenerateCtz(IR::Instr * instr);
             void            GeneratePopCnt(IR::Instr * instr);
-            void            GenerateTruncWithCheck(IR::Instr * instr);
-            IR::Opnd*       GenerateTruncChecks(IR::Instr* instr);
+            template <bool Saturate> void GenerateTruncWithCheck(_In_ IR::Instr * instr);
+            template <bool Saturate> IR::Opnd* GenerateTruncChecks(_In_ IR::Instr* instr, _In_opt_ IR::LabelInstr* doneLabel);
             IR::RegOpnd*    MaterializeDoubleConstFromInt(intptr_t constAddr, IR::Instr* instr);
             IR::RegOpnd*    MaterializeConstFromBits(int intConst, IRType type, IR::Instr* instr);
             IR::Opnd*       Subtract2To31(IR::Opnd* src1, IR::Opnd* intMinFP, IRType type, IR::Instr* instr);
             bool            TryGenerateFastMulAdd(IR::Instr * instrAdd, IR::Instr ** pInstrPrev);
-            BVSparse<JitArenaAllocator>* GatherFltTmps();
             void            GenerateFastInlineBuiltInCall(IR::Instr* instr, IR::JnHelperMethod helperMethod);
             void            HelperCallForAsmMathBuiltin(IR::Instr* instr, IR::JnHelperMethod helperMethodFloat, IR::JnHelperMethod helperMethodDouble);
             void            GenerateFastInlineBuiltInMathAbs(IR::Instr* instr);
             void            GenerateFastInlineBuiltInMathPow(IR::Instr* instr);
-            IR::Instr *     CheckIsOpndNegZero(IR::Opnd* opnd, IR::Instr* instr, IR::LabelInstr* isNeg0Label);
-            IR::Instr *     CloneSlowPath(IR::Instr * instrEndFloatRange, IR::Instr * instrInsert);
-            bool            IsCloneDone(IR::Instr * instr, BVSparse<JitArenaAllocator> *bvTmps);
             IR::Instr *     EnsureAdjacentArgs(IR::Instr * instrArg);
             void            SaveDoubleToVar(IR::RegOpnd * dstOpnd, IR::RegOpnd *opndFloat, IR::Instr *instrOrig, IR::Instr *instrInsert, bool isHelper = false);
 #if !FLOATVAR
@@ -297,21 +308,8 @@ public:
             }
 
     static IR::Instr * InsertCmovCC(const Js::OpCode opCode, IR::Opnd * dst, IR::Opnd* src1, IR::Instr* insertBeforeInstr, bool postRegAlloc = false);
-
-#ifdef ENABLE_SIMDJS
-    IR::Instr*          Simd128LowerConstructor_2(IR::Instr *instr);
-    IR::Instr*          Simd128LowerConstructor_4(IR::Instr *instr);
-    IR::Instr*          Simd128LowerConstructor_8(IR::Instr *instr);
-    IR::Instr*          Simd128LowerConstructor_16(IR::Instr *instr);
-    IR::Instr*          Simd128LowerRcp(IR::Instr *instr, bool removeInstr = true);
-    IR::Instr*          Simd128LowerRcpSqrt(IR::Instr *instr);
-    IR::Instr*          Simd128LowerRcpSqrt(IR::Instr *instr);
-    void                GenerateCheckedSimdLoad(IR::Instr * instr);
-    void                GenerateSimdStore(IR::Instr * instr);
-    IR::Instr*          Simd128LowerSelect(IR::Instr *instr);
-#endif
-
-#if defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
+    
+#ifdef ENABLE_WASM_SIMD
     void                Simd128InitOpcodeMap();
     IR::Instr*          Simd128Instruction(IR::Instr* instr);
     IR::Instr*          Simd128LoadConst(IR::Instr* instr);
@@ -354,9 +352,7 @@ public:
     IR::Instr*          Simd128LowerMinMax_F4(IR::Instr* instr);
     IR::Instr*          Simd128LowerAnyTrue(IR::Instr* instr);
     IR::Instr*          Simd128LowerAllTrue(IR::Instr* instr);
-#ifdef ENABLE_WASM_SIMD
     IR::Opnd*           Simd128CanonicalizeToBoolsBeforeReduction(IR::Instr* instr);
-#endif
     BYTE                Simd128GetTypedArrBytesPerElem(ValueType arrType);
     IR::Instr*          Simd128CanonicalizeToBools(IR::Instr* instr, const Js::OpCode& cmpOpcode, IR::Opnd& dstOpnd);
     IR::Opnd*           EnregisterIntConst(IR::Instr* instr, IR::Opnd *constOpnd, IRType type = TyInt32);

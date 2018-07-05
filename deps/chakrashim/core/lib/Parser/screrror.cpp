@@ -198,8 +198,7 @@ void ScriptException::Free(void)
 
 void ScriptException::GetError(HRESULT *phr, EXCEPINFO *pei)
 {
-    AssertMem(phr);
-    AssertMemN(pei);
+    Assert(phr);
 
     if (HR(SCRIPT_E_RECORDED) == *phr)
     {
@@ -238,6 +237,20 @@ void CompileScriptException::Free()
     }
 }
 
+void CompileScriptException::CopyInto(CompileScriptException* pse)
+{
+    ScriptException::CopyInto(pse);
+
+    pse->line = this->line;
+    pse->ichMinLine = this->ichMinLine;
+    pse->hasLineNumberInfo = this->hasLineNumberInfo;
+
+    if (this->bstrLine)
+    {
+        pse->bstrLine = SysAllocStringLen(this->bstrLine, SysStringLen(this->bstrLine));
+    }
+}
+
 HRESULT  CompileScriptException::ProcessError(IScanner * pScan, HRESULT hr, ParseNode * pnodeBase)
 {
     // fill in the ScriptException structure
@@ -259,7 +272,7 @@ HRESULT  CompileScriptException::ProcessError(IScanner * pScan, HRESULT hr, Pars
     if (nullptr == pnodeBase && nullptr != pScan)
     {
         // parsing phase - get the line number from the scanner
-        AssertMem(pScan);
+        Assert(pScan);
         this->hasLineNumberInfo = true;
         pScan->GetErrorLineInfo(this->ichMin, this->ichLim, this->line, this->ichMinLine);
 

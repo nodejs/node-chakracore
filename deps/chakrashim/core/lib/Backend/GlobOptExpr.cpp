@@ -278,6 +278,7 @@ GlobOpt::CSEAddInstr(
         break;
 
     case Js::OpCode::Conv_Prim:
+    case Js::OpCode::Conv_Prim_Sat:
         exprAttributes = ConvAttributes(instr->GetDst()->IsUnsigned(), instr->GetSrc1()->IsUnsigned());
         break;
     }
@@ -435,6 +436,28 @@ GlobOpt::OptimizeChecks(IR::Instr * const instr)
         }
         break;
     }
+    case Js::OpCode::TrapIfUnalignedAccess:
+        if (src1 && src1->IsImmediateOpnd())
+        {
+            int64 val = src1->GetImmediateValue(func);
+            Assert(src2->IsImmediateOpnd());
+            uint32 cmpValue = (uint32)src2->GetImmediateValue(func);
+            uint32 mask = src2->GetSize() - 1;
+            Assert((cmpValue & ~mask) == 0);
+
+            if (((uint32)val & mask) == cmpValue)
+            {
+                instr->FreeSrc2();
+                instr->m_opcode = Js::OpCode::Ld_I4;
+            }
+            else
+            {
+                TransformIntoUnreachable(WASMERR_UnalignedAtomicAccess, instr);
+                InsertByteCodeUses(instr);
+                RemoveCodeAfterNoFallthroughInstr(instr); //remove dead code
+            }
+        }
+        break;
     default:
         return;
     }
@@ -512,6 +535,7 @@ GlobOpt::CSEOptimize(BasicBlock *block, IR::Instr * *const instrRef, Value **pSr
             break;
 
         case Js::OpCode::Conv_Prim:
+        case Js::OpCode::Conv_Prim_Sat:
             exprAttributes = ConvAttributes(instr->GetDst()->IsUnsigned(), instr->GetSrc1()->IsUnsigned());
             break;
 
@@ -774,6 +798,7 @@ GlobOpt::CSEOptimize(BasicBlock *block, IR::Instr * *const instrRef, Value **pSr
         // code and due to other similar potential issues, always create a new instr instead of changing the existing one.
         IR::Instr *const originalInstr = instr;
         instr = IR::Instr::New(Js::OpCode::Ld_A, instr->GetDst(), cseOpnd, instr->m_func);
+        instr->SetByteCodeOffset(originalInstr);
         originalInstr->TransferDstAttributesTo(instr);
         block->InsertInstrBefore(instr, originalInstr);
         block->RemoveInstr(originalInstr);

@@ -83,7 +83,98 @@ var tests = [
       {
       }
     }
-  }
+  },
+  {
+    name: "splice an array which has getter/setter at 4294967295 should not fail due to re-entrancy error",
+    body: function () {
+        var base = 4294967290;
+        var arr = [];
+        for (var i = 0; i < 10; i++) {
+            arr[base + i] = 100 + i;
+        }
+        Object.defineProperty(arr, 4294967295, {
+          get: function () { }, set : function(b) {  }
+            }
+        );
+
+        assert.throws(()=> {arr.splice(4294967290, 0, 200, 201, 202, 203, 204, 205, 206);});
+    }
+  },
+  {
+    name: "Passing args count near 2**16 should not fire assert (OS# 17406027)",
+    body: function () {
+      try {
+        eval.call(...(new Array(2**16)));
+      } catch (e) { }
+      
+      try {
+        eval.call(...(new Array(2**16+1)));
+      } catch (e) { }
+      
+      try {
+        var sc1 = WScript.LoadScript(`function foo() {}`, "samethread");
+        sc1.foo(...(new Array(2**16)));
+      } catch(e) { }
+      
+      try {
+        var sc2 = WScript.LoadScript(`function foo() {}`, "samethread");
+        sc2.foo(...(new Array(2**16+1)));
+      } catch(e) { }
+
+      try {
+        function foo() {}
+        Reflect.construct(foo, new Array(2**16-3));
+      } catch(e) { }
+
+      try {
+        function foo() {}
+        Reflect.construct(foo, new Array(2**16-2));
+      } catch(e) { }
+
+      try {
+        function foo() {}
+        var bar = foo.bind({}, 1);
+        new bar(...(new Array(2**16+1)))
+      } catch(e) { }
+    }
+  },
+  {
+    name: "getPrototypeOf Should not be called when set as prototype",
+    body: function () {
+      var p = new Proxy({}, { getPrototypeOf: function() {
+          assert.fail("this should not be called")
+          return {};
+        }});
+
+        var obj = {};
+        obj.__proto__ = p; // This should not call the getPrototypeOf
+
+        var obj1 = {};
+        Object.setPrototypeOf(obj1, p); // This should not call the getPrototypeOf
+
+        var obj2 = {__proto__ : p}; // This should not call the getPrototypeOf
+    }
+  },
+  {
+    name: "Destructuring declaration should return undefined",
+    body: function () {
+        assert.areEqual(undefined, eval("var {x} = {};"));
+        assert.areEqual(undefined, eval("let {x,y} = {};"));
+        assert.areEqual(undefined, eval("const [z] = [];"));
+        assert.areEqual(undefined, eval("let {x} = {}, y = 1, {z} = {};"));
+        assert.areEqual([1], eval("let {x} = {}; [x] = [1]"));
+    }
+  },
+  {
+    name: "Strict Mode : throw type error when the handler returns falsy value",
+    body: function () {
+        assert.throws(() => {"use strict"; let p1 = new Proxy({}, { set() {}}); p1.foo = 1;}, TypeError, "returning undefined on set handler is return false which will throw type error",  "Proxy set handler returned false");
+        assert.throws(() => {"use strict"; let p1 = new Proxy({}, { deleteProperty() {}}); delete p1.foo;}, TypeError, "returning undefined on deleteProperty handler is return false which will throw type error",  "Proxy deleteProperty handler returned false");
+        assert.throws(() => {"use strict"; let p1 = new Proxy({}, { set() {return false;}}); p1.foo = 1;}, TypeError, "set handler is returning false which will throw type error",  "Proxy set handler returned false");
+        assert.throws(() => {"use strict"; let p1 = new Proxy({}, { deleteProperty() {return false;}}); delete p1.foo;}, TypeError, "deleteProperty handler is returning false which will throw type error",  "Proxy deleteProperty handler returned false");
+      }
+  },
+  
 ];
 
 testRunner.runTests(tests, { verbose: WScript.Arguments[0] != "summary" });

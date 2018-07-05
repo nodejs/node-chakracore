@@ -41,7 +41,7 @@ namespace Js
         virtual bool IsObjTypeSpecEquivalent(const Type* type, const TypeEquivalenceRecord& record, uint& failedPropertyIndex) override;
         virtual bool IsObjTypeSpecEquivalent(const Type* type, const EquivalentPropertyEntry* entry) override;
 #endif
-        virtual BOOL HasProperty(DynamicObject* instance, PropertyId propertyId, __out_opt bool *noRedecl = nullptr) override;
+        virtual BOOL HasProperty(DynamicObject* instance, PropertyId propertyId, __out_opt bool *noRedecl = nullptr, _Inout_opt_ PropertyValueInfo* info = nullptr) override;
         virtual BOOL HasProperty(DynamicObject* instance, JavascriptString* propertyNameString) override;
         virtual BOOL GetProperty(DynamicObject* instance, Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual BOOL GetProperty(DynamicObject* instance, Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) override;
@@ -85,16 +85,19 @@ namespace Js
         template <typename T>
         T* ConvertToTypeHandler(DynamicObject* instance);
 
+        PathTypeHandlerBase* ConvertToPathType(DynamicObject* instance);
         DictionaryTypeHandler* ConvertToDictionaryType(DynamicObject* instance);
         SimpleDictionaryTypeHandler* ConvertToSimpleDictionaryType(DynamicObject* instance);
         ES5ArrayTypeHandler* ConvertToES5ArrayType(DynamicObject* instance);
         SimpleTypeHandler<size>* ConvertToNonSharedSimpleType(DynamicObject * instance);
 
-        BOOL GetDescriptor(PropertyId propertyId, int * index);
-        BOOL SetAttribute(DynamicObject* instance, int index, PropertyAttributes attribute);
-        BOOL ClearAttribute(DynamicObject* instance, int index, PropertyAttributes attribute);
+        BOOL GetDescriptor(PropertyId propertyId, PropertyIndex * index);
+        BOOL SetAttribute(DynamicObject* instance, PropertyIndex index, PropertyAttributes attribute);
+        BOOL ClearAttribute(DynamicObject* instance, PropertyIndex index, PropertyAttributes attribute);
         BOOL AddProperty(DynamicObject* instance, PropertyId propertyId, Var value, PropertyAttributes attributes, PropertyValueInfo* info, PropertyOperationFlags flags, SideEffects possibleSideEffects);
         virtual BOOL FreezeImpl(DynamicObject* instance, bool isConvertedType) override;
+
+        static bool DoConvertToPathType(DynamicType * type);
 
 #if ENABLE_TTD
     public:

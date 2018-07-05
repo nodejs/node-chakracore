@@ -157,6 +157,7 @@ JITTimeFunctionBody::InitializeJITFunctionData(
             jitBody->loopHeaders[i].endOffset = loopHeaders[i].endOffset;
             jitBody->loopHeaders[i].isNested = loopHeaders[i].isNested;
             jitBody->loopHeaders[i].isInTry = loopHeaders[i].isInTry;
+            jitBody->loopHeaders[i].isInTryFinally = loopHeaders[i].isInTryFinally;
             jitBody->loopHeaders[i].interpretCount = functionBody->GetLoopInterpretCount(&loopHeaders[i]);
         }
     }
@@ -277,6 +278,11 @@ JITTimeFunctionBody::InitializeJITFunctionData(
 #ifdef ENABLE_WASM
         if (functionBody->IsWasmFunction())
         {
+#ifdef ENABLE_WASM_THREADS
+            jitBody->asmJsData->wasmIsSharedMemory = asmFuncInfo->GetWebAssemblyModule()->IsSharedMemory();
+#else
+            jitBody->asmJsData->wasmIsSharedMemory = false;
+#endif
             jitBody->asmJsData->wasmSignatureCount = asmFuncInfo->GetWebAssemblyModule()->GetSignatureCount();
             jitBody->asmJsData->wasmSignaturesBaseAddr = (intptr_t)asmFuncInfo->GetWebAssemblyModule()->GetSignatures();
             jitBody->asmJsData->wasmSignatures = (WasmSignatureIDL*)asmFuncInfo->GetWebAssemblyModule()->GetSignatures();
@@ -593,6 +599,22 @@ JITTimeFunctionBody::IsWasmFunction() const
     return m_bodyData.isWasmFunction != FALSE;
 }
 
+bool JITTimeFunctionBody::UsesWAsmJsFastVirtualBuffer() const
+{
+    // Using Fast Virtual Buffer means that bounds checks can be omitted
+#if ENABLE_FAST_ARRAYBUFFER
+#ifdef ENABLE_WASM
+    if (IsWasmFunction())
+    {
+        return CONFIG_FLAG(WasmFastArray);
+    }
+#endif
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool
 JITTimeFunctionBody::IsStrictMode() const
 {
@@ -645,6 +667,18 @@ bool
 JITTimeFunctionBody::IsLambda() const
 {
     return Js::FunctionInfo::IsLambda(GetAttributes());
+}
+
+bool
+JITTimeFunctionBody::HasComputedName() const
+{
+    return Js::FunctionInfo::HasComputedName(GetAttributes());
+}
+
+bool
+JITTimeFunctionBody::HasHomeObj() const
+{
+    return Js::FunctionInfo::HasHomeObj(GetAttributes());
 }
 
 bool
@@ -1087,10 +1121,10 @@ JITTimeFunctionBody::GetFormalsPropIdArray() const
     return  (Js::PropertyIdArray *)m_bodyData.formalsPropIdArray;
 }
 
-Js::ForInCache *
+Js::EnumeratorCache *
 JITTimeFunctionBody::GetForInCache(uint profileId) const
 {
-    return  &((Js::ForInCache *)m_bodyData.forInCacheArrayAddr)[profileId];
+    return  &((Js::EnumeratorCache *)m_bodyData.forInCacheArrayAddr)[profileId];
 }
 
 bool

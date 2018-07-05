@@ -30,8 +30,7 @@
 
 #include "Library/StackScriptFunction.h"
 
-// SIMD_JS
-#include "Library/SimdLib.h"
+// SIMD
 #include "Language/SimdOps.h"
 
 // =================
@@ -44,10 +43,6 @@
 //
 // Defines
 //
-
-// The shld optimization is bad for AMD hardware
-// The lack of it is ameliorated for Intel hardware by adding BTS optimization
-#undef SHIFTLOAD
 
 #define Fatal()     Js::Throw::FatalInternalError()
 
@@ -150,6 +145,7 @@ enum IRDumpFlags
 #include "GlobOptBlockData.h"
 #include "GlobOpt.h"
 #include "GlobOptIntBounds.h"
+#include "GlobOptArrays.h"
 #include "QueuedFullJitWorkItem.h"
 #include "CodeGenWorkItem.h"
 #include "SimpleJitProfilingHelpers.h"

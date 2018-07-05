@@ -20,101 +20,13 @@ namespace wabt {
 
 const char* GetTokenTypeName(TokenType token_type) {
   static const char* s_names[] = {
-      // Bare.
-      "Invalid",
-      "anyfunc",
-      "assert_exhaustion",
-      "assert_invalid",
-      "assert_malformed",
-      "assert_return",
-      "assert_return_arithmetic_nan",
-      "assert_return_canonical_nan",
-      "assert_trap",
-      "assert_unlinkable",
-      "bin",
-      "data",
-      "elem",
-      "EOF",
-      "except",
-      "export",
-      "func",
-      "get",
-      "global",
-      "import",
-      "invoke",
-      "local",
-      "(",
-      "memory",
-      "module",
-      "mut",
-      "offset",
-      "param",
-      "quote",
-      "register",
-      "result",
-      ")",
-      "shared",
-      "start",
-      "table",
-      "then",
-      "type",
-
-      // Literal.
-      "FLOAT",
-      "NAT",
-      "INT",
-
-      // Opcode.
-      "ATOMIC_LOAD",
-      "ATOMIC_RMW",
-      "ATOMIC_RMW_CMPXCHG",
-      "ATOMIC_STORE",
-      "BINARY",
-      "block",
-      "br",
-      "br_if",
-      "br_table",
-      "call",
-      "call_indirect",
-      "catch",
-      "catch_all",
-      "COMPARE",
-      "CONST",
-      "CONVERT",
-      "current_memory",
-      "drop",
-      "else",
-      "end",
-      "get_global",
-      "get_local",
-      "grow_memory",
-      "if",
-      "LOAD",
-      "loop",
-      "nop",
-      "rethrow",
-      "return",
-      "select",
-      "set_global",
-      "set_local",
-      "STORE",
-      "tee_local",
-      "throw",
-      "try",
-      "UNARY",
-      "unreachable",
-      "WAIT",
-      "WAKE",
-
-      // String.
-      "align=",
-      "offset=",
-      "Reserved",
-      "TEXT",
-      "VAR",
-
-      // Type.
-      "VALUETYPE",
+#define WABT_TOKEN(name, string) string,
+#define WABT_TOKEN_FIRST(name, string)
+#define WABT_TOKEN_LAST(name, string)
+#include "token.def"
+#undef WABT_TOKEN
+#undef WABT_TOKEN_FIRST
+#undef WABT_TOKEN_LAST
   };
 
   static_assert(

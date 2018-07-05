@@ -14,105 +14,6 @@
 namespace Wasm
 {
 
-namespace Simd
-{
-void EnsureSimdIsEnabled()
-{
-    if (!Wasm::Simd::IsEnabled())
-    {
-        throw WasmCompilationException(_u("Wasm.Simd support is not enabled"));
-    }
-}
-bool IsEnabled()
-{
-#ifdef ENABLE_WASM_SIMD
-    return CONFIG_FLAG(WasmSimd);
-#else
-    return false;
-#endif
-}
-}
-
-namespace WasmTypes
-{
-
-bool IsLocalType(WasmTypes::WasmType type)
-{
-    // Check if type in range ]Void,Limit[
-#ifdef ENABLE_WASM_SIMD
-    if (type == WasmTypes::M128 && !Simd::IsEnabled())
-    {
-        return false;
-    }
-#endif
-    return (uint32)(type - 1) < (WasmTypes::Limit - 1);
-}
-
-uint32 GetTypeByteSize(WasmType type)
-{
-    switch (type)
-    {
-    case Void: return sizeof(Js::Var);
-    case I32: return sizeof(int32);
-    case I64: return sizeof(int64);
-    case F32: return sizeof(float);
-    case F64: return sizeof(double);
-#ifdef ENABLE_WASM_SIMD
-    case M128:
-        Simd::EnsureSimdIsEnabled();
-        CompileAssert(sizeof(Simd::simdvec) == 16);
-        return sizeof(Simd::simdvec);
-#endif
-    case Ptr: return sizeof(void*);
-    default:
-        Js::Throw::InternalError();
-    }
-}
-
-const char16 * GetTypeName(WasmType type)
-{
-    switch (type) {
-    case WasmTypes::WasmType::Void: return _u("void");
-    case WasmTypes::WasmType::I32: return _u("i32");
-    case WasmTypes::WasmType::I64: return _u("i64");
-    case WasmTypes::WasmType::F32: return _u("f32");
-    case WasmTypes::WasmType::F64: return _u("f64");
-#ifdef ENABLE_WASM_SIMD
-    case WasmTypes::WasmType::M128: 
-        Simd::EnsureSimdIsEnabled();
-        return _u("m128");
-#endif
-    case WasmTypes::WasmType::Any: return _u("any");
-    default: Assert(UNREACHED); break;
-    }
-    return _u("unknown");
-}
-
-} // namespace WasmTypes
-
-WasmTypes::WasmType LanguageTypes::ToWasmType(int8 binType)
-{
-    switch (binType)
-    {
-    case LanguageTypes::i32: return WasmTypes::I32;
-    case LanguageTypes::i64: return WasmTypes::I64;
-    case LanguageTypes::f32: return WasmTypes::F32;
-    case LanguageTypes::f64: return WasmTypes::F64;
-#ifdef ENABLE_WASM_SIMD
-    case LanguageTypes::m128:
-        Simd::EnsureSimdIsEnabled();
-        return WasmTypes::M128;
-#endif
-    default:
-        throw WasmCompilationException(_u("Invalid binary type %d"), binType);
-    }
-}
-
-bool FunctionIndexTypes::CanBeExported(FunctionIndexTypes::Type funcType)
-{
-    return funcType == FunctionIndexTypes::Function || funcType == FunctionIndexTypes::ImportThunk;
-}
-
 WasmBinaryReader::WasmBinaryReader(ArenaAllocator* alloc, Js::WebAssemblyModule* module, const byte* source, size_t length) :
     m_alloc(alloc),
     m_start(source),
@@ -235,7 +136,7 @@ SectionHeader WasmBinaryReader::ReadSectionHeader()
 
     uint32 len = 0;
     CompileAssert(sizeof(SectionCode) == sizeof(uint8));
-    SectionCode sectionId = (SectionCode)ReadVarUInt7();
+    SectionCode sectionId = (SectionCode)LEB128<uint8, 7>(len);
 
     if (sectionId > bsectLastKnownSection)
     {
@@ -536,16 +437,16 @@ WasmOp WasmBinaryReader::ReadExpr()
         break;
     case wbNop:
         break;
-    case wbCurrentMemory:
-    case wbGrowMemory:
+    case wbMemorySize:
+    case wbMemoryGrow:
     {
         // Reserved value currently unused
         uint8 reserved = ReadConst<uint8>();
         if (reserved != 0)
         {
-            ThrowDecodingError(op == wbCurrentMemory
-                ? _u("current_memory reserved value must be 0")
-                : _u("grow_memory reserved value must be 0")
+            ThrowDecodingError(op == wbMemorySize
+                ? _u("memory.size reserved value must be 0")
+                : _u("memory.grow reserved value must be 0")
             );
         }
         break;
@@ -641,9 +542,52 @@ void WasmBinaryReader::CallIndirectNode()
 
 void WasmBinaryReader::BlockNode()
 {
-    int8 blockType = ReadConst<int8>();
-    m_funcState.count++;
-    m_currentNode.block.sig = blockType == LanguageTypes::emptyBlock ? WasmTypes::Void : LanguageTypes::ToWasmType(blockType);
+    uint32 len = 0;
+    int64 blocktype = SLEB128<int64, 33>(len);
+    m_funcState.count += len;
+
+    // Negative values means it's a value type or Void
+    if (blocktype < 0)
+    {
+        // Only support 1 byte for negative values
+        if (len != 1)
+        {
+            ThrowDecodingError(_u("Invalid blocktype %lld"), blocktype);
+        }
+        int8 blockSig = (int8)blocktype;
+        // Check if it's an empty block
+        if (blockSig == LanguageTypes::emptyBlock)
+        {
+            m_currentNode.block.SetSingleResult(WasmTypes::Void);
+        }
+        else
+        {
+            // Otherwise, it should be a value type
+            WasmTypes::WasmType type = LanguageTypes::ToWasmType(blockSig);
+            m_currentNode.block.SetSingleResult(type);
+        }
+    }
+    else
+    {
+        // Positive values means it a function signature
+        // Function signature is only supported with the Multi-Value feature
+        if (!CONFIG_FLAG(WasmMultiValue))
+        {
+            ThrowDecodingError(_u("Block signature not supported"));
+        }
+
+        // Make sure the blocktype is a u32 after checking for negative values
+        if (blocktype > UINT32_MAX)
+        {
+            ThrowDecodingError(_u("Invalid blocktype %lld"), blocktype);
+        }
+        uint32 blockId = (uint32)blocktype;
+        if (!m_module->IsSignatureIndexValid(blockId))
+        {
+            ThrowDecodingError(_u("Block signature %u is invalid"), blockId);
+        }
+        m_currentNode.block.SetSignatureId(blockId);
+    }
 }
 
 // control flow
@@ -748,6 +692,8 @@ void WasmBinaryReader::ConstNode()
         m_funcState.count += Simd::VEC_WIDTH;
         break;
 #endif
+    default:
+        WasmTypes::CompileAssertCases<Wasm::WasmTypes::I32, Wasm::WasmTypes::I64, Wasm::WasmTypes::F32, Wasm::WasmTypes::F64, WASM_M128_CHECK_TYPE>();
     }
 }
 
@@ -780,8 +726,12 @@ void WasmBinaryReader::ReadMemorySection(bool isImportSection)
 
     if (count == 1)
     {
-        SectionLimits limits = ReadSectionLimits(Limits::GetMaxMemoryInitialPages(), Limits::GetMaxMemoryMaximumPages(), _u("memory size too big"));
-        m_module->InitializeMemory(limits.initial, limits.maximum);
+        MemorySectionLimits limits = ReadSectionLimitsBase<MemorySectionLimits>(Limits::GetMaxMemoryInitialPages(), Limits::GetMaxMemoryMaximumPages(), _u("memory size too big"));
+        if (Wasm::Threads::IsEnabled() && limits.IsShared() && !limits.HasMaximum())
+        {
+            ThrowDecodingError(_u("Shared memory must have a maximum size"));
+        }
+        m_module->InitializeMemory(&limits);
     }
 }
 
@@ -800,7 +750,7 @@ void WasmBinaryReader::ReadSignatureTypeSection()
     {
         WasmSignature* sig = m_module->GetSignature(i);
         sig->SetSignatureId(i);
-        int8 form = ReadConst<int8>();
+        int8 form = SLEB128<int8, 7>(len);
         if (form != LanguageTypes::func)
         {
             ThrowDecodingError(_u("Unexpected type form 0x%X"), form);
@@ -821,14 +771,15 @@ void WasmBinaryReader::ReadSignatureTypeSection()
         }
 
         uint32 resultCount = LEB128(len);
-        if (resultCount > 1)
+        if (resultCount > Limits::GetMaxFunctionReturns())
         {
-            ThrowDecodingError(_u("Too many returns in signature: %u. Maximum allowed: 1"), resultCount);
+            ThrowDecodingError(_u("Too many returns in signature: %u. Maximum allowed: %u"), resultCount, Limits::GetMaxFunctionReturns());
         }
-        if (resultCount == 1)
+        sig->AllocateResults(resultCount, m_module->GetRecycler());
+        for (uint32 iResult = 0; iResult < resultCount; ++iResult)
         {
             WasmTypes::WasmType type = ReadWasmType(len);
-            sig->SetResultType(type);
+            sig->SetResult(type, iResult);
         }
         sig->FinalizeSignature();
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
@@ -905,7 +856,7 @@ void WasmBinaryReader::ReadExportSection()
         }
         list->Push(exportName);
 
-        ExternalKinds::ExternalKind kind = (ExternalKinds::ExternalKind)ReadConst<int8>();
+        ExternalKinds kind = ReadExternalKind();
         uint32 index = LEB128(length);
         switch (kind)
         {
@@ -983,13 +934,13 @@ void WasmBinaryReader::ReadTableSection(bool isImportSection)
 
     if (entries == 1)
     {
-        int8 elementType = ReadConst<int8>();
+        int8 elementType = SLEB128<int8, 7>(length);
         if (elementType != LanguageTypes::anyfunc)
         {
             ThrowDecodingError(_u("Only anyfunc type is supported. Unknown type %d"), elementType);
         }
-        SectionLimits limits = ReadSectionLimits(Limits::GetMaxTableSize(), Limits::GetMaxTableSize(), _u("table too big"));
-        m_module->InitializeTable(limits.initial, limits.maximum);
+        TableSectionLimits limits = ReadSectionLimitsBase<TableSectionLimits>(Limits::GetMaxTableSize(), Limits::GetMaxTableSize(), _u("table too big"));
+        m_module->InitializeTable(&limits);
         TRACE_WASM_DECODER(_u("Indirect table: %u to %u entries"), limits.initial, limits.maximum);
     }
 }
@@ -1116,6 +1067,24 @@ void WasmBinaryReader::ReadGlobalSection()
     for (uint32 i = 0; i < numGlobals; ++i)
     {
         WasmTypes::WasmType type = ReadWasmType(len);
+        
+        if (!WasmTypes::IsLocalType(type))
+        {
+            ThrowDecodingError(_u("Invalid global type %u"), type);
+        }
+        switch (type)
+        {
+        case WasmTypes::I32: break; // Handled
+        case WasmTypes::I64: break; // Handled
+        case WasmTypes::F32: break; // Handled
+        case WasmTypes::F64: break; // Handled
+#ifdef ENABLE_WASM_SIMD
+        case WasmTypes::M128: ThrowDecodingError(_u("m128 globals not supported"));
+#endif
+        default:
+            WasmTypes::CompileAssertCases<WasmTypes::I32, WasmTypes::I64, WasmTypes::F32, WasmTypes::F64, WASM_M128_CHECK_TYPE>();
+        }
+        
         bool isMutable = ReadMutableValue();
         WasmNode globalNode = ReadInitExpr();
         GlobalReferenceTypes::Type refType = GlobalReferenceTypes::Const;
@@ -1208,7 +1177,7 @@ void WasmBinaryReader::ReadImportSection()
         const char16* modName = ReadInlineName(len, modNameLen);
         const char16* fnName = ReadInlineName(len, fnNameLen);
 
-        ExternalKinds::ExternalKind kind = (ExternalKinds::ExternalKind)ReadConst<int8>();
+        ExternalKinds kind = ReadExternalKind();
         TRACE_WASM_DECODER(_u("Import #%u: \"%s\".\"%s\", kind: %d"), i, modName, fnName, kind);
         switch (kind)
         {
@@ -1264,31 +1233,34 @@ void WasmBinaryReader::ReadStartFunction()
         ThrowDecodingError(_u("Invalid function index for start function %u"), id);
     }
     WasmSignature* sig = m_module->GetWasmFunctionInfo(id)->GetSignature();
-    if (sig->GetParamCount() > 0 || sig->GetResultType() != WasmTypes::Void)
+    if (sig->GetParamCount() > 0 || sig->GetResultCount())
     {
         ThrowDecodingError(_u("Start function must be void and nullary"));
     }
     m_module->SetStartFunction(id);
 }
 
-template<typename MaxAllowedType>
-MaxAllowedType WasmBinaryReader::LEB128(uint32 &length, bool sgn)
+template<typename LEBType, uint32 bits>
+LEBType WasmBinaryReader::LEB128(uint32 &length)
 {
-    MaxAllowedType result = 0;
-    uint32 shamt = 0;
+    CompileAssert((sizeof(LEBType) * 8) >= bits);
+    constexpr bool sign = LEBType(-1) < LEBType(0);
+    LEBType result = 0;
+    uint32 shift = 0;
     byte b = 0;
-    length = 1;
-    uint32 maxReads = sizeof(MaxAllowedType) == 4 ? 5 : 10;
-    CompileAssert(sizeof(MaxAllowedType) == 4 || sizeof(MaxAllowedType) == 8);
+    length = 0;
+    constexpr uint32 maxReads = (uint32) (((bits % 7) == 0) ? bits/7 : bits/7 + 1);
+    CompileAssert(maxReads > 0);
 
-    for (uint32 i = 0; i < maxReads; i++, length++)
+    for (uint32 i = 0; i < maxReads; ++i)
     {
         CheckBytesLeft(1);
         b = *m_pc++;
-        result = result | ((MaxAllowedType)(b & 0x7f) << shamt);
-        if (sgn)
+        ++length;
+        result = result | ((LEBType)(b & 0x7f) << shift);
+        if (sign)
         {
-            shamt += 7;
+            shift += 7;
             if ((b & 0x80) == 0)
                 break;
         }
@@ -1296,7 +1268,7 @@ MaxAllowedType WasmBinaryReader::LEB128(uint32 &length, bool sgn)
         {
             if ((b & 0x80) == 0)
                 break;
-            shamt += 7;
+            shift += 7;
         }
     }
 
@@ -1305,31 +1277,12 @@ MaxAllowedType WasmBinaryReader::LEB128(uint32 &length, bool sgn)
         ThrowDecodingError(_u("Invalid LEB128 format"));
     }
 
-    if (sgn && (shamt < sizeof(MaxAllowedType) * 8) && (0x40 & b))
+    if (sign && (shift < (sizeof(LEBType) * 8)) && (0x40 & b))
     {
-        if (sizeof(MaxAllowedType) == 4)
-        {
-            result |= -(1 << shamt);
-        }
-        else if (sizeof(MaxAllowedType) == 8)
-        {
-            result |= -((int64)1 << shamt);
-        }
+#pragma prefast(suppress:26453)
+        result |= ((~(LEBType)0) << shift);
     }
     return result;
-}
-
-// Signed LEB128
-template<>
-int32 WasmBinaryReader::SLEB128(uint32 &length)
-{
-    return LEB128<uint32>(length, true);
-}
-
-template<>
-int64 WasmBinaryReader::SLEB128(uint32 &length)
-{
-    return LEB128<uint64>(length, true);
 }
 
 WasmNode WasmBinaryReader::ReadInitExpr(bool isOffset)
@@ -1382,14 +1335,15 @@ WasmNode WasmBinaryReader::ReadInitExpr(bool isOffset)
     return node;
 }
 
-SectionLimits WasmBinaryReader::ReadSectionLimits(uint32 maxInitial, uint32 maxMaximum, const char16* errorMsg)
+template<typename SectionLimitType>
+SectionLimitType WasmBinaryReader::ReadSectionLimitsBase(uint32 maxInitial, uint32 maxMaximum, const char16* errorMsg)
 {
-    SectionLimits limits;
+    SectionLimitType limits;
     uint32 length = 0;
-    uint32 flags = LEB128(length);
+    limits.flags = (SectionLimits::Flags)LEB128(length);
     limits.initial = LEB128(length);
     limits.maximum = maxMaximum;
-    if (flags & 0x1)
+    if (limits.HasMaximum())
     {
         limits.maximum = LEB128(length);
         if (limits.maximum > maxMaximum)
@@ -1417,11 +1371,6 @@ T WasmBinaryReader::ReadConst()
     return value;
 }
 
-uint8 WasmBinaryReader::ReadVarUInt7()
-{
-    return ReadConst<uint8>() & 0x7F;
-}
-
 bool WasmBinaryReader::ReadMutableValue()
 {
     uint8 mutableValue = ReadConst<UINT8>();
@@ -1436,8 +1385,7 @@ bool WasmBinaryReader::ReadMutableValue()
 
 WasmTypes::WasmType WasmBinaryReader::ReadWasmType(uint32& length)
 {
-    length = 1;
-    return LanguageTypes::ToWasmType(ReadConst<int8>());
+    return LanguageTypes::ToWasmType(SLEB128<int8, 7>(length));
 }
 
 void WasmBinaryReader::CheckBytesLeft(uint32 bytesNeeded)
@@ -1450,5 +1398,4 @@ void WasmBinaryReader::CheckBytesLeft(uint32 bytesNeeded)
 }
 
 } // namespace Wasm
-
 #endif // ENABLE_WASM

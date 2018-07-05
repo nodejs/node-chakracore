@@ -67,11 +67,7 @@ Opnd::IsNotNumber() const
             return true;
         }
 
-        if (regOpnd->m_sym->m_isNotInt)
-        {
-            // m_isNotInt actually means "is not number". It should not be set to true for definitely-float values.
-            return true;
-        }
+        return regOpnd->m_sym->m_isNotNumber;
     }
     return false;
 }
@@ -79,7 +75,22 @@ Opnd::IsNotNumber() const
 bool
 Opnd::IsNotInt() const
 {
-    return IsNotNumber() || IsFloat();
+    if (IsNotNumber() || IsFloat())
+    {
+        return true;
+    }
+    // Check if it's a definite type that cannot be a number
+    if (GetValueType().IsDefinite() && !GetValueType().HasBeenNumber())
+    {
+        return true;
+    }
+    if (this->IsRegOpnd())
+    {
+        const IR::RegOpnd* reg = this->AsRegOpnd();
+        // If the reg is const, it should be an int const
+        return reg->m_sym->IsConst() && !reg->m_sym->IsIntConst();
+    }
+    return false;
 }
 
 bool
@@ -1045,6 +1056,24 @@ bool PropertySymOpnd::HasFinalType() const
     return this->finalType != nullptr;
 }
 
+bool PropertySymOpnd::NeedsAuxSlotPtrSymLoad() const
+{
+    // Consider: reload based on guarded prop ops' use of aux slots
+    return this->GetAuxSlotPtrSym() != nullptr;
+}
+
+void PropertySymOpnd::GenerateAuxSlotPtrSymLoad(IR::Instr * instrInsert)
+{
+    StackSym * auxSlotPtrSym = GetAuxSlotPtrSym();
+    Assert(auxSlotPtrSym);
+    Func * func = instrInsert->m_func;
+
+    IR::Opnd *opndIndir = IR::IndirOpnd::New(this->CreatePropertyOwnerOpnd(func), Js::DynamicObject::GetOffsetOfAuxSlots(), TyMachReg, func);
+    IR::RegOpnd *regOpnd = IR::RegOpnd::New(auxSlotPtrSym, TyMachReg, func);
+    regOpnd->SetIsJITOptimizedReg(true);
+    Lowerer::InsertMove(regOpnd, opndIndir, instrInsert);
+}
+
 PropertySymOpnd *
 PropertySymOpnd::CloneDefInternalSub(Func *func)
 {
@@ -1055,6 +1084,12 @@ PropertySymOpnd *
 PropertySymOpnd::CloneUseInternalSub(Func *func)
 {
     return this->CopyInternalSub(func);
+}
+
+bool 
+PropertySymOpnd::ShouldUsePolyEquivTypeGuard(Func *const func) const
+{
+    return this->IsPoly() && this->m_polyCacheUtil >= PolymorphicInlineCacheUtilizationThreshold && !PHASE_OFF(Js::PolyEquivTypeGuardPhase, func);
 }
 
 RegOpnd::RegOpnd(StackSym *sym, RegNum reg, IRType type)
@@ -3888,15 +3923,15 @@ Opnd::GetAddrDescription(__out_ecount(count) char16 *const description, const si
             break;
         case AddrOpndKindForInCache:
             DumpAddress(address, printToConsole, skipMaskedAddress);
-            WriteToBuffer(&buffer, &n, _u(" (ForInCache)"));
+            WriteToBuffer(&buffer, &n, _u(" (EnumeratorCache)"));
             break;
         case AddrOpndKindForInCacheType:
             DumpAddress(address, printToConsole, skipMaskedAddress);
-            WriteToBuffer(&buffer, &n, _u(" (&ForInCache->type)"));
+            WriteToBuffer(&buffer, &n, _u(" (&EnumeratorCache->type)"));
             break;
         case AddrOpndKindForInCacheData:
             DumpAddress(address, printToConsole, skipMaskedAddress);
-            WriteToBuffer(&buffer, &n, _u(" (&ForInCache->data)"));
+            WriteToBuffer(&buffer, &n, _u(" (&EnumeratorCache->data)"));
             break;
         case AddrOpndKindDynamicNativeCodeDataRef:
             DumpAddress(address, printToConsole, skipMaskedAddress);

@@ -19,6 +19,8 @@ namespace Wasm
     struct WasmImport;
     struct WasmExport;
     struct CustomSection;
+    struct MemorySectionLimits;
+    struct TableSectionLimits;
 }
 
 namespace Js
@@ -69,21 +71,23 @@ public:
     uint32 GetMaxFunctionIndex() const;
     Wasm::FunctionIndexTypes::Type GetFunctionIndexType(uint32 funcIndex) const;
 
-    void InitializeMemory(uint32 minSize, uint32 maxSize);
+    void InitializeMemory(_In_ Wasm::MemorySectionLimits* memoryLimits);
     WebAssemblyMemory * CreateMemory() const;
     bool HasMemory() const { return m_hasMemory; }
     bool HasMemoryImport() const { return m_memImport != nullptr; }
+    bool IsSharedMemory() const { return m_memoryIsShared; }
     uint32 GetMemoryInitSize() const { return m_memoryInitSize; }
     uint32 GetMemoryMaxSize() const { return m_memoryMaxSize; }
 
     Wasm::WasmSignature * GetSignatures() const;
+    bool IsSignatureIndexValid(uint32 index) const;
     Wasm::WasmSignature* GetSignature(uint32 index) const;
     void SetSignatureCount(uint32 count);
     uint32 GetSignatureCount() const;
 
     uint32 GetEquivalentSignatureId(uint32 sigId) const;
 
-    void InitializeTable(uint32 minEntries, uint32 maxEntries);
+    void InitializeTable(_In_ Wasm::TableSectionLimits* tableLimits);
     WebAssemblyTable * CreateTable() const;
     bool HasTable() const { return m_hasTable; }
     bool HasTableImport() const { return m_tableImport != nullptr; }
@@ -100,7 +104,7 @@ public:
 
     void AllocateFunctionExports(uint32 entries);
     uint GetExportCount() const { return m_exportCount; }
-    void SetExport(uint32 iExport, uint32 funcIndex, const char16* exportName, uint32 nameLength, Wasm::ExternalKinds::ExternalKind kind);
+    void SetExport(uint32 iExport, uint32 funcIndex, const char16* exportName, uint32 nameLength, Wasm::ExternalKinds kind);
     Wasm::WasmExport* GetExport(uint32 iExport) const;
 
     uint32 GetImportCount() const;
@@ -158,10 +162,11 @@ public:
     virtual void Mark(Recycler * recycler) override;
 
 private:
-    static JavascriptString * GetExternalKindString(ScriptContext * scriptContext, Wasm::ExternalKinds::ExternalKind kind);
+    static JavascriptString * GetExternalKindString(ScriptContext * scriptContext, Wasm::ExternalKinds kind);
 
-    Field(bool) m_hasTable;
-    Field(bool) m_hasMemory;
+    Field(bool) m_hasTable : 1;
+    Field(bool) m_hasMemory : 1;
+    Field(bool) m_memoryIsShared : 1;
     // The binary buffer is recycler allocated, tied the lifetime of the buffer to the module
     Field(const byte*) m_binaryBuffer;
     Field(uint) m_binaryBufferLength;

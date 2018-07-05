@@ -5,9 +5,6 @@
 #include "RuntimeLibraryPch.h"
 #include "Library/EngineInterfaceObject.h"
 #include "Library/IntlEngineInterfaceExtensionObject.h"
-#ifdef ENABLE_BASIC_TELEMETRY
-#include "ScriptContextTelemetry.h"
-#endif
 
 namespace Js
 {
@@ -175,7 +172,7 @@ namespace Js
             }
             else
             {
-                Var value = JavascriptConversion::ToPrimitive(args[1], Js::JavascriptHint::None, scriptContext);
+                Var value = JavascriptConversion::ToPrimitive<Js::JavascriptHint::None>(args[1], scriptContext);
                 if (JavascriptString::Is(value))
                 {
                     timeValue = ParseHelper(scriptContext, JavascriptString::FromVar(value));
@@ -267,13 +264,13 @@ namespace Js
                     // Date objects, are unique among built-in ECMAScript object in that they treat "default" as being equivalent to "string"
                     // If hint is the string value "string" or the string value "default", then
                     // Let tryFirst be "string".
-                    return JavascriptConversion::OrdinaryToPrimitive(args[0], JavascriptHint::HintString/*tryFirst*/, scriptContext);
+                    return JavascriptConversion::OrdinaryToPrimitive<JavascriptHint::HintString>(RecyclableObject::UnsafeFromVar(args[0]), scriptContext);
                 }
                 // Else if hint is the string value "number", then
                 // Let tryFirst be "number".
                 else if(wcscmp(str, _u("number")) == 0)
                 {
-                    return JavascriptConversion::OrdinaryToPrimitive(args[0], JavascriptHint::HintNumber/*tryFirst*/, scriptContext);
+                    return JavascriptConversion::OrdinaryToPrimitive<JavascriptHint::HintNumber>(RecyclableObject::UnsafeFromVar(args[0]), scriptContext);
                 }
                 //anything else should throw a type error
             }
@@ -1307,7 +1304,7 @@ namespace Js
             return result;
         }
 
-        Var num = JavascriptConversion::ToPrimitive(thisObj, JavascriptHint::HintNumber, scriptContext);
+        Var num = JavascriptConversion::ToPrimitive<JavascriptHint::HintNumber>(thisObj, scriptContext);
         if (JavascriptNumber::Is(num)
             && !NumberUtilities::IsFinite(JavascriptNumber::GetValue(num)))
         {
@@ -1320,7 +1317,10 @@ namespace Js
             JavascriptError::ThrowTypeError(scriptContext, JSERR_Property_NeedFunction, scriptContext->GetPropertyName(PropertyIds::toISOString)->GetBuffer());
         }
         RecyclableObject* toISOFunc = RecyclableObject::FromVar(toISO);
-        return CALL_FUNCTION(scriptContext->GetThreadContext(), toISOFunc, CallInfo(1), thisObj);
+        return scriptContext->GetThreadContext()->ExecuteImplicitCall(toISOFunc, Js::ImplicitCall_Accessor, [=]()->Js::Var
+        {
+            return CALL_FUNCTION(scriptContext->GetThreadContext(), toISOFunc, CallInfo(1), thisObj);
+        });
     }
 
     Var JavascriptDate::EntryToLocaleDateString(RecyclableObject* function, CallInfo callInfo, ...)
@@ -1353,7 +1353,11 @@ namespace Js
                 JavascriptFunction* func = extensionObject->GetDateToLocaleDateString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return func->CallFunction(args);
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
 
                 // Initialize Date.prototype.toLocaleDateString
@@ -1361,7 +1365,11 @@ namespace Js
                 func = extensionObject->GetDateToLocaleDateString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return func->CallFunction(args);
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
             }
         }
@@ -1403,14 +1411,22 @@ namespace Js
                 JavascriptFunction* func = extensionObject->GetDateToLocaleString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return func->CallFunction(args);
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
                 // Initialize Date.prototype.toLocaleString
                 scriptContext->GetLibrary()->InitializeIntlForDatePrototype();
                 func = extensionObject->GetDateToLocaleString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return func->CallFunction(args);
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
             }
         }
@@ -1463,14 +1479,22 @@ namespace Js
                 JavascriptFunction* func = extensionObject->GetDateToLocaleTimeString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return func->CallFunction(args);
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
                 // Initialize Date.prototype.toLocaleTimeString
                 scriptContext->GetLibrary()->InitializeIntlForDatePrototype();
                 func = extensionObject->GetDateToLocaleTimeString();
                 if (func)
                 {
-                    return func->CallFunction(args);
+                    BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                    {
+                        return func->CallFunction(args);
+                    }
+                    END_SAFE_REENTRANT_CALL
                 }
             }
         }

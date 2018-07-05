@@ -21,8 +21,8 @@
 
 #include "src/circular-array.h"
 #include "src/feature.h"
-#include "src/ir.h"
 #include "src/intrusive-list.h"
+#include "src/ir.h"
 #include "src/wast-lexer.h"
 
 namespace wabt {
@@ -162,11 +162,11 @@ class WastParser {
   Result ParseBlockInstr(std::unique_ptr<Expr>*);
   Result ParseLabelOpt(std::string*);
   Result ParseEndLabelOpt(const std::string&);
+  Result ParseBlockDeclaration(BlockDeclaration*);
   Result ParseBlock(Block*);
+  Result ParseIfExceptHeader(IfExceptExpr*);
   Result ParseExprList(ExprList*);
   Result ParseExpr(ExprList*);
-  Result ParseCatchInstrList(CatchVector* catches);
-  Result ParseCatchExprList(CatchVector* catches);
   Result ParseGlobalType(Global*);
 
   template <typename T>

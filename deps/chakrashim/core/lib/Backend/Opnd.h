@@ -660,6 +660,16 @@ public:
     StackSym * GetObjectTypeSym() const { return this->m_sym->AsPropertySym()->GetObjectTypeSym(); };
     PropertySym* GetPropertySym() const { return this->m_sym->AsPropertySym(); }
 
+    StackSym *EnsureAuxSlotPtrSym(Func * func)
+    {
+        return this->GetPropertySym()->EnsureAuxSlotPtrSym(func);
+    }
+
+    StackSym *GetAuxSlotPtrSym() const
+    {
+        return this->GetPropertySym()->GetAuxSlotPtrSym();
+    }
+
     void TryDisableRuntimePolymorphicCache()
     {
         if (this->m_runtimePolymorphicInlineCache && (this->m_polyCacheUtil < PolymorphicInlineCacheUtilizationThreshold))
@@ -667,6 +677,8 @@ public:
             this->m_runtimePolymorphicInlineCache = nullptr;
         }
     }
+
+    bool ShouldUsePolyEquivTypeGuard(Func *const func) const;
 
     bool HasObjTypeSpecFldInfo() const
     {
@@ -1143,6 +1155,9 @@ public:
         this->finalType = JITTypeHolder(nullptr);
     }
 
+    bool NeedsAuxSlotPtrSymLoad() const;
+    void GenerateAuxSlotPtrSymLoad(IR::Instr * instrInsert);
+
     BVSparse<JitArenaAllocator>* GetGuardedPropOps()
     {
         return this->guardedPropOps;
@@ -1252,6 +1267,17 @@ public:
     {
         Assert(HasObjTypeSpecFldInfo());
         return this->objTypeSpecFldInfo->GetFirstEquivalentType();
+    }
+
+    void TryDepolymorphication(JITTypeHolder type, uint16 slotIndex, bool usesAuxSlot, uint16 * pNewSlotIndex, bool * pNewUsesAuxSlot, uint16 * checkedTypeSetIndex = nullptr) const
+    {
+        Assert(HasObjTypeSpecFldInfo());
+        return this->objTypeSpecFldInfo->TryDepolymorphication(type, slotIndex, usesAuxSlot, pNewSlotIndex, pNewUsesAuxSlot, checkedTypeSetIndex);
+    }
+
+    bool NeedsDepolymorphication() const
+    {
+        return this->objTypeSpecFldInfo != nullptr && this->objTypeSpecFldInfo->NeedsDepolymorphication();
     }
 
     bool IsObjectHeaderInlined() const;

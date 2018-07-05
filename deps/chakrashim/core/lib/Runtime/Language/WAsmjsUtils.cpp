@@ -10,12 +10,6 @@
 namespace WAsmJs
 {
 
-template<> Types RegisterSpace::GetRegisterSpaceType<int32>(){return WAsmJs::INT32;}
-template<> Types RegisterSpace::GetRegisterSpaceType<int64>(){return WAsmJs::INT64;}
-template<> Types RegisterSpace::GetRegisterSpaceType<float>(){return WAsmJs::FLOAT32;}
-template<> Types RegisterSpace::GetRegisterSpaceType<double>(){return WAsmJs::FLOAT64;}
-template<> Types RegisterSpace::GetRegisterSpaceType<AsmJsSIMDValue>(){return WAsmJs::SIMD;}
-
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
     namespace Tracing
     {
@@ -184,6 +178,12 @@ template<> Types RegisterSpace::GetRegisterSpaceType<AsmJsSIMDValue>(){return WA
         return WAsmJs::LIMIT;
     }
 
+    template<> Types FromPrimitiveType<int32>() { return WAsmJs::INT32; }
+    template<> Types FromPrimitiveType<int64>() { return WAsmJs::INT64; }
+    template<> Types FromPrimitiveType<float>() { return WAsmJs::FLOAT32; }
+    template<> Types FromPrimitiveType<double>() { return WAsmJs::FLOAT64; }
+    template<> Types FromPrimitiveType<AsmJsSIMDValue>() { return WAsmJs::SIMD; }
+
 #if DBG_DUMP
     void RegisterSpace::GetTypeDebugName(Types type, char16* buf, uint bufsize, bool shortName)
     {
@@ -288,6 +288,9 @@ template<> Types RegisterSpace::GetRegisterSpaceType<AsmJsSIMDValue>(){return WA
 #endif
             }
         }
+
+        // The offset currently carries the total size of the funcInfo after handling the last type
+        funcInfo->SetTotalSizeinBytes(offset);
 
         // These bytes offset already calculated the alignment, used them to determine how many Js::Var we need to do the allocation
         uint32 stackByteSize = offset;

@@ -39,6 +39,11 @@
   </test>
   <test>
     <default>
+      <files>clampNumericQuantifier.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>rx1.js</files>
       <baseline>rx1.baseline</baseline>
     </default>
@@ -159,7 +164,7 @@
       <files>BoiHardFail.js</files>
       <baseline>BoiHardFail.baseline</baseline>
       <compile-flags>-regexDebug</compile-flags>
-      <tags>exclude_fre,exclude_serialized</tags>
+      <tags>exclude_test,exclude_serialized</tags>
     </default>
   </test>
   <test>
@@ -215,6 +220,12 @@
   <test>
     <default>
       <files>bug_OS14763260.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>Bug15992535.js</files>
       <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>

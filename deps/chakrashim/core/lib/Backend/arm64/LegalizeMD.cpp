@@ -315,7 +315,41 @@ IR::Instr * LegalizeMD::LegalizeLoad(IR::Instr *instr, uint opndNum, LegalForms 
 
 void LegalizeMD::LegalizeIndirOffset(IR::Instr * instr, IR::IndirOpnd * indirOpnd, LegalForms forms, bool fPostRegAlloc)
 {
-   int32 offset = indirOpnd->GetOffset();
+    // For LEA, we have special handling of indiropnds
+    auto correctSize = [](IR::Instr* instr, IR::IndirOpnd* indirOpnd)
+    {
+        // If the base and index operands on an LEA are different sizes, grow the smaller one,
+        // matching the larger size but keeping the correct signedness for the type
+        IR::RegOpnd* baseOpnd = indirOpnd->GetBaseOpnd();
+        IR::RegOpnd* indexOpnd = indirOpnd->GetIndexOpnd();
+        if (   baseOpnd != nullptr
+            && indexOpnd != nullptr
+            && baseOpnd->GetSize() != indexOpnd->GetSize()
+            )
+        {
+            if (baseOpnd->GetSize() < indexOpnd->GetSize())
+            {
+                IRType largerType = indexOpnd->GetType();
+                Assert(IRType_IsSignedInt(largerType) || IRType_IsUnsignedInt(largerType));
+                IRType sourceType = baseOpnd->GetType();
+                IRType targetType = IRType_IsSignedInt(sourceType) ? IRType_EnsureSigned(largerType) : IRType_EnsureUnsigned(largerType);
+                IR::Instr* movInstr = Lowerer::InsertMove(baseOpnd->UseWithNewType(targetType, instr->m_func), baseOpnd, instr, false);
+                indirOpnd->SetBaseOpnd(movInstr->GetDst()->AsRegOpnd());
+            }
+            else
+            {
+                Assert(indexOpnd->GetSize() < baseOpnd->GetSize());
+                IRType largerType = baseOpnd->GetType();
+                Assert(IRType_IsSignedInt(largerType) || IRType_IsUnsignedInt(largerType));
+                IRType sourceType = indexOpnd->GetType();
+                IRType targetType = IRType_IsSignedInt(sourceType) ? IRType_EnsureSigned(largerType) : IRType_EnsureUnsigned(largerType);
+                IR::Instr* movInstr = Lowerer::InsertMove(indexOpnd->UseWithNewType(targetType, instr->m_func), indexOpnd, instr, false);
+                indirOpnd->SetIndexOpnd(movInstr->GetDst()->AsRegOpnd());
+            }
+        }
+    };
+
+    int32 offset = indirOpnd->GetOffset();
 
     if (indirOpnd->IsFloat())
     {
@@ -339,14 +373,20 @@ void LegalizeMD::LegalizeIndirOffset(IR::Instr * instr, IR::IndirOpnd * indirOpn
                 indexOpnd = newIndexOpnd;
             }
 
-            instr->HoistIndirIndexOpndAsAdd(indirOpnd, baseOpnd, indexOpnd, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
+            IR::Instr * instrAdd = Lowerer::HoistIndirIndexOpndAsAdd(instr, indirOpnd, baseOpnd, indexOpnd, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
+            LegalizeMD::LegalizeInstr(instrAdd, fPostRegAlloc);
         }
     }
-    else if (indirOpnd->GetIndexOpnd() != NULL && offset != 0)
+    else if (indirOpnd->GetIndexOpnd() != nullptr && offset != 0)
     {
         // Can't have both offset and index, so hoist the offset and try again.
-        IR::Instr *addInstr = instr->HoistIndirOffset(indirOpnd, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
+        IR::Instr *addInstr = Lowerer::HoistIndirOffset(instr, indirOpnd, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
         LegalizeMD::LegalizeInstr(addInstr, fPostRegAlloc);
+        if (instr->m_opcode == Js::OpCode::LEA)
+        {
+            AssertOrFailFastMsg(indirOpnd->GetBaseOpnd() != nullptr && indirOpnd->GetBaseOpnd()->GetSize() == TySize[TyMachPtr], "Base operand of LEA must have pointer-width!");
+            correctSize(instr, indirOpnd);
+        }
         return;
     }
 
@@ -368,8 +408,24 @@ void LegalizeMD::LegalizeIndirOffset(IR::Instr * instr, IR::IndirOpnd * indirOpn
     }
     if (forms & L_IndirU12Lsl12)
     {
-        if (IS_CONST_UINT12(offset) || IS_CONST_UINT12LSL12(offset))
+        // Only one opcode with this form right now
+        Assert(instr->m_opcode == Js::OpCode::LEA);
+        AssertOrFailFastMsg(indirOpnd->GetBaseOpnd() != nullptr && indirOpnd->GetBaseOpnd()->GetSize() == TySize[TyMachPtr], "Base operand of LEA must have pointer-width!");
+        if (offset != 0)
         {
+            // Should have already handled this case
+            Assert(indirOpnd->GetIndexOpnd() == nullptr);
+            if (IS_CONST_UINT12(offset) || IS_CONST_UINT12LSL12(offset))
+            {
+                return;
+            }
+        }
+        else
+        {
+            if (indirOpnd->GetIndexOpnd() != nullptr)
+            {
+                correctSize(instr, indirOpnd);
+            }
             return;
         }
     }
@@ -384,7 +440,7 @@ void LegalizeMD::LegalizeIndirOffset(IR::Instr * instr, IR::IndirOpnd * indirOpn
     }
 
     // Offset is too large, so hoist it and replace it with an index
-    IR::Instr *addInstr = instr->HoistIndirOffset(indirOpnd, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
+    IR::Instr *addInstr = Lowerer::HoistIndirOffset(instr, indirOpnd, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
     LegalizeMD::LegalizeInstr(addInstr, fPostRegAlloc);
 }
 
@@ -407,7 +463,24 @@ void LegalizeMD::LegalizeSymOffset(
     EncoderMD::BaseAndOffsetFromSym(symOpnd, &baseReg, &offset, instr->m_func->GetTopFunc());
 
     // Determine scale factor for scaled offsets
-    int scale = (symOpnd->GetType() == TyFloat64) ? 3 : 2;
+    int scale;
+    if (symOpnd->GetSize() == 8)
+    {
+        scale = 3;
+    }
+    else if (symOpnd->GetSize() == 4)
+    {
+        scale = 2;
+    }
+    else if (symOpnd->GetSize() == 2)
+    {
+        scale = 1;
+    }
+    else
+    {
+        scale = 0;
+    }
+
     int32 scaledOffset = offset >> scale;
     
     // Either scaled unsigned 12-bit offset, or unscaled signed 9-bit offset
@@ -453,7 +526,7 @@ void LegalizeMD::LegalizeSymOffset(
     }
     else
     {
-        newInstr = instr->HoistSymOffset(symOpnd, baseReg, offset, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
+        newInstr = Lowerer::HoistSymOffset(instr, symOpnd, baseReg, offset, fPostRegAlloc ? SCRATCH_REG : RegNOREG);
         LegalizeMD::LegalizeInstr(newInstr, fPostRegAlloc);
     }
 }

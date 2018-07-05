@@ -22,8 +22,8 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <vector>
 #include <type_traits>
+#include <vector>
 
 #include "src/binding-hash.h"
 #include "src/common.h"
@@ -43,8 +43,8 @@ struct Var {
   explicit Var(string_view name, const Location& loc = Location());
   Var(Var&&);
   Var(const Var&);
-  Var& operator =(const Var&);
-  Var& operator =(Var&&);
+  Var& operator=(const Var&);
+  Var& operator=(Var&&);
   ~Var();
 
   VarType type() const { return type_; }
@@ -101,7 +101,7 @@ struct Const {
     uint64_t u64;
     uint32_t f32_bits;
     uint64_t f64_bits;
-    v128     v128_bits;
+    v128 v128_bits;
   };
 
  private:
@@ -133,7 +133,6 @@ struct FuncSignature {
 };
 
 struct FuncType {
-  FuncType() = default;
   explicit FuncType(string_view name) : name(name.to_string()) {}
 
   Index GetNumParams() const { return sig.GetNumParams(); }
@@ -173,24 +172,28 @@ enum class ExprType {
   Compare,
   Const,
   Convert,
-  CurrentMemory,
   Drop,
   GetGlobal,
   GetLocal,
-  GrowMemory,
   If,
+  IfExcept,
   Load,
   Loop,
+  MemoryGrow,
+  MemorySize,
   Nop,
   Rethrow,
   Return,
   Select,
   SetGlobal,
   SetLocal,
+  SimdLaneOp,
+  SimdShuffleOp,
   Store,
   TeeLocal,
+  Ternary,
   Throw,
-  TryBlock,
+  Try,
   Unary,
   Unreachable,
 
@@ -200,33 +203,20 @@ enum class ExprType {
 
 const char* GetExprTypeName(ExprType type);
 
-typedef TypeVector BlockSignature;
-
 class Expr;
 typedef intrusive_list<Expr> ExprList;
+
+typedef FuncDeclaration BlockDeclaration;
 
 struct Block {
   Block() = default;
   explicit Block(ExprList exprs) : exprs(std::move(exprs)) {}
 
   std::string label;
-  BlockSignature sig;
+  BlockDeclaration decl;
   ExprList exprs;
+  Location end_loc;
 };
-
-struct Catch {
-  explicit Catch(const Location& loc = Location()) : loc(loc) {}
-  explicit Catch(const Var& var, const Location& loc = Location())
-      : loc(loc), var(var) {}
-  Location loc;
-  Var var;
-  ExprList exprs;
-  bool IsCatchAll() const {
-    return var.is_index() && var.index() == kInvalidIndex;
-  }
-};
-
-typedef std::vector<Catch> CatchVector;
 
 class Expr : public intrusive_list_base<Expr> {
  public:
@@ -255,10 +245,11 @@ class ExprMixin : public Expr {
   explicit ExprMixin(const Location& loc = Location()) : Expr(TypeEnum, loc) {}
 };
 
-typedef ExprMixin<ExprType::CurrentMemory> CurrentMemoryExpr;
 typedef ExprMixin<ExprType::Drop> DropExpr;
-typedef ExprMixin<ExprType::GrowMemory> GrowMemoryExpr;
+typedef ExprMixin<ExprType::MemoryGrow> MemoryGrowExpr;
+typedef ExprMixin<ExprType::MemorySize> MemorySizeExpr;
 typedef ExprMixin<ExprType::Nop> NopExpr;
+typedef ExprMixin<ExprType::Rethrow> RethrowExpr;
 typedef ExprMixin<ExprType::Return> ReturnExpr;
 typedef ExprMixin<ExprType::Select> SelectExpr;
 typedef ExprMixin<ExprType::Unreachable> UnreachableExpr;
@@ -276,6 +267,25 @@ typedef OpcodeExpr<ExprType::Binary> BinaryExpr;
 typedef OpcodeExpr<ExprType::Compare> CompareExpr;
 typedef OpcodeExpr<ExprType::Convert> ConvertExpr;
 typedef OpcodeExpr<ExprType::Unary> UnaryExpr;
+typedef OpcodeExpr<ExprType::Ternary> TernaryExpr;
+
+class SimdLaneOpExpr : public ExprMixin<ExprType::SimdLaneOp> {
+ public:
+  SimdLaneOpExpr(Opcode opcode, uint64_t val, const Location& loc = Location())
+      : ExprMixin<ExprType::SimdLaneOp>(loc), opcode(opcode), val(val) {}
+
+  Opcode opcode;
+  uint64_t val;
+};
+
+class SimdShuffleOpExpr : public ExprMixin<ExprType::SimdShuffleOp> {
+ public:
+  SimdShuffleOpExpr(Opcode opcode, v128 val, const Location& loc = Location())
+      : ExprMixin<ExprType::SimdShuffleOp>(loc), opcode(opcode), val(val) {}
+
+  Opcode opcode;
+  v128 val;
+};
 
 template <ExprType TypeEnum>
 class VarExpr : public ExprMixin<TypeEnum> {
@@ -291,7 +301,6 @@ typedef VarExpr<ExprType::BrIf> BrIfExpr;
 typedef VarExpr<ExprType::Call> CallExpr;
 typedef VarExpr<ExprType::GetGlobal> GetGlobalExpr;
 typedef VarExpr<ExprType::GetLocal> GetLocalExpr;
-typedef VarExpr<ExprType::Rethrow> RethrowExpr;
 typedef VarExpr<ExprType::SetGlobal> SetGlobalExpr;
 typedef VarExpr<ExprType::SetLocal> SetLocalExpr;
 typedef VarExpr<ExprType::TeeLocal> TeeLocalExpr;
@@ -324,15 +333,27 @@ class IfExpr : public ExprMixin<ExprType::If> {
 
   Block true_;
   ExprList false_;
+  Location false_end_loc;
 };
 
-class TryExpr : public ExprMixin<ExprType::TryBlock> {
+class IfExceptExpr : public ExprMixin<ExprType::IfExcept> {
+ public:
+  explicit IfExceptExpr(const Location& loc = Location())
+      : ExprMixin<ExprType::IfExcept>(loc) {}
+
+  Block true_;
+  ExprList false_;
+  Location false_end_loc;
+  Var except_var;
+};
+
+class TryExpr : public ExprMixin<ExprType::Try> {
  public:
   explicit TryExpr(const Location& loc = Location())
-      : ExprMixin<ExprType::TryBlock>(loc) {}
+      : ExprMixin<ExprType::Try>(loc) {}
 
   Block block;
-  CatchVector catches;
+  ExprList catch_;
 };
 
 class BrTableExpr : public ExprMixin<ExprType::BrTable> {
@@ -380,19 +401,79 @@ typedef LoadStoreExpr<ExprType::AtomicWait> AtomicWaitExpr;
 typedef LoadStoreExpr<ExprType::AtomicWake> AtomicWakeExpr;
 
 struct Exception {
-  Exception() = default;
   explicit Exception(string_view name) : name(name.to_string()) {}
 
   std::string name;
   TypeVector sig;
 };
 
+class LocalTypes {
+ public:
+  typedef std::pair<Type, Index> Decl;
+  typedef std::vector<Decl> Decls;
+
+  struct const_iterator {
+    const_iterator(Decls::const_iterator decl, Index index)
+        : decl(decl), index(index) {}
+    Type operator*() const { return decl->first; }
+    const_iterator& operator++();
+    const_iterator operator++(int);
+
+    Decls::const_iterator decl;
+    Index index;
+  };
+
+  void Set(const TypeVector&);
+
+  const Decls& decls() const { return decls_; }
+
+  void AppendDecl(Type type, Index count) {
+    assert(count > 0);
+    decls_.emplace_back(type, count);
+  }
+
+  Index size() const;
+  Type operator[](Index) const;
+
+  const_iterator begin() const { return {decls_.begin(), 0}; }
+  const_iterator end() const { return {decls_.end(), 0}; }
+
+ private:
+  Decls decls_;
+};
+
+inline LocalTypes::const_iterator& LocalTypes::const_iterator::operator++() {
+  ++index;
+  if (index >= decl->second) {
+    ++decl;
+    index = 0;
+  }
+  return *this;
+}
+
+inline LocalTypes::const_iterator LocalTypes::const_iterator::operator++(int) {
+  const_iterator result = *this;
+  operator++();
+  return result;
+}
+
+inline bool operator==(const LocalTypes::const_iterator& lhs,
+                       const LocalTypes::const_iterator& rhs) {
+  return lhs.decl == rhs.decl && lhs.index == rhs.index;
+}
+
+inline bool operator!=(const LocalTypes::const_iterator& lhs,
+                       const LocalTypes::const_iterator& rhs) {
+  return !operator==(lhs, rhs);
+}
+
 struct Func {
-  Func() = default;
   explicit Func(string_view name) : name(name.to_string()) {}
 
   Type GetParamType(Index index) const { return decl.GetParamType(index); }
   Type GetResultType(Index index) const { return decl.GetResultType(index); }
+  Type GetLocalType(Index index) const;
+  Type GetLocalType(const Var& var) const;
   Index GetNumParams() const { return decl.GetNumParams(); }
   Index GetNumLocals() const { return local_types.size(); }
   Index GetNumParamsAndLocals() const {
@@ -403,14 +484,13 @@ struct Func {
 
   std::string name;
   FuncDeclaration decl;
-  TypeVector local_types;
+  LocalTypes local_types;
   BindingHash param_bindings;
   BindingHash local_bindings;
   ExprList exprs;
 };
 
 struct Global {
-  Global() = default;
   explicit Global(string_view name) : name(name.to_string()) {}
 
   std::string name;
@@ -420,7 +500,6 @@ struct Global {
 };
 
 struct Table {
-  Table() = default;
   explicit Table(string_view name) : name(name.to_string()) {}
 
   std::string name;
@@ -434,7 +513,6 @@ struct ElemSegment {
 };
 
 struct Memory {
-  Memory() = default;
   explicit Memory(string_view name) : name(name.to_string()) {}
 
   std::string name;
@@ -640,7 +718,7 @@ class MemoryModuleField : public ModuleFieldMixin<ModuleFieldType::Memory> {
 class DataSegmentModuleField
     : public ModuleFieldMixin<ModuleFieldType::DataSegment> {
  public:
-  explicit DataSegmentModuleField( const Location& loc = Location())
+  explicit DataSegmentModuleField(const Location& loc = Location())
       : ModuleFieldMixin<ModuleFieldType::DataSegment>(loc) {}
 
   DataSegment data_segment;
@@ -657,8 +735,7 @@ class ExceptionModuleField : public ModuleFieldMixin<ModuleFieldType::Except> {
 
 class StartModuleField : public ModuleFieldMixin<ModuleFieldType::Start> {
  public:
-  explicit StartModuleField(Var start = Var(),
-                            const Location& loc = Location())
+  explicit StartModuleField(Var start = Var(), const Location& loc = Location())
       : ModuleFieldMixin<ModuleFieldType::Start>(loc), start(start) {}
 
   Var start;
@@ -674,8 +751,10 @@ struct Module {
   const Func* GetFunc(const Var&) const;
   Func* GetFunc(const Var&);
   Index GetTableIndex(const Var&) const;
+  const Table* GetTable(const Var&) const;
   Table* GetTable(const Var&);
   Index GetMemoryIndex(const Var&) const;
+  const Memory* GetMemory(const Var&) const;
   Memory* GetMemory(const Var&);
   Index GetGlobalIndex(const Var&) const;
   const Global* GetGlobal(const Var&) const;
@@ -953,8 +1032,8 @@ struct Script {
 };
 
 void MakeTypeBindingReverseMapping(
-    const TypeVector& types,
-    const BindingHash&  bindings,
+    size_t num_types,
+    const BindingHash& bindings,
     std::vector<std::string>* out_reverse_mapping);
 
 }  // namespace wabt

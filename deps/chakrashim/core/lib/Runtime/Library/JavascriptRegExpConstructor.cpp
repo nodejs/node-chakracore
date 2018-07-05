@@ -36,11 +36,11 @@ namespace Js
         }
     }
 
-    BOOL JavascriptRegExpConstructor::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, ForInCache * forInCache)
+    BOOL JavascriptRegExpConstructor::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext* requestContext, EnumeratorCache * enumeratorCache)
     {
         return GetEnumeratorWithPrefix(
             RecyclerNew(GetScriptContext()->GetRecycler(), JavascriptRegExpEnumerator, this, flags, requestContext),
-            enumerator, flags, requestContext, forInCache);
+            enumerator, flags, requestContext, enumeratorCache);
     }
 
     void JavascriptRegExpConstructor::SetLastMatch(UnifiedRegex::RegexPattern* lastPattern, JavascriptString* lastInput, UnifiedRegex::GroupInfo lastMatch)
@@ -92,7 +92,6 @@ namespace Js
 
             Assert(!lastMatch.IsUndefined());
             JavascriptString* emptyString = scriptContext->GetLibrary()->GetEmptyString();
-            // IE8 quirk: match of length 0 is regarded as length 1
             CharCount lastIndexVal = lastMatch.EndOffset();
             this->index = JavascriptNumber::ToVar(lastMatch.offset, scriptContext);
             this->lastIndex = JavascriptNumber::ToVar(lastIndexVal, scriptContext);
@@ -174,7 +173,7 @@ namespace Js
         PropertyIds::index,
     };
 
-    PropertyQueryFlags JavascriptRegExpConstructor::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags JavascriptRegExpConstructor::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
         switch (propertyId)
         {
@@ -200,7 +199,7 @@ namespace Js
         case PropertyIds::$9:
             return PropertyQueryFlags::Property_Found;
         default:
-            return JavascriptFunction::HasPropertyQuery(propertyId);
+            return JavascriptFunction::HasPropertyQuery(propertyId, info);
         }
     }
 

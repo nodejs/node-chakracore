@@ -71,7 +71,7 @@ namespace Js
         {
             if (TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId))
             {
-                requestContext->GetTelemetry().GetOpcodeTelemetry().GetProperty(objectWithProperty, propertyId, nullptr, !isMissing);
+                requestContext->GetTelemetry().GetOpcodeTelemetry().GetProperty(objectWithProperty, propertyId, nullptr);
             }
         }
 #endif
@@ -108,12 +108,12 @@ namespace Js
         PropertyId propertyId,
         ScriptContext* requestContext)
     {
-        if (!info || !CacheOperators::CanCachePropertyRead(info, info->GetInstance(), requestContext))
+        RecyclableObject* originalObj = JavascriptOperators::TryFromVar<RecyclableObject>(originalInstance);
+        if (!info || !originalObj || !CacheOperators::CanCachePropertyRead(info, info->GetInstance(), requestContext))
         {
             return;
         }
 
-        Assert(RecyclableObject::Is(originalInstance));
         Assert(DynamicType::Is(info->GetInstance()->GetTypeId()));
 
         DynamicObject * dynamicInstance = DynamicObject::FromVar(info->GetInstance());
@@ -122,11 +122,7 @@ namespace Js
         dynamicInstance->GetDynamicType()->GetTypeHandler()->PropertyIndexToInlineOrAuxSlotIndex(info->GetPropertyIndex(), &slotIndex, &isInlineSlot);
 
         const bool isProto = info->GetInstance() != originalInstance;
-        if(isProto &&
-            (
-                !RecyclableObject::Is(originalInstance) ||
-                RecyclableObject::FromVar(originalInstance)->GetScriptContext() != requestContext
-            ))
+        if (isProto && originalObj->GetScriptContext() != requestContext)
         {
             // Don't need to cache if the beginning property is number etc.
             return;
@@ -137,7 +133,7 @@ namespace Js
         {
             if (TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId))
             {
-                requestContext->GetTelemetry().GetOpcodeTelemetry().GetProperty(info->GetInstance(), propertyId, nullptr, true /* true, because if a getter is being evaluated then the property does exist. */);
+                requestContext->GetTelemetry().GetOpcodeTelemetry().GetProperty(info->GetInstance(), propertyId, nullptr);
             }
         }
 #endif
@@ -147,7 +143,7 @@ namespace Js
             isProto,
             dynamicInstance,
             false,
-            RecyclableObject::FromVar(originalInstance)->GetType(),
+            originalObj->GetType(),
             nullptr,
             propertyId,
             slotIndex,
@@ -234,8 +230,11 @@ namespace Js
                 DynamicTypeHandler* oldTypeHandler = oldType->GetTypeHandler();
                 DynamicTypeHandler* newTypeHandler = newType->GetTypeHandler();
 
-                // the newType is a path-type so the old one should be too:
-                Assert(oldTypeHandler->IsPathTypeHandler());
+                // This may be the transition from deferred type handler to path type handler. Don't try to cache now.
+                if (!oldTypeHandler->IsPathTypeHandler())
+                {
+                    return;
+                }
 
                 int oldCapacity = oldTypeHandler->GetSlotCapacity();
                 int newCapacity = newTypeHandler->GetSlotCapacity();
@@ -243,7 +242,8 @@ namespace Js
 
                 // We are adding only one property here.  If some other properties were added as a side effect on the slow path
                 // we should never cache the type transition, as the other property slots will not be populated by the fast path.
-                AssertMsg(((PathTypeHandlerBase *)oldTypeHandler)->GetPropertyCount() + 1 == ((PathTypeHandlerBase *)newTypeHandler)->GetPropertyCount(),
+                AssertMsg(((PathTypeHandlerBase *)oldTypeHandler)->GetPropertyCount() + 1 == ((PathTypeHandlerBase *)newTypeHandler)->GetPropertyCount() ||
+                          ((PathTypeHandlerBase *)oldTypeHandler)->GetPropertyCount() == ((PathTypeHandlerBase *)newTypeHandler)->GetPropertyCount(),
                     "Don't cache type transitions that add multiple properties.");
 
                 // InlineCache::TrySetProperty assumes the following invariants to decide if and how to adjust auxiliary slot capacity.

@@ -6,6 +6,7 @@
 // This file contains stubs needed to make FunctionExecutionTest successfully compile and link as well
 // as a means to emulate behavior of objects that interact with FunctionExecutionStateMachine
 
+#include "..\..\lib\Common\Warnings.h"
 #include "..\..\lib\Common\Core\CommonMinMax.h"
 
 #define ENUM_CLASS_HELPERS(x, y)
@@ -18,6 +19,7 @@
 #define PHASE_FORCE(foo, bar) false
 #define NewSimpleJit 1
 #define FullJitPhase 2
+#undef DEFAULT_CONFIG_MinSimpleJitIterations
 #define DEFAULT_CONFIG_MinSimpleJitIterations 0
 
 namespace FunctionExecutionTest

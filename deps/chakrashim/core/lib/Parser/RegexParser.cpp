@@ -118,7 +118,7 @@ namespace UnifiedRegex
         , ArenaAllocator* ctAllocator
         , StandardChars<EncodedChar>* standardEncodedChars
         , StandardChars<Char>* standardChars
-        , bool isFromExternalSource
+        , bool isUtf8
 #if ENABLE_REGEX_CONFIG_OPTIONS
         , DebugWriter* w
 #endif
@@ -151,8 +151,7 @@ namespace UnifiedRegex
         , deferredIfNotUnicodeError(nullptr)
         , deferredIfUnicodeError(nullptr)
     {
-        if (isFromExternalSource)
-            this->FromExternalSource();
+        this->SetIsUtf8(isUtf8);
     }
 
     //
@@ -258,6 +257,7 @@ namespace UnifiedRegex
 
             if (codePoint > 0x10FFFF)
             {
+                DeferredFailIfUnicode(JSERR_RegExpInvalidEscape);
                 return 0;
             }
             i++;
@@ -1121,16 +1121,40 @@ namespace UnifiedRegex
             if (!standardEncodedChars->IsDigit(ec))
             {
                 if (digits == 0)
+                {
                     Fail(JSERR_RegExpSyntax);
+                }
+
                 return n;
             }
+
             if (n > MaxCharCount / 10)
-                Fail(JSERR_RegExpSyntax);
+            {
+                break;
+            }
+
             n *= 10;
             if (n > MaxCharCount - standardEncodedChars->DigitValue(ec))
-                Fail(JSERR_RegExpSyntax);
+            {
+                break;
+            }
+
             n += standardEncodedChars->DigitValue(ec);
             digits++;
+            ECConsume();
+        }
+
+        Assert(digits != 0); // shouldn't be able to reach here with (digits == 0)
+
+        // The token had a value larger than MaxCharCount so we didn't return the value and reached here instead.
+        // Consume the rest of the token and return MaxCharCount.
+        while (true)
+        {
+            EncodedChar ec = ECLookahead();
+            if (!standardEncodedChars->IsDigit(ec))
+            {
+                return MaxCharCount;
+            }
             ECConsume();
         }
     }
@@ -2715,7 +2739,7 @@ namespace UnifiedRegex
                     }
                     flags = (RegexFlags)(flags | UnicodeRegexFlag);
                     // For telemetry
-                    CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(UnicodeRegexFlag, scriptContext);
+                    CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, UnicodeRegexFlag, scriptContext);
 
                     break;
                 }
@@ -2728,7 +2752,7 @@ namespace UnifiedRegex
                     }
                     flags = (RegexFlags)(flags | StickyRegexFlag);
                     // For telemetry
-                    CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(StickyRegexFlag, scriptContext);
+                    CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, StickyRegexFlag, scriptContext);
 
                     break;
                 }
@@ -2981,8 +3005,8 @@ namespace UnifiedRegex
 #ifdef PROFILE_EXEC
         this->scriptContext->ProfileEnd(Js::RegexCompilePhase);
 #endif
-
-        AssertOrFailFast(0 < pattern->NumGroups() && pattern->NumGroups() <= MAX_NUM_GROUPS);
+        // CaptureSourceAndGroups throws if this condition doesn't hold.
+        Assert(0 < pattern->NumGroups() && pattern->NumGroups() <= MAX_NUM_GROUPS);
 
         return pattern;
     }
@@ -3014,9 +3038,17 @@ namespace UnifiedRegex
         program->source[bodyChars] = 0;
         program->sourceLen = bodyChars;
 
-        program->numGroups = nextGroupId;
-
-        AssertOrFailFast(0 < program->numGroups && program->numGroups <= MAX_NUM_GROUPS);
+        // We expect nextGroupId to be positive, because the full regexp itself always
+        // counts as a capturing group.
+        Assert(nextGroupId > 0);
+        if (nextGroupId > MAX_NUM_GROUPS)
+        {
+            Js::JavascriptError::ThrowRangeError(this->scriptContext, JSERR_RegExpTooManyCapturingGroups);
+        }
+        else
+        {
+            program->numGroups = static_cast<uint16>(nextGroupId);
+        }
 
         // Remaining to set during compilation: litbuf, litbufLen, numLoops, insts, instsLen, entryPointLabel
     }

@@ -37,10 +37,12 @@ private:
     void ProcessTransfers(IR::Instr * instr);
     void ProcessFieldKills(IR::Instr * instr);
     template<typename T> void ClearBucketsOnFieldKill(IR::Instr *instr, HashTable<T> *table);
-    void ProcessFieldHoistKills(IR::Instr * instr);
+    StackSym* ProcessByteCodeUsesDst(IR::ByteCodeUsesInstr * byteCodeUsesInstr);
+    const BVSparse<JitArenaAllocator>* ProcessByteCodeUsesSrcs(IR::ByteCodeUsesInstr * byteCodeUsesInstr);
+    bool ProcessByteCodeUsesInstr(IR::Instr * instr);
     bool ProcessBailOutInfo(IR::Instr * instr);
     void ProcessBailOutInfo(IR::Instr * instr, BailOutInfo * bailOutInfo);
-    void ProcessPendingPreOpBailOutInfo(IR::Instr *const currentInstr);
+    IR::Instr* ProcessPendingPreOpBailOutInfo(IR::Instr *const currentInstr);
     void ProcessBailOutArgObj(BailOutInfo * bailOutInfo, BVSparse<JitArenaAllocator> * byteCodeUpwardExposedUsed);
     void ProcessBailOutConstants(BailOutInfo * bailOutInfo, BVSparse<JitArenaAllocator> * byteCodeUpwardExposedUsed, BVSparse<JitArenaAllocator>* argSymsBv);
     void ProcessBailOutCopyProps(BailOutInfo * bailOutInfo, BVSparse<JitArenaAllocator> * byteCodeUpwardExposedUsed, BVSparse<JitArenaAllocator>* argSymsBv);
@@ -107,8 +109,6 @@ private:
 
     bool DoByteCodeUpwardExposedUsed() const;
     void DoSetDead(IR::Opnd * opnd, bool isDead) const;
-    bool DoFieldHoistCandidates() const;
-    bool DoFieldHoistCandidates(Loop * loop) const;
     bool DoMarkTempObjects() const;
     bool DoMarkTempNumbers() const;
     bool DoMarkTempNumbersOnTempObjects() const;
@@ -181,9 +181,16 @@ private:
     BVSparse<JitArenaAllocator> * intOverflowDoesNotMatterInRangeBySymId;
     BVSparse<JitArenaAllocator> * candidateSymsRequiredToBeInt;
     BVSparse<JitArenaAllocator> * candidateSymsRequiredToBeLossyInt;
-    StackSym *considerSymAsRealUseInNoImplicitCallUses;
+    StackSym * considerSymAsRealUseInNoImplicitCallUses;
     bool intOverflowCurrentlyMattersInRange;
     bool isCollectionPass;
+    enum class CollectionPassSubPhase
+    {
+        None,
+        FirstPass,
+        SecondPass
+    } collectionPassSubPhase;
+    bool isLoopPrepass;
 
     class FloatSymEquivalenceClass
     {

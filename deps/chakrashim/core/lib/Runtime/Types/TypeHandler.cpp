@@ -4,8 +4,8 @@
 //-------------------------------------------------------------------------------------------------------
 #include "RuntimeTypePch.h"
 
-namespace Js
-{
+using namespace Js;
+
     BigPropertyIndex
     DynamicTypeHandler::GetPropertyIndexFromInlineSlotIndex(uint inlineSlot)
     {
@@ -636,6 +636,7 @@ namespace Js
         const PropertyIndex newInlineSlotCapacity,
         const int newAuxSlotCapacity)
     {
+        JIT_HELPER_NOT_REENTRANT_NOLOCK_HEADER(AdjustSlots);
         Assert(object);
 
         // The JIT may call AdjustSlots multiple times on the same object, even after changing its type to the new type. Check
@@ -649,6 +650,7 @@ namespace Js
         }
 
         AdjustSlots(object, newInlineSlotCapacity, newAuxSlotCapacity);
+        JIT_HELPER_END(AdjustSlots);
     }
 
     void DynamicTypeHandler::AdjustSlots(
@@ -735,6 +737,15 @@ namespace Js
     bool DynamicTypeHandler::CanBeSingletonInstance(DynamicObject * instance)
     {
         return !ThreadContext::IsOnStack(instance);
+    }
+
+    Var DynamicTypeHandler::CanonicalizeAccessor(Var accessor, /*const*/ JavascriptLibrary* library)
+    {
+        if (accessor == nullptr || JavascriptOperators::IsUndefinedObject(accessor))
+        {
+            accessor = library->GetDefaultAccessorFunction();
+        }
+        return accessor;
     }
 
     BOOL DynamicTypeHandler::DeleteProperty(DynamicObject* instance, JavascriptString* propertyNameString, PropertyOperationFlags flags)
@@ -833,6 +844,7 @@ namespace Js
         Output::Print(_u("%*spropertyTypes: 0x%02x "), fieldIndent, padding, this->propertyTypes);
         if (this->propertyTypes & PropertyTypesReserved) Output::Print(_u("PropertyTypesReserved "));
         if (this->propertyTypes & PropertyTypesWritableDataOnly) Output::Print(_u("PropertyTypesWritableDataOnly "));
+        if (this->propertyTypes & PropertyTypesHasSpecialProperties) Output::Print(_u("PropertyTypesHasSpecialProperties "));
         if (this->propertyTypes & PropertyTypesWritableDataOnlyDetection) Output::Print(_u("PropertyTypesWritableDataOnlyDetection "));
         if (this->propertyTypes & PropertyTypesInlineSlotCapacityLocked) Output::Print(_u("PropertyTypesInlineSlotCapacityLocked "));
         Output::Print(_u("\n"));
@@ -855,4 +867,3 @@ namespace Js
         Output::Print(_u("%*sisNotPathTypeHandlerOrHasUserDefinedCtor: %d\n"), fieldIndent, padding, static_cast<int>(this->isNotPathTypeHandlerOrHasUserDefinedCtor));
     }
 #endif
-}

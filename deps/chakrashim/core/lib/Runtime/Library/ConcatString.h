@@ -6,6 +6,11 @@
 
 namespace Js
 {
+    // Upon construction, LiteralStringWithPropertyStringPtr is guaranteed to point to a recycler-allocated
+    // buffer, so it passes the LiteralString assertions. However, upon receiving a property record pointer,
+    // this object will update to point to the copy of its data in that property record, meaning that using
+    // this class is just like using PropertyString: you can't take a reference to the underlying buffer via
+    // GetSz or GetString, drop the reference to the owning string, and expect the buffer to stay alive.
     class LiteralStringWithPropertyStringPtr : public LiteralString
     {
     private:
@@ -14,6 +19,12 @@ namespace Js
 
     public:
         virtual void GetPropertyRecord(_Out_ PropertyRecord const** propRecord, bool dontLookupFromDictionary = false) override;
+        void GetPropertyRecordImpl(_Out_ PropertyRecord const** propRecord, bool dontLookupFromDictionary = false);
+        virtual void CachePropertyRecord(_In_ PropertyRecord const* propertyRecord) override;
+        void CachePropertyRecordImpl(_In_ PropertyRecord const* propertyRecord);
+        virtual void const * GetOriginalStringReference() override;
+
+        virtual RecyclableObject* CloneToScriptContext(ScriptContext* requestContext) override;
 
         bool HasPropertyRecord() const { return propertyRecord != nullptr; }
 
@@ -71,7 +82,7 @@ namespace Js
     // Usage pattern:
     //   // Create concat tree using one of non-abstract derived classes.
     //   JavascriptString* result = concatTree->GetString();    // At this time we flatten the tree into 1 actual wchat_t* string.
-    class ConcatStringBase _ABSTRACT : public LiteralString // vtable will be switched to LiteralString's vtable after flattening
+    class ConcatStringBase : public LiteralString // vtable will be switched to LiteralString's vtable after flattening
     {
         friend JavascriptString;
 

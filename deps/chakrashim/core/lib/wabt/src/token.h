@@ -33,111 +33,13 @@ struct Literal {
 };
 
 enum class TokenType {
-  // Tokens with no additional data (i.e. bare).
-  Invalid,
-  Anyfunc,
-  AssertExhaustion,
-  AssertInvalid,
-  AssertMalformed,
-  AssertReturn,
-  AssertReturnArithmeticNan,
-  AssertReturnCanonicalNan,
-  AssertTrap,
-  AssertUnlinkable,
-  Bin,
-  Data,
-  Elem,
-  Eof,
-  Except,
-  Export,
-  Func,
-  Get,
-  Global,
-  Import,
-  Invoke,
-  Local,
-  Lpar,
-  Memory,
-  Module,
-  Mut,
-  Offset,
-  Param,
-  Quote,
-  Register,
-  Result,
-  Rpar,
-  Shared,
-  Start,
-  Table,
-  Then,
-  Type,
-  First_Bare = Invalid,
-  Last_Bare = Type,
-
-  // Tokens with Literal data.
-  Float,
-  Int,
-  Nat,
-  First_Literal = Float,
-  Last_Literal = Nat,
-
-  // Tokens with Opcode data.
-  AtomicLoad,
-  AtomicRmw,
-  AtomicRmwCmpxchg,
-  AtomicStore,
-  AtomicWait,
-  AtomicWake,
-  Binary,
-  Block,
-  Br,
-  BrIf,
-  BrTable,
-  Call,
-  CallIndirect,
-  Catch,
-  CatchAll,
-  Compare,
-  Const,
-  Convert,
-  CurrentMemory,
-  Drop,
-  Else,
-  End,
-  GetGlobal,
-  GetLocal,
-  GrowMemory,
-  If,
-  Load,
-  Loop,
-  Nop,
-  Rethrow,
-  Return,
-  Select,
-  SetGlobal,
-  SetLocal,
-  Store,
-  TeeLocal,
-  Throw,
-  Try,
-  Unary,
-  Unreachable,
-  First_Opcode = AtomicLoad,
-  Last_Opcode = Unreachable,
-
-  // Tokens with string data.
-  AlignEqNat,
-  OffsetEqNat,
-  Reserved,
-  Text,
-  Var,
-  First_String = AlignEqNat,
-  Last_String = Var,
-
-  // Tokens with Type data.
-  ValueType,
-  First_Type = ValueType,
-  Last_Type = ValueType,
+#define WABT_TOKEN(name, string) name,
+#define WABT_TOKEN_FIRST(group, first) First_##group = first,
+#define WABT_TOKEN_LAST(group, last) Last_##group = last,
+#include "token.def"
+#undef WABT_TOKEN
+#undef WABT_TOKEN_FIRST
+#undef WABT_TOKEN_LAST
 
   First = First_Bare,
   Last = Last_Type,
@@ -196,9 +98,15 @@ struct Token {
     return text_;
   }
 
-  Type type() const { assert(HasType()); return type_; }
+  Type type() const {
+    assert(HasType());
+    return type_;
+  }
 
-  Opcode opcode() const { assert(HasOpcode()); return opcode_; }
+  Opcode opcode() const {
+    assert(HasOpcode());
+    return opcode_;
+  }
 
   const Literal& literal() const {
     assert(HasLiteral());
@@ -223,4 +131,4 @@ struct Token {
 
 }  // namespace wabt
 
-#endif // WABT_TOKEN_H_
+#endif  // WABT_TOKEN_H_

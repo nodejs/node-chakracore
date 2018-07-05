@@ -220,6 +220,7 @@ namespace Js
 
             DWORD_PTR agent = (DWORD_PTR)scriptContext;
             Assert(sharedArrayBuffer->GetSharedContents()->IsValidAgent(agent));
+#pragma prefast(suppress:__WARNING_CALLER_FAILING_TO_HOLD, "This is a prefast false-positive caused by it being unable to identify that the critical section used here is the same as the one held by the AutoCriticalSection")
             awoken = waiterList->AddAndSuspendWaiter(agent, timeout);
             if (!awoken) 
             {
@@ -231,9 +232,9 @@ namespace Js
             : scriptContext->GetLibrary()->CreateStringFromCppLiteral(_u("timed-out"));
     }
 
-    Var AtomicsObject::EntryWake(RecyclableObject* function, CallInfo callInfo, ...)
+    Var AtomicsObject::EntryNotify(RecyclableObject* function, CallInfo callInfo, ...)
     {
-        ATOMICS_FUNCTION_ENTRY_CHECKS(2, "Atomics.wake");
+        ATOMICS_FUNCTION_ENTRY_CHECKS(2, "Atomics.notify");
 
         uint32 accessIndex = 0;
         TypedArrayBase *typedArrayBase = ValidateAndGetTypedArray(args[1], args[2], &accessIndex, scriptContext, true /*onlyInt32*/);

@@ -26,6 +26,7 @@
 //     example: testRunner.LoadModule(source, 'samethread', false);
 //
 //   How to use assert:
+//     assert.strictEqual(expected, actual, "those two should be strictly equal (i.e. === comparison)");
 //     assert.areEqual(expected, actual, "those two should be equal (i.e. deep equality of objects using ===)");
 //     assert.areNotEqual(expected, actual, "those two should NOT be equal");
 //     assert.areAlmostEqual(expected, actual, "those two should be almost equal, numerically (allows difference by epsilon)");
@@ -167,9 +168,15 @@ var testRunner = function testRunner() {
                 _verbose = options.verbose;
             }
 
+            const onlyFlag = WScript.Arguments.filter((arg) => arg.substring(0, 6) === "-only:")
+            let only = undefined;
+            if (onlyFlag.length === 1) {
+                only = onlyFlag[0].substring(6).split(",");
+            }
+
             for (var i in testsToRun) {
                 var isRunnable = typeof testsToRun[i] === objectType;
-                if (isRunnable) {
+                if (isRunnable && (only === undefined || only.includes(i) || only.includes(testsToRun[i].name))) {
                     this.runTest(i, testsToRun[i].name, testsToRun[i].body);
                 }
             }
@@ -401,6 +408,10 @@ var assert = function assert() {
     }
 
     return {
+        strictEqual: function strictEqual(expected, actual, message) {
+            validate(expected === actual, "strictEqual", message);
+        },
+
         areEqual: function areEqual(expected, actual, message) {
             /// <summary>
             /// IMPORTANT: NaN compares equal.<br/>

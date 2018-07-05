@@ -119,6 +119,12 @@ ServerScriptContext::GetStringTypeStaticAddr() const
 }
 
 intptr_t
+ServerScriptContext::GetSymbolTypeStaticAddr() const
+{
+    return m_contextData.symbolTypeStaticAddr;
+}
+
+intptr_t
 ServerScriptContext::GetObjectTypeAddr() const
 {
     return m_contextData.objectTypeAddr;
@@ -231,14 +237,6 @@ ServerScriptContext::GetRecyclerAllowNativeCodeBumpAllocation() const
 {
     return m_contextData.recyclerAllowNativeCodeBumpAllocation != 0;
 }
-
-#ifdef ENABLE_SIMDJS
-bool
-ServerScriptContext::IsSIMDEnabled() const
-{
-    return m_contextData.isSIMDEnabled != 0;
-}
-#endif
 
 intptr_t
 ServerScriptContext::GetBuiltinFunctionsBaseAddr() const
@@ -363,7 +361,7 @@ ServerScriptContext::Close()
 {
     Assert(!IsClosed());
     m_isClosed = true;
-
+    
     m_codeGenAlloc.emitBufferManager.Decommit();
 
 #ifdef STACK_BACK_TRACE

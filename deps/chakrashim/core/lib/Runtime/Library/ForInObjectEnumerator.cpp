@@ -29,7 +29,7 @@ namespace Js
         shadowData = nullptr;
     }
 
-    void ForInObjectEnumerator::Initialize(RecyclableObject* initObject, ScriptContext * requestContext, bool enumSymbols, ForInCache * forInCache)
+    void ForInObjectEnumerator::Initialize(RecyclableObject* initObject, ScriptContext * requestContext, bool enumSymbols, EnumeratorCache * forInCache)
     {
         this->enumeratingPrototype = false;
 
@@ -117,7 +117,7 @@ namespace Js
         return firstPrototypeWithEnumerableProperties;
     }
 
-    BOOL ForInObjectEnumerator::InitializeCurrentEnumerator(RecyclableObject * object, ForInCache * forInCache)
+    BOOL ForInObjectEnumerator::InitializeCurrentEnumerator(RecyclableObject * object, EnumeratorCache * forInCache)
     {
         EnumeratorFlags flags = enumerator.GetFlags();
         RecyclableObject * prototype = object->GetPrototype();
@@ -129,7 +129,7 @@ namespace Js
         return InitializeCurrentEnumerator(object, flags, GetScriptContext(), forInCache);
     }
 
-    BOOL ForInObjectEnumerator::InitializeCurrentEnumerator(RecyclableObject * object, EnumeratorFlags flags,  ScriptContext * scriptContext, ForInCache * forInCache)
+    BOOL ForInObjectEnumerator::InitializeCurrentEnumerator(RecyclableObject * object, EnumeratorFlags flags,  ScriptContext * scriptContext, EnumeratorCache * forInCache)
     {
         Assert(object);
         Assert(scriptContext);
@@ -210,6 +210,8 @@ namespace Js
                     return nullptr;
                 }
 
+                RecyclableObject* previousObject = this->shadowData->currentObject;
+
                 RecyclableObject * object;
                 if (!this->enumeratingPrototype)
                 {
@@ -249,6 +251,21 @@ namespace Js
                     }
                 }
                 while (true);
+
+                // Ignore special properties (ex: Array.length)
+                if (previousObject != nullptr)
+                {
+                    uint specialPropertyCount = previousObject->GetSpecialPropertyCount();
+                    if (specialPropertyCount > 0)
+                    {
+                        PropertyId const* specialPropertyIds = previousObject->GetSpecialPropertyIds();
+                        Assert(specialPropertyIds != nullptr);
+                        for (uint i = 0; i < specialPropertyCount; i++)
+                        {
+                            TestAndSetEnumerated(specialPropertyIds[i]);
+                        }
+                    }
+                }
             }
         }
     }

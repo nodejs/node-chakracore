@@ -26,30 +26,65 @@ namespace Js
         virtual bool IsAnonymousFunction() const = 0;
     };
 
+    template <class BaseClass>
+    class FunctionWithComputedName : public BaseClass
+    {
+    private:
+        Field(Var) computedNameVar;
+
+    protected:
+        DEFINE_VTABLE_CTOR(FunctionWithComputedName<BaseClass>, BaseClass);
+        DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(FunctionWithComputedName<BaseClass>);
+    public:
+        FunctionWithComputedName(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType)
+            : BaseClass(proxy, deferredPrototypeType), computedNameVar(nullptr)
+        {
+            Assert(proxy->GetFunctionInfo()->HasComputedName());
+        }
+        virtual Var GetComputedNameVar() const override { return this->computedNameVar; }
+        virtual void SetComputedNameVar(Var computedNameVar) override { this->computedNameVar = computedNameVar; }
+    };
+
+    template <class BaseClass>
+    class FunctionWithHomeObj : public BaseClass
+    {
+    private:
+        Field(Var) homeObj;
+    protected:
+        DEFINE_VTABLE_CTOR(FunctionWithHomeObj<BaseClass>, BaseClass);
+        DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(FunctionWithHomeObj<BaseClass>);
+    public:
+        FunctionWithHomeObj(FunctionProxy* proxy, ScriptFunctionType* deferredPrototypeType)
+            : BaseClass(proxy, deferredPrototypeType), homeObj(nullptr)
+        {
+            Assert(proxy->GetFunctionInfo()->HasHomeObj());
+        }
+        virtual Var GetHomeObj() const override { return homeObj; }
+        virtual void SetHomeObj(Var homeObj) override { this->homeObj = homeObj; }
+        static uint32 GetOffsetOfHomeObj() { return  offsetof(FunctionWithHomeObj<BaseClass>, homeObj); }
+    };
+
     class ScriptFunction : public ScriptFunctionBase
     {
     private:
         Field(FrameDisplay*) environment;  // Optional environment, for closures
         Field(ActivationObjectEx *) cachedScopeObj;
-        Field(Var) homeObj;
-        Field(Var) computedNameVar;
         Field(bool) hasInlineCaches;
-        Field(bool) hasSuperReference;
-        Field(bool) isActiveScript;
 
-        Var FormatToString(JavascriptString* inputString);
+        JavascriptString * FormatToString(JavascriptString* inputString);
+        static JavascriptString* GetComputedName(Var computedNameVar, ScriptContext * scriptContext);
+        static bool GetSymbolName(Var computedNameVar, const char16** symbolName, charcount_t *length);
     protected:
-        ScriptFunction(DynamicType * type);
-
         DEFINE_VTABLE_CTOR(ScriptFunction, ScriptFunctionBase);
         DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(ScriptFunction);
     public:
         ScriptFunction(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType);
         static bool Is(Var func);
-        inline static BOOL Test(JavascriptFunction *func) { return func->GetFunctionInfo()->HasBody(); }
+        inline static BOOL Test(JavascriptFunction *func) { return func->IsScriptFunction(); }
         static ScriptFunction * FromVar(Var func);
         static ScriptFunction * UnsafeFromVar(Var func);
         static ScriptFunction * OP_NewScFunc(FrameDisplay *environment, FunctionInfoPtrPtr infoRef);
+        static ScriptFunction * OP_NewScFuncHomeObj(FrameDisplay *environment, FunctionInfoPtrPtr infoRef, Var homeObj);
 
         ProxyEntryPointInfo* GetEntryPointInfo() const;
         FunctionEntryPointInfo* GetFunctionEntryPointInfo() const
@@ -61,7 +96,6 @@ namespace Js
         FunctionProxy * GetFunctionProxy() const;
         ScriptFunctionType * GetScriptFunctionType() const;
 
-        uint32 GetFrameHeight(FunctionEntryPointInfo* entryPointInfo) const;
         FrameDisplay* GetEnvironment() const { return environment; }
         void SetEnvironment(FrameDisplay * environment);
         ActivationObjectEx *GetCachedScope() const { return cachedScopeObj; }
@@ -71,7 +105,6 @@ namespace Js
         static uint32 GetOffsetOfEnvironment() { return offsetof(ScriptFunction, environment); }
         static uint32 GetOffsetOfCachedScopeObj() { return offsetof(ScriptFunction, cachedScopeObj); };
         static uint32 GetOffsetOfHasInlineCaches() { return offsetof(ScriptFunction, hasInlineCaches); };
-        static uint32 GetOffsetOfHomeObj() { return  offsetof(ScriptFunction, homeObj); }
 
         void ChangeEntryPoint(ProxyEntryPointInfo* entryPointInfo, JavascriptMethod entryPoint);
         JavascriptMethod UpdateThunkEntryPoint(FunctionEntryPointInfo* entryPointInfo, JavascriptMethod entryPoint);
@@ -81,23 +114,19 @@ namespace Js
         virtual ScriptFunctionType * DuplicateType() override;
 
         virtual Var GetSourceString() const;
-        virtual Var EnsureSourceString();
+        virtual JavascriptString * EnsureSourceString();
 
         bool GetHasInlineCaches() { return hasInlineCaches; }
         void SetHasInlineCaches(bool has) { hasInlineCaches = has; }
 
-        bool HasSuperReference() { return hasSuperReference; }
-        void SetHasSuperReference(bool has) { hasSuperReference = has; }
+        bool HasSuperReference();
 
-        void SetIsActiveScript(bool is) { isActiveScript = is; }
+        virtual Var GetHomeObj() const override { return nullptr; }
+        virtual void SetHomeObj(Var homeObj) override { AssertMsg(false, "Should have created FunctionWithHomeObj variant"); }
 
-        virtual Var GetHomeObj() const override { return homeObj; }
-        virtual void SetHomeObj(Var homeObj) override { this->homeObj = homeObj; }
-        virtual void SetComputedNameVar(Var computedNameVar) override { this->computedNameVar = computedNameVar; }
-        bool GetSymbolName(const char16** symbolName, charcount_t *length) const;
-        virtual Var GetComputedNameVar() const override { return this->computedNameVar; }
-        virtual JavascriptString* GetDisplayNameImpl() const;
-        JavascriptString* GetComputedName() const;
+        virtual Var GetComputedNameVar() const override { return nullptr; }
+        virtual void SetComputedNameVar(Var computedNameVar) override { AssertMsg(false, "Should have created the FunctionWithComputedName variant"); }
+        virtual JavascriptString* GetDisplayNameImpl() const override;
         virtual bool IsAnonymousFunction() const override;
         virtual bool IsAsmJsFunction() const { return false; }
         virtual bool IsWasmFunction() const { return false; }
@@ -113,7 +142,7 @@ namespace Js
 
         virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
         virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
-        void ExtractSnapObjectDataIntoSnapScriptFunctionInfo(/*TTD::NSSnapObjects::SnapScriptFunctionInfo* */ void* ssfi, TTD::SlabAllocator& alloc);
+        virtual void ExtractSnapObjectDataIntoSnapScriptFunctionInfo(/*TTD::NSSnapObjects::SnapScriptFunctionInfo* */ void* ssfi, TTD::SlabAllocator& alloc);
 #endif
 
     public:
@@ -122,6 +151,9 @@ namespace Js
             return VTableValue::VtableScriptFunction;
         }
     };
+
+    typedef FunctionWithComputedName<ScriptFunction> ScriptFunctionWithComputedName;
+    typedef FunctionWithHomeObj<ScriptFunction> ScriptFunctionWithHomeObj;
 
     class AsmJsScriptFunction : public ScriptFunction
     {
@@ -141,13 +173,14 @@ namespace Js
 
         class JavascriptArrayBuffer* GetAsmJsArrayBuffer() const;
     protected:
-        AsmJsScriptFunction(DynamicType * type);
         DEFINE_VTABLE_CTOR(AsmJsScriptFunction, ScriptFunction);
         DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(AsmJsScriptFunction);
 
     private:
         Field(Field(Var)*) m_moduleEnvironment;
     };
+
+    typedef FunctionWithComputedName<AsmJsScriptFunction> AsmJsScriptFunctionWithComputedName;
 
 #ifdef ENABLE_WASM
     class WasmScriptFunction : public AsmJsScriptFunction
@@ -166,8 +199,7 @@ namespace Js
         WebAssemblyMemory* GetWebAssemblyMemory() const;
 
         virtual bool IsWasmFunction() const override { return true; }
-    protected:
-        WasmScriptFunction(DynamicType * type);
+    protected:        
         DEFINE_VTABLE_CTOR(WasmScriptFunction, AsmJsScriptFunction);
         DEFINE_MARSHAL_OBJECT_TO_SCRIPT_CONTEXT(WasmScriptFunction);
     private:
@@ -220,4 +252,6 @@ namespace Js
         void FreeOwnInlineCaches();
         virtual void Finalize(bool isShutdown) override;
     };
+
+    typedef FunctionWithComputedName<ScriptFunctionWithInlineCache> ScriptFunctionWithInlineCacheAndComputedName;
 } // namespace Js

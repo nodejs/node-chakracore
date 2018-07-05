@@ -13,7 +13,6 @@
 #include "Common/ByteSwap.h"
 #include "Library/DataView.h"
 #include "Library/JavascriptExceptionMetadata.h"
-#include "Library/JavascriptSymbol.h"
 #include "Library/JavascriptPromise.h"
 #include "Base/ThreadContextTlsEntry.h"
 #include "Codex/Utf8Helper.h"
@@ -286,6 +285,7 @@ JsErrorCode CreateRuntimeCore(_In_ JsRuntimeAttributes attributes,
             JsRuntimeAttributeEnableIdleProcessing |
             JsRuntimeAttributeDisableEval |
             JsRuntimeAttributeDisableNativeCodeGeneration |
+            JsRuntimeAttributeDisableExecutablePageAllocation |
             JsRuntimeAttributeEnableExperimentalFeatures |
             JsRuntimeAttributeDispatchSetExceptionsToDebugger |
             JsRuntimeAttributeDisableFatalOnOOM
@@ -338,6 +338,12 @@ JsErrorCode CreateRuntimeCore(_In_ JsRuntimeAttributes attributes,
         if (attributes & JsRuntimeAttributeDisableNativeCodeGeneration)
         {
             threadContext->SetThreadContextFlag(ThreadContextFlagNoJIT);
+        }
+
+        if (attributes & JsRuntimeAttributeDisableExecutablePageAllocation)
+        {
+            threadContext->SetThreadContextFlag(ThreadContextFlagNoJIT);
+            threadContext->SetThreadContextFlag(ThreadContextFlagNoDynamicThunks);
         }
 
         if (attributes & JsRuntimeAttributeDisableFatalOnOOM)
@@ -901,9 +907,13 @@ CHAKRA_API JsSetContextData(_In_ JsContextRef context, _In_ void *data)
 void HandleScriptCompileError(Js::ScriptContext * scriptContext, CompileScriptException * se, const WCHAR * sourceUrl)
 {
     HRESULT hr = se->ei.scode;
-    if (hr == E_OUTOFMEMORY || hr == VBSERR_OutOfMemory || hr == VBSERR_OutOfStack || hr == ERRnoMemory)
+    if (hr == E_OUTOFMEMORY || hr == VBSERR_OutOfMemory || hr == ERRnoMemory)
     {
         Js::Throw::OutOfMemory();
+    }
+    else if (hr == E_ABORT)
+    {
+        Js::JavascriptOperators::ScriptAbort();
     }
 
     Js::JavascriptError* error = Js::JavascriptError::CreateFromCompileScriptException(scriptContext, se, sourceUrl);
@@ -2130,7 +2140,11 @@ CHAKRA_API JsCreateTypedArray(_In_ JsTypedArrayType arrayType, _In_ JsValueRef b
             return JsErrorInvalidArgument;
         }
 
-        *result = Js::JavascriptFunction::CallAsConstructor(constructorFunc, /* overridingNewTarget = */nullptr, args, scriptContext);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            *result = Js::JavascriptFunction::CallAsConstructor(constructorFunc, /* overridingNewTarget = */nullptr, args, scriptContext);
+        }
+        END_SAFE_REENTRANT_CALL
 
         JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_OBJECT(*result));
         return JsNoError;
@@ -2803,7 +2817,11 @@ CHAKRA_API JsConstructObject(_In_ JsValueRef function, _In_reads_(cargs) JsValue
         //TTDAssert(!Js::ScriptFunction::Is(jsFunction) || execContext->GetThreadContext()->TTDRootNestingCount != 0, "This will cause user code to execute and we need to add support for that as a top-level call source!!!!");
         //
 
-        *result = Js::JavascriptFunction::CallAsConstructor(jsFunction, /* overridingNewTarget = */nullptr, jsArgs, scriptContext);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            *result = Js::JavascriptFunction::CallAsConstructor(jsFunction, /* overridingNewTarget = */nullptr, jsArgs, scriptContext);
+        }
+        END_SAFE_REENTRANT_CALL
         Assert(*result == nullptr || !Js::CrossSite::NeedMarshalVar(*result, scriptContext));
 
         PERFORM_JSRT_TTD_RECORD_ACTION_RESULT(scriptContext, result);
@@ -3355,7 +3373,7 @@ CHAKRA_API JsGetSymbolFromPropertyId(_In_ JsPropertyIdRef propertyId, _Out_ JsVa
             return JsErrorPropertyNotSymbol;
         }
 
-        *symbol = scriptContext->GetLibrary()->CreateSymbol(propertyRecord);
+        *symbol = scriptContext->GetSymbol(propertyRecord);
         return JsNoError;
     });
 }
@@ -3451,8 +3469,8 @@ CHAKRA_API JsIdle(_Out_opt_ unsigned int *nextIdleTick)
 
 CHAKRA_API JsSetPromiseContinuationCallback(_In_opt_ JsPromiseContinuationCallback promiseContinuationCallback, _In_opt_ void *callbackState)
 {
-    return ContextAPINoScriptWrapper_NoRecord([&](Js::ScriptContext *scriptContext) -> JsErrorCode {
-        scriptContext->GetLibrary()->SetNativeHostPromiseContinuationFunction((Js::JavascriptLibrary::PromiseContinuationCallback) promiseContinuationCallback, callbackState);
+    return ContextAPINoScriptWrapper_NoRecord([&](Js::ScriptContext * scriptContext) -> JsErrorCode {
+        scriptContext->GetLibrary()->SetNativeHostPromiseContinuationFunction((Js::JavascriptLibrary::PromiseContinuationCallback)promiseContinuationCallback, callbackState);
         return JsNoError;
     },
     /*allowInObjectBeforeCollectCallback*/true);
@@ -3688,6 +3706,52 @@ CHAKRA_API JsExperimentalApiRunModule(_In_z_ const WCHAR * script,
 }
 #endif
 
+JsErrorCode GetScriptBufferDetails(
+    _In_ JsValueRef scriptVal,
+    _In_ JsParseScriptAttributes parseAttributes,
+    _Out_ LoadScriptFlag* scriptFlag,
+    _Out_ size_t* cb,
+    _Out_ const byte** script)
+{
+    PARAM_NOT_NULL(scriptFlag);
+    PARAM_NOT_NULL(cb);
+    PARAM_NOT_NULL(script);
+
+    *scriptFlag = LoadScriptFlag_None;
+    *cb = 0;
+    *script = nullptr;
+
+    const bool isExternalArray = Js::ExternalArrayBuffer::Is(scriptVal);
+    const bool isString = !isExternalArray && Js::JavascriptString::Is(scriptVal);
+    if (!isExternalArray && !isString)
+    {
+        return JsErrorInvalidArgument;
+    }
+    const bool isUtf8 = !isString && !(parseAttributes & JsParseScriptAttributeArrayBufferIsUtf16Encoded);
+
+    *script = isExternalArray ?
+        ((Js::ExternalArrayBuffer*)(scriptVal))->GetBuffer() :
+        (const byte*)((Js::JavascriptString*)(scriptVal))->GetSz();
+    *cb = isExternalArray ?
+        ((Js::ExternalArrayBuffer*)(scriptVal))->GetByteLength() :
+        ((Js::JavascriptString*)(scriptVal))->GetSizeInBytes();
+
+    if (isExternalArray && isUtf8)
+    {
+        *scriptFlag = (LoadScriptFlag)(LoadScriptFlag_ExternalArrayBuffer | LoadScriptFlag_Utf8Source);
+    }
+    else if (isUtf8)
+    {
+        *scriptFlag = (LoadScriptFlag)(LoadScriptFlag_Utf8Source);
+    }
+    else
+    {
+        *scriptFlag = LoadScriptFlag_None;
+    }
+
+    return JsNoError;
+}
+
 JsErrorCode JsSerializeScriptCore(const byte *script, size_t cb,
     LoadScriptFlag loadScriptFlag, BYTE *functionTable, int functionTableSize,
     unsigned char *buffer, unsigned int *bufferSize, JsValueRef scriptSource)
@@ -3712,6 +3776,7 @@ JsErrorCode JsSerializeScriptCore(const byte *script, size_t cb,
 
         SourceContextInfo * sourceContextInfo = scriptContext->GetSourceContextInfo(JS_SOURCE_CONTEXT_NONE, nullptr);
         Assert(sourceContextInfo != nullptr);
+        sourceContextInfo->nextLocalFunctionId = 0;
 
         const int chsize = (loadScriptFlag & LoadScriptFlag_Utf8Source) ? sizeof(utf8char_t) : sizeof(WCHAR);
         SRCINFO si = {
@@ -3783,7 +3848,7 @@ JsErrorCode JsSerializeScriptCore(const byte *script, size_t cb,
         // However, the PAL defines DWORD for us on linux as unsigned int so the cast is safe here.
         HRESULT hr = Js::ByteCodeSerializer::SerializeToBuffer(scriptContext,
             tempAllocator, static_cast<DWORD>(cSourceCodeLength), utf8Code,
-            functionBody, functionBody->GetHostSrcInfo(), false, &buffer,
+            functionBody, functionBody->GetHostSrcInfo(), &buffer,
             (DWORD*) bufferSize, dwFlags);
         END_TEMP_ALLOCATOR(tempAllocator, scriptContext);
 
@@ -3812,7 +3877,8 @@ JsErrorCode RunSerializedScriptCore(
     JsSourceContext scriptLoadSourceContext, // only used by scriptLoadCallback
     unsigned char *buffer, Js::ArrayBuffer* bufferVal,
     JsSourceContext sourceContext, const WCHAR *sourceUrl,
-    bool parseOnly, JsValueRef *result)
+    bool parseOnly, bool useParserStateCache, JsValueRef *result,
+    uint sourceIndex)
 {
     Js::JavascriptFunction *function;
     JsErrorCode errorCode = ContextAPINoScriptWrapper_NoRecord([&](Js::ScriptContext *scriptContext) -> JsErrorCode {
@@ -3823,39 +3889,49 @@ JsErrorCode RunSerializedScriptCore(
 
         PARAM_NOT_NULL(buffer);
         PARAM_NOT_NULL(sourceUrl);
-
         Js::ISourceHolder *sourceHolder = nullptr;
+        SRCINFO *hsi = nullptr;
         PARAM_NOT_NULL(scriptLoadCallback);
         PARAM_NOT_NULL(scriptUnloadCallback);
         typedef Js::JsrtSourceHolder<TLoadCallback, TUnloadCallback> TSourceHolder;
-        sourceHolder = RecyclerNewFinalized(scriptContext->GetRecycler(), TSourceHolder,
-            scriptLoadCallback, scriptUnloadCallback, scriptLoadSourceContext, bufferVal);
 
-        SourceContextInfo *sourceContextInfo;
-        SRCINFO *hsi;
-        Field(Js::FunctionBody*) functionBody = nullptr;
+        if (!useParserStateCache)
+        {
+            sourceIndex = Js::Constants::InvalidSourceIndex;
+
+            sourceHolder = RecyclerNewFinalized(scriptContext->GetRecycler(), TSourceHolder,
+                scriptLoadCallback, scriptUnloadCallback, scriptLoadSourceContext, bufferVal);
+
+            SourceContextInfo *sourceContextInfo = scriptContext->GetSourceContextInfo(sourceContext, nullptr);
+
+            if (sourceContextInfo == nullptr)
+            {
+                sourceContextInfo = scriptContext->CreateSourceContextInfo(sourceContext, sourceUrl,
+                    wcslen(sourceUrl), nullptr);
+            }
+
+            SRCINFO si = {
+                /* sourceContextInfo   */ sourceContextInfo,
+                /* dlnHost             */ 0,
+                /* ulColumnHost        */ 0,
+                /* lnMinHost           */ 0,
+                /* ichMinHost          */ 0,
+                /* ichLimHost          */ 0, // xplat-todo: need to compute this?
+                /* ulCharOffset        */ 0,
+                /* mod                 */ kmodGlobal,
+                /* grfsi               */ 0
+            };
+
+            hsi = scriptContext->AddHostSrcInfo(&si);
+        }
+        else
+        {
+            Assert(sourceIndex != Js::Constants::InvalidSourceIndex);
+        }
 
         HRESULT hr;
 
-        sourceContextInfo = scriptContext->GetSourceContextInfo(sourceContext, nullptr);
-
-        if (sourceContextInfo == nullptr)
-        {
-            sourceContextInfo = scriptContext->CreateSourceContextInfo(sourceContext, sourceUrl,
-                wcslen(sourceUrl), nullptr);
-        }
-
-        SRCINFO si = {
-            /* sourceContextInfo   */ sourceContextInfo,
-            /* dlnHost             */ 0,
-            /* ulColumnHost        */ 0,
-            /* lnMinHost           */ 0,
-            /* ichMinHost          */ 0,
-            /* ichLimHost          */ 0, // xplat-todo: need to compute this?
-            /* ulCharOffset        */ 0,
-            /* mod                 */ kmodGlobal,
-            /* grfsi               */ 0
-        };
+        Field(Js::FunctionBody*) functionBody = nullptr;
 
         uint32 flags = 0;
 
@@ -3863,10 +3939,13 @@ JsErrorCode RunSerializedScriptCore(
         {
             flags = fscrAllowFunctionProxy;
         }
+        if (useParserStateCache && !CONFIG_FLAG(ForceSerialized))
+        {
+            flags |= fscrCreateParserState;
+        }
 
-        hsi = scriptContext->AddHostSrcInfo(&si);
         hr = Js::ByteCodeSerializer::DeserializeFromBuffer(scriptContext, flags, sourceHolder,
-            hsi, buffer, nullptr, &functionBody);
+            hsi, buffer, nullptr, &functionBody, sourceIndex);
 
         if (FAILED(hr))
         {
@@ -3925,7 +4004,7 @@ CHAKRA_API JsParseSerializedScript(_In_z_ const WCHAR * script, _In_ unsigned ch
     return RunSerializedScriptCore(
         DummyScriptLoadSourceCallback, DummyScriptUnloadCallback,
         reinterpret_cast<JsSourceContext>(script), // use script source pointer as scriptLoadSourceContext
-        buffer, nullptr, sourceContext, sourceUrl, true, result);
+        buffer, nullptr, sourceContext, sourceUrl, true, false, result, Js::Constants::InvalidSourceIndex);
 }
 
 CHAKRA_API JsRunSerializedScript(_In_z_ const WCHAR * script, _In_ unsigned char *buffer,
@@ -3936,7 +4015,7 @@ CHAKRA_API JsRunSerializedScript(_In_z_ const WCHAR * script, _In_ unsigned char
     return RunSerializedScriptCore(
         DummyScriptLoadSourceCallback, DummyScriptUnloadCallback,
         reinterpret_cast<JsSourceContext>(script), // use script source pointer as scriptLoadSourceContext
-        buffer, nullptr, sourceContext, sourceUrl, false, result);
+        buffer, nullptr, sourceContext, sourceUrl, false, false, result, Js::Constants::InvalidSourceIndex);
 }
 
 CHAKRA_API JsParseSerializedScriptWithCallback(_In_ JsSerializedScriptLoadSourceCallback scriptLoadCallback,
@@ -3947,7 +4026,7 @@ CHAKRA_API JsParseSerializedScriptWithCallback(_In_ JsSerializedScriptLoadSource
     return RunSerializedScriptCore(
         scriptLoadCallback, scriptUnloadCallback,
         sourceContext, // use the same user provided sourceContext as scriptLoadSourceContext
-        buffer, nullptr, sourceContext, sourceUrl, true, result);
+        buffer, nullptr, sourceContext, sourceUrl, true, false, result, Js::Constants::InvalidSourceIndex);
 }
 
 CHAKRA_API JsRunSerializedScriptWithCallback(_In_ JsSerializedScriptLoadSourceCallback scriptLoadCallback,
@@ -3958,7 +4037,7 @@ CHAKRA_API JsRunSerializedScriptWithCallback(_In_ JsSerializedScriptLoadSourceCa
     return RunSerializedScriptCore(
         scriptLoadCallback, scriptUnloadCallback,
         sourceContext, // use the same user provided sourceContext as scriptLoadSourceContext
-        buffer, nullptr, sourceContext, sourceUrl, false, result);
+        buffer, nullptr, sourceContext, sourceUrl, false, false, result, Js::Constants::InvalidSourceIndex);
 }
 #endif // _WIN32
 
@@ -4174,15 +4253,18 @@ CHAKRA_API JsTTDNotifyLongLivedReferenceAdd(_In_ JsValueRef value)
             return JsErrorNoCurrentContext;
         }
 
-        Js::RecyclableObject* obj = Js::RecyclableObject::FromVar(value);
-        if(obj->GetScriptContext()->IsTTDRecordModeEnabled())
+        if (Js::RecyclableObject::Is(value))
         {
-            if(obj->GetScriptContext()->ShouldPerformRecordAction())
+            Js::RecyclableObject* obj = Js::RecyclableObject::FromVar(value);
+            if (obj->GetScriptContext()->IsTTDRecordModeEnabled())
             {
-                threadContext->TTDLog->RecordJsRTAddWeakRootRef(_actionEntryPopper, (Js::Var)value);
-            }
+                if (obj->GetScriptContext()->ShouldPerformRecordAction())
+                {
+                    threadContext->TTDLog->RecordJsRTAddWeakRootRef(_actionEntryPopper, (Js::Var)value);
+                }
 
-            threadContext->TTDContext->AddRootRef_Record(TTD_CONVERT_OBJ_TO_LOG_PTR_ID(obj), obj);
+                threadContext->TTDContext->AddRootRef_Record(TTD_CONVERT_OBJ_TO_LOG_PTR_ID(obj), obj);
+            }
         }
 
         return JsNoError;
@@ -5002,41 +5084,20 @@ CHAKRA_API JsSerialize(
 
     *bufferVal = nullptr;
 
-    bool isExternalArray = Js::ExternalArrayBuffer::Is(scriptVal),
-         isString = false;
-    bool isUtf8   = !(parseAttributes & JsParseScriptAttributeArrayBufferIsUtf16Encoded);
-    if (!isExternalArray)
-    {
-        isString = Js::JavascriptString::Is(scriptVal);
-        if (!isString)
-        {
-            return JsErrorInvalidArgument;
-        }
-    }
+    const byte* script = nullptr;
+    size_t cb = 0;
+    LoadScriptFlag scriptFlag = LoadScriptFlag_None;
 
-    LoadScriptFlag scriptFlag;
-    const byte* script = isExternalArray ?
-        ((Js::ExternalArrayBuffer*)(scriptVal))->GetBuffer() :
-        (const byte*)((Js::JavascriptString*)(scriptVal))->GetSz();
-    const size_t cb = isExternalArray ?
-        ((Js::ExternalArrayBuffer*)(scriptVal))->GetByteLength() :
-        ((Js::JavascriptString*)(scriptVal))->GetLength();
+    JsErrorCode errorCode = GetScriptBufferDetails(scriptVal, parseAttributes,
+        &scriptFlag, &cb, &script);
 
-    if (isExternalArray && isUtf8)
+    if (errorCode != JsNoError)
     {
-        scriptFlag = (LoadScriptFlag) (LoadScriptFlag_ExternalArrayBuffer | LoadScriptFlag_Utf8Source);
-    }
-    else if (isUtf8)
-    {
-        scriptFlag = (LoadScriptFlag) (LoadScriptFlag_Utf8Source);
-    }
-    else
-    {
-        scriptFlag = LoadScriptFlag_None;
+        return errorCode;
     }
 
     unsigned int bufferSize = 0;
-    JsErrorCode errorCode = JsSerializeScriptCore(script, cb, scriptFlag, nullptr,
+    errorCode = JsSerializeScriptCore(script, cb, scriptFlag, nullptr,
         0, nullptr, &bufferSize, scriptVal);
 
     if (errorCode != JsNoError)
@@ -5092,7 +5153,7 @@ CHAKRA_API JsParseSerialized(
     return RunSerializedScriptCore(
       scriptLoadCallback, DummyScriptUnloadCallback,
       sourceContext,// use the same user provided sourceContext as scriptLoadSourceContext
-      buffer, arrayBuffer, sourceContext, url, true, result);
+      buffer, arrayBuffer, sourceContext, url, true, false, result, Js::Constants::InvalidSourceIndex);
 }
 
 CHAKRA_API JsRunSerialized(
@@ -5126,7 +5187,7 @@ CHAKRA_API JsRunSerialized(
     return RunSerializedScriptCore(
         scriptLoadCallback, DummyScriptUnloadCallback,
         sourceContext, // use the same user provided sourceContext as scriptLoadSourceContext
-        buffer, arrayBuffer, sourceContext, url, false, result);
+        buffer, arrayBuffer, sourceContext, url, false, false, result, Js::Constants::InvalidSourceIndex);
 }
 
 CHAKRA_API JsCreatePromise(_Out_ JsValueRef *promise, _Out_ JsValueRef *resolve, _Out_ JsValueRef *reject)
@@ -5426,10 +5487,10 @@ CHAKRA_API JsGetDataViewInfo(
 
 CHAKRA_API JsSetHostPromiseRejectionTracker(_In_ JsHostPromiseRejectionTrackerCallback promiseRejectionTrackerCallback, _In_opt_ void *callbackState)
 {
-  return ContextAPINoScriptWrapper_NoRecord([&](Js::ScriptContext *scriptContext) -> JsErrorCode {
-    scriptContext->GetLibrary()->SetNativeHostPromiseRejectionTrackerCallback((Js::JavascriptLibrary::HostPromiseRejectionTrackerCallback) promiseRejectionTrackerCallback, callbackState);
-    return JsNoError;
-  },
+    return ContextAPINoScriptWrapper_NoRecord([&](Js::ScriptContext *scriptContext) -> JsErrorCode {
+        scriptContext->GetLibrary()->SetNativeHostPromiseRejectionTrackerCallback((Js::JavascriptLibrary::HostPromiseRejectionTrackerCallback) promiseRejectionTrackerCallback, callbackState);
+        return JsNoError;
+    },
     /*allowInObjectBeforeCollectCallback*/true);
 }
 
@@ -5472,6 +5533,247 @@ CHAKRA_API JsGetProxyProperties (_In_ JsValueRef object, _Out_ bool* isProxy, _O
         return JsNoError;
     },
     /*allowInObjectBeforeCollectCallback*/true);
+}
+
+CHAKRA_API JsSerializeParserStateCore(
+    _In_z_ const byte* script,
+    _In_ size_t cb,
+    _In_ LoadScriptFlag loadScriptFlag,
+    _Out_writes_to_opt_(*bufferSize, *bufferSize) unsigned char *buffer,
+    _Inout_ unsigned int *bufferSize)
+{
+    Js::JavascriptFunction *function;
+    CompileScriptException se;
+
+    return ContextAPINoScriptWrapper_NoRecord([&](Js::ScriptContext *scriptContext) -> JsErrorCode {
+        PARAM_NOT_NULL(script);
+        PARAM_NOT_NULL(bufferSize);
+
+        if (*bufferSize > 0)
+        {
+            PARAM_NOT_NULL(buffer);
+            ZeroMemory(buffer, *bufferSize);
+        }
+
+        if (scriptContext->IsScriptContextInDebugMode())
+        {
+            return JsErrorCannotSerializeDebugScript;
+        }
+
+        SourceContextInfo * sourceContextInfo = scriptContext->GetSourceContextInfo(JS_SOURCE_CONTEXT_NONE, nullptr);
+        Assert(sourceContextInfo != nullptr);
+        sourceContextInfo->nextLocalFunctionId = 0;
+
+        const int chsize = (loadScriptFlag & LoadScriptFlag_Utf8Source) ?
+            sizeof(utf8char_t) : sizeof(WCHAR);
+
+        SRCINFO si = {
+            /* sourceContextInfo   */ sourceContextInfo,
+            /* dlnHost             */ 0,
+            /* ulColumnHost        */ 0,
+            /* lnMinHost           */ 0,
+            /* ichMinHost          */ 0,
+            /* ichLimHost          */ static_cast<ULONG>(cb / chsize), // OK to truncate since this is used to limit sourceText in debugDocument/compilation errors.
+            /* ulCharOffset        */ 0,
+            /* mod                 */ kmodGlobal,
+            /* grfsi               */ 0
+        };
+
+        Js::Utf8SourceInfo* sourceInfo = nullptr;
+        loadScriptFlag = (LoadScriptFlag)(loadScriptFlag | LoadScriptFlag_CreateParserState);
+
+        BEGIN_TEMP_ALLOCATOR(tempAllocator, scriptContext, _u("ByteCodeSerializer"));
+        // We cast buffer size to DWORD* because on Windows, DWORD = unsigned long = unsigned int
+        // On 64-bit clang on linux, this is not true, unsigned long is larger than unsigned int
+        // However, the PAL defines DWORD for us on linux as unsigned int so the cast is safe here.
+        HRESULT hr = scriptContext->SerializeParserState(script, cb, &si, &se, &sourceInfo,
+            Js::Constants::GlobalCode, loadScriptFlag, &buffer, (DWORD*)bufferSize, tempAllocator, &function, nullptr);
+        END_TEMP_ALLOCATOR(tempAllocator, scriptContext);
+
+        if (function == nullptr)
+        {
+            HandleScriptCompileError(scriptContext, &se);
+            return JsErrorScriptCompile;
+        }
+
+        Js::FunctionBody *functionBody = function->GetFunctionBody();
+        sourceInfo = functionBody->GetUtf8SourceInfo();
+        size_t cSourceCodeLength = sourceInfo->GetCbLength(_u("JsSerializeParserState"));
+
+        // truncation of code length can lead to accessing random memory. Reject the call.
+        if (cSourceCodeLength > DWORD_MAX)
+        {
+            return JsErrorOutOfMemory;
+        }
+
+        if (SUCCEEDED(hr))
+        {
+            return JsNoError;
+        }
+        else
+        {
+            return JsErrorScriptCompile;
+        }
+    });
+}
+
+CHAKRA_API JsSerializeParserState(
+    _In_ JsValueRef scriptVal,
+    _Out_ JsValueRef *bufferVal,
+    _In_ JsParseScriptAttributes parseAttributes)
+{
+    PARAM_NOT_NULL(scriptVal);
+    PARAM_NOT_NULL(bufferVal);
+    VALIDATE_JSREF(scriptVal);
+
+    *bufferVal = nullptr;
+
+    const byte* script = nullptr;
+    size_t cb = 0;
+    LoadScriptFlag scriptFlag = LoadScriptFlag_None;
+
+    JsErrorCode errorCode = GetScriptBufferDetails(scriptVal, parseAttributes,
+        &scriptFlag, &cb, &script);
+
+    if (errorCode != JsNoError)
+    {
+        return errorCode;
+    }
+
+    unsigned int bufferSize = 0;
+    errorCode = JsSerializeParserStateCore(script, cb, scriptFlag, nullptr,
+        &bufferSize);
+
+    if (errorCode != JsNoError)
+    {
+        return errorCode;
+    }
+
+    if (bufferSize == 0)
+    {
+        return JsErrorScriptCompile;
+    }
+
+    if ((errorCode = JsCreateArrayBuffer(bufferSize, bufferVal)) == JsNoError)
+    {
+        byte* buffer = ((Js::ArrayBuffer*)(*bufferVal))->GetBuffer();
+        errorCode = JsSerializeParserStateCore(script, cb, scriptFlag, buffer,
+            &bufferSize);
+    }
+
+    return errorCode;
+}
+
+
+static bool CHAKRA_CALLBACK DummyScriptLoadSourceCallbackForRunScriptWithParserState(
+    JsSourceContext sourceContext,
+    _Out_ JsValueRef *value,
+    _Out_ JsParseScriptAttributes *parseAttributes)
+{
+    *value = nullptr;
+    *parseAttributes = JsParseScriptAttributeNone;
+    return true;
+}
+
+CHAKRA_API JsRunScriptWithParserState(
+    _In_ JsValueRef script,
+    _In_ JsSourceContext sourceContext,
+    _In_ JsValueRef sourceUrl,
+    _In_ JsParseScriptAttributes parseAttributes,
+    _In_ JsValueRef parserState,
+    _Out_ JsValueRef *result)
+{
+    PARAM_NOT_NULL(script);
+    PARAM_NOT_NULL(parserState);
+
+    const WCHAR *url = nullptr;
+    uint sourceIndex = 0;
+
+    JsErrorCode errorCode = ContextAPINoScriptWrapper_NoRecord([&](Js::ScriptContext *scriptContext) -> JsErrorCode {
+        const byte* bytes;
+        size_t cb;
+        LoadScriptFlag loadScriptFlag;
+
+        JsErrorCode errorCode = GetScriptBufferDetails(script, parseAttributes, &loadScriptFlag, &cb, &bytes);
+
+        if (sourceUrl && Js::JavascriptString::Is(sourceUrl))
+        {
+            url = ((Js::JavascriptString*)(sourceUrl))->GetSz();
+        }
+        else
+        {
+            return JsErrorInvalidArgument;
+        }
+
+        if (errorCode != JsNoError)
+        {
+            return errorCode;
+        }
+
+        SourceContextInfo* sourceContextInfo = scriptContext->GetSourceContextInfo(sourceContext, nullptr);
+
+        if (sourceContextInfo == nullptr)
+        {
+            sourceContextInfo = scriptContext->CreateSourceContextInfo(sourceContext, url, wcslen(url), nullptr);
+        }
+
+        const int chsize = (loadScriptFlag & LoadScriptFlag_Utf8Source) ?
+            sizeof(utf8char_t) : sizeof(WCHAR);
+
+        SRCINFO si = {
+            /* sourceContextInfo   */ sourceContextInfo,
+            /* dlnHost             */ 0,
+            /* ulColumnHost        */ 0,
+            /* lnMinHost           */ 0,
+            /* ichMinHost          */ 0,
+            /* ichLimHost          */ static_cast<ULONG>(cb / chsize), // OK to truncate since this is used to limit sourceText in debugDocument/compilation errors.
+            /* ulCharOffset        */ 0,
+            /* mod                 */ kmodGlobal,
+            /* grfsi               */ 0
+        };
+
+        Js::Utf8SourceInfo* utf8SourceInfo = nullptr;
+        scriptContext->MakeUtf8SourceInfo(bytes, cb, &si, &utf8SourceInfo, loadScriptFlag, script);
+
+        if (utf8SourceInfo == nullptr)
+        {
+            return JsErrorInvalidArgument;
+        }
+
+        ULONG grfscr = scriptContext->GetParseFlags(loadScriptFlag, utf8SourceInfo, sourceContextInfo);
+        utf8SourceInfo->SetParseFlags(grfscr);
+
+        if ((loadScriptFlag & LoadScriptFlag_Utf8Source) != LoadScriptFlag_Utf8Source)
+        {
+            sourceIndex = scriptContext->SaveSourceNoCopy(utf8SourceInfo, static_cast<charcount_t>(utf8SourceInfo->GetCchLength()), /*isCesu8*/ true);
+        }
+        else
+        {
+            // TODO: This length may not be correct because we could have actually parsed a different number of characters
+            sourceIndex = scriptContext->SaveSourceNoCopy(utf8SourceInfo, static_cast<charcount_t>(utf8SourceInfo->GetCchLength()), /* isCesu8*/ false);
+        }
+
+        return JsNoError;
+    });
+
+    if (errorCode != JsNoError)
+    {
+        return errorCode;
+    }
+
+    if (!Js::ExternalArrayBuffer::Is(parserState))
+    {
+        return JsErrorInvalidArgument;
+    }
+
+    Js::ArrayBuffer* arrayBuffer = Js::ArrayBuffer::FromVar(parserState);
+    byte* buffer = arrayBuffer->GetBuffer();
+    JsSerializedLoadScriptCallback dummy = DummyScriptLoadSourceCallbackForRunScriptWithParserState;
+
+    return RunSerializedScriptCore(
+        dummy, DummyScriptUnloadCallback,
+        sourceContext, // use the same user provided sourceContext as scriptLoadSourceContext
+        buffer, arrayBuffer, sourceContext, url, false, true, result, sourceIndex);
 }
 
 #endif // _CHAKRACOREBUILD

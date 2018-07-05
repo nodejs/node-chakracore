@@ -41,7 +41,7 @@ namespace Js
 
         Var newTarget = args.GetNewTarget();
         bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
-        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_WeakSet);
+        CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, WeakSet, scriptContext);
 
         JavascriptWeakSet* weakSetObject = nullptr;
 
@@ -74,7 +74,11 @@ namespace Js
         if (iter != nullptr)
         {
             JavascriptOperators::DoIteratorStepAndValue(iter, scriptContext, [&](Var nextItem) {
-                CALL_FUNCTION(scriptContext->GetThreadContext(), adder, CallInfo(CallFlags_Value, 2), weakSetObject, nextItem);
+                BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                {
+                    CALL_FUNCTION(scriptContext->GetThreadContext(), adder, CallInfo(CallFlags_Value, 2), weakSetObject, nextItem);
+                }
+                END_SAFE_REENTRANT_CALL
             });
         }
 

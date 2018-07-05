@@ -58,11 +58,11 @@ namespace Js
             HostScriptContext * hostScriptContext = scriptContext->GetHostScriptContext();
             if (!hostScriptContext || !hostScriptContext->SetCrossSiteForFunctionType(function))
             {
-                if (function->GetDynamicType()->GetIsShared())
+                if (function->GetDynamicType()->GetIsLocked())
                 {
-                    TTD_XSITE_LOG(scriptContext, "SetCrossSiteForSharedFunctionType ", object);
+                    TTD_XSITE_LOG(scriptContext, "SetCrossSiteForLockedFunctionType ", object);
 
-                    function->GetLibrary()->SetCrossSiteForSharedFunctionType(function);
+                    function->GetLibrary()->SetCrossSiteForLockedFunctionType(function);
                 }
                 else
                 {
@@ -186,9 +186,9 @@ namespace Js
             //TODO: what happens if the gaurd in marshal (MarshalDynamicObject) isn't true?
             //
 
-            if(function->GetDynamicType()->GetIsShared())
+            if(function->GetTypeHandler()->GetIsLocked())
             {
-                function->GetLibrary()->SetCrossSiteForSharedFunctionType(function);
+                function->GetLibrary()->SetCrossSiteForLockedFunctionType(function);
             }
             else
             {
@@ -464,7 +464,11 @@ namespace Js
 
         if (callerHostScriptContext == calleeHostScriptContext || (callerHostScriptContext == nullptr && !calleeHostScriptContext->HasCaller()))
         {
-            return JavascriptFunction::CallFunction<true>(function, entryPoint, args);
+            BEGIN_SAFE_REENTRANT_CALL(targetScriptContext->GetThreadContext())
+            {
+                 return JavascriptFunction::CallFunction<true>(function, entryPoint, args, true /*useLargeArgCount*/);
+            }
+            END_SAFE_REENTRANT_CALL
         }
 
 #if DBG_DUMP || defined(PROFILE_EXEC) || defined(PROFILE_MEM)
@@ -485,7 +489,12 @@ namespace Js
         {
             args.Values[i] = CrossSite::MarshalVar(targetScriptContext, args.Values[i]);
         }
-        if (args.HasExtraArg())
+        if (args.HasNewTarget())
+        {
+            // Last value is new.target
+            args.Values[count] = CrossSite::MarshalVar(targetScriptContext, args.GetNewTarget());
+        }
+        else if (args.HasExtraArg())
         {
             // The final eval arg is a frame display that needs to be marshaled specially.
             args.Values[count] = CrossSite::MarshalFrameDisplay(targetScriptContext, args.GetFrameDisplay());
@@ -536,7 +545,11 @@ namespace Js
             }
             wasDispatchExCallerPushed = TRUE;
 
-            result = JavascriptFunction::CallFunction<true>(function, entryPoint, args);
+            BEGIN_SAFE_REENTRANT_CALL(targetScriptContext->GetThreadContext())
+            {
+            result = JavascriptFunction::CallFunction<true>(function, entryPoint, args, true /*useLargeArgCount*/);
+            }
+            END_SAFE_REENTRANT_CALL
             ScriptContext* callerScriptContext = callerHostScriptContext->GetScriptContext();
             result = CrossSite::MarshalVar(callerScriptContext, result);
         },

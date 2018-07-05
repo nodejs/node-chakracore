@@ -16,7 +16,6 @@
     <default>
       <files>withnonativeApplyOptimizationBug3433559.js</files>
       <compile-flags>-nonative</compile-flags>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
@@ -29,7 +28,7 @@
     <default>
       <files>Win8_459638.js</files>
       <baseline>Win8_459638.baseline</baseline>
-      <tags>exclude_x86,exclude_amd64</tags>
+      <tags>exclude_x86,exclude_x64</tags>
       <!-- The bug is related to ARM only -->
       <compile-flags>-forceNative -off:simpleJit</compile-flags>
     </default>
@@ -38,7 +37,6 @@
     <default>
       <files>bug_OS_1197716.js</files>
       <compile-flags>-deferparse</compile-flags>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
@@ -57,13 +55,13 @@
     <default>
       <files>randombug.js</files>
       <baseline>randombug.baseline</baseline>
-      <compile-flags>-ExtendedErrorStackForTestHost</compile-flags>
+      <compile-flags>-CollectGarbage -ExtendedErrorStackForTestHost -off:earlyreferenceerrors</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>blue_532460.js</files>
-      <compile-flags>-MaxinterpretCount:1 -MaxSimpleJITRunCount:0 -loopinterpretcount:1 -force:deferparse</compile-flags>
+      <compile-flags>-CollectGarbage -MaxinterpretCount:1 -MaxSimpleJITRunCount:0 -loopinterpretcount:1 -force:deferparse</compile-flags>
     </default>
   </test>
   <test>
@@ -107,14 +105,14 @@
   </test>
   <test>
     <default>
-      <compile-flags>-maxinterpretcount:1 -maxsimplejitruncount:2  -MaxLinearStringCaseCount:2 -MaxLinearIntCaseCount:2 -forceserialized -MinSwitchJumpTableSize:3 -bgjit- -loopinterpretcount:1 -force:fieldhoist -force:polymorphicinlinecache -force:fieldcopyprop -sse:2 -force:interpreterautoprofile</compile-flags>
+      <compile-flags>-maxinterpretcount:1 -maxsimplejitruncount:2  -MaxLinearStringCaseCount:2 -MaxLinearIntCaseCount:2 -forceserialized -MinSwitchJumpTableSize:3 -bgjit- -loopinterpretcount:1 -force:polymorphicinlinecache -force:fieldcopyprop -sse:2 -force:interpreterautoprofile</compile-flags>
       <files>bug215238.mul-53-ovf.js</files>
       <baseline>bug215238.mul-53-ovf.baseline</baseline>
     </default>
   </test>
   <test>
     <default>
-      <compile-flags>-maxinterpretcount:1 -maxsimplejitruncount:1  -MinSwitchJumpTableSize:3 -bgjit- -loopinterpretcount:1 -force:fieldhoist -force:rejit -force:ScriptFunctionWithInlineCache -force:fixdataprops</compile-flags>
+      <compile-flags>-maxinterpretcount:1 -maxsimplejitruncount:1  -MinSwitchJumpTableSize:3 -bgjit- -loopinterpretcount:1 -force:rejit -force:ScriptFunctionWithInlineCache -force:fixdataprops</compile-flags>
       <files>bug215238-shrua.js</files>
       <baseline>bug215238-shrua.baseline</baseline>
     </default>
@@ -203,7 +201,6 @@
     <default>
       <files>OS_1362136.js</files>
       <compile-flags>-mic:1 -off:simplejit -off:fastpath</compile-flags>
-      <tags>BugFix</tags>
     </default>
   </test>
   <test>
@@ -216,7 +213,7 @@
   <test>
     <default>
       <files>fabs1.js</files>
-      <tags>exclude_dynapogo,require_backend,exclude_arm,exclude_arm64</tags>
+      <tags>exclude_dynapogo,require_backend,require_asmjs</tags>
       <compile-flags>-off:backend -asmjs -testtrace:asmjs</compile-flags>
       <baseline>fabs1.baseline</baseline>
     </default>
@@ -260,7 +257,7 @@
   <test>
     <default>
       <files>simpletypehandler-property-deletion.js</files>
-      <compile-flags>-ES6FunctionName -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -418,7 +415,6 @@
   <test>
     <default>
       <files>bug14323330.js</files>
-      <tags>BugFix</tags>
       <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
@@ -436,7 +432,6 @@
   <test>
     <default>
       <files>bug_OS14326981.js</files>
-      <tags>BugFix</tags>
       <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
@@ -448,8 +443,67 @@
   <test>
     <default>
       <files>bug_OS14115684.js</files>
-      <tags>BugFix</tags>
       <compile-flags>-forceundodefer</compile-flags>
     </default>
   </test>
+  <test>
+    <default>
+      <files>inbug.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>inbug2.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>instancebug.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>missingvalue.js</files>
+      <compile-flags>-off:ArrayMissingValueCheckHoist</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>symcmpbug.js</files>
+    </default>
+  </test>
+  <test> 
+    <default> 
+      <files>bug_OS17417473.js</files> 
+      <compile-flags>-pageheap:2 -CollectGarbage -lic:4 -Sja:4 -Fja:6 -maxInterpretCount:2 -MinBailOutsBeforeRejit:2 -args summary -endargs</compile-flags> 
+    </default> 
+  </test>
+  <test> 
+    <default> 
+      <files>HomeObjInLoop.js</files> 
+      <compile-flags>-forceNative -forcejitloopbody -off:aggressiveinttypespec -off:ArrayCheckHoist</compile-flags> 
+    </default> 
+  </test> 
+  <test>
+    <default>
+      <files>bug17785360.js</files>
+    </default>
+  </test> 
+  <test>
+    <default>
+      <files>bug_OS17530048.js</files>
+      <tags>exclude_jshost</tags>
+      <compile-flags>-force:deferparse -parserstatecache -useparserstatecache</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>withSplitScope.js</files>
+    </default>
+  </test>
+  <test>
+    <default>
+      <files>bug_OS17614914.js</files>
+    </default>
+  </test>  
 </regress-exe>

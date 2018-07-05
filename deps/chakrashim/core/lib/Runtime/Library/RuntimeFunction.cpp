@@ -18,20 +18,22 @@ namespace Js
         : JavascriptFunction(type, functionInfo, cache), functionNameId(nullptr)
     {}
 
-    Var
+    JavascriptString *
     RuntimeFunction::EnsureSourceString()
     {
         JavascriptLibrary* library = this->GetLibrary();
         ScriptContext * scriptContext = library->GetScriptContext();
+        JavascriptString * retStr = nullptr;
         if (this->functionNameId == nullptr)
         {
-            this->functionNameId = library->GetFunctionDisplayString();
+            retStr = library->GetFunctionDisplayString();
+            this->functionNameId = retStr;
         }
         else
         {
             if (TaggedInt::Is(this->functionNameId))
             {
-                if (scriptContext->GetConfig()->IsES6FunctionNameEnabled() && this->GetTypeHandler()->IsDeferredTypeHandler())
+                if (this->GetTypeHandler()->IsDeferredTypeHandler())
                 {
                     JavascriptString* functionName = nullptr;
                     DebugOnly(bool status = ) this->GetFunctionName(&functionName);
@@ -41,11 +43,15 @@ namespace Js
 
                 // This has a side-effect where any other code (such as debugger) that uses functionNameId value will now get the value like "function foo() { native code }"
                 // instead of just "foo". Alternative ways will need to be devised; if it's not desirable to use this full display name value in those cases.
-                this->functionNameId = GetNativeFunctionDisplayString(scriptContext, scriptContext->GetPropertyString(TaggedInt::ToInt32(this->functionNameId)));
+                 retStr = GetNativeFunctionDisplayString(scriptContext, scriptContext->GetPropertyString(TaggedInt::ToInt32(this->functionNameId)));
+                 this->functionNameId = retStr;
+            }
+            else
+            {
+                retStr = JavascriptString::FromVar(this->functionNameId);
             }
         }
-        Assert(JavascriptString::Is(this->functionNameId));
-        return this->functionNameId;
+        return retStr;
     }
 
     void

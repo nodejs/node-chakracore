@@ -892,7 +892,7 @@ SECOND_PASS:
                         else if (!HasNoMissingValues())
                         {
                             // Have we overwritten all the missing values?
-                            if (!ScanForMissingValues<T>(0, startOffset))
+                            if (!ScanForMissingValues<T>(0, startOffset) && !ScanForMissingValues<T>(startOffset + length, current->length))
                             {
                                 SetHasNoMissingValues();
                             }
@@ -907,7 +907,7 @@ SECOND_PASS:
             {
                 isInlineSegment = JavascriptArray::IsInlineSegment(startSeg, this);
                 // startIndex is in between prev and startIndex
-                current = SparseArraySegment<T>::template AllocateSegmentImpl<false>(recycler, startIndex, length, (SparseArraySegmentBase*)nullptr);
+                current = SparseArraySegment<T>::template AllocateSegmentImpl<false>(recycler, startIndex, length, nullptr);
                 LinkSegments((Js::SparseArraySegment<T>*)startPrev, current);
                 if (current == head)
                 {
@@ -974,12 +974,12 @@ SECOND_PASS:
                             LinkSegments((Js::SparseArraySegment<T>*)startPrev, current);
                             current->length = startOffset + length + growby;
                             current->CheckLengthvsSize();
-                        }
-                        if (current == head && HasNoMissingValues())
-                        {
-                            if (ScanForMissingValues<T>(startOffset + length, current->length))
+                            if (current == head && HasNoMissingValues())
                             {
-                                SetHasNoMissingValues(false);
+                                if (ScanForMissingValues<T>(startOffset + length, current->length))
+                                {
+                                    SetHasNoMissingValues(false);
+                                }
                             }
                         }
                     }
@@ -1075,7 +1075,7 @@ SECOND_PASS:
 
         const auto isSegmentValid = [length](Js::SparseArraySegment<T>* segment, uint32 startIndex) {
             uint32 end, segmentEnd;
-            // Check the segment is int32 enough
+            // Check the segment is big enough
             return (
                 segment &&
                 !UInt32Math::Add(startIndex, length, &end) &&
@@ -1085,8 +1085,8 @@ SECOND_PASS:
                 segmentEnd >= end
             );
         };
-        //Find the segment where itemIndex is present or is at the boundary
-        Js::SparseArraySegment<T>* fromSegment = (Js::SparseArraySegment<T>*)fromArray->GetBeginLookupSegment(fromStartIndex, false);
+        // Check if the head segment of the fromArray has everything we need to copy
+        Js::SparseArraySegment<T>* fromSegment = (Js::SparseArraySegment<T>*)fromArray->GetHead();
         if (!isSegmentValid(fromSegment, fromStartIndex))
         {
             return false;

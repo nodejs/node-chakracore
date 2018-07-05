@@ -149,16 +149,7 @@ struct InlineeFrameInfo
     InlineeFrameRecord* record;
     BVSparse<JitArenaAllocator>* floatSyms;
     BVSparse<JitArenaAllocator>* intSyms;
-
-#ifdef ENABLE_SIMDJS
-    BVSparse<JitArenaAllocator>* simd128F4Syms;
-    BVSparse<JitArenaAllocator>* simd128I4Syms;
-    BVSparse<JitArenaAllocator>* simd128I8Syms;
-    BVSparse<JitArenaAllocator>* simd128I16Syms;
-    BVSparse<JitArenaAllocator>* simd128U4Syms;
-    BVSparse<JitArenaAllocator>* simd128U8Syms;
-    BVSparse<JitArenaAllocator>* simd128U16Syms;
-#endif
+    BVSparse<JitArenaAllocator>* varSyms;
 
     bool isRecorded;
 

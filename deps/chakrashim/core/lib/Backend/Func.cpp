@@ -185,7 +185,7 @@ Func::Func(JitArenaAllocator *alloc, JITTimeWorkItem * workItem,
 
     if (m_workItem->Type() == JsFunctionType &&
         GetJITFunctionBody()->DoBackendArgumentsOptimization() &&
-        !GetJITFunctionBody()->HasTry())
+        (!GetJITFunctionBody()->HasTry() || this->DoOptimizeTry()))
     {
         // doBackendArgumentsOptimization bit is set when there is no eval inside a function
         // as determined by the bytecode generator.
@@ -276,6 +276,12 @@ bool
 Func::IsLoopBodyInTry() const
 {
     return IsLoopBody() && m_workItem->GetLoopHeader()->isInTry;
+}
+
+bool
+Func::IsLoopBodyInTryFinally() const
+{
+    return IsLoopBody() && m_workItem->GetLoopHeader()->isInTryFinally;
 }
 
 /* static */
@@ -1566,6 +1572,7 @@ Func::GetOrCreateSingleTypeGuard(intptr_t typeAddr)
 void
 Func::EnsureEquivalentTypeGuards()
 {
+    AssertMsg(!PHASE_OFF(Js::EquivObjTypeSpecPhase, this), "Why do we have equivalent type guards if we don't do equivalent object type spec?");
     if (this->equivalentTypeGuards == nullptr)
     {
         this->equivalentTypeGuards = JitAnew(this->m_alloc, EquivalentTypeGuardList, this->m_alloc);
@@ -1579,6 +1586,26 @@ Func::CreateEquivalentTypeGuard(JITTypeHolder type, uint32 objTypeSpecFldId)
 
     Js::JitEquivalentTypeGuard* guard = NativeCodeDataNewNoFixup(GetNativeCodeDataAllocator(), Js::JitEquivalentTypeGuard, type->GetAddr(), this->indexedPropertyGuardCount++, objTypeSpecFldId);
 
+    this->InitializeEquivalentTypeGuard(guard);
+
+    return guard;
+}
+
+Js::JitPolyEquivalentTypeGuard*
+Func::CreatePolyEquivalentTypeGuard(uint32 objTypeSpecFldId)
+{
+    EnsureEquivalentTypeGuards();
+
+    Js::JitPolyEquivalentTypeGuard* guard = NativeCodeDataNewNoFixup(GetNativeCodeDataAllocator(), Js::JitPolyEquivalentTypeGuard, this->indexedPropertyGuardCount++, objTypeSpecFldId);
+
+    this->InitializeEquivalentTypeGuard(guard);
+
+    return guard;
+}
+
+void
+Func::InitializeEquivalentTypeGuard(Js::JitEquivalentTypeGuard * guard)
+{
     // If we want to hard code the address of the cache, we will need to go back to allocating it from the native code data allocator.
     // We would then need to maintain consistency (double write) to both the recycler allocated cache and the one on the heap.
     Js::EquivalentTypeCache* cache = nullptr;
@@ -1595,8 +1622,6 @@ Func::CreateEquivalentTypeGuard(JITTypeHolder type, uint32 objTypeSpecFldId)
     // Give the cache a back-pointer to the guard so that the guard can be cleared at runtime if necessary.
     cache->SetGuard(guard);
     this->equivalentTypeGuards->Prepend(guard);
-
-    return guard;
 }
 
 void

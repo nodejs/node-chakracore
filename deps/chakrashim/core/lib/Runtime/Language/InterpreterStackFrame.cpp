@@ -14,6 +14,7 @@
 #include "Language/InterpreterStackFrame.h"
 #include "Library/JavascriptGeneratorFunction.h"
 #include "Library/ForInObjectEnumerator.h"
+#include "Library/AtomicsOperations.h"
 #include "../../WasmReader/WasmParseTree.h"
 ///----------------------------------------------------------------------------
 ///
@@ -494,6 +495,17 @@
 
 #define PROCESS_GET_ELEM_SLOT_FB(name, func) PROCESS_GET_ELEM_SLOT_FB_COMMON(name, func,)
 
+#define PROCESS_GET_ELEM_SLOT_FB_HMO_COMMON(name, func, suffix) \
+    case OpCode::name: \
+    { \
+        PROCESS_READ_LAYOUT(name, ElementSlotI3, suffix); \
+        SetReg(playout->Value, \
+                func((FrameDisplay*)GetNonVarReg(playout->Instance), this->m_functionBody->GetNestedFuncReference(playout->SlotIndex), GetReg(playout->HomeObj))); \
+        break; \
+    }
+
+#define PROCESS_GET_ELEM_SLOT_FB_HMO(name, func) PROCESS_GET_ELEM_SLOT_FB_HMO_COMMON(name, func,)
+
 #define PROCESS_GET_SLOT_FB_COMMON(name, func, suffix) \
     case OpCode::name: \
     { \
@@ -504,6 +516,17 @@
     }
 
 #define PROCESS_GET_SLOT_FB(name, func) PROCESS_GET_SLOT_FB_COMMON(name, func,)
+
+#define PROCESS_GET_SLOT_FB_HMO_COMMON(name, func, suffix) \
+    case OpCode::name: \
+    { \
+        PROCESS_READ_LAYOUT(name, ElementSlot, suffix); \
+        SetReg(playout->Value, \
+               func(this->GetFrameDisplayForNestedFunc(), this->m_functionBody->GetNestedFuncReference(playout->SlotIndex), GetReg(playout->Instance))); \
+        break; \
+    }
+
+#define PROCESS_GET_SLOT_FB_HMO(name, func) PROCESS_GET_SLOT_FB_HMO_COMMON(name, func,)
 
 #define PROCESS_GET_ELEM_IMem_COMMON(name, func, suffix) \
     case OpCode::name: \
@@ -929,83 +952,6 @@
 
 namespace Js
 {
-#ifdef ASMJS_PLAT
-
-    typedef void(InterpreterStackFrame::*ArrFunc)(uint32, RegSlot);
-    CompileAssert(Js::ArrayBufferView::TYPE_INT8 == 0);
-    CompileAssert(Js::ArrayBufferView::TYPE_UINT8 == 1);
-    CompileAssert(Js::ArrayBufferView::TYPE_INT16 == 2);
-    CompileAssert(Js::ArrayBufferView::TYPE_UINT16 == 3);
-    CompileAssert(Js::ArrayBufferView::TYPE_INT32 == 4);
-    CompileAssert(Js::ArrayBufferView::TYPE_UINT32 == 5);
-    CompileAssert(Js::ArrayBufferView::TYPE_FLOAT32 == 6);
-    CompileAssert(Js::ArrayBufferView::TYPE_FLOAT64 == 7);
-    CompileAssert(Js::ArrayBufferView::TYPE_INT64 == 8);
-    CompileAssert(Js::ArrayBufferView::TYPE_INT8_TO_INT64 == 9);
-    CompileAssert(Js::ArrayBufferView::TYPE_UINT8_TO_INT64 == 10);
-    CompileAssert(Js::ArrayBufferView::TYPE_INT16_TO_INT64 == 11);
-    CompileAssert(Js::ArrayBufferView::TYPE_UINT16_TO_INT64 == 12);
-    CompileAssert(Js::ArrayBufferView::TYPE_INT32_TO_INT64 == 13);
-    CompileAssert(Js::ArrayBufferView::TYPE_UINT32_TO_INT64 == 14);
-
-    const InterpreterStackFrame::ArrFunc InterpreterStackFrame::StArrFunc[] =
-    {
-        &InterpreterStackFrame::OP_StArr<int8, int32>,
-        &InterpreterStackFrame::OP_StArr<uint8, int32>,
-        &InterpreterStackFrame::OP_StArr<int16, int32>,
-        &InterpreterStackFrame::OP_StArr<uint16, int32>,
-        &InterpreterStackFrame::OP_StArr<int32>,
-        &InterpreterStackFrame::OP_StArr<uint32, int32>,
-        &InterpreterStackFrame::OP_StArr<float>,
-        &InterpreterStackFrame::OP_StArr<double>,
-        &InterpreterStackFrame::OP_StArr<int64>,
-        &InterpreterStackFrame::OP_StArr<int8, int64>,
-        &InterpreterStackFrame::OP_StArr<uint8, int64>,
-        &InterpreterStackFrame::OP_StArr<int16, int64>,
-        &InterpreterStackFrame::OP_StArr<uint16, int64>,
-        &InterpreterStackFrame::OP_StArr<int32, int64>,
-        &InterpreterStackFrame::OP_StArr<uint32, int64>,
-    };
-
-    const InterpreterStackFrame::ArrFunc InterpreterStackFrame::LdArrFunc[] =
-    {
-        &InterpreterStackFrame::OP_LdArr<int8, int32>,
-        &InterpreterStackFrame::OP_LdArr<uint8, int32>,
-        &InterpreterStackFrame::OP_LdArr<int16, int32>,
-        &InterpreterStackFrame::OP_LdArr<uint16, int32>,
-        &InterpreterStackFrame::OP_LdArr<int32>,
-        &InterpreterStackFrame::OP_LdArr<uint32, int32>,
-        &InterpreterStackFrame::OP_LdArr<float>,
-        &InterpreterStackFrame::OP_LdArr<double>,
-        &InterpreterStackFrame::OP_LdArr<int64>,
-        &InterpreterStackFrame::OP_LdArr<int8, int64>,
-        &InterpreterStackFrame::OP_LdArr<uint8, int64>,
-        &InterpreterStackFrame::OP_LdArr<int16, int64>,
-        &InterpreterStackFrame::OP_LdArr<uint16, int64>,
-        &InterpreterStackFrame::OP_LdArr<int32, int64>,
-        &InterpreterStackFrame::OP_LdArr<uint32, int64>,
-    };
-
-    const int InterpreterStackFrame::TypeToSizeMap[] =
-    {
-        /*int8*/ 1,
-        /*uint8*/ 1,
-        /*int16*/ 2,
-        /*uint16*/ 2,
-        /*int32*/ 4,
-        /*uint32*/ 4,
-        /*float*/ 4,
-        /*double*/ 8,
-        /*int64*/ 8,
-        /*int8*/ 1,
-        /*uint8*/ 1,
-        /*int16*/ 2,
-        /*uint16*/ 2,
-        /*int32*/ 4,
-        /*uint32*/ 4,
-    };
-#endif
-
     Var InterpreterStackFrame::InnerScopeFromRegSlot(RegSlot reg) const
     {
         return InnerScopeFromIndex(reg - m_functionBody->GetFirstInnerScopeRegister());
@@ -1073,7 +1019,7 @@ namespace Js
         }
 #endif
         // If we bailed out, we will use the JIT frame's for..in enumerators
-        uint forInVarCount = bailedOut? 0 : (this->executeFunction->GetForInLoopDepth() * (sizeof(Js::ForInObjectEnumerator) / sizeof(Var)));
+        uint forInVarCount = bailedOut ? 0 : (this->executeFunction->GetForInLoopDepth() * (sizeof(Js::ForInObjectEnumerator) / sizeof(Var)));
         this->varAllocCount = k_stackFrameVarCount + localCount + this->executeFunction->GetOutParamMaxDepth() + forInVarCount +
             extraVarCount + this->executeFunction->GetInnerScopeCount();
 
@@ -1104,7 +1050,7 @@ namespace Js
     InterpreterStackFrame *
     InterpreterStackFrame::Setup::InitializeAllocation(__in_ecount(varAllocCount) Var * allocation, bool initParams, bool profileParams, LoopHeader* loopHeaderArray, DWORD_PTR stackAddr
 #if DBG
-    , Var invalidStackVar
+        , Var invalidStackVar
 #endif
     )
     {
@@ -1166,7 +1112,8 @@ namespace Js
 #if ENABLE_NATIVE_CODEGEN
         bool doJITLoopBody =
             !this->executeFunction->GetScriptContext()->GetConfig()->IsNoNative() &&
-            !(this->executeFunction->GetHasTry() && (PHASE_OFF((Js::JITLoopBodyInTryCatchPhase), this->executeFunction) || this->executeFunction->GetHasFinally())) &&
+            !(this->executeFunction->GetHasTry() && (PHASE_OFF((Js::JITLoopBodyInTryCatchPhase), this->executeFunction))) &&
+            !(this->executeFunction->GetHasFinally() && (PHASE_OFF((Js::JITLoopBodyInTryFinallyPhase), this->executeFunction))) &&
             (this->executeFunction->ForceJITLoopBody() || this->executeFunction->IsJitLoopBodyPhaseEnabled()) &&
             !this->executeFunction->IsInDebugMode();
 #endif
@@ -1296,7 +1243,7 @@ namespace Js
             // In the debug mode zero out the local slot, so this could prevent locals being uninitialized in the case of setNextStatement.
             memset(newInstance->m_localSlots, 0, sizeof(Js::Var) * localCount);
         }
-        else 
+        else
         {
             Js::RegSlot varCount = function->GetFunctionBody()->GetVarCount();
             if (varCount)
@@ -1387,8 +1334,7 @@ namespace Js
                 callback(src, paramIndex);
                 *pArg++ = src;
                 paramIndex++;
-            }
-            while (paramIndex < requiredInParamCount);
+            } while (paramIndex < requiredInParamCount);
             *pprestDest = pArg;
         }
         else
@@ -1417,8 +1363,7 @@ namespace Js
             callback(varUndef, paramIndex);
             *pArg++ = varUndef;
             paramIndex++;
-        }
-        while (paramIndex < requiredInParamCount);
+        } while (paramIndex < requiredInParamCount);
 
         *pprestDest = pArg;
     }
@@ -1580,69 +1525,69 @@ namespace Js
             d) push the return address back into the stack
     */
     __declspec(naked)
-    void InterpreterStackFrame::InterpreterAsmThunk(AsmJsCallStackLayout* layout)
+        void InterpreterStackFrame::InterpreterAsmThunk(AsmJsCallStackLayout* layout)
     {
-            __asm
-            {
-                //Prologue
-                push ebp;
-                mov ebp, esp;
+        __asm
+        {
+            //Prologue
+            push ebp;
+            mov ebp, esp;
 
-                // Allocate space to put the return value
-                sub esp, 16;
-                and esp, -16;
+            // Allocate space to put the return value
+            sub esp, 16;
+            and esp, -16;
 
-                push esp;
-                push layout;
-                call InterpreterStackFrame::AsmJsInterpreter;
+            push esp;
+            push layout;
+            call InterpreterStackFrame::AsmJsInterpreter;
 
-                // we need to move stack around in order to do callee cleanup
-                // unfortunately, we don't really have enough registers to do this cleanly
-                //
-                // we are rearranging the stack from this:
-                // 0x14 caller push scriptArg1
-                // 0x10 caller push functionObject
-                // 0x0C DynamicInterpreterThunk return address
-                // 0x08 DynamicInterpreterThunk push ebp
-                // 0x04 DynamicInterpreterThunk push functionObject
-                // 0x00 InterpreterAsmThunk return address <- stack pointer
-                // to this:
-                // 0x14 DynamicInterpreterThunk return address
-                // 0x10 DynamicInterpreterThunk push ebp
-                // 0x0C InterpreterAsmThunk return address <- stack pointer
-                // Read return value into possible registers
-                movups xmm0, [esp];
-                mov edx, [esp + 4];
-                mov eax, [esp];
+            // we need to move stack around in order to do callee cleanup
+            // unfortunately, we don't really have enough registers to do this cleanly
+            //
+            // we are rearranging the stack from this:
+            // 0x14 caller push scriptArg1
+            // 0x10 caller push functionObject
+            // 0x0C DynamicInterpreterThunk return address
+            // 0x08 DynamicInterpreterThunk push ebp
+            // 0x04 DynamicInterpreterThunk push functionObject
+            // 0x00 InterpreterAsmThunk return address <- stack pointer
+            // to this:
+            // 0x14 DynamicInterpreterThunk return address
+            // 0x10 DynamicInterpreterThunk push ebp
+            // 0x0C InterpreterAsmThunk return address <- stack pointer
+            // Read return value into possible registers
+            movups xmm0, [esp];
+            mov edx, [esp + 4];
+            mov eax, [esp];
 
-                mov ecx, layout;
-                // Epilog, callee cleanup
-                mov esp, ebp;
-                pop ebp;
+            mov ecx, layout;
+            // Epilog, callee cleanup
+            mov esp, ebp;
+            pop ebp;
 
-                push eax; // save eax
-                push edx; // save edx
-                // we have to do +0x8 on all stack addresses because we saved 2 registers
-                push ecx; // ebp has been restored, we can't use parameters anymore
-                call InterpreterStackFrame::GetAsmJsArgSize;
-                mov ecx, eax;
+            push eax; // save eax
+            push edx; // save edx
+            // we have to do +0x8 on all stack addresses because we saved 2 registers
+            push ecx; // ebp has been restored, we can't use parameters anymore
+            call InterpreterStackFrame::GetAsmJsArgSize;
+            mov ecx, eax;
 
-                lea eax, [esp + ecx * 1 + 0x8 + 0x8]; // eax will be our stack destination
-                mov edx, [esp + 0xC + 0x8];
-                mov [eax], edx; // move the dynamic interpreter thunk return location
-                mov edx, [esp + 0x8 + 0x8];
-                mov [eax - 0x4], edx; // move the dynamic interpreter thunk "push ebp" location
-                // skip "push functionObject"
-                mov edx, [esp + 0x0 + 0x8];
-                mov [eax - 0x8], edx; // move the return location
+            lea eax, [esp + ecx * 1 + 0x8 + 0x8]; // eax will be our stack destination
+            mov edx, [esp + 0xC + 0x8];
+            mov[eax], edx; // move the dynamic interpreter thunk return location
+            mov edx, [esp + 0x8 + 0x8];
+            mov[eax - 0x4], edx; // move the dynamic interpreter thunk "push ebp" location
+            // skip "push functionObject"
+            mov edx, [esp + 0x0 + 0x8];
+            mov[eax - 0x8], edx; // move the return location
 
-                pop edx; // restore possible int64 return value
-                pop eax; // restore return value
-                add esp, ecx; // cleanup arguments
+            pop edx; // restore possible int64 return value
+            pop eax; // restore return value
+            add esp, ecx; // cleanup arguments
 
-                ret;
-            }
+            ret;
         }
+    }
 #endif
 #endif
 #endif
@@ -1650,26 +1595,26 @@ namespace Js
 #if DYNAMIC_INTERPRETER_THUNK
 #ifdef _M_IX86
     __declspec(naked)
-    Var InterpreterStackFrame::DelayDynamicInterpreterThunk(RecyclableObject* function, CallInfo callInfo, ...)
+        Var InterpreterStackFrame::DelayDynamicInterpreterThunk(RecyclableObject* function, CallInfo callInfo, ...)
     {
         __asm
         {
             push ebp
             mov ebp, esp
-            push [esp+8]     // push function object
+            push[esp + 8]     // push function object
             call InterpreterStackFrame::EnsureDynamicInterpreterThunk;
 
 #ifdef _CONTROL_FLOW_GUARD
             // verify that the call target is valid
             push eax
-            mov  ecx, eax
-            call[__guard_check_icall_fptr]
-            pop eax
+                mov  ecx, eax
+                call[__guard_check_icall_fptr]
+                pop eax
 #endif
 
-            pop ebp
+                pop ebp
 
-            jmp eax
+                jmp eax
         }
     }
 #endif
@@ -1855,7 +1800,7 @@ namespace Js
         class AutoRestore
         {
         private:
-            ThreadContext *const threadContext;
+            ThreadContext * const threadContext;
             const uint8 savedLoopDepth;
 
         public:
@@ -2001,7 +1946,7 @@ namespace Js
 
 #if ENABLE_TTD
         TTD::TTDExceptionFramePopper exceptionFramePopper;
-        if(SHOULD_DO_TTD_STACK_STMT_OP(functionScriptContext))
+        if (SHOULD_DO_TTD_STACK_STMT_OP(functionScriptContext))
         {
             bool isInFinally = newInstance->TestFlags(Js::InterpreterStackFrameFlags_WithinFinallyBlock);
 
@@ -2038,7 +1983,7 @@ namespace Js
         executeFunction->EndExecution();
 
 #if ENABLE_TTD
-        if(SHOULD_DO_TTD_STACK_STMT_OP(functionScriptContext))
+        if (SHOULD_DO_TTD_STACK_STMT_OP(functionScriptContext))
         {
             exceptionFramePopper.PopInfo();
             threadContext->TTDExecutionInfo->PopCallEvent(function, aReturn);
@@ -2095,6 +2040,7 @@ namespace Js
 
         switch (retType)
         {
+#ifdef ENABLE_WASM_SIMD
         case AsmJsRetType::Int32x4:
         case AsmJsRetType::Bool32x4:
         case AsmJsRetType::Bool16x8:
@@ -2106,21 +2052,10 @@ namespace Js
         case AsmJsRetType::Uint32x4:
         case AsmJsRetType::Uint16x8:
         case AsmJsRetType::Uint8x16:
-
-#if defined(ENABLE_WASM_SIMD) || defined(ENABLE_SIMDJS)
-
-#ifdef ENABLE_WASM_SIMD
-            if (Wasm::Simd::IsEnabled())
-#elif ENABLE_SIMDJS
-            if (function->GetScriptContext()->GetConfig()->IsSimdjsEnabled())
+            Assert(Wasm::Simd::IsEnabled());
+            *(AsmJsSIMDValue*)retDst = asmJsReturn.simd;
+            break;
 #endif
-            {
-                *(AsmJsSIMDValue*)retDst = asmJsReturn.simd;
-                break;
-            }
-#endif
-
-            Assert(UNREACHED);
         // double return
         case AsmJsRetType::Double:
             *(double*)retDst = asmJsReturn.d;
@@ -2156,25 +2091,26 @@ namespace Js
         {
         case Js::AsmJsRetType::Double:
         {
-            entryPoint = (void*)(AsmJsInterpreterDoubleEP)Js::InterpreterStackFrame::AsmJsInterpreter < double > ;
+            entryPoint = (void*)(AsmJsInterpreterDoubleEP)Js::InterpreterStackFrame::AsmJsInterpreter < double >;
             break;
         }
         case Js::AsmJsRetType::Float:
         {
-            entryPoint = (void*)(AsmJsInterpreterFloatEP)Js::InterpreterStackFrame::AsmJsInterpreter < float > ;
+            entryPoint = (void*)(AsmJsInterpreterFloatEP)Js::InterpreterStackFrame::AsmJsInterpreter < float >;
             break;
         }
         case Js::AsmJsRetType::Signed:
         case Js::AsmJsRetType::Void:
         {
-            entryPoint = (void*)(AsmJsInterpreterIntEP)Js::InterpreterStackFrame::AsmJsInterpreter < int > ;
+            entryPoint = (void*)(AsmJsInterpreterIntEP)Js::InterpreterStackFrame::AsmJsInterpreter < int >;
             break;
         }
         case Js::AsmJsRetType::Int64:
         {
-            entryPoint = (void*)(AsmJsInterpreterInt64EP)Js::InterpreterStackFrame::AsmJsInterpreter < int64 > ;
+            entryPoint = (void*)(AsmJsInterpreterInt64EP)Js::InterpreterStackFrame::AsmJsInterpreter < int64 >;
             break;
         }
+#ifdef ENABLE_WASM_SIMD
         case Js::AsmJsRetType::Int32x4:
         case Js::AsmJsRetType::Bool32x4:
         case Js::AsmJsRetType::Bool16x8:
@@ -2190,6 +2126,7 @@ namespace Js
             entryPoint = (void*)Js::InterpreterStackFrame::AsmJsInterpreterSimdJs;
             break;
         }
+#endif
         default:
             Assume(UNREACHED);
         }
@@ -2255,16 +2192,16 @@ namespace Js
         m_outParams[outRegisterID] = aValue;
     }
 
-    inline void InterpreterStackFrame::OP_SetOutAsmDb( RegSlot outRegisterID, double val )
+    inline void InterpreterStackFrame::OP_SetOutAsmDb(RegSlot outRegisterID, double val)
     {
         Assert(m_outParams + outRegisterID < m_outSp);
-        m_outParams[outRegisterID] = JavascriptNumber::NewWithCheck( val, scriptContext );
+        m_outParams[outRegisterID] = JavascriptNumber::NewWithCheck(val, scriptContext);
     }
 
-    inline void InterpreterStackFrame::OP_SetOutAsmInt( RegSlot outRegisterID, int val )
+    inline void InterpreterStackFrame::OP_SetOutAsmInt(RegSlot outRegisterID, int val)
     {
-        Assert( m_outParams + outRegisterID < m_outSp );
-        m_outParams[outRegisterID] = JavascriptNumber::ToVar( val, scriptContext );
+        Assert(m_outParams + outRegisterID < m_outSp);
+        m_outParams[outRegisterID] = JavascriptNumber::ToVar(val, scriptContext);
     }
 
     void InterpreterStackFrame::OP_SetOutAsmFlt(RegSlot outRegisterID, float val)
@@ -2358,8 +2295,8 @@ namespace Js
         m_outParams = (Var*)*m_outSp;
 
         AssertMsg(m_localSlots + this->m_functionBody->GetLocalsCount() <= m_outSp &&
-                  m_outSp < (m_localSlots + this->m_functionBody->GetLocalsCount() + this->m_functionBody->GetOutParamMaxDepth()),
-                  "out args Stack pointer not in range after Pop");
+            m_outSp < (m_localSlots + this->m_functionBody->GetLocalsCount() + this->m_functionBody->GetOutParamMaxDepth()),
+            "out args Stack pointer not in range after Pop");
     }
 
     void InterpreterStackFrame::ResetOut()
@@ -2367,10 +2304,10 @@ namespace Js
         //
         // Reset the m_outParams and m_outSp
         //
-        m_outParams    = m_localSlots + this->m_functionBody->GetLocalsCount();
+        m_outParams   = m_localSlots + this->m_functionBody->GetLocalsCount();
 
-        m_outSp        = m_outParams;
-        m_outSpCached  = nullptr;
+        m_outSp       = m_outParams;
+        m_outSpCached = nullptr;
     }
 
 #ifdef ENABLE_SCRIPT_DEBUGGING
@@ -2394,7 +2331,7 @@ namespace Js
             try
             {
 #if ENABLE_TTD
-                if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+                if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
                 {
                     return this->ProcessWithDebugging_PreviousStmtTracking();
                 }
@@ -2428,7 +2365,7 @@ namespace Js
                         || this->scriptContext->GetDebugContext()->GetProbeContainer()->AdvanceToNextUserStatement(this->m_functionBody, &this->m_reader))
                     {
                         // We must fix up the return value to at least be undefined:
-                        this->SetReg((RegSlot)0,this->scriptContext->GetLibrary()->GetUndefined());
+                        this->SetReg((RegSlot)0, this->scriptContext->GetLibrary()->GetUndefined());
 
                         // If we recover from the exception, there may be a chance the out pointers in the InterpreterStackframe are not in a proper state.
                         // Reset them to correct the stack.
@@ -2445,7 +2382,7 @@ namespace Js
     }
 #endif
 
-    template<typename OpCodeType, Js::OpCode (ReadOpFunc)(const byte*&), void (TracingFunc)(InterpreterStackFrame*, OpCodeType)>
+    template<typename OpCodeType, Js::OpCode(ReadOpFunc)(const byte*&), void (TracingFunc)(InterpreterStackFrame*, OpCodeType)>
     OpCodeType InterpreterStackFrame::ReadOp(const byte *& ip)
     {
 #if DBG || DBG_DUMP
@@ -2454,7 +2391,7 @@ namespace Js
         // - We convert this to "void *" to encourage the debugger to always display in hex,
         //   which matches the displayed offsets used by ByteCodeDumper.
         //
-        this->DEBUG_currentByteOffset = (void *) m_reader.GetCurrentOffset();
+        this->DEBUG_currentByteOffset = (void *)m_reader.GetCurrentOffset();
 #endif
 
         OpCodeType op = (OpCodeType)ReadOpFunc(ip);
@@ -2479,7 +2416,7 @@ namespace Js
     void InterpreterStackFrame::TraceAsmJsOpCode(InterpreterStackFrame* that, Js::OpCodeAsmJs op)
     {
 #if DBG_DUMP && defined(ASMJS_PLAT)
-        if(PHASE_TRACE(Js::AsmjsInterpreterPhase, that->m_functionBody))
+        if (PHASE_TRACE(Js::AsmjsInterpreterPhase, that->m_functionBody))
         {
             Output::Print(_u("%d.%d:Executing %s at offset 0x%X\n"), that->m_functionBody->GetSourceContextId(), that->m_functionBody->GetLocalFunctionId(), Js::OpCodeUtilAsmJs::GetOpCodeName(op), that->DEBUG_currentByteOffset);
         }
@@ -2503,7 +2440,7 @@ namespace Js
         AssertMsg(this->scriptContext->GetThreadContext()->IsRuntimeInTTDMode(), "We never be fetching an opcode via this path if this is not true!!!");
 #endif
 
-        if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+        if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
             TTD::ExecutionInfoManager* executionMgr = this->scriptContext->GetThreadContext()->TTDExecutionInfo;
             executionMgr->UpdateCurrentStatementInfo(m_reader.GetCurrentOffset());
@@ -2519,7 +2456,7 @@ namespace Js
 #endif
 
     _NOINLINE
-    Var InterpreterStackFrame::ProcessThunk(void* address, void* addressOfReturnAddress)
+        Var InterpreterStackFrame::ProcessThunk(void* address, void* addressOfReturnAddress)
     {
         PushPopFrameHelper pushPopFrameHelper(this, address, addressOfReturnAddress);
         return this->Process();
@@ -2551,21 +2488,12 @@ namespace Js
         Field(Var)* arrayBufferPtr = moduleMemoryPtr + moduleMemory.mArrayBufferOffset;
         Assert(moduleMemory.mArrayBufferOffset == AsmJsModuleMemory::MemoryTableBeginOffset);
         Field(Var)* stdLibPtr = moduleMemoryPtr + moduleMemory.mStdLibOffset;
-        int* localIntSlots        = (int*)(moduleMemoryPtr + moduleMemory.mIntOffset);
+        int* localIntSlots = (int*)(moduleMemoryPtr + moduleMemory.mIntOffset);
         float* localFloatSlots = (float*)(moduleMemoryPtr + moduleMemory.mFloatOffset);
         double* localDoubleSlots = (double*)(moduleMemoryPtr + moduleMemory.mDoubleOffset);
-        Field(Var)* localFunctionImports = moduleMemoryPtr + moduleMemory.mFFIOffset ;
-        Field(Var)* localModuleFunctions = moduleMemoryPtr + moduleMemory.mFuncOffset ;
-        Field(Field(Var)*)* localFunctionTables = (Field(Field(Var)*)*)(moduleMemoryPtr + moduleMemory.mFuncPtrOffset) ;
-        
-
-#ifdef ENABLE_SIMDJS
-        AsmJsSIMDValue* localSimdSlots = nullptr;
-        if (scriptContext->GetConfig()->IsSimdjsEnabled())
-        {
-            localSimdSlots = ((AsmJsSIMDValue*)moduleMemoryPtr) + moduleMemory.mSimdOffset; // simdOffset is in SIMDValues
-        }
-#endif
+        Field(Var)* localFunctionImports = moduleMemoryPtr + moduleMemory.mFFIOffset;
+        Field(Var)* localModuleFunctions = moduleMemoryPtr + moduleMemory.mFuncOffset;
+        Field(Field(Var)*)* localFunctionTables = (Field(Field(Var)*)*)(moduleMemoryPtr + moduleMemory.mFuncPtrOffset);
 
         ThreadContext* threadContext = this->scriptContext->GetThreadContext();
         *stdLibPtr = (m_inSlotsCount > 1) ? m_inParams[1] : nullptr;
@@ -2606,13 +2534,6 @@ namespace Js
             {
                 localDoubleSlots[var.location] = var.initialiser.doubleInit;
             }
-#ifdef ENABLE_SIMDJS
-            else if (scriptContext->GetConfig()->IsSimdjsEnabled() && type.isSIMD())
-            {
-                // e.g. var g = f4(0.0, 0.0, 0.0, 0.0);
-                localSimdSlots[var.location] = var.initialiser.simdInit;
-            }
-#endif
             else
             {
                 Assert(UNREACHED);
@@ -2657,71 +2578,6 @@ namespace Js
                 double val = JavascriptConversion::ToNumber(value, scriptContext);
                 localDoubleSlots[import.location] = val;
             }
-#ifdef ENABLE_SIMDJS
-            else if (scriptContext->GetConfig()->IsSimdjsEnabled() && type.isSIMD())
-            {
-                // e.g. var g = f4(imports.v);
-                bool valid = false;
-                AsmJsSIMDValue val;
-                val.Zero();
-                switch (type.which())
-                {
-                case AsmJsVarType::Int32x4:
-                    valid = JavascriptSIMDInt32x4::Is(value);
-                    val = (valid) ? ((JavascriptSIMDInt32x4*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Bool32x4:
-                    valid = JavascriptSIMDBool32x4::Is(value);
-                    val = (valid) ? ((JavascriptSIMDBool32x4*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Bool16x8:
-                    valid = JavascriptSIMDBool16x8::Is(value);
-                    val = (valid) ? ((JavascriptSIMDBool16x8*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Bool8x16:
-                    valid = JavascriptSIMDBool8x16::Is(value);
-                    val = (valid) ? ((JavascriptSIMDBool8x16*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Float32x4:
-                    valid = JavascriptSIMDFloat32x4::Is(value);
-                    val = (valid) ? ((JavascriptSIMDFloat32x4*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Float64x2:
-                    valid = JavascriptSIMDFloat64x2::Is(value);
-                    val = (valid) ? ((JavascriptSIMDFloat64x2*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Int16x8:
-                    valid = JavascriptSIMDInt16x8::Is(value);
-                    val = (valid) ? ((JavascriptSIMDInt16x8*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Int8x16:
-                    valid = JavascriptSIMDInt8x16::Is(value);
-                    val = ((JavascriptSIMDInt8x16*)value)->GetValue();
-                    break;
-                case AsmJsVarType::Uint32x4:
-                    valid = JavascriptSIMDUint32x4::Is(value);
-                    val = (valid) ? ((JavascriptSIMDUint32x4*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Uint16x8:
-                    valid = JavascriptSIMDUint16x8::Is(value);
-                    val = (valid) ? ((JavascriptSIMDUint16x8*)value)->GetValue() : val;
-                    break;
-                case AsmJsVarType::Uint8x16:
-                    valid = JavascriptSIMDUint8x16::Is(value);
-                    val = (valid) ? ((JavascriptSIMDUint8x16*)value)->GetValue() : val;
-                    break;
-                default:
-                    Assert(UNREACHED);
-                };
-                if (!valid)
-                {
-                    // link failure of SIMD values imports.
-                    AsmJSCompiler::OutputError(this->scriptContext, _u("Asm.js Runtime Error : Foreign var import %s is not SIMD type"), this->scriptContext->GetPropertyName(import.field)->GetBuffer());
-                    goto linkFailure;
-                }
-                localSimdSlots[import.location] = val;
-            }
-#endif // #ifdef ENABLE_SIMDJS
 
             // check for implicit call after converting to number
             if (this->CheckAndResetImplicitCall(prevDisableImplicitFlags, saveImplicitcallFlags))
@@ -2991,11 +2847,11 @@ namespace Js
             byte* destination = slotsStart + typeInfo->byteOffset;
             switch (type)
             {
-            case WAsmJs::INT32:   m_localIntSlots    = (int*)destination; break;
-            case WAsmJs::INT64:   m_localInt64Slots  = (int64*)destination; break;
-            case WAsmJs::FLOAT32: m_localFloatSlots  = (float*)destination; break;
+            case WAsmJs::INT32:   m_localIntSlots = (int*)destination; break;
+            case WAsmJs::INT64:   m_localInt64Slots = (int64*)destination; break;
+            case WAsmJs::FLOAT32: m_localFloatSlots = (float*)destination; break;
             case WAsmJs::FLOAT64: m_localDoubleSlots = (double*)destination; break;
-            case WAsmJs::SIMD:    m_localSimdSlots   = (AsmJsSIMDValue*)destination; break;
+            case WAsmJs::SIMD:    m_localSimdSlots = (AsmJsSIMDValue*)destination; break;
             default:
                 CompileAssert(WAsmJs::SIMD == WAsmJs::LastType);
                 Assert(false);
@@ -3037,7 +2893,7 @@ namespace Js
         int64* int64Arg = m_localInt64Slots + info->GetTypedSlotInfo(WAsmJs::INT64)->constCount;
         double* doubleArg = m_localDoubleSlots + info->GetTypedSlotInfo(WAsmJs::FLOAT64)->constCount;
         float* floatArg = m_localFloatSlots + info->GetTypedSlotInfo(WAsmJs::FLOAT32)->constCount;
-#if defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
+#ifdef ENABLE_WASM_SIMD
         AsmJsSIMDValue* simdArg = m_localSimdSlots + info->GetTypedSlotInfo(WAsmJs::SIMD)->constCount;
 #endif
         // Move the arguments to the right location
@@ -3085,7 +2941,7 @@ namespace Js
 
 #define FLOAT_SPILL_ADDRESS_OFFSET_WORDS 15
                 // floats are spilled as xmmwords
-                uintptr_t floatSpillAddress = (uintptr_t)m_inParams - MachPtr * (FLOAT_SPILL_ADDRESS_OFFSET_WORDS - 2*i);
+                uintptr_t floatSpillAddress = (uintptr_t)m_inParams - MachPtr * (FLOAT_SPILL_ADDRESS_OFFSET_WORDS - 2 * i);
 
                 if (info->GetArgType(i).isInt())
                 {
@@ -3137,7 +2993,7 @@ namespace Js
                 }
                 else
                 {
-#if defined (ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
+#ifdef ENABLE_WASM_SIMD
                     Assert(info->GetArgType(i).isSIMD());
                     *simdArg = *(AsmJsSIMDValue*)floatSpillAddress;
                     ++simdArg;
@@ -3146,15 +3002,8 @@ namespace Js
                     Assert(UNREACHED);
 #endif
                 }
-#ifdef ENABLE_SIMDJS
-                if (scriptContext->GetConfig()->IsSimdjsEnabled() && i == 2) // last argument ?
-#endif
 
-#ifdef ENABLE_WASM_SIMD
                 if (Wasm::Simd::IsEnabled() && i == 2) // last argument ?
-#endif
-
-#if defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
                 {
                     // If we have simd arguments, the homing area in m_inParams can be larger than 3 64-bit slots. This is because SIMD values are unboxed there too.
                     // After unboxing, the homing area is overwritten by rdx, r8 and r9, and we read/skip 64-bit slots from the homing area (argAddress += MachPtr).
@@ -3162,81 +3011,73 @@ namespace Js
                     argAddress = (uintptr_t)m_inParams + homingAreaSize;
                 }
                 else
-#endif
                 {
                     argAddress += MachPtr;
                 }
             }
             else
 #endif
-            if (info->GetArgType(i).isInt())
-            {
-                *intArg = *(int*)argAddress;
-#if ENABLE_DEBUG_CONFIG_OPTIONS
-                if (tracingFunc)
+                if (info->GetArgType(i).isInt())
                 {
-                    Output::Print(_u("%d, "), *intArg);
-                }
-#endif
-                ++intArg;
-                argAddress += MachPtr;
-            }
-            else if (info->GetArgType(i).isInt64())
-            {
-                *int64Arg = *(int64*)argAddress;
+                    *intArg = *(int*)argAddress;
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-                if (tracingFunc)
-                {
-                    Output::Print(_u("%lld, "), *int64Arg);
-                }
+                    if (tracingFunc)
+                    {
+                        Output::Print(_u("%d, "), *intArg);
+                    }
 #endif
-                ++int64Arg;
-                argAddress += sizeof(int64);
-            }
-            else if (info->GetArgType(i).isFloat())
-            {
-                *floatArg = *(float*)argAddress;
+                    ++intArg;
+                    argAddress += MachPtr;
+                }
+                else if (info->GetArgType(i).isInt64())
+                {
+                    *int64Arg = *(int64*)argAddress;
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-                if (tracingFunc)
-                {
-                    Output::Print(_u("%.2f, "), *floatArg);
-                }
+                    if (tracingFunc)
+                    {
+                        Output::Print(_u("%lld, "), *int64Arg);
+                    }
 #endif
-                ++floatArg;
-                argAddress += MachPtr;
-            }
-            else if (info->GetArgType(i).isDouble())
-            {
-                Assert(info->GetArgType(i).isDouble());
-                *doubleArg = *(double*)argAddress;
+                    ++int64Arg;
+                    argAddress += sizeof(int64);
+                }
+                else if (info->GetArgType(i).isFloat())
+                {
+                    *floatArg = *(float*)argAddress;
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-                if (tracingFunc)
-                {
-                    Output::Print(_u("%.2f, "), *doubleArg);
+                    if (tracingFunc)
+                    {
+                        Output::Print(_u("%.2f, "), *floatArg);
+                    }
+#endif
+                    ++floatArg;
+                    argAddress += MachPtr;
                 }
+                else if (info->GetArgType(i).isDouble())
+                {
+                    Assert(info->GetArgType(i).isDouble());
+                    *doubleArg = *(double*)argAddress;
+#if ENABLE_DEBUG_CONFIG_OPTIONS
+                    if (tracingFunc)
+                    {
+                        Output::Print(_u("%.2f, "), *doubleArg);
+                    }
 #endif
-                ++doubleArg;
-                argAddress += sizeof(double);
-            }
-#ifdef ENABLE_SIMDJS
-            else if (scriptContext->GetConfig()->IsSimdjsEnabled() && info->GetArgType(i).isSIMD())
-#endif
-
+                    ++doubleArg;
+                    argAddress += sizeof(double);
+                }
 #ifdef ENABLE_WASM_SIMD
-            else if (Wasm::Simd::IsEnabled() && info->GetArgType(i).isSIMD())
+                else if (Wasm::Simd::IsEnabled() && info->GetArgType(i).isSIMD())
+                {
+                    *simdArg = *(AsmJsSIMDValue*)argAddress;
+                    ++simdArg;
+                    argAddress += sizeof(AsmJsSIMDValue);
+                }
 #endif
-
-#if defined(ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
-            {
-                *simdArg = *(AsmJsSIMDValue*)argAddress;
-                ++simdArg;
-                argAddress += sizeof(AsmJsSIMDValue);
-            }
-#endif
-            else
-            {
-                AssertMsg(UNREACHED, "Invalid function arg type.");
-            }
+                else
+                {
+                    AssertMsg(UNREACHED, "Invalid function arg type.");
+                }
         }
 
 #if ENABLE_DEBUG_CONFIG_OPTIONS
@@ -3327,7 +3168,7 @@ namespace Js
         class AutoRestore
         {
         private:
-            InterpreterStackFrame *const interpreterStackFrame;
+            InterpreterStackFrame * const interpreterStackFrame;
             const uint32 savedSwitchProfileModeOnLoopEndNumber;
             const bool savedIsAutoProfiling;
             const bool savedSwitchProfileMode;
@@ -3368,7 +3209,7 @@ namespace Js
         }
 
 #ifdef ASMJS_PLAT
-        if( GetFunctionBody()->GetIsAsmjsMode() )
+        if (GetFunctionBody()->GetIsAsmjsMode())
         {
             FunctionBody *const functionBody = GetFunctionBody();
             AsmJsFunctionInfo* asmInfo = functionBody->GetAsmJsFunctionInfo();
@@ -3377,37 +3218,37 @@ namespace Js
                 AlignMemoryForAsmJs();
                 Var returnVar = ProcessAsmJs();
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-                if( PHASE_TRACE( AsmjsFunctionEntryPhase, functionBody ) )
+                if (PHASE_TRACE(AsmjsFunctionEntryPhase, functionBody))
                 {
                     --AsmJsCallDepth;
-                    if( AsmJsCallDepth )
+                    if (AsmJsCallDepth)
                     {
-                        Output::Print( _u("%*c}"), AsmJsCallDepth, ' ' );
+                        Output::Print(_u("%*c}"), AsmJsCallDepth, ' ');
                     }
                     else
                     {
-                        Output::Print( _u("}") );
+                        Output::Print(_u("}"));
                     }
-                    switch( asmInfo->GetReturnType().which() )
+                    switch (asmInfo->GetReturnType().which())
                     {
                     case AsmJsRetType::Void:
                         break;
                     case AsmJsRetType::Signed:
-                        Output::Print( _u(" = %d"), m_localIntSlots[0] );
+                        Output::Print(_u(" = %d"), m_localIntSlots[0]);
                         break;
                     case AsmJsRetType::Int64:
-                        Output::Print( _u(" = %lld"), m_localInt64Slots[0] );
+                        Output::Print(_u(" = %lld"), m_localInt64Slots[0]);
                         break;
                     case AsmJsRetType::Float:
                         Output::Print(_u(" = %.4f"), m_localFloatSlots[0]);
                         break;
                     case AsmJsRetType::Double:
-                        Output::Print( _u(" = %.4f"), m_localDoubleSlots[0]);
+                        Output::Print(_u(" = %.4f"), m_localDoubleSlots[0]);
                         break;
                     default:
                         break;
                     }
-                    Output::Print( _u(";\n") );
+                    Output::Print(_u(";\n"));
                     Output::Flush();
                 }
 #endif
@@ -3430,7 +3271,7 @@ namespace Js
         FunctionBody *const functionBody = GetFunctionBody();
         const ExecutionMode interpreterExecutionMode =
             functionBody->GetInterpreterExecutionMode(TestFlags(InterpreterStackFrameFlags_FromBailOut));
-        if(interpreterExecutionMode == ExecutionMode::ProfilingInterpreter)
+        if (interpreterExecutionMode == ExecutionMode::ProfilingInterpreter)
         {
 #if ENABLE_TTD
             AssertMsg(!SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext), "We should have pinned into Interpreter mode in this case!!!");
@@ -3446,12 +3287,12 @@ namespace Js
         isAutoProfiling = interpreterExecutionMode == ExecutionMode::AutoProfilingInterpreter;
 
         Var result;
-        while(true)
+        while (true)
         {
             Assert(!switchProfileMode);
 
 #if ENABLE_TTD_DIAGNOSTICS_TRACING
-            if(this->scriptContext->ShouldPerformRecordOrReplayAction())
+            if (this->scriptContext->ShouldPerformRecordOrReplayAction())
             {
                 result = ProcessUnprofiled_PreviousStmtTracking();
             }
@@ -3464,7 +3305,7 @@ namespace Js
 #endif
 
             Assert(!(switchProfileMode && result));
-            if(switchProfileMode)
+            if (switchProfileMode)
             {
                 switchProfileMode = false;
             }
@@ -3474,20 +3315,20 @@ namespace Js
             }
             Assert(isAutoProfiling);
 
-        #if DBG_DUMP
+#if DBG_DUMP
 
-            if(PHASE_TRACE(InterpreterAutoProfilePhase, functionBody))
+            if (PHASE_TRACE(InterpreterAutoProfilePhase, functionBody))
             {
                 char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
                 Output::Print(_u("InterpreterAutoProfile - Func %s - Started profiling\n"), functionBody->GetDebugNumberSet(debugStringBuffer));
                 Output::Flush();
             }
-        #endif
+#endif
 
             Assert(!switchProfileMode);
             result = ProcessProfiled();
             Assert(!(switchProfileMode && result));
-            if(switchProfileMode)
+            if (switchProfileMode)
             {
                 switchProfileMode = false;
             }
@@ -3497,19 +3338,19 @@ namespace Js
             }
             Assert(isAutoProfiling);
 
-        #if DBG_DUMP
-            if(PHASE_TRACE(InterpreterAutoProfilePhase, functionBody))
+#if DBG_DUMP
+            if (PHASE_TRACE(InterpreterAutoProfilePhase, functionBody))
             {
                 char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
                 Output::Print(_u("InterpreterAutoProfile - Func %s - Stopped profiling\n"), functionBody->GetDebugNumberSet(debugStringBuffer));
                 Output::Flush();
             }
-        #endif
+#endif
         }
         return result;
 #else
 #if ENABLE_TTD_DIAGNOSTICS_TRACING
-        if(this->scriptContext->ShouldPerformRecordOrReplayAction())
+        if (this->scriptContext->ShouldPerformRecordOrReplayAction())
         {
             return ProcessUnprofiled_PreviousStmtTracking();
         }
@@ -3554,7 +3395,7 @@ namespace Js
                 // If the property being loaded is "apply"/"call", make an optimistic assumption that apply/call is not overridden and
                 // undefer the function right here if it was defer parsed before. This is required so that the load of "apply"/"call"
                 // happens from the same "type". Otherwise, we will have a polymorphic cache for load of "apply"/"call".
-                if(fn->GetType()->GetEntryPoint() == JavascriptFunction::DeferredParsingThunk)
+                if (fn->GetType()->GetEntryPoint() == JavascriptFunction::DeferredParsingThunk)
                 {
                     JavascriptFunction::DeferredParse(&fn);
                 }
@@ -3567,7 +3408,7 @@ namespace Js
         PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
         Var aValue;
         if (obj &&
-            CacheOperators::TryGetProperty<true, true, false, false, false, false, true, false, false>(
+            CacheOperators::TryGetProperty<true, true, false, false, false, false, true, false, false, false>(
                 obj, false, obj, propertyId, &aValue, GetScriptContext(), nullptr, &info))
         {
             SetReg(playout->Value, aValue);
@@ -3588,7 +3429,7 @@ namespace Js
             playout->inlineCacheIndex,
             instance,
             propertyId
-        );
+            );
 
 #ifdef TELEMETRY_INTERPRETER
         if (TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId))
@@ -3613,8 +3454,8 @@ namespace Js
         PropertyValueInfo info;
         PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
         Var aValue;
-        if (CacheOperators::TryGetProperty<true, true, false, false, false, false, true, false, false>(
-                obj, true, obj, propertyId, &aValue, GetScriptContext(), nullptr, &info))
+        if (CacheOperators::TryGetProperty<true, true, false, false, false, false, true, false, false, false>(
+            obj, true, obj, propertyId, &aValue, GetScriptContext(), nullptr, &info))
         {
             SetReg(playout->Value, aValue);
             return;
@@ -3636,7 +3477,7 @@ namespace Js
             playout->inlineCacheIndex,
             DynamicObject::UnsafeFromVar(rootInstance),
             propertyId
-        );
+            );
 
 #ifdef TELEMETRY_INTERPRETER
         if (TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId))
@@ -3671,7 +3512,7 @@ namespace Js
         PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
         Var aValue;
         if (obj &&
-            CacheOperators::TryGetProperty<true, true, false, false, false, false, true, false, false>(
+            CacheOperators::TryGetProperty<true, true, false, false, false, false, true, false, false, false>(
                 obj, false, obj, propertyId, &aValue, GetScriptContext(), nullptr, &info))
         {
             threadContext->CheckAndResetImplicitCallAccessorFlag();
@@ -3699,7 +3540,7 @@ namespace Js
             playout->inlineCacheIndex,
             instance,
             propertyId
-        );
+            );
 
         SetReg(playout->Value, value);
 
@@ -3732,14 +3573,14 @@ namespace Js
     }
 
     RecyclableObject *
-    InterpreterStackFrame::OP_CallGetFunc(Var target)
+        InterpreterStackFrame::OP_CallGetFunc(Var target)
     {
         return JavascriptOperators::GetCallableObjectOrThrow(target, GetScriptContext());
     }
 
-    void InterpreterStackFrame::OP_AsmStartCall( const unaligned OpLayoutStartCall * playout )
+    void InterpreterStackFrame::OP_AsmStartCall(const unaligned OpLayoutStartCall * playout)
     {
-        OP_StartCall( playout->ArgCount/sizeof(Var) );
+        OP_StartCall(playout->ArgCount / sizeof(Var));
         m_outParams[0] = scriptContext->GetLibrary()->GetUndefined();
     }
 
@@ -3750,7 +3591,7 @@ namespace Js
 
     void InterpreterStackFrame::OP_StartCall(uint outParamCount)
     {
-         // Save the outParams for the current callsite on the outparam stack
+        // Save the outParams for the current callsite on the outparam stack
         PushOut(m_outParams);
 
         // Update outParams for the indicated callsite
@@ -3814,7 +3655,7 @@ namespace Js
             JavascriptFunction::CallAsmJsFunction<int>(function, entrypointInfo->jsMethod, m_outParams, alignedArgsSize, reg);
             break;
         case AsmJsRetType::Signed:
-            
+
             m_localIntSlots[returnReg] = JavascriptFunction::CallAsmJsFunction<int>(function, entrypointInfo->jsMethod, m_outParams, alignedArgsSize, reg);
             break;
         case AsmJsRetType::Int64:
@@ -3826,7 +3667,7 @@ namespace Js
         case AsmJsRetType::Float:
             m_localFloatSlots[returnReg] = JavascriptFunction::CallAsmJsFunction<float>(function, entrypointInfo->jsMethod, m_outParams, alignedArgsSize, reg);
             break;
-#if defined (ENABLE_SIMDJS) || defined(ENABLE_WASM_SIMD)
+#ifdef ENABLE_WASM_SIMD
         case AsmJsRetType::Float32x4:
         case AsmJsRetType::Int32x4:
         case AsmJsRetType::Bool32x4:
@@ -3874,20 +3715,24 @@ namespace Js
         }
 #endif
 
-        if (playout->Return == Js::Constants::NoRegister)
-        
+        BEGIN_SAFE_REENTRANT_REGION(this->scriptContext->GetThreadContext())
         {
-            Arguments args(CallInfo(CallFlags_NotUsed, playout->ArgCount), m_outParams);
-            JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
-        }
-        else
-        {
-            Arguments args(CallInfo(CallFlags_Value, playout->ArgCount), m_outParams);
-            Var retVal = JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
-            SetRegRawPtr(playout->Return, retVal);
-        }
+            if (playout->Return == Js::Constants::NoRegister)
 
-        PopOut(playout->ArgCount);
+            {
+                Arguments args(CallInfo(CallFlags_NotUsed, playout->ArgCount), m_outParams);
+                JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
+            }
+            else
+            {
+                Arguments args(CallInfo(CallFlags_Value, playout->ArgCount), m_outParams);
+                Var retVal = JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
+                SetRegRawPtr(playout->Return, retVal);
+            }
+        }
+        END_SAFE_REENTRANT_REGION
+
+            PopOut(playout->ArgCount);
     }
 
     template <class T>
@@ -3912,40 +3757,43 @@ namespace Js
         }
 #endif
 #endif
-
         ArgSlot argCount = playout->ArgCount;
-        if (playout->Return == Js::Constants::NoRegister)
+        BEGIN_SAFE_REENTRANT_REGION(threadContext)
         {
-            flags |= CallFlags_NotUsed;
-            Arguments args(CallInfo((CallFlags)flags, argCount), m_outParams);
-            AssertMsg(static_cast<unsigned>(args.Info.Flags) == flags, "Flags don't fit into the CallInfo field?");
+            if (playout->Return == Js::Constants::NoRegister)
+            {
+                flags |= CallFlags_NotUsed;
+                Arguments args(CallInfo((CallFlags)flags, argCount), m_outParams);
+                AssertMsg(static_cast<unsigned>(args.Info.Flags) == flags, "Flags don't fit into the CallInfo field?");
                 argCount = args.GetArgCountWithExtraArgs();
-            if (spreadIndices != nullptr)
-            {
-                JavascriptFunction::CallSpreadFunction(function, args, spreadIndices);
+                if (spreadIndices != nullptr)
+                {
+                    JavascriptFunction::CallSpreadFunction(function, args, spreadIndices);
+                }
+                else
+                {
+                    JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
+                }
             }
             else
             {
-                JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
+                flags |= CallFlags_Value;
+                Arguments args(CallInfo((CallFlags)flags, argCount), m_outParams);
+                AssertMsg(static_cast<unsigned>(args.Info.Flags) == flags, "Flags don't fit into the CallInfo field?");
+                argCount = args.GetArgCountWithExtraArgs();
+                if (spreadIndices != nullptr)
+                {
+                    SetReg((RegSlot)playout->Return, JavascriptFunction::CallSpreadFunction(function, args, spreadIndices));
+                }
+                else
+                {
+                    SetReg((RegSlot)playout->Return, JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args));
+                }
             }
         }
-        else
-        {
-            flags |= CallFlags_Value;
-            Arguments args(CallInfo((CallFlags)flags, argCount), m_outParams);
-            AssertMsg(static_cast<unsigned>(args.Info.Flags) == flags, "Flags don't fit into the CallInfo field?");
-            argCount = args.GetArgCountWithExtraArgs();
-            if (spreadIndices != nullptr)
-            {
-                SetReg((RegSlot)playout->Return, JavascriptFunction::CallSpreadFunction(function, args, spreadIndices));
-            }
-            else
-            {
-                SetReg((RegSlot)playout->Return, JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args));
-            }
-        }
+        END_SAFE_REENTRANT_REGION
 
-        threadContext->SetImplicitCallFlags(savedImplicitCallFlags);
+            threadContext->SetImplicitCallFlags(savedImplicitCallFlags);
         PopOut(argCount);
     }
 
@@ -3961,7 +3809,7 @@ namespace Js
     {
         FunctionBody* functionBody = this->m_functionBody;
         DynamicProfileInfo * dynamicProfileInfo = functionBody->GetDynamicProfileInfo();
-        FunctionInfo* functionInfo = function->GetTypeId() == TypeIds_Function?
+        FunctionInfo* functionInfo = function->GetTypeId() == TypeIds_Function ?
             JavascriptFunction::FromVar(function)->GetFunctionInfo() : nullptr;
         bool isConstructorCall = (CallFlags_New & flags) == CallFlags_New;
         dynamicProfileInfo->RecordCallSiteInfo(functionBody, profileId, functionInfo, functionInfo ? static_cast<JavascriptFunction*>(function) : nullptr, playout->ArgCount, isConstructorCall, inlineCacheIndex);
@@ -4000,8 +3848,8 @@ namespace Js
         PropertyValueInfo info;
         PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
         Var value;
-        if(CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false>(
-                obj, true, obj, propertyId, &value, GetScriptContext(), nullptr, &info))
+        if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false, false>(
+            obj, true, obj, propertyId, &value, GetScriptContext(), nullptr, &info))
         {
             SetReg(playout->Value, value);
             return;
@@ -4014,7 +3862,7 @@ namespace Js
     void InterpreterStackFrame::OP_GetRootPropertyForTypeOf(unaligned T* playout)
     {
         Var rootInstance = GetRootObject();
-        PropertyId propertyId =  GetPropertyIdFromCacheId(playout->inlineCacheIndex);
+        PropertyId propertyId = GetPropertyIdFromCacheId(playout->inlineCacheIndex);
 
         Var value = JavascriptOperators::PatchGetRootValueForTypeOf<false>(
             GetFunctionBody(),
@@ -4022,7 +3870,7 @@ namespace Js
             playout->inlineCacheIndex,
             DynamicObject::UnsafeFromVar(rootInstance),
             propertyId
-        );
+            );
 
         SetReg(playout->Value, value);
 
@@ -4047,7 +3895,7 @@ namespace Js
             playout->inlineCacheIndex,
             DynamicObject::UnsafeFromVar(rootInstance),
             propertyId
-        );
+            );
 
         SetReg(playout->Value, value);
 
@@ -4063,7 +3911,7 @@ namespace Js
 #if ENABLE_PROFILE_INFO
     template <class T>
     void InterpreterStackFrame::UpdateFldInfoFlagsForGetSetInlineCandidate(unaligned T* playout, FldInfoFlags& fldInfoFlags, CacheType cacheType,
-                                                DynamicProfileInfo * dynamicProfileInfo, uint inlineCacheIndex, RecyclableObject * obj)
+        DynamicProfileInfo * dynamicProfileInfo, uint inlineCacheIndex, RecyclableObject * obj)
     {
         RecyclableObject *callee = nullptr;
         //TODO: Setter case once we stop sharing inline caches for these callsites.
@@ -4081,7 +3929,7 @@ namespace Js
 
     template <class T>
     void InterpreterStackFrame::UpdateFldInfoFlagsForCallApplyInlineCandidate(unaligned T* playout, FldInfoFlags& fldInfoFlags, CacheType cacheType,
-                                                DynamicProfileInfo * dynamicProfileInfo, uint inlineCacheIndex, RecyclableObject * obj)
+        DynamicProfileInfo * dynamicProfileInfo, uint inlineCacheIndex, RecyclableObject * obj)
     {
         RecyclableObject *callee = nullptr;
         if (!(fldInfoFlags & FldInfo_Polymorphic) && GetInlineCache(inlineCacheIndex)->GetCallApplyTarget(obj, &callee))
@@ -4101,12 +3949,12 @@ namespace Js
     {
         PropertyId propertyId = GetPropertyIdFromCacheId(playout->inlineCacheIndex);
         Var value = ProfilingHelpers::ProfiledLdFld<Root, Method, CallApplyTarget>(
-                instance,
-                propertyId,
-                GetInlineCache(playout->inlineCacheIndex),
-                playout->inlineCacheIndex,
-                GetFunctionBody(),
-                instance);
+            instance,
+            propertyId,
+            GetInlineCache(playout->inlineCacheIndex),
+            playout->inlineCacheIndex,
+            GetFunctionBody(),
+            instance);
 
         SetReg(playout->Value, value);
 
@@ -4155,12 +4003,12 @@ namespace Js
         Var instance = GetReg(playout->Instance);
         PropertyId propertyId = GetPropertyIdFromCacheId(playout->inlineCacheIndex);
         Var value = JavascriptOperators::PatchGetValueForTypeOf<false>(
-                GetFunctionBody(),
-                GetInlineCache(playout->inlineCacheIndex),
-                playout->inlineCacheIndex,
-                instance,
-                propertyId
-        );
+            GetFunctionBody(),
+            GetInlineCache(playout->inlineCacheIndex),
+            playout->inlineCacheIndex,
+            instance,
+            propertyId
+            );
 
         SetReg(playout->Value, value);
 
@@ -4201,8 +4049,8 @@ namespace Js
             PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
 
             Var value;
-            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false>(
-                    obj, false, obj, propertyId, &value, GetScriptContext(), nullptr, &info))
+            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false, false>(
+                obj, false, obj, propertyId, &value, GetScriptContext(), nullptr, &info))
             {
                 SetReg(playout->Value, value);
                 return;
@@ -4227,7 +4075,7 @@ namespace Js
             PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->PropertyIdIndex, true);
 
             Var value;
-            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false>(
+            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false, false>(
                 thisObj, false, superObj, propertyId, &value, GetScriptContext(), nullptr, &info))
             {
                 SetReg(playout->Value, value);
@@ -4251,12 +4099,12 @@ namespace Js
         PropertyId propertyId = GetPropertyIdFromCacheId(playout->inlineCacheIndex);
 
         Var value = JavascriptOperators::PatchGetValue<false>(
-                GetFunctionBody(),
-                GetInlineCache(playout->inlineCacheIndex),
-                playout->inlineCacheIndex,
-                instance,
-                propertyId
-        );
+            GetFunctionBody(),
+            GetInlineCache(playout->inlineCacheIndex),
+            playout->inlineCacheIndex,
+            instance,
+            propertyId
+            );
 
 #ifdef TELEMETRY_INTERPRETER
         if (TELEMETRY_PROPERTY_OPCODE_FILTER(propertyId))
@@ -4288,12 +4136,12 @@ namespace Js
         SetReg(
             playout->Value,
             ProfilingHelpers::ProfiledLdFld<false, false, false>(
-            GetReg(playout->Instance),
-            GetPropertyIdFromCacheId(playout->PropertyIdIndex),
-            GetInlineCache(playout->PropertyIdIndex),
-            playout->PropertyIdIndex,
-            GetFunctionBody(),
-            GetReg(playout->Value2)));
+                GetReg(playout->Instance),
+                GetPropertyIdFromCacheId(playout->PropertyIdIndex),
+                GetInlineCache(playout->PropertyIdIndex),
+                playout->PropertyIdIndex,
+                GetFunctionBody(),
+                GetReg(playout->Value2)));
 
     }
 
@@ -4308,7 +4156,7 @@ namespace Js
             GetInlineCache(playout->inlineCacheIndex),
             playout->inlineCacheIndex,
             GetFunctionBody()
-        );
+            );
 
         SetReg(playout->Value, value);
 
@@ -4342,14 +4190,14 @@ namespace Js
         InlineCache *inlineCache = this->GetInlineCache(playout->inlineCacheIndex);
         ScriptContext* scriptContext = GetScriptContext();
         int length = pScope->GetLength();
-        if ( 1 == length )
+        if (1 == length)
         {
             RecyclableObject *obj = RecyclableObject::FromVar(pScope->GetItem(0));
             PropertyValueInfo info;
             PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
             Var value;
-            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false>(
-                    obj, false, obj, propertyId, &value, scriptContext, nullptr, &info))
+            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false, false>(
+                obj, false, obj, propertyId, &value, scriptContext, nullptr, &info))
             {
                 threadContext->CheckAndResetImplicitCallAccessorFlag();
                 threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
@@ -4385,7 +4233,7 @@ namespace Js
             PropertyValueInfo info;
             PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
             Var value;
-            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false>(
+            if (CacheOperators::TryGetProperty<true, false, false, false, false, false, true, false, false, false>(
                 obj, false, obj, propertyId, &value, scriptContext, nullptr, &info))
             {
                 threadContext->CheckAndResetImplicitCallAccessorFlag();
@@ -4399,12 +4247,12 @@ namespace Js
         SetReg(
             playout->Value,
             JavascriptOperators::PatchGetPropertyForTypeOfScoped<false>(
-            GetFunctionBody(),
-            GetInlineCache(playout->inlineCacheIndex),
-            playout->inlineCacheIndex,
-            GetEnvForEvalCode(),
-            GetPropertyIdFromCacheId(playout->inlineCacheIndex),
-            GetReg(Js::FunctionBody::RootObjectRegSlot)));
+                GetFunctionBody(),
+                GetInlineCache(playout->inlineCacheIndex),
+                playout->inlineCacheIndex,
+                GetEnvForEvalCode(),
+                GetPropertyIdFromCacheId(playout->inlineCacheIndex),
+                GetReg(Js::FunctionBody::RootObjectRegSlot)));
 
         threadContext->CheckAndResetImplicitCallAccessorFlag();
         threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
@@ -4445,13 +4293,13 @@ namespace Js
         Var value = GetReg(playout->Value);
 
         int length = pScope->GetLength();
-        if ( 1 == length )
+        if (1 == length)
         {
             RecyclableObject* obj = RecyclableObject::FromVar(pScope->GetItem(0));
             PropertyValueInfo info;
             PropertyValueInfo::SetCacheInfo(&info, GetFunctionBody(), inlineCache, playout->inlineCacheIndex, true);
             if (CacheOperators::TrySetProperty<true, false, false, false, false, true, false, false>(
-                    obj, false, propertyId, value, scriptContext, flags, nullptr, &info))
+                obj, false, propertyId, value, scriptContext, flags, nullptr, &info))
             {
                 threadContext->CheckAndResetImplicitCallAccessorFlag();
                 threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
@@ -4531,7 +4379,7 @@ namespace Js
         if (!TaggedNumber::Is(instance)
             && TrySetPropertyLocalFastPath(playout, propertyId, RecyclableObject::UnsafeFromVar(instance), inlineCache, flags))
         {
-            if(GetJavascriptFunction()->GetConstructorCache()->NeedsUpdateAfterCtor())
+            if (GetJavascriptFunction()->GetConstructorCache()->NeedsUpdateAfterCtor())
             {
                 // This function has only 'this' statements and is being used as a constructor. When the constructor exits, the
                 // function object's constructor cache will be updated with the type produced by the constructor. From that
@@ -4574,7 +4422,7 @@ namespace Js
             GetReg(playout->Value),
             flags);
 
-        if(!TaggedNumber::Is(instance) && GetJavascriptFunction()->GetConstructorCache()->NeedsUpdateAfterCtor())
+        if (!TaggedNumber::Is(instance) && GetJavascriptFunction()->GetConstructorCache()->NeedsUpdateAfterCtor())
         {
             // This function has only 'this' statements and is being used as a constructor. When the constructor exits, the
             // function object's constructor cache will be updated with the type produced by the constructor. From that
@@ -4643,7 +4491,7 @@ namespace Js
             playout->PropertyIdIndex,
             GetReg(playout->Value),
             m_functionBody->GetIsStrictMode() ?
-                (PropertyOperationFlags)(flags | PropertyOperation_StrictMode ) : flags,
+            (PropertyOperationFlags)(flags | PropertyOperation_StrictMode) : flags,
             GetJavascriptFunction(),
             thisInstance);
     }
@@ -4725,7 +4573,7 @@ namespace Js
     template <bool doProfile>
     Var InterpreterStackFrame::ProfiledDivide(Var aLeft, Var aRight, ScriptContext* scriptContext, ProfileId profileId)
     {
-        Var result = JavascriptMath::Divide(aLeft, aRight,scriptContext);
+        Var result = JavascriptMath::Divide(aLeft, aRight, scriptContext);
 
         if (doProfile)
         {
@@ -4744,10 +4592,10 @@ namespace Js
         if (doProfile)
         {
             Js::FunctionBody* body = this->function->GetFunctionBody();
-            if(TaggedInt::IsPair(aLeft, aRight))
+            if (TaggedInt::IsPair(aLeft, aRight))
             {
-                int nLeft    = TaggedInt::ToInt32(aLeft);
-                int nRight   = TaggedInt::ToInt32(aRight);
+                int nLeft = TaggedInt::ToInt32(aLeft);
+                int nRight = TaggedInt::ToInt32(aRight);
 
                 // nLeft is positive and nRight is +2^i
                 // Fast path for Power of 2 divisor
@@ -4760,7 +4608,7 @@ namespace Js
             body->GetDynamicProfileInfo()->RecordModulusOpType(body, profileId, /*isModByPowerOf2*/ false);
         }
 
-        return JavascriptMath::Modulus(aLeft, aRight,scriptContext);
+        return JavascriptMath::Modulus(aLeft, aRight, scriptContext);
     }
 
     template <bool doProfile>
@@ -5091,9 +4939,10 @@ namespace Js
                 GetReg(playout->Element),
                 m_functionBody,
                 playout->profileId,
-                this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall)));
+                this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall),
+                this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization)));
 
-        this->ClearFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall);
+        this->ClearFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall | InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization);
 
         threadContext->CheckAndResetImplicitCallAccessorFlag();
         threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
@@ -5191,9 +5040,10 @@ namespace Js
             m_functionBody,
             playout->profileId,
             flags,
-            this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall));
+            this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall),
+            this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization));
 
-        this->ClearFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall);
+        this->ClearFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArrayAccessHelperCall | InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization);
 
         threadContext->CheckAndResetImplicitCallAccessorFlag();
         threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
@@ -5270,7 +5120,7 @@ namespace Js
     template <bool Profiled, class T>
     void InterpreterStackFrame::ProfiledNewScArray(const unaligned OpLayoutDynamicProfile<T> * playout)
     {
-        if(!Profiled && !isAutoProfiling)
+        if (!Profiled && !isAutoProfiling)
         {
             OP_NewScArray(playout);
             return;
@@ -5294,14 +5144,6 @@ namespace Js
 
     void InterpreterStackFrame::OP_NewScIntArray(const unaligned OpLayoutAuxiliary * playout)
     {
-#if ENABLE_PROFILE_INFO
-        if(isAutoProfiling)
-        {
-            OP_ProfiledNewScIntArray(static_cast<const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> *>(playout));
-            return;
-        }
-#endif
-
         const Js::AuxArray<int32> *ints = Js::ByteCodeReader::ReadAuxArray<int32>(playout->Offset, this->GetFunctionBody());
 
         JavascriptNativeIntArray *arr = scriptContext->GetLibrary()->CreateNativeIntArrayLiteral(ints->count);
@@ -5318,8 +5160,15 @@ namespace Js
     }
 
 #if ENABLE_PROFILE_INFO
-    void InterpreterStackFrame::OP_ProfiledNewScIntArray(const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> * playout)
+    template <bool Profiled>
+    void InterpreterStackFrame::ProfiledNewScIntArray(const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> * playout)
     {
+        if (!Profiled && !isAutoProfiling)
+        {
+            OP_NewScIntArray(playout);
+            return;
+        }
+
         const Js::AuxArray<int32> *ints = Js::ByteCodeReader::ReadAuxArray<int32>(playout->Offset, this->GetFunctionBody());
 
         Js::ProfileId profileId = playout->profileId;
@@ -5379,18 +5228,16 @@ namespace Js
 
         SetReg(playout->R0, arr);
     }
-#endif
-
-    void InterpreterStackFrame::OP_NewScFltArray(const unaligned OpLayoutAuxiliary * playout )
+#else
+    template <bool Profiled>
+    void InterpreterStackFrame::ProfiledNewScIntArray(const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> * playout)
     {
-#if ENABLE_PROFILE_INFO
-        if(isAutoProfiling)
-        {
-            OP_ProfiledNewScFltArray(static_cast<const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> *>(playout));
-            return;
-        }
+        OP_NewScIntArray(playout);
+    }
 #endif
 
+    void InterpreterStackFrame::OP_NewScFltArray(const unaligned OpLayoutAuxiliary * playout)
+    {
         const Js::AuxArray<double> *doubles = Js::ByteCodeReader::ReadAuxArray<double>(playout->Offset, this->GetFunctionBody());
 
         JavascriptNativeFloatArray *arr = scriptContext->GetLibrary()->CreateNativeFloatArrayLiteral(doubles->count);
@@ -5407,8 +5254,15 @@ namespace Js
     }
 
 #if ENABLE_PROFILE_INFO
-    void InterpreterStackFrame::OP_ProfiledNewScFltArray(const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> * playout)
+    template <bool Profiled>
+    void InterpreterStackFrame::ProfiledNewScFltArray(const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> * playout)
     {
+        if (!Profiled && !isAutoProfiling)
+        {
+            OP_NewScFltArray(playout);
+            return;
+        }
+
         const Js::AuxArray<double> *doubles = Js::ByteCodeReader::ReadAuxArray<double>(playout->Offset, this->GetFunctionBody());
 
         Js::ProfileId  profileId = playout->profileId;
@@ -5444,13 +5298,19 @@ namespace Js
 
         SetReg(playout->R0, arr);
     }
+#else
+    template <bool Profiled>
+    void InterpreterStackFrame::ProfiledNewScFltArray(const unaligned OpLayoutDynamicProfile<OpLayoutAuxiliary> * playout)
+    {
+        OP_NewScFltArray(playout);
+    }
 #endif
 
     void InterpreterStackFrame::OP_SetArraySegmentVars(const unaligned OpLayoutAuxiliary * playout)
     {
         const Js::VarArray *vars = Js::ByteCodeReader::ReadAuxArray<Var>(playout->Offset, this->GetFunctionBody());
 
-        SparseArraySegment<Var> * segment =(SparseArraySegment<Var> *)GetNonVarReg(playout->R0);
+        SparseArraySegment<Var> * segment = (SparseArraySegment<Var> *)GetNonVarReg(playout->R0);
 
         JavascriptOperators::AddVarsToArraySegment(segment, vars);
     }
@@ -5615,7 +5475,7 @@ namespace Js
         return object;
     }
 
-    void InterpreterStackFrame::OP_NewScObjectLiteral(const unaligned OpLayoutAuxiliary * playout )
+    void InterpreterStackFrame::OP_NewScObjectLiteral(const unaligned OpLayoutAuxiliary * playout)
     {
         const Js::PropertyIdArray *propIds = Js::ByteCodeReader::ReadPropertyIdArray(playout->Offset, this->GetFunctionBody());
 
@@ -5687,7 +5547,7 @@ namespace Js
     const byte * InterpreterStackFrame::OP_ProfiledLoopStart(const byte * ip)
     {
         const uint32 C1 = m_reader.GetLayout<OpLayoutT_Unsigned1<LayoutSizePolicy<layoutSize>>>(ip)->C1;
-        if(!profiled && !isAutoProfiling)
+        if (!profiled && !isAutoProfiling)
         {
             return ip;
         }
@@ -5702,7 +5562,7 @@ namespace Js
 
         this->currentLoopCounter = 0;
 
-        if(!profiled)
+        if (!profiled)
         {
             return ip;
         }
@@ -5729,7 +5589,7 @@ namespace Js
     const byte * InterpreterStackFrame::OP_ProfiledLoopEnd(const byte * ip)
     {
         uint32 loopNumber = m_reader.GetLayout<OpLayoutT_Unsigned1<LayoutSizePolicy<layoutSize>>>(ip)->C1;
-        if(!profiled && !isAutoProfiling)
+        if (!profiled && !isAutoProfiling)
         {
             return ip;
         }
@@ -5743,7 +5603,7 @@ namespace Js
             // Assume it is valid for memop in this case.
             if (this->currentLoopCounter >= (uint)CONFIG_FLAG(MinMemOpCount) ||
                 (this->currentLoopCounter == 0 && !this->m_functionBody->DoJITLoopBody())
-            )
+                )
             {
                 // This flag becomes relevant only if the loop has been interpreted
                 fn->GetAnyDynamicProfileInfo()->SetMemOpMinReached(loopNumber);
@@ -5757,7 +5617,7 @@ namespace Js
             Assert(Js::DynamicProfileInfo::EnableImplicitCallFlags(GetFunctionBody()));
             OP_RecordImplicitCall(loopNumber);
 
-            if(switchProfileModeOnLoopEndNumber == loopNumber)
+            if (switchProfileModeOnLoopEndNumber == loopNumber)
             {
                 // Stop profiling since the jitted loop body would be exiting the loop
                 Assert(!switchProfileMode);
@@ -5802,7 +5662,7 @@ namespace Js
         }
 
 #if ENABLE_TTD
-        if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+        if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
             this->scriptContext->GetThreadContext()->TTDExecutionInfo->UpdateLoopCountInfo();
         }
@@ -5834,27 +5694,27 @@ namespace Js
         }
     }
 #else
-template <LayoutSize layoutSize, bool profiled>
-const byte * InterpreterStackFrame::OP_ProfiledLoopStart(const byte * ip)
-{
-    Assert(!profiled);
-    return ip;
-}
+    template <LayoutSize layoutSize, bool profiled>
+    const byte * InterpreterStackFrame::OP_ProfiledLoopStart(const byte * ip)
+    {
+        Assert(!profiled);
+        return ip;
+    }
 
-template <LayoutSize layoutSize, bool profiled>
-const byte * InterpreterStackFrame::OP_ProfiledLoopEnd(const byte * ip)
-{
-    Assert(!profiled);
-    return ip;
-}
+    template <LayoutSize layoutSize, bool profiled>
+    const byte * InterpreterStackFrame::OP_ProfiledLoopEnd(const byte * ip)
+    {
+        Assert(!profiled);
+        return ip;
+    }
 
-template <LayoutSize layoutSize, bool profiled>
-const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
-{
-    Assert(!profiled);
-    (this->*opLoopBodyStart)(loopId, layoutSize, false /* isFirstIteration */);
-    return m_reader.GetIP();
-}
+    template <LayoutSize layoutSize, bool profiled>
+    const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
+    {
+        Assert(!profiled);
+        (this->*opLoopBodyStart)(loopId, layoutSize, false /* isFirstIteration */);
+        return m_reader.GetIP();
+    }
 #endif
 
     template<bool InterruptProbe, bool JITLoopBody>
@@ -5866,7 +5726,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         }
 
 #if ENABLE_TTD
-        if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+        if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
             this->scriptContext->GetThreadContext()->TTDExecutionInfo->UpdateLoopCountInfo();
         }
@@ -5888,7 +5748,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         class AutoRestoreLoopNumbers
         {
         private:
-            InterpreterStackFrame *const interpreterStackFrame;
+            InterpreterStackFrame * const interpreterStackFrame;
             uint32 loopNumber;
             bool doProfileLoopCheck;
 
@@ -5941,6 +5801,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 
         Js::LoopHeader *loopHeader = fn->GetLoopHeader(loopNumber);
         loopHeader->isInTry = this->TestFlags(Js::InterpreterStackFrameFlags_WithinTryBlock);
+        loopHeader->isInTryFinally = this->TestFlags(Js::InterpreterStackFrameFlags_WithinTryFinallyBlock);
 
         Js::LoopEntryPointInfo * entryPointInfo = loopHeader->GetCurrentEntryPointInfo();
 
@@ -5977,7 +5838,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 #endif
 
             entryPointInfo->EnsureIsReadyToCall();
-            entryPointInfo->nativeEntryPointProcessed = true;
+            entryPointInfo->SetNativeEntryPointProcessed();
 
             RegSlot envReg = this->m_functionBody->GetEnvRegister();
             if (envReg != Constants::NoRegister)
@@ -6166,7 +6027,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 #endif
         }
 #if ENABLE_PROFILE_INFO
-        else if(
+        else if (
             doProfileLoopCheck &&
             isAutoProfiling &&
             loopHeader->interpretCount > fn->GetLoopProfileThreshold(loopInterpretCount))
@@ -6183,13 +6044,13 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     void
-    InterpreterStackFrame::CheckIfLoopIsHot(uint profiledLoopCounter)
+        InterpreterStackFrame::CheckIfLoopIsHot(uint profiledLoopCounter)
     {
         Js::FunctionBody *fn = this->function->GetFunctionBody();
-        if (!fn->GetHasHotLoop() &&  profiledLoopCounter > (uint)CONFIG_FLAG(JitLoopBodyHotLoopThreshold))
+        if (!fn->GetHasHotLoop() && profiledLoopCounter > (uint)CONFIG_FLAG(JitLoopBodyHotLoopThreshold))
         {
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
-            if(PHASE_TRACE(Js::JITLoopBodyPhase, fn))
+            if (PHASE_TRACE(Js::JITLoopBodyPhase, fn))
             {
                 char16 debugStringBuffer[MAX_FUNCTION_BODY_DEBUG_STRING_SIZE];
 
@@ -6218,7 +6079,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     uint
-    InterpreterStackFrame::CallLoopBody(JavascriptMethod address)
+        InterpreterStackFrame::CallLoopBody(JavascriptMethod address)
     {
 #ifdef _M_IX86
         void *savedEsp = NULL;
@@ -6259,34 +6120,34 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         InterpreterStackFrame::CallAsmJsLoopBody(JavascriptMethod address)
     {
 #ifdef _M_IX86
-            void *savedEsp = NULL;
-            __asm
-            {
-                // Save ESP
-                mov savedEsp, esp
-               // Add an extra 4-bytes to the stack since we'll be pushing 3 arguments
-                push eax
-            }
+        void *savedEsp = NULL;
+        __asm
+        {
+            // Save ESP
+            mov savedEsp, esp
+            // Add an extra 4-bytes to the stack since we'll be pushing 3 arguments
+            push eax
+        }
 #endif
 
 #if defined(_M_ARM32_OR_ARM64)
-            // For ARM we need to make sure that pipeline is synchronized with memory/cache for newly jitted code.
-            // Note: this does not seem to affect perf, but if it was, we could add a boolean isCalled to EntryPointInfo
-            //       and do ISB only for 1st time this entry point is called (potential working set regression though).
-            _InstructionSynchronizationBarrier();
+        // For ARM we need to make sure that pipeline is synchronized with memory/cache for newly jitted code.
+        // Note: this does not seem to affect perf, but if it was, we could add a boolean isCalled to EntryPointInfo
+        //       and do ISB only for 1st time this entry point is called (potential working set regression though).
+        _InstructionSynchronizationBarrier();
 #endif
-            uint newOffset = ::Math::PointerCastToIntegral<uint>(
-                CALL_ENTRYPOINT_NOASSERT(address, function, CallInfo(CallFlags_InternalFrame, 1), this));
+        uint newOffset = ::Math::PointerCastToIntegral<uint>(
+            CALL_ENTRYPOINT_NOASSERT(address, function, CallInfo(CallFlags_InternalFrame, 1), this));
 
 #ifdef _M_IX86
-            _asm
-            {
-                // Restore ESP
-                mov esp, savedEsp
-            }
-#endif
-            return newOffset;
+        _asm
+        {
+            // Restore ESP
+            mov esp, savedEsp
         }
+#endif
+        return newOffset;
+    }
 
     template <class T>
     void InterpreterStackFrame::OP_NewScObjectNoCtorFull(const unaligned T* playout)
@@ -6340,19 +6201,19 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         Var newVarInstance =
 #if ENABLE_PROFILE_INFO
             Profiled ?
-                ProfiledNewScObject_Helper(
-                    GetReg(playout->Function),
-                    playout->ArgCount,
-                    static_cast<const unaligned OpLayoutDynamicProfile<T> *>(playout)->profileId,
-                    inlineCacheIndex,
-                    spreadIndices) :
+            ProfiledNewScObject_Helper(
+                GetReg(playout->Function),
+                playout->ArgCount,
+                static_cast<const unaligned OpLayoutDynamicProfile<T> *>(playout)->profileId,
+                inlineCacheIndex,
+                spreadIndices) :
 #endif
             NewScObject_Helper(GetReg(playout->Function), playout->ArgCount, spreadIndices);
         SetReg((RegSlot)playout->Return, newVarInstance);
     }
 
     template <class T, bool Profiled>
-    void InterpreterStackFrame::OP_NewScObjArray_Impl(const unaligned T* playout, const Js::AuxArray<uint32> *spreadIndices)
+    void InterpreterStackFrame::OP_ProfiledNewScObjArray_Impl(const unaligned T* playout, const Js::AuxArray<uint32> *spreadIndices)
     {
         // Always profile this operation when auto-profiling so that array type changes are tracked
 #if ENABLE_PROFILE_INFO
@@ -6361,7 +6222,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         Assert(!Profiled);
 #endif
         {
-            OP_NewScObject_Impl<T, Profiled, false>(playout, Js::Constants::NoInlineCacheIndex, spreadIndices);
+            OP_NewScObjArray_Impl<T, Profiled>(playout, spreadIndices);
             return;
         }
 
@@ -6397,22 +6258,22 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
             SetReg(
                 (RegSlot)playout->Return,
                 ProfilingHelpers::ProfiledNewScObjArray(
-                GetReg(playout->Function),
-                outArgs,
-                function,
-                static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId,
-                static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId2));
+                    GetReg(playout->Function),
+                    outArgs,
+                    function,
+                    static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId,
+                    static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId2));
         }
         else
         {
             SetReg(
-            (RegSlot)playout->Return,
-            ProfilingHelpers::ProfiledNewScObjArray(
-                GetReg(playout->Function),
-                args,
-                function,
-                static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId,
-                static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId2));
+                (RegSlot)playout->Return,
+                ProfilingHelpers::ProfiledNewScObjArray(
+                    GetReg(playout->Function),
+                    args,
+                    function,
+                    static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId,
+                    static_cast<const unaligned OpLayoutDynamicProfile2<T> *>(playout)->profileId2));
         }
         PopOut(playout->ArgCount);
 #endif
@@ -6425,12 +6286,12 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         int count = Js::TaggedInt::ToInt32(vars->count);
 
         // Push the parameters to stack
-        for (int i=0;i<count; i++)
+        for (int i = 0; i < count; i++)
         {
-            SetOut( (ArgSlot)(i+1), vars->elements[i]);
+            SetOut((ArgSlot)(i + 1), vars->elements[i]);
         }
 
-        Var newVarInstance = NewScObject_Helper(GetReg((RegSlot)playout->C1), (ArgSlot)count+1);
+        Var newVarInstance = NewScObject_Helper(GetReg((RegSlot)playout->C1), (ArgSlot)count + 1);
         SetReg((RegSlot)playout->R0, newVarInstance);
 
     }
@@ -6439,9 +6300,14 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     {
         Arguments args(CallInfo(CallFlags_New, ArgCount), m_outParams);
 
-        Var newVarInstance = JavascriptOperators::NewScObject(target, args, GetScriptContext(), spreadIndices);
+        Var newVarInstance = nullptr;
+        BEGIN_SAFE_REENTRANT_CALL(this->scriptContext->GetThreadContext())
+        {
+            newVarInstance = JavascriptOperators::NewScObject(target, args, GetScriptContext(), spreadIndices);
+        }
+        END_SAFE_REENTRANT_CALL
 
-        PopOut(ArgCount);
+            PopOut(ArgCount);
         JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_OBJECT(newVarInstance));
 #if ENABLE_DEBUG_CONFIG_OPTIONS
         if (Js::Configuration::Global.flags.IsEnabled(Js::autoProxyFlag))
@@ -6453,7 +6319,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 #endif
 #ifdef ENABLE_BASIC_TELEMETRY
         {
-            this->scriptContext->GetTelemetry().GetOpcodeTelemetry().NewScriptObject( target, args, newVarInstance );
+            this->scriptContext->GetTelemetry().GetOpcodeTelemetry().NewScriptObject(target, args, newVarInstance);
         }
 #endif
         return newVarInstance;
@@ -6464,16 +6330,20 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     {
         Arguments args(CallInfo(CallFlags_New, ArgCount), m_outParams);
 
-        Var newVarInstance =
-            ProfilingHelpers::ProfiledNewScObject(
+        Var newVarInstance = nullptr;
+        BEGIN_SAFE_REENTRANT_CALL(this->scriptContext->GetThreadContext())
+        {
+            newVarInstance = ProfilingHelpers::ProfiledNewScObject(
                 target,
                 args,
                 GetFunctionBody(),
                 profileId,
                 inlineCacheIndex,
                 spreadIndices);
+        }
+        END_SAFE_REENTRANT_CALL
 
-        PopOut(ArgCount);
+            PopOut(ArgCount);
         JS_ETW(EventWriteJSCRIPT_RECYCLER_ALLOCATE_OBJECT(newVarInstance));
 #if ENABLE_DEBUG_CONFIG_OPTIONS
         if (Js::Configuration::Global.flags.IsEnabled(Js::autoProxyFlag))
@@ -6485,7 +6355,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 #endif
 #ifdef TELEMETRY_PROFILED
         {
-            this->scriptContext->GetTelemetry().GetOpcodeTelemetry().NewScriptObject( target, args, newVarInstance );
+            this->scriptContext->GetTelemetry().GetOpcodeTelemetry().NewScriptObject(target, args, newVarInstance);
         }
 #endif
         return newVarInstance;
@@ -6589,7 +6459,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
             if (this->IsInDebugMode())
             {
 #if ENABLE_TTD
-                if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+                if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
                 {
                     this->ProcessWithDebugging_PreviousStmtTracking();
                 }
@@ -6675,7 +6545,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     {
 #if ENABLE_TTD
         //Clear any previous Exception Info
-        if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+        if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
         {
             this->scriptContext->GetThreadContext()->TTDExecutionInfo->ProcessCatchInfoForLastExecutedStatements();
         }
@@ -6725,6 +6595,11 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
                 // mark the stackFrame as 'in try block'
                 this->OrFlags(InterpreterStackFrameFlags_WithinTryBlock);
 
+                if (finallyOffset != 0)
+                {
+                    this->OrFlags(InterpreterStackFrameFlags_WithinTryFinallyBlock);
+                }
+
                 if (tryNestingDepth != 0)
                 {
                     this->ProcessTryHandlerBailout(ehBailoutData->child, --tryNestingDepth);
@@ -6739,7 +6614,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
                 if (this->IsInDebugMode())
                 {
 #if ENABLE_TTD
-                    if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+                    if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
                     {
                         this->ProcessWithDebugging_PreviousStmtTracking();
                     }
@@ -6825,7 +6700,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         if (--this->nestedTryDepth == -1)
         {
             // unmark the stackFrame as 'in try block'
-            this->ClearFlags(InterpreterStackFrameFlags_WithinTryBlock);
+            this->ClearFlags(InterpreterStackFrameFlags_WithinTryBlock | InterpreterStackFrameFlags_WithinTryFinallyBlock);
         }
 
         // Now that the stack is unwound, let's run the catch block.
@@ -6970,7 +6845,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     bool InterpreterStackFrame::IsInCatchOrFinallyBlock()
     {
         return this->TestFlags(Js::InterpreterStackFrameFlags_WithinCatchBlock) ||
-               this->TestFlags(Js::InterpreterStackFrameFlags_WithinFinallyBlock);
+            this->TestFlags(Js::InterpreterStackFrameFlags_WithinFinallyBlock);
     }
 
     void InterpreterStackFrame::OP_BeginBodyScope()
@@ -7031,7 +6906,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 
             this->nestedTryDepth++;
             // mark the stackFrame as 'in try block'
-            this->OrFlags(InterpreterStackFrameFlags_WithinTryBlock);
+            this->OrFlags(InterpreterStackFrameFlags_WithinTryBlock | InterpreterStackFrameFlags_WithinTryFinallyBlock);
 
             if (shouldCacheSP)
             {
@@ -7042,7 +6917,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
             if (this->IsInDebugMode())
             {
 #if ENABLE_TTD
-                if(SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
+                if (SHOULD_DO_TTD_STACK_STMT_OP(this->scriptContext))
                 {
                     result = this->ProcessWithDebugging_PreviousStmtTracking();
                 }
@@ -7074,7 +6949,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         if (--this->nestedTryDepth == -1)
         {
             // unmark the stackFrame as 'in try block'
-            this->ClearFlags(InterpreterStackFrameFlags_WithinTryBlock);
+            this->ClearFlags(InterpreterStackFrameFlags_WithinTryBlock | InterpreterStackFrameFlags_WithinTryFinallyBlock);
         }
 
         shouldCacheSP = !skipFinallyBlock;
@@ -7238,9 +7113,9 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         ThreadContext * threadContext = scriptContext->GetThreadContext();
         Js::ImplicitCallFlags savedImplicitCallFlags = threadContext->GetImplicitCallFlags();
         // Currently ApplyArgs is equivalent to CallFldVoid (where we don't use the return value)
-        Var v=GetNonVarReg(playout->R4);
-        JavascriptOperators::OP_ApplyArgs(GetReg(playout->R1),GetReg(playout->R2),
-            (void**)GetNonVarReg(playout->R3),*((CallInfo*)&v),GetScriptContext());
+        Var v = GetNonVarReg(playout->R4);
+        JavascriptOperators::OP_ApplyArgs(GetReg(playout->R1), GetReg(playout->R2),
+            (void**)GetNonVarReg(playout->R3), *((CallInfo*)&v), GetScriptContext());
         threadContext->SetImplicitCallFlags(savedImplicitCallFlags);
     }
 
@@ -7256,7 +7131,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 #endif
         const Js::AuxArray<uint32> *spreadIndices = m_reader.ReadAuxArray<uint32>(playout->Offset, this->GetFunctionBody());
         ScriptContext* scriptContext = GetScriptContext();
-        Var result =  JavascriptArray::SpreadArrayArgs(instance, spreadIndices, scriptContext);
+        Var result = JavascriptArray::SpreadArrayArgs(instance, spreadIndices, scriptContext);
 
         threadContext->CheckAndResetImplicitCallAccessorFlag();
         threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
@@ -7265,21 +7140,21 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     FrameDisplay *
-    InterpreterStackFrame::OP_LdInnerFrameDisplay(void *argHead, void *argEnv, ScriptContext *scriptContext)
+        InterpreterStackFrame::OP_LdInnerFrameDisplay(void *argHead, void *argEnv, ScriptContext *scriptContext)
     {
         JavascriptOperators::CheckInnerFrameDisplayArgument(argHead);
         return OP_LdFrameDisplay(argHead, argEnv, scriptContext);
     }
 
     FrameDisplay *
-    InterpreterStackFrame::OP_LdInnerFrameDisplayNoParent(void *argHead, ScriptContext *scriptContext)
+        InterpreterStackFrame::OP_LdInnerFrameDisplayNoParent(void *argHead, ScriptContext *scriptContext)
     {
         JavascriptOperators::CheckInnerFrameDisplayArgument(argHead);
         return OP_LdFrameDisplayNoParent<true>(argHead, scriptContext);
     }
 
     FrameDisplay *
-    InterpreterStackFrame::OP_LdFrameDisplay(void *argHead, void *argEnv, ScriptContext *scriptContext)
+        InterpreterStackFrame::OP_LdFrameDisplay(void *argHead, void *argEnv, ScriptContext *scriptContext)
     {
         FrameDisplay *frameDisplay;
         bool strict = this->m_functionBody->GetIsStrictMode();
@@ -7295,7 +7170,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     FrameDisplay *
-    InterpreterStackFrame::OP_LdFrameDisplaySetLocal(void *argHead, void *argEnv, ScriptContext *scriptContext)
+        InterpreterStackFrame::OP_LdFrameDisplaySetLocal(void *argHead, void *argEnv, ScriptContext *scriptContext)
     {
         FrameDisplay *frameDisplay = OP_LdFrameDisplay(argHead, argEnv, scriptContext);
         this->SetLocalFrameDisplay(frameDisplay);
@@ -7303,7 +7178,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     FrameDisplay *
-    InterpreterStackFrame::NewFrameDisplay(void *argHead, void *argEnv)
+        InterpreterStackFrame::NewFrameDisplay(void *argHead, void *argEnv)
     {
         FrameDisplay *frameDisplay;
         bool strict = this->m_functionBody->GetIsStrictMode();
@@ -7335,7 +7210,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 
     template<bool innerFD>
     FrameDisplay *
-    InterpreterStackFrame::OP_LdFrameDisplayNoParent(void *argHead, ScriptContext *scriptContext)
+        InterpreterStackFrame::OP_LdFrameDisplayNoParent(void *argHead, ScriptContext *scriptContext)
     {
         FrameDisplay *frameDisplay;
         bool strict = this->m_functionBody->GetIsStrictMode();
@@ -7376,7 +7251,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     FrameDisplay *
-    InterpreterStackFrame::OP_LdFuncExprFrameDisplaySetLocal(void *argHead1, void *argHead2, ScriptContext *scriptContext)
+        InterpreterStackFrame::OP_LdFuncExprFrameDisplaySetLocal(void *argHead1, void *argHead2, ScriptContext *scriptContext)
     {
         FrameDisplay *frameDisplay = OP_LdFrameDisplayNoParent<false>(argHead2, scriptContext);
         frameDisplay = OP_LdFrameDisplay(argHead1, frameDisplay, scriptContext);
@@ -7416,7 +7291,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     void
-    InterpreterStackFrame::OP_NewInnerScopeSlots(uint innerScopeIndex, uint count, int scopeIndex, ScriptContext *scriptContext, FunctionBody *functionBody)
+        InterpreterStackFrame::OP_NewInnerScopeSlots(uint innerScopeIndex, uint count, int scopeIndex, ScriptContext *scriptContext, FunctionBody *functionBody)
     {
         Field(Var)* slotArray =
             JavascriptOperators::OP_NewScopeSlotsWithoutPropIds(count, scopeIndex, scriptContext, functionBody);
@@ -7446,7 +7321,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     Field(Var)*
-    InterpreterStackFrame::NewScopeSlots(unsigned int size, ScriptContext *scriptContext, Var scope)
+        InterpreterStackFrame::NewScopeSlots(unsigned int size, ScriptContext *scriptContext, Var scope)
     {
         Field(Var)* slotArray = JavascriptOperators::OP_NewScopeSlots(size, scriptContext, scope);
         this->SetLocalClosure(slotArray);
@@ -7454,7 +7329,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     Field(Var)*
-    InterpreterStackFrame::NewScopeSlots()
+        InterpreterStackFrame::NewScopeSlots()
     {
         Field(Var)* slotArray;
         FunctionBody * functionBody = this->m_functionBody;
@@ -7483,7 +7358,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     Var
-    InterpreterStackFrame::NewScopeObject()
+        InterpreterStackFrame::NewScopeObject()
     {
         Var scopeObject;
 
@@ -7507,7 +7382,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     }
 
     FrameDisplay *
-    InterpreterStackFrame::GetFrameDisplayForNestedFunc() const
+        InterpreterStackFrame::GetFrameDisplayForNestedFunc() const
     {
         if (this->localFrameDisplay == nullptr)
         {
@@ -7660,7 +7535,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
             GetReg(playout->Element),
             GetReg(playout->Value),
             m_functionBody->GetScriptContext()
-            );
+        );
     }
 
     template <class T>
@@ -7782,14 +7657,14 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         m_localSlots[localRegisterID] = value;
 
 #if ENABLE_OBJECT_SOURCE_TRACKING
-        if(value != nullptr && DynamicType::Is(Js::JavascriptOperators::GetTypeId(value)))
+        if (value != nullptr && DynamicType::Is(Js::JavascriptOperators::GetTypeId(value)))
         {
             static_cast<DynamicObject*>(value)->SetDiagOriginInfoAsNeeded();
         }
 #endif
 
 #if ENABLE_VALUE_TRACE
-        if(this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
+        if (this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
         {
             this->function->GetScriptContext()->GetThreadContext()->TTDExecutionInfo->GetTraceLogger()->WriteTraceValue(value);
         }
@@ -7928,14 +7803,14 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         m_localSlots[localRegisterID] = value;
 
 #if ENABLE_OBJECT_SOURCE_TRACKING
-        if(value != nullptr && DynamicType::Is(Js::JavascriptOperators::GetTypeId(value)))
+        if (value != nullptr && DynamicType::Is(Js::JavascriptOperators::GetTypeId(value)))
         {
             static_cast<DynamicObject*>(value)->SetDiagOriginInfoAsNeeded();
         }
 #endif
 
 #if ENABLE_VALUE_TRACE
-        if(this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
+        if (this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
         {
             this->function->GetScriptContext()->GetThreadContext()->TTDExecutionInfo->GetTraceLogger()->WriteTraceValue(value);
         }
@@ -7958,14 +7833,14 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         m_localSlots[localRegisterID] = value;
 
 #if ENABLE_OBJECT_SOURCE_TRACKING
-        if(value != nullptr && DynamicType::Is(Js::JavascriptOperators::GetTypeId(value)))
+        if (value != nullptr && DynamicType::Is(Js::JavascriptOperators::GetTypeId(value)))
         {
             static_cast<DynamicObject*>(value)->SetDiagOriginInfoAsNeeded();
         }
 #endif
 
 #if ENABLE_VALUE_TRACE
-        if(this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
+        if (this->function->GetScriptContext()->ShouldPerformRecordOrReplayAction())
         {
             this->function->GetScriptContext()->GetThreadContext()->TTDExecutionInfo->GetTraceLogger()->WriteTraceValue(value);
         }
@@ -8067,13 +7942,13 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
         const uint64 index = ((uint64)(uint32)GetRegRawInt(playout->SlotIndex) + playout->Offset /* WASM only */) & (int64)(int)ArrayBufferView::ViewMask[playout->ViewType];
 
-        JavascriptArrayBuffer* arr =
+        ArrayBufferBase* arr =
 #ifdef ENABLE_WASM_SIMD
-            (m_functionBody->IsWasmFunction()) ?
-                m_wasmMemory->GetBuffer() :
+        (m_functionBody->IsWasmFunction()) ?
+            m_wasmMemory->GetBuffer() :
 #endif
-                GetAsmJsBuffer();
-        
+            GetAsmJsBuffer();
+
         BYTE* buffer = arr->GetBuffer();
         uint8 dataWidth = playout->DataWidth;
         RegSlot dstReg = playout->Value;
@@ -8115,12 +7990,12 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
         const uint64 index = ((uint64)(uint32)GetRegRawInt(playout->SlotIndex) + playout->Offset /* WASM only */) & (int64)(int)ArrayBufferView::ViewMask[playout->ViewType];
 
-        JavascriptArrayBuffer* arr =
+        ArrayBufferBase* arr =
 #ifdef ENABLE_WASM_SIMD
-            (m_functionBody->IsWasmFunction()) ?
-                m_wasmMemory->GetBuffer() :
+        (m_functionBody->IsWasmFunction()) ?
+            m_wasmMemory->GetBuffer() :
 #endif
-                GetAsmJsBuffer();
+            GetAsmJsBuffer();
 
         BYTE* buffer = arr->GetBuffer();
         uint8 dataWidth = playout->DataWidth;
@@ -8158,7 +8033,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 
     bool InterpreterStackFrame::SIMDAnyNaN(AsmJsSIMDValue& input)
     {
-        if (!GetFunctionBody()->IsWasmFunction()) 
+        if (!GetFunctionBody()->IsWasmFunction())
         {
             return false;
         }
@@ -8166,7 +8041,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         AsmJsSIMDValue compResult = SIMDFloat32x4Operation::OpEqual(input, input);
         return !SIMDBool32x4Operation::OpAllTrue(compResult);
     }
-    
+
     // handler for SIMD.Int32x4.FromFloat32x4
     template <class T>
     void InterpreterStackFrame::OP_SimdInt32x4FromFloat32x4(const unaligned T* playout)
@@ -8219,7 +8094,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         AsmJsSIMDValue result{ playout->C1, playout->C2, playout->C3, playout->C4 };
         SetRegRawSimd(playout->F4_0, result);
     }
-    
+
     template <class T>
     void InterpreterStackFrame::OP_SimdShuffleV8X16(const unaligned T* playout)
     {
@@ -8236,14 +8111,14 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     void InterpreterStackFrame::OP_SimdInt16x8(const unaligned T* playout)
     {
         int16 values[8];
-        values[0] = (int16) GetRegRawInt(playout->I1);
-        values[1] = (int16) GetRegRawInt(playout->I2);
-        values[2] = (int16) GetRegRawInt(playout->I3);
-        values[3] = (int16) GetRegRawInt(playout->I4);
-        values[4] = (int16) GetRegRawInt(playout->I5);
-        values[5] = (int16) GetRegRawInt(playout->I6);
-        values[6] = (int16) GetRegRawInt(playout->I7);
-        values[7] = (int16) GetRegRawInt(playout->I8);
+        values[0] = (int16)GetRegRawInt(playout->I1);
+        values[1] = (int16)GetRegRawInt(playout->I2);
+        values[2] = (int16)GetRegRawInt(playout->I3);
+        values[3] = (int16)GetRegRawInt(playout->I4);
+        values[4] = (int16)GetRegRawInt(playout->I5);
+        values[5] = (int16)GetRegRawInt(playout->I6);
+        values[6] = (int16)GetRegRawInt(playout->I7);
+        values[7] = (int16)GetRegRawInt(playout->I8);
 
         AsmJsSIMDValue result = SIMDInt16x8Operation::OpInt16x8(values);
         SetRegRawSimd(playout->I8_0, result);
@@ -8253,16 +8128,16 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     void InterpreterStackFrame::OP_SimdInt8x16(const unaligned T* playout)
     {
         int8 values[16];
-        values[0]  = (int8)GetRegRawInt(playout->I1);
-        values[1]  = (int8)GetRegRawInt(playout->I2);
-        values[2]  = (int8)GetRegRawInt(playout->I3);
-        values[3]  = (int8)GetRegRawInt(playout->I4);
-        values[4]  = (int8)GetRegRawInt(playout->I5);
-        values[5]  = (int8)GetRegRawInt(playout->I6);
-        values[6]  = (int8)GetRegRawInt(playout->I7);
-        values[7]  = (int8)GetRegRawInt(playout->I8);
-        values[8]  = (int8)GetRegRawInt(playout->I9);
-        values[9]  = (int8)GetRegRawInt(playout->I10);
+        values[0] = (int8)GetRegRawInt(playout->I1);
+        values[1] = (int8)GetRegRawInt(playout->I2);
+        values[2] = (int8)GetRegRawInt(playout->I3);
+        values[3] = (int8)GetRegRawInt(playout->I4);
+        values[4] = (int8)GetRegRawInt(playout->I5);
+        values[5] = (int8)GetRegRawInt(playout->I6);
+        values[6] = (int8)GetRegRawInt(playout->I7);
+        values[7] = (int8)GetRegRawInt(playout->I8);
+        values[8] = (int8)GetRegRawInt(playout->I9);
+        values[9] = (int8)GetRegRawInt(playout->I10);
         values[10] = (int8)GetRegRawInt(playout->I11);
         values[11] = (int8)GetRegRawInt(playout->I12);
         values[12] = (int8)GetRegRawInt(playout->I13);
@@ -8279,14 +8154,14 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     {
 
         uint16 values[8];
-        values[0] = (uint16) GetRegRawInt(playout->I1);
-        values[1] = (uint16) GetRegRawInt(playout->I2);
-        values[2] = (uint16) GetRegRawInt(playout->I3);
-        values[3] = (uint16) GetRegRawInt(playout->I4);
-        values[4] = (uint16) GetRegRawInt(playout->I5);
-        values[5] = (uint16) GetRegRawInt(playout->I6);
-        values[6] = (uint16) GetRegRawInt(playout->I7);
-        values[7] = (uint16) GetRegRawInt(playout->I8);
+        values[0] = (uint16)GetRegRawInt(playout->I1);
+        values[1] = (uint16)GetRegRawInt(playout->I2);
+        values[2] = (uint16)GetRegRawInt(playout->I3);
+        values[3] = (uint16)GetRegRawInt(playout->I4);
+        values[4] = (uint16)GetRegRawInt(playout->I5);
+        values[5] = (uint16)GetRegRawInt(playout->I6);
+        values[6] = (uint16)GetRegRawInt(playout->I7);
+        values[7] = (uint16)GetRegRawInt(playout->I8);
 
         AsmJsSIMDValue result = SIMDUint16x8Operation::OpUint16x8(values);
         SetRegRawSimd(playout->U8_0, result);
@@ -8296,22 +8171,22 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     void InterpreterStackFrame::OP_SimdUint8x16(const unaligned T* playout)
     {
         uint8 values[16];
-        values[0]  = (uint8) GetRegRawInt(playout->I1);
-        values[1]  = (uint8) GetRegRawInt(playout->I2);
-        values[2]  = (uint8) GetRegRawInt(playout->I3);
-        values[3]  = (uint8) GetRegRawInt(playout->I4);
-        values[4]  = (uint8) GetRegRawInt(playout->I5);
-        values[5]  = (uint8) GetRegRawInt(playout->I6);
-        values[6]  = (uint8) GetRegRawInt(playout->I7);
-        values[7]  = (uint8) GetRegRawInt(playout->I8);
-        values[8]  = (uint8) GetRegRawInt(playout->I9);
-        values[9]  = (uint8) GetRegRawInt(playout->I10);
-        values[10] = (uint8) GetRegRawInt(playout->I11);
-        values[11] = (uint8) GetRegRawInt(playout->I12);
-        values[12] = (uint8) GetRegRawInt(playout->I13);
-        values[13] = (uint8) GetRegRawInt(playout->I14);
-        values[14] = (uint8) GetRegRawInt(playout->I15);
-        values[15] = (uint8) GetRegRawInt(playout->I16);
+        values[0] = (uint8)GetRegRawInt(playout->I1);
+        values[1] = (uint8)GetRegRawInt(playout->I2);
+        values[2] = (uint8)GetRegRawInt(playout->I3);
+        values[3] = (uint8)GetRegRawInt(playout->I4);
+        values[4] = (uint8)GetRegRawInt(playout->I5);
+        values[5] = (uint8)GetRegRawInt(playout->I6);
+        values[6] = (uint8)GetRegRawInt(playout->I7);
+        values[7] = (uint8)GetRegRawInt(playout->I8);
+        values[8] = (uint8)GetRegRawInt(playout->I9);
+        values[9] = (uint8)GetRegRawInt(playout->I10);
+        values[10] = (uint8)GetRegRawInt(playout->I11);
+        values[11] = (uint8)GetRegRawInt(playout->I12);
+        values[12] = (uint8)GetRegRawInt(playout->I13);
+        values[13] = (uint8)GetRegRawInt(playout->I14);
+        values[14] = (uint8)GetRegRawInt(playout->I15);
+        values[15] = (uint8)GetRegRawInt(playout->I16);
 
         AsmJsSIMDValue result = SIMDUint8x16Operation::OpUint8x16(values);
         SetRegRawSimd(playout->U16_0, result);
@@ -8384,7 +8259,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 
     Var InterpreterStackFrame::GetRootObject() const
     {
-        Assert(!this->GetFunctionBody()->IsJsBuiltInInitCode());
+        Assert(!this->GetFunctionBody()->IsJsBuiltInCode());
         Var rootObject = GetReg(Js::FunctionBody::RootObjectRegSlot);
         Assert(rootObject == this->GetFunctionBody()->LoadRootObject());
         return rootObject;
@@ -8402,13 +8277,10 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         FunctionBody* functionBody = this->m_functionBody;
         DynamicProfileInfo * dynamicProfileInfo = functionBody->GetDynamicProfileInfo();
 
-        Assert(playout->Reg > FunctionBody::FirstRegSlot && playout->Reg < functionBody->GetConstantCount());
+        Assert(playout->Reg > FunctionBody::FirstRegSlot);
         Var value = GetReg(playout->Reg);
-        if (value != nullptr && TaggedInt::Is(value))
-        {
-            dynamicProfileInfo->RecordConstParameterAtCallSite(playout->profileId, playout->Arg);
-        }
-        SetOut(playout->Arg, GetReg(playout->Reg));
+        dynamicProfileInfo->RecordParameterAtCallSite(functionBody, playout->profileId, value, playout->Arg, playout->Reg);
+        SetOut(playout->Arg, value);
     }
 #endif
 
@@ -8503,13 +8375,13 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         ImplicitCallFlags savedImplicitCallFlags = threadContext->GetImplicitCallFlags();
         threadContext->ClearImplicitCallFlags();
 
-        const auto instance = GetReg(playout->R1);
+        Var instance = GetReg(playout->Instance);
         Var length = JavascriptOperators::OP_GetLength(instance, GetScriptContext());
 
         threadContext->CheckAndResetImplicitCallAccessorFlag();
         threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
 
-        SetReg(playout->R0, length);
+        SetReg(playout->Value, length);
     }
 
 #if ENABLE_PROFILE_INFO
@@ -8517,28 +8389,75 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     void InterpreterStackFrame::OP_ProfiledLdLen(const unaligned OpLayoutDynamicProfile<T> *const playout)
     {
         Assert(playout);
+        FunctionBody * functionBody = m_functionBody;
+        DynamicProfileInfo * profileData = functionBody->GetDynamicProfileInfo();
 
-        const auto functionBody = m_functionBody;
-        const auto profileData = functionBody->GetDynamicProfileInfo();
+        Var instance = GetReg(playout->Instance);
 
-        const auto instance = GetReg(playout->R1);
-        LdElemInfo ldElemInfo;
-        ldElemInfo.arrayType = ValueType::Uninitialized.Merge(instance);
+        LdLenInfo ldLenInfo;
+        ldLenInfo.arrayType = ValueType::Uninitialized.Merge(instance);
+
+        if (this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization))
+        {
+            ldLenInfo.disableAggressiveSpecialization = true;
+            this->ClearFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization);
+        }
+
+        profileData->RecordLengthLoad(functionBody, playout->profileId, ldLenInfo);
 
         ThreadContext* threadContext = this->GetScriptContext()->GetThreadContext();
         ImplicitCallFlags savedImplicitCallFlags = threadContext->GetImplicitCallFlags();
         threadContext->ClearImplicitCallFlags();
 
-        Var length = JavascriptOperators::OP_GetLength(instance, GetScriptContext());
+        PropertyId propertyId = GetPropertyIdFromCacheId(playout->inlineCacheIndex);
+        Var value = ProfilingHelpers::ProfiledLdFld<false, false, false>(
+            instance,
+            propertyId,
+            GetInlineCache(playout->inlineCacheIndex),
+            playout->inlineCacheIndex,
+            GetFunctionBody(),
+            instance);
+
+        SetReg(playout->Value, value);
 
         threadContext->CheckAndResetImplicitCallAccessorFlag();
         threadContext->AddImplicitCallFlags(savedImplicitCallFlags);
-
-        ldElemInfo.elemType = ldElemInfo.elemType.Merge(length);
-        profileData->RecordElementLoad(functionBody, playout->profileId, ldElemInfo);
-
-        SetReg(playout->R0, length);
     }
+#endif
+
+#if ENABLE_PROFILE_INFO
+
+    template <bool doProfile>
+    Var InterpreterStackFrame::ProfiledIsIn(Var argProperty, Var instance, ScriptContext* scriptContext, ProfileId profileId)
+    {
+        if (doProfile)
+        {
+            DynamicProfileInfo * profileData = m_functionBody->GetDynamicProfileInfo();
+
+            LdElemInfo ldElemInfo;
+            ldElemInfo.arrayType = ValueType::Uninitialized.Merge(instance);
+
+            if (this->TestFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization))
+            {
+                ldElemInfo.disableAggressiveSpecialization = true;
+            }
+            this->ClearFlags(InterpreterStackFrameFlags_ProcessingBailOutOnArraySpecialization);
+
+            profileData->RecordElementLoad(m_functionBody, profileId, ldElemInfo);
+        }
+
+        return JavascriptOperators::IsIn(argProperty, instance, scriptContext);
+    }
+
+#else
+
+    template <bool doProfile>
+    Var InterpreterStackFrame::ProfiledIsIn(Var argProperty, Var instance, ScriptContext* scriptContext, ProfileId profileId)
+    {
+        Assert(!doProfile);
+        return JavascriptOperators::IsIn(argProperty, instance, scriptContext);
+    }
+
 #endif
 
     JavascriptFunction* InterpreterStackFrame::GetFunctionExpression()
@@ -8568,7 +8487,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     void InterpreterStackFrame::OP_StFunctionExpression(Var instance, Var value, PropertyIdIndexType index)
     {
         JavascriptOperators::OP_StFunctionExpression(instance,
-                                                     this->m_functionBody->GetReferencedPropertyId(index), value);
+            this->m_functionBody->GetReferencedPropertyId(index), value);
     }
 
     template <class T>
@@ -8627,7 +8546,6 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     template <typename ArrayType, typename RegType>
     void InterpreterStackFrame::OP_StArr(uint32 index, RegSlot regSlot)
     {
-        CompileAssert(Js::ArrayBufferView::TYPE_COUNT == (sizeof(InterpreterStackFrame::StArrFunc) / sizeof(InterpreterStackFrame::ArrFunc)));
         JavascriptArrayBuffer* arr = GetAsmJsBuffer();
         if (index < arr->GetByteLength())
         {
@@ -8708,7 +8626,6 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     template <typename ArrayType, typename RegType>
     void InterpreterStackFrame::OP_LdArr(uint32 index, RegSlot regSlot)
     {
-        CompileAssert(Js::ArrayBufferView::TYPE_COUNT == (sizeof(InterpreterStackFrame::LdArrFunc) / sizeof(InterpreterStackFrame::ArrFunc)));
         JavascriptArrayBuffer* arr = GetAsmJsBuffer();
         BYTE* buffer = arr->GetBuffer();
         ArrayType val = index < (arr->GetByteLength()) ? *(ArrayType*)(buffer + index) : GetArrayViewOverflowVal<ArrayType>();
@@ -8741,60 +8658,148 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     template <class T>
     void InterpreterStackFrame::OP_LdArrGeneric(const unaligned T* playout)
     {
-        Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
-        const uint32 index = (uint32)GetRegRawInt(playout->SlotIndex) & ArrayBufferView::ViewMask[playout->ViewType];
-        (this->*LdArrFunc[playout->ViewType])(index, playout->Value);
+        const uint32 index = (uint32)GetRegRawInt(playout->SlotIndex);
+        switch (playout->ViewType)
+        {
+#define ARRAYBUFFER_VIEW(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: \
+            OP_LdArr<MemType, RegType>(index & ARRAYBUFFER_VIEW_MASK(align), playout->Value); \
+            return;
+#include "AsmJsArrayBufferViews.h"
+        default:Assert(UNREACHED);
+        }
     }
+
+    template<typename MemType>
+    void InterpreterStackFrame::WasmArrayBoundsCheck(uint64 index, uint32 byteLength)
+    {
+        if (index + sizeof(MemType) > byteLength)
+        {
+            JavascriptError::ThrowWebAssemblyRuntimeError(scriptContext, WASMERR_ArrayIndexOutOfRange);
+        }
+    }
+
+    template<typename MemType>
+    MemType* InterpreterStackFrame::WasmAtomicsArrayBoundsCheck(byte* buffer, uint64 index, uint32 byteLength)
+    {
+        MemType* readBuffer = (MemType*)(buffer + index);
+        // Do alignment check to be coherent with the order the jit does the checks
+        if (!::Math::IsAligned<intptr_t>((intptr_t)readBuffer, sizeof(MemType)))
+        {
+            JavascriptError::ThrowWebAssemblyRuntimeError(scriptContext, WASMERR_UnalignedAtomicAccess);
+        }
+        WasmArrayBoundsCheck<MemType>(index, byteLength);
+        return readBuffer;
+    }
+
     template <class T>
     void InterpreterStackFrame::OP_LdArrWasm(const unaligned T* playout)
     {
 #ifdef ENABLE_WASM
         Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
         const uint64 index = playout->Offset + (uint64)(uint32)GetRegRawInt(playout->SlotIndex);
-        WebAssemblyArrayBuffer* arr = GetWebAssemblyMemory()->GetBuffer();
-        if (index + TypeToSizeMap[playout->ViewType] > arr->GetByteLength())
-        {
-            JavascriptError::ThrowWebAssemblyRuntimeError(scriptContext, WASMERR_ArrayIndexOutOfRange);
-        }
+        ArrayBufferBase* arr = GetWebAssemblyMemory()->GetBuffer();
 
+        uint32 byteLength = arr->GetByteLength();
         BYTE* buffer = arr->GetBuffer();
         switch (playout->ViewType)
         {
-        case ArrayBufferView::ViewType::TYPE_INT8: SetRegRaw<int32>(playout->Value, (int32)*(int8*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_UINT8 : SetRegRaw<int32>(playout->Value, (int32)*(uint8*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_INT16 : SetRegRaw<int32>(playout->Value, (int32)*(int16*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_UINT16 : SetRegRaw<int32>(playout->Value, (int32)*(uint16*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_INT32 : SetRegRaw<int32>(playout->Value, (int32)*(int32*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_UINT32 : SetRegRaw<int32>(playout->Value, (int32)*(uint32*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_FLOAT32 : SetRegRaw<float>(playout->Value, (float)*(float*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_FLOAT64 : SetRegRaw<double>(playout->Value, (double)*(double*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_INT64 : SetRegRaw<int64>(playout->Value, (int64)*(int64*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_INT8_TO_INT64 : SetRegRaw<int64>(playout->Value, (int64)*(int8*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_UINT8_TO_INT64 : SetRegRaw<int64>(playout->Value, (int64)*(uint8*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_INT16_TO_INT64 : SetRegRaw<int64>(playout->Value, (int64)*(int16*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_UINT16_TO_INT64 : SetRegRaw<int64>(playout->Value, (int64)*(uint16*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_INT32_TO_INT64 : SetRegRaw<int64>(playout->Value, (int64)*(int32*)(buffer + index)); return;
-        case ArrayBufferView::ViewType::TYPE_UINT32_TO_INT64 : SetRegRaw<int64>(playout->Value, (int64)*(uint32*)(buffer + index)); return;
+#define ARRAYBUFFER_VIEW(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: \
+            WasmArrayBoundsCheck<MemType>(index, byteLength); \
+            SetRegRaw<RegType>(playout->Value, (RegType)*(MemType*)(buffer + index)); \
+            return;
+#include "AsmJsArrayBufferViews.h"
         default:Assert(UNREACHED);
         }
-        CompileAssert(ArrayBufferView::ViewType::TYPE_COUNT == 15);
 #else
         Assert(UNREACHED);
 #endif
     }
+
+    template <class T>
+    void InterpreterStackFrame::OP_LdArrAtomic(const unaligned T* playout)
+    {
+#ifdef ENABLE_WASM
+        Assert(Wasm::Threads::IsEnabled());
+        Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
+        const uint64 index = playout->Offset + (uint64)(uint32)GetRegRawInt(playout->SlotIndex);
+        ArrayBufferBase* arr = GetWebAssemblyMemory()->GetBuffer();
+
+        uint32 byteLength = arr->GetByteLength();
+        BYTE* buffer = arr->GetBuffer();
+        switch (playout->ViewType)
+        {
+#define ARRAYBUFFER_VIEW_INT(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: {\
+            MemType* readBuffer = WasmAtomicsArrayBoundsCheck<MemType>(buffer, index, byteLength); \
+            MemType value = AtomicsOperations::Load<MemType>(readBuffer); \
+            SetRegRaw<RegType>(playout->Value, (RegType)value); \
+            return; \
+        }
+#include "AsmJsArrayBufferViews.h"
+        default:Assert(UNREACHED);
+        }
+#else
+        Assert(UNREACHED);
+#endif
+    }
+
+    template <class T>
+    void InterpreterStackFrame::OP_StArrAtomic(const unaligned T* playout)
+    {
+#ifdef ENABLE_WASM
+        Assert(Wasm::Threads::IsEnabled());
+        Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
+        const uint64 index = playout->Offset + (uint64)(uint32)GetRegRawInt(playout->SlotIndex);
+        ArrayBufferBase* arr = GetWebAssemblyMemory()->GetBuffer();
+
+        uint32 byteLength = arr->GetByteLength();
+        BYTE* buffer = arr->GetBuffer();
+        switch (playout->ViewType)
+        {
+#define ARRAYBUFFER_VIEW_INT(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: {\
+            MemType* readBuffer = WasmAtomicsArrayBoundsCheck<MemType>(buffer, index, byteLength); \
+            MemType value = (MemType)GetRegRaw<RegType>(playout->Value); \
+            MemType storedValue = AtomicsOperations::Store<MemType>(readBuffer, value); \
+            Assert(storedValue == value); \
+            return; \
+        }
+#include "AsmJsArrayBufferViews.h"
+        default:Assert(UNREACHED);
+        }
+#else
+        Assert(UNREACHED);
+#endif
+    }
+
     template <class T>
     void InterpreterStackFrame::OP_LdArrConstIndex(const unaligned T* playout)
     {
-        const uint32 index = playout->SlotIndex;
-        Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
-        (this->*LdArrFunc[playout->ViewType])(index, playout->Value);
+        switch (playout->ViewType)
+        {
+#define ARRAYBUFFER_VIEW(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: \
+            OP_LdArr<MemType, RegType>(playout->SlotIndex, playout->Value); \
+            return;
+#include "AsmJsArrayBufferViews.h"
+        default:Assert(UNREACHED);
+        }
     }
     template <class T>
     void InterpreterStackFrame::OP_StArrGeneric(const unaligned T* playout)
     {
-        Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
-        const uint32 index = (uint32)GetRegRawInt(playout->SlotIndex) & ArrayBufferView::ViewMask[playout->ViewType];
-        (this->*StArrFunc[playout->ViewType])(index, playout->Value);
+        const uint32 index = (uint32)GetRegRawInt(playout->SlotIndex);
+        switch (playout->ViewType)
+        {
+#define ARRAYBUFFER_VIEW(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: \
+            OP_StArr<MemType, RegType>(index & ARRAYBUFFER_VIEW_MASK(align), playout->Value); \
+            return;
+#include "AsmJsArrayBufferViews.h"
+        default:Assert(UNREACHED);
+        }
     }
     template <class T>
     void InterpreterStackFrame::OP_StArrWasm(const unaligned T* playout)
@@ -8802,29 +8807,18 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 #ifdef ENABLE_WASM
         Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
         const uint64 index = playout->Offset + (uint64)(uint32)GetRegRawInt(playout->SlotIndex);
-        WebAssemblyArrayBuffer* arr = GetWebAssemblyMemory()->GetBuffer();
-        if (index + TypeToSizeMap[playout->ViewType] > arr->GetByteLength())
-        {
-            JavascriptError::ThrowWebAssemblyRuntimeError(scriptContext, WASMERR_ArrayIndexOutOfRange);
-        }
+        ArrayBufferBase* arr = GetWebAssemblyMemory()->GetBuffer();
+
+        uint32 byteLength = arr->GetByteLength();
         BYTE* buffer = arr->GetBuffer();
         switch (playout->ViewType)
         {
-        case ArrayBufferView::ViewType::TYPE_INT8: *(int8*)(buffer + index) = (int8) (GetRegRaw<int32>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_UINT8: *(uint8*)(buffer + index) = (uint8) (GetRegRaw<int32>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_INT16: *(int16*)(buffer + index) = (int16) (GetRegRaw<int32>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_UINT16: *(uint16*)(buffer + index) = (uint16) (GetRegRaw<int32>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_INT32: *(int32*)(buffer + index) = (int32) (GetRegRaw<int32>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_UINT32: *(uint32*)(buffer + index) = (uint32) (GetRegRaw<int32>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_FLOAT32: *(float*)(buffer + index) = (float) (GetRegRaw<float>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_FLOAT64: *(double*)(buffer + index) = (double) (GetRegRaw<double>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_INT64: *(int64*)(buffer + index) = (int64) (GetRegRaw<int64>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_INT8_TO_INT64: *(int8*)(buffer + index) = (int8) (GetRegRaw<int64>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_UINT8_TO_INT64: *(uint8*)(buffer + index) = (uint8) (GetRegRaw<int64>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_INT16_TO_INT64: *(int16*)(buffer + index) = (int16) (GetRegRaw<int64>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_UINT16_TO_INT64: *(uint16*)(buffer + index) = (uint16) (GetRegRaw<int64>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_INT32_TO_INT64: *(int32*)(buffer + index) = (int32) (GetRegRaw<int64>(playout->Value)); break;
-        case ArrayBufferView::ViewType::TYPE_UINT32_TO_INT64: *(uint32*)(buffer + index) = (uint32) (GetRegRaw<int64>(playout->Value)); break;
+#define ARRAYBUFFER_VIEW(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: \
+            WasmArrayBoundsCheck<MemType>(index, byteLength); \
+            *(MemType*)(buffer + index) = (MemType)(GetRegRaw<RegType>(playout->Value)); \
+            break;
+#include "AsmJsArrayBufferViews.h"
         default:Assert(UNREACHED);
         }
         CompileAssert(ArrayBufferView::ViewType::TYPE_COUNT == 15);
@@ -8842,9 +8836,15 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     template <class T>
     void InterpreterStackFrame::OP_StArrConstIndex(const unaligned T* playout)
     {
-        const uint32 index = playout->SlotIndex;
-        Assert(playout->ViewType < Js::ArrayBufferView::TYPE_COUNT);
-        (this->*StArrFunc[playout->ViewType])(index, playout->Value);
+        switch (playout->ViewType)
+        {
+#define ARRAYBUFFER_VIEW(name, align, RegType, MemType, ...) \
+        case ArrayBufferView::ViewType::TYPE_##name: \
+            OP_StArr<MemType, RegType>(playout->SlotIndex, playout->Value); \
+            return;
+#include "AsmJsArrayBufferViews.h"
+        default:Assert(UNREACHED);
+        }
     }
 #endif
 
@@ -8912,7 +8912,7 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
     {
         if (!PHASE_OFF(ClosureRangeCheckPhase, this->m_functionBody))
         {
-            if (((FrameDisplay*)instance)->GetLength() <= slotIndex - Js::FrameDisplay::GetOffsetOfScopes()/sizeof(Var))
+            if (((FrameDisplay*)instance)->GetLength() <= slotIndex - Js::FrameDisplay::GetOffsetOfScopes() / sizeof(Var))
             {
                 Js::Throw::FatalInternalError();
             }
@@ -9162,48 +9162,48 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
         //For Non-simple params, we don't have a scope object created.
         if (this->m_functionBody->NeedScopeObjectForArguments(hasNonSimpleParams))
         {
-                frameObject = GetLocalClosure();
+            frameObject = GetLocalClosure();
 
-                isCachedScope = m_functionBody->HasCachedScopePropIds();
-                propIds = this->m_functionBody->GetFormalsPropIdArray();
+            isCachedScope = m_functionBody->HasCachedScopePropIds();
+            propIds = this->m_functionBody->GetFormalsPropIdArray();
 
-                if(isScopeObjRestored && ActivationObject::Is(frameObject))
+            if (isScopeObjRestored && ActivationObject::Is(frameObject))
+            {
+                Assert(this->GetFunctionBody()->GetDoScopeObjectCreation());
+                isCachedScope = true;
+                if (PHASE_VERBOSE_TRACE1(Js::StackArgFormalsOptPhase) && m_functionBody->GetInParamsCount() > 1)
                 {
-                    Assert(this->GetFunctionBody()->GetDoScopeObjectCreation());
-                    isCachedScope = true;
-                    if (PHASE_VERBOSE_TRACE1(Js::StackArgFormalsOptPhase) && m_functionBody->GetInParamsCount() > 1)
-                    {
-                        Output::Print(_u("StackArgFormals : %s (%d) :Using the restored scope object in the bail out path. \n"), m_functionBody->GetDisplayName(), m_functionBody->GetFunctionNumber());
-                        Output::Flush();
-                    }
+                    Output::Print(_u("StackArgFormals : %s (%d) :Using the restored scope object in the bail out path. \n"), m_functionBody->GetDisplayName(), m_functionBody->GetFunctionNumber());
+                    Output::Flush();
+                }
+            }
+            else
+            {
+                if (isCachedScope)
+                {
+                    Field(DynamicType*) literalType = nullptr;
+                    Assert(!propIds->hasNonSimpleParams && !hasNonSimpleParams);
+                    frameObject = JavascriptOperators::OP_InitCachedScope(this->GetJavascriptFunction(), propIds, &literalType, hasNonSimpleParams, scriptContext);
                 }
                 else
                 {
-                    if (isCachedScope)
-                    {
-                        Field(DynamicType*) literalType = nullptr;
-                        Assert(!propIds->hasNonSimpleParams && !hasNonSimpleParams);
-                        frameObject = JavascriptOperators::OP_InitCachedScope(this->GetJavascriptFunction(), propIds, &literalType, hasNonSimpleParams, scriptContext);
-                    }
-                    else
-                    {
-                        frameObject = JavascriptOperators::OP_NewScopeObject(GetScriptContext());
-                    }
-                    Assert(propIds != nullptr);
-                    SetLocalClosure(frameObject);
-
-                    if (PHASE_VERBOSE_TRACE1(Js::StackArgFormalsOptPhase) && m_functionBody->GetInParamsCount() > 1)
-                    {
-                        Output::Print(_u("StackArgFormals : %s (%d) :Creating scope object in the bail out path. \n"), m_functionBody->GetDisplayName(), m_functionBody->GetFunctionNumber());
-                        Output::Flush();
-                    }
+                    frameObject = JavascriptOperators::OP_NewScopeObject(GetScriptContext());
                 }
+                Assert(propIds != nullptr);
+                SetLocalClosure(frameObject);
+
+                if (PHASE_VERBOSE_TRACE1(Js::StackArgFormalsOptPhase) && m_functionBody->GetInParamsCount() > 1)
+                {
+                    Output::Print(_u("StackArgFormals : %s (%d) :Creating scope object in the bail out path. \n"), m_functionBody->GetDisplayName(), m_functionBody->GetFunctionNumber());
+                    Output::Flush();
+                }
+            }
         }
         else
         {
             //We reached here because, either we don't have any formals or we don't have a scope object (it could be in strict mode or have non-simple param list)
             Assert(formalsCount == 0 || (m_functionBody->GetIsStrictMode() || hasNonSimpleParams));
-            frameObject = scriptContext->GetLibrary()->GetNull();
+            frameObject = nullptr;
             formalsCount = 0;
 
             if (PHASE_VERBOSE_TRACE1(Js::StackArgOptPhase))
@@ -9215,8 +9215,9 @@ const byte * InterpreterStackFrame::OP_ProfiledLoopBodyStart(uint loopId)
 
         if (heapArgObj)
         {
+            Assert(frameObject == nullptr || ActivationObject::Is(frameObject));
             heapArgObj->SetFormalCount(formalsCount);
-            heapArgObj->SetFrameObject(frameObject != scriptContext->GetLibrary()->GetNull() ?
+            heapArgObj->SetFrameObject(frameObject != nullptr ?
                 static_cast<ActivationObject*>(frameObject) : nullptr);
 
             if (PHASE_TRACE1(Js::StackArgFormalsOptPhase) && formalsCount > 0)

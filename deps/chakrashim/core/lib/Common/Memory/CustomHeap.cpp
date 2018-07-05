@@ -3,6 +3,9 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "CommonMemoryPch.h"
+
+#if ENABLE_NATIVE_CODEGEN || DYNAMIC_INTERPRETER_THUNK
+
 #include "Memory/XDataAllocator.h"
 #if defined(_M_ARM)
 #include <wchar.h>
@@ -570,7 +573,7 @@ bool Heap<TAlloc, TPreReservedAlloc>::AllocInPage(Page* page, size_t bytes, usho
     BVIndex index = GetFreeIndexForPage(page, bytes);
     if (index == BVInvalidIndex)
     {
-        CustomHeap_BadPageState_fatal_error((ULONG_PTR)this);
+        CustomHeap_BadPageState_unrecoverable_error((ULONG_PTR)this);
         return false;
     }
     char* address = page->address + Page::Alignment * index;
@@ -619,14 +622,14 @@ bool Heap<TAlloc, TPreReservedAlloc>::AllocInPage(Page* page, size_t bytes, usho
     //Section of the Page should already be freed.
     if (!page->freeBitVector.TestRange(index, length))
     {
-        CustomHeap_BadPageState_fatal_error((ULONG_PTR)this);
+        CustomHeap_BadPageState_unrecoverable_error((ULONG_PTR)this);
         return false;
     }
 
     //Section of the Page should already be freed.
     if (!page->freeBitVector.TestRange(index, length))
     {
-        CustomHeap_BadPageState_fatal_error((ULONG_PTR)this);
+        CustomHeap_BadPageState_unrecoverable_error((ULONG_PTR)this);
         return false;
     }
 
@@ -813,7 +816,7 @@ bool Heap<TAlloc, TPreReservedAlloc>::FreeAllocation(Allocation* object)
     // Make sure that the section under interest or the whole page has not already been freed
     if (page->IsEmpty() || page->freeBitVector.TestAnyInRange(index, length))
     {
-        CustomHeap_BadPageState_fatal_error((ULONG_PTR)this);
+        CustomHeap_BadPageState_unrecoverable_error((ULONG_PTR)this);
         return false;
     }
 
@@ -1215,3 +1218,4 @@ CodePageAllocators<SectionAllocWrapper, PreReservedSectionAllocWrapper>::FreeLoc
 } // namespace CustomHeap
 
 } // namespace Memory
+#endif // ENABLE_NATIVE_CODEGEN || DYNAMIC_INTERPRETER_THUNK

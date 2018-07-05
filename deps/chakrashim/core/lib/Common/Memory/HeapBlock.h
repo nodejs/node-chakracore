@@ -2,7 +2,14 @@
 // Copyright (C) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
+
+#pragma once
+
+#include "HeapBucketStats.h"
+
 class ScriptMemoryDumper;
+
+#include "HeapBucketStats.h"
 
 namespace Memory
 {
@@ -33,40 +40,12 @@ if (flags.Trace.IsEnabled(Js::PageHeapPhase)) \
 
 class Recycler;
 class HeapBucket;
+class HeapInfo;
 template <typename TBlockType> class HeapBucketT;
 class  RecyclerSweep;
 class MarkContext;
 
 #if ENABLE_MEM_STATS
-struct MemStats
-{
-    size_t objectByteCount;
-    size_t totalByteCount;
-
-    MemStats();
-
-    void Reset();
-    size_t FreeBytes() const;
-    double UsedRatio() const;
-    void Aggregate(const MemStats& other);
-};
-
-struct HeapBucketStats: MemStats
-{
-#ifdef DUMP_FRAGMENTATION_STATS
-    uint totalBlockCount;
-    uint objectCount;
-    uint finalizeCount;
-
-    HeapBucketStats();
-    void Reset();
-    void Dump() const;
-#endif
-
-    void PreAggregate();
-    void BeginAggregate();
-    void Aggregate(const HeapBucketStats& other);
-};
 
 #ifdef DUMP_FRAGMENTATION_STATS
 #define DUMP_FRAGMENTATION_STATS_ONLY(x) x
@@ -420,7 +399,7 @@ public:
     }
 #endif
 
-    IdleDecommitPageAllocator* GetPageAllocator(Recycler* recycler);
+    IdleDecommitPageAllocator* GetPageAllocator(HeapInfo * heapInfo);
 
     bool GetAndClearNeedOOMRescan()
     {
@@ -445,6 +424,7 @@ public:
 
 
 #if DBG
+    virtual HeapInfo * GetHeapInfo() const = 0;
     virtual BOOL IsFreeObject(void* objectAddress) = 0;
 #endif
     virtual BOOL IsValidObject(void* objectAddress) = 0;
@@ -752,6 +732,7 @@ public:
     SmallHeapBlockBitVector * GetDebugFreeBitVector() { return &debugFreeBits; }
 #endif
 #if DBG
+    virtual HeapInfo * GetHeapInfo() const override;
     virtual BOOL IsFreeObject(void* objectAddress) override;
 #endif
     virtual BOOL IsValidObject(void* objectAddress) override;
@@ -862,6 +843,8 @@ protected:
     template <typename TBlockType>
     bool FindHeapObjectImpl(void* objectAddress, Recycler * recycler, FindHeapObjectFlags flags, RecyclerHeapObjectInfo& heapObject);
 protected:
+    IdleDecommitPageAllocator * GetPageAllocator();
+
     void Init(ushort objectSize, ushort objectCount);
     void ConstructorCommon(HeapBucket * bucket, ushort objectSize, ushort objectCount, HeapBlockType heapBlockType);
 

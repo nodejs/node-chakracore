@@ -217,9 +217,19 @@ namespace Js
         }
     }
 
+    void ArrayBuffer::ReportExternalMemoryFree()
+    {
+        Recycler* recycler = GetType()->GetLibrary()->GetRecycler();
+        recycler->ReportExternalMemoryFree(bufferLength);
+    }
+
     void ArrayBuffer::Detach()
     {
         Assert(!this->isDetached);
+
+        // we are about to lose track of the buffer to another owner
+        // report that we no longer own the memory
+        ReportExternalMemoryFree();
 
         this->buffer = nullptr;
         this->bufferLength = 0;
@@ -511,11 +521,17 @@ namespace Js
 
         if (scriptContext->GetConfig()->IsES6SpeciesEnabled())
         {
-            RecyclableObject* constructor = JavascriptOperators::SpeciesConstructor(arrayBuffer, scriptContext->GetLibrary()->GetArrayBufferConstructor(), scriptContext);
+            JavascriptFunction* defaultConstructor = scriptContext->GetLibrary()->GetArrayBufferConstructor();
+            RecyclableObject* constructor = JavascriptOperators::SpeciesConstructor(arrayBuffer, defaultConstructor, scriptContext);
+            AssertOrFailFast(JavascriptOperators::IsConstructor(constructor));
 
-            Js::Var constructorArgs[] = {constructor, JavascriptNumber::ToVar(byteLength, scriptContext)};
-            Js::CallInfo constructorCallInfo(Js::CallFlags_New, _countof(constructorArgs));
-            Js::Var newVar = JavascriptOperators::NewScObject(constructor, Js::Arguments(constructorCallInfo, constructorArgs), scriptContext);
+            bool isDefaultConstructor = constructor == defaultConstructor;
+            Js::Var newVar = JavascriptOperators::NewObjectCreationHelper_ReentrancySafe(constructor, isDefaultConstructor, scriptContext->GetThreadContext(), [=]()->Js::Var
+            {
+                Js::Var constructorArgs[] = { constructor, JavascriptNumber::ToVar(byteLength, scriptContext) };
+                Js::CallInfo constructorCallInfo(Js::CallFlags_New, _countof(constructorArgs));
+                return JavascriptOperators::NewScObject(constructor, Js::Arguments(constructorCallInfo, constructorArgs), scriptContext);
+            });
 
             if (!ArrayBuffer::Is(newVar)) // 24.1.4.3: 19.If new does not have an [[ArrayBufferData]] internal slot throw a TypeError exception.
             {
@@ -639,12 +655,21 @@ namespace Js
         }
     }
 
-    ArrayBuffer::ArrayBuffer(byte* buffer, uint32 length, DynamicType * type) :
+    ArrayBuffer::ArrayBuffer(byte* buffer, uint32 length, DynamicType * type, bool isExternal) :
         buffer(buffer), bufferLength(length), ArrayBufferBase(type)
     {
         if (length > MaxArrayBufferLength)
         {
             JavascriptError::ThrowTypeError(GetScriptContext(), JSERR_FunctionArgument_Invalid);
+        }
+
+        if (!isExternal)
+        {
+            // we take the ownership of the buffer and will have to free it so charge it to our quota.
+            if (!this->GetRecycler()->RequestExternalMemoryAllocation(length))
+            {
+                JavascriptError::ThrowOutOfMemoryError(this->GetScriptContext());
+            }
         }
     }
 
@@ -710,7 +735,6 @@ namespace Js
         {
             freeFunction(this->buffer);
             this->buffer = nullptr;
-            this->recycler->ReportExternalMemoryFree(this->bufferLength);
         }
         this->bufferLength = 0;
     }
@@ -773,12 +797,6 @@ namespace Js
 
     void JavascriptArrayBuffer::Finalize(bool isShutdown)
     {
-        // In debugger scenario, ScriptAuthor can create scriptContext and delete scriptContext
-        // explicitly. So for the builtin, while javascriptLibrary is still alive fine, the
-        // matching scriptContext might have been deleted and the javascriptLibrary->scriptContext
-        // field reset (but javascriptLibrary is still alive).
-        // Use the recycler field off library instead of scriptcontext to avoid av.
-
         // Recycler may not be available at Dispose. We need to
         // free the memory and report that it has been freed at the same
         // time. Otherwise, AllocationPolicyManager is unable to provide correct feedback
@@ -807,17 +825,6 @@ namespace Js
         /* See JavascriptArrayBuffer::Finalize */
     }
 
-    // Same as realloc but zero newly allocated portion if newSize > oldSize
-    static BYTE* ReallocZero(BYTE* ptr, size_t oldSize, size_t newSize)
-    {
-        BYTE* ptrNew = (BYTE*)realloc(ptr, newSize);
-        if (ptrNew && newSize > oldSize)
-        {
-            ZeroMemory(ptrNew + oldSize, newSize - oldSize);
-        }
-        return ptrNew;
-    }
-
 #if ENABLE_TTD
     TTD::NSSnapObjects::SnapObjectType JavascriptArrayBuffer::GetSnapTag_TTD() const
     {
@@ -843,6 +850,17 @@ namespace Js
     }
 #endif
 
+#ifdef ENABLE_WASM
+    // Same as realloc but zero newly allocated portion if newSize > oldSize
+    static BYTE* ReallocZero(BYTE* ptr, size_t oldSize, size_t newSize)
+    {
+        BYTE* ptrNew = (BYTE*)realloc(ptr, newSize);
+        if (ptrNew && newSize > oldSize)
+        {
+            ZeroMemory(ptrNew + oldSize, newSize - oldSize);
+        }
+        return ptrNew;
+    }
 
     template<typename Allocator>
     Js::WebAssemblyArrayBuffer::WebAssemblyArrayBuffer(uint32 length, DynamicType * type, Allocator allocator):
@@ -901,9 +919,9 @@ namespace Js
             {
                 result = RecyclerNewFinalized(recycler, WebAssemblyArrayBuffer, length, type);
             }
-            // Only add external memory when we create a new internal buffer
-            recycler->AddExternalMemoryUsage(length);
         }
+
+        recycler->AddExternalMemoryUsage(length);
         Assert(result);
         return result;
     }
@@ -958,6 +976,11 @@ namespace Js
             {
                 return nullptr;
             }
+
+            // We are transferring the buffer to the new owner. 
+            // To avoid double-charge to the allocation quota we will free the "diff" amount here.
+            this->GetRecycler()->ReportExternalMemoryFree(growSize);
+
             return finalizeGrowMemory(this->GetLibrary()->CreateWebAssemblyArrayBuffer(this->buffer, newBufferLength));
         }
 #endif
@@ -993,12 +1016,17 @@ namespace Js
                 return nullptr;
             }
 
+            // We are transferring the buffer to the new owner. 
+            // To avoid double-charge to the allocation quota we will free the "diff" amount here.
+            this->GetRecycler()->ReportExternalMemoryFree(growSize);
+
             WebAssemblyArrayBuffer* newArrayBuffer = finalizeGrowMemory(this->GetLibrary()->CreateWebAssemblyArrayBuffer(newBuffer, newBufferLength));
             // We've successfully Detached this buffer and created a new WebAssemblyArrayBuffer
             autoDisableInterrupt.Completed();
             return newArrayBuffer;
         }
     }
+#endif
 
     ProjectionArrayBuffer::ProjectionArrayBuffer(uint32 length, DynamicType * type) :
         ArrayBuffer(length, type, CoTaskMemAlloc)
@@ -1020,15 +1048,30 @@ namespace Js
     ProjectionArrayBuffer* ProjectionArrayBuffer::Create(byte* buffer, uint32 length, DynamicType * type)
     {
         Recycler* recycler = type->GetScriptContext()->GetRecycler();
+        ProjectionArrayBuffer* result = RecyclerNewFinalized(recycler, ProjectionArrayBuffer, buffer, length, type);
         // This is user passed [in] buffer, user should AddExternalMemoryUsage before calling jscript, but
         // I don't see we ask everyone to do this. Let's add the memory pressure here as well.
         recycler->AddExternalMemoryUsage(length);
-        return RecyclerNewFinalized(recycler, ProjectionArrayBuffer, buffer, length, type);
+        return result;
+
+    }
+
+    void ProjectionArrayBuffer::Finalize(bool isShutdown)
+    {
+        CoTaskMemFree(buffer);
+        // Recycler may not be available at Dispose. We need to
+        // free the memory and report that it has been freed at the same
+        // time. Otherwise, AllocationPolicyManager is unable to provide correct feedback
+        Recycler* recycler = GetType()->GetLibrary()->GetRecycler();
+        recycler->ReportExternalMemoryFree(bufferLength);
+
+        buffer = nullptr;
+        bufferLength = 0;
     }
 
     void ProjectionArrayBuffer::Dispose(bool isShutdown)
     {
-        CoTaskMemFree(buffer);
+        /* See ProjectionArrayBuffer::Finalize */
     }
 
     ArrayBuffer* ExternalArrayBufferDetachedState::Create(JavascriptLibrary* library)
@@ -1037,7 +1080,7 @@ namespace Js
     }
 
     ExternalArrayBuffer::ExternalArrayBuffer(byte *buffer, uint32 length, DynamicType *type)
-        : ArrayBuffer(buffer, length, type)
+        : ArrayBuffer(buffer, length, type, true)
     {
     }
 
@@ -1051,6 +1094,11 @@ namespace Js
     {
         return HeapNew(ExternalArrayBufferDetachedState, buffer, bufferLength);
     };
+
+    void ExternalArrayBuffer::ReportExternalMemoryFree()
+    {
+        // This type does not own the external memory, so don't ReportExternalMemoryFree like other ArrayBuffer types do
+    }
 
 #if ENABLE_TTD
     TTD::NSSnapObjects::SnapObjectType ExternalArrayBuffer::GetSnapTag_TTD() const

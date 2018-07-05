@@ -11,12 +11,14 @@ enum
     // Unused = 1 << 0,
     fscrReturnExpression = 1 << 1,   // call should return the last expression
     fscrImplicitThis = 1 << 2,   // 'this.' is optional (for Call)
-    fscrImplicitParents = 1 << 3,   // the parents of 'this' are implicit
-    // Unused = 1 << 4,
+    fscrWillDeferFncParse = 1 << 3,  // Heuristically choosing to defer parsing of functions
+    fscrCanDeferFncParse = 1 << 4,   // Functionally able to defer parsing of functions
     fscrDynamicCode = 1 << 5,   // The code is being generated dynamically (eval, new Function, etc.)
     // Unused = 1 << 6,
     fscrNoImplicitHandlers = 1 << 7,   // same as Opt NoConnect at start of block
-    // Unused = 1 << 8,
+    fscrCreateParserState = 1 << 8, // The parser should expose parser state information on the parse nodes.
+                                    // This parser state includes the set of names which are captured by each function
+                                    // and is stored in ParseNodeFnc::capturedNames.
 
 #if DEBUG
     fscrEnforceJSON = 1 << 9,  // used together with fscrReturnExpression
@@ -26,7 +28,7 @@ enum
     fscrEval = 1 << 10,  // this expression has eval semantics (i.e., run in caller's context
     fscrEvalCode = 1 << 11,  // this is an eval expression
     fscrGlobalCode = 1 << 12,  // this is a global script
-    fscrDeferFncParse = 1 << 13,  // parser: defer creation of AST's for non-global code
+    // Unused = 1 << 13,
     fscrDeferredFncExpression = 1 << 14,  // the function decl node we deferred is an expression,
                                           // i.e., not a declaration statement
     fscrDeferredFnc = 1 << 15,  // the function we are parsing is deferred

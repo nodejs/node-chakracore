@@ -217,6 +217,15 @@ namespace Js
         return GetTypeHandler()->GetPropertyCount();
     }
 
+    int DynamicObject::GetPropertyCountForEnum()
+    {
+        if (!this->GetTypeHandler()->EnsureObjectReady(this))
+        {
+            return 0;
+        }
+        return GetTypeHandler()->GetPropertyCountForEnum();
+    }
+
     PropertyId DynamicObject::GetPropertyId(PropertyIndex index)
     {
         return GetTypeHandler()->GetPropertyId(this->GetScriptContext(), index);
@@ -234,12 +243,12 @@ namespace Js
         return GetTypeHandler()->GetPropertyIndex(this->GetScriptContext()->GetPropertyName(propertyId));
     }
 
-    PropertyQueryFlags DynamicObject::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags DynamicObject::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
         // HasProperty can be invoked with propertyId = NoProperty in some cases, namely cross-thread and DOM
         // This is done to force creation of a type handler in case the type handler is deferred
         Assert(!Js::IsInternalPropertyId(propertyId) || propertyId == Js::Constants::NoProperty);
-        return JavascriptConversion::BooleanToPropertyQueryFlags(GetTypeHandler()->HasProperty(this, propertyId));
+        return JavascriptConversion::BooleanToPropertyQueryFlags(GetTypeHandler()->HasProperty(this, propertyId, nullptr /*pNoRedecl*/, info));
     }
 
     // HasOwnProperty and HasProperty is the same for most objects except globalobject (moduleroot as well in legacy)
@@ -390,9 +399,24 @@ namespace Js
     BOOL DynamicObject::ToPrimitiveImpl(Var* result, ScriptContext * requestContext)
     {
         CompileAssert(propertyId == PropertyIds::valueOf || propertyId == PropertyIds::toString);
-        InlineCache * inlineCache = propertyId == PropertyIds::valueOf ? requestContext->GetValueOfInlineCache() : requestContext->GetToStringInlineCache();
-        // Use per script context inline cache for valueOf and toString
-        Var aValue = JavascriptOperators::PatchGetValueUsingSpecifiedInlineCache(inlineCache, this, this, propertyId, requestContext);
+        Var aValue = nullptr;
+        if (JavascriptOperators::CheckIfObjectAndProtoChainHasNoSpecialProperties(this))
+        {
+            if (this->GetPrototype() == requestContext->GetLibrary()->GetObjectPrototype() &&
+                !this->IsCrossSiteObject() &&
+                !requestContext->GetLibrary()->GetObjectPrototype()->IsCrossSiteObject())
+            {
+                aValue = (propertyId == PropertyIds::valueOf)
+                    ? requestContext->GetLibrary()->GetObjectValueOfFunction()
+                    : requestContext->GetLibrary()->GetObjectToStringFunction();
+            }
+        }
+        if(!aValue)
+        {
+            InlineCache * inlineCache = propertyId == PropertyIds::valueOf ? requestContext->GetValueOfInlineCache() : requestContext->GetToStringInlineCache();
+            // Use per script context inline cache for valueOf and toString
+            aValue = JavascriptOperators::PatchGetValueUsingSpecifiedInlineCache(inlineCache, this, this, propertyId, requestContext);
+        }
 
         // Fast path to the default valueOf/toString implementation
         if (propertyId == PropertyIds::valueOf)
@@ -452,7 +476,7 @@ namespace Js
         return false;
     }
 
-    BOOL DynamicObject::GetEnumeratorWithPrefix(JavascriptEnumerator * prefixEnumerator, JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext, ForInCache * forInCache)
+    BOOL DynamicObject::GetEnumeratorWithPrefix(JavascriptEnumerator * prefixEnumerator, JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext, EnumeratorCache * enumeratorCache)
     {
         Js::ArrayObject * arrayObject = nullptr;
         if (this->HasObjectArray())
@@ -460,12 +484,12 @@ namespace Js
             arrayObject = this->GetObjectArrayOrFlagsAsArray();
             Assert(arrayObject->GetPropertyCount() == 0);
         }
-        return enumerator->Initialize(prefixEnumerator, arrayObject, this, flags, requestContext, forInCache);
+        return enumerator->Initialize(prefixEnumerator, arrayObject, this, flags, requestContext, enumeratorCache);
     }
 
-    BOOL DynamicObject::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext, ForInCache * forInCache)
+    BOOL DynamicObject::GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * requestContext, EnumeratorCache * enumeratorCache)
     {
-        return GetEnumeratorWithPrefix(nullptr, enumerator, flags, requestContext, forInCache);
+        return GetEnumeratorWithPrefix(nullptr, enumerator, flags, requestContext, enumeratorCache);
     }
 
     BOOL DynamicObject::SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags)
@@ -473,7 +497,7 @@ namespace Js
         return GetTypeHandler()->SetAccessors(this, propertyId, getter, setter, flags);
     }
 
-    BOOL DynamicObject::GetAccessors(PropertyId propertyId, Var *getter, Var *setter, ScriptContext * requestContext)
+    _Check_return_ _Success_(return) BOOL DynamicObject::GetAccessors(PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter, ScriptContext* requestContext)
     {
         return GetTypeHandler()->GetAccessors(this, propertyId, getter, setter);
     }

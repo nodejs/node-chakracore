@@ -538,11 +538,6 @@ namespace Js
         const int doubleOffsets = asmInfo->GetDoubleByteOffset() / sizeof(double);
         const int floatOffset = asmInfo->GetFloatByteOffset() / sizeof(float);
 
-#ifdef ENABLE_SIMDJS
-        const int simdConstCount = asmInfo->GetSimdConstCount();
-        const int simdByteOffset = asmInfo->GetSimdByteOffset(); // in bytes
-#endif
-
         int argoffset = (int)args;
         // initialize argument location
         int* intArg;
@@ -565,9 +560,6 @@ namespace Js
         int* m_localIntSlots;
         double* m_localDoubleSlots;
         float* m_localFloatSlots;
-#ifdef ENABLE_SIMDJS
-        AsmJsSIMDValue* m_localSimdSlots;
-#endif
 #if DBG_DUMP
         const bool tracingFunc = PHASE_TRACE( AsmjsFunctionEntryPhase, body );
         if( tracingFunc )
@@ -597,16 +589,7 @@ namespace Js
 
             m_localDoubleSlots = ((double*)m_localSlots) + doubleOffsets;
             memcpy_s(m_localDoubleSlots, doubleConstCount*sizeof(double), constTable, doubleConstCount*sizeof(double));
-#ifdef ENABLE_SIMDJS
-            if (func->GetScriptContext()->GetConfig()->IsSimdjsEnabled())
-            {
-                // Copy SIMD constants to TJ stack frame. No data alignment.
-                constTable = (void*)(((double*)constTable) + doubleConstCount);
-                m_localSimdSlots = (AsmJsSIMDValue*)((char*)m_localSlots + simdByteOffset);
-                memcpy_s(m_localSimdSlots, simdConstCount*sizeof(AsmJsSIMDValue), constTable, simdConstCount*sizeof(AsmJsSIMDValue));
-                simdArg = m_localSimdSlots + simdConstCount;
-            }
-#endif
+
             intArg = m_localIntSlots + intConstCount;
             doubleArg = m_localDoubleSlots + doubleConstCount;
             floatArg = m_localFloatSlots + floatConstCount;
@@ -739,7 +722,11 @@ namespace Js
     {
         int flags = CallFlags_Value;
         Arguments args(CallInfo((CallFlags)flags, (ushort)nbArgs), paramsAddr);
-        return JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
+        BEGIN_SAFE_REENTRANT_CALL(function->GetScriptContext()->GetThreadContext())
+        {
+            return JavascriptFunction::CallFunction<true>(function, function->GetEntryPoint(), args);
+        }
+        END_SAFE_REENTRANT_CALL
     }
 
     namespace AsmJsJitTemplate
@@ -1586,7 +1573,7 @@ namespace Js
         {
             int size = 0;
 #if DBG_DUMP
-            if (PHASE_ON1(AsmjsFunctionEntryPhase))
+            if (PHASE_ENABLED1(AsmjsFunctionEntryPhase))
             {
                 Var CommonCallHelper = (void(*)(Js::ScriptFunction*))AsmJSCommonCallHelper;
                 size += MOV::EncodeInstruction<int>(buffer, InstrParamsRegImm<int32>(RegEAX, (int32)CommonCallHelper));

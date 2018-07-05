@@ -17,6 +17,7 @@
   <PropertyGroup Condition="'$(RunCodeAnalysis)'=='' AND '$(Configuration)'=='Release'">
     <RunCodeAnalysis>$(BuildWithCodeAnalysis)</RunCodeAnalysis>
   </PropertyGroup>
+  <Import Condition="'$(ChakraICU)'!='false' AND exists('$(ChakraCoreRootDirectory)deps\Chakra.ICU\Chakra.ICU.props')" Project="$(ChakraCoreRootDirectory)deps\Chakra.ICU\Chakra.ICU.props" />
   <ItemDefinitionGroup>
     <ClCompile>
       <PreprocessorDefinitions>
@@ -38,9 +39,26 @@
         %(PreprocessorDefinitions);
         CHAKRACORE_LITE
       </PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(IntlICU)'=='true'">
+      <PreprocessorDefinitions Condition="'$(ChakraICU)'!='false'">
+        %(PreprocessorDefinitions);
+        HAS_ICU;
+        U_DISABLE_RENAMING=1; <!-- Disable renaming to maintain compatibility with Windows Kit ICU's icuuc/icuin.lib -->
+      </PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(EnableIntl)'=='true' AND '$(ChakraICU)'!='false'">
         %(PreprocessorDefinitions);
         INTL_ICU=1
+      </PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(ChakraICU)'=='static'">
+        %(PreprocessorDefinitions);
+        U_STATIC_IMPLEMENTATION=1
+      </PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(ChakraICU)'=='windows'">
+        %(PreprocessorDefinitions);
+        WINDOWS10_ICU
+      </PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(ChakraICU)'!='windows' AND '$(ChakraICU)'!='false'">
+        %(PreprocessorDefinitions);
+        ICU_VERSION=$(IcuVersionMajor)
       </PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(ForceSWB)'=='true'">
         %(PreprocessorDefinitions);
@@ -52,7 +70,7 @@
         %(DisableSpecificWarnings);
         4458;     <!-- declaration of '' hides class member -->
         4312;     <!-- 'type cast': conversion from '' to '' of greater size -->
-        4800;     <!-- type' : forcing value to bool 'true' or 'false' (performance warning) [always off in 2017 by default, but warns in 2015 -->
+        4800;     <!-- 'type' : forcing value to bool 'true' or 'false' (performance warning) [always off in 2017 by default, but warns in 2015] -->
       </DisableSpecificWarnings>
       <!-- Use the debug CRT in debug build -->
       <RuntimeLibrary Condition="'$(Configuration)'=='Debug' AND '$(RuntimeLib)'!='static_library'">MultiThreadedDebugDLL</RuntimeLibrary>
@@ -62,9 +80,8 @@
         $(IntDir)..\CoreManifests;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(IntlICU)'=='true'">
-        $(IcuIncludeDir)\common;
-        $(IcuIncludeDir)\i18n;
+      <AdditionalIncludeDirectories Condition="'$(IcuIncludeDirectories)'!=''">
+        $(IcuIncludeDirectories);
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
     </ClCompile>
@@ -79,7 +96,7 @@
     <ChakraCommonLinkDependencies>
         oleaut32.lib;
         version.lib;
-	bcrypt.lib
+        bcrypt.lib
     </ChakraCommonLinkDependencies>
     <RLCommonLinkDependencies>
         kernel32.lib;

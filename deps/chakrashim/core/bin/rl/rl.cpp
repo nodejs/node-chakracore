@@ -273,8 +273,10 @@ const char * const TestInfoKindName[] =
    "env",
    "command",
    "timeout",
+   "timeoutRetries",
    "sourcepath",
    "eol-normalization",
+   "custom-config-file",
    NULL
 };
 static_assert((sizeof(TestInfoKindName) / sizeof(TestInfoKindName[0])) - 1 == TestInfoKind::_TIK_COUNT, "Fix the buffer size");
@@ -314,32 +316,34 @@ char *CL, *_CL_;
 const char *JCBinary = "jshost.exe";
 
 BOOL FStatus = TRUE;
-char *StatusPrefix;
-const char *StatusFormat;
+char *StatusPrefix = nullptr;
+const char *StatusFormat = nullptr;
 
-BOOL FVerbose;
-BOOL FQuiet;
-BOOL FNoWarn;
-BOOL FTest;
-BOOL FLow;
-BOOL FNoDelete;
-BOOL FCopyOnFail;
+BOOL FVerbose = FALSE;
+BOOL FQuiet = FALSE;
+BOOL FNoWarn = FALSE;
+BOOL FTest = FALSE;
+BOOL FStopOnError = FALSE;
+BOOL GStopDueToError = FALSE;
+BOOL FLow = FALSE;
+BOOL FNoDelete = FALSE;
+BOOL FCopyOnFail = FALSE;
 BOOL FSummary = TRUE;
-BOOL FMoveDiffs;
-BOOL FNoMoveDiffsSwitch;
-BOOL FRelativeLogPath;
+BOOL FMoveDiffs = FALSE;
+BOOL FNoMoveDiffsSwitch = FALSE;
+BOOL FRelativeLogPath = FALSE;
 BOOL FNoDirName = TRUE;
-BOOL FBaseline;
+BOOL FBaseline = FALSE;
 BOOL FRebase = FALSE;
-BOOL FDiff;
-BOOL FBaseDiff;
-BOOL FSyncEnumDirs;
+BOOL FDiff = FALSE;
+BOOL FBaseDiff = FALSE;
+BOOL FSyncEnumDirs = FALSE;
 BOOL FNogpfnt = TRUE;
-BOOL FAppend;
+BOOL FAppend = FALSE;
 BOOL FAppendTestNameToExtraCCFlags = FALSE;
 
 #ifndef NODEBUG
-BOOL FDebug;
+BOOL FDebug = FALSE;
 #endif
 
 // Output synchronization options
@@ -361,7 +365,6 @@ RLMODE Mode = DEFAULT_RLMODE;
 char *DCFGfile = NULL;
 char const *CFGfile = NULL;
 char const *CMDfile = NULL;
-int CFGline;
 
 #define MAX_ALLOWED_THREADS 10 // must be <= MAXIMUM_WAIT_OBJECTS (64)
 unsigned NumberOfThreads = 0;
@@ -373,15 +376,18 @@ BOOL FNoProgramOutput = FALSE;
 BOOL FOnlyAssertOutput = FALSE;
 BOOL FExcludeDirs = FALSE;
 BOOL FGenLst = FALSE;
-char *ResumeDir, *MatchDir;
+char *ResumeDir = nullptr;
+char *MatchDir = nullptr;
 
 TIME_OPTION Timing = TIME_DIR | TIME_TEST; // Default to report times at test and directory level
 
-static const char *ProgramName;
-static const char *LogName;
-static const char *FullLogName;
-static const char *ResultsLogName;
-static const char *TestTimeout; // Stores timeout in seconds for all tests
+static const char *ProgramName = nullptr;
+static const char *LogName = nullptr;
+static const char *FullLogName = nullptr;
+static const char *ResultsLogName = nullptr;
+static const char *TestTimeout = nullptr; // Stores timeout in seconds for all tests
+static const char *TestTimeoutRetries = nullptr; // Number of timeout retries for all tests
+#define MAX_ALLOWED_TIMEOUT_RETRIES 100 // Arbitrary max to avoid accidentally specifying too many retries
 
 // NOTE: this might be unused now
 static char TempPath[MAX_PATH] = ""; // Path for temporary files
@@ -1154,6 +1160,7 @@ Usage(
          "\n"
          "    -nosummary disables output of summary diff/failure info (implies -dirname)\n"
          "    -dirname enables output of '*** dirname ***'\n"
+         "    -stoponerror stop on first test failure\n"
          "    -nomovediffs to not place assembly diffs in DIFF_DIR\n"
          "    -nodelete to not delete objs and exes when doing -exe\n"
          "         (only compatible with a single EXEC_TESTS_FLAGS flags)\n"
@@ -2469,6 +2476,8 @@ WriteEnvLst
              NULL,
              NULL,
              NULL,
+             NULL,
+             NULL,
              NULL
          };
 
@@ -2846,6 +2855,11 @@ ParseArg(
             FTest = TRUE;
             break;
          }
+         if (!_stricmp(&arg[1], "stoponerror"))
+         {
+             FStopOnError = TRUE;
+             break;
+         }
          if (!_stricmp(&arg[1], "exeflags")) {
             EXEC_TESTS_FLAGS = ComplainIfNoArg(arg, s);
             break;
@@ -2981,6 +2995,11 @@ ParseArg(
 
          if (!_stricmp(&arg[1], "timeout")) {
              TestTimeout = ComplainIfNoArg(arg, s);
+             break;
+         }
+
+         if (!_stricmp(&arg[1], "timeoutRetries")) {
+             TestTimeoutRetries = ComplainIfNoArg(arg, s);
              break;
          }
 
@@ -3504,100 +3523,171 @@ FindTest(
 }
 
 BOOL
-IsTimeoutStringValid(const char *strTimeout) {
-   char *end;
-   _set_errno(0);
+IsTimeoutStringValid(const char *strTimeout)
+{
+    char *end;
+    _set_errno(0);
 
-   uint32 secTimeout = strtoul(strTimeout, &end, 10);
+    uint32 secTimeout = strtoul(strTimeout, &end, 10);
 
-   if (errno != 0 || *end != 0) {
-      return FALSE;
-   }
+    if (errno != 0 || *end != 0)
+    {
+        return FALSE;
+    }
 
-   // Check to see if the value is too large and would cause overflow
+    // Check to see if the value is too large and would cause overflow
 
-   // Do the multiplication using 64-bit unsigned math.
-   unsigned __int64 millisecTimeout = 1000ui64 * static_cast<unsigned __int64>(secTimeout);
+    // Do the multiplication using 64-bit unsigned math.
+    unsigned __int64 millisecTimeout = 1000ui64 * static_cast<unsigned __int64>(secTimeout);
 
-   // Does the result fit in 32-bits?
-   if (millisecTimeout >= (1ui64 << 32)) {
-      return FALSE;
-   }
+    // Does the result fit in 32-bits?
+    if (millisecTimeout >= (1ui64 << 32))
+    {
+        return FALSE;
+    }
 
-   return TRUE;
+    return TRUE;
+}
+
+BOOL
+IsTimeoutRetriesStringValid(const char *strTimeoutRetries)
+{
+    char *end;
+    _set_errno(0);
+
+    uint32 numRetries = strtoul(strTimeoutRetries, &end, 10);
+
+    if (errno != 0 || *end != 0)
+    {
+        return FALSE;
+    }
+
+    // We will not be doing any math with this value, so no need to check for overflow.
+    // However, large values will possibly result in an unacceptably long retry loop,
+    // (especially with the default timeout being multiple minutes long),
+    // so limit the number of retries to some arbitrary max.
+
+    if (numRetries > MAX_ALLOWED_TIMEOUT_RETRIES)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+uint32 GetTimeoutValue(const char *strTimeout)
+{
+    if (strTimeout == nullptr)
+    {
+        return 0;
+    }
+
+    char *end = nullptr;
+    _set_errno(0);
+    uint32 secTimeout = strtoul(strTimeout, &end, 10);
+    return secTimeout;
 }
 
 BOOL
 GetTestInfoFromNode
 (
-   const char * fileName,
-   Xml::Node * node,
-   TestInfo *  testInfo
+    const char * fileName,
+    Xml::Node * node,
+    TestInfo *  testInfo
 )
 {
-   if (node == NULL)
-   {
-      return TRUE;
-   }
+    if (node == nullptr)
+    {
+        return TRUE;
+    }
 
-   for (int i = 0; i < _TIK_COUNT; i++)
-   {
-      Xml::Node * childNode = node->GetChild(TestInfoKindName[i]);
-      if (childNode != NULL)
-      {
-         testInfo->hasData[i] = TRUE;
-         if (i == TIK_ENV)
-         {
-            ASSERT(childNode->ChildList != NULL);
-            testInfo->data[i] = (char*)childNode;
-         }
-         else
-         {
-            if (childNode->ChildList != NULL)
+    for (int i = 0; i < _TIK_COUNT; i++)
+    {
+        Xml::Node * childNode = node->GetChild(TestInfoKindName[i]);
+        if (childNode != nullptr)
+        {
+            testInfo->hasData[i] = TRUE;
+            if (i == TIK_ENV)
             {
-               CFG_ERROR_EX(fileName, node->LineNumber,
-               "Expected data, not child list\n", NULL);
-               childNode->Dump();
-               return FALSE;
-            }
-
-            if (childNode->Data != NULL && childNode->Data[0] != '\0')
-            {
-                char * data = childNode->Data;
-                if (i == TIK_SOURCE_PATH && IsRelativePath(childNode->Data))
-                {
-                    // Make sure sourcepath is not relative, if relative make it full path
-                    data = MakeFullPath(fileName, data);
-                    ASSERT(data != NULL);
-                }
-                testInfo->data[i] = data;
+                ASSERT(childNode->ChildList != nullptr);
+                testInfo->data[i] = (char*)childNode;
             }
             else
             {
-               testInfo->data[i] = NULL;
-            }
+                if (childNode->ChildList != nullptr)
+                {
+                    CFG_ERROR_EX(fileName, node->LineNumber,
+                        "Expected data, not child list\n", nullptr);
+                    childNode->Dump();
+                    return FALSE;
+                }
 
-            if (i == TIK_TIMEOUT)
+                if (childNode->Data != nullptr && childNode->Data[0] != '\0')
+                {
+                    char * data = childNode->Data;
+                    if (i == TIK_SOURCE_PATH && IsRelativePath(childNode->Data))
+                    {
+                        // Make sure sourcepath is not relative, if relative make it full path
+                        data = MakeFullPath(fileName, data);
+                        ASSERT(data != nullptr);
+                    }
+                    testInfo->data[i] = data;
+                }
+                else
+                {
+                    testInfo->data[i] = nullptr;
+                }
+
+                if (i == TIK_TIMEOUT)
+                {
+                    // Validate the timeout string now to fail early so we don't run any tests when there is an error.
+                    if (!IsTimeoutStringValid(testInfo->data[i]))
+                    {
+                        CFG_ERROR_EX(fileName, node->LineNumber,
+                            "Invalid timeout specified. Cannot parse or too large.\n", nullptr);
+                        childNode->Dump();
+                        return FALSE;
+                    }
+                }
+
+                if (i == TIK_TIMEOUT_RETRIES)
+                {
+                    // Validate the timeoutRetries string now to fail early so we don't run any tests when there is an error.
+                    if (!IsTimeoutRetriesStringValid(testInfo->data[i]))
+                    {
+                        CFG_ERROR_EX(fileName, node->LineNumber,
+                            "Invalid number of timeout retries specified. Value must be numeric and <= %d.\n", MAX_ALLOWED_TIMEOUT_RETRIES);
+                        childNode->Dump();
+                        return FALSE;
+                    }
+                }
+            }
+        }
+
+        if (i == TIK_TIMEOUT && TestTimeout != nullptr)
+        {
+            // Overriding the timeout value with the command line value (if the command line value is larger)
+            uint32 xmlTimeoutValue = GetTimeoutValue(testInfo->data[i]);
+            uint32 testTimeoutValue = GetTimeoutValue(TestTimeout);
+            if (xmlTimeoutValue < testTimeoutValue)
             {
-               // Validate the timeout string now to fail early so we don't run any tests when there is an error.
-               if (!IsTimeoutStringValid(testInfo->data[i])) {
-                  CFG_ERROR_EX(fileName, node->LineNumber, 
-                     "Invalid timeout specified. Cannot parse or too large.\n", NULL);
-                  childNode->Dump();
-                  return FALSE;
-               }
-
+                testInfo->data[i] = TestTimeout;
             }
-         }
-      }
-      if (i == TIK_TIMEOUT && TestTimeout != NULL)
-      {
-          // Overriding the timeout value with the command line value
-          testInfo->data[i] = TestTimeout;
-      }
-   }
+        }
 
-   return TRUE;
+        if (i == TIK_TIMEOUT_RETRIES && TestTimeoutRetries != nullptr)
+        {
+            // Overriding the timeoutRetries value with the command line value (if the command line value is larger)
+            uint32 xmlTimeoutRetriesValue = GetTimeoutValue(testInfo->data[i]);
+            uint32 testTimeoutRetriesValue = GetTimeoutValue(TestTimeoutRetries);
+            if (xmlTimeoutRetriesValue < testTimeoutRetriesValue)
+            {
+                testInfo->data[i] = TestTimeoutRetries;
+            }
+        }
+    }
+
+    return TRUE;
 }
 
 BOOL
@@ -4619,7 +4709,7 @@ PerformSingleRegression(
     // Before executing, make sure directory is started.
     pDir->TryBeginDirectory();
 
-    for (TestVariant * pTestVariant = pTest->variants; pTestVariant != NULL; pTestVariant = pTestVariant->next)
+    for (TestVariant * pTestVariant = pTest->variants; pTestVariant != NULL && !GStopDueToError; pTestVariant = pTestVariant->next)
     {
         ThreadInfo[ThreadId].SetCurrentTest(pDir->GetDirectoryName(), pTest->name, pDir->IsBaseline());
 
@@ -4789,7 +4879,7 @@ RegressDirectory(
    // variation. We do not need to write any directory summary here, the CDirectory
    // object itself will take care of that when status is updated during regression
    // execution.
-   for (pTest = pTestList->first; pTest; pTest = pTest->next)
+   for (pTest = pTestList->first; pTest && !GStopDueToError; pTest = pTest->next)
    {
        PerformSingleRegression(pDir, pTest);
    }
@@ -4857,7 +4947,7 @@ ThreadWorker( void *arg )
    }
 
    while(TRUE) {
-       if(bThreadStop)
+       if(bThreadStop || GStopDueToError)
            break;
 
        // Poll for new stuff. If the thread is set to stop, then go away.
@@ -4885,7 +4975,7 @@ ThreadWorker( void *arg )
    }
 
    while(TRUE) {
-       if(bThreadStop)
+       if(bThreadStop || GStopDueToError)
            break;
 
        // Poll for new stuff. If the thread is set to stop, then go away.
@@ -5073,7 +5163,7 @@ main(int argc, char *argv[])
       if (status == PCS_ERROR)
       {
           exit(1);
-      } 
+      }
       else
       {
 

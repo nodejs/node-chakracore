@@ -8,7 +8,7 @@
 
 namespace Js
 {
-    void DeferredTypeHandlerBase::Convert(DynamicObject * instance, DynamicTypeHandler * typeHandler)
+    void DeferredTypeHandlerBase::ConvertFunction(JavascriptFunction * instance, DynamicTypeHandler * typeHandler)
     {
         Assert(instance->GetDynamicType()->GetTypeHandler() == this);
         Assert(this->inlineSlotCapacity == typeHandler->inlineSlotCapacity);
@@ -20,11 +20,33 @@ namespace Js
         // also responsible for populating PropertyTypes to indicate whether there are any read-only
         // properties unknown to the type handler.
 
-        BOOL isProto = (GetFlags() & IsPrototypeFlag);
+        BOOL isProto = this->GetIsPrototype();
 
         ScriptContext* scriptContext = instance->GetScriptContext();
         instance->EnsureSlots(0, typeHandler->GetSlotCapacity(), scriptContext, typeHandler);
-        typeHandler->SetInstanceTypeHandler(instance);
+
+        FunctionProxy * functionProxy = instance->GetFunctionProxy();
+        ScriptFunctionType * undeferredFunctionType = nullptr;
+        if (functionProxy)
+        {
+            undeferredFunctionType = functionProxy->GetUndeferredFunctionType();
+        }
+        if (undeferredFunctionType && !isProto && !instance->IsCrossSiteObject())
+        {
+            Assert(undeferredFunctionType->GetIsShared());
+            Assert(!CrossSite::IsThunk(undeferredFunctionType->GetEntryPoint()));
+            instance->ReplaceType(undeferredFunctionType);
+        }
+        else
+        {
+            typeHandler->SetInstanceTypeHandler(instance);
+            if (functionProxy && !isProto && typeHandler->GetMayBecomeShared() && !CrossSite::IsThunk(instance->GetType()->GetEntryPoint()) && !PHASE_OFF1(ShareFuncTypesPhase))
+            {
+                Assert(!functionProxy->GetUndeferredFunctionType());
+                functionProxy->SetUndeferredFunctionType(ScriptFunction::UnsafeFromVar(instance)->GetScriptFunctionType());
+                instance->ShareType();
+            }
+        }
 
         // We may be changing to a type handler that already has some properties. Initialize those to undefined.
         const Var undefined = scriptContext->GetLibrary()->GetUndefined();
@@ -89,7 +111,7 @@ namespace Js
         // EnsureSlots before updating the type handler and instance, as EnsureSlots allocates and may throw.
         instance->EnsureSlots(0, newTypeHandler->GetSlotCapacity(), scriptContext, newTypeHandler);
         newTypeHandler->SetFlags(IsPrototypeFlag, this->GetFlags());
-        newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection | PropertyTypesInlineSlotCapacityLocked , this->GetPropertyTypes());
+        newTypeHandler->SetPropertyTypes(PropertyTypesWritableDataOnly | PropertyTypesWritableDataOnlyDetection | PropertyTypesInlineSlotCapacityLocked | PropertyTypesHasSpecialProperties, this->GetPropertyTypes());
         if (instance->HasReadOnlyPropertiesInvisibleToTypeHandler())
         {
             newTypeHandler->ClearHasOnlyWritableDataProperties();

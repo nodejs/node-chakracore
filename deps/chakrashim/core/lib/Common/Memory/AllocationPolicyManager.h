@@ -41,11 +41,18 @@ public:
         context(NULL),
         memoryAllocationCallback(NULL)
     {
+        Js::Number limitMB = Js::Configuration::Global.flags.AllocPolicyLimit;
+        if (limitMB > 0)
+        {
+            memoryLimit = (size_t)limitMB * 1024 * 1024;
+        }
     }
 
     ~AllocationPolicyManager()
     {
-        Assert(currentMemory == 0);
+        // TODO: https://github.com/Microsoft/ChakraCore/issues/5191
+        //       enable the assert when the offending code is fixed.
+        // Assert(currentMemory == 0);
     }
 
     size_t GetUsage()
@@ -127,16 +134,17 @@ private:
         if (newCurrentMemory < currentMemory ||
             newCurrentMemory > memoryLimit ||
             (memoryAllocationCallback != NULL && !memoryAllocationCallback(context, MemoryAllocateEvent::MemoryAllocate, byteCount)))
-        {
-            if (memoryAllocationCallback != NULL)
-            {
-                memoryAllocationCallback(context, MemoryAllocateEvent::MemoryFailure, byteCount);
-            }
-            
+        {            
             // oopjit number allocator allocated pages, we can't stop it from allocating so just increase the usage number
             if (externalAlloc)
             {
                 currentMemory = newCurrentMemory;
+                return true;
+            }
+
+            if (memoryAllocationCallback != NULL)
+            {
+                memoryAllocationCallback(context, MemoryAllocateEvent::MemoryFailure, byteCount);
             }
 
             return false;
@@ -150,7 +158,10 @@ private:
 
     inline void ReportFreeImpl(MemoryAllocateEvent allocationEvent, size_t byteCount)
     {
-        Assert(currentMemory >= byteCount);
+        // TODO: https://github.com/Microsoft/ChakraCore/issues/5191
+        //       enable the assert when the offending code is fixed.
+        // Assert(currentMemory >= byteCount);
+        byteCount = min(byteCount, currentMemory);
 
         currentMemory = currentMemory - byteCount;
 

@@ -1314,12 +1314,12 @@ var tests = [
             // Call Array.prototype.reverse passing a TypedArray that lies about length. We should only reverse the part of it less than the indicated length.
             u = getTypedArray();
             Object.defineProperty(u, 'length', { value: 5 });
-            assert.areEqual([4,3,2,1,0,5,6,7,8,9], Array.prototype.reverse.call(u), "Calling %TypedArrayPrototype%.reverse with a TypedArray that lies about length");
+            assert.areEqual([4,3,2,1,0,5,6,7,8,9], Array.prototype.reverse.call(u), "Calling %ArrayPrototype%.reverse with a TypedArray that lies about length");
 
             // Call Array.prototype.reverse passing a TypedArray that lies about length. TypedArrays do not support delete so we will throw if indicated length is longer than actual.
             u = getTypedArray();
             Object.defineProperty(u, 'length', { value: 20 });
-            assert.throws(function() { Array.prototype.reverse.call(u); }, TypeError, "Calling %TypedArrayPrototype%.reverse with a TypedArray that says it has longer length than actual throws", "Object doesn't support this action");
+            assert.throws(function () { Array.prototype.reverse.call(u); }, TypeError, "Calling %ArrayPrototype%.reverse with a TypedArray that says it has longer length than actual throws", "Cannot delete non-configurable property '0'");
 
             assert.throws(function() { reverse.call(); }, TypeError, "Calling %TypedArrayPrototype%.reverse with no this throws TypeError", "'this' is not a typed array object");
             assert.throws(function() { reverse.call(undefined); }, TypeError, "Calling %TypedArrayPrototype%.reverse with undefined this throws TypeError", "'this' is not a typed array object");
@@ -1483,7 +1483,7 @@ var tests = [
             assert.areEqual([5,1,2,3,4,6,7,8,9,10], getTypedArray(10).sort(sortCallbackHate5), "%TypedArrayPrototype%.sort basic behavior with a lying sort callback which hates the number 5");
 
             // we have a consistent qsort_r impl. on xplat.
-            if (!WScript.Platform || WScript.Platform.OS == "win32") { // Windows
+            if (WScript.Platform.OS == "win32") { // Windows
                 assert.areEqual([9,8,7,2,10,5,4,3,1,6], getTypedArray(10).sort(sortCallbackMalformed), "%TypedArrayPrototype%.sort basic behavior with a sort callback which returns random values");
             } else { // xplat
                 assert.areEqual([2,9,8,7,10,4,1,3,5,6], getTypedArray(10).sort(sortCallbackMalformed), "%TypedArrayPrototype%.sort basic behavior with a sort callback which returns random values");

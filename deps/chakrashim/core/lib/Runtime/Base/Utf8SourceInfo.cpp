@@ -43,7 +43,8 @@ namespace Js
         debugModeSourceLength(0),
         m_isInDebugMode(false),
 #endif
-        callerUtf8SourceInfo(nullptr)
+        callerUtf8SourceInfo(nullptr),
+        boundedPropertyRecordHashSet(scriptContext->GetRecycler())
 #ifndef NTBUILD
         ,sourceRef(scriptSource)
 #endif
@@ -251,29 +252,6 @@ namespace Js
         ISourceHolder* sourceHolder = RecyclerNew(scriptContext->GetRecycler(), SimpleSourceHolder, utf8String, numBytes);
 
         return NewWithHolder(scriptContext, sourceHolder, length, srcInfo, isLibraryCode, scriptSource);
-    }
-
-
-    Utf8SourceInfo*
-    Utf8SourceInfo::Clone(ScriptContext* scriptContext, const Utf8SourceInfo* sourceInfo)
-    {
-        Utf8SourceInfo* newSourceInfo = Utf8SourceInfo::NewWithHolder(scriptContext,
-            sourceInfo->GetSourceHolder()->Clone(scriptContext), sourceInfo->m_cchLength,
-            SRCINFO::Copy(scriptContext->GetRecycler(), sourceInfo->GetSrcInfo()),
-            sourceInfo->m_isLibraryCode);
-        newSourceInfo->m_isXDomain = sourceInfo->m_isXDomain;
-        newSourceInfo->m_isXDomainString = sourceInfo->m_isXDomainString;
-        newSourceInfo->m_isLibraryCode = sourceInfo->m_isLibraryCode;
-        newSourceInfo->SetIsCesu8(sourceInfo->GetIsCesu8());
-        newSourceInfo->m_lineOffsetCache = sourceInfo->m_lineOffsetCache;
-
-#ifdef ENABLE_SCRIPT_DEBUGGING
-        if (scriptContext->IsScriptContextInDebugMode() && !newSourceInfo->GetIsLibraryCode())
-        {
-            newSourceInfo->SetInDebugMode(true);
-        }
-#endif
-        return newSourceInfo;
     }
 
     HRESULT Utf8SourceInfo::EnsureLineOffsetCacheNoThrow()

@@ -8,6 +8,8 @@
 // if the size changed here.
 #pragma once
 
+class ChakraEngine;
+
 namespace Js
 {
     class EngineInterfaceObject;
@@ -16,9 +18,11 @@ namespace Js
     {
         friend class JavascriptLibrary;
         friend class ScriptSite;
+
     public:
         JavascriptLibraryBase(GlobalObject* globalObject):
-            globalObject(globalObject)
+            globalObject(globalObject),
+            chakraEngine(nullptr)
         {
         }
         Var GetPI() { return pi; }
@@ -95,7 +99,7 @@ namespace Js
         DynamicObject* GetMathObject() { return mathObject; }
         DynamicObject* GetJSONObject() { return JSONObject; }
 #ifdef ENABLE_INTL_OBJECT
-        DynamicObject* GetINTLObject() { return IntlObject; }
+        DynamicObject* GetIntlObject() { return IntlObject; }
 #endif
 #if defined(ENABLE_INTL_OBJECT)  || defined(ENABLE_JS_BUILTINS) || defined(ENABLE_PROJECTION)
         EngineInterfaceObject* GetEngineInterfaceObject() { return engineInterfaceObject; }
@@ -145,6 +149,9 @@ namespace Js
         DynamicObject* GetURIErrorPrototype() const { return uriErrorPrototype; }
         PropertyId GetPropertyIdSymbolIterator() { return PropertyIds::_symbolIterator; };
         PropertyId GetPropertyIdSymbolToStringTag() { return PropertyIds::_symbolToStringTag; };
+        PropertyId GetPropertyIdSymbolUnscopables() { return PropertyIds::_symbolUnscopables; };
+
+        bool IsChakraEngine() const { return chakraEngine != nullptr; }
 
     protected:
         Field(GlobalObject*) globalObject;
@@ -299,7 +306,21 @@ namespace Js
         Field(JavascriptSymbol*) symbolUnscopables;
 
     public:
+        typedef void (CALLBACK *HostPromiseRejectionTrackerCallback)(Var promise, Var reason, bool handled, void *callbackState);
+
+        void SetNativeHostPromiseRejectionTrackerCallback(HostPromiseRejectionTrackerCallback function, void *state)
+        {
+            this->nativeHostPromiseRejectionTracker = function;
+            this->nativeHostPromiseRejectionTrackerState = state;
+        }
+
+    private:
+        FieldNoBarrier(HostPromiseRejectionTrackerCallback) nativeHostPromiseRejectionTracker = nullptr;
+        Field(void *) nativeHostPromiseRejectionTrackerState = nullptr;
+
+    public:
         Field(ScriptContext*) scriptContext;
+        Field(ChakraEngine*) chakraEngine;
 
     private:
         virtual void Dispose(bool isShutdown) override;

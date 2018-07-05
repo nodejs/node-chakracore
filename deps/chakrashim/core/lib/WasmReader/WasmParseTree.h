@@ -16,6 +16,21 @@ namespace Wasm
         bool IsEnabled();
     }
 
+    namespace Threads
+    {
+        bool IsEnabled();
+    };
+
+    namespace WasmNontrapping
+    {
+        bool IsEnabled();
+    };
+
+    namespace SignExtends
+    {
+        bool IsEnabled();
+    };
+
     namespace WasmTypes
     {
         enum WasmType
@@ -31,8 +46,62 @@ namespace Wasm
 #endif
             Limit,
             Ptr,
-            Any
+            Any,
+
+            FirstLocalType = I32,
+            AllLocalTypes = 
+                  1 << I32
+                | 1 << I64
+                | 1 << F32
+                | 1 << F64
+#ifdef ENABLE_WASM_SIMD
+                | 1 << M128
+#endif
         };
+
+        namespace SwitchCaseChecks
+        {
+            template<WasmType... T>
+            struct bv;
+
+            template<>
+            struct bv<>
+            {
+                static constexpr uint value = 0;
+            };
+
+            template<WasmType... K>
+            struct bv<Limit, K...>
+            {
+                static constexpr uint value = bv<K...>::value;
+            };
+
+            template<WasmType K1, WasmType... K>
+            struct bv<K1, K...>
+            {
+                static constexpr uint value = (1 << K1) | bv<K...>::value;
+            };
+        }
+
+#ifdef ENABLE_WASM_SIMD
+#define WASM_M128_CHECK_TYPE Wasm::WasmTypes::M128
+#else
+#define WASM_M128_CHECK_TYPE Wasm::WasmTypes::Limit
+#endif
+
+        template<WasmType... T>
+        __declspec(noreturn) void CompileAssertCases()
+        {
+            CompileAssertMsg(SwitchCaseChecks::bv<T...>::value == AllLocalTypes, "WasmTypes missing in switch-case");
+            AssertOrFailFastMsg(UNREACHED, "The WasmType case should have been handled");
+        }
+
+        template<WasmType... T>
+        void CompileAssertCasesNoFailFast()
+        {
+            CompileAssertMsg(SwitchCaseChecks::bv<T...>::value == AllLocalTypes, "WasmTypes missing in switch-case");
+            AssertMsg(UNREACHED, "The WasmType case should have been handled");
+        }
 
         extern const char16* const strIds[Limit];
 
@@ -42,17 +111,14 @@ namespace Wasm
     }
     typedef WasmTypes::WasmType Local;
 
-    namespace ExternalKinds
+    enum class ExternalKinds: uint8
     {
-        enum ExternalKind
-        {
-            Function = 0,
-            Table = 1,
-            Memory = 2,
-            Global = 3,
-            Limit
-        };
-    }
+        Function = 0,
+        Table = 1,
+        Memory = 2,
+        Global = 3,
+        Limit
+    };
 
     namespace FunctionIndexTypes
     {
@@ -141,7 +207,35 @@ namespace Wasm
 
     struct WasmBlock
     {
-        WasmTypes::WasmType sig;
+    private:
+        bool isSingleResult;
+        union
+        {
+            WasmTypes::WasmType singleResult;
+            uint32 signatureId;
+        };
+    public:
+        bool IsSingleResult() const { return isSingleResult; }
+        void SetSignatureId(uint32 id)
+        {
+            isSingleResult = false;
+            signatureId = id;
+        }
+        uint32 GetSignatureId() const 
+        {
+            Assert(!isSingleResult);
+            return signatureId;
+        }
+        void SetSingleResult(WasmTypes::WasmType type)
+        {
+            isSingleResult = true;
+            singleResult = type;
+        }
+        WasmTypes::WasmType GetSingleResult() const
+        {
+            Assert(isSingleResult);
+            return singleResult;
+        }
     };
 
     struct WasmNode
@@ -166,12 +260,12 @@ namespace Wasm
         uint32 index;
         uint32 nameLength;
         const char16* name;
-        ExternalKinds::ExternalKind kind;
+        ExternalKinds kind;
     };
 
     struct WasmImport
     {
-        ExternalKinds::ExternalKind kind;
+        ExternalKinds kind;
         uint32 modNameLen;
         const char16* modName;
         uint32 importNameLen;

@@ -150,9 +150,8 @@ namespace Js
         static BOOL LessEqual(Var aLeft, Var aRight,ScriptContext* scriptContext);
         static BOOL NotEqual(Var aLeft, Var aRight,ScriptContext* scriptContext);
         static BOOL StrictEqual(Var aLeft, Var aRight,ScriptContext* scriptContext);
-        static BOOL StrictEqualString(Var aLeft, Var aRight);
+        static BOOL StrictEqualString(Var aLeft, JavascriptString* aRight);
         static BOOL StrictEqualEmptyString(Var aLeft);
-        static BOOL StrictEqualSIMD(Var aLeft, Var aRight, ScriptContext* scriptContext);
         static BOOL NotStrictEqual(Var aLeft, Var aRight,ScriptContext* scriptContext);
 
         static BOOL HasOwnProperty(Var instance, PropertyId propertyId, _In_ ScriptContext * requestContext, _In_opt_ PropertyString * propString);
@@ -178,7 +177,7 @@ namespace Js
         static BOOL HasProperty(RecyclableObject* instance, PropertyId propertyId);
         static BOOL HasRootProperty(RecyclableObject* instance, PropertyId propertyId);
         static BOOL HasProxyOrPrototypeInlineCacheProperty(RecyclableObject* instance, PropertyId propertyId);
-        template<typename PropertyKeyType>
+        template<bool OutputExistence, typename PropertyKeyType>
         static BOOL GetPropertyWPCache(Var instance, RecyclableObject* propertyObject, PropertyKeyType propertyKey, Var* value, ScriptContext* requestContext, _Inout_ PropertyValueInfo * info);
         static BOOL GetPropertyUnscopable(Var instance, RecyclableObject* propertyObject, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info=NULL);
         static Var  GetProperty(RecyclableObject* instance, PropertyId propertyId, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
@@ -192,6 +191,26 @@ namespace Js
 
         static BOOL GetProperty(Var instance, RecyclableObject* propertyObject, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
         static BOOL GetPropertyObject(Var instance, ScriptContext * scriptContext, RecyclableObject** propertyObject);
+
+        static bool GetPropertyObjectForElementAccess(
+            _In_ Var instance,
+            _In_ Var index,
+            _In_ ScriptContext* scriptContext,
+            _Out_ RecyclableObject** propertyObject,
+            _In_ rtErrors error);
+
+        static bool GetPropertyObjectForSetElementI(
+            _In_ Var instance,
+            _In_ Var index,
+            _In_ ScriptContext* scriptContext,
+            _Out_ RecyclableObject** propertyObject);
+
+        static bool GetPropertyObjectForGetElementI(
+            _In_ Var instance,
+            _In_ Var index,
+            _In_ ScriptContext* scriptContext,
+            _Out_ RecyclableObject** propertyObject);
+
         static BOOL GetRootProperty(Var instance, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
         static Var  GetRootProperty(RecyclableObject* instance, PropertyId propertyId, ScriptContext* requestContext, PropertyValueInfo* info = NULL);
         static Var  GetPropertyReference(RecyclableObject* instance, PropertyId propertyId, ScriptContext* requestContext);
@@ -204,7 +223,7 @@ namespace Js
         static BOOL SetProperty(Var instance, RecyclableObject* object, PropertyId propertyId, Var newValue, ScriptContext* requestContext, PropertyOperationFlags flags = PropertyOperation_None);
         static BOOL SetProperty(Var instance, RecyclableObject* receiver, PropertyId propertyId, Var newValue, PropertyValueInfo * info, ScriptContext* requestContext, PropertyOperationFlags flags = PropertyOperation_None);
         static BOOL SetRootProperty(RecyclableObject* instance, PropertyId propertyId, Var newValue, PropertyValueInfo * info, ScriptContext* requestContext, PropertyOperationFlags flags = PropertyOperation_None);
-        static BOOL GetAccessors(RecyclableObject* instance, PropertyId propertyId, ScriptContext* requestContext, Var* getter, Var* setter);
+        static _Check_return_ _Success_(return) BOOL GetAccessors(RecyclableObject* instance, PropertyId propertyId, ScriptContext* requestContext, _Out_ Var* getter, _Out_ Var* setter);
         static BOOL SetAccessors(RecyclableObject* instance, PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None);
         static BOOL InitProperty(RecyclableObject* instance, PropertyId propertyId, Var newValue, PropertyOperationFlags flags = PropertyOperation_None);
         static BOOL DeleteProperty(RecyclableObject* instance, PropertyId propertyId, PropertyOperationFlags propertyOperationFlags = PropertyOperation_None);
@@ -240,7 +259,9 @@ namespace Js
         static BOOL IsNull(Var instance);
         static BOOL IsNull(RecyclableObject* instance);
         static BOOL IsSpecialObjectType(TypeId typeId);
+        static BOOL IsJsNativeType(TypeId typeId);
         static BOOL IsJsNativeObject(Var instance);
+        static BOOL IsJsNativeObject(_In_ RecyclableObject* instance);
         static BOOL IsUndefinedObject(Var instance);
         static BOOL IsAnyNumberValue(Var instance);
         static BOOL IsClassConstructor(Var instance);
@@ -305,6 +326,13 @@ namespace Js
         static Var OP_GetRootProperty(Var instance, PropertyId propertyId, PropertyValueInfo * info, ScriptContext* scriptContext);
 
         static BOOL OP_SetProperty(Var instance, PropertyId propertyId, Var newValue, ScriptContext* scriptContext, PropertyValueInfo * info = nullptr, PropertyOperationFlags flags = PropertyOperation_None, Var thisInstance = nullptr);
+        static bool SetElementIOnTaggedNumber(
+            _In_ Var receiver,
+            _In_ RecyclableObject* object,
+            _In_ Var index,
+            _In_ Var value,
+            _In_ ScriptContext* requestContext,
+            _In_ PropertyOperationFlags propertyOperationFlags);
         static BOOL SetPropertyOnTaggedNumber(Var instance, RecyclableObject* object, PropertyId propertyId, Var newValue, ScriptContext* requestContext, PropertyOperationFlags flags);
         static BOOL SetItemOnTaggedNumber(Var instance, RecyclableObject* object, uint32 index, Var newValue, ScriptContext* requestContext, PropertyOperationFlags propertyOperationFlags);
         static BOOL OP_StFunctionExpression(Var instance, PropertyId propertyId, Var newValue);
@@ -391,7 +419,7 @@ namespace Js
         static void OP_InitComputedProperty(Var object, Var elementName, Var value, ScriptContext* scriptContext, PropertyOperationFlags flags = PropertyOperation_None);
         static void OP_InitProto(Var object, PropertyId propertyId, Var value);
 
-        static void OP_InitForInEnumerator(Var enumerable, ForInObjectEnumerator * enumerator, ScriptContext* scriptContext, ForInCache * forInCache = nullptr);
+        static void OP_InitForInEnumerator(Var enumerable, ForInObjectEnumerator * enumerator, ScriptContext* scriptContext, EnumeratorCache * forInCache = nullptr);
         static Var OP_BrOnEmpty(ForInObjectEnumerator * enumerator);
         static BOOL OP_BrHasSideEffects(int se,ScriptContext* scriptContext);
         static BOOL OP_BrNotHasSideEffects(int se,ScriptContext* scriptContext);
@@ -401,7 +429,7 @@ namespace Js
         static Var OP_CmEq_A(Js::Var a,Js::Var b,ScriptContext* scriptContext);
         static Var OP_CmNeq_A(Js::Var a,Js::Var b,ScriptContext* scriptContext);
         static Var OP_CmSrEq_A(Js::Var a,Js::Var b,ScriptContext* scriptContext);
-        static Var OP_CmSrEq_String(Var a, Var b, ScriptContext *scriptContext);
+        static Var OP_CmSrEq_String(Var a, JavascriptString* b, ScriptContext *scriptContext);
         static Var OP_CmSrEq_EmptyString(Var a, ScriptContext *scriptContext);
         static Var OP_CmSrNeq_A(Js::Var a,Js::Var b,ScriptContext* scriptContext);
         static Var OP_CmLt_A(Js::Var a,Js::Var b,ScriptContext* scriptContext);
@@ -430,7 +458,7 @@ namespace Js
         static Var NewScObjectNoArg(Var instance, ScriptContext* requestContext);
         static Var NewScObject(const Var callee, const Arguments args, ScriptContext *const scriptContext, const Js::AuxArray<uint32> *spreadIndices = nullptr);
         template <typename Fn>
-        static Var NewObjectCreationHelper_ReentrancySafe(RecyclableObject* constructor, Var defaultConstructor, ThreadContext * threadContext, Fn newObjectCreationFunction);
+        static Var NewObjectCreationHelper_ReentrancySafe(RecyclableObject* constructor, bool isDefaultConstructor, ThreadContext * threadContext, Fn newObjectCreationFunction);
         static Var AddVarsToArraySegment(SparseArraySegment<Var> * segment, const Js::VarArray *vars);
         static void AddIntsToArraySegment(SparseArraySegment<int32> * segment, const Js::AuxArray<int32> *ints);
         static void AddFloatsToArraySegment(SparseArraySegment<double> * segment, const Js::AuxArray<double> *doubles);
@@ -566,15 +594,16 @@ namespace Js
         static void SetAttributes(RecyclableObject* object, PropertyId propId, const PropertyDescriptor& descriptor, bool force);
 
         static void OP_ClearAttributes(Var instance, PropertyId propertyId);
-        static void OP_Freeze(Var instance);
 
         static Var RootToThisObject(const Var object, ScriptContext * const scriptContext);
         static Var CallGetter(RecyclableObject * const function, Var const object, ScriptContext * const scriptContext);
         static void CallSetter(RecyclableObject * const function, Var const object, Var const value, ScriptContext * const scriptContext);
 
-        static bool CheckIfObjectAndPrototypeChainHasOnlyWritableDataProperties(RecyclableObject* object);
-        static bool CheckIfPrototypeChainHasOnlyWritableDataProperties(RecyclableObject* prototype);
-        static bool DoCheckIfPrototypeChainHasOnlyWritableDataProperties(RecyclableObject* prototype);
+        static bool CheckIfObjectAndPrototypeChainHasOnlyWritableDataProperties(_In_ RecyclableObject* object);
+        static bool CheckIfPrototypeChainHasOnlyWritableDataProperties(_In_ RecyclableObject* prototype);
+
+        static bool CheckIfObjectAndProtoChainHasNoSpecialProperties(_In_ RecyclableObject* object);
+
         static bool CheckIfPrototypeChainContainsProxyObject(RecyclableObject* prototype);
         static void OP_SetComputedNameVar(Var method, Var computedNameVar);
         static void OP_SetHomeObj(Var method, Var homeObj);
@@ -629,6 +658,31 @@ namespace Js
         static RecyclableObject* SpeciesConstructor(_In_ RecyclableObject* object, _In_ JavascriptFunction* defaultConstructor, _In_ ScriptContext* scriptContext);
         static Var GetSpecies(RecyclableObject* constructor, ScriptContext* scriptContext);
 
+        // Get the property record usage cache from the given index variable, if it has one.
+        // Adds a PropertyString to a LiteralStringWithPropertyStringPtr on second call with that string.
+        // Also outputs the object that owns the usage cache, since PropertyRecordUsageCache is an interior pointer.
+        // Returns whether a PropertyRecordUsageCache was found.
+        _Success_(return) static bool GetPropertyRecordUsageCache(Var index, ScriptContext* scriptContext, _Outptr_ PropertyRecordUsageCache** propertyRecordUsageCache, _Outptr_ RecyclableObject** cacheOwner);
+
+        template <bool ReturnOperationInfo>
+        static bool SetElementIWithCache(
+            _In_ Var receiver,
+            _In_ RecyclableObject* object,
+            _In_ RecyclableObject* index,
+            _In_ Var value,
+            _In_ PropertyRecordUsageCache* propertyRecordUsageCache,
+            _In_ ScriptContext* scriptContext,
+            _In_ PropertyOperationFlags flags,
+            _Inout_opt_ PropertyCacheOperationInfo* operationInfo);
+
+        template <bool ReturnOperationInfo>
+        static Var GetElementIWithCache(
+            _In_ Var instance,
+            _In_ RecyclableObject* index,
+            _In_ PropertyRecordUsageCache* propertyRecordUsageCache,
+            _In_ ScriptContext* scriptContext,
+            _Inout_opt_ PropertyCacheOperationInfo* operationInfo);
+
     private:
         static BOOL RelationalComparisonHelper(Var aLeft, Var aRight, ScriptContext* scriptContext, bool leftFirst, bool undefinedAs);
 
@@ -643,6 +697,7 @@ namespace Js
         template <typename ArrayType>
         static Js::Var GetElementAtIndex(ArrayType* arrayObject, UINT index, Js::ScriptContext* scriptContext);
 
+        static Var GetElementIIntIndex(_In_ Var instance, _In_ Var index, _In_ ScriptContext* scriptContext);
 #if DBG
         static BOOL IsPropertyObject(RecyclableObject * instance);
 #endif
@@ -666,6 +721,8 @@ namespace Js
 
         template <bool unscopables>
         static BOOL GetProperty_Internal(Var instance, RecyclableObject* propertyObject, const bool isRoot, PropertyId propertyId, Var* value, ScriptContext* requestContext, PropertyValueInfo* info);
+
+        static void TryCacheMissingProperty(Var instance, Var cacheInstance, bool isRoot, PropertyId propertyId, ScriptContext* requestContext, _Inout_ PropertyValueInfo * info);
 
         static RecyclableObject* GetPrototypeNoTrap(RecyclableObject* instance);
 

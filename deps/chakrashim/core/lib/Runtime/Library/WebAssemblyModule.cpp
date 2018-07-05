@@ -16,6 +16,7 @@ WebAssemblyModule::WebAssemblyModule(Js::ScriptContext* scriptContext, const byt
     DynamicObject(type),
     m_hasMemory(false),
     m_hasTable(false),
+    m_memoryIsShared(false),
     m_memImport(nullptr),
     m_tableImport(nullptr),
     m_importedFunctionCount(0),
@@ -237,7 +238,7 @@ WebAssemblyModule::CreateModule(
         for (uint i = 0; i < webAssemblyModule->GetWasmFunctionCount(); ++i)
         {
             currentBody = webAssemblyModule->GetWasmFunctionInfo(i)->GetBody();
-            if (!PHASE_OFF(WasmDeferredPhase, currentBody))
+            if (PHASE_ENABLED(WasmDeferredPhase, currentBody))
             {
                 continue;
             }
@@ -284,7 +285,7 @@ WebAssemblyModule::ValidateModule(
 
             Wasm::WasmBytecodeGenerator::ValidateFunction(scriptContext, readerInfo);
 #if ENABLE_DEBUG_CONFIG_OPTIONS
-            if (PHASE_ON(WasmValidatePrejitPhase, body))
+            if (PHASE_ENABLED(WasmValidatePrejitPhase, body))
             {
                 CONFIG_FLAG(MaxAsmJsInterpreterRunCount) = 0;
                 WasmScriptFunction * funcObj = scriptContext->GetLibrary()->CreateWasmScriptFunction(body);
@@ -298,6 +299,10 @@ WebAssemblyModule::ValidateModule(
     catch (Wasm::WasmCompilationException& ex)
     {
         char16* originalMessage = ex.ReleaseErrorMessage();
+        if (PHASE_TRACE1(Js::WasmBytecodePhase) || PHASE_TRACE1(Js::WasmReaderPhase))
+        {
+            Output::Print(_u("WebAssembly.validate Error: %s\n"), originalMessage);
+        }
         SysFreeString(originalMessage);
 
         return false;
@@ -327,12 +332,20 @@ WebAssemblyModule::GetFunctionIndexType(uint32 funcIndex) const
 }
 
 void
-WebAssemblyModule::InitializeMemory(uint32 minPage, uint32 maxPage)
+WebAssemblyModule::InitializeMemory(_In_ Wasm::MemorySectionLimits* memoryLimits)
 {
+    if (!memoryLimits)
+    {
+        Assert(UNREACHED);
+        throw Wasm::WasmCompilationException(_u("Internal Error"));
+    }
     if (m_hasMemory)
     {
         throw Wasm::WasmCompilationException(_u("Memory already allocated"));
     }
+
+    uint32 minPage = memoryLimits->initial;
+    uint32 maxPage = memoryLimits->maximum;
 
     if (maxPage < minPage)
     {
@@ -346,6 +359,8 @@ WebAssemblyModule::InitializeMemory(uint32 minPage, uint32 maxPage)
     {
         minPageTooBig();
     }
+
+    m_memoryIsShared = Wasm::Threads::IsEnabled() && memoryLimits->IsShared();
     m_hasMemory = true;
     m_memoryInitSize = minPage;
     m_memoryMaxSize = maxPage;
@@ -354,7 +369,12 @@ WebAssemblyModule::InitializeMemory(uint32 minPage, uint32 maxPage)
 WebAssemblyMemory *
 WebAssemblyModule::CreateMemory() const
 {
-    return WebAssemblyMemory::CreateMemoryObject(m_memoryInitSize, m_memoryMaxSize, GetScriptContext());
+    return WebAssemblyMemory::CreateMemoryObject(
+        m_memoryInitSize,
+        m_memoryMaxSize,
+        m_memoryIsShared,
+        GetScriptContext()
+    );
 }
 
 Wasm::WasmSignature *
@@ -363,10 +383,16 @@ WebAssemblyModule::GetSignatures() const
     return m_signatures;
 }
 
+bool
+WebAssemblyModule::IsSignatureIndexValid(uint32 index) const
+{
+    return index < GetSignatureCount();
+}
+
 Wasm::WasmSignature *
 WebAssemblyModule::GetSignature(uint32 index) const
 {
-    if (index >= GetSignatureCount())
+    if (!IsSignatureIndexValid(index))
     {
         throw Wasm::WasmCompilationException(_u("Invalid signature index %u"), index);
     }
@@ -392,13 +418,20 @@ WebAssemblyModule::GetEquivalentSignatureId(uint32 sigId) const
 }
 
 void
-WebAssemblyModule::InitializeTable(uint32 minEntries, uint32 maxEntries)
+WebAssemblyModule::InitializeTable(_In_ Wasm::TableSectionLimits* tableLimits)
 {
+    if (!tableLimits)
+    {
+        Assert(UNREACHED);
+        throw Wasm::WasmCompilationException(_u("Internal Error"));
+    }
     if (m_hasTable)
     {
         throw Wasm::WasmCompilationException(_u("Table already allocated"));
     }
 
+    uint32 minEntries = tableLimits->initial;
+    uint32 maxEntries = tableLimits->maximum;
     if (maxEntries < minEntries)
     {
         throw Wasm::WasmCompilationException(_u("Table: max entries (%d) is less than min entries (%d)"), maxEntries, minEntries);
@@ -486,7 +519,12 @@ WebAssemblyModule::AttachCustomInOutTracingReader(Wasm::WasmFunctionInfo* func, 
         case Wasm::Local::I64: node.op = Wasm::wbPrintI64; break;
         case Wasm::Local::F32: node.op = Wasm::wbPrintF32; break;
         case Wasm::Local::F64: node.op = Wasm::wbPrintF64; break;
+#ifdef ENABLE_WASM_SIMD
+        // todo:: Add support to print m128 argument values
+        case Wasm::WasmTypes::M128: continue;
+#endif
         default:
+            Wasm::WasmTypes::CompileAssertCasesNoFailFast<Wasm::WasmTypes::I32, Wasm::WasmTypes::I64, Wasm::WasmTypes::F32, Wasm::WasmTypes::F64, WASM_M128_CHECK_TYPE>();
             throw Wasm::WasmCompilationException(_u("Unknown param type"));
         }
         customReader->AddNode(node);
@@ -508,7 +546,8 @@ WebAssemblyModule::AttachCustomInOutTracingReader(Wasm::WasmFunctionInfo* func, 
     callNode.call.funcType = Wasm::FunctionIndexTypes::Function;
     customReader->AddNode(callNode);
 
-    Wasm::WasmTypes::WasmType returnType = signature->GetResultType();
+    // todo:: support multi return
+    Wasm::WasmTypes::WasmType returnType = signature->GetResultCount() > 0 ? signature->GetResult(0) : Wasm::WasmTypes::Void;
     Wasm::WasmNode endNode;
     endNode.op = Wasm::wbI32Const;
     endNode.cnst.i32 = returnType;
@@ -525,11 +564,19 @@ WebAssemblyModule::AttachCustomInOutTracingReader(Wasm::WasmFunctionInfo* func, 
         case Wasm::WasmTypes::I64: node.op = Wasm::wbPrintI64; break;
         case Wasm::WasmTypes::F32: node.op = Wasm::wbPrintF32; break;
         case Wasm::WasmTypes::F64: node.op = Wasm::wbPrintF64; break;
+#ifdef ENABLE_WASM_SIMD
+        // todo:: Add support to print m128 return values
+        case Wasm::WasmTypes::M128: goto SkipReturnPrint;
+#endif
         default:
+            Wasm::WasmTypes::CompileAssertCasesNoFailFast<Wasm::WasmTypes::I32, Wasm::WasmTypes::I64, Wasm::WasmTypes::F32, Wasm::WasmTypes::F64, WASM_M128_CHECK_TYPE>();
             throw Wasm::WasmCompilationException(_u("Unknown return type"));
         }
         customReader->AddNode(node);
     }
+#ifdef ENABLE_WASM_SIMD
+SkipReturnPrint:
+#endif
     endNode.op = Wasm::wbPrintNewLine;
     customReader->AddNode(endNode);
 
@@ -545,7 +592,7 @@ WebAssemblyModule::AllocateFunctionExports(uint32 entries)
 }
 
 void
-WebAssemblyModule::SetExport(uint32 iExport, uint32 funcIndex, const char16* exportName, uint32 nameLength, Wasm::ExternalKinds::ExternalKind kind)
+WebAssemblyModule::SetExport(uint32 iExport, uint32 funcIndex, const char16* exportName, uint32 nameLength, Wasm::ExternalKinds kind)
 {
     m_exports[iExport].index = funcIndex;
     m_exports[iExport].nameLength = nameLength;
@@ -576,6 +623,11 @@ WebAssemblyModule::AddFunctionImport(uint32 sigId, const char16* modName, uint32
     {
         throw Wasm::WasmCompilationException(_u("Function signature %u is out of bound"), sigId);
     }
+    Wasm::WasmSignature* signature = GetSignature(sigId);
+    if (signature->GetResultCount() > 1)
+    {
+        throw Wasm::WasmCompilationException(_u("Multiple results for function imports is not supported"));
+    }
 
     // Store the information about the import
     Wasm::WasmImport* importInfo = Anew(m_alloc, Wasm::WasmImport);
@@ -586,7 +638,6 @@ WebAssemblyModule::AddFunctionImport(uint32 sigId, const char16* modName, uint32
     importInfo->importName = fnName;
     m_imports->Add(importInfo);
 
-    Wasm::WasmSignature* signature = GetSignature(sigId);
     Wasm::WasmFunctionInfo* funcInfo = AddWasmFunctionInfo(signature);
     // Create the custom reader to generate the import thunk
     Wasm::WasmCustomReader* customReader = Anew(m_alloc, Wasm::WasmCustomReader, m_alloc);
@@ -908,7 +959,7 @@ WebAssemblyModule::AddGlobalByteSizeToOffset(Wasm::WasmTypes::WasmType type, uin
 
 
 JavascriptString *
-WebAssemblyModule::GetExternalKindString(ScriptContext * scriptContext, Wasm::ExternalKinds::ExternalKind kind)
+WebAssemblyModule::GetExternalKindString(ScriptContext * scriptContext, Wasm::ExternalKinds kind)
 {
     switch (kind)
     {

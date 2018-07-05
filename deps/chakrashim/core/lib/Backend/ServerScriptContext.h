@@ -29,6 +29,7 @@ public:
     virtual intptr_t GetNegativeZeroAddr() const override;
     virtual intptr_t GetNumberTypeStaticAddr() const override;
     virtual intptr_t GetStringTypeStaticAddr() const override;
+    virtual intptr_t GetSymbolTypeStaticAddr() const override;
     virtual intptr_t GetObjectTypeAddr() const override;
     virtual intptr_t GetObjectHeaderInlinedTypeAddr() const override;
     virtual intptr_t GetRegexTypeAddr() const override;
@@ -47,9 +48,6 @@ public:
     virtual intptr_t GetNumberAllocatorAddr() const override;
     virtual intptr_t GetRecyclerAddr() const override;
     virtual bool GetRecyclerAllowNativeCodeBumpAllocation() const override;
-#ifdef ENABLE_SIMDJS
-    virtual bool IsSIMDEnabled() const override;
-#endif
     virtual bool IsPRNGSeeded() const override;
     virtual bool IsClosed() const override;
     virtual intptr_t GetBuiltinFunctionsBaseAddr() const override;

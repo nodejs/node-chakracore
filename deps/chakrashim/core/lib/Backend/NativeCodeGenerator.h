@@ -46,7 +46,7 @@ public:
     Js::Var RejitIRViewerFunction(Js::FunctionBody *fn, Js::ScriptContext *scriptContext);
 #endif
 #ifdef ALLOW_JIT_REPRO
-    HRESULT JitFromEncodedWorkItem(_In_reads_(bufSize) const byte* buf, _In_ uint bufSize);
+    HRESULT JitFromEncodedWorkItem(_In_reads_(bufferSize) const byte* buf, _In_ uint bufferSize);
 #endif
 void SetProfileMode(BOOL fSet);
 public:
@@ -138,6 +138,7 @@ private:
 
     InProcCodeGenAllocators *EnsureForegroundAllocators(PageAllocator * pageAllocator)
     {
+        Assert(!JITManager::GetJITManager()->IsOOPJITEnabled());
         if (this->foregroundAllocators == nullptr)
         {
             this->foregroundAllocators = CreateAllocators(pageAllocator);
@@ -178,7 +179,10 @@ private:
 
     virtual void ProcessorThreadSpecificCallBack(PageAllocator * pageAllocator) override
     {
-        AllocateBackgroundAllocators(pageAllocator);
+        if (!JITManager::GetJITManager()->IsOOPJITEnabled())
+        {
+            AllocateBackgroundAllocators(pageAllocator);
+        }
     }
 
     static ExecutionMode PrejitJitMode(Js::FunctionBody *const functionBody);

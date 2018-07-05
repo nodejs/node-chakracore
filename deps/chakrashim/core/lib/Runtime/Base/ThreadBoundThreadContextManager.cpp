@@ -33,11 +33,15 @@ ThreadContext * ThreadBoundThreadContextManager::EnsureContextForCurrentThread()
     // Just reinitialize the thread context.
     if (threadContext == nullptr)
     {
-        threadContext = HeapNew(ThreadContext);
+        bool requireConcurrencySupport = true;
+        AllocationPolicyManager * policyManager = HeapNew(AllocationPolicyManager, requireConcurrencySupport);
+        threadContext = HeapNew(ThreadContext, policyManager);
+
         threadContext->SetIsThreadBound();
         if (!ThreadContextTLSEntry::TrySetThreadContext(threadContext))
         {
             HeapDelete(threadContext);
+            HeapDelete(policyManager);
             return NULL;
         }
     }
@@ -74,6 +78,9 @@ void ThreadBoundThreadContextManager::DestroyAllContexts()
 #if ENABLE_BACKGROUND_JOB_PROCESSOR
     JsUtil::BackgroundJobProcessor * jobProcessor = NULL;
 #endif
+    
+    // Since BGParseManager has a dependency on threadcontexts, make sure it shuts down first
+    BGParseManager::DeleteBGParseManager();
 
     {
         AutoCriticalSection lock(ThreadContext::GetCriticalSection());
@@ -158,9 +165,16 @@ void ThreadBoundThreadContextManager::DestroyAllContexts()
 #endif
 }
 
-void ThreadBoundThreadContextManager::DestroyAllContextsAndEntries()
+void ThreadBoundThreadContextManager::DestroyAllContextsAndEntries(bool shouldDeleteCurrentTlsEntry)
 {
+    // Since BGParseManager has a dependency on threadcontexts, make sure it shuts down first
+    BGParseManager::DeleteBGParseManager();
+
     AutoCriticalSection lock(ThreadContext::GetCriticalSection());
+
+    // When shouldDeleteCurrentTlsEntry is true, the comparison in the while loop will always be true, so
+    // every entry in the list will be deleted.
+    ThreadContextTLSEntry* currentThreadEntry = shouldDeleteCurrentTlsEntry ? nullptr : ThreadContextTLSEntry::GetEntryForCurrentThread();
 
     while (!entries.Empty())
     {
@@ -171,20 +185,15 @@ void ThreadBoundThreadContextManager::DestroyAllContextsAndEntries()
 
         if (threadContext != nullptr)
         {
-#if DBG
-            PageAllocator* pageAllocator = threadContext->GetPageAllocator();
-            if (pageAllocator)
-            {
-                pageAllocator->SetConcurrentThreadId(::GetCurrentThreadId());
-            }
-#endif
-
-            threadContext->ShutdownThreads();
-
-            HeapDelete(threadContext);
+            ShutdownThreadContext(threadContext);
         }
 
-        ThreadContextTLSEntry::Delete(entry);
+        if (currentThreadEntry != entry)
+        {
+            // Note: This deletes the ThreadContextTLSEntry but does not remove its pointer
+            // from the thread's TLS
+            ThreadContextTLSEntry::Delete(entry);
+        }
     }
 
 #if ENABLE_BACKGROUND_JOB_PROCESSOR
@@ -249,6 +258,12 @@ void ThreadContextManagerBase::ShutdownThreadContext(
 
     if (deleteThreadContext)
     {
+        AllocationPolicyManager * policyManager = threadContext->IsThreadBound() ? threadContext->GetAllocationPolicyManager() : nullptr;
         HeapDelete(threadContext);
+
+        if (policyManager)
+        {
+            HeapDelete(policyManager);
+        }
     }
 }

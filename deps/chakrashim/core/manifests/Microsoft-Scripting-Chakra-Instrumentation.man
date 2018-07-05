@@ -958,6 +958,41 @@
                     name="Memprotect_GC_Bucket_Stats"
                     value="110"
                     />
+                <task
+                    eventGUID="{2B8B3364-E069-47E6-B103-E934A5895868}"
+                    name="Jscript_Backend_Bailout"
+                    value="111"
+                    />
+                <task
+                    eventGUID="{C2D9F2CC-F3AF-44BA-987C-F827429235E9}"
+                    name="Jscript_Backend_Bailout_LoopBody"
+                    value="112"
+                    />
+                <task
+                    eventGUID="{42A92C23-0987-41C3-A306-5E694D4BF9AC}"
+                    name="Jscript_GC_Clear_InlineCache"
+                    value="113"
+                    />
+                <task
+                    eventGUID="{0F77E6FC-4576-48E4-BF78-FEDABD408B14}"
+                    name="Jscript_GC_PreSweepCallback"
+                    value="114"
+                    />
+                <task
+                    eventGUID="{43B60965-B85D-4977-B992-7F159C15939F}"
+                    name="Memprotect_GC_PreSweepCallback"
+                    value="115"
+                    />
+                <task
+                    eventGUID="{493BE439-9A73-4303-AE84-5437F2A04EBA}"
+                    name="Jscript_GC2"
+                    value="116"
+                />
+                <task
+                    eventGUID="{78B2F90D-2786-405B-9FFD-E6E45E12AC1D}"
+                    name="Memprotect_GC2"
+                    value="117"
+                />
             </tasks>
             <maps>
                 <valueMap name="MethodAddressRangeMap">
@@ -1295,7 +1330,26 @@
                     name="SweptBytes"
                     />
                 </template>
-                <template tid="GCBucketStats">
+              <template tid="GCTriggerInfo">
+                <data
+                    inType="win:Pointer"
+                    name="RecyclerID"
+                    outType="win:HexInt64"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="Phase"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="CollectionTrigger"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="CollectionStartFlags"
+                    />
+              </template>
+              <template tid="GCBucketStats">
                 <data
                     inType="win:Pointer"
                     name="RecyclerID"
@@ -1318,6 +1372,56 @@
                 <data
                     inType="win:UInt64"
                     name="TotalBytes"
+                    />
+                </template>
+                <template tid="GCInThreadSweepData">
+                <data
+                    inType="win:Pointer"
+                    name="RecyclerID"
+                    outType="win:HexInt64"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="ScannedCount"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="ClearedCount"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="RegionScannedCount"
+                    />
+                    <data
+                    inType="win:UInt32"
+                    name="RegionClearedCount"
+                    />
+                </template>
+                <template tid="GCClearInlineCacheData">
+                <data
+                    inType="win:Pointer"
+                    name="ThreadContextID"
+                    outType="win:HexInt64"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="ScriptContextCount"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="AllocatedSize"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="PreClearFreeSize"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="FreeSize"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="PolyInlineCacheSize"
                     />
                 </template>
                 <template tid="ProfileSave">
@@ -2000,6 +2104,71 @@
                 <data
                     inType="win:UnicodeString"
                     name="eventData"
+                    />
+                </template>
+                <template tid="BailoutInfo">
+                <data
+                    inType="win:UInt32"
+                    name="FunctionMethodID"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="FunctionSourceID"
+                    />
+                <data
+                    inType="win:UnicodeString"
+                    name="FunctionDisplayName"
+                    outType="xs:string"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="BailoutKind"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="BailoutCount"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="CallCount"
+                    />
+                <data
+                    inType="win:AnsiString"
+                    name="RejitReason"
+                    outType="xs:string"
+                    />
+                <data
+                    inType="win:Boolean"
+                    name="Rethunk"
+                    outType="xs:boolean"
+                    />
+                </template>
+                <template tid="BailoutFromLoopBodyInfo">
+                <data
+                    inType="win:UInt32"
+                    name="FunctionMethodID"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="FunctionSourceID"
+                    />
+                <data
+                    inType="win:UnicodeString"
+                    name="FunctionDisplayName"
+                    outType="xs:string"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="LoopNumber"
+                    />
+                <data
+                    inType="win:UInt32"
+                    name="BailoutKind"
+                    />
+                <data
+                    inType="win:AnsiString"
+                    name="RejitReason"
+                    outType="xs:string"
                     />
                 </template>
             </templates>
@@ -3063,7 +3232,7 @@
                     opcode="win:Stop"
                     symbol="JSCRIPT_GC_SWEEP_WEAKREF_STOP"
                     task="Jscript_GC_SweepWeakRef"
-                    template="GCPhase"
+                    template="GCInThreadSweepData"
                     value="130"
                     />
                 <event
@@ -3648,7 +3817,7 @@
                     opcode="win:Stop"
                     symbol="MEMPROTECT_GC_SWEEP_WEAKREF_STOP"
                     task="Memprotect_GC_SweepWeakRef"
-                    template="GCPhase"
+                    template="GCInThreadSweepData"
                     value="203"
                     />
                 <event
@@ -3964,8 +4133,7 @@
                     value="242"
                     />
                 <event
-                    keywords="JScriptGCBucketStats"
-                    level="win:Verbose"
+                    keywords="JScriptGarbageCollection"
                     opcode="win:Info"
                     symbol="JSCRIPT_GC_BUCKET_STATS"
                     task="Jscript_GC_Bucket_Stats"
@@ -3973,14 +4141,124 @@
                     value="243"
                     />
                 <event
-                    keywords="MemProtectGCBucketStats"
-                    level="win:Verbose"
+                    keywords="MemProtectGarbageCollection"
                     opcode="win:Info"
                     symbol="MEMPROTECT_GC_BUCKET_STATS"
                     task="Memprotect_GC_Bucket_Stats"
                     template="GCBucketStats"
                     value="244"
                     />
+                <event
+                    keywords="JscriptBackend"
+                    opcode="win:Info"
+                    symbol="JSCRIPT_BACKEND_BAILOUT"
+                    task="Jscript_Backend_Bailout"
+                    template="BailoutInfo"
+                    value="245"
+                    />
+                <event
+                    keywords="JscriptBackend"
+                    opcode="win:Info"
+                    symbol="JSCRIPT_BACKEND_BAILOUT_FROM_LOOP_BODY"
+                    task="Jscript_Backend_Bailout_LoopBody"
+                    template="BailoutFromLoopBodyInfo"
+                    value="246"
+                    />
+                <event
+                    keywords="JScriptGarbageCollection"
+                    opcode="win:Start"
+                    symbol="JSCRIPT_GC_CLEAR_INLINECACHE_START"
+                    task="Jscript_GC_Clear_InlineCache"
+                    value="247"
+                    />
+                <event
+                    keywords="JScriptGarbageCollection"
+                    opcode="win:Stop"
+                    symbol="JSCRIPT_GC_CLEAR_INLINECACHE_STOP"
+                    task="Jscript_GC_Clear_InlineCache"
+                    template="GCClearInlineCacheData"
+                    value="248"
+                    />
+                <event
+                    keywords="JScriptGarbageCollection"
+                    opcode="win:Start"
+                    symbol="JSCRIPT_GC_PRESWEEPCALLBACK_START"
+                    task="Jscript_GC_PreSweepCallback"
+                    template="GCPhase"
+                    value="249"
+                    />
+                <event
+                    keywords="JScriptGarbageCollection"
+                    opcode="win:Stop"
+                    symbol="JSCRIPT_GC_PRESWEEPCALLBACK_STOP"
+                    task="Jscript_GC_PreSweepCallback"
+                    template="GCPhase"
+                    value="250"
+                    />
+                <event
+                    keywords="MemProtectGarbageCollection"
+                    opcode="win:Start"
+                    symbol="MEMPROTECT_GC_PRESWEEPCALLBACK_START"
+                    task="Memprotect_GC_PreSweepCallback"
+                    template="GCPhase"
+                    value="251"
+                    />
+                <event
+                    keywords="MemProtectGarbageCollection"
+                    opcode="win:Stop"
+                    symbol="MEMPROTECT_GC_PRESWEEPCALLBACK_STOP"
+                    task="Memprotect_GC_PreSweepCallback"
+                    template="GCPhase"
+                    value="252"
+                    />
+                <event
+                    keywords="JScriptGarbageCollection"
+                    opcode="win:Stop"
+                    symbol="JSCRIPT_GC_SWEEP_WEAKREF_STOP_EX"
+                    task="Jscript_GC_SweepWeakRef"
+                    template="GCInThreadSweepData"
+                    value="253"
+                    />
+                <event
+                    keywords="MemProtectGarbageCollection"
+                    opcode="win:Stop"
+                    symbol="MEMPROTECT_GC_SWEEP_WEAKREF_STOP_EX"
+                    task="Memprotect_GC_SweepWeakRef"
+                    template="GCInThreadSweepData"
+                    value="254"
+                    />
+                <event
+                    keywords="JScriptGarbageCollection"
+                    opcode="win:Start"
+                    symbol="JSCRIPT_GC_START2"
+                    task="Jscript_GC2"
+                    template="GCTriggerInfo"
+                    value="255"
+                        />
+                <event
+                    keywords="JScriptGarbageCollection"
+                    opcode="win:Stop"
+                    symbol="JSCRIPT_GC_STOP2"
+                    task="Jscript_GC2"
+                    template="GCTriggerInfo"
+                    value="256"
+                        />
+                <event
+                    keywords="MemProtectGarbageCollection"
+                    opcode="win:Start"
+                    symbol="MEMPROTECT_GC_START2"
+                    task="Memprotect_GC2"
+                    template="GCTriggerInfo"
+                    value="257"
+                        />
+                <event
+                    keywords="MemProtectGarbageCollection"
+                    opcode="win:Stop"
+                    symbol="MEMPROTECT_GC_STOP2"
+                    task="Memprotect_GC2"
+                    template="GCTriggerInfo"
+                    value="258"
+                        />
             </events>
             </provider>
         </events>

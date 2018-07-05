@@ -42,7 +42,7 @@ namespace Js
             return nullptr;
         }
 
-        if (key->GetScriptContext()->GetLibrary()->GetUndefined() == weakMapKeyData)
+        if (key->GetLibrary()->GetUndefined() == weakMapKeyData)
         {
             return nullptr;
         }
@@ -87,7 +87,7 @@ namespace Js
 
         Var newTarget = args.GetNewTarget();
         bool isCtorSuperCall = JavascriptOperators::GetAndAssertIsConstructorSuperCall(args);
-        CHAKRATEL_LANGSTATS_INC_DATACOUNT(ES6_WeakMap);
+        CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(ES6, WeakMap, scriptContext);
 
         JavascriptWeakMap* weakMapObject = nullptr;
 
@@ -141,7 +141,11 @@ namespace Js
                     value = undefined;
                 }
 
-                CALL_FUNCTION(scriptContext->GetThreadContext(), adder, CallInfo(CallFlags_Value, 3), weakMapObject, key, value);
+                BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                {
+                    CALL_FUNCTION(scriptContext->GetThreadContext(), adder, CallInfo(CallFlags_Value, 3), weakMapObject, key, value);
+                }
+                END_SAFE_REENTRANT_CALL
             });
         }
 
@@ -234,7 +238,7 @@ namespace Js
         }
 #endif
 
-        return loaded ? value : scriptContext->GetLibrary()->GetUndefined();
+        return loaded ? CrossSite::MarshalVar(scriptContext, value) : scriptContext->GetLibrary()->GetUndefined();
     }
 
     Var JavascriptWeakMap::EntryHas(RecyclableObject* function, CallInfo callInfo, ...)

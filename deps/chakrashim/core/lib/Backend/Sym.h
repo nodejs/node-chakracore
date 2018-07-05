@@ -28,6 +28,7 @@ enum SymKind : BYTE
 };
 
 typedef uint32 SymID;
+constexpr SymID SymID_Invalid = (SymID)-1;
 
 
 ///---------------------------------------------------------------------------
@@ -71,10 +72,11 @@ public:
     static ObjectSymInfo * New(Func * func);
     static ObjectSymInfo * New(StackSym * typeSym, Func * func);
 
-    ObjectSymInfo(): m_typeSym(nullptr), m_propertySymList(nullptr) {};
+    ObjectSymInfo(): m_typeSym(nullptr), m_auxSlotPtrSym(nullptr), m_propertySymList(nullptr) {};
 
 public:
     StackSym *      m_typeSym;
+    StackSym *      m_auxSlotPtrSym;
     PropertySym *   m_propertySymList;
 };
 
@@ -118,26 +120,19 @@ public:
     bool            IsInt64Const() const;
     bool            IsTaggableIntConst() const;
     bool            IsFloatConst() const;
-// SIMD_JS
     bool            IsSimd128Const() const;
 
     void            SetIsConst();
     void            SetIsIntConst(IntConstType value);
     void            SetIsInt64Const();
     void            SetIsFloatConst();
-// SIMD_JS
     void            SetIsSimd128Const();
+    void            SetIsStrConst();
 
     intptr_t        GetLiteralConstValue_PostGlobOpt() const;
     IR::Opnd *      GetConstOpnd() const;
     BailoutConstantValue GetConstValueForBailout() const;
 
-    // SIMD_JS
-    StackSym *      GetSimd128EquivSym(IRType type, Func *func);
-    StackSym *      GetSimd128F4EquivSym(Func *func);
-    StackSym *      GetSimd128I4EquivSym(Func *func);
-    StackSym *      GetSimd128I16EquivSym(Func *func);
-    StackSym *      GetSimd128D2EquivSym(Func *func);
     bool            IsSimd128() const { return IRType_IsSimd128(this->GetType()); }
 
     bool            IsSimd128F4()  const { return this->GetType() == TySimd128F4;  }
@@ -194,6 +189,9 @@ public:
     int             GetSymSize(){ return TySize[m_type]; }
     void            FixupStackOffset(Func * currentFunc);
 
+    StackSym *      EnsureAuxSlotPtrSym(Func * func);
+    StackSym *      GetAuxSlotPtrSym() const { return HasObjectInfo() ? GetObjectInfo()->m_auxSlotPtrSym : nullptr; }
+
 private:
     StackSym *      GetTypeEquivSym(IRType type, Func *func);
     StackSym *      GetTypeEquivSym_NoCreate(IRType type);
@@ -205,7 +203,7 @@ private:
     Js::ArgSlot     m_slotNum;
 public:
     uint8           m_isSingleDef:1;            // the symbol only has a single definition in the IR
-    uint8           m_isNotInt:1;
+    uint8           m_isNotNumber:1;
     uint8           m_isSafeThis : 1;
     uint8           m_isConst : 1;              // single def and it is a constant
     uint8           m_isIntConst : 1;           // a constant and it's value is an Int32
@@ -318,6 +316,8 @@ public:
     bool HasObjectTypeSym() const { return this->m_stackSym->HasObjectTypeSym(); }
     bool HasWriteGuardSym() const { return this->m_writeGuardSym != nullptr; }
     StackSym * GetObjectTypeSym() const { return this->m_stackSym->GetObjectTypeSym(); }
+    StackSym * GetAuxSlotPtrSym() const { return this->m_stackSym->GetAuxSlotPtrSym(); }
+    StackSym * EnsureAuxSlotPtrSym(Func * func) { return this->m_stackSym->EnsureAuxSlotPtrSym(func); }
 
 public:
     PropertyKind    m_fieldKind;

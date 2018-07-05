@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="$(MsBuildThisFileDirectory)AsmJS.cpp" />
@@ -21,6 +21,7 @@
     <ClCompile Include="$(MsBuildThisFileDirectory)JavascriptMathOperators.cpp" />
     <ClCompile Include="$(MsBuildThisFileDirectory)ProfilingHelpers.cpp" />
     <ClCompile Include="$(MsBuildThisFileDirectory)SourceDynamicProfileManager.cpp" />
+    <ClCompile Include="$(MsBuildThisFileDirectory)SimpleDataCacheWrapper.cpp" />
     <ClCompile Include="$(MsBuildThisFileDirectory)StackTraceArguments.cpp" />
     <ClCompile Include="$(MsBuildThisFileDirectory)ValueType.cpp" />
     <ClCompile Include="$(MsBuildThisFileDirectory)InterpreterStackFrame.cpp" />
@@ -77,6 +78,7 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)ModuleNamespaceEnumerator.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)WebAssemblySource.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ConstructorCache.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)PrototypeChainCache.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AsmJs.h" />
@@ -103,6 +105,7 @@
     <ClInclude Include="JavascriptMathOperators.h" />
     <ClInclude Include="ProfilingHelpers.h" />
     <ClInclude Include="SourceDynamicProfileManager.h" />
+    <ClInclude Include="SimpleDataCacheWrapper.h" />
     <ClInclude Include="StackTraceArguments.h" />
     <ClInclude Include="ValueType.h" />
     <ClInclude Include="Arguments.h" />
@@ -149,6 +152,9 @@
     <ClInclude Include="ModuleNamespaceEnumerator.h" />
     <ClInclude Include="WebAssemblySource.h" />
     <ClInclude Include="ConstructorCache.h" />
+    <ClInclude Include="AsmJsArrayBufferViews.h" />
+    <ClInclude Include="PrototypeChainCache.h" />
+    <ClInclude Include="PropertyGuard.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="$(MSBuildThisFileDirectory)amd64\amd64_Thunks.asm">

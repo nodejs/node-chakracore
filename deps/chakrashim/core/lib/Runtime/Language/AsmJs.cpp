@@ -58,39 +58,39 @@ namespace Js
     bool
     AsmJSCompiler::CheckFunctionHead(AsmJsModuleCompiler &m, ParseNode *fn, bool isGlobal /*= true*/)
     {
-        PnFnc fnc = fn->sxFnc;
+        ParseNodeFnc * fnc = fn->AsParseNodeFnc();
 
-        if (fnc.HasNonSimpleParameterList())
+        if (fnc->HasNonSimpleParameterList())
         {
             return m.Fail(fn, _u("default, rest & destructuring args not allowed"));
         }
 
-        if (fnc.IsStaticMember())
+        if (fnc->IsStaticMember())
         {
             return m.Fail(fn, _u("static functions are not allowed"));
         }
 
-        if (fnc.IsGenerator())
+        if (fnc->IsGenerator())
         {
             return m.Fail(fn, _u("generator functions are not allowed"));
         }
 
-        if (fnc.IsAsync())
+        if (fnc->IsAsync())
         {
             return m.Fail(fn, _u("async functions are not allowed"));
         }
 
-        if (fnc.IsLambda())
+        if (fnc->IsLambda())
         {
             return m.Fail(fn, _u("lambda functions are not allowed"));
         }
 
-        if (!isGlobal && fnc.nestedCount != 0)
+        if (!isGlobal && fnc->nestedCount != 0)
         {
             return m.Fail(fn, _u("closure functions are not allowed"));
         }
 
-        if (!fnc.IsAsmJsAllowed())
+        if (!fnc->IsAsmJsAllowed())
         {
             return m.Fail(fn, _u("invalid function flags detected"));
         }
@@ -113,7 +113,7 @@ namespace Js
             if( coercedExpr )
             {
 
-                if( rhs->nop == knopInt && rhs->sxInt.lw == 0 )
+                if( rhs->nop == knopInt && rhs->AsParseNodeInt()->lw == 0 )
                 {
                     if( rhs->nop == knopAnd )
                     {
@@ -144,73 +144,13 @@ namespace Js
         case knopCall: {
             ParseNode* target;
             AsmJsFunctionDeclaration* sym;
-            AsmJsSIMDFunction* simdSym;
 
-            target = coercionNode->sxCall.pnodeTarget;
+            target = coercionNode->AsParseNodeCall()->pnodeTarget;
 
             if (!target || target->nop != knopName)
             {
                 return m.Fail(coercionNode, _u("Call must be of the form id(...)"));
             }
-
-            simdSym = m.LookupSimdTypeCheck(target->name());
-            // var x = f4.check(ffi.field)
-            if (simdSym)
-            {
-                if (coercionNode->sxCall.argCount == simdSym->GetArgCount())
-                {
-                    switch (simdSym->GetSimdBuiltInFunction())
-                    {
-                    case AsmJsSIMDBuiltin_int32x4_check:
-                        *coercion = AsmJS_Int32x4;
-                        break;
-                    case AsmJsSIMDBuiltin_bool32x4_check:
-                        *coercion = AsmJS_Bool32x4;
-                        break;
-                    case AsmJsSIMDBuiltin_bool16x8_check:
-                        *coercion = AsmJS_Bool16x8;
-                        break;
-                    case AsmJsSIMDBuiltin_bool8x16_check:
-                        *coercion = AsmJS_Bool8x16;
-                        break;
-                    case AsmJsSIMDBuiltin_float32x4_check:
-                        *coercion = AsmJS_Float32x4;
-                        break;
-                    case AsmJsSIMDBuiltin_float64x2_check:
-                        *coercion = AsmJS_Float64x2;
-                        break;
-                    case AsmJsSIMDBuiltin_int16x8_check:
-                        *coercion = AsmJS_Int16x8;
-                        break;
-                    case AsmJsSIMDBuiltin_int8x16_check:
-                        *coercion = AsmJS_Int8x16;
-                        break;
-                    case AsmJsSIMDBuiltin_uint32x4_check:
-                        *coercion = AsmJS_Uint32x4;
-                        break;
-                    case AsmJsSIMDBuiltin_uint16x8_check:
-                        *coercion = AsmJS_Uint16x8;
-                        break;
-                    case AsmJsSIMDBuiltin_uint8x16_check:
-                        *coercion = AsmJS_Uint8x16;
-                        break;
-                    default:
-                        Assert(UNREACHED);
-                    }
-                    if (coercedExpr)
-                    {
-                        *coercedExpr = coercionNode->sxCall.pnodeArgs;
-                    }
-
-                    return true;
-                }
-                else
-                {
-                    return m.Fail(coercionNode, _u("Invalid SIMD coercion"));
-                }
-
-            }
-            // not a SIMD coercion, fall through
 
             *coercion = AsmJS_FRound;
             sym = m.LookupFunction(target->name());
@@ -221,7 +161,7 @@ namespace Js
             }
             if( coercedExpr )
             {
-                *coercedExpr = coercionNode->sxCall.pnodeArgs;
+                *coercedExpr = coercionNode->AsParseNodeCall()->pnodeArgs;
             }
             return true;
         }
@@ -238,7 +178,7 @@ namespace Js
             {
                 *coercion = AsmJS_ToInt32;
             }
-            else if (coercionNode->sxFlt.maybeInt)
+            else if (coercionNode->AsParseNodeFloat()->maybeInt)
             {
                 return m.Fail(coercionNode, _u("Integer literal in return must be in range [-2^31, 2^31)"));
             }
@@ -405,7 +345,7 @@ namespace Js
         Assert( newExpr->nop == knopNew );
         m.SetUsesHeapBuffer(true);
 
-        ParseNode *ctorExpr = newExpr->sxCall.pnodeTarget;
+        ParseNode *ctorExpr = newExpr->AsParseNodeCall()->pnodeTarget;
         ArrayBufferView::ViewType type;
         if( ParserWrapper::IsDotMember(ctorExpr) )
         {
@@ -486,7 +426,7 @@ namespace Js
             return m.Fail(newExpr, _u("invalid 'new' import"));
         }
 
-        ParseNode *bufArg = newExpr->sxCall.pnodeArgs;
+        ParseNode *bufArg = newExpr->AsParseNodeCall()->pnodeArgs;
         if( !bufArg || !ParserWrapper::IsNameDeclaration( bufArg ) )
         {
             return m.Fail( ctorExpr, _u("array view constructor takes exactly one argument") );
@@ -526,53 +466,14 @@ namespace Js
         {
             lib = ParserWrapper::DotMember(base);
             base = ParserWrapper::DotBase(base);
-#ifdef ENABLE_SIMDJS
-            if (m.GetScriptContext()->GetConfig()->IsSimdjsEnabled())
+            if (!lib || lib->GetPropertyId() != PropertyIds::Math)
             {
-                if (!lib || (lib->GetPropertyId() != PropertyIds::Math && lib->GetPropertyId() != PropertyIds::SIMD))
-                {
-                    return m.FailName(initNode, _u("'%s' should be Math or SIMD, as in global.Math.xxxx"), field);
-                }
-            }
-            else
-#endif
-            {
-                if (!lib || lib->GetPropertyId() != PropertyIds::Math)
-                {
-                    return m.FailName(initNode, _u("'%s' should be Math, as in global.Math.xxxx"), field);
-                }
+                return m.FailName(initNode, _u("'%s' should be Math, as in global.Math.xxxx"), field);
             }
         }
 
         if( ParserWrapper::IsNameDeclaration(base) && base->name() == m.GetStdLibArgName() )
         {
-#ifdef ENABLE_SIMDJS
-            if (m.GetScriptContext()->GetConfig()->IsSimdjsEnabled())
-            {
-                if (lib && lib->GetPropertyId() == PropertyIds::SIMD)
-                {
-                    // global.SIMD.xxx
-                    AsmJsSIMDFunction *simdFunc = nullptr;
-
-                    if (!m.LookupStdLibSIMDName(field->GetPropertyId(), field, &simdFunc))
-                    {
-                        return m.FailName(initNode, _u("'%s' is not standard SIMD builtin"), varName);
-                    }
-
-                    if (simdFunc->GetName() != nullptr)
-                    {
-                        OutputMessage(m.GetScriptContext(), DEIT_ASMJS_FAILED, _u("Warning: SIMD Builtin already defined for var %s"), simdFunc->GetName()->Psz());
-                    }
-                    simdFunc->SetName(varName);
-                    if (!m.DefineIdentifier(varName, simdFunc))
-                    {
-                        return m.FailName(initNode, _u("Failed to define SIMD builtin function to var %s"), varName);
-                    }
-                    m.AddSimdBuiltinUse(simdFunc->GetSimdBuiltInFunction());
-                    return true;
-                }
-            }
-#endif
             // global.Math.xxx
             MathBuiltin mathBuiltin;
             if (m.LookupStandardLibraryMathName(field, &mathBuiltin))
@@ -629,33 +530,6 @@ namespace Js
             // foreign import
             return m.AddModuleFunctionImport( varName, field );
         }
-        else if (ParserWrapper::IsNameDeclaration(base))
-        {
-            // Check if SIMD function import
-            // e.g. var x = f4.add
-            AsmJsSIMDFunction *simdFunc, *operation;
-
-            simdFunc = m.LookupSimdConstructor(base->name());
-            if (simdFunc == nullptr || !m.LookupStdLibSIMDName(simdFunc->GetSimdBuiltInFunction(), field, &operation))
-            {
-                return m.FailName(initNode, _u("Invalid dot expression import. %s is not a standard SIMD operation"), varName);
-            }
-
-            if (operation->GetName() != nullptr)
-            {
-                OutputMessage(m.GetScriptContext(), DEIT_ASMJS_FAILED, _u("Warning: SIMD Builtin already defined for var %s"), operation->GetName()->Psz());
-            }
-
-            // bind operation to var
-            operation->SetName(varName);
-            if (!m.DefineIdentifier(varName, operation))
-            {
-                return m.FailName(initNode, _u("Failed to define SIMD builtin function to var %s"), varName);
-            }
-
-            m.AddSimdBuiltinUse(operation->GetSimdBuiltInFunction());
-            return true;
-        }
 
         return m.Fail(initNode, _u("expecting c.y where c is either the global or foreign parameter"));
     }
@@ -679,12 +553,12 @@ namespace Js
             return false;
         }
 
-        if (!var->sxVar.pnodeInit)
+        if (!var->AsParseNodeVar()->pnodeInit)
         {
             return m.Fail(var, _u("module import needs initializer"));
         }
 
-        ParseNode *initNode = var->sxVar.pnodeInit;
+        ParseNode *initNode = var->AsParseNodeVar()->pnodeInit;
 
 
         if( ParserWrapper::IsNumericLiteral( initNode ) )
@@ -699,25 +573,8 @@ namespace Js
             }
         }
 
-
         if (initNode->nop == knopOr || initNode->nop == knopPos || initNode->nop == knopCall)
         {
-            // SIMD_JS
-            // e.g. var x = f4(1.0, 2.0, 3.0, 4.0)
-            if (initNode->nop == knopCall)
-            {
-                AsmJsSIMDFunction* simdSym;
-                // also checks if simd constructor
-                simdSym = m.LookupSimdConstructor(initNode->sxCall.pnodeTarget->name());
-                // call to simd constructor
-                if (simdSym)
-                {
-                    // validate args and define a SIMD symbol
-                    return m.AddSimdValueVar(name, initNode, simdSym);
-                }
-                // else it is FFI import: var x = f4check(FFI.field), handled in CheckGlobalVariableInitImport
-            }
-
            return CheckGlobalVariableInitImport(m, name, initNode, isMutable );
         }
 
@@ -774,7 +631,7 @@ namespace Js
                     goto varDeclEnd;
                 }
 
-                if (decl->sxVar.pnodeInit && decl->sxVar.pnodeInit->nop == knopArray)
+                if (decl->AsParseNodeVar()->pnodeInit && decl->AsParseNodeVar()->pnodeInit->nop == knopArray)
                 {
                     // Assume we reached func tables
                     goto varDeclEnd;
@@ -822,13 +679,13 @@ varDeclEnd:
     }
 
 
-    bool AsmJSCompiler::CheckFunction( AsmJsModuleCompiler &m, ParseNode* fncNode )
+    bool AsmJSCompiler::CheckFunction( AsmJsModuleCompiler &m, ParseNodeFnc * fncNode )
     {
         Assert( fncNode->nop == knopFncDecl );
 
         if( PHASE_TRACE1( Js::ByteCodePhase ) )
         {
-            Output::Print( _u("  Checking Asm function: %s\n"), fncNode->sxFnc.funcInfo->name);
+            Output::Print( _u("  Checking Asm function: %s\n"), fncNode->funcInfo->name);
         }
 
         if( !CheckFunctionHead( m, fncNode, false ) )
@@ -854,7 +711,7 @@ varDeclEnd:
 
         while (pnode->nop == knopFncDecl)
         {
-            if( !CheckFunction( m, pnode ) )
+            if( !CheckFunction( m, pnode->AsParseNodeFnc() ) )
             {
                 return false;
             }
@@ -885,11 +742,11 @@ varDeclEnd:
             {
                 break;
             }
-            if (!varStmt->sxVar.pnodeInit || varStmt->sxVar.pnodeInit->nop != knopArray)
+            if (!varStmt->AsParseNodeVar()->pnodeInit || varStmt->AsParseNodeVar()->pnodeInit->nop != knopArray)
             {
                 break;
             }
-            const uint tableSize = varStmt->sxVar.pnodeInit->sxArrLit.count;
+            const uint tableSize = varStmt->AsParseNodeVar()->pnodeInit->AsParseNodeArrLit()->count;
             if (!::Math::IsPow2(tableSize))
             {
                 return m.FailName(varStmt, _u("Function table [%s] size must be a power of 2"), varStmt->name());
@@ -901,7 +758,7 @@ varDeclEnd:
 
             AsmJsFunctionTable* ftable = (AsmJsFunctionTable*)m.LookupIdentifier(varStmt->name());
             Assert(ftable);
-            ParseNode* pnode = varStmt->sxVar.pnodeInit->sxArrLit.pnode1;
+            ParseNode* pnode = varStmt->AsParseNodeVar()->pnodeInit->AsParseNodeArrLit()->pnode1;
             if (pnode->nop == knopList)
             {
                 pnode = ParserWrapper::GetBinaryLeft(pnode);
@@ -937,7 +794,7 @@ varDeclEnd:
             return m.Fail( node, _u("Only expression after table functions must be a return") );
         }
 
-        ParseNode* objNode = node->sxReturn.pnodeExpr;
+        ParseNode* objNode = node->AsParseNodeReturn()->pnodeExpr;
         if ( !objNode )
         {
             return m.Fail( node, _u( "Module return must be an object or 1 function" ) );
@@ -1038,7 +895,7 @@ varDeclEnd:
                 break;
             }
 
-            ParseNode* nodeInit = varStmt->sxVar.pnodeInit;
+            ParseNode* nodeInit = varStmt->AsParseNodeVar()->pnodeInit;
             if( !nodeInit || nodeInit->nop != knopArray )
             {
                 return m.Fail( varStmt, _u("Invalid variable after function declaration") );
@@ -1066,14 +923,14 @@ varDeclEnd:
                 }
 
                 // Check content of the array
-                uint count = nodeInit->sxArrLit.count;
+                uint count = nodeInit->AsParseNodeArrLit()->count;
                 if( table->GetSize() != count )
                 {
                     return m.FailName( varStmt, _u("Invalid size of function table %s"), tableName );
                 }
 
                 // Set the content of the array in the table
-                ParseNode* node = nodeInit->sxArrLit.pnode1;
+                ParseNode* node = nodeInit->AsParseNodeArrLit()->pnode1;
                 uint i = 0;
                 while( node )
                 {
@@ -1212,7 +1069,7 @@ AsmJsCompilationError:
         ParseNode * moduleNode = m.GetModuleFunctionNode();
         if( moduleNode )
         {
-            FunctionBody* body = moduleNode->sxFnc.funcInfo->GetParsedFunctionBody();
+            FunctionBody* body = moduleNode->AsParseNodeFnc()->funcInfo->GetParsedFunctionBody();
             body->ResetByteCodeGenState();
         }
 

@@ -10,12 +10,12 @@ namespace Js
     class ProfilingHelpers
     {
     public:
-        static Var ProfiledLdElem(const Var base, const Var varIndex, FunctionBody *const functionBody, const ProfileId profileId, bool didArrayAccessHelperCall);
+        static Var ProfiledLdElem(const Var base, const Var varIndex, FunctionBody *const functionBody, const ProfileId profileId, bool didArrayAccessHelperCall, bool bailedOutOnArraySpecialization);
         static Var ProfiledLdElem_FastPath(JavascriptArray *const array, const Var varIndex, ScriptContext *const scriptContext, LdElemInfo *const ldElemInfo = nullptr);
 
     public:
         static void ProfiledStElem_DefaultFlags(const Var base, const Var varIndex, const Var value, FunctionBody *const functionBody, const ProfileId profileId);
-        static void ProfiledStElem(const Var base, const Var varIndex, const Var value, FunctionBody *const functionBody, const ProfileId profileId, const PropertyOperationFlags flags, bool didArrayAccessHelperCall);
+        static void ProfiledStElem(const Var base, const Var varIndex, const Var value, FunctionBody *const functionBody, const ProfileId profileId, const PropertyOperationFlags flags, bool didArrayAccessHelperCall, bool bailedOutOnArraySpecialization);
         static void ProfiledStElem_FastPath(JavascriptArray *const array, const Var varIndex, const Var value, ScriptContext *const scriptContext, const PropertyOperationFlags flags, StElemInfo *const stElemInfo = nullptr);
 
     public:
@@ -33,6 +33,7 @@ namespace Js
         static void ProfileLdSlot(const Var value, FunctionBody *const functionBody, const ProfileId profileId);
 
     public:
+        static Var ProfiledLdLen_Jit(const Var instance, const PropertyId propertyId, const InlineCacheIndex inlineCacheIndex, const ProfileId profileId, void *const framePointer);
         static Var ProfiledLdFld_Jit(const Var instance, const PropertyId propertyId, const InlineCacheIndex inlineCacheIndex, void *const framePointer);
         static Var ProfiledLdSuperFld_Jit(const Var instance, const PropertyId propertyId, const InlineCacheIndex inlineCacheIndex, void *const framePointer, const Var thisInstance);
         static Var ProfiledLdFldForTypeOf_Jit(const Var instance, const PropertyId propertyId, const InlineCacheIndex inlineCacheIndex, void *const framePointer);

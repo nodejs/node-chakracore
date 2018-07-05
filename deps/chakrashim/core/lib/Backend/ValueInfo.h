@@ -55,15 +55,15 @@ private:
     }
 
 public:
-    static ValueInfo *          New(JitArenaAllocator *const alloc, const ValueType type)
+    static ValueInfo * New(JitArenaAllocator *const alloc, const ValueType type)
     {
         return JitAnew(alloc, ValueInfo, type, ValueStructureKind::Generic);
     }
-    static ValueInfo *      MergeLikelyIntValueInfo(JitArenaAllocator* alloc, Value *toDataVal, Value *fromDataVal, const ValueType newValueType);
-    static ValueInfo *      NewIntRangeValueInfo(JitArenaAllocator* alloc, int32 min, int32 max, bool wasNegativeZeroPreventedByBailout);
+    static ValueInfo * MergeLikelyIntValueInfo(JitArenaAllocator* alloc, Value *toDataVal, Value *fromDataVal, const ValueType newValueType);
+    static ValueInfo * NewIntRangeValueInfo(JitArenaAllocator* alloc, int32 min, int32 max, bool wasNegativeZeroPreventedByBailout);
 
-    const ValueType &       Type() const { return *this; }
-    ValueType &             Type() { return *this; }
+    const ValueType &  Type() const { return *this; }
+    ValueType &        Type() { return *this; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // ValueType imports. Only importing functions that are appropriate to be called on Value.
@@ -177,13 +177,6 @@ public:
     using ValueType::HasVarElements;
 
     using ValueType::IsSimd128;
-    using ValueType::IsSimd128Float32x4;
-    using ValueType::IsSimd128Int32x4;
-    using ValueType::IsSimd128Float64x2;
-    using ValueType::IsLikelySimd128;
-    using ValueType::IsLikelySimd128Float32x4;
-    using ValueType::IsLikelySimd128Int32x4;
-    using ValueType::IsLikelySimd128Float64x2;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -195,10 +188,10 @@ private:
     bool                            IsInt64Constant() const;
     const IntConstantValueInfo *    AsIntConstant() const;
     const Int64ConstantValueInfo *  AsInt64Constant() const;
-    bool                            IsIntRange() const;
-    const IntRangeValueInfo *       AsIntRange() const;
 
 public:
+    bool                            IsIntRange() const;
+    const IntRangeValueInfo *       AsIntRange() const;
     bool                            IsIntBounded() const;
     const IntBoundedValueInfo *     AsIntBounded() const;
     bool                            IsFloatConstant() const;
@@ -253,13 +246,6 @@ private:
 public:
     ValueInfo *SpecializeToInt32(JitArenaAllocator *const allocator, const bool isForLoopBackEdgeCompensation = false);
     ValueInfo *SpecializeToFloat64(JitArenaAllocator *const allocator);
-
-    // SIMD_JS
-    ValueInfo *SpecializeToSimd128(IRType type, JitArenaAllocator *const allocator);
-    ValueInfo *SpecializeToSimd128F4(JitArenaAllocator *const allocator);
-    ValueInfo *SpecializeToSimd128I4(JitArenaAllocator *const allocator);
-
-
 
 public:
     Sym *                   GetSymStore() const { return this->symStore; }

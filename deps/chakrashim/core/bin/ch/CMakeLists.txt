@@ -63,7 +63,7 @@ if(STATIC_LIBRARY)
     -Wl,-undefined,error
     ${LINKER_START_GROUP}
     ChakraCoreStatic
-    ${ICULIB}
+    ${ICU_LIBRARIES}
     ${LINKER_END_GROUP}
     dl
     )
@@ -91,6 +91,9 @@ else() # // shared library below
     PRIVATE Chakra.Common.Codex.Singular
     PRIVATE Chakra.Runtime.PlatformAgnostic.Singular
     )
+
+  # Link explicitly to ICU to support u_getVersion
+  set(lib_target ${lib_target} ${ICU_LIBRARIES})
 endif()
 
 if(CC_TARGET_OS_ANDROID OR CC_TARGET_OS_LINUX)

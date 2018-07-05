@@ -24,7 +24,13 @@ namespace Js
     template<> int AsmJsEncoder::GetOffset<Var>() const{return AsmJsJitTemplate::Globals::StackVarCount * sizeof( Var );}
     template<> int AsmJsEncoder::GetOffset<double>() const{ return mDoubleOffset; }
     template<> int AsmJsEncoder::GetOffset<float>() const{ return mFloatOffset; }
-    template<> int AsmJsEncoder::GetOffset<AsmJsSIMDValue>() const{ return mSimdOffset; }
+    template<> int AsmJsEncoder::GetOffset<AsmJsSIMDValue>() const { 
+#ifdef ENABLE_WASM_SIMD
+        return mSimdOffset;
+#else
+        return 0;
+#endif
+    }
 
     template<>
     void AsmJsEncoder::ReadOpTemplate<Js::SmallLayout>( OpCodeAsmJs op )
@@ -170,8 +176,9 @@ namespace Js
         mIntOffset = asmInfo->GetIntByteOffset() + GetOffset<Var>();
         mDoubleOffset = asmInfo->GetDoubleByteOffset() + GetOffset<Var>();
         mFloatOffset = asmInfo->GetFloatByteOffset() + GetOffset<Var>();
+#ifdef ENABLE_WASM_SIMD
         mSimdOffset = asmInfo->GetSimdByteOffset() + GetOffset<Var>();
-
+#endif
         NoRecoverMemoryArenaAllocator localAlloc(_u("BE-AsmJsEncoder"), GetPageAllocator(), Js::Throw::OutOfMemory);
         mLocalAlloc = &localAlloc;
 
@@ -247,7 +254,7 @@ namespace Js
                 functionBody->GetColumnNumber(),
                 functionBody->GetDisplayName()));
             entryPointInfo->SetTJCodeGenDone(); // set the codegen to done state for TJ
-            entryPointInfo->SetCodeSize(codeSize);
+            entryPointInfo->SetTJCodeSize(codeSize);
             return buffer;
         }
         return nullptr;

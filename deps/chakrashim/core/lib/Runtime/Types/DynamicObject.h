@@ -67,15 +67,9 @@ namespace Js
 
         friend class JavascriptArray; // for xplat offsetof field access
         friend class JavascriptNativeArray; // for xplat offsetof field access
-        friend class JavascriptOperators; // for ReplaceType
-        friend class PathTypeHandlerBase; // for ReplaceType
-        friend class SimplePathTypeHandlerNoAttr;
-        friend class SimplePathTypeHandlerWithAttr;
-        friend class PathTypeHandlerNoAttr;
-        friend class JavascriptLibrary;  // for ReplaceType
-        friend class ScriptFunction; // for ReplaceType;
-        friend class JSON::JSONParser; //for ReplaceType
-        friend class ModuleNamespace; // for slot setting.
+        friend class JavascriptOperators;
+        friend class JavascriptLibrary;
+        friend class ModuleNamespace; // for slot setting.       
 
 #if ENABLE_OBJECT_SOURCE_TRACKING
     public:
@@ -130,8 +124,8 @@ namespace Js
 
         void InitSlots(DynamicObject * instance, ScriptContext * scriptContext);
         void SetTypeHandler(DynamicTypeHandler * typeHandler, bool hasChanged);
-        void ReplaceType(DynamicType * type);
-        void ReplaceTypeWithPredecessorType(DynamicType * previousType);
+
+        Field(Var)* GetInlineSlots() const;
 
     protected:
         DEFINE_VTABLE_CTOR(DynamicObject, RecyclableObject);
@@ -157,13 +151,14 @@ namespace Js
 
         void EnsureSlots(int oldCount, int newCount, ScriptContext * scriptContext, DynamicTypeHandler * newTypeHandler = nullptr);
         void EnsureSlots(int newCount, ScriptContext *scriptContext);
+        void ReplaceType(DynamicType * type);
+        void ReplaceTypeWithPredecessorType(DynamicType * previousType);
 
         DynamicTypeHandler * GetTypeHandler() const;
 
         Var GetSlot(int index);
         Var GetInlineSlot(int index);
         Var GetAuxSlot(int index);
-
 #if DBG
         void SetSlot(PropertyId propertyId, bool allowLetConst, int index, Var value);
         void SetInlineSlot(PropertyId propertyId, bool allowLetConst, int index, Var value);
@@ -175,6 +170,8 @@ namespace Js
 #endif
 
     private:
+        bool IsCompatibleForCopy(DynamicObject* from) const;
+
         bool IsObjectHeaderInlinedTypeHandlerUnchecked() const;
     public:
         bool IsObjectHeaderInlinedTypeHandler() const;
@@ -229,6 +226,8 @@ namespace Js
         void InvalidateHasOnlyWritableDataPropertiesInPrototypeChainCacheIfPrototype();
         void ResetObject(DynamicType* type, BOOL keepProperties);
 
+        bool TryCopy(DynamicObject* from);
+
         virtual void SetIsPrototype();
 
         bool HasLockedType() const;
@@ -243,10 +242,11 @@ namespace Js
 
         void InitSlots(DynamicObject* instance);
         virtual int GetPropertyCount() override;
+        int GetPropertyCountForEnum();
         virtual PropertyId GetPropertyId(PropertyIndex index) override;
         virtual PropertyId GetPropertyId(BigPropertyIndex index) override;
         PropertyIndex GetPropertyIndex(PropertyId propertyId) sealed;
-        virtual PropertyQueryFlags HasPropertyQuery(PropertyId propertyId) override;
+        virtual PropertyQueryFlags HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info) override;
         virtual BOOL HasOwnProperty(PropertyId propertyId) override;
         virtual PropertyQueryFlags GetPropertyQuery(Var originalInstance, PropertyId propertyId, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) override;
         virtual PropertyQueryFlags GetPropertyQuery(Var originalInstance, JavascriptString* propertyNameString, Var* value, PropertyValueInfo* info, ScriptContext* requestContext) override;
@@ -272,9 +272,9 @@ namespace Js
         virtual BOOL SetItem(uint32 index, Var value, PropertyOperationFlags flags) override;
         virtual BOOL DeleteItem(uint32 index, PropertyOperationFlags flags) override;
         virtual BOOL ToPrimitive(JavascriptHint hint, Var* result, ScriptContext * requestContext) override;
-        virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * scriptContext, ForInCache * forInCache = nullptr) override;
+        virtual BOOL GetEnumerator(JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * scriptContext, EnumeratorCache * enumeratorCache = nullptr) override;
         virtual BOOL SetAccessors(PropertyId propertyId, Var getter, Var setter, PropertyOperationFlags flags = PropertyOperation_None) override;
-        virtual BOOL GetAccessors(PropertyId propertyId, Var *getter, Var *setter, ScriptContext * requestContext) override;
+        _Check_return_ _Success_(return) virtual BOOL GetAccessors(PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter, ScriptContext* requestContext) override;
         virtual BOOL IsWritable(PropertyId propertyId) override;
         virtual BOOL IsConfigurable(PropertyId propertyId) override;
         virtual BOOL IsEnumerable(PropertyId propertyId) override;
@@ -325,7 +325,7 @@ namespace Js
 
         void SetObjectArray(ArrayObject* objectArray);
     protected:
-        BOOL GetEnumeratorWithPrefix(JavascriptEnumerator * prefixEnumerator, JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * scriptContext, ForInCache * forInCache);
+        BOOL GetEnumeratorWithPrefix(JavascriptEnumerator * prefixEnumerator, JavascriptStaticEnumerator * enumerator, EnumeratorFlags flags, ScriptContext * scriptContext, EnumeratorCache * enumeratorCache);
 
         // These are only call for arrays
         void InitArrayFlags(DynamicObjectFlags flags);
@@ -362,7 +362,7 @@ namespace Js
         virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
         virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
 
-        Js::Var const* GetInlineSlots_TTD() const;
+        Field(Js::Var) const* GetInlineSlots_TTD() const;
         Js::Var const* GetAuxSlots_TTD() const;
 
 #if ENABLE_OBJECT_SOURCE_TRACKING

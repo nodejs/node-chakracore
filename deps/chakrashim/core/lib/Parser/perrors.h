@@ -34,7 +34,7 @@ LSC_ERROR_MSG( 1025, ERRbadLabel      , "Label redefined")
 LSC_ERROR_MSG( 1026, ERRnoLabel       , "Label not found")
 LSC_ERROR_MSG( 1027, ERRdupDefault    , "'default' can only appear once in a 'switch' statement")
 LSC_ERROR_MSG( 1028, ERRnoMemberIdent , "Expected identifier, string or number")
-// RETIRED Cc no longer supported ;; LSC_ERROR_MSG( 1029, ERRnoCcEnd       , "Expected '@end'")
+LSC_ERROR_MSG( 1029, ERRTooManyArgs   , "Too many arguments")
 // RETIRED Cc no longer supported ;; LSC_ERROR_MSG( 1030, ERRccOff         , "Conditional compilation is turned off")
 LSC_ERROR_MSG( 1031, ERRnotConst      , "Expected constant")
 // RETIRED Cc no longer supported ;; LSC_ERROR_MSG( 1032, ERRnoAt          , "Expected '@'")
@@ -100,3 +100,5 @@ LSC_ERROR_MSG(1086, ERRInvalidModuleImportOrExport, "Module import or export sta
 LSC_ERROR_MSG(1087, ERRInvalidExportName, "Unable to resolve module export name")
 
 LSC_ERROR_MSG(1088, ERRLetIDInLexicalDecl, "'let' is not an allowed identifier in lexical declarations")
+
+LSC_ERROR_MSG(1089, ERRInvalidLHSInFor, "Invalid left-hand side in for loop")

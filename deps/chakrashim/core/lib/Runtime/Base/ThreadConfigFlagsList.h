@@ -14,7 +14,6 @@ FLAG_RELEASE(IsES6DateParseFixEnabled, ES6DateParseFix)
 FLAG_RELEASE(IsES6DefaultArgsEnabled, ES6DefaultArgs)
 FLAG_RELEASE(IsES6DestructuringEnabled, ES6Destructuring)
 FLAG_RELEASE(IsES6ForLoopSemanticsEnabled, ES6ForLoopSemantics)
-FLAG_RELEASE(IsES6FunctionNameEnabled, ES6FunctionName)
 FLAG_RELEASE(IsES6FunctionNameFullEnabled, ES6FunctionNameFull)
 FLAG_RELEASE(IsES6GeneratorsEnabled, ES6Generators)
 FLAG_RELEASE(IsES7ExponentiationOperatorEnabled, ES7ExponentiationOperator)
@@ -50,9 +49,4 @@ FLAG_RELEASE(IsESDynamicImportEnabled, ESDynamicImport)
 #ifdef ENABLE_PROJECTION
 FLAG(AreWinRTDelegatesInterfaces, WinRTDelegateInterfaces)
 FLAG_RELEASE(IsWinRTAdaptiveAppsEnabled, WinRTAdaptiveApps)
-#endif
-
-#ifdef ENABLE_SIMDJS
-//SIMD_JS
-FLAG_RELEASE(IsSimdjsEnabled, Simdjs)
 #endif

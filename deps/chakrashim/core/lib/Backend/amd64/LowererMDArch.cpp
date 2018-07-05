@@ -1011,19 +1011,6 @@ LowererMDArch::GetArgSlotOpnd(uint16 index, StackSym * argSym, bool isHelper /*=
     Assert(index != 0);
 
     uint16 argPosition = index;
-
-#ifdef ENABLE_SIMDJS
-    // Without SIMD the index is the Var offset and is also the argument index. Since each arg = 1 Var.
-    // With SIMD, args are of variable length and we need to the argument position in the args list.
-    if (m_func->IsSIMDEnabled() &&
-        m_func->GetJITFunctionBody()->IsAsmJsMode() &&
-        argSym != nullptr &&
-        argSym->m_argPosition != 0)
-    {
-        argPosition = (uint16)argSym->m_argPosition;
-    }
-#endif
-
     IR::Opnd *argSlotOpnd = nullptr;
 
     if (argSym != nullptr)
@@ -1093,7 +1080,7 @@ LowererMDArch::LowerAsmJsCallI(IR::Instr * callInstr)
 }
 
 IR::Instr *
-LowererMDArch::LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd)
+LowererMDArch::LowerWasmArrayBoundsCheck(IR::Instr * instr, IR::Opnd *addrOpnd)
 {
     IR::IndirOpnd * indirOpnd = addrOpnd->AsIndirOpnd();
     IR::RegOpnd * indexOpnd = indirOpnd->GetIndexOpnd();
@@ -1106,12 +1093,10 @@ LowererMDArch::LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd)
         lowererMD->m_lowerer->GenerateThrow(IR::IntConstOpnd::New(WASMERR_ArrayIndexOutOfRange, TyInt32, m_func), instr);
         return instr;
     }
-#if ENABLE_FAST_ARRAYBUFFER
-    if (CONFIG_FLAG(WasmFastArray))
+    if (m_func->GetJITFunctionBody()->UsesWAsmJsFastVirtualBuffer())
     {
         return instr;
     }
-#endif
 
     Assert(instr->GetSrc2());
     IR::LabelInstr * helperLabel = Lowerer::InsertLabel(true, instr);
@@ -1137,6 +1122,46 @@ LowererMDArch::LowerWasmMemOp(IR::Instr * instr, IR::Opnd *addrOpnd)
     lowererMD->m_lowerer->GenerateThrow(IR::IntConstOpnd::New(WASMERR_ArrayIndexOutOfRange, TyInt32, m_func), loadLabel);
     Lowerer::InsertBranch(Js::OpCode::Br, loadLabel, helperLabel);
     return doneLabel;
+}
+
+void
+LowererMDArch::LowerAtomicStore(IR::Opnd * dst, IR::Opnd * src1, IR::Instr * insertBeforeInstr)
+{
+    Assert(IRType_IsNativeInt(dst->GetType()));
+    Assert(IRType_IsNativeInt(src1->GetType()));
+    IR::RegOpnd* tmpSrc = IR::RegOpnd::New(dst->GetType(), m_func);
+    Lowerer::InsertMove(tmpSrc, src1, insertBeforeInstr);
+
+    // Put src1 as dst to make sure we know that register is modified
+    IR::Instr* xchgInstr = IR::Instr::New(Js::OpCode::XCHG, tmpSrc, tmpSrc, dst, insertBeforeInstr->m_func);
+    insertBeforeInstr->InsertBefore(xchgInstr);
+}
+
+void
+LowererMDArch::LowerAtomicLoad(IR::Opnd * dst, IR::Opnd * src1, IR::Instr * insertBeforeInstr)
+{
+    Assert(IRType_IsNativeInt(dst->GetType()));
+    Assert(IRType_IsNativeInt(src1->GetType()));
+    IR::Instr* newMove = Lowerer::InsertMove(dst, src1, insertBeforeInstr);
+
+    if (m_func->GetJITFunctionBody()->UsesWAsmJsFastVirtualBuffer())
+    {
+        // We need to have an AV when accessing out of bounds memory even if the dst is not used
+        // Make sure LinearScan doesn't dead store this instruction
+        newMove->hasSideEffects = true;
+    }
+
+    // Need to add Memory Barrier before the load
+    // MemoryBarrier is implemented with `lock or [rsp], 0` on x64
+    IR::IndirOpnd* stackTop = IR::IndirOpnd::New(
+        IR::RegOpnd::New(nullptr, RegRSP, TyMachReg, m_func),
+        0,
+        TyMachReg,
+        m_func
+    );
+    IR::IntConstOpnd* zero = IR::IntConstOpnd::New(0, TyMachReg, m_func);
+    IR::Instr* memoryBarrier = IR::Instr::New(Js::OpCode::LOCKOR, stackTop, stackTop, zero, m_func);
+    newMove->InsertBefore(memoryBarrier);
 }
 
 IR::Instr*
@@ -2088,6 +2113,7 @@ LowererMDArch::LowerExitInstr(IR::ExitInstr * exitInstr)
         case Js::AsmJsRetType::Float:
             retReg = IR::RegOpnd::New(nullptr, this->GetRegReturnAsmJs(TyMachDouble), TyMachDouble, this->m_func);
             break;
+#ifdef ENABLE_WASM_SIMD
         case Js::AsmJsRetType::Int32x4:
             retReg = IR::RegOpnd::New(nullptr, this->GetRegReturnAsmJs(TySimd128I4), TySimd128I4, this->m_func);
             break;
@@ -2124,6 +2150,7 @@ LowererMDArch::LowerExitInstr(IR::ExitInstr * exitInstr)
         case Js::AsmJsRetType::Int64x2:
             retReg = IR::RegOpnd::New(nullptr, this->GetRegReturnAsmJs(TySimd128I2), TySimd128I2, this->m_func);
             break;
+#endif
         case Js::AsmJsRetType::Int64:
         case Js::AsmJsRetType::Signed:
             retReg = IR::RegOpnd::New(nullptr, this->GetRegReturn(TyMachReg), TyMachReg, this->m_func);
@@ -2171,7 +2198,6 @@ LowererMDArch::EmitInt4Instr(IR::Instr *instr, bool signExtend /* = false */)
     IR::Instr *newInstr = nullptr;
     IR::RegOpnd *regEDX;
 
-    bool legalize = false;
     bool isInt64Instr = instr->AreAllOpndInt64();
     if (!isInt64Instr)
     {
@@ -2188,10 +2214,6 @@ LowererMDArch::EmitInt4Instr(IR::Instr *instr, bool signExtend /* = false */)
             src2->SetType(TyInt32);
         }
     }
-    else
-    {
-        legalize = true;
-    }
 
     switch (instr->m_opcode)
     {
@@ -2205,17 +2227,14 @@ LowererMDArch::EmitInt4Instr(IR::Instr *instr, bool signExtend /* = false */)
 
     case Js::OpCode::Add_I4:
         LowererMD::ChangeToAdd(instr, false /* needFlags */);
-        legalize = true;
         break;
 
     case Js::OpCode::Sub_I4:
         LowererMD::ChangeToSub(instr, false /* needFlags */);
-        legalize = true;
         break;
 
     case Js::OpCode::Mul_I4:
         instr->m_opcode = Js::OpCode::IMUL2;
-        legalize = true;
         break;
 
     case Js::OpCode::DivU_I4:
@@ -2279,7 +2298,6 @@ idiv_common:
     case Js::OpCode::Rol_I4:
     case Js::OpCode::Ror_I4:
         LowererMD::ChangeToShift(instr, false /* needFlags */);
-        legalize = true;
         break;
 
     case Js::OpCode::BrTrue_I4:
@@ -2355,15 +2373,7 @@ br2_Common:
         instr->InsertAfter(IR::Instr::New(Js::OpCode::MOVSXD, dst64, instr->GetDst(), instr->m_func));
     }
 
-    if(legalize)
-    {
-        LowererMD::Legalize(instr);
-    }
-    else
-    {
-        // OpEq's
-        LowererMD::MakeDstEquSrc1(instr);
-    }
+    LowererMD::Legalize(instr);
 }
 
 #if !FLOATVAR
@@ -2888,6 +2898,236 @@ bool LowererMDArch::GenerateFastAnd(IR::Instr * instrAnd)
     return true;
 }
 
+bool LowererMDArch::GenerateFastDivAndRem_Signed(IR::Instr* instrDiv)
+{
+    Assert(instrDiv->m_opcode == Js::OpCode::Div_I4 || instrDiv->m_opcode == Js::OpCode::Rem_I4);
+
+    IR::Opnd* divident  = instrDiv->GetSrc1(); // nominator
+    IR::Opnd* divisor   = instrDiv->GetSrc2(); // denominator
+    IR::Opnd* dst       = instrDiv->GetDst();
+    int constDivisor    = divisor->AsIntConstOpnd()->AsInt32();
+    IR::Opnd* result = IR::RegOpnd::New(TyInt32, this->m_func);
+
+    bool isNegDevisor   = false;
+
+    Assert(divisor->GetType() == TyInt32); // constopnd->AsInt32() currently does silent casts between int32 and uint32
+
+    if (constDivisor < 0)
+    {
+        isNegDevisor = true;
+        constDivisor *= -1;
+    }
+
+    if (constDivisor <= 0 || constDivisor > INT32_MAX - 1)
+    {
+        return false;
+    }
+    if (constDivisor == 1)
+    {
+        // Wasm expects x/-1 not to be folded to -x.
+        if (m_func->GetJITFunctionBody()->IsWasmFunction() && isNegDevisor == true)
+        {
+            return false;
+        }
+        Lowerer::InsertMove(dst, divident, instrDiv);
+    }
+    else if (Math::IsPow2(constDivisor)) // Power of two
+    {
+        // Negative dividents needs the result incremented by 1
+        // Following sequence avoids branch
+        // For q = n/d and d = 2^k
+
+        //      sar q n k-1   //2^(k-1) if n < 0 else 0
+        //      shr q q 32-k
+        //      add q q n
+        //      sar q q k
+
+        int k = Math::Log2(constDivisor);
+        Lowerer::InsertShift(Js::OpCode::Shr_A, false, result, divident, IR::IntConstOpnd::New(k - 1, TyInt8, this->m_func), instrDiv);
+        Lowerer::InsertShift(Js::OpCode::ShrU_A, false, result, result, IR::IntConstOpnd::New(32 - k, TyInt8, this->m_func), instrDiv);
+        Lowerer::InsertAdd(false, result, result, divident, instrDiv);
+        Lowerer::InsertShift(Js::OpCode::Shr_A, false, dst, result, IR::IntConstOpnd::New(k, TyInt8, this->m_func), instrDiv);
+    }
+    else
+    {
+        // Ref: Warren's Hacker's Delight, Chapter 10
+        //
+        // For q = n/d where d is a signed constant
+        // Calculate magic_number (multiplier) and shift amounts (shiftAmt) and replace  div with mul and shift
+
+        Js::NumberUtilities::DivMagicNumber magic_number(Js::NumberUtilities::GenerateDivMagicNumber(constDivisor));
+        int32 multiplier = magic_number.multiplier;
+
+        // Compute mulhs divident, multiplier
+        IR::Opnd* quotient64reg = IR::RegOpnd::New(TyInt64, this->m_func);
+        IR::Opnd* divident64Reg = IR::RegOpnd::New(TyInt64, this->m_func);
+
+        Lowerer::InsertMove(divident64Reg, divident, instrDiv);
+        IR::Instr* imul = IR::Instr::New(LowererMD::MDImulOpcode, quotient64reg, IR::IntConstOpnd::New(multiplier, TyInt32, this->m_func), divident64Reg, this->m_func);
+        instrDiv->InsertBefore(imul);
+        LowererMD::Legalize(imul);
+
+        Lowerer::InsertShift(Js::OpCode::Shr_A, false, quotient64reg, quotient64reg, IR::IntConstOpnd::New(32, TyInt8, this->m_func), instrDiv);
+        Lowerer::InsertMove(result, quotient64reg, instrDiv);
+
+        // Special handling when divisor is of type 5 and 7.
+        if (multiplier < 0)
+        {
+            Lowerer::InsertAdd(false, result, result, divident, instrDiv);
+        }
+        if (magic_number.shiftAmt > 0)
+        {
+            Lowerer::InsertShift(Js::OpCode::Shr_A, false, result, result, IR::IntConstOpnd::New(magic_number.shiftAmt, TyInt8, this->m_func), instrDiv);
+        }
+        IR::Opnd* tmpReg2 = IR::RegOpnd::New(TyInt32, this->m_func);
+        Lowerer::InsertMove(tmpReg2, divident, instrDiv);
+
+        // Add 1 if divisor is less than 0
+        Lowerer::InsertShift(Js::OpCode::ShrU_A, false, tmpReg2, tmpReg2, IR::IntConstOpnd::New(31, TyInt8, this->m_func), instrDiv); // 1 if divident < 0, 0 otherwise
+        Lowerer::InsertAdd(false, dst, result, tmpReg2, instrDiv);
+    }
+
+    // Negate results if divident is less than zero
+    if (isNegDevisor)
+    {
+        Lowerer::InsertSub(false, dst, IR::IntConstOpnd::New(0, TyInt8, this->m_func), dst, instrDiv);
+    }
+    return true;
+}
+
+bool LowererMDArch::GenerateFastDivAndRem_Unsigned(IR::Instr* instrDiv)
+{
+    Assert(instrDiv->m_opcode == Js::OpCode::DivU_I4 || instrDiv->m_opcode == Js::OpCode::RemU_I4);
+
+    IR::Opnd* divident  = instrDiv->GetSrc1(); // nominator
+    IR::Opnd* divisor   = instrDiv->GetSrc2(); // denominator
+    IR::Opnd* dst       = instrDiv->GetDst();
+    uint constDivisor   = divisor->AsIntConstOpnd()->AsUint32();
+
+    Assert(divisor->GetType() == TyUint32); // IR::Opnd->AsInt32() and IR::Opnd->AsUint32() allows silent casts.
+
+    if (constDivisor <= 0 || constDivisor > UINT32_MAX - 1)
+    {
+        return false;
+    }
+
+    if (constDivisor == 1)
+    {
+        Lowerer::InsertMove(dst, divident, instrDiv);
+    }
+    else if (Math::IsPow2(constDivisor)) // Power of two
+    {
+        int k = Math::Log2(constDivisor);
+        Lowerer::InsertShift(Js::OpCode::ShrU_A, false, dst, divident, IR::IntConstOpnd::New(k, TyInt8, this->m_func), instrDiv);
+    }
+    else
+    {
+        // Ref: Warren's Hacker's Delight, Chapter 10
+        //
+        // For q = n/d where d is an unsigned constant
+        // Calculate magic_number (multiplier) and shift amounts (shiftAmt) and replace  div with mul and shift
+
+        Js::NumberUtilities::DivMagicNumber magic_number(Js::NumberUtilities::GenerateDivMagicNumber(constDivisor));
+        uint multiplier   = magic_number.multiplier;
+        int addIndicator  = magic_number.addIndicator;
+
+        IR::Opnd* quotient64Reg = IR::RegOpnd::New(TyUint64, this->m_func);
+        IR::Opnd* multiplierReg = IR::RegOpnd::New(TyUint64, this->m_func);
+
+        Lowerer::InsertMove(multiplierReg, IR::IntConstOpnd::New(multiplier, TyInt64, this->m_func), instrDiv);
+
+        IR::Instr* imul = IR::Instr::New(LowererMD::MDImulOpcode, quotient64Reg, divident, multiplierReg, this->m_func);
+        instrDiv->InsertBefore(imul);
+        LowererMD::Legalize(imul);
+        if (!addIndicator) // Simple case type 3, 5..
+        {
+            Lowerer::InsertShift(Js::OpCode::ShrU_A, false, quotient64Reg, quotient64Reg, IR::IntConstOpnd::New(32 + magic_number.shiftAmt, TyInt8, this->m_func), instrDiv);
+            Lowerer::InsertMove(dst, quotient64Reg, instrDiv);
+        }
+        else // Special case type 7..
+        {
+            IR::Opnd* tmpReg = IR::RegOpnd::New(TyUint32, this->m_func);
+            Lowerer::InsertMove(dst, divident, instrDiv);
+
+            Lowerer::InsertShift(Js::OpCode::ShrU_A, false, quotient64Reg, quotient64Reg, IR::IntConstOpnd::New(32, TyInt8, this->m_func), instrDiv);
+            Lowerer::InsertMove(tmpReg, quotient64Reg, instrDiv);
+
+            Lowerer::InsertSub(false, dst, dst, tmpReg, instrDiv);
+            Lowerer::InsertShift(Js::OpCode::ShrU_A, false, dst, dst, IR::IntConstOpnd::New(1, TyInt8, this->m_func), instrDiv);
+            Lowerer::InsertAdd(false, dst, dst, tmpReg, instrDiv);
+            Lowerer::InsertShift(Js::OpCode::ShrU_A, false, dst, dst, IR::IntConstOpnd::New(magic_number.shiftAmt-1, TyInt8, this->m_func), instrDiv);
+        }
+    }
+    return true;
+}
+
+bool LowererMDArch::GenerateFastDivAndRem(IR::Instr* instrDiv, IR::LabelInstr* bailOutLabel)
+{
+    Assert(instrDiv);
+    IR::Opnd* divident  = instrDiv->GetSrc1(); // nominator
+    IR::Opnd* divisor   = instrDiv->GetSrc2(); // denominator
+    IR::Opnd* dst       = instrDiv->GetDst();
+
+    if (divident->GetType() != TyInt32 && divident->GetType() != TyUint32)
+    {
+        return false;
+    }
+
+    if (divident->IsRegOpnd() && divident->AsRegOpnd()->IsSameRegUntyped(dst))
+    {
+        if (instrDiv->m_opcode == Js::OpCode::Rem_I4 || instrDiv->m_opcode == Js::OpCode::RemU_I4 || bailOutLabel)
+        {
+            divident = IR::RegOpnd::New(TyInt32, instrDiv->m_func);
+            Lowerer::InsertMove(divident, instrDiv->GetSrc1(), instrDiv);
+        }
+    }
+
+    if (PHASE_OFF(Js::BitopsFastPathPhase, this->m_func) || !divisor->IsIntConstOpnd())
+    {
+        return false;
+    }
+
+    bool success = false;
+    if (instrDiv->m_opcode == Js::OpCode::DivU_I4 || instrDiv->m_opcode == Js::OpCode::RemU_I4)
+    {
+        success = GenerateFastDivAndRem_Unsigned(instrDiv);
+    }
+    else if (instrDiv->m_opcode == Js::OpCode::Div_I4 || instrDiv->m_opcode == Js::OpCode::Rem_I4)
+    {
+        success = GenerateFastDivAndRem_Signed(instrDiv);
+    }
+
+    if (!success)
+    {
+        return false;
+    }
+    // For reminder/mod ops
+    if (instrDiv->m_opcode == Js::OpCode::Rem_I4 || instrDiv->m_opcode == Js::OpCode::RemU_I4 || bailOutLabel)
+    {
+        // For q = n/d
+        // mul dst, dst, divident
+        // sub dst, divident, dst
+        IR::Opnd* reminderOpnd = dst;;
+        if (bailOutLabel)
+        {
+            reminderOpnd = IR::RegOpnd::New(TyInt32, instrDiv->m_func);
+        }
+
+        IR::Instr* imul = IR::Instr::New(LowererMD::MDImulOpcode, reminderOpnd, dst, divisor, instrDiv->m_func);
+        instrDiv->InsertBefore(imul);
+        LowererMD::Legalize(imul);
+        Lowerer::InsertSub(false, reminderOpnd, divident, reminderOpnd, instrDiv);
+        if (bailOutLabel)
+        {
+            Lowerer::InsertTestBranch(reminderOpnd, reminderOpnd, Js::OpCode::BrNeq_A, bailOutLabel, instrDiv);
+        }
+    }
+
+    // DIV/REM has been optimized and can be removed now.
+    instrDiv->Remove();
+    return true;
+}
+
 bool LowererMDArch::GenerateFastXor(IR::Instr * instrXor)
 {
     return true;
@@ -3131,6 +3371,12 @@ LowererMDArch::FinalLower()
                 instr->SwapOpnds();
                 instr->FreeSrc2();
             }
+            break;
+        case Js::OpCode::LOCKCMPXCHG8B:
+        case Js::OpCode::CMPXCHG8B:
+            // Get rid of the deps and srcs
+            instr->FreeDst();
+            instr->FreeSrc2();
             break;
         }
     } NEXT_INSTR_BACKWARD_EDITING_IN_RANGE;

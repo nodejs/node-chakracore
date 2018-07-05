@@ -30,6 +30,10 @@ namespace Js
         friend class BuiltInPropertyRecords;
         friend class DOMBuiltInPropertyRecords;
 
+#if DBG
+        DEFINE_VTABLE_CTOR_NOBASE(PropertyRecord); // used for type assertions
+#endif
+
     private:
         Field(PropertyId) pid;
         //Made this mutable so that we can set it for Built-In js property records when we are adding it.
@@ -72,6 +76,8 @@ namespace Js
 
         bool IsBound() const { return isBound; }
         bool IsSymbol() const { return isSymbol; }
+
+        bool ShouldDisableWriteCache() const;
 
         void SetHash(uint hash) const
         {

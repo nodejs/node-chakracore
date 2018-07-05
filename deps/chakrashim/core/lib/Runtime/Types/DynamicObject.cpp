@@ -58,8 +58,8 @@ namespace Js
         int propertyCount = typeHandler->GetPropertyCount();
         int inlineSlotCapacity = GetTypeHandler()->GetInlineSlotCapacity();
         int inlineSlotCount = min(inlineSlotCapacity, propertyCount);
-        Var * srcSlots = reinterpret_cast<Var*>(reinterpret_cast<size_t>(instance) + typeHandler->GetOffsetOfInlineSlots());
-        Field(Var) * dstSlots = reinterpret_cast<Field(Var)*>(reinterpret_cast<size_t>(this) + typeHandler->GetOffsetOfInlineSlots());
+        Field(Var)* srcSlots = instance->GetInlineSlots();
+        Field(Var)* dstSlots = this->GetInlineSlots();
 #if !FLOATVAR
         ScriptContext * scriptContext = this->GetScriptContext();
 #endif
@@ -322,7 +322,7 @@ namespace Js
 
             // If this object is used as a prototype, the has-only-writable-data-properties-in-prototype-chain cache needs to be
             // invalidated here since the type handler of 'objectArray' is not marked as being used as a prototype
-            GetType()->GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
+            GetType()->GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->Clear();
         }
     }
 
@@ -349,6 +349,9 @@ namespace Js
         // For now, i have added only Aux Slot -> so new inlineSlotCapacity should be 2.
         AssertMsg(DynamicObject::IsTypeHandlerCompatibleForObjectHeaderInlining(this->GetTypeHandler(), type->GetTypeHandler()),
             "Object is ObjectHeaderInlined and should have compatible TypeHandlers for proper transition");
+
+        AssertMsg(!JavascriptObject::IsPrototypeOfStopAtProxy(this, type->GetPrototype(), GetScriptContext()),
+            "Replacing the type should not create a cycle in the prototype chain");
 
         this->type = type;
     }
@@ -565,7 +568,7 @@ namespace Js
         }
 
         PathTypeHandlerBase *const oldTypeHandler = PathTypeHandlerBase::FromTypeHandler(GetTypeHandler());
-        SimplePathTypeHandler *const newTypeHandler = oldTypeHandler->DeoptimizeObjectHeaderInlining(GetLibrary());
+        PathTypeHandlerBase *const newTypeHandler = oldTypeHandler->DeoptimizeObjectHeaderInlining(GetLibrary());
 
         const PropertyIndex newInlineSlotCapacity = newTypeHandler->GetInlineSlotCapacity();
         DynamicTypeHandler::AdjustSlots(
@@ -582,11 +585,11 @@ namespace Js
 
     void DynamicObject::ChangeType()
     {
+        // Allocation won't throw any more, otherwise we should use AutoDisableInterrupt to guard here
         AutoDisableInterrupt autoDisableInterrupt(this->GetScriptContext()->GetThreadContext());
-        
+
         Assert(!GetDynamicType()->GetIsShared() || GetTypeHandler()->GetIsShared());
         this->type = this->DuplicateType();
-        
         autoDisableInterrupt.Completed();
     }
 
@@ -805,6 +808,152 @@ namespace Js
         }
     }
 
+    Field(Var)* DynamicObject::GetInlineSlots() const
+    {
+        return reinterpret_cast<Field(Var)*>(reinterpret_cast<size_t>(this) + this->GetOffsetOfInlineSlots());
+    }
+
+    bool DynamicObject::IsCompatibleForCopy(DynamicObject* from) const
+    {
+        if (this->GetTypeHandler()->GetInlineSlotCapacity() != from->GetTypeHandler()->GetInlineSlotCapacity())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: inline slot capacity doesn't match, from: %u, to: %u\n"),
+                    from->GetTypeHandler()->GetInlineSlotCapacity(),
+                    this->GetTypeHandler()->GetInlineSlotCapacity());
+            }
+            return false;
+        }
+        if (!from->GetTypeHandler()->IsPathTypeHandler())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: Don't have PathTypeHandler\n"));
+            }
+            return false;
+        }
+        if (this->HasObjectArray())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: to obj has object array\n"));
+            }
+            return false;
+        }
+        if (from->GetOffsetOfInlineSlots() != this->GetOffsetOfInlineSlots())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: Don't have same inline slot offset\n"));
+            }
+            return false;
+        }
+        if (PathTypeHandlerBase::FromTypeHandler(from->GetTypeHandler())->HasAccessors())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: type handler has accessors\n"));
+            }
+            return false;
+        }
+        if (this->GetPrototype() != from->GetPrototype())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: Prototypes don't match\n"));
+            }
+            return false;
+        }
+        if (!from->GetTypeHandler()->AllPropertiesAreEnumerable())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: from obj has non-enumerable properties\n"));
+            }
+            return false;
+        }
+        if (from->IsExternal())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: from obj is External\n"));
+            }
+            return false;
+        }
+        if (this->GetScriptContext() != from->GetScriptContext())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: from obj is from different ScriptContext\n"));
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    bool DynamicObject::TryCopy(DynamicObject* from)
+    {
+#if ENABLE_TTD
+        if (from->GetScriptContext()->ShouldPerformRecordOrReplayAction())
+        {
+            return false;
+        }
+#endif
+
+        if (PHASE_OFF1(ObjectCopyPhase))
+        {
+            return false;
+        }
+        // Validate that objects are compatible
+        if (!this->IsCompatibleForCopy(from))
+        {
+            return false;
+        }
+        // Share the type
+        // Note: this will mark type as shared in case of success
+        if (!from->GetDynamicType()->ShareType())
+        {
+            if (PHASE_TRACE1(ObjectCopyPhase))
+            {
+                Output::Print(_u("ObjectCopy: Can't copy: failed to share type\n"));
+            }
+            return false;
+        }
+
+        // Update this object
+        this->ReplaceType(from->GetDynamicType());
+        this->InitSlots(this);
+        const int slotCapacity = this->GetTypeHandler()->GetSlotCapacity();
+        const uint16 inlineSlotCapacity = this->GetTypeHandler()->GetInlineSlotCapacity();
+        const int auxSlotCapacity = slotCapacity - inlineSlotCapacity;
+
+        if (auxSlotCapacity > 0)
+        {
+            CopyArray(this->auxSlots, auxSlotCapacity, from->auxSlots, auxSlotCapacity);
+        }
+        if (inlineSlotCapacity != 0)
+        {
+            Field(Var)* thisInlineSlots = this->GetInlineSlots();
+            Field(Var)* fromInlineSlots = from->GetInlineSlots();
+
+            CopyArray(thisInlineSlots, inlineSlotCapacity, fromInlineSlots, inlineSlotCapacity);
+        }
+        if (from->HasObjectArray())
+        {
+            Assert(!this->HasObjectArray());
+            Assert(!this->IsObjectHeaderInlinedTypeHandler());
+            this->SetObjectArray(JavascriptArray::DeepCopyInstance(from->GetObjectArrayOrFlagsAsArray()));
+        }
+        if (PHASE_TRACE1(ObjectCopyPhase))
+        {
+            Output::Print(_u("ObjectCopy succeeded\n"));
+        }
+
+        return true;
+    }
+
     bool
     DynamicObject::GetHasNoEnumerableProperties()
     {
@@ -942,10 +1091,9 @@ namespace Js
         TTD::NSSnapObjects::StdExtractSetKindSpecificInfo<void*, TTD::NSSnapObjects::SnapObjectType::SnapDynamicObject>(objData, nullptr);
     }
 
-    Js::Var const* DynamicObject::GetInlineSlots_TTD() const
+    Field(Js::Var) const* DynamicObject::GetInlineSlots_TTD() const
     {
-        return reinterpret_cast<Var const*>(
-            reinterpret_cast<size_t>(this) + this->GetTypeHandler()->GetOffsetOfInlineSlots());
+        return this->GetInlineSlots();
     }
 
     Js::Var const* DynamicObject::GetAuxSlots_TTD() const

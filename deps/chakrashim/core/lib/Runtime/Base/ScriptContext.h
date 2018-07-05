@@ -18,12 +18,15 @@ using namespace PlatformAgnostic;
 
 class NativeCodeGenerator;
 class BackgroundParser;
+class BGParseManager;
 struct IActiveScriptDirect;
-#ifdef ENABLE_BASIC_TELEMETRY
-class ScriptContextTelemetry;
-#endif
+
 namespace Js
 {
+#ifdef ENABLE_BASIC_TELEMETRY
+    class ScriptContextTelemetry;
+#endif
+
     class ScriptContext;
     class ScriptEditQuery;
     class MutationBreakpoint;
@@ -32,6 +35,7 @@ namespace Js
     struct HaltCallback;
     struct DebuggerOptionsCallback;
     class ModuleRecordBase;
+    class SimpleDataCacheWrapper;
 }
 
 // Created for every source buffer passed by host.
@@ -119,7 +123,8 @@ enum LoadScriptFlag
     LoadScriptFlag_isFunction = 0x20,                   // input script is in a function scope, not global code.
     LoadScriptFlag_Utf8Source = 0x40,                   // input buffer is utf8 encoded.
     LoadScriptFlag_LibraryCode = 0x80,                  // for debugger, indicating 'not my code'
-    LoadScriptFlag_ExternalArrayBuffer = 0x100          // for ExternalArrayBuffer
+    LoadScriptFlag_ExternalArrayBuffer = 0x100,         // for ExternalArrayBuffer
+    LoadScriptFlag_CreateParserState = 0x200            // create the parser state cache while parsing.
 };
 
 #ifdef INLINE_CACHE_STATS
@@ -273,6 +278,7 @@ namespace Js
             WinRTConstructorAllowed(Configuration::Global.flags.WinRTConstructorAllowed),
 #endif
             NoNative(Configuration::Global.flags.NoNative),
+            NoDynamicThunks(false),
             isOptimizedForManyInstances(isOptimizedForManyInstances),
             threadConfig(threadConfig)
         {
@@ -296,7 +302,8 @@ namespace Js
 #undef FLAG
 #undef FORWARD_THREAD_CONFIG
 
-        bool SupportsCollectGarbage() const { return true; }
+        void ForceNoDynamicThunks() { this->NoDynamicThunks = true; }
+        bool IsNoDynamicThunks() const { return this->NoDynamicThunks; }
 
         void ForceNoNative() { this->NoNative = true; }
         void ForceNative() { this->NoNative = false; }
@@ -341,6 +348,7 @@ namespace Js
 
         // Per script configurations
         bool NoNative;
+        bool NoDynamicThunks;
         BOOL fCanOptimizeGlobalLookup;
         const bool isOptimizedForManyInstances;
         const ThreadConfiguration * const threadConfig;
@@ -549,12 +557,15 @@ namespace Js
         InlineCache * GetValueOfInlineCache() const { return valueOfInlineCache;}
         InlineCache * GetToStringInlineCache() const { return toStringInlineCache; }
 
+        NoSpecialPropertyScriptRegistry* GetNoSpecialPropertyRegistry() { return &this->noSpecialPropertyRegistry; }
+        OnlyWritablePropertyScriptRegistry* GetOnlyWritablePropertyRegistry() { return &this->onlyWritablePropertyRegistry; }
     private:
 
-        JavascriptFunction* GenerateRootFunction(ParseNodePtr parseTree, uint sourceIndex, Parser* parser, uint32 grfscr, CompileScriptException * pse, const char16 *rootDisplayName);
+        JavascriptFunction* GenerateRootFunction(ParseNodeProg * parseTree, uint sourceIndex, Parser* parser, uint32 grfscr, CompileScriptException * pse, const char16 *rootDisplayName);
 
         typedef void (*EventHandler)(ScriptContext *);
-        ScriptContext ** registeredPrototypeChainEnsuredToHaveOnlyWritableDataPropertiesScriptContext;
+        NoSpecialPropertyScriptRegistry noSpecialPropertyRegistry;
+        OnlyWritablePropertyScriptRegistry onlyWritablePropertyRegistry;
 
         ArenaAllocator generalAllocator;
 #ifdef ENABLE_BASIC_TELEMETRY
@@ -564,7 +575,7 @@ namespace Js
         ArenaAllocator dynamicProfileInfoAllocator;
         InlineCacheAllocator inlineCacheAllocator;
         CacheAllocator isInstInlineCacheAllocator;
-        CacheAllocator forInCacheAllocator;
+        CacheAllocator enumeratorCacheAllocator;
 
         ArenaAllocator* interpreterArena;
         ArenaAllocator* guestArena;
@@ -633,16 +644,21 @@ public:
         int convertDeferredToSimpleDictionaryCount;
         int convertSimpleToDictionaryCount;
         int convertSimpleToSimpleDictionaryCount;
-        int convertPathToDictionaryCount1;
-        int convertPathToDictionaryCount2;
-        int convertPathToDictionaryCount3;
-        int convertPathToDictionaryCount4;
+        int convertPathToDictionaryExceededLengthCount;
+        int convertPathToDictionaryDeletedCount;
+        int convertPathToDictionaryAttributesCount;
+        int convertPathToDictionaryItemAttributesCount;
+        int convertPathToDictionaryAccessorsCount;
+        int convertPathToDictionaryItemAccessorsCount;
+        int convertPathToDictionaryExtensionsCount;
+        int convertPathToDictionaryProtoCount;
+        int convertPathToDictionaryNoRootCount;
+        int convertPathToDictionaryResetCount;
         int convertPathToSimpleDictionaryCount;
         int convertSimplePathToPathCount;
         int convertSimpleDictionaryToDictionaryCount;
         int convertSimpleSharedDictionaryToNonSharedCount;
         int convertSimpleSharedToNonSharedCount;
-        int simplePathTypeHandlerCount;
         int pathTypeHandlerCount;
         int promoteCount;
         int cacheCount;
@@ -732,9 +748,9 @@ public:
 #ifdef ENABLE_BASIC_TELEMETRY
 
     private:
-        ScriptContextTelemetry* telemetry;
+        Js::ScriptContextTelemetry * telemetry;
     public:
-        ScriptContextTelemetry& GetTelemetry();
+        Js::ScriptContextTelemetry& GetTelemetry();
         bool HasTelemetry();
 
 #endif
@@ -930,6 +946,12 @@ private:
 
         void InternalClose();
 
+        template <typename TProperty> void InvalidatePropertyCache(PropertyId propertyId, Type* type);
+        void InvalidatePropertyRecordUsageCache(PropertyRecordUsageCache* propertyRecordUsageCache, Type *type);
+        template <typename TProperty> TProperty* TryGetProperty(PropertyId propertyId);
+        template <typename TProperty> TProperty* GetProperty(PropertyId propertyId, const PropertyRecord* propertyRecord);
+        template <typename TProperty> TProperty* CreateAndCacheSymbolOrPropertyString(const PropertyRecord* propertyRecord);
+
     public:
 
 #ifdef LEAK_REPORT
@@ -1050,6 +1072,7 @@ private:
         inline bool IsHeapEnumInProgress() { return GetRecycler()->IsHeapEnumInProgress(); }
 
         bool IsInterpreted() { return config.IsNoNative(); }
+        void ForceNoDynamicThunks() { config.ForceNoDynamicThunks(); }
         void ForceNoNative() { config.ForceNoNative(); }
         void ForceNative() { config.ForceNative(); }
         ScriptConfiguration const * GetConfig(void) const { return &config; }
@@ -1077,11 +1100,11 @@ private:
         bool IsInNewFunctionMap(EvalMapString const& key, FunctionInfo **ppFuncInfo);
         void AddToNewFunctionMap(EvalMapString const& key, FunctionInfo *pFuncInfo);
 
-        SourceContextInfo * GetSourceContextInfo(DWORD_PTR hostSourceContext, IActiveScriptDataCache* profileDataCache);
+        SourceContextInfo * GetSourceContextInfo(DWORD_PTR hostSourceContext, SimpleDataCacheWrapper* dataCacheWrapper);
         SourceContextInfo * GetSourceContextInfo(uint hash);
         SourceContextInfo * CreateSourceContextInfo(uint hash, DWORD_PTR hostSourceContext);
         SourceContextInfo * CreateSourceContextInfo(DWORD_PTR hostSourceContext, char16 const * url, size_t len,
-            IActiveScriptDataCache* profileDataCache, char16 const * sourceMapUrl = nullptr, size_t sourceMapUrlLen = 0);
+            SimpleDataCacheWrapper* dataCacheWrapper, char16 const * sourceMapUrl = nullptr, size_t sourceMapUrlLen = 0);
 
 #if defined(LEAK_REPORT) || defined(CHECK_MEMORY_LEAK)
         void ClearSourceContextInfoMaps()
@@ -1247,7 +1270,7 @@ private:
         bool IsWellKnownHostType(Js::TypeId typeId) { return threadContext->IsWellKnownHostType<wellKnownType>(typeId); }
         void SetWellKnownHostTypeId(WellKnownHostType wellKnownType, Js::TypeId typeId) { threadContext->SetWellKnownHostTypeId(wellKnownType, typeId); }
 
-        ParseNodePtr ParseScript(Parser* parser, const byte* script,
+        ParseNodeProg * ParseScript(Parser* parser, const byte* script,
             size_t cb, SRCINFO const * pSrcInfo,
             CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo,
             const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag,
@@ -1258,6 +1281,69 @@ private:
             CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo,
             const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag,
             Js::Var scriptSource = nullptr);
+
+        JavascriptFunction* LoadScriptInternal(Parser* parser,
+            const byte* script, size_t cb,
+            SRCINFO const * pSrcInfo,
+            CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo,
+            const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag,
+            Js::Var scriptSource = nullptr);
+
+        HRESULT TryDeserializeParserState(
+            _In_ ULONG grfscr,
+            _In_ uint sourceCRC,
+            _In_ charcount_t cchLength,
+            _In_ SRCINFO *srcInfo,
+            _In_ Js::Utf8SourceInfo* utf8SourceInfo,
+            _Inout_ uint& sourceIndex,
+            _In_ bool isCesu8,
+            _In_opt_ NativeModule* nativeModule,
+            _Out_ Js::ParseableFunctionInfo ** func,
+            _Out_ byte** parserStateCacheBuffer,
+            _Out_ DWORD* parserStateCacheByteCount,
+            _In_ Js::SimpleDataCacheWrapper* pDataCache);
+
+        HRESULT TrySerializeParserState(
+            _In_ uint sourceCRC,
+            _In_ LPCUTF8 pszSrc,
+            _In_ size_t cbLength,
+            _In_ SRCINFO *srcInfo,
+            _In_ Js::ParseableFunctionInfo* func,
+            _In_ byte* parserStateCacheBuffer,
+            _In_ DWORD parserStateCacheByteCount,
+            _In_ Js::SimpleDataCacheWrapper* pDataCache);
+
+        HRESULT CompileUTF8Core(
+            __in Parser& ps,
+            __in Js::Utf8SourceInfo* utf8SourceInfo,
+            __in SRCINFO *srcInfo,
+            __in BOOL fOriginalUTF8Code,
+            __in LPCUTF8 pszSrc,
+            __in size_t cbLength,
+            __in ULONG grfscr,
+            __in CompileScriptException *pse,
+            __inout charcount_t& cchLength,
+            __out size_t& srcLength,
+            __out uint& sourceIndex,
+            __deref_out Js::ParseableFunctionInfo ** func,
+            __in_opt Js::SimpleDataCacheWrapper* pDataCache);
+
+        HRESULT SerializeParserState(const byte* script, size_t cb,
+            SRCINFO const * pSrcInfo,
+            CompileScriptException * pse, Utf8SourceInfo** ppSourceInfo,
+            const char16 *rootDisplayName, LoadScriptFlag loadScriptFlag,
+            byte** buffer, DWORD* bufferSize, ArenaAllocator* alloc,
+            JavascriptFunction** function = nullptr,
+            Js::Var scriptSource = nullptr);
+
+        void MakeUtf8SourceInfo(const byte* script,
+            size_t cb,
+            SRCINFO const * pSrcInfo,
+            Utf8SourceInfo** ppSourceInfo,
+            LoadScriptFlag loadScriptFlag,
+            Js::Var scriptSource);
+
+        ULONG GetParseFlags(LoadScriptFlag loadScriptFlag, Utf8SourceInfo* pSourceInfo, SourceContextInfo* sourceContextInfo);
 
         ArenaAllocator* GeneralAllocator() { return &generalAllocator; }
 
@@ -1277,7 +1363,7 @@ private:
 #endif
         InlineCacheAllocator* GetInlineCacheAllocator() { return &inlineCacheAllocator; }
         CacheAllocator* GetIsInstInlineCacheAllocator() { return &isInstInlineCacheAllocator; }
-        CacheAllocator * ForInCacheAllocator() { return &forInCacheAllocator; }
+        CacheAllocator * GetEnumeratorAllocator() { return &enumeratorCacheAllocator; }
         ArenaAllocator* DynamicProfileInfoAllocator() { return &dynamicProfileInfoAllocator; }
 
 #ifdef ENABLE_SCRIPT_DEBUGGING
@@ -1332,9 +1418,11 @@ private:
         void SetDisposeDisposeByFaultInjectionEventHandler(EventHandler eventHandler);
 #endif
         EnumeratedObjectCache* GetEnumeratedObjectCache() { return &(this->Cache()->enumObjCache); }
-        PropertyString* TryGetPropertyString(PropertyId propertyId);
         PropertyString* GetPropertyString(PropertyId propertyId);
-        void InvalidatePropertyStringCache(PropertyId propertyId, Type* type);
+        PropertyString* GetPropertyString(const PropertyRecord* propertyRecord);
+        JavascriptSymbol* GetSymbol(PropertyId propertyId);
+        JavascriptSymbol* GetSymbol(const PropertyRecord* propertyRecord);
+        void InvalidatePropertyStringAndSymbolCaches(PropertyId propertyId, Type* type);
         JavascriptString* GetIntegerString(Var aValue);
         JavascriptString* GetIntegerString(int value);
         JavascriptString* GetIntegerString(uint value);
@@ -1353,12 +1441,8 @@ private:
         BOOL IsNativeAddress(void * codeAddr);
 #endif
 
-        uint SaveSourceCopy(Utf8SourceInfo* sourceInfo, int cchLength, bool isCesu8);
-        bool SaveSourceCopy(Utf8SourceInfo* const sourceInfo, int cchLength, bool isCesu8, uint * index);
-
         uint SaveSourceNoCopy(Utf8SourceInfo* sourceInfo, int cchLength, bool isCesu8);
 
-        void CloneSources(ScriptContext* sourceContext);
         Utf8SourceInfo* GetSource(uint sourceIndex);
 
         uint SourceCount() const { return (uint)sourceList->Count(); }
@@ -1450,8 +1534,6 @@ private:
 
         void FreeFunctionEntryPoint(Js::JavascriptMethod codeAddress, Js::JavascriptMethod thunkAddress);
 
-    private:
-        uint CloneSource(Utf8SourceInfo* info);
     public:
         void RegisterProtoInlineCache(InlineCache *pCache, PropertyId propId);
         void InvalidateProtoCaches(const PropertyId propertyId);
@@ -1465,7 +1547,7 @@ private:
 #endif
         void ClearInlineCaches();
         void ClearIsInstInlineCaches();
-        void ClearForInCaches();
+        void ClearEnumeratorCaches();
 #ifdef PERSISTENT_INLINE_CACHES
         void ClearInlineCachesWithDeadWeakRefs();
 #endif
@@ -1473,13 +1555,6 @@ private:
 #if ENABLE_NATIVE_CODEGEN
         void RegisterConstructorCache(Js::PropertyId propertyId, Js::ConstructorCache* cache);
 #endif
-
-    public:
-        void RegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertiesScriptContext();
-    private:
-        void DoRegisterPrototypeChainEnsuredToHaveOnlyWritableDataPropertiesScriptContext();
-    public:
-        void ClearPrototypeChainEnsuredToHaveOnlyWritableDataPropertiesCaches();
 
     public:
         JavascriptString * GetLastNumberToStringRadix10(double value);
@@ -1733,6 +1808,7 @@ private:
         virtual intptr_t GetNegativeZeroAddr() const override;
         virtual intptr_t GetNumberTypeStaticAddr() const override;
         virtual intptr_t GetStringTypeStaticAddr() const override;
+        virtual intptr_t GetSymbolTypeStaticAddr() const override;
         virtual intptr_t GetObjectTypeAddr() const override;
         virtual intptr_t GetObjectHeaderInlinedTypeAddr() const override;
         virtual intptr_t GetRegexTypeAddr() const override;
@@ -1751,9 +1827,6 @@ private:
         virtual intptr_t GetNumberAllocatorAddr() const override;
         virtual intptr_t GetRecyclerAddr() const override;
         virtual bool GetRecyclerAllowNativeCodeBumpAllocation() const override;
-#ifdef ENABLE_SIMDJS
-        virtual bool IsSIMDEnabled() const override;
-#endif
         virtual bool IsPRNGSeeded() const override;
         virtual intptr_t GetBuiltinFunctionsBaseAddr() const override;
 

@@ -5,6 +5,8 @@
 #pragma once
 
 #include "Core/CommonTypedefs.h"
+#include "ChakraICU.h"
+#include "sal.h"
 
 namespace PlatformAgnostic
 {
@@ -19,21 +21,58 @@ namespace PlatformAgnostic
             InvalidParameter,
             InvalidUnicodeText,
             InsufficientBuffer,
+            OutOfMemory,
             UntranslatedError
         };
 
         // The form to use for NormalizeString
-        // Intentionally compatible with the NORM_FORM Win32 enum
+        // Intentionally compatible with backing Normalization Kind enums if available
+        // enum NormalizationForm
+        // {
+        //     C,     // Each base plus combining characters to the canonical precomposed equivalent.
+        //     D,     // Each precomposed character to its canonical decomposed equivalent.
+        //     KC,    // Each base plus combining characters to the canonical precomposed
+        //            //   equivalents and all compatibility characters to their equivalents.
+        //     KD,    // Each precomposed character to its canonical decomposed equivalent
+        //            //   and all compatibility characters to their equivalents.
+        //     Other, // Not supported
+        // };
+#if !defined(HAS_ICU) && !_WIN32
         enum NormalizationForm
         {
-            Other = 0, // Not supported
-            C = 0x1,   // Each base plus combining characters to the canonical precomposed equivalent.
-            D = 0x2,   // Each precomposed character to its canonical decomposed equivalent.
-            KC = 0x5,  // Each base plus combining characters to the canonical precomposed
-                       //   equivalents and all compatibility characters to their equivalents.
-            KD = 0x6   // Each precomposed character to its canonical decomposed equivalent
-                       //   and all compatibility characters to their equivalents.
+            C,
+            D,
+            KC,
+            KD,
+            Other
         };
+#elif !defined(HAS_ICU) && _WIN32
+        enum NormalizationForm
+        {
+            C = NORM_FORM::NormalizationC,
+            D = NORM_FORM::NormalizationD,
+            KC = NORM_FORM::NormalizationKC,
+            KD = NORM_FORM::NormalizationKD,
+            Other = NORM_FORM::NormalizationOther
+        };
+#else
+        // ICU does not have specific enums for KC and KD
+        // Instead, they have a string argument, "nfc" or "nfkc",
+        // coupled with the COMPOSE or DECOMPOSE enum variant
+        // ICU does not have an explicit "other", but the static_asserts
+        // in UnicodeText.ICU.cpp ensure that Other is different from C/D/KC/KD
+
+        static const char * const ICU_NORMALIZATION_NFC = "nfc";
+        static const char * const ICU_NORMALIZATION_NFKC = "nfkc";
+        enum NormalizationForm
+        {
+            C = UNORM2_COMPOSE,
+            D = UNORM2_DECOMPOSE,
+            KC = INT_MIN + UNORM2_COMPOSE,
+            KD = INT_MIN + UNORM2_DECOMPOSE,
+            Other = INT_MAX
+        };
+#endif
 
         // Mapping of a unicode codepoint to a class of characters
         // Used by the legacy API
@@ -158,33 +197,17 @@ namespace PlatformAgnostic
         //
         // Change the case of a string using linguistic rules
         // Params:
-        //   caseFlags: the case to convert to
         //   sourceString: The string to convert
-        //   sourceLength: The number of characters in the source string. This must be provided, the function does not assume null-termination etc. Length should be greater than 0.
+        //   sourceLength: The number of characters in the source string. This must be provided, the function does not assume null-termination. Length should be greater than 0.
         //   destString:   Optional pointer to the destination string buffer. It can be null if destLength is 0, if you want the required buffer size
         //   destLength:   Size in characters of the destination buffer, or 0 if the function shuld just return the required character count for the dest buffer.
         //   pErrorOut:    Set to NoError, or the actual error if one occurred.
         //
         // Return Value:
-        //   length of the translated string in the destination buffer
-        //   If the return value is less than or equal to 0, then see the value of pErrorOut to understand the error
+        //   The length required to convert sourceString to the given case, even if destString was not large enough to hold it, including the null terminator
         //
-        int32 ChangeStringLinguisticCase(CaseFlags caseFlags, const char16* sourceString, uint32 sourceLength, char16* destString, uint32 destLength, ApiError* pErrorOut);
-
-        //
-        // Change the case of a string using linguistic rules
-        // The string is changed in place
-        //
-        // Params:
-        //   caseFlags: the case to convert to
-        //   sourceString: The string to convert
-        //   sourceLength: The number of characters in the source string. This must be provided, the function does not assume null-termination etc. Length should be greater than 0.
-        //
-        // Return Value:
-        //   length of the translated string in the destination buffer
-        //   If the return value is less than or equal to 0, then see the value of pErrorOut to understand the error
-        //
-        uint32 ChangeStringCaseInPlace(CaseFlags caseFlags, char16* stringToChange, uint32 bufferLength);
+        template<bool toUpper, bool useInvariant>
+        charcount_t ChangeStringLinguisticCase(_In_count_(sourceLength) const char16* sourceString, _In_ charcount_t sourceLength, _Out_writes_(destLength) char16* destString, _In_ charcount_t destLength, _Out_ ApiError* pErrorOut);
 
         //
         // Return the classification type of the character using Unicode 2.0 rules

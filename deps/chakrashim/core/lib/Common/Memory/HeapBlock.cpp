@@ -7,92 +7,6 @@
 #include <cxxabi.h>
 #endif
 
-
-#if ENABLE_MEM_STATS
-MemStats::MemStats()
-    : objectByteCount(0), totalByteCount(0)
-{}
-
-void MemStats::Reset()
-{
-    objectByteCount = 0;
-    totalByteCount = 0;
-}
-
-size_t MemStats::FreeBytes() const
-{
-    return totalByteCount - objectByteCount;
-}
-
-double MemStats::UsedRatio() const
-{
-    return (double)objectByteCount / totalByteCount;
-}
-
-void MemStats::Aggregate(const MemStats& other)
-{
-    objectByteCount += other.objectByteCount;
-    totalByteCount += other.totalByteCount;
-}
-
-#ifdef DUMP_FRAGMENTATION_STATS
-HeapBucketStats::HeapBucketStats()
-    : totalBlockCount(0), objectCount(0), finalizeCount(0)
-{}
-
-void HeapBucketStats::Reset()
-{
-    MemStats::Reset();
-    totalBlockCount = 0;
-    objectCount = 0;
-    finalizeCount = 0;
-}
-
-void HeapBucketStats::Dump() const
-{
-    Output::Print(_u("%5d %7d %7d %11lu %11lu %11lu   %6.2f%%\n"),
-        totalBlockCount, objectCount, finalizeCount,
-        static_cast<ULONG>(objectByteCount),
-        static_cast<ULONG>(FreeBytes()),
-        static_cast<ULONG>(totalByteCount),
-        UsedRatio() * 100);
-}
-#endif
-
-void HeapBucketStats::PreAggregate()
-{
-    // When first enter Pre-Aggregate state, clear data and mark state.
-    if (!(totalByteCount & 1))
-    {
-        Reset();
-        totalByteCount |= 1;
-    }
-}
-
-void HeapBucketStats::BeginAggregate()
-{
-    // If was Pre-Aggregate state, keep data and clear state
-    if (totalByteCount & 1)
-    {
-        totalByteCount &= ~1;
-    }
-    else
-    {
-        Reset();
-    }
-}
-
-void HeapBucketStats::Aggregate(const HeapBucketStats& other)
-{
-    MemStats::Aggregate(other);
-#ifdef DUMP_FRAGMENTATION_STATS
-    totalBlockCount += other.totalBlockCount;
-    objectCount += other.objectCount;
-    finalizeCount += other.finalizeCount;
-#endif
-}
-#endif  // ENABLE_MEM_STATS
-
 //========================================================================================================
 // HeapBlock
 //========================================================================================================
@@ -187,6 +101,7 @@ SmallHeapBlockT<TBlockAttributes>::ConstructorCommon(HeapBucket * bucket, ushort
     this->Init(objectSize, objectCount);
     Assert(heapBlockType < HeapBlock::HeapBlockType::SmallAllocBlockTypeCount + HeapBlock::HeapBlockType::MediumAllocBlockTypeCount);
     Assert(objectCount > 1 && objectCount == (this->GetPageCount() * AutoSystemInfo::PageSize) / objectSize);
+
 #if defined(RECYCLER_SLOW_CHECK_ENABLED)
     heapBucket->heapInfo->heapBlockCount[heapBlockType]++;
 #endif
@@ -228,7 +143,7 @@ SmallHeapBlockT<TBlockAttributes>::~SmallHeapBlockT()
 {
     Assert((this->segment == nullptr && this->address == nullptr) ||
         (this->IsLeafBlock()) ||
-        this->GetPageAllocator(heapBucket->heapInfo->recycler)->IsClosed());
+        this->GetPageAllocator()->IsClosed());
 
 #if defined(RECYCLER_SLOW_CHECK_ENABLED)
     heapBucket->heapInfo->heapBlockCount[this->GetHeapBlockType()]--;
@@ -402,7 +317,7 @@ SmallHeapBlockT<TBlockAttributes>::ReassignPages(Recycler * recycler)
 
     PageSegment * segment;
 
-    auto pageAllocator = this->GetPageAllocator(recycler);
+    auto pageAllocator = this->GetPageAllocator();
     uint pagecount = this->GetPageCount();
     char * address = pageAllocator->AllocPagesPageAligned(pagecount, &segment);
 
@@ -427,9 +342,9 @@ SmallHeapBlockT<TBlockAttributes>::ReassignPages(Recycler * recycler)
 
     if (!this->SetPage(address, segment, recycler))
     {
-        this->GetPageAllocator(recycler)->SuspendIdleDecommit();
+        this->GetPageAllocator()->SuspendIdleDecommit();
         this->ReleasePages(recycler);
-        this->GetPageAllocator(recycler)->ResumeIdleDecommit();
+        this->GetPageAllocator()->ResumeIdleDecommit();
         return FALSE;
     }
 
@@ -517,7 +432,7 @@ SmallHeapBlockT<TBlockAttributes>::ReleasePages(Recycler * recycler)
         this->RestoreUnusablePages();
     }
 
-    this->GetPageAllocator(recycler)->ReleasePages(address, this->GetPageCount(), this->GetPageSegment());
+    this->GetPageAllocator()->ReleasePages(address, this->GetPageCount(), this->GetPageSegment());
 
     this->segment = nullptr;
     this->address = nullptr;
@@ -535,7 +450,7 @@ SmallHeapBlockT<TBlockAttributes>::BackgroundReleasePagesSweep(Recycler* recycle
     {
         this->RestoreUnusablePages();
     }
-    this->GetPageAllocator(recycler)->BackgroundReleasePages(address, this->GetPageCount(), this->GetPageSegment());
+    this->GetPageAllocator()->BackgroundReleasePages(address, this->GetPageCount(), this->GetPageSegment());
 
     this->address = nullptr;
     this->segment = nullptr;
@@ -557,7 +472,7 @@ SmallHeapBlockT<TBlockAttributes>::ReleasePagesShutdown(Recycler * recycler)
 
     // Don't release the page in shut down, the page allocator will release them faster
     // Leaf block's allocator need not be closed
-    Assert(this->IsLeafBlock() || this->GetPageAllocator(recycler)->IsClosed());
+    Assert(this->IsLeafBlock() || this->GetPageAllocator()->IsClosed());
 #endif
 
 }
@@ -806,6 +721,13 @@ SmallHeapBlockT<TBlockAttributes>::GetRecycler() const
 }
 
 #if DBG
+template <class TBlockAttributes>
+HeapInfo *
+SmallHeapBlockT<TBlockAttributes>::GetHeapInfo() const
+{
+    return this->heapBucket->heapInfo;
+}
+
 template <class TBlockAttributes>
 BOOL
 SmallHeapBlockT<TBlockAttributes>::IsFreeObject(void * objectAddress)
@@ -1218,7 +1140,7 @@ SmallHeapBlockT<TBlockAttributes>::DoPartialReusePage(RecyclerSweep const& recyc
     // could increase in thread sweep time.
     // OTOH, if the object size is really large, the calculation below will reduce the chance for a page to be
     // partial. we might need to watch out for that.
-    return (expectFreeByteCount + objectSize >= recyclerSweep.GetPartialCollectSmallHeapBlockReuseMinFreeBytes());
+    return (expectFreeByteCount + objectSize >= recyclerSweep.GetManager()->GetPartialCollectSmallHeapBlockReuseMinFreeBytes());
 }
 
 #if DBG
@@ -1286,7 +1208,7 @@ SmallHeapBlockT<TBlockAttributes>::AdjustPartialUncollectedAllocBytes(RecyclerSw
     Assert(newAllocatedCount >= newObjectExpectSweepCount);
     Assert(this->lastUncollectedAllocBytes >= newObjectExpectSweepCount * this->objectSize);
 
-    recyclerSweep.SubtractSweepNewObjectAllocBytes(newObjectExpectSweepCount * this->objectSize);
+    recyclerSweep.GetManager()->SubtractSweepNewObjectAllocBytes(newObjectExpectSweepCount * this->objectSize);
 }
 #endif  // RECYCLER_VERIFY_MARK
 
@@ -1350,7 +1272,7 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
 
 #if ENABLE_PARTIAL_GC
         // Accounting for partial heuristics
-        recyclerSweep.AddUnaccountedNewObjectAllocBytes(this);
+        recyclerSweep.GetManager()->AddUnaccountedNewObjectAllocBytes(this);
 #endif
     }
 
@@ -1372,7 +1294,7 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
     RECYCLER_STATS_INC(recycler, heapBlockCount[this->GetHeapBlockType()]);
 
 #if ENABLE_PARTIAL_GC
-    if (recyclerSweep.DoAdjustPartialHeuristics() && allocable)
+    if (recyclerSweep.GetManager()->DoAdjustPartialHeuristics() && allocable)
     {
         this->AdjustPartialUncollectedAllocBytes(recyclerSweep, expectSweepCount);
     }
@@ -1438,7 +1360,8 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
         if (recycler->GetRecyclerFlagsTable().Trace.IsEnabled(Js::ConcurrentSweepPhase) && CONFIG_FLAG_RELEASE(Verbose))
         {
             SweepState stateReturned = (this->freeCount == 0) ? SweepStateFull : state;
-            Output::Print(_u("[GC #%d] [HeapBucket 0x%p] HeapBlock 0x%p %s %d [CollectionState: %d] \n"), recycler->collectionCount, this->heapBucket, this, _u("[**37**] heapBlock swept. State returned:"), stateReturned, recycler->collectionState);
+            CollectionState collectionState = recycler->collectionState;
+            Output::Print(_u("[GC #%d] [HeapBucket 0x%p] HeapBlock 0x%p %s %d [CollectionState: %d] \n"), recycler->collectionCount, this->heapBucket, this, _u("[**37**] heapBlock swept. State returned:"), stateReturned, collectionState);
         }
 #endif
         return (this->freeCount == 0) ? SweepStateFull : state;
@@ -1503,7 +1426,8 @@ SmallHeapBlockT<TBlockAttributes>::Sweep(RecyclerSweep& recyclerSweep, bool queu
         if (recycler->GetRecyclerFlagsTable().Trace.IsEnabled(Js::ConcurrentSweepPhase) && CONFIG_FLAG_RELEASE(Verbose))
         {
             SweepState stateReturned = (this->freeCount == 0) ? SweepStateFull : state;
-            Output::Print(_u("[GC #%d] [HeapBucket 0x%p] HeapBlock 0x%p %s %d [CollectionState: %d] \n"), recycler->collectionCount, this->heapBucket, this, _u("[**38**] heapBlock swept. State returned:"), stateReturned, recycler->collectionState);
+            CollectionState collectionState = recycler->collectionState;
+            Output::Print(_u("[GC #%d] [HeapBucket 0x%p] HeapBlock 0x%p %s %d [CollectionState: %d] \n"), recycler->collectionCount, this->heapBucket, this, _u("[**38**] heapBlock swept. State returned:"), stateReturned, collectionState);
         }
 #endif
         // We always need to check the free count as we may have allocated from this block during concurrent sweep.

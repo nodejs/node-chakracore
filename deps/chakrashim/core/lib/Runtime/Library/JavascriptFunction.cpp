@@ -19,8 +19,8 @@ extern "C" PVOID __guard_check_icall_fptr;
 extern "C" void __cdecl _alloca_probe_16();
 #endif
 
-namespace Js
-{
+using namespace Js;
+
     // The VS2013 linker treats this as a redefinition of an already
     // defined constant and complains. So skip the declaration if we're compiling
     // with VS2013 or below.
@@ -33,9 +33,6 @@ namespace Js
         : DynamicObject(type), functionInfo(nullptr), constructorCache(&ConstructorCache::DefaultInstance)
     {
         Assert(this->constructorCache != nullptr);
-#if DBG
-        isJsBuiltInInitCode = false;
-#endif
     }
 
 
@@ -50,11 +47,8 @@ namespace Js
             // an object that is already a prototype. If it becomes a prototype and then we attempt to add a property to an object derived from this
             // object, then we will check if this property is writable, and only if it is will we do the fast path for add property.
             // GetScriptContext()->InvalidateStoreFieldCaches(PropertyIds::length);
-            GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
+            GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->Clear();
         }
-#if DBG
-        isJsBuiltInInitCode = false;
-#endif
     }
 
     JavascriptFunction::JavascriptFunction(DynamicType * type, FunctionInfo * functionInfo, ConstructorCache* cache)
@@ -68,11 +62,8 @@ namespace Js
             // an object that is already a prototype. If it becomes a prototype and then we attempt to add a property to an object derived from this
             // object, then we will check if this property is writable, and only if it is will we do the fast path for add property.
             // GetScriptContext()->InvalidateStoreFieldCaches(PropertyIds::length);
-            GetLibrary()->NoPrototypeChainsAreEnsuredToHaveOnlyWritableDataProperties();
+            GetLibrary()->GetTypesWithOnlyWritablePropertyProtoChainCache()->Clear();
         }
-#if DBG
-        isJsBuiltInInitCode = false;
-#endif
     }
 
     FunctionProxy *JavascriptFunction::GetFunctionProxy() const
@@ -153,6 +144,14 @@ namespace Js
     }
 #endif
 
+    static char16 const funcName[] = _u("function anonymous");
+    static char16 const genFuncName[] = _u("function* anonymous");
+    static char16 const asyncFuncName[] = _u("async function anonymous");
+    static char16 const openFormals[] = _u("(");
+    static char16 const closeFormals[] = _u("\n)");
+    static char16 const openFuncBody[] = _u(" {");
+    static char16 const closeFuncBody[] = _u("\n}");
+    
     Var JavascriptFunction::NewInstanceHelper(ScriptContext *scriptContext, RecyclableObject* function, CallInfo callInfo, Js::ArgumentReader& args, FunctionKind functionKind /* = FunctionKind::Normal */)
     {
         JavascriptLibrary* library = function->GetLibrary();
@@ -233,7 +232,7 @@ namespace Js
                     &Parser::ValidateSourceElementList);
             }
 
-            pfuncScript = scriptContext->GetGlobalObject()->EvalHelper(scriptContext, sourceString, sourceLen, moduleID, fscrNil, Constants::FunctionCode, TRUE, TRUE, strictMode);
+            pfuncScript = scriptContext->GetGlobalObject()->EvalHelper(scriptContext, sourceString, sourceLen, moduleID, fscrCanDeferFncParse, Constants::FunctionCode, TRUE, TRUE, strictMode);
 
             // Indicate that this is a top-level function. We don't pass the fscrGlobalCode flag to the eval helper,
             // or it will return the global function that wraps the declared function body, as though it were an eval.
@@ -454,7 +453,11 @@ namespace Js
             argArray = args.Values[2];
         }
 
-        return CalloutHelper<false>(pFunc, thisVar, /* overridingNewTarget = */nullptr, argArray, scriptContext);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            return CalloutHelper<false>(pFunc, thisVar, /* overridingNewTarget = */nullptr, argArray, scriptContext);
+        }
+        END_SAFE_REENTRANT_CALL
     }
 
     template <bool isConstruct>
@@ -572,12 +575,20 @@ namespace Js
 
     Var JavascriptFunction::ApplyHelper(RecyclableObject* function, Var thisArg, Var argArray, ScriptContext* scriptContext)
     {
-        return CalloutHelper<false>(function, thisArg, /* overridingNewTarget = */nullptr, argArray, scriptContext);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            return CalloutHelper<false>(function, thisArg, /* overridingNewTarget = */nullptr, argArray, scriptContext);
+        }
+        END_SAFE_REENTRANT_CALL
     }
 
     Var JavascriptFunction::ConstructHelper(RecyclableObject* function, Var thisArg, Var overridingNewTarget, Var argArray, ScriptContext* scriptContext)
     {
-        return CalloutHelper<true>(function, thisArg, overridingNewTarget, argArray, scriptContext);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            return CalloutHelper<true>(function, thisArg, overridingNewTarget, argArray, scriptContext);
+        }
+        END_SAFE_REENTRANT_CALL
     }
 
     Var JavascriptFunction::EntryBind(RecyclableObject* function, CallInfo callInfo, ...)
@@ -653,7 +664,11 @@ namespace Js
         ///
         /// Call the [[Call]] method on the function object
         ///
-        return JavascriptFunction::CallFunction<true>(pFunc, pFunc->GetEntryPoint(), args);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            return JavascriptFunction::CallFunction<true>(pFunc, pFunc->GetEntryPoint(), args, true /*useLargeArgCount*/);
+        }
+        END_SAFE_REENTRANT_CALL
     }
 
     Var JavascriptFunction::CallRootFunctionInScript(JavascriptFunction* func, Arguments args)
@@ -748,7 +763,11 @@ namespace Js
         if (inScript)
         {
             Assert(!(args.Info.Flags & CallFlags_New));
-            return JavascriptFunction::CallFunction<true>(obj, obj->GetEntryPoint(), args);
+            BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+            {
+                return JavascriptFunction::CallFunction<true>(obj, obj->GetEntryPoint(), args);
+            }
+            END_SAFE_REENTRANT_CALL
         }
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
@@ -774,10 +793,13 @@ namespace Js
             scriptContext->VerifyAlive(true);
             try
             {
-                varResult =
-                    args.Info.Flags & CallFlags_New ?
-                    CallAsConstructor(obj, /* overridingNewTarget = */nullptr, args, scriptContext) :
-                    CallFunction<true>(obj, obj->GetEntryPoint(), args);
+                BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                {
+                    varResult = args.Info.Flags & CallFlags_New ?
+                            JavascriptFunction::CallAsConstructor(obj, /* overridingNewTarget = */nullptr, args, scriptContext) :
+                            JavascriptFunction::CallFunction<true>(obj, obj->GetEntryPoint(), args);
+                }
+                END_SAFE_REENTRANT_CALL
 
                 // A recent compiler bug 150148 can incorrectly eliminate catch block, temporary workaround
                 if (threadContext == NULL)
@@ -939,7 +961,7 @@ namespace Js
         }
         else
         {
-            functionResult = CallFunction<true>(functionObj, functionObj->GetEntryPoint(), newArgs);
+            functionResult = CallFunction<true>(functionObj, functionObj->GetEntryPoint(), newArgs, true /*useLargeArgCount*/);
         }
 
         return
@@ -982,7 +1004,11 @@ namespace Js
 
         RUNTIME_ARGUMENTS(args, spreadIndices, function, callInfo);
 
-        return JavascriptFunction::CallSpreadFunction(function, args, spreadIndices);
+        BEGIN_SAFE_REENTRANT_CALL(function->GetScriptContext()->GetThreadContext())
+        {
+            return JavascriptFunction::CallSpreadFunction(function, args, spreadIndices);
+        }
+        END_SAFE_REENTRANT_CALL
     }
 
     uint JavascriptFunction::GetSpreadSize(const Arguments args, const Js::AuxArray<uint32> *spreadIndices, ScriptContext *scriptContext)
@@ -1346,13 +1372,11 @@ dbl_align:
         //(so that the asm code can assume 0 or more values will go on the stack: putting -1 values on the stack is unhealthy).
         if (argCount == 0)
         {
-            varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                entryPoint, (JavascriptFunction*)function, args.Info);
+            varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(), entryPoint, (JavascriptFunction*)function, args.Info);
         }
         else if (argCount == 1)
         {
-            varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0]);
+            varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(), entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0]);
         }
         else
         {
@@ -1561,6 +1585,7 @@ dbl_align:
     __declspec (naked)
     void JavascriptFunction::CheckAlignment()
     {
+        JIT_HELPER_NOT_REENTRANT_NOLOCK_HEADER(ScrFunc_CheckAlignment);
         _asm
         {
             test esp, 0x4
@@ -1569,11 +1594,14 @@ dbl_align:
 LABEL1:
             call Throw::InternalError
         }
+        JIT_HELPER_END(ScrFunc_CheckAlignment);
     }
 #else
     void JavascriptFunction::CheckAlignment()
     {
+        JIT_HELPER_NOT_REENTRANT_NOLOCK_HEADER(ScrFunc_CheckAlignment);
         // Note: in order to enable this on ARM, uncomment/fix code in LowerMD.cpp (LowerEntryInstr).
+        JIT_HELPER_END(ScrFunc_CheckAlignment);
     }
 #endif
 
@@ -1637,19 +1665,19 @@ LABEL1:
         Assert(functionInfo);
         try
         {
-        functionInfo->GetFunctionBody()->AddDeferParseAttribute();
-        functionInfo->GetFunctionBody()->ResetEntryPoint();
-        functionInfo->GetFunctionBody()->ResetInParams();
+            functionInfo->GetFunctionBody()->AddDeferParseAttribute();
+            functionInfo->GetFunctionBody()->ResetEntryPoint();
+            functionInfo->GetFunctionBody()->ResetInParams();
 
-        FunctionBody * funcBody = functionInfo->Parse(functionRef);
+            FunctionBody * funcBody = functionInfo->Parse(functionRef);
 
-#if ENABLE_PROFILE_INFO
-        // This is the first call to the function, ensure dynamic profile info
-        funcBody->EnsureDynamicProfileInfo();
-#endif
+    #if ENABLE_PROFILE_INFO
+            // This is the first call to the function, ensure dynamic profile info
+            funcBody->EnsureDynamicProfileInfo();
+    #endif
 
-        (*functionRef)->UpdateUndeferredBody(funcBody);
-    }
+            (*functionRef)->UpdateUndeferredBody(funcBody);
+        }
         catch (JavascriptException&)
         {
             Js::Throw::FatalInternalError();
@@ -1779,7 +1807,7 @@ LABEL1:
         this->GetDynamicType()->SetEntryPoint(method);
     }
 
-    Var JavascriptFunction::EnsureSourceString()
+    JavascriptString * JavascriptFunction::EnsureSourceString()
     {
         return this->GetLibrary()->GetFunctionDisplayString();
     }
@@ -1877,12 +1905,11 @@ LABEL1:
             RecyclerHeapObjectInfo heapObject;
             Recycler* recycler = threadContext->GetRecycler();
 
-            bool isFuncObjHeapAllocated = recycler->FindHeapObject(func, FindHeapObjectFlags_NoFlags, heapObject); // recheck if this needs to be removed
             bool isEntryPointHeapAllocated = recycler->FindHeapObject(func->GetEntryPointInfo(), FindHeapObjectFlags_NoFlags, heapObject);
             bool isFunctionBodyHeapAllocated = recycler->FindHeapObject(func->GetFunctionBody(), FindHeapObjectFlags_NoFlags, heapObject);
 
             // ensure that all our objects are heap allocated
-            if (!(isFuncObjHeapAllocated && isEntryPointHeapAllocated && isFunctionBodyHeapAllocated))
+            if (!(isEntryPointHeapAllocated && isFunctionBodyHeapAllocated))
             {
                 return nullptr;
             }
@@ -2267,7 +2294,7 @@ LABEL1:
                 return false;
             }
 
-            ArrayBuffer* arrayBuffer = nullptr;
+            ArrayBufferBase* arrayBuffer = nullptr;
             size_t reservationSize = 0;
 #ifdef ENABLE_WASM
             if (isWasmOnly)
@@ -2292,7 +2319,7 @@ LABEL1:
 
             uint bufferLength = arrayBuffer->GetByteLength();
 
-            if (!isWasmOnly && !arrayBuffer->IsValidAsmJsBufferLength(bufferLength))
+            if (!isWasmOnly && !((ArrayBuffer*)arrayBuffer)->IsValidAsmJsBufferLength(bufferLength))
             {
                 return false;
             }
@@ -2303,6 +2330,14 @@ LABEL1:
             if (faultingAddr >= bufferAddr + reservationSize)
             {
                 return false;
+            }
+
+            if (isWasmOnly)
+            {
+                // It is possible to have an A/V on other instructions then load/store (ie: xchg for atomics)
+                // Which we don't decode at this time
+                // We've confirmed the A/V occurred in the Virtual Memory, so just throw now
+                JavascriptError::ThrowWebAssemblyRuntimeError(func->GetScriptContext(), WASMERR_ArrayIndexOutOfRange);
             }
         }
         else
@@ -2341,11 +2376,6 @@ LABEL1:
         if (!instrData.bufferValue)
         {
             return false;
-        }
-
-        if (isWasmOnly)
-        {
-            JavascriptError::ThrowWebAssemblyRuntimeError(func->GetScriptContext(), WASMERR_ArrayIndexOutOfRange);
         }
 
         // SIMD loads/stores do bounds checks.
@@ -2444,6 +2474,7 @@ LABEL1:
         return !(
             this->functionInfo->IsClassMethod() ||
             this->functionInfo->IsClassConstructor() ||
+            this->functionInfo->IsMethod() ||
             this->functionInfo->IsLambda() ||
             this->functionInfo->IsAsync() ||
             this->IsGeneratorFunction() ||
@@ -2454,17 +2485,7 @@ LABEL1:
             );
     }
 
-    void JavascriptFunction::SetIsJsBuiltInCode()
-    {
-        isJsBuiltInCode = true;
-    }
-
-    bool JavascriptFunction::IsJsBuiltIn()
-    {
-        return isJsBuiltInCode;
-    }
-
-    PropertyQueryFlags JavascriptFunction::HasPropertyQuery(PropertyId propertyId)
+    PropertyQueryFlags JavascriptFunction::HasPropertyQuery(PropertyId propertyId, _Inout_opt_ PropertyValueInfo* info)
     {
         switch (propertyId)
         {
@@ -2482,10 +2503,10 @@ LABEL1:
             }
             break;
         }
-        return DynamicObject::HasPropertyQuery(propertyId);
+        return DynamicObject::HasPropertyQuery(propertyId, info);
     }
 
-    BOOL JavascriptFunction::GetAccessors(PropertyId propertyId, Var *getter, Var *setter, ScriptContext * requestContext)
+    _Check_return_ _Success_(return) BOOL JavascriptFunction::GetAccessors(PropertyId propertyId, _Outptr_result_maybenull_ Var* getter, _Outptr_result_maybenull_ Var* setter, ScriptContext* requestContext)
     {
         Assert(!this->IsBoundFunction());
         Assert(propertyId != Constants::NoProperty);
@@ -2724,8 +2745,8 @@ LABEL1:
                     uint length = (uint)pFrameDisplay->GetLength();
                     for (uint i = 0; i < length; i++)
                     {
-                        void * scope = pFrameDisplay->GetItem(i);
-                        if (!Js::ScopeSlots::Is(scope) && Js::ActivationObjectEx::Is(scope))
+                        Var scope = pFrameDisplay->GetItem(i);
+                        if (scope && !Js::ScopeSlots::Is(scope) && Js::ActivationObjectEx::Is(scope))
                         {
                             Js::ActivationObjectEx::FromVar(scope)->InvalidateCachedScope();
                         }
@@ -2752,7 +2773,11 @@ LABEL1:
             if (scriptContext->GetThreadContext()->RecordImplicitException())
             {
                 JavascriptFunction* accessor = requestContext->GetLibrary()->GetThrowTypeErrorRestrictedPropertyAccessorFunction();
-                *value = CALL_FUNCTION(scriptContext->GetThreadContext(), accessor, CallInfo(1), originalInstance);
+                BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                {
+                    *value = CALL_FUNCTION(scriptContext->GetThreadContext(), accessor, CallInfo(1), originalInstance);
+                }
+                END_SAFE_REENTRANT_CALL
             }
             return true;
         }
@@ -2834,7 +2859,11 @@ LABEL1:
             if (scriptContext->GetThreadContext()->RecordImplicitException())
             {
                 JavascriptFunction* accessor = requestContext->GetLibrary()->GetThrowTypeErrorRestrictedPropertyAccessorFunction();
-                *value = CALL_FUNCTION(scriptContext->GetThreadContext(), accessor, CallInfo(1), originalInstance);
+                BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+                {
+                    *value = CALL_FUNCTION(scriptContext->GetThreadContext(), accessor, CallInfo(1), originalInstance);
+                }
+                END_SAFE_REENTRANT_CALL
             }
             return true;
         }
@@ -3057,6 +3086,10 @@ LABEL1:
         {
             InvalidateConstructorCacheOnPrototypeChange();
             this->GetScriptContext()->GetThreadContext()->InvalidateIsInstInlineCachesForFunction(this);
+            if (propertyId == PropertyIds::prototype)
+            {
+                this->GetTypeHandler()->ClearHasKnownSlot0();
+            }
         }
 
         return result;
@@ -3087,6 +3120,10 @@ LABEL1:
         {
             InvalidateConstructorCacheOnPrototypeChange();
             this->GetScriptContext()->GetThreadContext()->InvalidateIsInstInlineCachesForFunction(this);
+            if (BuiltInPropertyRecords::prototype.Equals(propertyNameString))
+            {
+                this->GetTypeHandler()->ClearHasKnownSlot0();
+            }
         }
 
         return result;
@@ -3462,10 +3499,28 @@ LABEL1:
         HRESULT hr = JitFromEncodedWorkItem(scriptContext->GetNativeCodeGenerator(), buffer, size);
         if (FAILED(hr))
         {
-            JavascriptExceptionOperators::OP_Throw(JavascriptNumber::New(hr, scriptContext), scriptContext);
+#ifdef _WIN32
+            char16* lpMsgBuf = nullptr;
+            DWORD bufLen = FormatMessageW(
+                FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                FORMAT_MESSAGE_FROM_SYSTEM |
+                FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL,
+                hr,
+                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (LPTSTR)&lpMsgBuf,
+                0, NULL);
+            if (bufLen)
+            {
+                JavascriptString* string = JavascriptString::NewCopyBuffer(lpMsgBuf, bufLen, scriptContext);
+                LocalFree(lpMsgBuf);
+                JavascriptExceptionOperators::OP_Throw(string, scriptContext);
+            }
+#endif
+            return JavascriptNumber::New(hr, scriptContext);
         }
         return scriptContext->GetLibrary()->GetUndefined();
     }
 #endif
 
-}
+

@@ -164,7 +164,11 @@ WebAssemblyInstance::CreateInstance(WebAssemblyModule * module, Var importObject
         WasmScriptFunction* start = environment.GetWasmFunction(startFuncIdx);
         Js::CallInfo info(Js::CallFlags_New, 1);
         Js::Arguments startArg(info, (Var*)&start);
-        Js::JavascriptFunction::CallFunction<true>(start, start->GetEntryPoint(), startArg);
+        BEGIN_SAFE_REENTRANT_CALL(scriptContext->GetThreadContext())
+        {
+            Js::JavascriptFunction::CallFunction<true>(start, start->GetEntryPoint(), startArg);
+        }
+        END_SAFE_REENTRANT_CALL
     }
 
     return newInstance;
@@ -195,7 +199,7 @@ void WebAssemblyInstance::CreateWasmFunctions(WebAssemblyModule * wasmModule, Sc
 
         env->SetWasmFunction(i, funcObj);
 
-        if (!PHASE_OFF(WasmDeferredPhase, body))
+        if (PHASE_ENABLED(WasmDeferredPhase, body))
         {
             // if we still have WasmReaderInfo we haven't yet parsed
             if (body->GetAsmJsFunctionInfo()->GetWasmReaderInfo())
@@ -220,7 +224,7 @@ void WebAssemblyInstance::InitializeDataSegs(WebAssemblyModule * wasmModule, Scr
 {
     WebAssemblyMemory* mem = env->GetMemory(0);
     Assert(mem);
-    ArrayBuffer* buffer = mem->GetBuffer();
+    ArrayBufferBase* buffer = mem->GetBuffer();
 
     for (uint32 iSeg = 0; iSeg < wasmModule->GetDataSegCount(); ++iSeg)
     {
@@ -272,17 +276,20 @@ Var WebAssemblyInstance::CreateExportObject(WebAssemblyModule * wasmModule, Scri
                 case Wasm::WasmTypes::I32:
                     obj = JavascriptNumber::ToVar(cnst.i32, scriptContext);
                     break;
+                case Wasm::WasmTypes::I64:
+                    JavascriptError::ThrowTypeErrorVar(wasmModule->GetScriptContext(), WASMERR_InvalidTypeConversion, _u("i64"), _u("Var"));
                 case Wasm::WasmTypes::F32:
                     obj = JavascriptNumber::New(cnst.f32, scriptContext);
                     break;
                 case Wasm::WasmTypes::F64:
                     obj = JavascriptNumber::New(cnst.f64, scriptContext);
                     break;
-                case Wasm::WasmTypes::I64:
-                    JavascriptError::ThrowTypeError(wasmModule->GetScriptContext(), WASMERR_InvalidTypeConversion);
+#ifdef ENABLE_WASM_SIMD
+                case Wasm::WasmTypes::M128:
+                    JavascriptError::ThrowTypeErrorVar(wasmModule->GetScriptContext(), WASMERR_InvalidTypeConversion, _u("m128"), _u("Var"));
+#endif
                 default:
-                    Assert(UNREACHED);
-                    break;
+                    Wasm::WasmTypes::CompileAssertCases<Wasm::WasmTypes::I32, Wasm::WasmTypes::I64, Wasm::WasmTypes::F32, Wasm::WasmTypes::F64, WASM_M128_CHECK_TYPE>();
                 }
             }
             JavascriptOperators::OP_SetProperty(exportsNamespace, propertyRecord->GetPropertyId(), obj, scriptContext);
@@ -304,13 +311,13 @@ void WebAssemblyInstance::LoadImports(
         JavascriptError::ThrowTypeError(ctx, WASMERR_InvalidImport);
     }
 
-    uint32 counters[Wasm::ExternalKinds::Limit];
+    uint32 counters[(uint32)Wasm::ExternalKinds::Limit];
     memset(counters, 0, sizeof(counters));
     for (uint32 i = 0; i < importCount; ++i)
     {
         Wasm::WasmImport* import = wasmModule->GetImport(i);
         Var prop = GetImportVariable(import, ctx, ffi);
-        uint32& counter = counters[import->kind];
+        uint32& counter = counters[(uint32)import->kind];
         switch (import->kind)
         {
         case Wasm::ExternalKinds::Function:
@@ -362,6 +369,14 @@ void WebAssemblyInstance::LoadImports(
                 {
                     JavascriptError::ThrowWebAssemblyLinkErrorVar(ctx, WASMERR_InvalidMaximumSize, _u("WebAssembly.Memory"), mem->GetMaximumLength(), wasmModule->GetMemoryMaxSize());
                 }
+#ifdef ENABLE_WASM_THREADS
+                if (mem->IsSharedMemory() != wasmModule->IsSharedMemory())
+                {
+                    const char16* memType = mem->IsSharedMemory() ? _u("shared") : _u("unshared");
+                    const char16* modType = wasmModule->IsSharedMemory() ? _u("shared") : _u("unshared");
+                    JavascriptError::ThrowWebAssemblyLinkErrorVar(ctx, WASMERR_InvalidMemoryType, _u("WebAssembly.Memory"), memType, modType);
+                }
+#endif
                 env->SetMemory(counter, mem);
             }
             break;
@@ -404,9 +419,12 @@ void WebAssemblyInstance::LoadImports(
             case Wasm::WasmTypes::I32: cnst.i32 = JavascriptConversion::ToInt32(prop, ctx); break;
             case Wasm::WasmTypes::F32: cnst.f32 = (float)JavascriptConversion::ToNumber(prop, ctx); break;
             case Wasm::WasmTypes::F64: cnst.f64 = JavascriptConversion::ToNumber(prop, ctx); break;
-            case Wasm::WasmTypes::I64: Js::JavascriptError::ThrowTypeError(ctx, WASMERR_InvalidTypeConversion);
+            case Wasm::WasmTypes::I64: Js::JavascriptError::ThrowTypeErrorVar(ctx, WASMERR_InvalidTypeConversion, _u("Var"), _u("i64"));
+#ifdef ENABLE_WASM_SIMD
+            case Wasm::WasmTypes::M128: Js::JavascriptError::ThrowTypeErrorVar(ctx, WASMERR_InvalidTypeConversion, _u("Var"), _u("m128"));
+#endif
             default:
-                Js::Throw::InternalError();
+                Wasm::WasmTypes::CompileAssertCases<Wasm::WasmTypes::I32, Wasm::WasmTypes::I64, Wasm::WasmTypes::F32, Wasm::WasmTypes::F64, WASM_M128_CHECK_TYPE>();
             }
             env->SetGlobalValue(global, cnst);
             break;
@@ -512,7 +530,7 @@ void WebAssemblyInstance::ValidateTableAndMemory(WebAssemblyModule * wasmModule,
         }
         env->SetMemory(0, mem);
     }
-    ArrayBuffer * buffer = mem->GetBuffer();
+    ArrayBufferBase * buffer = mem->GetBuffer();
     if (buffer->IsDetached())
     {
         JavascriptError::ThrowTypeError(wasmModule->GetScriptContext(), JSERR_DetachedTypedArray);
