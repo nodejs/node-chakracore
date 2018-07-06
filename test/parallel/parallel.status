@@ -229,6 +229,11 @@ test-worker-cleanup-handles : SKIP
 test-worker-dns-terminate : SKIP
 test-worker-esmodule : SKIP
 test-worker-memory : SKIP
+test-worker-message-channel : SKIP
+test-worker-message-channel-sharedarraybuffer : SKIP
+test-worker-message-port : SKIP
+test-worker-message-port-arraybuffer : SKIP
+test-worker-message-port-message-port-transferring : SKIP
 test-worker-nexttick-terminate : SKIP
 test-worker-onmessage : SKIP
 test-worker-relative-path : SKIP
