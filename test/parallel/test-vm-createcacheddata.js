@@ -1,10 +1,6 @@
 'use strict';
 
-const common = require('../common');
-
-// Chakra doesn't yet support createCachedData.
-// See bug https://github.com/nodejs/node-chakracore/issues/560
-if (!common.isChakraEngine) {
+require('../common');
 
 const { Script } = require('vm');
 const assert = require('assert');
@@ -23,5 +19,4 @@ for (let i = 0; i < 10; i += 1) {
   cachedData = script.createCachedData();
 
   assert(!new Script(source, { cachedData }).cachedDataRejected);
-}
 }

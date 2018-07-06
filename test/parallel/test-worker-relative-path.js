@@ -3,7 +3,6 @@
 const path = require('path');
 const assert = require('assert');
 const common = require('../common');
-if (!common.isChakraEngine) {
 const { Worker, isMainThread, parentPort } = require('worker_threads');
 
 if (isMainThread) {
@@ -13,5 +12,4 @@ if (isMainThread) {
   }));
 } else {
   parentPort.postMessage('Hello, world!');
-}
 }
