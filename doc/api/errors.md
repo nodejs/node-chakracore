@@ -457,7 +457,7 @@ added properties.
 
 ### Class: SystemError
 
-### error.info
+#### error.info
 
 `SystemError` instances may have an additional `info` property whose
 value is an object with additional details about the error conditions.
@@ -1330,6 +1330,14 @@ strict compliance with the API specification (which in some cases may accept
 `func(undefined)` and `func()` are treated identically, and the
 [`ERR_INVALID_ARG_TYPE`][] error code may be used instead.
 
+<a id="ERR_MISSING_DYNAMIC_INSTANTIATE_HOOK"></a>
+### ERR_MISSING_DYNAMIC_INSTANTIATE_HOOK
+
+> Stability: 1 - Experimental
+
+An [ES6 module][] loader hook specified `format: 'dynamic'` but did not provide
+a `dynamicInstantiate` hook.
+
 <a id="ERR_MISSING_MESSAGE_PORT_IN_TRANSFER_LIST"></a>
 ### ERR_MISSING_MESSAGE_PORT_IN_TRANSFER_LIST
 
@@ -1406,7 +1414,7 @@ value.
 
 On the main thread, values are removed from the queue associated with the
 thread-safe function in an idle loop. This error indicates that an error
-has occurred when attemping to start the loop.
+has occurred when attempting to start the loop.
 
 <a id="ERR_NAPI_TSFN_STOP_IDLE_LOOP"></a>
 ### ERR_NAPI_TSFN_STOP_IDLE_LOOP
@@ -1820,7 +1828,7 @@ Creation of a [`zlib`][] object failed due to incorrect configuration.
 [`cipher.getAuthTag()`]: crypto.html#crypto_cipher_getauthtag
 [`Class: assert.AssertionError`]: assert.html#assert_class_assert_assertionerror
 [`crypto.scrypt()`]: crypto.html#crypto_crypto_scrypt_password_salt_keylen_options_callback
-[`crypto.scryptSync()`]: crypto.html#crypto_crypto_scryptSync_password_salt_keylen_options
+[`crypto.scryptSync()`]: crypto.html#crypto_crypto_scryptsync_password_salt_keylen_options
 [`crypto.timingSafeEqual()`]: crypto.html#crypto_crypto_timingsafeequal_a_b
 [`dgram.createSocket()`]: dgram.html#dgram_dgram_createsocket_options_callback
 [`ERR_INVALID_ARG_TYPE`]: #ERR_INVALID_ARG_TYPE
