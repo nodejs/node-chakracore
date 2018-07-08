@@ -227,6 +227,9 @@ test-worker-message-channel-sharedarraybuffer : SKIP
 test-worker-message-port : SKIP
 test-worker-message-port-arraybuffer : SKIP
 test-worker-message-port-message-port-transferring : SKIP
+test-worker-message-port-transfer-closed : SKIP
+test-worker-message-port-transfer-self : SKIP
+test-worker-message-port-transfer-target : SKIP
 test-worker-nexttick-terminate : SKIP
 test-worker-onmessage : SKIP
 test-worker-relative-path : SKIP
@@ -255,6 +258,14 @@ test-heapdump-inspector : SKIP
 test-heapdump-tls : SKIP
 test-heapdump-worker : SKIP
 test-heapdump-zlib : SKIP
+
+# Chakra doesn't yet support createCachedData.
+# See bug https://github.com/nodejs/node-chakracore/issues/560
+test-vm-createcacheddata : SKIP
+
+# ChakraCore doesn't support `process.memoryUsage()`
+# Issue: https://github.com/nodejs/node-chakracore/issues/563
+test-zlib-unused-weak : SKIP
 
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed

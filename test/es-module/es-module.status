@@ -24,6 +24,7 @@ test-esm-live-binding : SKIP
 test-esm-loader-dependency : SKIP
 test-esm-loader-invalid-format : SKIP
 test-esm-loader-invalid-url : SKIP
+test-esm-loader-missing-dynamic-instantiate-hook : SKIP
 test-esm-loader-modulemap : SKIP
 test-esm-main-lookup : SKIP
 test-esm-named-exports : SKIP
