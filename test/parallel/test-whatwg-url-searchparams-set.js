@@ -58,18 +58,16 @@ test(function() {
     valueOf() { throw new Error('valueOf'); }
   };
   const sym = Symbol();
-  const chakracoreSymbolErrorRegex =
-         /^TypeError: Object doesn't support property or method 'ToString'/;
   assert.throws(() => params.append(obj, 'b'), /^Error: toString$/);
   assert.throws(() => params.append('a', obj), /^Error: toString$/);
   assert.throws(() => params.append(sym, 'b'),
                 common.engineSpecificMessage({
                   v8: /^TypeError: Cannot convert a Symbol value to a string$/,
-                  chakracore: chakracoreSymbolErrorRegex
+                  chakracore: /^TypeError: No implicit conversion of Symbol to String/
                 }));
   assert.throws(() => params.append('a', sym),
                 common.engineSpecificMessage({
                   v8: /^TypeError: Cannot convert a Symbol value to a string$/,
-                  chakracore: chakracoreSymbolErrorRegex
+                  chakracore: /^TypeError: No implicit conversion of Symbol to String/
                 }));
 }
