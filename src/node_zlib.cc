@@ -91,6 +91,7 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
         gzip_id_bytes_read_(0),
         write_result_(nullptr),
         write_result_ttdBuff(nullptr) {
+    MakeWeak();
   }
 
 
