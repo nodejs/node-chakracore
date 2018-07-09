@@ -6,6 +6,7 @@
 </tr>
 <tr>
 <td>
+<a href="#0.1.6">0.1.6</a><br/>
 <a href="#0.1.5">0.1.5</a><br/>
 <a href="#0.1.4">0.1.4</a><br/>
 <a href="#0.1.3">0.1.3</a><br/>
@@ -16,8 +17,21 @@
 </tr>
 </table>
 
+<a id="0.1.6"></a>
+## 2018-07-09, Version 0.1.6 (Current)
+
+### Notable Changes
+
+* Concurrent garbage collection on iOS.
+
+### Commits
+
+* [[`40adda63f6`](https://github.com/janeasystems/nodejs-mobile/commit/40adda63f6d4fcd5ce0e4a656a4218799f56fa19)] - Node.js on Mobile v0.1.6 (Jaime Bernardo)
+* [[`fc6b25df67`](https://github.com/janeasystems/nodejs-mobile/commit/fc6b25df6736157ef53e9ba743990e9edf3bd181)] - ios: enable concurrent garbage collection (Jaime Bernardo)
+* [[`3bde748a82`](https://github.com/janeasystems/nodejs-mobile/commit/3bde748a8280bb6757cd87df0cb1177363450f4f)] - Working on Node.js for Mobile Apps v0.1.6 (Jaime Bernardo)
+
 <a id="0.1.5"></a>
-## 2018-06-07, Version 0.1.5 (Current)
+## 2018-06-07, Version 0.1.5
 
 ### Notable Changes
 
