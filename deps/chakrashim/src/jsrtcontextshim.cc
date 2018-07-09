@@ -176,7 +176,7 @@ bool ContextShim::InitializeBuiltIn(JsValueRef * builtInValue, Fn getBuiltIn) {
   *builtInValue = value;
 
   // TTD_NODE
-  JsAddRef(*builtInValue, nullptr);
+  JsTTDNotifyLongLivedReferenceAdd(*builtInValue);
 
   return true;
 }
@@ -262,7 +262,7 @@ bool ContextShim::InitializeBuiltIns() {
   keepAliveObject = newKeepAliveObject;
 
   // TTD_NODE
-  JsAddRef(keepAliveObject, nullptr);
+  JsTTDNotifyLongLivedReferenceAdd(keepAliveObject);
 
   // true and false is needed by DefineProperty to create the property
   // descriptor
@@ -600,7 +600,7 @@ JsValueRef ContextShim::GetCachedShimFunction(CachedPropertyIdRef id,
                   func);
 
     // TTD_NODE
-    JsAddRef(*func, nullptr);
+    JsTTDNotifyLongLivedReferenceAdd(*func);
 
     CHAKRA_VERIFY(error == JsNoError);
   }
