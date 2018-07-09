@@ -93,7 +93,7 @@ void TCPWrap::Initialize(Local<Object> target,
   env->SetProtoMethod(t, "unref", HandleWrap::Unref);
   env->SetProtoMethod(t, "hasRef", HandleWrap::HasRef);
 
-  LibuvStreamWrap::AddMethods(env, t, StreamBase::kFlagHasWritev);
+  LibuvStreamWrap::AddMethods(env, t);
 
   env->SetProtoMethod(t, "open", Open);
   env->SetProtoMethod(t, "bind", Bind);
@@ -211,8 +211,12 @@ void TCPWrap::Open(const FunctionCallbackInfo<Value>& args) {
                           args.Holder(),
                           args.GetReturnValue().Set(UV_EBADF));
   int fd = static_cast<int>(args[0]->IntegerValue());
-  uv_tcp_open(&wrap->handle_, fd);
-  wrap->set_fd(fd);
+  int err = uv_tcp_open(&wrap->handle_, fd);
+
+  if (err == 0)
+    wrap->set_fd(fd);
+
+  args.GetReturnValue().Set(err);
 }
 
 

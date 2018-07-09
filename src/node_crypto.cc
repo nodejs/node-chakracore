@@ -39,7 +39,6 @@
 
 #include <errno.h>
 #include <limits.h>  // INT_MAX
-#include <math.h>
 #include <string.h>
 
 #include <algorithm>
@@ -2154,9 +2153,6 @@ void SSLWrap<Base>::VerifyError(const FunctionCallbackInfo<Value>& args) {
   if (x509_verify_error == X509_V_OK)
     return args.GetReturnValue().SetNull();
 
-  // XXX(bnoordhuis) X509_verify_cert_error_string() is not actually thread-safe
-  // in the presence of invalid error codes.  Probably academical but something
-  // to keep in mind if/when node ever grows multi-isolate capabilities.
   const char* reason = X509_verify_cert_error_string(x509_verify_error);
   const char* code = reason;
 #define CASE_X509_ERR(CODE) case X509_V_ERR_##CODE: code = #CODE; break;
@@ -2805,13 +2801,11 @@ bool CipherBase::InitAuthenticated(const char* cipher_type, int iv_len,
     if (kind_ == kCipher)
       auth_tag_len_ = auth_tag_len;
 
-    // The message length is restricted to 2 ^ (8 * (15 - iv_len)) - 1 bytes.
+    // Restrict the message length to min(INT_MAX, 2^(8*(15-iv_len))-1) bytes.
     CHECK(iv_len >= 7 && iv_len <= 13);
-    if (iv_len >= static_cast<int>(15.5 - log2(INT_MAX + 1.) / 8)) {
-      max_message_size_ = (1 << (8 * (15 - iv_len))) - 1;
-    } else {
-      max_message_size_ = INT_MAX;
-    }
+    max_message_size_ = INT_MAX;
+    if (iv_len == 12) max_message_size_ = 16777215;
+    if (iv_len == 13) max_message_size_ = 65535;
   } else {
     CHECK_EQ(mode, EVP_CIPH_GCM_MODE);
 

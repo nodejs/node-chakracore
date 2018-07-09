@@ -22,6 +22,7 @@
 #include "node_buffer.h"
 #include "node_constants.h"
 #include "node_javascript.h"
+#include "node_code_cache.h"
 #include "node_platform.h"
 #include "node_version.h"
 #include "node_internals.h"
@@ -2149,10 +2150,18 @@ static void GetInternalBinding(const FunctionCallbackInfo<Value>& args) {
 
   Local<String> module = args[0].As<String>();
   node::Utf8Value module_v(env->isolate(), module);
+  Local<Object> exports;
 
   node_module* mod = get_internal_module(*module_v);
-  if (mod == nullptr) return ThrowIfNoSuchModule(env, *module_v);
-  Local<Object> exports = InitModule(env, mod, module);
+  if (mod != nullptr) {
+    exports = InitModule(env, mod, module);
+  } else if (!strcmp(*module_v, "code_cache")) {
+    // internalBinding('code_cache')
+    exports = Object::New(env->isolate());
+    DefineCodeCache(env, exports);
+  } else {
+    return ThrowIfNoSuchModule(env, *module_v);
+  }
 
   args.GetReturnValue().Set(exports);
 }
@@ -2761,6 +2770,11 @@ void SetupProcessObject(Environment* env,
                                 "_breakFirstLine", True(env->isolate()));
   }
 
+  if (debug_options.break_node_first_line()) {
+    READONLY_DONT_ENUM_PROPERTY(process,
+                                "_breakNodeFirstLine", True(env->isolate()));
+  }
+
   // --inspect --debug-brk
   if (debug_options.deprecated_invocation()) {
     READONLY_DONT_ENUM_PROPERTY(process,
@@ -2995,7 +3009,8 @@ void LoadEnvironment(Environment* env) {
     env->process_object(),
     get_binding_fn,
     get_linked_binding_fn,
-    get_internal_binding_fn
+    get_internal_binding_fn,
+    Boolean::New(env->isolate(), debug_options.break_node_first_line())
   };
 
   // Bootstrap internal loaders
@@ -4185,16 +4200,21 @@ Local<Context> NewContext(Isolate* isolate,
   auto context = Context::New(isolate, nullptr, object_template);
   if (context.IsEmpty()) return context;
   HandleScope handle_scope(isolate);
-  auto intl_key = FIXED_ONE_BYTE_STRING(isolate, "Intl");
-  auto break_iter_key = FIXED_ONE_BYTE_STRING(isolate, "v8BreakIterator");
+
   context->SetEmbedderData(
       ContextEmbedderIndex::kAllowWasmCodeGeneration, True(isolate));
-  Local<Value> intl_v;
-  if (context->Global()->Get(context, intl_key).ToLocal(&intl_v) &&
-      intl_v->IsObject()) {
-    Local<Object> intl = intl_v.As<Object>();
-    intl->Delete(context, break_iter_key).FromJust();
+
+  {
+    // Run lib/internal/per_context.js
+    Context::Scope context_scope(context);
+    Local<String> per_context = NodePerContextSource(isolate);
+    v8::ScriptCompiler::Source per_context_src(per_context, nullptr);
+    Local<v8::Script> s = v8::ScriptCompiler::Compile(
+        context,
+        &per_context_src).ToLocalChecked();
+    s->Run(context).ToLocalChecked();
   }
+
   return context;
 }
 #endif

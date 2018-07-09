@@ -6,6 +6,7 @@
     'node_use_etw%': 'false',
     'node_use_perfctr%': 'false',
     'node_no_browser_globals%': 'false',
+    'node_code_cache_path%': '',
     'node_use_v8_platform%': 'true',
     'node_use_bundled_v8%': 'true',
     'node_shared%': 'false',
@@ -25,6 +26,8 @@
     'node_lib_target_name%': 'node_lib',
     'node_intermediate_lib_type%': 'static_library',
     'library_files': [
+      'lib/internal/per_context.js',
+      'lib/internal/bootstrap/cache.js',
       'lib/internal/bootstrap/loaders.js',
       'lib/internal/bootstrap/node.js',
       'lib/async_hooks.js',
@@ -103,6 +106,8 @@
       'lib/internal/crypto/sig.js',
       'lib/internal/crypto/util.js',
       'lib/internal/constants.js',
+      'lib/internal/dns/promises.js',
+      'lib/internal/dns/utils.js',
       'lib/internal/encoding.js',
       'lib/internal/errors.js',
       'lib/internal/error-serdes.js',
@@ -406,6 +411,7 @@
         'src/node_api.h',
         'src/node_api_types.h',
         'src/node_buffer.h',
+        'src/node_code_cache.h',
         'src/node_constants.h',
         'src/node_contextify.h',
         'src/node_debug_options.h',
@@ -484,6 +490,11 @@
           'sources': [
             'src/node_api.cc',
           ],
+        }],
+        [ 'node_code_cache_path!=""', {
+          'sources': [ '<(node_code_cache_path)' ]
+        }, {
+          'sources': [ 'src/node_code_cache_stub.cc' ]
         }],
         [ 'node_shared=="true" and node_module_version!="" and OS!="win"', {
           'product_extension': '<(shlib_suffix)',

@@ -1013,8 +1013,7 @@ interface. This is an [`EventEmitter`][] with the following events:
 added: v0.6.7
 -->
 
-Indicates that the underlying connection was terminated before
-[`response.end()`][] was called or able to flush.
+Indicates that the underlying connection was terminated.
 
 ### Event: 'finish'
 <!-- YAML
@@ -1271,6 +1270,13 @@ const server = http.createServer((req, res) => {
 });
 ```
 
+If [`response.writeHead()`][] method is called and this method has not been
+called, it will directly write the supplied header values onto the network
+channel without caching internally, and the [`response.getHeader()`][] on the
+header will not yield the expected result. If progressive population of headers
+is desired with potential future retrieval and modification, use
+[`response.setHeader()`][] instead of [`response.writeHead()`][].
+
 ### response.setTimeout(msecs[, callback])
 <!-- YAML
 added: v0.9.12
@@ -1438,6 +1444,13 @@ When headers have been set with [`response.setHeader()`][], they will be merged
 with any headers passed to [`response.writeHead()`][], with the headers passed
 to [`response.writeHead()`][] given precedence.
 
+If this method is called and [`response.setHeader()`][] has not been called,
+it will directly write the supplied header values onto the network channel
+without caching internally, and the [`response.getHeader()`][] on the header
+will not yield the expected result. If progressive population of headers is
+desired with potential future retrieval and modification, use
+[`response.setHeader()`][] instead.
+
 ```js
 // returns content-type = text/plain
 const server = http.createServer((req, res) => {
@@ -1492,7 +1505,6 @@ added: v0.4.2
 -->
 
 Indicates that the underlying connection was closed.
-Just like `'end'`, this event occurs only once per response.
 
 ### message.aborted
 <!-- YAML

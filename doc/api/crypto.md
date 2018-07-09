@@ -245,7 +245,8 @@ once will result in an error being thrown.
 added: v1.0.0
 -->
 - `buffer` {Buffer}
-- `options` {Object}
+- `options` {Object} [`stream.transform` options][]
+  - `plaintextLength` {number}
 - Returns: {Cipher} for method chaining.
 
 When using an authenticated encryption mode (only `GCM` and `CCM` are currently
@@ -398,7 +399,7 @@ Once the `decipher.final()` method has been called, the `Decipher` object can
 no longer be used to decrypt data. Attempts to call `decipher.final()` more
 than once will result in an error being thrown.
 
-### decipher.setAAD(buffer)
+### decipher.setAAD(buffer[, options])
 <!-- YAML
 added: v1.0.0
 changes:
@@ -407,11 +408,17 @@ changes:
     description: This method now returns a reference to `decipher`.
 -->
 - `buffer` {Buffer | TypedArray | DataView}
-- Returns: {Cipher} for method chaining.
+- `options` {Object} [`stream.transform` options][]
+  - `plaintextLength` {number}
+- Returns: {Decipher} for method chaining.
 
 When using an authenticated encryption mode (only `GCM` and `CCM` are currently
 supported), the `decipher.setAAD()` method sets the value used for the
 _additional authenticated data_ (AAD) input parameter.
+
+The `options` argument is optional for `GCM`. When using `CCM`, the
+`plaintextLength` option must be specified and its value must match the length
+of the plaintext in bytes. See [CCM mode][].
 
 The `decipher.setAAD()` method must be called before [`decipher.update()`][].
 
@@ -424,7 +431,7 @@ changes:
     description: This method now returns a reference to `decipher`.
 -->
 - `buffer` {Buffer | TypedArray | DataView}
-- Returns: {Cipher} for method chaining.
+- Returns: {Decipher} for method chaining.
 
 When using an authenticated encryption mode (only `GCM` and `CCM` are currently
 supported), the `decipher.setAuthTag()` method is used to pass in the
@@ -448,7 +455,7 @@ The `decipher.setAuthTag()` method must be called before
 added: v0.7.1
 -->
 - `autoPadding` {boolean} **Default:** `true`
-- Returns: {Cipher} for method chaining.
+- Returns: {Decipher} for method chaining.
 
 When data has been encrypted without standard block padding, calling
 `decipher.setAutoPadding(false)` will disable automatic padding to prevent
@@ -1772,8 +1779,8 @@ changes:
     description: The default encoding for `password` if it is a string changed
                  from `binary` to `utf8`.
 -->
-- `password` {string|Buffer|TypedArray}
-- `salt` {string|Buffer|TypedArray}
+- `password` {string|Buffer|TypedArray|DataView}
+- `salt` {string|Buffer|TypedArray|DataView}
 - `iterations` {number}
 - `keylen` {number}
 - `digest` {string}
@@ -1842,8 +1849,8 @@ changes:
     description: The default encoding for `password` if it is a string changed
                  from `binary` to `utf8`.
 -->
-- `password` {string|Buffer|TypedArray}
-- `salt` {string|Buffer|TypedArray}
+- `password` {string|Buffer|TypedArray|DataView}
+- `salt` {string|Buffer|TypedArray|DataView}
 - `iterations` {number}
 - `keylen` {number}
 - `digest` {string}
@@ -2060,10 +2067,10 @@ const a = new Uint32Array(10);
 console.log(crypto.randomFillSync(a).toString('hex'));
 
 const b = new Float64Array(10);
-console.log(crypto.randomFillSync(a).toString('hex'));
+console.log(crypto.randomFillSync(b).toString('hex'));
 
 const c = new DataView(new ArrayBuffer(10));
-console.log(crypto.randomFillSync(a).toString('hex'));
+console.log(crypto.randomFillSync(c).toString('hex'));
 ```
 
 ### crypto.randomFill(buffer[, offset][, size], callback)
@@ -2140,16 +2147,16 @@ request.
 <!-- YAML
 added: v10.5.0
 -->
-- `password` {string|Buffer|TypedArray}
-- `salt` {string|Buffer|TypedArray}
+- `password` {string|Buffer|TypedArray|DataView}
+- `salt` {string|Buffer|TypedArray|DataView}
 - `keylen` {number}
 - `options` {Object}
   - `N` {number} CPU/memory cost parameter. Must be a power of two greater
-                 than one. **Default:** `16384`.
+    than one. **Default:** `16384`.
   - `r` {number} Block size parameter. **Default:** `8`.
   - `p` {number} Parallelization parameter. **Default:** `1`.
   - `maxmem` {number} Memory upper bound. It is an error when (approximately)
-                      `128*N*r > maxmem` **Default:** `32 * 1024 * 1024`.
+    `128 * N * r > maxmem`. **Default:** `32 * 1024 * 1024`.
 - `callback` {Function}
   - `err` {Error}
   - `derivedKey` {Buffer}
@@ -2186,16 +2193,16 @@ crypto.scrypt('secret', 'salt', 64, { N: 1024 }, (err, derivedKey) => {
 <!-- YAML
 added: v10.5.0
 -->
-- `password` {string|Buffer|TypedArray}
-- `salt` {string|Buffer|TypedArray}
+- `password` {string|Buffer|TypedArray|DataView}
+- `salt` {string|Buffer|TypedArray|DataView}
 - `keylen` {number}
 - `options` {Object}
   - `N` {number} CPU/memory cost parameter. Must be a power of two greater
-                 than one. **Default:** `16384`.
+    than one. **Default:** `16384`.
   - `r` {number} Block size parameter. **Default:** `8`.
   - `p` {number} Parallelization parameter. **Default:** `1`.
   - `maxmem` {number} Memory upper bound. It is an error when (approximately)
-                      `128*N*r > maxmem` **Default:** `32 * 1024 * 1024`.
+    `128 * N * r > maxmem`. **Default:** `32 * 1024 * 1024`.
 - Returns: {Buffer}
 
 Provides a synchronous [scrypt][] implementation. Scrypt is a password-based
