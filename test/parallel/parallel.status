@@ -175,15 +175,6 @@ test-fs-watchfile-bigint : SKIP
 # One of the benchmarks uses object spread syntax, which chakra does not support
 test-benchmark-es : SKIP
 
-# These tests exercises Promise.prototype.finally which isn't currently supported
-# https://github.com/Microsoft/ChakraCore/pull/4668
-test-fs-append-file : SKIP
-test-fs-promises : SKIP
-test-fs-promises-file-handle-truncate : SKIP
-test-fs-promises-readfile : SKIP
-test-fs-promises-readfile-empty : SKIP
-test-fs-promises-writefile : SKIP
-
 # This test expects stack overflow to behave in a specific way, which doesn't happen with chakracore
 test-fs-readdir-stack-overflow : SKIP
 
