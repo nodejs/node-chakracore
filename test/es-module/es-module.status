@@ -9,17 +9,21 @@ prefix es-module
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-esm-basic-imports : SKIP
+test-esm-cjs-main : SKIP
 test-esm-cyclic-dynamic-import : SKIP
 test-esm-double-encoding : SKIP
 test-esm-dynamic-import : SKIP
 test-esm-encoded-path : SKIP
 test-esm-encoded-path-native : SKIP
+test-esm-error-cache : SKIP
 test-esm-example-loader : SKIP
 test-esm-forbidden-globals : SKIP
 test-esm-import-meta: SKIP
 test-esm-json : SKIP
 test-esm-live-binding : SKIP
 test-esm-loader-dependency : SKIP
+test-esm-loader-invalid-format : SKIP
+test-esm-loader-invalid-url : SKIP
 test-esm-loader-modulemap : SKIP
 test-esm-main-lookup : SKIP
 test-esm-named-exports : SKIP
@@ -36,5 +40,3 @@ test-esm-snapshot : SKIP
 test-esm-symlink : SKIP
 test-esm-symlink-main : SKIP
 test-esm-throw-undefined : SKIP
-test-esm-cjs-main : SKIP
-test-esm-error-cache : SKIP
