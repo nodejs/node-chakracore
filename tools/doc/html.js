@@ -37,7 +37,7 @@ marked.setOptions({ renderer });
 const docPath = path.resolve(__dirname, '..', '..', 'doc');
 
 const gtocPath = path.join(docPath, 'api', 'index.md');
-const gtocMD = fs.readFileSync(gtocPath, 'utf8').replace(/^<!--.*?-->/gms, '');
+const gtocMD = fs.readFileSync(gtocPath, 'utf8').replace(/^<!--[\s\S]*?-->/gm, '');
 const gtocHTML = marked(gtocMD).replace(
   /<a href="(.*?)"/g,
   (all, href) => `<a class="nav-${href.replace('.html', '')
