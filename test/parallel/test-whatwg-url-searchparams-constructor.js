@@ -244,28 +244,27 @@ function makeIterableFunc(array) {
   const sym = Symbol();
   const toStringError = /^Error: toString$/;
   const symbolError = /^TypeError: Cannot convert a Symbol value to a string$/;
-  const chakracoreSymbolErrorRegex =
-      /^TypeError: No implicit conversion of Symbol to String/;
+  const chakracoreSymbolError = /^TypeError: No implicit conversion of Symbol to String$/;
   assert.throws(() => new URLSearchParams({ a: obj }), toStringError);
   assert.throws(() => new URLSearchParams([['a', obj]]), toStringError);
   assert.throws(() => new URLSearchParams(sym),
                 common.engineSpecificMessage({
                   v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
+                  chakracore: chakracoreSymbolError
                 }));
   assert.throws(() => new URLSearchParams({ a: sym }),
                 common.engineSpecificMessage({
                   v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
+                  chakracore: chakracoreSymbolError
                 }));
   assert.throws(() => new URLSearchParams([[sym, 'a']]),
                 common.engineSpecificMessage({
                   v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
+                  chakracore: chakracoreSymbolError
                 }));
   assert.throws(() => new URLSearchParams([['a', sym]]),
                 common.engineSpecificMessage({
                   v8: symbolError,
-                  chakracore: chakracoreSymbolErrorRegex
+                  chakracore: chakracoreSymbolError
                 }));
 }
