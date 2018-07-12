@@ -86,7 +86,7 @@ test(function() {
   assert.throws(() => params.delete(sym),
                 common.engineSpecificMessage({
                   v8: /^TypeError: Cannot convert a Symbol value to a string$/,
-                  chakracore: /^TypeError: No implicit conversion of Symbol to String/
+                  chakracore: /^TypeError: No implicit conversion of Symbol to String$/
                 }));
 }
 
