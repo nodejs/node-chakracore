@@ -34,7 +34,6 @@ test-async-hooks-promise-triggerid : SKIP
 test-async-wrap-promise-after-enabled : SKIP
 test-buffer-bindingobj-no-zerofill : SKIP
 test-buffer-sharedarraybuffer : SKIP
-test-worker-workerdata-sharedarraybuffer : SKIP
 test-child-process-fork-net : PASS,FLAKY
 test-crypto-dh : SKIP
 test-crypto-dh-leak : SKIP
@@ -219,6 +218,7 @@ test-worker : SKIP
 test-worker-cleanup-handles : SKIP
 test-worker-dns-terminate : SKIP
 test-worker-esmodule : SKIP
+test-worker-exit-code : SKIP
 test-worker-memory : SKIP
 test-worker-message-channel : SKIP
 test-worker-message-channel-sharedarraybuffer : SKIP
@@ -238,6 +238,7 @@ test-worker-syntax-error-file : SKIP
 test-worker-uncaught-exception : SKIP
 test-worker-uncaught-exception-async : SKIP
 test-worker-unsupported-things : SKIP
+test-worker-workerdata-sharedarraybuffer : SKIP
 
 # Chakra doesn't yet support createCachedData.
 # See bug https://github.com/nodejs/node-chakracore/issues/560
