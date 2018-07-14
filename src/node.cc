@@ -289,6 +289,8 @@ std::string config_warning_file;  // NOLINT(runtime/string)
 // that is used by lib/internal/bootstrap/node.js
 bool config_expose_internals = false;
 
+std::string config_process_title;  // NOLINT(runtime/string)
+
 bool v8_initialized = false;
 
 bool linux_at_secure = false;
@@ -1686,6 +1688,8 @@ static void ProcessTitleSetter(Local<Name> property,
                                Local<Value> value,
                                const PropertyCallbackInfo<void>& info) {
   node::Utf8Value title(info.GetIsolate(), value);
+  TRACE_EVENT_METADATA1("__metadata", "process_name", "name",
+                        TRACE_STR_COPY(*title));
   uv_set_process_title(*title);
 }
 
@@ -2545,6 +2549,7 @@ static void PrintHelp() {
          "                             write warnings to file instead of\n"
          "                             stderr\n"
          "  --throw-deprecation        throw an exception on deprecations\n"
+         "  --title=title              the process title to use on start up\n"
 #if HAVE_OPENSSL
          "  --tls-cipher-list=val      use an alternative default TLS cipher "
          "list\n"
@@ -2719,6 +2724,7 @@ static void CheckIfAllowedInEnv(const char* exe, bool is_env,
     "--redirect-warnings",
     "--require",
     "--throw-deprecation",
+    "--title",
     "--tls-cipher-list",
     "--trace-deprecation",
     "--trace-event-categories",
@@ -2931,6 +2937,8 @@ static void ParseArgs(int* argc,
     } else if (strncmp(arg, "--security-revert=", 18) == 0) {
       const char* cve = arg + 18;
       Revert(cve);
+    } else if (strncmp(arg, "--title=", 8) == 0) {
+      config_process_title = arg + 8;
     } else if (strcmp(arg, "--preserve-symlinks") == 0) {
       config_preserve_symlinks = true;
     } else if (strcmp(arg, "--preserve-symlinks-main") == 0) {
@@ -3422,6 +3430,10 @@ void Init(int* argc,
 
   ProcessArgv(argc, argv, exec_argc, exec_argv);
 
+  // Set the process.title immediately after processing argv if --title is set.
+  if (!config_process_title.empty())
+    uv_set_process_title(config_process_title.c_str());
+
 #if defined(NODE_HAVE_I18N_SUPPORT)
   // If the parameter isn't given, use the env variable.
   if (icu_data_dir.empty())
@@ -3686,6 +3698,13 @@ inline int Start(Isolate* isolate, void* isolate_context,
   Environment env(isolate_data, context, v8_platform.GetTracingAgent());
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
 
+  char name_buffer[512];
+  if (uv_get_process_title(name_buffer, sizeof(name_buffer)) == 0) {
+    // Only emit the metadata event if the title can be retrieved successfully.
+    // Ignore it otherwise.
+    TRACE_EVENT_METADATA1("__metadata", "process_name", "name",
+                          TRACE_STR_COPY(name_buffer));
+  }
   TRACE_EVENT_METADATA1("__metadata", "version", "node", NODE_VERSION_STRING);
   TRACE_EVENT_METADATA1("__metadata", "thread_name", "name",
                         "JavaScriptMainThread");
