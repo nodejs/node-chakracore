@@ -17,7 +17,10 @@ function test(data, only, expected) {
     only = undefined;
   }
   console.table(data, only);
-  assert.strictEqual(queue.shift(), expected.trimLeft());
+  assert.deepStrictEqual(
+    queue.shift().split('\n'),
+    expected.trimLeft().split('\n')
+  );
 }
 
 common.expectsError(() => console.table([], false), {
@@ -119,10 +122,30 @@ if (!common.isChakraEngine) {
 │         2         │  3  │   3    │
 └───────────────────┴─────┴────────┘
 `);
+
+  test(new Map([[1, 1], [2, 2], [3, 3]]).values(), `
+┌───────────────────┬────────┐
+│ (iteration index) │ Values │
+├───────────────────┼────────┤
+│         0         │   1    │
+│         1         │   2    │
+│         2         │   3    │
+└───────────────────┴────────┘
+`);
+
+  test(new Map([[1, 1], [2, 2], [3, 3]]).keys(), `
+┌───────────────────┬────────┐
+│ (iteration index) │ Values │
+├───────────────────┼────────┤
+│         0         │   1    │
+│         1         │   2    │
+│         2         │   3    │
+└───────────────────┴────────┘
+`);
 }
 
 // BUGBUG: https://github.com/nodejs/node-chakracore/issues/510 - need to
-//         re-enable for Chakra when previewMapIterator is implemented
+//         re-enable for Chakra when previewSetIterator is implemented
 if (!common.isChakraEngine) {
   test(new Set([1, 2, 3]).values(), `
 ┌───────────────────┬────────┐
