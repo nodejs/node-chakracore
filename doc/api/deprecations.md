@@ -142,17 +142,17 @@ undefined `digest` will throw a `TypeError`.
 <a id="DEP0010"></a>
 ### DEP0010: crypto.createCredentials
 
-Type: Runtime
+Type: End-of-Life
 
-The [`crypto.createCredentials()`][] API is deprecated. Please use
+The `crypto.createCredentials()` API was removed. Please use
 [`tls.createSecureContext()`][] instead.
 
 <a id="DEP0011"></a>
 ### DEP0011: crypto.Credentials
 
-Type: Runtime
+Type: End-of-Life
 
-The `crypto.Credentials` class is deprecated. Please use [`tls.SecureContext`][]
+The `crypto.Credentials` class was removed. Please use [`tls.SecureContext`][]
 instead.
 
 <a id="DEP0012"></a>
@@ -1020,7 +1020,6 @@ The option `produceCachedData` has been deprecated. Use
 [`console.log()`]: console.html#console_console_log_data_args
 [`crypto.createCipher()`]: crypto.html#crypto_crypto_createcipher_algorithm_password_options
 [`crypto.createCipheriv()`]: crypto.html#crypto_crypto_createcipheriv_algorithm_key_iv_options
-[`crypto.createCredentials()`]: crypto.html#crypto_crypto_createcredentials_details
 [`crypto.createDecipher()`]: crypto.html#crypto_crypto_createdecipher_algorithm_password_options
 [`crypto.createDecipheriv()`]: crypto.html#crypto_crypto_createdecipheriv_algorithm_key_iv_options
 [`crypto.DEFAULT_ENCODING`]: crypto.html#crypto_crypto_default_encoding
@@ -1087,5 +1086,5 @@ The option `produceCachedData` has been deprecated. Use
 [alloc_unsafe_size]: buffer.html#buffer_class_method_buffer_allocunsafe_size
 [from_arraybuffer]: buffer.html#buffer_class_method_buffer_from_arraybuffer_byteoffset_length
 [from_string_encoding]: buffer.html#buffer_class_method_buffer_from_string_encoding
-[NIST SP 800-38D]: http://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
+[NIST SP 800-38D]: https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
 [`REPLServer.clearBufferedCommand()`]: repl.html#repl_replserver_clearbufferedcommand
