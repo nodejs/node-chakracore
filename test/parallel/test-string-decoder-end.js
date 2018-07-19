@@ -24,7 +24,7 @@
 // the whole buffer at once, and that both match the .toString(enc)
 // result of the entire buffer.
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const SD = require('string_decoder').StringDecoder;
 const encodings = ['base64', 'hex', 'utf8', 'utf16le', 'ucs2'];
@@ -42,9 +42,26 @@ encodings.forEach(testEncoding);
 testEnd('utf8', Buffer.of(0xE2), Buffer.of(0x61), '\uFFFDa');
 testEnd('utf8', Buffer.of(0xE2), Buffer.of(0x82), '\uFFFD\uFFFD');
 testEnd('utf8', Buffer.of(0xE2), Buffer.of(0xE2), '\uFFFD\uFFFD');
-testEnd('utf8', Buffer.of(0xE2, 0x82), Buffer.of(0x61), '\uFFFDa');
-testEnd('utf8', Buffer.of(0xE2, 0x82), Buffer.of(0xAC), '\uFFFD\uFFFD');
-testEnd('utf8', Buffer.of(0xE2, 0x82), Buffer.of(0xE2), '\uFFFD\uFFFD');
+
+// These tests assume that converting a utf8 string with invalid sequences
+// generates replacement characters in a particular way which is true for v8
+// but not true for charkacore
+testEnd('utf8', Buffer.of(0xE2, 0x82), Buffer.of(0x61),
+        common.engineSpecificMessage({
+          v8: '\uFFFDa',
+          chakracore: '\uFFFD\uFFFDa'
+        }));
+testEnd('utf8', Buffer.of(0xE2, 0x82), Buffer.of(0xAC),
+        common.engineSpecificMessage({
+          v8: '\uFFFD\uFFFD',
+          chakracore: '\uFFFD\uFFFD\uFFFD'
+        }));
+testEnd('utf8', Buffer.of(0xE2, 0x82), Buffer.of(0xE2),
+        common.engineSpecificMessage({
+          v8: '\uFFFD\uFFFD',
+          chakracore: '\uFFFD\uFFFD\uFFFD'
+        }));
+
 testEnd('utf8', Buffer.of(0xE2, 0x82, 0xAC), Buffer.of(0x61), '€a');
 
 testEnd('utf16le', Buffer.of(0x3D), Buffer.of(0x61, 0x00), 'a');
