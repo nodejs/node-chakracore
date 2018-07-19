@@ -41,8 +41,8 @@ assert.strictEqual(externalResult[2], 2);
 // validate creation of all kinds of TypedArrays
 const buffer = new ArrayBuffer(128);
 let arrayTypes = [ Int8Array, Uint8Array, Uint8ClampedArray, Int16Array,
-                     Uint16Array, Int32Array, Uint32Array, Float32Array,
-                     Float64Array ];
+                   Uint16Array, Int32Array, Uint32Array, Float32Array,
+                   Float64Array ];
 
 if (!common.isChakraEngine) {
   arrayTypes = arrayTypes.concat([BigInt64Array, BigUint64Array]);
@@ -68,7 +68,7 @@ arrayTypes.forEach((currentType) => {
 });
 
 let nonByteArrayTypes = [ Int16Array, Uint16Array, Int32Array, Uint32Array,
-                            Float32Array, Float64Array];
+                          Float32Array, Float64Array];
 
 if (!common.isChakraEngine) {
   nonByteArrayTypes = nonByteArrayTypes.concat([BigInt64Array, BigUint64Array]);
