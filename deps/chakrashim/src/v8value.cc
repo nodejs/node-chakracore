@@ -411,4 +411,9 @@ bool Value::StrictEquals(Handle<Value> that) const {
   return strictEquals;
 }
 
+bool Value::SameValue(Local<Value> that) const {
+  CHAKRA_UNIMPLEMENTED();
+  return false;
+}
+
 }  // namespace v8
