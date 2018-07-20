@@ -281,3 +281,12 @@ test-cluster-fork-windowsHide : SKIP
 
 # ChakraCore doesn't support WASM on WoA
 test-wasm-simple : SKIP
+
+# These tests rely on V8's custom heap dumping and validation
+test-heapdump-dns : SKIP
+test-heapdump-fs-promise : SKIP
+test-heapdump-http2 : SKIP
+test-heapdump-inspector : SKIP
+test-heapdump-tls : SKIP
+test-heapdump-worker : SKIP
+test-heapdump-zlib : SKIP
