@@ -861,6 +861,10 @@ class Environment {
   inline void RemoveCleanupHook(void (*fn)(void*), void* arg);
   void RunCleanup();
 
+  static void BuildEmbedderGraph(v8::Isolate* isolate,
+                                 v8::EmbedderGraph* graph,
+                                 void* data);
+
  private:
   inline void CreateImmediate(native_immediate_callback cb,
                               void* data,
@@ -901,6 +905,8 @@ class Environment {
   uint64_t thread_id_ = 0;
   std::unordered_set<worker::Worker*> sub_worker_contexts_;
 
+  static void* kNodeContextTagPtr;
+  static int const kNodeContextTag;
 
 #if HAVE_INSPECTOR
   std::unique_ptr<inspector::Agent> inspector_agent_;
@@ -981,6 +987,8 @@ class Environment {
       inline bool operator()(const CleanupHookCallback& a,
                              const CleanupHookCallback& b) const;
     };
+
+    inline BaseObject* GetBaseObject() const;
   };
 
   // Use an unordered_set, so that we have efficient insertion and removal.
@@ -992,6 +1000,9 @@ class Environment {
   static void EnvPromiseHook(v8::PromiseHookType type,
                              v8::Local<v8::Promise> promise,
                              v8::Local<v8::Value> parent);
+
+  template <typename T>
+  void ForEachBaseObject(T&& iterator);
 
 #define V(PropertyName, TypeName) Persistent<TypeName> PropertyName ## _;
   ENVIRONMENT_STRONG_PERSISTENT_PROPERTIES(V)
