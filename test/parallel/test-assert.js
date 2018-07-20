@@ -790,8 +790,10 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: 'The expression evaluated to a falsy value:\n\n  ' +
-             'ok(null, undefined)\n'
+    message: engineSpecificAssert(
+      'assert(null, undefined)\n',
+      'null == true'
+    )
   }
 );
 
@@ -801,8 +803,10 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: 'The expression evaluated to a falsy value:\n\n  ' +
-             'assert[\'ok\']["apply"](null, [0])\n'
+    message: engineSpecificAssert(
+      'assert[\'ok\']["apply"](null, [0])\n',
+      '0 == true'
+    )
   }
 );
 
@@ -814,7 +818,10 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: 'The expression evaluated to a falsy value:\n\n  fn(value)\n'
+    message: engineSpecificAssert(
+      'fn(value)\n',
+      'false == true'
+    )
   }
 );
 
