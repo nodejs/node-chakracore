@@ -73,7 +73,6 @@ test-repl-pretty-custom-stack : SKIP
 test-repl-pretty-stack : SKIP
 test-repl-sigint : SKIP
 test-repl-tab-complete : SKIP
-test-string-decoder : SKIP
 
 # ChakraCore does not support the chrome tracing framework
 test-trace-events-all : SKIP
@@ -153,9 +152,6 @@ test-async-hooks-recursive-stack-runInAsyncScope : SKIP
 # This test requires for...await support which is not in Node-ChakraCore
 test-stream-readable-async-iterators : SKIP
 
-# This test requires BufferList.name, which is not properly set due to Microsoft/ChakraCore#4635
-test-stream-buffer-list : SKIP
-
 # These tests requires esmodule support, which is pending in node-chakracore https://github.com/nodejs/node-chakracore/issues/391
 test-inspector-esm : SKIP
 test-internal-module-wrap : SKIP
@@ -179,10 +175,6 @@ test-benchmark-es : SKIP
 # This test expects stack overflow to behave in a specific way, which doesn't happen with chakracore
 test-fs-readdir-stack-overflow : SKIP
 
-# This test assumes that converting a utf8 string with invalid sequences generates replacement characters
-# in a particular way which is true for v8 but not true for charkacore
-test-string-decoder-end : SKIP
-
 # These tests use the v8 module which chakracore does not support
 test-process-exception-capture-should-abort-on-uncaught-setflagsfromstring : SKIP
 test-v8-flag-type-check : SKIP
@@ -190,10 +182,6 @@ test-v8-stats : SKIP
 
 # This test uses the V8 untrusted code mitigation and accompanying V8 option
 test-v8-untrusted-code-mitigations : SKIP
-
-# This test should be enabled once chakracore fixes
-# https://github.com/Microsoft/ChakraCore/issues/5196
-test-repl-top-level-await : SKIP
 
 # This test fails due to the workaround for vm.runInContext not working
 # with "var" declarations. Once we have an alternate fix, this can be

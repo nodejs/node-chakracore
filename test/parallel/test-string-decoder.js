@@ -66,11 +66,25 @@ test('utf-8', Buffer.from('C9B5A941', 'hex'), '\u0275\ufffdA');
 test('utf-8', Buffer.from('E2', 'hex'), '\ufffd');
 test('utf-8', Buffer.from('E241', 'hex'), '\ufffdA');
 test('utf-8', Buffer.from('CCCCB8', 'hex'), '\ufffd\u0338');
-test('utf-8', Buffer.from('F0B841', 'hex'), '\ufffdA');
+
+if (!common.isChakraEngine) {
+  // This test assumes that converting a utf8 string with invalid sequences
+  // generates replacement characters in a particular way which is true for v8
+  // but not true for charkacore
+  test('utf-8', Buffer.from('F0B841', 'hex'), '\ufffdA');
+}
+
 test('utf-8', Buffer.from('F1CCB8', 'hex'), '\ufffd\u0338');
 test('utf-8', Buffer.from('F0FB00', 'hex'), '\ufffd\ufffd\0');
 test('utf-8', Buffer.from('CCE2B8B8', 'hex'), '\ufffd\u2e38');
-test('utf-8', Buffer.from('E2B8CCB8', 'hex'), '\ufffd\u0338');
+
+if (!common.isChakraEngine) {
+  // This test assumes that converting a utf8 string with invalid sequences
+  // generates replacement characters in a particular way which is true for v8
+  // but not true for charkacore
+  test('utf-8', Buffer.from('E2B8CCB8', 'hex'), '\ufffd\u0338');
+}
+
 test('utf-8', Buffer.from('E2FBCC01', 'hex'), '\ufffd\ufffd\ufffd\u0001');
 test('utf-8', Buffer.from('CCB8CDB9', 'hex'), '\u0338\u0379');
 // CESU-8 of U+1D40D
@@ -99,7 +113,15 @@ assert.strictEqual(decoder.end(), '\ufffd');
 
 decoder = new StringDecoder('utf8');
 assert.strictEqual(decoder.write(Buffer.from('E18B', 'hex')), '');
-assert.strictEqual(decoder.end(), '\ufffd');
+
+// This test assumes that converting a utf8 string with invalid sequences
+// generates replacement characters in a particular way which is true for v8
+// but not true for charkacore
+assert.strictEqual(decoder.end(),
+                   common.engineSpecificMessage({
+                     v8: '\ufffd',
+                     chakracore: '\ufffd\ufffd'
+                   }));
 
 decoder = new StringDecoder('utf8');
 assert.strictEqual(decoder.write(Buffer.from('\ufffd')), '\ufffd');
