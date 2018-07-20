@@ -62,7 +62,6 @@ test-intl : SKIP
 test-memory-usage : SKIP
 test-module-main-extension-lookup : SKIP
 test-performance-function : SKIP
-test-performance-gc : SKIP
 test-postmortem-metadata: SKIP
 test-process-env-symbols : SKIP
 test-promises-unhandled-symbol-rejections : SKIP
@@ -73,6 +72,11 @@ test-repl-pretty-custom-stack : SKIP
 test-repl-pretty-stack : SKIP
 test-repl-sigint : SKIP
 test-repl-tab-complete : SKIP
+
+# Depends on V8's custom GC behaviour
+test-performance-gc : SKIP
+test-common-gc : SKIP
+test-net-connect-memleak : SKIP
 
 # ChakraCore does not support the chrome tracing framework
 test-trace-events-all : SKIP
@@ -240,6 +244,15 @@ test-zlib-unused-weak : SKIP
 # Issue: https://github.com/nodejs/node-chakracore/issues/565
 test-atomics-notify : SKIP
 
+# These tests rely on V8's custom heap dumping and validation
+test-heapdump-dns : SKIP
+test-heapdump-fs-promise : SKIP
+test-heapdump-http2 : SKIP
+test-heapdump-inspector : SKIP
+test-heapdump-tls : SKIP
+test-heapdump-worker : SKIP
+test-heapdump-zlib : SKIP
+
 [$jsEngine==chakracore && $arch==x64]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-buffer-includes : SKIP
@@ -281,12 +294,3 @@ test-cluster-fork-windowsHide : SKIP
 
 # ChakraCore doesn't support WASM on WoA
 test-wasm-simple : SKIP
-
-# These tests rely on V8's custom heap dumping and validation
-test-heapdump-dns : SKIP
-test-heapdump-fs-promise : SKIP
-test-heapdump-http2 : SKIP
-test-heapdump-inspector : SKIP
-test-heapdump-tls : SKIP
-test-heapdump-worker : SKIP
-test-heapdump-zlib : SKIP
