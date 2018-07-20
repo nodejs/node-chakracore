@@ -1192,7 +1192,7 @@ class V8_EXPORT Value : public Data {
                                            Handle<Value> that) const;
 
   bool StrictEquals(Handle<Value> that) const;
-
+  bool SameValue(Local<Value> that) const;
   template <class T> static Value* Cast(T* value) {
     return static_cast<Value*>(value);
   }
@@ -1600,6 +1600,7 @@ class V8_EXPORT Object : public Value {
   Maybe<bool> DeletePrivate(Local<Context> context, Local<Private> key);
   MaybeLocal<Value> GetPrivate(Local<Context> context, Local<Private> key);
 
+  int GetIdentityHash();
   Local<Object> Clone();
   Local<Context> CreationContext();
 

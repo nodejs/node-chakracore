@@ -22,6 +22,10 @@
 
 namespace v8 {
 
+int Name::GetIdentityHash() {
+  return 0;
+}
+
 Name* Name::Cast(v8::Value* obj) {
   CHAKRA_ASSERT(obj->IsName());
   return static_cast<Name*>(obj);

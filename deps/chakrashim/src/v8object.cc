@@ -769,6 +769,10 @@ void Object::SetAlignedPointerInInternalField(int index, void* value) {
   }
 }
 
+int Object::GetIdentityHash() {
+  return 0;
+}
+
 Local<Object> Object::Clone() {
   JsValueRef constructor;
   if (jsrt::GetObjectConstructor((JsValueRef)this,
