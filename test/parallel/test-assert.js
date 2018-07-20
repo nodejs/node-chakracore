@@ -470,7 +470,7 @@ function engineSpecificAssert(v8, cc) {
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        'assert.ok(typeof 123 === \'string\')\n',
+        'assert.ok(\n    typeof 123 === \'string\'\n  )\n',
         'false == true'
       )
     }
@@ -678,7 +678,7 @@ common.expectsError(
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        'assert(Buffer.from(\'test\') instanceof Error)\n',
+        'assert(\n    (Buffer.from(\'test\') instanceof Error)\n  )\n',
         'false == true'
       )
     }
@@ -689,7 +689,7 @@ common.expectsError(
       code: 'ERR_ASSERTION',
       type: assert.AssertionError,
       message: engineSpecificAssert(
-        'assert(Buffer.from(\'test\') instanceof Error)\n',
+        'assert(\n    (Buffer.from(\'test\') instanceof Error)\n  )\n',
         'false == true'
       )
     }
@@ -710,11 +710,13 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: engineSpecificAssert('assert((() => \'string\')()\n' +
+    message: engineSpecificAssert('  a(\n' +
+                                  '    (() => \'string\')()\n' +
                                   '    // eslint-disable-next-line\n' +
                                   '    ===\n' +
                                   '    123 instanceof\n' +
-                                  '        Buffer)\n',
+                                  '        Buffer\n' +
+                                  '  )\n',
                                   'false == true')
   }
 );
@@ -732,11 +734,13 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: engineSpecificAssert('assert((() => \'string\')()\n' +
+    message: engineSpecificAssert('  a(\n' +
+                                  '    (() => \'string\')()\n' +
                                   '    // eslint-disable-next-line\n' +
                                   '    ===\n' +
                                   '  123 instanceof\n' +
-                                  '        Buffer)\n',
+                                  '        Buffer\n' +
+                                  '  )\n',
                                   'false == true')
   }
 );
@@ -751,17 +755,20 @@ Buffer
 }, {
   code: 'ERR_ASSERTION',
   type: assert.AssertionError,
-  message: engineSpecificAssert('assert((\n' +
+  message: engineSpecificAssert('  a((\n' +
                                 '    () => \'string\')() ===\n' +
                                 '  123 instanceof\n' +
-                                '  Buffer)\n',
+                                '  Buffer\n' +
+                                '  )\n',
                                 'false == true')
   }
 );
 /* eslint-enable indent */
 
 common.expectsError(
-  () => assert(null, undefined),
+  () => {
+    assert(true); assert(null, undefined);
+  },
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
@@ -773,11 +780,38 @@ common.expectsError(
 );
 
 common.expectsError(
-  () => assert.ok.apply(null, [0]),
+  () => {
+    assert
+     .ok(null, undefined);
+  },
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: '0 == true'
+    message: 'The expression evaluated to a falsy value:\n\n  ' +
+             'ok(null, undefined)\n'
+  }
+);
+
+common.expectsError(
+  // eslint-disable-next-line dot-notation, quotes
+  () => assert['ok']["apply"](null, [0]),
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: 'The expression evaluated to a falsy value:\n\n  ' +
+             'assert[\'ok\']["apply"](null, [0])\n'
+  }
+);
+
+common.expectsError(
+  () => {
+    const wrapper = (fn, value) => fn(value);
+    wrapper(assert, false);
+  },
+  {
+    code: 'ERR_ASSERTION',
+    type: assert.AssertionError,
+    message: 'The expression evaluated to a falsy value:\n\n  fn(value)\n'
   }
 );
 
@@ -786,7 +820,9 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: '0 == true',
+    message: engineSpecificAssert(
+      'assert.ok.call(null, 0)\n',
+      'false == true'),
     generatedMessage: !common.isChakraEngine
   }
 );
@@ -801,7 +837,7 @@ common.expectsError(
   }
 );
 
-// works in eval
+// Works in eval.
 common.expectsError(
   () => new Function('assert', 'assert(1 === 2);')(assert),
   {
