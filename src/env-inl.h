@@ -282,6 +282,9 @@ inline void Environment::AssignToContext(v8::Local<v8::Context> context,
                                          const ContextInfo& info) {
   context->SetAlignedPointerInEmbedderData(
       ContextEmbedderIndex::kEnvironment, this);
+  // Used by EnvPromiseHook to know that we are on a node context.
+  context->SetAlignedPointerInEmbedderData(
+    ContextEmbedderIndex::kContextTag, Environment::kNodeContextTagPtr);
 #if HAVE_INSPECTOR
   inspector_agent()->ContextCreated(context, info);
 #endif  // HAVE_INSPECTOR
@@ -807,6 +810,22 @@ size_t Environment::CleanupHookCallback::Hash::operator()(
 bool Environment::CleanupHookCallback::Equal::operator()(
     const CleanupHookCallback& a, const CleanupHookCallback& b) const {
   return a.fn_ == b.fn_ && a.arg_ == b.arg_;
+}
+
+BaseObject* Environment::CleanupHookCallback::GetBaseObject() const {
+  if (fn_ == BaseObject::DeleteMe)
+    return static_cast<BaseObject*>(arg_);
+  else
+    return nullptr;
+}
+
+template <typename T>
+void Environment::ForEachBaseObject(T&& iterator) {
+  for (const auto& hook : cleanup_hooks_) {
+    BaseObject* obj = hook.GetBaseObject();
+    if (obj != nullptr)
+      iterator(obj);
+  }
 }
 
 #define VP(PropertyName, StringValue) V(v8::Private, PropertyName)

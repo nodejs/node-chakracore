@@ -127,7 +127,27 @@ if (!common.isChakraEngine) {
 // BUGBUG: https://github.com/nodejs/node-chakracore/issues/510 - need to
 //         re-enable for Chakra when previewMapIterator is implemented
 if (!common.isChakraEngine) {
-  test(new Set([1, 2, 3]).values(), `
+test(new Map([[1, 1], [2, 2], [3, 3]]).values(), `
+┌───────────────────┬────────┐
+│ (iteration index) │ Values │
+├───────────────────┼────────┤
+│         0         │   1    │
+│         1         │   2    │
+│         2         │   3    │
+└───────────────────┴────────┘
+`);
+
+test(new Map([[1, 1], [2, 2], [3, 3]]).keys(), `
+┌───────────────────┬────────┐
+│ (iteration index) │ Values │
+├───────────────────┼────────┤
+│         0         │   1    │
+│         1         │   2    │
+│         2         │   3    │
+└───────────────────┴────────┘
+`);
+
+test(new Set([1, 2, 3]).values(), `
 ┌───────────────────┬────────┐
 │ (iteration index) │ Values │
 ├───────────────────┼────────┤
