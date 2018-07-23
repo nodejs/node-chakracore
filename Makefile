@@ -141,6 +141,7 @@ clean: ## Remove build artifacts.
 	$(RM) -r test/tmp*
 	$(RM) -r test/.tmp*
 	$(MAKE) test-addons-clean
+	$(MAKE) bench-addons-clean
 
 .PHONY: distclean
 distclean:
@@ -266,7 +267,6 @@ test: all ## Runs default tests, linters, and builds docs.
 	# can be displayed together
 	$(MAKE) -s build-addons
 	$(MAKE) -s build-addons-napi
-	$(MAKE) -s test-doc
 	$(MAKE) -s cctest
 	$(MAKE) -s jstest
 
@@ -611,7 +611,8 @@ apidocs_json = $(addprefix out/,$(apidoc_sources:.md=.json))
 apiassets = $(subst api_assets,api/assets,$(addprefix out/,$(wildcard doc/api_assets/*)))
 
 .PHONY: doc-only
-doc-only: $(apidoc_dirs) $(apiassets)  ## Builds the docs with the local or the global Node.js binary.
+doc-only: tools/doc/node_modules \
+	$(apidoc_dirs) $(apiassets)  ## Builds the docs with the local or the global Node.js binary.
 # If it's a source tarball, assets are already in doc/api/assets,
 # no need to install anything, we have already copied the docs over
 	if [ ! -d doc/api/assets ]; then \
@@ -653,6 +654,7 @@ available-node = \
 	fi;
 
 run-npm-install = $(PWD)/$(NPM) install --production --no-package-lock
+run-npm-ci = $(PWD)/$(NPM) ci
 
 tools/doc/node_modules/js-yaml/package.json:
 	cd tools/doc && $(call available-node,$(run-npm-install))
@@ -1048,12 +1050,22 @@ ifeq ($(XZ), 0)
 endif
 
 .PHONY: bench-all
-bench-all:
+bench-all: bench-addons-build
 	@echo "Please use benchmark/run.js or benchmark/compare.js to run the benchmarks."
 
 .PHONY: bench
-bench:
+bench: bench-addons-build
 	@echo "Please use benchmark/run.js or benchmark/compare.js to run the benchmarks."
+
+# Build required addons for benchmark before running it.
+.PHONY: bench-addons-build
+bench-addons-build: benchmark/napi/function_call/build/Release/binding.node \
+	benchmark/napi/function_args/build/Release/binding.node
+
+.PHONY: bench-addons-clean
+bench-addons-clean:
+	$(RM) -r benchmark/napi/function_call/build
+	$(RM) -r benchmark/napi/function_args/build
 
 .PHONY: lint-md-clean
 lint-md-clean:
@@ -1063,16 +1075,21 @@ lint-md-clean:
 
 tools/remark-cli/node_modules: tools/remark-cli/package.json
 	@echo "Markdown linter: installing remark-cli into tools/"
-	@cd tools/remark-cli && $(call available-node,$(run-npm-install))
+	@cd tools/remark-cli && $(call available-node,$(run-npm-ci))
 
 tools/remark-preset-lint-node/node_modules: \
 	tools/remark-preset-lint-node/package.json
 	@echo "Markdown linter: installing remark-preset-lint-node into tools/"
-	@cd tools/remark-preset-lint-node && $(call available-node,$(run-npm-install))
+	@cd tools/remark-preset-lint-node && $(call available-node,$(run-npm-ci))
 
 .PHONY: lint-md-build
 lint-md-build: tools/remark-cli/node_modules \
+	tools/doc/node_modules \
 	tools/remark-preset-lint-node/node_modules
+
+.PHONY: tools/doc/node_modules
+tools/doc/node_modules:
+	@cd tools/doc && $(call available-node,$(run-npm-install))
 
 .PHONY: lint-md
 ifneq ("","$(wildcard tools/remark-cli/node_modules/)")
