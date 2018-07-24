@@ -278,7 +278,7 @@ goto exit
 
 :wix-not-found
 echo Build skipped. To generate installer, you need to install Wix.
-goto build-doc
+goto install-doctools
 
 :msbuild-found
 
@@ -435,7 +435,7 @@ if errorlevel 1 echo Failed to sign msi&goto exit
 
 :upload
 @rem Skip upload if not requested
-if not defined upload goto build-doc
+if not defined upload goto install-doctools
 
 if not defined SSHCONFIG (
   echo SSHCONFIG is not set for upload
@@ -461,6 +461,23 @@ ssh -F %SSHCONFIG% %STAGINGSERVER% "touch nodejs/%DISTTYPEDIR%/v%FULLVERSION%/no
 if errorlevel 1 goto exit
 
 
+:install-doctools
+REM only install if building doc OR testing doctool
+if not defined doc (
+  echo.%test_args% | findstr doctool 1>nul
+  if errorlevel 1 goto :skip-install-doctools
+)
+if exist "tools\doc\node_modules\unified\package.json" goto skip-install-doctools
+SETLOCAL
+cd tools\doc
+%npm_exe% install
+cd ..\..
+if errorlevel 1 goto exit
+ENDLOCAL
+:skip-install-doctools
+@rem Clear errorlevel from echo.%test_args% | findstr doctool 1>nul
+cd .
+
 :build-doc
 @rem Build documentation if requested
 if not defined doc goto run
@@ -472,14 +489,6 @@ mkdir %config%\doc
 robocopy /e doc\api %config%\doc\api
 robocopy /e doc\api_assets %config%\doc\api\assets
 
-if exist "tools\doc\node_modules\js-yaml\package.json" goto doc-skip-js-yaml
-SETLOCAL
-cd tools\doc
-%npm_exe% install
-cd ..\..
-if errorlevel 1 goto exit
-ENDLOCAL
-:doc-skip-js-yaml
 for %%F in (%config%\doc\api\*.md) do (
   %node_exe% tools\doc\generate.js --format=json %%F > %%~dF%%~pF%%~nF.json
   %node_exe% tools\doc\generate.js --node-version=v%FULLVERSION% --format=html --analytics=%DOCS_ANALYTICS% %%F > %%~dF%%~pF%%~nF.html
@@ -648,12 +657,12 @@ if not defined lint_md_build goto lint-md
 SETLOCAL
 echo Markdown linter: installing remark-cli into tools\
 cd tools\remark-cli
-%npm_exe% install
+%npm_exe% ci
 cd ..\..
 if errorlevel 1 goto lint-md-build-failed
 echo Markdown linter: installing remark-preset-lint-node into tools\
 cd tools\remark-preset-lint-node
-%npm_exe% install
+%npm_exe% ci
 cd ..\..
 if errorlevel 1 goto lint-md-build-failed
 ENDLOCAL
