@@ -599,7 +599,10 @@ const char* error_messages[] = {
   "The async work item was cancelled",
   "napi_escape_handle already called on scope",
   "Invalid handle scope usage",
-  "Invalid callback scope usage"
+  "Invalid callback scope usage",
+  "Thread-safe function queue is full",
+  "Thread-safe function handle is closing",
+  "A bigint was expected",
 };
 
 napi_status napi_get_last_error_info(napi_env env,
@@ -607,7 +610,7 @@ napi_status napi_get_last_error_info(napi_env env,
   CHECK_ARG(result);
 
   static_assert(
-    node::arraysize(error_messages) == napi_callback_scope_mismatch + 1,
+    node::arraysize(error_messages) == napi_bigint_expected + 1,
     "Count of error messages must match count of error values");
   assert(static_last_error.error_code <= napi_callback_scope_mismatch);
 
@@ -1258,6 +1261,32 @@ napi_status napi_create_int64(napi_env env,
   return napi_ok;
 }
 
+napi_status napi_create_bigint_int64(napi_env env,
+                                     int64_t value,
+                                     napi_value* result) {
+  // TODO(kfarnung): BigInt is not currently implemented in ChakraCore
+  //                 https://github.com/Microsoft/ChakraCore/issues/5440
+  return napi_ok;
+}
+
+napi_status napi_create_bigint_uint64(napi_env env,
+                                      uint64_t value,
+                                      napi_value* result) {
+  // TODO(kfarnung): BigInt is not currently implemented in ChakraCore
+  //                 https://github.com/Microsoft/ChakraCore/issues/5440
+  return napi_ok;
+}
+
+napi_status napi_create_bigint_words(napi_env env,
+                                     int sign_bit,
+                                     size_t word_count,
+                                     const uint64_t* words,
+                                     napi_value* result) {
+  // TODO(kfarnung): BigInt is not currently implemented in ChakraCore
+  //                 https://github.com/Microsoft/ChakraCore/issues/5440
+  return napi_ok;
+}
+
 napi_status napi_get_boolean(napi_env env, bool value, napi_value* result) {
   CHECK_ARG(result);
   CHECK_JSRT(JsBoolToBoolean(value, reinterpret_cast<JsValueRef*>(result)));
@@ -1547,6 +1576,34 @@ napi_status napi_get_value_int64(napi_env env, napi_value v, int64_t* result) {
     *result = 0;
   }
 
+  return napi_ok;
+}
+
+napi_status napi_get_value_bigint_int64(napi_env env,
+                                        napi_value value,
+                                        int64_t* result,
+                                        bool* lossless) {
+  // TODO(kfarnung): BigInt is not currently implemented in ChakraCore
+  //                 https://github.com/Microsoft/ChakraCore/issues/5440
+  return napi_ok;
+}
+
+napi_status napi_get_value_bigint_uint64(napi_env env,
+                                         napi_value value,
+                                         uint64_t* result,
+                                         bool* lossless) {
+  // TODO(kfarnung): BigInt is not currently implemented in ChakraCore
+  //                 https://github.com/Microsoft/ChakraCore/issues/5440
+  return napi_ok;
+}
+
+napi_status napi_get_value_bigint_words(napi_env env,
+                                        napi_value value,
+                                        int* sign_bit,
+                                        size_t* word_count,
+                                        uint64_t* words) {
+  // TODO(kfarnung): BigInt is not currently implemented in ChakraCore
+  //                 https://github.com/Microsoft/ChakraCore/issues/5440
   return napi_ok;
 }
 
