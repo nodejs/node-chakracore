@@ -18,7 +18,6 @@ prefix message
 
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
-console_low_stack_space : SKIP
 esm_display_syntax_error : SKIP
 esm_display_syntax_error_import : SKIP
 esm_display_syntax_error_import_module : SKIP

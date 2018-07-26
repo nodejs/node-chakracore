@@ -17,5 +17,3 @@ prefix known_issues
 [$system==freebsd]
 
 [$system==aix]
-
-[$jsEngine==chakracore]
