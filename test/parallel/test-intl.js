@@ -24,12 +24,7 @@ const common = require('../common');
 const assert = require('assert');
 
 // does node think that i18n was enabled?
-// for chakra i18n is enabled
-let enablei18n = common.engineSpecificMessage({
-  v8: process.config.variables.v8_enable_i18n_support,
-  chakracore: true
-});
-
+let enablei18n = process.config.variables.v8_enable_i18n_support;
 if (enablei18n === undefined) {
   enablei18n = 0;
 }
@@ -87,16 +82,19 @@ if (!common.hasIntl) {
 
   // Check casing
   {
-    assert.strictEqual('I'.toLocaleLowerCase('tr'), 'ı');
+    // ChakraCore doesn't support taking a parameter for toLocaleLowerCase
+    // https://github.com/Microsoft/ChakraCore/issues/3710
+    assert.strictEqual('I'.toLocaleLowerCase('tr'),
+                       common.engineSpecificMessage({
+                         v8: 'ı',
+                         chakracore: 'i',
+                       }));
   }
 
   // Check with toLocaleString
   {
     const localeString = dtf.format(date0);
-    assert.strictEqual(localeString, common.engineSpecificMessage({
-      v8: 'Jan 70',
-      chakracore: '\u200EJan\u200E \u200E70'
-    }));
+    assert.strictEqual(localeString, 'Jan 70');
   }
   // Options to request GMT
   const optsGMT = { timeZone: GMT };
@@ -104,11 +102,7 @@ if (!common.hasIntl) {
   // Test format
   {
     const localeString = date0.toLocaleString(['en'], optsGMT);
-    assert.strictEqual(localeString, common.engineSpecificMessage({
-      v8: '1/1/1970, 12:00:00 AM',
-      chakracore: '\u200E1\u200E/\u200E1\u200E/\u200E1970\u200E ' +
-        '\u200E12\u200E:\u200E00\u200E:\u200E00\u200E \u200EAM'
-    }));
+    assert.strictEqual(localeString, '1/1/1970, 12:00:00 AM');
   }
   // number format
   const numberFormat = new Intl.NumberFormat(['en']).format(12345.67890);

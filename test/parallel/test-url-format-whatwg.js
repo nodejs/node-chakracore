@@ -87,24 +87,20 @@ assert.strictEqual(
   'http://xn--lck1c3crb1723bpq4a.com/a?a=b#c'
 );
 
-// Unicode conversion in node code is dependent on
-// v8's i18n support which is disabled for chakracore
-if (!common.isChakraEngine) {
-  assert.strictEqual(
-    url.format(myURL, { unicode: true }),
-    'http://理容ナカムラ.com/a?a=b#c'
-  );
+assert.strictEqual(
+  url.format(myURL, { unicode: true }),
+  'http://理容ナカムラ.com/a?a=b#c'
+);
 
-  assert.strictEqual(
-    url.format(myURL, { unicode: 1 }),
-    'http://理容ナカムラ.com/a?a=b#c'
-  );
+assert.strictEqual(
+  url.format(myURL, { unicode: 1 }),
+  'http://理容ナカムラ.com/a?a=b#c'
+);
 
-  assert.strictEqual(
-    url.format(myURL, { unicode: {} }),
-    'http://理容ナカムラ.com/a?a=b#c'
-  );
-}
+assert.strictEqual(
+  url.format(myURL, { unicode: {} }),
+  'http://理容ナカムラ.com/a?a=b#c'
+);
 
 assert.strictEqual(
   url.format(myURL, { unicode: false }),

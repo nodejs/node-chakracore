@@ -7,7 +7,7 @@ if (process.versions.hasOwnProperty('chakracore')) {
   // however, the benchmark harness fails if it runs a file without a benchmark
   // set up instead of disabling the entire misc benchmark, we can simply shim
   // this benchmark
-  const bench = common.createBenchmark(function main({n}) {
+  const bench = common.createBenchmark(function main({ n }) {
     bench.start();
     while (--n > 0) {
       --n;

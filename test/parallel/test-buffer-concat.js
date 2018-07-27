@@ -50,10 +50,9 @@ assert.strictEqual(flatLongLen.toString(), check);
   }, {
     code: 'ERR_INVALID_ARG_TYPE',
     message: 'The "list" argument must be one of type Array, Buffer, ' +
-              `or Uint8Array. Received type ${typeof value}`
+             `or Uint8Array. Received type ${typeof value}`
   });
 });
-
 
 [[42], ['hello', Buffer.from('world')]].forEach((value) => {
   assert.throws(() => {

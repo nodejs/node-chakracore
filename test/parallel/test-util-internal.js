@@ -1,7 +1,7 @@
 'use strict';
 // Flags: --expose_internals
 
-const common = require('../common');
+require('../common');
 const assert = require('assert');
 const fixtures = require('../common/fixtures');
 
@@ -40,6 +40,4 @@ try {
       getHiddenValue(err, kArrowMessagePrivateSymbolIndex);
 }
 
-if (!common.isChakraEngine) {  // chakra does not show script/source
-  assert(/bad_syntax\.js:1/.test(arrowMessage));
-}
+assert(/bad_syntax\.js:1/.test(arrowMessage));
