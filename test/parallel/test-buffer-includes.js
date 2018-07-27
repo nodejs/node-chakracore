@@ -215,7 +215,10 @@ assert(asciiString.includes('leb', 0));
 // Search in string containing many non-ASCII chars.
 const allCodePoints = [];
 for (let i = 0; i < 65536; i++) allCodePoints[i] = i;
-const allCharsString = String.fromCharCode.apply(String, allCodePoints);
+// ChakraCore can only handle 65535 parameters applied to a function, just use
+// `map` and `join` to get the same output.
+const allCharsString = allCodePoints.map((v) => String.fromCharCode(v))
+                                    .join('');
 const allCharsBufferUtf8 = Buffer.from(allCharsString);
 const allCharsBufferUcs2 = Buffer.from(allCharsString, 'ucs2');
 

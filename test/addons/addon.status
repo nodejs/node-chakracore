@@ -22,8 +22,6 @@ prefix addons
 # These tests are failing for Node-Chakracore and should eventually be fixed
 async-hooks-promise/test : SKIP
 hello-world-esm/test : SKIP
-callback-scope/test : SKIP
-callback-scope/test-resolve-async : SKIP
 
 # This test is disabled for chakra engine because it depends
 # on v8 GC behavior. Chakra GC may find reference-like data

@@ -27,8 +27,6 @@ test-inspector-debug-end                 : PASS, FLAKY
 
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
-test-vm-timeout-rethrow : SKIP
-test-benchmark-child-process : SKIP
 test-async-wrap-getasyncid : SKIP
 test-inspector-async-call-stack-abort : SKIP
 test-inspector-async-hook-setup-at-inspect-brk : SKIP
@@ -47,10 +45,6 @@ test-inspector-port-zero-cluster : PASS, FLAKY
 
 # This test seems to fail based on machine load or configuration
 test-net-bytes-per-incoming-chunk-overhead : PASS, FLAKY
-
-[$jsEngine==chakracore && $system==linux]
-# These tests are failing for Node-Chakracore and should eventually be fixed
-test-child-process-pass-fd : SKIP
 
 [$jsEngine==chakracore && $system==win32 && $arch==arm]
 # Inspector isn't currently supported on WoA
