@@ -24,8 +24,8 @@ test-trace-events-fs-sync: PASS,FLAKY
 
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
-test-assert-checktag : SKIP
 test-assert-builtins-not-read-from-filesystem : SKIP
+test-assert-checktag : SKIP
 test-async-hooks-disable-during-promise : SKIP
 test-async-hooks-enable-during-promise : SKIP
 test-async-hooks-promise : SKIP
@@ -33,9 +33,6 @@ test-async-hooks-promise-enable-disable : SKIP
 test-async-hooks-promise-triggerid : SKIP
 test-async-wrap-promise-after-enabled : SKIP
 test-buffer-bindingobj-no-zerofill : SKIP
-test-buffer-sharedarraybuffer : SKIP
-test-child-process-fork-net : PASS,FLAKY
-test-crypto-dh : SKIP
 test-crypto-dh-leak : SKIP
 test-domain-abort-on-uncaught : SKIP
 test-domain-no-error-handler-abort-on-uncaught-0 : SKIP
@@ -49,20 +46,13 @@ test-domain-no-error-handler-abort-on-uncaught-7 : SKIP
 test-domain-no-error-handler-abort-on-uncaught-8 : SKIP
 test-domain-no-error-handler-abort-on-uncaught-9 : SKIP
 test-domain-promise : SKIP
-test-fs-stat : SKIP
-test-http-pipeline-flood : SKIP
 test-http-same-map : SKIP
-test-http2-client-upload : PASS,FLAKY
-test-http2-server-rst-stream : SKIP
 test-inspect-async-hook-setup-at-inspect : SKIP
 test-inspector-multisession-js : SKIP
 test-inspector-multisession-ws : SKIP
 test-inspector-tracing-domain : SKIP
-test-intl : SKIP
 test-memory-usage : SKIP
-test-module-main-extension-lookup : SKIP
 test-performance-function : SKIP
-test-postmortem-metadata: SKIP
 test-process-env-symbols : SKIP
 test-promises-unhandled-symbol-rejections : SKIP
 test-repl : SKIP
@@ -70,13 +60,31 @@ test-repl-inspector : SKIP
 test-repl-mode : SKIP
 test-repl-pretty-custom-stack : SKIP
 test-repl-pretty-stack : SKIP
-test-repl-sigint : SKIP
 test-repl-tab-complete : SKIP
+test-util : SKIP
+test-vm-cached-data : SKIP
+test-vm-codegen : SKIP
+test-vm-context : SKIP
+test-vm-getters : SKIP
+test-vm-global-define-property : SKIP
+test-vm-global-identity : SKIP
+test-vm-global-non-writable-properties : SKIP
+test-vm-global-property-interceptors : SKIP
+test-vm-harmony-symbols : SKIP
+test-vm-low-stack-space : SKIP
+test-vm-preserves-property : SKIP
+test-vm-property-not-on-sandbox : SKIP
+test-vm-proxies : SKIP
+test-vm-strict-assign : SKIP
+
+# These tests are flaky on ChakraCore
+test-child-process-fork-net : PASS,FLAKY
+test-http2-client-upload : PASS,FLAKY
 
 # Depends on V8's custom GC behaviour
-test-performance-gc : SKIP
 test-common-gc : SKIP
 test-net-connect-memleak : SKIP
+test-performance-gc : SKIP
 
 # ChakraCore does not support the chrome tracing framework
 test-trace-events-all : SKIP
@@ -94,35 +102,6 @@ test-trace-events-process-exit : SKIP
 test-trace-events-v8 : SKIP
 test-trace-events-vm : SKIP
 test-trace-events-worker-metadata : SKIP
-
-test-url-domain-ascii-unicode : SKIP
-test-util : SKIP
-test-util-format-shared-arraybuffer : SKIP
-test-v8-serdes : SKIP
-test-v8-deserialize-buffer : SKIP
-test-vm-attributes-property-not-on-sandbox : SKIP
-test-vm-cached-data : SKIP
-test-vm-codegen : SKIP
-test-vm-context : SKIP
-test-vm-create-and-run-in-context : SKIP
-test-vm-function-declaration : SKIP
-test-vm-getters : SKIP
-test-vm-global-define-property : SKIP
-test-vm-global-identity : SKIP
-test-vm-global-non-writable-properties : SKIP
-test-vm-global-property-interceptors : SKIP
-test-vm-harmony-symbols : SKIP
-test-vm-indexed-properties : SKIP
-test-vm-low-stack-space : SKIP
-test-vm-preserves-property : SKIP
-test-vm-property-not-on-sandbox : SKIP
-test-vm-proxies : SKIP
-test-vm-sigint : SKIP
-test-vm-sigint-existing-handler : SKIP
-test-vm-strict-assign : SKIP
-test-vm-strict-mode : SKIP
-test-vm-timeout : SKIP
-test-zlib-convenience-methods : SKIP
 
 # These tests are disabled for chakra engine because they depend
 # on v8-option --abort-on-uncaught-exception
@@ -159,6 +138,7 @@ test-stream-readable-async-iterators : SKIP
 # These tests requires esmodule support, which is pending in node-chakracore https://github.com/nodejs/node-chakracore/issues/391
 test-inspector-esm : SKIP
 test-internal-module-wrap : SKIP
+test-module-main-extension-lookup : SKIP
 test-util-inspect-namespace : SKIP
 test-vm-module-basic : SKIP
 test-vm-module-dynamic-import : SKIP
@@ -198,6 +178,8 @@ test-async-hooks-destroy-on-gc : PASS,FLAKY
 
 # This test fails because it requires V8's custom serialization and deserialization support
 test-error-serdes : SKIP
+test-v8-deserialize-buffer : SKIP
+test-v8-serdes : SKIP
 
 # These tests are for worker_threads support, which is currently not implemented in Node-ChakraCore
 test-async-wrap-missing-method : SKIP
@@ -236,6 +218,10 @@ test-worker-workerdata-sharedarraybuffer : SKIP
 # See bug https://github.com/nodejs/node-chakracore/issues/560
 test-vm-createcacheddata : SKIP
 
+# ChakraCore doesn't support `process.memoryUsage()`
+# Issue: https://github.com/nodejs/node-chakracore/issues/563
+test-zlib-unused-weak : SKIP
+
 # Removed the wake->notify shim code
 # Issue: https://github.com/nodejs/node-chakracore/issues/565
 test-atomics-notify : SKIP
@@ -249,33 +235,16 @@ test-heapdump-tls : SKIP
 test-heapdump-worker : SKIP
 test-heapdump-zlib : SKIP
 
-# Chakra doesn't yet support createCachedData.
-# See bug https://github.com/nodejs/node-chakracore/issues/560
-test-vm-createcacheddata : SKIP
-
-# ChakraCore doesn't support `process.memoryUsage()`
-# Issue: https://github.com/nodejs/node-chakracore/issues/563
-test-zlib-unused-weak : SKIP
-
-[$jsEngine==chakracore && $arch==x64]
-# These tests are failing for Node-Chakracore and should eventually be fixed
-test-buffer-includes : SKIP
-test-buffer-indexof : SKIP
-test-buffer-slow : SKIP
+# broken for some reason on Node-chakracore
+# see https://github.com/nodejs/node-chakracore/issues/536
+test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
-test-http-client-get-url : SKIP
 test-module-loading-globalpaths : SKIP
 
-[$jsEngine==chakracore && $system==linux]
-# These tests are failing for Node-Chakracore and should eventually be fixed
-test-repl-sigint-nested-eval : SKIP
-
-[$jsEngine==chakracore && $system==macos]
-# These tests are failing for Node-Chakracore and should eventually be fixed
-test-repl-sigint-nested-eval : SKIP
-test-vm-sigint : SKIP
+# Depends on ICU behavior, enable when ICU is enabled on Windows
+test-intl: SKIP
 
 [$jsEngine==chakracore && $system==win32 && $arch==arm]
 # These tests depend on Git/Linux tools that don't exist on WoA

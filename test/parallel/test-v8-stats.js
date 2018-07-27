@@ -1,5 +1,5 @@
 'use strict';
-const common = require('../common');
+require('../common');
 const assert = require('assert');
 const v8 = require('v8');
 
@@ -19,11 +19,6 @@ keys.forEach(function(key) {
   assert.strictEqual(typeof s[key], 'number');
 });
 
-// chakra doesn't expose heapSpace names, so skip
-// the test for getHeapSpaceStatistics
-if (common.isChakraEngine) {
-  return;
-}
 
 const expectedHeapSpaces = [
   'new_space',

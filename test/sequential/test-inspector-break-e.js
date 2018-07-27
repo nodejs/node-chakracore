@@ -21,4 +21,4 @@ async function runTests() {
   assert.strictEqual(0, (await instance.expectShutdown()).exitCode);
 }
 
-runTests().catch((err) => { console.log(err); process.exit(-1); });
+runTests();
