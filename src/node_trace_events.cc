@@ -237,6 +237,7 @@ void Initialize(Local<Object> target,
       FIXED_ONE_BYTE_STRING(env->isolate(), "isTraceCategoryEnabled");
   Local<String> trace = FIXED_ONE_BYTE_STRING(env->isolate(), "trace");
 
+#ifndef NODE_ENGINE_CHAKRACORE // CHAKRA-TODO: support bindings objects
   // Grab the trace and isTraceCategoryEnabled intrinsics from the binding
   // object and expose those to our binding layer.
   Local<Object> binding = context->GetExtrasBindingObject();
@@ -245,6 +246,7 @@ void Initialize(Local<Object> target,
                   .FromJust();
   target->Set(context, trace,
               binding->Get(context, trace).ToLocalChecked()).FromJust();
+#endif
 }
 
 }  // namespace node
