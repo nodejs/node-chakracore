@@ -72,7 +72,7 @@ DEVICE_ID=1234567890abcdef123456789abcdef987654321 ./tools/test.py --report --fl
 
 You'll need a macOS or Linux development machine, and a physical Android device.
 
-You'll need [Android Studio](https://developer.android.com/studio/install.html) installed on your development Machine, alongside `Java`, `Gradle`, the `Android 8.0 (Android SDK Platform 26)`, `Android SDK Build Tools v26.0.1`, `Android SDK Tools`, `Android SDK Platform-Tools`, `NDK version >=16` and `CMake`.
+You'll need [Android Studio](https://developer.android.com/studio/install.html) installed on your development Machine, alongside `Java`, `Gradle`, the `Android 8.0 (Android SDK Platform 26)`, `Android SDK Build Tools v26.0.1`, `Android SDK Tools`, `Android SDK Platform-Tools`, `NDK version >=17` and `CMake`.
 
 You should set the Environment variables required to build Android Applications from the command line: the `ANDROID_HOME` variable pointing to your `android-sdk` path and the `ANDROID_NDK_HOME` variable pointing to the installed NDK path (it usually is `$ANDROID_HOME/ndk-bundle`) . You should also add `$ANDROID_HOME/platform-tools`, `$ANDROID_HOME/tools` and `$ANDROID_HOME/tools/bin` to the `PATH` environment variable.
 
