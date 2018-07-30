@@ -2,6 +2,23 @@
 
 const common = require('../common.js');
 
+if (process.versions.hasOwnProperty('chakracore')) {
+  // tracing events are not supported in node-chakracore
+  // however, the benchmark harness fails if it runs a file without a benchmark
+  // set up instead of disabling the entire misc benchmark, we can simply shim
+  // this benchmark
+  const bench = common.createBenchmark(function main({n}) {
+    bench.start();
+    while (--n > 0) {
+      --n;
+    }
+    bench.end(n);
+  }, {
+    n: [100000]
+  });
+  return;
+}
+
 const bench = common.createBenchmark(main, {
   n: [100000],
   method: ['trace', 'emit', 'isTraceCategoryEnabled', 'categoryGroupEnabled']
