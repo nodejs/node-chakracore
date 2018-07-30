@@ -57,9 +57,15 @@ exports.isAndroid = process.platform === 'android';
 exports.isIOS = process.platform === 'ios';
 
 exports.enoughTestMem = os.totalmem() > 0x40000000; /* 1 Gb */
-const cpus = os.cpus();
-exports.enoughTestCpu = Array.isArray(cpus) &&
-                        (cpus.length > 1 || cpus[0].speed > 999);
+
+if(exports.isAndroid || exports.isIOS) {
+  // On mobile platforms, CPU information might be unavailable.
+  exports.enoughTestCpu = true;
+} else {
+  const cpus = os.cpus();
+  exports.enoughTestCpu = Array.isArray(cpus) &&
+                          (cpus.length > 1 || cpus[0].speed > 999);
+}
 
 exports.rootDir = exports.isWindows ? 'c:\\' : '/';
 exports.buildType = process.config.target_defaults.default_configuration;
