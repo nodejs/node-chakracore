@@ -6,6 +6,7 @@
 </tr>
 <tr>
 <td>
+<a href="#0.1.7">0.1.7</a><br/>
 <a href="#0.1.6">0.1.6</a><br/>
 <a href="#0.1.5">0.1.5</a><br/>
 <a href="#0.1.4">0.1.4</a><br/>
@@ -17,8 +18,24 @@
 </tr>
 </table>
 
+<a id="0.1.7"></a>
+## 2018-07-30, Version 0.1.7 (Current)
+
+### Notable Changes
+
+* Released binaries are now built with ndk r17b, which fixes C++ STL runtime errors on Android 7.
+
+### Commits
+
+* [[`5a29ef128d`](https://github.com/janeasystems/nodejs-mobile/commit/5a29ef128d67df6066e6c079a69cb748ffc0e483)] - Node.js on Mobile v0.1.7 (Jaime Bernardo)
+* [[`71f4228366`](https://github.com/janeasystems/nodejs-mobile/commit/71f4228366983787bf521aa555c647ab43784889)] - test,mobile: assume enough CPU resources (Jaime Bernardo)
+* [[`c7ea4abb55`](https://github.com/janeasystems/nodejs-mobile/commit/c7ea4abb55b6403a85e8c5029c5fbd47479b7e0c)] - doc: use NDK r17b for building (Jaime Bernardo)
+* [[`44528dfe7c`](https://github.com/janeasystems/nodejs-mobile/commit/44528dfe7c736afb262bc05025eed653df848f80)] - test,android: fix test app screen orientation (Jaime Bernardo)
+* [[`ed13526bab`](https://github.com/janeasystems/nodejs-mobile/commit/ed13526bab2346f6e32bdefc08486724c6bbc442)] - doc: remove mailing list link (Jaime Bernardo)
+* [[`e3e5a1de59`](https://github.com/janeasystems/nodejs-mobile/commit/e3e5a1de59f770083cde4eaa62024f42488ec8de)] - Working on Node.js for Mobile Apps v0.1.7 (Jaime Bernardo)
+
 <a id="0.1.6"></a>
-## 2018-07-09, Version 0.1.6 (Current)
+## 2018-07-09, Version 0.1.6
 
 ### Notable Changes
 
