@@ -62,7 +62,6 @@ ipch/
 *.opensdf
 *.VC.db
 *.VC.opendb
-*.VC.db
 .vs/
 .vscode/
 /deps/v8/src/debug/obj

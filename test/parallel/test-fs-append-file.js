@@ -57,9 +57,7 @@ const throwNextTick = (e) => { process.nextTick(() => { throw e; }); };
 }
 
 // test that empty file will be created and have content added (promise API)
-// TODO: enable once https://github.com/nodejs/node-chakracore/issues/541 is
-//       fixed.
-if (!common.isChakraEngine) {
+{
   const filename = join(tmpdir.path, 'append-promise.txt');
 
   fs.promises.appendFile(filename, s)
