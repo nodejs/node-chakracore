@@ -35,7 +35,8 @@ function jsonAPI({ filename }) {
 
     const exampleHeading = /^example/i;
     const metaExpr = /<!--([^=]+)=([^-]+)-->\n*/g;
-    const stabilityExpr = /^Stability: ([0-5])(?:\s*-\s*)?(.*)$/s;
+    // CHAKRA-TODO: implement RegExp /s flag, revert to original
+    const stabilityExpr = /^Stability: ([0-5])(?:\s*-\s*)?([\s\S]*)$/
 
     // Extract definitions.
     const definitions = select(tree, 'definition');
@@ -381,7 +382,8 @@ function parseListItem(item, file) {
     .map((node) => (
       file.contents.slice(node.position.start.offset, node.position.end.offset))
     )
-    .join('').replace(/\s+/g, ' ').replace(/<!--.*?-->/sg, '');
+    // CHAKRA-TODO: implement RegExp /s flag, revert to original
+    .join('').replace(/\s+/g, ' ').replace(/<!--[\s\S]*?-->/g, '');
   let text = current.textRaw;
 
   if (!text) {
