@@ -29,11 +29,13 @@ const visit = require('unist-util-visit');
 const markdown = require('remark-parse');
 const remark2rehype = require('remark-rehype');
 const raw = require('rehype-raw');
-const html = require('rehype-stringify');
+const htmlStringify = require('rehype-stringify');
 const path = require('path');
 const typeParser = require('./type-parser.js');
 
-module.exports = toHTML;
+module.exports = {
+  toHTML, firstHeader, preprocessText, preprocessElements, buildToc
+};
 
 const docPath = path.resolve(__dirname, '..', '..', 'doc');
 
@@ -54,25 +56,14 @@ const gtocHTML = unified()
   .use(remark2rehype, { allowDangerousHTML: true })
   .use(raw)
   .use(navClasses)
-  .use(html)
+  .use(htmlStringify)
   .processSync(gtocMD).toString();
 
 const templatePath = path.join(docPath, 'template.html');
 const template = fs.readFileSync(templatePath, 'utf8');
 
-function toHTML({ input, filename, nodeVersion, analytics }, cb) {
+function toHTML({ input, content, filename, nodeVersion, analytics }, cb) {
   filename = path.basename(filename, '.md');
-
-  const content = unified()
-    .use(markdown)
-    .use(firstHeader)
-    .use(preprocessText)
-    .use(preprocessElements, { filename })
-    .use(buildToc, { filename })
-    .use(remark2rehype, { allowDangerousHTML: true })
-    .use(raw)
-    .use(html)
-    .processSync(input);
 
   const id = filename.replace(/\W+/g, '-');
 
@@ -184,9 +175,9 @@ function linkJsTypeDocs(text) {
   return parts.join('`');
 }
 
-// Preprocess stability blockquotes and YAML blocks
+// Preprocess headers, stability blockquotes, and YAML blocks.
 function preprocessElements({ filename }) {
-  return (tree) => {
+  return (tree, file) => {
     const STABILITY_RE = /(.*:)\s*(\d)([\s\S]*)/;
     let headingIndex = -1;
     let heading = null;
@@ -195,6 +186,22 @@ function preprocessElements({ filename }) {
       if (node.type === 'heading') {
         headingIndex = index;
         heading = node;
+
+        // Ensure optional API parameters are not treated as links by
+        // collapsing all of heading into a single text node.
+        if (heading.children.length > 1) {
+          const position = {
+            start: heading.children[0].position.start,
+            end: heading.position.end
+          };
+
+          heading.children = [{
+            type: 'text',
+            value: file.contents.slice(
+              position.start.offset, position.end.offset),
+            position
+          }];
+        }
 
       } else if (node.type === 'html' && common.isYAMLBlock(node.value)) {
         node.value = parseYAML(node.value);
@@ -280,7 +287,7 @@ function parseYAML(text) {
         .use(markdown)
         .use(remark2rehype, { allowDangerousHTML: true })
         .use(raw)
-        .use(html)
+        .use(htmlStringify)
         .processSync(change.description).toString();
 
       result += `<tr><td>${change.version}</td>\n` +
@@ -340,10 +347,9 @@ function buildToc({ filename }) {
 
       depth = node.depth;
       const realFilename = path.basename(realFilenames[0], '.md');
-      const headingText = node.children.map((child) =>
-        file.contents.slice(child.position.start.offset,
-                            child.position.end.offset)
-      ).join('').trim();
+      const headingText = file.contents.slice(
+        node.children[0].position.start.offset,
+        node.position.end.offset).trim();
       const id = getId(`${realFilename}_${headingText}`, idCounters);
 
       const hasStability = node.stability !== undefined;
@@ -366,7 +372,7 @@ function buildToc({ filename }) {
       .use(markdown)
       .use(remark2rehype, { allowDangerousHTML: true })
       .use(raw)
-      .use(html)
+      .use(htmlStringify)
       .processSync(toc).toString();
   };
 }
