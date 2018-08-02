@@ -36,7 +36,7 @@ function jsonAPI({ filename }) {
     const exampleHeading = /^example/i;
     const metaExpr = /<!--([^=]+)=([^-]+)-->\n*/g;
     // CHAKRA-TODO: implement RegExp /s flag, revert to original
-    const stabilityExpr = /^Stability: ([0-5])(?:\s*-\s*)?([\s\S]*)$/
+    const stabilityExpr = /^Stability: ([0-5])(?:\s*-\s*)?([\s\S]*)$/;
 
     // Extract definitions.
     const definitions = select(tree, 'definition');
