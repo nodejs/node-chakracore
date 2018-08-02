@@ -16,6 +16,7 @@ set config=Release
 set target=Build
 set target_arch=x64
 set ltcg=
+set pch=1
 set target_env=
 set noprojgen=
 set projgen=
@@ -64,7 +65,7 @@ set doc=
 :next-arg
 if "%1"=="" goto args-done
 if /i "%1"=="debug"         set config=Debug&goto arg-ok
-if /i "%1"=="release"       set config=Release&set ltcg=1&goto arg-ok
+if /i "%1"=="release"       set config=Release&set ltcg=1&set "pch="&goto arg-ok
 if /i "%1"=="chakracoretest" set config=Release&set chakracore_test_build=1&goto arg-ok
 if /i "%1"=="clean"         set target=Clean&goto arg-ok
 if /i "%1"=="ia32"          set target_arch=x86&goto arg-ok
@@ -81,6 +82,7 @@ if /i "%1"=="nosnapshot"    set nosnapshot=1&goto arg-ok
 if /i "%1"=="noetw"         set noetw=1&goto arg-ok
 if /i "%1"=="noperfctr"     set noperfctr=1&goto arg-ok
 if /i "%1"=="ltcg"          set ltcg=1&goto arg-ok
+if /i "%1"=="nopch"         set "pch="&goto arg-ok
 if /i "%1"=="licensertf"    set licensertf=1&goto arg-ok
 if /i "%1"=="test"          set test_args=%test_args% -J %common_test_suites%&set lint_cpp=1&set lint_js=1&set lint_md=1&goto arg-ok
 if /i "%1"=="test-ci"       set test_args=%test_args% %test_ci_args% -p tap --logfile test.tap %common_test_suites%&set cctest_args=%cctest_args% --gtest_output=tap:cctest.tap&goto arg-ok
@@ -159,6 +161,7 @@ if defined build_release (
   set i18n_arg=small-icu
   set projgen=1
   set ltcg=1
+  set "pch="
 )
 
 :: assign path to node_exe
@@ -174,6 +177,7 @@ if defined nosnapshot       set configure_flags=%configure_flags% --without-snap
 if defined noetw            set configure_flags=%configure_flags% --without-etw& set noetw_msi_arg=/p:NoETW=1
 if defined noperfctr        set configure_flags=%configure_flags% --without-perfctr& set noperfctr_msi_arg=/p:NoPerfCtr=1
 if defined ltcg             set configure_flags=%configure_flags% --with-ltcg
+if defined pch              set configure_flags=%configure_flags% --with-pch
 if defined release_urlbase  set configure_flags=%configure_flags% --release-urlbase=%release_urlbase%
 if defined download_arg     set configure_flags=%configure_flags% %download_arg%
 if defined enable_vtune_arg set configure_flags=%configure_flags% --enable-vtune-profiling
@@ -278,7 +282,7 @@ goto exit
 
 :wix-not-found
 echo Build skipped. To generate installer, you need to install Wix.
-goto build-doc
+goto install-doctools
 
 :msbuild-found
 
@@ -435,7 +439,7 @@ if errorlevel 1 echo Failed to sign msi&goto exit
 
 :upload
 @rem Skip upload if not requested
-if not defined upload goto build-doc
+if not defined upload goto install-doctools
 
 if not defined SSHCONFIG (
   echo SSHCONFIG is not set for upload
@@ -461,6 +465,23 @@ ssh -F %SSHCONFIG% %STAGINGSERVER% "touch nodejs/%DISTTYPEDIR%/v%FULLVERSION%/no
 if errorlevel 1 goto exit
 
 
+:install-doctools
+REM only install if building doc OR testing doctool
+if not defined doc (
+  echo.%test_args% | findstr doctool 1>nul
+  if errorlevel 1 goto :skip-install-doctools
+)
+if exist "tools\doc\node_modules\unified\package.json" goto skip-install-doctools
+SETLOCAL
+cd tools\doc
+%npm_exe% install
+cd ..\..
+if errorlevel 1 goto exit
+ENDLOCAL
+:skip-install-doctools
+@rem Clear errorlevel from echo.%test_args% | findstr doctool 1>nul
+cd .
+
 :build-doc
 @rem Build documentation if requested
 if not defined doc goto run
@@ -472,14 +493,6 @@ mkdir %config%\doc
 robocopy /e doc\api %config%\doc\api
 robocopy /e doc\api_assets %config%\doc\api\assets
 
-if exist "tools\doc\node_modules\js-yaml\package.json" goto doc-skip-js-yaml
-SETLOCAL
-cd tools\doc
-%npm_exe% install
-cd ..\..
-if errorlevel 1 goto exit
-ENDLOCAL
-:doc-skip-js-yaml
 for %%F in (%config%\doc\api\*.md) do (
   %node_exe% tools\doc\generate.js --format=json %%F > %%~dF%%~pF%%~nF.json
   %node_exe% tools\doc\generate.js --node-version=v%FULLVERSION% --format=html --analytics=%DOCS_ANALYTICS% %%F > %%~dF%%~pF%%~nF.html
@@ -648,12 +661,12 @@ if not defined lint_md_build goto lint-md
 SETLOCAL
 echo Markdown linter: installing remark-cli into tools\
 cd tools\remark-cli
-%npm_exe% install
+%npm_exe% ci
 cd ..\..
 if errorlevel 1 goto lint-md-build-failed
 echo Markdown linter: installing remark-preset-lint-node into tools\
 cd tools\remark-preset-lint-node
-%npm_exe% install
+%npm_exe% ci
 cd ..\..
 if errorlevel 1 goto lint-md-build-failed
 ENDLOCAL
@@ -694,7 +707,7 @@ del .used_configure_flags
 goto exit
 
 :help
-echo vcbuild.bat [debug/release] [msi] [doc] [test/test-ci/test-all/test-addons/test-addons-napi/test-internet/test-pummel/test-simple/test-message/test-gc/test-tick-processor/test-known-issues/test-node-inspect/test-check-deopts/test-npm/test-async-hooks/test-v8/test-v8-intl/test-v8-benchmarks/test-v8-all] [ignore-flaky] [static/dll] [noprojgen] [projgen] [small-icu/full-icu/without-intl] [nobuild] [nosnapshot] [noetw] [noperfctr] [ltcg] [licensetf] [sign] [ia32/x86/x64] [vs2017] [download-all] [enable-vtune] [lint/lint-ci/lint-js/lint-js-ci/lint-md] [lint-md-build] [package] [build-release] [upload] [no-NODE-OPTIONS] [link-module path-to-module] [debug-http2] [debug-nghttp2] [clean] [no-cctest] [openssl-no-asm]
+echo vcbuild.bat [debug/release] [msi] [doc] [test/test-ci/test-all/test-addons/test-addons-napi/test-internet/test-pummel/test-simple/test-message/test-gc/test-tick-processor/test-known-issues/test-node-inspect/test-check-deopts/test-npm/test-async-hooks/test-v8/test-v8-intl/test-v8-benchmarks/test-v8-all] [ignore-flaky] [static/dll] [noprojgen] [projgen] [small-icu/full-icu/without-intl] [nobuild] [nosnapshot] [noetw] [noperfctr] [ltcg] [nopch] [licensetf] [sign] [ia32/x86/x64] [vs2017] [download-all] [enable-vtune] [lint/lint-ci/lint-js/lint-js-ci/lint-md] [lint-md-build] [package] [build-release] [upload] [no-NODE-OPTIONS] [link-module path-to-module] [debug-http2] [debug-nghttp2] [clean] [no-cctest] [openssl-no-asm]
 echo Examples:
 echo   vcbuild.bat                          : builds release build
 echo   vcbuild.bat debug                    : builds debug build

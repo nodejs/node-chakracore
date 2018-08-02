@@ -71,8 +71,6 @@ addlicense "npm" "deps/npm" "$(cat ${rootdir}/deps/npm/LICENSE)"
 
 # Build tools
 addlicense "GYP" "tools/gyp" "$(cat ${rootdir}/tools/gyp/LICENSE)"
-addlicense "marked" "tools/doc/node_modules/marked" \
-           "$(cat ${rootdir}/tools/doc/node_modules/marked/LICENSE)"
 
 # Testing tools
 addlicense "cpplint.py" "tools/cpplint.py" \
@@ -84,7 +82,7 @@ addlicense "gtest" "deps/gtest" "$(cat ${rootdir}/deps/gtest/LICENSE)"
 # nghttp2
 addlicense "nghttp2" "deps/nghttp2" "$(cat ${rootdir}/deps/nghttp2/COPYING)"
 
-# remark-cli
+# remark
 addlicense "remark-cli" "tools/remark-cli" "$(cat ${rootdir}/tools/remark-cli/LICENSE)"
 
 # node-inspect

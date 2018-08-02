@@ -7,8 +7,6 @@ const { types, inspect } = require('util');
 const vm = require('vm');
 const { JSStream } = process.binding('js_stream');
 
-common.crashOnUnhandledRejection();
-
 const external = (new JSStream())._externalStream;
 const wasmBuffer = fixtures.readSync('test.wasm');
 
@@ -133,7 +131,7 @@ for (const [ value, _method ] of [
 // Node-ChakraCore does not support esmodules
 if (!common.isChakraEngine) {
   (async () => {
-    const m = new vm.Module('');
+    const m = new vm.SourceTextModule('');
     await m.link(() => 0);
     m.instantiate();
     await m.evaluate();

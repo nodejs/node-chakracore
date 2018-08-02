@@ -172,13 +172,11 @@ inline void FileHandle::Close() {
   // to notify that the file descriptor was gc'd. We want to be noisy about
   // this because not explicitly closing the FileHandle is a bug.
   env()->SetUnrefImmediate([](Environment* env, void* data) {
-    char msg[70];
     err_detail* detail = static_cast<err_detail*>(data);
-    snprintf(msg, arraysize(msg),
-            "Closing file descriptor %d on garbage collection",
-            detail->fd);
+    ProcessEmitWarning(env,
+                       "Closing file descriptor %d on garbage collection",
+                       detail->fd);
     delete detail;
-    ProcessEmitWarning(env, msg);
   }, detail);
 }
 
@@ -223,7 +221,7 @@ inline MaybeLocal<Promise> FileHandle::ClosePromise() {
     closing_ = true;
     CloseReq* req = new CloseReq(env(), promise, object());
     auto AfterClose = uv_fs_callback_t{[](uv_fs_t* req) {
-      CloseReq* close = static_cast<CloseReq*>(req->data);
+      CloseReq* close = CloseReq::from_req(req);
       CHECK_NOT_NULL(close);
       close->file_handle()->AfterClose();
       Isolate* isolate = close->env()->isolate();
@@ -477,7 +475,7 @@ bool FSReqAfterScope::Proceed() {
 }
 
 void AfterNoArgs(uv_fs_t* req) {
-  FSReqBase* req_wrap = static_cast<FSReqBase*>(req->data);
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
   if (after.Proceed())
@@ -485,7 +483,7 @@ void AfterNoArgs(uv_fs_t* req) {
 }
 
 void AfterStat(uv_fs_t* req) {
-  FSReqBase* req_wrap = static_cast<FSReqBase*>(req->data);
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
   if (after.Proceed()) {
@@ -494,7 +492,7 @@ void AfterStat(uv_fs_t* req) {
 }
 
 void AfterInteger(uv_fs_t* req) {
-  FSReqBase* req_wrap = static_cast<FSReqBase*>(req->data);
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
 #if ENABLE_TTD_NODE
@@ -513,7 +511,7 @@ void AfterInteger(uv_fs_t* req) {
 }
 
 void AfterOpenFileHandle(uv_fs_t* req) {
-  FSReqWrap* req_wrap = static_cast<FSReqWrap*>(req->data);
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
   if (after.Proceed()) {
@@ -523,7 +521,7 @@ void AfterOpenFileHandle(uv_fs_t* req) {
 }
 
 void AfterStringPath(uv_fs_t* req) {
-  FSReqBase* req_wrap = static_cast<FSReqBase*>(req->data);
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
   MaybeLocal<Value> link;
@@ -542,7 +540,7 @@ void AfterStringPath(uv_fs_t* req) {
 }
 
 void AfterStringPtr(uv_fs_t* req) {
-  FSReqBase* req_wrap = static_cast<FSReqBase*>(req->data);
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
   MaybeLocal<Value> link;
@@ -561,7 +559,7 @@ void AfterStringPtr(uv_fs_t* req) {
 }
 
 void AfterScanDir(uv_fs_t* req) {
-  FSReqBase* req_wrap = static_cast<FSReqBase*>(req->data);
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
   if (after.Proceed()) {
@@ -807,8 +805,8 @@ static void InternalModuleReadJSON(const FunctionCallbackInfo<Value>& args) {
     Local<String> chars_string =
         String::NewFromUtf8(env->isolate(),
                             &chars[start],
-                            String::kNormalString,
-                            size);
+                            v8::NewStringType::kNormal,
+                            size).ToLocalChecked();
     args.GetReturnValue().Set(chars_string);
   }
 }
@@ -1565,9 +1563,12 @@ static void WriteString(const FunctionCallbackInfo<Value>& args) {
     len = StringBytes::Write(env->isolate(), *stack_buffer, len, args[1], enc);
     stack_buffer.SetLengthAndZeroTerminate(len);
     uv_buf_t uvbuf = uv_buf_init(*stack_buffer, len);
-    int err = uv_fs_write(env->event_loop(), req_wrap_async->req(),
-                          fd, &uvbuf, 1, pos, AfterInteger);
-    req_wrap_async->Dispatched();
+    int err = req_wrap_async->Dispatch(uv_fs_write,
+                                       fd,
+                                       &uvbuf,
+                                       1,
+                                       pos,
+                                       AfterInteger);
     if (err < 0) {
       uv_fs_t* uv_req = req_wrap_async->req();
       uv_req->result = err;

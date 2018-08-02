@@ -30,6 +30,7 @@
 #include "node_debug_options.h"
 #include "node_perf.h"
 #include "node_context_data.h"
+#include "tracing/traced_value.h"
 
 #if defined HAVE_PERFCTR
 #include "node_counters.h"
@@ -303,11 +304,106 @@ static v8::Isolate* node_isolate;
 
 DebugOptions debug_options;
 
+// Ensures that __metadata trace events are only emitted
+// when tracing is enabled.
+class NodeTraceStateObserver :
+    public v8::TracingController::TraceStateObserver {
+ public:
+  void OnTraceEnabled() override {
+    char name_buffer[512];
+    if (uv_get_process_title(name_buffer, sizeof(name_buffer)) == 0) {
+      // Only emit the metadata event if the title can be retrieved
+      // successfully. Ignore it otherwise.
+      TRACE_EVENT_METADATA1("__metadata", "process_name",
+                            "name", TRACE_STR_COPY(name_buffer));
+    }
+    TRACE_EVENT_METADATA1("__metadata", "version",
+                          "node", NODE_VERSION_STRING);
+    TRACE_EVENT_METADATA1("__metadata", "thread_name",
+                          "name", "JavaScriptMainThread");
+
+    auto trace_process = tracing::TracedValue::Create();
+    trace_process->BeginDictionary("versions");
+
+    const char http_parser_version[] =
+        NODE_STRINGIFY(HTTP_PARSER_VERSION_MAJOR)
+        "."
+        NODE_STRINGIFY(HTTP_PARSER_VERSION_MINOR)
+        "."
+        NODE_STRINGIFY(HTTP_PARSER_VERSION_PATCH);
+
+    const char node_napi_version[] = NODE_STRINGIFY(NAPI_VERSION);
+    const char node_modules_version[] = NODE_STRINGIFY(NODE_MODULE_VERSION);
+
+    trace_process->SetString("http_parser", http_parser_version);
+    trace_process->SetString("node", NODE_VERSION_STRING);
+    trace_process->SetString("v8", V8::GetVersion());
+    trace_process->SetString("uv", uv_version_string());
+    trace_process->SetString("zlib", ZLIB_VERSION);
+    trace_process->SetString("ares", ARES_VERSION_STR);
+    trace_process->SetString("modules", node_modules_version);
+    trace_process->SetString("nghttp2", NGHTTP2_VERSION);
+    trace_process->SetString("napi", node_napi_version);
+
+#if HAVE_OPENSSL
+    // Stupid code to slice out the version string.
+    {  // NOLINT(whitespace/braces)
+      size_t i, j, k;
+      int c;
+      for (i = j = 0, k = sizeof(OPENSSL_VERSION_TEXT) - 1; i < k; ++i) {
+        c = OPENSSL_VERSION_TEXT[i];
+        if ('0' <= c && c <= '9') {
+          for (j = i + 1; j < k; ++j) {
+            c = OPENSSL_VERSION_TEXT[j];
+            if (c == ' ')
+              break;
+          }
+          break;
+        }
+      }
+      trace_process->SetString("openssl",
+                              std::string(&OPENSSL_VERSION_TEXT[i], j - i));
+    }
+#endif
+    trace_process->EndDictionary();
+
+    trace_process->SetString("arch", NODE_ARCH);
+    trace_process->SetString("platform", NODE_PLATFORM);
+
+    trace_process->BeginDictionary("release");
+    trace_process->SetString("name", NODE_RELEASE);
+#if NODE_VERSION_IS_LTS
+    trace_process->SetString("lts", NODE_VERSION_LTS_CODENAME);
+#endif
+    trace_process->EndDictionary();
+    TRACE_EVENT_METADATA1("__metadata", "node",
+                          "process", std::move(trace_process));
+
+    // This only runs the first time tracing is enabled
+    controller_->RemoveTraceStateObserver(this);
+    delete this;
+  }
+
+  void OnTraceDisabled() override {
+    // Do nothing here. This should never be called because the
+    // observer removes itself when OnTraceEnabled() is called.
+    UNREACHABLE();
+  }
+
+  explicit NodeTraceStateObserver(v8::TracingController* controller) :
+      controller_(controller) {}
+  ~NodeTraceStateObserver() override {}
+
+ private:
+  v8::TracingController* controller_;
+};
+
 static struct {
 #if NODE_USE_V8_PLATFORM
   void Initialize(int thread_pool_size) {
     tracing_agent_.reset(new tracing::Agent(trace_file_pattern));
     auto controller = tracing_agent_->GetTracingController();
+    controller->AddTraceStateObserver(new NodeTraceStateObserver(controller));
     tracing::TraceEventHelper::SetTracingController(controller);
     StartTracingAgent();
     platform_ = new NodePlatform(thread_pool_size, controller);
@@ -883,7 +979,8 @@ void AppendExceptionLine(Environment* env,
   arrow[off] = '\n';
   arrow[off + 1] = '\0';
 
-  Local<String> arrow_str = String::NewFromUtf8(env->isolate(), arrow);
+  Local<String> arrow_str = String::NewFromUtf8(env->isolate(), arrow,
+      v8::NewStringType::kNormal).ToLocalChecked();
 
   const bool can_set_arrow = !arrow_str.IsEmpty() && !err_obj.IsEmpty();
   // If allocating arrow_str failed, print it out. There's not much else to do.
@@ -1666,7 +1763,8 @@ static void GetLinkedBinding(const FunctionCallbackInfo<Value>& args) {
 
   Local<Object> module = Object::New(env->isolate());
   Local<Object> exports = Object::New(env->isolate());
-  Local<String> exports_prop = String::NewFromUtf8(env->isolate(), "exports");
+  Local<String> exports_prop = String::NewFromUtf8(env->isolate(), "exports",
+      v8::NewStringType::kNormal).ToLocalChecked();
   module->Set(exports_prop, exports);
 
   if (mod->nm_context_register_func != nullptr) {
@@ -1689,7 +1787,8 @@ static void ProcessTitleGetter(Local<Name> property,
                                const PropertyCallbackInfo<Value>& info) {
   char buffer[512];
   uv_get_process_title(buffer, sizeof(buffer));
-  info.GetReturnValue().Set(String::NewFromUtf8(info.GetIsolate(), buffer));
+  info.GetReturnValue().Set(String::NewFromUtf8(info.GetIsolate(), buffer,
+      v8::NewStringType::kNormal).ToLocalChecked());
 }
 
 
@@ -1714,7 +1813,8 @@ static void EnvGetter(Local<Name> property,
   node::Utf8Value key(isolate, property);
   const char* val = getenv(*key);
   if (val) {
-    return info.GetReturnValue().Set(String::NewFromUtf8(isolate, val));
+    return info.GetReturnValue().Set(String::NewFromUtf8(isolate, val,
+        v8::NewStringType::kNormal).ToLocalChecked());
   }
 #else  // _WIN32
   node::TwoByteValue key(isolate, property);
@@ -1842,8 +1942,8 @@ static void EnvEnumerator(const PropertyCallbackInfo<Array>& info) {
     const int length = s ? s - var : strlen(var);
     argv[idx] = String::NewFromUtf8(isolate,
                                     var,
-                                    String::kNormalString,
-                                    length);
+                                    v8::NewStringType::kNormal,
+                                    length).ToLocalChecked();
     if (++idx >= arraysize(argv)) {
       fn->Call(ctx, envarr, idx, argv).ToLocalChecked();
       idx = 0;
@@ -2018,7 +2118,6 @@ void SetupProcessObject(Environment* env,
   READONLY_PROPERTY(versions,
                     "http_parser",
                     FIXED_ONE_BYTE_STRING(env->isolate(), http_parser_version));
-
   // +1 to get rid of the leading 'v'
   READONLY_PROPERTY(versions,
                     "node",
@@ -2041,11 +2140,9 @@ void SetupProcessObject(Environment* env,
       versions,
       "modules",
       FIXED_ONE_BYTE_STRING(env->isolate(), node_modules_version));
-
   READONLY_PROPERTY(versions,
                     "nghttp2",
                     FIXED_ONE_BYTE_STRING(env->isolate(), NGHTTP2_VERSION));
-
   const char node_napi_version[] = NODE_STRINGIFY(NAPI_VERSION);
   READONLY_PROPERTY(
       versions,
@@ -2128,14 +2225,16 @@ void SetupProcessObject(Environment* env,
   // process.argv
   Local<Array> arguments = Array::New(env->isolate(), argc);
   for (int i = 0; i < argc; ++i) {
-    arguments->Set(i, String::NewFromUtf8(env->isolate(), argv[i]));
+    arguments->Set(i, String::NewFromUtf8(env->isolate(), argv[i],
+        v8::NewStringType::kNormal).ToLocalChecked());
   }
   process->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "argv"), arguments);
 
   // process.execArgv
   Local<Array> exec_arguments = Array::New(env->isolate(), exec_argc);
   for (int i = 0; i < exec_argc; ++i) {
-    exec_arguments->Set(i, String::NewFromUtf8(env->isolate(), exec_argv[i]));
+    exec_arguments->Set(i, String::NewFromUtf8(env->isolate(), exec_argv[i],
+        v8::NewStringType::kNormal).ToLocalChecked());
   }
   process->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "execArgv"),
                exec_arguments);
@@ -2167,7 +2266,8 @@ void SetupProcessObject(Environment* env,
   if (eval_string) {
     READONLY_PROPERTY(process,
                       "_eval",
-                      String::NewFromUtf8(env->isolate(), eval_string));
+                      String::NewFromUtf8(env->isolate(), eval_string,
+                          v8::NewStringType::kNormal).ToLocalChecked());
   }
 
   // -p, --print
@@ -2190,7 +2290,9 @@ void SetupProcessObject(Environment* env,
     Local<Array> array = Array::New(env->isolate());
     for (unsigned int i = 0; i < preload_modules.size(); ++i) {
       Local<String> module = String::NewFromUtf8(env->isolate(),
-                                                 preload_modules[i].c_str());
+                                                 preload_modules[i].c_str(),
+                                                 v8::NewStringType::kNormal)
+                                 .ToLocalChecked();
       array->Set(i, module);
     }
     READONLY_PROPERTY(process,
@@ -2275,10 +2377,11 @@ void SetupProcessObject(Environment* env,
   if (uv_exepath(exec_path, &exec_path_len) == 0) {
     exec_path_value = String::NewFromUtf8(env->isolate(),
                                           exec_path,
-                                          String::kNormalString,
-                                          exec_path_len);
+                                          v8::NewStringType::kInternalized,
+                                          exec_path_len).ToLocalChecked();
   } else {
-    exec_path_value = String::NewFromUtf8(env->isolate(), argv[0]);
+    exec_path_value = String::NewFromUtf8(env->isolate(), argv[0],
+        v8::NewStringType::kInternalized).ToLocalChecked();
   }
   process->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "execPath"),
                exec_path_value);
@@ -3709,17 +3812,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
 
   Environment env(isolate_data, context, v8_platform.GetTracingAgent());
   env.Start(argc, argv, exec_argc, exec_argv, v8_is_profiling);
-
-  char name_buffer[512];
-  if (uv_get_process_title(name_buffer, sizeof(name_buffer)) == 0) {
-    // Only emit the metadata event if the title can be retrieved successfully.
-    // Ignore it otherwise.
-    TRACE_EVENT_METADATA1("__metadata", "process_name", "name",
-                          TRACE_STR_COPY(name_buffer));
-  }
-  TRACE_EVENT_METADATA1("__metadata", "version", "node", NODE_VERSION_STRING);
-  TRACE_EVENT_METADATA1("__metadata", "thread_name", "name",
-                        "JavaScriptMainThread");
 
   const char* path = argc > 1 ? argv[1] : nullptr;
   StartInspector(&env, path, debug_options);
