@@ -177,7 +177,7 @@ void Worker::Run() {
           uv_run(&loop_, UV_RUN_DEFAULT);
           if (is_stopped()) break;
 
-          platform->DrainBackgroundTasks(isolate_);
+          platform->DrainTasks(isolate_);
 
           more = uv_loop_alive(&loop_);
           if (more && !is_stopped())
@@ -236,7 +236,7 @@ void Worker::Run() {
       // This call needs to be made while the `Environment` is still alive
       // because we assume that it is available for async tracking in the
       // NodePlatform implementation.
-      platform->DrainBackgroundTasks(isolate_);
+      platform->DrainTasks(isolate_);
     }
 
     env_.reset();

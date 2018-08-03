@@ -133,20 +133,12 @@ class Platform {
 
   virtual ~Platform() = default;
 
-  virtual size_t NumberOfAvailableBackgroundThreads() { return 0; }
-  
+  virtual int NumberOfWorkerThreads() = 0;
   virtual std::shared_ptr<v8::TaskRunner> GetForegroundTaskRunner(
-      Isolate* isolate) {
-    return {};
-  }
-
-  virtual std::shared_ptr<v8::TaskRunner> GetBackgroundTaskRunner(
-      Isolate* isolate) {
-    return {};
-  }
-
-  virtual void CallOnBackgroundThread(Task* task,
-                                      ExpectedRuntime expected_runtime) = 0;
+      Isolate* isolate) = 0;
+  virtual void CallOnWorkerThread(std::unique_ptr<Task> task) = 0;
+  virtual void CallDelayedOnWorkerThread(std::unique_ptr<Task> task,
+                                         double delay_in_seconds) = 0;
   virtual void CallOnForegroundThread(Isolate* isolate, Task* task) = 0;
   virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
                                              double delay_in_seconds) = 0;
