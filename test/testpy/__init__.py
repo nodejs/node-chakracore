@@ -231,18 +231,6 @@ class AddonTestConfiguration(SimpleTestConfiguration):
                             jsEngine, self.additional_flags))
     return result
 
-class AsyncHooksTestConfiguration(SimpleTestConfiguration):
-  def __init__(self, context, root, section, additional=None):
-    super(AsyncHooksTestConfiguration, self).__init__(context, root, section,
-                                                    additional)
-
-  def ListTests(self, current_path, path, arch, mode, jsEngine):
-    result = super(AsyncHooksTestConfiguration, self).ListTests(
-         current_path, path, arch, mode, jsEngine)
-    for test in result:
-      test.parallel = True
-    return result
-
 class AbortTestConfiguration(SimpleTestConfiguration):
   def __init__(self, context, root, section, additional=None):
     super(AbortTestConfiguration, self).__init__(context, root, section,
