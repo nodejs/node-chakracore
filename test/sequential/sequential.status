@@ -44,7 +44,3 @@ test-inspector-port-cluster : PASS, FLAKY
 
 # This test seems to fail based on machine load or configuration
 test-net-bytes-per-incoming-chunk-overhead : PASS, FLAKY
-
-[$jsEngine==chakracore && $system==win32 && $arch==arm]
-# Inspector isn't currently supported on WoA
-test-inspector-port-zero-cluster : SKIP
