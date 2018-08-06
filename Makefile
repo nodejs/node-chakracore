@@ -315,15 +315,6 @@ benchmark/napi/function_args/build/Release/binding.node: all \
 		--directory="$(shell pwd)/benchmark/napi/function_args" \
 		--nodedir="$(shell pwd)"
 
-# Implicitly depends on $(NODE_EXE).  We don't depend on it explicitly because
-# it always triggers a rebuild due to it being a .PHONY rule.  See the comment
-# near the build-addons rule for more background.
-test/gc/build/Release/binding.node: test/gc/binding.cc test/gc/binding.gyp
-	$(NODE) deps/npm/node_modules/node-gyp/bin/node-gyp rebuild \
-		--python="$(PYTHON)" \
-		--directory="$(shell pwd)/test/gc" \
-		--nodedir="$(shell pwd)"
-
 DOCBUILDSTAMP_PREREQS = tools/doc/addon-verify.js doc/api/addons.md
 
 ifeq ($(OSTYPE),aix)
@@ -406,20 +397,12 @@ clear-stalled:
 		echo $${PS_OUT} | xargs kill -9; \
 	fi
 
-.PHONY: test-gc
-test-gc: all test/gc/build/Release/binding.node
-	$(PYTHON) tools/test.py $(PARALLEL_ARGS) --mode=$(BUILDTYPE_LOWER) gc
-
-.PHONY: test-gc-clean
-test-gc-clean:
-	$(RM) -r test/gc/build
-
 test-build: | all build-addons build-addons-napi
 
 test-build-addons-napi: all build-addons-napi
 
 .PHONY: test-all
-test-all: test-build test/gc/build/Release/binding.node ## Run everything in test/.
+test-all: test-build ## Run everything in test/.
 	$(PYTHON) tools/test.py $(PARALLEL_ARGS) --mode=debug,release
 
 test-all-valgrind: test-build
@@ -1180,7 +1163,6 @@ LINT_CPP_FILES = $(filter-out $(LINT_CPP_EXCLUDE), $(wildcard \
 	test/cctest/*.h \
 	test/addons-napi/*/*.cc \
 	test/addons-napi/*/*.h \
-	test/gc/binding.cc \
 	tools/icu/*.cc \
 	tools/icu/*.h \
 	))
@@ -1188,6 +1170,33 @@ LINT_CPP_FILES = $(filter-out $(LINT_CPP_EXCLUDE), $(wildcard \
 # Code blocks don't have newline at the end,
 # and the actual filename is generated so it won't match header guards
 ADDON_DOC_LINT_FLAGS=-whitespace/ending_newline,-build/header_guard
+
+format-cpp-build:
+	cd tools/clang-format && $(call available-node,$(run-npm-install))
+
+format-cpp-clean:
+	$(RM) -r tools/clang-format/node_modules
+
+CLANG_FORMAT_START ?= HEAD
+.PHONY: format-cpp
+# To format staged changes:
+#  $ make format-cpp
+# To format HEAD~1...HEAD (latest commit):
+#  $ CLANG_FORMAT_START=`git rev-parse HEAD~1` make format-cpp
+# To format diff between master and current branch head (master...HEAD):
+#  $ CLANG_FORMAT_START=master make format-cpp
+format-cpp: ## Format C++ diff from $CLANG_FORMAT_START to current changes
+ifneq ("","$(wildcard tools/clang-format/node_modules/)")
+	@echo "Formatting C++ diff from $(CLANG_FORMAT_START).."
+	@$(PYTHON) tools/clang-format/node_modules/.bin/git-clang-format \
+		--binary=tools/clang-format/node_modules/.bin/clang-format \
+		--style=file \
+		$(CLANG_FORMAT_START) -- \
+		$(LINT_CPP_FILES)
+else
+	@echo "clang-format is not installed."
+	@echo "To install (requires internet access) run: $ make format-cpp-build"
+endif
 
 .PHONY: lint-cpp
 # Lints the C++ code with cpplint.py and check-imports.py.

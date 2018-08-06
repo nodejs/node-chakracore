@@ -64,10 +64,9 @@ The `_writableState.buffer` property is deprecated. Use the
 <a id="DEP0004"></a>
 ### DEP0004: CryptoStream.prototype.readyState
 
-Type: Documentation-only
+Type: End-of-Life
 
-The `CryptoStream.prototype.readyState` property is deprecated and should not
-be used.
+The `CryptoStream.prototype.readyState` property was removed.
 
 <a id="DEP0005"></a>
 ### DEP0005: Buffer() constructor
@@ -377,9 +376,9 @@ The `NODE_REPL_HISTORY_FILE` environment variable was removed. Please use
 <a id="DEP0042"></a>
 ### DEP0042: tls.CryptoStream
 
-Type: Documentation-only
+Type: End-of-Life
 
-The [`tls.CryptoStream`][] class is deprecated. Please use
+The [`tls.CryptoStream`][] class was removed. Please use
 [`tls.TLSSocket`][] instead.
 
 <a id="DEP0043"></a>
@@ -929,6 +928,9 @@ Type: Documentation-only (supports [`--pending-deprecation`][])
 Using `process.binding()` in general should be avoided. The type checking
 methods in particular can be replaced by using [`util.types`][].
 
+This deprecation has been superseded by the deprecation of the
+`process.binding()` API ([DEP0111](#DEP0111)).
+
 <a id="DEP0104"></a>
 ### DEP0104: process.env string coercion
 
@@ -998,6 +1000,14 @@ Type: Documentation-only
 
 The option `produceCachedData` has been deprecated. Use
 [`script.createCachedData()`][] instead.
+
+<a id="DEP0111"></a>
+### DEP0111: process.binding()
+
+Type: Documentation-only
+
+The `process.binding()` API is intended for use by Node.js internal code
+only. Use of `process.binding()` by userland code is unsupported.
 
 [`--pending-deprecation`]: cli.html#cli_pending_deprecation
 [`Buffer.allocUnsafeSlow(size)`]: buffer.html#buffer_class_method_buffer_allocunsafeslow_size
