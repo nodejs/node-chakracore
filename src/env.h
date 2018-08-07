@@ -65,23 +65,15 @@ class Worker;
 namespace loader {
 class ModuleWrap;
 
-struct Exists {
-  enum Bool { Yes, No };
-};
-
-struct IsValid {
-  enum Bool { Yes, No };
-};
-
-struct HasMain {
-  enum Bool { Yes, No };
-};
-
 struct PackageConfig {
-  const Exists::Bool exists;
-  const IsValid::Bool is_valid;
-  const HasMain::Bool has_main;
-  const std::string main;
+  enum class Exists { Yes, No };
+  enum class IsValid { Yes, No };
+  enum class HasMain { Yes, No };
+
+  Exists exists;
+  IsValid is_valid;
+  HasMain has_main;
+  std::string main;
 };
 }  // namespace loader
 
@@ -359,7 +351,6 @@ struct PackageConfig {
   V(tls_wrap_constructor_function, v8::Function)                              \
   V(tty_constructor_template, v8::FunctionTemplate)                           \
   V(udp_constructor_function, v8::Function)                                   \
-  V(vm_parsing_context_symbol, v8::Symbol)                                    \
   V(url_constructor_function, v8::Function)                                   \
   V(write_wrap_template, v8::ObjectTemplate)
 
@@ -673,7 +664,8 @@ class Environment {
 
   std::unordered_multimap<int, loader::ModuleWrap*> module_map;
 
-  std::unordered_map<std::string, loader::PackageConfig> package_json_cache;
+  std::unordered_map<std::string, const loader::PackageConfig>
+      package_json_cache;
 
   inline double* heap_statistics_buffer() const;
   inline void set_heap_statistics_buffer(double* pointer);
