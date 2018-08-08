@@ -65,23 +65,15 @@ class Worker;
 namespace loader {
 class ModuleWrap;
 
-struct Exists {
-  enum Bool { Yes, No };
-};
-
-struct IsValid {
-  enum Bool { Yes, No };
-};
-
-struct HasMain {
-  enum Bool { Yes, No };
-};
-
 struct PackageConfig {
-  const Exists::Bool exists;
-  const IsValid::Bool is_valid;
-  const HasMain::Bool has_main;
-  const std::string main;
+  enum class Exists { Yes, No };
+  enum class IsValid { Yes, No };
+  enum class HasMain { Yes, No };
+
+  Exists exists;
+  IsValid is_valid;
+  HasMain has_main;
+  std::string main;
 };
 }  // namespace loader
 
@@ -119,6 +111,7 @@ struct PackageConfig {
 // for the sake of convenience.
 #define PER_ISOLATE_SYMBOL_PROPERTIES(V)                                      \
   V(handle_onclose_symbol, "handle_onclose")                                  \
+  V(owner_symbol, "owner")                                                    \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
@@ -158,7 +151,6 @@ struct PackageConfig {
   V(emit_warning_string, "emitWarning")                                       \
   V(exchange_string, "exchange")                                              \
   V(encoding_string, "encoding")                                              \
-  V(enter_string, "enter")                                                    \
   V(entries_string, "entries")                                                \
   V(env_pairs_string, "envPairs")                                             \
   V(errno_string, "errno")                                                    \
@@ -198,8 +190,6 @@ struct PackageConfig {
   V(mac_string, "mac")                                                        \
   V(main_string, "main")                                                      \
   V(max_buffer_string, "maxBuffer")                                           \
-  V(max_semi_space_size_string, "maxSemiSpaceSize")                           \
-  V(max_old_space_size_string, "maxOldSpaceSize")                             \
   V(message_string, "message")                                                \
   V(message_port_string, "messagePort")                                       \
   V(message_port_constructor_string, "MessagePort")                           \
@@ -234,7 +224,6 @@ struct PackageConfig {
   V(onsettings_string, "onsettings")                                          \
   V(onshutdown_string, "onshutdown")                                          \
   V(onsignal_string, "onsignal")                                              \
-  V(onstop_string, "onstop")                                                  \
   V(onstreamclose_string, "onstreamclose")                                    \
   V(ontrailers_string, "ontrailers")                                          \
   V(onunpipe_string, "onunpipe")                                              \
@@ -242,7 +231,6 @@ struct PackageConfig {
   V(openssl_error_stack, "opensslErrorStack")                                 \
   V(output_string, "output")                                                  \
   V(order_string, "order")                                                    \
-  V(owner_string, "owner")                                                    \
   V(parse_error_string, "Parse Error")                                        \
   V(password_string, "password")                                              \
   V(path_string, "path")                                                      \
@@ -296,7 +284,6 @@ struct PackageConfig {
   V(uid_string, "uid")                                                        \
   V(unknown_string, "<unknown>")                                              \
   V(url_string, "url")                                                        \
-  V(user_string, "user")                                                      \
   V(username_string, "username")                                              \
   V(valid_from_string, "valid_from")                                          \
   V(valid_to_string, "valid_to")                                              \
@@ -359,7 +346,6 @@ struct PackageConfig {
   V(tls_wrap_constructor_function, v8::Function)                              \
   V(tty_constructor_template, v8::FunctionTemplate)                           \
   V(udp_constructor_function, v8::Function)                                   \
-  V(vm_parsing_context_symbol, v8::Symbol)                                    \
   V(url_constructor_function, v8::Function)                                   \
   V(write_wrap_template, v8::ObjectTemplate)
 
@@ -673,7 +659,8 @@ class Environment {
 
   std::unordered_multimap<int, loader::ModuleWrap*> module_map;
 
-  std::unordered_map<std::string, loader::PackageConfig> package_json_cache;
+  std::unordered_map<std::string, const loader::PackageConfig>
+      package_json_cache;
 
   inline double* heap_statistics_buffer() const;
   inline void set_heap_statistics_buffer(double* pointer);
