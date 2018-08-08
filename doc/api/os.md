@@ -170,6 +170,13 @@ For example:
 *Note*: Because `nice` values are UNIX-specific, on Windows the `nice` values
 of all processors are always 0.
 
+*Note*: On iOS, CPU speed values are always 0.
+
+*Note*: On Android, returns undefined since Android 8.0. On earlier Android
+versions the CPU values can be inconsistent, since some devices can turn CPU
+cores on and off as an energy saving strategy. Properties can be returned as
+zero for cores that have been turned off while getting them.
+
 ## os.endianness()
 <!-- YAML
 added: v0.9.4

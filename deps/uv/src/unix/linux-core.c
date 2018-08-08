@@ -798,7 +798,11 @@ static int read_times(FILE* statfile_fp,
     ts.irq  = clock_ticks * irq;
     ci[num++].cpu_times = ts;
   }
+
+/* On Android, the number of cores may change during run time. */
+#ifndef __ANDROID__
   assert(num == numcpus);
+#endif
 
   return 0;
 }
