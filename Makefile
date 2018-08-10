@@ -321,10 +321,16 @@ ifeq ($(OSTYPE),aix)
 DOCBUILDSTAMP_PREREQS := $(DOCBUILDSTAMP_PREREQS) out/$(BUILDTYPE)/node.exp
 endif
 
+node_use_openssl = $(shell $(call available-node,"-p" \
+		   "process.versions.openssl != undefined"))
 test/addons/.docbuildstamp: $(DOCBUILDSTAMP_PREREQS) tools/doc/node_modules
+ifeq ($(node_use_openssl),true)
 	$(RM) -r test/addons/??_*/
 	[ -x $(NODE) ] && $(NODE) $< || node $<
 	touch $@
+else
+	@echo "Skipping .docbuildstamp (no crypto)"
+endif
 
 ADDONS_BINDING_GYPS := \
 	$(filter-out test/addons/??_*/binding.gyp, \
@@ -334,19 +340,26 @@ ADDONS_BINDING_SOURCES := \
 	$(filter-out test/addons/??_*/*.cc, $(wildcard test/addons/*/*.cc)) \
 	$(filter-out test/addons/??_*/*.h, $(wildcard test/addons/*/*.h))
 
+ADDONS_PREREQS := config.gypi \
+	deps/npm/node_modules/node-gyp/package.json tools/build-addons.js \
+	deps/uv/include/*.h deps/v8/include/*.h \
+	src/node.h src/node_buffer.h src/node_object_wrap.h src/node_version.h
+
+define run_build_addons
+env npm_config_loglevel=$(LOGLEVEL) npm_config_nodedir="$$PWD" \
+  npm_config_python="$(PYTHON)" $(NODE) "$$PWD/tools/build-addons" \
+  "$$PWD/deps/npm/node_modules/node-gyp/bin/node-gyp.js" \
+  $1
+touch $2
+endef
+
 # Implicitly depends on $(NODE_EXE), see the build-addons rule for rationale.
 # Depends on node-gyp package.json so that build-addons is (re)executed when
 # node-gyp is updated as part of an npm update.
-test/addons/.buildstamp: config.gypi \
-	deps/npm/node_modules/node-gyp/package.json tools/build-addons.js \
+test/addons/.buildstamp: $(ADDONS_PREREQS) \
 	$(ADDONS_BINDING_GYPS) $(ADDONS_BINDING_SOURCES) \
-	deps/uv/include/*.h deps/v8/include/*.h \
-	src/node.h src/node_buffer.h src/node_object_wrap.h src/node_version.h \
 	test/addons/.docbuildstamp
-	env npm_config_loglevel=$(LOGLEVEL) npm_config_nodedir="$$PWD" \
-		npm_config_python="$(PYTHON)" $(NODE) "$$PWD/tools/build-addons" \
-		"$$PWD/deps/npm/node_modules/node-gyp/bin/node-gyp.js" "$$PWD/test/addons"
-	touch $@
+	@$(call run_build_addons,"$$PWD/test/addons",$@)
 
 .PHONY: build-addons
 # .buildstamp needs $(NODE_EXE) but cannot depend on it
@@ -367,17 +380,10 @@ ADDONS_NAPI_BINDING_SOURCES := \
 	$(filter-out test/addons-napi/??_*/*.h, $(wildcard test/addons-napi/*/*.h))
 
 # Implicitly depends on $(NODE_EXE), see the build-addons-napi rule for rationale.
-test/addons-napi/.buildstamp: config.gypi \
-	deps/npm/node_modules/node-gyp/package.json tools/build-addons.js \
+test/addons-napi/.buildstamp: $(ADDONS_PREREQS) \
 	$(ADDONS_NAPI_BINDING_GYPS) $(ADDONS_NAPI_BINDING_SOURCES) \
-	deps/uv/include/*.h deps/v8/include/*.h \
-	src/node.h src/node_buffer.h src/node_object_wrap.h src/node_version.h \
 	src/node_api.h src/node_api_types.h
-	env npm_config_loglevel=$(LOGLEVEL) npm_config_nodedir="$$PWD" \
-		npm_config_python="$(PYTHON)" $(NODE) "$$PWD/tools/build-addons" \
-		"$$PWD/deps/npm/node_modules/node-gyp/bin/node-gyp.js" \
-		"$$PWD/test/addons-napi"
-	touch $@
+	@$(call run_build_addons,"$$PWD/test/addons-napi",$@)
 
 .PHONY: build-addons-napi
 # .buildstamp needs $(NODE_EXE) but cannot depend on it
@@ -1064,15 +1070,17 @@ lint-md-build: tools/remark-cli/node_modules \
 
 .PHONY: tools/doc/node_modules
 tools/doc/node_modules:
-	@cd tools/doc && $(call available-node,$(run-npm-install))
+ifeq ($(node_use_openssl),true)
+	cd tools/doc && $(call available-node,$(run-npm-install))
+else
+	@echo "Skipping tools/doc/node_modules (no crypto)"
+endif
 
 .PHONY: lint-md
 ifneq ("","$(wildcard tools/remark-cli/node_modules/)")
 
 LINT_MD_DOC_FILES = $(shell ls doc/*.md doc/**/*.md)
 run-lint-doc-md = tools/remark-cli/cli.js -q -f $(LINT_MD_DOC_FILES)
-node_use_openssl = $(shell $(call available-node,"-p" \
-		   "process.versions.openssl != undefined"))
 # Lint all changed markdown files under doc/
 tools/.docmdlintstamp: $(LINT_MD_DOC_FILES)
 ifeq ($(node_use_openssl),true)
