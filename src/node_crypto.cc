@@ -483,7 +483,7 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
 
 // Takes a string or buffer and loads it into a BIO.
 // Caller responsible for BIO_free_all-ing the returned object.
-static BIO* LoadBIO(Environment* env, Local<Value> v) {
+static BIOPointer LoadBIO(Environment* env, Local<Value> v) {
   HandleScope scope(env->isolate());
 
   if (v->IsString()) {
@@ -738,9 +738,12 @@ static X509_STORE* NewRootCertStore() {
 
   if (root_certs_vector.empty()) {
     for (size_t i = 0; i < arraysize(root_certs); i++) {
-      BIO* bp = NodeBIO::NewFixed(root_certs[i], strlen(root_certs[i]));
-      X509* x509 = PEM_read_bio_X509(bp, nullptr, NoPasswordCallback, nullptr);
-      BIO_free(bp);
+      X509* x509 =
+          PEM_read_bio_X509(NodeBIO::NewFixed(root_certs[i],
+                                              strlen(root_certs[i])).get(),
+                            nullptr,   // no re-use of X509 structure
+                            NoPasswordCallback,
+                            nullptr);  // no callback data
 
       // Parse errors from the built-in roots are fatal.
       CHECK_NOT_NULL(x509);
@@ -1381,13 +1384,11 @@ void SSLWrap<Base>::AddMethods(Environment* env, Local<FunctionTemplate> t) {
   env->SetProtoMethod(t, "setSession", SetSession);
   env->SetProtoMethod(t, "loadSession", LoadSession);
   env->SetProtoMethodNoSideEffect(t, "isSessionReused", IsSessionReused);
-  env->SetProtoMethodNoSideEffect(t, "isInitFinished", IsInitFinished);
   env->SetProtoMethodNoSideEffect(t, "verifyError", VerifyError);
   env->SetProtoMethodNoSideEffect(t, "getCurrentCipher", GetCurrentCipher);
   env->SetProtoMethod(t, "endParser", EndParser);
   env->SetProtoMethod(t, "certCbDone", CertCbDone);
   env->SetProtoMethod(t, "renegotiate", Renegotiate);
-  env->SetProtoMethod(t, "shutdownSSL", Shutdown);
   env->SetProtoMethodNoSideEffect(t, "getTLSTicket", GetTLSTicket);
   env->SetProtoMethod(t, "newSessionDone", NewSessionDone);
   env->SetProtoMethod(t, "setOCSPResponse", SetOCSPResponse);
@@ -1994,16 +1995,6 @@ void SSLWrap<Base>::Renegotiate(const FunctionCallbackInfo<Value>& args) {
 
 
 template <class Base>
-void SSLWrap<Base>::Shutdown(const FunctionCallbackInfo<Value>& args) {
-  Base* w;
-  ASSIGN_OR_RETURN_UNWRAP(&w, args.Holder());
-
-  int rv = SSL_shutdown(w->ssl_.get());
-  args.GetReturnValue().Set(rv);
-}
-
-
-template <class Base>
 void SSLWrap<Base>::GetTLSTicket(const FunctionCallbackInfo<Value>& args) {
   Base* w;
   ASSIGN_OR_RETURN_UNWRAP(&w, args.Holder());
@@ -2134,15 +2125,6 @@ void SSLWrap<Base>::SetMaxSendFragment(
   args.GetReturnValue().Set(rv);
 }
 #endif  // SSL_set_max_send_fragment
-
-
-template <class Base>
-void SSLWrap<Base>::IsInitFinished(const FunctionCallbackInfo<Value>& args) {
-  Base* w;
-  ASSIGN_OR_RETURN_UNWRAP(&w, args.Holder());
-  bool yes = SSL_is_init_finished(w->ssl_.get());
-  args.GetReturnValue().Set(yes);
-}
 
 
 template <class Base>
@@ -5159,6 +5141,8 @@ void InitCryptoOnce() {
   ERR_load_ENGINE_strings();
   ENGINE_load_builtin_engines();
 #endif  // !OPENSSL_NO_ENGINE
+
+  NodeBIO::GetMethod();
 }
 
 

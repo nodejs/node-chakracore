@@ -94,13 +94,17 @@ $(NODE_G_EXE): config.gypi out/Makefile
 CODE_CACHE_DIR ?= out/$(BUILDTYPE)/obj/gen
 CODE_CACHE_FILE ?= $(CODE_CACHE_DIR)/node_code_cache.cc
 
+ifeq ($(BUILDTYPE),Debug)
+CONFIG_FLAGS += --debug
+endif
 .PHONY: with-code-cache
 with-code-cache:
-	$(PYTHON) ./configure
+	@echo $(CONFIG_FLAGS)
+	$(PYTHON) ./configure $(CONFIG_FLAGS)
 	$(MAKE)
 	mkdir -p $(CODE_CACHE_DIR)
 	out/$(BUILDTYPE)/$(NODE_EXE) --expose-internals tools/generate_code_cache.js $(CODE_CACHE_FILE)
-	$(PYTHON) ./configure --code-cache-path $(CODE_CACHE_FILE)
+	$(PYTHON) ./configure --code-cache-path $(CODE_CACHE_FILE) $(CONFIG_FLAGS)
 	$(MAKE)
 
 .PHONY: test-code-cache
@@ -1068,8 +1072,7 @@ lint-md-build: tools/remark-cli/node_modules \
 	tools/doc/node_modules \
 	tools/remark-preset-lint-node/node_modules
 
-.PHONY: tools/doc/node_modules
-tools/doc/node_modules:
+tools/doc/node_modules: tools/doc/package.json
 ifeq ($(node_use_openssl),true)
 	cd tools/doc && $(call available-node,$(run-npm-install))
 else
@@ -1091,7 +1094,7 @@ else
 	@echo "Skipping Markdown linter on docs (no crypto)"
 endif
 
-LINT_MD_TARGETS = src lib benchmark tools/doc tools/icu
+LINT_MD_TARGETS = src lib benchmark test tools/doc tools/icu
 LINT_MD_ROOT_DOCS := $(wildcard *.md)
 LINT_MD_MISC_FILES := $(shell find $(LINT_MD_TARGETS) -type f \
   -not -path '*node_modules*' -name '*.md') $(LINT_MD_ROOT_DOCS)
