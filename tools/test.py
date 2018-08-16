@@ -1539,12 +1539,9 @@ IGNORED_SUITES = [
   'addons-napi',
   'code-cache',
   'doctool',
-  'gc',
   'internet',
   'pummel',
-  'test-known-issues',
   'tick-processor',
-  'timers',
   'v8-updates'
 ]
 
