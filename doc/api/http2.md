@@ -113,7 +113,7 @@ User code will not create `Http2Session` instances directly. Server-side
 new HTTP/2 connection is received. Client-side `Http2Session` instances are
 created using the `http2.connect()` method.
 
-#### `Http2Session` and Sockets
+#### Http2Session and Sockets
 
 Every `Http2Session` instance is associated with exactly one [`net.Socket`][] or
 [`tls.TLSSocket`][] when it is created. When either the `Socket` or the
@@ -1255,6 +1255,9 @@ server.on('stream', (stream) => {
 Setting the weight of a push stream is not allowed in the `HEADERS` frame. Pass
 a `weight` value to `http2stream.priority` with the `silent` option set to
 `true` to enable server-side bandwidth balancing between concurrent streams.
+
+Calling `http2stream.pushStream()` from within a pushed stream is not permitted
+and will throw an error.
 
 #### http2stream.respond([headers[, options]])
 <!-- YAML
