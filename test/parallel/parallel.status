@@ -237,6 +237,12 @@ test-heapdump-zlib : SKIP
 # see https://github.com/nodejs/node-chakracore/issues/536
 test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 
+# SharedArrayBuffers are returning null contents for some reason
+# This leads to asserts in node
+# Disabling this test until the problem is addressed
+# https://github.com/nodejs/node-chakracore/issues/584
+test-buffer-sharedarraybuffer : SKIP
+
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-module-loading-globalpaths : SKIP

@@ -1680,9 +1680,13 @@ if (!common.isChakraEngine) {
   assert.notStrictEqual(util.inspect(value), expected);
 });
 
+if (!common.isChakraEngine) {
+  eval(`
 assert.strictEqual(inspect(1n), '1n');
 assert.strictEqual(inspect(Object(-1n)), '[BigInt: -1n]');
 assert.strictEqual(inspect(Object(13n)), '[BigInt: 13n]');
+  `);
+}
 
 // Verify non-enumerable keys get escaped.
 {
