@@ -201,7 +201,8 @@ static int v8_thread_pool_size = v8_default_thread_pool_size;
 static bool prof_process = false;
 static bool v8_is_profiling = false;
 static bool node_is_initialized = false;
-static node_module* modpending;
+static uv_once_t init_modpending_once = UV_ONCE_INIT;
+static uv_key_t thread_local_modpending;
 static node_module* modlist_builtin;
 static node_module* modlist_internal;
 static node_module* modlist_linked;
@@ -1274,7 +1275,7 @@ extern "C" void node_module_register(void* m) {
     mp->nm_link = modlist_linked;
     modlist_linked = mp;
   } else {
-    modpending = mp;
+    uv_key_set(&thread_local_modpending, mp);
   }
 }
 
@@ -1388,6 +1389,10 @@ inline napi_addon_register_func GetNapiInitializerCallback(DLib* dlib) {
       reinterpret_cast<napi_addon_register_func>(dlib->GetSymbolAddress(name));
 }
 
+void InitModpendingOnce() {
+  CHECK_EQ(0, uv_key_create(&thread_local_modpending));
+}
+
 // DLOpen is process.dlopen(module, filename, flags).
 // Used to load 'module.node' dynamically shared objects.
 //
@@ -1398,7 +1403,8 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   auto context = env->context();
 
-  CHECK_NULL(modpending);
+  uv_once(&init_modpending_once, InitModpendingOnce);
+  CHECK_NULL(uv_key_get(&thread_local_modpending));
 
   if (args.Length() < 2) {
     env->ThrowError("process.dlopen needs at least 2 arguments.");
@@ -1426,8 +1432,9 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
   // Objects containing v14 or later modules will have registered themselves
   // on the pending list.  Activate all of them now.  At present, only one
   // module per object is supported.
-  node_module* const mp = modpending;
-  modpending = nullptr;
+  node_module* const mp = static_cast<node_module*>(
+      uv_key_get(&thread_local_modpending));
+  uv_key_set(&thread_local_modpending, nullptr);
 
   if (!is_opened) {
     Local<String> errmsg = OneByteString(env->isolate(), dlib.errmsg_.c_str());
@@ -2617,16 +2624,12 @@ static void PrintHelp() {
 #if HAVE_OPENSSL && NODE_FIPS_MODE
          "  --enable-fips              enable FIPS crypto at startup\n"
 #endif  // NODE_FIPS_MODE && NODE_FIPS_MODE
-#if defined(NODE_HAVE_I18N_SUPPORT)
          "  --experimental-modules     experimental ES Module support\n"
          "                             and caching modules\n"
-#endif  // defined(NODE_HAVE_I18N_SUPPORT)
          "  --experimental-repl-await  experimental await keyword support\n"
          "                             in REPL\n"
-#if defined(NODE_HAVE_I18N_SUPPORT)
          "  --experimental-vm-modules  experimental ES Module support\n"
          "                             in vm module\n"
-#endif  // defined(NODE_HAVE_I18N_SUPPORT)
          "  --experimental-worker      experimental threaded Worker support\n"
 #if HAVE_OPENSSL && NODE_FIPS_MODE
          "  --force-fips               force FIPS crypto (cannot be disabled)\n"
@@ -2659,11 +2662,9 @@ static void PrintHelp() {
          "                             OPENSSL_CONF)\n"
 #endif  // HAVE_OPENSSL
          "  --pending-deprecation      emit pending deprecation warnings\n"
-#if defined(NODE_HAVE_I18N_SUPPORT)
          "  --preserve-symlinks        preserve symbolic links when resolving\n"
          "  --preserve-symlinks-main   preserve symbolic links when resolving\n"
          "                             the main module\n"
-#endif
          "  --prof                     generate V8 profiler output\n"
          "  --prof-process             process V8 profiler output generated\n"
          "                             using --prof\n"
@@ -2759,10 +2760,8 @@ static void PrintHelp() {
          "                             prefixed to the module search path\n"
          "NODE_PENDING_DEPRECATION     set to 1 to emit pending deprecation\n"
          "                             warnings\n"
-#if defined(NODE_HAVE_I18N_SUPPORT)
          "NODE_PRESERVE_SYMLINKS       set to 1 to preserve symbolic links\n"
          "                             when resolving and caching modules\n"
-#endif
          "NODE_REDIRECT_WARNINGS       write warnings to path instead of\n"
          "                             stderr\n"
          "NODE_REPL_HISTORY            path to the persistent REPL history\n"
