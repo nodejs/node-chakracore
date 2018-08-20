@@ -101,7 +101,7 @@ class V8_EXPORT EmbedderGraph {
 
   virtual Node* V8Node(const v8::Local<v8::Value>& value) { return nullptr; }
   virtual Node* AddNode(std::unique_ptr<Node> node) { return nullptr; }
-  virtual void AddEdge(Node* from, Node* to) {};
+  virtual void AddEdge(Node* from, Node* to, const char* name = nullptr) { }
 
   virtual ~EmbedderGraph() = default;
 };
