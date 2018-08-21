@@ -942,7 +942,10 @@ assert.throws(() => assert.deepStrictEqual(new Boolean(true), {}),
     () => assert.deepStrictEqual(invalidTrap, [1, 2, 3]),
     {
       name: 'TypeError',
-      message: "'ownKeys' on proxy: trap result did not include 'length'"
+      message: common.engineSpecificMessage({
+        v8: "'ownKeys' on proxy: trap result did not include 'length'",
+        chakracore: "Invariant check failed for ownKeys proxy trap"
+      })
     }
   );
 }
