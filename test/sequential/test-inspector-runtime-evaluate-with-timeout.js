@@ -16,6 +16,9 @@ common.skipIfInspectorDisabled();
     expression: 'for(;;);',
     timeout: 0
   }).catch((e) => e);
-  strictEqual(result.message, 'Execution was terminated');
+  strictEqual(result.message, common.engineSpecificMessage({
+    v8: 'Execution was terminated',
+    chakracore: 'Failed to evaluate expression'
+  }));
   session.disconnect();
 })();
