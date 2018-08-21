@@ -853,22 +853,22 @@ if (typeof Symbol !== 'undefined') {
   const options = { showHidden: true };
   let subject = {};
 
-  subject[Symbol('symbol')] = 42;
+  subject[Symbol('sym\nbol')] = 42;
 
-  assert.strictEqual(util.inspect(subject), '{ [Symbol(symbol)]: 42 }');
+  assert.strictEqual(util.inspect(subject), '{ [Symbol(sym\\nbol)]: 42 }');
   assert.strictEqual(
     util.inspect(subject, options),
-    '{ [Symbol(symbol)]: 42 }'
+    '{ [Symbol(sym\\nbol)]: 42 }'
   );
 
   Object.defineProperty(
     subject,
     Symbol(),
     { enumerable: false, value: 'non-enum' });
-  assert.strictEqual(util.inspect(subject), '{ [Symbol(symbol)]: 42 }');
+  assert.strictEqual(util.inspect(subject), '{ [Symbol(sym\\nbol)]: 42 }');
   assert.strictEqual(
     util.inspect(subject, options),
-    "{ [Symbol(symbol)]: 42, [Symbol()]: 'non-enum' }"
+    "{ [Symbol(sym\\nbol)]: 42, [Symbol()]: 'non-enum' }"
   );
 
   subject = [1, 2, 3];
@@ -1673,4 +1673,41 @@ assert.strictEqual(inspect(Object(13n)), '[BigInt: 13n]');
 assert.strictEqual(inspect(new BigInt64Array([0n])), 'BigInt64Array [ 0n ]');
 assert.strictEqual(inspect(new BigUint64Array([0n])), 'BigUint64Array [ 0n ]');
   `);
+}
+
+// Verify non-enumerable keys get escaped.
+{
+  const obj = {};
+  Object.defineProperty(obj, 'Non\nenumerable\tkey', { value: true });
+  assert.strictEqual(
+    util.inspect(obj, { showHidden: true }),
+    '{ [Non\\nenumerable\\tkey]: true }'
+  );
+}
+
+// Check for special colors.
+{
+  const special = inspect.colors[inspect.styles.special];
+  const string = inspect.colors[inspect.styles.string];
+
+  assert.strictEqual(
+    inspect(new WeakSet(), { colors: true }),
+    `WeakSet { \u001b[${special[0]}m<items unknown>\u001b[${special[1]}m }`
+  );
+  assert.strictEqual(
+    inspect(new WeakMap(), { colors: true }),
+    `WeakMap { \u001b[${special[0]}m<items unknown>\u001b[${special[1]}m }`
+  );
+  assert.strictEqual(
+    inspect(new Promise(() => {}), { colors: true }),
+    `Promise { \u001b[${special[0]}m<pending>\u001b[${special[1]}m }`
+  );
+
+  const rejection = Promise.reject('Oh no!');
+  assert.strictEqual(
+    inspect(rejection, { colors: true }),
+    `Promise { \u001b[${special[0]}m<rejected>\u001b[${special[1]}m ` +
+    `\u001b[${string[0]}m'Oh no!'\u001b[${string[1]}m }`
+  );
+  rejection.catch(() => {});
 }

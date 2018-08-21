@@ -9,3 +9,5 @@ const assert = require('assert');
 assert(process.binding('uv'));
 assert(process.binding('http_parser'));
 assert(process.binding('v8'));
+assert(process.binding('stream_wrap'));
+assert(process.binding('signal_wrap'));
