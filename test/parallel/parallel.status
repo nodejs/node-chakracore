@@ -238,9 +238,10 @@ test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 
 # SharedArrayBuffers are returning null contents for some reason
 # This leads to asserts in node
-# Disabling this test until the problem is addressed
+# Disabling these tests until the problem is addressed
 # https://github.com/nodejs/node-chakracore/issues/584
 test-buffer-sharedarraybuffer : SKIP
+test-assert-typedarray-deepequal : SKIP
 
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
