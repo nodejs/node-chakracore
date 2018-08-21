@@ -281,6 +281,13 @@ JsErrorCode CloneObject(JsValueRef source,
 JsErrorCode GetPropertyNames(JsValueRef object,
                              JsValueRef* namesArray);
 
+JsErrorCode GetPropertyNames(JsValueRef object,
+                             int mode,
+                             int property_filter,
+                             int index_filter,
+                             int key_conversion,
+                             JsValueRef* namesArray);
+
 JsPropertyIdRef GetExternalPropertyId();
 
 JsErrorCode AddExternalData(JsValueRef ref,
@@ -480,6 +487,15 @@ JsErrorCode CallFunction(const T& api,
   return api(func, args, _countof(args), result);
 }
 
+template <class T>
+JsErrorCode CallFunction(const T& api,
+                         JsValueRef func, JsValueRef arg1, JsValueRef arg2,
+                         JsValueRef arg3, JsValueRef arg4, JsValueRef arg5,
+                         JsValueRef* result) {
+  JsValueRef args[] = { GetUndefined(), arg1, arg2, arg3, arg4, arg5 };
+  return api(func, args, _countof(args), result);
+}
+
 inline JsErrorCode CallFunction(JsValueRef func,
                                 JsValueRef* result) {
   return CallFunction(JsCallFunction, func, result);
@@ -500,6 +516,13 @@ inline JsErrorCode CallFunction(JsValueRef func,
                                 JsValueRef arg1, JsValueRef arg2,
                                 JsValueRef arg3, JsValueRef* result) {
   return CallFunction(JsCallFunction, func, arg1, arg2, arg3, result);
+}
+
+inline JsErrorCode CallFunction(JsValueRef func,
+                                JsValueRef arg1, JsValueRef arg2,
+                                JsValueRef arg3, JsValueRef arg4,
+                                JsValueRef arg5, JsValueRef* result) {
+  return CallFunction(JsCallFunction, func, arg1, arg2, arg3, arg4, arg5, result);
 }
 
 inline JsErrorCode ConstructObject(JsValueRef func,

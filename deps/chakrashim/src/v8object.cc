@@ -450,9 +450,25 @@ bool Object::SetAccessor(Handle<Name> name,
 }
 
 MaybeLocal<Array> Object::GetPropertyNames(Local<Context> context) {
-  JsValueRef arrayRef;
+  return GetPropertyNames(context, KeyCollectionMode::kIncludePrototypes,
+                          ONLY_ENUMERABLE, IndexFilter::kIncludeIndices);
+}
 
-  if (jsrt::GetPropertyNames((JsValueRef)this, &arrayRef) != JsNoError) {
+MaybeLocal<Array> Object::GetPropertyNames(
+      Local<Context> context,
+      KeyCollectionMode mode,
+      PropertyFilter property_filter,
+      IndexFilter index_filter,
+      KeyConversionMode key_conversion) {
+
+  JsValueRef arrayRef;
+  if (jsrt::GetPropertyNames(
+        (JsValueRef)this,
+        (int)mode,
+        property_filter,
+        (int)index_filter,
+        (int)key_conversion,
+        &arrayRef) != JsNoError) {
     return Local<Array>();
   }
 

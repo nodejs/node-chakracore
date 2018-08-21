@@ -1428,7 +1428,19 @@ class V8_EXPORT Uint32 : public Integer {
   static Uint32* Cast(v8::Value* obj);
 };
 
+enum PropertyFilter {
+  ALL_PROPERTIES = 0,
+  ONLY_WRITABLE = 1,
+  ONLY_ENUMERABLE = 2,
+  ONLY_CONFIGURABLE = 4,
+  SKIP_STRINGS = 8,
+  SKIP_SYMBOLS = 16
+};
+
 enum class SideEffectType { kHasSideEffect, kHasNoSideEffect };
+enum class KeyCollectionMode { kOwnOnly, kIncludePrototypes };
+enum class IndexFilter { kIncludeIndices, kSkipIndices };
+enum class KeyConversionMode { kConvertToString, kKeepNumbers };
 
 class V8_EXPORT Object : public Value {
  public:
@@ -1526,6 +1538,10 @@ class V8_EXPORT Object : public Value {
   V8_DEPRECATE_SOON("Use maybe version", Local<Array> GetPropertyNames());
   V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetPropertyNames(
     Local<Context> context);
+  V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetPropertyNames(
+      Local<Context> context, KeyCollectionMode mode,
+      PropertyFilter property_filter, IndexFilter index_filter,
+      KeyConversionMode key_conversion = KeyConversionMode::kKeepNumbers);
 
   V8_DEPRECATE_SOON("Use maybe version", Local<Array> GetOwnPropertyNames());
   V8_WARN_UNUSED_RESULT MaybeLocal<Array> GetOwnPropertyNames(

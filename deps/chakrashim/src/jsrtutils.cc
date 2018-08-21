@@ -385,10 +385,23 @@ JsErrorCode CreatePropertyDescriptorsEnumerationIterator(JsValueRef enumeration,
 }
 
 JsErrorCode GetPropertyNames(JsValueRef object,
+                             int mode,
+                             int property_filter,
+                             int index_filter,
+                             int key_conversion,
                              JsValueRef* result) {
+  JsValueRef modeVal;
+  JsValueRef propertyVal;
+  JsValueRef indexVal;
+  JsValueRef conversionVal;
+  JsIntToNumber(mode, &modeVal);
+  JsIntToNumber(property_filter, &propertyVal);
+  JsIntToNumber(index_filter, &indexVal);
+  JsIntToNumber(key_conversion, &conversionVal);
+
   return CallFunction(
     ContextShim::GetCurrent()->GetgetPropertyNamesFunction(),
-    object, result);
+    object, modeVal, propertyVal, indexVal, conversionVal, result);
 }
 
 JsPropertyIdRef GetExternalPropertyId() {
