@@ -26,6 +26,7 @@
   const Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
   const Object_getOwnPropertyDescriptors = Object.getOwnPropertyDescriptors;
   const Object_getOwnPropertyNames = Object.getOwnPropertyNames;
+  const Object_getOwnPropertySymbols = Object.getOwnPropertySymbols;
   const Object_keys = Object.keys;
   const Object_prototype_toString = Object.prototype.toString;
   const Object_setPrototypeOf = Object.setPrototypeOf;
@@ -423,9 +424,12 @@
     const isUintRegex = /^(0|[1-9]\d*)$/;
 
     function isUint(value) {
+      if (typeof value == "symbol") {
+        return false;
+      }
       const result = isUintRegex.test(value);
       isUintRegex.lastIndex = 0;
-      return result;
+      return result && value < 2**32;
     }
 
     utils.cloneObject = function(source, target) {
@@ -440,15 +444,73 @@
       });
     };
 
-    utils.getPropertyNames = function(a) {
+/*
+enum PropertyFilter {
+  ALL_PROPERTIES = 0,
+  ONLY_WRITABLE = 1,
+  ONLY_ENUMERABLE = 2,
+  ONLY_CONFIGURABLE = 4,
+  SKIP_STRINGS = 8,
+  SKIP_SYMBOLS = 16
+}
+*/
+    utils.getPropertyNames = function(obj, includePrototype, propertyFilter, skipIndexes, keepNumbers) {
       const names = [];
-      for (const propertyName in a) {
-        if (isUint(propertyName)) {
-          names.push(Global_ParseInt(propertyName));
-        } else {
-          names.push(propertyName);
+      if (includePrototype && propertyFilter & 2) {
+        // CHAKRA-TODO: handle filtering of properties in this case
+        for (const propertyName in obj) {
+          if (isUint(propertyName)) {
+            if (skipIndexes) {
+              continue;
+            }
+            if (keepNumbers) {
+              names.push(Global_ParseInt(propertyName));
+            } else {
+              names.push(propertyName);
+            }
+          } else {
+            names.push(propertyName);
+          }
         }
+      } else if (!includePrototype) {
+        const descriptors = Object_getOwnPropertyDescriptors(obj);
+        let keys = [];
+        if (!(propertyFilter & 8)) {
+          keys = keys.concat(Object_getOwnPropertyNames(descriptors))
+        }
+        if (!(propertyFilter & 16)) {
+          keys = keys.concat(Object_getOwnPropertySymbols(descriptors));
+        }
+        
+        for(const propertyName of keys) {
+          let name = propertyName;
+          if (isUint(propertyName)) {
+            if (skipIndexes) {
+              continue;
+            }
+            if (keepNumbers) {
+              name = Global_ParseInt(propertyName);
+            }
+          }
+
+          const descriptor = descriptors[propertyName];
+          if (propertyFilter & 1 && !descriptor.writable) {
+            continue;
+          }
+          if (propertyFilter & 2 && !descriptor.enumerable) {
+            continue;
+          }
+          if (propertyFilter & 4 && !descriptor.configurable) {
+            continue;
+          }
+
+          names.push(name);
+        }
+      } else {
+        // CHAKRA-TODO: handle non-enumerable prototype chain walk
       }
+
+
 
       return names;
     };
