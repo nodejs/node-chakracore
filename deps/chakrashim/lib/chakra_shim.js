@@ -424,12 +424,12 @@
     const isUintRegex = /^(0|[1-9]\d*)$/;
 
     function isUint(value) {
-      if (typeof value == "symbol") {
+      if (typeof value == 'symbol') {
         return false;
       }
       const result = isUintRegex.test(value);
       isUintRegex.lastIndex = 0;
-      return result && value < 2**32;
+      return result && value < 2 ** 32;
     }
 
     utils.cloneObject = function(source, target) {
@@ -444,17 +444,18 @@
       });
     };
 
-/*
-enum PropertyFilter {
-  ALL_PROPERTIES = 0,
-  ONLY_WRITABLE = 1,
-  ONLY_ENUMERABLE = 2,
-  ONLY_CONFIGURABLE = 4,
-  SKIP_STRINGS = 8,
-  SKIP_SYMBOLS = 16
-}
-*/
-    utils.getPropertyNames = function(obj, includePrototype, propertyFilter, skipIndexes, keepNumbers) {
+    /*
+    enum PropertyFilter {
+      ALL_PROPERTIES = 0,
+      ONLY_WRITABLE = 1,
+      ONLY_ENUMERABLE = 2,
+      ONLY_CONFIGURABLE = 4,
+      SKIP_STRINGS = 8,
+      SKIP_SYMBOLS = 16
+    }
+    */
+    utils.getPropertyNames = function(obj, includePrototype, propertyFilter,
+                                      skipIndexes, keepNumbers) {
       const names = [];
       if (includePrototype && propertyFilter & 2) {
         // CHAKRA-TODO: handle filtering of properties in this case
@@ -476,13 +477,13 @@ enum PropertyFilter {
         const descriptors = Object_getOwnPropertyDescriptors(obj);
         let keys = [];
         if (!(propertyFilter & 8)) {
-          keys = keys.concat(Object_getOwnPropertyNames(descriptors))
+          keys = keys.concat(Object_getOwnPropertyNames(descriptors));
         }
         if (!(propertyFilter & 16)) {
           keys = keys.concat(Object_getOwnPropertySymbols(descriptors));
         }
-        
-        for(const propertyName of keys) {
+
+        for (const propertyName of keys) {
           let name = propertyName;
           if (isUint(propertyName)) {
             if (skipIndexes) {
@@ -509,7 +510,6 @@ enum PropertyFilter {
       } else {
         // CHAKRA-TODO: handle non-enumerable prototype chain walk
       }
-
 
 
       return names;
