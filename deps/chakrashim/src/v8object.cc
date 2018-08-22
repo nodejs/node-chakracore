@@ -460,14 +460,13 @@ MaybeLocal<Array> Object::GetPropertyNames(
       PropertyFilter property_filter,
       IndexFilter index_filter,
       KeyConversionMode key_conversion) {
-
   JsValueRef arrayRef;
   if (jsrt::GetPropertyNames(
-        (JsValueRef)this,
-        (int)mode,
+        static_cast<JsValueRef>(this),
+        static_cast<int>(mode),
         property_filter,
-        (int)index_filter,
-        (int)key_conversion,
+        static_cast<int>(index_filter),
+        static_cast<int>(key_conversion),
         &arrayRef) != JsNoError) {
     return Local<Array>();
   }
