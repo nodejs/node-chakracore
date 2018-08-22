@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const util = require('util');
 const { AssertionError } = assert;
@@ -893,6 +893,20 @@ assert.deepStrictEqual(obj1, obj2);
                '  [\n    1,\n+   2\n-   2,\n-   3\n  ]' }
   );
   util.inspect.defaultOptions = tmp;
+
+  const invalidTrap = new Proxy([1, 2, 3], {
+    ownKeys() { return []; }
+  });
+  assert.throws(
+    () => assert.deepStrictEqual(invalidTrap, [1, 2, 3]),
+    {
+      name: 'TypeError',
+      message: common.engineSpecificMessage({
+        v8: "'ownKeys' on proxy: trap result did not include 'length'",
+        chakracore: "Invariant check failed for ownKeys proxy trap"
+      })
+    }
+  );
 }
 
 // Basic valueOf check.

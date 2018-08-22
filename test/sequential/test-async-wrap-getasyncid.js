@@ -1,5 +1,5 @@
 'use strict';
-// Flags: --expose-gc --expose-internals
+// Flags: --expose-gc --expose-internals --no-warnings
 
 const common = require('../common');
 const { internalBinding } = require('internal/test/binding');
@@ -187,7 +187,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
 }
 
 {
-  const Signal = process.binding('signal_wrap').Signal;
+  const { Signal } = internalBinding('signal_wrap');
   testInitialized(new Signal(), 'Signal');
 }
 
@@ -201,12 +201,12 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
 }
 
 {
-  const binding = process.binding('stream_wrap');
+  const binding = internalBinding('stream_wrap');
   testUninitialized(new binding.WriteWrap(), 'WriteWrap');
 }
 
 {
-  const stream_wrap = process.binding('stream_wrap');
+  const stream_wrap = internalBinding('stream_wrap');
   const tcp_wrap = process.binding('tcp_wrap');
   const server = net.createServer(common.mustCall((socket) => {
     server.close();
