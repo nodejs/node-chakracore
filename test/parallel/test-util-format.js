@@ -148,8 +148,8 @@ assert.strictEqual(
     '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
-    '     [name]: \'func\',\n' +
-    '     [length]: 0 } }'
+    '     [length]: 0,\n' +
+    '     [name]: \'func\' } }'
   }));
 assert.strictEqual(
   util.format('%o', nestedObj2),
@@ -171,8 +171,8 @@ assert.strictEqual(
     '   [ { a:\n' +
     '        { [Function: a]\n' +
     '          [prototype]: a { [constructor]: [Circular] },\n' +
-    '          [name]: \'a\',\n' +
-    '          [length]: 0 } },\n' +
+    '          [length]: 0,\n' +
+    '          [name]: \'a\' } },\n' +
     '     [length]: 1 ] }'
   }));
 assert.strictEqual(
@@ -194,8 +194,8 @@ assert.strictEqual(
     '     func:\n' +
     '      { [Function: func]\n' +
     '        [prototype]: func { [constructor]: [Circular] },\n' +
-    '        [name]: \'func\',\n' +
-    '        [length]: 0 } } }'
+    '        [length]: 0,\n' +
+    '        [name]: \'func\' } } }'
   }));
 assert.strictEqual(
   util.format('%o %o', obj, obj),
@@ -221,15 +221,15 @@ assert.strictEqual(
     '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
-    '     [name]: \'func\',\n' +
-    '     [length]: 0 } }' +
+    '     [length]: 0,\n' +
+    '     [name]: \'func\' } }' +
     ' { foo: \'bar\',\n' +
     '  foobar: 1,\n' +
     '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
-    '     [name]: \'func\',\n' +
-    '     [length]: 0 } }'
+    '     [length]: 0,\n' +
+    '     [name]: \'func\' } }'
   }));
 assert.strictEqual(
   util.format('%o %o', obj),
@@ -248,8 +248,8 @@ assert.strictEqual(
     '  func:\n' +
     '   { [Function: func]\n' +
     '     [prototype]: func { [constructor]: [Circular] },\n' +
-    '     [name]: \'func\',\n' +
-    '     [length]: 0 } } %o'
+    '     [length]: 0,\n' +
+    '     [name]: \'func\' } } %o'
   }));
 
 assert.strictEqual(util.format('%O'), '%O');
