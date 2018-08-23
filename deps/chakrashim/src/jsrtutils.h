@@ -522,7 +522,8 @@ inline JsErrorCode CallFunction(JsValueRef func,
                                 JsValueRef arg1, JsValueRef arg2,
                                 JsValueRef arg3, JsValueRef arg4,
                                 JsValueRef arg5, JsValueRef* result) {
-  return CallFunction(JsCallFunction, func, arg1, arg2, arg3, arg4, arg5, result);
+  return CallFunction(JsCallFunction, func, arg1, arg2, arg3, arg4, arg5,
+                      result);
 }
 
 inline JsErrorCode ConstructObject(JsValueRef func,

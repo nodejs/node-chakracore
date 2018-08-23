@@ -903,7 +903,7 @@ assert.deepStrictEqual(obj1, obj2);
       name: 'TypeError',
       message: common.engineSpecificMessage({
         v8: "'ownKeys' on proxy: trap result did not include 'length'",
-        chakracore: "Invariant check failed for ownKeys proxy trap"
+        chakracore: 'Invariant check failed for ownKeys proxy trap'
       })
     }
   );
