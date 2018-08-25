@@ -2542,6 +2542,44 @@ void ProcessArgv(std::vector<std::string>* args,
   for (const std::string& cve : per_process_opts->security_reverts)
     Revert(cve.c_str());
 
+#if ENABLE_TTD_NODE
+    if (per_process_opts->ttdRecord) {
+      s_doTTRecord = true;
+    }
+    if (per_process_opts->ttdDebug) {
+      s_doTTRecord = true;
+      s_doTTEnableDebug = true;
+      s_ttdSnapInterval = 500;
+      s_ttdSnapHistoryLength = 4;
+    }
+    if (per_process_opts->ttdReplayUri.length() > 0) {
+      s_doTTReplay = true;
+      // TODO(mkaufman):  update TTD APIs to take a std::string
+      s_ttoptReplayUri = per_process_opts->ttdReplayUri.c_str();
+      s_ttoptReplayUriLength = per_process_opts->ttdReplayUri.length();
+    }
+    if (per_process_opts->ttdReplayDebugUri.length() > 0) {
+      s_doTTReplay = true;
+      s_doTTEnableDebug = true;
+      s_ttoptReplayUri = per_process_opts->ttdReplayDebugUri.c_str();
+      s_ttoptReplayUriLength = per_process_opts->ttdReplayUri.length();
+    }
+    if (per_process_opts->ttdBreakFirst) {
+      s_ttdStartupMode = (0x100 | 0x1);
+      per_process_opts->
+        per_isolate->per_env->debug_options->break_first_line = true;
+    }
+    if (per_process_opts->ttdRecordInterval > 0) {
+      s_ttdSnapInterval = per_process_opts->ttdRecordInterval;
+    }
+    if (per_process_opts->ttdRecordHistoryLength > 0) {
+      s_ttdSnapHistoryLength = per_process_opts->ttdRecordHistoryLength;
+    }
+    if (per_process_opts->ttdDisableAutoTrace) {
+      s_ttAutoTraceEnabled = false;
+    }
+#endif
+
   // TODO(addaleax): Move this validation to the option parsers.
   auto env_opts = per_process_opts->per_isolate->per_env;
   if (!env_opts->userland_loader.empty() &&
