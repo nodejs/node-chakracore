@@ -2499,52 +2499,6 @@ void TTDFlagWarning_Cond(bool cond, const char* msg) {
 }
 #endif
 
-#if false 
-// TODO:  re-enable parsing of TTD options via new options parsing APIs
-#if ENABLE_TTD_NODE
-    // Parse and extract the TT args
-    } else if (strcmp(arg, "--record") == 0) {
-      s_doTTRecord = true;
-    } else if (strstr(arg, "--tt-debug") == arg) {
-      s_doTTRecord = true;
-      s_doTTEnableDebug = true;
-      s_ttdSnapInterval = 500;
-      s_ttdSnapHistoryLength = 4;
-    } else if (strstr(arg, "--replay=") == arg) {
-      s_doTTReplay = true;
-      s_ttoptReplayUri = arg + strlen("--replay=");
-      s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-    } else if (strstr(arg, "--replay-debug=") == arg) {
-      s_doTTReplay = true;
-      s_doTTEnableDebug = true;
-      s_ttoptReplayUri = arg + strlen("--replay-debug=");
-      s_ttoptReplayUriLength = strlen(s_ttoptReplayUri);
-    } else if (strcmp(arg, "--break-first") == 0) {
-      s_ttdStartupMode = (0x100 | 0x1);
-      debug_options.do_wait_for_connect();
-    } else if (strstr(arg, "--record-interval=") == arg) {
-      const char* intervalStr = arg + strlen("--record-interval=");
-      s_ttdSnapInterval = (uint32_t)atoi(intervalStr);
-    } else if (strstr(arg, "--record-history=") == arg) {
-      const char* historyStr = arg + strlen("--record-history=");
-      s_ttdSnapHistoryLength = (uint32_t)atoi(historyStr);
-    } else if (strcmp(arg, "--disable-auto-trace") == 0) {
-      s_ttAutoTraceEnabled = false;
-    } else if (strstr(arg, "-TTRecord:") == arg) {
-      TTDFlagWarning(arg, "--record");
-    } else if (strstr(arg, "-TTReplay:") == arg) {
-      TTDFlagWarning(arg, "--replay=dir");
-    } else if (strstr(arg, "-TTDebug:") == arg) {
-      TTDFlagWarning(arg, "--replay-debug=dir");
-    } else if (strstr(arg, "-TTBreakFirst") == arg) {
-      TTDFlagWarning(arg, "--break-first");
-    } else if (strstr(arg, "-TTSnapInterval:") == arg) {
-      TTDFlagWarning(arg, "--record-interval=num");
-    } else if (strstr(arg, "-TTHistoryLength:") == arg) {
-      TTDFlagWarning(arg, "--record-history=num");
-#endif
-#endif
-    
 static void StartInspector(Environment* env, const char* path,
                            std::shared_ptr<DebugOptions> debug_options) {
 #if HAVE_INSPECTOR
@@ -2824,6 +2778,43 @@ void ProcessArgv(std::vector<std::string>* args,
 
   for (const std::string& cve : per_process_opts->security_reverts)
     Revert(cve.c_str());
+
+#if ENABLE_TTD_NODE
+    if (per_process_opts->ttdRecord) {
+      s_doTTRecord = true;
+    }
+    if (per_process_opts->ttdDebug){
+      s_doTTRecord = true;
+      s_doTTEnableDebug = true;
+      s_ttdSnapInterval = 500;
+      s_ttdSnapHistoryLength = 4;      
+    }
+    if (per_process_opts->ttdReplayUri.length() > 0) {
+      s_doTTReplay = true;
+      // TODO:  update TTD APIs to take a std::string instead of char*
+      s_ttoptReplayUri = per_process_opts->ttdReplayUri.c_str();
+      s_ttoptReplayUriLength = per_process_opts->ttdReplayUri.length();
+    }
+    if (per_process_opts->ttdReplayDebugUri.length() > 0) {
+      s_doTTReplay = true;
+      s_doTTEnableDebug = true;
+      s_ttoptReplayUri = per_process_opts->ttdReplayDebugUri.c_str();
+      s_ttoptReplayUriLength = per_process_opts->ttdReplayUri.length();
+    }
+    if (per_process_opts->ttdBreakFirst) {
+      s_ttdStartupMode = (0x100 | 0x1);
+      per_process_opts->per_isolate->per_env->debug_options->break_first_line = true;
+    }
+    if (per_process_opts->ttdRecordInterval > 0) {
+      s_ttdSnapInterval = per_process_opts->ttdRecordInterval;
+    }
+    if (per_process_opts->ttdRecordHistoryLength > 0) {
+      s_ttdSnapHistoryLength = per_process_opts->ttdRecordHistoryLength;
+    }
+    if (per_process_opts->ttdDisableAutoTrace) {
+      s_ttAutoTraceEnabled = false;
+    }
+#endif
 
   // TODO(addaleax): Move this validation to the option parsers.
   auto env_opts = per_process_opts->per_isolate->per_env;
@@ -3547,7 +3538,7 @@ int Start(int argc, char** argv) {
 
   if (s_doTTRecord || s_doTTReplay) {
     TTDFlagWarning_Cond(per_process_opts->per_isolate->per_env->eval_string.length() == 0,
-                        "Eval mode not supported in record/replay.\n");
+      "Eval mode not supported in record/replay.\n");
 
     TTDFlagWarning_Cond(!per_process_opts->per_isolate->per_env->force_repl,
                         "Repl mode not supported in record/replay.\n");
