@@ -2783,15 +2783,15 @@ void ProcessArgv(std::vector<std::string>* args,
     if (per_process_opts->ttdRecord) {
       s_doTTRecord = true;
     }
-    if (per_process_opts->ttdDebug){
+    if (per_process_opts->ttdDebug) {
       s_doTTRecord = true;
       s_doTTEnableDebug = true;
       s_ttdSnapInterval = 500;
-      s_ttdSnapHistoryLength = 4;      
+      s_ttdSnapHistoryLength = 4;
     }
     if (per_process_opts->ttdReplayUri.length() > 0) {
       s_doTTReplay = true;
-      // TODO:  update TTD APIs to take a std::string instead of char*
+      // TODO(mkaufman):  update TTD APIs to take a std::string
       s_ttoptReplayUri = per_process_opts->ttdReplayUri.c_str();
       s_ttoptReplayUriLength = per_process_opts->ttdReplayUri.length();
     }
@@ -2803,7 +2803,8 @@ void ProcessArgv(std::vector<std::string>* args,
     }
     if (per_process_opts->ttdBreakFirst) {
       s_ttdStartupMode = (0x100 | 0x1);
-      per_process_opts->per_isolate->per_env->debug_options->break_first_line = true;
+      per_process_opts->
+        per_isolate->per_env->debug_options->break_first_line = true;
     }
     if (per_process_opts->ttdRecordInterval > 0) {
       s_ttdSnapInterval = per_process_opts->ttdRecordInterval;
@@ -2992,7 +2993,8 @@ void Init(std::vector<std::string>* argv,
 
 #ifdef NODE_ENGINE_CHAKRACORE
   // CHAKRA-TODO : fix this to not do it here
-  if (per_process_opts->per_isolate->per_env->debug_options->inspector_enabled) {
+  if (per_process_opts->
+        per_isolate->per_env->debug_options->inspector_enabled) {
 #if ENABLE_TTD_NODE
     v8::Debug::EnableInspector(s_doTTEnableDebug);
 #else
@@ -3235,7 +3237,6 @@ Local<Context> NewContext(Isolate* isolate,
 inline int Start(Isolate* isolate, void* isolate_context,
                  const std::vector<std::string>& args,
                  const std::vector<std::string>& exec_args) {
-
   HandleScope handle_scope(isolate);
 
 #if ENABLE_TTD_NODE
@@ -3522,7 +3523,8 @@ int Start(int argc, char** argv) {
   v8_initialized = true;
 
 #if ENABLE_TTD_NODE
-  bool chk_debug_enabled = per_process_opts->per_isolate->per_env->debug_options->inspector_enabled;
+  bool chk_debug_enabled =
+    per_process_opts->per_isolate->per_env->debug_options->inspector_enabled;
 
   std::string envDoRecordVar;
   bool envDoRecord = SafeGetenv("DO_TTD_RECORD", &envDoRecordVar) &&
@@ -3534,11 +3536,12 @@ int Start(int argc, char** argv) {
   }
 
   TTDFlagWarning_Cond(!s_doTTRecord || !s_doTTReplay,
-                      "Cannot enable record & replay at same time.\n");
+    "Cannot enable record & replay at same time.\n");
 
   if (s_doTTRecord || s_doTTReplay) {
-    TTDFlagWarning_Cond(per_process_opts->per_isolate->per_env->eval_string.length() == 0,
-      "Eval mode not supported in record/replay.\n");
+    TTDFlagWarning_Cond(
+      per_process_opts->per_isolate->per_env->eval_string.length() == 0,
+                        "Eval mode not supported in record/replay.\n");
 
     TTDFlagWarning_Cond(!per_process_opts->per_isolate->per_env->force_repl,
                         "Repl mode not supported in record/replay.\n");

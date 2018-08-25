@@ -143,8 +143,8 @@ class PerProcessOptions {
   std::string ttdReplayDebugUri;        // replay-debug=<uri>
   bool ttdBreakFirst = false;           // --break-first
   int64_t ttdRecordInterval = -1;       // --record-interval=<val>
-  int64_t ttdRecordHistoryLength = -1;  // --record-history 
-  bool ttdDisableAutoTrace = false;     //--disable-auto-trace
+  int64_t ttdRecordHistoryLength = -1;  // --record-history
+  bool ttdDisableAutoTrace = false;     // --disable-auto-trace
 #endif
 
   inline PerIsolateOptions* get_per_isolate_options();
