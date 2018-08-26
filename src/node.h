@@ -201,6 +201,8 @@ typedef intptr_t ssize_t;
 
 namespace node {
 
+// TODO(addaleax): Deprecate and remove all of these ASAP. They have been
+// made effectively non-functional anyway.
 NODE_EXTERN extern bool no_deprecation;
 #if HAVE_OPENSSL
 NODE_EXTERN extern bool ssl_openssl_cert_store;
@@ -210,7 +212,12 @@ NODE_EXTERN extern bool force_fips_crypto;
 # endif
 #endif
 
+// TODO(addaleax): Officially deprecate this and replace it with something
+// better suited for a public embedder API.
 NODE_EXTERN int Start(int argc, char* argv[]);
+
+// TODO(addaleax): Officially deprecate this and replace it with something
+// better suited for a public embedder API.
 NODE_EXTERN void Init(int* argc,
                       const char** argv,
                       int* exec_argc,
@@ -270,6 +277,8 @@ NODE_EXTERN IsolateData* CreateIsolateData(
     ArrayBufferAllocator* allocator);
 NODE_EXTERN void FreeIsolateData(IsolateData* isolate_data);
 
+// TODO(addaleax): Add an official variant using STL containers, and move
+// per-Environment options parsing here.
 NODE_EXTERN Environment* CreateEnvironment(IsolateData* isolate_data,
                                            v8::Local<v8::Context> context,
                                            int argc,
