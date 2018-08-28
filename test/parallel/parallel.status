@@ -26,6 +26,7 @@ test-trace-events-fs-sync: PASS,FLAKY
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-assert-builtins-not-read-from-filesystem : SKIP
 test-assert-checktag : SKIP
+test-async-hooks-async-await : SKIP
 test-async-hooks-disable-during-promise : SKIP
 test-async-hooks-enable-during-promise : SKIP
 test-async-hooks-promise : SKIP
@@ -75,6 +76,7 @@ test-vm-low-stack-space : SKIP
 test-vm-preserves-property : SKIP
 test-vm-property-not-on-sandbox : SKIP
 test-vm-proxies : SKIP
+test-vm-proxy : SKIP
 test-vm-strict-assign : SKIP
 
 # These tests are flaky on ChakraCore
@@ -201,6 +203,7 @@ test-worker-message-port-transfer-self : SKIP
 test-worker-message-port-transfer-target : SKIP
 test-worker-nexttick-terminate : SKIP
 test-worker-onmessage : SKIP
+test-worker-parent-port-ref : SKIP
 test-worker-relative-path : SKIP
 test-worker-relative-path-double-dot : SKIP
 test-worker-stdio : SKIP
@@ -242,6 +245,9 @@ test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 # https://github.com/nodejs/node-chakracore/issues/584
 test-buffer-sharedarraybuffer : SKIP
 test-assert-typedarray-deepequal : SKIP
+
+# Setting OS process priority is not yet supported
+test-os-process-priority : SKIP
 
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
