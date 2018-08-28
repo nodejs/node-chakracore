@@ -170,6 +170,17 @@ PerProcessOptionsParser::PerProcessOptionsParser() {
 #endif
 #endif
 
+#if ENABLE_TTD_NODE
+  AddOption("--record", &PerProcessOptions::ttdRecord);
+  AddOption("--tt-debug", &PerProcessOptions::ttdDebug);
+  AddOption("--replay",  &PerProcessOptions::ttdReplayUri);
+  AddOption("--replay-debug", &PerProcessOptions::ttdReplayUri);
+  AddOption("--break-first", &PerProcessOptions::ttdBreakFirst);
+  AddOption("--record-interval", &PerProcessOptions::ttdRecordInterval);
+  AddOption("--record-history", &PerProcessOptions::ttdRecordHistoryLength);
+  AddOption("--disable-auto-trace", &PerProcessOptions::ttdDisableAutoTrace);
+#endif
+
   Insert(&PerIsolateOptionsParser::instance,
          &PerProcessOptions::get_per_isolate_options);
 }
