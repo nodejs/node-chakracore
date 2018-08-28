@@ -51,12 +51,7 @@ const {
   getBufferSources,
   disableCrashOnUnhandledRejection,
   getTTYfd,
-  runWithInvalidFD,
-  hijackStdout,
-  hijackStderr,
-  restoreStdout,
-  restoreStderr,
-  isCPPSymbolsNotMapped
+  runWithInvalidFD
 } = common;
 
 export {
@@ -108,10 +103,5 @@ export {
   getBufferSources,
   disableCrashOnUnhandledRejection,
   getTTYfd,
-  runWithInvalidFD,
-  hijackStdout,
-  hijackStderr,
-  restoreStdout,
-  restoreStderr,
-  isCPPSymbolsNotMapped
+  runWithInvalidFD
 };

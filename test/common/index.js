@@ -447,7 +447,8 @@ function _mustCallInner(fn, criteria = 1, field) {
 }
 
 exports.hasMultiLocalhost = function hasMultiLocalhost() {
-  const { TCP, constants: TCPConstants } = process.binding('tcp_wrap');
+  const { internalBinding } = require('internal/test/binding');
+  const { TCP, constants: TCPConstants } = internalBinding('tcp_wrap');
   const t = new TCP(TCPConstants.SOCKET);
   const ret = t.bind('127.0.0.2', 0);
   t.close();
@@ -826,30 +827,6 @@ exports.getTTYfd = function getTTYfd() {
   return ttyFd;
 };
 
-// Hijack stdout and stderr
-const stdWrite = {};
-function hijackStdWritable(name, listener) {
-  const stream = process[name];
-  const _write = stdWrite[name] = stream.write;
-
-  stream.writeTimes = 0;
-  stream.write = function(data, callback) {
-    try {
-      listener(data);
-    } catch (e) {
-      process.nextTick(() => { throw e; });
-    }
-
-    _write.call(stream, data, callback);
-    stream.writeTimes++;
-  };
-}
-
-function restoreWritable(name) {
-  process[name].write = stdWrite[name];
-  delete process[name].writeTimes;
-}
-
 exports.runWithInvalidFD = function(func) {
   let fd = 1 << 30;
   // Get first known bad file descriptor. 1 << 30 is usually unlikely to
@@ -861,41 +838,4 @@ exports.runWithInvalidFD = function(func) {
   }
 
   exports.printSkipMessage('Could not generate an invalid fd');
-};
-
-exports.hijackStdout = hijackStdWritable.bind(null, 'stdout');
-exports.hijackStderr = hijackStdWritable.bind(null, 'stderr');
-exports.restoreStdout = restoreWritable.bind(null, 'stdout');
-exports.restoreStderr = restoreWritable.bind(null, 'stderr');
-exports.isCPPSymbolsNotMapped = exports.isWindows ||
-                                exports.isSunOS ||
-                                exports.isAIX ||
-                                exports.isLinuxPPCBE ||
-                                exports.isFreeBSD;
-
-const gcTrackerMap = new WeakMap();
-const gcTrackerTag = 'NODE_TEST_COMMON_GC_TRACKER';
-
-exports.onGC = function(obj, gcListener) {
-  const async_hooks = require('async_hooks');
-
-  const onGcAsyncHook = async_hooks.createHook({
-    init: exports.mustCallAtLeast(function(id, type, trigger, resource) {
-      if (this.trackedId === undefined) {
-        assert.strictEqual(type, gcTrackerTag);
-        this.trackedId = id;
-      }
-    }),
-    destroy(id) {
-      assert.notStrictEqual(this.trackedId, -1);
-      if (id === this.trackedId) {
-        this.gcListener.ongc();
-        onGcAsyncHook.disable();
-      }
-    }
-  }).enable();
-  onGcAsyncHook.gcListener = gcListener;
-
-  gcTrackerMap.set(obj, new async_hooks.AsyncResource(gcTrackerTag));
-  obj = null;
 };

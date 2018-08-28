@@ -207,7 +207,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
 
 {
   const stream_wrap = internalBinding('stream_wrap');
-  const tcp_wrap = process.binding('tcp_wrap');
+  const tcp_wrap = internalBinding('tcp_wrap');
   const server = net.createServer(common.mustCall((socket) => {
     server.close();
     socket.on('data', () => {
@@ -256,7 +256,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
 
 
 if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
-  const { TCP, constants: TCPConstants } = process.binding('tcp_wrap');
+  const { TCP, constants: TCPConstants } = internalBinding('tcp_wrap');
   const tcp = new TCP(TCPConstants.SOCKET);
 
   const ca = fixtures.readSync('test_ca.pem', 'ascii');
@@ -266,7 +266,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
   const credentials = require('tls').createSecureContext({ ca, cert, key });
 
   // TLSWrap is exposed, but needs to be instantiated via tls_wrap.wrap().
-  const tls_wrap = process.binding('tls_wrap');
+  const tls_wrap = internalBinding('tls_wrap');
   testInitialized(
     tls_wrap.wrap(tcp._externalStream, credentials.context, true), 'TLSWrap');
 }
