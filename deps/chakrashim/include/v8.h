@@ -2406,6 +2406,26 @@ enum class PropertyHandlerFlags {
 
 struct NamedPropertyHandlerConfiguration {
   NamedPropertyHandlerConfiguration(
+      GenericNamedPropertyGetterCallback getter,
+      GenericNamedPropertySetterCallback setter,
+      GenericNamedPropertyQueryCallback query,
+      GenericNamedPropertyDeleterCallback deleter,
+      GenericNamedPropertyEnumeratorCallback enumerator,
+      GenericNamedPropertyDefinerCallback definer,
+      GenericNamedPropertyDescriptorCallback descriptor,
+      Local<Value> data = Local<Value>(),
+      PropertyHandlerFlags flags = PropertyHandlerFlags::kNone)
+      : getter(getter),
+        setter(setter),
+        query(query),
+        deleter(deleter),
+        enumerator(enumerator),
+        definer(definer),
+        descriptor(descriptor),
+        data(data),
+        flags(flags) {}
+
+  NamedPropertyHandlerConfiguration(
     GenericNamedPropertyGetterCallback getter = 0,
     GenericNamedPropertySetterCallback setter = 0,
     GenericNamedPropertyQueryCallback query = 0,
@@ -2454,6 +2474,25 @@ struct NamedPropertyHandlerConfiguration {
 };
 
 struct IndexedPropertyHandlerConfiguration {
+  IndexedPropertyHandlerConfiguration(
+      IndexedPropertyGetterCallback getter,
+      IndexedPropertySetterCallback setter, IndexedPropertyQueryCallback query,
+      IndexedPropertyDeleterCallback deleter,
+      IndexedPropertyEnumeratorCallback enumerator,
+      IndexedPropertyDefinerCallback definer,
+      IndexedPropertyDescriptorCallback descriptor,
+      Local<Value> data = Local<Value>(),
+      PropertyHandlerFlags flags = PropertyHandlerFlags::kNone)
+      : getter(getter),
+        setter(setter),
+        query(query),
+        deleter(deleter),
+        enumerator(enumerator),
+        definer(definer),
+        descriptor(descriptor),
+        data(data),
+        flags(flags) {}
+
   IndexedPropertyHandlerConfiguration(
     IndexedPropertyGetterCallback getter = 0,
     IndexedPropertySetterCallback setter = 0,
