@@ -318,17 +318,13 @@ test-crypto-fips : SKIP # NOT INVESTIGATED YET
 test-crypto-rsa-dsa : SKIP # NOT INVESTIGATED YET
 test-fs-link : SKIP # NOT INVESTIGATED YET
 test-fs-realpath-pipe : SKIP # NOT INVESTIGATED YET
-test-fs-stat : SKIP # NOT INVESTIGATED YET
-test-http2-respond-file-error-dir : SKIP # NOT INVESTIGATED YET
 test-https-pfx : SKIP # NOT INVESTIGATED YET
 test-internal-util-decorate-error-stack : SKIP # NOT INVESTIGATED YET
 test-listen-fd-ebadf : SKIP # NOT INVESTIGATED YET
 test-net-connect-options-fd : SKIP # NOT INVESTIGATED YET
 test-net-pipe-connect-errors : SKIP # NOT INVESTIGATED YET
-test-os : SKIP # NOT INVESTIGATED YET
 test-preload : SKIP # NOT INVESTIGATED YET
 test-process-exit-recursive : SKIP # NOT INVESTIGATED YET
-test-signal-handler : SKIP # NOT INVESTIGATED YET
 test-tls-multi-pfx : SKIP # NOT INVESTIGATED YET
 test-tls-passphrase : SKIP # NOT INVESTIGATED YET
 test-tls-pfx-gh-5100-regr : SKIP # NOT INVESTIGATED YET

@@ -82,9 +82,12 @@ const uptime = os.uptime();
 is.number(uptime);
 assert.ok(uptime > 0);
 
-const cpus = os.cpus();
-is.array(cpus);
-assert.ok(cpus.length > 0);
+if (!common.isAndroid && !common.isIOS) {
+  // API is inconsistent on mobile.
+  const cpus = os.cpus();
+  is.array(cpus);
+  assert.ok(cpus.length > 0);
+}
 
 const type = os.type();
 is.string(type);

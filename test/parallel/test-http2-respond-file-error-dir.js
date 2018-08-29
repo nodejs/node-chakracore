@@ -11,9 +11,15 @@ const {
   HTTP2_HEADER_CONTENT_TYPE
 } = http2.constants;
 
+let pathToTest = process.cwd();
+if (common.isAndroid) {
+  // Use the script's path instead of a path without permissions on Android.
+  pathToTest = __dirname;
+}
+
 const server = http2.createServer();
 server.on('stream', (stream) => {
-  stream.respondWithFile(process.cwd(), {
+  stream.respondWithFile(pathToTest, {
     [HTTP2_HEADER_CONTENT_TYPE]: 'text/plain'
   }, {
     onError(err) {

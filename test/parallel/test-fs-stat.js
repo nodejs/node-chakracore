@@ -24,25 +24,25 @@ const common = require('../common');
 const assert = require('assert');
 const fs = require('fs');
 
-fs.stat('.', common.mustCall(function(err, stats) {
+fs.stat(__dirname, common.mustCall(function(err, stats) {
   assert.ifError(err);
   assert.ok(stats.mtime instanceof Date);
   assert.strictEqual(this, global);
 }));
 
-fs.stat('.', common.mustCall(function(err, stats) {
+fs.stat(__dirname, common.mustCall(function(err, stats) {
   assert.ok(stats.hasOwnProperty('blksize'));
   assert.ok(stats.hasOwnProperty('blocks'));
 }));
 
-fs.lstat('.', common.mustCall(function(err, stats) {
+fs.lstat(__dirname, common.mustCall(function(err, stats) {
   assert.ifError(err);
   assert.ok(stats.mtime instanceof Date);
   assert.strictEqual(this, global);
 }));
 
 // fstat
-fs.open('.', 'r', undefined, common.mustCall(function(err, fd) {
+fs.open(__dirname, 'r', undefined, common.mustCall(function(err, fd) {
   assert.ok(!err);
   assert.ok(fd);
 
@@ -57,7 +57,7 @@ fs.open('.', 'r', undefined, common.mustCall(function(err, fd) {
 }));
 
 // fstatSync
-fs.open('.', 'r', undefined, common.mustCall(function(err, fd) {
+fs.open(__dirname, 'r', undefined, common.mustCall(function(err, fd) {
   let stats;
   try {
     stats = fs.fstatSync(fd);
