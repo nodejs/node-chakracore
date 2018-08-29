@@ -6,6 +6,7 @@ This is the main repository for [Node.js for Mobile Apps](https://code.janeasyst
 ## Resources for Newcomers
 * [Website](https://code.janeasystems.com/nodejs-mobile)
 * [Gitter channel](https://gitter.im/nodejs-mobile/community)
+* [Frequently Asked Questions](FAQ.md)
 
 This is the central repository for reporting **all issues** related to the Node.js for Mobile Apps project, including issues pertaining to the React Native and Cordova plugins. 
 
