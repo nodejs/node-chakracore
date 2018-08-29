@@ -57,7 +57,10 @@ function makeIterableFunc(array) {
   };
   const sym = Symbol();
   const toStringError = /^Error: toString$/;
-  const symbolError = /^TypeError: Cannot convert a Symbol value to a string$/;
+  const symbolError = common.engineSpecificMessage({
+    v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+    chakracore: /^TypeError: No implicit conversion of Symbol to String$/
+  });
 
   assert.throws(() => new URLSearchParams({ a: obj }), toStringError);
   assert.throws(() => new URLSearchParams([['a', obj]]), toStringError);

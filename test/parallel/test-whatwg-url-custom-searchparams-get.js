@@ -30,5 +30,8 @@ const URLSearchParams = require('url').URLSearchParams;
   const sym = Symbol();
   assert.throws(() => params.get(obj), /^Error: toString$/);
   assert.throws(() => params.get(sym),
-                /^TypeError: Cannot convert a Symbol value to a string$/);
+    common.engineSpecificMessage({
+      v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+      chakracore: /^TypeError: No implicit conversion of Symbol to String$/
+    }));
 }

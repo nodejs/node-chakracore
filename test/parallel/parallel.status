@@ -162,6 +162,7 @@ test-benchmark-es : SKIP
 test-fs-readdir-stack-overflow : SKIP
 
 # These tests use the v8 module which chakracore does not support
+test-benchmark-v8 : SKIP
 test-process-exception-capture-should-abort-on-uncaught-setflagsfromstring : SKIP
 test-v8-flag-type-check : SKIP
 test-v8-stats : SKIP
