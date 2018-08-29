@@ -52,9 +52,10 @@ const additionalTestCases =
       assert.throws(() => url[name] = obj,
                     /^Error: toString$/,
                     `url.${name} = { toString() { throw ... } }`);
-      assert.throws(() => url[name] = sym,
-                    /^TypeError: Cannot convert a Symbol value to a string$/,
-                    `url.${name} = ${String(sym)}`);
+      assert.throws(() => url[name] = sym, common.engineSpecificMessage({
+        v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+        chakracore: /^TypeError: No implicit conversion of Symbol to String$/
+      }), `url.${name} = ${String(sym)}`);
     }
   }
 }
