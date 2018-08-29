@@ -48,10 +48,6 @@ class DebugOptions {
     return break_first_line || break_node_first_line;
   }
 
-#if ENABLE_TTD_NODE
-  void do_wait_for_connect() { break_first_line = true; }
-#endif
-
   const std::string& host() {
     return host_port.host_name;
   }
@@ -138,6 +134,17 @@ class PerProcessOptions {
   bool enable_fips_crypto = false;
   bool force_fips_crypto = false;
 #endif
+#endif
+
+#if ENABLE_TTD_NODE
+  bool ttdRecord = false;               // --record
+  bool ttdDebug = false;                // --tt-debug
+  std::string ttdReplayUri;             // replay=<uri>
+  std::string ttdReplayDebugUri;        // replay-debug=<uri>
+  bool ttdBreakFirst = false;           // --break-first
+  int64_t ttdRecordInterval = -1;       // --record-interval=<val>
+  int64_t ttdRecordHistoryLength = -1;  // --record-history
+  bool ttdDisableAutoTrace = false;     // --disable-auto-trace
 #endif
 
   inline PerIsolateOptions* get_per_isolate_options();
