@@ -581,10 +581,12 @@ found [here][online].
 <a id="ERR_AMBIGUOUS_ARGUMENT"></a>
 ### ERR_AMBIGUOUS_ARGUMENT
 
-This is triggered by the `assert` module in case e.g.,
-`assert.throws(fn, message)` is used in a way that the message is the thrown
-error message. This is ambiguous because the message is not verifying the error
-message and will only be thrown in case no error is thrown.
+A function argument is being used in a way that suggests that the function
+signature may be misunderstood. This is thrown by the `assert` module when the
+`message` parameter in `assert.throws(block, message)` matches the error message
+thrown by `block` because that usage suggests that the user believes `message`
+is the expected message rather than the message the `AssertionError` will
+display if `block` does not throw.
 
 <a id="ERR_ARG_NOT_ITERABLE"></a>
 ### ERR_ARG_NOT_ITERABLE
@@ -1031,6 +1033,12 @@ The `Http2Session` settings canceled.
 An attempt was made to connect a `Http2Session` object to a `net.Socket` or
 `tls.TLSSocket` that had already been bound to another `Http2Session` object.
 
+<a id="ERR_HTTP2_SOCKET_UNBOUND"></a>
+### ERR_HTTP2_SOCKET_UNBOUND
+
+An attempt was made to use the `socket` property of an `Http2Session` that
+has already been closed.
+
 <a id="ERR_HTTP2_STATUS_101"></a>
 ### ERR_HTTP2_STATUS_101
 
@@ -1241,8 +1249,8 @@ For example when a function is expected to return a promise.
 <a id="ERR_INVALID_SYNC_FORK_INPUT"></a>
 ### ERR_INVALID_SYNC_FORK_INPUT
 
-A `Buffer`, `Uint8Array` or `string` was provided as stdio input to a
-synchronous fork. See the documentation for the [`child_process`][] module
+A `Buffer`, `TypedArray`, `DataView` or `string` was provided as stdio input to
+an asynchronous fork. See the documentation for the [`child_process`][] module
 for more information.
 
 <a id="ERR_INVALID_THIS"></a>
