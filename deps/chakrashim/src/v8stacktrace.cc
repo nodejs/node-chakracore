@@ -52,6 +52,10 @@ Local<StackFrame> StackTrace::GetFrame(uint32_t index) const {
   return static_cast<StackFrame*>(frame);
 }
 
+Local<StackFrame> StackTrace::GetFrame(Isolate* isolate, uint32_t index) const {
+  return GetFrame(index);
+}
+
 int StackTrace::GetFrameCount() const {
   unsigned int length;
   if (jsrt::GetArrayLength(const_cast<StackTrace*>(this),

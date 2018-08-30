@@ -130,7 +130,7 @@ const vm = require('vm');
 });
 
 // vm.compileFunction
-{
+if (!common.isChakraEngine) {
   assert.strictEqual(
     vm.compileFunction('console.log("Hello, World!")').toString(),
     'function () {\nconsole.log("Hello, World!")\n}'
