@@ -30,7 +30,7 @@ function execSync(command) {
       command,
       { stdio: ['ignore', null, 'ignore'] }
     ).toString().trim();
-  } catch {
+  } catch (e) {
     return '';
   }
 }
