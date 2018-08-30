@@ -1325,7 +1325,11 @@ class V8_EXPORT String : public Name {
     Isolate* isolate, const uint16_t* data, v8::NewStringType type,
     int length = -1);
 
-  static Local<String> Concat(Handle<String> left, Handle<String> right);
+  static Local<String> Concat(Isolate* isolate, Local<String> left,
+                              Local<String> right);
+  static V8_DEPRECATE_SOON("Use Isolate* version",
+                           Local<String> Concat(Local<String> left,
+                                                Local<String> right));
 
   static V8_DEPRECATE_SOON(
     "Use maybe version",

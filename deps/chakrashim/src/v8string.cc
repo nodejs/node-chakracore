@@ -321,6 +321,11 @@ Local<String> String::NewFromTwoByte(Isolate* isolate,
                                   length));
 }
 
+Local<String> String::Concat(Isolate* isolate, Handle<String> left,
+                             Handle<String> right) {
+  return String::Concat(left, right);
+}
+
 Local<String> String::Concat(Handle<String> left, Handle<String> right) {
   JsValueRef args[] = { *left, *right }; /* NOLINT (readability/null_usage) */
   JsValueRef result;
