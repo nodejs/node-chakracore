@@ -1578,24 +1578,6 @@ assert.strictEqual(util.inspect('"\''), '`"\'`');
 // eslint-disable-next-line no-template-curly-in-string
 assert.strictEqual(util.inspect('"\'${a}'), "'\"\\'${a}'");
 
-// Manipulating the Symbol.iterator should still produce nice results.
-[
-  [[1, 2], '[ 1, 2 ]'],
-  [[, , 5, , , , ], '[ <2 empty items>, 5, <3 empty items> ]'],
-  [new Set([1, 2]), 'Set { 1, 2 }'],
-  [new Map([[1, 2]]), 'Map { 1 => 2 }'],
-  [new Uint8Array(2), 'Uint8Array [ 0, 0 ]'],
-  // It seems like the following can not be fully restored :(
-  [new Set([1, 2]).entries(), 'Object [Set Iterator] {}'],
-  [new Map([[1, 2]]).keys(), 'Object [Map Iterator] {}'],
-].forEach(([value, expected]) => {
-  // "Remove the Symbol.iterator"
-  Object.defineProperty(value, Symbol.iterator, {
-    value: false
-  });
-  assert.strictEqual(util.inspect(value), expected);
-});
-
 // Verify the output in case the value has no prototype.
 // Sadly, these cases can not be fully inspected :(
 [
@@ -1656,6 +1638,9 @@ assert.strictEqual(util.inspect('"\'${a}'), "'\"\\'${a}'");
     expected
   );
   value.foo = 'bar';
+  assert.notStrictEqual(util.inspect(value), expected);
+  delete value.foo;
+  value[Symbol('foo')] = 'yeah';
   assert.notStrictEqual(util.inspect(value), expected);
 });
 
