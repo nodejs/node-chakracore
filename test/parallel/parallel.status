@@ -102,6 +102,7 @@ test-trace-events-metadata : SKIP
 test-trace-events-none : SKIP
 test-trace-events-perf : SKIP
 test-trace-events-process-exit : SKIP
+test-trace-events-promises : SKIP
 test-trace-events-v8 : SKIP
 test-trace-events-vm : SKIP
 test-trace-events-worker-metadata : SKIP
