@@ -980,6 +980,24 @@ class V8_EXPORT ScriptCompiler {
     kConsumeCodeCache
   };
 
+  enum NoCacheReason {
+    kNoCacheNoReason = 0,
+    kNoCacheBecauseCachingDisabled,
+    kNoCacheBecauseNoResource,
+    kNoCacheBecauseInlineScript,
+    kNoCacheBecauseModule,
+    kNoCacheBecauseStreamingSource,
+    kNoCacheBecauseInspector,
+    kNoCacheBecauseScriptTooSmall,
+    kNoCacheBecauseCacheTooCold,
+    kNoCacheBecauseV8Extension,
+    kNoCacheBecauseExtensionModule,
+    kNoCacheBecausePacScript,
+    kNoCacheBecauseInDocumentWrite,
+    kNoCacheBecauseResourceWithNoCacheHandler,
+    kNoCacheBecauseDeferredProduceCodeCache
+  };
+
   static V8_DEPRECATE_SOON("Use maybe version",
                            Local<UnboundScript> CompileUnbound(
                              Isolate* isolate, Source* source,
@@ -1001,6 +1019,24 @@ class V8_EXPORT ScriptCompiler {
   static V8_WARN_UNUSED_RESULT MaybeLocal<Module> CompileModule(
     Isolate* isolate, Source* source);
 
+  static V8_DEPRECATED("Use maybe version",
+                       Local<Function> CompileFunctionInContext(
+                           Isolate* isolate, Source* source,
+                           Local<Context> context, size_t arguments_count,
+                           Local<String> arguments[],
+                           size_t context_extension_count,
+                           Local<Object> context_extensions[])) {
+    return {};
+  }
+  static V8_WARN_UNUSED_RESULT MaybeLocal<Function> CompileFunctionInContext(
+      Local<Context> context, Source* source, size_t arguments_count,
+      Local<String> arguments[], size_t context_extension_count,
+      Local<Object> context_extensions[],
+      CompileOptions options = kNoCompileOptions,
+      NoCacheReason no_cache_reason = kNoCacheNoReason) {
+    return {};
+  }
+
   static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script) {
       // BUGBUG: https://github.com/nodejs/node-chakracore/issues/560 - need to
       //         implement this
@@ -1009,6 +1045,16 @@ class V8_EXPORT ScriptCompiler {
 
   static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script,
                                      Local<String> source) {
+    return nullptr;
+  }
+
+  static CachedData* CreateCodeCacheForFunction(Local<Function> function) {
+    return nullptr;
+  }
+
+  V8_DEPRECATED("Source string is no longer required",
+                static CachedData* CreateCodeCacheForFunction(
+                    Local<Function> function, Local<String> source)) {
     return nullptr;
   }
 };
@@ -1059,7 +1105,9 @@ class V8_EXPORT StackTrace {
     kDetailed = kOverview | kIsEval | kIsConstructor | kScriptNameOrSourceURL
   };
 
-  Local<StackFrame> GetFrame(uint32_t index) const;
+  V8_DEPRECATE_SOON("Use Isolate version",
+                    Local<StackFrame> GetFrame(uint32_t index) const);
+  Local<StackFrame> GetFrame(Isolate* isolate, uint32_t index) const;
   int GetFrameCount() const;
   Local<Array> AsArray();
 
@@ -1240,7 +1288,8 @@ class V8_EXPORT String : public Name {
   static const int kMaxLength = (1 << 28) - 16;
 
   int Length() const;
-  int Utf8Length() const;
+  V8_DEPRECATE_SOON("Use Isolate version instead", int Utf8Length() const);
+  int Utf8Length(Isolate* isolate) const;
   bool IsOneByte() const { return false; }
   bool ContainsOnlyOneByte() const { return false; }
 
@@ -1252,18 +1301,26 @@ class V8_EXPORT String : public Name {
     REPLACE_INVALID_UTF8 = 8
   };
 
-  int Write(uint16_t* buffer,
-            int start = 0,
-            int length = -1,
+  // 16-bit character codes.
+  int Write(Isolate* isolate, uint16_t* buffer, int start = 0, int length = -1,
             int options = NO_OPTIONS) const;
-  int WriteOneByte(uint8_t* buffer,
-                   int start = 0,
-                   int length = -1,
-                   int options = NO_OPTIONS) const;
-  int WriteUtf8(char* buffer,
-                int length = -1,
-                int* nchars_ref = nullptr,
-                int options = NO_OPTIONS) const;
+  V8_DEPRECATE_SOON("Use Isolate* version",
+                    int Write(uint16_t* buffer, int start = 0, int length = -1,
+                              int options = NO_OPTIONS) const);
+  // One byte characters.
+  int WriteOneByte(Isolate* isolate, uint8_t* buffer, int start = 0,
+                   int length = -1, int options = NO_OPTIONS) const;
+  V8_DEPRECATE_SOON("Use Isolate* version",
+                    int WriteOneByte(uint8_t* buffer, int start = 0,
+                                     int length = -1, int options = NO_OPTIONS)
+                        const);
+  // UTF-8 encoded characters.
+  int WriteUtf8(Isolate* isolate, char* buffer, int length = -1,
+                int* nchars_ref = NULL, int options = NO_OPTIONS) const;
+  V8_DEPRECATE_SOON("Use Isolate* version",
+                    int WriteUtf8(char* buffer, int length = -1,
+                                  int* nchars_ref = NULL,
+                                  int options = NO_OPTIONS) const);
 
   static Local<String> Empty(Isolate* isolate);
   bool IsExternal() const { return false; }
@@ -1325,7 +1382,11 @@ class V8_EXPORT String : public Name {
     Isolate* isolate, const uint16_t* data, v8::NewStringType type,
     int length = -1);
 
-  static Local<String> Concat(Handle<String> left, Handle<String> right);
+  static Local<String> Concat(Isolate* isolate, Local<String> left,
+                              Local<String> right);
+  static V8_DEPRECATE_SOON("Use Isolate* version",
+                           Local<String> Concat(Local<String> left,
+                                                Local<String> right));
 
   static V8_DEPRECATE_SOON(
     "Use maybe version",

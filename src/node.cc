@@ -1402,8 +1402,8 @@ static void DLOpen(const FunctionCallbackInfo<Value>& args) {
     dlib.Close();
 #ifdef _WIN32
     // Windows needs to add the filename into the error message
-    errmsg = String::Concat(errmsg,
-                            args[1]->ToString(context).ToLocalChecked());
+    errmsg = String::Concat(
+        env->isolate(), errmsg, args[1]->ToString(context).ToLocalChecked());
 #endif  // _WIN32
     env->isolate()->ThrowException(Exception::Error(errmsg));
     return;
@@ -3024,7 +3024,8 @@ void Init(std::vector<std::string>* argv,
       index = node_options.find(' ', index + 1);
       if (index - prev_index == 1) continue;
 
-      const std::string option = node_options.substr(prev_index + 1, index);
+      const std::string option = node_options.substr(
+          prev_index + 1, index - prev_index - 1);
       if (!option.empty())
         env_argv.emplace_back(std::move(option));
     } while (index != std::string::npos);
@@ -3182,25 +3183,16 @@ void FreeArrayBufferAllocator(ArrayBufferAllocator* allocator) {
 }
 
 
-IsolateData* CreateIsolateData(Isolate* isolate, uv_loop_t* loop) {
-  return new IsolateData(isolate, loop, nullptr);
-}
-
-
-IsolateData* CreateIsolateData(
-    Isolate* isolate,
-    uv_loop_t* loop,
-    MultiIsolatePlatform* platform) {
-  return new IsolateData(isolate, loop, platform);
-}
-
-
 IsolateData* CreateIsolateData(
     Isolate* isolate,
     uv_loop_t* loop,
     MultiIsolatePlatform* platform,
     ArrayBufferAllocator* allocator) {
-  return new IsolateData(isolate, loop, platform, allocator->zero_fill_field());
+  return new IsolateData(
+        isolate,
+        loop,
+        platform,
+        allocator != nullptr ? allocator->zero_fill_field() : nullptr);
 }
 
 

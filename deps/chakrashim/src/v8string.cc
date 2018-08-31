@@ -91,6 +91,15 @@ int String::Utf8Length() const {
   return str.length();
 }
 
+int String::Utf8Length(Isolate* isolate) const {
+  return Utf8Length();
+}
+
+int String::Write(Isolate* isolate, uint16_t* buffer, int start, int length,
+                  int options) const {
+  return Write(buffer, start, length, options);
+}
+
 int String::Write(uint16_t* buffer, int start, int length, int options) const {
   size_t count = 0;
   if (JsCopyStringUtf16((JsValueRef)this, start, length,
@@ -101,6 +110,11 @@ int String::Write(uint16_t* buffer, int start, int length, int options) const {
     }
   }
   return count;
+}
+
+int String::WriteOneByte(Isolate* isolate, uint8_t* buffer, int start,
+                         int length, int options) const {
+  return WriteOneByte(buffer, start, length, options);
 }
 
 int String::WriteOneByte(
@@ -115,6 +129,11 @@ int String::WriteOneByte(
     }
   }
   return count;
+}
+
+int String::WriteUtf8(Isolate* isolate, char* buffer, int length,
+                      int* nchars_ref, int options) const {
+  return WriteUtf8(buffer, length, nchars_ref, options);
 }
 
 int String::WriteUtf8(
@@ -319,6 +338,11 @@ Local<String> String::NewFromTwoByte(Isolate* isolate,
   return FromMaybe(NewFromTwoByte(isolate, data,
                                   static_cast<v8::NewStringType>(type),
                                   length));
+}
+
+Local<String> String::Concat(Isolate* isolate, Handle<String> left,
+                             Handle<String> right) {
+  return String::Concat(left, right);
 }
 
 Local<String> String::Concat(Handle<String> left, Handle<String> right) {

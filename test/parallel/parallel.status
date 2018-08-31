@@ -62,6 +62,7 @@ test-repl-mode : SKIP
 test-repl-pretty-custom-stack : SKIP
 test-repl-pretty-stack : SKIP
 test-repl-tab-complete : SKIP
+test-repl-top-level-await : SKIP
 test-util : SKIP
 test-vm-cached-data : SKIP
 test-vm-codegen : SKIP

@@ -264,6 +264,7 @@ function parseYAML(text) {
 
   const added = { description: '' };
   const deprecated = { description: '' };
+  const removed = { description: '' };
 
   if (meta.added) {
     added.version = meta.added.join(', ');
@@ -276,9 +277,15 @@ function parseYAML(text) {
         `<span>Deprecated since: ${deprecated.version}</span>`;
   }
 
+  if (meta.removed) {
+    removed.version = meta.removed.join(', ');
+    removed.description = `<span>Removed in: ${removed.version}</span>`;
+  }
+
   if (meta.changes.length > 0) {
     if (added.description) meta.changes.push(added);
     if (deprecated.description) meta.changes.push(deprecated);
+    if (removed.description) meta.changes.push(removed);
 
     meta.changes.sort((a, b) => versionSort(a.version, b.version));
 
@@ -299,7 +306,8 @@ function parseYAML(text) {
 
     result += '</table>\n</details>\n';
   } else {
-    result += `${added.description}${deprecated.description}\n`;
+    result += `${added.description}${deprecated.description}` +
+              `${removed.description}\n`;
   }
 
   if (meta.napiVersion) {
@@ -321,7 +329,7 @@ function versionSort(a, b) {
   return +b.match(numberRe)[0] - +a.match(numberRe)[0];
 }
 
-function buildToc({ filename }) {
+function buildToc({ filename, apilinks }) {
   return (tree, file) => {
     const startIncludeRefRE = /^\s*<!-- \[start-include:(.+)\] -->\s*$/;
     const endIncludeRefRE = /^\s*<!-- \[end-include:.+\] -->\s*$/;
@@ -366,6 +374,11 @@ function buildToc({ filename }) {
       if (realFilename === 'errors' && headingText.startsWith('ERR_')) {
         anchor += `<span><a class="mark" href="#${headingText}" ` +
                   `id="${headingText}">#</a></span>`;
+      }
+
+      const api = headingText.replace(/^.*:\s+/, '').replace(/\(.*/, '');
+      if (apilinks[api]) {
+        anchor = `<a class="srclink" href=${apilinks[api]}>[src]</a>${anchor}`;
       }
 
       node.children.push({ type: 'html', value: anchor });

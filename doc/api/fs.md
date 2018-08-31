@@ -1044,8 +1044,6 @@ changes:
 Asynchronously append data to a file, creating the file if it does not yet
 exist. `data` can be a string or a [`Buffer`][].
 
-Example:
-
 ```js
 fs.appendFile('message.txt', 'data to append', (err) => {
   if (err) throw err;
@@ -1053,7 +1051,7 @@ fs.appendFile('message.txt', 'data to append', (err) => {
 });
 ```
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.appendFile('message.txt', 'data to append', 'utf8', callback);
@@ -1097,8 +1095,6 @@ changes:
 Synchronously append data to a file, creating the file if it does not yet
 exist. `data` can be a string or a [`Buffer`][].
 
-Example:
-
 ```js
 try {
   fs.appendFileSync('message.txt', 'data to append');
@@ -1108,7 +1104,7 @@ try {
 }
 ```
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.appendFileSync('message.txt', 'data to append', 'utf8');
@@ -1344,8 +1340,6 @@ fallback copy mechanism is used.
 create a copy-on-write reflink. If the platform does not support copy-on-write,
 then the operation will fail.
 
-Example:
-
 ```js
 const fs = require('fs');
 
@@ -1356,8 +1350,7 @@ fs.copyFile('source.txt', 'destination.txt', (err) => {
 });
 ```
 
-If the third argument is a number, then it specifies `flags`, as shown in the
-following example.
+If the third argument is a number, then it specifies `flags`:
 
 ```js
 const fs = require('fs');
@@ -1395,8 +1388,6 @@ fallback copy mechanism is used.
 create a copy-on-write reflink. If the platform does not support copy-on-write,
 then the operation will fail.
 
-Example:
-
 ```js
 const fs = require('fs');
 
@@ -1405,8 +1396,7 @@ fs.copyFileSync('source.txt', 'destination.txt');
 console.log('source.txt was copied to destination.txt');
 ```
 
-If the third argument is a number, then it specifies `flags`, as shown in the
-following example.
+If the third argument is a number, then it specifies `flags`:
 
 ```js
 const fs = require('fs');
@@ -1463,6 +1453,26 @@ If `fd` is specified, `ReadStream` will ignore the `path` argument and will use
 the specified file descriptor. This means that no `'open'` event will be
 emitted. `fd` should be blocking; non-blocking `fd`s should be passed to
 [`net.Socket`][].
+
+The blocking `fd`, if pointing to a character device (such as keyboard or
+sound card) can potentially block the main thread on stream close. This is
+because these devices do not produce EOF character as part of their data
+flow cycle, and thereby exemplify endless streams. As a result, they do not
+respond to `stream.close()`. A workaround is to close the stream first
+using `stream.close()` and then push a random character into the stream, and
+issue a single read. This unblocks the reader thread, leads to the completion
+of the data flow cycle, and the actual closing of the stream.
+
+```js
+const fs = require('fs');
+// Create a stream from some character  device.
+const stream = fs.createReadStream('/dev/input/event0');
+setTimeout(() => {
+  stream.close(); // This does not close the stream.
+  stream.push(null);
+  stream.read(0); // Pushing a null and reading leads to close.
+}, 100);
+```
 
 If `autoClose` is false, then the file descriptor won't be closed, even if
 there's an error. It is the application's responsibility to close it and make
@@ -1548,7 +1558,7 @@ deprecated: v1.0.0
   * `exists` {boolean}
 
 Test whether or not the given path exists by checking with the file system.
-Then call the `callback` argument with either true or false. Example:
+Then call the `callback` argument with either true or false:
 
 ```js
 fs.exists('/etc/passwd', (exists) => {
@@ -1881,7 +1891,7 @@ fs.ftruncate(fd, 4, (err) => {
 ```
 
 If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes (`'\0'`). For example,
+extended part is filled with null bytes (`'\0'`):
 
 ```js
 console.log(fs.readFileSync('temp.txt', 'utf8'));
@@ -2485,7 +2495,7 @@ changes:
   * `err` {Error}
   * `data` {string|Buffer}
 
-Asynchronously reads the entire contents of a file. Example:
+Asynchronously reads the entire contents of a file.
 
 ```js
 fs.readFile('/etc/passwd', (err, data) => {
@@ -2499,7 +2509,7 @@ contents of the file.
 
 If no encoding is specified, then the raw buffer is returned.
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.readFile('/etc/passwd', 'utf8', callback);
@@ -3499,8 +3509,6 @@ Asynchronously writes data to a file, replacing the file if it already exists.
 
 The `encoding` option is ignored if `data` is a buffer.
 
-Example:
-
 ```js
 const data = new Uint8Array(Buffer.from('Hello Node.js'));
 fs.writeFile('message.txt', data, (err) => {
@@ -3509,7 +3517,7 @@ fs.writeFile('message.txt', data, (err) => {
 });
 ```
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.writeFile('message.txt', 'Hello Node.js', 'utf8', callback);
@@ -3820,7 +3828,7 @@ doTruncate().catch(console.error);
 ```
 
 If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes (`'\0'`). For example,
+extended part is filled with null bytes (`'\0'`):
 
 ```js
 const fs = require('fs');
@@ -4030,8 +4038,6 @@ fallback copy mechanism is used.
 create a copy-on-write reflink. If the platform does not support copy-on-write,
 then the operation will fail.
 
-Example:
-
 ```js
 const fsPromises = require('fs').promises;
 
@@ -4041,8 +4047,7 @@ fsPromises.copyFile('source.txt', 'destination.txt')
   .catch(() => console.log('The file could not be copied'));
 ```
 
-If the third argument is a number, then it specifies `flags`, as shown in the
-following example.
+If the third argument is a number, then it specifies `flags`:
 
 ```js
 const fs = require('fs');

@@ -7,7 +7,7 @@ const assert = require('assert');
 const fs = require('fs');
 const fsPromises = fs.promises;
 const net = require('net');
-const providers = Object.assign({}, process.binding('async_wrap').Providers);
+const providers = Object.assign({}, internalBinding('async_wrap').Providers);
 const fixtures = require('../common/fixtures');
 const tmpdir = require('../common/tmpdir');
 const { getSystemErrorName } = require('util');
@@ -88,7 +88,7 @@ function testInitialized(req, ctor_name) {
 
 
 {
-  const FSEvent = process.binding('fs_event_wrap').FSEvent;
+  const FSEvent = internalBinding('fs_event_wrap').FSEvent;
   testInitialized(new FSEvent(), 'FSEvent');
 }
 
@@ -158,7 +158,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
 }
 
 {
-  const binding = process.binding('pipe_wrap');
+  const binding = internalBinding('pipe_wrap');
   const handle = new binding.Pipe(binding.constants.IPC);
   testInitialized(handle, 'Pipe');
 }
@@ -169,7 +169,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
   const server = net.createServer(common.mustCall((socket) => {
     server.close();
   })).listen(common.PIPE, common.mustCall(() => {
-    const binding = process.binding('pipe_wrap');
+    const binding = internalBinding('pipe_wrap');
     const handle = new binding.Pipe(binding.constants.SOCKET);
     testInitialized(handle, 'Pipe');
     const req = new binding.PipeConnectWrap();
@@ -182,7 +182,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
 }
 
 {
-  const Process = process.binding('process_wrap').Process;
+  const Process = internalBinding('process_wrap').Process;
   testInitialized(new Process(), 'Process');
 }
 

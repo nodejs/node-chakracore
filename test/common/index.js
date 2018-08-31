@@ -26,7 +26,7 @@ const path = require('path');
 const fs = require('fs');
 const assert = require('assert');
 const os = require('os');
-const { exec, execSync, spawn, spawnSync } = require('child_process');
+const { exec, execSync, spawnSync } = require('child_process');
 const util = require('util');
 const { fixturesDir } = require('./fixtures');
 const tmpdir = require('./tmpdir');
@@ -82,7 +82,8 @@ if (process.env.NODE_TEST_WITH_ASYNC_HOOKS) {
   const destroydIdsList = {};
   const destroyListList = {};
   const initHandles = {};
-  const async_wrap = process.binding('async_wrap');
+  const { internalBinding } = require('internal/test/binding');
+  const async_wrap = internalBinding('async_wrap');
 
   process.on('exit', () => {
     // iterate through handles to make sure nothing crashes
@@ -182,6 +183,10 @@ Object.defineProperty(exports, 'localhostIPv4', {
   }
 });
 
+Object.defineProperty(exports, 'localhostIPv6', {
+  get: () => '::1'
+});
+
 // opensslCli defined lazily to reduce overhead of spawnSync
 Object.defineProperty(exports, 'opensslCli', { get: function() {
   if (opensslCli !== null) return opensslCli;
@@ -266,22 +271,10 @@ exports.ddCommand = function(filename, kilobytes) {
 };
 
 
-exports.spawnPwd = function(options) {
-  if (exports.isWindows) {
-    return spawn('cmd.exe', ['/d', '/c', 'cd'], options);
-  } else {
-    return spawn('pwd', [], options);
-  }
-};
+exports.pwdCommand = exports.isWindows ?
+  ['cmd.exe', ['/d', '/c', 'cd']] :
+  ['pwd', []];
 
-
-exports.spawnSyncPwd = function(options) {
-  if (exports.isWindows) {
-    return spawnSync('cmd.exe', ['/d', '/c', 'cd'], options);
-  } else {
-    return spawnSync('pwd', [], options);
-  }
-};
 
 exports.platformTimeout = function(ms) {
   if (process.features.debug)
