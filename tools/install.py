@@ -157,6 +157,14 @@ def files(action):
   headers(action)
 
 def headers(action):
+  def ignore_inspector_headers(files, dest):
+    inspector_headers = [
+      'deps/v8/include/v8-inspector.h',
+      'deps/v8/include/v8-inspector-protocol.h'
+    ]
+    files = filter(lambda name: name not in inspector_headers, files)
+    action(files, dest)
+
   action([
     'common.gypi',
     'config.gypi',
@@ -173,7 +181,7 @@ def headers(action):
     action(['out/Release/node.exp'], 'include/node/')
 
   if 'v8' == variables.get('node_engine'):
-    subdir_files('deps/v8/include', 'include/node/', action)
+    subdir_files('deps/v8/include', 'include/node/', ignore_inspector_headers)
   elif 'chakracore' == variables.get('node_engine'):
     action(['src/chakra_ttd.h'], 'include/node/')
     subdir_files('deps/chakrashim/include', 'include/node/', action)
