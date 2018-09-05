@@ -287,14 +287,14 @@ PerProcessOptionsParser::PerProcessOptionsParser() {
 #endif
 
 #if ENABLE_TTD_NODE
-  AddOption("--record", &PerProcessOptions::ttdRecord);
-  AddOption("--tt-debug", &PerProcessOptions::ttdDebug);
-  AddOption("--replay",  &PerProcessOptions::ttdReplayUri);
-  AddOption("--replay-debug", &PerProcessOptions::ttdReplayUri);
-  AddOption("--break-first", &PerProcessOptions::ttdBreakFirst);
-  AddOption("--record-interval", &PerProcessOptions::ttdRecordInterval);
-  AddOption("--record-history", &PerProcessOptions::ttdRecordHistoryLength);
-  AddOption("--disable-auto-trace", &PerProcessOptions::ttdDisableAutoTrace);
+  AddOption("--record", "ttdRecord", &PerProcessOptions::ttdRecord);
+  AddOption("--tt-debug", "ttdDebug", &PerProcessOptions::ttdDebug);
+  AddOption("--replay", "ttdReplayUri", &PerProcessOptions::ttdReplayUri);
+  AddOption("--replay-debug", "ttdReplayUri(debug)", &PerProcessOptions::ttdReplayUri);
+  AddOption("--break-first", "ttdBreakFirst", &PerProcessOptions::ttdBreakFirst);
+  AddOption("--record-interval", "ttdRecordInterval", &PerProcessOptions::ttdRecordInterval);
+  AddOption("--record-history", "ttdRecordHistoryLength", &PerProcessOptions::ttdRecordHistoryLength);
+  AddOption("--disable-auto-trace", "ttdDisableAutoTrace", &PerProcessOptions::ttdDisableAutoTrace);
 #endif
 
   Insert(&PerIsolateOptionsParser::instance,
