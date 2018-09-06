@@ -31,13 +31,13 @@ const URLSearchParams = require('url').URLSearchParams;
   assert.throws(() => params.set(obj, 'b'), /^Error: toString$/);
   assert.throws(() => params.set('a', obj), /^Error: toString$/);
   assert.throws(() => params.set(sym, 'b'),
-    common.engineSpecificMessage({
-      v8: /^TypeError: Cannot convert a Symbol value to a string$/,
-      chakracore: /^TypeError: No implicit conversion of Symbol to String$/
-    }));
+                common.engineSpecificMessage({
+                  v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+                  chakracore: /^TypeError: No implicit conversion of Symbol to String$/
+                }));
   assert.throws(() => params.set('a', sym),
-    common.engineSpecificMessage({
-      v8: /^TypeError: Cannot convert a Symbol value to a string$/,
-      chakracore: /^TypeError: No implicit conversion of Symbol to String$/
-    }));
+                common.engineSpecificMessage({
+                  v8: /^TypeError: Cannot convert a Symbol value to a string$/,
+                  chakracore: /^TypeError: No implicit conversion of Symbol to String$/
+                }));
 }
