@@ -90,14 +90,16 @@ class StringBytes {
                       int* chars_written = nullptr);
 
   // Take the bytes in the src, and turn it into a Buffer or String.
-  // Don't call with encoding=UCS2.
   static v8::MaybeLocal<v8::Value> Encode(v8::Isolate* isolate,
                                           const char* buf,
                                           size_t buflen,
                                           enum encoding encoding,
                                           v8::Local<v8::Value>* error);
 
-  // The input buffer should be in host endianness.
+  // Warning: This reverses endianness on BE platforms, even though the
+  // signature using uint16_t implies that it should not.
+  // However, the brokenness is already public API and can't therefore
+  // be changed easily.
   static v8::MaybeLocal<v8::Value> Encode(v8::Isolate* isolate,
                                           const uint16_t* buf,
                                           size_t buflen,
