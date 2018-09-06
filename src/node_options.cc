@@ -292,14 +292,32 @@ PerProcessOptionsParser::PerProcessOptionsParser() {
 #endif
 
 #if ENABLE_TTD_NODE
-  AddOption("--record", "ttdRecord", &PerProcessOptions::ttdRecord);
-  AddOption("--tt-debug", "ttdDebug", &PerProcessOptions::ttdDebug);
-  AddOption("--replay", "ttdReplayUri", &PerProcessOptions::ttdReplayUri);
-  AddOption("--replay-debug", "ttdReplayUri(debug)", &PerProcessOptions::ttdReplayUri);
-  AddOption("--break-first", "ttdBreakFirst", &PerProcessOptions::ttdBreakFirst);
-  AddOption("--record-interval", "ttdRecordInterval", &PerProcessOptions::ttdRecordInterval);
-  AddOption("--record-history", "ttdRecordHistoryLength", &PerProcessOptions::ttdRecordHistoryLength);
-  AddOption("--disable-auto-trace", "ttdDisableAutoTrace", &PerProcessOptions::ttdDisableAutoTrace);
+  AddOption("--record",
+            "enable diagnostics record mode",
+            &PerProcessOptions::ttdRecord);
+  AddOption("--tt-debug",
+            "debug with interactive time-travel",
+            &PerProcessOptions::ttdDebug);
+  AddOption("--replay",
+            "replay execution from recording log",
+            &PerProcessOptions::ttdReplayUri);
+  AddOption("--replay-debug",
+            "replay and debug using recording log",
+            &PerProcessOptions::ttdReplayUri);
+  AddOption("--break-first",
+            "break at first statement when running in --replay-debug mode",
+            &PerProcessOptions::ttdBreakFirst);
+  AddOption("--record-interval",
+            "interval between snapshots in recording (in milliseconds) "
+            "(defaults to 2000)",
+            &PerProcessOptions::ttdRecordInterval);
+  AddOption("--record-history",
+            "number of snapshots retained in log during recording "
+            "(defaults to 2)",
+            &PerProcessOptions::ttdRecordHistoryLength);
+  AddOption("--disable-auto-trace",
+            "disable the auto-trace feature during record",
+            &PerProcessOptions::ttdDisableAutoTrace);
 #endif
 
   Insert(&PerIsolateOptionsParser::instance,
