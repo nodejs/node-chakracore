@@ -37,6 +37,7 @@
 #include <functional>  // std::function
 #include <set>
 #include <string>
+#include <vector>
 #include <unordered_map>
 
 namespace node {

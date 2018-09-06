@@ -722,14 +722,15 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: engineSpecificAssert('  a(\n' +
-                                  '    (() => \'string\')()\n' +
-                                  '    // eslint-disable-next-line operator-linebreak\n' +
-                                  '    ===\n' +
-                                  '    123 instanceof\n' +
-                                  '        Buffer\n' +
-                                  '  )\n',
-                                  'false == true')
+    message: engineSpecificAssert(
+      '  a(\n' +
+      '    (() => \'string\')()\n' +
+      '    // eslint-disable-next-line operator-linebreak\n' +
+      '    ===\n' +
+      '    123 instanceof\n' +
+      '        Buffer\n' +
+      '  )\n',
+      'false == true')
   }
 );
 
@@ -746,14 +747,15 @@ common.expectsError(
   {
     code: 'ERR_ASSERTION',
     type: assert.AssertionError,
-    message: engineSpecificAssert('  a(\n' +
-                                  '    (() => \'string\')()\n' +
-                                  '    // eslint-disable-next-line operator-linebreak\n' +
-                                  '    ===\n' +
-                                  '  123 instanceof\n' +
-                                  '        Buffer\n' +
-                                  '  )\n',
-                                  'false == true')
+    message: engineSpecificAssert(
+      '  a(\n' +
+      '    (() => \'string\')()\n' +
+      '    // eslint-disable-next-line operator-linebreak\n' +
+      '    ===\n' +
+      '  123 instanceof\n' +
+      '        Buffer\n' +
+      '  )\n',
+      'false == true')
   }
 );
 
