@@ -35,6 +35,7 @@ import os
 import re
 import sys
 import string
+import hashlib
 
 
 def ToCArray(elements, step=10):
@@ -218,6 +219,10 @@ void DefineJavaScript(Environment* env, v8::Local<v8::Object> target) {{
   {initializers}
 }}
 
+void DefineJavaScriptHash(Environment* env, v8::Local<v8::Object> target) {{
+  {hash_initializers}
+}}
+
 }}  // namespace node
 """
 
@@ -251,6 +256,12 @@ INITIALIZER = """\
 CHECK(target->Set(env->context(),
                   {key}.ToStringChecked(env->isolate()),
                   {value}.ToStringChecked(env->isolate())).FromJust());
+"""
+
+HASH_INITIALIZER = """\
+CHECK(target->Set(env->context(),
+                  FIXED_ONE_BYTE_STRING(env->isolate(), "{key}"),
+                  FIXED_ONE_BYTE_STRING(env->isolate(), "{value}")).FromJust());
 """
 
 DEPRECATED_DEPS = """\
@@ -307,6 +318,7 @@ def JS2C(source, target, namespace):
   # Build source code lines
   definitions = []
   initializers = []
+  hash_initializers = [];
 
   for name in modules:
     lines = ReadFile(str(name))
@@ -336,10 +348,12 @@ def JS2C(source, target, namespace):
     var = name.replace('-', '_').replace('/', '_')
     key = '%s_key' % var
     value = '%s_value' % var
+    hash_value = hashlib.sha256(lines).hexdigest()
 
     definitions.append(Render(key, name))
     definitions.append(Render(value, lines))
     initializers.append(INITIALIZER.format(key=key, value=value))
+    hash_initializers.append(HASH_INITIALIZER.format(key=name, value=hash_value))
 
     if deprecated_deps is not None:
       name = '/'.join(deprecated_deps)
@@ -351,11 +365,13 @@ def JS2C(source, target, namespace):
       definitions.append(Render(key, name))
       definitions.append(Render(value, DEPRECATED_DEPS.format(module=name)))
       initializers.append(INITIALIZER.format(key=key, value=value))
+      hash_initializers.append(HASH_INITIALIZER.format(key=name, value=hash_value))
 
   # Emit result
   output = open(str(target[0]), "w")
   output.write(HEADER_TEMPLATE.format(definitions=''.join(definitions),
                                initializers=''.join(initializers),
+                               hash_initializers=''.join(hash_initializers),
                                namespace=namespace))
   output.close()
 

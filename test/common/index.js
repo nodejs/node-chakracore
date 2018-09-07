@@ -26,11 +26,9 @@ const path = require('path');
 const fs = require('fs');
 const assert = require('assert');
 const os = require('os');
-const { exec, execSync, spawn, spawnSync } = require('child_process');
-const stream = require('stream');
+const { exec, execSync, spawnSync } = require('child_process');
 const util = require('util');
 const Timer = process.binding('timer_wrap').Timer;
-const { hasTracing } = process.binding('config');
 const { fixturesDir } = require('./fixtures');
 const tmpdir = require('./tmpdir');
 
@@ -68,23 +66,6 @@ exports.isFreeBSD = process.platform === 'freebsd';
 exports.isOpenBSD = process.platform === 'openbsd';
 exports.isLinux = process.platform === 'linux';
 exports.isOSX = process.platform === 'darwin';
-
-let isGlibc;
-exports.isGlibc = () => {
-  if (isGlibc !== undefined)
-    return isGlibc;
-  try {
-    const lddOut = spawnSync('ldd', [process.execPath]).stdout;
-    const libcInfo = lddOut.toString().split('\n').map(
-      (line) => line.match(/libc\.so.+=>\s*(\S+)\s/)).filter((info) => info);
-    if (libcInfo.length === 0)
-      return isGlibc = false;
-    const nmOut = spawnSync('nm', ['-D', libcInfo[0][1]]).stdout;
-    if (/gnu_get_libc_version/.test(nmOut))
-      return isGlibc = true;
-  } catch (e) {}
-  return isGlibc = false;
-};
 
 exports.enoughTestMem = os.totalmem() > 0x70000000; /* 1.75 Gb */
 const cpus = os.cpus();
@@ -200,6 +181,10 @@ Object.defineProperty(exports, 'localhostIPv4', {
   }
 });
 
+Object.defineProperty(exports, 'localhostIPv6', {
+  get: () => '::1'
+});
+
 // opensslCli defined lazily to reduce overhead of spawnSync
 Object.defineProperty(exports, 'opensslCli', { get: function() {
   if (opensslCli !== null) return opensslCli;
@@ -225,12 +210,6 @@ Object.defineProperty(exports, 'opensslCli', { get: function() {
 Object.defineProperty(exports, 'hasCrypto', {
   get: function() {
     return Boolean(process.versions.openssl);
-  }
-});
-
-Object.defineProperty(exports, 'hasTracing', {
-  get: function() {
-    return Boolean(hasTracing);
   }
 });
 
@@ -290,22 +269,10 @@ exports.ddCommand = function(filename, kilobytes) {
 };
 
 
-exports.spawnPwd = function(options) {
-  if (exports.isWindows) {
-    return spawn('cmd.exe', ['/d', '/c', 'cd'], options);
-  } else {
-    return spawn('pwd', [], options);
-  }
-};
+exports.pwdCommand = exports.isWindows ?
+  ['cmd.exe', ['/d', '/c', 'cd']] :
+  ['pwd', []];
 
-
-exports.spawnSyncPwd = function(options) {
-  if (exports.isWindows) {
-    return spawnSync('cmd.exe', ['/d', '/c', 'cd'], options);
-  } else {
-    return spawnSync('pwd', [], options);
-  }
-};
 
 exports.platformTimeout = function(ms) {
   if (process.features.debug)
@@ -536,23 +503,6 @@ exports.skip = function(msg) {
   exports.printSkipMessage(msg);
   process.exit(0);
 };
-
-// A stream to push an array into a REPL
-function ArrayStream() {
-  this.run = function(data) {
-    data.forEach((line) => {
-      this.emit('data', `${line}\n`);
-    });
-  };
-}
-
-util.inherits(ArrayStream, stream.Stream);
-exports.ArrayStream = ArrayStream;
-ArrayStream.prototype.readable = true;
-ArrayStream.prototype.writable = true;
-ArrayStream.prototype.pause = noop;
-ArrayStream.prototype.resume = noop;
-ArrayStream.prototype.write = noop;
 
 // Returns true if the exit code "exitCode" and/or signal name "signal"
 // represent the exit code and/or signal name of a node process that aborted,
@@ -867,30 +817,6 @@ exports.getTTYfd = function getTTYfd() {
   return ttyFd;
 };
 
-// Hijack stdout and stderr
-const stdWrite = {};
-function hijackStdWritable(name, listener) {
-  const stream = process[name];
-  const _write = stdWrite[name] = stream.write;
-
-  stream.writeTimes = 0;
-  stream.write = function(data, callback) {
-    try {
-      listener(data);
-    } catch (e) {
-      process.nextTick(() => { throw e; });
-    }
-
-    _write.call(stream, data, callback);
-    stream.writeTimes++;
-  };
-}
-
-function restoreWritable(name) {
-  process[name].write = stdWrite[name];
-  delete process[name].writeTimes;
-}
-
 exports.runWithInvalidFD = function(func) {
   let fd = 1 << 30;
   // Get first known bad file descriptor. 1 << 30 is usually unlikely to
@@ -902,41 +828,4 @@ exports.runWithInvalidFD = function(func) {
   }
 
   exports.printSkipMessage('Could not generate an invalid fd');
-};
-
-exports.hijackStdout = hijackStdWritable.bind(null, 'stdout');
-exports.hijackStderr = hijackStdWritable.bind(null, 'stderr');
-exports.restoreStdout = restoreWritable.bind(null, 'stdout');
-exports.restoreStderr = restoreWritable.bind(null, 'stderr');
-exports.isCPPSymbolsNotMapped = exports.isWindows ||
-                                exports.isSunOS ||
-                                exports.isAIX ||
-                                exports.isLinuxPPCBE ||
-                                exports.isFreeBSD;
-
-const gcTrackerMap = new WeakMap();
-const gcTrackerTag = 'NODE_TEST_COMMON_GC_TRACKER';
-
-exports.onGC = function(obj, gcListener) {
-  const async_hooks = require('async_hooks');
-
-  const onGcAsyncHook = async_hooks.createHook({
-    init: exports.mustCallAtLeast(function(id, type, trigger, resource) {
-      if (this.trackedId === undefined) {
-        assert.strictEqual(type, gcTrackerTag);
-        this.trackedId = id;
-      }
-    }),
-    destroy(id) {
-      assert.notStrictEqual(this.trackedId, -1);
-      if (id === this.trackedId) {
-        this.gcListener.ongc();
-        onGcAsyncHook.disable();
-      }
-    }
-  }).enable();
-  onGcAsyncHook.gcListener = gcListener;
-
-  gcTrackerMap.set(obj, new async_hooks.AsyncResource(gcTrackerTag));
-  obj = null;
 };

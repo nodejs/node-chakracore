@@ -283,6 +283,92 @@ synchronous use libuv's threadpool, which can have surprising and negative
 performance implications for some applications. See the
 [`UV_THREADPOOL_SIZE`][] documentation for more information.
 
+## Class: fs.Dirent
+<!-- YAML
+added: v10.10.0
+-->
+
+When [`fs.readdir()`][] or [`fs.readdirSync()`][] is called with the
+`withFileTypes` option set to `true`, the resulting array is filled with
+`fs.Dirent` objects, rather than strings or `Buffers`.
+
+### dirent.isBlockDevice()
+<!-- YAML
+added: v10.10.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the `fs.Dirent` object describes a block device.
+
+### dirent.isCharacterDevice()
+<!-- YAML
+added: v10.10.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the `fs.Dirent` object describes a character device.
+
+### dirent.isDirectory()
+<!-- YAML
+added: v10.10.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the `fs.Dirent` object describes a file system
+directory.
+
+### dirent.isFIFO()
+<!-- YAML
+added: v10.10.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the `fs.Dirent` object describes a first-in-first-out
+(FIFO) pipe.
+
+### dirent.isFile()
+<!-- YAML
+added: v10.10.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the `fs.Dirent` object describes a regular file.
+
+### dirent.isSocket()
+<!-- YAML
+added: v10.10.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the `fs.Dirent` object describes a socket.
+
+### dirent.isSymbolicLink()
+<!-- YAML
+added: v10.10.0
+-->
+
+* Returns: {boolean}
+
+Returns `true` if the `fs.Dirent` object describes a symbolic link.
+
+
+### dirent.name
+<!-- YAML
+added: v10.10.0
+-->
+
+* {string|Buffer}
+
+The file name that this `fs.Dirent` object refers to. The type of this
+value is determined by the `options.encoding` passed to [`fs.readdir()`][] or
+[`fs.readdirSync()`][].
+
 ## Class: fs.FSWatcher
 <!-- YAML
 added: v0.5.8
@@ -958,8 +1044,6 @@ changes:
 Asynchronously append data to a file, creating the file if it does not yet
 exist. `data` can be a string or a [`Buffer`][].
 
-Example:
-
 ```js
 fs.appendFile('message.txt', 'data to append', (err) => {
   if (err) throw err;
@@ -967,7 +1051,7 @@ fs.appendFile('message.txt', 'data to append', (err) => {
 });
 ```
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.appendFile('message.txt', 'data to append', 'utf8', callback);
@@ -1011,8 +1095,6 @@ changes:
 Synchronously append data to a file, creating the file if it does not yet
 exist. `data` can be a string or a [`Buffer`][].
 
-Example:
-
 ```js
 try {
   fs.appendFileSync('message.txt', 'data to append');
@@ -1022,7 +1104,7 @@ try {
 }
 ```
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.appendFileSync('message.txt', 'data to append', 'utf8');
@@ -1258,8 +1340,6 @@ fallback copy mechanism is used.
 create a copy-on-write reflink. If the platform does not support copy-on-write,
 then the operation will fail.
 
-Example:
-
 ```js
 const fs = require('fs');
 
@@ -1270,8 +1350,7 @@ fs.copyFile('source.txt', 'destination.txt', (err) => {
 });
 ```
 
-If the third argument is a number, then it specifies `flags`, as shown in the
-following example.
+If the third argument is a number, then it specifies `flags`:
 
 ```js
 const fs = require('fs');
@@ -1309,8 +1388,6 @@ fallback copy mechanism is used.
 create a copy-on-write reflink. If the platform does not support copy-on-write,
 then the operation will fail.
 
-Example:
-
 ```js
 const fs = require('fs');
 
@@ -1319,8 +1396,7 @@ fs.copyFileSync('source.txt', 'destination.txt');
 console.log('source.txt was copied to destination.txt');
 ```
 
-If the third argument is a number, then it specifies `flags`, as shown in the
-following example.
+If the third argument is a number, then it specifies `flags`:
 
 ```js
 const fs = require('fs');
@@ -1372,6 +1448,27 @@ If `fd` is specified, `ReadStream` will ignore the `path` argument and will use
 the specified file descriptor. This means that no `'open'` event will be
 emitted. `fd` should be blocking; non-blocking `fd`s should be passed to
 [`net.Socket`][].
+
+If `fd` points to a character device that only supports blocking reads
+(such as keyboard or sound card), read operations do not finish until data is
+available. This can prevent the process from exiting and the stream from
+closing naturally.
+
+```js
+const fs = require('fs');
+// Create a stream from some character  device.
+const stream = fs.createReadStream('/dev/input/event0');
+setTimeout(() => {
+  stream.close(); // This may not close the stream.
+  // Artificially marking end-of-stream, as if the underlying resource had
+  // indicated end-of-file by itself, allows the stream to close.
+  // This does not cancel pending read operations, and if there is such an
+  // operation, the process may still not be able to exit successfully
+  // until it finishes.
+  stream.push(null);
+  stream.read(0);
+}, 100);
+```
 
 If `autoClose` is false, then the file descriptor won't be closed, even if
 there's an error. It is the application's responsibility to close it and make
@@ -1457,7 +1554,7 @@ deprecated: v1.0.0
   * `exists` {boolean}
 
 Test whether or not the given path exists by checking with the file system.
-Then call the `callback` argument with either true or false. Example:
+Then call the `callback` argument with either true or false:
 
 ```js
 fs.exists('/etc/passwd', (exists) => {
@@ -1790,7 +1887,7 @@ fs.ftruncate(fd, 4, (err) => {
 ```
 
 If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes (`'\0'`). For example,
+extended part is filled with null bytes (`'\0'`):
 
 ```js
 console.log(fs.readFileSync('temp.txt', 'utf8'));
@@ -2239,6 +2336,10 @@ this API: [`fs.open()`][].
 <!-- YAML
 added: v0.0.2
 changes:
+  - version: v10.10.0
+    pr-url: https://github.com/nodejs/node/pull/22150
+    description: The `buffer` parameter can now be any `TypedArray`, or a
+                 `DataView`.
   - version: v7.4.0
     pr-url: https://github.com/nodejs/node/pull/10382
     description: The `buffer` parameter can now be a `Uint8Array`.
@@ -2248,7 +2349,7 @@ changes:
 -->
 
 * `fd` {integer}
-* `buffer` {Buffer|Uint8Array}
+* `buffer` {Buffer|TypedArray|DataView}
 * `offset` {integer}
 * `length` {integer}
 * `position` {integer}
@@ -2299,9 +2400,10 @@ changes:
 * `path` {string|Buffer|URL}
 * `options` {string|Object}
   * `encoding` {string} **Default:** `'utf8'`
+  * `withFileTypes` {boolean} **Default:** `false`
 * `callback` {Function}
   * `err` {Error}
-  * `files` {string[]|Buffer[]}
+  * `files` {string[]|Buffer[]|fs.Dirent[]}
 
 Asynchronous readdir(3). Reads the contents of a directory.
 The callback gets two arguments `(err, files)` where `files` is an array of
@@ -2311,6 +2413,9 @@ The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use for
 the filenames passed to the callback. If the `encoding` is set to `'buffer'`,
 the filenames returned will be passed as `Buffer` objects.
+
+If `options.withFileTypes` is set to `true`, the `files` array will contain
+[`fs.Dirent`][] objects.
 
 ## fs.readdirSync(path[, options])
 <!-- YAML
@@ -2325,7 +2430,8 @@ changes:
 * `path` {string|Buffer|URL}
 * `options` {string|Object}
   * `encoding` {string} **Default:** `'utf8'`
-* Returns: {string[]} An array of filenames excluding `'.'` and `'..'`.
+  * `withFileTypes` {boolean} **Default:** `false`
+* Returns: {string[]|Buffer[]|fs.Dirent[]}
 
 Synchronous readdir(3).
 
@@ -2333,6 +2439,9 @@ The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use for
 the filenames returned. If the `encoding` is set to `'buffer'`,
 the filenames returned will be passed as `Buffer` objects.
+
+If `options.withFileTypes` is set to `true`, the result will contain
+[`fs.Dirent`][] objects.
 
 ## fs.readFile(path[, options], callback)
 <!-- YAML
@@ -2367,7 +2476,7 @@ changes:
   * `err` {Error}
   * `data` {string|Buffer}
 
-Asynchronously reads the entire contents of a file. Example:
+Asynchronously reads the entire contents of a file.
 
 ```js
 fs.readFile('/etc/passwd', (err, data) => {
@@ -2381,7 +2490,7 @@ contents of the file.
 
 If no encoding is specified, then the raw buffer is returned.
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.readFile('/etc/passwd', 'utf8', callback);
@@ -2510,13 +2619,17 @@ the link path returned will be passed as a `Buffer` object.
 <!-- YAML
 added: v0.1.21
 changes:
+  - version: v10.10.0
+    pr-url: https://github.com/nodejs/node/pull/22150
+    description: The `buffer` parameter can now be any `TypedArray` or a
+                 `DataView`.
   - version: v6.0.0
     pr-url: https://github.com/nodejs/node/pull/4518
     description: The `length` parameter can now be `0`.
 -->
 
 * `fd` {integer}
-* `buffer` {Buffer|Uint8Array}
+* `buffer` {Buffer|TypedArray|DataView}
 * `offset` {integer}
 * `length` {integer}
 * `position` {integer}
@@ -3240,6 +3353,10 @@ This happens when:
 <!-- YAML
 added: v0.0.2
 changes:
+  - version: v10.10.0
+    pr-url: https://github.com/nodejs/node/pull/22150
+    description: The `buffer` parameter can now be any `TypedArray` or a
+                 `DataView`
   - version: v10.0.0
     pr-url: https://github.com/nodejs/node/pull/12562
     description: The `callback` parameter is no longer optional. Not passing
@@ -3257,14 +3374,14 @@ changes:
 -->
 
 * `fd` {integer}
-* `buffer` {Buffer|Uint8Array}
+* `buffer` {Buffer|TypedArray|DataView}
 * `offset` {integer}
 * `length` {integer}
 * `position` {integer}
 * `callback` {Function}
   * `err` {Error}
   * `bytesWritten` {integer}
-  * `buffer` {Buffer|Uint8Array}
+  * `buffer` {Buffer|TypedArray|DataView}
 
 Write `buffer` to the file specified by `fd`.
 
@@ -3308,7 +3425,7 @@ changes:
 * `fd` {integer}
 * `string` {string}
 * `position` {integer}
-* `encoding` {string}
+* `encoding` {string} **Default:** `'utf8'`
 * `callback` {Function}
   * `err` {Error}
   * `written` {integer}
@@ -3339,6 +3456,10 @@ the end of the file.
 <!-- YAML
 added: v0.1.29
 changes:
+  - version: v10.10.0
+    pr-url: https://github.com/nodejs/node/pull/22150
+    description: The `data` parameter can now be any `TypedArray` or a
+                 `DataView`.
   - version: v10.0.0
     pr-url: https://github.com/nodejs/node/pull/12562
     description: The `callback` parameter is no longer optional. Not passing
@@ -3356,7 +3477,7 @@ changes:
 -->
 
 * `file` {string|Buffer|URL|integer} filename or file descriptor
-* `data` {string|Buffer|Uint8Array}
+* `data` {string|Buffer|TypedArray|DataView}
 * `options` {Object|string}
   * `encoding` {string|null} **Default:** `'utf8'`
   * `mode` {integer} **Default:** `0o666`
@@ -3369,16 +3490,15 @@ Asynchronously writes data to a file, replacing the file if it already exists.
 
 The `encoding` option is ignored if `data` is a buffer.
 
-Example:
-
 ```js
-fs.writeFile('message.txt', 'Hello Node.js', (err) => {
+const data = new Uint8Array(Buffer.from('Hello Node.js'));
+fs.writeFile('message.txt', data, (err) => {
   if (err) throw err;
   console.log('The file has been saved!');
 });
 ```
 
-If `options` is a string, then it specifies the encoding. Example:
+If `options` is a string, then it specifies the encoding:
 
 ```js
 fs.writeFile('message.txt', 'Hello Node.js', 'utf8', callback);
@@ -3397,6 +3517,10 @@ automatically.
 <!-- YAML
 added: v0.1.29
 changes:
+  - version: v10.10.0
+    pr-url: https://github.com/nodejs/node/pull/22150
+    description: The `data` parameter can now be any `TypedArray` or a
+                 `DataView`.
   - version: v7.4.0
     pr-url: https://github.com/nodejs/node/pull/10382
     description: The `data` parameter can now be a `Uint8Array`.
@@ -3406,7 +3530,7 @@ changes:
 -->
 
 * `file` {string|Buffer|URL|integer} filename or file descriptor
-* `data` {string|Buffer|Uint8Array}
+* `data` {string|Buffer|TypedArray|DataView}
 * `options` {Object|string}
   * `encoding` {string|null} **Default:** `'utf8'`
   * `mode` {integer} **Default:** `0o666`
@@ -3421,6 +3545,10 @@ this API: [`fs.writeFile()`][].
 <!-- YAML
 added: v0.1.21
 changes:
+  - version: v10.10.0
+    pr-url: https://github.com/nodejs/node/pull/22150
+    description: The `buffer` parameter can now be any `TypedArray` or a
+                 `DataView`.
   - version: v7.4.0
     pr-url: https://github.com/nodejs/node/pull/10382
     description: The `buffer` parameter can now be a `Uint8Array`.
@@ -3430,11 +3558,14 @@ changes:
 -->
 
 * `fd` {integer}
-* `buffer` {Buffer|Uint8Array}
+* `buffer` {Buffer|TypedArray|DataView}
 * `offset` {integer}
 * `length` {integer}
 * `position` {integer}
-* Returns: {number}
+* Returns: {number} The number of bytes written.
+
+For detailed information, see the documentation of the asynchronous version of
+this API: [`fs.write(fd, buffer...)`][].
 
 ## fs.writeSync(fd, string[, position[, encoding]])
 <!-- YAML
@@ -3449,12 +3580,10 @@ changes:
 * `string` {string}
 * `position` {integer}
 * `encoding` {string}
-* Returns: {number}
-
-Returns the number of bytes written.
+* Returns: {number} The number of bytes written.
 
 For detailed information, see the documentation of the asynchronous version of
-this API: [`fs.write()`][].
+this API: [`fs.write(fd, string...)`][].
 
 ## fs Promises API
 
@@ -3680,7 +3809,7 @@ doTruncate().catch(console.error);
 ```
 
 If the file previously was shorter than `len` bytes, it is extended, and the
-extended part is filled with null bytes (`'\0'`). For example,
+extended part is filled with null bytes (`'\0'`):
 
 ```js
 const fs = require('fs');
@@ -3890,8 +4019,6 @@ fallback copy mechanism is used.
 create a copy-on-write reflink. If the platform does not support copy-on-write,
 then the operation will fail.
 
-Example:
-
 ```js
 const fsPromises = require('fs').promises;
 
@@ -3901,8 +4028,7 @@ fsPromises.copyFile('source.txt', 'destination.txt')
   .catch(() => console.log('The file could not be copied'));
 ```
 
-If the third argument is a number, then it specifies `flags`, as shown in the
-following example.
+If the third argument is a number, then it specifies `flags`:
 
 ```js
 const fs = require('fs');
@@ -4597,7 +4723,7 @@ On Windows, opening an existing hidden file using the `'w'` flag (either
 through `fs.open()` or `fs.writeFile()` or `fsPromises.open()`) will fail with
 `EPERM`. Existing hidden files can be opened for writing with the `'r+'` flag.
 
-A call to `fs.ftruncate()` or `fsPromises.ftruncate()` can be used to reset
+A call to `fs.ftruncate()` or `filehandle.truncate()` can be used to reset
 the file contents.
 
 [`AHAFS`]: https://www.ibm.com/developerworks/aix/library/au-aix_event_infrastructure/
@@ -4611,6 +4737,7 @@ the file contents.
 [`WriteStream`]: #fs_class_fs_writestream
 [`EventEmitter`]: events.html
 [`event ports`]: http://illumos.org/man/port_create
+[`fs.Dirent`]: #fs_class_fs_dirent
 [`fs.FSWatcher`]: #fs_class_fs_fswatcher
 [`fs.Stats`]: #fs_class_fs_stats
 [`fs.access()`]: #fs_fs_access_path_mode_callback
@@ -4626,6 +4753,8 @@ the file contents.
 [`fs.mkdtemp()`]: #fs_fs_mkdtemp_prefix_options_callback
 [`fs.open()`]: #fs_fs_open_path_flags_mode_callback
 [`fs.read()`]: #fs_fs_read_fd_buffer_offset_length_position_callback
+[`fs.readdir()`]: #fs_fs_readdir_path_options_callback
+[`fs.readdirSync()`]: #fs_fs_readdirsync_path_options
 [`fs.readFile()`]: #fs_fs_readfile_path_options_callback
 [`fs.readFileSync()`]: #fs_fs_readfilesync_path_options
 [`fs.realpath()`]: #fs_fs_realpath_path_options_callback
@@ -4634,7 +4763,8 @@ the file contents.
 [`fs.symlink()`]: #fs_fs_symlink_target_path_type_callback
 [`fs.utimes()`]: #fs_fs_utimes_path_atime_mtime_callback
 [`fs.watch()`]: #fs_fs_watch_filename_options_listener
-[`fs.write()`]: #fs_fs_write_fd_buffer_offset_length_position_callback
+[`fs.write(fd, buffer...)`]: #fs_fs_write_fd_buffer_offset_length_position_callback
+[`fs.write(fd, string...)`]: #fs_fs_write_fd_string_position_encoding_callback
 [`fs.writeFile()`]: #fs_fs_writefile_file_data_options_callback
 [`inotify(7)`]: http://man7.org/linux/man-pages/man7/inotify.7.html
 [`kqueue(2)`]: https://www.freebsd.org/cgi/man.cgi?query=kqueue&sektion=2

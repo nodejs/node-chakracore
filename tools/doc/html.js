@@ -79,9 +79,17 @@ function toHTML({ input, content, filename, nodeVersion, analytics }, cb) {
 
   if (analytics) {
     HTML = HTML.replace('<!-- __TRACKING__ -->', `
-    <script src="assets/dnt_helper.js"></script>
-    <script>
-      if (!_dntEnabled()) {
+    <script type="text/javascript">
+      // In all the browsers we'll get '1' or 'yes' (FF 32 or above) as a string
+      // value when enabling 'DO NOT TRACK'.
+      // For more:
+      // https://developer.mozilla.org/en-US/docs/Web/API/navigator/doNotTrack
+      function isDoNotTrack() {
+        var isDoNotTrackEnabled = navigator.doNotTrack || window.doNotTrack ||
+               navigator.msDoNotTrack;
+        return isDoNotTrackEnabled === '1' || isDoNotTrackEnabled === 'yes';
+      }
+      if (!isDoNotTrack()) {
         (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;
         i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},
         i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];
@@ -264,6 +272,7 @@ function parseYAML(text) {
 
   const added = { description: '' };
   const deprecated = { description: '' };
+  const removed = { description: '' };
 
   if (meta.added) {
     added.version = meta.added.join(', ');
@@ -276,9 +285,15 @@ function parseYAML(text) {
         `<span>Deprecated since: ${deprecated.version}</span>`;
   }
 
+  if (meta.removed) {
+    removed.version = meta.removed.join(', ');
+    removed.description = `<span>Removed in: ${removed.version}</span>`;
+  }
+
   if (meta.changes.length > 0) {
     if (added.description) meta.changes.push(added);
     if (deprecated.description) meta.changes.push(deprecated);
+    if (removed.description) meta.changes.push(removed);
 
     meta.changes.sort((a, b) => versionSort(a.version, b.version));
 
@@ -299,7 +314,8 @@ function parseYAML(text) {
 
     result += '</table>\n</details>\n';
   } else {
-    result += `${added.description}${deprecated.description}\n`;
+    result += `${added.description}${deprecated.description}` +
+              `${removed.description}\n`;
   }
 
   if (meta.napiVersion) {
@@ -321,7 +337,7 @@ function versionSort(a, b) {
   return +b.match(numberRe)[0] - +a.match(numberRe)[0];
 }
 
-function buildToc({ filename }) {
+function buildToc({ filename, apilinks }) {
   return (tree, file) => {
     const startIncludeRefRE = /^\s*<!-- \[start-include:(.+)\] -->\s*$/;
     const endIncludeRefRE = /^\s*<!-- \[end-include:.+\] -->\s*$/;
@@ -366,6 +382,11 @@ function buildToc({ filename }) {
       if (realFilename === 'errors' && headingText.startsWith('ERR_')) {
         anchor += `<span><a class="mark" href="#${headingText}" ` +
                   `id="${headingText}">#</a></span>`;
+      }
+
+      const api = headingText.replace(/^.*:\s+/, '').replace(/\(.*/, '');
+      if (apilinks[api]) {
+        anchor = `<a class="srclink" href=${apilinks[api]}>[src]</a>${anchor}`;
       }
 
       node.children.push({ type: 'html', value: anchor });

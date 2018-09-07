@@ -1,6 +1,7 @@
-
 #ifndef SRC_ALIASED_BUFFER_H_
 #define SRC_ALIASED_BUFFER_H_
+
+#if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #include "chakra_ttd.h"
 #include "v8.h"
@@ -242,5 +243,7 @@ class AliasedBuffer {
   bool free_buffer_;
 };
 }  // namespace node
+
+#endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #endif  // SRC_ALIASED_BUFFER_H_

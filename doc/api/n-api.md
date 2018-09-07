@@ -42,6 +42,36 @@ for the N-API C based functions exported by Node.js. These wrappers are not
 part of N-API, nor will they be maintained as part of Node.js. One such
 example is: [node-addon-api](https://github.com/nodejs/node-addon-api).
 
+## Implications of ABI Stability
+
+Although N-API provides an ABI stability guarantee, other parts of Node.js do
+not, and any external libraries used from the addon may not. In particular,
+none of the following APIs provide an ABI stability guarantee across major
+versions:
+* the Node.js C++ APIs available via any of
+    ```C++
+    #include <node.h>
+    #include <node_buffer.h>
+    #include <node_version.h>
+    #include <node_object_wrap.h>
+    ```
+* the libuv APIs which are also included with Node.js and available via
+    ```C++
+    #include <uv.h>
+    ```
+* the V8 API available via
+    ```C++
+    #include <v8.h>
+    ```
+
+Thus, for an addon to remain ABI-compatible across Node.js major versions, it
+must make use exclusively of N-API by restricting itself to using
+```C
+#include <node_api.h>
+```
+and by checking, for all external libraries that it uses, that the external
+library makes ABI stability guarantees similar to N-API.
+
 ## Usage
 
 In order to use the N-API functions, include the file
@@ -451,7 +481,7 @@ originalName [code]
 ```
 
 where `originalName` is the original name associated with the error
-and `code` is the code that was provided. For example if the code
+and `code` is the code that was provided. For example, if the code
 is `'ERR_ERROR_1'` and a `TypeError` is being created the name will be:
 
 ```text
@@ -3478,8 +3508,6 @@ called on a class prototype and a function called on an instance of a class.
 A common pattern used to address this problem is to save a persistent
 reference to the class constructor for later `instanceof` checks.
 
-As an example:
-
 ```C
 napi_value MyClass_constructor = NULL;
 status = napi_get_reference_value(env, MyClass::es_constructor, &MyClass_constructor);
@@ -3569,8 +3597,7 @@ napi_status napi_wrap(napi_env env,
 
  - `[in] env`: The environment that the API is invoked under.
  - `[in] js_object`: The JavaScript object that will be the wrapper for the
-   native object. This object _must_ have been created from the `prototype` of
-   a constructor that was created using `napi_define_class()`.
+   native object.
  - `[in] native_object`: The native instance that will be wrapped in the
    JavaScript object.
  - `[in] finalize_cb`: Optional native callback that can be used to free the
@@ -3602,13 +3629,9 @@ temporarily during async operations that require the instance to remain valid.
 
 *Caution*: The optional returned reference (if obtained) should be deleted via
 [`napi_delete_reference`][] ONLY in response to the finalize callback
-invocation. (If it is deleted before then, then the finalize callback may never
-be invoked.) Therefore, when obtaining a reference a finalize callback is also
-required in order to enable correct proper of the reference.
-
-This API may modify the prototype chain of the wrapper object. Afterward,
-additional manipulation of the wrapper's prototype chain may cause
-`napi_unwrap()` to fail.
+invocation. If it is deleted before then, then the finalize callback may never
+be invoked. Therefore, when obtaining a reference a finalize callback is also
+required in order to enable correct disposal of the reference.
 
 Calling `napi_wrap()` a second time on an object will return an error. To
 associate another native instance with the object, use `napi_remove_wrap()`
@@ -3658,10 +3681,9 @@ napi_status napi_remove_wrap(napi_env env,
 Returns `napi_ok` if the API succeeded.
 
 Retrieves a native instance that was previously wrapped in the JavaScript
-object `js_object` using `napi_wrap()` and removes the wrapping, thereby
-restoring the JavaScript object's prototype chain. If a finalize callback was
-associated with the wrapping, it will no longer be called when the JavaScript
-object becomes garbage-collected.
+object `js_object` using `napi_wrap()` and removes the wrapping. If a finalize
+callback was associated with the wrapping, it will no longer be called when the
+JavaScript object becomes garbage-collected.
 
 ## Simple Asynchronous Operations
 
@@ -3937,7 +3959,7 @@ invoking the callback. This should be a value previously obtained
 from [`napi_async_init`][].
 - `[out] result`: The newly created scope.
 
-There are cases (for example resolving promises) where it is
+There are cases (for example, resolving promises) where it is
 necessary to have the equivalent of the scope associated with a callback
 in place when making certain N-API calls. If there is no other script on
 the stack the [`napi_open_callback_scope`][] and

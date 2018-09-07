@@ -297,13 +297,13 @@ fc .gyp_configure_stamp .tmp_gyp_configure_stamp >NUL 2>&1
 if errorlevel 1 goto run-configure
 
 :skip-configure
-del .tmp_gyp_configure_stamp
+del .tmp_gyp_configure_stamp 2> NUL
 echo Reusing solution generated with %configure_flags%
 goto msbuild
 
 :run-configure
-del .tmp_gyp_configure_stamp
-del .gyp_configure_stamp
+del .tmp_gyp_configure_stamp 2> NUL
+del .gyp_configure_stamp 2> NUL
 @rem Generate the VS project.
 echo configure %configure_flags% --engine=%engine%
 echo %configure_flags%> .used_configure_flags
@@ -472,7 +472,7 @@ if not defined doc (
 if exist "tools\doc\node_modules\unified\package.json" goto skip-install-doctools
 SETLOCAL
 cd tools\doc
-%npm_exe% install
+%npm_exe% ci
 cd ..\..
 if errorlevel 1 goto exit
 ENDLOCAL
@@ -530,11 +530,10 @@ for /d %%F in (test\addons-napi\??_*) do (
   rd /s /q %%F
 )
 :: building addons-napi
-for /d %%F in (test\addons-napi\*) do (
-  %node_gyp_exe% rebuild ^
-    --directory="%%F" ^
-    --nodedir="%cd%"
-)
+setlocal
+set npm_config_nodedir=%~dp0
+"%node_exe%" "%~dp0tools\build-addons.js" "%~dp0deps\npm\node_modules\node-gyp\bin\node-gyp.js" "%~dp0test\addons-napi"
+if errorlevel 1 exit /b 1
 endlocal
 goto run-tests
 

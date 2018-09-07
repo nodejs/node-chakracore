@@ -26,6 +26,7 @@ const JSStream = process.binding('js_stream').JSStream;
 const util = require('util');
 const vm = require('vm');
 const { previewEntries } = process.binding('util');
+const { inspect } = util;
 
 assert.strictEqual(util.inspect(1), '1');
 assert.strictEqual(util.inspect(false), 'false');
@@ -78,7 +79,8 @@ assert.strictEqual(util.inspect({ 'a': { 'b': { 'c': 2 } } }, false, 1),
                    '{ a: { b: [Object] } }');
 assert.strictEqual(util.inspect({ 'a': { 'b': ['c'] } }, false, 1),
                    '{ a: { b: [Array] } }');
-assert.strictEqual(util.inspect(new Uint8Array(0)), 'Uint8Array [  ]');
+assert.strictEqual(util.inspect(new Uint8Array(0)), 'Uint8Array []');
+assert(inspect(new Uint8Array(0), { showHidden: true }).includes('[buffer]'));
 assert.strictEqual(
   util.inspect(
     Object.create(
@@ -179,7 +181,6 @@ for (const showHidden of [true, false]) {
                      '  y: 1337 }');
 }
 
-
 [ Float32Array,
   Float64Array,
   Int16Array,
@@ -195,7 +196,7 @@ for (const showHidden of [true, false]) {
   array[0] = 65;
   array[1] = 97;
   assert.strictEqual(
-    util.inspect(array, true),
+    util.inspect(array, { showHidden: true }),
     `${constructor.name} [\n` +
       '  65,\n' +
       '  97,\n' +
@@ -355,6 +356,19 @@ assert.strictEqual(
     assert.strictEqual(util.inspect(arr2, { showHidden: true }),
                        "[ <2 empty items>, [length]: 2, '00': 1, '01': 2 ]");
   }
+  delete arr2['00'];
+  arr2[0] = 0;
+  assert.strictEqual(util.inspect(arr2),
+                     "[ 0, <1 empty item>, '01': 2 ]");
+  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                     "[ 0, <1 empty item>, [length]: 2, '01': 2 ]");
+  delete arr2['01'];
+  arr2[2 ** 32 - 2] = 'max';
+  arr2[2 ** 32 - 1] = 'too far';
+  assert.strictEqual(
+    util.inspect(arr2),
+    "[ 0, <4294967293 empty items>, 'max', '4294967295': 'too far' ]"
+  );
 
   const arr3 = [];
   arr3[-1] = -1;
@@ -865,6 +879,14 @@ assert.strictEqual(util.inspect(new Number(13.37)), '[Number: 13.37]');
   const num = new Number(13.37);
   num.foo = 'bar';
   assert.strictEqual(util.inspect(num), "{ [Number: 13.37] foo: 'bar' }");
+
+  const sym = Object(Symbol('foo'));
+  sym.foo = 'bar';
+  assert.strictEqual(util.inspect(sym), "{ [Symbol: Symbol(foo)] foo: 'bar' }");
+
+  const big = Object(BigInt(55));
+  big.foo = 'bar';
+  assert.strictEqual(util.inspect(big), "{ [BigInt: 55n] foo: 'bar' }");
 }
 
 // Test es6 Symbol.
@@ -878,22 +900,22 @@ if (typeof Symbol !== 'undefined') {
   const options = { showHidden: true };
   let subject = {};
 
-  subject[Symbol('symbol')] = 42;
+  subject[Symbol('sym\nbol')] = 42;
 
-  assert.strictEqual(util.inspect(subject), '{ [Symbol(symbol)]: 42 }');
+  assert.strictEqual(util.inspect(subject), '{ [Symbol(sym\\nbol)]: 42 }');
   assert.strictEqual(
     util.inspect(subject, options),
-    '{ [Symbol(symbol)]: 42 }'
+    '{ [Symbol(sym\\nbol)]: 42 }'
   );
 
   Object.defineProperty(
     subject,
     Symbol(),
     { enumerable: false, value: 'non-enum' });
-  assert.strictEqual(util.inspect(subject), '{ [Symbol(symbol)]: 42 }');
+  assert.strictEqual(util.inspect(subject), '{ [Symbol(sym\\nbol)]: 42 }');
   assert.strictEqual(
     util.inspect(subject, options),
-    "{ [Symbol(symbol)]: 42, [Symbol()]: 'non-enum' }"
+    "{ [Symbol(sym\\nbol)]: 42, [Symbol()]: 'non-enum' }"
   );
 
   subject = [1, 2, 3];
@@ -1019,7 +1041,7 @@ if (!common.isChakraEngine) {
       const npos = line.search(numRE);
       if (npos !== -1) {
         if (pos !== undefined) {
-          assert.strictEqual(pos, npos, 'container items not aligned');
+          assert.strictEqual(pos, npos);
         }
         pos = npos;
       }
@@ -1419,6 +1441,107 @@ util.inspect(process);
   assert.strictEqual(out, expect);
 }
 
+// Check compact indentation.
+{
+  const typed = new Uint8Array();
+  typed.buffer.foo = true;
+  const set = new Set([[1, 2]]);
+  const promise = Promise.resolve([[1, set]]);
+  const map = new Map([[promise, typed]]);
+  map.set(set.values(), map.values());
+
+  let out = util.inspect(map, { compact: false, showHidden: true, depth: 9 });
+  let expected = [
+    'Map {',
+    '  Promise {',
+    '    [',
+    '      [',
+    '        1,',
+    '        Set {',
+    '          [',
+    '            1,',
+    '            2,',
+    '            [length]: 2',
+    '          ],',
+    '          [size]: 1',
+    '        },',
+    '        [length]: 2',
+    '      ],',
+    '      [length]: 1',
+    '    ]',
+    '  } => Uint8Array [',
+    '    [BYTES_PER_ELEMENT]: 1,',
+    '    [length]: 0,',
+    '    [byteLength]: 0,',
+    '    [byteOffset]: 0,',
+    '    [buffer]: ArrayBuffer {',
+    '      byteLength: 0,',
+    '      foo: true',
+    '    }',
+    '  ],',
+    '  [Set Iterator] {',
+    '    [',
+    '      1,',
+    '      2,',
+    '      [length]: 2',
+    '    ]',
+    '  } => [Map Iterator] {',
+    '    Uint8Array [',
+    '      [BYTES_PER_ELEMENT]: 1,',
+    '      [length]: 0,',
+    '      [byteLength]: 0,',
+    '      [byteOffset]: 0,',
+    '      [buffer]: ArrayBuffer {',
+    '        byteLength: 0,',
+    '        foo: true',
+    '      }',
+    '    ],',
+    '    [Circular]',
+    '  },',
+    '  [size]: 2',
+    '}'
+  ].join('\n');
+
+  assert.strict.equal(out, expected);
+
+  out = util.inspect(map, { showHidden: true, depth: 9, breakLength: 4 });
+  expected = [
+    'Map {',
+    '  Promise {',
+    '    [ [ 1,',
+    '        Set {',
+    '          [ 1,',
+    '            2,',
+    '            [length]: 2 ],',
+    '          [size]: 1 },',
+    '        [length]: 2 ],',
+    '      [length]: 1 ] } => Uint8Array [',
+    '    [BYTES_PER_ELEMENT]: 1,',
+    '    [length]: 0,',
+    '    [byteLength]: 0,',
+    '    [byteOffset]: 0,',
+    '    [buffer]: ArrayBuffer {',
+    '      byteLength: 0,',
+    '      foo: true } ],',
+    '  [Set Iterator] {',
+    '    [ 1,',
+    '      2,',
+    '      [length]: 2 ] } => [Map Iterator] {',
+    '    Uint8Array [',
+    '      [BYTES_PER_ELEMENT]: 1,',
+    '      [length]: 0,',
+    '      [byteLength]: 0,',
+    '      [byteOffset]: 0,',
+    '      [buffer]: ArrayBuffer {',
+    '        byteLength: 0,',
+    '        foo: true } ],',
+    '    [Circular] },',
+    '  [size]: 2 }'
+  ].join('\n');
+
+  assert.strict.equal(out, expected);
+}
+
 // Test WeakMap
 if (!common.isChakraEngine) {
   const obj = {};
@@ -1495,4 +1618,105 @@ if (!common.isChakraEngine) {
   assert(match.length > 1000 && match.length < 10000);
   assert(longList.includes('[Object: Inspection interrupted ' +
     'prematurely. Maximum call stack size exceeded.]'));
+}
+
+// Verify the output in case the value has no prototype.
+// Sadly, these cases can not be fully inspected :(
+[
+  [/a/, '/undefined/undefined'],
+  [new DataView(new ArrayBuffer(2)),
+   'DataView {\n  byteLength: undefined,\n  byteOffset: undefined,\n  ' +
+     'buffer: undefined }'],
+  [new SharedArrayBuffer(2), 'SharedArrayBuffer { byteLength: undefined }']
+].forEach(([value, expected]) => {
+  assert.strictEqual(
+    util.inspect(Object.setPrototypeOf(value, null)),
+    expected
+  );
+});
+
+// Verify that throwing in valueOf and having no prototype still produces nice
+// results.
+[
+  [new String(55), "[String: '55']"],
+  [new Boolean(true), '[Boolean: true]'],
+  [new Number(55), '[Number: 55]'],
+  [Object(BigInt(55)), '[BigInt: 55n]'],
+  [Object(Symbol('foo')), '[Symbol: Symbol(foo)]'],
+  [function() {}, '[Function]'],
+  [() => {}, '[Function]'],
+  [[1, 2], '[ 1, 2 ]'],
+  [[, , 5, , , , ], '[ <2 empty items>, 5, <3 empty items> ]'],
+  [{ a: 5 }, '{ a: 5 }'],
+  [new Set([1, 2]), 'Set { 1, 2 }'],
+  [new Map([[1, 2]]), 'Map { 1 => 2 }'],
+  [new Set([1, 2]).entries(), '[Set Iterator] { 1, 2 }'],
+  [new Map([[1, 2]]).keys(), '[Map Iterator] { 1 }'],
+  [new Date(2000), '1970-01-01T00:00:02.000Z'],
+  [new Uint8Array(2), 'Uint8Array [ 0, 0 ]'],
+  [new Promise((resolve) => setTimeout(resolve, 10)), 'Promise { <pending> }'],
+  [new WeakSet(), 'WeakSet { [items unknown] }'],
+  [new WeakMap(), 'WeakMap { [items unknown] }'],
+].forEach(([value, expected]) => {
+  Object.defineProperty(value, 'valueOf', {
+    get() {
+      throw new Error('valueOf');
+    }
+  });
+  Object.defineProperty(value, 'toString', {
+    get() {
+      throw new Error('toString');
+    }
+  });
+  assert.strictEqual(util.inspect(value), expected);
+  assert.strictEqual(
+    util.inspect(Object.setPrototypeOf(value, null)),
+    expected
+  );
+  value.foo = 'bar';
+  assert.notStrictEqual(util.inspect(value), expected);
+  delete value.foo;
+  value[Symbol('foo')] = 'yeah';
+  assert.notStrictEqual(util.inspect(value), expected);
+});
+
+assert.strictEqual(inspect(1n), '1n');
+assert.strictEqual(inspect(Object(-1n)), '[BigInt: -1n]');
+assert.strictEqual(inspect(Object(13n)), '[BigInt: 13n]');
+
+// Verify non-enumerable keys get escaped.
+{
+  const obj = {};
+  Object.defineProperty(obj, 'Non\nenumerable\tkey', { value: true });
+  assert.strictEqual(
+    util.inspect(obj, { showHidden: true }),
+    '{ [Non\\nenumerable\\tkey]: true }'
+  );
+}
+
+// Check for special colors.
+{
+  const special = inspect.colors[inspect.styles.special];
+  const string = inspect.colors[inspect.styles.string];
+
+  assert.strictEqual(
+    inspect(new WeakSet(), { colors: true }),
+    `WeakSet { \u001b[${special[0]}m[items unknown]\u001b[${special[1]}m }`
+  );
+  assert.strictEqual(
+    inspect(new WeakMap(), { colors: true }),
+    `WeakMap { \u001b[${special[0]}m[items unknown]\u001b[${special[1]}m }`
+  );
+  assert.strictEqual(
+    inspect(new Promise(() => {}), { colors: true }),
+    `Promise { \u001b[${special[0]}m<pending>\u001b[${special[1]}m }`
+  );
+
+  const rejection = Promise.reject('Oh no!');
+  assert.strictEqual(
+    inspect(rejection, { colors: true }),
+    `Promise { \u001b[${special[0]}m<rejected>\u001b[${special[1]}m ` +
+    `\u001b[${string[0]}m'Oh no!'\u001b[${string[1]}m }`
+  );
+  rejection.catch(() => {});
 }

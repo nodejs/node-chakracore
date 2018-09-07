@@ -562,51 +562,139 @@ void AfterScanDir(uv_fs_t* req) {
   FSReqBase* req_wrap = FSReqBase::from_req(req);
   FSReqAfterScope after(req_wrap, req);
 
-  if (after.Proceed()) {
-    Environment* env = req_wrap->env();
-    Local<Value> error;
-    int r;
-    Local<Array> names = Array::New(env->isolate(), 0);
-    Local<Function> fn = env->push_values_to_array_function();
-    Local<Value> name_argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
-    size_t name_idx = 0;
-
-    for (int i = 0; ; i++) {
-      uv_dirent_t ent;
-
-      r = uv_fs_scandir_next(req, &ent);
-      if (r == UV_EOF)
-        break;
-      if (r != 0) {
-        return req_wrap->Reject(
-            UVException(r, nullptr, req_wrap->syscall(),
-                        static_cast<const char*>(req->path)));
-      }
-
-      MaybeLocal<Value> filename =
-          StringBytes::Encode(env->isolate(),
-                              ent.name,
-                              req_wrap->encoding(),
-                              &error);
-      if (filename.IsEmpty())
-        return req_wrap->Reject(error);
-
-      name_argv[name_idx++] = filename.ToLocalChecked();
-
-      if (name_idx >= arraysize(name_argv)) {
-        fn->Call(env->context(), names, name_idx, name_argv)
-            .ToLocalChecked();
-        name_idx = 0;
-      }
-    }
-
-    if (name_idx > 0) {
-      fn->Call(env->context(), names, name_idx, name_argv)
-          .ToLocalChecked();
-    }
-
-    req_wrap->Resolve(names);
+  if (!after.Proceed()) {
+    return;
   }
+  Environment* env = req_wrap->env();
+  Local<Value> error;
+  int r;
+  Local<Array> names = Array::New(env->isolate(), 0);
+  Local<Function> fn = env->push_values_to_array_function();
+  Local<Value> name_argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
+  size_t name_idx = 0;
+
+  for (int i = 0; ; i++) {
+    uv_dirent_t ent;
+
+    r = uv_fs_scandir_next(req, &ent);
+    if (r == UV_EOF)
+      break;
+    if (r != 0) {
+      return req_wrap->Reject(
+          UVException(r, nullptr, req_wrap->syscall(),
+            static_cast<const char*>(req->path)));
+    }
+
+    MaybeLocal<Value> filename =
+      StringBytes::Encode(env->isolate(),
+          ent.name,
+          req_wrap->encoding(),
+          &error);
+    if (filename.IsEmpty())
+      return req_wrap->Reject(error);
+
+    name_argv[name_idx++] = filename.ToLocalChecked();
+
+    if (name_idx >= arraysize(name_argv)) {
+      MaybeLocal<Value> ret = fn->Call(env->context(), names, name_idx,
+                                       name_argv);
+      if (ret.IsEmpty()) {
+        return;
+      }
+      name_idx = 0;
+    }
+  }
+
+  if (name_idx > 0) {
+    fn->Call(env->context(), names, name_idx, name_argv)
+      .ToLocalChecked();
+  }
+
+  req_wrap->Resolve(names);
+}
+
+void AfterScanDirWithTypes(uv_fs_t* req) {
+  FSReqBase* req_wrap = FSReqBase::from_req(req);
+  FSReqAfterScope after(req_wrap, req);
+
+  if (!after.Proceed()) {
+    return;
+  }
+
+  Environment* env = req_wrap->env();
+  Local<Value> error;
+  int r;
+  Local<Array> names = Array::New(env->isolate(), 0);
+  Local<Function> fn = env->push_values_to_array_function();
+  Local<Value> name_argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
+  size_t name_idx = 0;
+  Local<Value> types = Array::New(env->isolate(), 0);
+  Local<Value> type_argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
+  size_t type_idx = 0;
+
+  for (int i = 0; ; i++) {
+    uv_dirent_t ent;
+
+    r = uv_fs_scandir_next(req, &ent);
+    if (r == UV_EOF)
+      break;
+    if (r != 0) {
+      return req_wrap->Reject(
+          UVException(r, nullptr, req_wrap->syscall(),
+            static_cast<const char*>(req->path)));
+    }
+
+    MaybeLocal<Value> filename =
+      StringBytes::Encode(env->isolate(),
+          ent.name,
+          req_wrap->encoding(),
+          &error);
+    if (filename.IsEmpty())
+      return req_wrap->Reject(error);
+
+    name_argv[name_idx++] = filename.ToLocalChecked();
+
+    if (name_idx >= arraysize(name_argv)) {
+      MaybeLocal<Value> ret = fn->Call(env->context(), names, name_idx,
+                                       name_argv);
+      if (ret.IsEmpty()) {
+        return;
+      }
+      name_idx = 0;
+    }
+
+    type_argv[type_idx++] = Integer::New(env->isolate(), ent.type);
+
+    if (type_idx >= arraysize(type_argv)) {
+      MaybeLocal<Value> ret = fn->Call(env->context(), types, type_idx,
+          type_argv);
+      if (ret.IsEmpty()) {
+        return;
+      }
+      type_idx = 0;
+    }
+  }
+
+  if (name_idx > 0) {
+    MaybeLocal<Value> ret = fn->Call(env->context(), names, name_idx,
+        name_argv);
+    if (ret.IsEmpty()) {
+      return;
+    }
+  }
+
+  if (type_idx > 0) {
+    MaybeLocal<Value> ret = fn->Call(env->context(), types, type_idx,
+        type_argv);
+    if (ret.IsEmpty()) {
+      return;
+    }
+  }
+
+  Local<Array> result = Array::New(env->isolate(), 2);
+  result->Set(0, names);
+  result->Set(1, types);
+  req_wrap->Resolve(result);
 }
 
 
@@ -1239,15 +1327,22 @@ static void ReadDir(const FunctionCallbackInfo<Value>& args) {
 
   const enum encoding encoding = ParseEncoding(env->isolate(), args[1], UTF8);
 
-  FSReqBase* req_wrap_async = GetReqWrap(env, args[2]);
-  if (req_wrap_async != nullptr) {  // readdir(path, encoding, req)
-    AsyncCall(env, req_wrap_async, args, "scandir", encoding, AfterScanDir,
-              uv_fs_scandir, *path, 0 /*flags*/);
-  } else {  // readdir(path, encoding, undefined, ctx)
-    CHECK_EQ(argc, 4);
+  bool with_types = args[2]->IsTrue();
+
+  FSReqBase* req_wrap_async = GetReqWrap(env, args[3]);
+  if (req_wrap_async != nullptr) {  // readdir(path, encoding, withTypes, req)
+    if (with_types) {
+      AsyncCall(env, req_wrap_async, args, "scandir", encoding,
+                AfterScanDirWithTypes, uv_fs_scandir, *path, 0 /*flags*/);
+    } else {
+      AsyncCall(env, req_wrap_async, args, "scandir", encoding,
+                AfterScanDir, uv_fs_scandir, *path, 0 /*flags*/);
+    }
+  } else {  // readdir(path, encoding, withTypes, undefined, ctx)
+    CHECK_EQ(argc, 5);
     FSReqWrapSync req_wrap_sync;
     FS_SYNC_TRACE_BEGIN(readdir);
-    int err = SyncCall(env, args[3], &req_wrap_sync, "scandir",
+    int err = SyncCall(env, args[4], &req_wrap_sync, "scandir",
                        uv_fs_scandir, *path, 0 /*flags*/);
     FS_SYNC_TRACE_END(readdir);
     if (err < 0) {
@@ -1261,6 +1356,14 @@ static void ReadDir(const FunctionCallbackInfo<Value>& args) {
     Local<Value> name_v[NODE_PUSH_VAL_TO_ARRAY_MAX];
     size_t name_idx = 0;
 
+    Local<Value> types;
+    Local<Value> type_v[NODE_PUSH_VAL_TO_ARRAY_MAX];
+    size_t type_idx;
+    if (with_types) {
+      types = Array::New(env->isolate(), 0);
+      type_idx = 0;
+    }
+
     for (int i = 0; ; i++) {
       uv_dirent_t ent;
 
@@ -1268,7 +1371,7 @@ static void ReadDir(const FunctionCallbackInfo<Value>& args) {
       if (r == UV_EOF)
         break;
       if (r != 0) {
-        Local<Object> ctx = args[3].As<Object>();
+        Local<Object> ctx = args[4].As<Object>();
         ctx->Set(env->context(), env->errno_string(),
                  Integer::New(env->isolate(), r)).FromJust();
         ctx->Set(env->context(), env->syscall_string(),
@@ -1281,8 +1384,9 @@ static void ReadDir(const FunctionCallbackInfo<Value>& args) {
                                                        ent.name,
                                                        encoding,
                                                        &error);
+
       if (filename.IsEmpty()) {
-        Local<Object> ctx = args[3].As<Object>();
+        Local<Object> ctx = args[4].As<Object>();
         ctx->Set(env->context(), env->error_string(), error).FromJust();
         return;
       }
@@ -1297,6 +1401,19 @@ static void ReadDir(const FunctionCallbackInfo<Value>& args) {
         }
         name_idx = 0;
       }
+
+      if (with_types) {
+        type_v[type_idx++] = Integer::New(env->isolate(), ent.type);
+
+        if (type_idx >= arraysize(type_v)) {
+          MaybeLocal<Value> ret = fn->Call(env->context(), types, type_idx,
+              type_v);
+          if (ret.IsEmpty()) {
+            return;
+          }
+          type_idx = 0;
+        }
+      }
     }
 
     if (name_idx > 0) {
@@ -1306,7 +1423,21 @@ static void ReadDir(const FunctionCallbackInfo<Value>& args) {
       }
     }
 
-    args.GetReturnValue().Set(names);
+    if (with_types && type_idx > 0) {
+      MaybeLocal<Value> ret = fn->Call(env->context(), types, type_idx, type_v);
+      if (ret.IsEmpty()) {
+        return;
+      }
+    }
+
+    if (with_types) {
+      Local<Array> result = Array::New(env->isolate(), 2);
+      result->Set(0, names);
+      result->Set(1, types);
+      args.GetReturnValue().Set(result);
+    } else {
+      args.GetReturnValue().Set(names);
+    }
   }
 }
 
@@ -1555,7 +1686,7 @@ static void WriteString(const FunctionCallbackInfo<Value>& args) {
 
   if (is_async) {  // write(fd, string, pos, enc, req)
     CHECK_NOT_NULL(req_wrap_async);
-    len = StringBytes::StorageSize(env->isolate(), value, enc);
+    if (!StringBytes::StorageSize(env->isolate(), value, enc).To(&len)) return;
     FSReqBase::FSReqBuffer& stack_buffer =
         req_wrap_async->Init("write", len, enc);
     // StorageSize may return too large a char, so correct the actual length
@@ -1583,7 +1714,8 @@ static void WriteString(const FunctionCallbackInfo<Value>& args) {
     FSReqWrapSync req_wrap_sync;
     FSReqBase::FSReqBuffer stack_buffer;
     if (buf == nullptr) {
-      len = StringBytes::StorageSize(env->isolate(), value, enc);
+      if (!StringBytes::StorageSize(env->isolate(), value, enc).To(&len))
+        return;
       stack_buffer.AllocateSufficientStorage(len + 1);
       // StorageSize may return too large a char, so correct the actual length
       // by the write size

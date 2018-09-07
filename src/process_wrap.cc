@@ -36,6 +36,7 @@ using v8::Context;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
 using v8::HandleScope;
+using v8::Int32;
 using v8::Integer;
 using v8::Local;
 using v8::Number;
@@ -108,9 +109,9 @@ class ProcessWrap : public HandleWrap {
       Local<Value> type =
           stdio->Get(context, env->type_string()).ToLocalChecked();
 
-      if (type->Equals(env->ignore_string())) {
+      if (type->StrictEquals(env->ignore_string())) {
         options->stdio[i].flags = UV_IGNORE;
-      } else if (type->Equals(env->pipe_string())) {
+      } else if (type->StrictEquals(env->pipe_string())) {
         options->stdio[i].flags = static_cast<uv_stdio_flags>(
             UV_CREATE_PIPE | UV_READABLE_PIPE | UV_WRITABLE_PIPE);
         Local<String> handle_key = env->handle_string();
@@ -120,7 +121,7 @@ class ProcessWrap : public HandleWrap {
         options->stdio[i].data.stream =
             reinterpret_cast<uv_stream_t*>(
                 Unwrap<PipeWrap>(handle)->UVHandle());
-      } else if (type->Equals(env->wrap_string())) {
+      } else if (type->StrictEquals(env->wrap_string())) {
         Local<String> handle_key = env->handle_string();
         Local<Object> handle =
             stdio->Get(context, handle_key).ToLocalChecked().As<Object>();
@@ -131,8 +132,9 @@ class ProcessWrap : public HandleWrap {
         options->stdio[i].data.stream = stream;
       } else {
         Local<String> fd_key = env->fd_string();
-        int fd = static_cast<int>(
-            stdio->Get(context, fd_key).ToLocalChecked()->IntegerValue());
+        Local<Value> fd_value = stdio->Get(context, fd_key).ToLocalChecked();
+        CHECK(fd_value->IsNumber());
+        int fd = static_cast<int>(fd_value.As<Integer>()->Value());
         options->stdio[i].flags = UV_INHERIT_FD;
         options->stdio[i].data.fd = fd;
       }
@@ -158,7 +160,7 @@ class ProcessWrap : public HandleWrap {
         js_options->Get(context, env->uid_string()).ToLocalChecked();
     if (!uid_v->IsUndefined() && !uid_v->IsNull()) {
       CHECK(uid_v->IsInt32());
-      const int32_t uid = uid_v->Int32Value(context).FromJust();
+      const int32_t uid = uid_v.As<Int32>()->Value();
       options.flags |= UV_PROCESS_SETUID;
       options.uid = static_cast<uv_uid_t>(uid);
     }
@@ -168,7 +170,7 @@ class ProcessWrap : public HandleWrap {
         js_options->Get(context, env->gid_string()).ToLocalChecked();
     if (!gid_v->IsUndefined() && !gid_v->IsNull()) {
       CHECK(gid_v->IsInt32());
-      const int32_t gid = gid_v->Int32Value(context).FromJust();
+      const int32_t gid = gid_v.As<Int32>()->Value();
       options.flags |= UV_PROCESS_SETGID;
       options.gid = static_cast<uv_gid_t>(gid);
     }

@@ -34,6 +34,7 @@
 #include "uv.h"
 #include "v8.h"
 #include "node.h"
+#include "node_options.h"
 #include "node_http2_state.h"
 
 #include <list>
@@ -111,11 +112,13 @@ struct PackageConfig {
 // for the sake of convenience.
 #define PER_ISOLATE_SYMBOL_PROPERTIES(V)                                      \
   V(handle_onclose_symbol, "handle_onclose")                                  \
+  V(owner_symbol, "owner")                                                    \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
 #define PER_ISOLATE_STRING_PROPERTIES(V)                                      \
   V(address_string, "address")                                                \
+  V(aliases_string, "aliases")                                                \
   V(args_string, "args")                                                      \
   V(async, "async")                                                           \
   V(async_ids_stack_string, "async_ids_stack")                                \
@@ -147,11 +150,14 @@ struct PackageConfig {
   V(dns_soa_string, "SOA")                                                    \
   V(dns_srv_string, "SRV")                                                    \
   V(dns_txt_string, "TXT")                                                    \
+  V(duration_string, "duration")                                              \
   V(emit_warning_string, "emitWarning")                                       \
   V(exchange_string, "exchange")                                              \
   V(encoding_string, "encoding")                                              \
   V(entries_string, "entries")                                                \
+  V(entry_type_string, "entryType")                                           \
   V(env_pairs_string, "envPairs")                                             \
+  V(env_var_settings_string, "envVarSettings")                                \
   V(errno_string, "errno")                                                    \
   V(error_string, "error")                                                    \
   V(exit_code_string, "exitCode")                                             \
@@ -172,6 +178,7 @@ struct PackageConfig {
   V(get_shared_array_buffer_id_string, "_getSharedArrayBufferId")             \
   V(gid_string, "gid")                                                        \
   V(handle_string, "handle")                                                  \
+  V(help_text_string, "helpText")                                             \
   V(homedir_string, "homedir")                                                \
   V(host_string, "host")                                                      \
   V(hostmaster_string, "hostmaster")                                          \
@@ -186,6 +193,7 @@ struct PackageConfig {
   V(issuer_string, "issuer")                                                  \
   V(issuercert_string, "issuerCertificate")                                   \
   V(kill_signal_string, "killSignal")                                         \
+  V(kind_string, "kind")                                                      \
   V(mac_string, "mac")                                                        \
   V(main_string, "main")                                                      \
   V(max_buffer_string, "maxBuffer")                                           \
@@ -228,9 +236,9 @@ struct PackageConfig {
   V(onunpipe_string, "onunpipe")                                              \
   V(onwrite_string, "onwrite")                                                \
   V(openssl_error_stack, "opensslErrorStack")                                 \
+  V(options_string, "options")                                                \
   V(output_string, "output")                                                  \
   V(order_string, "order")                                                    \
-  V(owner_string, "owner")                                                    \
   V(parse_error_string, "Parse Error")                                        \
   V(password_string, "password")                                              \
   V(path_string, "path")                                                      \
@@ -270,6 +278,7 @@ struct PackageConfig {
   V(sni_context_string, "sni_context")                                        \
   V(source_string, "source")                                                  \
   V(stack_string, "stack")                                                    \
+  V(start_time_string, "startTime")                                           \
   V(status_string, "status")                                                  \
   V(stdio_string, "stdio")                                                    \
   V(subject_string, "subject")                                                \
@@ -360,6 +369,7 @@ class IsolateData {
   inline uv_loop_t* event_loop() const;
   inline uint32_t* zero_fill_field() const;
   inline MultiIsolatePlatform* platform() const;
+  inline std::shared_ptr<PerIsolateOptions> options();
 
 #define VP(PropertyName, StringValue) V(v8::Private, PropertyName)
 #define VY(PropertyName, StringValue) V(v8::Symbol, PropertyName)
@@ -393,6 +403,7 @@ class IsolateData {
   uv_loop_t* const event_loop_;
   uint32_t* const zero_fill_field_;
   MultiIsolatePlatform* platform_;
+  std::shared_ptr<PerIsolateOptions> options_;
 
   DISALLOW_COPY_AND_ASSIGN(IsolateData);
 };
@@ -499,13 +510,14 @@ class Environment {
     AsyncCallbackScope() = delete;
     explicit AsyncCallbackScope(Environment* env);
     ~AsyncCallbackScope();
-    inline bool in_makecallback() const;
 
    private:
     Environment* env_;
 
     DISALLOW_COPY_AND_ASSIGN(AsyncCallbackScope);
   };
+
+  inline size_t makecallback_depth() const;
 
   class ImmediateInfo {
    public:
@@ -579,10 +591,8 @@ class Environment {
               tracing::AgentWriterHandle* tracing_agent_writer);
   ~Environment();
 
-  void Start(int argc,
-             const char* const* argv,
-             int exec_argc,
-             const char* const* exec_argv,
+  void Start(const std::vector<std::string>& args,
+             const std::vector<std::string>& exec_args,
              bool start_profiler_idle_notifier);
 
   typedef void (*HandleCleanupCb)(Environment* env,
@@ -853,6 +863,8 @@ class Environment {
                                  v8::EmbedderGraph* graph,
                                  void* data);
 
+  inline std::shared_ptr<EnvironmentOptions> options();
+
  private:
   inline void CreateImmediate(native_immediate_callback cb,
                               void* data,
@@ -881,6 +893,8 @@ class Environment {
   bool emit_env_nonstring_warning_;
   size_t makecallback_cntr_;
   std::vector<double> destroy_async_id_list_;
+
+  std::shared_ptr<EnvironmentOptions> options_;
 
   AliasedBuffer<uint32_t, v8::Uint32Array> should_abort_on_uncaught_toggle_;
   int should_not_abort_scope_counter_ = 0;

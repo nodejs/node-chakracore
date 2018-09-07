@@ -352,21 +352,21 @@ If this was in a folder at `./some-library`, then
 
 This is the extent of Node.js's awareness of `package.json` files.
 
-If the file specified by the `'main'` entry of `package.json` is missing and
-can not be resolved, Node.js will report the entire module as missing with the
-default error:
-
-```txt
-Error: Cannot find module 'some-library'
-```
-
-If there is no `package.json` file present in the directory, then Node.js
+If there is no `package.json` file present in the directory, or if the
+`'main'` entry is missing or cannot be resolved, then Node.js
 will attempt to load an `index.js` or `index.node` file out of that
 directory. For example, if there was no `package.json` file in the above
 example, then `require('./some-library')` would attempt to load:
 
 * `./some-library/index.js`
 * `./some-library/index.node`
+
+If these attempts fail, then Node.js will report the entire module as missing
+with the default error:
+
+```txt
+Error: Cannot find module 'some-library'
+```
 
 ## Loading from `node_modules` Folders
 
@@ -708,7 +708,7 @@ this, assign the desired export object to `module.exports`. Note that assigning
 the desired object to `exports` will simply rebind the local `exports` variable,
 which is probably not what is desired.
 
-For example suppose we were making a module called `a.js`:
+For example, suppose we were making a module called `a.js`:
 
 ```js
 const EventEmitter = require('events');

@@ -476,21 +476,19 @@ class NodeInspectorClient : public V8InspectorClient {
   }
 
   void FatalException(Local<Value> error, Local<v8::Message> message) {
+    Isolate* isolate = env_->isolate();
     Local<Context> context = env_->context();
 
     int script_id = message->GetScriptOrigin().ScriptID()->Value();
 
     Local<v8::StackTrace> stack_trace = message->GetStackTrace();
 
-    if (!stack_trace.IsEmpty() &&
-        stack_trace->GetFrameCount() > 0 &&
-        script_id == stack_trace->GetFrame(0)->GetScriptId()) {
+    if (!stack_trace.IsEmpty() && stack_trace->GetFrameCount() > 0 &&
+        script_id == stack_trace->GetFrame(isolate, 0)->GetScriptId()) {
       script_id = 0;
     }
 
     const uint8_t DETAILS[] = "Uncaught";
-
-    Isolate* isolate = context->GetIsolate();
 
     client_->exceptionThrown(
         context,
@@ -608,11 +606,14 @@ class NodeInspectorClient : public V8InspectorClient {
   std::unique_ptr<MainThreadInterface> interface_;
 };
 
-Agent::Agent(Environment* env) : parent_env_(env) {}
+Agent::Agent(Environment* env)
+  : parent_env_(env),
+    debug_options_(env->options()->debug_options) {}
 
 Agent::~Agent() = default;
 
-bool Agent::Start(const std::string& path, const DebugOptions& options) {
+bool Agent::Start(const std::string& path,
+                  std::shared_ptr<DebugOptions> options) {
   path_ = path;
   debug_options_ = options;
   client_ = std::make_shared<NodeInspectorClient>(parent_env_);
@@ -626,8 +627,8 @@ bool Agent::Start(const std::string& path, const DebugOptions& options) {
     StartDebugSignalHandler();
   }
 
-  bool wait_for_connect = options.wait_for_connect();
-  if (!options.inspector_enabled() || !StartIoThread()) {
+  bool wait_for_connect = options->wait_for_connect();
+  if (!options->inspector_enabled || !StartIoThread()) {
     return false;
   }
   if (wait_for_connect) {
@@ -789,7 +790,7 @@ void Agent::ContextCreated(Local<Context> context, const ContextInfo& info) {
 }
 
 bool Agent::WillWaitForConnect() {
-  return debug_options_.wait_for_connect();
+  return debug_options_->wait_for_connect();
 }
 
 bool Agent::IsActive() {

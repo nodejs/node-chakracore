@@ -323,7 +323,7 @@ the default evaluator and the `repl.REPLServer` instance was created with the
 reference to the `context` object as the only argument.
 
 This can be used primarily to re-initialize REPL context to some pre-defined
-state as illustrated in the following simple example:
+state:
 
 ```js
 const repl = require('repl');
@@ -433,7 +433,7 @@ buffered but not yet executed. This method is primarily intended to be
 called from within the action function for commands registered using the
 `replServer.defineCommand()` method.
 
-### replServer.parseREPLKeyword(keyword, [rest])
+### replServer.parseREPLKeyword(keyword[, rest])
 <!-- YAML
 added: v0.8.9
 deprecated: v9.0.0

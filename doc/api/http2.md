@@ -1,8 +1,14 @@
 # HTTP/2
-
+<!-- YAML
+added: v8.4.0
+changes:
+  - version: v10.10.0
+    pr-url: https://github.com/nodejs/node/pull/22466
+    description: HTTP/2 is now Stable. Previously, it had been Experimental.
+-->
 <!--introduced_in=v8.4.0-->
 
-> Stability: 1 - Experimental
+> Stability: 2 - Stable
 
 The `http2` module provides an implementation of the [HTTP/2][] protocol. It
 can be accessed using:
@@ -349,7 +355,7 @@ Will be `true` if this `Http2Session` instance is still connecting, will be set
 to `false` before emitting `connect` event and/or calling the `http2.connect`
 callback.
 
-#### http2session.destroy([error,][code])
+#### http2session.destroy([error][, code])
 <!-- YAML
 added: v8.4.0
 -->
@@ -392,7 +398,7 @@ connected, `true` if the `Http2Session` is connected with a `TLSSocket`,
 and `false` if the `Http2Session` is connected to any other kind of socket
 or stream.
 
-#### http2session.goaway([code, [lastStreamID, [opaqueData]]])
+#### http2session.goaway([code[, lastStreamID[, opaqueData]]])
 <!-- YAML
 added: v9.4.0
 -->
@@ -746,10 +752,10 @@ is emitted immediately after queuing the last chunk of payload data to be sent.
 The `http2stream.sendTrailers()` method can then be called to send trailing
 headers to the peer.
 
-It is important to note that when `options.waitForTrailers` is set, the
-`Http2Stream` will *not* automatically close when the final `DATA` frame is
-transmitted. User code *must* call either `http2stream.sendTrailers()` or
-`http2stream.close()` to close the `Http2Stream`.
+When `options.waitForTrailers` is set, the `Http2Stream` will not automatically
+close when the final `DATA` frame is transmitted. User code must call either
+`http2stream.sendTrailers()` or `http2stream.close()` to close the
+`Http2Stream`.
 
 The `:method` and `:path` pseudo-headers are not specified within `headers`,
 they respectively default to:
@@ -1285,10 +1291,10 @@ will be emitted immediately after queuing the last chunk of payload data to be
 sent. The `http2stream.sendTrailers()` method can then be used to sent trailing
 header fields to the peer.
 
-It is important to note that when `options.waitForTrailers` is set, the
-`Http2Stream` will *not* automatically close when the final `DATA` frame is
-transmitted. User code *must* call either `http2stream.sendTrailers()` or
-`http2stream.close()` to close the `Http2Stream`.
+When `options.waitForTrailers` is set, the `Http2Stream` will not automatically
+close when the final `DATA` frame is transmitted. User code must call either
+`http2stream.sendTrailers()` or `http2stream.close()` to close the
+`Http2Stream`.
 
 ```js
 const http2 = require('http2');
@@ -1369,10 +1375,10 @@ will be emitted immediately after queuing the last chunk of payload data to be
 sent. The `http2stream.sendTrailers()` method can then be used to sent trailing
 header fields to the peer.
 
-It is important to note that when `options.waitForTrailers` is set, the
-`Http2Stream` will *not* automatically close when the final `DATA` frame is
-transmitted. User code *must* call either `http2stream.sendTrailers()` or
-`http2stream.close()` to close the `Http2Stream`.
+When `options.waitForTrailers` is set, the `Http2Stream` will not automatically
+close when the final `DATA` frame is transmitted. User code *must* call either
+`http2stream.sendTrailers()` or `http2stream.close()` to close the
+`Http2Stream`.
 
 ```js
 const http2 = require('http2');
@@ -1493,10 +1499,10 @@ will be emitted immediately after queuing the last chunk of payload data to be
 sent. The `http2stream.sendTrilers()` method can then be used to sent trailing
 header fields to the peer.
 
-It is important to note that when `options.waitForTrailers` is set, the
-`Http2Stream` will *not* automatically close when the final `DATA` frame is
-transmitted. User code *must* call either `http2stream.sendTrailers()` or
-`http2stream.close()` to close the `Http2Stream`.
+When `options.waitForTrailers` is set, the `Http2Stream` will not automatically
+close when the final `DATA` frame is transmitted. User code must call either
+`http2stream.sendTrailers()` or `http2stream.close()` to close the
+`Http2Stream`.
 
 ```js
 const http2 = require('http2');
@@ -2487,7 +2493,6 @@ added: v8.4.0
 The request/response headers object.
 
 Key-value pairs of header names and values. Header names are lower-cased.
-Example:
 
 ```js
 // Prints something like:
@@ -2532,8 +2537,7 @@ added: v8.4.0
 
 * {string}
 
-The request method as a string. Read-only. Example:
-`'GET'`, `'DELETE'`.
+The request method as a string. Read-only. Examples: `'GET'`, `'DELETE'`.
 
 #### request.rawHeaders
 <!-- YAML
@@ -2660,7 +2664,7 @@ Then `request.url` will be:
 ```
 
 To parse the url into its parts `require('url').parse(request.url)`
-can be used. Example:
+can be used:
 
 ```txt
 $ node
@@ -2683,7 +2687,6 @@ Url {
 To extract the parameters from the query string, the
 `require('querystring').parse` function can be used, or
 `true` can be passed as the second argument to `require('url').parse`.
-Example:
 
 ```txt
 $ node
@@ -2711,8 +2714,8 @@ added: v8.4.0
 This object is created internally by an HTTP server — not by the user. It is
 passed as the second parameter to the [`'request'`][] event.
 
-The response implements, but does not inherit from, the [Writable Stream][]
-interface. This is an [`EventEmitter`][] with the following events:
+The response inherits from [Stream][], and additionally implements the
+following:
 
 #### Event: 'close'
 <!-- YAML
@@ -2801,8 +2804,6 @@ added: v8.4.0
 Reads out a header that has already been queued but not sent to the client.
 Note that the name is case insensitive.
 
-Example:
-
 ```js
 const contentType = response.getHeader('content-type');
 ```
@@ -2816,8 +2817,6 @@ added: v8.4.0
 
 Returns an array containing the unique names of the current outgoing headers.
 All header names are lowercase.
-
-Example:
 
 ```js
 response.setHeader('Foo', 'bar');
@@ -2845,8 +2844,6 @@ prototypically inherit from the JavaScript `Object`. This means that typical
 `Object` methods such as `obj.toString()`, `obj.hasOwnProperty()`, and others
 are not defined and *will not work*.
 
-Example:
-
 ```js
 response.setHeader('Foo', 'bar');
 response.setHeader('Set-Cookie', ['foo=bar', 'bar=baz']);
@@ -2865,8 +2862,6 @@ added: v8.4.0
 
 Returns `true` if the header identified by `name` is currently set in the
 outgoing headers. Note that the header name matching is case-insensitive.
-
-Example:
 
 ```js
 const hasContentType = response.hasHeader('content-type');
@@ -2889,8 +2884,6 @@ added: v8.4.0
 * `name` {string}
 
 Removes a header that has been queued for implicit sending.
-
-Example:
 
 ```js
 response.removeHeader('Content-Encoding');
@@ -2920,8 +2913,6 @@ added: v8.4.0
 Sets a single header value for implicit headers. If this header already exists
 in the to-be-sent headers, its value will be replaced. Use an array of strings
 here to send multiple headers with the same name.
-
-Example:
 
 ```js
 response.setHeader('Content-Type', 'text/html');
@@ -2992,8 +2983,6 @@ more information.
 
 All other interactions will be routed directly to the socket.
 
-Example:
-
 ```js
 const http2 = require('http2');
 const server = http2.createServer((req, res) => {
@@ -3013,8 +3002,6 @@ added: v8.4.0
 When using implicit headers (not calling [`response.writeHead()`][] explicitly),
 this property controls the status code that will be sent to the client when
 the headers get flushed.
-
-Example:
 
 ```js
 response.statusCode = 404;
@@ -3106,8 +3093,6 @@ passed as the second argument. However, because the `statusMessage` has no
 meaning within HTTP/2, the argument will have no effect and a process warning
 will be emitted.
 
-Example:
-
 ```js
 const body = 'hello world';
 response.writeHead(200, {
@@ -3150,13 +3135,17 @@ will result in a [`TypeError`][] being thrown.
 added: v8.4.0
 -->
 * `headers` {HTTP/2 Headers Object} An object describing the headers
-* `callback` {Function}
+* `callback` {Function} Called once `http2stream.pushStream()` is finished,
+  or either when the attempt to create the pushed `Http2Stream` has failed or
+  has been rejected, or the state of `Http2ServerRequest` is closed prior to
+  calling the `http2stream.pushStream()` method
+  * `err` {Error}
+  * `stream` {ServerHttp2Stream} The newly-created `ServerHttp2Stream` object
 
-Call [`http2stream.pushStream()`][] with the given headers, and wraps the
-given newly created [`Http2Stream`] on `Http2ServerResponse`.
-
-The callback will be called with an error with code `ERR_HTTP2_INVALID_STREAM`
-if the stream is closed.
+Call [`http2stream.pushStream()`][] with the given headers, and wrap the
+given [`Http2Stream`] on a newly created `Http2ServerResponse` as the callback
+parameter if successful. When `Http2ServerRequest` is closed, the callback is
+called with an error `ERR_HTTP2_INVALID_STREAM`.
 
 ## Collecting HTTP/2 Performance Metrics
 
@@ -3231,13 +3220,11 @@ following additional properties:
 [Readable Stream]: stream.html#stream_class_stream_readable
 [RFC 7838]: https://tools.ietf.org/html/rfc7838
 [Using `options.selectPadding()`]: #http2_using_options_selectpadding
-[Writable Stream]: stream.html#stream_writable_streams
 [`'checkContinue'`]: #http2_event_checkcontinue
 [`'request'`]: #http2_event_request
 [`'unknownProtocol'`]: #http2_event_unknownprotocol
 [`ClientHttp2Stream`]: #http2_class_clienthttp2stream
 [`Duplex`]: stream.html#stream_class_stream_duplex
-[`EventEmitter`]: events.html#events_class_eventemitter
 [`Http2ServerRequest`]: #http2_class_http2_http2serverrequest
 [`Http2Session` and Sockets]: #http2_http2session_and_sockets
 [`Http2Stream`]: #http2_class_http2stream

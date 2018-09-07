@@ -21,6 +21,7 @@ using v8::MaybeLocal;
 using v8::NewStringType;
 using v8::Object;
 using v8::String;
+using v8::Uint32;
 using v8::Value;
 
 using v8_inspector::StringBuffer;
@@ -241,13 +242,13 @@ void Open(const FunctionCallbackInfo<Value>& args) {
   bool wait_for_connect = false;
 
   if (args.Length() > 0 && args[0]->IsUint32()) {
-    uint32_t port = args[0]->Uint32Value();
-    agent->options().set_port(static_cast<int>(port));
+    uint32_t port = args[0].As<Uint32>()->Value();
+    agent->options()->host_port.port = port;
   }
 
   if (args.Length() > 1 && args[1]->IsString()) {
     Utf8Value host(env->isolate(), args[1].As<String>());
-    agent->options().set_host_name(*host);
+    agent->options()->host_port.host_name = *host;
   }
 
   if (args.Length() > 2 && args[2]->IsBoolean()) {
