@@ -83,6 +83,7 @@ using v8::Maybe;
 using v8::MaybeLocal;
 using v8::Object;
 using v8::String;
+using v8::Uint32;
 using v8::Uint32Array;
 using v8::Uint8Array;
 using v8::Value;
@@ -255,7 +256,9 @@ MaybeLocal<Object> New(Isolate* isolate,
                        enum encoding enc) {
   EscapableHandleScope scope(isolate);
 
-  const size_t length = StringBytes::Size(isolate, string, enc);
+  size_t length;
+  if (!StringBytes::Size(isolate, string, enc).To(&length))
+    return Local<Object>();
   size_t actual = 0;
   char* data = nullptr;
 
@@ -483,65 +486,6 @@ void StringSlice(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-template <>
-void StringSlice<UCS2>(const FunctionCallbackInfo<Value>& args) {
-  Isolate* isolate = args.GetIsolate();
-  Environment* env = Environment::GetCurrent(isolate);
-
-  THROW_AND_RETURN_UNLESS_BUFFER(env, args.This());
-  SPREAD_BUFFER_ARG(args.This(), ts_obj);
-
-  if (ts_obj_length == 0)
-    return args.GetReturnValue().SetEmptyString();
-
-  SLICE_START_END(args[0], args[1], ts_obj_length)
-  length /= 2;
-
-  const char* data = ts_obj_data + start;
-  const uint16_t* buf;
-  bool release = false;
-
-  // Node's "ucs2" encoding expects LE character data inside a Buffer, so we
-  // need to reorder on BE platforms.  See https://nodejs.org/api/buffer.html
-  // regarding Node's "ucs2" encoding specification.
-  const bool aligned = (reinterpret_cast<uintptr_t>(data) % sizeof(*buf) == 0);
-  if (IsLittleEndian() && !aligned) {
-    // Make a copy to avoid unaligned accesses in v8::String::NewFromTwoByte().
-    // This applies ONLY to little endian platforms, as misalignment will be
-    // handled by a byte-swapping operation in StringBytes::Encode on
-    // big endian platforms.
-    uint16_t* copy = new uint16_t[length];
-    for (size_t i = 0, k = 0; i < length; i += 1, k += 2) {
-      // Assumes that the input is little endian.
-      const uint8_t lo = static_cast<uint8_t>(data[k + 0]);
-      const uint8_t hi = static_cast<uint8_t>(data[k + 1]);
-      copy[i] = lo | hi << 8;
-    }
-    buf = copy;
-    release = true;
-  } else {
-    buf = reinterpret_cast<const uint16_t*>(data);
-  }
-
-  Local<Value> error;
-  MaybeLocal<Value> ret =
-      StringBytes::Encode(isolate,
-                          buf,
-                          length,
-                          &error);
-
-  if (release)
-    delete[] buf;
-
-  if (ret.IsEmpty()) {
-    CHECK(!error.IsEmpty());
-    isolate->ThrowException(error);
-    return;
-  }
-  args.GetReturnValue().Set(ret.ToLocalChecked());
-}
-
-
 // bytesCopied = copy(buffer, target[, targetStart][, sourceStart][, sourceEnd])
 void Copy(const FunctionCallbackInfo<Value> &args) {
   Environment* env = Environment::GetCurrent(args);
@@ -592,12 +536,15 @@ void Copy(const FunctionCallbackInfo<Value> &args) {
 
 void Fill(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  Local<Context> ctx = env->context();
 
   THROW_AND_RETURN_UNLESS_BUFFER(env, args[0]);
   SPREAD_BUFFER_ARG(args[0], ts_obj);
 
-  size_t start = args[2]->Uint32Value();
-  size_t end = args[3]->Uint32Value();
+  uint32_t start;
+  if (!args[2]->Uint32Value(ctx).To(&start)) return;
+  uint32_t end;
+  if (!args[3]->Uint32Value(ctx).To(&end)) return;
   size_t fill_length = end - start;
   Local<String> str_obj;
   size_t str_length;
@@ -617,7 +564,9 @@ void Fill(const FunctionCallbackInfo<Value>& args) {
 
   // Then coerce everything that's not a string.
   if (!args[1]->IsString()) {
-    int value = args[1]->Uint32Value() & 255;
+    uint32_t val;
+    if (!args[1]->Uint32Value(ctx).To(&val)) return;
+    int value = val & 255;
     memset(ts_obj_data + start, value, fill_length);
 
 #if ENABLE_TTD_NODE
@@ -888,7 +837,8 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
   const size_t haystack_length = (enc == UCS2) ?
       ts_obj_length &~ 1 : ts_obj_length;  // NOLINT(whitespace/operators)
 
-  const size_t needle_length = StringBytes::Size(isolate, needle, enc);
+  size_t needle_length;
+  if (!StringBytes::Size(isolate, needle, enc).To(&needle_length)) return;
 
   int64_t opt_offset = IndexOfOffset(haystack_length,
                                      offset_i64,
@@ -928,7 +878,7 @@ void IndexOfString(const FunctionCallbackInfo<Value>& args) {
 
     if (IsBigEndian()) {
       StringBytes::InlineDecoder decoder;
-      decoder.Decode(env, needle, args[3], UCS2);
+      if (decoder.Decode(env, needle, args[3], UCS2).IsNothing()) return;
       const uint16_t* decoded_string =
           reinterpret_cast<const uint16_t*>(decoder.out());
 
@@ -1057,14 +1007,14 @@ void IndexOfBuffer(const FunctionCallbackInfo<Value>& args) {
 }
 
 void IndexOfNumber(const FunctionCallbackInfo<Value>& args) {
-  CHECK(args[1]->IsNumber());
+  CHECK(args[1]->IsUint32());
   CHECK(args[2]->IsNumber());
   CHECK(args[3]->IsBoolean());
 
   THROW_AND_RETURN_UNLESS_BUFFER(Environment::GetCurrent(args), args[0]);
   SPREAD_BUFFER_ARG(args[0], ts_obj);
 
-  uint32_t needle = args[1]->Uint32Value();
+  uint32_t needle = args[1].As<Uint32>()->Value();
   int64_t offset_i64 = args[2]->IntegerValue();
   bool is_forward = args[3]->IsTrue();
 

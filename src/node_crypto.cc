@@ -2928,6 +2928,20 @@ void CipherBase::SetAuthTag(const FunctionCallbackInfo<Value>& args) {
 }
 
 
+bool CipherBase::MaybePassAuthTagToOpenSSL() {
+  if (!auth_tag_set_ && auth_tag_len_ != kNoAuthTagLength) {
+    if (!EVP_CIPHER_CTX_ctrl(ctx_.get(),
+                             EVP_CTRL_AEAD_SET_TAG,
+                             auth_tag_len_,
+                             reinterpret_cast<unsigned char*>(auth_tag_))) {
+      return false;
+    }
+    auth_tag_set_ = true;
+  }
+  return true;
+}
+
+
 bool CipherBase::SetAAD(const char* data, unsigned int len, int plaintext_len) {
   if (!ctx_ || !IsAuthenticatedMode())
     return false;
@@ -2947,15 +2961,9 @@ bool CipherBase::SetAAD(const char* data, unsigned int len, int plaintext_len) {
     if (!CheckCCMMessageLength(plaintext_len))
       return false;
 
-    if (kind_ == kDecipher && !auth_tag_set_ && auth_tag_len_ > 0 &&
-        auth_tag_len_ != kNoAuthTagLength) {
-      if (!EVP_CIPHER_CTX_ctrl(ctx_.get(),
-                               EVP_CTRL_CCM_SET_TAG,
-                               auth_tag_len_,
-                               reinterpret_cast<unsigned char*>(auth_tag_))) {
+    if (kind_ == kDecipher) {
+      if (!MaybePassAuthTagToOpenSSL())
         return false;
-      }
-      auth_tag_set_ = true;
     }
 
     // Specify the plaintext length.
@@ -3000,14 +3008,10 @@ CipherBase::UpdateResult CipherBase::Update(const char* data,
       return kErrorMessageSize;
   }
 
-  // on first update:
-  if (kind_ == kDecipher && IsAuthenticatedMode() && auth_tag_len_ > 0 &&
-      auth_tag_len_ != kNoAuthTagLength && !auth_tag_set_) {
-    CHECK(EVP_CIPHER_CTX_ctrl(ctx_.get(),
-                              EVP_CTRL_AEAD_SET_TAG,
-                              auth_tag_len_,
-                              reinterpret_cast<unsigned char*>(auth_tag_)));
-    auth_tag_set_ = true;
+  // Pass the authentication tag to OpenSSL if possible. This will only happen
+  // once, usually on the first update.
+  if (kind_ == kDecipher && IsAuthenticatedMode()) {
+    CHECK(MaybePassAuthTagToOpenSSL());
   }
 
   *out_len = 0;
@@ -3055,7 +3059,8 @@ void CipherBase::Update(const FunctionCallbackInfo<Value>& args) {
   // Only copy the data if we have to, because it's a string
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8))
+    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8)
+             .FromMaybe(false))
       return;
     r = cipher->Update(decoder.out(), decoder.size(), &out, &out_len);
   } else {
@@ -3106,6 +3111,10 @@ bool CipherBase::Final(unsigned char** out, int* out_len) {
 
   *out = Malloc<unsigned char>(
       static_cast<size_t>(EVP_CIPHER_CTX_block_size(ctx_.get())));
+
+  if (kind_ == kDecipher && IsSupportedAuthenticatedMode(mode)) {
+    MaybePassAuthTagToOpenSSL();
+  }
 
   // In CCM mode, final() only checks whether authentication failed in update().
   // EVP_CipherFinal_ex must not be called and will fail.
@@ -3241,7 +3250,8 @@ void Hmac::HmacUpdate(const FunctionCallbackInfo<Value>& args) {
   bool r = false;
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (decoder.Decode(env, args[0].As<String>(), args[1], UTF8)) {
+    if (decoder.Decode(env, args[0].As<String>(), args[1], UTF8)
+            .FromMaybe(false)) {
       r = hmac->HmacUpdate(decoder.out(), decoder.size());
     }
   } else {
@@ -3348,7 +3358,8 @@ void Hash::HashUpdate(const FunctionCallbackInfo<Value>& args) {
   bool r = true;
   if (args[0]->IsString()) {
     StringBytes::InlineDecoder decoder;
-    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8)) {
+    if (!decoder.Decode(env, args[0].As<String>(), args[1], UTF8)
+             .FromMaybe(false)) {
       args.GetReturnValue().Set(false);
       return;
     }
@@ -3871,7 +3882,8 @@ void PublicKeyCipher::Cipher(const FunctionCallbackInfo<Value>& args) {
   char* buf = Buffer::Data(args[1]);
   ssize_t len = Buffer::Length(args[1]);
 
-  int padding = args[2]->Uint32Value();
+  uint32_t padding;
+  if (!args[2]->Uint32Value(env->context()).To(&padding)) return;
 
   String::Utf8Value passphrase(args.GetIsolate(), args[3]);
 
@@ -4436,8 +4448,9 @@ void ECDH::GetPublicKey(const FunctionCallbackInfo<Value>& args) {
     return env->ThrowError("Failed to get ECDH public key");
 
   int size;
-  point_conversion_form_t form =
-      static_cast<point_conversion_form_t>(args[0]->Uint32Value());
+  CHECK(args[0]->IsUint32());
+  uint32_t val = args[0].As<Uint32>()->Value();
+  point_conversion_form_t form = static_cast<point_conversion_form_t>(val);
 
   size = EC_POINT_point2oct(ecdh->group_, pub, form, nullptr, 0, nullptr);
   if (size == 0)
@@ -5052,8 +5065,9 @@ void ConvertKey(const FunctionCallbackInfo<Value>& args) {
   if (pub == nullptr)
     return env->ThrowError("Failed to convert Buffer to EC_POINT");
 
-  point_conversion_form_t form =
-      static_cast<point_conversion_form_t>(args[2]->Uint32Value());
+  CHECK(args[2]->IsUint32());
+  uint32_t val = args[2].As<Uint32>()->Value();
+  point_conversion_form_t form = static_cast<point_conversion_form_t>(val);
 
   int size = EC_POINT_point2oct(
       group.get(), pub.get(), form, nullptr, 0, nullptr);
@@ -5152,7 +5166,8 @@ void InitCryptoOnce() {
 void SetEngine(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   CHECK(args.Length() >= 2 && args[0]->IsString());
-  unsigned int flags = args[1]->Uint32Value();
+  uint32_t flags;
+  if (!args[1]->Uint32Value(env->context()).To(&flags)) return;
 
   ClearErrorOnReturn clear_error_on_return;
 

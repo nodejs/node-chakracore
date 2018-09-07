@@ -41,8 +41,11 @@ namespace node {
 
 using v8::HandleScope;
 using v8::Isolate;
+using v8::Just;
 using v8::Local;
+using v8::Maybe;
 using v8::MaybeLocal;
+using v8::Nothing;
 using v8::String;
 using v8::Value;
 
@@ -403,18 +406,20 @@ bool StringBytes::IsValidString(Local<String> string,
 // Quick and dirty size calculation
 // Will always be at least big enough, but may have some extra
 // UTF8 can be as much as 3x the size, Base64 can have 1-2 extra bytes
-size_t StringBytes::StorageSize(Isolate* isolate,
-                                Local<Value> val,
-                                enum encoding encoding) {
+Maybe<size_t> StringBytes::StorageSize(Isolate* isolate,
+                                       Local<Value> val,
+                                       enum encoding encoding) {
   HandleScope scope(isolate);
   size_t data_size = 0;
   bool is_buffer = Buffer::HasInstance(val);
 
   if (is_buffer && (encoding == BUFFER || encoding == LATIN1)) {
-    return Buffer::Length(val);
+    return Just(Buffer::Length(val));
   }
 
-  Local<String> str = val->ToString(isolate);
+  Local<String> str;
+  if (!val->ToString(isolate->GetCurrentContext()).ToLocal(&str))
+    return Nothing<size_t>();
 
   switch (encoding) {
     case ASCII:
@@ -448,39 +453,40 @@ size_t StringBytes::StorageSize(Isolate* isolate,
       break;
   }
 
-  return data_size;
+  return Just(data_size);
 }
 
-
-size_t StringBytes::Size(Isolate* isolate,
-                         Local<Value> val,
-                         enum encoding encoding) {
+Maybe<size_t> StringBytes::Size(Isolate* isolate,
+                                Local<Value> val,
+                                enum encoding encoding) {
   HandleScope scope(isolate);
 
   if (Buffer::HasInstance(val) && (encoding == BUFFER || encoding == LATIN1))
-    return Buffer::Length(val);
+    return Just(Buffer::Length(val));
 
-  Local<String> str = val->ToString(isolate);
+  Local<String> str;
+  if (!val->ToString(isolate->GetCurrentContext()).ToLocal(&str))
+    return Nothing<size_t>();
 
   switch (encoding) {
     case ASCII:
     case LATIN1:
-      return str->Length();
+      return Just<size_t>(str->Length());
 
     case BUFFER:
     case UTF8:
-      return str->Utf8Length(isolate);
+      return Just<size_t>(str->Utf8Length(isolate));
 
     case UCS2:
-      return str->Length() * sizeof(uint16_t);
+      return Just(str->Length() * sizeof(uint16_t));
 
     case BASE64: {
       String::Value value(isolate, str);
-      return base64_decoded_size(*value, value.length());
+      return Just(base64_decoded_size(*value, value.length()));
     }
 
     case HEX:
-      return str->Length() / 2;
+      return Just<size_t>(str->Length() / 2);
   }
 
   UNREACHABLE();
@@ -623,7 +629,6 @@ MaybeLocal<Value> StringBytes::Encode(Isolate* isolate,
                                       size_t buflen,
                                       enum encoding encoding,
                                       Local<Value>* error) {
-  CHECK_NE(encoding, UCS2);
   CHECK_BUFLEN_IN_RANGE(buflen);
 
   if (!buflen && encoding != BUFFER) {
@@ -701,6 +706,37 @@ MaybeLocal<Value> StringBytes::Encode(Isolate* isolate,
       return ExternOneByteString::New(isolate, dst, dlen, error);
     }
 
+    case UCS2: {
+      if (IsBigEndian()) {
+        uint16_t* dst = node::UncheckedMalloc<uint16_t>(buflen / 2);
+        if (dst == nullptr) {
+          *error = node::ERR_MEMORY_ALLOCATION_FAILED(isolate);
+          return MaybeLocal<Value>();
+        }
+        for (size_t i = 0, k = 0; k < buflen / 2; i += 2, k += 1) {
+          // The input is in *little endian*, because that's what Node.js
+          // expects, so the high byte comes after the low byte.
+          const uint8_t hi = static_cast<uint8_t>(buf[i + 1]);
+          const uint8_t lo = static_cast<uint8_t>(buf[i + 0]);
+          dst[k] = static_cast<uint16_t>(hi) << 8 | lo;
+        }
+        return ExternTwoByteString::New(isolate, dst, buflen / 2, error);
+      }
+      if (reinterpret_cast<uintptr_t>(buf) % 2 != 0) {
+        // Unaligned data still means we can't directly pass it to V8.
+        char* dst = node::UncheckedMalloc(buflen);
+        if (dst == nullptr) {
+          *error = node::ERR_MEMORY_ALLOCATION_FAILED(isolate);
+          return MaybeLocal<Value>();
+        }
+        memcpy(dst, buf, buflen);
+        return ExternTwoByteString::New(
+            isolate, reinterpret_cast<uint16_t*>(dst), buflen / 2, error);
+      }
+      return ExternTwoByteString::NewFromCopy(
+          isolate, reinterpret_cast<const uint16_t*>(buf), buflen / 2, error);
+    }
+
     default:
       CHECK(0 && "unknown encoding");
       break;
@@ -740,30 +776,7 @@ MaybeLocal<Value> StringBytes::Encode(Isolate* isolate,
                                       enum encoding encoding,
                                       Local<Value>* error) {
   const size_t len = strlen(buf);
-  MaybeLocal<Value> ret;
-  if (encoding == UCS2) {
-    // In Node, UCS2 means utf16le. The data must be in little-endian
-    // order and must be aligned on 2-bytes. This returns an empty
-    // value if it's not aligned and ensures the appropriate byte order
-    // on big endian architectures.
-    const bool be = IsBigEndian();
-    if (len % 2 != 0)
-      return ret;
-    std::vector<uint16_t> vec(len / 2);
-    for (size_t i = 0, k = 0; i < len; i += 2, k += 1) {
-      const uint8_t hi = static_cast<uint8_t>(buf[i + 0]);
-      const uint8_t lo = static_cast<uint8_t>(buf[i + 1]);
-      vec[k] = be ?
-          static_cast<uint16_t>(hi) << 8 | lo
-          : static_cast<uint16_t>(lo) << 8 | hi;
-    }
-    ret = vec.empty() ?
-        static_cast< Local<Value> >(String::Empty(isolate))
-        : StringBytes::Encode(isolate, &vec[0], vec.size(), error);
-  } else {
-    ret = StringBytes::Encode(isolate, buf, len, encoding, error);
-  }
-  return ret;
+  return Encode(isolate, buf, len, encoding, error);
 }
 
 }  // namespace node

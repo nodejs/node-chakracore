@@ -14,9 +14,10 @@
 #include <node_buffer.h>
 #include <node_object_wrap.h>
 #include <env.h>
-#include <array>
-#include <vector>
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <vector>
 #include "ChakraCore.h"
 
 #include "node_internals.h"
