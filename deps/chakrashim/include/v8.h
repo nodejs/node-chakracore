@@ -1316,10 +1316,10 @@ class V8_EXPORT String : public Name {
                         const);
   // UTF-8 encoded characters.
   int WriteUtf8(Isolate* isolate, char* buffer, int length = -1,
-                int* nchars_ref = NULL, int options = NO_OPTIONS) const;
+                int* nchars_ref = nullptr, int options = NO_OPTIONS) const;
   V8_DEPRECATE_SOON("Use Isolate* version",
                     int WriteUtf8(char* buffer, int length = -1,
-                                  int* nchars_ref = NULL,
+                                  int* nchars_ref = nullptr,
                                   int options = NO_OPTIONS) const);
 
   static Local<String> Empty(Isolate* isolate);
