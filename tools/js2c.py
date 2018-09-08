@@ -276,28 +276,14 @@ module.exports = require('internal/deps/{module}');
 def Render(var, data):
   # Treat non-ASCII as UTF-8 and convert it to UTF-16.
   if any(ord(c) > 127 for c in data):
-    template = TWO_BYTE_TEMPLATE
+    template = TWO_BYTE_STRING
     data = map(ord, data.decode('utf-8').encode('utf-16be'))
     data = [data[i] * 256 + data[i+1] for i in xrange(0, len(data), 2)]
     data = ToCArray(data)
   else:
-    template = ONE_BYTE_TEMPLATE
+    template = ONE_BYTE_STRING
     data = ToCString(data)
   return template.format(var=var, data=data)
-
-
-
-NODE_NATIVES_MAP = """\
-  V({escaped_id}) \\
-"""
-
-
-SOURCES = """\
-static const uint8_t {escaped_id}_name[] = {{
-{name}}};
-static const uint8_t {escaped_id}_data[] = {{
-{data}}};
-"""
 
 
 def JS2C(source, target, namespace):
@@ -369,7 +355,7 @@ def JS2C(source, target, namespace):
 
   # Emit result
   output = open(str(target[0]), "w")
-  output.write(HEADER_TEMPLATE.format(definitions=''.join(definitions),
+  output.write(TEMPLATE.format(definitions=''.join(definitions),
                                initializers=''.join(initializers),
                                hash_initializers=''.join(hash_initializers),
                                namespace=namespace))
@@ -379,21 +365,18 @@ def JS2C(source, target, namespace):
 NAMESPACE_SWITCH = "--namespace="
 
 def main():
-  global HEADER_TEMPLATE
-  global ONE_BYTE_TEMPLATE
-  global TWO_BYTE_TEMPLATE
   i = 1
+  namespace = 'node'
+
   if sys.argv[i].startswith(NAMESPACE_SWITCH):
-    HEADER_TEMPLATE = TEMPLATE_FOR_NAMESPACE
-    ONE_BYTE_TEMPLATE = ONE_BYTE_STRING_FOR_NAMESPACE
-    TWO_BYTE_TEMPLATE = ONE_BYTE_STRING_FOR_NAMESPACE
+    global TEMPLATE
+    global ONE_BYTE_STRING
+    global TWO_BYTE_STRING
+    TEMPLATE = TEMPLATE_FOR_NAMESPACE
+    ONE_BYTE_STRING = ONE_BYTE_STRING_FOR_NAMESPACE
+    TWO_BYTE_STRING = ONE_BYTE_STRING_FOR_NAMESPACE
     namespace = sys.argv[i][len(NAMESPACE_SWITCH):]
     i += 1
-  else:
-    HEADER_TEMPLATE = TEMPLATE
-    ONE_BYTE_TEMPLATE = ONE_BYTE_STRING
-    TWO_BYTE_TEMPLATE = TWO_BYTE_STRING
-    namespace = 'node'
 
   natives = sys.argv[i]
   source_files = sys.argv[(i + 1):]
