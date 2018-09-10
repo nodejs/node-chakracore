@@ -360,8 +360,10 @@ assert.strictEqual(
   arr2[0] = 0;
   assert.strictEqual(util.inspect(arr2),
                      "[ 0, <1 empty item>, '01': 2 ]");
-  assert.strictEqual(util.inspect(arr2, { showHidden: true }),
-                     "[ 0, <1 empty item>, [length]: 2, '01': 2 ]");
+  if (!common.isChakraEngine) {
+    assert.strictEqual(util.inspect(arr2, { showHidden: true }),
+                       "[ 0, <1 empty item>, [length]: 2, '01': 2 ]");
+  }
   delete arr2['01'];
   arr2[2 ** 32 - 2] = 'max';
   arr2[2 ** 32 - 1] = 'too far';
@@ -1444,7 +1446,7 @@ util.inspect(process);
 }
 
 // Check compact indentation.
-{
+if (!common.isChakraEngine) {
   const typed = new Uint8Array();
   typed.buffer.foo = true;
   const set = new Set([[1, 2]]);
