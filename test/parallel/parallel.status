@@ -96,6 +96,7 @@ test-trace-events-async-hooks : SKIP
 test-trace-events-binding : SKIP
 test-trace-events-bootstrap : SKIP
 test-trace-events-category-used : SKIP
+test-trace-events-dynamic-enable : SKIP
 test-trace-events-file-pattern : SKIP
 test-trace-events-fs-sync : SKIP
 test-trace-events-metadata : SKIP
@@ -170,6 +171,10 @@ test-benchmark-v8 : SKIP
 test-process-exception-capture-should-abort-on-uncaught-setflagsfromstring : SKIP
 test-v8-flag-type-check : SKIP
 test-v8-stats : SKIP
+
+# the test fails because chakra doesn't support object desctructuring
+# (but it's likely to fail anyway as it's v8 specific)
+test-v8-coverage : SKIP
 
 # This test uses the V8 untrusted code mitigation and accompanying V8 option
 test-v8-untrusted-code-mitigations : SKIP

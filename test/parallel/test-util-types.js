@@ -78,7 +78,7 @@ for (const [ value, _method ] of [
   new Number(),
   new String(),
   Object(Symbol()),
-  Object(BigInt(0))
+  common.isChakraEngine ? Object(Symbol()) : Object(BigInt(0)),
 ].forEach((entry) => assert(types.isBoxedPrimitive(entry)));
 
 {
