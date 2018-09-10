@@ -107,7 +107,6 @@ test-trace-events-promises : SKIP
 test-trace-events-v8 : SKIP
 test-trace-events-vm : SKIP
 test-trace-events-worker-metadata : SKIP
-test-trace-event-promises : SKIP
 test-tracing-no-crash : SKIP
 
 # These tests are disabled for chakra engine because they depend
@@ -155,7 +154,6 @@ test-vm-module-link : SKIP
 test-vm-module-reevaluate : SKIP
 
 # This test requires support for bigints
-test-util-inspect-bigint : SKIP
 test-fs-stat-bigint : SKIP
 test-fs-watchfile-bigint : SKIP
 test-process-hrtime-bigint : SKIP

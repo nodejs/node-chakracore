@@ -227,7 +227,6 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
           ttdbuf->TTDRawBufferModifyNotifySync(0, modSize);
         }
 #endif
-
       }
       ctx->Unref();
       return;

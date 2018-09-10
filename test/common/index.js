@@ -496,7 +496,7 @@ function engineSpecificMessage(messageObject) {
   }
 
   return undefined;
-};
+}
 
 function busyLoop(time) {
   const startTime = Date.now();

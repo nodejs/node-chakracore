@@ -369,7 +369,8 @@ assertDeepAndStrictEqual(
   new Map([[null, 3]])
 );
 
-/* chakra doesn't support bigInt yet
+if (!common.isChakraEngine) {
+  eval(`
 assertOnlyDeepEqual(
   new Map([[undefined, null], ['+000', 2n]]),
   new Map([[null, undefined], [false, '2']]),
@@ -379,17 +380,8 @@ assertOnlyDeepEqual(
   new Set([null, '', 1n, 5, 2n, false]),
   new Set([undefined, 0, 5n, true, '2', '-000'])
 );
-*/
-
-assertOnlyDeepEqual(
-  new Map([[undefined, null], ['+000', 2]]),
-  new Map([[null, undefined], [false, '2']]),
-);
-
-assertOnlyDeepEqual(
-  new Set([null, '', 1, 5, 2, false]),
-  new Set([undefined, 0, 5, true, '2', '-000'])
-);
+  `);
+}
 
 assertNotDeepOrStrict(
   new Set(['']),
