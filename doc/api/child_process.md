@@ -415,7 +415,7 @@ changes:
     [Default Windows Shell][]. **Default:** `false` (no shell).
   * `windowsVerbatimArguments` {boolean} No quoting or escaping of arguments is
     done on Windows. Ignored on Unix. This is set to `true` automatically
-    when `shell` is specified. **Default:** `false`.
+    when `shell` is specified and is CMD. **Default:** `false`.
   * `windowsHide` {boolean} Hide the subprocess console window that would
     normally be created on Windows systems. **Default:** `true`.
 * Returns: {ChildProcess}
@@ -686,7 +686,7 @@ configuration at startup.
 <!-- YAML
 added: v0.11.12
 changes:
-  - version: REPLACEME
+  - version: v10.10.0
     pr-url: https://github.com/nodejs/node/pull/22409
     description: The `input` option can now be any `TypedArray` or a
                  `DataView`.
@@ -756,7 +756,7 @@ arbitrary command execution.**
 <!-- YAML
 added: v0.11.12
 changes:
-  - version: REPLACEME
+  - version: v10.10.0
     pr-url: https://github.com/nodejs/node/pull/22409
     description: The `input` option can now be any `TypedArray` or a
                  `DataView`.
@@ -818,7 +818,7 @@ metacharacters may be used to trigger arbitrary command execution.**
 <!-- YAML
 added: v0.11.12
 changes:
-  - version: REPLACEME
+  - version: v10.10.0
     pr-url: https://github.com/nodejs/node/pull/22409
     description: The `input` option can now be any `TypedArray` or a
                  `DataView`.
@@ -867,7 +867,7 @@ changes:
     [Default Windows Shell][]. **Default:** `false` (no shell).
   * `windowsVerbatimArguments` {boolean} No quoting or escaping of arguments is
     done on Windows. Ignored on Unix. This is set to `true` automatically
-    when `shell` is specified. **Default:** `false`.
+    when `shell` is specified and is CMD. **Default:** `false`.
   * `windowsHide` {boolean} Hide the subprocess console window that would
     normally be created on Windows systems. **Default:** `true`.
 * Returns: {Object}
@@ -1432,8 +1432,9 @@ to `stdout` although there are only 4 characters.
 
 ## Shell Requirements
 
-The shell should understand the `-c` switch on UNIX or `/d /s /c` on Windows.
-On Windows, command line parsing should be compatible with `'cmd.exe'`.
+The shell should understand the `-c` switch. If the shell is `'cmd.exe'`, it
+should understand the `/d /s /c` switches and command line parsing should be
+compatible.
 
 ## Default Windows Shell
 
