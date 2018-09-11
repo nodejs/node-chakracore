@@ -416,15 +416,15 @@ inline void Environment::set_printed_error(bool value) {
 }
 
 inline void Environment::set_trace_sync_io(bool value) {
-  trace_sync_io_ = value;
+  options_->trace_sync_io = value;
 }
 
 inline bool Environment::abort_on_uncaught_exception() const {
-  return abort_on_uncaught_exception_;
+  return options_->abort_on_uncaught_exception;
 }
 
 inline void Environment::set_abort_on_uncaught_exception(bool value) {
-  abort_on_uncaught_exception_ = value;
+  options_->abort_on_uncaught_exception = value;
 }
 
 inline AliasedBuffer<uint32_t, v8::Uint32Array>&
