@@ -3302,14 +3302,9 @@ Isolate* NewIsolate(ArrayBufferAllocator* allocator, uv_loop_t* event_loop) {
     fprintf(stderr, "Recording is enabled (but not yet started)...\n");
   }
 
-  Isolate* const isolate = Isolate::NewWithTTDSupport(params,
-                                                      s_ttoptReplayUriLength,
-                                                      s_ttoptReplayUri,
-                                                      s_doTTRecord,
-                                                      s_doTTReplay,
-                                                      s_doTTEnableDebug,
-                                                      s_ttdSnapInterval,
-                                                      s_ttdSnapHistoryLength);
+  Isolate* const isolate = Isolate::AllocateWithTTDSupport(
+      s_ttoptReplayUriLength, s_ttoptReplayUri, s_doTTRecord, s_doTTReplay,
+      s_doTTEnableDebug, s_ttdSnapInterval, s_ttdSnapHistoryLength);
 #else
   Isolate* isolate = Isolate::Allocate();
 #endif
