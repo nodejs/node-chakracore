@@ -880,6 +880,28 @@ console.log(url.domainToUnicode('xn--iñvalid.com'));
 // Prints an empty string
 ```
 
+### url.fileURLToPath(url)
+
+* `url` {URL | string} The file URL string or URL object to convert to a path.
+* Returns: {string} The fully-resolved platform-specific Node.js file path.
+
+This function ensures the correct decodings of percent-encoded characters as
+well as ensuring a cross-platform valid absolute path string.
+
+```js
+new URL('file:///C:/path/').pathname;    // Incorrect: /C:/path/
+fileURLToPath('file:///C:/path/');       // Correct:   C:\path\ (Windows)
+
+new URL('file://nas/foo.txt').pathname;  // Incorrect: /foo.txt
+fileURLToPath('file://nas/foo.txt');     // Correct:   \\nas\foo.txt (Windows)
+
+new URL('file:///你好.txt').pathname;    // Incorrect: /%E4%BD%A0%E5%A5%BD.txt
+fileURLToPath('file:///你好.txt');       // Correct:   /你好.txt (POSIX)
+
+new URL('file:///hello world').pathname; // Incorrect: /hello%20world
+fileURLToPath('file:///hello world');    // Correct:   /hello world (POSIX)
+```
+
 ### url.format(URL[, options])
 <!-- YAML
 added: v7.6.0
@@ -919,9 +941,38 @@ console.log(url.format(myURL, { fragment: false, unicode: true, auth: false }));
 // Prints 'https://你好你好/?abc'
 ```
 
+### url.pathToFileURL(path)
+
+* `path` {string} The path to convert to a File URL.
+* Returns: {URL} The file URL object.
+
+This function ensures that `path` is resolved absolutely, and that the URL
+control characters are correctly encoded when converting into a File URL.
+
+```js
+new URL(__filename);                // Incorrect: throws (POSIX)
+new URL(__filename);                // Incorrect: C:\... (Windows)
+pathToFileURL(__filename);          // Correct:   file:///... (POSIX)
+pathToFileURL(__filename);          // Correct:   file:///C:/... (Windows)
+
+new URL('/foo#1', 'file:');         // Incorrect: file:///foo#1
+pathToFileURL('/foo#1');            // Correct:   file:///foo%231 (POSIX)
+
+new URL('/some/path%.js', 'file:'); // Incorrect: file:///some/path%
+pathToFileURL('/some/path%.js');    // Correct:   file:///some/path%25 (POSIX)
+```
+
 ## Legacy URL API
 
+> Stability: 0 - Deprecated: Use the WHATWG URL API instead.
+
 ### Legacy `urlObject`
+<!-- YAML
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/22715
+    description: The Legacy URL API is deprecated. Use the WHATWG URL API.
+-->
 
 The legacy `urlObject` (`require('url').Url`) is created and returned by the
 `url.parse()` function.
@@ -1027,6 +1078,9 @@ forward-slash characters (`/`) are required following the colon in the
 <!-- YAML
 added: v0.1.25
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/22715
+    description: The Legacy URL API is deprecated. Use the WHATWG URL API.
   - version: v7.0.0
     pr-url: https://github.com/nodejs/node/pull/7234
     description: URLs with a `file:` scheme will now always use the correct
@@ -1115,6 +1169,9 @@ The formatting process operates as follows:
 <!-- YAML
 added: v0.1.25
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/22715
+    description: The Legacy URL API is deprecated. Use the WHATWG URL API.
   - version: v9.0.0
     pr-url: https://github.com/nodejs/node/pull/13606
     description: The `search` property on the returned URL object is now `null`
@@ -1143,6 +1200,9 @@ A `URIError` is thrown if the `auth` property is present but cannot be decoded.
 <!-- YAML
 added: v0.1.25
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/22715
+    description: The Legacy URL API is deprecated. Use the WHATWG URL API.
   - version: v6.6.0
     pr-url: https://github.com/nodejs/node/pull/8215
     description: The `auth` fields are now kept intact when `from` and `to`

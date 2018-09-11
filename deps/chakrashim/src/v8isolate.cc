@@ -27,31 +27,53 @@ namespace v8 {
 HeapProfiler dummyHeapProfiler;
 CpuProfiler dummyCpuProfiler;
 
-Isolate* Isolate::NewWithTTDSupport(const CreateParams& params,
-                      size_t optReplayUriLength, const char* optReplayUri,
-                      bool doRecord, bool doReplay, bool doDebug,
-                      uint32_t snapInterval, uint32_t snapHistoryLength) {
-  Isolate* iso = jsrt::IsolateShim::New(optReplayUriLength, optReplayUri,
-                                        doRecord, doReplay, doDebug,
-                                        snapInterval, snapHistoryLength);
+Isolate* Isolate::Allocate() {
+  return AllocateWithTTDSupport(0, nullptr, false, false, false, UINT32_MAX,
+                                UINT32_MAX);
+}
+
+Isolate* Isolate::AllocateWithTTDSupport(size_t optReplayUriLength,
+                                         const char* optReplayUri,
+                                         bool doRecord, bool doReplay,
+                                         bool doDebug, uint32_t snapInterval,
+                                         uint32_t snapHistoryLength) {
+  return jsrt::IsolateShim::New(optReplayUriLength, optReplayUri, doRecord,
+                                doReplay, doDebug, snapInterval,
+                                snapHistoryLength);
+}
+
+void Isolate::Initialize(Isolate* isolate, const CreateParams& params) {
+  jsrt::IsolateShim* isoShim = jsrt::IsolateShim::FromIsolate(isolate);
 
   if (params.array_buffer_allocator) {
-    CHAKRA_VERIFY(!jsrt::IsolateShim::FromIsolate(iso)->arrayBufferAllocator);
-    jsrt::IsolateShim::FromIsolate(iso)->arrayBufferAllocator =
-        params.array_buffer_allocator;
+    CHAKRA_VERIFY(!isoShim->arrayBufferAllocator);
+    isoShim->arrayBufferAllocator = params.array_buffer_allocator;
   }
-  return iso;
 }
 
 Isolate* Isolate::New(const CreateParams& params) {
-  return NewWithTTDSupport(params, 0, nullptr, false, false, false, UINT32_MAX,
-                           UINT32_MAX);
+  Isolate* isolate = Allocate();
+  Initialize(isolate, params);
+
+  return isolate;
+}
+
+Isolate* Isolate::NewWithTTDSupport(const CreateParams& params,
+                                    size_t optReplayUriLength,
+                                    const char* optReplayUri, bool doRecord,
+                                    bool doReplay, bool doDebug,
+                                    uint32_t snapInterval,
+                                    uint32_t snapHistoryLength) {
+  Isolate* isolate = AllocateWithTTDSupport(optReplayUriLength, optReplayUri,
+                                            doRecord, doReplay, doDebug,
+                                            snapInterval, snapHistoryLength);
+  Initialize(isolate, params);
+
+  return isolate;
 }
 
 Isolate* Isolate::New() {
-  return jsrt::IsolateShim::New(0, nullptr,
-                                false, false, false,
-                                UINT32_MAX, UINT32_MAX);
+  return Allocate();
 }
 
 Isolate* Isolate::GetCurrent() {

@@ -2907,15 +2907,22 @@ class V8_EXPORT Isolate {
     kMinorGarbageCollection
   };
 
+  static Isolate* Allocate();
+  static Isolate* AllocateWithTTDSupport(size_t optReplayUriLength,
+                                         const char* optReplayUri,
+                                         bool doRecord, bool doReplay,
+                                         bool doDebug, uint32_t snapInterval,
+                                         uint32_t snapHistoryLength);
+
+  static void Initialize(Isolate* isolate, const CreateParams& params);
+
+  static Isolate* New(const CreateParams& params);
   static Isolate* NewWithTTDSupport(const CreateParams& params,
                                     size_t optReplayUriLength,
-                                    const char* optReplayUri,
-                                    bool doRecord,
-                                    bool doReplay,
-                                    bool doDebug,
+                                    const char* optReplayUri, bool doRecord,
+                                    bool doReplay, bool doDebug,
                                     uint32_t snapInterval,
                                     uint32_t snapHistoryLength);
-  static Isolate* New(const CreateParams& params);
 
   static Isolate* New();
   static Isolate* GetCurrent();

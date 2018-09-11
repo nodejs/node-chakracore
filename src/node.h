@@ -83,15 +83,18 @@
 # define NODE_GNUC_AT_LEAST(major, minor, patch) (0)
 #endif
 
-#if NODE_CLANG_AT_LEAST(2, 9, 0) || NODE_GNUC_AT_LEAST(4, 5, 0)
-# define NODE_DEPRECATED(message, declarator)                                 \
+#if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+# define NODE_DEPRECATED(message, declarator) declarator
+#else  // NODE_WANT_INTERNALS
+# if NODE_CLANG_AT_LEAST(2, 9, 0) || NODE_GNUC_AT_LEAST(4, 5, 0)
+#  define NODE_DEPRECATED(message, declarator)                                 \
     __attribute__((deprecated(message))) declarator
-#elif defined(_MSC_VER)
-# define NODE_DEPRECATED(message, declarator)                                 \
+# elif defined(_MSC_VER)
+#  define NODE_DEPRECATED(message, declarator)                                 \
     __declspec(deprecated) declarator
-#else
-# define NODE_DEPRECATED(message, declarator)                                 \
-    declarator
+# else
+#  define NODE_DEPRECATED(message, declarator) declarator
+# endif
 #endif
 
 // Forward-declare libuv loop
@@ -245,13 +248,14 @@ class NODE_EXTERN MultiIsolatePlatform : public v8::Platform {
   virtual void CancelPendingDelayedTasks(v8::Isolate* isolate) = 0;
 
   // These will be called by the `IsolateData` creation/destruction functions.
-  virtual void RegisterIsolate(IsolateData* isolate_data,
+  virtual void RegisterIsolate(v8::Isolate* isolate,
                                struct uv_loop_s* loop) = 0;
-  virtual void UnregisterIsolate(IsolateData* isolate_data) = 0;
+  virtual void UnregisterIsolate(v8::Isolate* isolate) = 0;
 };
 
 // Creates a new isolate with Node.js-specific settings.
-NODE_EXTERN v8::Isolate* NewIsolate(ArrayBufferAllocator* allocator);
+NODE_EXTERN v8::Isolate* NewIsolate(ArrayBufferAllocator* allocator,
+                                    struct uv_loop_s* event_loop);
 
 // Creates a new context with Node.js-specific tweaks.
 NODE_EXTERN v8::Local<v8::Context> NewContext(
@@ -292,6 +296,7 @@ NODE_EXTERN MultiIsolatePlatform* GetMainThreadMultiIsolatePlatform();
 NODE_EXTERN MultiIsolatePlatform* CreatePlatform(
     int thread_pool_size,
     v8::TracingController* tracing_controller);
+MultiIsolatePlatform* InitializeV8Platform(int thread_pool_size);
 NODE_EXTERN void FreePlatform(MultiIsolatePlatform* platform);
 
 NODE_EXTERN void EmitBeforeExit(Environment* env);

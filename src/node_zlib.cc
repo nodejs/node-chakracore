@@ -45,6 +45,7 @@ using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
 using v8::HandleScope;
+using v8::Int32;
 using v8::Local;
 using v8::Number;
 using v8::Object;
@@ -226,9 +227,8 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
           ttdbuf->TTDRawBufferModifyNotifySync(0, modSize);
         }
 #endif
-
-        ctx->Unref();
       }
+      ctx->Unref();
       return;
     }
 
@@ -386,6 +386,7 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
   // v8 land!
   void AfterThreadPoolWork(int status) override {
     AllocScope alloc_scope(this);
+    OnScopeLeave on_scope_leave([&]() { Unref(); });
 
     write_in_progress_ = false;
 
@@ -421,7 +422,6 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
                                            write_js_callback_);
     MakeCallback(cb, 0, nullptr);
 
-    Unref();
     if (pending_close_)
       Close();
   }
@@ -448,8 +448,6 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
     MakeCallback(env()->onerror_string(), arraysize(args), args);
 
     // no hope of rescue.
-    if (write_in_progress_)
-      Unref();
     write_in_progress_ = false;
     if (pending_close_)
       Close();
@@ -458,7 +456,8 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
   static void New(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
     CHECK(args[0]->IsInt32());
-    node_zlib_mode mode = static_cast<node_zlib_mode>(args[0]->Int32Value());
+    node_zlib_mode mode =
+        static_cast<node_zlib_mode>(args[0].As<Int32>()->Value());
     new ZCtx(env, args.This(), mode);
   }
 
@@ -498,7 +497,8 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
           "invalid windowBits");
     }
 
-    int level = args[1]->Int32Value();
+    int level;
+    if (!args[1]->Int32Value(context).To(&level)) return;
     CHECK((level >= Z_MIN_LEVEL && level <= Z_MAX_LEVEL) &&
       "invalid compression level");
 
@@ -545,7 +545,12 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
     CHECK(args.Length() == 2 && "params(level, strategy)");
     ZCtx* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Holder());
-    ctx->Params(args[0]->Int32Value(), args[1]->Int32Value());
+    Environment* env = ctx->env();
+    int level;
+    if (!args[0]->Int32Value(env->context()).To(&level)) return;
+    int strategy;
+    if (!args[1]->Int32Value(env->context()).To(&strategy)) return;
+    ctx->Params(level, strategy);
   }
 
   static void Reset(const FunctionCallbackInfo<Value> &args) {

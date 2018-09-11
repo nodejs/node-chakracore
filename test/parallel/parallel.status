@@ -96,6 +96,7 @@ test-trace-events-async-hooks : SKIP
 test-trace-events-binding : SKIP
 test-trace-events-bootstrap : SKIP
 test-trace-events-category-used : SKIP
+test-trace-events-dynamic-enable : SKIP
 test-trace-events-file-pattern : SKIP
 test-trace-events-fs-sync : SKIP
 test-trace-events-metadata : SKIP
@@ -106,7 +107,6 @@ test-trace-events-promises : SKIP
 test-trace-events-v8 : SKIP
 test-trace-events-vm : SKIP
 test-trace-events-worker-metadata : SKIP
-test-trace-event-promises : SKIP
 test-tracing-no-crash : SKIP
 
 # These tests are disabled for chakra engine because they depend
@@ -154,7 +154,6 @@ test-vm-module-link : SKIP
 test-vm-module-reevaluate : SKIP
 
 # This test requires support for bigints
-test-util-inspect-bigint : SKIP
 test-fs-stat-bigint : SKIP
 test-fs-watchfile-bigint : SKIP
 test-process-hrtime-bigint : SKIP
@@ -170,6 +169,10 @@ test-benchmark-v8 : SKIP
 test-process-exception-capture-should-abort-on-uncaught-setflagsfromstring : SKIP
 test-v8-flag-type-check : SKIP
 test-v8-stats : SKIP
+
+# the test fails because chakra doesn't support object desctructuring
+# (but it's likely to fail anyway as it's v8 specific)
+test-v8-coverage : SKIP
 
 # This test uses the V8 untrusted code mitigation and accompanying V8 option
 test-v8-untrusted-code-mitigations : SKIP
@@ -249,15 +252,17 @@ test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 test-buffer-sharedarraybuffer : SKIP
 test-assert-typedarray-deepequal : SKIP
 
-# Setting OS process priority is not yet supported
-test-os-process-priority : SKIP
-
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-module-loading-globalpaths : SKIP
 
 # Depends on ICU behavior, enable when ICU is enabled on Windows
 test-intl: SKIP
+
+# This test seems to be broken upstrem on Windows (possibly due to the machine
+# configuration). Mark it flaky, but keep running it until a fix comes.
+# https://github.com/nodejs/node/issues/22799
+test-os-process-priority : PASS,FLAKY
 
 [$jsEngine==chakracore && $system==win32 && $arch==arm]
 # These tests depend on Git/Linux tools that don't exist on WoA

@@ -31,7 +31,7 @@
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.23',
+    'v8_embedder_string': '-node.9',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,
@@ -226,9 +226,19 @@
           }],
           ['OS=="linux"', {
             'variables': {
+              'pgo_generate': ' -fprofile-generate ',
+              'pgo_use': ' -fprofile-use -fprofile-correction ',
               'lto': ' -flto=4 -fuse-linker-plugin -ffat-lto-objects ',
             },
             'conditions': [
+              ['enable_pgo_generate=="true"', {
+                'cflags': ['<(pgo_generate)'],
+                'ldflags': ['<(pgo_generate)'],
+              },],
+              ['enable_pgo_use=="true"', {
+                'cflags': ['<(pgo_use)'],
+                'ldflags': ['<(pgo_use)'],
+              },],
               ['enable_lto=="true"', {
                 'cflags': ['<(lto)'],
                 'ldflags': ['<(lto)'],
@@ -545,15 +555,6 @@
         'libraries': [ '-lelf' ],
       }],
       ['OS=="freebsd"', {
-        'conditions': [
-          ['"0" < llvm_version < "4.0"', {
-            # Use this flag because on FreeBSD std::pairs copy constructor is non-trivial.
-            # Doesn't apply to llvm 4.0 (FreeBSD 11.1) or later.
-            # Refs: https://lists.freebsd.org/pipermail/freebsd-toolchain/2016-March/002094.html
-            # Refs: https://svnweb.freebsd.org/ports/head/www/node/Makefile?revision=444555&view=markup
-            'cflags': [ '-D_LIBCPP_TRIVIAL_PAIR_COPY_CTOR=1' ],
-          }],
-        ],
         'ldflags': [
           '-Wl,--export-dynamic',
         ],

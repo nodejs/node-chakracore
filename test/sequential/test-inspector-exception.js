@@ -35,9 +35,7 @@ async function testBreakpointOnStart(session) {
     { 'method': 'Runtime.runIfWaitingForDebugger' });
 
   await session.send(commands);
-  // ChakraCore stops at the first line of source, not
-  // the first line in a file
-  await session.waitForBreakOnLine(common.isChakraEngine ? 21 : 0, script);
+  await session.waitForBreakOnLine(21, script);
 }
 
 

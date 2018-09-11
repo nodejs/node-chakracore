@@ -492,7 +492,7 @@ robocopy /e doc\api %config%\doc\api
 robocopy /e doc\api_assets %config%\doc\api\assets
 
 for %%F in (%config%\doc\api\*.md) do (
-  %node_exe% tools\doc\generate.js --node-version=v%FULLVERSION% --analytics=%DOCS_ANALYTICS% %%F --output-dir=%%~dF%%~pF
+  %node_exe% tools\doc\generate.js --node-version=v%FULLVERSION% --analytics=%DOCS_ANALYTICS% %%F --output-directory=%%~dF%%~pF
 )
 
 :run
@@ -534,7 +534,6 @@ setlocal
 set npm_config_nodedir=%~dp0
 "%node_exe%" "%~dp0tools\build-addons.js" "%~dp0deps\npm\node_modules\node-gyp\bin\node-gyp.js" "%~dp0test\addons-napi"
 if errorlevel 1 exit /b 1
-endlocal
 endlocal
 goto run-tests
 

@@ -423,13 +423,13 @@
   function patchUtils(utils) {
     const isUintRegex = /^(0|[1-9]\d*)$/;
 
-    function isUint(value) {
+    function isArrayIndex(value) {
       if (typeof value == 'symbol') {
         return false;
       }
       const result = isUintRegex.test(value);
       isUintRegex.lastIndex = 0;
-      return result && value < 2 ** 32;
+      return result && value < 2 ** 32 - 1;
     }
 
     utils.cloneObject = function(source, target) {
@@ -460,7 +460,7 @@
       if (includePrototype && propertyFilter & 2) {
         // CHAKRA-TODO: handle filtering of properties in this case
         for (const propertyName in obj) {
-          if (isUint(propertyName)) {
+          if (isArrayIndex(propertyName)) {
             if (skipIndexes) {
               continue;
             }
@@ -485,7 +485,7 @@
 
         for (const propertyName of keys) {
           let name = propertyName;
-          if (isUint(propertyName)) {
+          if (isArrayIndex(propertyName)) {
             if (skipIndexes) {
               continue;
             }
@@ -518,7 +518,7 @@
     utils.getEnumerableNamedProperties = function(obj) {
       const props = [];
       for (const key in obj) {
-        if (!isUint(key))
+        if (!isArrayIndex(key))
           props.push(key);
       }
 
@@ -528,7 +528,7 @@
     utils.getEnumerableIndexedProperties = function(obj) {
       const props = [];
       for (const key in obj) {
-        if (isUint(key))
+        if (isArrayIndex(key))
           props.push(key);
       }
 
@@ -558,7 +558,7 @@
     utils.getNamedOwnKeys = function(obj) {
       const props = [];
       Object_keys(obj).forEach(function(item) {
-        if (!isUint(item))
+        if (!isArrayIndex(item))
           props.push(item);
       });
 
@@ -568,7 +568,7 @@
     utils.getIndexedOwnKeys = function(obj) {
       const props = [];
       Object_keys(obj).forEach(function(item) {
-        if (isUint(item))
+        if (isArrayIndex(item))
           props.push(item);
       });
 
@@ -730,7 +730,7 @@
       let i = 0;
       while (i < ownPropertyNames.length) {
         const item = ownPropertyNames[i];
-        if (isUint(item)) {
+        if (isArrayIndex(item)) {
           ownPropertyNames[i] = Global_ParseInt(item);
           i++;
           continue;
