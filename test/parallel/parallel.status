@@ -248,6 +248,11 @@ test-module-loading-globalpaths : SKIP
 # Depends on ICU behavior, enable when ICU is enabled on Windows
 test-intl: SKIP
 
+# This test seems to be broken upstrem on Windows (possibly due to the machine
+# configuration). Mark it flaky, but keep running it until a fix comes.
+# https://github.com/nodejs/node/issues/22799
+test-os-process-priority : PASS,FLAKY
+
 [$jsEngine==chakracore && $system==win32 && $arch==arm]
 # These tests depend on Git/Linux tools that don't exist on WoA
 test-child-process-double-pipe : SKIP
