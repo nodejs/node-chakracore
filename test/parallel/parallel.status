@@ -252,15 +252,17 @@ test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 test-buffer-sharedarraybuffer : SKIP
 test-assert-typedarray-deepequal : SKIP
 
-# Setting OS process priority is not yet supported
-test-os-process-priority : SKIP
-
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-module-loading-globalpaths : SKIP
 
 # Depends on ICU behavior, enable when ICU is enabled on Windows
 test-intl: SKIP
+
+# This test seems to be broken upstrem on Windows (possibly due to the machine
+# configuration). Mark it flaky, but keep running it until a fix comes.
+# https://github.com/nodejs/node/issues/22799
+test-os-process-priority : PASS,FLAKY
 
 [$jsEngine==chakracore && $system==win32 && $arch==arm]
 # These tests depend on Git/Linux tools that don't exist on WoA
