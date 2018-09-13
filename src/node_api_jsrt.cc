@@ -3496,3 +3496,12 @@ napi_ref_threadsafe_function(napi_env env, napi_threadsafe_function func) {
   CHECK(func != nullptr);
   return reinterpret_cast<TsFn*>(func)->Ref();
 }
+
+napi_status napi_add_finalizer(napi_env env,
+                               napi_value js_object,
+                               void* native_object,
+                               napi_finalize finalize_cb,
+                               void* finalize_hint,
+                               napi_ref* result) {
+  return napi_ok;
+}
