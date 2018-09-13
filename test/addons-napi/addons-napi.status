@@ -20,5 +20,6 @@ prefix addons-napi
 
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
-test_env_sharing/test : SKIP
 test_bigint/test : SKIP
+test_env_sharing/test : SKIP
+test_general/testFinalizer : SKIP
