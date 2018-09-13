@@ -240,6 +240,11 @@
       'include_dirs': [
         'src',
       ],
+
+      # - "C4244: conversion from 'type1' to 'type2', possible loss of data"
+      #   Ususaly safe. Disable for `dep`, enable for `src`
+      'msvs_disabled_warnings!': [4244],
+
       'conditions': [
         [ 'node_engine=="v8"', {
           'include_dirs': [ 'deps/v8/include' ],
@@ -276,8 +281,7 @@
           'msvs_settings': {
             'VCLinkerTool': {
               'AdditionalOptions': [
-                '/WHOLEARCHIVE:<(PRODUCT_DIR)\\lib\\'
-                    '<(node_core_target_name)<(STATIC_LIB_SUFFIX)',
+                '/WHOLEARCHIVE:<(node_core_target_name)<(STATIC_LIB_SUFFIX)',
               ],
             },
           },
@@ -487,6 +491,10 @@
         'V8_DEPRECATION_WARNINGS=1',
         'NODE_OPENSSL_SYSTEM_CERT_PATH="<(openssl_system_ca_path)"',
       ],
+
+      # - "C4244: conversion from 'type1' to 'type2', possible loss of data"
+      #   Ususaly safe. Disable for `dep`, enable for `src`
+      'msvs_disabled_warnings!': [4244],
 
       'conditions': [
         [ 'node_engine=="chakracore"', {
