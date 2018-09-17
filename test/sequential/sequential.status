@@ -34,6 +34,13 @@ test-inspector-contexts : SKIP
 test-inspector-scriptparsed-context : SKIP
 test-inspector-stop-profile-after-done : SKIP
 
+# These need to be fixed when resourceNameToUrl is wired up.
+# https://github.com/nodejs/node-chakracore/issues/598
+test-inspector : SKIP
+test-inspector-debug-brk-flag : SKIP
+test-inspector-exception : SKIP
+test-inspector-resource-name-to-url : SKIP
+
 [$jsEngine==chakracore && $system==win32]
 # This test can fail depending on the ports that other processes are using
 test-inspector-port-cluster : PASS, FLAKY
