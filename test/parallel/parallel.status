@@ -196,6 +196,7 @@ test-worker-cleanup-handles : SKIP
 test-worker-dns-terminate : SKIP
 test-worker-esmodule : SKIP
 test-worker-exit-code : SKIP
+test-worker-invalid-workerdata : SKIP
 test-worker-memory : SKIP
 test-worker-message-channel : SKIP
 test-worker-message-channel-sharedarraybuffer : SKIP
