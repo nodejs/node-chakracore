@@ -157,6 +157,11 @@ class V8_EXPORT V8InspectorClient {
 
   virtual void maxAsyncCallStackDepthChanged(int depth) {}
 
+  virtual std::unique_ptr<StringBuffer> resourceNameToUrl(
+      const StringView& resourceName) {
+    return nullptr;
+  }
+
   virtual std::unique_ptr<StringBuffer> valueSubtype(v8::Local<v8::Value>) {
     return nullptr;
   }
