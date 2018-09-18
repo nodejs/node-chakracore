@@ -253,6 +253,9 @@ test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 test-buffer-sharedarraybuffer : SKIP
 test-assert-typedarray-deepequal : SKIP
 
+# Depends on precise GC behavior
+test-zlib-invalid-input-memory : SKIP
+
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-module-loading-globalpaths : SKIP
