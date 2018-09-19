@@ -3199,6 +3199,7 @@ class V8_EXPORT Context {
   void* GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void* value);
   void SetEmbedderData(int index, Local<Value> value);
+  uint32_t GetNumberOfEmbedderDataFields();
   Local<Value> GetEmbedderData(int index);
   void SetSecurityToken(Handle<Value> token);
   Handle<Value> GetSecurityToken();

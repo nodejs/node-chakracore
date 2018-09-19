@@ -95,6 +95,7 @@ class ContextShim {
   JsValueRef GetMapHasFunction();
   JsValueRef GetSetAddFunction();
 
+  uint32_t GetNumberOfEmbedderDataFields();
   void * GetAlignedPointerFromEmbedderData(int index);
   void SetAlignedPointerInEmbedderData(int index, void * value);
 

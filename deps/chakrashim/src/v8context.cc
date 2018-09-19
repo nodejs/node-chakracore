@@ -146,6 +146,12 @@ void Context::SetEmbedderData(int index, Local<Value> value) {
     SetAlignedPointerInEmbedderData(index, *value);
 }
 
+uint32_t Context::GetNumberOfEmbedderDataFields() {
+  jsrt::ContextShim * contextShim =
+      jsrt::IsolateShim::GetCurrent()->GetContextShim((JsContextRef)this);
+  return contextShim->GetNumberOfEmbedderDataFields();
+}
+
 Local<Value> Context::GetEmbedderData(int index) {
   return Local<Value>(GetAlignedPointerFromEmbedderData(index));
 }
