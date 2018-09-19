@@ -37,11 +37,12 @@
 
 namespace v8_inspector {
 
+class V8InspectorClient;
+
 class V8DebuggerScript {
  public:
-  V8DebuggerScript(v8::Isolate* isolate,
-                   JsValueRef scriptData,
-                   bool isLiveEdit);
+  V8DebuggerScript(v8::Isolate* isolate, JsValueRef scriptData,
+                   bool isLiveEdit, V8InspectorClient* client);
   ~V8DebuggerScript();
 
   const String16& scriptId() const { return m_id; }

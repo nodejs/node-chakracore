@@ -90,7 +90,7 @@ void V8Debugger::getCompiledScripts(
     CHAKRA_VERIFY_NOERROR(jsrt::GetIndexedProperty(scripts, i, &script));
 
     result.push_back(wrapUnique(
-        new V8DebuggerScript(m_isolate, script, false)));
+        new V8DebuggerScript(m_isolate, script, false, m_inspector->client())));
   }
 }
 
@@ -445,7 +445,8 @@ void V8Debugger::HandleSourceEvents(JsValueRef eventData, bool success) {
 
   if (agent != nullptr) {
     agent->didParseSource(
-        wrapUnique(new V8DebuggerScript(m_isolate, eventData, false)),
+        wrapUnique(new V8DebuggerScript(m_isolate, eventData, false,
+                                        m_inspector->client())),
         success);
   }
 }
