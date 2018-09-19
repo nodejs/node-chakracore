@@ -2080,7 +2080,6 @@ void SetupProcessObject(Environment* env,
 
 void SignalExit(int signo) {
   uv_tty_reset_mode();
-  v8_platform.StopTracingAgent();
 #ifdef __FreeBSD__
   // FreeBSD has a nasty bug, see RegisterSignalHandler for details
   struct sigaction sa;
@@ -3032,12 +3031,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
   if (env.options()->debug_options->inspector_enabled &&
       !v8_platform.InspectorStarted(&env)) {
     return 12;  // Signal internal error.
-  }
-
-  // TODO(addaleax): Maybe access this option directly instead of setting
-  // a boolean member of Environment. Ditto below for trace_sync_io.
-  if (env.options()->no_force_async_hooks_checks) {
-    env.async_hooks()->no_force_checks();
   }
 
   {
