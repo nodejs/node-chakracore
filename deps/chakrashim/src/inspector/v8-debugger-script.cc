@@ -102,9 +102,8 @@ static JsErrorCode GetNamedStringValue(JsValueRef object,
   return JsNoError;
 }
 
-V8DebuggerScript::V8DebuggerScript(v8::Isolate* isolate,
-                                   JsValueRef scriptData,
-                                   bool isLiveEdit)
+V8DebuggerScript::V8DebuggerScript(v8::Isolate* isolate, JsValueRef scriptData,
+                                   bool isLiveEdit, V8InspectorClient* client)
   : m_startLine(0),
     m_startColumn(0),
     m_endColumn(0),
@@ -125,7 +124,9 @@ V8DebuggerScript::V8DebuggerScript(v8::Isolate* isolate,
   String16 urlValue;
   if (GetNamedStringValue(scriptData, jsrt::CachedPropertyIdRef::fileName,
                           &urlValue) == JsNoError) {
-    m_url = urlValue;
+    std::unique_ptr<StringBuffer> url =
+        client->resourceNameToUrl(toStringView(urlValue));
+    m_url = url ? toString16(url->string()) : urlValue;
   } else if (GetNamedStringValue(scriptData,
                                jsrt::CachedPropertyIdRef::scriptType,
                                &urlValue) == JsNoError) {
