@@ -142,6 +142,10 @@ ContextShim * ContextShim::GetCurrent() {
   return IsolateShim::GetCurrent()->GetCurrentContextShim();
 }
 
+uint32_t ContextShim::GetNumberOfEmbedderDataFields() {
+  return static_cast<uint32_t>(embedderData.size());
+}
+
 void* ContextShim::GetAlignedPointerFromEmbedderData(int index) {
   if (index >= 0 &&
       static_cast<std::vector<void*>::size_type>(index) < embedderData.size()) {
