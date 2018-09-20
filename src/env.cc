@@ -189,6 +189,9 @@ Environment::Environment(IsolateData* isolate_data,
 
   isolate()->GetHeapProfiler()->AddBuildEmbedderGraphCallback(
       BuildEmbedderGraph, this);
+  if (options_->no_force_async_hooks_checks) {
+    async_hooks_.no_force_checks();
+  }
 }
 
 Environment::~Environment() {
@@ -488,18 +491,9 @@ void Environment::EnvPromiseHook(v8::PromiseHookType type,
                                  v8::Local<v8::Value> parent) {
   Local<v8::Context> context = promise->CreationContext();
 
-  // Grow the embedder data if necessary to make sure we are not out of bounds
-  // when reading the magic number.
-  context->SetAlignedPointerInEmbedderData(
-      ContextEmbedderIndex::kContextTagBoundary, nullptr);
-  int* magicNumberPtr = reinterpret_cast<int*>(
-      context->GetAlignedPointerFromEmbedderData(
-          ContextEmbedderIndex::kContextTag));
-  if (magicNumberPtr != Environment::kNodeContextTagPtr) {
-    return;
-  }
-
   Environment* env = Environment::GetCurrent(context);
+  if (env == nullptr) return;
+
   for (const PromiseHookCallback& hook : env->promise_hooks_) {
     hook.cb_(type, promise, parent, hook.arg_);
   }
