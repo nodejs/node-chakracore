@@ -40,6 +40,14 @@ void StartWorkerInspector(Environment* child, const std::string& url) {
   child->inspector_agent()->Start(url, nullptr, false);
 }
 
+void AddWorkerInspector(Environment* parent,
+                        Environment* child,
+                        int id,
+                        const std::string& url) {
+  parent->inspector_agent()->AddWorkerInspector(id, url,
+                                                child->inspector_agent());
+}
+
 void WaitForWorkerInspectorToStop(Environment* child) {
   child->inspector_agent()->WaitForDisconnect();
   child->inspector_agent()->Stop();
@@ -48,6 +56,10 @@ void WaitForWorkerInspectorToStop(Environment* child) {
 #else
 // No-ops
 void StartWorkerInspector(Environment* child, const std::string& url) {}
+void AddWorkerInspector(Environment* parent,
+                        Environment* child,
+                        int id,
+                        const std::string& url) {}
 void WaitForWorkerInspectorToStop(Environment* child) {}
 #endif
 
@@ -119,6 +131,8 @@ Worker::Worker(Environment* env, Local<Object> wrap, const std::string& url)
     env_->Start(std::vector<std::string>{},
                 std::vector<std::string>{},
                 env->profiler_idle_notifier_started());
+    // Done while on the parent thread
+    AddWorkerInspector(env, env_.get(), thread_id_, url_);
   }
 
   // The new isolate won't be bothered on this thread again.
@@ -140,6 +154,7 @@ void Worker::Run() {
       TRACE_STR_COPY(name.c_str()));
   MultiIsolatePlatform* platform = isolate_data_->platform();
   CHECK_NE(platform, nullptr);
+  bool inspector_started = false;
 
   Debug(this, "Starting worker with id %llu", thread_id_);
   {
@@ -167,6 +182,9 @@ void Worker::Run() {
       }
 
       if (!is_stopped()) {
+        StartWorkerInspector(env_.get(), url_);
+        inspector_started = true;
+
         HandleScope handle_scope(isolate_);
         Environment::AsyncCallbackScope callback_scope(env_.get());
         env_->async_hooks()->push_async_ids(1, 0);
@@ -175,7 +193,6 @@ void Worker::Run() {
         env_->async_hooks()->pop_async_id(1);
 
         Debug(this, "Loaded environment for worker %llu", thread_id_);
-        StartWorkerInspector(env_.get(), url_);
       }
 
       {
@@ -236,7 +253,8 @@ void Worker::Run() {
       env_->stop_sub_worker_contexts();
       env_->RunCleanup();
       RunAtExit(env_.get());
-      WaitForWorkerInspectorToStop(env_.get());
+      if (inspector_started)
+        WaitForWorkerInspectorToStop(env_.get());
 
       {
         Mutex::ScopedLock stopped_lock(stopped_mutex_);
