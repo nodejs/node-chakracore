@@ -195,6 +195,7 @@ test-v8-serdes : SKIP
 test-async-wrap-missing-method : SKIP
 test-worker : SKIP
 test-worker-cleanup-handles : SKIP
+test-worker-debug : SKIP
 test-worker-dns-terminate : SKIP
 test-worker-esmodule : SKIP
 test-worker-exit-code : SKIP
