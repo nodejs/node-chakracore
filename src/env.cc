@@ -113,7 +113,6 @@ Environment::Environment(IsolateData* isolate_data,
       tick_info_(context->GetIsolate()),
       timer_base_(uv_now(isolate_data->event_loop())),
       printed_error_(false),
-      trace_sync_io_(false),
       abort_on_uncaught_exception_(false),
       emit_env_nonstring_warning_(true),
       makecallback_cntr_(0),
@@ -162,6 +161,9 @@ Environment::Environment(IsolateData* isolate_data,
 
   isolate()->GetHeapProfiler()->AddBuildEmbedderGraphCallback(
       BuildEmbedderGraph, this);
+  if (options_->no_force_async_hooks_checks) {
+    async_hooks_.no_force_checks();
+  }
 }
 
 Environment::~Environment() {
@@ -309,7 +311,7 @@ void Environment::StopProfilerIdleNotifier() {
 }
 
 void Environment::PrintSyncTrace() const {
-  if (!trace_sync_io_)
+  if (!options_->trace_sync_io)
     return;
 
   HandleScope handle_scope(isolate());
@@ -447,18 +449,9 @@ void Environment::EnvPromiseHook(v8::PromiseHookType type,
                                  v8::Local<v8::Value> parent) {
   Local<v8::Context> context = promise->CreationContext();
 
-  // Grow the embedder data if necessary to make sure we are not out of bounds
-  // when reading the magic number.
-  context->SetAlignedPointerInEmbedderData(
-      ContextEmbedderIndex::kContextTagBoundary, nullptr);
-  int* magicNumberPtr = reinterpret_cast<int*>(
-      context->GetAlignedPointerFromEmbedderData(
-          ContextEmbedderIndex::kContextTag));
-  if (magicNumberPtr != Environment::kNodeContextTagPtr) {
-    return;
-  }
-
   Environment* env = Environment::GetCurrent(context);
+  if (env == nullptr) return;
+
   for (const PromiseHookCallback& hook : env->promise_hooks_) {
     hook.cb_(type, promise, parent, hook.arg_);
   }

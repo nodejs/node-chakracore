@@ -156,8 +156,13 @@ module.exports = {
     ],
     /* eslint-disable max-len */
     // If this list is modified, please copy the change to lib/.eslintrc.yaml
+    // and test/.eslintrc.yaml.
     'no-restricted-syntax': [
       'error',
+      {
+        selector: "CallExpression[callee.object.name='assert'][callee.property.name='deepStrictEqual'][arguments.2.type='Literal']",
+        message: 'Do not use a literal for the third argument of assert.deepStrictEqual()'
+      },
       {
         selector: "CallExpression[callee.object.name='assert'][callee.property.name='doesNotThrow']",
         message: 'Please replace `assert.doesNotThrow()` and add a comment next to the code instead.'
@@ -165,6 +170,10 @@ module.exports = {
       {
         selector: "CallExpression[callee.object.name='assert'][callee.property.name='rejects'][arguments.length<2]",
         message: 'assert.rejects() must be invoked with at least two arguments.',
+      },
+      {
+        selector: "CallExpression[callee.object.name='assert'][callee.property.name='strictEqual'][arguments.2.type='Literal']",
+        message: 'Do not use a literal for the third argument of assert.strictEqual()'
       },
       {
         selector: "CallExpression[callee.object.name='assert'][callee.property.name='throws'][arguments.1.type='Literal']:not([arguments.1.regex])",

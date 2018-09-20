@@ -31,7 +31,7 @@
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.24',
+    'v8_embedder_string': '-node.28',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,
@@ -192,9 +192,9 @@
             'MinimalRebuild': 'false',
             'OmitFramePointers': 'false',
             'BasicRuntimeChecks': 3, # /RTC1
+            'MultiProcessorCompilation': 'true',
             'AdditionalOptions': [
               '/bigobj', # prevent error C1128 in VS2015
-              '/MP', # compile across multiple CPUs
             ],
           },
           'VCLinkerTool': {
@@ -292,8 +292,8 @@
             'EnableFunctionLevelLinking': 'true',
             'EnableIntrinsicFunctions': 'true',
             'RuntimeTypeInfo': 'false',
+            'MultiProcessorCompilation': 'true',
             'AdditionalOptions': [
-              '/MP', # compile across multiple CPUs
             ],
           }
         }
@@ -306,23 +306,11 @@
     'msvs_settings': {
       'VCCLCompilerTool': {
         'StringPooling': 'true', # pool string literals
-        'DebugInformationFormat': 3, # Generate a PDB
+        'DebugInformationFormat': 1, # /Z7 embed info in .obj files
         'WarningLevel': 3,
         'BufferSecurityCheck': 'true',
         'ExceptionHandling': 0, # /EHsc
         'SuppressStartupBanner': 'true',
-        # Disable warnings:
-        # - "C4251: class needs to have dll-interface"
-        # - "C4275: non-DLL-interface used as base for DLL-interface"
-        #   Over 10k of these warnings are generated when compiling node,
-        #   originating from v8.h. Most of them are false positives.
-        #   See also: https://github.com/nodejs/node/pull/15570
-        #   TODO: re-enable when Visual Studio fixes these upstream.
-        #
-        # - "C4267: conversion from 'size_t' to 'int'"
-        #   Many any originate from our dependencies, and their sheer number
-        #   drowns out other, more legitimate warnings.
-        'DisableSpecificWarnings': ['4251', '4275', '4267'],
         'WarnAsError': 'false',
       },
       'VCLinkerTool': {
@@ -361,7 +349,20 @@
         'SuppressStartupBanner': 'true',
       },
     },
-    'msvs_disabled_warnings': [4351, 4355, 4800],
+    # Disable warnings:
+    # - "C4251: class needs to have dll-interface"
+    # - "C4275: non-DLL-interface used as base for DLL-interface"
+    #   Over 10k of these warnings are generated when compiling node,
+    #   originating from v8.h. Most of them are false positives.
+    #   See also: https://github.com/nodejs/node/pull/15570
+    #   TODO: re-enable when Visual Studio fixes these upstream.
+    #
+    # - "C4267: conversion from 'size_t' to 'int'"
+    #   Many any originate from our dependencies, and their sheer number
+    #   drowns out other, more legitimate warnings.
+    # - "C4244: conversion from 'type1' to 'type2', possible loss of data"
+    #   Ususaly safe. Disable for `dep`, enable for `src`
+    'msvs_disabled_warnings': [4351, 4355, 4800, 4251, 4275, 4244, 4267],
     'conditions': [
       ['asan == 1 and OS != "mac"', {
         'cflags+': [

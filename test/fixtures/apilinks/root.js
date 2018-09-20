@@ -6,5 +6,5 @@ foo = false;
 
 // Return outside of function
 if (!foo) {
-	return;
+  return;
 }

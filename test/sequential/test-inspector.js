@@ -39,8 +39,7 @@ function checkBadPath(err) {
 }
 
 function checkException(message) {
-  assert.strictEqual(message.exceptionDetails, undefined,
-                     'An exception occurred during execution');
+  assert.strictEqual(message.exceptionDetails, undefined);
 }
 
 function assertScopeValues({ result }, expected) {

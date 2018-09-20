@@ -174,7 +174,6 @@ using v8::Object;
 using v8::ObjectTemplate;
 using v8::Promise;
 using v8::PropertyAttribute;
-using v8::PropertyCallbackInfo;
 using v8::ReadOnly;
 using v8::Script;
 using v8::ScriptCompiler;
@@ -196,9 +195,6 @@ static node_module* modlist_builtin;
 static node_module* modlist_internal;
 static node_module* modlist_linked;
 static node_module* modlist_addon;
-
-// TODO(addaleax): This should not be global.
-static bool abort_on_uncaught_exception = false;
 
 // Bit flag used to track security reverts (see node_revert.h)
 unsigned int reverted = 0;
@@ -615,68 +611,6 @@ const char* signo_string(int signo) {
   }
 }
 
-// These are all flags available for use with NODE_OPTIONS.
-//
-// Disallowed flags:
-//  These flags cause Node to do things other than run scripts:
-//    --version / -v
-//    --eval / -e
-//    --print / -p
-//    --check / -c
-//    --interactive / -i
-//    --prof-process
-//    --v8-options
-//  These flags are disallowed because security:
-//    --preserve-symlinks
-const char* const environment_flags[] = {
-  // Node options, sorted in `node --help` order for ease of comparison.
-  "--enable-fips",
-  "--experimental-modules",
-  "--experimenatl-repl-await",
-  "--experimental-vm-modules",
-  "--experimental-worker",
-  "--force-fips",
-  "--icu-data-dir",
-  "--inspect",
-  "--inspect-brk",
-  "--inspect-port",
-  "--loader",
-  "--napi-modules",
-  "--no-deprecation",
-  "--no-force-async-hooks-checks",
-  "--no-warnings",
-  "--openssl-config",
-  "--pending-deprecation",
-  "--redirect-warnings",
-  "--require",
-  "--throw-deprecation",
-  "--tls-cipher-list",
-  "--trace-deprecation",
-  "--trace-event-categories",
-  "--trace-event-file-pattern",
-  "--trace-events-enabled",
-  "--trace-sync-io",
-  "--trace-warnings",
-  "--track-heap-objects",
-  "--use-bundled-ca",
-  "--use-openssl-ca",
-  "--v8-pool-size",
-  "--zero-fill-buffers",
-  "-r"
-};
-
-  // V8 options (define with '_', which allows '-' or '_')
-const char* const v8_environment_flags[] = {
-  "--abort_on_uncaught_exception",
-  "--max_old_space_size",
-  "--perf_basic_prof",
-  "--perf_prof",
-  "--stack_trace_limit",
-};
-
-int v8_environment_flags_count = arraysize(v8_environment_flags);
-int environment_flags_count = arraysize(environment_flags);
-
 // Look up environment variable unless running as setuid root.
 bool SafeGetenv(const char* key, std::string* text) {
 #if !defined(__CloudABI__) && !defined(_WIN32)
@@ -710,7 +644,8 @@ namespace {
 bool ShouldAbortOnUncaughtException(Isolate* isolate) {
   HandleScope scope(isolate);
   Environment* env = Environment::GetCurrent(isolate);
-  return env->should_abort_on_uncaught_toggle()[0] &&
+  return env != nullptr &&
+         env->should_abort_on_uncaught_toggle()[0] &&
          !env->inside_should_not_abort_on_uncaught_scope();
 }
 
@@ -719,6 +654,7 @@ bool ShouldAbortOnUncaughtException(Isolate* isolate) {
 
 void AddPromiseHook(Isolate* isolate, promise_hook_func fn, void* arg) {
   Environment* env = Environment::GetCurrent(isolate);
+  CHECK_NOT_NULL(env);
   env->AddPromiseHook(fn, arg);
 }
 
@@ -726,6 +662,7 @@ void AddEnvironmentCleanupHook(Isolate* isolate,
                                void (*fun)(void* arg),
                                void* arg) {
   Environment* env = Environment::GetCurrent(isolate);
+  CHECK_NOT_NULL(env);
   env->AddCleanupHook(fun, arg);
 }
 
@@ -734,6 +671,7 @@ void RemoveEnvironmentCleanupHook(Isolate* isolate,
                                   void (*fun)(void* arg),
                                   void* arg) {
   Environment* env = Environment::GetCurrent(isolate);
+  CHECK_NOT_NULL(env);
   env->RemoveCleanupHook(fun, arg);
 }
 
@@ -818,6 +756,7 @@ MaybeLocal<Value> MakeCallback(Isolate* isolate,
   // Because of the AssignToContext() call in src/node_contextify.cc,
   // the two contexts need not be the same.
   Environment* env = Environment::GetCurrent(callback->CreationContext());
+  CHECK_NOT_NULL(env);
   Context::Scope context_scope(env->context());
   MaybeLocal<Value> ret = InternalMakeCallback(env, recv, callback,
                                                argc, argv, asyncContext);
@@ -1116,61 +1055,6 @@ static MaybeLocal<Value> ExecuteString(Environment* env,
   }
 
   return scope.Escape(result.ToLocalChecked());
-}
-
-
-static void GetActiveRequests(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-
-  Local<Array> ary = Array::New(args.GetIsolate());
-  Local<Context> ctx = env->context();
-  Local<Function> fn = env->push_values_to_array_function();
-  Local<Value> argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
-  size_t idx = 0;
-
-  for (auto w : *env->req_wrap_queue()) {
-    if (w->persistent().IsEmpty())
-      continue;
-    argv[idx] = w->GetOwner();
-    if (++idx >= arraysize(argv)) {
-      fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-      idx = 0;
-    }
-  }
-
-  if (idx > 0) {
-    fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-  }
-
-  args.GetReturnValue().Set(ary);
-}
-
-
-// Non-static, friend of HandleWrap. Could have been a HandleWrap method but
-// implemented here for consistency with GetActiveRequests().
-void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-
-  Local<Array> ary = Array::New(env->isolate());
-  Local<Context> ctx = env->context();
-  Local<Function> fn = env->push_values_to_array_function();
-  Local<Value> argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
-  size_t idx = 0;
-
-  for (auto w : *env->handle_wrap_queue()) {
-    if (!HandleWrap::HasRef(w))
-      continue;
-    argv[idx] = w->GetOwner();
-    if (++idx >= arraysize(argv)) {
-      fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-      idx = 0;
-    }
-  }
-  if (idx > 0) {
-    fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-  }
-
-  args.GetReturnValue().Set(ary);
 }
 
 
@@ -1518,6 +1402,7 @@ void FatalException(Isolate* isolate,
   HandleScope scope(isolate);
 
   Environment* env = Environment::GetCurrent(isolate);
+  CHECK_NOT_NULL(env);  // TODO(addaleax): Handle nullptr here.
   Local<Object> process_object = env->process_object();
   Local<String> fatal_exception_string = env->fatal_exception_string();
   Local<Value> fatal_exception_function =
@@ -1743,7 +1628,7 @@ static void GetInternalBinding(const FunctionCallbackInfo<Value>& args) {
 }
 
 static void GetLinkedBinding(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args.GetIsolate());
+  Environment* env = Environment::GetCurrent(args);
 
   CHECK(args[0]->IsString());
 
@@ -1811,32 +1696,6 @@ static Local<Object> GetFeatures(Environment* env) {
 
   return scope.Escape(obj);
 }
-
-
-static void DebugPortGetter(Local<Name> property,
-                            const PropertyCallbackInfo<Value>& info) {
-  Environment* env = Environment::GetCurrent(info);
-  Mutex::ScopedLock lock(process_mutex);
-  int port = env->options()->debug_options->port();
-#if HAVE_INSPECTOR
-  if (port == 0) {
-    if (auto io = env->inspector_agent()->io())
-      port = io->port();
-  }
-#endif  // HAVE_INSPECTOR
-  info.GetReturnValue().Set(port);
-}
-
-
-static void DebugPortSetter(Local<Name> property,
-                            Local<Value> value,
-                            const PropertyCallbackInfo<void>& info) {
-  Environment* env = Environment::GetCurrent(info);
-  Mutex::ScopedLock lock(process_mutex);
-  env->options()->debug_options->host_port.port =
-      value->Int32Value(env->context()).FromMaybe(0);
-}
-
 
 static void DebugProcess(const FunctionCallbackInfo<Value>& args);
 static void DebugEnd(const FunctionCallbackInfo<Value>& args);
@@ -2225,7 +2084,6 @@ void SetupProcessObject(Environment* env,
 
 void SignalExit(int signo) {
   uv_tty_reset_mode();
-  v8_platform.StopTracingAgent();
 #ifdef __FreeBSD__
   // FreeBSD has a nasty bug, see RegisterSignalHandler for details
   struct sigaction sa;
@@ -2712,7 +2570,7 @@ void ProcessArgv(std::vector<std::string>* args,
                 "--abort-on-uncaught-exception") != v8_args.end() ||
       std::find(v8_args.begin(), v8_args.end(),
                 "--abort_on_uncaught_exception") != v8_args.end()) {
-    abort_on_uncaught_exception = true;
+    env_opts->abort_on_uncaught_exception = true;
   }
 
   // TODO(bnoordhuis) Intercept --prof arguments and start the CPU profiler
@@ -2908,10 +2766,13 @@ void RunAtExit(Environment* env) {
 
 uv_loop_t* GetCurrentEventLoop(Isolate* isolate) {
   HandleScope handle_scope(isolate);
-  auto context = isolate->GetCurrentContext();
+  Local<Context> context = isolate->GetCurrentContext();
   if (context.IsEmpty())
     return nullptr;
-  return Environment::GetCurrent(context)->event_loop();
+  Environment* env = Environment::GetCurrent(context);
+  if (env == nullptr)
+    return nullptr;
+  return env->event_loop();
 }
 
 
@@ -3143,14 +3004,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
     return 12;  // Signal internal error.
   }
 
-  env.set_abort_on_uncaught_exception(abort_on_uncaught_exception);
-
-  // TODO(addaleax): Maybe access this option directly instead of setting
-  // a boolean member of Environment. Ditto below for trace_sync_io.
-  if (env.options()->no_force_async_hooks_checks) {
-    env.async_hooks()->no_force_checks();
-  }
-
   {
     Environment::AsyncCallbackScope callback_scope(&env);
     env.async_hooks()->push_async_ids(1, 0);
@@ -3172,8 +3025,6 @@ inline int Start(Isolate* isolate, void* isolate_context,
     }
   }
 #endif
-
-  env.set_trace_sync_io(env.options()->trace_sync_io);
 
 #if ENABLE_TTD_NODE
   if (s_doTTReplay) {

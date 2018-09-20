@@ -1124,6 +1124,8 @@ changes:
 * `privateKey` {string | Object}
   - `key` {string}
   - `passphrase` {string}
+  - `padding` {integer}
+  - `saltLength` {integer}
 * `outputFormat` {string}
 * Returns: {Buffer | string}
 
@@ -1806,6 +1808,9 @@ otherwise `err` will be `null`. By default, the successfully generated
 `derivedKey` will be passed to the callback as a [`Buffer`][]. An error will be
 thrown if any of the input arguments specify invalid values or types.
 
+If `digest` is `null`, `'sha1'` will be used. This behavior will be deprecated
+in a future version of Node.js.
+
 The `iterations` argument must be a number set as high as possible. The
 higher the number of iterations, the more secure the derived key will be,
 but will take a longer amount of time to complete.
@@ -1869,6 +1874,9 @@ applied to derive a key of the requested byte length (`keylen`) from the
 If an error occurs an `Error` will be thrown, otherwise the derived key will be
 returned as a [`Buffer`][].
 
+If `digest` is `null`, `'sha1'` will be used. This behavior will be deprecated
+in a future version of Node.js.
+
 The `iterations` argument must be a number set as high as possible. The
 higher the number of iterations, the more secure the derived key will be,
 but will take a longer amount of time to complete.
@@ -1910,7 +1918,8 @@ added: v0.11.14
 * `buffer` {Buffer | TypedArray | DataView}
 * Returns: {Buffer} A new `Buffer` with the decrypted content.
 
-Decrypts `buffer` with `privateKey`.
+Decrypts `buffer` with `privateKey`. `buffer` was previously encrypted using
+the corresponding public key, for example using [`crypto.publicEncrypt()`][].
 
 `privateKey` can be an object or a string. If `privateKey` is a string, it is
 treated as the key with no passphrase and will use `RSA_PKCS1_OAEP_PADDING`.
@@ -1928,7 +1937,8 @@ added: v1.1.0
 * `buffer` {Buffer | TypedArray | DataView}
 * Returns: {Buffer} A new `Buffer` with the encrypted content.
 
-Encrypts `buffer` with `privateKey`.
+Encrypts `buffer` with `privateKey`. The returned data can be decrypted using
+the corresponding public key, for example using [`crypto.publicDecrypt()`][].
 
 `privateKey` can be an object or a string. If `privateKey` is a string, it is
 treated as the key with no passphrase and will use `RSA_PKCS1_PADDING`.
@@ -1946,7 +1956,8 @@ added: v1.1.0
 * `buffer` {Buffer | TypedArray | DataView}
 * Returns: {Buffer} A new `Buffer` with the decrypted content.
 
-Decrypts `buffer` with `key`.
+Decrypts `buffer` with `key`.`buffer` was previously encrypted using
+the corresponding private key, for example using [`crypto.privateEncrypt()`][].
 
 `key` can be an object or a string. If `key` is a string, it is treated as
 the key with no passphrase and will use `RSA_PKCS1_PADDING`.
@@ -1969,7 +1980,8 @@ added: v0.11.14
 * Returns: {Buffer} A new `Buffer` with the encrypted content.
 
 Encrypts the content of `buffer` with `key` and returns a new
-[`Buffer`][] with encrypted content.
+[`Buffer`][] with encrypted content. The returned data can be decrypted using
+the corresponding private key, for example using [`crypto.privateDecrypt()`][].
 
 `key` can be an object or a string. If `key` is a string, it is treated as
 the key with no passphrase and will use `RSA_PKCS1_OAEP_PADDING`.
@@ -2763,6 +2775,10 @@ the `crypto`, `tls`, and `https` modules and are generally specific to OpenSSL.
 [`crypto.createVerify()`]: #crypto_crypto_createverify_algorithm_options
 [`crypto.getCurves()`]: #crypto_crypto_getcurves
 [`crypto.getHashes()`]: #crypto_crypto_gethashes
+[`crypto.privateDecrypt()`]: #crypto_crypto_privatedecrypt_privatekey_buffer
+[`crypto.privateEncrypt()`]: #crypto_crypto_privateencrypt_privatekey_buffer
+[`crypto.publicDecrypt()`]: #crypto_crypto_publicdecrypt_key_buffer
+[`crypto.publicEncrypt()`]: #crypto_crypto_publicencrypt_key_buffer
 [`crypto.randomBytes()`]: #crypto_crypto_randombytes_size_callback
 [`crypto.randomFill()`]: #crypto_crypto_randomfill_buffer_offset_size_callback
 [`crypto.scrypt()`]: #crypto_crypto_scrypt_password_salt_keylen_options_callback
