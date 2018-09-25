@@ -222,6 +222,7 @@ test-worker-uncaught-exception : SKIP
 test-worker-uncaught-exception-async : SKIP
 test-worker-unsupported-things : SKIP
 test-worker-workerdata-sharedarraybuffer : SKIP
+test-worker-onmessage-not-a-function : SKIP
 
 # Chakra doesn't yet support createCachedData.
 # See bug https://github.com/nodejs/node-chakracore/issues/560
