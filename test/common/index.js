@@ -768,7 +768,6 @@ module.exports = {
   isSunOS,
   isWindows,
   isWOW64,
-  leakedGlobals,
   localIPv6Hosts,
   mustCall,
   mustCallAsync,
