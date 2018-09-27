@@ -50,7 +50,10 @@ process.on('exit', () => {
   assert.strictEqual(eq.length, 2);
   assert.strictEqual(eq[0].message, 'E1');
   assert.strictEqual(
-    eq[1].message, 'Class constructor  cannot be invoked without \'new\'');
+    eq[1].message, common.engineSpecificMessage({
+      v8: 'Class constructor  cannot be invoked without \'new\'',
+      chakracore: 'Class constructor cannot be called without the new keyword'
+    }));
 });
 
 queueMicrotask(common.mustCall(() => {
