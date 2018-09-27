@@ -113,6 +113,7 @@ struct PackageConfig {
 #define PER_ISOLATE_SYMBOL_PROPERTIES(V)                                      \
   V(handle_onclose_symbol, "handle_onclose")                                  \
   V(owner_symbol, "owner")                                                    \
+  V(oninit_symbol, "oninit")                                                  \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
@@ -219,7 +220,6 @@ struct PackageConfig {
   V(onhandshakedone_string, "onhandshakedone")                                \
   V(onhandshakestart_string, "onhandshakestart")                              \
   V(onheaders_string, "onheaders")                                            \
-  V(oninit_string, "oninit")                                                  \
   V(onmessage_string, "onmessage")                                            \
   V(onnewsession_string, "onnewsession")                                      \
   V(onocspresponse_string, "onocspresponse")                                  \
@@ -342,8 +342,7 @@ struct PackageConfig {
   V(performance_entry_callback, v8::Function)                                 \
   V(performance_entry_template, v8::Function)                                 \
   V(process_object, v8::Object)                                               \
-  V(promise_reject_handled_function, v8::Function)                            \
-  V(promise_reject_unhandled_function, v8::Function)                          \
+  V(promise_handler_function, v8::Function)                                   \
   V(promise_wrap_template, v8::ObjectTemplate)                                \
   V(push_values_to_array_function, v8::Function)                              \
   V(sab_lifetimepartner_constructor_template, v8::FunctionTemplate)           \
