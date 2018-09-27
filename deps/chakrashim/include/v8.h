@@ -2959,6 +2959,7 @@ class V8_EXPORT Isolate {
   void SetPromiseHook(PromiseHook hook);
   void SetPromiseRejectCallback(PromiseRejectCallback callback);
   void RunMicrotasks();
+  void EnqueueMicrotask(Local<Function> microtask);
   void EnqueueMicrotask(MicrotaskCallback microtask, void* data = nullptr);
   void SetMicrotasksPolicy(MicrotasksPolicy policy);
   void SetAutorunMicrotasks(bool autorun);

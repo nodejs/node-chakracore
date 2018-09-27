@@ -171,6 +171,10 @@ void Isolate::SetJitCodeEventHandler(JitCodeEventOptions options,
   // need it because we do our own ETW tracing.
 }
 
+void Isolate::EnqueueMicrotask(Local<Function> microtask) {
+  jsrt::IsolateShim::FromIsolate(this)->QueueMicrotask(*microtask);
+}
+
 void Isolate::EnqueueMicrotask(MicrotaskCallback microtask, void* data) {
   // CHAKRA-TODO: Current microTask implementation only support queueing
   // javascript functions. Need to add support to queue native functions
