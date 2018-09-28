@@ -184,12 +184,12 @@ can be fast-tracked and may be landed after a shorter delay. For example:
   * Regressions that happen right before a release, or reported soon after.
 
 When a pull request is deemed suitable to be fast-tracked, label it with
-`fast-track` and add a comment that collaborators may upvote. Please mention the
-collaborators that gave an approval before in that comment. If someone disagrees
-with the fast-tracking request, remove the label and leave a comment why it
-should not be fast-tracked. The pull request can be landed once 2 or more
-Collaborators approve both the pull request and the fast-tracking request, and
-the necessary CI testing is done.
+`fast-track` and add a comment that collaborators may upvote. Please mention any
+Collaborators that previously approved the pull request. If someone disagrees
+with the fast-tracking request, remove the label and leave a comment indicating
+why the pull request should not be fast-tracked. The pull request can be landed
+once two or more Collaborators approve both the pull request and the
+fast-tracking request, and the necessary CI testing is done.
 
 ### Testing and CI
 
@@ -853,7 +853,7 @@ LTS working group and the Release team.
 | ---                                      | ---                                                                   |
 | `benchmark/*`                            | @nodejs/benchmarking, @mscdex                                         |
 | `doc/*`, `*.md`                          | @nodejs/documentation                                                 |
-| `lib/assert`                             | @nodejs/testing                                                       |
+| `lib/assert`                             | @nodejs/assert                                                        |
 | `lib/async_hooks`                        | @nodejs/async\_hooks for bugs/reviews (+ @nodejs/diagnostics for API) |
 | `lib/buffer`                             | @nodejs/buffer                                                        |
 | `lib/child_process`                      | @nodejs/child\_process                                                |
