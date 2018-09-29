@@ -1102,11 +1102,6 @@ is set for the `Http2Stream`.
 `http2.connect()` was passed a URL that uses any protocol other than `http:` or
 `https:`.
 
-<a id="ERR_INDEX_OUT_OF_RANGE"></a>
-### ERR_INDEX_OUT_OF_RANGE
-
-A given index was out of the accepted range (e.g. negative offsets).
-
 <a id="ERR_INSPECTOR_ALREADY_CONNECTED"></a>
 ### ERR_INSPECTOR_ALREADY_CONNECTED
 
@@ -1521,7 +1516,7 @@ An invalid (negative) size was passed for either the `recvBufferSize` or
 <a id="ERR_SOCKET_BAD_PORT"></a>
 ### ERR_SOCKET_BAD_PORT
 
-An API function expecting a port > 0 and < 65536 received an invalid value.
+An API function expecting a port >= 0 and < 65536 received an invalid value.
 
 <a id="ERR_SOCKET_BAD_TYPE"></a>
 ### ERR_SOCKET_BAD_TYPE
@@ -1929,6 +1924,14 @@ removed: v10.0.0
 
 Used when an invalid character is found in an HTTP response status message
 (reason phrase).
+
+<a id="ERR_INDEX_OUT_OF_RANGE"></a>
+### ERR_INDEX_OUT_OF_RANGE
+<!-- YAML
+  added: v10.0.0
+  removed: REPLACEME
+-->
+A given index was out of the accepted range (e.g. negative offsets).
 
 <a id="ERR_NAPI_CONS_PROTOTYPE_OBJECT"></a>
 ### ERR_NAPI_CONS_PROTOTYPE_OBJECT

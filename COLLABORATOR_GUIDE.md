@@ -184,12 +184,12 @@ can be fast-tracked and may be landed after a shorter delay. For example:
   * Regressions that happen right before a release, or reported soon after.
 
 When a pull request is deemed suitable to be fast-tracked, label it with
-`fast-track` and add a comment that collaborators may upvote. Please mention the
-collaborators that gave an approval before in that comment. If someone disagrees
-with the fast-tracking request, remove the label and leave a comment why it
-should not be fast-tracked. The pull request can be landed once 2 or more
-Collaborators approve both the pull request and the fast-tracking request, and
-the necessary CI testing is done.
+`fast-track` and add a comment that collaborators may upvote. Please mention any
+Collaborators that previously approved the pull request. If someone disagrees
+with the fast-tracking request, remove the label and leave a comment indicating
+why the pull request should not be fast-tracked. The pull request can be landed
+once two or more Collaborators approve both the pull request and the
+fast-tracking request, and the necessary CI testing is done.
 
 ### Testing and CI
 
@@ -699,9 +699,12 @@ $ git rev-list upstream/master...HEAD | xargs core-validate-commit
 Optional: When landing your own commits, force push the amended commit to the
 branch you used to open the pull request. If your branch is called `bugfix`,
 then the command would be `git push --force-with-lease origin master:bugfix`.
-When the pull request is closed, this will cause the pull request to
-show the purple merged status rather than the red closed status that is
-usually used for pull requests that weren't merged.
+Don't manually close the PR, GitHub will close it automatically later after you
+push it upstream, and will mark it with the purple merged status rather than the
+red closed status. If you close the PR before GitHub adjusts its status, it will
+show up as a 0 commit PR and the changed file history will be empty. Also if you
+push upstream before you push to your branch, GitHub will close the issue with
+red status so the order of operations is important.
 
 Time to push it:
 
@@ -850,7 +853,7 @@ LTS working group and the Release team.
 | ---                                      | ---                                                                   |
 | `benchmark/*`                            | @nodejs/benchmarking, @mscdex                                         |
 | `doc/*`, `*.md`                          | @nodejs/documentation                                                 |
-| `lib/assert`                             | @nodejs/testing                                                       |
+| `lib/assert`                             | @nodejs/assert                                                        |
 | `lib/async_hooks`                        | @nodejs/async\_hooks for bugs/reviews (+ @nodejs/diagnostics for API) |
 | `lib/buffer`                             | @nodejs/buffer                                                        |
 | `lib/child_process`                      | @nodejs/child\_process                                                |

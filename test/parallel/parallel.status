@@ -83,6 +83,9 @@ test-vm-proxies : SKIP
 test-vm-proxy : SKIP
 test-vm-strict-assign : SKIP
 
+# This test requires promise swallowed rejection hook support missing in ChakraCore
+test-promise-swallowed-event : SKIP
+
 # These tests are flaky on ChakraCore
 test-child-process-fork-net : PASS,FLAKY
 test-http2-client-upload : PASS,FLAKY
@@ -225,6 +228,8 @@ test-worker-uncaught-exception-async : SKIP
 test-worker-unsupported-things : SKIP
 test-worker-workerdata-sharedarraybuffer : SKIP
 test-worker-onmessage-not-a-function : SKIP
+test-worker-type-check : SKIP
+test-worker-unsupported-path : SKIP
 
 # Chakra doesn't yet support createCachedData.
 # See bug https://github.com/nodejs/node-chakracore/issues/560
