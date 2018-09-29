@@ -369,8 +369,8 @@ common.expectsError(() => {
   if (common.isChakraEngine) {
     // Skip on ChakraCore due to TypedArray .length JIT bug
     // (see this issue: https://github.com/Microsoft/ChakraCore/issues/2319)
-    const err = new RangeError('Index out of range');
-    err.code = 'ERR_INDEX_OUT_OF_RANGE';
+    const err = new RangeError('Attempt to write outside buffer bounds');
+    err.code = 'ERR_BUFFER_OUT_OF_BOUNDS';
     throw err;
   }
   const buf = Buffer.from('w00t');
