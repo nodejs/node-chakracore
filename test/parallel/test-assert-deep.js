@@ -4,7 +4,7 @@ const common = require('../common');
 const assert = require('assert');
 const util = require('util');
 const { AssertionError } = assert;
-const defaultMsgStart = 'Expected inputs to be strictly deep-equal:\n';
+const defaultMsgStart = 'Expected values to be strictly deep-equal:\n';
 const defaultMsgStartFull = `${defaultMsgStart}+ actual - expected`;
 
 // Disable colored output to prevent color codes from breaking assertion
@@ -16,7 +16,7 @@ if (process.stdout.isTTY)
 // Template tag function turning an error message into a RegExp
 // for assert.throws()
 function re(literals, ...values) {
-  let result = 'Expected inputs to be loosely deep-equal:\n\n';
+  let result = 'Expected values to be loosely deep-equal:\n\n';
   for (const [i, value] of values.entries()) {
     const str = util.inspect(value, {
       compact: false,
@@ -65,9 +65,13 @@ assert.deepEqual(arr, buf);
     () => assert.deepStrictEqual(buf2, buf),
     {
       code: 'ERR_ASSERTION',
-      message: `${defaultMsgStartFull}\n\n` +
-               '  Buffer [Uint8Array] [\n    120,\n    121,\n    122,\n' +
-               '+   10,\n+   prop: 1\n-   10\n  ]'
+      message: `${defaultMsgStartFull} ... Lines skipped\n\n` +
+               '  Buffer [Uint8Array] [\n' +
+               '    120,\n' +
+               '...\n' +
+               '    10,\n' +
+               '+   prop: 1\n' +
+               '  ]'
     }
   );
   assert.deepEqual(buf2, buf);
@@ -80,9 +84,13 @@ assert.deepEqual(arr, buf);
     () => assert.deepStrictEqual(arr, arr2),
     {
       code: 'ERR_ASSERTION',
-      message: `${defaultMsgStartFull}\n\n` +
-               '  Uint8Array [\n    120,\n    121,\n    122,\n' +
-               '+   10\n-   10,\n-   prop: 5\n  ]'
+      message: `${defaultMsgStartFull} ... Lines skipped\n\n` +
+               '  Uint8Array [\n' +
+               '    120,\n' +
+               '...\n' +
+               '    10,\n' +
+               '-   prop: 5\n' +
+               '  ]'
     }
   );
   assert.deepEqual(arr, arr2);
@@ -828,7 +836,7 @@ assert.throws(
     code: 'ERR_ASSERTION',
     name: 'AssertionError [ERR_ASSERTION]',
     message: `${defaultMsgStartFull}\n\n  ` +
-             '{\n+   a: 4\n-   a: 4,\n-   b: true\n  }'
+             '{\n    a: 4,\n-   b: true\n  }'
   });
 assert.throws(
   () => assert.deepStrictEqual(['a'], { 0: 'a' }),
@@ -897,7 +905,7 @@ assert.deepStrictEqual(obj1, obj2);
   assert.throws(
     () => assert.deepStrictEqual(arrProxy, [1, 2, 3]),
     { message: `${defaultMsgStartFull}\n\n` +
-               '  [\n    1,\n+   2\n-   2,\n-   3\n  ]' }
+               '  [\n    1,\n    2,\n-   3\n  ]' }
   );
   util.inspect.defaultOptions = tmp;
 

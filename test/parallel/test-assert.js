@@ -34,8 +34,8 @@ const a = assert;
 if (process.stdout.isTTY)
   process.env.NODE_DISABLE_COLORS = '1';
 
-const strictEqualMessageStart = 'Expected inputs to be strictly equal:\n';
-const start = 'Expected inputs to be strictly deep-equal:';
+const strictEqualMessageStart = 'Expected values to be strictly equal:\n';
+const start = 'Expected values to be strictly deep-equal:';
 const actExp = '+ actual - expected';
 
 assert.ok(a.AssertionError.prototype instanceof Error,
@@ -415,9 +415,9 @@ assert.throws(
   {
     code: 'ERR_ASSERTION',
     name: 'AssertionError [ERR_ASSERTION]',
-    message: strictEqualMessageStart +
+    message: 'Expected "actual" to be reference-equal to "expected":\n' +
              '+ actual - expected\n\n' +
-             '+ [Error: foo]\n- [Error: foobar]\n             ^'
+             '+ [Error: foo]\n- [Error: foobar]'
   }
 );
 
@@ -1046,7 +1046,7 @@ assert.throws(() => { throw null; }, 'foo');
 assert.throws(
   () => assert.strictEqual([], []),
   {
-    message: 'Inputs identical but not reference equal:\n\n[]\n'
+    message: 'Values identical but not reference-equal:\n\n[]\n'
   }
 );
 
@@ -1055,7 +1055,8 @@ assert.throws(
   assert.throws(
     () => assert.strictEqual(args, { 0: 'a' }),
     {
-      message: `${strictEqualMessageStart}+ actual - expected\n\n` +
+      message: 'Expected "actual" to be reference-equal to "expected":\n' +
+               '+ actual - expected\n\n' +
                "+ [Arguments] {\n- {\n    '0': 'a'\n  }"
     }
   );
@@ -1124,3 +1125,43 @@ assert.throws(
     }
   );
 }
+
+// Indicate where the strings diverge.
+assert.throws(
+  () => assert.strictEqual('test test', 'test foobar'),
+  {
+    code: 'ERR_ASSERTION',
+    name: 'AssertionError [ERR_ASSERTION]',
+    message: strictEqualMessageStart +
+             '+ actual - expected\n\n' +
+             "+ 'test test'\n" +
+             "- 'test foobar'\n" +
+             '        ^'
+  }
+);
+
+// Check for reference-equal objects in `notStrictEqual()`
+assert.throws(
+  () => {
+    const obj = {};
+    assert.notStrictEqual(obj, obj);
+  },
+  {
+    code: 'ERR_ASSERTION',
+    name: 'AssertionError [ERR_ASSERTION]',
+    message: 'Expected "actual" not to be reference-equal to "expected": {}'
+  }
+);
+
+assert.throws(
+  () => {
+    const obj = { a: true };
+    assert.notStrictEqual(obj, obj);
+  },
+  {
+    code: 'ERR_ASSERTION',
+    name: 'AssertionError [ERR_ASSERTION]',
+    message: 'Expected "actual" not to be reference-equal to "expected":\n\n' +
+             '{\n  a: true\n}\n'
+  }
+);

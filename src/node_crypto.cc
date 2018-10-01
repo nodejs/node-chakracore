@@ -407,7 +407,7 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
     } else if (strcmp(*sslmethod, "SSLv3_client_method") == 0) {
       return env->ThrowError("SSLv3 methods disabled");
     } else if (strcmp(*sslmethod, "SSLv23_method") == 0) {
-      method = TLS_method();
+      // noop
     } else if (strcmp(*sslmethod, "SSLv23_server_method") == 0) {
       method = TLS_server_method();
     } else if (strcmp(*sslmethod, "SSLv23_client_method") == 0) {
@@ -415,7 +415,6 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
     } else if (strcmp(*sslmethod, "TLSv1_method") == 0) {
       min_version = TLS1_VERSION;
       max_version = TLS1_VERSION;
-      method = TLS_method();
     } else if (strcmp(*sslmethod, "TLSv1_server_method") == 0) {
       min_version = TLS1_VERSION;
       max_version = TLS1_VERSION;
@@ -427,7 +426,6 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
     } else if (strcmp(*sslmethod, "TLSv1_1_method") == 0) {
       min_version = TLS1_1_VERSION;
       max_version = TLS1_1_VERSION;
-      method = TLS_method();
     } else if (strcmp(*sslmethod, "TLSv1_1_server_method") == 0) {
       min_version = TLS1_1_VERSION;
       max_version = TLS1_1_VERSION;
@@ -439,7 +437,6 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
     } else if (strcmp(*sslmethod, "TLSv1_2_method") == 0) {
       min_version = TLS1_2_VERSION;
       max_version = TLS1_2_VERSION;
-      method = TLS_method();
     } else if (strcmp(*sslmethod, "TLSv1_2_server_method") == 0) {
       min_version = TLS1_2_VERSION;
       max_version = TLS1_2_VERSION;
@@ -462,6 +459,11 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
   // SSLv3 is disabled because it's susceptible to downgrade attacks (POODLE.)
   SSL_CTX_set_options(sc->ctx_.get(), SSL_OP_NO_SSLv2);
   SSL_CTX_set_options(sc->ctx_.get(), SSL_OP_NO_SSLv3);
+
+  // Enable automatic cert chaining. This is enabled by default in OpenSSL, but
+  // disabled by default in BoringSSL. Enable it explicitly to make the
+  // behavior match when Node is built with BoringSSL.
+  SSL_CTX_clear_mode(sc->ctx_.get(), SSL_MODE_NO_AUTO_CHAIN);
 
   // SSL session cache configuration
   SSL_CTX_set_session_cache_mode(sc->ctx_.get(),
