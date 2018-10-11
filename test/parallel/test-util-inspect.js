@@ -636,8 +636,9 @@ util.inspect([{ inspect: () => 123 }]);
 
 // GH-2225
 {
-  const x = { inspect: util.inspect };
-  assert.strictEqual(util.inspect(x).includes('inspect'), true);
+  const x = { [util.inspect.custom]: util.inspect };
+  assert(util.inspect(x).includes(
+    '[Symbol(nodejs.util.inspect.custom)]:\n   { [Function: inspect]'));
 }
 
 // util.inspect should display the escaped value of a key.
@@ -793,6 +794,20 @@ util.inspect({ hasOwnProperty: null });
   };
 
   util.inspect(subject, { customInspectOptions: true });
+
+  // util.inspect.custom is a shared symbol which can be accessed as
+  // Symbol.for("nodejs.util.inspect.custom").
+  const inspect = Symbol.for('nodejs.util.inspect.custom');
+
+  subject[inspect] = () => ({ baz: 'quux' });
+
+  assert.strictEqual(util.inspect(subject), '{ baz: \'quux\' }');
+
+  subject[inspect] = (depth, opts) => {
+    assert.strictEqual(opts.customInspectOptions, true);
+  };
+
+  util.inspect(subject, { customInspectOptions: true });
 }
 
 {
@@ -826,7 +841,7 @@ util.inspect({ hasOwnProperty: null });
                      '{ a: 123, inspect: [Function: inspect] }');
 
   const subject = { a: 123, [util.inspect.custom]() { return this; } };
-  const UIC = 'util.inspect.custom';
+  const UIC = 'nodejs.util.inspect.custom';
   assert.strictEqual(util.inspect(subject),
                      `{ a: 123,\n  [Symbol(${UIC})]: [Function: [${UIC}]] }`);
 }
@@ -936,7 +951,7 @@ if (typeof Symbol !== 'undefined') {
   const set = new Set(['foo']);
   set.bar = 42;
   assert.strictEqual(
-    util.inspect(set, true),
+    util.inspect(set, { showHidden: true }),
     "Set { 'foo', [size]: 1, bar: 42 }"
   );
 }
@@ -1249,8 +1264,11 @@ util.inspect(process);
 
 // Setting custom inspect property to a non-function should do nothing.
 {
-  const obj = { inspect: 'fhqwhgads' };
-  assert.strictEqual(util.inspect(obj), "{ inspect: 'fhqwhgads' }");
+  const obj = { [util.inspect.custom]: 'fhqwhgads' };
+  assert.strictEqual(
+    util.inspect(obj),
+    "{ [Symbol(nodejs.util.inspect.custom)]: 'fhqwhgads' }"
+  );
 }
 
 {
@@ -1733,4 +1751,34 @@ assert.strictEqual(inspect(Object(13n)), '[BigInt: 13n]');
     `\u001b[${string[0]}m'Oh no!'\u001b[${string[1]}m }`
   );
   rejection.catch(() => {});
+}
+
+assert.strictEqual(
+  inspect([1, 3, 2], { sorted: true }),
+  inspect([1, 3, 2])
+);
+assert.strictEqual(
+  inspect({ c: 3, a: 1, b: 2 }, { sorted: true }),
+  '{ a: 1, b: 2, c: 3 }'
+);
+assert.strictEqual(
+  inspect(
+    { a200: 4, a100: 1, a102: 3, a101: 2 },
+    { sorted(a, b) { return b.localeCompare(a); } }
+  ),
+  '{ a200: 4, a102: 3, a101: 2, a100: 1 }'
+);
+
+// Non-indices array properties are sorted as well.
+{
+  const arr = [3, 2, 1];
+  arr.b = 2;
+  arr.c = 3;
+  arr.a = 1;
+  arr[Symbol('b')] = true;
+  arr[Symbol('a')] = false;
+  assert.strictEqual(
+    inspect(arr, { sorted: true }),
+    '[ 3, 2, 1, [Symbol(a)]: false, [Symbol(b)]: true, a: 1, b: 2, c: 3 ]'
+  );
 }

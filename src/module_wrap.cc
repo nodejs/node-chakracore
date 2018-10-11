@@ -433,16 +433,15 @@ std::string ReadFile(uv_file file) {
   uv_fs_t req;
   char buffer_memory[4096];
   uv_buf_t buf = uv_buf_init(buffer_memory, sizeof(buffer_memory));
-  int r;
 
   do {
-    r = uv_fs_read(uv_default_loop(),
-                   &req,
-                   file,
-                   &buf,
-                   1,
-                   contents.length(),  // offset
-                   nullptr);
+    const int r = uv_fs_read(uv_default_loop(),
+                             &req,
+                             file,
+                             &buf,
+                             1,
+                             contents.length(),  // offset
+                             nullptr);
     uv_fs_req_cleanup(&req);
 
     if (r <= 0)
@@ -801,7 +800,8 @@ void ModuleWrap::Initialize(Local<Object> target,
   env->SetProtoMethodNoSideEffect(tpl, "getStaticDependencySpecifiers",
                                   GetStaticDependencySpecifiers);
 
-  target->Set(FIXED_ONE_BYTE_STRING(isolate, "ModuleWrap"), tpl->GetFunction());
+  target->Set(FIXED_ONE_BYTE_STRING(isolate, "ModuleWrap"),
+              tpl->GetFunction(context).ToLocalChecked());
   env->SetMethod(target, "resolve", Resolve);
   env->SetMethod(target,
                  "setImportModuleDynamicallyCallback",

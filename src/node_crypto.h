@@ -88,11 +88,6 @@ using ECPointPointer = DeleteFnPtr<EC_POINT, EC_POINT_free>;
 using ECKeyPointer = DeleteFnPtr<EC_KEY, EC_KEY_free>;
 using DHPointer = DeleteFnPtr<DH, DH_free>;
 
-enum CheckResult {
-  CHECK_CERT_REVOKED = 0,
-  CHECK_OK = 1
-};
-
 extern int VerifyCallback(int preverify_ok, X509_STORE_CTX* ctx);
 
 extern void UseExtraCaCerts(const std::string& file);
@@ -107,11 +102,10 @@ class SecureContext : public BaseObject {
 
   static void Initialize(Environment* env, v8::Local<v8::Object> target);
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(SecureContext)
+  // TODO(joyeecheung): track the memory used by OpenSSL types
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(SecureContext)
+  SET_SELF_SIZE(SecureContext)
 
   SSLCtxPointer ctx_;
   X509Pointer cert_;
@@ -347,11 +341,10 @@ class CipherBase : public BaseObject {
  public:
   static void Initialize(Environment* env, v8::Local<v8::Object> target);
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(CipherBase)
+  // TODO(joyeecheung): track the memory used by OpenSSL types
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(CipherBase)
+  SET_SELF_SIZE(CipherBase)
 
  protected:
   enum CipherKind {
@@ -370,14 +363,21 @@ class CipherBase : public BaseObject {
   };
   static const unsigned kNoAuthTagLength = static_cast<unsigned>(-1);
 
+  void CommonInit(const char* cipher_type,
+                  const EVP_CIPHER* cipher,
+                  const unsigned char* key,
+                  int key_len,
+                  const unsigned char* iv,
+                  int iv_len,
+                  unsigned int auth_tag_len);
   void Init(const char* cipher_type,
             const char* key_buf,
             int key_buf_len,
             unsigned int auth_tag_len);
   void InitIv(const char* cipher_type,
-              const char* key,
+              const unsigned char* key,
               int key_len,
-              const char* iv,
+              const unsigned char* iv,
               int iv_len,
               unsigned int auth_tag_len);
   bool InitAuthenticated(const char* cipher_type, int iv_len,
@@ -429,11 +429,10 @@ class Hmac : public BaseObject {
  public:
   static void Initialize(Environment* env, v8::Local<v8::Object> target);
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(Hmac)
+  // TODO(joyeecheung): track the memory used by OpenSSL types
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(Hmac)
+  SET_SELF_SIZE(Hmac)
 
  protected:
   void HmacInit(const char* hash_type, const char* key, int key_len);
@@ -458,11 +457,10 @@ class Hash : public BaseObject {
  public:
   static void Initialize(Environment* env, v8::Local<v8::Object> target);
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(Hash)
+  // TODO(joyeecheung): track the memory used by OpenSSL types
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(Hash)
+  SET_SELF_SIZE(Hash)
 
   bool HashInit(const char* hash_type);
   bool HashUpdate(const char* data, int len);
@@ -503,11 +501,10 @@ class SignBase : public BaseObject {
   Error Init(const char* sign_type);
   Error Update(const char* data, int len);
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(SignBase)
+  // TODO(joyeecheung): track the memory used by OpenSSL types
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(SignBase)
+  SET_SELF_SIZE(SignBase)
 
  protected:
   void CheckThrow(Error error);
@@ -621,11 +618,10 @@ class DiffieHellman : public BaseObject {
     MakeWeak();
   }
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(DiffieHellman)
+  // TODO(joyeecheung): track the memory used by OpenSSL types
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(DiffieHellman)
+  SET_SELF_SIZE(DiffieHellman)
 
  private:
   static void GetField(const v8::FunctionCallbackInfo<v8::Value>& args,
@@ -652,11 +648,10 @@ class ECDH : public BaseObject {
                                       char* data,
                                       size_t len);
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(ECDH)
+  // TODO(joyeecheung): track the memory used by OpenSSL types
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(ECDH)
+  SET_SELF_SIZE(ECDH)
 
  protected:
   ECDH(Environment* env, v8::Local<v8::Object> wrap, ECKeyPointer&& key)

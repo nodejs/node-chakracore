@@ -918,9 +918,12 @@ The `callback` function, if specified, will be added as a listener for the
 
 `tls.connect()` returns a [`tls.TLSSocket`][] object.
 
-The following implements a simple "echo server" example:
+Here is an example of a client of echo server as described in
+[`tls.createServer()`][]:
 
 ```js
+// This example assumes that you have created an echo server that is
+// listening on port 8000.
 const tls = require('tls');
 const fs = require('fs');
 
@@ -944,13 +947,15 @@ socket.on('data', (data) => {
   console.log(data);
 });
 socket.on('end', () => {
-  server.close();
+  console.log('client ends');
 });
 ```
 
 Or
 
 ```js
+// This example assumes that you have created an echo server that is
+// listening on port 8000.
 const tls = require('tls');
 const fs = require('fs');
 
@@ -969,7 +974,7 @@ socket.on('data', (data) => {
   console.log(data);
 });
 socket.on('end', () => {
-  server.close();
+  console.log('client ends');
 });
 ```
 
@@ -1007,6 +1012,10 @@ argument.
 <!-- YAML
 added: v0.11.13
 changes:
+  - version: v10.0.0
+    pr-url: https://github.com/nodejs/node/pull/19794
+    description: The `ecdhCurve` cannot be set to `false` anymore due to a
+                 change in OpenSSL.
   - version: v9.3.0
     pr-url: https://github.com/nodejs/node/pull/14903
     description: The `options` parameter can now include `clientCertEngine`.
@@ -1060,7 +1069,7 @@ changes:
     discarded and DHE ciphers will not be available.
   * `ecdhCurve` {string} A string describing a named curve or a colon separated
     list of curve NIDs or names, for example `P-521:P-384:P-256`, to use for
-    ECDH key agreement, or `false` to disable ECDH. Set to `auto` to select the
+    ECDH key agreement. Set to `auto` to select the
     curve automatically. Use [`crypto.getCurves()`][] to obtain a list of
     available curve names. On recent releases, `openssl ecparam -list_curves`
     will also display the name and description of each available elliptic curve.

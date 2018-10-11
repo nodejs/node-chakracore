@@ -16,6 +16,32 @@ using v8::Undefined;
 using v8::Value;
 
 namespace node {
+
+void PerProcessOptions::CheckOptions(std::vector<std::string>* errors) {
+#if HAVE_OPENSSL
+  if (use_openssl_ca && use_bundled_ca) {
+    errors->push_back("either --use-openssl-ca or --use-bundled-ca can be "
+                      "used, not both");
+  }
+#endif
+  per_isolate->CheckOptions(errors);
+}
+
+void PerIsolateOptions::CheckOptions(std::vector<std::string>* errors) {
+  per_env->CheckOptions(errors);
+}
+
+void EnvironmentOptions::CheckOptions(std::vector<std::string>* errors) {
+  if (!userland_loader.empty() && !experimental_modules) {
+    errors->push_back("--loader requires --experimental-modules be enabled");
+  }
+
+  if (syntax_check_only && has_eval_string) {
+    errors->push_back("either --check or --eval can be used, not both");
+  }
+  debug_options->CheckOptions(errors);
+}
+
 namespace options_parser {
 
 // XXX: If you add an option here, please also add it to doc/node.1 and
@@ -76,8 +102,6 @@ EnvironmentOptionsParser::EnvironmentOptionsParser() {
             &EnvironmentOptions::experimental_worker,
             kAllowedInEnvironment);
   AddOption("--expose-internals", "", &EnvironmentOptions::expose_internals);
-  // TODO(addaleax): Remove this when adding -/_ canonicalization to the parser.
-  AddAlias("--expose_internals", "--expose-internals");
   AddOption("--loader",
             "(with --experimental-modules) use the specified file as a "
             "custom loader",
@@ -180,15 +204,15 @@ PerIsolateOptionsParser::PerIsolateOptionsParser() {
             kAllowedInEnvironment);
 
   // Explicitly add some V8 flags to mark them as allowed in NODE_OPTIONS.
-  AddOption("--abort_on_uncaught_exception",
+  AddOption("--abort-on-uncaught-exception",
             "aborting instead of exiting causes a core file to be generated "
             "for analysis",
             V8Option{},
             kAllowedInEnvironment);
-  AddOption("--max_old_space_size", "", V8Option{}, kAllowedInEnvironment);
-  AddOption("--perf_basic_prof", "", V8Option{}, kAllowedInEnvironment);
-  AddOption("--perf_prof", "", V8Option{}, kAllowedInEnvironment);
-  AddOption("--stack_trace_limit", "", V8Option{}, kAllowedInEnvironment);
+  AddOption("--max-old-space-size", "", V8Option{}, kAllowedInEnvironment);
+  AddOption("--perf-basic-prof", "", V8Option{}, kAllowedInEnvironment);
+  AddOption("--perf-prof", "", V8Option{}, kAllowedInEnvironment);
+  AddOption("--stack-trace-limit", "", V8Option{}, kAllowedInEnvironment);
 
   Insert(&EnvironmentOptionsParser::instance,
          &PerIsolateOptions::get_per_env_options);
@@ -223,6 +247,9 @@ PerProcessOptionsParser::PerProcessOptionsParser() {
             kAllowedInEnvironment);
 
   AddOption("--security-reverts", "", &PerProcessOptions::security_reverts);
+  AddOption("--completion-bash",
+            "print source-able bash completion script",
+            &PerProcessOptions::print_bash_completion);
   AddOption("--help",
             "print node command line options",
             &PerProcessOptions::print_help);
@@ -333,18 +360,20 @@ inline std::string RemoveBrackets(const std::string& host) {
     return host;
 }
 
-inline int ParseAndValidatePort(const std::string& port, std::string* error) {
+inline int ParseAndValidatePort(const std::string& port,
+                                std::vector<std::string>* errors) {
   char* endptr;
   errno = 0;
   const long result = strtol(port.c_str(), &endptr, 10);  // NOLINT(runtime/int)
   if (errno != 0 || *endptr != '\0'||
       (result != 0 && result < 1024) || result > 65535) {
-    *error = "Port must be 0 or in range 1024 to 65535.";
+    errors->push_back(" must be 0 or in range 1024 to 65535.");
   }
   return static_cast<int>(result);
 }
 
-HostPort SplitHostPort(const std::string& arg, std::string* error) {
+HostPort SplitHostPort(const std::string& arg,
+                      std::vector<std::string>* errors) {
   // remove_brackets only works if no port is specified
   // so if it has an effect only an IPv6 address was specified.
   std::string host = RemoveBrackets(arg);
@@ -360,11 +389,11 @@ HostPort SplitHostPort(const std::string& arg, std::string* error) {
         return HostPort { arg, -1 };
       }
     }
-    return HostPort { "", ParseAndValidatePort(arg, error) };
+    return HostPort { "", ParseAndValidatePort(arg, errors) };
   }
   // Host and port found:
   return HostPort { RemoveBrackets(arg.substr(0, colon)),
-                    ParseAndValidatePort(arg.substr(colon + 1), error) };
+                    ParseAndValidatePort(arg.substr(colon + 1), errors) };
 }
 
 // Usage: Either:

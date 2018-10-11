@@ -21,6 +21,18 @@ Execute without arguments to start the [REPL][].
 _For more info about `node inspect`, please see the [debugger][] documentation._
 
 ## Options
+<!-- YAML
+changes:
+  - version: v10.12.0
+    pr-url: https://github.com/nodejs/node/pull/23020
+    description: Underscores instead of dashes are now allowed for
+                 Node.js options as well, in addition to V8 options.
+-->
+
+All options, including V8 options, allow words to be separated by both
+dashes (`-`) or underscores (`_`).
+
+For example, `--pending-deprecation` is equivalent to `--pending_deprecation`.
 
 ### `-`
 <!-- YAML
@@ -51,6 +63,17 @@ analysis using a debugger (such as `lldb`, `gdb`, and `mdb`).
 If this flag is passed, the behavior can still be set to not abort through
 [`process.setUncaughtExceptionCaptureCallback()`][] (and through usage of the
 `domain` module that uses it).
+
+### `--completion-bash`
+<!-- YAML
+added: v10.12.0
+-->
+
+Print source-able bash completion script for Node.js.
+```console
+$ node --completion-bash > node_bash_completion
+$ source node_bash_completion
+```
 
 ### `--enable-fips`
 <!-- YAML
@@ -378,11 +401,6 @@ added: v0.1.3
 -->
 
 Print V8 command line options.
-
-V8 options allow words to be separated by both dashes (`-`) or
-underscores (`_`).
-
-For example, `--stack-trace-limit` is equivalent to `--stack_trace_limit`.
 
 ### `--v8-pool-size=num`
 <!-- YAML

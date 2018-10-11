@@ -9,6 +9,8 @@
     'library%': 'static_library',     # allow override to 'shared_library' for DLL/.so builds
     'component%': 'static_library',   # NB. these names match with what V8 expects
     'msvs_multi_core_compile': '0',   # we do enable multicore compiles, but not using the V8 way
+    'enable_pgo_generate%': '0',
+    'enable_pgo_use%': '0',
     'python%': 'python',
     'node_engine%': 'v8',
     'msvs_windows_target_platform_version': 'v10.0', # used for node_engine==chakracore
@@ -24,6 +26,8 @@
     'node_tag%': '',
     'uv_library%': 'static_library',
 
+    'clang%': 0,
+
     'openssl_fips%': '',
 
     # Default to -O0 for debug builds.
@@ -31,7 +35,7 @@
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.28',
+    'v8_embedder_string': '-node.35',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,
@@ -96,8 +100,6 @@
       }],
       ['OS=="mac"', {
         'clang%': 1,
-      }, {
-        'clang%': 0,
       }],
     ],
   },
@@ -226,9 +228,19 @@
           }],
           ['OS=="linux"', {
             'variables': {
+              'pgo_generate': ' -fprofile-generate ',
+              'pgo_use': ' -fprofile-use -fprofile-correction ',
               'lto': ' -flto=4 -fuse-linker-plugin -ffat-lto-objects ',
             },
             'conditions': [
+              ['enable_pgo_generate=="true"', {
+                'cflags': ['<(pgo_generate)'],
+                'ldflags': ['<(pgo_generate)'],
+              },],
+              ['enable_pgo_use=="true"', {
+                'cflags': ['<(pgo_use)'],
+                'ldflags': ['<(pgo_use)'],
+              },],
               ['enable_lto=="true"', {
                 'cflags': ['<(lto)'],
                 'ldflags': ['<(lto)'],

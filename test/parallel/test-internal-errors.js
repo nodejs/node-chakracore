@@ -92,7 +92,7 @@ common.expectsError(() => {
 }, {
   code: 'ERR_ASSERTION',
   type: assert.AssertionError,
-  message: /-   message: 'Error for testing purposes: a'\n\+   message: \/\^Error/
+  message: /-   message: 'Error for testing purposes: a',\n\+   message: \/\^Error/
 });
 
 // Test ERR_INVALID_FD_TYPE
@@ -129,7 +129,7 @@ assert.strictEqual(errors.getMessage('ERR_MISSING_ARGS', ['a', 'b', 'c']),
 // Test ERR_SOCKET_BAD_PORT
 assert.strictEqual(
   errors.getMessage('ERR_SOCKET_BAD_PORT', [0]),
-  'Port should be > 0 and < 65536. Received 0.');
+  'Port should be >= 0 and < 65536. Received 0.');
 
 // Test ERR_TLS_CERT_ALTNAME_INVALID
 assert.strictEqual(

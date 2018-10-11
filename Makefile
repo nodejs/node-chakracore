@@ -74,9 +74,9 @@ available-node = \
 # BUILDTYPE=Debug builds both release and debug builds. If you want to compile
 # just the debug build, run `make -C out BUILDTYPE=Debug` instead.
 ifeq ($(BUILDTYPE),Release)
-all: out/Makefile $(NODE_EXE) ## Default target, builds node in out/Release/node.
+all: $(NODE_EXE) ## Default target, builds node in out/Release/node.
 else
-all: out/Makefile $(NODE_EXE) $(NODE_G_EXE)
+all: $(NODE_EXE) $(NODE_G_EXE)
 endif
 
 .PHONY: help
@@ -279,8 +279,6 @@ jstest: build-addons build-addons-napi ## Runs addon tests and JS tests
 .PHONY: test
 # This does not run tests of third-party libraries inside deps.
 test: all ## Runs default tests, linters, and builds docs.
-	@echo "Build the addons before running the tests so the test results"
-	@echo "can be displayed together"
 	$(MAKE) -s test-doc
 	$(MAKE) -s build-addons
 	$(MAKE) -s build-addons-napi
@@ -289,8 +287,6 @@ test: all ## Runs default tests, linters, and builds docs.
 
 .PHONY: test-only
 test-only: all  ## For a quick test, does not run linter or build docs.
-	@echo "Build the addons before running the tests so the test results"
-	@echo "can be displayed together"
 	$(MAKE) build-addons
 	$(MAKE) build-addons-napi
 	$(MAKE) cctest
@@ -298,8 +294,6 @@ test-only: all  ## For a quick test, does not run linter or build docs.
 
 # Used by `make coverage-test`
 test-cov: all
-	@echo "Build the addons before running the tests so the test results"
-	@echo "can be displayed together"
 	$(MAKE) build-addons
 	$(MAKE) build-addons-napi
 	# $(MAKE) cctest
@@ -477,7 +471,7 @@ test-ci: | clear-stalled build-addons build-addons-napi doc-only
 # Prepare the build for running the tests.
 # Related CI jobs: most CI tests, excluding node-test-commit-arm-fanned
 build-ci:
-	$(PYTHON) ./configure $(CONFIG_FLAGS)
+	$(PYTHON) ./configure --verbose $(CONFIG_FLAGS)
 	$(MAKE)
 
 .PHONY: run-ci
@@ -604,11 +598,6 @@ test-v8 test-v8-intl test-v8-benchmarks test-v8-all:
 		"$ git clone https://github.com/nodejs/node.git"
 endif
 
-# Google Analytics ID used for tracking API docs page views, empty
-# DOCS_ANALYTICS means no tracking scripts will be included in the
-# generated .html files
-DOCS_ANALYTICS ?=
-
 apidoc_dirs = out/doc out/doc/api out/doc/api/assets
 apidoc_sources = $(wildcard doc/api/*.md)
 apidocs_html = $(addprefix out/,$(apidoc_sources:.md=.html))
@@ -653,8 +642,7 @@ out/doc/api/assets/%: doc/api_assets/% out/doc/api/assets
 run-npm-ci = $(PWD)/$(NPM) ci
 
 gen-api = tools/doc/generate.js --node-version=$(FULLVERSION) \
-		--apilinks=out/apilinks.json \
-		--analytics=$(DOCS_ANALYTICS) $< --output-directory=out/doc/api
+		--apilinks=out/apilinks.json $< --output-directory=out/doc/api
 gen-apilink = tools/doc/apilinks.js $(wildcard lib/*.js) > $@
 
 out/apilinks.json: $(wildcard lib/*.js) tools/doc/apilinks.js
@@ -1082,8 +1070,8 @@ run-lint-doc-md = tools/lint-md.js -q -f $(LINT_MD_DOC_FILES)
 # Lint all changed markdown files under doc/
 tools/.docmdlintstamp: $(LINT_MD_DOC_FILES)
 	@echo "Running Markdown linter on docs..."
-	$(call available-node,$(run-lint-doc-md))
-	touch $@
+	@$(call available-node,$(run-lint-doc-md))
+	@touch $@
 
 LINT_MD_TARGETS = src lib benchmark test tools/doc tools/icu
 LINT_MD_ROOT_DOCS := $(wildcard *.md)
@@ -1094,8 +1082,8 @@ run-lint-misc-md = tools/lint-md.js -q -f $(LINT_MD_MISC_FILES)
 # Lint other changed markdown files maintained by us
 tools/.miscmdlintstamp: $(LINT_MD_MISC_FILES)
 	@echo "Running Markdown linter on misc docs..."
-	$(call available-node,$(run-lint-misc-md))
-	touch $@
+	@$(call available-node,$(run-lint-misc-md))
+	@touch $@
 
 tools/.mdlintstamp: tools/.miscmdlintstamp tools/.docmdlintstamp
 
@@ -1194,19 +1182,25 @@ else
 	@echo "To install (requires internet access) run: $ make format-cpp-build"
 endif
 
+ifeq ($(V),1)
+  CPPLINT_QUIET =
+else
+  CPPLINT_QUIET = --quiet
+endif
 .PHONY: lint-cpp
 # Lints the C++ code with cpplint.py and check-imports.py.
 lint-cpp: tools/.cpplintstamp
 
 tools/.cpplintstamp: $(LINT_CPP_FILES)
 	@echo "Running C++ linter..."
-	@$(PYTHON) tools/cpplint.py $?
+	@$(PYTHON) tools/cpplint.py $(CPPLINT_QUIET) $?
 	@$(PYTHON) tools/check-imports.py
 	@touch $@
 
 lint-addon-docs: test/addons/.docbuildstamp
 	@echo "Running C++ linter on addon docs..."
-	@$(PYTHON) tools/cpplint.py --filter=$(ADDON_DOC_LINT_FLAGS) $(LINT_CPP_ADDON_DOC_FILES_GLOB)
+	@$(PYTHON) tools/cpplint.py $(CPPLINT_QUIET) --filter=$(ADDON_DOC_LINT_FLAGS) \
+		$(LINT_CPP_ADDON_DOC_FILES_GLOB)
 
 cpplint: lint-cpp
 	@echo "Please use lint-cpp instead of cpplint"

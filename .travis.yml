@@ -8,12 +8,12 @@ matrix:
   include:
     - name: "Linter"
       node_js: "latest"
-      env: 
+      env:
         - NODE=$(which node)
-      install:
-        - make lint-md-build
       script:
         - make lint
+        # Lint the first commit in the PR.
+        - git log $TRAVIS_COMMIT_RANGE --pretty=format:'%h' --no-merges | tail -1 | xargs npx core-validate-commit --no-validate-metadata
     - name: "Test Suite"
       install:
         - ./configure

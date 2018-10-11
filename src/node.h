@@ -141,7 +141,8 @@ NODE_DEPRECATED("Use ErrnoException(isolate, ...)",
                         path);
 })
 
-inline v8::Local<v8::Value> UVException(int errorno,
+NODE_DEPRECATED("Use UVException(isolate, ...)",
+                inline v8::Local<v8::Value> UVException(int errorno,
                                         const char* syscall = nullptr,
                                         const char* message = nullptr,
                                         const char* path = nullptr) {
@@ -150,7 +151,7 @@ inline v8::Local<v8::Value> UVException(int errorno,
                      syscall,
                      message,
                      path);
-}
+})
 
 /*
  * These methods need to be called in a HandleScope.
@@ -314,9 +315,16 @@ NODE_EXTERN void RunAtExit(Environment* env);
 NODE_EXTERN struct uv_loop_s* GetCurrentEventLoop(v8::Isolate* isolate);
 
 /* Converts a unixtime to V8 Date */
-#define NODE_UNIXTIME_V8(t) v8::Date::New(v8::Isolate::GetCurrent(),          \
-    1000 * static_cast<double>(t))
-#define NODE_V8_UNIXTIME(v) (static_cast<double>((v)->NumberValue())/1000.0);
+NODE_DEPRECATED("Use v8::Date::New() directly",
+                inline v8::Local<v8::Value> NODE_UNIXTIME_V8(double time) {
+  return v8::Date::New(v8::Isolate::GetCurrent(), 1000 * time);
+})
+#define NODE_UNIXTIME_V8 node::NODE_UNIXTIME_V8
+NODE_DEPRECATED("Use v8::Date::ValueOf() directly",
+                inline double NODE_V8_UNIXTIME(v8::Local<v8::Date> date) {
+  return date->ValueOf() / 1000;
+})
+#define NODE_V8_UNIXTIME node::NODE_V8_UNIXTIME
 
 #define NODE_DEFINE_CONSTANT(target, constant)                                \
   do {                                                                        \
@@ -377,9 +385,10 @@ inline void NODE_SET_METHOD(v8::Local<v8::Object> recv,
                             v8::FunctionCallback callback) {
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
   v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
   v8::Local<v8::FunctionTemplate> t = v8::FunctionTemplate::New(isolate,
                                                                 callback);
-  v8::Local<v8::Function> fn = t->GetFunction();
+  v8::Local<v8::Function> fn = t->GetFunction(context).ToLocalChecked();
   v8::Local<v8::String> fn_name = v8::String::NewFromUtf8(isolate, name,
       v8::NewStringType::kInternalized).ToLocalChecked();
   fn->SetName(fn_name);
@@ -765,84 +774,84 @@ v8::MaybeLocal<v8::Value> MakeCallback(v8::Isolate* isolate,
  * `AsyncResource::MakeCallback()` is used, then all four callbacks will be
  * called automatically. */
 class AsyncResource {
-  public:
-    AsyncResource(v8::Isolate* isolate,
-                  v8::Local<v8::Object> resource,
-                  const char* name,
-                  async_id trigger_async_id = -1)
-        : isolate_(isolate),
-          resource_(isolate, resource) {
-      async_context_ = EmitAsyncInit(isolate, resource, name,
-                                     trigger_async_id);
-    }
+ public:
+  AsyncResource(v8::Isolate* isolate,
+                v8::Local<v8::Object> resource,
+                const char* name,
+                async_id trigger_async_id = -1)
+      : isolate_(isolate),
+        resource_(isolate, resource) {
+    async_context_ = EmitAsyncInit(isolate, resource, name,
+                                   trigger_async_id);
+  }
 
-    AsyncResource(v8::Isolate* isolate,
-                  v8::Local<v8::Object> resource,
-                  v8::Local<v8::String> name,
-                  async_id trigger_async_id = -1)
-        : isolate_(isolate),
-          resource_(isolate, resource) {
-      async_context_ = EmitAsyncInit(isolate, resource, name,
-                                     trigger_async_id);
-    }
+  AsyncResource(v8::Isolate* isolate,
+                v8::Local<v8::Object> resource,
+                v8::Local<v8::String> name,
+                async_id trigger_async_id = -1)
+      : isolate_(isolate),
+        resource_(isolate, resource) {
+    async_context_ = EmitAsyncInit(isolate, resource, name,
+                                   trigger_async_id);
+  }
 
-    virtual ~AsyncResource() {
-      EmitAsyncDestroy(isolate_, async_context_);
-      resource_.Reset();
-    }
+  virtual ~AsyncResource() {
+    EmitAsyncDestroy(isolate_, async_context_);
+    resource_.Reset();
+  }
 
-    v8::MaybeLocal<v8::Value> MakeCallback(
-        v8::Local<v8::Function> callback,
-        int argc,
-        v8::Local<v8::Value>* argv) {
-      return node::MakeCallback(isolate_, get_resource(),
-                                callback, argc, argv,
-                                async_context_);
-    }
+  v8::MaybeLocal<v8::Value> MakeCallback(
+      v8::Local<v8::Function> callback,
+      int argc,
+      v8::Local<v8::Value>* argv) {
+    return node::MakeCallback(isolate_, get_resource(),
+                              callback, argc, argv,
+                              async_context_);
+  }
 
-    v8::MaybeLocal<v8::Value> MakeCallback(
-        const char* method,
-        int argc,
-        v8::Local<v8::Value>* argv) {
-      return node::MakeCallback(isolate_, get_resource(),
-                                method, argc, argv,
-                                async_context_);
-    }
+  v8::MaybeLocal<v8::Value> MakeCallback(
+      const char* method,
+      int argc,
+      v8::Local<v8::Value>* argv) {
+    return node::MakeCallback(isolate_, get_resource(),
+                              method, argc, argv,
+                              async_context_);
+  }
 
-    v8::MaybeLocal<v8::Value> MakeCallback(
-        v8::Local<v8::String> symbol,
-        int argc,
-        v8::Local<v8::Value>* argv) {
-      return node::MakeCallback(isolate_, get_resource(),
-                                symbol, argc, argv,
-                                async_context_);
-    }
+  v8::MaybeLocal<v8::Value> MakeCallback(
+      v8::Local<v8::String> symbol,
+      int argc,
+      v8::Local<v8::Value>* argv) {
+    return node::MakeCallback(isolate_, get_resource(),
+                              symbol, argc, argv,
+                              async_context_);
+  }
 
-    v8::Local<v8::Object> get_resource() {
-      return resource_.Get(isolate_);
-    }
+  v8::Local<v8::Object> get_resource() {
+    return resource_.Get(isolate_);
+  }
 
-    async_id get_async_id() const {
-      return async_context_.async_id;
-    }
+  async_id get_async_id() const {
+    return async_context_.async_id;
+  }
 
-    async_id get_trigger_async_id() const {
-      return async_context_.trigger_async_id;
-    }
+  async_id get_trigger_async_id() const {
+    return async_context_.trigger_async_id;
+  }
 
-  protected:
-    class CallbackScope : public node::CallbackScope {
-     public:
-      explicit CallbackScope(AsyncResource* res)
-        : node::CallbackScope(res->isolate_,
-                              res->resource_.Get(res->isolate_),
-                              res->async_context_) {}
-    };
+ protected:
+  class CallbackScope : public node::CallbackScope {
+   public:
+    explicit CallbackScope(AsyncResource* res)
+      : node::CallbackScope(res->isolate_,
+                            res->resource_.Get(res->isolate_),
+                            res->async_context_) {}
+  };
 
-  private:
-    v8::Isolate* isolate_;
-    v8::Persistent<v8::Object> resource_;
-    async_context async_context_;
+ private:
+  v8::Isolate* isolate_;
+  v8::Persistent<v8::Object> resource_;
+  async_context async_context_;
 };
 
 }  // namespace node

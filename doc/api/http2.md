@@ -222,6 +222,16 @@ session.on('localSettings', (settings) => {
 });
 ```
 
+#### Event: 'ping'
+<!-- YAML
+added: v10.12.0
+-->
+
+* `payload` {Buffer} The `PING` frame 8-byte payload
+
+The `'ping'` event is emitted whenever a `PING` frame is received from the
+connected peer.
+
 #### Event: 'remoteSettings'
 <!-- YAML
 added: v8.4.0
@@ -431,6 +441,8 @@ added: v9.4.0
 If the `Http2Session` is connected to a `TLSSocket`, the `originSet` property
 will return an `Array` of origins for which the `Http2Session` may be
 considered authoritative.
+
+The `originSet` property is only available when using a secure TLS connection.
 
 #### http2session.pendingSettingsAck
 <!-- YAML
@@ -670,6 +682,56 @@ The protocol identifier (`'h2'` in the examples) may be any valid
 The syntax of these values is not validated by the Node.js implementation and
 are passed through as provided by the user or received from the peer.
 
+#### serverhttp2session.origin(...origins)
+<!-- YAML
+added: v10.12.0
+-->
+
+* `origins` { string | URL | Object } One or more URL Strings passed as
+  separate arguments.
+
+Submits an `ORIGIN` frame (as defined by [RFC 8336][]) to the connected client
+to advertise the set of origins for which the server is capable of providing
+authoritative responses.
+
+```js
+const http2 = require('http2');
+const options = getSecureOptionsSomehow();
+const server = http2.createSecureServer(options);
+server.on('stream', (stream) => {
+  stream.respond();
+  stream.end('ok');
+});
+server.on('session', (session) => {
+  session.origin('https://example.com', 'https://example.org');
+});
+```
+
+When a string is passed as an `origin`, it will be parsed as a URL and the
+origin will be derived. For instance, the origin for the HTTP URL
+`'https://example.org/foo/bar'` is the ASCII string
+`'https://example.org'`. An error will be thrown if either the given string
+cannot be parsed as a URL or if a valid origin cannot be derived.
+
+A `URL` object, or any object with an `origin` property, may be passed as
+an `origin`, in which case the value of the `origin` property will be
+used. The value of the `origin` property *must* be a properly serialized
+ASCII origin.
+
+Alternatively, the `origins` option may be used when creating a new HTTP/2
+server using the `http2.createSecureServer()` method:
+
+```js
+const http2 = require('http2');
+const options = getSecureOptionsSomehow();
+options.origins = ['https://example.com', 'https://example.org'];
+const server = http2.createSecureServer(options);
+server.on('stream', (stream) => {
+  stream.respond();
+  stream.end('ok');
+});
+```
+
 ### Class: ClientHttp2Session
 <!-- YAML
 added: v8.4.0
@@ -699,6 +761,30 @@ client.on('altsvc', (alt, origin, streamId) => {
   console.log(streamId);
 });
 ```
+
+#### Event: 'origin'
+<!-- YAML
+added: v10.12.0
+-->
+
+* `origins` {string[]}
+
+The `'origin'`  event is emitted whenever an `ORIGIN` frame is received by
+the client. The event is emitted with an array of `origin` strings. The
+`http2session.originSet` will be updated to include the received
+origins.
+
+```js
+const http2 = require('http2');
+const client = http2.connect('https://example.org');
+
+client.on('origin', (origins) => {
+  for (let n = 0; n < origins.length; n++)
+    console.log(origins[n]);
+});
+```
+
+The `'origin'` event is only emitted when using a secure TLS connection.
 
 #### clienthttp2session.request(headers[, options])
 <!-- YAML
@@ -1914,6 +2000,10 @@ server.listen(80);
 <!-- YAML
 added: v8.4.0
 changes:
+  - version: v10.12.0
+    pr-url: https://github.com/nodejs/node/pull/22956
+    description: Added the `origins` option to automatically send an `ORIGIN`
+                 frame on `Http2Session` startup.
   - version: v8.9.3
     pr-url: https://github.com/nodejs/node/pull/17105
     description: Added the `maxOutstandingPings` option with a default limit of
@@ -1977,6 +2067,8 @@ changes:
     remote peer upon connection.
   * ...: Any [`tls.createServer()`][] options can be provided. For
     servers, the identity options (`pfx` or `key`/`cert`) are usually required.
+  * `origins` {string[]} An array of origin strings to send within an `ORIGIN`
+    frame immediately following creation of a new server `Http2Session`.
 * `onRequestHandler` {Function} See [Compatibility API][]
 * Returns: {Http2SecureServer}
 
@@ -2186,7 +2278,7 @@ not work.
 For incoming headers:
 * The `:status` header is converted to `number`.
 * Duplicates of `:status`, `:method`, `:authority`, `:scheme`, `:path`,
-`age`, `authorization`, `access-control-allow-credentials`,
+`:protocol`, `age`, `authorization`, `access-control-allow-credentials`,
 `access-control-max-age`, `access-control-request-method`, `content-encoding`,
 `content-language`, `content-length`, `content-location`, `content-md5`,
 `content-range`, `content-type`, `date`, `dnt`, `etag`, `expires`, `from`,
@@ -2243,6 +2335,10 @@ properties.
 * `maxHeaderListSize` {number} Specifies the maximum size (uncompressed octets)
   of header list that will be accepted. The minimum allowed value is 0. The
   maximum allowed value is 2<sup>32</sup>-1. **Default:** `65535`.
+* `enableConnectProtocol`{boolean} Specifies `true` if the "Extended Connect
+  Protocol" defined by [RFC 8441][] is to be enabled. This setting is only
+  meaningful if sent by the server. Once the `enableConnectProtocol` setting
+  has been enabled for a given `Http2Session`, it cannot be disabled.
 
 All additional properties on the settings object are ignored.
 
@@ -2407,6 +2503,36 @@ req.on('end', () => {
   client.close();
 });
 req.end('Jane');
+```
+
+### The Extended CONNECT Protocol
+
+[RFC 8441][] defines an "Extended CONNECT Protocol" extension to HTTP/2 that
+may be used to bootstrap the use of an `Http2Stream` using the `CONNECT`
+method as a tunnel for other communication protocols (such as WebSockets).
+
+The use of the Extended CONNECT Protocol is enabled by HTTP/2 servers by using
+the `enableConnectProtocol` setting:
+
+```js
+const http2 = require('http2');
+const settings = { enableConnectProtocol: true };
+const server = http2.createServer({ settings });
+```
+
+Once the client receives the `SETTINGS` frame from the server indicating that
+the extended CONNECT may be used, it may send `CONNECT` requests that use the
+`':protocol'`  HTTP/2 pseudo-header:
+
+```js
+const http2 = require('http2');
+const client = http2.connect('http://localhost:8080');
+client.on('remoteSettings', (settings) => {
+  if (settings.enableConnectProtocol) {
+    const req = client.request({ ':method': 'CONNECT', ':protocol': 'foo' });
+    // ...
+  }
+});
 ```
 
 ## Compatibility API
@@ -3268,6 +3394,8 @@ following additional properties:
 [Performance Observer]: perf_hooks.html
 [Readable Stream]: stream.html#stream_class_stream_readable
 [RFC 7838]: https://tools.ietf.org/html/rfc7838
+[RFC 8336]: https://tools.ietf.org/html/rfc8336
+[RFC 8441]: https://tools.ietf.org/html/rfc8441
 [Using `options.selectPadding()`]: #http2_using_options_selectpadding
 [`'checkContinue'`]: #http2_event_checkcontinue
 [`'request'`]: #http2_event_request

@@ -79,7 +79,6 @@
 #include <errno.h>
 #include <fcntl.h>  // _O_RDWR
 #include <limits.h>  // PATH_MAX
-#include <locale.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,7 +142,6 @@ namespace node {
 using options_parser::kAllowedInEnvironment;
 using options_parser::kDisallowedInEnvironment;
 using v8::Array;
-using v8::ArrayBuffer;
 using v8::Boolean;
 using v8::Context;
 using v8::DEFAULT;
@@ -163,16 +161,13 @@ using v8::Maybe;
 using v8::MaybeLocal;
 using v8::Message;
 using v8::MicrotasksPolicy;
-using v8::Name;
 using v8::NamedPropertyHandlerConfiguration;
 using v8::NewStringType;
 using v8::None;
 using v8::Nothing;
 using v8::Null;
-using v8::Number;
 using v8::Object;
 using v8::ObjectTemplate;
-using v8::Promise;
 using v8::PropertyAttribute;
 using v8::ReadOnly;
 using v8::Script;
@@ -341,7 +336,7 @@ static struct {
     // right away on the websocket port and fails to bind/etc, this will return
     // false.
     return env->inspector_agent()->Start(
-        script_path == nullptr ? "" : script_path, options);
+        script_path == nullptr ? "" : script_path, options, true);
   }
 
   bool InspectorStarted(Environment* env) {
@@ -2316,19 +2311,32 @@ static int GetDebugSignalHandlerMappingName(DWORD pid, wchar_t* buf,
 static void DebugProcess(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = args.GetIsolate();
+
+  if (args.Length() != 1) {
+    env->ThrowError("Invalid number of arguments.");
+    return;
+  }
+
   HANDLE process = nullptr;
   HANDLE thread = nullptr;
   HANDLE mapping = nullptr;
   wchar_t mapping_name[32];
   LPTHREAD_START_ROUTINE* handler = nullptr;
+  DWORD pid = 0;
 
-  if (args.Length() != 1) {
-    env->ThrowError("Invalid number of arguments.");
-    goto out;
-  }
+  OnScopeLeave cleanup([&]() {
+    if (process != nullptr)
+      CloseHandle(process);
+    if (thread != nullptr)
+      CloseHandle(thread);
+    if (handler != nullptr)
+      UnmapViewOfFile(handler);
+    if (mapping != nullptr)
+      CloseHandle(mapping);
+  });
 
   CHECK(args[0]->IsNumber());
-  DWORD pid = args[0].As<Integer>()->Value();
+  pid = args[0].As<Integer>()->Value();
 
   process = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
                             PROCESS_VM_OPERATION | PROCESS_VM_WRITE |
@@ -2338,14 +2346,14 @@ static void DebugProcess(const FunctionCallbackInfo<Value>& args) {
   if (process == nullptr) {
     isolate->ThrowException(
         WinapiErrnoException(isolate, GetLastError(), "OpenProcess"));
-    goto out;
+    return;
   }
 
   if (GetDebugSignalHandlerMappingName(pid,
                                        mapping_name,
                                        arraysize(mapping_name)) < 0) {
     env->ThrowErrnoException(errno, "sprintf");
-    goto out;
+    return;
   }
 
   mapping = OpenFileMappingW(FILE_MAP_READ, FALSE, mapping_name);
@@ -2353,7 +2361,7 @@ static void DebugProcess(const FunctionCallbackInfo<Value>& args) {
     isolate->ThrowException(WinapiErrnoException(isolate,
                                              GetLastError(),
                                              "OpenFileMappingW"));
-    goto out;
+    return;
   }
 
   handler = reinterpret_cast<LPTHREAD_START_ROUTINE*>(
@@ -2365,7 +2373,7 @@ static void DebugProcess(const FunctionCallbackInfo<Value>& args) {
   if (handler == nullptr || *handler == nullptr) {
     isolate->ThrowException(
         WinapiErrnoException(isolate, GetLastError(), "MapViewOfFile"));
-    goto out;
+    return;
   }
 
   thread = CreateRemoteThread(process,
@@ -2379,7 +2387,7 @@ static void DebugProcess(const FunctionCallbackInfo<Value>& args) {
     isolate->ThrowException(WinapiErrnoException(isolate,
                                                  GetLastError(),
                                                  "CreateRemoteThread"));
-    goto out;
+    return;
   }
 
   // Wait for the thread to terminate
@@ -2387,18 +2395,8 @@ static void DebugProcess(const FunctionCallbackInfo<Value>& args) {
     isolate->ThrowException(WinapiErrnoException(isolate,
                                                  GetLastError(),
                                                  "WaitForSingleObject"));
-    goto out;
+    return;
   }
-
- out:
-  if (process != nullptr)
-    CloseHandle(process);
-  if (thread != nullptr)
-    CloseHandle(thread);
-  if (handler != nullptr)
-    UnmapViewOfFile(handler);
-  if (mapping != nullptr)
-    CloseHandle(mapping);
 }
 #endif  // _WIN32
 
@@ -2509,7 +2507,7 @@ void ProcessArgv(std::vector<std::string>* args,
                  bool is_env) {
   // Parse a few arguments which are specific to Node.
   std::vector<std::string> v8_args;
-  std::string error;
+  std::vector<std::string> errors{};
 
   {
     // TODO(addaleax): The mutex here should ideally be held during the
@@ -2521,11 +2519,13 @@ void ProcessArgv(std::vector<std::string>* args,
         &v8_args,
         per_process_opts.get(),
         is_env ? kAllowedInEnvironment : kDisallowedInEnvironment,
-        &error);
+        &errors);
   }
 
-  if (!error.empty()) {
-    fprintf(stderr, "%s: %s\n", args->at(0).c_str(), error.c_str());
+  if (!errors.empty()) {
+    for (auto const& error : errors) {
+      fprintf(stderr, "%s: %s\n", args->at(0).c_str(), error.c_str());
+    }
     exit(9);
   }
 
@@ -2580,30 +2580,7 @@ void ProcessArgv(std::vector<std::string>* args,
     }
 #endif
 
-  // TODO(addaleax): Move this validation to the option parsers.
   auto env_opts = per_process_opts->per_isolate->per_env;
-  if (!env_opts->userland_loader.empty() &&
-      !env_opts->experimental_modules) {
-    fprintf(stderr, "%s: --loader requires --experimental-modules be enabled\n",
-            args->at(0).c_str());
-    exit(9);
-  }
-
-  if (env_opts->syntax_check_only && env_opts->has_eval_string) {
-    fprintf(stderr, "%s: either --check or --eval can be used, not both\n",
-            args->at(0).c_str());
-    exit(9);
-  }
-
-#if HAVE_OPENSSL
-  if (per_process_opts->use_openssl_ca && per_process_opts->use_bundled_ca) {
-    fprintf(stderr, "%s: either --use-openssl-ca or --use-bundled-ca can be "
-                    "used, not both\n",
-            args->at(0).c_str());
-    exit(9);
-  }
-#endif
-
   if (std::find(v8_args.begin(), v8_args.end(),
                 "--abort-on-uncaught-exception") != v8_args.end() ||
       std::find(v8_args.begin(), v8_args.end(),

@@ -829,7 +829,7 @@ added: v0.1.93
 -->
 
 The path to the file the stream is writing to as specified in the first
-argument to `fs.createWriteStream()`. If `path` is passed as a string, then
+argument to [`fs.createWriteStream()`][]. If `path` is passed as a string, then
 `writeStream.path` will be a string. If `path` is passed as a `Buffer`, then
 `writeStream.path` will be a `Buffer`.
 
@@ -2139,10 +2139,14 @@ changes:
 
 Synchronous lstat(2).
 
-## fs.mkdir(path[, mode], callback)
+## fs.mkdir(path[, options], callback)
 <!-- YAML
 added: v0.1.8
 changes:
+  - version: v10.12.0
+    pr-url: https://github.com/nodejs/node/pull/21875
+    description: The second argument can now be an `options` object with
+                 `recursive` and `mode` properties.
   - version: v10.0.0
     pr-url: https://github.com/nodejs/node/pull/12562
     description: The `callback` parameter is no longer optional. Not passing
@@ -2158,19 +2162,36 @@ changes:
 -->
 
 * `path` {string|Buffer|URL}
-* `mode` {integer} Not supported on Windows. **Default:** `0o777`.
+* `options` {Object|integer}
+  * `recursive` {boolean} **Default:** `false`
+  * `mode` {integer} Not supported on Windows. **Default:** `0o777`.
 * `callback` {Function}
   * `err` {Error}
 
 Asynchronously creates a directory. No arguments other than a possible exception
 are given to the completion callback.
 
+The optional `options` argument can be an integer specifying mode (permission
+and sticky bits), or an object with a `mode` property and a `recursive`
+property indicating whether parent folders should be created.
+
+```js
+// Creates /tmp/a/apple, regardless of whether `/tmp` and /tmp/a exist.
+fs.mkdir('/tmp/a/apple', { recursive: true }, (err) => {
+  if (err) throw err;
+});
+```
+
 See also: mkdir(2).
 
-## fs.mkdirSync(path[, mode])
+## fs.mkdirSync(path[, options])
 <!-- YAML
 added: v0.1.21
 changes:
+  - version: v10.12.0
+    pr-url: https://github.com/nodejs/node/pull/21875
+    description: The second argument can now be an `options` object with
+                 `recursive` and `mode` properties.
   - version: v7.6.0
     pr-url: https://github.com/nodejs/node/pull/10739
     description: The `path` parameter can be a WHATWG `URL` object using `file:`
@@ -2178,7 +2199,9 @@ changes:
 -->
 
 * `path` {string|Buffer|URL}
-* `mode` {integer} Not supported on Windows. **Default:** `0o777`.
+* `options` {Object|integer}
+  * `recursive` {boolean} **Default:** `false`
+  * `mode` {integer} Not supported on Windows. **Default:** `0o777`.
 
 Synchronously creates a directory. Returns `undefined`.
 This is the synchronous version of [`fs.mkdir()`][].
@@ -3405,7 +3428,8 @@ If this method is invoked as its [`util.promisify()`][]ed version, it returns
 a `Promise` for an `Object` with `bytesWritten` and `buffer` properties.
 
 It is unsafe to use `fs.write()` multiple times on the same file without waiting
-for the callback. For this scenario, `fs.createWriteStream()` is recommended.
+for the callback. For this scenario, [`fs.createWriteStream()`][] is
+recommended.
 
 On Linux, positional writes don't work when the file is opened in append mode.
 The kernel ignores the position argument and always appends the data to
@@ -3452,7 +3476,8 @@ written is not necessarily the same as string characters written. See
 [`Buffer.byteLength`][].
 
 It is unsafe to use `fs.write()` multiple times on the same file without waiting
-for the callback. For this scenario, `fs.createWriteStream()` is recommended.
+for the callback. For this scenario, [`fs.createWriteStream()`][] is
+recommended.
 
 On Linux, positional writes don't work when the file is opened in append mode.
 The kernel ignores the position argument and always appends the data to
@@ -3513,7 +3538,7 @@ fs.writeFile('message.txt', 'Hello Node.js', 'utf8', callback);
 Any specified file descriptor has to support writing.
 
 It is unsafe to use `fs.writeFile()` multiple times on the same file without
-waiting for the callback. For this scenario, `fs.createWriteStream()` is
+waiting for the callback. For this scenario, [`fs.createWriteStream()`][] is
 recommended.
 
 If a file descriptor is specified as the `file`, it will not be closed
@@ -3882,7 +3907,7 @@ at the current position. See pwrite(2).
 
 It is unsafe to use `filehandle.write()` multiple times on the same file
 without waiting for the `Promise` to be resolved (or rejected). For this
-scenario, `fs.createWriteStream` is strongly recommended.
+scenario, [`fs.createWriteStream()`][] is strongly recommended.
 
 On Linux, positional writes do not work when the file is opened in append mode.
 The kernel ignores the position argument and always appends the data to
@@ -4106,17 +4131,23 @@ changes:
 Asynchronous lstat(2). The `Promise` is resolved with the [`fs.Stats`][] object
 for the given symbolic link `path`.
 
-### fsPromises.mkdir(path[, mode])
+### fsPromises.mkdir(path[, options])
 <!-- YAML
 added: v10.0.0
 -->
 
 * `path` {string|Buffer|URL}
-* `mode` {integer} **Default:** `0o777`
+* `options` {Object|integer}
+  * `recursive` {boolean} **Default:** `false`
+  * `mode` {integer} Not supported on Windows. **Default:** `0o777`.
 * Returns: {Promise}
 
 Asynchronously creates a directory then resolves the `Promise` with no
 arguments upon success.
+
+The optional `options` argument can be an integer specifying mode (permission
+and sticky bits), or an object with a `mode` property and a `recursive`
+property indicating whether parent folders should be created.
 
 ### fsPromises.mkdtemp(prefix[, options])
 <!-- YAML
@@ -4758,12 +4789,13 @@ the file contents.
 [`fs.chmod()`]: #fs_fs_chmod_path_mode_callback
 [`fs.chown()`]: #fs_fs_chown_path_uid_gid_callback
 [`fs.copyFile()`]: #fs_fs_copyfile_src_dest_flags_callback
+[`fs.createWriteStream()`]: #fs_fs_createwritestream_path_options
 [`fs.exists()`]: fs.html#fs_fs_exists_path_callback
 [`fs.fstat()`]: #fs_fs_fstat_fd_options_callback
 [`fs.ftruncate()`]: #fs_fs_ftruncate_fd_len_callback
 [`fs.futimes()`]: #fs_fs_futimes_fd_atime_mtime_callback
 [`fs.lstat()`]: #fs_fs_lstat_path_options_callback
-[`fs.mkdir()`]: #fs_fs_mkdir_path_mode_callback
+[`fs.mkdir()`]: #fs_fs_mkdir_path_options_callback
 [`fs.mkdtemp()`]: #fs_fs_mkdtemp_prefix_options_callback
 [`fs.open()`]: #fs_fs_open_path_flags_mode_callback
 [`fs.read()`]: #fs_fs_read_fd_buffer_offset_length_position_callback

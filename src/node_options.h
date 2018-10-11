@@ -21,11 +21,17 @@ struct HostPort {
   }
 };
 
+class Options {
+ public:
+  virtual void CheckOptions(std::vector<std::string>* errors) {}
+  virtual ~Options() {}
+};
+
 // These options are currently essentially per-Environment, but it can be nice
 // to keep them separate since they are a group of options applying to a very
 // specific part of Node. It might also make more sense for them to be
 // per-Isolate, rather than per-Environment.
-class DebugOptions {
+class DebugOptions : public Options {
  public:
   bool inspector_enabled = false;
   bool deprecated_debug = false;
@@ -57,7 +63,7 @@ class DebugOptions {
   }
 };
 
-class EnvironmentOptions {
+class EnvironmentOptions : public Options {
  public:
   std::shared_ptr<DebugOptions> debug_options { new DebugOptions() };
   bool abort_on_uncaught_exception = false;
@@ -91,17 +97,19 @@ class EnvironmentOptions {
   std::vector<std::string> user_argv;
 
   inline DebugOptions* get_debug_options();
+  void CheckOptions(std::vector<std::string>* errors);
 };
 
-class PerIsolateOptions {
+class PerIsolateOptions : public Options {
  public:
   std::shared_ptr<EnvironmentOptions> per_env { new EnvironmentOptions() };
   bool track_heap_objects = false;
 
   inline EnvironmentOptions* get_per_env_options();
+  void CheckOptions(std::vector<std::string>* errors);
 };
 
-class PerProcessOptions {
+class PerProcessOptions : public Options {
  public:
   std::shared_ptr<PerIsolateOptions> per_isolate { new PerIsolateOptions() };
 
@@ -112,6 +120,7 @@ class PerProcessOptions {
   bool zero_fill_all_buffers = false;
 
   std::vector<std::string> security_reverts;
+  bool print_bash_completion = false;
   bool print_help = false;
   bool print_v8_help = false;
   bool print_version = false;
@@ -149,13 +158,15 @@ class PerProcessOptions {
 #endif
 
   inline PerIsolateOptions* get_per_isolate_options();
+  void CheckOptions(std::vector<std::string>* errors);
 };
 
 // The actual options parser, as opposed to the structs containing them:
 
 namespace options_parser {
 
-HostPort SplitHostPort(const std::string& arg, std::string* error);
+HostPort SplitHostPort(const std::string& arg,
+    std::vector<std::string>* errors);
 void GetOptions(const v8::FunctionCallbackInfo<v8::Value>& args);
 
 enum OptionEnvvarSettings {
@@ -231,7 +242,7 @@ class OptionsParser {
   void AddAlias(const std::string& from,
                 const std::initializer_list<std::string>& to);
 
-  // Add implications from some arbitary option to a boolean one, either
+  // Add implications from some arbitrary option to a boolean one, either
   // in a way that makes `from` set `to` to true or to false.
   void Implies(const std::string& from, const std::string& to);
   void ImpliesNot(const std::string& from, const std::string& to);
@@ -265,7 +276,7 @@ class OptionsParser {
                      std::vector<std::string>* const v8_args,
                      Options* const options,
                      OptionEnvvarSettings required_env_settings,
-                     std::string* const error);
+                     std::vector<std::string>* const errors);
 
  private:
   // We support the wide variety of different option types by remembering
@@ -289,7 +300,7 @@ class OptionsParser {
     }
   };
 
-  // Represents a field of type T withing `Options` that can be looked up
+  // Represents a field of type T within `Options` that can be looked up
   // as a C++ member field.
   template <typename T>
   class SimpleOptionField : public OptionField<T> {
