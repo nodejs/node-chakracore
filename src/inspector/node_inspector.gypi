@@ -66,14 +66,38 @@
     '<(SHARED_INTERMEDIATE_DIR)',
     '<(SHARED_INTERMEDIATE_DIR)/src', # for inspector
   ],
-  'copies': [
-    {
-      'files': [
-        '<(node_inspector_path)/node_protocol_config.json',
-        '<(node_inspector_path)/node_protocol.pdl'
+  'conditions': [
+    [ 'node_engine=="v8"', {
+      'copies': [
+        {
+          'files': [
+            '<(node_inspector_path)/node_protocol_config.json',
+            '<(node_inspector_path)/node_protocol.pdl'
+          ],
+          'destination': '<(SHARED_INTERMEDIATE_DIR)',
+        }
       ],
-      'destination': '<(SHARED_INTERMEDIATE_DIR)',
-    }
+    }],
+    [ 'node_engine=="chakracore"', {
+      'actions': [
+        {
+          'action_name': 'v8_inspector_compress_protocol_json',
+          'process_outputs_as_sources': 1,
+          'inputs': [
+            '../../deps/chakrashim/src/inspector/js_protocol.json',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/v8_inspector_protocol_json.h',
+          ],
+          'action': [
+            'python',
+            'tools/compress_json.py',
+            '<@(_inputs)',
+            '<@(_outputs)',
+          ],
+        },
+      ],
+    }]
   ],
   'actions': [
     {
