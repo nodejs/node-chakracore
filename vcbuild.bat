@@ -25,6 +25,7 @@ set sign=
 set nosnapshot=
 set cctest_args=
 set test_args=
+set stage_package=
 set package=
 set msi=
 set upload=
@@ -158,6 +159,9 @@ if defined build_release (
   set ltcg=1
   set "pch="
 )
+
+if defined msi     set stage_package=1
+if defined package set stage_package=1
 
 :: assign path to node_exe
 set "node_exe=%~dp0%config%\node.exe"
@@ -337,15 +341,17 @@ if errorlevel 1 echo Failed to sign exe&goto exit
 
 :licensertf
 @rem Skip license.rtf generation if not requested.
-if not defined licensertf goto package
+if not defined licensertf goto stage_package
 
 %native_node_exe% tools\license2rtf.js < LICENSE > %config%\license.rtf
 if errorlevel 1 echo Failed to generate license.rtf&goto exit
 
-:package
-if not defined package goto msi
+:stage_package
+if not defined stage_package goto install-doctools
+
 echo Creating package...
 cd Release
+rmdir /S /Q node-v%FULLVERSION%-win-%target_arch% > nul 2> nul
 mkdir node-v%FULLVERSION%-win-%target_arch% > nul 2> nul
 mkdir node-v%FULLVERSION%-win-%target_arch%\node_modules > nul 2>nul
 
@@ -359,7 +365,7 @@ copy /Y ..\README.md node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy README.md && goto package_error
 copy /Y ..\CHANGELOG.md node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy CHANGELOG.md && goto package_error
-robocopy /e ..\deps\npm node-v%FULLVERSION%-win-%target_arch%\node_modules\npm > nul
+robocopy ..\deps\npm node-v%FULLVERSION%-win-%target_arch%\node_modules\npm /e /xd test > nul
 if errorlevel 8 echo Cannot copy npm package && goto package_error
 copy /Y ..\deps\npm\bin\npm node-v%FULLVERSION%-win-%target_arch%\ > nul
 if errorlevel 1 echo Cannot copy npm && goto package_error
@@ -375,6 +381,11 @@ if not defined noetw (
     copy /Y ..\src\res\node_etw_provider.man node-v%FULLVERSION%-win-%target_arch%\ > nul
     if errorlevel 1 echo Cannot copy node_etw_provider.man && goto package_error
 )
+cd ..
+
+:package
+if not defined package goto msi
+cd Release
 
 :: ChakraCore SDK for native modules
 robocopy ..\ node-v%FULLVERSION%-win-%target_arch%\sdk\ *.h *.inc common.gypi /XD debug release build icu core test genfiles /S > nul
