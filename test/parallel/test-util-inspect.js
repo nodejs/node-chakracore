@@ -1666,6 +1666,7 @@ assert.strictEqual(util.inspect('"\'${a}'), "'\"\\'${a}'");
   assert.notStrictEqual(util.inspect(value), expected);
 });
 
+if (!common.isChakraEngine) {
 [
   [[1, 3, 4], '[Array: null prototype] [ 1, 3, 4 ]'],
   [new Set([1, 2]), '[Set: null prototype] { 1, 2 }'],
@@ -1703,7 +1704,6 @@ assert.strictEqual(util.inspect('"\'${a}'), "'\"\\'${a}'");
   assert.notStrictEqual(util.inspect(value), expected);
 });
 
-if (!common.isChakraEngine) {
   eval(`
 assert.strictEqual(inspect(1n), '1n');
 assert.strictEqual(inspect(Object(-1n)), '[BigInt: -1n]');
@@ -1796,7 +1796,7 @@ assert.strictEqual(
 }
 
 // Check that the fallback always works.
-{
+if (!common.isChakraEngine) {
   const obj = new Set([1, 2]);
   const iterator = obj[Symbol.iterator];
   Object.setPrototypeOf(obj, null);
