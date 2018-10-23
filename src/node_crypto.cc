@@ -45,13 +45,6 @@
 #include <memory>
 #include <vector>
 
-static const char PUBLIC_KEY_PFX[] =  "-----BEGIN PUBLIC KEY-----";
-static const int PUBLIC_KEY_PFX_LEN = sizeof(PUBLIC_KEY_PFX) - 1;
-static const char PUBRSA_KEY_PFX[] =  "-----BEGIN RSA PUBLIC KEY-----";
-static const int PUBRSA_KEY_PFX_LEN = sizeof(PUBRSA_KEY_PFX) - 1;
-static const char CERTIFICATE_PFX[] =  "-----BEGIN CERTIFICATE-----";
-static const int CERTIFICATE_PFX_LEN = sizeof(CERTIFICATE_PFX) - 1;
-
 static const int X509_NAME_FLAGS = ASN1_STRFLGS_ESC_CTRL
                                  | ASN1_STRFLGS_UTF8_CONVERT
                                  | XN_FLAG_SEP_MULTILINE
@@ -3650,6 +3643,31 @@ enum ParsePublicKeyResult {
   kParsePublicFailed
 };
 
+static ParsePublicKeyResult TryParsePublicKey(
+    EVPKeyPointer* pkey,
+    const BIOPointer& bp,
+    const char* name,
+    // NOLINTNEXTLINE(runtime/int)
+    std::function<EVP_PKEY*(const unsigned char** p, long l)> parse) {
+  unsigned char* der_data;
+  long der_len;  // NOLINT(runtime/int)
+
+  // This skips surrounding data and decodes PEM to DER.
+  {
+    MarkPopErrorOnReturn mark_pop_error_on_return;
+    if (PEM_bytes_read_bio(&der_data, &der_len, nullptr, name,
+                           bp.get(), nullptr, nullptr) != 1)
+      return kParsePublicNotRecognized;
+  }
+
+  // OpenSSL might modify the pointer, so we need to make a copy before parsing.
+  const unsigned char* p = der_data;
+  pkey->reset(parse(&p, der_len));
+  OPENSSL_clear_free(der_data, der_len);
+
+  return *pkey ? kParsePublicOk : kParsePublicFailed;
+}
+
 static ParsePublicKeyResult ParsePublicKey(EVPKeyPointer* pkey,
                                            const char* key_pem,
                                            int key_pem_len) {
@@ -3657,31 +3675,32 @@ static ParsePublicKeyResult ParsePublicKey(EVPKeyPointer* pkey,
   if (!bp)
     return kParsePublicFailed;
 
-  // Check if this is a PKCS#8 or RSA public key before trying as X.509.
-  if (strncmp(key_pem, PUBLIC_KEY_PFX, PUBLIC_KEY_PFX_LEN) == 0) {
-    pkey->reset(
-        PEM_read_bio_PUBKEY(bp.get(), nullptr, NoPasswordCallback, nullptr));
-  } else if (strncmp(key_pem, PUBRSA_KEY_PFX, PUBRSA_KEY_PFX_LEN) == 0) {
-    RSAPointer rsa(PEM_read_bio_RSAPublicKey(
-        bp.get(), nullptr, PasswordCallback, nullptr));
-    if (rsa) {
-      pkey->reset(EVP_PKEY_new());
-      if (*pkey)
-        EVP_PKEY_set1_RSA(pkey->get(), rsa.get());
-    }
-  } else if (strncmp(key_pem, CERTIFICATE_PFX, CERTIFICATE_PFX_LEN) == 0) {
-    // X.509 fallback
-    X509Pointer x509(PEM_read_bio_X509(
-        bp.get(), nullptr, NoPasswordCallback, nullptr));
-    if (!x509)
-      return kParsePublicFailed;
+  ParsePublicKeyResult ret;
 
-    pkey->reset(X509_get_pubkey(x509.get()));
-  } else {
-    return kParsePublicNotRecognized;
-  }
+  // Try PKCS#8 first.
+  ret = TryParsePublicKey(pkey, bp, "PUBLIC KEY",
+      [](const unsigned char** p, long l) {  // NOLINT(runtime/int)
+        return d2i_PUBKEY(nullptr, p, l);
+      });
+  if (ret != kParsePublicNotRecognized)
+    return ret;
 
-  return *pkey ? kParsePublicOk : kParsePublicFailed;
+  // Maybe it is PKCS#1.
+  CHECK(BIO_reset(bp.get()));
+  ret = TryParsePublicKey(pkey, bp, "RSA PUBLIC KEY",
+      [](const unsigned char** p, long l) {  // NOLINT(runtime/int)
+        return d2i_PublicKey(EVP_PKEY_RSA, nullptr, p, l);
+      });
+  if (ret != kParsePublicNotRecognized)
+    return ret;
+
+  // X.509 fallback.
+  CHECK(BIO_reset(bp.get()));
+  return TryParsePublicKey(pkey, bp, "CERTIFICATE",
+      [](const unsigned char** p, long l) {  // NOLINT(runtime/int)
+        X509Pointer x509(d2i_X509(nullptr, p, l));
+        return x509 ? X509_get_pubkey(x509.get()) : nullptr;
+      });
 }
 
 void Verify::Initialize(Environment* env, v8::Local<Object> target) {
@@ -5060,20 +5079,24 @@ class GenerateKeyPairJob : public CryptoJob {
 
     // Now do the same for the private key (which is a bit more difficult).
     if (private_key_encoding_.type_ == PK_ENCODING_PKCS1) {
-      // PKCS#1 is only permitted for RSA keys and without encryption.
+      // PKCS#1 is only permitted for RSA keys.
       CHECK_EQ(EVP_PKEY_id(pkey), EVP_PKEY_RSA);
-      CHECK_NULL(private_key_encoding_.cipher_);
 
       RSAPointer rsa(EVP_PKEY_get1_RSA(pkey));
       if (private_key_encoding_.format_ == PK_FORMAT_PEM) {
         // Encode PKCS#1 as PEM.
-        if (PEM_write_bio_RSAPrivateKey(bio.get(), rsa.get(),
-                                        nullptr, nullptr, 0,
-                                        nullptr, nullptr) != 1)
+        char* pass = private_key_encoding_.passphrase_.get();
+        if (PEM_write_bio_RSAPrivateKey(
+                bio.get(), rsa.get(),
+                private_key_encoding_.cipher_,
+                reinterpret_cast<unsigned char*>(pass),
+                private_key_encoding_.passphrase_length_,
+                nullptr, nullptr) != 1)
           return false;
       } else {
-        // Encode PKCS#1 as DER.
+        // Encode PKCS#1 as DER. This does not permit encryption.
         CHECK_EQ(private_key_encoding_.format_, PK_FORMAT_DER);
+        CHECK_NULL(private_key_encoding_.cipher_);
         if (i2d_RSAPrivateKey_bio(bio.get(), rsa.get()) != 1)
           return false;
       }
@@ -5101,20 +5124,24 @@ class GenerateKeyPairJob : public CryptoJob {
     } else {
       CHECK_EQ(private_key_encoding_.type_, PK_ENCODING_SEC1);
 
-      // SEC1 is only permitted for EC keys and without encryption.
+      // SEC1 is only permitted for EC keys.
       CHECK_EQ(EVP_PKEY_id(pkey), EVP_PKEY_EC);
-      CHECK_NULL(private_key_encoding_.cipher_);
 
       ECKeyPointer ec_key(EVP_PKEY_get1_EC_KEY(pkey));
       if (private_key_encoding_.format_ == PK_FORMAT_PEM) {
         // Encode SEC1 as PEM.
-        if (PEM_write_bio_ECPrivateKey(bio.get(), ec_key.get(),
-                                       nullptr, nullptr, 0,
-                                       nullptr, nullptr) != 1)
+        char* pass = private_key_encoding_.passphrase_.get();
+        if (PEM_write_bio_ECPrivateKey(
+                bio.get(), ec_key.get(),
+                private_key_encoding_.cipher_,
+                reinterpret_cast<unsigned char*>(pass),
+                private_key_encoding_.passphrase_length_,
+                nullptr, nullptr) != 1)
           return false;
       } else {
-        // Encode SEC1 as DER.
+        // Encode SEC1 as DER. This does not permit encryption.
         CHECK_EQ(private_key_encoding_.format_, PK_FORMAT_DER);
+        CHECK_NULL(private_key_encoding_.cipher_);
         if (i2d_ECPrivateKey_bio(bio.get(), ec_key.get()) != 1)
           return false;
       }
