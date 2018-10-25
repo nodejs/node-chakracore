@@ -436,7 +436,6 @@
         'src/node_root_certs.h',
         'src/node_version.h',
         'src/node_watchdog.h',
-        'src/node_wrap.h',
         'src/node_revert.h',
         'src/node_i18n.h',
         'src/node_worker.h',
@@ -964,6 +963,11 @@
         # Skip cctest while building shared lib node for Windows
         [ 'OS=="win" and node_shared=="true"', {
           'type': 'none',
+        }],
+        [ 'node_shared=="true"', {
+          'xcode_settings': {
+            'OTHER_LDFLAGS': [ '-Wl,-rpath,@loader_path', ],
+          },
         }],
       ],
     }, # cctest

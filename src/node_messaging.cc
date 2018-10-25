@@ -326,7 +326,6 @@ Maybe<bool> Message::Serialize(Environment* env,
 }
 
 void Message::MemoryInfo(MemoryTracker* tracker) const {
-  tracker->TrackThis(this);
   tracker->TrackField("array_buffer_contents", array_buffer_contents_);
   tracker->TrackFieldWithSize("shared_array_buffers",
       shared_array_buffers_.size() * sizeof(shared_array_buffers_[0]));
@@ -342,7 +341,6 @@ MessagePortData::~MessagePortData() {
 
 void MessagePortData::MemoryInfo(MemoryTracker* tracker) const {
   Mutex::ScopedLock lock(mutex_);
-  tracker->TrackThis(this);
   tracker->TrackField("incoming_messages", incoming_messages_);
 }
 
@@ -722,9 +720,7 @@ MaybeLocal<Function> GetMessagePortConstructor(
     Local<FunctionTemplate> m = env->NewFunctionTemplate(MessagePort::New);
     m->SetClassName(env->message_port_constructor_string());
     m->InstanceTemplate()->SetInternalFieldCount(1);
-
-    AsyncWrap::AddWrapMethods(env, m);
-    HandleWrap::AddWrapMethods(env, m);
+    m->Inherit(HandleWrap::GetConstructorTemplate(env));
 
     env->SetProtoMethod(m, "postMessage", MessagePort::PostMessage);
     env->SetProtoMethod(m, "start", MessagePort::Start);

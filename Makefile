@@ -598,11 +598,6 @@ test-v8 test-v8-intl test-v8-benchmarks test-v8-all:
 		"$ git clone https://github.com/nodejs/node.git"
 endif
 
-# Google Analytics ID used for tracking API docs page views, empty
-# DOCS_ANALYTICS means no tracking scripts will be included in the
-# generated .html files
-DOCS_ANALYTICS ?=
-
 apidoc_dirs = out/doc out/doc/api out/doc/api/assets
 apidoc_sources = $(wildcard doc/api/*.md)
 apidocs_html = $(addprefix out/,$(apidoc_sources:.md=.html))
@@ -647,8 +642,7 @@ out/doc/api/assets/%: doc/api_assets/% out/doc/api/assets
 run-npm-ci = $(PWD)/$(NPM) ci
 
 gen-api = tools/doc/generate.js --node-version=$(FULLVERSION) \
-		--apilinks=out/apilinks.json \
-		--analytics=$(DOCS_ANALYTICS) $< --output-directory=out/doc/api
+		--apilinks=out/apilinks.json $< --output-directory=out/doc/api
 gen-apilink = tools/doc/apilinks.js $(wildcard lib/*.js) > $@
 
 out/apilinks.json: $(wildcard lib/*.js) tools/doc/apilinks.js
@@ -1189,19 +1183,25 @@ else
 	@echo "To install (requires internet access) run: $ make format-cpp-build"
 endif
 
+ifeq ($(V),1)
+  CPPLINT_QUIET =
+else
+  CPPLINT_QUIET = --quiet
+endif
 .PHONY: lint-cpp
 # Lints the C++ code with cpplint.py and check-imports.py.
 lint-cpp: tools/.cpplintstamp
 
 tools/.cpplintstamp: $(LINT_CPP_FILES)
 	@echo "Running C++ linter..."
-	@$(PYTHON) tools/cpplint.py --quiet $?
+	@$(PYTHON) tools/cpplint.py $(CPPLINT_QUIET) $?
 	@$(PYTHON) tools/check-imports.py
 	@touch $@
 
 lint-addon-docs: test/addons/.docbuildstamp
 	@echo "Running C++ linter on addon docs..."
-	@$(PYTHON) tools/cpplint.py --filter=$(ADDON_DOC_LINT_FLAGS) $(LINT_CPP_ADDON_DOC_FILES_GLOB)
+	@$(PYTHON) tools/cpplint.py $(CPPLINT_QUIET) --filter=$(ADDON_DOC_LINT_FLAGS) \
+		$(LINT_CPP_ADDON_DOC_FILES_GLOB)
 
 cpplint: lint-cpp
 	@echo "Please use lint-cpp instead of cpplint"

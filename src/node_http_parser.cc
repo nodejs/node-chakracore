@@ -157,11 +157,11 @@ class Parser : public AsyncWrap, public StreamListener {
 
 
   void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
     tracker->TrackField("current_buffer", current_buffer_);
   }
 
-  ADD_MEMORY_INFO_NAME(Parser)
+  SET_MEMORY_INFO_NAME(Parser)
+  SET_SELF_SIZE(Parser)
 
   int on_message_begin() {
     num_fields_ = num_values_ = 0;
@@ -763,7 +763,7 @@ void Initialize(Local<Object> target,
 #undef V
   target->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "methods"), methods);
 
-  AsyncWrap::AddWrapMethods(env, t);
+  t->Inherit(AsyncWrap::GetConstructorTemplate(env));
   env->SetProtoMethod(t, "close", Parser::Close);
   env->SetProtoMethod(t, "free", Parser::Free);
   env->SetProtoMethod(t, "execute", Parser::Execute);

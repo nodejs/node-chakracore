@@ -50,9 +50,7 @@ class SignalWrap : public HandleWrap {
     Local<String> signalString =
         FIXED_ONE_BYTE_STRING(env->isolate(), "Signal");
     constructor->SetClassName(signalString);
-
-    AsyncWrap::AddWrapMethods(env, constructor);
-    HandleWrap::AddWrapMethods(env, constructor);
+    constructor->Inherit(HandleWrap::GetConstructorTemplate(env));
 
     env->SetProtoMethod(constructor, "start", Start);
     env->SetProtoMethod(constructor, "stop", Stop);
@@ -61,11 +59,9 @@ class SignalWrap : public HandleWrap {
                 constructor->GetFunction(env->context()).ToLocalChecked());
   }
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(SignalWrap)
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(SignalWrap)
+  SET_SELF_SIZE(SignalWrap)
 
  private:
   static void New(const FunctionCallbackInfo<Value>& args) {

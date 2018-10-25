@@ -39,16 +39,32 @@ Local<AccessorSignature> AccessorSignature::New(
   return reinterpret_cast<AccessorSignature*>(*receiver);
 }
 
+bool InstanceOfButNotPrototypeObject(JsValueRef instance,
+                                     JsValueRef constructor) {
+  if (!jsrt::InstanceOf(instance, constructor)) {
+    return false;
+  }
+
+  JsValueRef constructorProp;
+  JsValueRef prototypeProp;
+  if (jsrt::GetProperty(instance, "constructor", &constructorProp) ==
+          JsNoError &&
+      jsrt::GetProperty(constructorProp, "prototype", &prototypeProp) ==
+          JsNoError &&
+      prototypeProp == instance) {
+    return false;
+  }
+
+  return true;
+}
+
 bool Utils::CheckSignature(Local<FunctionTemplate> receiver,
                            Local<Object> thisPointer,
                            Local<Object>* holder) {
   *holder = thisPointer;
 
-  Local<ObjectTemplate> receiverInstanceTemplate = receiver->InstanceTemplate();
-
-  // v8 signature check walks hidden prototype chain to find holder. Chakra
-  // doesn't support hidden prototypes. Just check the receiver itself.
-  bool matched = Utils::IsInstanceOf(*thisPointer, *receiverInstanceTemplate);
+  bool matched =
+      InstanceOfButNotPrototypeObject(*thisPointer, *receiver->GetFunction());
 
   if (!matched) {
     const char txt[] = "Illegal invocation";

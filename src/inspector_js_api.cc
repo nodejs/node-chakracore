@@ -105,12 +105,13 @@ class JSBindingsConnection : public AsyncWrap {
   }
 
   void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
     tracker->TrackField("callback", callback_);
-    tracker->TrackFieldWithSize("session", sizeof(*session_));
+    tracker->TrackFieldWithSize(
+        "session", sizeof(*session_), "InspectorSession");
   }
 
-  ADD_MEMORY_INFO_NAME(JSBindingsConnection)
+  SET_MEMORY_INFO_NAME(JSBindingsConnection)
+  SET_SELF_SIZE(JSBindingsConnection)
 
  private:
   std::unique_ptr<InspectorSession> session_;
@@ -307,7 +308,7 @@ void Initialize(Local<Object> target, Local<Value> unused,
       env->NewFunctionTemplate(JSBindingsConnection::New);
   tmpl->InstanceTemplate()->SetInternalFieldCount(1);
   tmpl->SetClassName(conn_str);
-  AsyncWrap::AddWrapMethods(env, tmpl);
+  tmpl->Inherit(AsyncWrap::GetConstructorTemplate(env));
   env->SetProtoMethod(tmpl, "dispatch", JSBindingsConnection::Dispatch);
   env->SetProtoMethod(tmpl, "disconnect", JSBindingsConnection::Disconnect);
   target
