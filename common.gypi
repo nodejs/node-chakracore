@@ -9,6 +9,8 @@
     'library%': 'static_library',     # allow override to 'shared_library' for DLL/.so builds
     'component%': 'static_library',   # NB. these names match with what V8 expects
     'msvs_multi_core_compile': '0',   # we do enable multicore compiles, but not using the V8 way
+    'enable_pgo_generate%': '0',
+    'enable_pgo_use%': '0',
     'python%': 'python',
     'node_engine%': 'v8',
     'msvs_windows_target_platform_version': 'v10.0', # used for node_engine==chakracore
@@ -33,7 +35,7 @@
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.2',
+    'v8_embedder_string': '-node.3',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,

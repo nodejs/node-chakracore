@@ -120,13 +120,8 @@ NODE_EXTERN v8::Local<v8::Value> UVException(v8::Isolate* isolate,
                                              int errorno,
                                              const char* syscall = nullptr,
                                              const char* message = nullptr,
-                                             const char* path = nullptr);
-NODE_EXTERN v8::Local<v8::Value> UVException(v8::Isolate* isolate,
-                                             int errorno,
-                                             const char* syscall,
-                                             const char* message,
-                                             const char* path,
-                                             const char* dest);
+                                             const char* path = nullptr,
+                                             const char* dest = nullptr);
 
 NODE_DEPRECATED("Use ErrnoException(isolate, ...)",
                 inline v8::Local<v8::Value> ErrnoException(
@@ -141,7 +136,8 @@ NODE_DEPRECATED("Use ErrnoException(isolate, ...)",
                         path);
 })
 
-inline v8::Local<v8::Value> UVException(int errorno,
+NODE_DEPRECATED("Use UVException(isolate, ...)",
+                inline v8::Local<v8::Value> UVException(int errorno,
                                         const char* syscall = nullptr,
                                         const char* message = nullptr,
                                         const char* path = nullptr) {
@@ -150,7 +146,7 @@ inline v8::Local<v8::Value> UVException(int errorno,
                      syscall,
                      message,
                      path);
-}
+})
 
 /*
  * These methods need to be called in a HandleScope.
@@ -294,9 +290,16 @@ NODE_EXTERN void RunAtExit(Environment* env);
 NODE_EXTERN struct uv_loop_s* GetCurrentEventLoop(v8::Isolate* isolate);
 
 /* Converts a unixtime to V8 Date */
-#define NODE_UNIXTIME_V8(t) v8::Date::New(v8::Isolate::GetCurrent(),          \
-    1000 * static_cast<double>(t))
-#define NODE_V8_UNIXTIME(v) (static_cast<double>((v)->NumberValue())/1000.0);
+NODE_DEPRECATED("Use v8::Date::New() directly",
+                inline v8::Local<v8::Value> NODE_UNIXTIME_V8(double time) {
+  return v8::Date::New(v8::Isolate::GetCurrent(), 1000 * time);
+})
+#define NODE_UNIXTIME_V8 node::NODE_UNIXTIME_V8
+NODE_DEPRECATED("Use v8::Date::ValueOf() directly",
+                inline double NODE_V8_UNIXTIME(v8::Local<v8::Date> date) {
+  return date->ValueOf() / 1000;
+})
+#define NODE_V8_UNIXTIME node::NODE_V8_UNIXTIME
 
 #define NODE_DEFINE_CONSTANT(target, constant)                                \
   do {                                                                        \
@@ -392,20 +395,9 @@ NODE_EXTERN enum encoding ParseEncoding(
     v8::Isolate* isolate,
     v8::Local<v8::Value> encoding_v,
     enum encoding default_encoding = LATIN1);
-NODE_DEPRECATED("Use ParseEncoding(isolate, ...)",
-                inline enum encoding ParseEncoding(
-      v8::Local<v8::Value> encoding_v,
-      enum encoding default_encoding = LATIN1) {
-  return ParseEncoding(v8::Isolate::GetCurrent(), encoding_v, default_encoding);
-})
 
 NODE_EXTERN void FatalException(v8::Isolate* isolate,
                                 const v8::TryCatch& try_catch);
-
-NODE_DEPRECATED("Use FatalException(isolate, ...)",
-                inline void FatalException(const v8::TryCatch& try_catch) {
-  return FatalException(v8::Isolate::GetCurrent(), try_catch);
-})
 
 NODE_EXTERN v8::Local<v8::Value> Encode(v8::Isolate* isolate,
                                         const char* buf,
@@ -418,46 +410,16 @@ NODE_EXTERN v8::Local<v8::Value> Encode(v8::Isolate* isolate,
                                         const uint16_t* buf,
                                         size_t len);
 
-NODE_DEPRECATED("Use Encode(isolate, ...)",
-                inline v8::Local<v8::Value> Encode(
-    const void* buf,
-    size_t len,
-    enum encoding encoding = LATIN1) {
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  if (encoding == UCS2) {
-    assert(reinterpret_cast<uintptr_t>(buf) % sizeof(uint16_t) == 0 &&
-           "UCS2 buffer must be aligned on two-byte boundary.");
-    const uint16_t* that = static_cast<const uint16_t*>(buf);
-    return Encode(isolate, that, len / sizeof(*that));
-  }
-  return Encode(isolate, static_cast<const char*>(buf), len, encoding);
-})
-
 // Returns -1 if the handle was not valid for decoding
 NODE_EXTERN ssize_t DecodeBytes(v8::Isolate* isolate,
                                 v8::Local<v8::Value>,
                                 enum encoding encoding = LATIN1);
-NODE_DEPRECATED("Use DecodeBytes(isolate, ...)",
-                inline ssize_t DecodeBytes(
-    v8::Local<v8::Value> val,
-    enum encoding encoding = LATIN1) {
-  return DecodeBytes(v8::Isolate::GetCurrent(), val, encoding);
-})
-
 // returns bytes written.
 NODE_EXTERN ssize_t DecodeWrite(v8::Isolate* isolate,
                                 char* buf,
                                 size_t buflen,
                                 v8::Local<v8::Value>,
                                 enum encoding encoding = LATIN1);
-NODE_DEPRECATED("Use DecodeWrite(isolate, ...)",
-                inline ssize_t DecodeWrite(char* buf,
-                                           size_t buflen,
-                                           v8::Local<v8::Value> val,
-                                           enum encoding encoding = LATIN1) {
-  return DecodeWrite(v8::Isolate::GetCurrent(), buf, buflen, val, encoding);
-})
-
 #ifdef _WIN32
 NODE_EXTERN v8::Local<v8::Value> WinapiErrnoException(
     v8::Isolate* isolate,
@@ -465,17 +427,6 @@ NODE_EXTERN v8::Local<v8::Value> WinapiErrnoException(
     const char* syscall = nullptr,
     const char* msg = "",
     const char* path = nullptr);
-
-NODE_DEPRECATED("Use WinapiErrnoException(isolate, ...)",
-                inline v8::Local<v8::Value> WinapiErrnoException(int errorno,
-    const char* syscall = nullptr,  const char* msg = "",
-    const char* path = nullptr) {
-  return WinapiErrnoException(v8::Isolate::GetCurrent(),
-                              errorno,
-                              syscall,
-                              msg,
-                              path);
-})
 #endif
 
 const char* signo_string(int errorno);

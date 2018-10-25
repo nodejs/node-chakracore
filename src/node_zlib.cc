@@ -139,24 +139,15 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
   // write(flush, in, in_off, in_len, out, out_off, out_len)
   template <bool async>
   static void Write(const FunctionCallbackInfo<Value>& args) {
+    Environment* env = Environment::GetCurrent(args);
+    Local<Context> context = env->context();
     CHECK_EQ(args.Length(), 7);
 
-    ZCtx* ctx;
-    ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Holder());
-    CHECK(ctx->init_done_ && "write before init");
-    CHECK(ctx->mode_ != NONE && "already finalized");
-
-    CHECK_EQ(false, ctx->write_in_progress_ && "write already in progress");
-    CHECK_EQ(false, ctx->pending_close_ && "close is pending");
-    ctx->write_in_progress_ = true;
-    ctx->Ref();
+    uint32_t in_off, in_len, out_off, out_len, flush;
+    char* in;
+    char* out;
 
     CHECK_EQ(false, args[0]->IsUndefined() && "must provide flush value");
-
-    Environment* env = ctx->env();
-    Local<Context> context = env->context();
-
-    unsigned int flush;
     if (!args[0]->Uint32Value(context).To(&flush)) return;
 
     if (flush != Z_NO_FLUSH &&
@@ -168,12 +159,6 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
       CHECK(0 && "Invalid flush value");
     }
 
-    AllocScope alloc_scope(ctx);
-
-    Bytef* in;
-    Bytef* out;
-    uint32_t in_off, in_len, out_off, out_len;
-
     if (args[1]->IsNull()) {
       // just a flush
       in = nullptr;
@@ -181,49 +166,68 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
       in_off = 0;
     } else {
       CHECK(Buffer::HasInstance(args[1]));
-      Local<Object> in_buf;
-      in_buf = args[1]->ToObject(context).ToLocalChecked();
+      Local<Object> in_buf = args[1].As<Object>();
       if (!args[2]->Uint32Value(context).To(&in_off)) return;
       if (!args[3]->Uint32Value(context).To(&in_len)) return;
 
       CHECK(Buffer::IsWithinBounds(in_off, in_len, Buffer::Length(in_buf)));
-      in = reinterpret_cast<Bytef *>(Buffer::Data(in_buf) + in_off);
+      in = Buffer::Data(in_buf) + in_off;
     }
 
     CHECK(Buffer::HasInstance(args[4]));
-    Local<Object> out_buf = args[4]->ToObject(context).ToLocalChecked();
+    Local<Object> out_buf = args[4].As<Object>();
     if (!args[5]->Uint32Value(context).To(&out_off)) return;
     if (!args[6]->Uint32Value(context).To(&out_len)) return;
     CHECK(Buffer::IsWithinBounds(out_off, out_len, Buffer::Length(out_buf)));
-    out = reinterpret_cast<Bytef *>(Buffer::Data(out_buf) + out_off);
+    out = Buffer::Data(out_buf) + out_off;
 
-    ctx->strm_.avail_in = in_len;
-    ctx->strm_.next_in = in;
-    ctx->strm_.avail_out = out_len;
-    ctx->strm_.next_out = out;
-    ctx->flush_ = flush;
+    ZCtx* ctx;
+    ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Holder());
+
+    ctx->Write<async>(flush, in, in_len, out, out_len);
+  }
+
+  template <bool async>
+  void Write(uint32_t flush,
+             char* in, uint32_t in_len,
+             char* out, uint32_t out_len) {
+    AllocScope alloc_scope(this);
+
+    CHECK(init_done_ && "write before init");
+    CHECK(mode_ != NONE && "already finalized");
+
+    CHECK_EQ(false, write_in_progress_);
+    CHECK_EQ(false, pending_close_);
+    write_in_progress_ = true;
+    Ref();
+
+    strm_.avail_in = in_len;
+    strm_.next_in = reinterpret_cast<Bytef*>(in);
+    strm_.avail_out = out_len;
+    strm_.next_out = reinterpret_cast<Bytef*>(out);
+    flush_ = flush;
 
     if (!async) {
       // sync version
-      env->PrintSyncTrace();
-      ctx->DoThreadPoolWork();
+      env()->PrintSyncTrace();
+      DoThreadPoolWork();
 
       TTD_NATIVE_BUFFER_ACCESS_NOTIFY("ZLib sync");
 
-      if (ctx->CheckError()) {
-        ctx->write_result_[0] = ctx->strm_.avail_out;
-        ctx->write_result_[1] = ctx->strm_.avail_in;
-        ctx->write_in_progress_ = false;
+      if (CheckError()) {
+        write_result_[0] = strm_.avail_out;
+        write_result_[1] = strm_.avail_in;
+        write_in_progress_ = false;
 
 #if ENABLE_TTD_NODE
         if (s_doTTRecord || s_doTTReplay) {
           const size_t modSize = 2 * sizeof(uint32_t);
-          auto ttdbuf = ctx->write_result_ttdBuff->Buffer();
+          auto ttdbuf = write_result_ttdBuff->Buffer();
           ttdbuf->TTDRawBufferModifyNotifySync(0, modSize);
         }
 #endif
       }
-      ctx->Unref();
+      Unref();
       return;
     }
 
@@ -238,7 +242,7 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
 #endif
 
     // async version
-    ctx->ScheduleWork();
+    ScheduleWork();
   }
 
   // thread pool!
@@ -700,14 +704,13 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
   }
 
   void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
     tracker->TrackField("dictionary", dictionary_);
-    tracker->TrackFieldWithSize("zlib memory",
-        zlib_memory_ + unreported_allocations_);
+    tracker->TrackFieldWithSize("zlib_memory",
+                                zlib_memory_ + unreported_allocations_);
   }
 
-
-  ADD_MEMORY_INFO_NAME(ZCtx)
+  SET_MEMORY_INFO_NAME(ZCtx)
+  SET_SELF_SIZE(ZCtx)
 
  private:
   void Ref() {
