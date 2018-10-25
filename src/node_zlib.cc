@@ -184,13 +184,14 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
     ZCtx* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Holder());
 
-    ctx->Write<async>(flush, in, in_len, out, out_len);
+    ctx->Write<async>(flush, in, in_len, out, out_len, out_buf);
   }
 
   template <bool async>
   void Write(uint32_t flush,
              char* in, uint32_t in_len,
-             char* out, uint32_t out_len) {
+             char* out, uint32_t out_len,
+             Local<Object> out_buf) {
     AllocScope alloc_scope(this);
 
     CHECK(init_done_ && "write before init");
@@ -233,9 +234,9 @@ class ZCtx : public AsyncWrap, public ThreadPoolWork {
 
 #if ENABLE_TTD_NODE
     if (s_doTTRecord || s_doTTReplay) {
-      Buffer::TTDAsyncModRegister(out_buf, out);
+      Buffer::TTDAsyncModRegister(out_buf, (unsigned char*)out);
 
-      v8::Local<v8::ArrayBuffer> ttdbuf = ctx->write_result_ttdBuff->Buffer();
+      v8::Local<v8::ArrayBuffer> ttdbuf = write_result_ttdBuff->Buffer();
       byte* ttdraw = static_cast<byte*>(ttdbuf->GetContents().Data());
       ttdbuf->TTDRawBufferNotifyRegisterForModification(ttdraw);
     }
