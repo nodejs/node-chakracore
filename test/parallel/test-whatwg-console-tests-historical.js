@@ -1,6 +1,6 @@
 'use strict';
 
-require('../common');
+const common = require('../common');
 
 const { test, assert_equals } =
   require('../common/wpt');
@@ -21,6 +21,7 @@ const { test, assert_equals } =
 
 "use strict";
 
+if (!common.isChakraEngine) {
 test(() => {
   assert_equals(console.timeline, undefined, "console.timeline should be undefined");
 }, "'timeline' function should not exist on the console object");
@@ -32,5 +33,5 @@ test(() => {
 test(() => {
   assert_equals(console.markTimeline, undefined, "console.markTimeline should be undefined");
 }, "'markTimeline' function should not exist on the console object");
-
+}
 /* eslint-enable */
