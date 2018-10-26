@@ -226,6 +226,7 @@ void Http2Session::Http2Settings::Init() {
   GRABSETTING(INITIAL_WINDOW_SIZE, "initial window size");
   GRABSETTING(MAX_HEADER_LIST_SIZE, "max header list size");
   GRABSETTING(ENABLE_PUSH, "enable push");
+  GRABSETTING(ENABLE_CONNECT_PROTOCOL, "enable connect protocol");
 
 #undef GRABSETTING
 
@@ -294,6 +295,8 @@ void Http2Session::Http2Settings::Update(Environment* env,
       fn(**session, NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE);
   buffer[IDX_SETTINGS_ENABLE_PUSH] =
       fn(**session, NGHTTP2_SETTINGS_ENABLE_PUSH);
+  buffer[IDX_SETTINGS_ENABLE_CONNECT_PROTOCOL] =
+      fn(**session, NGHTTP2_SETTINGS_ENABLE_CONNECT_PROTOCOL);
 }
 
 // Initializes the shared TypedArray with the default settings values.
@@ -3098,6 +3101,7 @@ void Initialize(Local<Object> target,
   NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE);
   NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_MAX_FRAME_SIZE);
   NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE);
+  NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_ENABLE_CONNECT_PROTOCOL);
 
   NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_NONE);
   NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_ALIGNED);

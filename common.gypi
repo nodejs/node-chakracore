@@ -27,7 +27,7 @@
     'uv_library%': 'static_library',
 
     'clang%': 0,
-    
+
     'openssl_fips%': '',
 
     # Default to -O0 for debug builds.
