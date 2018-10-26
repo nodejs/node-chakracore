@@ -48,7 +48,7 @@ namespace options_parser {
 // doc/api/cli.md
 // TODO(addaleax): Make that unnecessary.
 
-DebugOptionsParser::DebugOptionsParser() {
+void DebugOptionsParser::Initialize() {
 #if HAVE_INSPECTOR
   AddOption("--inspect-port",
             "set host:port for inspector",
@@ -82,9 +82,7 @@ DebugOptionsParser::DebugOptionsParser() {
 #endif
 }
 
-DebugOptionsParser DebugOptionsParser::instance;
-
-EnvironmentOptionsParser::EnvironmentOptionsParser() {
+void EnvironmentOptionsParser::Initialize() {
   AddOption("--experimental-modules",
             "experimental ES Module support and caching modules",
             &EnvironmentOptions::experimental_modules,
@@ -191,13 +189,11 @@ EnvironmentOptionsParser::EnvironmentOptionsParser() {
   AddOption("--expose-http2", "", NoOp {}, kAllowedInEnvironment);
   AddOption("--expose_http2", "", NoOp {}, kAllowedInEnvironment);
 
-  Insert(&DebugOptionsParser::instance,
+  Insert(DebugOptionsParser::GetInstance(),
          &EnvironmentOptions::get_debug_options);
 }
 
-EnvironmentOptionsParser EnvironmentOptionsParser::instance;
-
-PerIsolateOptionsParser::PerIsolateOptionsParser() {
+void PerIsolateOptionsParser::Initialize() {
   AddOption("--track-heap-objects",
             "track heap object allocations for heap snapshots",
             &PerIsolateOptions::track_heap_objects,
@@ -214,13 +210,11 @@ PerIsolateOptionsParser::PerIsolateOptionsParser() {
   AddOption("--perf-prof", "", V8Option{}, kAllowedInEnvironment);
   AddOption("--stack-trace-limit", "", V8Option{}, kAllowedInEnvironment);
 
-  Insert(&EnvironmentOptionsParser::instance,
+  Insert(EnvironmentOptionsParser::GetInstance(),
          &PerIsolateOptions::get_per_env_options);
 }
 
-PerIsolateOptionsParser PerIsolateOptionsParser::instance;
-
-PerProcessOptionsParser::PerProcessOptionsParser() {
+void PerProcessOptionsParser::Initialize() {
   AddOption("--title",
             "the process title to use on startup",
             &PerProcessOptions::title,
@@ -347,11 +341,9 @@ PerProcessOptionsParser::PerProcessOptionsParser() {
             &PerProcessOptions::ttdDisableAutoTrace);
 #endif
 
-  Insert(&PerIsolateOptionsParser::instance,
+  Insert(PerIsolateOptionsParser::GetInstance(),
          &PerProcessOptions::get_per_isolate_options);
 }
-
-PerProcessOptionsParser PerProcessOptionsParser::instance;
 
 inline std::string RemoveBrackets(const std::string& host) {
   if (!host.empty() && host.front() == '[' && host.back() == ']')
@@ -417,7 +409,7 @@ void GetOptions(const FunctionCallbackInfo<Value>& args) {
     per_process_opts->per_isolate = original_per_isolate;
   });
 
-  const auto& parser = PerProcessOptionsParser::instance;
+  const auto& parser = *(PerProcessOptionsParser::GetInstance());
 
   std::string filter;
   if (args[0]->IsString()) filter = *node::Utf8Value(isolate, args[0]);
