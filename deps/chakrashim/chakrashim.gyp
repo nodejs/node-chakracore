@@ -143,6 +143,7 @@
         'src/v8objecttemplate.cc',
         'src/v8persistent.cc',
         'src/v8persistent.cc',
+        'src/v8primitivearray.cc',
         'src/v8private.cc',
         'src/v8promise.cc',
         'src/v8propertydescriptor.cc',
