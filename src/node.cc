@@ -2499,7 +2499,7 @@ void ProcessArgv(std::vector<std::string>* args,
     // TODO(addaleax): The mutex here should ideally be held during the
     // entire function, but that doesn't play well with the exit() calls below.
     Mutex::ScopedLock lock(per_process_opts_mutex);
-    options_parser::PerProcessOptionsParser::instance.Parse(
+    options_parser::PerProcessOptionsParser::GetInstance()->Parse(
         args,
         exec_args,
         &v8_args,
