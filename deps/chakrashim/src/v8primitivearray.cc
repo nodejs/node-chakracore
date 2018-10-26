@@ -19,13 +19,45 @@
 // IN THE SOFTWARE.
 
 #include "v8chakra.h"
+#include "jsrtutils.h"
 
 namespace v8 {
-    Local<Value> ScriptOrModule::GetResourceName() {
-        return Local<Value>();
-    }
+  Local<PrimitiveArray> PrimitiveArray::New(Isolate* isolate, int length) {
+    JsValueRef newArrayRef;
 
-    Local<PrimitiveArray> ScriptOrModule::GetHostDefinedOptions() {
+    if (JsCreateArray(length, &newArrayRef) != JsNoError) {
       return Local<PrimitiveArray>();
     }
+
+    return Local<PrimitiveArray>::New(newArrayRef);
+  }
+
+  int PrimitiveArray::Length() const {
+    unsigned int length = 0;
+    jsrt::GetArrayLength((JsValueRef)this, &length);
+    return length;
+  }
+
+  void PrimitiveArray::Set(int index, Local<Primitive> item) {
+    PrimitiveArray::Set(nullptr, index, item);
+  }
+
+  Local<Primitive> PrimitiveArray::Get(int index) {
+    return PrimitiveArray::Get(nullptr, index);
+  }
+
+  void PrimitiveArray::Set(Isolate* isolate, int index, Local<Primitive> item) {
+    jsrt::SetIndexedProperty((JsValueRef)this, index, *item);
+  }
+
+  Local<Primitive> PrimitiveArray::Get(Isolate* isolate, int index) {
+    JsValueRef value;
+
+    if (jsrt::GetIndexedProperty((JsValueRef)this, index, &value) !=
+        JsNoError) {
+      return Local<Primitive>();
+    }
+
+    return Local<Primitive>::New(value);
+  }
 }  // namespace v8
