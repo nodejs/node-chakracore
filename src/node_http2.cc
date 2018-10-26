@@ -226,38 +226,34 @@ void Http2Session::Http2Settings::Init() {
   GRABSETTING(INITIAL_WINDOW_SIZE, "initial window size");
   GRABSETTING(MAX_HEADER_LIST_SIZE, "max header list size");
   GRABSETTING(ENABLE_PUSH, "enable push");
+  GRABSETTING(ENABLE_CONNECT_PROTOCOL, "enable connect protocol");
 
 #undef GRABSETTING
 
   count_ = n;
 }
 
-Http2Session::Http2Settings::Http2Settings(
-    Environment* env)
+Http2Session::Http2Settings::Http2Settings(Environment* env,
+    Http2Session* session, uint64_t start_time)
         : AsyncWrap(env,
                     env->http2settings_constructor_template()
                         ->NewInstance(env->context())
                             .ToLocalChecked(),
-                    AsyncWrap::PROVIDER_HTTP2SETTINGS),
-          session_(nullptr),
-          startTime_(0) {
+                    PROVIDER_HTTP2SETTINGS),
+          session_(session),
+          startTime_(start_time) {
   Init();
 }
+
+
+Http2Session::Http2Settings::Http2Settings(Environment* env)
+  : Http2Settings(env, nullptr, 0) {}
 
 // The Http2Settings class is used to configure a SETTINGS frame that is
 // to be sent to the connected peer. The settings are set using a TypedArray
 // that is shared with the JavaScript side.
-Http2Session::Http2Settings::Http2Settings(
-    Http2Session* session)
-        : AsyncWrap(session->env(),
-                    session->env()->http2settings_constructor_template()
-                        ->NewInstance(session->env()->context())
-                            .ToLocalChecked(),
-                    AsyncWrap::PROVIDER_HTTP2SETTINGS),
-          session_(session),
-          startTime_(uv_hrtime()) {
-  Init();
-}
+Http2Session::Http2Settings::Http2Settings(Http2Session* session)
+  : Http2Settings(session->env(), session, uv_hrtime()) {}
 
 // Generates a Buffer that contains the serialized payload of a SETTINGS
 // frame. This can be used, for instance, to create the Base64-encoded
@@ -294,6 +290,8 @@ void Http2Session::Http2Settings::Update(Environment* env,
       fn(**session, NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE);
   buffer[IDX_SETTINGS_ENABLE_PUSH] =
       fn(**session, NGHTTP2_SETTINGS_ENABLE_PUSH);
+  buffer[IDX_SETTINGS_ENABLE_CONNECT_PROTOCOL] =
+      fn(**session, NGHTTP2_SETTINGS_ENABLE_CONNECT_PROTOCOL);
 }
 
 // Initializes the shared TypedArray with the default settings values.
@@ -3098,6 +3096,7 @@ void Initialize(Local<Object> target,
   NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE);
   NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_MAX_FRAME_SIZE);
   NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE);
+  NODE_DEFINE_CONSTANT(constants, NGHTTP2_SETTINGS_ENABLE_CONNECT_PROTOCOL);
 
   NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_NONE);
   NODE_DEFINE_CONSTANT(constants, PADDING_STRATEGY_ALIGNED);

@@ -160,6 +160,7 @@ struct nghttp2_header : public MemoryRetainer {
   V(AUTHORITY, ":authority")                                                  \
   V(SCHEME, ":scheme")                                                        \
   V(PATH, ":path")                                                            \
+  V(PROTOCOL, ":protocol")                                                    \
   V(ACCEPT_CHARSET, "accept-charset")                                         \
   V(ACCEPT_ENCODING, "accept-encoding")                                       \
   V(ACCEPT_LANGUAGE, "accept-language")                                       \
@@ -1135,6 +1136,7 @@ class Http2Session::Http2Settings : public AsyncWrap {
                      get_setting fn);
 
  private:
+  Http2Settings(Environment* env, Http2Session* session, uint64_t start_time);
   void Init();
   Http2Session* session_;
   uint64_t startTime_;

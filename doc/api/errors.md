@@ -1779,6 +1779,11 @@ The V8 `BreakIterator` API was used but the full ICU data set is not installed.
 While using the Performance Timing API (`perf_hooks`), no valid performance
 entry types were found.
 
+<a id="ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING"></a>
+### ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING
+
+A dynamic import callback was not specified.
+
 <a id="ERR_VM_MODULE_ALREADY_LINKED"></a>
 ### ERR_VM_MODULE_ALREADY_LINKED
 
@@ -1947,9 +1952,9 @@ The `repl` module was unable to parse data from the REPL history file.
 <a id="ERR_STDERR_CLOSE"></a>
 ### ERR_STDERR_CLOSE
 <!-- YAML
-removed: REPLACEME
+removed: v10.12.0
 changes:
-  - version: REPLACEME
+  - version: v10.12.0
     pr-url: https://github.com/nodejs/node/pull/23053
     description: Rather than emitting an error, `process.stderr.end()` now
                  only closes the stream side but not the underlying resource,
@@ -1962,9 +1967,9 @@ does not allow `stdout` or `stderr` streams to be closed by user code.
 <a id="ERR_STDOUT_CLOSE"></a>
 ### ERR_STDOUT_CLOSE
 <!-- YAML
-removed: REPLACEME
+removed: v10.12.0
 changes:
-  - version: REPLACEME
+  - version: v10.12.0
     pr-url: https://github.com/nodejs/node/pull/23053
     description: Rather than emitting an error, `process.stderr.end()` now
                  only closes the stream side but not the underlying resource,

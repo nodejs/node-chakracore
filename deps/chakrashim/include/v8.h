@@ -371,6 +371,7 @@ class Local {
   friend class StringObject;
   friend class Symbol;
   friend class SymbolObject;
+  friend class PrimitiveArray;
   friend class Utils;
   friend class TryCatch;
   friend class UnboundScript;
@@ -860,9 +861,21 @@ class V8_EXPORT Data {
  public:
 };
 
+class V8_EXPORT PrimitiveArray {
+ public:
+  static Local<PrimitiveArray> New(Isolate* isolate, int length);
+  int Length() const;
+  V8_DEPRECATED("Use Isolate* version",
+                void Set(int index, Local<Primitive> item));
+  V8_DEPRECATED("Use Isolate* version", Local<Primitive> Get(int index));
+  void Set(Isolate* isolate, int index, Local<Primitive> item);
+  Local<Primitive> Get(Isolate* isolate, int index);
+};
+
 class V8_EXPORT ScriptOrModule {
  public:
   Local<Value> GetResourceName();
+  Local<PrimitiveArray> GetHostDefinedOptions();
 };
 
 class ScriptOrigin {
@@ -876,11 +889,13 @@ class ScriptOrigin {
     Local<Value> source_map_url = Local<Value>(),
     Local<Boolean> resource_is_opaque = Local<Boolean>(),
     Local<Boolean> is_wasm = Local<Boolean>(),
-    Local<Boolean> is_module = Local<Boolean>())
+    Local<Boolean> is_module = Local<Boolean>(),
+    Local<PrimitiveArray> host_defined_options = Local<PrimitiveArray>())
     : resource_name_(resource_name),
       resource_line_offset_(resource_line_offset),
       resource_column_offset_(resource_column_offset),
-      script_id_(script_id) {}
+      script_id_(script_id),
+      host_defined_options_(host_defined_options) {}
   Local<Value> ResourceName() const {
     return resource_name_;
   }
@@ -893,12 +908,16 @@ class ScriptOrigin {
   V8_INLINE Local<Integer> ScriptID() const {
     return script_id_;
   }
+  V8_INLINE Local<PrimitiveArray> HostDefinedOptions() const {
+    return host_defined_options_;
+  }
 
  private:
   Local<Value> resource_name_;
   Local<Integer> resource_line_offset_;
   Local<Integer> resource_column_offset_;
   Local<Integer> script_id_;
+  Local<PrimitiveArray> host_defined_options_;
 };
 
 class V8_EXPORT UnboundScript {

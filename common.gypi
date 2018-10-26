@@ -27,7 +27,7 @@
     'uv_library%': 'static_library',
 
     'clang%': 0,
-    
+
     'openssl_fips%': '',
 
     # Default to -O0 for debug builds.
@@ -35,7 +35,7 @@
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.3',
+    'v8_embedder_string': '-node.4',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,

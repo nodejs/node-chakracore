@@ -24,4 +24,8 @@ namespace v8 {
     Local<Value> ScriptOrModule::GetResourceName() {
         return Local<Value>();
     }
+
+    Local<PrimitiveArray> ScriptOrModule::GetHostDefinedOptions() {
+      return Local<PrimitiveArray>();
+    }
 }  // namespace v8

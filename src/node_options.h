@@ -242,7 +242,7 @@ class OptionsParser {
   void AddAlias(const std::string& from,
                 const std::initializer_list<std::string>& to);
 
-  // Add implications from some arbitary option to a boolean one, either
+  // Add implications from some arbitrary option to a boolean one, either
   // in a way that makes `from` set `to` to true or to false.
   void Implies(const std::string& from, const std::string& to);
   void ImpliesNot(const std::string& from, const std::string& to);
@@ -277,6 +277,19 @@ class OptionsParser {
                      Options* const options,
                      OptionEnvvarSettings required_env_settings,
                      std::vector<std::string>* const errors);
+
+
+ protected:
+  bool isInit = false;
+
+  void Ensure() {
+    if (!isInit) {
+      Initialize();
+      isInit = true;
+    }
+  }
+
+  virtual void Initialize() {}
 
  private:
   // We support the wide variety of different option types by remembering
@@ -363,32 +376,43 @@ class OptionsParser {
   friend void GetOptions(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
+#define OptionsParserGetInstance(type)                                         \
+  static type* GetInstance() {                                                 \
+    static type instance;                                                      \
+    instance.Ensure();                                                         \
+    return &instance;                                                          \
+  }
+
 class DebugOptionsParser : public OptionsParser<DebugOptions> {
  public:
-  DebugOptionsParser();
+  OptionsParserGetInstance(DebugOptionsParser);
 
-  static DebugOptionsParser instance;
+ protected:
+  void Initialize();
 };
 
 class EnvironmentOptionsParser : public OptionsParser<EnvironmentOptions> {
  public:
-  EnvironmentOptionsParser();
+  OptionsParserGetInstance(EnvironmentOptionsParser);
 
-  static EnvironmentOptionsParser instance;
+ protected:
+  void Initialize();
 };
 
 class PerIsolateOptionsParser : public OptionsParser<PerIsolateOptions> {
  public:
-  PerIsolateOptionsParser();
+  OptionsParserGetInstance(PerIsolateOptionsParser);
 
-  static PerIsolateOptionsParser instance;
+ protected:
+  void Initialize();
 };
 
 class PerProcessOptionsParser : public OptionsParser<PerProcessOptions> {
  public:
-  PerProcessOptionsParser();
+  OptionsParserGetInstance(PerProcessOptionsParser);
 
-  static PerProcessOptionsParser instance;
+ protected:
+  void Initialize();
 };
 
 }  // namespace options_parser

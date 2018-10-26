@@ -307,15 +307,18 @@ static struct {
     controller->AddTraceStateObserver(new NodeTraceStateObserver(controller));
     tracing::TraceEventHelper::SetTracingController(controller);
     StartTracingAgent();
+    // Tracing must be initialized before platform threads are created.
     platform_ = new NodePlatform(thread_pool_size, controller);
     V8::InitializePlatform(platform_);
   }
 
   void Dispose() {
-    tracing_agent_.reset(nullptr);
     platform_->Shutdown();
     delete platform_;
     platform_ = nullptr;
+    // Destroy tracing after the platform (and platform threads) have been
+    // stopped.
+    tracing_agent_.reset(nullptr);
   }
 
   void DrainVMTasks(Isolate* isolate) {
@@ -2496,7 +2499,7 @@ void ProcessArgv(std::vector<std::string>* args,
     // TODO(addaleax): The mutex here should ideally be held during the
     // entire function, but that doesn't play well with the exit() calls below.
     Mutex::ScopedLock lock(per_process_opts_mutex);
-    options_parser::PerProcessOptionsParser::instance.Parse(
+    options_parser::PerProcessOptionsParser::GetInstance()->Parse(
         args,
         exec_args,
         &v8_args,
