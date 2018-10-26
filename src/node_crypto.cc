@@ -573,17 +573,13 @@ int SSL_CTX_use_certificate_chain(SSL_CTX* ctx,
   if (ret) {
     // If we could set up our certificate, now proceed to
     // the CA certificates.
-    int r;
-
     SSL_CTX_clear_extra_chain_certs(ctx);
 
     for (int i = 0; i < sk_X509_num(extra_certs); i++) {
       X509* ca = sk_X509_value(extra_certs, i);
 
       // NOTE: Increments reference count on `ca`
-      r = SSL_CTX_add1_chain_cert(ctx, ca);
-
-      if (!r) {
+      if (!SSL_CTX_add1_chain_cert(ctx, ca)) {
         ret = 0;
         issuer = nullptr;
         break;
@@ -1580,15 +1576,11 @@ static Local<Object> X509ToObject(Environment* env, X509* cert) {
     if (index < 0)
       continue;
 
-    X509_EXTENSION* ext;
-    int rv;
-
-    ext = X509_get_ext(cert, index);
+    X509_EXTENSION* ext = X509_get_ext(cert, index);
     CHECK_NOT_NULL(ext);
 
     if (!SafeX509ExtPrint(bio.get(), ext)) {
-      rv = X509V3_EXT_print(bio.get(), ext, 0, 0);
-      CHECK_EQ(rv, 1);
+      CHECK_EQ(1, X509V3_EXT_print(bio.get(), ext, 0, 0));
     }
 
     BIO_get_mem_ptr(bio.get(), &mem);
@@ -2523,7 +2515,7 @@ int VerifyCallback(int preverify_ok, X509_STORE_CTX* ctx) {
   //
   // Since we cannot perform I/O quickly enough in this callback, we ignore
   // all preverify_ok errors and let the handshake continue. It is
-  // imparative that the user use Connection::VerifyError after the
+  // imperative that the user use Connection::VerifyError after the
   // 'secure' callback has been made.
   return 1;
 }
@@ -3746,7 +3738,6 @@ SignBase::Error Verify::VerifyFinal(const char* key_pem,
   EVPKeyPointer pkey;
   unsigned char m[EVP_MAX_MD_SIZE];
   unsigned int m_len;
-  int r = 0;
   *verify_result = false;
   EVPMDPointer mdctx = std::move(mdctx_);
 
@@ -3762,11 +3753,11 @@ SignBase::Error Verify::VerifyFinal(const char* key_pem,
       ApplyRSAOptions(pkey, pkctx.get(), padding, saltlen) &&
       EVP_PKEY_CTX_set_signature_md(pkctx.get(),
                                     EVP_MD_CTX_md(mdctx.get())) > 0) {
-    r = EVP_PKEY_verify(pkctx.get(),
-                        reinterpret_cast<const unsigned char*>(sig),
-                        siglen,
-                        m,
-                        m_len);
+    const int r = EVP_PKEY_verify(pkctx.get(),
+                                  reinterpret_cast<const unsigned char*>(sig),
+                                  siglen,
+                                  m,
+                                  m_len);
     *verify_result = r == 1;
   }
 
