@@ -256,6 +256,10 @@ test-heapdump-zlib : SKIP
 # see https://github.com/nodejs/node-chakracore/issues/536
 test-env-newprotomethod-remove-unnecessary-prototypes : SKIP
 
+# This test requires hidden prototype chain lookup which node-chakracore
+# does not support. If it can be implemented, we should re-enable this test.
+test-tls-external-accessor : SKIP
+
 # SharedArrayBuffers are returning null contents for some reason
 # This leads to asserts in node
 # Disabling these tests until the problem is addressed
