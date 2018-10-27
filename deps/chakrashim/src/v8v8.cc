@@ -266,6 +266,10 @@ namespace tracing {
     return 0;
   }
 
+  int64_t TracingController::CurrentCpuTimestampMicroseconds() {
+    return 0;
+  }
+
   void TraceConfig::AddIncludedCategory(char const*) {
     jsrt::Unimplemented("TraceConfig");
   }
@@ -285,6 +289,24 @@ namespace tracing {
 
   TraceObject::~TraceObject() {
     // Intentionally left empty to suppress warning C4722.
+  }
+
+  void TraceObject::Initialize(
+    char phase,
+    const uint8_t* category_enabled_flag,
+    const char* name,
+    const char* scope,
+    uint64_t id,
+    uint64_t bind_id,
+    int num_args,
+    const char** arg_names,
+    const uint8_t* arg_types,
+    const uint64_t* arg_values,
+    std::unique_ptr<v8::ConvertableToTraceFormat>* arg_convertables,
+    unsigned int flags,
+    int64_t timestamp,
+    int64_t cpu_timestamp) {
+    // Unimplemented
   }
 
   TraceWriter* TraceWriter::CreateJSONTraceWriter(std::ostream&) {
