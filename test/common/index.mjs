@@ -5,7 +5,6 @@ import common from './index.js';
 const {
   isMainThread,
   isWindows,
-  isWOW64,
   isAIX,
   isLinuxPPCBE,
   isSunOS,
@@ -27,7 +26,6 @@ const {
   allowGlobals,
   mustCall,
   mustCallAtLeast,
-  mustCallAsync,
   hasMultiLocalhost,
   skipIfEslintMissing,
   canCreateSymLink,
@@ -54,7 +52,6 @@ const {
 export {
   isMainThread,
   isWindows,
-  isWOW64,
   isAIX,
   isLinuxPPCBE,
   isSunOS,
@@ -76,7 +73,6 @@ export {
   allowGlobals,
   mustCall,
   mustCallAtLeast,
-  mustCallAsync,
   hasMultiLocalhost,
   skipIfEslintMissing,
   canCreateSymLink,

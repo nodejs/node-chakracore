@@ -49,7 +49,6 @@ const isMainThread = (() => {
 
 const isChakraEngine = 'chakracore' in process.versions;
 const isWindows = process.platform === 'win32';
-const isWOW64 = isWindows && (process.env.PROCESSOR_ARCHITEW6432 !== undefined);
 const isAIX = process.platform === 'aix';
 const isLinuxPPCBE = (process.platform === 'linux') &&
                      (process.arch === 'ppc64') &&
@@ -310,12 +309,6 @@ function mustCall(fn, exact) {
 
 function mustCallAtLeast(fn, minimum) {
   return _mustCallInner(fn, minimum, 'minimum');
-}
-
-function mustCallAsync(fn, exact) {
-  return mustCall((...args) => {
-    return Promise.resolve(fn(...args)).then(mustCall((val) => val));
-  }, exact);
 }
 
 function _mustCallInner(fn, criteria = 1, field) {
@@ -763,10 +756,8 @@ module.exports = {
   isOSX,
   isSunOS,
   isWindows,
-  isWOW64,
   localIPv6Hosts,
   mustCall,
-  mustCallAsync,
   mustCallAtLeast,
   mustNotCall,
   nodeProcessAborted,
