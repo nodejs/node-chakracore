@@ -248,7 +248,7 @@ exports.binding = function(bindingName) {
     const { internalBinding } = require('internal/test/binding');
 
     return internalBinding(bindingName);
-  } catch {
+  } catch (e) {
     return process.binding(bindingName);
   }
 };

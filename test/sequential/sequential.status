@@ -39,6 +39,9 @@ test-inspector-contexts : SKIP
 test-inspector-scriptparsed-context : SKIP
 test-inspector-stop-profile-after-done : SKIP
 
+# These tests require worker not implemented by node-chakracore
+test-benchmark-worker : SKIP
+
 [$jsEngine==chakracore && $system==win32]
 # This test can fail depending on the ports that other processes are using
 test-inspector-port-cluster : PASS, FLAKY
